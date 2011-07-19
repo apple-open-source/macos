@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -299,18 +299,20 @@
     bufNodeList = [[DSoBuffer alloc] initWithDir:self];
     
 	// Generate a list of matching nodes.
-	if (inPattern)
-	{
-		DSoDataList *dlPattern = [[DSoDataList alloc] initWithDir:self separator:'/' pattern:inPattern];
-		nError = dsFindDirNodes (refTemp, [bufNodeList dsDataBuffer], [dlPattern dsDataList],
-									inType, &ulCount, NULL) ;
-        [dlPattern release];
-	}
-    else
-    {
-		nError = dsFindDirNodes (refTemp, [bufNodeList dsDataBuffer], NULL,
-									inType, &ulCount, NULL) ;
-	}
+	do {
+		if (inPattern)
+		{
+			DSoDataList *dlPattern = [[DSoDataList alloc] initWithDir:self separator:'/' pattern:inPattern];
+			nError = dsFindDirNodes (refTemp, [bufNodeList dsDataBuffer], [dlPattern dsDataList],
+									 inType, &ulCount, NULL) ;
+			[dlPattern release];
+		}
+		else
+		{
+			nError = dsFindDirNodes (refTemp, [bufNodeList dsDataBuffer], NULL,
+									 inType, &ulCount, NULL) ;
+		}
+	} while (nError == eDSBufferTooSmall);
 
 	// Validate results.
     if( nError == eDSNoErr )
@@ -480,8 +482,8 @@
 	if (mRecordTypes == nil) 
 	{
 		DSoNodeConfig* config = (DSoNodeConfig*)[[DSoNodeConfig alloc] initWithDir:self];
-		mRecordTypes = [[config findRecordNames:@"dsConfigType::GetAllRecords"
-										 ofType:"dsConfigType::RecordTypes"
+		mRecordTypes = [[config findRecordNames:@kDSRecordsAll
+										 ofType:kDSStdRecordTypeRecordTypes
 									  matchType:eDSExact] retain];
 		[config release];
 	}
@@ -498,8 +500,8 @@
 	if (mAttributeTypes == nil) 
 	{
 		DSoNodeConfig* config = (DSoNodeConfig*)[[DSoNodeConfig alloc] initWithDir:self];
-		mAttributeTypes = [[config findRecordNames:@"dsConfigType::GetAllRecords"
-										 ofType:"dsConfigType::AttributeTypes"
+		mAttributeTypes = [[config findRecordNames:@kDSRecordsAll
+										 ofType:kDSStdRecordTypeAttributeTypes
 									  matchType:eDSExact] retain];
 		[config release];
 	}
@@ -537,10 +539,15 @@
 		// function creates and returns a DSSearchNode, similar to a DSoNode.
 		refTemp = [self verifiedDirRef];
 		bufNodeList = [[DSoBuffer alloc] initWithDir:self];
+		
+		do {
+			nError = dsFindDirNodes(refTemp, [bufNodeList dsDataBuffer], NULL, eDSSearchNodeName, &ulCount, NULL);
+			if (nError == eDSBufferTooSmall) {
+				[bufNodeList grow: [bufNodeList getBufferSize] * 2];
+			}
+		} while (nError == eDSBufferTooSmall);
         
-		if ((nError = dsFindDirNodes (refTemp, [bufNodeList dsDataBuffer], NULL,
-								eDSSearchNodeName, &ulCount, NULL))
-				|| (ulCount != 1))
+		if (nError != 0 || (ulCount != 1))
         {
             [bufNodeList release];
 			continue ;

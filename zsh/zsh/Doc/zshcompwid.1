@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHCOMPWID" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -45,6 +45,10 @@ widget, in this case \fBexpand\-or\-complete\fP\&.
 .PP
 .PP
 .SH "COMPLETION SPECIAL PARAMETERS"
+.PP
+The parameters \fBZLE_REMOVE_SUFFIX_CHARS\fP and \fBZLE_SPACE_SUFFIX_CHARS\fP
+are used by the completion mechanism, but are not special\&.
+See \fIParameters Used By The Shell\fP in \fIzshparam\fP(1)\&.
 .PP
 Inside completion widgets, and any functions called from them, some
 parameters have special meaning; outside these functions they are not
@@ -268,7 +272,7 @@ done for the \fBLIST_ROWS_FIRST\fP option with the substring \fBrows\fP\&.
 Finally, if the value contains the string \fBexplanations\fP, only the
 explanation strings, if any, will be listed and if it contains
 \fBmessages\fP, only the messages (added with the \fB\-x\fP option of
-\fBcompadd\fP) will be listed\&.  If it contains both \fBexplanations\fP and 
+\fBcompadd\fP) will be listed\&.  If it contains both \fBexplanations\fP and
 \fBmessages\fP both kinds of explanation strings will be listed\&.  It
 will be set appropriately on entry to a completion widget and may be
 changed there\&.
@@ -543,7 +547,7 @@ match strings;  otherwise it is determined by the display strings
 Gives the name of the group of matches the words should be stored in\&.
 .TP
 \fB\-V\fP \fIname\fP
-Like \fB\-J\fP but naming a unsorted group\&. These are in a different name 
+Like \fB\-J\fP but naming an unsorted group\&. These are in a different name
 space than groups created with the \fB\-J\fP flag\&.
 .TP
 \fB\-1\fP
@@ -670,8 +674,8 @@ option stores the `\fBfoo\fP\&' originally given\&.
 \fB\-D\fP \fIarray\fP
 As with \fB\-O\fP, the \fIwords\fP are not added to the set of possible
 completions\&.  Instead, the completion code tests whether each \fIword\fP 
-in turn matches what is on the line\&.  If the \fIn\fP\&'th \fIword\fP does not
-match, the \fIn\fP\&'th element of the \fIarray\fP is removed\&.  Elements
+in turn matches what is on the line\&.  If the \fIn\fPth \fIword\fP does not
+match, the \fIn\fPth element of the \fIarray\fP is removed\&.  Elements
 for which the corresponding \fIword\fP is matched are retained\&.
 .TP
 \fB\-C\fP
@@ -748,8 +752,8 @@ matches the \fIpattern\fP, the matched portion is removed from
 .RS
 .PP
 Without the optional \fInumber\fP, the longest match is taken, but
-if \fInumber\fP is given, anything up to the \fInumber\fP\&'th match is
-moved\&.  If the \fInumber\fP is negative, the \fInumber\fP\&'th longest
+if \fInumber\fP is given, anything up to the \fInumber\fPth match is
+moved\&.  If the \fInumber\fP is negative, the \fInumber\fPth longest
 match is moved\&. For example, if \fBPREFIX\fP contains the string
 `\fBa=b=c\fP\&', then \fBcompset \-P '*\e='\fP will move the string `\fBa=b=\fP' 
 into the \fBIPREFIX\fP parameter, but \fBcompset \-P 1 \&'*\e='\fP will move only
@@ -767,7 +771,7 @@ matched portion to the front of the value of \fBISUFFIX\fP\&.
 \fB\-n\fP \fIbegin\fP [ \fIend\fP ]
 If the current word position as specified by the parameter \fBCURRENT\fP 
 is greater than or equal to \fIbegin\fP, anything up to the
-\fIbegin\fP\&'th word is removed from the \fBwords\fP array and the value
+\fIbegin\fPth word is removed from the \fBwords\fP array and the value
 of the parameter \fBCURRENT\fP is decremented by \fIbegin\fP\&.
 .RS
 .PP
@@ -823,7 +827,7 @@ ignored by the completion code\&.
 \fBcompcall\fP [ \fB\-TD\fP ]
 This allows the use of completions defined with the \fBcompctl\fP builtin
 from within completion widgets\&.  The list of matches will be generated as
-if one of the non\-widget completion function (\fBcomplete\-word\fP, etc\&.)
+if one of the non\-widget completion functions (\fBcomplete\-word\fP, etc\&.)
 had been called, except that only \fBcompctl\fPs given for specific commands
 are used\&. To force the code to try completions defined with the \fB\-T\fP
 option of \fBcompctl\fP and/or the default completion (whether defined by
@@ -1112,7 +1116,7 @@ in the middle of the string on the command line and the option
 \fBCOMPLETE_IN_WORD\fP is set\&. In this case the completion code would
 normally try to match trial completions that end with the string as
 typed so far, i\&.e\&. it will only insert new characters at the cursor
-position rather then at the end\&.  However in our example we would like
+position rather than at the end\&.  However in our example we would like
 the code to recognise matches which contain extra characters after the
 string on the line (the `\fBnix\fP\&' in the example)\&.  Hence we say that the
 empty string at the end of the string on the line matches any characters

@@ -1,0 +1,309 @@
+require "vnd.dovecot.testsuite";
+require "enotify";
+require "relational";
+require "envelope";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Simple test
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Simple" {
+	notify "mailto:stephan@example.org";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not header :matches "Auto-Submitted" "auto-notified*" {
+		test_fail "auto-submitted header set inappropriately";
+	}
+
+	if not exists "X-Sieve" {
+		test_fail "x-sieve header missing from outgoing message";
+	}
+
+	if anyof (
+		not header :matches "x-priority" "3 *",
+		not header "importance" "normal") {
+
+		test_fail "default priority is not normal";
+	}
+}
+
+/*
+ * Multiple recipients
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Multiple recipients" {
+	notify "mailto:timo@example.com%2cstephan@dovecot.example.net?cc=postmaster@frop.example.org&subject=Frop%20received";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "to" "timo@example.com" {
+		test_fail "first To address missing";
+	}
+
+	if not address :is "to" "stephan@dovecot.example.net" {
+		test_fail "second To address missing";
+	}
+
+	if not address :is "cc" "postmaster@frop.example.org" {
+		test_fail "first Cc address missing";
+	}
+
+	if not address :count "eq" :comparator "i;ascii-numeric" "to" "2" {
+		test_fail "too many recipients in To header";
+	} 
+
+	if not address :count "eq" :comparator "i;ascii-numeric" "cc" "1" {
+		test_fail "too many recipients in Cc header";
+	} 
+
+	if not header "subject" "Frop received" {
+		test_fail "subject header set incorrectly";
+	}
+
+	test_message :smtp 1;
+
+	if not header :matches "Auto-Submitted" "auto-notified*" {
+		test_fail "auto-submitted header not found for second message";
+	}
+
+	test_message :smtp 2;
+
+	if not header :matches "Auto-Submitted" "auto-notified*" {
+		test_fail "auto-submitted header not found for third message";
+	}
+}
+
+/*
+ * Duplicate recipients
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Duplicate recipients" {
+	notify "mailto:timo@example.com%2cstephan@dovecot.example.net?cc=stephan@dovecot.example.net";
+	notify "mailto:stephan@example.org?cc=timo@example.com";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if address "Cc" "stephan@dovecot.example.net" {
+		test_fail "duplicate recipient not removed from first message";
+	}
+
+	test_message :smtp 1;
+
+	if address "Cc" "timo@example.com" {
+		test_fail "duplicate recipient not removed from second message";
+	}
+}
+
+
+/*
+ * Notifying on automated messages
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Auto-submitted: auto-notify
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Notifying on automated messages" {
+	notify "mailto:stephan@example.org?cc=timo@example.com";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "notified of auto-submitted message";
+	}
+}
+
+/*
+ * Envelope
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test_result_reset;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "bertus@frop.example.org";
+
+test "Envelope" {
+	notify "mailto:stephan@example.org?cc=timo@example.com";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not envelope :localpart :is "from" "postmaster" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "stephan@example.org" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	test_message :smtp 1;
+
+	if not envelope :localpart :is "from" "postmaster" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "timo@example.com" {
+		test_fail "envelope sender set incorrectly";
+	}	
+}
+
+/* 
+ * Envelope :from 
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "bertus@frop.example.org";
+
+test_result_reset;
+
+test "Envelope :from" {
+	notify :from "nico@frop.example.org"
+		"mailto:stephan@example.org?cc=timo@example.com";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not envelope :is "from" "nico@frop.example.org" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "stephan@example.org" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	test_message :smtp 1;
+
+	if not envelope :is "from" "nico@frop.example.org" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "timo@example.com" {
+		test_fail "envelope sender set incorrectly";
+	}	
+}
+
+/* 
+ * Envelope <> 
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test_set "envelope.from" "<>";
+test_set "envelope.to" "bertus@frop.example.org";
+
+test_result_reset;
+
+test "Envelope <>" {
+	notify :from "nico@frop.example.org"
+		"mailto:stephan@example.org?cc=timo@example.com";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "stephan@example.org" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	test_message :smtp 1;
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender set incorrectly";
+	}
+
+	if not envelope :is "to" "timo@example.com" {
+		test_fail "envelope sender set incorrectly";
+	}	
+}

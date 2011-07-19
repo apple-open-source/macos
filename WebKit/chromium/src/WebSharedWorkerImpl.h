@@ -51,7 +51,7 @@ public:
 
     // WebSharedWorker methods:
     virtual bool isStarted();
-    virtual void startWorkerContext(const WebURL&, const WebString& name, const WebString& userAgent, const WebString& sourceCode);
+    virtual void startWorkerContext(const WebURL&, const WebString& name, const WebString& userAgent, const WebString& sourceCode, long long);
     virtual void connect(WebMessagePortChannel*, ConnectListener*);
     virtual void terminateWorkerContext();
     virtual void clientDestroyed();
@@ -63,7 +63,7 @@ public:
 private:
     virtual ~WebSharedWorkerImpl();
 
-    static void connectTask(WebCore::ScriptExecutionContext*, WebSharedWorkerImpl*, PassOwnPtr<WebCore::MessagePortChannel>);
+    static void connectTask(WebCore::ScriptExecutionContext*, PassOwnPtr<WebCore::MessagePortChannel>);
 
     WebCommonWorkerClient* m_client;
 };

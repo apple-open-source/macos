@@ -12,26 +12,36 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CompilerDriver/Action.h"
+#include "llvm/CompilerDriver/BuiltinOptions.h"
 
-#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SystemUtils.h"
 #include "llvm/System/Program.h"
+#include "llvm/System/TimeValue.h"
 
-#include <iostream>
 #include <stdexcept>
+#include <string>
 
 using namespace llvm;
 using namespace llvmc;
 
-extern cl::opt<bool> DryRun;
-extern cl::opt<bool> VerboseMode;
+namespace llvmc {
+
+extern int Main(int argc, char** argv);
+extern const char* ProgramName;
+
+}
 
 namespace {
   int ExecuteProgram(const std::string& name,
                      const StrVector& args) {
     sys::Path prog = sys::Program::FindProgramByName(name);
 
-    if (prog.isEmpty())
-      throw std::runtime_error("Can't find program '" + name + "'");
+    if (prog.isEmpty()) {
+      prog = FindExecutable(name, ProgramName, (void *)(intptr_t)&Main);
+      if (prog.isEmpty())
+        throw std::runtime_error("Can't find program '" + name + "'");
+    }
     if (!prog.canExecute())
       throw std::runtime_error("Program '" + name + "' is not executable.");
 
@@ -61,18 +71,35 @@ namespace {
   }
 
   void print_string (const std::string& str) {
-    std::cerr << str << ' ';
+    errs() << str << ' ';
   }
+}
+
+namespace llvmc {
+  void AppendToGlobalTimeLog(const std::string& cmd, double time);
 }
 
 int llvmc::Action::Execute() const {
   if (DryRun || VerboseMode) {
-    std::cerr << Command_ << " ";
+    errs() << Command_ << " ";
     std::for_each(Args_.begin(), Args_.end(), print_string);
-    std::cerr << '\n';
+    errs() << '\n';
   }
-  if (DryRun)
-    return 0;
-  else
-    return ExecuteProgram(Command_, Args_);
+  if (!DryRun) {
+    if (Time) {
+      sys::TimeValue now = sys::TimeValue::now();
+      int ret = ExecuteProgram(Command_, Args_);
+      sys::TimeValue now2 = sys::TimeValue::now();
+      now2 -= now;
+      double elapsed = now2.seconds()  + now2.microseconds()  / 1000000.0;
+      AppendToGlobalTimeLog(Command_, elapsed);
+
+      return ret;
+    }
+    else {
+      return ExecuteProgram(Command_, Args_);
+    }
+  }
+
+  return 0;
 }

@@ -1,9 +1,9 @@
 /*
  * "$Id: usb.c 7687 2008-06-24 01:28:36Z mike $"
  *
- *   USB port backend for the Common UNIX Printing System (CUPS).
+ *   USB port backend for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -180,7 +180,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   else if (argc < 6 || argc > 7)
   {
     _cupsLangPrintf(stderr,
-                    _("Usage: %s job-id user title copies options [file]\n"),
+                    _("Usage: %s job-id user title copies options [file]"),
                     argv[0]);
     return (CUPS_BACKEND_FAILED);
   }
@@ -196,9 +196,9 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 		      hostname, sizeof(hostname), &port,
 		      resource, sizeof(resource)) < HTTP_URI_OK)
   {
-    _cupsLangPuts(stderr,
-                  _("ERROR: No device URI found in argv[0] or in DEVICE_URI "
-	            "environment variable!\n"));
+    _cupsLangPrintFilter(stderr, "ERROR",
+			 _("No device URI found in argv[0] or in DEVICE_URI "
+                           "environment variable."));
     return (1);
   }
 
@@ -234,8 +234,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
     if ((print_fd = open(argv[6], O_RDONLY)) < 0)
     {
-      _cupsLangPrintf(stderr, _("ERROR: Unable to open print file %s - %s\n"),
-                      argv[6], strerror(errno));
+      _cupsLangPrintError("ERROR", _("Unable to open print file"));
       return (CUPS_BACKEND_FAILED);
     }
 

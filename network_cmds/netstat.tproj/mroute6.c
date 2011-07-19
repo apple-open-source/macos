@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -123,6 +123,7 @@
 void
 mroute6pr(void)
 {
+#if 0
 	struct mf6c **mf6ctable = 0, *mfcp;
 	struct mif6 mif6table[MAXMIFS];
 	struct mf6c mfc;
@@ -138,7 +139,7 @@ mroute6pr(void)
 
 	len = sizeof(mif6table);
 	if (sysctlbyname("net.inet6.ip6.mif6table", mif6table, &len, 0, 9) == -1) {
-		printf("No IPv6 multicast routing compiled into this system.\n");
+		//printf("No IPv6 multicast routing compiled into this system.\n");
 		return;
 	}
 
@@ -182,7 +183,7 @@ mroute6pr(void)
 	if (mf6ctable == 0)
 		return;
 	if (sysctlbyname("net.inet6.ip6.mf6ctable", mf6ctable, &len, 0, 0) == -1) {
-		printf("No IPv6 multicast routing compiled into this system.\n");
+		//printf("No IPv6 multicast routing compiled into this system.\n");
 		free(mf6ctable);
 		return;
 	}
@@ -235,6 +236,7 @@ mroute6pr(void)
 	nflag = saved_nflag;
 
 	free(mf6ctable);
+#endif
 }
 
 void
@@ -245,7 +247,7 @@ mrt6_stats(void)
 
 	len = sizeof(mrtstat);
 	if (sysctlbyname("net.inet6.ip6.mrt6stat", &mrtstat, &len, 0, 0) == -1) {
-		printf("No IPv6 multicast routing compiled into this system\n");
+		//printf("No IPv6 multicast routing compiled into this system\n");
 		return;
 	}
 	printf("IPv6 multicast forwarding:\n");

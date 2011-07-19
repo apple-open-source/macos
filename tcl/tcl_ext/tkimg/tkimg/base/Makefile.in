@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in 157 2008-10-23 16:09:37Z nijtmans $
+# RCS: @(#) $Id: Makefile.in 266 2010-06-03 19:48:13Z nijtmans $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -73,6 +73,7 @@ exec_prefix	= @exec_prefix@
 
 bindir		= @bindir@
 libdir		= @libdir@
+datarootdir	= @datarootdir@
 datadir		= @datadir@
 mandir		= @mandir@
 includedir	= @includedir@
@@ -147,7 +148,7 @@ SHARED_BUILD	= @SHARED_BUILD@
 # just a comment
 
 INCLUDES	= @PKG_INCLUDES@ \
-		  @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@
+		  @TK_INCLUDES@ @TCL_INCLUDES@ @TK_XINCLUDES@
 
 PKG_CFLAGS	= @PKG_CFLAGS@
 
@@ -164,7 +165,7 @@ CONFIG_CLEAN_FILES = Makefile
 CPPFLAGS	= @CPPFLAGS@ -DPACKAGE_TCLNAME=\"@PACKAGE_TCLNAME@\"
 LIBS		= @PKG_LIBS@ @LIBS@
 AR		= @AR@
-CFLAGS		= @CFLAGS@
+CFLAGS		= @CFLAGS@ -DTKIMGAPI=MODULE_SCOPE
 COMPILE		= $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
 #========================================================================
@@ -234,7 +235,7 @@ install-doc: doc
 #	done
 
 test: binaries libraries
-	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+	$(WISH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)

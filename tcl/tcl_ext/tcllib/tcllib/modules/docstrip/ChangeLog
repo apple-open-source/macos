@@ -1,3 +1,15 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-01-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tcldocstrip.dtx: Moved a number of documentation cleanup changes
+	* docstrip.man:	into the master DTX file, and added category
+	* docstrip_util.man: information. 
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

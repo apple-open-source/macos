@@ -1,0 +1,3006 @@
+/*
+ * -*- tcl -*-
+ * Parsing Expression Grammar 'TEMPLATE'.
+ * Generated for unknown, from file 'TEST'
+ */
+
+/*
+ * Declaring the parse functions
+ */
+
+<<attributes>> void <<ns>>sequence_4 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_ALNUM (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_9 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_ALPHA (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_14 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_AND (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_APOSTROPH (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_21 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_ASCII (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_26 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_29 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Attribute (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_37 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Char (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_44 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CharOctalFull (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_50 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_52 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CharOctalPart (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_57 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CharSpecial (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_61 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_64 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CharUnescaped (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_72 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_74 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_76 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_78 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_80 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_82 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CharUnicode (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_87 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_90 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_92 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_96 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Class (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_101 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CLOSE (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CLOSEB (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_108 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_COLON (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_113 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_116 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_118 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_121 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_COMMENT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_126 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_CONTROL (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_DAPOSTROPH (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_133 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_DDIGIT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_137 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_143 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Definition (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_148 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_DIGIT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_153 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_DOT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_158 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_END (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_162 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_EOF (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_EOL (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_170 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_172 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_174 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Expression (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_180 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Final (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_186 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_190 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Grammar (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_195 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_GRAPH (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_201 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Header (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_206 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_210 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_212 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_214 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Ident (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_219 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Identifier (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_224 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_IS (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_229 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_LEAF (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_234 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_237 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_239 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_243 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>notahead_247 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_250 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_252 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_256 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_258 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Literal (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_263 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_LOWER (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_268 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_NOT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_273 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_OPEN (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_OPENB (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_280 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_PEG (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_285 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_PLUS (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_290 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_292 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_295 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Prefix (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_316 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_321 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Primary (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_326 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_PRINTABLE (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_331 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_PUNCT (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_336 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_QUESTION (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_342 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_345 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Range (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_350 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_SEMICOLON (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>poskleene_354 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Sequence (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_359 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_SLASH (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_364 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_SPACE (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_369 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_STAR (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_StartExpr (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_381 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>optional_383 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_385 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_Suffix (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_TO (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_392 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_UPPER (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_397 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_VOID (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>choice_402 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>kleene_404 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_WHITESPACE (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_409 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_WORDCHAR (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sequence_414 (<<STATE>> <<state>>);
+<<attributes>> void <<ns>>sym_XDIGIT (<<STATE>> <<state>>);
+
+/*
+ * Precomputed table of strings (symbols, error messages, etc.).
+ */
+
+static char const* <<string-table>> [170] = {
+    /*        0 = */   "str '<alnum>'",
+    /*        1 = */   "n ALNUM",
+    /*        2 = */   "ALNUM",
+    /*        3 = */   "str '<alpha>'",
+    /*        4 = */   "n ALPHA",
+    /*        5 = */   "ALPHA",
+    /*        6 = */   "t &",
+    /*        7 = */   "n AND",
+    /*        8 = */   "AND",
+    /*        9 = */   "t '",
+    /*       10 = */   "n APOSTROPH",
+    /*       11 = */   "APOSTROPH",
+    /*       12 = */   "str '<ascii>'",
+    /*       13 = */   "n ASCII",
+    /*       14 = */   "ASCII",
+    /*       15 = */   "n Attribute",
+    /*       16 = */   "Attribute",
+    /*       17 = */   "n Char",
+    /*       18 = */   "Char",
+    /*       19 = */   "t \134",
+    /*       20 = */   ".. 0 2",
+    /*       21 = */   ".. 0 7",
+    /*       22 = */   "n CharOctalFull",
+    /*       23 = */   "CharOctalFull",
+    /*       24 = */   "n CharOctalPart",
+    /*       25 = */   "CharOctalPart",
+    /*       26 = */   "cl 'nrt'\42\133\135\134'",
+    /*       27 = */   "n CharSpecial",
+    /*       28 = */   "CharSpecial",
+    /*       29 = */   "dot",
+    /*       30 = */   "n CharUnescaped",
+    /*       31 = */   "CharUnescaped",
+    /*       32 = */   "str '\134u'",
+    /*       33 = */   "xdigit",
+    /*       34 = */   "n CharUnicode",
+    /*       35 = */   "CharUnicode",
+    /*       36 = */   "n Class",
+    /*       37 = */   "Class",
+    /*       38 = */   "t \51",
+    /*       39 = */   "n CLOSE",
+    /*       40 = */   "CLOSE",
+    /*       41 = */   "t \135",
+    /*       42 = */   "n CLOSEB",
+    /*       43 = */   "CLOSEB",
+    /*       44 = */   "t :",
+    /*       45 = */   "n COLON",
+    /*       46 = */   "COLON",
+    /*       47 = */   "t #",
+    /*       48 = */   "n COMMENT",
+    /*       49 = */   "COMMENT",
+    /*       50 = */   "str '<control>'",
+    /*       51 = */   "n CONTROL",
+    /*       52 = */   "CONTROL",
+    /*       53 = */   "t \42",
+    /*       54 = */   "n DAPOSTROPH",
+    /*       55 = */   "DAPOSTROPH",
+    /*       56 = */   "str '<ddigit>'",
+    /*       57 = */   "n DDIGIT",
+    /*       58 = */   "DDIGIT",
+    /*       59 = */   "n Definition",
+    /*       60 = */   "Definition",
+    /*       61 = */   "str '<digit>'",
+    /*       62 = */   "n DIGIT",
+    /*       63 = */   "DIGIT",
+    /*       64 = */   "t .",
+    /*       65 = */   "n DOT",
+    /*       66 = */   "DOT",
+    /*       67 = */   "str 'END'",
+    /*       68 = */   "n END",
+    /*       69 = */   "END",
+    /*       70 = */   "n EOF",
+    /*       71 = */   "EOF",
+    /*       72 = */   "cl '\n\r'",
+    /*       73 = */   "n EOL",
+    /*       74 = */   "EOL",
+    /*       75 = */   "n Expression",
+    /*       76 = */   "Expression",
+    /*       77 = */   "n Final",
+    /*       78 = */   "Final",
+    /*       79 = */   "n Grammar",
+    /*       80 = */   "Grammar",
+    /*       81 = */   "str '<graph>'",
+    /*       82 = */   "n GRAPH",
+    /*       83 = */   "GRAPH",
+    /*       84 = */   "n Header",
+    /*       85 = */   "Header",
+    /*       86 = */   "cl '_:'",
+    /*       87 = */   "alpha",
+    /*       88 = */   "alnum",
+    /*       89 = */   "n Ident",
+    /*       90 = */   "Ident",
+    /*       91 = */   "n Identifier",
+    /*       92 = */   "Identifier",
+    /*       93 = */   "str '<-'",
+    /*       94 = */   "n IS",
+    /*       95 = */   "IS",
+    /*       96 = */   "str 'leaf'",
+    /*       97 = */   "n LEAF",
+    /*       98 = */   "LEAF",
+    /*       99 = */   "n Literal",
+    /*      100 = */   "Literal",
+    /*      101 = */   "str '<lower>'",
+    /*      102 = */   "n LOWER",
+    /*      103 = */   "LOWER",
+    /*      104 = */   "t !",
+    /*      105 = */   "n NOT",
+    /*      106 = */   "NOT",
+    /*      107 = */   "t \50",
+    /*      108 = */   "n OPEN",
+    /*      109 = */   "OPEN",
+    /*      110 = */   "t \133",
+    /*      111 = */   "n OPENB",
+    /*      112 = */   "OPENB",
+    /*      113 = */   "str 'PEG'",
+    /*      114 = */   "n PEG",
+    /*      115 = */   "PEG",
+    /*      116 = */   "t +",
+    /*      117 = */   "n PLUS",
+    /*      118 = */   "PLUS",
+    /*      119 = */   "n Prefix",
+    /*      120 = */   "Prefix",
+    /*      121 = */   "n Primary",
+    /*      122 = */   "Primary",
+    /*      123 = */   "str '<print>'",
+    /*      124 = */   "n PRINTABLE",
+    /*      125 = */   "PRINTABLE",
+    /*      126 = */   "str '<punct>'",
+    /*      127 = */   "n PUNCT",
+    /*      128 = */   "PUNCT",
+    /*      129 = */   "t ?",
+    /*      130 = */   "n QUESTION",
+    /*      131 = */   "QUESTION",
+    /*      132 = */   "n Range",
+    /*      133 = */   "Range",
+    /*      134 = */   "t \73",
+    /*      135 = */   "n SEMICOLON",
+    /*      136 = */   "SEMICOLON",
+    /*      137 = */   "n Sequence",
+    /*      138 = */   "Sequence",
+    /*      139 = */   "t /",
+    /*      140 = */   "n SLASH",
+    /*      141 = */   "SLASH",
+    /*      142 = */   "str '<space>'",
+    /*      143 = */   "n SPACE",
+    /*      144 = */   "SPACE",
+    /*      145 = */   "t *",
+    /*      146 = */   "n STAR",
+    /*      147 = */   "STAR",
+    /*      148 = */   "n StartExpr",
+    /*      149 = */   "StartExpr",
+    /*      150 = */   "n Suffix",
+    /*      151 = */   "Suffix",
+    /*      152 = */   "t -",
+    /*      153 = */   "n TO",
+    /*      154 = */   "TO",
+    /*      155 = */   "str '<upper>'",
+    /*      156 = */   "n UPPER",
+    /*      157 = */   "UPPER",
+    /*      158 = */   "str 'void'",
+    /*      159 = */   "n VOID",
+    /*      160 = */   "VOID",
+    /*      161 = */   "space",
+    /*      162 = */   "n WHITESPACE",
+    /*      163 = */   "WHITESPACE",
+    /*      164 = */   "str '<wordchar>'",
+    /*      165 = */   "n WORDCHAR",
+    /*      166 = */   "WORDCHAR",
+    /*      167 = */   "str '<xdigit>'",
+    /*      168 = */   "n XDIGIT",
+    /*      169 = */   "XDIGIT"
+};
+
+/*
+ * Grammar Start Expression
+ */
+
+<<attributes>> void <<ns>><<main>> (<<STATE>> <<state>>) { <<prelude>>
+    <<self>> <<ns>>sym_Grammar (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'ALNUM'
+ */
+
+<<attributes>> void <<ns>>sym_ALNUM (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<alnum>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 2)) return ;
+    <<self>> <<ns>>sequence_4 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 2, 1);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_4 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<alnum>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<alnum>", 0);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'ALPHA'
+ */
+
+<<attributes>> void <<ns>>sym_ALPHA (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<alpha>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 5)) return ;
+    <<self>> <<ns>>sequence_9 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 5, 4);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_9 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<alpha>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<alpha>", 3);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'AND'
+ */
+
+<<attributes>> void <<ns>>sym_AND (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '&'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 8)) return ;
+    <<self>> <<ns>>sequence_14 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 8, 7);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_14 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '&'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "&", 6);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'APOSTROPH'
+ */
+
+<<attributes>> void <<ns>>sym_APOSTROPH (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * '''
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 11)) return ;
+    rde_param_i_next_char (<<state>>, "'", 9);
+    rde_param_i_symbol_done_void (<<state>>, 11, 10);
+    return;
+}
+
+/*
+ * leaf Symbol 'ASCII'
+ */
+
+<<attributes>> void <<ns>>sym_ASCII (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<ascii>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 14)) return ;
+    <<self>> <<ns>>sequence_21 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 14, 13);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_21 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<ascii>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<ascii>", 12);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Attribute'
+ */
+
+<<attributes>> void <<ns>>sym_Attribute (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     /
+    *         (VOID)
+    *         (LEAF)
+    *     (COLON)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 16)) return ;
+    <<self>> <<ns>>sequence_29 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 16, 15);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_29 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     /
+    *         (VOID)
+    *         (LEAF)
+    *     (COLON)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>choice_26 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_COLON (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_26 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (VOID)
+    *     (LEAF)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_VOID (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_LEAF (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Char'
+ */
+
+<<attributes>> void <<ns>>sym_Char (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (CharSpecial)
+    *     (CharOctalFull)
+    *     (CharOctalPart)
+    *     (CharUnicode)
+    *     (CharUnescaped)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 18)) return ;
+    <<self>> <<ns>>choice_37 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 18, 17);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_37 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (CharSpecial)
+    *     (CharOctalFull)
+    *     (CharOctalPart)
+    *     (CharUnicode)
+    *     (CharUnescaped)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_CharSpecial (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CharOctalFull (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CharOctalPart (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CharUnicode (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CharUnescaped (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CharOctalFull'
+ */
+
+<<attributes>> void <<ns>>sym_CharOctalFull (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     range (0 .. 2)
+    *     range (0 .. 7)
+    *     range (0 .. 7)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 23)) return ;
+    <<self>> <<ns>>sequence_44 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 23, 22);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_44 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     range (0 .. 2)
+    *     range (0 .. 7)
+    *     range (0 .. 7)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\134", 19);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_range (<<state>>, "0", "2", 20);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_range (<<state>>, "0", "7", 21);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_range (<<state>>, "0", "7", 21);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CharOctalPart'
+ */
+
+<<attributes>> void <<ns>>sym_CharOctalPart (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     range (0 .. 7)
+    *     ?
+    *         range (0 .. 7)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 25)) return ;
+    <<self>> <<ns>>sequence_52 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 25, 24);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_52 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     range (0 .. 7)
+    *     ?
+    *         range (0 .. 7)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\134", 19);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_range (<<state>>, "0", "7", 21);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>optional_50 (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_50 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     range (0 .. 7)
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    rde_param_i_next_range (<<state>>, "0", "7", 21);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CharSpecial'
+ */
+
+<<attributes>> void <<ns>>sym_CharSpecial (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     [nrt'\"[]\]
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 28)) return ;
+    <<self>> <<ns>>sequence_57 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 28, 27);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_57 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\'
+    *     [nrt'\"[]\]
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\134", 19);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_class (<<state>>, "nrt'\42\133\135\134", 26);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CharUnescaped'
+ */
+
+<<attributes>> void <<ns>>sym_CharUnescaped (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         '\'
+    *     <dot>
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 31)) return ;
+    <<self>> <<ns>>sequence_64 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 31, 30);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_64 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         '\'
+    *     <dot>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>notahead_61 (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_input_next (<<state>>, 29);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_61 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     '\'
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    rde_param_i_next_char (<<state>>, "\134", 19);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CharUnicode'
+ */
+
+<<attributes>> void <<ns>>sym_CharUnicode (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "\u"
+    *     <xdigit>
+    *     ?
+    *         x
+    *             <xdigit>
+    *             ?
+    *                 x
+    *                     <xdigit>
+    *                     ?
+    *                         <xdigit>
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 35)) return ;
+    <<self>> <<ns>>sequence_82 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 35, 34);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_82 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "\u"
+    *     <xdigit>
+    *     ?
+    *         x
+    *             <xdigit>
+    *             ?
+    *                 x
+    *                     <xdigit>
+    *                     ?
+    *                         <xdigit>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "\134u", 32);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_next_xdigit (<<state>>, 33);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>optional_80 (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_80 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     x
+    *         <xdigit>
+    *         ?
+    *             x
+    *                 <xdigit>
+    *                 ?
+    *                     <xdigit>
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    <<self>> <<ns>>sequence_78 (<<state>>);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_78 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     <xdigit>
+    *     ?
+    *         x
+    *             <xdigit>
+    *             ?
+    *                 <xdigit>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_xdigit (<<state>>, 33);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>optional_76 (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_76 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     x
+    *         <xdigit>
+    *         ?
+    *             <xdigit>
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    <<self>> <<ns>>sequence_74 (<<state>>);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_74 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     <xdigit>
+    *     ?
+    *         <xdigit>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_xdigit (<<state>>, 33);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>optional_72 (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_72 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     <xdigit>
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    rde_param_i_next_xdigit (<<state>>, 33);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Class'
+ */
+
+<<attributes>> void <<ns>>sym_Class (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (OPENB)
+    *     *
+    *         x
+    *             !
+    *                 (CLOSEB)
+    *             (Range)
+    *     (CLOSEB)
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 37)) return ;
+    <<self>> <<ns>>sequence_96 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 37, 36);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_96 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (OPENB)
+    *     *
+    *         x
+    *             !
+    *                 (CLOSEB)
+    *             (Range)
+    *     (CLOSEB)
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_OPENB (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>kleene_92 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CLOSEB (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_92 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     x
+    *         !
+    *             (CLOSEB)
+    *         (Range)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sequence_90 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_90 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         (CLOSEB)
+    *     (Range)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>notahead_87 (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Range (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_87 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     (CLOSEB)
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    <<self>> <<ns>>sym_CLOSEB (<<state>>);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'CLOSE'
+ */
+
+<<attributes>> void <<ns>>sym_CLOSE (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\)'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 40)) return ;
+    <<self>> <<ns>>sequence_101 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 40, 39);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_101 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\)'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\51", 38);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'CLOSEB'
+ */
+
+<<attributes>> void <<ns>>sym_CLOSEB (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ']'
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 43)) return ;
+    rde_param_i_next_char (<<state>>, "\135", 41);
+    rde_param_i_symbol_done_void (<<state>>, 43, 42);
+    return;
+}
+
+/*
+ * void Symbol 'COLON'
+ */
+
+<<attributes>> void <<ns>>sym_COLON (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ':'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 46)) return ;
+    <<self>> <<ns>>sequence_108 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 46, 45);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_108 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ':'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, ":", 44);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'COMMENT'
+ */
+
+<<attributes>> void <<ns>>sym_COMMENT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '#'
+    *     *
+    *         x
+    *             !
+    *                 (EOL)
+    *             <dot>
+    *     (EOL)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 49)) return ;
+    <<self>> <<ns>>sequence_121 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 49, 48);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_121 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '#'
+    *     *
+    *         x
+    *             !
+    *                 (EOL)
+    *             <dot>
+    *     (EOL)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "#", 47);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>kleene_118 (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_EOL (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_118 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     x
+    *         !
+    *             (EOL)
+    *         <dot>
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sequence_116 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_116 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         (EOL)
+    *     <dot>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>notahead_113 (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    rde_param_i_input_next (<<state>>, 29);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_113 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     (EOL)
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    <<self>> <<ns>>sym_EOL (<<state>>);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'CONTROL'
+ */
+
+<<attributes>> void <<ns>>sym_CONTROL (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<control>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 52)) return ;
+    <<self>> <<ns>>sequence_126 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 52, 51);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_126 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<control>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<control>", 50);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'DAPOSTROPH'
+ */
+
+<<attributes>> void <<ns>>sym_DAPOSTROPH (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * '\"'
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 55)) return ;
+    rde_param_i_next_char (<<state>>, "\42", 53);
+    rde_param_i_symbol_done_void (<<state>>, 55, 54);
+    return;
+}
+
+/*
+ * leaf Symbol 'DDIGIT'
+ */
+
+<<attributes>> void <<ns>>sym_DDIGIT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<ddigit>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 58)) return ;
+    <<self>> <<ns>>sequence_133 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 58, 57);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_133 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<ddigit>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<ddigit>", 56);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Definition'
+ */
+
+<<attributes>> void <<ns>>sym_Definition (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ?
+    *         (Attribute)
+    *     (Identifier)
+    *     (IS)
+    *     (Expression)
+    *     (SEMICOLON)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 60)) return ;
+    <<self>> <<ns>>sequence_143 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 60, 59);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_143 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ?
+    *         (Attribute)
+    *     (Identifier)
+    *     (IS)
+    *     (Expression)
+    *     (SEMICOLON)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>optional_137 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Identifier (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_IS (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Expression (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_SEMICOLON (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_137 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     (Attribute)
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    <<self>> <<ns>>sym_Attribute (<<state>>);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'DIGIT'
+ */
+
+<<attributes>> void <<ns>>sym_DIGIT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<digit>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 63)) return ;
+    <<self>> <<ns>>sequence_148 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 63, 62);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_148 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<digit>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<digit>", 61);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'DOT'
+ */
+
+<<attributes>> void <<ns>>sym_DOT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '.'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 66)) return ;
+    <<self>> <<ns>>sequence_153 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 66, 65);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_153 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '.'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, ".", 64);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'END'
+ */
+
+<<attributes>> void <<ns>>sym_END (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "END"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 69)) return ;
+    <<self>> <<ns>>sequence_158 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 69, 68);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_158 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "END"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "END", 67);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'EOF'
+ */
+
+<<attributes>> void <<ns>>sym_EOF (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     <dot>
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 71)) return ;
+    <<self>> <<ns>>notahead_162 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 71, 70);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_162 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     <dot>
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    rde_param_i_input_next (<<state>>, 29);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'EOL'
+ */
+
+<<attributes>> void <<ns>>sym_EOL (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * [\n\r]
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 74)) return ;
+    rde_param_i_next_class (<<state>>, "\n\r", 72);
+    rde_param_i_symbol_done_void (<<state>>, 74, 73);
+    return;
+}
+
+/*
+ * value Symbol 'Expression'
+ */
+
+<<attributes>> void <<ns>>sym_Expression (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Sequence)
+    *     *
+    *         x
+    *             (SLASH)
+    *             (Sequence)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 76)) return ;
+    <<self>> <<ns>>sequence_174 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 76, 75);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_174 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Sequence)
+    *     *
+    *         x
+    *             (SLASH)
+    *             (Sequence)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_Sequence (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>kleene_172 (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_172 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     x
+    *         (SLASH)
+    *         (Sequence)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sequence_170 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_170 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (SLASH)
+    *     (Sequence)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_SLASH (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Sequence (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'Final'
+ */
+
+<<attributes>> void <<ns>>sym_Final (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (END)
+    *     (SEMICOLON)
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 78)) return ;
+    <<self>> <<ns>>sequence_180 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 78, 77);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_180 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (END)
+    *     (SEMICOLON)
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_END (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_SEMICOLON (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Grammar'
+ */
+
+<<attributes>> void <<ns>>sym_Grammar (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (WHITESPACE)
+    *     (Header)
+    *     *
+    *         (Definition)
+    *     (Final)
+    *     (EOF)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 80)) return ;
+    <<self>> <<ns>>sequence_190 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 80, 79);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_190 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (WHITESPACE)
+    *     (Header)
+    *     *
+    *         (Definition)
+    *     (Final)
+    *     (EOF)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Header (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>kleene_186 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Final (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_EOF (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_186 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     (Definition)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sym_Definition (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+/*
+ * leaf Symbol 'GRAPH'
+ */
+
+<<attributes>> void <<ns>>sym_GRAPH (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<graph>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 83)) return ;
+    <<self>> <<ns>>sequence_195 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 83, 82);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_195 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<graph>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<graph>", 81);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Header'
+ */
+
+<<attributes>> void <<ns>>sym_Header (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (PEG)
+    *     (Identifier)
+    *     (StartExpr)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 85)) return ;
+    <<self>> <<ns>>sequence_201 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 85, 84);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_201 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (PEG)
+    *     (Identifier)
+    *     (StartExpr)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_PEG (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Identifier (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_StartExpr (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'Ident'
+ */
+
+<<attributes>> void <<ns>>sym_Ident (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     /
+    *         [_:]
+    *         <alpha>
+    *     *
+    *         /
+    *             [_:]
+    *             <alnum>
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 90)) return ;
+    <<self>> <<ns>>sequence_214 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 90, 89);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_214 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     /
+    *         [_:]
+    *         <alpha>
+    *     *
+    *         /
+    *             [_:]
+    *             <alnum>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>choice_206 (<<state>>);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>kleene_212 (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_206 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     [_:]
+    *     <alpha>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_class (<<state>>, "_:", 86);
+    if (rde_param_i_bra_void2void(<<state>>)) return;
+    rde_param_i_next_alpha (<<state>>, 87);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_212 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     /
+    *         [_:]
+    *         <alnum>
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>choice_210 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>choice_210 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     [_:]
+    *     <alnum>
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_class (<<state>>, "_:", 86);
+    if (rde_param_i_bra_void2void(<<state>>)) return;
+    rde_param_i_next_alnum (<<state>>, 88);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Identifier'
+ */
+
+<<attributes>> void <<ns>>sym_Identifier (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Ident)
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 92)) return ;
+    <<self>> <<ns>>sequence_219 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 92, 91);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_219 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Ident)
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_Ident (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'IS'
+ */
+
+<<attributes>> void <<ns>>sym_IS (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<-"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 95)) return ;
+    <<self>> <<ns>>sequence_224 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 95, 94);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_224 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<-"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<-", 93);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'LEAF'
+ */
+
+<<attributes>> void <<ns>>sym_LEAF (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "leaf"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 98)) return ;
+    <<self>> <<ns>>sequence_229 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 98, 97);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_229 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "leaf"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "leaf", 96);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Literal'
+ */
+
+<<attributes>> void <<ns>>sym_Literal (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     x
+    *         (APOSTROPH)
+    *         *
+    *             x
+    *                 !
+    *                     (APOSTROPH)
+    *                 (Char)
+    *         (APOSTROPH)
+    *         (WHITESPACE)
+    *     x
+    *         (DAPOSTROPH)
+    *         *
+    *             x
+    *                 !
+    *                     (DAPOSTROPH)
+    *                 (Char)
+    *         (DAPOSTROPH)
+    *         (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 100)) return ;
+    <<self>> <<ns>>choice_258 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 100, 99);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_258 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     x
+    *         (APOSTROPH)
+    *         *
+    *             x
+    *                 !
+    *                     (APOSTROPH)
+    *                 (Char)
+    *         (APOSTROPH)
+    *         (WHITESPACE)
+    *     x
+    *         (DAPOSTROPH)
+    *         *
+    *             x
+    *                 !
+    *                     (DAPOSTROPH)
+    *                 (Char)
+    *         (DAPOSTROPH)
+    *         (WHITESPACE)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sequence_243 (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sequence_256 (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_243 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (APOSTROPH)
+    *     *
+    *         x
+    *             !
+    *                 (APOSTROPH)
+    *             (Char)
+    *     (APOSTROPH)
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_APOSTROPH (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>kleene_239 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_APOSTROPH (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_239 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     x
+    *         !
+    *             (APOSTROPH)
+    *         (Char)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sequence_237 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_237 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         (APOSTROPH)
+    *     (Char)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>notahead_234 (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Char (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_234 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     (APOSTROPH)
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    <<self>> <<ns>>sym_APOSTROPH (<<state>>);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_256 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (DAPOSTROPH)
+    *     *
+    *         x
+    *             !
+    *                 (DAPOSTROPH)
+    *             (Char)
+    *     (DAPOSTROPH)
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_DAPOSTROPH (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>kleene_252 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_DAPOSTROPH (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_252 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     x
+    *         !
+    *             (DAPOSTROPH)
+    *         (Char)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sequence_250 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_250 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     !
+    *         (DAPOSTROPH)
+    *     (Char)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>notahead_247 (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Char (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>notahead_247 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * !
+    *     (DAPOSTROPH)
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    <<self>> <<ns>>sym_DAPOSTROPH (<<state>>);
+    rde_param_i_notahead_exit (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'LOWER'
+ */
+
+<<attributes>> void <<ns>>sym_LOWER (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<lower>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 103)) return ;
+    <<self>> <<ns>>sequence_263 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 103, 102);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_263 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<lower>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<lower>", 101);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'NOT'
+ */
+
+<<attributes>> void <<ns>>sym_NOT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '!'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 106)) return ;
+    <<self>> <<ns>>sequence_268 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 106, 105);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_268 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '!'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "!", 104);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'OPEN'
+ */
+
+<<attributes>> void <<ns>>sym_OPEN (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\('
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 109)) return ;
+    <<self>> <<ns>>sequence_273 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 109, 108);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_273 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '\('
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\50", 107);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'OPENB'
+ */
+
+<<attributes>> void <<ns>>sym_OPENB (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * '['
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 112)) return ;
+    rde_param_i_next_char (<<state>>, "\133", 110);
+    rde_param_i_symbol_done_void (<<state>>, 112, 111);
+    return;
+}
+
+/*
+ * void Symbol 'PEG'
+ */
+
+<<attributes>> void <<ns>>sym_PEG (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "PEG"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 115)) return ;
+    <<self>> <<ns>>sequence_280 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 115, 114);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_280 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "PEG"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "PEG", 113);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'PLUS'
+ */
+
+<<attributes>> void <<ns>>sym_PLUS (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '+'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 118)) return ;
+    <<self>> <<ns>>sequence_285 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 118, 117);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_285 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '+'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "+", 116);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Prefix'
+ */
+
+<<attributes>> void <<ns>>sym_Prefix (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ?
+    *         /
+    *             (AND)
+    *             (NOT)
+    *     (Suffix)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 120)) return ;
+    <<self>> <<ns>>sequence_295 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 120, 119);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_295 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ?
+    *         /
+    *             (AND)
+    *             (NOT)
+    *     (Suffix)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>optional_292 (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Suffix (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_292 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     /
+    *         (AND)
+    *         (NOT)
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    <<self>> <<ns>>choice_290 (<<state>>);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_290 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (AND)
+    *     (NOT)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_AND (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_NOT (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Primary'
+ */
+
+<<attributes>> void <<ns>>sym_Primary (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (ALNUM)
+    *     (ALPHA)
+    *     (ASCII)
+    *     (CONTROL)
+    *     (DDIGIT)
+    *     (DIGIT)
+    *     (GRAPH)
+    *     (LOWER)
+    *     (PRINTABLE)
+    *     (PUNCT)
+    *     (SPACE)
+    *     (UPPER)
+    *     (WORDCHAR)
+    *     (XDIGIT)
+    *     (Identifier)
+    *     x
+    *         (OPEN)
+    *         (Expression)
+    *         (CLOSE)
+    *     (Literal)
+    *     (Class)
+    *     (DOT)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 122)) return ;
+    <<self>> <<ns>>choice_321 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 122, 121);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_321 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (ALNUM)
+    *     (ALPHA)
+    *     (ASCII)
+    *     (CONTROL)
+    *     (DDIGIT)
+    *     (DIGIT)
+    *     (GRAPH)
+    *     (LOWER)
+    *     (PRINTABLE)
+    *     (PUNCT)
+    *     (SPACE)
+    *     (UPPER)
+    *     (WORDCHAR)
+    *     (XDIGIT)
+    *     (Identifier)
+    *     x
+    *         (OPEN)
+    *         (Expression)
+    *         (CLOSE)
+    *     (Literal)
+    *     (Class)
+    *     (DOT)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_ALNUM (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_ALPHA (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_ASCII (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CONTROL (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_DDIGIT (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_DIGIT (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_GRAPH (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_LOWER (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_PRINTABLE (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_PUNCT (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_SPACE (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_UPPER (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_WORDCHAR (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_XDIGIT (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Identifier (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sequence_316 (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Literal (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Class (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_DOT (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_316 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (OPEN)
+    *     (Expression)
+    *     (CLOSE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    <<self>> <<ns>>sym_OPEN (<<state>>);
+    if (rde_param_i_seq_void2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Expression (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_CLOSE (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'PRINTABLE'
+ */
+
+<<attributes>> void <<ns>>sym_PRINTABLE (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<print>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 125)) return ;
+    <<self>> <<ns>>sequence_326 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 125, 124);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_326 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<print>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<print>", 123);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'PUNCT'
+ */
+
+<<attributes>> void <<ns>>sym_PUNCT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<punct>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 128)) return ;
+    <<self>> <<ns>>sequence_331 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 128, 127);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_331 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<punct>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<punct>", 126);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'QUESTION'
+ */
+
+<<attributes>> void <<ns>>sym_QUESTION (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '?'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 131)) return ;
+    <<self>> <<ns>>sequence_336 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 131, 130);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_336 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '?'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "?", 129);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Range'
+ */
+
+<<attributes>> void <<ns>>sym_Range (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     x
+    *         (Char)
+    *         (TO)
+    *         (Char)
+    *     (Char)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 133)) return ;
+    <<self>> <<ns>>choice_345 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 133, 132);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_345 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     x
+    *         (Char)
+    *         (TO)
+    *         (Char)
+    *     (Char)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sequence_342 (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Char (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_342 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Char)
+    *     (TO)
+    *     (Char)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_Char (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_TO (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_Char (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'SEMICOLON'
+ */
+
+<<attributes>> void <<ns>>sym_SEMICOLON (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ';'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 136)) return ;
+    <<self>> <<ns>>sequence_350 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 136, 135);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_350 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     ';'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "\73", 134);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'Sequence'
+ */
+
+<<attributes>> void <<ns>>sym_Sequence (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * +
+    *     (Prefix)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 138)) return ;
+    <<self>> <<ns>>poskleene_354 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 138, 137);
+    return;
+}
+
+<<attributes>> void <<ns>>poskleene_354 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * +
+    *     (Prefix)
+    */
+
+    rde_param_i_loc_push (<<state>>);
+    <<self>> <<ns>>sym_Prefix (<<state>>);
+    if (rde_param_i_kleene_abort(<<state>>)) return;
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>sym_Prefix (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+/*
+ * void Symbol 'SLASH'
+ */
+
+<<attributes>> void <<ns>>sym_SLASH (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '/'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 141)) return ;
+    <<self>> <<ns>>sequence_359 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 141, 140);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_359 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '/'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "/", 139);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'SPACE'
+ */
+
+<<attributes>> void <<ns>>sym_SPACE (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<space>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 144)) return ;
+    <<self>> <<ns>>sequence_364 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 144, 143);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_364 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<space>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<space>", 142);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'STAR'
+ */
+
+<<attributes>> void <<ns>>sym_STAR (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '*'
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 147)) return ;
+    <<self>> <<ns>>sequence_369 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 147, 146);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_369 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     '*'
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_char (<<state>>, "*", 145);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * value Symbol 'StartExpr'
+ */
+
+<<attributes>> void <<ns>>sym_StartExpr (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (OPEN)
+    *     (Expression)
+    *     (CLOSE)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 149)) return ;
+    <<self>> <<ns>>sequence_316 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 149, 148);
+    return;
+}
+
+/*
+ * value Symbol 'Suffix'
+ */
+
+<<attributes>> void <<ns>>sym_Suffix (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Primary)
+    *     ?
+    *         /
+    *             (QUESTION)
+    *             (STAR)
+    *             (PLUS)
+    */
+
+    if (rde_param_i_symbol_start_d (<<state>>, 151)) return ;
+    <<self>> <<ns>>sequence_385 (<<state>>);
+    rde_param_i_symbol_done_d_reduce (<<state>>, 151, 150);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_385 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     (Primary)
+    *     ?
+    *         /
+    *             (QUESTION)
+    *             (STAR)
+    *             (PLUS)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_Primary (<<state>>);
+    if (rde_param_i_seq_value2value(<<state>>)) return;
+    <<self>> <<ns>>optional_383 (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>optional_383 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * ?
+    *     /
+    *         (QUESTION)
+    *         (STAR)
+    *         (PLUS)
+    */
+
+    rde_param_i_state_push_2 (<<state>>);
+    <<self>> <<ns>>choice_381 (<<state>>);
+    rde_param_i_state_merge_ok (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>choice_381 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     (QUESTION)
+    *     (STAR)
+    *     (PLUS)
+    */
+
+    rde_param_i_state_push_value (<<state>>);
+    <<self>> <<ns>>sym_QUESTION (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_STAR (<<state>>);
+    if (rde_param_i_bra_value2value(<<state>>)) return;
+    <<self>> <<ns>>sym_PLUS (<<state>>);
+    rde_param_i_state_merge_value (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'TO'
+ */
+
+<<attributes>> void <<ns>>sym_TO (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * '-'
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 154)) return ;
+    rde_param_i_next_char (<<state>>, "-", 152);
+    rde_param_i_symbol_done_void (<<state>>, 154, 153);
+    return;
+}
+
+/*
+ * leaf Symbol 'UPPER'
+ */
+
+<<attributes>> void <<ns>>sym_UPPER (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<upper>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 157)) return ;
+    <<self>> <<ns>>sequence_392 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 157, 156);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_392 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<upper>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<upper>", 155);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'VOID'
+ */
+
+<<attributes>> void <<ns>>sym_VOID (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "void"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 160)) return ;
+    <<self>> <<ns>>sequence_397 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 160, 159);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_397 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "void"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "void", 158);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * void Symbol 'WHITESPACE'
+ */
+
+<<attributes>> void <<ns>>sym_WHITESPACE (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     /
+    *         <space>
+    *         (COMMENT)
+    */
+
+    if (rde_param_i_symbol_void_start (<<state>>, 163)) return ;
+    <<self>> <<ns>>kleene_404 (<<state>>);
+    rde_param_i_symbol_done_void (<<state>>, 163, 162);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_404 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     /
+    *         <space>
+    *         (COMMENT)
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        <<self>> <<ns>>choice_402 (<<state>>);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+<<attributes>> void <<ns>>choice_402 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * /
+    *     <space>
+    *     (COMMENT)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_space (<<state>>, 161);
+    if (rde_param_i_bra_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_COMMENT (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'WORDCHAR'
+ */
+
+<<attributes>> void <<ns>>sym_WORDCHAR (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<wordchar>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 166)) return ;
+    <<self>> <<ns>>sequence_409 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 166, 165);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_409 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<wordchar>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<wordchar>", 164);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ * leaf Symbol 'XDIGIT'
+ */
+
+<<attributes>> void <<ns>>sym_XDIGIT (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<xdigit>"
+    *     (WHITESPACE)
+    */
+
+    if (rde_param_i_symbol_start (<<state>>, 169)) return ;
+    <<self>> <<ns>>sequence_414 (<<state>>);
+    rde_param_i_symbol_done_leaf (<<state>>, 169, 168);
+    return;
+}
+
+<<attributes>> void <<ns>>sequence_414 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * x
+    *     "<xdigit>"
+    *     (WHITESPACE)
+    */
+
+    rde_param_i_state_push_void (<<state>>);
+    rde_param_i_next_str (<<state>>, "<xdigit>", 167);
+    if (rde_param_i_seq_void2void(<<state>>)) return;
+    <<self>> <<ns>>sym_WHITESPACE (<<state>>);
+    rde_param_i_state_merge_void (<<state>>);
+    return;
+}
+
+/*
+ */

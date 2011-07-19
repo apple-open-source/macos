@@ -35,33 +35,30 @@ using namespace JSC;
 
 namespace WebCore {
 
+void JSStyleSheet::visitChildren(SlotVisitor& visitor)
+{
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
+    visitor.addOpaqueRoot(root(impl()));
+}
+
 JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, StyleSheet* styleSheet)
 {
     if (!styleSheet)
         return jsNull();
 
-    DOMObject* wrapper = getCachedDOMObjectWrapper(exec, styleSheet);
+    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), styleSheet);
     if (wrapper)
         return wrapper;
 
     if (styleSheet->isCSSStyleSheet())
-        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, CSSStyleSheet, styleSheet);
+        wrapper = CREATE_DOM_WRAPPER(exec, globalObject, CSSStyleSheet, styleSheet);
     else
-        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, StyleSheet, styleSheet);
+        wrapper = CREATE_DOM_WRAPPER(exec, globalObject, StyleSheet, styleSheet);
 
     return wrapper;
-}
-
-void JSStyleSheet::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-
-    StyleSheet* sheet = impl();
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
-
-    unsigned length = sheet->length();
-    for (unsigned i = 0; i < length; ++i)
-        markDOMObjectWrapper(markStack, globalData, sheet->item(i));
 }
 
 } // namespace WebCore

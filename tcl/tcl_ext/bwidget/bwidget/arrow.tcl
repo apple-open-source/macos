@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 #  arrow.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: arrow.tcl,v 1.11 2009/09/06 21:03:04 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #   Public commands
@@ -20,6 +21,7 @@
 #     - ArrowButton::_press
 #     - ArrowButton::_release
 #     - ArrowButton::_repeat
+#     - ArrowButton::_themechanged
 # ------------------------------------------------------------------------------
 
 namespace eval ArrowButton {
@@ -39,13 +41,15 @@ namespace eval ArrowButton {
 	    [list -ipadx	Int	0	0	"%d >= 0"] \
 	    [list -ipady	Int	0	0	"%d >= 0"] \
 	    [list -clean	Int	2	0	"%d >= 0 && %d <= 2"] \
-	    [list -activeforeground	TkResource	""	0 button] \
-	    [list -activebackground	TkResource	""	0 button] \
-	    [list -disabledforeground 	TkResource	""	0 button] \
-	    [list -foreground		TkResource	""	0 button] \
-	    [list -background		TkResource	""	0 button] \
+            \
+            [list -foreground         Color      "SystemWindowText"	0] \
+            [list -background         Color      "SystemWindowFrame"	0] \
+            [list -activeforeground   Color      "SystemButtonText"	0] \
+            [list -activebackground   Color      "SystemButtonFace"	0] \
+            [list -disabledforeground Color      "SystemDisabledText"	0] \
+            [list -troughcolor        Color      "SystemScrollbar"	0] \
+            \
 	    [list -state		TkResource	""	0 button] \
-	    [list -troughcolor		TkResource	""	0 scrollbar] \
 	    [list -arrowbd	Int	1	0	"%d >= 0 && %d <= 2"] \
 	    [list -arrowrelief	Enum	raised	0	[list raised sunken]] \
 	    [list -command		String	""	0] \
@@ -64,8 +68,12 @@ namespace eval ArrowButton {
     bind BwArrowButtonC <ButtonRelease-1> {ArrowButton::_release %W}
     bind BwArrowButtonC <Key-space>       {ArrowButton::invoke %W; break}
     bind BwArrowButtonC <Return>          {ArrowButton::invoke %W; break}
-    bind BwArrowButton <Configure>       {ArrowButton::_redraw_whole %W %w %h}
-    bind BwArrowButton <Destroy>         {ArrowButton::_destroy %W}
+    bind BwArrowButton <Configure>        {ArrowButton::_redraw_whole %W %w %h}
+    bind BwArrowButton <Destroy>          {ArrowButton::_destroy %W}
+
+    if {[lsearch [bindtags .] ArrowButtonThemeChanged] < 0} {
+        bindtags . [linsert [bindtags .] 1 ArrowButtonThemeChanged]
+    }
 
     variable _grab
     variable _moved
@@ -101,6 +109,9 @@ proc ArrowButton::create { path args } {
     bindtags $path [list $path BwArrowButton [winfo toplevel $path] all]
     bindtags $path.c [list $path.c BwArrowButtonC [winfo toplevel $path.c] all]
     pack $path.c -expand yes -fill both
+
+    bind ArrowButtonThemeChanged <<ThemeChanged>> \
+	   "+ [namespace current]::_themechanged $path"
 
     DynamicHelp::sethelp $path $path.c 1
 
@@ -548,4 +559,21 @@ proc ArrowButton::_destroy { path } {
     variable _moved
     Widget::destroy $path
     unset _moved($path)
+}
+
+# ----------------------------------------------------------------------------
+#  Command Tree::_themechanged
+# ----------------------------------------------------------------------------
+proc ArrowButton::_themechanged { path } {
+
+    if { ![winfo exists $path] } { return }
+    BWidget::set_themedefaults
+    
+    $path configure \
+           -foreground         $BWidget::colors(SystemWindowText) \
+           -background         $BWidget::colors(SystemWindowFrame) \
+           -activeforeground   $BWidget::colors(SystemButtonText) \
+           -activebackground   $BWidget::colors(SystemButtonFace) \
+           -disabledforeground $BWidget::colors(SystemDisabledText) \
+           -troughcolor        $BWidget::colors(SystemScrollbar) 
 }

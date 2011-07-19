@@ -609,8 +609,6 @@ static const double twoTo52      = 0x1.0p+52; // 4503599627370496.0;
 #define      SET_INVALID    0x01000000
 #define      GAMMA_NAN      "42"
 
-#pragma STDC FENV_ACCESS ON
-
 /* Note: The use of signgam is not thread safe */
 /* The value of signgam is not meaningful if the result is NaN, but will be 1 */
 int signgam; /* global return value by lgamma of the sign of gamma(x). */

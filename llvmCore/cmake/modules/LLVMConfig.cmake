@@ -1,51 +1,38 @@
-include(FindPerl)
+function(get_system_libs return_var)
+  # Returns in `return_var' a list of system libraries used by LLVM.
+  if( NOT MSVC )
+    if( MINGW )
+      set(system_libs ${system_libs} imagehlp psapi)
+    elseif( CMAKE_HOST_UNIX )
+      if( HAVE_LIBDL )
+	set(system_libs ${system_libs} ${CMAKE_DL_LIBS})
+      endif()
+      if( LLVM_ENABLE_THREADS AND HAVE_LIBPTHREAD )
+	set(system_libs ${system_libs} pthread)
+      endif()
+    endif( MINGW )
+  endif( NOT MSVC )
+  set(${return_var} ${system_libs} PARENT_SCOPE)
+endfunction(get_system_libs)
+
 
 macro(llvm_config executable)
-  # extra args is the list of link components.
-  if( MSVC )
-    msvc_llvm_config(${executable} ${ARGN})
-  else( MSVC )
-    nix_llvm_config(${executable} ${ARGN})
-  endif( MSVC )
+  explicit_llvm_config(${executable} ${ARGN})
 endmacro(llvm_config)
 
 
-function(msvc_llvm_config executable)
+function(explicit_llvm_config executable)
   set( link_components ${ARGN} )
-  if( CMAKE_CL_64 )
-    set(include_lflag "/INCLUDE:")
-  else( CMAKE_CL_64 )
-    set(include_lflag "/INCLUDE:_")
-  endif()
-  foreach(c ${link_components})
-    if( c STREQUAL "jit" )
-      set(lfgs "${lfgs} ${include_lflag}X86TargetMachineModule")
-    endif( c STREQUAL "jit" )
-    list(FIND LLVM_TARGETS_TO_BUILD ${c} idx)
-    if( NOT idx LESS 0 )
-      set(lfgs "${lfgs} ${include_lflag}${c}TargetMachineModule")
-      list(FIND LLVM_ASMPRINTERS_FORCE_LINK ${c} idx)
-      if( NOT idx LESS 0 )
-	set(lfgs "${lfgs} ${include_lflag}${c}AsmPrinterForceLink")
-      endif()
-    endif()
-  endforeach(c)
 
-  msvc_map_components_to_libraries(LIBRARIES ${link_components})
+  explicit_map_components_to_libraries(LIBRARIES ${link_components})
   target_link_libraries(${executable} ${LIBRARIES})
-
-  if( lfgs )
-    set_target_properties(${executable}
-      PROPERTIES
-      LINK_FLAGS ${lfgs})
-  endif()
-endfunction(msvc_llvm_config)
+endfunction(explicit_llvm_config)
 
 
-function(msvc_map_components_to_libraries out_libs)
+function(explicit_map_components_to_libraries out_libs)
   set( link_components ${ARGN} )
   foreach(c ${link_components})
-    # add codegen/asmprinter
+    # add codegen, asmprinter, asmparser, disassembler
     list(FIND LLVM_TARGETS_TO_BUILD ${c} idx)
     if( NOT idx LESS 0 )
       list(FIND llvm_libs "LLVM${c}CodeGen" idx)
@@ -63,12 +50,22 @@ function(msvc_map_components_to_libraries out_libs)
       if( NOT asmidx LESS 0 )
         list(APPEND expanded_components "LLVM${c}AsmPrinter")
       endif()
+      list(FIND llvm_libs "LLVM${c}AsmParser" asmidx)
+      if( NOT asmidx LESS 0 )
+        list(APPEND expanded_components "LLVM${c}AsmParser")
+      endif()
+      list(FIND llvm_libs "LLVM${c}Info" asmidx)
+      if( NOT asmidx LESS 0 )
+        list(APPEND expanded_components "LLVM${c}Info")
+      endif()
+      list(FIND llvm_libs "LLVM${c}Disassembler" asmidx)
+      if( NOT asmidx LESS 0 )
+        list(APPEND expanded_components "LLVM${c}Disassembler")
+      endif()
     elseif( c STREQUAL "native" )
-      # TODO: we assume ARCH is X86. In this case, we must use nativecodegen
-      # component instead. Do nothing, as in llvm-config script.
+      list(APPEND expanded_components "LLVM${LLVM_NATIVE_ARCH}CodeGen")
     elseif( c STREQUAL "nativecodegen" )
-      # TODO: we assume ARCH is X86.
-      list(APPEND expanded_components "LLVMX86CodeGen")
+      list(APPEND expanded_components "LLVM${LLVM_NATIVE_ARCH}CodeGen")
     elseif( c STREQUAL "backend" )
       # same case as in `native'.
     elseif( c STREQUAL "engine" )
@@ -83,131 +80,50 @@ function(msvc_map_components_to_libraries out_libs)
   # We must match capitalization.
   string(TOUPPER "${llvm_libs}" capitalized_libs)
   list(REMOVE_DUPLICATES expanded_components)
-  set(curr_idx 0)
   list(LENGTH expanded_components lst_size)
-  while( ${curr_idx} LESS ${lst_size} )
-    list(GET expanded_components ${curr_idx} c)
+  set(result "")
+  while( 0 LESS ${lst_size} )
+    list(GET expanded_components 0 c)
     string(TOUPPER "${c}" capitalized)
     list(FIND capitalized_libs ${capitalized} idx)
     if( idx LESS 0 )
       message(FATAL_ERROR "Library ${c} not found in list of llvm libraries.")
     endif( idx LESS 0 )
     list(GET llvm_libs ${idx} canonical_lib)
+    list(REMOVE_ITEM result ${canonical_lib})
     list(APPEND result ${canonical_lib})
-    list(APPEND result ${MSVC_LIB_DEPS_${canonical_lib}})
+    foreach(c ${MSVC_LIB_DEPS_${canonical_lib}})
+      list(REMOVE_ITEM expanded_components ${c})
+    endforeach()
     list(APPEND expanded_components ${MSVC_LIB_DEPS_${canonical_lib}})
-    list(REMOVE_DUPLICATES expanded_components)
+    list(REMOVE_AT expanded_components 0)
     list(LENGTH expanded_components lst_size)
-    math(EXPR curr_idx "${curr_idx} + 1")
-  endwhile( ${curr_idx} LESS ${lst_size} )
-  list(REMOVE_DUPLICATES result)
+  endwhile( 0 LESS ${lst_size} )
   set(${out_libs} ${result} PARENT_SCOPE)
-endfunction(msvc_map_components_to_libraries)
+endfunction(explicit_map_components_to_libraries)
 
 
-macro(nix_llvm_config executable)
-  set(lc "")
-  foreach(c ${ARGN})
-    set(lc "${lc} ${c}")
-  endforeach(c)
-  if( NOT HAVE_LLVM_CONFIG )
-    target_link_libraries(${executable}
-      "`${LLVM_TOOLS_BINARY_DIR}/llvm-config --libs ${lc}`")
-  else( NOT HAVE_LLVM_CONFIG )
-    # tbi: Error handling.
-    if( NOT PERL_EXECUTABLE )
-      message(FATAL_ERROR "Perl required but not found!")
-    endif( NOT PERL_EXECUTABLE )
-    execute_process(
-      COMMAND sh -c "${PERL_EXECUTABLE} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/llvm-config --libs ${lc}"
-      RESULT_VARIABLE rv
-      OUTPUT_VARIABLE libs
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT rv EQUAL 0)
-      message(FATAL_ERROR "llvm-config failed for executable ${executable}")
-    endif(NOT rv EQUAL 0)
-    string(REPLACE " " ";" libs ${libs})
-    foreach(c ${libs})
-      if(c MATCHES ".*\\.o")
-	get_filename_component(fn ${c} NAME)
-	target_link_libraries(${executable}
-	  ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY}/${CMAKE_CFG_INTDIR}/${fn})
-      else(c MATCHES ".*\\.o")
-	string(REPLACE "-l" "" fn ${c})
-	target_link_libraries(${executable} ${fn})
-      endif(c MATCHES ".*\\.o")
-    endforeach(c)
-  endif( NOT HAVE_LLVM_CONFIG )
-endmacro(nix_llvm_config)
+# The library dependency data is contained in the file
+# LLVMLibDeps.cmake on this directory. It is automatically generated
+# by tools/llvm-config/CMakeLists.txt when the build comprises all the
+# targets and we are on a environment Posix enough to build the
+# llvm-config script. This, in practice, just excludes MSVC.
 
+# When you remove or rename a library from the build, be sure to
+# remove its file from lib/ as well, or the GenLibDeps.pl script will
+# include it on its analysis!
 
-# This data is used on MSVC for stablishing executable/library
-# dependencies.  Comes from the llvm-config script, which is built and
-# installed on the bin directory for MinGW or Linux. At the end of the
-# script, you'll see lines like this:
+# The format generated by GenLibDeps.pl
 
 # LLVMARMAsmPrinter.o: LLVMARMCodeGen.o libLLVMAsmPrinter.a libLLVMCodeGen.a libLLVMCore.a libLLVMSupport.a libLLVMTarget.a
 
-# This is translated to:
+# is translated to:
 
 # set(MSVC_LIB_DEPS_LLVMARMAsmPrinter LLVMARMCodeGen LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
 
-# It is necessary to remove the `lib' prefix, the `.a' and `.o'
-# suffixes.  Watch out for this line:
+# It is necessary to remove the `lib' prefix and the `.a'.
 
-# LLVMExecutionEngine.o LLVMJIT.o: libLLVMCodeGen.a libLLVMCore.a libLLVMSupport.a libLLVMSystem.a libLLVMTarget.a
+# This 'sed' script should do the trick:
+# sed -e s'#\.a##g' -e 's#libLLVM#LLVM#g' -e 's#: # #' -e 's#\(.*\)#set(MSVC_LIB_DEPS_\1)#' ~/llvm/tools/llvm-config/LibDeps.txt
 
-# See how there are two elements before the colon. This must be
-# translated as if it were:
-
-# LLVMExecutionEngine.o: libLLVMCodeGen.a libLLVMCore.a libLLVMSupport.a libLLVMSystem.a libLLVMTarget.a
-# LLVMJIT.o: libLLVMCodeGen.a libLLVMCore.a libLLVMSupport.a libLLVMSystem.a libLLVMTarget.a
-
-# TODO: do this transformations on cmake.
-
-# It is very important that the LLVM built for extracting this data
-# must contain all targets, not just X86.
-
-
-set(MSVC_LIB_DEPS_LLVMARMAsmPrinter LLVMARMCodeGen LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMARMCodeGen LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMAlphaAsmPrinter LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMAlphaCodeGen LLVMAlphaAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMCBackend LLVMAnalysis LLVMCodeGen LLVMCore LLVMScalarOpts LLVMSupport LLVMTarget LLVMTransformUtils LLVMipa)
-set(MSVC_LIB_DEPS_LLVMCellSPUAsmPrinter LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMCellSPUCodeGen LLVMCellSPUAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMCppBackend LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMExecutionEngine LLVMCodeGen LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMJIT LLVMCodeGen LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMIA64 LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMInterpreter LLVMExecutionEngine LLVMCodeGen LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMMSIL LLVMAnalysis LLVMCodeGen LLVMCore LLVMScalarOpts LLVMSupport LLVMTarget LLVMTransformUtils LLVMipa)
-set(MSVC_LIB_DEPS_LLVMMips LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMPIC16 LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMPowerPCAsmPrinter LLVMPowerPCCodeGen LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMPowerPCCodeGen LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMSparcAsmPrinter LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMSparcCodeGen LLVMSparcAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMX86AsmPrinter LLVMX86CodeGen LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMX86CodeGen LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMXCore LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSelectionDAG LLVMSupport LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMAnalysis LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMArchive LLVMBitReader LLVMCore LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMAsmParser LLVMCore LLVMSupport)
-set(MSVC_LIB_DEPS_LLVMAsmPrinter LLVMCodeGen LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMBitReader LLVMCore LLVMSupport)
-set(MSVC_LIB_DEPS_LLVMBitWriter LLVMCore LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMCodeGen LLVMAnalysis LLVMCore LLVMScalarOpts LLVMSupport LLVMSystem LLVMTarget LLVMTransformUtils)
-set(MSVC_LIB_DEPS_LLVMCore LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMDebugger LLVMAnalysis LLVMBitReader LLVMCore LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMHello LLVMCore LLVMSupport)
-set(MSVC_LIB_DEPS_LLVMInstrumentation LLVMCore LLVMScalarOpts LLVMSupport LLVMTransformUtils)
-set(MSVC_LIB_DEPS_LLVMLinker LLVMArchive LLVMBitReader LLVMCore LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMScalarOpts LLVMAnalysis LLVMCore LLVMSupport LLVMTarget LLVMTransformUtils)
-set(MSVC_LIB_DEPS_LLVMSelectionDAG LLVMAnalysis LLVMCodeGen LLVMCore LLVMSupport LLVMSystem LLVMTarget)
-set(MSVC_LIB_DEPS_LLVMSupport LLVMSystem)
-set(MSVC_LIB_DEPS_LLVMSystem )
-set(MSVC_LIB_DEPS_LLVMTarget LLVMCore LLVMSupport)
-set(MSVC_LIB_DEPS_LLVMTransformUtils LLVMAnalysis LLVMCore LLVMSupport LLVMTarget LLVMipa)
-set(MSVC_LIB_DEPS_LLVMipa LLVMAnalysis LLVMCore LLVMSupport)
-set(MSVC_LIB_DEPS_LLVMipo LLVMAnalysis LLVMCore LLVMSupport LLVMTarget LLVMTransformUtils LLVMipa)
+include(LLVMLibDeps)

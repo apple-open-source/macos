@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2003-05-08</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>gpatch.txt</string>
+	<key>OpenSourceProject</key>
+	<string>patch</string>
+	<key>OpenSourceVersion</key>
+	<string>2.5.8</string>
+	<key>OpenSourceSHA1</key>
+	<string>ae3fe3837818041162039e41a7da8eb7ede14292</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/gnu/patch/patch-2.5.8.tar.gz</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/patch/</string>
+</dict>
+</plist>

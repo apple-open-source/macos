@@ -8,7 +8,7 @@ use vars qw( @ISA );
 @ISA = qw( HTTP::Proxy::HeaderFilter );
 
 # known hop-by-hop headers
-my %hopbyhop = map { $_ => 1 }
+my @hopbyhop = 
   qw( Connection Keep-Alive Proxy-Authenticate Proxy-Authorization
       TE Trailers Transfer-Encoding Upgrade Proxy-Connection Public );
 
@@ -32,10 +32,10 @@ sub filter {
       if $message->isa( 'HTTP::Request' ) && $self->proxy->x_forwarded_for;
 
     # make a list of hop-by-hop headers
-    my %h2h = %hopbyhop;
+    my %h2h = map { (lc) => 1 } @hopbyhop;
     my $hop = HTTP::Headers->new();
     my $client = HTTP::Headers->new();
-    $h2h{ $_->[0] } = 1
+    $h2h{ lc $_->[0] } = 1
       for map { split_header_words($_) } $headers->header('Connection');
 
     # hop-by-hop headers are set aside
@@ -43,7 +43,7 @@ sub filter {
     $headers->scan(
         sub {
             my ( $k, $v ) = @_;
-            if ( $h2h{$k} ) {
+            if ( $h2h{lc $k} ) {
                 $hop->push_header( $k => $v );
                 $headers->remove_header($k);
             }

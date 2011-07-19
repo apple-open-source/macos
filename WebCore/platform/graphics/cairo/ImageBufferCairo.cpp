@@ -2,6 +2,7 @@
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2007 Holger Hans Peter Freyther <zecke@selfish.org>
  * Copyright (C) 2008, 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,46 +31,30 @@
 
 #include "Base64.h"
 #include "BitmapImage.h"
+#include "CairoUtilities.h"
 #include "Color.h"
 #include "GraphicsContext.h"
 #include "ImageData.h"
 #include "MIMETypeRegistry.h"
+#include "NotImplemented.h"
 #include "Pattern.h"
+#include "PlatformContextCairo.h"
 #include "PlatformString.h"
-
+#include "RefPtrCairo.h"
 #include <cairo.h>
 #include <wtf/Vector.h>
-#include <math.h>
 
 using namespace std;
-
-// Cairo doesn't provide a way to copy a cairo_surface_t.
-// See http://lists.cairographics.org/archives/cairo/2007-June/010877.html
-// Once cairo provides the way, use the function instead of this.
-static inline cairo_surface_t* copySurface(cairo_surface_t* surface)
-{
-    cairo_format_t format = cairo_image_surface_get_format(surface);
-    int width = cairo_image_surface_get_width(surface);
-    int height = cairo_image_surface_get_height(surface);
-    cairo_surface_t* newsurface = cairo_image_surface_create(format, width, height);
-
-    cairo_t* cr = cairo_create(newsurface);
-    cairo_set_source_surface(cr, surface, 0, 0);
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_paint(cr);
-    cairo_destroy(cr);
-
-    return newsurface;
-}
 
 namespace WebCore {
 
 ImageBufferData::ImageBufferData(const IntSize& size)
     : m_surface(0)
+    , m_platformContext(0)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, RenderingMode, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -80,9 +65,9 @@ ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, b
     if (cairo_surface_status(m_data.m_surface) != CAIRO_STATUS_SUCCESS)
         return;  // create will notice we didn't set m_initialized and fail.
 
-    cairo_t* cr = cairo_create(m_data.m_surface);
-    m_context.set(new GraphicsContext(cr));
-    cairo_destroy(cr);  // The context is now owned by the GraphicsContext.
+    RefPtr<cairo_t> cr = adoptRef(cairo_create(m_data.m_surface));
+    m_data.m_platformContext.setCr(cr.get());
+    m_context = adoptPtr(new GraphicsContext(&m_data.m_platformContext));
     success = true;
 }
 
@@ -91,31 +76,46 @@ ImageBuffer::~ImageBuffer()
     cairo_surface_destroy(m_data.m_surface);
 }
 
+size_t ImageBuffer::dataSize() const
+{
+    return m_size.width() * m_size.height() * 4;
+}
+
 GraphicsContext* ImageBuffer::context() const
 {
     return m_context.get();
 }
 
-Image* ImageBuffer::image() const
+bool ImageBuffer::drawsUsingCopy() const
 {
-    if (!m_image) {
-        // It's assumed that if image() is called, the actual rendering to the
-        // GraphicsContext must be done.
-        ASSERT(context());
+    return false;
+}
 
-        // This creates a COPY of the image and will cache that copy. This means
-        // that if subsequent operations take place on the context, neither the
-        // currently-returned image, nor the results of future image() calls,
-        // will contain that operation.
-        //
-        // This seems silly, but is the way the CG port works: image() is
-        // intended to be used only when rendering is "complete."
-        cairo_surface_t* newsurface = copySurface(m_data.m_surface);
+PassRefPtr<Image> ImageBuffer::copyImage() const
+{
+    // BitmapImage will release the passed in surface on destruction
+    return BitmapImage::create(copyCairoImageSurface(m_data.m_surface).leakRef());
+}
 
-        // BitmapImage will release the passed in surface on destruction
-        m_image = BitmapImage::create(newsurface);
-    }
-    return m_image.get();
+void ImageBuffer::clip(GraphicsContext* context, const FloatRect& maskRect) const
+{
+    context->platformContext()->pushImageMask(m_data.m_surface, maskRect);
+}
+
+void ImageBuffer::draw(GraphicsContext* context, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect,
+                       CompositeOperator op , bool useLowQualityScale)
+{
+    // BitmapImage will release the passed in surface on destruction
+    RefPtr<Image> image = BitmapImage::create(cairo_surface_reference(m_data.m_surface));
+    context->drawImage(image.get(), styleColorSpace, destRect, srcRect, op, useLowQualityScale);
+}
+
+void ImageBuffer::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform,
+                              const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator op, const FloatRect& destRect)
+{
+    // BitmapImage will release the passed in surface on destruction
+    RefPtr<Image> image = BitmapImage::create(cairo_surface_reference(m_data.m_surface));
+    image->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, op, destRect);
 }
 
 void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
@@ -140,16 +140,16 @@ void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
 }
 
 template <Multiply multiplied>
-PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& data, const IntSize& size)
+PassRefPtr<ByteArray> getImageData(const IntRect& rect, const ImageBufferData& data, const IntSize& size)
 {
     ASSERT(cairo_surface_get_type(data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
 
-    PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
+    RefPtr<ByteArray> result = ByteArray::create(rect.width() * rect.height() * 4);
     unsigned char* dataSrc = cairo_image_surface_get_data(data.m_surface);
-    unsigned char* dataDst = result->data()->data()->data();
+    unsigned char* dataDst = result->data();
 
     if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > size.width() || (rect.y() + rect.height()) > size.height())
-        memset(dataDst, 0, result->data()->length());
+        memset(dataDst, 0, result->length());
 
     int originx = rect.x();
     int destx = 0;
@@ -157,7 +157,7 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& d
         destx = -originx;
         originx = 0;
     }
-    int endx = rect.x() + rect.width();
+    int endx = rect.maxX();
     if (endx > size.width())
         endx = size.width();
     int numColumns = endx - originx;
@@ -168,7 +168,7 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& d
         desty = -originy;
         originy = 0;
     }
-    int endy = rect.y() + rect.height();
+    int endy = rect.maxY();
     if (endy > size.height())
         endy = size.height();
     int numRows = endy - originy;
@@ -195,21 +195,21 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& d
         destRows += destBytesPerRow;
     }
 
-    return result;
+    return result.release();
 }
 
-PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
+PassRefPtr<ByteArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
 {
     return getImageData<Unmultiplied>(rect, m_data, m_size);
 }
 
-PassRefPtr<ImageData> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
+PassRefPtr<ByteArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
 {
     return getImageData<Premultiplied>(rect, m_data, m_size);
 }
 
 template <Multiply multiplied>
-void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint& destPoint, ImageBufferData& data, const IntSize& size)
+void putImageData(ByteArray*& source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, ImageBufferData& data, const IntSize& size)
 {
     ASSERT(cairo_surface_get_type(data.m_surface) == CAIRO_SURFACE_TYPE_IMAGE);
 
@@ -223,9 +223,9 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
     ASSERT(destx >= 0);
     ASSERT(destx < size.width());
     ASSERT(originx >= 0);
-    ASSERT(originx <= sourceRect.right());
+    ASSERT(originx <= sourceRect.maxX());
 
-    int endx = destPoint.x() + sourceRect.right();
+    int endx = destPoint.x() + sourceRect.maxX();
     ASSERT(endx <= size.width());
 
     int numColumns = endx - destx;
@@ -235,16 +235,16 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
     ASSERT(desty >= 0);
     ASSERT(desty < size.height());
     ASSERT(originy >= 0);
-    ASSERT(originy <= sourceRect.bottom());
+    ASSERT(originy <= sourceRect.maxY());
 
-    int endy = destPoint.y() + sourceRect.bottom();
+    int endy = destPoint.y() + sourceRect.maxY();
     ASSERT(endy <= size.height());
     int numRows = endy - desty;
 
-    unsigned srcBytesPerRow = 4 * source->width();
+    unsigned srcBytesPerRow = 4 * sourceSize.width();
     int stride = cairo_image_surface_get_stride(data.m_surface);
 
-    unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
+    unsigned char* srcRows = source->data() + originy * srcBytesPerRow + originx * 4;
     for (int y = 0; y < numRows; ++y) {
         unsigned* row = reinterpret_cast<unsigned*>(dataDst + stride * (y + desty));
         for (int x = 0; x < numColumns; x++) {
@@ -266,16 +266,17 @@ void putImageData(ImageData*& source, const IntRect& sourceRect, const IntPoint&
                                         numColumns, numRows);
 }
 
-void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint)
 {
-    putImageData<Unmultiplied>(source, sourceRect, destPoint, m_data, m_size);
+    putImageData<Unmultiplied>(source, sourceSize, sourceRect, destPoint, m_data, m_size);
 }
 
-void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& sourceRect, const IntPoint& destPoint)
+void ImageBuffer::putPremultipliedImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint)
 {
-    putImageData<Premultiplied>(source, sourceRect, destPoint, m_data, m_size);
+    putImageData<Premultiplied>(source, sourceSize, sourceRect, destPoint, m_data, m_size);
 }
 
+#if !PLATFORM(GTK)
 static cairo_status_t writeFunction(void* closure, const unsigned char* data, unsigned int length)
 {
     Vector<char>* in = reinterpret_cast<Vector<char>*>(closure);
@@ -283,9 +284,9 @@ static cairo_status_t writeFunction(void* closure, const unsigned char* data, un
     return CAIRO_STATUS_SUCCESS;
 }
 
-String ImageBuffer::toDataURL(const String& mimeType) const
+String ImageBuffer::toDataURL(const String& mimeType, const double*) const
 {
-    cairo_surface_t* image = cairo_get_target(context()->platformContext());
+    cairo_surface_t* image = cairo_get_target(context()->platformContext()->cr());
     if (!image)
         return "data:,";
 
@@ -302,5 +303,6 @@ String ImageBuffer::toDataURL(const String& mimeType) const
 
     return "data:" + actualMimeType + ";base64," + String(out.data(), out.size());
 }
+#endif
 
 } // namespace WebCore

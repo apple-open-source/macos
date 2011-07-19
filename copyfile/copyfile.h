@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,6 +75,7 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *, con
 #define	COPYFILE_STATE_STATUS_CB	6
 #define	COPYFILE_STATE_STATUS_CTX	7
 #define	COPYFILE_STATE_COPIED		8
+#define	COPYFILE_STATE_XATTRNAME	9
 
 #define	COPYFILE_DISABLE_VAR	"COPYFILE_DISABLE"
 
@@ -108,6 +109,7 @@ typedef int (*copyfile_callback_t)(int, int, copyfile_state_t, const char *, con
 #define	COPYFILE_RECURSE_DIR	2
 #define	COPYFILE_RECURSE_DIR_CLEANUP	3
 #define	COPYFILE_COPY_DATA	4
+#define	COPYFILE_COPY_XATTR	5
 
 #define	COPYFILE_START		1
 #define	COPYFILE_FINISH		2

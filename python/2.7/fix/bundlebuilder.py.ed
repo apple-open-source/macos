@@ -1,0 +1,3 @@
+/^SITE_PACKAGES/s|LIB|"/Library/Python", sys.version[:3]|
+/ and not path.startswith(SITE_PACKAGES)/s///
+w

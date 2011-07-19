@@ -21,7 +21,7 @@
 #ifndef LLVM_PASS_SUPPORT_H
 #define LLVM_PASS_SUPPORT_H
 
-// No need to include Pass.h, we are being included by it!
+#include "Pass.h"
 
 namespace llvm {
 
@@ -82,6 +82,11 @@ public:
   /// TODO : Rename
   intptr_t getTypeInfo() const { return PassID; }
 
+  /// Return true if this PassID implements the specified ID pointer.
+  bool isPassID(void *IDPtr) const {
+    return PassID == (intptr_t)IDPtr;
+  }
+  
   /// isAnalysisGroup - Return true if this is an analysis group, not a normal
   /// pass.
   ///
@@ -190,14 +195,11 @@ struct RegisterPass : public PassInfo {
 /// a nice name with the interface.
 ///
 class RegisterAGBase : public PassInfo {
-  PassInfo *InterfaceInfo;
-  const PassInfo *ImplementationInfo;
-  bool isDefaultImplementation;
 protected:
-  explicit RegisterAGBase(const char *Name,
-                          intptr_t InterfaceID,
-                          intptr_t PassID = 0,
-                          bool isDefault = false);
+  RegisterAGBase(const char *Name,
+                 intptr_t InterfaceID,
+                 intptr_t PassID = 0,
+                 bool isDefault = false);
 };
 
 template<typename Interface, bool Default = false>

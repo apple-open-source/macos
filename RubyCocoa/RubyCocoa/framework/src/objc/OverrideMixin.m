@@ -37,7 +37,7 @@ static IMP super_imp(id rcv, SEL a_sel, IMP origin_imp)
   IMP ret = NULL;
   Class klass = [rcv class];
 
-  while ((klass = [klass superclass]) != NULL) {
+  while ((klass = class_getSuperclass(klass)) != NULL) {
     ret = [klass instanceMethodForSelector: a_sel];
     if (ret && ret != origin_imp)
       return ret;

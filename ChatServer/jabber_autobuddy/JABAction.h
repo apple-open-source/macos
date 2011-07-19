@@ -18,6 +18,7 @@
 #define CMDOPT_KEY_ACTIONINFO    @"actionInfo"
 #define CMDOPT_KEY_JABBERID      @"jabberID"
 #define CMDOPT_KEY_GROUPNAME     @"groupName"
+#define CMDOPT_KEY_GROUPGUID     @"groupGuid"
 #define CMDOPT_KEY_TESTCOUNT     @"testCount"
 #define CMDOPT_KEY_TESTPREFIX    @"testPrefix"
 #define CMDOPT_KEY_VERBOSE       @"verbose"

@@ -1,4 +1,4 @@
-/*$Header: /p/tcsh/cvsroot/tcsh/win32/support.c,v 1.12 2006/04/07 00:57:59 amold Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/support.c,v 1.14 2008/08/31 14:09:01 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -572,8 +572,18 @@ void silly_entry(void *peb) {
 	char ptr3[MAX_PATH];
 	OSVERSIONINFO osver;
 
+	osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 
-	init_wow64();
+	if (!GetVersionEx(&osver)) {
+		MessageBox(NULL,"GetVersionEx failed","tcsh",MB_ICONHAND);
+		ExitProcess(0xFF);
+	}
+	gdwVersion = osver.dwMajorVersion;
+
+	if(gdwVersion < 6) // no wow64 hackery for vista.
+	{
+		init_wow64();
+	}
 
 #ifdef _M_IX86
 	// look at the explanation in fork.c for why we do these steps.
@@ -654,13 +664,6 @@ void silly_entry(void *peb) {
 		heap_init();
 
 
-	osver.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-
-	if (!GetVersionEx(&osver)) {
-		MessageBox(NULL,"GetVersionEx failed","tcsh",MB_ICONHAND);
-		ExitProcess(0xFF);
-	}
-	gdwVersion = osver.dwMajorVersion;
 
 
 	/* If home is set, we only need to change '\' to '/' */

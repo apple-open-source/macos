@@ -23,19 +23,14 @@
 
 #include <CoreFoundation/CFMachPort.h>
 
-#if !TARGET_OS_EMBEDDED
-#include <dispatch/dispatch.h>
-#endif /* !TARGET_OS_EMBEDDED */
-
 
 struct IONotificationPort
 {
     mach_port_t		masterPort;
     mach_port_t		wakePort;
+    CFMachPortRef   cfmachPort;
     CFRunLoopSourceRef	source;
-#if !TARGET_OS_EMBEDDED
-    dispatch_queue_t	dispatchQueue;
-#endif /* !TARGET_OS_EMBEDDED */
+    dispatch_source_t	dispatchSource;
 };
 typedef struct IONotificationPort IONotificationPort;
 
@@ -85,18 +80,3 @@ enum {
     kIOServiceFirstPublishState	= 0x00000008,
     kIOServiceFirstMatchState	= 0x00000010
 };
-
-#if !TARGET_OS_EMBEDDED
-
-/*! @function IONotificationPortSetDispatchQueue
-    @abstract Sets a dispatch queue to be used to listen for notifications.
-    @discussion A notification object may deliver notifications to a dispatch client.
-    @param notify The notification object.
-    @param queue A dispatch queue. */
-
-__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA)
-void
-IONotificationPortSetDispatchQueue(
-	IONotificationPortRef notify, dispatch_queue_t queue );
-
-#endif /* !TARGET_OS_EMBEDDED */

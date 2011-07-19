@@ -182,6 +182,8 @@ const char *const sys_errlist[] = {
 	"STREAM ioctl timeout",			/* 101 - ETIME */
 	"Operation not supported on socket",	/* 102 - EOPNOTSUPP */
 	"Policy not found",			/* 103 - ENOPOLICY */
+	"State not recoverable",		/* 104 - ENOTRECOVERABLE */
+	"Previous owner died",			/* 105 - EOWNERDEAD */
 };
 
 const int sys_nerr = sizeof(sys_errlist) / sizeof(sys_errlist[0]);

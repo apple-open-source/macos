@@ -1,0 +1,13 @@
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+# Written by Michal Grzedzicki - public domain
+# handy script to rename uw-imapd style subscriptions to dovecot
+
+for hdir in `cat /etc/passwd|cut -d: -f6` ; do
+    if [ -f "$hdir/.mailboxlist" ]; then
+        cp -a "$hdir/.mailboxlist" "$hdir/.subscriptions"
+    fi
+done
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

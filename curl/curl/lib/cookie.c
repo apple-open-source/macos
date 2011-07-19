@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: cookie.c,v 1.111 2009-10-25 18:15:14 bagder Exp $
  ***************************************************************************/
 
 /***
@@ -204,7 +203,7 @@ Curl_cookie_add(struct SessionHandle *data,
 #endif
 
   /* First, alloc and init a new struct for it */
-  co = calloc(sizeof(struct Cookie), 1);
+  co = calloc(1, sizeof(struct Cookie));
   if(!co)
     return NULL; /* bail out if we're this low on memory */
 
@@ -271,6 +270,7 @@ Curl_cookie_add(struct SessionHandle *data,
                we don't care about that, we treat the names the same anyway */
 
             const char *domptr=whatptr;
+            const char *nextptr;
             int dotcount=1;
 
             /* Count the dots, we need to make sure that there are enough
@@ -281,12 +281,13 @@ Curl_cookie_add(struct SessionHandle *data,
               domptr++;
 
             do {
-              domptr = strchr(domptr, '.');
-              if(domptr) {
-                domptr++;
-                dotcount++;
+              nextptr = strchr(domptr, '.');
+              if(nextptr) {
+                if(domptr != nextptr)
+                  dotcount++;
+                domptr = nextptr+1;
               }
-            } while(domptr);
+            } while(nextptr);
 
             /* The original Netscape cookie spec defined that this domain name
                MUST have three dots (or two if one of the seven holy TLDs),
@@ -354,8 +355,8 @@ Curl_cookie_add(struct SessionHandle *data,
               break;
             }
             co->expires =
-              atoi((*co->maxage=='\"')?&co->maxage[1]:&co->maxage[0]) +
-              (long)now;
+              strtol((*co->maxage=='\"')?&co->maxage[1]:&co->maxage[0],NULL,10)
+                + (long)now;
           }
           else if(Curl_raw_equal("expires", name)) {
             strstore(&co->expirestr, whatptr);
@@ -681,7 +682,8 @@ Curl_cookie_add(struct SessionHandle *data,
 
   if(c->running)
     /* Only show this when NOT reading the cookies from a file */
-    infof(data, "%s cookie %s=\"%s\" for domain %s, path %s, expire %d\n",
+    infof(data, "%s cookie %s=\"%s\" for domain %s, path %s, "
+          "expire %" FORMAT_OFF_T "\n",
           replace_old?"Replaced":"Added", co->name, co->value,
           co->domain, co->path, co->expires);
 
@@ -774,6 +776,18 @@ struct CookieInfo *Curl_cookie_init(struct SessionHandle *data,
   return c;
 }
 
+/* sort this so that the longest path gets before the shorter path */
+static int cookie_sort(const void *p1, const void *p2)
+{
+  struct Cookie *c1 = *(struct Cookie **)p1;
+  struct Cookie *c2 = *(struct Cookie **)p2;
+
+  size_t l1 = c1->path?strlen(c1->path):0;
+  size_t l2 = c2->path?strlen(c2->path):0;
+
+  return (l2 > l1) ? 1 : (l2 < l1) ? -1 : 0 ;
+}
+
 /*****************************************************************************
  *
  * Curl_cookie_getlist()
@@ -794,6 +808,7 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
   struct Cookie *co;
   time_t now = time(NULL);
   struct Cookie *mainco=NULL;
+  size_t matches = 0;
 
   if(!c || !c->cookies)
     return NULL; /* no cookie struct or no cookies in the struct */
@@ -834,8 +849,11 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
 
             /* point the main to us */
             mainco = newco;
+
+            matches++;
           }
           else {
+            fail:
             /* failure, clear up the allocated chain and return NULL */
             while(mainco) {
               co = mainco->next;
@@ -849,6 +867,36 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
       }
     }
     co = co->next;
+  }
+
+  if(matches) {
+    /* Now we need to make sure that if there is a name appearing more than
+       once, the longest specified path version comes first. To make this
+       the swiftest way, we just sort them all based on path length. */
+    struct Cookie **array;
+    size_t i;
+
+    /* alloc an array and store all cookie pointers */
+    array = (struct Cookie **)malloc(sizeof(struct Cookie *) * matches);
+    if(!array)
+      goto fail;
+
+    co = mainco;
+
+    for(i=0; co; co = co->next)
+      array[i++] = co;
+
+    /* now sort the cookie pointers in path lenth order */
+    qsort(array, matches, sizeof(struct Cookie *), cookie_sort);
+
+    /* remake the linked list order according to the new order */
+
+    mainco = array[0]; /* start here */
+    for(i=0; i<matches-1; i++)
+      array[i]->next = array[i+1];
+    array[matches-1]->next = NULL; /* terminate the list */
+
+    free(array); /* remove the temporary data again */
   }
 
   return mainco; /* return the new list */
@@ -909,7 +957,7 @@ void Curl_cookie_clearsess(struct CookieInfo *cookies)
 {
   struct Cookie *first, *curr, *next, *prev = NULL;
 
-  if(!cookies->cookies || !cookies->cookies)
+  if(!cookies || !cookies->cookies)
     return;
 
   first = curr = prev = cookies->cookies;

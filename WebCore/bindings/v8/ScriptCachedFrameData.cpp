@@ -26,8 +26,11 @@
 #include "config.h"
 #include "ScriptCachedFrameData.h"
 
+#if PLATFORM(ANDROID) || PLATFORM(QT)
+// FIXME: the right guard should be ENABLE(PAGE_CACHE). Replace with the right guard, once
+// https://bugs.webkit.org/show_bug.cgi?id=35061 is fixed.
+
 #include "Frame.h"
-#include "ScriptController.h"
 #include "V8DOMWindow.h"
 
 namespace WebCore {
@@ -72,3 +75,5 @@ void ScriptCachedFrameData::clear()
 }
 
 } // namespace WebCore
+
+#endif // PLATFORM(ANDROID) || PLATFORM(QT)

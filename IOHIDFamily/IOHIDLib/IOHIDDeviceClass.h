@@ -69,12 +69,13 @@ protected:
     struct InterfaceMap             fHIDDevice;
     io_service_t                    fService;
     io_connect_t                    fConnection;
-    IONotificationPortRef           fAsyncPort;
-    IONotificationPortRef           fNotifyPort;
-    mach_port_t                     fDeviceValidPort;
     CFRunLoopRef                    fRunLoop;
-    CFRunLoopSourceRef              fCFSource;
+    IONotificationPortRef           fNotifyPort;
 	CFRunLoopSourceRef              fNotifyCFSource;
+    IONotificationPortRef           fAsyncPort;
+    CFMachPortRef                   fAsyncCFMachPort;
+    CFRunLoopSourceRef              fAsyncCFSource;
+    mach_port_t                     fDeviceValidPort;
     bool                            fIsOpen;
     bool                            fIsLUNZero;
     bool                            fIsTerminated;
@@ -211,7 +212,7 @@ public:
     virtual IOReturn getProperty(CFStringRef key, CFTypeRef * pProperty);
     virtual IOReturn setProperty(CFStringRef key, CFTypeRef property);
 
-    virtual IOReturn getAsyncEventSource(CFRunLoopSourceRef *source);
+    virtual IOReturn getAsyncEventSource(CFTypeRef *source);
     virtual IOReturn getAsyncPort(mach_port_t *port);
 
     virtual IOReturn open(IOOptionBits options = 0);

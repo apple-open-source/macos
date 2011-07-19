@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,5 +31,7 @@
 #define kStoreKeyServiceIdentifiers 	CFSTR("ServiceIdentifiers")
 #define kStoreKeyActiveIdentifiers  	CFSTR("ActiveIdentifiers")
 #define kStoreKeyPrimaryIPv4Identifier 	CFSTR("PrimaryIPv4Identifier")
+
+#define kStoreKeyNetworkSignature	CFSTR("NetworkSignature")
 
 #endif	/* _SCNETWORKSIGNATUREPRIVATE_H */

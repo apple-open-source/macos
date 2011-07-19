@@ -16,6 +16,12 @@ mi interfaceName=MathMLTextElement
 mn interfaceName=MathMLTextElement
 mo interfaceName=MathMLTextElement
 mtext interfaceName=MathMLTextElement
-msub interfaceName=MathMLElement, createWithNew
-msup interfaceName=MathMLElement, createWithNew
+msub interfaceName=MathMLInlineContainerElement
+msup interfaceName=MathMLInlineContainerElement
 
+#if 0 // Curently only for MathMLNames used by HTMLTreeBuilder.
+ms
+mglyph
+malignmark
+annotation-xml
+#endif

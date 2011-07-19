@@ -335,6 +335,10 @@ __private_extern__ void swap_linkedit_data_command(
     struct linkedit_data_command *ld,
     enum byte_sex target_byte_sex);
 
+__private_extern__ void swap_version_min_command(
+    struct version_min_command *ver_cmd,
+    enum byte_sex target_byte_sex);
+
 __private_extern__ void swap_rpath_command(
     struct rpath_command *rpath_cmd,
     enum byte_sex target_byte_sex);

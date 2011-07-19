@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,12 +33,16 @@
 #define ChromeClientImpl_h
 
 #include "ChromeClientChromium.h"
+#include "PopupMenu.h"
+#include "SearchPopupMenu.h"
 
 namespace WebCore {
 class AccessibilityObject;
+class Element;
 class FileChooser;
-class HTMLParserQuirks;
 class PopupContainer;
+class PopupMenuClient;
+class RenderBox;
 class SecurityOrigin;
 struct WindowFeatures;
 }
@@ -53,7 +58,7 @@ public:
     explicit ChromeClientImpl(WebViewImpl* webView);
     virtual ~ChromeClientImpl();
 
-    WebViewImpl* webView() const { return m_webView; }
+    virtual void* webView() const;
 
     // ChromeClient methods:
     virtual void chromeDestroyed();
@@ -66,8 +71,9 @@ public:
     virtual bool canTakeFocus(WebCore::FocusDirection);
     virtual void takeFocus(WebCore::FocusDirection);
     virtual void focusedNodeChanged(WebCore::Node*);
+    virtual void focusedFrameChanged(WebCore::Frame*);
     virtual WebCore::Page* createWindow(
-        WebCore::Frame*, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&);
+        WebCore::Frame*, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&);
     virtual void show();
     virtual bool canRunModal();
     virtual void runModal();
@@ -82,24 +88,30 @@ public:
     virtual void setResizable(bool);
     virtual void addMessageToConsole(
         WebCore::MessageSource, WebCore::MessageType, WebCore::MessageLevel,
-        const WebCore::String& message, unsigned lineNumber,
-        const WebCore::String& sourceID);
+        const WTF::String& message, unsigned lineNumber,
+        const WTF::String& sourceID);
     virtual bool canRunBeforeUnloadConfirmPanel();
     virtual bool runBeforeUnloadConfirmPanel(
-        const WebCore::String& message, WebCore::Frame*);
+        const WTF::String& message, WebCore::Frame*);
     virtual void closeWindowSoon();
-    virtual void runJavaScriptAlert(WebCore::Frame*, const WebCore::String&);
-    virtual bool runJavaScriptConfirm(WebCore::Frame*, const WebCore::String&);
+    virtual void runJavaScriptAlert(WebCore::Frame*, const WTF::String&);
+    virtual bool runJavaScriptConfirm(WebCore::Frame*, const WTF::String&);
     virtual bool runJavaScriptPrompt(
-        WebCore::Frame*, const WebCore::String& message,
-        const WebCore::String& defaultValue, WebCore::String& result);
-    virtual void setStatusbarText(const WebCore::String& message);
+        WebCore::Frame*, const WTF::String& message,
+        const WTF::String& defaultValue, WTF::String& result);
+    virtual void setStatusbarText(const WTF::String& message);
     virtual bool shouldInterruptJavaScript();
-    virtual bool tabsToLinks() const;
+    virtual WebCore::KeyboardUIMode keyboardUIMode();
     virtual WebCore::IntRect windowResizerRect() const;
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+    virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
+#endif
     virtual void invalidateWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsAndWindow(const WebCore::IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const WebCore::IntRect&, bool);
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    virtual void scheduleAnimation();
+#endif
     virtual void scroll(
         const WebCore::IntSize& scrollDelta, const WebCore::IntRect& rectToScroll,
         const WebCore::IntRect& clipRect);
@@ -112,12 +124,13 @@ public:
     virtual void scrollbarsModeDidChange() const;
     virtual void mouseDidMoveOverElement(
         const WebCore::HitTestResult& result, unsigned modifierFlags);
-    virtual void setToolTip(const WebCore::String& tooltipText, WebCore::TextDirection);
+    virtual void setToolTip(const WTF::String& tooltipText, WebCore::TextDirection);
     virtual void print(WebCore::Frame*);
     virtual void exceededDatabaseQuota(
-        WebCore::Frame*, const WebCore::String& databaseName);
+        WebCore::Frame*, const WTF::String& databaseName);
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+    virtual void reachedApplicationCacheOriginQuota(WebCore::SecurityOrigin*);
 #endif
 #if ENABLE(NOTIFICATIONS)
     virtual WebCore::NotificationPresenter* notificationPresenter() const;
@@ -125,10 +138,12 @@ public:
     virtual void requestGeolocationPermissionForFrame(WebCore::Frame*, WebCore::Geolocation*);
     virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
-    virtual void chooseIconForFiles(const Vector<WebCore::String>&, WebCore::FileChooser*);
-    virtual bool setCursor(WebCore::PlatformCursorHandle) { return false; }
+    virtual void chooseIconForFiles(const Vector<WTF::String>&, WebCore::FileChooser*);
+#if ENABLE(DIRECTORY_UPLOAD)
+    virtual void enumerateChosenDirectory(const WTF::String&, WebCore::FileChooser*);
+#endif
+    virtual void setCursor(const WebCore::Cursor&);
     virtual void formStateDidChange(const WebCore::Node*);
-    virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 #if ENABLE(TOUCH_EVENTS)
     // FIXME: All touch events are forwarded regardless of whether or not they are needed.
     virtual void needTouchEvents(bool needTouchEvents) { }
@@ -145,20 +160,48 @@ public:
     // Sets a flag to specify that the view needs to be updated, so we need
     // to do an eager layout before the drawing.
     virtual void scheduleCompositingLayerSync();
+
+    virtual CompositingTriggerFlags allowedCompositingTriggers() const;
 #endif
+
+    virtual bool supportsFullscreenForNode(const WebCore::Node*);
+    virtual void enterFullscreenForNode(WebCore::Node*);
+    virtual void exitFullscreenForNode(WebCore::Node*);
+
+#if ENABLE(FULLSCREEN_API)
+    virtual bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard);
+    virtual void enterFullScreenForElement(WebCore::Element*);
+    virtual void exitFullScreenForElement(WebCore::Element*);
+    virtual void fullScreenRendererChanged(WebCore::RenderBox*);
+#endif
+
     // ChromeClientChromium methods:
     virtual void popupOpened(WebCore::PopupContainer* popupContainer,
                              const WebCore::IntRect& bounds,
                              bool handleExternally);
     virtual void popupClosed(WebCore::PopupContainer* popupContainer);
-    virtual void didChangeAccessibilityObjectState(WebCore::AccessibilityObject*);
+    virtual void postAccessibilityNotification(WebCore::AccessibilityObject*, WebCore::AXObjectCache::AXNotification);
 
     // ChromeClientImpl:
-    void setCursor(const WebCursorInfo& cursor);
-    void setCursorForPlugin(const WebCursorInfo& cursor);
+    void setCursorForPlugin(const WebCursorInfo&);
+
+    virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
+    virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
+    virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
+
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
+#endif
+
+    virtual void willRunModalDialogDuringPageDismissal(const DialogType&) const;
+
+    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
+    virtual void numWheelEventHandlersChanged(unsigned) { }
 
 private:
     void getPopupMenuInfo(WebCore::PopupContainer*, WebPopupMenuInfo*);
+    void setCursor(const WebCursorInfo&);
 
     WebViewImpl* m_webView;  // weak pointer
     bool m_toolbarsVisible;

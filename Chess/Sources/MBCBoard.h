@@ -2,7 +2,7 @@
 	File:		MBCBoard.h
 	Contains:	Fundamental move and board classes.
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCBoard.h,v $
+		Revision 1.19  2011/04/11 16:42:03  neerache
+		<rdar://problem/9220767> 11A419: Speaking moves is a mix of Russian/English
+		
+		Revision 1.18  2011/03/12 23:43:53  neerache
+		<rdar://problem/9079430> 11A390: Can't understand what Japanese voice (Kyoko Premium) says when pieces move at all.
+		
+		Revision 1.17  2010/10/07 23:07:02  neerache
+		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
+		
 		Revision 1.16  2003/07/14 23:21:49  neerache
 		Move promotion defaults into MBCBoard
 		
@@ -175,8 +184,11 @@ typedef unsigned MBCCompactMove;
 + (id) newFromEngineMove:(NSString *)engineMove;
 + (id) moveFromEngineMove:(NSString *)engineMove;
 
-- (NSString *) localizedText:(BOOL)aligned;
+- (NSString *) localizedText;
 - (NSString *) engineMove;
+- (NSString *) origin;
+- (NSString *) operation;
+- (NSString *) destination;
 
 @end
 

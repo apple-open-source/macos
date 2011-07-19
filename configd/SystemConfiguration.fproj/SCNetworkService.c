@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -173,42 +173,238 @@ __SCNetworkServiceCreatePrivate(CFAllocatorRef		allocator,
 
 
 #pragma mark -
+#pragma mark Service ordering
+
+
+CFComparisonResult
+_SCNetworkServiceCompare(const void *val1, const void *val2, void *context)
+{
+	CFStringRef		id1;
+	CFStringRef		id2;
+	CFArrayRef		order	= (CFArrayRef)context;
+	SCNetworkServiceRef	s1	= (SCNetworkServiceRef)val1;
+	SCNetworkServiceRef	s2	= (SCNetworkServiceRef)val2;
+
+	id1 = SCNetworkServiceGetServiceID(s1);
+	id2 = SCNetworkServiceGetServiceID(s2);
+
+	if (order != NULL) {
+		CFIndex	o1;
+		CFIndex	o2;
+		CFRange	range;
+
+		range = CFRangeMake(0, CFArrayGetCount(order));
+		o1 = CFArrayGetFirstIndexOfValue(order, range, id1);
+		o2 = CFArrayGetFirstIndexOfValue(order, range, id2);
+
+		if (o1 > o2) {
+			return (o2 != kCFNotFound) ? kCFCompareGreaterThan : kCFCompareLessThan;
+		} else if (o1 < o2) {
+			return (o1 != kCFNotFound) ? kCFCompareLessThan    : kCFCompareGreaterThan;
+		}
+	}
+
+	return CFStringCompare(id1, id2, 0);
+}
+
+
+#pragma mark -
 #pragma mark SCNetworkService APIs
 
 
 #define	N_QUICK	64
 
 
+__private_extern__ CFArrayRef /* of SCNetworkServiceRef's */
+__SCNetworkServiceCopyAllEnabled(SCPreferencesRef prefs)
+{
+	CFMutableArrayRef	array	= NULL;
+	CFIndex			i_sets;
+	CFIndex			n_sets;
+	CFArrayRef		sets;
+
+	sets = SCNetworkSetCopyAll(prefs);
+	if (sets == NULL) {
+		return NULL;
+	}
+
+	n_sets = CFArrayGetCount(sets);
+	for (i_sets = 0; i_sets < n_sets; i_sets++) {
+		CFIndex		i_services;
+		CFIndex		n_services;
+		CFArrayRef	services;
+		SCNetworkSetRef	set;
+
+		set = CFArrayGetValueAtIndex(sets, i_sets);
+		services = SCNetworkSetCopyServices(set);
+		if (services == NULL) {
+			continue;
+		}
+
+		n_services = CFArrayGetCount(services);
+		for (i_services = 0; i_services < n_services; i_services++) {
+			SCNetworkServiceRef service;
+
+			service = CFArrayGetValueAtIndex(services, i_services);
+			if (!SCNetworkServiceGetEnabled(service)) {
+				// if not enabled
+				continue;
+			}
+
+			if ((array == NULL) ||
+			    !CFArrayContainsValue(array,
+						  CFRangeMake(0, CFArrayGetCount(array)),
+						  service)) {
+				if (array == NULL) {
+					array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+				}
+				CFArrayAppendValue(array, service);
+			}
+		}
+		CFRelease(services);
+	}
+	CFRelease(sets);
+
+	return array;
+}
+
+
+__private_extern__ Boolean
+__SCNetworkServiceExistsForInterface(CFArrayRef services, SCNetworkInterfaceRef interface)
+{
+	CFIndex	i;
+	CFIndex	n;
+
+	n = isA_CFArray(services) ? CFArrayGetCount(services) : 0;
+	for (i = 0; i < n; i++) {
+		SCNetworkServiceRef	service;
+		SCNetworkInterfaceRef	service_interface;
+
+		service = CFArrayGetValueAtIndex(services, i);
+
+		service_interface = SCNetworkServiceGetInterface(service);
+		while (service_interface != NULL) {
+			if (CFEqual(interface, service_interface)) {
+				return TRUE;
+			}
+
+			service_interface = SCNetworkInterfaceGetInterface(service_interface);
+		}
+	}
+
+	return FALSE;
+}
+
+
+__private_extern__ CFStringRef
+__SCNetworkServiceNextName(SCNetworkServiceRef service)
+{
+	CFArrayRef		components;
+	CFIndex			n;
+	CFStringRef		name;
+	CFMutableArrayRef	newComponents;
+	SInt32			suffix	= 2;
+
+	name = SCNetworkServiceGetName(service);
+	if (name == NULL) {
+		return NULL;
+	}
+
+	components = CFStringCreateArrayBySeparatingStrings(NULL, name, CFSTR(" "));
+	if (components != NULL) {
+		newComponents = CFArrayCreateMutableCopy(NULL, 0, components);
+		CFRelease(components);
+	} else {
+		newComponents = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFArrayAppendValue(newComponents, name);
+	}
+
+	n = CFArrayGetCount(newComponents);
+	if (n > 1) {
+		CFStringRef	str;
+
+		str = CFArrayGetValueAtIndex(newComponents, n - 1);
+		suffix = CFStringGetIntValue(str);
+		if (suffix++ > 0) {
+			CFArrayRemoveValueAtIndex(newComponents, n - 1);
+		} else {
+			suffix = 2;
+		}
+	}
+
+	name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), suffix);
+	CFArrayAppendValue(newComponents, name);
+	CFRelease(name);
+
+	name = CFStringCreateByCombiningStrings(NULL, newComponents, CFSTR(" "));
+	CFRelease(newComponents);
+
+	return name;
+}
+
+
+static void
+mergeDict(const void *key, const void *value, void *context)
+{
+	CFMutableDictionaryRef	newDict	= (CFMutableDictionaryRef)context;
+
+	CFDictionarySetValue(newDict, key, value);
+	return;
+}
+
+
 static CFDictionaryRef
 _protocolTemplate(SCNetworkServiceRef service, CFStringRef protocolType)
 {
-	CFDictionaryRef			newEntity       = NULL;
+	SCNetworkInterfaceRef		interface;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)service;
+	CFDictionaryRef			template	= NULL;
 
-	if (servicePrivate->interface != NULL) {
+	interface = servicePrivate->interface;
+	if (interface != NULL) {
 		SCNetworkInterfaceRef   childInterface;
 		CFStringRef		childInterfaceType      = NULL;
 		CFStringRef		interfaceType;
 
+		// get the template
 		interfaceType = SCNetworkInterfaceGetInterfaceType(servicePrivate->interface);
 		childInterface = SCNetworkInterfaceGetInterface(servicePrivate->interface);
 		if (childInterface != NULL) {
 			childInterfaceType = SCNetworkInterfaceGetInterfaceType(childInterface);
 		}
 
-		newEntity = __copyProtocolTemplate(interfaceType, childInterfaceType, protocolType);
+		template = __copyProtocolTemplate(interfaceType, childInterfaceType, protocolType);
+		if (template != NULL) {
+			CFDictionaryRef		overrides;
+
+			// move to the interface at the lowest layer
+			while (childInterface != NULL) {
+				interface = childInterface;
+				childInterface = SCNetworkInterfaceGetInterface(interface);
+			}
+
+			overrides = __SCNetworkInterfaceGetTemplateOverrides(interface, protocolType);
+			if (overrides != NULL) {
+				CFMutableDictionaryRef	newTemplate;
+
+				newTemplate = CFDictionaryCreateMutableCopy(NULL, 0, template);
+				CFDictionaryApplyFunction(overrides, mergeDict, newTemplate);
+				CFRelease(template);
+				template = newTemplate;
+			}
+		}
 	}
 
-	if (newEntity == NULL) {
-		newEntity = CFDictionaryCreate(NULL,
-					       NULL,
-					       NULL,
-					       0,
-					       &kCFTypeDictionaryKeyCallBacks,
-					       &kCFTypeDictionaryValueCallBacks);
+	if (template == NULL) {
+		template = CFDictionaryCreate(NULL,
+					      NULL,
+					      NULL,
+					      0,
+					      &kCFTypeDictionaryKeyCallBacks,
+					      &kCFTypeDictionaryValueCallBacks);
 	}
 
-	return newEntity;
+	return template;
 }
 
 
@@ -580,16 +776,6 @@ __SCNetworkServiceSetInterfaceEntity(SCNetworkServiceRef     service,
 }
 
 
-static void
-mergeDict(const void *key, const void *value, void *context)
-{
-	CFMutableDictionaryRef	newDict	= (CFMutableDictionaryRef)context;
-
-	CFDictionarySetValue(newDict, key, value);
-	return;
-}
-
-
 SCNetworkServiceRef
 SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 {
@@ -617,8 +803,16 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 
 		interface_type = SCNetworkInterfaceGetInterfaceType(interface);
 		if (CFStringFind(interface_type, CFSTR("."), 0).location == kCFNotFound) {
+			_SCErrorSet(kSCStatusInvalidArgument);
 			return NULL;
 		}
+	}
+
+	// do not allow creation of a network service if the interface is a
+	// member of a bond or bridge
+	if (__SCNetworkInterfaceIsMember(prefs, interface)) {
+		_SCErrorSet(kSCStatusKeyExists);
+		return NULL;
 	}
 
 	// establish the service
@@ -666,34 +860,28 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 			    CFEqual(interfaceType, kSCNetworkInterfaceTypeModem    ) ||
 			    CFEqual(interfaceType, kSCNetworkInterfaceTypeSerial   ) ||
 			    CFEqual(interfaceType, kSCNetworkInterfaceTypeWWAN     )) {
-				CFDictionaryRef	overrides;
+				CFDictionaryRef		overrides;
 
 				overrides = __SCNetworkInterfaceGetTemplateOverrides(interface, kSCNetworkInterfaceTypeModem);
 
 				// a ConnectionScript (and related keys) from the interface
 				// should trump the settings from the configuration template.
-				if ((overrides != NULL) &&
-				    CFDictionaryContainsKey(overrides, kSCPropNetModemConnectionScript)) {
-					CFMutableDictionaryRef	newConfig;
-
-					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetModemConnectionPersonality);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetModemConnectionScript);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceVendor);
-					CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceModel);
-					CFRelease(config);
-					config = newConfig;
-				}
-
 				if (overrides != NULL) {
 					CFMutableDictionaryRef	newConfig;
 
 					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+					if (CFDictionaryContainsKey(overrides, kSCPropNetModemConnectionScript)) {
+						CFDictionaryRemoveValue(newConfig, kSCPropNetModemConnectionPersonality);
+						CFDictionaryRemoveValue(newConfig, kSCPropNetModemConnectionScript);
+						CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceVendor);
+						CFDictionaryRemoveValue(newConfig, kSCPropNetModemDeviceModel);
+					}
 					CFDictionaryApplyFunction(overrides, mergeDict, newConfig);
 					CFRelease(config);
 					config = newConfig;
 				}
-			} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
+			} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP) ||
+				   CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN)) {
 				CFDictionaryRef		overrides;
 
 				overrides = __SCNetworkInterfaceGetTemplateOverrides(interface, kSCNetworkInterfaceTypePPP);
@@ -896,9 +1084,16 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 	interface = SCNetworkServiceGetInterface(service);
 	while (interface != NULL) {
 		SCNetworkInterfaceRef   childInterface;
+		CFStringRef		interfaceType;
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+		if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN)) {
+			break;
+		}
 
 		childInterface = SCNetworkInterfaceGetInterface(interface);
-		if ((childInterface == NULL) || CFEqual(childInterface, kSCNetworkInterfaceIPv4)) {
+		if ((childInterface == NULL) ||
+		    CFEqual(childInterface, kSCNetworkInterfaceIPv4)) {
 			break;
 		}
 
@@ -935,6 +1130,7 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 						CFRetain(interface_name);
 					}
 					break;
+#if	!TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
 				case 1 :
 					// compare the older "Built-in XXX" localized name
 					interface_name = __SCNetworkInterfaceCopyXLocalizedDisplayName(interface);
@@ -943,11 +1139,14 @@ SCNetworkServiceGetName(SCNetworkServiceRef service)
 					// compare the older "Built-in XXX" non-localized name
 					interface_name = __SCNetworkInterfaceCopyXNonLocalizedDisplayName(interface);
 					break;
+#endif	// !TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+				default :
+					continue;
 			}
 
 			if (interface_name != NULL) {
 				Boolean	match	= FALSE;
-				
+
 				if (CFEqual(name, interface_name)) {
 					// if service name matches the OLD localized
 					// interface name
@@ -1111,6 +1310,19 @@ SCNetworkServiceSetEnabled(SCNetworkServiceRef service, Boolean enabled)
 	if (!isA_SCNetworkService(service) || (servicePrivate->prefs == NULL)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
+	}
+
+	// make sure that we do not enable a network service if the
+	// associated interface is a member of a bond or bridge.
+	if (enabled) {
+		SCNetworkInterfaceRef	interface;
+
+		interface = SCNetworkServiceGetInterface(service);
+		if ((interface != NULL) &&
+		    __SCNetworkInterfaceIsMember(servicePrivate->prefs, interface)) {
+			_SCErrorSet(kSCStatusKeyExists);
+			return FALSE;
+		}
 	}
 
 	path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
@@ -1508,3 +1720,39 @@ SCNetworkServiceSetPrimaryRank(SCNetworkServiceRef		service,
 	if (path != NULL)	CFRelease(path);
 	return ok;
 }
+
+
+Boolean
+_SCNetworkServiceIsVPN(SCNetworkServiceRef service)
+{
+	SCNetworkInterfaceRef	interface;
+	CFStringRef		interfaceType;
+
+	interface = SCNetworkServiceGetInterface(service);
+	if (interface == NULL) {
+		return FALSE;
+	}
+
+	interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
+		interface = SCNetworkInterfaceGetInterface(interface);
+		if (interface == NULL) {
+			return FALSE;
+		}
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+		if (CFEqual(interfaceType, kSCNetworkInterfaceTypeL2TP)) {
+			return TRUE;
+		}
+		if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPTP)) {
+			return TRUE;
+		}
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN)) {
+		return TRUE;
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec)) {
+		return TRUE;
+	}
+
+	return FALSE;
+}
+

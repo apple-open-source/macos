@@ -137,7 +137,6 @@ static struct symbol *select_symbols(
 struct selectedSymbolListInfo {
     vm_size_t mappedFileSize;
     void *mappedFile;
-    char *fileName;
     char *cachedFileName;
     int byteSex;
     struct nlist *all_symbols;
@@ -184,7 +183,6 @@ char *fileName)
 	    my_mach_error(r, "Can't vm_deallocate mapped memory for file: "
 		   "%s",fileName);
 	}
-	free(gInfo->fileName);
 	free(gInfo->cachedFileName);
 	return(rList);
 }
@@ -478,7 +476,8 @@ void *cookie)
 	    else if((mh_flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
 		    (lc->cmd == LC_LOAD_DYLIB ||
 		     lc->cmd == LC_LOAD_WEAK_DYLIB ||
-		     lc->cmd == LC_REEXPORT_DYLIB)){
+		     lc->cmd == LC_REEXPORT_DYLIB ||
+		     lc->cmd == LC_LOAD_UPWARD_DYLIB)){
 		process_flags.nlibs++;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -496,7 +495,8 @@ void *cookie)
 	    for(i = 0; i < ncmds; i++){
 		if(lc->cmd == LC_LOAD_DYLIB ||
 		   lc->cmd == LC_LOAD_WEAK_DYLIB ||
-		   lc->cmd == LC_REEXPORT_DYLIB){
+		   lc->cmd == LC_REEXPORT_DYLIB ||
+		   lc->cmd == LC_LOAD_UPWARD_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
 			savestr((char *)dl + dl->dylib.name.offset);
@@ -589,7 +589,6 @@ void *cookie)
 	/* Store all this info so that it can be cleaned up later */
 	gInfo->mappedFile = ofile->file_addr;
 	gInfo->mappedFileSize = ofile->file_size;
-	gInfo->fileName = ofile->file_name;
 
 	/* Reallocate the array of SymInfoSymbol export structs in self */
 	self->exports = reallocate(self->exports,
@@ -807,7 +806,8 @@ struct ofile *ofile)
 	for(j = 0; j < ncmds; j++) {
 	    if(lc->cmd == LC_LOAD_DYLIB ||
 	       lc->cmd == LC_LOAD_WEAK_DYLIB ||
-	       lc->cmd == LC_REEXPORT_DYLIB){
+	       lc->cmd == LC_REEXPORT_DYLIB ||
+	       lc->cmd == LC_LOAD_UPWARD_DYLIB){
 		char *longName;
 		char *shortName;
 		char *returnLongName;

@@ -358,6 +358,7 @@ struct QMGR_MESSAGE {
     char   *sasl_method;		/* SASL method */
     char   *sasl_username;		/* SASL user name */
     char   *sasl_sender;		/* SASL sender */
+    char   *log_ident;			/* up-stream queue ID */
     char   *rewrite_context;		/* address qualification */
     RECIPIENT_LIST rcpt_list;		/* complete addresses */
     int     rcpt_count;			/* used recipient slots */
@@ -436,6 +437,7 @@ struct QMGR_PEER {
 
 extern QMGR_ENTRY *qmgr_job_entry_select(QMGR_TRANSPORT *);
 extern QMGR_PEER *qmgr_peer_select(QMGR_JOB *);
+extern void qmgr_job_blocker_update(QMGR_QUEUE *);
 
 extern QMGR_JOB *qmgr_job_obtain(QMGR_MESSAGE *, QMGR_TRANSPORT *);
 extern void qmgr_job_free(QMGR_JOB *);

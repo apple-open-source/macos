@@ -123,6 +123,11 @@ AppleUSBOHCI::CheckSleepCapability(void)
     {
 		if (_device->getProperty("built-in"))
 		{
+			if (_errataBits & kErrataNECIncompleteWrite)
+			{
+				FixupNECControllerConfigRegisters();
+			}
+
 			// rdar://5769508 - if we are on a built in PCI device, then assume the system supports D3cold
 			if (_device->hasPCIPowerManagement(kPCIPMCPMESupportFromD3Cold) && (_device->enablePCIPowerManagement(kPCIPMCSPowerStateD3) == kIOReturnSuccess))
 			{
@@ -492,12 +497,27 @@ AppleUSBOHCI::SaveControllerStateForSleep(void)
 IOReturn				
 AppleUSBOHCI::RestoreControllerStateFromSleep(void)
 {
+	UInt32		cmdSts = USBToHostLong(_pOHCIRegisters->hcCommandStatus);
+	
+	// if I am trying to restore from sleep and the controller has gone away, then I will just return success (which allows the power change to complete)
+	// and wait for a termination
+	if (cmdSts == kOHCIInvalidRegisterValue)
+	{
+		_controllerAvailable = false;
+		return kIOReturnSuccess;
+	}
+	
 	USBLog(2, "AppleUSBOHCI[%p]::RestoreControllerStateFromSleep - powering on USB", this);
 	
 	_remote_wakeup_occurred = true;	//doesn't matter how we woke up
 	
 	// before resuming, make sure the op regs are inited
 	InitializeOperationalRegisters();
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		FixupNECControllerConfigRegisters();
+	}
 
 	// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 	// then it is likely that we are responsible for the system issuing the wakeup
@@ -721,7 +741,7 @@ AppleUSBOHCI::powerChangeDone ( unsigned long fromState)
 	
 	USBTrace( kUSBTOHCI, KTPOHCIPowerState, (uintptr_t)this, fromState, newState, 0);
 
-	USBLog((fromState == newState) ? 7 : 5, "AppleUSBOHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
+	USBLog((fromState == newState) || !_controllerAvailable ? 7 : 5, "AppleUSBOHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
 	if (_controllerAvailable)
 		showRegisters(7, "powerChangeDone");
 	super::powerChangeDone(fromState);

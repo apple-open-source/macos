@@ -3,7 +3,7 @@
 ;
 ; Originally included in NASM.  Modifications by Peter Johnson, 1999.
 ;
-; $Id: myC32.mac,v 1.1.1.1 2005/10/13 22:21:48 echristo Exp $
+; $Id: myC32.mac,v 1.1.1.1 2005-10-13 22:21:48 echristo Exp $
 
 %imacro proc 1                  ; begin a procedure definition
 %push proc

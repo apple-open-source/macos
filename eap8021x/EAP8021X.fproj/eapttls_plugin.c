@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -426,7 +426,7 @@ eapttls_pap(EAPClientPluginDataRef plugin)
     printf("\n----------PAP Raw AVP Data START\n");
     print_data(data, offset - data);
     printf("----------PAP Raw AVP Data END\n");
-#endif 0
+#endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
 	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
@@ -475,7 +475,7 @@ eapttls_eap_start(EAPClientPluginDataRef plugin, int identifier)
     offset += sizeof(*resp_p) + plugin->username_length;
 #if 0
     printf("offset - data %d length %d\n", offset - data, data_length);
-#endif 0
+#endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
 	syslog(LOG_NOTICE, "eapttls_eap_start: SSLWrite failed, %s",
@@ -577,7 +577,7 @@ eapttls_chap(EAPClientPluginDataRef plugin)
     printf("\n----------CHAP Raw AVP Data START\n");
     print_data(data, offset - data);
     printf("----------CHAP Raw AVP Data END\n");
-#endif 0
+#endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
 	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
@@ -693,7 +693,7 @@ eapttls_mschap(EAPClientPluginDataRef plugin)
     printf("\n----------MSCHAP Raw AVP Data START\n");
     print_data(data, offset - data);
     printf("----------MSCHAP Raw AVP Data END\n");
-#endif 0
+#endif /* 0 */
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
 	syslog(LOG_NOTICE, "eapttls_request: SSLWrite failed, %s",
@@ -816,7 +816,7 @@ eapttls_mschap2(EAPClientPluginDataRef plugin)
     printf("\n----------MSCHAP2 Raw AVP Data START\n");
     print_data(data, offset - data);
     printf("----------MSCHAP2 Raw AVP Data END\n");
-#endif 0
+#endif /* 0 */
 
     status = SSLWrite(context->ssl_context, data, offset - data, &length);
     if (status != noErr) {
@@ -973,7 +973,7 @@ eapttls_verify_server(EAPClientPluginDataRef plugin,
 	syslog(LOG_NOTICE, 
 	       "eapttls_verify_server: server certificate not trusted"
 	       ", status %d %d", context->trust_status,
-	       context->trust_ssl_error);
+	       (int)context->trust_ssl_error);
     }
     switch (context->trust_status) {
     case kEAPClientStatusOK:
@@ -986,7 +986,7 @@ eapttls_verify_server(EAPClientPluginDataRef plugin,
 	    = kEAPClientStatusUserInputRequired;
 	break;
     default:
-	*client_status = context->trust_status;
+	*client_status = context->last_client_status = context->trust_status;
 	context->last_ssl_error = context->trust_ssl_error;
 	context->plugin_state = kEAPClientStateFailure;
 	SSLClose(context->ssl_context);
@@ -1037,7 +1037,13 @@ eapttls_tunnel(EAPClientPluginDataRef plugin,
 	pkt = EAPTTLSPacketCreateAck(identifier);
 	break;
     case kInnerAuthTypeMSCHAPv2:
-	pkt = eapttls_mschap2_verify(plugin, identifier);
+	if (identifier == context->previous_identifier) {
+	    /* we've already verified the MSCHAP2 response, just Ack it */
+	    pkt = EAPTTLSPacketCreateAck(identifier);
+	}
+	else {
+	    pkt = eapttls_mschap2_verify(plugin, identifier);
+	}
 	break;
     }
     return (pkt);
@@ -1145,7 +1151,7 @@ eapttls_request(EAPClientPluginDataRef plugin,
 
     eaptls_in_l = (EAPTLSLengthIncludedPacket *)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
-	syslog(LOG_NOTICE, "eapttls_request: length %d < %d",
+	syslog(LOG_NOTICE, "eapttls_request: length %d < %ld",
 	       in_length, sizeof(*eaptls_in));
 	goto done;
     }
@@ -1171,7 +1177,7 @@ eapttls_request(EAPClientPluginDataRef plugin,
     else if ((eaptls_in->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (in_length < sizeof(EAPTLSLengthIncludedPacket)) {
 	    syslog(LOG_NOTICE, 
-		   "eapttls_request: packet too short %d < %d",
+		   "eapttls_request: packet too short %d < %ld",
 		   in_length, sizeof(EAPTLSLengthIncludedPacket));
 	    goto done;
 	}
@@ -1181,7 +1187,7 @@ eapttls_request(EAPClientPluginDataRef plugin,
 	    = ntohl(*((u_int32_t *)eaptls_in_l->tls_message_length));
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
 	    syslog(LOG_NOTICE, 
-		   "eapttls_request: received message too large, %ld > %d",
+		   "eapttls_request: received message too large, %d > %d",
 		   tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto done;
@@ -1588,7 +1594,7 @@ static struct func_table_ent {
 } func_table[] = {
 #if 0
     { kEAPClientPluginFuncNameIntrospect, eapttls_introspect },
-#endif 0
+#endif /* 0 */
     { kEAPClientPluginFuncNameVersion, eapttls_version },
     { kEAPClientPluginFuncNameEAPType, eapttls_type },
     { kEAPClientPluginFuncNameEAPName, eapttls_name },

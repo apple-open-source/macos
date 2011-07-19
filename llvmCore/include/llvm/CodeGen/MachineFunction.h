@@ -18,27 +18,30 @@
 #ifndef LLVM_CODEGEN_MACHINEFUNCTION_H
 #define LLVM_CODEGEN_MACHINEFUNCTION_H
 
-#include "llvm/ADT/ilist.h"
-#include "llvm/CodeGen/DebugLoc.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/Support/Annotation.h"
+#include "llvm/ADT/ilist.h"
+#include "llvm/Support/DebugLoc.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Recycler.h"
 
 namespace llvm {
 
+class Value;
 class Function;
 class MachineRegisterInfo;
 class MachineFrameInfo;
 class MachineConstantPool;
 class MachineJumpTableInfo;
+class MachineModuleInfo;
+class MCContext;
+class Pass;
 class TargetMachine;
 class TargetRegisterClass;
 
 template <>
 struct ilist_traits<MachineBasicBlock>
     : public ilist_default_traits<MachineBasicBlock> {
-  mutable ilist_node<MachineBasicBlock> Sentinel;
+  mutable ilist_half_node<MachineBasicBlock> Sentinel;
 public:
   MachineBasicBlock *createSentinel() const {
     return static_cast<MachineBasicBlock*>(&Sentinel);
@@ -63,13 +66,15 @@ private:
 /// of type are accessed/created with MF::getInfo and destroyed when the
 /// MachineFunction is destroyed.
 struct MachineFunctionInfo {
-  virtual ~MachineFunctionInfo() {}
+  virtual ~MachineFunctionInfo();
 };
 
-class MachineFunction : private Annotation {
+class MachineFunction {
   const Function *Fn;
   const TargetMachine &Target;
-
+  MCContext &Ctx;
+  MachineModuleInfo &MMI;
+  
   // RegInfo - Information about each register in use in the function.
   MachineRegisterInfo *RegInfo;
 
@@ -104,21 +109,32 @@ class MachineFunction : private Annotation {
   typedef ilist<MachineBasicBlock> BasicBlockListType;
   BasicBlockListType BasicBlocks;
 
-  // Default debug location. Used to print out the debug label at the beginning
-  // of a function.
-  DebugLoc DefaultDebugLoc;
+  /// FunctionNumber - This provides a unique ID for each function emitted in
+  /// this translation unit.
+  ///
+  unsigned FunctionNumber;
+  
+  /// The alignment of the function.
+  unsigned Alignment;
 
-  // Tracks debug locations.
-  DebugLocTracker DebugLocInfo;
-
+  MachineFunction(const MachineFunction &); // DO NOT IMPLEMENT
+  void operator=(const MachineFunction&);   // DO NOT IMPLEMENT
 public:
-  MachineFunction(const Function *Fn, const TargetMachine &TM);
+  MachineFunction(const Function *Fn, const TargetMachine &TM,
+                  unsigned FunctionNum, MachineModuleInfo &MMI);
   ~MachineFunction();
 
+  MachineModuleInfo &getMMI() const { return MMI; }
+  MCContext &getContext() const { return Ctx; }
+  
   /// getFunction - Return the LLVM function that this machine code represents
   ///
   const Function *getFunction() const { return Fn; }
 
+  /// getFunctionNumber - Return a unique ID for the current function.
+  ///
+  unsigned getFunctionNumber() const { return FunctionNumber; }
+  
   /// getTarget - Return the target machine this machine code is compiled with
   ///
   const TargetMachine &getTarget() const { return Target; }
@@ -136,11 +152,16 @@ public:
   const MachineFrameInfo *getFrameInfo() const { return FrameInfo; }
 
   /// getJumpTableInfo - Return the jump table info object for the current 
-  /// function.  This object contains information about jump tables for switch
-  /// instructions in the current function.
-  ///
-  MachineJumpTableInfo *getJumpTableInfo() { return JumpTableInfo; }
+  /// function.  This object contains information about jump tables in the
+  /// current function.  If the current function has no jump tables, this will
+  /// return null.
   const MachineJumpTableInfo *getJumpTableInfo() const { return JumpTableInfo; }
+  MachineJumpTableInfo *getJumpTableInfo() { return JumpTableInfo; }
+
+  /// getOrCreateJumpTableInfo - Get the JumpTableInfo for this function, if it
+  /// does already exist, allocate one.
+  MachineJumpTableInfo *getOrCreateJumpTableInfo(unsigned JTEntryKind);
+
   
   /// getConstantPool - Return the constant pool object for the current
   /// function.
@@ -148,8 +169,21 @@ public:
   MachineConstantPool *getConstantPool() { return ConstantPool; }
   const MachineConstantPool *getConstantPool() const { return ConstantPool; }
 
-  /// MachineFunctionInfo - Keep track of various per-function pieces of
-  /// information for backends that would like to do so.
+  /// getAlignment - Return the alignment (log2, not bytes) of the function.
+  ///
+  unsigned getAlignment() const { return Alignment; }
+
+  /// setAlignment - Set the alignment (log2, not bytes) of the function.
+  ///
+  void setAlignment(unsigned A) { Alignment = A; }
+
+  /// EnsureAlignment - Make sure the function is at least 'A' bits aligned.
+  void EnsureAlignment(unsigned A) {
+    if (Alignment < A) Alignment = A;
+  }
+  
+  /// getInfo - Keep track of various per-function pieces of information for
+  /// backends that would like to do so.
   ///
   template<typename Ty>
   Ty *getInfo() {
@@ -160,9 +194,6 @@ public:
                                                       AlignOf<Ty>::Alignment));
         MFInfo = new (Loc) Ty(*this);
     }
-
-    assert((void*)dynamic_cast<Ty*>(MFInfo) == (void*)MFInfo &&
-           "Invalid concrete type or multiple inheritence for getInfo");
     return static_cast<Ty*>(MFInfo);
   }
 
@@ -176,7 +207,7 @@ public:
   /// basic block can be found by using the MBB::getBlockNumber method, this
   /// method provides the inverse mapping.
   ///
-  MachineBasicBlock *getBlockNumbered(unsigned N) {
+  MachineBasicBlock *getBlockNumbered(unsigned N) const {
     assert(N < MBBNumbering.size() && "Illegal block number");
     assert(MBBNumbering[N] && "Block was removed from the machine function!");
     return MBBNumbering[N];
@@ -196,8 +227,7 @@ public:
   /// print - Print out the MachineFunction in a format suitable for debugging
   /// to the specified stream.
   ///
-  void print(std::ostream &OS) const;
-  void print(std::ostream *OS) const { if (OS) print(*OS); }
+  void print(raw_ostream &OS) const;
 
   /// viewCFG - This function is meant for use from the debugger.  You can just
   /// say 'call F->viewCFG()' and a ghostview window should pop up from the
@@ -218,20 +248,9 @@ public:
   ///
   void dump() const;
 
-  /// construct - Allocate and initialize a MachineFunction for a given Function
-  /// and Target
-  ///
-  static MachineFunction& construct(const Function *F, const TargetMachine &TM);
-
-  /// destruct - Destroy the MachineFunction corresponding to a given Function
-  ///
-  static void destruct(const Function *F);
-
-  /// get - Return a handle to a MachineFunction corresponding to the given
-  /// Function.  This should not be called before "construct()" for a given
-  /// Function.
-  ///
-  static MachineFunction& get(const Function *F);
+  /// verify - Run the current MachineFunction through the machine code
+  /// verifier, useful for debugger use.
+  void verify(Pass *p=NULL, bool allowDoubleDefs=false) const;
 
   // Provide accessors for the MachineBasicBlock list...
   typedef BasicBlockListType::iterator iterator;
@@ -271,6 +290,9 @@ public:
   void splice(iterator InsertPt, iterator MBBI) {
     BasicBlocks.splice(InsertPt, BasicBlocks, MBBI);
   }
+  void splice(iterator InsertPt, iterator MBBI, iterator MBBE) {
+    BasicBlocks.splice(InsertPt, BasicBlocks, MBBI, MBBE);
+  }
 
   void remove(iterator MBBI) {
     BasicBlocks.remove(MBBI);
@@ -307,9 +329,11 @@ public:
                                    bool NoImp = false);
 
   /// CloneMachineInstr - Create a new MachineInstr which is a copy of the
-  /// 'Orig' instruction, identical in all ways except the the instruction
+  /// 'Orig' instruction, identical in all ways except the instruction
   /// has no parent, prev, or next.
   ///
+  /// See also TargetInstrInfo::duplicate() for target-specific fixes to cloned
+  /// instructions.
   MachineInstr *CloneMachineInstr(const MachineInstr *Orig);
 
   /// DeleteMachineInstr - Delete the given MachineInstr.
@@ -325,26 +349,47 @@ public:
   ///
   void DeleteMachineBasicBlock(MachineBasicBlock *MBB);
 
+  /// getMachineMemOperand - Allocate a new MachineMemOperand.
+  /// MachineMemOperands are owned by the MachineFunction and need not be
+  /// explicitly deallocated.
+  MachineMemOperand *getMachineMemOperand(const Value *v, unsigned f,
+                                          int64_t o, uint64_t s,
+                                          unsigned base_alignment);
+
+  /// getMachineMemOperand - Allocate a new MachineMemOperand by copying
+  /// an existing one, adjusting by an offset and using the given size.
+  /// MachineMemOperands are owned by the MachineFunction and need not be
+  /// explicitly deallocated.
+  MachineMemOperand *getMachineMemOperand(const MachineMemOperand *MMO,
+                                          int64_t Offset, uint64_t Size);
+
+  /// allocateMemRefsArray - Allocate an array to hold MachineMemOperand
+  /// pointers.  This array is owned by the MachineFunction.
+  MachineInstr::mmo_iterator allocateMemRefsArray(unsigned long Num);
+
+  /// extractLoadMemRefs - Allocate an array and populate it with just the
+  /// load information from the given MachineMemOperand sequence.
+  std::pair<MachineInstr::mmo_iterator,
+            MachineInstr::mmo_iterator>
+    extractLoadMemRefs(MachineInstr::mmo_iterator Begin,
+                       MachineInstr::mmo_iterator End);
+
+  /// extractStoreMemRefs - Allocate an array and populate it with just the
+  /// store information from the given MachineMemOperand sequence.
+  std::pair<MachineInstr::mmo_iterator,
+            MachineInstr::mmo_iterator>
+    extractStoreMemRefs(MachineInstr::mmo_iterator Begin,
+                        MachineInstr::mmo_iterator End);
+
   //===--------------------------------------------------------------------===//
-  // Debug location.
+  // Label Manipulation.
   //
-
-  /// getOrCreateDebugLocID - Look up the DebugLocTuple index with the given
-  /// source file, line, and column. If none currently exists, create a new
-  /// DebugLocTuple, and insert it into the DebugIdMap.
-  unsigned getOrCreateDebugLocID(GlobalVariable *CompileUnit,
-                                 unsigned Line, unsigned Col);
-
-  /// getDebugLocTuple - Get the DebugLocTuple for a given DebugLoc object.
-  DebugLocTuple getDebugLocTuple(DebugLoc DL) const;
-
-  /// getDefaultDebugLoc - Get the default debug location for the machine
-  /// function.
-  DebugLoc getDefaultDebugLoc() const { return DefaultDebugLoc; }
-
-  /// setDefaultDebugLoc - Get the default debug location for the machine
-  /// function.
-  void setDefaultDebugLoc(DebugLoc DL) { DefaultDebugLoc = DL; }
+  
+  /// getJTISymbol - Return the MCSymbol for the specified non-empty jump table.
+  /// If isLinkerPrivate is specified, an 'l' label is returned, otherwise a
+  /// normal 'L' label is returned.
+  MCSymbol *getJTISymbol(unsigned JTI, MCContext &Ctx, 
+                         bool isLinkerPrivate = false) const;
 };
 
 //===--------------------------------------------------------------------===//

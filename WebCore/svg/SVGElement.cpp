@@ -1,31 +1,32 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
-    Copyright (C) 2008 Apple Inc. All rights reserved.
-    Copyright (C) 2008 Alp Toker <alp@atoker.com>
-    Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGElement.h"
 
+#include "Attribute.h"
 #include "CSSCursorImageValue.h"
 #include "DOMImplementation.h"
 #include "Document.h"
@@ -34,14 +35,16 @@
 #include "EventNames.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "RegisteredEventListener.h"
 #include "RenderObject.h"
 #include "SVGCursorElement.h"
+#include "SVGDocumentExtensions.h"
 #include "SVGElementInstance.h"
 #include "SVGElementRareData.h"
 #include "SVGNames.h"
 #include "SVGSVGElement.h"
+#include "SVGStyledLocatableElement.h"
+#include "SVGTextElement.h"
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
 #include "ScriptEventListener.h"
@@ -52,13 +55,13 @@ namespace WebCore {
 using namespace HTMLNames;
 
 SVGElement::SVGElement(const QualifiedName& tagName, Document* document)
-    : StyledElement(tagName, document, CreateSVGElementZeroRefCount)
+    : StyledElement(tagName, document, CreateSVGElement)
 {
 }
 
 PassRefPtr<SVGElement> SVGElement::create(const QualifiedName& tagName, Document* document)
 {
-    return new SVGElement(tagName, document);
+    return adoptRef(new SVGElement(tagName, document));
 }
 
 SVGElement::~SVGElement()
@@ -79,6 +82,7 @@ SVGElement::~SVGElement()
         delete rareData;
         rareDataMap.remove(it);
     }
+    document()->accessSVGExtensions()->removeAllAnimationElementsFromTarget(this);
 }
 
 SVGElementRareData* SVGElement::rareSVGData() const
@@ -114,14 +118,20 @@ void SVGElement::setXmlbase(const String& value, ExceptionCode&)
     setAttribute(XMLNames::baseAttr, value);
 }
 
+void SVGElement::removedFromDocument()
+{
+    document()->accessSVGExtensions()->removeAllAnimationElementsFromTarget(this);
+    StyledElement::removedFromDocument();
+}
+
 SVGSVGElement* SVGElement::ownerSVGElement() const
 {
-    Node* n = isShadowNode() ? const_cast<SVGElement*>(this)->shadowParentNode() : parentNode();
+    ContainerNode* n = parentOrHostNode();
     while (n) {
         if (n->hasTagName(SVGNames::svgTag))
             return static_cast<SVGSVGElement*>(n);
 
-        n = n->isShadowNode() ? n->shadowParentNode() : n->parentNode();
+        n = n->parentOrHostNode();
     }
 
     return 0;
@@ -131,12 +141,12 @@ SVGElement* SVGElement::viewportElement() const
 {
     // This function needs shadow tree support - as RenderSVGContainer uses this function
     // to determine the "overflow" property. <use> on <symbol> wouldn't work otherwhise.
-    Node* n = isShadowNode() ? const_cast<SVGElement*>(this)->shadowParentNode() : parentNode();
+    ContainerNode* n = parentOrHostNode();
     while (n) {
         if (n->hasTagName(SVGNames::svgTag) || n->hasTagName(SVGNames::imageTag) || n->hasTagName(SVGNames::symbolTag))
             return static_cast<SVGElement*>(n);
 
-        n = n->isShadowNode() ? n->shadowParentNode() : n->parentNode();
+        n = n->parentOrHostNode();
     }
 
     return 0;
@@ -179,6 +189,19 @@ const HashSet<SVGElementInstance*>& SVGElement::instancesForElement() const
     return rareSVGData()->elementInstances();
 }
 
+bool SVGElement::boundingBox(FloatRect& rect, SVGLocatable::StyleUpdateStrategy styleUpdateStrategy) const
+{
+    if (isStyledLocatable()) {
+        rect = static_cast<const SVGStyledLocatableElement*>(this)->getBBox(styleUpdateStrategy);
+        return true;
+    }
+    if (hasTagName(SVGNames::textTag)) {
+        rect = static_cast<const SVGTextElement*>(this)->getBBox(styleUpdateStrategy);
+        return true;
+    }
+    return false;
+}
+
 void SVGElement::setCursorElement(SVGCursorElement* cursorElement)
 {
     SVGElementRareData* rareData = ensureRareSVGData();
@@ -213,7 +236,7 @@ void SVGElement::cursorImageValueRemoved()
     rareSVGData()->setCursorImageValue(0);
 }
 
-void SVGElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGElement::parseMappedAttribute(Attribute* attr)
 {
     // standard events
     if (attr->name() == onloadAttr)
@@ -238,6 +261,25 @@ void SVGElement::parseMappedAttribute(MappedAttribute* attr)
         setAttributeEventListener(eventNames().DOMActivateEvent, createAttributeEventListener(this, attr));
     else
         StyledElement::parseMappedAttribute(attr);
+}
+
+AttributeToPropertyTypeMap& SVGElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+AnimatedAttributeType SVGElement::animatedPropertyTypeForAttribute(const QualifiedName& attrName)
+{
+    AttributeToPropertyTypeMap& animatedAttributeMap = attributeToPropertyTypeMap();
+    if (animatedAttributeMap.isEmpty())
+        fillAttributeToPropertyTypeMap();
+    if (animatedAttributeMap.contains(attrName))
+        return animatedAttributeMap.get(attrName);
+    if (isStyled())
+        return static_cast<SVGStyledElement*>(this)->animatedPropertyTypeForCSSProperty(attrName);
+
+    return AnimatedUnknown;
 }
 
 bool SVGElement::haveLoadedRequiredResources()
@@ -274,12 +316,9 @@ void SVGElement::sendSVGLoadEventIfPossible(bool sendParentLoadEvents)
         RefPtr<Node> parent;
         if (sendParentLoadEvents)
             parent = currentTarget->parentNode(); // save the next parent to dispatch too incase dispatching the event changes the tree
-        if (hasLoadListener(currentTarget.get())) {
-            RefPtr<Event> event = Event::create(eventNames().loadEvent, false, false);
-            event->setTarget(currentTarget);
-            currentTarget->dispatchGenericEvent(event.release());
-        }
-        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : 0;
+        if (hasLoadListener(currentTarget.get()))
+            currentTarget->dispatchEvent(Event::create(eventNames().loadEvent, false, false));
+        currentTarget = (parent && parent->isSVGElement()) ? static_pointer_cast<SVGElement>(parent) : RefPtr<SVGElement>();
     }
 }
 
@@ -299,25 +338,6 @@ bool SVGElement::childShouldCreateRenderer(Node* child) const
     return false;
 }
 
-void SVGElement::insertedIntoDocument()
-{
-    StyledElement::insertedIntoDocument();
-    SVGDocumentExtensions* extensions = document()->accessSVGExtensions();
-
-    String resourceId = getAttribute(idAttributeName());
-    if (extensions->isPendingResource(resourceId)) {
-        OwnPtr<HashSet<SVGStyledElement*> > clients(extensions->removePendingResource(resourceId));
-        if (clients->isEmpty())
-            return;
-
-        HashSet<SVGStyledElement*>::const_iterator it = clients->begin();
-        const HashSet<SVGStyledElement*>::const_iterator end = clients->end();
-
-        for (; it != end; ++it)
-            (*it)->buildPendingResource();
-    }
-}
-
 void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
 {
     ASSERT(attr);
@@ -333,6 +353,9 @@ void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
     // see bug https://bugs.webkit.org/show_bug.cgi?id=40994.
     if (isSynchronizingSVGAttributes())
         return;
+
+    if (isIdAttributeName(attr->name()))
+        document()->accessSVGExtensions()->removeAllAnimationElementsFromTarget(this);
 
     // Changes to the style attribute are processed lazily (see Element::getAttribute() and related methods),
     // so we don't want changes to the style attribute to result in extra work here.
@@ -352,15 +375,6 @@ void SVGElement::updateAnimatedSVGAttribute(const QualifiedName& name) const
         setAreSVGAttributesValid();
 
     clearIsSynchronizingSVGAttributes();
-}
-
-ContainerNode* SVGElement::eventParentNode()
-{
-    if (Node* shadowParent = shadowParentNode()) {
-        ASSERT(shadowParent->isContainerNode());
-        return static_cast<ContainerNode*>(shadowParent);
-    }
-    return StyledElement::eventParentNode();
 }
 
 }

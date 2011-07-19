@@ -28,64 +28,122 @@
 
 #if ENABLE(GEOLOCATION)
 
+#include "CrossThreadTask.h"
 #include "Geoposition.h"
 #include "SQLValue.h"
 #include "SQLiteDatabase.h"
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
+#include <wtf/PassOwnPtr.h>
+#include <wtf/Threading.h>
+
+using namespace WTF;
 
 namespace WebCore {
 
-static const char* databaseName = "CachedGeoposition.db";
+static int numUsers = 0;
 
-int GeolocationPositionCache::s_instances = 0;
-RefPtr<Geoposition>* GeolocationPositionCache::s_cachedPosition;
-String* GeolocationPositionCache::s_databaseFile = 0;
-
-GeolocationPositionCache::GeolocationPositionCache()
+GeolocationPositionCache* GeolocationPositionCache::instance()
 {
-    if (!(s_instances++)) {
-        s_cachedPosition = new RefPtr<Geoposition>;
-        *s_cachedPosition = readFromDB();
-    }
+    DEFINE_STATIC_LOCAL(GeolocationPositionCache*, instance, (0));
+    if (!instance)
+        instance = new GeolocationPositionCache();
+    return instance;
 }
 
-GeolocationPositionCache::~GeolocationPositionCache()
+GeolocationPositionCache::GeolocationPositionCache()
+    : m_threadId(0)
 {
-    if (!(--s_instances)) {
-        if (*s_cachedPosition)
-            writeToDB(s_cachedPosition->get());
-        delete s_cachedPosition;
+}
+
+void GeolocationPositionCache::addUser()
+{
+    ASSERT(numUsers >= 0);
+    MutexLocker databaseLock(m_databaseFileMutex);
+    if (!numUsers && !m_threadId && !m_databaseFile.isNull()) {
+        startBackgroundThread();
+        MutexLocker lock(m_cachedPositionMutex);
+        if (!m_cachedPosition)
+            triggerReadFromDatabase();
+    }
+    ++numUsers;
+}
+
+void GeolocationPositionCache::removeUser()
+{
+    MutexLocker lock(m_cachedPositionMutex);
+    --numUsers;
+    ASSERT(numUsers >= 0);
+    if (!numUsers && m_cachedPosition && m_threadId)
+        triggerWriteToDatabase();
+}
+
+void GeolocationPositionCache::setDatabasePath(const String& path)
+{
+    static const char* databaseName = "CachedGeoposition.db";
+    String newFile = SQLiteFileSystem::appendDatabaseFileNameToPath(path, databaseName);
+    MutexLocker lock(m_databaseFileMutex);
+    if (m_databaseFile != newFile) {
+        m_databaseFile = newFile;
+        if (numUsers && !m_threadId) {
+            startBackgroundThread();
+            if (!m_cachedPosition)
+                triggerReadFromDatabase();
+        }
     }
 }
 
 void GeolocationPositionCache::setCachedPosition(Geoposition* cachedPosition)
 {
-    *s_cachedPosition = cachedPosition;
+    MutexLocker lock(m_cachedPositionMutex);
+    m_cachedPosition = cachedPosition;
 }
 
 Geoposition* GeolocationPositionCache::cachedPosition()
 {
-    return s_cachedPosition->get();
+    MutexLocker lock(m_cachedPositionMutex);
+    return m_cachedPosition.get();
 }
 
-void GeolocationPositionCache::setDatabasePath(const String& databasePath)
+void GeolocationPositionCache::startBackgroundThread()
 {
-    if (!s_databaseFile)
-        s_databaseFile = new String;
-    *s_databaseFile = SQLiteFileSystem::appendDatabaseFileNameToPath(databasePath, databaseName);
-    // If we don't have have a cached position, attempt to read one from the
-    // DB at the new path.
-    if (s_instances && !(*s_cachedPosition))
-        *s_cachedPosition = readFromDB();
+    // FIXME: Consider sharing this thread with other background tasks.
+    m_threadId = createThread(threadEntryPoint, this, "WebCore: Geolocation cache");
 }
 
-PassRefPtr<Geoposition> GeolocationPositionCache::readFromDB()
+void* GeolocationPositionCache::threadEntryPoint(void* object)
+{
+    static_cast<GeolocationPositionCache*>(object)->threadEntryPointImpl();
+    return 0;
+}
+
+void GeolocationPositionCache::threadEntryPointImpl()
+{
+    while (OwnPtr<ScriptExecutionContext::Task> task = m_queue.waitForMessage()) {
+        // We don't need a ScriptExecutionContext in the callback, so pass 0 here.
+        task->performTask(0);
+    }
+}
+
+void GeolocationPositionCache::triggerReadFromDatabase()
+{
+    m_queue.append(createCallbackTask(&GeolocationPositionCache::readFromDatabase, AllowCrossThreadAccess(this)));
+}
+
+void GeolocationPositionCache::readFromDatabase(ScriptExecutionContext*, GeolocationPositionCache* cache)
+{
+    cache->readFromDatabaseImpl();
+}
+
+void GeolocationPositionCache::readFromDatabaseImpl()
 {
     SQLiteDatabase database;
-    if (!s_databaseFile || !database.open(*s_databaseFile))
-        return 0;
+    {
+        MutexLocker lock(m_databaseFileMutex);
+        if (!database.open(m_databaseFile))
+            return;
+    }
 
     // Create the table here, such that even if we've just created the
     // DB, the commands below should succeed.
@@ -98,14 +156,14 @@ PassRefPtr<Geoposition> GeolocationPositionCache::readFromDB()
             "heading REAL, "
             "speed REAL, "
             "timestamp INTEGER NOT NULL)"))
-        return 0;
+        return;
 
     SQLiteStatement statement(database, "SELECT * FROM CachedPosition");
     if (statement.prepare() != SQLResultOk)
-        return 0;
+        return;
 
     if (statement.step() != SQLResultRow)
-        return 0;
+        return;
 
     bool providesAltitude = statement.getColumnValue(2).type() != SQLValue::NullValue;
     bool providesAltitudeAccuracy = statement.getColumnValue(4).type() != SQLValue::NullValue;
@@ -118,16 +176,40 @@ PassRefPtr<Geoposition> GeolocationPositionCache::readFromDB()
                                                           providesAltitudeAccuracy, statement.getColumnDouble(4), // altitudeAccuracy
                                                           providesHeading, statement.getColumnDouble(5), // heading
                                                           providesSpeed, statement.getColumnDouble(6)); // speed
-    return Geoposition::create(coordinates.release(), statement.getColumnInt64(7)); // timestamp
+    DOMTimeStamp timestamp = statement.getColumnInt64(7); // timestamp
+
+    // A position may have been set since we called triggerReadFromDatabase().
+    MutexLocker lock(m_cachedPositionMutex);
+    if (m_cachedPosition)
+        return;
+    m_cachedPosition = Geoposition::create(coordinates.release(), timestamp);
 }
 
-void GeolocationPositionCache::writeToDB(const Geoposition* position)
+void GeolocationPositionCache::triggerWriteToDatabase()
 {
-    ASSERT(position);
+    m_queue.append(createCallbackTask(writeToDatabase, AllowCrossThreadAccess(this)));
+}
 
+void GeolocationPositionCache::writeToDatabase(ScriptExecutionContext*, GeolocationPositionCache* cache)
+{
+    cache->writeToDatabaseImpl();
+}
+
+void GeolocationPositionCache::writeToDatabaseImpl()
+{
     SQLiteDatabase database;
-    if (!s_databaseFile || !database.open(*s_databaseFile))
-        return;
+    {
+        MutexLocker lock(m_databaseFileMutex);
+        if (!database.open(m_databaseFile))
+            return;
+    }
+
+    RefPtr<Geoposition> cachedPosition;
+    {
+        MutexLocker lock(m_cachedPositionMutex);
+        if (m_cachedPosition)
+            cachedPosition = m_cachedPosition->threadSafeCopy();
+    }
 
     SQLiteTransaction transaction(database);
 
@@ -147,26 +229,27 @@ void GeolocationPositionCache::writeToDB(const Geoposition* position)
     if (statement.prepare() != SQLResultOk)
         return;
 
-    statement.bindDouble(1, position->coords()->latitude());
-    statement.bindDouble(2, position->coords()->longitude());
-    if (position->coords()->canProvideAltitude())
-        statement.bindDouble(3, position->coords()->altitude());
+    statement.bindDouble(1, cachedPosition->coords()->latitude());
+    statement.bindDouble(2, cachedPosition->coords()->longitude());
+    if (cachedPosition->coords()->canProvideAltitude())
+        statement.bindDouble(3, cachedPosition->coords()->altitude());
     else
         statement.bindNull(3);
-    statement.bindDouble(4, position->coords()->accuracy());
-    if (position->coords()->canProvideAltitudeAccuracy())
-        statement.bindDouble(5, position->coords()->altitudeAccuracy());
+    statement.bindDouble(4, cachedPosition->coords()->accuracy());
+    if (cachedPosition->coords()->canProvideAltitudeAccuracy())
+        statement.bindDouble(5, cachedPosition->coords()->altitudeAccuracy());
     else
         statement.bindNull(5);
-    if (position->coords()->canProvideHeading())
-        statement.bindDouble(6, position->coords()->heading());
+    if (cachedPosition->coords()->canProvideHeading())
+        statement.bindDouble(6, cachedPosition->coords()->heading());
     else
         statement.bindNull(6);
-    if (position->coords()->canProvideSpeed())
-        statement.bindDouble(7, position->coords()->speed());
+    if (cachedPosition->coords()->canProvideSpeed())
+        statement.bindDouble(7, cachedPosition->coords()->speed());
     else
         statement.bindNull(7);
-    statement.bindInt64(8, position->timestamp());
+    statement.bindInt64(8, cachedPosition->timestamp());
+
     if (!statement.executeCommand())
         return;
 

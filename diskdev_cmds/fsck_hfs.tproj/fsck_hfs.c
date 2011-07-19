@@ -67,6 +67,7 @@ char	force;			/* force fsck even if clean (preen only) */
 char	quick;			/* quick check returns clean, dirty, or failure */
 char	debug;			/* output debugging info */
 char	hotroot;		/* checking root device */
+char	hotmount;		/* checking read-only mounted device */
 char 	guiControl; 	/* this app should output info for gui control */
 char	xmlControl;	/* Output XML (plist) messages -- implies guiControl as well */
 char	rebuildBTree;  	/* Rebuild requested btree files */
@@ -116,7 +117,7 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "b:B:c:D:Edfglm:npqruyx")) != EOF) {
+	while ((ch = getopt(argc, argv, "b:B:c:D:Edfglm:npqrR:uyx")) != EOF) {
 		switch (ch) {
 		case 'b':
 			gBlockSize = atoi(optarg);
@@ -295,6 +296,37 @@ cleanup_fs_fd(void)
     }
 }
 
+static char *
+mountpoint(const char *cdev)
+{
+	char *retval = NULL;
+	struct statfs *fsinfo;
+	char *unraw = NULL;
+	int result;
+	int i;
+
+	unraw = strdup(cdev);
+	unrawname(unraw);
+
+	if (unraw == NULL)
+		goto done;
+
+	result = getmntinfo(&fsinfo, MNT_NOWAIT);
+
+	for (i = 0; i < result; i++) {
+		if (strcmp(unraw, fsinfo[i].f_mntfromname) == 0) {
+			retval = strdup(fsinfo[i].f_mntonname);
+			break;
+		}
+	}
+
+done:
+	if (unraw)
+		free(unraw);
+
+	return retval;
+}
+
 static int
 checkfilesys(char * filesys)
 {
@@ -302,14 +334,12 @@ checkfilesys(char * filesys)
 	int result = 0;
 	int chkLev, repLev, logLev;
 	int canWrite;
-	char *unraw, *mntonname;
-	struct statfs64 *fsinfo;
+	char *mntonname = NULL;
 	fsck_ctx_t context = NULL;
 	flags = 0;
 	cdevname = filesys;
 	canWrite = 0;
-	unraw = NULL;
-	mntonname = NULL;
+	hotmount = hotroot;	// hotroot will be 1 or 0 by this time
 
 	//
 	// initialize the printing/logging without actually printing anything
@@ -320,9 +350,20 @@ checkfilesys(char * filesys)
 
 	context = fsckCreate();
 
+	mntonname = mountpoint(cdevname);
+	if (hotroot) {
+		if (mntonname)
+			free(mntonname);
+		mntonname = strdup("/");
+	}
+
 	if (lflag) {
 		struct stat fs_stat;
-		result = getmntinfo64(&fsinfo, MNT_NOWAIT);
+
+		/*
+		 * Ensure that, if we're doing a live verify, that we're not trying
+		 * to do input or output to the same device.  This would cause a deadlock.
+		 */
 
 		if (stat(cdevname, &fs_stat) != -1 &&
 			(((fs_stat.st_mode & S_IFMT) == S_IFCHR) ||
@@ -346,35 +387,33 @@ checkfilesys(char * filesys)
 			}
 
 		}
-		while (result--) {
-			unraw = strdup(cdevname);
-			unrawname(unraw);
-			if (unraw != NULL &&
-			    strcmp(unraw, fsinfo[result].f_mntfromname) == 0) {
-				mntonname = strdup(fsinfo[result].f_mntonname);
-				break;
-			}
-			if (unraw) {
-				free(unraw);
-				unraw = NULL;
-			}
-		}
+	}
 
-		if (mntonname != NULL) {
-		    fs_fd = open(mntonname, O_RDONLY);
-		    if (fs_fd < 0) {
-			plog("ERROR: could not open %s to freeze the volume.\n", mntonname);
-			free(mntonname);
-			free(unraw);
-			return 0;
-		    }
+	/*
+	 * If the device is mounted somewhere, then we need to make sure that it's
+	 * a read-only device, or that a live-verify has been requested.
+	 */
+	if (mntonname != NULL) {
+		struct statfs stfs_buf;
 
-		    if (fcntl(fs_fd, F_FREEZE_FS, NULL) != 0) {
-			free(mntonname);
-			free(unraw);
-			plog("ERROR: could not freeze volume (%s)\n", strerror(errno));
-			return 0;
-		    }
+		if (statfs(mntonname, &stfs_buf) == 0) {
+			if (lflag) {
+				// Need to try to freeze it
+				fs_fd = open(mntonname, O_RDONLY);
+				if (fs_fd < 0) {
+					plog("ERROR: could not open %s to freeze the volume.\n", mntonname);
+					free(mntonname);
+					return 0;
+				}
+	
+				if (fcntl(fs_fd, F_FREEZE_FS, NULL) != 0) {
+					free(mntonname);
+					plog("ERROR: could not freeze volume (%s)\n", strerror(errno));
+					return 0;
+				}
+			} else if (stfs_buf.f_flags & MNT_RDONLY) {
+				hotmount = 1;
+			}
 		}
 	}
 
@@ -445,10 +484,16 @@ checkfilesys(char * filesys)
 	/*
 	 * go check HFS volume...
 	 */
+	if (rebuildOptions && canWrite == 0) {
+		plog("BTree rebuild requested but writing disabled\n");
+		result = EEXIT;
+		goto ExitThisRoutine;
+	}
+
 	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, context,
-			   lostAndFoundMode, canWrite, &fsmodified,
-			   lflag, rebuildOptions );
-	if (!hotroot) {
+						lostAndFoundMode, canWrite, &fsmodified,
+						lflag, rebuildOptions );
+	if (!hotmount) {
 		ckfini(1);
 		if (quick) {
 			if (result == 0) {
@@ -469,11 +514,12 @@ checkfilesys(char * filesys)
 			}
 		}
 	} else {
-		struct statfs64 stfs_buf;
+		struct statfs stfs_buf;
+
 		/*
 		 * Check to see if root is mounted read-write.
 		 */
-		if (statfs64("/", &stfs_buf) == 0)
+		if (statfs(mntonname, &stfs_buf) == 0)
 			flags = stfs_buf.f_flags;
 		else
 			flags = 0;
@@ -482,7 +528,7 @@ checkfilesys(char * filesys)
 
 	/* XXX free any allocated memory here */
 
-	if (hotroot && fsmodified) {
+	if (hotmount && fsmodified) {
 		struct hfs_mount_args args;
 		/*
 		 * We modified the root.  Do a mount update on
@@ -493,9 +539,14 @@ checkfilesys(char * filesys)
 		if (flags & MNT_RDONLY) {		
 			bzero(&args, sizeof(args));
 			flags |= MNT_UPDATE | MNT_RELOAD;
-			if (mount("hfs", "/", flags, &args) == 0) {
+			if (debug)
+				fprintf(stderr, "doing update / reload mount for %s now\n", mntonname);
+			if (mount("hfs", mntonname, flags, &args) == 0) {
 				result = 0;
 				goto ExitThisRoutine;
+			} else {
+				//if (debug)
+					fprintf(stderr, "update/reload mount for %s failed: %s\n", mntonname, strerror(errno));
 			}
 		}
 		if (!preen)
@@ -515,9 +566,9 @@ ExitThisRoutine:
 		close(fs_fd);
 		fs_fd = -1;
 	    }
-	    free(unraw);
-	    free(mntonname);
 	}
+	if (mntonname)
+		free(mntonname);
 
 	if (context)
 		fsckDestroy(context);
@@ -552,13 +603,26 @@ setup( char *dev, int *canWritePtr )
 		if (reply("CONTINUE") == 0)
 			return (0);
 	}
+	/* Always attempt to replay the journal */
+	if (!nflag && !quick) {
+		// We know we have a character device by now.
+		if (strncmp(dev, "/dev/rdisk", 10) == 0) {
+			char block_device[MAXPATHLEN+1];
+			int rv;
+			snprintf(block_device, sizeof(block_device), "/dev/%s", dev + 6);
+			rv = journal_replay(block_device);
+			if (debug)
+				plog("journal_replay(%s) returned %d\n", block_device, rv);
+		}
+	}
 	/* attempt to get write access to the block device and if not check if volume is */
 	/* mounted read-only.  */
 	getWriteAccess( dev, canWritePtr );
 	
 	if (preen == 0 && !guiControl)
 		plog("** %s", dev);
-	if (nflag || quick || (fswritefd = open(dev, O_RDWR | (hotroot ? 0 : O_EXLOCK))) < 0) {
+
+	if (nflag || quick || (fswritefd = open(dev, O_RDWR | (hotmount ? 0 : O_EXLOCK))) < 0) {
 		fswritefd = -1;
 		if (preen)
 			pfatal("NO WRITE ACCESS");
@@ -648,7 +712,7 @@ static void getWriteAccess( char *dev, int *canWritePtr )
 	int					myMountsCount;
 	void *				myPtr;
 	char *				myCharPtr;
-	struct statfs64 *		myBufPtr;
+	struct statfs *			myBufPtr;
 	void *				myNamePtr;
 	int				blockDevice_fd = -1;
 
@@ -661,7 +725,7 @@ static void getWriteAccess( char *dev, int *canWritePtr )
 	if ( (myCharPtr = strrchr( (char *)myNamePtr, '/' )) != 0 ) {
 		if ( myCharPtr[1] == 'r' ) {
 			strcpy( &myCharPtr[1], &myCharPtr[2] );
-			blockDevice_fd = open( (char *)myNamePtr, O_WRONLY | (hotroot ? 0 : O_EXLOCK) );
+			blockDevice_fd = open( (char *)myNamePtr, O_WRONLY | (hotmount ? 0 : O_EXLOCK) );
 		}
 	}
 	
@@ -672,20 +736,20 @@ static void getWriteAccess( char *dev, int *canWritePtr )
 	}
 	
 	// get count of mounts then get the info for each 
-	myMountsCount = getfsstat64( NULL, 0, MNT_NOWAIT );
+	myMountsCount = getfsstat( NULL, 0, MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 
-	myPtr = (void *) malloc( sizeof(struct statfs64) * myMountsCount );
+	myPtr = (void *) malloc( sizeof(struct statfs) * myMountsCount );
 	if ( myPtr == NULL ) 
 		goto ExitThisRoutine;
-	myMountsCount = getfsstat64( 	myPtr, 
-								(int)(sizeof(struct statfs64) * myMountsCount), 
+	myMountsCount = getfsstat( 	myPtr, 
+								(int)(sizeof(struct statfs) * myMountsCount), 
 								MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 
-	myBufPtr = (struct statfs64 *) myPtr;
+	myBufPtr = (struct statfs *) myPtr;
 	for ( i = 0; i < myMountsCount; i++ )
 	{
 		if ( strcmp( myBufPtr->f_mntfromname, myNamePtr ) == 0 ) {
@@ -716,13 +780,15 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] Edfl m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] Edfglx m [mode] npqruy] special-device\n", progname);
 	(void) fplog(stderr, "  b size = size of physical blocks (in bytes) for -B option\n");
 	(void) fplog(stderr, "  B path = file containing physical block numbers to map to paths\n");
 	(void) fplog(stderr, "  c size = cache size (ex. 512m, 1g)\n");
 	(void) fplog(stderr, "  E = exit on first major error\n");
 	(void) fplog(stderr, "  d = output debugging info\n");
 	(void) fplog(stderr, "  f = force fsck even if clean (preen only) \n");
+	(void) fplog(stderr, "  g = GUI output mode\n");
+	(void) fplog(stderr, "  x = XML output mode\n");
 	(void) fplog(stderr, "  l = live fsck (lock down and test-only)\n");
 	(void) fplog(stderr, "  m arg = octal mode used when creating lost+found directory \n");
 	(void) fplog(stderr, "  n = assume a no response \n");

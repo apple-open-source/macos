@@ -5,11 +5,6 @@
  * -getCString:maxLength:			[call]
  *
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#include <Foundation/Foundation.h>
-
 
 static PyObject*
 call_NSString_getCString_maxLength_range_remainingRange_(
@@ -18,18 +13,35 @@ call_NSString_getCString_maxLength_range_remainingRange_(
 	PyObject* rangeObj;
 	NSRange aRange;
 	NSRange leftoverRange;
+	NSRange* leftoverPtr;
 	char* buf;
-	int maxLength;
+	NSUInteger maxLength;
 	struct objc_super super;
 	PyObject* res;
+	PyObject* buf1, *buf2;
 
-	if  (!PyArg_ParseTuple(arguments, "iO", &maxLength, &rangeObj)) {
+	if  (!PyArg_ParseTuple(arguments, "O" Py_ARG_NSUInteger "OO", &buf1, &maxLength, &rangeObj, &buf2)) {
 		return NULL;
 	}
 
 	if (PyObjC_PythonToObjC(@encode(NSRange), rangeObj, &aRange) < 0) {
 		return NULL;
 	}
+
+	if (buf1 != Py_None) {
+		PyErr_SetString(PyExc_ValueError, "output buffer must be None");
+		return NULL;
+	}
+	if (buf2 != Py_None && buf2 != PyObjC_NULL) {
+		PyErr_SetString(PyExc_ValueError, "range buffer must be None or NULL");
+		return NULL;
+	}
+	if (buf2 == PyObjC_NULL) {
+		leftoverPtr = NULL;
+	} else { 
+		leftoverPtr = &leftoverRange;
+	}
+
 
 	buf = malloc(maxLength+1);
 	if (buf == NULL) {
@@ -42,9 +54,9 @@ call_NSString_getCString_maxLength_range_remainingRange_(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		(void)objc_msgSendSuper(&super,
+		((void(*)(struct objc_super*, SEL, void*, NSInteger, NSRange, NSRange*))objc_msgSendSuper)(&super,
 			@selector(getCString:maxLength:range:remainingRange:),
-			buf, maxLength, aRange, &leftoverRange);
+			buf, maxLength, aRange, leftoverPtr);
 	PyObjC_HANDLER
 		PyObjCErr_FromObjC(localException);
 	PyObjC_ENDHANDLER
@@ -60,7 +72,7 @@ call_NSString_getCString_maxLength_range_remainingRange_(
 		return NULL;
 	}
 
-	PyTuple_SET_ITEM(res, 0, PyString_FromString(buf));
+	PyTuple_SET_ITEM(res, 0, PyBytes_FromString(buf));
 	free(buf);
 	if (PyErr_Occurred()) {
 		Py_DECREF(res);
@@ -68,13 +80,17 @@ call_NSString_getCString_maxLength_range_remainingRange_(
 		return NULL;
 	}
 
-	rangeObj = PyObjC_ObjCToPython(@encode(NSRange), &leftoverRange);
-	if (rangeObj == NULL) {
-		Py_DECREF(res);
-		return NULL;
-	}
+	if (leftoverPtr != NULL) {
+		rangeObj = PyObjC_ObjCToPython(@encode(NSRange), &leftoverRange);
+		if (rangeObj == NULL) {
+			Py_DECREF(res);
+			return NULL;
+		}
 
-	PyTuple_SET_ITEM(res, 1, rangeObj);
+		PyTuple_SET_ITEM(res, 1, rangeObj);
+	} else {
+		PyTuple_SET_ITEM(res, 1, PyObjC_NULL);
+	}
 	return res;
 }
 
@@ -83,11 +99,16 @@ call_NSString_getCString_maxLength_(
 	PyObject* method, PyObject* self, PyObject* arguments)
 {
 	char* buf;
-	int maxLength;
+	NSUInteger maxLength;
 	struct objc_super super;
 	PyObject* res;
+	PyObject* py_buf;
 
-	if  (!PyArg_ParseTuple(arguments, "i", &maxLength)) {
+	if  (!PyArg_ParseTuple(arguments, "O" Py_ARG_NSUInteger, &py_buf, &maxLength)) {
+		return NULL;
+	}
+	if (py_buf != Py_None) {
+		PyErr_SetString(PyExc_ValueError, "buffer must be None");
 		return NULL;
 	}
 
@@ -102,7 +123,7 @@ call_NSString_getCString_maxLength_(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		(void)objc_msgSendSuper(&super,
+		((void(*)(struct objc_super*, SEL, void*, NSUInteger))objc_msgSendSuper)(&super,
 			@selector(getCString:maxLength:),
 			buf, maxLength);
 	PyObjC_HANDLER
@@ -114,7 +135,7 @@ call_NSString_getCString_maxLength_(
 		return NULL;
 	}
 	
-	res = PyString_FromString(buf);
+	res = PyBytes_FromString(buf);
 	free(buf);
 	if (res == NULL) {
 		return NULL;
@@ -123,20 +144,12 @@ call_NSString_getCString_maxLength_(
 	return res;
 }
 
-static PyMethodDef _methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void
-init_string(void)
+static int setup_nssstring(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_string", _methods, "", NULL, PYTHON_API_VERSION);
-	if (m == NULL) return;
-
 	Class classNSString = objc_lookUpClass("NSString");
-	if (classNSString == NULL) return;
-	if (PyObjC_ImportAPI(m) < 0) return;
-
+	if (classNSString == NULL) {
+		return 0;
+	}
 
 	if (PyObjC_RegisterMethodMapping(
 		classNSString,
@@ -144,7 +157,7 @@ init_string(void)
 		call_NSString_getCString_maxLength_range_remainingRange_,
 		PyObjCUnsupportedMethod_IMP) < 0) {
 
-		return;
+		return -1;
 	}
 
 	if (PyObjC_RegisterMethodMapping(
@@ -153,9 +166,8 @@ init_string(void)
 		call_NSString_getCString_maxLength_,
 		PyObjCUnsupportedMethod_IMP) < 0) {
 
-		return;
+		return -1;
 	}
 
-
-	return;
+	return 0;
 }

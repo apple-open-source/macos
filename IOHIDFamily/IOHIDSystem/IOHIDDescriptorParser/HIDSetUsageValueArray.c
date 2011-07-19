@@ -94,7 +94,7 @@ OSStatus HIDSetUsageValueArray(HIDReportType reportType,
 	OSStatus iStatus;
 	int i;
 	int iR;
-	long iValue;
+	SInt32 iValue;
 	int iStart;
 	int iReportItem;
 	UInt32 iUsageIndex;
@@ -160,7 +160,7 @@ OSStatus HIDSetUsageValueArray(HIDReportType reportType,
 				for (i=0; i<byteCount; i++)
 				{
 					iValue = *psUsageBuffer++;
-					iStatus = HIDPreProcessRIValue (ptReportItem, &iValue);
+					HIDPreProcessRIValue (ptReportItem, &iValue); // error ignored
 					iStatus = HIDPutData(psReport, iReportLength, iStart, 8, iValue);
 					if (iStatus != kHIDSuccess)
 						return iStatus;

@@ -16,17 +16,19 @@
 
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/Support/Streams.h"
 
 namespace llvm {
 
 class BasicBlock;
 class MachineFunction;
+class MCSymbol;
+class StringRef;
+class raw_ostream;
 
 template <>
 struct ilist_traits<MachineInstr> : public ilist_default_traits<MachineInstr> {
 private:
-  mutable ilist_node<MachineInstr> Sentinel;
+  mutable ilist_half_node<MachineInstr> Sentinel;
 
   // this is only set by the MachineBasicBlock owning the LiveList
   friend class MachineBasicBlock;
@@ -76,6 +78,10 @@ class MachineBasicBlock : public ilist_node<MachineBasicBlock> {
   /// exception handler.
   bool IsLandingPad;
 
+  /// AddressTaken - Indicate that this basic block is potentially the
+  /// target of an indirect branch.
+  bool AddressTaken;
+
   // Intrusive list support
   MachineBasicBlock() {}
 
@@ -88,9 +94,22 @@ class MachineBasicBlock : public ilist_node<MachineBasicBlock> {
 
 public:
   /// getBasicBlock - Return the LLVM basic block that this instance
-  /// corresponded to originally.
+  /// corresponded to originally. Note that this may be NULL if this instance
+  /// does not correspond directly to an LLVM basic block.
   ///
   const BasicBlock *getBasicBlock() const { return BB; }
+
+  /// getName - Return the name of the corresponding LLVM basic block, or
+  /// "(null)".
+  StringRef getName() const;
+
+  /// hasAddressTaken - Test whether this block is potentially the target
+  /// of an indirect branch.
+  bool hasAddressTaken() const { return AddressTaken; }
+
+  /// setHasAddressTaken - Set this block to reflect that it potentially
+  /// is the target of an indirect branch.
+  void setHasAddressTaken() { AddressTaken = true; }
 
   /// getParent - Return the MachineFunction containing this basic block.
   ///
@@ -182,12 +201,9 @@ public:
 
   // Iteration support for live in sets.  These sets are kept in sorted
   // order by their register number.
-  typedef std::vector<unsigned>::iterator       livein_iterator;
-  typedef std::vector<unsigned>::const_iterator const_livein_iterator;
-  livein_iterator       livein_begin()       { return LiveIns.begin(); }
-  const_livein_iterator livein_begin() const { return LiveIns.begin(); }
-  livein_iterator       livein_end()         { return LiveIns.end(); }
-  const_livein_iterator livein_end()   const { return LiveIns.end(); }
+  typedef std::vector<unsigned>::const_iterator livein_iterator;
+  livein_iterator livein_begin() const { return LiveIns.begin(); }
+  livein_iterator livein_end()   const { return LiveIns.end(); }
   bool            livein_empty() const { return LiveIns.empty(); }
 
   /// getAlignment - Return alignment of the basic block.
@@ -213,7 +229,13 @@ public:
   /// potential fall-throughs at the end of the block.
   void moveBefore(MachineBasicBlock *NewAfter);
   void moveAfter(MachineBasicBlock *NewBefore);
-  
+
+  /// updateTerminator - Update the terminator instructions in block to account
+  /// for changes to the layout. If the block previously used a fallthrough,
+  /// it may now need a branch, and if it previously used branching it may now
+  /// be able to use a fallthrough.
+  void updateTerminator();
+
   // Machine-CFG mutators
   
   /// addSuccessor - Add succ as a successor of this MachineBasicBlock.
@@ -234,7 +256,7 @@ public:
   
   /// transferSuccessors - Transfers all the successors from MBB to this
   /// machine basic block (i.e., copies all the successors fromMBB and
-  /// remove all the successors fromBB).
+  /// remove all the successors from fromMBB).
   void transferSuccessors(MachineBasicBlock *fromMBB);
   
   /// isSuccessor - Return true if the specified MBB is a successor of this
@@ -248,15 +270,16 @@ public:
   /// ends with an unconditional branch to some other block.
   bool isLayoutSuccessor(const MachineBasicBlock *MBB) const;
 
+  /// canFallThrough - Return true if the block can implicitly transfer
+  /// control to the block after it by falling off the end of it.  This should
+  /// return false if it can reach the block after it, but it uses an explicit
+  /// branch to do so (e.g., a table jump).  True is a conservative answer.
+  bool canFallThrough();
+
   /// getFirstTerminator - returns an iterator to the first terminator
   /// instruction of this basic block. If a terminator does not exist,
   /// it returns end()
   iterator getFirstTerminator();
-
-  /// isOnlyReachableViaFallthough - Return true if this basic block has
-  /// exactly one predecessor and the control transfer mechanism between
-  /// the predecessor and this block is a fall-through.
-  bool isOnlyReachableByFallthrough() const;
 
   void pop_front() { Insts.pop_front(); }
   void pop_back() { Insts.pop_back(); }
@@ -308,10 +331,13 @@ public:
                             MachineBasicBlock *DestB,
                             bool isCond);
 
+  /// findDebugLoc - find the next valid DebugLoc starting at MBBI, skipping
+  /// any DBG_VALUE instructions.  Return UnknownLoc if there is none.
+  DebugLoc findDebugLoc(MachineBasicBlock::iterator &MBBI);
+
   // Debugging methods.
   void dump() const;
-  void print(std::ostream &OS) const;
-  void print(std::ostream *OS) const { if (OS) print(*OS); }
+  void print(raw_ostream &OS) const;
 
   /// getNumber - MachineBasicBlocks are uniquely numbered at the function
   /// level, unless they're not in a MachineFunction yet, in which case this
@@ -320,6 +346,10 @@ public:
   int getNumber() const { return Number; }
   void setNumber(int N) { Number = N; }
 
+  /// getSymbol - Return the MCSymbol for this basic block.
+  ///
+  MCSymbol *getSymbol() const;
+  
 private:   // Methods used to maintain doubly linked list of blocks...
   friend struct ilist_traits<MachineBasicBlock>;
 
@@ -339,7 +369,9 @@ private:   // Methods used to maintain doubly linked list of blocks...
   void removePredecessor(MachineBasicBlock *pred);
 };
 
-std::ostream& operator<<(std::ostream &OS, const MachineBasicBlock &MBB);
+raw_ostream& operator<<(raw_ostream &OS, const MachineBasicBlock &MBB);
+
+void WriteAsOperand(raw_ostream &, const MachineBasicBlock*, bool t);
 
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for machine basic block graphs (machine-CFGs)

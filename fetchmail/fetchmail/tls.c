@@ -16,6 +16,7 @@ int maybe_tls(struct query *ctl) {
     return (!ctl->sslproto || !strcasecmp(ctl->sslproto,"tls1"))
 	&& !ctl->use_ssl;
 #else
+    (void)ctl;
     return 0;
 #endif
 }
@@ -28,6 +29,7 @@ int must_tls(struct query *ctl) {
 	&& (ctl->sslfingerprint || ctl->sslcertck
 		|| (ctl->sslproto && !strcasecmp(ctl->sslproto, "tls1")));
 #else
+    (void)ctl;
     return 0;
 #endif
 }

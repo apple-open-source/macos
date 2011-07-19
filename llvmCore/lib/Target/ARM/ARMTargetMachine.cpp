@@ -11,196 +11,138 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMTargetMachine.h"
-#include "ARMTargetAsmInfo.h"
+#include "ARMMCAsmInfo.h"
 #include "ARMFrameInfo.h"
 #include "ARM.h"
-#include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Target/TargetRegistry.h"
 using namespace llvm;
 
-static cl::opt<bool> DisableLdStOpti("disable-arm-loadstore-opti", cl::Hidden,
-                              cl::desc("Disable load store optimization pass"));
-static cl::opt<bool> DisableIfConversion("disable-arm-if-conversion",cl::Hidden,
-                              cl::desc("Disable if-conversion pass"));
-
-/// ARMTargetMachineModule - Note that this is used on hosts that cannot link
-/// in a library unless there are references into the library.  In particular,
-/// it seems that it is not possible to get things to work on Win32 without
-/// this.  Though it is unused, do not remove it.
-extern "C" int ARMTargetMachineModule;
-int ARMTargetMachineModule = 0;
-
-// Register the target.
-static RegisterTarget<ARMTargetMachine>   X("arm",   "ARM");
-static RegisterTarget<ThumbTargetMachine> Y("thumb", "Thumb");
-
-// No assembler printer by default
-ARMTargetMachine::AsmPrinterCtorFn ARMTargetMachine::AsmPrinterCtor = 0;
-
-/// ThumbTargetMachine - Create an Thumb architecture model.
-///
-unsigned ThumbTargetMachine::getJITMatchQuality() {
-#if defined(__thumb__)
-  return 10;
-#endif
-  return 0;
-}
-
-unsigned ThumbTargetMachine::getModuleMatchQuality(const Module &M) {
-  std::string TT = M.getTargetTriple();
-  // Match thumb-foo-bar, as well as things like thumbv5blah-*
-  if (TT.size() >= 6 &&
-      (TT.substr(0, 6) == "thumb-" || TT.substr(0, 6) == "thumbv"))
-    return 20;
-
-  // If the target triple is something non-thumb, we don't match.
-  if (!TT.empty()) return 0;
-
-  if (M.getEndianness()  == Module::LittleEndian &&
-      M.getPointerSize() == Module::Pointer32)
-    return 10;                                   // Weak match
-  else if (M.getEndianness() != Module::AnyEndianness ||
-           M.getPointerSize() != Module::AnyPointerSize)
-    return 0;                                    // Match for some other target
-
-  return getJITMatchQuality()/2;
-}
-
-ThumbTargetMachine::ThumbTargetMachine(const Module &M, const std::string &FS)
-  : ARMTargetMachine(M, FS, true) {
-}
-
-/// TargetMachine ctor - Create an ARM architecture model.
-///
-ARMTargetMachine::ARMTargetMachine(const Module &M, const std::string &FS,
-                                   bool isThumb)
-  : Subtarget(M, FS, isThumb),
-    DataLayout(Subtarget.isAPCS_ABI() ?
-               // APCS ABI
-          (isThumb ?
-           std::string("e-p:32:32-f64:32:32-i64:32:32-"
-                       "i16:16:32-i8:8:32-i1:8:32-a:0:32") :
-           std::string("e-p:32:32-f64:32:32-i64:32:32")) :
-               // AAPCS ABI
-          (isThumb ?
-           std::string("e-p:32:32-f64:64:64-i64:64:64-"
-                       "i16:16:32-i8:8:32-i1:8:32-a:0:32") :
-           std::string("e-p:32:32-f64:64:64-i64:64:64"))),
-    InstrInfo(Subtarget),
-    FrameInfo(Subtarget),
-    JITInfo(),
-    TLInfo(*this) {
-  DefRelocModel = getRelocationModel();
-}
-
-unsigned ARMTargetMachine::getJITMatchQuality() {
-#if defined(__arm__)
-  return 10;
-#endif
-  return 0;
-}
-
-unsigned ARMTargetMachine::getModuleMatchQuality(const Module &M) {
-  std::string TT = M.getTargetTriple();
-  // Match arm-foo-bar, as well as things like armv5blah-*
-  if (TT.size() >= 4 &&
-      (TT.substr(0, 4) == "arm-" || TT.substr(0, 4) == "armv"))
-    return 20;
-  // If the target triple is something non-arm, we don't match.
-  if (!TT.empty()) return 0;
-
-  if (M.getEndianness()  == Module::LittleEndian &&
-      M.getPointerSize() == Module::Pointer32)
-    return 10;                                   // Weak match
-  else if (M.getEndianness() != Module::AnyEndianness ||
-           M.getPointerSize() != Module::AnyPointerSize)
-    return 0;                                    // Match for some other target
-
-  return getJITMatchQuality()/2;
-}
-
-
-const TargetAsmInfo *ARMTargetMachine::createTargetAsmInfo() const {
-  switch (Subtarget.TargetType) {
-   case ARMSubtarget::isDarwin:
-    return new ARMDarwinTargetAsmInfo(*this);
-   case ARMSubtarget::isELF:
-    return new ARMELFTargetAsmInfo(*this);
-   default:
-    return new ARMGenericTargetAsmInfo(*this);
+static MCAsmInfo *createMCAsmInfo(const Target &T, StringRef TT) {
+  Triple TheTriple(TT);
+  switch (TheTriple.getOS()) {
+  case Triple::Darwin:
+    return new ARMMCAsmInfoDarwin();
+  default:
+    return new ARMELFMCAsmInfo();
   }
 }
 
 
+extern "C" void LLVMInitializeARMTarget() {
+  // Register the target.
+  RegisterTargetMachine<ARMTargetMachine> X(TheARMTarget);
+  RegisterTargetMachine<ThumbTargetMachine> Y(TheThumbTarget);
+
+  // Register the target asm info.
+  RegisterAsmInfoFn A(TheARMTarget, createMCAsmInfo);
+  RegisterAsmInfoFn B(TheThumbTarget, createMCAsmInfo);
+}
+
+/// TargetMachine ctor - Create an ARM architecture model.
+///
+ARMBaseTargetMachine::ARMBaseTargetMachine(const Target &T,
+                                           const std::string &TT,
+                                           const std::string &FS,
+                                           bool isThumb)
+  : LLVMTargetMachine(T, TT),
+    Subtarget(TT, FS, isThumb),
+    FrameInfo(Subtarget),
+    JITInfo(),
+    InstrItins(Subtarget.getInstrItineraryData()) {
+  DefRelocModel = getRelocationModel();
+}
+
+ARMTargetMachine::ARMTargetMachine(const Target &T, const std::string &TT,
+                                   const std::string &FS)
+  : ARMBaseTargetMachine(T, TT, FS, false), InstrInfo(Subtarget),
+    DataLayout(Subtarget.isAPCS_ABI() ?
+               std::string("e-p:32:32-f64:32:32-i64:32:32-n32") :
+               std::string("e-p:32:32-f64:64:64-i64:64:64-n32")),
+    TLInfo(*this),
+    TSInfo(*this) {
+}
+
+ThumbTargetMachine::ThumbTargetMachine(const Target &T, const std::string &TT,
+                                       const std::string &FS)
+  : ARMBaseTargetMachine(T, TT, FS, true),
+    InstrInfo(Subtarget.hasThumb2()
+              ? ((ARMBaseInstrInfo*)new Thumb2InstrInfo(Subtarget))
+              : ((ARMBaseInstrInfo*)new Thumb1InstrInfo(Subtarget))),
+    DataLayout(Subtarget.isAPCS_ABI() ?
+               std::string("e-p:32:32-f64:32:32-i64:32:32-"
+                           "i16:16:32-i8:8:32-i1:8:32-a:0:32-n32") :
+               std::string("e-p:32:32-f64:64:64-i64:64:64-"
+                           "i16:16:32-i8:8:32-i1:8:32-a:0:32-n32")),
+    TLInfo(*this),
+    TSInfo(*this) {
+}
+
+
+
 // Pass Pipeline Configuration
-bool ARMTargetMachine::addInstSelector(PassManagerBase &PM,
-                                       CodeGenOpt::Level OptLevel) {
-  PM.add(createARMISelDag(*this));
+bool ARMBaseTargetMachine::addInstSelector(PassManagerBase &PM,
+                                           CodeGenOpt::Level OptLevel) {
+  PM.add(createARMISelDag(*this, OptLevel));
   return false;
 }
 
-bool ARMTargetMachine::addPreEmitPass(PassManagerBase &PM,
-                                      CodeGenOpt::Level OptLevel) {
-  // FIXME: temporarily disabling load / store optimization pass for Thumb mode.
-  if (OptLevel != CodeGenOpt::None && !DisableLdStOpti && !Subtarget.isThumb())
-    PM.add(createARMLoadStoreOptimizationPass());
+bool ARMBaseTargetMachine::addPreRegAlloc(PassManagerBase &PM,
+                                          CodeGenOpt::Level OptLevel) {
+  if (Subtarget.hasNEON())
+    PM.add(createNEONPreAllocPass());
 
-  if (OptLevel != CodeGenOpt::None &&
-      !DisableIfConversion && !Subtarget.isThumb())
-    PM.add(createIfConverterPass());
+  // FIXME: temporarily disabling load / store optimization pass for Thumb1.
+  if (OptLevel != CodeGenOpt::None && !Subtarget.isThumb1Only())
+    PM.add(createARMLoadStoreOptimizationPass(true));
+  return true;
+}
+
+bool ARMBaseTargetMachine::addPreSched2(PassManagerBase &PM,
+                                        CodeGenOpt::Level OptLevel) {
+  // FIXME: temporarily disabling load / store optimization pass for Thumb1.
+  if (OptLevel != CodeGenOpt::None) {
+    if (!Subtarget.isThumb1Only())
+      PM.add(createARMLoadStoreOptimizationPass());
+    if (Subtarget.hasNEON())
+      PM.add(createNEONMoveFixPass());
+  }
+
+  // Expand some pseudo instructions into multiple instructions to allow
+  // proper scheduling.
+  PM.add(createARMExpandPseudoPass());
+
+  return true;
+}
+
+bool ARMBaseTargetMachine::addPreEmitPass(PassManagerBase &PM,
+                                          CodeGenOpt::Level OptLevel) {
+  // FIXME: temporarily disabling load / store optimization pass for Thumb1.
+  if (OptLevel != CodeGenOpt::None) {
+    if (!Subtarget.isThumb1Only())
+      PM.add(createIfConverterPass());
+  }
+
+  if (Subtarget.isThumb2()) {
+    PM.add(createThumb2ITBlockPass());
+    PM.add(createThumb2SizeReductionPass());
+  }
 
   PM.add(createARMConstantIslandPass());
   return true;
 }
 
-bool ARMTargetMachine::addAssemblyEmitter(PassManagerBase &PM,
+bool ARMBaseTargetMachine::addCodeEmitter(PassManagerBase &PM,
                                           CodeGenOpt::Level OptLevel,
-                                          bool Verbose,
-                                          raw_ostream &Out) {
-  // Output assembly language.
-  assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-  if (AsmPrinterCtor)
-    PM.add(AsmPrinterCtor(Out, *this, OptLevel, Verbose));
-
-  return false;
-}
-
-
-bool ARMTargetMachine::addCodeEmitter(PassManagerBase &PM,
-                                      CodeGenOpt::Level OptLevel,
-                                      bool DumpAsm,
-                                      MachineCodeEmitter &MCE) {
+                                          JITCodeEmitter &JCE) {
   // FIXME: Move this to TargetJITInfo!
   if (DefRelocModel == Reloc::Default)
     setRelocationModel(Reloc::Static);
 
   // Machine code emitter pass for ARM.
-  PM.add(createARMCodeEmitterPass(*this, MCE));
-  if (DumpAsm) {
-    assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-    if (AsmPrinterCtor)
-      PM.add(AsmPrinterCtor(errs(), *this, OptLevel, true));
-  }
-
-  return false;
-}
-
-bool ARMTargetMachine::addSimpleCodeEmitter(PassManagerBase &PM,
-                                            CodeGenOpt::Level OptLevel,
-                                            bool DumpAsm,
-                                            MachineCodeEmitter &MCE) {
-  // Machine code emitter pass for ARM.
-  PM.add(createARMCodeEmitterPass(*this, MCE));
-  if (DumpAsm) {
-    assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-    if (AsmPrinterCtor)
-      PM.add(AsmPrinterCtor(errs(), *this, OptLevel, true));
-  }
-
+  PM.add(createARMJITCodeEmitterPass(*this, JCE));
   return false;
 }

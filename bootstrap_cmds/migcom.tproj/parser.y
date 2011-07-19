@@ -504,7 +504,7 @@ BasicTypeSpec		:	IPCType
 			|	syLParen IPCType syComma IntExp
 				IPCFlags syRParen
 {
-    error("Long form type declarations aren't allowed anylonger\n");
+    error("Long form type declarations aren't allowed any longer\n");
 }
 			;
 

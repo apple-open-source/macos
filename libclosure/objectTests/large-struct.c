@@ -1,16 +1,22 @@
-//  -*- mode:C; c-basic-offset:4; tab-width:4; intent-tabs-mode:nil;  -*-
-// CONFIG
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG
 
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
+#import "test.h"
 
 typedef struct {
     unsigned long ps[30];
     int qs[30];
 } BobTheStruct;
 
-int main (int argc, const char * argv[]) {
+int main () {
     BobTheStruct inny;
     BobTheStruct outty;
     BobTheStruct (^copyStruct)(BobTheStruct);
@@ -29,17 +35,13 @@ int main (int argc, const char * argv[]) {
     outty = copyStruct(inny);
 
     if ( &inny == &outty ) {
-        printf("%s: struct wasn't copied.", argv[0]);
-        exit(1);
+        fail("struct wasn't copied");
     }
     for(i=0; i<30; i++) {
         if ( (inny.ps[i] != outty.ps[i]) || (inny.qs[i] != outty.qs[i]) ) {
-            printf("%s: struct contents did not match.", argv[0]);
-            exit(1);
+            fail("struct contents did not match.");
         }
     }
     
-    printf("%s: success\n", argv[0]);
-    
-    return 0;
+    succeed(__FILE__);
 }

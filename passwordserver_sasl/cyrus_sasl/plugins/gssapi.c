@@ -210,7 +210,7 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
     if(!utils)
 		return SASL_FAIL;
     
-    len = sizeof(prefix);
+    len = strlen(prefix);
     ret = _plug_buf_alloc(utils, &out, &curlen, 256);
     if(ret != SASL_OK) return SASL_OK;
     
@@ -237,7 +237,7 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
 	    return SASL_OK;
 	}
 	
-	len += len + msg.length;
+	len += msg.length;
 	ret = _plug_buf_alloc(utils, &out, &curlen, len);
 	
 	if(ret != SASL_OK) {
@@ -245,7 +245,8 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
 	    return SASL_OK;
 	}
 	
-	strcat((char *)out, msg.value);
+	memcpy(out + strlen(out), msg.value, msg.length);
+	out[len-1] = '\0';
 	
 	GSS_LOCK_MUTEX(utils);
 	gss_release_buffer(&min_stat, &msg);
@@ -287,7 +288,7 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
 	    return SASL_OK;
 	}
 	
-	len += len + msg.length;
+	len += msg.length;
 
 	ret = _plug_buf_alloc(utils, &out, &curlen, len);
 	if(ret != SASL_OK) {
@@ -295,7 +296,8 @@ sasl_gss_seterror_(const sasl_utils_t *utils, OM_uint32 maj, OM_uint32 min,
 	    return SASL_NOMEM;
 	}
 	
-	strcat((char *)out, msg.value);
+	memcpy(out + strlen(out), msg.value, msg.length);
+	out[len-1] = '\0';
 	
 	GSS_LOCK_MUTEX(utils);
 	gss_release_buffer(&min_stat, &msg);
@@ -676,6 +678,7 @@ gssapi_server_mech_step(void *conn_context,
     switch (text->state) {
 
     case SASL_GSSAPI_STATE_AUTHNEG:
+#if 0 /* Disabling this code is the fix for <rdar://problem/8933333> */
 	if (text->server_name == GSS_C_NO_NAME) { /* only once */
 	    name_token.length = strlen(params->service) + 1 + strlen(params->serverFQDN);
 	    name_token.value = (char *)params->utils->malloc((name_token.length + 1) * sizeof(char));
@@ -726,6 +729,7 @@ gssapi_server_mech_step(void *conn_context,
 			return SASL_FAIL;
 	    }
 	}
+#endif /* <rdar://problem/8933333> */
 	
 	if (clientinlen) {
 	    real_input_token.value = (void *)clientin;
@@ -761,7 +765,7 @@ gssapi_server_mech_step(void *conn_context,
 	}
 	if ( maj_stat == GSS_S_COMPLETE )
 	{
-		void *some_lucid_ctx;
+		void *some_lucid_ctx = NULL;
 		apple_gss_krb5_authdata_if_relevant *key;
 		uint32_t vers;
 		authdata_info *authdataInfoPtr;
@@ -788,6 +792,9 @@ gssapi_server_mech_step(void *conn_context,
 		else {
 			text->utils->seterror(text->utils->conn, SASL_LOG_WARN, "apple_gss_krb5_export_authdata_if_relevant_context");
 			return SASL_BADPARAM;
+		}
+		if(some_lucid_ctx) {
+			apple_gss_krb5_free_authdata_if_relevant(&min_stat, some_lucid_ctx);
 		}
 	}
 	if ((params->props.security_flags & SASL_SEC_PASS_CREDENTIALS) &&
@@ -1204,6 +1211,16 @@ gssapi_server_mech_step(void *conn_context,
 	GSS_UNLOCK_MUTEX(params->utils);
 	
 	text->state = SASL_GSSAPI_STATE_AUTHENTICATED;
+
+	if(oparams && oparams->spare_ptr3) {
+		authdata_info *authdataInfoPtr = (authdata_info *)oparams->spare_ptr3;
+		if(authdataInfoPtr->realm) {
+			free(authdataInfoPtr->realm);
+			authdataInfoPtr->realm = NULL;
+		}
+		free(authdataInfoPtr);
+		oparams->spare_ptr3 = NULL;
+	}
 	
 	/* used by layers */
 	_plug_decode_init(&text->decode_context, text->utils,

@@ -28,7 +28,7 @@
 
 #include "JITCode.h"
 #include "JITStubs.h"
-#include "JSImmediate.h"
+#include "JSValue.h"
 #include "MacroAssembler.h"
 #include "RegisterFile.h"
 #include <wtf/AlwaysInline.h>
@@ -152,32 +152,71 @@ namespace JSC {
         static const FPRegisterID fpRegT0 = MIPSRegisters::f4;
         static const FPRegisterID fpRegT1 = MIPSRegisters::f6;
         static const FPRegisterID fpRegT2 = MIPSRegisters::f8;
-        static const FPRegisterID fpRegT2 = MIPSRegisters::f10;
+        static const FPRegisterID fpRegT3 = MIPSRegisters::f10;
+#elif CPU(SH4)
+        static const RegisterID timeoutCheckRegister = SH4Registers::r8;
+        static const RegisterID callFrameRegister = SH4Registers::fp;
+
+        static const RegisterID regT0 = SH4Registers::r0;
+        static const RegisterID regT1 = SH4Registers::r1;
+        static const RegisterID regT2 = SH4Registers::r2;
+        static const RegisterID regT3 = SH4Registers::r10;
+        static const RegisterID regT4 = SH4Registers::r4;
+        static const RegisterID regT5 = SH4Registers::r5;
+        static const RegisterID regT6 = SH4Registers::r6;
+        static const RegisterID regT7 = SH4Registers::r7;
+        static const RegisterID firstArgumentRegister =regT4;
+
+        static const RegisterID returnValueRegister = SH4Registers::r0;
+        static const RegisterID cachedResultRegister = SH4Registers::r0;
+
+        static const FPRegisterID fpRegT0  = SH4Registers::fr0;
+        static const FPRegisterID fpRegT1  = SH4Registers::fr2;
+        static const FPRegisterID fpRegT2  = SH4Registers::fr4;
+        static const FPRegisterID fpRegT3  = SH4Registers::fr6;
+        static const FPRegisterID fpRegT4  = SH4Registers::fr8;
+        static const FPRegisterID fpRegT5  = SH4Registers::fr10;
+        static const FPRegisterID fpRegT6  = SH4Registers::fr12;
+        static const FPRegisterID fpRegT7  = SH4Registers::fr14;
 #else
 #error "JIT not supported on this platform."
 #endif
 
+#if USE(JSVALUE32_64)
+        // Can't just propogate JSValue::Int32Tag as visual studio doesn't like it
+        static const unsigned Int32Tag = 0xffffffff;
+        COMPILE_ASSERT(Int32Tag == JSValue::Int32Tag, Int32Tag_out_of_sync);
+#else
+        static const unsigned Int32Tag = TagTypeNumber >> 32;
+#endif
         inline Jump emitLoadJSCell(unsigned virtualRegisterIndex, RegisterID payload);
         inline Jump emitLoadInt32(unsigned virtualRegisterIndex, RegisterID dst);
         inline Jump emitLoadDouble(unsigned virtualRegisterIndex, FPRegisterID dst, RegisterID scratch);
 
+        inline void storePtrWithWriteBarrier(TrustedImmPtr ptr, RegisterID /* owner */, Address dest)
+        {
+            storePtr(ptr, dest);
+        }
+
 #if USE(JSVALUE32_64)
         inline Jump emitJumpIfNotJSCell(unsigned virtualRegisterIndex);
-        inline Address tagFor(unsigned index, RegisterID base = callFrameRegister);
+        inline Address tagFor(int index, RegisterID base = callFrameRegister);
 #endif
 
-#if USE(JSVALUE32) || USE(JSVALUE64)
+#if USE(JSVALUE64)
         Jump emitJumpIfImmediateNumber(RegisterID reg);
         Jump emitJumpIfNotImmediateNumber(RegisterID reg);
         void emitFastArithImmToInt(RegisterID reg);
 #endif
 
-        inline Address payloadFor(unsigned index, RegisterID base = callFrameRegister);
-        inline Address addressFor(unsigned index, RegisterID base = callFrameRegister);
+        inline Address payloadFor(int index, RegisterID base = callFrameRegister);
+        inline Address intPayloadFor(int index, RegisterID base = callFrameRegister);
+        inline Address intTagFor(int index, RegisterID base = callFrameRegister);
+        inline Address addressFor(int index, RegisterID base = callFrameRegister);
     };
 
     struct ThunkHelpers {
-        static unsigned stringImplDataOffset() { return WebCore::StringImpl::dataOffset(); }
+        static unsigned stringImplDataOffset() { return StringImpl::dataOffset(); }
         static unsigned jsStringLengthOffset() { return OBJECT_OFFSETOF(JSString, m_length); }
         static unsigned jsStringValueOffset() { return OBJECT_OFFSETOF(JSString, m_value); }
     };
@@ -192,34 +231,44 @@ namespace JSC {
     inline JSInterfaceJIT::Jump JSInterfaceJIT::emitJumpIfNotJSCell(unsigned virtualRegisterIndex)
     {
         ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
-        return branch32(NotEqual, tagFor(virtualRegisterIndex), Imm32(JSValue::CellTag));
+        return branch32(NotEqual, tagFor(virtualRegisterIndex), TrustedImm32(JSValue::CellTag));
     }
     
     inline JSInterfaceJIT::Jump JSInterfaceJIT::emitLoadInt32(unsigned virtualRegisterIndex, RegisterID dst)
     {
         ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
         loadPtr(payloadFor(virtualRegisterIndex), dst);
-        return branch32(NotEqual, tagFor(virtualRegisterIndex), Imm32(JSValue::Int32Tag));
+        return branch32(NotEqual, tagFor(static_cast<int>(virtualRegisterIndex)), TrustedImm32(JSValue::Int32Tag));
     }
     
-    inline JSInterfaceJIT::Address JSInterfaceJIT::tagFor(unsigned virtualRegisterIndex, RegisterID base)
+    inline JSInterfaceJIT::Address JSInterfaceJIT::tagFor(int virtualRegisterIndex, RegisterID base)
     {
-        ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
-        return Address(base, (virtualRegisterIndex * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.tag));
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
+        return Address(base, (static_cast<unsigned>(virtualRegisterIndex) * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.tag));
     }
     
-    inline JSInterfaceJIT::Address JSInterfaceJIT::payloadFor(unsigned virtualRegisterIndex, RegisterID base)
+    inline JSInterfaceJIT::Address JSInterfaceJIT::payloadFor(int virtualRegisterIndex, RegisterID base)
     {
-        ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
-        return Address(base, (virtualRegisterIndex * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.payload));
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
+        return Address(base, (static_cast<unsigned>(virtualRegisterIndex) * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.payload));
+    }
+
+    inline JSInterfaceJIT::Address JSInterfaceJIT::intPayloadFor(int virtualRegisterIndex, RegisterID base)
+    {
+        return payloadFor(virtualRegisterIndex, base);
+    }
+
+    inline JSInterfaceJIT::Address JSInterfaceJIT::intTagFor(int virtualRegisterIndex, RegisterID base)
+    {
+        return tagFor(virtualRegisterIndex, base);
     }
 
     inline JSInterfaceJIT::Jump JSInterfaceJIT::emitLoadDouble(unsigned virtualRegisterIndex, FPRegisterID dst, RegisterID scratch)
     {
         ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
         loadPtr(tagFor(virtualRegisterIndex), scratch);
-        Jump isDouble = branch32(Below, scratch, Imm32(JSValue::LowestTag));
-        Jump notInt = branch32(NotEqual, scratch, Imm32(JSValue::Int32Tag));
+        Jump isDouble = branch32(Below, scratch, TrustedImm32(JSValue::LowestTag));
+        Jump notInt = branch32(NotEqual, scratch, TrustedImm32(JSValue::Int32Tag));
         loadPtr(payloadFor(virtualRegisterIndex), scratch);
         convertInt32ToDouble(scratch, dst);
         Jump done = jump();
@@ -273,46 +322,29 @@ namespace JSC {
     
 #endif
 
-#if USE(JSVALUE32)
-    inline JSInterfaceJIT::Jump JSInterfaceJIT::emitLoadJSCell(unsigned virtualRegisterIndex, RegisterID dst)
+#if USE(JSVALUE64)
+    inline JSInterfaceJIT::Address JSInterfaceJIT::payloadFor(int virtualRegisterIndex, RegisterID base)
     {
-        loadPtr(addressFor(virtualRegisterIndex), dst);
-        return branchTest32(NonZero, dst, Imm32(JSImmediate::TagMask));
-    }
-
-    inline JSInterfaceJIT::Jump JSInterfaceJIT::emitLoadInt32(unsigned virtualRegisterIndex, RegisterID dst)
-    {
-        loadPtr(addressFor(virtualRegisterIndex), dst);
-        Jump result = branchTest32(Zero, dst, Imm32(JSImmediate::TagTypeNumber));
-        rshift32(Imm32(JSImmediate::IntegerPayloadShift), dst);
-        return result;
-    }
-
-    inline JSInterfaceJIT::Jump JSInterfaceJIT::emitLoadDouble(unsigned, FPRegisterID, RegisterID)
-    {
-        ASSERT_NOT_REACHED();
-        return jump();
-    }
-    
-    ALWAYS_INLINE void JSInterfaceJIT::emitFastArithImmToInt(RegisterID reg)
-    {
-        rshift32(Imm32(JSImmediate::IntegerPayloadShift), reg);
-    }
-    
-#endif
-
-#if !USE(JSVALUE32_64)
-    inline JSInterfaceJIT::Address JSInterfaceJIT::payloadFor(unsigned virtualRegisterIndex, RegisterID base)
-    {
-        ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
         return addressFor(virtualRegisterIndex, base);
     }
+
+    inline JSInterfaceJIT::Address JSInterfaceJIT::intPayloadFor(int virtualRegisterIndex, RegisterID base)
+    {
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
+        return Address(base, (static_cast<unsigned>(virtualRegisterIndex) * sizeof(Register)) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.payload));
+    }
+    inline JSInterfaceJIT::Address JSInterfaceJIT::intTagFor(int virtualRegisterIndex, RegisterID base)
+    {
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
+        return Address(base, (static_cast<unsigned>(virtualRegisterIndex) * sizeof(Register)) + OBJECT_OFFSETOF(EncodedValueDescriptor, asBits.tag));
+    }
 #endif
 
-    inline JSInterfaceJIT::Address JSInterfaceJIT::addressFor(unsigned virtualRegisterIndex, RegisterID base)
+    inline JSInterfaceJIT::Address JSInterfaceJIT::addressFor(int virtualRegisterIndex, RegisterID base)
     {
-        ASSERT(static_cast<int>(virtualRegisterIndex) < FirstConstantRegisterIndex);
-        return Address(base, (virtualRegisterIndex * sizeof(Register)));
+        ASSERT(virtualRegisterIndex < FirstConstantRegisterIndex);
+        return Address(base, (static_cast<unsigned>(virtualRegisterIndex) * sizeof(Register)));
     }
 
 }

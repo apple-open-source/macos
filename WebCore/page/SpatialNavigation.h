@@ -22,6 +22,8 @@
 #define SpatialNavigation_h
 
 #include "FocusDirection.h"
+#include "HTMLFrameOwnerElement.h"
+#include "IntRect.h"
 #include "Node.h"
 
 #include <limits>
@@ -30,6 +32,7 @@ namespace WebCore {
 
 class Element;
 class Frame;
+class HTMLAreaElement;
 class IntRect;
 class RenderObject;
 
@@ -39,6 +42,13 @@ inline long long maxDistance()
 {
     return numeric_limits<long long>::max();
 }
+
+inline int fudgeFactor()
+{
+    return 2;
+}
+
+bool isSpatialNavigationEnabled(const Frame*);
 
 // Spatially speaking, two given elements in a web page can be:
 // 1) Fully aligned: There is a full intersection between the rects, either
@@ -91,38 +101,54 @@ enum RectsAlignment {
 
 struct FocusCandidate {
     FocusCandidate()
-        : node(0)
+        : visibleNode(0)
+        , focusableNode(0)
+        , enclosingScrollableBox(0)
         , distance(maxDistance())
         , parentDistance(maxDistance())
         , alignment(None)
         , parentAlignment(None)
+        , isOffscreen(true)
+        , isOffscreenAfterScrolling(true)
     {
     }
 
-    FocusCandidate(Node* n)
-        : node(n)
-        , distance(maxDistance())
-        , parentDistance(maxDistance())
-        , alignment(None)
-        , parentAlignment(None)
-    {
-    }
+    FocusCandidate(Node* n, FocusDirection);
+    explicit FocusCandidate(HTMLAreaElement* area, FocusDirection);
+    bool isNull() const { return !visibleNode; }
+    bool inScrollableContainer() const { return visibleNode && enclosingScrollableBox; }
+    bool isFrameOwnerElement() const { return visibleNode && visibleNode->isFrameOwnerElement(); }
+    Document* document() const { return visibleNode ? visibleNode->document() : 0; }
 
-    bool isNull() const { return !node; }
-    Document* document() const { return node ? node->document() : 0; }
-
-    Node* node;
+    // We handle differently visibleNode and FocusableNode to properly handle the areas of imagemaps,
+    // where visibleNode would represent the image element and focusableNode would represent the area element.
+    // In all other cases, visibleNode and focusableNode are one and the same.
+    Node* visibleNode;
+    Node* focusableNode;
+    Node* enclosingScrollableBox;
     long long distance;
     long long parentDistance;
     RectsAlignment alignment;
     RectsAlignment parentAlignment;
+    IntRect rect;
+    bool isOffscreen;
+    bool isOffscreenAfterScrolling;
 };
 
-void distanceDataForNode(FocusDirection direction, Node* start, FocusCandidate& candidate);
+bool hasOffscreenRect(Node*, FocusDirection direction = FocusDirectionNone);
 bool scrollInDirection(Frame*, FocusDirection);
-void scrollIntoView(Element*);
-bool hasOffscreenRect(Node*);
-bool isInRootDocument(Node*);
+bool scrollInDirection(Node* container, FocusDirection);
+bool canScrollInDirection(const Node* container, FocusDirection);
+bool canScrollInDirection(const Frame*, FocusDirection);
+bool canBeScrolledIntoView(FocusDirection, const FocusCandidate&);
+bool areElementsOnSameLine(const FocusCandidate& firstCandidate, const FocusCandidate& secondCandidate);
+void distanceDataForNode(FocusDirection, const FocusCandidate& current, FocusCandidate& candidate);
+Node* scrollableEnclosingBoxOrParentFrameForNodeInDirection(FocusDirection, Node*);
+IntRect nodeRectInAbsoluteCoordinates(Node*, bool ignoreBorder = false);
+IntRect frameRectInAbsoluteCoordinates(Frame*);
+IntRect virtualRectForDirection(FocusDirection, const IntRect& startingRect, int width = 0);
+IntRect virtualRectForAreaElementAndDirection(HTMLAreaElement*, FocusDirection);
+HTMLFrameOwnerElement* frameOwnerElement(FocusCandidate&);
 
 } // namspace WebCore
 

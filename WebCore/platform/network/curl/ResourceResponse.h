@@ -28,6 +28,8 @@
 
 #include "ResourceResponseBase.h"
 
+typedef struct _CFURLResponse* CFURLResponseRef;
+
 namespace WebCore {
 
 class ResourceResponse : public ResourceResponseBase {
@@ -46,8 +48,19 @@ public:
     void setResponseFired(bool fired) { m_responseFired = fired; }
     bool responseFired() { return m_responseFired; }
 
+    // Needed for compatibility.
+    CFURLResponseRef cfURLResponse() const { return 0; }
+
 private:
+    friend class ResourceResponseBase;
+
+    PassOwnPtr<CrossThreadResourceResponseData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceResponseData> data) const { return data; }
+    void doPlatformAdopt(PassOwnPtr<CrossThreadResourceResponseData>) { }
+
     bool m_responseFired;
+};
+
+struct CrossThreadResourceResponseData : public CrossThreadResourceResponseDataBase {
 };
 
 } // namespace WebCore

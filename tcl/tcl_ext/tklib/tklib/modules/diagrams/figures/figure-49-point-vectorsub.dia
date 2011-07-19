@@ -1,0 +1,15 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+proc vector {p args} {
+    circle radius 2 at $p color red
+    arrow  {*}$args from [0 0] to $p 
+}
+
+set p [100  0]
+set d [100 -50]
+
+set P [vector $p        text P below]
+set D [vector $d        text D above]
+vector [$p - $d] text P-D rjust
+
+arrow dotted from [$P end] to [[$P end] - $d]
+

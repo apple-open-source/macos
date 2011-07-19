@@ -1,17 +1,17 @@
 /*
- * "$Id: checkpo.c 7223 2008-01-16 23:41:19Z mike $"
+ * "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $"
  *
- * Verify that translations in the .po file have the same number and type of
- * printf-style format strings.
+ *   Verify that translations in the .po file have the same number and type of
+ *   printf-style format strings.
  *
- * Copyright 2007-2009 by Apple Inc.
- * Copyright 1997-2007 by Easy Software Products, all rights reserved.
+ *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
- * These coded instructions, statements, and computer programs are the
- * property of Apple Inc. and are protected by Federal copyright
- * law.  Distribution and use rights are outlined in the file "LICENSE.txt"
- * which should have been included with this file.  If this file is
- * file is missing or damaged, see the license at "http://www.cups.org/".
+ *   These coded instructions, statements, and computer programs are the
+ *   property of Apple Inc. and are protected by Federal copyright
+ *   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+ *   which should have been included with this file.  If this file is
+ *   file is missing or damaged, see the license at "http://www.cups.org/".
  *
  * Usage:
  *
@@ -29,10 +29,7 @@
  *   free_formats()    - Free all of the format strings.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cups/string.h>
-#include <cups/i18n.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -83,12 +80,14 @@ main(int  argc,				/* I - Number of command-line args */
     * Use the CUPS .po loader to get the message strings...
     */
 
-    if ((po = _cupsMessageLoad(argv[i], 0)) == NULL)
+    if ((po = _cupsMessageLoad(argv[i], 1)) == NULL)
     {
       perror(argv[i]);
       return (1);
     }
 
+    if (i > 1)
+      putchar('\n');
     printf("%s: ", argv[i]);
     fflush(stdout);
 
@@ -104,6 +103,68 @@ main(int  argc,				/* I - Number of command-line args */
          msg;
 	 msg = (_cups_message_t *)cupsArrayNext(po))
     {
+     /*
+      * Make sure filter message prefixes are not translated...
+      */
+
+      if (!strncmp(msg->id, "ALERT:", 6) || !strncmp(msg->id, "CRIT:", 5) ||
+          !strncmp(msg->id, "DEBUG:", 6) || !strncmp(msg->id, "DEBUG2:", 7) ||
+          !strncmp(msg->id, "EMERG:", 6) || !strncmp(msg->id, "ERROR:", 6) ||
+          !strncmp(msg->id, "INFO:", 5) || !strncmp(msg->id, "NOTICE:", 7) ||
+          !strncmp(msg->id, "WARNING:", 8))
+      {
+        if (pass)
+	{
+	  pass = 0;
+	  puts("FAIL");
+	}
+
+	printf("    Bad prefix on filter message \"%s\"\n",
+	       abbreviate(msg->id, idbuf, sizeof(idbuf)));
+      }
+
+      idfmt = msg->id + strlen(msg->id) - 1;
+      if (idfmt >= msg->id && *idfmt == '\n')
+      {
+        if (pass)
+	{
+	  pass = 0;
+	  puts("FAIL");
+	}
+
+	printf("    Trailing newline in message \"%s\"\n",
+	       abbreviate(msg->id, idbuf, sizeof(idbuf)));
+      }
+
+      for (; idfmt >= msg->id; idfmt --)
+        if (!isspace(*idfmt & 255))
+	  break;
+
+      if (idfmt >= msg->id && *idfmt == '!')
+      {
+        if (pass)
+	{
+	  pass = 0;
+	  puts("FAIL");
+	}
+
+	printf("    Exclamation in message \"%s\"\n",
+	       abbreviate(msg->id, idbuf, sizeof(idbuf)));
+      }
+
+      if ((idfmt - 2) >= msg->id && !strncmp(idfmt - 2, "...", 3))
+      {
+        if (pass)
+	{
+	  pass = 0;
+	  puts("FAIL");
+	}
+
+	printf("    Ellipsis in message \"%s\"\n",
+	       abbreviate(msg->id, idbuf, sizeof(idbuf)));
+      }
+
+
       if (!msg->str || !msg->str[0])
       {
         untranslated ++;
@@ -190,41 +251,17 @@ main(int  argc,				/* I - Number of command-line args */
 	  }
 
 	  printf("    Bad escape \\%c in filter message \"%s\"\n"
-	         "      for \"%s\"\n\n", strfmt[1],
+	         "      for \"%s\"\n", strfmt[1],
 		 abbreviate(msg->str, strbuf, sizeof(strbuf)),
 		 abbreviate(msg->id, idbuf, sizeof(idbuf)));
           break;
         }
-
-     /*
-      * Make sure filter message prefixes are preserved...
-      */
-
-      if ((!strncmp(msg->id, "ALERT:", 6) && strncmp(msg->str, "ALERT:", 6)) ||
-          (!strncmp(msg->id, "CRIT:", 5) && strncmp(msg->str, "CRIT:", 5)) ||
-          (!strncmp(msg->id, "DEBUG:", 6) && strncmp(msg->str, "DEBUG:", 6)) ||
-          (!strncmp(msg->id, "DEBUG2:", 7) && strncmp(msg->str, "DEBUG2:", 7)) ||
-          (!strncmp(msg->id, "EMERG:", 6) && strncmp(msg->str, "EMERG:", 6)) ||
-          (!strncmp(msg->id, "ERROR:", 6) && strncmp(msg->str, "ERROR:", 6)) ||
-          (!strncmp(msg->id, "INFO:", 5) && strncmp(msg->str, "INFO:", 5)) ||
-          (!strncmp(msg->id, "NOTICE:", 7) && strncmp(msg->str, "NOTICE:", 7)) ||
-          (!strncmp(msg->id, "WARNING:", 8) && strncmp(msg->str, "WARNING:", 8)))
-      {
-        if (pass)
-	{
-	  pass = 0;
-	  puts("FAIL");
-	}
-
-	printf("    Bad prefix on filter message \"%s\"\n      for \"%s\"\n\n",
-	       abbreviate(msg->str, strbuf, sizeof(strbuf)),
-	       abbreviate(msg->id, idbuf, sizeof(idbuf)));
-      }
     }
 
     if (pass)
     {
-      if ((untranslated * 10) >= cupsArrayCount(po))
+      if ((untranslated * 10) >= cupsArrayCount(po) &&
+          strcmp(argv[i], "cups.pot"))
       {
        /*
         * Only allow 10% of messages to be untranslated before we fail...
@@ -232,14 +269,14 @@ main(int  argc,				/* I - Number of command-line args */
 
         pass = 0;
         puts("FAIL");
-	printf("    Too many untranslated messages (%d of %d)\n\n",
+	printf("    Too many untranslated messages (%d of %d)\n",
 	       untranslated, cupsArrayCount(po));
       }
       else if (untranslated > 0)
-        printf("PASS (%d of %d untranslated)\n\n", untranslated,
+        printf("PASS (%d of %d untranslated)\n", untranslated,
 	       cupsArrayCount(po));
       else
-        puts("PASS\n");
+        puts("PASS");
     }
 
     if (!pass)
@@ -372,5 +409,5 @@ free_formats(cups_array_t *fmts)	/* I - Array of format strings */
 
 
 /*
- * End of "$Id: checkpo.c 7223 2008-01-16 23:41:19Z mike $".
+ * End of "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $".
  */

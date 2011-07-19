@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2008, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -19,6 +19,7 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
+#include "unicode/localpointer.h"
 
 /**
  *\file
@@ -26,10 +27,9 @@
  *
  * <h2>Bidi algorithm for ICU</h2>
  *
- * This is an implementation of the Unicode Bidirectional algorithm.
+ * This is an implementation of the Unicode Bidirectional Algorithm.
  * The algorithm is defined in the
- * <a href="http://www.unicode.org/unicode/reports/tr9/">Unicode Standard Annex #9</a>,
- * version 13, also described in The Unicode Standard, Version 4.0 .<p>
+ * <a href="http://www.unicode.org/unicode/reports/tr9/">Unicode Standard Annex #9</a>.<p>
  *
  * Note: Libraries that perform a bidirectional algorithm and
  * reorder strings accordingly are sometimes called "Storage Layout Engines".
@@ -415,12 +415,44 @@ typedef uint8_t UBiDiLevel;
  * @stable ICU 2.0
  */
 enum UBiDiDirection {
-    /** All left-to-right text. This is a 0 value. @stable ICU 2.0 */
-    UBIDI_LTR,
-    /** All right-to-left text. This is a 1 value. @stable ICU 2.0 */
-    UBIDI_RTL,
-    /** Mixed-directional text. @stable ICU 2.0 */
-    UBIDI_MIXED
+  /** Left-to-right text. This is a 0 value.
+   * <ul>
+   * <li>As return value for <code>ubidi_getDirection()</code>, it means
+   *     that the source string contains no right-to-left characters, or
+   *     that the source string is empty and the paragraph level is even.
+   * <li> As return value for <code>ubidi_getBaseDirection()</code>, it
+   *      means that the first strong character of the source string has
+   *      a left-to-right direction.
+   * </ul>
+   * @stable ICU 2.0
+   */
+  UBIDI_LTR,
+  /** Right-to-left text. This is a 1 value.
+   * <ul>
+   * <li>As return value for <code>ubidi_getDirection()</code>, it means
+   *     that the source string contains no left-to-right characters, or
+   *     that the source string is empty and the paragraph level is odd.
+   * <li> As return value for <code>ubidi_getBaseDirection()</code>, it
+   *      means that the first strong character of the source string has
+   *      a right-to-left direction.
+   * </ul>
+   * @stable ICU 2.0
+   */
+  UBIDI_RTL,
+  /** Mixed-directional text.
+   * <p>As return value for <code>ubidi_getDirection()</code>, it means
+   *    that the source string contains both left-to-right and
+   *    right-to-left characters.
+   * @stable ICU 2.0
+   */
+  UBIDI_MIXED,
+  /** No strongly directional text.
+   * <p>As return value for <code>ubidi_getBaseDirection()</code>, it means
+   *    that the source string is missing or empty, or contains neither left-to-right
+   *    nor right-to-left characters.
+   * @draft ICU 4.6
+   */
+  UBIDI_NEUTRAL
 };
 
 /** @stable ICU 2.0 */
@@ -518,6 +550,25 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode);
  */
 U_STABLE void U_EXPORT2
 ubidi_close(UBiDi *pBiDi);
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUBiDiPointer
+ * "Smart pointer" class, closes a UBiDi via ubidi_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUBiDiPointer, UBiDi, ubidi_close);
+
+U_NAMESPACE_END
+
+#endif
 
 /**
  * Modify the operation of the Bidi algorithm such that it
@@ -791,12 +842,10 @@ typedef enum UBiDiReorderingMode {
  *
  * <li>When the reordering mode is set to
  * <code>#UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL</code>, the Logical to Visual
- * Bidi algorithm used in Windows XP is used as an approximation of an
- * "inverse Bidi" algorithm.
+ * Bidi algorithm used in Windows XP is used as an approximation of an "inverse Bidi" algorithm.
  * <br>
  * For example, an LTR paragraph with the content "abc FED123" (where
- * upper case represents RTL characters) will be transformed to
- * "abc 123DEF.</li>
+ * upper case represents RTL characters) will be transformed to "abc 123DEF."</li>
  * </ul>
  *
  * <p>In all the reordering modes specifying an "inverse Bidi" algorithm
@@ -1068,6 +1117,8 @@ ubidi_getReorderingOptions(UBiDi *pBiDi);
  *        must take care of the deallocation of the <code>embeddingLevels</code> array.<br><br>
  *        <strong>Note:</strong> the <code>embeddingLevels</code> array must be
  *        at least <code>length</code> long.
+ *        This pointer can be <code>NULL</code> if this
+ *        value is not necessary.
  *
  * @param pErrorCode must be a valid pointer to an error code value.
  * @stable ICU 2.0
@@ -1139,12 +1190,43 @@ ubidi_setLine(const UBiDi *pParaBiDi,
  *         that indicates if the entire text
  *         represented by this object is unidirectional,
  *         and which direction, or if it is mixed-directional.
+ * Note -  The value <code>UBIDI_NEUTRAL</code> is never returned from this method.
  *
  * @see UBiDiDirection
  * @stable ICU 2.0
  */
 U_STABLE UBiDiDirection U_EXPORT2
 ubidi_getDirection(const UBiDi *pBiDi);
+
+/**
+ * Gets the base direction of the text provided according
+ * to the Unicode Bidirectional Algorithm. The base direction
+ * is derived from the first character in the string with bidirectional
+ * character type L, R, or AL. If the first such character has type L,
+ * <code>UBIDI_LTR</code> is returned. If the first such character has
+ * type R or AL, <code>UBIDI_RTL</code> is returned. If the string does
+ * not contain any character of these types, then
+ * <code>UBIDI_NEUTRAL</code> is returned.
+ *
+ * This is a lightweight function for use when only the base direction
+ * is needed and no further bidi processing of the text is needed.
+ *
+ * @param text is a pointer to the text whose base
+ *             direction is needed.
+ * Note: the text must be (at least) @c length long.
+ *
+ * @param length is the length of the text;
+ *               if <code>length==-1</code> then the text
+ *               must be zero-terminated.
+ *
+ * @return  <code>UBIDI_LTR</code>, <code>UBIDI_RTL</code>,
+ *          <code>UBIDI_NEUTRAL</code>
+ *
+ * @see UBiDiDirection
+ * @draft ICU 4.6
+ */
+U_DRAFT UBiDiDirection U_EXPORT2
+ubidi_getBaseDirection(const UChar *text,  int32_t length );
 
 /**
  * Get the pointer to the text.
@@ -1378,7 +1460,8 @@ ubidi_countRuns(UBiDi *pBiDi, UErrorCode *pErrorCode);
  *
  * @return the directionality of the run,
  *         <code>UBIDI_LTR==0</code> or <code>UBIDI_RTL==1</code>,
- *         never <code>UBIDI_MIXED</code>.
+ *         never <code>UBIDI_MIXED</code>,
+ *         never <code>UBIDI_NEUTRAL</code>.
  *
  * @see ubidi_countRuns
  *

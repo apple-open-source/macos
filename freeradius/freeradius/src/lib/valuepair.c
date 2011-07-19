@@ -135,6 +135,33 @@ VALUE_PAIR *pairalloc(DICT_ATTR *da)
 }
 
 
+VALUE_PAIR *paircreate_raw(int attr, int type, VALUE_PAIR *vp)
+{
+	char *p = (char *) (vp + 1);
+
+	if (!vp->flags.unknown_attr) {
+		pairfree(&vp);
+		return NULL;
+	}
+
+	vp->vendor = VENDOR(attr);
+	vp->attribute = attr;
+	vp->operator = T_OP_EQ;
+	vp->name = p;
+	vp->type = type;
+	vp->length = 0;
+	memset(&vp->flags, 0, sizeof(vp->flags));
+	vp->flags.unknown_attr = 1;
+	
+	if (!vp_print_name(p, FR_VP_NAME_LEN, vp->attribute)) {
+		free(vp);
+		return NULL;
+	}
+
+	return vp;
+}
+
+
 /*
  *	Create a new valuepair.
  */
@@ -153,19 +180,7 @@ VALUE_PAIR *paircreate(int attr, int type)
 	/*
 	 *	It isn't in the dictionary: update the name.
 	 */
-	if (!da) {
-		char *p = (char *) (vp + 1);
-		
-		vp->vendor = VENDOR(attr);
-		vp->attribute = attr;
-		vp->name = p;
-		vp->type = type; /* be forgiving */
-
-		if (!vp_print_name(p, FR_VP_NAME_LEN, vp->attribute)) {
-			free(vp);
-			return NULL;
-		}
-	}
+	if (!da) return paircreate_raw(attr, type, vp);
 
 	return vp;
 }
@@ -320,6 +335,12 @@ VALUE_PAIR *paircopyvp(const VALUE_PAIR *vp)
 		return NULL;
 	}
 	memcpy(n, vp, sizeof(*n) + name_len);
+
+	/*
+	 *	Reset the name field to point to the NEW attribute,
+	 *	rather than to the OLD one.
+	 */
+	if (vp->flags.unknown_attr) n->name = (char *) (n + 1);
 	n->next = NULL;
 
 	if ((n->type == PW_TYPE_TLV) &&
@@ -791,13 +812,11 @@ static int gettime(const char *valstr, time_t *date)
 		f[2] = strchr(f[1], ':'); /* find : separator */
 		if (f[2]) {
 		  *(f[2]++) = '\0';	/* nuke it, and point to SS */
-		} else {
-		  strcpy(f[2], "0");	/* assignment would discard const */
-		}
+		  tm->tm_sec = atoi(f[2]);
+		}			/* else leave it as zero */
 
 		tm->tm_hour = atoi(f[0]);
 		tm->tm_min = atoi(f[1]);
-		tm->tm_sec = atoi(f[2]);
 	}
 
 	/*
@@ -821,6 +840,27 @@ static const char *hextab = "0123456789abcdef";
  *  double-check the parsed value, to be sure it's legal for that
  *  type (length, etc.)
  */
+static uint32_t getint(const char *value, char **end)
+{
+	if ((value[0] == '0') && (value[1] == 'x')) {
+		return strtoul(value, end, 16);
+	}
+
+	return strtoul(value, end, 10);
+}
+
+static int check_for_whitespace(const char *value)
+{
+	while (*value) {
+		if (!isspace((int) *value)) return 0;
+
+		value++;
+	}
+
+	return 1;
+}
+
+
 VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 {
 	char		*p, *s=0;
@@ -828,6 +868,8 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 	int		x;
 	size_t		length;
 	DICT_VALUE	*dval;
+
+	if (!value) return NULL;
 
 	/*
 	 *	Even for integers, dates and ip addresses we
@@ -872,6 +914,10 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 						c = '\'';
 						cp++;
 						break;
+					case '\\':
+						c = '\\';
+						cp++;
+						break;
 					case '`':
 						c = '`';
 						cp++;
@@ -895,6 +941,7 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 				*p++ = c;
 				length++;
 			}
+			vp->vp_strvalue[length] = '\0';
 			vp->length = length;
 			break;
 
@@ -939,73 +986,48 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 			break;
 
 		case PW_TYPE_BYTE:
-			if (value && (value[0] == '0') && (value[1] == 'x')) {
-				goto do_octets;
-			}
+			vp->length = 1;
 
 			/*
 			 *	Note that ALL integers are unsigned!
 			 */
-			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
+			vp->vp_integer = getint(value, &p);
 			if (!*p) {
 				if (vp->vp_integer > 255) {
 					fr_strerror_printf("Byte value \"%s\" is larger than 255", value);
 					return NULL;
 				}
-				vp->length = 1;
 				break;
 			}
-
-			/*
-			 *	Look for the named value for the given
-			 *	attribute.
-			 */
-			if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
-				fr_strerror_printf("Unknown value %s for attribute %s",
-					   value, vp->name);
-				return NULL;
-			}
-			vp->vp_integer = dval->value;
-			vp->length = 1;
-			break;
+			if (check_for_whitespace(p)) break;
+			goto check_for_value;
 
 		case PW_TYPE_SHORT:
 			/*
 			 *	Note that ALL integers are unsigned!
 			 */
-			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
+			vp->vp_integer = getint(value, &p);
+			vp->length = 2;
 			if (!*p) {
 				if (vp->vp_integer > 65535) {
 					fr_strerror_printf("Byte value \"%s\" is larger than 65535", value);
 					return NULL;
 				}
-				vp->length = 2;
 				break;
 			}
-
-			/*
-			 *	Look for the named value for the given
-			 *	attribute.
-			 */
-			if ((dval = dict_valbyname(vp->attribute, value)) == NULL) {
-				fr_strerror_printf("Unknown value %s for attribute %s",
-					   value, vp->name);
-				return NULL;
-			}
-			vp->vp_integer = dval->value;
-			vp->length = 2;
-			break;
+			if (check_for_whitespace(p)) break;
+			goto check_for_value;
 
 		case PW_TYPE_INTEGER:
 			/*
 			 *	Note that ALL integers are unsigned!
 			 */
-			vp->vp_integer = (uint32_t) strtoul(value, &p, 10);
-			if (!*p) {
-				vp->length = 4;
-				break;
-			}
+			vp->vp_integer = getint(value, &p);
+			vp->length = 4;
+			if (!*p) break;
+			if (check_for_whitespace(p)) break;
 
+	check_for_value:
 			/*
 			 *	Look for the named value for the given
 			 *	attribute.
@@ -1016,7 +1038,6 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 				return NULL;
 			}
 			vp->vp_integer = dval->value;
-			vp->length = 4;
 			break;
 
 		case PW_TYPE_DATE:
@@ -1059,8 +1080,8 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 			 *	then fall through to raw octets, so that
 			 *	the user can at least make them by hand...
 			 */
-#endif
 	do_octets:
+#endif
 			/* raw octets: 0x01020304... */
 		case PW_TYPE_OCTETS:
 			if (strncasecmp(value, "0x", 2) == 0) {
@@ -1106,12 +1127,21 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 			break;
 
 		case PW_TYPE_IPV6ADDR:
-			if (inet_pton(AF_INET6, value, &vp->vp_ipv6addr) <= 0) {
-				fr_strerror_printf("failed to parse IPv6 address "
-					   "string \"%s\"", value);
-				return NULL;
+			{
+				fr_ipaddr_t ipaddr;
+
+				if (ip_hton(value, AF_INET6, &ipaddr) < 0) {
+					char buffer[1024];
+
+					strlcpy(buffer, fr_strerror(), sizeof(buffer));
+
+					fr_strerror_printf("failed to parse IPv6 address "
+                                                           "string \"%s\": %s", value, buffer);
+					return NULL;
+				}
+				vp->vp_ipv6addr = ipaddr.ipaddr.ip6addr;
+				vp->length = 16; /* length of IPv6 address */
 			}
-			vp->length = 16; /* length of IPv6 address */
 			break;
 
 		case PW_TYPE_IPV6PREFIX:
@@ -1261,7 +1291,7 @@ static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 		return NULL;
 	}
 
-	attr = vendor = 0;
+	vendor = 0;
 
 	/*
 	 *	Pull off vendor prefix first.
@@ -1372,6 +1402,9 @@ static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 		return NULL;
 	}
 
+	vp->operator = (operator == 0) ? T_OP_EQ : operator;
+	if (!value) return vp;
+
 	size = strlen(value + 2);
 
 	/*
@@ -1414,8 +1447,6 @@ static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 		break;
 	}
        
-	vp->operator = (operator == 0) ? T_OP_EQ : operator;
-
 	return vp;
 }
 
@@ -1490,13 +1521,12 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 	if (value && (*value == ':' && da->flags.has_tag)) {
 	        /* If we already found a tag, this is invalid */
 	        if(found_tag) {
-		        pairbasicfree(vp);
 			fr_strerror_printf("Duplicate tag %s for attribute %s",
 				   value, vp->name);
 			DEBUG("Duplicate tag %s for attribute %s\n",
 				   value, vp->name);
+		        pairbasicfree(vp);
 			return NULL;
-
 		}
 	        /* Colon found and attribute allows a tag */
 	        if (value[1] == '*' && value[2] == ':') {
@@ -1539,6 +1569,15 @@ VALUE_PAIR *pairmake(const char *attribute, const char *value, int operator)
 		 */
 	case T_OP_REG_EQ:	/* =~ */
 	case T_OP_REG_NE:	/* !~ */
+		if (!value) {
+			fr_strerror_printf("No regular expression found in %s",
+					   vp->name);
+		        pairbasicfree(vp);
+			return NULL;
+		}
+	  
+		strlcpy(vp->vp_strvalue, value, sizeof(vp->vp_strvalue));
+		vp->length = strlen(vp->vp_strvalue);
 		/*
 		 *	If anything goes wrong, this is a run-time error,
 		 *	not a compile-time error.
@@ -1635,7 +1674,7 @@ VALUE_PAIR *pairread(const char **ptr, FR_TOKEN *eol)
 	/*
 	 *	We may have Foo-Bar:= stuff, so back up.
 	 */
-	if (attr[len - 1] == ':') {
+	if ((len > 0) && (attr[len - 1] == ':')) {
 		p--;
 		len--;
 	}
@@ -1880,6 +1919,8 @@ VALUE_PAIR *readvp2(FILE *fp, int *pfiledone, const char *errprefix)
  *	e.g. "foo" != "bar"
  *
  *	Returns true (comparison is true), or false (comparison is not true);
+ *
+ *	FIXME: Ignores tags!
  */
 int paircmp(VALUE_PAIR *one, VALUE_PAIR *two)
 {

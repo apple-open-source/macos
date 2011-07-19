@@ -59,7 +59,8 @@
 #include "ipsec_utils.h"
 #include "RASSchemaDefinitions.h"
 
-static char*	default_log_path = "/var/log/ppp/" DAEMON_NAME ".log";
+static char*	default_log_path = "/var/log/" DAEMON_NAME ".log";
+static u_char*  empty_str = (u_char*)"";
 
 
 static void usage(FILE *fp, const char *argv0);
@@ -241,7 +242,7 @@ fail:
 static int process_server_prefs(struct vpn_params *params)
 {
     u_int32_t		lval, len;
-    char            str[MAXPATHLEN];   
+    u_char            str[MAXPATHLEN];   
 	int				err ;
 	struct hostent	*hostent;
 	
@@ -249,7 +250,7 @@ static int process_server_prefs(struct vpn_params *params)
     if (lval)
         params->max_sessions = lval;
 	len = sizeof(str);
-    get_str_option(params->serverRef, kRASEntServer, kRASPropServerLogfile, str, &len, default_log_path);
+    get_str_option(params->serverRef, kRASEntServer, kRASPropServerLogfile, str, sizeof(str), &len, (u_char*)default_log_path);
     if (str[0])
         memcpy(params->log_path, str, len + 1);
 
@@ -264,7 +265,7 @@ static int process_server_prefs(struct vpn_params *params)
 		
 		// will determine the interface from the cluster address
 		//len = sizeof(str);
-		//get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingInterface, str, &len, "en1");
+		//get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingInterface, str, sizeof(str), &len, "en1");
 		//strncpy(params->lb_interface, str, sizeof(params->lb_interface));
 
 		// is priority really useful ?
@@ -276,9 +277,9 @@ static int process_server_prefs(struct vpn_params *params)
 		get_int_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingPort, &lval, LB_DEFAULT_PORT);
 		params->lb_port = htons(lval);
 		len = sizeof(str);
-		get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingAddress, str, &len, "");
+		get_str_option(params->serverRef, kRASEntServer, kRASPropServerLoadBalancingAddress, str, sizeof(str), &len, empty_str);
 		// ask the system to look up the given name.
-		hostent = getipnodebyname (str, AF_INET, 0, &err);
+		hostent = getipnodebyname ((char*)str, AF_INET, 0, &err);
 		if (!hostent) {
 			vpnlog(LOG_ERR, "Incorrect Load Balancing address found '%s'\n", str);
 			params->lb_enable = 0;
@@ -507,8 +508,8 @@ int plugin_exists(const char *inPath)
 
     path[0] = 0;
     if (inPath[0] != '/') 
-        strcpy(path, PLUGINS_DIR);
-    strcat(path, inPath);
+        strlcpy(path, PLUGINS_DIR, sizeof(path));
+    strlcat(path, inPath, sizeof(path));
 
     if (stat(path, sbpTemp))
             return 0;
@@ -554,7 +555,7 @@ void addparam(char **arg, u_int32_t *argi, char *param)
     int len = strlen(param);
 
     if (len && (arg[*argi] = malloc(len + 1))) {
-        strcpy(arg[*argi], param);
+        strlcpy(arg[*argi], param, (len + 1));
         (*argi)++;
     }
 }
@@ -567,7 +568,7 @@ void addintparam(char **arg, u_int32_t *argi, char *param, u_int32_t val)
     char	str[32];
     
     addparam(arg, argi, param);
-    sprintf(str, "%d", val);
+    snprintf(str, sizeof(str), "%d", val);
     addparam(arg, argi, str);
 }
 

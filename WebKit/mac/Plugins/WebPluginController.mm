@@ -122,7 +122,9 @@ static NSMutableSet *pluginViews = nil;
 
 - (id)initWithDocumentView:(NSView *)view
 {
-    [super init];
+    self = [super init];
+    if (!self)
+        return nil;
     _documentView = view;
     _views = [[NSMutableArray alloc] init];
     _checksInProgress = (NSMutableSet *)CFMakeCollectable(CFSetCreateMutable(NULL, 0, NULL));
@@ -138,6 +140,9 @@ static NSMutableSet *pluginViews = nil;
 {
     [_views release];
     [_checksInProgress release];
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    [_viewsNotInDocument release];
+#endif
     [super dealloc];
 }
 
@@ -171,8 +176,8 @@ static NSMutableSet *pluginViews = nil;
     if ([_views count] > 0)
         LOG(Plugins, "starting WebKit plugins : %@", [_views description]);
     
-    int i, count = [_views count];
-    for (i = 0; i < count; i++) {
+    int count = [_views count];
+    for (int i = 0; i < count; i++) {
         id aView = [_views objectAtIndex:i];
         if ([aView respondsToSelector:@selector(webPlugInStart)]) {
             JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
@@ -194,12 +199,33 @@ static NSMutableSet *pluginViews = nil;
         LOG(Plugins, "stopping WebKit plugins: %@", [_views description]);
     }
     
-    int i, count = [_views count];
-    for (i = 0; i < count; i++)
+    int viewsCount = [_views count];
+    for (int i = 0; i < viewsCount; i++)
         [self stopOnePlugin:[_views objectAtIndex:i]];
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    int viewsNotInDocumentCount = [_viewsNotInDocument count];
+    for (int i = 0; i < viewsNotInDocumentCount; i++)
+        [self stopOnePlugin:[_viewsNotInDocument objectAtIndex:i]];
+#endif
 
     _started = NO;
 }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+- (void)pluginViewCreated:(NSView *)view
+{
+    if (!_viewsNotInDocument)
+        _viewsNotInDocument= [[NSMutableArray alloc] init];
+    if (![_viewsNotInDocument containsObject:view])
+        [_viewsNotInDocument addObject:view];
+}
+
++ (void)pluginViewHidden:(NSView *)view
+{
+    [pluginViews removeObject:view];
+}
+#endif
 
 - (void)addPlugin:(NSView *)view
 {
@@ -211,6 +237,11 @@ static NSMutableSet *pluginViews = nil;
     if (![_views containsObject:view]) {
         [_views addObject:view];
         [[_documentView _webView] addPluginInstanceView:view];
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+        if ([_viewsNotInDocument containsObject:view])
+            [_viewsNotInDocument removeObject:view];
+#endif
 
         BOOL oldDefersCallbacks = [[self webView] defersCallbacks];
         if (!oldDefersCallbacks)
@@ -251,7 +282,11 @@ static NSMutableSet *pluginViews = nil;
 
 - (void)destroyPlugin:(NSView *)view
 {
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    if ([_views containsObject:view] || [_viewsNotInDocument containsObject:view]) {
+#else
     if ([_views containsObject:view]) {
+#endif
         if (_started)
             [self stopOnePlugin:view];
         [self destroyOnePlugin:view];
@@ -264,6 +299,9 @@ static NSMutableSet *pluginViews = nil;
         [pluginViews removeObject:view];
         [[_documentView _webView] removePluginInstanceView:view];
         [_views removeObject:view];
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+        [_viewsNotInDocument removeObject:view];
+#endif
     }
 }
 
@@ -297,8 +335,8 @@ static void cancelOutstandingCheck(const void *item, void *context)
 
     [self _cancelOutstandingChecks];
     
-    int i, count = [_views count];
-    for (i = 0; i < count; i++) {
+    int viewsCount = [_views count];
+    for (int i = 0; i < viewsCount; i++) {
         id aView = [_views objectAtIndex:i];
         [self destroyOnePlugin:aView];
         
@@ -310,6 +348,13 @@ static void cancelOutstandingCheck(const void *item, void *context)
         [pluginViews removeObject:aView];
         [[_documentView _webView] removePluginInstanceView:aView];
     }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    int viewsNotInDocumentCount = [_viewsNotInDocument count];
+    for (int i = 0; i < viewsNotInDocumentCount; i++)
+        [self destroyOnePlugin:[_viewsNotInDocument objectAtIndex:i]];
+#endif
+
     [_views makeObjectsPerformSelector:@selector(removeFromSuperviewWithoutNeedingDisplay)];
     [_views release];
     _views = nil;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2008, 2010 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,17 +29,23 @@
 # endif
 #endif /* STDC_HEADERS */
 #include <usersec.h>
+#include <uinfo.h>
 
-#include <compat.h>
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: aix.c,v 1.7 2008/11/06 00:42:37 millert Exp $";
-#endif /* lint */
+#include "compat.h"
+#include "alloc.h"
+#include "error.h"
 
 #ifdef HAVE_GETUSERATTR
 
+#ifndef HAVE_SETRLIMIT64
+# define setrlimit64(a, b) setrlimit(a, b)
+# define rlimit64 rlimit
+# define rlim64_t rlim_t
+# define RLIM64_INFINITY RLIM_INFINITY
+#endif /* HAVE_SETRLIMIT64 */
+
 #ifndef RLIM_SAVED_MAX
-# define RLIM_SAVED_MAX	RLIM_INFINITY
+# define RLIM_SAVED_MAX	RLIM64_INFINITY
 #endif
 
 struct aix_limit {
@@ -63,39 +69,48 @@ static int
 aix_getlimit(user, lim, valp)
     char *user;
     char *lim;
-    int *valp;
+    rlim64_t *valp;
 {
-    if (getuserattr(user, lim, valp, SEC_INT) != 0)
-	return getuserattr("default", lim, valp, SEC_INT);
+    int val;
+
+    if (getuserattr(user, lim, &val, SEC_INT) != 0 &&
+	getuserattr("default", lim, &val, SEC_INT) != 0) {
+	return(-1);
+    }
+    *valp = val;
     return(0);
 }
 
-void
+static void
 aix_setlimits(user)
     char *user;
 {
-    struct rlimit rlim;
-    int i, n;
+    struct rlimit64 rlim;
+    rlim64_t val;
+    int n;
+
+    if (setuserdb(S_READ) != 0)
+	error(1, "unable to open userdb");
 
     /*
      * For each resource limit, get the soft/hard values for the user
-     * and set those values via setrlimit().  Must be run as euid 0.
+     * and set those values via setrlimit64().  Must be run as euid 0.
      */
     for (n = 0; n < sizeof(aix_limits) / sizeof(aix_limits[0]); n++) {
 	/*
 	 * We have two strategies, depending on whether or not the
 	 * hard limit has been defined.
 	 */
-	if (aix_getlimit(user, aix_limits[n].hard, &i) == 0) {
-	    rlim.rlim_max = i == -1 ? RLIM_INFINITY : i * aix_limits[n].factor;
-	    if (aix_getlimit(user, aix_limits[n].soft, &i) == 0)
-		rlim.rlim_cur = i == -1 ? RLIM_INFINITY : i * aix_limits[n].factor;
+	if (aix_getlimit(user, aix_limits[n].hard, &val) == 0) {
+	    rlim.rlim_max = val == -1 ? RLIM64_INFINITY : val * aix_limits[n].factor;
+	    if (aix_getlimit(user, aix_limits[n].soft, &val) == 0)
+		rlim.rlim_cur = val == -1 ? RLIM64_INFINITY : val * aix_limits[n].factor;
 	    else
 		rlim.rlim_cur = rlim.rlim_max;	/* soft not specd, use hard */
 	} else {
 	    /* No hard limit set, try soft limit. */
-	    if (aix_getlimit(user, aix_limits[n].soft, &i) == 0)
-		rlim.rlim_cur = i == -1 ? RLIM_INFINITY : i * aix_limits[n].factor;
+	    if (aix_getlimit(user, aix_limits[n].soft, &val) == 0)
+		rlim.rlim_cur = val == -1 ? RLIM64_INFINITY : val * aix_limits[n].factor;
 
 	    /* Set hard limit per AIX /etc/security/limits documentation. */
 	    switch (aix_limits[n].resource) {
@@ -107,12 +122,70 @@ aix_setlimits(user)
 		    rlim.rlim_max = RLIM_SAVED_MAX;
 		    break;
 		default:
-		    rlim.rlim_max = RLIM_INFINITY;
+		    rlim.rlim_max = RLIM64_INFINITY;
 		    break;
 	    }
 	}
-	(void)setrlimit(aix_limits[n].resource, &rlim);
+	(void)setrlimit64(aix_limits[n].resource, &rlim);
+    }
+    enduserdb();
+}
+
+#ifdef HAVE_SETAUTHDB
+/*
+ * Look up administrative domain for user (SYSTEM in /etc/security/user) and
+ * set it as the default for the process.  This ensures that password and
+ * group lookups are made against the correct source (files, NIS, LDAP, etc).
+ */
+void
+aix_setauthdb(user)
+    char *user;
+{
+    char *registry;
+
+    if (user != NULL) {
+	if (setuserdb(S_READ) != 0)
+	    error(1, "unable to open userdb");
+	if (getuserattr(user, S_REGISTRY, &registry, SEC_CHAR) == 0) {
+	    if (setauthdb(registry, NULL) != 0)
+		error(1, "unable to switch to registry \"%s\" for %s",
+		    registry, user);
+	}
+	enduserdb();
     }
 }
 
+/*
+ * Restore the saved administrative domain, if any.
+ */
+void
+aix_restoreauthdb()
+{
+    if (setauthdb(NULL, NULL) != 0)
+	error(1, "unable to restore registry");
+}
+#endif
+
+void
+aix_prep_user(user, tty)
+    char *user;
+    char *tty;
+{
+    char *info;
+    int len;
+
+    /* set usrinfo, like login(1) does */
+    len = easprintf(&info, "NAME=%s%cLOGIN=%s%cLOGNAME=%s%cTTY=%s%c",
+	user, '\0', user, '\0', user, '\0', tty ? tty : "", '\0');
+    (void)usrinfo(SETUINFO, info, len);
+    efree(info);
+
+#ifdef HAVE_SETAUTHDB
+    /* set administrative domain */
+    aix_setauthdb(user);
+#endif
+
+    /* set resource limits */
+    aix_setlimits(user);
+}
 #endif /* HAVE_GETUSERATTR */

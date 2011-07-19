@@ -38,6 +38,8 @@ namespace WebCore { class Element; }
 #endif
 
 namespace WebKit {
+class WebNamedNodeMap;
+
     // Provides access to some properties of a DOM element node.
     class WebElement : public WebNode {
     public:
@@ -48,12 +50,25 @@ namespace WebKit {
         void assign(const WebElement& e) { WebNode::assign(e); }
 
         WEBKIT_API bool isFormControlElement() const;
+        WEBKIT_API bool isTextFormControlElement() const;
         WEBKIT_API WebString tagName() const;
         WEBKIT_API bool hasTagName(const WebString&) const;
         WEBKIT_API bool hasAttribute(const WebString&) const;
         WEBKIT_API WebString getAttribute(const WebString&) const;
         WEBKIT_API bool setAttribute(const WebString& name, const WebString& value);
+        WEBKIT_API WebNamedNodeMap attributes() const;
         WEBKIT_API WebString innerText() const;
+
+        WEBKIT_API WebNode shadowRoot();
+        WEBKIT_API WebNode ensureShadowRoot();
+        WEBKIT_API void removeShadowRoot();
+        WEBKIT_API WebString shadowPseudoId() const;
+
+        // Returns the language code specified for this element.  This attribute
+        // is inherited, so the returned value is drawn from the closest parent
+        // element that has the lang attribute set, or from the HTTP
+        // "Content-Language" header as a fallback.
+        WEBKIT_API WebString computeInheritedLanguage() const;
 
 #if WEBKIT_IMPLEMENTATION
         WebElement(const WTF::PassRefPtr<WebCore::Element>&);

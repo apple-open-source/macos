@@ -1,3 +1,40 @@
+2010-07-06  Andreas Kupries  <andreask@activestate.com>
+
+	* base64.tcl (::base64::decode): [Bug 2976290]: Throw a proper
+	* base64.man: error when trying to decode padding with not enough
+	* base64.test: data in front of it. Extended testsuite. Bumped to
+	* pkgIndex.tcl: version 2.4.2.
+
+2010-05-04  Andreas Kupries  <andreask@activestate.com>
+
+	* base64.man:: Fix small typo, default for -maxlen changed to 76.
+
+2010-05-03  Andreas Kupries  <andreask@activestate.com>
+
+	* ascii85.man: [FR 2993200]: Added new package ascii85,
+	* ascii85.tcl: provided by Emiliano
+	* ascii85.test: <egavilan@users.sourceforge.net>
+	* pkgIndex.tcl: 
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-05-07  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* uuencode.tcl: Changed poor idiom for setting interp result.
+	* yencode.tcl:
+
+2009-01-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* base64.tcl: Define a number of transient variables in the
+	  namespace, to avoid creative-writing. Fixes [Bug 2538424].
+
+	* pkgIndex.tcl: Bumped version to 2.4.1.
+	* base64.man:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

@@ -98,12 +98,12 @@
 		08FB7795FE84155DC02AAC07 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				60E857010B5D528300817AFD /* label.c */,
 				6086946205D071D70071FCB4 /* add.c */,
 				6086946305D071D70071FCB4 /* create.c */,
 				6086946405D071D70071FCB4 /* destroy.c */,
 				6086946505D071D70071FCB4 /* gpt.c */,
 				6086946605D071D70071FCB4 /* gpt.h */,
+				60E857010B5D528300817AFD /* label.c */,
 				6086946705D071D70071FCB4 /* map.c */,
 				6086946805D071D70071FCB4 /* map.h */,
 				6086946A05D071D70071FCB4 /* recover.c */,
@@ -174,9 +174,11 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 60E856F20B5D518E00817AFD /* Build configuration list for PBXProject "gpt" */;
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 08FB7794FE84155DC02AAC07 /* gpt */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				6003DACE071F234300B23FF4 /* gpt */,
 			);
@@ -202,99 +204,50 @@
 				6003DAD4071F234300B23FF4 /* create.c in Sources */,
 				6003DAD5071F234300B23FF4 /* destroy.c in Sources */,
 				6003DAD6071F234300B23FF4 /* gpt.c in Sources */,
+				60E857020B5D528300817AFD /* label.c in Sources */,
 				6003DAD7071F234300B23FF4 /* map.c in Sources */,
 				6003DAD8071F234300B23FF4 /* recover.c in Sources */,
 				6003DAD9071F234300B23FF4 /* remove.c in Sources */,
 				6003DADA071F234300B23FF4 /* show.c in Sources */,
-				60E857020B5D528300817AFD /* label.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		60E856EF0B5D518E00817AFD /* Development */ = {
+		60E856EF0B5D518E00817AFD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				DEBUGGING_SYMBOLS = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = gpt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		60E856F00B5D518E00817AFD /* Deployment */ = {
+		60E856F00B5D518E00817AFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = gpt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall";
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		60E856F10B5D518E00817AFD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = gpt;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Default;
-		};
-		60E856F30B5D518E00817AFD /* Development */ = {
+		60E856F30B5D518E00817AFD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		60E856F40B5D518E00817AFD /* Deployment */ = {
+		60E856F40B5D518E00817AFD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		60E856F50B5D518E00817AFD /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -302,22 +255,20 @@
 		60E856EE0B5D518E00817AFD /* Build configuration list for PBXNativeTarget "gpt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60E856EF0B5D518E00817AFD /* Development */,
-				60E856F00B5D518E00817AFD /* Deployment */,
-				60E856F10B5D518E00817AFD /* Default */,
+				60E856EF0B5D518E00817AFD /* Debug */,
+				60E856F00B5D518E00817AFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		60E856F20B5D518E00817AFD /* Build configuration list for PBXProject "gpt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60E856F30B5D518E00817AFD /* Development */,
-				60E856F40B5D518E00817AFD /* Deployment */,
-				60E856F50B5D518E00817AFD /* Default */,
+				60E856F30B5D518E00817AFD /* Debug */,
+				60E856F40B5D518E00817AFD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -20,12 +20,17 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <libkern/OSAtomic.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
-#include <gssapi/gssapi.h>
-#include <gssapi/gssapi_krb5.h>
+#include <GSS/gssapi.h>
+#include <GSS/gssapi_krb5.h>
+#include <GSS/gssapi_ntlm.h>
+#include <GSS/gssapi_spnego.h>
 
+#include <asl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <stdbool.h>
@@ -34,27 +39,32 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "gssd.h"
 #include "gssd_mach.h"
 
-typedef struct {
-	int total;
-	pthread_mutex_t lock[1];
-} counter, *counter_t;
+/*
+ * OID table for supported mechs. This is index by the enumeration type mechtype
+ * found in gss_mach_types.h.
+ */
+static gss_OID  mechtab[] = {
+	NULL, /* Place holder for GSS_KRB5_MECHANISM */
+	NULL, /* Place holder for GSS_SPNEGO_MECHANISM */
+	NULL, /* Place holder for GSS_NTLM_MECHANISM */
+	NULL
+};
 
-#define	MAXCOUNTERS 6
-#define	gss_init_errors (&counters[0])
-#define	gss_accept_errors (&counters[1])
-#define	server_errors (&counters[2])
-#define	server_deaths (&counters[3])
-#define	key_missmatches (&counters[4])
-#define	successes (&counters[5])
-#define	DISPLAY_ERRS(name, major, minor) \
-		CGSSDisplay_errs((name), (major), (minor))
+int debug = 0;
+
 #define	MAXHOSTNAME 256
 #define	MAXRETRIES 3
 #define	TIMEOUT 100  // 100 microseconds.
 
-counter counters[MAXCOUNTERS];
+volatile int32_t gss_init_errors;
+volatile int32_t gss_accept_errors;
+volatile int32_t server_errors;
+volatile int32_t server_deaths;
+volatile int32_t key_mismatches;
+volatile int32_t successes;
 
 static void	waittime(void);
 void		*server(void *);
@@ -62,23 +72,18 @@ void		*client(void *);
 static void	deallocate(void *, uint32_t);
 static void	server_done();
 static void	waitall(void);
-static void	inc_counter(counter_t);
 static void	report_errors(void);
-
-static void	CGSSDisplay_errs(char* rtnName, OM_uint32 maj, OM_uint32 min);
-static void	HexLine(const char *, uint32_t *, char [80]);
-void		HexDump(const char *, uint32_t, int);
 
 typedef struct s_channel {
 	int client;
 	int failure;
 	pthread_mutex_t lock[1];
 	pthread_cond_t cv[1];
-	byte_buffer ctoken;
+	gssd_byte_buffer ctoken;
 	mach_msg_type_number_t ctokenCnt;
-	byte_buffer stoken;
+	gssd_byte_buffer stoken;
 	mach_msg_type_number_t stokenCnt;
-	byte_buffer clnt_skey;
+	gssd_byte_buffer clnt_skey;
 	mach_msg_type_number_t clnt_skeyCnt;
 } *channel_t;
 
@@ -89,92 +94,141 @@ int read_channel(int d, channel_t chan);
 int write_channel(int d, channel_t chan);
 int close_channel(int d, channel_t chan);
 
-#define ERR(...)   fprintf(stderr,  __VA_ARGS__)
-#define DEBUG(...) fprintf(stdout, __VA_ARGS__)
-
 static char *optstrs[] = {
 	"			if no host is specified, use the local host",
+	"[-b bootstrap label]	client bootstrap name",
+	"[-B bootstrap label]	server bootstrap name",
 	"[-C]			don't canonicalize the host name",
+	"[-d]			debugging",
 	"[-D]			don't use the default credential",
 	"[-e]			exit on mach rpc errors",
-	"[-f]			flags for init sec context",
+	"[-f flags]		flags for init sec context",
 	"[-h]			print this usage message",
 	"[-H]			don't access home directory",
 	"[-i]			run interactively",
 	"[-k]			use kerberos service principal name, otherwise",
 	"			use host base service name",
 	"[-M retries]		max retries before giving up on server death",
-	"[-m krb5 | spnego]	mech to use, defaults to krb5",
+	"[-m krb5 | spnego |ntlm] mech to use, defaults to krb5",
 	"[-n n]			number of experiments to run",
-	"[-p principal]		use princial for client",
+	"[-N uid | user | krb5 | ntlm]	name type for client principal",
+	"[-p principal]		use principal for client",
+	"[-R]			exercise  credential refcounting and exit",
 	"[-r realm]		use realm for kerberos",
-	"[-s n]			number of concurent servers (and clients) to run",
-	"[-t usecs]		averge time to wait in the client",
-	"			This is a random time beteen 0 and 2*usecs",
-	"[-u user]		creditials to run as",
-	"[-U]			don't bring up UI.",
-	"[-v]			verbose flag. May be repeated",
-#ifdef TASK_GSSD_PORT
-	"",
-#else
-	"[-N bootstrap label]	bootstrap name",
-#endif
+	"[-s n]			number of concurrent servers (and clients) to run",
+	"[-S Service principal] Service principal to use",
+	"[-t usecs]		average time to wait in the client",
+	"			This is a random time between 0 and 2*usecs",
+	"[-u user]		credentials to run as",
+	"[-V]			verbose flag. May be repeated",
+	"[-v version]		use version of the protocol",
 };
-	
-	
+
+
 static void
-Usage(const char *prog)
+Usage(void)
 {
 	unsigned int i;
 
-	ERR("Usage: %s [options] [host]\n", prog);
-	for (i = 0; i < sizeof(optstrs)/sizeof(char *); i++) 
-		ERR("\t%s\n", optstrs[i]);			
-			
+	Log("Usage: %s [options] [host]\n", getprogname());
+	for (i = 0; i < sizeof(optstrs)/sizeof(char *); i++)
+		Log("\t%s\n", optstrs[i]);
+
 	exit(EXIT_FAILURE);
 }
 
-int timeout = TIMEOUT; 
+int timeout = TIMEOUT;
 int verbose = 0;
 int max_retries = MAXRETRIES;
 int exitonerror = 0;
 int interactive = 0;
+int version = 0;
 uint32_t uid;
 uint32_t flags;
-uint32_t gssd_flags = (GSSD_HOME_ACCESS_OK | GSSD_UI_OK);
+uint32_t gssd_flags = GSSD_HOME_ACCESS_OK;
 char *principal="";
 char svcname[1024];
-mach_port_t mp;
+mach_port_t server_mp = MACH_PORT_NULL;
+mach_port_t client_mp = MACH_PORT_NULL;
 pthread_cond_t num_servers_cv[1];
 pthread_mutex_t num_servers_lock[1];
 int num_servers;
-mechtype mech = DEFAULT_MECH;
+gssd_mechtype mech = GSSD_KRB5_MECH;
+gssd_nametype name_type = GSSD_MACHINE_UID;
+
+struct gss_name {
+	gssd_nametype nt;
+	gssd_byte_buffer name;
+	uint32_t len;
+} clientp, targetp;
+
+static int
+do_refcount(gssd_mechtype mt, gssd_nametype nt, char *princ)
+{
+	kern_return_t kret;
+	uint32_t M = 0, m = 0;
+
+	printf("trying to hold credential for %s\n", princ);
+	kret = mach_gss_hold_cred(client_mp, mt, nt, (uint8_t *)princ, (uint32_t)strlen(princ), &M, &m);
+	if (kret == KERN_SUCCESS && M == GSS_S_COMPLETE) {
+		printf("Held credential for %s\n", principal);
+		if (interactive) {
+			printf("Press return to release ...");
+			(void)getchar();
+		}
+		kret = mach_gss_unhold_cred(client_mp, mt, nt, (uint8_t *)princ, (uint32_t)strlen(princ), &M, &m);
+		if (kret == KERN_SUCCESS && M == GSS_S_COMPLETE)
+			printf("Unheld credential for %s\n", principal);
+		else {
+			Log("mach_gss_unhold_cred: kret = %d: %#K %#k", kret, M, mechtab[mt], m);
+			return 1;
+		}
+	} else {
+		Log("mach_gss_hold_cred: kret = %d: %#K %#k", kret, M, mechtab[mt], m);
+		return 1;
+	}
+	return 0;
+}
 
 int main(int argc, char *argv[])
 {
-	char *bname = NULL;
+	char *bname_server = NULL, *bname_client = NULL;
 	int i, j, ch;
 	int error;
 	int num = 1;
 	int Servers = 1;
 	int use_kerberos = 0;
+	int refcnt = 0;
 	pthread_t thread;
 	pthread_attr_t attr[1];
 	char hostbuf[MAXHOSTNAME];
 	char *host = hostbuf;
 	char *realm = NULL;
-	char *prog;
-	struct passwd *pent;
+	char *ServicePrincipal = NULL;
+	struct passwd *pent = NULL;
 	kern_return_t kr;
 
 	uid = getuid();
-	prog = strrchr(argv[0], '/');
-	prog = prog ? prog + 1 : argv[0];
+	setprogname(argv[0]);
 
-	while ((ch = getopt(argc, argv, "CDefhHikN:n:M:m:p:r:s:t:u:Uv")) != -1) {
+	/* Set up mech table */
+	mechtab[GSSD_KRB5_MECH] = GSS_KRB5_MECHANISM;
+	mechtab[GSSD_SPNEGO_MECH] = GSS_SPNEGO_MECHANISM;
+	mechtab[GSSD_NTLM_MECH] = GSS_NTLM_MECHANISM;
+
+	while ((ch = getopt(argc, argv, "b:B:CdDef:hHikN:n:M:m:p:r:Rs:S:t:u:v:V")) != -1) {
 		switch (ch) {
+		case 'b':
+			bname_client = optarg;
+			break;
+		case 'B':
+			bname_server = optarg;
+			break;
 		case 'C':
 			gssd_flags |= GSSD_NO_CANON;
+			break;
+		case 'd':
+			debug++;
 			break;
 		case 'D':
 			gssd_flags |= GSSD_NO_DEFAULT;
@@ -194,22 +248,38 @@ int main(int argc, char *argv[])
 		case 'k':
 			use_kerberos = 1;
 			break;
-		case 'N':
-			bname = optarg;
-			break;
-		case 'n':
-			num = atoi(optarg);
-			break;
 		case 'M':
 			max_retries = atoi(optarg);
 			break;
 		case 'm':
 			if (strcmp(optarg, "krb5") == 0)
-				mech = KRB5_MECH;
+				mech = GSSD_KRB5_MECH;
 			else if (strcmp(optarg, "spnego") == 0)
-				mech = SPNEGO_MECH;
+				mech = GSSD_SPNEGO_MECH;
+			else if (strcmp(optarg, "ntlm") == 0)
+				mech = GSSD_NTLM_MECH;
 			else {
-				ERR("Unavailable gss mechanism %s\n", optarg);
+				Log("Unavailable gss mechanism %s\n", optarg);
+				exit(EXIT_FAILURE);
+			}
+			break;
+		case 'n':
+			num = atoi(optarg);
+			break;
+
+		case 'N':
+			if (strcmp(optarg, "uid") == 0)
+				name_type = GSSD_MACHINE_UID;
+			else if (strcmp(optarg, "suid") == 0)
+				name_type = GSSD_STRING_UID;
+			else if (strcmp(optarg, "user") == 0)
+				name_type = GSSD_USER;
+			else if (strcmp(optarg, "krb5") == 0)
+				name_type = GSSD_KRB5_PRINCIPAL;
+			else if (strcmp(optarg, "ntlm") == 0)
+				name_type = GSSD_NTLM_PRINCIPAL;
+			else {
+				Log("Unsupported name type %s\n", optarg);
 				exit(EXIT_FAILURE);
 			}
 			break;
@@ -219,8 +289,14 @@ int main(int argc, char *argv[])
 		case 'r':
 			realm = optarg;
 			break;
+		case 'R':
+			refcnt = 1;
+			break;
 		case 's':
 			Servers = atoi(optarg);
+			break;
+		case 'S':
+			ServicePrincipal = optarg;
 			break;
 		case 't':
 			timeout = atoi(optarg);
@@ -230,16 +306,16 @@ int main(int argc, char *argv[])
 			if (pent)
 				uid = pent->pw_uid;
 			else
-				ERR("Could no find user %s\n", optarg);
+				Log("Could no find user %s\n", optarg);
 			break;
-		case 'U':
-			gssd_flags &= ~GSSD_UI_OK;
-			break;
-		case 'v':
+		case 'V':
 			verbose++;
 			break;
+		case 'v':
+			version = atoi(optarg);
+			break;
 		default:
-			Usage(prog);
+			Usage();
 			break;
 		}
 	}
@@ -251,14 +327,58 @@ int main(int argc, char *argv[])
 	} else if (argc == 1) {
 		host = argv[0];
 	} else {
-		Usage(prog);
+		Usage();
 	}
 
-	if (principal)
-		printf("Using creds for %s  host=%s\n", principal, host);
-	else
-		printf("Creds for uid=%d  host=%s\n", uid, host);
-	if (use_kerberos) {
+
+	if (principal == NULL || *principal == '\0') {
+		if (pent == NULL)
+			pent = getpwuid(uid);
+		principal = pent->pw_name;
+		name_type = GSSD_USER;
+	}
+
+	clientp.nt = name_type;
+	switch (name_type) {
+		case GSSD_USER:
+		case GSSD_STRING_UID:
+		case GSSD_KRB5_PRINCIPAL:
+		case GSSD_NTLM_PRINCIPAL:
+			clientp.name = (gssd_byte_buffer) principal;
+			clientp.len = (uint32_t) strlen(principal);
+			break;
+		default:
+			Log("Unsupported name type for principal %s\n", principal);
+			exit(EXIT_FAILURE);
+			break;
+	}
+	printf("Using creds for %s  host=%s\n", principal, host);
+
+	if (bname_client) {
+		kr = bootstrap_look_up(bootstrap_port, bname_client, &client_mp);
+		if (kr != KERN_SUCCESS) {
+			Log("bootstrap_look_up(): %s\n", bootstrap_strerror(kr));
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		kr = task_get_gssd_port(mach_task_self(), &client_mp);
+		if (kr != KERN_SUCCESS) {
+			Log("task_get_gssd_port(): %s\n", mach_error_string(kr));
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (!MACH_PORT_VALID(client_mp)) {
+		Log("Could not get a valid client port (%d)\n", client_mp);
+		exit(EXIT_FAILURE);
+	}
+	
+	if (refcnt)
+		return do_refcount(mech, name_type, principal);
+	
+	if (ServicePrincipal)
+		strlcpy(svcname, ServicePrincipal, sizeof(svcname));
+	else if (use_kerberos) {
 		strlcpy(svcname, "nfs/", sizeof(svcname));
 		strlcat(svcname, host, sizeof(svcname));
 		if (realm) {
@@ -269,10 +389,31 @@ int main(int argc, char *argv[])
 		strlcpy(svcname, "nfs@", sizeof(svcname));
 		strlcat(svcname, host, sizeof(svcname));
 	}
+
+	if (!use_kerberos) {
+		targetp.nt = GSSD_HOSTBASED;
+		targetp.name = (gssd_byte_buffer)svcname;
+		targetp.len = (uint32_t) strlen(svcname);
+	}
 	printf("Service name = %s\n", svcname);
 
-	if (!bname) {
-		bname = "com.apple.gssd-agent";
+	if (bname_server) {
+		kr = bootstrap_look_up(bootstrap_port, bname_server, &server_mp);
+		if (kr != KERN_SUCCESS) {
+			Log("bootstrap_look_up(): %s\n", bootstrap_strerror(kr));
+			exit(EXIT_FAILURE);
+		}
+	} else {
+		kr = task_get_gssd_port(mach_task_self(), &server_mp);
+		if (kr != KERN_SUCCESS) {
+			Log("task_get_gssd_port(): %s\n", mach_error_string(kr));
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	if (!MACH_PORT_VALID(server_mp)) {
+		Log("Could not get a valid server port (%d)\n", server_mp);
+		exit(EXIT_FAILURE);
 	}
 
 	if (interactive) {
@@ -280,51 +421,34 @@ int main(int argc, char *argv[])
 		(void) getchar();
 	}
 
-#ifdef TASK_GSSD_PORT
-	kr = task_get_gssd_port(mach_task_self(), &mp);
-	if (kr != KERN_SUCCESS) {
-		ERR("task_get_gssd_port(): %s\n", mach_error_string(kr));
-		exit(EXIT_FAILURE);
-	}
-#else
-	kr = bootstrap_look_up(bootstrap_port, bname, &mp);
-	if (kr != KERN_SUCCESS) {
-		ERR("bootstrap_look_up(): %s\n", mach_error_string(kr));
-		exit(EXIT_FAILURE);
-	}
-#endif
-	if (!MACH_PORT_VALID(mp)) {
-		ERR("Could not get a valid port (%d)\n", mp);
-		exit(EXIT_FAILURE);
-	}
-
 	pthread_attr_init(attr);
 	pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
 
-	for (i = 0; i < MAXCOUNTERS; i++)
-		pthread_mutex_init(counters[i].lock, NULL);
-
 	pthread_mutex_init(num_servers_lock, NULL);
 	pthread_cond_init(num_servers_cv, NULL);
-	for (j = 0; j < MAXCOUNTERS; j++)
-		counters[j].total = 0;
+
 	for (i = 0; i < num; i++) {
 		num_servers = Servers;
 		for (j = 0; j < num_servers; j++) {
 			error = pthread_create(&thread, attr, server, NULL);
 			if (error)
-				ERR("Could not start server: %s\n",
+				Log("Could not start server: %s\n",
 						strerror(error));
 		}
 		waitall();
 	}
 	report_errors();
-			
+
 	pthread_attr_destroy(attr);
 
-	kr = mach_port_deallocate(mach_task_self(), mp);
+	kr = mach_port_deallocate(mach_task_self(), client_mp);
 	if (kr != KERN_SUCCESS) {
-		ERR("Coun not delete send right!\n");
+		Log("Could not delete send right!\n");
+	}
+
+	kr = mach_port_deallocate(mach_task_self(), server_mp);
+	if (kr != KERN_SUCCESS) {
+		Log("Could not delete send right!\n");
 	}
 
 	if (interactive) {
@@ -351,20 +475,12 @@ waittime(void)
 
 
 static void
-inc_counter(counter_t count)
-{
-	pthread_mutex_lock(count->lock);
-	count->total++;
-	pthread_mutex_unlock(count->lock);
-}
-
-static void
 report_errors(void)
 {
-	printf("gss_init_errors %d\n", gss_init_errors->total);
-	printf("gss_accept_errors %d\n", gss_accept_errors->total);
-	printf("server_errors %d\n", server_errors->total);
-	printf("server_deaths %d\n", server_deaths->total);
+	printf("gss_init_errors %d\n", gss_init_errors);
+	printf("gss_accept_errors %d\n", gss_accept_errors);
+	printf("server_errors %d\n", server_errors);
+	printf("server_deaths %d\n", server_deaths);
 }
 
 static void
@@ -408,13 +524,13 @@ int read_channel(int d, channel_t chan)
 		return (-1);
 	}
 
-	return (0);	
+	return (0);
 }
 
 int write_channel(int d, channel_t chan)
 {
 	if (chan->client != d)
-		ERR("Writing out of turn\n");
+		Log("Writing out of turn\n");
 
 	chan->client = !d;
 	pthread_cond_signal(chan->cv);
@@ -447,50 +563,87 @@ void *client(void *arg)
 	uint32_t major_stat;
 	uint32_t minor_stat;
 	uint32_t rflags;
-	gss_cred cred_handle = (gss_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
-	gss_ctx gss_context = (gss_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
+	uint32_t inout_gssd_flags;
+	gssd_cred cred_handle = (gssd_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
+	gssd_ctx gss_context = (gssd_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
 	kern_return_t kr;
 	int gss_error = 0;
 	int retry_count = 0;
+	char display_name[128];
 
 	do {
 		if (read_channel(1, channel)) {
-			ERR("Bad read from server\n");
+			Log("Bad read from server\n");
 			return (NULL);
 		}
 
 		if (verbose)
-			DEBUG("Calling mach_gss_init_sec_context from %p\n",
-				pthread_self());
-	
+			Debug("Calling mach_gss_init_sec_context from %p\n",
+				(void *) pthread_self());
+
 		deallocate(channel->ctoken, channel->ctokenCnt);
-		channel->ctoken = (byte_buffer)GSS_C_NO_BUFFER;
+		channel->ctoken = (gssd_byte_buffer)GSS_C_NO_BUFFER;
 		channel->ctokenCnt = 0;
 retry:
-		kr = mach_gss_init_sec_context(
-			mp,
-			mech,
-			channel->stoken, channel->stokenCnt,
-			uid,
-			principal,
-			svcname,
-			flags,
-			gssd_flags,		       
-			&gss_context,
-			&cred_handle,
-			&rflags,
-			&channel->clnt_skey, &channel->clnt_skeyCnt,
-			&channel->ctoken, &channel->ctokenCnt,
-			&major_stat,
-			&minor_stat);
-	
+		switch (version) {
+		case 0:
+		case 1:
+			kr = mach_gss_init_sec_context(
+						       client_mp,
+						       mech,
+						       channel->stoken, channel->stokenCnt,
+						       uid,
+						       principal,
+						       svcname,
+						       flags,
+						       gssd_flags,
+						       &gss_context,
+						       &cred_handle,
+						       &rflags,
+						       &channel->clnt_skey, &channel->clnt_skeyCnt,
+						       &channel->ctoken, &channel->ctokenCnt,
+						       &major_stat,
+						       &minor_stat);
+			break;
+		case 2:
+			inout_gssd_flags = gssd_flags;
+			kr = mach_gss_init_sec_context_v2(
+							  client_mp,
+							  mech,
+							  channel->stoken, channel->stokenCnt,
+							  uid,
+							  clientp.nt,
+							  clientp.name,
+							  clientp.len,
+							  targetp.nt,
+							  targetp.name,
+							  targetp.len,
+							  flags,
+							  &inout_gssd_flags,
+							  &gss_context,
+							  &cred_handle,
+							  &rflags,
+							  &channel->clnt_skey, &channel->clnt_skeyCnt,
+							  &channel->ctoken, &channel->ctokenCnt,
+							  display_name,
+							  &major_stat,
+							  &minor_stat);
+			if (verbose && kr == KERN_SUCCESS && major_stat ==  GSS_S_COMPLETE)
+				Debug("Got client identity of '%s'\n", display_name);
+			break;
+		default:
+			Log("Unsupported version %d\n", version);
+			exit(1);
+			break;
+		}
+
 		if (kr != KERN_SUCCESS) {
-			inc_counter(server_errors);
-			ERR("gsstest: %s\n", mach_error_string(kr));
+			OSAtomicIncrement32(&server_errors);
+			Log("gsstest client: %s\n", mach_error_string(kr));
 			if (exitonerror)
 				exit(1);
 			if (kr == MIG_SERVER_DIED) {
-				inc_counter(server_deaths);
+				OSAtomicIncrement32(&server_deaths);
 				if (gss_context == (uint32_t)(uintptr_t)GSS_C_NO_CONTEXT &&
 					retry_count < max_retries) {
 					retry_count++;
@@ -502,49 +655,50 @@ retry:
 			write_channel(1, channel);
 			return (NULL);
 		}
-	
+
 		gss_error = (major_stat != GSS_S_COMPLETE &&
 					major_stat != GSS_S_CONTINUE_NEEDED);
 		if (verbose > 1) {
-			DEBUG("\tcred = 0x%0x\n", (int) cred_handle);
-			DEBUG("\tclnt_gss_context = 0x%0x\n",
+			Debug("\tcred = 0x%0x\n", (int) cred_handle);
+			Debug("\tclnt_gss_context = 0x%0x\n",
 				(int) gss_context);
-			DEBUG("\ttokenCnt = %d\n", (int) channel->ctokenCnt);
+			Debug("\ttokenCnt = %d\n", (int) channel->ctokenCnt);
 			if (verbose > 2)
 				HexDump((char *) channel->ctoken,
-					 (uint32_t) channel->ctokenCnt, 1);
-		}	
-	
+					 (uint32_t) channel->ctokenCnt);
+		}
+
 		channel->failure = gss_error;
 		write_channel(1, channel);
 	} while (major_stat == GSS_S_CONTINUE_NEEDED);
 
+
 	if (gss_error) {
-		inc_counter(gss_init_errors);
-		DISPLAY_ERRS("mach_gss_init_sec_context: ",
-				major_stat, minor_stat);
+		OSAtomicIncrement32(&gss_init_errors);
+		Log("mach_gss_int_sec_context: %#K %#k\n", major_stat, mechtab[mech], minor_stat);
 	}
 
 	close_channel(1, channel);
 	return (NULL);
 }
-	
+
 void *server(void *arg __attribute__((unused)))
 {
 	struct s_channel args;
 	channel_t channel = &args;
 	pthread_t client_thr;
 	int error;
-	uint32_t major_stat;
+	uint32_t major_stat = GSS_S_FAILURE;
 	uint32_t minor_stat;
 	uint32_t rflags;
-	gss_cred cred_handle = (gss_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
-	gss_ctx gss_context = (gss_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
+	uint32_t inout_gssd_flags;
+	gssd_cred cred_handle = (gssd_cred) (uintptr_t)GSS_C_NO_CREDENTIAL;
+	gssd_ctx gss_context = (gssd_ctx) (uintptr_t)GSS_C_NO_CONTEXT;
 	uint32_t clnt_uid;
 	uint32_t clnt_gids[NGROUPS_MAX];
 	uint32_t clnt_ngroups;
-	byte_buffer svc_skey;
-	mach_msg_type_number_t svc_skeyCnt;
+	gssd_byte_buffer svc_skey = NULL;
+	mach_msg_type_number_t svc_skeyCnt = 0;
 	kern_return_t kr;
 	int retry_count = 0;
 
@@ -552,60 +706,87 @@ void *server(void *arg __attribute__((unused)))
 	channel->failure = 0;
 	pthread_mutex_init(channel->lock, NULL);
 	pthread_cond_init(channel->cv, NULL);
-	channel->ctoken = (byte_buffer) GSS_C_NO_BUFFER;
+	channel->ctoken = (gssd_byte_buffer) GSS_C_NO_BUFFER;
 	channel->ctokenCnt = 0;
-	channel->stoken = (byte_buffer) GSS_C_NO_BUFFER;
+	channel->stoken = (gssd_byte_buffer) GSS_C_NO_BUFFER;
 	channel->stokenCnt = 0;
-	channel->clnt_skey = (byte_buffer) GSS_C_NO_BUFFER;
+	channel->clnt_skey = (gssd_byte_buffer) GSS_C_NO_BUFFER;
 	channel->clnt_skeyCnt = 0;
-
 
 	// Kick off a client;
 	error = pthread_create(&client_thr, NULL, client, channel);
 	if (error) {
-		ERR("Could not start client: %s\n", strerror(error));
+		Log("Could not start client: %s\n", strerror(error));
 		return NULL;
 	}
 
 
 	do {
 		if (read_channel(0, channel) == -1) {
-			ERR("Bad read from client\n");
+			Log("Bad read from client\n");
 			goto out;
 		}
-			
+
 		deallocate(channel->stoken, channel->stokenCnt);
-		channel->stoken = (byte_buffer)GSS_C_NO_BUFFER;
+		channel->stoken = (gssd_byte_buffer)GSS_C_NO_BUFFER;
 		channel->stokenCnt = 0;
 
 		if (verbose)
-			DEBUG("Calling mach_gss_accept_sec_contex %p\n",
-				pthread_self());
-	
-retry:
-		kr = mach_gss_accept_sec_context(
-			mp,
-			channel->ctoken, channel->ctokenCnt,
-			svcname,
-			gssd_flags,
-			&gss_context,
-			&cred_handle,
-			&rflags,			 
-			&clnt_uid,
-			clnt_gids,
-			&clnt_ngroups,
-			&svc_skey, &svc_skeyCnt,
-			&channel->stoken, &channel->stokenCnt,
-			&major_stat,
-			&minor_stat);
-	
+			Debug("Calling mach_gss_accept_sec_contex %p\n",
+				(void *) pthread_self());
+
+retry:		switch (version) {
+		case 0:
+		case 1:
+			kr = mach_gss_accept_sec_context(
+				server_mp,
+				channel->ctoken, channel->ctokenCnt,
+				svcname,
+				gssd_flags,
+				&gss_context,
+				&cred_handle,
+				&rflags,
+				&clnt_uid,
+				clnt_gids,
+				&clnt_ngroups,
+				&svc_skey, &svc_skeyCnt,
+				&channel->stoken, &channel->stokenCnt,
+				&major_stat,
+				&minor_stat);
+			break;
+		case 2:
+			inout_gssd_flags = gssd_flags;
+			kr = mach_gss_accept_sec_context_v2(
+				server_mp,
+				channel->ctoken, channel->ctokenCnt,
+				GSSD_STRING_NAME,
+				(uint8_t *)svcname,
+				(uint32_t) strlen(svcname)+1,
+				&inout_gssd_flags,
+				&gss_context,
+				&cred_handle,
+				&rflags,
+				&clnt_uid,
+				clnt_gids,
+				&clnt_ngroups,
+				&svc_skey, &svc_skeyCnt,
+				&channel->stoken, &channel->stokenCnt,
+				&major_stat,
+				&minor_stat);
+			break;
+		default:
+			Log("Unsupported version %d\n", version);
+			exit(1);
+			break;
+		}
+
 		if (kr != KERN_SUCCESS) {
-			inc_counter(server_errors);
-			ERR("gsstest: %s\n", mach_error_string(kr));
+			OSAtomicIncrement32(&server_errors);
+			Log("gsstest server: %s\n", mach_error_string(kr));
 			if (exitonerror)
 				exit(1);
 			if (kr == MIG_SERVER_DIED) {
-				inc_counter(server_deaths);
+				OSAtomicIncrement32(&server_deaths);
 				if (gss_context == (uint32_t)(uintptr_t)GSS_C_NO_CONTEXT &&
 					retry_count < max_retries) {
 					retry_count++;
@@ -617,7 +798,7 @@ retry:
 			write_channel(0, channel);
 			goto out;
 		}
-	
+
 		error = (major_stat != GSS_S_COMPLETE &&
 					major_stat != GSS_S_CONTINUE_NEEDED);
 
@@ -626,9 +807,8 @@ retry:
 	} while (major_stat == GSS_S_CONTINUE_NEEDED);
 
 	if (error) {
-		inc_counter(gss_accept_errors);
-		DISPLAY_ERRS("mach_gss_accept_sec_context: ",
-				major_stat, minor_stat);
+		OSAtomicIncrement32(&gss_accept_errors);
+		Log("mach_gss_accept_sec_context: %#K %#k", major_stat, mechtab[mech], minor_stat);
 	}
 out:
 	close_channel(0, channel);
@@ -638,25 +818,25 @@ out:
 	if (major_stat == GSS_S_COMPLETE && !CHANNEL_FAILED(channel)) {
 		if (svc_skeyCnt != channel->clnt_skeyCnt ||
 			memcmp(svc_skey, channel->clnt_skey, svc_skeyCnt)) {
-			ERR("Session keys don't match!\n");
-			ERR("\tClient key length = %d\n",
+			Log("Session keys don't match!\n");
+			Log("\tClient key length = %d\n",
 				 channel->clnt_skeyCnt);
 			HexDump((char *) channel->clnt_skey,
-				(uint32_t) channel->clnt_skeyCnt, 1);
-			ERR("\tServer key length = %d\n", svc_skeyCnt);
-			HexDump((char *) svc_skey, (uint32_t) svc_skeyCnt, 0);
+				(uint32_t) channel->clnt_skeyCnt);
+			Log("\tServer key length = %d\n", svc_skeyCnt);
+			HexDump((char *) svc_skey, (uint32_t) svc_skeyCnt);
 			if (uid != clnt_uid)
-				ERR("Wrong uid. got %d expected %d\n",
+				Log("Wrong uid. got %d expected %d\n",
 					clnt_uid, uid);
 		}
 		else if (verbose) {
-			DEBUG("\tSession key length = %d\n", svc_skeyCnt);
-			HexDump((char *) svc_skey, (uint32_t) svc_skeyCnt, 1);
-			DEBUG("\tReturned uid = %d\n", uid);
+			Debug("\tSession key length = %d\n", svc_skeyCnt);
+			HexDump((char *) svc_skey, (uint32_t) svc_skeyCnt);
+			Debug("\tReturned uid = %d\n", uid);
 		}
 	} else if (verbose > 1) {
-		DEBUG("Failed major status = %d\n", major_stat);
-		DEBUG("Channel failure = %x\n", channel->failure);
+		Debug("Failed major status = %d\n", major_stat);
+		Debug("Channel failure = %x\n", channel->failure);
 	}
 
 	deallocate(svc_skey, svc_skeyCnt);
@@ -669,91 +849,4 @@ out:
 	server_done();
 
 	return (NULL);
-}
-
-static void
-CGSSDisplay_errs(char* rtnName, OM_uint32 maj, OM_uint32 min)
-{
-	OM_uint32 msg_context = 0;
-	OM_uint32 min_stat = 0;
-	OM_uint32 maj_stat = 0;	
-	gss_buffer_desc errBuf;
-	int count = 1;
-	ERR("Error returned by %s:\n", rtnName);
-	do {
-		maj_stat = gss_display_status(&min_stat, maj, GSS_C_GSS_CODE,
-					GSS_C_NULL_OID, &msg_context, &errBuf);
-		ERR("\tmajor error %d: %s\n", count, (char *)errBuf.value);
-		maj_stat =  gss_release_buffer(&min_stat, &errBuf);
-		count++;
-	} while (msg_context != 0);
-		
-	count = 1;
-	msg_context = 0;
-	do {
-		maj_stat = gss_display_status (&min_stat, min, GSS_C_MECH_CODE,
-					GSS_C_NULL_OID, &msg_context, &errBuf);
-		ERR("\tminor error %d: %s\n", count, (char *)errBuf.value);
-		count++;
-	} while (msg_context != 0);
-}
-
-static const char HexChars[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
-
-static void
-HexLine(const char *buf, uint32_t *bufSize, char linebuf[80])
-{
-	char 	*bptr = buf;
-	int	limit;
-	int	i;
-        char	*cptr = linebuf;
-
-        memset(linebuf,0,sizeof(linebuf));
-        
-	limit = (*bufSize > 16) ? 16 : *bufSize;
-	*bufSize -= limit;
-	
-	for(i = 0; i < 16; i++)
-	{
-		if(i < limit)
-		{
-			*cptr++ = HexChars[(*bptr >> 4) & 0x0f];
-			*cptr++ = HexChars[*bptr & 0x0f];
-                        *cptr++ = ' ';
-			bptr++;
-		} else {
-                        *cptr++ = ' ';
-                        *cptr++ = ' ';
-                        *cptr++ = ' ';
-
-		}
-	}
-	bptr = buf;
-        *cptr++ = ' ';
-        *cptr++ = ' ';
-        *cptr++ = ' ';
-	for(i = 0; i < limit; i++)
-	{
-		*cptr++ = (char) (((*bptr > 0x1f) && (*bptr < 0x7f)) ? *bptr : '.');
-		bptr++;
-	}
-        *cptr++ = '\n';
-	*cptr = '\0';
-}
-
-void
-HexDump(const char *inBuffer, uint32_t inLength, int debug)
-{
-    uint32_t currentSize = inLength;
-    char linebuf[80];    
-    
-    while(currentSize > 0)
-    {
-        HexLine(inBuffer, &currentSize, linebuf);
-	if (debug)
-		DEBUG("%s", linebuf);
-	else
-		ERR("%s", linebuf);
-        inBuffer += 16;
-    }
 }

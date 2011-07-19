@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -148,7 +148,7 @@ void _DAMountCreateTrashFolder( DADiskRef disk, CFURLRef mountpoint )
              * Determine whether the trash folder exists.
              */
 
-            strcat( path, "/.Trashes" );
+            strlcat( path, "/.Trashes", sizeof( path ) );
 
             if ( stat( path, &status ) )
             {
@@ -266,11 +266,11 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
         {
             if ( index == 0 )
             {
-                sprintf( path, "%s/%s", kDAMainMountPointFolder, name );
+                snprintf( path, sizeof( path ), "%s/%s", kDAMainMountPointFolder, name );
             }
             else
             {
-                sprintf( path, "%s/%s %lu", kDAMainMountPointFolder, name, index );
+                snprintf( path, sizeof( path ), "%s/%s %lu", kDAMainMountPointFolder, name, index );
             }
 
             if ( stat( path, &status ) )
@@ -323,8 +323,8 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
                                  * Create the mount point cookie file.
                                  */
 
-                                strcat( path, "/" );
-                                strcat( path, kDAMainMountPointFolderCookieFile );
+                                strlcat( path, "/",                               sizeof( path ) );
+                                strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
 
                                 file = fopen( path, "w" );
 
@@ -498,8 +498,8 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
              * Determine whether the mount point cookie file exists.
              */
 
-            strcat( path, "/" );
-            strcat( path, kDAMainMountPointFolderCookieFile );
+            strlcat( path, "/",                               sizeof( path ) );
+            strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
 
             if ( stat( path, &status ) == 0 )
             {

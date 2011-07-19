@@ -39,10 +39,11 @@ namespace WebCore {
     public:
         static PassRefPtr<ClientRect> create() { return adoptRef(new ClientRect); }
         static PassRefPtr<ClientRect> create(const IntRect& rect) { return adoptRef(new ClientRect(rect)); }
+        static PassRefPtr<ClientRect> create(const FloatRect& rect) { return adoptRef(new ClientRect(rect)); }
 
         float top() const { return m_rect.y(); }
-        float right() const { return m_rect.right(); }
-        float bottom() const { return m_rect.bottom(); }
+        float right() const { return m_rect.maxX(); }
+        float bottom() const { return m_rect.maxY(); }
         float left() const { return m_rect.x(); }
         float width() const { return m_rect.width(); }
         float height() const { return m_rect.height(); }
@@ -50,6 +51,7 @@ namespace WebCore {
     private:
         ClientRect();
         ClientRect(const IntRect&);
+        ClientRect(const FloatRect&);
 
         FloatRect m_rect;
     }; 

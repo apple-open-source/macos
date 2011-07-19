@@ -2,14 +2,14 @@
  * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- *
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -190,7 +190,7 @@ static void handle_server_response(
 		{
 			CFStreamError error = CFReadStreamGetError(stream);
 			ocspdErrorLog("http stream: %p kCFStreamEventErrorOccurred, domain: %ld error: %ld\n",
-				stream, error.domain, error.error);
+				stream, error.domain, (long int)error.error);
 			if (error.domain == kCFStreamErrorDomainPOSIX) {
 				ocspdErrorLog("CFReadStream POSIX error: %s\n", strerror(error.error));
 			} else if (error.domain == kCFStreamErrorDomainMacOSStatus) {
@@ -271,14 +271,14 @@ CSSM_RETURN ocspdHttpGet(
 	SInt32 errorCode;
 	unsigned char *endp = NULL;
 	bool done = false;
-	unsigned totalLen;
+	size_t totalLen;
 	unsigned char *fullUrl = NULL;
 	CFURLRef cfUrl = NULL;
 	Boolean brtn;
 	CFIndex len;
 
 	/* trim off possible NULL terminator from incoming URL */
-	uint32 urlLen = url.Length;
+	size_t urlLen = url.Length;
 	if(url.Data[urlLen - 1] == '\0') {
 		urlLen--;
 	}
@@ -325,7 +325,12 @@ CSSM_RETURN ocspdHttpGet(
 	}
 	
 	/* concatenate: URL plus path (see RFC 2616 3.2.2, 5.1.2) */
-	totalLen = urlLen +	1 +	req64Len;
+	if( (req64Len >= INT_MAX) || (urlLen > (INT_MAX - (1 + req64Len))) ) {
+		/* long URL is long; concatenating these components would overflow totalLen */
+		result = CSSMERR_TP_INVALID_DATA;
+		goto cleanup;
+	}
+	totalLen = urlLen + 1 + req64Len;
 	fullUrl = (unsigned char *)malloc(totalLen);
 	memmove(fullUrl, url.Data, urlLen);
 	fullUrl[urlLen] = '/';

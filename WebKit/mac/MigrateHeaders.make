@@ -60,9 +60,11 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMCore.h \
     $(PUBLIC_HEADERS_DIR)/DOMCounter.h \
     $(PUBLIC_HEADERS_DIR)/DOMDocument.h \
-    $(INTERNAL_HEADERS_DIR)/DOMDocumentInternal.h \
     $(PUBLIC_HEADERS_DIR)/DOMDocumentFragment.h \
     $(INTERNAL_HEADERS_DIR)/DOMDocumentFragmentInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMDocumentFragmentPrivate.h \
+    $(INTERNAL_HEADERS_DIR)/DOMDocumentInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMDocumentPrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMDocumentType.h \
     $(PUBLIC_HEADERS_DIR)/DOMElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMElementInternal.h \
@@ -180,7 +182,6 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMXPathExpression.h \
     $(PUBLIC_HEADERS_DIR)/DOMXPathNSResolver.h \
     $(PUBLIC_HEADERS_DIR)/DOMXPathResult.h \
-    $(PRIVATE_HEADERS_DIR)/WebDashboardRegion.h \
     $(PUBLIC_HEADERS_DIR)/WebScriptObject.h \
     $(PUBLIC_HEADERS_DIR)/npapi.h \
     $(PUBLIC_HEADERS_DIR)/npfunctions.h \
@@ -222,8 +223,6 @@ all : \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAnimatedNumberInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAnimatedNumberList.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAnimatedNumberListInternal.h \
-    $(PRIVATE_HEADERS_DIR)/DOMSVGAnimatedPathData.h \
-    $(PRIVATE_HEADERS_DIR)/DOMSVGAnimatedPoints.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAnimatedPreserveAspectRatio.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAnimatedPreserveAspectRatioInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAnimatedRect.h \
@@ -268,12 +267,16 @@ all : \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEComponentTransferElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFECompositeElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFECompositeElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGFEConvolveMatrixElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGFEConvolveMatrixElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEDiffuseLightingElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEDiffuseLightingElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEDisplacementMapElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEDisplacementMapElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEDistantLightElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEDistantLightElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGFEDropShadowElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGFEDropShadowElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEFloodElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGFEFloodElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGFEFuncAElement.h \
@@ -461,13 +464,7 @@ all : \
 endif
 
 REPLACE_RULES = -e s/\<WebCore/\<WebKit/ -e s/DOMDOMImplementation/DOMImplementation/
-HEADER_MIGRATE_CMD = sed $(REPLACE_RULES) $< $(PROCESS_HEADER_FOR_MACOSX_TARGET_CMD) > $@
-
-ifeq ($(MACOSX_DEPLOYMENT_TARGET),10.4)
-PROCESS_HEADER_FOR_MACOSX_TARGET_CMD = | ( unifdef -DBUILDING_ON_TIGER || exit 0 )
-else
-PROCESS_HEADER_FOR_MACOSX_TARGET_CMD = | ( unifdef -UBUILDING_ON_TIGER || exit 0 )
-endif
+HEADER_MIGRATE_CMD = sed $(REPLACE_RULES) $< > $@
 
 $(PUBLIC_HEADERS_DIR)/DOM% : DOMDOM% MigrateHeaders.make
 	$(HEADER_MIGRATE_CMD)

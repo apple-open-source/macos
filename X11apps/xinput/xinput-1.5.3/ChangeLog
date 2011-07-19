@@ -1,0 +1,1454 @@
+commit 13d9a0906acca18a268b8898addc1a192c5a2b12
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Nov 11 13:56:22 2010 +1000
+
+    xinput 1.5.3
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 84798d18421535f47a00f4bc43787432f6725032
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Oct 11 13:46:54 2010 +1000
+
+    Print an error if mode is neither ABSOLUTE nor RELATIVE.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Julien Cristau <jcristau@debian.org>
+
+commit 6a794ab3ceb6d3527c0a87f610bc1d6cf26971ba
+Author: Chase Douglas <chase.douglas@canonical.com>
+Date:   Thu Jul 1 18:36:42 2010 -0400
+
+    xinput: Split XI2 valuators and print index of events
+    
+    XI2 events support bitmask selected valuators. When printing masked
+    events, we need to also print the index of the valuator value. This
+    change prints each valuator on its own line, prefixed by its index
+    
+    Signed-off-by: Chase Douglas <chase.douglas@canonical.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a5c9b0ffb969f71ec73a6c65f5135f5aa7805a38
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 9 15:52:31 2010 +1000
+
+    list: only check the last bit in the device mode.
+    
+    This works around a bug in X servers 1.7.x, 1.8.0 and 1.8.1 where the device
+    mode could sometimes be binary OR'd with the OutOfProximity flag. The result
+    was a value of 0b10 for relative and 0b11 for Absolute, both of which were
+    interpreted as relative by this code.
+    
+    Affected is only the XIQueryDevice call, not the XListInputDevices call.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3778f707cca0b9f023a8a5fc86e26776ef6e1b6c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 4 11:11:03 2010 +1000
+
+    xinput 1.5.2
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 87ec8d42c7f8e4e0613bcbe59fb2db991e1e4acb
+Author: Kees Cook <kees.cook@canonical.com>
+Date:   Wed Apr 14 21:19:48 2010 -0700
+
+    Atoms from XIGetProperty are 32bits (#27657)
+    
+    A 32bit value must be dereferenced to correctly zero-extend an Atom
+    from XIGetProperty.  On 64bit systems, Atom is 64bits, so the final
+    Atom in a list will read garbage in the upper half of the Atom.
+    
+    X.Org Bug 27657 <http://bugs.freedesktop.org/show_bug.cgi?id=27657>
+    
+    Signed-off-by: Kees Cook <kees.cook@canonical.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 79eada1b0a221c10a3300fa0c988879fd9062d99
+Author: Will Thompson <will.thompson@collabora.co.uk>
+Date:   Tue Apr 6 11:26:39 2010 +0100
+
+    Support pointer: and keyboard: prefices for XI2 device names
+    
+    I have a keyboard which is also a mouse, and shows up as two devices
+    with the same name. This patch allows me to reliably refer to the
+    pointer device.
+    
+    Signed-off-by: Will Thompson <will.thompson@collabora.co.uk>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 26c8ad96bed67087f89439ec595e928e7f5c8a9c
+Author: Will Thompson <will.thompson@collabora.co.uk>
+Date:   Thu Apr 1 15:35:34 2010 +0100
+
+    Warn and fail if a device name is ambiguous.
+    
+    The XI1 path bails out if the user specifies a device by name and there
+    is more than one device, but the XI2 path previously just silently chose
+    the first one. This patch makes it fail outright.
+    
+    Signed-off-by: Will Thompson <will.thompson@collabora.co.uk>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 19751d021524ee7237704b6158947c26aad4e8c5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Apr 29 16:03:28 2010 +1000
+
+    test-xi2: Print out the sourceid for enter/leave events.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit de293d5bb46de46aaa6799940824c31de95f905b
+Author: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+Date:   Fri Apr 2 00:30:49 2010 -0500
+
+    man: use automake silent rules
+    
+    Signed-off-by: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+    Reviewed-by:  Rémi Cardona <remi@gentoo.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit e980a1fa1237089c0d28210fc32210d63113793f
+Author: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+Date:   Fri Apr 2 00:30:48 2010 -0500
+
+    man: Use AC_PROG_SED to find sed
+    
+    Signed-off-by: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+    Reviewed-by: Dan Nicholson <dbn.lists@gmail.com>
+    Acked-by: Gaetan Nadon <memsize@videotron.ca>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f1577913026eead06795c629798a41e9e7d939c1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Mar 15 11:34:55 2010 +1000
+
+    xinput 1.5.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 88282e21598b25fca7868bf7d5fbaa76cc603bb4
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 2 14:07:40 2010 +1000
+
+    test-xi2: print event type name as well.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+
+commit 4966627f5fc74b30a5cc9ca9292a0314aabf1734
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 4 15:05:36 2010 +1000
+
+    man: document XI2 options
+    
+    Document the options to modifiy the device hierarchy and change the
+    ClientPointer.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8cd99782831c6d6e8407c7e99471780d118d2648
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jan 11 09:23:32 2010 +1000
+
+    man: remove reference to XListInputDevices
+    
+    xinput --list uses XListInputDevices on XI1 servers and XIQueryDevice on XI2
+    servers. Also, who cares about that when reading the man page anyway...
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Acked-by: Julien Cristau <jcristau@debian.org>
+
+commit 45aa64622fd2aea01de15bf192e39e1cbade9918
+Author: Simon Thum <simon.thum@gmx.de>
+Date:   Sun Oct 18 15:10:56 2009 +0200
+
+    Clarify role of set-ptr-feedback
+    
+    Signed-off-by: Simon Thum <simon.thum@gmx.de>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a80014b71a878c5377c3b853f242ead4a6f8a270
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Nov 29 11:04:57 2009 +0100
+
+    Add Peter and Red Hat's copyright notices and licenses to COPYING
+
+commit 4ebc9712dec4de0a466292fb4e2fa5167004a802
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit f6c61dfdf92cc783867f2b1dd27dc400a0625f16
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 1a0f0a03655769afc337a715fcc81fe8ad3c2693
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:25 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 76c7ff22a8180f7c9cac08ccbf76b9d3d55d5f0f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:39 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 3cc49225212abd82f7795c641baba3fa242fa9e8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:15 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit a813e9afba400280e5aea73f5b4a633a2a867df6
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Oct 21 12:47:20 2009 -0700
+
+    This is not a GNU project, so declare it foreign.
+    
+    On Wed, 2009-10-21 at 13:36 +1000, Peter Hutterer wrote:
+    > On Tue, Oct 20, 2009 at 08:23:55PM -0700, Jeremy Huddleston wrote:
+    > > I noticed an INSTALL file in xlsclients and libXvMC today, and it
+    > > was quite annoying to work around since 'autoreconf -fvi' replaces
+    > > it and git wants to commit it.  Should these files even be in git?
+    > > Can I nuke them for the betterment of humanity and since they get
+    > > created by autoreconf anyways?
+    >
+    > See https://bugs.freedesktop.org/show_bug.cgi?id=24206
+    
+    As an interim measure, replace AM_INIT_AUTOMAKE([dist-bzip2]) with
+    AM_INIT_AUTOMAKE([foreign dist-bzip2]). This will prevent the generation
+    of the INSTALL file. It is also part of the 24206 solution.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit 09b075863708e43b9c1202dd052f36d5f865f571
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Oct 13 15:25:19 2009 +1000
+
+    xinput 1.5.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5f49354072a3d331fe359eac0ebff09506668952
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 9 15:28:34 2009 +1000
+
+    Clean up --version, don't require a DISPLAY and display the server version too.
+    
+    version.c was removed, seemed a bit excessive for the 20 lines of code.
+    --version is integrated separate from the other commands now, checked before
+    opening the display. xinput now prints its own version in all cases, even if
+    the display is unavailable. If the display is available, it prints the
+    server version too. Example output:
+    
+    $> xinput --version
+    xinput version 1.4.99.3
+    XI version on server: 2.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7ecd7d55d7a7ab9f5cea5f34f28c7c221171c2bf
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 9 15:07:30 2009 +1000
+
+    man: clean up the man page.
+    
+    Several changes to the man page to tidy it up a bit:
+    - RCS tag removed
+    - synopsis shortened, OPTIONS section added instead
+    - "xinput" dropped before the option descriptions, options in manpage
+      prefixed with '--'.
+    - device_name replaced with just device, since it may be a deviceid.
+    - Removed references to XI man page calls that some options use, it really
+      doesn't matter to users what the underlying Xlib call is.
+    - mark set-int-prop and set-float-prop as deprecated in the man page.
+    - add --test_xi2 flag
+    - Added a few more authors.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7010a6c924ce6937c8e040c837a118663d6dfdb3
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Wed Oct 7 13:05:15 2009 -0400
+
+    Rework 'xinput list' code
+    
+    * Drop the questionable --loop option
+    * Add a --long option (opposite of --short)
+    * Make --short the default if no device argument is given
+    * XI2: Make it possible to query a single device
+    
+    Signed-off-by: Thomas Jaeger <ThJaeger@gmail.com>
+    
+    squashed in a man page update for --short and --long.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7d930a42e6c294ecaaf42585e37b8dc24be8a805
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Sep 24 10:45:54 2009 +1000
+
+    Bump to 1.4.99.3
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a2392f62a93fd288abb8000556d1b34eadaf697f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Sep 21 17:30:55 2009 -0700
+
+    Use __xorgversion__ instead of RCS $Date in man page header/footer
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2ba793d412608dcad61dbca1c8c76740d4982e2b
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Sep 15 17:37:34 2009 +0200
+
+    Use do_set_prop for set_{atom,float,int}_prop
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 79800e1e0fa3b45b6ed37453851df24c98da4435
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Sep 15 17:55:35 2009 +0200
+
+    set-prop: add --type={atom,float,int} and --format={8,16,32} options
+    
+    Allows creating new properties or modifying the type and format of
+    existing ones.
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1665fa4e24930f7e3f1cfbc8bf50119ab7d6ca04
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Sep 15 17:33:54 2009 +0200
+
+    Add a format and type argument to the set_prop functions
+    
+    This will allow the addition of command-line options to set format and
+    type, and the reuse of this code for the set-{atom,float,int}-prop
+    paths.
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 650c52db8b30cebca3386ac350154a6b3a0abbe1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Sep 16 12:29:26 2009 +1000
+
+    Require xorg-macros 1.3 for XORG_DEFAULT_OPTIONS.
+
+commit 22fdd63f4521c89ae43bbfc6741e872b4a74d18f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 21 15:56:19 2009 +1000
+
+    test_xi2: Print the key repeat flag if it is set.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6c362c67ec7fb62d2d7bab5ab4e779147f941a33
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Aug 3 15:59:16 2009 +1000
+
+    Bump to 1.4.99.2
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 10a5596e9cd6dbca0826929e03e9495703279822
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 21 16:20:03 2009 +1000
+
+    test-xi2: Update to keycode grabs instead of keysym grabs.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6aa2dbd555ca4d659acbebffabe28bf648eed32d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Jul 16 16:14:01 2009 +1000
+
+    Print XINotifyPassiveGrab detail in enter events too.
+
+commit b6949c809c69d824fa5fdb2825f045ed716237d8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 14 16:27:36 2009 +1000
+
+    test_xi: Print deviceid for enter events too
+
+commit 59fc7423bf0e8d29747074449e7a3484cafb2f42
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 14 16:13:48 2009 +1000
+
+    Use XI2 defines for enter/leave modes and detail.
+    
+    Doesn't matter much since they are the same as the core ones anyway, but
+    nicer for consistency.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 9a20ce005c12cea9cf215125c96a00c7cbe988c7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 16:05:25 2009 +1000
+
+    Adjust to new, split-up raw event types.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7baaba9fbef48b1f45a51c1654e605df074800b8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 09:18:35 2009 +1000
+
+    test_xi2: Plug memory leak with XGetAtomName.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit cb93b032989907e5274d9a5d95ae01535001ec19
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 09:15:49 2009 +1000
+
+    test_xi2: Update to use cookie events - require libXi 1.2.99.2
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d7f6f7eda435b550d782b545cd7828b21c19b7b4
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jun 30 16:18:20 2009 +1000
+
+    Plug memory leak from XGetAtomName.
+
+commit 248faefc957a9b0877384842540b2d935e1b5c07
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Wed Jun 24 11:55:00 2009 +0930
+
+    Obtain the XInput opcode and check that GenericEvents are actually XI events
+    
+    Signed-off-by: Benjamin Close <Benjamin.Close@clearchain.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1c28ba44958389892470688ce394c034dc8efa21
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 24 10:30:45 2009 +1000
+
+    test_xi2: don't map the window before selecting for events.
+    
+    Mapping the window before selecting for XI2 events leaves some events out
+    (e.g. enter events if the pointer is already in the area where the window is
+    being mapped).
+    
+    Reported-by: Thomas Jaeger
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f00f6b1c58b3ded52d8cb0002e0bacd558bc874c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 24 10:29:12 2009 +1000
+
+    test_xi2: use %#x alternative printf format.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 97fbbe671827194fa175d6bd15f6189e921393c5
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Tue Jun 23 12:49:56 2009 -0400
+
+    remove-master: document possible return modes in --help
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f1e11109acae93f2d9cbee2333dcf7b65cf6151b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jun 23 13:26:56 2009 +1000
+
+    Fix --help output for create-master and remove-master.
+    
+    Missing <> added. All parameters in the --help output have surrounding <> if
+    the parameter is something the user has to substitute.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 863423141a3347a013004c809e9d8ce29e11d377
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat Jun 20 17:59:59 2009 +1000
+
+    Bump to 1.4.99.1
+    
+    We've had a 1.4 branch for a while now, this bump is way overdue.
+
+commit e8ca8fa459eb2eb4d9e9faf294d7172fb4fdb17b
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Sun Jun 14 13:58:39 2009 -0400
+
+    reattach: Default to return to VCP/VCK when returnMode is AttachToMaster
+    
+    Signed-off-by: Thomas Jaeger <ThJaeger@gmail.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f8b3dc4e1c43140514d20fbc9fddd0f352cbe40b
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Mon Jun 15 21:45:32 2009 -0400
+
+    test-xi2: Report correct event coordinates
+    
+    Signed-off-by: Thomas Jaeger <ThJaeger@gmail.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit cddc199d10952ec2a851e4b120061701e664be1b
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Mon Jun 15 21:37:56 2009 -0400
+
+    test-xi2: Use standard macros instead of BitIsOn/SetBit
+    
+    Signed-off-by: Thomas Jaeger <ThJaeger@gmail.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 82d338548e22ae271f50592e759794dd7536a207
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 17 21:23:17 2009 +1000
+
+    Require inputproto 1.9.99.12
+
+commit efab9cff2a3605c803786ff9a69ff1aeb155479d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 17 21:23:06 2009 +1000
+
+    Print the valuator value for absolute axes.
+
+commit a4efa37a0646497ed46f4462d8c745ab17339f62
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 17 21:22:23 2009 +1000
+
+    Print button and valuator labels when listing a device.
+
+commit 632ef53adf1e18509dfa2a1ae820910aa0a88545
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 15 14:10:30 2009 +1000
+
+    Print button state when listing XI2 devices.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit e119d872c74f0190d40d5c4cd742c196aab6bf48
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 12 16:31:02 2009 +1000
+
+    Print the sourceid when listing device classes.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a97520d6e5245ad15d7b7edbf355a343db53e144
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 12 16:29:37 2009 +1000
+
+    Use the XI2 class defines for listing device classes in XI2 mode.
+    
+    Purely cosmetic change, the values are the same anyway.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 47983fbd12366ee8ce89b293955b43f7e49b1785
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 12 15:47:02 2009 +1000
+
+    Fix build errors introduced by inputproto 1.9.99.11.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8659d4f88c805e764d671ae50dc110f742727dd7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 3 12:57:10 2009 +1000
+
+    xi2 test: add two missing breaks.
+    
+    Printing a hierarchy event would always print only "master keyboard" or
+    "slave keyboard", never pointers.
+
+commit 8917716f37e4acbd848ea0c6abd1c943bde2f24d
+Author: Thomas Jaeger <ThJaeger@gmail.com>
+Date:   Fri May 29 19:23:04 2009 -0400
+
+    test-xi2: fix modifiers for XIGrabButton call
+    
+    Signed-off-by: Thomas Jaeger <ThJaeger@gmail.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6c701334d13aabc832b41a3a060dedb8978943d3
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Thu May 28 18:44:47 2009 +1000
+
+    Remove superfluous dev assignment.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 969aad3967e58acfcb3da3583858cae09694652a
+Merge: 9aa8f48 5ad5edc
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 07:34:32 2009 +1000
+
+    Merge branch 'master' into xi2
+
+commit 5ad5edc65e55fe4be63ba31acec4bc1fca96e81b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 07:33:31 2009 +1000
+
+    Print empty properties as <no items>.
+
+commit 9aa8f4826ed7120ae0ff759c6df40a0d3f37c720
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 07:33:52 2009 +1000
+
+    Print empty XI2 properties as <no items>
+
+commit 13e9758b2ebd5d545c08903aab0eccd423851a30
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 07:33:31 2009 +1000
+
+    Print empty properties as <no items>.
+
+commit 5fcd16638abf156a47d4d1c2e3caf0206b97b953
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 20 12:11:07 2009 +1000
+
+    Print None properties in XI2 mode too.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7458e7dde70f5d9ff281848fb1a56e9a5f1dd783
+Merge: 14f47c2 aae3bfe
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 20 12:10:44 2009 +1000
+
+    Merge branch 'master' into xi2
+
+commit aae3bfee098567a80444b970aea4c737c736254c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 20 12:02:31 2009 +1000
+
+    Deal with None atoms.
+    
+    An atom may in some cases be 0 (None). Deal with this instead of failing with
+    BadAtom values.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 14f47c23f56c06058673748755b3e31a6d18edf1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue May 19 15:28:16 2009 +1000
+
+    Print floating slaves in XI2 list mode.
+    
+    Floating slaves are always printed last.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1c72fd55d61371de81f44be5d92982a3012ad24b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 13 14:20:58 2009 +1000
+
+    Update to new inputproto and libXi naming conventions.
+    
+    Require inputproto 1.9.99.9.
+
+commit 9c6a51e8aaba50b8f3a0f3ad767c34a80aee55a1
+Merge: 239cd6a 4832dc1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 8 15:15:45 2009 +1000
+
+    Merge branch 'master' into xi2
+    
+    Conflicts:
+    	src/xinput.h
+
+commit 239cd6a673be2821915301c1b3c3bae063e9dd94
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 8 14:21:17 2009 +1000
+
+    Update to new inputproto defines.
+
+commit 5d973706f4f706b7576bb6feac4beb7273438b78
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Apr 30 16:53:05 2009 +1000
+
+    update test_xi2 with a few more tests.
+
+commit 4832dc1f3ee8d11eadc99b5cd4e8158773d11f9b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 14:00:46 2009 +1000
+
+    XCloseDisplay when we're done.
+    
+    This isn't really necessary, but we might as well be correct.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d15a6c0c4cbf2b7d3feec0c829145e3036d84e4d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 12:56:58 2009 +1000
+
+    Clean up xinput.h a bit
+    
+    Remove the unnecessary NeedFunctionPrototypes ifdef.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 125074488dc27f484a30a8d076133c73f4d9ef48
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 14:37:58 2009 +1000
+
+    Add support for XI2 property requests.
+    
+    If XI2 is available, we use XI2 for list-props, delete-prop and set-prop.
+
+commit ff1b12265de1010aa22011c5db829274a8a3dab1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 14:13:45 2009 +1000
+
+    Get the XIDeviceInfo instead of just the id.
+    
+    This way we leak the XIDeviceInfo array, but then again it doesn't matter
+    since we exit after the command anyway.
+    And with the XIDeviceInfo around, we can actually print the name and
+    whatnot.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit ba2396b40a427c30c58f8c17b64f4cf7bfaa2909
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 14:00:46 2009 +1000
+
+    XCloseDisplay when we're done.
+    
+    This isn't really necessary, but we might as well be correct.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit ea87f587e4090d2881ce8957476411b6de1c260b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 13:59:12 2009 +1000
+
+    Remove one more unnecessary ifdef.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a783c19f94e6fed28aeaf0550558cd0b63402b9c
+Merge: 65e3e12 4e6e0dd
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 13:06:05 2009 +1000
+
+    Merge branch 'master' into xi2
+    
+    Conflicts:
+    	src/property.c
+    	src/xinput.c
+    	src/xinput.h
+
+commit 4e6e0dd562e8e844bede349bd11c339644447d78
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 12:56:58 2009 +1000
+
+    Clean up xinput.h a bit
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 4b4b2e3f31cf08073887d8583997eb3340a6c2e1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 1 11:22:53 2009 +1000
+
+    Create the float property if it doesn't exist.
+    
+    If we don't have the float property we won't be able to use float properties
+    for device configuration since the drivers may not understand it.
+    We might still want to apply properties for client settings though.
+    
+    Reported-by: Simon Thum <simon.thum@gmx.de>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 42dca922d287ffddcf2185ca96738f1505a04c27
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Apr 30 14:50:08 2009 +1000
+
+    If there's multiple null-terminated strings in the property, print all.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Signed-off-by: Simon Thum <simon.thum@gmx.de>
+
+commit e9af7c5f602b5580df36c77ee1c2ed22ccf72134
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 1 09:14:46 2009 +1000
+
+    The float_atom should actually be an Atom
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 65e3e12fa6fc2043fbb0122c72a4f7df09b1c659
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Apr 30 14:50:08 2009 +1000
+
+    If there's multiple null-terminated strings in the property, print all.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit e7cd0436689b54d14e05a601e426cd600994db89
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Mon Apr 20 13:58:03 2009 +0200
+
+    xinput: add set-prop command
+    
+    There's no reason to require the user to know the difference between
+    set-int-prop, set-float-prop and set-atom-prop, and to know the required
+    format for each integer property, since we can just ask
+    XGetDeviceProperty.
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 167034ba2798fbe34abf4748068ae480e45bfe13
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Thu Apr 16 18:55:46 2009 +0200
+
+    Factorize atom parsing in its own function
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 2722d1a177c9482989e314e0177c782563a0b54e
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Apr 20 08:28:53 2009 +1000
+
+    XSync the display before jumping in the grab code.
+    
+    The grab code only handles button presses, so we need to remove all events
+    before (exposures, enter/leave, etc.).
+
+commit 0df21cff5cdf2cf4af0af353f0dbfc7c33388b32
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Apr 19 21:28:25 2009 +1000
+
+    Add a hunk to test XI2 sync'd grabs.
+
+commit dd27752cbff03ea79ac76801d3748edc348570dc
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Apr 19 21:27:40 2009 +1000
+
+    Register for exposure events and block until we're mapped.
+
+commit a7de225eea0c7561e73d44c63844a8e98dea9676
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Apr 19 21:09:49 2009 +1000
+
+    Print event/root x/y on device events.
+
+commit 795799eff591be1fa8ce5199aa89a86dcb4b04e8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Apr 19 20:33:40 2009 +1000
+
+    Actually print event_y when trying to print event_y in Enter/Leave events.
+
+commit 57d367b74d1068d38ce313a06a36654fd82ad460
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat Apr 18 08:43:43 2009 +1000
+
+    replace BYTE with an unsigned char.
+
+commit a577bada8dddf3241a59cab812f5128131c46b29
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Apr 16 09:20:16 2009 -0400
+
+    Fix set-float-prop on 64-bit architectures.
+    
+    Since 32-byte data on 64-bit machines must be passed in as 64-bit longs, let's
+    typecast around a bit.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@redhat.com>
+
+commit de6326a75de810752a5b4e4c2f5fe98a2f7241a9
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Apr 14 09:13:15 2009 -0400
+
+    fix 64 bit issues with set-int-prop and list-props.
+    
+    libX11 uses longs for 32 bit values, increasing hilarity on 64 bit machines.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1e3da5be51efebdd75df540a1c94baa6505cfc9a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Apr 14 13:54:40 2009 +1000
+
+    Fix 64 bit issues with set-int-prop.
+    
+    libX11 expects longs for 32 bit numbers.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 2f8f2193fdfe783c0854772cc46f1b2e0b2e3ec4
+Author: Simon Thum <simon.thum@gmx.de>
+Date:   Thu Mar 26 13:52:15 2009 +0100
+
+    xinput: include device type in device list
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 17d537fd65ba9b1c99a0dde7833eb4069cc624a8
+Author: Simon Thum <simon.thum@gmx.de>
+Date:   Thu Mar 26 15:19:47 2009 +0100
+
+    xinput: mention set-float-prop in manpage
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 286724a1417ffda447be918e8bcf46cc37ed715b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Apr 6 09:54:07 2009 +1000
+
+    xinput 1.4.1
+
+commit 4134bd0f23acf3ff30311007ceba9ecbe568a70a
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Thu Feb 19 14:39:29 2009 +1030
+
+    Error out when selecting a device by name but more than one instance of the name exists
+    
+    Previously the check was in place for the duplicate name, however the first
+    device with the requested name  was still selected regardless.
+    Correct this by exiting out forcing the user to select by id instead
+    
+    Signed-off-by: Benjamin Close <Benjamin.Close@clearchain.com>
+
+commit b04e8b472022c185123638a3d4639fbbcf0f144f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 11 09:52:08 2009 +1000
+
+    Print enter/leave and focus events.
+
+commit 70aac046bb4fb0028fcf018ae72bf29acfe6abac
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 10 15:41:15 2009 +1000
+
+    Register for raw events
+
+commit 54136f2c2a37e92a5b5e49035d27ce6728e12e3a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 10 13:23:53 2009 +1000
+
+    Change event registration a bit, using SetBit instead.
+
+commit 959faacf2e125312b3ff0cc71f4e0b4ee059757f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Mar 8 17:41:23 2009 +1000
+
+    Print out hierarchy events
+
+commit ab0632284539460dd66c76e023894540fe77fcd2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Mar 8 12:25:15 2009 +1000
+
+    Print DeviceChanged events.
+
+commit 57940c7995a3779792213468cafe7d982d009035
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 3 15:44:45 2009 +1000
+
+    Add test_xi2 for xi2 testing.
+
+commit 3cad22debfaceca754fc166ca766d92b7a8faf70
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 4 21:57:54 2009 +1000
+
+    If XI2 is available, list devices through XIQueryDevice.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5aa923fc560718b9a093ad18966f4530eef0efd7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 26 16:14:21 2009 +1000
+
+    Update to new XI2 requests and sanitize the check for XI2 in configure.
+    
+    Check for the actual library version, not for some random function inside the
+    library.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a12acdea9e289c9495bc14dd886e9a68cf9a533f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 4 21:25:50 2009 +1000
+
+    Change is_xinput_present() to xinput_version().
+    
+    Returns major version of XI.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a197551573663cab9e79e07e2de9d423c7a7a572
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Mar 6 22:13:17 2009 +1000
+
+    add xi2_find_device_id
+
+commit 4ad33929e0f640dbc91004857ed2168006d21a71
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 26 16:09:17 2009 +1000
+
+    Rip HAVE_XI2 conditional functionality out.
+    
+    XI2 needs to be harder separated now.
+
+commit 10f5f9da1d4d7f6eb75d10316f318a7c9d7dc28b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 26 15:53:24 2009 +1000
+
+    Clean up xinput.h a bit.
+    
+    All functions have to look the same anyway, so might as well use a one-line
+    macro to declare them.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 199c323332dac782b45dcb092da0322149843d5a
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Thu Mar 12 21:17:53 2009 +1000
+
+    Error out when  more than one instance of a name exists
+    
+    Previously the check was in place for the duplicate name, however the first
+    device with the requested name  was still selected regardless.
+    Correct this by exiting out forcing the user to select by id instead.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 49ef8a40f96c0383a8a42a78fda3a990ac934e59
+Author: Simon Thum <simon.thum@gmx.de>
+Date:   Wed Jan 21 14:09:29 2009 +0100
+
+    small fixes to the propery output
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d923fd3366de8e26a328f3aa89bd531dd4a6304d
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jan 21 19:35:52 2009 -0200
+
+    Correct make distcheck and sparse warnings.
+
+commit 6f444b5d063452e7a8705c756269960e509241d8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jan 16 12:48:05 2009 +1000
+
+    xinput 1.4.0
+
+commit aabe69b44c14c443df1dfb25d23e1c180a6a029d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jan 16 09:53:01 2009 +1000
+
+    Add set-atom-prop to set properties containing other properties.
+
+commit 9870cb4120961f15d3e372a1ba49b5d32013e819
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jan 16 09:51:57 2009 +1000
+
+    Don't linebreak after listing a string or atom property.
+
+commit 4f474d5e78789cb0248e69852ab9abc992acad23
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jan 16 09:50:05 2009 +1000
+
+    Fix wrong type conversion in listing Atom properties.
+
+commit 1b6fbf9ead978322beccc1970b925dce0cd43815
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jan 16 09:06:54 2009 +1000
+
+    Require libXi 1.2 and inputproto 1.5.
+    
+    Device properties are available in a released libXi version now, so there's no
+    need to keep them conditional, make 1.5 mandatory.
+    
+    We also have the explicit check for XI2 functions in libXi, so there's no need
+    to have requirements for inputproto 1.9.99.5.
+
+commit 99c932c1a0db7821df3ef78efcfe4824697c4815
+Author: Simon Thum <simon.thum@gmx.de>
+Date:   Mon Jan 12 14:24:26 2009 +1000
+
+    Add set-float-prop option to set properties using floating point numbers.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@redhat.com>
+
+commit ffff875c2c587e3ad64d57afc1c432de77497c10
+Author: Sascha Hlusiak <saschahlusiak@arcor.de>
+Date:   Tue Sep 30 17:54:08 2008 +0200
+
+    Call XSync instead XFlush to be able to handle errors
+    
+    When setting properties, the program terminated successfully before any BadMatch or
+    BadValue could be processed. Calling XSync informs the user about errors.
+
+commit 50e5235ecd7142892567c7d3ea6460907538b421
+Author: Sascha Hlusiak <saschahlusiak@arcor.de>
+Date:   Tue Sep 30 15:27:56 2008 +0200
+
+    Add --get-button-map option.
+
+commit 7f046c957d4529249bcb69b35f6513411f6efcf5
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 13:57:41 2008 +0930
+
+    Require inputproto 1.9.99.5
+
+commit ccef360e5ee6598a0ab722389bdf8d391ff7efee
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 13:55:33 2008 +0930
+
+    Add --delete-prop option.
+
+commit db4b03629f690d69320f401b9568d5a861b19f9c
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 13:51:36 2008 +0930
+
+    Use updated property events.
+    
+    No more QueryDeviceProperty request.
+
+commit 6b85506eaf5bef0a7d823450d34e08e51a8010bb
+Author: Bryce Harrington <bryce@canonical.com>
+Date:   Sat Aug 30 15:01:59 2008 +0930
+
+    Add --list-props, --watch-props and --set-int-prop options to man page.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@redhat.com>
+
+commit 1c7b473b7e64f8b616aba70926f93d37d5269c28
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Aug 15 15:38:13 2008 +0930
+
+    Require inputproto 1.9.99.4
+
+commit ca0b0fa7f84642cf2b1ba7d5d88487afbc8a6d29
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Aug 15 15:28:55 2008 +0930
+
+    Use XI 1.5 property events.
+
+commit 316cc15f4217db0e4e47846e200d274dd5893b3a
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Aug 7 17:52:08 2008 +0930
+
+    Don't require extension devices for button mapping.
+    
+    VCK and VCP can be opened too now.
+
+commit b0c15823f1faadb24d5b7457f5b5fd1c9f248a1f
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Aug 7 17:51:34 2008 +0930
+
+    Print property values in addition to their names.
+
+commit 5d833a190319b64d81293514027cebaaa3f74ffd
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Aug 7 17:49:48 2008 +0930
+
+    Property code: If the Atom specified was an Atom, actually use it too.
+    
+    Don't ignore an atom if it has been specified with it's number instead of the
+    name.
+
+commit 6ebdca422d12e3326f9ab59767e05eefd24ff85f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 8 18:00:21 2008 +0930
+
+    Add list-props, set-int-prop and watch-props parameters.
+    
+    These parameters allow modification and display of input device properties.
+
+commit 98b79fc5b050eea6141ad78cff4e0577f8e75c77
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 8 18:01:48 2008 +0930
+
+    Remove ChangeLog, is autogenerated now anyway.
+
+commit 86cab0389d9a02901c82e2072e4043a404fb2ebc
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Wed Jun 25 15:13:54 2008 +0930
+
+    Clean up the detection of XI2
+    
+    Signed-off-by: Peter Hutterer <peter@cs.unisa.edu.au>
+
+commit 6482e8ef8039eba98de03f0bb708d1151bc1577e
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Thu Jun 5 14:30:09 2008 +0930
+
+    Correct the check for XI2, not every shell supports ==, but they do =
+    
+    Signed-off-by: Peter Hutterer <peter@cs.unisa.edu.au>
+
+commit 8578813fda6787866b6a23b265696a673b213724
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue May 27 11:33:36 2008 +0930
+
+    Test for XI2 functions in libXi, add #ifdefs to build in non-XI2 setups.
+
+commit 380b9665e86f403b56f9b96c2773b91d69588fb1
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue May 27 10:16:08 2008 +0930
+
+    Use find_device_info instead of requireing device ids on the cmdline.
+
+commit 6ecbe3059cbc3561657841b9ee9b61e03c583eb8
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Apr 29 11:20:03 2008 +0930
+
+    Use new XQueryInputVersion() request to tell the server we can do XI 2.
+
+commit e3b705dc15d07bbb478ced6b54a5e0553d978113
+Merge: ac3498c 834422a
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Apr 7 17:24:16 2008 +0930
+
+    Merge branch 'master' into mpx
+    
+    Conflicts:
+    
+    	src/xinput.c
+    
+    (just a whitespace conflict)
+
+commit 834422a9c68ecf84f5b8477567a785bc8e26217a
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sun Mar 16 19:37:17 2008 -0300
+
+    Compile warning fix.
+    
+      Ansify a function without arguments.
+    
+    Signed-off-by: Peter Hutterer <peter@cs.unisa.edu.au>
+
+commit 8c7460ee11d9fbdcbdf13f2fa7fb62f26bac92dc
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sun Mar 16 19:36:17 2008 -0300
+
+    Mandriva patches to xinput.
+    
+      Change to src/list.c fixes a typo/oversight.
+      Change to configure.ac required to avoid possible error in configure step
+    due to "unquoted" version test.
+    
+    Signed-off-by: Peter Hutterer <peter@cs.unisa.edu.au>
+
+commit ac3498c9b8a54143a9d023fe530c62e24c4651e0
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Feb 18 17:17:39 2008 +1030
+
+    Modify to work with the changes in the XChangeDeviceHierarchy API.
+
+commit 6729d777c48f38290c8f0e8d0e5f17182faa5120
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Feb 13 16:35:18 2008 +1030
+
+    Update XiSelectEvent API usage, has device argument now.
+
+commit 865c7bd8013f9882163234cce6cdd4168525815c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Jan 15 20:32:47 2008 +1030
+
+    Remove deprecated imakefile.
+
+commit a01e5475d17c584bfa3b2d67570d675aebf4e6fd
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Jan 15 20:32:28 2008 +1030
+
+    Replace Fred's name in the main license text with a general "The authors".
+    
+    Makes it less messy to add authors.
+    
+    Frederic Lepied's permission obtained via email.
+
+commit b06af76677cd70912c9c4f381b0baed28b4f89a4
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Thu Jan 10 20:19:55 2008 +0100
+
+    Change xinput_CFLAGS to AM_CFLAGS to clear automake-1.10 warning
+    
+    src/Makefile.am:27: compiling `buttonmap.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+    
+    Also remove -lm from xinput_LDADD, as it isn't needed.
+
+commit 456a1eab4b0b2f4a9bdc8ca02657869595c4bc60
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:25:27 2008 -0800
+
+    Add ChangeLog rule.
+
+commit caee9103c1569b7eba189e7a7c977971efec4458
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:24:28 2008 -0800
+
+    Update .gitignore
+
+commit 49d37729f1d7212aad8afbd91b49a37c4e93a796
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:22:27 2008 -0800
+
+    Update news for 1.3.0 release.
+
+commit ff7a63770ab9ce7336c7a9a70b0ae86de4b35bf3
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:17:43 2008 -0800
+
+    Add a warning when the user specifies an ambiguous device name
+    suggesting that they use the device id instead.
+
+commit 06447732750a022a44476f8929568f0b11bfc6e9
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:16:54 2008 -0800
+
+    Update man page.
+
+commit fcace3ec3be0276e163651c30681edec6ffdea17
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:14:12 2008 -0800
+
+    Update documentation
+
+commit 115cbd4025a9eb9531633c3e8481cb1923789f57
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Wed Jan 9 18:08:37 2008 -0800
+
+    Make dependency on inputproto >= 1.4 explicit.
+
+commit 2497824aa16683eaeaab4bf374ddc9e04688320a
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Jan 7 18:56:54 2008 +1030
+
+    Don't overwrite daemon with argc.
+    
+    This must be a leftover from my excessive out-of-order cherry-picking. Turns
+    out when --short was supplied we'd set daemon to argc, causing a loop waiting
+    for an event that'd never come. A bit like Godot actually.
+
+commit a6feac1e18cdeffc42bc992faa8c95eaec420378
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 12:29:27 2007 +1030
+
+    Add support to set the client pointer.
+    
+    Couple of whitespace changes too.
+
+commit d02601e5c88d1d40e12cd71c2c10c7822919f7b8
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 12:27:32 2007 +1030
+
+    Register for DeviceClassesChangedEvents, reprint the list when we get one.
+    
+    Only in list --loop mode though.
+
+commit 60dafc9de224e2f1e53826858e5335916dc6d8c8
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 12:21:34 2007 +1030
+
+    Add --loop to "xinput list". Re-prints devices when hierarchy changes.
+
+commit d1428764180c927cfa45298f5b7d0bf14eacc2da
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 8 14:53:18 2007 +1030
+
+    Add support for device hierarchy changes.
+
+commit 1b4b4191e09ad01bd818d4307836b37ffd8fa5bd
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sun Nov 18 12:36:32 2007 +1030
+
+    Print out attachment of slave devices.
+
+commit 82dfa529165657edc4e66e072d1515638e1edc66
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 12:06:33 2007 +1030
+
+    Remove leftover trailing whitespaces.
+
+commit 9b24e279439a800e72819ca63441a083a89643b6
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 11:52:41 2007 +1030
+
+    Add --short argument to list. Only prints name and ID.
+
+commit 2a67ff9098efa0e1d53388816a0344067a3c21be
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Dec 20 11:45:11 2007 +1030
+
+    Support GNU style options the dodgy way.
+    
+    Simply removing all preceding "-" from the function name before running the
+    usual comparison.
+
+commit 6a8c883794a3fc66d95e94c5a1e2902a46f9ede8
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Nov 27 09:41:56 2007 +1030
+
+    Remove a few trailing whitespaces.
+
+commit 14f32f4cb911a0086ccec94a64eb61533dc332bf
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Dec 3 12:40:03 2007 +1030
+
+    Remove trailing whitespaces (buttonmap.c)
+
+commit 58c513b0b9f610db2df8b26c483db6eb1b04dfdf
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 15 16:21:32 2007 +1030
+
+    Let autoconf substitute the VERSION.
+
+commit c0178d2afef586f58f42508a9b8bd78e4e6e0cb8
+Author: Philip Langdale <plangdale@vmware.com>
+Date:   Thu Nov 8 14:55:41 2007 +1030
+
+    Expand check to support XExtensionKeyboard/Pointer.
+    
+    Search for PtrFeedbackClass instead of assuming it's the first class in the
+    list.
+
+commit 451740ba094c37ac9e06c7ba7f466b5ab1beea08
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 8 14:23:40 2007 +1030
+
+    Death to RCS tags, remove compiler warning, get version from config.h.
+
+commit 8806f3db5417f1c5946b6589cf2f043e9e7c68d3
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 8 14:16:34 2007 +1030
+
+    Autotool the lot.
+
+commit 1e0b1816a95910631a6b1c8572b9689c32aeb3a0
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 8 10:21:21 2007 +1030
+
+    xinput as straight from the tarball.

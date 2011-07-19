@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,7 @@
 
 #import <DirectoryService/DirectoryService.h>
 #import <DSObjCWrappers/DSObjCWrappers.h>
-#import <DirectoryServiceCore/CSharedData.h>
+#import <opendirectory/odutils.h>
 #import <DirectoryService/DirServicesConstPriv.h>
 
 #import "PathNodeSearch.h"
@@ -54,7 +54,7 @@
 {
 	// free _authExternalForm
 	if (_haveRights) {
-		[[self configNode] customCall:eDSCustomCallConfigureDestroyAuthRef
+		[[self configNode] customCall:eODCustomCallConfigureDestroyAuthRef
 			  withAuthorization:&_authExternalForm];
 	}
 }
@@ -125,7 +125,7 @@
 		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
 		if (status == eDSNoErr && inAuthOnly == NO) {
 			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
-			status = [[self configNode] customCall:eDSCustomCallConfigureGetAuthRef
+			status = [[self configNode] customCall:eODCustomCallConfigureGetAuthRef
 				sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
 									outputData:outputData];
 			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )
@@ -332,15 +332,15 @@
 	
 	if ([newPolicy isEqualToString:@kDSNAttrNSPSearchPath])
 	{
-		aCommand = eDSCustomCallSearchSetPolicyAutomatic;
+		aCommand = eODCustomCallSearchSetPolicyAutomatic;
 	}
 	else if ([newPolicy isEqualToString:@kDSNAttrLSPSearchPath])
 	{
-		aCommand = eDSCustomCallSearchSetPolicyLocalOnly;
+		aCommand = eODCustomCallSearchSetPolicyLocalOnly;
 	}
 	else if ([newPolicy isEqualToString:@kDSNAttrCSPSearchPath])
 	{
-		aCommand = eDSCustomCallSearchSetPolicyCustom;
+		aCommand = eODCustomCallSearchSetPolicyCustom;
 	}
 	if (aCommand != 0)
 	{
@@ -361,7 +361,7 @@
 		}
 	}
 	
-	return [_node customCall: eDSCustomCallSearchSetCustomNodeList 
+	return [_node customCall: eODCustomCallSearchSetCustomNodeList 
 			sendPropertyList: newNodeList
 		   withAuthorization: &_authExternalForm];
 }
@@ -380,7 +380,13 @@
 		//node reachability ie. achieving and maintaining reachability
 		bufNodeList	= [[DSoBuffer alloc] initWithDir:[_node directory] bufferSize:strlen([nodeName UTF8String]) + 128];
 		dlPattern		= [[DSoDataList alloc] initWithDir:[_node directory] separator:'/' pattern:nodeName];
-		nError		= dsFindDirNodes([[_node directory] dsDirRef], [bufNodeList dsDataBuffer], [dlPattern dsDataList], eDSExact, &ulCount, NULL) ;
+		do {
+			nError = dsFindDirNodes([[_node directory] dsDirRef], [bufNodeList dsDataBuffer], [dlPattern dsDataList], eDSExact, &ulCount, NULL) ;
+			if (nError == eDSBufferTooSmall) {
+				[bufNodeList grow: [bufNodeList getBufferSize] *2];
+			}
+		} while (nError == eDSBufferTooSmall);
+	
 		[dlPattern release];
 		[bufNodeList release];
 		if ( ( nError == eDSNoErr ) && ( ulCount > 0 ) )

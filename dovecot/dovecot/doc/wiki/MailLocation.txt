@@ -1,0 +1,266 @@
+Mail location
+=============
+
+ * For mbox-specific settings, see <MailLocation.mbox.txt>
+ * For Maildir-specific settings, see <MailLocation.Maildir.txt>
+ * For dbox-specific settings, see <MailLocation.dbox.txt>
+
+There are three different places where the mail location is looked up from:
+
+ 1. 'mail_location' setting in 'dovecot.conf' is used if nothing else overrides
+    it.
+ 2. 'mail' <userdb field> [UserDatabase.txt] overrides 'mail_location' setting.
+
+ 3. 'location' setting inside namespaces overrides everything. Usually this
+    should be used only for public and shared namespaces.
+
+By default the 'mail_location' setting is empty, which means that Dovecot
+attempts to locate automatically where your mails are. This is done by looking
+at '~/Maildir', '/var/mail/username', '~/mail' and '~/Mail' in that order. It's
+usually a good idea to explicitly specify where the mails are, even if the
+autodetection happens to work. Autodetection commonly fails for new users who
+don't have the mail directory created yet.
+
+Format
+------
+
+The format of the mailbox location specification is as follows:
+
+ * / <mailbox-format> [MailboxFormat.txt]/ : /path/ [ : /key/ = /value/ … ]
+
+where:
+
+ * /mailbox-format/ is a tag identifying one of the formats described at
+   <Mailbox Formats> [MailboxFormat.txt].
+ * /path/ is the path to a directory where the mail is stored. This must be an
+   absolute path, not a relative path. Even if relative paths appear to work,
+   this usage is deprecated and will likely stop working at some point.
+ * /key/ = /value/ can appear zero or more times to set various optional
+   parameters. Possible values for /key/ are:
+    * 'INDEX' : specifies the location of <index files> [MailLocation.txt].
+    * 'INBOX' : specifies the location of the <INBOX> [MailLocation.txt].
+    * 'LAYOUT' : specifies the directory layout under the <mbox>
+      [MailLocation.mbox.txt] or <Maildir> [MailLocation.Maildir.txt] formats.
+    * 'CONTROL' : specifies the location of control files under the <mbox>
+      [MailLocation.mbox.txt] or <Maildir> [MailLocation.Maildir.txt] formats.
+    * 'SUBSCRIPTIONS' : specifies the file used for storing subscriptions.  The
+      default is "subscriptions".  If you're trying to avoid name collisions
+      with a mailbox named "subscriptions", then also consider setting
+      'MAILBOXDIR'.
+    * 'MAILBOXDIR' : specifies directory name under which all mailbox
+      directories are stored. With <dbox formats> [MailboxFormat.dbox.txt] the
+      default is "mailboxes/" while with other mailbox formats the default is
+      empty. Typically this should be changed only for <lazy_expunge namespace>
+      [Plugins.Lazyexpunge.txt] with mdbox.
+    * 'DIRNAME' : specifies the directory name used for mailbox directories, or
+      in the case of mbox specifies the mailbox message file name. With <dbox
+      formats> [MailboxFormat.dbox.txt] the default is "dbox-Mails/" while with
+      other mailbox formats the default is empty. Can be used under either
+      <mbox> [MailLocation.mbox.txt], <Maildir> [MailLocation.Maildir.txt] or
+      <dbox> [MailLocation.dbox.txt] formats.
+    * 'ALT' : specifies the <Alternate storage> [MailLocation.dbox.txt] path
+      for dbox formats.
+ * The colons and equals signs are literal and there are no spaces in an actual
+   mailbox location specification.
+
+Variables
+---------
+
+You can use several variables in the 'mail_location' setting. See
+<Variables.txt> for a full list, but the most commonly used ones are:
+
+ * '%u': Full username.
+ * '%n': User part in user@domain, same as %u if there's no domain.
+ * '%d': Domain part in user@domain, empty if there's no domain.
+
+Typical settings
+----------------
+
+Typically with Maildir it would be set to:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir
+---%<-------------------------------------------------------------------------
+
+with mbox:
+
+---%<-------------------------------------------------------------------------
+mail_location = mbox:~/mail:INBOX=/var/mail/%u
+---%<-------------------------------------------------------------------------
+
+or if you'd like to use the <dbox> [MailboxFormat.dbox.txt] format:
+
+---%<-------------------------------------------------------------------------
+# single-dbox
+mail_location = sdbox:~/dbox
+---%<-------------------------------------------------------------------------
+
+or:
+
+---%<-------------------------------------------------------------------------
+# multi-dbox
+mail_location = mdbox:~/mdbox
+---%<-------------------------------------------------------------------------
+
+Use only absolute paths. Even if relative paths would appear to work, they
+might just as well break some day.
+
+Directory hashing
+-----------------
+
+You can use two different kinds of hashes in <variables> [Variables.txt]:
+
+ * %H modifiers returns a 32bit hash of the given string as hex. For example
+   '%2.256H' would return max. 256 different hashes in range 00 .. ff.
+ * %M returns a MD5 hash of the string as hex. This can be used for two level
+   hashing by getting substrings of the MD5 hash. For example '%1Mu/%2.1Mu/%u'
+   returns directories from '0/0/user' to 'f/f/user'.
+
+Index files
+-----------
+
+Index files are by default stored under the same directory as mails. With
+maildir they are stored in the actual maildirs, with mbox they are stored under
+'.imap/' directory. You may want to change the index file location if you're
+using <NFS.txt> or if you're setting up <shared mailboxes>
+[SharedMailboxes.txt].
+
+You can change the index file location by adding ':INDEX=<path>' to
+mail_location. For example:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir:INDEX=/var/indexes/%u
+---%<-------------------------------------------------------------------------
+
+The index directories are created automatically, but note that it requires that
+Dovecot has actually access to create the directories. Either make sure that
+the index root directory ('/var/indexes' in the above example) is writable to
+the logged in user, or create the user's directory with proper permissions
+before the user logs in.
+
+If you really want to, you can also disable the index files completely by
+appending ':INDEX=MEMORY'.
+
+INBOX path
+----------
+
+INBOX path can be specified to exist elsewhere than the rest of the mailboxes,
+for example:
+
+---%<-------------------------------------------------------------------------
+mail_location = mbox:~/mail:INBOX=/var/mail/%u
+mail_location = maildir:~/Maildir:INBOX=~/Maildir/.INBOX
+---%<-------------------------------------------------------------------------
+
+Note that it's still not possible to mix maildir and mbox formats this way. You
+need to use <namespaces> [Namespaces.txt] for that.
+
+Homeless users
+--------------
+
+Having a home directory for users is highly recommended. The <Pigeonhole.txt>
+<Sieve plugin> [Pigeonhole.Sieve.txt] already requires a home directory to
+work, and it probably won't be the last feature to require a home. See
+<VirtualUsers#homedirs> [VirtualUsers.txt] for more reasons why it's a good
+idea, and how to give Dovecot a home directory even if you don't have a "real
+home directory".
+
+If you really don't want to set any home directory, you can use something like:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:/home/%u/Maildir
+---%<-------------------------------------------------------------------------
+
+Per-user mail locations
+-----------------------
+
+It's possible to override the default 'mail_location' for specific users by
+making the <user database> [UserDatabase.txt] return 'mail' <extra field>
+[UserDatabase.ExtraFields.txt]. See the <user database> [UserDatabase.txt] page
+for the specific userdb you're using for more information how to do this. Below
+are however a couple of examples.
+
+Note that %h doesn't work in the userdb queries or templates. ~/ gets expanded
+later, so use it instead.
+
+SQL
+---
+
+---%<-------------------------------------------------------------------------
+user_query = SELECT home, uid, gid, mail FROM users WHERE user = '%u'
+---%<-------------------------------------------------------------------------
+
+LDAP
+----
+
+---%<-------------------------------------------------------------------------
+user_attrs = homeDirectory=home, uidNumber=uid, gidNumber=gid,
+mailLocation=mail
+---%<-------------------------------------------------------------------------
+
+Passwd-file
+-----------
+
+---%<-------------------------------------------------------------------------
+user:{PLAIN}password:1000:1000::/home/user::userdb_mail=mbox:~/mail:INBOX=/var/mail/%u
+---%<-------------------------------------------------------------------------
+
+Mixing mbox and maildir
+-----------------------
+
+It's possible to use both mboxes and maildirs for the same user by configuring
+multiple namespaces. See <Namespaces.txt>.
+
+Having both mboxes and maildirs mixed within the same namespace isn't currently
+supported.
+
+Custom mailbox location detection
+---------------------------------
+
+Dovecot by default detects the mailboxes in this order:
+
+ 1. maildir: ~/Maildir
+ 2. mbox: ~/mail, and /var/mail/%u if it exists
+ 3. mbox: ~/Mail, and /var/mail/%u if it exists
+
+If you need something else, you can override the 'mail_executable' setting to
+run a script, which sets the MAIL environment properly. For example:
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+
+if [ -d $HOME/.maildir ]; then
+  export MAIL=maildir:$HOME/.maildir
+else
+  export MAIL=mbox:$HOME/mail:INBOX=/var/mail/$USER
+fi
+export USERDB_KEYS="$USERDB_KEYS mail"
+
+exec "$@"
+---%<-------------------------------------------------------------------------
+
+Custom namespace location
+-------------------------
+
+If you need to override namespace's location, first give it a name ("user"
+below):
+
+---%<-------------------------------------------------------------------------
+namespace user {
+  ..
+}
+---%<-------------------------------------------------------------------------
+
+Then in the script use:
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+
+# do the lookup here
+location=mbox:$HOME/mail
+
+export USERDB_KEYS="$USERDB_KEYS namespace/user/location"
+exec env "NAMESPACE/USER/LOCATION=$location" "$@"
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

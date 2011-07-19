@@ -22,6 +22,8 @@ enum {
 	REMOVEFILE_SECURE_7_PASS = (1 << 2),		// 7 pass DoD algorithm
 	REMOVEFILE_SECURE_35_PASS  = (1 << 3),	// 35-pass Gutmann algorithm (overrides REMOVEFILE_SECURE_7_PASS)
 	REMOVEFILE_SECURE_1_PASS = (1 << 4),	// 1 pass single overwrite
+	REMOVEFILE_SECURE_3_PASS = (1 << 5),	// 3 pass overwrite
+	REMOVEFILE_SECURE_1_PASS_ZERO = (1 << 6),	// Single-pass overwrite, with 0 instead of random data
 };
 
 /*

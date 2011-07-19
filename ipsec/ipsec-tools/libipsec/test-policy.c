@@ -36,11 +36,7 @@
 #include <sys/socket.h>
 
 #include <netinet/in.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #include <netinet6/ipsec.h>
 
 #include <stdio.h>

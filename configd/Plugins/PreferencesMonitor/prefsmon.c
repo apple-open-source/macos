@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,7 @@ static CFMutableDictionaryRef	newPrefs;		/* new prefs */
 static CFMutableArrayRef	unchangedPrefsKeys;	/* new prefs keys which match current */
 static CFMutableArrayRef	removedPrefsKeys;	/* old prefs keys to be removed */
 
+static Boolean			rofs		= FALSE;
 static Boolean			_verbose	= FALSE;
 
 
@@ -146,6 +147,9 @@ establishNewPreferences()
 			if (sc_status == EROFS) {
 				/* a read-only fileysstem is OK */
 				ok = TRUE;
+
+				/* ... but we don't want to synchronize */
+				rofs = TRUE;
 			}
 		}
 
@@ -199,7 +203,7 @@ quiet(Boolean *timeout)
 static void
 watchQuietDisable()
 {
-	if ((initKey == NULL) && (initRls == NULL)) {
+	if ((initKey == NULL) || (initRls == NULL)) {
 		return;
 	}
 
@@ -612,7 +616,9 @@ updateConfiguration(SCPreferencesRef		prefs,
 	updateSCDynamicStore(prefs);
 
 	/* finished with current prefs, wait for changes */
-	SCPreferencesSynchronize(prefs);
+	if (!rofs) {
+		SCPreferencesSynchronize(prefs);
+	}
 
 	return;
 }

@@ -1,5 +1,67 @@
 Changes for Sub::Uplevel
 
+0.22 Tue Nov 17 05:38:42 EST 2009
+
+    - meta: added repository to metadata [Alexandr Ciornii]
+
+0.21_01 Sat Nov 29 15:24:49 EST 2008
+
+    - added: the ":aggressive" tag may be used to force reloading of 
+      Exporter, which often binds caller() prior to Sub::Uplevel's global
+      override
+
+0.2002 Thu Sep 11 14:33:09 EDT 2008
+
+    - changed: removed Exporter dependency
+
+    - test fix: fixed strange t/07_uplevel_too_high.t fail on Win32
+    
+0.2001 Tue Sep  9 22:22:40 EDT 2008
+
+    - test fix: changed prior override test to be more robust (SCHWERN)
+
+0.20 Tue Sep  9 19:23:35 EDT 2008
+
+    - changed: bumped perl requirement to 5.006 and stopped using vars
+      (fixes a test bug under Test::More > 0.80)
+
+0.19_03 Fri Jul  4 13:31:21 EDT 2008
+
+    - fixed: load Carp only as needed (fixes problem on 5.005)
+
+0.19_02 Thu Feb 21 14:58:46 EST 2008
+
+    - added: uplevel will warn if uplevel request is more than the call
+      stack depth
+
+0.1901 Thu Feb 14 14:07:37 EST 2008
+
+    - fixed: hides the "DB" package from indexers (DB used to support
+      @DB::args)
+    
+0.19 Thu Feb 14 11:50:16 EST 2008
+
+    - bug fix: replacement caller() correctly sets @DB::args if calling
+      package is DB
+
+    - repackaging: custom Build.PL, moved all author tests to xt/, added
+      LICENSE and INSTALL files
+
+0.18 Wed Oct 31 06:56:13 EDT 2007
+    - release version of 0.17_01 changes
+
+0.17_01
+    - removed 5.006-specific language and tested on prerelease 5.00505
+
+0.16 Mon Jul 30 09:54:41 EDT 2007
+    - release version of 0.15_01 changes
+
+0.15_01 Thu Jul  5 22:54:08 EDT 2007
+    - Won't override any existing CORE::GLOBAL::caller when loaded 
+    - Localize global caller() override to the scope of the uplevel() call 
+      so it can play nicer with things like Contextual::Return and
+      Hook::LexWrap that also override caller()
+
 0.14 Sun Nov  5 23:38:46 EST 2006
     - fixed t/99_pod_coverage.t bug
     - added examples directory

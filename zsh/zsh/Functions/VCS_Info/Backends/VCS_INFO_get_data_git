@@ -3,7 +3,9 @@
 ## Distributed under the same BSD-ish license as zsh itself.
 
 setopt localoptions extendedglob NO_shwordsplit
-local gitdir gitbase gitbranch gitaction
+local gitdir gitbase gitbranch gitaction gitunstaged gitstaged gitsha1
+local stgitpatch stgitunapplied
+local -xA hook_com
 
 VCS_INFO_git_getaction () {
     local gitaction='' gitdir=$1
@@ -54,30 +56,38 @@ VCS_INFO_git_getaction () {
 }
 
 VCS_INFO_git_getbranch () {
-    local gitbranch gitdir=$1
-    local gitsymref='git symbolic-ref HEAD'
+    local gitbranch gitdir=$1 tmp actiondir
+    local gitsymref="${vcs_comm[cmd]} symbolic-ref HEAD"
 
-    if    [[ -d "${gitdir}/rebase-apply" ]] \
-       || [[ -d "${gitdir}/rebase" ]]       \
-       || [[ -d "${gitdir}/../.dotest" ]]   \
-       || [[ -f "${gitdir}/MERGE_HEAD" ]] ; then
+    actiondir=''
+    for tmp in "${gitdir}/rebase-apply" \
+               "${gitdir}/rebase"       \
+               "${gitdir}/../.dotest"; do
+        if [[ -d ${tmp} ]]; then
+            actiondir=${tmp}
+            break
+        fi
+    done
+    if [[ -n ${actiondir} ]]; then
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
-        [[ -z ${gitbranch} ]] && [[ -r ${gitdir}/rebase-apply/head-name ]] \
-            && gitbranch="$(< ${gitdir}/rebase-apply/head-name)"
+        [[ -z ${gitbranch} ]] && [[ -r ${actiondir}/head-name ]] \
+            && gitbranch="$(< ${actiondir}/head-name)"
 
-    elif   [[ -f "${gitdir}/rebase-merge/interactive" ]] \
-        || [[ -d "${gitdir}/rebase-merge" ]] ; then
+    elif [[ -f "${gitdir}/MERGE_HEAD" ]] ; then
+        gitbranch="$(${(z)gitsymref} 2> /dev/null)"
+        [[ -z ${gitbranch} ]] && gitbranch="$(< ${gitdir}/MERGE_HEAD)"
+
+    elif [[ -d "${gitdir}/rebase-merge" ]] ; then
         gitbranch="$(< ${gitdir}/rebase-merge/head-name)"
 
-    elif   [[ -f "${gitdir}/.dotest-merge/interactive" ]] \
-        || [[ -d "${gitdir}/.dotest-merge" ]] ; then
+    elif [[ -d "${gitdir}/.dotest-merge" ]] ; then
         gitbranch="$(< ${gitdir}/.dotest-merge/head-name)"
 
     else
         gitbranch="$(${(z)gitsymref} 2> /dev/null)"
 
         if [[ $? -ne 0 ]] ; then
-            gitbranch="$(git describe --exact-match HEAD 2>/dev/null)"
+            gitbranch="refs/tags/$(${vcs_comm[cmd]} describe --exact-match HEAD 2>/dev/null)"
 
             if [[ $? -ne 0 ]] ; then
                 gitbranch="${${"$(< $gitdir/HEAD)"}[1,7]}..."
@@ -85,20 +95,81 @@ VCS_INFO_git_getbranch () {
         fi
     fi
 
-    printf '%s' "${gitbranch##refs/heads/}"
+    printf '%s' "${gitbranch}"
     return 0
 }
 
 gitdir=${vcs_comm[gitdir]}
 gitbranch="$(VCS_INFO_git_getbranch ${gitdir})"
+if zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" get-revision ; then
+    gitsha1=$(${vcs_comm[cmd]} rev-parse --quiet --verify HEAD)
+else
+    gitsha1=''
+fi
+gitbranch="${gitbranch##refs/[^/]##/}"
 
 if [[ -z ${gitdir} ]] || [[ -z ${gitbranch} ]] ; then
     return 1
 fi
 
+if zstyle -t ":vcs_info:${vcs}:${usercontext}:${rrn}" "check-for-changes" && \
+   [[ "$(${vcs_comm[cmd]} rev-parse --is-inside-git-dir 2> /dev/null)" != 'true' ]] && \
+   ${vcs_comm[cmd]} rev-parse --quiet --verify HEAD &> /dev/null ; then
+    # Default: off - these are potentially expensive on big repositories
+    ${vcs_comm[cmd]} diff --no-ext-diff --ignore-submodules --quiet --exit-code ||
+        gitunstaged=1
+    ${vcs_comm[cmd]} diff-index --cached --quiet --ignore-submodules HEAD 2> /dev/null
+    (( $? && $? != 128 )) && gitstaged=1
+fi
+
 VCS_INFO_adjust
 gitaction="$(VCS_INFO_git_getaction ${gitdir})"
-gitbase=${PWD%/${$( git rev-parse --show-prefix )%/##}}
+gitbase=${PWD%/${$( ${vcs_comm[cmd]} rev-parse --show-prefix )%/##}}
 rrn=${gitbase:t}
-VCS_INFO_formats "${gitaction}" "${gitbranch}" "${gitbase}"
+
+local patchdir=${gitdir}/patches/${gitbranch}
+if [[ -d $patchdir ]] ; then
+    local -a stgit_applied stgit_unapplied
+
+    stgit_applied=(${(f)"$(< "${patchdir}/applied")"})
+    stgit_applied=( ${(Oa)stgit_applied} )
+    stgit_unapplied=(${(f)"$(< "${patchdir}/unapplied")"})
+    stgit_unapplied=( ${(oa)stgit_applied} )
+
+    if VCS_INFO_hook 'gen-applied-string' "${stgit_applied[@]}"; then
+        if (( ${#stgit_applied} )); then
+            stgitpatch=${stgit_applied[1]}
+        else
+            stgitpatch=""
+        fi
+    else
+        stgitpatch=${hook_com[patch-string]}
+    fi
+    hook_com=()
+    if VCS_INFO_hook 'gen-unapplied-string' "${stgit_unapplied[@]}"; then
+        stgitunapplied=${#stgit_unapplied}
+    else
+        stgitunapplied=${hook_com[unapplied-string]}
+    fi
+
+    if (( ${#stgit_applied} )); then
+        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" patch-format stgitmsg || stgitmsg="%p (%n applied)"
+    else
+        zstyle -s ":vcs_info:${vcs}:${usercontext}:${rrn}" nopatch-format stgitmsg || stgitmsg="no patch applied"
+    fi
+    hook_com=( applied "${stgitpatch}"     unapplied "${stgitunapplied}"
+               applied-n ${#stgit_applied} unapplied-n ${#stgit_unapplied} )
+    if VCS_INFO_hook 'set-patch-format' "${stgitmsg}"; then
+        zformat -f stgitmsg "${stgitmsg}" "p:${hook_com[applied]}" "u:${hook_com[unapplied]}" \
+                                          "n:${#stgit_applied}" "c:${#stgit_unapplied}"
+    else
+        stgitmsg=${hook_com[patch-replace]}
+    fi
+    hook_com=()
+else
+    stgitmsg=''
+fi
+
+backend_misc[patches]="${stgitmsg}"
+VCS_INFO_formats "${gitaction}" "${gitbranch}" "${gitbase}" "${gitstaged}" "${gitunstaged}" "${gitsha1}" "${stgitmsg}"
 return 0

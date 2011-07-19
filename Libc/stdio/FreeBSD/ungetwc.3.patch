@@ -1,6 +1,6 @@
---- _SB/Libc/stdio/FreeBSD/ungetwc.3	2004-11-25 11:38:35.000000000 -0800
-+++ _SB/Libc/stdio/FreeBSD/ungetwc.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -42,7 +42,8 @@
+--- ungetwc.3.bsdnew	2009-11-11 13:33:18.000000000 -0800
++++ ungetwc.3	2009-11-11 13:33:18.000000000 -0800
+@@ -38,7 +38,8 @@
  .Dt UNGETWC 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd un-get wide character from input stream
  .Sh LIBRARY
  .Lb libc
-@@ -50,7 +51,19 @@
+@@ -46,7 +47,19 @@
  .In stdio.h
  .In wchar.h
  .Ft wint_t
@@ -31,7 +31,7 @@
  .Sh DESCRIPTION
  The
  .Fn ungetwc
-@@ -60,22 +73,31 @@
+@@ -56,22 +69,31 @@ function pushes the wide character
  .Vt wchar_t )
  back onto the input stream pointed to by
  .Fa stream .
@@ -71,7 +71,7 @@
  .Sh RETURN VALUES
  The
  .Fn ungetwc
-@@ -91,7 +113,8 @@
+@@ -87,7 +109,8 @@ character equals
  the operation will fail and the stream will remain unchanged.
  .Sh SEE ALSO
  .Xr fseek 3 ,

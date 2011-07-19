@@ -1,40 +1,40 @@
---- vsprintf.c.orig	2003-05-20 15:22:44.000000000 -0700
-+++ vsprintf.c	2005-02-23 16:56:03.000000000 -0800
-@@ -40,6 +40,8 @@
+--- vsprintf.c.orig	2009-11-30 16:15:30.000000000 -0800
++++ vsprintf.c	2009-12-03 15:20:55.000000000 -0800
+@@ -36,23 +36,35 @@ static char sccsid[] = "@(#)vsprintf.c	8
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vsprintf.c,v 1.14 2002/09/06 11:23:56 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsprintf.c,v 1.16 2008/04/17 22:17:54 jhb Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <stdio.h>
  #include <limits.h>
  #include "local.h"
-@@ -57,7 +59,27 @@
- 	f._bf._size = f._w = INT_MAX;
- 	f._extra = &ext;
- 	INITEXTRA(&f);
--	ret = __vfprintf(&f, fmt, ap);
-+	ret = __vfprintf(&f, __current_locale(), fmt, ap);
-+	*f._p = 0;
-+	return (ret);
-+}
-+
-+int
-+vsprintf_l(char * __restrict str, locale_t loc, const char * __restrict fmt,
-+    __va_list ap)
-+{
-+	int ret;
-+	FILE f;
+ 
+ int
+-vsprintf(char * __restrict str, const char * __restrict fmt, __va_list ap)
++vsprintf_l(char * __restrict str, locale_t loc, const char * __restrict fmt, __va_list ap)
+ {
+ 	int ret;
+ 	FILE f;
 +	struct __sFILEX ext;
-+
-+	NORMALIZE_LOCALE(loc);
-+	f._file = -1;
-+	f._flags = __SWR | __SSTR;
-+	f._bf._base = f._p = (unsigned char *)str;
-+	f._bf._size = f._w = INT_MAX;
 +	f._extra = &ext;
 +	INITEXTRA(&f);
+ 
++	NORMALIZE_LOCALE(loc);
+ 	f._file = -1;
+ 	f._flags = __SWR | __SSTR;
+ 	f._bf._base = f._p = (unsigned char *)str;
+ 	f._bf._size = f._w = INT_MAX;
+ 	f._orientation = 0;
+ 	memset(&f._mbstate, 0, sizeof(mbstate_t));
+-	ret = __vfprintf(&f, fmt, ap);
 +	ret = __vfprintf(&f, loc, fmt, ap);
  	*f._p = 0;
  	return (ret);
  }
++
++int
++vsprintf(char * __restrict str, const char * __restrict fmt, __va_list ap)
++{
++	return vsprintf_l(str, __current_locale(), fmt, ap);
++}

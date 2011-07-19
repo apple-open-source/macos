@@ -23,16 +23,19 @@
 
 #include "SharedBuffer.h"
 #include "FontPlatformData.h"
+
+#include <cairo-win32.h>
 #include <wtf/RetainPtr.h>
+
 
 namespace WebCore {
 
-FontCustomPlatformDataCairo::~FontCustomPlatformDataCairo()
+FontCustomPlatformData::~FontCustomPlatformData()
 {
    cairo_font_face_destroy(m_fontFace);
 }
 
-FontPlatformData FontCustomPlatformDataCairo::fontPlatformData(int size, bool bold, bool italic)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant)
 {
     return FontPlatformData(m_fontFace, size, bold, italic);
 }
@@ -42,7 +45,7 @@ static void releaseData(void* data)
     static_cast<SharedBuffer*>(data)->deref();
 }
 
-FontCustomPlatformDataCairo* createFontCustomPlatformData(SharedBuffer* buffer)
+FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 {
     ASSERT_ARG(buffer, buffer);
 
@@ -55,7 +58,12 @@ FontCustomPlatformDataCairo* createFontCustomPlatformData(SharedBuffer* buffer)
     static cairo_user_data_key_t bufferKey;
     cairo_font_face_set_user_data(fontFace, &bufferKey, buffer, releaseData);
 
-    return new FontCustomPlatformDataCairo(fontFace);
+    return new FontCustomPlatformData(fontFace);
+}
+
+bool FontCustomPlatformData::supportsFormat(const String& format)
+{
+    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype");
 }
 
 }

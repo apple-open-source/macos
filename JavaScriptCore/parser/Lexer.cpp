@@ -2,6 +2,7 @@
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All Rights Reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
+ *  Copyright (C) 2010 Zoltan Herczeg (zherczeg@inf.u-szeged.hu)
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -24,7 +25,9 @@
 #include "Lexer.h"
 
 #include "JSFunction.h"
+
 #include "JSGlobalObjectFunctions.h"
+#include "Identifier.h"
 #include "NodeInfo.h"
 #include "Nodes.h"
 #include "dtoa.h"
@@ -36,16 +39,187 @@
 using namespace WTF;
 using namespace Unicode;
 
-// We can't specify the namespace in yacc's C output, so do it here instead.
-using namespace JSC;
-
-#include "Grammar.h"
+#include "JSParser.h"
 #include "Lookup.h"
 #include "Lexer.lut.h"
 
 namespace JSC {
 
-static const UChar byteOrderMark = 0xFEFF;
+
+enum CharacterType {
+    // Types for the main switch
+
+    // The first three types are fixed, and also used for identifying
+    // ASCII alpha and alphanumeric characters (see isIdentStart and isIdentPart).
+    CharacterIdentifierStart,
+    CharacterZero,
+    CharacterNumber,
+
+    CharacterInvalid,
+    CharacterLineTerminator,
+    CharacterExclamationMark,
+    CharacterOpenParen,
+    CharacterCloseParen,
+    CharacterOpenBracket,
+    CharacterCloseBracket,
+    CharacterComma,
+    CharacterColon,
+    CharacterQuestion,
+    CharacterTilde,
+    CharacterQuote,
+    CharacterDot,
+    CharacterSlash,
+    CharacterBackSlash,
+    CharacterSemicolon,
+    CharacterOpenBrace,
+    CharacterCloseBrace,
+
+    CharacterAdd,
+    CharacterSub,
+    CharacterMultiply,
+    CharacterModulo,
+    CharacterAnd,
+    CharacterXor,
+    CharacterOr,
+    CharacterLess,
+    CharacterGreater,
+    CharacterEqual,
+
+    // Other types (only one so far)
+    CharacterWhiteSpace,
+};
+
+// 128 ASCII codes
+static const unsigned short typesOfASCIICharacters[128] = {
+/*   0 - Null               */ CharacterInvalid,
+/*   1 - Start of Heading   */ CharacterInvalid,
+/*   2 - Start of Text      */ CharacterInvalid,
+/*   3 - End of Text        */ CharacterInvalid,
+/*   4 - End of Transm.     */ CharacterInvalid,
+/*   5 - Enquiry            */ CharacterInvalid,
+/*   6 - Acknowledgment     */ CharacterInvalid,
+/*   7 - Bell               */ CharacterInvalid,
+/*   8 - Back Space         */ CharacterInvalid,
+/*   9 - Horizontal Tab     */ CharacterWhiteSpace,
+/*  10 - Line Feed          */ CharacterLineTerminator,
+/*  11 - Vertical Tab       */ CharacterWhiteSpace,
+/*  12 - Form Feed          */ CharacterWhiteSpace,
+/*  13 - Carriage Return    */ CharacterLineTerminator,
+/*  14 - Shift Out          */ CharacterInvalid,
+/*  15 - Shift In           */ CharacterInvalid,
+/*  16 - Data Line Escape   */ CharacterInvalid,
+/*  17 - Device Control 1   */ CharacterInvalid,
+/*  18 - Device Control 2   */ CharacterInvalid,
+/*  19 - Device Control 3   */ CharacterInvalid,
+/*  20 - Device Control 4   */ CharacterInvalid,
+/*  21 - Negative Ack.      */ CharacterInvalid,
+/*  22 - Synchronous Idle   */ CharacterInvalid,
+/*  23 - End of Transmit    */ CharacterInvalid,
+/*  24 - Cancel             */ CharacterInvalid,
+/*  25 - End of Medium      */ CharacterInvalid,
+/*  26 - Substitute         */ CharacterInvalid,
+/*  27 - Escape             */ CharacterInvalid,
+/*  28 - File Separator     */ CharacterInvalid,
+/*  29 - Group Separator    */ CharacterInvalid,
+/*  30 - Record Separator   */ CharacterInvalid,
+/*  31 - Unit Separator     */ CharacterInvalid,
+/*  32 - Space              */ CharacterWhiteSpace,
+/*  33 - !                  */ CharacterExclamationMark,
+/*  34 - "                  */ CharacterQuote,
+/*  35 - #                  */ CharacterInvalid,
+/*  36 - $                  */ CharacterIdentifierStart,
+/*  37 - %                  */ CharacterModulo,
+/*  38 - &                  */ CharacterAnd,
+/*  39 - '                  */ CharacterQuote,
+/*  40 - (                  */ CharacterOpenParen,
+/*  41 - )                  */ CharacterCloseParen,
+/*  42 - *                  */ CharacterMultiply,
+/*  43 - +                  */ CharacterAdd,
+/*  44 - ,                  */ CharacterComma,
+/*  45 - -                  */ CharacterSub,
+/*  46 - .                  */ CharacterDot,
+/*  47 - /                  */ CharacterSlash,
+/*  48 - 0                  */ CharacterZero,
+/*  49 - 1                  */ CharacterNumber,
+/*  50 - 2                  */ CharacterNumber,
+/*  51 - 3                  */ CharacterNumber,
+/*  52 - 4                  */ CharacterNumber,
+/*  53 - 5                  */ CharacterNumber,
+/*  54 - 6                  */ CharacterNumber,
+/*  55 - 7                  */ CharacterNumber,
+/*  56 - 8                  */ CharacterNumber,
+/*  57 - 9                  */ CharacterNumber,
+/*  58 - :                  */ CharacterColon,
+/*  59 - ;                  */ CharacterSemicolon,
+/*  60 - <                  */ CharacterLess,
+/*  61 - =                  */ CharacterEqual,
+/*  62 - >                  */ CharacterGreater,
+/*  63 - ?                  */ CharacterQuestion,
+/*  64 - @                  */ CharacterInvalid,
+/*  65 - A                  */ CharacterIdentifierStart,
+/*  66 - B                  */ CharacterIdentifierStart,
+/*  67 - C                  */ CharacterIdentifierStart,
+/*  68 - D                  */ CharacterIdentifierStart,
+/*  69 - E                  */ CharacterIdentifierStart,
+/*  70 - F                  */ CharacterIdentifierStart,
+/*  71 - G                  */ CharacterIdentifierStart,
+/*  72 - H                  */ CharacterIdentifierStart,
+/*  73 - I                  */ CharacterIdentifierStart,
+/*  74 - J                  */ CharacterIdentifierStart,
+/*  75 - K                  */ CharacterIdentifierStart,
+/*  76 - L                  */ CharacterIdentifierStart,
+/*  77 - M                  */ CharacterIdentifierStart,
+/*  78 - N                  */ CharacterIdentifierStart,
+/*  79 - O                  */ CharacterIdentifierStart,
+/*  80 - P                  */ CharacterIdentifierStart,
+/*  81 - Q                  */ CharacterIdentifierStart,
+/*  82 - R                  */ CharacterIdentifierStart,
+/*  83 - S                  */ CharacterIdentifierStart,
+/*  84 - T                  */ CharacterIdentifierStart,
+/*  85 - U                  */ CharacterIdentifierStart,
+/*  86 - V                  */ CharacterIdentifierStart,
+/*  87 - W                  */ CharacterIdentifierStart,
+/*  88 - X                  */ CharacterIdentifierStart,
+/*  89 - Y                  */ CharacterIdentifierStart,
+/*  90 - Z                  */ CharacterIdentifierStart,
+/*  91 - [                  */ CharacterOpenBracket,
+/*  92 - \                  */ CharacterBackSlash,
+/*  93 - ]                  */ CharacterCloseBracket,
+/*  94 - ^                  */ CharacterXor,
+/*  95 - _                  */ CharacterIdentifierStart,
+/*  96 - `                  */ CharacterInvalid,
+/*  97 - a                  */ CharacterIdentifierStart,
+/*  98 - b                  */ CharacterIdentifierStart,
+/*  99 - c                  */ CharacterIdentifierStart,
+/* 100 - d                  */ CharacterIdentifierStart,
+/* 101 - e                  */ CharacterIdentifierStart,
+/* 102 - f                  */ CharacterIdentifierStart,
+/* 103 - g                  */ CharacterIdentifierStart,
+/* 104 - h                  */ CharacterIdentifierStart,
+/* 105 - i                  */ CharacterIdentifierStart,
+/* 106 - j                  */ CharacterIdentifierStart,
+/* 107 - k                  */ CharacterIdentifierStart,
+/* 108 - l                  */ CharacterIdentifierStart,
+/* 109 - m                  */ CharacterIdentifierStart,
+/* 110 - n                  */ CharacterIdentifierStart,
+/* 111 - o                  */ CharacterIdentifierStart,
+/* 112 - p                  */ CharacterIdentifierStart,
+/* 113 - q                  */ CharacterIdentifierStart,
+/* 114 - r                  */ CharacterIdentifierStart,
+/* 115 - s                  */ CharacterIdentifierStart,
+/* 116 - t                  */ CharacterIdentifierStart,
+/* 117 - u                  */ CharacterIdentifierStart,
+/* 118 - v                  */ CharacterIdentifierStart,
+/* 119 - w                  */ CharacterIdentifierStart,
+/* 120 - x                  */ CharacterIdentifierStart,
+/* 121 - y                  */ CharacterIdentifierStart,
+/* 122 - z                  */ CharacterIdentifierStart,
+/* 123 - {                  */ CharacterOpenBrace,
+/* 124 - |                  */ CharacterOr,
+/* 125 - }                  */ CharacterCloseBrace,
+/* 126 - ~                  */ CharacterTilde,
+/* 127 - Delete             */ CharacterInvalid,
+};
 
 Lexer::Lexer(JSGlobalData* globalData)
     : m_isReparsing(false)
@@ -59,75 +233,15 @@ Lexer::~Lexer()
     m_keywordTable.deleteTable();
 }
 
-inline const UChar* Lexer::currentCharacter() const
+ALWAYS_INLINE const UChar* Lexer::currentCharacter() const
 {
-    return m_code - 4;
+    ASSERT(m_code <= m_codeEnd);
+    return m_code;
 }
 
-inline int Lexer::currentOffset() const
+ALWAYS_INLINE int Lexer::currentOffset() const
 {
     return currentCharacter() - m_codeStart;
-}
-
-ALWAYS_INLINE void Lexer::shift1()
-{
-    m_current = m_next1;
-    m_next1 = m_next2;
-    m_next2 = m_next3;
-    if (LIKELY(m_code < m_codeEnd))
-        m_next3 = m_code[0];
-    else
-        m_next3 = -1;
-
-    ++m_code;
-}
-
-ALWAYS_INLINE void Lexer::shift2()
-{
-    m_current = m_next2;
-    m_next1 = m_next3;
-    if (LIKELY(m_code + 1 < m_codeEnd)) {
-        m_next2 = m_code[0];
-        m_next3 = m_code[1];
-    } else {
-        m_next2 = m_code < m_codeEnd ? m_code[0] : -1;
-        m_next3 = -1;
-    }
-
-    m_code += 2;
-}
-
-ALWAYS_INLINE void Lexer::shift3()
-{
-    m_current = m_next3;
-    if (LIKELY(m_code + 2 < m_codeEnd)) {
-        m_next1 = m_code[0];
-        m_next2 = m_code[1];
-        m_next3 = m_code[2];
-    } else {
-        m_next1 = m_code < m_codeEnd ? m_code[0] : -1;
-        m_next2 = m_code + 1 < m_codeEnd ? m_code[1] : -1;
-        m_next3 = -1;
-    }
-
-    m_code += 3;
-}
-
-ALWAYS_INLINE void Lexer::shift4()
-{
-    if (LIKELY(m_code + 3 < m_codeEnd)) {
-        m_current = m_code[0];
-        m_next1 = m_code[1];
-        m_next2 = m_code[2];
-        m_next3 = m_code[3];
-    } else {
-        m_current = m_code < m_codeEnd ? m_code[0] : -1;
-        m_next1 = m_code + 1 < m_codeEnd ? m_code[1] : -1;
-        m_next2 = m_code + 2 < m_codeEnd ? m_code[2] : -1;
-        m_next3 = -1;
-    }
-
-    m_code += 4;
 }
 
 void Lexer::setCode(const SourceCode& source, ParserArena& arena)
@@ -150,50 +264,58 @@ void Lexer::setCode(const SourceCode& source, ParserArena& arena)
     m_buffer8.reserveInitialCapacity(initialReadBufferCapacity);
     m_buffer16.reserveInitialCapacity((m_codeEnd - m_code) / 2);
 
-    // ECMA-262 calls for stripping all Cf characters, but we only strip BOM characters.
-    // See <https://bugs.webkit.org/show_bug.cgi?id=4931> for details.
-    if (source.provider()->hasBOMs()) {
-        for (const UChar* p = m_codeStart; p < m_codeEnd; ++p) {
-            if (UNLIKELY(*p == byteOrderMark)) {
-                copyCodeWithoutBOMs();
-                break;
-            }
-        }
-    }
-
-    // Read the first characters into the 4-character buffer.
-    shift4();
+    if (LIKELY(m_code < m_codeEnd))
+        m_current = *m_code;
+    else
+        m_current = -1;
     ASSERT(currentOffset() == source.startOffset());
 }
 
-void Lexer::copyCodeWithoutBOMs()
+ALWAYS_INLINE void Lexer::shift()
 {
-    // Note: In this case, the character offset data for debugging will be incorrect.
-    // If it's important to correctly debug code with extraneous BOMs, then the caller
-    // should strip the BOMs when creating the SourceProvider object and do its own
-    // mapping of offsets within the stripped text to original text offset.
+    // Faster than an if-else sequence
+    ASSERT(m_current != -1);
+    m_current = -1;
+    ++m_code;
+    if (LIKELY(m_code < m_codeEnd))
+        m_current = *m_code;
+}
 
-    m_codeWithoutBOMs.reserveCapacity(m_codeEnd - m_code);
-    for (const UChar* p = m_code; p < m_codeEnd; ++p) {
-        UChar c = *p;
-        if (c != byteOrderMark)
-            m_codeWithoutBOMs.append(c);
-    }
-    ptrdiff_t startDelta = m_codeStart - m_code;
-    m_code = m_codeWithoutBOMs.data();
-    m_codeStart = m_code + startDelta;
-    m_codeEnd = m_codeWithoutBOMs.data() + m_codeWithoutBOMs.size();
+ALWAYS_INLINE int Lexer::peek(int offset)
+{
+    // Only use if necessary
+    ASSERT(offset > 0 && offset < 5);
+    const UChar* code = m_code + offset;
+    return (code < m_codeEnd) ? *code : -1;
+}
+
+int Lexer::getUnicodeCharacter()
+{
+    int char1 = peek(1);
+    int char2 = peek(2);
+    int char3 = peek(3);
+
+    if (UNLIKELY(!isASCIIHexDigit(m_current) || !isASCIIHexDigit(char1) || !isASCIIHexDigit(char2) || !isASCIIHexDigit(char3)))
+        return -1;
+
+    int result = convertUnicode(m_current, char1, char2, char3);
+    shift();
+    shift();
+    shift();
+    shift();
+    return result;
 }
 
 void Lexer::shiftLineTerminator()
 {
     ASSERT(isLineTerminator(m_current));
 
+    int m_prev = m_current;
+    shift();
+
     // Allow both CRLF and LFCR.
-    if (m_current + m_next1 == '\n' + '\r')
-        shift2();
-    else
-        shift1();
+    if (m_prev + m_current == '\n' + '\r')
+        shift();
 
     ++m_lineNumber;
 }
@@ -203,7 +325,7 @@ ALWAYS_INLINE const Identifier* Lexer::makeIdentifier(const UChar* characters, s
     return &m_arena->makeIdentifier(m_globalData, characters, length);
 }
 
-inline bool Lexer::lastTokenWasRestrKeyword() const
+ALWAYS_INLINE bool Lexer::lastTokenWasRestrKeyword() const
 {
     return m_lastToken == CONTINUE || m_lastToken == BREAK || m_lastToken == RETURN || m_lastToken == THROW;
 }
@@ -215,7 +337,7 @@ static NEVER_INLINE bool isNonASCIIIdentStart(int c)
 
 static inline bool isIdentStart(int c)
 {
-    return isASCII(c) ? isASCIIAlpha(c) || c == '$' || c == '_' : isNonASCIIIdentStart(c);
+    return isASCII(c) ? typesOfASCIICharacters[c] == CharacterIdentifierStart : isNonASCIIIdentStart(c);
 }
 
 static NEVER_INLINE bool isNonASCIIIdentPart(int c)
@@ -226,26 +348,35 @@ static NEVER_INLINE bool isNonASCIIIdentPart(int c)
 
 static inline bool isIdentPart(int c)
 {
-    return isASCII(c) ? isASCIIAlphanumeric(c) || c == '$' || c == '_' : isNonASCIIIdentPart(c);
+    // Character types are divided into two groups depending on whether they can be part of an
+    // identifier or not. Those whose type value is less or equal than CharacterNumber can be
+    // part of an identifier. (See the CharacterType definition for more details.)
+    return isASCII(c) ? typesOfASCIICharacters[c] <= CharacterNumber : isNonASCIIIdentPart(c);
 }
 
 static inline int singleEscape(int c)
 {
     switch (c) {
-        case 'b':
-            return 0x08;
-        case 't':
-            return 0x09;
-        case 'n':
-            return 0x0A;
-        case 'v':
-            return 0x0B;
-        case 'f':
-            return 0x0C;
-        case 'r':
-            return 0x0D;
-        default:
-            return c;
+    case 'b':
+        return 0x08;
+    case 't':
+        return 0x09;
+    case 'n':
+        return 0x0A;
+    case 'v':
+        return 0x0B;
+    case 'f':
+        return 0x0C;
+    case 'r':
+        return 0x0D;
+    case '\\':
+        return '\\';
+    case '\'':
+        return '\'';
+    case '"':
+        return '"';
+    default:
+        return 0;
     }
 }
 
@@ -268,639 +399,686 @@ inline void Lexer::record16(int c)
     record16(UChar(static_cast<unsigned short>(c)));
 }
 
-int Lexer::lex(void* p1, void* p2)
+ALWAYS_INLINE JSTokenType Lexer::parseIdentifier(JSTokenData* lvalp, LexType lexType)
+{
+    bool bufferRequired = false;
+    const UChar* identifierStart = currentCharacter();
+    int identifierLength;
+
+    while (true) {
+        if (LIKELY(isIdentPart(m_current))) {
+            shift();
+            continue;
+        }
+        if (LIKELY(m_current != '\\'))
+            break;
+
+        // \uXXXX unicode characters.
+        bufferRequired = true;
+        if (identifierStart != currentCharacter())
+            m_buffer16.append(identifierStart, currentCharacter() - identifierStart);
+        shift();
+        if (UNLIKELY(m_current != 'u'))
+            return ERRORTOK;
+        shift();
+        int character = getUnicodeCharacter();
+        if (UNLIKELY(character == -1))
+            return ERRORTOK;
+        if (UNLIKELY(m_buffer16.size() ? !isIdentPart(character) : !isIdentStart(character)))
+            return ERRORTOK;
+        record16(character);
+        identifierStart = currentCharacter();
+    }
+
+    if (!bufferRequired)
+        identifierLength = currentCharacter() - identifierStart;
+    else {
+        if (identifierStart != currentCharacter())
+            m_buffer16.append(identifierStart, currentCharacter() - identifierStart);
+        identifierStart = m_buffer16.data();
+        identifierLength = m_buffer16.size();
+    }
+
+    const Identifier* ident = makeIdentifier(identifierStart, identifierLength);
+    lvalp->ident = ident;
+    m_delimited = false;
+
+    if (LIKELY(!bufferRequired && lexType == IdentifyReservedWords)) {
+        // Keywords must not be recognized if there was an \uXXXX in the identifier.
+        const HashEntry* entry = m_keywordTable.entry(m_globalData, *ident);
+        return entry ? static_cast<JSTokenType>(entry->lexerValue()) : IDENT;
+    }
+
+    m_buffer16.resize(0);
+    return IDENT;
+}
+
+ALWAYS_INLINE bool Lexer::parseString(JSTokenData* lvalp, bool strictMode)
+{
+    int stringQuoteCharacter = m_current;
+    shift();
+
+    const UChar* stringStart = currentCharacter();
+
+    while (m_current != stringQuoteCharacter) {
+        if (UNLIKELY(m_current == '\\')) {
+            if (stringStart != currentCharacter())
+                m_buffer16.append(stringStart, currentCharacter() - stringStart);
+            shift();
+
+            int escape = singleEscape(m_current);
+
+            // Most common escape sequences first
+            if (escape) {
+                record16(escape);
+                shift();
+            } else if (UNLIKELY(isLineTerminator(m_current)))
+                shiftLineTerminator();
+            else if (m_current == 'x') {
+                shift();
+                if (isASCIIHexDigit(m_current) && isASCIIHexDigit(peek(1))) {
+                    int prev = m_current;
+                    shift();
+                    record16(convertHex(prev, m_current));
+                    shift();
+                } else
+                    record16('x');
+            } else if (m_current == 'u') {
+                shift();
+                int character = getUnicodeCharacter();
+                if (character != -1)
+                    record16(character);
+                else if (m_current == stringQuoteCharacter)
+                    record16('u');
+                else // Only stringQuoteCharacter allowed after \u
+                    return false;
+            } else if (strictMode && isASCIIDigit(m_current)) {
+                // The only valid numeric escape in strict mode is '\0', and this must not be followed by a decimal digit.
+                int character1 = m_current;
+                shift();
+                if (character1 != '0' || isASCIIDigit(m_current))
+                    return false;
+                record16(0);
+            } else if (!strictMode && isASCIIOctalDigit(m_current)) {
+                // Octal character sequences
+                int character1 = m_current;
+                shift();
+                if (isASCIIOctalDigit(m_current)) {
+                    // Two octal characters
+                    int character2 = m_current;
+                    shift();
+                    if (character1 >= '0' && character1 <= '3' && isASCIIOctalDigit(m_current)) {
+                        record16((character1 - '0') * 64 + (character2 - '0') * 8 + m_current - '0');
+                        shift();
+                    } else
+                        record16((character1 - '0') * 8 + character2 - '0');
+                } else
+                    record16(character1 - '0');
+            } else if (m_current != -1) {
+                record16(m_current);
+                shift();
+            } else
+                return false;
+
+            stringStart = currentCharacter();
+            continue;
+        }
+        // Fast check for characters that require special handling.
+        // Catches -1, \n, \r, 0x2028, and 0x2029 as efficiently
+        // as possible, and lets through all common ASCII characters.
+        if (UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
+            // New-line or end of input is not allowed
+            if (UNLIKELY(isLineTerminator(m_current)) || UNLIKELY(m_current == -1))
+                return false;
+            // Anything else is just a normal character
+        }
+        shift();
+    }
+
+    if (currentCharacter() != stringStart)
+        m_buffer16.append(stringStart, currentCharacter() - stringStart);
+    lvalp->ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    m_buffer16.resize(0);
+    return true;
+}
+
+ALWAYS_INLINE void Lexer::parseHex(double& returnValue)
+{
+    // Optimization: most hexadecimal values fit into 4 bytes.
+    uint32_t hexValue = 0;
+    int maximumDigits = 7;
+
+    // Shift out the 'x' prefix.
+    shift();
+
+    do {
+        hexValue = (hexValue << 4) + toASCIIHexValue(m_current);
+        shift();
+        --maximumDigits;
+    } while (isASCIIHexDigit(m_current) && maximumDigits >= 0);
+
+    if (maximumDigits >= 0) {
+        returnValue = hexValue;
+        return;
+    }
+
+    // No more place in the hexValue buffer.
+    // The values are shifted out and placed into the m_buffer8 vector.
+    for (int i = 0; i < 8; ++i) {
+         int digit = hexValue >> 28;
+         if (digit < 10)
+             record8(digit + '0');
+         else
+             record8(digit - 10 + 'a');
+         hexValue <<= 4;
+    }
+
+    while (isASCIIHexDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    returnValue = parseIntOverflow(m_buffer8.data(), m_buffer8.size(), 16);
+}
+
+ALWAYS_INLINE bool Lexer::parseOctal(double& returnValue)
+{
+    // Optimization: most octal values fit into 4 bytes.
+    uint32_t octalValue = 0;
+    int maximumDigits = 9;
+    // Temporary buffer for the digits. Makes easier
+    // to reconstruct the input characters when needed.
+    char digits[10];
+
+    do {
+        octalValue = octalValue * 8 + (m_current - '0');
+        digits[maximumDigits] = m_current;
+        shift();
+        --maximumDigits;
+    } while (isASCIIOctalDigit(m_current) && maximumDigits >= 0);
+
+    if (!isASCIIDigit(m_current) && maximumDigits >= 0) {
+        returnValue = octalValue;
+        return true;
+    }
+
+    for (int i = 9; i > maximumDigits; --i)
+         record8(digits[i]);
+
+    while (isASCIIOctalDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    if (isASCIIDigit(m_current))
+        return false;
+
+    returnValue = parseIntOverflow(m_buffer8.data(), m_buffer8.size(), 8);
+    return true;
+}
+
+ALWAYS_INLINE bool Lexer::parseDecimal(double& returnValue)
+{
+    // Optimization: most decimal values fit into 4 bytes.
+    uint32_t decimalValue = 0;
+
+    // Since parseOctal may be executed before parseDecimal,
+    // the m_buffer8 may hold ascii digits.
+    if (!m_buffer8.size()) {
+        int maximumDigits = 9;
+        // Temporary buffer for the digits. Makes easier
+        // to reconstruct the input characters when needed.
+        char digits[10];
+
+        do {
+            decimalValue = decimalValue * 10 + (m_current - '0');
+            digits[maximumDigits] = m_current;
+            shift();
+            --maximumDigits;
+        } while (isASCIIDigit(m_current) && maximumDigits >= 0);
+
+        if (maximumDigits >= 0 && m_current != '.' && (m_current | 0x20) != 'e') {
+            returnValue = decimalValue;
+            return true;
+        }
+
+        for (int i = 9; i > maximumDigits; --i)
+            record8(digits[i]);
+    }
+
+    while (isASCIIDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+
+    return false;
+}
+
+ALWAYS_INLINE void Lexer::parseNumberAfterDecimalPoint()
+{
+    record8('.');
+    while (isASCIIDigit(m_current)) {
+        record8(m_current);
+        shift();
+    }
+}
+
+ALWAYS_INLINE bool Lexer::parseNumberAfterExponentIndicator()
+{
+    record8('e');
+    shift();
+    if (m_current == '+' || m_current == '-') {
+        record8(m_current);
+        shift();
+    }
+
+    if (!isASCIIDigit(m_current))
+        return false;
+
+    do {
+        record8(m_current);
+        shift();
+    } while (isASCIIDigit(m_current));
+    return true;
+}
+
+ALWAYS_INLINE bool Lexer::parseMultilineComment()
+{
+    while (true) {
+        while (UNLIKELY(m_current == '*')) {
+            shift();
+            if (m_current == '/') {
+                shift();
+                return true;
+            }
+        }
+
+        if (UNLIKELY(m_current == -1))
+            return false;
+
+        if (isLineTerminator(m_current))
+            shiftLineTerminator();
+        else
+            shift();
+    }
+}
+
+bool Lexer::nextTokenIsColon()
+{
+    const UChar* code = m_code;
+    while (code < m_codeEnd && (isWhiteSpace(*code) || isLineTerminator(*code)))
+        code++;
+        
+    return code < m_codeEnd && *code == ':';
+}
+
+JSTokenType Lexer::lex(JSTokenData* lvalp, JSTokenInfo* llocp, LexType lexType, bool strictMode)
 {
     ASSERT(!m_error);
     ASSERT(m_buffer8.isEmpty());
     ASSERT(m_buffer16.isEmpty());
 
-    YYSTYPE* lvalp = static_cast<YYSTYPE*>(p1);
-    YYLTYPE* llocp = static_cast<YYLTYPE*>(p2);
-    int token = 0;
+    JSTokenType token = ERRORTOK;
     m_terminator = false;
 
 start:
     while (isWhiteSpace(m_current))
-        shift1();
+        shift();
 
     int startOffset = currentOffset();
 
-    if (m_current == -1) {
-        if (!m_terminator && !m_delimited && !m_isReparsing) {
-            // automatic semicolon insertion if program incomplete
-            token = ';';
-            goto doneSemicolon;
-        }
-        return 0;
-    }
+    if (UNLIKELY(m_current == -1))
+        return EOFTOK;
 
     m_delimited = false;
-    switch (m_current) {
-        case '>':
-            if (m_next1 == '>' && m_next2 == '>') {
-                if (m_next3 == '=') {
-                    shift4();
+
+    CharacterType type;
+    if (LIKELY(isASCII(m_current)))
+        type = static_cast<CharacterType>(typesOfASCIICharacters[m_current]);
+    else if (isNonASCIIIdentStart(m_current))
+        type = CharacterIdentifierStart;
+    else if (isLineTerminator(m_current))
+        type = CharacterLineTerminator;
+    else
+        type = CharacterInvalid;
+
+    switch (type) {
+    case CharacterGreater:
+        shift();
+        if (m_current == '>') {
+            shift();
+            if (m_current == '>') {
+                shift();
+                if (m_current == '=') {
+                    shift();
                     token = URSHIFTEQUAL;
                     break;
                 }
-                shift3();
                 token = URSHIFT;
                 break;
             }
-            if (m_next1 == '>') {
-                if (m_next2 == '=') {
-                    shift3();
-                    token = RSHIFTEQUAL;
-                    break;
-                }
-                shift2();
-                token = RSHIFT;
+            if (m_current == '=') {
+                shift();
+                token = RSHIFTEQUAL;
                 break;
             }
-            if (m_next1 == '=') {
-                shift2();
-                token = GE;
-                break;
-            }
-            shift1();
-            token = '>';
+            token = RSHIFT;
             break;
-        case '=':
-            if (m_next1 == '=') {
-                if (m_next2 == '=') {
-                    shift3();
-                    token = STREQ;
-                    break;
-                }
-                shift2();
-                token = EQEQ;
+        }
+        if (m_current == '=') {
+            shift();
+            token = GE;
+            break;
+        }
+        token = GT;
+        break;
+    case CharacterEqual:
+        shift();
+        if (m_current == '=') {
+            shift();
+            if (m_current == '=') {
+                shift();
+                token = STREQ;
                 break;
             }
-            shift1();
-            token = '=';
+            token = EQEQ;
             break;
-        case '!':
-            if (m_next1 == '=') {
-                if (m_next2 == '=') {
-                    shift3();
-                    token = STRNEQ;
-                    break;
-                }
-                shift2();
-                token = NE;
+        }
+        token = EQUAL;
+        break;
+    case CharacterLess:
+        shift();
+        if (m_current == '!' && peek(1) == '-' && peek(2) == '-') {
+            // <!-- marks the beginning of a line comment (for www usage)
+            goto inSingleLineComment;
+        }
+        if (m_current == '<') {
+            shift();
+            if (m_current == '=') {
+                shift();
+                token = LSHIFTEQUAL;
                 break;
             }
-            shift1();
-            token = '!';
+            token = LSHIFT;
             break;
-        case '<':
-            if (m_next1 == '!' && m_next2 == '-' && m_next3 == '-') {
-                // <!-- marks the beginning of a line comment (for www usage)
-                shift4();
+        }
+        if (m_current == '=') {
+            shift();
+            token = LE;
+            break;
+        }
+        token = LT;
+        break;
+    case CharacterExclamationMark:
+        shift();
+        if (m_current == '=') {
+            shift();
+            if (m_current == '=') {
+                shift();
+                token = STRNEQ;
+                break;
+            }
+            token = NE;
+            break;
+        }
+        token = EXCLAMATION;
+        break;
+    case CharacterAdd:
+        shift();
+        if (m_current == '+') {
+            shift();
+            token = (!m_terminator) ? PLUSPLUS : AUTOPLUSPLUS;
+            break;
+        }
+        if (m_current == '=') {
+            shift();
+            token = PLUSEQUAL;
+            break;
+        }
+        token = PLUS;
+        break;
+    case CharacterSub:
+        shift();
+        if (m_current == '-') {
+            shift();
+            if (m_atLineStart && m_current == '>') {
+                shift();
                 goto inSingleLineComment;
             }
-            if (m_next1 == '<') {
-                if (m_next2 == '=') {
-                    shift3();
-                    token = LSHIFTEQUAL;
-                    break;
-                }
-                shift2();
-                token = LSHIFT;
-                break;
-            }
-            if (m_next1 == '=') {
-                shift2();
-                token = LE;
-                break;
-            }
-            shift1();
-            token = '<';
+            token = (!m_terminator) ? MINUSMINUS : AUTOMINUSMINUS;
             break;
-        case '+':
-            if (m_next1 == '+') {
-                shift2();
-                if (m_terminator) {
-                    token = AUTOPLUSPLUS;
-                    break;
-                }
-                token = PLUSPLUS;
-                break;
-            }
-            if (m_next1 == '=') {
-                shift2();
-                token = PLUSEQUAL;
-                break;
-            }
-            shift1();
-            token = '+';
+        }
+        if (m_current == '=') {
+            shift();
+            token = MINUSEQUAL;
             break;
-        case '-':
-            if (m_next1 == '-') {
-                if (m_atLineStart && m_next2 == '>') {
-                    shift3();
-                    goto inSingleLineComment;
-                }
-                shift2();
-                if (m_terminator) {
-                    token = AUTOMINUSMINUS;
-                    break;
-                }
-                token = MINUSMINUS;
-                break;
-            }
-            if (m_next1 == '=') {
-                shift2();
-                token = MINUSEQUAL;
-                break;
-            }
-            shift1();
-            token = '-';
+        }
+        token = MINUS;
+        break;
+    case CharacterMultiply:
+        shift();
+        if (m_current == '=') {
+            shift();
+            token = MULTEQUAL;
             break;
-        case '*':
-            if (m_next1 == '=') {
-                shift2();
-                token = MULTEQUAL;
-                break;
-            }
-            shift1();
-            token = '*';
-            break;
-        case '/':
-            if (m_next1 == '/') {
-                shift2();
-                goto inSingleLineComment;
-            }
-            if (m_next1 == '*')
-                goto inMultiLineComment;
-            if (m_next1 == '=') {
-                shift2();
-                token = DIVEQUAL;
-                break;
-            }
-            shift1();
-            token = '/';
-            break;
-        case '&':
-            if (m_next1 == '&') {
-                shift2();
-                token = AND;
-                break;
-            }
-            if (m_next1 == '=') {
-                shift2();
-                token = ANDEQUAL;
-                break;
-            }
-            shift1();
-            token = '&';
-            break;
-        case '^':
-            if (m_next1 == '=') {
-                shift2();
-                token = XOREQUAL;
-                break;
-            }
-            shift1();
-            token = '^';
-            break;
-        case '%':
-            if (m_next1 == '=') {
-                shift2();
-                token = MODEQUAL;
-                break;
-            }
-            shift1();
-            token = '%';
-            break;
-        case '|':
-            if (m_next1 == '=') {
-                shift2();
-                token = OREQUAL;
-                break;
-            }
-            if (m_next1 == '|') {
-                shift2();
-                token = OR;
-                break;
-            }
-            shift1();
-            token = '|';
-            break;
-        case '.':
-            if (isASCIIDigit(m_next1)) {
-                record8('.');
-                shift1();
-                goto inNumberAfterDecimalPoint;
-            }
-            token = '.';
-            shift1();
-            break;
-        case ',':
-        case '~':
-        case '?':
-        case ':':
-        case '(':
-        case ')':
-        case '[':
-        case ']':
-            token = m_current;
-            shift1();
-            break;
-        case ';':
-            shift1();
-            m_delimited = true;
-            token = ';';
-            break;
-        case '{':
-            lvalp->intValue = currentOffset();
-            shift1();
-            token = OPENBRACE;
-            break;
-        case '}':
-            lvalp->intValue = currentOffset();
-            shift1();
-            m_delimited = true;
-            token = CLOSEBRACE;
-            break;
-        case '\\':
-            goto startIdentifierWithBackslash;
-        case '0':
-            goto startNumberWithZeroDigit;
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            goto startNumber;
-        case '"':
-        case '\'':
-            goto startString;
-        default:
-            if (isIdentStart(m_current))
-                goto startIdentifierOrKeyword;
-            if (isLineTerminator(m_current)) {
-                shiftLineTerminator();
-                m_atLineStart = true;
-                m_terminator = true;
-                if (lastTokenWasRestrKeyword()) {
-                    token = ';';
-                    goto doneSemicolon;
-                }
+        }
+        token = TIMES;
+        break;
+    case CharacterSlash:
+        shift();
+        if (m_current == '/') {
+            shift();
+            goto inSingleLineComment;
+        }
+        if (m_current == '*') {
+            shift();
+            if (parseMultilineComment())
                 goto start;
+            goto returnError;
+        }
+        if (m_current == '=') {
+            shift();
+            token = DIVEQUAL;
+            break;
+        }
+        token = DIVIDE;
+        break;
+    case CharacterAnd:
+        shift();
+        if (m_current == '&') {
+            shift();
+            token = AND;
+            break;
+        }
+        if (m_current == '=') {
+            shift();
+            token = ANDEQUAL;
+            break;
+        }
+        token = BITAND;
+        break;
+    case CharacterXor:
+        shift();
+        if (m_current == '=') {
+            shift();
+            token = XOREQUAL;
+            break;
+        }
+        token = BITXOR;
+        break;
+    case CharacterModulo:
+        shift();
+        if (m_current == '=') {
+            shift();
+            token = MODEQUAL;
+            break;
+        }
+        token = MOD;
+        break;
+    case CharacterOr:
+        shift();
+        if (m_current == '=') {
+            shift();
+            token = OREQUAL;
+            break;
+        }
+        if (m_current == '|') {
+            shift();
+            token = OR;
+            break;
+        }
+        token = BITOR;
+        break;
+    case CharacterOpenParen:
+        token = OPENPAREN;
+        shift();
+        break;
+    case CharacterCloseParen:
+        token = CLOSEPAREN;
+        shift();
+        break;
+    case CharacterOpenBracket:
+        token = OPENBRACKET;
+        shift();
+        break;
+    case CharacterCloseBracket:
+        token = CLOSEBRACKET;
+        shift();
+        break;
+    case CharacterComma:
+        token = COMMA;
+        shift();
+        break;
+    case CharacterColon:
+        token = COLON;
+        shift();
+        break;
+    case CharacterQuestion:
+        token = QUESTION;
+        shift();
+        break;
+    case CharacterTilde:
+        token = TILDE;
+        shift();
+        break;
+    case CharacterSemicolon:
+        m_delimited = true;
+        shift();
+        token = SEMICOLON;
+        break;
+    case CharacterOpenBrace:
+        lvalp->intValue = currentOffset();
+        shift();
+        token = OPENBRACE;
+        break;
+    case CharacterCloseBrace:
+        lvalp->intValue = currentOffset();
+        m_delimited = true;
+        shift();
+        token = CLOSEBRACE;
+        break;
+    case CharacterDot:
+        shift();
+        if (!isASCIIDigit(m_current)) {
+            token = DOT;
+            break;
+        }
+        goto inNumberAfterDecimalPoint;
+    case CharacterZero:
+        shift();
+        if ((m_current | 0x20) == 'x' && isASCIIHexDigit(peek(1))) {
+            parseHex(lvalp->doubleValue);
+            token = NUMBER;
+        } else {
+            record8('0');
+            if (isASCIIOctalDigit(m_current)) {
+                if (parseOctal(lvalp->doubleValue)) {
+                    if (strictMode)
+                        goto returnError;
+                    token = NUMBER;
+                }
             }
+        }
+        // Fall through into CharacterNumber
+    case CharacterNumber:
+        if (LIKELY(token != NUMBER)) {
+            if (!parseDecimal(lvalp->doubleValue)) {
+                if (m_current == '.') {
+                    shift();
+inNumberAfterDecimalPoint:
+                    parseNumberAfterDecimalPoint();
+                }
+                if ((m_current | 0x20) == 'e')
+                    if (!parseNumberAfterExponentIndicator())
+                        goto returnError;
+                // Null-terminate string for strtod.
+                m_buffer8.append('\0');
+                lvalp->doubleValue = WTF::strtod(m_buffer8.data(), 0);
+            }
+            token = NUMBER;
+        }
+
+        // No identifiers allowed directly after numeric literal, e.g. "3in" is bad.
+        if (UNLIKELY(isIdentStart(m_current)))
             goto returnError;
-    }
-
-    m_atLineStart = false;
-    goto returnToken;
-
-startString: {
-    int stringQuoteCharacter = m_current;
-    shift1();
-
-    const UChar* stringStart = currentCharacter();
-    while (m_current != stringQuoteCharacter) {
-        // Fast check for characters that require special handling.
-        // Catches -1, \n, \r, \, 0x2028, and 0x2029 as efficiently
-        // as possible, and lets through all common ASCII characters.
-        if (UNLIKELY(m_current == '\\') || UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
-            m_buffer16.append(stringStart, currentCharacter() - stringStart);
-            goto inString;
-        }
-        shift1();
-    }
-    lvalp->ident = makeIdentifier(stringStart, currentCharacter() - stringStart);
-    shift1();
-    m_atLineStart = false;
-    m_delimited = false;
-    token = STRING;
-    goto returnToken;
-
-inString:
-    while (m_current != stringQuoteCharacter) {
-        if (m_current == '\\')
-            goto inStringEscapeSequence;
-        if (UNLIKELY(isLineTerminator(m_current)))
+        m_buffer8.resize(0);
+        m_delimited = false;
+        break;
+    case CharacterQuote:
+        if (UNLIKELY(!parseString(lvalp, strictMode)))
             goto returnError;
-        if (UNLIKELY(m_current == -1))
-            goto returnError;
-        record16(m_current);
-        shift1();
-    }
-    goto doneString;
-
-inStringEscapeSequence:
-    shift1();
-    if (m_current == 'x') {
-        shift1();
-        if (isASCIIHexDigit(m_current) && isASCIIHexDigit(m_next1)) {
-            record16(convertHex(m_current, m_next1));
-            shift2();
-            goto inString;
-        }
-        record16('x');
-        if (m_current == stringQuoteCharacter)
-            goto doneString;
-        goto inString;
-    }
-    if (m_current == 'u') {
-        shift1();
-        if (isASCIIHexDigit(m_current) && isASCIIHexDigit(m_next1) && isASCIIHexDigit(m_next2) && isASCIIHexDigit(m_next3)) {
-            record16(convertUnicode(m_current, m_next1, m_next2, m_next3));
-            shift4();
-            goto inString;
-        }
-        if (m_current == stringQuoteCharacter) {
-            record16('u');
-            goto doneString;
-        }
-        goto returnError;
-    }
-    if (isASCIIOctalDigit(m_current)) {
-        if (m_current >= '0' && m_current <= '3' && isASCIIOctalDigit(m_next1) && isASCIIOctalDigit(m_next2)) {
-            record16((m_current - '0') * 64 + (m_next1 - '0') * 8 + m_next2 - '0');
-            shift3();
-            goto inString;
-        }
-        if (isASCIIOctalDigit(m_next1)) {
-            record16((m_current - '0') * 8 + m_next1 - '0');
-            shift2();
-            goto inString;
-        }
-        record16(m_current - '0');
-        shift1();
-        goto inString;
-    }
-    if (isLineTerminator(m_current)) {
+        shift();
+        m_delimited = false;
+        token = STRING;
+        break;
+    case CharacterIdentifierStart:
+        ASSERT(isIdentStart(m_current));
+        // Fall through into CharacterBackSlash.
+    case CharacterBackSlash:
+        token = parseIdentifier(lvalp, lexType);
+        break;
+    case CharacterLineTerminator:
+        ASSERT(isLineTerminator(m_current));
         shiftLineTerminator();
-        goto inString;
+        m_atLineStart = true;
+        m_terminator = true;
+        goto start;
+    case CharacterInvalid:
+        goto returnError;
+    default:
+        ASSERT_NOT_REACHED();
+        goto returnError;
     }
-    if (m_current == -1)
-        goto returnError;
-    record16(singleEscape(m_current));
-    shift1();
-    goto inString;
-}
 
-startIdentifierWithBackslash:
-    shift1();
-    if (UNLIKELY(m_current != 'u'))
-        goto returnError;
-    shift1();
-    if (UNLIKELY(!isASCIIHexDigit(m_current) || !isASCIIHexDigit(m_next1) || !isASCIIHexDigit(m_next2) || !isASCIIHexDigit(m_next3)))
-        goto returnError;
-    token = convertUnicode(m_current, m_next1, m_next2, m_next3);
-    if (UNLIKELY(!isIdentStart(token)))
-        goto returnError;
-    goto inIdentifierAfterCharacterCheck;
-
-startIdentifierOrKeyword: {
-    const UChar* identifierStart = currentCharacter();
-    shift1();
-    while (isIdentPart(m_current))
-        shift1();
-    if (LIKELY(m_current != '\\')) {
-        lvalp->ident = makeIdentifier(identifierStart, currentCharacter() - identifierStart);
-        goto doneIdentifierOrKeyword;
-    }
-    m_buffer16.append(identifierStart, currentCharacter() - identifierStart);
-}
-
-    do {
-        shift1();
-        if (UNLIKELY(m_current != 'u'))
-            goto returnError;
-        shift1();
-        if (UNLIKELY(!isASCIIHexDigit(m_current) || !isASCIIHexDigit(m_next1) || !isASCIIHexDigit(m_next2) || !isASCIIHexDigit(m_next3)))
-            goto returnError;
-        token = convertUnicode(m_current, m_next1, m_next2, m_next3);
-        if (UNLIKELY(!isIdentPart(token)))
-            goto returnError;
-inIdentifierAfterCharacterCheck:
-        record16(token);
-        shift4();
-
-        while (isIdentPart(m_current)) {
-            record16(m_current);
-            shift1();
-        }
-    } while (UNLIKELY(m_current == '\\'));
-    goto doneIdentifier;
+    m_atLineStart = false;
+    goto returnToken;
 
 inSingleLineComment:
     while (!isLineTerminator(m_current)) {
         if (UNLIKELY(m_current == -1))
-            return 0;
-        shift1();
+            return EOFTOK;
+        shift();
     }
     shiftLineTerminator();
     m_atLineStart = true;
     m_terminator = true;
-    if (lastTokenWasRestrKeyword())
-        goto doneSemicolon;
-    goto start;
+    if (!lastTokenWasRestrKeyword())
+        goto start;
 
-inMultiLineComment:
-    shift2();
-    while (m_current != '*' || m_next1 != '/') {
-        if (isLineTerminator(m_current))
-            shiftLineTerminator();
-        else {
-            shift1();
-            if (UNLIKELY(m_current == -1))
-                goto returnError;
-        }
-    }
-    shift2();
-    m_atLineStart = false;
-    goto start;
-
-startNumberWithZeroDigit:
-    shift1();
-    if ((m_current | 0x20) == 'x' && isASCIIHexDigit(m_next1)) {
-        shift1();
-        goto inHex;
-    }
-    if (m_current == '.') {
-        record8('0');
-        record8('.');
-        shift1();
-        goto inNumberAfterDecimalPoint;
-    }
-    if ((m_current | 0x20) == 'e') {
-        record8('0');
-        record8('e');
-        shift1();
-        goto inExponentIndicator;
-    }
-    if (isASCIIOctalDigit(m_current))
-        goto inOctal;
-    if (isASCIIDigit(m_current))
-        goto startNumber;
-    lvalp->doubleValue = 0;
-    goto doneNumeric;
-
-inNumberAfterDecimalPoint:
-    while (isASCIIDigit(m_current)) {
-        record8(m_current);
-        shift1();
-    }
-    if ((m_current | 0x20) == 'e') {
-        record8('e');
-        shift1();
-        goto inExponentIndicator;
-    }
-    goto doneNumber;
-
-inExponentIndicator:
-    if (m_current == '+' || m_current == '-') {
-        record8(m_current);
-        shift1();
-    }
-    if (!isASCIIDigit(m_current))
-        goto returnError;
-    do {
-        record8(m_current);
-        shift1();
-    } while (isASCIIDigit(m_current));
-    goto doneNumber;
-
-inOctal: {
-    do {
-        record8(m_current);
-        shift1();
-    } while (isASCIIOctalDigit(m_current));
-    if (isASCIIDigit(m_current))
-        goto startNumber;
-
-    double dval = 0;
-
-    const char* end = m_buffer8.end();
-    for (const char* p = m_buffer8.data(); p < end; ++p) {
-        dval *= 8;
-        dval += *p - '0';
-    }
-    if (dval >= mantissaOverflowLowerBound)
-        dval = parseIntOverflow(m_buffer8.data(), end - m_buffer8.data(), 8);
-
-    m_buffer8.resize(0);
-
-    lvalp->doubleValue = dval;
-    goto doneNumeric;
-}
-
-inHex: {
-    do {
-        record8(m_current);
-        shift1();
-    } while (isASCIIHexDigit(m_current));
-
-    double dval = 0;
-
-    const char* end = m_buffer8.end();
-    for (const char* p = m_buffer8.data(); p < end; ++p) {
-        dval *= 16;
-        dval += toASCIIHexValue(*p);
-    }
-    if (dval >= mantissaOverflowLowerBound)
-        dval = parseIntOverflow(m_buffer8.data(), end - m_buffer8.data(), 16);
-
-    m_buffer8.resize(0);
-
-    lvalp->doubleValue = dval;
-    goto doneNumeric;
-}
-
-startNumber:
-    record8(m_current);
-    shift1();
-    while (isASCIIDigit(m_current)) {
-        record8(m_current);
-        shift1();
-    }
-    if (m_current == '.') {
-        record8('.');
-        shift1();
-        goto inNumberAfterDecimalPoint;
-    }
-    if ((m_current | 0x20) == 'e') {
-        record8('e');
-        shift1();
-        goto inExponentIndicator;
-    }
-
-    // Fall through into doneNumber.
-
-doneNumber:
-    // Null-terminate string for strtod.
-    m_buffer8.append('\0');
-    lvalp->doubleValue = WTF::strtod(m_buffer8.data(), 0);
-    m_buffer8.resize(0);
-
-    // Fall through into doneNumeric.
-
-doneNumeric:
-    // No identifiers allowed directly after numeric literal, e.g. "3in" is bad.
-    if (UNLIKELY(isIdentStart(m_current)))
-        goto returnError;
-
-    m_atLineStart = false;
-    m_delimited = false;
-    token = NUMBER;
-    goto returnToken;
-
-doneSemicolon:
-    token = ';';
+    token = SEMICOLON;
     m_delimited = true;
-    goto returnToken;
-
-doneIdentifier:
-    m_atLineStart = false;
-    m_delimited = false;
-    lvalp->ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
-    m_buffer16.resize(0);
-    token = IDENT;
-    goto returnToken;
-
-doneIdentifierOrKeyword: {
-    m_atLineStart = false;
-    m_delimited = false;
-    m_buffer16.resize(0);
-    const HashEntry* entry = m_keywordTable.entry(m_globalData, *lvalp->ident);
-    token = entry ? entry->lexerValue() : IDENT;
-    goto returnToken;
-}
-
-doneString:
-    // Atomize constant strings in case they're later used in property lookup.
-    shift1();
-    m_atLineStart = false;
-    m_delimited = false;
-    lvalp->ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
-    m_buffer16.resize(0);
-    token = STRING;
-
     // Fall through into returnToken.
 
-returnToken: {
-    int lineNumber = m_lineNumber;
-    llocp->first_line = lineNumber;
-    llocp->last_line = lineNumber;
-    llocp->first_column = startOffset;
-    llocp->last_column = currentOffset();
-
+returnToken:
+    llocp->line = m_lineNumber;
+    llocp->startOffset = startOffset;
+    llocp->endOffset = currentOffset();
     m_lastToken = token;
     return token;
-}
 
 returnError:
     m_error = true;
-    return -1;
+    return ERRORTOK;
 }
 
 bool Lexer::scanRegExp(const Identifier*& pattern, const Identifier*& flags, UChar patternPrefix)
@@ -925,7 +1103,7 @@ bool Lexer::scanRegExp(const Identifier*& pattern, const Identifier*& flags, UCh
             return false;
         }
 
-        shift1();
+        shift();
 
         if (current == '/' && !lastWasEscape && !inBrackets)
             break;
@@ -955,7 +1133,7 @@ bool Lexer::scanRegExp(const Identifier*& pattern, const Identifier*& flags, UCh
 
     while (isIdentPart(m_current)) {
         record16(m_current);
-        shift1();
+        shift();
     }
 
     flags = makeIdentifier(m_buffer16.data(), m_buffer16.size());
@@ -975,7 +1153,7 @@ bool Lexer::skipRegExp()
         if (isLineTerminator(current) || current == -1)
             return false;
 
-        shift1();
+        shift();
 
         if (current == '/' && !lastWasEscape && !inBrackets)
             break;
@@ -999,7 +1177,7 @@ bool Lexer::skipRegExp()
     }
 
     while (isIdentPart(m_current))
-        shift1();
+        shift();
 
     return true;
 }
@@ -1007,7 +1185,6 @@ bool Lexer::skipRegExp()
 void Lexer::clear()
 {
     m_arena = 0;
-    m_codeWithoutBOMs.clear();
 
     Vector<char> newBuffer8;
     m_buffer8.swap(newBuffer8);
@@ -1020,26 +1197,8 @@ void Lexer::clear()
 
 SourceCode Lexer::sourceCode(int openBrace, int closeBrace, int firstLine)
 {
-    if (m_codeWithoutBOMs.isEmpty())
-        return SourceCode(m_source->provider(), openBrace, closeBrace + 1, firstLine);
-
-    const UChar* data = m_source->provider()->data();
-    
-    ASSERT(openBrace < closeBrace);
-    int i;
-    for (i = m_source->startOffset(); i < openBrace; ++i) {
-        if (data[i] == byteOrderMark) {
-            openBrace++;
-            closeBrace++;
-        }
-    }
-    for (; i < closeBrace; ++i) {
-        if (data[i] == byteOrderMark)
-            closeBrace++;
-    }
-
-    ASSERT(openBrace < closeBrace);
-
+    ASSERT(m_source->provider()->data()[openBrace] == '{');
+    ASSERT(m_source->provider()->data()[closeBrace] == '}');
     return SourceCode(m_source->provider(), openBrace, closeBrace + 1, firstLine);
 }
 

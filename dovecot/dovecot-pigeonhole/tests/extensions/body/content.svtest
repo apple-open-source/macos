@@ -1,0 +1,318 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+require "body";
+
+/*
+ *
+ */
+
+test_set "message" text:
+From: justin@example.com
+To: carl@example.nl
+Subject: Frop
+Content-Type: multipart/mixed; boundary=donkey
+
+This is a multi-part message in MIME format.
+
+--donkey
+Content-Type: text/plain
+
+Plain Text
+
+--donkey
+Content-Type: text/stupid
+
+Stupid Text
+
+--donkey
+Content-Type: text/plain/stupid
+
+Plain Stupid Text
+
+--donkey--
+.
+;
+
+/*
+ * RFC5173, Section 5.2:
+ *  If an individual content type begins or ends with a '/' (slash) or
+ *  contains multiple slashes, then it matches no content types.
+ *  ...
+ */
+
+test "Basic Match" {
+	if not body :content "text/plain" :matches "Plain Text*" {
+		test_fail "failed to match (1)";
+	}
+
+	if not body :content "text/plain" :contains "" {
+		test_fail "failed to match (2)";
+	}
+
+	if not body :content "text/stupid" :contains "" {
+		test_fail "failed to match (3)";
+	}
+}
+
+test "Begin Slash" {
+	if body :content "/plain" :contains "" {
+		test_fail "matched :content \"/plain\"";
+	}
+}
+
+test "End Slash" {
+	if body :content "text/" :contains "" {
+		test_fail "matched :content \"text/\"";
+	}
+}
+
+test "Double Slash" {
+	if body :content "text/plain/stupid" :contains "" {
+		test_fail "matched :content \"text/plain/stupid\"";
+	}
+}
+
+/*
+ *
+ */
+
+test_set "message" text:
+From: justin@example.com
+To: carl@example.nl
+Subject: Frop
+Content-Type: multipart/mixed; boundary=limit
+
+This is a multi-part message in MIME format.
+
+--limit
+Content-Type: text/plain
+
+This is a text message.
+
+--limit
+Content-Type: text/html
+
+<html><body>This is HTML</body></html>
+
+--limit
+Content-Type: application/sieve
+
+keep;
+
+--limit--
+.
+;
+
+/* RFC5173, Section 5.2:
+ *  ...
+ *  Otherwise, if it contains a slash, then it specifies a full
+ *  <type>/<subtype> pair, and matches only that specific content type.
+ *  If it is the empty string, all MIME content types are matched.
+ *  Otherwise, it specifies a <type> only, and any subtype of that type
+ *  matches it.
+ */
+
+test "Full Content Type" {
+	if not body :content "text/plain" :matches "This is a text message.*" {
+		test_fail "failed to match text/plain content";
+	}
+
+	if body :content "text/plain" :matches "<html><body>This is HTML</body></html>*" {
+		test_fail "erroneously matched text/html content";
+	}
+
+	if not body :content "text/html" :matches "<html><body>This is HTML</body></html>*" {
+		test_fail "failed to match text/html content";
+	}
+
+	if body :content "text/html" :matches "This is a text message.*" {
+		test_fail "erroneously matched text/plain content";
+	}
+
+	if body :content "text/html" :matches "This is HTML*" {
+		test_fail "body :content test matched plain text";
+	}
+}
+
+test "Empty Content Type" {
+	if not body :content "" :matches "This is a text message.*" {
+		test_fail "failed to match text/plain content";
+	}	
+
+	if not body :content "" :matches "<html><body>This is HTML</body></html>*" {
+		test_fail "failed to match text/html content";
+	}
+
+	if not body :content "" :matches "keep;*" {
+		test_fail "failed to match application/sieve content";
+	}	
+
+	if body :content "" :matches "*blurdybloop*" {
+		test_fail "body :content \"\" test matches nonsense";
+	}	
+}
+
+test "Main Content Type" {
+	if not body :content "text" :matches "This is a text message.*" {
+		test_fail "failed to match text/plain content";
+	}	
+
+	if not body :content "text" :matches "<html><body>This is HTML</body></html>*" {
+		test_fail "failed to match text/html content";
+	}
+
+	if body :content "text" :matches "keep;*" {
+		test_fail "erroneously matched application/sieve content";
+	}	
+}
+
+/*
+ *
+ */
+
+test_set "message" text:
+From: Whomever <whoever@example.com>
+To: Someone <someone@example.com>
+Date: Sat, 10 Oct 2009 00:30:04 +0200
+Subject: whatever
+Content-Type: multipart/mixed; boundary=outer
+
+This is a multi-part message in MIME format.
+
+--outer
+Content-Type: multipart/alternative; boundary=inner
+
+This is a nested multi-part message in MIME format.
+
+--inner
+Content-Type: text/plain; charset="us-ascii"
+
+Hello
+        
+--inner
+Content-Type: text/html; charset="us-ascii"
+
+<html><body>Hello</body></html>
+
+--inner--
+
+This is the end of the inner MIME multipart.
+
+--outer
+Content-Type: message/rfc822
+
+From: Someone Else
+Subject: hello request
+
+Please say Hello
+
+--outer--
+
+This is the end of the outer MIME multipart.
+.
+;
+
+/* RFC5173, Section 5.2:
+ *
+ *  The search for MIME parts matching the :content specification is
+ *  recursive and automatically descends into multipart and
+ *  message/rfc822 MIME parts.  All MIME parts with matching types are
+ *  searched for the key strings.  The test returns true if any
+ *  combination of a searched MIME part and key-list argument match.
+ */
+
+test "Nested Search" {
+	if not body :content "text/plain" :matches "Hello*" {
+		test_fail "failed to match text/plain content";
+	}
+
+	if body :content "text/plain" :matches "<html><body>Hello</body></html>*" {
+		test_fail "erroneously matched text/html content";
+	}
+
+	if not body :content "text/html" :matches "<html><body>Hello</body></html>*" {
+		test_fail "failed to match text/html content";
+	}
+
+	if body :content "text/html" :matches "Hello*" {
+		test_fail "erroneously matched text/plain content";
+	}
+
+	if not body :content "text" :contains "html" {
+		test_fail "failed match text content (1)";	
+	}
+
+	if not body :content "text" :contains "hello" {
+		test_fail "failed match text content (2)";
+	}
+
+	if not body :content "text/plain" :contains "please say hello" {
+		test_fail "failed match nested message content as text/plain";
+	}
+
+	if not body :content "text" :contains "please say hello" {
+		test_fail "failed match nested message content as text/*";
+	}
+	
+	if not body :content "text" :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "matched wrong number of \"text/*\" body parts";
+	}
+}
+
+/* RFC5173, Section 5.2:
+ *
+ *  If the :content specification matches a multipart MIME part, only the
+ *  prologue and epilogue sections of the part will be searched for the
+ *  key strings, treating the entire prologue and the entire epilogue as
+ *  separate strings; the contents of nested parts are only searched if
+ *  their respective types match the :content specification.
+ *
+ */
+
+test "Multipart Content" {
+	if not body :content "multipart" :contains
+		"This is a multi-part message in MIME format" {
+		test_fail "missed first multipart body part";
+	}
+
+	if not body :content "multipart" :contains
+		"This is a nested multi-part message in MIME format" {
+		test_fail "missed second multipart body part";
+	}
+	
+/* FIXME: FAILS
+
+	if not body :content "multipart" :contains
+		"This is the end of the inner MIME multipart" {
+		test_fail "missed third multipart body part";
+	}
+
+	if not body :content "multipart" :contains
+		"This is the end of the outer MIME multipart." {
+		test_fail "missed fourth multipart body part";
+	}	
+
+	if body :content "multipart" :contains "--inner" {
+		test_fail "inner boundary is part of match";
+	}
+
+	if body :content "multipart" :contains "--outer" {
+		test_fail "outer boundary is part of match";
+	}
+*/
+}
+
+/* RFC5173, Section 5.2:
+ *
+ *  If the :content specification matches a message/rfc822 MIME part,
+ *  only the header of the nested message will be searched for the key
+ *  strings, treating the header as a single string; the contents of the
+ *  nested message body parts are only searched if their content type
+ *  matches the :content specification.
+ */
+
+/* FIXME */
+
+

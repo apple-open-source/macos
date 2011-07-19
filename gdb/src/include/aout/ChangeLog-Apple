@@ -1,4 +1,0 @@
-2002-11-18  Klee Dienes  <kdienes@apple.com>
-
-       * stab.def (N_BNSYM): Add definition.
-       (N_ENSYM): Add definition.

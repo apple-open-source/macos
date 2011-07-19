@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@ namespace CodeSigning {
 // A SecCode object represents running code in the system. It must be subclassed
 // to implement a particular notion of code.
 //
-class SecCodeSigner : public SecCFObject {
+class SecCodeSigner : public SecCFObject, public DiskRep::SigningContext {
 	NOCOPY(SecCodeSigner)
 public:
 	class Parser;
@@ -61,6 +61,10 @@ public:
 	
 	void returnDetachedSignature(BlobCore *blob, Signer &signer);
 	
+protected:
+	std::string sdkPath(const std::string &path) const;
+	bool isAdhoc() const;
+	
 private:
 	// parsed parameter set
 	SecCSFlags mOpFlags;			// operation flags
@@ -70,10 +74,12 @@ private:
 	CFRef<CFDateRef> mSigningTime;	// signing time desired (kCFNull for none)
 	CFRef<CFDataRef> mApplicationData; // contents of application slot
 	CFRef<CFDataRef> mEntitlementData; // entitlement configuration data
+	CFRef<CFURLRef> mSDKRoot;		// substitute filesystem root for sub-component lookup
 	const Requirements *mRequirements; // internal code requirements
 	size_t mCMSSize;				// size estimate for CMS blob
 	uint32_t mCdFlags;				// CodeDirectory flags
 	bool mCdFlagsGiven;				// CodeDirectory flags were specified
+	CodeDirectory::HashAlgorithm mDigestAlgorithm; // interior digest (hash) algorithm
 	std::string mIdentifier;		// unique identifier override
 	std::string mIdentifierPrefix;	// prefix for un-dotted default identifiers
 	bool mNoMachO;					// override to perform non-Mach-O signing

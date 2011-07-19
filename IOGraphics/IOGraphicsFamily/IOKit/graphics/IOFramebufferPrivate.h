@@ -116,6 +116,7 @@
                                     int height );
 
     static void deferredMoveCursor(IOFramebuffer * inst);
+
     static void deferredCLUTSetInterrupt( OSObject * owner,
                                           IOInterruptEventSource * evtSrc, int intCount );
     static void deferredSpeedChangeEvent( OSObject * owner,
@@ -132,6 +133,7 @@
 	static void controllerDidWork(IOFBController * controller, IOOptionBits work);
     static void startAsync(IOFBController * controller, uint32_t asyncWork);
     static IOFBController * aliasController(IOFBController * controller);
+	static void serverAckTimeout(OSObject * owner, IOTimerEventSource * sender);
 
 	static uint32_t controllerState(IOFBController * controller);
 
@@ -143,7 +145,7 @@
     void checkDeferredCLUTSet( void );
     void updateCursorForCLUTSet( void );
     IOReturn updateGammaTable(  UInt32 channelCount, UInt32 dataCount,
-                                UInt32 dataWidth, const void * data );
+                                UInt32 dataWidth, const void * data, bool immediate = false );
 
     static void dpInterruptProc(OSObject * target, void * ref);
     static void dpInterrupt(OSObject * owner, IOTimerEventSource * sender);
@@ -173,6 +175,7 @@
     IOReturn _extEntry(bool system, bool allowOffline, const char * where);
     void     _extExit(bool system, IOReturn result, const char * where);
     bool getIsUsable(void);
+	void initFB(void);
     IOReturn postOpen(void);
     IOReturn postWake(void);
     static void checkConnectionChange(IOFBController * controller );
@@ -201,6 +204,8 @@
     static IOReturn agcMessage( void * target, void * refCon,
                                     UInt32 messageType, IOService * service,
                                     void * messageArgument, vm_size_t argSize );
+	static IOReturn muxPowerMessage(UInt32 messageType);
+
     static bool clamshellHandler( void * target, void * ref,
                                        IOService * resourceService, IONotifier * notifier );
     static void readClamshellState(void);
@@ -244,6 +249,7 @@
     static IOReturn extGetAttribute(OSObject * target, void * reference, IOExternalMethodArguments * args);
     IOReturn extSetMirrorOne(uint32_t value, IOFramebuffer * other);
     static IOReturn extValidateDetailedTiming(OSObject * target, void * reference, IOExternalMethodArguments * args);
+	void serverAcknowledgeNotification(void);
     static IOReturn extAcknowledgeNotification(OSObject * target, void * reference, IOExternalMethodArguments * args);
 
     // --
@@ -258,7 +264,7 @@ public:
     void fbLock( void );
     void fbUnlock( void );
 
-    void displayOnline( IODisplay * display, SInt32 delta );
+    void displayOnline( IODisplay * display, SInt32 delta, uint32_t options );
     static void updateDisplaysPowerState(void);
     static IOOptionBits clamshellState( void );
     static IOReturn setPreferences( IOService * props, OSDictionary * prefs );

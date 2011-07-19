@@ -32,6 +32,7 @@
 #include <IOKit/IOCFURLAccess.h>
 #include <IOKit/IOCFUnserialize.h>
 #include <IOKit/storage/RAID/AppleRAIDUserLib.h>
+#include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 #include <IOKit/kext/OSKext.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
@@ -81,7 +82,6 @@ struct option sOptInfo[] = {
     { kOptNameHelp,             no_argument,       NULL, kOptHelp },
     { kOptNameNoCaches,         no_argument,       NULL, kOptNoCaches },
     { kOptNameDebug,            no_argument,       NULL, kOptDebug },
-    { kOptNameRepository,       no_argument,       NULL, kOptRepository },
 
     { kOptNameQuiet,            required_argument, NULL, kOptQuiet },
     { kOptNameVerbose,          optional_argument, NULL, kOptVerbose },
@@ -93,7 +93,8 @@ struct option sOptInfo[] = {
 * Globals created at run time.
 *******************************************************************************/
 KextdArgs                 sToolArgs;
-static CFArrayRef         sAllKexts                         = NULL;
+CFArrayRef                gRepositoryURLs         = NULL;
+static CFArrayRef         sAllKexts               = NULL;
 
 Boolean                   gKernelRequestsPending = false;
 
@@ -155,6 +156,11 @@ int main(int argc, char * const * argv)
         OSKextGetLogFilter(/* kernel? */ false));
     setenv("KEXT_LOG_FILTER_USER", logSpecBuffer, /* overwrite */ 1);
 
+    gRepositoryURLs = OSKextGetSystemExtensionsFolderURLs();
+    if (!gRepositoryURLs) {
+        goto finish;
+    }
+
    /* Get the running kernel arch for OSKext ops & cache creation.
     */
     if (!gKernelArchInfo) {
@@ -172,14 +178,9 @@ int main(int argc, char * const * argv)
         OSKextSetSimulatedSafeBoot(true);
     }
 
-    if (sToolArgs.safeBootMode) {
-        sToolArgs.useRepositoryCaches = false;  // never use caches in safe boot
-    }
-
-    OSKextSetUsesCaches(sToolArgs.useRepositoryCaches);
-
    /* safeBootMode may have been set from cmd line, check apart from the OSKext
-    * call.  If safeboot, force a rebuild (if not in near future, at next reboot)
+    * call. If safeboot, invalidate caches so they will be rebuilt
+    * (if not in near future, at next reboot).
     */
     if (sToolArgs.safeBootMode) {
         OSKextLog(/* kext */ NULL,
@@ -188,28 +189,8 @@ int main(int argc, char * const * argv)
         utimes("/System/Library/Extensions", NULL);
     }
 
-   /*****
-    * Check Extensions.mkext needs/ed a rebuild (BootRoot depending)
-    */
-    checkStartupMkext(&sToolArgs);    
+    OSKextSetUsesCaches(sToolArgs.useRepositoryCaches);
 
-#if 0
-   /*****
-    * If we are booting with stale data, don't bother reading any kexts. 
-    * XXX revisit since kmod_control loop needs manager, plus we don't
-    * want to skip updating the mkext in the next clause.
-    * Or maybe we shouldn't call kmod_control at all when stale?
-    * XXX bootroot system hangs at boot w/stale even without this goto.  :P
-    * (launchctl -> kextcache -U should be fixing and rebooting in that case)
-    *
-    * OSKext update: We no longer have a kmod_control loop, we get pings
-    * from the kernel and handle requests as they come. Talk to S.
-    */
-    if (sToolArgs.staleStartupMkext) {
-        goto server_start;
-    }
-#endif /* 0 - NOT USED */
-    
     OSKextSetRecordsDiagnostics(kOSKextDiagnosticsFlagNone);
     readExtensions();
 
@@ -228,11 +209,20 @@ int main(int argc, char * const * argv)
     * Send the kext personalities to the kernel to trigger matching.
     * Now that we have UUID dependency checks, the kernel shouldn't
     * be able to hurt itself if kexts are out of date somewhere.
+    *
+    * sAllKexts gets cleaned up on the run loop so it's okay to use it here.
+    *
+    * We shouldn't need to reset the IOCatalogue here as it's startup time.
     */
-    if (kOSReturnSuccess != sendPersonalitiesToKernel()) {
+    if (kOSReturnSuccess != sendSystemKextPersonalitiesToKernel(sAllKexts, /* reset? */ false)) {
         sKextdExitStatus = EX_OSERR;
         goto finish;
     }
+
+   /* Note: We are not going to try to update the OSBunderHelpers cache
+    * this early as it isn't needed until login. It should normally be
+    * up to date anyhow so let's keep startup I/O to an absolute minimum.
+    */
 
    /* Let IOCatalogue drop the artificial busy count on the registry
     * now that it has personalities (which are sure to have naturally
@@ -249,7 +239,7 @@ int main(int argc, char * const * argv)
 finish:
 #ifndef NO_CFUserNotification
     stopMonitoringConsoleUser();
-#endif /* ifndef NO_CFUserNotification */
+#endif
 
     kextd_stop_volwatch();    // no-op if watch_volumes not called
     
@@ -258,8 +248,6 @@ finish:
     }
 
     exit(sKextdExitStatus);
-
-    SAFE_RELEASE(sToolArgs.repositoryURLs);
 
     return sKextdExitStatus;
 }
@@ -273,10 +261,10 @@ ExitStatus
 readArgs(
     int            argc,
     char * const * argv,
-    KextdArgs    * toolArgs)
+    KextdArgs * toolArgs)
 {
-    ExitStatus   result = EX_USAGE;
-    CFArrayRef   SystemExtensionsFolderURLs = NULL;  // do not release
+    ExitStatus   result          = EX_USAGE;
+    ExitStatus   scratchResult   = EX_USAGE;
     struct stat  stat_buf;
     int          optchar;
     int          longindex;
@@ -301,38 +289,7 @@ readArgs(
     } else {
         toolArgs->firstBoot = false;
     }
-
  
-   /*****
-    * Allocate collection objects.
-    * xxx - we are logging before a -q might be processed...hm.
-    */
-    if (!createCFMutableArray(&toolArgs->repositoryURLs,
-        &kCFTypeArrayCallBacks)) {
-
-        result = EX_OSERR;
-        OSKextLogMemError();
-        exit(result);
-    }
-
-   /* Put the system extensions folders at the beginning of the list
-    * of repositoryURLs (to which the -r flag might add).
-    *
-    * We might want to allow for an alternate set of folders someday,
-    * but I've never seen any need for it. Maybe when we can retarget
-    * boot to a whole System folder....
-    */
-    SystemExtensionsFolderURLs = OSKextGetSystemExtensionsFolderURLs();
-    if (!SystemExtensionsFolderURLs) {
-
-        result = EX_OSERR;
-        OSKextLogMemError();
-        result = EX_OSERR;
-        goto finish;
-    }
-    CFArrayAppendArray(toolArgs->repositoryURLs, SystemExtensionsFolderURLs,
-        RANGE_ALL(SystemExtensionsFolderURLs));
-
     while ((optchar = getopt_long_only(argc, (char * const *)argv,
         kOptChars, sOptInfo, &longindex)) != -1) {
 
@@ -345,18 +302,6 @@ readArgs(
                 usage(kUsageLevelFull);
                 result = kKextdExitHelp;
                 goto finish;
-                break;
-                
-            case kOptRepository:
-                scratchURL = CFURLCreateFromFileSystemRepresentation(
-                    kCFAllocatorDefault,
-                    (const UInt8 *)optarg, strlen(optarg), true);
-                if (!scratchURL) {
-                    OSKextLogStringError(/* kext */ NULL);
-                    result = EX_OSERR;
-                    goto finish;
-                }
-                CFArrayAppendValue(toolArgs->repositoryURLs, scratchURL);
                 break;
                 
             case kOptNoCaches:
@@ -375,7 +320,11 @@ readArgs(
                /* Set the log flags by the command line, but then turn off
                 * the kernel bridge again.
                 */
-                result = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                scratchResult = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
+                    goto finish;
+                }
                 OSKextSetLogFilter(kOSKextLogSilentFilter, /* kernel? */ true);
                 break;
 
@@ -417,61 +366,6 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void checkStartupMkext(KextdArgs * toolArgs)
-{
-    struct stat extensions_stat_buf;
-    struct stat mkext_stat_buf;
-    Boolean outOfDate;
-
-   /*****
-    * Do some checks for the Boot!=Root case:
-    * - note whether in-memory mkext differs from the one on the root
-    * - note whether the mkext vs. Extensions folder timestamps are correct
-    * 
-    * launchd / kextcache -U *should* have done obvious updates by now
-    * isNetboot() check should stay even if we change boot!=root policy.
-    */
-
-    // in-memory vs. root filesystem mkext CRC check
-    if (isBootRootActive() && !isNetboot()) {
-        toolArgs->staleBootNotificationNeeded = bootedFromDifferentMkext();
-        if (toolArgs->staleBootNotificationNeeded) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "Warning: mkext on root filesystem does not match "
-                "the one used for startup");
-        }
-    }
-
-    // root filesystem timestamp check
-    outOfDate = (0 != stat(_kOSKextStartupMkextPath, &mkext_stat_buf));
-    if (!outOfDate && (0 == stat(kSystemExtensionsDir, &extensions_stat_buf))) {
-        outOfDate = (mkext_stat_buf.st_mtime !=
-            (extensions_stat_buf.st_mtime + 1));
-    }
-
-    if (outOfDate) {
-        do {
-           /* 4618030: allow mkext rebuilds on startup if not BootRoot
-            * had to fix kextcache to take the lock *after* forking
-            * (-F was giving up the lock before the work was done!)
-            */
-            if (isBootRootActive()) {
-                OSKextLog(/* kext */ NULL,
-                    kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                    "Warning: mkext unexpectedly out of date relative "
-                    "to Extensions folder.");
-                toolArgs->staleStartupMkext = true;
-
-                break;  // skip since BootRoot logic in watchvol.c will handle
-            }
-        } while (false);
-    }
-    return;
-}
-
-/*******************************************************************************
-*******************************************************************************/
 Boolean isNetboot(void)
 {
     Boolean result = false;
@@ -479,10 +373,6 @@ Boolean isNetboot(void)
     int     netboot = 0;
     size_t  netboot_len = sizeof(netboot);
 
-   /* Get the size of the buffer we need to allocate.
-    */
-   /* Now actually get the kernel version.
-    */
     if (sysctl(netboot_mib_name, sizeof(netboot_mib_name) / sizeof(int),
         &netboot, &netboot_len, NULL, 0) != 0) {
 
@@ -641,12 +531,26 @@ ExitStatus setUpServer(KextdArgs * toolArgs)
             "Failed to register for RAID notifications.");
     }
 
+  /* Watch for CoreStorage changes so we can update their boot partitions.
+   */
+   CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(),
+       NULL, // const void *observer
+       updateCoreStorageVolume,
+       CFSTR(kCoreStorageNotificationVolumeChanged),
+       NULL, // const void *object
+       CFNotificationSuspensionBehaviorHold);
+   kernelResult = CoreStorageEnableNotifications();
+   if (kernelResult != KERN_SUCCESS) {
+       OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+           "Failed to register for CoreStorage Volume notifications.");
+   }
+
 #ifndef NO_CFUserNotification
     result = startMonitoringConsoleUser(toolArgs, &sourcePriority);
     if (result != EX_OK) {
         goto finish;
     }
-#endif /* ifndef NO_CFUserNotification */
+#endif
 
     signal(SIGHUP,  handleSignal);
     signal(SIGTERM, handleSignal);
@@ -707,7 +611,6 @@ finish:
 void handleSignal(int signum)
 {
     kextd_mach_msg_signal_t msg;
-    kern_return_t           kernelResult;
 
     msg.signum                  = signum;
 
@@ -717,7 +620,7 @@ void handleSignal(int signum)
     msg.header.msgh_local_port  = MACH_PORT_NULL;
     msg.header.msgh_id          = 0;
 
-    kernelResult = mach_msg(
+    (void) mach_msg(
         &msg.header,                          /* msg */
         MACH_SEND_MSG | MACH_SEND_TIMEOUT,    /* options */
         sizeof(msg),                          /* send_size */
@@ -826,12 +729,12 @@ void readExtensions(void)
         releaseExtensions(/* timer */ NULL, /* context */ NULL);
     }
 
-    if (!sAllKexts && sToolArgs.repositoryURLs) {
+    if (!sAllKexts && gRepositoryURLs) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
             "Reading extensions.");
         sAllKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
-            sToolArgs.repositoryURLs);
+            gRepositoryURLs);
     }
     scheduleReleaseExtensions();
     return;
@@ -884,15 +787,13 @@ void releaseExtensions(
 *******************************************************************************/
 void rescanExtensions(void)
 {
-    CFIndex count, i;
-
     OSKextLog(/* kext */ NULL,
         kOSKextLogBasicLevel | kOSKextLogGeneralFlag,
         "Rescanning kernel extensions.");
 
 #ifndef NO_CFUserNotification
     resetUserNotifications(/* dismissAlert */ false);
-#endif /* ifndef NO_CFUserNotification */
+#endif
 
     releaseExtensions(/* timer */ NULL, /* context */ NULL);
     readExtensions();
@@ -902,22 +803,16 @@ void rescanExtensions(void)
     // should we let it handle the ResetAllRepos?
 
     // xxx Should we exit if this fails?
-    // xxx - Have IOCatalogue dump its personalities?
-    sendPersonalitiesToKernel();
+    sendSystemKextPersonalitiesToKernel(sAllKexts, /* reset? */ TRUE);
 
-   /* Update the loginwindow prop/value cache(s) as necessary.
-    * We just read 'em and don't use the values; this causes
-    * the caches to be updated.
+   /* Update the loginwindow prop/value cache.
+    * We just read it and don't use the values; this causes
+    * the caches to be updated if necessary.
     */
-    count = CFArrayGetCount(sToolArgs.repositoryURLs);
-    for (i = 0; i < count; i++) {
-        CFURLRef directoryURL = CFArrayGetValueAtIndex(
-            sToolArgs.repositoryURLs, i);
+    readSystemKextPropertyValues(CFSTR(kOSBundleHelperKey),
+        gKernelArchInfo, /* forceUpdate? */ true, /* values */ NULL);
 
-        readKextPropertyValuesForDirectory(directoryURL,
-            CFSTR(kOSBundleHelperKey), gKernelArchInfo,
-            /* forceUpdate? */ true, /* values */ NULL);
-    }
+    return;
 }
 
 /*******************************************************************************
@@ -943,9 +838,6 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s (-%c):\n"
         "        run in debug mode (log to stderr)\n",
         kOptNameDebug, kOptDebug);
-    fprintf(stderr, "-%s <directory> (-%c):\n"
-        "        look in <directory> for kexts in addition to system extensions folders\n",
-        kOptNameRepository, kOptRepository);
     fprintf(stderr, "-%s (-%c):\n"
         "        run as if the system is in safe boot mode\n",
         kOptNameSafeBoot, kOptSafeBoot);

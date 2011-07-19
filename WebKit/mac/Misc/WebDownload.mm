@@ -30,6 +30,7 @@
 
 #import <Foundation/NSURLAuthenticationChallenge.h>
 #import <Foundation/NSURLDownload.h>
+#import <WebCore/AuthenticationCF.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/Credential.h>
 #import <WebCore/CredentialStorage.h>
@@ -219,7 +220,7 @@ using namespace WebCore;
     [super dealloc];
 }
 
-- (id)initWithRequest:(NSURLRequest *)request delegate:(id)delegate
+- (id)initWithRequest:(NSURLRequest *)request delegate:(id<NSURLDownloadDelegate>)delegate
 {
     [self _setRealDelegate:delegate];
     return [super initWithRequest:request delegate:_webInternal];

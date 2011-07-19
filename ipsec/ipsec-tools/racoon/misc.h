@@ -51,13 +51,8 @@ struct timeval;
 extern double timedelta __P((struct timeval *, struct timeval *));
 char *strdup __P((const char *));
 
-#if defined(__APPLE__)
 #define RACOON_TAILQ_FOREACH_REVERSE(var, head, headname ,field)	\
   TAILQ_FOREACH_REVERSE(var, head, field, headname)
-#else
-#define RACOON_TAILQ_FOREACH_REVERSE(var, head, headname ,field)	\
-    TAILQ_FOREACH_REVERSE(var, head, headname, field)
-#endif
 
 #define STRDUP_FATAL(x) if (x == NULL) {			\
 	plog(LLV_ERROR, LOCATION, NULL, "strdup failed\n");	\

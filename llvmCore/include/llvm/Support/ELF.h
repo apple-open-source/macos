@@ -21,7 +21,7 @@
 #ifndef LLVM_SUPPORT_ELF_H
 #define LLVM_SUPPORT_ELF_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 #include <cstring>
 
 namespace llvm {
@@ -99,6 +99,12 @@ enum {
   ET_HIPROC = 0xffff  // Processor-specific
 };
 
+// Versioning
+enum {
+  EV_NONE = 0,
+  EV_CURRENT = 1
+};
+
 // Machine architectures
 enum {
   EM_NONE = 0,  // No machine
@@ -113,7 +119,8 @@ enum {
   EM_PPC = 20,     // PowerPC
   EM_ARM = 40,     // ARM
   EM_ALPHA = 41,   // DEC Alpha
-  EM_SPARCV9 = 43  // SPARC V9
+  EM_SPARCV9 = 43, // SPARC V9
+  EM_X86_64 = 62   // AMD64
 };
 
 // Object file classes.
@@ -126,6 +133,11 @@ enum {
 enum {
   ELFDATA2LSB = 1, // Little-endian object file
   ELFDATA2MSB = 2  // Big-endian object file
+};
+
+// OS ABI identification -- unused.
+enum {
+  ELFOSABI_NONE = 0
 };
 
 // Section header.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,10 @@
 
 #if ENABLE(VIDEO)
 
-#include "GraphicsLayer.h"
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
+#include <CoreGraphics/CGAffineTransform.h>
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RetainPtr.h>
 
@@ -41,16 +42,16 @@
 typedef struct CGImage *CGImageRef;
 class QTMovie;
 class QTMovieVisualContext;
+class QTDecompressionSession;
 
 namespace WebCore {
 
 class GraphicsContext;
 class IntSize;
 class IntRect;
-class String;
 
 #if USE(ACCELERATED_COMPOSITING)
-class WKCACFLayer;
+class PlatformCALayer;
 class WKCAImageQueue;
 #endif
 
@@ -66,17 +67,21 @@ private:
     virtual bool supportsFullscreen() const;
     virtual PlatformMedia platformMedia() const;
 #if USE(ACCELERATED_COMPOSITING)
-    PlatformLayer* platformLayer() const;
+    virtual PlatformLayer* platformLayer() const;
 #endif
+
     IntSize naturalSize() const;
     bool hasVideo() const;
     bool hasAudio() const;
 
     void load(const String& url);
     void cancelLoad();
+    void loadInternal(const String& url);
+    void resumeLoad();
     
     void play();
     void pause();    
+    void prepareToPlay();
     
     bool paused() const;
     bool seeking() const;
@@ -111,6 +116,8 @@ private:
     bool hasClosedCaptions() const;
     void setClosedCaptionsVisible(bool);
 
+    void setPreload(MediaPlayer::Preload);
+
     void updateStates();
     void doSeek();
     void cancelSeek();
@@ -119,7 +126,7 @@ private:
     void sawUnsupportedTracks();
 
     // engine support
-    static MediaPlayerPrivateInterface* create(MediaPlayer*);
+    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
     static bool isAvailable();
@@ -147,6 +154,8 @@ private:
     void visualContextTimerFired(Timer<MediaPlayerPrivateQuickTimeVisualContext>*);
     void retrieveCurrentImage();
 
+    virtual void setPrivateBrowsingMode(bool);
+
     class MovieClient;
     friend class MovieClient;
     OwnPtr<MovieClient> m_movieClient;
@@ -155,10 +164,6 @@ private:
     class LayerClient;
     friend class LayerClient;
     OwnPtr<LayerClient> m_layerClient;
-
-    class LayoutClient;
-    friend class LayoutClient;
-    OwnPtr<LayoutClient> m_layoutClient;
 #endif
 
     class VisualContextClient;
@@ -167,12 +172,15 @@ private:
 
     void retrieveAndResetMovieTransform();
 
+    virtual float mediaTimeForTimeValue(float) const;
+
     MediaPlayer* m_player;
     RefPtr<QTMovie> m_movie;
 #if USE(ACCELERATED_COMPOSITING)
-    RefPtr<WKCACFLayer> m_qtVideoLayer;
-    OwnPtr<GraphicsLayer> m_transformLayer;
+    RefPtr<PlatformCALayer> m_qtVideoLayer;
+    RefPtr<PlatformCALayer> m_transformLayer;
     OwnPtr<WKCAImageQueue> m_imageQueue;
+    OwnPtr<QTDecompressionSession> m_decompressionSession;
     CGAffineTransform m_movieTransform; 
 #endif
     RefPtr<QTMovieVisualContext> m_visualContext;
@@ -189,6 +197,10 @@ private:
     bool m_isStreaming;
     bool m_visible;
     bool m_newFrameAvailable;
+    bool m_delayingLoad;
+    String m_movieURL;
+    bool m_privateBrowsing;
+    MediaPlayer::Preload m_preload;
 #if DRAW_FRAME_RATE
     double m_frameCountWhilePlaying;
     double m_timeStartedPlaying;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2008, International Business Machines Corporation
+ * Copyright (C) 2003-2009, International Business Machines Corporation
  * and others. All Rights Reserved.
  ******************************************************************************
  *
@@ -110,7 +110,7 @@ static UBool isGregorianLeap(int32_t year)
  */
 int32_t IndianCalendar::handleGetMonthLength(int32_t eyear, int32_t month) const {
    if (month < 0 || month > 11) {
-      eyear += Math::floorDivide(month, 12, month);
+      eyear += ClockMath::floorDivide(month, 12, month);
    }
 
    if (isGregorianLeap(eyear + INDIAN_ERA_START) && month == 0) {
@@ -237,14 +237,14 @@ static double IndianToJD(int32_t year, int32_t month, int32_t date) {
  * @param eyear The year in Indian Calendar measured from Saka Era (78 AD).
  * @param month The month in Indian calendar
  */
-int32_t IndianCalendar::handleComputeMonthStart(int32_t eyear, int32_t month, UBool useMonth) const {
+int32_t IndianCalendar::handleComputeMonthStart(int32_t eyear, int32_t month, UBool /* useMonth */ ) const {
 
    //month is 0 based; converting it to 1-based 
    int32_t imonth;
 
     // If the month is out of range, adjust it into range, and adjust the extended eyar accordingly
    if (month < 0 || month > 11) {
-      eyear += (int32_t)Math::floorDivide(month, 12, month);
+      eyear += (int32_t)ClockMath::floorDivide(month, 12, month);
    }
 
    if(month == 12){
@@ -288,7 +288,7 @@ int32_t IndianCalendar::handleGetExtendedYear() {
  * method is called. The getGregorianXxx() methods return Gregorian
  * calendar equivalents for the given Julian day.
  */
-void IndianCalendar::handleComputeFields(int32_t julianDay, UErrorCode& status) {
+void IndianCalendar::handleComputeFields(int32_t julianDay, UErrorCode&  /* status */) {
     double jdAtStartOfGregYear;
     int32_t leapMonth, IndianYear, yday, IndianMonth, IndianDayOfMonth, mday;
     int32_t gregorianYear;      // Stores gregorian date corresponding to Julian day;

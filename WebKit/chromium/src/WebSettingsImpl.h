@@ -31,8 +31,7 @@
 #ifndef WebSettingsImpl_h
 #define WebSettingsImpl_h
 
-// TODO(jorlow): Remove this hack once WebView is free of glue.
-#include "../public/WebSettings.h"
+#include "WebSettings.h"
 
 namespace WebCore {
 class Settings;
@@ -76,19 +75,53 @@ public:
     virtual void setDownloadableBinaryFontsEnabled(bool);
     virtual void setJavaScriptCanAccessClipboard(bool);
     virtual void setXSSAuditorEnabled(bool);
+    virtual void setDNSPrefetchingEnabled(bool);
     virtual void setLocalStorageEnabled(bool);
     virtual void setEditableLinkBehaviorNeverLive();
+    virtual void setFrameFlatteningEnabled(bool);
     virtual void setFontRenderingModeNormal();
     virtual void setShouldPaintCustomScrollbars(bool);
     virtual void setAllowUniversalAccessFromFileURLs(bool);
     virtual void setAllowFileAccessFromFileURLs(bool);
     virtual void setTextDirectionSubmenuInclusionBehaviorNeverIncluded();
     virtual void setOfflineWebApplicationCacheEnabled(bool);
+    virtual void setWebAudioEnabled(bool);
     virtual void setExperimentalWebGLEnabled(bool);
+    virtual void setOpenGLMultisamplingEnabled(bool);
     virtual void setShowDebugBorders(bool);
+    virtual void setShowFPSCounter(bool);
+    virtual bool showFPSCounter() const { return m_showFPSCounter; }
+    virtual void setShowPlatformLayerTree(bool);
+    virtual bool showPlatformLayerTree() const { return m_showPlatformLayerTree; }
+    virtual void setEditingBehavior(EditingBehavior);
+    virtual void setAcceleratedCompositingEnabled(bool);
+    virtual void setForceCompositingMode(bool);
+    virtual void setCompositeToTextureEnabled(bool);
+    virtual bool compositeToTextureEnabled() const { return m_compositeToTextureEnabled; }
+    virtual void setAcceleratedCompositingFor3DTransformsEnabled(bool);
+    virtual void setAcceleratedCompositingForVideoEnabled(bool);
+    virtual void setAcceleratedCompositingForPluginsEnabled(bool);
+    virtual void setAcceleratedCompositingForCanvasEnabled(bool);
+    virtual void setAcceleratedCompositingForAnimationEnabled(bool);
+    virtual void setAccelerated2dCanvasEnabled(bool);
+    virtual void setLegacyAccelerated2dCanvasEnabled(bool);
+    virtual void setAcceleratedDrawingEnabled(bool);
+    virtual void setMemoryInfoEnabled(bool);
+    virtual void setHyperlinkAuditingEnabled(bool);
+    virtual void setAsynchronousSpellCheckingEnabled(bool);
+    virtual void setCaretBrowsingEnabled(bool);
+    virtual void setInteractiveFormValidationEnabled(bool);
+    virtual void setValidationMessageTimerMagnification(int);
+    virtual void setMinimumTimerInterval(double);
+    virtual void setFullScreenEnabled(bool);
+    virtual void setAllowDisplayOfInsecureContent(bool);
+    virtual void setAllowRunningOfInsecureContent(bool);
 
 private:
     WebCore::Settings* m_settings;
+    bool m_compositeToTextureEnabled;
+    bool m_showFPSCounter;
+    bool m_showPlatformLayerTree;
 };
 
 } // namespace WebKit

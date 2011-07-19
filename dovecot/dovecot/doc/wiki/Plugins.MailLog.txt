@@ -1,0 +1,45 @@
+Mail logger plugin
+==================
+
+This plugin can be used to log several actions done in a mail session:
+
+ * Setting and removing \Deleted flag
+ * Expunging
+ * Copying mails to another mailbox
+ * Mailbox creations
+ * Mailbox deletions
+ * Mailbox renames
+ * Any flag changes
+ * Saves
+
+Messages' UID and Message-ID header is logged for each action. Here's an
+example:
+
+---%<-------------------------------------------------------------------------
+imap(user): copy -> Trash: uid=908, msgid=<123.foo@bar>
+imap(user): deleted: uid=908, msgid=<123.foo@bar>
+imap(user): expunged: uid=908, msgid=<123.foo@bar>
+---%<-------------------------------------------------------------------------
+
+You can enable the plugin by setting:
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins mail_log
+---%<-------------------------------------------------------------------------
+
+Configuration
+-------------
+
+You can configure what and how mail_log plugin logs:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  # Events to log. Also available: flag_change save mailbox_create
+  mail_log_events = delete undelete expunge copy mailbox_delete mailbox_rename
+
+  # Also available: flags vsize from subject
+  mail_log_fields = uid box msgid size
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

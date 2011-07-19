@@ -81,11 +81,12 @@ class NPObject;
 
 namespace WebCore {
 
+class ScrollView;
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
 // questions about the system and so on...
-// This is very similar to ChromiumBridge and the two are likely to converge
+// This is very similar to chromium/PlatformBridge and the two are likely to converge
 // in the future.
 //
 // The methods in this class all need to reach across a JNI layer to the Java VM
@@ -104,6 +105,16 @@ public:
     static bool cookiesEnabled();
     // Plugin
     static NPObject* pluginScriptableObject(Widget*);
+
+    static void setScrollPosition(ScrollView*, int x, int y);
+
+    // Language
+    static String computeDefaultLanguage();
+    // Memory details for V8 GC
+    static int lowMemoryUsageMB();
+    static int highMemoryUsageMB();
+    static int memoryUsageMB();
+    static int actualMemoryUsageMB();
 };
 
 }

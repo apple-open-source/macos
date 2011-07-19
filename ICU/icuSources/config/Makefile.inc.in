@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 #******************************************************************************
-#   Copyright (C) 1999-2008, International Business Machines
+#   Copyright (C) 1999-2010, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #******************************************************************************
 # This Makefile.inc is designed to be included into projects which make use
@@ -113,11 +113,18 @@ ICULIBS_LAYOUTEX = -l$(ICUPREFIX)lx$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_BASE = $(LIBS) -L$(libdir)
 
 # for icu-config to test with
-ICULIBS_COMMON_LIB_NAME = ${LIBICU}uc${ICULIBSUFFIX}${ICULIBSUFFIX_VERSION}.${SO}
+ICULIBS_COMMON_LIB_NAME = ${LIBICU}${COMMON_STUBNAME}${ICULIBSUFFIX}${ICULIBSUFFIX_VERSION}.${SO}
+ICULIBS_COMMON_LIB_NAME_A = ${LIBICU}${COMMON_STUBNAME}${ICULIBSUFFIX}.${A}
 
 # ICULIBS is the set of libraries your application should link
 # with usually. Many applications will want to add $(ICULIBS_I18N) as well. 
 ICULIBS = $(ICULIBS_BASE) $(ICULIBS_I18N) $(ICULIBS_COMMON) $(ICULIBS_DATA) 
+
+# Proper echo newline handling is needed in icu-config
+ECHO_N=@ICU_ECHO_N@
+ECHO_C=@ICU_ECHO_C@
+# Not currently being used but good to have for proper tab handling
+ECHO_T=@ICU_ECHO_T@
 
 ##################################################################
 ##################################################################
@@ -267,6 +274,13 @@ GENCCODE_ASSEMBLY = @GENCCODE_ASSEMBLY@
 # The mh- file ("make fragment") for the platform is included here. 
 # It may override the above settings.
 # It is put last so that the mh-file can override anything.
+# The selfcheck is just a sanity check that this makefile is
+# parseable. The mh fragment is only included if this does not occur.
 
+ifeq (selfcheck,$(MAKECMDGOALS)) #M#
+selfcheck: #M#
+	@echo passed #M#
+else #M#
 include $(pkgdatadir)/config/@platform_make_fragment_name@
+endif #M#
 

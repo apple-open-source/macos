@@ -34,11 +34,10 @@
 
 #include "WorkerScriptController.h"
 
-#include <v8.h>
-
+#include "DOMTimer.h"
+#include "ScriptCallStack.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
-#include "DOMTimer.h"
 #include "V8DOMMap.h"
 #include "V8Proxy.h"
 #include "V8WorkerContext.h"
@@ -46,12 +45,13 @@
 #include "WorkerContextExecutionProxy.h"
 #include "WorkerObjectProxy.h"
 #include "WorkerThread.h"
+#include <v8.h>
 
 namespace WebCore {
 
 WorkerScriptController::WorkerScriptController(WorkerContext* workerContext)
     : m_workerContext(workerContext)
-    , m_proxy(new WorkerContextExecutionProxy(workerContext))
+    , m_proxy(adoptPtr(new WorkerContextExecutionProxy(workerContext)))
     , m_executionForbidden(false)
 {
 }
@@ -68,31 +68,36 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
 
 ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode, ScriptValue* exception)
 {
-    {
-        MutexLocker lock(m_sharedDataMutex);
-        if (m_executionForbidden)
-            return ScriptValue();
-    }
+    if (isExecutionForbidden())
+        return ScriptValue();
 
     WorkerContextExecutionState state;
-    ScriptValue result = m_proxy->evaluate(sourceCode.source(), sourceCode.url().string(), sourceCode.startLine() - 1, &state);
+    ScriptValue result = m_proxy->evaluate(sourceCode.source(), sourceCode.url().string(), WTF::toZeroBasedTextPosition(sourceCode.startPosition()), &state);
     if (state.hadException) {
         if (exception)
             *exception = state.exception;
         else
-            m_workerContext->reportException(state.errorMessage, state.lineNumber, state.sourceURL);
+            m_workerContext->reportException(state.errorMessage, state.lineNumber, state.sourceURL, 0);
     }
 
     return result;
 }
 
-void WorkerScriptController::forbidExecution(ForbidExecutionOption option)
+void WorkerScriptController::scheduleExecutionTermination()
 {
-    // This function may be called from another thread.
-    MutexLocker lock(m_sharedDataMutex);
+    v8::V8::TerminateExecution();
+}
+
+void WorkerScriptController::forbidExecution()
+{
+    ASSERT(m_workerContext->isContextThread());
     m_executionForbidden = true;
-    if (option == TerminateRunningScript)
-        v8::V8::TerminateExecution();
+}
+
+bool WorkerScriptController::isExecutionForbidden() const
+{
+    ASSERT(m_workerContext->isContextThread());
+    return m_executionForbidden;
 }
 
 void WorkerScriptController::setException(ScriptValue exception)

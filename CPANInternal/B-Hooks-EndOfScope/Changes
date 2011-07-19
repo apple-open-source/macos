@@ -1,0 +1,31 @@
+0.08  Sun, 19 Apr 2009 19:15:44 +0200
+  * Depend on Variable::Magic 0.34 so exceptions during compile time that
+    trigger a destructor don't cause an exception on 5.10 anymore.
+
+0.07  Fri, 20 Feb 2009 14:22:16 +0100
+  * Depend on Variable::Magic 0.31 so exceptions thrown in on_scope_end
+    blocks don't lose their error message.
+
+0.06  Mon, 19 Jan 2009 00:51:45 +0100
+  * Depend on Variable::Magic 0.27 to stop exceptions thrown in
+    on_scope_end blocks from segfaulting. Also add a test for that.
+
+0.05  Sun, 04 Jan 2009 20:46:07 +0100
+  * Use Variable::Magic and cast %^H instead Scope::Guard and relying
+    on a timely destruction of objects within %^H. This fixes using
+    on_scope_end in blocks where string evals are compiled as those
+    increment the refcount of objects in %^H on 5.10.
+
+0.04  Mon, 20 Oct 2008 12:56:23 +0200
+  * Remove an unused bit from the $^H mask.
+
+0.03  Mon, 20 Oct 2008 06:53:20 +0200
+  * Improve testing of multiple hooks.
+  * More documentation.
+  * Require perl 5.8.0.
+
+0.02  Sun, 19 Oct 2008 10:25:15 +0200
+  * Specify all dependencies.
+
+0.01  Sun, 19 Oct 2008 09:29:13 +0200
+  * Initial release.

@@ -13,6 +13,7 @@
 #if defined(__BORLANDC__) && defined(WIN32) && !defined(DEBUG)
 #if defined(FEAT_PERL) || \
     defined(FEAT_PYTHON) || \
+    defined(FEAT_PYTHON3) || \
     defined(FEAT_RUBY) || \
     defined(FEAT_TCL) || \
     defined(FEAT_MZSCHEME) || \
@@ -48,11 +49,27 @@
 # if defined(__CYGWIN32__) && defined(HAVE_FCHDIR)
 #  undef HAVE_FCHDIR
 # endif
+
+/* We may need to define the uint32_t on non-Unix system, but using the same
+ * identifier causes conflicts.  Therefore use UINT32_T. */
+# define UINT32_TYPEDEF uint32_t
+#endif
+
+#if !defined(UINT32_TYPEDEF)
+# if defined(uint32_t)  /* this doesn't catch typedefs, unfortunately */
+#  define UINT32_TYPEDEF uint32_t
+# else
+  /* Fall back to assuming unsigned int is 32 bit.  If this is wrong then the
+   * test in blowfish.c will fail. */
+#  define UINT32_TYPEDEF unsigned int
+# endif
 #endif
 
 /* user ID of root is usually zero, but not for everybody */
 #ifdef __TANDEM
-# define _TANDEM_SOURCE
+# ifndef _TANDEM_SOURCE
+#  define _TANDEM_SOURCE
+# endif
 # include <floss.h>
 # define ROOT_UID 65535
 #else
@@ -76,6 +93,9 @@
 # define MACOS_X
 # ifndef HAVE_CONFIG_H
 #  define UNIX
+# endif
+# ifndef FEAT_CLIPBOARD
+#  define FEAT_CLIPBOARD
 # endif
 #endif
 #if defined(MACOS_X) || defined(MACOS_CLASSIC)
@@ -262,6 +282,14 @@
 # define __PARMS(x) __ARGS(x)
 #endif
 
+/* Mark unused function arguments with UNUSED, so that gcc -Wunused-parameter
+ * can be used to check for mistakes. */
+#ifdef HAVE_ATTRIBUTE_UNUSED
+# define UNUSED __attribute__((unused))
+#else
+# define UNUSED
+#endif
+
 /* if we're compiling in C++ (currently only KVim), the system
  * headers must have the correct prototypes or nothing will build.
  * conversely, our prototypes might clash due to throw() specifiers and
@@ -364,8 +392,8 @@ typedef unsigned int	int_u;
  * On Win64, longs are 32 bits and pointers are 64 bits.
  * For printf() and scanf(), we need to take care of long_u specifically. */
 #ifdef _WIN64
-typedef unsigned __int64        long_u;
-typedef		 __int64        long_i;
+typedef unsigned __int64	long_u;
+typedef		 __int64	long_i;
 # define SCANF_HEX_LONG_U       "%Ix"
 # define SCANF_DECIMAL_LONG_U   "%Iu"
 # define PRINTF_HEX_LONG_U      "0x%Ix"
@@ -385,6 +413,16 @@ typedef		 long __w64     long_i;
 # define PRINTF_HEX_LONG_U      "0x%lx"
 #endif
 #define PRINTF_DECIMAL_LONG_U SCANF_DECIMAL_LONG_U
+
+/*
+ * Only systems which use configure will have SIZEOF_OFF_T and SIZEOF_LONG
+ * defined, which is ok since those are the same systems which can have
+ * varying sizes for off_t.  The other systems will continue to use "%ld" to
+ * print off_t since off_t is simply a typedef to long for them.
+ */
+#if defined(SIZEOF_OFF_T) && (SIZEOF_OFF_T > SIZEOF_LONG)
+# define LONG_LONG_OFF_T
+#endif
 
 /*
  * The characters and attributes cached for the screen.
@@ -460,12 +498,35 @@ typedef unsigned long u8char_T;	    /* long should be 32 bits or more */
 
 #include <assert.h>
 
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
 #ifdef HAVE_WCTYPE_H
 # include <wctype.h>
 #endif
 #ifdef HAVE_STDARG_H
 # include <stdarg.h>
 #endif
+
+# if defined(HAVE_SYS_SELECT_H) && \
+	(!defined(HAVE_SYS_TIME_H) || defined(SYS_SELECT_WITH_SYS_TIME))
+#  include <sys/select.h>
+# endif
+
+# ifndef HAVE_SELECT
+#  ifdef HAVE_SYS_POLL_H
+#   include <sys/poll.h>
+#   define HAVE_POLL
+#  else
+#   ifdef HAVE_POLL_H
+#    include <poll.h>
+#    define HAVE_POLL
+#   endif
+#  endif
+# endif
 
 /* ================ end of the header file puzzle =============== */
 
@@ -585,7 +646,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 
 /*
  * Terminal highlighting attribute bits.
- * Attibutes above HL_ALL are used for syntax highlighting.
+ * Attributes above HL_ALL are used for syntax highlighting.
  */
 #define HL_NORMAL		0x00
 #define HL_INVERSE		0x01
@@ -708,6 +769,13 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define EXPAND_USER_DEFINED	30
 #define EXPAND_USER_LIST	31
 #define EXPAND_SHELLCMD		32
+#define EXPAND_CSCOPE		33
+#define EXPAND_SIGN		34
+#define EXPAND_PROFILE		35
+#define EXPAND_BEHAVE		36
+#define EXPAND_FILETYPE		37
+#define EXPAND_FILES_IN_PATH	38
+#define EXPAND_OWNSYNTAX	39
 
 /* Values for exmode_active (0 is no exmode) */
 #define EXMODE_NORMAL		1
@@ -739,6 +807,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define EW_KEEPALL	0x10	/* keep all matches */
 #define EW_SILENT	0x20	/* don't print "1 returned" from shell */
 #define EW_EXEC		0x40	/* executable files */
+#define EW_PATH		0x80	/* search in 'path' too */
 /* Note: mostly EW_NOTFOUND and EW_SILENT are mutually exclusive: EW_NOTFOUND
  * is used when executing commands and EW_SILENT for interactive expanding. */
 
@@ -792,6 +861,27 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 # endif
 # define SST_FIX_STATES	 7	/* size of sst_stack[]. */
 # define SST_DIST	 16	/* normal distance between entries */
+# define SST_INVALID	(synstate_T *)-1	/* invalid syn_state pointer */
+
+# define HL_CONTAINED	0x01	/* not used on toplevel */
+# define HL_TRANSP	0x02	/* has no highlighting	*/
+# define HL_ONELINE	0x04	/* match within one line only */
+# define HL_HAS_EOL	0x08	/* end pattern that matches with $ */
+# define HL_SYNC_HERE	0x10	/* sync point after this item (syncing only) */
+# define HL_SYNC_THERE	0x20	/* sync point at current line (syncing only) */
+# define HL_MATCH	0x40	/* use match ID instead of item ID */
+# define HL_SKIPNL	0x80	/* nextgroup can skip newlines */
+# define HL_SKIPWHITE	0x100	/* nextgroup can skip white space */
+# define HL_SKIPEMPTY	0x200	/* nextgroup can skip empty lines */
+# define HL_KEEPEND	0x400	/* end match always kept */
+# define HL_EXCLUDENL	0x800	/* exclude NL from match */
+# define HL_DISPLAY	0x1000	/* only used for displaying, not syncing */
+# define HL_FOLD	0x2000	/* define fold */
+# define HL_EXTEND	0x4000	/* ignore a keepend */
+# define HL_MATCHCONT	0x8000	/* match continued from previous line */
+# define HL_TRANS_CONT	0x10000 /* transparent item without contains arg */
+# define HL_CONCEAL	0x20000 /* can be concealed */
+# define HL_CONCEALENDS	0x40000 /* can be concealed */
 #endif
 
 /* Values for 'options' argument in do_search() and searchit() */
@@ -864,6 +954,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define READ_STDIN	0x04	/* read from stdin */
 #define READ_BUFFER	0x08	/* read from curbuf (converting stdin) */
 #define READ_DUMMY	0x10	/* reading into a dummy buffer */
+#define READ_KEEP_UNDO	0x20	/* keep undo info*/
 
 /* Values for change_indent() */
 #define INDENT_SET	1	/* set indent */
@@ -1057,6 +1148,7 @@ extern char *(*dyn_libintl_textdomain)(const char *domainname);
 #define WSP_HELP	16	/* creating the help window */
 #define WSP_BELOW	32	/* put new window below/right */
 #define WSP_ABOVE	64	/* put new window above/left */
+#define WSP_NEWLOC	128	/* don't copy location list */
 
 /*
  * arguments for gui_set_shellsize()
@@ -1230,6 +1322,7 @@ typedef enum
     , HLF_CHD	    /* Changed diff line */
     , HLF_DED	    /* Deleted diff line */
     , HLF_TXD	    /* Text Changed in diff line */
+    , HLF_CONCEAL   /* Concealed text */
     , HLF_SC	    /* Sign column */
     , HLF_SPB	    /* SpellBad */
     , HLF_SPC	    /* SpellCap */
@@ -1244,16 +1337,17 @@ typedef enum
     , HLF_TPF	    /* tabpage line filler */
     , HLF_CUC	    /* 'cursurcolumn' */
     , HLF_CUL	    /* 'cursurline' */
+    , HLF_MC	    /* 'colorcolumn' */
     , HLF_COUNT	    /* MUST be the last one */
 } hlf_T;
 
 /* The HL_FLAGS must be in the same order as the HLF_ enums!
- * When chainging this also adjust the default for 'highlight'. */
+ * When changing this also adjust the default for 'highlight'. */
 #define HL_FLAGS {'8', '@', 'd', 'e', 'h', 'i', 'l', 'm', 'M', \
 		  'n', 'r', 's', 'S', 'c', 't', 'v', 'V', 'w', 'W', \
-		  'f', 'F', 'A', 'C', 'D', 'T', '>', \
+		  'f', 'F', 'A', 'C', 'D', 'T', '-', '>', \
 		  'B', 'P', 'R', 'L', \
-		  '+', '=', 'x', 'X', '*', '#', '_', '!', '.'}
+		  '+', '=', 'x', 'X', '*', '#', '_', '!', '.', 'o'}
 
 /*
  * Boolean constants
@@ -1264,6 +1358,10 @@ typedef enum
 #endif
 
 #define MAYBE	2	    /* sometimes used for a variant on TRUE */
+
+#ifndef UINT32_T
+typedef UINT32_TYPEDEF UINT32_T;
+#endif
 
 /*
  * Operator IDs; The order must correspond to opchars[] in ops.c!
@@ -1334,17 +1432,20 @@ typedef enum
 # define MSG_BUF_CLEN  MSG_BUF_LEN	    /* cell length */
 #endif
 
-#if defined(AMIGA) || defined(__linux__) || defined(__QNX__) || defined(__CYGWIN32__) || defined(_AIX)
-# define TBUFSZ 2048		/* buffer size for termcap entry */
-#else
-# define TBUFSZ 1024		/* buffer size for termcap entry */
-#endif
+/* Size of the buffer used for tgetent().  Unfortunately this is largely
+ * undocumented, some systems use 1024.  Using a buffer that is too small
+ * causes a buffer overrun and a crash.  Use the maximum known value to stay
+ * on the safe side. */
+#define TBUFSZ 2048		/* buffer size for termcap entry */
 
 /*
  * Maximum length of key sequence to be mapped.
  * Must be able to hold an Amiga resize report.
  */
 #define MAXMAPLEN   50
+
+/* Size in bytes of the hash used in the undo file. */
+#define UNDO_HASH_SIZE 32
 
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
@@ -1416,7 +1517,7 @@ typedef enum
 #ifdef FEAT_MBYTE
 /* We need to call mb_stricmp() even when we aren't dealing with a multi-byte
  * encoding because mb_stricmp() takes care of all ascii and non-ascii
- * encodings, including characters with umluats in latin1, etc., while
+ * encodings, including characters with umlauts in latin1, etc., while
  * STRICMP() only handles the system locale version, which often does not
  * handle non-ascii properly. */
 
@@ -1457,15 +1558,15 @@ typedef enum
 # define PERROR(msg)		    perror(msg)
 #endif
 
-typedef long	    linenr_T;		/* line number type */
-typedef unsigned    colnr_T;		/* column number type */
+typedef long	linenr_T;		/* line number type */
+typedef int	colnr_T;		/* column number type */
 typedef unsigned short disptick_T;	/* display tick type */
 
 #define MAXLNUM (0x7fffffffL)		/* maximum (invalid) line number */
 
 /*
  * Well, you won't believe it, but some S/390 machines ("host", now also known
- * as zServer) us 31 bit pointers. There are also some newer machines, that
+ * as zServer) use 31 bit pointers. There are also some newer machines, that
  * use 64 bit pointers. I don't know how to distinguish between 31 and 64 bit
  * machines, so the best way is to assume 31 bits whenever we detect OS/390
  * Unix.
@@ -1621,11 +1722,17 @@ typedef int proftime_T;	    /* dummy for function prototypes */
 # define MOUSE_CTRL	0x10
 
 /* mouse buttons that are handled like a key press (GUI only) */
+/* Note that the scroll wheel keys are inverted: MOUSE_5 scrolls lines up but
+ * the result of this is that the window moves down, similarly MOUSE_6 scrolls
+ * columns left but the window moves right. */
 # define MOUSE_4	0x100	/* scroll wheel down */
 # define MOUSE_5	0x200	/* scroll wheel up */
 
 # define MOUSE_X1	0x300 /* Mouse-button X1 (6th) */
 # define MOUSE_X2	0x400 /* Mouse-button X2 */
+
+# define MOUSE_6	0x500	/* scroll wheel left */
+# define MOUSE_7	0x600	/* scroll wheel right */
 
 /* 0x20 is reserved by xterm */
 # define MOUSE_DRAG_XTERM   0x40
@@ -1884,6 +1991,11 @@ typedef int VimClipboard;	/* This is required for the prototypes. */
  #pragma option -p.
 #endif
 
+#ifdef _MSC_VER
+/* Avoid useless warning "conversion from X to Y of greater size". */
+ #pragma warning(disable : 4312)
+#endif
+
 #if defined(MEM_PROFILE)
 # define vim_realloc(ptr, size)  mem_realloc((ptr), (size))
 #else
@@ -2069,5 +2181,16 @@ typedef int VimClipboard;	/* This is required for the prototypes. */
 #define VIF_WANT_MARKS		2	/* load file marks */
 #define VIF_FORCEIT		4	/* overwrite info already read */
 #define VIF_GET_OLDFILES	8	/* load v:oldfiles */
+
+/* flags for buf_freeall() */
+#define BFA_DEL		1	/* buffer is going to be deleted */
+#define BFA_WIPE	2	/* buffer is going to be wiped out */
+#define BFA_KEEP_UNDO	4	/* do not free undo information */
+
+/* direction for nv_mousescroll() and ins_mousescroll() */
+#define MSCR_DOWN	0	/* DOWN must be FALSE */
+#define MSCR_UP		1
+#define MSCR_LEFT	-1
+#define MSCR_RIGHT	-2
 
 #endif /* VIM__H */

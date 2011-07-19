@@ -650,7 +650,7 @@ EXPORTS
 	_ZlsR11QDataStreamRK11QWebHistory @ 649 NONAME
 	_ZrsR11QDataStreamR11QWebHistory @ 650 NONAME
 	_Z32qt_drt_whiteListAccessFromOriginRK7QStringS1_S1_b @ 651 NONAME
-	_Z33qt_drt_counterValueForElementByIdP9QWebFrameRK7QString @ 652 NONAME
+	_Z33qt_drt_counterValueForElementByIdP9QWebFrameRK7QString @ 652 NONAME ABSENT
 	_Z34qt_drt_resetOriginAccessWhiteListsv @ 653 NONAME
 	_ZN11QWebElement17removeAllChildrenEv @ 654 NONAME
 	_ZN11QWebElement6renderEP8QPainter @ 655 NONAME
@@ -698,25 +698,141 @@ EXPORTS
 	_ZN9QWebFrame17scrollRecursivelyEii @ 697 NONAME ABSENT
 	_ZN16QGraphicsWebView20setResizesToContentsEb @ 698 NONAME
 	_ZNK16QGraphicsWebView17resizesToContentsEv @ 699 NONAME
-	_Z20qt_drt_numberOfPagesP9QWebFrameff @ 700 NONAME
-	_Z24qt_drt_pauseSVGAnimationP9QWebFrameRK7QStringdS3_ @ 701 NONAME
-	_Z24qt_drt_webinspector_showP8QWebPage @ 702 NONAME
-	_Z24qt_drt_workerThreadCountv @ 703 NONAME
-	_Z25qt_drt_hasDocumentElementP9QWebFrame @ 704 NONAME
-	_Z25qt_drt_webinspector_closeP8QWebPage @ 705 NONAME
-	_Z31qt_drt_pageNumberForElementByIdP9QWebFrameRK7QStringff @ 706 NONAME
-	_Z33qt_drt_webinspector_executeScriptP8QWebPagelRK7QString @ 707 NONAME
-	_Z34qt_drt_setTimelineProfilingEnabledP8QWebPageb @ 708 NONAME
-	_Z32qt_drt_setFrameFlatteningEnabledP8QWebPageb @ 709 NONAME
-	_Z36qt_drt_evaluateScriptInIsolatedWorldP9QWebFrameiRK7QString @ 710 NONAME
-	_Z47qt_drt_setDomainRelaxationForbiddenForURLSchemebRK7QString @ 711 NONAME
+	_Z20qt_drt_numberOfPagesP9QWebFrameff @ 700 NONAME ABSENT
+	_Z24qt_drt_pauseSVGAnimationP9QWebFrameRK7QStringdS3_ @ 701 NONAME ABSENT
+	_Z24qt_drt_webinspector_showP8QWebPage @ 702 NONAME ABSENT
+	_Z24qt_drt_workerThreadCountv @ 703 NONAME ABSENT
+	_Z25qt_drt_hasDocumentElementP9QWebFrame @ 704 NONAME ABSENT
+	_Z25qt_drt_webinspector_closeP8QWebPage @ 705 NONAME ABSENT
+	_Z31qt_drt_pageNumberForElementByIdP9QWebFrameRK7QStringff @ 706 NONAME ABSENT
+	_Z33qt_drt_webinspector_executeScriptP8QWebPagelRK7QString @ 707 NONAME ABSENT
+	_Z34qt_drt_setTimelineProfilingEnabledP8QWebPageb @ 708 NONAME ABSENT
+	_Z32qt_drt_setFrameFlatteningEnabledP8QWebPageb @ 709 NONAME ABSENT
+	_Z36qt_drt_evaluateScriptInIsolatedWorldP9QWebFrameiRK7QString @ 710 NONAME ABSENT
+	_Z47qt_drt_setDomainRelaxationForbiddenForURLSchemebRK7QString @ 711 NONAME ABSENT
 	_ZN9QWebFrame11pageChangedEv @ 712 NONAME
 	_ZN9QWebFrame14scrollToAnchorERK7QString @ 713 NONAME
 	_ZN12QWebSettings15setInspectorUrlERK4QUrl @ 714 NONAME ABSENT
 	_ZN13QWebInspector10closeEventEP11QCloseEvent @ 715 NONAME
 	_ZN16QGraphicsWebView26setTiledBackingStoreFrozenEb @ 716 NONAME
 	_ZNK16QGraphicsWebView25isTiledBackingStoreFrozenEv @ 717 NONAME
-	_Z18qt_wrt_setViewModeP8QWebPageRK7QString @ 718 NONAME
-	_Z19qt_drt_setMediaTypeP9QWebFrameRK7QString @ 719 NONAME
-	_Z26qt_drt_enableCaretBrowsingP8QWebPageb @ 720 NONAME
+	_Z18qt_wrt_setViewModeP8QWebPageRK7QString @ 718 NONAME ABSENT
+	_Z19qt_drt_setMediaTypeP9QWebFrameRK7QString @ 719 NONAME ABSENT
+	_Z26qt_drt_enableCaretBrowsingP8QWebPageb @ 720 NONAME ABSENT
 	_ZNK12QWebSettings12inspectorUrlEv @ 721 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt19webPageSetGroupNameEP8QWebPageRK7QString @ 722 NONAME
+	_ZN23DumpRenderTreeSupportQt16webPageGroupNameEP8QWebPage @ 723 NONAME
+	_ZN23DumpRenderTreeSupportQt23garbageCollectorCollectEv @ 724 NONAME
+	_Z32qtwebkit_webframe_scrollOverflowP9QWebFrameiiRK6QPoint @ 725 NONAME
+	_ZN23DumpRenderTreeSupportQt12setMediaTypeEP9QWebFrameRK7QString @ 726 NONAME
+	_ZN23DumpRenderTreeSupportQt13numberOfPagesEP9QWebFrameff @ 727 NONAME
+	_ZN23DumpRenderTreeSupportQt13selectedRangeEP8QWebPage @ 728 NONAME
+	_ZN23DumpRenderTreeSupportQt14clearFrameNameEP9QWebFrame @ 729 NONAME
+	_ZN23DumpRenderTreeSupportQt14pauseAnimationEP9QWebFrameRK7QStringdS4_ @ 730 NONAME
+	_ZN23DumpRenderTreeSupportQt15dumpFrameLoaderEb @ 731 NONAME
+	_ZN23DumpRenderTreeSupportQt16dumpNotificationEb @ 732 NONAME
+	_ZN23DumpRenderTreeSupportQt16isCommandEnabledEP8QWebPageRK7QString @ 733 NONAME
+	_ZN23DumpRenderTreeSupportQt16webInspectorShowEP8QWebPage @ 734 NONAME
+	_ZN23DumpRenderTreeSupportQt17pauseSVGAnimationEP9QWebFrameRK7QStringdS4_ @ 735 NONAME
+	_ZN23DumpRenderTreeSupportQt17webInspectorCloseEP8QWebPage @ 736 NONAME
+	_ZN23DumpRenderTreeSupportQt17workerThreadCountEv @ 737 NONAME
+	_ZN23DumpRenderTreeSupportQt18hasDocumentElementEP9QWebFrame @ 738 NONAME
+	_ZN23DumpRenderTreeSupportQt20dumpEditingCallbacksEb @ 739 NONAME
+	_ZN23DumpRenderTreeSupportQt21markerTextForListItemERK11QWebElement @ 740 NONAME
+	_ZN23DumpRenderTreeSupportQt22javaScriptObjectsCountEv @ 741 NONAME
+	_ZN23DumpRenderTreeSupportQt23setCaretBrowsingEnabledEP8QWebPageb @ 742 NONAME
+	_ZN23DumpRenderTreeSupportQt24executeCoreCommandByNameEP8QWebPageRK7QStringS4_ @ 743 NONAME
+	_ZN23DumpRenderTreeSupportQt21dumpSetAcceptsEditingEb @ 744 NONAME
+	_ZN23DumpRenderTreeSupportQt22resumeActiveDOMObjectsEP9QWebFrame @ 745 NONAME
+	_ZN23DumpRenderTreeSupportQt23suspendActiveDOMObjectsEP9QWebFrame @ 746 NONAME
+	_ZN23DumpRenderTreeSupportQt24numberOfActiveAnimationsEP9QWebFrame @ 747 NONAME
+	_ZN23DumpRenderTreeSupportQt24pageNumberForElementByIdEP9QWebFrameRK7QStringff @ 748 NONAME
+	_ZN23DumpRenderTreeSupportQt25dumpResourceLoadCallbacksEb @ 749 NONAME
+	_ZN23DumpRenderTreeSupportQt25pauseTransitionOfPropertyEP9QWebFrameRK7QStringdS4_ @ 750 NONAME
+	_ZN23DumpRenderTreeSupportQt25setFrameFlatteningEnabledEP8QWebPageb @ 751 NONAME
+	_ZN23DumpRenderTreeSupportQt25webInspectorExecuteScriptEP8QWebPagelRK7QString @ 752 NONAME
+	_ZN23DumpRenderTreeSupportQt25whiteListAccessFromOriginERK7QStringS2_S2_b @ 753 NONAME
+	_ZN23DumpRenderTreeSupportQt26counterValueForElementByIdEP9QWebFrameRK7QString @ 754 NONAME
+	_ZN23DumpRenderTreeSupportQt26firstRectForCharacterRangeEP8QWebPageii @ 755 NONAME
+	_ZN23DumpRenderTreeSupportQt26overwritePluginDirectoriesEv @ 756 NONAME
+	_ZN23DumpRenderTreeSupportQt27resetOriginAccessWhiteListsEv @ 757 NONAME
+	_ZN23DumpRenderTreeSupportQt27setSmartInsertDeleteEnabledEP8QWebPageb @ 758 NONAME
+	_ZN23DumpRenderTreeSupportQt27setTimelineProfilingEnabledEP8QWebPageb @ 759 NONAME
+	_ZN23DumpRenderTreeSupportQt28setDumpRenderTreeModeEnabledEb @ 760 NONAME
+	_ZN23DumpRenderTreeSupportQt29dumpResourceLoadCallbacksPathERK7QString @ 761 NONAME
+	_ZN23DumpRenderTreeSupportQt29evaluateScriptInIsolatedWorldEP9QWebFrameiRK7QString @ 762 NONAME
+	_ZN23DumpRenderTreeSupportQt29setJavaScriptProfilingEnabledEP9QWebFrameb @ 763 NONAME
+	_ZN23DumpRenderTreeSupportQt29setWillSendRequestReturnsNullEb @ 764 NONAME
+	_ZN23DumpRenderTreeSupportQt30setWillSendRequestClearHeadersERK11QStringList @ 765 NONAME
+	_ZN23DumpRenderTreeSupportQt33computedStyleIncludingVisitedInfoERK11QWebElement @ 766 NONAME
+	_ZN23DumpRenderTreeSupportQt34setSelectTrailingWhitespaceEnabledEP8QWebPageb @ 767 NONAME
+	_ZN23DumpRenderTreeSupportQt39elementDoesAutoCompleteForElementWithIdEP9QWebFrameRK7QString @ 768 NONAME
+	_ZN23DumpRenderTreeSupportQt39setWillSendRequestReturnsNullOnRedirectEb @ 769 NONAME
+	_ZN23DumpRenderTreeSupportQt40garbageCollectorCollectOnAlternateThreadEb @ 770 NONAME
+	_ZN23DumpRenderTreeSupportQt40setDomainRelaxationForbiddenForURLSchemeEbRK7QString @ 771 NONAME
+	_ZN23DumpRenderTreeSupportQt18setEditingBehaviorEP8QWebPageRK7QString @ 772 NONAME
+	_ZN23DumpRenderTreeSupportQt24setNotificationsReceiverEP7QObject @ 773 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt26allowNotificationForOriginERK7QString @ 774 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt26setCheckPermissionFunctionEPFvP7QObjectRK4QUrlR22NotificationPermissionE @ 775 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt28setRequestPermissionFunctionEPFvP7QObjectRK7QStringE @ 776 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt31removeWhiteListAccessFromOriginERK7QStringS2_S2_b @ 777 NONAME
+	_ZN23DumpRenderTreeSupportQt11shouldCloseEP9QWebFrame @ 778 NONAME
+	_ZN23DumpRenderTreeSupportQt12isTargetItemERK15QWebHistoryItem @ 779 NONAME
+	_ZN23DumpRenderTreeSupportQt17historyItemTargetERK15QWebHistoryItem @ 780 NONAME
+	_ZN23DumpRenderTreeSupportQt20getChildHistoryItemsERK15QWebHistoryItem @ 781 NONAME
+	_ZN23DumpRenderTreeSupportQt23setMockGeolocationErrorEiRK7QString @ 782 NONAME
+	_ZN23DumpRenderTreeSupportQt26setMockGeolocationPositionEddd @ 783 NONAME
+	_ZN23DumpRenderTreeSupportQt17clearScriptWorldsEv @ 784 NONAME
+	_ZN23DumpRenderTreeSupportQt23setCustomPolicyDelegateEbb @ 785 NONAME
+	_ZN15QWebScriptWorldC1ERKS_ @ 786 NONAME
+	_ZN15QWebScriptWorldC1Ev @ 787 NONAME
+	_ZN15QWebScriptWorldC2ERKS_ @ 788 NONAME
+	_ZN15QWebScriptWorldC2Ev @ 789 NONAME
+	_ZN15QWebScriptWorldD1Ev @ 790 NONAME
+	_ZN15QWebScriptWorldD2Ev @ 791 NONAME
+	_ZN15QWebScriptWorldaSERKS_ @ 792 NONAME
+	_ZN23DumpRenderTreeSupportQt29dumpResourceResponseMIMETypesEb @ 793 NONAME
+	_ZN23DumpRenderTreeSupportQtC1Ev @ 794 NONAME
+	_ZN23DumpRenderTreeSupportQtC2Ev @ 795 NONAME
+	_ZN23DumpRenderTreeSupportQtD1Ev @ 796 NONAME
+	_ZN23DumpRenderTreeSupportQtD2Ev @ 797 NONAME
+	_ZN8QWebPage23allowGeolocationRequestEP9QWebFrame @ 798 NONAME ABSENT
+	_ZN8QWebPage23viewportChangeRequestedERKNS_13ViewportHintsE @ 799 NONAME ABSENT
+	_ZNK15QWebScriptWorld5worldEv @ 800 NONAME
+	_ZN16QGraphicsWebView13setDeviceSizeERK5QSize @ 801 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt12pagePropertyEP9QWebFrameRK7QStringi @ 802 NONAME
+	_ZN23DumpRenderTreeSupportQt16isPageBoxVisibleEP9QWebFramei @ 803 NONAME
+	_ZN23DumpRenderTreeSupportQt16resumeAnimationsEP9QWebFrame @ 804 NONAME
+	_ZN23DumpRenderTreeSupportQt17addUserStyleSheetEP8QWebPageRK7QString @ 805 NONAME
+	_ZN23DumpRenderTreeSupportQt17suspendAnimationsEP9QWebFrame @ 806 NONAME
+	_ZN23DumpRenderTreeSupportQt26pageSizeAndMarginsInPixelsEP9QWebFrameiiiiiii @ 807 NONAME
+	_ZN23DumpRenderTreeSupportQt28setDeferMainResourceDataLoadEb @ 808 NONAME
+	_ZN8QWebPage17setUserPermissionEP9QWebFrameNS_16PermissionDomainENS_16PermissionPolicyE @ 809 NONAME ABSENT
+	_ZN8QWebPage23checkPermissionFromUserEP9QWebFrameNS_16PermissionDomainERNS_16PermissionPolicyE @ 810 NONAME ABSENT
+	_ZN8QWebPage25requestPermissionFromUserEP9QWebFrameNS_16PermissionDomainE @ 811 NONAME ABSENT
+	_ZN8QWebPage27cancelRequestsForPermissionEP9QWebFrameNS_16PermissionDomainE @ 812 NONAME ABSENT
+	_ZNK16QGraphicsWebView10deviceSizeEv @ 813 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt14viewportAsTextEP8QWebPageRK5QSize @ 814 NONAME
+	_ZN23DumpRenderTreeSupportQt32simulateDesktopNotificationClickERK7QString @ 815 NONAME
+	_ZN8QWebPage23viewportChangeRequestedEv @ 816 NONAME
+	_ZNK8QWebPage28viewportConfigurationForSizeERK5QSize @ 817 NONAME ABSENT
+	_ZN23DumpRenderTreeSupportQt20dumpHistoryCallbacksEb @ 818 NONAME
+	_ZN23DumpRenderTreeSupportQt25dumpVisitedLinksCallbacksEb @ 819 NONAME
+	_ZN23DumpRenderTreeSupportQt9plainTextERK8QVariant @ 820 NONAME
+	_ZNK8QWebPage25viewportAttributesForSizeERK5QSize @ 821 NONAME
+	_ZN8QWebPage18ViewportAttributesC1ERKS0_ @ 822 NONAME
+	_ZN8QWebPage18ViewportAttributesC1Ev @ 823 NONAME
+	_ZN8QWebPage18ViewportAttributesC2ERKS0_ @ 824 NONAME
+	_ZN8QWebPage18ViewportAttributesC2Ev @ 825 NONAME
+	_ZN8QWebPage18ViewportAttributesD1Ev @ 826 NONAME
+	_ZN8QWebPage18ViewportAttributesD2Ev @ 827 NONAME
+	_ZN8QWebPage18ViewportAttributesaSERKS0_ @ 828 NONAME
+	_ZN23DumpRenderTreeSupportQt13nodesFromRectERK11QWebElementiijjjjb @ 829 NONAME
+	_ZN23DumpRenderTreeSupportQt28dumpUserGestureInFrameLoaderEb @ 830 NONAME
+	_ZNK8QWebPage19supportsContentTypeERK7QString @ 831 NONAME
+	_ZNK8QWebPage21supportedContentTypesEv @ 832 NONAME
+	_ZNK8QWebPage27setActualVisibleContentRectERK5QRect @ 833 NONAME
+	_ZN8QWebPage20setFeaturePermissionEP9QWebFrameNS_7FeatureENS_16PermissionPolicyE @ 834 NONAME
+	_ZN8QWebPage26featurePermissionRequestedEP9QWebFrameNS_7FeatureE @ 835 NONAME
+	_ZN8QWebPage32featurePermissionRequestCanceledEP9QWebFrameNS_7FeatureE @ 836 NONAME
+        _Z33qtwebkit_setPluginCreatedCallbackPFvP9QWebFramePvS1_E @ 837 NONAME

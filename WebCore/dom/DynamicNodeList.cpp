@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -122,9 +122,9 @@ Node* DynamicNodeList::item(unsigned offset) const
 Node* DynamicNodeList::itemWithName(const AtomicString& elementId) const
 {
     if (m_rootNode->isDocumentNode() || m_rootNode->inDocument()) {
-        Element* node = m_rootNode->document()->getElementById(elementId);
+        Element* node = m_rootNode->treeScope()->getElementById(elementId);
         if (node && nodeMatches(node)) {
-            for (Node* p = node->parentNode(); p; p = p->parentNode()) {
+            for (ContainerNode* p = node->parentNode(); p; p = p->parentNode()) {
                 if (p == m_rootNode)
                     return node;
             }
@@ -137,11 +137,17 @@ Node* DynamicNodeList::itemWithName(const AtomicString& elementId) const
     unsigned length = this->length();
     for (unsigned i = 0; i < length; i++) {
         Node* node = item(i);
-        if (node->isElementNode() && static_cast<Element*>(node)->getIDAttribute() == elementId)
+        // FIXME: This should probably be using getIdAttribute instead of idForStyleResolution.
+        if (node->hasID() && static_cast<Element*>(node)->idForStyleResolution() == elementId)
             return node;
     }
 
     return 0;
+}
+
+bool DynamicNodeList::isDynamicNodeList() const
+{
+    return true;
 }
 
 void DynamicNodeList::invalidateCache()

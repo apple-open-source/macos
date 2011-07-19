@@ -1,3 +1,7 @@
+#if defined VEC_OPTIMIZE
+
+#ifdef __arm__
+
 #include <arm/arch.h>
 #define KERNEL_SUPPORT_NEON 1   // this is for building dylib, defined so it will build with neon for armv7
 #define BASE 65521	    /* largest prime smaller than 65536 */
@@ -220,6 +224,11 @@ coeffs:
 	adr			t, vec_table				// address to vec_table[]
 	stmfd		sp!, {r4, r5, lr}
 
+#if	KERNEL
+	vpush	{q8-q15}
+#endif
+	vpush	{q0-q7}
+
 	vld1.32		{q0-q1},[t,:128]!			// loading up coefficients for adler/sum2 computation
 	vld1.32		{q15},[t,:128]!				// for sum2 computation
 	ldr			nmax, [t]					// NMAX
@@ -390,6 +399,18 @@ len_is_zero:
 
 	vmov        sum2, adler, adlersum2		// restore adler/sum2 from (s12=sum2, s13=adler)
 	add			r0, adler, sum2, lsl #16	// to return adler | (sum2 << 16);
+
+	vpop		{q0-q1}
+	vpop		{q2-q3}
+	vpop		{q4-q5}
+	vpop		{q6-q7}
+#if	KERNEL
+	vpop		{q8-q9}
+	vpop		{q10-q11}
+	vpop		{q12-q13}
+	vpop		{q14-q15}
+#endif
+
 	ldmfd       sp!, {r4, r5, pc}			// restore registers and return 
 
 
@@ -426,3 +447,6 @@ NMAX_loc:
 
 #endif		// _ARM_ARCH_6
 
+#endif		// __arm__
+
+#endif		// VEC_OPTIMIZE

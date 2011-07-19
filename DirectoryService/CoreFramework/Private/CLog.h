@@ -50,6 +50,7 @@ typedef enum {
 	keInfoLog
 } eLogType;
 
+typedef bool (*passthru_logging_fn)(int32_t level, const char *message);
 
 //-----------------------------------------------------------------------------
 //	* CLog: a little more than your basic log class.
@@ -89,7 +90,9 @@ public:
 											OptionBits	infoFlags		= kLogMeta,
 											bool		inOpenDbgLog	= false,
 											bool		inOpenInfoLog	= false,
-											bool		inLocalOnlyMode	= false );
+											bool		inLocalOnlyMode	= false,
+											passthru_logging_fn passthru = NULL
+										 );
 	static void		Deinitialize		( void );
 	static void		StartLogging		( eLogType inWhichLog, UInt32 inFlag );
 	static void		StopLogging			( eLogType inWhichLog, UInt32 inFlag );
@@ -136,14 +139,6 @@ protected:
 	static OptionBits		fErrLogFlags;
 	static OptionBits		fDbgLogFlags;
 	static OptionBits		fInfoLogFlags;
-	static CLog			   *fServerLog;
-	static CLog			   *fErrorLog;
-	static CLog			   *fDebugLog;
-	static CLog			   *fInfoLog;
-	static CString		   *fServerLogName;
-	static CString		   *fErrorLogName;
-	static CString		   *fDebugLogName;
-	static CString		   *fInfoLogName;
 
 	// Instance data
 	CFileSpec			fFileSpec;		// Necessary for file moves after resequencing

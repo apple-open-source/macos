@@ -35,7 +35,7 @@ endif
 
 ifndef TEApotVersion
 ifndef UrlBase
-UrlBase               = http://osdn.dl.sourceforge.net/sourceforge
+UrlBase               = http://osdn.dl.sourceforge.net/project
 endif
 ifndef UrlExt
 UrlExt                = .tar.gz
@@ -44,7 +44,7 @@ ifndef UrlFile
 UrlFile               = $(Project)$(if $(Release),-$(Release))
 endif
 ifndef Url
-Url                   = $(UrlBase)/$(Project)/$(UrlFile)$(UrlExt)
+Url                   = $(UrlBase)/$(Project)/$(ProjectName)/$(Release)/$(UrlFile)$(UrlExt)
 endif
 ifndef UrlExtract
 UrlExtract            = $(TAR) $(ExtractOptions) zxf

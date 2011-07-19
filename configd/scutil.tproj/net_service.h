@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,8 +34,6 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-
-CFComparisonResult	_compare_services	(const void *val1, const void *val2, void *context);
 
 void	create_service		(int argc, char **argv);
 void	disable_service		(int argc, char **argv);

@@ -21,7 +21,7 @@ end
 
 desc "build RubyCocoa.framework"
 task :build do
-  config = ["config", "--build-universal=yes"]
+  config = ["config"]
   config << '--gen-bridge-support=no' if `sw_vers -productVersion` =~ /^10\.5/
   ruby "install.rb", *config
   ruby "install.rb", "setup"
@@ -65,7 +65,7 @@ task :package do
   rm_rf dstdir
   svn "export", "-r", rev, SVN_REPOS_URL, dstdir
   chdir(dstdir) do
-    config = ["config", "--prefix=yes", "--build-universal=yes"]
+    config = ["config", "--prefix=yes"]
     config << '--gen-bridge-support=no' if `sw_vers -productVersion` =~ /^10\.5/
     ruby "install.rb", *config
     ruby "install.rb", "setup"

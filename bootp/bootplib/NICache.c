@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -192,7 +192,7 @@ PLCache_set_max(PLCache_t * c, int m)
 void
 PLCache_free(PLCache_t * cache)
 {
-    PLCacheEntry_t * scan = cache->head;
+    PLCacheEntry_t * scan;
 
     for (scan = cache->head; scan; ) {
 	PLCacheEntry_t * next;
@@ -244,6 +244,48 @@ PLCache_append(PLCache_t * cache, PLCacheEntry_t * entry)
     return;
 }
 
+/*
+ * Function: my_fgets
+ * Purpose:
+ *   like fgets() but consumes/discards characters until the next newline 
+ *   once the line buffer is full.
+ */
+static char *
+my_fgets(char * buf, int buf_size, FILE * f)
+{
+    boolean_t	done = FALSE;
+    int		left = buf_size - 1;
+    char *	scan;
+
+    scan = buf;
+    while (!done) {
+	int		this_char;
+
+	this_char = fgetc(f);
+	switch (this_char) {
+	case 0:
+	case EOF:
+	    done = TRUE;
+	    break;
+	default:
+	    if (left > 0) {
+		*scan++ = (char)this_char;
+		left--;
+	    }
+	    if (this_char == '\n') {
+		done = TRUE;
+	    }
+	    break;
+	}
+    }
+    if (scan == buf) {
+	/* we didn't read anything */
+	return (NULL);
+    }
+    *scan = '\0';
+    return (buf);
+}
+
 boolean_t
 PLCache_read(PLCache_t * cache, const char * filename)
 {
@@ -266,7 +308,7 @@ PLCache_read(PLCache_t * cache, const char * filename)
     }
 
     while (1) {
-	if (fgets(line, sizeof(line), file) != line) {
+	if (my_fgets(line, sizeof(line), file) != line) {
 	    if (where == start_e || where == body_e) {
 		fprintf(stderr, "file ends prematurely\n");
 	    }
@@ -307,6 +349,20 @@ PLCache_read(PLCache_t * cache, const char * filename)
 		int nlen = (sep - line) - whitespace_len;
 		int vlen = len - whitespace_len - nlen - 2;
 
+		if (nlen >= sizeof(propname)) {
+		    fprintf(stderr,
+			    "property name truncated to %d bytes at line %d\n",
+			    (int)sizeof(propname) - 1,
+			    line_number);
+		    nlen = sizeof(propname) - 1;
+		}
+		if (vlen >= sizeof(propval)) {
+		    fprintf(stderr, 
+			    "value truncated to %d bytes at line %d\n",
+			    (int)sizeof(propval) - 1,
+			    line_number);
+		    vlen = sizeof(propval) - 1;
+		}
 		strncpy(propname, line + whitespace_len, nlen);
 		propname[nlen] = '\0';
 		strncpy(propval, sep + 1, vlen);
@@ -316,6 +372,13 @@ PLCache_read(PLCache_t * cache, const char * filename)
 	    else {
 		int nlen = len - whitespace_len - 1;
 
+		if (nlen >= sizeof(propname)) {
+		    fprintf(stderr,
+			    "property name truncated to %d bytes at line %d\n",
+			    (int)sizeof(propname) - 1,
+			    line_number);
+		    nlen = sizeof(propname) - 1;
+		}
 		strncpy(propname, line + whitespace_len, nlen);
 		propname[nlen] = '\0';
 		ni_proplist_insertprop(&pl, propname, NULL, NI_INDEX_NULL);
@@ -520,7 +583,7 @@ PLCache_lookup_identifier(PLCache_t * PLCache,
 		    continue;
 		if (has_binding)
 		    *has_binding = TRUE;
-		if (func == NULL || (*func)(arg, *client_ip)) {
+		if (func == NULL || (client_ip != NULL && (*func)(arg, *client_ip))) {
 		    PLCache_make_head(PLCache, scan);
 		    return (scan);
 		}

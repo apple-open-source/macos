@@ -1,8 +1,8 @@
-.TH PAGESTUFF 1 "January 3, 2001" "Apple Computer, Inc."
+.TH PAGESTUFF 1 "November 2, 2010" "Apple, Inc."
 .SH NAME
 pagestuff \- Mach-O file page analysis tool
 .SH SYNOPSIS
-pagestuff file [-a] [-p] [pagenumber...]
+pagestuff file [-arch arch_flag] [-a] [-p] [pagenumber...]
 .SH DESCRIPTION
 pagestuff displays information about the specified logical pages of a
 file conforming to the Mach-O executable format.  For each specified
@@ -13,6 +13,18 @@ __TEXT, __text section are displayed.
 The options to
 .IR pagestuff (1)
 are:
+.TP
+.BI \-arch " arch_type"
+Specifies the architecture,
+.I arch_type,
+of the file for
+.IR pagestuff (1)
+to operate on when the file is a universal file.  (See
+.IR arch (3)
+for the currently know
+.IR arch_type s.)
+When this option is used the page numbers are the logical page numbers starting
+at zero for the offset that architecture starts in a universal file.
 .TP
 .BI \-a
 Displays all pages.  All other arguments are ignored.

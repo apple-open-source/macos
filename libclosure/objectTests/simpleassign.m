@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  simpleassign.m
 //  bocktest
@@ -5,18 +11,18 @@
 //  Created by Blaine Garst on 3/21/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC RR
+// TEST_CONFIG
 
 
 #import <Foundation/Foundation.h>
+#import "test.h"
 
-
-int main(char *argc, char *argv[]) {
+int main() {
     id aBlock;
     void (^blockA)(void) = ^ { printf("hello\n"); };
     // a block should be assignable to an id
     aBlock = blockA;
     blockA = aBlock;
-    printf("%s: success\n", argv[0]);
-    exit(0);
+
+    succeed(__FILE__);
 }

@@ -90,7 +90,11 @@ JNIEnv* getJNIEnv()
     } u;
     jint jniError = 0;
 
+#if OS(ANDROID)
+    jniError = getJavaVM()->AttachCurrentThread(&u.env, 0);
+#else
     jniError = getJavaVM()->AttachCurrentThread(&u.dummy, 0);
+#endif
     if (jniError == JNI_OK)
         return u.env;
     LOG_ERROR("AttachCurrentThread failed, returned %ld", static_cast<long>(jniError));
@@ -162,122 +166,129 @@ void releaseUCharactersForJStringInEnv(JNIEnv* env, jstring aJString, const jcha
     env->ReleaseStringChars(aJString, s);
 }
 
-JNIType JNITypeFromClassName(const char* name)
+JavaType javaTypeFromClassName(const char* name)
 {
-    JNIType type;
+    JavaType type;
 
     if (!strcmp("byte", name))
-        type = byte_type;
+        type = JavaTypeByte;
     else if (!strcmp("short", name))
-        type = short_type;
+        type = JavaTypeShort;
     else if (!strcmp("int", name))
-        type = int_type;
+        type = JavaTypeInt;
     else if (!strcmp("long", name))
-        type = long_type;
+        type = JavaTypeLong;
     else if (!strcmp("float", name))
-        type = float_type;
+        type = JavaTypeFloat;
     else if (!strcmp("double", name))
-        type = double_type;
+        type = JavaTypeDouble;
     else if (!strcmp("char", name))
-        type = char_type;
+        type = JavaTypeChar;
     else if (!strcmp("boolean", name))
-        type = boolean_type;
+        type = JavaTypeBoolean;
     else if (!strcmp("void", name))
-        type = void_type;
+        type = JavaTypeVoid;
     else if ('[' == name[0])
-        type = array_type;
+        type = JavaTypeArray;
+#if USE(V8)
+    else if (!strcmp("java.lang.String", name))
+        type = JavaTypeString;
+#endif
     else
-        type = object_type;
+        type = JavaTypeObject;
 
     return type;
 }
 
-const char* signatureFromPrimitiveType(JNIType type)
+const char* signatureFromJavaType(JavaType type)
 {
     switch (type) {
-    case void_type:
+    case JavaTypeVoid:
         return "V";
 
-    case array_type:
+    case JavaTypeArray:
         return "[";
 
-    case object_type:
+    case JavaTypeObject:
+#if USE(V8)
+    case JavaTypeString:
+#endif
         return "L";
 
-    case boolean_type:
+    case JavaTypeBoolean:
         return "Z";
 
-    case byte_type:
+    case JavaTypeByte:
         return "B";
 
-    case char_type:
+    case JavaTypeChar:
         return "C";
 
-    case short_type:
+    case JavaTypeShort:
         return "S";
 
-    case int_type:
+    case JavaTypeInt:
         return "I";
 
-    case long_type:
+    case JavaTypeLong:
         return "J";
 
-    case float_type:
+    case JavaTypeFloat:
         return "F";
 
-    case double_type:
+    case JavaTypeDouble:
         return "D";
 
-    case invalid_type:
+    case JavaTypeInvalid:
     default:
         break;
     }
     return "";
 }
 
-JNIType JNITypeFromPrimitiveType(char type)
+JavaType javaTypeFromPrimitiveType(char type)
 {
     switch (type) {
     case 'V':
-        return void_type;
+        return JavaTypeVoid;
 
     case 'L':
-        return object_type;
+        return JavaTypeObject;
 
     case '[':
-        return array_type;
+        return JavaTypeArray;
 
     case 'Z':
-        return boolean_type;
+        return JavaTypeBoolean;
 
     case 'B':
-        return byte_type;
+        return JavaTypeByte;
 
     case 'C':
-        return char_type;
+        return JavaTypeChar;
 
     case 'S':
-        return short_type;
+        return JavaTypeShort;
 
     case 'I':
-        return int_type;
+        return JavaTypeInt;
 
     case 'J':
-        return long_type;
+        return JavaTypeLong;
 
     case 'F':
-        return float_type;
+        return JavaTypeFloat;
 
     case 'D':
-        return double_type;
+        return JavaTypeDouble;
 
     default:
         break;
     }
-    return invalid_type;
+    return JavaTypeInvalid;
 }
 
-jvalue getJNIField(jobject obj, JNIType type, const char* name, const char* signature)
+jvalue getJNIField(jobject obj, JavaType type, const char* name, const char* signature)
 {
     JavaVM* jvm = getJavaVM();
     JNIEnv* env = getJNIEnv();
@@ -290,32 +301,35 @@ jvalue getJNIField(jobject obj, JNIType type, const char* name, const char* sign
             jfieldID field = env->GetFieldID(cls, name, signature);
             if (field) {
                 switch (type) {
-                case array_type:
-                case object_type:
+                case JavaTypeArray:
+                case JavaTypeObject:
+#if USE(V8)
+                case JavaTypeString:
+#endif
                     result.l = env->functions->GetObjectField(env, obj, field);
                     break;
-                case boolean_type:
+                case JavaTypeBoolean:
                     result.z = env->functions->GetBooleanField(env, obj, field);
                     break;
-                case byte_type:
+                case JavaTypeByte:
                     result.b = env->functions->GetByteField(env, obj, field);
                     break;
-                case char_type:
+                case JavaTypeChar:
                     result.c = env->functions->GetCharField(env, obj, field);
                     break;
-                case short_type:
+                case JavaTypeShort:
                     result.s = env->functions->GetShortField(env, obj, field);
                     break;
-                case int_type:
+                case JavaTypeInt:
                     result.i = env->functions->GetIntField(env, obj, field);
                     break;
-                case long_type:
+                case JavaTypeLong:
                     result.j = env->functions->GetLongField(env, obj, field);
                     break;
-                case float_type:
+                case JavaTypeFloat:
                     result.f = env->functions->GetFloatField(env, obj, field);
                     break;
-                case double_type:
+                case JavaTypeDouble:
                     result.d = env->functions->GetDoubleField(env, obj, field);
                     break;
                 default:
@@ -333,6 +347,50 @@ jvalue getJNIField(jobject obj, JNIType type, const char* name, const char* sign
             LOG_ERROR("Could not find class for object");
     }
 
+    return result;
+}
+
+jvalue callJNIMethod(jobject object, JavaType returnType, const char* name, const char* signature, jvalue* args)
+{
+    jmethodID methodId = getMethodID(object, name, signature);
+    jvalue result;
+    switch (returnType) {
+    case JavaTypeVoid:
+        callJNIMethodIDA<void>(object, methodId, args);
+        break;
+    case JavaTypeObject:
+#if USE(V8)
+    case JavaTypeString:
+#endif
+        result.l = callJNIMethodIDA<jobject>(object, methodId, args);
+        break;
+    case JavaTypeBoolean:
+        result.z = callJNIMethodIDA<jboolean>(object, methodId, args);
+        break;
+    case JavaTypeByte:
+        result.b = callJNIMethodIDA<jbyte>(object, methodId, args);
+        break;
+    case JavaTypeChar:
+        result.c = callJNIMethodIDA<jchar>(object, methodId, args);
+        break;
+    case JavaTypeShort:
+        result.s = callJNIMethodIDA<jshort>(object, methodId, args);
+        break;
+    case JavaTypeInt:
+        result.i = callJNIMethodIDA<jint>(object, methodId, args);
+        break;
+    case JavaTypeLong:
+        result.j = callJNIMethodIDA<jlong>(object, methodId, args);
+        break;
+    case JavaTypeFloat:
+        result.f = callJNIMethodIDA<jfloat>(object, methodId, args);
+        break;
+    case JavaTypeDouble:
+        result.d = callJNIMethodIDA<jdouble>(object, methodId, args);
+        break;
+    default:
+        break;
+    }
     return result;
 }
 

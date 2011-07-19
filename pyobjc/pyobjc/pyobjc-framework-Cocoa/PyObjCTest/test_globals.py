@@ -8,34 +8,34 @@ import os
 class GlobalFunctionTest (TestCase):
     if sys.platform == 'darwin':
         def testNSFileTypeForHFSTypeCode(self):
-            self.assertEquals("'rtfx'",
-                    Foundation.NSFileTypeForHFSTypeCode('rtfx'))
+            self.assertEqual("'rtfx'",
+                    Foundation.NSFileTypeForHFSTypeCode(b'rtfx'))
 
             # The cannonical representation for four-character-codes in python
             # is a string of 4 characters, but at least some ObjC API's return
             # longs (because these methods haven't been wrapped correctly yet).
             # NSFileTypeForHFSTypeCode therefore also accepts integers.
-            fourchar = struct.unpack('i', 'rtfx')[0]
+            fourchar = struct.unpack('i', b'rtfx')[0]
             if sys.byteorder == 'little':
-		    self.assertEquals("'xftr'",
-			    Foundation.NSFileTypeForHFSTypeCode(fourchar))
+                    self.assertEqual("'xftr'",
+                            Foundation.NSFileTypeForHFSTypeCode(fourchar))
             else:
-		    self.assertEquals("'rtfx'",
-			    Foundation.NSFileTypeForHFSTypeCode(fourchar))
+                    self.assertEqual("'rtfx'",
+                            Foundation.NSFileTypeForHFSTypeCode(fourchar))
 
         def testNSHFSTypeCodeFromFileType(self):
-            self.assertEquals(u"rtfx",
-                    Foundation.NSHFSFTypeCodeFromFileType(u"'rtfx'"))
+            self.assertEqual(b"rtfx",
+                    Foundation.NSHFSFTypeCodeFromFileType("'rtfx'"))
 
 
     def testMakeNSRect(self):
         self.assert_(hasattr(Foundation, 'NSMakeRect'))
 
-        self.assertEquals(
+        self.assertEqual(
                 Foundation.NSMakeRect(1.5, 2.5, 3.5, 4.5),
                 ((1.5, 2.5), (3.5, 4.5))
         )
-        self.assertEquals(
+        self.assertEqual(
                 Foundation.NSMakeRect(1, 2, 3, 4),
                 ((1.0, 2.0), (3.0, 4.0))
         )
@@ -46,12 +46,12 @@ class GlobalFunctionTest (TestCase):
         rect1 = Foundation.NSMakeRect(1.0, 2.0, 3.0, 4.0)
 
         slice, rem = Foundation.NSDivideRect(rect1, None, None, 0.5, Foundation.NSMinXEdge)
-        self.assertEquals(slice, ((1.0, 2.0), (0.5, 4.0)))
-        self.assertEquals(rem,   ((1.5, 2.0), (2.5, 4.0)))
+        self.assertEqual(slice, ((1.0, 2.0), (0.5, 4.0)))
+        self.assertEqual(rem,   ((1.5, 2.0), (2.5, 4.0)))
 
         slice, rem = Foundation.NSDivideRect(rect1, None, None, 0.5, Foundation.NSMinYEdge)
-        self.assertEquals(slice, ((1.0, 2.0), (3.0, 0.5)))
-        self.assertEquals(rem,   ((1.0, 2.5), (3.0, 3.5)))
+        self.assertEqual(slice, ((1.0, 2.0), (3.0, 0.5)))
+        self.assertEqual(rem,   ((1.0, 2.5), (3.0, 3.5)))
 
     def testMisc(self):
         self.assert_(hasattr(Foundation, 'NSLogPageSize'))
@@ -90,7 +90,7 @@ class NSLogTest (TestCase):
         finally:
 
             data = self.stopCaptureStderr()
-            self.assert_("This is a test" in data)
+            self.assert_(b"This is a test" in data)
 
     def testLoggingWithFormattingChars(self):
         self.assertRaises(ValueError, Foundation.NSLog, "This is a test %@")
@@ -101,7 +101,7 @@ class NSLogTest (TestCase):
         finally:
 
             data = self.stopCaptureStderr()
-            self.assert_("This is a test, ronald" in data, data)
+            self.assert_(b"This is a test, ronald" in data, data)
 
     def testSpotlight(self):
         if hasattr(Foundation, 'NSMetadataQuery'):

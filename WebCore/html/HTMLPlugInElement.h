@@ -32,19 +32,17 @@ struct NPObject;
 
 namespace WebCore {
 
+class RenderEmbeddedObject;
 class RenderWidget;
+class Widget;
 
 class HTMLPlugInElement : public HTMLFrameOwnerElement {
 public:
     virtual ~HTMLPlugInElement();
 
-    String height() const;
-    void setHeight(const String&);
-    
-    String width() const;
-    void setWidth(const String&);
-
     PassScriptInstance getInstance() const;
+
+    Widget* pluginWidget() const;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* getNPObject();
@@ -53,39 +51,32 @@ public:
     bool isCapturingMouseEvents() const { return m_isCapturingMouseEvents; }
     void setIsCapturingMouseEvents(bool capturing) { m_isCapturingMouseEvents = capturing; }
 
-    bool inBeforeLoadEventHandler() const { return m_inBeforeLoadEventHandler; }
-    void setInBeforeLoadEventHandler(bool inBeforeLoadEventHandler) { m_inBeforeLoadEventHandler = inBeforeLoadEventHandler; }
+    bool canContainRangeEndPoint() const { return false; }
 
 protected:
     HTMLPlugInElement(const QualifiedName& tagName, Document*);
 
     virtual void detach();
 
-    static void updateWidgetCallback(Node*);
-
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
+
+    bool m_inBeforeLoadEventHandler;
 
 private:
     virtual void defaultEventHandler(Event*);
 
     virtual RenderWidget* renderWidgetForJSBindings() const = 0;
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual bool checkDTD(const Node* newChild);
-
-    virtual void updateWidget() { }
-
 protected:
     AtomicString m_name;
 
 private:
     mutable ScriptInstance m_instance;
-    bool m_isCapturingMouseEvents;
-    bool m_inBeforeLoadEventHandler;
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* m_NPObject;
 #endif
+    bool m_isCapturingMouseEvents;
 };
 
 } // namespace WebCore

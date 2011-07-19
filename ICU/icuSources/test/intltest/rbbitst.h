@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright (c) 1999-2008, International Business Machines
+ * Copyright (c) 1999-2010, International Business Machines
  * Corporation and others. All Rights Reserved.
  *************************************************************************
  *   Date        Name        Description
@@ -69,6 +69,9 @@ public:
     void TestUnicodeFiles();
     void TestBug5775();
     void TestThaiBreaks();
+    void TestTailoredBreaks();
+    void TestDictRules();
+    void TestBug5532();
 
     void TestDebug();
 
@@ -124,6 +127,10 @@ private:
                          const UnicodeString &testString,
                          UVector32 *breakPositions,
                          RuleBasedBreakIterator *bi);
+
+    // Run the actual tests for TestTailoredBreaks()
+    void TBTest(BreakIterator* brkitr, int type, const char *locale, const char* escapedText,
+                const int32_t *expectOffsets, int32_t expectOffsetsCount);
 };
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

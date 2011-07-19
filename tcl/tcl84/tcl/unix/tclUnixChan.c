@@ -2356,12 +2356,21 @@ TcpGetOptionProc(instanceData, interp, optionName, dsPtr)
 		Tcl_DStringStartSublist(dsPtr);
 	    }
 	    Tcl_DStringAppendElement(dsPtr, inet_ntoa(sockname.sin_addr));
-	    hostEntPtr = TclpGetHostByAddr(			/* INTL: Native. */
-		    (char *) &sockname.sin_addr,
-		    sizeof(sockname.sin_addr), AF_INET);
+            if (sockname.sin_addr.s_addr == INADDR_ANY) {
+		/*
+		 * We don't want to resolve INADDR_ANY; it can sometimes cause
+		 * problems (and never has a name).
+		 */
+                
+                hostEntPtr = NULL;
+            } else {
+                hostEntPtr = TclpGetHostByAddr(		/* INTL: Native. */
+                                               (char *) &sockname.sin_addr,
+                                               sizeof(sockname.sin_addr), AF_INET);
+            }
 	    if (hostEntPtr != (struct hostent *) NULL) {
 		Tcl_DString ds;
-
+                
 		Tcl_ExternalToUtfDString(NULL, hostEntPtr->h_name, -1, &ds);
 		Tcl_DStringAppendElement(dsPtr, Tcl_DStringValue(&ds));
 		Tcl_DStringFree(&ds);
@@ -3357,4 +3366,14 @@ FileThreadActionProc (instanceData, action)
     }
 }
 #endif /* DEPRECATED */
+
+/*
+ * Local Variables:
+ * mode: c
+ * c-basic-offset: 4
+ * fill-column: 78
+ * tab-width: 8
+ * indent-tabs-mode: nil
+ * End:
+ */
 

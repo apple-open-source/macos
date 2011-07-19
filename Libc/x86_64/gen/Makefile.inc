@@ -10,7 +10,8 @@ MDSRCS+= _ctx_start.S \
 	mcount.s \
 	setcontext.c \
 	setjmperr.c \
-	swapcontext.c
+	swapcontext.c \
+	cpu_number.s
 
 .for _src in makecontext.c setcontext.c swapcontext.c
 CFLAGS-${_src} += -fomit-frame-pointer

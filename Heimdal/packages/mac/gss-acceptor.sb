@@ -1,0 +1,47 @@
+;;
+;; gss-initiator - sandbox profile
+;; Copyright (c) 2010 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+;; This file is meant to be included in a sandbox that needs access to be an gss-acceptor
+
+(version 1)
+
+(import "com.apple.corefoundation.sb")
+
+(corefoundation)
+
+(allow mach-lookup
+       (global-name "org.h5l.kcm")
+       (global-name "org.h5l.ntlm-service")
+       (global-name "org.h5l.kdc")
+       (global-name "com.apple.DirectoryService")
+       (global-name "com.apple.system.opendirectoryd.api")
+       (global-name "com.apple.SecurityServer")
+       (global-name "com.apple.system.DirectoryService.libinfo_v1")
+       (global-name "com.apple.system.DirectoryService.membership_v1")
+       (global-name "com.apple.system.logger")
+       (global-name "com.apple.system.notification_center"))
+
+(allow network-outbound
+       (literal "/private/var/run/mDNSResponder")
+       (literal "/private/var/rpc/ncalrpc/NETLOGON")
+       (remote udp)
+       (remote tcp))
+
+(allow file-read*
+       (literal "/etc/krb5.conf")
+       (subpath "/Library/Preferences")
+       (literal "/dev/random")
+       (literal "/etc")
+       (literal "/var")
+       (literal "/private/etc/hosts")
+       (literal "/private/etc/services")
+       (literal "/private/etc/localtime")
+       (subpath "/private/var/db/mds"))
+
+(allow sysctl-read)

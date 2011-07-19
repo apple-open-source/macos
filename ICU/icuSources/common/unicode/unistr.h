@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1998-2008, International Business Machines
+*   Copyright (C) 1998-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -26,7 +26,11 @@
  * \brief C++ API: Unicode String 
  */
 
+#include "unicode/utypes.h"
 #include "unicode/rep.h"
+#include "unicode/std_string.h"
+#include "unicode/stringpiece.h"
+#include "unicode/bytestream.h"
 
 struct UConverter;          // unicode/ucnv.h
 class  StringThreadTest;
@@ -1444,6 +1448,34 @@ public:
            int32_t targetCapacity,
            enum EInvariant inv) const;
 
+#if U_CHARSET_IS_UTF8 || !UCONFIG_NO_CONVERSION
+
+  /**
+   * Copy the characters in the range
+   * [<tt>start</TT>, <tt>start + length</TT>) into an array of characters
+   * in the platform's default codepage.
+   * This function does not write any more than <code>targetLength</code>
+   * characters but returns the length of the entire output string
+   * so that one can allocate a larger buffer and call the function again
+   * if necessary.
+   * The output string is NUL-terminated if possible.
+   *
+   * @param start offset of first character which will be copied
+   * @param startLength the number of characters to extract
+   * @param target the target buffer for extraction
+   * @param targetLength the length of the target buffer
+   * If <TT>target</TT> is NULL, then the number of bytes required for
+   * <TT>target</TT> is returned.
+   * @return the output string length, not including the terminating NUL
+   * @stable ICU 2.0
+   */
+  int32_t extract(int32_t start,
+           int32_t startLength,
+           char *target,
+           uint32_t targetLength) const;
+
+#endif
+
 #if !UCONFIG_NO_CONVERSION
 
   /**
@@ -1509,7 +1541,7 @@ public:
            int32_t startLength,
            char *target,
            uint32_t targetLength,
-           const char *codepage = 0) const;
+           const char *codepage) const;
 
   /**
    * Convert the UnicodeString into a codepage string using an existing UConverter.
@@ -1533,6 +1565,86 @@ public:
                   UErrorCode &errorCode) const;
 
 #endif
+
+  /**
+   * Create a temporary substring for the specified range.
+   * Unlike the substring constructor and setTo() functions,
+   * the object returned here will be a read-only alias (using getBuffer())
+   * rather than copying the text.
+   * As a result, this substring operation is much faster but requires
+   * that the original string not be modified or deleted during the lifetime
+   * of the returned substring object.
+   * @param start offset of the first character visible in the substring
+   * @param length length of the substring
+   * @return a read-only alias UnicodeString object for the substring
+   * @stable ICU 4.4
+   */
+  UnicodeString tempSubString(int32_t start=0, int32_t length=INT32_MAX) const;
+
+  /**
+   * Create a temporary substring for the specified range.
+   * Same as tempSubString(start, length) except that the substring range
+   * is specified as a (start, limit) pair (with an exclusive limit index)
+   * rather than a (start, length) pair.
+   * @param start offset of the first character visible in the substring
+   * @param limit offset immediately following the last character visible in the substring
+   * @return a read-only alias UnicodeString object for the substring
+   * @stable ICU 4.4
+   */
+  inline UnicodeString tempSubStringBetween(int32_t start, int32_t limit=INT32_MAX) const;
+
+  /**
+   * Convert the UnicodeString to UTF-8 and write the result
+   * to a ByteSink. This is called by toUTF8String().
+   * Unpaired surrogates are replaced with U+FFFD.
+   * Calls u_strToUTF8WithSub().
+   *
+   * @param sink A ByteSink to which the UTF-8 version of the string is written.
+   *             sink.Flush() is called at the end.
+   * @stable ICU 4.2
+   * @see toUTF8String
+   */
+  void toUTF8(ByteSink &sink) const;
+
+#if U_HAVE_STD_STRING
+
+  /**
+   * Convert the UnicodeString to UTF-8 and append the result
+   * to a standard string.
+   * Unpaired surrogates are replaced with U+FFFD.
+   * Calls toUTF8().
+   *
+   * @param result A standard string (or a compatible object)
+   *        to which the UTF-8 version of the string is appended.
+   * @return The string object.
+   * @stable ICU 4.2
+   * @see toUTF8
+   */
+  template<typename StringClass>
+  StringClass &toUTF8String(StringClass &result) const {
+    StringByteSink<StringClass> sbs(&result);
+    toUTF8(sbs);
+    return result;
+  }
+
+#endif
+
+  /**
+   * Convert the UnicodeString to UTF-32.
+   * Unpaired surrogates are replaced with U+FFFD.
+   * Calls u_strToUTF32WithSub().
+   *
+   * @param utf32 destination string buffer, can be NULL if capacity==0
+   * @param capacity the number of UChar32s available at utf32
+   * @param errorCode Standard ICU error code. Its input value must
+   *                  pass the U_SUCCESS() test, or else the function returns
+   *                  immediately. Check for U_FAILURE() on output or use with
+   *                  function chaining. (See User Guide for details.)
+   * @return The length of the UTF-32 string.
+   * @see fromUTF32
+   * @stable ICU 4.2
+   */
+  int32_t toUTF32(UChar32 *utf32, int32_t capacity, UErrorCode &errorCode) const;
 
   /* Length operations */
 
@@ -1617,9 +1729,10 @@ public:
 
   /**
    * Determine if this object contains a valid string.
-   * A bogus string has no value. It is different from an empty string.
-   * It can be used to indicate that no string value is available.
-   * getBuffer() and getTerminatedBuffer() return NULL, and
+   * A bogus string has no value. It is different from an empty string,
+   * although in both cases isEmpty() returns TRUE and length() returns 0.
+   * setToBogus() and isBogus() can be used to indicate that no string value is available.
+   * For a bogus string, getBuffer() and getTerminatedBuffer() return NULL, and
    * length() returns 0.
    *
    * @return TRUE if the string is valid, FALSE otherwise
@@ -2312,6 +2425,16 @@ public:
   inline UnicodeString& removeBetween(int32_t start,
                                       int32_t limit = (int32_t)INT32_MAX);
 
+  /**
+   * Retain only the characters in the range
+   * [<code>start</code>, <code>limit</code>) from the UnicodeString object.
+   * Removes characters before <code>start</code> and at and after <code>limit</code>.
+   * @param start the offset of the first character to retain
+   * @param limit the offset immediately following the range to retain
+   * @return a reference to this
+   * @stable ICU 4.4
+   */
+  inline UnicodeString &retainBetween(int32_t start, int32_t limit = INT32_MAX);
 
   /* Length operations */
 
@@ -2501,7 +2624,7 @@ public:
    * @see U_TITLECASE_NO_LOWERCASE
    * @see U_TITLECASE_NO_BREAK_ADJUSTMENT
    * @see ucasemap_open
-   * @stable ICU 4.0
+   * @stable ICU 3.8
    */
   UnicodeString &toTitle(BreakIterator *titleIter, const Locale &locale, uint32_t options);
 
@@ -2755,6 +2878,26 @@ public:
    */
   UnicodeString(UChar *buffer, int32_t buffLength, int32_t buffCapacity);
 
+#if U_CHARSET_IS_UTF8 || !UCONFIG_NO_CONVERSION
+
+  /**
+   * char* constructor.
+   * @param codepageData an array of bytes, null-terminated,
+   *                     in the platform's default codepage.
+   * @stable ICU 2.0
+   */
+  UnicodeString(const char *codepageData);
+
+  /**
+   * char* constructor.
+   * @param codepageData an array of bytes in the platform's default codepage.
+   * @param dataLength The number of bytes in <TT>codepageData</TT>.
+   * @stable ICU 2.0
+   */
+  UnicodeString(const char *codepageData, int32_t dataLength);
+
+#endif
+
 #if !UCONFIG_NO_CONVERSION
 
   /**
@@ -2774,8 +2917,7 @@ public:
    *
    * @stable ICU 2.0
    */
-  UnicodeString(const char *codepageData,
-        const char *codepage = 0);
+  UnicodeString(const char *codepageData, const char *codepage);
 
   /**
    * char* constructor.
@@ -2794,9 +2936,7 @@ public:
    *
    * @stable ICU 2.0
    */
-  UnicodeString(const char *codepageData,
-        int32_t dataLength,
-        const char *codepage = 0);
+  UnicodeString(const char *codepageData, int32_t dataLength, const char *codepage);
 
   /**
    * char * / UConverter constructor.
@@ -2900,6 +3040,33 @@ public:
    */
   virtual ~UnicodeString();
 
+  /**
+   * Create a UnicodeString from a UTF-8 string.
+   * Illegal input is replaced with U+FFFD. Otherwise, errors result in a bogus string.
+   * Calls u_strFromUTF8WithSub().
+   *
+   * @param utf8 UTF-8 input string.
+   *             Note that a StringPiece can be implicitly constructed
+   *             from a std::string or a NUL-terminated const char * string.
+   * @return A UnicodeString with equivalent UTF-16 contents.
+   * @see toUTF8
+   * @see toUTF8String
+   * @stable ICU 4.2
+   */
+  static UnicodeString fromUTF8(const StringPiece &utf8);
+
+  /**
+   * Create a UnicodeString from a UTF-32 string.
+   * Illegal input is replaced with U+FFFD. Otherwise, errors result in a bogus string.
+   * Calls u_strFromUTF32WithSub().
+   *
+   * @param utf32 UTF-32 input string. Must not be NULL.
+   * @param length Length of the input string, or -1 if NUL-terminated.
+   * @return A UnicodeString with equivalent UTF-16 contents.
+   * @see toUTF32
+   * @stable ICU 4.2
+   */
+  static UnicodeString fromUTF32(const UChar32 *utf32, int32_t length);
 
   /* Miscellaneous operations */
 
@@ -2917,7 +3084,7 @@ public:
    *
    * \\a => U+0007, \\b => U+0008, \\t => U+0009, \\n => U+000A,
    * \\v => U+000B, \\f => U+000C, \\r => U+000D, \\e => U+001B,
-   * \\" => U+0022, \\' => U+0027, \\? => U+003F, \\\\ => U+005C
+   * \\&quot; => U+0022, \\' => U+0027, \\? => U+003F, \\\\ => U+005C
    *
    * Anything else following a backslash is generically escaped.  For
    * example, "[a\\-z]" returns "[a-z]".
@@ -3000,6 +3167,17 @@ protected:
   virtual UChar32 getChar32At(int32_t offset) const;
 
 private:
+  // For char* constructors. Could be made public.
+  UnicodeString &setToUTF8(const StringPiece &utf8);
+  // For extract(char*).
+  // We could make a toUTF8(target, capacity, errorCode) public but not
+  // this version: New API will be cleaner if we make callers create substrings
+  // rather than having start+length on every method,
+  // and it should take a UErrorCode&.
+  int32_t
+  toUTF8(int32_t start, int32_t len,
+         char *target, int32_t capacity) const;
+
 
   inline int8_t
   doCompare(int32_t start,
@@ -3103,7 +3281,6 @@ private:
   // None of the following does releaseArray().
   inline void setLength(int32_t len);        // sets only fShortLength and fLength
   inline void setToEmpty();                  // sets fFlags=kShortString
-  inline void setToStackBuffer(int32_t len); // sets fFlags=kShortString
   inline void setArray(UChar *array, int32_t len, int32_t capacity); // does not set fFlags
 
   // allocate the array; result may be fStackBuffer
@@ -3909,7 +4086,13 @@ UnicodeString::extract(int32_t start,
 
 {
   // This dstSize value will be checked explicitly
+#if defined(__GNUC__)
+  // Ticket #7039: Clip length to the maximum valid length to the end of addressable memory given the starting address
+  // This is only an issue when using GCC and certain optimizations are turned on.
+  return extract(start, _length, dst, dst!=0 ? ((dst >= (char*)((size_t)-1) - UINT32_MAX) ? (((char*)UINT32_MAX) - dst) : UINT32_MAX) : 0, codepage);
+#else
   return extract(start, _length, dst, dst!=0 ? 0xffffffff : 0, codepage);
+#endif
 }
 
 #endif
@@ -3922,6 +4105,11 @@ UnicodeString::extractBetween(int32_t start,
   pinIndex(start);
   pinIndex(limit);
   doExtract(start, limit - start, dst, dstStart);
+}
+
+inline UnicodeString
+UnicodeString::tempSubStringBetween(int32_t start, int32_t limit) const {
+    return tempSubString(start, limit - start);
 }
 
 inline UChar
@@ -4004,12 +4192,6 @@ UnicodeString::setToEmpty() {
 }
 
 inline void
-UnicodeString::setToStackBuffer(int32_t len) {
-  fShortLength = (int8_t)len;
-  fFlags = kShortString;
-}
-
-inline void
 UnicodeString::setArray(UChar *array, int32_t len, int32_t capacity) {
   setLength(len);
   fUnion.fFields.fArray = array;
@@ -4023,7 +4205,30 @@ UnicodeString::getTerminatedBuffer() {
   } else {
     UChar *array = getArrayStart();
     int32_t len = length();
-    if(len < getCapacity() && array[len] == 0) {
+    if(len < getCapacity() && ((fFlags&kRefCounted) == 0 || refCount() == 1)) {
+      /*
+       * kRefCounted: Do not write the NUL if the buffer is shared.
+       * That is mostly safe, except when the length of one copy was modified
+       * without copy-on-write, e.g., via truncate(newLength) or remove(void).
+       * Then the NUL would be written into the middle of another copy's string.
+       */
+      if(!(fFlags&kBufferIsReadonly)) {
+        /*
+         * We must not write to a readonly buffer, but it is known to be
+         * NUL-terminated if len<capacity.
+         * A shared, allocated buffer (refCount()>1) must not have its contents
+         * modified, but the NUL at [len] is beyond the string contents,
+         * and multiple string objects and threads writing the same NUL into the
+         * same location is harmless.
+         * In all other cases, the buffer is fully writable and it is anyway safe
+         * to write the NUL.
+         *
+         * Note: An earlier version of this code tested whether there is a NUL
+         * at [len] already, but, while safe, it generated lots of warnings from
+         * tools like valgrind and Purify.
+         */
+        array[len] = 0;
+      }
       return array;
     } else if(cloneArrayIfNeeded(len+1)) {
       array = getArrayStart();
@@ -4177,10 +4382,12 @@ inline UnicodeString&
 UnicodeString::remove()
 {
   // remove() of a bogus string makes the string empty and non-bogus
-  if(isBogus()) {
-    unBogus();
+  // we also un-alias a read-only alias to deal with NUL-termination
+  // issues with getTerminatedBuffer()
+  if(fFlags & (kIsBogus|kBufferIsReadonly)) {
+    setToEmpty();
   } else {
-    setLength(0);
+    fShortLength = 0;
   }
   return *this;
 }
@@ -4201,6 +4408,12 @@ UnicodeString::removeBetween(int32_t start,
                 int32_t limit)
 { return doReplace(start, limit - start, NULL, 0, 0); }
 
+inline UnicodeString &
+UnicodeString::retainBetween(int32_t start, int32_t limit) {
+  truncate(limit);
+  return doReplace(0, start, NULL, 0, 0);
+}
+
 inline UBool
 UnicodeString::truncate(int32_t targetLength)
 {
@@ -4210,6 +4423,9 @@ UnicodeString::truncate(int32_t targetLength)
     return FALSE;
   } else if((uint32_t)targetLength < (uint32_t)length()) {
     setLength(targetLength);
+    if(fFlags&kBufferIsReadonly) {
+      fUnion.fFields.fCapacity = targetLength;  // not NUL-terminated any more
+    }
     return TRUE;
   } else {
     return FALSE;

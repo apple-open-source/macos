@@ -32,6 +32,7 @@
 #define StaticDOMDataStore_h
 
 #include "DOMDataStore.h"
+#include "IntrusiveDOMWrapperMap.h"
 
 namespace WebCore {
 
@@ -53,7 +54,6 @@ private:
     DOMWrapperMap<void> m_staticActiveDomObjectMap;
 #if ENABLE(SVG)
     DOMWrapperMap<SVGElementInstance> m_staticDomSvgElementInstanceMap;
-    DOMWrapperMap<void> m_staticDomSvgObjectWithContextMap;
 #endif
 };
 

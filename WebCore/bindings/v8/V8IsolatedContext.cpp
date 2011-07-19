@@ -35,10 +35,8 @@
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "HashMap.h"
-#include "ScriptController.h"
 #include "V8DOMWindow.h"
 #include "V8HiddenPropertyName.h"
-#include <v8.h>
 
 namespace WebCore {
 

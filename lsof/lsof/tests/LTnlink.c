@@ -256,7 +256,37 @@ print_file_error:
  * If the unlink test is enabled, do it.
  */
     if (do_unlink) {
-	(void) unlink(Path);
+	if (unlink(Path)) {
+	    (void) snprintf(buf, sizeof(buf) - 1,
+		"ERROR!!!  unlink(%s) failed: (%s).", Path, strerror(errno));
+	    buf[sizeof(buf) - 1] = '\0';
+	    (void) PrtMsg(buf, Pn);
+	    (void) snprintf(buf, sizeof(buf) - 1,
+		"  %s may be on a ZFS file system, where it", Path);
+	    buf[sizeof(buf) - 1] = '\0';
+	    (void) PrtMsg(buf, Pn);
+	    (void) snprintf(buf, sizeof(buf) - 1,
+	      "  is not possible for %s to unlink the file it has open.", Pn);
+	    buf[sizeof(buf) - 1] = '\0';
+	    (void) PrtMsg(buf, Pn);
+	    (void) snprintf(buf, sizeof(buf) - 1,
+	      "  To run the %s test, use the \"-p path\" option to specify",
+	      Pn);
+	    buf[sizeof(buf) - 1] = '\0';
+	    (void) PrtMsg(buf, Pn);
+	    (void) PrtMsg(
+	      "  a file on a file system -- e.g., UFS -- that supports unlink",
+	      Pn);
+	    (void) PrtMsg(
+	      "  while the file is open.  Usually /tmp can do that -- e.g.,",
+	      Pn);
+	    (void) snprintf(buf, sizeof(buf) - 1,
+	      "  run the test as \"./%s -p /tmp/<name>\".\n", Pn);
+	    buf[sizeof(buf) - 1] = '\0';
+	    (void) PrtMsg(buf, Pn);
+	    (void) PrtMsgX( "  See 00FAQ and 00TEST for more information.",
+	      Pn, cleanup, 1);
+	}
 	for (opt = "+L1", ti = 0, tj = 30; ti < tj; ti++) {
 
 	/*
@@ -323,7 +353,7 @@ FindFile(opt, ff, ie, tfdc, ibuf, xlnk, szbuf)
     LTdev_t *tfdc;			/* test file device components */
     char *ibuf;				/* inode number in ASCII */
     char *xlnk;				/* expected link count */
-    char *szbuf;				/* file size in ASCII */
+    char *szbuf;			/* file size in ASCII */
 {
     char buf[2048];			/* temporary buffer */
     char *cem;				/* current error message pointer */

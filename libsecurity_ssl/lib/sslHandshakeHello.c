@@ -317,7 +317,7 @@ SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx)
 		if(CIPHER_SUITE_IS_SSLv2(ctx->validCipherSpecs[i].cipherSpec)) {
 			continue;
 		}
-		sslLogNegotiateVerbDebug("ssl3EncodeClientHello sending spec %x", 
+		sslLogNegotiateDebug("ssl3EncodeClientHello sending spec %x", 
 					(unsigned)ctx->validCipherSpecs[i].cipherSpec);		
         p = SSLEncodeInt(p, ctx->validCipherSpecs[i].cipherSpec, 2);
 	}
@@ -396,13 +396,6 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     	sslErrorLog("SSLProcessClientHello: msg len error 1\n");
         return errSSLProtocol;
     }
-	if (ctx->state > SSL_HdskStateServerUninit) {
-		/* Disable renegotiation to work around CVE-2009-3555. */
-		/* FIXME eventual fix is to support proposed TLS renegotiation extensions. */
-    	sslErrorLog("SSLProcessClientHello: renegotiation not allowed\n");
-		return errSSLNegotiation;
-	}
-	
     charPtr = message.data;
 	eom = charPtr + message.length;
     ctx->clientReqProtocol = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);

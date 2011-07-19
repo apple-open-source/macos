@@ -41,8 +41,12 @@ public:
     return TheMap.count(V);
   }
 
-  void erase(const ValueT &V) {
-    TheMap.erase(V);
+  bool erase(const ValueT &V) {
+    return TheMap.erase(V);
+  }
+
+  void swap(DenseSet& RHS) {
+    TheMap.swap(RHS.TheMap);
   }
 
   DenseSet &operator=(const DenseSet &RHS) {
@@ -55,12 +59,18 @@ public:
   class Iterator {
     typename MapTy::iterator I;
   public:
+    typedef typename MapTy::iterator::difference_type difference_type;
+    typedef ValueT value_type;
+    typedef value_type *pointer;
+    typedef value_type &reference;
+    typedef std::forward_iterator_tag iterator_category;
+
     Iterator(const typename MapTy::iterator &i) : I(i) {}
 
     ValueT& operator*() { return I->first; }
     ValueT* operator->() { return &I->first; }
 
-    Iterator& operator++() { ++I; return *this; };
+    Iterator& operator++() { ++I; return *this; }
     bool operator==(const Iterator& X) const { return I == X.I; }
     bool operator!=(const Iterator& X) const { return I != X.I; }
   };
@@ -68,12 +78,18 @@ public:
   class ConstIterator {
     typename MapTy::const_iterator I;
   public:
+    typedef typename MapTy::const_iterator::difference_type difference_type;
+    typedef ValueT value_type;
+    typedef value_type *pointer;
+    typedef value_type &reference;
+    typedef std::forward_iterator_tag iterator_category;
+
     ConstIterator(const typename MapTy::const_iterator &i) : I(i) {}
 
     const ValueT& operator*() { return I->first; }
     const ValueT* operator->() { return &I->first; }
 
-    ConstIterator& operator++() { ++I; return *this; };
+    ConstIterator& operator++() { ++I; return *this; }
     bool operator==(const ConstIterator& X) const { return I == X.I; }
     bool operator!=(const ConstIterator& X) const { return I != X.I; }
   };

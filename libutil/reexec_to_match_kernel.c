@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,16 +37,17 @@
 
 static cpu_type_t current_program_arch(void);
 static cpu_type_t current_kernel_arch(void);
-static int reexec(cpu_type_t cputype);
+static int reexec(cpu_type_t cputype, const char *guardenv);
 
-#define kReExec "REEXEC_TO_MATCH_KERNEL"
+#define kReExecToMatchKernel "REEXEC_TO_MATCH_KERNEL"
+#define kReExecToMatchLP64 "REEXEC_TO_MATCH_LP64NESS"
 
 int reexec_to_match_kernel(void)
 {
 	cpu_type_t kernarch, progarch;
 	char *alreadyenv;
 	
-	alreadyenv = getenv(kReExec);
+	alreadyenv = getenv(kReExecToMatchKernel);
 	if (alreadyenv) {
 		/* we've done this at least once, assume
 		   another try won't help */
@@ -68,7 +69,43 @@ int reexec_to_match_kernel(void)
 	}
 
 	/* Now we need to re-exec */
-	return reexec(kernarch);
+	return reexec(kernarch, kReExecToMatchKernel);
+}
+
+int reexec_to_match_lp64ness(bool isLP64)
+{
+	cpu_type_t kernarch, progarch, targetarch;
+	char *alreadyenv;
+	
+	alreadyenv = getenv(kReExecToMatchLP64);
+	if (alreadyenv) {
+		/* we've done this at least once, assume
+		   another try won't help */
+		return 0;
+	}
+
+	kernarch = current_kernel_arch();
+	progarch = current_program_arch();
+
+	if (kernarch == 0) {
+		/* could not determine kernel arch */
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (isLP64) {
+		targetarch = kernarch | CPU_ARCH_ABI64;
+	} else {
+		targetarch = kernarch & ~CPU_ARCH_ABI64;
+	}
+
+	if (targetarch == progarch) {
+		/* nothing to do here */
+		return 0;
+	}
+
+	/* Now we need to re-exec */
+	return reexec(targetarch, kReExecToMatchLP64);
 }
 
 static cpu_type_t current_program_arch(void)
@@ -114,7 +151,7 @@ static cpu_type_t current_kernel_arch(void)
 	return current_arch;
 }
 
-static int reexec(cpu_type_t cputype)
+static int reexec(cpu_type_t cputype, const char *guardenv)
 {
 	posix_spawnattr_t  attr;
 	int                ret, envcount;
@@ -122,6 +159,7 @@ static int reexec(cpu_type_t cputype)
 	char			   **argv, **oldenvp, **newenvp;
 	char			   execpath[MAXPATHLEN+1];
 	uint32_t		   execsize;
+	char               guardstr[32];
 
 	argv = *_NSGetArgv();
 	oldenvp = *_NSGetEnviron();
@@ -132,7 +170,9 @@ static int reexec(cpu_type_t cputype)
 	for (envcount = 0; oldenvp[envcount]; envcount++) {
 		newenvp[envcount] = oldenvp[envcount];
 	}
-	newenvp[envcount++] = kReExec"=1";
+
+	snprintf(guardstr, sizeof(guardstr), "%s=1", guardenv);
+	newenvp[envcount++] = guardstr;
 	newenvp[envcount] = NULL;
 
 	execsize = (uint32_t)sizeof(execpath);
@@ -154,15 +194,16 @@ static int reexec(cpu_type_t cputype)
 		return -1;
 	}
 
-	/*
-	fprintf(stderr, "reexec: %s\n", execpath);
+#if 0
+	fprintf(stderr, "reexec: %s (arch=%d)\n", execpath, cputype);
 	for (envcount=0; newenvp[envcount]; envcount++) {
 		fprintf(stderr, "env[%d] = %s\n", envcount, newenvp[envcount]);
 	}
 	for (envcount=0; argv[envcount]; envcount++) {
 		fprintf(stderr, "argv[%d] = %s\n", envcount, argv[envcount]);
 	}
-	*/
+#endif
+
 	ret = posix_spawn(NULL, execpath, NULL, &attr, argv, newenvp);
 	if (ret != 0) {
 		errno = ret;

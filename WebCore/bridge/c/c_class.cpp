@@ -32,8 +32,10 @@
 #include "c_instance.h"
 #include "c_runtime.h"
 #include "npruntime_impl.h"
+#include <runtime/ScopeChain.h>
 #include <runtime/Identifier.h>
 #include <runtime/JSLock.h>
+#include <runtime/JSObject.h>
 #include <wtf/text/StringHash.h>
 
 namespace JSC { namespace Bindings {
@@ -75,20 +77,20 @@ MethodList CClass::methodsNamed(const Identifier& identifier, Instance* instance
 {
     MethodList methodList;
 
-    Method* method = _methods.get(identifier.ustring().rep());
+    Method* method = _methods.get(identifier.ustring().impl());
     if (method) {
         methodList.append(method);
         return methodList;
     }
 
-    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii());
+    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii().data());
     const CInstance* inst = static_cast<const CInstance*>(instance);
     NPObject* obj = inst->getObject();
     if (_isa->hasMethod && _isa->hasMethod(obj, ident)){
         Method* aMethod = new CMethod(ident); // deleted in the CClass destructor
         {
             JSLock lock(SilenceAssertionsOnly);
-            _methods.set(identifier.ustring().rep(), aMethod);
+            _methods.set(identifier.ustring().impl(), aMethod);
         }
         methodList.append(aMethod);
     }
@@ -98,18 +100,18 @@ MethodList CClass::methodsNamed(const Identifier& identifier, Instance* instance
 
 Field* CClass::fieldNamed(const Identifier& identifier, Instance* instance) const
 {
-    Field* aField = _fields.get(identifier.ustring().rep());
+    Field* aField = _fields.get(identifier.ustring().impl());
     if (aField)
         return aField;
     
-    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii());
+    NPIdentifier ident = _NPN_GetStringIdentifier(identifier.ascii().data());
     const CInstance* inst = static_cast<const CInstance*>(instance);
     NPObject* obj = inst->getObject();
     if (_isa->hasProperty && _isa->hasProperty(obj, ident)){
         aField = new CField(ident); // deleted in the CClass destructor
         {
             JSLock lock(SilenceAssertionsOnly);
-            _fields.set(identifier.ustring().rep(), aField);
+            _fields.set(identifier.ustring().impl(), aField);
         }
     }
     return aField;

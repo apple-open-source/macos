@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib544.c,v 1.4 2009-05-08 02:14:50 yangtse Exp $
  */
 
 #include "test.h"
@@ -40,22 +39,24 @@ int test(char *URL)
   }
 
   /* First set the URL that is about to receive our POST. */
-  curl_easy_setopt(curl, CURLOPT_URL, URL);
+  test_setopt(curl, CURLOPT_URL, URL);
 
 #ifdef LIB545
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) sizeof teststring - 1);
+  test_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) sizeof teststring - 1);
 #endif
 
-  curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, teststring);
+  test_setopt(curl, CURLOPT_COPYPOSTFIELDS, teststring);
 
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L); /* show verbose for debug */
-  curl_easy_setopt(curl, CURLOPT_HEADER, 1L); /* include header */
+  test_setopt(curl, CURLOPT_VERBOSE, 1L); /* show verbose for debug */
+  test_setopt(curl, CURLOPT_HEADER, 1L); /* include header */
 
   /* Update the original data to detect non-copy. */
   strcpy(teststring, "FAIL");
 
   /* Now, this is a POST request with binary 0 embedded in POST data. */
   res = curl_easy_perform(curl);
+
+test_cleanup:
 
   /* always cleanup */
   curl_easy_cleanup(curl);

@@ -368,13 +368,17 @@ Tcl_DbCkalloc(size, file, line)
     CONST char  *file;
     int          line;
 {
-    struct mem_header *result;
+    struct mem_header *result = NULL;
 
     if (validate_memory)
         Tcl_ValidateAllMemory (file, line);
 
-    result = (struct mem_header *) TclpAlloc((unsigned)size + 
-                              sizeof(struct mem_header) + HIGH_GUARD_SIZE);
+
+    /* Don't let size argument to TclpAlloc overflow */
+    if (size <= UINT_MAX - HIGH_GUARD_SIZE - sizeof(struct mem_header)) {
+	result = (struct mem_header *) TclpAlloc((unsigned)size + 
+		sizeof(struct mem_header) + HIGH_GUARD_SIZE);
+    }
     if (result == NULL) {
         fflush(stdout);
         TclDumpMemoryInfo(stderr);
@@ -453,13 +457,16 @@ Tcl_AttemptDbCkalloc(size, file, line)
     CONST char  *file;
     int          line;
 {
-    struct mem_header *result;
+    struct mem_header *result = NULL;
 
     if (validate_memory)
         Tcl_ValidateAllMemory (file, line);
 
-    result = (struct mem_header *) TclpAlloc((unsigned)size + 
-                              sizeof(struct mem_header) + HIGH_GUARD_SIZE);
+    /* Don't let size argument to TclpAlloc overflow */
+    if (size <= UINT_MAX - HIGH_GUARD_SIZE - sizeof(struct mem_header)) {
+	result = (struct mem_header *) TclpAlloc((unsigned)size + 
+		sizeof(struct mem_header) + HIGH_GUARD_SIZE);
+    }
     if (result == NULL) {
         fflush(stdout);
         TclDumpMemoryInfo(stderr);

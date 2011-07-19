@@ -1,10 +1,10 @@
 //====- ARMMachineFuctionInfo.h - ARM machine function info -----*- C++ -*-===//
-// 
+//
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
-// 
+//
 //===----------------------------------------------------------------------===//
 //
 // This file declares ARM-specific per-machine-function information.
@@ -30,10 +30,10 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// Used to initialized Align, so must precede it.
   bool isThumb;
 
-  /// Align - required alignment.  ARM functions and Thumb functions with
-  /// constant pools require 4-byte alignment; other Thumb functions
-  /// require only 2-byte alignment.
-  unsigned Align;
+  /// hasThumb2 - True if the target architecture supports Thumb2. Do not use
+  /// to determine if function is compiled under Thumb mode, for that use
+  /// 'isThumb'.
+  bool hasThumb2;
 
   /// VarArgsRegSaveSize - Size of the register save area for vararg functions.
   ///
@@ -46,10 +46,6 @@ class ARMFunctionInfo : public MachineFunctionInfo {
   /// LRSpilledForFarJump - True if the LR register has been for spilled to
   /// enable far jump.
   bool LRSpilledForFarJump;
-
-  /// R3IsLiveIn - True if R3 is live in to this function.
-  /// FIXME: Remove when register scavenger for Thumb is done.
-  bool R3IsLiveIn;
 
   /// FramePtrSpillOffset - If HasStackFrame, this records the frame pointer
   /// spill stack offset.
@@ -89,32 +85,34 @@ class ARMFunctionInfo : public MachineFunctionInfo {
 
   unsigned ConstPoolEntryUId;
 
+  /// VarArgsFrameIndex - FrameIndex for start of varargs area.
+  int VarArgsFrameIndex;
+
 public:
   ARMFunctionInfo() :
-    isThumb(false), 
-    Align(2U),
+    isThumb(false),
+    hasThumb2(false),
     VarArgsRegSaveSize(0), HasStackFrame(false),
-    LRSpilledForFarJump(false), R3IsLiveIn(false),
+    LRSpilledForFarJump(false),
     FramePtrSpillOffset(0), GPRCS1Offset(0), GPRCS2Offset(0), DPRCSOffset(0),
     GPRCS1Size(0), GPRCS2Size(0), DPRCSSize(0),
     GPRCS1Frames(0), GPRCS2Frames(0), DPRCSFrames(0),
-    JumpTableUId(0), ConstPoolEntryUId(0) {}
+    JumpTableUId(0), ConstPoolEntryUId(0), VarArgsFrameIndex(0) {}
 
-  ARMFunctionInfo(MachineFunction &MF) :
+  explicit ARMFunctionInfo(MachineFunction &MF) :
     isThumb(MF.getTarget().getSubtarget<ARMSubtarget>().isThumb()),
-    Align(isThumb ? 1U : 2U),
+    hasThumb2(MF.getTarget().getSubtarget<ARMSubtarget>().hasThumb2()),
     VarArgsRegSaveSize(0), HasStackFrame(false),
-    LRSpilledForFarJump(false), R3IsLiveIn(false),
+    LRSpilledForFarJump(false),
     FramePtrSpillOffset(0), GPRCS1Offset(0), GPRCS2Offset(0), DPRCSOffset(0),
     GPRCS1Size(0), GPRCS2Size(0), DPRCSSize(0),
     GPRCS1Frames(32), GPRCS2Frames(32), DPRCSFrames(32),
     SpilledCSRegs(MF.getTarget().getRegisterInfo()->getNumRegs()),
-    JumpTableUId(0), ConstPoolEntryUId(0) {}
+    JumpTableUId(0), ConstPoolEntryUId(0), VarArgsFrameIndex(0) {}
 
   bool isThumbFunction() const { return isThumb; }
-
-  unsigned getAlign() const { return Align; }
-  void setAlign(unsigned a) { Align = a; }
+  bool isThumb1OnlyFunction() const { return isThumb && !hasThumb2; }
+  bool isThumb2Function() const { return isThumb && hasThumb2; }
 
   unsigned getVarArgsRegSaveSize() const { return VarArgsRegSaveSize; }
   void setVarArgsRegSaveSize(unsigned s) { VarArgsRegSaveSize = s; }
@@ -125,13 +123,9 @@ public:
   bool isLRSpilledForFarJump() const { return LRSpilledForFarJump; }
   void setLRIsSpilledForFarJump(bool s) { LRSpilledForFarJump = s; }
 
-  // FIXME: Remove when register scavenger for Thumb is done.
-  bool isR3LiveIn() const { return R3IsLiveIn; }
-  void setR3IsLiveIn(bool l) { R3IsLiveIn = l; }
-
   unsigned getFramePtrSpillOffset() const { return FramePtrSpillOffset; }
   void setFramePtrSpillOffset(unsigned o) { FramePtrSpillOffset = o; }
-  
+
   unsigned getGPRCalleeSavedArea1Offset() const { return GPRCS1Offset; }
   unsigned getGPRCalleeSavedArea2Offset() const { return GPRCS2Offset; }
   unsigned getDPRCalleeSavedAreaOffset()  const { return DPRCSOffset; }
@@ -232,6 +226,9 @@ public:
   unsigned createConstPoolEntryUId() {
     return ConstPoolEntryUId++;
   }
+
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
 };
 } // End llvm namespace
 

@@ -1,8 +1,3 @@
-#include <Python.h>
-#include <AppKit/AppKit.h>
-#include "pyobjc-api.h"
-
-
 static PyObject* 
 call_NSView_getRectsBeingDrawn_count_(
 	PyObject* method, PyObject* self, PyObject* arguments)
@@ -12,7 +7,7 @@ call_NSView_getRectsBeingDrawn_count_(
 	PyObject* v;
 	NSRect* rects;
 	PyObject* arg1, *arg2;
-	int count;
+	NSInteger count;
 
 	if  (!PyArg_ParseTuple(arguments, "OO", &arg1, &arg2)) {
 		return NULL;
@@ -34,7 +29,7 @@ call_NSView_getRectsBeingDrawn_count_(
 			PyObjCObject_GetObject(self));
 
 			
-		objc_msgSendSuper(&super,
+		((void(*)(struct objc_super*, SEL, NSRect**, NSInteger*))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method),
 				&rects, &count);
 	PyObjC_HANDLER
@@ -43,7 +38,13 @@ call_NSView_getRectsBeingDrawn_count_(
 
 	if (PyErr_Occurred()) return NULL;
 
-	v = PyObjC_CArrayToPython(@encode(NSRect), rects, count);
+	v = PyObjC_CArrayToPython(
+#ifdef __LP64__
+	"{_NSRect={_NSPoint=dd}{_NSSize=dd}}",
+#else
+	"{_NSRect={_NSPoint=ff}{_NSSize=ff}}",
+#endif
+		rects, count);
 	if (v == NULL) return NULL;
 
 	result = Py_BuildValue("Oi", v, count);
@@ -54,19 +55,12 @@ call_NSView_getRectsBeingDrawn_count_(
 
 
 
-static PyMethodDef mod_methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_nsview(void);
-void init_nsview(void)
+static int setup_nsview(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_nsview", mod_methods, "", NULL,
-			PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-
 	Class classNSView = objc_lookUpClass("NSView");
+	if (classNSView == NULL) {
+		return 0;
+	}
 
 	if (PyObjC_RegisterMethodMapping(
 		classNSView,
@@ -74,6 +68,8 @@ void init_nsview(void)
 		call_NSView_getRectsBeingDrawn_count_,
 		PyObjCUnsupportedMethod_IMP) < 0) {
 
-		return;
+		return -1;
 	}
+
+	return 0;
 }

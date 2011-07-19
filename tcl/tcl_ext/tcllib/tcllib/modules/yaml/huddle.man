@@ -1,10 +1,10 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin huddle n 0.1.3]
+[manpage_begin huddle n 0.1.4]
 [copyright {2008 KATO Kanryu <kanryu6@users.sourceforge.net>}]
 [moddesc   {HUDDLE}]
 [titledesc {Create and manipulate huddle object}]
 [require Tcl 8.4]
-[require huddle [opt 0.1.3]]
+[require huddle [opt 0.1.4]]
 [description]
 [para]
 Huddle provides a generic Tcl-based serialization/intermediary format.
@@ -33,6 +33,11 @@ confirmed:
 limitation:
   - cannot discribe aliases from a node to other node.
 }]
+
+[para]
+The [package huddle] package returns
+data as a Tcl [cmd dict].  Either the [package dict] package or Tcl 8.5 is
+required for use.
 
 [section COMMANDS]
 
@@ -149,19 +154,78 @@ string
 [call [cmd "huddle strip"] [arg object]]
 Stripped all tags. Converted to normal Tcl's list/dict.
 
-
-[call [cmd "huddle jsondump"] [arg object] [opt [arg offset]]]
+[call [cmd "huddle jsondump"] [arg object] [opt [arg offset]] [opt [arg newline]] [opt [arg begin_offset]]]
 
 dump a json-stream from the huddle-object.
 
 [para]
-
 [list_begin options]
 [opt_def "[const offset] \"\""]
 
 begin offset as spaces "  ".
 
 [list_end]
+
+[example {# normal output has some indents. some strings are escaped.
+% huddle jsondump {HUDDLE {L {{L {{s i} {s baa} {s \\k} {L {{s 1.0} {s true} {s /g} {s h}}} {L {{s g}}}}} {s t}}}}
+[
+  [
+    "i",
+    "baa",
+    "\\k",
+    [
+      1.0,
+      true,
+      "\/g",
+      "h"
+    ],
+    ["g"]
+  ],
+  "t"
+]
+# stripped output
+% huddle jsondump {HUDDLE {D {dd {D {bb {D {a {s baa} c {s {d
+a}}}} cc {D {g {s h}}}}} ee {D {i {s j} k {s 1} j {s { m\a}}}}}}} "" ""
+{"dd": {"bb": {"a": "baa","c": "d\na"},"cc": {"g": "h"}},"ee": {"i": "j","k": 1,"j": " m\\a"}}
+}]
+
+[call [cmd "huddle compile"] [arg spec] [arg data]]
+
+construct a huddle object from plain old tcl values.
+
+
+[arg spec] is defined as follows:
+[list_begin definitions]
+[def [const string]]
+data is simply a string
+
+[def [const list]]
+data is a tcl list of strings
+
+[def [const dict]]
+data is a tcl dict of strings
+
+[def "list list"]
+data is a tcl list of lists
+
+[def "list dict"]
+data is a tcl list of dicts
+
+[def "dict xx list"]
+data is a tcl dict where the value of key xx is a tcl list
+
+[def "dict * list"]
+data is a tcl dict of lists
+
+[arg data] is plain old tcl values
+[list_end]
+
+[example {% huddle compile {dict * list} {a {1 2 3} b {4 5}}
+HUDDLE {D {a {L {{s 1} {s 2} {s 3}}} b {L {{s 4} {s 5}}}}}
+% huddle compile {dict * {list {dict d list}}} {a {{c 1} {d {2 2 2} e 3}} b {{f 4 g 5}}}
+HUDDLE {D {a {L {{D {c {s 1}}} {D {d {L {{s 2} {s 2} {s 2}}} e {s 3}}}}} b {L {{D {f {s 4} g {s 5}}}}}}}
+}]
+
 
 [call [cmd "huddle isHuddle"] [arg object]]
 if [arg object] is a huddle, returns 1. the other, returns 0.

@@ -2,7 +2,7 @@ name=zsh/main
 link=static
 load=yes
 # load=static should replace use of alwayslink
-functions='Functions/Exceptions/* Functions/Misc/* Functions/MIME/* Functions/Prompts/* Functions/VCS_Info/* Functions/VCS_Info/Backends/*'
+functions='Functions/Chpwd/* Functions/Exceptions/* Functions/Misc/* Functions/MIME/* Functions/Prompts/* Functions/VCS_Info/* Functions/VCS_Info/Backends/*'
 
 nozshdep=1
 alwayslink=1
@@ -33,11 +33,18 @@ init.o: bltinmods.list zshpaths.h zshxmods.h
 
 init.o params.o parse.o: version.h
 
+params.o: patchlevel.h
+
 # The main shell doesn't currently need zshcurses.h and zshterm.h,
 # but make sure these are built with the headers.
 # If it did need need them they would be in headers at the top instead.
 version.h: $(sdir_top)/Config/version.mk zshcurses.h zshterm.h
 	echo '#define ZSH_VERSION "'$(VERSION)'"' > $@
+
+patchlevel.h: $(sdir_top)/ChangeLog
+	sed -ne \
+	's/^\* *\$$''Revision: \(.*\) ''\$$/#define ZSH_PATCHLEVEL "\1"/p' \
+	$(sdir_top)/ChangeLog >patchlevel.h
 
 zshcurses.h: ../config.h
 	@if test x$(ZSH_CURSES_H) != x; then \

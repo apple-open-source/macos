@@ -117,7 +117,7 @@ while(<FILE>) {
             if($sizeataddr{$addr}>0) {
                 # this means weeeeeirdo
                 print "Mixed debug compile ($source:$linenum at line $lnum), rebuild curl now\n";
-		print "We think $sizeataddr{$addr} bytes are already allocated at that memory address: $addr!\n";
+                print "We think $sizeataddr{$addr} bytes are already allocated at that memory address: $addr!\n";
             }
 
             $sizeataddr{$addr}=$size;
@@ -176,7 +176,7 @@ while(<FILE>) {
 
             newtotal($totalmem);
             $reallocs++;
-            
+
             $getmem{$oldaddr}="";
             $getmem{$newaddr}="$source:$linenum";
         }
@@ -192,7 +192,7 @@ while(<FILE>) {
             $totalmem += $size;
 
             if($trace) {
-                printf("STRDUP: $size bytes at %s, makes totally: %d bytes\n", 
+                printf("STRDUP: $size bytes at %s, makes totally: %d bytes\n",
                        $getmem{$addr}, $totalmem);
             }
 
@@ -201,7 +201,7 @@ while(<FILE>) {
         }
         else {
             print "Not recognized input line: $function\n";
-        }        
+        }
     }
     # FD url.c:1282 socket() = 5
     elsif($_ =~ /^FD ([^ ]*):(\d*) (.*)/) {
@@ -297,7 +297,7 @@ while(<FILE>) {
                 printf("FREEADDRINFO ($source:$linenum)\n");
             }
         }
-       
+
     }
     else {
         print "Not recognized prefix line: $line\n";

@@ -13,27 +13,34 @@ static const char* kPrefix = "/var/db/mds/messages/se_";
 
 using namespace Security;
 
-SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize) :
-	mSegmentName (segmentName), mSegmentSize (segmentSize), mSegment (NULL)
+SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetType segmentSize)
 {
-	// make the name
-	std::string name (kPrefix);
-	name += segmentName;
-	
 	StLock<Mutex> _(mMutex);
 	
-	// make a connection to the shared memory block
-	int segmentDescriptor = open (name.c_str (), O_RDONLY, S_IROTH);
-	if (segmentDescriptor < 0) // error on opening the shared memory segment?
-	{
-		CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
-	}
+	mSegmentName = segmentName;
+	mSegmentSize = segmentSize;
+	mSegment = mDataArea = mDataPtr = 0;
 	
+	// make the name
+	int segmentDescriptor;
+	{
+		std::string name (kPrefix);
+		name += segmentName;
+		
+		// make a connection to the shared memory block
+		segmentDescriptor = open (name.c_str (), O_RDONLY, S_IROTH);
+		if (segmentDescriptor < 0) // error on opening the shared memory segment?
+		{
+			// CssmError::throwMe (CSSM_ERRCODE_INTERNAL_ERROR);
+			return;
+		}
+	}
+
 	// map the segment into place
 	mSegment = (u_int8_t*) mmap (NULL, segmentSize, PROT_READ, MAP_SHARED, segmentDescriptor, 0);
 	close (segmentDescriptor);
 
-	if (mSegment == (u_int8_t*) -1)
+	if (mSegment == MAP_FAILED)
 	{
 		return;
 	}
@@ -48,7 +55,7 @@ SharedMemoryClient::SharedMemoryClient (const char* segmentName, SegmentOffsetTy
 SharedMemoryClient::~SharedMemoryClient ()
 {
 	StLock<Mutex> _(mMutex);
-	if (mSegment == NULL) // error on opening the shared memory segment?
+	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
@@ -59,7 +66,7 @@ SharedMemoryClient::~SharedMemoryClient ()
 
 SegmentOffsetType SharedMemoryClient::GetProducerCount ()
 {
-	if (mSegment == NULL) // error on opening the shared memory segment?
+	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
@@ -84,7 +91,7 @@ size_t SharedMemoryClient::GetSegmentSize ()
 
 void SharedMemoryClient::ReadData (void* buffer, SegmentOffsetType length)
 {
-	if (mSegment == NULL) // error on opening the shared memory segment?
+	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
@@ -128,7 +135,7 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 {
 	StLock<Mutex> _(mMutex);
 
-	if (mSegment == NULL) // error on opening the shared memory segment?
+	if (mSegment == NULL || mSegment == MAP_FAILED) // error on opening the shared memory segment?
 	{
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
 	}
@@ -147,9 +154,18 @@ bool SharedMemoryClient::ReadMessage (void* message, SegmentOffsetType &length, 
 	
 	// we have the possibility that data is correct, figure out where the data is actually located
 	// get the length of the message stored there
-	if (length >= kPoolAvailableForData)
+	if (length == 0 || length >= kPoolAvailableForData)
 	{
-		ur = kURBufferCorrupt;
+		if (length == 0)
+		{
+			ur = kURNoMessage;
+		}
+		else
+		{
+			ur = kURBufferCorrupt;
+		}
+
+		// something's gone wrong, reset.
 		mDataPtr = mDataArea + GetProducerCount ();
 		return false;
 	}

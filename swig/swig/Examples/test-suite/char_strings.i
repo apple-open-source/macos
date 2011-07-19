@@ -7,9 +7,16 @@ below.
 %module char_strings
 
 %warnfilter(SWIGWARN_TYPEMAP_VARIN_UNDEF) global_char_array1;  // Unable to set variable of type char[]
+%warnfilter(SWIGWARN_TYPEMAP_CHARLEAK_MSG) global_const_char;  // Setting a const char * variable may leak memory.
+
+#ifdef SWIG_ALLEGRO_CL
+%{
+#include <stdio.h>
+%}
+#endif
 
 %{
-#define OTHERLAND_MSG "Little message from the the safe world."
+#define OTHERLAND_MSG "Little message from the safe world."
 #define CPLUSPLUS_MSG "A message from the deep dark world of C++, where anything is possible."
 static char *global_str = NULL;
 const int UINT_DIGITS = 10; // max unsigned int is 4294967295
@@ -137,3 +144,34 @@ const char global_const_char_array2[sizeof(CPLUSPLUS_MSG)+1] = CPLUSPLUS_MSG;
 
 
 }
+
+
+%inline %{
+
+// char *& tests
+char *&GetCharPointerRef() {
+  static char str[] = CPLUSPLUS_MSG;
+  static char *ptr = str;
+  return ptr;
+}
+
+bool SetCharPointerRef(char *&str, unsigned int number) {
+  static char static_str[] = CPLUSPLUS_MSG;
+  strcpy(static_str, str);
+  return check(static_str, number);
+}
+
+const char *&GetConstCharPointerRef() {
+  static const char str[] = CPLUSPLUS_MSG;
+  static const char *ptr = str;
+  return ptr;
+}
+
+bool SetConstCharPointerRef(const char *&str, unsigned int number) {
+  static char static_str[] = CPLUSPLUS_MSG;
+  strcpy(static_str, str);
+  return check(static_str, number);
+}
+
+%}
+

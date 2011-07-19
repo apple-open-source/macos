@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1998-2009, International Business Machines
+#   Copyright (C) 1998-2010, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -54,9 +54,9 @@ CFLAGS += $(LIBCFLAGS)
 CXXFLAGS += $(LIBCXXFLAGS)
 
 ifneq ($(top_builddir),$(top_srcdir))
-CPPFLAGS += -I$(top_builddir)/common
+CPPFLAGS += -I- -I$(top_builddir)/common
 endif
-CPPFLAGS += -I$(srcdir) -I$(top_srcdir)/common $(LIBCPPFLAGS)
+CPPFLAGS += -I$(srcdir) -I$(top_srcdir)/common $(LIBCPPFLAGS) $(CPPFLAGSICUI18N)
 DEFS += -DU_I18N_IMPLEMENTATION
 LDFLAGS += $(LDFLAGSICUI18N)
 LIBS = $(LIBICUUC) $(DEFAULT_LIBS)
@@ -65,7 +65,7 @@ OBJECTS = ucln_in.o \
 fmtable.o format.o msgfmt.o umsg.o numfmt.o unum.o decimfmt.o dcfmtsym.o \
 ucurr.o digitlst.o fmtable_cnv.o \
 choicfmt.o datefmt.o smpdtfmt.o reldtfmt.o dtfmtsym.o udat.o dtptngen.o \
-nfrs.o nfrule.o nfsubs.o rbnf.o ucsdet.o \
+nfrs.o nfrule.o nfsubs.o rbnf.o numsys.o ucsdet.o \
 ucal.o calendar.o gregocal.o timezone.o simpletz.o olsontz.o \
 astro.o taiwncal.o buddhcal.o persncal.o islamcal.o japancal.o gregoimp.o hebrwcal.o \
 indiancal.o chnsecal.o cecal.o coptccal.o ethpccal.o \
@@ -76,11 +76,15 @@ translit.o utrans.o esctrn.o unesctrn.o funcrepl.o strrepl.o tridpars.o \
 cpdtrans.o rbt.o rbt_data.o rbt_pars.o rbt_rule.o rbt_set.o \
 nultrans.o remtrans.o casetrn.o titletrn.o tolowtrn.o toupptrn.o anytrans.o \
 name2uni.o uni2name.o nortrans.o quant.o transreg.o brktrans.o \
-regexcmp.o rematch.o repattrn.o regexst.o udatpg.o uregex.o uregexc.o \
+regexcmp.o rematch.o repattrn.o regexst.o regextxt.o udatpg.o uregex.o uregexc.o \
 ulocdata.o measfmt.o currfmt.o curramt.o currunit.o measure.o utmscale.o \
 csdetect.o csmatch.o csr2022.o csrecog.o csrmbcs.o csrsbcs.o csrucode.o csrutf8.o inputext.o \
-windtfmt.o winnmfmt.o basictz.o dtrule.o rbtz.o tzrule.o tztrans.o vtzone.o \
-zonemeta.o zstrfmt.o plurrule.o plurfmt.o dtitvfmt.o dtitvinf.o decfmtst.o smpdtfst.o
+wintzimpl.o windtfmt.o winnmfmt.o basictz.o dtrule.o rbtz.o tzrule.o tztrans.o vtzone.o \
+zonemeta.o zstrfmt.o plurrule.o plurfmt.o selfmt.o dtitvfmt.o dtitvinf.o \
+tmunit.o tmutamt.o tmutfmt.o colldata.o bmsearch.o bms.o currpinf.o \
+uspoof.o uspoof_impl.o uspoof_build.o uspoof_conf.o uspoof_wsconf.o decfmtst.o smpdtfst.o \
+ztrans.o zrule.o vzone.o fphdlimp.o fpositer.o locdspnm.o \
+decNumber.o decContext.o
 
 ## Header files to install
 HEADERS = $(srcdir)/unicode/*.h

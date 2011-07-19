@@ -3,6 +3,7 @@
 [copyright {2006-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Terminal control}]
 [titledesc {ANSI control sequences}]
+[category  {Terminal control}]
 [require Tcl 8.4]
 [require term::ansi::code       [opt 0.1]]
 [require term::ansi::code::ctrl [opt 0.1.1]]

@@ -1,0 +1,4118 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+                   "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd">
+
+
+<book id="xlfd">
+
+<bookinfo>
+   <title>X Logical Font Description Conventions</title>
+   <subtitle>X Consortium Standard</subtitle>
+   <releaseinfo>Version 1.5</releaseinfo>
+   <authorgroup>
+      <author>
+         <firstname>Jim</firstname><surname>Flowers</surname>
+         <affiliation><orgname>
+Digital Equipment Corporation
+         </orgname></affiliation>
+      </author>
+      <othercredit>
+         <contrib>edited by</contrib>
+         <firstname>Stephen </firstname><surname>Gildea</surname>
+      </othercredit>
+   </authorgroup>
+   <corpname>X Consortium Standard</corpname>
+   <copyright><year>1988,1994</year><holder>X Consortium</holder></copyright>
+   <copyright>
+      <year>1988,1994</year>
+      <holder>Digital Equipment Corporation</holder>
+   </copyright>
+   <affiliation><orgname>X Consortium</orgname></affiliation>
+   <productnumber>X Version 11, Release 6.8</productnumber>
+
+<legalnotice>
+
+<para>
+<emphasis remap='I'>X Window System</emphasis> is a trademark of The Open Group.
+</para>
+<para>
+Helvetica and Times are registered trademarks of Linotype Company.
+</para>
+<para>
+ITC Avant Garde Gothic is a registered trademark of International
+Typeface Corporation.
+</para>
+<para>
+Times Roman is a registered trademark of Monotype Corporation.
+</para>
+<para>
+Bitstream Amerigo is a registered trademark of Bitstream Inc.
+</para>
+<para>
+Stone is a registered trademark of Adobe Systems Inc.
+</para>
+
+<para>
+Copyright 1988, 1994 X Consortium
+</para>
+
+<para>
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+</para>
+<para>
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+</para>
+<para>
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+</para>
+<para>
+Except as contained in this notice, the name of the X Consortium shall
+not be used in advertising or otherwise to promote the sale, use or
+other dealings in this Software without prior written authorization
+from the X Consortium.
+</para>
+<para>
+Copyright 1988, 1989
+Digital Equipment Corporation, Maynard MA.  All rights reserved.
+</para>
+<para>
+Permission to use, copy, modify, and distribute this documentation
+for any purpose and without fee is hereby granted, provided
+that the above copyright notice and this permission
+notice appear in all copies.
+Digital Equipment Corporation makes no representations
+about the
+suitability for any purpose of the information in this document.
+This documentation is provided as is without express or implied warranty.
+</para>
+
+</legalnotice>
+</bookinfo>
+<chapter id="introduction">
+<title>Introduction</title>
+<!-- .XS -->
+<!-- (SN Introduction -->
+<!-- .XE -->
+<para>
+It is a requirement that X client applications must be portable across server
+implementations, with very different file systems, naming conventions, and
+font libraries.
+However, font access requests,
+as defined by the <emphasis remap='I'>X Window System Protocol</emphasis>,
+neither specify server-independent conventions for font names
+nor provide adequate font properties for logically describing typographic fonts.
+</para>
+<para>
+X clients must be able to dynamically determine the fonts available
+on any given server so that understandable information can be presented
+to the user or so that intelligent font fallbacks can be chosen.
+It is desirable for the most common queries to be accomplished
+without the overhead of opening each font and inspecting font properties,
+by means of simple
+<function>ListFonts</function>
+requests.
+For example, if a user selected a Helvetica typeface family,
+a client application should be able to query the server
+for all Helvetica fonts and present only those setwidths, weights, slants,
+point sizes, and character sets available for that family.
+</para>
+<para>
+This document gives a standard logical font description
+(hereafter referred to as XLFD) and the conventions to be used
+in the core protocol so that clients can query and access screen type libraries
+in a consistent manner across all X servers.
+In addition to completely specifying a given font by means of its
+<function>FontName</function>,
+the XLFD also provides for a standard set of key
+<function>FontProperties</function>
+that describe the font in more detail.
+</para>
+<para>
+<!-- .LP -->
+The XLFD provides an adequate set of typographic font properties,
+such as CAP_HEIGHT, X_HEIGHT,
+and RELATIVE_SETWIDTH,
+for publishing and other applications to do intelligent font matching
+or substitution when handling documents created on some foreign server
+that use potentially unknown fonts.
+In addition,
+this information is required by certain clients
+to position subscripts automatically and determine small capital heights,
+recommended leading, word-space values, and so on.
+</para>
+</chapter>
+
+<chapter id="requirements_and_goals">
+<title>Requirements and Goals</title>
+<!-- .XS -->
+<!-- (SN Requirements and Goals -->
+<!-- .XE -->
+<para>
+The XLFD meets the short-term and long-term goals to have a
+standard logical font description that:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+Provides unique, descriptive font names that support simple pattern
+matching
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Supports multiple font vendors, arbitrary character sets, and encodings
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Supports naming and instancing of scalable and polymorphic fonts
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Supports transformations and subsetting of fonts
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Is independent of X server and operating or file system implementations
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Supports arbitrarily complex font matching or substitution
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Is extensible
+    </para>
+  </listitem>
+</itemizedlist>
+
+<sect1 id="provide_unique_and_descriptive_font_names">
+<title>Provide Unique and Descriptive Font Names</title>
+<!-- .XS -->
+<!-- (SN Provide Unique and Descriptive Font Names -->
+<!-- .XE -->
+<para>
+It should be possible to have font names that are long enough and
+descriptive enough to have a reasonable probability of being unique
+without inventing a new registration organization.
+Resolution and size-dependent font masters, multivendor font libraries,
+and so on must be anticipated and handled by the font name alone.
+</para>
+<para>
+<!-- .LP -->
+The name itself should be structured to be amenable to simple pattern
+matching and parsing, thus allowing X clients to restrict font queries to
+some subset of all possible fonts in the server.
+</para>
+</sect1>
+
+<sect1 id="support_multiple_font_vendors_and_character_sets">
+<title>Support Multiple Font Vendors and Character Sets</title>
+<!-- .XS -->
+<!-- (SN Support Multiple Font Vendors and Character Sets -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The font name and properties should distinguish between fonts
+that were supplied by different font vendors
+but that possibly share the same name.
+We anticipate a highly competitive font market where users will be able to
+buy fonts from many sources according to their particular requirements.
+</para>
+<para>
+<!-- .LP -->
+A number of font vendors deliver each font with all glyphs designed for that
+font, where charset mappings are defined by encoding vectors.
+Some server implementations may force these mappings to proprietary
+or standard charsets statically in the font data.
+Others may desire to perform the mapping dynamically in the server.
+Provisions must be made in the font name
+that allows a font request to specify or identify specific charset mappings
+in server environments where multiple charsets are supported.
+</para>
+</sect1>
+
+<sect1 id="support_scalable_and_polymorphic_fonts">
+<title>Support Scalable and Polymorphic Fonts</title>
+<!-- .XS -->
+<!-- (SN Support Scalable and Polymorphic Fonts -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+If a font source can be scaled to an arbitrary size or varied in other
+ways, it should be possible for an application to determine
+that fact from the font name, and the
+application should be able to construct a font name for any specific
+instance.
+</para>
+</sect1>
+
+<sect1 id="support_transformations_and_subsetting_of_fonts">
+<title>Support Transformations and Subsetting of Fonts</title>
+<!-- .XS -->
+<!-- (SN Support Transformations and Subsetting of Fonts -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Arbitrary two-dimensional linear transformations of fonts should be
+able to be requested by applications.  Since such transformed fonts
+may be used for special effects requiring a few characters from each
+of many differently transformed fonts, it should be possible to
+request only a few characters from a font for efficiency.
+</para>
+</sect1>
+
+<sect1 id="be_independent_of_x_server_and_operating_or_file_system_implementations">
+<title>Be Independent of X Server and Operating or File System Implementations</title>
+<!-- .XS -->
+<!-- (SN Be Independent of X Server and Operating or File System Implementations -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+X client applications that require a particular font should be able to use
+the descriptive name without knowledge of the file system or other
+repository in use by the server.
+However,
+it should be possible for servers to translate a given font name
+into a file name syntax that it knows how to deal with,
+without compromising the uniqueness of the font name.
+This algorithm should be reversible (exactly how this translation is done is
+implementation dependent).
+</para>
+</sect1>
+
+<sect1 id="support_arbitrarily_complex_font_matching_and_substitution">
+<title>Support Arbitrarily Complex Font Matching and Substitution</title>
+<!-- .XS -->
+<!-- (SN Support Arbitrarily Complex Font Matching and Substitution -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+In addition to the font name,
+the XLFD should define a standard list of descriptive font properties,
+with agreed-upon fallbacks for all fonts.
+This allows client applications to derive font-specific formatting
+or display data and to perform font matching or substitution
+when asked to handle potentially unknown fonts, as required.
+</para>
+</sect1>
+
+<sect1 id="be_extensible">
+<title>Be Extensible</title>
+<!-- .XS -->
+<!-- (SN Be Extensible -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The XLFD must be extensible so that new and/or private descriptive font
+properties can be added to conforming fonts without making existing
+X client or server implementations obsolete.
+</para>
+</sect1>
+</chapter>
+
+<chapter id="x_logical_font_description">
+<title>X Logical Font Description</title>
+<!-- .XS -->
+<!-- (SN X Logical Font Description -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+XLFD is divided into two basic components:
+the
+<function>FontName</function>,
+which gives all font information needed to uniquely identify a font
+in X protocol requests (for example,
+<function>OpenFont</function>,
+<function>ListFonts</function>,
+and so on) and a variable list of optional
+<function>FontProperties</function>,
+which describe a font in more detail.
+</para>
+<para>
+<!-- .LP -->
+The
+<function>FontName</function>
+is used in font queries and is returned as data in certain X protocol requests.
+It is also specified as the data value for the
+<function>FONT</function>
+item in the X Consortium Character Bitmap Distribution Format Standard
+(BDF V2.1).
+</para>
+<para>
+<!-- .LP -->
+The
+<function>FontProperties</function>
+are supplied on a font-by-font basis and are returned
+as data in certain X protocol requests as part of the
+<function>XFontStruct</function>
+data structure.
+The names and associated data values for each of the
+<function>FontProperties</function>
+may also appear as items of the
+<function>STARTPROPERTIES</function>...<function>ENDPROPERTIES</function>list
+in the BDF V2.1 specification. <!-- xref -->
+</para>
+<sect1 id="fontname">
+<title>FontName</title>
+<!-- .XS -->
+<!-- (SN FontName -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Each
+<function>FontName</function>
+is logically composed of two strings: a
+<function>FontNameRegistry</function>
+prefix that is followed by a
+<function>FontNameSuffix</function>.
+The
+<function>FontName</function>
+uses the ISO 8859-1 encoding.
+The
+<function>FontNameRegistry</function>
+is an
+<!-- .IN x-registered-name -->
+x-registered-name (a name that has been registered with the X Consortium)
+that identifies the registration authority that owns the specified
+<function>FontNameSuffix</function>
+syntax and semantics.
+</para>
+<para>
+<!-- .LP -->
+All font names that conform to this specification are to use a
+<function>FontNameRegistry</function>
+prefix, which is defined to be the string "-"
+(HYPHEN).
+All
+<function>FontNameRegistry</function>
+prefixes of the form: +<emphasis remap='I'>version</emphasis>-,
+where the specified version indicates some future XLFD specification,
+are reserved by the X Consortium for future extensions to XLFD font names.
+If required, extensions to the current XLFD font name shall be constructed
+by appending new fields to the current structure,
+each delimited by the existing field delimiter.
+The availability of other
+<function>FontNameRegistry</function>
+prefixes or fonts that support other registries
+is server implementation dependent.
+</para>
+<para>
+<!-- .LP -->
+In the X protocol specification,
+the
+<function>FontName</function>
+is required to be a string;
+hence, numeric field values are represented in the name as string equivalents.
+All
+<function>FontNameSuffix</function>
+fields are also defined as
+<function>FontProperties</function>;
+numeric property values are represented as signed or unsigned integers,
+as appropriate.
+</para>
+
+<sect2 id="fontname_syntax">
+<title>FontName Syntax</title>
+<!-- .XS -->
+<!-- (SN FontName Syntax -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The
+<function>FontName</function>
+is a structured, parsable string (of type STRING8)
+whose Backus-Naur Form syntax description is as follows:
+</para>
+<!-- .IN "FontName Syntax" -->
+<!-- .SM -->
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <tbody>
+    <row rowsep="0">
+      <entry>FontName ::=</entry>
+      <entry>
+XFontNameRegistry XFontNameSuffix |
+PrivFontNameRegistry PrivFontNameSuffix
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>XFontNameRegistry ::=</entry>
+      <entry>XFNDelim | XFNExtPrefix Version XFNDelim</entry>
+    </row>
+    <row rowsep="0">
+      <entry>XFontNameSuffix ::=</entry>
+      <entry>
+FOUNDRY XFNDelim FAMILY_NAME XFNDelim WEIGHT_NAME
+XFNDelim SLANT XFNDelim SETWIDTH_NAME XFNDelim ADD_STYLE_NAME
+XFNDelim PIXEL_SIZE XFNDelim POINT_SIZE
+XFNDelim RESOLUTION_X XFNDelim RESOLUTION_Y XFNDelim
+SPACING XFNDelim AVERAGE_WIDTH XFNDelim CHARSET_REGISTRY
+XFNDelim CHARSET_ENCODING
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>Version ::=</entry>
+      <entry>
+STRING8 - the XLFD version that defines an extension
+to the font name syntax (for example, "1.4")
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>XFNExtPrefix ::=</entry>
+      <entry>OCTET - "+" (PLUS)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>XFNDelim ::=</entry>
+      <entry>OCTET - "-" (HYPHEN)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>PrivFontNameRegistry ::=</entry>
+      <entry>STRING8 - other than those strings reserved by XLFD</entry>
+    </row>
+    <row rowsep="0">
+      <entry>PrivFontNameSuffix ::=</entry>
+      <entry>STRING8</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+Field values are constructed as strings of ISO 8859-1 graphic characters,
+excluding the following:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+'-' (HYPHEN), the XLFD font name delimiter character
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+'?' (QUESTION MARK) and "*" (ASTERISK), the X protocol
+font name wildcard characters
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+',' (COMMA), used by Xlib to separate XLFD font names in a font set.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+'"' (QUOTATION MARK), used by some commercial products to quote a
+font name.
+    </para>
+  </listitem>
+</itemizedlist>
+
+<para>
+<!-- .LP -->
+Alphabetic case distinctions are allowed but are for human readability
+concerns only.
+Conforming X servers will perform matching on font name query or open requests
+independent of case.
+The entire font name string must have no more than 255 characters.
+It is recommended that clients construct font name query patterns
+by explicitly including all field delimiters to avoid unexpected results.
+Note that SPACE is a valid character of a
+<function>FontName</function>
+field; for example, the string "ITC Avant Garde Gothic" might be a
+FAMILY_NAME.
+</para>
+</sect2>
+
+<sect2 id="fontname_field_definitions">
+<title>FontName Field Definitions</title>
+<!-- .XS -->
+<!-- (SN FontName Field Definitions -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+This section discusses the
+<function>FontName</function>:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+FOUNDRY field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+FAMILY_NAME field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+WEIGHT_NAME field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+SLANT field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+SETWIDTH_NAME field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+ADD_STYLE_NAME field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+PIXEL_SIZE field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+POINT_SIZE field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+RESOLUTION_X and RESOLUTION_Y fields
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+SPACING field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+AVERAGE_WIDTH field
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+CHARSET_REGISTRY and CHARSET_ENCODING fields
+    </para>
+  </listitem>
+</itemizedlist>
+
+<sect3 id="foundry_field">
+<title>FOUNDRY Field</title>
+<!-- .XS -->
+<!-- (SN FOUNDRY Field -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FOUNDRY is an x-registered-name,
+the name or identifier of the digital type foundry
+that digitized and supplied the font data,
+or if different, the identifier of the organization that last modified
+the font shape or metric information.
+</para>
+<para>
+<!-- .LP -->
+The reason this distinction is necessary is
+that a given font design may be licensed from one source (for example, ITC)
+but digitized and sold by any number of different type suppliers.
+Each digital version of the original design, in general, will be somewhat
+different in metrics and shape from the idealized original font data,
+because each font foundry, for better or for worse, has its own standards
+and practices for tweaking a typeface for a particular generation
+of output technologies or has its own perception of market needs.
+</para>
+<para>
+<!-- .LP -->
+It is up to the type supplier to register with the X Consortium a
+suitable name for this
+<function>FontName</function>
+field according to the registration procedures defined by the Consortium.
+</para>
+<para>
+<!-- .LP -->
+The X Consortium shall define procedures for registering foundry
+and other names and shall maintain and publish,
+as part of its public distribution,
+a registry of such registered names for use in XLFD font names and properties.
+</para>
+<para>
+<!-- .LP -->
+</para>
+</sect3>
+
+<sect3 id="family_name_field">
+<title>FAMILY_NAME Field</title>
+<!-- .XS -->
+<!-- (SN FAMILY_NAME Field -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FAMILY_NAME is a string that identifies the range or family of
+typeface designs that are all variations of one basic typographic style.
+This must be spelled out in full,
+with words separated by spaces, as required.
+This name must be human-understandable and suitable for presentation to a
+font user to identify the typeface family.
+</para>
+<para>
+<!-- .LP -->
+It is up to the type supplier to supply and maintain a suitable string for
+this field and font property, to secure the proper legal title to a given
+name, and to guard against the infringement of other's copyrights or
+trademarks.
+By convention, FAMILY_NAME is not translated.
+FAMILY_NAME may include an indication of design ownership
+if considered a valid part of the
+typeface family name.
+</para>
+<para>
+<!-- .LP -->
+The following are examples of FAMILY_NAME:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+Helvetica
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+ITC Avant Garde Gothic
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Times
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Times Roman
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Bitstream Amerigo
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Stone
+    </para>
+  </listitem>
+</itemizedlist>
+</sect3>
+
+<sect3 id="weight_name_field">
+<title>WEIGHT_NAME Field</title>
+<!-- .XS -->
+<!-- (SN WEIGHT_NAME Field -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+WEIGHT_NAME is a string that identifies the font's typographic weight,
+that is, the nominal blackness of the font,
+according to the FOUNDRY's judgment.
+This name must be human-understandable and suitable for presentation to a
+font user.
+The value "0" is used to indicate a polymorphic font (see <xref linkend="polymorphic_fonts"/>).
+</para>
+<para>
+<!-- .LP -->
+The interpretation of this field is somewhat problematic
+because the typographic judgment of weight has traditionally
+depended on the overall design of the typeface family in question;
+that is, it is possible that the DemiBold weight of one font could be
+almost equivalent in typographic feel to a Bold font from another family.
+</para>
+<para>
+<!-- .LP -->
+WEIGHT_NAME is captured as an arbitrary string
+because it is an important part of a font's complete human-understandable name.
+However, it should not be used for font matching or substitution.
+For this purpose,
+X client applications should use the weight-related font properties
+(RELATIVE_WEIGHT and WEIGHT) that give the coded relative weight
+and the calculated weight, respectively.
+</para>
+</sect3>
+
+<sect3 id="slant_field">
+<title>SLANT Field</title>
+<!-- .XS -->
+<!-- (SN SLANT Field -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SLANT is a code-string that indicates the overall posture of the
+typeface design used in the font.
+The encoding is as follows:
+</para>
+
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Code</entry>
+      <entry>English Translation</entry>
+      <entry>Description</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>"R"</entry>
+      <entry>Roman</entry>
+      <entry>Upright design</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"I"</entry>
+      <entry>Italic</entry>
+      <entry>Italic design, slanted clockwise from the vertical</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"O"</entry>
+      <entry>Oblique</entry>
+      <entry>Obliqued upright design, slanted clockwise from the vertical</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"RI"</entry>
+      <entry>Reverse Italic</entry>
+      <entry>Italic design, slanted counterclockwise from the vertical</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"RO"</entry>
+      <entry>Reverse Oblique</entry>
+      <entry>Obliqued upright design, slanted counterclockwise from the vertical</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"OT"</entry>
+      <entry>Other</entry>
+      <entry>Other</entry>
+    </row>
+    <row rowsep="0">
+      <entry>numeric</entry>
+      <entry>Polymorphic</entry>
+      <entry>See <xref linkend="polymorphic_fonts"/>.</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+<para>
+<!-- .LP -->
+The SLANT codes are for programming convenience only and usually are
+converted into their equivalent human-understandable form before being
+presented to a user.
+</para>
+</sect3>
+
+<sect3 id="setwidth_name_field">
+<title>SETWIDTH_NAME Field</title>
+<!-- .XS -->
+<!-- (SN SETWIDTH_NAME Field -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+SETWIDTH_NAME is a string that gives the font's typographic
+proportionate width, that is, the nominal width per horizontal unit of the
+font, according to the FOUNDRY's judgment.
+The value "0" is used to indicate a polymorphic font (see <xref linkend="polymorphic_fonts"/>).
+</para>
+<para>
+<!-- .LP -->
+As with WEIGHT_NAME, the interpretation of this field or font property is
+somewhat problematic, because the designer's judgment of setwidth has
+traditionally depended on the overall design of the typeface family in
+question.
+For purposes of font matching or substitution,
+X client applications should either use the RELATIVE_SETWIDTH font property
+that gives the relative coded proportionate width or calculate
+the proportionate width.
+</para>
+<para>
+<!-- .LP -->
+The following are examples of SETWIDTH_NAME:
+</para>
+
+<itemizedlist>
+  <listitem>
+    <para>
+Normal
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Condensed
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Narrow
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Double Wide
+    </para>
+  </listitem>
+</itemizedlist>
+</sect3>
+
+<sect3 id="add_style_name_field">
+<title>ADD_STYLE_NAME Field</title>
+<!-- .XS -->
+<!-- (SN ADD_STYLE_NAME Field -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+ADD_STYLE_NAME is a string that identifies additional typographic
+style information that is not captured by other fields but is needed
+to identify the particular font.
+The character "[" anywhere in the field is used to indicate a
+polymorphic font (see <xref linkend="polymorphic_fonts"/>).
+</para>
+<para>
+<!-- .LP -->
+ADD_STYLE_NAME is not a typeface classification field
+and is only used for uniqueness.
+Its use, as such, is not limited to typographic style distinctions.
+</para>
+<para>
+<!-- .LP -->
+The following are examples of ADD_STYLE_NAME:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+Serif
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Sans Serif
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Informal
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Decorated
+    </para>
+  </listitem>
+</itemizedlist>
+</sect3>
+
+<sect3 id="pixel_size_field">
+<title>PIXEL_SIZE Field</title>
+<!-- .XS -->
+<!-- (SN PIXEL_SIZE Field -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+PIXEL_SIZE
+gives the body size of the font at a particular
+POINT_SIZE and RESOLUTION_Y.
+PIXEL_SIZE is either an integer-string or a string beginning
+with "[".  A string beginning with "[" represents a matrix
+(see <xref linkend="matrix_transformations"/>).
+PIXEL_SIZE usually incorporates additional vertical spacing
+that is considered part of the font design.
+(Note, however, that this value is not necessarily equivalent to the height
+of the font bounding box.)
+Zero is used to indicate a scalable font (see <xref linkend="scalable_fonts"/>).
+</para>
+<para>
+<!-- .LP -->
+PIXEL_SIZE usually is used by X client applications that need to
+query fonts according to device-dependent size,
+regardless of the point size or vertical resolution
+for which the font was designed.
+</para>
+</sect3>
+
+<sect3 id="point_size_field">
+<title>SN POINT_SIZE Field</title>
+<!-- .XS -->
+<!-- (SN POINT_SIZE Field -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+POINT_SIZE gives the body size
+for which the font was designed.
+POINT_SIZE is either an integer-string or a string beginning
+with "[".  A string beginning with "[" represents a matrix
+(see <xref linkend="matrix_transformations"/>).
+This field usually incorporates additional vertical spacing
+that is considered part of the font design.
+(Note, however, that POINT_SIZE is not necessarily equivalent to the height
+of the font bounding box.)
+POINT_SIZE is expressed in decipoints (where points are as defined
+in the X protocol or 72.27 points equal 1 inch).
+Zero is used to indicate a scalable font (see <xref linkend="scalable_fonts"/>).
+</para>
+<para>
+<!-- .LP -->
+POINT_SIZE and RESOLUTION_Y are used by X clients to query fonts
+according to device-independent size to maintain constant text
+size on the display regardless of the PIXEL_SIZE used for the font.
+</para>
+</sect3>
+
+<sect3 id="resolution_x_and_resolution_y_fields">
+<title>RESOLUTION_X and RESOLUTION_Y Fields</title>
+<!-- .XS -->
+<!-- (SN RESOLUTION_X and RESOLUTION_Y Fields -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+RESOLUTION_X and RESOLUTION_Y are unsigned integer-strings that give
+the horizontal and vertical resolution,
+measured in pixels or dots per inch (dpi),
+for which the font was designed.
+Zero is used to indicate a scalable font (see <xref linkend="scalable_fonts"/>).
+Horizontal and vertical values are required
+because a separate bitmap font must be designed
+for displays with very different aspect ratios
+(for example, 1:1, 4:3, 2:1, and so on).
+</para>
+<para>
+<!-- .LP  -->
+The separation of pixel or point size and resolution is necessary
+because X allows for servers with very different video characteristics
+(for example, horizontal and vertical resolution, screen and pixel size,
+pixel shape, and so on) to potentially access the same font library.
+The font name, for example, must differentiate between a 14-point font designed
+for 75 dpi (body size of about 14 pixels) or a 14-point font designed
+for 150 dpi (body size of about 28 pixels).
+Further, in servers that implement some or all fonts as continuously scaled
+and scan-converted outlines,
+POINT_SIZE and RESOLUTION_Y will help the server to differentiate
+between potentially separate font masters for text, title,
+and display sizes or for other typographic considerations.
+</para>
+</sect3>
+
+<sect3 id="spacing_field">
+<title>SPACING Field</title>
+<!-- .XS -->
+<!-- (SN SPACING Field -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+SPACING is a code-string that indicates the escapement class of the font,
+that is, monospace (fixed pitch), proportional (variable pitch),
+or charcell (a special monospaced font that conforms to the traditional
+data-processing character cell font model).
+The encoding is as follows:
+</para>
+
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Code</entry>
+      <entry>English Translation</entry>
+      <entry>Description</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>"P"</entry>
+      <entry>Proportional</entry>
+      <entry>
+A font whose logical character widths vary for each glyph.
+Note that no other restrictions are placed on the metrics
+of a proportional font.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>"M"</entry>
+      <entry>Monospaced</entry>
+      <entry>
+A font whose logical character widths are constant
+(that is, every glyph in the font has the same logical width).
+No other restrictions are placed on the metrics of a monospaced font.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>"C"</entry>
+      <entry>CharCell</entry>
+      <entry>
+A monospaced font that follows the standard typewriter character cell model
+(that is, the glyphs of the font can be modeled by X clients as "boxes"
+of the same width and height that are imaged side-by-side
+to form text strings or top-to-bottom to form text lines).
+By definition,
+all glyphs have the same logical character width,
+and no glyphs have "ink" outside of the character cell.
+There is no kerning (that is, on a per-character basis with positive metrics:
+0 &lt;= left-bearing &lt;= right-bearing &lt;= width;
+with negative metrics: width &lt;= left-bearing &lt;= right-bearing &lt;= zero).
+Also, the vertical extents of the font do not exceed the vertical spacing
+(that is, on a per-character basis:
+ascent &lt;= font-ascent and descent &lt;= font-descent).
+The cell height = font-descent + font-ascent, and the width = AVERAGE_WIDTH.
+      </entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+</sect3>
+
+<sect3 id="average_width_field">
+<title>AVERAGE_WIDTH Field</title>
+<!-- .XS -->
+<!-- (SN AVERAGE_WIDTH Field -->
+<!-- .XE -->
+<para>
+<!-- .LP  -->
+AVERAGE_WIDTH is an integer-string typographic metric value
+that gives the unweighted arithmetic mean of the absolute value of the
+width of each glyph in the font
+(measured in tenths of pixels), multiplied by -1 if the dominant
+writing direction for the font is right-to-left.
+A leading "~" (TILDE) indicates a negative value.
+For monospaced and character cell fonts,
+this is the width of all glyphs in the font.
+Zero is used to indicate a scalable font (see <xref linkend="scalable_fonts"/>).
+</para>
+</sect3>
+
+<sect3 id="charset_registry_and_charset_encoding_fields">
+<title>CHARSET_REGISTRY and CHARSET_ENCODING Fields</title>
+<!-- .XS -->
+<!-- (SN CHARSET_REGISTRY and CHARSET_ENCODING Fields -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The character set used to encode the glyphs of the font (and implicitly
+the font's glyph repertoire), as maintained by the X Consortium character
+set registry.
+CHARSET_REGISTRY is an x-registered-name that identifies
+the registration authority that owns the specified encoding.
+CHARSET_ENCODING is a registered name that identifies the coded character set
+as defined by that registration authority
+and, optionally, a subsetting hint.
+</para>
+<para>
+<!-- .LP -->
+Although the X protocol does not explicitly have any knowledge about
+character set encodings,
+it is expected that server implementors will prefer to embed knowledge
+of certain proprietary or standard charsets into their font library
+for reasons of performance and convenience.
+The CHARSET_REGISTRY and CHARSET_ENCODING fields or properties allow
+an X client font request to specify a specific charset mapping
+in server environments where multiple charsets are supported.
+The availability of any particular
+character set is font and server implementation dependent.
+</para>
+<para>
+<!-- .LP -->
+To prevent collisions when defining character set names,
+it is recommended that CHARSET_REGISTRY and CHARSET_ENCODING name pairs
+be constructed according to the following conventions:
+</para>
+<!-- .IN "CHARSET Syntax" -->
+<!-- .SM -->
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <tbody>
+    <row rowsep="0">
+      <entry>CharsetRegistry ::=</entry>
+      <entry>StdCharsetRegistryName | PrivCharsetRegistryName</entry>
+    </row>
+    <row rowsep="0">
+      <entry>CharsetEncoding ::=</entry>
+      <entry>StdCharsetEncodingName | PrivCharsetEncodingName</entry>
+    </row>
+    <row rowsep="0">
+      <entry>StdCharsetRegistryName ::=</entry>
+      <entry>StdOrganizationId StdNumber | StdOrganizationId StdNumber Dot Year</entry>
+    </row>
+    <row rowsep="0">
+      <entry>PrivCharsetRegistryName ::=</entry>
+      <entry>OrganizationId STRING8</entry>
+    </row>
+    <row rowsep="0">
+      <entry>StdCharsetEncodingName ::=</entry>
+      <entry>STRING8-numeric part number of referenced standard</entry>
+    </row>
+    <row rowsep="0">
+      <entry>PrivCharsetEncodingName ::=</entry>
+      <entry>STRING8</entry>
+    </row>
+    <row rowsep="0">
+      <entry>StdOrganizationId ::=</entry>
+      <entry>STRING8-the registered name or acronym of the referenced standard organization</entry>
+    </row>
+    <row rowsep="0">
+      <entry>StdNumber ::=</entry>
+      <entry>STRING8-referenced standard number</entry>
+    </row>
+    <row rowsep="0">
+      <entry>OrganizationId ::=</entry>
+      <entry>STRING8-the registered name or acronym of the organization</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Dot ::=</entry>
+      <entry>OCTET-"." (FULL STOP)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Year ::=</entry>
+      <entry>STRING8-numeric year (for example, 1989)</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+The X Consortium shall maintain and publish a registry
+of such character set names for use in X protocol font names and properties
+as specified in XLFD.
+</para>
+<para>
+<!-- .LP -->
+The ISO Latin-1 character set shall be registered by the X Consortium as the
+CHARSET_REGISTRY-CHARSET_ENCODING value pair: "ISO8859-1".
+</para>
+<para>
+<!-- .LP -->
+If the CHARSET_ENCODING contains a "[" (LEFT SQUARE BRACKET),
+the "[" and the characters after it up to a "]" (RIGHT SQUARE
+BRACKET) are a
+subsetting hint telling the font source that the client is interested
+only in a subset of the characters of the font.
+The font source can, optionally, return a font that
+contains only those characters or any superset of those characters.  The
+client can expect to obtain valid glyphs and metrics only for those
+characters, and not for any other characters in the font.
+The font properties may optionally be calculated by considering only
+the characters in the subset.
+</para>
+<para>
+<!-- .LP -->
+The BNF for the subsetting hint is
+</para>
+<!-- .SM -->
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <tbody>
+    <row rowsep="0">
+      <entry>Subset ::=</entry>
+      <entry>LeftBracket RangeList RightBracket</entry>
+    </row>
+    <row rowsep="0">
+      <entry>RangeList ::=</entry>
+      <entry>Range | Range Space RangeList</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Range ::=</entry>
+      <entry>Number | Number Underscore Number</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Number ::=</entry>
+      <entry>"0x" HexNumber | DecNumber</entry>
+    </row>
+    <row rowsep="0">
+      <entry>HexNumber ::=</entry>
+      <entry>HexDigit | HexDigit HexNumber</entry>
+    </row>
+    <row rowsep="0">
+      <entry>DecNumber ::=</entry>
+      <entry>DecDigit | DecDigit DecNumber</entry>
+    </row>
+    <row rowsep="0">
+      <entry>DecDigit ::=</entry>
+      <entry>"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"</entry>
+    </row>
+    <row rowsep="0">
+      <entry>HexDigit ::=</entry>
+      <entry>DecDigit | "a" | "b" | "c" | "d" | "e" | "f"</entry>
+    </row>
+    <row rowsep="0">
+      <entry>LeftBracket ::=</entry>
+      <entry>"[" (LEFT SQUARE BRACKET)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>RightBracket ::=</entry>
+      <entry>"]" (RIGHT SQUARE BRACKET)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Space ::=</entry>
+      <entry>"\0" (SPACE)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Underscore ::=</entry>
+      <entry>"_" (LOW LINE)</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+Each Range specifies characters that are to be part of the subset
+included in the font.
+A Range containing two Numbers specifies the first and last character,
+inclusively, of a range of characters.
+A Range that is a single Number specifies a single character to be
+included in the font.
+A HexNumber is interpreted as a hexadecimal number.
+A DecNumber is interpreted as a decimal number.
+The font consists of the union of all the Ranges in the
+RangeList.
+</para>
+<para>
+<!-- .LP -->
+For example,
+</para>
+<!-- .br -->
+<!-- .ft C -->
+<!-- .SM -->
+<literallayout class="monospaced">
+     -misc-fixed-medium-r-normal--0-0-0-0-c-0-iso8859-1[65 70 80_90]
+</literallayout>
+<!-- .NL -->
+<!-- .ft P -->
+<!-- .br -->
+<para>
+tells the font source that the client is interested only in characters
+65, 70, and 80-90.
+</para>
+</sect3>
+</sect2>
+
+<sect2 id="examples">
+<title>Examples</title>
+<!-- .XS -->
+<!-- (SN Examples -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The following examples of font names are derived from the screen fonts
+shipped with the X Consortium distribution.
+</para>
+<!-- .\" why is this table so long?  I took out some fonts in v1.5 -->
+<!-- .\" to make the page breaks better. -->
+<!-- .SM -->
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Font</entry>
+      <entry>X FontName</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry><function>75-dpi Fonts</function></entry>
+    </row>
+    <row rowsep="0">
+      <entry>Charter 12 pt</entry>
+      <entry>-Bitstream-Charter-Medium-R-Normal--12-120-75-75-P-68-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Charter Bold 12 pt</entry>
+      <entry>-Bitstream-Charter-Bold-R-Normal--12-120-75-75-P-76-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Charter Bold Italic 12 pt</entry>
+      <entry>-Bitstream-Charter-Bold-I-Normal--12-120-75-75-P-75-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Charter Italic 12 pt</entry>
+      <entry>-Bitstream-Charter-Medium-I-Normal--12-120-75-75-P-66-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier 8 pt</entry>
+      <entry>-Adobe-Courier-Medium-R-Normal--8-80-75-75-M-50-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier 10 pt</entry>
+      <entry>-Adobe-Courier-Medium-R-Normal--10-100-75-75-M-60-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier 12 pt</entry>
+      <entry>-Adobe-Courier-Medium-R-Normal--12-120-75-75-M-70-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier 24 pt</entry>
+      <entry>-Adobe-Courier-Medium-R-Normal--24-240-75-75-M-150-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier Bold 10 pt</entry>
+      <entry>-Adobe-Courier-Bold-R-Normal--10-100-75-75-M-60-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier Bold Oblique 10 pt</entry>
+      <entry>-Adobe-Courier-Bold-O-Normal--10-100-75-75-M-60-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Courier Oblique 10 pt</entry>
+      <entry>-Adobe-Courier-Medium-O-Normal--10-100-75-75-M-60-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry><function>100-dpi Fonts</function></entry>
+    </row>
+    <row rowsep="0">
+      <entry>Symbol 10 pt</entry>
+      <entry>-Adobe-Symbol-Medium-R-Normal--14-100-100-100-P-85-Adobe-FONTSPECIFIC</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Symbol 14 pt</entry>
+      <entry>-Adobe-Symbol-Medium-R-Normal--20-140-100-100-P-107-Adobe-FONTSPECIFIC</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Symbol 18 pt</entry>
+      <entry>-Adobe-Symbol-Medium-R-Normal--25-180-100-100-P-142-Adobe-FONTSPECIFIC</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Symbol 24 pt</entry>
+      <entry>-Adobe-Symbol-Medium-R-Normal--34-240-100-100-P-191-Adobe-FONTSPECIFIC</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Times Bold 10 pt</entry>
+      <entry>-Adobe-Times-Bold-R-Normal--14-100-100-100-P-76-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Times Bold Italic 10 pt</entry>
+      <entry>-Adobe-Times-Bold-I-Normal--14-100-100-100-P-77-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Times Italic 10 pt</entry>
+      <entry>-Adobe-Times-Medium-I-Normal--14-100-100-100-P-73-ISO8859-1</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Times Roman 10 pt</entry>
+      <entry>-Adobe-Times-Medium-R-Normal--14-100-100-100-P-74-ISO8859-1</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+</sect2>
+</sect1>
+
+<sect1 id="font_properties">
+<title>Font Properties</title>
+<!-- .XS -->
+<!-- (SN Font Properties -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+All font properties are optional but will generally include the
+font name fields and, on a font-by-font basis, any other useful font
+descriptive and use information that may be required to use the font
+intelligently.
+The XLFD specifies an extensive set of standard X font properties,
+their interpretation, and fallback rules when the property is not defined
+for a given font.
+The goal is to provide client applications with enough font information
+to be able to make automatic formatting and display decisions
+with good typographic results.
+</para>
+<para>
+<!-- .LP -->
+Font property names use the ISO 8859-1 encoding.
+</para>
+<para>
+<!-- .LP -->
+Additional standard X font property definitions may be defined in the
+future and private properties may exist in X fonts at any time.
+Private font properties should be defined to conform to the general mechanism
+defined in the X protocol to prevent overlap of name space and ambiguous
+property names, that is, private font property names are of the form:
+"_" (LOW LINE),
+followed by the organizational identifier, followed by "_" (LOW LINE),
+and terminated with the property name.
+</para>
+<para>
+<!-- .LP -->
+The Backus-Naur Form syntax description of X font properties is as follows:
+</para>
+<!-- .IN "Font Properties" "BNF Syntax" -->
+<!-- .SM -->
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <tbody>
+    <row rowsep="0">
+      <entry>Properties ::=</entry>
+      <entry>OptFontPropList</entry>
+    </row>
+    <row rowsep="0">
+      <entry>OptFontPropList ::=</entry>
+      <entry>NULL | OptFontProp OptFontPropList</entry>
+    </row>
+    <row rowsep="0">
+      <entry>OptFontProp ::=</entry>
+      <entry>PrivateFontProp | XFontProp</entry>
+    </row>
+    <row rowsep="0">
+      <entry>PrivateFontProp ::=</entry>
+      <entry>STRING8 | Underscore OrganizationId Underscore STRING8</entry>
+    </row>
+    <row rowsep="0">
+      <entry>XFontProp ::=</entry>
+      <entry>
+FOUNDRY | FAMILY_NAME | WEIGHT_NAME | SLANT | SETWIDTH_NAME | ADD_STYLE_NAME
+| PIXEL_SIZE | POINT_SIZE | RESOLUTION_X | RESOLUTION_Y | SPACING |
+AVERAGE_WIDTH | CHARSET_REGISTRY | CHARSET_ENCODING | QUAD_WIDTH |
+RESOLUTION | MIN_SPACE | NORM_SPACE | MAX_SPACE | END_SPACE | SUPERSCRIPT_X |
+SUPERSCRIPT_Y | SUBSCRIPT_X | SUBSCRIPT_Y | UNDERLINE_POSITION |
+UNDERLINE_THICKNESS | STRIKEOUT_ASCENT | STRIKEOUT_DESCENT | ITALIC_ANGLE
+| X_HEIGHT | WEIGHT | FACE_NAME |
+FULL_NAME | FONT |
+COPYRIGHT | AVG_CAPITAL_WIDTH |
+AVG_LOWERCASE_WIDTH | RELATIVE_SETWIDTH | RELATIVE_WEIGHT | CAP_HEIGHT |
+SUPERSCRIPT_ SIZE | FIGURE_WIDTH | SUBSCRIPT_SIZE | SMALL_CAP_SIZE |
+NOTICE | DESTINATION
+| FONT_TYPE | FONT_VERSION | RASTERIZER_NAME | RASTERIZER_VERSION |
+RAW_ASCENT | RAW_DESCENT | RAW_* | AXIS_NAMES | AXIS_LIMITS |
+AXIS_TYPES</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Underscore ::=</entry>
+      <entry>OCTET-"_" (LOW LINE)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>OrganizationId ::=</entry>
+      <entry>STRING8-the registered name of the organization</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<sect2 id="foundry">
+<title>FOUNDRY</title>
+<!-- .XS -->
+<!-- (SN FOUNDRY -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FOUNDRY is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+FOUNDRY cannot be calculated or defaulted if not supplied as a font property.
+</para>
+</sect2>
+
+<sect2 id="family_name">
+<title>FAMILY_NAME</title>
+<!-- .XS -->
+<!-- (SN FAMILY_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FAMILY_NAME is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+FAMILY_NAME cannot be calculated or defaulted if not supplied as a font
+property.
+</para>
+</sect2>
+
+<sect2 id="weight_name ">
+<title>WEIGHT_NAME</title>
+<!-- .XS -->
+<!-- (SN WEIGHT_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+WEIGHT_NAME is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+WEIGHT_NAME can be defaulted if not supplied as a font property, as follows:
+</para>
+
+<literallayout class="monospaced">
+if (WEIGHT_NAME undefined) then
+   WEIGHT_NAME = ATOM("Medium")
+</literallayout>
+</sect2>
+
+<sect2 id="slant">
+<title>SLANT </title>
+<!-- .XS -->
+<!-- (SN SLANT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SLANT is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+SLANT can be defaulted if not supplied as a font property, as follows:
+</para>
+
+<literallayout class="monospaced">
+if (SLANT undefined) then
+   SLANT = ATOM("R")
+</literallayout>
+</sect2>
+
+<sect2 id="setwidth_name">
+<title>SETWIDTH_NAME</title>
+<!-- .XS -->
+<!-- (SN SETWIDTH_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SETWIDTH_NAME is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+SETWIDTH_NAME can be defaulted if not supplied as a font property, as follows:
+</para>
+
+<literallayout class="monospaced">
+if (SETWIDTH_NAME undefined) then
+   SETWIDTH_NAME = ATOM("Normal")
+</literallayout>
+</sect2>
+
+<sect2 id="add_style_name">
+<title>ADD_STYLE_NAME</title>
+<!-- .XS -->
+<!-- (SN ADD_STYLE_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+ADD_STYLE_NAME is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+ADD_STYLE_NAME can be defaulted if not supplied as a font property, as follows:
+</para>
+
+<literallayout class="monospaced">
+if (ADD_STYLE_NAME undefined) then
+   ADD_STYLE_NAME = ATOM("")
+</literallayout>
+</sect2>
+
+<sect2 id="pixel_size">
+<title>PIXEL_SIZE</title>
+<!-- .XS -->
+<!-- (SN PIXEL_SIZE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+PIXEL_SIZE is as defined in the
+<function>FontName</function>
+except that the property type is INT32.
+</para>
+<para>
+<!-- .LP -->
+X clients requiring pixel values for the various typographic fixed
+spaces (em space, en space, and thin space) can use the following
+algorithm for computing these values from other properties specified
+for a font:
+</para>
+
+<literallayout class="monospaced">
+     DeciPointsPerInch = 722.7
+     EMspace = ROUND ((RESOLUTION_X * POINT_SIZE) / DeciPointsPerInch)
+     ENspace = ROUND (EMspace / 2)
+     THINspace = ROUND (EMspace / 3)\fP
+</literallayout>
+
+<para>
+<!-- .LP -->
+where a slash (/) denotes real division,
+an asterisk (*) denotes real multiplication,
+and ROUND denotes a function that rounds its real argument
+<emphasis remap='I'>a</emphasis> up or down
+to the next integer.
+This rounding is done according to X = FLOOR (
+<emphasis remap='I'>a</emphasis> + 0.5),
+where FLOOR is a function that rounds its real argument down to the
+nearest integer.
+</para>
+<para>
+<!-- .LP -->
+PIXEL_SIZE can be approximated if not supplied as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+DeciPointsPerInch = 722.7
+if (PIXEL_SIZE undefined) then
+   PIXEL_SIZE = ROUND ((RESOLUTION_Y * POINT_SIZE) / DeciPointsPerInch)
+</literallayout>
+
+</sect2>
+
+<sect2 id="point_size">
+<title>POINT_SIZE</title>
+<!-- .XS -->
+<!-- (SN POINT_SIZE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+POINT_SIZE is as defined in the
+<function>FontName</function>
+except that the property type is INT32.
+</para>
+<para>
+<!-- .LP -->
+X clients requiring device-independent values for em space,
+en space, and thin space can use the following algorithm:
+</para>
+<literallayout class="monospaced">
+     EMspace = ROUND (POINT_SIZE / 10)
+     ENspace = ROUND (POINT_SIZE / 20)
+     THINspace = ROUND (POINT_SIZE / 30)
+</literallayout>
+
+<para>
+<!-- .LP -->
+Design POINT_SIZE cannot be calculated or approximated.
+</para>
+</sect2>
+
+<sect2 id="resolution_x">
+<title>RESOLUTION_X</title>
+<!-- .XS -->
+<!-- (SN RESOLUTION_X -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RESOLUTION_X is as defined in the
+<function>FontName</function>
+except that the property type is CARD32.
+</para>
+<para>
+<!-- .LP -->
+RESOLUTION_X cannot be calculated or approximated.
+</para>
+</sect2>
+
+<sect2 id="resolution_y">
+<title>RESOLUTION_Y</title>
+<!-- .XS -->
+<!-- (SN RESOLUTION_Y -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RESOLUTION_Y is as defined in the
+<function>FontName</function>
+except that the property type is CARD32.
+</para>
+<para>
+<!-- .LP -->
+RESOLUTION_X cannot be calculated or approximated.
+</para>
+</sect2>
+
+<sect2 id="spacing">
+<title>SPACING</title>
+<!-- .XS -->
+<!-- (SN SPACING -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SPACING is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+SPACING can be calculated if not supplied as a font property,
+according to the definitions given above for the
+<function>FontName</function>.
+</para>
+</sect2>
+
+<sect2 id="average_width">
+<title>AVERAGE_WIDTH</title>
+<!-- .XS -->
+<!-- (SN AVERAGE_WIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AVERAGE_WIDTH is as defined in the
+<function>FontName</function>
+except that the property type is INT32.
+</para>
+<para>
+<!-- .LP -->
+AVERAGE_WIDTH can be calculated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (AVERAGE_WIDTH undefined) then
+     AVERAGE_WIDTH = ROUND (MEAN (ABS (width of each glyph in font)) * 10)
+          * (if (dominant writing direction L-to-R) then 1 else -1)
+</literallayout>
+
+<para>
+<!-- .LP -->
+where MEAN is a function that returns the arithmetic mean of its arguments.
+</para>
+<para>
+<!-- .LP -->
+X clients that require values for the number of characters per inch (pitch)
+of a monospaced font can use the following algorithm using the
+AVERAGE_WIDTH and RESOLUTION_X font properties:
+</para>
+
+<literallayout class="monospaced">
+if (SPACING not proportional) then
+   CharPitch = (RESOLUTION_X * 10) / AVERAGE_WIDTH
+</literallayout>
+</sect2>
+
+<sect2 id="charset_registry">
+<title>CHARSET_REGISTRY</title>
+<!-- .XS -->
+<!-- (SN CHARSET_REGISTRY -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+CHARSET_REGISTRY is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+CHARSET_REGISTRY cannot be defaulted if not supplied as a font property.
+</para>
+</sect2>
+
+<sect2 id="charset_encoding">
+<title>CHARSET_ENCODING</title>
+<!-- .XS -->
+<!-- (SN CHARSET_ENCODING -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+CHARSET_ENCODING is as defined in the
+<function>FontName</function>
+except that the property type is ATOM.
+</para>
+<para>
+<!-- .LP -->
+CHARSET_ENCODING cannot be defaulted if not supplied as a font property.
+</para>
+</sect2>
+
+<sect2 id="min_space">
+<title>MIN_SPACE</title>
+<!-- .XS -->
+<!-- (SN MIN_SPACE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+MIN_SPACE is an integer value (of type INT32)
+that gives the recommended minimum word-space value to be used with this font.
+</para>
+<para>
+<!-- .LP -->
+MIN_SPACE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (MIN_SPACE undefined) then
+   MIN_SPACE = ROUND(0.75 * NORM_SPACE)
+</literallayout>
+</sect2>
+
+<sect2 id="norm_space">
+<title>NORM_SPACE</title>
+<!-- .XS -->
+<!-- (SN NORM_SPACE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+NORM_SPACE is an integer value (of type INT32)
+that gives the recommended normal word-space value to be used with this font.
+</para>
+<para>
+<!-- .LP -->
+NORM_SPACE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+DeciPointsPerInch = 722.7
+if (NORM_SPACE undefined) then
+   if (SPACE glyph exists) then
+      NORM_SPACE = width of SPACE
+   else NORM_SPACE = ROUND((0.33 * RESOLUTION_X * POINT_SIZE)/ DeciPointsPerInch)
+</literallayout>
+</sect2>
+
+<sect2 id="max_space">
+<title>MAX_SPACE</title>
+<!-- .XS -->
+<!-- (SN MAX_SPACE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+MAX_SPACE is an integer value (of type INT32)
+that gives the recommended maximum word-space value to be used with this font.
+</para>
+<para>
+<!-- .LP -->
+MAX_SPACE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (MAX_SPACE undefined) then
+   MAX_SPACE = ROUND(1.5 * NORM_SPACE)
+</literallayout>
+</sect2>
+
+<sect2 id="end_space">
+<title>END_SPACE</title>
+<!-- .XS -->
+<!-- (SN END_SPACE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+END_SPACE is an integer value (of type INT32)
+that gives the recommended spacing at the end of sentences.
+</para>
+<para>
+<!-- .LP -->
+END_SPACE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (END_SPACE undefined) then
+   END_SPACE = NORM_SPACE
+</literallayout>
+</sect2>
+
+<sect2 id="avg_capital_width">
+<title>AVG_CAPITAL_WIDTH</title>
+<!-- .XS -->
+<!-- (SN AVG_CAPITAL_WIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AVG_CAPITAL_WIDTH is an integer value (of type INT32)
+that gives the unweighted arithmetic mean of the absolute value of the
+width of each capital glyph in the font, in tenths of pixels,
+multiplied by -1 if the dominant
+writing direction for the font is right-to-left.
+This property applies to both Latin and non-Latin fonts.
+For Latin fonts,
+capitals are the glyphs A through Z.
+This property is usually used for font matching or substitution.
+</para>
+<para>
+<!-- .LP -->
+AVG_CAPITAL_WIDTH can be calculated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (AVG_CAPITAL_WIDTH undefined) then
+   if (capitals exist) then
+      AVG_CAPITAL_WIDTH = ROUND (MEAN
+           (ABS (width of each capital glyph)) * 10)
+           * (if (dominant writing direction L-to-R) then 1 else -1)
+   else AVG_CAPITAL_WIDTH undefined
+</literallayout>
+</sect2>
+
+<sect2 id="avg_lowercase_width">
+<title>AVG_LOWERCASE_WIDTH</title>
+<!-- .XS -->
+<!-- (SN AVG_LOWERCASE_WIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AVG_LOWERCASE_WIDTH is an integer value (of type INT32)
+that gives the unweighted arithmetic mean width of the absolute value
+of the width of each lowercase glyph in the font in tenths of pixels,
+multiplied by -1 if the dominant
+writing direction for the font is right-to-left.
+For Latin fonts,
+lowercase are the glyphs a through z.
+This property is usually used for font matching or substitution.
+</para>
+<para>
+<!-- .LP -->
+Where appropriate,
+AVG_LOWERCASE_WIDTH can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (AVG_LOWERCASE_WIDTH undefined) then
+   if (lowercase exists) then
+      AVG_LOWERCASE_WIDTH = ROUND (MEAN
+                       (ABS (width of each lowercase glyph)) * 10)
+       * (if (dominant writing direction L-to-R) then 1 else -1)
+   else AVG_LOWERCASE_WIDTH undefined
+</literallayout>
+</sect2>
+
+<sect2 id="quad_width">
+<title>QUAD_WIDTH</title>
+<!-- .XS -->
+<!-- (SN QUAD_WIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+QUAD_WIDTH is an integer typographic metric (of type INT32)
+that gives the width of a quad (em) space.
+</para>
+<note>
+<para>
+<!-- .NT Note -->
+Because all typographic fixed spaces (em, en, and thin) are constant
+for a given font size (that is, they do not vary according to setwidth),
+the use of this font property has been deprecated.
+X clients that require typographic fixed space values are encouraged
+to discontinue use of QUAD_WIDTH and compute these values
+from other font properties (for example, PIXEL_SIZE).
+X clients that require  a font-dependent width value should use either
+the FIGURE_WIDTH or one of the average character width font properties
+(AVERAGE_WIDTH, AVG_CAPITAL_WIDTH or AVG_LOWERCASE_WIDTH).
+</para>
+</note>
+<!-- .NE -->
+</sect2>
+
+<sect2 id="figure_width">
+<title>FIGURE_WIDTH</title>
+<!-- .XS -->
+<!-- (SN FIGURE_WIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FIGURE_WIDTH is an integer typographic metric (of type INT32)
+that gives the width of the tabular figures and the dollar sign,
+if suitable for tabular setting (all widths equal).
+For Latin fonts, these tabular figures are the Arabic numerals 0 through 9.
+</para>
+<para>
+<!-- .LP -->
+FIGURE_WIDTH can be approximated if not supplied as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (numerals and DOLLAR sign are defined &amp; widths are equal) then
+   FIGURE_WIDTH = width of DOLLAR
+else FIGURE_WIDTH property undefined
+</literallayout>
+</sect2>
+
+<sect2 id="superscript_x">
+<title>SUPERSCRIPT_X</title>
+<!-- .XS -->
+<!-- (SN SUPERSCRIPT_X -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUPERSCRIPT_X is an integer value (of type INT32)
+that gives the recommended horizontal offset in pixels
+from the position point to the X origin of synthetic superscript text.
+If the current position point is at [X,Y],
+then superscripts should begin at [X + SUPERSCRIPT_X, Y - SUPERSCRIPT_Y].
+</para>
+<para>
+<!-- .LP -->
+SUPERSCRIPT_X can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SUPERSCRIPT_X undefined) then
+   if (TANGENT(ITALIC_ANGLE) defined) then
+      SUPERSCRIPT_X = ROUND((0.40 * CAP_HEIGHT) / TANGENT(ITALIC_ANGLE))
+   else SUPERSCRIPT_X = ROUND(0.40 * CAP_HEIGHT)
+</literallayout>
+
+<para>
+<!-- .LP -->
+where TANGENT is a trigonometric function that returns the tangent of
+its argument, which is in 1/64 degrees.
+</para>
+</sect2>
+
+<sect2 id="superscript_y">
+<title>SUPERSCRIPT_Y</title>
+<!-- .XS -->
+<!-- (SN SUPERSCRIPT_Y -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUPERSCRIPT_Y is an integer value (of type INT32)
+that gives the recommended vertical offset in pixels
+from the position point to the Y origin of synthetic superscript text.
+If the current position point is at [X,Y],
+then superscripts should begin at [X + SUPERSCRIPT_X, Y - SUPERSCRIPT_Y].
+</para>
+<para>
+<!-- .LP -->
+SUPERSCRIPT_Y can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+<literallayout class="monospaced">
+if (SUPERSCRIPT_Y undefined) then
+   SUPERSCRIPT_Y = ROUND(0.40 * CAP_HEIGHT)
+</literallayout>
+</sect2>
+
+<sect2 id="subscript_x">
+<title>SUBSCRIPT_X</title>
+<!-- .XS -->
+<!-- (SN SUBSCRIPT_X -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUBSCRIPT_X is an integer value (of type INT32)
+that gives the recommended horizontal offset in pixels
+from the position point to the X origin of synthetic subscript text.
+If the current position point is at [X,Y],
+then subscripts should begin at [X + SUBSCRIPT_X, Y + SUBSCRIPT_Y].
+</para>
+<para>
+<!-- .LP -->
+SUBSCRIPT_X can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SUBSCRIPT_X undefined) then
+   if (TANGENT(ITALIC_ANGLE) defined) then
+      SUBSCRIPT_X = ROUND((0.40 * CAP_HEIGHT) / TANGENT(ITALIC_ANGLE))
+   else SUBSCRIPT_X = ROUND(0.40 * CAP_HEIGHT)
+</literallayout>
+</sect2>
+
+<sect2 id="subscript_y">
+<title>SUBSCRIPT_Y</title>
+<!-- .XS -->
+<!-- (SN SUBSCRIPT_Y -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUBSCRIPT_Y is an integer value (of type INT32)
+that gives the recommended vertical offset in pixels
+from the position point to the Y origin of synthetic subscript text.
+If the current position point is at [X,Y],
+then subscripts should begin at [X + SUBSCRIPT_X, Y + SUBSCRIPT_Y].
+</para>
+<para>
+<!-- .LP -->
+SUBSCRIPT_Y can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SUBSCRIPT_Y undefined) then
+   SUBSCRIPT_Y = ROUND(0.40 * CAP_HEIGHT)
+</literallayout>
+</sect2>
+
+<sect2 id="superscript_size">
+<title>SUPERSCRIPT_SIZE</title>
+<!-- .XS -->
+<!-- (SN SUPERSCRIPT_SIZE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUPERSCRIPT_SIZE is an integer value (of type INT32)
+that gives the recommended body size of synthetic superscripts
+to be used with this font, in pixels.
+This will generally be smaller than the size of the current font;
+that is, superscripts are imaged from a smaller font
+offset according to SUPERSCRIPT_X and SUPERSCRIPT_Y.
+</para>
+<para>
+<!-- .LP -->
+SUPERSCRIPT_SIZE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SUPERSCRIPT_SIZE undefined) then
+   SUPERSCRIPT_SIZE = ROUND(0.60 * PIXEL_SIZE)
+</literallayout>
+</sect2>
+
+<sect2 id="subscript_size">
+<title>SUBSCRIPT_SIZE</title>
+<!-- .XS -->
+<!-- (SN SUBSCRIPT_SIZE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SUBSCRIPT_SIZE is an integer value (of type INT32)
+that gives the recommended body size of synthetic subscripts
+to be used with this font, in pixels.
+As with SUPERSCRIPT_SIZE,
+this will generally be smaller than the size of the current font;
+that is, subscripts are imaged from a smaller
+font offset according to SUBSCRIPT_X and SUBSCRIPT_Y.
+</para>
+<para>
+<!-- .LP -->
+SUBSCRIPT_SIZE can be approximated if not provided as a font property,
+according to the algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SUBSCRIPT_SIZE undefined) then
+   SUBSCRIPT_SIZE = ROUND(0.60 * PIXEL_SIZE)
+</literallayout>
+</sect2>
+
+<sect2 id="small_cap_size">
+<title>SMALL_CAP_SIZE</title>
+<!-- .XS -->
+<!-- (SN SMALL_CAP_SIZE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+SMALL_CAP_SIZE is an integer value (of type INT32)
+that gives the recommended body size of synthetic small capitals
+to be used with this font, in pixels.
+Small capitals are generally imaged from a smaller font
+of slightly more weight.
+No offset [X,Y] is necessary.
+</para>
+<para>
+<!-- .LP -->
+SMALL_CAP_SIZE can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (SMALL_CAP_SIZE undefined) then
+   SMALL_CAP_SIZE = ROUND(PIXEL_SIZE * ((X_HEIGHT
+                              + ((CAP_HEIGHT - X_HEIGHT) / 3)) / CAP_HEIGHT))
+</literallayout>
+</sect2>
+
+<sect2 id="underline_position">
+<title>UNDERLINE_POSITION </title>
+<!-- .XS -->
+<!-- (SN UNDERLINE_POSITION -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+UNDERLINE_POSITION is an integer value (of type INT32)
+that gives the recommended vertical offset in pixels
+from the baseline to the top of the underline.
+If the current position point is at [X,Y],
+the top of the baseline is given by [X, Y + UNDERLINE_POSITION].
+</para>
+<para>
+<!-- .LP -->
+UNDERLINE_POSITION can be approximated if not provided as a font
+property, according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (UNDERLINE_POSITION undefined) then
+   UNDERLINE_POSITION = ROUND((maximum descent) / 2)
+</literallayout>
+<para>
+where <emphasis remap='I'>maximum descent</emphasis>
+is the maximum descent (below the baseline)
+in pixels of any glyph in the font.
+</para>
+</sect2>
+
+<sect2 id="underline_thickness">
+<title>UNDERLINE_THICKNESS</title>
+<!-- .XS -->
+<!-- (SN UNDERLINE_THICKNESS -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+UNDERLINE_THICKNESS is an integer value (of type INT32)
+that gives the recommended underline thickness, in pixels.
+</para>
+<para>
+<!-- .LP -->
+UNDERLINE_THICKNESS can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+CapStemWidth = average width of the stems of capitals
+if (UNDERLINE_THICKNESS undefined) then
+   UNDERLINE_THICKNESS = CapStemWidth
+</literallayout>
+</sect2>
+
+<sect2 id="strikeout_ascent">
+<title>STRIKEOUT_ASCENT</title>
+<!-- .XS -->
+<!-- (SN STRIKEOUT_ASCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+STRIKEOUT_ASCENT is an integer value (of type INT32)
+that gives the vertical ascent for boxing or voiding glyphs in this font.
+If the current position is at [X,Y] and the string extent is EXTENT,
+the upper-left corner of the strikeout box is at [X, Y - STRIKEOUT_ASCENT]
+and the lower-right corner of the box is at [X + EXTENT, Y + STRIKEOUT_DESCENT].
+</para>
+<para>
+<!-- .LP -->
+STRIKEOUT_ASCENT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (STRIKEOUT_ASCENT undefined)
+   STRIKEOUT_ASCENT = maximum ascent
+</literallayout>
+<para>
+where <emphasis remap='I'>maximum ascent</emphasis>
+is the maximum ascent (above the baseline)
+in pixels of any glyph in the font.
+</para>
+</sect2>
+
+<sect2 id="strikeout_descent">
+<title>STRIKEOUT_DESCENT</title>
+<!-- .XS -->
+<!-- (SN STRIKEOUT_DESCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+STRIKEOUT_DESCENT is an integer value (of type INT32)
+that gives the vertical descent for boxing or voiding glyphs in this font.
+If the current position is at [X,Y] and the string extent is EXTENT,
+the upper-left corner of the strikeout box is at [X, Y - STRIKEOUT_ASCENT]
+and the lower-right corner of the box is at
+[X + EXTENT, Y + STRIKEOUT_DESCENT].
+</para>
+<para>
+<!-- .LP -->
+STRIKEOUT_DESCENT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (STRIKEOUT_DESCENT undefined)
+   STRIKEOUT_DESCENT = maximum descent
+</literallayout>
+
+<para>
+where <emphasis remap='I'>maximum descent</emphasis> is the maximum
+descent (below the baseline)
+in pixels of any glyph in the font.
+</para>
+</sect2>
+
+<sect2 id="italic_angle">
+<title>ITALIC_ANGLE</title>
+<!-- .XS -->
+<!-- (SN ITALIC_ANGLE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+ITALIC_ANGLE is an integer value (of type INT32)
+that gives the nominal posture angle of the typeface design, in 1/64 degrees,
+measured from the glyph origin counterclockwise from the three o'clock position.
+</para>
+<para>
+<!-- .LP -->
+ITALIC_ANGLE can be defaulted if not provided as a font property,
+according to the following algorithm:
+</para>
+<literallayout class="monospaced">
+if (ITALIC_ANGLE undefined) then
+   ITALIC_ANGLE = (90 * 64)
+</literallayout>
+</sect2>
+
+<sect2 id="cap_height">
+<title>CAP_HEIGHT</title>
+<!-- .XS -->
+<!-- (SN CAP_HEIGHT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+CAP_HEIGHT is an integer value (of type INT32)
+that gives the nominal height of the capital letters contained in the font,
+as specified by the FOUNDRY or typeface designer.
+</para>
+<para>
+<!-- .LP -->
+Certain clients require CAP_HEIGHT to compute scale factors and
+positioning offsets for synthesized glyphs where this
+information or designed glyphs are not explicitly provided by the font
+(for example, small capitals, superiors, inferiors, and so on).
+CAP_HEIGHT is also a critical factor in font matching and substitution.
+</para>
+<para>
+<!-- .LP -->
+CAP_HEIGHT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (CAP_HEIGHT undefined) then
+   if (Latin font) then
+      CAP_HEIGHT = XCharStruct.ascent[glyph X]
+   else if (capitals exist) then
+       CAP_HEIGHT = XCharStruct.ascent[some unaccented capital glyph]
+   else CAP_HEIGHT undefined
+</literallayout>
+</sect2>
+
+<sect2 id="x_height">
+<title>X_HEIGHT</title>
+<!-- .XS -->
+<!-- (SN X_HEIGHT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+X_HEIGHT is an integer value (of type INT32)
+that gives the nominal height above the baseline of the lowercase glyphs
+contained in the font,
+as specified by the FOUNDRY or typeface designer.
+</para>
+<para>
+<!-- .LP -->
+As with CAP_HEIGHT,
+X_HEIGHT is required by certain clients to compute scale factors
+for synthesized small capitals where this information is not explicitly
+provided by the font resource.
+X_HEIGHT is a critical factor in font matching and substitution.
+</para>
+<para>
+<!-- .LP -->
+X_HEIGHT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (X_HEIGHT undefined) then
+   if (Latin font) then
+      X_HEIGHT = XCharStruct.ascent[glyph x]
+   else if (lowercase exists) then
+        X_HEIGHT = XCharStruct.ascent[some unaccented lc glyph without an ascender]
+   else X_HEIGHT undefined
+</literallayout>
+</sect2>
+
+<sect2 id="relative_setwidth">
+<title>RELATIVE_SETWIDTH</title>
+<!-- .XS -->
+<!-- (SN RELATIVE_SETWIDTH -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RELATIVE_SETWIDTH is an unsigned integer value (of type CARD32)
+that gives the coded proportionate width of the font,
+relative to all known fonts of the same typeface family,
+according to the type designer's or FOUNDRY's judgment.
+</para>
+<para>
+<!-- .LP -->
+RELATIVE_SETWIDTH ranges from 10 to 90 or is 0 if undefined or unknown.
+The following reference values are defined:
+</para>
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Code</entry>
+      <entry>English Translation</entry>
+      <entry>Description</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>0</entry>
+      <entry>Undefined</entry>
+      <entry>Undefined or unknown</entry>
+    </row>
+    <row rowsep="0">
+      <entry>10</entry>
+      <entry>UltraCondensed</entry>
+      <entry>The lowest ratio of average width to height</entry>
+    </row>
+    <row rowsep="0">
+      <entry>20</entry>
+      <entry>ExtraCondensed</entry>
+    </row>
+    <row rowsep="0">
+      <entry>30</entry>
+      <entry>Condensed</entry>
+      <entry>Condensed, Narrow, Compressed, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>40</entry>
+      <entry>SemiCondensed</entry>
+    </row>
+    <row rowsep="0">
+      <entry>50</entry>
+      <entry>Medium</entry>
+      <entry>Medium, Normal, Regular, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>60</entry>
+      <entry>SemiExpanded</entry>
+      <entry>SemiExpanded, DemiExpanded, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>70</entry>
+      <entry>Expanded</entry>
+    </row>
+    <row rowsep="0">
+      <entry>80</entry>
+      <entry>ExtraExpanded</entry>
+      <entry>ExtraExpanded, Wide, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>90</entry>
+      <entry>UltraExpanded</entry>
+      <entry>The highest ratio of average width to height</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+RELATIVE_SETWIDTH can be defaulted if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (RELATIVE_SETWIDTH undefined) then
+   RELATIVE_SETWIDTH = 50
+</literallayout>
+
+<para>
+<!-- .LP -->
+For polymorphic fonts, RELATIVE_SETWIDTH is not necessarily a
+linear function of the font's setwidth axis.
+</para>
+<para>
+<!-- .LP -->
+X clients that want to obtain a calculated proportionate width of the
+font (that is, a font-independent way of identifying the proportionate
+width across all fonts and all font vendors) can use the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+SETWIDTH = AVG_CAPITAL_WIDTH / (CAP_HEIGHT * 10)
+</literallayout>
+
+<para>
+<!-- .LP -->
+where SETWIDTH is a real number with zero being the narrowest
+calculated setwidth.
+</para>
+</sect2>
+
+<sect2 id="relative_weight">
+<title>RELATIVE_WEIGHT</title>
+<!-- .XS -->
+<!-- (SN RELATIVE_WEIGHT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RELATIVE_WEIGHT is an unsigned integer value (of type CARD32)
+that gives the coded weight of the font,
+relative to all known fonts of the same typeface family,
+according to the type designer's or FOUNDRY's judgment.
+</para>
+<para>
+<!-- .LP -->
+RELATIVE_WEIGHT ranges from 10 to 90 or is 0 if undefined or unknown.
+The following reference values are defined:
+</para>
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Code</entry>
+      <entry>English Translation</entry>
+      <entry>Description</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>0</entry>
+      <entry>Undefined</entry>
+      <entry>Undefined or unknown</entry>
+    </row>
+    <row rowsep="0">
+      <entry>10</entry>
+      <entry>UltraLight</entry>
+      <entry>The lowest ratio of stem width to height</entry>
+    </row>
+    <row rowsep="0">
+      <entry>20</entry>
+      <entry>ExtraLight</entry>
+    </row>
+    <row rowsep="0">
+      <entry>30</entry>
+      <entry>Light</entry>
+    </row>
+    <row rowsep="0">
+      <entry>40</entry>
+      <entry>SemiLight</entry>
+      <entry>SemiLight, Book, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>50</entry>
+      <entry>Medium</entry>
+      <entry>Medium, Normal, Regular,...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>60</entry>
+      <entry>SemiBold</entry>
+      <entry>SemiBold, DemiBold, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>70</entry>
+      <entry>Bold</entry>
+    </row>
+    <row rowsep="0">
+      <entry>80</entry>
+      <entry>ExtraBold</entry>
+      <entry>ExtraBold, Heavy, ...</entry>
+    </row>
+    <row rowsep="0">
+      <entry>90</entry>
+      <entry>UltraBold</entry>
+      <entry>
+UltraBold, Black, ..., the highest ratio of stem width to height
+      </entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+RELATIVE_WEIGHT can be defaulted if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (RELATIVE_WEIGHT undefined) then
+   RELATIVE_WEIGHT = 50
+</literallayout>
+
+<para>
+<!-- .LP -->
+For polymorphic fonts, RELATIVE_WEIGHT is not necessarily a
+linear function of the font's weight axis.
+</para>
+</sect2>
+
+<sect2 id="weight">
+<title>WEIGHT</title>
+<!-- .XS -->
+<!-- (SN WEIGHT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Calculated WEIGHT is an unsigned integer value (of type CARD32)
+that gives the calculated weight of the font,
+computed as the ratio of capital stem width to CAP_HEIGHT,
+in the range 0 to 1000, where 0 is the lightest weight.
+</para>
+<para>
+<!-- .LP -->
+WEIGHT can be calculated if not supplied as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+CapStemWidth = average width of the stems of capitals
+if (WEIGHT undefined) then
+   WEIGHT = ROUND ((CapStemWidth * 1000) / CAP_HEIGHT)
+</literallayout>
+
+<para>
+<!-- .LP -->
+A calculated value for weight is necessary when matching fonts from
+different families because both the RELATIVE_WEIGHT and the WEIGHT_NAME are
+assigned by the typeface supplier, according to its tradition and practice,
+and therefore, are somewhat subjective.
+Calculated WEIGHT provides a font-independent way of identifying
+the weight across all fonts and all font vendors.
+</para>
+</sect2>
+
+<sect2 id="resolution">
+<title>RESOLUTION</title>
+<!-- .XS -->
+<!-- (SN RESOLUTION  -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RESOLUTION is an integer value (of type INT32)
+that gives the resolution for which this font was created,
+measured in 1/100 pixels per point.
+</para>
+<note><para>
+<!-- .NT Note -->
+As independent horizontal and vertical design resolution components
+are required to accommodate displays with nonsquare aspect ratios,
+the use of this font property has been deprecated,
+and independent RESOLUTION_X and RESOLUTION_Y font name fields/properties
+have been defined (see sections 3.1.2.9 and 3.1.2.10).
+X clients are encouraged to discontinue use of the RESOLUTION property
+and are encouraged to use the appropriate X,Y resolution properties,
+as required.
+<!-- .NE                     \" Note End -->
+</para></note>
+</sect2>
+
+<sect2 id="font">
+<title>FONT</title>
+<!-- .XS -->
+<!-- (SN FONT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT is a string (of type ATOM) that gives the full XLFD name of the
+font-that is, the value can be used to open another
+instance of the same font.
+</para>
+<para>
+<!-- .LP -->
+If not provided, the FONT property cannot be calculated.
+</para>
+</sect2>
+
+<sect2 id="face_name">
+<title>FACE_NAME</title>
+<!-- .XS -->
+<!-- (SN FACE_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FACE_NAME is a human-understandable string (of type ATOM)
+that gives the full device-independent typeface name,
+including the owner, weight, slant, set, and so on
+but not the resolution, size, and so on.
+This property may be used as feedback during font selection.
+</para>
+<para>
+<!-- .LP -->
+FACE_NAME cannot be calculated or approximated if not provided as a font
+property.
+</para>
+</sect2>
+
+<sect2 id="full_name">
+<title>FULL_NAME</title>
+<!-- .XS -->
+<!-- (SN FULL_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FULL_NAME is the same as FACE_NAME.
+Its use is deprecated, but it is found on some old fonts.
+</para>
+</sect2>
+
+<sect2 id="copyright">
+<title>COPYRIGHT</title>
+<!-- .XS -->
+<!-- (SN COPYRIGHT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+COPYRIGHT is a human-understandable string (of type ATOM)
+that gives the copyright information of the legal owner
+of the digital font data.
+</para>
+<para>
+<!-- .LP -->
+This information is a required component of a font
+but is independent of the particular format used to represent it
+(that is, it cannot be captured as a comment that could later
+be thrown away for efficiency reasons).
+</para>
+<para>
+<!-- .LP -->
+COPYRIGHT cannot be calculated or approximated if not provided as a font
+property.
+</para>
+</sect2>
+
+<sect2 id="notice">
+<title>NOTICE</title>
+<!-- .XS -->
+<!-- (SN NOTICE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+NOTICE is a human-understandable string (of type ATOM)
+that gives the copyright information of the legal owner of the font design
+or, if not applicable, the trademark information for the typeface FAMILY_NAME.
+</para>
+<para>
+<!-- .LP -->
+Typeface design and trademark protection laws vary from country to country,
+the USA having no design copyright protection currently
+while various countries in Europe offer both design and typeface family name
+trademark protection.
+As with COPYRIGHT,
+this information is a required component of a font
+but is independent of the particular format used to represent it.
+</para>
+<para>
+<!-- .LP -->
+NOTICE cannot be calculated or approximated if not provided as
+a font property.
+</para>
+</sect2>
+
+<sect2 id="destination">
+<title>DESTINATION</title>
+<!-- .XS -->
+<!-- (SN DESTINATION -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+DESTINATION is an unsigned integer code (of type CARD32)
+that gives the font design destination,
+that is, whether it was designed as a screen proofing font to match
+printer font glyph widths (WYSIWYG), as an optimal video font (possibly with
+corresponding printer font) for extended screen viewing (video text), and so on.
+</para>
+<para>
+<!-- .LP -->
+The font design considerations are very different,
+and at current display resolutions,
+the readability and legibility of these two kinds of screen fonts
+are very different.
+DESTINATION allows publishing clients that use X to model the printed page
+and video text clients, such as on-line documentation browsers,
+to query for X screen fonts that suit their particular requirements.
+</para>
+<para>
+<!-- .LP -->
+The encoding is as follows:
+</para>
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <colspec colname='c3' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Code</entry>
+      <entry>English Translation</entry>
+      <entry>Description</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>0</entry>
+      <entry>WYSIWYG</entry>
+      <entry>
+The font is optimized to match the typographic design and metrics of an
+equivalent printer font.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>1</entry>
+      <entry>Video text</entry>
+      <entry>
+The font is optimized for screen legibility and readability.
+      </entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+</sect2>
+
+<sect2 id="font_type">
+<title>FONT_TYPE</title>
+<!-- .XS -->
+<!-- (SN FONT_TYPE -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT_TYPE is a human-understandable string (of type ATOM) that
+describes the format of
+the font data as they are read from permanent storage by the current font source.
+It is a static attribute of the source data.  It can be used
+by clients to select a type of bitmap or outline font
+without regard to the rasterizer used to render the font.
+</para>
+<para>
+<!-- .LP -->
+Predefined values are as follows:
+</para>
+<informaltable frame="none">
+  <tgroup cols='3' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Value</entry>
+      <entry>When applicable</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>"Bitmap"</entry>
+      <entry>
+Hand-tuned bitmap fonts. Some attempt has been made to optimize the visual
+appearance of the font for the requested size and resolution.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>"Prebuilt"</entry>
+      <entry>
+All bitmap format fonts that cannot be described as "Bitmap", that is,
+handtuned.
+For example, a bitmap format font that was generated mechanically using
+a scalable font rasterizer would be considered "Prebuilt", not "Bitmap".
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>"Type 1"</entry>
+      <entry>Any Type 1 font.</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"TrueType"</entry>
+      <entry>Any TrueType font.</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"Speedo"</entry>
+      <entry>Any Speedo font.</entry>
+    </row>
+    <row rowsep="0">
+      <entry>"F3"</entry>
+      <entry>Any F3 font.</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+<para>
+Other values may be registered with the X Consortium.
+</para>
+</sect2>
+
+<sect2 id="font_version">
+<title>FONT_VERSION</title>
+<!-- .XS -->
+<!-- (SN FONT_VERSION -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT_VERSION is a human-understandable string (of type ATOM)
+that describes the formal or informal version of the font.
+<function>None</function> is a valid value.
+</para>
+</sect2>
+
+<sect2 id="rasterizer_name">
+<title>RASTERIZER_NAME</title>
+<!-- .XS -->
+<!-- (SN RASTERIZER_NAME -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RASTERIZER_NAME is a human-understandable string (of type ATOM)
+that is the specific name of the
+rasterizer that has performed some rasterization operation
+(such as scaling from outlines) on this font.
+</para>
+<para>
+<!-- .LP -->
+To define a RASTERIZER_NAME, the following format is
+recommended:
+</para>
+<!-- .SM -->
+
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <tbody>
+    <row rowsep="0">
+      <entry>RasterizerName ::=</entry>
+      <entry>OrganizationId Space Rasterizer</entry>
+    </row>
+    <row rowsep="0">
+      <entry>OrganizationId ::=</entry>
+      <entry>
+STRING8—the X Registry ORGANIZATION name of the rasterizer
+implementor or maintainer.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>Rasterizer ::=</entry>
+      <entry>
+the case-sensitive, human-understandable product name of the rasterizer.
+Words within this name should be separated by a single SPACE.
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>Space ::=</entry>
+      <entry>OCTET−" " (SPACE)</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+
+<para>
+<!-- .LP -->
+Examples:
+</para>
+
+<literallayout class="monospaced">
+      X Consortium Bit Scaler
+      X Consortium Type 1 Rasterizer
+      X Consortium Speedo Rasterizer
+      Adobe Type Manager
+      Sun TypeScaler
+</literallayout>
+
+<para>
+<!-- .LP -->
+If RASTERIZER_NAME is not defined, or is <function>None</function>, no
+rasterization operation has been applied to the FONT_TYPE.
+</para>
+</sect2>
+
+<sect2 id="rasterizer_version">
+<title>RASTERIZER_VERSION</title>
+<!-- .XS -->
+<!-- (SN RASTERIZER_VERSION -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+RASTERIZER_VERSION is a human-understandable string (of type
+ATOM) that represents the formal or informal version of a
+font rasterizer.
+The RASTERIZER_VERSION should match the corresponding
+product version number known to users, when applicable.
+</para>
+</sect2>
+
+<sect2 id="raw_ascent">
+<title>RAW_ASCENT</title>
+<!-- .XS -->
+<!-- (SN RAW_ASCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+For a font with a transformation matrix, RAW_ASCENT is the font ascent
+in 1000 pixel metrics
+(see <xref linkend="metrics_and_font_properties"/>).
+</para>
+</sect2>
+
+<sect2 id="raw_descent">
+<title>RAW_DESCENT</title>
+<!-- .XS -->
+<!-- (SN RAW_DESCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+For a font with a transformation matrix, RAW_DESCENT is the font
+descent in 1000 pixel metrics
+(see <xref linkend="metrics_and_font_properties"/>).
+</para>
+</sect2>
+
+<sect2 id="raw_">
+<title>RAW_*</title>
+<!-- .XS -->
+<!-- (SN RAW_* -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+For a font with a transformation matrix,
+all font properties that represent horizontal or vertical sizes or
+displacements will be accompanied by a new property, named as the
+original except prefixed with "RAW_", that is computed as
+described in <xref linkend="metrics_and_font_properties" />.
+</para>
+</sect2>
+
+<sect2 id="axis_names">
+<title>AXIS_NAMES</title>
+<!-- .XS -->
+<!-- (SN AXIS_NAMES -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AXIS_NAMES is a list of all the
+names of the axes for a polymorphic font, separated by a null (0) byte.
+These names are suitable for presentation in a user interface
+(see section 6).
+</para>
+</sect2>
+
+<sect2 id="axis_limits">
+<title>AXIS_LIMITS</title>
+<!-- .XS -->
+<!-- (SN AXIS_LIMITS -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AXIS_LIMITS is a list of integers, two for each axis,
+giving the minimum and maximum allowable values for that axis of a
+polymorphic font
+(see <xref linkend="polymorphic_fonts"/>).
+</para>
+</sect2>
+
+<sect2 id="axis_types">
+<title>AXIS_TYPES</title>
+<!-- .XS -->
+<!-- (SN AXIS_TYPES -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+AXIS_TYPES is like AXIS_NAMES,
+but can be registered as having specific semantics
+(see section 6).
+</para>
+</sect2>
+</sect1>
+
+<sect1 id="built-in_font_property_atoms">
+<title>Built-in Font Property Atoms</title>
+<!-- .XS -->
+<!-- (SN Built-in Font Property Atoms -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The following font property atom definitions were predefined in the initial
+version of the core protocol:
+</para>
+
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <colspec colname='c1' colsep="0"/>
+  <colspec colname='c2' colsep="0"/>
+  <thead>
+    <row rowsep="0">
+      <entry>Font Property/Atom Name</entry>
+      <entry>Property Type</entry>
+    </row>
+  </thead>
+  <tbody>
+    <row rowsep="0">
+      <entry>MIN_SPACE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>NORM_SPACE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>MAX_SPACE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>END_SPACE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SUPERSCRIPT_X</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SUPERSCRIPT_Y</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SUBSCRIPT_X</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SUBSCRIPT_Y</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>UNDERLINE_POSITION</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>UNDERLINE_THICKNESS</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>STRIKEOUT_ASCENT</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>STRIKEOUT_DESCENT</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>FONT_ASCENT</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>FONT_DESCENT</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>ITALIC_ANGLE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>X_HEIGHT</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>QUAD_WIDTH</entry>
+      <entry>INT32 −<superscript>deprecated</superscript></entry>
+    </row>
+    <row rowsep="0">
+      <entry>WEIGHT</entry>
+      <entry>CARD32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>POINT_SIZE</entry>
+      <entry>INT32</entry>
+    </row>
+    <row rowsep="0">
+      <entry>RESOLUTION</entry>
+      <entry>CARD32 −<superscript>deprecated</superscript></entry>
+    </row>
+    <row rowsep="0">
+      <entry>COPYRIGHT</entry>
+      <entry>ATOM</entry>
+    </row>
+    <row rowsep="0">
+      <entry>FULL_NAME</entry>
+      <entry>ATOM −<superscript>deprecated</superscript></entry>
+    </row>
+    <row rowsep="0">
+      <entry>FAMILY_NAME</entry>
+      <entry>ATOM</entry>
+    </row>
+    <row rowsep="0">
+      <entry>DEFAULT_CHAR</entry>
+      <entry>CARD32</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+<!-- .br -->
+</sect1>
+</chapter>
+
+<chapter id="matrix_transformations">
+<title>Matrix Transformations</title>
+<!-- .XS -->
+<!-- (SN Matrix Transformations -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+An XLFD name presented to the server can have the POINT_SIZE or PIXEL_SIZE
+field begin with the character "[".  If the first character of the field
+is "[", the character must be followed with ASCII representations of
+four floating point numbers and a trailing "]", with white space
+separating the numbers and optional white space separating the numbers
+from the "[" and "]" characters.  Numbers use standard floating point
+syntax but use the character "~" to represent a minus sign in the mantissa
+or exponent.
+</para>
+<para>
+<!-- .LP -->
+The BNF for a matrix transformation string is as follows:
+</para>
+
+<informaltable frame="none">
+  <tgroup cols='2' align='left'>
+  <tbody>
+    <row rowsep="0">
+      <entry>MatrixString ::=</entry>
+      <entry>
+LeftBracket OptionalSpace Float Space Float Space
+Float Space Float OptionalSpace RightBracket
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>OptionalSpace ::=</entry>
+      <entry>"" | Space</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Space ::=</entry>
+      <entry>SpaceChar | SpaceChar Space</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Float ::=</entry>
+      <entry>Mantissa | Mantissa Exponent</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Mantissa ::=</entry>
+      <entry>Sign Number | Number</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Sign ::=</entry>
+      <entry>Plus | Tilde</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Number ::=</entry>
+      <entry>Integer | Integer Dot Integer | Dot Integer</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Integer ::=</entry>
+      <entry>Digit | Digit Integer</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Digit ::=</entry>
+      <entry>
+"0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+      </entry>
+    </row>
+    <row rowsep="0">
+      <entry>Exponent ::=</entry>
+      <entry>"e" SignedInteger | "E" SignedInteger</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SignedInteger ::=</entry>
+      <entry>Sign Integer | Integer</entry>
+    </row>
+    <row rowsep="0">
+      <entry>LeftBracket ::=</entry>
+      <entry>OCTET − "[" (LEFT SQUARE BRACKET)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>RightBracket ::=</entry>
+      <entry>OCTET − "]" (RIGHT SQUARE BRACKET)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>SpaceChar ::=</entry>
+      <entry>OCTET − " " (SPACE)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Tilde ::=</entry>
+      <entry>OCTET − "˜" (TILDE)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Plus ::=</entry>
+      <entry>OCTET − "+" (PLUS)</entry>
+    </row>
+    <row rowsep="0">
+      <entry>Dot ::=</entry>
+      <entry>OCTET − "." (FULL STOP)</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+
+<para>
+<!-- .LP -->
+The string "[a b c d]" represents a graphical transformation of the glyphs
+in the font by the matrix
+</para>
+
+<informaltable frame="none">
+  <tgroup cols='1' align='left'>
+  <tbody>
+    <row rowsep="0">
+      <entry> [  a  b  0  ]</entry>
+    </row>
+    <row rowsep="0">
+      <entry> [  c  d  0  ]</entry>
+    </row>
+    <row rowsep="0">
+      <entry> [  0  0  1  ]</entry>
+    </row>
+  </tbody>
+  </tgroup>
+</informaltable>
+<para>
+<!-- .LP -->
+All transformations occur around the origin of the glyph.  The
+relationship between the current scalar values and the matrix
+transformation values is that the scalar value "N" in the POINT_SIZE field
+produces the same glyphs as the matrix "[N/10 0 0 N/10]" in that field,
+and the scalar value "N" in the PIXEL_SIZE field produces the same glyphs
+as the matrix "[N*RESOLUTION_X/RESOLUTION_Y 0 0 N]" in that field.
+</para>
+<para>
+<!-- .LP -->
+If matrices are specified for both the POINT_SIZE and PIXEL_SIZE, they
+must bear the following relationship to each other within an
+implementation-specific tolerance:
+</para>
+<blockquote>
+<para>
+	PIXEL_SIZE_MATRIX = [Sx 0 0 Sy] * POINT_SIZE_MATRIX
+</para>
+</blockquote>
+<para>
+where
+</para>
+<blockquote>
+<para>
+	Sx = RESOLUTION_X / 72.27
+</para>
+<para>
+	Sy = RESOLUTION_Y / 72.27
+</para>
+</blockquote>
+<para>
+<!-- .LP -->
+If either the POINT_SIZE or PIXEL_SIZE field is unspecified (either "0" or
+wildcarded), the preceding formulas can be used to compute one from the
+other.
+</para>
+
+<sect1 id="metrics_and_font_properties">
+<title>Metrics and Font Properties</title>
+<!-- .XS -->
+<!-- (SN Metrics and Font Properties -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+In this section, the phrase "1000 pixel metrics" means the
+metrics that would be obtained if the rasterizer took the base untransformed
+design used to generate the transformed font and scaled it linearly to a
+height of 1000 pixels, with no rotation component.  Note that there may be no
+way for the application to actually request this font since the rasterizer
+may use different outlines or rasterization techniques at that size from the
+ones used to generate the transformed font.
+</para>
+<para>
+<!-- .LP -->
+Notes on properties and metrics:
+</para>
+<para>
+<!-- .LP -->
+The per-char ink metrics (lbearing, rbearing, ascent, and descent)
+represent the ink extent of the transformed glyph around its origin.
+</para>
+<para>
+<!-- .LP -->
+The per-char width is the x component of the transformed character width.
+</para>
+<para>
+<!-- .LP -->
+The font ascent and descent are the y component of the transformed font
+ascent or descent.
+</para>
+<para>
+<!-- .LP -->
+The FONT property returns a name reflecting the matrix being
+used-that is, the name returned can be used to open another
+instance of the same font.  The returned name is not necessarily an
+exact copy of the requested name.  If, for example, the user
+requests
+</para>
+<!-- .br -->
+<!-- .ft C -->
+<!-- .SM -->
+<literallayout class="monospaced">
+   -misc-fixed-medium-r-normal--0-[2e1 0 0.0 +10.0]-72-72-c-0-iso8859-1
+</literallayout>
+<!-- .NL -->
+<!-- .ft P -->
+<!-- .br -->
+<para>
+the resulting FONT property might be
+</para>
+<!-- .br -->
+<!-- .ft C -->
+<!-- .SM -->
+<literallayout class="monospaced">
+   -misc-fixed-medium-r-normal--[19.9 0 0 10]-[20 0 0 10]-72-72-c-0-iso8859-1
+</literallayout>
+<!-- .NL -->
+<!-- .ft P -->
+<!-- .br -->
+<para>
+The FONT property will always include matrices in both the PIXEL_SIZE
+and the POINT_SIZE fields.
+</para>
+<para>
+<!-- .LP -->
+To allow accurate client positioning of transformed characters, the
+attributes field of the XCharInfo contains the width of the character in
+1000 pixel metrics.  This attributes field should be interpreted as a signed
+integer.
+</para>
+<para>
+<!-- .LP -->
+There will always be 2 new font properties defined, RAW_ASCENT and
+RAW_DESCENT, that hold the ascent and descent in 1000 pixel metrics.
+</para>
+<para>
+<!-- .LP -->
+All font properties that represent horizontal widths or displacements
+have as their value the x component of the transformed width or
+displacement.  All font properties that represent vertical heights or
+displacements have as their value the y component of the transformed
+height or displacement.  Each such property will be accompanied by a new
+property, named as the original except prefixed with "RAW_", that gives
+the value of the width, height, or displacement in 1000 pixel metrics.
+</para>
+</sect1>
+</chapter>
+
+<chapter id="scalable_fonts">
+<title>Scalable Fonts</title>
+<!-- .XS -->
+<!-- (SN Scalable Fonts -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The XLFD is designed to support scalable fonts.  A scalable font is a
+font source from which instances of arbitrary size can be derived.
+A scalable font source might be one or more outlines
+together with zero or more hand-tuned bitmap fonts at specific sizes and
+resolutions, or it might be a programmatic description together with
+zero or more bitmap fonts, or some other format
+(perhaps even just a single bitmap font).
+</para>
+<para>
+<!-- .LP -->
+The following definitions are useful for discussing scalable fonts:
+</para>
+<para>
+<!-- .LP -->
+<function>Well-formed XLFD pattern</function>
+</para>
+
+<itemizedlist>
+  <listitem>
+    <para>
+<emphasis role="bold">Well-formed XLFD pattern</emphasis>
+    </para>
+    <para>
+A pattern string containing 14 hyphens, one of which is
+the first character of the pattern.  Wildcard characters are permitted
+in the fields of a well-formed XLFD pattern.
+    </para>
+  </listitem>
+</itemizedlist>
+<itemizedlist>
+  <listitem>
+<para>
+<function>Scalable font name</function>
+</para>
+    <para>
+A well-formed XLFD pattern containing no wildcards and containing the
+digit "0" in the PIXEL_SIZE, POINT_SIZE, and AVERAGE_WIDTH fields.
+    </para>
+  </listitem>
+</itemizedlist>
+<itemizedlist>
+  <listitem>
+<para>
+<function>Scalable fields</function>
+</para>
+    <para>
+The XLFD fields PIXEL_SIZE, POINT_SIZE, RESOLUTION_X,
+RESOLUTION_Y, and AVERAGE_WIDTH.
+    </para>
+  </listitem>
+</itemizedlist>
+<itemizedlist>
+  <listitem>
+<para>
+<function>Derived instance</function>
+</para>
+    <para>
+The result of replacing the scalable fields of a font name
+with values to yield a font name that could actually be
+produced from the font source.  A scaling engine is
+permitted, but not required, to interpret the scalable
+fields in font names to support anamorphic scaling.
+    </para>
+  </listitem>
+</itemizedlist>
+<itemizedlist>
+  <listitem>
+    <para>
+<function>Global list</function>
+    </para>
+    <para>
+The list of names that would be returned by an X server for a
+<function>ListFonts</function>
+protocol request on the pattern "*" if there were no protocol
+restrictions on the total number of names returned.
+    </para>
+  </listitem>
+</itemizedlist>
+
+<para>
+<!-- .LP -->
+The global list consists of font names derived from font sources.
+If a single font source can support multiple character sets (specified
+in the CHARSET_REGISTRY and CHARSET_ENCODING fields), each such character
+set should be used to form a separate font name in the list.
+For a nonscalable font source, the simple font name
+for each character set is included in the global list.
+For a scalable font source, a scalable font name for each character set
+is included in the list.  In addition to the scalable font name,
+specific derived instance names may also be included in the list.
+The relative order of derived instances with respect to the scalable
+font name is not constrained.  Finally, font name aliases may also be included
+in the list.  The relative order of aliases
+with respect to the real font name is not constrained.
+</para>
+<para>
+<!-- .LP -->
+The values of the RESOLUTION_X and RESOLUTION_Y fields of a scalable font name
+are implementation dependent,
+but to maximize backward compatibility, they
+should be reasonable nonzero values, for example, a resolution close to that
+provided by the screen (in a single-screen server).
+Because some existing
+applications rely on seeing a collection of point and pixel sizes,
+server vendors are strongly encouraged in the near term to
+provide a mechanism for including, for each scalable font name,
+a set of specific derived instance names.  For font sources that contain
+a collection of hand-tuned bitmap fonts, including names of these instances
+in the global list is recommended and sufficient.
+</para>
+<para>
+<!-- .LP -->
+The X protocol request
+<function>OpenFont</function>
+on a scalable font name returns a font corresponding to an
+implementation-dependent derived instance of that font name.
+</para>
+<para>
+<!-- .LP -->
+The X protocol request
+<function>ListFonts</function>
+on a well-formed XLFD pattern returns the following.
+Starting with the global list, if the actual pattern argument
+has values containing no wildcards in scalable fields,
+then substitute each such field into the corresponding
+field in each scalable font name in the list.  For each resulting font name,
+if the remaining scalable fields cannot be replaced with values to produce a
+derived instance, remove the font name from the list.  Now take the modified
+list, and perform a simple pattern match against the pattern argument.
+<function>ListFonts</function>
+returns the resulting list.
+</para>
+<para>
+For example, given the global list:
+</para>
+<literallayout class="monospaced">
+-Linotype-Times-Bold-I-Normal--0-0-100-100-P-0-ISO8859-1
+-Linotype-Times-Bold-R-Normal--0-0-100-100-P-0-ISO8859-1
+-Linotype-Times-Medium-I-Normal--0-0-100-100-P-0-ISO8859-1
+-Linotype-Times-Medium-R-Normal--0-0-100-100-P-0-ISO8859-1
+</literallayout>
+
+<para>
+a <function>ListFonts</function> request with the pattern:
+</para>
+
+<literallayout class="monospaced">
+-*-Times-*-R-Normal--*-120-100-100-P-*-ISO8859-1
+</literallayout>
+
+<para>
+would return:
+</para>
+
+<literallayout class="monospaced">
+-Linotype-Times-Bold-R-Normal--0-120-100-100-P-0-ISO8859-1
+-Linotype-Times-Medium-R-Normal--0-120-100-100-P-0-ISO8859-1
+</literallayout>
+
+<para>
+<function>ListFonts</function>
+on a pattern containing wildcards that is not a well-formed XLFD
+pattern is only required to return the list obtained by performing
+a simple pattern match against the global list.
+X servers are permitted, but not required,
+to use a more sophisticated matching algorithm.
+</para>
+</chapter>
+
+<chapter id="polymorphic_fonts">
+<title>Polymorphic Fonts</title>
+<!-- .XS -->
+<!-- (SN Polymorphic Fonts -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Fonts that can be varied in ways other than size or resolution are called
+<emphasis remap='I'>polymorphic fonts.</emphasis>  Multiple Master Type 1 font programs are one type of
+a polymorphic font.  Current examples of axes along which the fonts can be
+varied are width, weight, and optical size; others might include formality
+or x-height.
+</para>
+<para>
+To support polymorphic fonts, special values indicating variability are
+defined for the following XLFD fields:
+</para>
+<blockquote>
+<para>
+<!-- .nf -->
+	WEIGHT_NAME
+</para>
+<para>
+	SLANT
+</para>
+<para>
+	SETWIDTH_NAME
+</para>
+<para>
+	ADD_STYLE_NAME
+</para>
+</blockquote>
+<para>
+<!-- .LP -->
+The string "0" is the special polymorphic value.  In the
+WEIGHT_NAME, SLANT, or SETWIDTH_NAME field, "0" must be the
+entire field.
+There may be multiple polymorphic values
+in the ADD_STYLE_NAME field.
+They are surrounded by "[" and "]" and separated by a Space,
+as "[0\00]".  The polymorphic values may coexist with
+other data in the field.
+It is recommended that the polymorphic values
+be at the end of the ADD_STYLE_NAME field.
+</para>
+<para>
+<!-- .LP -->
+The font-matching algorithms for a font with polymorphic fields are
+identical to the matching algorithms for a font with scalable fields.
+</para>
+<para>
+<!-- .LP -->
+There are three new font properties to describe the axes of variation,
+AXIS_NAMES, AXIS_LIMITS, and AXIS_TYPES.  AXIS_NAMES is a list of all the
+names of the axes for the font, separated by a null (0) byte.
+These names are suitable for presentation in
+a user interface.  AXIS_LIMITS is a list of integers, two for each axis,
+giving the minimum and maximum allowable values for that axis.
+AXIS_TYPES is like AXIS_NAMES,
+but can be registered as having specific semantics.
+</para>
+<para>
+<!-- .LP -->
+The axes are listed in the properties in the same order as they
+appear in the font name.  They are matched with font name fields by
+looking for the special polymorphic values in the font name.
+</para>
+<para>
+<!-- .LP -->
+Examples:
+</para>
+<para>
+<!-- .LP -->
+The Adobe Myriad MM font program has width and weight axes.  Weight can
+vary from 215 to 830, and width from 300 to 700.
+</para>
+<literallayout class="monospaced">
+Name:
+        -Adobe-Myriad MM-0-R-0--0-0-0-0-P-0-ISO8859-1
+AXIS_NAMES:
+        Weight, Width
+AXIS_LIMITS:
+        215, 830, 300, 700
+AXIS_TYPES:
+        Adobe-Weight, Adobe-Width
+Sample derived instance:
+        -Adobe-Myriad MM-412-R-575--*-120-100-100-P-*-ISO8859-1
+</literallayout>
+
+<para>
+The Adobe Minion MM Italic font program has width, weight, and optical
+size axes.
+</para>
+
+<literallayout class="monospaced">
+Name:
+         -Adobe-Minion MM-0-I-0-[0]-0-0-0-0-P-0-ISO8859-1
+AXIS_NAMES:
+         Weight, Width, Optical size
+AXIS_LIMITS:
+         345, 620, 450, 600, 6, 72
+AXIS_TYPES:
+         Adobe-Weight, Adobe-Width, Adobe-OpticalSize
+Sample derived instance:
+         -Adobe-Minion MM-550-I-480-[18]-*-180-100-100-P-*-ISO8859-1
+</literallayout>
+
+<para>
+The Adobe Minion MM Swash Italic font program has the same axes and
+values.  This shows how "[0]" in the ADD_STYLE_NAME field can
+coexist with other words.
+</para>
+
+<literallayout class="monospaced">
+Name:
+        -Adobe-Minion MM-0-I-0-Swash[0]-0-0-0-0-P-0-ISO8859-1
+AXIS_NAMES:
+        Weight, Width, Optical size
+AXIS_LIMITS:
+        345, 620, 450, 600, 6, 72
+AXIS_TYPES:
+        Adobe-Weight, Adobe-Width, Adobe-OpticalSize
+Sample derived instance:
+        -Adobe-Minion MM-550-I-480-Swash[18]-*-180-100-100-P-*-ISO8859-1
+</literallayout>
+
+<para>
+The XYZ Abc font, a hypothetical font, has optical size and x-height axes.
+This shows how there can be more than one polymorphic value in the
+ADD_STYLE_NAME field.
+</para>
+
+<literallayout class="monospaced">
+Name:
+        -XYZ-Abc-Medium-R-Normal-[0 0]-0-0-0-0-P-0-ISO8859-1
+AXIS_NAMES:
+        Optical size, X-height
+AXIS_LIMITS:
+        6, 72, 400, 600
+AXIS_TYPES:
+        XYZ-OpticalSize, XYZ-Xheight
+Sample derived instance:
+        -XYZ-Abc-Medium-R-Normal-[14 510]-*-140-100-100-P-*-ISO8859-1
+</literallayout>
+
+<para>
+If an axis allows negative values, a client requests a negative value by
+using "~" (TILDE) as a minus sign.
+</para>
+<para>
+Axis types can be registered with the X Consortium, along with their
+semantics.
+</para>
+<para>
+If a font name that contains the polymorphic value or a wildcard in a
+polymorphic field is presented to a font source, the font source is free
+to substitute any value that is convenient.  However, font sources should
+try to use a value that would be considered
+<emphasis remap='I'>normal</emphasis> or
+<emphasis remap='I'>medium</emphasis> for the
+particular font.  For example, if an optical size variable is unresolved,
+the font source should provide a value appropriate to the size of the
+font.
+</para>
+
+<para>
+The result of specifying an out-of-range value for a polymorphic field is
+undefined.  The font source may treat this as a
+<function>BadName</function> error, treat the
+value as if it were the closest legal value, or extrapolate to try to
+accommodate the value.
+</para>
+</chapter>
+
+<chapter id="affected_elements_of_xlib_and_the_x_protocol">
+<title>Affected Elements of Xlib and the X Protocol</title>
+<!-- .XS -->
+<!-- (SN Affected Elements of Xlib and the X Protocol -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The following X protocol requests must support the XLFD conventions:
+</para>
+
+<itemizedlist>
+  <listitem>
+    <para>
+<function>OpenFont</function>
+- for the name argument
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<function>ListFonts</function>
+- for the pattern argument
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<function>ListFontsWithInfo</function>
+- for the pattern argument
+    </para>
+  </listitem>
+</itemizedlist>
+<para>
+<!-- .LP -->
+In addition,
+the following Xlib functions must support the XLFD conventions:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+<function>XLoadFont</function>
+- for the name argument
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<function>XListFontsWithInfo</function>
+- for the pattern argument
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<function>XLoadQueryFont</function>
+- for the name argument
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<function>XListFonts</function>
+- for the pattern argument
+    </para>
+  </listitem>
+</itemizedlist>
+</chapter>
+
+<chapter id="bdf_conformance">
+<title>BDF Conformance</title>
+<!-- .XS -->
+<!-- (SN BDF Conformance -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The bitmap font distribution and interchange format adopted by the
+X Consortium (BDF V2.1) provides a general mechanism for identifying the
+font name of an X font and a variable list of font properties,
+but it does not mandate the syntax or semantics of the font name
+or the semantics of the font properties that might be provided in a BDF font.
+This section identifies the requirements for BDF fonts that conform to XLFD.
+</para>
+
+<sect1 id="xlfd_conformance_requirements">
+<title>XLFD Conformance Requirements</title>
+<!-- .XS -->
+<!-- (SN XLFD Conformance Requirements -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+A BDF font conforms to the XLFD specification if and only if the
+following conditions are satisfied:
+</para>
+
+<itemizedlist>
+  <listitem>
+    <para>
+The value for the BDF item <function>FONT</function> conforms to the syntax
+and semantic definition of a XLFD
+<function>FontName</function>
+string.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+The
+<function>FontName</function>
+begins with the X
+<function>FontNameRegistry</function>
+prefix: "-".
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+All XLFD
+<function>FontName</function>
+fields are defined.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Any FontProperties provided conform in name and semantics to the XLFD
+<function>FontProperty</function>
+definitions.
+    </para>
+  </listitem>
+</itemizedlist>
+<para>
+<!-- .LP              -->
+A simple method of testing for conformance would entail verifying that the
+<function>FontNameRegistry</function>
+prefix is the string "-",
+that the number of field delimiters in the string and coded field values
+are valid,
+and that each font property name either matches a standard XLFD property name
+or follows the definition of a private property.
+</para>
+</sect1>
+
+<sect1 id="font_ascent_font_descent_and_default_char">
+<title>FONT_ASCENT, FONT_DESCENT, and DEFAULT_CHAR</title>
+<!-- .XS -->
+<!-- (SN FONT_ASCENT, FONT_DESCENT, and DEFAULT_CHAR -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT_ASCENT, FONT_DESCENT, and DEFAULT_CHAR are provided in the BDF
+specification as properties that are moved to the
+<function>XFontStruct</function>
+by the BDF font compiler in generating the X server-specific
+binary font encoding.
+If present,
+these properties shall comply with the following semantic definitions.
+</para>
+
+<sect2 id="font_ascent">
+<title>FONT_ASCENT</title>
+<!-- .XS -->
+<!-- (SN FONT_ASCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT_ASCENT is an integer value (of type INT32)
+that gives the recommended typographic ascent above the baseline
+for determining interline spacing.
+Specific glyphs of the font may extend beyond this.
+If the current position point for line <emphasis remap='I'>n</emphasis> is at [X,Y],
+then the origin of the next line <emphasis remap='I'>m = n + 1</emphasis>
+(allowing for a possible font change) is
+[X, Y + FONT_DESCENTn + FONT_ASCENTm].
+</para>
+<para>
+<!-- .LP -->
+FONT_ASCENT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+
+<literallayout class="monospaced">
+if (FONT_ASCENT undefined) then
+   FONT_ASCENT = maximum ascent
+</literallayout>
+<para>
+where maximum ascent is the maximum ascent (above the baseline)
+in pixels of any glyph in the font.
+</para>
+</sect2>
+
+<sect2 id="font_descent">
+<title>FONT_DESCENT</title>
+<!-- .XS -->
+<!-- (SN FONT_DESCENT -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+FONT_DESCENT is an integer value (of type INT32)
+that gives the recommended typographic descent below the baseline
+for determining interline spacing.
+Specific glyphs of the font may extend beyond this.
+If the current position point for line
+<emphasis remap='I'>n</emphasis> is at [X,Y],
+then the origin of the next line <emphasis remap='I'>m = n+1</emphasis>
+(allowing for a possible font change) is
+[X, Y + FONT_DESCENTn + FONT_ASCENTm].
+</para>
+<para>
+The logical extent of the font is inclusive between the Y-coordinate values:
+Y - FONT_ASCENT and Y + FONT_DESCENT + 1.
+</para>
+<para>
+FONT_DESCENT can be approximated if not provided as a font property,
+according to the following algorithm:
+</para>
+<literallayout class="monospaced">
+if (FONT_DESCENT undefined) then
+   FONT_DESCENT = maximum descent
+</literallayout>
+<para>
+where maximum descent is the maximum descent (below the baseline)
+in pixels of any glyph in the font.
+</para>
+</sect2>
+
+<sect2 id="default_char">
+<title>DEFAULT_CHAR</title>
+<!-- .XS -->
+<!-- (SN DEFAULT_CHAR -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The DEFAULT_CHAR is an unsigned integer value (of type CARD32)
+that specifies the index
+of the default character to be used by the X server when an attempt
+is made to display an undefined or nonexistent character in the font.
+(For a font using a 2-byte matrix format,
+the index bytes are encoded in the integer as byte1 * 65536 + byte2.)
+If the DEFAULT_CHAR itself specifies an undefined or nonexistent character
+in the font,
+then no display is performed.
+</para>
+<para>
+<!-- .LP -->
+DEFAULT_CHAR cannot be approximated if not provided as a font property.
+<!-- .\" -->
+<!-- .\" print Table of Contents -->
+<!-- .if o .bp \" blank page to make count even -->
+<!-- .bp 1 -->
+<!-- .af PN i -->
+<!-- .PX -->
+</para>
+</sect2>
+</sect1>
+</chapter>
+</book>

@@ -2,6 +2,7 @@
 [moddesc   {MD4 Message-Digest Algorithm}]
 [copyright {2003, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {MD4 Message-Digest Algorithm}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require md4 [opt 1.0]]
 [description]

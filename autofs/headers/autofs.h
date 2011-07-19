@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 /*
@@ -46,19 +46,18 @@
 extern "C" {
 #endif
 
-#ifndef DT_AUTO
-#define	DT_AUTO 15
-#endif
-#include <sys/stat.h>
-#ifndef SF_AUTOMOUNT
-#define	SF_AUTOMOUNT  0x80000000
-#endif
-
 #include "autofs_types.h"
 
 #define MNTTYPE_AUTOFS	"autofs"
 
-#define AUTOFS_ARGSVERSION	1	/* change when autofs_args changes */
+#define AUTOFS_ARGSVERSION	2	/* change when autofs_args changes */
+
+/*
+ * Mount types.
+ */
+#define	MOUNT_TYPE_MAP			0	/* top-level map mount */
+#define MOUNT_TYPE_TRIGGERED_MAP	1	/* map mount on a trigger */
+#define MOUNT_TYPE_SUBTRIGGER		2	/* subtrigger */
 
 /*
  * autofs mount args, as seen by userland code.
@@ -72,11 +71,9 @@ struct autofs_args {
 	char		*subdir;	/* subdir within map */
 	char		*key;		/* used in direct mounts */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
-	int32_t		trigger;	/* 1 = trigger mount */
+	int32_t		mount_type;	/* mount type - see above */
+	int32_t		node_type;	/* node_type value for root node */
 };
 
 #ifdef KERNEL
@@ -93,11 +90,9 @@ struct autofs_args_32 {
 	uint32_t	subdir;		/* subdir within map */
 	uint32_t	key;		/* used in direct mounts */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
-	int32_t		trigger;	/* 1 = trigger mount */
+	int32_t		mount_type;	/* mount type - see above */
+	int32_t		node_type;	/* node_type value for root node */
 };
 
 /*
@@ -113,11 +108,9 @@ struct autofs_args_64 {
 	user_addr_t	subdir __attribute((aligned(8)));/* subdir within map */
 	user_addr_t	key __attribute((aligned(8)));	/* used in direct mounts */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
-	int32_t		trigger;	/* 1 = trigger mount */
+	int32_t		mount_type;	/* mount type - see above */
+	int32_t		node_type;	/* node_type value for root node */
 };
 #endif
 
@@ -126,8 +119,7 @@ struct autofs_args_64 {
  */
 #define MNTOPT_RESTRICT		"restrict"
 #define	AUTOFS_MNT_RESTRICT	0x00000001
-#define MNTOPT_RDDIR		"rddir"		/* called "browse" in Solaris */
-#define	AUTOFS_MNT_NORDDIR	0x00000002	/* but that collides with ours */
+#define	AUTOFS_MNT_NOBROWSE	0x00000002	/* autofs's notion of "nobrowse", not OS X's */
 #define MNTOPT_HIDEFROMFINDER	"hidefromfinder"
 #define	AUTOFS_MNT_HIDEFROMFINDER	0x00000004
 
@@ -145,10 +137,8 @@ struct autofs_update_args {
 	char		*opts;		/* default mount options */
 	char		*map;		/* name of map */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
+	int32_t		node_type;	/* node_type value for root node */
 };
 
 #ifdef KERNEL
@@ -162,10 +152,8 @@ struct autofs_update_args_32 {
 	uint32_t	opts;		/* default mount options */
 	uint32_t	map;		/* name of map */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
+	int32_t		node_type;	/* node_type value for root node */
 };
 
 /*
@@ -178,25 +166,37 @@ struct autofs_update_args_64 {
 	user_addr_t	opts __attribute((aligned(8)));	/* default mount options */
 	user_addr_t	map __attribute((aligned(8)));	/* name of map */
 	uint32_t	mntflags;	/* Boolean default mount options */
-	int32_t		mount_to;	/* time in secs the fs is to remain */
-					/* mounted after last reference */
-	int32_t		mach_to;	/* timeout for Mach calls XXX */
 	int32_t		direct;		/* 1 = direct mount */
+	int32_t		node_type;	/* node_type value for root node */
 };
 #endif
 
 /*
  * Autofs ioctls.
  */
+#define AUTOFS_SET_MOUNT_TO		_IOW('a', 0, int)
 #ifdef KERNEL
-#define AUTOFS_UPDATE_OPTIONS_32	_IOW('a', 0, struct autofs_update_args_32)
-#define AUTOFS_UPDATE_OPTIONS_64	_IOW('a', 0, struct autofs_update_args_64)
+#define AUTOFS_UPDATE_OPTIONS_32	_IOW('a', 1, struct autofs_update_args_32)
+#define AUTOFS_UPDATE_OPTIONS_64	_IOW('a', 1, struct autofs_update_args_64)
 #else
-#define AUTOFS_UPDATE_OPTIONS		_IOW('a', 0, struct autofs_update_args)
+#define AUTOFS_UPDATE_OPTIONS		_IOW('a', 1, struct autofs_update_args)
 #endif
 #define AUTOFS_NOTIFYCHANGE		_IO('a', 2)
 #define AUTOFS_WAITFORFLUSH		_IO('a', 3)
 #define AUTOFS_UNMOUNT			_IOW('a', 4, fsid_t)
+#define AUTOFS_UNMOUNT_TRIGGERED	_IO('a', 5)
+
+/*
+ * Autofs fsctls.
+ */
+#define AUTOFS_MARK_HOMEDIRMOUNT	_IO('a', 666)
+
+/*
+ * Node type flags
+ */
+#define NT_SYMLINK	0x00000001	/* node should be a symlink to / */
+#define NT_TRIGGER	0x00000002	/* node is a trigger */
+#define NT_FORCEMOUNT	0x00000004	/* wildcard lookup - must do mount to check for existence */
 
 /*
  * Action Status
@@ -208,23 +208,17 @@ enum autofs_stat {
 	AUTOFS_DONE=1		/* no further action required by kernel */
 };
 
-/*
- * Used by autofs to either create a link, or mount a new filesystem.
- */
-enum autofs_action {
-	AUTOFS_MOUNT_RQ=0,	/* mount request */
-	AUTOFS_NONE=1		/* no action */
-};
-
 struct mounta {
 	char		*dir;
 	char		*opts;
 	char		*path;
 	char		*map;
 	char		*subdir;
+	char		*trig_mntpnt;
 	int		flags;
 	int		mntflags;
 	uint32_t	isdirect;
+	uint32_t	needs_subtrigger;
 	char		*key;
 };
 
@@ -232,6 +226,12 @@ typedef struct action_list {
 	struct mounta mounta;
 	struct action_list *next;
 } action_list;	
+
+/*
+ * Flags returned by autofs_mount() and autofs_mount_url().
+ */
+#define MOUNT_RETF_DONTUNMOUNT		0x00000001	/* don't auto-unmount or preemptively unmount this */
+#define MOUNT_RETF_DONTPREUNMOUNT	0x00000002	/* don't preemptively unmount this */
 
 #ifndef KERNEL
 /*
@@ -267,9 +267,9 @@ struct dirent_nonext {
 #define nextdp(dp)	((struct dirent_nonext *)((char *)(dp) + RECLEN(dp)))
 
 /*
- * Autofs device; opened by processes that need to avoid triggering
- * mounts and to bypass locks on in-progress mounts, so they can do
- * mounts, to let autofs know what their PIDs are.
+ * Autofs device; opened by automountd, which needs to avoid triggering
+ * mounts and to bypass locks on in-progress mounts, so it can do mounts,
+ * to let autofs know what its PID is.
  * This name is relative to /dev.
  */
 #define AUTOFS_DEVICE	"autofs"
@@ -281,6 +281,20 @@ struct dirent_nonext {
  * This name is relative to /dev.
  */
 #define AUTOFS_NOWAIT_DEVICE	"autofs_nowait"
+
+/*
+ * Autofs notrigger device; opened by processes that don't want to trigger
+ * mounts, to let autofs know what their PIDs are.
+ * This name is relative to /dev.
+ */
+#define AUTOFS_NOTRIGGER_DEVICE	"autofs_notrigger"
+
+/*
+ * Autofs homedirmounter device; opened by processes that want to mount
+ * home directories on an autofs trigger.
+ * This name is relative to /dev.
+ */
+#define AUTOFS_HOMEDIRMOUNTER_DEVICE	"autofs_homedirmounter"
 
 /*
  * Autofs control device; opened by the automount command to perform

@@ -1,4 +1,4 @@
-.Dd June 1, 2006
+.Dd January 20, 2010
 .Dt CODESIGN 1
 .Os
 .Sh NAME
@@ -49,12 +49,23 @@ forms; less frequent and specialized options have only long form.
 .Sh OPTIONS
 The options are as follows:
 .Bl -tag -width indent
+.It Fl a, -architecture Ar architecture
+When verifying or displaying signatures, explicitly select the Mach-O architecture
+given. The
+.Ar architecture
+can be specified either by name (e.g. i386) or by number; if by number, a sub-architecture
+may be appended separated by a comma.
+This option applies only to Mach-O binary code and is ignored for other types.
+If the
+.Ar path
+uses the Mach-O format and contains no code of the given architecture, the command will fail.
+The default is to operate on the native host architecture as specified by the local system.
 .It Fl d, -display
 Display information about the code at the path(s) given. Increasing levels
 of verbosity produce more output.
 The format is designed to be moderately easy to parse by simple scripts while still
 making sense to human eyes.
-In addition, the -r, --file-list, and --entitlements options can be used to retrieve additional information.
+In addition, the -r, --file-list, --extract-certificates, and --entitlements options can be used to retrieve additional information.
 .It Fl D, -detached Ar filename
 When signing, designates that a detached signature should be written to
 the specified file. The code being signed is not modified and need not be
@@ -66,7 +77,7 @@ When signing, causes
 .Nm
 to replace any existing signature on the path(s) given. Without this option,
 existing signatures will not be replaced, and the signing operation fails.
-.It Fl h, --hosting
+.It Fl h, -hosting
 Constructs and prints the hosting chain of a running program. The
 .Ar pid
 arguments must denote running code (pids etc.) With verbose options, this also
@@ -112,6 +123,10 @@ interpreted as --verify instead (and does not increase verbosity).
 Requests verification of code signatures.
 If other actions (sign, display, etc.) are also requested, -v is interpreted
 to mean --verbose.
+.It Fl -all-architectures
+When verifying a code signature on code that has a universal ("fat") Mach-O binary,
+separately verify each architecture contained. By default, only the native architecture
+(as indicated by the host system) is verified.
 .It Fl -continue
 Instructs
 .Nm
@@ -127,12 +142,19 @@ checks normally, though the resulting signature is then discarded.
 .It Fl -entitlements Ar path
 When signing, take the file at the given
 .Ar path
-and embed its contents in the signature as entitlement data.
+and embed its contents in the signature as entitlement data. If the data at
+.Ar path
+does not already begin with a suitable binary ("blob") header, one is attached automatically.
+.br
 When displaying a signature, extract any entitlement data from the signature
 and write it to the
 .Ar path
-given. Use "-" to write to standard output. If the signature has no entitlement data,
+given. Use "-" to write to standard output.
+By default, the binary "blob" header is returned intact; prefix the path with a colon ":"
+to automatically strip it off.
+If the signature has no entitlement data,
 nothing is written (this is not an error).
+
 .It Fl -extract-certificates Ar prefix
 When displaying a signature, extract the certificates in the embedded certificate chain
 and write them to individual files. The
@@ -140,6 +162,9 @@ and write them to individual files. The
 argument is appended with numbers 0, 1, ... to form the filenames, which can be relative
 or absolute. Certificate 0 is the leaf (signing) certificate, and as many files are written
 as there are certificates in the signature. The files are in ASN.1 (DER) form.
+If
+.Ar prefix
+is omitted, the default prefix is "codesign" in the current directory.
 .It Fl -file-list Ar path
 When signing or displaying a signature,
 .Nm
@@ -175,12 +200,14 @@ this is used to deal with command tools without Info.plists, whose default
 identifier is simply the command's filename; the conventional prefix used
 is com.domain. (note that the final dot needs to be explicit).
 .It Fl -preserve-metadata
-When signing code that is already signed, take the internal requirements and entitlement
-data from the old signature and re-use it for the new signature. If new data is specified
-with the --requirements and --entitlements options, it is taken instead, thereby allowing
-selective replacement. Individual types of internal requirements cannot be overridden this way.
-You still need to specify the -f (--force) option to enable overwriting signatures.
-If the old signature does not contain metadata, this option has no effect.
+When re-signing code that is already signed, reuse some information from the old signature.
+If new data is specified explicitly, it is preferred.
+You still need to specify the -f (--force) option to enable overwriting signatures at all.
+If this option is absent, any old signature has no effect on the signing process.
+.br
+This option preserves the signing identifier, internal requirements,
+entitlements, and the resource rules. Note that internal requirements are preserved or overridden as a whole;
+individual requirements cannot be selectively edited with this option.
 .It Fl -resource-rules=filename
 During signing, this option overrides the default rules for collecting bundle
 resources to be sealed into the signature. The argument is the path to a
@@ -285,31 +312,65 @@ and the output of this form of the
 command should not be taken as a statement of formal code validity. Only
 .Nm
 .Ar --verify
-can do that.
+can do that; and in fact, formal verification constructs the hosting chain as part of
+its operation (but does not display it).
 .Sh SIGNING IDENTITIES
 To be used for code signing, a digital identity must be stored in a keychain that
-is on the calling user's keychain search list. The identity is located by searching
-all such keychains for a certificate whose subject contains the
+is on the calling user's keychain search list.
+All keychain sources are supported if properly configured. In particular, it is
+possible to sign code with an identity stored on a supported smart card.
+If your signing identity is stored in a different form, you need to make it available
+in keychain form to sign code with it.
+.br
+If the
+.Ar --keychain
+argument is used,
 .Ar identity
-string given. If there are multiple matches, the invocation fails and no signing
-is performed; however, a full match is preferred over a partial match.
-.br
-If the --keychain argument is used, the identity is only looked-for in the
-specific keychain given. Even in that case, the keychain search list is still
+is only looked-for in the
+specific keychain given. This is meant to help disambiguate references to identities.
+Even in that case, the full keychain search list is still
 consulted for additional certificates needed to complete the signature.
-.br
+.Pp
+The
+.Ar identity
+is first considered as the full name of a \fBkeychain identity preference\fR.
+If such a preference exists, it directly names the identity used.
+Otherwise, the identity is located by searching
+all keychains for a certificate whose subject \fBcommon name\fR (only) contains the
+.Ar identity
+string given. If there are multiple matches, the operation fails and no signing
+is performed; however, an exact match is preferred over a partial match.
+These comparisons are case sensitive.
+Multiple instances of the exactly same certificate in multiple keychains are tolerated
+as harmless.
+.Pp
+If
+.Ar identity
+consists of exactly forty hexadecimal digits, it is instead
+interpreted as the SHA-1 hash of the certificate part of the desired identity.
+In this case, the identity's subject name is not considered.
+.Pp
+Both \fBidentity preferences\fR and certificate hashes can be used to identify
+a particular signing identity regardless of name. Identity preferences are global
+settings \fIfor each user\fR and provide a layer of indirection. Certificate hashes
+are very explicit and local. These choices, combined with what is placed into Xcode
+project and target build variables and/or script settings, allows for very flexible
+designation of signing identities.
+.Pp
+If
+.Ar identity
+is the single letter "-" (dash), \fBad-hoc signing\fR is performed.
+Ad-hoc signing does not use an identity at all, and identifies exactly one instance
+of code. Significant restrictions apply to the use of ad-hoc signed code; consult
+documentation before using this.
+.Pp
 .Nm
 will attempt to embed the entire certificate chain documenting the signing identity
 in the code signature it generates, including any intermediate certificates and
 the anchor certificate. It looks for those in the keychain search list of the user
 performing the signing operation. If it cannot generate the entire certificate chain,
 signing may still succeed, but verification may fail if the verifying code does not
-have an independent source for the missing certificates.
-.br
-All keychain sources are supported if properly configured. In particular, it is
-possible to sign code with an identity stored on a supported smart card.
-If your signing identity is stored in a different form, you need to import it
-into a keychain to use it with this program.
+have an independent source for the missing certificates (from \fIits\fR keychains).
 .Sh SPECIFYING REQUIREMENTS
 The
 .Ar requirement(s)
@@ -331,8 +392,9 @@ flags by giving a (single) numeric value instead of a list of option names.
 .Bl -tag -width expires
 .It kill
 Forces the signed code's kill flag to be set when the code begins execution.
-Code with the kill flag set will die when it loses its identity. It is therefore
-safe to assume that code marked this way will have a valid identity while alive.
+Code with the kill flag set will die when it becomes dynamically invalid. It is
+therefore safe to assume that code marked this way, once validated, will have continue
+to have a valid identity while alive.
 .It hard
 Forces the signed code's hard flag to be set when the code begins execution.
 The hard flag is a hint to the system that the code prefers to be denied
@@ -340,7 +402,8 @@ access to resources if gaining such access would invalidate its identity.
 .It host
 Marks the code as capable of hosting guest code. You must set this option
 if you want the code to act as a code signing host, controlling subsidiary
-("guest") code.
+("guest") code. This flag is set automatically if you specify an internal
+guest requirement.
 .It expires
 Forces any validation of the code to consider expiration of the certificates
 involved. Code signatures generated with this flag will fail to verify once any of
@@ -372,16 +435,16 @@ and embedding a custom designated requirement
 .Dl codesign -f -s authority --prefix=com.mycorp. -r="designated => anchor /tmp/foo" helper
 .Pp
 To verify the signature on Terminal.app and produce some verbose output:
-.Dl codesign -vv Terminal.app
+.Dl codesign --verify --verbose Terminal.app
 .Pp
 To verify the dynamic validity of process 666:
-.Dl codesign -v 666
+.Dl codesign --verify 666
 .Pp
 To display all information about Terminal.app's code signature:
-.Dl codesign -dvvvv Terminal.app
+.Dl codesign --display --verbose=4 Terminal.app
 .Pp
 To extract the internal requirements from Terminal.app to standard output:
-.Dl codesign -d -r- Terminal.app
+.Dl codesign --display -r- Terminal.app
 .Sh DIAGNOSTICS
 .Nm
 exits 0 if all operations succeed. This indicates that all codes were
@@ -409,18 +472,38 @@ Note however that a previous valid signature may have been effectively destroyed
 if you specified the -f option.
 .br
 If you require atomicity of signing stricter than provided by
-.Nm
-, you need to make an explicit copy of your code and sign that.
+.Nm ,
+you need to make an explicit copy of your code and sign that.
 .Sh SEE ALSO
 .Xr csreq 1
+.Xr xcodebuild 1
 .Sh HISTORY
 The
 .Nm
 command first appeared in Mac OS 10.5.0 (Leopard).
 .Sh BUGS
-Some options only apply to particular operations, and the command ignores them (without complaining)
+Some options only apply to particular operations, and
+.Nm
+ignores them (without complaining)
 if you specify them for an operation for which they have no meaning.
+.Pp
+The dual meaning of the
+.Ar -v
+option, indicating either verbosity or verification, confuses some people. If you find it confusing,
+use the unambiguous long forms
+.Ar --verbose
+and
+.Ar --verify
+instead.
 .Sh NOTES
+The Xcode build system invokes
+.Nm
+automatically if the CODE_SIGN_IDENTITY build variable is set.
+You can express any combination of
+.Nm
+options with additional build variables there.
+.Pp
 .Nm
 has several operations and options that are purposely left undocumented in this manual page because they
 are either experimental (and subject to change at any time), or unadvised to the unwary.
+The interminably curious are referred to the published source code.

@@ -1,0 +1,103 @@
+.TH XvCreateImage __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvCreateImage, XvShmCreateImage \- create an XvImage
+.\"
+.SH SYNOPSIS
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvImage * XvCreateImage (Display *" dpy ", XvPortID " port ","
+.BI "                         int " id ", char *" data ","
+.BI "                         int " width ", int " height ");"
+.sp
+.BI "XvImage * XvShmCreateImage (Display *" dpy ", XvPortID " port ","
+.BI "                            int " id ", char *" data ","
+.BI "                            int " width ", int " height ","
+.BI "                            XShmSegmentInfo *" shminfo ");"
+.fi
+.SH ARGUMENTS
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Specifies the port the XvImage will be used with.
+.IP \fIid\fR 8
+Specifies the format of the image to be created by the XvImageFormatValues id.
+.IP \fIdata\fR 8
+Specifies the image data.
+.IP "\fIwidth\fR, \fIheight\fR" 8
+Specifies the desired width and height of the image.
+.\"
+.SH DESCRIPTION
+.BR XvCreateImage (__libmansuffix__)
+is similar to
+.BR XCreateImage (__libmansuffix__).
+.BR XvShmCreateImage (__libmansuffix__)
+is similar to
+.BR XShmCreateImage (__libmansuffix__).
+The library will allocate the XvImage structure and fill out all
+fields except for \fIdata\fR.  \fIWidth\fR and \fIheight\fR may be
+enlarged in some YUV formats.  The size of the data buffer that needs
+to be allocated will be given in the \fIdata_size\fR field in the XvImage.
+Image data is not allocated by this function.  The client may pass a pointer
+to the preallocated memory as \fIdata\fR or may allocate the memory and fill in
+the XvImage structure's data field after the \fIdata_size\fR field has
+been filled out by the server.  The XvImage structure may be freed by
+.BR XFree (__libmansuffix__).
+Shared memory segments are attached/detached with
+.BR XShmAttach (__libmansuffix__)/ XShmDetach (__libmansuffix__).
+.SH RETURN VALUES
+XvImage has the following structure:
+.EX
+
+typedef struct {
+   int id;
+   int width, height;
+   int data_size;
+   int num_planes;
+   int *pitches;
+   int *offsets;
+   char *data;
+   XPointer obdata;
+} XvImage;
+
+.EE
+.IP \fIid\fR 8
+A descriptor for the format from the XvImageFormatValues structure
+returned by
+.BR XvListImageFormats (__libmansuffix__).
+.IP "\fIwidth, height\fR" 8
+The width and height of the image in pixels.
+.IP \fIdata_size\fR 8
+The size of the data buffer in bytes.
+.IP \fInum_planes\fR 8
+The number of image planes.
+.IP \fIpitches\fR 8
+An array of size \fInum_planes\fR indicating the scanline pitch
+in bytes.  Each plane may have a different pitch.
+.IP \fIoffsets\fR 8
+An array of size \fInum_planes\fR indicating the byte offset
+from \fIdata\fR to the start of each plane.
+.IP \fIdata\fR 8
+A pointer to the start of the data buffer.
+.IP \fIobdata\fR 8
+A private field for holding SHM info.  This field will be
+set up by the client libraries so the programmer will
+generally need not be concerned with this field.
+.\"
+.SH DIAGNOSTICS
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.IP [XvBadAlloc] 8
+Generated if the X server was unable to allocate resources required
+to complete the operation.
+.IP [BadMatch] 8
+Generated if incompatible arguments were supplied, such as a port that
+isn't capable of displaying XvImages.
+.\"
+.SH SEE ALSO
+.BR XvListImageFormats (__libmansuffix__),
+.BR XCreateImage (__libmansuffix__),
+.BR XShmCreateImage (__libmansuffix__),
+.BR XShmAttach (__libmansuffix__),
+.BR XShmDetach (__libmansuffix__).

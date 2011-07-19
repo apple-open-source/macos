@@ -22,7 +22,7 @@
 #include "config.h"
 #include "MediaPlayerProxy.h"
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "DocumentLoader.h"
 #include "HTMLPlugInElement.h"
 #include "HTMLVideoElement.h"
@@ -109,7 +109,7 @@ void WebMediaPlayerProxy::initEngine()
         }
     }
     serviceType = "application/x-mplayer2";
-    frame->loader()->requestObject(static_cast<RenderPartObject*>(element->renderer()), url, nullAtom, serviceType, paramNames, paramValues);
+    frame->loader()->subframeLoader()->requestObject(static_cast<RenderPartObject*>(element->renderer()), url, nullAtom, serviceType, paramNames, paramValues);
     m_init = true;
 
 }

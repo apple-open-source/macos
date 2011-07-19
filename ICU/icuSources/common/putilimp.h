@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2006, International Business Machines
+*   Copyright (C) 1997-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -163,9 +163,9 @@ U_INTERNAL double  U_EXPORT2 uprv_round(double x);
  * Time zone utilities
  *
  * Wrappers for C runtime library functions relating to timezones.
- * The t_tzset() function (similar to tzset) uses the current setting 
- * of the environment variable TZ to assign values to three global 
- * variables: daylight, timezone, and tzname. These variables have the 
+ * The t_tzset() function (similar to tzset) uses the current setting
+ * of the environment variable TZ to assign values to three global
+ * variables: daylight, timezone, and tzname. These variables have the
  * following meanings, and are declared in &lt;time.h&gt;.
  *
  *   daylight   Nonzero if daylight-saving-time zone (DST) is specified
@@ -213,10 +213,20 @@ U_INTERNAL const char* U_EXPORT2 uprv_tzname(int n);
 
 /**
  * Get UTC (GMT) time measured in milliseconds since 0:00 on 1/1/1970.
- * @return the UTC time measured in milliseconds 
+ * This function is affected by 'faketime' and should be the bottleneck for all user-visible ICU time functions.
+ * @return the UTC time measured in milliseconds
  * @internal
  */
 U_INTERNAL UDate U_EXPORT2 uprv_getUTCtime(void);
+
+/**
+ * Get UTC (GMT) time measured in milliseconds since 0:00 on 1/1/1970.
+ * This function is not affected by 'faketime', so it should only be used by low level test functions- not by anything that
+ * exposes time to the end user.
+ * @return the UTC time measured in milliseconds
+ * @internal
+ */
+U_INTERNAL UDate U_EXPORT2 uprv_getRawUTCtime(void);
 
 /**
  * Determine whether a pathname is absolute or not, as defined by the platform.
@@ -272,6 +282,29 @@ U_INTERNAL void * U_EXPORT2 uprv_maximumPtr(void *base);
         ? ((char *)(base)+0x7fffffffu) \
         : (char *)-1))
 #  endif
+#endif
+
+#if U_ENABLE_DYLOAD
+/*  Dynamic Library Functions */
+
+/**
+ * Load a library
+ * @internal (ICU 4.4)
+ */
+U_INTERNAL void * U_EXPORT2 uprv_dl_open(const char *libName, UErrorCode *status);
+
+/**
+ * Close a library
+ * @internal (ICU 4.4)
+ */
+U_INTERNAL void U_EXPORT2 uprv_dl_close( void *lib, UErrorCode *status);
+
+/**
+ * Extract a symbol from a library
+ * @internal (ICU 4.4)
+ */
+U_INTERNAL void * U_EXPORT2 uprv_dl_sym( void *lib, const char *symbolName, UErrorCode *status);
+
 #endif
 
 #endif

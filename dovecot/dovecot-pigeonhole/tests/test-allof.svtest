@@ -1,0 +1,158 @@
+require "vnd.dovecot.testsuite";
+
+/* 
+ * ## RFC 5228, Section 5.2. Test allof (page 27) ## 
+ */
+
+/* "The "allof" test performs a logical AND on the tests supplied to it.
+ *
+ *  Example:  allof (false, false)  =>   false
+ *            allof (false, true)   =>   false
+ *            allof (true,  true)   =>   true
+ *
+ *  The allof test takes as its argument a test-list.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: test@dovecot.example.net
+cc: stephan@idiot.ex
+Subject: Test
+
+Test!
+.
+;
+
+/*
+ * TEST: Basic functionality: static
+ */
+
+test "Basic functionality: static" {
+	if allof ( true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong single outcome: false";
+	}
+
+	if allof ( false ) {
+		test_fail "chose wrong single outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( true, true, true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true outcome: false";
+	}
+
+	if allof ( false, false, false ) {
+		test_fail "chose wrong all-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( true, false, false ) {
+		test_fail "chose wrong first-true outcome: true";
+	} else {
+		/* Correct */
+	}
+	
+	if allof ( false, true, false ) {
+		test_fail "chose wrong second-true outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( false, false, true ) {
+		test_fail "chose wrong last-true outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( false, true, true ) {
+		test_fail "chose wrong first-false outcome: true";
+	} else {
+		/* Correct */
+	}
+	
+	if allof ( true, false, true ) {
+		test_fail "chose wrong second-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( true, true, false ) {
+		test_fail "chose wrong last-false outcome: true";
+	} else {
+		/* Correct */
+	}
+}
+
+/*
+ * TEST: Basic functionality: dynamic
+ */
+
+test "Basic functionality: dynamic" {
+	if allof ( exists "from" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong single outcome: false";
+	}
+
+	if allof ( exists "friep" ) {
+		test_fail "chose wrong single outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "from", exists "to", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true outcome: false";
+	}
+
+	if allof ( exists "friep", exists "frop", exists "frml" ) {
+		test_fail "chose wrong all-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", exists "frop", exists "frml" ) {
+		test_fail "chose wrong first-true outcome: true";
+	} else {
+		/* Correct */
+	}
+	
+	if allof ( exists "friep", exists "from", exists "frml" ) {
+		test_fail "chose wrong second-true outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "frop", exists "cc" ) {
+		test_fail "chose wrong last-true outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "friep", exists "from", exists "cc" ) {
+		test_fail "chose wrong first-false outcome: true";
+	} else {
+		/* Correct */
+	}
+	
+	if allof ( exists "to", exists "frop", exists "cc" ) {
+		test_fail "chose wrong second-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if allof ( exists "to", exists "from", exists "frml" ) {
+		test_fail "chose wrong last-false outcome: true";
+	} else {
+		/* Correct */
+	}
+}
+

@@ -721,6 +721,11 @@ been unlinked.  In that cause LTnlink may delay for up to a minute,
 calling lsof once every two seconds and displaying a "waiting for
 link count update: ..." message.
 
+Some file systems -- e.g., ZFS on Solaris 11 -- don't allow LTnlink to
+unlink its test file, because LTnlink has the file open.  LTnlink
+explains that failure and suggests that it be run with path of the "-p
+path" option set to a file on /tmp.  See 00FAQ for more information.
+
 Run this test:
 
     $ ./LTnlink [-p <path>]
@@ -883,7 +888,10 @@ base, footprints, and the scripts that support them.
 		  7.0 Alpha, gcc
 		  7.0 Amd64, gcc
 		  7.1 Amd64, gcc
+		  7.2 Amd64, gcc
+		  7.3 Amd64, gcc
 		  8.0 Amd64, gcc
+		  9/0 Amd64, gcc
     DEC OSF/1	  4.0, cc
     HP-UX	  10.20, cc			LTbigf
 		  10.20, gcc (1)		LTbigf
@@ -961,6 +969,7 @@ base, footprints, and the scripts that support them.
 		  10-32, i86pc, cc
 		  10-64, Sparc, cc
 		  10-64, Sparc, gcc
+		  11-64, Amd64, cc
     Tru64 UNIX    5.0, cc
     Tru64 UNIX    5.0, cc
 		  5.1, cc
@@ -997,4 +1006,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-??? ??? 2008
+July 29, 2010

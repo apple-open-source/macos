@@ -434,7 +434,8 @@ IOUSBMassStorageClass::BulkOnlyExecuteCommandCompletion (
 		// The transfer failed mid-transfer or was aborted by the USB layer. Either way the device will
         // be non-responsive until we reset it, or we discover it has been disconnected.
 		ResetDeviceNow ( false );
-		commandInProgress = true; 
+		commandInProgress = true;
+		
 		goto Exit;
 		
 	}

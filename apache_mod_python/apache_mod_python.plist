@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>apache_mod_python</string>
+        <key>OpenSourceVersion</key>
+        <string>3.3.1</string>
+        <key>OpenSourceURL</key>
+        <string>http://httpd.apache.org/modules/python-download.cgi</string>
+        <key>OpenSourceSHA1</key>
+        <string>e538170fd78e09408b6d8593da980b126a0fef93</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-05-07</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>Apache</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>apache_mod_python.txt</string>
+</dict>
+</array>
+</plist>

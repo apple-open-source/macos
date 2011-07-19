@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -30,15 +27,60 @@
 #define WebIDBDatabase_h
 
 #include "WebCommon.h"
+#include "WebDOMStringList.h"
+#include "WebExceptionCode.h"
 
 namespace WebKit {
 
-// See comment in WebIndexedDatabase for a high level overview these classes.
+class WebFrame;
+class WebIDBCallbacks;
+class WebIDBDatabaseCallbacks;
+class WebIDBObjectStore;
+class WebIDBTransaction;
+
+// See comment in WebIDBFactory for a high level overview of these classes.
 class WebIDBDatabase {
 public:
     virtual ~WebIDBDatabase() { }
 
-    // FIXME: Implement.
+    virtual WebString name() const
+    {
+        WEBKIT_ASSERT_NOT_REACHED();
+        return WebString();
+    }
+    virtual WebString version() const
+    {
+        WEBKIT_ASSERT_NOT_REACHED();
+        return WebString();
+    }
+    virtual WebDOMStringList objectStoreNames() const
+    {
+        WEBKIT_ASSERT_NOT_REACHED();
+        return WebDOMStringList();
+    }
+    virtual WebIDBObjectStore* createObjectStore(const WebString& name, const WebString& keyPath, bool autoIncrement, const WebIDBTransaction&, WebExceptionCode&)
+    {
+        WEBKIT_ASSERT_NOT_REACHED();
+        return 0;
+    }
+    virtual void deleteObjectStore(const WebString& name, const WebIDBTransaction& transaction, WebExceptionCode& ec) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void setVersion(const WebString& version, WebIDBCallbacks* callbacks, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    // Transfers ownership of the WebIDBTransaction to the caller.
+    virtual WebIDBTransaction* transaction(const WebDOMStringList& names, unsigned short mode, WebExceptionCode& ec)
+    {
+        return transaction(names, mode, 0, ec);
+    }
+    // FIXME: Remove.
+    virtual WebIDBTransaction* transaction(const WebDOMStringList& names, unsigned short mode, unsigned long, WebExceptionCode& ec)
+    {
+        return transaction(names, mode, ec);
+    }
+    virtual void close() { WEBKIT_ASSERT_NOT_REACHED(); }
+
+    virtual void open(WebIDBDatabaseCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
+
+protected:
+    WebIDBDatabase() { }
 };
 
 } // namespace WebKit

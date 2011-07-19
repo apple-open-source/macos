@@ -37,36 +37,37 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", 0, 0, 0 };
+const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", &DOMConstructorWithDocument::s_info, 0, 0 };
 
-JSAudioConstructor::JSAudioConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
-    : DOMConstructorWithDocument(JSAudioConstructor::createStructure(globalObject->objectPrototype()), globalObject)
+JSAudioConstructor::JSAudioConstructor(ExecState* exec, Structure* structure, JSDOMGlobalObject* globalObject)
+    : DOMConstructorWithDocument(structure, globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSHTMLAudioElementPrototype::self(exec, globalObject), None);
-    putDirect(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly | DontDelete | DontEnum);
+    ASSERT(inherits(&s_info));
+    putDirect(exec->globalData(), exec->propertyNames().prototype, JSHTMLAudioElementPrototype::self(exec, globalObject), None);
+    putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
 }
 
-static JSObject* constructAudio(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructAudio(ExecState* exec)
 {
-    JSAudioConstructor* jsConstructor = static_cast<JSAudioConstructor*>(constructor);
+    JSAudioConstructor* jsConstructor = static_cast<JSAudioConstructor*>(exec->callee());
 
     Document* document = jsConstructor->document();
     if (!document)
-        return throwError(exec, ReferenceError, "Audio constructor associated document is unavailable");
+        return throwVMError(exec, createReferenceError(exec, "Audio constructor associated document is unavailable"));
 
     // Calling toJS on the document causes the JS document wrapper to be
-    // added to the window object. This is done to ensure that JSDocument::markChildren
+    // added to the window object. This is done to ensure that JSDocument::visitChildren
     // will be called, which will cause the audio element to be marked if necessary.
     toJS(exec, jsConstructor->globalObject(), document);
 
     // FIXME: This converts an undefined argument to the string "undefined", but possibly we
-    // should treat it as if no argument was passed instead, by checking the value of args.at
-    // rather than looking at args.size.
+    // should treat it as if no argument was passed instead, by checking the value of exec->argument
+    // rather than looking at exec->argumentCount.
     String src;
-    if (args.size() > 0)
-        src = ustringToString(args.at(0).toString(exec));
-    return asObject(toJS(exec, jsConstructor->globalObject(),
-        HTMLAudioElement::createForJSConstructor(document, src)));
+    if (exec->argumentCount() > 0)
+        src = ustringToString(exec->argument(0).toString(exec));
+    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(),
+        HTMLAudioElement::createForJSConstructor(document, src))));
 }
 
 ConstructType JSAudioConstructor::getConstructData(ConstructData& constructData)

@@ -1,0 +1,96 @@
+.\" Copyright 1999  by The XFree86 Project, Inc.
+.\" 
+.\" All Rights Reserved.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The XFree86 Project shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The XFree86 Project.
+.\"
+.TH xgamma 1 __vendorversion__
+.SH NAME
+xgamma - Alter a monitor's gamma correction through the X server
+.SH SYNOPSIS
+.B "xgamma"
+[-display \fIdisplay\fP] [-screen \fIscreen\fP] [-quiet]
+[-gamma f.f | [[-rgamma f.f] [-ggamma f.f] [-bgamma f.f]]]
+.SH DESCRIPTION
+.PP
+.B xgamma
+allows X users to query and alter the gamma correction of a monitor via
+the X video mode extension (XFree86-VidModeExtension).
+.PP
+If no value for the gamma correction is given via the
+.I -gamma 
+or 
+.IR -rgamma / -ggamma / -bgamma
+options,
+.B xgamma
+prints the current gamma correction of the display.
+.SH OPTIONS
+.PP
+.TP 8
+.B "-display \fIdisplay\fP"
+This argument allows you to specify the server to connect to; see \fIX(__miscmansuffix__)\fP.
+.PP
+.TP 8
+.B "-screen \fIscreen\fP"
+When multiple displays are configured as a single logical display, this option
+allows you to select the screen you wish to change.
+.PP
+.TP 8
+.B "-quiet"
+Silence the normal output of
+.B xgamma
+.PP
+.TP 8
+.B "-help"
+Print out the `Usage:' command syntax summary.
+.PP
+.TP 8
+.B "-gamma f.f"
+The gamma correction can either be defined as a single value, or
+separately for the red, green and blue components. This argument
+specifies the gamma correction as a single value. 
+.PP
+.TP 8
+.B "-rgamma f.f"
+This argument specifies the red component of the gamma correction.
+.PP
+.TP 8
+.B "-ggamma f.f"
+This argument specifies the green component of the gamma correction.
+.PP
+.TP 8
+.B "-bgamma f.f"
+This argument specifies the blue component of the gamma correction.
+.SH ENVIRONMENT
+.PP
+.TP 8
+.B DISPLAY
+To get default host and display number.
+.SH BUGS
+.PP
+This client changes the internal values of the gamma correction for the
+Xserver. Whether or not these values are respected depends on the video
+drivers.
+.PP
+The gamma values are passed to the Xserver with 3 decimal places of
+accuracy.
+.SH SEE ALSO
+xvidtune(1)
+.SH AUTHORS
+Kaleb S. Keithley, X Consortium.
+.br
+David Dawes, David Bateman

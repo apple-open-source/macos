@@ -33,32 +33,30 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
-#include "JavaScriptCallFrame.h"
+#include "OwnHandle.h"
 #include "PlatformString.h"
 #include "ScriptBreakpoint.h"
-#include "ScriptState.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include <v8-debug.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class Page;
 class ScriptDebugListener;
+class ScriptValue;
 
-class ScriptDebugServer : public Noncopyable {
+class ScriptDebugServer {
+    WTF_MAKE_NONCOPYABLE(ScriptDebugServer);
 public:
-    static ScriptDebugServer& shared();
-
-    void addListener(ScriptDebugListener*, Page*);
-    void removeListener(ScriptDebugListener*, Page*);
-
-    void setBreakpoint(const String& sourceID, unsigned lineNumber, ScriptBreakpoint breakpoint);
-    void removeBreakpoint(const String& sourceID, unsigned lineNumber);
+    String setBreakpoint(const String& sourceID, const ScriptBreakpoint&, int* actualLineNumber, int* actualColumnNumber);
+    void removeBreakpoint(const String& breakpointId);
     void clearBreakpoints();
     void setBreakpointsActivated(bool activated);
+    void activateBreakpoints() { setBreakpointsActivated(true); }
+    void deactivateBreakpoints() { setBreakpointsActivated(false); }
 
     enum PauseOnExceptionsState {
         DontPauseOnExceptions,
@@ -68,52 +66,55 @@ public:
     PauseOnExceptionsState pauseOnExceptionsState();
     void setPauseOnExceptionsState(PauseOnExceptionsState pauseOnExceptionsState);
 
-    void pauseProgram() { }
+    void setPauseOnNextStatement(bool pause);
+    void breakProgram();
     void continueProgram();
     void stepIntoStatement();
     void stepOverStatement();
     void stepOutOfFunction();
 
+    bool editScriptSource(const String& sourceID, const String& newContent, String* error, ScriptValue* newCallFrames);
+
     void recompileAllJSFunctionsSoon() { }
     void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0) { }
 
-    ScriptState* currentCallFrameState();
+    class Task {
+    public:
+        virtual ~Task() { }
+        virtual void run() = 0;
+    };
+    static void interruptAndRun(PassOwnPtr<Task>);
+    void runPendingTasks();
 
-    void pageCreated(Page*) { }
-
-    // v8-specific methods.
-    void setDebuggerScriptSource(const String& scriptSource);
-
-    typedef void (*MessageLoopDispatchHandler)(const Vector<WebCore::Page*>&);
-    static void setMessageLoopDispatchHandler(MessageLoopDispatchHandler messageLoopDispatchHandler) { s_messageLoopDispatchHandler = messageLoopDispatchHandler; }
-
-    PassRefPtr<JavaScriptCallFrame> currentCallFrame();
-
-private:
+protected:
     ScriptDebugServer();
     ~ScriptDebugServer() { }
+    
+    ScriptValue currentCallFrame();
 
-    static void onV8DebugMessage(const v8::Debug::Message& message);
-    static void onV8DebugHostDispatch();
+    virtual ScriptDebugListener* getDebugListenerForContext(v8::Handle<v8::Context>) = 0;
+    virtual void runMessageLoopOnPause(v8::Handle<v8::Context>) = 0;
+    virtual void quitMessageLoopOnPause() = 0;
 
-    void handleV8DebugMessage(const v8::Debug::Message& message);
-    void handleV8DebugHostDispatch();
+    static v8::Handle<v8::Value> breakProgramCallback(const v8::Arguments& args);
+    void breakProgram(v8::Handle<v8::Object> executionState, v8::Handle<v8::Value> exception);
+
+    static void v8DebugEventCallback(const v8::Debug::EventDetails& eventDetails);
+    void handleV8DebugEvent(const v8::Debug::EventDetails& eventDetails);
 
     void dispatchDidParseSource(ScriptDebugListener* listener, v8::Handle<v8::Object> sourceObject);
-    
-    void ensureDebuggerScriptCompiled();
-    void didResume();
 
-    typedef HashMap<Page*, ScriptDebugListener*> ListenersMap;
-    ListenersMap m_listenersMap;
-    String m_debuggerScriptSource;
+    void ensureDebuggerScriptCompiled();
+    
+    bool isPaused();
+
     PauseOnExceptionsState m_pauseOnExceptionsState;
     OwnHandle<v8::Object> m_debuggerScript;
-    ScriptState* m_currentCallFrameState;
-    RefPtr<JavaScriptCallFrame> m_currentCallFrame;
     OwnHandle<v8::Object> m_executionState;
+    v8::Local<v8::Context> m_pausedContext;
 
-    static MessageLoopDispatchHandler s_messageLoopDispatchHandler;
+    bool m_breakpointsActivated;
+    OwnHandle<v8::FunctionTemplate> m_breakProgramCallbackTemplate;
 };
 
 } // namespace WebCore

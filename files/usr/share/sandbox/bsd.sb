@@ -1,6 +1,7 @@
+;; OriginatingProject: files
 ;;
 ;; common rules for various BSD daemons
-;; Copyright (c) 2007 Apple Inc.  All Rights reserved.
+;; Copyright (c) 2007-2010 Apple Inc.  All Rights reserved.
 ;;
 ;; WARNING: The sandbox rules in this file currently constitute
 ;; Apple System Private Interface and are subject to change at any time and

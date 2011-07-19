@@ -38,9 +38,10 @@ public:
     RenderListMarker(RenderListItem*);
     virtual ~RenderListMarker();
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     const String& text() const { return m_text; }
+    String suffix() const;
 
     bool isInside() const;
 
@@ -57,8 +58,8 @@ private:
 
     virtual InlineBox* createInlineBox();
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
+    virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
     bool isImage() const;
     bool isText() const { return !isImage(); }

@@ -346,10 +346,6 @@ public:
     
 public:
     // Session API support
-    void getSessionInfo(SecuritySessionId &sessionId, SessionAttributeBits &attrs);
-    void setupSession(SessionCreationFlags flags, SessionAttributeBits attrs);
-	void setSessionDistinguishedUid(SecuritySessionId sessionId, uid_t user);
-	void getSessionDistinguishedUid(SecuritySessionId sessionId, uid_t &user);
 	void setSessionUserPrefs(SecuritySessionId sessionId, uint32_t userPreferencesLength, const void *userPreferences);
     
 public:
@@ -442,7 +438,6 @@ private:
 	};
 
 	static ModuleNexus<Global> mGlobal;
-	static bool mSetupSession;
 	static const char *mContactName;
 	static SecGuestRef mDedicatedGuest;
 };

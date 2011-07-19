@@ -7,6 +7,7 @@ MISRCS += chk_fail.c		\
 	  strcpy_chk.c		\
 	  stpcpy_chk.c		\
 	  strncpy_chk.c		\
+	  stpncpy_chk.c		\
 	  strcat_chk.c		\
 	  strncat_chk.c		\
 	  sprintf_chk.c		\

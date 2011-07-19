@@ -25,64 +25,57 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "UString.h"
-
 #ifndef RegExpKey_h
 #define RegExpKey_h
 
+#include "UString.h"
+#include <wtf/text/StringHash.h>
+
 namespace JSC {
 
+enum RegExpFlags {
+    NoFlags = 0,
+    FlagGlobal = 1,
+    FlagIgnoreCase = 2,
+    FlagMultiline = 4,
+    InvalidFlags = 8,
+    DeletedValueFlags = -1
+};
+
 struct RegExpKey {
-    int flagsValue;
-    RefPtr<UString::Rep> pattern;
+    RegExpFlags flagsValue;
+    RefPtr<StringImpl> pattern;
 
     RegExpKey()
-        : flagsValue(0)
+        : flagsValue(NoFlags)
     {
     }
 
-    RegExpKey(int flags)
+    RegExpKey(RegExpFlags flags)
         : flagsValue(flags)
     {
     }
 
-    RegExpKey(int flags, const UString& pattern)
+    RegExpKey(RegExpFlags flags, const UString& pattern)
         : flagsValue(flags)
-        , pattern(pattern.rep())
+        , pattern(pattern.impl())
     {
     }
 
-    RegExpKey(int flags, const PassRefPtr<UString::Rep> pattern)
+    RegExpKey(RegExpFlags flags, const PassRefPtr<StringImpl> pattern)
         : flagsValue(flags)
         , pattern(pattern)
     {
     }
 
-    RegExpKey(const UString& flags, const UString& pattern)
-        : pattern(pattern.rep())
+    RegExpKey(RegExpFlags flags, const RefPtr<StringImpl>& pattern)
+        : flagsValue(flags)
+        , pattern(pattern)
     {
-        flagsValue = getFlagsValue(flags);
-    }
-
-    int getFlagsValue(const UString flags) 
-    {
-        flagsValue = 0;
-        if (flags.find('g') != UString::NotFound)
-            flagsValue += 4;
-        if (flags.find('i') != UString::NotFound)
-            flagsValue += 2;
-        if (flags.find('m') != UString::NotFound)
-            flagsValue += 1;
-        return flagsValue;
     }
 };
-} // namespace JSC
 
-namespace WTF {
-template<typename T> struct DefaultHash;
-template<typename T> struct RegExpHash;
-
-inline bool operator==(const JSC::RegExpKey& a, const JSC::RegExpKey& b) 
+inline bool operator==(const RegExpKey& a, const RegExpKey& b) 
 {
     if (a.flagsValue != b.flagsValue)
         return false;
@@ -92,6 +85,12 @@ inline bool operator==(const JSC::RegExpKey& a, const JSC::RegExpKey& b)
         return false;
     return equal(a.pattern.get(), b.pattern.get());
 }
+
+} // namespace JSC
+
+namespace WTF {
+template<typename T> struct DefaultHash;
+template<typename T> struct RegExpHash;
 
 template<> struct RegExpHash<JSC::RegExpKey> {
     static unsigned hash(const JSC::RegExpKey& key) { return key.pattern->hash(); }
@@ -104,8 +103,8 @@ template<> struct DefaultHash<JSC::RegExpKey> {
 };
 
 template<> struct HashTraits<JSC::RegExpKey> : GenericHashTraits<JSC::RegExpKey> {
-    static void constructDeletedValue(JSC::RegExpKey& slot) { slot.flagsValue = -1; }
-    static bool isDeletedValue(const JSC::RegExpKey& value) { return value.flagsValue == -1; }
+    static void constructDeletedValue(JSC::RegExpKey& slot) { slot.flagsValue = JSC::DeletedValueFlags; }
+    static bool isDeletedValue(const JSC::RegExpKey& value) { return value.flagsValue == JSC::DeletedValueFlags; }
 };
 } // namespace WTF
 

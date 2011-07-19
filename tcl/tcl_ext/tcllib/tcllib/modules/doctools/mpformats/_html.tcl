@@ -146,6 +146,10 @@ proc img {tag alt img} {
     proc $tag {} [list return "\1<img alt=\"$alt\" src=\"$img\"\1>"]
 }
 
+proc imagelink {alt img} {
+    return [markup "<img alt=\"$alt\" src=\"$img\">"]
+}
+
 proc protect {text} {return [string map [list & "&amp;" < "&lt;" > "&gt;"] $text]}
 
 proc strong {text}       {tag_ strong $text}

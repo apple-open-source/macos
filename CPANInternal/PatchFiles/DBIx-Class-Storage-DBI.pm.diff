@@ -1,24 +1,25 @@
 --- DBIx-Class/lib/DBIx/Class/Storage/DBI.pm  (revision 9463)
 +++ DBIx-Class/lib/DBIx/Class/Storage/DBI.pm  (working copy)
-@@ -878,13 +878,18 @@
+@@ -1200,12 +1200,19 @@
  
  sub txn_commit {
    my $self = shift;
 -  if ($self->{transaction_depth} == 1) {
-+  if (   ($self->{transaction_depth} == 1)
-+      or (!$self->_dbh_autocommit and $self->{transaction_depth} > 1)) {
-     my $dbh = $self->_dbh;
++  # if ($self->{transaction_depth} == 1) {
++  if (($self->{transaction_depth} == 1) or (!$self->_dbh_autocommit and $self->{transaction_depth} > 1)) {
      $self->debugobj->txn_commit()
        if ($self->debug);
-     $dbh->commit;
+     $self->_dbh_commit;
 -    $self->{transaction_depth} = 0
 -      if $self->_dbh_autocommit;
-+    if ( $self->_dbh_autocommit ) {
-+      $self->{transaction_depth} = 0;
-+    }
-+    else {
-+      $self->{transaction_depth}--;
-+    }
++    # $self->{transaction_depth} = 0
++    #   if $self->_dbh_autocommit;
++		if ( $self->_dbh_autocommit ) {
++			$self->{transaction_depth} = 0;
++		}
++		else {
++			$self->{transaction_depth}--;
++		}
    }
    elsif($self->{transaction_depth} > 1) {
-     $self->{transaction_depth}--
+     $self->{transaction_depth}--;

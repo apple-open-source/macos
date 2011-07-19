@@ -23,19 +23,48 @@
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOReturn.h>
+#include <stdarg.h>
+#include <asl.h>
 #include "IOHIDLibPrivate.h"
+#include "IOHIDBase.h"
 
 void _IOObjectCFRelease(        CFAllocatorRef          allocator  __unused, 
                                 const void *            value)
 {
-    IOObjectRelease((io_iterator_t)value);
+    IOObjectRelease((io_object_t)(uintptr_t) value);
 }
 
 const void * _IOObjectCFRetain( CFAllocatorRef          allocator  __unused, 
                                 const void *            value)
 {
-    if (kIOReturnSuccess != IOObjectRetain((io_object_t)value))
+    if (kIOReturnSuccess != IOObjectRetain((io_object_t)(uintptr_t)value))
         return NULL;
     
     return value;
+}
+
+void _IOHIDCallbackApplier(const void *callback, 
+                           const void *callbackContext, 
+                           void *applierContext)
+{
+    IOHIDCallbackApplierContext *context = (IOHIDCallbackApplierContext*)applierContext;
+    if (callback && context)
+        ((IOHIDCallback)callback)((void *)callbackContext, context->result, context->sender);
+}
+
+void _IOHIDLog(int level, const char *format, ...)
+{
+    aslmsg msg = NULL;
+    
+    if (1) {
+        msg = asl_new(ASL_TYPE_MSG);
+        asl_set(msg, ASL_KEY_FACILITY, "com.apple.iokit.IOHID");
+    }
+    va_list ap;
+    va_start(ap, format);
+    asl_vlog(NULL, msg, level, format, ap);
+    va_end(ap);
+    if (msg) {
+        asl_free(msg);
+    }
 }

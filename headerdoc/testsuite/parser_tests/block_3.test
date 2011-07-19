@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$92|void (^block_test_29342384_myfunction_with_block_return(size_t iterations_2))(size_t, int);
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$92|void (^block_test_29342384_myfunction_with_block_return(size_t iterations_2))(size_t, int);
 $284|/*! Block as return type.  Named block_test_29342384_myfunction_with_block_return.
     @param iterations_2
         the number of times this function should do something.
@@ -6,7 +6,7 @@ $284|/*! Block as return type.  Named block_test_29342384_myfunction_with_block_
         Returns a block that takes two arguments, one of type
         size_t and one of type int.
  */
-$0|$11607|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$11709|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -95,9 +95,9 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -187,8 +187,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -222,15 +222,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -272,8 +272,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -314,8 +314,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -356,8 +356,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -365,7 +365,7 @@ LONG ATTRIBUTES: <p></p>
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: iterations_2
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/block_test_29342384_myfunction_with_block_return/iterations_2
         ABSTRACT: ""
         DISCUSSION: "<p>the number of times this function should do something."
         UPDATED: ""
@@ -399,8 +399,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
 +---void
@@ -429,15 +429,15 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
-	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/econst/size_t //test_ref/c/struct/size_t //test_ref/c/clconst/size_t //test_ref/c/intf/size_t" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
+	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return //test_ref/doc/anysymbol/block_test_29342384_myfunction_with_block_return" machineGenerated="true" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/struct/size_t //test_ref/c/intf/size_t //test_ref/doc/anysymbol/size_t" machineGenerated="true" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
 	    <span class="param">size_t</span>,
 	    <span class="param">int</span>);  
 END OF OBJECT
 
 
 
-$11607|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$11709|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -526,9 +526,9 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -618,8 +618,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -653,15 +653,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -703,8 +703,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -745,8 +745,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -787,8 +787,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -796,7 +796,7 @@ LONG ATTRIBUTES: <p></p>
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: iterations_2
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/block_test_29342384_myfunction_with_block_return/iterations_2
         ABSTRACT: ""
         DISCUSSION: "<p>the number of times this function should do something."
         UPDATED: ""
@@ -830,8 +830,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
 +---void
@@ -860,874 +860,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
-	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/econst/size_t //test_ref/c/struct/size_t //test_ref/c/clconst/size_t //test_ref/c/intf/size_t" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
+	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return //test_ref/doc/anysymbol/block_test_29342384_myfunction_with_block_return" machineGenerated="true" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/struct/size_t //test_ref/c/intf/size_t //test_ref/doc/anysymbol/size_t" machineGenerated="true" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
 	    <span class="param">size_t</span>,
 	    <span class="param">int</span>);  
 END OF OBJECT
 
 
 
-_$35|testsuite/parser_tests/block_3.test$1|C$7|block 3$11607|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/block_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/block_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => block_test_29342384_myfunction_with_block_return
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{cbsodname} => block_test_29342384_myfunction_with_block_return
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => void
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: callback
-namelist: block_test_29342384_myfunction_with_block_return
-posstypes: function typedef
-value: 
-returntype: void
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => size_t iterations_2
-Parsed Param 1 => size_t
-Parsed Param 2 => int
--=: DUMP OF PARSE TREE :=-
-+---void
-+--- 
-+---(
-|   +---^
-|   +---block_test_29342384_myfunction_with_block_return
-|   +---(
-|   |   +---size_t
-|   |   +--- 
-|   |   +---iterations_2
-|   |   +---)
-|   +---)
-+---(
-|   +---size_t
-|   +---,
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: block 3
-APIUID: //test_ref/doc/header/block_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: block_test_29342384_myfunction_with_block_return
-    APIUID: //test_ref/c/func/block_test_29342384_myfunction_with_block_return
-    ABSTRACT: ""
-    DISCUSSION: "<p>Block as return type.  Named block_test_29342384_myfunction_with_block_return.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: "void"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: iterations_2
-        TYPE: size_t
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: 
-        TYPE:  size_t
-        APIUID: //test_ref/c/internal_temporary_object/
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: 
-        TYPE:  int
-        APIUID: //test_ref/c/internal_temporary_object/
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: iterations_2
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>the number of times this function should do something."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-+---void
-+--- 
-+---(
-|   +---^
-|   +---block_test_29342384_myfunction_with_block_return
-|   +---(
-|   |   +---size_t
-|   |   +--- 
-|   |   +---iterations_2
-|   |   +---)
-|   +---)
-+---(
-|   +---size_t
-|   +---,
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
-	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/econst/size_t //test_ref/c/struct/size_t //test_ref/c/clconst/size_t //test_ref/c/intf/size_t" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
-	    <span class="param">size_t</span>,
-	    <span class="param">int</span>);  
-END OF OBJECT
-
-
-
-$11607|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/block_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/block_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => block_test_29342384_myfunction_with_block_return
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{cbsodname} => block_test_29342384_myfunction_with_block_return
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => void
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: callback
-namelist: block_test_29342384_myfunction_with_block_return
-posstypes: function typedef
-value: 
-returntype: void
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => size_t iterations_2
-Parsed Param 1 => size_t
-Parsed Param 2 => int
--=: DUMP OF PARSE TREE :=-
-+---void
-+--- 
-+---(
-|   +---^
-|   +---block_test_29342384_myfunction_with_block_return
-|   +---(
-|   |   +---size_t
-|   |   +--- 
-|   |   +---iterations_2
-|   |   +---)
-|   +---)
-+---(
-|   +---size_t
-|   +---,
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: block 3
-APIUID: //test_ref/doc/header/block_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: block_test_29342384_myfunction_with_block_return
-    APIUID: //test_ref/c/func/block_test_29342384_myfunction_with_block_return
-    ABSTRACT: ""
-    DISCUSSION: "<p>Block as return type.  Named block_test_29342384_myfunction_with_block_return.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: "void"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: iterations_2
-        TYPE: size_t
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: 
-        TYPE:  size_t
-        APIUID: //test_ref/c/internal_temporary_object/
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: 
-        TYPE:  int
-        APIUID: //test_ref/c/internal_temporary_object/
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: iterations_2
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>the number of times this function should do something."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-+---void
-+--- 
-+---(
-|   +---^
-|   +---block_test_29342384_myfunction_with_block_return
-|   +---(
-|   |   +---size_t
-|   |   +--- 
-|   |   +---iterations_2
-|   |   +---)
-|   +---)
-+---(
-|   +---size_t
-|   +---,
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: block_test_29342384_myfunction_with_block_return (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/econst/void //test_ref/c/struct/void //test_ref/c/clconst/void //test_ref/c/intf/void" --><span class="type">void</span><!-- /a --> (^<!-- a logicalPath="//test_ref/c/instm/block_test_29342384_myfunction_with_block_return //test_ref/c/clm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfcm/block_test_29342384_myfunction_with_block_return //test_ref/c/intfm/block_test_29342384_myfunction_with_block_return //test_ref/c/func/block_test_29342384_myfunction_with_block_return //test_ref/c/ftmplt/block_test_29342384_myfunction_with_block_return //test_ref/c/defn/block_test_29342384_myfunction_with_block_return //test_ref/c/macro/block_test_29342384_myfunction_with_block_return" --><span class="function">block_test_29342384_myfunction_with_block_return</span><!-- /a -->(
-	        <!-- a logicalPath="//test_ref/c/cl/size_t //test_ref/c/tdef/size_t //test_ref/c/tag/size_t //test_ref/c/econst/size_t //test_ref/c/struct/size_t //test_ref/c/clconst/size_t //test_ref/c/intf/size_t" --><span class="type">size_t</span><!-- /a --> <span class="param">iterations_2</span>))(
-	    <span class="param">size_t</span>,
-	    <span class="param">int</span>);  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$89|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/block_3.test$1|C$7|block 3$1|C$6|parser

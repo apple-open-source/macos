@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,8 +32,10 @@
 /* 
  * Modification History
  *
- * May 10, 2006	Dieter Siegmund (dieter@apple)
+ * May 10, 2006		Dieter Siegmund (dieter@apple)
  * - created
+ * December 4, 2009	Dieter Siegmund (dieter@apple)
+ * - updated to use CFDictionary for passing values
  */
 
 #include <CoreFoundation/CFData.h>
@@ -50,6 +51,27 @@ typedef struct OpaqueSecAccessRef *SecAccessRef;
 #include <Security/SecKeychain.h>
 #include <Security/SecAccess.h>
 #endif /* TARGET_OS_EMBEDDED */
+
+/*
+ * Keys relevant to the values dict.
+ */
+#if ! TARGET_OS_EMBEDDED
+/*
+ * Note:
+ *   These two properties are only consulted when doing a Create
+ */
+const CFStringRef kEAPSecKeychainPropTrustedApplications; /* CFArray[SecTrustedApplication] */
+const CFStringRef kEAPSecKeychainPropAllowRootAccess;	  /* CFBoolean */
+
+/*
+ * In the Set APIs, specifying a value of kCFNull will remove any of the
+ * following properties.
+ */
+const CFStringRef kEAPSecKeychainPropLabel;	/* CFData */
+const CFStringRef kEAPSecKeychainPropDescription; /* CFData */
+const CFStringRef kEAPSecKeychainPropAccount; 	/* CFData */
+const CFStringRef kEAPSecKeychainPropPassword; 	/* CFData */
+#endif /* ! TARGET_OS_EMBEDDED */
 
 OSStatus
 EAPSecKeychainPasswordItemCreateWithAccess(SecKeychainRef keychain,
@@ -68,15 +90,32 @@ EAPSecKeychainPasswordItemCreateUniqueWithAccess(SecKeychainRef keychain,
 						 CFDataRef password,
 						 CFStringRef * unique_id_str);
 OSStatus
+EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
+				 CFStringRef unique_id_str,
+				 CFDictionaryRef values);
+OSStatus
+EAPSecKeychainPasswordItemCreateUnique(SecKeychainRef keychain,
+				       CFDictionaryRef values,
+				       CFStringRef * req_unique_id);
+OSStatus
 EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
 			      CFStringRef unique_id_str,
 			      CFDataRef password);
+OSStatus
+EAPSecKeychainPasswordItemSet2(SecKeychainRef keychain,
+			       CFStringRef unique_id_str,
+			       CFDictionaryRef values);
 OSStatus
 EAPSecKeychainPasswordItemCopy(SecKeychainRef keychain, 
 			       CFStringRef unique_id_str,
 			       CFDataRef * ret_password);
 OSStatus
+EAPSecKeychainPasswordItemCopy2(SecKeychainRef keychain, 
+				CFStringRef unique_id_str,
+				CFArrayRef keys,
+				CFDictionaryRef * ret_values);
+OSStatus
 EAPSecKeychainPasswordItemRemove(SecKeychainRef keychain,
 				 CFStringRef unique_id_str);
-#endif _EAP8021X_EAPKEYCHAINUTIL_H
+#endif /* _EAP8021X_EAPKEYCHAINUTIL_H */
 

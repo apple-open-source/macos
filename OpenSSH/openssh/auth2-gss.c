@@ -1,7 +1,7 @@
 /* $OpenBSD: auth2-gss.c,v 1.16 2007/10/29 00:52:45 dtucker Exp $ */
 
 /*
- * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -77,7 +77,8 @@ userauth_gsskeyex(Authctxt *authctxt)
 	/* gss_kex_context is NULL with privsep, so we can't check it here */
 	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gss_kex_context, 
 	    &gssbuf, &mic))))
-		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user));
+		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
+		    authctxt->pw));
 	
 	buffer_free(&b);
 	xfree(mic.value);
@@ -277,7 +278,8 @@ input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt)
 
 	packet_check_eom();
 
-	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user));
+	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user,
+	    authctxt->pw));
 
 	authctxt->postponed = 0;
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
@@ -312,7 +314,8 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
 	gssbuf.length = buffer_len(&b);
 
 	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gssctxt, &gssbuf, &mic))))
-		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user));
+		authenticated = 
+		    PRIVSEP(ssh_gssapi_userok(authctxt->user, authctxt->pw));
 	else
 		logit("GSSAPI MIC check failed");
 

@@ -56,11 +56,9 @@ struct sainfo {
 	vchar_t *id_i;		/* identifier of the authorized initiator */
 	struct sainfoalg *algs[MAXALGCLASS];
 	int	dynamic;		/* created through vpn control socket */
-#ifdef __APPLE__
 	int to_remove;
 	int to_delete;
 	int linked_to_ph2;
-#endif
 	LIST_ENTRY(sainfo) chain;
 };
 
@@ -73,11 +71,9 @@ struct sainfoalg {
 
 extern struct sainfo *getsainfo __P((const vchar_t *,
 	const vchar_t *, const vchar_t *, int));
-#ifdef __APPLE__
 extern struct sainfo *getsainfo_by_dst_id __P((const vchar_t *, const vchar_t *));
 extern int            link_sainfo_to_ph2 __P((struct sainfo *));
 extern int            unlink_sainfo_from_ph2 __P((struct sainfo *));
-#endif
 extern struct sainfo *newsainfo __P((void));
 extern void delsainfo __P((struct sainfo *));
 extern void inssainfo __P((struct sainfo *));

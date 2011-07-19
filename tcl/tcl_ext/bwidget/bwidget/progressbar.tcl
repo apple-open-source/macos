@@ -1,6 +1,7 @@
 # ----------------------------------------------------------------------------
 #  progressbar.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: progressbar.tcl,v 1.14 2009/09/06 21:37:18 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - ProgressBar::create
@@ -8,7 +9,9 @@
 #     - ProgressBar::cget
 #     - ProgressBar::_destroy
 #     - ProgressBar::_modify
+#     - ProgressBar::_themechanged
 # ----------------------------------------------------------------------------
+# to-do: johann: -troughcolor has no effect ?!
 
 namespace eval ProgressBar {
     Widget::define ProgressBar progressbar
@@ -17,10 +20,10 @@ namespace eval ProgressBar {
         {-type        Enum       normal     0
                       {normal incremental infinite nonincremental_infinite}}
         {-maximum     Int        100        0 "%d > 0"}
-        {-background  TkResource ""         0 frame}
-        {-foreground  TkResource "blue"     0 label}
+        {-background  Color      "SystemWindowFrame" 0}
+        {-foreground  Color      "SystemHighlight"   0}
+        {-troughcolor Color      "SystemScrollbar"  0}
         {-borderwidth TkResource 2          0 frame}
-        {-troughcolor TkResource ""         0 scrollbar}
         {-relief      TkResource sunken     0 label}
         {-orient      Enum       horizontal 1 {horizontal vertical}}
         {-variable    String     ""         0}
@@ -37,6 +40,10 @@ namespace eval ProgressBar {
 	-troughcolor -background -borderwidth {} -relief {}
     }
 
+    if {[lsearch [bindtags .] ProgressBarThemeChanged] < 0} {
+        bindtags . [linsert [bindtags .] 1 ProgressBarThemeChanged]
+    }
+
     variable _widget
 }
 
@@ -49,6 +56,7 @@ proc ProgressBar::create { path args } {
 
     array set maps [list ProgressBar {} :cmd {} .bar {}]
     array set maps [Widget::parseArgs ProgressBar $args]
+
     eval frame $path $maps(:cmd) -class ProgressBar -bd 0 \
 	    -highlightthickness 0 -relief flat
     Widget::initFromODB ProgressBar $path $maps(ProgressBar)
@@ -73,6 +81,9 @@ proc ProgressBar::create { path args } {
 
     bind $path.bar <Destroy>   [list ProgressBar::_destroy $path]
     bind $path.bar <Configure> [list ProgressBar::_modify $path]
+
+    bind ProgressBarThemeChanged <<ThemeChanged>> \
+	     "+ [namespace current]::_themechanged $path"
 
     return [Widget::create ProgressBar $path]
 }
@@ -118,6 +129,11 @@ proc ProgressBar::configure { path args } {
 	set fg [Widget::cget $path -foreground]
         $path.bar itemconfigure rect -fill $fg -outline $fg
     }
+    if { [Widget::hasChangedX $path -background] } {
+	set bg [Widget::cget $path -background]
+        $path.bar configure -background $bg
+    }
+
     return $res
 }
 
@@ -206,3 +222,18 @@ proc ProgressBar::_destroy { path } {
     unset _widget($path,dir)
     Widget::destroy $path
 }
+
+
+# ----------------------------------------------------------------------------
+#  Command ProgressBar::_themechanged
+# ----------------------------------------------------------------------------
+proc ProgressBar::_themechanged { path } {
+
+    if { ![winfo exists $path] } { return }
+    BWidget::set_themedefaults
+    
+    $path configure \
+           -background $BWidget::colors(SystemWindowFrame) \
+           -foreground $BWidget::colors(SystemHighlight)
+}
+

@@ -124,10 +124,15 @@ auth_required   if this is set and a POST/PUT is made without auth, the
                 server will NOT wait for the full request body to get sent
 idle            do nothing after receiving the request, just "sit idle"
 stream          continuously send data to the client, never-ending
+writedelay: [secs] delay this amount between reply packets
 pipe: [num]     tell the server to expect this many HTTP requests before
                 sending back anything, to allow pipelining tests
 skip: [num]     instructs the server to ignore reading this many bytes from a PUT
                 or POST request
+
+rtp: part [num] channel [num] size [num]
+               stream a fake RTP packet for the given part on a chosen channel
+               with the given payload size
 </servercmd>
 </reply>
 
@@ -148,6 +153,12 @@ scp
 sftp
 socks4
 socks5
+rtsp
+rtsp-ipv6
+imap
+pop3
+smtp
+http+tls-srp
 
 Give only one per line.  This subsection is mandatory.
 </server>
@@ -157,6 +168,7 @@ A list of features that MUST be present in the client/library for this test to
 be able to run (if these features are not present, the test will be
 SKIPPED). Features testable here are:
 
+axTLS
 crypto
 getrlimit
 GnuTLS
@@ -170,6 +182,7 @@ NTLM
 OpenSSL
 SSL
 socks
+unittest
 
 as well as each protocol that curl supports.  A protocol only needs to be
 specified if it is different from the server (useful when the server
@@ -198,7 +211,8 @@ to have failed. Variables are substituted as in the <command> section.
 
 <tool>
 Name of tool to use instead of "curl". This tool must be built and exist
-in the libtest/ directory.
+either in the libtest/ directory (if the tool starts with 'lib') or in the
+unit/ directory (if the tool starts with 'unit').
 </tool>
 
 <name>
@@ -214,7 +228,7 @@ command is run. They are cleared again after the command has been run.
 Variables are first substituted as in the <command> section.
 </setenv>
 
-<command [option="no-output"] [timeout="secs"] [delay="secs"]>
+<command [option="no-output"] [timeout="secs"] [delay="secs"] [type="perl"]>
 command line to run, there's a bunch of %variables that get replaced
 accordingly.
 
@@ -226,6 +240,9 @@ data that is defined within the <reply><data></data></reply> section.
 If a CONNECT is used to the server (to emulate HTTPS etc over proxy), the port
 number given in the CONNECT request will be used to identify which test that
 is being run, if the proxy host name is said to start with 'test'.
+
+Set type="perl" to write the test case as a perl script. It implies that
+there's no memory debugging and valgrind gets shut off for this test.
 
 Set option="no-output" to prevent the test script to slap on the --output
 argument that directs the output to a file. The --output is also not added if
@@ -262,6 +279,8 @@ Available substitute variables include:
 %TFTP6PORT - IPv6 port number of the TFTP server
 %SSHPORT   - Port number of the SCP/SFTP server
 %SOCKSPORT - Port number of the SOCKS4/5 server
+%RTSPPORT  - Port number of the RTSP server
+%RTSP6PORT - IPv6 port number of the RTSP server
 %SRCDIR    - Full path to the source dir
 %PWD       - Current directory
 %CURL      - Path to the curl executable

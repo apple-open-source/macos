@@ -63,8 +63,6 @@
 #define JB_FS           64
 #define JB_GS           68
 
-#define SAVE_SEG_REGS	1
-
 LEAF(__setjmp, 0)
         movl    4(%esp), %ecx           // jmp_buf (struct sigcontext *)
 
@@ -80,24 +78,8 @@ LEAF(__setjmp, 0)
         movl    (%esp), %eax
         movl    %eax, JB_EIP(%ecx)
         // ESP is set to the frame return address plus 4
-        movl    %esp, %eax
-        addl    $4, %eax
+        leal    4(%esp), %eax
         movl    %eax, JB_ESP(%ecx)
-
-#if SAVE_SEG_REGS
-        // segment registers
-        mov     %ss, JB_SS(%ecx)
-        mov     %cs, JB_CS(%ecx)
-        mov     %ds, JB_DS(%ecx)
-        mov     %es, JB_ES(%ecx)
-        mov     %fs, JB_FS(%ecx)
-        mov     %gs, JB_GS(%ecx)
-#endif
-
-        // save eflags - you can't use movl
-        pushf
-        popl    %eax
-        movl    %eax, JB_EFLAGS(%ecx)
 
         // return 0
         xorl    %eax, %eax
@@ -105,13 +87,12 @@ LEAF(__setjmp, 0)
 
 
 LEAF(__longjmp, 0)
-	fninit				// reset FP coprocessor
-
+	fninit				// Clear all FP exceptions
 	movl    4(%esp), %ecx           // jmp_buf (struct sigcontext *)
 	movl	8(%esp), %eax		// return value
 	testl	%eax, %eax
 	jnz 1f
-	incl %eax
+	incl    %eax
 
 	// general registers
 1:	movl	JB_EBX(%ecx), %ebx
@@ -119,21 +100,9 @@ LEAF(__longjmp, 0)
 	movl	JB_EDI(%ecx), %edi
 	movl	JB_EBP(%ecx), %ebp
 	movl	JB_ESP(%ecx), %esp
+
 	fldcw	JB_FPCW(%ecx)			// Restore FP control word
 	ldmxcsr JB_MXCSR(%ecx)			// Restore the MXCSR
 
-#if SAVE_SEG_REGS
-	// segment registers
-	mov	JB_SS(%ecx), %ss
-	// mov	JB_CS(%ecx), %cs		// can't set cs?
-	mov	JB_DS(%ecx), %ds
-	mov	JB_ES(%ecx), %es
-	mov	JB_FS(%ecx), %fs
-	mov	JB_GS(%ecx), %gs
-#endif
-
-	// eflags
-	pushl	JB_EFLAGS(%ecx)
-	popf
-
+	cld					// Make sure DF is reset
 	jmp	*JB_EIP(%ecx)

@@ -32,8 +32,13 @@
 <TD>&nbsp;&nbsp;<A HREF="#-bitmap">-bitmap</A></TR>
 </TR>
 <TR>
+
+<TD>&nbsp;&nbsp;<A HREF="#-buttonwidth">-buttonwidth</A></TR>
 <TD>&nbsp;&nbsp;<A HREF="#-cancel">-cancel</A></TR>
+</TR>
+<TR>
 <TD>&nbsp;&nbsp;<A HREF="#-default">-default</A></TR>
+<TD>&nbsp;&nbsp;<A HREF="#-geometry">-geometry</A></TR>
 </TR>
 <TR>
 <TD>&nbsp;&nbsp;<A HREF="#-image">-image</A></TR>
@@ -134,6 +139,13 @@ Specifies a bitmap to display at the left of the user frame.
 <B>image</B> option override <B>bitmap</B>.
 </DD>
 </DL>
+<DL><DT><A NAME="-buttonwidth"><B>-buttonwidth (read-only)</B></A></DT>
+<DD>
+
+Specifies the width of the buttons as specified for the option <B>width</B>
+of the <B>button</b> widget.
+</DD>
+</DL>
 <DL><DT><A NAME="-cancel"><B>-cancel</B></A></DT>
 <DD>
 
@@ -146,6 +158,14 @@ this button is invoked.
 
 Specifies the number of the default button of the Dialog.
 When user press Return in the Dialog, this button is invoked.
+</DD>
+</DL>
+</DL>
+<DL><DT><A NAME="-geometry"><B>-geometry</B></A></DT>
+<DD>
+
+Set the <B>geometry</B> used when method <B>draw</B> is called.
+See <B>wm geometry</B> for a parameter description.
 </DD>
 </DL>
 <DL><DT><A NAME="-image"><B>-image (read-only)</B></A></DT>

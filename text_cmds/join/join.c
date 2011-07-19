@@ -60,6 +60,7 @@ __FBSDID("$FreeBSD: src/usr.bin/join/join.c,v 1.20 2004/08/26 06:28:05 maxim Exp
 #include <string.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <sysexits.h>
 
 #ifdef __APPLE__
 #include "get_compat.h"
@@ -330,8 +331,12 @@ slurp(INPUT *F)
 			F->pushbool = 0;
 			continue;
 		}
-		if ((bp = fgetln(F->fp, &len)) == NULL)
+		if ((bp = fgetln(F->fp, &len)) == NULL) {
+			if (ferror(F->fp)) {
+				err(EX_IOERR, NULL);
+			}
 			return;
+		}
 		if (lp->linealloc <= len + 1) {
 			lp->linealloc += MAX(100, len + 1 - lp->linealloc);
 			if ((lp->line =

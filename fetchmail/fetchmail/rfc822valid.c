@@ -48,7 +48,7 @@ static int quotedstring(unsigned char const **x) {
 
 static int atom(unsigned char const **x) {
     /* atom */
-    if (strchr(atomchar, (const char)**x)) {
+    if (strchr(atomchar, (char)**x)) {
 	*x += strspn((const char *)*x, atomchar);
 	return 1;
     }

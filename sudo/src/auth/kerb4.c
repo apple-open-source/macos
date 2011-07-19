@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1999-2005, 2007 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999-2005, 2007, 2010
+ *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -33,10 +34,9 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
+#endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
 #endif /* HAVE_STRING_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -46,10 +46,6 @@
 
 #include "sudo.h"
 #include "sudo_auth.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: kerb4.c,v 1.16 2008/11/09 14:13:13 millert Exp $";
-#endif /* lint */
 
 int
 kerb4_init(pw, promptp, auth)

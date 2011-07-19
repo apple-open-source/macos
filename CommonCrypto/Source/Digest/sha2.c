@@ -312,8 +312,11 @@ extern "C"
     q(d) += q(h); q(h) += s_0(q(a)) + maj(q(a), q(b), q(c))
 
 /* SHA256 mixing data   */
-
+#if defined (SHA256_USE_ASSEMBLY) && (defined(__x86_64__) || defined(__i386__))
+	const sha2_32t K256[64] =
+#else
 static const sha2_32t k256[64] =
+#endif
 {   0x428a2f98ul, 0x71374491ul, 0xb5c0fbcful, 0xe9b5dba5ul,
     0x3956c25bul, 0x59f111f1ul, 0x923f82a4ul, 0xab1c5ed5ul,
     0xd807aa98ul, 0x12835b01ul, 0x243185beul, 0x550c7dc3ul,
@@ -338,6 +341,9 @@ static const sha2_32t k256[64] =
 /* in the ORIGINAL byte stream will go into the high end of */
 /* words on BOTH big and little endian systems              */
 
+#if defined (SHA256_USE_ASSEMBLY) && (defined(__x86_64__) || defined(__i386__))
+extern	sha2_void sha256_compile(sha256_ctx ctx[1]);
+#else
 static sha2_void sha256_compile(sha256_ctx ctx[1])
 {
 #if !defined(UNROLL_SHA2)
@@ -446,6 +452,7 @@ static sha2_void sha256_compile(sha256_ctx ctx[1])
     ctx->hash[6] += v6; ctx->hash[7] += v7;
 #endif
 }
+#endif	//	SHA256_USE_ASSEMBLY 
 
 /* SHA256 hash data in an array of bytes into hash buffer   */
 /* and call the hash_compile function as required.          */

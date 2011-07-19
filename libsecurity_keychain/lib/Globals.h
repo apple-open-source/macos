@@ -55,7 +55,6 @@ public:
 
 	// Public globals
 	StorageManager storageManager;
-	//DefaultKeychain defaultKeychain;
 
 private:
 

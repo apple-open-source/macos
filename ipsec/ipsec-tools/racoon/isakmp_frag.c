@@ -41,7 +41,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef HAVE_OPENSSL
 #include <openssl/md5.h> 
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -77,6 +79,9 @@
 #include "handler.h"
 #include "isakmp_frag.h"
 #include "strnames.h"
+#include "nattraversal.h"
+#include "grabmyaddr.h"
+#include "localconf.h"
 
 int
 isakmp_sendfrags(iph1, buf) 
@@ -95,6 +100,20 @@ isakmp_sendfrags(iph1, buf)
 	unsigned int fragnum = 0;
 	size_t len;
 	int etype;
+#ifdef ENABLE_NATT
+	size_t extralen = NON_ESP_MARKER_USE(iph1)? NON_ESP_MARKER_LEN : 0;
+#else
+	size_t extralen = 0;
+#endif
+	int s;
+	vchar_t *vbuf;
+
+
+	/* select the socket to be sent */
+	s = getsockmyaddr(iph1->local);
+	if (s == -1){
+		return -1;
+	}
 
 	/*
 	 * Catch the exchange type for later: the fragments and the
@@ -108,7 +127,7 @@ isakmp_sendfrags(iph1, buf)
 	 * First compute the maximum data length that will fit in it
 	 */
 	max_datalen = ISAKMP_FRAG_MAXLEN - 
-	    (sizeof(*hdr) + sizeof(*fraghdr) + sizeof(trailer));
+	    (sizeof(*hdr) + sizeof(*fraghdr));
 
 	sdata = buf->v;
 	len = buf->l;
@@ -121,9 +140,7 @@ isakmp_sendfrags(iph1, buf)
 		else
 			datalen = len;
 
-		fraglen = sizeof(*hdr) 
-			+ sizeof(*fraghdr) 
-			+ datalen;
+		fraglen = sizeof(*hdr) + sizeof(*fraghdr) + datalen;
 
 		if ((frag = vmalloc(fraglen)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, 
@@ -136,7 +153,7 @@ isakmp_sendfrags(iph1, buf)
 		hdr->etype = etype;
 
 		fraghdr = (struct isakmp_frag *)(hdr + 1);
-		fraghdr->unknown0 = htons(0);
+		fraghdr->unknown0 = 0;
 		fraghdr->len = htons(fraglen - sizeof(*hdr));
 		fraghdr->unknown1 = htons(1);
 		fraghdr->index = fragnum;
@@ -148,8 +165,28 @@ isakmp_sendfrags(iph1, buf)
 		data = (caddr_t)(fraghdr + 1);
 		memcpy(data, sdata, datalen);
 
-		if (isakmp_send(iph1, frag) < 0) {
-			plog(LLV_ERROR, LOCATION, iph1->remote, "isakmp_send failed\n");
+#ifdef ENABLE_NATT
+		/* If NAT-T port floating is in use, 4 zero bytes (non-ESP marker) 
+		 must added just before the packet itself. For this we must 
+		 allocate a new buffer and release it at the end. */
+		if (extralen) {
+			if ((vbuf = vmalloc(frag->l + extralen)) == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, 
+					 "%s: vbuf allocation failed\n", __FUNCTION__);
+				vfree(frag);
+				return -1;
+			}
+			*(u_int32_t *)vbuf->v = 0; // non-esp marker
+			memcpy(vbuf->v + extralen, frag->v, frag->l);
+			vfree(frag);
+			frag = vbuf;
+		}
+#endif
+
+		if (sendfromto(s, frag->v, frag->l,
+					   iph1->local, iph1->remote, lcconf->count_persend) == -1) {
+			plog(LLV_ERROR, LOCATION, NULL, "%s: sendfromto failed\n", __FUNCTION__);
+			vfree(frag);
 			return -1;
 		}
 		
@@ -158,7 +195,10 @@ isakmp_sendfrags(iph1, buf)
 		len -= datalen;
 		sdata += datalen;
 	}
-		
+
+	plog(LLV_DEBUG2, LOCATION, NULL, 
+		 "%s: processed %d fragments\n", __FUNCTION__, fragnum);
+
 	return fragnum;
 }
 
@@ -167,10 +207,11 @@ vendorid_frag_cap(gen)
 	struct isakmp_gen *gen;
 {
 	int *hp;
+	int hashlen_bytes = eay_md5_hashlen() >> 3;
 
 	hp = (int *)(gen + 1);
 
-	return ntohl(hp[MD5_DIGEST_LENGTH / sizeof(*hp)]);
+	return ntohl(hp[hashlen_bytes / sizeof(*hp)]);
 }
 
 int 
@@ -205,6 +246,13 @@ isakmp_frag_extract(iph1, msg)
 		return -1;
 	}
 
+	if (ntohs(frag->len) < sizeof(*frag)) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "invalid Frag, frag-len %d\n",
+			 ntohs(frag->len));
+		return -1;
+	}
+
 	if ((buf = vmalloc(ntohs(frag->len) - sizeof(*frag))) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL, "Cannot allocate memory\n");
 		return -1;
@@ -223,6 +271,7 @@ isakmp_frag_extract(iph1, msg)
 	item->frag_last = (frag->flags & ISAKMP_FRAG_LAST);
 	item->frag_next = NULL;
 	item->frag_packet = buf;
+	item->frag_id = ntohs(frag->unknown1);
 
 	/* Look for the last frag while inserting the new item in the chain */
 	if (item->frag_last)
@@ -259,7 +308,10 @@ isakmp_frag_extract(iph1, msg)
 		if (item != NULL) /* It is complete */
 			return 1;
 	}
-		
+
+	plog(LLV_DEBUG2, LOCATION, NULL, 
+		 "%s: processed %d fragments\n", __FUNCTION__, last_frag);
+
 	return 0;
 }
 
@@ -310,9 +362,13 @@ isakmp_frag_reassembly(iph1)
 		data += item->frag_packet->l;
 	}
 
+	plog(LLV_DEBUG2, LOCATION, NULL, 
+		 "%s: processed %d fragments\n", __FUNCTION__, frag_count);
+
 out:
 	item = iph1->frag_chain;		
-	do {
+	
+	while (item != NULL) {
 		struct isakmp_frag_item *next_item;
 
 		next_item = item->frag_next;
@@ -321,7 +377,7 @@ out:
 		racoon_free(item);
 
 		item = next_item;
-	} while (item != NULL);
+	} 
 
 	iph1->frag_chain = NULL;
 
@@ -335,10 +391,11 @@ isakmp_frag_addcap(buf, cap)
 {
 	int *capp;
 	size_t len;
+	int hashlen_bytes = eay_md5_hashlen() >> 3;
 
 	/* If the capability has not been added, add room now */
 	len = buf->l;
-	if (len == MD5_DIGEST_LENGTH) {
+	if (len == hashlen_bytes) {
 		if ((buf = vrealloc(buf, len + sizeof(cap))) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, 
 			    "Cannot allocate memory\n");
@@ -348,9 +405,122 @@ isakmp_frag_addcap(buf, cap)
 		*capp = htonl(0);
 	}
 
-	capp = (int *)(buf->v + MD5_DIGEST_LENGTH);
+	capp = (int *)(buf->v + hashlen_bytes);
 	*capp |= htonl(cap);
 
 	return buf;
 }
 
+int
+sendfragsfromto(s, buf, local, remote, count_persend, frag_flags) 
+	int              s;
+	vchar_t         *buf;
+	struct sockaddr *local;
+	struct sockaddr *remote;
+	int              count_persend;
+	u_int32_t        frag_flags;
+{
+	struct isakmp *main_hdr;
+	struct isakmp *hdr;
+	struct isakmp_frag *fraghdr;
+	caddr_t data;
+	caddr_t sdata;
+	size_t datalen;
+	size_t max_datalen;
+	size_t fraglen;
+	vchar_t *frag;
+	unsigned int trailer;
+	unsigned int fragnum = 0;
+	size_t len;
+#ifdef ENABLE_NATT
+	size_t extralen = (frag_flags & FRAG_PUT_NON_ESP_MARKER)? NON_ESP_MARKER_LEN : 0;
+#else
+	size_t extralen = 0;
+#endif
+	
+	/*
+	 * fragmented packet must have the same exchange type (amongst other fields in the header).
+	 */
+	main_hdr = (struct isakmp *)buf->v;
+
+	/*
+	 * We want to send a a packet smaller than ISAKMP_FRAG_MAXLEN
+	 * First compute the maximum data length that will fit in it
+	 */
+	max_datalen = ISAKMP_FRAG_MAXLEN - 
+	(sizeof(*main_hdr) + sizeof(*fraghdr));
+
+	sdata = buf->v;
+	len = buf->l;
+	
+	while (len > 0) {
+		fragnum++;
+
+		if (len > max_datalen)
+			datalen = max_datalen;
+		else
+			datalen = len;
+
+		fraglen = sizeof(*hdr) + sizeof(*fraghdr) + datalen;
+
+		if ((frag = vmalloc(fraglen)) == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				 "Cannot allocate memory\n");
+			return -1;
+		}
+
+		hdr = (struct isakmp *)frag->v;
+		bcopy(main_hdr, hdr, sizeof(*hdr));
+		hdr->len = htonl(frag->l);
+		hdr->np = ISAKMP_NPTYPE_FRAG;
+
+		fraghdr = (struct isakmp_frag *)(hdr + 1);
+		fraghdr->unknown0 = 0;
+		fraghdr->len = htons(fraglen - sizeof(*hdr));
+		fraghdr->unknown1 = htons(1);
+		fraghdr->index = fragnum;
+		if (len == datalen)
+			fraghdr->flags = ISAKMP_FRAG_LAST;
+		else
+			fraghdr->flags = 0;
+
+		data = (caddr_t)(fraghdr + 1);
+		memcpy(data, sdata, datalen);
+
+#ifdef ENABLE_NATT
+		/* If NAT-T port floating is in use, 4 zero bytes (non-ESP marker) 
+		 must added just before the packet itself. For this we must 
+		 allocate a new buffer and release it at the end. */
+		if (extralen) {
+			vchar_t *vbuf;
+			
+			if ((vbuf = vmalloc(frag->l + extralen)) == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, 
+					 "%s: vbuf allocation failed\n", __FUNCTION__);
+				vfree(frag);
+				return -1;
+			}
+			*(u_int32_t *)vbuf->v = 0; // non-esp marker
+			memcpy(vbuf->v + extralen, frag->v, frag->l);
+			vfree(frag);
+			frag = vbuf;
+		}
+#endif
+
+		if (sendfromto(s, frag->v, frag->l, local, remote, count_persend) == -1) {
+			plog(LLV_ERROR, LOCATION, NULL, "sendfromto failed\n");
+			vfree(frag);
+			return -1;
+		}
+
+		vfree(frag);
+
+		len -= datalen;
+		sdata += datalen;
+	}
+
+	plog(LLV_DEBUG2, LOCATION, NULL, 
+		 "%s: processed %d fragments\n", __FUNCTION__, fragnum);
+
+	return fragnum;
+}

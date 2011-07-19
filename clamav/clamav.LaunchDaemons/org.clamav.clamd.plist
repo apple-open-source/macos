@@ -8,12 +8,18 @@
 	<string>org.clamav.clamd</string>
 	<key>OnDemand</key>
 	<false/>
-	<key>Program</key>
-	<string>/usr/sbin/clamd</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>clamd</string>
+		<string>/usr/bin/sandbox-exec</string>
+		<string>-f</string>
+		<string>/usr/share/sandbox/clamd.sb</string>
+		<string>/usr/sbin/clamd</string>
 	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>TMPDIR</key>
+		<string>/private/var/amavis/tmp</string>
+	</dict>
 	<key>ServiceIPC</key>
 	<false/>
 	<key>UserName</key>

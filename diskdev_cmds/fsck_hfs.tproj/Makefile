@@ -11,12 +11,19 @@ CFILES = fsck_hfs.c utilities.c cache.c fsck_debug.c \
 	$(OBJROOT)/$(Project)/_version.c
 MANPAGES = fsck_hfs.8
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
 export CONFIG_HFS_TRIM ?= 1
 
 Extra_CC_Flags = -DCONFIG_HFS_TRIM=$(CONFIG_HFS_TRIM) -Wall -Werror \
-	-Wno-error=deprecated-declarations -mdynamic-no-pic -Idfalib
+	-Wno-error=deprecated-declarations -Idfalib
+
 Extra_LD_Flags = -dead_strip \
-	-L"$(SYMROOT)" -ldfalib
+	-L"$(SYMROOT)" -ldfalib -framework IOKit -framework CoreFoundation
+
+ifeq ($(Embedded),NO)
+	Extra_CC_Flags += -mdynamic-no-pic
+endif
 
 HFS_INSTALLDIR = /System/Library/Filesystems/hfs.fs
 FSCK_STRINGPATH = $(HFS_INSTALLDIR)/Contents/Resources/English.lproj/fsck.strings

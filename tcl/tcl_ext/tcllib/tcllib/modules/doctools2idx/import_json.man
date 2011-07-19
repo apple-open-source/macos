@@ -1,0 +1,5 @@
+[vset PACKAGE json]
+[vset NAME    JSON]
+[vset REQUIRE json]
+[vset CONFIG  json]
+[include include/import/plugin.inc]

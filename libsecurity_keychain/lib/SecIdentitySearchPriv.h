@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,9 +38,13 @@ extern "C" {
     @param searchRef On return, an identity search reference. You are responsible for releasing this reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
     @discussion This function is an advanced version of SecIdentitySearchCreate which allows finer-grained control over the search. The returned search reference is used to obtain matching identities in subsequent calls to the SecIdentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
+
+	IMPORTANT: as of Mac OS X 10.7, this function is deprecated and will be removed in a future release.
+	In 10.7 and later, you should use SecItemCopyMatching (see SecItem.h) to find identities that match specified attributes.
 */
 OSStatus SecIdentitySearchCreateWithAttributes(CFDictionaryRef attributes, SecIdentitySearchRef* searchRef)
-    AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+    /*AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;*/
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecIdentitySearchCreateWithPolicy
@@ -53,9 +57,28 @@ OSStatus SecIdentitySearchCreateWithAttributes(CFDictionaryRef attributes, SecId
 	@param searchRef On return, an identity search reference. You are responsible for releasing this reference by calling the CFRelease function.
 	@result A result code. See "Security Error Codes" (SecBase.h).
 	@discussion This function is an advanced version of SecIdentitySearchCreate which allows finer-grained control over the search. The returned search reference is used to obtain matching identities in subsequent calls to the SecIdentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
+
+	IMPORTANT: as of Mac OS X 10.7, this function is deprecated and will be removed in a future release.
+	In 10.7 and later, you should use SecItemCopyMatching (see SecItem.h) to find identities that match a given policy.
+	
+	To specify the policy which the identity must match, add this key/value pair to the query dictionary:
+	- kSecMatchPolicy (value is the SecPolicyRef)
+	
+	To specify the service name which requires this identity, add this dictionary key:
+	- kSecAttrService (value is a CFStringRef)
+	
+	To specify key usage(s) which the identity must have, add one or more of the following (values are CFBooleanRef):
+	- kSecAttrCanEncrypt, kSecAttrCanDecrypt, kSecAttrCanDerive, kSecAttrCanSign, kSecAttrCanVerify, kSecAttrCanWrap, kSecAttrCanUnwrap
+
+	To specify a list of keychains to search, add this dictionary key:
+	- kSecMatchSearchList (value is a CFArrayRef containing one or more SecKeychainRef instances)
+	
+	To specify that only valid identities be returned, add this dictionary key:
+	- kSecMatchTrustedOnly (value is a CFBooleanRef)
 */
-OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idString, CSSM_KEYUSE keyUsage, CFTypeRef keychainOrArray, Boolean returnOnlyValidIdentities, SecIdentitySearchRef* searchRef)
-    AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+OSStatus SecIdentitySearchCreateWithPolicy(SecPolicyRef policy, CFStringRef idString, uint32 keyUsage, CFTypeRef keychainOrArray, Boolean returnOnlyValidIdentities, SecIdentitySearchRef* searchRef)
+	/*AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;*/
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

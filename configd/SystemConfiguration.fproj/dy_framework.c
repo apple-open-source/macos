@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,10 @@
 
 #include "dy_framework.h"
 
+
+
+#pragma mark -
+#pragma mark IOKit.framework APIs
 
 static void *
 __loadIOKit(void) {
@@ -252,13 +256,18 @@ _IOServiceMatching(const char *name)
 	return dyfunc ? dyfunc(name) : NULL;
 }
 
-#if	!TARGET_OS_IPHONE
+#pragma mark -
+#pragma mark Security.framework APIs
 
 static void *
 __loadSecurity(void) {
 	static void *image = NULL;
 	if (NULL == image) {
+#if	TARGET_OS_IPHONE
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
+#else
 		const char	*framework		= "/System/Library/Frameworks/Security.framework/Versions/A/Security";
+#endif
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -274,6 +283,27 @@ __loadSecurity(void) {
 	return (void *)image;
 }
 
+#if	!TARGET_OS_IPHONE
+
+#define	SECURITY_FRAMEWORK_EXTERN(t, s)				\
+	__private_extern__ t					\
+	_ ## s()						\
+	{							\
+		static t	*dysym = NULL;			\
+		if (!dysym) {					\
+			void *image = __loadSecurity();		\
+			if (image) dysym = dlsym(image, #s );	\
+		}						\
+		return (dysym != NULL) ? *dysym : NULL;		\
+	}
+
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecAttrService)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecClass)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecClassGenericPassword)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchLimit)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchLimitAll)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecMatchSearchList)
+SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecReturnRef)
 
 __private_extern__ OSStatus
 _AuthorizationMakeExternalForm(AuthorizationRef authorization, AuthorizationExternalForm *extForm)
@@ -288,18 +318,6 @@ _AuthorizationMakeExternalForm(AuthorizationRef authorization, AuthorizationExte
 }
 
 __private_extern__ OSStatus
-_SecAccessCopySelectedACLList(SecAccessRef accessRef, CSSM_ACL_AUTHORIZATION_TAG action, CFArrayRef *aclList)
-{
-	#undef SecAccessCopySelectedACLList
-	static typeof (SecAccessCopySelectedACLList) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SecAccessCopySelectedACLList");
-	}
-	return dyfunc ? dyfunc(accessRef, action, aclList) : -1;
-}
-
-__private_extern__ OSStatus
 _SecAccessCreate(CFStringRef descriptor, CFArrayRef trustedlist, SecAccessRef *accessRef)
 {
 	#undef SecAccessCreate
@@ -311,6 +329,7 @@ _SecAccessCreate(CFStringRef descriptor, CFArrayRef trustedlist, SecAccessRef *a
 	return dyfunc ? dyfunc(descriptor, trustedlist, accessRef) : -1;
 }
 
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 __private_extern__ OSStatus
 _SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner, uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls, SecAccessRef *accessRef)
 {
@@ -321,6 +340,31 @@ _SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner, uint32 ac
 		if (image) dyfunc = dlsym(image, "SecAccessCreateFromOwnerAndACL");
 	}
 	return dyfunc ? dyfunc(owner, aclCount, acls, accessRef) : -1;
+}
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
+__private_extern__ SecAccessRef
+_SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAccessOwnerType ownerType, CFArrayRef acls, CFErrorRef *error)
+{
+#undef SecAccessCreateWithOwnerAndACL
+	static typeof (SecAccessCreateWithOwnerAndACL) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = dlsym(image, "SecAccessCreateWithOwnerAndACL");
+	}
+	return dyfunc ? dyfunc(userId, groupId, ownerType, acls, error) : NULL;
+}
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
+
+__private_extern__ OSStatus
+_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
+{
+#undef SecItemCopyMatching
+	static typeof (SecItemCopyMatching) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = dlsym(image, "SecItemCopyMatching");
+	}
+	return dyfunc ? dyfunc(query, result) : -1;
 }
 
 __private_extern__ OSStatus
@@ -444,30 +488,6 @@ _SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttri
 }
 
 __private_extern__ OSStatus
-_SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef)
-{
-	#undef SecKeychainSearchCopyNext
-	static typeof (SecKeychainSearchCopyNext) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SecKeychainSearchCopyNext");
-	}
-	return dyfunc ? dyfunc(searchRef, itemRef) : -1;
-}
-
-__private_extern__ OSStatus
-_SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef)
-{
-	#undef SecKeychainSearchCreateFromAttributes
-	static typeof (SecKeychainSearchCreateFromAttributes) *dyfunc = NULL;
-	if (!dyfunc) {
-		void *image = __loadSecurity();
-		if (image) dyfunc = dlsym(image, "SecKeychainSearchCreateFromAttributes");
-	}
-	return dyfunc ? dyfunc(keychainOrArray, itemClass, attrList, searchRef) : -1;
-}
-
-__private_extern__ OSStatus
 _SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef *app)
 {
 	#undef SecTrustedApplicationCreateFromPath
@@ -480,3 +500,16 @@ _SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef 
 }
 
 #endif	// !TARGET_OS_IPHONE
+
+__private_extern__ SecCertificateRef
+_SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
+{
+	#undef SecCertificateCreateWithData
+	static typeof (SecCertificateCreateWithData) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = dlsym(image, "SecCertificateCreateWithData");
+	}
+	return dyfunc ? dyfunc(allocator, data) : NULL;
+}
+

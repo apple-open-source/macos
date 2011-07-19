@@ -1,4 +1,4 @@
-RCS: @(#) $Id: README.releasemgr,v 1.1 2006/07/01 02:43:15 andreas_kupries Exp $
+RCS: @(#) $Id: README.releasemgr,v 1.2 2009/07/10 16:33:31 andreas_kupries Exp $
 
 Welcome to the tcllib, the Tcl Standard Library.
 ================================================
@@ -26,3 +26,17 @@ Basics
 	sak.tcl
 
 < Tasks, and how to perform them >
+
+
+Uploading and releasing files to SourceForge
+--------------------------------------------
+
+The main form to upload files is
+
+	https://frs.sourceforge.net/webupload
+
+This is WebDAV.
+
+The place to manage the releases the files are for is
+
+	https://sourceforge.net/project/admin/editpackages.php?group_id=12883

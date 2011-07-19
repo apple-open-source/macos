@@ -95,9 +95,6 @@ enum {
     sessionHasGraphicAccess                = 0x0010, /* graphic subsystem (CoreGraphics et al) available */
     sessionHasTTY                          = 0x0020, /* /dev/tty is available */
     sessionIsRemote                        = 0x1000, /* session was established over the network */
-
-	// the following bits are used internally; do not try to set them
-    sessionWasInitialized                  = 0x8000  /* session has been set up by its leader */
 };
 
 

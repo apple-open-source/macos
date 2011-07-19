@@ -1,8 +1,8 @@
 " SQL filetype plugin file
 " Language:    SQL (Common for Oracle, Microsoft SQL Server, Sybase)
-" Version:     4.0
+" Version:     7.0
 " Maintainer:  David Fishburn <fishburn at ianywhere dot com>
-" Last Change: Wed 27 Feb 2008 04:35:21 PM Eastern Standard Time
+" Last Change: 2010 Jun 11
 " Download:    http://vim.sourceforge.net/script.php?script_id=454
 
 " For more details please use:
@@ -29,6 +29,32 @@
 "
 " To change the default dialect, add the following to your vimrc:
 "    let g:sql_type_default = 'sqlanywhere'
+"
+" This file also creates a command, SQLGetType, which allows you to 
+" determine what the current dialect is in use.
+"     :SQLGetType
+"
+" History
+"
+" Version 7.0
+" 
+" NF: Calls the sqlcomplete#ResetCacheSyntax() function when calling
+"     SQLSetType.
+"
+" Version 6.0
+" 
+" NF: Adds the command SQLGetType
+"
+" Version 5.0
+" 
+" NF: Adds the ability to choose the keys to control SQL completion, just add 
+"     the following to your .vimrc:
+"    let g:ftplugin_sql_omni_key       = '<C-C>'
+"    let g:ftplugin_sql_omni_key_right = '<Right>'
+"    let g:ftplugin_sql_omni_key_left  = '<Left>'
+"
+" BF: format-options - Auto-wrap comments using textwidth was turned off 
+"                      by mistake.
 
 
 " Only do this when not done yet for this buffer
@@ -44,7 +70,7 @@ set cpo=
 " c     Auto-wrap comments using textwidth, inserting the current comment
 "       leader automatically.
 setlocal formatoptions-=t
-setlocal formatoptions-=c
+setlocal formatoptions+=c
 
 " Functions/Commands to allow the user to change SQL syntax dialects
 " through the use of :SQLSetType <tab> for completion.
@@ -143,15 +169,43 @@ if !exists("*SQL_SetType")
         endif
         let b:sql_type_override = new_sql_type
 
+        " Remove any cached SQL since a new sytax will have different
+        " items and groups
+        if !exists('g:loaded_sql_completion') || 100 == g:loaded_sql_completion
+            call sqlcomplete#ResetCacheSyntax()
+        endif
+
         " Vim will automatically source the correct files if we
         " change the filetype.  You cannot do this with setfiletype
         " since that command will only execute if a filetype has
         " not already been set.  In this case we want to override
         " the existing filetype.
         let &filetype = 'sql'
+
+        if b:sql_compl_savefunc != ""
+            " We are changing the filetype to SQL from some other filetype
+            " which had OMNI completion defined.  We need to activate the
+            " SQL completion plugin in order to cache some of the syntax items
+            " while the syntax rules for SQL are active.
+            call sqlcomplete#PreCacheSyntax()
+        endif
     endfunction
     command! -nargs=* -complete=custom,SQL_GetList SQLSetType :call SQL_SetType(<q-args>)
 
+endif
+
+" Functions/Commands to allow the user determine current SQL syntax dialect
+" This works with both Vim 6 and 7.
+
+if !exists("*SQL_GetType")
+    function SQL_GetType()
+        if exists('b:sql_type_override') 
+            echomsg "Current SQL dialect in use:".b:sql_type_override
+        else
+            echomsg "Current SQL dialect in use:".g:sql_type_default        
+        endif
+    endfunction
+    command! -nargs=0 SQLGetType :call SQL_GetType()
 endif
 
 if exists("b:sql_type_override")
@@ -311,6 +365,19 @@ if !exists('g:ftplugin_sql_objects')
                 \ ',index,subscription,synchronization,view,variable'
 endif
 
+" Key to trigger SQL completion
+if !exists('g:ftplugin_sql_omni_key')
+    let g:ftplugin_sql_omni_key = '<C-C>'
+endif
+" Key to trigger drill into column list
+if !exists('g:ftplugin_sql_omni_key_right')
+    let g:ftplugin_sql_omni_key_right = '<Right>'
+endif
+" Key to trigger drill out of column list
+if !exists('g:ftplugin_sql_omni_key_left')
+    let g:ftplugin_sql_omni_key_left = '<Left>'
+endif
+
 " Replace all ,'s with bars, except ones with numbers after them.
 " This will most likely be a \{,1} string.
 let s:ftplugin_sql_objects = 
@@ -382,32 +449,32 @@ if exists('&omnifunc')
     if !exists('g:omni_sql_no_default_maps')
         " Static maps which use populate the completion list
         " using Vim's syntax highlighting rules
-        imap <buffer> <c-c>a <C-\><C-O>:call sqlcomplete#Map('syntax')<CR><C-X><C-O>
-        imap <buffer> <c-c>k <C-\><C-O>:call sqlcomplete#Map('sqlKeyword')<CR><C-X><C-O>
-        imap <buffer> <c-c>f <C-\><C-O>:call sqlcomplete#Map('sqlFunction')<CR><C-X><C-O>
-        imap <buffer> <c-c>o <C-\><C-O>:call sqlcomplete#Map('sqlOption')<CR><C-X><C-O>
-        imap <buffer> <c-c>T <C-\><C-O>:call sqlcomplete#Map('sqlType')<CR><C-X><C-O>
-        imap <buffer> <c-c>s <C-\><C-O>:call sqlcomplete#Map('sqlStatement')<CR><C-X><C-O>
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'a <C-\><C-O>:call sqlcomplete#Map("syntax")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'k <C-\><C-O>:call sqlcomplete#Map("sqlKeyword")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'f <C-\><C-O>:call sqlcomplete#Map("sqlFunction")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'o <C-\><C-O>:call sqlcomplete#Map("sqlOption")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'T <C-\><C-O>:call sqlcomplete#Map("sqlType")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'s <C-\><C-O>:call sqlcomplete#Map("sqlStatement")<CR><C-X><C-O>'
         " Dynamic maps which use populate the completion list
         " using the dbext.vim plugin
-        imap <buffer> <c-c>t <C-\><C-O>:call sqlcomplete#Map('table')<CR><C-X><C-O>
-        imap <buffer> <c-c>p <C-\><C-O>:call sqlcomplete#Map('procedure')<CR><C-X><C-O>
-        imap <buffer> <c-c>v <C-\><C-O>:call sqlcomplete#Map('view')<CR><C-X><C-O>
-        imap <buffer> <c-c>c <C-\><C-O>:call sqlcomplete#Map('column')<CR><C-X><C-O>
-        imap <buffer> <c-c>l <C-\><C-O>:call sqlcomplete#Map('column_csv')<CR><C-X><C-O>
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'t <C-\><C-O>:call sqlcomplete#Map("table")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'p <C-\><C-O>:call sqlcomplete#Map("procedure")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'v <C-\><C-O>:call sqlcomplete#Map("view")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'c <C-\><C-O>:call sqlcomplete#Map("column")<CR><C-X><C-O>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'l <C-\><C-O>:call sqlcomplete#Map("column_csv")<CR><C-X><C-O>'
         " The next 3 maps are only to be used while the completion window is
         " active due to the <CR> at the beginning of the map
-        imap <buffer> <c-c>L <C-Y><C-\><C-O>:call sqlcomplete#Map('column_csv')<CR><C-X><C-O>
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'L <C-Y><C-\><C-O>:call sqlcomplete#Map("column_csv")<CR><C-X><C-O>'
         " <C-Right> is not recognized on most Unix systems, so only create
         " these additional maps on the Windows platform.
         " If you would like to use these maps, choose a different key and make
         " the same map in your vimrc.
-        if has('win32')
-            imap <buffer> <c-right>  <C-R>=sqlcomplete#DrillIntoTable()<CR>
-            imap <buffer> <c-left>  <C-R>=sqlcomplete#DrillOutOfColumns()<CR>
-        endif
+        " if has('win32')
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key_right.' <C-R>=sqlcomplete#DrillIntoTable()<CR>'
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key_left.'  <C-R>=sqlcomplete#DrillOutOfColumns()<CR>'
+        " endif
         " Remove any cached items useful for schema changes
-        imap <buffer> <c-c>R <C-\><C-O>:call sqlcomplete#Map('resetCache')<CR><C-X><C-O>
+        exec 'imap <buffer> '.g:ftplugin_sql_omni_key.'R <C-\><C-O>:call sqlcomplete#Map("resetCache")<CR><C-X><C-O>'
     endif
 
     if b:sql_compl_savefunc != ""
@@ -415,6 +482,7 @@ if exists('&omnifunc')
         " which had OMNI completion defined.  We need to activate the
         " SQL completion plugin in order to cache some of the syntax items
         " while the syntax rules for SQL are active.
+        call sqlcomplete#ResetCacheSyntax()
         call sqlcomplete#PreCacheSyntax()
     endif
 endif

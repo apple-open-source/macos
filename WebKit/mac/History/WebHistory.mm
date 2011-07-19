@@ -110,7 +110,7 @@ private:
 
 @implementation WebHistoryPrivate
 
-#pragma mark OBJECT FRAMEWORK
+// MARK: OBJECT FRAMEWORK
 
 + (void)initialize
 {
@@ -123,7 +123,8 @@ private:
 
 - (id)init
 {
-    if (![super init])
+    self = [super init];
+    if (!self)
         return nil;
     
     _entriesByURL = [[NSMutableDictionary alloc] init];
@@ -146,7 +147,7 @@ private:
     [super finalize];
 }
 
-#pragma mark MODIFYING CONTENTS
+// MARK: MODIFYING CONTENTS
 
 static void getDayBoundaries(NSTimeInterval interval, NSTimeInterval& beginningOfDay, NSTimeInterval& beginningOfNextDay)
 {
@@ -399,7 +400,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
         [self addItem:entry discardDuplicate:NO];
 }
 
-#pragma mark DATE-BASED RETRIEVAL
+// MARK: DATE-BASED RETRIEVAL
 
 - (NSArray *)orderedLastVisitedDays
 {
@@ -431,7 +432,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return _entriesByDate->get(dateKey).get();
 }
 
-#pragma mark URL MATCHING
+// MARK: URL MATCHING
 
 - (WebHistoryItem *)itemForURLString:(NSString *)URLString
 {
@@ -453,7 +454,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [_entriesByURL allValues];
 }
 
-#pragma mark ARCHIVING/UNARCHIVING
+// MARK: ARCHIVING/UNARCHIVING
 
 - (void)setHistoryAgeInDaysLimit:(int)limit
 {
@@ -676,7 +677,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     [super dealloc];
 }
 
-#pragma mark MODIFYING CONTENTS
+// MARK: MODIFYING CONTENTS
 
 - (void)_sendNotification:(NSString *)name entries:(NSArray *)entries
 {
@@ -707,7 +708,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
                     entries:newEntries];
 }
 
-#pragma mark DATE-BASED RETRIEVAL
+// MARK: DATE-BASED RETRIEVAL
 
 - (NSArray *)orderedLastVisitedDays
 {
@@ -719,7 +720,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [_historyPrivate orderedItemsLastVisitedOnDay:date];
 }
 
-#pragma mark URL MATCHING
+// MARK: URL MATCHING
 
 - (BOOL)containsURL:(NSURL *)URL
 {
@@ -731,7 +732,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     return [_historyPrivate itemForURL:URL];
 }
 
-#pragma mark SAVING TO DISK
+// MARK: SAVING TO DISK
 
 - (BOOL)loadFromURL:(NSURL *)URL error:(NSError **)error
 {
@@ -825,7 +826,7 @@ static inline WebHistoryDateKey dateKey(NSTimeInterval date)
     if ([method length])
         item->setLastVisitWasHTTPNonGet([method caseInsensitiveCompare:@"GET"] && (![[url scheme] caseInsensitiveCompare:@"http"] || ![[url scheme] caseInsensitiveCompare:@"https"]));
 
-    item->setRedirectURLs(0);
+    item->setRedirectURLs(nullptr);
 
     NSArray *entries = [[NSArray alloc] initWithObjects:entry, nil];
     [self _sendNotification:WebHistoryItemsAddedNotification entries:entries];

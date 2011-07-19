@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@
 #include <pthread.h>
 #include <notify.h>
 #include <asl_core.h>
-#include <asl_memory.h>
+#include "asl_memory.h"
 #include "daemon.h"
 
 #define forever for(;;)
@@ -52,6 +52,12 @@
 
 #define PRINT_STD 0
 #define PRINT_RAW 1
+
+#define WATCH_OFF 0
+#define WATCH_LOCKDOWN_START 1
+#define WATCH_RUN 2
+
+#define SESSION_FLAGS_LOCKDOWN 0x00000001
 
 #define MAXSOCK 1
 
@@ -72,6 +78,12 @@ extern uint32_t db_query(aslresponse query, aslresponse *res, uint64_t startid, 
 
 #define SESSION_WRITE(f,x) if (write(f, x, strlen(x)) < 0) goto exit_session
 
+typedef struct
+{
+	int sock;
+	uint32_t flags;
+} session_args_t;
+
 uint32_t
 remote_db_size(uint32_t sel)
 {
@@ -90,10 +102,10 @@ remote_db_set_size(uint32_t sel, uint32_t size)
 	return 0;
 }
 
-asl_msg_t *
+aslmsg 
 remote_db_stats(uint32_t sel)
 {
-	asl_msg_t *m;
+	aslmsg m;
 	m = NULL;
 
 	if (sel == DB_TYPE_FILE) asl_store_statistics(global.file_db, &m);
@@ -105,11 +117,11 @@ remote_db_stats(uint32_t sel)
 void
 session(void *x)
 {
-	int i, *sp, s, wfd, status, pfmt, watch, wtoken, nfd, do_prompt, filter;
+	int i, s, wfd, status, pfmt, watch, wtoken, nfd, do_prompt, filter;
 	aslresponse res;
 	asl_search_result_t ql;
 	uint32_t outlen;
-	asl_msg_t *stats;
+	aslmsg stats;
 	asl_msg_t *query;
 	asl_msg_t *qlq[1];
 	char str[1024], *p, *qs, *out;
@@ -117,15 +129,17 @@ session(void *x)
 	fd_set readfds;
 	uint64_t low_id, high_id;
 	notify_state_t nstate;
-	uint32_t dbselect;
+	uint32_t dbselect, flags;
+	session_args_t *sp;
 
 	if (x == NULL) pthread_exit(NULL);
 
-	sp = (int *)x;
-	s = *sp;
+	sp = (session_args_t *)x;
+	s = sp->sock;
+	flags = sp->flags;
 	free(x);
 
-	watch = 0;
+	watch = WATCH_OFF;
 	wfd = -1;
 	wtoken = -1;
 
@@ -256,7 +270,7 @@ session(void *x)
 			else if (!strcmp(str, "stats"))
 			{
 				stats = remote_db_stats(dbselect);
-				out = asl_format_message(stats, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, ASL_ENCODE_NONE, &outlen);
+				out = asl_format_message((asl_msg_t *)stats, ASL_MSG_FMT_RAW, ASL_TIME_FMT_SEC, ASL_ENCODE_NONE, &outlen);
 				write(s, out, outlen);
 				free(out);
 				asl_free(stats);
@@ -483,9 +497,9 @@ session(void *x)
 			}
 			else if (!strcmp(str, "stop"))
 			{
-				if (watch == 1)
+				if (watch != WATCH_OFF)
 				{
-					watch = 0;
+					watch = WATCH_OFF;
 					notify_cancel(wtoken);
 					wfd = -1;
 					wtoken = -1;
@@ -517,22 +531,29 @@ session(void *x)
 			}
 			else if (!strcmp(str, "watch"))
 			{
-				if (watch == 1)
+				if (watch != WATCH_OFF)
 				{
 					snprintf(str, sizeof(str) - 1, "already watching!\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
 
-				status = notify_register_file_descriptor(ASL_DB_NOTIFICATION, &wfd, 0, &wtoken);
-				if (status != 0)
+				if (flags & SESSION_FLAGS_LOCKDOWN)
 				{
-					snprintf(str, sizeof(str) - 1, "notify_register_file_descriptor failed: %d\n", status);
-					SESSION_WRITE(s, str);
-					continue;
+					watch = WATCH_LOCKDOWN_START;
 				}
+				else
+				{
+					status = notify_register_file_descriptor(ASL_DB_NOTIFICATION, &wfd, 0, &wtoken);
+					if (status != 0)
+					{
+						snprintf(str, sizeof(str) - 1, "notify_register_file_descriptor failed: %d\n", status);
+						SESSION_WRITE(s, str);
+						continue;
+					}
 
-				watch = 1;
+					watch = WATCH_RUN;
+				}
 
 				snprintf(str, sizeof(str) - 1, "OK\n");
 				SESSION_WRITE(s, str);
@@ -584,6 +605,25 @@ session(void *x)
 			}
 		}
 
+		/*
+		 * If this session is PurpleConsole watching for log messages,
+		 * we pass through this part of the loop once initially to pick up
+		 * existing messages already in memory.  After that, dbserver will
+		 * send new messages in send_to_direct_watchers().  We wait until
+		 * the initial messages are sent to PurpleConsole before setting 
+		 * global.lockdown_session_fd to allow this query to complete before
+		 * dbserver starts sending.  To prevent a race between this query and
+		 * when the first message is sent by send_to_direct_watchers, we hold
+		 * the work queue lock between the time of the query and the time that
+		 * lockdown_session_fd is set.
+		 */
+		if ((flags & SESSION_FLAGS_LOCKDOWN) && (watch == WATCH_RUN)) continue;
+
+		if (watch == WATCH_LOCKDOWN_START)
+		{
+			pthread_mutex_lock(global.work_queue_lock);
+		}
+
 		if (query != NULL)
 		{
 			ql.count = 1;
@@ -591,17 +631,17 @@ session(void *x)
 			ql.msg = qlq;
 		}
 
-		if (watch == 0) low_id = 0;
+		if (watch == WATCH_OFF) low_id = 0;
 
 		memset(&res, 0, sizeof(aslresponse));
 		high_id = 0;
 		status = db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0);
 
-		if ((watch == 1) && (high_id >= low_id)) low_id = high_id + 1;
+		if ((watch == WATCH_RUN) && (high_id >= low_id)) low_id = high_id + 1;
 
 		if (res == NULL)
 		{
-			if (watch == 0)
+			if (watch == WATCH_OFF)
 			{
 				snprintf(str, sizeof(str) - 1, "-nil-\n");
 				SESSION_WRITE(s, str);
@@ -613,7 +653,7 @@ session(void *x)
 		}
 		else if (pfmt == PRINT_RAW)
 		{
-			if (watch == 1)
+			if (watch == WATCH_RUN)
 			{
 				snprintf(str, sizeof(str) - 1, "\n");
 				SESSION_WRITE(s, str);
@@ -629,7 +669,7 @@ session(void *x)
 		}
 		else
 		{
-			if (watch == 1)
+			if (watch == WATCH_RUN)
 			{
 				snprintf(str, sizeof(str) - 1, "\n");
 				SESSION_WRITE(s, str);
@@ -644,29 +684,41 @@ session(void *x)
 		}
 
 		aslresponse_free(res);
+
+		if (watch == WATCH_LOCKDOWN_START)
+		{
+			global.lockdown_session_fd = s;
+			global.watchers_active++;
+			watch = WATCH_RUN;
+
+			pthread_mutex_unlock(global.work_queue_lock);
+		}
 	}
 
 exit_session:
 
 	if (s >= 0)
 	{
+		if (s == global.lockdown_session_fd) global.lockdown_session_fd = -1;
+		if (global.watchers_active > 0) global.watchers_active--;
 		close(s);
 		s = -1;
 	}
 
-	if (watch == 1) notify_cancel(wtoken);
-	if (query != NULL) asl_free(query);
+	if (watch != WATCH_OFF) notify_cancel(wtoken);
+	if (query != NULL) asl_msg_release(query);
 	pthread_exit(NULL);
 }
 
-asl_msg_t *
+aslmsg 
 remote_acceptmsg(int fd, int tcp)
 {
 	socklen_t fromlen;
-	int s, status, flags, *sp;
+	int s, status, flags, v;
 	pthread_attr_t attr;
 	pthread_t t;
 	struct sockaddr_storage from;
+	session_args_t *sp;
 
 	fromlen = sizeof(struct sockaddr_un);
 	if (tcp == 1) fromlen = sizeof(struct sockaddr_storage);
@@ -690,13 +742,16 @@ remote_acceptmsg(int fd, int tcp)
 		return NULL;
 	}
 
+	v = 1;
+	setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &v, sizeof(v));
+
 	if (tcp == 1)
 	{
 		flags = 1;
 		setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(int));
 	}
 
-	sp = malloc(sizeof(int));
+	sp = (session_args_t *)calloc(1, sizeof(session_args_t));
 	if (sp == NULL)
 	{
 		asldebug("%s: malloc: %s\n", MY_ID, strerror(errno));
@@ -704,7 +759,11 @@ remote_acceptmsg(int fd, int tcp)
 		return NULL;
 	}
 
-	*sp = s;
+	sp->sock = s;
+	if ((tcp == 0) && (global.lockdown_session_fd < 0))
+	{
+		sp->flags |= SESSION_FLAGS_LOCKDOWN;
+	}
 
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
@@ -714,13 +773,13 @@ remote_acceptmsg(int fd, int tcp)
 	return NULL;
 }
 
-asl_msg_t *
+aslmsg 
 remote_acceptmsg_local(int fd)
 {
 	return remote_acceptmsg(fd, 0);
 }
 
-asl_msg_t *
+aslmsg 
 remote_acceptmsg_tcp(int fd)
 {
 	return remote_acceptmsg(fd, 1);
@@ -880,13 +939,28 @@ remote_init(void)
 int
 remote_close(void)
 {
-	if (rfdl >= 0) close(rfdl);
+	if (rfdl >= 0)
+	{
+		aslevent_removefd(rfdl);
+		close(rfdl);
+	}
+
 	rfdl = -1;
 
-	if (rfd4 >= 0) close(rfd4);
+	if (rfd4 >= 0) 
+	{
+		aslevent_removefd(rfd4);
+		close(rfd4);
+	}
+
 	rfd4 = -1;
 
-	if (rfd6 >= 0) close(rfd6);
+	if (rfd6 >= 0)
+	{
+		aslevent_removefd(rfd6);
+		close(rfd6);
+	}
+
 	rfd6 = -1;
 
 	return 0;

@@ -1,18 +1,19 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin transfer::connect n 0.1]
-[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin transfer::connect n 0.2]
+[copyright {2006-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Data transfer facilities}]
 [titledesc {Connection setup}]
+[category  {Transfer module}]
 [require Tcl               8.4]
 [require snit              [opt 1.0]]
-[require transfer::connect [opt 0.1]]
+[require transfer::connect [opt 0.2]]
 [description]
-[keywords transfer channel connection passive active]
+[keywords transfer channel connection passive active ssl tls secure]
 [para]
 
 This package provides objects holding enough information to enable
-them to either connect to a counterpart, or to be connected to by said
-counterpart.
+them to either actively connect to a counterpart, or to passively wait
+for a connection from said counterpart.
 
 I.e. any object created by this packages is always in one of two
 complementary modes, called [term active] (the object initiates the
@@ -29,91 +30,74 @@ on whom (the [term passive] on the other).
 Note that this is completely independent of the direction of any data
 transmission using the connection after it has been established.
 
-An active node can, after establishing the connection, either transmit
-or receive data. Equivalently the passive node can do the same after
-the waiting for it partner has ended.
+An active object can, after establishing the connection, either
+transmit or receive data. Equivalently the passive object can do the
+same after the waiting for its partner has ended.
 
 [section API]
+[subsection {Package commands}]
 
 [list_begin definitions]
 
 [call [cmd transfer::connect] \
-	[arg object] \
+	[arg objectName] \
 	[opt [arg options]...]]
 
-This command creates and configures a new connection [arg object]. The
-fully qualified name of the object command is returned as the result
-of the command.
+This command creates a new connection object with an associated Tcl
+command whose name is [arg objectName].
+
+This [term object] command is explained in full detail in the sections
+[sectref {Object command}] and [sectref {Object methods}]. The set of
+supported [arg options] is explained in section [sectref {Options}].
 
 [para]
 
-The recognized options are listed below.
+The object command will be created under the current namespace if the
+[arg objectName] is not fully qualified, and in the specified
+namespace otherwise.
 
-[list_begin options]
+The fully qualified name of the object command is returned as the
+result of the command.
 
-[opt_def -mode [arg mode]]
+[list_end]
 
-This option specifies the mode the object is in. It is optional and
-defaults to [const active] mode. The two possible modes are:
+
+[subsection {Object command}]
+
+All objects created by the [cmd ::transfer::connect] command have the
+following general form:
 
 [list_begin definitions]
-[def [const active]]
 
-In this mode the two options [option -host] and [option -port] are
-relevant and specify the host and TCP port the object has to connect
-to. The host is given by either name or IP address.
+[call [arg objectName] [method method] [opt [arg "arg arg ..."]]]
 
-[def [const passive]]
+The method [method method] and its [arg arg]'uments determine the
+exact behavior of the command.
 
-In this mode the option [option -host] has no relevance and is ignored
-should it be configured.
-
-The only option the object needs is [option -port], and it specifies
-the TCP port on which the listening socket is opened to await the
-connection from the partner.
-
-[list_end]
-
-[opt_def -host [arg hostname-or-ipaddr]]
-
-This option specifies the host to connect to in [term active] mode,
-either by name or ip-address. An object configured for [term passive]
-mode ignores this option.
-
-[opt_def -port [arg int]]
-
-For [term active] mode this option specifies the port the object is
-expected to connect to. For [term passive] mode however it is the port
-where the object creates the listening socket waiting for a
-connection. It defaults to [const 0], which allows the OS to choose
-the actual port to listen on.
-
-[opt_def -encoding encodingname]
-[opt_def -eofchar eofspec]
-[opt_def -translation transspec]
-
-These options are the same as are recognized by the builtin command
-[cmd fconfigure]. They provide the configuration to be set for the
-channel between the two partners after it has been established, but
-before the callback is invoked (See method [method connect]).
+See section [sectref {Object methods}] for the detailed
+specifications.
 
 [list_end]
 
 
-[call [arg object] [method destroy]]
+[subsection {Object methods}]
+
+[list_begin definitions][comment ----methods]
+
+[call [arg objectName] [method destroy]]
 
 This method destroys the object. 
 
 This is safe to do for an [term active] object when a connection has
 been started, as the completion callback is synchronous.
 
-For a [term passive] object currently waiting for its parter to
+For a [term passive] object currently waiting for its partner to
 establish the connection however this is not safe and will cause
 errors later on, when the connection setup completes and tries to
 access the now missing data structures of the destroyed object.
 
 
-[call [arg object] [method connect] [arg command]]
+[call [arg objectName] [method connect] [arg command]]
 
 This method starts the connection setup per the configuration of the
 object. When the connection is established the callback [arg command]
@@ -123,48 +107,60 @@ the socket over which data can be transfered.
 [para]
 
 The detailed behaviour of the method depends on the configured
-mode. For an [term active] object the connection setup is done
-synchronously. I.e. the object will wait until the connection is
-established. In that mode the method returns the empty string as its
+mode.
+
+[list_begin definitions][comment ----mode-behaviour]
+[def [term active]]
+The connection setup is done synchronously. The object waits until the
+connection is established. The method returns the empty string as its
 result.
 
-[para]
+[def [term passive]]
 
-A [term passive] object however operates asynchronously. The method
-will return immediately after a listener has been set up and the
-connection will be established in the background. In that mode the
-method returns the port number of the listening socket, for use by the
-caller, like transfering this information to the counterpart so that
-it may know where to connect to.
+The connection setup is done asynchronously. The method returns
+immediately after a listening socket has been set up. The connection
+will be established in the background.
+
+The method returns the port number of the listening socket, for use by
+the caller. One important use is the transfer of this information to
+the counterpart so that it knows where it has to connect to.
 
 [para]
 
 This is necessary as the object might have been configured for port
-[const 0], allowing the OS to choose the actual port it will listen
-on.
+[const 0], allowing the operating system to choose the actual port it
+will listen on.
 
 [para]
 
 The listening port is closed immediately when the connection was
 established by the partner, to keep the time interval small within
-which a third party can connect to the port too. Even so it is
-recommended to use additional measures in the protocol outside of the
-connect and transfer object to ensure that a connection is not used
-with an unidentified/unauthorized partner.
+which a third party can connect to the port too.
 
+Even so it is recommended to use additional measures in the protocol
+outside of the connect and transfer object to ensure that a connection
+is not used with an unidentified/unauthorized partner
+
+One possibility for this is the use of SSL/TLS.
+See the option [option -socketcmd] and section
+[sectref {Secure connections}] for information on how to do this.
+
+[list_end][comment ----mode-behaviour]
+[list_end][comment ----methods]
+
+
+[subsection Options]
+
+Connection objects support the set of options listed below.
+
+[list_begin options]
+[include include/connect_options.inc]
 [list_end]
 
 
-[section {BUGS, IDEAS, FEEDBACK}]
+[vset OBJCREATE {transfer::connect C}]
+[include include/secure.inc]
 
-This document, and the package it describes, will undoubtedly contain
-bugs and other problems.
-
-Please report such in the category [emph transfer] of the
-[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
-
-Please also report any ideas for enhancements you may have for either
-package and/or documentation.
-
-
+[vset CATEGORY transfer]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

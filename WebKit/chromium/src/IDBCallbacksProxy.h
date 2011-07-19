@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,44 +29,37 @@
 #ifndef IDBCallbacksProxy_h
 #define IDBCallbacksProxy_h
 
+#if ENABLE(INDEXED_DATABASE)
+
 #include "IDBCallbacks.h"
-#include "IDBDatabaseError.h"
-#include "WebIDBCallbacks.h"
-#include "WebIDBDatabaseError.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
-#if ENABLE(INDEXED_DATABASE)
+namespace WebKit {
 
-namespace WebCore {
+class WebIDBCallbacks;
 
-template <typename WebKitClass, typename WebCoreClass, typename WebCoreProxy>
-class IDBCallbacksProxy : public WebKit::WebIDBCallbacks<WebKitClass> {
+class IDBCallbacksProxy : public WebCore::IDBCallbacks {
 public:
-    IDBCallbacksProxy(PassRefPtr<IDBCallbacks<WebCoreClass> > callbacks)
-        : m_callbacks(callbacks) { }
+    static PassRefPtr<IDBCallbacksProxy> create(PassOwnPtr<WebIDBCallbacks>);
+    virtual ~IDBCallbacksProxy();
 
-    virtual ~IDBCallbacksProxy() { }
-
-    virtual void onSuccess(WebKitClass* webKitInstance)
-    {
-        RefPtr<WebCoreClass> proxy = WebCoreProxy::create(webKitInstance);
-        m_callbacks->onSuccess(proxy);
-        m_callbacks.clear();
-    }
-
-    virtual void onError(const WebKit::WebIDBDatabaseError& error)
-    {
-        m_callbacks->onError(error);
-        m_callbacks.clear();
-    }
+    virtual void onError(PassRefPtr<WebCore::IDBDatabaseError>);
+    virtual void onSuccess(PassRefPtr<WebCore::IDBCursorBackendInterface>);
+    virtual void onSuccess(PassRefPtr<WebCore::IDBDatabaseBackendInterface>);
+    virtual void onSuccess(PassRefPtr<WebCore::IDBKey>);
+    virtual void onSuccess(PassRefPtr<WebCore::IDBTransactionBackendInterface>);
+    virtual void onSuccess(PassRefPtr<WebCore::SerializedScriptValue>);
+    virtual void onBlocked();
 
 private:
-    PassRefPtr<IDBCallbacks<WebCoreClass> > m_callbacks;
+    IDBCallbacksProxy(PassOwnPtr<WebIDBCallbacks>);
+
+    OwnPtr<WebIDBCallbacks> m_callbacks;
 };
 
-
-} // namespace WebCore
+} // namespace WebKit
 
 #endif
 

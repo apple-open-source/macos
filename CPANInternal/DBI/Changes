@@ -2,43 +2,87 @@
 
 DBI::Changes - List of significant changes to the DBI
 
-(As of $Date: 2008-03-24 14:06:48 +0000 (Mon, 24 Mar 2008) $ $Revision: 10994 $)
+(As of $Date: 2009-06-08 11:07:26 +0100 (Mon, 08 Jun 2009) $ $Revision: 12816 $)
 
 =cut
 
-Assorted TODO notes:
+=head2 Changes in DBI 1.609 (svn r12816) 8th June 2009
 
-Protect trace_msg from SIGPIPE?
-prepare(...,{ Err=>\my $isolated_err, ...})
-Move _new_sth to DBI::db::_new_sth (leave alias) and implement in C
-Implement FETCH_many() in C
-Or call _new_child and move to DBI::common?
-Add trace modules that just records the last N trace messages into an array
-and prepends them to any error message.
-Document DBI_PROFILE_FLOCK and LockFile attrib in DBI::ProfileData and DBI::ProfileDumper
+  Fixes to DBD::File (H.Merijn Brand)
+    added f_schema attribute
+    table names case sensitive when quoted, insensitive when unquoted
+    workaround a bug in SQL::Statement (temporary fix) related
+      to the "You passed x parameters where y required" error
 
-Gofo TODOs:
+  Added ImplementorClass and Name info to the "Issuing rollback() due to
+    DESTROY without explicit disconnect" warning to identify the handle.
+    Applies to compiled drivers when they are recompiled.
+  Added DBI->visit_handles($coderef) method.
+  Added $h->visit_child_handles($coderef) method.
+  Added docs for column_info()'s COLUMN_DEF value.
+  Clarified docs on stickyness of data type via bind_param().
+  Clarified docs on stickyness of data type via bind_col().
 
-Move post-request cleanup into separate method and enable hooks so
-    it can be done after the response has been sent
-Gofer - allow dbh attrib changes after connect?
-    note them and pass in request as STORE method calls
-    but then gofer server need to reset them to restore dbh to original state
-    Or, change the attr in the connect() call, but that risks
-    bloating the number of cache dbh in the server.
-Gofer request flags for:
-    - return current executor stats as an attribute - handy for tests
-    - will accept streamed resultsets
-Add attr-passthru to prepare()? ie for gofer cache control & ReadOnly
-Terminology for client and server ends
-Document user/passwd issues at the various levels of the gofer stack
-Policy's from pod
-Policy for dbh attr FETCH (ie example_driver_path)
-    or piggyback on skip_connect_check
-    could also remember which attr have been returned to us
-    so not bother FETCHing them (unless pedantic)
-Call method on transport failure so transport can cleanup/reset if it wants
-Gofer: gearman - need to disable coallesing for non-idempotent requests
+=head2 Changes in DBI 1.608 (svn r12742) 5th May 2009
+
+  Fixes to DBD::File (H.Merijn Brand)
+    bind_param () now honors the attribute argument
+    added f_ext attribute
+    File::Spec is always required. (CORE since 5.00405)
+    Fail and set errstr on parameter count mismatch in execute ()
+  Fixed two small memory leaks when running in mod_perl
+    one in DBI->connect and one in DBI::Gofer::Execute.
+    Both due to "local $ENV{...};" leaking memory.
+  Fixed DBD_ATTRIB_DELETE macro for driver authors
+    and updated DBI::DBD docs thanks to Martin J. Evans.
+  Fixed 64bit issues in trace messages thanks to Charles Jardine.
+  Fixed FETCH_many() method to work with drivers that incorrectly return 
+    an empty list from $h->FETCH. Affected gofer.
+
+  Added 'sqlite_' as registered prefix for DBD::SQLite.
+  Corrected many typos in DBI docs thanks to Martin J. Evans.
+  Improved DBI::DBD docs thanks to H.Merijn Brand.
+
+=head2 Changes in DBI 1.607 (svn r11571) 22nd July 2008
+
+  NOTE: Perl 5.8.1 is now the minimum supported version.
+  If you need support for earlier versions send me a patch.
+
+  Fixed missing import of carp in DBI::Gofer::Execute.
+
+  Added note to docs about effect of execute(@empty_array).
+  Clarified docs for ReadOnly thanks to Martin Evans.
+
+=head2 Changes in DBI 1.605 (svn r11434) 16th June 2008
+
+  Fixed broken DBIS macro with threads on big-endian machines
+    with 64bit ints but 32bit pointers. Ticket #32309.
+  Fixed the selectall_arrayref, selectrow_arrayref, and selectrow_array
+    methods that get embedded into compiled drivers to use the
+    inner sth handle when passed a $sth instead of an sql string.
+    Drivers will need to be recompiled to pick up this change.
+  Fixed leak in neat() for some kinds of values thanks to Rudolf Lippan.
+  Fixed DBI::PurePerl neat() to behave more like XS neat().
+
+  Increased default $DBI::neat_maxlen from 400 to 1000.
+  Increased timeout on tests to accomodate very slow systems.
+  Changed behaviour of trace levels 1..4 to show less information
+    at lower levels.
+  Changed the format of the key used for $h->{CachedKids}
+    (which is undocumented so you shouldn't depend on it anyway)
+  Changed gofer error handling to avoid duplicate error text in errstr.
+  Clarified docs re ":N" style placeholders.
+  Improved gofer retry-on-error logic and refactored to aid subclassing.
+  Improved gofer trace output in assorted ways.
+
+  Removed the beeps "\a" from Makefile.PL warnings.
+  Removed check for PlRPC-modules from Makefile.PL
+
+  Added sorting of ParamValues reported by ShowErrorStatement
+    thanks to to Rudolf Lippan.
+  Added cache miss trace message to DBD::Gofer transport class.
+  Added $drh->dbixs_revision method.
+  Added explicit LICENSE specification (perl) to META.yaml
 
 =head2 Changes in DBI 1.604 (svn rev 10994) 24th March 2008
 

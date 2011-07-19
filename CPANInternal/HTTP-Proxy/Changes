@@ -1,13 +1,93 @@
 Revision history for Perl extension HTTP::Proxy
 
+0.24 Tue Jul 21 21:28:02 CEST 2009
+        [ENHANCEMENTS]
+        - When a short-circuit response was send, the next response
+          would not be filtered at all. This has been fixed.
+        [FIXES]
+        - yet another fix for t/23connect, proposed by Marek Rouchal
+          (closed RT ticket #38995) [test skipped for now]
+        - HTTP::Headers::Util's split_header_words() returns lower case
+          tokens/keys since October 6, 2008. Fix by Maurice Aubrey.
+          (closed RT tickets #43249, #43622)
+
+0.23 Thu Sep  4 02:29:47 CEST 2008
+        [ENHANCEMENTS]
+        - HTTP::Proxy::BodyFilter::save had an issue with cygwin because
+          of an incorrect use of File::Spec's catdir(). This is fixed.
+        - CONNECT requests are now forwarded to the upstream proxy, if there
+          is one. Errors from the upstream proxy are relayed to the client.
+        [TESTS]
+        - t/23connect.t does not use sysread() anymore. This time the test
+          should pass about everywhere.
+
+0.22 Thu May  1 00:18:38 CEST 2008
+        [TESTS]
+        - increased test coverage
+        - t/23connect.t doesn't need an Internet connection any more,
+          thus closing RT ticket #19653.
+        - t/67complete.t tests HTTP::Proxy::BodyFilter::complete
+        [DOCUMENTATION]
+        - closed RT ticket #33465 (Jimbo), by explaining in a little
+          more detail how HTTP::Proxy::BodyFilter::complete works.
+
+0.21 Sun Apr 20 04:34:47 CEST 2008
+        [ENHANCEMENTS]
+        - HTTP::Proxy::Engine::Legacy and HTTP::Proxy::Engine::ScoreBoard
+          log the number of remaining child processes (in addition to
+          their pids), thanks to Amos Shapira.
+        [FIXES]
+        - HTTP::Proxy::BodyFilter::save had a bug that prevented the
+          'filename' parameter to be correctly used to compute the 
+          filename to save to, and that made the proxy die the second
+          time the filter was called.
+          This fix allowed to close RT tickets #14548 (Max Maischein),
+          #18644 (Mark Tilford) and #33018 (Roland Stigge and Gunnar Wolf).
+        - HTTP::Proxy::BodyFilter::save had many other bugs, which the
+          test suite allowed to spot and fix.
+        [TESTS]
+        - t/67save.t provides 96% coverage of HTTP::Proxy::BodyFilter::save,
+          and helped fix many bugs in it.
+        - fixed t/22http.t and t/22transparent.t not to break when the
+          DNS wrongly resolves an invalid address.
+        [DOCUMENTATION]
+        - closed RT ticket #25295 (Matsuno Tokuhiro) with a doc patch.
+
+0.20 Fri Aug 18 10:25:11 CEST 2006
+        [ENHANCEMENTS]
+        - Added a will_modify() method to HTTP::Proxy::BodyFilter, that
+          lets the proxy know if a filter may modify the content length,
+          thus closing RT ticket #21051 (Chris Dolan)
+        - If no filter in the current stack will modify the content length,
+          then the header is not removed
+        [FIXES]
+        - closed RT tickets #3184 and #20251 (chunked encoding was enforced
+          while transfering data between a client and server using
+          different versions of HTTP, causing unwanted garbage to appear
+          in the data)
+        - removed useless "ERROR: Getting request failed:" messages
+          when there are simply "No more requests from this connection"
+        [INTERNALS]
+        - Removed the HTTP::Proxy::FilterStack class from inside HTTP::Proxy
+          and put it in its own module file
+        - renamed HTTP::Proxy::FilterStack::active() as will_modify() for
+          consistency reasons
+        [TESTS]
+        - updated t/22http.t and t/23connect.t following Ken Williams'
+          recommandations in RT ticket #19986
+        [DOCUMENTATION]
+        - patched a small inconsistency in HTTP::Proxy::BodyFilter's
+          documentation (and closed RT ticket #20303)
+        - fully documented HTTP::Proxy::FilterStack
+
 0.19 Fri Apr 28 19:55:41 CEST 2006
         [ENHANCEMENTS]
-	- HTTP::Proxy::HeaderFilter::simple now lets one define an
-	  end() method as well
-	[FIXES]
-	- HTTP::Proxy::(Body|Header)Filter::simple now provide a default
-	  filter() that does nothing if their constructor is not given one
-	  (thanks to Merijn Brand)
+        - HTTP::Proxy::HeaderFilter::simple now lets one define an
+          end() method as well
+        [FIXES]
+        - HTTP::Proxy::(Body|Header)Filter::simple now provide a default
+          filter() that does nothing if their constructor is not given one
+          (thanks to Merijn Brand)
         - close RT ticket #14548 by correcting the 'filename' check
           in HTTP::Proxy::BodyFilter::save (Max Maischein)
         - ERROR messages are always logged (Mark Tilford)

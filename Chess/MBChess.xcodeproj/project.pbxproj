@@ -37,7 +37,6 @@
 		950BD1300A1E582B00395116 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
 		950BD1420A1E582B00395116 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
 		950BD1430A1E582B00395116 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
-		950BD1440A1E582B00395116 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
 		950BD1450A1E582B00395116 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
 		950BD1460A1E582B00395116 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
 		950BD1470A1E582B00395116 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
@@ -164,7 +163,6 @@
 		95844CB50A670C280068CA82 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
 		95844CC70A670C280068CA82 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
 		95844CC80A670C280068CA82 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
-		95844CC90A670C280068CA82 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
 		95844CCA0A670C280068CA82 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
 		95844CCB0A670C280068CA82 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
 		95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
@@ -197,6 +195,19 @@
 		95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
 		95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
 		95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
+		959212FB12B0676D0021B5BA /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 959212FA12B0676D0021B5BA /* COPYING */; };
+		959212FC12B0676D0021B5BA /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 959212FA12B0676D0021B5BA /* COPYING */; };
+		95B81B7D11F65D2B0047D0A0 /* GeoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */; };
+		95C31C58125E2E020085159C /* MBCMoveTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31C56125E2E020085159C /* MBCMoveTableView.h */; };
+		95C31C59125E2E020085159C /* MBCMoveTableView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C31C57125E2E020085159C /* MBCMoveTableView.mm */; };
+		95C31C5A125E2E020085159C /* MBCMoveTableView.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31C56125E2E020085159C /* MBCMoveTableView.h */; };
+		95C31C5B125E2E020085159C /* MBCMoveTableView.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C31C57125E2E020085159C /* MBCMoveTableView.mm */; };
+		95C31D69125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31D67125E7B8B0085159C /* MBCStretchyTextCell.h */; };
+		95C31D6A125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C31D68125E7B8B0085159C /* MBCStretchyTextCell.mm */; };
+		95C31D6B125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C31D67125E7B8B0085159C /* MBCStretchyTextCell.h */; };
+		95C31D6C125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C31D68125E7B8B0085159C /* MBCStretchyTextCell.mm */; };
+		95D4D51B1327E29E0063FA06 /* Spoken.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D4D5191327E29E0063FA06 /* Spoken.strings */; };
+		95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D4D5191327E29E0063FA06 /* Spoken.strings */; };
 		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
 /* End PBXBuildFile section */
 
@@ -269,7 +280,7 @@
 		9534EBC3046627320000E7BB /* MBCBoardAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardAnimation.h; path = Sources/MBCBoardAnimation.h; sourceTree = "<group>"; };
 		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
 		953ABB1B043AC51100C64F18 /* MBCDocument.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCDocument.h; path = Sources/MBCDocument.h; sourceTree = "<group>"; };
-		953ABB1C043AC51100C64F18 /* MBCDocument.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCDocument.mm; path = Sources/MBCDocument.mm; sourceTree = "<group>"; };
+		953ABB1C043AC51100C64F18 /* MBCDocument.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCDocument.mm; path = Sources/MBCDocument.mm; sourceTree = "<group>"; wrapsLines = 0; };
 		956195D80EB12AD70097627D /* 1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 1.png; path = Textures/1.png; sourceTree = "<group>"; };
 		956195D90EB12AD70097627D /* 2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 2.png; path = Textures/2.png; sourceTree = "<group>"; };
 		956195DA0EB12AD70097627D /* 3.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = 3.png; path = Textures/3.png; sourceTree = "<group>"; };
@@ -328,15 +339,21 @@
 		95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCFloatingBoardWindow.mm; path = Sources/MBCFloatingBoardWindow.mm; sourceTree = "<group>"; };
 		95B65050046F289700EF3E85 /* MBCGameInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCGameInfo.h; path = Sources/MBCGameInfo.h; sourceTree = "<group>"; };
 		95B65051046F289700EF3E85 /* MBCGameInfo.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCGameInfo.mm; path = Sources/MBCGameInfo.mm; sourceTree = "<group>"; };
+		95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GeoKit.framework; path = /System/Library/PrivateFrameworks/GeoKit.framework; sourceTree = "<absolute>"; };
 		95C10123043A066700CA17DD /* chess.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = chess.icns; path = Resources/chess.icns; sourceTree = "<group>"; };
+		95C31C56125E2E020085159C /* MBCMoveTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCMoveTableView.h; path = Sources/MBCMoveTableView.h; sourceTree = "<group>"; };
+		95C31C57125E2E020085159C /* MBCMoveTableView.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveTableView.mm; path = Sources/MBCMoveTableView.mm; sourceTree = "<group>"; };
+		95C31D67125E7B8B0085159C /* MBCStretchyTextCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCStretchyTextCell.h; path = Sources/MBCStretchyTextCell.h; sourceTree = "<group>"; };
+		95C31D68125E7B8B0085159C /* MBCStretchyTextCell.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCStretchyTextCell.mm; path = Sources/MBCStretchyTextCell.mm; sourceTree = "<group>"; };
 		95C4075B04B2B8500015A26B /* MBCAbout.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCAbout.h; path = Sources/MBCAbout.h; sourceTree = "<group>"; };
 		95C4075C04B2B8500015A26B /* MBCAbout.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCAbout.mm; path = Sources/MBCAbout.mm; sourceTree = "<group>"; };
 		95C4076204B2B86A0015A26B /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/About.nib; sourceTree = "<group>"; };
 		95C85026048F342500A9DF4F /* Styles */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Styles; sourceTree = "<group>"; };
 		95D2026204C2247A00590F98 /* MBCLanguageModel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCLanguageModel.h; path = Sources/MBCLanguageModel.h; sourceTree = "<group>"; };
 		95D2026304C2247B00590F98 /* MBCLanguageModel.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCLanguageModel.mm; path = Sources/MBCLanguageModel.mm; sourceTree = "<group>"; };
+		95D4D51A1327E29E0063FA06 /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Spoken.strings; sourceTree = "<group>"; };
 		95D6CE63045BBDBE0045D5FC /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
-		95E9EE6D045797010091A3D7 /* COPYING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
+		95E9EE6D045797010091A3D7 /* English */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = English; path = sjeng/English.lproj/COPYING; sourceTree = "<group>"; };
 		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
 		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
 		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
@@ -359,7 +376,7 @@
 		F5775A2002F917A901D8996C /* zbook.db */ = {isa = PBXFileReference; lastKnownFileType = file; name = zbook.db; path = sjeng/books/zbook.db; sourceTree = "<group>"; };
 		F598AC41035A958501000102 /* Defaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Defaults.plist; path = Resources/Defaults.plist; sourceTree = "<group>"; };
 		F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewMouse.h; path = Sources/MBCBoardViewMouse.h; sourceTree = "<group>"; };
-		F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewMouse.mm; path = Sources/MBCBoardViewMouse.mm; sourceTree = "<group>"; };
+		F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewMouse.mm; path = Sources/MBCBoardViewMouse.mm; sourceTree = "<group>"; };
 		F5A165420310661001D39A8B /* MBCInteractivePlayer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCInteractivePlayer.h; path = Sources/MBCInteractivePlayer.h; sourceTree = "<group>"; };
 		F5A1654603106D9B01D39A8B /* MBCAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCAnimation.h; path = Sources/MBCAnimation.h; sourceTree = "<group>"; };
 		F5A1654703106D9B01D39A8B /* MBCAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCAnimation.mm; path = Sources/MBCAnimation.mm; sourceTree = "<group>"; };
@@ -384,6 +401,7 @@
 				950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */,
 				950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */,
 				950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */,
+				95B81B7D11F65D2B0047D0A0 /* GeoKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,6 +428,8 @@
 		080E96DDFE201D6D7F000001 /* Classes */ = {
 			isa = PBXGroup;
 			children = (
+				95C31C56125E2E020085159C /* MBCMoveTableView.h */,
+				95C31C57125E2E020085159C /* MBCMoveTableView.mm */,
 				95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */,
 				95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */,
 				95D2026204C2247A00590F98 /* MBCLanguageModel.h */,
@@ -444,6 +464,8 @@
 				F5A1654F03107AD501D39A8B /* MBCController.mm */,
 				95B65050046F289700EF3E85 /* MBCGameInfo.h */,
 				95B65051046F289700EF3E85 /* MBCGameInfo.mm */,
+				95C31D67125E7B8B0085159C /* MBCStretchyTextCell.h */,
+				95C31D68125E7B8B0085159C /* MBCStretchyTextCell.mm */,
 				95A35CFF048EEA7300D1AB5E /* MBCTuner.h */,
 				95A35D00048EEA7300D1AB5E /* MBCTuner.mm */,
 				95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */,
@@ -462,6 +484,7 @@
 				F5529B030314493B01CA17FB /* Carbon.framework */,
 				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
 				F5228DC5030ADA9401D8E860 /* OpenGL.framework */,
+				95B81B7C11F65D2B0047D0A0 /* GeoKit.framework */,
 			);
 			name = "Linked Frameworks";
 			sourceTree = "<group>";
@@ -532,11 +555,12 @@
 				950BD16F0A1E582B00395116 /* Info-MBChess.plist */,
 				950EE08807769701004ED524 /* Chess.plist */,
 				950EE08907769701004ED524 /* Chess.txt */,
-				95E9EE6D045797010091A3D7 /* COPYING */,
+				959212FA12B0676D0021B5BA /* COPYING */,
 				95C10123043A066700CA17DD /* chess.icns */,
 				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
+				95D4D5191327E29E0063FA06 /* Spoken.strings */,
 				F5775A1C02F917A901D8996C /* bug.opn */,
 				F5775A1D02F917A901D8996C /* losers.opn */,
 				F5775A1E02F917A901D8996C /* nbook.db */,
@@ -625,6 +649,8 @@
 				950BD1260A1E582B00395116 /* MBCAbout.h in Headers */,
 				950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */,
 				950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */,
+				95C31C58125E2E020085159C /* MBCMoveTableView.h in Headers */,
+				95C31D69125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -688,6 +714,8 @@
 				95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */,
 				95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */,
 				95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */,
+				95C31C5A125E2E020085159C /* MBCMoveTableView.h in Headers */,
+				95C31D6B125E7B8B0085159C /* MBCStretchyTextCell.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -781,7 +809,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* MBChess */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -809,7 +844,7 @@
 				950BD1300A1E582B00395116 /* zbook.db in Resources */,
 				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
 				950BD1430A1E582B00395116 /* chess.icns in Resources */,
-				950BD1440A1E582B00395116 /* COPYING in Resources */,
+				959212FB12B0676D0021B5BA /* COPYING in Resources */,
 				950BD1450A1E582B00395116 /* sjeng.rc in Resources */,
 				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
 				950BD1470A1E582B00395116 /* handCursor.tiff in Resources */,
@@ -833,6 +868,7 @@
 				956195F70EB12AD70097627D /* g.png in Resources */,
 				956195F80EB12AD70097627D /* h.png in Resources */,
 				956195F90EB12AD70097627D /* selected_piece_texture.png in Resources */,
+				95D4D51B1327E29E0063FA06 /* Spoken.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -849,7 +885,7 @@
 				95844CB50A670C280068CA82 /* zbook.db in Resources */,
 				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
 				95844CC80A670C280068CA82 /* chess.icns in Resources */,
-				95844CC90A670C280068CA82 /* COPYING in Resources */,
+				959212FC12B0676D0021B5BA /* COPYING in Resources */,
 				95844CCA0A670C280068CA82 /* sjeng.rc in Resources */,
 				95844CCB0A670C280068CA82 /* Localizable.strings in Resources */,
 				95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */,
@@ -873,6 +909,7 @@
 				956196080EB12AD70097627D /* g.png in Resources */,
 				956196090EB12AD70097627D /* h.png in Resources */,
 				9561960A0EB12AD70097627D /* selected_piece_texture.png in Resources */,
+				95D4D51C1327E29E0063FA06 /* Spoken.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -915,6 +952,8 @@
 				950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */,
 				950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */,
 				950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */,
+				95C31C59125E2E020085159C /* MBCMoveTableView.mm in Sources */,
+				95C31D6A125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -953,6 +992,8 @@
 				95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */,
 				95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */,
 				95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */,
+				95C31C5B125E2E020085159C /* MBCMoveTableView.mm in Sources */,
+				95C31D6C125E7B8B0085159C /* MBCStretchyTextCell.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -998,6 +1039,14 @@
 			name = MainMenu.nib;
 			sourceTree = "<group>";
 		};
+		959212FA12B0676D0021B5BA /* COPYING */ = {
+			isa = PBXVariantGroup;
+			children = (
+				95E9EE6D045797010091A3D7 /* English */,
+			);
+			name = COPYING;
+			sourceTree = "<group>";
+		};
 		95A35D03048EEF8900D1AB5E /* Tuner.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -1014,6 +1063,14 @@
 			name = About.nib;
 			sourceTree = "<group>";
 		};
+		95D4D5191327E29E0063FA06 /* Spoken.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				95D4D51A1327E29E0063FA06 /* English */,
+			);
+			name = Spoken.strings;
+			sourceTree = "<group>";
+		};
 		95D6CE62045BBDBE0045D5FC /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -1028,9 +1085,14 @@
 		950BD16C0A1E582B00395116 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -1056,9 +1118,14 @@
 		950BD16D0A1E582B00395116 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
@@ -1081,8 +1148,13 @@
 		950BD16E0A1E582B00395116 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
@@ -1190,6 +1262,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
+				INSTALL_PATH = "";
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1198,6 +1271,7 @@
 				PRODUCT_NAME = sjeng.ChessEngine;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1213,6 +1287,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1221,6 +1296,7 @@
 				PRODUCT_NAME = sjeng.ChessEngine;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -1234,6 +1310,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "";
 				ORDER_FILE = sjeng/sjeng.ChessEngine.order;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1242,6 +1319,7 @@
 				PRODUCT_NAME = sjeng.ChessEngine;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

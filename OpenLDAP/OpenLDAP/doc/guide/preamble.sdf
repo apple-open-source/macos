@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/openldap-guide/preamble.sdf,v 1.70.2.7 2008/04/14 19:18:48 quanah Exp $
-# Copyright 1999-2008 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/openldap-guide/preamble.sdf,v 1.70.2.9 2009/01/22 00:00:47 kurt Exp $
+# Copyright 1999-2009 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
  
 #
@@ -164,7 +164,7 @@ ASN.1|Abstract Syntax Notation - One
 AVA|Attribute Value Assertion
 AuthcDN|Authentication DN
 AuthcId|Authentication Identity
-AuthzDN|Authorizaiton DN
+AuthzDN|Authorization DN
 AuthzId|Authorization Identity
 BCP|Best Current Practice
 BDB|Berkeley DB (Backend)

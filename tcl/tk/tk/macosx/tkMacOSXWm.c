@@ -4756,7 +4756,7 @@ TkMacOSXResizable(
 int
 TkMacOSXGrowToplevel(
     void *whichWindow,
-    Point start)
+    XPoint start)
 {
     return false;
 }
@@ -5340,6 +5340,14 @@ TkMacOSXMakeRealWindowExist(
     [window setAutodisplay:NO];
     if (styleMask & NSUtilityWindowMask) {
 	[(NSPanel*)window setFloatingPanel:YES];
+    }
+    if ((styleMask & (NSTexturedBackgroundWindowMask|NSHUDWindowMask)) &&
+	    !(styleMask & NSDocModalWindowMask)) {
+        /*
+	 * Workaround for [Bug 2824538]: Texured windows are draggable
+	 *                               from opaque content.
+	 */
+	[window setMovableByWindowBackground:NO];
     }
     [window setDocumentEdited:NO];
     wmPtr->window = window;

@@ -2,6 +2,7 @@
 [manpage_begin picoirc n 0.5]
 [moddesc   {Simple embeddable IRC interface}]
 [titledesc {Small and simple embeddable IRC client.}]
+[category  Networking]
 [require Tcl]
 [require picoirc [opt 0.5]]
 [description]

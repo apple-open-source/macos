@@ -31,7 +31,7 @@
 #include "stuff/ofile.h"
 #include "stuff/breakout.h"
 #include "stuff/allocate.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/errors.h"
 
 static void copy_new_symbol_info(
@@ -353,7 +353,7 @@ enum bool *seen_archive)
 				       commons_in_toc, library_warnings);
 		archs[i].library_size += SARMAG + archs[i].toc_size;
 		if(archs[i].fat_arch != NULL)
-		    file_size = round(file_size, 1 << archs[i].fat_arch->align);
+		    file_size = rnd(file_size, 1 << archs[i].fat_arch->align);
 		file_size += archs[i].library_size;
 		if(archs[i].fat_arch != NULL)
 		    archs[i].fat_arch->size = archs[i].library_size;
@@ -361,16 +361,17 @@ enum bool *seen_archive)
 	    else if(archs[i].type == OFILE_Mach_O){
 		size = archs[i].object->object_size
 		       - archs[i].object->input_sym_info_size
+		       + archs[i].object->output_new_content_size
 		       + archs[i].object->output_sym_info_size;
 		if(archs[i].fat_arch != NULL)
-		    file_size = round(file_size, 1 << archs[i].fat_arch->align);
+		    file_size = rnd(file_size, 1 << archs[i].fat_arch->align);
 		file_size += size;
 		if(archs[i].fat_arch != NULL)
 		    archs[i].fat_arch->size = size;
 	    }
 	    else{ /* archs[i].type == OFILE_UNKNOWN */
 		if(archs[i].fat_arch != NULL)
-		    file_size = round(file_size, 1 << archs[i].fat_arch->align);
+		    file_size = rnd(file_size, 1 << archs[i].fat_arch->align);
 		file_size += archs[i].unknown_size;
 		if(archs[i].fat_arch != NULL)
 		    archs[i].fat_arch->size = archs[i].unknown_size;
@@ -400,7 +401,7 @@ enum bool *seen_archive)
 	    for(i = 0; i < narchs; i++){
 		fat_arch[i].cputype = archs[i].fat_arch->cputype;
 		fat_arch[i].cpusubtype = archs[i].fat_arch->cpusubtype;
-		offset = round(offset, 1 << archs[i].fat_arch->align);
+		offset = rnd(offset, 1 << archs[i].fat_arch->align);
 		fat_arch[i].offset = offset;
 		fat_arch[i].size = archs[i].fat_arch->size;
 		fat_arch[i].align = archs[i].fat_arch->align;
@@ -477,7 +478,7 @@ enum bool *seen_archive)
 		if(archs[i].toc_long_name == TRUE){
 		    memcpy(p, archs[i].toc_name, archs[i].toc_name_size);
 		    p += archs[i].toc_name_size +
-			 (round(sizeof(struct ar_hdr), 8) -
+			 (rnd(sizeof(struct ar_hdr), 8) -
 			  sizeof(struct ar_hdr));
 		}
 
@@ -515,8 +516,8 @@ enum bool *seen_archive)
 		    if(archs[i].members[j].member_long_name == TRUE){
 			memcpy(p, archs[i].members[j].member_name,
 			       archs[i].members[j].member_name_size);
-			p += round(archs[i].members[j].member_name_size, 8) +
-				   (round(sizeof(struct ar_hdr), 8) -
+			p += rnd(archs[i].members[j].member_name_size, 8) +
+				   (rnd(sizeof(struct ar_hdr), 8) -
 				    sizeof(struct ar_hdr));
 		    }
 
@@ -589,13 +590,13 @@ enum bool *seen_archive)
 				archs[i].members[j].object);
 			}
 			p += size;
-			pad = round(size, 8) - size;
+			pad = rnd(size, 8) - size;
 		    }
 		    else{
 			memcpy(p, archs[i].members[j].unknown_addr, 
 			       archs[i].members[j].unknown_size);
 			p += archs[i].members[j].unknown_size;
-			pad = round(archs[i].members[j].unknown_size, 8) -
+			pad = rnd(archs[i].members[j].unknown_size, 8) -
 				    archs[i].members[j].unknown_size;
 		    }
 		    /* as with the UNIX ar(1) program pad with '\n' chars */
@@ -697,6 +698,11 @@ enum bool *seen_archive)
 		    size = archs[i].object->object_size
 			   - archs[i].object->input_sym_info_size;
 		    memcpy(p, archs[i].object->object_addr, size);
+		    if(archs[i].object->output_new_content_size != 0){
+			memcpy(p + size, archs[i].object->output_new_content,
+			       archs[i].object->output_new_content_size);
+			size += archs[i].object->output_new_content_size;
+		    }
 		    copy_new_symbol_info(p, &size, &dyst,
 				archs[i].object->dyst, &hints_cmd,
 				archs[i].object->hints_cmd,
@@ -749,6 +755,12 @@ struct object *object)
 			   object->output_split_info_data_size);
 		*size += object->output_split_info_data_size;
 	    }
+	    if(object->output_func_start_info_data_size != 0){
+		if(object->output_func_start_info_data != NULL)
+		    memcpy(p + *size, object->output_func_start_info_data,
+			   object->output_func_start_info_data_size);
+		*size += object->output_func_start_info_data_size;
+	    }
 	    if(object->mh != NULL){
 		memcpy(p + *size, object->output_symbols,
 		       object->output_nsymbols * sizeof(struct nlist));
@@ -799,7 +811,7 @@ struct object *object)
 		   object->output_strings_size);
 	    *size += object->output_strings_size;
 	    if(object->output_code_sig_data_size != 0){
-		*size = round(*size, 16);
+		*size = rnd(*size, 16);
 		if(object->output_code_sig_data != NULL)
 		    memcpy(p + *size, object->output_code_sig_data,
 			   object->output_code_sig_data_size);
@@ -823,7 +835,7 @@ struct object *object)
 		   object->output_strings_size);
 	    *size += object->output_strings_size;
 	    if(object->output_code_sig_data_size != 0){
-		*size = round(*size, 16);
+		*size = rnd(*size, 16);
 		if(object->output_code_sig_data != NULL)
 		    memcpy(p + *size, object->output_code_sig_data,
 			   object->output_code_sig_data_size);
@@ -992,7 +1004,7 @@ enum bool library_warnings)
 	 */
 	arch->toc_entries = allocate(sizeof(struct toc_entry) * arch->ntocs);
 	arch->toc_ranlibs = allocate(sizeof(struct ranlib) * arch->ntocs);
-	arch->toc_strsize = round(arch->toc_strsize, 8);
+	arch->toc_strsize = rnd(arch->toc_strsize, 8);
 	arch->toc_strings = allocate(arch->toc_strsize);
 
 	/*
@@ -1126,7 +1138,7 @@ enum bool library_warnings)
 	if(sorted == TRUE){
 	    /*
 	     * This assumes that "__.SYMDEF SORTED" is 16 bytes and
-	     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+	     * (rnd(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
 	     * is 4 bytes.
 	     */
 	    ar_name = AR_EFMT1 "20";
@@ -1136,7 +1148,7 @@ enum bool library_warnings)
 	else{
 	    /*
 	     * This  assumes that "__.SYMDEF\0\0\0\0\0\0\0" is 16 bytes and
-	     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+	     * (rnd(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
 	     * is 4 bytes.
 	     */
 	    ar_name = AR_EFMT1 "20";
@@ -1150,7 +1162,7 @@ enum bool library_warnings)
 			 arch->toc_strsize;
 	if(arch->toc_long_name == TRUE)
 	    arch->toc_size += arch->toc_name_size +
-			      (round(sizeof(struct ar_hdr), 8) -
+			      (rnd(sizeof(struct ar_hdr), 8) -
 			       sizeof(struct ar_hdr));
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;

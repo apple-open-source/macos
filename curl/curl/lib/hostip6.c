@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hostip6.c,v 1.49 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -43,7 +42,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>     /* for the close() proto */
 #endif
-#ifdef  VMS
+#ifdef __VMS
 #include <in.h>
 #include <inet.h>
 #include <stdlib.h>
@@ -75,20 +74,6 @@
  **********************************************************************/
 #ifdef CURLRES_IPV6
 
-#ifndef CURLRES_ARES
-#ifdef CURLRES_ASYNCH
-/*
- * Curl_addrinfo_copy() is used by the asynch callback to copy a given
- * address. But this is an ipv6 build and then we don't copy the address, we
- * just return the same pointer!
- */
-Curl_addrinfo *Curl_addrinfo_copy(const void *orig, int port)
-{
-  (void) port;
-  return (Curl_addrinfo*)orig;
-}
-#endif  /* CURLRES_ASYNCH */
-#endif  /* CURLRES_ARES */
 
 #if defined(CURLDEBUG) && defined(HAVE_GETNAMEINFO)
 /* These are strictly for memory tracing and are using the same style as the
@@ -112,17 +97,13 @@ int curl_dogetnameinfo(GETNAMEINFO_QUAL_ARG1 GETNAMEINFO_TYPE_ARG1 sa,
                           host, hostlen,
                           serv, servlen,
                           flags);
-  if(0 == res) {
+  if(0 == res)
     /* success */
-    if(logfile)
-      fprintf(logfile, "GETNAME %s:%d getnameinfo()\n",
-              source, line);
-  }
-  else {
-    if(logfile)
-      fprintf(logfile, "GETNAME %s:%d getnameinfo() failed = %d\n",
-              source, line, res);
-  }
+    curl_memlog("GETNAME %s:%d getnameinfo()\n",
+                source, line);
+  else
+    curl_memlog("GETNAME %s:%d getnameinfo() failed = %d\n",
+                source, line, res);
   return res;
 }
 #endif /* defined(CURLDEBUG) && defined(HAVE_GETNAMEINFO) */
@@ -131,9 +112,9 @@ int curl_dogetnameinfo(GETNAMEINFO_QUAL_ARG1 GETNAMEINFO_TYPE_ARG1 sa,
  * Curl_ipvalid() checks what CURL_IPRESOLVE_* requirements that might've
  * been set and returns TRUE if they are OK.
  */
-bool Curl_ipvalid(struct SessionHandle *data)
+bool Curl_ipvalid(struct connectdata *conn)
 {
-  if(data->set.ip_version == CURL_IPRESOLVE_V6) {
+  if(conn->ip_version == CURL_IPRESOLVE_V6) {
     /* see if we have an IPv6 stack */
     curl_socket_t s = socket(PF_INET6, SOCK_DGRAM, 0);
     if(s == CURL_SOCKET_BAD)
@@ -144,7 +125,7 @@ bool Curl_ipvalid(struct SessionHandle *data)
   return TRUE;
 }
 
-#if !defined(USE_THREADING_GETADDRINFO) && !defined(CURLRES_ARES)
+#if defined(CURLRES_SYNCH)
 
 #ifdef DEBUG_ADDRINFO
 static void dump_addrinfo(struct connectdata *conn, const Curl_addrinfo *ai)
@@ -188,12 +169,12 @@ Curl_addrinfo *Curl_getaddrinfo(struct connectdata *conn,
   int pf;
   struct SessionHandle *data = conn->data;
 
-  *waitp=0; /* don't wait, we have the response now */
+  *waitp = 0; /* synchronous response only */
 
   /*
    * Check if a limited name resolve has been requested.
    */
-  switch(data->set.ip_version) {
+  switch(conn->ip_version) {
   case CURL_IPRESOLVE_V4:
     pf = PF_INET;
     break;
@@ -232,11 +213,6 @@ Curl_addrinfo *Curl_getaddrinfo(struct connectdata *conn,
     /* the given address is numerical only, prevent a reverse lookup */
     hints.ai_flags = AI_NUMERICHOST;
   }
-#ifdef HAVE_GSSAPI
-  if(conn->data->set.krb)
-    /* if krb is used, we (might) need the canonical host name */
-    hints.ai_flags |= AI_CANONNAME;
-#endif
 
   if(port) {
     snprintf(sbuf, sizeof(sbuf), "%d", port);
@@ -252,6 +228,6 @@ Curl_addrinfo *Curl_getaddrinfo(struct connectdata *conn,
 
   return res;
 }
-#endif /* !USE_THREADING_GETADDRINFO && !CURLRES_ARES */
-#endif /* ipv6 */
+#endif /* CURLRES_SYNCH */
+#endif /* CURLRES_IPV6 */
 

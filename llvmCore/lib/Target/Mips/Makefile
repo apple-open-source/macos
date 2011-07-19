@@ -6,6 +6,7 @@
 # License. See LICENSE.TXT for details.
 #
 ##===----------------------------------------------------------------------===##
+
 LEVEL = ../../..
 LIBRARYNAME = LLVMMipsCodeGen
 TARGET = Mips
@@ -17,7 +18,7 @@ BUILT_SOURCES = MipsGenRegisterInfo.h.inc MipsGenRegisterNames.inc \
                 MipsGenDAGISel.inc MipsGenCallingConv.inc \
                 MipsGenSubtarget.inc
 
-DIRS = AsmPrinter
+DIRS = AsmPrinter TargetInfo
 
 include $(LEVEL)/Makefile.common
 

@@ -5,7 +5,7 @@
 #
 # Wrapper for the Secure Hashing Algorithm (SHA256)
 #
-# $Id: sha256c.tcl,v 1.4 2008/03/25 07:15:34 andreas_kupries Exp $
+# $Id: sha256c.tcl,v 1.5 2009/05/07 00:35:10 patthoyts Exp $
 
 package require critcl;        # needs critcl
 # @sak notprovided sha256c
@@ -108,9 +108,8 @@ namespace eval ::sha2 {
 	obj->internalRep.otherValuePtr = mp;
 	obj->typePtr = &sha256_type;
         
-        Tcl_SetObjResult(ip, obj);
-        Tcl_IncrRefCount(obj); /* !! huh? */
         Tcl_InvalidateStringRep(obj);        
+        Tcl_SetObjResult(ip, obj);
         return TCL_OK;
     }
 
@@ -136,9 +135,8 @@ namespace eval ::sha2 {
 	obj->internalRep.otherValuePtr = mp;
 	obj->typePtr = &sha256_type;
         
-        Tcl_SetObjResult(ip, obj);
-        Tcl_IncrRefCount(obj); /* !! huh? */
         Tcl_InvalidateStringRep(obj);        
+        Tcl_SetObjResult(ip, obj);
         return TCL_OK;
     }
 
@@ -163,15 +161,13 @@ namespace eval ::sha2 {
 	    obj = Tcl_DuplicateObj(obj);
 	}
         
-        Tcl_SetObjResult(ip, obj);
-        Tcl_IncrRefCount(obj); /* !! huh? */
-        
         Tcl_InvalidateStringRep(obj);
         mp = (SHA256_CTX*) obj->internalRep.otherValuePtr;
         
         data = Tcl_GetByteArrayFromObj(objv[1], &size);
         SHA256Update(mp, data, size);
         
+        Tcl_SetObjResult(ip, obj);
         return TCL_OK;
     }
 }

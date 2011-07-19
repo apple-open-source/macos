@@ -31,14 +31,13 @@
 
 #if ENABLE(DATABASE)
 
+#include "ExceptionCode.h"
 #include "SQLResultSetRowList.h"
-#include <wtf/Threading.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
-typedef int ExceptionCode;
-
-class SQLResultSet : public ThreadSafeShared<SQLResultSet> {
+class SQLResultSet : public ThreadSafeRefCounted<SQLResultSet> {
 public:
     static PassRefPtr<SQLResultSet> create() { return adoptRef(new SQLResultSet); }
 

@@ -23,6 +23,35 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.28 release (the cctools-778 release):
+- Changed trunc() to trnc() in pass2.c and removed -fno-builtin-trunc from the
+  Makefile.  Radar bug #7481062.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() in all files and removed -fno-builtin-round from the
+  Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.27 release (the cctools-770 release):
+- Copied the get_toc_byte_sex() routine from libstuff/get_toc_byte_sex.c into
+  pass1.c to avoid the problem of the wrong round() being called from that code
+  which did not match the prototype from ld.h.  Radar bug #7257030.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.26 release (the cctools-753 release):
+- Changed the Makefile to not use -iwithsysroot when RC_MAJOR_RELEASE_TRAIN is
+  Tiger.  Radar bug #6796174.
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248, 6757212 and 6756912.
+
 Changes for the 5.26 release (the cctools-738 release):
 - Removed the code and files for the old ProjectBuilder interface including the
   use of mig(1) in the Makefile.  The files make.defs make_defs.h were removed

@@ -35,13 +35,14 @@ using namespace WebCore;
 
 namespace JSC {
 
-const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &JSArray::info, 0, 0 };
+const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &JSArray::s_info, 0, 0 };
 
 RuntimeArray::RuntimeArray(ExecState* exec, Bindings::Array* array)
     // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
     // We need to pass in the right global object for "array".
-    : JSArray(deprecatedGetDOMStructure<RuntimeArray>(exec))
+    : JSArray(exec->globalData(), deprecatedGetDOMStructure<RuntimeArray>(exec))
 {
+    ASSERT(inherits(&s_info));
     setSubclassData(array);
 }
 
@@ -50,10 +51,10 @@ RuntimeArray::~RuntimeArray()
     delete getConcreteArray();
 }
 
-JSValue RuntimeArray::lengthGetter(ExecState* exec, JSValue slotBase, const Identifier&)
+JSValue RuntimeArray::lengthGetter(ExecState*, JSValue slotBase, const Identifier&)
 {
     RuntimeArray* thisObj = static_cast<RuntimeArray*>(asObject(slotBase));
-    return jsNumber(exec, thisObj->getLength());
+    return jsNumber(thisObj->getLength());
 }
 
 JSValue RuntimeArray::indexGetter(ExecState* exec, JSValue slotBase, unsigned index)
@@ -82,7 +83,7 @@ bool RuntimeArray::getOwnPropertySlot(ExecState* exec, const Identifier& propert
     }
     
     bool ok;
-    unsigned index = propertyName.toArrayIndex(&ok);
+    unsigned index = propertyName.toArrayIndex(ok);
     if (ok) {
         if (index < getLength()) {
             slot.setCustomIndex(this, index, indexGetter);
@@ -103,7 +104,7 @@ bool RuntimeArray::getOwnPropertyDescriptor(ExecState* exec, const Identifier& p
     }
     
     bool ok;
-    unsigned index = propertyName.toArrayIndex(&ok);
+    unsigned index = propertyName.toArrayIndex(ok);
     if (ok) {
         if (index < getLength()) {
             PropertySlot slot;
@@ -129,12 +130,12 @@ bool RuntimeArray::getOwnPropertySlot(ExecState *exec, unsigned index, PropertyS
 void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     if (propertyName == exec->propertyNames().length) {
-        throwError(exec, RangeError);
+        throwError(exec, createRangeError(exec, "Range error"));
         return;
     }
     
     bool ok;
-    unsigned index = propertyName.toArrayIndex(&ok);
+    unsigned index = propertyName.toArrayIndex(ok);
     if (ok) {
         getConcreteArray()->setValueAt(exec, index, value);
         return;
@@ -146,7 +147,7 @@ void RuntimeArray::put(ExecState* exec, const Identifier& propertyName, JSValue 
 void RuntimeArray::put(ExecState* exec, unsigned index, JSValue value)
 {
     if (index >= getLength()) {
-        throwError(exec, RangeError);
+        throwError(exec, createRangeError(exec, "Range error"));
         return;
     }
     

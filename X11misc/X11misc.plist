@@ -10,9 +10,9 @@
 		<key>OpenSourceProject</key>
 		<string>gccmakedep</string>
 		<key>OpenSourceSHA1</key>
-		<string>35d4d4dc5be6833915d45409b731ef0901643727</string>
+		<string>a3d971a507a460233afd8ed46e9f06135fed634d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/utils/gccmakedep-X11R7.1-1.0.2.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/util/gccmakedep-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
 		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
@@ -20,65 +20,97 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-02</string>
+		<string>2010-10-14</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT</string>
+		<key>OpenSourceProject</key>
+		<string>font-util</string>
+		<key>OpenSourceSHA1</key>
+		<string>011fa9c8fe08d9f6f848df570374ed1cb7488146</string>
+		<key>OpenSourceURL</key>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-util-1.2.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>1.2.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.x.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2010-08-15</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>lndir</string>
 		<key>OpenSourceSHA1</key>
-		<string>899b1426c5035012473784d7354b683e3395532a</string>
+		<string>bad5a03b82cd817e4a2a7d2e83b820326fb2a7b7</string>
 		<key>OpenSourceURL</key>
-		<string>http://gitweb.freedesktop.org/?p=xorg/util/lndir.git;a=shortlog;h=17eba8aca2edfadf0ec5291bcd937644e45561de</string>
+		<string>http://xorg.freedesktop.org/archive/individual/util/lndir-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>git-2007.12.06</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-12</string>
+		<string>2010-10-30</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>makedepend</string>
 		<key>OpenSourceSHA1</key>
-		<string>c795cdc754d8c9c73e6a310e41eab37c5ab867bf</string>
+		<string>9a2ea514c0e52b59712678be1f9a33a74a4e0b8e</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/util/makedepend-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/util/makedepend-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-02-12</string>
+		<string>2010-06-28</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceProject</key>
+		<string>pkg-config</string>
+		<key>OpenSourceSHA1</key>
+		<string>8922aeb4edeff7ed554cc1969cbb4ad5a4e6b26e</string>
+		<key>OpenSourceURL</key>
+		<string>http://pkgconfig.freedesktop.org/releases/pkg-config-0.25.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>0.25</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://pkg-config.freedesktop.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-03-15</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string>xorg-docs</string>
+		<string>util-macros</string>
 		<key>OpenSourceSHA1</key>
-		<string>1c129bf9a2da57a308c7b57cb994c960ff15880a</string>
+		<string>5d86ac2a4c0aa3428d72aff35dacc07baf883121</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/individual/doc/xorg-docs-1.4.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/util/util-macros-1.13.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4</string>
+		<string>1.13.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2011-04-06</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-sgml-doctools</string>
 		<key>OpenSourceSHA1</key>
-		<string>5a98b3326954c9b9c891cb2aa07ef485d066c08b</string>
+		<string>5301166d1e36df9cd796adf944d003f32b7b4945</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/docs/xorg-sgml-doctools-X11R7.1-1.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/doc/xorg-sgml-doctools-1.7.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.1</string>
+		<string>1.7</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>

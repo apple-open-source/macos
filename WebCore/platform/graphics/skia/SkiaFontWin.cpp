@@ -38,6 +38,8 @@
 #include "SkCanvas.h"
 #include "SkPaint.h"
 #include "SkShader.h"
+#include "SkTemplates.h"
+#include "SkTypeface_win.h"
 
 #include <wtf/ListHashSet.h>
 #include <wtf/Vector.h>
@@ -77,14 +79,14 @@ struct CachedOutlineKeyHash {
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
 
-typedef ListHashSet<CachedOutlineKey, CachedOutlineKeyHash> OutlineCache;
+// The global number of glyph outlines we'll cache.
+static const int outlineCacheSize = 256;
+
+typedef ListHashSet<CachedOutlineKey, outlineCacheSize+1, CachedOutlineKeyHash> OutlineCache;
 
 // FIXME: Convert from static constructor to accessor function. WebCore tries to
 // avoid global constructors to save on start-up time.
 static OutlineCache outlineCache;
-
-// The global number of glyph outlines we'll cache.
-static const int outlineCacheSize = 256;
 
 static SkScalar FIXEDToSkScalar(FIXED fixed)
 {
@@ -220,17 +222,30 @@ void SkiaWinOutlineCache::removePathsForFont(HFONT hfont)
         deleteOutline(outlineCache.find(*i));
 }
 
-bool windowsCanHandleDrawTextShadow(WebCore::GraphicsContext *context)
+bool windowsCanHandleDrawTextShadow(GraphicsContext *context)
 {
-    IntSize shadowSize;
-    int shadowBlur;
+    FloatSize shadowOffset;
+    float shadowBlur;
     Color shadowColor;
+    ColorSpace shadowColorSpace;
 
-    bool hasShadow = context->getShadow(shadowSize, shadowBlur, shadowColor);
-    return (hasShadow && (shadowBlur == 0) && (shadowColor.alpha() == 255) && (context->fillColor().alpha() == 255));
+    bool hasShadow = context->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
+    return !hasShadow || (!shadowBlur && (shadowColor.alpha() == 255) && (context->fillColor().alpha() == 255));
 }
 
 bool windowsCanHandleTextDrawing(GraphicsContext* context)
+{
+    if (!windowsCanHandleTextDrawingWithoutShadow(context))
+        return false;
+
+    // Check for shadow effects.
+    if (!windowsCanHandleDrawTextShadow(context))
+        return false;
+
+    return true;
+}
+
+bool windowsCanHandleTextDrawingWithoutShadow(GraphicsContext* context)
 {
     // Check for non-translation transforms. Sometimes zooms will look better in
     // Skia, and sometimes better in Windows. The main problem is that zooming
@@ -242,7 +257,7 @@ bool windowsCanHandleTextDrawing(GraphicsContext* context)
         return false;
 
     // Check for stroke effects.
-    if (context->platformContext()->getTextDrawingMode() != cTextFill)
+    if (context->platformContext()->getTextDrawingMode() != TextModeFill)
         return false;
 
     // Check for gradients.
@@ -253,8 +268,7 @@ bool windowsCanHandleTextDrawing(GraphicsContext* context)
     if (context->fillPattern() || context->strokePattern())
         return false;
 
-    // Check for shadow effects.
-    if (context->platformContext()->getDrawLooper() && (!windowsCanHandleDrawTextShadow(context)))
+    if (!context->platformContext()->isNativeFontRenderingAllowed())
         return false;
 
     return true;
@@ -264,7 +278,7 @@ bool windowsCanHandleTextDrawing(GraphicsContext* context)
 // pattern may be NULL, in which case a solid colour is used.
 static bool skiaDrawText(HFONT hfont,
                          HDC dc,
-                         SkCanvas* canvas,
+                         PlatformContextSkia* platformContext,
                          const SkPoint& point,
                          SkPaint* paint,
                          const WORD* glyphs,
@@ -272,27 +286,64 @@ static bool skiaDrawText(HFONT hfont,
                          const GOFFSET* offsets,
                          int numGlyphs)
 {
-    float x = point.fX, y = point.fY;
+    SkCanvas* canvas = platformContext->canvas();
+    if (!platformContext->isNativeFontRenderingAllowed()) {
+        SkASSERT(sizeof(WORD) == sizeof(uint16_t));
 
-    for (int i = 0; i < numGlyphs; i++) {
-        const SkPath* path = SkiaWinOutlineCache::lookupOrCreatePathForGlyph(dc, hfont, glyphs[i]);
-        if (!path)
-            return false;
-
-        float offsetX = 0.0f, offsetY = 0.0f;
-        if (offsets && (offsets[i].du != 0 || offsets[i].dv != 0)) {
-            offsetX = offsets[i].du;
-            offsetY = offsets[i].dv;
+        // Reserve space for 64 glyphs on the stack. If numGlyphs is larger, the array
+        // will dynamically allocate it space for numGlyph glyphs.
+        static const size_t kLocalGlyphMax = 64;
+        SkAutoSTArray<kLocalGlyphMax, SkPoint> posStorage(numGlyphs);
+        SkPoint* pos = posStorage.get();
+        SkScalar x = point.fX;
+        SkScalar y = point.fY;
+        for (int i = 0; i < numGlyphs; i++) {
+            pos[i].set(x + (offsets ? offsets[i].du : 0),
+                       y + (offsets ? offsets[i].dv : 0));
+            x += SkIntToScalar(advances[i]);
         }
+        canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, *paint);
+    } else {
+        float x = point.fX, y = point.fY;
 
-        SkPath newPath;
-        newPath.addPath(*path, x + offsetX, y + offsetY);
-        canvas->drawPath(newPath, *paint);
+        for (int i = 0; i < numGlyphs; i++) {
+            const SkPath* path = SkiaWinOutlineCache::lookupOrCreatePathForGlyph(dc, hfont, glyphs[i]);
+            if (!path)
+                return false;
 
-        x += advances[i];
+            float offsetX = 0.0f, offsetY = 0.0f;
+            if (offsets && (offsets[i].du || offsets[i].dv)) {
+                offsetX = offsets[i].du;
+                offsetY = offsets[i].dv;
+            }
+
+            SkPath newPath;
+            newPath.addPath(*path, x + offsetX, y + offsetY);
+            canvas->drawPath(newPath, *paint);
+
+            x += advances[i];
+        }
     }
-
     return true;
+}
+
+static void setupPaintForFont(HFONT hfont, SkPaint* paint)
+{
+    //  FIXME:
+    //  Much of this logic could also happen in
+    //  FontCustomPlatformData::fontPlatformData and be cached,
+    //  allowing us to avoid talking to GDI at this point.
+    //
+    LOGFONT info;
+    GetObject(hfont, sizeof(info), &info);
+    int size = info.lfHeight;
+    if (size < 0)
+        size = -size; // We don't let GDI dpi-scale us (see SkFontHost_win.cpp).
+    paint->setTextSize(SkIntToScalar(size));
+
+    SkTypeface* face = SkCreateTypefaceFromLOGFONT(info);
+    paint->setTypeface(face);
+    SkSafeUnref(face);
 }
 
 bool paintSkiaText(GraphicsContext* context,
@@ -307,29 +358,38 @@ bool paintSkiaText(GraphicsContext* context,
     HGDIOBJ oldFont = SelectObject(dc, hfont);
 
     PlatformContextSkia* platformContext = context->platformContext();
-    int textMode = platformContext->getTextDrawingMode();
+    TextDrawingModeFlags textMode = platformContext->getTextDrawingMode();
 
     // Filling (if necessary). This is the common case.
     SkPaint paint;
     platformContext->setupPaintForFilling(&paint);
     paint.setFlags(SkPaint::kAntiAlias_Flag);
+    if (!platformContext->isNativeFontRenderingAllowed()) {
+        paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+        setupPaintForFont(hfont, &paint);
+    }
     bool didFill = false;
 
-    if ((textMode & cTextFill) && SkColorGetA(paint.getColor())) {
-        if (!skiaDrawText(hfont, dc, platformContext->canvas(), *origin, &paint,
+    if ((textMode & TextModeFill) && (SkColorGetA(paint.getColor()) || paint.getLooper())) {
+        if (!skiaDrawText(hfont, dc, platformContext, *origin, &paint,
                           &glyphs[0], &advances[0], &offsets[0], numGlyphs))
             return false;
         didFill = true;
     }
 
     // Stroking on top (if necessary).
-    if ((textMode & WebCore::cTextStroke)
+    if ((textMode & TextModeStroke)
         && platformContext->getStrokeStyle() != NoStroke
         && platformContext->getStrokeThickness() > 0) {
 
         paint.reset();
         platformContext->setupPaintForStroking(&paint, 0, 0);
         paint.setFlags(SkPaint::kAntiAlias_Flag);
+        if (!platformContext->isNativeFontRenderingAllowed()) {
+            paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
+            setupPaintForFont(hfont, &paint);
+        }
+
         if (didFill) {
             // If there is a shadow and we filled above, there will already be
             // a shadow. We don't want to draw it again or it will be too dark
@@ -340,10 +400,10 @@ bool paintSkiaText(GraphicsContext* context,
             // thing would be to draw to a new layer and then draw that layer
             // with a shadow. But this is a lot of extra work for something
             // that isn't normally an issue.
-            paint.setLooper(0)->safeUnref();
+            paint.setLooper(0);
         }
 
-        if (!skiaDrawText(hfont, dc, platformContext->canvas(), *origin, &paint,
+        if (!skiaDrawText(hfont, dc, platformContext, *origin, &paint,
                           &glyphs[0], &advances[0], &offsets[0], numGlyphs))
             return false;
     }

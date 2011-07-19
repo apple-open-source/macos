@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,43 @@ bool force = false;					// force overwrite flag
 bool continueOnError = false;		// continue processing targets on error(s)
 
 int exitcode = exitSuccess;			// cumulative exit code
+
+
+//
+// Convert between hash code numbers and human-readable form.
+// We accept unambiguous prefix strings for conversion.
+//
+static const HashType hashTypes[] = {
+	{ "sha1",			kSecCodeSignatureHashSHA1,						SHA1::digestLength },
+	{ "sha256",			kSecCodeSignatureHashSHA256,					256 / 8 },
+	{ "skein160x256",	kSecCodeSignatureHashPrestandardSkein160x256,	160 / 8 },
+	{ "skein256x512",	kSecCodeSignatureHashPrestandardSkein256x512,	256 / 8 },
+	{ NULL }
+};
+
+const HashType *findHashType(const char *hashName)
+{
+	int length = strlen(hashName);
+	const HashType *match = NULL;
+	for (const HashType *h = hashTypes; h->name; h++)
+		if (!strncmp(hashName, h->name, length))	// prefix match
+			if (match)
+				fail("%s: ambiguous hash specification (%s or %s)",
+					hashName, match->name, h->name);
+			else
+				match = h;
+	if (match)
+		return match;
+	fail("%s: unknown hash specification", hashName);
+}
+
+const HashType *findHashType(uint32_t hashCode)
+{
+	for (const HashType *h = hashTypes; h->name; h++)
+		if (h->code == hashCode)
+			return h;
+	return NULL;
+}
 
 
 //
@@ -152,13 +189,26 @@ string keychainPath(CFTypeRef whatever)
 // Exit with error diagnosed if we can't find exactly one match in the user's
 // keychain environment.
 //
-SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolicyRef policy);
+static SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolicyRef policy);
 
 SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match)
 {
 	// the special value "-" (dash) indicates ad-hoc signing
 	if (!strcmp(match, "-"))
 		return SecIdentityRef(kCFNull);
+	
+	// interpret the match as a (full) identity preference name
+	CFRef<SecIdentityRef> preference;
+	switch (OSStatus rc = SecIdentityCopyPreference(CFTempString(match), 0, NULL, &preference.aref())) {
+	case noErr:
+		if (preference)
+			return preference.yield();
+		break;
+	case errSecItemNotFound:
+		break;
+	default:
+		MacOSError::throwMe(rc);
+	}
 
 	// look for qualified identities
 	CFRef<SecPolicyRef> policy;
@@ -188,11 +238,20 @@ SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match)
 }
 
 
-SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolicyRef policy)
+static SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolicyRef policy)
 {
 	CFRef<SecIdentitySearchRef> search;
 	MacOSError::check(SecIdentitySearchCreateWithPolicy(policy, NULL,
 			CSSM_KEYUSE_SIGN, keychain, false, &search.aref()));
+
+	// recognize an exact hex expression of a SHA1 (no abbreviations allowed)
+	CFRef<CFDataRef> certHash;
+	const char hexDigits[] = "0123456789abcdefABCDEF";
+	if (strlen(match) == 2 * SHA1::digestLength && strspn(match, hexDigits) == 2 * SHA1::digestLength) {
+		SHA1::Digest digest;
+		stringHash(match, digest);
+		certHash = CFDataCreate(NULL, digest, sizeof(digest));
+	}
 
 	// filter all candidates against our match constraint
 	CFRef<CFStringRef> cfmatch = makeCFString(match);
@@ -207,6 +266,15 @@ SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolic
 			{
 				CFRef<SecCertificateRef> cert;
 				MacOSError::check(SecIdentityCopyCertificate(candidate, &cert.aref()));
+				
+				// match on certificate hash if that was requested
+				if (certHash) {
+					CFRef<CFDataRef> hash = certificateHash(cert);
+					if (CFEqual(hash, certHash))
+						return candidate.yield();
+				}
+				
+				// otherwise, match on best CN substring
 				CFRef<CFStringRef> name;
 				CSSM_DATA data;
 				MacOSError::check(SecCertificateCopyCommonName(cert, &name.aref()));
@@ -215,6 +283,8 @@ SecIdentityRef findIdentity(SecKeychainRef keychain, const char *match, SecPolic
 					note(1, "Using identity \"%s\"", cfString(name).c_str());
 					return candidate.yield();
 				}
+				if (!name)		// certificate has no subject common name (can't find it by name)
+					continue;
 				CFRange find = CFStringFind(name, cfmatch,
 					kCFCompareCaseInsensitive | kCFCompareNonliteral);
 				if (find.location == kCFNotFound)
@@ -294,6 +364,8 @@ uint32_t parseCdFlags(const char *arg)
 // Parse a date/time string into CFDateRef form.
 // The special value "none" is translated to cfNull.
 //
+CF_EXPORT CFStringRef const kCFDateFormatterIsLenientKey;
+
 CFDateRef parseDate(const char *string)
 {
 	if (!string || !strcasecmp(string, "none"))
@@ -301,11 +373,24 @@ CFDateRef parseDate(const char *string)
 	CFRef<CFLocaleRef> userLocale = CFLocaleCopyCurrent();
 	CFRef<CFDateFormatterRef> formatter = CFDateFormatterCreate(NULL, userLocale,
 		kCFDateFormatterMediumStyle, kCFDateFormatterMediumStyle);
-	CFDateFormatterSetProperty(formatter, kCFDateFormatterIsLenient, kCFBooleanTrue);
+	CFDateFormatterSetProperty(formatter, kCFDateFormatterIsLenientKey, kCFBooleanTrue);
 	CFRef<CFDateRef> date = CFDateFormatterCreateDateFromString(NULL, formatter, CFTempString(string), NULL);
 	if (!date)
 		fail("%s: invalid date/time", string);
 	return date.yield();
+}
+
+
+//
+// Clean up a pathname.
+//
+std::string cleanPath(const char *path)
+{
+	char answer[PATH_MAX];
+	if (const char *r = realpath(path, answer))
+		return r;
+	perror(path);
+	exit(1);
 }
 
 
@@ -325,6 +410,22 @@ std::string hashString(SHA1 &hash)
 	SHA1::Digest digest;
 	hash.finish(digest);
 	return hashString(digest);
+}
+
+void stringHash(const char *string, SHA1::Digest digest)
+{
+	for (unsigned n = 0; n < SHA1::digestLength; n++)
+		sscanf(string+2*n, "%2hhx", digest+n);
+}
+
+CFDataRef certificateHash(SecCertificateRef cert)
+{
+	CFRef<CFDataRef> certData = SecCertificateCopyData(cert);
+	SHA1 hash;
+	hash(CFDataGetBytePtr(certData), CFDataGetLength(certData));
+	SHA1::Digest digest;
+	hash.finish(digest);
+	return CFDataCreate(NULL, digest, sizeof(digest));
 }
 
 
@@ -402,6 +503,9 @@ void diagnose(const char *context, OSStatus rc, CFDictionaryRef info)
 {
 	diagnose1(context, rc);
 	
+	if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorArchitecture))
+			fprintf(stderr, "In architecture: %s\n", cfString(CFStringRef(detail)).c_str());
+	
 	if (CFTypeRef detail = CFDictionaryGetValue(info, kSecCFErrorRequirementSyntax))
 			fprintf(stderr, "Requirement syntax error(s):\n%s", cfString(CFStringRef(detail)).c_str());
 
@@ -422,10 +526,8 @@ static void diagnose1(const char *type, CFTypeRef value)
 		CFIndex size = CFArrayGetCount(array);
 		for (CFIndex n = 0; n < size; n++)
 			diagnose1(type, CFArrayGetValueAtIndex(array, n));
-	} else if (CFGetTypeID(value) == CFURLGetTypeID()) {
-		printf("%s: %s\n", cfString(CFURLRef(value)).c_str(), type);
 	} else
-		printf("<unexpected CF type>: %s\n", type);
+		printf("%s: %s\n", type, cfString(value, noErr).c_str());
 }
 
 
@@ -491,6 +593,28 @@ void writeData(CFDataRef data, const char *destination, const char *mode)
 
 
 //
+// Create a static code object, using command context as available
+//
+SecStaticCodeRef staticCodePath(const char *target, const Architecture &arch, const char *version)
+{
+	CFRef<CFMutableDictionaryRef> attributes;
+	if (arch || version) {
+		attributes = makeCFMutableDictionary();
+		if (arch)
+			cfadd(attributes, "{%O=%d,%O=%d}",
+				kSecCodeAttributeArchitecture, arch.cpuType(),
+				kSecCodeAttributeSubarchitecture, arch.cpuSubtype());;
+		if (version)
+			cfadd(attributes, "{%O=%s}", kSecCodeAttributeBundleVersion, version);
+	}
+	SecStaticCodeRef code;
+	MacOSError::check(SecStaticCodeCreateWithPathAndAttributes(CFTempURL(cleanPath(target)), kSecCSDefaultFlags,
+		attributes, &code));
+	return code;
+}
+
+
+//
 // Accept various forms of dynamic target specifications
 // and return a SecCodeRef for the designated code.
 // Returns NULL if the syntax isn't recognized as a dynamic
@@ -501,7 +625,7 @@ static SecCodeRef descend(SecCodeRef host, CFRef<CFMutableDictionaryRef> attrs, 
 static void parsePath(CFMutableDictionaryRef attrs, string form);
 static void parseAttribute(CFMutableDictionaryRef attrs, string form);
 
-SecCodeRef codePath(const char *target)
+SecCodeRef dynamicCodePath(const char *target)
 {
 	if (!isdigit(target[0]))
 		return NULL;	// not a dynamic spec

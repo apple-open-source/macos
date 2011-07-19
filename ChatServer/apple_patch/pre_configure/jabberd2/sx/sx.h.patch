@@ -1,6 +1,33 @@
---- /tmp/jabberd-2.1.24.1/sx/sx.h	2008-04-27 02:57:25.000000000 -0700
-+++ ./jabberd2/sx/sx.h	2009-05-26 13:11:08.000000000 -0700
-@@ -399,3 +399,10 @@ JABBERD2_API int         __sx_event(cons
+--- /tmp/jabberd-2.2.13/sx/sx.h	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/sx/sx.h	2011-02-24 16:25:21.000000000 -0800
+@@ -180,6 +180,7 @@ JABBERD2_API sx_plugin_t                
+ 
+ /* send errors and close stuff */
+ JABBERD2_API void                        sx_error(sx_t s, int err, const char *text);
++JABBERD2_API void                        sx_error_extended(sx_t s, int err, const char *content);
+ JABBERD2_API void                        sx_close(sx_t s);
+ JABBERD2_API void                        sx_kill(sx_t s);
+ 
+@@ -227,6 +228,7 @@ JABBERD2_API void                       
+ 
+ /* send errors and close stuff */
+ JABBERD2_API void                        _sx_error(sx_t s, int err, const char *text);
++JABBERD2_API void                        _sx_error_extended(sx_t s, int err, const char *content);
+ JABBERD2_API void                        _sx_close(sx_t s);
+ 
+ /** read/write plugin chain */
+@@ -250,6 +252,10 @@ struct _sx_st {
+ 	/* pointing to sess.ip and owned by sess structure */
+ 	char                    *ip;
+ 
++	/* TCP port of the connection */
++	/* pointing to sess.port and owned by sess structure */
++    int                     port;
++
+     /* callback */
+     sx_callback_t            cb;
+     void                    *cb_arg;
+@@ -402,3 +408,10 @@ JABBERD2_API int         __sx_event(cons
  #include "plugins.h"
  
  #endif

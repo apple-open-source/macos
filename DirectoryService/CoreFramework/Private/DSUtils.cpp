@@ -1745,4 +1745,6 @@ bool dsReleaseObject( void *object, volatile int32_t *refcount, bool bFree )
 	
 	DbgLog( kLogAlert, "Aborting - Releasing object at %X -- new refCount = %d", object, newCount );
 	assert( newCount >= 0 );
+	
+	return true;
 }

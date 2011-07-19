@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -296,7 +296,7 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 		// Server description
 		str = SCDynamicStoreCopyComputerName(store, &macEncoding);
 		update_pref(prefs, CFSTR(kSMBPrefServerDescription), str, &changed);
-		
+
 		// DOS code page
 		if (str != NULL) {
 			if (macEncoding == kCFStringEncodingMacRoman) {
@@ -361,10 +361,12 @@ smb_set_configuration(SCDynamicStoreRef store, CFDictionaryRef dict)
 	}
 	update_pref(prefs, CFSTR(kSMBPrefNetBIOSNodeType), str, &changed);
 
+#ifdef	ADD_NETBIOS_SCOPE
 	// NetBIOS scope
 	str = CFDictionaryGetValue(dict, kSCPropNetSMBNetBIOSScope);
 	str = isA_CFString(str);
 	update_pref(prefs, CFSTR(kSMBPrefNetBIOSScope), str, &changed);
+#endif	// ADD_NETBIOS_SCOPE
 
 	// WINS addresses
 	array = CFDictionaryGetValue(dict, kSCPropNetSMBWINSAddresses);
@@ -623,15 +625,14 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 						  , CFRetain
 						  , CFRelease
 						  , replyMPCopyDescription
-		};
+						  };
 		CFRunLoopSourceRef	rls;
 
 		// if request has been re-queued
-		dnsPort = CFMachPortCreateWithPort(NULL,
-						   mp,
-						   getnameinfo_async_handleCFReply,
-						   &context,
-						   NULL);
+		dnsPort = _SC_CFMachPortCreateWithPort("IPMonitor/smb-configuration/re-queue",
+						       mp,
+						       getnameinfo_async_handleCFReply,
+						       &context);
 		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 		CFRelease(rls);
@@ -720,11 +721,10 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		}
 
 		dnsActive = TRUE;
-		dnsPort = CFMachPortCreateWithPort(NULL,
-						   mp,
-						   getnameinfo_async_handleCFReply,
-						   &context,
-						   NULL);
+		dnsPort = _SC_CFMachPortCreateWithPort("IPMonitor/smb-configuration",
+						       mp,
+						       getnameinfo_async_handleCFReply,
+						       &context);
 		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 		CFRelease(rls);

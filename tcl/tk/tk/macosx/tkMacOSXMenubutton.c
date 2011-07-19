@@ -246,10 +246,9 @@ TkpComputeMenuButtonGeometry(
 	macButtonPtr->button = TkMacOSXMakeUncollectable(button);
 	cell = [button cell];
 	[cell setUsesItemFromMenu:NO];
-	menuItem = [[NSMenuItem alloc] initWithTitle:@""
-		action:NULL keyEquivalent:@""];
+	menuItem = [[[NSMenuItem alloc] initWithTitle:@""
+		action:NULL keyEquivalent:@""] autorelease];
 	[cell setMenuItem:menuItem];
-	[menuItem release];
     } else {
 	cell = [button cell];
 	menuItem = [cell menuItem];
@@ -340,7 +339,7 @@ TkpComputeMenuButtonGeometry(
 	}
 	[button setImagePosition:pos];
 	[menuItem setImage:image];
-	bounds.size = [cell cellSize];
+	bounds.size = cell ? [cell cellSize] : NSZeroSize;
 	if (bounds.size.height < height + 8) { /* workaround AppKit sizing bug */
 	    bounds.size.height = height + 8;
 	}
@@ -350,23 +349,23 @@ TkpComputeMenuButtonGeometry(
 	}
 #endif
     } else {
-	bounds.size = [cell cellSize];
+	bounds.size = cell ? [cell cellSize] : NSZeroSize;
     }
     if (haveText) {
-	titleRect = [cell titleRectForBounds:bounds];
+	titleRect =  cell ? [cell titleRectForBounds:bounds] : NSZeroRect;
 	if (mbPtr->wrapLength > 0 &&
 		titleRect.size.width > mbPtr->wrapLength) {
 	    if (style == NSRoundedBezelStyle) {
 		[button setBezelStyle:(style = NSRegularSquareBezelStyle)];
-		bounds.size = [cell cellSize];
-		titleRect = [cell titleRectForBounds:bounds];
+		bounds.size = cell ? [cell cellSize] : NSZeroSize;
+		titleRect = cell ? [cell titleRectForBounds:bounds] : NSZeroRect;
 	    }
 	    bounds.size.width -= titleRect.size.width - mbPtr->wrapLength;
 	    bounds.size.height = 40000.0;
 	    [cell setWraps:YES];
-	    bounds.size = [cell cellSizeForBounds:bounds];
+	    bounds.size = cell ? [cell cellSizeForBounds:bounds] : NSZeroSize;
 #ifdef TK_MAC_DEBUG_MENUBUTTON
-	    titleRect = [cell titleRectForBounds:bounds];
+	    titleRect = cell ? [cell titleRectForBounds:bounds] : NSZeroRect;
 #endif
 #if TK_MAC_BUTTON_USE_COMPATIBILITY_METRICS
 	    if (tkMacOSXUseCompatibilityMetrics) {

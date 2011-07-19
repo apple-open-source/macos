@@ -34,7 +34,6 @@
 #include <wtf/text/CString.h>
 
 #include <glib.h>
-#include <gtk/gtk.h>
 
 namespace WebCore {
 
@@ -57,13 +56,12 @@ String FileChooser::basenameForWidth(const Font& font, int width) const
     String string = fileButtonNoFileSelectedLabel();
 
     if (m_filenames.size() == 1) {
-        gchar* systemFilename = filenameFromString(m_filenames[0]);
-        gchar* systemBasename = g_path_get_basename(systemFilename);
-        g_free(systemFilename);
+        CString systemFilename = fileSystemRepresentation(m_filenames[0]);
+        gchar* systemBasename = g_path_get_basename(systemFilename.data());
         stringByAdoptingFileSystemRepresentation(systemBasename, string);
     } else if (m_filenames.size() > 1)
-        return StringTruncator::rightTruncate(multipleFileUploadText(m_filenames.size()), width, font, false);
+        return StringTruncator::rightTruncate(multipleFileUploadText(m_filenames.size()), width, font);
 
-    return StringTruncator::centerTruncate(string, width, font, false);
+    return StringTruncator::centerTruncate(string, width, font);
 }
 }

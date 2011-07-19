@@ -243,7 +243,7 @@ module receives log messages on the UDP socket associated with the Internet sysl
 .Pp
 This module is normally enabled, but is inactive.
 The actual UDP sockets are managed by
-.Nm launched ,
+.Nm launchd ,
 and configured in the
 .Nm syslogd
 configuration file /System/Library/LaunchDaemons/com.apple.syslogd.plist.
@@ -255,6 +255,17 @@ UDP service, so no sockets are provided to the
 .Dq udp_in 
 module.
 If no sockets are provided, the module remains inactive.
+A socket may be specified by adding the following entry to the
+.Dq Sockets
+dictionary in the com.apple.syslogd.plist file.
+.Pp
+.Dl		<key>NetworkListener</key>
+.Dl		<dict>
+.Dl			<key>SockServiceName</key>
+.Dl			<string>syslog</string>
+.Dl			<key>SockType</key>
+.Dl			<string>dgram</string>
+.Dl		</dict>
 .Pp
 The module may be specifically disabled using the
 .Fl udp_in Li 0 
@@ -310,6 +321,9 @@ kernel log device
 data store directory
 .It Pa /var/log/asl.archive
 default archive directory
+.It Pa /System/Library/LaunchDaemons/com.apple.syslogd.plist
+launchd configuration file for
+.Nm syslogd
 .El
 .Sh SEE ALSO
 .Xr syslog 1 ,

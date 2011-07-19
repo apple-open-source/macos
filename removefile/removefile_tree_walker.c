@@ -46,7 +46,7 @@ __removefile_process_file(FTS* stream, FTSENT* current_file, removefile_state_t 
 
 	int recursive = state->unlink_flags & REMOVEFILE_RECURSIVE;
 	int keep_parent = state->unlink_flags & REMOVEFILE_KEEP_PARENT;
-	int secure = state->unlink_flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS);
+	int secure = state->unlink_flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS | REMOVEFILE_SECURE_3_PASS | REMOVEFILE_SECURE_1_PASS_ZERO);
 
 	switch (current_file->fts_info) {
 		// attempt to unlink the directory on pre-order in case it is
@@ -165,6 +165,12 @@ __removefile_tree_walker(char **trees, removefile_state_t state) {
 						res = cb_error(state,
 							current_file->fts_path,
 							state->error_context);
+						if (res == REMOVEFILE_PROCEED ||
+							res == REMOVEFILE_SKIP) {
+							rval = 0;
+						} else if (res == REMOVEFILE_STOP) {
+							rval = -1;
+						}
 					} else {
 						res = REMOVEFILE_STOP;
 					}

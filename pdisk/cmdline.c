@@ -163,7 +163,7 @@ partition_display(char * name, int argc, char * * argv)
 
 	rv = CMD_SUCCESS;
 
-	printf("%s %s %lu %lu\n", p->dpme_name, p->dpme_type, 
+	printf("%s %s %u %u\n", p->dpme_name, p->dpme_type, 
 	    p->dpme_pblock_start, p->dpme_pblocks);
     }
     close_partition_map(map);
@@ -211,7 +211,7 @@ split_partition(char * name, int argc, char * * argv)
 		   <= (entry->data->dpme_pblocks - MIN_PARTITION_SIZE))
 	       && (new_size >= MIN_PARTITION_SIZE))) {
 	fprintf(stderr, "pdisk: split size of"
-	       " partition %d must be between %lu and %lu\n",
+	       " partition %d must be between %u and %u\n",
 	       part, (u32)MIN_PARTITION_SIZE, 
 	       (entry->data->dpme_pblocks - (u32)MIN_PARTITION_SIZE));
     }

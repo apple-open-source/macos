@@ -8,7 +8,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,7 +21,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: memdebug.h,v 1.41 2009-10-29 04:02:21 yangtse Exp $
  ***************************************************************************/
 
 /*
@@ -54,13 +53,17 @@ CURL_EXTERN void curl_dofree(void *ptr, int line, const char *source);
 CURL_EXTERN char *curl_dostrdup(const char *str, int line, const char *source);
 CURL_EXTERN void curl_memdebug(const char *logname);
 CURL_EXTERN void curl_memlimit(long limit);
+CURL_EXTERN void curl_memlog(const char *format, ...);
 
 /* file descriptor manipulators */
-CURL_EXTERN int curl_socket(int domain, int type, int protocol, int line , const char *);
-CURL_EXTERN void curl_mark_sclose(int sockfd, int, const char *source);
-CURL_EXTERN int curl_sclose(int sockfd, int, const char *source);
-CURL_EXTERN int curl_accept(int s, void *addr, void *addrlen,
-                            int line, const char *source);
+CURL_EXTERN curl_socket_t curl_socket(int domain, int type, int protocol,
+                                      int line , const char *source);
+CURL_EXTERN void curl_mark_sclose(curl_socket_t sockfd,
+                                  int line , const char *source);
+CURL_EXTERN int curl_sclose(curl_socket_t sockfd,
+                            int line , const char *source);
+CURL_EXTERN curl_socket_t curl_accept(curl_socket_t s, void *a, void *alen,
+                                      int line, const char *source);
 
 /* FILE functions */
 CURL_EXTERN FILE *curl_fopen(const char *file, const char *mode, int line,

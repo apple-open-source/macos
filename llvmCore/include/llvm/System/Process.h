@@ -94,6 +94,52 @@ namespace sys {
       /// the user rather than being put on a pipe or stored in a file.
       static bool StandardErrIsDisplayed();
 
+      /// This function determines if the given file descriptor is connected to
+      /// a "tty" or "console" window. That is, the output would be displayed to
+      /// the user rather than being put on a pipe or stored in a file.
+      static bool FileDescriptorIsDisplayed(int fd);
+
+      /// This function determines the number of columns in the window
+      /// if standard output is connected to a "tty" or "console"
+      /// window. If standard output is not connected to a tty or
+      /// console, or if the number of columns cannot be determined,
+      /// this routine returns zero.
+      static unsigned StandardOutColumns();
+
+      /// This function determines the number of columns in the window
+      /// if standard error is connected to a "tty" or "console"
+      /// window. If standard error is not connected to a tty or
+      /// console, or if the number of columns cannot be determined,
+      /// this routine returns zero.
+      static unsigned StandardErrColumns();
+
+      /// This function determines whether the terminal connected to standard
+      /// output supports colors. If standard output is not connected to a
+      /// terminal, this function returns false.
+      static bool StandardOutHasColors();
+
+      /// This function determines whether the terminal connected to standard
+      /// error supports colors. If standard error is not connected to a
+      /// terminal, this function returns false.
+      static bool StandardErrHasColors();
+
+      /// Whether changing colors requires the output to be flushed.
+      /// This is needed on systems that don't support escape sequences for
+      /// changing colors.
+      static bool ColorNeedsFlush();
+
+      /// This function returns the colorcode escape sequences.
+      /// If ColorNeedsFlush() is true then this function will change the colors
+      /// and return an empty escape sequence. In that case it is the
+      /// responsibility of the client to flush the output stream prior to
+      /// calling this function.
+      static const char *OutputColor(char c, bool bold, bool bg);
+
+      /// Same as OutputColor, but only enables the bold attribute.
+      static const char *OutputBold(bool bg);
+
+      /// Resets the terminals colors, or returns an escape sequence to do so.
+      static const char *ResetColor();
     /// @}
   };
 }

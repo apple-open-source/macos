@@ -7,21 +7,24 @@ on.</p></li><li><p>Persistent connection support; neon groups a
 set of requests to a server into a "session"; requests within that
 session can use a persistent (also known as "keep-alive")
 connection.</p></li><li><p>Modern HTTP authentication support: a complete
-implementation of the new authentication standard, RFC2617,
-supporting the Digest (MD5) and Basic schemes, including integrity
-checking.  Credentials are supplied by an application-defined
-callback.</p></li><li><p>Proxy server support; a session can be set to
+implementation of the new authentication standard, RFC2617, supporting
+the Digest, Basic, and Negotiate protocols.  Credentials are supplied
+by an application-defined callback as appropriate.</p></li><li><p>Proxy server support; a session can be set to
 use a proxy server.  Authentication is supported for the Proxy as well
-as the origin server.</p></li><li><p>Complete SSL support; a simple interface for
+as the origin server.  The system's proxy configuration can be
+optionally used, on some platforms.</p></li><li><p>Complete SSL support; a simple interface for
 enabling SSL, hiding the complexity of using an SSL library directly.
 Client certificate support, callback-based server certificate
-verification, along with functions to load trusted CA
-certificates.</p></li><li><p>Generic XML parsing interface for handling XML
+verification, along with functions to load trusted CA certificates.
+Smartcard-based client certs are also supported via a wrapper
+interface for PKCS#11 modules.</p></li><li><p>Compressed response support: responses
+	compressed using the "deflate" algorithm can be transparently
+	decompressed.</p></li><li><p>Generic XML parsing interface for handling XML
 response bodies using SAX-like callbacks.  Both the expat and libxml
 XML parser libraries are supported.</p></li><li><p>WebDAV metadata support; set and remove
 properties, query properties (PROPFIND); simple interface for
 retrieving "flat" byte-string properties, more advanced support for
-parsing "complex" XML structured properties.</p></li><li><p>Build environment support: the neon source
+parsing "complex" structured XML properties.</p></li><li><p>Build environment support: the neon source
 tree is designed so that it can be embedded in your application's
 build tree; autoconf macros are supplied for integration.  To get
 started quickly a <a class="xref" href="refconfig.html" title="neon-config"><span class="refentrytitle">neon-config</span></a> script is included,

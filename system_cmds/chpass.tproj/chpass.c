@@ -123,6 +123,7 @@ main(int argc, char *argv[])
 	struct passwd *old_pw, *pw;
 	int ch, tfd;
 	char tfn[MAXPATHLEN];
+	char *tmpdir;
 #endif
 	char *arg = NULL;
 	uid_t uid;
@@ -331,7 +332,10 @@ main(int argc, char *argv[])
 	if (op == EDITENTRY) {
 #ifdef OPEN_DIRECTORY
 		setrestricted(attrs_orig);
-		snprintf(tfn, sizeof(tfn), "/etc/%s.XXXXXX", progname);
+		tmpdir = getenv("TMPDIR");
+		if (!tmpdir)
+			tmpdir = P_tmpdir; // defined in the system headers, defaults to /tmp
+		snprintf(tfn, sizeof(tfn), "%s/%s.XXXXXX", tmpdir, progname);
 		if ((tfd = mkstemp(tfn)) == -1)
 			err(1, "%s", tfn);
 		attrs = (CFMutableDictionaryRef)edit(tfn, attrs_orig);

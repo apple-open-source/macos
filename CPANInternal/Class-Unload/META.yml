@@ -1,0 +1,23 @@
+---
+abstract: 'Unload a class'
+author:
+  - 'Dagfinn Ilmari Mannsåker <ilmari@ilmari.org>'
+build_requires:
+  Test::More: 0
+distribution_type: module
+generated_by: 'Module::Install version 0.77'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Class-Unload
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Class::Inspector: 0
+  perl: 5.005
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.05

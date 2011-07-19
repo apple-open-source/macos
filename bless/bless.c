@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2001-2009 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,6 +76,7 @@ static struct option longopts[] = {
 { "help",           no_argument,            0,              khelp },
 { "info",           optional_argument,      0,              kinfo },
 { "kernel",         required_argument,      0,              kkernel },
+{ "kernelcache",    required_argument,      0,              kkernelcache },
 { "label",          required_argument,      0,              klabel },
 { "labelfile",      required_argument,      0,              klabelfile },
 { "legacy",         no_argument,            0,              klegacy },

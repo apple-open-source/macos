@@ -46,6 +46,13 @@ else
 	$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.com.apple.timemachine.donotpresent"
 	#$(_v) $(INSTALL_FILE) -m 0644 -o root -g admin -c /dev/null "$(Destination)/.metadata_never_index"
 	$(_v) $(LN) -fs private/tmp "$(Destination)/tmp"
+	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/.DS_Store"
+	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/.DS_Store"
+	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/Utilities/.DS_Store"
+	# rdar://problem/9596025
+	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AEProfiling.framework "$(Destination)/Library/Frameworks"
+	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AERegistration.framework "$(Destination)/Library/Frameworks"
+	$(_v) $(LN) -fs ../../Applications/Motion.app/Contents/Frameworks/AudioMixEngine.framework "$(Destination)/Library/Frameworks"
 endif
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"
 	$(_v) $(CHMOD) -h 0755 "$(Destination)/tmp"

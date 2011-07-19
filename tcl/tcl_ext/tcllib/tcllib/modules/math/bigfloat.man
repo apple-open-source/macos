@@ -2,7 +2,7 @@
 [copyright {2004-2008, by Stephane Arnold <stephanearnold at yahoo dot fr>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Arbitrary precision floating-point numbers}]
-
+[category  Mathematics]
 [require Tcl 8.5]
 [require math::bigfloat [opt 2.0.1]]
 

@@ -28,6 +28,8 @@ module events {
 
     interface [
         CustomMarkFunction,
+        GenerateIsReachable=Impl,
+        ActiveDOMObject,
         EventTarget,
         NoStaticTables
     ] MessagePort {

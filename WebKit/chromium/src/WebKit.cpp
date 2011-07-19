@@ -31,11 +31,10 @@
 #include "config.h"
 #include "WebKit.h"
 
-#include "AtomicString.h"
-#include "DOMTimer.h"
 #include "Logging.h"
 #include "Page.h"
 #include "RuntimeEnabledFeatures.h"
+#include "Settings.h"
 #include "TextEncoding.h"
 #include "WebMediaPlayerClientImpl.h"
 #include "WebSocket.h"
@@ -43,28 +42,29 @@
 
 #include <wtf/Assertions.h>
 #include <wtf/Threading.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebKit {
+
+// Make sure we are not re-initialized in the same address space.
+// Doing so may cause hard to reproduce crashes.
+static bool s_webKitInitialized = false;
 
 static WebKitClient* s_webKitClient = 0;
 static bool s_layoutTestMode = false;
 
 void initialize(WebKitClient* webKitClient)
 {
+    ASSERT(!s_webKitInitialized);
+    s_webKitInitialized = true;
+
     ASSERT(webKitClient);
     ASSERT(!s_webKitClient);
     s_webKitClient = webKitClient;
 
     WTF::initializeThreading();
     WTF::initializeMainThread();
-    WebCore::AtomicString::init();
-
-    // Chromium sets the minimum interval timeout to 4ms, overriding the
-    // default of 10ms.  We'd like to go lower, however there are poorly
-    // coded websites out there which do create CPU-spinning loops.  Using
-    // 4ms prevents the CPU from spinning too busily and provides a balance
-    // between CPU spinning and the smallest possible interval timer.
-    WebCore::DOMTimer::setMinTimerInterval(0.004);
+    WTF::AtomicString::init();
 
     // There are some code paths (for example, running WebKit in the browser
     // process and calling into LocalStorage before anything else) where the

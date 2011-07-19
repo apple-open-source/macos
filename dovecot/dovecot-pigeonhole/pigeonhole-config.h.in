@@ -1,0 +1,9 @@
+
+/* Define to the full name of Pigeonhole for Dovecot. */
+#undef PIGEONHOLE_NAME
+
+/* Define to the version of Pigeonhole for Dovecot. */
+#undef PIGEONHOLE_VERSION
+
+/* Define to build unfinished features/extensions. */
+#undef HAVE_SIEVE_UNFINISHED

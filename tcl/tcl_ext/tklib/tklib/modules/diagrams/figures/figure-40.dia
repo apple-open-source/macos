@@ -1,0 +1,45 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+# Plot a single jumper in a box, atr is the on-off state.
+proc jumper {bool} {block {
+    set shrinkfactor 0.8
+    set Outer [box]
+
+    # Count on end of block to reset these
+    set boxwidth  [expr {[$Outer width]  * ($shrinkfactor / 2.)}]
+    set boxheight [expr {[$Outer height] * ($shrinkfactor / 2.)}]
+
+    if {$bool} {
+	set oncolor  black
+	set offcolor white
+    } else {
+	set oncolor  white
+	set offcolor black
+    }
+
+    box fillcolor $offcolor with s at $Outer
+    box fillcolor $oncolor  with n at $Outer
+}}
+
+# Plot a block of six jumpers.
+proc jumperblock {a b c d e f} {block {
+    jumper $a
+    jumper $b
+    jumper $c
+    jumper $d
+    jumper $e
+    jumper $f
+
+    set jwidth  [[last block] Outer width]
+    set jheight [[last block] Outer height]
+
+    box with nw at [6th last block nw] width [expr {6*$jwidth}] height $jheight
+    group {
+	down ; move
+	text "Jumpers in state $a$b$c$d$e$f"
+    }
+}}
+
+# Sample macro invocations.
+jumperblock 1 1 0 0 1 0
+move
+jumperblock 1 0 1 0 1 1

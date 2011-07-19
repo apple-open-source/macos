@@ -1,0 +1,215 @@
+diff -ur dovecot-1.1.7/src/imap-login/client-authenticate.c dovecot-patch/src/imap-login/client-authenticate.c
+--- dovecot-1.1.7/src/imap-login/client-authenticate.c	2008-10-29 11:18:51.000000000 -0500
++++ dovecot-patch/src/imap-login/client-authenticate.c	2008-12-17 09:00:25.000000000 -0600
+@@ -75,16 +75,6 @@
+ 	}
+ }
+ 
+-static void client_auth_failed(struct imap_client *client)
+-{
+-	/* get back to normal client input. */
+-	if (client->io != NULL)
+-		io_remove(&client->io);
+-	client->io = io_add(client->common.fd, IO_READ,
+-			    client_input, client);
+-	client_input(client);
+-}
+-
+ static bool client_handle_args(struct imap_client *client,
+ 			       const char *const *args, bool success)
+ {
+diff -ur dovecot-1.1.7/src/imap-login/client.c dovecot-patch/src/imap-login/client.c
+--- dovecot-1.1.7/src/imap-login/client.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/imap-login/client.c	2008-12-17 08:58:53.000000000 -0600
+@@ -432,6 +432,45 @@
+ 			    client_auth_waiting_timeout, client);
+ }
+ 
++/* APPLE */	
++static void client_authfail_delay_timeout(struct imap_client *client)
++{
++	i_assert(client->to_authfail_delay != NULL);
++	timeout_remove(&client->to_authfail_delay);
++
++	i_assert(client->to_idle_disconnect == NULL);
++	client->to_idle_disconnect =
++		timeout_add(CLIENT_LOGIN_IDLE_TIMEOUT_MSECS,
++			    client_idle_disconnect_timeout, client);
++
++	/* get back to normal client input. */
++	i_assert(client->io == NULL);
++	client->io = io_add(client->common.fd, IO_READ, client_input, client);
++	client_input(client);
++}
++
++/* APPLE - delay after unsuccessful auth to foil attackers */
++void client_auth_failed(struct imap_client *client)
++{
++	unsigned int delay;
++
++	delay = client->common.auth_attempts;
++	if (delay < 1)
++		delay = 1;
++	delay *= 5 * 1000;
++
++	if (client->io != NULL)
++		io_remove(&client->io);
++
++	i_assert(client->to_idle_disconnect != NULL);
++	timeout_remove(&client->to_idle_disconnect);
++
++	i_assert(client->to_authfail_delay == NULL);
++	client->to_authfail_delay = timeout_add(delay,
++						client_authfail_delay_timeout,
++						client);
++}
++
+ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
+ 			     const struct ip_addr *ip)
+ {
+@@ -511,6 +550,10 @@
+ 	if (client->to_auth_waiting != NULL)
+ 		timeout_remove(&client->to_auth_waiting);
+ 
++	/* APPLE */
++	if (client->to_authfail_delay != NULL)
++		timeout_remove(&client->to_authfail_delay);
++
+ 	if (client->common.fd != -1) {
+ 		net_disconnect(client->common.fd);
+ 		client->common.fd = -1;
+diff -ur dovecot-1.1.7/src/imap-login/client.h dovecot-patch/src/imap-login/client.h
+--- dovecot-1.1.7/src/imap-login/client.h	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/imap-login/client.h	2008-12-17 08:58:58.000000000 -0600
+@@ -16,6 +16,7 @@
+ 	struct ostream *output;
+ 	struct imap_parser *parser;
+ 	struct timeout *to_idle_disconnect, *to_auth_waiting;
++	struct timeout *to_authfail_delay;		/* APPLE */
+ 
+ 	struct login_proxy *proxy;
+ 	char *proxy_user, *proxy_password;
+@@ -43,6 +44,7 @@
+ bool client_read(struct imap_client *client);
+ bool client_skip_line(struct imap_client *client);
+ void client_input(struct imap_client *client);
++void client_auth_failed(struct imap_client *client);		/* APPLE */
+ 
+ void client_ref(struct imap_client *client);
+ bool client_unref(struct imap_client *client);
+diff -ur dovecot-1.1.7/src/pop3-login/client-authenticate.c dovecot-patch/src/pop3-login/client-authenticate.c
+--- dovecot-1.1.7/src/pop3-login/client-authenticate.c	2008-10-29 11:17:08.000000000 -0500
++++ dovecot-patch/src/pop3-login/client-authenticate.c	2008-12-17 09:00:32.000000000 -0600
+@@ -146,14 +146,8 @@
+ 
+ 	client_send_line(client, str_c(reply));
+ 
+-	if (!client->destroyed) {
+-		/* get back to normal client input. */
+-		if (client->io != NULL)
+-			io_remove(&client->io);
+-		client->io = io_add(client->common.fd, IO_READ,
+-				    client_input, client);
+-		client_input(client);
+-	}
++	if (!client->destroyed)
++		client_auth_failed(client);		/* APPLE */
+ 	return TRUE;
+ }
+ 
+@@ -190,14 +184,8 @@
+ 				  data : AUTH_FAILED_MSG, NULL);
+ 		client_send_line(client, msg);
+ 
+-		if (!client->destroyed) {
+-			/* get back to normal client input. */
+-			if (client->io != NULL)
+-				io_remove(&client->io);
+-			client->io = io_add(client->common.fd, IO_READ,
+-					    client_input, client);
+-			client_input(client);
+-		}
++		if (!client->destroyed)
++			client_auth_failed(client);		/* APPLE */
+ 		break;
+ 	case SASL_SERVER_REPLY_MASTER_FAILED:
+ 		if (data == NULL)
+diff -ur dovecot-1.1.7/src/pop3-login/client.c dovecot-patch/src/pop3-login/client.c
+--- dovecot-1.1.7/src/pop3-login/client.c	2008-10-29 11:10:09.000000000 -0500
++++ dovecot-patch/src/pop3-login/client.c	2008-12-17 08:59:04.000000000 -0600
+@@ -300,6 +300,45 @@
+ 	client_destroy(client, "Disconnected: Inactivity");
+ }
+ 
++/* APPLE */	
++static void client_authfail_delay_timeout(struct pop3_client *client)
++{
++	i_assert(client->to_authfail_delay != NULL);
++	timeout_remove(&client->to_authfail_delay);
++
++	i_assert(client->to_idle_disconnect == NULL);
++	client->to_idle_disconnect =
++		timeout_add(CLIENT_LOGIN_IDLE_TIMEOUT_MSECS,
++			    client_idle_disconnect_timeout, client);
++
++	/* get back to normal client input. */
++	i_assert(client->io == NULL);
++	client->io = io_add(client->common.fd, IO_READ, client_input, client);
++	client_input(client);
++}
++
++/* APPLE - delay after unsuccessful auth to foil attackers */
++void client_auth_failed(struct pop3_client *client)
++{
++	unsigned int delay;
++
++	delay = client->common.auth_attempts;
++	if (delay < 1)
++		delay = 1;
++	delay *= 5 * 1000;
++
++	if (client->io != NULL)
++		io_remove(&client->io);
++
++	i_assert(client->to_idle_disconnect != NULL);
++	timeout_remove(&client->to_idle_disconnect);
++
++	i_assert(client->to_authfail_delay == NULL);
++	client->to_authfail_delay = timeout_add(delay,
++						client_authfail_delay_timeout,
++						client);
++}
++
+ struct client *client_create(int fd, bool ssl, const struct ip_addr *local_ip,
+ 			     const struct ip_addr *ip)
+ {
+@@ -379,6 +418,10 @@
+ 	if (client->to_idle_disconnect != NULL)
+ 		timeout_remove(&client->to_idle_disconnect);
+ 
++	/* APPLE */
++	if (client->to_authfail_delay != NULL)
++		timeout_remove(&client->to_authfail_delay);
++
+ 	if (client->common.fd != -1) {
+ 		net_disconnect(client->common.fd);
+ 		client->common.fd = -1;
+diff -ur dovecot-1.1.7/src/pop3-login/client.h dovecot-patch/src/pop3-login/client.h
+--- dovecot-1.1.7/src/pop3-login/client.h	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/pop3-login/client.h	2008-12-17 08:59:09.000000000 -0600
+@@ -16,6 +16,7 @@
+ 	struct istream *input;
+ 	struct ostream *output;
+ 	struct timeout *to_idle_disconnect;
++	struct timeout *to_authfail_delay;		/* APPLE */
+ 
+ 	struct login_proxy *proxy;
+ 	char *proxy_user, *proxy_password;
+@@ -42,6 +43,7 @@
+ 
+ bool client_read(struct pop3_client *client);
+ void client_input(struct pop3_client *client);
++void client_auth_failed(struct pop3_client *client);		/* APPLE */
+ 
+ void client_ref(struct pop3_client *client);
+ bool client_unref(struct pop3_client *client);

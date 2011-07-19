@@ -20,5 +20,3 @@
 #else	/* !PPC && !x86 && !x86_64 */
 #error "FIXME: Unknown machine architecture"
 #endif	/* PPC || x86 || x86_64 */
-#undef LD_SWITCH_SYSTEM_TEMACS
-#define LD_SWITCH_SYSTEM_TEMACS -Wl,-no_compact_linkedit -nostartfiles -lcrt1.10.5.o

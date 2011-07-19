@@ -31,15 +31,23 @@ class QGraphicsVideoItem;
 class QGraphicsScene;
 QT_END_NAMESPACE
 
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+#include "TextureMapper.h"
+#endif
+
 namespace WebCore {
 
-class MediaPlayerPrivate : public QObject, public MediaPlayerPrivateInterface {
+class MediaPlayerPrivateQt : public QObject, public MediaPlayerPrivateInterface
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+        , public TextureMapperPlatformLayer
+#endif
+{
 
     Q_OBJECT
 
 public:
-    static MediaPlayerPrivateInterface* create(MediaPlayer* player);
-    ~MediaPlayerPrivate();
+    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
+    ~MediaPlayerPrivateQt();
 
     static void registerMediaEngine(MediaEngineRegistrar);
     static void getSupportedTypes(HashSet<String>&);
@@ -50,10 +58,13 @@ public:
     bool hasAudio() const;
 
     void load(const String &url);
+    void commitLoad(const String& url);
+    void resumeLoad();
     void cancelLoad();
 
     void play();
     void pause();
+    void prepareToPlay();
 
     bool paused() const;
     bool seeking() const;
@@ -67,6 +78,8 @@ public:
 
     bool supportsMuting() const;
     void setMuted(bool);
+
+    void setPreload(MediaPlayer::Preload);
 
     MediaPlayer::NetworkState networkState() const;
     MediaPlayer::ReadyState readyState() const;
@@ -82,27 +95,41 @@ public:
     void setSize(const IntSize&);
 
     void paint(GraphicsContext*, const IntRect&);
+    // reimplemented for canvas drawImage(HTMLVideoElement)
+    void paintCurrentFrameInContext(GraphicsContext*, const IntRect&);
 
-    bool supportsFullscreen() const { return false; }
+    bool supportsFullscreen() const { return true; }
 
 #if USE(ACCELERATED_COMPOSITING)
+#if USE(TEXTURE_MAPPER)
     // whether accelerated rendering is supported by the media engine for the current media.
     virtual bool supportsAcceleratedRendering() const { return true; }
     // called when the rendering system flips the into or out of accelerated rendering mode.
-    virtual void acceleratedRenderingStateChanged();
-    // returns an object that can be directly composited via GraphicsLayerQt (essentially a QGraphicsItem*)
-    virtual PlatformLayer* platformLayer() const;
+    virtual void acceleratedRenderingStateChanged() { }
+    // Const-casting here is safe, since all of TextureMapperPlatformLayer's functions are const.g
+    virtual PlatformLayer* platformLayer() const { return const_cast<MediaPlayerPrivateQt*>(this); }
+    virtual void paintToTextureMapper(TextureMapper*, const FloatRect& targetRect, const TransformationMatrix&, float opacity, BitmapTexture* mask) const;
+#else
+    virtual bool supportsAcceleratedRendering() const { return false; }
+    virtual void acceleratedRenderingStateChanged() { }
+    virtual PlatformLayer* platformLayer() const { return 0; }
 #endif
+#endif
+
+    virtual PlatformMedia platformMedia() const;
+
+    QMediaPlayer* mediaPlayer() const { return m_mediaPlayer; }
+    void removeVideoItem();
+    void restoreVideoItem();
 
 private slots:
     void mediaStatusChanged(QMediaPlayer::MediaStatus);
     void handleError(QMediaPlayer::Error);
     void stateChanged(QMediaPlayer::State);
     void nativeSizeChanged(const QSizeF&);
-    void queuedSeekTimeout();
-    void seekTimeout();
     void positionChanged(qint64);
     void durationChanged(qint64);
+    void bufferStatusChanged(int);
     void volumeChanged(int);
     void mutedChanged(bool);
     void repaint();
@@ -111,9 +138,9 @@ private:
     void updateStates();
 
 private:
-    MediaPlayerPrivate(MediaPlayer*);
+    MediaPlayerPrivateQt(MediaPlayer*);
 
-    MediaPlayer* m_player;
+    MediaPlayer* m_webCorePlayer;
     QMediaPlayer* m_mediaPlayer;
     QMediaPlayerControl* m_mediaPlayerControl;
     QGraphicsVideoItem* m_videoItem;
@@ -123,10 +150,16 @@ private:
     mutable MediaPlayer::ReadyState m_readyState;
 
     IntSize m_currentSize;
+    IntSize m_naturalSize;
+    IntSize m_oldNaturalSize;
     bool m_isVisible;
     bool m_isSeeking;
     bool m_composited;
-    qint64 m_queuedSeek;
+    MediaPlayer::Preload m_preload;
+    bool m_delayingLoad;
+    String m_mediaUrl;
+    bool m_suppressNextPlaybackChanged;
+
 };
 }
 

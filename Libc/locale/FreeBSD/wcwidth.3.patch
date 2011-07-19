@@ -1,5 +1,5 @@
---- _SB/Libc/locale/FreeBSD/wcwidth.3	2004-11-25 11:38:21.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/wcwidth.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- wcwidth.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcwidth.3	2009-11-09 15:05:26.000000000 -0800
 @@ -28,20 +28,38 @@
  .Dt WCWIDTH 3
  .Os
@@ -41,7 +41,7 @@
  .Sh RETURN VALUES
  The
  .Fn wcwidth
-@@ -50,8 +68,8 @@
+@@ -50,8 +68,8 @@ function returns 0 if the
  argument is a null wide character (L'\e0'),
  \-1 if
  .Fa wc
@@ -52,7 +52,7 @@
  character occupies.
  .Sh EXAMPLES
  This code fragment reads text from standard input and
-@@ -79,7 +97,8 @@
+@@ -79,7 +97,8 @@ while ((ch = getwchar()) != WEOF) {
  .Ed
  .Sh SEE ALSO
  .Xr iswprint 3 ,

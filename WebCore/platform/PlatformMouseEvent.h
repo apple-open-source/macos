@@ -34,7 +34,9 @@ typedef struct _GdkEventMotion GdkEventMotion;
 #endif
 
 #if PLATFORM(EFL)
-#include <Evas.h>
+typedef struct _Evas_Event_Mouse_Down Evas_Event_Mouse_Down;
+typedef struct _Evas_Event_Mouse_Up Evas_Event_Mouse_Up;
+typedef struct _Evas_Event_Mouse_Move Evas_Event_Mouse_Move;
 #endif
 
 #if PLATFORM(QT)
@@ -83,6 +85,11 @@ namespace WebCore {
             , m_metaKey(false)
             , m_timestamp(0)
             , m_modifierFlags(0)
+#if PLATFORM(MAC)
+            , m_eventNumber(0)
+#elif PLATFORM(WIN)
+            , m_didActivateWebView(false)
+#endif
         {
         }
 
@@ -99,6 +106,11 @@ namespace WebCore {
             , m_metaKey(meta)
             , m_timestamp(timestamp)
             , m_modifierFlags(0)
+#if PLATFORM(MAC)
+            , m_eventNumber(0)
+#elif PLATFORM(WIN)
+            , m_didActivateWebView(false)
+#endif
         {
         }
 
@@ -122,10 +134,11 @@ namespace WebCore {
 #if PLATFORM(GTK) 
         PlatformMouseEvent(GdkEventButton*);
         PlatformMouseEvent(GdkEventMotion*);
+        void setClickCount(int count) { m_clickCount = count; }
 #endif
 
 #if PLATFORM(EFL)
-        void setClickCount(Evas_Button_Flags);
+        void setClickCount(unsigned int);
         PlatformMouseEvent(const Evas_Event_Mouse_Down*, IntPoint);
         PlatformMouseEvent(const Evas_Event_Mouse_Up*, IntPoint);
         PlatformMouseEvent(const Evas_Event_Mouse_Move*, IntPoint);
@@ -147,9 +160,9 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(WIN)
-        PlatformMouseEvent(HWND, UINT, WPARAM, LPARAM, bool activatedWebView = false);
+        PlatformMouseEvent(HWND, UINT, WPARAM, LPARAM, bool didActivateWebView = false);
         void setClickCount(int count) { m_clickCount = count; }
-        bool activatedWebView() const { return m_activatedWebView; }
+        bool didActivateWebView() const { return m_didActivateWebView; }
 #endif
 
 #if PLATFORM(WX)
@@ -179,10 +192,8 @@ namespace WebCore {
 
 #if PLATFORM(MAC)
         int m_eventNumber;
-#endif
-
-#if PLATFORM(WIN)
-        bool m_activatedWebView;
+#elif PLATFORM(WIN)
+        bool m_didActivateWebView;
 #endif
     };
 

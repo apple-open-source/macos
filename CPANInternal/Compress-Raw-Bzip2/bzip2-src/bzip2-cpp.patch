@@ -1,0 +1,355 @@
+bzip2
+*** bzip2.c.orig	2009-04-10 12:58:28.000000000 +0100
+--- bzip2.c	2009-04-10 13:08:33.000000000 +0100
+***************
+*** 800,805 ****
+--- 800,810 ----
+  }
+  
+  
++ #ifdef __cplusplus
++ extern "C"
++ {
++ #endif
++ 
+  /*---------------------------------------------*/
+  static 
+  void mySignalCatcher ( IntNative n )
+***************
+*** 866,871 ****
+--- 871,879 ----
+        { cadvise(); cleanUpAndFail( 2 ); }
+  }
+  
++ #ifdef __cplusplus
++ }
++ #endif
+  
+  /*---------------------------------------------*/
+  static 
+bzip2recover
+*** bzip2recover.c.orig	2009-04-10 12:38:06.000000000 +0100
+--- bzip2recover.c	2009-04-10 12:38:44.000000000 +0100
+***************
+*** 153,159 ****
+  /*---------------------------------------------*/
+  static BitStream* bsOpenReadStream ( FILE* stream )
+  {
+!    BitStream *bs = malloc ( sizeof(BitStream) );
+     if (bs == NULL) mallocFail ( sizeof(BitStream) );
+     bs->handle = stream;
+     bs->buffer = 0;
+--- 153,159 ----
+  /*---------------------------------------------*/
+  static BitStream* bsOpenReadStream ( FILE* stream )
+  {
+!    BitStream *bs = (BitStream*) malloc ( sizeof(BitStream) );
+     if (bs == NULL) mallocFail ( sizeof(BitStream) );
+     bs->handle = stream;
+     bs->buffer = 0;
+***************
+*** 166,172 ****
+  /*---------------------------------------------*/
+  static BitStream* bsOpenWriteStream ( FILE* stream )
+  {
+!    BitStream *bs = malloc ( sizeof(BitStream) );
+     if (bs == NULL) mallocFail ( sizeof(BitStream) );
+     bs->handle = stream;
+     bs->buffer = 0;
+--- 166,172 ----
+  /*---------------------------------------------*/
+  static BitStream* bsOpenWriteStream ( FILE* stream )
+  {
+!    BitStream *bs = (BitStream*) malloc ( sizeof(BitStream) );
+     if (bs == NULL) mallocFail ( sizeof(BitStream) );
+     bs->handle = stream;
+     bs->buffer = 0;
+bzlib
+*** bzlib.c.orig	2009-04-10 12:03:44.000000000 +0100
+--- bzlib.c	2009-04-10 13:07:06.000000000 +0100
+***************
+*** 98,103 ****
+--- 98,108 ----
+  
+  
+  /*---------------------------------------------------*/
++ #ifdef __cplusplus
++ extern "C"
++ {
++ #endif
++ 
+  static
+  void* default_bzalloc ( void* opaque, Int32 items, Int32 size )
+  {
+***************
+*** 111,116 ****
+--- 116,124 ----
+     if (addr != NULL) free ( addr );
+  }
+  
++ #ifdef __cplusplus
++ }
++ #endif
+  
+  /*---------------------------------------------------*/
+  static
+***************
+*** 165,171 ****
+     if (strm->bzalloc == NULL) strm->bzalloc = default_bzalloc;
+     if (strm->bzfree == NULL) strm->bzfree = default_bzfree;
+  
+!    s = BZALLOC( sizeof(EState) );
+     if (s == NULL) return BZ_MEM_ERROR;
+     s->strm = strm;
+  
+--- 173,179 ----
+     if (strm->bzalloc == NULL) strm->bzalloc = default_bzalloc;
+     if (strm->bzfree == NULL) strm->bzfree = default_bzfree;
+  
+!    s = (EState*) BZALLOC( sizeof(EState) );
+     if (s == NULL) return BZ_MEM_ERROR;
+     s->strm = strm;
+  
+***************
+*** 174,182 ****
+     s->ftab = NULL;
+  
+     n       = 100000 * blockSize100k;
+!    s->arr1 = BZALLOC( n                  * sizeof(UInt32) );
+!    s->arr2 = BZALLOC( (n+BZ_N_OVERSHOOT) * sizeof(UInt32) );
+!    s->ftab = BZALLOC( 65537              * sizeof(UInt32) );
+  
+     if (s->arr1 == NULL || s->arr2 == NULL || s->ftab == NULL) {
+        if (s->arr1 != NULL) BZFREE(s->arr1);
+--- 182,190 ----
+     s->ftab = NULL;
+  
+     n       = 100000 * blockSize100k;
+!    s->arr1 = (UInt32*) BZALLOC( n                  * sizeof(UInt32) );
+!    s->arr2 = (UInt32*) BZALLOC( (n+BZ_N_OVERSHOOT) * sizeof(UInt32) );
+!    s->ftab = (UInt32*) BZALLOC( 65537              * sizeof(UInt32) );
+  
+     if (s->arr1 == NULL || s->arr2 == NULL || s->ftab == NULL) {
+        if (s->arr1 != NULL) BZFREE(s->arr1);
+***************
+*** 362,368 ****
+  {
+     Bool progress_in  = False;
+     Bool progress_out = False;
+!    EState* s = strm->state;
+     
+     while (True) {
+  
+--- 370,376 ----
+  {
+     Bool progress_in  = False;
+     Bool progress_out = False;
+!    EState* s = (EState*) strm->state;
+     
+     while (True) {
+  
+***************
+*** 409,415 ****
+     Bool progress;
+     EState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+--- 417,423 ----
+     Bool progress;
+     EState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = (EState*) strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+***************
+*** 469,475 ****
+  {
+     EState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+--- 477,483 ----
+  {
+     EState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = (EState*) strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+***************
+*** 505,511 ****
+     if (strm->bzalloc == NULL) strm->bzalloc = default_bzalloc;
+     if (strm->bzfree == NULL) strm->bzfree = default_bzfree;
+  
+!    s = BZALLOC( sizeof(DState) );
+     if (s == NULL) return BZ_MEM_ERROR;
+     s->strm                  = strm;
+     strm->state              = s;
+--- 513,519 ----
+     if (strm->bzalloc == NULL) strm->bzalloc = default_bzalloc;
+     if (strm->bzfree == NULL) strm->bzfree = default_bzfree;
+  
+!    s = (DState*) BZALLOC( sizeof(DState) );
+     if (s == NULL) return BZ_MEM_ERROR;
+     s->strm                  = strm;
+     strm->state              = s;
+***************
+*** 684,690 ****
+  
+  
+  /*---------------------------------------------------*/
+! __inline__ Int32 BZ2_indexIntoF ( Int32 indx, Int32 *cftab )
+  {
+     Int32 nb, na, mid;
+     nb = 0;
+--- 692,701 ----
+  
+  
+  /*---------------------------------------------------*/
+! #ifndef __cplusplus
+! __inline__
+! #endif
+! Int32 BZ2_indexIntoF ( Int32 indx, Int32 *cftab )
+  {
+     Int32 nb, na, mid;
+     nb = 0;
+***************
+*** 810,816 ****
+     Bool    corrupt;
+     DState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+--- 821,827 ----
+     Bool    corrupt;
+     DState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = (DState*) strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+***************
+*** 863,869 ****
+  {
+     DState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+--- 874,880 ----
+  {
+     DState* s;
+     if (strm == NULL) return BZ_PARAM_ERROR;
+!    s = (DState*) strm->state;
+     if (s == NULL) return BZ_PARAM_ERROR;
+     if (s->strm != strm) return BZ_PARAM_ERROR;
+  
+***************
+*** 934,940 ****
+     if (ferror(f))
+        { BZ_SETERR(BZ_IO_ERROR); return NULL; };
+  
+!    bzf = malloc ( sizeof(bzFile) );
+     if (bzf == NULL)
+        { BZ_SETERR(BZ_MEM_ERROR); return NULL; };
+  
+--- 945,951 ----
+     if (ferror(f))
+        { BZ_SETERR(BZ_IO_ERROR); return NULL; };
+  
+!    bzf = (bzFile*) malloc ( sizeof(bzFile) );
+     if (bzf == NULL)
+        { BZ_SETERR(BZ_MEM_ERROR); return NULL; };
+  
+***************
+*** 982,988 ****
+        { BZ_SETERR(BZ_OK); return; };
+  
+     bzf->strm.avail_in = len;
+!    bzf->strm.next_in  = buf;
+  
+     while (True) {
+        bzf->strm.avail_out = BZ_MAX_UNUSED;
+--- 993,999 ----
+        { BZ_SETERR(BZ_OK); return; };
+  
+     bzf->strm.avail_in = len;
+!    bzf->strm.next_in  = (char*)buf;
+  
+     while (True) {
+        bzf->strm.avail_out = BZ_MAX_UNUSED;
+***************
+*** 1107,1113 ****
+     if (ferror(f))
+        { BZ_SETERR(BZ_IO_ERROR); return NULL; };
+  
+!    bzf = malloc ( sizeof(bzFile) );
+     if (bzf == NULL) 
+        { BZ_SETERR(BZ_MEM_ERROR); return NULL; };
+  
+--- 1118,1124 ----
+     if (ferror(f))
+        { BZ_SETERR(BZ_IO_ERROR); return NULL; };
+  
+!    bzf = (bzFile*) malloc ( sizeof(bzFile) );
+     if (bzf == NULL) 
+        { BZ_SETERR(BZ_MEM_ERROR); return NULL; };
+  
+***************
+*** 1179,1185 ****
+        { BZ_SETERR(BZ_OK); return 0; };
+  
+     bzf->strm.avail_out = len;
+!    bzf->strm.next_out = buf;
+  
+     while (True) {
+  
+--- 1190,1196 ----
+        { BZ_SETERR(BZ_OK); return 0; };
+  
+     bzf->strm.avail_out = len;
+!    bzf->strm.next_out = (char*) buf;
+  
+     while (True) {
+  
+decompress
+*** decompress.c.orig	2009-04-10 12:01:27.000000000 +0100
+--- decompress.c	2009-04-10 12:03:25.000000000 +0100
+***************
+*** 209,221 ****
+        s->blockSize100k -= BZ_HDR_0;
+  
+        if (s->smallDecompress) {
+!          s->ll16 = BZALLOC( s->blockSize100k * 100000 * sizeof(UInt16) );
+!          s->ll4  = BZALLOC( 
+                        ((1 + s->blockSize100k * 100000) >> 1) * sizeof(UChar) 
+                     );
+           if (s->ll16 == NULL || s->ll4 == NULL) RETURN(BZ_MEM_ERROR);
+        } else {
+!          s->tt  = BZALLOC( s->blockSize100k * 100000 * sizeof(Int32) );
+           if (s->tt == NULL) RETURN(BZ_MEM_ERROR);
+        }
+  
+--- 209,221 ----
+        s->blockSize100k -= BZ_HDR_0;
+  
+        if (s->smallDecompress) {
+!          s->ll16 = (UInt16*) BZALLOC( s->blockSize100k * 100000 * sizeof(UInt16) );
+!          s->ll4  = (UChar*) BZALLOC( 
+                        ((1 + s->blockSize100k * 100000) >> 1) * sizeof(UChar) 
+                     );
+           if (s->ll16 == NULL || s->ll4 == NULL) RETURN(BZ_MEM_ERROR);
+        } else {
+!          s->tt  = (UInt32*) BZALLOC( s->blockSize100k * 100000 * sizeof(Int32) );
+           if (s->tt == NULL) RETURN(BZ_MEM_ERROR);
+        }
+  

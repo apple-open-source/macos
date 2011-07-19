@@ -1,8 +1,10 @@
 #!/usr/bin/perl -w
 
 use Test::More;
-eval "use Test::Pod::Coverage 1.00";
-plan skip_all => "Test::Pod::Coverage 1.00 required for testing POD coverage" if $@;
+
+# 1.08 added the coverage_class option.
+eval "use Test::Pod::Coverage 1.08";
+plan skip_all => "Test::Pod::Coverage 1.08 required for testing POD coverage" if $@;
 eval "use Pod::Coverage::CountParents";
 plan skip_all => "Pod::Coverage::CountParents required for testing POD coverage" if $@;
 

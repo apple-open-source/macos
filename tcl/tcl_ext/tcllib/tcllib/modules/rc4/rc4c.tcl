@@ -11,11 +11,11 @@
 #  tclsh sak.tcl critcl
 # generates a tcllibc module.
 #
-# $Id: rc4c.tcl,v 1.3 2008/03/25 07:15:35 andreas_kupries Exp $
+# $Id: rc4c.tcl,v 1.4 2009/05/07 00:14:02 patthoyts Exp $
 
 package require critcl
 # @sak notprovided rc4c
-package provide rc4c 1.0.0
+package provide rc4c 1.1.0
 
 namespace eval ::rc4 {
 
@@ -82,6 +82,8 @@ namespace eval ::rc4 {
         };
 #ifdef __GNUC__
         inline
+#elif defined(_MSC_VER)
+        __inline
 #endif
         void swap (unsigned char *lhs, unsigned char *rhs) {
             unsigned char t = *lhs;
@@ -119,9 +121,8 @@ namespace eval ::rc4 {
             obj->typePtr->freeIntRepProc(obj);
         obj->internalRep.otherValuePtr = ctx;
         obj->typePtr = &rc4_type;
-        Tcl_SetObjResult(interp, obj);
-        Tcl_IncrRefCount(obj);
         Tcl_InvalidateStringRep(obj);
+        Tcl_SetObjResult(interp, obj);
         return TCL_OK;
     }
 

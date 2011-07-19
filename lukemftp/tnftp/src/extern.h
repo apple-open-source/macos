@@ -142,7 +142,7 @@ int	ftp_login(const char *, const char *, const char *);
 void	get(int, char **);
 struct cmd *getcmd(const char *);
 int	getit(int, char **, int, const char *);
-int	getline(FILE *, char *, size_t, const char **);
+int	get_line(FILE *, char *, size_t, const char **);
 struct option *getoption(const char *);
 char   *getoptionvalue(const char *);
 void	getremoteinfo(void);

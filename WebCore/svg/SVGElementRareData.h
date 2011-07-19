@@ -15,7 +15,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #ifndef SVGElementRareData_h
@@ -32,12 +31,14 @@ class SVGCursorElement;
 class SVGElement;
 class SVGElementInstance;
 
-class SVGElementRareData : public Noncopyable {
+class SVGElementRareData {
+    WTF_MAKE_NONCOPYABLE(SVGElementRareData); WTF_MAKE_FAST_ALLOCATED;
 public:
     SVGElementRareData()
         : m_cursorElement(0)
         , m_cursorImageValue(0)
         , m_instancesUpdatesBlocked(false)
+        , m_hasPendingResources(false)
     {
     }
 
@@ -60,6 +61,9 @@ public:
     bool instanceUpdatesBlocked() const { return m_instancesUpdatesBlocked; }
     void setInstanceUpdatesBlocked(bool value) { m_instancesUpdatesBlocked = value; }
 
+    bool hasPendingResources() const { return m_hasPendingResources; }
+    void setHasPendingResources(bool value) { m_hasPendingResources = value; }
+
     SVGCursorElement* cursorElement() const { return m_cursorElement; }
     void setCursorElement(SVGCursorElement* cursorElement) { m_cursorElement = cursorElement; }
 
@@ -71,6 +75,7 @@ private:
     SVGCursorElement* m_cursorElement;
     CSSCursorImageValue* m_cursorImageValue;
     bool m_instancesUpdatesBlocked : 1;
+    bool m_hasPendingResources : 1;
 };
 
 }

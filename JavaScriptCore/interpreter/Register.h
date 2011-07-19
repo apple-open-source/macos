@@ -31,16 +31,14 @@
 
 #include "JSValue.h"
 #include <wtf/Assertions.h>
-#include <wtf/FastAllocBase.h>
 #include <wtf/VectorTraits.h>
 
 namespace JSC {
 
-    class Arguments;
     class CodeBlock;
     class ExecState;
     class JSActivation;
-    class JSFunction;
+    class JSObject;
     class JSPropertyNameIterator;
     class ScopeChainNode;
 
@@ -48,50 +46,43 @@ namespace JSC {
 
     typedef ExecState CallFrame;
 
-    class Register : public WTF::FastAllocBase {
+    class Register {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         Register();
 
         Register(const JSValue&);
         Register& operator=(const JSValue&);
         JSValue jsValue() const;
+        EncodedJSValue encodedJSValue() const;
         
-        Register& operator=(JSActivation*);
         Register& operator=(CallFrame*);
         Register& operator=(CodeBlock*);
-        Register& operator=(JSFunction*);
-        Register& operator=(JSPropertyNameIterator*);
         Register& operator=(ScopeChainNode*);
         Register& operator=(Instruction*);
 
         int32_t i() const;
         JSActivation* activation() const;
-        Arguments* arguments() const;
         CallFrame* callFrame() const;
         CodeBlock* codeBlock() const;
-        JSFunction* function() const;
+        JSObject* function() const;
         JSPropertyNameIterator* propertyNameIterator() const;
         ScopeChainNode* scopeChain() const;
         Instruction* vPC() const;
 
         static Register withInt(int32_t i)
         {
-            Register r;
-            r.u.i = i;
+            Register r = jsNumber(i);
             return r;
         }
 
+        static inline Register withCallee(JSObject* callee);
+
     private:
         union {
-            int32_t i;
             EncodedJSValue value;
-
-            JSActivation* activation;
             CallFrame* callFrame;
             CodeBlock* codeBlock;
-            JSFunction* function;
-            JSPropertyNameIterator* propertyNameIterator;
-            ScopeChainNode* scopeChain;
             Instruction* vPC;
         } u;
     };
@@ -125,13 +116,12 @@ namespace JSC {
         return JSValue::decode(u.value);
     }
 
-    // Interpreter functions
-
-    ALWAYS_INLINE Register& Register::operator=(JSActivation* activation)
+    ALWAYS_INLINE EncodedJSValue Register::encodedJSValue() const
     {
-        u.activation = activation;
-        return *this;
+        return u.value;
     }
+
+    // Interpreter functions
 
     ALWAYS_INLINE Register& Register::operator=(CallFrame* callFrame)
     {
@@ -145,40 +135,17 @@ namespace JSC {
         return *this;
     }
 
-    ALWAYS_INLINE Register& Register::operator=(JSFunction* function)
-    {
-        u.function = function;
-        return *this;
-    }
-
     ALWAYS_INLINE Register& Register::operator=(Instruction* vPC)
     {
         u.vPC = vPC;
         return *this;
     }
 
-    ALWAYS_INLINE Register& Register::operator=(ScopeChainNode* scopeChain)
-    {
-        u.scopeChain = scopeChain;
-        return *this;
-    }
-
-    ALWAYS_INLINE Register& Register::operator=(JSPropertyNameIterator* propertyNameIterator)
-    {
-        u.propertyNameIterator = propertyNameIterator;
-        return *this;
-    }
-
     ALWAYS_INLINE int32_t Register::i() const
     {
-        return u.i;
+        return jsValue().asInt32();
     }
-    
-    ALWAYS_INLINE JSActivation* Register::activation() const
-    {
-        return u.activation;
-    }
-    
+
     ALWAYS_INLINE CallFrame* Register::callFrame() const
     {
         return u.callFrame;
@@ -188,22 +155,7 @@ namespace JSC {
     {
         return u.codeBlock;
     }
-    
-    ALWAYS_INLINE JSFunction* Register::function() const
-    {
-        return u.function;
-    }
-    
-    ALWAYS_INLINE JSPropertyNameIterator* Register::propertyNameIterator() const
-    {
-        return u.propertyNameIterator;
-    }
-    
-    ALWAYS_INLINE ScopeChainNode* Register::scopeChain() const
-    {
-        return u.scopeChain;
-    }
-    
+
     ALWAYS_INLINE Instruction* Register::vPC() const
     {
         return u.vPC;

@@ -1,10 +1,13 @@
 ## -*-makefile-*-
-## Copyright (c) 2003-2007 IBM, Ken Foskey, and others. All rights reserved.
+## Copyright (c) 2003-2009 IBM, Ken Foskey, and others. All rights reserved.
 ##
 ## Aix-specific setup (for gcc)
 ##
 ## Please note: AIX does NOT have library versioning per se (there is no 'SONAME' capability). 
 ## So, we are using 'windows' style library names, that is, libicuuc20.1.so instead of libicuuc.so.20.1
+
+# Certain files don't compile in -ansi mode (e.g. umutex.c, toolutil.c, and cdatatst.c)
+CFLAGS += -D_ALL_SOURCE
 
 ## Commands to generate dependency files
 GEN_DEPS.c=	$(CC) -E -MM $(DEFS) $(CPPFLAGS)
@@ -16,9 +19,12 @@ GEN_DEPS.cc=	$(CXX) -E -MM $(DEFS) $(CPPFLAGS)
 LINK.c=		$(AIX_PREDELETE) $(CXX) $(CXXFLAGS) $(LDFLAGS) 
 LINK.cc=	$(AIX_PREDELETE) $(CXX) $(CXXFLAGS) $(LDFLAGS) 
 
+## Shared library options
+LD_SOOPTIONS= -Wl,-bsymbolic
+
 ## Commands to make a shared library
-SHLIB.c=    $(AIX_PREDELETE) $(CC) $(CFLAGS) $(LDFLAGS) -shared -Wl,-bexpall
-SHLIB.cc=   $(AIX_PREDELETE) $(CXX) $(CXXFLAGS) $(LDFLAGS) -shared -Wl,-bexpall
+SHLIB.c=    $(AIX_PREDELETE) $(CC) $(CFLAGS) $(LDFLAGS) -shared -Wl,-bexpall $(LD_SOOPTIONS)
+SHLIB.cc=   $(AIX_PREDELETE) $(CXX) $(CXXFLAGS) $(LDFLAGS) -shared -Wl,-bexpall $(LD_SOOPTIONS)
 
 ## Compiler switch to embed a runtime search path
 LD_RPATH=	-I
@@ -44,6 +50,7 @@ LDLIBRARYPATH_ENVVAR = LIBPATH
 FINAL_SO_TARGET=  $(basename $(SO_TARGET))$(SO_TARGET_VERSION).$(SO)
 MIDDLE_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
 SHARED_OBJECT = $(notdir $(FINAL_SO_TARGET:.$(SO)=.$(SOBJ)))
+SHARED_OBJECT_NO_VERSION = $(basename $(SO_TARGET)).$(SOBJ)
 
 # The following is for Makefile.inc's use.
 ICULIBSUFFIX_VERSION = $(LIB_VERSION_MAJOR)
@@ -72,9 +79,13 @@ STATIC_O = o
 
 ## Build archive from shared object
 %.a : %.so
-	$(AR) $(ARFLAGS) $@ $<
+	ln -f $< $(SHARED_OBJECT_NO_VERSION)
+	$(AR) $(ARFLAGS) $@ $(SHARED_OBJECT_NO_VERSION)
+	rm -f $(SHARED_OBJECT_NO_VERSION)
 $(LIBDIR)/%.a : %.so
-	$(AR) $(ARFLAGS) $@ $<
+	ln -f $< $(SHARED_OBJECT_NO_VERSION)
+	$(AR) $(ARFLAGS) $@ $(SHARED_OBJECT_NO_VERSION)
+	rm -f $(SHARED_OBJECT_NO_VERSION)
 
 ## Build import list from export list
 %.e : %.exp

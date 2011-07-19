@@ -1,7 +1,7 @@
 /*
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2011 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -20,37 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/******************************************************************************
-
-    evio.h
-    Ioctl calls for the events driver
-    Leovitch 02Jan88
-    
-    Copyright 1988 NeXT, Inc.
-    
-	CAUTION: Developers should stick to the API exported in
-		<drivers/event_status_driver.h> to guarantee
-		binary compatability of their applications in future
-		releases.
-
-    Modified:
-    
-    09Dec88 Leo  Broken out from evsio.h
-    24Aug89 Ted  ANSI function prototyping.
-    19Feb90 Ted  Major revision for multiple driver support.
-    26Feb90 Ted  New evioScreen structure and EVIOST ioctl.
-    12Mar90 Ted  New ev_unregister_screen function, SCREENTOKEN constant.
-    06May90 Ted  Added AALastEventSent and AALastEventConsumed to EvVars.
-    22May90 Trey More wait cursor vars in EvVars.
-    13Jun90 Ted  NXCursorData structure.
-    18Jun90 Ted  Default wait cursor constants.
-    26Sep90 Ted  Enhanced cursor system to support intelligent drivers.
-    26Nov90 Ted  Removed NXSaveCursor and NXCursorData structures
-    28Nov90 Ted  Remove EvVars, rolled into EventGlobals
-    28Nov90 Ted  Renamed EventGlobals -> EvGlobals, eventGlobals -> evg
-    05May92 Mike Reworked for NRW driver architecture.
-
-******************************************************************************/
 
 #ifndef _DEV_EVIO_H
 #define _DEV_EVIO_H
@@ -87,10 +56,9 @@ __BEGIN_DECLS
 
 typedef struct _NXEQElStruct {
     int	next;		/* Slot of lleq for next event */
-    ev_lock_data_t sema; /* Is high-level code reading this event now? */
+    OSSpinLock sema; /* Is high-level code reading this event now? */
     NXEvent event;	/* The event itself */
 } NXEQElement;
-
 
 /******************************************************************************
     SHARED MEMORY OVERVIEW
@@ -149,92 +117,49 @@ typedef volatile struct _evOffsets {
     contained here.
 ******************************************************************************/
 
-#ifndef __ppc__
 typedef volatile struct _evGlobals {
-    ev_lock_data_t cursorSema; 	/* set to disable periodic code */
-    int eNum;			/* Unique id for mouse events */
-    int buttons;		/* State of the mouse buttons 1==down, 0==up */
-    int eventFlags;		/* The current value of event.flags */
-    int VertRetraceClock;	/* The current value of event.time */
-    IOGPoint cursorLoc;		/* The current location of the cursor */
-    int frame;			/* current cursor frame */
-    IOGBounds workBounds;	/* bounding box of all screens */
-    IOGBounds mouseRect;	/* Rect for mouse-exited events */
-    int version;		/* for run time checks */
-    int	structSize;		/* for run time checks */
+    OSSpinLock cursorSema; 	/* set to disable periodic code */
+    int eNum;                       /* Unique id for mouse events */
+    int buttons;                    /* State of the mouse buttons 1==down, 0==up */
+    int eventFlags;                 /* The current value of event.flags */
+    int VertRetraceClock;           /* The current value of event.time */
+    IOGPoint cursorLoc;             /* The current location of the cursor, in desktop coordinates */
+    int frame;                      /* current cursor frame */
+    IOGBounds workBounds;           /* bounding box of all screens */
+    IOGBounds mouseRect;            /* Rect for mouse-exited events */
+    int version;                    /* for run time checks */
+    int	structSize;                 /* for run time checks */
     int lastFrame;
-    unsigned int reservedA[31];
+                                    /* The current location of the cursor, 24.8 bit fixed point format */
+    IOFixedPoint32 screenCursorFixed; /* in Screen coordinates  */
+    IOFixedPoint32 desktopCursorFixed;/* in Desktop coordinates  */
+    unsigned int reservedA[27];
 
-    unsigned reserved:27;
-    unsigned wantPressure:1;	/* pressure in current mouseRect? */
-    unsigned wantPrecision:1;	/* precise coordinates in current mouseRect? */
-    unsigned dontWantCoalesce:1;/* coalesce within the current mouseRect? */
-    unsigned dontCoalesce:1;	/* actual flag which determines coalescing */
-    unsigned mouseRectValid:1;	/* If nonzero, post a mouse-exited
-				   whenever mouse outside mouseRect. */
-    int movedMask;		/* This contains an event mask for the
-				   three events MOUSEMOVED,
-				   LMOUSEDRAGGED,  and RMOUSEDRAGGED.
-				   It says whether driver should
-				   generate those events. */
-    ev_lock_data_t waitCursorSema; /* protects wait cursor fields */
-    int AALastEventSent;	/* timestamp for wait cursor */
-    int AALastEventConsumed;	/* timestamp for wait cursor */	
-    int waitCursorUp;		/* Is wait cursor up? */
-    char ctxtTimedOut;		/* Has wait cursor timer expired? */
-    char waitCursorEnabled;	/* Play wait cursor game (per ctxt)? */
-    char globalWaitCursorEnabled; /* Play wait cursor game (global)? */
-    int waitThreshold;		/* time before wait cursor appears */
+    unsigned reserved:25;
+    unsigned updateCursorPositionFromFixed:1; /* if this is set, IOHIDSystem will take any cursor position updates from desktopCursorFixed instead of cursorLoc */
+    unsigned logCursorUpdates:1;    /* log cursor updates */
+    unsigned wantPressure:1;        /* pressure in current mouseRect? */
+    unsigned wantPrecision:1;       /* precise coordinates in current mouseRect? */
+    unsigned dontWantCoalesce:1;    /* coalesce within the current mouseRect? */
+    unsigned dontCoalesce:1;        /* actual flag which determines coalescing */
+    unsigned mouseRectValid:1;      /* If nonzero, post a mouse-exited whenever mouse outside mouseRect. */
+    int movedMask;                  /* This contains an event mask for the three events MOUSEMOVED,
+                                        LMOUSEDRAGGED,  and RMOUSEDRAGGED. It says whether driver should
+                                        generate those events. */
+    OSSpinLock waitCursorSema; /* protects wait cursor fields */
+    int AALastEventSent;            /* timestamp for wait cursor */
+    int AALastEventConsumed;        /* timestamp for wait cursor */	
+    int waitCursorUp;               /* Is wait cursor up? */
+    char ctxtTimedOut;              /* Has wait cursor timer expired? */
+    char waitCursorEnabled;         /* Play wait cursor game (per ctxt)? */
+    char globalWaitCursorEnabled;   /* Play wait cursor game (global)? */
+    int waitThreshold;              /* time before wait cursor appears */
 
-    int LLEHead;		/* The next event to be read */
-    int LLETail;		/* Where the next event will go */
-    int LLELast;		/* The last event entered */
-    NXEQElement lleq[LLEQSIZE];	/* The event queue itself */
+    int LLEHead;                    /* The next event to be read */
+    int LLETail;                    /* Where the next event will go */
+    int LLELast;                    /* The last event entered */
+    NXEQElement lleq[LLEQSIZE];     /* The event queue itself */
 } EvGlobals;
-
-#else
-
-typedef volatile struct _evGlobals {
-    ev_lock_data_t cursorSema; 	/* set to disable periodic code */
-    int LLEHead;		/* The next event to be read */
-    int LLETail;		/* Where the next event will go */
-    int LLELast;		/* The last event entered */
-    int eNum;			/* Unique id for mouse events */
-    int buttons;		/* State of the mouse buttons 1==down, 0==up */
-    int eventFlags;		/* The current value of event.flags */
-    int VertRetraceClock;	/* The current value of event.time */
-    IOGPoint cursorLoc;		/* The current location of the cursor */
-    int frame;			/* current cursor frame */
-    IOGBounds workBounds;	/* bounding box of all screens */
-    IOGBounds mouseRect;	/* Rect for mouse-exited events */
-    int version;		/* for run time checks */
-    int	structSize;		/* for run time checks */
-    int lastFrame;
-    unsigned int reservedA[31];
-
-    unsigned reserved:27;
-    unsigned wantPressure:1;	/* pressure in current mouseRect? */
-    unsigned wantPrecision:1;	/* precise coordinates in current mouseRect? */
-    unsigned dontWantCoalesce:1;/* coalesce within the current mouseRect? */
-    unsigned dontCoalesce:1;	/* actual flag which determines coalescing */
-    unsigned mouseRectValid:1;	/* If nonzero, post a mouse-exited
-				   whenever mouse outside mouseRect. */
-    int movedMask;		/* This contains an event mask for the
-				   three events MOUSEMOVED,
-				   LMOUSEDRAGGED,  and RMOUSEDRAGGED.
-				   It says whether driver should
-				   generate those events. */
-    int AALastEventSent;	/* timestamp for wait cursor */
-    int AALastEventConsumed;	/* timestamp for wait cursor */	
-    ev_lock_data_t waitCursorSema; /* protects wait cursor fields */
-    int waitCursorUp;		/* Is wait cursor up? */
-    char ctxtTimedOut;		/* Has wait cursor timer expired? */
-    char waitCursorEnabled;	/* Play wait cursor game (per ctxt)? */
-    char globalWaitCursorEnabled; /* Play wait cursor game (global)? */
-    int waitThreshold;		/* time before wait cursor appears */
-    NXEQElement lleq[LLEQSIZE];	/* The event queue itself */
-} EvGlobals;
-#endif
 
 /* These evio structs are used in various calls supported by the ev driver. */
 
@@ -297,9 +222,10 @@ typedef struct evioSpecialKeyMsg *evioSpecialKeyMsg_t;
 #define IOHIDSYSTEM_CONFORMSTO	kIOHIDSystemClass
 
 enum {
-    kIOHIDCurrentShmemVersion	= 3,
-    kIOHIDEventNotification	= 0,
+    kIOHIDEventNotification     = 0,
 };
+#define kIOHIDCurrentShmemVersion           4
+#define kIOHIDLastCompatibleShmemVersion    3
 
 enum {
     kIOHIDServerConnectType	= 0,

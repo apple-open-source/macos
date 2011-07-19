@@ -8,7 +8,7 @@ require 'fileutils'
 
 class Dir
 
-  @@systmpdir = '/tmp'
+  @@systmpdir = Dir.const_defined?(:NS_TMPDIR) ? Dir::NS_TMPDIR : '/tmp'
 
   begin
     require 'Win32API'

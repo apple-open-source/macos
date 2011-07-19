@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
+
 #ifndef _CDSLocalAuthParams_
 #define _CDSLocalAuthParams_	1
 
@@ -64,3 +66,5 @@ class CDSLocalAuthParams : public CDSAuthParams
 };
 
 #endif
+
+#endif // DISABLE_LOCAL_PLUGIN

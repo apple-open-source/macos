@@ -1,26 +1,24 @@
 /* adler32.c -- compute the Adler-32 checksum of a data stream
- * Copyright (C) 1995-2004 Mark Adler
+ * Copyright (C) 1995-2007 Mark Adler
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
 /* @(#) $Id$ */
 
-#include <stdint.h> // For uintptr_t.
-
 #if defined __arm__
 #include <arm/arch.h>
 #endif
 
-#define ZLIB_INTERNAL
-#if KERNEL
-    #include <libkern/zlib.h>
-#else
-    #include "zlib.h"
-#endif /* KERNEL */
+#include "zutil.h"
 
-#if defined _ARM_ARCH_6
-	extern uLong adler32_vec(uLong adler, uLong sum2, const Bytef *buf, uInt len);
+#if defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
+#include <stdint.h> // For uintptr_t.
+extern uLong   adler32_vec(unsigned int adler, unsigned int sum2, const Bytef *buf, int len);
 #endif
+
+#define local static
+
+local uLong adler32_combine_(uLong adler1, uLong adler2, z_off64_t len2);
 
 #define BASE 65521UL    /* largest prime smaller than 65536 */
 #define NMAX 5552
@@ -74,7 +72,7 @@ uLong ZEXPORT adler32(adler, buf, len)
     uInt len;
 {
     unsigned long sum2;
-#if !defined _ARM_ARCH_6
+#if !defined VEC_OPTIMIZE || !(defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
     unsigned n;
 #endif
 
@@ -109,8 +107,9 @@ uLong ZEXPORT adler32(adler, buf, len)
         return adler | (sum2 << 16);
     }
 
-#if defined _ARM_ARCH_6
-    /* align buf to 16-byte boundary */
+#if defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
+
+	/* align buf to 16-byte boundary */
     while (((uintptr_t)buf)&15) { /* not on a 16-byte boundary */
         len--;
         adler += *buf++;
@@ -119,9 +118,9 @@ uLong ZEXPORT adler32(adler, buf, len)
         MOD4(sum2);             /* only added so many BASE's */
     }
 
-    return adler32_vec(adler, sum2, buf, len);      // armv7 neon vectorized implementation
+    return adler32_vec(adler, sum2, buf, len);
 
-#else   //  _ARM_ARCH_6
+#else	// defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
 
     /* do length NMAX blocks -- requires just one modulo operation */
     while (len >= NMAX) {
@@ -152,15 +151,14 @@ uLong ZEXPORT adler32(adler, buf, len)
 
     /* return recombined sums */
     return adler | (sum2 << 16);
-
-#endif  // _ARM_ARCH_6
+#endif	// defined VEC_OPTIMIZE && (defined __i386__ || defined __x86_64__ || defined _ARM_ARCH_6)
 }
 
 /* ========================================================================= */
-uLong ZEXPORT adler32_combine(adler1, adler2, len2)
+local uLong adler32_combine_(adler1, adler2, len2)
     uLong adler1;
     uLong adler2;
-    z_off_t len2;
+    z_off64_t len2;
 {
     unsigned long sum1;
     unsigned long sum2;
@@ -173,9 +171,26 @@ uLong ZEXPORT adler32_combine(adler1, adler2, len2)
     MOD(sum2);
     sum1 += (adler2 & 0xffff) + BASE - 1;
     sum2 += ((adler1 >> 16) & 0xffff) + ((adler2 >> 16) & 0xffff) + BASE - rem;
-    if (sum1 > BASE) sum1 -= BASE;
-    if (sum1 > BASE) sum1 -= BASE;
-    if (sum2 > (BASE << 1)) sum2 -= (BASE << 1);
-    if (sum2 > BASE) sum2 -= BASE;
+    if (sum1 >= BASE) sum1 -= BASE;
+    if (sum1 >= BASE) sum1 -= BASE;
+    if (sum2 >= (BASE << 1)) sum2 -= (BASE << 1);
+    if (sum2 >= BASE) sum2 -= BASE;
     return sum1 | (sum2 << 16);
+}
+
+/* ========================================================================= */
+uLong ZEXPORT adler32_combine(adler1, adler2, len2)
+    uLong adler1;
+    uLong adler2;
+    z_off_t len2;
+{
+    return adler32_combine_(adler1, adler2, len2);
+}
+
+uLong ZEXPORT adler32_combine64(adler1, adler2, len2)
+    uLong adler1;
+    uLong adler2;
+    z_off64_t len2;
+{
+    return adler32_combine_(adler1, adler2, len2);
 }

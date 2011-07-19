@@ -1,8 +1,8 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,25 +23,26 @@
 #include "config.h"
 #include "HTMLMetaElement.h"
 
+#include "Attribute.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLMetaElement::HTMLMetaElement(const QualifiedName& tagName, Document* doc)
-    : HTMLElement(tagName, doc)
+inline HTMLMetaElement::HTMLMetaElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(metaTag));
 }
 
-HTMLMetaElement::~HTMLMetaElement()
+PassRefPtr<HTMLMetaElement> HTMLMetaElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new HTMLMetaElement(tagName, document));
 }
 
-void HTMLMetaElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLMetaElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == http_equivAttr) {
         m_equiv = attr->value();
@@ -80,39 +81,14 @@ String HTMLMetaElement::content() const
     return getAttribute(contentAttr);
 }
 
-void HTMLMetaElement::setContent(const String& value)
-{
-    setAttribute(contentAttr, value);
-}
-
 String HTMLMetaElement::httpEquiv() const
 {
     return getAttribute(http_equivAttr);
 }
 
-void HTMLMetaElement::setHttpEquiv(const String& value)
-{
-    setAttribute(http_equivAttr, value);
-}
-
 String HTMLMetaElement::name() const
 {
     return getAttribute(nameAttr);
-}
-
-void HTMLMetaElement::setName(const String& value)
-{
-    setAttribute(nameAttr, value);
-}
-
-String HTMLMetaElement::scheme() const
-{
-    return getAttribute(schemeAttr);
-}
-
-void HTMLMetaElement::setScheme(const String &value)
-{
-    setAttribute(schemeAttr, value);
 }
 
 }

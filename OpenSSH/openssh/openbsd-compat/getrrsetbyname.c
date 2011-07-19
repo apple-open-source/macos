@@ -143,7 +143,7 @@ u_int32_t _getlong(register const u_char *);
 
 /* ************** */
 
-#define ANSWER_BUFFER_SIZE 1024*64
+#define ANSWER_BUFFER_SIZE 0xffff
 
 struct dns_query {
 	char			*name;
@@ -162,8 +162,21 @@ struct dns_rr {
 	struct dns_rr		*next;
 };
 
+/* <rdar://problem/6345666> Remove dependency on BIND_8_COMPAT
+ * Mimicing the used fields of the HEADER structure from the compat library.
+ *
+ * Note, ad is 1 bit in the original structure and 8 here.
+ */
+struct dns_header {
+	u_int8_t		ad;
+	u_int16_t		qdcount;
+	u_int16_t		ancount;
+	u_int16_t		nscount;
+	u_int16_t		arcount;
+};
+
 struct dns_response {
-	HEADER			header;
+	struct dns_header   	header;
 	struct dns_query	*query;
 	struct dns_rr		*answer;
 	struct dns_rr		*authority;
@@ -449,7 +462,7 @@ parse_dns_qsection(const u_char *answer, int size, const u_char **cp, int count)
 {
 	struct dns_query *head, *curr, *prev;
 	int i, length;
-	char name[MAXDNAME];
+	char name[NS_MAXDNAME];
 
 	for (i = 1, head = NULL, prev = NULL; i <= count; i++, prev = curr) {
 
@@ -496,7 +509,7 @@ parse_dns_rrsection(const u_char *answer, int size, const u_char **cp,
 {
 	struct dns_rr *head, *curr, *prev;
 	int i, length;
-	char name[MAXDNAME];
+	char name[NS_MAXDNAME];
 
 	for (i = 1, head = NULL, prev = NULL; i <= count; i++, prev = curr) {
 

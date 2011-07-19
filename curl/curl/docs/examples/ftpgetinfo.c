@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ftpgetinfo.c,v 1.1 2009-09-05 15:23:37 gknauf Exp $
  */
 
 #include <stdio.h>
@@ -22,15 +21,16 @@
 
 static size_t throw_away(void *ptr, size_t size, size_t nmemb, void *data)
 {
+  (void)ptr;
+  (void)data;
   /* we are not interested in the headers itself,
-     so we only return the size we would have saved ... */  
+     so we only return the size we would have saved ... */
   return (size_t)(size * nmemb);
 }
 
 int main(void)
 {
-  /* Check for binutils 2.19.1 from ftp.gnu.org's FTP site. */
-  char ftpurl[] = "ftp://ftp.gnu.org/gnu/binutils/binutils-2.19.1.tar.bz2";
+  char ftpurl[] = "ftp://ftp.example.com/gnu/binutils/binutils-2.19.1.tar.bz2";
   CURL *curl;
   CURLcode res;
   const time_t filetime;
@@ -45,7 +45,7 @@ int main(void)
     /* No download if the file */
     curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
     /* Ask for filetime */
-    curl_easy_setopt(curl, CURLOPT_FILETIME, 1L); 
+    curl_easy_setopt(curl, CURLOPT_FILETIME, 1L);
     /* No header output: TODO 14.1 http-style HEAD output for ftp */
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, throw_away);
     curl_easy_setopt(curl, CURLOPT_HEADER, 0L);
@@ -60,7 +60,7 @@ int main(void)
       if((CURLE_OK == res) && filetime)
         printf("filetime %s: %s", filename, ctime(&filetime));
       res = curl_easy_getinfo(curl, CURLINFO_CONTENT_LENGTH_DOWNLOAD, &filesize);
-      if((CURLE_OK == res) && filesize)
+      if((CURLE_OK == res) && (filesize>0))
         printf("filesize %s: %0.0f bytes\n", filename, filesize);
     } else {
       /* we failed */

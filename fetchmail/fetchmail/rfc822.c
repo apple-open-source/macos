@@ -19,19 +19,24 @@ is part of fetchmail and the Unix Cookbook, and are released under the
 MIT license.  Compile with -DMAIN to build the demonstrator.
 
 ******************************************************************************/
+
+#include "config.h"
+
 #include  <stdio.h>
 #include  <ctype.h>
 #include  <string.h>
+#include  <strings.h>
 #include  <stdlib.h>
 
 #include "fetchmail.h"
+#include "sdump.h"
 
 #ifndef MAIN
 #include "i18n.h"
 #else
 #include  <unistd.h>
 static int verbose;
-char *program_name = "rfc822";
+const char *program_name = "rfc822";
 #endif /* MAIN */
 
 #ifndef TRUE
@@ -40,6 +45,8 @@ char *program_name = "rfc822";
 #endif
 
 #define HEADER_END(p)	((p)[0] == '\n' && ((p)[1] != ' ' && (p)[1] != '\t'))
+
+#define BEFORE_EOL(s)	(strcspn((s), "\r\n"))
 
 char *reply_hack(
 	char *buf		/* header to be hacked */,
@@ -72,8 +79,10 @@ char *reply_hack(
     }
 
 #ifndef MAIN
-    if (outlevel >= O_DEBUG)
-	report_build(stdout, GT_("About to rewrite %s"), buf);
+    if (outlevel >= O_DEBUG) {
+	report_build(stdout, GT_("About to rewrite %s...\n"), (cp = sdump(buf, BEFORE_EOL(buf))));
+	xfree(cp);
+    }
 
     /* make room to hack the address; buf must be malloced */
     for (cp = buf; *cp; cp++)
@@ -208,8 +217,12 @@ char *reply_hack(
     }
 
 #ifndef MAIN
-    if (outlevel >= O_DEBUG)
-	report_complete(stdout, GT_("Rewritten version is %s\n"), buf);
+    if (outlevel >= O_DEBUG) {
+	report_complete(stdout, GT_("...rewritten version is %s.\n"),
+			(cp = sdump(buf, BEFORE_EOL(buf))));
+	xfree(cp)
+    }
+
 #endif /* MAIN */
     *length = strlen(buf);
     return(buf);
@@ -246,6 +259,8 @@ char *nxtaddr(const char *hdr /* header to be parsed, NUL to continue previous h
 #endif /* MAIN */
 	tp = 0;
     }
+
+    if (!hp) return NULL;
 
     for (; *hp; hp++)
     {
@@ -423,6 +438,8 @@ int main(int argc, char *argv[])
 	    verbose = TRUE;
 	    break;
 	}
+
+    longbuf[0] = '\0';
 
     while (fgets(buf, sizeof(buf)-1, stdin))
     {

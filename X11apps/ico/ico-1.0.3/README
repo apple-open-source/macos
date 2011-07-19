@@ -1,0 +1,28 @@
+ico is a simple animation program that may be used for testing various
+X11 operations and extensions.  It displays a wire-frame rotating
+polyhedron, with hidden lines removed, or a solid-fill polyhedron with
+hidden faces removed.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/ico
+
+        http://cgit.freedesktop.org/xorg/app/ico
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,8 @@ extern "C" {
 	@abstract Returns the type identifier of SecIdentity instances.
 	@result The CFTypeID of SecIdentity instances.
 */
-CFTypeID SecIdentityGetTypeID(void);
+CFTypeID SecIdentityGetTypeID(void)
+	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
 
 /*!
 	@function SecIdentityCreateWithCertificate
@@ -57,7 +58,8 @@ CFTypeID SecIdentityGetTypeID(void);
 OSStatus SecIdentityCreateWithCertificate(
 			CFTypeRef keychainOrArray,
 			SecCertificateRef certificateRef,
-            SecIdentityRef *identityRef);
+            SecIdentityRef *identityRef)
+	__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*!
 	@function SecIdentityCopyCertificate
@@ -68,7 +70,8 @@ OSStatus SecIdentityCreateWithCertificate(
 */
 OSStatus SecIdentityCopyCertificate(
             SecIdentityRef identityRef, 
-            SecCertificateRef *certificateRef);
+            SecCertificateRef *certificateRef)
+	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
 
 /*!
 	@function SecIdentityCopyPrivateKey
@@ -79,29 +82,57 @@ OSStatus SecIdentityCopyCertificate(
 */
 OSStatus SecIdentityCopyPrivateKey(
             SecIdentityRef identityRef, 
-            SecKeyRef *privateKeyRef);
+            SecKeyRef *privateKeyRef)
+	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_2_0);
 
 /*!
     @function SecIdentityCopyPreference
     @abstract Returns the preferred identity for the specified name and key usage, optionally limiting the result to an identity issued by a certificate whose subject is one of the distinguished names in validIssuers. If a preferred identity does not exist, NULL is returned.
     @param name A string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies the service requiring an identity.
-    @param keyUsage A key usage value, as defined in cssmtype.h. Pass 0 to ignore this parameter.
+    @param keyUsage A CSSM_KEYUSE key usage value, as defined in cssmtype.h. Pass 0 to ignore this parameter.
     @param validIssuers (optional) An array of CFDataRef instances whose contents are the subject names of allowable issuers, as returned by a call to SSLCopyDistinguishedNames (SecureTransport.h). Pass NULL if any issuer is allowed.
     @param identity On return, a reference to the preferred identity, or NULL if none was found. You are responsible for releasing this reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
-    @discussion If a preferred identity has not been set for the supplied name, the returned identity reference will be NULL. Your code should then typically perform a search for possible identities, using SecIdentitySearchCreate and SecIdentitySearchCopyNext (SecIdentitySearch.h) or SecKeychainCopyMatchingItems (SecKeychain.h), allowing the user to choose from a list if more than one is found.
+    @discussion This API is deprecated in 10.7. Please use the SecIdentityCopyPreferred API instead.
 */
-OSStatus SecIdentityCopyPreference(CFStringRef name, CSSM_KEYUSE keyUsage, CFArrayRef validIssuers, SecIdentityRef *identity);
+OSStatus SecIdentityCopyPreference(CFStringRef name, CSSM_KEYUSE keyUsage, CFArrayRef validIssuers, SecIdentityRef *identity)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
+/*!
+    @function SecIdentityCopyPreferred
+    @abstract Returns the preferred identity for the specified name and key usage, optionally limiting the result to an identity issued by a certificate whose subject is one of the distinguished names in validIssuers. If a preferred identity does not exist, NULL is returned.
+    @param name A string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies the service requiring an identity.
+    @param keyUsage A CFArrayRef value, containing items defined in SecItem.h  Pass NULL to ignore this parameter. (kSecAttrCanEncrypt, kSecAttrCanDecrypt, kSecAttrCanDerive, kSecAttrCanSign, kSecAttrCanVerify, kSecAttrCanWrap, kSecAttrCanUnwrap)
+    @param validIssuers (optional) An array of CFDataRef instances whose contents are the subject names of allowable issuers, as returned by a call to SSLCopyDistinguishedNames (SecureTransport.h). Pass NULL if any issuer is allowed.
+    @param identity On return, a reference to the preferred identity, or NULL if none was found. You are responsible for releasing this reference by calling the CFRelease function.
+    @result An identity or NULL. if the preferred identity has not been set. Your code should then typically perform a search for possible identities using the SecItem APIs.
+    @discussion If a preferred identity has not been set for the supplied name, the returned identity reference will be NULL. Your code should then perform a search for possible identities, using the SecItemCopyMatching API.
+*/
+SecIdentityRef SecIdentityCopyPreferred(CFStringRef name, CFArrayRef keyUsage, CFArrayRef validIssuers)	
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+	
 /*!
     @function SecIdentitySetPreference
     @abstract Sets the preferred identity for the specified name and key usage.
     @param identity A reference to the identity which will be preferred.
     @param name A string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies a service requiring this identity.
-    @param keyUsage A key usage value, as defined in cssmtype.h. Pass 0 to specify any key usage.
+    @param keyUsage A CSSM_KEYUSE key usage value, as defined in cssmtype.h. Pass 0 to specify any key usage.
     @result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This API is deprecated in 10.7. Please use the SecIdentitySetPreferred API instead.
 */
-OSStatus SecIdentitySetPreference(SecIdentityRef identity, CFStringRef name, CSSM_KEYUSE keyUsage);
+OSStatus SecIdentitySetPreference(SecIdentityRef identity, CFStringRef name, CSSM_KEYUSE keyUsage)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+		
+/*!
+    @function SecIdentitySetPreferred
+    @abstract Sets the preferred identity for the specified name and key usage.
+    @param identity A reference to the identity which will be preferred. If NULL is passed, any existing preference for the specified name is cleared instead.
+    @param name A string containing a URI, RFC822 email address, DNS hostname, or other name which uniquely identifies a service requiring this identity.
+    @param keyUsage A CFArrayRef value, containing items defined in SecItem.h  Pass NULL to specify any key usage. (kSecAttrCanEncrypt, kSecAttrCanDecrypt, kSecAttrCanDerive, kSecAttrCanSign, kSecAttrCanVerify, kSecAttrCanWrap, kSecAttrCanUnwrap)
+    @result A result code. See "Security Error Codes" (SecBase.h).
+*/	
+OSStatus SecIdentitySetPreferred(SecIdentityRef identity, CFStringRef name, CFArrayRef keyUsage)
+	__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 /*!
 	@function	SecIdentityCopySystemIdentity
@@ -124,7 +155,8 @@ OSStatus SecIdentitySetPreference(SecIdentityRef identity, CFStringRef name, CSS
 OSStatus SecIdentityCopySystemIdentity(
    CFStringRef domain,          
    SecIdentityRef *idRef,
-   CFStringRef *actualDomain); /* optional */
+   CFStringRef *actualDomain) /* optional */
+	__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*!
 	@function	SecIdentitySetSystemIdentity
@@ -141,7 +173,8 @@ OSStatus SecIdentityCopySystemIdentity(
 */
 OSStatus SecIdentitySetSystemIdentity(
    CFStringRef domain,     
-   SecIdentityRef idRef);
+   SecIdentityRef idRef)
+	__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 
 /*
@@ -151,12 +184,12 @@ OSStatus SecIdentitySetSystemIdentity(
 /*!
 	@const kSecIdentityDomainDefault The system-wide default identity.
  */
-extern const CFStringRef kSecIdentityDomainDefault;
+extern const CFStringRef kSecIdentityDomainDefault __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*!
 	@const kSecIdentityDomainKerberosKDC Kerberos KDC identity.
 */
-extern const CFStringRef kSecIdentityDomainKerberosKDC;
+extern const CFStringRef kSecIdentityDomainKerberosKDC __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 #if defined(__cplusplus)
 }

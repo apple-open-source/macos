@@ -26,13 +26,13 @@
  * (and subsequently cleaned up by hand)
  */
 
-#include <rpcsvc/nlm_prot.h>
+#include "nlm_prot.h"
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <rpc/pmap_clnt.h>
+#include <oncrpc/pmap_clnt.h>
 #include <string.h>
 #include <netdb.h>
 #include <signal.h>

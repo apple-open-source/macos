@@ -1,0 +1,28 @@
+--- SOAP-Lite/lib/SOAP/Lite.pm	(.../tags/CPANInternal-97)	(revision 22689)
++++ SOAP-Lite/lib/SOAP/Lite.pm	(.../trunk)	(revision 22689)
+@@ -493,6 +493,7 @@
+ # ======================================================================
+ 
+ package SOAP::Transport;
++use Class::Inspector;
+ 
+ use vars qw($AUTOLOAD @ISA);
+ 
+@@ -521,7 +522,7 @@
+ 
+   (my $protocol_class = "${class}::$protocol") =~ s/-/_/g;
+   no strict 'refs';
+-  unless (defined %{"$protocol_class\::Client::"} && UNIVERSAL::can("$protocol_class\::Client" => 'new')) {
++  unless (Class::Inspector->loaded("$protocol_class\::Client::") && UNIVERSAL::can("$protocol_class\::Client" => 'new')) {
+     eval "require $protocol_class";
+     die "Unsupported protocol '$protocol'\n" if $@ =~ m!^Can\'t locate SOAP/Transport/!;
+     die if $@;
+@@ -2497,7 +2498,7 @@
+ # The following patch does not work for packages defined within a BEGIN block
+ #  unless (exists($INC{join '/', split /::/, $class.'.pm'})) {
+ # Combination of 0.60 and patch:
+-  unless (defined(%{"${class}::"}) || exists($INC{join '/', split /::/, $class.'.pm'})) {
++  unless (($class eq 'main') || $class->can($method_name) || exists($INC{join '/', split /::/, $class.'.pm'})) {
+     # allow all for static and only specified path for dynamic bindings
+     local @INC = (($static ? @INC : ()), grep {!ref && m![/\\.]!} $self->dispatch_to);
+     eval 'local $^W; ' . "require $class";

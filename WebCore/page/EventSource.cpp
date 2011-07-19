@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2009 Ericsson AB
  * All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,16 +37,19 @@
 
 #include "EventSource.h"
 
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "DOMWindow.h"
 #include "Event.h"
 #include "EventException.h"
+#include "ExceptionCode.h"
 #include "PlatformString.h"
 #include "MessageEvent.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 #include "SerializedScriptValue.h"
 #include "TextResourceDecoder.h"
 #include "ThreadableLoader.h"
@@ -53,30 +58,45 @@ namespace WebCore {
 
 const unsigned long long EventSource::defaultReconnectDelay = 3000;
 
-EventSource::EventSource(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+inline EventSource::EventSource(const KURL& url, ScriptExecutionContext* context)
     : ActiveDOMObject(context, this)
+    , m_url(url)
     , m_state(CONNECTING)
+    , m_decoder(TextResourceDecoder::create("text/plain", "UTF-8"))
     , m_reconnectTimer(this, &EventSource::reconnectTimerFired)
     , m_discardTrailingNewline(false)
     , m_failSilently(false)
     , m_requestInFlight(false)
     , m_reconnectDelay(defaultReconnectDelay)
+    , m_origin(context->securityOrigin()->toString())
 {
-    if (url.isEmpty() || !(m_url = context->completeURL(url)).isValid()) {
+}
+
+PassRefPtr<EventSource> EventSource::create(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+{
+    if (url.isEmpty()) {
         ec = SYNTAX_ERR;
-        return;
+        return 0;
     }
-    // FIXME: should support cross-origin requests
-    if (!scriptExecutionContext()->securityOrigin()->canRequest(m_url)) {
+
+    KURL fullURL = context->completeURL(url);
+    if (!fullURL.isValid()) {
+        ec = SYNTAX_ERR;
+        return 0;
+    }
+
+    // FIXME: Should support at least some cross-origin requests.
+    if (!context->securityOrigin()->canRequest(fullURL)) {
         ec = SECURITY_ERR;
-        return;
+        return 0;
     }
 
-    m_origin = scriptExecutionContext()->securityOrigin()->toString();
-    m_decoder = TextResourceDecoder::create("text/plain", "UTF-8");
+    RefPtr<EventSource> source = adoptRef(new EventSource(fullURL, context));
 
-    setPendingActivity(this);
-    connect();
+    source->setPendingActivity(source.get());
+    source->connect();
+
+    return source.release();
 }
 
 EventSource::~EventSource()
@@ -100,9 +120,6 @@ void EventSource::connect()
     m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, options);
 
     m_requestInFlight = true;
-
-    if (!scriptExecutionContext()->isWorkerContext())
-        cache()->loader()->nonCacheRequestInFlight(m_url);
 }
 
 void EventSource::endRequest()
@@ -114,9 +131,6 @@ void EventSource::endRequest()
 
     if (!m_failSilently)
         dispatchEvent(Event::create(eventNames().errorEvent, false, false));
-
-    if (!scriptExecutionContext()->isWorkerContext())
-        cache()->loader()->nonCacheRequestComplete(m_url);
 
     if (m_state != CLOSED)
         scheduleReconnect();
@@ -170,7 +184,32 @@ ScriptExecutionContext* EventSource::scriptExecutionContext() const
 void EventSource::didReceiveResponse(const ResourceResponse& response)
 {
     int statusCode = response.httpStatusCode();
-    if (statusCode == 200 && response.httpHeaderField("Content-Type") == "text/event-stream") {
+    bool mimeTypeIsValid = response.mimeType() == "text/event-stream";
+    bool responseIsValid = statusCode == 200 && mimeTypeIsValid;
+    if (responseIsValid) {
+        const String& charset = response.textEncodingName();
+        // If we have a charset, the only allowed value is UTF-8 (case-insensitive). This should match
+        // the updated EventSource standard.
+        responseIsValid = charset.isEmpty() || equalIgnoringCase(charset, "UTF-8");
+        if (!responseIsValid) {
+            String message = "EventSource's response has a charset (\"";
+            message += charset;
+            message += "\") that is not UTF-8. Aborting the connection.";
+            // FIXME: We are missing the source line.
+            scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String(), 0);
+        }
+    } else {
+        // To keep the signal-to-noise ratio low, we only log 200-response with an invalid MIME type.
+        if (statusCode == 200 && !mimeTypeIsValid) {
+            String message = "EventSource's response has a MIME type (\"";
+            message += response.mimeType();
+            message += "\") that is not \"text/event-stream\". Aborting the connection.";
+            // FIXME: We are missing the source line.
+            scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String(), 0);
+        }
+    }
+
+    if (responseIsValid) {
         m_state = OPEN;
         dispatchEvent(Event::create(eventNames().openEvent, false, false));
     } else {
@@ -186,7 +225,7 @@ void EventSource::didReceiveData(const char* data, int length)
     parseEventStream();
 }
 
-void EventSource::didFinishLoading(unsigned long)
+void EventSource::didFinishLoading(unsigned long, double)
 {
     if (m_receiveBuf.size() > 0 || m_data.size() > 0) {
         append(m_receiveBuf, "\n\n");

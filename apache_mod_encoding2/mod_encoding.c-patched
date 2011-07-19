@@ -1,0 +1,591 @@
+/* -*- mode: c -*-
+ *
+ * $Id: mod_encoding.c-patched,v 1.1 2006/03/14 16:52:31 albegley Exp $
+ *
+ */
+/*
+ * mod_encoding core module test implementation for Apache2.
+ *  by Kunio Miyamoto (wakatono@todo.gr.jp)
+ * Original security fix port 2002/06/06
+ *  by Kunio Miyamoto (wakatono@todo.gr.jp)
+ * Port new function of 20020611a
+ *  by Kunio Miyamoto (wakatono@todo.gr.jp)
+ * Port new function of 20020611a
+ *  by Kunio Miyamoto (wakatono@todo.gr.jp)
+ * Add COPYING statement for redistribute only this code.
+ *  by Kunio Miyamoto (wakatono@todo.gr.jp)
+ */
+/*
+
+
+Copyright (c) 2000-2004
+Internet Initiative Japan Inc. and Kunio Miyamoto All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer. 
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in
+   the documentation and/or other materials provided with the
+   distribution.
+
+3. All advertising materials mentioning features or use of this
+   software must display the following acknowledgment:
+
+     This product includes software developed by Internet
+     Initiative Japan Inc. and Kunio Miyamoto for use in the 
+     mod_encoding module for Apache2.
+
+4. Products derived from this software may not be called "mod_encoding"
+   nor may "mod_encoding" appear in their names without prior written
+   permission of Internet Initiative Japan Inc. For written permission,
+   please contact tai@iij.ad.jp (Taisuke Yamada).
+
+5. Redistributions of any form whatsoever must retain the following
+   acknowledgment:
+
+     This product includes software developed by Internet
+     Initiative Japan Inc. and Kunio Miyamoto for use in the
+     mod_encoding module for Apache2 (http://www.apache.org/).
+
+THIS SOFTWARE IS PROVIDED BY INTERNET INITIATIVE JAPAN INC. AND KUNIO
+MIYAMOTO ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES, INCLUDING,
+BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+INTERNET INITIATIVE JAPAN INC., KUNIO MIYAMOTO OR ITS CONTRIBUTORS
+BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+BUSINESS INTERRUPTION)
+HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+OF THE POSSIBILITY OF SUCH DAMAGE.
+
+*/
+
+#include <httpd.h>
+#include <http_config.h>
+#include <http_core.h>
+#include <http_log.h>
+#include <http_protocol.h>
+#include <http_request.h>
+#include <apr_strings.h>
+/* #include <ap_compat.h> */
+
+#include <iconv.h.replace>
+#include <ap_regex.h>
+
+/**
+ * Core part of the module.
+ * Here, the module hooks into filename translation stage,
+ * and converts all non-ascii-or-utf8 expressions into
+ * appropriate encoding speficied by the configuration.
+ *
+ * Note UTF-8 is the implicit default and will be tried first,
+ * regardless of user configuration.
+ */
+#define DEBUG 0
+
+#ifndef MOD_ENCODING_DEBUG
+#if DEBUG
+#define MOD_ENCODING_DEBUG 1
+#else
+#define MOD_ENCODING_DEBUG 0
+#endif
+#endif
+
+#define DBG(expr) if (MOD_ENCODING_DEBUG) { expr; }
+
+/* FIXME: remove gcc-dependency */
+
+#define ENABLE_FLAG_UNSET 0
+#define ENABLE_FLAG_OFF   1
+#define ENABLE_FLAG_ON    2
+
+#define STRIP_FLAG_UNSET  0
+#define STRIP_FLAG_OFF    1
+#define STRIP_FLAG_ON     2
+
+/**
+ * module-local information storage structure
+ */
+typedef struct {
+  int           enable_function;  /* flag to enable this module */
+  char         *server_encoding;  /* server-side filesystem encoding */
+  apr_array_header_t *client_encoding;  /* useragent-to-encoding-list sets */
+  apr_array_header_t *default_encoding; /* useragent-to-encoding-list sets */
+
+ int strip_msaccount;                   /* normalize wierd WinXP username */
+} encoding_config;
+
+module AP_MODULE_DECLARE_DATA encoding_module;
+
+/***************************************************************************
+ * utility methods
+ ***************************************************************************/
+
+/**
+ * Converts encoding of the input string.
+ * Returns NULL on error, else, appropriate string on success.
+ *
+ * @param p      Memory pool of apache
+ * @param cd     Conversion descriptor, made by iconv_open(3).
+ * @param srcbuf Input string
+ * @param srclen Length of the input string. Usually strlen(srcbuf).
+ */
+static char *
+iconv_string(request_rec *r, iconv_t cd, char *srcbuf, size_t srclen) {
+
+  char   *outbuf, *marker;
+  size_t  outlen;
+
+  if (srclen == 0) {
+    return srcbuf;
+  }
+
+  /* Allocate space for conversion. Note max bloat factor is 4 of UCS-4 */
+  marker = outbuf = (char *)apr_palloc(r->pool, outlen = srclen * 4 + 1);
+
+  if (outbuf == NULL) {
+    return NULL;
+  }
+
+  /* Convert every character within input string. */
+  while (srclen > 0) {
+    if (iconv(cd, &srcbuf, &srclen, &outbuf, &outlen) == (size_t)(-1)) {
+      return NULL;
+    }
+  }
+
+#if 0 /* Commented out for now as some iconv seems to break with NULL */
+  /* Everything done. Flush buffer/state and return result */
+  iconv(cd, NULL, NULL, &outbuf, &outlen);
+  iconv(cd, NULL, NULL, NULL, NULL);
+#endif
+
+  *outbuf = '\0';
+
+  return marker;
+}
+
+/**
+ * Nomalize charset in HTTP request line and HTTP header(s).
+ * Returns 0 on success, -1 (non-zero) on error.
+ *
+ * FIXME: Should handle/consider partial success?
+ *
+ * @param  r Apache request object structure
+ * @param cd Conversion descriptor, made by iconv_open(3).
+ */
+static int
+iconv_header(request_rec *r, iconv_t cd) {
+
+  char *buff;
+  char *keys[] = { "Destination", NULL };
+  int   i;
+
+  /* Normalize encoding in HTTP request line */
+  ap_unescape_url(r->unparsed_uri);
+  if ((buff = iconv_string(r, cd, r->unparsed_uri,
+			   strlen(r->unparsed_uri))) == NULL)
+    return -1;
+  ap_parse_uri(r, buff);
+  ap_getparents(r->uri); /* normalize given path for security */
+
+  /* Normalize encoding in HTTP request header(s) */
+  for (i = 0 ; keys[i] ; i++) {
+    if ((buff = (char *)apr_table_get(r->headers_in, keys[i])) != NULL) {
+      ap_unescape_url(buff);
+      if ((buff = iconv_string(r, cd, buff, strlen(buff))) == NULL)
+	return -1;
+      apr_table_set(r->headers_in, keys[i], buff);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Return the list of encoding(s) (defaults to (list "UTF-8"))
+ * which named client is expected to send.
+ *
+ * @param r      Apache request object structure
+ * @param encmap Table of UA-to-encoding(s)
+ * @param lookup Name of the useragent to look for
+ */
+static apr_array_header_t *
+get_client_encoding(request_rec *r,
+		    apr_array_header_t *encmap, const char *lookup) {
+  void         **list = (void **)encmap->elts;
+  apr_array_header_t  *encs = apr_array_make(r->pool, 1, sizeof(char *));
+
+  int i;
+
+
+  /* push UTF-8 as the first candidate of expected encoding */
+  *((char **)apr_array_push(encs)) = apr_pstrdup(r->pool, "UTF-8");
+
+  if (! lookup)
+    return encs;
+
+
+  for (i = 0 ; i < encmap->nelts ; i += 2) {
+    if (ap_regexec((ap_regex_t *)list[i], lookup, 0, NULL, 0) == 0) {
+      apr_array_cat(encs, (apr_array_header_t *)list[i + 1]);
+      return encs;
+    }
+  }
+
+  return encs;
+}
+
+/**
+ * Handler for "EncodingEngine" directive.
+ */
+static const char *
+set_encoding_engine(cmd_parms *cmd, encoding_config *conf, int flag) {
+
+  if (! cmd->path) {
+    conf = ap_get_module_config(cmd->server->module_config, &encoding_module);
+  }
+  conf->enable_function = flag ? ENABLE_FLAG_ON : ENABLE_FLAG_OFF;
+
+  return NULL;
+}
+
+/**
+ * Handler for "SetServerEncoding" directive.
+ */
+static const char *
+set_server_encoding(cmd_parms *cmd, encoding_config *conf, char *arg) {
+
+  if (! cmd->path) {
+    conf = ap_get_module_config(cmd->server->module_config, &encoding_module);
+  }
+  conf->server_encoding = apr_pstrdup(cmd->pool, arg);
+  
+  return NULL;
+}
+
+/**
+ * Handler for "AddClientEncoding" directive.
+ *
+ * This registers regex pattern of UserAgent: header and expected
+ * encoding(s) from that useragent.
+ */
+static const char *
+add_client_encoding(cmd_parms *cmd, encoding_config *conf, char *args) {
+  apr_array_header_t    *encs;
+  char            *arg;
+
+
+  if (! cmd->path) {
+    conf = ap_get_module_config(cmd->server->module_config, &encoding_module);
+  }
+
+  encs = apr_array_make(cmd->pool, 1, sizeof(void *));
+
+  /* register useragent with UserAgent: pattern */
+  if (*args && (arg = ap_getword_conf_nc(cmd->pool, &args))) {
+    *(void **)apr_array_push(conf->client_encoding) =
+      ap_pregcomp(cmd->pool, arg, AP_REG_EXTENDED|AP_REG_ICASE|AP_REG_NOSUB);
+  }
+
+  /* register list of possible encodings from above useragent */
+  while (*args && (arg = ap_getword_conf_nc(cmd->pool, &args))) {
+    *(void **)apr_array_push(encs) = apr_pstrdup(cmd->pool, arg);
+  }
+  *(void **)apr_array_push(conf->client_encoding) = encs;
+
+  return NULL;
+}
+
+/**
+ * Handler for "DefaultClientEncoding" directive.
+ *
+ * This registers encodings that work as "fallback" for most clients.
+ */
+static const char *
+default_client_encoding(cmd_parms *cmd, encoding_config *conf, char *args) {
+  char *arg;
+
+
+  if (! cmd->path) {
+    conf = ap_get_module_config(cmd->server->module_config, &encoding_module);
+  }
+
+  conf->default_encoding = apr_array_make(cmd->pool, 1, sizeof(char *));
+
+  /* register list of possible encodings as a default */
+  while (*args && (arg = ap_getword_conf_nc(cmd->pool, &args))) {
+    *(void **)apr_array_push(conf->default_encoding)
+      = apr_pstrdup(cmd->pool, arg);
+  }
+
+  return NULL;
+}
+
+/**
+ * Handler for "NormalizeUsername" directive.
+ *
+ * NOTE: This has nothing to do with encoding conversion.
+ *       So where should this go?
+ */
+static const char *
+set_normalize_username(cmd_parms *cmd, encoding_config *conf, int flag) {
+
+  if (! cmd->path) {
+    conf = ap_get_module_config(cmd->server->module_config, &encoding_module);
+  }
+  conf->strip_msaccount = flag ? STRIP_FLAG_ON : STRIP_FLAG_OFF;
+
+  return NULL;
+}
+
+/***************************************************************************
+ * module-unique command table
+ *
+ * FIXME: decide which scope to apply for following directives
+ ***************************************************************************/
+
+static const command_rec mod_enc_commands[] = {
+  {"EncodingEngine",
+   set_encoding_engine, NULL,
+   OR_ALL, FLAG,  "Usage: EncodingEngine (on|off)"},
+
+  {"SetServerEncoding",
+   set_server_encoding, NULL,
+   OR_ALL, TAKE1, "Usage: SetServerEncoding <enc>"},
+
+  {"AddClientEncoding",
+   add_client_encoding, NULL,
+   OR_ALL, RAW_ARGS, "Usage: AddClientEncoding <agent> <enc> [<enc> ...]"},
+
+  {"DefaultClientEncoding",
+   default_client_encoding, NULL,
+   OR_ALL, RAW_ARGS, "Usage: DefaultClientEncoding <enclist>"},
+
+  {"NormalizeUsername",
+   set_normalize_username, NULL,
+   OR_ALL, FLAG, "Usage: NormalizeUsername (on|off)"},
+
+  {NULL}
+};
+
+/***************************************************************************
+ * module methods
+ ***************************************************************************/
+
+/**
+ * Setup server-level module internal data strcuture.
+ */
+static void *
+server_setup(apr_pool_t *p, server_rec *s) {
+  encoding_config *conf;
+
+  DBG(fprintf(stderr, "server_setup: entered\n"));
+
+  conf = (encoding_config *)apr_pcalloc(p, sizeof(encoding_config));
+  conf->enable_function  = ENABLE_FLAG_UNSET;
+  conf->server_encoding  = NULL;
+  conf->client_encoding  = apr_array_make(p, 2, sizeof(void *));
+  conf->default_encoding = NULL;
+  conf->strip_msaccount  = STRIP_FLAG_UNSET;
+
+  return conf;
+}
+
+/**
+ * Setup folder-level module internal data strcuture.
+ */
+static void *
+folder_setup(apr_pool_t *p, char *dir) {
+  DBG(fprintf(stderr, "folder_setup: entered\n"));
+  return server_setup(p, NULL);
+}
+
+/**
+ * Merge configuration.
+ */
+static void *
+config_merge(apr_pool_t *p, void *base, void *override) {
+  encoding_config *parent = base;
+  encoding_config *child  = override;
+  encoding_config *merge;
+
+  DBG(fprintf(stderr, "config_merge: entered\n"));
+
+  merge = (encoding_config *)apr_pcalloc(p, sizeof(encoding_config));
+
+  if (child->enable_function != ENABLE_FLAG_UNSET)
+    merge->enable_function =  child->enable_function;
+  else
+    merge->enable_function = parent->enable_function;
+
+  DBG(fprintf(stderr,
+	      "merged: enable_function == %d\n", merge->enable_function));
+
+
+  if (child->strip_msaccount != STRIP_FLAG_UNSET)
+    merge->strip_msaccount =  child->strip_msaccount;
+  else
+    merge->strip_msaccount = parent->strip_msaccount;
+
+  DBG(fprintf(stderr,
+            "merged: strip_msaccount == %d\n", merge->strip_msaccount));
+
+  if (child->server_encoding)
+    merge->server_encoding =  child->server_encoding;
+  else
+    merge->server_encoding = parent->server_encoding;
+
+  DBG(fprintf(stderr,
+	      "merged: server_encoding == %s\n", merge->server_encoding));
+
+  if (child->default_encoding)
+    merge->default_encoding =  child->default_encoding;
+  else
+    merge->default_encoding = parent->default_encoding;
+
+  merge->client_encoding =
+    apr_array_append(p, child->client_encoding, parent->client_encoding);
+
+  return merge;
+}
+
+/**
+ * Handler for encoding conversion.
+ *
+ * Here, expected encoding by client/server is determined, and
+ * whenever needed, client input will be converted to that of
+ * server-side expected encoding.
+ */
+static int
+mod_enc_convert(request_rec *r) {
+  encoding_config  *conf, *dconf, *sconf;
+
+  const char      *oenc; /* server-side encoding */
+  apr_array_header_t    *ienc; /* list of possible encodings */
+  void           **list; /* same as above (for iteration) */
+
+  iconv_t cd;            /* conversion descriptor */
+
+  int i;
+
+
+  sconf = ap_get_module_config(r->server->module_config, &encoding_module);
+  dconf = ap_get_module_config(r->per_dir_config, &encoding_module);
+   conf = config_merge(r->pool, sconf, dconf);
+
+ DBG(fprintf(stderr, "mod_enc_convert: entered\n"));
+
+  if (conf->enable_function != ENABLE_FLAG_ON) {
+    return DECLINED;
+  }
+
+  oenc = conf->server_encoding ? conf->server_encoding : "UTF-8";
+  ienc = get_client_encoding(r, conf->client_encoding,
+			     apr_table_get(r->headers_in, "User-Agent"));
+
+  if (conf->default_encoding)
+    apr_array_cat(ienc, conf->default_encoding);
+
+  list = (void **)ienc->elts;
+
+
+  /* try specified encodings in order */
+  for (i = 0 ; i < ienc->nelts ; i++) {
+    DBG(fprintf(stderr, "mod_enc_convert: trying\n"));
+    /* pick appropriate converter module */
+    if ((cd = iconv_open(oenc, list[i])) == (iconv_t)(-1))
+      continue;
+
+    /* conversion tryout */
+    if (iconv_header(r, cd) == 0) {
+      iconv_close(cd);
+	DBG(fprintf(stderr, "mod_enc_convert: converted\n"));
+      return DECLINED;
+    }
+
+    /* don't fail, but just continue on until list ends */
+    iconv_close(cd);
+  }
+
+
+  return DECLINED;
+}
+
+/**
+ * Handler for HTTP header parsing.
+ *
+ * Here, username is normalized and wierd "hostname\" prepended
+ * to username is removed (if configured to do so).
+ */
+static int
+mod_enc_parse(request_rec *r) {
+  encoding_config *conf, *dconf, *sconf;
+
+  const char *pass;
+  char       *user;
+  char       *buff;
+
+  sconf = ap_get_module_config(r->server->module_config, &encoding_module);
+  dconf = ap_get_module_config(r->per_dir_config, &encoding_module);
+   conf = config_merge(r->pool, sconf, dconf);
+
+  if (conf->enable_function != ENABLE_FLAG_ON) {
+    return DECLINED;
+  }
+
+  /* Parse header and strip "hostname\" from username - for WinXP */
+  if (conf->strip_msaccount == STRIP_FLAG_ON) {
+
+    /* Only basic auth is supported for now */
+    if (ap_get_basic_auth_pw(r, &pass) != OK)
+      return DECLINED;
+
+    /* Is this username broken? */
+    if ((user = index(r->user, '\\')) == NULL)
+      return DECLINED;
+
+    /* Re-generate authorization header */
+    if (*(user + 1)) {
+      buff = ap_pbase64encode(r->pool,
+                              apr_psprintf(r->pool, "%s:%s", user + 1, pass));
+      apr_table_set(r->headers_in, "Authorization",
+                   apr_pstrcat(r->pool, "Basic ", buff, NULL));
+
+      ap_get_basic_auth_pw(r, &pass); /* update */
+    }
+  }
+
+  return DECLINED;
+}
+
+static void register_hooks(apr_pool_t *p)
+{
+	/* filename-to-URI translation */
+/*	ap_hook_translate_name(mod_enc_convert,NULL,NULL,APR_HOOK_FIRST); */
+	ap_hook_post_read_request(mod_enc_convert,NULL,NULL,APR_HOOK_FIRST);
+	ap_hook_header_parser(mod_enc_parse,NULL,NULL,APR_HOOK_FIRST); 
+}
+
+/***************************************************************************
+ * exported module structure
+ ***************************************************************************/
+
+module AP_MODULE_DECLARE_DATA encoding_module = {
+  STANDARD20_MODULE_STUFF,
+  folder_setup,     /* create per-directory config structure */
+  config_merge,     /* merge per-directory(?) config str */
+  server_setup,     /* create per-server config structure */
+  config_merge,     /* merge per-server config ...*/
+  mod_enc_commands, /* command handlers */
+  register_hooks
+};
+

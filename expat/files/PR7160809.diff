@@ -1,0 +1,14 @@
+http://expat.cvs.sourceforge.net/viewvc/expat/expat/lib/xmltok_impl.c?view=log (1.13 -> 1.15)
+http://svn.python.org/view?view=rev&revision=74429
+
+--- lib/xmltok_impl.c
++++ lib/xmltok_impl.c
+@@ -1744,7 +1744,7 @@
+                        const char *end,
+                        POSITION *pos)
+ {
+-  while (ptr != end) {
++  while (ptr < end) {
+     switch (BYTE_TYPE(enc, ptr)) {
+ #define LEAD_CASE(n) \
+     case BT_LEAD ## n: \

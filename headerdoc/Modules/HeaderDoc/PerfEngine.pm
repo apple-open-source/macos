@@ -3,7 +3,7 @@
 # Class name: PerfEngine
 # Synopsis: Performance Testing Engine
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/02/18 19:02:59 $
 #
 # Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,9 +28,55 @@
 #
 ######################################################################
 
+# /*! @header
+#     @abstract
+#         <code>PerfEngine</code> class package file.
+#     @discussion
+#         This file contains the <code>PerfEngine</code> class, a class for
+#         testing performance.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         Performance testing class.
+#     @discussion
+#         The <code>PerfEngine</code> class contains the bulk of the performance
+#         testing code.
+#
+#         To use the <code>PerfEngine</code> class, you first create a new instance
+#         like this:
+#
+#         <code>my $global_perf = HeaderDoc::PerfEngine->new();</code>
+#
+#         You then periodically call the {@link checkpoint} method,
+#         alternating the argument between 1 (creating a new checkpoint)
+#         and 0 (closing the checkpoint).  For example:
+#
+#         <code>$global_perf->checkpoint(1);</code>
+#
+#         Each <code>PerfEngine</code> instance can handle nested checkpoints
+#         or consecutive checkpoints.  Checkpoints may not, however,
+#         overlap (e.g. start #1, start #2, end #1, end #2).
+#
+#         After you have finished executing the code you want to profile,
+#         call {@link printstats} like this:
+#
+#         <code>$global_perf->printstats();</code>
+#
+#         It then prints statistics about each of the checkpoint
+#         ranges, telling how long it took to execute each one.
+#     @var COMPLETE
+#         An array of points that have been started and ended.
+#     @var PENDING
+#         An array of points that have been started but have not been
+#         ended.
+#  */
 package HeaderDoc::PerfEngine;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize unregister_force_uid_clear);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash unregisterUID registerUID sanitize unregister_force_uid_clear);
 use HeaderDoc::PerfPoint;
 use File::Basename;
 use strict;
@@ -39,10 +85,25 @@ use POSIX qw(strftime);
 
 use Carp;
 
-$HeaderDoc::PerfEngine::VERSION = '$Revision: 1.3 $';
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::PerfEngine::VERSION = '$Revision: 1298084579 $';
 
 my $perfDebug = 0;
 
+# /*!
+#     @abstract
+#         Creates a new <code>PerfEngine</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::PerfEngine->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
@@ -53,12 +114,17 @@ sub new {
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;
     foreach my $key (keys(%attributeHash)) {
-        my $ucKey = uc($key);
-        $self->{$ucKey} = $attributeHash{$key};
+        $self->{$key} = $attributeHash{$key};
     }
     return ($self);
 }
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>PerfEngine</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     my @temp1 = ();
@@ -67,10 +133,20 @@ sub _initialize {
     $self->{PENDING} = \@temp2;
 }
 
+# /*!
+#     @abstract
+#         Opens and closes checkpoints.
+#     @param self
+#         The <code>PerfEngine</code> object.
+#     @param entering
+#         Pass 1 when you enter a range that you want to time.
+#
+#         Pass 0 when you reach the end of that range.
+#  */
 sub checkpoint {
     my $self = shift;
     my $entering = shift;
-    # my $bt = Devel::StackTrace->new;
+    # my $bt = Devel::StackTrace->new();
     # my $btstring = $bt->as_string;
     my $bt = Carp::longmess("");
     $bt =~ s/^.*?\n//s;
@@ -85,6 +161,18 @@ sub checkpoint {
     }
 }
 
+# /*!
+#     @abstract
+#         Creates a new checkpoint and adds it to the stack.
+#     @param self
+#         The <code>PerfEngine</code> object.
+#     @param bt
+#         A backtrace taken at the start of this checkpoint.
+#         Used to distinguish different checkpoints.
+#     @discussion
+#         This function is called by {@link checkpoint} and
+#         should generally not be called directly.
+#  */
 sub addCheckpoint
 {
     my $self = shift;
@@ -97,6 +185,19 @@ sub addCheckpoint
     push(@{$self->{PENDING}}, $checkpoint);
 }
 
+# /*!
+#     @abstract
+#         Pops a checkpoint from the stack and computes
+#         the elapsed time.
+#     @param self
+#         The <code>PerfEngine</code> object.
+#     @param bt
+#         The backtrace taken at the start of this checkpoint.
+#         Used to distinguish different checkpoints.
+#     @discussion
+#         This function is called by {@link checkpoint} and
+#         should generally not be called directly.
+#  */
 sub matchCheckpoint
 {
     my $self = shift;
@@ -123,6 +224,12 @@ sub matchCheckpoint
     $self->{PENDING} = \@keep;
 }
 
+# /*!
+#     @abstract
+#         Prints accumulated statistics.
+#     @param self
+#         The <code>PerfEngine</code> object.
+#  */
 sub printstats
 {
     my $self = shift;
@@ -195,6 +302,10 @@ sub printstats
 
 }
 
+# /*!
+#     @abstract
+#         Prints a separator line.
+#  */
 sub printSeparator
 {
     print STDERR "-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\n";

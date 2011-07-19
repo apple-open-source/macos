@@ -6,7 +6,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# @(#)$Id: yencode.tcl,v 1.12 2008/12/12 04:57:46 andreas_kupries Exp $
+# @(#)$Id: yencode.tcl,v 1.13 2009/05/07 01:10:37 patthoyts Exp $
 
 # FUTURE: Rework to allow switching between the tcl/critcl implementations.
 
@@ -15,7 +15,7 @@ catch {package require crc32};          # tcllib 1.1
 catch {package require tcllibc};        # critcl enhancements for tcllib
 
 namespace eval ::yencode {
-    variable version 1.1.2
+    variable version 1.1.3
     namespace export encode decode yencode ydecode
 }
 
@@ -88,11 +88,7 @@ if {[package provide critcl] != {}} {
             }
             
             /* allocate the output buffer */
-            resultPtr = Tcl_GetObjResult(interp);
-            if (Tcl_IsShared(resultPtr)) {
-                resultPtr = Tcl_DuplicateObj(resultPtr);
-                Tcl_SetObjResult(interp, resultPtr);
-            }
+            resultPtr = Tcl_NewObj();
             r = Tcl_SetByteArrayLength(resultPtr, rlen);
             
             /* encode the input */
@@ -104,7 +100,7 @@ if {[package provide critcl] != {}} {
                 }
                 *r++ = v;
             }
-
+            Tcl_SetObjResult(interp, resultPtr);
             return TCL_OK;
         }
 
@@ -123,11 +119,7 @@ if {[package provide critcl] != {}} {
             input = Tcl_GetByteArrayFromObj(inputPtr, &len);
 
             /* allocate the output buffer */
-            resultPtr = Tcl_GetObjResult(interp);
-            if (Tcl_IsShared(resultPtr)) {
-                resultPtr = Tcl_DuplicateObj(resultPtr);
-                Tcl_SetObjResult(interp, resultPtr);
-            }
+            resultPtr = Tcl_NewObj();
             r = Tcl_SetByteArrayLength(resultPtr, len);
             
             /* encode the input */
@@ -145,7 +137,7 @@ if {[package provide critcl] != {}} {
                 rlen++;
             }
             Tcl_SetByteArrayLength(resultPtr, rlen);
-
+            Tcl_SetObjResult(interp, resultPtr);
             return TCL_OK;
         }
     }

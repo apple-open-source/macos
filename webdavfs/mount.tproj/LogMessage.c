@@ -32,6 +32,7 @@
 #include "LogMessage.h"
 #include "webdavd.h"
 
+extern char* createUTF8CStringFromCFString(CFStringRef in_string);
 
 /*	-------------------------------------------------------------------------
         Debug printing defines
@@ -141,5 +142,43 @@ void LogMessage(u_int32_t level, char *format, ...)
     	free(buffer);
         buffer = NULL;
     }
+}
+
+void logDebugCFString(const char *msg, CFStringRef str)
+{
+	char *cstr = NULL;
+	
+	if (str != NULL)
+		cstr = createUTF8CStringFromCFString(str);
+	
+	if (msg == NULL) {
+		if (cstr == NULL)
+			return;	// nothing to do
+		syslog(LOG_DEBUG, "%s\n", cstr);
+	}
+	else {
+		if (cstr != NULL)
+			syslog(LOG_DEBUG, "%s %s\n", msg, cstr);
+		else
+			syslog(LOG_DEBUG, "%s\n", msg);
+	}
+
+	if (cstr != NULL)
+		free(cstr);
+}
+
+void logDebugCFURL(const char *msg, CFURLRef url)
+{
+	CFStringRef str = NULL;
+	
+	if (url != NULL) {
+		str = CFURLGetString(url);
+		CFRetain(str);
+	}
+	
+	logDebugCFString(msg, str);
+	
+	if (str != NULL)
+		CFRelease(str);
 }
 

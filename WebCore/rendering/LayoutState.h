@@ -32,14 +32,19 @@
 
 namespace WebCore {
 
+class ColumnInfo;
 class RenderArena;
 class RenderBox;
 class RenderObject;
 
-class LayoutState : public Noncopyable {
+class LayoutState {
+    WTF_MAKE_NONCOPYABLE(LayoutState);
 public:
     LayoutState()
         : m_clipped(false)
+        , m_pageLogicalHeight(0)
+        , m_pageLogicalHeightChanged(false)
+        , m_columnInfo(0)
         , m_next(0)
 #ifndef NDEBUG
         , m_renderer(0)
@@ -47,7 +52,7 @@ public:
     {
     }
 
-    LayoutState(LayoutState*, RenderBox*, const IntSize& offset);
+    LayoutState(LayoutState*, RenderBox*, const IntSize& offset, int pageHeight, bool pageHeightChanged, ColumnInfo*);
     LayoutState(RenderObject*);
 
     void destroy(RenderArena*);
@@ -58,6 +63,19 @@ public:
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
 
+    void clearPaginationInformation();
+    bool isPaginatingColumns() const { return m_columnInfo; }
+    bool isPaginated() const { return m_pageLogicalHeight || m_columnInfo; }
+    
+    // The page logical offset is the object's offset from the top of the page in the page progression
+    // direction (so an x-offset in vertical text and a y-offset for horizontal text).
+    int pageLogicalOffset(int childLogicalOffset) const;
+
+    void addForcedColumnBreak(int childLogicalOffset);
+    
+    bool pageLogicalHeight() const { return m_pageLogicalHeight; }
+    bool pageLogicalHeightChanged() const { return m_pageLogicalHeightChanged; }
+
 private:
     // The normal operator new is disallowed.
     void* operator new(size_t) throw();
@@ -65,10 +83,17 @@ private:
 public:
     bool m_clipped;
     IntRect m_clipRect;
-    IntSize m_offset;       // x/y offset from container.
-    IntSize m_layoutDelta;  // Transient offset from the final position of the object
-                            // used to ensure that repaints happen in the correct place.
-                            // This is a total delta accumulated from the root.
+    IntSize m_paintOffset; // x/y offset from container.  Includes relative positioning and scroll offsets.
+    IntSize m_layoutOffset; // x/y offset from container.  Does not include relative positioning or scroll offsets.
+    IntSize m_layoutDelta; // Transient offset from the final position of the object
+                           // used to ensure that repaints happen in the correct place.
+                           // This is a total delta accumulated from the root.
+
+    int m_pageLogicalHeight; // The current page height for the pagination model that encloses us.
+    bool m_pageLogicalHeightChanged; // If our page height has changed, this will force all blocks to relayout.
+    IntSize m_pageOffset; // The offset of the start of the first page in the nearest enclosing pagination model.
+    ColumnInfo* m_columnInfo; // If the enclosing pagination model is a column model, then this will store column information for easy retrieval/manipulation.
+
     LayoutState* m_next;
 #ifndef NDEBUG
     RenderObject* m_renderer;

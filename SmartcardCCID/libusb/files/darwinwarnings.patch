@@ -1,0 +1,44 @@
+diff -Naur libusb-0.1.13b/darwin.c libusb-0.1.13b-p/darwin.c
+--- darwin.c	2008-07-23 11:41:33.000000000 -0700
++++ darwin.c	2010-08-18 14:48:47.000000000 -0700
+@@ -254,7 +254,7 @@
+   io_cf_plugin_ref_t *plugInInterface = NULL;
+   usb_device_t **device;
+   io_service_t usbDevice;
+-  long result, score;
++  long result; int32_t score;
+ 
+   if (!IOIteratorIsValid (deviceIterator) || !(usbDevice = IOIteratorNext(deviceIterator)))
+     return NULL;
+@@ -454,7 +454,7 @@
+   IOUSBFindInterfaceRequest request;
+ 
+   struct darwin_dev_handle *device;
+-  long score;
++  SInt32 score;
+   int current_interface;
+ 
+   device = dev->impl_info;
+@@ -1133,8 +1133,8 @@
+ 	struct usb_device *dev;
+ 
+ 	if (usb_debug >= 2)
+-	  fprintf(stderr, "libusb/darwin.c usb_os_find_devices: Found USB device on bus 0x%08lx: 0x%08lx\n",
+-		  bus_loc, location);
++	  fprintf(stderr, "libusb/darwin.c usb_os_find_devices: Found USB device on bus 0x%08x: 0x%08x\n",
++		  (uint32_t)bus_loc, (uint32_t)location);
+ 
+ 	dev = calloc(1, sizeof(struct usb_device));
+ 	if (dev == NULL)
+@@ -1185,8 +1185,8 @@
+ 	LIST_ADD(fdev, dev);
+ 
+ 	if (usb_debug >= 2)
+-	  fprintf(stderr, "libusb/darwin.c usb_os_find_devices: Found %s on %s at location 0x%08lx\n",
+-		  dev->filename, bus->dirname, location);
++	  fprintf(stderr, "libusb/darwin.c usb_os_find_devices: Found %s on %s at location 0x%08x\n",
++		  dev->filename, bus->dirname, (uint32_t)location);
+       }
+     } else if (usb_debug)
+       fprintf (stderr, "libusb/darwin.c usb_os_find_devices: Could not retrieve device address: %s\n",
+

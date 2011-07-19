@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  blockimport.c
  *  testObjects
  *
@@ -8,39 +14,26 @@
  */
 
 
-//
-// pure C nothing more needed
-// CONFIG  rdar://6289344
+// rdar://6289344
+// TEST_CONFIG
 
 #include <stdio.h>
 #include <Block.h>
 #include <Block_private.h>
+#include "test.h"
 
-
-
-
-int main(int argc, char *argv[]) {
+int main() {
     int i = 1;
     int (^intblock)(void) = ^{ return i*10; };
     
     void (^vv)(void) = ^{
-        if (argc > 0) {
-            printf("intblock returns %d\n", intblock());
-        }
+        testprintf("intblock returns %d\n", intblock());
     };
 
-#if 0    
-    //printf("Block dump %s\n", _Block_dump(vv));
-    {
-        struct Block_layout *layout = (struct Block_layout *)(void *)vv;
-        printf("isa %p\n", layout->isa);
-        printf("flags %x\n", layout->flags);
-        printf("descriptor %p\n", layout->descriptor);
-        printf("descriptor->size %d\n", layout->descriptor->size);
-    }
-#endif
+    // printf("Block dump %s\n", _Block_dump(vv));
+
     void (^vvcopy)(void) = Block_copy(vv);
     Block_release(vvcopy);
-    printf("%s: success\n", argv[0]);
-    return 0;
+    
+    succeed(__FILE__);
 }

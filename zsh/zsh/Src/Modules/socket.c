@@ -33,10 +33,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#ifndef UNIX_PATH_MAX
-# define UNIX_PATH_MAX 108
-#endif
-
 /*
  * We need to include the zsh headers later to avoid clashes with
  * the definitions on some systems, however we need the configuration
@@ -103,7 +99,7 @@ bin_zsocket(char *nam, char **args, Options ops, UNUSED(int func))
 	}
 
 	soun.sun_family = AF_UNIX;
-	strncpy(soun.sun_path, localfn, UNIX_PATH_MAX);
+	strncpy(soun.sun_path, localfn, sizeof(soun.sun_path)-1);
 
 	if (bind(sfd, (struct sockaddr *)&soun, sizeof(struct sockaddr_un)))
 	{
@@ -120,12 +116,15 @@ bin_zsocket(char *nam, char **args, Options ops, UNUSED(int func))
 	}
 
 	if (targetfd) {
-	    redup(sfd, targetfd);
-	    sfd = targetfd;
+	    sfd = redup(sfd, targetfd);
 	}
 	else {
 	    /* move the fd since no one will want to read from it */
 	    sfd = movefd(sfd);
+	}
+	if (sfd == -1) {
+	    zerrnam(nam, "cannot duplicate fd %d: %e", sfd, errno);
+	    return 1;
 	}
 
 	setiparam("REPLY", sfd);
@@ -199,8 +198,11 @@ bin_zsocket(char *nam, char **args, Options ops, UNUSED(int func))
 	}
 
 	if (targetfd) {
-	    redup(rfd, targetfd);
-	    sfd = targetfd;
+	    sfd = redup(rfd, targetfd);
+	    if (sfd < 0) {
+		zerrnam(nam, "could not duplicate socket fd to %d: %e", targetfd, errno);
+		return 1;
+	    }
 	}
 	else {
 	    sfd = rfd;
@@ -226,7 +228,7 @@ bin_zsocket(char *nam, char **args, Options ops, UNUSED(int func))
 	}
 
 	soun.sun_family = AF_UNIX;
-	strncpy(soun.sun_path, args[0], UNIX_PATH_MAX);
+	strncpy(soun.sun_path, args[0], sizeof(soun.sun_path)-1);
 	
 	if ((err = connect(sfd, (struct sockaddr *)&soun, sizeof(struct sockaddr_un)))) {
 	    zwarnnam(nam, "connection failed: %e", errno);
@@ -236,8 +238,11 @@ bin_zsocket(char *nam, char **args, Options ops, UNUSED(int func))
 	else
 	{
 	    if (targetfd) {
-		redup(sfd, targetfd);
-		sfd = targetfd;
+		sfd = redup(sfd, targetfd);
+		if (sfd < 0) {
+		    zerrnam(nam, "could not duplicate socket fd to %d: %e", targetfd, errno);
+		    return 1;
+		}
 	    }
 
 	    setiparam("REPLY", sfd);

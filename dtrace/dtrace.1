@@ -35,7 +35,7 @@ Due to the kernel facility it uses to operate, the \fIdtrace\fP command requires
 .br
 .P
 Users new to DTrace are encouraged to read:
-\fIHow To Use DTrace\fP. Sun Microsystems, 2005. Available on the web at http://www.sun.com/software/solaris/howtoguides/dtracehowto.jsp
+\fIHow to Use Oracle Solaris DTrace from Oracle Solaris and OpenSolaris System\fP. Oracle, 2010. Available on the web at http://developers.sun.com/solaris/docs/o-s-dtrace-htg.pdf
 .SH DESCRIPTION
 The \fIdtrace\fP command provides a generic interface to all of the essential services provided by the DTrace facility, including:
 ." If I wanted numbered lists, I'd use .IP n[step] 3 for the first and .IP n+[step] for each other entry
@@ -251,8 +251,20 @@ Compile and link your program normally. No additional compiler or linker flags a
 .SH OS X BUILTIN VARIABLE CHANGES
 A small number of DTrace builtin variables have OS X specific changes:
 .TP
+.B execname
+A string giving the name that was passed to exec(2) to execute the current process.
+The string consists of at most MAXCOMLEN-1 characters.
+The constant MAXCOMLEN is defined in /usr/include/sys/param.h to be 16.
+.TP
 .B tid
 A uint64_t thread ID of the currently executing thread. The thread ID is guaranteed to be unique and non repeating. The tid value is not equivalent to pthread_self.
+.SH OS X SPECIFIC ACTIONS
+.TP
+.B pidresume(pid)
+The pidresume(pid) action is a destructive action meant to be used in conjunction with the stop() action.  
+While the stop() action will task_suspend the currently running process, the pidresume(pid) action will task_resume it.  
+The pidresume(pid) action will only act on a process that has been stopped using the dtrace stop() action.
+Passing a pid for a process that does not exist, or that was not stopped using dtrace stop() action, will result in an error.
 .SH EXIT STATUS
 The following exit values are returned by the \fIdtrace\fP utility:
 .TP
@@ -265,7 +277,7 @@ A fatal error occurred.  For D program requests, the 1 exit status indicates tha
 .B 2
 Invalid command-line options or arguments were specified.
 .SH SEE ALSO
-\fIHow To Use DTrace\fP. Sun Microsystems, 2005. Available on the web at http://www.sun.com/software/solaris/howtoguides/dtracehowto.jsp
+\fIHow to Use Oracle Solaris DTrace from Oracle Solaris and OpenSolaris System\fP. Oracle, 2010. Available on the web at http://developers.sun.com/solaris/docs/o-s-dtrace-htg.pdf
 .br
 \fISolaris Dynamic Tracing Guide\fP.  Sun Microsystems, 2005.  Available on the web at http://docs.sun.com/app/docs/doc/817-6223
 

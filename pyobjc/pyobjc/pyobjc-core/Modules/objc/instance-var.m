@@ -21,7 +21,7 @@ ivar_dealloc(PyObject* _ivar)
 		PyMem_Free(ivar->name);
 	}
 	PyMem_Free(ivar->type);
-	ivar->ob_type->tp_free((PyObject*)ivar);
+	Py_TYPE(ivar)->tp_free((PyObject*)ivar);
 }
 
 static PyObject*
@@ -30,15 +30,15 @@ ivar_repr(PyObject* _self)
 	PyObjCInstanceVariable* self = (PyObjCInstanceVariable*)_self;
 	if (self->isOutlet) {
 		if (self->name) {
-			return PyString_FromFormat("<IBOutlet %s>", self->name);
+			return PyText_FromFormat("<IBOutlet %s>", self->name);
 		} else {
-			return PyString_FromString("<IBOutlet>");
+			return PyText_FromString("<IBOutlet>");
 		}
 	} else {
 		if (self->name) {
-			return PyString_FromFormat("<instance-variable %s>", self->name);
+			return PyText_FromFormat("<instance-variable %s>", self->name);
 		} else {
-			return PyString_FromString("<instance-variable>");
+			return PyText_FromString("<instance-variable>");
 		}
 	}
 }
@@ -230,7 +230,8 @@ static  char* keywords[] = { "name", "type", "isOutlet", NULL };
 	char* type = @encode(id);
 	PyObject* isOutletObj = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ssO:objc_ivar",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				"|s"Py_ARG_BYTES"O:objc_ivar",
 			keywords, &name, &type, &isOutletObj)) {
 		return -1;
 	}
@@ -261,6 +262,48 @@ static  char* keywords[] = { "name", "type", "isOutlet", NULL };
 	return 0;
 }
 
+static PyObject*
+ivar_class_setup(PyObject* _self, PyObject* args, PyObject* kwds)
+{
+static 	char* keywords[] = { "name", "class_dict", "instance_method_list", "class_method_list", NULL };
+	PyObjCInstanceVariable* self = (PyObjCInstanceVariable*)_self;
+	char* name;
+	PyObject* class_dict;
+	PyObject* instance_method_list;
+	PyObject* class_method_list;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO!O!O!", keywords,
+			&name,
+			&PyDict_Type, &class_dict, 
+			&PySet_Type, &instance_method_list,
+			&PySet_Type, &class_method_list
+		)){
+		return NULL;
+	}
+
+	if (self->name == NULL) {
+		self->name = PyObjCUtil_Strdup(name);
+	}
+
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
+static PyMethodDef ivar_methods[] = {
+	{
+		"__pyobjc_class_setup__",
+		(PyCFunction)ivar_class_setup,
+		METH_VARARGS|METH_KEYWORDS,
+		NULL
+	},
+
+	{
+		NULL, NULL, 0, NULL
+	}
+};
+
+
 PyDoc_STRVAR(ivar_doc,
 "ivar(name, type='@', isOutlet=False) -> instance-variable\n"
 "\n"
@@ -275,8 +318,7 @@ PyDoc_STRVAR(ivar_doc,
 );
 
 PyTypeObject PyObjCInstanceVariable_Type = {
-	PyObject_HEAD_INIT(&PyType_Type)             
-	0,                                           
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)             
 	"ivar",                             
 	sizeof(PyObjCInstanceVariable),                       
 	0,                                           
@@ -295,7 +337,7 @@ PyTypeObject PyObjCInstanceVariable_Type = {
 	PyObject_GenericGetAttr,                /* tp_getattro */
 	0,                                      /* tp_setattro */
 	0,                                      /* tp_as_buffer */
-	Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_CLASS, /* tp_flags */
+	Py_TPFLAGS_DEFAULT, 			/* tp_flags */
 	ivar_doc,                               /* tp_doc */
 	0,                                      /* tp_traverse */
 	0,                                      /* tp_clear */
@@ -303,7 +345,7 @@ PyTypeObject PyObjCInstanceVariable_Type = {
 	0,                                      /* tp_weaklistoffset */
 	0,                                      /* tp_iter */
 	0,                                      /* tp_iternext */
-	0,                                      /* tp_selectors */
+	ivar_methods,                           /* tp_methods */
 	0,                                      /* tp_members */
 	0,                                      /* tp_getset */
 	0,                                      /* tp_base */
@@ -344,14 +386,32 @@ PyObjCInstanceVariable_SetName(PyObject* value, PyObject* name)
 		return 0;
 	} 
 
-	if (PyString_Check(name)) {
-		self->name = PyObjCUtil_Strdup(PyString_AS_STRING(name));
-	} else {
-		char* v;
-		if (depythonify_c_value(@encode(char*), name, &v) == -1) {
+	if (PyUnicode_Check(name)) {
+		PyObject* bytes = PyUnicode_AsEncodedString(name, NULL, NULL);
+		if (bytes == NULL) {
 			return -1;
 		}
+
+		char* b = PyBytes_AsString(bytes);
+		if (b == NULL || *b == '\0') {
+			PyErr_SetString(PyExc_ValueError, "Empty name");
+			return -1;
+		}
+		self->name = PyObjCUtil_Strdup(b);
+		Py_DECREF(bytes);
+		if (self->name == NULL) {
+			PyErr_NoMemory();
+			return -1;
+		}
+
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(name)) {
 		self->name = PyObjCUtil_Strdup(PyString_AS_STRING(name));
+#endif
+	} else {
+		PyErr_SetString(PyExc_TypeError, 
+			"Implied instance variable name is not a string");
+		return -1;
 	}
 
 	return (self->name == NULL?-1:0);

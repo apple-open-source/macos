@@ -31,20 +31,15 @@
 #include <wtf/RefPtr.h>
 #include <wtf/OwnPtr.h>
 
-#pragma warning(push, 0)
 #include <WebCore/COMPtr.h>
 #include <WebCore/Scrollbar.h>
-#include <WebCore/ScrollbarClient.h>
-#pragma warning(pop)
+#include <WebCore/ScrollableArea.h>
 
 namespace WebCore {
 class Scrollbar;
 }
 
-using namespace WebCore;
-
-class WebScrollBar : public IWebScrollBarPrivate, ScrollbarClient
-{
+class WebScrollBar : public IWebScrollBarPrivate, WebCore::ScrollableArea {
 public:
     static WebScrollBar* createInstance();
 protected:
@@ -115,17 +110,25 @@ public:
         /* [in] */ float multiplier);
 
 protected:
-    // ScrollbarClient
-    virtual void valueChanged(Scrollbar*);
-    virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
+    // ScrollableArea
+    virtual int scrollSize(WebCore::ScrollbarOrientation) const;
+    virtual int scrollPosition(WebCore::Scrollbar*) const;
+    virtual void setScrollOffset(const WebCore::IntPoint&);
+    virtual void invalidateScrollbarRect(WebCore::Scrollbar*, const WebCore::IntRect&);
+    virtual void invalidateScrollCornerRect(const WebCore::IntRect&) { }
 
     // FIXME: We should provide a way to set this value.
     virtual bool isActive() const { return true; }
 
-    virtual bool scrollbarCornerPresent() const { return false; }
+    virtual bool isScrollCornerVisible() const { return false; }
+    virtual WebCore::IntRect scrollCornerRect() const { return WebCore::IntRect(); }
+
+    virtual WebCore::Scrollbar* horizontalScrollbar() const; 
+    virtual WebCore::Scrollbar* verticalScrollbar() const; 
 
     ULONG m_refCount;
     HWND m_containingWindow;
+    int m_currentPosition;
     RefPtr<WebCore::Scrollbar> m_scrollBar;
     COMPtr<IWebScrollBarDelegatePrivate> m_delegate;
 };

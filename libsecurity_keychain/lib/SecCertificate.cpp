@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,10 @@
 #include <security_keychain/KCCursor.h>
 #include <security_cdsa_utilities/Schema.h>
 #include <sys/param.h>
+#include "CertificateValues.h"
+
+extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
+
 
 using namespace CssmClient;
 
@@ -80,6 +84,8 @@ SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)
 		//NOTE: there isn't yet a Certificate constructor which accepts a CFAllocatorRef
 		SecPointer<Certificate> certificatePtr(new Certificate(cssmCertData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER));
 		certificate = certificatePtr->handle();
+
+		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
@@ -94,8 +100,7 @@ SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keycha
 	BEGIN_SECAPI
 
 	Item item(Certificate::required(certificate));
-	Keychain k = Keychain::optional(keychain);
-	k->add(item);
+	Keychain::optional(keychain)->add(item);
 
 	END_SECAPI
 }
@@ -123,6 +128,7 @@ SecCertificateCopyData(SecCertificateRef certificate)
 		if (length && bytes) {
 			data = CFDataCreate(NULL, bytes, length);
 		}
+		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
@@ -227,6 +233,8 @@ SecCertificateCopySubjectSummary(SecCertificateRef certificate)
     OSStatus __secapiresult;
 	try {
 		Certificate::required(certificate)->inferLabel(false, &summary);
+		
+		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
@@ -368,6 +376,24 @@ SecKeychainSearchCreateForCertificateByIssuerAndSN(CFTypeRef keychainOrArray, co
 }
 
 OSStatus
+SecKeychainSearchCreateForCertificateByIssuerAndSN_CF(CFTypeRef keychainOrArray, CFDataRef issuer,
+	CFDataRef serialNumber, SecKeychainSearchRef *searchRef)
+{
+    BEGIN_SECAPI
+
+	Required(searchRef);
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	Required(issuer);
+	Required(serialNumber);
+	KCCursor cursor(Certificate::cursorForIssuerAndSN_CF(keychains, issuer, serialNumber));
+	*searchRef = cursor->handle();
+
+	END_SECAPI
+}
+
+OSStatus
 SecKeychainSearchCreateForCertificateBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
 	SecKeychainSearchRef *searchRef)
 {
@@ -449,7 +475,8 @@ OSStatus SecCertificateIsSelfSigned(
 	END_SECAPI
 }
 
-OSStatus SecCertificateCopyPreference(
+OSStatus
+SecCertificateCopyPreference(
     CFStringRef name,
     CSSM_KEYUSE keyUsage,
     SecCertificateRef *certificate)
@@ -496,26 +523,146 @@ OSStatus SecCertificateCopyPreference(
     END_SECAPI
 }
 
+SecCertificateRef
+SecCertificateCopyPreferred(
+	CFStringRef name,
+	CFArrayRef keyUsage)
+{
+	// This function will look for a matching preference in the following order:
+	// - matches the name and the supplied key use
+	// - matches the name and the special 'ANY' key use
+	// - matches the name with no key usage constraint
+
+	SecCertificateRef certRef = NULL;
+	CSSM_KEYUSE keyUse = ConvertArrayToKeyUsage(keyUsage);
+	OSStatus status = SecCertificateCopyPreference(name, keyUse, &certRef);
+	if (status != noErr && keyUse != CSSM_KEYUSE_ANY)
+		status = SecCertificateCopyPreference(name, CSSM_KEYUSE_ANY, &certRef);
+	if (status != noErr && keyUse != 0)
+		status = SecCertificateCopyPreference(name, 0, &certRef);
+
+	return certRef;
+}
+
+OSStatus
+SecCertificateFindPreferenceItemWithNameAndKeyUsage(
+	CFTypeRef keychainOrArray,
+	CFStringRef name,
+	int32_t keyUsage,
+	SecKeychainItemRef *itemRef)
+{
+    BEGIN_SECAPI
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
+
+	char idUTF8[MAXPATHLEN];
+    idUTF8[0] = (char)'\0';
+	if (name)
+	{
+		if (!CFStringGetCString(name, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
+			idUTF8[0] = (char)'\0';
+	}
+    size_t idUTF8Len = strlen(idUTF8);
+    if (!idUTF8Len)
+        MacOSError::throwMe(paramErr);
+
+    CssmData service(const_cast<char *>(idUTF8), idUTF8Len);
+    cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
+	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), (FourCharCode)'cprf');
+    if (keyUsage)
+        cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+
+	Item item;
+	if (!cursor->next(item))
+		MacOSError::throwMe(errSecItemNotFound);
+
+	if (itemRef)
+		*itemRef=item->handle();
+
+    END_SECAPI
+}
+
+OSStatus SecCertificateDeletePreferenceItemWithNameAndKeyUsage(
+	CFTypeRef keychainOrArray,
+	CFStringRef name,
+	int32_t keyUsage)
+{
+	// when a specific key usage is passed, we'll only match & delete that pref;
+	// when a key usage of 0 is passed, all matching prefs should be deleted.
+	// maxUsages represents the most matches there could theoretically be, so
+	// cut things off at that point if we're still finding items (if they can't
+	// be deleted for some reason, we'd never break out of the loop.)
+	
+	OSStatus status;
+	SecKeychainItemRef item = NULL;
+	int count = 0, maxUsages = 12;
+	while (++count <= maxUsages &&
+			(status = SecCertificateFindPreferenceItemWithNameAndKeyUsage(keychainOrArray, name, keyUsage, &item)) == noErr) {
+		status = SecKeychainItemDelete(item);
+		CFRelease(item);
+		item = NULL;
+	}
+	
+	// it's not an error if the item isn't found
+	return (status == errSecItemNotFound) ? noErr : status;
+}
+
 OSStatus SecCertificateSetPreference(
     SecCertificateRef certificate,
     CFStringRef name,
     CSSM_KEYUSE keyUsage,
     CFDateRef date)
 {
+	if (!name) {
+		return paramErr;
+	}
+	if (!certificate) {
+		// treat NULL certificate as a request to clear the preference
+		// (note: if keyUsage is 0, this clears all key usage prefs for name)
+		return SecCertificateDeletePreferenceItemWithNameAndKeyUsage(NULL, name, keyUsage);
+	}
+
     BEGIN_SECAPI
 
-	if (!certificate || !name)
-		MacOSError::throwMe(paramErr);
+	// determine the account attribute
+	//
+	// This attribute must be synthesized from certificate label + pref item type + key usage,
+	// as only the account and service attributes can make a generic keychain item unique.
+	// For 'iprf' type items (but not 'cprf'), we append a trailing space. This insures that
+	// we can save a certificate preference if an identity preference already exists for the
+	// given service name, and vice-versa.
+	// If the key usage is 0 (i.e. the normal case), we omit the appended key usage string.
+	//
+    CFStringRef labelStr = nil;
+	Certificate::required(certificate)->inferLabel(false, &labelStr);
+	if (!labelStr) {
+        MacOSError::throwMe(errSecDataTooLarge); // data is "in a format which cannot be displayed"
+	}
+	CFIndex accountUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(labelStr), kCFStringEncodingUTF8) + 1;
+	const char *templateStr = "%s [key usage 0x%X]";
+	const int keyUsageMaxStrLen = 8;
+	accountUTF8Len += strlen(templateStr) + keyUsageMaxStrLen;
+	char accountUTF8[accountUTF8Len];
+    if (!CFStringGetCString(labelStr, accountUTF8, accountUTF8Len-1, kCFStringEncodingUTF8))
+		accountUTF8[0] = (char)'\0';
+	if (keyUsage)
+		snprintf(accountUTF8, accountUTF8Len-1, templateStr, accountUTF8, keyUsage);
+    CssmData account(const_cast<char *>(accountUTF8), strlen(accountUTF8));
+    CFRelease(labelStr);
 
-    // first look for existing preference, in case this is an update
+	// service attribute (name provided by the caller)
+	CFIndex serviceUTF8Len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(name), kCFStringEncodingUTF8) + 1;;
+	char serviceUTF8[serviceUTF8Len];
+    if (!CFStringGetCString(name, serviceUTF8, serviceUTF8Len-1, kCFStringEncodingUTF8))
+        serviceUTF8[0] = (char)'\0';
+    CssmData service(const_cast<char *>(serviceUTF8), strlen(serviceUTF8));
+
+    // look for existing preference item, in case this is an update
 	StorageManager::KeychainList keychains;
 	globals().storageManager.getSearchList(keychains);
 	KCCursor cursor(keychains, kSecGenericPasswordItemClass, NULL);
-
-	char idUTF8[MAXPATHLEN];
-    if (!CFStringGetCString(name, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
-        idUTF8[0] = (char)'\0';
-    CssmData service(const_cast<char *>(idUTF8), strlen(idUTF8));
     FourCharCode itemType = 'cprf';
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
 	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), itemType);
@@ -526,40 +673,25 @@ OSStatus SecCertificateSetPreference(
 
 	Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
     bool add = (!cursor->next(item));
+	// at this point, we either have a new item to add or an existing item to update
 
-    // service (use provided string)
+    // set item attribute values
     item->setAttribute(Schema::attributeInfo(kSecServiceItemAttr), service);
-
-    // label (use service string as default label)
+    item->setAttribute(Schema::attributeInfo(kSecTypeItemAttr), itemType);
+    item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
+    item->setAttribute(Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
     item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), service);
 
-    // type
-    item->setAttribute(Schema::attributeInfo(kSecTypeItemAttr), itemType);
-
-    // account (use label of certificate)
-    CFStringRef labelString = nil;
-    OSStatus status = SecCertificateInferLabel(certificate, &labelString);
-    if (!labelString || !CFStringGetCString(labelString, idUTF8, sizeof(idUTF8)-1, kCFStringEncodingUTF8))
-        MacOSError::throwMe(errSecDataTooLarge);
-    CssmData account(const_cast<void *>(reinterpret_cast<const void *>(idUTF8)), strlen(idUTF8));
-    item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
-    CFRelease(labelString);
-
-    // key usage (overload script code)
-    if (keyUsage)
-        item->setAttribute(Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
-    
     // date
     if (date)
         ; // %%%TBI
 
 	// generic attribute (store persistent certificate reference)
 	CFDataRef pItemRef = nil;
-	status = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)certificate, &pItemRef);
-	if (!pItemRef)
-		status = errSecInvalidItemRef;
-	if (status)
-		MacOSError::throwMe(status);
+	Certificate::required(certificate)->copyPersistentReference(pItemRef);
+	if (!pItemRef) {
+		MacOSError::throwMe(errSecInvalidItemRef);
+    }
 	const UInt8 *dataPtr = CFDataGetBytePtr(pItemRef);
 	CFIndex dataLen = CFDataGetLength(pItemRef);
 	CssmData pref(const_cast<void *>(reinterpret_cast<const void *>(dataPtr)), dataLen);
@@ -577,10 +709,118 @@ OSStatus SecCertificateSetPreference(
             keychain = globals().storageManager.defaultKeychainUI(item);
         }
 
-        keychain->add(item);
+		try {
+			keychain->add(item);
+		}
+		catch (const MacOSError &err) {
+			if (err.osStatus() != errSecDuplicateItem)
+				throw; // if item already exists, fall through to update
+		}
     }
 	item->update();
 
     END_SECAPI
+}
+
+OSStatus SecCertificateSetPreferred(
+	SecCertificateRef certificate,
+	CFStringRef name,
+	CFArrayRef keyUsage)
+{
+	CSSM_KEYUSE keyUse = ConvertArrayToKeyUsage(keyUsage);
+	return SecCertificateSetPreference(certificate, name, keyUse, NULL);
+}
+
+CFDictionaryRef SecCertificateCopyValues(SecCertificateRef certificate, CFArrayRef keys, CFErrorRef *error)
+{
+	CFDictionaryRef result = NULL;
+    OSStatus __secapiresult;
+	try
+	{
+		CertificateValues cv(certificate);
+		result = cv.copyFieldValues(keys,error);
+		__secapiresult=0;
+	} 
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return result;
+}
+
+CFStringRef SecCertificateCopyLongDescription(CFAllocatorRef alloc, SecCertificateRef certificate, CFErrorRef *error)
+{
+	return SecCertificateCopyShortDescription(alloc, certificate, error);
+}
+
+CFStringRef SecCertificateCopyShortDescription(CFAllocatorRef alloc, SecCertificateRef certificate, CFErrorRef *error)
+{
+	CFStringRef result = NULL;
+    OSStatus __secapiresult;
+	try
+	{
+		__secapiresult = SecCertificateInferLabel(certificate, &result);
+	} 
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+	if (error!=NULL && __secapiresult!=noErr)
+	{
+		*error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, 
+			__secapiresult ? __secapiresult : CSSM_ERRCODE_INTERNAL_ERROR, NULL);
+	}
+    return result;
+}
+
+CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorRef *error)
+{
+	CFDataRef result = NULL;
+    OSStatus __secapiresult;
+	try
+	{
+		CertificateValues cv(certificate);
+		result = cv.copySerialNumber(error);
+		__secapiresult=0;
+	} 
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return result;
+}
+
+CFDataRef SecCertificateCopyNormalizedIssuerContent(SecCertificateRef certificate, CFErrorRef *error)
+{
+	CFDataRef result = NULL;
+    OSStatus __secapiresult;
+	try
+	{
+		CertificateValues cv(certificate);
+		result = cv.getNormalizedIssuerContent(error);
+		__secapiresult=0;
+	} 
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return result;
+}
+
+CFDataRef SecCertificateCopyNormalizedSubjectContent(SecCertificateRef certificate, CFErrorRef *error)
+{
+	CFDataRef result = NULL;
+    OSStatus __secapiresult;
+	try
+	{
+		CertificateValues cv(certificate);
+		result = cv.getNormalizedSubjectContent(error);
+		__secapiresult=0;
+	} 
+	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
+	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
+	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
+	catch (...) { __secapiresult=internalComponentErr; }
+    return result;
 }
 

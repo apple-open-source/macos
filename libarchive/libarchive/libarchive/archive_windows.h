@@ -1,4 +1,5 @@
 /*-
+ * Copyright (c) 2009 Michihiro NAKAJIMA
  * Copyright (c) 2003-2006 Tim Kientzle
  * All rights reserved.
  *
@@ -26,8 +27,26 @@
  * $FreeBSD$
  */
 
-#ifndef LIBARCHIVE_NONPOSIX_H_INCLUDED
-#define	LIBARCHIVE_NONPOSIX_H_INCLUDED
+#ifndef __LIBARCHIVE_BUILD
+#error This header is only to be used internally to libarchive.
+#endif
+
+/*
+ * TODO: A lot of stuff in here isn't actually used by libarchive and
+ * can be trimmed out.  Note that this file is used by libarchive and
+ * libarchive_test but nowhere else.  (But note that it gets compiled
+ * with many different Windows environments, including MinGW, Visual
+ * Studio, and Cygwin.  Significant changes should be tested in all three.)
+ */
+
+/*
+ * TODO: Don't use off_t in here.  Use __int64 instead.  Note that
+ * Visual Studio and the Windows SDK define off_t as 32 bits; Win32's
+ * more modern file handling APIs all use __int64 instead of off_t.
+ */
+
+#ifndef LIBARCHIVE_ARCHIVE_WINDOWS_H_INCLUDED
+#define	LIBARCHIVE_ARCHIVE_WINDOWS_H_INCLUDED
 
 /* Start of configuration for native Win32  */
 
@@ -35,11 +54,16 @@
 #define	set_errno(val)	((errno)=val)
 #include <io.h>
 #include <stdlib.h>   //brings in NULL
+#if defined(HAVE_STDINT_H)
+#include <stdint.h>
+#endif
+#include <stdio.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <process.h>
 #include <direct.h>
-
+#define NOCRYPT
+#include <windows.h>
 //#define	EFTYPE 7
 
 #if !defined(STDIN_FILENO)
@@ -58,9 +82,10 @@
 #if defined(_MSC_VER)
 /* TODO: Fix the code, don't suppress the warnings. */
 #pragma warning(disable:4244)   /* 'conversion' conversion from 'type1' to 'type2', possible loss of data */
-#pragma warning(disable:4146)   /* unary minus operator applied to unsigned type, result still unsigned */
-//#pragma warning(disable:4996)	/* 'function': was declared deprecated */
-//#pragma warning(disable:4267)   /* Conversion, possible loss of data */
+#endif
+#if defined(__BORLANDC__)
+#pragma warn -8068	/* Constant out of range in comparison. */
+#pragma warn -8072	/* Suspicious pointer arithmetic. */
 #endif
 
 #ifndef NULL
@@ -71,35 +96,52 @@
 #endif
 #endif
 
-/* Replacement for major/minor/makedev. */
-#define	major(x) ((int)(0x00ff & ((x) >> 8)))
-#define	minor(x) ((int)(0xffff00ff & (x)))
-#define	makedev(maj,min) ((0xff00 & ((maj)<<8))|(0xffff00ff & (min)))
-
 /* Alias the Windows _function to the POSIX equivalent. */
-#define	chdir		_chdir
-#define	chmod		_chmod
+#define	access		_access
+#define	chdir		__la_chdir
+#define	chmod		__la_chmod
 #define	close		_close
-//#define	fileno		_fileno
-#define	fstat		_fstat
-#define	lseek		_lseek
-#define	lstat		_stat
-#define	open		_open
-#define	stat		_stat
-#define	mkdir(d,m)	_mkdir(d)
+#define	fcntl		__la_fcntl
+#ifndef fileno
+#define	fileno		_fileno
+#endif
+#define	fstat		__la_fstat
+#define	ftruncate	__la_ftruncate
+#define	futimes		__la_futimes
+#define	getcwd		_getcwd
+#define link		__la_link
+#define	lseek		__la_lseek
+#define	lstat		__la_stat
+#define	mbstowcs	__la_mbstowcs
+#define	mkdir(d,m)	__la_mkdir(d, m)
 #define	mktemp		_mktemp
-#define	read		_read
-#define	rmdir		_rmdir
+#define	open		__la_open
+#define	read		__la_read
+#define	rmdir		__la_rmdir
+#if !defined(__BORLANDC__)
+#define setmode		_setmode
+#endif
+#define	stat(path,stref)		__la_stat(path,stref)
+#if !defined(__BORLANDC__)
 #define	strdup		_strdup
+#endif
 #define	tzset		_tzset
+#if !defined(__BORLANDC__)
 #define	umask		_umask
-#define	write		_write
+#endif
+#define	unlink		__la_unlink
+#define	utimes		__la_utimes
+#define	waitpid		__la_waitpid
+#define	write		__la_write
 
+#ifndef O_RDONLY
 #define	O_RDONLY	_O_RDONLY
 #define	O_WRONLY	_O_WRONLY
 #define	O_TRUNC		_O_TRUNC
 #define	O_CREAT		_O_CREAT
 #define	O_EXCL		_O_EXCL
+#define	O_BINARY	_O_BINARY
+#endif
 
 #ifndef _S_IFIFO
   #define	_S_IFIFO        0010000   /* pipe */
@@ -126,20 +168,30 @@
   #define	_S_IFMT         0170000   /* file type mask */
 #endif
 
+#ifndef S_IFIFO
 #define	S_IFIFO     _S_IFIFO
+#endif
 //#define	S_IFCHR  _S_IFCHR
 //#define	S_IFDIR  _S_IFDIR
+#ifndef S_IFBLK
 #define	S_IFBLK     _S_IFBLK
+#endif
+#ifndef S_IFLNK
 #define	S_IFLNK     _S_IFLNK
+#endif
+#ifndef S_IFSOCK
 #define	S_IFSOCK    _S_IFSOCK
+#endif
 //#define	S_IFREG  _S_IFREG
 //#define	S_IFMT   _S_IFMT
 
+#ifndef S_ISBLK
 #define	S_ISBLK(m)	(((m) & S_IFMT) == S_IFBLK)	/* block special */
 #define	S_ISFIFO(m)	(((m) & S_IFMT) == S_IFIFO)	/* fifo or socket */
 #define	S_ISCHR(m)	(((m) & S_IFMT) == S_IFCHR)	/* char special */
 #define	S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)	/* directory */
 #define	S_ISREG(m)	(((m) & S_IFMT) == S_IFREG)	/* regular file */
+#endif
 #define	S_ISLNK(m)  (((m) & S_IFMT) == S_IFLNK) /* Symbolic link */
 #define	S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK) /* Socket */
 
@@ -164,10 +216,12 @@
 #define	_S_IWOTH        (_S_IWGRP >> 3) /* write permission, other */
 #define	_S_IROTH        (_S_IRGRP  >> 3) /* execute/search permission, other */
 
+#ifndef S_IRWXU
 #define	S_IRWXU	     _S_IRWXU
 #define	S_IXUSR	     _S_IXUSR
 #define	S_IWUSR	     _S_IWUSR
 #define	S_IRUSR	     _S_IRUSR
+#endif
 #define	S_IRWXG        _S_IRWXG
 #define	S_IXGRP        _S_IXGRP
 #define	S_IWGRP        _S_IWGRP
@@ -221,8 +275,6 @@
 /* replace stat and seek by their large-file equivalents */
 #undef	stat
 #define	stat		_stati64
-#undef	fstat
-#define	fstat	_fstati64
 
 #undef	lseek
 #define	lseek       _lseeki64
@@ -239,17 +291,132 @@
 #endif /* __MINGW32__ */
 #endif /* LARGE_FILES */
 
+#ifdef USE_WINSOCK_TIMEVAL
+/* Winsock timeval has long size tv_sec. */
+#define __timeval timeval
+#else
+struct _timeval64i32 {
+	time_t		tv_sec;
+	long		tv_usec;
+};
+#define __timeval _timeval64i32
+#endif
+
+/* Message digest define */
+#if !defined(HAVE_OPENSSL_MD5_H) && !defined(HAVE_OPENSSL_SHA_H)
+# if defined(_MSC_VER) && _MSC_VER < 1300
+#  define _WIN32_WINNT 0x0400
+# endif
+#include <wincrypt.h>
+typedef struct {
+	int		valid;
+	HCRYPTPROV cryptProv;
+	HCRYPTHASH hash;
+} Digest_CTX;
+#endif
+
+#if !defined(HAVE_OPENSSL_MD5_H) && defined(CALG_MD5)
+#define MD5_DIGEST_LENGTH	16
+#define HAVE_MD5 1
+#define MD5_CTX Digest_CTX
+#endif
+#ifndef HAVE_OPENSSL_SHA_H
+#ifdef CALG_SHA1
+#define SHA1_DIGEST_LENGTH	20
+#define HAVE_SHA1 1
+#define SHA1_CTX Digest_CTX
+#endif
+#ifdef CALG_SHA_256
+#define SHA256_DIGEST_LENGTH	32
+#define HAVE_SHA256 1
+#define SHA256_CTX Digest_CTX
+#endif
+#ifdef CALG_SHA_384
+#define SHA384_DIGEST_LENGTH	48
+#define HAVE_SHA384 1
+#define SHA384_CTX Digest_CTX
+#endif
+#ifdef CALG_SHA_512
+#define SHA512_DIGEST_LENGTH	64
+#define HAVE_SHA512 1
+#define SHA512_CTX Digest_CTX
+#endif
+#endif /* HAVE_OPENSSL_SHA_H */
+
 /* End of Win32 definitions. */
 
-#ifdef __cplusplus
-extern "C" {
+/* Tell libarchive code that we have simulations for these. */
+#ifndef HAVE_FTRUNCATE
+#define HAVE_FTRUNCATE 1
+#endif
+#ifndef HAVE_FUTIMES
+#define HAVE_FUTIMES 1
+#endif
+#ifndef HAVE_UTIMES
+#define HAVE_UTIMES 1
+#endif
+#ifndef HAVE_LINK
+#define HAVE_LINK 1
 #endif
 
-extern int link (const char *from, const char *to);
-extern int symlink (const char *from, const char *to);
+/* Replacement POSIX function */
+extern int	 __la_chdir(const char *path);
+extern int	 __la_chmod(const char *path, mode_t mode);
+extern int	 __la_fcntl(int fd, int cmd, int val);
+extern int	 __la_fstat(int fd, struct stat *st);
+extern int	 __la_ftruncate(int fd, off_t length);
+extern int	 __la_futimes(int fd, const struct __timeval *times);
+extern int	 __la_link(const char *src, const char *dst);
+extern __int64	 __la_lseek(int fd, __int64 offset, int whence);
+extern size_t	 __la_mbstowcs(wchar_t *wcstr, const char *mbstr, size_t nwchars);
+extern int	 __la_mkdir(const char *path, mode_t mode);
+extern int	 __la_open(const char *path, int flags, ...);
+extern ssize_t	 __la_read(int fd, void *buf, size_t nbytes);
+extern int	 __la_rmdir(const char *path);
+extern int	 __la_stat(const char *path, struct stat *st);
+extern int	 __la_unlink(const char *path);
+extern int	 __la_utimes(const char *name, const struct __timeval *times);
+extern pid_t	 __la_waitpid(pid_t wpid, int *status, int option);
+extern ssize_t	 __la_write(int fd, const void *buf, size_t nbytes);
 
-#ifdef __cplusplus
-}
+#define _stat64i32(path, st)	__la_stat(path, st)
+#define _stat64(path, st)	__la_stat(path, st)
+/* for status returned by la_waitpid */
+#define WIFEXITED(sts)		((sts & 0x100) == 0)
+#define WEXITSTATUS(sts)	(sts & 0x0FF)
+
+/* Message digest function */
+#if !defined(HAVE_OPENSSL_MD5_H) && !defined(HAVE_OPENSSL_SHA_H)
+#ifdef MD5_DIGEST_LENGTH
+extern void	 MD5_Init(Digest_CTX *ctx);
+extern void	 MD5_Update(Digest_CTX *ctx, const unsigned char *buf,
+		     size_t len);
+extern void	 MD5_Final(unsigned char *buf, Digest_CTX *ctx);
+#endif
+#ifdef SHA1_DIGEST_LENGTH
+extern void	 SHA1_Init(Digest_CTX *ctx);
+extern void	 SHA1_Update(Digest_CTX *ctx, const unsigned char *buf,
+		     size_t len);
+extern void	 SHA1_Final(unsigned char *buf, Digest_CTX *ctx);
+#endif
+#ifdef SHA256_DIGEST_LENGTH
+extern void	 SHA256_Init(Digest_CTX *ctx);
+extern void	 SHA256_Update(Digest_CTX *ctx, const unsigned char *buf,
+		     size_t len);
+extern void	 SHA256_Final(unsigned char *buf, Digest_CTX *ctx);
+#endif
+#ifdef SHA384_DIGEST_LENGTH
+extern void	 SHA384_Init(Digest_CTX *ctx);
+extern void	 SHA384_Update(Digest_CTX *ctx, const unsigned char *buf,
+		     size_t len);
+extern void	 SHA384_Final(unsigned char *buf, Digest_CTX *ctx);
+#endif
+#ifdef SHA512_DIGEST_LENGTH
+extern void	 SHA512_Init(Digest_CTX *ctx);
+extern void	 SHA512_Update(Digest_CTX *ctx, const unsigned char *buf,
+		     size_t len);
+extern void	 SHA512_Final(unsigned char *buf, Digest_CTX *ctx);
+#endif
 #endif
 
-#endif /* LIBARCHIVE_NONPOSIX_H_INCLUDED  */
+#endif /* LIBARCHIVE_ARCHIVE_WINDOWS_H_INCLUDED */

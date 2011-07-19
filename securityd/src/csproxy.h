@@ -97,19 +97,27 @@ public:
 		const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags);
 	void setGuestStatus(SecGuestRef guest, uint32_t status, const CssmData &attributes);
 	void removeGuest(SecGuestRef host, SecGuestRef guest);
+
+public:	
+	IFDUMP(void dump() const);
 	
+public:
+	// internal use only (public for use by MIG handlers)
 	Guest *findHost(SecGuestRef hostRef); // find most dedicated guest of this host
 	Guest *findGuest(Guest *host, const CssmData &attrData); // by host and attributes
 	Guest *findGuest(SecGuestRef guestRef, bool hostOk = false); // by guest reference
 	Guest *findGuest(Guest *host);		// any guest of this host
-	
-	IFDUMP(void dump() const);
+
+	class Lock;
+	friend class Lock;
 	
 private:
 	boolean_t handle(mach_msg_header_t *in, mach_msg_header_t *out);
 	void eraseGuest(Guest *guest);
 
 private:	
+	mutable Mutex mLock;				// protects everything below
+	
 	// host port registry
 	HostingState mHostingState;			// status of hosting support
 	Port mHostingPort;					// his or ours or NULL

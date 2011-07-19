@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005  Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dmnt.c,v 1.3 2005/11/04 18:51:07 abe Exp abe $";
+static char *rcsid = "$Id: dmnt.c,v 1.4 2009/03/25 19:21:37 abe Exp $";
 #endif
 
 
@@ -58,6 +58,13 @@ static int Lmist = 0;					/* Lmi status */
 struct mounts *
 readmnt()
 {
+#if	defined(DIR_MNTSTATUS_TRIGGER)
+	struct {
+		uint32_t	length;
+		uint32_t	mount_flags;
+	} ab;
+	struct attrlist al;
+#endif	/* defined(DIR_MNTSTATUS_TRIGGER) */
 	char *dn = (char *)NULL;
 	char *ln;
 	struct statfs *mb = (struct statfs *)NULL;
@@ -83,13 +90,23 @@ readmnt()
 		continue;
 	/*
 	 * Avoid file systems that are not appropriate paths to
- 	 * user data (e.g. automount maps, triggers).
- 	 */
- 	    if (mb->f_flags & MNT_AUTOMOUNTED) {
- 		if (!strncmp(mb->f_mntfromname, "map ", 4)
- 		||  !strcmp(mb->f_mntfromname, "trigger"))
- 		    continue;
- 	    }
+	 * user data (e.g. automount maps, triggers).
+	 */
+#if	defined(DIR_MNTSTATUS_TRIGGER)
+	    (void) bzero((char *)&al, sizeof(al));
+	    al.bitmapcount = ATTR_BIT_MAP_COUNT;
+	    al.dirattr     = ATTR_DIR_MOUNTSTATUS;
+	    if (getattrlist(mb->f_mntonname, &al, &ab, sizeof(ab), 0) == 0) {
+		if (ab.mount_flags & DIR_MNTSTATUS_TRIGGER)
+			continue;	// if mount trigger
+	    }
+#else	/* !defined(DIR_MNTSTATUS_TRIGGER) */
+	    if (mb->f_flags & MNT_AUTOMOUNTED) {
+		if (!strncmp(mb->f_mntfromname, "map ", 4)
+		||  !strcmp(mb->f_mntfromname, "trigger"))
+		    continue;
+	    }
+#endif	/* defined(DIR_MNTSTATUS_TRIGGER) */
 
 	/*
 	 * Interpolate a possible symbolic directory link.

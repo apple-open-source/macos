@@ -33,18 +33,18 @@ namespace JSC {
         static StringObjectThatMasqueradesAsUndefined* create(ExecState* exec, const UString& string)
         {
             return new (exec) StringObjectThatMasqueradesAsUndefined(exec,
-                createStructure(exec->lexicalGlobalObject()->stringPrototype()), string);
+                createStructure(exec->globalData(), exec->lexicalGlobalObject()->stringPrototype()), string);
         }
 
     private:
-        StringObjectThatMasqueradesAsUndefined(ExecState* exec, NonNullPassRefPtr<Structure> structure, const UString& string)
+        StringObjectThatMasqueradesAsUndefined(ExecState* exec, Structure* structure, const UString& string)
             : StringObject(exec, structure, string)
         {
         }
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) 
         { 
-            return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+            return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | MasqueradesAsUndefined | OverridesGetPropertyNames | StringObject::StructureFlags;

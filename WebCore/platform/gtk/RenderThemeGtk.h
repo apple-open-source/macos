@@ -5,7 +5,7 @@
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
- * Copyright (C) 2009 Kenneth Rohde Christiansen
+ * Copyright (C) 2010 Igalia S.L.
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -31,13 +31,7 @@
 #include "GRefPtr.h"
 #include "RenderTheme.h"
 
-typedef struct _GtkWidget GtkWidget;
-typedef struct _GtkStyle GtkStyle;
-typedef struct _GtkContainer GtkContainer;
-typedef struct _GdkRectangle GdkRectangle;
-typedef struct _GdkDrawable GdkDrawable;
-typedef struct _GtkBorder GtkBorder;
-typedef struct _GtkThemeParts GtkThemeParts;
+typedef struct _GdkColormap GdkColormap;
 
 namespace WebCore {
 
@@ -61,6 +55,8 @@ public:
     // A general method asking if any control tinting is supported at all.
     virtual bool supportsControlTints() const { return true; }
 
+    virtual void adjustRepaintRect(const RenderObject*, IntRect&);
+
     // A method to obtain the baseline position for a "leaf" control.  This will only be used if a baseline
     // position cannot be determined by examining child content. Checkboxes and radio buttons are examples of
     // controls that need to do this.
@@ -82,95 +78,164 @@ public:
 
     virtual void platformColorsDidChange();
 
-    // System fonts.
+    // System fonts and colors.
     virtual void systemFont(int propId, FontDescription&) const;
+    virtual Color systemColor(int cssValueId) const;
 
 #if ENABLE(VIDEO)
     virtual String extraMediaControlsStyleSheet();
+    virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
 #endif
 
-    GtkThemeParts* partsForDrawable(GdkDrawable*) const;
+#ifdef GTK_API_VERSION_2
+    GtkWidget* gtkContainer() const;
+    GtkWidget* gtkEntry() const;
+    GtkWidget* gtkVScrollbar() const;
+    GtkWidget* gtkHScrollbar() const;
+    static void getIndicatorMetrics(ControlPart, int& indicatorSize, int& indicatorSpacing);
+#else
+    GtkStyleContext* gtkScrollbarStyle();
+#endif
 
 protected:
-    virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
+    virtual bool paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r);
     virtual void setCheckboxSize(RenderStyle* style) const;
 
-    virtual bool paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
+    virtual bool paintRadio(RenderObject* o, const PaintInfo& i, const IntRect& r);
     virtual void setRadioSize(RenderStyle* style) const;
 
     virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    int popupInternalPaddingLeft(RenderStyle*) const;
+    int popupInternalPaddingRight(RenderStyle*) const;
+    int popupInternalPaddingTop(RenderStyle*) const;
+    int popupInternalPaddingBottom(RenderStyle*) const;
 
+    // The Mac port differentiates between the "menu list" and the "menu list button."
+    // The former is used when a menu list button has been styled. This is used to ensure
+    // Aqua themed controls whenever possible. We always want to use GTK+ theming, so
+    // we don't maintain this differentiation.
     virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element* e) const;
+    virtual bool paintMenuList(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual void adjustSliderThumbSize(RenderObject*) const;
+    virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
+    virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+
+    virtual void adjustSliderThumbSize(RenderObject* object) const;
 
 #if ENABLE(VIDEO)
-    virtual void initMediaStyling(GtkStyle* style, bool force);
-    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    void initMediaColors();
+    void initMediaButtons();
+    void adjustMediaSliderThumbSize(RenderObject*) const;
+    virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
+    virtual bool paintMediaFullscreenButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaCurrentTime(RenderObject*, const PaintInfo&, const IntRect&);
 #endif
 
+#if ENABLE(PROGRESS_TAG)
+    virtual double animationRepeatIntervalForProgressBar(RenderProgress*) const;
+    virtual double animationDurationForProgressBar(RenderProgress*) const;
+    virtual void adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
+#endif
+
+    virtual bool paintCapsLockIndicator(RenderObject*, const PaintInfo&, const IntRect&);
+
+    virtual void adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintInnerSpinButton(RenderObject*, const PaintInfo&, const IntRect&);
+
 private:
-    /*
-     * hold the state
-     */
-    GtkWidget* gtkEntry() const;
-    GtkWidget* gtkTreeView() const;
+    void platformInit();
+    static void setTextInputBorders(RenderStyle*);
+    static double getScreenDPI();
 
-    /*
-     * unmapped GdkWindow having a container. This is holding all
-     * our fake widgets
-     */
-    GtkContainer* gtkContainer() const;
+#if ENABLE(VIDEO)
+    bool paintMediaButton(RenderObject*, GraphicsContext*, const IntRect&, const char* iconName);
+#endif
 
-    mutable GtkWidget* m_gtkWindow;
-    mutable GtkContainer* m_gtkContainer;
-    mutable GtkWidget* m_gtkEntry;
-    mutable GtkWidget* m_gtkTreeView;
+#if ENABLE(PROGRESS_TAG)
+    static IntRect calculateProgressRect(RenderObject*, const IntRect&);
+#endif
 
     mutable Color m_panelColor;
     mutable Color m_sliderColor;
     mutable Color m_sliderThumbColor;
-
     const int m_mediaIconSize;
     const int m_mediaSliderHeight;
     const int m_mediaSliderThumbWidth;
     const int m_mediaSliderThumbHeight;
 
-    RefPtr<Image> m_fullscreenButton;
-    RefPtr<Image> m_muteButton;
-    RefPtr<Image> m_unmuteButton;
-    RefPtr<Image> m_playButton;
-    RefPtr<Image> m_pauseButton;
-    RefPtr<Image> m_seekBackButton;
-    RefPtr<Image> m_seekForwardButton;
-    Page* m_page;
-    GRefPtr<GHashTable> m_partsTable;
+#ifdef GTK_API_VERSION_2
+    void setupWidgetAndAddToContainer(GtkWidget*, GtkWidget*) const;
+    void refreshComboBoxChildren() const;
+    void getComboBoxPadding(RenderStyle*, int& left, int& top, int& right, int& bottom) const;
+    int getComboBoxSeparatorWidth() const;
+    int comboBoxArrowSize(RenderStyle*) const;
 
+    GtkWidget* gtkButton() const;
+    GtkWidget* gtkTreeView() const;
+    GtkWidget* gtkVScale() const;
+    GtkWidget* gtkHScale() const;
+    GtkWidget* gtkRadioButton() const;
+    GtkWidget* gtkCheckButton() const;
+    GtkWidget* gtkProgressBar() const;
+    GtkWidget* gtkComboBox() const;
+    GtkWidget* gtkComboBoxButton() const;
+    GtkWidget* gtkComboBoxArrow() const;
+    GtkWidget* gtkComboBoxSeparator() const;
+    GtkWidget* gtkSpinButton() const;
+
+    GdkColormap* m_colormap;
+    mutable GtkWidget* m_gtkWindow;
+    mutable GtkWidget* m_gtkContainer;
+    mutable GtkWidget* m_gtkButton;
+    mutable GtkWidget* m_gtkEntry;
+    mutable GtkWidget* m_gtkTreeView;
+    mutable GtkWidget* m_gtkVScale;
+    mutable GtkWidget* m_gtkHScale;
+    mutable GtkWidget* m_gtkRadioButton;
+    mutable GtkWidget* m_gtkCheckButton;
+    mutable GtkWidget* m_gtkProgressBar;
+    mutable GtkWidget* m_gtkComboBox;
+    mutable GtkWidget* m_gtkComboBoxButton;
+    mutable GtkWidget* m_gtkComboBoxArrow;
+    mutable GtkWidget* m_gtkComboBoxSeparator;
+    mutable GtkWidget* m_gtkVScrollbar;
+    mutable GtkWidget* m_gtkHScrollbar;
+    mutable GtkWidget* m_gtkSpinButton;
+    bool m_themePartsHaveRGBAColormap;
+    friend class WidgetRenderingContext;
+#endif
 };
 
 }

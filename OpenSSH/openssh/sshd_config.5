@@ -34,8 +34,8 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd_config.5,v 1.102 2009/02/22 23:59:25 djm Exp $
-.Dd $Mdocdate: February 22 2009 $
+.\" $OpenBSD: sshd_config.5,v 1.125 2010/06/30 07:28:34 jmc Exp $
+.Dd $Mdocdate: June 30 2010 $
 .Dt SSHD_CONFIG 5
 .Os
 .Sh NAME
@@ -155,6 +155,10 @@ for more information on patterns.
 .It Cm AuthorizedKeysFile
 Specifies the file that contains the public keys that can be used
 for user authentication.
+The format is described in the
+.Sx AUTHORIZED_KEYS FILE FORMAT
+section of
+.Xr sshd 8 .
 .Cm AuthorizedKeysFile
 may contain tokens of the form %T which are substituted during connection
 setup.
@@ -167,6 +171,47 @@ is taken to be an absolute path or one relative to the user's home
 directory.
 The default is
 .Dq .ssh/authorized_keys .
+.It Cm AuthorizedPrincipalsFile
+Specifies a file that lists principal names that are accepted for
+certificate authentication.
+When using certificates signed by a key listed in
+.Cm TrustedUserCAKeys ,
+this file lists names, one of which must appear in the certificate for it
+to be accepted for authentication.
+Names are listed one per line preceded by key options (as described
+in
+.Sx AUTHORIZED_KEYS FILE FORMAT
+in
+.Xr sshd 8 ) .
+Empty lines and comments starting with
+.Ql #
+are ignored.
+.Pp
+.Cm AuthorizedPrincipalsFile
+may contain tokens of the form %T which are substituted during connection
+setup.
+The following tokens are defined: %% is replaced by a literal '%',
+%h is replaced by the home directory of the user being authenticated, and
+%u is replaced by the username of that user.
+After expansion,
+.Cm AuthorizedPrincipalsFile
+is taken to be an absolute path or one relative to the user's home
+directory.
+.Pp
+The default is not to use a principals file \(en in this case, the username
+of the user must appear in a certificate's principals list for it to be
+accepted.
+Note that
+.Cm AuthorizedPrincipalsFile
+is only used when authentication proceeds using a CA listed in
+.Cm TrustedUserCAKeys
+and is not consulted for certification authorities trusted via
+.Pa ~/.ssh/authorized_keys ,
+though the
+.Cm principals=
+key option offers a similar facility (see
+.Xr sshd 8
+for details).
 .It Cm Banner
 The contents of the specified file are sent to the remote user before
 authentication is allowed.
@@ -176,17 +221,22 @@ then no banner is displayed.
 This option is only available for protocol version 2.
 By default, no banner is displayed.
 .It Cm ChallengeResponseAuthentication
-Specifies whether challenge-response authentication is allowed.
+Specifies whether challenge-response authentication is allowed (e.g. via
+PAM or though authentication styles supported in
+.Xr login.conf 5 )
 The default is
 .Dq yes .
 .It Cm ChrootDirectory
-Specifies a path to
+Specifies the pathname of a directory to
 .Xr chroot 2
 to after authentication.
-This path, and all its components, must be root-owned directories that are
+All components of the pathname must be root-owned directories that are
 not writable by any other user or group.
+After the chroot,
+.Xr sshd 8
+changes the working directory to the user's home directory.
 .Pp
-The path may contain the following tokens that are expanded at runtime once
+The pathname may contain the following tokens that are expanded at runtime once
 the connecting user has been authenticated: %% is replaced by a literal '%',
 %h is replaced by the home directory of the user being authenticated, and
 %u is replaced by the username of that user.
@@ -194,7 +244,7 @@ the connecting user has been authenticated: %% is replaced by a literal '%',
 The
 .Cm ChrootDirectory
 must contain the necessary files and directories to support the
-users' session.
+user's session.
 For an interactive session this requires at least a shell, typically
 .Xr sh 1 ,
 and basic
@@ -212,8 +262,11 @@ devices.
 For file transfer sessions using
 .Dq sftp ,
 no additional configuration of the environment is necessary if the
-in-process sftp server is used (see
-.Cm Subsystem
+in-process sftp server is used,
+though sessions which use logging do require
+.Pa /dev/log
+inside the chroot directory (see
+.Xr sftp-server 8
 for details).
 .Pp
 The default is not to
@@ -372,7 +425,7 @@ The default is
 .Dq no .
 Note that this option applies to protocol version 2 only.
 .It Cm GSSAPIKeyExchange
-Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange 
+Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange
 doesn't rely on ssh keys to verify host identity.
 The default is
 .Dq no .
@@ -400,6 +453,11 @@ Note that this option applies only to protocol version 2 GSSAPI connections,
 and setting it to 
 .Dq no
 may only work with recent Kerberos GSSAPI libraries.
+.It Cm GSSAPIStoreCredentialsOnRekey
+Controls whether the user's GSSAPI credentials should be updated following a 
+successful connection rekeying. This option can be used to accepted renewed 
+or updated credentials from a compatible client. The default is
+.Dq no .
 .It Cm HostbasedAuthentication
 Specifies whether rhosts or /etc/hosts.equiv authentication together
 with successful public key client host authentication is allowed
@@ -426,6 +484,14 @@ uses the name supplied by the client rather than
 attempting to resolve the name from the TCP connection itself.
 The default is
 .Dq no .
+.It Cm HostCertificate
+Specifies a file containing a public host certificate.
+The certificate's public key must match a private host key already specified
+by
+.Cm HostKey .
+The default behaviour of
+.Xr sshd 8
+is not to load any certificates.
 .It Cm HostKey
 Specifies a file containing a private host key
 used by SSH.
@@ -610,12 +676,15 @@ keyword.
 Available keywords are
 .Cm AllowAgentForwarding ,
 .Cm AllowTcpForwarding ,
+.Cm AuthorizedKeysFile ,
+.Cm AuthorizedPrincipalsFile ,
 .Cm Banner ,
 .Cm ChrootDirectory ,
 .Cm ForceCommand ,
 .Cm GatewayPorts ,
 .Cm GSSAPIAuthentication ,
 .Cm HostbasedAuthentication ,
+.Cm HostbasedUsesNameFromPacketOnly ,
 .Cm KbdInteractiveAuthentication ,
 .Cm KerberosAuthentication ,
 .Cm MaxAuthTries ,
@@ -624,6 +693,8 @@ Available keywords are
 .Cm PermitEmptyPasswords ,
 .Cm PermitOpen ,
 .Cm PermitRootLogin ,
+.Cm PermitTunnel ,
+.Cm PubkeyAuthentication ,
 .Cm RhostsRSAAuthentication ,
 .Cm RSAAuthentication ,
 .Cm X11DisplayOffset ,
@@ -639,6 +710,9 @@ The default is 6.
 .It Cm MaxSessions
 Specifies the maximum number of open sessions permitted per network connection.
 The default is 10.
+.Pp
+Has no effect if sshd is run from 
+.Xr inetd 8 .
 .It Cm MaxStartups
 Specifies the maximum number of concurrent unauthenticated connections to the
 SSH daemon.
@@ -646,6 +720,9 @@ Additional connections will be dropped until authentication succeeds or the
 .Cm LoginGraceTime
 expires for a connection.
 The default is 10.
+.Pp
+Has no effect if sshd is run from 
+.Xr inetd 8 .
 .Pp
 Alternatively, random early drop can be enabled by specifying
 the three colon separated values
@@ -802,7 +879,7 @@ and
 .Sq 2 .
 Multiple versions must be comma-separated.
 The default is
-.Dq 2,1 .
+.Sq 2 .
 Note that the order of the protocol list does not indicate preference,
 because the client selects among multiple protocol versions offered
 by the server.
@@ -815,6 +892,11 @@ Specifies whether public key authentication is allowed.
 The default is
 .Dq yes .
 Note that this option applies to protocol version 2 only.
+.It Cm RevokedKeys
+Specifies a list of revoked public keys.
+Keys listed in this file will be refused for public key authentication.
+Note that if this file is not readable, then public key authentication will
+be refused for all users.
 .It Cm RhostsRSAAuthentication
 Specifies whether rhosts or /etc/hosts.equiv authentication together
 with successful RSA host authentication is allowed.
@@ -827,10 +909,8 @@ The default is
 .Dq yes .
 This option applies to protocol version 1 only.
 .It Cm SACLSupport
-Enables use of Service ACLs on Mac OS X. The default is
-.Dq no ,
-as this option has been depricated in favor of SACL enforcement in the PAM 
-stack (/etc/pam.d/sshd).
+Deprecated in favor of SACL enforcement in the PAM stack
+(/etc/pam.d/sshd). Option has no effect.
 .It Cm ServerKeyBits
 Defines the number of bits in the ephemeral protocol version 1 server key.
 The minimum value is 512, and the default is 1024.
@@ -843,6 +923,9 @@ This is normally desirable because novices sometimes accidentally leave their
 directory or files world-writable.
 The default is
 .Dq yes .
+Note that this does not apply to
+.Cm ChrootDirectory ,
+whose permissions and ownership are checked unconditionally.
 .It Cm Subsystem
 Configures an external subsystem (e.g. file transfer daemon).
 Arguments should be a subsystem name and a command (with optional arguments)
@@ -892,6 +975,22 @@ This avoids infinitely hanging sessions.
 .Pp
 To disable TCP keepalive messages, the value should be set to
 .Dq no .
+.It Cm TrustedUserCAKeys
+Specifies a file containing public keys of certificate authorities that are
+trusted to sign user certificates for authentication.
+Keys are listed one per line; empty lines and comments starting with
+.Ql #
+are allowed.
+If a certificate is presented for authentication and has its signing CA key
+listed in this file, then it may be used for authentication for any user
+listed in the certificate's principals list.
+Note that certificates that lack a list of principals will not be permitted
+for authentication using
+.Cm TrustedUserCAKeys .
+For more details on certificates, see the
+.Sx CERTIFICATES
+section in
+.Xr ssh-keygen 1 .
 .It Cm UseDNS
 Specifies whether
 .Xr sshd 8

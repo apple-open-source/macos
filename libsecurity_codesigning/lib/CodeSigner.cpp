@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,7 +63,7 @@ public:
 // Construct a SecCodeSigner
 //
 SecCodeSigner::SecCodeSigner(SecCSFlags flags)
-	: mOpFlags(flags), mRequirements(NULL)
+	: mOpFlags(flags), mRequirements(NULL), mDigestAlgorithm(kSecCodeSignatureDefaultDigestAlgorithm)
 {
 }
 
@@ -72,8 +72,10 @@ SecCodeSigner::SecCodeSigner(SecCSFlags flags)
 // Clean up a SecCodeSigner
 //
 SecCodeSigner::~SecCodeSigner() throw()
-{
+try {
 	::free((Requirements *)mRequirements);
+} catch (...) {
+	return;
 }
 
 
@@ -134,9 +136,28 @@ void SecCodeSigner::returnDetachedSignature(BlobCore *blob, Signer &signer)
 		CFDataAppendBytes(CFMutableDataRef(mDetached.get()),
 			(const UInt8 *)blob, blob->length());
 	} else if (CFGetTypeID(mDetached) == CFNullGetTypeID()) {
-		signatureDatabase().storeCode(blob, signer.path().c_str());
+		signatureDatabaseWriter().storeCode(blob, signer.path().c_str());
 	} else
 		assert(false);
+}
+
+
+//
+// Our DiskRep::signingContext methods communicate with the signing subsystem
+// in terms those callers can easily understand.
+//
+string SecCodeSigner::sdkPath(const std::string &path) const
+{
+	assert(path[0] == '/');	// need absolute path here
+	if (mSDKRoot)
+		return cfString(mSDKRoot) + path;
+	else
+		return path;
+}
+
+bool SecCodeSigner::isAdhoc() const
+{
+	return mSigner == SecIdentityRef(kCFNull);
 }
 
 
@@ -162,6 +183,10 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 		state.mCdFlags = cfNumber<uint32_t>(flags);
 	} else
 		state.mCdFlagsGiven = false;
+	
+	// digest algorithms are specified as a numeric code
+	if (CFNumberRef digestAlgorithm = get<CFNumberRef>(kSecCodeSignerDigestAlgorithm))
+		state.mDigestAlgorithm = cfNumber<long>(digestAlgorithm);
 
 	if (CFNumberRef cmsSize = get<CFNumberRef>(CFSTR("cmssize")))
 		state.mCMSSize = cfNumber<size_t>(cmsSize);
@@ -210,6 +235,8 @@ SecCodeSigner::Parser::Parser(SecCodeSigner &state, CFDictionaryRef parameters)
 	
 	state.mApplicationData = get<CFDataRef>(kSecCodeSignerApplicationData);
 	state.mEntitlementData = get<CFDataRef>(kSecCodeSignerEntitlements);
+	
+	state.mSDKRoot = get<CFURLRef>(kSecCodeSignerSDKRoot);
 }
 
 

@@ -1,5 +1,5 @@
---- _SB/Libc/stdlib/FreeBSD/lsearch.3	2003-05-20 15:23:25.000000000 -0700
-+++ _SB/Libc/stdlib/FreeBSD/lsearch.3.edit	2006-06-28 16:55:53.000000000 -0700
+--- lsearch.3.bsdnew	2009-11-13 14:11:50.000000000 -0800
++++ lsearch.3	2009-11-13 14:11:50.000000000 -0800
 @@ -12,21 +12,21 @@
  .Dt LSEARCH 3
  .Os
@@ -28,7 +28,7 @@
  .Fa "int \*[lp]*compar\*[rp]\*[lp]const void *, const void *\*[rp]"
  .Fc
  .Sh DESCRIPTION
-@@ -34,8 +34,8 @@
+@@ -34,8 +34,8 @@ The
  .Fn lsearch
  and
  .Fn lfind

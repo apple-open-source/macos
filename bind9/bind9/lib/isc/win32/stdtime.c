@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: stdtime.c,v 1.12 2007/06/19 23:47:19 tbox Exp $ */
+/* $Id: stdtime.c,v 1.12 2007-06-19 23:47:19 tbox Exp $ */
 
 #include <config.h>
 

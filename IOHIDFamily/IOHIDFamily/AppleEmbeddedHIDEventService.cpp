@@ -30,7 +30,7 @@
 // AppleEmbeddedHIDEventService class
 #define super IOHIDEventService
 
-OSDefineMetaClassAndAbstractStructors( AppleEmbeddedHIDEventService, super )
+OSDefineMetaClassAndAbstractStructors( AppleEmbeddedHIDEventService, IOHIDEventService )
 
 //====================================================================================================
 // AppleEmbeddedHIDEventService::handleStart
@@ -81,6 +81,18 @@ void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOF
     }
 }
 
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchCompassEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchCompassEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDCompassType type, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::compassEvent(timestamp, x, y, z, type, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
 
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchProximityEvent

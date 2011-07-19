@@ -1,6 +1,6 @@
 # huddle.tcl (working title)
 #
-# huddle.tcl 0.1.3 2008-06-05 17:51:30 KATO Kanryu(kanryu6@users.sourceforge.net)
+# huddle.tcl 0.1.4 2009-04-16 21:44:12 KATO Kanryu(kanryu6@users.sourceforge.net)
 #
 #   It is published with the terms of tcllib's BSD-style license.
 #   See the file named license.terms.
@@ -8,11 +8,11 @@
 # This library provide functions to differentinate string/list/dict in multi-ranks.
 #
 
-if {$::tcl_version < 8.5} {
+if { [package vcompare [package provide Tcl] 8.5] < 0 } {
     package require dict
 }
 
-package provide huddle 0.1.3
+package provide huddle 0.1.4
 
 namespace eval ::huddle {
     namespace export huddle
@@ -25,29 +25,31 @@ namespace eval ::huddle {
     variable types
 }
 
-proc huddle {command args} {
-    variable huddle::methods
-    if {[info exists huddle::methods($command)]} {
-        return [eval $huddle::methods($command) $command $args]
+if { [package vcompare [package provide Tcl] 8.5] < 0 } {
+    proc huddle {command args} {
+        variable huddle::methods
+        if {[info exists huddle::methods($command)]} {
+            return [eval $huddle::methods($command) $command $args]
+        }
+        return [eval ::huddle::$command $args]
     }
-    switch -- $command {
-        set {
-            return [eval ::huddle::_set $args]
+    # some subcommands conflict reserved words. so, add prefix "_" (e.g. from "set" to "_set")
+    proc ::huddle::proc_add_ub {command args} {
+        return [eval ::huddle::_$command $args]
+    }
+} else {
+    proc huddle {command args} {
+        variable huddle::methods
+        if {[info exists huddle::methods($command)]} {
+            return [$huddle::methods($command) $command {*}$args]
         }
-        append {
-            return [eval ::huddle::_append $args]
-        }
-        call {
-            variable huddle::types
-            foreach {tag cmd args} $args break
-            return [eval $huddle::types(callback:$tag) $cmd $args]
-        }
-        default {
-            return [eval ::huddle::$command $args]
-        }
+        return [::huddle::$command {*}$args]
+    }
+
+    proc ::huddle::proc_add_ub {command args} {
+        return [::huddle::_$command {*}$args]
     }
 }
-
 
 proc ::huddle::addType {procedure} {
     variable methods
@@ -69,11 +71,15 @@ proc ::huddle::addType {procedure} {
 }
 
 proc ::huddle::isHuddle {arg} {
-    if {[lindex $arg 0] eq "HUDDLE" && [llength $arg] == 2} {
-        return 1
-    } else {
+    if {[lindex $arg 0] ne "HUDDLE" || [llength $arg] != 2} {
         return 0
     }
+    variable types
+    set sub [lindex $arg 1]
+    if {[llength $sub] != 2 && [array get types "type:[lindex $sub 1]"] == ""} {
+        return 0
+    }
+    return 1
 }
 
 proc ::huddle::strip {node} {
@@ -95,6 +101,11 @@ proc ::huddle::strip {node} {
         }
     }
     return $value
+}
+
+proc ::huddle::call {tag cmd arg} {
+    variable types
+    return [eval $types(callback:$tag) $cmd $arg]
 }
 
 proc ::huddle::combine {args} {
@@ -142,14 +153,14 @@ proc ::huddle::wrap {head src} {
     }
 }
 
-proc ::huddle::get {src args} {
+proc ::huddle::_get {src args} {
     checkHuddle $src
-    return [_key_reflexive _get [lindex $src 1] [llength $args] $args 0]
+    return [_key_reflexive _get2 [lindex $src 1] [llength $args] $args 0]
 }
 
-proc ::huddle::gets {src args} {
+proc ::huddle::_gets {src args} {
     checkHuddle $src
-    return [_key_reflexive _get [lindex $src 1] [llength $args] $args 1]
+    return [_key_reflexive _get2 [lindex $src 1] [llength $args] $args 1]
 }
 
 proc ::huddle::type {src args} {
@@ -159,7 +170,7 @@ proc ::huddle::type {src args} {
 }
 
 proc ::huddle::_set {objvar args} {
-    upvar 2 $objvar obj
+    upvar 3 $objvar obj
     checkHuddle $obj
     set path [lrange $args 0 end-1]
     set value [lindex $args end]
@@ -193,7 +204,7 @@ proc ::huddle::_equal_subs {obj1 obj2} {
 proc ::huddle::_append {objvar args} {
     variable types
 
-    upvar 2 $objvar obj
+    upvar 3 $objvar obj
     checkHuddle $obj
     foreach {tag src} [lindex $obj 1] break
     set src [$types(callback:$tag) append $types(str:$tag) $src $args]
@@ -234,7 +245,7 @@ proc ::huddle::_key_reflexive {command node len path {option ""}} {
     return [$command $node $path $option]
 }
 
-proc ::huddle::_get {node path strip} {
+proc ::huddle::_get2 {node path strip} {
     variable types
     foreach {tag src} $node break
     set subs [$types(callback:$tag) get_sub $src $path]
@@ -410,11 +421,14 @@ proc ::huddle::_string_setting {command args} {
         setting {
             return {
                 type string
-                method {}
+                method {string}
                 tag {s child}
-                constructor ""
+                constructor string
                 str s
             }
+        }
+        string {
+            return [huddle wrap s $args]
         }
         equal {
             foreach {src1 src2} $args break
@@ -427,12 +441,31 @@ proc ::huddle::_string_setting {command args} {
 }
 
 
-proc ::huddle::jsondump {data {offset ""}} {
-    set nextoff "$offset  "
-    switch -- [huddle type $data] {
+proc ::huddle::jsondump {data {offset "  "} {newline "\n"} {begin ""}} {
+    variable types
+    set nextoff "$begin$offset"
+    set nlof "$newline$nextoff"
+    set sp " "
+    if {[string equal $offset ""]} {set sp ""}
+    
+    set type [huddle type $data]
+    switch -- $type {
         "string" {
             set data [huddle strip $data]
-            if {[regexp {^true$|^false$} $data]} {return $data}
+            if {[string is double -strict $data]} {return $data}
+            if {[regexp {^true$|^false$|^null$} $data]} {return $data}
+            # JSON permits only oneline string
+            set data [string map {
+                    \n \\n
+                    \t \\t
+                    \r \\r
+                    \b \\b
+                    \f \\f
+                    \\ \\\\
+                    \" \\\"
+                    / \\/
+                } $data
+            ]
             return "\"$data\""
         }
         "list" {
@@ -440,23 +473,79 @@ proc ::huddle::jsondump {data {offset ""}} {
             set len [huddle llength $data]
             for {set i 0} {$i < $len} {incr i} {
                 set sub [huddle get $data $i]
-                lappend inner [jsondump $sub $nextoff]
+                lappend inner [jsondump $sub $offset $newline $nextoff]
             }
-            return [join [list "\[\n" $nextoff [join $inner ",\n$nextoff"] "\n" $offset "\]"] ""]
+            if {[llength $inner] == 1} {
+                return "\[[lindex $inner 0]\]"
+            }
+            return "\[$nlof[join $inner ,$nlof]$newline$begin\]"
         }
         "dict" {
             set inner {}
             foreach {key} [huddle keys $data] {
-                set val [jsondump [huddle get $data $key] $nextoff]
-                lappend inner "\"$key\": $val"
+                lappend inner [subst {"$key":$sp[jsondump [huddle get $data $key] $offset $newline $nextoff]}]
             }
-            if {[llength $inner] == 1 && ![regexp {[\n\{\[]]} $array]} {
-                return "{ $array }"
+            if {[llength $inner] == 1} {
+                return $inner
             }
-            return [join [list "\{\n" $nextoff [join $inner ",\n$nextoff"] "\n" $offset "\}"] ""]
+            return "\{$nlof[join $inner ,$nlof]$newline$begin\}"
         }
         default {
-            return $data
+            return [$types(callback:$type) jsondump $data $offset $newline $nextoff]
+        }
+    }
+}
+
+# data is plain old tcl values
+# spec is defined as follows:
+# {string} - data is simply a string, "quote" it if it's not a number
+# {list} - data is a tcl list of strings, convert to JSON arrays
+# {list list} - data is a tcl list of lists
+# {list dict} - data is a tcl list of dicts
+# {dict} - data is a tcl dict of strings
+# {dict xx list} - data is a tcl dict where the value of key xx is a tcl list
+# {dict * list} - data is a tcl dict of lists
+# etc..
+proc ::huddle::compile {spec data} {
+    while [llength $spec] {
+        set type [lindex $spec 0]
+        set spec [lrange $spec 1 end]
+
+        switch -- $type {
+            dict {
+                lappend spec * string
+
+                set result [huddle create]
+                foreach {key val} $data {
+                    foreach {keymatch valtype} $spec {
+                        if {[string match $keymatch $key]} {
+                            huddle append result $key [compile $valtype $val]
+                            break
+                        }
+                    }
+                }
+                return $result
+            }
+            list {
+                if {![llength $spec]} {
+                    set spec string
+                } else {
+                    set spec [lindex $spec 0]
+                }
+                set result [huddle list]
+                foreach {val} $data {
+                    huddle append result [compile $spec $val]
+                }
+                return $result
+            }
+            string {
+#                 if {[string is double -strict $data]} {
+#                     return $data
+#                 } else {
+                    return [huddle wrap s $data]
+#                 }
+            }
+            default {error "Invalid type"}
         }
     }
 }
@@ -468,6 +557,10 @@ namespace eval ::huddle {
     ::huddle::addType ::huddle::_dict_setting
     ::huddle::addType ::huddle::_list_setting
     ::huddle::addType ::huddle::_string_setting
+    set methods(set)    ::huddle::proc_add_ub
+    set methods(append) ::huddle::proc_add_ub
+    set methods(get)    ::huddle::proc_add_ub
+    set methods(gets)   ::huddle::proc_add_ub
 }
 
 

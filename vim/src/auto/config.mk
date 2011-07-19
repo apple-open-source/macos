@@ -19,12 +19,12 @@ VIEWNAME	= view
 
 CC		= gcc
 DEFS		= -DHAVE_CONFIG_H
-CFLAGS		= -arch i386 -arch x86_64 -g -Os -pipe -mdynamic-no-pic -D_FORTIFY_SOURCE=1
+CFLAGS		= -g -O2 -D_FORTIFY_SOURCE=1
 CPPFLAGS	= 
 srcdir		= .
 
-LDFLAGS		= -arch i386 -arch x86_64 -L/usr/local/lib
-LIBS		= -lm  -lncurses -liconv
+LDFLAGS		=  -L/usr/local/lib
+LIBS		= -lm -lncurses  -liconv
 TAGPRG		= ctags -t
 
 CPP		= gcc -E
@@ -36,11 +36,19 @@ X_PRE_LIBS	=
 X_EXTRA_LIBS	= 
 X_LIBS		= 
 
+LUA_LIBS	= 
+LUA_SRC		= 
+LUA_OBJ		= 
+LUA_CFLAGS	= 
+LUA_PRO		= 
+
 MZSCHEME_LIBS	= 
 MZSCHEME_SRC	= 
 MZSCHEME_OBJ	= 
 MZSCHEME_CFLAGS	= 
 MZSCHEME_PRO	= 
+MZSCHEME_EXTRA  = 
+MZSCHEME_MZC	= 
 
 PERL		= 
 PERLLIB		= 
@@ -57,6 +65,12 @@ PYTHON_CFLAGS	=
 PYTHON_LIBS	= 
 PYTHON_CONFDIR	= 
 PYTHON_GETPATH_CFLAGS = 
+
+PYTHON3_SRC	= 
+PYTHON3_OBJ	= 
+PYTHON3_CFLAGS	= 
+PYTHON3_LIBS	= 
+PYTHON3_CONFDIR	= 
 
 TCL		= 
 TCL_SRC		= 
@@ -96,6 +110,9 @@ INSTALLVIMDIFF	= installvimdiff
 INSTALLGVIMDIFF	= installgvimdiff
 INSTALL_LANGS	= install-languages
 INSTALL_TOOL_LANGS	= install-tool-languages
+
+### sed command to fix quotes while creating pathdef.c
+QUOTESED        = sed -e 's/[\\"]/\\&/g' -e 's/\\"/"/' -e 's/\\";$$/";/'
 
 ### Line break character as octal number for "tr"
 NL		= "\\012"

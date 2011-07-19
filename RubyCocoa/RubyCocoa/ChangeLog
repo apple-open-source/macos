@@ -1,3 +1,235 @@
+2009-12-05  kimura wataru <kimuraw@i.nifty.jp>
+
+	* install.rb:
+	install.rb should fail with ruby-1.9. RubyCocoa do not support 1.9.
+
+	* framework/post-config.rb:
+	fix missing `-arch' in CFLAGS from --target-archs option (bug:#2908732)
+
+2009-11-05  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_active_record.rb:
+	fix test failure from method missing `default_scoping='
+
+2009-11-04  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/post-config.rb:
+	fix name error for 'gen-bridge-support'.
+
+2009-10-25  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/ruby/osx/objc/active_record.rb:
+	Fix sample/MailDemo do not launch (rubycocoa:0488)
+
+2009-10-18  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/mdl_objwrapper.m:
+	disable auto register methods on proxy classes.
+
+=== RubyCocoa 1.0.1 ===
+
+2009-10-18  kimura wataru <kimuraw@i.nifty.jp>
+
+	* VERSION:
+	Updated for 1.0.1.
+
+2009-10-16  kimura wataru <kimuraw@i.nifty.jp>
+
+	* package/config/10.5, package/config/10.6:
+	update packaging configurations
+
+	* pre-config.rb:
+	use -DRB_ID=ID for 10.6 or later (revert r2253)
+	
+	* framework/post-setup.rb:
+	not to make a symlink RubyCococa.framework/Headers/Headers
+
+2009-10-10  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_types.rb:
+	skips assersions occurs SEGV and print a warning on 10.6.
+
+	* framework/src/objc/mdl_objwrapper.m:
+	fix SEGV from auto register methods (bug of r2234).
+
+2009-10-09  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/mdl_osxobjc.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  framework/src/objc/internal_macros.h,
+	  framework/src/objc/OverrideMixin.m, tests/tc_subclass.rb:
+	fix invoke-based undo management does not work on 10.6.
+
+2009-10-07  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_subclass.rb:
+	on 10.6 NSArray.array returns an instance of NSArray, not NSCFArray.
+
+	* framework/src/objc/mdl_objwrapper.m:
+	adhoc fix of raising NSInternalInconsistencyException from
+	NSUndoManager#prepareWithInvocationTarget: on 10.6.
+
+	* pre-config.rb:
+	correct build error when --target-archs is not given.
+
+2009-10-05  kimura wataru <kimuraw@i.nifty.jp>
+
+	* pre-install.rb:
+	specify full path of `xargs'. install task fails with gnu xargs.
+
+2009-09-23  kimura wataru <kimuraw@i.nifty.jp>
+
+	* template/ProjectBuilder/Application/*:
+	upgrade projecte templates for Xcode 3.x. apply a patch from Apple:
+	http://www.opensource.apple.com/source/RubyCocoa/RubyCocoa-67/patches/fix_templates_for_leopard.diff
+	and remove SDKROOT.
+
+	* pre-install.rb, template/Xcode2.x:
+	separate project templates for Xcode 3.x and Xcode 2.x.	
+
+	* framework/src/ruby/osx/objc/oc_attachments.rb, tests/tc_nsstring.rb:
+	use Objective-C hash for NSString#hash, it makes NSString to become a
+	key of Ruby Hash. (tracker:2849613)
+
+2009-09-22  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/mdl_osxobjc.m, tests/tc_passbyref.rb,
+	  tests/tc_objcptr.rb:
+	introduce OSX::RUBYCOCOA_BUILD_LP64 (true/false).
+	fix some test cases for 64-bit.
+
+	* framework/src/ruby/osx/objc/foundation.rb:
+	correct value of NSNotFound to NSIntegerMax.
+	10.6 Foundation.bridgesupport defines the value64 of NSNotFound as -1.
+
+	* tests/tc_objcptr.rb, tests/tc_types.rb:
+	skip some assertions. most of cftypes become NSObject(__NSCFType) via
+	toll-free on 10.6, and names of the cftypes are not defined in Ruby.
+
+2009-09-20  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/BridgeSupport.m:
+	correct reading order between 'value64' and 'value' from .bridgesupport
+
+	* install.rb:
+	new option --arch of test task allows testing specified architecture,
+	like `ruby install.rb test --arch=i386'.
+
+	* tests/Makefile.in:
+	use -arch flags for compiling tests/*.bundle.
+
+	* tests/tc_bool.rb:
+	fix a failure of test_informal_protocol(in tc_bool.rb).
+	use "validateMenuItem", not "control:textView:doCommandBySelector:"
+	for testing informal protocol.
+	On 10.6, "control:textView:doCommandBySelector:" becomes an optional
+	method of a formal protocol NSTextViewDelegate.
+
+2009-09-17  Satoshi Nakagawa <psychs@limechat.net>
+
+	* pre-config.rb:
+	Enabled -DRB_ID=ID always.
+	Because we need it to build RubyCocoa with target=10.5 on 10.6.
+
+2009-09-15  kimura wataru <kimuraw@i.nifty.jp>
+
+	* Rakefile:
+	remove config option "--build-universal".
+
+	* pre-config.rb, framework/GeneratedConfig.xcconfig.in,
+	  ext/rubycocoa/extconf.rb.in:
+	use $ARCHS of Xcode for building RubyCocoa.xcodeproj
+
+2009-09-15  kimura wataru <kimuraw@i.nifty.jp>
+
+	* package/post-package.rb, package/pre-package.rb,
+	  package/config/10.4, package/config/10.5, package/config/10.6:
+	use --target-archs for packaging. remove "universal" from package
+	name, like "RubyCocoa-1.0.0-OSX10.6.dmg"
+
+2009-09-15  kimura wataru <kimuraw@i.nifty.jp>
+
+	* pre-config.rb, framework/post-config.rb, metaconfig:
+	remove configure option "--build-universal", and
+	add option "--target-archs".
+
+2009-09-15  Satoshi Nakagawa <psychs@limechat.net>
+
+	* src/framework/src/objc/RBRuntime.m:
+	Switch back to disable the threading hacks in runtime.
+
+2009-09-15  Satoshi Nakagawa <psychs@limechat.net>
+
+	* src/framework/src/objc/RBRuntime.m:
+	We cannot use a common RubyCocoa.framework on 10.5 and 10.6.
+	So simply applied a patch from Apple: http://www.opensource.apple.com/source/RubyCocoa/RubyCocoa-67/patches/disable_threading_hacks.diff
+
+2009-09-15  Satoshi Nakagawa <psychs@limechat.net>
+
+	* src/framework/src/objc/RBRuntime.m:
+	Disable threading hacks in 10.6.
+	Based on a patch from Apple: http://www.opensource.apple.com/source/RubyCocoa/RubyCocoa-67/patches/disable_threading_hacks.diff
+
+2009-09-13  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/internal_macros.h:
+	suppress warning "format not a string literal and no format arguments"
+
+2009-09-08  kimura wataru <kimuraw@i.nifty.jp>
+
+	* package/config/10.4, package/config/10.5:
+	- correct install destination of project templates (10.5).
+	- correct comment (10.4 and 10.5).
+
+	* package/config/10.6:
+	packaging support for 10.6 Snow Leopard.
+
+=== RubyCocoa 1.0.0 ===
+
+2009-07-24  kimura wataru <kimuraw@i.nifty.jp>
+
+	* VERSION:
+	Updated for 1.0.0.
+
+2009-07-22  kimura wataru <kimuraw@i.nifty.jp>
+
+	* package/config/10.4, package/config/10.5:
+	improve packaging.
+
+	* misc/bridge-support-tiger.tar.gz:
+	regenerate bridgesupport files on Mac OS X 10.4.11
+
+2009-07-19  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/BridgeSupport.m, tests/tc_bs.rb:
+	disable reload_protocols() on 10.4 or earlier. it means
+	DO NOT SUPPORT formal protocols with bridgesupport on 10.4.
+	there is no objc runtime-api for gathering all protocols in
+	objective-c 1.0.
+
+2009-07-18  kimura wataru <kimuraw@i.nifty.jp>
+
+	* tests/tc_bs.rb, tests/Makefile.in, tests/objc_proto.m:
+	add a test for reload_protocols(), in BridgeSupport.m.
+
+	* framework/src/objc/internal_macros.h:
+	fix debug log (with RUBYOPT=-d) print only format string (revert r2223)
+
+2009-06-09  kimura wataru <kimuraw@i.nifty.jp>
+
+	* framework/src/objc/RBObject.m,
+	  framework/src/objc/mdl_objwrapper.m,
+	  tests/tc_passbyref.rb, tests/tc_subclass.rb:
+	make to programs written with strict syntax behave same whether
+	OSX.relaxed_syntax is true or not.
+	prefer always methods with the last charactor "_" when invoke ruby
+	method from objective-c.
+
+2009-05-15  Satoshi Nakagawa <psychs@limechat.net>
+
+	* src/framework/src/objc/RBClassUtils.m:
+	Improved warning message by Eloy Duran.
+
 2008-10-28  kimura wataru <kimuraw@i.nifty.jp>
 
 	* install.rb:

@@ -80,7 +80,7 @@ mach_port_t ocspdGlobals::serverPort()
 		serverName = (char*) OCSPD_BOOTSTRAP_NAME;
 	}
 	try {
-		mServerPort = MachPlusPlus::Bootstrap().lookup(serverName);
+		mServerPort = MachPlusPlus::Bootstrap().lookup2(serverName);
 	}
 	catch(...) {
 		ocspdErrorLog("ocspdGlobals: error contacting server\n");
@@ -267,6 +267,7 @@ CSSM_RETURN ocspdCRLFetch(
 	return CSSM_OK;
 }
 
+
 /*
  * Get CRL status for given serial number and issuing entity
  */
@@ -301,7 +302,7 @@ CSSM_RETURN ocspdCRLStatus(
 }
 
 /*
- * Refresh the CRL cache. 
+ * Refresh the CRL cache.
  */
 CSSM_RETURN ocspdCRLRefresh(
 	unsigned	staleDays,
@@ -407,18 +408,20 @@ OSStatus ocspdTrustSettingsWrite(
 	const CSSM_DATA			&trustSettings)
 {
 	mach_port_t serverPort = 0;
+	mach_port_t clientPort = 0;
 	kern_return_t krtn;
 	OSStatus ortn;
 
 	try {
 		serverPort = OcspdGlobals().serverPort();
+		clientPort = MachPlusPlus::Bootstrap();
 	} 
 	catch(...) {
 		ocspdErrorLog("ocspdTrustSettingsWrite: OCSPD server error\n");
 		return internalComponentErr;
 	}
 
-	krtn = ocsp_client_trustSettingsWrite(serverPort, domain,
+	krtn = ocsp_client_trustSettingsWrite(serverPort, clientPort, domain,
 		authBlob.Data, authBlob.Length,
 		trustSettings.Data, trustSettings.Length,
 		&ortn);

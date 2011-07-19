@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
+AC_REVISION($Id: configure.in 267 2010-06-04 09:58:55Z nijtmans $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkimgpixmap', as distributed at November 20, 2001.
@@ -10,7 +10,7 @@ AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
 
 AC_INIT([tkimgpixmap],[1.4])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../tclconfig)
 
@@ -71,17 +71,6 @@ TEA_ADD_CFLAGS([-DTKIMG_VERSION=\\\"\${tkimg_VERSION}\\\"])
 TEA_ADD_STUB_SOURCES([])
 TEA_ADD_TCL_SOURCES([])
 
-PUP="`echo ${PACKAGE}| tr 'a-z' 'A-Z'`"
-
-sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
-	-e	"s/@CPACKAGE@/${CPACKAGE}/"		\
-	-e	"s/%PACKAGE%/${PACKAGE_NAME}/"		\
-	-e	"s/%PACKAGE_UP%/${PUP}/"		\
-	-e	"s/%PHIMGTYPE%/${PHIMGTYPE}/"
-
-# init.c is an included source file, not a source by itself
-# FUTURE: Do this through AC_OUTPUT!!
-
 #--------------------------------------------------------------------
 # __CHANGE__
 # Choose which headers you need.  Extension authors should try very
@@ -91,7 +80,7 @@ sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
 # This MUST be called after TEA_LOAD_TCLCONFIG / TEA_LOAD_TKCONFIG
 #--------------------------------------------------------------------
 
-# This module is special. On pixmaps it requires access to the
+# This module is special. On windows it requires access to the
 # internal headers of Tk and thus tcl to implement its functionality
 # (TkWinReleaseDrawableDC).
 
@@ -106,9 +95,6 @@ fi
 #--------------------------------------------------------------------
 # A few miscellaneous platform-specific items:
 #
-# We have to define a special symbol for Windows (BUILD_tkimgpixmap in this
-# case) so that we create the export library with the dll.
-#
 # Windows creates a few extra files that need to be cleaned up.
 # We can add more files to clean if our extension creates any extra
 # files in the future.
@@ -119,7 +105,6 @@ fi
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_tkimgpixmap)
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch init.c"
     TEA_ADD_SOURCES([pixmapWin.c])
 else
@@ -172,7 +157,6 @@ TEA_PATH_X
 
 AC_DEFINE(USE_TCL_STUBS)
 AC_DEFINE(USE_TK_STUBS)
-AC_DEFINE(USE_TKIMG_STUBS)
 
 #--------------------------------------------------------------------
 # This macro generates a line to use when building a library.  It
@@ -212,6 +196,6 @@ TEA_PROG_WISH
 # which require substituting th AC variables in.  Include these here.
 #--------------------------------------------------------------------
 
-AC_OUTPUT([Makefile pkgIndex.tcl])
+AC_OUTPUT([Makefile])
 
 #--------------------------------------------------------------------

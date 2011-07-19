@@ -50,7 +50,7 @@ UInt32 DSGetLong( void* ptr, eSwapDirection inSwapDir )
 
 UInt32 DSGetAndSwapLong( void* ptr, eSwapDirection inSwapDir )
 {
-	UInt32	retval;
+	UInt32	retval = 0;
 	UInt32	*value = (UInt32 *) ptr;
 	
 	switch ( inSwapDir )
@@ -69,7 +69,7 @@ UInt32 DSGetAndSwapLong( void* ptr, eSwapDirection inSwapDir )
 
 UInt16 DSGetAndSwapShort( void* ptr, eSwapDirection inSwapDir )
 {
-	UInt16	retval;
+	UInt16	retval = 0;
 	UInt16	*value = (UInt16 *) ptr;
 	
 	switch ( inSwapDir )

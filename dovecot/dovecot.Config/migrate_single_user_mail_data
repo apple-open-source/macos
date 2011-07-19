@@ -1,0 +1,144 @@
+#!/bin/bash
+#
+# Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+# 
+# Redistribution and use in source and binary forms, with or without  
+# modification, are permitted provided that the following conditions  
+# are met:
+# 
+# 1.  Redistributions of source code must retain the above copyright  
+# notice, this list of conditions and the following disclaimer.
+# 2.  Redistributions in binary form must reproduce the above  
+# copyright notice, this list of conditions and the following  
+# disclaimer in the documentation and/or other materials provided  
+# with the distribution.
+# 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
+# contributors may be used to endorse or promote products derived  
+# from this software without specific prior written permission.
+# 
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
+# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
+# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
+# SUCH DAMAGE.
+
+
+#################################################################
+# Path initialization
+PATH="/bin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/bin/cyrus/bin"
+
+#################################################################
+# Must run as root
+if [ `id -un` != "root" ]; then
+  echo "Must run as root"
+  exit 1
+fi
+
+#################################################################
+# Check for user ID
+if [ -z $1 ]; then
+  echo ""
+  echo "Error: Missing required argument"
+  echo ""
+  echo "Usage: $0 <account id> <source path> <destination path>"
+  echo ""
+  exit 1
+fi
+
+#################################################################
+# Set user ID
+USER="$1"
+
+#################################################################
+# Check for source path argument
+if [ -z $2 ]; then
+  echo ""
+  echo "Error: Missing required argument"
+  echo ""
+  echo "Usage: $0 <account id> <source path> <destination path>"
+  echo ""
+  exit 1
+fi
+
+#################################################################
+# Verify source path
+SRC_DIR=$2
+if [ ! -d "${SRC_DIR}/user/${ACCT_ID}" ]; then
+    echo "Error: Source mail database directory, ${SRC_DIR}/user${ACCT_ID}, does not exist"
+    exit 1
+fi
+
+#################################################################
+# Check for destination path argument
+if [ -z $3 ]; then
+  echo ""
+  echo "Error: Missing required argument"
+  echo ""
+  echo "Usage: $0 <account id> <source path> <destination path>"
+  echo ""
+  exit 1
+fi
+
+#################################################################
+# Set destination directory and make sure it exists
+DEST_DIR="$3"
+if [ ! -w ${DEST_DIR} ]; then
+  mkdir -p ${DEST_DIR}
+  chmod 775 ${DEST_DIR}
+  if [ ! -w ${DEST_DIR} ]; then
+    echo "Error: Directory ${DEST_DIR} must exist and be writable."
+    exit 1
+  fi
+fi
+
+#################################################################
+# Get database and default data store directories from imapd.conf
+#  and verify that they exist
+## MED: Need to handle alt data store locations
+#
+DATABASE_DIR=`/usr/bin/grep "configdirectory" /etc/imapd.conf | sed 's/^.*://' | sed -e 's/^ *//'`
+
+# Verify that the source data directories exist
+if [ ! -d ${DATABASE_DIR} ]; then
+    echo "Error: Source mail database directory, ${DATABASE_DIR}, does not exist"
+    exit 1
+fi
+
+
+
+#################################################################
+# Loop through user accounts and migrate mail
+
+####
+# Check for "<user>.seen" file in database directory
+echo "Checking for seen file: ${DATABASE_DIR}/user/${USER:0:1}/${USER}.seen"
+
+# If seen file exists, we need to convert it from skiplist to flat
+if [ -f ${DATABASE_DIR}/user/${USER:0:1}/${USER}.seen ]; then
+  ####
+  # Convert from skiplist to flat
+  /usr/bin/cyrus/bin/cvt_cyrusdb ${DATABASE_DIR}/user/${USER:0:1}/${USER}.seen skiplist ${DATABASE_DIR}/user/${USER:0:1}/${USER}.seen.flat flat
+
+  ####
+  # Migrate mail data
+  /usr/bin/cvt_mail_data -m -d ${DATABASE_DIR} -s ${SRC_DIR} -t ${DEST_DIR} -a ${USER}
+
+  ####
+  # clean up
+  rm ${DATABASE_DIR}/user/${USER:0:1}/${USER}.seen.flat
+else
+  ####
+  # Do mail migration without setting any seen flags
+  /usr/bin/cvt_mail_data -m -d ${DATABASE_DIR} -g -s ${SRC_DIR} -t ${DEST_DIR} -a ${USER}
+fi
+
+####
+# Set directory ownership
+chown -R _dovecot:mail ${DEST_DIR}/${USER}

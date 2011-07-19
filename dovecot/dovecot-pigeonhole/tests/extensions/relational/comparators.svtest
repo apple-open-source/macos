@@ -1,0 +1,258 @@
+require "vnd.dovecot.testsuite";
+require "variables";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Comparator i;octet
+ */
+
+test "i;octet" {
+	if not string :comparator "i;octet" :value "eq" "" "" {
+		test_fail "not '' eq ''";
+	}
+
+	if not string :comparator "i;octet" :value "gt" "a" "" {
+		test_fail "not 'a' gt ''";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "" "a" {
+		test_fail "not '' lt 'a'";
+	}
+
+	if not string :comparator "i;octet" :value "gt" "ab" "a" {
+		test_fail "not 'ab' gt 'a'";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "a" "ab" {
+		test_fail "not 'a' lt 'ab'";
+	}
+
+	if not string :comparator "i;octet" :value "gt" "ba" "ab" {
+		test_fail "not 'ba' gt 'ab'";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "ab" "ba" {
+		test_fail "not 'ab' lt 'ba'";
+	}
+
+	if not string :comparator "i;octet" :value "eq" "abcd" "abcd" {
+		test_fail "not 'abcd' eq 'abcd'";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "abcce" "abcde" {
+		test_fail "not 'abcce' lt 'abcde'";
+	}
+
+	if not string :comparator "i;octet" :value "gt" "abcde" "abcce" {
+		test_fail "not 'abcde' gt 'abcce'";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "abcce" "abcd" {
+		test_fail "not 'abcce' lt 'abcd'";
+	}
+
+	if not string :comparator "i;octet" :value "gt" "abcd" "abcce" {
+		test_fail "not 'abcd' gt 'abcce'";
+	}
+
+	if not string :comparator "i;octet" :value "lt" "Z" "b" {
+		test_fail "not 'Z' lt 'b'";
+	}
+}
+
+/*
+ * Comparator i;ascii-casemap
+ */
+
+test "i;ascii-casemap" {
+	if not string :comparator "i;ascii-casemap" :value "eq" "" "" {
+		test_fail "not '' eq ''";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "a" "" {
+		test_fail "not 'a' gt ''";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "lt" "" "a" {
+		test_fail "not '' lt 'a'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "ab" "a" {
+		test_fail "not 'ab' gt 'a'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "lt" "a" "ab" {
+		test_fail "not 'a' lt 'ab'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "ba" "ab" {
+		test_fail "not 'ba' gt 'ab'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "lt" "ab" "ba" {
+		test_fail "not 'ab' lt 'ba'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "eq" "abcd" "abcd" {
+		test_fail "not 'abcd' eq 'abcd'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "lt" "abcce" "abcde" {
+		test_fail "not 'abcce' lt 'abcde'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "abcde" "abcce" {
+		test_fail "not 'abcde' gt 'abcce'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "lt" "abcce" "abcd" {
+		test_fail "not 'abcce' lt 'abcd'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "abcd" "abcce" {
+		test_fail "not 'abcd' gt 'abcce'";
+	}
+
+	if not string :comparator "i;ascii-casemap" :value "gt" "Z" "b" {
+		test_fail "not 'Z' gt 'b'";
+	}
+}
+
+/*
+ * Comparator i;ascii-numeric
+ */
+
+test "i;ascii-numeric" {
+	/* Non-digit characters; equality */
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "" "" {
+		test_fail "not '' eq ''";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "a" "" {
+		test_fail "not 'a' eq ''";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "" "a" {
+		test_fail "not '' eq 'a'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "a" "b" {
+		test_fail "not 'a' eq 'b'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "b" "a" {
+		test_fail "not 'b' eq 'a'";
+	}
+
+	if string :comparator "i;ascii-numeric" :value "eq" "a" "0" {
+		test_fail "'a' eq '0'";
+	}
+
+	if string :comparator "i;ascii-numeric" :value "eq" "0" "a" {
+		test_fail "'0' eq 'a'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "ne" "a" "0" {
+		test_fail "not 'a' ne '0'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "ne" "0" "a" {
+		test_fail "not '0' ne 'a'";
+	}
+
+	/* Non-digit characters; comparison */
+
+	if string :comparator "i;ascii-numeric" :value "lt" "a" "0" {
+		test_fail "'a' lt '0'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "lt" "0" "a" {
+		test_fail "not '0' lt 'a'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "gt" "a" "0" {
+		test_fail "not 'a' gt '0'";
+	}
+
+	if string :comparator "i;ascii-numeric" :value "gt" "0" "a" {
+		test_fail "'0' gt 'a'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "ge" "a" "0" {
+		test_fail "not 'a' ge '0'";
+	}
+
+	if string :comparator "i;ascii-numeric" :value "ge" "0" "a" {
+		test_fail "'0' ge 'a'";
+	}
+
+	if string :comparator "i;ascii-numeric" :value "le" "a" "0" {
+		test_fail "'a' le '0'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "le" "0" "a" {
+		test_fail "not '0' le 'a'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "0" "0" {
+		test_fail "not '0' eq '0'";
+	}
+	
+	/* Digit characters; basic comparison */
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "2" "2" {
+		test_fail "not '2' eq '2'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "gt" "2" "1" {
+		test_fail "not '2' gt '1'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "lt" "1" "2" {
+		test_fail "not '1' lt '2'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "lt" "65535" "65635" {
+		test_fail "not '65535' lt '65635'";
+	}
+
+	if not string :comparator "i;ascii-numeric" :value "gt" "65635" "65535" {
+		test_fail "not '65635' gt '65535'";
+	}	
+
+	/* Digit characters; leading zeros */
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "0" "000" {
+		test_fail "not '0' eq '000'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "000" "0" {
+		test_fail "not '0' eq '000'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "02" "0002" {
+		test_fail "not '02' eq '0002'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "eq" "0002" "02" {
+		test_fail "not '0002' eq '02'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "gt" "2" "001" {
+		test_fail "not '2' gt '001'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "lt" "001" "2" {
+		test_fail "not '001' lt '2'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "gt" "002" "1" {
+		test_fail "not '002' gt '1'";
+	}	
+
+	if not string :comparator "i;ascii-numeric" :value "lt" "1" "002" {
+		test_fail "not '1' lt '002'";
+	}	
+}

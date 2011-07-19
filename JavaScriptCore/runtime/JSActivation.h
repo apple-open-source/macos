@@ -42,16 +42,17 @@ namespace JSC {
     class JSActivation : public JSVariableObject {
         typedef JSVariableObject Base;
     public:
-        JSActivation(CallFrame*, NonNullPassRefPtr<FunctionExecutable>);
+        JSActivation(CallFrame*, FunctionExecutable*);
         virtual ~JSActivation();
 
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
 
         virtual bool isDynamicScope(bool& requiresDynamicChecks) const;
 
         virtual bool isActivationObject() const { return true; }
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
+        virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode);
 
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
 
@@ -59,47 +60,44 @@ namespace JSC {
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
 
         virtual JSObject* toThisObject(ExecState*) const;
+        virtual JSValue toStrictThisObject(ExecState*) const;
 
-        void copyRegisters(Arguments* arguments);
+        void copyRegisters(JSGlobalData&);
         
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesMarkChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesVisitChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
 
     private:
-        struct JSActivationData : public JSVariableObjectData {
-            JSActivationData(NonNullPassRefPtr<FunctionExecutable> _functionExecutable, Register* registers)
-                : JSVariableObjectData(_functionExecutable->generatedBytecode().symbolTable(), registers)
-                , functionExecutable(_functionExecutable)
-            {
-                // We have to manually ref and deref the symbol table as JSVariableObjectData
-                // doesn't know about SharedSymbolTable
-                functionExecutable->generatedBytecode().sharedSymbolTable()->ref();
-            }
-            ~JSActivationData()
-            {
-                static_cast<SharedSymbolTable*>(symbolTable)->deref();
-            }
+        bool symbolTableGet(const Identifier&, PropertySlot&);
+        bool symbolTableGet(const Identifier&, PropertyDescriptor&);
+        bool symbolTableGet(const Identifier&, PropertySlot&, bool& slotIsWriteable);
+        bool symbolTablePut(JSGlobalData&, const Identifier&, JSValue);
+        bool symbolTablePutWithAttributes(JSGlobalData&, const Identifier&, JSValue, unsigned attributes);
 
-            RefPtr<FunctionExecutable> functionExecutable;
-        };
-        
         static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         NEVER_INLINE PropertySlot::GetValueFunc getArgumentsGetter();
 
-        JSActivationData* d() const { return static_cast<JSActivationData*>(JSVariableObject::d); }
+        int m_numParametersMinusThis;
+        int m_numCapturedVars : 31;
+        bool m_requiresDynamicChecks : 1;
+        int m_argumentsRegister;
     };
 
     JSActivation* asActivation(JSValue);
 
     inline JSActivation* asActivation(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&JSActivation::info));
+        ASSERT(asObject(value)->inherits(&JSActivation::s_info));
         return static_cast<JSActivation*>(asObject(value));
+    }
+    
+    ALWAYS_INLINE JSActivation* Register::activation() const
+    {
+        return asActivation(jsValue());
     }
 
 } // namespace JSC

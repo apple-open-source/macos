@@ -451,7 +451,23 @@ proc fmt_uri     {text {label {}}} {
 	return "[em $label] <URL:$text>"
     }
 }
+proc fmt_image {text {label {}}} {
+    # text = symbolic name of the image.
+
+    set img [dt_imgdata $text {txt}]
+    if {$img eq {}} {
+	if {$label eq {}} {
+	    return "IMAGE: $text"
+	} else {
+	    return "IMAGE: $text $label"
+	}
+    }
+
+    return $img
+}
 proc fmt_term    {text} {em     $text}
 proc fmt_const   {text} {strong $text}
+proc fmt_mdash {} { return " --- " }
+proc fmt_ndash {} { return " -- " }
 
 ################################################################

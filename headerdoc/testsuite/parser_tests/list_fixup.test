@@ -1,0 +1,473 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE_$1080|/*! @header
+
+Quick test.
+
+	0 A
+	1 B
+	2 C
+	3 D
+
+End test.
+
+
+This is a test of a numbered list.
+
+	1.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+	2.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+	3.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+	4.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+	5.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+End test.
+
+This is a test of a numbered list.
+
+	1.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+	2.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+	3.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+	4.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+	5.  Blah blah blah blah blah blah blah blah blah blah
+		blah blah blah blah blah
+
+End test.
+
+Last test.
+
+	1.  This is a test.
+	2.  This is also a test.
+	3.  This is only a test.
+
+End test.
+
+ */
+$0|$5190|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 1
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/list_fixup.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/list_fixup.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{onlyComments} => 1
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: 
+namelist: 
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+0
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: list fixup
+APIUID: //test_ref/doc/header/list_fixup.test
+ABSTRACT: ""
+DISCUSSION: "<p>Quick test.
+</p>
+<ol start="0"><li><p>A
+</p></li><li><p>B
+</p></li><li><p>C
+</p></li><li><p>D
+</p></li></ol><p>End test.
+</p>
+
+<p>This is a test of a numbered list.
+</p>
+<ol start="1"><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li></ol><p>End test.
+</p>
+<p>This is a test of a numbered list.
+</p>
+<ol start="1"><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li></ol><p>End test.
+</p>
+<p>Last test.
+</p>
+<ol start="1"><li><p>  This is a test.
+</p></li><li><p>  This is also a test.
+</p></li><li><p>  This is only a test.
+</p></li></ol><p>End test.
+</p>
+"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+
+$5190|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 1
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/list_fixup.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/list_fixup.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{onlyComments} => 1
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: 
+namelist: 
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+0
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: list fixup
+APIUID: //test_ref/doc/header/list_fixup.test
+ABSTRACT: ""
+DISCUSSION: "<p>Quick test.
+</p>
+<ol start="0"><li><p>A
+</p></li><li><p>B
+</p></li><li><p>C
+</p></li><li><p>D
+</p></li></ol><p>End test.
+</p>
+
+<p>This is a test of a numbered list.
+</p>
+<ol start="1"><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p>
+</li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li></ol><p>End test.
+</p>
+<p>This is a test of a numbered list.
+</p>
+<ol start="1"><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li><li><p>  Blah blah blah blah blah blah blah blah blah blah
+blah blah blah blah blah
+</p></li></ol><p>End test.
+</p>
+<p>Last test.
+</p>
+<ol start="1"><li><p>  This is a test.
+</p></li><li><p>  This is also a test.
+</p></li><li><p>  This is only a test.
+</p></li></ol><p>End test.
+</p>
+"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+
+$27|Tests the list fixup code.
+$92|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/list_fixup.test$1|C$10|list fixup$1|C$6|parser

@@ -2,6 +2,12 @@
  * For license terms, see the file COPYING in this directory.
  */
 
+#include "config.h"
+
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+
 struct mxentry
 {
     char	*name;
@@ -10,10 +16,8 @@ struct mxentry
 
 extern struct mxentry * getmxrecords(const char *);
 
-/* some versions of FreeBSD should declare this but don't */
-/* But only declare it if it isn't already */
-#ifndef h_errno
+#if !HAVE_DECL_H_ERRNO
 extern int h_errno;
-#endif /* ndef h_errno */
+#endif
 
 /* mx.h ends here */

@@ -34,13 +34,11 @@
 #include <windows.h>
 #include <shlwapi.h>
 
-#if COMPILER(MINGW)
-#define _countof(x) (sizeof(x)/sizeof(x[0]))
-#endif
-
 #if OS(WINCE)
 // WINCE doesn't support Registry Key Access Rights. The parameter should always be 0
+#ifndef KEY_ENUMERATE_SUB_KEYS
 #define KEY_ENUMERATE_SUB_KEYS 0
+#endif
 
 DWORD SHGetValue(HKEY hkey, LPCWSTR pszSubKey, LPCWSTR pszValue, LPDWORD pdwType, LPVOID pvData, LPDWORD pcbData)
 {
@@ -94,7 +92,7 @@ static inline void addPluginPathsFromRegistry(HKEY rootKey, HashSet<String>& pat
 
     // Enumerate subkeys
     for (int i = 0;; i++) {
-        DWORD nameLen = _countof(name);
+        DWORD nameLen = WTF_ARRAY_LENGTH(name);
         result = RegEnumKeyExW(key, i, name, &nameLen, 0, 0, 0, &lastModified);
 
         if (result != ERROR_SUCCESS)
@@ -255,9 +253,9 @@ static inline void addWindowsMediaPlayerPluginDirectory(Vector<String>& director
 #if !OS(WINCE)
     // The new WMP Firefox plugin is installed in \PFiles\Plugins if it can't find any Firefox installs
     WCHAR pluginDirectoryStr[_MAX_PATH + 1];
-    DWORD pluginDirectorySize = ::ExpandEnvironmentStringsW(TEXT("%SYSTEMDRIVE%\\PFiles\\Plugins"), pluginDirectoryStr, _countof(pluginDirectoryStr));
+    DWORD pluginDirectorySize = ::ExpandEnvironmentStringsW(TEXT("%SYSTEMDRIVE%\\PFiles\\Plugins"), pluginDirectoryStr, WTF_ARRAY_LENGTH(pluginDirectoryStr));
 
-    if (pluginDirectorySize > 0 && pluginDirectorySize <= _countof(pluginDirectoryStr))
+    if (pluginDirectorySize > 0 && pluginDirectorySize <= WTF_ARRAY_LENGTH(pluginDirectoryStr))
         directories.append(String(pluginDirectoryStr, pluginDirectorySize - 1));
 #endif
 
@@ -330,6 +328,56 @@ static inline void addAdobeAcrobatPluginDirectory(Vector<String>& directories)
     RegCloseKey(key);
 }
 
+static inline void addJavaPluginDirectory(Vector<String>& directories)
+{
+    HKEY key;
+    HRESULT result = RegOpenKeyEx(HKEY_LOCAL_MACHINE, TEXT("Software\\JavaSoft\\Java Plug-in"), 0, KEY_READ, &key);
+    if (result != ERROR_SUCCESS)
+        return;
+
+    WCHAR name[128];
+    FILETIME lastModified;
+
+    Vector<int> latestJavaVersion;
+    String latestJavaVersionString;
+
+    // Enumerate subkeys
+    for (int i = 0;; i++) {
+        DWORD nameLen = sizeof(name) / sizeof(WCHAR);
+        result = RegEnumKeyExW(key, i, name, &nameLen, 0, 0, 0, &lastModified);
+
+        if (result != ERROR_SUCCESS)
+            break;
+
+        Vector<int> javaVersion = parseVersionString(String(name, nameLen));
+        if (compareVersions(javaVersion, latestJavaVersion)) {
+            latestJavaVersion = javaVersion;
+            latestJavaVersionString = String(name, nameLen);
+        }
+    }
+
+    if (!latestJavaVersionString.isEmpty()) {
+        DWORD type;
+        WCHAR javaInstallPathStr[_MAX_PATH];
+        DWORD javaInstallPathSize = sizeof(javaInstallPathStr);
+        DWORD useNewPluginValue;
+        DWORD useNewPluginSize;
+
+        String javaPluginKeyPath = "Software\\JavaSoft\\Java Plug-in\\" + latestJavaVersionString;
+        result = SHGetValue(HKEY_LOCAL_MACHINE, javaPluginKeyPath.charactersWithNullTermination(), TEXT("UseNewJavaPlugin"), &type, (LPVOID)&useNewPluginValue, &useNewPluginSize);
+
+        if (result == ERROR_SUCCESS && useNewPluginValue == 1) {
+            result = SHGetValue(HKEY_LOCAL_MACHINE, javaPluginKeyPath.charactersWithNullTermination(), TEXT("JavaHome"), &type, (LPBYTE)javaInstallPathStr, &javaInstallPathSize);
+            if (result == ERROR_SUCCESS) {
+                String javaPluginDirectory = String(javaInstallPathStr, javaInstallPathSize / sizeof(WCHAR) - 1) + "\\bin\\new_plugin";
+                directories.append(javaPluginDirectory);
+            }
+        }
+    }
+
+    RegCloseKey(key);
+}
+
 static inline String safariPluginsDirectory()
 {
     WCHAR moduleFileNameStr[_MAX_PATH];
@@ -358,7 +406,7 @@ static inline void addMacromediaPluginDirectories(Vector<String>& directories)
 #if !OS(WINCE)
     WCHAR systemDirectoryStr[MAX_PATH];
 
-    if (GetSystemDirectory(systemDirectoryStr, _countof(systemDirectoryStr)) == 0)
+    if (!GetSystemDirectory(systemDirectoryStr, WTF_ARRAY_LENGTH(systemDirectoryStr)))
         return;
 
     WCHAR macromediaDirectoryStr[MAX_PATH];
@@ -383,6 +431,9 @@ Vector<String> PluginDatabase::defaultPluginDirectories()
     addMozillaPluginDirectories(directories);
     addWindowsMediaPlayerPluginDirectory(directories);
     addMacromediaPluginDirectories(directories);
+#if PLATFORM(QT)
+    addJavaPluginDirectory(directories);
+#endif
 
     return directories;
 }

@@ -24,23 +24,21 @@
 #ifndef WebKitDOMBinding_h
 #define WebKitDOMBinding_h
 
+#include "webkit/webkitdomdefines.h"
 #include <glib.h>
 
 namespace WebCore {
 class Node;
 class Element;
+class Event;
+class EventTarget;
 } // namespace WebCore
 
 namespace WebKit {
-gpointer kit(WebCore::Node* node);
-gpointer kit(WebCore::Element* element);
-
-class DOMObjectCache {
-public:
-    static gpointer get(void* objectHandle);
-    static gpointer put(void* objectHandle, gpointer wrapper);
-    static void forget(void* objectHandle);
-};
+WebKitDOMNode* kit(WebCore::Node* node);
+WebKitDOMElement* kit(WebCore::Element* element);
+WebKitDOMEvent* kit(WebCore::Event* event);
+WebKitDOMEventTarget* kit(WebCore::EventTarget* target);
 } // namespace WebKit
 
 #endif // WebKitDOMBinding_h

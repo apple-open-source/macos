@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)err.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.13 2002/03/29 22:43:41 markm Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.15 2008/04/03 20:36:44 imp Exp $");
 
 #include "namespace.h"
 #include <err.h>
@@ -87,10 +83,12 @@ __private_extern__ struct _e_err_exit _e_err_exit = {ERR_EXIT_UNDEF};
  * (NUL isn't used)
  */
 static unsigned char escape[256] = {
-     /* NUL  SOH  STX  ETX  EOT  ENQ  ACK  BEL */
-	0  , 255, 255, 255, 255, 255, 255, 'a',
+     /* NUL */
+	 0, /* Unused: strings can't contain nulls */
+     /*      SOH  STX  ETX  EOT  ENQ  ACK  BEL */
+	     255, 255, 255, 255, 255, 255, 'a',
      /* BS   HT   NL   VT   NP   CR   SO   SI  */
-	'b', 't', 'n', 'v', 'f', 'r', 255, 255,
+	'b',  0,   0,  'v', 'f', 'r', 255, 255,
      /* DLE  DC1  DC2  DC3  DC4  NAK  SYN  ETB */
 	255, 255, 255, 255, 255, 255, 255, 255,
      /* CAN  EM   SUB  ESC  FS   GS   RS   US  */
@@ -121,7 +119,7 @@ _e_visprintf(FILE * __restrict stream, const char * __restrict format, va_list a
 					*tp++ = *fp;
 					break;
 				case 255:
-					sprintf(tp, "\\%03o", *fp);
+					sprintf((char *)tp, "\\%03o", *fp);
 					tp += 4;
 					break;
 				default:
@@ -205,11 +203,7 @@ errc(int eval, int code, const char *fmt, ...)
 }
 
 void
-verrc(eval, code, fmt, ap)
-	int eval;
-	int code;
-	const char *fmt;
-	va_list ap;
+verrc(int eval, int code, const char *fmt, va_list ap)
 {
 	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
@@ -239,10 +233,7 @@ errx(int eval, const char *fmt, ...)
 }
 
 void
-verrx(eval, fmt, ap)
-	int eval;
-	const char *fmt;
-	va_list ap;
+verrx(int eval, const char *fmt, va_list ap)
 {
 	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
@@ -272,9 +263,7 @@ _warn(const char *fmt, ...)
 }
 
 void
-vwarn(fmt, ap)
-	const char *fmt;
-	va_list ap;
+vwarn(const char *fmt, va_list ap)
 {
 	vwarnc(errno, fmt, ap);
 }
@@ -289,10 +278,7 @@ warnc(int code, const char *fmt, ...)
 }
 
 void
-vwarnc(code, fmt, ap)
-	int code;
-	const char *fmt;
-	va_list ap;
+vwarnc(int code, const char *fmt, va_list ap)
 {
 	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
@@ -314,9 +300,7 @@ warnx(const char *fmt, ...)
 }
 
 void
-vwarnx(fmt, ap)
-	const char *fmt;
-	va_list ap;
+vwarnx(const char *fmt, va_list ap)
 {
 	if (_e_err_file == 0)
 		err_set_file((FILE *)0);

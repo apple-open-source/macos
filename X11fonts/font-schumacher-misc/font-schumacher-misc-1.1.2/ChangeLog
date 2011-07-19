@@ -1,0 +1,265 @@
+commit 3d8bb21eb452f40436407266a19d3495d9193d02
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Tue Nov 16 00:10:12 2010 +0100
+
+    font-schumacher-misc 1.1.2
+
+commit b26ebcd568c8f67ea48cf320e397cc318bcfc0e2
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:56 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6193a809f0c87b94e3b8eb8c65e8ec829cdc314c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Oct 5 00:26:05 2010 -0700
+
+    font-schumacher-misc 1.1.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a8343aa6d5b0b95d12c56aa40eb050f41b712737
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:52 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 9e7c38f2abf1bb431539fb2685970711bf56beff
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit 04ef616b43392e992f9cd08f1fe2ffa44a6f75b5
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 43356fc26b7fbfaca1bbe4be01af7edbb6099ac0
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit b6aa5679baa7897fec72eb6da4188f2109360aed
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:46:50 2009 -0700
+
+    font-schumacher-misc 1.1.0
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d4d3b2091ae3faa09d9a0aab2e9f90f00114840e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 20:15:00 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8d5dbbe02d2197ffa87de2ba51f4ffdee9ac3107
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:29 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 677062e4623446d0edb222d14c1b0398f44e5526
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 23 23:39:07 2009 -0700
+
+    Stop trying to run bdftruncate with perl now that it's a C program
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 81881c2da9610cdfccf61685a091dbf5db7c415b
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 19:11:08 2009 -0200
+
+    Janitor: Correct make distcheck and configure.ac simplification
+
+commit 8ca2261df425c58a994e4c1a98984f6c0a5f036d
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 7c5abf91afb8c9cfed25c1e4bad01562e86c7b04
+Author: Jeremy Lainé <jeremy.laine@m4x.org>
+Date:   Sat Oct 25 20:07:14 2008 +0200
+
+    Respect the $PKG_CONFIG variable (bug#8185)
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 8a8c7dcea97e48bff9808e5f7e47aee5cb0f092b
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Apr 19 22:24:24 2008 +0100
+
+    Changes from http://www.cl.cam.ac.uk/~mgk25/ucs-fonts.html since 2004-11-28
+    
+    - removed all wide and full-width characters
+    
+    - moved wide angle brackets U+2329/232A to
+      mathematical angle brackets U+27E8/27E9
+    
+    - added U+20AF DRACHMA SIGN
+
+commit b2c2f965d55a099902daf53a8ac56cf3d6236d42
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Apr 17 01:07:56 2008 -0400
+
+    Remove bogus glyphs for characters uni30D0, uni30D1, uni30D2 and uni30D3
+    The 6x12 pixel roman variant had four inaccurate glyphs in the Katakana
+    Range (Katakana ba, Pa, Hi, Bi).  None of the other fonts in this family
+    have any glyphs in that character range, nor did R6x12 have any other
+    Katakana glyphs.
+
+commit 2786980b0d65c9518a8b2e7484ff6fcc01ab46af
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:06 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 72ae5d8f357f7d621947e254e4cb71e2db0841da
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:20 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 85f93ce2e941c104d31a92da623640cf4610c027
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:45 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 9dfd962b3683d56e679044fd10ce5be6282ad79b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:26 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 7b44d8fa23eb29b1dfc6685725a2c1cff99be63f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:54 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit 441431632d1f9d1b9f37143f706d7ed739d8e499
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:40 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit cc129f811a1bb335cc82f2822b380ef90cae8544
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Nov 24 05:21:16 2005 +0000
+
+    Bug #5122: Use $< instead of $^ to be portable to FreeBSD's make.
+
+commit f130c68378919289ad8d7a1d1ebb9d2fb771dc0a
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:21 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit 4f4486cc02dcea3ebd8b4c10432bbe006b59acc5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:26:47 2005 +0000
+
+    Add configure options to change the installed font dir and disable
+        ISO8859-* fonts.
+
+commit c5d4fd410bdeb9d5c197f4dcb3fe9edc8acf3a59
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:08 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit fc6248859c29dbe39a9d9c9926a36ecb6b4693ed
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Oct 2 18:19:54 2005 +0000
+
+    Add explicit all-local targets so Solaris make can build, since it won't
+        recursively follow the implicit targets (.bdf -> -ISO-8859-1.bdf ->
+        pcf.gz)
+    Fix a couple of remaining GNU-make-isms
+
+commit d92e1e3b3b93108708d96968b938a151c3c550e0
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:49 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 14b3f5680dbd6e6963b0df28fe6a0f44c6b41def
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 22 04:13:44 2005 +0000
+
+    Fix distcheck for fonts with multiple encodings
+
+commit bffc96da62136c690033cc7f003f4caab249e0aa
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 19 02:40:06 2005 +0000
+
+    Convert $(foreach...) to more portable suffix substitution rules
+
+commit 091c83502d80a60e59d67d41e44ebf414cf5e589
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jun 30 22:28:08 2005 +0000
+
+    Initial build system files for font module
+
+commit c79ce532d4fc2bf10a9d3af11eb06b3b5e9880ef
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit bb2d9cb5b946b9ea63affd297a5bc449553cf8ee
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:34 2003 +0000
+
+    R6.6 is the Xorg base-line

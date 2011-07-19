@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Brent Fulgham
+ * Copyright (C) 2007-2009 Torch Mobile, Inc. All Rights Reserved.
+ * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,22 +29,18 @@
 #include "config.h"
 #include "BitmapInfo.h"
 
+#include <wtf/Assertions.h>
+
 namespace WebCore {
 
-BitmapInfo bitmapInfoForSize(int width, int height)
+BitmapInfo bitmapInfoForSize(int width, int height, BitmapInfo::BitCount bitCount)
 {
     BitmapInfo bitmapInfo;
-    bitmapInfo.bmiHeader.biSize          = sizeof(BITMAPINFOHEADER);
-    bitmapInfo.bmiHeader.biWidth         = width; 
+    bitmapInfo.bmiHeader.biWidth         = width;
     bitmapInfo.bmiHeader.biHeight        = height;
     bitmapInfo.bmiHeader.biPlanes        = 1;
-    bitmapInfo.bmiHeader.biBitCount      = 32;
+    bitmapInfo.bmiHeader.biBitCount      = bitCount;
     bitmapInfo.bmiHeader.biCompression   = BI_RGB;
-    bitmapInfo.bmiHeader.biSizeImage     = 0;
-    bitmapInfo.bmiHeader.biXPelsPerMeter = 0;
-    bitmapInfo.bmiHeader.biYPelsPerMeter = 0;
-    bitmapInfo.bmiHeader.biClrUsed       = 0;
-    bitmapInfo.bmiHeader.biClrImportant  = 0;
 
     return bitmapInfo;
 }
@@ -53,14 +51,14 @@ BitmapInfo::BitmapInfo()
     bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
 }
 
-BitmapInfo BitmapInfo::create(const IntSize& size)
+BitmapInfo BitmapInfo::create(const IntSize& size, BitCount bitCount)
 {
-   return bitmapInfoForSize(size.width(), size.height());
+    return bitmapInfoForSize(size.width(), size.height(), bitCount);
 }
 
-BitmapInfo BitmapInfo::createBottomUp(const IntSize& size)
+BitmapInfo BitmapInfo::createBottomUp(const IntSize& size, BitCount bitCount)
 {
-   return bitmapInfoForSize(size.width(), -size.height());
+    return bitmapInfoForSize(size.width(), -size.height(), bitCount);
 }
 
 } // namespace WebCore

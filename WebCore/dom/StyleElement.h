@@ -17,6 +17,7 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #ifndef StyleElement_h
 #define StyleElement_h
 
@@ -24,31 +25,39 @@
 
 namespace WebCore {
 
+class Document;
 class Element;
 
 class StyleElement {
 public:
-    StyleElement();
-    virtual ~StyleElement() {}
+    StyleElement(Document*, bool createdByParser);
+    virtual ~StyleElement();
 
 protected:
-    StyleSheet* sheet() { return m_sheet.get(); }
-
-    virtual void setLoading(bool) {}
-
     virtual const AtomicString& type() const = 0;
     virtual const AtomicString& media() const = 0;
 
+    StyleSheet* sheet() const { return m_sheet.get(); }
+
+    bool isLoading() const;
+    bool sheetLoaded(Document*);
+
     void insertedIntoDocument(Document*, Element*);
-    void removedFromDocument(Document*);
+    void removedFromDocument(Document*, Element*);
+    void childrenChanged(Element*);
+    void finishParsingChildren(Element*);
+
+    RefPtr<CSSStyleSheet> m_sheet;
+
+private:
+    void createSheet(Element*, int startLineNumber, const String& text = String());
     void process(Element*);
 
-    void createSheet(Element* e, const String& text = String());
-
-protected:
-    RefPtr<CSSStyleSheet> m_sheet;
+    bool m_createdByParser;
+    bool m_loading;
+    int m_startLineNumber;
 };
 
-} //namespace
+}
 
 #endif

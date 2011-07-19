@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,7 +87,15 @@ SInt32 EnableRootUser( const char *userName, const char *password, const char *r
 		dataBuff = dsDataBufferAllocate( aDSRef, 1024 );
 		if ( dataBuff == nil ) break;
 		
-		siResult = dsFindDirNodes( aDSRef, dataBuff, nil, eDSAuthenticationSearchNodeName, &nodeCount, &context );
+		do {
+			siResult = dsFindDirNodes( aDSRef, dataBuff, nil, eDSAuthenticationSearchNodeName, &nodeCount, &context );
+			if (siResult == eDSBufferTooSmall) {
+				UInt32 newSize = dataBuff->fBufferSize * 2;
+				dsDataBufferDeAllocate(aDSRef, dataBuff);
+				dataBuff = dsDataBufferAllocate(aDSRef, newSize);
+			}
+		} while (siResult == eDSBufferTooSmall);
+		
 		if ( siResult != eDSNoErr ) break;
 		if ( nodeCount < 1 ) break;
 
@@ -116,8 +124,11 @@ SInt32 EnableRootUser( const char *userName, const char *password, const char *r
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
+			} else if (siResult == eDSNoErr && recCount == 1) {
+				dsReleaseContinueData(aSearchNodeRef, context);
+				break;
 			}
-		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
+		} while (siResult == eDSBufferTooSmall || (siResult == eDSNoErr && context != 0));
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
 		
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -316,6 +327,10 @@ SInt32 EnableRootUser( const char *userName, const char *password, const char *r
 		//always leave the while
 		break;
 	} while(true);
+	
+	if (context != 0) {
+		dsReleaseContinueData(aSearchNodeRef, context);
+	}
 
 	if ( recName != nil )
 	{
@@ -476,8 +491,11 @@ SInt32 DisableRootUser( const char *userName, const char *password )
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
+			} else if (siResult == eDSNoErr && recCount == 1) {
+				dsReleaseContinueData(aSearchNodeRef, context);
+				break;
 			}
-		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
+		} while (siResult == eDSBufferTooSmall || (siResult == eDSNoErr && context != 0));
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
 		
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -601,6 +619,10 @@ SInt32 DisableRootUser( const char *userName, const char *password )
 		break;
 	} while(true);
 
+	if (context != 0) {
+		dsReleaseContinueData(aSearchNodeRef, context);
+	}
+		
 	if ( recName != nil )
 	{
 		dsDataListDeallocate( aDSRef, recName );

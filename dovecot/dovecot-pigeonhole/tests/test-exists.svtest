@@ -1,0 +1,93 @@
+require "vnd.dovecot.testsuite";
+
+/* "The "exists" test is true if the headers listed in the header-names
+ *  argument exist within the message.  All of the headers must exist or
+ *  the test is false.
+ * "
+ */
+ 
+test_set "message" text:
+From: stephan@example.org
+To: nico@vestingbar.bl
+Subject: Test message
+Date: Wed, 29 Jul 2009 18:21:44 +0300
+X-Spam-Status: Not Spam
+Resent-To: nico@frop.example.com
+
+Test!
+.
+;
+
+/*
+ * TEST: One header
+ */
+
+test "One header" {
+	if not exists "from" {
+		test_fail "exists test missed from header";
+	}
+
+	if exists "x-nonsense" {
+		test_fail "exists test found non-existent header";
+	}
+}
+
+/*
+ * TEST: Two headers
+ */
+
+test "Two headers" {
+	if not exists ["from","to"] {
+		test_fail "exists test missed from or to header";
+	}
+
+	if exists ["from","x-nonsense"] {
+		test_fail "exists test found non-existent header (1)";
+	}
+
+	if exists ["x-nonsense","to"] {
+		test_fail "exists test found non-existent header (2)";
+	}
+
+	if exists ["x-nonsense","x-nonsense2"] {
+		test_fail "exists test found non-existent header (3)";
+	}
+}
+
+/*
+ * TEST: Three headers
+ */
+
+test "Three headers" {
+	if not exists ["Subject","date","resent-to"] {
+		test_fail "exists test missed subject, date or resent-to header";
+	}
+
+	if exists ["x-nonsense","date","resent-to"] {
+		test_fail "exists test found non-existent header (1)";
+	}
+
+	if exists ["subject", "x-nonsense","resent-to"] {
+		test_fail "exists test found non-existent header (2)";
+	}
+
+	if exists ["subject","date","x-nonsense"] {
+		test_fail "exists test found non-existent header (3)";
+	}
+
+	if exists ["subject", "x-nonsense","x-nonsense2"] {
+		test_fail "exists test found non-existent header (4)";
+	}
+
+	if exists ["x-nonsense","date","x-nonsense2"] {
+		test_fail "exists test found non-existent header (5)";
+	}
+
+	if exists ["x-nonsense","x-nonsense2","resent-to"] {
+		test_fail "exists test found non-existent header (6)";
+	}
+
+	if exists ["x-nonsense","x-nonsense2","x-nonsense3"] {
+		test_fail "exists test found non-existent header (7)";
+	}
+}

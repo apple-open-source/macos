@@ -1,11 +1,6 @@
 /*
  * Manual wrappers for CFBag
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static PyObject*
 mod_CFBagGetValues(
 	PyObject* self __attribute__((__unused__)), 
@@ -104,34 +99,22 @@ mod_CFBagCreateMutable(PyObject* self __attribute__((__unused__)),
 	return result;
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFBagCreate",
-		(PyCFunction)mod_CFBagCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_CFBAG_METHODS \
+        {						\
+		"CFBagCreate",				\
+		(PyCFunction)mod_CFBagCreate,		\
+		METH_VARARGS,				\
+		NULL					\
+	},						\
+        {						\
+		"CFBagCreateMutable",			\
+		(PyCFunction)mod_CFBagCreateMutable,	\
+		METH_VARARGS,				\
+		NULL					\
+	},						\
+        {						\
+		"CFBagGetValues",			\
+		(PyCFunction)mod_CFBagGetValues,	\
+		METH_VARARGS,				\
+		NULL					\
 	},
-        {
-		"CFBagCreateMutable",
-		(PyCFunction)mod_CFBagCreateMutable,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFBagGetValues",
-		(PyCFunction)mod_CFBagGetValues,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFBag(void);
-void init_CFBag(void)
-{
-	PyObject* m = Py_InitModule4("_CFBag", mod_methods, "", NULL,
-		PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}
-

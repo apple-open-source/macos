@@ -1,6 +1,6 @@
---- _SB/Libc/stdio/FreeBSD/setbuf.3	2004-11-25 11:38:35.000000000 -0800
-+++ _SB/Libc/stdio/FreeBSD/setbuf.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -50,21 +50,37 @@
+--- setbuf.3.bsdnew	2009-11-11 13:33:15.000000000 -0800
++++ setbuf.3	2009-11-11 13:33:15.000000000 -0800
+@@ -46,21 +46,37 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft void
@@ -47,7 +47,7 @@
  (typically
  .Dv stdin ) .
  The function
-@@ -73,17 +89,16 @@
+@@ -69,17 +85,16 @@ may be used to force the block out early
  (See
  .Xr fclose 3 . )
  .Pp
@@ -68,7 +68,7 @@
  The standard error stream
  .Dv stderr
  is always unbuffered.
-@@ -93,7 +108,7 @@
+@@ -89,7 +104,7 @@ The
  function
  may be used to alter the buffering behavior of a stream.
  The

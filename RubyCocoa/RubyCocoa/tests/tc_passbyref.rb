@@ -57,6 +57,24 @@ class PassByRefSubclass1 < OSX::PassByRef
 
 end
 
+module OSX
+  module OCObjWrapper
+    # utility method: force to forward message to objc (same as method missing)
+    def ocm_forward(mname, *args)
+      m_name, m_args, as_predicate = analyze_missing(mname, args)
+      begin
+	result = self.ocm_send(m_name, mname, as_predicate, *m_args)
+      rescue OCMessageSendException => e
+	if self.private_methods.include?(mname.to_s)
+	  raise NoMethodError, "private method `#{mname}' called for ##{self}"
+	else
+	  raise e
+	end
+      end
+    end
+  end
+end
+
 class TC_PassByRef < Test::Unit::TestCase
 
   def test_passbyref_methods
@@ -68,17 +86,17 @@ class TC_PassByRef < Test::Unit::TestCase
   
     # Integer.
     assert_equal(0, bridged.passByRefInteger(nil))
-    assert_equal([1, 666], bridged.passByRefInteger_)
+    assert_equal([1, 666], bridged.ocm_forward('passByRefInteger:'))
     
     # Float.
     assert_equal(0, bridged.passByRefFloat(nil))
-    assert_equal([1, 666.0], bridged.passByRefFloat_)
+    assert_equal([1, 666.0], bridged.ocm_forward('passByRefFloat:'))
 
     # Various.
     assert_nil(bridged.passByRefVarious_integer_floating(nil, nil, nil))
-    assert_equal([bridged, 666, 666.0], bridged.passByRefVarious_integer_floating_)
+    assert_equal([bridged, 666, 666.0], bridged.ocm_forward('passByRefVarious:integer:floating:'))
     assert_equal([666, 666.0], bridged.passByRefVarious_integer_floating_(nil))
-    assert_equal(666.0, bridged.passByRefVarious_integer_floating_(nil, nil))
+    assert_equal(666.0, bridged.ocm_forward('passByRefVarious:integer:floating:', nil, nil))
   end
 
   def test_passbyref_methods_with_qualifiers
@@ -100,21 +118,21 @@ class TC_PassByRef < Test::Unit::TestCase
     
     # Object.
     assert_equal(0, bridged.passByRefObject(nil))
-    assert_equal([1, bridged], bridged.passByRefObject_)
+    assert_equal([1, bridged], bridged.ocm_forward('passByRefObject:'))
   
     # Integer.
     assert_equal(0, bridged.passByRefInteger(nil))
-    assert_equal([1, 6666], bridged.passByRefInteger_)
+    assert_equal([1, 6666], bridged.ocm_forward('passByRefInteger:'))
     
     # Float.
     assert_equal(0, bridged.passByRefFloat(nil))
-    assert_equal([1, 6666.0], bridged.passByRefFloat_)
+    assert_equal([1, 6666.0], bridged.ocm_forward('passByRefFloat:'))
 
     # Various.
     assert_nil(bridged.passByRefVarious_integer_floating(nil, nil, nil))
-    assert_equal([bridged, 6666, 6666.0], bridged.passByRefVarious_integer_floating_)
-    assert_equal([6666, 6666.0], bridged.passByRefVarious_integer_floating_(nil))
-    assert_equal(6666.0, bridged.passByRefVarious_integer_floating_(nil, nil))
+    assert_equal([bridged, 6666, 6666.0], bridged.ocm_forward('passByRefVarious:integer:floating:'))
+    assert_equal([6666, 6666.0], bridged.ocm_forward('passByRefVarious:integer:floating:', nil))
+    assert_equal(6666.0, bridged.ocm_forward('passByRefVarious:integer:floating:', nil, nil))
   end
 
   def test_passbyref_subclass_methods_with_modifiers
@@ -122,13 +140,13 @@ class TC_PassByRef < Test::Unit::TestCase
   
     # type qualifiers, such as "in" "inout" "out" should be ignored
     assert_equal(0, bridged.passByRefObjectWithTypeQualifiers(nil))
-    assert_equal([1, bridged], bridged.passByRefObjectWithTypeQualifiers_)
+    assert_equal([1, bridged], bridged.ocm_forward('passByRefObjectWithTypeQualifiers:'))
 
     # Various. ignoreing type qualifiers 
     assert_nil(bridged.passByRefVariousTypeQualifiers_integer_floating(nil, nil, nil))
-    assert_equal([bridged, 333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_)
-    assert_equal([333, 333.0], bridged.passByRefVariousTypeQualifiers_integer_floating_(nil))
-    assert_equal(333.0, bridged.passByRefVariousTypeQualifiers_integer_floating_(nil, nil))
+    assert_equal([bridged, 333, 333.0], bridged.ocm_forward('passByRefVariousTypeQualifiers:integer:floating:'))
+    assert_equal([333, 333.0], bridged.ocm_forward('passByRefVariousTypeQualifiers:integer:floating:', nil))
+    assert_equal(333.0, bridged.ocm_forward('passByRefVariousTypeQualifiers:integer:floating:', nil, nil))
   end
 
   def test_passbyref_foundation
@@ -213,12 +231,14 @@ class TC_PassByRef < Test::Unit::TestCase
   end
 
   def test_in_c_array_fixed_length
-    font = OSX::NSFont.fontWithName_matrix('Helvetica', [1, 0, 0, 1, 0, 0].pack('f*'))
+    # CGFLoat becomes double on 64-bit
+    pack_tmpl = OSX::RUBYCOCOA_BUILD_LP64 ? 'd*' : 'f*'
+    font = OSX::NSFont.fontWithName_matrix('Helvetica', [1, 0, 0, 1, 0, 0].pack(pack_tmpl))
     assert_kind_of(OSX::NSFont, font)
     assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', nil) } 
-    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [].pack('f*')) } 
-    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [1, 2, 3, 4, 5].pack('f*')) } 
-    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [1, 2, 3, 4, 5, 6, 7].pack('f*')) } 
+    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [].pack(pack_tmpl)) }
+    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [1, 2, 3, 4, 5].pack(pack_tmpl)) }
+    assert_raises(ArgumentError) { OSX::NSFont.fontWithName_matrix('Helvetica', [1, 2, 3, 4, 5, 6, 7].pack(pack_tmpl)) }
     # TODO: should support direct Array of Float.
   end
 
@@ -228,8 +248,12 @@ class TC_PassByRef < Test::Unit::TestCase
     assert_equal(2, ary.length)
     assert_kind_of(String, ary.first)
     assert_kind_of(Fixnum, ary.last)
-    types = ary.first.unpack('i*')
-    assert_equal(ary.last, types.length) 
+    if OSX::RUBYCOCOA_BUILD_LP64
+      types = ary.first.unpack('Q*')
+    else
+      types = ary.first.unpack('i*')
+    end
+    assert_equal(ary.last, types.length)
   end
 
   def test_out_c_array_length_pointer2

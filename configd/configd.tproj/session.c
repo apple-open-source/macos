@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,10 +37,29 @@
 
 #include <unistd.h>
 #include <bsm/libbsm.h>
+#include <sandbox.h>
+
 
 /* information maintained for each active session */
 static serverSessionRef	*sessions = NULL;
 static int		nSessions = 0;
+
+/* CFMachPortInvalidation runloop */
+static CFRunLoopRef	sessionRunLoop	= NULL;
+
+
+static void
+CFMachPortInvalidateSessionCallback(CFMachPortRef port, void *info)
+{
+	CFRunLoopRef	currentRunLoop	= CFRunLoopGetCurrent();
+
+	// Bear trap
+	if (!_SC_CFEqual(currentRunLoop, sessionRunLoop)) {
+		_SC_crash("SCDynamicStore CFMachPort invalidation error",
+			   CFSTR("CFMachPort invalidated"),
+			   CFSTR("An SCDynamicStore CFMachPort has incorrectly been invalidated."));
+	}
+}
 
 
 __private_extern__
@@ -79,7 +98,12 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 {
 	CFMachPortContext	context	= { 0, NULL, NULL, NULL, NULL };
 	mach_port_t		mp	= server;
-	int			n = -1;
+	int			n	= -1;
+
+	/* save current (SCDynamicStore) runloop */
+	if (sessionRunLoop == NULL) {
+		sessionRunLoop = CFRunLoopGetCurrent();
+	}
 
 	if (nSessions <= 0) {
 		/* new session (actually, the first) found */
@@ -124,11 +148,17 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 	//       right present to ensure that CF does not establish
 	//       its dead name notification.
 	//
-	sessions[n]->serverPort = CFMachPortCreateWithPort(NULL,
-							   mp,
-							   configdCallback,
-							   &context,
-							   NULL);
+	sessions[n]->serverPort = _SC_CFMachPortCreateWithPort("SCDynamicStore/session",
+							       mp,
+							       configdCallback,
+							       &context);
+
+	//
+	// Set bear trap (an invalidation callback) to catch other
+	// threads stomping on us
+	//
+	CFMachPortSetInvalidationCallBack(sessions[n]->serverPort,
+					  CFMachPortInvalidateSessionCallback);
 
 	if (server == MACH_PORT_NULL) {
 		// insert send right that will be moved to the client
@@ -303,7 +333,7 @@ listSessions(FILE *f)
 }
 
 
-#if	TARGET_OS_IPHONE
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 
 #include <Security/Security.h>
 #include <Security/SecTask.h>
@@ -340,12 +370,12 @@ hasEntitlement(serverSessionRef session, CFStringRef entitlement)
 		CFTypeRef	value;
 
 		/* Get the value for the entitlement. */
-		value = SecTaskCopyValueForEntitlement(task, kSCWriteEntitlementName, &error);
+		value = SecTaskCopyValueForEntitlement(task, entitlement, &error);
 		if (value != NULL) {
 			if (isA_CFBoolean(value)) {
 				if (CFBooleanGetValue(value)) {
 					/* if client DOES have entitlement */
-					hasEntitlement = YES;
+					hasEntitlement = TRUE;
 				}
 			} else {
 				SCLog(TRUE, LOG_ERR,
@@ -354,10 +384,14 @@ hasEntitlement(serverSessionRef session, CFStringRef entitlement)
 			}
 
 			CFRelease(value);
-		} else if (error != NULL) {
-			SCLog(TRUE, LOG_ERR,
-			      CFSTR("hasEntitlement SecTaskCopyValueForEntitlement() failed, error=%@: %@"),
-			      error,
+		}
+		if (error != NULL) {
+			SCLog(TRUE,
+			      (value == NULL) ? LOG_ERR : LOG_DEBUG,
+			      CFSTR("hasEntitlement SecTaskCopyValueForEntitlement() %s, error domain=%@, error code=%lx"),
+			      (value == NULL) ? "failed" : "warned",
+			      CFErrorGetDomain(error),
+			      CFErrorGetCode(error),
 			      sessionName(session));
 			CFRelease(error);
 		}
@@ -372,7 +406,7 @@ hasEntitlement(serverSessionRef session, CFStringRef entitlement)
 	return hasEntitlement;
 }
 
-#endif	// TARGET_OS_IPHONE
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 
 
 __private_extern__
@@ -412,13 +446,44 @@ hasWriteAccess(serverSessionRef session)
 			// grant write access to eUID==0 processes
 			session->callerWriteAccess = YES;
 		}
-#if	TARGET_OS_IPHONE
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 		else if (hasEntitlement(session, kSCWriteEntitlementName)) {
 			// grant write access to "entitled" processes
 			session->callerWriteAccess = YES;
 		}
-#endif	// TARGET_OS_IPHONE
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 	}
 
 	return (session->callerWriteAccess == YES) ? TRUE : FALSE;
+}
+
+
+__private_extern__
+Boolean
+hasPathAccess(serverSessionRef session, const char *path)
+{
+	pid_t	pid;
+	char	realPath[PATH_MAX];
+
+	if (realpath(path, realPath) == NULL) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("hasPathAccess realpath() failed: %s"), strerror(errno));
+		return FALSE;
+	}
+
+	audit_token_to_au32(session->auditToken,
+			    NULL,		// auidp
+			    NULL,		// euid
+			    NULL,		// egid
+			    NULL,		// ruid
+			    NULL,		// rgid
+			    &pid,		// pid
+			    NULL,		// asid
+			    NULL);		// tid
+
+	if (sandbox_check(pid, "file-write-data", SANDBOX_FILTER_PATH, realPath) > 0) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("hasPathAccess sandbox access denied: %s"), strerror(errno));
+		return FALSE;
+	}
+
+	return TRUE;
 }

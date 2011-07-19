@@ -1,9 +1,9 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$52|  #define IOEventSourceAction IOEventSource::Action
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$52|  #define IOEventSourceAction IOEventSource::Action
 $111|/*!
      @defined IOEventSourceAction
      @discussion Back compatibility macro for new class based typing.
 */
-$0|$7451|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$7656|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -54,6 +54,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -82,7 +83,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>   #define IOEventSourceAction IOEventSource::Action
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -91,7 +94,7 @@ $parserState->{sodname} => IOEventSourceAction
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -167,8 +170,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -211,8 +214,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
 +---  
@@ -230,12 +233,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/econst/Action //test_ref/c/struct/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/intf/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action" --><span class="preprocessor">Action</span><!-- /a --> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction //test_ref/doc/anysymbol/IOEventSourceAction" machineGenerated="true" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/struct/Action //test_ref/c/intf/Action //test_ref/c/econst/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action //test_ref/doc/anysymbol/Action" machineGenerated="true" --><span class="preprocessor">Action</span><!-- /a --> 
 END OF OBJECT
 
 
 
-$7451|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$7656|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -286,6 +289,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -314,7 +318,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>   #define IOEventSourceAction IOEventSource::Action
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -323,7 +329,7 @@ $parserState->{sodname} => IOEventSourceAction
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -399,8 +405,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -443,8 +449,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
 +---  
@@ -462,473 +468,9 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/econst/Action //test_ref/c/struct/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/intf/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action" --><span class="preprocessor">Action</span><!-- /a --> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction //test_ref/doc/anysymbol/IOEventSourceAction" machineGenerated="true" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/struct/Action //test_ref/c/intf/Action //test_ref/c/econst/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action //test_ref/doc/anysymbol/Action" machineGenerated="true" --><span class="preprocessor">Action</span><!-- /a --> 
 END OF OBJECT
 
 
 
-_$36|testsuite/parser_tests/define_2.test$1|C$8|define 2$7451|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 1
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => Action
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 4
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>   #define IOEventSourceAction IOEventSource::Action
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => IOEventSourceAction
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: IOEventSourceAction
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---  
-+---#define
-|   +--- 
-|   +---IOEventSourceAction
-|   +--- 
-|   +---IOEventSource
-|   +---::
-|   +---Action
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{IOEventSourceAction} => IOEventSource::Action
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define 2
-APIUID: //test_ref/doc/header/define_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: IOEventSourceAction
-    APIUID: //test_ref/c/macro/IOEventSourceAction
-    ABSTRACT: ""
-    DISCUSSION: "<p>Back compatibility macro for new class based typing.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-+---  
-+---#define
-|   +--- 
-|   +---IOEventSourceAction
-|   +--- 
-|   +---IOEventSource
-|   +---::
-|   +---Action
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/econst/Action //test_ref/c/struct/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/intf/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action" --><span class="preprocessor">Action</span><!-- /a --> 
-END OF OBJECT
-
-
-
-$7451|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 1
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => Action
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 4
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>   #define IOEventSourceAction IOEventSource::Action
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => IOEventSourceAction
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: IOEventSourceAction
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---  
-+---#define
-|   +--- 
-|   +---IOEventSourceAction
-|   +--- 
-|   +---IOEventSource
-|   +---::
-|   +---Action
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{IOEventSourceAction} => IOEventSource::Action
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define 2
-APIUID: //test_ref/doc/header/define_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: IOEventSourceAction
-    APIUID: //test_ref/c/macro/IOEventSourceAction
-    ABSTRACT: ""
-    DISCUSSION: "<p>Back compatibility macro for new class based typing.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-+---  
-+---#define
-|   +--- 
-|   +---IOEventSourceAction
-|   +--- 
-|   +---IOEventSource
-|   +---::
-|   +---Action
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: IOEventSourceAction (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSourceAction //test_ref/c/tdef/IOEventSourceAction //test_ref/c/tag/IOEventSourceAction //test_ref/c/econst/IOEventSourceAction //test_ref/c/struct/IOEventSourceAction //test_ref/c/data/IOEventSourceAction //test_ref/c/clconst/IOEventSourceAction //test_ref/c/intf/IOEventSourceAction //test_ref/c/instm/IOEventSourceAction //test_ref/c/clm/IOEventSourceAction //test_ref/c/intfcm/IOEventSourceAction //test_ref/c/intfm/IOEventSourceAction //test_ref/c/func/IOEventSourceAction //test_ref/c/ftmplt/IOEventSourceAction //test_ref/c/defn/IOEventSourceAction //test_ref/c/macro/IOEventSourceAction //test_ref/doc/com/intfm/IOEventSourceAction" --><span class="preprocessor">IOEventSourceAction</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/IOEventSource //test_ref/c/tdef/IOEventSource //test_ref/c/tag/IOEventSource //test_ref/c/econst/IOEventSource //test_ref/c/struct/IOEventSource //test_ref/c/data/IOEventSource //test_ref/c/clconst/IOEventSource //test_ref/c/intf/IOEventSource //test_ref/c/instm/IOEventSource //test_ref/c/clm/IOEventSource //test_ref/c/intfcm/IOEventSource //test_ref/c/intfm/IOEventSource //test_ref/c/func/IOEventSource //test_ref/c/ftmplt/IOEventSource //test_ref/c/defn/IOEventSource //test_ref/c/macro/IOEventSource //test_ref/doc/com/intfm/IOEventSource" --><span class="preprocessor">IOEventSource</span><!-- /a --><span class="preprocessor">::</span><!-- a logicalPath="//test_ref/c/cl/Action //test_ref/c/tdef/Action //test_ref/c/tag/Action //test_ref/c/econst/Action //test_ref/c/struct/Action //test_ref/c/data/Action //test_ref/c/clconst/Action //test_ref/c/intf/Action //test_ref/c/instm/Action //test_ref/c/clm/Action //test_ref/c/intfcm/Action //test_ref/c/intfm/Action //test_ref/c/func/Action //test_ref/c/ftmplt/Action //test_ref/c/defn/Action //test_ref/c/macro/Action //test_ref/doc/com/intfm/Action" --><span class="preprocessor">Action</span><!-- /a --> 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$90|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/define_2.test$1|C$8|define 2$1|C$6|parser

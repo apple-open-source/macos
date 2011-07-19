@@ -1,4 +1,4 @@
-# $Id: DBI.pm,v 1.1.1.1 2007/10/26 20:37:32 mleasure Exp $
+# $Id$
 package Apache::DBI;
 use strict;
 
@@ -9,6 +9,7 @@ BEGIN {
     if (MP2) {
         require mod_perl2;
         require Apache2::Module;
+        require Apache2::RequestUtil;
         require Apache2::ServerUtil;
     }
     elsif (defined $modperl::VERSION && $modperl::VERSION > 1 &&
@@ -21,7 +22,7 @@ use Carp ();
 
 require_version DBI 1.00;
 
-$Apache::DBI::VERSION = '1.06';
+$Apache::DBI::VERSION = '1.08';
 
 # 1: report about new connect
 # 2: full debug output
@@ -137,18 +138,23 @@ sub connect {
     # script has finished if AutoCommit is off.  however, cleanup can only
     # be determined at end of handle life as begin_work may have been called
     # to temporarily turn off AutoCommit.
-    if (!$Rollback{$Idx} and Apache->can('push_handlers')) {
-        debug(2, "$prefix push PerlCleanupHandler");
+    if (!$Rollback{$Idx}) {
+        my $r;
         if (MP2) {
-            my $s = Apache2::ServerUtil->server;
-            $s->push_handlers("PerlCleanupHandler", sub { cleanup($Idx) });
+            # We may not actually be in a request, but in <Perl> (or
+            # equivalent such as startup.pl), in which case this would die.
+            eval { $r = Apache2::RequestUtil->request };
         }
-        else {
-            Apache->push_handlers("PerlCleanupHandler", sub { cleanup($Idx) });
+        elsif (Apache->can('push_handlers')) {
+            $r = 'Apache';
         }
-        # make sure, that the rollback is called only once for every
-        # request, even if the script calls connect more than once
-        $Rollback{$Idx} = 1;
+        if ($r) {
+            debug(2, "$prefix push PerlCleanupHandler");
+            $r->push_handlers("PerlCleanupHandler", sub { cleanup($Idx) });
+            # make sure, that the rollback is called only once for every
+            # request, even if the script calls connect more than once
+            $Rollback{$Idx} = 1;
+        }
     }
 
     # do we need to ping the database ?
@@ -373,9 +379,9 @@ The database access uses Perl's DBI. For supported DBI drivers see:
  http://dbi.perl.org/
 
 When loading the DBI module (do not confuse this with the Apache::DBI module)
-it looks if the environment variable GATEWAY_INTERFACE starts with 'CGI-Perl'
+it checks if the environment variable 'MOD_PERL' has been set
 and if the module Apache::DBI has been loaded. In this case every connect
-request will be forwarded to the Apache::DBI module. This looks if a database
+request will be forwarded to the Apache::DBI module. This checks if a database
 handle from a previous connect request is already stored and if this handle is
 still valid using the ping method. If these two conditions are fulfilled it
 just returns the database handle. The parameters defining the connection have
@@ -386,14 +392,18 @@ remove the disconnect statements from your code. They won't do anything
 because the Apache::DBI module overloads the disconnect method.
 
 The Apache::DBI module still has a limitation: it keeps database connections
-persistent on a per process basis. The problem is, if a user accesses several
-times a database, the http requests will be handled very likely by different
-servers. Every server needs to do its own connect. It would be nice, if all
-servers could share the database handles. Currently this is not possible,
-because of the distinct name-space of every process. Also it is not possible
-to create a database handle upon startup of the httpd and then inheriting this
+persistent on a per process basis. The problem is, if a user accesses a database
+several times, the http requests will be handled very likely by different
+processes. Every process needs to do its own connect. It would be nice if all
+servers could share the database handles, but currently this is not possible
+because of the distinct memory-space of each process. Also it is not possible
+to create a database handle upon startup of the httpd and then inherit this
 handle to every subsequent server. This will cause clashes when the handle is
-used by two processes at the same time.
+used by two processes at the same time.  Apache::DBI has built-in protection
+against this.  It will not make a connection persistent if it sees that it is
+being opened during the server startup.  This allows you to safely open a connection
+for grabbing data needed at startup and disconnect it normally before the end of
+startup.
 
 With this limitation in mind, there are scenarios, where the usage of
 Apache::DBI is depreciated. Think about a heavy loaded Web-site where every
@@ -402,15 +412,15 @@ many database handles each of which spawning a new backend process. In a short
 time this would kill the web server.
 
 Another problem are timeouts: some databases disconnect the client after a
-certain time of inactivity. The module tries to validate the database handle
-using the ping-method of the DBI-module. This method returns true as default.
-If the database handle is not valid and the driver has no implementation for
-the ping method, you will get an error when accessing the database. As a
-work-around you can try to replace the ping method by any database command,
-which is cheap and safe or you can deactivate the usage of the ping method
-(see CONFIGURATION below).
+certain period of inactivity. The module tries to validate the database handle
+using the C<ping()> method of the DBI-module. This method returns true by default.
+Most DBI drivers have a working C<ping()> method, but if the driver you're using
+doesn't have one and the database handle is no longer valid, you will get an error
+when accessing the database. As a work-around you can try to add your own C<ping()>
+method using any database command which is cheap and safe, or you can deactivate the
+usage of the ping method (see CONFIGURATION below).
 
-Here is generalized ping method, which can be added to the driver module:
+Here is a generalized ping method, which can be added to the driver module:
 
    package DBD::xxx::db; # ====== DATABASE ======
    use strict;
@@ -430,12 +440,12 @@ Here is generalized ping method, which can be added to the driver module:
 Transactions: a standard DBI script will automatically perform a rollback
 whenever the script exits. In the case of persistent database connections,
 the database handle will not be destroyed and hence no automatic rollback
-occurs. At a first glance it seems even to be possible, to handle a transaction
+will occur. At a first glance it even seems possible to handle a transaction
 over multiple requests. But this should be avoided, because different
-requests are handled by different servers and a server does not know the state
-of a specific transaction which has been started by another server. In general
+requests are handled by different processes and a process does not know the state
+of a specific transaction which has been started by another process. In general,
 it is good practice to perform an explicit commit or rollback at the end of
-every script. In order to avoid inconsistencies in the database in case
+every request. In order to avoid inconsistencies in the database in case
 AutoCommit is off and the script finishes without an explicit rollback, the
 Apache::DBI module uses a PerlCleanupHandler to issue a rollback at the
 end of every request. Note, that this CleanupHandler will only be used, if
@@ -447,8 +457,8 @@ before it is returned for a second time.
 This module plugs in a menu item for Apache::Status or Apache2::Status.
 The menu lists the current database connections. It should be considered
 incomplete because of the limitations explained above. It shows the current
-database connections for one specific server, the one which happens to serve
-the current request.  Other servers might have other database connections.
+database connections for one specific process, the one which happens to serve
+the current request.  Other processes might have other database connections.
 The Apache::Status/Apache2::Status module has to be loaded before the
 Apache::DBI module !
 
@@ -461,7 +471,7 @@ Add the following line to your httpd.conf or startup.pl:
 
 It is important, to load this module before any other modules using DBI !
 
-A common usage is to load the module in a startup file via the PerlRequire
+A common usage is to load the module in a startup file called via the PerlRequire
 directive. See eg/startup.pl and eg/startup2.pl for examples.
 
 There are two configurations which are server-specific and which can be done
@@ -494,7 +504,7 @@ debug output.
 
 =head2 MOD_PERL 2.0
 
-Apache::DBI version 0.96 and should work under mod_perl 2.0 RC5 and later
+Apache::DBI version 0.96 and later should work under mod_perl 2.0 RC5 and later
 with httpd 2.0.49 and later.
 
 Apache::DBI versions less than 1.00 are NO longer supported.  Additionally, 
@@ -503,12 +513,23 @@ mod_perl versions less then 2.0.0 are NO longer supported.
 =head2 MOD_PERL 1.0
 Note that this module needs mod_perl-1.08 or higher, apache_1.3.0 or higher
 and that mod_perl needs to be configured with the appropriate call-back hooks:
+  
+  PERL_CHILD_INIT=1 PERL_STACKED_HANDLERS=1
 
 Apache::DBI v0.94 was the last version before dual mod_perl 2.x support was begun.
 It still recommened that you use the latest version of Apache::DBI because Apache::DBI
 versions less than 1.00 are NO longer supported.
 
-  PERL_CHILD_INIT=1 PERL_STACKED_HANDLERS=1.
+=head1 DO YOU NEED THIS MODULE?
+
+Note that this module is intended for use in porting existing DBI code to mod_perl,
+or writing code that can run under both mod_perl and CGI.  If you are using a
+database abstraction layer such as Class::DBI or DBIx::Class that already manages persistent connections for you, there is no need to use this module
+in addition.  (Another popular choice, Rose::DB::Object, can cooperate with
+Apache::DBI or use your own custom connection handling.)  If you are developing
+new code that is strictly for use in mod_perl, you may choose to use
+C<< DBI->connect_cached() >> instead, but consider adding an automatic rollback
+after each request, as described above.
 
 =head1 SEE ALSO
 

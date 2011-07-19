@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Black</key>
+	<string>Matthias Neeracher</string>
+	<key>BlackType</key>
+	<string>human</string>
+	<key>City</key>
+	<string>?</string>
+	<key>Country</key>
+	<string>?</string>
+	<key>Event</key>
+	<string>Casual Game</string>
+	<key>Holding</key>
+	<string>[] []</string>
+	<key>Moves</key>
+	<string>g1f3
+b8c6
+f3g1
+c6b8
+g1f3
+b8c6
+f3g1
+</string>
+	<key>Position</key>
+	<string>r1bqkbnr/pppppppp/2n5/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 7 4</string>
+	<key>Result</key>
+	<string>*</string>
+	<key>StartDate</key>
+	<string>2011.03.13</string>
+	<key>StartTime</key>
+	<string>21:53:03</string>
+	<key>Variant</key>
+	<string>normal</string>
+	<key>White</key>
+	<string>Born Victim</string>
+	<key>WhiteType</key>
+	<string>program</string>
+</dict>
+</plist>

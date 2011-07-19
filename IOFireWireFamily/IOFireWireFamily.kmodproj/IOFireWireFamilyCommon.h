@@ -31,7 +31,7 @@
 	$Log: IOFireWireFamilyCommon.h,v $
 	Revision 1.79  2008/07/15 01:29:44  collin
 	<rdar://problem/5859733> & <rdar://problem/5843668>
-	
+
 	Revision 1.78  2008/05/08 02:33:22  collin
 	more K64
 	

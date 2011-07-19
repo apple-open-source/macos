@@ -1,6 +1,6 @@
---- src/ftpd.c.orig	2008-06-18 14:55:05.000000000 -0700
-+++ src/ftpd.c	2008-06-18 14:56:04.000000000 -0700
-@@ -1215,7 +1215,7 @@
+--- tnftpd-20091122/src/ftpd.c	2009-11-06 19:26:21.000000000 -0800
++++ tnftpd/src/ftpd.c	2010-01-28 17:03:18.000000000 -0800
+@@ -1263,7 +1263,7 @@
  					    "Local resource failure: realloc");
  				groups = ng;
  			} while (getgrouplist(pw->pw_name, pw->pw_gid,

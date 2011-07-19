@@ -51,7 +51,7 @@ ModuleNexus<PluginHost> plugin;
 PluginHost::PluginHost()
 {
 	if (CFBundleRef securityFramework = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.security")))
-		if (CFURLRef plugins = CFBundleCopyBuiltInPlugInsURL(securityFramework))
+		if (CFRef<CFURLRef> plugins = CFBundleCopyBuiltInPlugInsURL(securityFramework))
 			if (CFRef<CFURLRef> pluginURL = makeCFURL("csparser.bundle", true, plugins)) {
 				plugin = new LoadableBundle(cfString(pluginURL).c_str());
 				plugin->load();

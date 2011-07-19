@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-* Copyright (C) 1997-2009, International Business Machines Corporation and others.
+* Copyright (C) 1997-2010, International Business Machines Corporation and others.
 * All Rights Reserved.
 ********************************************************************************
 *
@@ -25,16 +25,17 @@
 #include "unicode/utypes.h"
 
 /**
- * \file 
+ * \file
  * \brief C++ API: Abstract base class for all number formats.
  */
- 
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/unistr.h"
 #include "unicode/format.h"
 #include "unicode/unum.h" // UNumberFormatStyle
 #include "unicode/locid.h"
+#include "unicode/stringpiece.h"
 
 U_NAMESPACE_BEGIN
 
@@ -107,6 +108,22 @@ class StringEnumeration;
  * to get a format for displaying percentages. With this format, a
  * fraction from 0.53 is displayed as 53%.
  * <P>
+ * Starting from ICU 4.2, you can use createInstance() by passing in a 'style'
+ * as parameter to get the correct instance.
+ * For example,
+ * use createInstance(...kNumberStyle...) to get the normal number format,
+ * createInstance(...kPercentStyle...) to get a format for displaying
+ * percentage,
+ * createInstance(...kScientificStyle...) to get a format for displaying
+ * scientific number,
+ * createInstance(...kCurrencyStyle...) to get the currency number format,
+ * in which the currency is represented by its symbol, for example, "$3.00".
+ * createInstance(...kIsoCurrencyStyle...)  to get the currency number format,
+ * in which the currency is represented by its ISO code, for example "USD3.00".
+ * createInstance(...kPluralCurrencyStyle...) to get the currency number format,
+ * in which the currency is represented by its full name in plural format,
+ * for example, "3.00 US dollars" or "1.00 US dollar".
+ * <P>
  * You can also control the display of numbers with such methods as
  * getMinimumFractionDigits.  If you want even more control over the
  * format or parsing, or want to give your users more control, you can
@@ -147,9 +164,36 @@ class U_I18N_API NumberFormat : public Format {
 public:
 
     /**
+     * Constants for various number format styles.
+     * kNumberStyle specifies a normal number style of format.
+     * kCurrencyStyle specifies a currency format using currency symbol name,
+     * such as in "$1.00".
+     * kPercentStyle specifies a style of format to display percent.
+     * kScientificStyle specifies a style of format to display scientific number.
+     * kISOCurrencyStyle specifies a currency format using ISO currency code,
+     * such as in "USD1.00".
+     * kPluralCurrencyStyle specifies a currency format using currency plural
+     * names, such as in "1.00 US dollar" and "3.00 US dollars".
+     * @draft ICU 4.2
+     */
+    enum EStyles {
+        kNumberStyle,
+        kCurrencyStyle,
+        kPercentStyle,
+        kScientificStyle,
+        kIsoCurrencyStyle,
+        kPluralCurrencyStyle,
+        kStyleCount // ALWAYS LAST ENUM: number of styles
+    };
+
+    /**
      * Alignment Field constants used to construct a FieldPosition object.
      * Signifies that the position of the integer part or fraction part of
      * a formatted number should be returned.
+     *
+     * Note: as of ICU 4.4, the values in this enum have been extended to
+     * support identification of all number format fields, not just those
+     * pertaining to alignment.
      *
      * @see FieldPosition
      * @stable ICU 2.0
@@ -157,7 +201,15 @@ public:
     enum EAlignmentFields {
         kIntegerField,
         kFractionField,
-
+        kDecimalSeparatorField,
+        kExponentSymbolField,
+        kExponentSignField,
+        kExponentField,
+        kGroupingSeparatorField,
+        kCurrencyField,
+        kPercentField,
+        kPermillField,
+        kSignField,
 
     /**
      * These constants are provided for backwards compatibility only.
@@ -182,6 +234,9 @@ public:
      */
     virtual UBool operator==(const Format& other) const;
 
+
+    using Format::format;
+
     /**
      * Format an object to produce a string.  This method handles
      * Formattable objects with numeric types. If the Formattable
@@ -200,6 +255,27 @@ public:
     virtual UnicodeString& format(const Formattable& obj,
                                   UnicodeString& appendTo,
                                   FieldPosition& pos,
+                                  UErrorCode& status) const;
+
+    /**
+     * Format an object to produce a string.  This method handles
+     * Formattable objects with numeric types. If the Formattable
+     * object type is not a numeric type, then it returns a failing
+     * UErrorCode.
+     *
+     * @param obj       The object to format.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.  Can be
+     *                  NULL.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @stable 4.4
+     */
+    virtual UnicodeString& format(const Formattable& obj,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
                                   UErrorCode& status) const;
 
     /**
@@ -289,6 +365,24 @@ public:
                                   UnicodeString& appendTo,
                                   FieldPosition& pos) const = 0;
     /**
+     * Format a double number. Subclasses must implement
+     * this method.
+     *
+     * @param number    The value to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.
+     *                  Can be NULL.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @stable 4.4
+     */
+    virtual UnicodeString& format(double number,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
+                                  UErrorCode& status) const;
+    /**
      * Format a long number. Concrete subclasses must implement
      * these pure virtual methods.
      *
@@ -305,6 +399,24 @@ public:
                                   FieldPosition& pos) const = 0;
 
     /**
+     * Format an int32 number. Subclasses must implement
+     * this method.
+     *
+     * @param number    The value to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.
+     *                  Can be NULL.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @stable 4.4
+     */
+    virtual UnicodeString& format(int32_t number,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
+                                  UErrorCode& status) const;
+    /**
      * Format an int64 number. (Not abstract to retain compatibility
      * with earlier releases, however subclasses should override this
      * method as it just delegates to format(int32_t number...);
@@ -320,6 +432,92 @@ public:
     virtual UnicodeString& format(int64_t number,
                                   UnicodeString& appendTo,
                                   FieldPosition& pos) const;
+    /**
+     * Format an int64 number. Subclasses must implement
+     * this method.
+     *
+     * @param number    The value to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.
+     *                  Can be NULL.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @stable 4.4
+     */
+    virtual UnicodeString& format(int64_t number,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
+                                  UErrorCode& status) const;
+
+    /**
+     * Format a decimal number. Subclasses must implement
+     * this method.  The syntax of the unformatted number is a "numeric string"
+     * as defined in the Decimal Arithmetic Specification, available at
+     * http://speleotrove.com/decimal
+     *
+     * @param number    The unformatted number, as a string, to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.
+     *                  Can be NULL.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @stable 4.4
+     */
+    virtual UnicodeString& format(const StringPiece &number,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
+                                  UErrorCode& status) const;
+public:
+    /**
+     * Format a decimal number. 
+     * The number is a DigitList wrapper onto a floating point decimal number.
+     * The default implementation in NumberFormat converts the decimal number
+     * to a double and formats that.  Subclasses of NumberFormat that want
+     * to specifically handle big decimal numbers must override this method.
+     * class DecimalFormat does so.
+     *
+     * @param number    The number, a DigitList format Decimal Floating Point.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param posIter   On return, can be used to iterate over positions
+     *                  of fields generated by this format call.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @internal
+     */
+    virtual UnicodeString& format(const DigitList &number,
+                                  UnicodeString& appendTo,
+                                  FieldPositionIterator* posIter,
+                                  UErrorCode& status) const;
+
+    /**
+     * Format a decimal number. 
+     * The number is a DigitList wrapper onto a floating point decimal number.
+     * The default implementation in NumberFormat converts the decimal number
+     * to a double and formats that.  Subclasses of NumberFormat that want
+     * to specifically handle big decimal numbers must override this method.
+     * class DecimalFormat does so.
+     *
+     * @param number    The number, a DigitList format Decimal Floating Point.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param pos       On input: an alignment field, if desired.
+     *                  On output: the offsets of the alignment field.
+     * @param status    Output param filled with success/failure status.
+     * @return          Reference to 'appendTo' parameter.
+     * @internal
+     */
+    virtual UnicodeString& format(const DigitList &number,
+                                  UnicodeString& appendTo,
+                                  FieldPosition& pos,
+                                  UErrorCode& status) const;
+
+public:
+
     /**
      * Redeclared Format method.
      * @param obj       The object to be formatted.
@@ -422,7 +620,7 @@ public:
      * @stable ICU 2.0
      */
     virtual void setParseIntegerOnly(UBool value);
-	
+
     /**
      * Return whether or not strict parsing is in effect.
      *
@@ -431,7 +629,7 @@ public:
      *  @internal
      */
     UBool isParseStrict(void) const;
-	
+
     /**
      * Set whether or not strict parsing should be used.
      *
@@ -440,7 +638,7 @@ public:
      *  @internal
      */
     virtual void setParseStrict(UBool value);
-	
+
     /**
      * Returns the default number format for the current default
      * locale.  The default format is one of the styles provided by
@@ -461,6 +659,17 @@ public:
      */
     static NumberFormat* U_EXPORT2 createInstance(const Locale& inLocale,
                                         UErrorCode&);
+
+    /**
+     * Creates the specified decimal format style of the desired locale.
+     * @param desiredLocale    the given locale.
+     * @param choice           the given style.
+     * @param success          Output param filled with success/failure status.
+     * @return                 A new NumberFormat instance.
+     * @draft ICU 4.2
+     */
+    static NumberFormat* U_EXPORT2 createInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
+
 
     /**
      * Returns a currency format for the current default locale.
@@ -730,25 +939,6 @@ protected:
 
 private:
 
-    enum EStyles {
-        kNumberStyle,
-        kCurrencyStyle,
-        kPercentStyle,
-        kScientificStyle,
-        kStyleCount // ALWAYS LAST ENUM: number of styles
-    };
-
-    /**
-     * Creates the specified decimal format style of the desired locale.
-     * Hook for service registration, uses makeInstance directly if no services
-     * registered.
-     * @param desiredLocale    the given locale.
-     * @param choice           the given style.
-     * @param success          Output param filled with success/failure status.
-     * @return                 A new NumberFormat instance.
-     */
-    static NumberFormat* U_EXPORT2 createInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
-
     /**
      * Creates the specified decimal format style of the desired locale.
      * @param desiredLocale    the given locale.
@@ -759,10 +949,10 @@ private:
     static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
 
     UBool      fGroupingUsed;
-    int32_t    fMaxIntegerDigits;
-    int32_t    fMinIntegerDigits;
-    int32_t    fMaxFractionDigits;
-    int32_t    fMinFractionDigits;
+    int32_t     fMaxIntegerDigits;
+    int32_t     fMinIntegerDigits;
+    int32_t     fMaxFractionDigits;
+    int32_t     fMinFractionDigits;
     UBool      fParseIntegerOnly;
     UBool      fParseStrict;
 

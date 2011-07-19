@@ -223,6 +223,23 @@ static NSString *kNSNativeAttrTypePrefix	= @"dsAttrTypeNative:";
         NS_ENDHANDLER
     }
     
+    // Check with case-insensitive
+    if (nextItem == nil) {
+        NSString *stdDest = [kNSStdRecordTypePrefix stringByAppendingString:dest];
+        NSString *nativeDest = [kNSNativeRecordTypePrefix stringByAppendingString:dest];
+        NS_DURING
+            NSArray *recTypes = [_node getAttribute:kDSNAttrRecordType];
+            for (NSString *string in recTypes) {
+                if (([string caseInsensitiveCompare:stdDest] == NSOrderedSame) ||
+                    ([string caseInsensitiveCompare:nativeDest] == NSOrderedSame)) {
+                    nextItem = [[PathRecordType alloc] initWithNode:_node recordType:string];
+                    break;
+                }
+            }
+        NS_HANDLER
+        NS_ENDHANDLER
+    }
+    
     // if all else fails try to open the name as is
     if (nextItem == nil && _enableSubNodes)
     {

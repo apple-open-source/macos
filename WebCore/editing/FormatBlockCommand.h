@@ -26,25 +26,38 @@
 #ifndef FormatBlockCommand_h
 #define FormatBlockCommand_h
 
-#include "CompositeEditCommand.h"
+#include "ApplyBlockElementCommand.h"
+#include "EditAction.h"
+#include "QualifiedName.h"
 
 namespace WebCore {
 
-class FormatBlockCommand : public CompositeEditCommand {
+class Document;
+class Element;
+class Position;
+class Range;
+class VisiblePosition;
+
+class FormatBlockCommand : public ApplyBlockElementCommand {
 public:
-    static PassRefPtr<FormatBlockCommand> create(Document* document, const AtomicString& tagName)
+    static PassRefPtr<FormatBlockCommand> create(Document* document, const QualifiedName& tagName)
     {
         return adoptRef(new FormatBlockCommand(document, tagName));
     }
+    
+    virtual bool preservesTypingStyle() const { return true; }
+
+    static Element* elementForFormatBlockCommand(Range*);
+    bool didApply() const { return m_didApply; }
 
 private:
-    FormatBlockCommand(Document*, const AtomicString& tagName);
+    FormatBlockCommand(Document*, const QualifiedName& tagName);
 
-    virtual void doApply();
-    virtual EditAction editingAction() const { return EditActionFormatBlock; }
+    void formatSelection(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection);
+    void formatRange(const Position& start, const Position& end, const Position& endOfSelection, RefPtr<Element>&);
+    EditAction editingAction() const { return EditActionFormatBlock; }
 
-    bool modifyRange();
-    AtomicString m_tagName;
+    bool m_didApply;
 };
 
 } // namespace WebCore

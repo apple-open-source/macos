@@ -17,10 +17,11 @@ snit::type ::transfer::data::destination {
     # ### ### ### ######### ######### #########
     ## API
 
-    #                       Destination is ...
-    option -channel  {} ; # an open & writable channel.
-    option -file     {} ; # a writable file.
-    option -variable {} ; # the named variable.
+    #                                                        Destination is ...
+    option -channel  -default {} -configuremethod C-chan ; # an open & writable channel.
+    option -file     -default {} -configuremethod C-file ; # a writable file.
+    option -variable -default {} -configuremethod C-var  ; # the named variable.
+    option -progress -default {}
 
     method put   {chunk} {}
     method done  {}      {}
@@ -32,36 +33,38 @@ snit::type ::transfer::data::destination {
     ## Implementation
 
     method put {chunk} {
-	if {$xtype eq "file"} {
-	    set value [open $value w]
-	    set xtype  channel
-	    set close 1
+	if {$myxtype eq "file"} {
+	    set mydest  [open $mydest w]
+	    set myxtype channel
+	    set myclose 1
 	}
 
-	switch -exact -- $xtype {
+	switch -exact -- $myxtype {
 	    variable {
-		upvar \#0 $value var
+		upvar \#0 $mydest var
 		append var $chunk
 	    }
 	    channel {
-		puts -nonewline $value $chunk
+		puts -nonewline $mydest $chunk
 	    }
 	}
 	return
     }
 
     method done {} {
-	switch -exact -- $xtype {
+	switch -exact -- $myxtype {
 	    file - variable {}
 	    channel {
-		if {$close} {close $value}
+		if {$myclose} {
+		    close $mydest
+		}
 	    }
 	}
     }
 
     method valid {mv} {
 	upvar 1 $mv message
-	switch -exact -- $xtype {
+	switch -exact -- $myxtype {
 	    undefined {
 		set message "Data destination is undefined"
 		return 0
@@ -72,7 +75,7 @@ snit::type ::transfer::data::destination {
     }
 
     method receive {sock done} {
-	set ntransfered 0
+	set myntransfered 0
 	set old [fconfigure $sock -blocking]
 	fconfigure $sock -blocking 0
 	fileevent $sock readable \
@@ -84,15 +87,17 @@ snit::type ::transfer::data::destination {
 	set chunk [read $sock]
 	if {[set l [string length $chunk]]} {
 	    $self put $chunk
-	    incr ntransfered $l
+	    incr myntransfered $l
+	    if {[llength $options(-progress)]} {
+		uplevel #0 [linsert $options(-progress) end $myntransfered]
+	    }
 	}
 	if {[eof $sock]} {
 	    $self done
 	    fileevent  $sock readable {}
 	    fconfigure $sock -blocking $oldblock
 
-	    lappend done $ntransfered
-	    uplevel #0 $done
+	    uplevel #0 [linsert $done end $myntransfered]
 	}
 	return
     }
@@ -100,29 +105,29 @@ snit::type ::transfer::data::destination {
     # ### ### ### ######### ######### #########
     ## Internal helper commands.
 
-    onconfigure -variable {newvalue} {
-	set etype variable
-	set xtype string
+    method C-var {o newvalue} {
+	set myetype variable
+	set myxtype string
 
 	if {![uplevel \#0 {info exists $newvalue}]} {
 	    return -code error "Bad variable \"$newvalue\", does not exist"
 	}
 
-	set value $newvalue
+	set mydest $newvalue
 	return
     }
 
-    onconfigure -channel {newvalue} {
+    method C-chan {o newvalue} {
 	if {![llength [file channels $newvalue]]} {
 	    return -code error "Bad channel handle \"$newvalue\", does not exist"
 	}
-	set etype channel
-	set xtype channel
-	set value $newvalue
+	set myetype channel
+	set myxtype channel
+	set mydest  $newvalue
 	return
     }
 
-    onconfigure -file {newvalue} {
+    method C-file {o newvalue} {
 	if {![file exists $newvalue]} {
 	    set d [file dirname $newvalue]
 	    if {![file writable $d]} {
@@ -139,21 +144,20 @@ snit::type ::transfer::data::destination {
 		return -code error "File \"$newvalue\" not a file"
 	    }
 	}
-	set etype channel
-	set xtype file
-	set value $newvalue
+	set myetype channel
+	set myxtype file
+	set mydest  $newvalue
 	return
     }
 
     # ### ### ### ######### ######### #########
     ## Data structures
 
-    variable etype  undefined
-    variable xtype  undefined
-    variable value
-    variable close 0
-
-    variable ntransfered
+    variable myetype  undefined
+    variable myxtype  undefined
+    variable mydest   {}
+    variable myclose  0
+    variable myntransfered
 
     ##
     # ### ### ### ######### ######### #########
@@ -162,4 +166,4 @@ snit::type ::transfer::data::destination {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide transfer::data::destination 0.1
+package provide transfer::data::destination 0.2

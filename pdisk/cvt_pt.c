@@ -135,7 +135,7 @@ trim_num(char *s)
     }
 
     for (t--; t >= s; t--) {
-        if (!isdigit(*t)) {
+        if (!isdigit((unsigned char)*t)) {
             t++;
             if (*t) {
                 n = atoi(t);

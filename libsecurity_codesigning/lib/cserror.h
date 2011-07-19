@@ -48,6 +48,8 @@ public:
 	static void throwMe(OSStatus rc, CFDictionaryRef info) __attribute__ ((noreturn)); // takes dict
     static void throwMe(OSStatus rc, CFStringRef key, CFTypeRef value) __attribute__((noreturn));
 
+	void augment(CFStringRef key, CFTypeRef value);
+
 	CFDictionaryRef infoDict() const { return mInfoDict; }
 	
 public:

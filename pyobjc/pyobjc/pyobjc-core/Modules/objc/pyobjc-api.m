@@ -14,6 +14,7 @@
 #undef PyObjCObject_GetObject
 #endif
 
+
 static void do_weaklink(PyObject* module_dict, struct PyObjC_WeakLink* funcs)
 {
 	while (funcs->name) {
@@ -135,11 +136,6 @@ struct pyobjc_api objc_api = {
 	PyObjCErr_AsExc,		/* err_python_to_nsexception */
 	PyGILState_Ensure,		/* gilstate_ensure */
 	obj_is_uninitialized,   /* obj_is_uninitialized */
-	PyObjCObject_Convert,   /* pyobjcobject_convert */
-	PyObjCSelector_Convert, /* pyobjcselector_convert */
-	PyObjCClass_Convert,    /* pyobjcclass_convert */
-	PyObjC_ConvertBOOL,     /* pyobjc_convertbool */
-	PyObjC_ConvertChar,     /* pyobjc_convertchar */
 	PyObjCObject_New,		/* pyobjc_object_new */
 	PyObjCCreateOpaquePointerType, /* pointer_type_new */
 	PyObjCObject_NewTransient,	/* newtransient */
@@ -149,11 +145,18 @@ struct pyobjc_api objc_api = {
 	&PyObjC_NULL,			/* PyObjC_NULL */
 	depythonify_c_array_count2,	/* PyObjC_DepythonifyCArray */
 	PyObjC_VarList_New,		/* PyObjC_VarList_New */
+	PyObjC_is_ascii_string,
+	PyObjC_is_ascii_prefix,
+	PyObjCObject_Convert,
 };
 
 int PyObjCAPI_Register(PyObject* module)
 {
+#if PY_MAJOR_VERSION == 2
 	PyObject* API = PyCObject_FromVoidPtr(&objc_api, NULL);
+#else
+	PyObject* API = PyCapsule_New(&objc_api, "objc." PYOBJC_API_NAME, NULL);
+#endif
 
 	if (API == NULL) return -1;
 

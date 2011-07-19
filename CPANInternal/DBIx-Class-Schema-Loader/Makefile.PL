@@ -1,27 +1,38 @@
-
-use inc::Module::Install 0.65;
+use inc::Module::Install 0.91;
 
 name           'DBIx-Class-Schema-Loader';
 all_from       'lib/DBIx/Class/Schema/Loader.pm';
 
-test_requires 'Test::More'  => '0.47';
-test_requires 'DBI'         => '1.56';
-test_requires 'DBD::SQLite' => '1.12';
-test_requires 'File::Path'  => 0;
+test_requires 'Test::Exception';
+test_requires 'Test::More'    => '0.94';
+test_requires 'DBI'           => '1.56';
+test_requires 'DBD::SQLite'   => '1.12';
+test_requires 'File::Copy';
+test_requires 'File::Temp'    => '0.16';
+test_requires 'File::Path'    => '2.07';
+test_requires 'IPC::Open3'    => 0;
+test_requires 'List::MoreUtils' => 0;
 
 requires 'File::Spec'                  => 0;
 requires 'Scalar::Util'                => 0;
 requires 'Data::Dump'                  => '1.06';
-requires 'UNIVERSAL::require'          => '0.11';
 requires 'Lingua::EN::Inflect::Number' => '1.1';
 requires 'Text::Balanced'              => 0;
 requires 'Digest::MD5'                 => '2.36';
-requires 'Class::Accessor::Fast'       => '0.30';
-requires 'Class::Data::Accessor'       => '0.03';
+requires 'Class::Accessor::Grouped'    => '0.09002';
 requires 'Class::C3'                   => '0.18';
+requires 'Class::C3::Componentised'    => '1.0005';
 requires 'Carp::Clan'                  => 0;
 requires 'Class::Inspector'            => 0;
-requires 'DBIx::Class'                 => '0.07006';
+requires 'DBIx::Class'                 => '0.08114';
+requires 'Class::Unload'               => 0;
+requires 'File::Slurp'                 => '9999.13';
+requires 'List::MoreUtils'             => 0;
+requires 'namespace::autoclean'        => 0;
+
+install_script 'script/dbicdump';
+
+tests_recursive;
 
 # This is my manual hack for better feature control
 #  If you want to change the default answer for a feature,
@@ -76,6 +87,30 @@ my $_features = [
             'DBD::Oracle' => '0.19',
         ],
     },
+    SYBASE => {
+        label => 'Sybase Support (experimental)',
+        def   => $ENV{DBIC_FEATURE_SYBASE} || 0,
+        deps  => [
+            'DBI'         => '1.56',
+            'DBD::Sybase' => '1.09',
+        ],
+    },
+    MSSQL => {
+        label => 'Microsoft SQL Server Support via DBD::Sybase',
+        def   => $ENV{DBIC_FEATURE_MSSQL} || 0,
+        deps  => [
+            'DBI'         => '1.56',
+            'DBD::Sybase' => '1.09',
+        ],
+    },
+    MSSQL_ODBC => {
+        label => 'Microsoft SQL Server Support via DBD::ODBC',
+        def   => $ENV{DBIC_FEATURE_MSSQL} || 0,
+        deps  => [
+            'DBI'       => '1.56',
+            'DBD::ODBC' => '1.22',
+        ],
+    },
 ];
 
 for(my $i = 0; $i <= $#$_features - 1; $i += 2) {
@@ -95,9 +130,16 @@ for(my $i = 0; $i <= $#$_features - 1; $i += 2) {
 }
 
 # Rebuild README for maintainers
-if(-e 'MANIFEST.SKIP') {
+if ($Module::Install::AUTHOR) {
     system("pod2text lib/DBIx/Class/Schema/Loader.pm > README");
 }
+
+realclean_files 'README';
+
+resources 'IRC'         => 'irc://irc.perl.org/#dbix-class';
+resources 'license'     => 'http://dev.perl.org/licenses/';
+resources 'repository'  => 'git://git.shadowcat.co.uk/dbsrgits/DBIx-Class-Schema-Loader.git';
+resources 'MailingList' => 'http://lists.scsys.co.uk/cgi-bin/mailman/listinfo/dbix-class';
 
 auto_provides;
 auto_install;

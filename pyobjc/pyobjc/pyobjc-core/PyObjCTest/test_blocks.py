@@ -39,56 +39,68 @@ objc.parseBridgeSupport('''\
 </signatures>
 ''', globals(), 'PyObjCTest')
 
+# The blocks tests can only run when PyObjC was compiled with
+# GCC 4.2 or later.
+v = OCTestBlock.alloc().init()
+if hasattr(v, 'getIntBlock'):
+    blocksEnabled = True
+else:
+    blocksEnabled = False
+del v
 
 class TestBlocks (TestCase):
     @min_os_level('10.6')
+    @onlyIf(blocksEnabled, "no blocks")
     def testBlockToObjC(self):
         obj = OCTestBlock.alloc().init()
-	
-	lst = []
-	def callback(v):
-	    lst.append(v)
-	
-	obj.callIntBlock_withValue_(callback, 42)
-	self.failUnlessEqual(len(lst), 1)
-	obj.callIntBlock_withValue_(callback, 43)
-	self.failUnlessEqual(len(lst), 2)
 
-	self.failUnlessEqual(lst, [42, 43])
+        lst = []
+        def callback(v):
+            lst.append(v)
+
+        obj.callIntBlock_withValue_(callback, 42)
+        self.assertEqual(len(lst), 1)
+        obj.callIntBlock_withValue_(callback, 43)
+        self.assertEqual(len(lst), 2)
+
+        self.assertEqual(lst, [42, 43])
 
     @min_os_level('10.6')
+    @onlyIf(blocksEnabled, "no blocks")
     def testBlockToObjC2(self):
         obj = OCTestBlock.alloc().init()
-	
-	lst = []
-	def callback(a, b):
-	    return a * b
 
-	self.failUnlessEqual(obj.callDoubleBlock_withValue_andValue_(callback, 2.0, 3.5), 7.0)
-	self.failUnlessEqual(obj.callDoubleBlock_withValue_andValue_(callback, 2.5, 10), 25.0)
+        lst = []
+        def callback(a, b):
+            return a * b
+
+        self.assertEqual(obj.callDoubleBlock_withValue_andValue_(callback, 2.0, 3.5), 7.0)
+        self.assertEqual(obj.callDoubleBlock_withValue_andValue_(callback, 2.5, 10), 25.0)
 
 
     @min_os_level('10.6')
+    @onlyIf(blocksEnabled, "no blocks")
     def testBlockFromObjC(self):
         obj = OCTestBlock.alloc().init()
 
         block = obj.getIntBlock()
         value = block()
-        self.failUnlessEqual(value, 42)
+        self.assertEqual(value, 42)
 
         value = block()
-        self.failUnlessEqual(value, 42)
+        self.assertEqual(value, 42)
 
     @min_os_level('10.6')
+    @onlyIf(blocksEnabled, "no blocks")
     def testBlockFromObjC2(self):
         obj = OCTestBlock.alloc().init()
 
         block = obj.getFloatBlock()
         value = block(1, 2)
-        self.failUnlessEqual(value, 3.0)
+        self.assertEqual(value, 3.0)
 
         value = block(2.5, 7.0)
-        self.failUnlessEqual(value, 9.5)
+        self.assertEqual(value, 9.5)
 
 if __name__ == "__main__":
     main()

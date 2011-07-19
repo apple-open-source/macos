@@ -25,21 +25,17 @@ are interchangeable; both execute Python in the context of an application
 bundle, which means they have access to the Graphical User Interface; thus
 both can, when properly programmed, display windows, dialogs, etc.)
 The current supported versions are
-.Sy 2.5
-(provided for backward-compatibility with the Python 2.5 family),
 .Sy 2.6
 and
-.Sy 3.0 ,
+.Sy 2.7 ,
 with the default being
 .Sy 2.6 .
 Use
 .Pp
-.Dl % man python2.5
 .Dl % man python2.6
-.Dl % man python3.0
-.Dl % man pythonw2.5
+.Dl % man python2.7
 .Dl % man pythonw2.6
-.Dl % man pythonw3.0
+.Dl % man pythonw2.7
 .Pp
 to see the man page for a specific version.
 Without a version specified,
@@ -51,14 +47,14 @@ version of Python
 .Sy ( 2.6 ) .
 To see the man page for a specific version, use, for example,
 .Pp
-.Dl % man pydoc2.5
+.Dl % man pydoc2.7
 .Sh CHANGING THE DEFAULT PYTHON
 Using
 .Pp
-.Dl % defaults write com.apple.versioner.python Version 2.5
+.Dl % defaults write com.apple.versioner.python Version 2.7
 .Pp
 will make version
-.Sy 2.5
+.Sy 2.7
 the user default when running the both the
 .Nm python
 and
@@ -81,9 +77,9 @@ and
 .Nm pythonw
 version:
 .Pp
-.D1 Li % export VERSIONER_PYTHON_VERSION=2.5 Em # Bourne-like shells
+.D1 Li % export VERSIONER_PYTHON_VERSION=2.7 Em # Bourne-like shells
 .D1 Li "    " Sy or
-.D1 Li % setenv VERSIONER_PYTHON_VERSION 2.5 Em # C-like shells
+.D1 Li % setenv VERSIONER_PYTHON_VERSION 2.7 Em # C-like shells
 .Dl % python ...
 .Pp
 This environment variable takes precedence over the preference file settings.
@@ -91,11 +87,8 @@ This environment variable takes precedence over the preference file settings.
 Versions
 .Sy 2.6
 and
-.Sy 3.0
+.Sy 2.7
 support 64-bit execution (which is on by default).
-Version
-.Sy 2.5
-only supports 32-bit execution.
 .Pp
 Like the version of Python, the
 .Nm python
@@ -124,9 +117,9 @@ Rather than using the
 .Nm python
 command, one can use a specific version directly.
 For example, running
-.Nm python2.5
+.Nm python2.7
 from the command line will run the
-.Sy 2.5
+.Sy 2.7
 version of Python, independent of what the default version of Python is.
 .Pp
 One can use a specific version of Python on the
@@ -145,10 +138,8 @@ will always default to 64-bit execution
 .Xr arch 1
 command to specifically select a 32-bit architecture).
 .Sh SEE ALSO
-.Xr python2.5 1 ,
 .Xr python2.6 1 ,
-.Xr python3.0 1 ,
-.Xr pythonw2.5 1 ,
+.Xr python2.7 1 ,
 .Xr pythonw2.6 1 ,
-.Xr pythonw3.0 1 ,
+.Xr pythonw2.7 1 ,
 .Xr arch 1

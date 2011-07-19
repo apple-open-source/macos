@@ -1,0 +1,187 @@
+Contents
+
+
+ 1. Check that it's running
+
+ 2. Check that it's listening
+
+ 3. Check that it's allowing logins
+
+ 4. Check that it's allowing remote logins
+
+ 5. Check that it finds INBOX
+
+ 6. Check that it finds other mailboxes
+
+ 7. Check that real mail clients work
+
+For testing POP3 installation, see <TestPop3Installation.txt>.
+
+Check that it's running
+-----------------------
+
+First check with 'ps' that 'dovecot' process is actually running. If it's not,
+you had an error in 'dovecot.conf' and the error message was written to log. Go
+back to <RunningDovecot.txt> and <Logging.txt> if you can't find it.
+
+Check that it's listening
+-------------------------
+
+Next check that Dovecot is listening for connections:
+
+---%<-------------------------------------------------------------------------
+# telnet localhost 143
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+* OK [CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE STARTTLS
+AUTH=PLAIN] Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+If you got "connection refused", check that 'imap' is included in 'protocols'
+setting in 'dovecot.conf'. Also check that 'listen' setting is '*'.
+
+Next check that it also works from remote host:
+
+---%<-------------------------------------------------------------------------
+# telnet imap.example.com 143
+Trying 1.2.3.4...
+Connected to imap.example.com.
+Escape character is '^]'.
+* OK [CAPABILITY IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE STARTTLS
+AUTH=PLAIN] Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+If that didn't work, check all possible firewalls in between, and check that
+'listen' setting is '*' in 'dovecot.conf'.
+
+If you have only imaps enabled, see "remote login" section below for how to
+test using openssl s_client.
+
+Check that it's allowing logins
+-------------------------------
+
+---%<-------------------------------------------------------------------------
+# telnet localhost 143
+a login "username" "password"
+---%<-------------------------------------------------------------------------
+
+Replace the username and password with the ones you added to 'passwd.dovecot'
+in <BasicConfiguration.txt>. Note that all IMAP commands begin with a tag,
+which is basically any string you want, but it must be there. So don't leave
+out the "a" in the above example. If the password contains '"' character,
+escape it with '\' (e.g.'"foo\"bar"').
+
+You should get an "a OK Logged in." reply. If you get "Authentication failed"
+error, set 'auth_verbose = yes' and 'auth_debug = yes' in 'dovecot.conf',
+restart Dovecot and try again. The log file should now show enough information
+to help you fix the problem.
+
+Check that it's allowing remote logins
+--------------------------------------
+
+You'll need to try this from another computer, since all local IPs are treated
+as secure:
+
+---%<-------------------------------------------------------------------------
+# telnet imap.example.com 143
+a login "username" "password"
+---%<-------------------------------------------------------------------------
+
+If the connection is hanging instead of giving '* Dovecot ready', you have a
+firewall that's preventing the connections.
+
+Otherwise, the only difference here compared to step above is that you might
+get:
+
+---%<-------------------------------------------------------------------------
+* BAD [ALERT] Plaintext authentication is disabled, but your client sent
+password in plaintext anyway. If anyone was listening, the password was
+exposed.
+a NO Plaintext authentication disabled.
+---%<-------------------------------------------------------------------------
+
+If this is the case, you didn't set 'disable_plaintext_auth = no'. You could
+alternatively use OpenSSL to test that the server works with SSL:
+
+ * Test using imaps port (assuming you haven't disabled imaps port):
+   ---%<----------------------------------------------------------------------
+   # openssl s_client -connect imap.example.com:993
+   * OK Dovecot ready.
+   ---%<----------------------------------------------------------------------
+
+ * Test using imap port and STARTTLS command (works also with imap port):
+   ---%<----------------------------------------------------------------------
+   # openssl s_client -connect imap.example.com:143 -starttls imap
+   * OK Dovecot ready.
+   ---%<----------------------------------------------------------------------
+
+Check that it finds INBOX
+-------------------------
+
+After logging in, check that the INBOX is found:
+
+---%<-------------------------------------------------------------------------
+b select inbox
+* FLAGS (\Answered \Flagged \Deleted \Seen \Draft)
+* OK [PERMANENTFLAGS (\Answered \Flagged \Deleted \Seen \Draft \*)] Flags
+permitted.
+* 1 EXISTS
+* 1 RECENT
+* OK [UIDVALIDITY 1106186941] UIDs valid
+* OK [UIDNEXT 2] Predicted next UID
+b OK [READ-WRITE] Select completed.
+---%<-------------------------------------------------------------------------
+
+It should contain the mail that you sent to yourself in <FindMailLocation.txt>
+step.
+
+If anything goes wrong, set 'mail_debug = yes' and try again. The log file
+should now contain debugging information of where Dovecot is trying to find the
+mails. Fix 'mail_location' setting and try again.
+
+Check that it finds other mailboxes
+-----------------------------------
+
+If you already have other mailboxes created, you can check that Dovecot finds
+them:
+
+---%<-------------------------------------------------------------------------
+c list "" *
+* LIST (\NoInferiors) "/" "test"
+* LIST (\NoInferiors) "/" "INBOX"
+c OK List completed.
+---%<-------------------------------------------------------------------------
+
+If they weren't found, set 'mail_debug = yes' and look at the debugging
+information. Fix 'mail_location' setting and try again.
+
+Check that real mail clients work
+---------------------------------
+
+Since mail clients can be configured in various ways, please check first if the
+problem is with Dovecot configuration or with the client's configuration. You
+can rule out it being Dovecot's problem with the "telnet" methods described
+above.
+
+If you can't log in,
+
+ * Make sure SSL/TLS settings are correct.
+ * Make sure the client uses plaintext authentication method, unless you've
+   specifically configured Dovecot to accept others.
+
+If you can see only INBOX,
+
+ * Clear out any "IMAP namespace prefix" or similar settings from clients.
+ * Check if client is configured to show only "subscribed mailboxes". If so,
+   you'll have to subscribe to the mailboxes you wish to see. You can see a
+   list of subscribed mailboxes with:
+   ---%<----------------------------------------------------------------------
+   d lsub "" *
+   * LSUB () "/" "INBOX"
+   d OK Lsub completed.
+   ---%<----------------------------------------------------------------------
+
+Most IMAP clients have been tested with Dovecot and they work.
+
+(This file was created from the wiki on 2011-05-11 04:42)

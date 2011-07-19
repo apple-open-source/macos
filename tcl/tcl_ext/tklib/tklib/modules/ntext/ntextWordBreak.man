@@ -21,12 +21,12 @@ Navigation and selection in a text widget require the detection of words and the
 The behaviour of [emph Ntext] may be configured application-wide by setting the values of a number of namespace variables.  One of these is relevant to word boundary detection:
 [para]
 [var ::ntext::classicWordBreak]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (default value) selects [emph Ntext] behaviour, i.e. platform-independent, two classes of word characters and one class of non-word characters.
-[bullet]
+[item]
    [const 1] - selects classic [emph Text] behaviour, i.e. platform-dependent, one class of word characters and one class of non-word characters
-[bullet]
+[item]
    After changing this value, [emph Ntext] 's regexp matching patterns should be recalculated.  See [sectref FUNCTIONS] for details and advanced configuration options.
 [list_end]
 [para]
@@ -68,17 +68,17 @@ If a simple regexp search should prove insufficient, the following functions (an
 Each function calculates the five regexp search patterns that define the word boundary searches.  These values are stored in the namespace variables listed above.
 [para]
 [fun ::ntext::initializeMatchPatterns]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 This function is called when [emph Ntext] is first used, and needs to be called again only if the script changes the value of either [var ::ntext::classicWordBreak] or [var ::tcl_platform(platform)].  The function is called with no arguments.  It is useful when the desired search patterns are the default patterns for either the [emph Ntext] or [emph Text] binding tag, and so are implicitly specified by the values of [var ::ntext::classicWordBreak] and [var ::tcl_platform(platform)] alone.
 [list_end]
 [fun ::ntext::createMatchPatterns] [arg new_nonwordchars] [arg new_word1chars] [opt new_word2chars]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 This function is useful in a wider range of situations than [fun ::ntext::initializeMatchPatterns].  It calculates the regexp search patterns for any case with one class of "non-word" characters and one or two classes of "word" characters.
-[nl]
+[para]
 Each argument should be a regexp expression defining a class of characters.  An argument will usually be a bracket expression, but might alternatively be a class-shorthand escape, or a single character.  The third argument may be omitted, or supplied as the empty string, in which case it is unused.
-[nl]
+[para]
 The first argument is interpreted as the class of non-word characters; the second argument (and the third, if present) are classes of word characters.  The classes should include all possible characters and will normally be mutually exclusive: it is often convenient to define one class as the negation of the other two.
 [list_end]
 

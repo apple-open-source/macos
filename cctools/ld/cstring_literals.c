@@ -566,7 +566,7 @@ struct merged_section *ms)
 	}
 
 	cstring_len = strlen(cstring) + 1;
-	len = round(cstring_len, 1 << ms->s.align);
+	len = rnd(cstring_len, 1 << ms->s.align);
 	bp = allocate(sizeof(struct cstring_bucket));
 	for(p = &(data->cstring_blocks); *p ; p = &(cstring_block->next)){
 	    cstring_block = *p;

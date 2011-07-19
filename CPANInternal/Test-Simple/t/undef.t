@@ -11,8 +11,7 @@ BEGIN {
 }
 
 use strict;
-use Test::More tests => 18;
-use TieOut;
+use Test::More tests => 21;
 
 BEGIN { $^W = 1; }
 
@@ -31,7 +30,7 @@ sub warnings_is {
 }
 
 sub warnings_like {
-    $TB->like($warnings, "/$_[0]/");
+    $TB->like($warnings, $_[0]);
     $warnings = '';
 }
 
@@ -48,9 +47,12 @@ no_warnings;
 isnt( undef, '',            'undef isnt an empty string' );
 isnt( undef, 0,             'undef isnt zero' );
 
+Test::More->builder->is_num(undef, undef, 'is_num()');
+Test::More->builder->isnt_num(23, undef,  'isnt_num()');
+
 #line 45
-like( undef, '/.*/',        'undef is like anything' );
-warnings_like("Use of uninitialized value.* at $Filename line 45\\.\n");
+like( undef, qr/.*/,        'undef is like anything' );
+warnings_like(qr/Use of uninitialized value.* at $Filename line 45\.\n/);
 
 eq_array( [undef, undef], [undef, 23] );
 no_warnings;
@@ -70,23 +72,27 @@ no_warnings;
 
 #line 64
 cmp_ok( undef, '<=', 2, '  undef <= 2' );
-warnings_like("Use of uninitialized value.* at $Filename line 64\\.\n");
+warnings_like(qr/Use of uninitialized value.* at cmp_ok \[from $Filename line 64\] line 1\.\n/);
 
 
 
 my $tb = Test::More->builder;
 
-use TieOut;
-my $caught = tie *CATCH, 'TieOut';
-my $old_fail = $tb->failure_output;
-$tb->failure_output(\*CATCH);
+my $err = '';
+$tb->failure_output(\$err);
 diag(undef);
-$tb->failure_output($old_fail);
+$tb->reset_outputs;
 
-is( $caught->read, "# undef\n" );
+is( $err, "# undef\n" );
 no_warnings;
 
 
 $tb->maybe_regex(undef);
-is( $caught->read, '' );
 no_warnings;
+
+
+# test-more.googlecode.com #42
+{
+    is_deeply([ undef ], [ undef ]);
+    no_warnings;
+}

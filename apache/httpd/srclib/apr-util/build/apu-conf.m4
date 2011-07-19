@@ -164,7 +164,7 @@ if test "${apu_has_expat}${apu_try_builtin_expat}" = "01"; then
   dnl we are working with the bundled version of the software.
   bundled_subdir="xml/expat"
   APR_SUBDIR_CONFIG($bundled_subdir, [--prefix=$prefix --exec-prefix=$exec_prefix --libdir=$libdir --includedir=$includedir --bindir=$bindir])
-  APR_ADDTO(APRUTIL_INCLUDES, [-I$top_builddir/$bundled_subdir/lib])
+  APR_ADDTO(APRUTIL_INCLUDES, [-I$abs_srcdir/$bundled_subdir/lib])
   APR_ADDTO(LDFLAGS, [-L$top_builddir/$bundled_subdir/lib])
   apu_expat_libs="$top_builddir/$bundled_subdir/libexpat.la"
 fi

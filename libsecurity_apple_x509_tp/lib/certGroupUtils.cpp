@@ -464,7 +464,7 @@ CSSM_BOOL tpCompareHostNames(
 		certNameLen--;
 	}
 	
-	/* case 1: exact match */
+	/* Case 1: exact match */
 	if((certNameLen == hostNameLen) &&
 	    !memcmp(certName, hostName, certNameLen)) {
 		return CSSM_TRUE;
@@ -488,7 +488,7 @@ CSSM_BOOL tpCompareHostNames(
 				certComp, certCompLen);
 		if(foundHost != foundCert) {
 			/* unequal number of components */
-			tpPolicyError("tpCompareHostNames: wildcard  mismatch (1)");
+			tpPolicyError("tpCompareHostNames: wildcard mismatch (1)");
 			return CSSM_FALSE;
 		}
 		if(!foundHost) {
@@ -499,7 +499,7 @@ CSSM_BOOL tpCompareHostNames(
 		/* compare individual components */
 		if(!tpCompareComps(hostComp, hostCompLen, 
 				certComp, certCompLen)) {
-			tpPolicyError("tpCompareHostNames: wildcard  mismatch (2)");
+			tpPolicyError("tpCompareHostNames: wildcard mismatch (2)");
 			return CSSM_FALSE;
 		}
 		
@@ -524,7 +524,7 @@ CSSM_BOOL tpCompareHostNames(
  *
  * Returns CSSM_TRUE on match, else CSSM_FALSE.
  *
- * Incomiong appEmail string has already been tpNormalizeAddrSpec'd.
+ * Incoming appEmail string has already been tpNormalizeAddrSpec'd.
  * We do that for certEmail string here. 
  */
 CSSM_BOOL tpCompareEmailAddr(

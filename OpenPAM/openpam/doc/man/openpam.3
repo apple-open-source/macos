@@ -53,6 +53,7 @@
 .Nm pam_info ,
 .Nm pam_prompt ,
 .Nm pam_setenv ,
+.Nm pam_unsetenv ,
 .Nm pam_verror ,
 .Nm pam_vinfo ,
 .Nm pam_vprompt
@@ -92,6 +93,8 @@
 .Ft "int"
 .Fn pam_setenv "pam_handle_t *pamh" "const char *name" "const char *value" "int overwrite"
 .Ft "int"
+.Fn pam_unsetenv "pam_handle_t *pamh" "const char *name"
+.Ft "int"
 .Fn pam_verror "const pam_handle_t *pamh" "const char *fmt" "va_list ap"
 .Ft "int"
 .Fn pam_vinfo "const pam_handle_t *pamh" "const char *fmt" "va_list ap"
@@ -126,6 +129,7 @@ standardization.
 .Xr pam_info 3 ,
 .Xr pam_prompt 3 ,
 .Xr pam_setenv 3 ,
+.Xr pam_unsetenv 3 ,
 .Xr pam_verror 3 ,
 .Xr pam_vinfo 3 ,
 .Xr pam_vprompt 3

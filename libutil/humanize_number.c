@@ -46,6 +46,8 @@
 #include <string.h>
 #include <locale.h>
 #include <libutil.h>
+#include <stdint.h>
+#include <limits.h>
 
 int
 humanize_number(char *buf, size_t len, int64_t bytes,
@@ -53,7 +55,15 @@ humanize_number(char *buf, size_t len, int64_t bytes,
 {
 	const char *prefixes, *sep;
 	int	b, i, r, maxscale, s1, s2, sign;
-	int64_t	divisor, max;
+	int64_t divisor, max;
+	// We multiply bytes by 100 to deal with rounding, so we need something
+	// big enough to hold LLONG_MAX * 100. On 64-bit we can use 128-bit wide
+	// integers with __int128_t, but on 32-bit we have to use long double.
+#ifdef __LP64__
+	__int128_t scalable = (__int128_t)bytes;
+#else
+	long double scalable = (long double)bytes;
+#endif
 	size_t	baselen;
 
 	assert(buf != NULL);
@@ -93,11 +103,11 @@ humanize_number(char *buf, size_t len, int64_t bytes,
 		buf[0] = '\0';
 	if (bytes < 0) {
 		sign = -1;
-		bytes *= -100;
+		scalable *= -100;
 		baselen = 3;		/* sign, digit, prefix */
 	} else {
 		sign = 1;
-		bytes *= 100;
+		scalable *= 100;
 		baselen = 2;		/* digit, prefix */
 	}
 	if (flags & HN_NOSPACE)
@@ -117,30 +127,32 @@ humanize_number(char *buf, size_t len, int64_t bytes,
 		for (max = 100, i = len - baselen; i-- > 0;)
 			max *= 10;
 
-		for (i = 0; bytes >= max && i < maxscale; i++)
-			bytes /= divisor;
+		for (i = 0; scalable >= max && i < maxscale; i++)
+			scalable /= divisor;
 
 		if (scale & HN_GETSCALE)
 			return (i);
 	} else
 		for (i = 0; i < scale && i < maxscale; i++)
-			bytes /= divisor;
+			scalable /= divisor;
 
 	/* If a value <= 9.9 after rounding and ... */
-	if (bytes < 995 && i > 0 && flags & HN_DECIMAL) {
+	if (scalable < 995 && i > 0 && flags & HN_DECIMAL) {
 		/* baselen + \0 + .N */
 		if (len < baselen + 1 + 2)
 			return (-1);
-		b = ((int)bytes + 5) / 10;
+		b = ((int)scalable + 5) / 10;
 		s1 = b / 10;
 		s2 = b % 10;
-		r = snprintf(buf, len, "%d%s%d%s%s%s",
-		    sign * s1, localeconv()->decimal_point, s2,
+		r = snprintf(buf, len, "%s%d%s%d%s%s%s",
+			((sign == -1) ? "-" : ""),
+		    s1, localeconv()->decimal_point, s2,
 		    sep, SCALE2PREFIX(i), suffix);
 	} else
-		r = snprintf(buf, len, "%lld%s%s%s",
+		r = snprintf(buf, len, "%s%lld%s%s%s",
 		    /* LONGLONG */
-		    (long long)(sign * ((bytes + 50) / 100)),
+			((sign == -1) ? "-" : ""),
+		    (long long)((scalable + 50) / 100),
 		    sep, SCALE2PREFIX(i), suffix);
 
 	return (r);

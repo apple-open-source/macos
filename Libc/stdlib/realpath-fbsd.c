@@ -106,18 +106,23 @@ realpath(const char *path, char inresolved[PATH_MAX])
 #endif /* __DARWIN_UNIX03 */
 	/*
 	 * Extension to the standard; if inresolved == NULL, allocate memory
-	 * (first on the stack, then use strdup())
 	 */
 	if (!inresolved) {
-	    if ((resolved = alloca(PATH_MAX)) == NULL) return (NULL);
+	    if ((resolved = malloc(PATH_MAX)) == NULL) return (NULL);
 	} else {
 	    resolved = inresolved;
 	}
 	if (!rootdev_inited) {
 		rootdev_inited = 1;
 		if (stat("/", &sb) < 0) {
-			return (NULL);
+error_return:
+			if (!inresolved) {
+				int e = errno;
+				free(resolved);
+				errno = e;
 			}
+			return (NULL);
+		}
 		rootdev = sb.st_dev;
 	}
 	serrno = errno;
@@ -140,18 +145,18 @@ realpath(const char *path, char inresolved[PATH_MAX])
 #endif /* !VARIANT_DARWINEXTSN && __DARWIN_UNIX03 */
 		{
 			strlcpy(resolved, ".", PATH_MAX);
-			return (NULL);
+			goto error_return;
 		}
 		resolved_len = strlen(resolved);
 		left_len = strlcpy(left, path, sizeof(left));
 	}
 	if (left_len >= sizeof(left) || resolved_len >= PATH_MAX) {
 		errno = ENAMETOOLONG;
-		return (NULL);
+		goto error_return;
 	}
 	if (resolved_len > 1) {
 		if (stat(resolved, &sb) < 0) {
-			return (NULL);
+			goto error_return;
 		}
 		lastdev = sb.st_dev;
 	} else
@@ -169,7 +174,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 		s = p ? p : left + left_len;
 		if (s - left >= sizeof(next_token)) {
 			errno = ENAMETOOLONG;
-			return (NULL);
+			goto error_return;
 		}
 		memcpy(next_token, left, s - left);
 		next_token[s - left] = '\0';
@@ -179,7 +184,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 		if (resolved[resolved_len - 1] != '/') {
 			if (resolved_len + 1 >= PATH_MAX) {
 				errno = ENAMETOOLONG;
-				return (NULL);
+				goto error_return;
 			}
 			resolved[resolved_len++] = '/';
 			resolved[resolved_len] = '\0';
@@ -217,7 +222,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 		resolved_len = strlcat(resolved, next_token, PATH_MAX);
 		if (resolved_len >= PATH_MAX) {
 			errno = ENAMETOOLONG;
-			return (NULL);
+			goto error_return;
 		}
 		if (getattrlist(resolved, &_rp_alist, &attrs, sizeof(attrs), FSOPT_NOFOLLOW) == 0) {
 			useattrs = 1;
@@ -239,7 +244,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 				return (resolved);
 			}
 #endif /* !__DARWIN_UNIX03 */
-			return (NULL);
+			goto error_return;
 		}
 		if (dev != lastdev) {
 			/*
@@ -289,11 +294,11 @@ realpath(const char *path, char inresolved[PATH_MAX])
 		if (islink) {
 			if (symlinks++ > MAXSYMLINKS) {
 				errno = ELOOP;
-				return (NULL);
+				goto error_return;
 			}
 			slen = readlink(resolved, symlink, sizeof(symlink) - 1);
 			if (slen < 0) {
-				return (NULL);
+				goto error_return;
 			}
 			symlink[slen] = '\0';
 			if (symlink[0] == '/') {
@@ -317,7 +322,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 				if (symlink[slen - 1] != '/') {
 					if (slen + 1 >= sizeof(symlink)) {
 						errno = ENAMETOOLONG;
-						return (NULL);
+						goto error_return;
 					}
 					symlink[slen] = '/';
 					symlink[slen + 1] = 0;
@@ -325,7 +330,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 				left_len = strlcat(symlink, left, sizeof(left));
 				if (left_len >= sizeof(left)) {
 					errno = ENAMETOOLONG;
-					return (NULL);
+					goto error_return;
 				}
 			}
 			left_len = strlcpy(left, symlink, sizeof(left));
@@ -338,7 +343,7 @@ realpath(const char *path, char inresolved[PATH_MAX])
 			resolved_len = strlcat(resolved, (const char *)&attrs.name + attrs.name.attr_dataoffset, PATH_MAX);
 			if (resolved_len >= PATH_MAX) {
 				errno = ENAMETOOLONG;
-				return (NULL);
+				goto error_return;
 			}
 		}
 		/*
@@ -361,6 +366,5 @@ realpath(const char *path, char inresolved[PATH_MAX])
 	 */
 	if (resolved_len > 1 && resolved[resolved_len - 1] == '/')
 		resolved[resolved_len - 1] = '\0';
-	if (!inresolved) resolved = strdup(resolved);
 	return (resolved);
 }

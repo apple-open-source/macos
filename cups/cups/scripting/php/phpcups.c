@@ -1,9 +1,9 @@
 /*
  * "$Id: phpcups.c 7624 2008-06-09 15:55:04Z mike $"
  *
- *   Printing utilities for the Common UNIX Printing System (CUPS).
+ *   Printing utilities for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -29,14 +29,14 @@
  * Include necessary headers...
  */
 
-#include <cups/string.h>
+#include <cups/string-private.h>
 #include "php.h"
 #include "php_ini.h"
 #include "ext/standard/info.h"
 #include "phpcups.h"
 
 
-/* 
+/*
  * PHP function list...
  */
 

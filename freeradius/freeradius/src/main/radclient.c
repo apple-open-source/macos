@@ -37,8 +37,12 @@ RCSID("$Id$")
 
 #include <assert.h>
 
-static int retries = 10;
-static float timeout = 3;
+#include "smbdes.h"
+#include "mschap.h"
+
+static int success = 0;
+static int retries = 3;
+static float timeout = 5;
 static const char *secret = NULL;
 static int do_output = 1;
 static int totalapp = 0;
@@ -139,6 +143,44 @@ static void radclient_free(radclient_t *radclient)
 	free(radclient);
 }
 
+static int mschapv1_encode(VALUE_PAIR **request, const char *password)
+{
+	unsigned int i;
+	VALUE_PAIR *challenge, *response;
+	uint8_t nthash[16];
+
+	challenge = paircreate(PW_MSCHAP_CHALLENGE, PW_TYPE_OCTETS);
+	if (!challenge) {
+		fprintf(stderr, "GOT IT %d!\n", __LINE__);
+		return 0;
+	}
+
+	pairadd(request, challenge);
+	challenge->length = 8;
+	for (i = 0; i < challenge->length; i++) {
+		challenge->vp_octets[i] = fr_rand();
+	}
+
+	response = paircreate(PW_MSCHAP_RESPONSE, PW_TYPE_OCTETS);
+	if (!response) {
+		fprintf(stderr, "GOT IT %d!\n", __LINE__);
+		return 0;
+	}
+
+	pairadd(request, response);
+	response->length = 50;
+	memset(response->vp_octets, 0, response->length);
+
+	response->vp_octets[1] = 0x01; /* NT hash */
+
+	mschap_ntpwdhash(nthash, password);
+
+	smbdes_mschap(nthash, challenge->vp_octets,
+		      response->vp_octets + 26);
+	return 1;
+}
+
+
 /*
  *	Initialize a radclient data structure and add it to
  *	the global linked list.
@@ -215,6 +257,10 @@ static int radclient_init(const char *filename)
 			 *	Otherwise keep a copy of the CHAP-Password attribute.
 			 */
 		} else if ((vp = pairfind(radclient->request->vps, PW_CHAP_PASSWORD)) != NULL) {
+			strlcpy(radclient->password, vp->vp_strvalue,
+				sizeof(radclient->password));
+
+		} else if ((vp = pairfind(radclient->request->vps, PW_MSCHAP_PASSWORD)) != NULL) {
 			strlcpy(radclient->password, vp->vp_strvalue,
 				sizeof(radclient->password));
 		} else {
@@ -489,6 +535,7 @@ static int send_one_packet(radclient_t *radclient)
 		 *	this packet.
 		 */
 	retry:
+		radclient->request->src_ipaddr.af = AF_UNSPEC;
 		rcode = fr_packet_list_id_alloc(pl, radclient->request);
 		if (rcode < 0) {
 			int mysockfd;
@@ -544,6 +591,12 @@ static int send_one_packet(radclient_t *radclient)
 						vp->vp_octets,
 						radclient->request->id, vp);
 				vp->length = 17;
+
+			} else if ((vp = pairfind(radclient->request->vps, PW_MSCHAP_PASSWORD)) != NULL) {
+				mschapv1_encode(&radclient->request->vps,
+						radclient->password);
+			} else if (fr_debug_flag) {
+				printf("WARNING: No password in the request\n");
 			}
 		}
 
@@ -724,7 +777,12 @@ static int recv_one_packet(int wait_time)
 		       radclient->reply->data_len);
 		vp_printlist(stdout, radclient->reply->vps);
 	}
-	if (radclient->reply->code != PW_AUTHENTICATION_REJECT) {
+
+	if ((radclient->reply->code == PW_AUTHENTICATION_ACK) ||
+	    (radclient->reply->code == PW_ACCOUNTING_RESPONSE) ||
+	    (radclient->reply->code == PW_COA_ACK) ||
+	    (radclient->reply->code == PW_DISCONNECT_ACK)) {
+		success = 1;		/* have a good response */
 		totalapp++;
 	} else {
 		totaldeny++;
@@ -869,7 +927,7 @@ int main(int argc, char **argv)
 			timeout = atof(optarg);
 			break;
 		case 'v':
-			printf("radclient: $Id$ built on " __DATE__ " at " __TIME__ "\n");
+			printf("radclient: " RADIUSD_VERSION " built on " __DATE__ " at " __TIME__ "\n");
 			exit(0);
 			break;
 		case 'x':
@@ -897,6 +955,7 @@ int main(int argc, char **argv)
 	/*
 	 *	Resolve hostname.
 	 */
+	if (force_af == AF_UNSPEC) force_af = AF_INET;
 	server_ipaddr.af = force_af;
 	if (strcmp(argv[1], "-") != 0) {
 		const char *hostname = argv[1];
@@ -960,11 +1019,11 @@ int main(int argc, char **argv)
 		packet_code = PW_STATUS_SERVER;
 
 	} else if (strcmp(argv[2], "disconnect") == 0) {
-		if (server_port == 0) server_port = PW_POD_UDP_PORT;
+		if (server_port == 0) server_port = PW_COA_UDP_PORT;
 		packet_code = PW_DISCONNECT_REQUEST;
 
 	} else if (strcmp(argv[2], "coa") == 0) {
-		if (server_port == 0) server_port = PW_POD_UDP_PORT;
+		if (server_port == 0) server_port = PW_COA_UDP_PORT;
 		packet_code = PW_COA_REQUEST;
 
 	} else if (strcmp(argv[2], "auto") == 0) {
@@ -1186,5 +1245,7 @@ int main(int argc, char **argv)
 		printf("\t       Total lost auths:  %d\n", totallost);
 	}
 
-	return 0;
+	if (success) return 0;
+
+	return 1;
 }

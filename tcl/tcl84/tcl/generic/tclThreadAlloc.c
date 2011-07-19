@@ -306,11 +306,23 @@ TclFreeAllocCache(void *arg)
 char *
 TclpAlloc(unsigned int reqsize)
 {
-    Cache         *cachePtr = TclpGetAllocCache();
+    Cache         *cachePtr;
     Block         *blockPtr;
     register int   bucket;
     size_t  	   size;
 
+    if (sizeof(int) >= sizeof(size_t)) {
+	/* An unsigned int overflow can also be a size_t overflow */
+	const size_t zero = 0;
+	const size_t max = ~zero;
+
+	if (((size_t) reqsize) > max - sizeof(Block) - RCHECK) {
+	    /* Requested allocation exceeds memory */
+	    return NULL;
+	}
+    }
+
+    cachePtr = TclpGetAllocCache();
     if (cachePtr == NULL) {
 	cachePtr = GetCache();
     }
@@ -429,7 +441,7 @@ TclpFree(char *ptr)
 char *
 TclpRealloc(char *ptr, unsigned int reqsize)
 {
-    Cache *cachePtr = TclpGetAllocCache();
+    Cache *cachePtr;
     Block *blockPtr;
     void *new;
     size_t size, min;
@@ -439,6 +451,18 @@ TclpRealloc(char *ptr, unsigned int reqsize)
 	return TclpAlloc(reqsize);
     }
 
+    if (sizeof(int) >= sizeof(size_t)) {
+	/* An unsigned int overflow can also be a size_t overflow */
+	const size_t zero = 0;
+	const size_t max = ~zero;
+
+	if (((size_t) reqsize) > max - sizeof(Block) - RCHECK) {
+	    /* Requested allocation exceeds memory */
+	    return NULL;
+	}
+    }
+
+    cachePtr = TclpGetAllocCache();
     if (cachePtr == NULL) {
 	cachePtr = GetCache();
     }

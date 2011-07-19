@@ -21,6 +21,8 @@ is( $it->pager->next_page, 2, "next_page ok" );
 
 is( $it->count, 3, "count on paged rs ok" );
 
+is( $it->pager->total_entries, 5, "total_entries ok" );
+
 is( $it->next->title, "Caterwaulin' Blues", "iterator->next ok" );
 
 $it->next;
@@ -82,3 +84,19 @@ is($p->(), 10, 'default rows is 10');
 $schema->default_resultset_attributes({ rows => 5 });
 
 is($p->(), 5, 'default rows is 5');
+
+# test page with offset
+$it = $schema->resultset('CD')->search({}, {
+    rows => 2,
+    page => 2,
+    offset => 1,
+    order_by => 'cdid'
+});
+
+my $row = $schema->resultset('CD')->search({}, {
+    order_by => 'cdid', 
+    offset => 3,
+    rows => 1
+})->single;
+
+is($row->cdid, $it->first->cdid, 'page with offset');

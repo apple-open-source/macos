@@ -30,6 +30,7 @@
 
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
+#include <uuid/uuid.h>
 
 /*******************************************************************************
 ********************************************************************************
@@ -95,9 +96,9 @@ typedef enum {
  *        The macho_find_symbol function searches a memory-mapped Mach-O file
  *        for a given symbol,
  *        indirectly returning the address within that mapped file
- *        containing the data for that symbol. Only symbols of type
- *        N_SECT, N_UNDF, and N_ABS are currently supported, and for N_ABS
- *        the result will be macho_seek_result_found_no_value.
+ *        containing the data for that symbol.
+ *        Only symbols of type N_SECT, N_UNDF result in an address;
+ *        for N_ABS and N_INDR the result will be macho_seek_result_found_no_value.
  * @param file_start A pointer to the beginning of the mapped Mach-O file.
  * @param file_end A pointer to the end of the mapped Mach-O file.
  * @param name The name of the symbol to find.
@@ -105,7 +106,7 @@ typedef enum {
  *        of the located symbol.
  * @param symbol_address The address of a pointer that will be filled
  *        with the location of the symbol's data in the mapped file,
- *        if it is found.
+ *        if the address can be calculated.
  * @result Returns macho_seek_result_found if the symbol is found,
  * macho_seek_result_not_found if the symbol is not defined in the given file,
  * or macho_seek_result_error if an error occurs.
@@ -135,6 +136,24 @@ macho_seek_result macho_find_symtab(
     const void             * file_start,
     const void             * file_end,
     struct symtab_command ** symtab);
+
+/*!
+ * @function macho_find_uuid
+ * @abstract Finds a mapped Mach-O file's UUID.
+ * @discussion
+ *        The macho_find_uuid function locates the UUID of a Mach-O file.
+ * @param mach_header A pointer to the beginning of the mapped Mach-O file.
+ * @param file_end A pointer to the end of the mapped Mach-O file.
+ * @param uuid A pointer to the start of the UUID bytes;
+ *        if provided, this is filled with the address of the UUID bytes.
+ * @result Returns macho_seek_result_found if the UUID is found,
+ * macho_seek_result_not_found if a UUID is not defined in the given file,
+ * or macho_seek_result_error if an error occurs.
+ */
+macho_seek_result macho_find_uuid(
+    const void * file_start,
+    const void * file_end,
+    char       * uuid);
 
 /*!
  * @function macho_find_section_numbered
@@ -221,24 +240,24 @@ boolean_t macho_unswap(
 
 struct segment_command * macho_get_segment_by_name(
     struct mach_header    * mach_header,
-    const char            * segname)
-    __attribute__((visibility("hidden")));
+    const char            * segname);
 
 struct segment_command_64 * macho_get_segment_by_name_64(
     struct mach_header_64      * mach_header,
-    const char                 * segname)
-    __attribute__((visibility("hidden")));
+    const char                 * segname);
 
 struct section * macho_get_section_by_name(
     struct mach_header    * mach_header,
     const char            * segname,
-    const char            * sectname)
-    __attribute__((visibility("hidden")));
+    const char            * sectname);
 
 struct section_64 * macho_get_section_by_name_64(
     struct mach_header_64     * mach_header,
     const char                * segname,
-    const char                * sectname)
-    __attribute__((visibility("hidden")));
+    const char                * sectname);
+
+boolean_t macho_remove_linkedit(
+    u_char    * macho,
+    u_long    * linkedit_size);
 
 #endif /* __MACHO_UTIL_H__ */

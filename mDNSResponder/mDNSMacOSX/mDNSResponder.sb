@@ -88,6 +88,8 @@
 (allow file-read-data                 (regex #"^/dev/random$"))
 (allow file-read-data file-write-data (regex #"^/dev/console$"))		; Needed for syslog early in the boot process
 (allow file-read-data                 (regex #"^/dev/autofs_nowait$"))	; Used by CF to circumvent automount triggers
+(allow file-read-data                 (regex #"^/private/etc/hosts$"))			; /etc/hosts support
+(allow file-read-data                 (regex #"^/private/etc$"))				; /etc/hosts support
 
 ; Allow us to read and write our socket
 (allow file-read*     file-write*     (regex #"^/private/var/run/mDNSResponder$"))
@@ -129,12 +131,12 @@
 ; CRL Cache for SSL/TLS connections
 (allow file-read-data                 (regex #"^/private/var/db/crls/crlcache\.db$"))
 
-; For mDNS sleep proxy offload
-(allow iokit-open (iokit-user-client-class "NVEthernetUserClientMDNS"))
-(allow iokit-open (iokit-user-client-class "mDNSOffloadUserClient"))
-
-; For IOPMConnectionCreate
-(allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
+; For mDNS sleep proxy offload and IOPMConnectionCreate
+(if (defined? 'iokit-open)
+   (begin
+     (allow iokit-open (iokit-user-client-class "NVEthernetUserClientMDNS"))
+     (allow iokit-open (iokit-user-client-class "mDNSOffloadUserClient"))
+     (allow iokit-open (iokit-user-client-class "RootDomainUserClient"))))
 
 ; For D2D
 (allow file-read-data (regex #"^/System/Library/PrivateFrameworks/DeviceToDeviceManager.framework(/|$)"))

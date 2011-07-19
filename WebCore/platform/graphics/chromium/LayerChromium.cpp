@@ -34,166 +34,165 @@
 
 #include "LayerChromium.h"
 
+#include "cc/CCLayerImpl.h"
+#include "GraphicsContext3D.h"
+#include "LayerRendererChromium.h"
+#if USE(SKIA)
+#include "NativeImageSkia.h"
 #include "PlatformContextSkia.h"
+#endif
 #include "RenderLayerBacking.h"
+#include "TextStream.h"
 #include "skia/ext/platform_canvas.h"
 
 namespace WebCore {
 
 using namespace std;
 
-PassRefPtr<LayerChromium> LayerChromium::create(LayerType type, GraphicsLayerChromium* owner)
+static int s_nextLayerId = 1;
+
+PassRefPtr<LayerChromium> LayerChromium::create(GraphicsLayerChromium* owner)
 {
-    return adoptRef(new LayerChromium(type, owner));
+    return adoptRef(new LayerChromium(owner));
 }
 
-LayerChromium::LayerChromium(LayerType type, GraphicsLayerChromium* owner)
-    : m_needsDisplayOnBoundsChange(false)
-    , m_owner(owner)
-    , m_layerType(type)
-    , m_superlayer(0)
-    , m_borderWidth(0)
-    , m_borderColor(0, 0, 0, 0)
+LayerChromium::LayerChromium(GraphicsLayerChromium* owner)
+    : m_owner(owner)
+    , m_contentsDirty(false)
+    , m_layerId(s_nextLayerId++)
+    , m_parent(0)
+    , m_ccLayerImpl(0)
+    , m_anchorPoint(0.5, 0.5)
     , m_backgroundColor(0, 0, 0, 0)
+    , m_opacity(1.0)
+    , m_zPosition(0.0)
     , m_anchorPointZ(0)
     , m_clearsContext(false)
-    , m_doubleSided(false)
-    , m_edgeAntialiasingMask(0)
     , m_hidden(false)
     , m_masksToBounds(false)
-    , m_contentsGravity(Bottom)
-    , m_opacity(1.0)
     , m_opaque(true)
-    , m_zPosition(0.0)
-    , m_canvas(0)
-    , m_skiaContext(0)
-    , m_graphicsContext(0)
     , m_geometryFlipped(false)
+    , m_needsDisplayOnBoundsChange(false)
+    , m_doubleSided(true)
+    , m_replicaLayer(0)
 {
-    updateGraphicsContext(m_backingStoreRect);
+    ASSERT(!LayerRendererChromium::s_inPaintLayerContents);
 }
 
 LayerChromium::~LayerChromium()
 {
-    // Our superlayer should be holding a reference to us, so there should be no way for us to be destroyed while we still have a superlayer.
-    ASSERT(!superlayer());
+    ASSERT(!LayerRendererChromium::s_inPaintLayerContents);
+    // Our parent should be holding a reference to us so there should be no
+    // way for us to be destroyed while we still have a parent.
+    ASSERT(!parent());
+
+    if (m_ccLayerImpl)
+        m_ccLayerImpl->clearOwner();
+
+    // Remove the parent reference from all children.
+    removeAllChildren();
 }
 
-void LayerChromium::updateGraphicsContext(const IntSize& size)
+void LayerChromium::cleanupResources()
 {
-#if PLATFORM(SKIA)
-    // Create new canvas and context. OwnPtr takes care of freeing up
-    // the old ones.
-    m_canvas = new skia::PlatformCanvas(size.width(), size.height(), false);
-    m_skiaContext = new PlatformContextSkia(m_canvas.get());
-
-    // This is needed to get text to show up correctly. Without it,
-    // GDI renders with zero alpha and the text becomes invisible.
-    // Unfortunately, setting this to true disables cleartype.
-    m_skiaContext->setDrawingToImageBuffer(true);
-
-    m_graphicsContext = new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(m_skiaContext.get()));
-#else
-#error "Need to implement for your platform."
-#endif
-    // The backing store allocated for a layer can be smaller than the layer's bounds.
-    // This is mostly true for the root layer whose backing store is sized based on the visible
-    // portion of the layer rather than the actual page size.
-    m_backingStoreRect = size;
 }
 
-void LayerChromium::updateContents()
+void LayerChromium::setLayerRenderer(LayerRendererChromium* renderer)
 {
-    RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_owner->client());
-
-    if (backing && !backing->paintingGoesToWindow())
-        m_owner->paintGraphicsLayerContents(*m_graphicsContext, IntRect(0, 0, m_bounds.width(), m_bounds.height()));
-}
-
-void LayerChromium::drawDebugBorder()
-{
-    m_graphicsContext->setStrokeColor(m_borderColor, DeviceColorSpace);
-    m_graphicsContext->setStrokeThickness(m_borderWidth);
-    m_graphicsContext->drawLine(IntPoint(0, 0), IntPoint(m_bounds.width(), 0));
-    m_graphicsContext->drawLine(IntPoint(0, 0), IntPoint(0, m_bounds.height()));
-    m_graphicsContext->drawLine(IntPoint(m_bounds.width(), 0), IntPoint(m_bounds.width(), m_bounds.height()));
-    m_graphicsContext->drawLine(IntPoint(0, m_bounds.height()), IntPoint(m_bounds.width(), m_bounds.height()));
+    // If we're changing layer renderers then we need to free up any resources
+    // allocated by the old renderer.
+    if (layerRenderer() && layerRenderer() != renderer) {
+        cleanupResources();
+        setNeedsDisplay();
+    }
+    m_layerRenderer = renderer;
 }
 
 void LayerChromium::setNeedsCommit()
 {
-    // Call notifySyncRequired(), which in this implementation plumbs through to
-    // call setRootLayerNeedsDisplay() on the WebView, which will cause LayerRendererSkia
+    // Call notifySyncRequired(), which for non-root layers plumbs through to
+    // call setRootLayerNeedsDisplay() on the WebView, which will cause LayerRendererChromium
     // to render a frame.
+    // This function has no effect on root layers.
     if (m_owner)
         m_owner->notifySyncRequired();
 }
 
-void LayerChromium::addSublayer(PassRefPtr<LayerChromium> sublayer)
+void LayerChromium::addChild(PassRefPtr<LayerChromium> child)
 {
-    insertSublayer(sublayer, numSublayers());
+    insertChild(child, numChildren());
 }
 
-void LayerChromium::insertSublayer(PassRefPtr<LayerChromium> sublayer, size_t index)
+void LayerChromium::insertChild(PassRefPtr<LayerChromium> child, size_t index)
 {
-    index = min(index, m_sublayers.size());
-    m_sublayers.insert(index, sublayer);
-    sublayer->setSuperlayer(this);
+    index = min(index, m_children.size());
+    child->removeFromParent();
+    child->setParent(this);
+    m_children.insert(index, child);
     setNeedsCommit();
 }
 
-void LayerChromium::removeFromSuperlayer()
+void LayerChromium::removeFromParent()
 {
-    LayerChromium* superlayer = this->superlayer();
-    if (!superlayer)
-        return;
-
-    superlayer->removeSublayer(this);
+    if (m_parent)
+        m_parent->removeChild(this);
 }
 
-void LayerChromium::removeSublayer(LayerChromium* sublayer)
+void LayerChromium::removeChild(LayerChromium* child)
 {
-    int foundIndex = indexOfSublayer(sublayer);
+    int foundIndex = indexOfChild(child);
     if (foundIndex == -1)
         return;
 
-    m_sublayers.remove(foundIndex);
-    sublayer->setSuperlayer(0);
+    child->setParent(0);
+    m_children.remove(foundIndex);
     setNeedsCommit();
 }
 
-int LayerChromium::indexOfSublayer(const LayerChromium* reference)
+void LayerChromium::replaceChild(LayerChromium* reference, PassRefPtr<LayerChromium> newLayer)
 {
-    for (size_t i = 0; i < m_sublayers.size(); i++) {
-        if (m_sublayers[i] == reference)
+    ASSERT_ARG(reference, reference);
+    ASSERT_ARG(reference, reference->parent() == this);
+
+    if (reference == newLayer)
+        return;
+
+    int referenceIndex = indexOfChild(reference);
+    if (referenceIndex == -1) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    reference->removeFromParent();
+
+    if (newLayer) {
+        newLayer->removeFromParent();
+        insertChild(newLayer, referenceIndex);
+    }
+}
+
+int LayerChromium::indexOfChild(const LayerChromium* reference)
+{
+    for (size_t i = 0; i < m_children.size(); i++) {
+        if (m_children[i] == reference)
             return i;
     }
     return -1;
 }
 
-void LayerChromium::setBackingStoreRect(const IntSize& rect)
+void LayerChromium::setBounds(const IntSize& size)
 {
-    if (m_backingStoreRect == rect)
+    if (bounds() == size)
         return;
 
-    updateGraphicsContext(rect);
-}
+    bool firstResize = !bounds().width() && !bounds().height() && size.width() && size.height();
 
-void LayerChromium::setBounds(const IntSize& rect)
-{
-    if (rect == m_bounds)
-        return;
+    m_bounds = size;
 
-    m_bounds = rect;
-
-    // Re-create the canvas and associated contexts.
-    updateGraphicsContext(m_bounds);
-
-    // Layer contents need to be redrawn as the backing surface
-    // was recreated above.
-    updateContents();
-
-    setNeedsCommit();
+    if (firstResize)
+        setNeedsDisplay(FloatRect(0, 0, bounds().width(), bounds().height()));
+    else
+        setNeedsCommit();
 }
 
 void LayerChromium::setFrame(const FloatRect& rect)
@@ -202,50 +201,207 @@ void LayerChromium::setFrame(const FloatRect& rect)
       return;
 
     m_frame = rect;
-    setNeedsCommit();
+    setNeedsDisplay(FloatRect(0, 0, bounds().width(), bounds().height()));
 }
 
 const LayerChromium* LayerChromium::rootLayer() const
 {
     const LayerChromium* layer = this;
-    for (LayerChromium* superlayer = layer->superlayer(); superlayer; layer = superlayer, superlayer = superlayer->superlayer()) { }
+    for (LayerChromium* parent = layer->parent(); parent; layer = parent, parent = parent->parent()) { }
     return layer;
 }
 
-void LayerChromium::removeAllSublayers()
+void LayerChromium::removeAllChildren()
 {
-    m_sublayers.clear();
-    setNeedsCommit();
+    while (m_children.size()) {
+        LayerChromium* layer = m_children[0].get();
+        ASSERT(layer->parent());
+        layer->removeFromParent();
+    }
 }
 
-void LayerChromium::setSublayers(const Vector<RefPtr<LayerChromium> >& sublayers)
+void LayerChromium::setChildren(const Vector<RefPtr<LayerChromium> >& children)
 {
-    m_sublayers = sublayers;
+    if (children == m_children)
+        return;
+
+    removeAllChildren();
+    size_t listSize = children.size();
+    for (size_t i = 0; i < listSize; i++)
+        addChild(children[i]);
 }
 
-void LayerChromium::setSuperlayer(LayerChromium* superlayer)
+LayerChromium* LayerChromium::parent() const
 {
-    m_superlayer = superlayer;
+    return m_parent;
 }
 
-LayerChromium* LayerChromium::superlayer() const
+void LayerChromium::setName(const String& name)
 {
-    return m_superlayer;
+    m_name = name;
 }
 
 void LayerChromium::setNeedsDisplay(const FloatRect& dirtyRect)
 {
-    // Redraw the contents of the layer.
-    updateContents();
+    // Simply mark the contents as dirty. For non-root layers, the call to
+    // setNeedsCommit will schedule a fresh compositing pass.
+    // For the root layer, setNeedsCommit has no effect.
+    m_contentsDirty = true;
 
+    m_dirtyRect.unite(dirtyRect);
     setNeedsCommit();
 }
 
 void LayerChromium::setNeedsDisplay()
 {
-    // FIXME: implement
+    m_dirtyRect.setLocation(FloatPoint());
+    m_dirtyRect.setSize(bounds());
+    m_contentsDirty = true;
+    setNeedsCommit();
 }
+
+void LayerChromium::resetNeedsDisplay()
+{
+    m_dirtyRect = FloatRect();
+    m_contentsDirty = false;
+}
+
+void LayerChromium::toGLMatrix(float* flattened, const TransformationMatrix& m)
+{
+    flattened[0] = m.m11();
+    flattened[1] = m.m12();
+    flattened[2] = m.m13();
+    flattened[3] = m.m14();
+    flattened[4] = m.m21();
+    flattened[5] = m.m22();
+    flattened[6] = m.m23();
+    flattened[7] = m.m24();
+    flattened[8] = m.m31();
+    flattened[9] = m.m32();
+    flattened[10] = m.m33();
+    flattened[11] = m.m34();
+    flattened[12] = m.m41();
+    flattened[13] = m.m42();
+    flattened[14] = m.m43();
+    flattened[15] = m.m44();
+}
+
+void LayerChromium::pushPropertiesTo(CCLayerImpl* layer)
+{
+    layer->setAnchorPoint(m_anchorPoint);
+    layer->setAnchorPointZ(m_anchorPointZ);
+    layer->setBounds(m_bounds);
+    layer->setDebugBorderColor(m_debugBorderColor);
+    layer->setDebugBorderWidth(m_debugBorderWidth);
+    layer->setDoubleSided(m_doubleSided);
+    layer->setLayerRenderer(m_layerRenderer.get());
+    layer->setMasksToBounds(m_masksToBounds);
+    layer->setName(m_name);
+    layer->setOpacity(m_opacity);
+    layer->setPosition(m_position);
+    layer->setPreserves3D(preserves3D());
+    layer->setSublayerTransform(m_sublayerTransform);
+    layer->setTransform(m_transform);
+
+    if (maskLayer())
+        maskLayer()->pushPropertiesTo(layer->maskLayer());
+    if (replicaLayer())
+        replicaLayer()->pushPropertiesTo(layer->replicaLayer());
+}
+
+GraphicsContext3D* LayerChromium::layerRendererContext() const
+{
+    ASSERT(layerRenderer());
+    return layerRenderer()->context();
+}
+
+void LayerChromium::drawTexturedQuad(GraphicsContext3D* context, const TransformationMatrix& projectionMatrix, const TransformationMatrix& drawMatrix,
+                                     float width, float height, float opacity,
+                                     int matrixLocation, int alphaLocation)
+{
+    static float glMatrix[16];
+
+    TransformationMatrix renderMatrix = drawMatrix;
+
+    // Apply a scaling factor to size the quad from 1x1 to its intended size.
+    renderMatrix.scale3d(width, height, 1);
+
+    // Apply the projection matrix before sending the transform over to the shader.
+    toGLMatrix(&glMatrix[0], projectionMatrix * renderMatrix);
+
+    GLC(context, context->uniformMatrix4fv(matrixLocation, false, &glMatrix[0], 1));
+
+    if (alphaLocation != -1)
+        GLC(context, context->uniform1f(alphaLocation, opacity));
+
+    GLC(context, context->drawElements(GraphicsContext3D::TRIANGLES, 6, GraphicsContext3D::UNSIGNED_SHORT, 0));
+}
+
+String LayerChromium::layerTreeAsText() const
+{
+    TextStream ts;
+    dumpLayer(ts, 0);
+    return ts.release();
+}
+
+static void writeIndent(TextStream& ts, int indent)
+{
+    for (int i = 0; i != indent; ++i)
+        ts << "  ";
+}
+
+void LayerChromium::dumpLayer(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << layerTypeAsString() << "(" << m_name << ")\n";
+    dumpLayerProperties(ts, indent+2);
+    if (m_replicaLayer) {
+        writeIndent(ts, indent+2);
+        ts << "Replica:\n";
+        m_replicaLayer->dumpLayer(ts, indent+3);
+    }
+    if (m_maskLayer) {
+        writeIndent(ts, indent+2);
+        ts << "Mask:\n";
+        m_maskLayer->dumpLayer(ts, indent+3);
+    }
+    for (size_t i = 0; i < m_children.size(); ++i)
+        m_children[i]->dumpLayer(ts, indent+1);
+}
+
+void LayerChromium::dumpLayerProperties(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "id: " << id() << " drawsContent: " << drawsContent() << " bounds " << m_bounds.width() << "x" << m_bounds.height() << "\n";
 
 }
 
+PassRefPtr<CCLayerImpl> LayerChromium::createCCLayerImpl()
+{
+    return CCLayerImpl::create(this, m_layerId);
+}
+
+CCLayerImpl* LayerChromium::ccLayerImpl()
+{
+    return m_ccLayerImpl;
+}
+
+void LayerChromium::setBorderColor(const Color& color)
+{
+    m_debugBorderColor = color;
+    setNeedsCommit();
+}
+
+void LayerChromium::setBorderWidth(float width)
+{
+    m_debugBorderWidth = width;
+    setNeedsCommit();
+}
+
+LayerRendererChromium* LayerChromium::layerRenderer() const
+{
+    return m_layerRenderer.get();
+}
+
+}
 #endif // USE(ACCELERATED_COMPOSITING)

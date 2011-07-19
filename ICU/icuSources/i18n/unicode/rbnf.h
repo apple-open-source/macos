@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2006, International Business Machines Corporation and others.
+* Copyright (C) 1997-2010, International Business Machines Corporation and others.
 * All Rights Reserved.
 *******************************************************************************
 */
@@ -11,7 +11,7 @@
 #include "unicode/utypes.h"
 
 /**
- * \file 
+ * \file
  * \brief C++ API: Rule Based Number Format
  */
 
@@ -49,6 +49,7 @@ enum URBNFRuleSetTag {
     URBNF_SPELLOUT,
     URBNF_ORDINAL,
     URBNF_DURATION,
+    URBNF_NUMBERING_SYSTEM,
     URBNF_COUNT
 };
 
@@ -489,9 +490,9 @@ class Collator;
  * <p>In the syntax, angle brackets '<', '>' are used to delimit the arrays, and comma ',' is used
  * to separate elements of an array.  Whitespace is ignored, unless quoted.</p>
  * <p>For example:<pre>
- * < < %foo, %bar, %baz >, 
- *   < en, Foo, Bar, Baz >, 
- *   < fr, 'le Foo', 'le Bar', 'le Baz' > 
+ * < < %foo, %bar, %baz >,
+ *   < en, Foo, Bar, Baz >,
+ *   < fr, 'le Foo', 'le Bar', 'le Baz' >
  *   < zh, \\u7532, \\u4e59, \\u4e19 > >
  * </pre></p>
  * @author Richard Gillam
@@ -520,7 +521,7 @@ public:
 
     /**
      * Creates a RuleBasedNumberFormat that behaves according to the description
-     * passed in.  The formatter uses the default locale.  
+     * passed in.  The formatter uses the default locale.
      * <p>
      * The localizations data provides information about the public
      * rule sets and their localized display names for different
@@ -564,7 +565,7 @@ public:
 
     /**
      * Creates a RuleBasedNumberFormat that behaves according to the description
-     * passed in.  The formatter uses the default locale.  
+     * passed in.  The formatter uses the default locale.
      * <p>
      * The localizations data provides information about the public
      * rule sets and their localized display names for different
@@ -596,10 +597,12 @@ public:
    * code choosed among three possible predefined formats: spellout, ordinal,
    * and duration.
    * @param tag A selector code specifying which kind of formatter to create for that
-   * locale.  There are three legal values: URBNF_SPELLOUT, which creates a formatter that
+   * locale.  There are four legal values: URBNF_SPELLOUT, which creates a formatter that
    * spells out a value in words in the desired language, URBNF_ORDINAL, which attaches
    * an ordinal suffix from the desired language to the end of a number (e.g. "123rd"),
-   * and URBNF_DURATION, which formats a duration in seconds as hours, minutes, and seconds.
+   * URBNF_DURATION, which formats a duration in seconds as hours, minutes, and seconds,
+   * and URBNF_NUMBERING_SYSTEM, which is used to invoke rules for alternate numbering
+   * systems such as the Hebrew numbering system, or for Roman Numerals, etc.
    * @param locale The locale for the formatter.
    * @param status The status indicating whether the constructor succeeded.
    * @stable ICU 2.0
@@ -694,7 +697,7 @@ public:
     /**
      * Return the rule set display names for the provided locale.  These are in the same order
      * as those returned by getRuleSetName.  The locale is matched against the locales for
-     * which there is display name data, using normal fallback rules.  If no locale matches, 
+     * which there is display name data, using normal fallback rules.  If no locale matches,
      * the default display names are returned.  (These are the internal rule set names minus
      * the leading '%'.)
      * @param index the index of the rule set
@@ -704,19 +707,22 @@ public:
      * @see #getRuleSetName
      * @stable ICU 3.2
      */
-  virtual UnicodeString getRuleSetDisplayName(int32_t index, 
+  virtual UnicodeString getRuleSetDisplayName(int32_t index,
                           const Locale& locale = Locale::getDefault());
 
     /**
-     * Return the rule set display name for the provided rule set and locale.  
+     * Return the rule set display name for the provided rule set and locale.
      * The locale is matched against the locales for which there is display name data, using
      * normal fallback rules.  If no locale matches, the default display name is returned.
      * @return the display name for the rule set
      * @stable ICU 3.2
      * @see #getRuleSetDisplayName
      */
-  virtual UnicodeString getRuleSetDisplayName(const UnicodeString& ruleSetName, 
+  virtual UnicodeString getRuleSetDisplayName(const UnicodeString& ruleSetName,
                           const Locale& locale = Locale::getDefault());
+
+
+  using NumberFormat::format;
 
   /**
    * Formats the specified 32-bit number using the default ruleset.
@@ -962,8 +968,8 @@ private:
     RuleBasedNumberFormat(); // default constructor not implemented
 
     // this will ref the localizations if they are not NULL
-    // caller must deref to get adoption 
-    RuleBasedNumberFormat(const UnicodeString& description, LocalizationInfo* localizations, 
+    // caller must deref to get adoption
+    RuleBasedNumberFormat(const UnicodeString& description, LocalizationInfo* localizations,
               const Locale& locale, UParseError& perror, UErrorCode& status);
 
     void init(const UnicodeString& rules, LocalizationInfo* localizations, UParseError& perror, UErrorCode& status);
@@ -991,6 +997,10 @@ private:
     UBool lenient;
     UnicodeString* lenientParseRules;
     LocalizationInfo* localizations;
+
+    // Temporary workaround - when noParse is true, do noting in parse.
+    // TODO: We need a real fix - see #6895/#6896
+    UBool noParse;
 };
 
 // ---------------

@@ -13,7 +13,7 @@ dnl	to configure the system for the local environment.
 # so you can encode the package version directly into the source files.
 #-----------------------------------------------------------------------
 
-AC_INIT([tclAE], [2.0.3])
+AC_INIT([tclAE], [2.0.5])
 
 if test ! -d /System/Library/Frameworks/Carbon.framework; then
     AC_MSG_ERROR([Mac OS X with Carbon required!])
@@ -25,7 +25,7 @@ fi
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 
@@ -106,12 +106,6 @@ TEA_ENABLE_SHARED
 #--------------------------------------------------------------------
 
 TEA_CONFIG_CFLAGS
-
-# Remove 64-bit arch flags from CFLAGS et al. for combined 32 & 64 bit
-# fat builds as tclAE cannot be built for 64-bit at present.
-test "$fat_32_64" = yes && for v in CFLAGS CPPFLAGS LDFLAGS; do
-    eval $v'="`echo "$'$v' "|sed -e "s/-arch ppc64 / /g" -e "s/-arch x86_64 / /g"`"'
-done
 
 #--------------------------------------------------------------------
 # Set the default compiler switches based on the --enable-symbols option.

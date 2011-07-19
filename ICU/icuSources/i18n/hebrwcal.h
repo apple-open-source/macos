@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2003-2007, International Business Machines Corporation
+* Copyright (C) 2003-2009, International Business Machines Corporation
 * and others. All Rights Reserved.
 ******************************************************************************
 *
@@ -80,7 +80,7 @@ U_NAMESPACE_BEGIN
  * <p>
  * @internal
  */
-class HebrewCalendar : public Calendar {
+class U_I18N_API HebrewCalendar : public Calendar {
 public:
   /**
    * Useful constants for HebrewCalendar.
@@ -216,7 +216,7 @@ public:
      * @return   The class ID for all objects of this class.
      * @internal
      */
-    U_I18N_API static UClassID U_EXPORT2 getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
      * return the calendar type, "hebrew".
@@ -273,6 +273,10 @@ public:
 `     */
     virtual void roll(EDateFields field, int32_t amount, UErrorCode& status);
 
+    /**
+     * @internal 
+     */
+    static UBool isLeapYear(int32_t year) ;
 
  protected:
 
@@ -467,10 +471,6 @@ public:
      */
     int32_t yearType(int32_t year) const;
 
-    /**
-     * @internal 
-     */
-    static UBool isLeapYear(int32_t year) ;
     /**
      * @internal 
      */

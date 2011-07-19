@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2009, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -16,7 +16,7 @@
 #include "caltztst.h"
 
 /** 
- * Performs many different tests for DataeFormat and SimpleDateFormat
+ * Performs many different tests for DateFormat and SimpleDateFormat
  **/
 class DateFormatTest: public CalendarTimeZoneTest {
     // IntlTest override
@@ -137,9 +137,7 @@ public:
 
     void TestTimeZoneStringsAPI(void);
 
-#if ICU_4_2_1
     void TestGMTParsing(void);
-#endif
 
 public: // package
     /**
@@ -163,13 +161,15 @@ public: // package
 
     void TestGenericTimeZoneOrder(void);
 
-#if ICU_4_2_1
     void Test6338(void);
 
     void Test6726(void);
 
     void Test6880(void);
-#endif
+
+    void TestISOEra(void);
+
+    void TestFormalChineseDate(void);
 
 public:
     /**
@@ -197,20 +197,15 @@ public:
     
     void TestHostClone(void);
 
-#if ICU_4_2_1
     void TestTimeZoneDisplayName(void);
 
     void TestRoundtripWithCalendar(void);
-#endif
 
 public:
     /***
      * Test Relative Dates
      */
      void TestRelative(void);
-#if !ICU_4_2_1
-    void TestTimeZoneDisplayName(void);
-#endif
 /*   void TestRelativeError(void);
      void TestRelativeOther(void);
 */
@@ -220,8 +215,8 @@ public:
      * Test parsing a number as a string
      */
     void TestNumberAsStringParsing(void);
-    
-private:
+
+ private:
       void TestRelative(int daysdelta, 
                                   const Locale& loc,
                                   const char *expectChars);

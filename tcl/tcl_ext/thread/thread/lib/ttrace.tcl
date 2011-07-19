@@ -3,10 +3,10 @@
 #
 # Copyright (C) 2003 Zoran Vasiljevic, Archiware GmbH. All Rights Reserved.
 # 
-# See the file "license.terms" for information on usage and redistribution
-# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# See the file "license.terms" for information on usage and redistribution of
+# this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# Rcsid: @(#)$Id: ttrace.tcl,v 1.12 2006/10/07 08:47:38 vasiljevic Exp $
+# Rcsid: @(#)$Id: ttrace.tcl,v 1.15 2010/08/12 16:34:58 andreas_kupries Exp $
 # ----------------------------------------------------------------------------
 #
 # User level commands:
@@ -40,10 +40,10 @@
 #   o. [namespace forget] is still not implemented
 #   o. [namespace origin cmd] breaks if cmd is not already defined
 #
-#      I left this deliberately. I didn't want to override the 
-#      [namespace] command in order to avoid potential slowdown.
+#      I left this deliberately. I didn't want to override the [namespace]
+#      command in order to avoid potential slowdown.
 #
-
+
 namespace eval ttrace {
 
     # Setup some compatibility wrappers
@@ -51,18 +51,31 @@ namespace eval ttrace {
         variable tvers 0
         variable mutex ns_mutex
         variable elock [$mutex create traceepochmutex]
-        variable store nsv_
-    } elseif {![catch {package require Thread} version]} {
-        variable tvers $version
+        # Import the underlying API; faster than recomputing
+        interp alias {} [namespace current]::_array   {} nsv_array
+        interp alias {} [namespace current]::_incr    {} nsv_incr
+        interp alias {} [namespace current]::_lappend {} nsv_lappend
+        interp alias {} [namespace current]::_names   {} nsv_names
+        interp alias {} [namespace current]::_set     {} nsv_set
+        interp alias {} [namespace current]::_unset   {} nsv_unset
+    } elseif {![catch {
+        variable tvers [package require Thread]
+    }]} {
         variable mutex thread::mutex
         variable elock [$mutex create]
-        variable store tsv::
+        # Import the underlying API; faster than recomputing
+        interp alias {} [namespace current]::_array   {} tsv::array
+        interp alias {} [namespace current]::_incr    {} tsv::incr
+        interp alias {} [namespace current]::_lappend {} tsv::lappend
+        interp alias {} [namespace current]::_names   {} tsv::names
+        interp alias {} [namespace current]::_set     {} tsv::set
+        interp alias {} [namespace current]::_unset   {} tsv::unset
     } else {
         error "requires AOLserver or Tcl threading extension"
     }
 
     # Keep in sync with the Thread package
-    package provide Ttrace 2.6.5
+    package provide Ttrace 2.6.6
 
     # Package variables
     variable resolvers ""     ; # List of registered resolvers
@@ -88,9 +101,9 @@ namespace eval ttrace {
     namespace export unknown
 
     # Initialize ttrace shared state
-    if {[${store}array exists ttrace] == 0} {
-        ${store}set ttrace lastepoch $epoch
-        ${store}set ttrace epochlist ""
+    if {[_array exists ttrace] == 0} {
+        _set ttrace lastepoch $epoch
+        _set ttrace epochlist ""
     }
 
     # Initially, allow creation of epochs
@@ -101,13 +114,13 @@ namespace eval ttrace {
         set code [catch {uplevel 1 [concat $cmd $args]} result]
         disable
         if {$code == 0} {
-            if {[info commands ns_ictl] == ""} {
+            if {[llength [info commands ns_ictl]]} {
+                ns_ictl save [getscript]
+            } else {
                 thread::broadcast {
                     package require Ttrace
                     ttrace::update
                 }
-            } else {
-                ns_ictl save [getscript]
             }
         }
         return -code $code \
@@ -176,11 +189,10 @@ namespace eval ttrace {
     }
 
     proc update {{from -1}} {
-        variable store
         if {$from == -1} { 
-            variable epoch [${store}set ttrace lastepoch]
+            variable epoch [_set ttrace lastepoch]
         } else {
-            if {[lsearch [${store}set ttrace epochlist] $from] == -1} {
+            if {[lsearch [_set ttrace epochlist] $from] == -1} {
                 error "no such epoch: $from"
             }
             variable epoch $from
@@ -280,27 +292,24 @@ namespace eval ttrace {
     }
 
     proc addentry {cmd var val} {
-        variable store
         variable epoch
-        ${store}set ${epoch}-$cmd $var $val
+        _set ${epoch}-$cmd $var $val
     }
 
     proc delentry {cmd var} {
-        variable store
         variable epoch
         set ei $::errorInfo
         set ec $::errorCode
-        catch {${store}unset ${epoch}-$cmd $var}
+        catch {_unset ${epoch}-$cmd $var}
         set ::errorInfo $ei
         set ::errorCode $ec
     }
 
     proc getentry {cmd var} {
-        variable store
         variable epoch
         set ei $::errorInfo
         set ec $::errorCode
-        if {[catch {${store}set ${epoch}-$cmd $var} val]} {
+        if {[catch {_set ${epoch}-$cmd $var} val]} {
             set ::errorInfo $ei
             set ::errorCode $ec
             set val ""
@@ -309,9 +318,8 @@ namespace eval ttrace {
     }
 
     proc getentries {cmd {pattern *}} {
-        variable store
         variable epoch
-        ${store}array names ${epoch}-$cmd $pattern
+        _array names ${epoch}-$cmd $pattern
     }
 
     proc unknown {args} {
@@ -354,69 +362,64 @@ namespace eval ttrace {
     }
 
     proc _newepoch {} {
-        variable store
         variable elock
         variable mutex
         $mutex lock $elock
-        set old [${store}set ttrace lastepoch]
-        set new [${store}incr ttrace lastepoch]
-        ${store}lappend ttrace $new [_getthread]
+        set old [_set ttrace lastepoch]
+        set new [_incr ttrace lastepoch]
+        _lappend ttrace $new [_getthread]
         if {$old >= 0} {
             _copyepoch $old $new
             _delepochs
         }
-        ${store}lappend ttrace epochlist $new
+        _lappend ttrace epochlist $new
         $mutex unlock $elock
         return $new
     }
 
     proc _copyepoch {old new} {
-        variable store
-        foreach var [${store}names $old-*] {
+        foreach var [_names $old-*] {
             set cmd [lindex [split $var -] 1]
-            ${store}array reset $new-$cmd [${store}array get $var]
+            _array reset $new-$cmd [_array get $var]
         }
     }
 
     proc _delepochs {} {
-        variable store
         set tlist [_getthreads]
         set elist ""
-        foreach epoch [${store}set ttrace epochlist] {
+        foreach epoch [_set ttrace epochlist] {
             if {[_dropepoch $epoch $tlist] == 0} {
                 lappend elist $epoch
             } else {
-                ${store}unset ttrace $epoch
+                _unset ttrace $epoch
             }
         }
-        ${store}set ttrace epochlist $elist
+        _set ttrace epochlist $elist
     }
 
     proc _dropepoch {epoch threads} {
-        variable store
         set self [_getthread] 
-        foreach tid [${store}set ttrace $epoch] {
+        foreach tid [_set ttrace $epoch] {
             if {$tid != $self && [lsearch $threads $tid] >= 0} {
                 lappend alive $tid
             }
         }
         if {[info exists alive]} {
-            ${store}set ttrace $epoch $alive
+            _set ttrace $epoch $alive
             return 0
         } else {
-            foreach var [${store}names $epoch-*] {
-                ${store}unset $var
+            foreach var [_names $epoch-*] {
+                _unset $var
             }
             return 1
         }
     }
 
     proc _useepoch {epoch} {
-        variable store
         if {$epoch >= 0} {
             set tid [_getthread]
-            if {[lsearch [${store}set ttrace $epoch] $tid] == -1} {
-                ${store}lappend ttrace $epoch $tid
+            if {[lsearch [_set ttrace $epoch] $tid] == -1} {
+                _lappend ttrace $epoch $tid
             }
         }
     }
@@ -436,8 +439,8 @@ namespace eval ttrace {
         if {$nsp == ""} {
             set nsp "::"
         }
-        append res "::namespace eval $nsp {" \n
-        append res "::proc [namespace tail $cmd] [list $pargs] [list $pbody]" \n
+        append res [list ::namespace eval $nsp] " {" \n
+        append res [list ::proc [namespace tail $cmd] $pargs $pbody] \n
         append res "}" \n
     }
 
@@ -446,14 +449,14 @@ namespace eval ttrace {
         if {$nsp == ""} {
             set nsp [namespace current]
         }
-        append res "::namespace eval $nsp {" \n
+        append res [list ::namespace eval $nsp] " {" \n
         foreach var [info vars ${nsp}::*] {
             set vname [namespace tail $var]
             if {[array exists $var] == 0} {
-                append res "::variable $vname {[set $var]}" \n
+                append res [list ::variable $vname [set $var]] \n
             } else {
-                append res "::variable $vname" \n
-                append res "::array set $vname [list [array get $var]]" \n
+                append res [list ::variable $vname] \n
+                append res [list ::array set $vname [array get $var]] \n
             }
         }
         foreach cmd [info procs ${nsp}::*] {
@@ -466,32 +469,32 @@ namespace eval ttrace {
         return $res
     }
 }
-
+
 #
-# The code below is ment to be run once during the application start. 
-# It provides implementation of tracing callbacks for some Tcl commands.
-# Users can supply their own tracer implementations on-the-fly.
+# The code below is ment to be run once during the application start.  It
+# provides implementation of tracing callbacks for some Tcl commands.  Users
+# can supply their own tracer implementations on-the-fly.
 #
 # The code below will create traces for the following Tcl commands:
 #    "namespace", "variable", "load", "proc" and "rename"
 #
-# Also, the Tcl object extension XOTcl 1.1.0 is handled and all XOTcl
-# related things, like classes and objects are traced (many thanks to
-# Gustaf Neumann from XOTcl for his kind help and support). 
+# Also, the Tcl object extension XOTcl 1.1.0 is handled and all XOTcl related
+# things, like classes and objects are traced (many thanks to Gustaf Neumann
+# from XOTcl for his kind help and support).
 #
 
 eval {
 
     #
-    # Register the "load" trace. This will create 
-    # the following key/value pair in the "load" store:
+    # Register the "load" trace. This will create the following key/value pair
+    # in the "load" store:
     #
     #  --- key ----              --- value ---
     #  <path_of_loaded_image>    <name_of_the_init_proc>
     #
-    # We normally need only the name_of_the_init_proc for
-    # being able to load the package in other interpreters,
-    # but we store the path to the image file as well.
+    # We normally need only the name_of_the_init_proc for being able to load
+    # the package in other interpreters, but we store the path to the image
+    # file as well.
     #
 
     ttrace::addtrace load {cmdline code args} {
@@ -520,20 +523,20 @@ eval {
     }
 
     #
-    # Register the "namespace" trace. This will create 
-    # the following key/value entry in "namespace" store:
+    # Register the "namespace" trace. This will create the following key/value
+    # entry in "namespace" store:
     #
     #  --- key ----                   --- value ---
     #  ::fully::qualified::namespace  1
     #
-    # It will also fill the "proc" store for procedures
-    # and commands imported in this namespace with following:
+    # It will also fill the "proc" store for procedures and commands imported
+    # in this namespace with following:
     #
     #  --- key ----                   --- value ---
     #  ::fully::qualified::proc       [list <ns>  "" ""]
     #
-    # The <ns> is the name of the namespace where the 
-    # command or procedure is imported from.
+    # The <ns> is the name of the namespace where the command or procedure is
+    # imported from.
     #
 
     ttrace::addtrace namespace {cmdline code args} {
@@ -596,15 +599,15 @@ eval {
     }
 
     #
-    # Register the "variable" trace. This will create 
-    # the following key/value entry in the "variable" store:
+    # Register the "variable" trace. This will create the following key/value
+    # entry in the "variable" store:
     #
     #  --- key ----                   --- value ---
     #  ::fully::qualified::variable   1
     #
-    # The variable value itself is ignored at the time
-    # of trace/collection. Instead, we take the real
-    # value at the time of script generation.
+    # The variable value itself is ignored at the time of
+    # trace/collection. Instead, we take the real value at the time of script
+    # generation.
     #
 
     ttrace::addtrace variable {cmdline code args} {
@@ -640,22 +643,21 @@ eval {
             } else {
                 append res \n
             }
-            append res } \n
+            append res "}" \n
         }
         return $res
     }
 
 
     #
-    # Register the "rename" trace. It will create 
-    # the following key/value pair in "rename" store:
+    # Register the "rename" trace. It will create the following key/value pair
+    # in "rename" store:
     #
     #  --- key ----              --- value ---
     #  ::fully::qualified::old  ::fully::qualified::new
     #
-    # The "new" value may be empty, for commands that 
-    # have been deleted. In such cases we also remove
-    # any traced procedure definitions.
+    # The "new" value may be empty, for commands that have been deleted. In
+    # such cases we also remove any traced procedure definitions.
     #
 
     ttrace::addtrace rename {cmdline code args} {
@@ -691,17 +693,16 @@ eval {
     }
 
     #
-    # Register the "proc" trace. This will create 
-    # the following key/value pair in the "proc" store:
+    # Register the "proc" trace. This will create the following key/value pair
+    # in the "proc" store:
     #
     #  --- key ----              --- value ---
     #  ::fully::qualified::proc  [list <epoch> <ns> <arglist> <body>]
     #
-    # The <epoch> chages anytime one (re)defines a proc. 
-    # The <ns> is the namespace where the command was imported 
-    # from. If empty, the <arglist> and <body> will hold the 
-    # actual procedure definition. See the "namespace" tracer
-    # implementation also.
+    # The <epoch> chages anytime one (re)defines a proc.  The <ns> is the
+    # namespace where the command was imported from. If empty, the <arglist>
+    # and <body> will hold the actual procedure definition. See the
+    # "namespace" tracer implementation also.
     #
 
     ttrace::addtrace proc {cmdline code args} {
@@ -784,11 +785,9 @@ eval {
     }
 
     #
-    # Register procedure resolver. This will try to
-    # resolve the command in the current namespace
-    # first, and if not found, in global namespace.
-    # It also handles commands imported from other
-    # namespaces.
+    # Register procedure resolver. This will try to resolve the command in the
+    # current namespace first, and if not found, in global namespace.  It also
+    # handles commands imported from other namespaces.
     #
 
     ttrace::addresolver resolveprocs {cmd {export 0}} {
@@ -842,17 +841,16 @@ eval {
     }
 
     #
-    # For XOTcl, the entire item introspection/tracing
-    # is delegated to XOTcl itself.
-    # The xotcl store is filled with this:
+    # For XOTcl, the entire item introspection/tracing is delegated to XOTcl
+    # itself. The xotcl store is filled with this:
     #
     #  --- key ----               --- value ---
     #  ::fully::qualified::item   <body>
     #
-    # The <body> is the script used to generate the entire
-    # item (class, object). Note that we do not fill in this
-    # during code tracing. It is done during the script
-    # generation. In this step, only the placeholder is set.
+    # The <body> is the script used to generate the entire item (class,
+    # object). Note that we do not fill in this during code tracing. It is
+    # done during the script generation. In this step, only the placeholder is
+    # set.
     #
     # NOTE: we assume all XOTcl commands are imported in global namespace
     #
@@ -916,9 +914,8 @@ eval {
     }]
 
     #
-    # Register callback to be called on cleanup.
-    # This will trash lazily loaded procs which
-    # have changed since.
+    # Register callback to be called on cleanup. This will trash lazily loaded
+    # procs which have changed since.
     # 
 
     ttrace::addcleanup {
@@ -935,5 +932,13 @@ eval {
         }
     }
 }
-
+
 # EOF
+return
+
+# Local Variables:
+# mode: tcl
+# fill-column: 78
+# tab-width: 8
+# indent-tabs-mode: nil
+# End:

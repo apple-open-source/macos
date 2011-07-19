@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2006 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -56,7 +56,7 @@
 .\"
 .\"     @(#)showmount.8	8.3 (Berkeley) 3/29/95
 .\"
-.Dd December 21, 2006
+.Dd September 26, 2010
 .Dt SHOWMOUNT 8
 .Os BSD 4
 .Sh NAME
@@ -64,7 +64,7 @@
 .Nd show remote NFS mounts on host
 .Sh SYNOPSIS
 .Nm showmount
-.Op Fl Ae3
+.Op Fl Ae36
 .Op Fl a | d
 .Op Ar host
 .Sh DESCRIPTION
@@ -98,6 +98,8 @@ Show the
 exports list.
 .It Fl 3
 Use mount protocol Version 3, compatible with NFS Version 3.
+.It Fl 6
+Use only IPv6 addresses to contact servers.
 .El
 .Sh SEE ALSO
 .Xr mount 1 ,

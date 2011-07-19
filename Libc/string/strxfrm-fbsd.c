@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.15 2002/09/06 11:24:06 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.17 2008/10/19 09:10:44 delphij Exp $");
 
 #include "xlocale_private.h"
 
@@ -80,18 +80,8 @@ strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len,
 	}
 
 	NORMALIZE_LOCALE(loc);
-	if (loc->__collate_load_error || (wcs = __collate_mbstowcs(src, loc)) == NULL) {
-		slen = strlen(src);
-		if (len > 0) {
-			if (slen < len)
-				strcpy(dest, src);
-			else {
-				strncpy(dest, src, len - 1);
-				dest[len - 1] = '\0';
-			}
-		}
-		return slen;
-	}
+	if (loc->__collate_load_error || (wcs = __collate_mbstowcs(src, loc)) == NULL)
+		return strlcpy(dest, src, len);
 
 	__collate_xfrm(wcs, xf, loc);
 

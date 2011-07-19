@@ -1,0 +1,9 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+box text "from"
+move
+ellipse text "to"
+
+arc cw radius [4 cm] \
+    from [0.33 between [last box n] [last box ne]] \
+    to [last ellipse n]

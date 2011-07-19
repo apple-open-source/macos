@@ -63,14 +63,12 @@ do_delete_certificate(CFTypeRef keychainOrArray, const char *name, const char *h
 														 kSecTrustSettingsDomainUser);
 			if (result && result != errSecItemNotFound) {
 				sec_perror("SecTrustSettingsRemoveTrustSettings (user)", result);
-				goto cleanup;
 			}
 			if (geteuid() == 0) {
 				result = SecTrustSettingsRemoveTrustSettings((SecCertificateRef)itemToDelete,
 															 kSecTrustSettingsDomainAdmin);
 				if (result && result != errSecItemNotFound) {
 					sec_perror("SecTrustSettingsRemoveTrustSettings (admin)", result);
-					goto cleanup;
 				}
 			}
 		}

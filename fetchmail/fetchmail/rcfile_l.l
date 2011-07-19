@@ -1,7 +1,7 @@
 %{
 
 /*
- * rcfile_l.l -- lexer for the run control file
+ * rcfile_l.l -- lexer for the run control file, to be used with GNU flex.
  *
  * For license terms, see the file COPYING in this directory.
  */
@@ -9,6 +9,7 @@
 
 #include "config.h"
 #include "fetchmail.h"
+#include "xmalloc.h"
 #include "rcfile_y.h"
 
 int prc_lineno = 1;
@@ -19,51 +20,37 @@ int prc_lineno = 1;
 #define SETSTATE(n)	BEGIN(n)
 #endif /* LEXDEBUG */
 
+#define YY_NO_INPUT
+
 %}
 
-/* this doesn't work with Linux lex, see the INSTALL file */
-%o 7000
-%a 4000
-%p 3000
 %option nounput noyywrap
+%option warn nodefault
+%option 8bit batch
 
 %s NAME AUTH
 
 %%
 
-\"[^\"]*\"	{
-			yytext[yyleng-1] = '\0';
-			escapes(yytext+1, yytext);
-			yyleng = strlen(yytext);
-			yylval.sval = yytext;
-                        SETSTATE(0);
-			return STRING;
-		}
+\"[^\"]*\"	|
 \'[^\']*\'	{
-			yytext[yyleng-1] = '\0';
-			escapes(yytext+1, yytext);
-			yyleng = strlen(yytext);
-			yylval.sval = yytext;
-                        SETSTATE(0);
+			char *in = xstrndup(yytext+1, yyleng-2);
+			escapes(in, in);
+			yylval.sval = in;
+			SETSTATE(0);
 			return STRING;
 		}
 
-"*"		{ BEGIN(0); return WILDCARD; }
+"*"		{
+		 	SETSTATE(0);
+			return WILDCARD;
+		}
 
 <NAME>[^=;:, \t\r\n]+	{
-			static char *in;
-			static size_t ins;
-
-			if ((size_t)yyleng + 1 > ins) {
-			    ins = yyleng + 1;
-			    in = (char *)xrealloc(in, ins);
-			}
-			memcpy(in, yytext, yyleng);
-			in[yyleng] = '\0';
+			char *in = xstrdup(yytext);
 			escapes(in, in);
-			yyleng = strlen(in);
 			yylval.sval = in;
-                        SETSTATE(0);
+			SETSTATE(0);
 			return STRING;
 		}
 
@@ -88,7 +75,7 @@ poll		{ return POLL; }
 skip		{ return SKIP; }
 via		{ return VIA; }
 aka		{ return AKA; }
-local(domains)	{ return LOCALDOMAINS; }
+local(domains)?	{ return LOCALDOMAINS; }
 proto(col)? 	{ return PROTOCOL; }
 service		{ return SERVICE; }
 port		{ return PORT; }
@@ -113,7 +100,9 @@ qvirtual	{ return QVIRTUAL; }
 principal	{ return PRINCIPAL; }
 esmtpname	{ return ESMTPNAME; }
 esmtppassword	{ return ESMTPPASSWORD; }
-
+bad-header	{ return BADHEADER; }
+accept		{ return ACCEPT; }
+reject		{ return REJECT_; }
 
 user(name)?	{SETSTATE(NAME); return USERNAME; }
 <INITIAL,NAME>pass(word)?	{SETSTATE(NAME); return PASSWORD; }
@@ -188,6 +177,7 @@ sslkey		{ return SSLKEY; }
 sslcert		{ return SSLCERT; }
 sslproto	{ return SSLPROTO; }
 sslcertck	{ return SSLCERTCK; }
+sslcertfile	{ return SSLCERTFILE; }
 sslcertpath	{ return SSLCERTPATH; }
 sslcommonname	{ return SSLCOMMONNAME; }
 sslfingerprint	{ return SSLFINGERPRINT; }
@@ -218,9 +208,9 @@ options		{/* EMPTY */}
 -?[0-9]+	{ yylval.number = atoi(yytext); return NUMBER; }
 
 [^=;:, \t\r\n]+	{
-			escapes(yytext, yytext);
-			yyleng = strlen(yytext);
-			yylval.sval = yytext;
+			char *in = xstrdup(yytext);
+			escapes(in, in);
+			yylval.sval = in;
 			return STRING;
 		}
 
@@ -242,7 +232,7 @@ void escapes(const char *cp /** source string with escapes */,
 	 * always succeed! */
 	if (*cp == '\\' && cp[1] && strchr("0123456789xX", cp[1]))
 	{
-	    char *dp;
+	    const char *dp;
 	    const char *hex = "00112233445566778899aAbBcCdDeEfF";
 	    int dcount = 0;
 

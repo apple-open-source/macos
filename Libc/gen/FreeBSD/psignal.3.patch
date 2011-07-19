@@ -1,0 +1,22 @@
+--- psignal.3.orig	2010-05-06 12:14:16.000000000 -0700
++++ psignal.3	2010-05-06 12:21:47.000000000 -0700
+@@ -98,6 +98,19 @@ contains a count of the strings in
+ .Va sys_siglist
+ and
+ .Va sys_signame .
++.Sh RETURN VALUES
++.Fn strsignal
++a pointer to the desired message or a NULL value indicating an error.  This
++string is not to be freed by the caller.  Beginning with Mac OSX 10.7, this
++string is unique to each thread.
++.Sh ERRORS
++.Fn strsignal
++will fail and no additional memory will be allocated if
++one of the following are true:
++.Bl -tag -width Er
++.It Bq Er ENOMEM
++There was insufficient memory to allocate storage space for the return value in the running thread.
++.El
+ .Sh SEE ALSO
+ .Xr sigaction 2 ,
+ .Xr perror 3 ,

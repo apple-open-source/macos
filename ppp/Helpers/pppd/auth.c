@@ -218,11 +218,11 @@ int (*chap_passwd_hook) __P((char *user, char *passwd)) = NULL;
 
 #ifdef __APPLE__
 /* Hook for access control list to verify if user should have access */
-int (*acl_hook) __P((char *user, int len)) = NULL;
+int (*acl_hook) __P((u_char *user, int len)) = NULL;
 /* Hook to change password, for authentication methods that support it */
-int (*change_password_hook) __P((char *msg))		= NULL;
+int (*change_password_hook) __P((u_char *msg))		= NULL;
 /* Hook to retry password, for authentication methods that support it */
-int (*retry_password_hook) __P((char *msg))		= NULL;
+int (*retry_password_hook) __P((u_char *msg))		= NULL;
 #endif
 
 #ifdef __APPLE__
@@ -828,6 +828,16 @@ network_phase(unit)
 {
     lcp_options *go = &lcp_gotoptions[unit];
 
+#ifdef __APPLE__
+	/*
+	 * dont' go through the network phase changes repeatedly; particularly
+	 * in the case of frequent (server-initiated) chap reauths.
+	 */
+    if (phase == PHASE_NETWORK || phase == PHASE_RUNNING) {
+        return;
+    }
+#endif // __APPLE__
+
     /* Log calling number. */
     if (*remote_number)
 	notice("peer from calling number %q authorized", remote_number);
@@ -948,7 +958,7 @@ auth_peer_fail(unit, protocol)
 void
 auth_peer_success(unit, protocol, prot_flavor, name, namelen)
     int unit, protocol, prot_flavor;
-    char *name;
+    u_char *name;
     int namelen;
 {
     int bit;
@@ -966,7 +976,7 @@ auth_peer_success(unit, protocol, prot_flavor, name, namelen)
     }
     note.protocol = protocol;
     note.protocol_flavor = prot_flavor;
-    note.name = name;
+    note.name = (char*)name;
     note.namelen = namelen;
     notify_with_ptr(auth_peer_success_notify, (uintptr_t)&note);
 #endif
@@ -1497,9 +1507,9 @@ auth_reset(unit)
 int
 check_passwd(unit, auser, userlen, apasswd, passwdlen, msg)
     int unit;
-    char *auser;
+    u_char *auser;
     int userlen;
-    char *apasswd;
+    u_char *apasswd;
     int passwdlen;
     char **msg;
 {
@@ -2097,9 +2107,9 @@ have_srp_secret(client, server, need_ip, lacks_ipp)
 int
 get_secret(unit, client, server, secret, secret_len, am_server)
     int unit;
-    char *client;
-    char *server;
-    char *secret;
+    u_char *client;
+    u_char *server;
+    u_char *secret;
     int *secret_len;
     int am_server;
 {
@@ -2112,7 +2122,7 @@ get_secret(unit, client, server, secret, secret_len, am_server)
     if (!am_server && passwd[0] != 0) {
 	strlcpy(secbuf, passwd, sizeof(secbuf));
     } else if (!am_server && chap_passwd_hook) {
-	if ( (*chap_passwd_hook)(client, secbuf) < 0) {
+	if ( (*chap_passwd_hook)((char*)client, secbuf) < 0) {
 	    error("Unable to obtain CHAP password for %s on %s from plugin",
 		  client, server);
 	    return 0;
@@ -2129,7 +2139,7 @@ get_secret(unit, client, server, secret, secret_len, am_server)
 	}
 	check_access(f, filename);
 
-	ret = scan_authfile(f, client, server, secbuf, &addrs, &opts, filename, 0);
+	ret = scan_authfile(f, (char*)client, (char*)server, secbuf, &addrs, &opts, filename, 0);
 	fclose(f);
 	if (ret < 0)
 	    return 0;
@@ -2764,7 +2774,7 @@ auth_script(script)
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/Security.h>
 
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 static int read_keychainpassword __P((SecPreferencesDomain , char *, char *, char *, int));
 static int write_keychainpassword __P((SecPreferencesDomain , char *, char *, char *));
 #endif
@@ -2776,7 +2786,7 @@ static int
 keychainpassword(argv)
     char **argv;
 {
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 	if (read_keychainpassword(kSecPreferencesDomainSystem, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_KEYCHAIN;
@@ -2796,7 +2806,7 @@ static int
 userkeychainpassword(argv)
     char **argv;
 {
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 	if (read_keychainpassword(kSecPreferencesDomainUser, *argv, 0, passwd, MAXSECRETLEN)) {
 		strlcpy(passwdkey, *argv, sizeof(passwdkey));
 		passwdfrom = PASSWDFROM_USERKEYCHAIN;
@@ -2815,7 +2825,7 @@ int
 save_new_password()
 {
 	int ret = 0;
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 	switch (passwdfrom) {
 		case PASSWDFROM_KEYCHAIN:
 			ret = write_keychainpassword(kSecPreferencesDomainSystem, passwdkey, 0, new_passwd);
@@ -2829,7 +2839,7 @@ save_new_password()
 	return ret;
 }
 
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 
 /*
  * read password from keyChain.
@@ -2983,5 +2993,5 @@ end:
 
 	return ret;
 }
-#endif /* TARGET_EMBEDDED_OS */
+#endif /* TARGET_OS_EMBEDDED */
 #endif

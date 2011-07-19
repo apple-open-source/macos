@@ -25,7 +25,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: ref_opt.c,v 1.8 2000/11/18 22:42:31 aku Exp $
+ * CVS: $Id: ref_opt.c,v 1.9 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "reflect.h"
@@ -126,7 +126,7 @@ ClientData clientData;
 {
   TrfTransformOptionBlock* o;
 
-  o = (TrfTransformOptionBlock*) Tcl_Alloc (sizeof (TrfTransformOptionBlock));
+  o = (TrfTransformOptionBlock*) ckalloc (sizeof (TrfTransformOptionBlock));
   o->mode    = TRF_UNKNOWN_MODE;
   o->command = (Tcl_Obj*) NULL;
 
@@ -163,7 +163,7 @@ ClientData  clientData;
     Tcl_DecrRefCount (o->command);
   }
 
-  Tcl_Free ((VOID*) o);
+  ckfree ((VOID*) o);
 }
 
 /*

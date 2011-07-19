@@ -21,8 +21,11 @@
 #ifndef JSTestInterface_h
 #define JSTestInterface_h
 
+#if ENABLE(Condition1) || ENABLE(Condition2)
+
 #include "JSDOMBinding.h"
 #include <runtime/JSGlobalObject.h>
+#include <runtime/JSObjectWithGlobalObject.h>
 #include <runtime/ObjectPrototype.h>
 
 namespace WebCore {
@@ -33,16 +36,14 @@ class JSTestInterface : public DOMObjectWithGlobalPointer {
     typedef DOMObjectWithGlobalPointer Base;
 public:
     JSTestInterface(NonNullPassRefPtr<JSC::Structure>, JSDOMGlobalObject*, PassRefPtr<TestInterface>);
-    virtual ~JSTestInterface();
     static JSC::JSObject* createPrototype(JSC::ExecState*, JSC::JSGlobalObject*);
     virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);
     virtual bool getOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&);
-    virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
     static const JSC::ClassInfo s_info;
 
-    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
+    static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
     {
-        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);
+        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
     static JSC::JSValue getConstructor(JSC::ExecState*, JSC::JSGlobalObject*);
@@ -57,17 +58,16 @@ protected:
 JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, TestInterface*);
 TestInterface* toTestInterface(JSC::JSValue);
 
-class JSTestInterfacePrototype : public JSC::JSObject {
-    typedef JSC::JSObject Base;
+class JSTestInterfacePrototype : public JSC::JSObjectWithGlobalObject {
+    typedef JSC::JSObjectWithGlobalObject Base;
 public:
     static JSC::JSObject* self(JSC::ExecState*, JSC::JSGlobalObject*);
-    virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
     static const JSC::ClassInfo s_info;
-    static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype)
+    static PassRefPtr<JSC::Structure> createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
     {
-        return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount);
+        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
-    JSTestInterfacePrototype(NonNullPassRefPtr<JSC::Structure> structure) : JSC::JSObject(structure) { }
+    JSTestInterfacePrototype(JSC::JSGlobalObject* globalObject, NonNullPassRefPtr<JSC::Structure> structure) : JSC::JSObjectWithGlobalObject(globalObject, structure) { }
 protected:
     static const unsigned StructureFlags = Base::StructureFlags;
 };
@@ -77,5 +77,7 @@ protected:
 JSC::JSValue jsTestInterfaceConstructor(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 
 } // namespace WebCore
+
+#endif // ENABLE(Condition1) || ENABLE(Condition2)
 
 #endif

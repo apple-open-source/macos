@@ -1,1 +1,0 @@
-CFLAGS="-Wl,-flat_namespace -Wl,-undefined,warning $CFLAGS"

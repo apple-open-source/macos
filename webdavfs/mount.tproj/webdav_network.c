@@ -40,11 +40,16 @@
 #include "webdav_authcache.h"
 #include "webdav_network.h"
 #include "EncodedSourceID.h"
+#include "LogMessage.h"
+
+extern char *CopyCFStringToCString(CFStringRef theString);
 
 
 /******************************************************************************/
 
 #define WEBDAV_WRITESEQ_RSP_TIMEOUT 60  /* in seconds */
+
+#define X_APPLE_REALM_SUPPORT_VALUE "1.0"  /* Value for the X_APPLE_REALM_SUPPORT header field */
 
 #define kSSLClientPropTLSServerCertificateChain CFSTR("TLSServerCertificateChain") /* array[data] */
 #define kSSLClientPropTLSTrustClientStatus	CFSTR("TLSTrustClientStatus") /* CFNumberRef of kCFNumberSInt32Type (errSSLxxxx) */
@@ -57,6 +62,13 @@ struct HeaderFieldValue
 	CFStringRef	value;
 };
 
+// Specifies how to handle http 3xx redirection
+enum RedirectAction {
+	REDIRECT_DISABLE = 0,	// Do not allow redirection
+	REDIRECT_MANUAL = 1,	// Handle redirection manually
+	REDIRECT_AUTO = 2		// Let CFNetwork handle redirecion, i.e. set kCFStreamPropertyHTTPShouldAutoredirect on stream 
+};
+
 /******************************************************************************/
 
 // The maximum size of an upload or download to allow the
@@ -66,6 +78,7 @@ extern uint64_t webdavCacheMaximumSize;
 static CFStringRef userAgentHeaderValue = NULL;	/* The User-Agent request-header value */
 static CFIndex first_read_len = 4096;	/* bytes.  Amount to download at open so first read at offset 0 doesn't stall */
 static CFStringRef X_Source_Id_HeaderValue = NULL;	/* the X-Source-Id header value, or NULL if not iDisk */
+static CFStringRef X_Apple_Realm_Support_HeaderValue = NULL;	/* the X-Apple-Realm-Support header value, or NULL if not iDisk */
 
 static SCDynamicStoreRef gProxyStore;
 
@@ -87,8 +100,10 @@ static struct ReadStreamRec gReadStreams[WEBDAV_REQUEST_THREADS + 1];	/* one for
 
 static int network_stat(
 	uid_t uid,					/* -> uid of the user making the request */
+	struct node_entry *node,	/* -> the node associated with this request (NULL means root node) */
 	CFURLRef urlRef,			/* -> url to the resource */
-	struct stat *statbuf);		/* <- stat information is returned in this buffer */
+	enum RedirectAction redirectAction, /*  how to handle http 3xx redirection */
+	struct webdav_stat_attr *statbuf);	/* <- stat information is returned in this buffer */
 
 static int network_dir_is_empty(
 	uid_t uid,					/* -> uid of the user making the request */
@@ -134,6 +149,112 @@ time_t DateBytesToTime(			/* <- time_t value */
 _CFGregorianDateCreateWithBytes:
 
 	return ( clock );
+}
+
+#define ISO8601_UTC "%04d-%02d-%02dT%02d:%02d:%02dZ"
+#define ISO8601_BEHIND_UTC "%04d-%02d-%02dT%02d:%02d:%02d-%02d:%02d"
+#define ISO8601_AHEAD_UTC "%04d-%02d-%02dT%02d:%02d:%02d+%02d:%02d"
+
+/*
+ * ISO8601_To_Time parses an ISO8601 formatted date/time 'C' string
+ * and returns time_t. If the parse fails, this function return (-1).
+ *
+ * Examples:
+ *
+ * 1994-11-05T08:15:30-05:00 corresponds to November 5, 1994, 8:15:30 am, US Eastern Standard Time.
+ *
+ * 1994-11-05T13:15:30Z corresponds to the same instant.
+ *
+ */
+
+time_t ISO8601ToTime(			/* <- time_t value */
+		const UInt8 *bytes,			/* -> pointer to bytes to parse */
+		CFIndex length)				/* -> number of bytes to parse */
+{
+	int num, tm_sec, tm_min, tm_hour, tm_year, tm_mon, tm_day;
+	int utc_offset, utc_offset_hour, utc_offset_min;
+	struct tm tm_temp;
+	time_t clock;
+	const UInt8 *ch;
+	boolean_t done, have_z;
+	
+	done = FALSE;
+	utc_offset = utc_offset_hour = utc_offset_min = 0;
+	clock = -1;
+	
+	if ( (bytes == NULL) || (length == 0))
+		return (clock);
+	
+	memset(&tm_temp, 0, sizeof(struct tm));
+	
+	// Try ISO8601_UTC "1994-11-05T13:15:30Z"
+	have_z = FALSE;
+	ch = bytes + length - 1;
+
+	while (ch > bytes) {
+		if (isspace(*ch)) {
+			ch--;
+			continue;
+		}
+		
+		if (*ch == 'Z')
+			have_z = TRUE;
+		break;
+	}
+	
+	if (ch <= bytes)
+		return (clock);	// not a valid date/time string, nothing but white space
+	
+	if (have_z == TRUE) {
+		num = sscanf((const char *)bytes, ISO8601_UTC, &tm_year, &tm_mon, &tm_day,
+					 &tm_hour, &tm_min, &tm_sec);
+		if (num == 6) {
+			done = TRUE;
+		}
+	}
+	
+	if (done == FALSE) {
+		// Try ISO8601_BEHIND_UTC "1994-11-05T08:15:30-05:00"
+		num = sscanf((const char *)bytes, ISO8601_BEHIND_UTC, &tm_year, &tm_mon, &tm_day,
+					 &tm_hour, &tm_min, &tm_sec,
+					 &utc_offset_hour, &utc_offset_min);
+		if (num == 8) {
+			// Need to add offset later to get UTC
+			utc_offset = (utc_offset_hour * 3600) + (utc_offset_min * 60);
+			done = TRUE;
+		}
+	}
+	
+	if (done == FALSE) {
+		// Try ISO8601_AHEAD_UTC "1994-11-05T08:15:30+05:00"
+		num = sscanf((const char *)bytes, ISO8601_AHEAD_UTC, &tm_year, &tm_mon, &tm_day,
+					 &tm_hour, &tm_min, &tm_sec,
+					 &utc_offset_hour, &utc_offset_min);
+		if (num == 8) {
+			// Need to subtract offset later to get UTC
+			utc_offset = - (utc_offset_hour * 3600) - (utc_offset_min * 60);
+			done = TRUE;
+		}
+	}
+	
+	if (done == TRUE) {
+		// fill in tm_temp and adjust before converting to time_t
+		tm_temp.tm_sec = tm_sec;
+		tm_temp.tm_min = tm_min;
+		tm_temp.tm_hour = tm_hour;
+		tm_temp.tm_mday = tm_day;
+		tm_temp.tm_mon = tm_mon - 1;
+		tm_temp.tm_year = tm_year - 1900;
+		tm_temp.tm_isdst = -1;
+	
+		// Convert to time_t
+		clock = timegm(&tm_temp);
+	
+		// apply offset so we end up with UTC
+		clock += utc_offset;
+	}
+	
+	return (clock);
 }
 
 /*****************************************************************************/
@@ -689,15 +810,24 @@ static void InitXSourceIdHeaderValue(void)
 {
 	CFStringRef hostName;
 	char encodedIdBuffer[32];
+	CFURLRef baseURL;
 	
 	X_Source_Id_HeaderValue = NULL;
+	X_Apple_Realm_Support_HeaderValue = NULL;
 	
 	/* get the host name */
-	hostName = CFURLCopyHostName(gBaseURL);
+	baseURL = nodecache_get_baseURL();
+	hostName = CFURLCopyHostName(baseURL);
+	CFRelease(baseURL);
 	require_quiet(hostName != NULL, CFURLCopyHostName);
 	
-	/* is it "idisk.mac.com" - if not, we don't want it */
-	require_quiet(CFStringCompare(hostName, CFSTR("idisk.mac.com"), kCFCompareCaseInsensitive) == kCFCompareEqualTo, NotIdisk);
+	/* is it one of "idisk.mac.com" or "idisk.me.com" - if not, we don't want it */
+	if ( (CFStringCompare(hostName, CFSTR("idisk.mac.com"), kCFCompareCaseInsensitive) != kCFCompareEqualTo) &&
+		 (CFStringCompare(hostName, CFSTR("idisk.me.com"), kCFCompareCaseInsensitive) != kCFCompareEqualTo) )
+		goto NotIdisk;
+	
+	/* create the X-Apple-Realm-Support string */
+	X_Apple_Realm_Support_HeaderValue = CFStringCreateWithCString(kCFAllocatorDefault, X_APPLE_REALM_SUPPORT_VALUE, kCFStringEncodingUTF8);
 	
 	/* created the X-Source-Id string */
 	require_quiet(GetEncodedSourceID(encodedIdBuffer), GetEncodedSourceID);
@@ -822,20 +952,22 @@ static CFURLRef create_cfurl_from_node(
 	char *name,
 	size_t name_length)
 {
-	CFURLRef tempUrlRef;
+	CFURLRef tempUrlRef, baseURL;
 	CFURLRef urlRef;
 	char *node_path;
+	bool pathHasRedirection;
 	int error;
 	
 	urlRef = NULL;
+	pathHasRedirection = false;
 	
 	/*
 	 * Get the UT8 path (not percent escaped) from the root to the node (if any).
 	 * If the path is returned and it is to a directory, it will end with a slash.
 	 */
-	error = nodecache_get_path_from_node(node, &node_path);
+	error = nodecache_get_path_from_node(node, &pathHasRedirection, &node_path);
 	require_noerr_quiet(error, nodecache_get_path_from_node);
-	
+
 	/* append the name (if any) */
 	if ( name != NULL && name_length != 0 )
 	{
@@ -848,22 +980,40 @@ static CFURLRef create_cfurl_from_node(
 		CFStringRef stringRef;
 		CFStringRef	escapedPathRef;
 		
+		escapedPathRef = NULL;
+		
 		/* convert the relative path to a CFString */
 		stringRef = CFStringCreateWithCString(kCFAllocatorDefault, node_path, kCFStringEncodingUTF8);
 		require_string(stringRef != NULL, CFStringCreateWithCString, "name was not legal UTF8");
 		
-		/*
-		 * Then percent escape everything that CFURLCreateStringByAddingPercentEscapes()
-		 * considers illegal URL characters plus the characters ";" and "?" which are
-		 * not legal pchar (see rfc2396) characters, and ":" so that names in the root
-		 * directory do not look like absolute URLs with some weird scheme.
-		 */
-		escapedPathRef = CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault, stringRef, NULL, CFSTR(":;?"), kCFStringEncodingUTF8);
-		require(escapedPathRef != NULL, CFURLCreateStringByAddingPercentEscapes);
-		
-		/* create the relative URL */
-		urlRef = CFURLCreateWithString(kCFAllocatorDefault, escapedPathRef, gBaseURL);
-		require(urlRef != NULL, CFURLCreateWithString);
+		/* create the URL */
+		if (pathHasRedirection == true) {
+			escapedPathRef = CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault, stringRef, NULL, CFSTR(";?"), kCFStringEncodingUTF8);
+			require(escapedPathRef != NULL, CFURLCreateStringByAddingPercentEscapes);			
+			
+			// this path already has a base URL since it contains a redirected node
+			urlRef = CFURLCreateWithString(kCFAllocatorDefault, escapedPathRef, NULL);
+
+			if (urlRef == NULL)
+				logDebugCFString("create_cfurl_from_node: CFURLCreateWithString error:", escapedPathRef);
+			
+			require(urlRef != NULL, CFURLCreateWithString);
+		}
+		else {
+			/*
+			 * Then percent escape everything that CFURLCreateStringByAddingPercentEscapes()
+			 * considers illegal URL characters plus the characters ";" and "?" which are
+			 * not legal pchar (see rfc2396) characters, and ":" so that names in the root
+			 * directory do not look like absolute URLs with some weird scheme.
+			 */
+			escapedPathRef = CFURLCreateStringByAddingPercentEscapes(kCFAllocatorDefault, stringRef, NULL, CFSTR(":;?"), kCFStringEncodingUTF8);
+			require(escapedPathRef != NULL, CFURLCreateStringByAddingPercentEscapes);
+
+			baseURL = nodecache_get_baseURL();
+			urlRef = CFURLCreateWithString(kCFAllocatorDefault, escapedPathRef, baseURL);
+			CFRelease(baseURL);
+			require(urlRef != NULL, CFURLCreateWithString);			
+		}
 		
 		/* and then make an absolute copy of it */
 		tempUrlRef = urlRef;
@@ -871,7 +1021,8 @@ static CFURLRef create_cfurl_from_node(
 		
 		CFRelease(tempUrlRef);
 CFURLCreateWithString:
-		CFRelease(escapedPathRef);
+		if (escapedPathRef != NULL)
+			CFRelease(escapedPathRef);
 CFURLCreateStringByAddingPercentEscapes:	
 		CFRelease(stringRef);
 CFStringCreateWithCString:
@@ -880,8 +1031,7 @@ CFStringCreateWithCString:
 	else
 	{
 		/* no relative path -- use the base URL */
-		CFRetain(gBaseURL);
-		urlRef = gBaseURL;
+		urlRef = nodecache_get_baseURL();
 	}
 
 	free(node_path);
@@ -896,19 +1046,20 @@ nodecache_get_path_from_node:
 static int translate_status_to_error(UInt32 statusCode)
 {
 	int result;
+	uint64_t code = statusCode;
 	
 	/* switch by Nxx range */
 	switch ( statusCode / 100 )
 	{
 		case 1:	/* Informational 1xx */
-			syslog(LOG_ERR,"unexpected statusCode %ld", statusCode);
+			syslog(LOG_ERR,"unexpected statusCode %llu", code);
 			result = ENOENT;	/* CFNetwork eats 1xx responses so this should never happen */
 			break;
 		case 2:	/* Successful 2xx */
 			result = 0;
 			break;
 		case 3:	/* Redirection 3xx */
-			syslog(LOG_ERR,"unexpected statusCode %ld", statusCode);
+			syslog(LOG_ERR,"unexpected statusCode %llu", code);
 			result = ENOENT;
 			break;
 		case 4:	/* Client Error 4xx */
@@ -927,9 +1078,11 @@ static int translate_status_to_error(UInt32 statusCode)
 					 * <rdar://problem/6140701> Invalid credentials leads to scary user experience
 					 * 
 					 */
+					syslog(LOG_DEBUG,"unexpected statusCode %llu", code);
 					result = EPERM;
 					break;
 				case 407:	/* 407 Proxy Authentication Required */
+					syslog(LOG_ERR,"unexpected statusCode %llu", code);
 					result = EAUTH;
 					break;
 				case 404:	/* Not Found */
@@ -939,16 +1092,23 @@ static int translate_status_to_error(UInt32 statusCode)
 					break;
 				case 413:	/* Request Entity Too Large (this server doesn't allow large PUTs) */
 					result = EFBIG;
+					syslog(LOG_ERR,"unexpected statusCode %llu", code);
 					break;
 				case 414:	/* Request URI Too Long */
+					syslog(LOG_ERR,"unexpected statusCode %llu", code);
 					result = ENAMETOOLONG;
+					break;
+				case 416:	/* Requested Range Not Available */
+					syslog(LOG_DEBUG,"unexpected statusCode %llu", code);
+					result = EINVAL;
 					break;
 				case 423:	/* Locked (WebDAV) */
 				case 424:	/* Failed Dependency (WebDAV) (EBUSY when a directory cannot be MOVE'd) */
+					syslog(LOG_ERR,"unexpected statusCode %llu", code);
 					result = EBUSY;
 					break;
 				default:
-					syslog(LOG_ERR,"unexpected statusCode %ld", statusCode);
+					syslog(LOG_ERR,"unexpected statusCode %llu", code);
 					result = EINVAL;	/* unexpected */
 					break;
 			}
@@ -956,16 +1116,17 @@ static int translate_status_to_error(UInt32 statusCode)
 		case 5:	/* Server Error 5xx */
 			if ( statusCode == 507 )	/* Insufficient Storage (WebDAV) */
 			{
+				syslog(LOG_ERR,"unexpected statusCode %llu", code);
 				result = ENOSPC;
 			}
 			else
 			{
-				syslog(LOG_ERR,"unexpected statusCode %ld", statusCode);
+				syslog(LOG_ERR,"unexpected statusCode %llu", code);
 				result = ENOENT;	/* unexpected */
 			}
 			break;
 		default: /* only the 1xx through 5xx ranges are defined */
-			syslog(LOG_ERR,"unexpected statusCode %ld", statusCode);
+			syslog(LOG_ERR,"unexpected statusCode %llu", code);
 			result = EIO;
 			break;
 	}
@@ -1082,16 +1243,12 @@ pthread_mutex_lock:
  */
 static CFDataRef SecCertificateCreateCFData(SecCertificateRef cert)
 {
-	CSSM_DATA cert_data;
 	CFDataRef data;
-	OSStatus status;
 
-	status = SecCertificateGetData(cert, &cert_data);
-	require_noerr_action(status, SecCertificateGetData, data = NULL);
-	
-	data = CFDataCreate(NULL, cert_data.Data, cert_data.Length);
- 
- SecCertificateGetData:
+	data = SecCertificateCopyData(cert);
+
+	if (data == NULL)
+		syslog(LOG_ERR, "%s : SecCertificateCopyData returned NULL\n", __FUNCTION__);
  
 	return (data);
 }
@@ -1154,6 +1311,7 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	CFNumberRef error_number;
 	CFStringRef host_name;
 	CFDataRef theData;
+	CFURLRef  baseURL;
 	int fd[2];
 	int pid, terminated_pid;
 	union wait status;
@@ -1195,7 +1353,9 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	CFRelease(error_number);
 	
 	/* get the host name from the base URL and add it with the kSSLClientPropTLSServerHostName key */
-	host_name = CFURLCopyHostName(gBaseURL);
+	baseURL = nodecache_get_baseURL();
+	host_name = CFURLCopyHostName(baseURL);
+	CFRelease(baseURL);
 	require(host_name != NULL, CFURLCopyHostName);
 	
 	CFDictionaryAddValue(dict, kSSLClientPropTLSServerHostName, host_name);
@@ -1543,7 +1703,7 @@ static int open_stream_for_transaction(
 				 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
 				/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
-				syslog(LOG_INFO,"open_stream_for_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
+				syslog(LOG_INFO,"open_stream_for_transaction: CFStreamError: domain %ld, error %lld -- retrying", streamError.domain, (SInt64)streamError.error);
 				*retryTransaction = FALSE;
 				result = EAGAIN;
 			}
@@ -1551,7 +1711,7 @@ static int open_stream_for_transaction(
 			{
 				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 				{
-					syslog(LOG_ERR,"open_stream_for_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
+					syslog(LOG_ERR,"open_stream_for_transaction: CFStreamError: domain %ld, error %lld", streamError.domain, (int64_t)streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
 				result = stream_error_to_errno(&streamError);
@@ -1691,7 +1851,7 @@ static int stream_get_transaction(
 				 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
 				/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
-				syslog(LOG_INFO,"stream_get_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
+				syslog(LOG_INFO,"stream_get_transaction: CFStreamError: domain %ld, error %lld -- retrying", streamError.domain, (SInt64)streamError.error);
 				*retryTransaction = FALSE;
 				result = EAGAIN;
 			}
@@ -1699,7 +1859,7 @@ static int stream_get_transaction(
 			{
 				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 				{
-					syslog(LOG_ERR,"stream_get_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
+					syslog(LOG_ERR,"stream_get_transaction: CFStreamError: domain %ld, error %lld", streamError.domain, (SInt64)streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
 				result = stream_error_to_errno(&streamError);
@@ -1746,7 +1906,7 @@ static int stream_get_transaction(
 			require(write(node->file_fd, buffer, (size_t)totalRead) == (ssize_t)totalRead, write);
 			
 			// If file is large, turn off data caching
-			if (node->attr_stat.st_size > (off_t)webdavCacheMaximumSize) {
+			if (node->attr_stat_info.attr_stat.st_size > (off_t)webdavCacheMaximumSize) {
 				fcntl(node->file_fd, F_NOCACHE, 1);
 			}
 			break;
@@ -1944,7 +2104,7 @@ static int stream_transaction_from_file(
 									  (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
 				/* if we get a POSIX errror back from the stream, retry the transaction once */
-				syslog(LOG_INFO,"stream_transaction_from_file: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
+				syslog(LOG_INFO,"stream_transaction_from_file: CFStreamError: domain %ld, error %lld -- retrying", streamError.domain, (SInt64)streamError.error);
 				*retryTransaction = FALSE;
 				result = EAGAIN;
 			}
@@ -1952,7 +2112,7 @@ static int stream_transaction_from_file(
 			{
 				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 				{
-					syslog(LOG_ERR,"stream_transaction_from_file: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
+					syslog(LOG_ERR,"stream_transaction_from_file: CFStreamError: domain %ld, error %lld", streamError.domain, (SInt64)streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
 				result = stream_error_to_errno(&streamError);
@@ -2116,7 +2276,7 @@ static int stream_transaction(
 						 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 					{
 						/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
-						syslog(LOG_INFO,"stream_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
+						syslog(LOG_INFO,"stream_transaction: CFStreamError: domain %ld, error %lld -- retrying", streamError.domain, (SInt64)streamError.error);
 						*retryTransaction = FALSE;
 						result = EAGAIN;
 					}
@@ -2124,7 +2284,7 @@ static int stream_transaction(
 					{
 						if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 						{
-							syslog(LOG_ERR,"stream_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
+							syslog(LOG_ERR,"stream_transaction: CFStreamError: domain %ld, error %lld", streamError.domain, (SInt64)streamError.error);
 						}
 						set_connectionstate(WEBDAV_CONNECTION_DOWN);
 						result = stream_error_to_errno(&streamError);
@@ -2209,15 +2369,20 @@ connection_down:
  * and then calls stream_transaction() to send the request to the server and get
  * the server's response. If the caller requests the response body and/or the
  * response message, they are returned. Otherwise, they are freed/released.
+ *
+ * The 'node' parameter is needed for handling http redirects:
+ * auto_redirect true  - node involved in the transaction, NULL if root node.
+ * auto_redirect false - node is not used.
  */
 static int send_transaction(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFURLRef url,						/* -> url to the resource */
+	struct node_entry *node,			/* <- the node involved in the transaction (needed to handle http redirects if auto_redirect if false) */
 	CFStringRef requestMethod,			/* -> the request method */
 	CFDataRef bodyData,					/* -> message body data, or NULL if no body */
 	CFIndex headerCount,				/* -> number of headers */
 	struct HeaderFieldValue *headers,	/* -> pointer to array of struct HeaderFieldValue, or NULL if none */
-	int auto_redirect,					/* -> if TRUE, set kCFStreamPropertyHTTPShouldAutoredirect on stream */
+	enum RedirectAction redirectAction,		/* -> specifies how to handle http 3xx redirection */
 	UInt8 **buffer,						/* <- if not NULL, response data buffer is returned here (caller responsible for freeing) */
 	CFIndex *count,						/* <- if not NULL, response data buffer length is returned here*/
 	CFHTTPMessageRef *response)			/* <- if not NULL, response is returned here */
@@ -2232,6 +2397,7 @@ static int send_transaction(
 	UInt8 *responseBuffer;
 	CFIndex responseBufferLength;
 	int retryTransaction;
+	int auto_redirect;
 	
 	error = 0;
 	responseBuffer = NULL;
@@ -2241,6 +2407,11 @@ static int send_transaction(
 	statusCode = 0;
 	auth_generation = 0;
 	retryTransaction = TRUE;
+	
+	if (redirectAction == REDIRECT_AUTO)
+		auto_redirect = TRUE;
+	else
+		auto_redirect = FALSE;
 
 	/* the transaction/authentication loop */
 	do
@@ -2265,13 +2436,19 @@ static int send_transaction(
 		CFHTTPMessageSetHeaderFieldValue(message, CFSTR("User-Agent"), userAgentHeaderValue);
 		
 		/* add the X-Source-Id header if needed */
-		if ( X_Source_Id_HeaderValue != NULL )
+		if ( (X_Source_Id_HeaderValue != NULL) && (auto_redirect == false))
 		{
 			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Source-Id"), X_Source_Id_HeaderValue);
 		}
 		
+		/* add the X-Apple-Realm-Support header if needed */
+		if ( X_Apple_Realm_Support_HeaderValue != NULL )
+		{
+			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("X-Apple-Realm-Support"), X_Apple_Realm_Support_HeaderValue);
+		}
+		
 		/* add other HTTP headers (if any) */
-		for ( i = 0, headerPtr = headers, headers; i < headerCount; ++i, ++headerPtr )
+		for ( i = 0, headerPtr = headers; i < headerCount; ++i, ++headerPtr )
 		{
 			CFHTTPMessageSetHeaderFieldValue(message, headerPtr->headerField, headerPtr->value);
 		}
@@ -2315,6 +2492,16 @@ static int send_transaction(
 			
 			/* get the status code */
 			statusCode = CFHTTPMessageGetResponseStatusCode(responseRef);
+			
+			if ( (redirectAction == REDIRECT_MANUAL) && ((statusCode / 100) == 3)) {
+				// Handle a 3XX Redirection
+				error = nodecache_redirect_node(url, node, responseRef, statusCode);
+				if (!error) {
+					// Let the caller know the node was redirected
+					error = EDESTADDRREQ;
+					break;
+				}
+			}			
 		}
 	} while ( error == EAGAIN || statusCode == 401 || statusCode == 407 );
 
@@ -2535,8 +2722,8 @@ static int network_getDAVLevel(
 	*dav_level = 0;
 		
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("OPTIONS"), NULL,
-		headerCount, headers, TRUE, NULL, NULL, &response);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("OPTIONS"), NULL,
+		headerCount, headers, REDIRECT_MANUAL, NULL, NULL, &response);
 	if ( !error ) {
 		/* get the DAV level */
 		ParseDAVLevel(response, dav_level);
@@ -2587,7 +2774,7 @@ int get_from_attributes_cache(struct node_entry *node, uid_t uid)
 		{
 			node->file_status = WEBDAV_DOWNLOAD_FINISHED;
 			node->file_validated_time = node->attr_appledoubleheader_time;
-			node->file_last_modified = (node->attr_stat.st_mtimespec.tv_sec != 0) ? node->attr_stat.st_mtimespec.tv_sec : -1;
+			node->file_last_modified = (node->attr_stat_info.attr_stat.st_mtimespec.tv_sec != 0) ? node->attr_stat_info.attr_stat.st_mtimespec.tv_sec : -1;
 			/* ••••• should I get the etag when I get attr_appledoubleheader? probably */ 
 			if ( node->file_entity_tag != NULL )
 			{
@@ -2613,8 +2800,10 @@ fchflags:
  */
 static int network_stat(
 	uid_t uid,					/* -> uid of the user making the request */
+	struct node_entry *node,	/* <- the node involved in the request */
 	CFURLRef urlRef,			/* -> url to the resource */
-	struct stat *statbuf)		/* <- stat information is returned in this buffer */
+	enum RedirectAction redirectAction, /*  how to handle http 3xx redirection */
+	struct webdav_stat_attr *statbuf)	/* <- stat information is returned in this buffer */
 {
 	int error;
 	UInt8 *responseBuffer;
@@ -2627,6 +2816,7 @@ static int network_stat(
 			"<D:prop>\n"
 				"<D:getlastmodified/>\n"
 				"<D:getcontentlength/>\n"
+				"<D:creationdate/>\n"
 				"<D:resourcetype/>\n"
 			"</D:prop>\n"
 		"</D:propfind>\n";
@@ -2649,17 +2839,17 @@ static int network_stat(
 	require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 	
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
-		headerCount, headers, TRUE, &responseBuffer, &count, NULL);
+	error = send_transaction(uid, urlRef, node, CFSTR("PROPFIND"), bodyData,
+								headerCount, headers, redirectAction, &responseBuffer, &count, NULL);
 	if ( !error )
 	{
 		/* parse the statbuf from the response buffer */
 		error = parse_stat(responseBuffer, count, statbuf);
-		
+				
 		/* free the response buffer */
 		free(responseBuffer);
 	}
-	
+
 	/* release the message body */
 	CFRelease(bodyData);
 
@@ -2708,8 +2898,8 @@ static int network_dir_is_empty(
 	require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 	
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
-		headerCount, headers, TRUE, &responseBuffer, &count, NULL);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("PROPFIND"), bodyData,
+		headerCount, headers, REDIRECT_AUTO, &responseBuffer, &count, NULL);
 	if ( !error )
 	{
 		int num_entries;
@@ -2748,24 +2938,36 @@ int network_lookup(
 	struct node_entry *node,	/* -> parent node */
 	char *name,					/* -> filename to find */
 	size_t name_length,			/* -> length of name */
-	struct stat *statbuf)		/* <- stat information is returned in this buffer except for st_ino */
+	struct webdav_stat_attr *statbuf)	/* <- stat information is returned in this buffer except for st_ino */
 {
-	int error;
+	int error, cnt;
 	CFURLRef urlRef;
 	
 	error = 0;
 	
-	/* create a CFURL to the node plus name */
-	urlRef = create_cfurl_from_node(node, name, name_length);
-	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
+	cnt = 0;
+	while (cnt < WEBDAV_MAX_REDIRECTS) {
+		/* create a CFURL to the node plus name */
+		urlRef = create_cfurl_from_node(node, name, name_length);
+		require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 	
-	/* let network_stat do the rest of the work */
-	error = network_stat(uid, urlRef, statbuf);
+		/* let network_stat do the rest of the work */
+		error = network_stat(uid, node, urlRef, REDIRECT_AUTO, statbuf);
 	
-	CFRelease(urlRef);
+		CFRelease(urlRef);
+	
+		if (error != EDESTADDRREQ)
+			break;
+		cnt++;
+	}
+
+	if (error == EDESTADDRREQ) {
+		syslog(LOG_ERR, "%s: Too many http redirects", __FUNCTION__);
+		error = EIO;
+	}
 	
 create_cfurl_from_node:
-
+	
 	return ( error );
 }
 
@@ -2774,26 +2976,37 @@ create_cfurl_from_node:
 int network_getattr(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node */
-	struct stat *statbuf)		/* <- stat information is returned in this buffer */
+	struct webdav_stat_attr *statbuf)	/* <- stat information is returned in this buffer */
 {
-	int error;
+	int error, cnt;
 	CFURLRef urlRef;
 	
 	error = 0;
 	
-	/* create a CFURL to the node */
-	urlRef = create_cfurl_from_node(node, NULL, 0);
-	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
+	cnt = 0;
+	while ( cnt < WEBDAV_MAX_REDIRECTS) {
+		/* create a CFURL to the node */
+		urlRef = create_cfurl_from_node(node, NULL, 0);
+		require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 	
-	/* let network_stat do the rest of the work */
-	error = network_stat(uid, urlRef, statbuf);
-	if ( error == 0 )
-	{
-		/* network_stat gets all of the struct stat fields except for st_ino so fill it in here with the fileid of the node */
-		statbuf->st_ino = node->fileid;
+		/* let network_stat do the rest of the work */
+		error = network_stat(uid, node, urlRef, REDIRECT_MANUAL, statbuf);
+
+		if ( error == 0 )
+		{
+			/* network_stat gets all of the struct stat fields except for st_ino so fill it in here with the fileid of the node */
+			statbuf->attr_stat.st_ino = node->fileid;
+		}
+	
+		CFRelease(urlRef);
+		
+		if (error != EDESTADDRREQ)
+			break;
+		cnt++;
 	}
 	
-	CFRelease(urlRef);
+	if (error == EDESTADDRREQ)
+		error = EIO;
 	
 create_cfurl_from_node:
 
@@ -2817,12 +3030,19 @@ int network_mount(
 {
 	int error;
 	CFURLRef urlRef;
-	int dav_level;
-	struct stat statbuf;
+	int dav_level, cnt;
+	struct webdav_stat_attr statbuf;
 	
-	urlRef = gBaseURL;
+	cnt = 0;
+	while (cnt < WEBDAV_MAX_REDIRECTS) {
+		urlRef = nodecache_get_baseURL();
+		error = network_getDAVLevel(uid, urlRef, &dav_level);
+		CFRelease(urlRef);
+		if (error != EDESTADDRREQ)
+			break;
+		cnt++;
+	}
 	
-	error = network_getDAVLevel(uid, urlRef, &dav_level);
 	if ( error == 0 )
 	{
 		if ( dav_level > 2 )
@@ -2848,21 +3068,34 @@ int network_mount(
 		
 		if ( error == 0 )
 		{
-			error = network_stat(uid, urlRef, &statbuf);
+			cnt = 0;
+			while (cnt < WEBDAV_MAX_REDIRECTS) {
+				urlRef = nodecache_get_baseURL();
+				error = network_stat(uid, NULL, urlRef, REDIRECT_MANUAL, &statbuf);
+				CFRelease(urlRef);
+				if (error != EDESTADDRREQ)
+					break;
+				cnt++;
+			}
+			
 			if ( error )
 			{
-				if (error != EACCES)
+				if (error == EDESTADDRREQ) {
+					syslog(LOG_ERR, "%s: Too many redirects for network_stat: mount cancelled", __FUNCTION__);
+					error = EIO;
+				}
+				else if (error != EACCES)
 				{
-					debug_string("network_mount: PROPFIND failed");
+					syslog(LOG_ERR, "%s: network_stat returned error %d", __FUNCTION__, error);
 					error = ENODEV;
 				}
 				else
 				{
-					debug_string("network_mount: mount cancelled by user");
+					syslog(LOG_DEBUG, "%s: network_stat returned EACCES", __FUNCTION__);
 					error = EAUTH;
 				}
 			}
-			else if ( !S_ISDIR(statbuf.st_mode) )
+			else if ( !S_ISDIR(statbuf.attr_stat.st_mode) )
 			{
 				/* the PROFIND was successful, but the URL was to a file, not a collection */
 				debug_string("network_mount: URL is not a collection resource (directory)");
@@ -2872,14 +3105,18 @@ int network_mount(
 	}
 	else
 	{
-		if ( error != EACCES )
+		if (error == EDESTADDRREQ) {
+			syslog(LOG_ERR, "%s: Too many redirects for OPTIONS: mount cancelled", __FUNCTION__);
+			error = EIO;
+		}
+		else if ( error != EACCES )
 		{
-			debug_string("network_mount: OPTIONS failed");
+			syslog(LOG_ERR, "%s: network_getDAVLevel returned error %d", __FUNCTION__, error);
 			error = ENODEV;
 		}
 		else
 		{
-			debug_string("network_mount: mount cancelled by user");
+			syslog(LOG_DEBUG, "%s: network_getDAVLevel returned EACCES", __FUNCTION__);
 			error = EAUTH;
 		}
 	}
@@ -2945,7 +3182,7 @@ int network_finish_download(
 			CFStreamError streamError;
 			
 			streamError = CFReadStreamGetError(readStreamRecPtr->readStreamRef);
-			syslog(LOG_ERR,"network_finish_download: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
+			syslog(LOG_ERR,"network_finish_download: CFStreamError: domain %ld, error %lld", streamError.domain, (SInt64)streamError.error);
 			goto CFReadStreamRead;
 			break;
 		}
@@ -2991,7 +3228,7 @@ int network_server_ping(u_int32_t delay)
 {
 	int error;
 	CFHTTPMessageRef response;
-	CFURLRef urlRef = gBaseURL;
+	CFURLRef urlRef = nodecache_get_baseURL();
 	
 	/* the 3 headers */
 	CFIndex headerCount = 1;
@@ -3004,8 +3241,9 @@ int network_server_ping(u_int32_t delay)
 		sleep(delay);
 
 	/* send an OPTIONS request to the server and get the response */
-	error = send_transaction(gProcessUID, urlRef, CFSTR("OPTIONS"), NULL,
-		headerCount, headers, TRUE, NULL, NULL, &response);
+	error = send_transaction(gProcessUID, urlRef, NULL, CFSTR("OPTIONS"), NULL,
+		headerCount, headers, REDIRECT_AUTO, NULL, NULL, &response);
+	CFRelease(urlRef);
 		
 	if ( !error ) {
 		set_connectionstate(WEBDAV_CONNECTION_UP);
@@ -3071,8 +3309,8 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 					 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
 					 * for these errors conditions
 					 */
-					syslog(LOG_DEBUG,"%s: EventHasBytesAvailable CFStreamError: domain %ld, error %d (retrying)",
-						__FUNCTION__, streamError.domain, streamError.error);
+					syslog(LOG_DEBUG,"%s: EventHasBytesAvailable CFStreamError: domain %ld, error %lld (retrying)",
+						__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 					pthread_mutex_lock(&ctx->ctx_lock);
 					ctx->finalStatus = EAGAIN;
 					ctx->finalStatusValid = true;
@@ -3082,8 +3320,8 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 				{
 					if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 					{
-						syslog(LOG_ERR,"%s: EventHasBytesAvailable CFStreamError: domain %ld, error %d",
-							__FUNCTION__, streamError.domain, streamError.error);
+						syslog(LOG_ERR,"%s: EventHasBytesAvailable CFStreamError: domain %ld, error %lld",
+							__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 					}
 					set_connectionstate(WEBDAV_CONNECTION_DOWN);
 					pthread_mutex_lock(&ctx->ctx_lock);
@@ -3122,8 +3360,8 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 					 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
 					 * for these error conditions
 					 */
-					syslog(LOG_DEBUG,"%s: EventHasErrorOccurred CFStreamError: domain %ld, error %d (retrying)",
-						   __FUNCTION__, streamError.domain, streamError.error);
+					syslog(LOG_DEBUG,"%s: EventHasErrorOccurred CFStreamError: domain %ld, error %lld (retrying)",
+						   __FUNCTION__, streamError.domain, (SInt64)streamError.error);
 					pthread_mutex_lock(&ctx->ctx_lock);
 					ctx->finalStatus = EAGAIN;
 					ctx->finalStatusValid = true;
@@ -3133,8 +3371,8 @@ void writeseqReadResponseCallback(CFReadStreamRef str, CFStreamEventType event, 
 				{
 					if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 					{
-						syslog(LOG_ERR,"%s: EventErrorOccurred CFStreamError: domain %ld, error %d",
-							   __FUNCTION__, streamError.domain, streamError.error);
+						syslog(LOG_ERR,"%s: EventErrorOccurred CFStreamError: domain %ld, error %lld",
+							   __FUNCTION__, streamError.domain, (SInt64)streamError.error);
 					}
 					set_connectionstate(WEBDAV_CONNECTION_DOWN);
 					pthread_mutex_lock(&ctx->ctx_lock);
@@ -3224,8 +3462,8 @@ void writeseqWriteCallback(CFWriteStreamRef str,
 				 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
 				 * for these errors conditions
 				 */
-				syslog(LOG_DEBUG,"%s: EventErrorOccurred CFStreamError: domain %ld, error %d (retrying)",
-					__FUNCTION__, streamError.domain, streamError.error);
+				syslog(LOG_DEBUG,"%s: EventErrorOccurred CFStreamError: domain %ld, error %lld (retrying)",
+					__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 					ctx->finalStatus = EAGAIN;
 					ctx->finalStatusValid = true;
 					pthread_mutex_unlock(&ctx->ctx_lock);
@@ -3233,9 +3471,9 @@ void writeseqWriteCallback(CFWriteStreamRef str,
 			else
 			{
 				if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
-				{			
-					syslog(LOG_ERR,"%s: EventErrorOccurred CFStreamError: domain %ld, error %d",
-						__FUNCTION__, streamError.domain, streamError.error);
+				{
+					syslog(LOG_ERR,"%s: EventErrorOccurred CFStreamError: domain %ld, error %lld",
+						__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
 				ctx->finalStatus = EIO;
@@ -3619,7 +3857,7 @@ int network_statfs(
 	int error;
 	CFURLRef urlRef;
 	UInt8 *responseBuffer;
-	CFIndex count;
+	CFIndex count, redir_cnt;
 	CFDataRef bodyData;
 	const UInt8 xmlString[] =
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
@@ -3644,35 +3882,48 @@ int network_statfs(
 		/* translate flag only for Microsoft IIS Server */
 		headerCount += 1;
 	}
-
-	/* create a CFURL to the node */
-	urlRef = create_cfurl_from_node(node, NULL, 0);
-	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 	
 	/* create a CFDataRef with the xml that is our message body */
 	bodyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, xmlString, strlen((const char *)xmlString), kCFAllocatorNull);
 	require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 	
-	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
-		headerCount, headers, TRUE, &responseBuffer, &count, NULL);
-	if ( !error )
-	{
-		/* parse responseBuffer to get the statfsbuf */
-		error = parse_statfs(responseBuffer, count, fs_attr);
+	redir_cnt = 0;
+	while (redir_cnt < WEBDAV_MAX_REDIRECTS) {
+		/* create a CFURL to the node */
+		urlRef = create_cfurl_from_node(node, NULL, 0);
+		if( urlRef == NULL) {
+			error = EIO;
+			break;
+		}
 		
-		/* free the response buffer */
-		free(responseBuffer);
+		/* send request to the server and get the response */
+		error = send_transaction(uid, urlRef, node, CFSTR("PROPFIND"), bodyData,
+								 headerCount, headers, REDIRECT_MANUAL, &responseBuffer, &count, NULL);
+		CFRelease(urlRef);
+		
+		if ( !error )
+		{
+			/* parse responseBuffer to get the statfsbuf */
+			error = parse_statfs(responseBuffer, count, fs_attr);
+		
+			/* free the response buffer */
+			free(responseBuffer);
+			break;
+		}
+		
+		if (error != EDESTADDRREQ)
+			break;
+		
+		redir_cnt++;
 	}
 	
 	/* release the message body */
 	CFRelease(bodyData);
+
+	if (error == EDESTADDRREQ)
+		error = EIO;
 	
 CFDataCreateWithBytesNoCopy:
-
-	CFRelease(urlRef);
-	
-create_cfurl_from_node:
 	
 	return ( error );
 }
@@ -3709,8 +3960,8 @@ int network_create(
 	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("PUT"), NULL,
-		headerCount, headers, FALSE, NULL, NULL, &response);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("PUT"), NULL,
+		headerCount, headers, REDIRECT_DISABLE, NULL, NULL, &response);
 	if ( !error )
 	{
 		CFStringRef dateHeaderRef;
@@ -4183,8 +4434,8 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 				 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
 				 * for these errors conditions
 				 */
-				syslog(LOG_DEBUG,"%s: CFReadStreamOpen: CFStreamError: domain %ld, error %d (retrying)",
-					   __FUNCTION__, streamError.domain, streamError.error);
+				syslog(LOG_DEBUG,"%s: CFReadStreamOpen: CFStreamError: domain %ld, error %lld (retrying)",
+					   __FUNCTION__, streamError.domain, (SInt64)streamError.error);
 				
 				CFReadStreamUnscheduleFromRunLoop(ctx->rspStreamRef, ctx->mgr_rl, kCFRunLoopDefaultMode);
 				pthread_mutex_lock(&ctx->ctx_lock);
@@ -4195,8 +4446,9 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 				pthread_mutex_unlock(&ctx->ctx_lock);
 			}
 			else {
-				syslog(LOG_ERR,"%s: CFReadStreamOpen failed: CFStreamError: domain %ld, error %d",
-					   __FUNCTION__, streamError.domain, streamError.error);
+				syslog(LOG_ERR,"%s: CFReadStreamOpen failed: CFStreamError: domain %ld, error %lld",
+					   __FUNCTION__, streamError.domain, (SInt64)streamError.error);
+
 				
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
 				
@@ -4280,7 +4532,7 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 				
 				if (len < 0)
 					 syslog(LOG_DEBUG,"%s: negative len value %ld for chunkLen %ld, chunkWritten %ld",
-							__FUNCTION__, curr_req->chunkLen, curr_req->chunkWritten);
+							__FUNCTION__, len, curr_req->chunkLen, curr_req->chunkWritten);
 						
 				// wake thread sleeping on this request
 				pthread_mutex_lock(&curr_req->req_lock);
@@ -4310,9 +4562,9 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 						/*
 						 * We got an EPIPE or HTTP Connection Lost error from the stream.  We retry the PUT request
 						 * for these errors conditions
-						 */						
-						syslog(LOG_DEBUG,"%s: bytesWritten < 0, CFStreamError: domain %ld, error %d (retrying)",
-							__FUNCTION__, streamError.domain, streamError.error);
+						 */
+						syslog(LOG_DEBUG,"%s: bytesWritten < 0, CFStreamError: domain %ld, error %lld (retrying)",
+							__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 
 						// wake thread sleeping on this request
 						pthread_mutex_lock(&curr_req->req_lock);
@@ -4327,8 +4579,8 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 					{						
 						if ( get_connectionstate() == WEBDAV_CONNECTION_UP )
 						{
-							syslog(LOG_DEBUG,"%s: CFStreamError: domain %ld, error %d",
-							__FUNCTION__, streamError.domain, streamError.error);
+							syslog(LOG_DEBUG,"%s: CFStreamError: domain %ld, error %lld",
+							__FUNCTION__, streamError.domain, (SInt64)streamError.error);
 						}
 						set_connectionstate(WEBDAV_CONNECTION_DOWN);							
 							
@@ -4414,7 +4666,7 @@ int queue_writemgr_request_locked(struct stream_put_ctx *ctx, struct seqwrite_mg
 		NULL, NULL);
 		
 	if (status != kCFMessagePortSuccess) {
-		syslog(LOG_ERR, "%s: CFMessagePort error %d\n", __FUNCTION__, status);
+		syslog(LOG_ERR, "%s: CFMessagePort error %lld\n", __FUNCTION__, (SInt64)status);
 		return (-1);
 	}
 	else
@@ -4635,8 +4887,8 @@ CFHTTPMessageCreateRequest:
 		require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, propError = EIO);
 		
 		/* send request to the server and get the response */
-		propError = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
-			headerCount, headers, TRUE, &responseBuffer, &count, NULL);
+		propError = send_transaction(uid, urlRef, NULL, CFSTR("PROPFIND"), bodyData,
+			headerCount, headers, REDIRECT_AUTO, &responseBuffer, &count, NULL);
 		if ( propError == 0 )
 		{
 			/* parse responseBuffer to get file_last_modified and/or file_entity_tag */
@@ -4672,6 +4924,117 @@ create_cfurl_from_node:
 	return ( error );
 }
 
+//
+// network_handle_multistatus_reply
+//
+// This routine will parse an 207 multistatus reply in 'responseBuffer', returning the http status code
+// in 'statusCode' arg for the resource given by 'urlRef' arg.
+//
+// Return Values:
+//
+// SUCCESS: Returns zero, status code returned in 'statusCode' arg.
+// FAILURE: Returns non-zero, nothing returned (contents of'statusCode' arg undefined).
+//
+static int network_handle_multistatus_reply(CFURLRef urlRef, UInt8 *responseBuffer, CFIndex responseBufferLen, CFIndex *statusCode)
+{
+	webdav_parse_multistatus_list_t *statusList;
+	webdav_parse_multistatus_element_t *elementPtr, *nextElementPtr;
+	CFStringRef urlStrRef;
+	char *urlStr, *urlPtr, *st;
+	size_t urlLen, matchLen;
+	int error;
+	
+	error = EIO;
+	statusList = NULL;
+	urlStrRef = NULL;
+	urlStr = NULL;
+	
+	// parse multistatus reply to get the error
+	statusList = parse_multi_status(responseBuffer, responseBufferLen);
+	if (statusList == NULL)
+		goto parsed_nothing;
+	
+	urlStrRef = CFURLGetString(urlRef);
+	
+	if (urlStrRef == NULL)
+		goto parsed_nothing;
+	
+	CFRetain(urlStrRef);
+	
+	urlStr = CopyCFStringToCString(urlStrRef);
+	
+	if (urlStr == NULL)
+		goto parsed_nothing;
+	
+	// Scan for the "//" in urlStr scheme://host:port/...
+	urlPtr = strstr(urlStr, "//");
+	
+	// urlPtr pointing at "//host:port/..."
+	// Advance past the "//"
+	if (urlPtr != NULL)
+		urlPtr++;
+	if (urlPtr != NULL)
+		urlPtr++;
+	
+	// urlPtr pointing at "host:port/..."
+	// Advance to first "/" trailing "hostname:port"
+	if (urlPtr != NULL)
+		urlPtr = strstr(urlPtr, "/"); // Advance to first "/" following hostname in urlStr
+	
+	if (urlPtr == NULL)
+		urlPtr = urlStr;  // Didn't find "scheme://host:port" in urlStr
+	
+	urlLen = strlen(urlPtr);
+	
+	elementPtr = statusList->head;
+	while (elementPtr != NULL) {
+		if (elementPtr->name == NULL) {
+			continue; // skipit
+		}
+		
+		if (elementPtr->seen_href == FALSE)
+			continue;  // skipit
+		
+		matchLen = strlen((char *)elementPtr->name);
+		
+		if (matchLen <= 0) {
+			continue; // skipit
+		}
+		
+		if (matchLen > urlLen) {
+			continue;  // skipit
+		}
+		
+		st = strnstr((char *)elementPtr->name, urlPtr, urlLen);
+		
+		if ( st != NULL) {
+			error = 0;
+			*statusCode = elementPtr->statusCode;
+			break;
+		}
+		
+		elementPtr = elementPtr->next;
+	}
+	
+parsed_nothing:
+	// cleanup
+	if (urlStr)
+		free(urlStr);
+	if (urlStrRef)
+		CFRelease(urlStrRef);
+	if (statusList) {
+		elementPtr = statusList->head;
+		while (elementPtr != NULL) {
+			nextElementPtr = elementPtr->next;
+			free(elementPtr);
+			elementPtr = nextElementPtr;
+		}
+		free(statusList);
+	}	
+	
+	return (error);
+}
+
 /******************************************************************************/
 
 static int network_delete(
@@ -4682,7 +5045,12 @@ static int network_delete(
 {
 	int error;
 	CFStringRef lockTokenRef;
-	CFHTTPMessageRef response;
+	CFHTTPMessageRef responseRef;
+	UInt8 *responseBuffer;
+	CFIndex count, statusCode;
+	CFStringRef urlStrRef;
+	char *urlStr;
+	
 	/* possibly 2 headers */
 	CFIndex headerCount;
 	struct HeaderFieldValue headers2[] = {
@@ -4696,6 +5064,10 @@ static int network_delete(
 	};
 
 	*remove_date = -1;
+	
+	responseRef = NULL;
+	urlStrRef = NULL;
+	urlStr = NULL;
 
 	if ( node->file_locktoken != NULL )
 	{
@@ -4723,29 +5095,75 @@ static int network_delete(
 			/* translate flag only for Microsoft IIS Server */
 			headerCount += 1;
 		}
-		error = send_transaction(uid, urlRef, CFSTR("DELETE"), NULL, headerCount, headers1, FALSE, NULL, NULL, &response);
+		error = send_transaction(uid, urlRef, NULL, CFSTR("DELETE"), NULL, headerCount, headers1, REDIRECT_DISABLE, &responseBuffer, &count, &responseRef);
 	}
 	else {
 		if (gServerIdent & WEBDAV_MICROSOFT_IIS_SERVER) {
 			/* translate flag only for Microsoft IIS Server */
 			headerCount += 1;
 		}
-		error = send_transaction(uid, urlRef, CFSTR("DELETE"), NULL, headerCount, headers2, FALSE, NULL, NULL, &response);
+		error = send_transaction(uid, urlRef, NULL, CFSTR("DELETE"), NULL, headerCount, headers2, REDIRECT_DISABLE, &responseBuffer, &count, &responseRef);
 	}
 
 	if ( !error )
 	{
-		CFStringRef dateHeaderRef;
+		// Grab the status code from the response
+		statusCode = CFHTTPMessageGetResponseStatusCode(responseRef);
 		
-		dateHeaderRef = CFHTTPMessageCopyHeaderFieldValue(response, CFSTR("Date"));
-		if ( dateHeaderRef != NULL )
+		if (statusCode == 207)
 		{
-			*remove_date = DateStringToTime(dateHeaderRef);
+			// A 207 on a DELETE request is almost always a failed dependency error.
+			// The multistatus reply allows the server to specify the the actual dependency.
+			error =	network_handle_multistatus_reply(urlRef, responseBuffer, count, &statusCode);
+			
+			urlStrRef = CFURLGetString(urlRef);
+			if (urlStrRef) {
+				CFRetain(urlStrRef);
+				urlStr = CopyCFStringToCString(urlStrRef);
+			}
+			
+			// Log a message
+			if (!error) {
+				if (urlStr) {
+					syslog(LOG_ERR, "Error deleting %s, http status code %ld\n", urlStr, statusCode);
+				}
+				else
+					syslog(LOG_ERR, "A Delete request failed, http status code %ld\n", statusCode);
+			}
+			else {
+				if (urlStr) {
+					syslog(LOG_ERR, "A Delete request failed for %s\n", urlStr);
+				}
+				else
+					syslog(LOG_ERR, "A Delete request failed, unable to parse reply\n");
+			}
+			
+			// clean up a bit
+			if (urlStr)
+				free(urlStr);
+			if (urlStrRef)
+				CFRelease(urlStrRef);
 
-			CFRelease(dateHeaderRef);
+			// Regardless of the failed dependency, the bottom line is this file or folder in question is busy
+			error = EBUSY;		
 		}
-		/* release the response buffer */
-		CFRelease(response);
+		else {
+			CFStringRef dateHeaderRef;
+		
+			dateHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("Date"));
+			if ( dateHeaderRef != NULL )
+			{
+				*remove_date = DateStringToTime(dateHeaderRef);
+
+				CFRelease(dateHeaderRef);
+			}
+		}
+		
+		// Release the response buffer
+		if (responseBuffer)
+			free(responseBuffer);
+
+		CFRelease(responseRef);
 	}
 	
 	if ( lockTokenRef != NULL )
@@ -4831,23 +5249,69 @@ int network_rename(
 	CFURLRef destinationUrlRef;
 	CFStringRef destinationRef;
 	CFHTTPMessageRef response;
-	/* the 2 headers */
-	CFIndex headerCount = 2;
-	struct HeaderFieldValue headers[] = {
-		{ CFSTR("Accept"), CFSTR("*/*") },
-		{ CFSTR("Destination"), NULL },
-		{ CFSTR("translate"), CFSTR("f") }
-	};
+	CFArrayRef lockTokenArr;
+	CFStringRef lockTokenRef;
+	CFIndex i, lockTokenCount, headerIndex, headerCount;
+	bool needTranslateFlag;
+	struct HeaderFieldValue *headers;
 	
-	if (gServerIdent & WEBDAV_MICROSOFT_IIS_SERVER) {
-		/* translate flag only for Microsoft IIS Server */
-		headerCount += 1;
-	}
-
+	headerCount = 2;	// the 2 headers "Accept" and "Destination"
+	needTranslateFlag = false;
+	lockTokenCount = 0;
+	headerIndex = 0;
+	lockTokenArr = NULL;
+	headers = NULL;	
 	*rename_date = -1;
 	urlRef = NULL;
 	destinationUrlRef = NULL;
 	destinationRef = NULL;
+	
+	if (gServerIdent & WEBDAV_MICROSOFT_IIS_SERVER) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+		needTranslateFlag = true;
+	}	
+	
+	// First retrieve from_node's lock tocken(s)
+	lockTokenArr = nodecache_get_locktokens(from_node);
+	
+	if (lockTokenArr != NULL)
+		lockTokenCount = CFArrayGetCount(lockTokenArr);
+	
+	headerCount += lockTokenCount;
+	
+	// Now allocate space for headers
+	headers = (struct HeaderFieldValue *)malloc(sizeof(struct HeaderFieldValue) * headerCount);
+	require_action_quiet(headers != NULL, exit, error = ENOMEM);
+	
+	// Setup initial headers	
+	headers[headerIndex].headerField = CFSTR("Accept");
+	headers[headerIndex].value = CFSTR("*/*");
+	headerIndex++;
+	
+	headers[headerIndex].headerField = CFSTR("Destination");
+	headers[headerIndex].value = NULL;
+	headerIndex++;
+	
+	if (needTranslateFlag == true) {
+		/* translate flag only for Microsoft IIS Server */
+		headers[headerIndex].headerField = CFSTR("translate");
+		headers[headerIndex].value = CFSTR("f");
+		headerIndex++;
+	}
+	
+	// Add locktokens if any
+	if (lockTokenCount) {
+		for (i = 0; i < lockTokenCount; i++) {
+			lockTokenRef = (CFStringRef)CFArrayGetValueAtIndex(lockTokenArr, i);
+			if ( lockTokenRef != NULL )
+			{
+				headers[headerIndex].headerField = CFSTR("If");
+				headers[headerIndex].value = lockTokenRef;
+				headerIndex++;
+			}			
+		}
+	}
 	
 	/* create a CFURL to the from_node */
 	urlRef = create_cfurl_from_node(from_node, NULL, 0);
@@ -4891,8 +5355,8 @@ int network_rename(
 	headers[1].value = destinationRef; /* done with that mess... */
 	
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("MOVE"), NULL,
-		headerCount, headers, FALSE, NULL, NULL, &response);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("MOVE"), NULL,
+		headerCount, headers, REDIRECT_DISABLE, NULL, NULL, &response);
 	if ( !error )
 	{
 		CFStringRef dateHeaderRef;
@@ -4918,6 +5382,14 @@ exit:
 	{
 		CFRelease(urlRef);
 	}
+	if ( lockTokenArr != NULL)
+	{
+		CFRelease(lockTokenArr);
+	}
+	if (headers != NULL)
+	{
+		free(headers);
+	}
 	
 	return ( error );
 }
@@ -4931,9 +5403,12 @@ int network_lock(
 {
 	int error;
 	CFURLRef urlRef;
+	CFHTTPMessageRef responseRef;
 	UInt8 *responseBuffer;
-	CFIndex count;
+	CFIndex count, statusCode;
 	CFDataRef bodyData;
+	CFStringRef urlStrRef;
+	char *urlStr;
 	const UInt8 xmlString[] =
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 		"<D:lockinfo xmlns:D=\"DAV:\">\n"
@@ -4962,6 +5437,11 @@ int network_lock(
 	};
 	CFStringRef timeoutSpecifierRef;
 	CFStringRef lockTokenRef;
+	
+	responseRef = NULL;
+	lockTokenRef = NULL;
+	urlStrRef = NULL;
+	urlStr = NULL;
 
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
@@ -5005,43 +5485,87 @@ int network_lock(
 			/* translate flag only for Microsoft IIS Server */
 			headerCount += 1;
 		}
-		error = send_transaction(uid, urlRef, CFSTR("LOCK"), bodyData, headerCount, headers4, FALSE, &responseBuffer, &count, NULL);
+		error = send_transaction(uid, urlRef, NULL, CFSTR("LOCK"), bodyData, headerCount, headers4, REDIRECT_DISABLE, &responseBuffer, &count, &responseRef);
 	}
 	else {
 		if (gServerIdent & WEBDAV_MICROSOFT_IIS_SERVER) {
 			/* translate flag only for Microsoft IIS Server */
 			headerCount += 1;
 		}
-		error = send_transaction(uid, urlRef, CFSTR("LOCK"), bodyData, headerCount, headers5, FALSE, &responseBuffer, &count, NULL);
+		error = send_transaction(uid, urlRef, NULL, CFSTR("LOCK"), bodyData, headerCount, headers5, REDIRECT_DISABLE, &responseBuffer, &count, &responseRef);
 	}
 
 	if ( !error )
 	{
-		char *locktoken;
+		// Grab the status code from the response
+		statusCode = CFHTTPMessageGetResponseStatusCode(responseRef);
+		CFRelease(responseRef);	
 
-		/* parse responseBuffer to get the lock token */
-		error = parse_lock(responseBuffer, count, &locktoken);
-		
-		if ( !error )
+		if (statusCode == 207)
 		{
-			char *old_locktoken;
+			// A 207 on a LOCK request is almost always a failed dependency error (i.e. http status 424).
+			// The multistatus reply allows the server to specify the actual dependency.
+			error =	network_handle_multistatus_reply(urlRef, responseBuffer, count, &statusCode);
 			
-			old_locktoken = node->file_locktoken;
-			node->file_locktoken = locktoken;
-			if ( old_locktoken != NULL )
-			{
-				
-				free(old_locktoken);
+			urlStrRef = CFURLGetString(urlRef);
+			if (urlStrRef) {
+				CFRetain(urlStrRef);
+				urlStr = CopyCFStringToCString(urlStrRef);
 			}
-			/* file_locktoken_uid is already set if refreshing */
-			if ( !refresh )
+			
+			// Log a message
+			if (!error) {
+				if (urlStr) {
+					syslog(LOG_ERR, "Error locking %s, http status code %ld\n", urlStr, statusCode);
+				}
+				else
+					syslog(LOG_ERR, "Lock request failed, http status code %ld\n", statusCode);
+			}
+			else {
+				if (urlStr) {
+					syslog(LOG_ERR, "Lock request failed for %s\n", urlStr);
+				}
+				else
+					syslog(LOG_ERR, "A Lock request failed, unable to parse reply\n");
+			}
+			
+			// Regardless of the dependency, the bottom line is this file or folder in question is busy
+			error = EBUSY;
+			
+			// clean up a bit
+			if (urlStr)
+				free(urlStr);
+			if (urlStrRef)
+				CFRelease(urlStrRef);
+		}
+		else {
+			char *locktoken;
+			
+			/* parse responseBuffer to get the lock token */
+			error = parse_lock(responseBuffer, count, &locktoken);
+		
+			if ( !error )
 			{
-				node->file_locktoken_uid = uid;
+				char *old_locktoken;
+			
+				old_locktoken = node->file_locktoken;
+				node->file_locktoken = locktoken;
+				if ( old_locktoken != NULL )
+				{
+				
+					free(old_locktoken);
+				}
+				/* file_locktoken_uid is already set if refreshing */
+				if ( !refresh )
+				{
+					node->file_locktoken_uid = uid;
+				}
 			}
 		}
-		
-		/* free the response buffer */
-		free(responseBuffer);
+	
+		// Release the response buffer
+		if (responseBuffer)
+			free(responseBuffer);
 	}
 
 	if ( bodyData != NULL )
@@ -5101,8 +5625,8 @@ int network_unlock(
 	
 	/* send request to the server and get the response */
 	/* Note: we use the credentials of the user than obtained the LOCK */
-	error = send_transaction(node->file_locktoken_uid, urlRef, CFSTR("UNLOCK"), NULL,
-		headerCount, headers, FALSE, NULL, NULL, NULL);
+	error = send_transaction(node->file_locktoken_uid, urlRef, NULL, CFSTR("UNLOCK"), NULL,
+		headerCount, headers, REDIRECT_DISABLE, NULL, NULL, NULL);
 	
 	CFRelease(lockTokenRef);
 
@@ -5126,7 +5650,7 @@ int network_readdir(
 	int cache,					/* -> if TRUE, perform additional caching */
 	struct node_entry *node)	/* -> directory node to read */
 {
-	int error;
+	int error, redir_cnt;
 	CFURLRef urlRef;
 	UInt8 *responseBuffer;
 	CFIndex count;
@@ -5137,6 +5661,7 @@ int network_readdir(
 			"<D:prop>\n"
 				"<D:getlastmodified/>\n"
 				"<D:getcontentlength/>\n"
+				"<D:creationdate/>\n"
 				"<D:resourcetype/>\n"
 			"</D:prop>\n"
 		"</D:propfind>\n";
@@ -5146,6 +5671,7 @@ int network_readdir(
 			"<D:prop xmlns:A=\"http://www.apple.com/webdav_fs/props/\">\n"
 				"<D:getlastmodified/>\n"
 				"<D:getcontentlength/>\n"
+				"<D:creationdate/>\n"
 				"<D:resourcetype/>\n"
 				"<A:appledoubleheader/>\n"
 			"</D:prop>\n"
@@ -5164,34 +5690,46 @@ int network_readdir(
 		headerCount += 1;
 	}
 
-	/* create a CFURL to the node */
-	urlRef = create_cfurl_from_node(node, NULL, 0);
-	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
-
 	/* create a CFDataRef with the xml that is our message body */
 	bodyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault,
 		(cache ? xmlStringCache : xmlString), strlen((const char *)(cache ? xmlStringCache : xmlString)), kCFAllocatorNull);
 	require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("PROPFIND"), bodyData,
-		headerCount, headers, TRUE, &responseBuffer, &count, NULL);
-	if ( !error )
-	{
-		/* parse responseBuffer to create the directory file */
-		error = parse_opendir(responseBuffer, count, urlRef, uid, node);
-		/* free the response buffer */
-		free(responseBuffer);
+	redir_cnt = 0;
+	while (redir_cnt < WEBDAV_MAX_REDIRECTS) {
+		/* create a CFURL to the node */
+		urlRef = create_cfurl_from_node(node, NULL, 0);
+		
+		if (urlRef == NULL) {
+			error = EIO;
+			break;
+		}
+		
+		error = send_transaction(uid, urlRef, node, CFSTR("PROPFIND"), bodyData,
+								 headerCount, headers, REDIRECT_MANUAL, &responseBuffer, &count, NULL);
+		if ( !error )
+		{
+			/* parse responseBuffer to create the directory file */
+			error = parse_opendir(responseBuffer, count, urlRef, uid, node);
+			/* free the response buffer */
+			free(responseBuffer);
+			CFRelease(urlRef);
+			break;
+		}
+		
+		CFRelease(urlRef);
+
+		if (error != EDESTADDRREQ)
+			break;
+		
+		redir_cnt++;
 	}
 	
 	/* release the message body */
 	CFRelease(bodyData);
 
 CFDataCreateWithBytesNoCopy:
-
-	CFRelease(urlRef);
-
-create_cfurl_from_node:
 
 	return ( error );
 }
@@ -5227,8 +5765,8 @@ int network_mkdir(
 	require_action_quiet(urlRef != NULL, create_cfurl_from_node, error = EIO);
 
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("MKCOL"), NULL,
-		headerCount, headers, FALSE, NULL, NULL, &response);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("MKCOL"), NULL,
+		headerCount, headers, REDIRECT_DISABLE, NULL, NULL, &response);
 	if ( !error )
 	{
 		CFStringRef dateHeaderRef;
@@ -5293,8 +5831,8 @@ int network_read(
 	headers[1].value = byteRangesSpecifierRef;
 	
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("GET"), NULL,
-		headerCount, headers, TRUE, &responseBuffer, &responseCount, NULL);
+	error = send_transaction(uid, urlRef, NULL, CFSTR("GET"), NULL,
+		headerCount, headers, REDIRECT_AUTO, &responseBuffer, &responseCount, NULL);
 	if ( !error )
 	{
 		if ( (size_t)responseCount > count )

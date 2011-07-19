@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strxfrm.3	2003-05-20 15:23:55.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strxfrm.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -40,34 +40,48 @@
+--- strxfrm.3.bsdnew	2009-11-18 18:24:38.000000000 -0800
++++ strxfrm.3	2009-11-18 18:24:38.000000000 -0800
+@@ -36,34 +36,48 @@
  .Dt STRXFRM 3
  .Os
  .Sh NAME
@@ -55,7 +55,7 @@
  is permitted to be a NULL pointer.
  .Pp
  Comparing two strings using
-@@ -77,6 +91,14 @@
+@@ -73,6 +87,14 @@ after
  is equal to comparing
  two original strings with
  .Fn strcoll .
@@ -70,7 +70,7 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn strxfrm
-@@ -85,13 +107,14 @@
+@@ -81,13 +103,14 @@ the terminating null character.
  If this value is
  .Fa n
  or more, the contents of

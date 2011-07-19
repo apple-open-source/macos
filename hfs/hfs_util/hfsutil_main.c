@@ -191,13 +191,14 @@ int CloseVolumeStatusDB(VolumeStatusDBHandle DBHandle);
 
 /* ************************************ P R O T O T Y P E S *************************************** */
 static void	DoDisplayUsage( const char * argv[] );
-static int	DoMount( char * theDeviceNamePtr, const char * theMountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
+static int	DoMount( char * theDeviceNamePtr, const char *rawName, const char * theMountPointPtr, 
+					boolean_t isLocked, boolean_t isSetuid, boolean_t isDev );
 static int 	DoProbe( char * rawDeviceNamePtr, char * blockDeviceNamePtr );
 static int 	DoUnmount( const char * theMountPointPtr );
-static int	DoGetUUIDKey( const char * theDeviceNamePtr );
+static int	DoGetUUIDKey( const char * theDeviceNamePtr, const char *rawName );
 static int	DoChangeUUIDKey( const char * theDeviceNamePtr );
-static int	DoAdopt( const char * theDeviceNamePtr );
-static int	DoDisown( const char * theDeviceNamePtr );
+static int	DoAdopt( const char * theDeviceNamePtr, const char *rawName);
+static int	DoDisown( const char * theDeviceNamePtr, const char *rawName);
 
 extern int  DoMakeJournaled( const char * volNamePtr, int journalSize );  // XXXdbg
 extern int  DoUnJournal( const char * volNamePtr );      // XXXdbg
@@ -209,9 +210,9 @@ static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, co
 
 static int	GetHFSMountPoint(const char *deviceNamePtr, char **pathPtr);
 static int	ReadHeaderBlock(int fd, void *bufptr, off_t *startOffset, VolumeUUID **finderInfoUUIDPtr);
-static int	GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
+static int	GetVolumeUUIDRaw(const char *deviceNamePtr, const char *rawName, VolumeUUID *volumeUUIDPtr);
 static int	GetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr);
-static int	GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate);
+static int	GetVolumeUUID(const char *deviceNamePtr, const char *rawName, VolumeUUID *volumeUUIDPtr, boolean_t generate);
 static int	SetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
 static int	SetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr);
 static int	SetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr);
@@ -428,25 +429,25 @@ int main (int argc, const char *argv[])
 
         case FSUC_MOUNT:
         case FSUC_MOUNT_FORCE:
-            result = DoMount(blockDeviceName, mountPointPtr, isLocked, isSetuid, isDev);
+            result = DoMount(blockDeviceName, rawDeviceName, mountPointPtr, isLocked, isSetuid, isDev);
             break;
 
         case FSUC_UNMOUNT:
             result = DoUnmount( mountPointPtr );
             break;
 		case FSUC_GETUUID:
-			result = DoGetUUIDKey( blockDeviceName );
+			result = DoGetUUIDKey( blockDeviceName, rawDeviceName);
 			break;
 		
 		case FSUC_SETUUID:
 			result = DoChangeUUIDKey( blockDeviceName );
 			break;
 		case FSUC_ADOPT:
-			result = DoAdopt( blockDeviceName );
+			result = DoAdopt( blockDeviceName, rawDeviceName);
 			break;
 		
 		case FSUC_DISOWN:
-			result = DoDisown( blockDeviceName );
+			result = DoDisown( blockDeviceName, rawDeviceName );
 			break;
 
 		case FSUC_MKJNL:
@@ -509,7 +510,8 @@ Output -
 returns FSUR_IO_SUCCESS everything is cool else one of several other FSUR_xyz error codes.
 *********************************************************************** */
 static int
-DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, boolean_t isSetuid, boolean_t isDev)
+DoMount(char *deviceNamePtr, const char *rawName, const char *mountPointPtr,
+		boolean_t isLocked, boolean_t isSetuid, boolean_t isDev)
 {
 	int pid;
         char *isLockedstr;
@@ -529,7 +531,7 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, bool
 
 	/* get the volume UUID to check if permissions should be used: */
 	targetVolumeStatus = 0;
-	if (((result = GetVolumeUUID(deviceNamePtr, &targetVolumeUUID, FALSE)) != FSUR_IO_SUCCESS) ||
+	if (((result = GetVolumeUUID(deviceNamePtr, rawName, &targetVolumeUUID, FALSE)) != FSUR_IO_SUCCESS) ||
 		(targetVolumeUUID.v.high ==0) ||
 		(targetVolumeUUID.v.low == 0)) {
 #if TRACE_HFS_UTIL
@@ -537,7 +539,7 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, bool
 #endif
 #if AUTO_ADOPT_FIXED
 		if (gIsEjectable == 0) {
-			result = DoAdopt( deviceNamePtr );
+			result = DoAdopt( deviceNamePtr, rawName);
 #if TRACE_HFS_UTIL
 			fprintf(stderr, "hfs.util: DoMount: Auto-adopting %s; result = %d.\n", deviceNamePtr, result);
 #endif
@@ -570,7 +572,7 @@ DoMount(char *deviceNamePtr, const char *mountPointPtr, boolean_t isLocked, bool
 #endif
 #if AUTO_ENTER_FIXED
 				if (gIsEjectable == 0) {
-					result = DoAdopt( deviceNamePtr );
+					result = DoAdopt( deviceNamePtr, rawName );
 #if TRACE_HFS_UTIL
 					fprintf(stderr, "hfs.util: DoMount: Auto-adopting %s; result = %d.\n", deviceNamePtr, result);
 #endif
@@ -911,7 +913,7 @@ Output -
     returns FSUR_IO_SUCCESS or else one of the FSUR_xyz error codes.
 *************************************************************************************************** */
 static int
-DoGetUUIDKey( const char * theDeviceNamePtr ) {
+DoGetUUIDKey( const char * theDeviceNamePtr, const char *rawName) {
 	int result;
 	VolumeUUID targetVolumeUUID;
 	uuid_t uuid;
@@ -919,7 +921,7 @@ DoGetUUIDKey( const char * theDeviceNamePtr ) {
 
 	unsigned char rawUUID[8];
 
-	if ((result = GetVolumeUUID(theDeviceNamePtr, &targetVolumeUUID, FALSE)) != FSUR_IO_SUCCESS) goto Err_Exit;
+	if ((result = GetVolumeUUID(theDeviceNamePtr, rawName, &targetVolumeUUID, FALSE)) != FSUR_IO_SUCCESS) goto Err_Exit;
 
 	((uint32_t *)rawUUID)[0] = OSSwapHostToBigInt32(targetVolumeUUID.v.high);
 	((uint32_t *)rawUUID)[1] = OSSwapHostToBigInt32(targetVolumeUUID.v.low);
@@ -965,13 +967,13 @@ Output -
     returns FSUR_IO_SUCCESS or else one of the FSUR_xyz error codes.
 *************************************************************************************************** */
 static int
-DoAdopt( const char * theDeviceNamePtr ) {
+DoAdopt( const char * theDeviceNamePtr, const char *rawName) {
 	int result, closeresult;
 	VolumeUUID targetVolumeUUID;
 	VolumeStatusDBHandle vsdbhandle = NULL;
 	unsigned long targetVolumeStatus;
 	
-	if ((result = GetVolumeUUID(theDeviceNamePtr, &targetVolumeUUID, TRUE)) != FSUR_IO_SUCCESS) goto Err_Return;
+	if ((result = GetVolumeUUID(theDeviceNamePtr, rawName, &targetVolumeUUID, TRUE)) != FSUR_IO_SUCCESS) goto Err_Return;
 	
 	if ((result = OpenVolumeStatusDB(&vsdbhandle)) != 0) goto Err_Exit;
 	if ((result = GetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, &targetVolumeStatus)) != 0) {
@@ -1009,13 +1011,13 @@ Output -
     returns FSUR_IO_SUCCESS or else one of the FSUR_xyz error codes.
 *************************************************************************************************** */
 static int
-DoDisown( const char * theDeviceNamePtr ) {
+DoDisown( const char * theDeviceNamePtr, const char *rawName) {
 	int result, closeresult;
 	VolumeUUID targetVolumeUUID;
 	VolumeStatusDBHandle vsdbhandle = NULL;
 	unsigned long targetVolumeStatus;
 	
-	if ((result = GetVolumeUUID(theDeviceNamePtr, &targetVolumeUUID, TRUE)) != FSUR_IO_SUCCESS) goto Err_Return;
+	if ((result = GetVolumeUUID(theDeviceNamePtr, rawName, &targetVolumeUUID, TRUE)) != FSUR_IO_SUCCESS) goto Err_Return;
 	
 	if ((result = OpenVolumeStatusDB(&vsdbhandle)) != 0) goto Err_Exit;
 	if ((result = GetVolumeStatusDBEntry(vsdbhandle, &targetVolumeUUID, &targetVolumeStatus)) != 0) {
@@ -1433,13 +1435,14 @@ Err_Exit:
 	Returns: FSUR_IO_SUCCESS, FSUR_IO_FAIL, FSUR_UNRECOGNIZED
 */
 static int
-GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
+GetVolumeUUIDRaw(const char *deviceNamePtr, const char *rawName, VolumeUUID *volumeUUIDPtr)
 {
 	int fd = 0;
 	char * bufPtr;
 	off_t startOffset;
 	VolumeUUID *finderInfoUUIDPtr;
 	int result;
+	int error; 
 
 	bufPtr = (char *)malloc(HFS_BLOCK_SIZE);
 	if ( ! bufPtr ) {
@@ -1449,11 +1452,25 @@ GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
 
 	fd = open( deviceNamePtr, O_RDONLY, 0);
 	if (fd <= 0) {
+		error = errno;
 #if TRACE_HFS_UTIL
-		fprintf(stderr, "hfs.util: GetVolumeUUIDRaw: device open failed (errno = %d).\n", errno);
+		fprintf(stderr, "hfs.util: GetVolumeUUIDRaw: device (%s)  open failed (errno = %d).\n", deviceNamePtr, errno);
 #endif
-		result = FSUR_IO_FAIL;
-		goto Err_Exit;
+		if (error == EBUSY) {
+			/* If it was busy, then retry, this time using the raw device */
+			fd = open (rawName, O_RDONLY, 0);
+			if (fd <= 0) {
+#if TRACE_HFS_UTIL
+				fprintf(stderr, "hfs.util: GetVolumeUUIDRaw: device (%s) open failed (errno = %d).\n", rawName, errno);
+#endif
+				result = FSUR_IO_FAIL;
+				goto Err_Exit;
+			}
+		}
+		else {
+			result = FSUR_IO_FAIL;
+			goto Err_Exit;
+		}
 	}
 
 	/*
@@ -1652,7 +1669,7 @@ Err_Exit:
  */
 
 static int
-GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t generate)
+GetVolumeUUID(const char *deviceNamePtr, const char *rawName, VolumeUUID *volumeUUIDPtr, boolean_t generate)
 {
 	int result;
 	char *path = NULL;
@@ -1672,7 +1689,7 @@ GetVolumeUUID(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr, boolean_t ge
 	if (path)
 		result = GetVolumeUUIDAttr(path, volumeUUIDPtr);
 	else
-		result = GetVolumeUUIDRaw(deviceNamePtr, volumeUUIDPtr);
+		result = GetVolumeUUIDRaw(deviceNamePtr, rawName, volumeUUIDPtr);
 	if (result != FSUR_IO_SUCCESS)
 		goto Err_Exit;
 
@@ -1906,7 +1923,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 
 	if ((OSSwapBigToHostInt16(k->nodeName.length) >
 		(sizeof(k->nodeName.unicode) / sizeof(k->nodeName.unicode[0]))) ||
-		OSSwapBigToHostInt16(k->nodeName.length) < 0) {
+		OSSwapBigToHostInt16(k->nodeName.length) > 255) {
 		result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
 		fprintf(stderr, "hfs.util: ERROR:  k->nodeName.length is a bad size (%d)\n", OSSwapBigToHostInt16(k->nodeName.length));

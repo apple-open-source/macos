@@ -21,7 +21,8 @@
 <div id="page-content">
 <div id="preamble"><h1>Apache Module mod_rewrite</h1>
 <div class="toplang">
-<p><span>Available Languages: </span><a href="../en/mod/mod_rewrite.html" title="English">&nbsp;en&nbsp;</a></p>
+<p><span>Available Languages: </span><a href="../en/mod/mod_rewrite.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_rewrite.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Provides a rule-based rewriting engine to rewrite requested
 URLs on the fly</td></tr>
@@ -130,9 +131,8 @@ SCRIPT_URI=http://en1.engelschall.com/u/rse/
 <h2><a name="Solutions" id="Solutions">Practical Solutions</a></h2>
 
     <p>For numerous examples of common, and not-so-common, uses for
-    mod_rewrite, see the <a href="../rewrite/rewrite_guide.html">Rewrite
-    Guide</a>, and the <a href="../rewrite/rewrite_guide_advanced.html">Advanced Rewrite
-    Guide</a> documents.</p>
+    mod_rewrite, see the <a href="../rewrite/">extended rewrite
+    documentation.</a></p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -216,7 +216,7 @@ Result:
               per-directory rewriting comes late in the
               process, the rewritten request
               has to be re-injected into the Apache kernel, as if it
-              were a new request. (See <a href="../rewrite/rewrite_tech.html">mod_rewrite technical
+              were a new request. (See <a href="../rewrite/tech.html">mod_rewrite technical
               details</a>.)
               This is not the serious overhead it may seem to be - 
               this re-injection is completely internal to the 
@@ -353,8 +353,14 @@ Result:
                 MIME-headers, C variables of the Apache server or
                 <code>struct tm</code> fields of the Unix system.
                 Most are documented elsewhere in the Manual or in
-                the CGI specification. Those that are special to
-                mod_rewrite include those below.</p>
+                the CGI specification.</p>
+
+                <p>SERVER_NAME and SERVER_PORT depend on the values of 
+                <code class="directive"><a href="../mod/core.html#usecanonicalname">UseCanonicalName</a></code> and
+                <code class="directive"><a href="../mod/core.html#usecanonicalphysicalport">UseCanonicalPhysicalPort</a></code>
+                respectively.</p>
+
+                <p>Those that are special to mod_rewrite include those below.</p>
 	<div class="note">
                 <dl>
                   <dt><code>IS_SUBREQ</code></dt>
@@ -382,7 +388,8 @@ Result:
                   browser to the server (e.g., "<code>GET
                   /index.html HTTP/1.1</code>"). This does not
                   include any additional headers sent by the
-                  browser.</dd>
+                  browser.  This value has not been unescaped 
+                  (decoded), unlike most other variables below.</dd>
 
                   <dt><code>REQUEST_URI</code></dt>
 
@@ -613,9 +620,9 @@ Result:
           instead of the implicit AND. Typical example: 
 
 <div class="example"><pre>
-RewriteCond %{REMOTE_HOST}  ^host1.*  [OR]
-RewriteCond %{REMOTE_HOST}  ^host2.*  [OR]
-RewriteCond %{REMOTE_HOST}  ^host3.*
+RewriteCond %{REMOTE_HOST}  =host1  [OR]
+RewriteCond %{REMOTE_HOST}  =host2  [OR]
+RewriteCond %{REMOTE_HOST}  =host3
 RewriteRule ...some special stuff for any of these hosts...
 </pre></div>
 
@@ -643,10 +650,10 @@ RewriteRule ...some special stuff for any of these hosts...
         use the following: </p>
 
 <div class="example"><pre>
-RewriteCond  %{HTTP_USER_AGENT}  ^Mozilla.*
+RewriteCond  %{HTTP_USER_AGENT}  ^Mozilla
 RewriteRule  ^/$                 /homepage.max.html  [L]
 
-RewriteCond  %{HTTP_USER_AGENT}  ^Lynx.*
+RewriteCond  %{HTTP_USER_AGENT}  ^Lynx
 RewriteRule  ^/$                 /homepage.min.html  [L]
 
 RewriteRule  ^/$                 /homepage.std.html  [L]
@@ -743,6 +750,23 @@ processing</td></tr>
           directive or use <code>RewriteLogLevel 0</code>!
 </div>
 
+    <p>The <code class="directive">RewriteLog</code> log file format is as
+    follows:</p>
+
+<table>
+<tr><th>Description</th><th> Example</th></tr>
+<tr>
+<td>Remote host IP address</td>
+<td>192.168.200.166</td></tr>
+<tr><td>Remote login name</td><td>Will usually be "-"</td></tr>
+<tr><td>HTTP user auth name</td><td>Username, or "-" if no auth</td></tr>
+<tr><td>Date and time of request</td><td>[28/Aug/2009:13:09:09 --0400]</td></tr>
+<tr><td>Virtualhost and virtualhost ID</td><td>[www.example.com/sid#84a650]</td></tr>
+<tr><td>Request ID, and whether it's a subrequest</td><td>[rid#9f0e58/subreq]</td></tr>
+<tr><td>Log entry severity level</td><td>(2)</td></tr>
+<tr><td>Text error message</td><td>forcing proxy-throughput with http://127.0.0.1:8080/index.html</td></tr>
+</table>
+
 <div class="note"><h3>Security</h3>
 
 See the <a href="../misc/security_tips.html">Apache Security Tips</a>
@@ -825,7 +849,9 @@ Apache 2.0.41 and later</td></tr>
       key is found, the map-function construct is substituted by
       <em>SubstValue</em>. If the key is not found then it is
       substituted by <em>DefaultValue</em> or by the empty string
-      if no <em>DefaultValue</em> was specified.</p>
+      if no <em>DefaultValue</em> was specified. Empty values
+      behave as if the key was absent, therefore it is not possible
+      to distinguish between empty-valued keys and absent keys.</p>
 
       <p>For example, you might define a
       <code class="directive">RewriteMap</code> as:</p>
@@ -937,8 +963,10 @@ $ httxt2dbm -i mapfile.txt -o mapfile.map
           function 
 
           <p>Here, the source is an internal Apache function.
-          Currently you cannot create your own, but the following
-          functions already exist:</p>
+          Module authors can provide additional internal functions by registering 
+          them with the <code>ap_register_rewrite_mapfunc</code> API.
+          The functions that are provided by default are:
+          </p>
 
           <ul>
             <li><strong>toupper</strong>:<br />
@@ -1050,12 +1078,21 @@ later</td></tr>
 
       <dl>
       <dt><code>inherit</code></dt>
-      <dd>This forces the current configuration to inherit the
+      <dd>
+      
+      <p>This forces the current configuration to inherit the
       configuration of the parent. In per-virtual-server context,
       this means that the maps, conditions and rules of the main
       server are inherited. In per-directory context this means
       that conditions and rules of the parent directory's
-      <code>.htaccess</code> configuration are inherited.</dd>
+      <code>.htaccess</code> configuration are inherited.</p>
+
+      <div class="warning">
+      Rules inherited from the parent scope are applied
+      <strong>after</strong> rules specified in the child scope.
+      </div>
+      
+      </dd>
       </dl>
 
 </div>
@@ -1071,39 +1108,83 @@ later</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_rewrite</td></tr>
 </table>
       <p>The <code class="directive">RewriteRule</code> directive is the real
-      rewriting workhorse. The directive can occur more than once, 
+      rewriting workhorse. The directive can occur more than once,
       with each instance defining a single rewrite rule. The
       order in which these rules are defined is important - this is the order
       in which they will be applied at run-time.</p>
 
       <p><a id="patterns" name="patterns"><em>Pattern</em></a> is
       a perl compatible <a id="regexp" name="regexp">regular
-      expression</a>. On the first RewriteRule it is applied to the
+      expression</a>. On the first RewriteRule it is applied to the (%-decoded)
       <a href="./directive-dict.html#Syntax">URL-path</a> of the request;
       subsequent patterns are applied to the output of the last matched
       RewriteRule.</p>
 
 <div class="note"><h3>What is matched?</h3>
-      <p>The <em>Pattern</em> will initially be matched against the part of the
-      URL after the hostname and port, and before the query string. If you wish
-      to match against the hostname, port, or query string, use a
+      <p>In <code class="directive"><a href="../mod/core.html#virtualhost">VirtualHost</a></code> context, 
+      The <em>Pattern</em> will initially be matched against the part of the
+      URL after the hostname and port, and before the query string (e.g. "/app1/index.html").</p>
+
+      <p>In <code class="directive"><a href="../mod/core.html#directory">Directory</a></code> and htaccess context,
+      the <em>Pattern</em> will initially be matched against the  
+      <em>filesystem</em> path, after removing the prefix that lead the server
+      to the current <code class="directive">RewriteRule</code> (e.g. "app1/index.html" 
+      or "index.html" depending on where the directives are defined).</p>
+       
+      <p>If you wish to match against the hostname, port, or query string, use a
       <code class="directive"><a href="#rewritecond">RewriteCond</a></code> with the
       <code>%{HTTP_HOST}</code>, <code>%{SERVER_PORT}</code>, or
       <code>%{QUERY_STRING}</code> variables respectively.</p>
+
+</div>
+
+<div class="note"><h3>Per-directory Rewrites</h3>
+<ul>
+<li>The rewrite engine may be used in <a href="../howto/htaccess.html">.htaccess</a> files and in <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> sections, with some additional
+complexity.</li>
+
+<li>To enable the rewrite engine in this context, you need to set
+"<code>RewriteEngine On</code>" <strong>and</strong>
+"<code>Options FollowSymLinks</code>" must be enabled. If your
+administrator has disabled override of <code>FollowSymLinks</code> for
+a user's directory, then you cannot use the rewrite engine. This
+restriction is required for security reasons.</li>
+
+<li>When using the rewrite engine in <code>.htaccess</code> files the
+per-directory prefix (which always is the same for a specific
+directory) is automatically <em>removed</em> for the RewriteRule pattern matching
+and automatically <em>added</em> after any relative (not starting with a
+slash or protocol name) substitution encounters the end of a rule set.  
+See the <code class="directive"><a href="#rewritebase">RewriteBase</a></code> 
+directive for more information regarding what prefix will be added back to 
+relative substutions.</li>
+
+<li> If you wish to match against the full URL-path in a per-directory 
+(htaccess) RewriteRule, use the <code>%{REQUEST_URI}</code> variable in
+a <code class="directive">RewriteCond</code>.</li>
+
+<li>The removed prefix always ends with a slash, meaning the matching occurs against a string which
+<em>never</em> has a leading slash.  Therefore, a <em>Pattern</em> with <code>^/</code> never
+matches in per-directory context.</li>
+
+<li>Although rewrite rules are syntactically permitted in <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> and <code class="directive"><a href="../mod/core.html#files">&lt;Files&gt;</a></code> sections, this
+should never be necessary and is unsupported.</li>
+</ul>
 </div>
 
       <p>For some hints on <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular
       expressions</a>, see
-      the <a href="../rewrite/rewrite_intro.html#regex">mod_rewrite
+      the <a href="../rewrite/intro.html#regex">mod_rewrite
       Introduction</a>.</p>
 
-      <p>In mod_rewrite, the NOT character	
-       ('<code>!</code>') is also available as a possible pattern 
+      <p>In mod_rewrite, the NOT character
+      ('<code>!</code>') is also available as a possible pattern
       prefix. This enables you to negate a pattern; to say, for instance:
       ``<em>if the current URL does <strong>NOT</strong> match this
       pattern</em>''. This can be used for exceptional cases, where
       it is easier to match the negative pattern, or as a last
       default rule.</p>
+
 
 <div class="note"><h3>Note</h3>
 When using the NOT character to negate a pattern, you cannot include 
@@ -1206,312 +1287,122 @@ cannot use <code>$N</code> in the substitution string!
       <code>[QSA]</code> flag.</p> 
      </div>
 
-
-      <p>Additionally you can set special <a name="rewriteflags" id="rewriteflags">actions</a> to be performed by 
+      <p>Additionally you can set special <a name="rewriteflags" id="rewriteflags">actions</a> to be performed by
       appending <strong><code>[</code><em>flags</em><code>]</code></strong>
       as the third argument to the <code>RewriteRule</code>
-      directive. <em>Flags</em> is a comma-separated list, surround by square 
-      brackets, of any of the following flags: </p>
+      directive. <em>Flags</em> is a comma-separated list, surround by square
+      brackets, of any of the flags in the following table. More
+      details, and examples, for each flag, are available in the <a href="../rewrite/flags.html">Rewrite Flags document</a>.</p>
 
-      <dl>
-        <dt>'<code>B</code>' (escape backreferences)</dt>
-        <dd><p>Apache has to unescape URLs before mapping them,
-        so backreferences will be unescaped at the time they are applied.
-        Using the B flag, non-alphanumeric characters in backreferences
-        will be escaped.  For example, consider the rule:</p>
-        <pre><code> RewriteRule ^(.*)$ index.php?show=$1 </code></pre>
-        <p>This will map <code>/C++</code> to <code>index.php?show=/C++</code>.
-        But it will also map <code>/C%2b%2b</code> to
-        <code>index.php?show=/C++</code>, because the <code>%2b</code>
-        has been unescaped.  With the B flag, it will instead map to
-        <code>index.php?show=/C%2b%2b</code>.</p>
-        <p>This escaping is particularly necessary in a proxy situation,
-        when the backend may break if presented with an unescaped URL.</p>
-        </dd>
-
-        <dt>'<code>chain|C</code>'
-        (chained with next rule)</dt><dd>
-         This flag chains the current rule with the next rule
-        (which itself can be chained with the following rule,
-        and so on). This has the following effect: if a rule
-        matches, then processing continues as usual - 
-        the flag has no effect. If the rule does
-        <strong>not</strong> match, then all following chained
-        rules are skipped. For instance, it can be used to remove the
-        ``<code>.www</code>'' part, inside a per-directory rule set,
-        when you let an external redirect happen (where the
-        ``<code>.www</code>'' part should not occur!).</dd>
-
-        <dt>'<code>cookie|CO=</code><em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>[:<em>secure</em>[:<em>httponly</em>]]]]'
-        (set cookie)</dt><dd>
-        This sets a cookie in the client's browser.  The cookie's name
-        is specified by <em>NAME</em> and the value is
-        <em>VAL</em>. The <em>domain</em> field is the domain of the
-        cookie, such as '.apache.org', the optional <em>lifetime</em>
-        is the lifetime of the cookie in minutes, and the optional 
-        <em>path</em> is the path of the cookie. If <em>secure</em>
-        is set to 'secure', 'true' or '1', the cookie is only transmitted via secured
-        connections. If <em>httponly</em> is set to 'HttpOnly', 'true' or '1', the
-        <code>HttpOnly</code> flag is used, making the cookie not accessible
-        to JavaScript code on browsers that support this feature.</dd>
-
-        <dt>'<code>discardpathinfo|DPI'
-        (discard PATH_INFO)</code></dt><dd>
-        <p>In per-directory context, the URI each <code class="directive">RewriteRule</code>
-        compares against is the concatenation of the current values of the URI 
-        and PATH_INFO.</p>  
-
-        <p>The current URI can be the initial URI as requested by the client, the
-        result of a previous round of mod_rewrite processing, or the result of
-        a prior rule in the current round of mod_rewrite processing.</p>
-
-        <p>In contrast, the PATH_INFO that is appended to the URI before each 
-        rule reflects only the value of PATH_INFO before this round of 
-        mod_rewrite processing. As a consequence, if large portions
-        of the URI are matched and copied into a substitution in multiple
-        <code class="directive">RewriteRule</code> directives, without regard for
-        which parts of the URI came from the current PATH_INFO, the final 
-        URI may have multiple copies of PATH_INFO appended to it.</p>
-
-        <p>Use this flag on any substitution where the PATH_INFO that resulted
-        from the previous mapping of this request to the filesystem is not of 
-        interest.  This flag permanently forgets the PATH_INFO established 
-        before this round of mod_rewrite processing began. PATH_INFO will 
-        not be recalculated until the current round of mod_rewrite processing
-        completes.  Subsequent rules during this round of processing will see 
-        only the direct result of substitutions, without any PATH_INFO 
-        appended.</p></dd>
-
-        <dt>
-        '<code>env|E=</code><em>VAR</em>[:<em>VAL</em>]'
-        (set environment variable)</dt><dd>
-        This forces an environment variable named <em>VAR</em> to
-        be set. The value will be <em>VAL</em> if provided, where <em>VAL</em>
-        can contain regexp backreferences (<code>$N</code> and
-        <code>%N</code>) which will be expanded. You can use this
-        flag more than once, to set more than one variable. The
-        variables can later be dereferenced in many situations, most commonly
-	from within XSSI (via <code>&lt;!--#echo
-        var="VAR"--&gt;</code>) or CGI (<code>$ENV{'VAR'}</code>). 
-	You can also dereference the variable in a later RewriteCond pattern, using
-        <code>%{ENV:VAR}</code>. Use this to strip 
-        information from URLs, while maintaining a record of that information.</dd>
-
-        <dt>'<code>forbidden|F</code>' (force URL
-        to be forbidden)</dt><dd>
-        This forces the current URL to be forbidden - it immediately 
-	sends back a HTTP response of 403 (FORBIDDEN). 
-	Use this flag in conjunction with
-        appropriate RewriteConds to conditionally block some
-        URLs.</dd>
-
-        <dt>'<code>gone|G</code>' (force URL to be
-        gone)</dt><dd>
-        This forces the current URL to be gone - it
-        immediately sends back a HTTP response of 410 (GONE). Use
-        this flag to mark pages which no longer exist as gone.</dd>
-
-        <dt>
-        '<code>handler|H</code>=<em>Content-handler</em>'
-        (force Content handler)</dt><dd>
-         Force the Content-handler of the target file to be
-        <em>Content-handler</em>. For instance, this can be used to
-        simulate the <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code> directive
-	<code class="directive"><a href="../mod/mod_alias.html#scriptalias">ScriptAlias</a></code>, 
-	which internally forces all files
-        inside the mapped directory to have a handler of
-        ``<code>cgi-script</code>''.</dd>
-
-        <dt>'<code>last|L</code>'
-        (last rule)</dt><dd> Stop the rewriting process
-        here and don't apply any more rewrite rules. This corresponds
-        to the Perl <code>last</code> command or the
-        <code>break</code> command in C. Use this flag to prevent the
-        currently rewritten URL from being rewritten further by
-        following rules. Remember, however, that if the
-        <code class="directive">RewriteRule</code> generates an internal
-        redirect (which frequently occurs when rewriting in a
-        per-directory context), this will reinject the request and
-        will cause processing to be repeated starting from the first
-        <code class="directive">RewriteRule</code>.</dd>
-
-        <dt>'<code>next|N</code>'
-        (next round)</dt><dd>
-        Re-run the rewriting process (starting again with the
-        first rewriting rule). This time, the URL to match is no longer
-        the original URL, but rather the URL returned by the last rewriting rule.
-        This corresponds to the Perl <code>next</code> command or
-        the <code>continue</code> command in C. Use
-        this flag to restart the rewriting process -
-        to immediately go to the top of the loop.
-         <strong>Be careful not to create an infinite
-        loop!</strong></dd>
-
-        <dt>'<code>nocase|NC</code>'
-        (no case)</dt><dd>
-        This makes the <em>Pattern</em> case-insensitive,
-        ignoring difference between 'A-Z' and
-        'a-z' when <em>Pattern</em> is matched against the current
-        URL.</dd>
-
-        <dt>
-          '<code>noescape|NE</code>'
-          (no URI escaping of
-          output)</dt><dd>
-          This flag prevents mod_rewrite from applying the usual URI
-          escaping rules to the result of a rewrite. Ordinarily,
-          special characters (such as '%', '$', ';', and so on)
-          will be escaped into their hexcode equivalents ('%25',
-          '%24', and '%3B', respectively); this flag prevents this
-          from happening. This allows percent symbols to appear in
-          the output, as in 
-<div class="example"><p><code>
-    RewriteRule /foo/(.*) /bar?arg=P1\%3d$1 [R,NE]
-</code></p></div>
-          which would turn '<code>/foo/zed</code>' into a safe
-          request for '<code>/bar?arg=P1=zed</code>'. 
-        </dd>
-
-        <dt>
-          '<code>nosubreq|NS</code>'
-          (not for internal
-          sub-requests)</dt><dd>
-          <p>This flag forces the rewriting engine to skip a
-          rewriting rule if the current request is an internal
-          sub-request. For instance, sub-requests occur internally
-          in Apache when <code class="module"><a href="../mod/mod_include.html">mod_include</a></code> tries to find out
-          information about possible directory default files
-          (<code>index.xxx</code> files). On sub-requests it is not
-          always useful, and can even cause errors, if
-          the complete set of rules are applied. Use this flag to
-          exclude some rules.</p>
-          <p>To decide whether or not to use this rule: if you
-          prefix URLs with CGI-scripts, to force them to be
-	  processed by the CGI-script, it's likely that you 
-          will run into problems (or significant overhead) on
-          sub-requests. In these cases, use this flag.</p>
-        </dd>
-
-        <dt>
-          '<code>proxy|P</code>' (force
-          proxy)</dt><dd>
-          This flag forces the substitution part to be internally
-	  sent as a proxy request and immediately (rewrite 
-	  processing stops here) put through the <a href="mod_proxy.html">proxy module</a>. You must make
-          sure that the substitution string is a valid URI
-          (typically starting with
-          <code>http://</code><em>hostname</em>) which can be
-          handled by the Apache proxy module. If not, you will get an
-          error from the proxy module. Use this flag to achieve a
-          more powerful implementation of the <a href="mod_proxy.html#proxypass">ProxyPass</a> directive,
-          to map remote content into the namespace of the local
-          server. 
-
-          <p>Note: <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> must be enabled in order
-          to use this flag.</p>
-        </dd>
-
-        <dt>
-          '<code>passthrough|PT</code>'
-          (pass through to next
-          handler)</dt><dd>
-           This flag forces the rewrite engine to set the
-          <code>uri</code> field of the internal
-          <code>request_rec</code> structure to the value of the
-          <code>filename</code> field. This flag is just a hack to
-          enable post-processing of the output of
-          <code>RewriteRule</code> directives, using
-          <code>Alias</code>, <code>ScriptAlias</code>,
-          <code>Redirect</code>, and other directives from
-          various URI-to-filename translators. For example, to rewrite
-          <code>/abc</code> to <code>/def</code> using
-          <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>, and then
-          <code>/def</code> to <code>/ghi</code> using
-          <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code>: 
-<div class="example"><p><code>
-    RewriteRule ^/abc(.*)  /def$1 [PT]<br />
-    Alias       /def       /ghi
-</code></p></div>
-          If you omit the <code>PT</code> flag,
-          <code>mod_rewrite</code> will rewrite 
-	  <code>uri=/abc/...</code> to
-          <code>filename=/def/...</code> as a full API-compliant
-          URI-to-filename translator should do. Then
-          <code>mod_alias</code> will try to do a
-          URI-to-filename transition, which will fail. 
-
-          <p>Note: <strong>You must use this flag if you want to
-          mix directives from different modules which allow
-          URL-to-filename translators</strong>. The typical example
-          is the use of <code class="module"><a href="../mod/mod_alias.html">mod_alias</a></code> and
-          <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>.</p>
-
-          <p>The <code>PT</code> flag implies the <code>L</code> flag:
-          rewriting will be stopped in order to pass the request to
-          the next phase of processing.</p>
-        </dd>
-
-        <dt>'<code>qsappend|QSA</code>'
-        (query string
-        append)</dt><dd>
-        This flag forces the rewrite engine to append a query
-        string part of the substitution string to the existing string,
-        instead of replacing it. Use this when you want to add more
-        data to the query string via a rewrite rule.</dd>
-
-        <dt>'<code>redirect|R</code>
-          [=<em>code</em>]' (force <a id="redirect" name="redirect">redirect</a>)</dt><dd>
-        <p>Prefix <em>Substitution</em> with
-          <code>http://thishost[:thisport]/</code> (which makes the
-          new URL a URI) to force a external redirection. If no
-          <em>code</em> is given, a HTTP response of 302 (MOVED
-          TEMPORARILY) will be returned. If you want to use other
-          response codes, simply specify the appropriate number or use
-          one of the following symbolic names: <code>temp</code>
-          (default), <code>permanent</code>,
-          <code>seeother</code>. Use this for rules to canonicalize
-          the URL and return it to the client - to translate
-          ``<code>/~</code>'' into ``<code>/u/</code>'', or to always
-          append a slash to <code>/u/</code><em>user</em>, etc.<br />
-          <strong>Note:</strong> When you use this flag, make sure
-          that the substitution field is a valid URL! Otherwise, you
-          will be redirecting to an invalid location. Remember that
-          this flag on its own will only prepend
-          <code>http://thishost[:thisport]/</code> to the URL, and
-          rewriting will continue. Usually, you will want to stop
-          rewriting at this point, and redirect immediately. To stop
-          rewriting, you should add the 'L' flag.</p>
-          <p>While this is typically used for redirects, any valid status
-          code can be given here. If the status code is outside the redirect
-          range (300-399), then the <em>Substitution</em> string is dropped
-          and rewriting is stopped as if the <code>L</code> flag was
-          used.</p>
-        </dd>
-
-        <dt>'<code>skip|S</code>=<em>num</em>'
-        (skip next rule(s))</dt><dd>
-        This flag forces the rewriting engine to skip the next
-        <em>num</em> rules in sequence, if the current rule
-        matches. Use this to make pseudo if-then-else constructs:
-        The last rule of the then-clause becomes
-        <code>skip=N</code>, where N is the number of rules in the
-        else-clause. (This is <strong>not</strong> the same as the
-        'chain|C' flag!)</dd>
-
-        <dt>
-        '<code>type|T</code>=<em>MIME-type</em>'
-        (force MIME type)</dt><dd>
-         Force the <a class="glossarylink" href="../glossary.html#mime-type" title="see glossary">MIME-type</a> of the target file to be
-        <em>MIME-type</em>. This can be used to
-        set up the content-type based on some conditions.
-        For example, the following snippet allows <code>.php</code> files to
-        be <em>displayed</em> by <code>mod_php</code> if they are called with
-        the <code>.phps</code> extension:
-        <div class="example"><p><code>
-            RewriteRule ^(.+\.php)s$ $1 [T=application/x-httpd-php-source]
-        </code></p></div>
-        </dd>
-      </dl>
+    <table class="bordered">
+    <tr><th>Flag and syntax</th>
+        <th>Function</th>
+    </tr>
+    <tr>
+        <td>B</td>
+        <td>Escape non-alphanumeric characters <em>before</em> applying
+        the transformation. <em><a href="../rewrite/flags.html#flag_b">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>chain|C</td>
+        <td>Rule is chained to the following rule. If the rule fails,
+        the rule(s) chained to it will be skipped. <em><a href="../rewrite/flags.html#flag_c">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>cookie|CO=<em>NAME</em>:<em>VAL</em></td>
+        <td>Sets a cookie in the client browser. Full syntax is: 
+        CO=<em>NAME</em>:<em>VAL</em>:<em>domain</em>[:<em>lifetime</em>[:<em>path</em>[:<em>secure</em>[:<em>httponly</em>]]]] <em><a href="../rewrite/flags.html#flag_co">details ...</a></em>
+        </td>
+    </tr>
+    <tr>
+        <td>discardpath|DPI</td>
+        <td>Causes the PATH_INFO portion of the rewritten URI to be
+        discarded. <em><a href="../rewrite/flags.html#flag_dpi">details 
+        ...</a></em></td>
+    </tr>
+    <tr>
+        <td>env|E=[!]<em>VAR</em>[:<em>VAL</em>]</td>
+        <td>Causes an environment variable <em>VAR</em> to be set (to the
+        value <em>VAL</em> if provided). The form !<em>VAR</em> causes
+        the environment variable <em>VAR</em> to be unset.<em><a href="../rewrite/flags.html#flag_e">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>forbidden|F</td>
+        <td>Returns a 403 FORBIDDEN response to the client browser.
+        <em><a href="../rewrite/flags.html#flag_f">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>gone|G</td>
+        <td>Returns a 410 GONE response to the client browser. <em><a href="../rewrite/flags.html#flag_g">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>Handler|H=<em>Content-handler</em></td>
+        <td>Causes the resulting URI to be sent to the specified
+        <em>Content-handler</em> for processing. <em><a href="../rewrite/flags.html#flag_h">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>last|L</td>
+        <td>Stop the rewriting process immediately and don't apply any
+        more rules. Especially note caveats for per-directory and
+        .htaccess context (see also the END flag). <em><a href="../rewrite/flags.html#flag_l">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>next|N</td>
+        <td>Re-run the rewriting process, starting again with the first
+        rule, using the result of the ruleset so far as a starting
+        point. <em><a href="../rewrite/flags.html#flag_n">details
+        ...</a></em></td>
+    </tr>
+    <tr>
+        <td>nocase|NC</td>
+        <td>Makes the pattern pattern comparison case-insensitive.
+        <em><a href="../rewrite/flags.html#flag_nc">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>noescape|NE</td>
+        <td>Prevent mod_rewrite from applying hexcode escaping of
+        special characters in the result of the rewrite. <em><a href="../rewrite/flags.html#flag_ne">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>nosubreq|NS</td>
+        <td>Causes a rule to be skipped if the current request is an
+        internal sub-request. <em><a href="../rewrite/flags.html#flag_ns">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>proxy|P</td>
+        <td>Force the substitution URL to be internally sent as a proxy
+        request. <em><a href="../rewrite/flags.html#flag_p">details
+        ...</a></em></td>
+    </tr>
+    <tr>
+        <td>passthrough|PT</td>
+        <td>Forces the resulting URI to be passed back to the URL
+        mapping engine for processing of other URI-to-filename
+        translators, such as <code>Alias</code> or
+        <code>Redirect</code>. <em><a href="../rewrite/flags.html#flag_pt">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>qsappend|QSA</td>
+        <td>Appends any query string created in the rewrite target to
+        any query string that was in the original request URL. <em><a href="../rewrite/flags.html#flag_qsa">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>redirect|R[=<em>code</em>]</td>
+        <td>Forces an external redirect, optionally with the specified
+        HTTP status code. <em><a href="../rewrite/flags.html#flag_r">details ...</a></em>
+        </td>
+    </tr>
+    <tr>
+        <td>skip|S=<em>num</em></td>
+        <td>Tells the rewriting engine to skip the next <em>num</em>
+        rules if the current rule matches. <em><a href="../rewrite/flags.html#flag_s">details ...</a></em></td>
+    </tr>
+    <tr>
+        <td>type|T=<em>MIME-type</em></td>
+        <td>Force the <a class="glossarylink" href="../glossary.html#mime-type" title="see glossary">MIME-type</a> of the target file
+        to be the specified type. <em><a href="../rewrite/flags.html#flag_t">details ...</a></em></td>
+    </tr>
+    </table>
 
 <div class="note"><h3>Home directory expansion</h3>
 <p> When the substitution string begins with a string
@@ -1522,40 +1413,6 @@ of <code class="module"><a href="../mod/mod_userdir.html">mod_userdir</a></code>
 <p> This expansion does not occur when the <em>PT</em>
 flag is used on the <code class="directive"><a href="#rewriterule">RewriteRule</a></code>
 directive.</p>
-</div>
-
-<div class="note"><h3>Per-directory Rewrites</h3>
- 
-<p>The rewrite engine may be used in <a href="../howto/htaccess.html">.htaccess</a> files.  To enable the
-rewrite engine for these files you need to set
-"<code>RewriteEngine On</code>" <strong>and</strong>
-"<code>Options FollowSymLinks</code>" must be enabled. If your
-administrator has disabled override of <code>FollowSymLinks</code> for
-a user's directory, then you cannot use the rewrite engine. This
-restriction is required for security reasons.</p>
-
-<p>When using the rewrite engine in <code>.htaccess</code> files the
-per-directory prefix (which always is the same for a specific
-directory) is automatically <em>removed</em> for the pattern matching
-and automatically <em>added</em> after the substitution has been
-done. This feature is essential for many sorts of rewriting; without
-this, you would always have to match the parent directory, which is
-not always possible.  There is one exception: If a substitution string
-starts with <code>http://</code>, then the directory prefix will
-<strong>not</strong> be added, and an external redirect (or proxy
-throughput, if using flag <strong>P</strong>) is forced.  See the
-<code class="directive"><a href="#rewritebase">RewriteBase</a></code> directive for
-more information.</p>
-
-<p>The rewrite engine may also be used in <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> sections with the same
-prefix-matching rules as would be applied to <code>.htaccess</code>
-files.  It is usually simpler, however, to avoid the prefix substitution
-complication by putting the rewrite rules in the main server or
-virtual host context, rather than in a <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> section.</p>
-
-<p>Although rewrite rules are syntactically permitted in <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> sections, this
-should never be necessary and is unsupported.</p>
-
 </div>
 
      <p>Here are all possible substitution combinations and their
@@ -1647,8 +1504,9 @@ should never be necessary and is unsupported.</p>
 </div>
 </div>
 <div class="bottomlang">
-<p><span>Available Languages: </span><a href="../en/mod/mod_rewrite.html" title="English">&nbsp;en&nbsp;</a></p>
+<p><span>Available Languages: </span><a href="../en/mod/mod_rewrite.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_rewrite.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

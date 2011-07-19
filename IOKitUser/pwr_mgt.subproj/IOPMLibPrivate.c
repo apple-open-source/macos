@@ -24,7 +24,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <TargetConditionals.h>
 #include <IOKit/IOKitLib.h>
-#include <IOKit/IOCFUnserialize.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <mach/mach_init.h>
@@ -39,8 +38,9 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <dirent.h>
 
-#define kAssertionsArraySize        5
+#define pwrLogDirName "/System/Library/PowerEvents"
 
 static const int kMaxNameLength = 128;
 
@@ -68,406 +68,46 @@ static IOReturn _pm_disconnect(mach_port_t connection)
     return kIOReturnSuccess;
 }
 
-static bool _supportedAssertion(CFStringRef assertion)
-{
-    return (CFEqual(assertion, kIOPMAssertionTypeNoIdleSleep)
-        || CFEqual(assertion, kIOPMAssertionTypeNoDisplaySleep)
-        || CFEqual(assertion, kIOPMAssertionTypeDisableInflow)
-        || CFEqual(assertion, kIOPMAssertionTypeInhibitCharging)
-
-#if TARGET_EMBEDDED_OS
-        // kIOPMAssertionTypeEnableIdleSleep is only supported on
-        // embedded platforms. IOPMAssertionCreate returns an error
-        // when a caller tries to assert it on user OS X.
-        || CFEqual(assertion, kIOPMAssertionTypeEnableIdleSleep)
-#endif
-
-        || CFEqual(assertion, kIOPMAssertionTypeDisableLowBatteryWarnings) 
-        || CFEqual(assertion, kIOPMAssertionTypeNeedsCPU) );
-}
-
+/*****************************************************************************/
+/*****************************************************************************/
 
 /******************************************************************************
- * IOPMAssertionCreate
+ * IOPMCopyHIDPostEventHistory
  *
  ******************************************************************************/
-IOReturn IOPMAssertionCreate(
-    CFStringRef             AssertionType,
-    IOPMAssertionLevel      AssertionLevel,
-    IOPMAssertionID         *AssertionID)
+
+IOReturn IOPMCopyHIDPostEventHistory(CFArrayRef *outArray)
 {
-    return IOPMAssertionCreateWithName(AssertionType, AssertionLevel,
-                                    CFSTR("Nameless (via IOPMAssertionCreate)"), AssertionID);
-}
+    CFDataRef               serializedData = NULL;
+    vm_address_t            outBuffer = 0;
+    vm_size_t               outSize = 0;
+    mach_port_t             pmserverport = MACH_PORT_NULL;
+    IOReturn                ret = kIOReturnError;
+    int                     history_return = 0;
+    
+    if (kIOReturnSuccess != _pm_connect(&pmserverport))
+        goto exit;
 
-/******************************************************************************
- * IOPMAssertionCreateWithName
- *
- ******************************************************************************/
-IOReturn IOPMAssertionCreateWithName(
-    CFStringRef          AssertionType, 
-    IOPMAssertionLevel   AssertionLevel,
-    CFStringRef          AssertionName,
-    IOPMAssertionID      *AssertionID)
-{
-    IOReturn                return_code = kIOReturnError;
-    kern_return_t           kern_result = KERN_SUCCESS;
-    char                    assertion_str[kMaxNameLength];
-    char                    name_str[kMaxNameLength];
-    mach_port_t             pm_server = MACH_PORT_NULL;
-    mach_port_t             task_self = mach_task_self();
-    IOReturn                err;
-
-    if (!AssertionID)
-        return kIOReturnBadArgument;
-
-    // Set assertion_id to a known invalid setting. If successful, it will
-    // get a valid value later on.
-    *AssertionID = kIOPMNullAssertionID;
-
-    if(!_supportedAssertion(AssertionType))
+    if (KERN_SUCCESS != io_pm_hid_event_copy_history(pmserverport, 
+                                &outBuffer, &outSize, &history_return))
     {
-        return kIOReturnUnsupported;
-    }
-
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
         goto exit;
     }
-    
-    CFStringGetCString( AssertionType, assertion_str, 
-                        sizeof(assertion_str), kCFStringEncodingMacRoman);
-    
-    // Check validity of input name string
-    if (!AssertionName || (kMaxNameLength < CFStringGetLength(AssertionName))) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
-    CFStringGetCString( AssertionName, name_str,
-                        sizeof(name_str), kCFStringEncodingMacRoman);
 
-    // io_pm_assertion_create mig's over to configd, and it's configd 
-    // that actively tracks and manages the list of active power assertions.
-    kern_result = io_pm_assertion_create(
-            pm_server, 
-            task_self,
-            name_str,
-            assertion_str,
-            AssertionLevel, 
-            (int *)AssertionID,
-            &return_code);
-            
-    if(KERN_SUCCESS != kern_result) {
-        return_code = kIOReturnInternalError;
+    serializedData = CFDataCreate(0, (const UInt8 *)outBuffer, outSize);
+    if (serializedData) {
+        *outArray = (CFArrayRef)CFPropertyListCreateWithData(0, serializedData, 0, NULL, NULL);
+        CFRelease(serializedData);
     }
-
+ 
+    if (*outArray)
+        ret = kIOReturnSuccess;
+ 
+    vm_deallocate(mach_task_self(), outBuffer, outSize);
+    _pm_disconnect(pmserverport);
 exit:
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
-    return return_code;
+    return ret;
 }
-
-/******************************************************************************
- * IOPMAssertionsRelease
- *
- ******************************************************************************/
-IOReturn IOPMAssertionRelease(
-    IOPMAssertionID         AssertionID)
-{
-    IOReturn                return_code = kIOReturnError;
-    kern_return_t           kern_result = KERN_SUCCESS;
-    mach_port_t             pm_server = MACH_PORT_NULL;
-    mach_port_t             task_self = mach_task_self();
-    IOReturn                err;
-
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-    
-    kern_result = io_pm_assertion_release(
-            pm_server, 
-            task_self,
-            AssertionID,
-            &return_code);
-            
-    if(KERN_SUCCESS != kern_result) {
-        return_code = kIOReturnInternalError;
-    }
-
-    _pm_disconnect(pm_server);
-exit:
-    return return_code;
-}
-
-/******************************************************************************
- * IOPMCopyAssertionsByProcess
- *
- ******************************************************************************/
-IOReturn IOPMCopyAssertionsByProcess(
-    CFDictionaryRef         *AssertionsByPid)
-{
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    int                 flattenedArrayCount = 0;
-    CFArrayRef          flattenedDictionary = NULL;    
-    CFNumberRef         *newDictKeys = NULL;
-    CFArrayRef          *newDictValues = NULL;
-    
-    if (!AssertionsByPid)
-        return kIOReturnBadArgument;
-        
-    *AssertionsByPid = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                         CFSTR("PM IOKit User Library"),
-                                         NULL, NULL);
-
-    if (NULL == dynamicStore) {
-        goto exit;
-    }
-    
-    dataKey = IOPMAssertionCreatePIDMappingKey();
-
-    flattenedDictionary = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-
-    if (!flattenedDictionary) {
-        returnCode = kIOReturnSuccess;
-        goto exit;
-    }
-
-    /*
-     * This API returns a dictionary whose keys are process ID's.
-     * This is perfectly acceptable in CoreFoundation, EXCEPT that you cannot
-     * serialize a dictionary with CFNumbers for keys using CF or IOKit
-     * serialization.
-     *
-     * To serialize this dictionary and pass it from configd to the caller's process,
-     * we re-formatted it as a "flattened" array of dictionaries in configd, 
-     * and we will re-constitute with pid's for keys here.
-     *
-     * Next time around, I will simply not use CFNumberRefs for keys in API.
-     */
-
-    flattenedArrayCount = CFArrayGetCount(flattenedDictionary);
-    
-    newDictKeys = (CFNumberRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
-    newDictValues = (CFArrayRef *)malloc(sizeof(CFTypeRef) * flattenedArrayCount);
-    
-    if (!newDictKeys || !newDictValues)
-        goto exit;
-    
-    for (int i=0; i < flattenedArrayCount; i++)
-    {
-        CFDictionaryRef         dictionaryAtIndex = NULL;
-
-        dictionaryAtIndex = CFArrayGetValueAtIndex(flattenedDictionary, i);
-
-        if (!dictionaryAtIndex)
-            continue;
-
-        newDictKeys[i] = CFDictionaryGetValue(
-                                dictionaryAtIndex,
-                                kIOPMAssertionPIDKey);
-        newDictValues[i] = CFDictionaryGetValue(
-                                dictionaryAtIndex,
-                                CFSTR("PerTaskAssertions"));    
-    }
-    
-
-    *AssertionsByPid = CFDictionaryCreate(
-                                kCFAllocatorDefault,
-                                (const void **)newDictKeys,
-                                (const void **)newDictValues,
-                                flattenedArrayCount,
-                                &kCFTypeDictionaryKeyCallBacks,
-                                &kCFTypeDictionaryValueCallBacks);
-
-    returnCode = kIOReturnSuccess;
-exit:
-    if (newDictKeys)
-        free(newDictKeys);
-    if (newDictValues)
-        free(newDictValues);
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (flattenedDictionary)
-        CFRelease(flattenedDictionary);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
-
-
-/******************************************************************************
- * IOPMCopyAssertionsStatus
- *
- ******************************************************************************/
-IOReturn IOPMCopyAssertionsStatus(
-    CFDictionaryRef         *AssertionsStatus)
-{
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    CFDictionaryRef     returnDictionary = NULL;
-    
-    if (!AssertionsStatus)
-        return kIOReturnBadArgument;
-
-    *AssertionsStatus = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                         CFSTR("PM IOKit User Library"),
-                                         NULL, NULL);
-
-    if (NULL == dynamicStore) {
-        goto exit;
-    }
-    
-    dataKey = IOPMAssertionCreateAggregateAssertionKey();
-
-    returnDictionary = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-    
-    // TODO: check return of SCDynamicStoreCopyVale
-
-    *AssertionsStatus = returnDictionary;
-
-    returnCode = kIOReturnSuccess;
-exit:
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
-
-/******************************************************************************
- * IOPMAssertionSetTimeout
- *
- ******************************************************************************/
-IOReturn IOPMAssertionSetTimeout(
-    IOPMAssertionID whichAssertion, 
-    CFTimeInterval timeoutInterval)
-{
-    IOReturn            return_code = kIOReturnError;
-    mach_port_t         pm_server = MACH_PORT_NULL;
-    int                 seconds = lrint(timeoutInterval);
-    kern_return_t       kern_result;
-    IOReturn            err;
-    
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-
-    kern_result = io_pm_assertion_settimeout(
-                                    pm_server,
-                                    mach_task_self(),
-                                    whichAssertion, /* id */
-                                    seconds,        /* interval */
-                                    &return_code);
-
-    if (KERN_SUCCESS != kern_result) {
-        return_code = kern_result;
-    }
-
-exit:
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
-
-    return return_code;
-}
-
-/******************************************************************************
- * IOPMCopyTimedOutAssertions
- *
- ******************************************************************************/
-IOReturn IOPMCopyTimedOutAssertions(
-    CFArrayRef *timedOutAssertions)
-{
-    SCDynamicStoreRef   dynamicStore = NULL;
-    CFStringRef         dataKey = NULL;
-    IOReturn            returnCode = kIOReturnError;
-    CFArrayRef          returnArray = NULL;
-    
-    if (!timedOutAssertions)
-        return kIOReturnBadArgument;
-
-    *timedOutAssertions = NULL;
-    
-    dynamicStore = SCDynamicStoreCreate(kCFAllocatorDefault,
-                                         CFSTR("PM IOKit User Library"),
-                                         NULL, NULL);
-
-    if (NULL == dynamicStore) {
-        goto exit;
-    }
-    
-    dataKey = IOPMAssertionCreateTimeOutKey();
-
-    returnArray = SCDynamicStoreCopyValue(dynamicStore, dataKey);
-    
-    // TODO: check return of SCDynamicStoreCopyVale
-
-    *timedOutAssertions = returnArray;
-
-    returnCode = kIOReturnSuccess;
-exit:
-    if (dynamicStore)
-        CFRelease(dynamicStore);
-    if (dataKey)
-        CFRelease(dataKey);
-    return returnCode;
-}
-
-/*
- * State:/IOKit/PowerManagement/Assertions/TimedOut
- */
-
-CFStringRef IOPMAssertionCreateTimeOutKey(void)
-{
-    return SCDynamicStoreKeyCreate(
-                            kCFAllocatorDefault, 
-                            CFSTR("%@%@/%@"),
-                            kSCDynamicStoreDomainState, 
-                            CFSTR("/IOKit/PowerManagement/Assertions"), 
-                            CFSTR("TimedOut"));
-}
-
-/*
- * State:/IOKit/PowerManagement/Assertions/ByProcess
- */
-
-CFStringRef IOPMAssertionCreatePIDMappingKey(void)
-{
-    return SCDynamicStoreKeyCreate(
-                            kCFAllocatorDefault, 
-                            CFSTR("%@%@/%@"),
-                            kSCDynamicStoreDomainState, 
-                            CFSTR("/IOKit/PowerManagement/Assertions"), 
-                            CFSTR("ByProcess"));
-}
-
-
-/*
- * State:/IOKit/PowerManagement/Assertions
- */
-
-CFStringRef IOPMAssertionCreateAggregateAssertionKey(void)
-{
-    return SCDynamicStoreKeyCreate(
-                            kCFAllocatorDefault, 
-                            CFSTR("%@%@"),
-                            kSCDynamicStoreDomainState, 
-                            CFSTR("/IOKit/PowerManagement/Assertions"));
-}
-
 
 /******************************************************************************
  * IOPMGetLastWakeTime
@@ -550,7 +190,7 @@ IOReturn IOPMGetLastWakeTime(
     CFTimeInterval      *adjustedForPhysicalWakeOut)
 {
     IOReturn            ret;
-    CFTimeInterval      lastSMCS3S0WakeInterval;
+    CFTimeInterval      lastSMCS3S0WakeInterval = 0.0;
     CFAbsoluteTime      lastWakeTime;
     struct timeval      rawLastWakeTime;
     size_t              rawLastWakeTimeSize = sizeof(rawLastWakeTime);
@@ -727,6 +367,184 @@ exit:
     return result;
 }
 
+/******************************************************************************
+ * IOPMCopyPowerHistory
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyPowerHistory(CFArrayRef *outArray)
+{
+  DIR *dp;
+  struct dirent *ep;
+  
+  CFMutableArrayRef logs = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+
+  dp = opendir(pwrLogDirName);
+  if(dp == NULL)
+    return kIOReturnError;
+  
+  CFMutableDictionaryRef uuid_details;
+  CFStringRef uuid;
+  CFStringRef timestamp;
+
+  char *tok;
+  char *d_name;
+  int fileCount = 0;
+
+  while ((ep = readdir(dp))) {
+    if(!strcmp(ep->d_name, ".") || !strcmp(ep->d_name, ".."))
+      continue;
+    else
+     fileCount++;
+
+    uuid_details = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                             0,
+                                             &kCFTypeDictionaryKeyCallBacks,
+                                             &kCFTypeDictionaryValueCallBacks);
+    d_name = strdup(ep->d_name);
+
+    // Parse filename for metadata
+    int part = 1;
+    while((tok = strsep(&d_name, "_")) != NULL) {
+      
+      if(part == 1) {
+        timestamp = CFStringCreateWithCString(kCFAllocatorDefault,
+                                              tok,
+                                              kCFStringEncodingUTF8);
+        CFDictionarySetValue(uuid_details, 
+                             CFSTR(kIOPMPowerHistoryTimestampKey), 
+                             timestamp);
+        CFRelease(timestamp);
+      }
+      else if(part == 2) {
+        uuid = CFStringCreateWithCString(kCFAllocatorDefault, 
+                                         tok, 
+                                         kCFStringEncodingUTF8);
+        CFDictionarySetValue(uuid_details, 
+                             CFSTR(kIOPMPowerHistoryUUIDKey), 
+                             uuid);
+        CFRelease(uuid);
+      }
+      else if(part == 3) {
+        // We don't want the extension .plog to be part of the
+        // timestamp
+        tok = strsep(&tok, ".");
+        timestamp = CFStringCreateWithCString(kCFAllocatorDefault,
+                                              tok,
+                                              kCFStringEncodingUTF8);
+        CFDictionarySetValue(uuid_details, 
+                             CFSTR(kIOPMPowerHistoryTimestampCompletedKey), 
+                             timestamp);
+        CFRelease(timestamp);
+      }
+      
+      part++;
+    }
+    
+    CFArrayAppendValue(logs, uuid_details);
+    CFRelease(uuid_details);
+    free(d_name);
+  }
+  
+  closedir(dp);
+
+  if(fileCount == 0) {
+    *outArray = NULL;
+    return kIOReturnNotFound;
+  }
+  else
+    *outArray = logs;
+
+  return kIOReturnSuccess;
+} 
+
+
+/******************************************************************************
+ * IOPMCopyPowerHistoryDetailed
+ *
+ ******************************************************************************/
+IOReturn IOPMCopyPowerHistoryDetailed(CFStringRef UUID, CFDictionaryRef *details)//CFArrayRef *outArray)
+{
+    IOReturn                return_code = kIOReturnBadArgument;
+    CFDataRef               serializedData = NULL;
+    char                    uuid_cstr[kMaxNameLength];
+    
+    CFURLRef                fileURL = NULL;
+    CFMutableStringRef      fileName = CFStringCreateMutable(
+                                                    kCFAllocatorDefault,
+                                                    255);
+
+    CFStringAppend(fileName, CFSTR(pwrLogDirName));
+    CFStringAppend(fileName, CFSTR("/"));
+
+    if (NULL == details || NULL == UUID) {
+        goto exit;
+    }
+
+    *details = NULL;
+
+    if (!CFStringGetCString(UUID, uuid_cstr, sizeof(uuid_cstr), kCFStringEncodingMacRoman)) {
+        goto exit;
+    }
+    
+    DIR *dp;
+    struct dirent *ep;
+
+    dp = opendir(pwrLogDirName);
+
+    if(dp == NULL) {
+      return_code = kIOReturnError;
+      goto exit;
+    }
+
+    while ((ep = readdir(dp))) {
+      if(strstr(ep->d_name, uuid_cstr)) {
+        CFStringRef uuid_file = CFStringCreateWithCString(
+                                                    kCFAllocatorDefault,
+                                                    ep->d_name,
+                                                    kCFStringEncodingUTF8);
+        CFStringAppend(fileName, uuid_file);
+        fileURL = CFURLCreateWithFileSystemPath(
+                                               kCFAllocatorDefault,
+                                               fileName,
+                                               kCFURLPOSIXPathStyle,
+                                               false); 
+
+        CFRelease(uuid_file);
+      }
+    }
+
+    closedir(dp);
+
+    if(!fileURL) {
+      return_code = kIOReturnError;
+      goto exit;
+    }
+    SInt32 errorCode;
+    Boolean status = CFURLCreateDataAndPropertiesFromResource(
+                                                kCFAllocatorDefault,
+                                                fileURL,
+                                                &serializedData,
+                                                NULL,
+                                                NULL,
+                                                &errorCode);
+
+    if (serializedData && status) {
+        *details = (CFDictionaryRef)CFPropertyListCreateWithData(0, serializedData, 0, NULL, NULL);
+        CFRelease(serializedData);
+    }
+
+    if (NULL == details) {
+        return_code = kIOReturnError;
+    } else {
+        return_code = kIOReturnSuccess;
+    }
+
+    CFRelease(fileURL);
+    CFRelease(fileName);
+
+exit:   
+    return return_code;
+}
 
 /******************************************************************************
  * IOPMSleepWakeSetUUID
@@ -862,14 +680,23 @@ typedef struct {
     uint32_t                id;
     int                     pid;
     CFStringRef             connectionName;
-    // Track the notifications
-    CFMachPortRef           localNotifyPort;
-    CFRunLoopSourceRef      localNotifyPortRLS;
+    
+    /* for dispatch-style notifications */
+    mach_port_t             mach_port;
+    dispatch_source_t       dispatchDelivery;
+
+    /* for CFRunLoop-style notifications */
+    CFMachPortRef           localCFMachPort;
+    CFRunLoopSourceRef      localCFMachPortRLS;
+
     IOPMEventHandlerType    userCallout;
     void                    *userParam;
     int                     runLoopCount;
 } __IOPMConnection;
 
+
+/*****************************************************************************/
+/*****************************************************************************/
 
 /* iopm_mach_port_callback
  * The caller installed this callback on a runloop of their choice.
@@ -897,28 +724,41 @@ static void iopm_mach_port_callback(
     if (!connection || !connection->userCallout) {
         return;
     }
-/*
-    CFAbsoluteTime          userCalloutInvoked = 0;
-    userCalloutInvoked = CFAbsoluteTimeGetCurrent();
-*/
+
     (*(connection->userCallout))(
                     connection->userParam,
                     (IOPMConnection)connection,
                     m->payload[1],      // messageToken argument
                     m->payload[0]);     // event DATA
     
- /*
-    CFAbsoluteTime          userCalloutFinished = 0;
-    CFTimeInterval          deltaSecs = 0;
-    userCalloutFinished = CFAbsoluteTimeGetCurrent();
- 
-    deltaSecs = userCalloutFinished - userCalloutInvoked; 
-    int secs = (int)deltaSecs;
-    int hundredths = ((int)(deltaSecs * 100.0)) % 100;
- */
- 
     return;
 }
+
+/*****************************************************************************/
+/*****************************************************************************/
+
+static kern_return_t _conveyMachPortToPowerd(
+                                             __IOPMConnection *connection, 
+                                             mach_port_t the_port,
+                                             bool enable)
+{
+    mach_port_t             pm_server       = MACH_PORT_NULL;
+    kern_return_t           return_code     = KERN_SUCCESS;
+    
+    return_code = _pm_connect(&pm_server);
+    
+    if(kIOReturnSuccess != return_code) {
+        goto exit;
+    }
+    
+    return_code = io_pm_connection_schedule_notification(pm_server, connection->id, the_port, enable ? 0:1, &return_code);
+    
+    _pm_disconnect(pm_server);
+    
+exit:
+    return return_code;
+}
+
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -949,71 +789,50 @@ IOReturn IOPMConnectionScheduleWithRunLoop(
 {
     __IOPMConnection *connection = (__IOPMConnection *)myConnection;
 
-    kern_return_t           kr = KERN_SUCCESS;
     IOReturn                return_code = kIOReturnError;
-    mach_port_t             pm_server = MACH_PORT_NULL;
-    mach_port_t             notify_mach_port = MACH_PORT_NULL;
     CFMachPortContext       mpContext = { 1, (void *)connection, NULL, NULL, NULL };
 
     if (!connection || !theRunLoop || !runLoopMode)
         return kIOReturnBadArgument;
 
-    if (NULL == connection->localNotifyPort)
+    if (NULL == connection->localCFMachPort)
     {
         // Create the mach port on which we'll receive mach messages
         // from PM configd.
-        connection->localNotifyPort = CFMachPortCreate(
+        connection->localCFMachPort = CFMachPortCreate(
                                             kCFAllocatorDefault,
                                             iopm_mach_port_callback,
                                             &mpContext, NULL);
         
-        if (connection->localNotifyPort) {
-            connection->localNotifyPortRLS = CFMachPortCreateRunLoopSource(
+        if (connection->localCFMachPort) {
+            connection->localCFMachPortRLS = CFMachPortCreateRunLoopSource(
                                             kCFAllocatorDefault,
-                                            connection->localNotifyPort,
+                                            connection->localCFMachPort,
                                             0);
         }   
     }
 
-    if (!connection->localNotifyPortRLS)
+    if (!connection->localCFMachPortRLS)
         return kIOReturnInternalError;
 
     // Record our new run loop.
     connection->runLoopCount++;
 
-    CFRunLoopAddSource(theRunLoop, connection->localNotifyPortRLS, runLoopMode);
+    CFRunLoopAddSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
 
     // We have a mapping of one mach_port connected to PM configd to as many
     // CFRunLoopSources that the caller originates.
     if (1 == connection->runLoopCount)
     {
-        return_code = _pm_connect(&pm_server);
-        if(kIOReturnSuccess != return_code) {
-            goto exit;
-        }
+        mach_port_t notify_mach_port = MACH_PORT_NULL;
 
-        if (connection->localNotifyPort) {
-            notify_mach_port = CFMachPortGetPort(connection->localNotifyPort);
+        if (connection->localCFMachPort) {
+            notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
         }
     
-        // If this is our first scheduled runloop source, 
-        // send configd our mach_port, on which we'll listen patiently for
-        // system power event messages.
-        kr = io_pm_connection_schedule_notification(
-                                        pm_server,
-                                        connection->id,
-                                        notify_mach_port,
-                                        0,  // enable
-                                        &return_code);
-
-        _pm_disconnect(pm_server);
+        return_code =_conveyMachPortToPowerd(connection, notify_mach_port, true);
     }
     
-    
-    if (KERN_SUCCESS != kr) {
-        return kIOReturnIPCError;
-    }
-exit:
     return return_code;
 }
 
@@ -1021,49 +840,119 @@ exit:
 /*****************************************************************************/
 
 IOReturn IOPMConnectionUnscheduleFromRunLoop(
-    IOPMConnection myConnection, 
-    CFRunLoopRef theRunLoop,
-    CFStringRef runLoopMode)
+                                             IOPMConnection myConnection, 
+                                             CFRunLoopRef theRunLoop,
+                                             CFStringRef runLoopMode)
 {
-    __IOPMConnection *connection = (__IOPMConnection *)myConnection;
-    mach_port_t             pm_server = MACH_PORT_NULL;
-    kern_return_t       kr;
+    __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
     IOReturn            return_code = kIOReturnSuccess;
-
+    
     if (!connection || !theRunLoop || !runLoopMode)
         return kIOReturnBadArgument;
-
-    if (connection->localNotifyPort) {
-        CFRunLoopRemoveSource(theRunLoop, connection->localNotifyPortRLS, runLoopMode);
+    
+    if (connection->localCFMachPort) {
+        CFRunLoopRemoveSource(theRunLoop, connection->localCFMachPortRLS, runLoopMode);
     }
-
+    
     connection->runLoopCount--;
-
+    
     if (0 == connection->runLoopCount) 
     {
-        return_code = _pm_connect(&pm_server);
-        if(kIOReturnSuccess != return_code) {
-            goto exit;
+        mach_port_t notify_mach_port = MACH_PORT_NULL;
+
+        if (connection->localCFMachPort) {
+            notify_mach_port = CFMachPortGetPort(connection->localCFMachPort);
         }
     
-        // Tell PM configd that we are done receiving notifications
-        kr = io_pm_connection_schedule_notification(
-                                pm_server,
-                                connection->id,
-                                CFMachPortGetPort(connection->localNotifyPort),
-                                1,  // disable
-                                &return_code);
-
-        _pm_disconnect(pm_server);
-
-        if (kr != KERN_SUCCESS) {
-            return_code = kIOReturnIPCError;
-            goto exit;
-        }
+        return_code = _conveyMachPortToPowerd(connection, notify_mach_port, false);
     }
-exit:
 
     return return_code;
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+
+void IOPMConnectionSetDispatchQueue(
+    IOPMConnection myConnection, 
+    dispatch_queue_t myQueue)
+{
+    __IOPMConnection *connection = (__IOPMConnection *)myConnection;
+
+    if (!connection)
+        return;
+
+    if (!myQueue) {
+        /* Clean up a previously scheduled dispatch. */
+        if (connection->dispatchDelivery) 
+        {
+            dispatch_source_cancel(connection->dispatchDelivery);
+        }
+        return;
+    }
+
+    if (KERN_SUCCESS != mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &connection->mach_port))
+    {
+        // Error allocating mach port
+        return;
+    }
+
+    mach_port_insert_right(mach_task_self(), connection->mach_port, connection->mach_port, 
+                           MACH_MSG_TYPE_MAKE_SEND);
+
+    if (!(connection->dispatchDelivery
+          = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, connection->mach_port, 0, myQueue))) 
+    {
+        // Error creating dispatch_source
+        mach_port_deallocate(mach_task_self(), connection->mach_port);
+        mach_port_mod_refs(mach_task_self(), connection->mach_port, MACH_PORT_RIGHT_RECEIVE, -1);
+        return;
+    }
+    
+    dispatch_source_set_cancel_handler(connection->dispatchDelivery,
+                                       ^{
+                                           _conveyMachPortToPowerd(connection, connection->mach_port, false);
+                                           
+                                           dispatch_release(connection->dispatchDelivery);
+                                           connection->dispatchDelivery = 0;
+                                           
+                                           mach_port_mod_refs(mach_task_self(), connection->mach_port, MACH_PORT_RIGHT_RECEIVE, -1);
+                                           mach_port_deallocate(mach_task_self(), connection->mach_port);
+                                           connection->mach_port = MACH_PORT_NULL;
+                                       });
+    
+    dispatch_source_set_event_handler(connection->dispatchDelivery,      
+                                      ^{
+                                        struct {
+                                            IOPMMessageStructure    m;
+                                            mach_msg_trailer_t      trailer;
+                                        } msg;
+
+                                        bzero(&msg, sizeof(msg));
+                                        kern_return_t status = mach_msg( ( void * )&msg,
+                                                         MACH_RCV_MSG | MACH_RCV_TIMEOUT,
+                                                         0,
+                                                         sizeof( msg ),
+                                                         connection->mach_port,
+                                                         0,
+                                                         MACH_PORT_NULL );
+                                                                                                                                        
+                                        if (!connection || !connection->userCallout
+                                            || (KERN_SUCCESS != status)) 
+                                        {
+                                            return;
+                                        }
+                                        
+                                        (*(connection->userCallout))(connection->userParam,
+                                                                 (IOPMConnection)connection,
+                                                                 msg.m.payload[1], msg.m.payload[0]);
+                                    });
+    
+    dispatch_resume(connection->dispatchDelivery);
+    
+    _conveyMachPortToPowerd(connection, connection->mach_port, true);
+    
+    return;
 }
 
 /*****************************************************************************/
@@ -1161,6 +1050,10 @@ IOReturn IOPMConnectionRelease(IOPMConnection connection)
     if(kIOReturnSuccess != err) {
         return_code = kIOReturnInternalError;
         goto exit;
+    }
+    
+    if (connection_private->dispatchDelivery) {
+        IOPMConnectionSetDispatchQueue((IOPMConnection *)connection_private, NULL);
     }
     
     kern_result = io_pm_connection_release(pm_server, 
@@ -1297,6 +1190,25 @@ exit:
     }
 
     return return_code;
+}
+
+
+IOReturn IOPMSetPowerHistoryBookmark(char* uuid) {
+	
+	IOReturn                err;
+	mach_port_t             pm_server = MACH_PORT_NULL;
+	kern_return_t           kern_result;
+	
+	err = _pm_connect(&pm_server);
+	
+  if(pm_server == MACH_PORT_NULL)
+	  return kIOReturnNotReady; 
+	
+  kern_result = io_pm_set_power_history_bookmark(pm_server, uuid);
+	
+  _pm_disconnect(pm_server);
+	
+	return kern_result;
 }
 
 

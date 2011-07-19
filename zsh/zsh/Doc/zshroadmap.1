@@ -1,4 +1,4 @@
-.TH "ZSHROADMAP" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHROADMAP" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshroadmap \- informal introduction to the zsh manual
 .\" Yodl file: Zsh/roadmap.yo
@@ -46,6 +46,16 @@ by the shell, but the degree of support in terminal emulators is variable\&.
 There is some discussion of this in the shell FAQ,
 http://zsh\&.dotsrc\&.org/FAQ/ \&.  Note in particular that for combining
 characters to be handled the option \fBCOMBINING_CHARS\fP needs to be set\&.
+Because the shell is now more sensitive to the definition of the
+character set, note that if you are upgrading from an older version of
+the shell you should ensure that the appropriate variable, either
+\fBLANG\fP (to affect all aspects of the shell\&'s operation) or
+\fBLC_CTYPE\fP (to affect only the handling of character sets) is set to
+an appropriate value\&.  This is true even if you are using a
+single\-byte character set including extensions of ASCII such as
+\fBISO\-8859\-1\fP or \fBISO\-8859\-15\fP\&.  See the description of \fBLC_CTYPE\fP
+in
+\fIzshparam\fP(1)\&.
 .PP
 .SS "Completion"
 .PP

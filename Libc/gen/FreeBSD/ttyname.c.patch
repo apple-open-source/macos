@@ -1,6 +1,6 @@
---- ttyname.c.orig	2008-10-09 21:30:31.000000000 -0700
-+++ ttyname.c	2008-10-09 22:00:10.000000000 -0700
-@@ -48,10 +48,12 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/tty
+--- ttyname.c.orig	2010-05-01 19:18:09.000000000 -0700
++++ ttyname.c	2010-05-03 10:18:47.000000000 -0700
+@@ -48,11 +48,14 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/tty
  #include <string.h>
  #include <paths.h>
  #include <pthread.h>
@@ -9,11 +9,14 @@
  
  #include "libc_private.h"
  
+-static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
 +#ifndef BUILDING_VARIANT
- static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
++static pthread_once_t ttyname_buf_control = PTHREAD_ONCE_INIT;
++static char *buf = NULL;
  static char *ttyname_threaded(int fd);
  static char *ttyname_unthreaded(int fd);
-@@ -71,31 +73,63 @@ ttyname(int fd)
+ 
+@@ -71,31 +74,63 @@ ttyname(int fd)
  		ret = ttyname_threaded(fd);
  	return (ret);
  }
@@ -70,7 +73,7 @@
 -	devname_r(sb.st_rdev, S_IFCHR,
 -	    buf + strlen(buf), sizeof(buf) - strlen(buf));
 -	return (buf);
-+	strcpy(thrbuf, _PATH_DEV);
++	strlcpy(thrbuf, _PATH_DEV, len);
 +	if (devname_r(sb.st_rdev, S_IFCHR,
 +	    thrbuf + strlen(thrbuf), len - strlen(thrbuf)) == NULL)
 +#if __DARWIN_UNIX03
@@ -89,7 +92,7 @@
  static char *
  ttyname_threaded(int fd)
  {
-@@ -104,8 +138,12 @@ ttyname_threaded(int fd)
+@@ -104,8 +139,12 @@ ttyname_threaded(int fd)
  	if (ttyname_init == 0) {
  		_pthread_mutex_lock(&ttyname_lock);
  		if (ttyname_init == 0) {
@@ -103,7 +106,7 @@
  				return (NULL);
  			}
  			ttyname_init = 1;
-@@ -117,14 +155,20 @@ ttyname_threaded(int fd)
+@@ -117,14 +156,26 @@ ttyname_threaded(int fd)
  	if ((buf = _pthread_getspecific(ttyname_key)) == NULL) {
  		if ((buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN)) != NULL) {
  			if (_pthread_setspecific(ttyname_key, buf) != 0) {
@@ -121,26 +124,39 @@
 +#else /* !__DARWIN_UNIX03 */
  	return (ttyname_r(fd, buf, sizeof(_PATH_DEV) + MAXNAMLEN));
 +#endif /* __DARWIN_UNIX03 */
++}
++
++static void
++ttyname_buf_allocate(void)
++{
++	buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN);
  }
  
  static char *
-@@ -137,11 +181,19 @@ ttyname_unthreaded(int fd)
+@@ -137,11 +188,25 @@ ttyname_unthreaded(int fd)
  	if (tcgetattr(fd, &ttyb) < 0)
  		return (NULL);
  	/* Must be a character device. */
 -	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
 +	if (_fstat(fd, &sb))
- 		return (NULL);
++		return (NULL);
 +	if (!S_ISCHR(sb.st_mode)) {
 +		errno = ENOTTY;
+ 		return (NULL);
++	}
++
++	if (pthread_once(&ttyname_buf_control, ttyname_buf_allocate)
++		|| !buf) {
++		errno = ENOMEM;
 +		return (NULL);
 +	}
  
- 	strcpy(buf, _PATH_DEV);
+-	strcpy(buf, _PATH_DEV);
 -	devname_r(sb.st_rdev, S_IFCHR,
 -	    buf + strlen(buf), sizeof(buf) - strlen(buf));
++	strlcpy(buf, _PATH_DEV, sizeof(_PATH_DEV) + MAXNAMLEN);
 +	if (devname_r(sb.st_rdev, S_IFCHR,
-+	    buf + strlen(buf), sizeof(buf) - strlen(buf)) == NULL) {
++		buf + strlen(buf), sizeof(_PATH_DEV) + MAXNAMLEN - strlen(buf)) == NULL) {
 +		errno = ERANGE;
 +		return (NULL);
 +	}

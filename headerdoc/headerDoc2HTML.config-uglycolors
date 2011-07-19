@@ -1,5 +1,5 @@
 # Configuration file for HeaderDoc
-# $Revision: 1.3 $
+# $Revision: 1.5 $
 ###########################################################
 copyrightOwner =>
 defaultFrameName => index.html
@@ -11,6 +11,9 @@ htmlHeaderFile =>
 htmlFooter => 
 htmlFooterFile => 
 dateFormat => %A, %B %d, %Y
+suppressDefaultStyles => 0
+suppressDefaultJavaScript => 0
+TOCFormat => default
 textStyle =>
 commentStyle => background:#ff00ff; color:#236e25
 preprocessorStyle => background:#ffffff; color:#236e25

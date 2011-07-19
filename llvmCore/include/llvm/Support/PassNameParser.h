@@ -24,6 +24,8 @@
 #define LLVM_SUPPORT_PASS_NAME_PARSER_H
 
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Pass.h"
 #include <algorithm>
 #include <cstring>
@@ -39,7 +41,9 @@ class PassNameParser : public PassRegistrationListener,
   cl::Option *Opt;
 public:
   PassNameParser() : Opt(0) {}
-
+  virtual ~PassNameParser();
+                         
+                         
   void initialize(cl::Option &O) {
     Opt = &O;
     cl::parser<const PassInfo*>::initialize(O);
@@ -65,9 +69,9 @@ public:
   virtual void passRegistered(const PassInfo *P) {
     if (ignorablePass(P) || !Opt) return;
     if (findOption(P->getPassArgument()) != getNumOptions()) {
-      cerr << "Two passes with the same argument (-"
+      errs() << "Two passes with the same argument (-"
            << P->getPassArgument() << ") attempted to be registered!\n";
-      abort();
+      llvm_unreachable(0);
     }
     addLiteralOption(P->getPassArgument(), P, P->getPassName());
   }

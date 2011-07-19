@@ -1,15 +1,6 @@
---- strcat.3.orig	2008-02-29 10:45:51.000000000 -0800
-+++ strcat.3	2008-02-29 12:07:09.000000000 -0800
-@@ -40,16 +40,24 @@
- .Dt STRCAT 3
- .Os
- .Sh NAME
--.Nm strcat
-+.Nm strcat ,
-+.Nm strncat
- .Nd concatenate strings
- .Sh LIBRARY
- .Lb libc
+--- strcat.3.orig	2010-06-17 08:44:44.000000000 -0700
++++ strcat.3	2010-06-17 08:46:22.000000000 -0700
+@@ -44,9 +44,16 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft char *
@@ -28,7 +19,7 @@
  .Sh DESCRIPTION
  The
  .Fn strcat
-@@ -57,24 +65,27 @@
+@@ -54,24 +61,27 @@ and
  .Fn strncat
  functions
  append a copy of the null-terminated string
@@ -61,7 +52,7 @@
  .Sh RETURN VALUES
  The
  .Fn strcat
-@@ -82,7 +93,7 @@
+@@ -79,7 +89,7 @@ and
  .Fn strncat
  functions
  return the pointer
@@ -70,7 +61,7 @@
  .Sh SECURITY CONSIDERATIONS
  The
  .Fn strcat
-@@ -114,7 +125,7 @@
+@@ -111,7 +121,7 @@ Example:
  void
  foo(const char *arbitrary_string)
  {
@@ -79,15 +70,3 @@
  
  #if defined(BAD)
  	/*
-@@ -149,11 +160,6 @@
- .Xr strcpy 3 ,
- .Xr strlcat 3 ,
- .Xr strlcpy 3
--.Rs
--.%T "The FreeBSD Security Architecture"
--.Re
--(See
--.Pa "/usr/share/doc/{to be decided}" . )
- .Sh STANDARDS
- The
- .Fn strcat

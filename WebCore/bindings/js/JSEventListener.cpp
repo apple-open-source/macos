@@ -24,6 +24,8 @@
 #include "Frame.h"
 #include "JSEvent.h"
 #include "JSEventTarget.h"
+#include "JSMainThreadExecState.h"
+#include "WorkerContext.h"
 #include <runtime/JSLock.h>
 #include <wtf/RefCountedLeakCounter.h>
 
@@ -33,12 +35,15 @@ namespace WebCore {
 
 JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isAttribute, DOMWrapperWorld* isolatedWorld)
     : EventListener(JSEventListenerType)
-    , m_jsFunction(function)
+    , m_wrapper(*isolatedWorld->globalData(), wrapper)
     , m_isAttribute(isAttribute)
     , m_isolatedWorld(isolatedWorld)
 {
     if (wrapper)
-        m_wrapper = wrapper;
+        m_jsFunction.setMayBeNull(*m_isolatedWorld->globalData(), wrapper, function);
+    else
+        ASSERT(!function);
+
 }
 
 JSEventListener::~JSEventListener()
@@ -51,16 +56,16 @@ JSObject* JSEventListener::initializeJSFunction(ScriptExecutionContext*) const
     return 0;
 }
 
-void JSEventListener::markJSFunction(MarkStack& markStack)
+void JSEventListener::visitJSFunction(SlotVisitor& visitor)
 {
     if (m_jsFunction)
-        markStack.append(m_jsFunction);
+        visitor.append(&m_jsFunction);
 }
 
 void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext, Event* event)
 {
     ASSERT(scriptExecutionContext);
-    if (!scriptExecutionContext || scriptExecutionContext->isJSExecutionTerminated())
+    if (!scriptExecutionContext || scriptExecutionContext->isJSExecutionForbidden())
         return;
 
     JSLock lock(SilenceAssertionsOnly);
@@ -92,7 +97,7 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
     JSValue handleEventFunction = jsFunction->get(exec, Identifier(exec, "handleEvent"));
 
     CallData callData;
-    CallType callType = handleEventFunction.getCallData(callData);
+    CallType callType = getCallData(handleEventFunction, callData);
     if (callType == CallTypeNone) {
         handleEventFunction = JSValue();
         callType = jsFunction->getCallData(callData);
@@ -107,20 +112,37 @@ void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext
         Event* savedEvent = globalObject->currentEvent();
         globalObject->setCurrentEvent(event);
 
-        JSGlobalData* globalData = globalObject->globalData();
-        DynamicGlobalObjectScope globalObjectScope(exec, globalData->dynamicGlobalObject ? globalData->dynamicGlobalObject : globalObject);
+        JSGlobalData& globalData = globalObject->globalData();
+        DynamicGlobalObjectScope globalObjectScope(globalData, globalData.dynamicGlobalObject ? globalData.dynamicGlobalObject : globalObject);
 
-        globalData->timeoutChecker.start();
-        JSValue retval = handleEventFunction
-            ? JSC::call(exec, handleEventFunction, callType, callData, jsFunction, args)
-            : JSC::call(exec, jsFunction, callType, callData, toJS(exec, globalObject, event->currentTarget()), args);
-        globalData->timeoutChecker.stop();
+        globalData.timeoutChecker.start();
+        JSValue retval;
+        if (handleEventFunction) {
+            retval = scriptExecutionContext->isDocument()
+                ? JSMainThreadExecState::call(exec, handleEventFunction, callType, callData, jsFunction, args)
+                : JSC::call(exec, handleEventFunction, callType, callData, jsFunction, args);
+        } else {
+            JSValue currentTarget = toJS(exec, globalObject, event->currentTarget());
+            retval = scriptExecutionContext->isDocument()
+                ? JSMainThreadExecState::call(exec, jsFunction, callType, callData, currentTarget, args)
+                : JSC::call(exec, jsFunction, callType, callData, currentTarget, args);
+        }
+        globalData.timeoutChecker.stop();
 
         globalObject->setCurrentEvent(savedEvent);
 
-        if (exec->hadException())
+#if ENABLE(WORKERS)
+        if (scriptExecutionContext->isWorkerContext()) {
+            bool terminatorCausedException = (exec->hadException() && exec->exception().isObject() && asObject(exec->exception())->exceptionType() == Terminated);
+            if (terminatorCausedException || globalData.terminator.shouldTerminate())
+                static_cast<WorkerContext*>(scriptExecutionContext)->script()->forbidExecution();
+        }
+#endif
+
+        if (exec->hadException()) {
+            event->target()->uncaughtExceptionInEventHandler();
             reportCurrentException(exec);
-        else {
+        } else {
             if (!retval.isUndefinedOrNull() && event->storesResultAsString())
                 event->storeResult(ustringToString(retval.toString(exec)));
             if (m_isAttribute) {

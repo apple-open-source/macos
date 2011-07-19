@@ -25,6 +25,7 @@
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "PlatformString.h"
+#include "SoupURIUtils.h"
 #include <wtf/text/CString.h>
 
 #include <libsoup/soup.h>
@@ -32,6 +33,27 @@
 using namespace std;
 
 namespace WebCore {
+
+void ResourceRequest::updateSoupMessage(SoupMessage* soupMessage) const
+{
+    g_object_set(soupMessage, SOUP_MESSAGE_METHOD, httpMethod().utf8().data(), NULL);
+
+    const HTTPHeaderMap& headers = httpHeaderFields();
+    SoupMessageHeaders* soupHeaders = soupMessage->request_headers;
+    if (!headers.isEmpty()) {
+        HTTPHeaderMap::const_iterator end = headers.end();
+        for (HTTPHeaderMap::const_iterator it = headers.begin(); it != end; ++it)
+            soup_message_headers_append(soupHeaders, it->first.string().utf8().data(), it->second.utf8().data());
+    }
+
+    String firstPartyString = firstPartyForCookies().string();
+    if (!firstPartyString.isEmpty()) {
+        GOwnPtr<SoupURI> firstParty(soup_uri_new(firstPartyString.utf8().data()));
+        soup_message_set_first_party(soupMessage, firstParty.get());
+    }
+
+    soup_message_set_flags(soupMessage, m_soupFlags);
+}
 
 SoupMessage* ResourceRequest::toSoupMessage() const
 {
@@ -47,13 +69,11 @@ SoupMessage* ResourceRequest::toSoupMessage() const
             soup_message_headers_append(soupHeaders, it->first.string().utf8().data(), it->second.utf8().data());
     }
 
-#ifdef HAVE_LIBSOUP_2_29_90
     String firstPartyString = firstPartyForCookies().string();
     if (!firstPartyString.isEmpty()) {
         GOwnPtr<SoupURI> firstParty(soup_uri_new(firstPartyString.utf8().data()));
         soup_message_set_first_party(soupMessage, firstParty.get());
     }
-#endif
 
     soup_message_set_flags(soupMessage, m_soupFlags);
 
@@ -65,30 +85,25 @@ SoupMessage* ResourceRequest::toSoupMessage() const
 
 void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
 {
-    SoupURI* soupURI = soup_message_get_uri(soupMessage);
-    GOwnPtr<gchar> uri(soup_uri_to_string(soupURI, FALSE));
-    m_url = KURL(KURL(), String::fromUTF8(uri.get()));
+    m_url = soupURIToKURL(soup_message_get_uri(soupMessage));
 
     m_httpMethod = String::fromUTF8(soupMessage->method);
 
+    m_httpHeaderFields.clear();
     SoupMessageHeadersIter headersIter;
     const char* headerName;
     const char* headerValue;
-
     soup_message_headers_iter_init(&headersIter, soupMessage->request_headers);
-    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
+    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue)) {
         m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
+    }
 
     if (soupMessage->request_body->data)
         m_httpBody = FormData::create(soupMessage->request_body->data, soupMessage->request_body->length);
 
-#ifdef HAVE_LIBSOUP_2_29_90
     SoupURI* firstParty = soup_message_get_first_party(soupMessage);
-    if (firstParty) {
-        GOwnPtr<gchar> firstPartyURI(soup_uri_to_string(firstParty, FALSE));
-        m_firstPartyForCookies = KURL(KURL(), String::fromUTF8(firstPartyURI.get()));
-    }
-#endif
+    if (firstParty)
+        m_firstPartyForCookies = soupURIToKURL(firstParty);
 
     m_soupFlags = soup_message_get_flags(soupMessage);
 

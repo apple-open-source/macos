@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.56.2.4 2008/02/11 23:26:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.56.2.8 2010/06/10 17:39:48 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,6 +79,15 @@ ldap_ld_free(
 
 	/* free LDAP structure and outstanding requests/responses */
 #ifdef LDAP_R_COMPILE
+#ifdef __APPLE__
+	/* If the ld is in async mode, this will stop the thread that's handling
+	 * the results messages.  This *must* be done before anything is torn
+	 * down to prevent the thread from using deallocated structs.  This is a
+	 * blocking call; it won't exit until the thread exits.	 If not in
+	 * async mode, this call does nothing.
+	 */
+	ldap_pvt_clear_search_results_callback( ld );
+#endif
 	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
 #endif
 	while ( ld->ld_requests != NULL ) {
@@ -113,6 +122,18 @@ ldap_ld_free(
 	ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
 #endif
 
+	/* final close callbacks */
+	{
+		ldaplist *ll, *next;
+
+		for ( ll = ld->ld_options.ldo_conn_cbs; ll; ll = next ) {
+			ldap_conncb *cb = ll->ll_data;
+			next = ll->ll_next;
+			cb->lc_del( ld, NULL, cb );
+			LDAP_FREE( ll );
+		}
+	}
+
 	if ( ld->ld_error != NULL ) {
 		LDAP_FREE( ld->ld_error );
 		ld->ld_error = NULL;
@@ -142,6 +163,11 @@ ldap_ld_free(
 	if ( ld->ld_options.ldo_peer != NULL ) {
 		LDAP_FREE( ld->ld_options.ldo_peer );
 		ld->ld_options.ldo_peer = NULL;
+	}
+
+	if ( ld->ld_options.ldo_cldapdn != NULL ) {
+		LDAP_FREE( ld->ld_options.ldo_cldapdn );
+		ld->ld_options.ldo_cldapdn = NULL;
 	}
 #endif
 

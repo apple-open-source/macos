@@ -3,7 +3,7 @@
   bignum.c -
 
   $Author: shyouhei $
-  $Date: 2008-08-04 14:05:38 +0900 (Mon, 04 Aug 2008) $
+  $Date: 2009-07-30 09:31:59 +0900 (Thu, 30 Jul 2009) $
   created at: Fri Jun 10 00:48:55 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -2038,8 +2038,8 @@ rb_big_lshift(x, y)
 	y = rb_to_int(y);
     }
 
-    if (neg) return big_rshift(x, shift);
-    return big_lshift(x, shift);
+    x = neg ? big_rshift(x, shift) : big_lshift(x, shift);
+    return bignorm(x);
 }
 
 static VALUE
@@ -2067,7 +2067,7 @@ big_lshift(x, shift)
 	num = BIGDN(num);
     }
     *zds = BIGLO(num);
-    return bignorm(z);
+    return z;
 }
 
 /*
@@ -2107,8 +2107,8 @@ rb_big_rshift(x, y)
 	y = rb_to_int(y);
     }
 
-    if (neg) return big_lshift(x, shift);
-    return big_rshift(x, shift);
+    x = neg ? big_lshift(x, shift) : big_rshift(x, shift);
+    return bignorm(x);
 }
 
 static VALUE
@@ -2153,7 +2153,7 @@ big_rshift(x, shift)
     if (!RBIGNUM(x)->sign) {
 	get2comp(z);
     }
-    return bignorm(z);
+    return z;
 }
 
 /*

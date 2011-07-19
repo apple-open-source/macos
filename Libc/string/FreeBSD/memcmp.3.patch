@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/memcmp.3	2003-05-20 15:23:54.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/memcmp.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -47,17 +47,21 @@
+--- memcmp.3.bsdnew	2009-11-18 18:24:32.000000000 -0800
++++ memcmp.3	2009-11-18 18:24:32.000000000 -0800
+@@ -43,17 +43,21 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft int

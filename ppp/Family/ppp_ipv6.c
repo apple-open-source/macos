@@ -44,7 +44,6 @@ Includes
 
 #include <net/if.h>
 #include <net/kpi_protocol.h>
-#include <machine/spl.h>
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -153,7 +152,7 @@ called from dlil when an ioctl is sent to the interface
 errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
 									 u_long command, void* argument)
 {
-    struct ifaddr 	*ifa = (struct ifaddr *)argument;
+    struct sockaddr_in6  addr6;
     int 		error = 0;
 
     switch (command) {
@@ -162,8 +161,14 @@ errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
         case SIOCAIFADDR:
             LOGDBG(ifp, ("ppp_ipv6_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
 
+	    error = ifaddr_address(argument, (struct sockaddr *)&addr6, sizeof (addr6));
+	    if (error != 0) {
+                error = EAFNOSUPPORT;
+                break;
+	    }
+
             // only an IPv6 address should arrive here
-            if (ifa->ifa_addr->sa_family != AF_INET6) {
+            if (addr6.sin6_family != AF_INET6) {
                 error = EAFNOSUPPORT;
                 break;
             }

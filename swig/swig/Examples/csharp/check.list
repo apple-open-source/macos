@@ -1,6 +1,9 @@
 # see top-level Makefile.in
+arrays
+callback
 class
 enum
+extend
 funcptr
 reference
 simple

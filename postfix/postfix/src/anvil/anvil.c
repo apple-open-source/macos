@@ -161,7 +161,8 @@
 /*	count and/or rate limits falsely.
 /*
 /*	In this preliminary implementation, a count (or rate) limited server
-/*	can have only one remote client at a time. If a server reports
+/*	process can have only one remote client at a time. If a
+/*	server process reports
 /*	multiple simultaneous clients, state is kept only for the last
 /*	reported client.
 /*
@@ -208,7 +209,7 @@
 /*	The process name of a Postfix command or daemon process.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* SEE ALSO

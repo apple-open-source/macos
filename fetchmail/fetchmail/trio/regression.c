@@ -43,7 +43,7 @@
 #define DOUBLE_EQUAL(x,y) (((x)>(y)-DBL_EPSILON) && ((x)<(y)+DBL_EPSILON))
 #define FLOAT_EQUAL(x,y) (((x)>(y)-FLT_EPSILON) && ((x)<(y)+FLT_EPSILON))
 
-static TRIO_CONST char rcsid[] = "@(#)$Id: regression.c,v 1.65 2009/06/07 15:14:31 breese Exp $";
+static TRIO_CONST char rcsid[] = "@(#)$Id: regression.c,v 1.67 2010/01/26 13:02:02 breese Exp $";
 
 #if defined(TRIO_EMBED_NAN)
 # include "trionan.c"
@@ -1208,6 +1208,7 @@ TRIO_ARGS5((file, line, expected, format, original),
   char data[512];
   
   trio_snprintf(data, sizeof(data), "%s", original);
+  string[0] = 0;
   trio_sscanf(data, format, string);
   return Verify(file, line, expected, "%s", string);
 }
@@ -1534,6 +1535,7 @@ VerifyDynamicStrings(TRIO_NOARGS)
   int nerrors = 0;
 #if !defined(TRIO_MINIMAL)
   trio_string_t *string;
+  const char no_terminate[5] = { 'h', 'e', 'l', 'l', 'o' };
 
   string = trio_xstring_duplicate("Find me now");
   if (string == NULL) {
@@ -1552,6 +1554,9 @@ VerifyDynamicStrings(TRIO_NOARGS)
   if (!trio_xstring_match(string, "* me *"))
     nerrors++;
   if (trio_xstring_match_case(string, "* ME *"))
+    nerrors++;
+  if (!trio_xstring_append_max(string, no_terminate, 5) ||
+      !trio_xstring_equal(string, "FIND ME NOW AND AGAINhello"))
     nerrors++;
   
  error:

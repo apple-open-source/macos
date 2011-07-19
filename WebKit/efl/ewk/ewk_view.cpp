@@ -1,6 +1,6 @@
 /*
     Copyright (C) 2009-2010 ProFUSION embedded systems
-    Copyright (C) 2009-2010 Samsung Electronics
+    Copyright (C) 2009-2011 Samsung Electronics
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -18,20 +18,29 @@
     Boston, MA 02110-1301, USA.
 */
 
+#define __STDC_FORMAT_MACROS
 #include "config.h"
 #include "ewk_view.h"
 
+#include "BackForwardListImpl.h"
+#include "Chrome.h"
 #include "ChromeClientEfl.h"
-#include "ContextMenuClientEfl.h"
+#include "ContextMenuController.h"
 #include "DocumentLoader.h"
 #include "DragClientEfl.h"
 #include "EWebKit.h"
 #include "EditorClientEfl.h"
+#include "EventHandler.h"
 #include "FocusController.h"
 #include "FrameLoaderClientEfl.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLElement.h"
+#include "HTMLInputElement.h"
+#include "HTMLNames.h"
 #include "InspectorClientEfl.h"
+#include "IntSize.h"
+#include "PlatformMouseEvent.h"
 #include "PopupMenuClient.h"
 #include "ProgressTracker.h"
 #include "ewk_private.h"
@@ -40,10 +49,13 @@
 #include <Eina.h>
 #include <Evas.h>
 #include <eina_safety_checks.h>
+#include <inttypes.h>
 #include <sys/time.h>
 
 #define ZOOM_MIN (0.05)
 #define ZOOM_MAX (4.0)
+
+#define DEVICE_PIXEL_RATIO (1.0)
 
 static const char EWK_VIEW_TYPE_STR[] = "EWK_View";
 
@@ -59,6 +71,7 @@ struct _Ewk_View_Private_Data {
     WebCore::Page* page;
     WebCore::Settings* page_settings;
     WebCore::Frame* main_frame;
+    WebCore::ViewportArguments viewport_arguments;
     Ewk_History* history;
     struct {
         Ewk_Menu menu;
@@ -74,11 +87,18 @@ struct _Ewk_View_Private_Data {
         size_t count;
         size_t allocated;
     } scrolls;
+    unsigned int imh; /**< input method hints */
+    struct {
+        Eina_Bool view_cleared:1;
+        Eina_Bool need_touch_events:1;
+    } flags;
     struct {
         const char* user_agent;
         const char* user_stylesheet;
         const char* encoding_default;
         const char* encoding_custom;
+        const char* theme;
+        const char* local_storage_database_path;
         int font_minimum_size;
         int font_minimum_logical_size;
         int font_default_size;
@@ -91,12 +111,25 @@ struct _Ewk_View_Private_Data {
         const char* font_sans_serif;
         Eina_Bool auto_load_images:1;
         Eina_Bool auto_shrink_images:1;
+        Eina_Bool enable_auto_resize_window:1;
         Eina_Bool enable_scripts:1;
         Eina_Bool enable_plugins:1;
+        Eina_Bool enable_frame_flattening:1;
+        Eina_Bool encoding_detector:1;
         Eina_Bool scripts_window_open:1;
         Eina_Bool resizable_textareas:1;
         Eina_Bool private_browsing:1;
         Eina_Bool caret_browsing:1;
+        Eina_Bool spatial_navigation:1;
+        Eina_Bool local_storage:1;
+        Eina_Bool offline_app_cache: 1;
+        Eina_Bool page_cache: 1;
+        struct {
+            float min_scale;
+            float max_scale;
+            Eina_Bool user_scalable:1;
+        } zoom_range;
+        float device_pixel_ratio;
     } settings;
     struct {
         struct {
@@ -114,10 +147,6 @@ struct _Ewk_View_Private_Data {
         } center;
         Ecore_Animator* animator;
     } animated_zoom;
-    struct {
-        Evas_Coord w, h;
-        Eina_Bool use:1;
-    } fixed_layout;
 };
 
 #ifndef EWK_TYPE_CHECK
@@ -489,7 +518,7 @@ static WTF::PassRefPtr<WebCore::Frame> _ewk_view_core_frame_new(Ewk_View_Smart_D
         CRITICAL("Could not create frame loader client.");
         return 0;
     }
-    flc->setCustomUserAgent(WebCore::String::fromUTF8(priv->settings.user_agent));
+    flc->setCustomUserAgent(String::fromUTF8(priv->settings.user_agent));
 
     return WebCore::Frame::create(priv->page, owner, flc);
 }
@@ -500,21 +529,20 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
 {
     Ewk_View_Private_Data* priv =
         (Ewk_View_Private_Data*)calloc(1, sizeof(Ewk_View_Private_Data));
-    WebCore::AtomicString s;
+    AtomicString s;
     WebCore::KURL url;
 
     if (!priv) {
         CRITICAL("could not allocate Ewk_View_Private_Data");
         return 0;
     }
-    priv->page = new WebCore::Page(
-        static_cast<WebCore::ChromeClient*>(new WebCore::ChromeClientEfl(sd->self)),
-        static_cast<WebCore::ContextMenuClient*>(new WebCore::ContextMenuClientEfl(sd->self)),
-        static_cast<WebCore::EditorClient*>(new WebCore::EditorClientEfl(sd->self)),
-        static_cast<WebCore::DragClient*>(new WebCore::DragClientEfl),
-        static_cast<WebCore::InspectorClient*>(new WebCore::InspectorClientEfl),
-        0,
-        0);
+
+    WebCore::Page::PageClients pageClients;
+    pageClients.chromeClient = static_cast<WebCore::ChromeClient*>(new WebCore::ChromeClientEfl(sd->self));
+    pageClients.editorClient = static_cast<WebCore::EditorClient*>(new WebCore::EditorClientEfl(sd->self));
+    pageClients.dragClient = static_cast<WebCore::DragClient*>(new WebCore::DragClientEfl);
+    pageClients.inspectorClient = static_cast<WebCore::InspectorClient*>(new WebCore::InspectorClientEfl);
+    priv->page = new WebCore::Page(pageClients);
     if (!priv->page) {
         CRITICAL("Could not create WebKit Page");
         goto error_page;
@@ -526,6 +554,14 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
         goto error_settings;
     }
 
+    priv->viewport_arguments.width = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.height = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.initialScale = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.minimumScale = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.maximumScale = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.targetDensityDpi = WebCore::ViewportArguments::ValueAuto;
+    priv->viewport_arguments.userScalable = EINA_TRUE;
+
     priv->page_settings->setLoadsImagesAutomatically(true);
     priv->page_settings->setDefaultFixedFontSize(12);
     priv->page_settings->setDefaultFontSize(16);
@@ -535,6 +571,10 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->page_settings->setStandardFontFamily("sans");
     priv->page_settings->setJavaScriptEnabled(true);
     priv->page_settings->setPluginsEnabled(true);
+    priv->page_settings->setLocalStorageEnabled(true);
+    priv->page_settings->setOfflineWebApplicationCacheEnabled(true);
+    priv->page_settings->setUsesPageCache(true);
+    priv->page_settings->setUsesEncodingDetector(true);
 
     url = priv->page_settings->userStyleSheetLocation();
     priv->settings.user_stylesheet = eina_stringshare_add(url.prettyURL().utf8().data());
@@ -542,6 +582,9 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->settings.encoding_default = eina_stringshare_add
         (priv->page_settings->defaultTextEncodingName().utf8().data());
     priv->settings.encoding_custom = 0;
+
+    s = priv->page_settings->localStorageDatabasePath();
+    priv->settings.local_storage_database_path = eina_stringshare_add(s.string().utf8().data());
 
     priv->settings.font_minimum_size = priv->page_settings->minimumFontSize();
     priv->settings.font_minimum_logical_size = priv->page_settings->minimumLogicalFontSize();
@@ -563,12 +606,29 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
 
     priv->settings.auto_load_images = priv->page_settings->loadsImagesAutomatically();
     priv->settings.auto_shrink_images = priv->page_settings->shrinksStandaloneImagesToFit();
+    priv->settings.enable_auto_resize_window = EINA_TRUE;
     priv->settings.enable_scripts = priv->page_settings->isJavaScriptEnabled();
     priv->settings.enable_plugins = priv->page_settings->arePluginsEnabled();
+    priv->settings.enable_frame_flattening = priv->page_settings->frameFlatteningEnabled();
     priv->settings.scripts_window_open = priv->page_settings->allowScriptsToCloseWindows();
     priv->settings.resizable_textareas = priv->page_settings->textAreasAreResizable();
     priv->settings.private_browsing = priv->page_settings->privateBrowsingEnabled();
     priv->settings.caret_browsing = priv->page_settings->caretBrowsingEnabled();
+    priv->settings.spatial_navigation = priv->page_settings->isSpatialNavigationEnabled();
+    priv->settings.local_storage = priv->page_settings->localStorageEnabled();
+    priv->settings.offline_app_cache = true; // XXX no function to read setting; this keeps the original setting
+    priv->settings.page_cache = priv->page_settings->usesPageCache();
+    priv->settings.encoding_detector = priv->page_settings->usesEncodingDetector();
+
+    priv->settings.user_agent = ewk_settings_default_user_agent_get();
+
+    // Since there's no scale separated from zooming in webkit-efl, this functionality of
+    // viewport meta tag is implemented using zoom. When scale zoom is supported by webkit-efl,
+    // this functionality will be modified by the scale zoom patch.
+    priv->settings.zoom_range.min_scale = ZOOM_MIN;
+    priv->settings.zoom_range.max_scale = ZOOM_MAX;
+    priv->settings.zoom_range.user_scalable = EINA_TRUE;
+    priv->settings.device_pixel_ratio = DEVICE_PIXEL_RATIO;
 
     priv->main_frame = _ewk_view_core_frame_new(sd, priv, 0).get();
     if (!priv->main_frame) {
@@ -576,7 +636,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
         goto error_main_frame;
     }
 
-    priv->history = ewk_history_new(priv->page->backForwardList());
+    priv->history = ewk_history_new(static_cast<WebCore::BackForwardListImpl*>(priv->page->backForwardList()));
     if (!priv->history) {
         CRITICAL("Could not create history instance for view.");
         goto error_history;
@@ -614,6 +674,7 @@ static void _ewk_view_priv_del(Ewk_View_Private_Data* priv)
     eina_stringshare_del(priv->settings.font_fantasy);
     eina_stringshare_del(priv->settings.font_serif);
     eina_stringshare_del(priv->settings.font_sans_serif);
+    eina_stringshare_del(priv->settings.local_storage_database_path);
 
     if (priv->animated_zoom.animator)
         ecore_animator_del(priv->animated_zoom.animator);
@@ -664,6 +725,12 @@ static void _ewk_view_smart_add(Evas_Object* o)
 
     evas_object_smart_member_add(sd->backing_store, o);
     evas_object_show(sd->backing_store);
+    evas_object_pass_events_set(sd->backing_store, EINA_TRUE);
+
+    sd->events_rect = evas_object_rectangle_add(sd->base.evas);
+    evas_object_color_set(sd->events_rect, 0, 0, 0, 0);
+    evas_object_smart_member_add(sd->events_rect, o);
+    evas_object_show(sd->events_rect);
 
     sd->main_frame = ewk_frame_add(sd->base.evas);
     if (!sd->main_frame) {
@@ -702,6 +769,7 @@ static void _ewk_view_smart_del(Evas_Object* o)
     EWK_VIEW_SD_GET(o, sd);
     Ewk_View_Private_Data* priv = sd ? sd->_priv : 0;
 
+    ewk_view_stop(o);
     _parent_sc.del(o);
     _ewk_view_priv_del(priv);
 }
@@ -751,21 +819,22 @@ static void _ewk_view_smart_calculate(Evas_Object* o)
             view->resize(w, h);
             view->forceLayout();
             view->adjustViewSize();
-            IntSize size = view->contentsSize();
-            if (!sd->api->contents_resize(sd, size.width(), size.height()))
-                ERR("failed to resize contents to %dx%d",
-                    size.width(), size.height());
         }
         evas_object_resize(sd->main_frame, w, h);
+        evas_object_resize(sd->events_rect, w, h);
         sd->changed.frame_rect = EINA_TRUE;
         sd->view.w = w;
         sd->view.h = h;
+
+        // This callback is a good place e.g. to change fixed layout size (ewk_view_fixed_layout_size_set).
+        evas_object_smart_callback_call(o, "view,resized", 0);
     }
     sd->changed.size = EINA_FALSE;
 
     if (sd->changed.position && ((x != sd->view.x) || (y != sd->view.y))) {
         evas_object_move(sd->main_frame, x, y);
         evas_object_move(sd->backing_store, x, y);
+        evas_object_move(sd->events_rect, x, y);
         sd->changed.frame_rect = EINA_TRUE;
         sd->view.x = x;
         sd->view.y = y;
@@ -787,6 +856,23 @@ static void _ewk_view_smart_calculate(Evas_Object* o)
         view->frameRectsChanged(); /* force tree to get position from root */
         sd->changed.frame_rect = EINA_FALSE;
     }
+}
+
+static void _ewk_view_smart_show(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+
+    if (evas_object_clipees_get(sd->base.clipper))
+        evas_object_show(sd->base.clipper);
+    evas_object_show(sd->backing_store);
+}
+
+static void _ewk_view_smart_hide(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+
+    evas_object_hide(sd->base.clipper);
+    evas_object_hide(sd->backing_store);
 }
 
 static Eina_Bool _ewk_view_smart_contents_resize(Ewk_View_Smart_Data* sd, int w, int h)
@@ -836,6 +922,13 @@ static Eina_Bool _ewk_view_smart_pre_render_region(Ewk_View_Smart_Data* sd, Evas
     return EINA_FALSE;
 }
 
+static Eina_Bool _ewk_view_smart_pre_render_relative_radius(Ewk_View_Smart_Data* sd, unsigned int n, float zoom)
+{
+    WRN("not supported by engine. sd=%p, n=%u zoom=%f",
+        sd, n, zoom);
+    return EINA_FALSE;
+}
+
 static void _ewk_view_smart_pre_render_cancel(Ewk_View_Smart_Data* sd)
 {
     WRN("not supported by engine. sd=%p", sd);
@@ -873,7 +966,7 @@ static float _ewk_view_zoom_animated_current(Ewk_View_Private_Data* priv)
             + priv->animated_zoom.zoom.start);
 }
 
-static int _ewk_view_zoom_animator_cb(void* data)
+static Eina_Bool _ewk_view_zoom_animator_cb(void* data)
 {
     Ewk_View_Smart_Data* sd = (Ewk_View_Smart_Data*)data;
     Evas_Coord cx, cy;
@@ -893,12 +986,13 @@ static int _ewk_view_zoom_animator_cb(void* data)
         || (now < priv->animated_zoom.time.start)) {
         _ewk_view_zoom_animated_finish(sd);
         ewk_view_zoom_set(sd->self, priv->animated_zoom.zoom.end, cx, cy);
-        return 0;
+        sd->api->sc.calculate(sd->self);
+        return EINA_FALSE;
     }
 
     sd->animated_zoom.zoom.current = _ewk_view_zoom_animated_current(priv);
     sd->api->zoom_weak_set(sd, sd->animated_zoom.zoom.current, cx, cy);
-    return 1;
+    return EINA_TRUE;
 }
 
 static void _ewk_view_zoom_animation_start(Ewk_View_Smart_Data* sd)
@@ -908,6 +1002,38 @@ static void _ewk_view_zoom_animation_start(Ewk_View_Smart_Data* sd)
         return;
     priv->animated_zoom.animator = ecore_animator_add
         (_ewk_view_zoom_animator_cb, sd);
+}
+
+static WebCore::ViewportAttributes _ewk_view_viewport_attributes_compute(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    int desktop_width = 980;
+    int device_dpi = ewk_util_dpi_get();
+
+    int available_width = (int) priv->page->chrome()->client()->pageRect().width();
+    int available_height = (int) priv->page->chrome()->client()->pageRect().height();
+
+    int device_width = (int) priv->page->chrome()->client()->windowRect().width();
+    int device_height = (int) priv->page->chrome()->client()->windowRect().height();
+
+    WebCore::IntSize available_size = WebCore::IntSize(available_width, available_height);
+    WebCore::ViewportAttributes attributes = WebCore::computeViewportAttributes(priv->viewport_arguments, desktop_width, device_width, device_height, device_dpi, available_size);
+
+    return attributes;
+}
+
+static Eina_Bool _ewk_view_smart_disable_render(Ewk_View_Smart_Data *sd)
+{
+    WRN("not supported by engine. sd=%p", sd);
+    return EINA_FALSE;
+}
+
+static Eina_Bool _ewk_view_smart_enable_render(Ewk_View_Smart_Data *sd)
+{
+    WRN("not supported by engine. sd=%p", sd);
+    return EINA_FALSE;
 }
 
 /**
@@ -949,13 +1075,18 @@ Eina_Bool ewk_view_base_smart_set(Ewk_View_Smart_Class* api)
     api->sc.resize = _ewk_view_smart_resize;
     api->sc.move = _ewk_view_smart_move;
     api->sc.calculate = _ewk_view_smart_calculate;
+    api->sc.show = _ewk_view_smart_show;
+    api->sc.hide = _ewk_view_smart_hide;
     api->sc.data = EWK_VIEW_TYPE_STR; /* used by type checking */
 
     api->contents_resize = _ewk_view_smart_contents_resize;
     api->zoom_set = _ewk_view_smart_zoom_set;
     api->flush = _ewk_view_smart_flush;
     api->pre_render_region = _ewk_view_smart_pre_render_region;
+    api->pre_render_relative_radius = _ewk_view_smart_pre_render_relative_radius;
     api->pre_render_cancel = _ewk_view_smart_pre_render_cancel;
+    api->disable_render = _ewk_view_smart_disable_render;
+    api->enable_render = _ewk_view_smart_enable_render;
 
     api->focus_in = _ewk_view_smart_focus_in;
     api->focus_out = _ewk_view_smart_focus_out;
@@ -994,28 +1125,23 @@ void ewk_view_fixed_layout_size_set(Evas_Object* o, Evas_Coord w, Evas_Coord h)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
-    WebCore::FrameView* view = sd->_priv->main_frame->view();
-    if (w <= 0 && h <= 0) {
-        if (!priv->fixed_layout.use)
-            return;
-        priv->fixed_layout.w = 0;
-        priv->fixed_layout.h = 0;
-        priv->fixed_layout.use = EINA_FALSE;
-    } else {
-        if (priv->fixed_layout.use
-            && priv->fixed_layout.w == w && priv->fixed_layout.h == h)
-            return;
-        priv->fixed_layout.w = w;
-        priv->fixed_layout.h = h;
-        priv->fixed_layout.use = EINA_TRUE;
 
+    WebCore::FrameView* view = priv->main_frame->view();
+    if (w <= 0 && h <= 0) {
+        if (!view->useFixedLayout())
+            return;
+        view->setUseFixedLayout(EINA_FALSE);
+    } else {
+        WebCore::IntSize size = view->fixedLayoutSize();
+        if (size.width() == w && size.height() == h)
+            return;
         if (view)
             view->setFixedLayoutSize(WebCore::IntSize(w, h));
     }
 
     if (!view)
         return;
-    view->setUseFixedLayout(priv->fixed_layout.use);
+    view->setUseFixedLayout(EINA_TRUE);
     view->forceLayout();
 }
 
@@ -1036,11 +1162,13 @@ void ewk_view_fixed_layout_size_get(Evas_Object* o, Evas_Coord* w, Evas_Coord* h
         *h = 0;
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
-    if (priv->fixed_layout.use) {
+    WebCore::FrameView* view = priv->main_frame->view();
+    if (view->useFixedLayout()) {
+        WebCore::IntSize size = view->fixedLayoutSize();
         if (w)
-            *w = priv->fixed_layout.w;
+            *w = size.width();
         if (h)
-            *h = priv->fixed_layout.h;
+            *h = size.height();
     }
 }
 
@@ -1057,6 +1185,9 @@ void ewk_view_fixed_layout_size_get(Evas_Object* o, Evas_Coord* w, Evas_Coord* h
 void ewk_view_theme_set(Evas_Object* o, const char* path)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+    if (!eina_stringshare_replace(&priv->settings.theme, path))
+        return;
     ewk_frame_theme_set(sd->main_frame, path);
 }
 
@@ -1072,7 +1203,8 @@ void ewk_view_theme_set(Evas_Object* o, const char* path)
 const char* ewk_view_theme_get(Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
-    return ewk_frame_theme_get(sd->main_frame);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
+    return priv->settings.theme;
 }
 
 /**
@@ -1283,20 +1415,20 @@ Eina_Bool ewk_view_text_search(const Evas_Object* o, const char* string, Eina_Bo
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(string, EINA_FALSE);
-    WebCore::TextCaseSensitivity sensitive;
+    WTF::TextCaseSensitivity sensitive;
     WebCore::FindDirection direction;
 
     if (case_sensitive)
-        sensitive = WebCore::TextCaseSensitive;
+        sensitive = WTF::TextCaseSensitive;
     else
-        sensitive = WebCore::TextCaseInsensitive;
+        sensitive = WTF::TextCaseInsensitive;
 
     if (forward)
         direction = WebCore::FindDirectionForward;
     else
         direction = WebCore::FindDirectionBackward;
 
-    return priv->page->findString(WebCore::String::fromUTF8(string), sensitive, direction, wrap);
+    return priv->page->findString(String::fromUTF8(string), sensitive, direction, wrap);
 }
 
 /**
@@ -1315,14 +1447,14 @@ unsigned int ewk_view_text_matches_mark(Evas_Object* o, const char* string, Eina
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(string, 0);
-    WebCore::TextCaseSensitivity sensitive;
+    WTF::TextCaseSensitivity sensitive;
 
     if (case_sensitive)
-        sensitive = WebCore::TextCaseSensitive;
+        sensitive = WTF::TextCaseSensitive;
     else
-        sensitive = WebCore::TextCaseInsensitive;
+        sensitive = WTF::TextCaseInsensitive;
 
-    return priv->page->markAllMatchesForText(WebCore::String::fromUTF8(string), sensitive, highlight, limit);
+    return priv->page->markAllMatchesForText(String::fromUTF8(string), sensitive, highlight, limit);
 }
 
 /**
@@ -1392,88 +1524,96 @@ char* ewk_view_selection_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
-    WTF::CString s = priv->page->focusController()->focusedOrMainFrame()->selectedText().utf8();
+    CString s = priv->page->focusController()->focusedOrMainFrame()->editor()->selectedText().utf8();
     if (s.isNull())
         return 0;
     return strdup(s.data());
 }
 
-static Eina_Bool _ewk_view_editor_command(Ewk_View_Private_Data* priv, const char* command)
+static Eina_Bool _ewk_view_editor_command(Ewk_View_Private_Data* priv, const char* command, const char* value = 0)
 {
-    return priv->page->focusController()->focusedOrMainFrame()->editor()->command(WebCore::String::fromUTF8(command)).execute();
+    return priv->page->focusController()->focusedOrMainFrame()->editor()->command(WTF::String::fromUTF8(command)).execute(value);
 }
 
 /**
- * Unselects whatever was selected.
+ * Executes editor command.
+ *
+ * @param o view object to execute command.
+ * @param command editor command to be executed.
+ * @param value value to be passed into command.
  *
  * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
  */
-Eina_Bool ewk_view_select_none(Evas_Object* o)
+Eina_Bool ewk_view_execute_editor_command(Evas_Object* o, const Ewk_Editor_Command command, const char* value)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "Unselect");
+
+    switch (command) {
+    case EWK_EDITOR_COMMAND_INSERT_IMAGE:
+        return _ewk_view_editor_command(priv, "InsertImage", value);
+    case EWK_EDITOR_COMMAND_INSERT_TEXT:
+        return _ewk_view_editor_command(priv, "InsertText", value);
+    case EWK_EDITOR_COMMAND_SELECT_NONE:
+        return _ewk_view_editor_command(priv, "Unselect");
+    case EWK_EDITOR_COMMAND_SELECT_ALL:
+        return _ewk_view_editor_command(priv, "SelectAll");
+    case EWK_EDITOR_COMMAND_SELECT_PARAGRAPH:
+        return _ewk_view_editor_command(priv, "SelectParagraph");
+    case EWK_EDITOR_COMMAND_SELECT_SENTENCE:
+        return _ewk_view_editor_command(priv, "SelectSentence");
+    case EWK_EDITOR_COMMAND_SELECT_LINE:
+        return _ewk_view_editor_command(priv, "SelectLine");
+    case EWK_EDITOR_COMMAND_SELECT_WORD:
+        return _ewk_view_editor_command(priv, "SelectWord");
+    default:
+        return EINA_FALSE;
+    }
 }
 
-/**
- * Selects everything.
- *
- * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
- */
-Eina_Bool ewk_view_select_all(Evas_Object* o)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "SelectAll");
-}
+#if ENABLE(CONTEXT_MENUS)
 
 /**
- * Selects the current paragrah.
+ * Forwards a request of new Context Menu to WebCore.
+ *
+ * @param o View.
+ * @param ev Event data.
  *
  * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
  */
-Eina_Bool ewk_view_select_paragraph(Evas_Object* o)
+Eina_Bool ewk_view_context_menu_forward_event(Evas_Object* o, const Evas_Event_Mouse_Down* ev)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "SelectParagraph");
+    Eina_Bool mouse_press_handled = EINA_FALSE;
+
+    priv->page->contextMenuController()->clearContextMenu();
+    WebCore::Frame* main_frame = priv->page->mainFrame();
+    Evas_Coord x, y;
+    evas_object_geometry_get(sd->self, &x, &y, 0, 0);
+
+    WebCore::PlatformMouseEvent event(ev, WebCore::IntPoint(x, y));
+
+    if (main_frame->view()) {
+        mouse_press_handled =
+            main_frame->eventHandler()->handleMousePressEvent(event);
+    }
+
+    if (main_frame->eventHandler()->sendContextMenuEvent(event))
+        return EINA_FALSE;
+
+    WebCore::ContextMenu* coreMenu =
+        priv->page->contextMenuController()->contextMenu();
+    if (!coreMenu) {
+        // WebCore decided not to create a context menu, return true if event
+        // was handled by handleMouseReleaseEvent
+        return mouse_press_handled;
+    }
+
+    return EINA_TRUE;
 }
 
-/**
- * Selects the current sentence.
- *
- * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
- */
-Eina_Bool ewk_view_select_sentence(Evas_Object* o)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "SelectSentence");
-}
-
-/**
- * Selects the current line.
- *
- * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
- */
-Eina_Bool ewk_view_select_line(Evas_Object* o)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "SelectLine");
-}
-
-/**
- * Selects the current word.
- *
- * @return @c EINA_TRUE if operation was executed, @c EINA_FALSE otherwise.
- */
-Eina_Bool ewk_view_select_word(Evas_Object* o)
-{
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
-    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return _ewk_view_editor_command(priv, "SelectWord");
-}
+#endif
 
 /**
  * Get current load progress estimate from 0.0 to 1.0.
@@ -1637,7 +1777,7 @@ Eina_Bool ewk_view_history_enable_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    return priv->page->backForwardList()->enabled();
+    return static_cast<WebCore::BackForwardListImpl*>(priv->page->backForwardList())->enabled();
 }
 
 /**
@@ -1653,7 +1793,7 @@ Eina_Bool ewk_view_history_enable_set(Evas_Object* o, Eina_Bool enable)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    priv->page->backForwardList()->setEnabled(enable);
+    static_cast<WebCore::BackForwardListImpl*>(priv->page->backForwardList())->setEnabled(enable);
     return EINA_TRUE;
 }
 
@@ -1677,7 +1817,7 @@ Ewk_History* ewk_view_history_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
-    if (!priv->page->backForwardList()->enabled()) {
+    if (!static_cast<WebCore::BackForwardListImpl*>(priv->page->backForwardList())->enabled()) {
         ERR("asked history, but it's disabled! Returning 0!");
         return 0;
     }
@@ -1710,14 +1850,22 @@ float ewk_view_zoom_get(const Evas_Object* o)
 Eina_Bool ewk_view_zoom_set(Evas_Object* o, float zoom, Evas_Coord cx, Evas_Coord cy)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->zoom_set, EINA_FALSE);
-    if (zoom < ZOOM_MIN) {
-        WRN("zoom level is < %f : %f", (double)ZOOM_MIN, (double)zoom);
+
+    if (!priv->settings.zoom_range.user_scalable) {
+        WRN("userScalable is false");
         return EINA_FALSE;
     }
-    if (zoom > ZOOM_MAX) {
-        WRN("zoom level is > %f : %f", (double)ZOOM_MAX, (double)zoom);
+
+    if (zoom < priv->settings.zoom_range.min_scale) {
+        WRN("zoom level is < %f : %f", (double)priv->settings.zoom_range.min_scale, (double)zoom);
+        return EINA_FALSE;
+    }
+    if (zoom > priv->settings.zoom_range.max_scale) {
+        WRN("zoom level is > %f : %f", (double)priv->settings.zoom_range.max_scale, (double)zoom);
         return EINA_FALSE;
     }
 
@@ -1780,14 +1928,22 @@ void ewk_view_zoom_weak_smooth_scale_set(Evas_Object* o, Eina_Bool smooth_scale)
 Eina_Bool ewk_view_zoom_weak_set(Evas_Object* o, float zoom, Evas_Coord cx, Evas_Coord cy)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->zoom_weak_set, EINA_FALSE);
-    if (zoom < ZOOM_MIN) {
-        WRN("zoom level is < %f : %f", (double)ZOOM_MIN, (double)zoom);
+
+    if (!priv->settings.zoom_range.user_scalable) {
+        WRN("userScalable is false");
         return EINA_FALSE;
     }
-    if (zoom > ZOOM_MAX) {
-        WRN("zoom level is > %f : %f", (double)ZOOM_MAX, (double)zoom);
+
+    if (zoom < priv->settings.zoom_range.min_scale) {
+        WRN("zoom level is < %f : %f", (double)priv->settings.zoom_range.min_scale, (double)zoom);
+        return EINA_FALSE;
+    }
+    if (zoom > priv->settings.zoom_range.max_scale) {
+        WRN("zoom level is > %f : %f", (double)priv->settings.zoom_range.max_scale, (double)zoom);
         return EINA_FALSE;
     }
 
@@ -1930,12 +2086,17 @@ Eina_Bool ewk_view_zoom_animated_set(Evas_Object* o, float zoom, float duration,
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->zoom_weak_set, EINA_FALSE);
 
-    if (zoom < ZOOM_MIN) {
-        WRN("zoom level is < %f : %f", (double)ZOOM_MIN, (double)zoom);
+    if (!priv->settings.zoom_range.user_scalable) {
+        WRN("userScalable is false");
         return EINA_FALSE;
     }
-    if (zoom > ZOOM_MAX) {
-        WRN("zoom level is > %f : %f", (double)ZOOM_MAX, (double)zoom);
+
+    if (zoom < priv->settings.zoom_range.min_scale) {
+        WRN("zoom level is < %f : %f", (double)priv->settings.zoom_range.min_scale, (double)zoom);
+        return EINA_FALSE;
+    }
+    if (zoom > priv->settings.zoom_range.max_scale) {
+        WRN("zoom level is > %f : %f", (double)priv->settings.zoom_range.max_scale, (double)zoom);
         return EINA_FALSE;
     }
 
@@ -2024,9 +2185,18 @@ Eina_Bool ewk_view_zoom_text_only_set(Evas_Object* o, Eina_Bool setting)
 Eina_Bool ewk_view_pre_render_region(Evas_Object* o, Evas_Coord x, Evas_Coord y, Evas_Coord w, Evas_Coord h, float zoom)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->pre_render_region, EINA_FALSE);
-    float cur_zoom = ewk_frame_zoom_get(sd->main_frame);
+    float cur_zoom;
     Evas_Coord cw, ch;
+
+    /* When doing animated zoom it's not possible to call pre-render since it
+     * would screw up parameters that animation is currently using
+     */
+    if (priv->animated_zoom.animator)
+        return EINA_FALSE;
+
+    cur_zoom = ewk_frame_zoom_get(sd->main_frame);
 
     if (cur_zoom < 0.00001)
         return EINA_FALSE;
@@ -2056,6 +2226,49 @@ Eina_Bool ewk_view_pre_render_region(Evas_Object* o, Evas_Coord x, Evas_Coord y,
 }
 
 /**
+ * Hint engine to pre-render region, given n extra cols/rows
+ *
+ * This is an alternative method to ewk_view_pre_render_region(). It does not
+ * make sense in all engines and therefore it might not be implemented at all.
+ *
+ * It's only useful if engine divide the area being rendered in smaller tiles,
+ * forming a grid. Then, browser could call this function to pre-render @param n
+ * rows/cols involving the current viewport.
+ *
+ * @param o view to ask pre-render on.
+ * @param n number of cols/rows that must be part of the region pre-rendered
+ *
+ * @see ewk_view_pre_render_region()
+ */
+Eina_Bool ewk_view_pre_render_relative_radius(Evas_Object* o, unsigned int n)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->pre_render_relative_radius, EINA_FALSE);
+    float cur_zoom;
+
+    if (priv->animated_zoom.animator)
+        return EINA_FALSE;
+
+    cur_zoom = ewk_frame_zoom_get(sd->main_frame);
+    return sd->api->pre_render_relative_radius(sd, n, cur_zoom);
+}
+
+/**
+ * Get input method hints
+ *
+ * @param o View.
+ *
+ * @return input method hints
+ */
+unsigned int ewk_view_imh_get(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
+    return priv->imh;
+}
+
+/**
  * Cancel (clear) previous pre-render requests.
  *
  * @param o view to clear pre-render requests.
@@ -2065,6 +2278,36 @@ void ewk_view_pre_render_cancel(Evas_Object* o)
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EINA_SAFETY_ON_NULL_RETURN(sd->api->pre_render_cancel);
     sd->api->pre_render_cancel(sd);
+}
+
+/**
+  * Enable processing of update requests.
+  *
+  * @param o view to enable rendering.
+  *
+  * @return @c EINA_TRUE if render was enabled, @c EINA_FALSE
+            otherwise (errors, rendering suspension not supported).
+  */
+Eina_Bool ewk_view_enable_render(const Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->enable_render, EINA_FALSE);
+    return sd->api->enable_render(sd);
+}
+
+/**
+  * Disable processing of update requests.
+  *
+  * @param o view to disable rendering.
+  *
+  * @return @c EINA_TRUE if render was disabled, @c EINA_FALSE
+            otherwise (errors, rendering suspension not supported).
+  */
+Eina_Bool ewk_view_disable_render(const Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api->disable_render, EINA_FALSE);
+    return sd->api->disable_render(sd);
 }
 
 const char* ewk_view_setting_user_agent_get(const Evas_Object* o)
@@ -2080,7 +2323,7 @@ Eina_Bool ewk_view_setting_user_agent_set(Evas_Object* o, const char* user_agent
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     if (eina_stringshare_replace(&priv->settings.user_agent, user_agent)) {
         WebCore::FrameLoaderClientEfl* client = static_cast<WebCore::FrameLoaderClientEfl*>(priv->main_frame->loader()->client());
-        client->setCustomUserAgent(WebCore::String::fromUTF8(user_agent));
+        client->setCustomUserAgent(String::fromUTF8(user_agent));
     }
     return EINA_TRUE;
 }
@@ -2097,7 +2340,7 @@ Eina_Bool ewk_view_setting_user_stylesheet_set(Evas_Object* o, const char* uri)
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     if (eina_stringshare_replace(&priv->settings.user_stylesheet, uri)) {
-        WebCore::KURL kurl(WebCore::KURL(), WebCore::String::fromUTF8(uri));
+        WebCore::KURL kurl(WebCore::KURL(), String::fromUTF8(uri));
         priv->page_settings->setUserStyleSheetLocation(kurl);
     }
     return EINA_TRUE;
@@ -2141,6 +2384,39 @@ Eina_Bool ewk_view_setting_auto_shrink_images_set(Evas_Object* o, Eina_Bool auto
     return EINA_TRUE;
 }
 
+/**
+ * Gets if view can be resized automatically.
+ *
+ * @param o view to check status
+ *
+ * @return EINA_TRUE if view can be resized, EINA_FALSE
+ *         otherwise (errors, cannot be resized).
+ */
+Eina_Bool ewk_view_setting_enable_auto_resize_window_get(const Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.enable_auto_resize_window;
+}
+
+/**
+ * Sets if view can be resized automatically.
+ *
+ * @param o View.
+ * @param resizable @c EINA_TRUE if we want to resize automatically;
+ * @c EINA_FALSE otherwise. It defaults to @c EINA_TRUE
+ *
+ * @return EINA_TRUE if auto_resize_window status set, EINA_FALSE
+ *         otherwise (errors).
+ */
+Eina_Bool ewk_view_setting_enable_auto_resize_window_set(Evas_Object* o, Eina_Bool resizable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    priv->settings.enable_auto_resize_window = resizable;
+    return EINA_TRUE;
+}
+
 Eina_Bool ewk_view_setting_enable_scripts_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
@@ -2175,6 +2451,41 @@ Eina_Bool ewk_view_setting_enable_plugins_set(Evas_Object* o, Eina_Bool enable)
     if (priv->settings.enable_plugins != enable) {
         priv->page_settings->setPluginsEnabled(enable);
         priv->settings.enable_plugins = enable;
+    }
+    return EINA_TRUE;
+}
+
+/**
+ * Get status of frame flattening.
+ *
+ * @param o view to check status
+ *
+ * @return EINA_TRUE if flattening is enabled, EINA_FALSE
+ *         otherwise (errors, flattening disabled).
+ */
+Eina_Bool ewk_view_setting_enable_frame_flattening_get(const Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.enable_frame_flattening;
+}
+
+/**
+ * Set frame flattening.
+ *
+ * @param o view to set flattening
+ *
+ * @return EINA_TRUE if flattening status set, EINA_FALSE
+ *         otherwise (errors).
+ */
+Eina_Bool ewk_view_setting_enable_frame_flattening_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.enable_frame_flattening != enable) {
+        priv->page_settings->setFrameFlatteningEnabled(enable);
+        priv->settings.enable_frame_flattening = enable;
     }
     return EINA_TRUE;
 }
@@ -2236,6 +2547,26 @@ Eina_Bool ewk_view_setting_private_browsing_set(Evas_Object* o, Eina_Bool enable
     return EINA_TRUE;
 }
 
+Eina_Bool ewk_view_setting_offline_app_cache_get(const Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.offline_app_cache;
+}
+
+Eina_Bool ewk_view_setting_offline_app_cache_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.offline_app_cache != enable) {
+        priv->page_settings->setOfflineWebApplicationCacheEnabled(enable);
+        priv->settings.offline_app_cache = enable;
+    }
+    return EINA_TRUE;
+}
+
+
 Eina_Bool ewk_view_setting_caret_browsing_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
@@ -2270,7 +2601,7 @@ const char* ewk_view_setting_encoding_custom_get(const Evas_Object* o)
     Evas_Object* main_frame = ewk_view_frame_main_get(o);
     WebCore::Frame* core_frame = ewk_frame_core_get(main_frame);
 
-    WebCore::String overrideEncoding = core_frame->loader()->documentLoader()->overrideEncoding();
+    String overrideEncoding = core_frame->loader()->documentLoader()->overrideEncoding();
 
     if (overrideEncoding.isEmpty())
         return 0;
@@ -2295,7 +2626,7 @@ Eina_Bool ewk_view_setting_encoding_custom_set(Evas_Object* o, const char *encod
     WebCore::Frame* core_frame = ewk_frame_core_get(main_frame);
 DBG("%s", encoding);
     eina_stringshare_replace(&priv->settings.encoding_custom, encoding);
-    core_frame->loader()->reloadWithOverrideEncoding(WebCore::String::fromUTF8(encoding));
+    core_frame->loader()->reloadWithOverrideEncoding(String::fromUTF8(encoding));
 
     return EINA_TRUE;
 }
@@ -2312,8 +2643,39 @@ Eina_Bool ewk_view_setting_encoding_default_set(Evas_Object* o, const char* enco
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     if (eina_stringshare_replace(&priv->settings.encoding_default, encoding))
-        priv->page_settings->setDefaultTextEncodingName(WebCore::String::fromUTF8(encoding));
+        priv->page_settings->setDefaultTextEncodingName(String::fromUTF8(encoding));
     return EINA_TRUE;
+}
+
+/**
+ * Sets the encoding detector.
+ *
+ * @param o view object to set if encoding detector is enabled.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_encoding_detector_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.encoding_detector != enable) {
+        priv->page_settings->setUsesEncodingDetector(enable);
+        priv->settings.encoding_detector = enable;
+    }
+    return EINA_TRUE;
+}
+
+/**
+ * Gets if the encoding detector is enabled.
+ *
+ * @param o view object to get if encoding detector is enabled.
+ * @return @c EINA_TRUE if encoding detector is enabled, @c EINA_FALSE if not or on errors.
+ */
+Eina_Bool ewk_view_setting_encoding_detector_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.encoding_detector;
 }
 
 int ewk_view_setting_font_minimum_size_get(const Evas_Object* o)
@@ -2399,10 +2761,8 @@ Eina_Bool ewk_view_setting_font_standard_set(Evas_Object* o, const char* family)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_standard, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setStandardFontFamily(s);
-    }
+    if (eina_stringshare_replace(&priv->settings.font_standard, family))
+        priv->page_settings->setStandardFontFamily(AtomicString::fromUTF8(family));
     return EINA_TRUE;
 }
 
@@ -2417,10 +2777,8 @@ Eina_Bool ewk_view_setting_font_cursive_set(Evas_Object* o, const char* family)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_cursive, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setCursiveFontFamily(s);
-    }
+    if (eina_stringshare_replace(&priv->settings.font_cursive, family))
+        priv->page_settings->setCursiveFontFamily(AtomicString::fromUTF8(family));
     return EINA_TRUE;
 }
 
@@ -2435,10 +2793,8 @@ Eina_Bool ewk_view_setting_font_fantasy_set(Evas_Object* o, const char* family)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_fantasy, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setFantasyFontFamily(s);
-    }
+    if (eina_stringshare_replace(&priv->settings.font_fantasy, family))
+        priv->page_settings->setFantasyFontFamily(AtomicString::fromUTF8(family));
     return EINA_TRUE;
 }
 
@@ -2453,10 +2809,8 @@ Eina_Bool ewk_view_setting_font_monospace_set(Evas_Object* o, const char* family
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_monospace, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setFixedFontFamily(s);
-    }
+    if (eina_stringshare_replace(&priv->settings.font_monospace, family))
+        priv->page_settings->setFixedFontFamily(AtomicString::fromUTF8(family));
     return EINA_TRUE;
 }
 
@@ -2471,10 +2825,8 @@ Eina_Bool ewk_view_setting_font_serif_set(Evas_Object* o, const char* family)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_serif, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setSerifFontFamily(s);
-    }
+    if (eina_stringshare_replace(&priv->settings.font_serif, family))
+        priv->page_settings->setSerifFontFamily(AtomicString::fromUTF8(family));
     return EINA_TRUE;
 }
 
@@ -2489,10 +2841,129 @@ Eina_Bool ewk_view_setting_font_sans_serif_set(Evas_Object* o, const char* famil
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
-    if (eina_stringshare_replace(&priv->settings.font_sans_serif, family)) {
-        WebCore::AtomicString s = WebCore::String::fromUTF8(family);
-        priv->page_settings->setSansSerifFontFamily(s);
+    if (eina_stringshare_replace(&priv->settings.font_sans_serif, family))
+        priv->page_settings->setSansSerifFontFamily(AtomicString::fromUTF8(family));
+    return EINA_TRUE;
+}
+
+/**
+ * Gets if the spatial naviagtion is enabled.
+ *
+ * @param o view object to get spatial navigation setting.
+ * @return @c EINA_TRUE if spatial navigation is enabled, @c EINA_FALSE if not or on errors.
+ */
+Eina_Bool ewk_view_setting_spatial_navigation_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.spatial_navigation;
+}
+
+/**
+ * Sets the spatial navigation.
+ *
+ * @param o view object to set spatial navigation setting.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.spatial_navigation != enable) {
+        priv->page_settings->setSpatialNavigationEnabled(enable);
+        priv->settings.spatial_navigation = enable;
     }
+    return EINA_TRUE;
+}
+
+/**
+ * Gets if the local storage is enabled.
+ *
+ * @param o view object to get if local storage is enabled.
+ * @return @c EINA_TRUE if local storage is enabled, @c EINA_FALSE if not or on errors.
+ */
+Eina_Bool ewk_view_setting_local_storage_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.local_storage;
+}
+
+/**
+ * Sets the local storage of HTML5.
+ *
+ * @param o view object to set if local storage is enabled.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_local_storage_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.local_storage != enable) {
+        priv->page_settings->setLocalStorageEnabled(enable);
+        priv->settings.local_storage = enable;
+    }
+    return EINA_TRUE;
+}
+
+/**
+ * Gets if the page cache is enabled.
+ *
+ * @param o view object to set if page cache is enabled.
+ * @return @c EINA_TRUE if page cache is enabled, @c EINA_FALSE if not.
+ */
+Eina_Bool ewk_view_setting_page_cache_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.page_cache;
+}
+
+/**
+ * Sets the page cache.
+ *
+ * @param o view object to set if page cache is enabled.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_page_cache_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.page_cache != enable) {
+        priv->page_settings->setUsesPageCache(enable);
+        priv->settings.page_cache = enable;
+    }
+    return EINA_TRUE;
+}
+
+/*
+ * Gets the local storage database path.
+ *
+ * @param o view object to get the local storage database path.
+ * @return the local storage database path.
+ */
+const char* ewk_view_setting_local_storage_database_path_get(const Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
+    return priv->settings.local_storage_database_path;
+}
+
+/**
+ * Sets the local storage database path.
+ *
+ * @param o view object to set the local storage database path.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_local_storage_database_path_set(Evas_Object* o, const char* path)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    if (eina_stringshare_replace(&priv->settings.local_storage_database_path, path))
+        priv->page_settings->setLocalStorageDatabasePath(String::fromUTF8(path));
     return EINA_TRUE;
 }
 
@@ -2601,7 +3072,7 @@ void ewk_view_layout_if_needed_recursive(Ewk_View_Private_Data* priv)
         ERR("no main frame view");
         return;
     }
-    v->layoutIfNeededRecursive();
+    v->updateLayoutAndStyleIfNeededRecursive();
 }
 
 void ewk_view_scrolls_process(Ewk_View_Smart_Data* sd)
@@ -2932,6 +3403,46 @@ void ewk_view_ready(Evas_Object* o)
 
 /**
  * @internal
+ * Reports the state of input method changed. This is triggered, for example
+ * when a input field received/lost focus
+ *
+ * Emits signal: "inputmethod,changed" with a boolean indicating whether it's
+ * enabled or not.
+ */
+void ewk_view_input_method_state_set(Evas_Object* o, Eina_Bool active)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+    WebCore::Frame* focusedFrame = priv->page->focusController()->focusedOrMainFrame();
+
+    if (focusedFrame
+        && focusedFrame->document()
+        && focusedFrame->document()->focusedNode()
+        && focusedFrame->document()->focusedNode()->hasTagName(WebCore::HTMLNames::inputTag)) {
+        WebCore::HTMLInputElement* inputElement;
+
+        inputElement = static_cast<WebCore::HTMLInputElement*>(focusedFrame->document()->focusedNode());
+        if (inputElement) {
+            priv->imh = 0;
+            // for password fields, active == false
+            if (!active) {
+                active = inputElement->isPasswordField();
+                priv->imh = inputElement->isPasswordField() * EWK_IMH_PASSWORD;
+            } else {
+                // Set input method hints for "number", "tel", "email", and "url" input elements.
+                priv->imh |= inputElement->isTelephoneField() * EWK_IMH_TELEPHONE;
+                priv->imh |= inputElement->isNumberField() * EWK_IMH_NUMBER;
+                priv->imh |= inputElement->isEmailField() * EWK_IMH_EMAIL;
+                priv->imh |= inputElement->isURLField() * EWK_IMH_URL;
+            }
+        }
+    }
+
+    evas_object_smart_callback_call(o, "inputmethod,changed", (void*)active);
+}
+
+/**
+ * @internal
  * The view title was changed by the frame loader.
  *
  * Emits signal: "title,changed" with pointer to new title string.
@@ -3106,21 +3617,57 @@ void ewk_view_restore_state(Evas_Object* o, Evas_Object* frame)
 /**
  * @internal
  * Delegates to browser the creation of a new window. If it is not implemented,
- * current view is returned, so navigation might continue in same window.
+ * current view is returned, so navigation might continue in same window. If
+ * browser supports the creation of new windows, a new Ewk_Window_Features is
+ * created and passed to browser. If it intends to keep the request for opening
+ * the window later it must increments the Ewk_Winwdow_Features ref count by
+ * calling ewk_window_features_ref(window_features). Otherwise this struct will
+ * be freed after returning to this function.
  *
  * @param o Current view.
+ * @param javascript @c EINA_TRUE if the new window is originated from javascript,
+ * @c EINA_FALSE otherwise
+ * @param window_features Features of the new window being created. If it's @c
+ * NULL, it will be created a window with default features.
  *
  * @return New view, in case smart class implements the creation of new windows;
  * else, current view @param o.
+ *
+ * @see ewk_window_features_ref().
  */
-Evas_Object* ewk_view_window_create(Evas_Object* o)
+Evas_Object* ewk_view_window_create(Evas_Object* o, Eina_Bool javascript, const WebCore::WindowFeatures* coreFeatures)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
 
     if (!sd->api->window_create)
         return o;
 
-    return sd->api->window_create(sd);
+    Ewk_Window_Features* window_features = ewk_window_features_new_from_core(coreFeatures);
+    Evas_Object* view = sd->api->window_create(sd, javascript, window_features);
+    ewk_window_features_unref(window_features);
+
+    return view;
+}
+
+/**
+ * @internal
+ * Reports a window should be closed. It's client responsibility to decide if
+ * the window should in fact be closed. So, if only windows created by javascript
+ * are allowed to be closed by this call, browser needs to save the javascript
+ * flag when the window is created. Since a window can close itself (for example
+ * with a 'self.close()' in Javascript) browser must postpone the deletion to an
+ * idler.
+ *
+ * @param o View to be closed.
+ */
+void ewk_view_window_close(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+
+    ewk_view_stop(o);
+    if (!sd->api->window_close)
+        return;
+    sd->api->window_close(sd);
 }
 
 /**
@@ -3393,14 +3940,20 @@ Eina_Bool ewk_view_should_interrupt_javascript(Evas_Object* o)
  * @param o View.
  * @param frame The frame whose web page exceeded its database quota.
  * @param databaseName Database name.
+ * @param current_size Current size of this database
+ * @param expected_size The expected size of this database in order to fulfill
+ * site's requirement.
  */
-void ewk_view_exceeded_database_quota(Evas_Object* o, Evas_Object* frame, const char* databaseName)
+uint64_t ewk_view_exceeded_database_quota(Evas_Object* o, Evas_Object* frame, const char* databaseName, uint64_t current_size, uint64_t expected_size)
 {
     DBG("o=%p", o);
-    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
-    EINA_SAFETY_ON_NULL_RETURN(sd->api);
-    EINA_SAFETY_ON_NULL_RETURN(sd->api->exceeded_database_quota);
-    sd->api->exceeded_database_quota(sd, frame, databaseName);
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, 0);
+    if (!sd->api->exceeded_database_quota)
+        return 0;
+
+    INF("current_size=%"PRIu64" expected_size=%"PRIu64, current_size, expected_size);
+    return sd->api->exceeded_database_quota(sd, frame, databaseName, current_size, expected_size);
 }
 
 /**
@@ -3464,6 +4017,7 @@ void ewk_view_scroll(Evas_Object* o, Evas_Coord dx, Evas_Coord dy, Evas_Coord sx
     EINA_SAFETY_ON_TRUE_RETURN(!dx && !dy);
 
     _ewk_view_scroll_add(priv, dx, dy, sx, sy, sw, sh, main_frame);
+
     _ewk_view_smart_changed(sd);
 }
 
@@ -3479,7 +4033,7 @@ WebCore::Page* ewk_view_core_page_get(const Evas_Object* o)
  *
  * Emits "frame,created" with the new frame object on success.
  */
-WTF::PassRefPtr<WebCore::Frame> ewk_view_frame_create(Evas_Object* o, Evas_Object* frame, const WebCore::String& name, WebCore::HTMLFrameOwnerElement* ownerElement, const WebCore::KURL& url, const WebCore::String& referrer)
+WTF::PassRefPtr<WebCore::Frame> ewk_view_frame_create(Evas_Object* o, Evas_Object* frame, const WTF::String& name, WebCore::HTMLFrameOwnerElement* ownerElement, const WebCore::KURL& url, const WTF::String& referrer)
 {
     DBG("o=%p, frame=%p, name=%s, ownerElement=%p, url=%s, referrer=%s",
         o, frame, name.utf8().data(), ownerElement,
@@ -3511,7 +4065,7 @@ WTF::PassRefPtr<WebCore::Frame> ewk_view_frame_create(Evas_Object* o, Evas_Objec
     return cf.release();
 }
 
-WTF::PassRefPtr<WebCore::Widget> ewk_view_plugin_create(Evas_Object* o, Evas_Object* frame, const WebCore::IntSize& pluginSize, WebCore::HTMLPlugInElement* element, const WebCore::KURL& url, const WTF::Vector<WebCore::String>& paramNames, const WTF::Vector<WebCore::String>& paramValues, const WebCore::String& mimeType, bool loadManually)
+WTF::PassRefPtr<WebCore::Widget> ewk_view_plugin_create(Evas_Object* o, Evas_Object* frame, const WebCore::IntSize& pluginSize, WebCore::HTMLPlugInElement* element, const WebCore::KURL& url, const WTF::Vector<WTF::String>& paramNames, const WTF::Vector<WTF::String>& paramValues, const WTF::String& mimeType, bool loadManually)
 {
     DBG("o=%p, frame=%p, size=%dx%d, element=%p, url=%s, mimeType=%s",
         o, frame, pluginSize.width(), pluginSize.height(), element,
@@ -3623,6 +4177,7 @@ void ewk_view_popup_selected_set(Evas_Object* o, int index)
     INF("o=%p", o);
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+    EINA_SAFETY_ON_NULL_RETURN(priv->popup.menu_client);
 
     priv->popup.menu_client->valueChanged(index);
 }
@@ -3642,3 +4197,263 @@ void ewk_view_download_request(Evas_Object* o, Ewk_Download* download)
     DBG("view=%p", o);
     evas_object_smart_callback_call(o, "download,request", download);
 }
+
+/**
+ * @internal
+ * Reports the viewport has changed.
+ *
+ * @param arguments viewport argument.
+ *
+ * Emits signal: "viewport,changed" with no parameters.
+ */
+void ewk_view_viewport_attributes_set(Evas_Object *o, const WebCore::ViewportArguments& arguments)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+    
+    priv->viewport_arguments = arguments;
+    evas_object_smart_callback_call(o, "viewport,changed", 0);
+}
+
+/**
+ * Gets attributes of viewport meta tag.
+ *
+ * @param o view.
+ * @param w width.
+ * @param h height.
+ * @param init_scale initial Scale value.
+ * @param max_scale maximum Scale value.
+ * @param min_scale minimum Scale value.
+ * @param device_pixel_ratio value.
+ * @param user_scalable user Scalable value.
+ */
+void ewk_view_viewport_attributes_get(Evas_Object *o, float* w, float* h, float* init_scale, float* max_scale, float* min_scale, float* device_pixel_ratio, Eina_Bool* user_scalable)
+{
+    WebCore::ViewportAttributes attributes = _ewk_view_viewport_attributes_compute(o);
+
+    if (w)
+        *w = attributes.layoutSize.width();
+    if (h)
+        *h = attributes.layoutSize.height();
+    if (init_scale)
+        *init_scale = attributes.initialScale;
+    if (max_scale)
+        *max_scale = attributes.maximumScale;
+    if (min_scale)
+        *min_scale = attributes.minimumScale;
+    if (device_pixel_ratio)
+        *device_pixel_ratio = attributes.devicePixelRatio;
+    if (user_scalable)
+        *user_scalable = static_cast<bool>(attributes.userScalable);
+}
+
+/**
+ * Sets the zoom range.
+ *
+ * @param o view.
+ * @param min_scale minimum value of zoom range.
+ * @param max_scale maximum value of zoom range.
+ * 
+ * @return @c EINA_TRUE if zoom range is changed, @c EINA_FALSE if not or failure.
+ */
+Eina_Bool ewk_view_zoom_range_set(Evas_Object* o, float min_scale, float max_scale)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    if (max_scale < min_scale) {
+        WRN("min_scale is larger than max_scale");
+        return EINA_FALSE;
+    }
+
+    priv->settings.zoom_range.min_scale = min_scale;
+    priv->settings.zoom_range.max_scale = max_scale;
+
+    return EINA_TRUE;
+}
+
+/**
+ * Gets the minimum value of zoom range.
+ *
+ * @param o view.
+ *
+ * @return minimum value of zoom range.
+ */
+float ewk_view_zoom_range_min_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    return priv->settings.zoom_range.min_scale;
+}
+
+/**
+ * Gets the maximum value of zoom range.
+ *
+ * @param o view.
+ *
+ * @return maximum value of zoom range.
+ */
+float ewk_view_zoom_range_max_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    return priv->settings.zoom_range.max_scale;
+}
+
+/**
+ * Sets if zoom is enabled.
+ *
+ * @param o view.
+ * @param user_scalable boolean pointer in which to enable zoom. It defaults
+ * to @c EINA_TRUE.
+ */
+void ewk_view_user_scalable_set(Evas_Object* o, Eina_Bool user_scalable)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    priv->settings.zoom_range.user_scalable = user_scalable;
+}
+
+/**
+ * Gets if zoom is enabled.
+ *
+ * @param o view.
+ * @param user_scalable where to return the current user scalable value.
+ *
+ * @return @c EINA_TRUE if zoom is enabled, @c EINA_FALSE if not.
+ */
+Eina_Bool ewk_view_user_scalable_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    return priv->settings.zoom_range.user_scalable;
+}
+
+/**
+ * Gets device pixel ratio value.
+ *
+ * @param o view.
+ * @param user_scalable where to return the current user scalable value.
+ *
+ * @return @c EINA_TRUE if zoom is enabled, @c EINA_FALSE if not.
+ */
+float ewk_view_device_pixel_ratio_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    return priv->settings.device_pixel_ratio;
+}
+
+void ewk_view_did_first_visually_nonempty_layout(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+    if (!priv->flags.view_cleared) {
+        ewk_view_frame_main_cleared(o);
+        ewk_view_enable_render(o);
+        priv->flags.view_cleared = EINA_TRUE;
+    }
+}
+
+/**
+ * @internal
+ * Dispatch finished loading.
+ *
+ * @param o view.
+ */
+void ewk_view_dispatch_did_finish_loading(Evas_Object *o)
+{
+    /* If we reach this point and rendering is still disabled, WebCore will not
+     * trigger the didFirstVisuallyNonEmptyLayout signal anymore. So, we
+     * forcefully re-enable the rendering.
+     */
+    ewk_view_did_first_visually_nonempty_layout(o);
+}
+
+void ewk_view_transition_to_commited_for_newpage(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+
+    ewk_view_disable_render(o);
+    priv->flags.view_cleared = EINA_FALSE;
+}
+
+
+/**
+ * @internal
+ * Reports a requeset will be loaded. It's client responsibility to decide if
+ * request would be used. If @return is true, loader will try to load. Else,
+ * Loader ignore action of request.
+ *
+ * @param o View to load
+ * @param request Request which contain url to navigate
+ */
+Eina_Bool ewk_view_navigation_policy_decision(Evas_Object* o, Ewk_Frame_Resource_Request* request)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_TRUE);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, EINA_TRUE);
+
+    if (!sd->api->navigation_policy_decision)
+        return EINA_TRUE;
+
+    return sd->api->navigation_policy_decision(sd, request);
+}
+
+/**
+ * @internal
+ * Reports that the contents have resized. The ewk_view calls contents_resize,
+ * which can be reimplemented as needed.
+ *
+ * @param o view.
+ * @param w new content width.
+ * @param h new content height.
+ */
+void ewk_view_contents_size_changed(Evas_Object *o, int w, int h)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EINA_SAFETY_ON_NULL_RETURN(sd->api);
+    EINA_SAFETY_ON_NULL_RETURN(sd->api->contents_resize);
+
+    if (!sd->api->contents_resize(sd, w, h))
+        ERR("failed to resize contents to %dx%d", w, h);
+}
+
+/**
+ * @internal
+ * Gets page size from frameview. 
+ *
+ * @param o view.
+ *
+ * @return page size.
+ */
+WebCore::FloatRect ewk_view_page_rect_get(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    WebCore::Frame* main_frame = priv->page->mainFrame();
+    return main_frame->view()->frameRect();
+} 
+
+#if ENABLE(TOUCH_EVENTS)
+void ewk_view_need_touch_events_set(Evas_Object* o, bool needed)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    priv->flags.need_touch_events = needed;
+}
+
+Eina_Bool ewk_view_need_touch_events_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->flags.need_touch_events;
+}
+#endif

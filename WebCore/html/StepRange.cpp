@@ -23,9 +23,9 @@
 
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
-#include "PlatformString.h"
+#include "HTMLParserIdioms.h"
 #include <wtf/MathExtras.h>
+#include <wtf/text/WTFString.h>
 
 using namespace std;
 

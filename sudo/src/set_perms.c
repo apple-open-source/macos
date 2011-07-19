@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994-1996,1998-2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1994-1996,1998-2010 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -34,11 +34,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -48,12 +47,12 @@
 #ifdef HAVE_LOGIN_CAP_H
 # include <login_cap.h>
 #endif
+#ifdef HAVE_PROJECT_H
+# include <project.h>
+# include <sys/task.h>
+#endif
 
 #include "sudo.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: set_perms.c,v 1.44 2008/03/06 17:19:56 millert Exp $";
-#endif /* lint */
 
 #ifdef __TANDEM
 # define ROOT_UID	65535
@@ -77,14 +76,18 @@ static int current_perm = -1;
  * We only flip the effective gid since it only changes for PERM_SUDOERS.
  * This version of set_perms() works fine with the "stay_setuid" option.
  */
-void
+int
 set_perms(perm)
     int perm;
 {
     const char *errstr;
+    int noexit;
+
+    noexit = ISSET(perm, PERM_NOEXIT);
+    CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return;
+	return(1);
 
     switch (perm) {
 	case PERM_ROOT:
@@ -169,10 +172,13 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return;
+    return(1);
 bad:
-    errorx(1, "%s: %s", errstr,
+    warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
+    if (noexit)
+	return(0);
+    exit(1);
 }
 
 #else
@@ -184,14 +190,18 @@ bad:
  * we are headed for an exec().
  * This version of set_perms() works fine with the "stay_setuid" option.
  */
-void
+int
 set_perms(perm)
     int perm;
 {
     const char *errstr;
+    int noexit;
+
+    noexit = ISSET(perm, PERM_NOEXIT);
+    CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return;
+	return(1);
 
     switch (perm) {
 	case PERM_ROOT:
@@ -279,10 +289,13 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return;
+    return(1);
 bad:
-    errorx(1, "%s: %s", errstr,
+    warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
+    if (noexit)
+	return(0);
+    exit(1);
 }
 
 # else /* !HAVE_SETRESUID && !HAVE_SETREUID */
@@ -292,14 +305,18 @@ bad:
  * Set real and effective uids and gids based on perm.
  * NOTE: does not support the "stay_setuid" option.
  */
-void
+int
 set_perms(perm)
     int perm;
 {
     const char *errstr;
+    int noexit;
+
+    noexit = ISSET(perm, PERM_NOEXIT);
+    CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return;
+	return(1);
 
     /*
      * Since we only have setuid() and seteuid() and semantics
@@ -391,10 +408,13 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return;
+    return(1);
 bad:
-    errorx(1, "%s: %s", errstr,
+    warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
+    if (noexit)
+	return(0);
+    exit(1);
 }
 
 # else /* !HAVE_SETRESUID && !HAVE_SETREUID && !HAVE_SETEUID */
@@ -404,14 +424,18 @@ bad:
  * NOTE: does not support the "stay_setuid" or timestampowner options.
  *       Also, SUDOERS_UID and SUDOERS_GID are not used.
  */
-void
+int
 set_perms(perm)
     int perm;
 {
     const char *errstr;
+    int noexit;
+
+    noexit = ISSET(perm, PERM_NOEXIT);
+    CLR(perm, PERM_MASK);
 
     if (perm == current_perm)
-	return;
+	return(1);
 
     switch (perm) {
 	case PERM_ROOT:
@@ -448,10 +472,13 @@ set_perms(perm)
     }
 
     current_perm = perm;
-    return;
+    return(1);
 bad:
-    errorx(1, "%s: %s", errstr,
+    warningx("%s: %s", errstr,
 	errno == EAGAIN ? "too many processes" : strerror(errno));
+    if (noexit)
+	return(0);
+    exit(1);
 }
 #  endif /* HAVE_SETEUID */
 # endif /* HAVE_SETREUID */
@@ -462,8 +489,11 @@ static void
 runas_setgroups()
 {
     static int ngroups = -1;
+# ifdef HAVE_GETGROUPS
     static GETGROUPS_T *groups;
-    struct passwd *pw;
+# endif
+    static struct passwd *pw;
+    struct passwd *opw = pw;
 
     if (def_preserve_groups)
 	return;
@@ -471,25 +501,37 @@ runas_setgroups()
     /*
      * Use stashed copy of runas groups if available, else initgroups and stash.
      */
-    if (ngroups == -1) {
-	pw = runas_pw ? runas_pw : sudo_user.pw;
+    pw = runas_pw ? runas_pw : sudo_user.pw;
+    if (pw != opw) {
+# ifdef HAVE_SETAUTHDB
+	aix_setauthdb(pw->pw_name);
+# endif
 	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
 	    log_error(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
-	if ((ngroups = getgroups(0, NULL)) < 0)
-	    log_error(USE_ERRNO|MSG_ONLY, "can't get runas ngroups");
-	groups = emalloc2(ngroups, sizeof(GETGROUPS_T));
-	if (getgroups(ngroups, groups) < 0)
-	    log_error(USE_ERRNO|MSG_ONLY, "can't get runas group vector");
+# ifdef HAVE_GETGROUPS
+	if (groups) {
+	    efree(groups);
+	    groups = NULL;
+	}
+	if ((ngroups = getgroups(0, NULL)) > 0) {
+	    groups = emalloc2(ngroups, sizeof(GETGROUPS_T));
+	    if (getgroups(ngroups, groups) < 0)
+		log_error(USE_ERRNO|MSG_ONLY, "can't get runas group vector");
+	}
+#  ifdef HAVE_SETAUTHDB
+	aix_restoreauthdb();
+#  endif
     } else {
 	if (setgroups(ngroups, groups) < 0)
 	    log_error(USE_ERRNO|MSG_ONLY, "can't set runas group vector");
+# endif /* HAVE_GETGROUPS */
     }
 }
 
 static void
 restore_groups()
 {
-    if (setgroups(user_ngroups, user_groups) < 0)
+    if (user_ngroups >= 0 && setgroups(user_ngroups, user_groups) < 0)
 	log_error(USE_ERRNO|MSG_ONLY, "can't reset user group vector");
 }
 
@@ -509,6 +551,69 @@ restore_groups()
 
 #endif /* HAVE_INITGROUPS */
 
+#ifdef HAVE_PROJECT_H
+static void
+set_project(pw)
+    struct passwd *pw;
+{
+    struct project proj;
+    char buf[PROJECT_BUFSZ];
+    int errval;
+
+    /*
+     * Collect the default project for the user and settaskid
+     */
+    setprojent();
+    if (getdefaultproj(pw->pw_name, &proj, buf, sizeof(buf)) != NULL) {
+	errval = setproject(proj.pj_name, pw->pw_name, TASK_NORMAL);
+	switch(errval) {
+	case 0:
+	    break;
+	case SETPROJ_ERR_TASK:
+	    switch (errno) {
+	    case EAGAIN:
+		warningx("resource control limit has been reached");
+		break;
+	    case ESRCH:
+		warningx("user \"%s\" is not a member of project \"%s\"",
+		    pw->pw_name, proj.pj_name);
+		break;
+	    case EACCES:
+		warningx("the invoking task is final");
+		break;
+	    default:
+		warningx("could not join project \"%s\"", proj.pj_name);
+	    }
+	case SETPROJ_ERR_POOL:
+	    switch (errno) {
+	    case EACCES:
+		warningx("no resource pool accepting default bindings "
+		    "exists for project \"%s\"", proj.pj_name);
+		break;
+	    case ESRCH:
+		warningx("specified resource pool does not exist for "
+		    "project \"%s\"", proj.pj_name);
+		break;
+	    default:
+		warningx("could not bind to default resource pool for "
+		    "project \"%s\"", proj.pj_name);
+	    }
+	    break;
+	default:
+	    if (errval <= 0) {
+		warningx("setproject failed for project \"%s\"", proj.pj_name);
+	    } else {
+		warningx("warning, resource control assignment failed for "
+		    "project \"%s\"", proj.pj_name);
+	    }
+	}
+    } else {
+	warning("getdefaultproj");
+    }
+    endprojent();
+}
+#endif /* HAVE_PROJECT_H */
+
 static void
 runas_setup()
 {
@@ -520,23 +625,22 @@ runas_setup()
 
     if (runas_pw->pw_name != NULL) {
 	gid = runas_gr ? runas_gr->gr_gid : runas_pw->pw_gid;
+#ifdef HAVE_PROJECT_H
+	set_project(runas_pw);
+#endif
 #ifdef HAVE_GETUSERATTR
-	aix_setlimits(runas_pw->pw_name);
+	aix_prep_user(runas_pw->pw_name, user_ttypath);
 #endif
 #ifdef HAVE_PAM
-	pam_prep_user(runas_pw);
+	pam_begin_session(runas_pw);
 #endif /* HAVE_PAM */
 
 #ifdef HAVE_LOGIN_CAP_H
 	if (def_use_loginclass) {
 	    /*
-             * We only use setusercontext() set the nice value and rlimits.
+             * We only use setusercontext() to set the nice value and rlimits.
 	     */
 	    flags = LOGIN_SETRESOURCES|LOGIN_SETPRIORITY;
-	    if (!def_preserve_groups)
-		SET(flags, LOGIN_SETGROUP);
-	    else if (setgid(gid))
-		warning("cannot set gid to runas gid");
 	    if (setusercontext(lc, runas_pw, runas_pw->pw_uid, flags)) {
 		if (runas_pw->pw_uid != ROOT_UID)
 		    error(1, "unable to set user context");
@@ -545,11 +649,15 @@ runas_setup()
 	    }
 	}
 #endif /* HAVE_LOGIN_CAP_H */
-	if (setgid(gid))
-	    warning("cannot set gid to runas gid");
 	/*
 	 * Initialize group vector
 	 */
 	runas_setgroups();
+#ifdef HAVE_SETEUID
+	if (setegid(gid))
+	    warning("cannot set egid to runas gid");
+#endif
+	if (setgid(gid))
+	    warning("cannot set gid to runas gid");
     }
 }

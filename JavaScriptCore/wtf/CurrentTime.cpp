@@ -35,7 +35,7 @@
 
 #if OS(WINDOWS)
 
-// Windows is first since we want to use hires timers, despite PLATFORM(CF)
+// Windows is first since we want to use hires timers, despite USE(CF)
 // being defined.
 // If defined, WIN32_LEAN_AND_MEAN disables timeBeginPeriod/timeEndPeriod.
 #undef WIN32_LEAN_AND_MEAN
@@ -163,7 +163,6 @@ double currentTime()
     // QueryPerformanceCounter has high resolution, but is only usable to measure time intervals.
     // To combine them, we call ftime and QueryPerformanceCounter initially. Later calls will use QueryPerformanceCounter
     // by itself, adding the delta to the saved ftime.  We periodically re-sync to correct for drift.
-    static bool started;
     static double syncLowResUTCTime;
     static double syncHighResUpTime;
     static double lastUTCTime;

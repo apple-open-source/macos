@@ -29,7 +29,9 @@
 #include "PluginView.h"
 
 #include "BitmapImage.h"
-#include "Bridge.h"
+#include "BridgeJSC.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -48,6 +50,7 @@
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
 #include "KeyboardEvent.h"
+#include "LocalWindowsContext.h"
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
 #include "Page.h"
@@ -58,7 +61,6 @@
 #include "PluginMessageThrottlerWin.h"
 #include "PluginPackage.h"
 #include "RenderWidget.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "WebCoreInstanceHandle.h"
 #include "c_instance.h"
@@ -79,7 +81,8 @@
 #define LOG_PLUGIN_NET_ERROR()
 #endif
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
+#include "PlatformContextCairo.h"
 #include <cairo-win32.h>
 #endif
 
@@ -371,7 +374,7 @@ PluginView::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     if (message == WM_USER + 1 &&
         m_plugin->quirks().contains(PluginQuirkThrottleWMUserPlusOneMessages)) {
         if (!m_messageThrottler)
-            m_messageThrottler.set(new PluginMessageThrottlerWin(this));
+            m_messageThrottler = adoptPtr(new PluginMessageThrottlerWin(this));
 
         m_messageThrottler->appendMessage(hWnd, message, wParam, lParam);
         return 0;
@@ -445,7 +448,7 @@ void PluginView::updatePluginWidget()
             rgn = ::CreateRectRgn(0, 0, 0, 0);
             ::SetWindowRgn(platformPluginWidget(), rgn, FALSE);
         } else {
-            rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.right(), m_clipRect.bottom());
+            rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY());
             ::SetWindowRgn(platformPluginWidget(), rgn, TRUE);
         }
 
@@ -453,7 +456,7 @@ void PluginView::updatePluginWidget()
             ::MoveWindow(platformPluginWidget(), m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height(), TRUE);
 
         if (clipToZeroRect) {
-            rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.right(), m_clipRect.bottom());
+            rgn = ::CreateRectRgn(m_clipRect.x(), m_clipRect.y(), m_clipRect.maxX(), m_clipRect.maxY());
             ::SetWindowRgn(platformPluginWidget(), rgn, TRUE);
         }
 
@@ -517,30 +520,23 @@ bool PluginView::dispatchNPEvent(NPEvent& npEvent)
 void PluginView::paintIntoTransformedContext(HDC hdc)
 {
     if (m_isWindowed) {
+#if !OS(WINCE)
         SendMessage(platformPluginWidget(), WM_PRINTCLIENT, reinterpret_cast<WPARAM>(hdc), PRF_CLIENT | PRF_CHILDREN | PRF_OWNED);
+#endif
         return;
     }
 
     m_npWindow.type = NPWindowTypeDrawable;
     m_npWindow.window = hdc;
 
-    WINDOWPOS windowpos = { 0 };
+    WINDOWPOS windowpos = { 0, 0, 0, 0, 0, 0, 0 };
 
-#if OS(WINCE)
     IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
 
     windowpos.x = r.x();
     windowpos.y = r.y();
     windowpos.cx = r.width();
     windowpos.cy = r.height();
-#else
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
-
-    windowpos.x = p.x();
-    windowpos.y = p.y();
-    windowpos.cx = frameRect().width();
-    windowpos.cy = frameRect().height();
-#endif
 
     NPEvent npEvent;
     npEvent.event = WM_WINDOWPOSCHANGED;
@@ -570,16 +566,16 @@ void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const 
     ASSERT(parent()->isFrameView());
     IntPoint locationInWindow = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
 
-    HDC hdc = context->getWindowsContext(frameRect(), false);
+    LocalWindowsContext windowsContext(context, frameRect(), false);
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
     // Must flush drawings up to this point to the backing metafile, otherwise the
     // plugin region will be overwritten with any clear regions specified in the
     // cairo-controlled portions of the rendering.
-    PlatformGraphicsContext* ctx = context->platformContext();
-    cairo_show_page(ctx);
+    cairo_show_page(context->platformContext()->cr());
 #endif
 
+    HDC hdc = windowsContext.hdc();
     XFORM originalTransform;
     GetWorldTransform(hdc, &originalTransform);
 
@@ -594,8 +590,6 @@ void PluginView::paintWindowedPluginIntoContext(GraphicsContext* context, const 
     paintIntoTransformedContext(hdc);
 
     SetWorldTransform(hdc, &originalTransform);
-
-    context->releaseWindowsContext(hdc, frameRect(), false);
 #endif
 }
 
@@ -624,7 +618,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     ASSERT(parent()->isFrameView());
     IntRect rectInWindow = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
-    HDC hdc = context->getWindowsContext(rectInWindow, m_isTransparent);
+    LocalWindowsContext windowsContext(context, rectInWindow, m_isTransparent);
 
     // On Safari/Windows without transparency layers the GraphicsContext returns the HDC
     // of the window and the plugin expects that the passed in DC has window coordinates.
@@ -633,16 +627,14 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 #if !PLATFORM(QT) && !OS(WINCE)
     if (!context->inTransparencyLayer()) {
         XFORM transform;
-        GetWorldTransform(hdc, &transform);
+        GetWorldTransform(windowsContext.hdc(), &transform);
         transform.eDx = 0;
         transform.eDy = 0;
-        SetWorldTransform(hdc, &transform);
+        SetWorldTransform(windowsContext.hdc(), &transform);
     }
 #endif
 
-    paintIntoTransformedContext(hdc);
-
-    context->releaseWindowsContext(hdc, frameRect(), m_isTransparent);
+    paintIntoTransformedContext(windowsContext.hdc());
 }
 
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
@@ -665,7 +657,6 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 }
 
 #if !OS(WINCE)
-extern HCURSOR lastSetCursor;
 extern bool ignoreNextSetCursor;
 #endif
 
@@ -736,7 +727,8 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     // Currently, Widget::setCursor is always called after this function in EventHandler.cpp
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
     ignoreNextSetCursor = true;
-    lastSetCursor = ::GetCursor();
+    if (Page* page = m_parentFrame->page())
+        page->chrome()->client()->setLastSetCursorToCurrentCursor();    
 #endif
 }
 
@@ -903,7 +895,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 void PluginView::invalidateRect(const IntRect& rect)
 {
     if (m_isWindowed) {
-        RECT invalidRect = { rect.x(), rect.y(), rect.right(), rect.bottom() };
+        RECT invalidRect = { rect.x(), rect.y(), rect.maxX(), rect.maxY() };
         ::InvalidateRect(platformPluginWidget(), &invalidRect, false);
         return;
     }
@@ -921,7 +913,7 @@ void PluginView::invalidateRect(NPRect* rect)
     IntRect r(rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top);
 
     if (m_isWindowed) {
-        RECT invalidRect = { r.x(), r.y(), r.right(), r.bottom() };
+        RECT invalidRect = { r.x(), r.y(), r.maxX(), r.maxY() };
         InvalidateRect(platformPluginWidget(), &invalidRect, FALSE);
     } else {
         if (m_plugin->quirks().contains(PluginQuirkThrottleInvalidate)) {
@@ -1019,8 +1011,8 @@ void PluginView::platformDestroy()
 
 PassRefPtr<Image> PluginView::snapshot()
 {
-#if !PLATFORM(WX)
-    OwnPtr<HDC> hdc(CreateCompatibleDC(0));
+#if !PLATFORM(WX) && !OS(WINCE)
+    OwnPtr<HDC> hdc = adoptPtr(CreateCompatibleDC(0));
 
     if (!m_isWindowed) {
         // Enable world transforms.
@@ -1040,7 +1032,7 @@ PassRefPtr<Image> PluginView::snapshot()
 
     void* bits;
     BitmapInfo bmp = BitmapInfo::createBottomUp(frameRect().size());
-    OwnPtr<HBITMAP> hbmp(CreateDIBSection(0, &bmp, DIB_RGB_COLORS, &bits, 0, 0));
+    OwnPtr<HBITMAP> hbmp = adoptPtr(CreateDIBSection(0, &bmp, DIB_RGB_COLORS, &bits, 0, 0));
 
     HBITMAP hbmpOld = static_cast<HBITMAP>(SelectObject(hdc.get(), hbmp.get()));
 

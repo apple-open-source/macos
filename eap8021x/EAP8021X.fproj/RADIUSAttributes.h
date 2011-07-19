@@ -65,4 +65,4 @@ enum {
 
 typedef uint32_t RADIUSVendorIdentifer;
 
-#endif _EAP8021X_RADIUSATTRIBUTES_H
+#endif /* _EAP8021X_RADIUSATTRIBUTES_H */

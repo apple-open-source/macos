@@ -90,6 +90,14 @@
               extension</simpara>
 	    </listitem>
 	  </varlistentry>
+	  <varlistentry>
+            <term><constant>NE_SESSFLAG_EXPECT100</constant></term>
+	    <listitem>
+	      <simpara>enable this flag to enable the request flag
+	      <constant>NE_REQFLAG_EXPECT100</constant> for new
+	      requests</simpara>
+	    </listitem>
+	  </varlistentry>
 
         </variablelist>
   </refsect1>
@@ -105,7 +113,8 @@
   <refsect1>
     <title>See also</title>
 
-    <para><xref linkend="ne_session_create"/>.</para>
+    <para><xref linkend="ne_session_create"/>, <xref
+    linkend="ne_set_request_flag"/>.</para>
 
   </refsect1>
 

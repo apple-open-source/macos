@@ -32,23 +32,23 @@
 #include "Interpreter.h"
 
 namespace JSC {
-    class CachedCall : public Noncopyable {
+    class CachedCall {
+        WTF_MAKE_NONCOPYABLE(CachedCall); WTF_MAKE_FAST_ALLOCATED;
     public:
-        CachedCall(CallFrame* callFrame, JSFunction* function, int argCount, JSValue* exception)
+        CachedCall(CallFrame* callFrame, JSFunction* function, int argCount)
             : m_valid(false)
             , m_interpreter(callFrame->interpreter())
-            , m_exception(exception)
-            , m_globalObjectScope(callFrame, function->scope().globalObject())
+            , m_globalObjectScope(callFrame->globalData(), function->scope()->globalObject.get())
         {
             ASSERT(!function->isHostFunction());
-            m_closure = m_interpreter->prepareForRepeatCall(function->jsExecutable(), callFrame, function, argCount, function->scope().node(), exception);
-            m_valid = !*exception;
+            m_closure = m_interpreter->prepareForRepeatCall(function->jsExecutable(), callFrame, function, argCount, function->scope());
+            m_valid = !callFrame->hadException();
         }
         
         JSValue call()
         { 
             ASSERT(m_valid);
-            return m_interpreter->execute(m_closure, m_exception);
+            return m_interpreter->execute(m_closure);
         }
         void setThis(JSValue v) { m_closure.setArgument(0, v); }
         void setArgument(int n, JSValue v) { m_closure.setArgument(n + 1, v); }
@@ -69,7 +69,6 @@ namespace JSC {
     private:
         bool m_valid;
         Interpreter* m_interpreter;
-        JSValue* m_exception;
         DynamicGlobalObjectScope m_globalObjectScope;
         CallFrameClosure m_closure;
     };

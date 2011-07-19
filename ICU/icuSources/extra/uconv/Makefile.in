@@ -1,6 +1,6 @@
 ## ******************************************************************************
 ## *
-## *   Copyright (C) 1999-2006, International Business Machines
+## *   Copyright (C) 1999-2009, International Business Machines
 ## *   Corporation and others.  All Rights Reserved.
 ## *
 ## *******************************************************************************
@@ -106,21 +106,31 @@ clean-local: resclean
 	$(RMV) $(OBJECTS) $(TARGET)
 
 resclean:
-	@#-$(INVOKE) $(BINDIR)/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	@#-$(INVOKE) $(TOOLBINDIR)/pkgdata --clean -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 	$(RMV) pkgdata.inc $(RESDIR)
 
 distclean-local: clean-local
 	$(RMV) Makefile $(DEPS)
 
-check-local:
+check-local: $(TARGET)
+ifneq (,$(filter $(PKGDATA_MODE),files common))
+	@echo "Currently, pkgdata is in \"$(PKGDATA_MODE)\" mode."
+	@echo "To test uconv, run this manually after installing ICU:"
+	@echo "\"./$(TARGET) -f ibm-37 $(srcdir)/samples/ibm-37-test.txt\""
+else
+	$(INVOKE) ./$(TARGET) -f ibm-37 $(srcdir)/samples/ibm-37-test.txt
+endif
 
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	cd $(top_builddir) \
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
-pkgdata.inc: $(srcdir)/pkgdata.inc.in $(top_builddir)/config.status
+pkgdata.inc: pkgdataMakefile
+	$(MAKE) -f pkgdataMakefile
+
+pkgdataMakefile:
 	cd $(top_builddir) \
-	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+	&& CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 $(TARGET_STUB_NAME).$(SECTION): $(srcdir)/$(TARGET_STUB_NAME).$(SECTION).in pkgdata.inc
 	cd $(top_builddir) \
@@ -138,7 +148,7 @@ endif
 
 
 package-resfiles: $(RESDIR)/$(RESDIR).lst pkgdata.inc
-	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(BINDIR)/pkgdata -p $(MSGNAME) $(PKGDATA_OPTS) -m $(PKGMODE) -s $(RESDIR) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(TOOLBINDIR)/pkgdata -p $(MSGNAME) $(PKGDATA_OPTS) -m $(PKGMODE) -s $(RESDIR) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 
 $(RESDIR)/$(RESDIR).lst: Makefile $(srcdir)/resfiles.mk
 	@$(MKINSTALLDIRS) $(RESDIR)
@@ -151,7 +161,7 @@ $(RESDIR)/$(RESDIR).lst: Makefile $(srcdir)/resfiles.mk
 ifneq ($(UCONVMSG_MODE),static)
 install-resfiles: $(RESFILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(ICUDATA_DIR)
-	$(INVOKE) $(BINDIR)/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
+	$(INVOKE) $(TOOLBINDIR)/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 else
 install-resfiles:
 endif
@@ -161,7 +171,7 @@ $(UCONVMSG_LIB): resfiles
 
 $(MSGNAME)/%.res: $(srcdir)/$(RESOURCESDIR)/%.txt
 	$(MKINSTALLDIRS) $(@D)
-	$(INVOKE) $(BINDIR)/genrb -e UTF-8 -s $(^D) -d $(@D) $(^F)
+	$(INVOKE) $(TOOLBINDIR)/genrb -e UTF-8 -s $(^D) -d $(@D) $(^F)
 
 install-man: $(ALL_MAN_FILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man$(SECTION)

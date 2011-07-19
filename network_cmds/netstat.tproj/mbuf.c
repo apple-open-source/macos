@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@
 #include <sys/sysctl.h>
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 #include "netstat.h"
@@ -101,10 +102,14 @@ bool seen[256];			/* "have we seen this type yet?" */
 
 mb_stat_t *mb_stat;
 unsigned int njcl, njclbytes;
+mleak_stat_t *mleak_stat;
+struct mleak_table table;
 
 #define	KERN_IPC_MB_STAT	"kern.ipc.mb_stat"
 #define	KERN_IPC_NJCL		"kern.ipc.njcl"
 #define	KERN_IPC_NJCL_BYTES	"kern.ipc.njclbytes"
+#define	KERN_IPC_MLEAK_TABLE	"kern.ipc.mleak_table"
+#define	KERN_IPC_MLEAK_TOP_TRACE "kern.ipc.mleak_top_trace"
 
 #define	MB_STAT_HDR1 "\
 class        buf   active   ctotal    total cache   cached uncached    memory\n\
@@ -118,6 +123,12 @@ name          count    count    count    count    count    count\n\
 ---------- -------- -------- -------- -------- -------- --------\n\
 "
 
+#define MB_LEAK_HDR "\n\
+    calltrace [1]       calltrace [2]       calltrace [3]       calltrace [4]       calltrace [5]      \n\
+    ------------------  ------------------  ------------------  ------------------  ------------------ \n\
+"
+
+#define MB_LEAK_SPACING "                    "
 static const char *mbpr_state(int);
 static const char *mbpr_mem(u_int32_t);
 static int mbpr_getdata(void);
@@ -265,6 +276,59 @@ mbpr(void)
 	printf("%u calls to drain routines\n", (unsigned int)mbstat.m_drain);
 
 	free(mb_stat);
+	mb_stat = NULL;
+
+	if (mleak_stat != NULL) {
+		mleak_trace_stat_t *mltr;
+
+		printf("\nmbuf leak detection table:\n");
+		printf("\ttotal captured: %u (one per %u)\n"
+		    "\ttotal allocs outstanding: %llu\n"
+		    "\tnew hash recorded: %llu allocs, %llu traces\n"
+		    "\thash collisions: %llu allocs, %llu traces\n"
+		    "\toverwrites: %llu allocs, %llu traces\n"
+		    "\tlock conflicts: %llu\n\n",
+		    table.mleak_capture / table.mleak_sample_factor,
+		    table.mleak_sample_factor,
+		    table.outstanding_allocs,
+		    table.alloc_recorded, table.trace_recorded,
+		    table.alloc_collisions, table.trace_collisions,
+		    table.alloc_overwrites, table.trace_overwrites,
+		    table.total_conflicts);
+
+		printf("top %d outstanding traces:\n", mleak_stat->ml_cnt);
+		for (i = 0; i < mleak_stat->ml_cnt; i++) {
+			mltr = &mleak_stat->ml_trace[i];
+			printf("[%d] %llu outstanding alloc(s), "
+			    "%llu hit(s), %llu collision(s)\n", (i + 1),
+			    mltr->mltr_allocs, mltr->mltr_hitcount,
+			    mltr->mltr_collisions);
+		}
+
+		printf(MB_LEAK_HDR);
+		for (i = 0; i < MLEAK_STACK_DEPTH; i++) {
+			int j;
+
+			printf("%2d: ", (i + 1));
+			for (j = 0; j < mleak_stat->ml_cnt; j++) {
+				mltr = &mleak_stat->ml_trace[j];
+				if (i < mltr->mltr_depth) {
+					if (mleak_stat->ml_isaddr64) {
+						printf("0x%0llx  ",
+						    mltr->mltr_addr[i]);
+					} else {
+						printf("0x%08x          ",
+						    (u_int32_t)mltr->mltr_addr[i]);
+					}
+				} else {
+					printf(MB_LEAK_SPACING);
+				}
+			}
+			printf("\n");
+		}
+		free(mleak_stat);
+		mleak_stat = NULL;
+	}
 }
 
 static const char *
@@ -350,6 +414,44 @@ mbpr_getdata(void)
 		goto done;
 	}
 
+	/* mbuf leak detection! */
+	if (mflag > 3) {
+		errno = 0;
+		len = sizeof (table);
+		if (sysctlbyname(KERN_IPC_MLEAK_TABLE, &table, &len, 0, 0) ==
+		    -1 && errno != ENXIO) {
+			(void) fprintf(stderr, "error %d getting %s\n", errno,
+			    KERN_IPC_MLEAK_TABLE);
+			goto done;
+		} else if (errno == ENXIO) {
+			(void) fprintf(stderr, "mbuf leak detection is not "
+			    "enabled in the kernel.\n");
+			goto skip;
+		}
+
+		if (sysctlbyname(KERN_IPC_MLEAK_TOP_TRACE, NULL, &len,
+		    0, 0) == -1) {
+			(void) fprintf(stderr, "Error retrieving length for "
+			    "%s: %d\n", KERN_IPC_MB_STAT, errno);
+			goto done;
+		}
+
+		mleak_stat = calloc(1, len);
+		if (mleak_stat == NULL) {
+			(void) fprintf(stderr, "Error allocating %lu bytes "
+			    "for sysctl data\n", len);
+			goto done;
+		}
+
+		if (sysctlbyname(KERN_IPC_MLEAK_TOP_TRACE, mleak_stat, &len,
+		    0, 0) == -1) {
+			(void) fprintf(stderr, "error %d getting %s\n", errno,
+			     KERN_IPC_MLEAK_TOP_TRACE);
+			goto done;
+		}
+	}
+
+skip:
 	len = sizeof (njcl);
 	(void) sysctlbyname(KERN_IPC_NJCL, &njcl, &len, 0, 0);
 	len = sizeof (njclbytes);
@@ -358,8 +460,15 @@ mbpr_getdata(void)
 	error = 0;
 
 done:
-	if (error != 0  && mb_stat != NULL)
+	if (error != 0  && mb_stat != NULL) {
 		free(mb_stat);
+		mb_stat = NULL;
+	}
+
+	if (error != 0 && mleak_stat != NULL) {
+		free(mleak_stat);
+		mleak_stat = NULL;
+	}
 
 	return (error);
 }

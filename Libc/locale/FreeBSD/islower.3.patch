@@ -1,10 +1,10 @@
---- islower.3	2004-11-25 11:38:17.000000000 -0800
-+++ islower.3.edit	2006-08-09 13:24:14.000000000 -0700
-@@ -89,6 +89,7 @@
+--- islower.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ islower.3	2009-11-09 15:05:26.000000000 -0800
+@@ -81,6 +81,7 @@ The
  function should be used instead.
  .Sh SEE ALSO
  .Xr ctype 3 ,
 +.Xr isalnum_l 3 ,
  .Xr iswlower 3 ,
- .Xr multibyte 3 ,
  .Xr tolower 3 ,
+ .Xr ascii 7

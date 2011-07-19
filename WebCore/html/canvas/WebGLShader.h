@@ -26,27 +26,35 @@
 #ifndef WebGLShader_h
 #define WebGLShader_h
 
-#include "CanvasObject.h"
+#include "WebGLObject.h"
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
-    
-    class WebGLShader : public CanvasObject {
-    public:
-        virtual ~WebGLShader() { deleteObject(); }
-        
-        static PassRefPtr<WebGLShader> create(WebGLRenderingContext*, GraphicsContext3D::WebGLEnumType);
 
-    private:
-        WebGLShader(WebGLRenderingContext*, GraphicsContext3D::WebGLEnumType);
+class WebGLShader : public WebGLObject {
+public:
+    virtual ~WebGLShader() { deleteObject(); }
 
-        virtual void _deleteObject(Platform3DObject);
+    static PassRefPtr<WebGLShader> create(WebGLRenderingContext*, GC3Denum);
 
-        virtual bool isShader() const { return true; }
-    };
-    
+    GC3Denum getType() const { return m_type; }
+    const String& getSource() const { return m_source; }
+
+    void setSource(const String& source) { m_source = source; }
+
+private:
+    WebGLShader(WebGLRenderingContext*, GC3Denum);
+
+    virtual void deleteObjectImpl(Platform3DObject);
+
+    virtual bool isShader() const { return true; }
+
+    GC3Denum m_type;
+    String m_source;
+};
+
 } // namespace WebCore
 
 #endif // WebGLShader_h

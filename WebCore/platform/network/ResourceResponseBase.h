@@ -29,8 +29,15 @@
 
 #include "HTTPHeaderMap.h"
 #include "KURL.h"
+#include "ResourceLoadInfo.h"
+#include "ResourceLoadTiming.h"
 
 #include <wtf/PassOwnPtr.h>
+#include <wtf/RefPtr.h>
+
+#if OS(SOLARIS)
+#include <sys/time.h> // For time_t structure.
+#endif
 
 namespace WebCore {
 
@@ -38,7 +45,8 @@ class ResourceResponse;
 struct CrossThreadResourceResponseData;
 
 // Do not use this class directly, use the class ResponseResponse instead
-class ResourceResponseBase : public FastAllocBase {
+class ResourceResponseBase {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<ResourceResponse> adopt(PassOwnPtr<CrossThreadResourceResponseData>);
 
@@ -89,11 +97,27 @@ public:
     bool cacheControlContainsNoCache() const;
     bool cacheControlContainsNoStore() const;
     bool cacheControlContainsMustRevalidate() const;
+    bool hasCacheValidatorFields() const;
     double cacheControlMaxAge() const;
     double date() const;
     double age() const;
     double expires() const;
     double lastModified() const;
+
+    unsigned connectionID() const;
+    void setConnectionID(unsigned);
+
+    bool connectionReused() const;
+    void setConnectionReused(bool);
+
+    bool wasCached() const;
+    void setWasCached(bool);
+
+    ResourceLoadTiming* resourceLoadTiming() const;
+    void setResourceLoadTiming(PassRefPtr<ResourceLoadTiming>);
+
+    PassRefPtr<ResourceLoadInfo> resourceLoadInfo() const;
+    void setResourceLoadInfo(PassRefPtr<ResourceLoadInfo>);
 
     // The ResourceResponse subclass may "shadow" this method to provide platform-specific memory usage information
     unsigned memoryUsage() const
@@ -102,16 +126,23 @@ public:
         return 1280;
     }
 
-    static bool compare(const ResourceResponse& a, const ResourceResponse& b);
+    static bool compare(const ResourceResponse&, const ResourceResponse&);
 
 protected:
+    enum InitLevel {
+        Uninitialized,
+        CommonFieldsOnly,
+        CommonAndUncommonFields,
+        AllFields
+    };
+
     ResourceResponseBase();
     ResourceResponseBase(const KURL& url, const String& mimeType, long long expectedLength, const String& textEncodingName, const String& filename);
 
-    void lazyInit() const;
+    void lazyInit(InitLevel) const;
 
     // The ResourceResponse subclass may "shadow" this method to lazily initialize platform specific fields
-    void platformLazyInit() { }
+    void platformLazyInit(InitLevel) { }
 
     // The ResourceResponse subclass may "shadow" this method to compare platform specific fields
     static bool platformCompare(const ResourceResponse&, const ResourceResponse&) { return true; }
@@ -125,10 +156,16 @@ protected:
     String m_httpStatusText;
     HTTPHeaderMap m_httpHeaderFields;
     time_t m_lastModifiedDate;
+    bool m_wasCached : 1;
+    unsigned m_connectionID;
+    bool m_connectionReused : 1;
+    RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
+    RefPtr<ResourceLoadInfo> m_resourceLoadInfo;
 
     bool m_isNull : 1;
     
 private:
+    const ResourceResponse& asResourceResponse() const;
     void parseCacheControlDirectives() const;
 
     mutable bool m_haveParsedCacheControlHeader : 1;
@@ -151,7 +188,10 @@ private:
 inline bool operator==(const ResourceResponse& a, const ResourceResponse& b) { return ResourceResponseBase::compare(a, b); }
 inline bool operator!=(const ResourceResponse& a, const ResourceResponse& b) { return !(a == b); }
 
-struct CrossThreadResourceResponseData : Noncopyable {
+struct CrossThreadResourceResponseDataBase {
+    WTF_MAKE_NONCOPYABLE(CrossThreadResourceResponseDataBase);
+public:
+    CrossThreadResourceResponseDataBase() { }
     KURL m_url;
     String m_mimeType;
     long long m_expectedContentLength;
@@ -161,6 +201,7 @@ struct CrossThreadResourceResponseData : Noncopyable {
     String m_httpStatusText;
     OwnPtr<CrossThreadHTTPHeaderMapData> m_httpHeaders;
     time_t m_lastModifiedDate;
+    RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
 };
 
 } // namespace WebCore

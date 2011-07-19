@@ -1,6 +1,6 @@
 # NSIS file to create a self-installing exe for Vim.
 # It requires NSIS version 2.0 or later.
-# Last change:	2004 May 02
+# Last Change:	2010 Jul 30
 
 # WARNING: if you make changes to this script, look out for $0 to be valid,
 # because uninstall deletes most files in $0.
@@ -22,17 +22,20 @@
 !define HAVE_NLS
 
 !define VER_MAJOR 7
-!define VER_MINOR 2
+!define VER_MINOR 3
 
 # ----------- No configurable settings below this line -----------
 
 !include UpgradeDLL.nsh		# for VisVim.dll
+!include LogicLib.nsh
+!include x64.nsh
 
 Name "Vim ${VER_MAJOR}.${VER_MINOR}"
 OutFile gvim${VER_MAJOR}${VER_MINOR}.exe
 CRCCheck force
 SetCompressor lzma
 SetDatablockOptimize on
+RequestExecutionLevel highest
 
 ComponentText "This will install Vim ${VER_MAJOR}.${VER_MINOR} on your computer."
 DirText "Choose a directory to install Vim (must end in 'vim')"
@@ -290,13 +293,21 @@ Section "Add an Edit-with-Vim context menu entry"
 	SetOutPath $0
 	ClearErrors
 	SetOverwrite try
-	File /oname=gvimext.dll ${VIMSRC}\GvimExt\gvimext.dll
+	${If} ${RunningX64}
+	  File /oname=gvimext.dll ${VIMSRC}\GvimExt\gvimext64.dll
+	${Else}
+	  File /oname=gvimext.dll ${VIMSRC}\GvimExt\gvimext.dll
+	${EndIf}
 	IfErrors 0 GvimExtDone
 
 	# Can't copy gvimext.dll, create it under another name and rename it on
 	# next reboot.
 	GetTempFileName $3 $0
-	File /oname=$3 ${VIMSRC}\GvimExt\gvimext.dll
+	${If} ${RunningX64}
+	  File /oname=$3 ${VIMSRC}\GvimExt\gvimext64.dll
+	${Else}
+	  File /oname=$3 ${VIMSRC}\GvimExt\gvimext.dll
+	${EndIf}
 	Rename /REBOOTOK $3 $0\gvimext.dll
 
 	GvimExtDone:
@@ -438,8 +449,8 @@ Section Uninstall
 
 	  AskRemove:
 	    MessageBox MB_YESNO|MB_ICONQUESTION \
-	      "Remove all files in your $1\vimfiles directory? \
-	      $\nIf you have created something there that you want to keep, click No" IDNO Fin
+	      "Remove all files in your $1\vimfiles directory?$\n \
+	      $\nCAREFUL: If you have created something there that you want to keep, click No" IDNO Fin
 	    RMDir /r $1\vimfiles
 	  NoRemove:
 

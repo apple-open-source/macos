@@ -31,24 +31,23 @@
 #ifndef WebDevToolsAgentImpl_h
 #define WebDevToolsAgentImpl_h
 
-#include "APUAgentDelegate.h"
-#include "DevToolsRPC.h"
-#include "ToolsAgent.h"
+#include "InspectorClient.h"
+
 #include "WebDevToolsAgentPrivate.h"
 
-#include <v8.h>
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
 class Document;
+class Frame;
+class InspectorClient;
 class InspectorController;
 class Node;
-class String;
 }
 
 namespace WebKit {
 
-class DebuggerAgentDelegateStub;
 class DebuggerAgentImpl;
 class WebDevToolsAgentClient;
 class WebFrame;
@@ -61,79 +60,44 @@ struct WebURLError;
 struct WebDevToolsMessageData;
 
 class WebDevToolsAgentImpl : public WebDevToolsAgentPrivate,
-                             public ToolsAgent,
-                             public DevToolsRPC::Delegate {
+                             public WebCore::InspectorClient {
 public:
     WebDevToolsAgentImpl(WebViewImpl* webViewImpl, WebDevToolsAgentClient* client);
     virtual ~WebDevToolsAgentImpl();
 
-    // ToolsAgent implementation.
-    virtual void dispatchOnInspectorController(int callId, const WebCore::String& functionName, const WebCore::String& jsonArgs);
-    virtual void dispatchOnInjectedScript(int callId, int injectedScriptId, const WebCore::String& functionName, const WebCore::String& jsonArgs, bool async);
-
     // WebDevToolsAgentPrivate implementation.
     virtual void didClearWindowObject(WebFrameImpl* frame);
-    virtual void didCommitProvisionalLoad(WebFrameImpl* frame, bool isNewNavigation);
 
     // WebDevToolsAgent implementation.
     virtual void attach();
     virtual void detach();
+    virtual void frontendLoaded();
     virtual void didNavigate();
-    virtual void dispatchMessageFromFrontend(const WebDevToolsMessageData& data);
+    virtual void dispatchOnInspectorBackend(const WebString& message);
     virtual void inspectElementAt(const WebPoint& point);
     virtual void evaluateInWebInspector(long callId, const WebString& script);
-    virtual void setRuntimeFeatureEnabled(const WebString& feature, bool enabled);
+    virtual void setRuntimeProperty(const WebString& name, const WebString& value);
     virtual void setTimelineProfilingEnabled(bool enable);
 
-    virtual void identifierForInitialRequest(unsigned long, WebFrame*, const WebURLRequest&);
-    virtual void willSendRequest(unsigned long, const WebURLRequest&);
-    virtual void didReceiveData(unsigned long, int length);
-    virtual void didReceiveResponse(unsigned long, const WebURLResponse&);
-    virtual void didFinishLoading(unsigned long);
-    virtual void didFailLoading(unsigned long, const WebURLError&);
-
-    // DevToolsRPC::Delegate implementation.
-    virtual void sendRpcMessage(const WebDevToolsMessageData& data);
-
-    void forceRepaint();
+    // InspectorClient implementation.
+    virtual void inspectorDestroyed();
+    virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void highlight(WebCore::Node*);
+    virtual void hideHighlight();
+    virtual void updateInspectorStateCookie(const WTF::String&);
+    virtual bool sendMessageToFrontend(const WTF::String&);
 
     int hostId() { return m_hostId; }
 
 private:
-    static v8::Handle<v8::Value> jsDispatchOnClient(const v8::Arguments& args);
-    static v8::Handle<v8::Value> jsDispatchToApu(const v8::Arguments& args);
-    static v8::Handle<v8::Value> jsEvaluateOnSelf(const v8::Arguments& args);
-    static v8::Handle<v8::Value> jsOnRuntimeFeatureStateChanged(const v8::Arguments& args);
-
-    void disposeUtilityContext();
-
-    void compileUtilityScripts();
-    void initDevToolsAgentHost();
-    void createInspectorFrontendProxy();
-    void setInspectorFrontendProxyToInspectorController();
-    void setApuAgentEnabled(bool enabled);
-
     WebCore::InspectorController* inspectorController();
-
-    // Creates InspectorBackend v8 wrapper in the utility context so that it's
-    // methods prototype is Function.protoype object from the utility context.
-    // Otherwise some useful methods  defined on Function.prototype(such as bind)
-    // are missing for InspectorController native methods.
-    v8::Local<v8::Object> createInspectorBackendV8Wrapper();
+    WebCore::Frame* mainFrame();
 
     int m_hostId;
     WebDevToolsAgentClient* m_client;
     WebViewImpl* m_webViewImpl;
-    OwnPtr<DebuggerAgentDelegateStub> m_debuggerAgentDelegateStub;
-    OwnPtr<ToolsAgentDelegateStub> m_toolsAgentDelegateStub;
     OwnPtr<DebuggerAgentImpl> m_debuggerAgentImpl;
-    OwnPtr<ApuAgentDelegateStub> m_apuAgentDelegateStub;
-    bool m_apuAgentEnabled;
-    bool m_resourceTrackingWasEnabled;
     bool m_attached;
-    // TODO(pfeldman): This should not be needed once GC styles issue is fixed
-    // for matching rules.
-    v8::Persistent<v8::Context> m_utilityContext;
 };
 
 } // namespace WebKit

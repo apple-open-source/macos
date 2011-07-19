@@ -1,6 +1,6 @@
---- wprintf.3.orig	2007-04-08 18:49:37.000000000 -0700
-+++ wprintf.3	2007-04-08 20:12:12.000000000 -0700
-@@ -41,8 +41,12 @@
+--- wprintf.3.bsdnew	2009-11-11 13:33:22.000000000 -0800
++++ wprintf.3	2009-11-11 13:33:22.000000000 -0800
+@@ -37,8 +37,12 @@
  .Dt WPRINTF 3
  .Os
  .Sh NAME
@@ -15,7 +15,7 @@
  .Nd formatted wide character output conversion
  .Sh LIBRARY
  .Lb libc
-@@ -50,23 +54,49 @@
+@@ -46,23 +50,49 @@
  .In stdio.h
  .In wchar.h
  .Ft int
@@ -72,7 +72,7 @@
  as described below.
  The
  .Fn wprintf
-@@ -87,6 +117,12 @@
+@@ -83,6 +113,12 @@ and
  write to the wide character string
  .Fa ws .
  .Pp
@@ -85,7 +85,7 @@
  These functions write the output under the control of a
  .Fa format
  string that specifies how subsequent arguments
-@@ -96,7 +132,7 @@
+@@ -92,7 +128,7 @@ are converted for output.
  .Pp
  These functions return the number of characters printed
  (not including the trailing
@@ -94,7 +94,7 @@
  used to end output to strings).
  .Pp
  The
-@@ -602,6 +638,7 @@
+@@ -598,6 +634,7 @@ Refer to
  .Xr putwc 3 ,
  .Xr setlocale 3 ,
  .Xr wcsrtombs 3 ,
@@ -102,7 +102,7 @@
  .Xr wscanf 3
  .Sh STANDARDS
  Subject to the caveats noted in the
-@@ -614,7 +651,7 @@
+@@ -610,7 +647,7 @@ the
  .Fn fwprintf ,
  .Fn swprintf ,
  .Fn vwprintf ,

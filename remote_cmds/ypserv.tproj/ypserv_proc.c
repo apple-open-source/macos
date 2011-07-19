@@ -134,7 +134,7 @@ ypproc_domain_2_svc(argp, rqstp)
 		goto bail;
 	snprintf(domain_path, sizeof(domain_path), "%s/%s", YP_DB_PATH, *argp);
 	result = (bool_t) ((stat(domain_path, &finfo) == 0) &&
-				    (finfo.st_mode & S_IFDIR));
+				    S_ISDIR(finfo.st_mode));
 
 	YPLOG("domain_2: caller=[%s].%d, auth_ok=%s, domain=%s, served=%s",
 	      inet_ntoa(caller->sin_addr), ntohs(caller->sin_port), 
@@ -164,7 +164,7 @@ ypproc_domain_nonack_2_svc(argp, rqstp)
 		goto bail;
 	snprintf(domain_path, sizeof(domain_path), "%s/%s", YP_DB_PATH, *argp);
 	result = (bool_t) ((stat(domain_path, &finfo) == 0) &&
-				    (finfo.st_mode & S_IFDIR));
+				    S_ISDIR(finfo.st_mode));
 
 	YPLOG(
 	  "domain_nonack_2: caller=[%s].%d, auth_ok=%s, domain=%s, served=%s",
@@ -561,7 +561,7 @@ bail:
 	res.maps = NULL;
 
 	if (!((stat(domain_path, &finfo) == 0) &&
-		((finfo.st_mode & S_IFMT) == S_IFDIR))) 
+		S_ISDIR(finfo.st_mode))) 
 		status = YP_NODOM;
 
 	if (status >= 0) {
@@ -651,7 +651,7 @@ ypproc_domain_1_svc(argp, rqstp)
 		goto bail;
 	snprintf(domain_path, sizeof(domain_path), "%s/%s", YP_DB_PATH, *argp);
 	result = (bool_t) ((stat(domain_path, &finfo) == 0) &&
-				    (finfo.st_mode & S_IFDIR));
+				    S_ISDIR(finfo.st_mode));
 
 	YPLOG("domain_1: caller=[%s].%d, auth_ok=%s, domain=%s, served=%s",
 	      inet_ntoa(caller->sin_addr), ntohs(caller->sin_port), 
@@ -681,7 +681,7 @@ ypproc_domain_nonack_1_svc(argp, rqstp)
 		goto bail;
 	snprintf(domain_path, sizeof(domain_path), "%s/%s", YP_DB_PATH, *argp);
 	result = (bool_t) ((stat(domain_path, &finfo) == 0) &&
-				    (finfo.st_mode & S_IFDIR));
+				    S_ISDIR(finfo.st_mode));
 
 	YPLOG(
 	  "domain_nonack_1: caller=[%s].%d, auth_ok=%s, domain=%s, served=%s",

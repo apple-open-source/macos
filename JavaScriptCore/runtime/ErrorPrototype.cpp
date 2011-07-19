@@ -25,30 +25,60 @@
 #include "JSString.h"
 #include "JSStringBuilder.h"
 #include "ObjectPrototype.h"
-#include "PrototypeFunction.h"
+#include "StringRecursionChecker.h"
 #include "UString.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ErrorPrototype);
 
-static JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState*, JSObject*, JSValue, const ArgList&);
+static EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(ExecState*);
 
-// ECMA 15.9.4
-ErrorPrototype::ErrorPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
-    : ErrorInstance(structure)
-{
-    // The constructor will be added later in ErrorConstructor's constructor
-
-    putDirectWithoutTransition(exec->propertyNames().name, jsNontrivialString(exec, "Error"), DontEnum);
-    putDirectWithoutTransition(exec->propertyNames().message, jsNontrivialString(exec, "Unknown error"), DontEnum);
-
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().toString, errorProtoFuncToString), DontEnum);
 }
 
-JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+#include "ErrorPrototype.lut.h"
+
+namespace JSC {
+
+const ClassInfo ErrorPrototype::s_info = { "Error", &ErrorInstance::s_info, 0, ExecState::errorPrototypeTable };
+
+/* Source for ErrorPrototype.lut.h
+@begin errorPrototypeTable
+  toString          errorProtoFuncToString         DontEnum|Function 0
+@end
+*/
+
+ASSERT_CLASS_FITS_IN_CELL(ErrorPrototype);
+
+ErrorPrototype::ErrorPrototype(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+    : ErrorInstance(&exec->globalData(), structure)
 {
-    JSObject* thisObj = thisValue.toThisObject(exec);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().name, jsNontrivialString(exec, "Error"), DontEnum);
+
+    ASSERT(inherits(&s_info));
+    putAnonymousValue(globalObject->globalData(), 0, globalObject);
+}
+
+bool ErrorPrototype::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
+{
+    return getStaticFunctionSlot<ErrorInstance>(exec, ExecState::errorPrototypeTable(exec), this, propertyName, slot);
+}
+
+bool ErrorPrototype::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticFunctionDescriptor<ErrorInstance>(exec, ExecState::errorPrototypeTable(exec), this, propertyName, descriptor);
+}
+
+// ------------------------------ Functions ---------------------------
+
+EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec)
+{
+    JSObject* thisObj = exec->hostThisValue().toThisObject(exec);
+
+    StringRecursionChecker checker(exec, thisObj);
+    if (EncodedJSValue earlyReturnValue = checker.earlyReturnValue())
+        return earlyReturnValue;
+
     JSValue name = thisObj->get(exec, exec->propertyNames().name);
     JSValue message = thisObj->get(exec, exec->propertyNames().message);
 
@@ -56,12 +86,12 @@ JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec, JSObject*, JSValue
 
     if (!name.isUndefined()) {
         if (!message.isUndefined())
-            return jsMakeNontrivialString(exec, name.toString(exec), ": ", message.toString(exec));
-        return jsNontrivialString(exec, name.toString(exec));
+            return JSValue::encode(jsMakeNontrivialString(exec, name.toString(exec), ": ", message.toString(exec)));
+        return JSValue::encode(jsNontrivialString(exec, name.toString(exec)));
     }
     if (!message.isUndefined())
-        return jsMakeNontrivialString(exec, "Error: ", message.toString(exec));
-    return jsNontrivialString(exec, "Error");
+        return JSValue::encode(jsMakeNontrivialString(exec, "Error: ", message.toString(exec)));
+    return JSValue::encode(jsNontrivialString(exec, "Error"));
 }
 
 } // namespace JSC

@@ -23,6 +23,7 @@
  */
 
 #include "IOHIDEventSystem.h"
+#include "IOHIDWorkLoop.h"
 
 
 typedef struct _EventServiceInfo 
@@ -42,7 +43,7 @@ typedef struct _HIDEventArgs
 
 
 #define super IOService
-OSDefineMetaClassAndStructors(IOHIDEventSystem, super)
+OSDefineMetaClassAndStructors(IOHIDEventSystem, IOService)
 
 
 //====================================================================================================
@@ -67,7 +68,7 @@ bool IOHIDEventSystem::start(IOService * provider)
     if ( super::start(provider) == false )
         return false;
         
-    _workLoop       = IOWorkLoop::workLoop();
+    _workLoop       = IOHIDWorkLoop::workLoop();
     _commandGate    = IOCommandGate::commandGate(this);
     
     if ( !_workLoop || !_commandGate )

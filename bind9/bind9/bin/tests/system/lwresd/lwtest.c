@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: lwtest.c,v 1.32 2008/04/02 02:37:42 marka Exp $ */
+/* $Id: lwtest.c,v 1.32 2008-04-02 02:37:42 marka Exp $ */
 
 #include <config.h>
 

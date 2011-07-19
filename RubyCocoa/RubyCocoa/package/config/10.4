@@ -1,6 +1,6 @@
-# $Id: 10.4 2196 2008-03-12 13:50:53Z kimuraw $
+# $Id: 10.4 2250 2009-09-15 15:33:54Z kimuraw $
 # generated from config.save 
-# /usr/bin/ruby install.rb config  # on 10.5.2 
+# /usr/bin/ruby install.rb config --build-universal=yes # on 10.4.11 
 
 #@config['rubycocoa-framework-version'] = 
 @config['xcode-extras'] = 
@@ -9,7 +9,8 @@
 @config['bin-dir'] = '$install-prefix/bin'
 @config['site-ruby'] = '$install-prefix/lib/ruby/site_ruby/1.8'
 @config['prefix'] = '/usr'
-@config['build-universal'] = 'yes'
+#@config['build-universal'] = 'yes'
+@config['target-archs'] = 'ppc i386'
 @config['ri-dir'] = '/usr/share/ri/1.8/site'
 @config['libruby-path'] = '/usr/lib/libruby.1.dylib'
 @config['build-as-embeddable'] = 'yes'
@@ -36,3 +37,5 @@
 @config['frameworks'] = '/Library/Frameworks'
 @config['data-dir'] = '$install-prefix/share'
 @config['so-dir'] = '$install-prefix/lib/ruby/site_ruby/1.8/universal-darwin8.0'
+# prefer /usr/bin, /usr/lib
+ENV['PATH'] = ['/usr/bin', ENV['PATH']].join(':')

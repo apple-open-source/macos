@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 ## Solaris-specific setup using gcc
-## Copyright (c) 1999-2006, International Business Machines Corporation and
+## Copyright (c) 1999-2010, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Flags for position independent code
@@ -19,11 +19,14 @@ LDFLAGSICUDT=-nodefaultlibs -nostdlib
 THREADSCPPFLAGS = -D_REENTRANT
 
 ## Compiler switch to embed a runtime search path
-LD_RPATH=	-R
-LD_RPATH_PRE=	
+LD_RPATH=       -R'$$'ORIGIN 
+LD_RPATH_PRE=   -R
 
 ## Compiler switch to embed a library name
 LD_SONAME = -h $(notdir $(MIDDLE_SO_TARGET))
+
+## Shared library options
+LD_SOOPTIONS= -Wl,-Bsymbolic
 
 ## The type of assembly needed when pkgdata is used for generating shared libraries.
 ## Only use this when not on x86 Solaris.
@@ -67,5 +70,9 @@ STATIC_O = ao
 	$(RM) $@ && ln -s ${<F} $@
 %.$(SO): %.$(SO).$(SO_TARGET_VERSION_MAJOR)
 	$(RM) $@ && ln -s ${*F}.$(SO).$(SO_TARGET_VERSION) $@
+
+## Remove shared library 's'
+STATIC_PREFIX_WHEN_USED = 
+STATIC_PREFIX = 
 
 ## End Solaris-specific setup

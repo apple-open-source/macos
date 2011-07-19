@@ -19,6 +19,8 @@ sub filter {
     croak "HTTP::Proxy::HeaderFilter cannot be used as a filter";
 }
 
+sub will_modify { 1 } # by default, we expect the filter to modify data
+
 1;
 
 __END__
@@ -64,7 +66,7 @@ The signature of the filter() method is the following:
     }
 
 where $self is the filter object, $dataref is a reference to the chunk
-of body data received, $headers is a reference to  HTTP::Headers object,
+of body data received, 
 $message is a reference to either a HTTP::Request or a HTTP::Response
 object, and $protocol is a reference to the LWP::Protocol protocol object.
 
@@ -77,7 +79,9 @@ can be stored for the next time the filter will be called (see L</Using
 a buffer to store data for a later use> for details). Thanks to the
 built-in HTTP::Proxy::BodyFilter::* filters, this is rarely needed.
 
-The $headers HTTP::Headers object is the one that was sent to the client
+It is possible to access the headers of the message with
+C<< $message->headers() >>. This HTTP::Headers object is the one
+that was sent to the client
 (if the filter is on the response stack) or origin server (if the filter
 is on the request stack). Modifying it in the filter() method is useless,
 since the headers have already been sent.
@@ -127,6 +131,13 @@ It's called once per HTTP message handled by the filter, after all data
 processing is done.
 
 This method does not expect any parameters.
+
+=item will_modify()
+
+This method return a boolean value that indicate if the filter will
+modify the body data on the fly.
+
+The default implementation returns a I<true> value.
 
 =back
 

@@ -1,6 +1,6 @@
---- /tmp/jabberd-2.1.24.1/mio/mio_impl.h	2008-04-27 02:57:34.000000000 -0700
-+++ ./jabberd2/mio/mio_impl.h	2009-05-07 10:06:48.000000000 -0700
-@@ -239,7 +239,7 @@ static void _mio_run(mio_t m, int timeou
+--- /tmp/jabberd-2.2.13/mio/mio_impl.h	2011-02-23 08:24:35.000000000 -0800
++++ ./jabberd2/mio/mio_impl.h	2011-02-24 16:25:21.000000000 -0800
+@@ -243,7 +243,7 @@ static void _mio_run(mio_t m, int timeou
          if(FD(m,fd)->type == type_LISTEN && MIO_CAN_READ(m,iter))
          {
              _mio_accept(m, fd);
@@ -9,7 +9,7 @@
          }
  
          /* check for connecting sockets */
-@@ -247,7 +247,7 @@ static void _mio_run(mio_t m, int timeou
+@@ -251,7 +251,7 @@ static void _mio_run(mio_t m, int timeou
             (MIO_CAN_READ(m,iter) || MIO_CAN_WRITE(m,iter)))
          {
              _mio__connect(m, fd);
@@ -18,7 +18,7 @@
          }
  
          /* read from ready sockets */
-@@ -266,6 +266,7 @@ static void _mio_run(mio_t m, int timeou
+@@ -270,6 +270,7 @@ static void _mio_run(mio_t m, int timeou
                  MIO_UNSET_WRITE(m, FD(m,fd));
          }
  
@@ -26,7 +26,7 @@
          /* deferred closing fd
           * one of previous actions might change the state of fd */ 
          if(FD(m,fd)->type == type_CLOSED)
-@@ -343,8 +344,8 @@ static mio_fd_t _mio_listen(mio_t m, int
+@@ -347,8 +348,8 @@ static mio_fd_t _mio_listen(mio_t m, int
          return NULL;
      }
  

@@ -44,7 +44,7 @@ namespace WebCore {
 
 const double EventHandler::TextDragDelay = 0.0;
 
-bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
+bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 {
     // We always allow tabs to all controls
     return true;
@@ -59,7 +59,7 @@ void EventHandler::focusDocumentView()
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
 {
     // Figure out which view to send the event to.
-    RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
+    RenderObject* target = targetNode(event) ? targetNode(event)->renderer() : 0;
     if (!target || !target->isWidget())
         return false;
     return passMouseDownEventToWidget(toRenderWidget(target)->widget());
@@ -96,7 +96,7 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& event, Widget* wid
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    return ClipboardGtk::create(ClipboardWritable, DataObjectGtk::create(), true);
+    return ClipboardGtk::create(ClipboardWritable, DataObjectGtk::create(), Clipboard::DragAndDrop, m_frame);
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)

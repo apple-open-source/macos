@@ -1,0 +1,40 @@
+			Distributed Multihead X (DMX) Extension
+
+This extension defines a protocol for clients to access a front-end proxy
+X server that controls multiple back-end X servers making up a large display.
+
+Extension name: DMX
+
+More information about the DMX software can be found on the original project
+website at:
+        http://dmx.sourceforge.net/
+
+The protocol specification is currently maintained in the xserver git
+repository at hw/dmx/doc/DMXSpec.txt and can be viewed online at:
+
+        http://cgit.freedesktop.org/xorg/xserver/tree/hw/dmx/doc/DMXSpec.txt
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/proto/dmxproto
+
+        http://cgit.freedesktop.org/xorg/proto/dmxproto
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+
+

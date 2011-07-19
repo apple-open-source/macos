@@ -38,6 +38,7 @@
 #include "SkPath.h"
 #include "SkPoint.h"
 #include "SkRect.h"
+#include "SkUtils.h"
 
 extern "C" {
 #include "harfbuzz-shaper.h"
@@ -61,6 +62,15 @@ static HB_Bool stringToGlyphs(HB_Font hbFont, const HB_UChar16* characters, hb_u
 
     font->setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
+
+    unsigned codepoints = 0;
+    for (hb_uint32 i = 0; i < length; i++) {
+        if (!SkUTF16_IsHighSurrogate(characters[i]))
+            codepoints++;
+        if (codepoints > *glyphsSize)
+            return 0;
+    }
+
     int numGlyphs = paint.textToGlyphs(characters, length * sizeof(uint16_t), reinterpret_cast<uint16_t*>(glyphs));
 
     // HB_Glyph is 32-bit, but Skia outputs only 16-bit numbers. So our
@@ -84,7 +94,7 @@ static void glyphsToAdvances(HB_Font hbFont, const HB_Glyph* glyphs, hb_uint32 n
     font->setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 
-    OwnArrayPtr<uint16_t> glyphs16(new uint16_t[numGlyphs]);
+    OwnArrayPtr<uint16_t> glyphs16 = adoptArrayPtr(new uint16_t[numGlyphs]);
     if (!glyphs16.get())
         return;
     for (unsigned i = 0; i < numGlyphs; ++i)
@@ -110,7 +120,7 @@ static HB_Bool canRender(HB_Font hbFont, const HB_UChar16* characters, hb_uint32
     font->setupPaint(&paint);
     paint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
 
-    OwnArrayPtr<uint16_t> glyphs16(new uint16_t[length]);
+    OwnArrayPtr<uint16_t> glyphs16 = adoptArrayPtr(new uint16_t[length]);
     if (!glyphs16.get())
         return 0;
     int numGlyphs = paint.textToGlyphs(characters, length * sizeof(uint16_t), glyphs16.get());
@@ -128,30 +138,11 @@ static HB_Bool canRender(HB_Font hbFont, const HB_UChar16* characters, hb_uint32
 
 static HB_Error getOutlinePoint(HB_Font hbFont, HB_Glyph glyph, int flags, hb_uint32 point, HB_Fixed* xPos, HB_Fixed* yPos, hb_uint32* resultingNumPoints)
 {
-    FontPlatformData* font = reinterpret_cast<FontPlatformData*>(hbFont->userData);
-    SkPaint paint;
-
-    if (flags & HB_ShaperFlag_UseDesignMetrics)
-        return HB_Err_Invalid_Argument;  // This is requesting pre-hinted positions. We can't support this.
-
-    font->setupPaint(&paint);
-    paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
-    uint16_t glyph16 = glyph;
-    SkPath path;
-    paint.getTextPath(&glyph16, sizeof(glyph16), 0, 0, &path);
-    int numPoints = path.getPoints(0, 0);
-    if (point >= numPoints)
-        return HB_Err_Invalid_SubTable;
-    SkPoint* points = reinterpret_cast<SkPoint*>(fastMalloc(sizeof(SkPoint) * (point + 1)));
-    if (!points)
-        return HB_Err_Invalid_SubTable;
-    // Skia does let us get a single point from the path.
-    path.getPoints(points, point + 1);
-    *xPos = SkiaScalarToHarfbuzzFixed(points[point].fX);
-    *yPos = SkiaScalarToHarfbuzzFixed(points[point].fY);
-    *resultingNumPoints = numPoints;
-    fastFree(points);
-
+    // We cannot provide the right position of outline points from point index.
+    // Just return HB_Err_Ok with resultingNumPoints = 0 so that harfbuzz
+    // falls back on using design coordinate value pair.
+    // See https://bugs.webkit.org/show_bug.cgi?id=60079 for more details.
+    *resultingNumPoints = 0;
     return HB_Err_Ok;
 }
 

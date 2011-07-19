@@ -37,14 +37,17 @@ sub init {
     croak "filename must be a code reference"
       if defined $args{filename} && !UNIVERSAL::isa( $args{filename}, 'CODE' );
 
+    $self->{"_hpbf_save_filename_code"} = $args{filename};
     $self->{"_hpbf_save_$_"} = $args{$_}
       for qw( template no_host no_dirs cut_dirs prefix
-              filename
               multiple keep_old timestamp status );
 }
 
 sub begin {
     my ( $self, $message ) = @_;
+
+    # internal data initialisation
+    delete @{$self}{qw( _hpbf_save_filename _hpbf_save_fh )};
 
     my $uri = $message->isa( 'HTTP::Request' )
             ? $message->uri : $message->request->uri;
@@ -56,9 +59,9 @@ sub begin {
     }
     
     my $file = '';
-    if( defined $self->{_hpbf_save_filename} ) {
+    if( defined $self->{_hpbf_save_filename_code} ) {
         # use the user-provided callback
-        $file = &{ $self->{_hpbf_save_filename} }->($message);
+        $file = $self->{_hpbf_save_filename_code}->($message);
         unless ( defined $file and $file ne '' ) {
             $self->proxy->log( HTTP::Proxy::FILTERS, "HTBF::save",
                                "Filter will not save $uri" );
@@ -69,7 +72,7 @@ sub begin {
         # set the template variables from the URI
         my @segs = $uri->path_segments; # starts with an empty string
         shift @segs;
-        splice(@segs, 1, $self->{_hpbf_save_cut_dirs} >= @segs
+        splice(@segs, 0, $self->{_hpbf_save_cut_dirs} >= @segs
                          ? @segs - 1 : $self->{_hpbf_save_cut_dirs} );
         my %vars = (
              '%' => '%',
@@ -80,8 +83,10 @@ sub begin {
              q   => $uri->query,
         );
         pop @segs;
-        $vars{d} = $self->{_hpbf_save_no_dirs} ? ''
-                                               : File::Spec->catfile(@segs);
+        $vars{d}
+            = $self->{_hpbf_save_no_dirs} ? ''
+            : @segs                       ? File::Spec->catfile(@segs)
+            :                               '';
         $vars{P} = $vars{p} . ( $vars{q} ? "?$vars{q}" : '' );
     
         # create the filename
@@ -91,12 +96,8 @@ sub begin {
     }
     $file = File::Spec->rel2abs( $file );
 
-    # internal data initialisation
-    $self->{_hpbf_save_filename} = "";
-    $self->{_hpbf_save_fh} = undef;
-
     # create the directory
-    my $dir = File::Spec->catdir( (File::Spec->splitpath($file))[ 0, 1 ] );
+    my $dir = File::Spec->catpath( (File::Spec->splitpath($file))[ 0, 1 ], '' );
     if( ! -e $dir ) {
         eval { mkpath( $dir ) };
         if ($@) {
@@ -108,10 +109,23 @@ sub begin {
                            "Created directory $dir" );
     }
 
+    # keep old file?
+    if ( -e $file ) {
+        if ( $self->{_hpbf_save_timestamp} ) {
+            # FIXME timestamp
+        }
+        elsif ( $self->{_hpbf_save_keep_old} ) {
+            $self->proxy->log( HTTP::Proxy::FILTERS, "HPBF::save",
+                "Skip saving $uri" );
+            delete $self->{_hpbf_save_fh};    # it's a closed filehandle
+            return;
+        }
+    }
+
     # open and lock the file
     my ( $ext, $n, $i ) = ( "", 0 );
-    while( ! sysopen( $self->{_hpbf_save_fh}, "$file$ext",
-                      O_WRONLY | O_EXCL | O_CREAT ) ) {
+    my $flags = O_WRONLY | O_EXCL | O_CREAT;
+    while( ! sysopen( $self->{_hpbf_save_fh}, "$file$ext", $flags ) ) {
         $self->proxy->log( HTTP::Proxy::ERROR, "HPBF::save",
                            "Too many errors opening $file$ext" ), return
           if $i++ - $n == 10; # should be ok now
@@ -119,15 +133,8 @@ sub begin {
             $ext = "." . ++$n while -e $file.$ext;
             next;
         }
-        if( $self->{_hpbf_save_timestamp} ) {
-            # FIXME timestamp
-        } elsif( $self->{_hpbf_save_keep_old} ) {
-            $self->proxy->log( HTTP::Proxy::FILTERS, "HPBF::save",
-                               "Skip saving $uri" );
-            delete $self->{_hpbf_save_fh}; # it's a closed filehandle
-            return;
-        } else {
-            unlink $file; # FIXME error ?
+        else {
+            $flags = O_WRONLY | O_CREAT;
         }
     }
 
@@ -154,8 +161,11 @@ sub end {
     # close file
     if( $self->{_hpbf_save_fh} ) {
         $self->{_hpbf_save_fh}->close; # FIXME error handling
+        delete $self->{_hpbf_save_fh};
     }
 }
+
+sub will_modify { 0 }
 
 1;
 
@@ -174,13 +184,13 @@ HTTP::Proxy::BodyFilter::save - A filter that saves transfered data to a file
 
     # save RFC files as we browse them
     $proxy->push_filter(
-        path => qr!/rfc\d+.txt!,
-        mime => 'text/plain',
+        path     => qr!/rfc\d+.txt!,
+        mime     => 'text/plain',
         response => HTTP::Proxy::BodyFilter::save->new(
             template => '%f',
             prefix   => 'rfc',
             keep_old => 1,
-        );
+        )
     );
 
     $proxy->start;
@@ -294,8 +304,8 @@ Other options help the filter decide where and when to save:
 
 With the B<multiple> option, saving the same file in the same directory
 will result in the original copy of file being preserved and the second
-copy being named file.1. If that a file is saved yet again with the same
-name, the third copy will be named file.2, and so on.
+copy being named F<file.1>. If that a file is saved yet again with the same
+name, the third copy will be named F<file.2>, and so on.
 
 Default is I<true>.
 
@@ -312,6 +322,8 @@ The file is saved only if the date given in the C<Last-Modified> is more
 recent than the local file's timestamp.
 
 Default is I<false>.
+
+B<This option is not implemented.>
 
 =item B<keep_old> => I<boolean>
 
@@ -372,6 +384,11 @@ Save all the data that goes through to the opened file.
 
 Close the file when the whole message body has been processed.
 
+=item will_modify()
+
+This method returns a I<false> value, thus indicating to the system
+that it will not modify data passing through.
+
 =back
 
 =head1 SEE ALSO
@@ -399,12 +416,21 @@ Thanks to Howard Jones for the inspiration and initial patch for the
 C<filename> option. Lucas Gonze provided a patch to make C<status>
 actually work.
 
-Thanks to Max Maischein for detecting a bug in the paramerter validation
-for C<filename>.
+Thanks to Max Maischein for detecting a bug in the parameter validation
+for C<filename> (L<http://rt.cpan.org/Ticket/Display.html?id=14548>).
+
+Thanks to Mark Tilford, who found out that the
+C<filename> option was incorrectly used internally
+(L<http://rt.cpan.org/Ticket/Display.html?id=18644>).
+
+Thanks to Roland Stigge and Gunnar Wolf for
+reporting and forwarding Debian bug #433951 to CPAN RT
+(L<http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=433951>,
+L<http://rt.cpan.org/Ticket/Display.html?id=33018>).
 
 =head1 COPYRIGHT
 
-Copyright 2004-2005, Philippe Bruhat.
+Copyright 2004-2008, Philippe Bruhat.
 
 =head1 LICENSE
 

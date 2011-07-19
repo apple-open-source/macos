@@ -9,7 +9,7 @@
  * in SWIG.  --MR
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_directors_cxx[] = "$Header";
+char cvsroot_directors_cxx[] = "$Id";
 
 #include "swigmod.h"
 
@@ -84,7 +84,7 @@ String *Swig_director_declaration(Node *n) {
 }
 
 
-String *Swig_method_call(String_or_char *name, ParmList *parms) {
+String *Swig_method_call(const_String_or_char_ptr name, ParmList *parms) {
   String *func;
   int i = 0;
   int comma = 0;
@@ -128,7 +128,7 @@ String *Swig_method_call(String_or_char *name, ParmList *parms) {
  *
  */
 
-String *Swig_method_decl(SwigType *returntype, SwigType *decl, const String_or_char *id, List *args, int strip, int values) {
+String *Swig_method_decl(SwigType *returntype, SwigType *decl, const_String_or_char_ptr id, List *args, int strip, int values) {
   String *result;
   List *elements;
   String *element = 0, *nextelement;
@@ -261,3 +261,28 @@ String *Swig_method_decl(SwigType *returntype, SwigType *decl, const String_or_c
 
   return result;
 }
+
+/* -----------------------------------------------------------------------------
+ * Swig_director_emit_dynamic_cast()
+ *
+ * In order to call protected virtual director methods from the target language, we need
+ * to add an extra dynamic_cast to call the public C++ wrapper in the director class. 
+ * Also for non-static protected members when the allprotected option is on.
+ * ----------------------------------------------------------------------------- */
+void Swig_director_emit_dynamic_cast(Node *n, Wrapper *f) {
+  // TODO: why is the storage element removed in staticmemberfunctionHandler ??
+  if ((!is_public(n) && (is_member_director(n) || GetFlag(n, "explicitcall"))) || 
+      (is_non_virtual_protected_access(n) && !(checkAttribute(n, "staticmemberfunctionHandler:storage", "static") || 
+                                               checkAttribute(n, "storage", "static"))
+                                          && !Equal(nodeType(n), "constructor"))) {
+    Node *parent = Getattr(n, "parentNode");
+    String *symname = Getattr(parent, "sym:name");
+    String *dirname = NewStringf("SwigDirector_%s", symname);
+    String *dirdecl = NewStringf("%s *darg = 0", dirname);
+    Wrapper_add_local(f, "darg", dirdecl);
+    Printf(f->code, "darg = dynamic_cast<%s *>(arg1);\n", dirname);
+    Delete(dirname);
+    Delete(dirdecl);
+  }
+}
+

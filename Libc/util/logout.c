@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2005, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,16 +81,16 @@ logout(char *line)
 	strncpy(utx.ut_line, line, sizeof(utx.ut_line));
 	utx.ut_type = UTMPX_AUTOFILL_MASK | UTMPX_DEAD_IF_CORRESPONDING_MASK | DEAD_PROCESS;
 	(void)gettimeofday(&utx.ut_tv, NULL);
-	UTMPX_LOCK;
-	_setutxent();
-	ux = _pututxline(&utx);
-	_endutxent();
+	UTMPX_LOCK(&__utx__);
+	__setutxent(&__utx__);
+	ux = __pututxline(&__utx__, &utx);
+	__endutxent(&__utx__);
 	if (!ux) {
-		UTMPX_UNLOCK;
+		UTMPX_UNLOCK(&__utx__);
 		return 0;
 	}
 #ifdef UTMP_COMPAT
-	if (utfile_system) { /* only if we are using _PATH_UTMPX */
+	if (__utx__.utfile_system) { /* only if we are using _PATH_UTMPX */
 		which = _utmp_compat(ux, &u);
 		if (which & UTMP_COMPAT_UTMP0)
 			_write_utmp(&u, 0);
@@ -98,6 +98,6 @@ logout(char *line)
 			_write_utmp(&u, 1);
 	}
 #endif /* UTMP_COMPAT */
-	UTMPX_UNLOCK;
+	UTMPX_UNLOCK(&__utx__);
 	return 1;
 }

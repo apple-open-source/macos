@@ -47,9 +47,6 @@
 /* when not building a shared library */
 /* #undef CURL_STATICLIB */
 
-/* Set to explicitly specify we don't want to use thread-safe functions */
-/* #undef DISABLED_THREADSAFE */
-
 /* lber dynamic library file */
 /* #undef DL_LBER_FILE */
 
@@ -559,8 +556,11 @@
 /* if you have the zlib.h header file */
 /* #undef HAVE_ZLIB_H */
 
-/* need REENTRANT defined */
+/* Define to 1 if _REENTRANT preprocessor symbol must be defined. */
 /* #undef NEED_REENTRANT */
+
+/* Define to 1 if _THREAD_SAFE preprocessor symbol must be defined. */
+/* #undef NEED_THREAD_SAFE */
 
 /* cpu-machine-OS */
 #define OS "s390x-ibm-tpf"
@@ -598,13 +598,19 @@
 /* Define to the type of arg 5 for `select'. */
 #define SELECT_TYPE_ARG5 (struct timeval *)
 
-/* The size of an `off_t', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT 4
+
+/* The size of `off_t', as computed by sizeof. */
 #define SIZEOF_OFF_T 8
 
-/* The size of a `size_t', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT 2
+
+/* The size of `size_t', as computed by sizeof. */
 #define SIZEOF_SIZE_T 8
 
-/* The size of a `time_t', as computed by sizeof. */
+/* The size of `time_t', as computed by sizeof. */
 #define SIZEOF_TIME_T 8
 
 /* Define to 1 if you have the ANSI C header files. */
@@ -652,9 +658,6 @@
 
 /* Define for large files, on AIX-style hosts. */
 /* #undef _LARGE_FILES */
-
-/* define this if you need it to compile thread-safe code */
-/* #undef _THREAD_SAFE */
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

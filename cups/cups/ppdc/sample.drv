@@ -1,5 +1,5 @@
 //
-// "$Id: sample.drv 3036 2011-03-10 02:54:04Z msweet $"
+// "$Id: sample.drv 3269 2011-05-18 23:25:48Z msweet $"
 //
 //   Driver info file for CUPS-supplied PPDs.
 //
@@ -112,7 +112,7 @@
 #media "w576h468/8.00x6.50\"" 576 468
 
 // Common stuff for all drivers...
-Attribute "cupsVersion" "" "1.4"
+Attribute "cupsVersion" "" "1.5"
 Attribute "FileSystem" "" "False"
 Attribute "LandscapeOrientation" "" "Plus90"
 Attribute "TTRasterizer" "" "Type42"
@@ -128,7 +128,7 @@ Copyright "file is missing or damaged, see the license at \"http://www.cups.org/
 
 Font *
 
-Version "1.4"
+Version "1.5"
 
 // Dymo Label Printer
 {
@@ -315,6 +315,7 @@ Version "1.4"
     Throughput 8
     ModelNumber $HP_LASERJET
     ColorDevice No
+    Attribute 1284DeviceID "" "CMD:PCL;"
 
     UIConstraints "*Duplex  *Option1 False"
     UIConstraints "*PageSize A3 *InputSlot Envelope"
@@ -367,6 +368,7 @@ Version "1.4"
     ColorDevice Yes
     Attribute PSVersion "" "(2016.0) 0"
     Attribute LanguageLevel "" 2
+    Attribute 1284DeviceID "" "CMD:PS;"
 
     UIConstraints "*Duplex  *Option1 False"
 
@@ -410,6 +412,7 @@ Version "1.4"
     ManualCopies Yes
     ColorDevice Yes
     Throughput 1
+    Attribute 1284DeviceID "" "MFG:HP;MDL:HP DeskJet;CMD:PCL;"
 
     UIConstraints "*PageSize A3 *InputSlot Envelope"
     UIConstraints "*PageSize A4 *InputSlot Envelope"
@@ -462,6 +465,7 @@ Version "1.4"
     Throughput 8
     ModelNumber $HP_LASERJET
     ColorDevice No
+    Attribute 1284DeviceID "" "MFG:HP;MDL:HP LaserJet;CMD:PCL;"
 
     UIConstraints "*Duplex  *Option1 False"
     UIConstraints "*PageSize A3 *InputSlot Envelope"
@@ -1246,5 +1250,5 @@ Version "1.4"
 }
 
 //
-// End of "$Id: sample.drv 3036 2011-03-10 02:54:04Z msweet $".
+// End of "$Id: sample.drv 3269 2011-05-18 23:25:48Z msweet $".
 //

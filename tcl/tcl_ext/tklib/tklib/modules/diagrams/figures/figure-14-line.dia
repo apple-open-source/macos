@@ -1,0 +1,3 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+line right then down [1 cm] left then right

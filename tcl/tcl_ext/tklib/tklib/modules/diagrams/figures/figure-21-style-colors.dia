@@ -1,0 +1,5 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+box fillcolor yellow color yellow
+arrow color cyan
+circle fillcolor green color black

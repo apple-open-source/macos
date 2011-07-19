@@ -1,0 +1,33 @@
+#!bin/bash
+# -*- tcl -*- \
+exec tclsh "$0" ${1+"$@"}
+
+# @@ Meta Begin
+# Application dia 1.0
+# Meta platform     tcl
+# Meta summary      Lightweight Diagram Processor
+# Meta description  This application is a processor for documents
+# Meta description  written in the tklib diagram language. It 
+# Meta description  should cover the most common use cases,
+# Meta description  rendering to canvas for display, and batch
+# Meta description  conversion to raster images.
+# Meta category     Processing tklib diagrams
+# Meta subject      diagram drawing point line spline arrow ellipse box circle
+# Meta subject      intersection interpolation picture drum arc diamond text
+# Meta subject      ellipse plotting vector {plane geometry} {2D geometry} move
+# Meta subject      canvas image {raster image}
+# Meta require      diagram::application
+# Meta author       Andreas Kupries
+# Meta license      BSD
+# @@ Meta End
+
+# # ## ### ##### ######## ############# #####################
+package require diagram::application
+if {[catch {
+    diagram::application $argv
+} msg]} {
+    #puts $::errorInfo
+    diagram::application::showerror $msg
+}
+# # ## ### ##### ######## ############# #####################
+exit

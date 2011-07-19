@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary formstrArg, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +35,31 @@ module test {
         readonly attribute long            readOnlyIntAttr;
         readonly attribute DOMString       readOnlyStringAttr;
         readonly attribute TestObj         readOnlyTestObjAttr;
+        attribute short                    shortAttr;
+        attribute unsigned short           unsignedShortAttr;
         attribute long                     intAttr;
         attribute long long                longLongAttr;
         attribute unsigned long long       unsignedLongLongAttr;
         attribute DOMString                stringAttr;
         attribute TestObj                  testObjAttr;
+
+        JS, V8
+        // WK_ucfirst, WK_lcfirst exceptional cases.
+        attribute TestObj                  XMLObjAttr;
+        attribute boolean                  create;
+
+        // Reflected DOM attributes
+        attribute [Reflect] DOMString reflectedStringAttr;
+        attribute [Reflect] long reflectedIntegralAttr;
+        attribute [Reflect] unsigned long reflectedUnsignedIntegralAttr;
+        attribute [Reflect] boolean reflectedBooleanAttr;
+        attribute [Reflect, URL] DOMString reflectedURLAttr;
+        attribute [Reflect, NonEmpty, URL] DOMString reflectedNonEmptyURLAttr;
+        attribute [Reflect=customContentStringAttr] DOMString reflectedStringAttr;
+        attribute [Reflect=customContentIntegralAttr] long reflectedCustomIntegralAttr;
+        attribute [Reflect=customContentBooleanAttr] boolean reflectedCustomBooleanAttr;
+        attribute [Reflect=customContentURLAttr, URL] DOMString reflectedCustomURLAttr;
+        attribute [Reflect=customContentNonEmptyURLAttr, NonEmpty, URL] DOMString reflectedCustomNonEmptyURLAttr;
 
         // Methods
         void    voidMethod();
@@ -48,13 +69,20 @@ module test {
         TestObj objMethod();
         TestObj objMethodWithArgs(in long intArg, in DOMString strArg, in TestObj objArg);
 
+        [RequiresAllArguments] TestObj methodThatRequiresAllArgs(in DOMString strArg, in TestObj objArg);
+        [RequiresAllArguments=Raise] TestObj methodThatRequiresAllArgsAndThrows(in DOMString strArg, in TestObj objArg)
+            raises(DOMException);
+
         void serializedValue(in SerializedScriptValue serializedArg);
+        void idbKey(in IDBKey key);
+        void optionsObject(in OptionsObject oo, in [Optional] OptionsObject ooo);
 
         // Exceptions
-        void    methodWithException() raises(DOMException);
-        attribute long attrWithException raises(DOMException);
-        attribute long attrWithSetterException getraises(DOMException);
-        attribute long attrWithGetterException setraises(DOMException);
+        void methodWithException() raises(DOMException);
+        attribute long attrWithGetterException getter raises(DOMException);
+        attribute long attrWithSetterException setter raises(DOMException);
+        attribute DOMString stringAttrWithGetterException getter raises(DOMException);
+        attribute DOMString stringAttrWithSetterException setter raises(DOMException);
 
         // 'Custom' extended attribute
         attribute [Custom] long            customAttr;
@@ -83,21 +111,65 @@ module test {
             raises(DOMException);
         [CallWith=ScriptState] TestObj withScriptStateObjException()
             raises(DOMException);
+        [CallWith=ScriptExecutionContext] void withScriptExecutionContext();
 
         // 'Optional' extended attribute
         void    methodWithOptionalArg(in [Optional] long opt);
         void    methodWithNonOptionalArgAndOptionalArg(in long nonOpt, in [Optional] long opt);
         void    methodWithNonOptionalArgAndTwoOptionalArgs(in long nonOpt, in [Optional] long opt1, in long opt2);
 
+#if defined(TESTING_V8) || defined(TESTING_JS)
+        // 'Callback' extended attribute
+        void    methodWithCallbackArg(in [Callback] TestCallback callback);
+        void    methodWithNonCallbackArgAndCallbackArg(in long nonCallback, in [Callback] TestCallback callback);
+        void    methodWithCallbackAndOptionalArg(in [Callback, Optional] TestCallback callback);
+#endif
+
         // 'ConvertScriptString' extended attribute
         readonly attribute [ConvertScriptString] DOMString scriptStringAttr;
 
-#ifdef TESTING_V8
+        // 'Conditional' extended attribute
+        attribute [Conditional=Condition1] long conditionalAttr1;
+        attribute [Conditional=Condition1&Condition2] long conditionalAttr2;
+        attribute [Conditional=Condition1|Condition2] long conditionalAttr3;
+
+#if defined(TESTING_V8) || defined(TESTING_JS)
         // Overloads
         void    overloadedMethod(in TestObj objArg, in DOMString strArg);
         void    overloadedMethod(in TestObj objArg, in [Optional] long intArg);
         void    overloadedMethod(in DOMString strArg);
         void    overloadedMethod(in long intArg);
+        void    overloadedMethod(in [Callback] TestCallback callback);
 #endif
+
+        // Class methods within JavaScript (like what's used for IDBKeyRange).
+        [ClassMethod] void classMethod();
+        [ClassMethod] long classMethodWithOptional(in [Optional] long arg);
+
+#if defined(TESTING_V8)
+        // 'EnabledAtRuntime' methods and attributes.
+        [EnabledAtRuntime] void enabledAtRuntimeMethod1(in int intArg);
+        [EnabledAtRuntime=FeatureName] void enabledAtRuntimeMethod2(in int intArg);
+        attribute [EnabledAtRuntime] long enabledAtRuntimeAttr1;
+        attribute [EnabledAtRuntime=FeatureName] long enabledAtRuntimeAttr2;
+#endif
+
+        // ObjectiveC reserved words.
+        readonly attribute long      description;
+        attribute long               id;
+        readonly attribute DOMString hash;
+
+        // Check constants and enums.
+        const unsigned short CONST_VALUE_0 = 0;
+        const unsigned short CONST_VALUE_1 = 1;
+        const unsigned short CONST_VALUE_2 = 2;
+        const unsigned short CONST_VALUE_4 = 4;
+        const unsigned short CONST_VALUE_8 = 8;
+        const short CONST_VALUE_9 = -1;
+        const DOMString CONST_VALUE_10 = "my constant string";
+        const unsigned short CONST_VALUE_11 = 0xffffffff;
+        const unsigned short CONST_VALUE_12 = 0x01;
+        const unsigned short CONST_VALUE_13 = 0X20;
+        const unsigned short CONST_VALUE_14 = 0x1abc;
     };
 }

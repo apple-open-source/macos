@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
+ * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -51,11 +51,12 @@
 // Moving this #include above FrameLoader.h causes the Windows build to fail due to warnings about
 // alignment in Timer<FrameLoader>. It seems that the definition of EmptyFrameLoaderClient is what
 // causes this (removing that definition fixes the warnings), but it isn't clear why.
-#include "EmptyClients.h"
+#include "EmptyClients.h" // NOLINT
 
 namespace WebCore {
 
-class SVGImageChromeClient : public EmptyChromeClient, public Noncopyable {
+class SVGImageChromeClient : public EmptyChromeClient {
+    WTF_MAKE_NONCOPYABLE(SVGImageChromeClient); WTF_MAKE_FAST_ALLOCATED;
 public:
     SVGImageChromeClient(SVGImage* image)
         : m_image(image)
@@ -181,7 +182,7 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
 
     FrameView* view = m_page->mainFrame()->view();
 
-    context->save();
+    GraphicsContextStateSaver stateSaver(*context);
     context->setCompositeOperation(compositeOp);
     context->clip(enclosingIntRect(dstRect));
     if (compositeOp != CompositeSourceOver)
@@ -207,7 +208,7 @@ void SVGImage::draw(GraphicsContext* context, const FloatRect& dstRect, const Fl
     if (compositeOp != CompositeSourceOver)
         context->endTransparencyLayer();
 
-    context->restore();
+    stateSaver.restore();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -221,12 +222,13 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame()
     if (!m_frameCache) {
         if (!m_page)
             return 0;
-        m_frameCache = ImageBuffer::create(size());
-        if (!m_frameCache) // failed to allocate image
+        OwnPtr<ImageBuffer> buffer = ImageBuffer::create(size());
+        if (!buffer) // failed to allocate image
             return 0;
-        draw(m_frameCache->context(), rect(), rect(), DeviceColorSpace, CompositeSourceOver);
+        draw(buffer->context(), rect(), rect(), ColorSpaceDeviceRGB, CompositeSourceOver);
+        m_frameCache = buffer->copyImage();
     }
-    return m_frameCache->image()->nativeImageForCurrentFrame();
+    return m_frameCache->nativeImageForCurrentFrame();
 }
 
 bool SVGImage::dataChanged(bool allDataReceived)
@@ -237,25 +239,36 @@ bool SVGImage::dataChanged(bool allDataReceived)
 
     if (allDataReceived) {
         static FrameLoaderClient* dummyFrameLoaderClient =  new EmptyFrameLoaderClient;
-        static EditorClient* dummyEditorClient = new EmptyEditorClient;
+
+        Page::PageClients pageClients;
+        m_chromeClient = adoptPtr(new SVGImageChromeClient(this));
+        pageClients.chromeClient = m_chromeClient.get();
 #if ENABLE(CONTEXT_MENUS)
         static ContextMenuClient* dummyContextMenuClient = new EmptyContextMenuClient;
-#else
-        static ContextMenuClient* dummyContextMenuClient = 0;
+        pageClients.contextMenuClient = dummyContextMenuClient;
 #endif
+        static EditorClient* dummyEditorClient = new EmptyEditorClient;
+        pageClients.editorClient = dummyEditorClient;
 #if ENABLE(DRAG_SUPPORT)
         static DragClient* dummyDragClient = new EmptyDragClient;
-#else
-        static DragClient* dummyDragClient = 0;
+        pageClients.dragClient = dummyDragClient;
 #endif
         static InspectorClient* dummyInspectorClient = new EmptyInspectorClient;
+        pageClients.inspectorClient = dummyInspectorClient;
+#if ENABLE(DEVICE_ORIENTATION)
+        static DeviceMotionClient* dummyDeviceMotionClient = new EmptyDeviceMotionClient;
+        pageClients.deviceMotionClient = dummyDeviceMotionClient;
+        static DeviceOrientationClient* dummyDeviceOrientationClient = new EmptyDeviceOrientationClient;
+        pageClients.deviceOrientationClient = dummyDeviceOrientationClient;
+#endif
 
-        m_chromeClient.set(new SVGImageChromeClient(this));
-        
         // FIXME: If this SVG ends up loading itself, we might leak the world.
-        // The comment said that the Cache code does not know about CachedImages
-        // holding Frames and won't know to break the cycle. But 
-        m_page.set(new Page(m_chromeClient.get(), dummyContextMenuClient, dummyEditorClient, dummyDragClient, dummyInspectorClient, 0, 0));
+        // The Cache code does not know about CachedImages holding Frames and
+        // won't know to break the cycle.
+        // This will become an issue when SVGImage will be able to load other
+        // SVGImage objects, but we're safe now, because SVGImage can only be
+        // loaded by a top-level document.
+        m_page = adoptPtr(new Page(pageClients));
         m_page->settings()->setMediaEnabled(false);
         m_page->settings()->setJavaScriptEnabled(false);
         m_page->settings()->setPluginsEnabled(false);
@@ -263,16 +276,13 @@ bool SVGImage::dataChanged(bool allDataReceived)
         RefPtr<Frame> frame = Frame::create(m_page.get(), 0, dummyFrameLoaderClient);
         frame->setView(FrameView::create(frame.get()));
         frame->init();
-        ResourceRequest fakeRequest(KURL(ParsedURLString, ""));
         FrameLoader* loader = frame->loader();
         loader->setForcedSandboxFlags(SandboxAll);
-        loader->load(fakeRequest, false); // Make sure the DocumentLoader is created
-        loader->policyChecker()->cancelCheck(); // cancel any policy checks
-        loader->commitProvisionalLoad(0);
-        loader->writer()->setMIMEType("image/svg+xml");
-        loader->writer()->begin(KURL()); // create the empty document
-        loader->writer()->addData(data()->data(), data()->size());
-        loader->writer()->end();
+        ASSERT(loader->activeDocumentLoader()); // DocumentLoader should have been created by frame->init().
+        loader->activeDocumentLoader()->writer()->setMIMEType("image/svg+xml");
+        loader->activeDocumentLoader()->writer()->begin(KURL()); // create the empty document
+        loader->activeDocumentLoader()->writer()->addData(data()->data(), data()->size());
+        loader->activeDocumentLoader()->writer()->end();
         frame->view()->setTransparent(true); // SVG Images are transparent.
     }
 

@@ -90,8 +90,9 @@ static char_u	*tagmatchname = NULL;	/* name of last used tag */
 /*
  * We use ftello() here, if available.  It returns off_t instead of long,
  * which helps if long is 32 bit and off_t is 64 bit.
+ * We assume that when fseeko() is available then ftello() is too.
  */
-#ifdef HAVE_FTELLO
+#ifdef HAVE_FSEEKO
 # define ftell ftello
 #endif
 
@@ -100,7 +101,7 @@ static char_u	*tagmatchname = NULL;	/* name of last used tag */
  * Tag for preview window is remembered separately, to avoid messing up the
  * normal tagstack.
  */
-static taggy_T ptag_entry = {NULL};
+static taggy_T ptag_entry = {NULL, {INIT_POS_T(0, 0, 0), 0}, 0, 0};
 #endif
 
 /*
@@ -618,7 +619,7 @@ do_tag(tag, type, count, forceit, verbose)
 		taglen_advance(taglen);
 		MSG_PUTS_ATTR(_("file\n"), hl_attr(HLF_T));
 
-		for (i = 0; i < num_matches; ++i)
+		for (i = 0; i < num_matches && !got_int; ++i)
 		{
 		    parse_match(matches[i], &tagp);
 		    if (!new_tag && (
@@ -655,6 +656,8 @@ do_tag(tag, type, count, forceit, verbose)
 		    }
 		    if (msg_col > 0)
 			msg_putchar('\n');
+		    if (got_int)
+			break;
 		    msg_advance(15);
 
 		    /* print any extra fields */
@@ -689,6 +692,8 @@ do_tag(tag, type, count, forceit, verbose)
 				if (msg_col + ptr2cells(p) >= Columns)
 				{
 				    msg_putchar('\n');
+				    if (got_int)
+					break;
 				    msg_advance(15);
 				}
 				p = msg_outtrans_one(p, attr);
@@ -704,6 +709,8 @@ do_tag(tag, type, count, forceit, verbose)
 			if (msg_col > 15)
 			{
 			    msg_putchar('\n');
+			    if (got_int)
+				break;
 			    msg_advance(15);
 			}
 		    }
@@ -734,6 +741,8 @@ do_tag(tag, type, count, forceit, verbose)
 		    {
 			if (msg_col + (*p == TAB ? 1 : ptr2cells(p)) > Columns)
 			    msg_putchar('\n');
+			if (got_int)
+			    break;
 			msg_advance(15);
 
 			/* skip backslash used for escaping command char */
@@ -760,12 +769,9 @@ do_tag(tag, type, count, forceit, verbose)
 		    if (msg_col)
 			msg_putchar('\n');
 		    ui_breakcheck();
-		    if (got_int)
-		    {
-			got_int = FALSE;	/* only stop the listing */
-			break;
-		    }
 		}
+		if (got_int)
+		    got_int = FALSE;	/* only stop the listing */
 		ask_for_selection = TRUE;
 	    }
 #if defined(FEAT_QUICKFIX) && defined(FEAT_EVAL)
@@ -905,7 +911,8 @@ do_tag(tag, type, count, forceit, verbose)
 			dict_add_nr_str(dict, "pattern", 0L, cmd);
 		}
 
-		set_errorlist(curwin, list, ' ');
+		vim_snprintf((char *)IObuff, IOSIZE, "ltag %s", tag);
+		set_errorlist(curwin, list, ' ', IObuff);
 
 		list_free(list, TRUE);
 
@@ -1100,10 +1107,9 @@ taglen_advance(l)
 /*
  * Print the tag stack
  */
-/*ARGSUSED*/
     void
 do_tags(eap)
-    exarg_T	*eap;
+    exarg_T	*eap UNUSED;
 {
     int		i;
     char_u	*name;
@@ -2525,11 +2531,10 @@ static void found_tagfile_cb __ARGS((char_u *fname, void *cookie));
  * Callback function for finding all "tags" and "tags-??" files in
  * 'runtimepath' doc directories.
  */
-/*ARGSUSED*/
     static void
 found_tagfile_cb(fname, cookie)
     char_u	*fname;
-    void	*cookie;
+    void	*cookie UNUSED;
 {
     if (ga_grow(&tag_fnames, 1) == OK)
 	((char_u **)(tag_fnames.ga_data))[tag_fnames.ga_len++] =
@@ -2542,6 +2547,15 @@ free_tag_stuff()
 {
     ga_clear_strings(&tag_fnames);
     do_tag(NULL, DT_FREE, 0, 0, 0);
+    tag_freematch();
+
+# if defined(FEAT_WINDOWS) && defined(FEAT_QUICKFIX)
+    if (ptag_entry.tagname)
+    {
+	vim_free(ptag_entry.tagname);
+	ptag_entry.tagname = NULL;
+    }
+# endif
 }
 #endif
 
@@ -2665,7 +2679,7 @@ get_tagfname(tnp, first, buf)
 
 	    tnp->tn_search_ctx = vim_findfile_init(buf, filename,
 		    r_ptr, 100,
-		    FALSE,         /* don't free visited list */
+		    FALSE,	   /* don't free visited list */
 		    FINDFILE_FILE, /* we search for a file */
 		    tnp->tn_search_ctx, TRUE, curbuf->b_ffname);
 	    if (tnp->tn_search_ctx != NULL)
@@ -3758,7 +3772,8 @@ expand_tags(tagnames, pat, num_file, file)
 static int add_tag_field __ARGS((dict_T *dict, char *field_name, char_u *start, char_u *end));
 
 /*
- * Add a tag field to the dictionary "dict"
+ * Add a tag field to the dictionary "dict".
+ * Return OK or FAIL.
  */
     static int
 add_tag_field(dict, field_name, start, end)
@@ -3770,6 +3785,17 @@ add_tag_field(dict, field_name, start, end)
     char_u	buf[MAXPATHL];
     int		len = 0;
 
+    /* check that the field name doesn't exist yet */
+    if (dict_find(dict, (char_u *)field_name, -1) != NULL)
+    {
+	if (p_verbose > 0)
+	{
+	    verbose_enter();
+	    smsg((char_u *)_("Duplicate field name: %s"), field_name);
+	    verbose_leave();
+	}
+	return FAIL;
+    }
     if (start != NULL)
     {
 	if (end == NULL)
@@ -3779,7 +3805,7 @@ add_tag_field(dict, field_name, start, end)
 		--end;
 	}
 	len = (int)(end - start);
-	if (len > sizeof(buf) - 1)
+	if (len > (int)sizeof(buf) - 1)
 	    len = sizeof(buf) - 1;
 	vim_strncpy(buf, start, len);
     }

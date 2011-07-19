@@ -1,6 +1,5 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
 use File::Spec;
 use Test::More;
@@ -13,7 +12,7 @@ use DateTime::TimeZone;
 
 my @names = DateTime::TimeZone::all_names;
 
-my $is_maintainer = -d './CVS' ? 1 : 0;
+my $is_maintainer = -d '.svn' ? 1 : 0;
 
 my $tests_per_zone = $is_maintainer ? 9 : 4;
 plan tests => 30 + ( $tests_per_zone * scalar @names );

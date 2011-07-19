@@ -43,7 +43,7 @@ static char sccsid[] = "@(#)jot.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/jot/jot.c,v 1.37 2006/12/09 15:23:20 delphij Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/jot/jot.c,v 1.40 2009/12/13 03:14:06 delphij Exp $");
 
 /*
  * jot - print sequential or random data
@@ -101,13 +101,13 @@ main(int argc, char **argv)
 	int	ch;
 	int	mask = 0;
 	int	n = 0;
-	double	begin;
+	double	begin = BEGIN_DEF;
 	double	divisor;
-	double	ender;
-	double	s;
+	double	ender = ENDER_DEF;
+	double	s = STEP_DEF;
 	double	x, y;
 	long	i;
-	long	reps;
+	long	reps = REPS_DEF;
 
 	while ((ch = getopt(argc, argv, "b:cnp:rs:w:")) != -1)
 		switch (ch) {

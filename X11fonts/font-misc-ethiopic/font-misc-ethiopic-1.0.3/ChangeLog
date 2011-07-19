@@ -1,0 +1,208 @@
+commit dc0fe3761a074b5884bec91edde1babdf45cc95b
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Mon Nov 15 23:42:52 2010 +0100
+
+    font-misc-ethiopic 1.0.3
+
+commit 649755772b0f00de7dc70111be9df2f759fcf23f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:56 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit b0e71e75cc549726da795b3f378e03675827e873
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Oct 5 00:13:20 2010 -0700
+
+    font-misc-ethiopic 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b974f5952f8f4d2cb802f94bd2cad0b8f950ac71
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:52 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit c5a5f22f855bd404e51d4079ec912d4d5caab771
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit c39fb95a6f0fa71a36301ed1fa17ab57095b076c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 6225374172b04b72b0b9fb0b66593de897d63327
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit a66b98e8924d5767dcbe9a771ee4ff8f8e1f2050
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:42:03 2009 -0700
+
+    font-misc-ethiopic 1.0.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7d19d6a4ec173a6f7f9743ad4bc629a5d306eef2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 18:02:10 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c82bfd47978d78008f8358bcc2f56a04367bdceb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:29 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 16a4bce5c8c911c443bd21932c25fddccad6ccc9
+Author: Ryan Hill <dirtyepic@gentoo.org>
+Date:   Sun Aug 16 15:00:30 2009 -0600
+
+    misc-ethiopic: Skip fc-cache with DESTDIR.
+    
+    Fontconfig-2.7.0 runs chmod on the cachedir, causing access violations
+    when installing into a sandboxed environment.
+    
+    Signed-off-by: Ryan Hill <dirtyepic@gentoo.org>
+    Signed-off-by: Rémi Cardona <remi@gentoo.org>
+
+commit 5fc284976292e3d67e8fe68c711dab1ae224da17
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 19:11:08 2009 -0200
+
+    Janitor: Correct make distcheck and configure.ac simplification
+
+commit 15d4322f7f9d8cea77c59c8a01ed9cc4c8a72390
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Nov 10 19:48:45 2008 -0800
+
+    Fill in license details in COPYING file
+
+commit cb7b01b2d0a27cf69e45489ec154bc01e6cb6d93
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 448806eda04b0b6431e64c8ba2324648c7ea7740
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:01 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit ba20ae0b8b92067edecbf10422d968c75505230b
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:15 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit b7b122a63b3a4b47391160269c637aaf906aca6a
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:38 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 1cc18c617962bce6202e028813001cfc739b0de3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:25 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 409bf4e90e1092101906645b7683368e4496bc0c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Dec 8 19:39:15 2005 +0000
+
+    Bug #5267: Fix AC_ARG_WITH to not lie. (Donnie Berkholz)
+
+commit c4629658e950c9ac010fa7f9fcb62d5bf28c4d18
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:53 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit f9668e4e48180b9f2b784f0d97b2af8bafc93a8a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:40 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 6f282f69ea5a9e479db7a659446d6ee706879bbd
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:21 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit ccc293d68271d13f8d921cb4e2f8adb6045cc90a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:29:19 2005 +0000
+
+    Add configure option to change the installed font dir.
+
+commit df31db238bc5ce186f36ba843974c5152110e764
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:07 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit b5808f7d3b4ac526278c144f225a214cde286780
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Sep 28 19:49:16 2005 +0000
+
+    Add Ethiopic, Meltho and Speedo fonts and their build systems
+
+commit a1d95e0f41ee5e807c3f33dafc24f36ebbe15a37
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit e3f7d4fee01065d8113836fa91f30ae8e7b556e3
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    Initial revision

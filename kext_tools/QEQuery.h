@@ -309,4 +309,4 @@ Boolean QEQueryElementSetArguments(CFMutableDictionaryRef element,
 *******************************************************************************/
 void QEQueryPrint(QEQueryRef query);
 
-#endif /* _QEQUERY_H_ */
+#endif

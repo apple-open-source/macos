@@ -1,0 +1,143 @@
+.\" Copyright (c) 2010 Kungliga Tekniska Högskolan
+.\" (Royal Institute of Technology, Stockholm, Sweden).
+.\" All rights reserved.
+.\"
+.\" Portions Copyright (c) 2010 Apple Inc. All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\"
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\"
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" 3. Neither the name of the Institute nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\" $Id$
+.\"
+.Dd Oct  19, 2010
+.Dt lkdc 5
+.Os HEIMDAL
+.Sh NAME
+.Nm lkdc
+.Nd Local KDC support
+.Sh DESCRIPTION
+The
+Local KDC support
+.Nm LKDC
+support is to enabled password and certificate based authentication
+for between Macs and other devices using MobileMe and Apple ID.
+.Sh BACKGROUND
+LKDC was create to support authentication in Mobile Me's Back to My Mac.
+.Sh NETWORK AUTHENTICATION HELPER
+The Network Authentication Helper (NAH) is what provides the
+infrastructure for applications (NetAuth, ScreenSharing) to
+authenticate to different service using different protocols (Kerberos,
+NTLM, SCRAM, etc).  Network Authentication Helper provides a list of
+authentication choices order in the list that is prefered first.
+.Pp
+As part of this negotiation the application protocol (SMB/SPNEGO,
+AFP/UAM) sometimes provides input that allows the NAH make better
+choices by reordering authentication types or variants of the
+authentication method (LKDC vs PKU2U vs classic KDC vs IA-KERB).
+.Sh NAH SIDE CHANNEL
+Since guessing credentials doesn't always work, there is a
+side-channel that can be configure the behavior of NAH
+to do excatly what the user intends.
+.Sh BONJOUR
+Part of the kerberos exchange there is Kerberos exchange a realm is
+used, to find the server realm, Apple mdns lookup service, bonjour, is
+used. Resolving both from Kerberos realm to hostname, and hostname to
+realm is provided. This is used over both BTTM member dns domain and
+the .local broadcast domain.
+.Pp
+Bonjour lookups also have very poor failure when doing lookups since
+there is no negative feedback, you get to pick a timeout for how long
+you are willing to wait for a reply and let the user wait until your
+timeout trigger if you happen to lookup something that doesn't exists.
+.Pp
+Flow:
+.Pp
+.Bl -enum -offset indent -compact
+.It
+KerberosHelper gets hostname and extra info
+.Bl -enum -nested
+.It
+Locates realms though the the configuration file (classic method)
+.It
+Locates the realm using LKDCHelper (bonjour) (timeout, 2 * 11s)
+.El
+.It
+Picks ONE! realm and Returns it
+.It
+KerberosHelper tries to acquire ticket
+.It
+Kerberos framework only gets realm and looks up hostname from realm from LKDCHelper
+.El
+.Sh WELLKNOWN NAME
+Since Bonjour discovery doesn't work outside the broadcast domain and
+MobileMe service dicovery (DNS update), a different solution is
+needed.
+.Pp
+Instead of doing LKDC looking over bonjour the client uses a fixed
+name and have the NAH framework remember the hostname as part of the
+credential, this was the Kerberos framework can locate the LKDC on the
+server and don't need to use bonjour to locate the name.
+.Pp
+The real Kerberos realm name is returned as part of a referrals and
+that is what the client can use to bind to to the hostname/peer name.
+.Pp
+Flow:
+.Pp
+.Bl -enum -offset indent -compact
+.It
+NAH gets hostname and extra info
+.Bl -enum -nested
+Locates realms though the the configuration file (classic method)
+.It
+Locates the realm using LKDCHelper (bonjour) (async, if not needed,
+not used)
+.It
+Add NTLM options (domain, hostbased, etc)
+.It
+Add other authentication options
+.El
+.It
+Returns an ordered list of choices
+.It
+NAH tries to acquire ticket for each choice and tries them
+.It
+If NAH uses a WELLKNOWN:COM.APPLE.LKDC realm, it also tells Kerberos
+framework the hostname
+.It
+Kerberos framework uses WELLKNOWN name and referrals and returns the
+hash of certificate based name
+.It
+NAH picks up the new Kerberos realm name after authentication and uses that
+.El
+.Sh INBAND AUTHETICATION
+Since talking the Kerberos KDC might not always work, (Firewall, NAT,
+filtering routers), its better to use authentication mechanisms that
+uses the application protocol as the channel to the KDC. NTLM, SCRAM,
+IA-KERB and PK-U2U all have this property.
+.Sh SEE ALSO
+.\" .Xr gss 5 ,
+.Xr heimdal_debug 5

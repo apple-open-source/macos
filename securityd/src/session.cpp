@@ -25,11 +25,16 @@
 //
 // session - authentication session domains
 //
-// A Session is defined by a mach_init bootstrap dictionary. These dictionaries are
-// hierarchical and inherited, so they work well for characterization of processes
-// that "belong" together. (Of course, if your mach_init is broken, you're in bad shape.)
+// Security sessions are now by definition congruent to audit subsystem sessions.
+// We represent these sessions within securityd as subclasses of class Session,
+// but we reach for the kernel's data whenever we're not sure if our data is
+// up to date.
 //
-// Sessions are multi-threaded objects.
+// Modifications to session state are made from client space using system calls.
+// We discover them when we see changes in audit records as they come in with
+// new requests. We cannot use system notifications for such changes because
+// securityd is fully symmetrically multi-threaded, and thus may process new
+// requests from clients before it gets those notifications.
 //
 #include <pwd.h>
 #include <signal.h>                     // SIGTERM
@@ -40,25 +45,37 @@
 #include "server.h"
 #include <security_utilities/logging.h>
 
+using namespace CommonCriteria;
+
+
 //
 // The static session map
 //
-PortMap<Session> Session::mSessions;
+Session::SessionMap Session::mSessions;
+Mutex Session::mSessionLock(Mutex::recursive);
 
-std::string Session::kUsername = "username";
-std::string Session::kRealname = "realname";
+
+const char Session::kUsername[] = "username";
+const char Session::kRealname[] = "realname";
+
 
 //
 // Create a Session object from initial parameters (create)
 //
-Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits attrs) 
-    : mBootstrap(bootstrap), mServicePort(servicePort),
-	  mAttributes(attrs), mSecurityAgent(NULL), mAuthHost(NULL)
+Session::Session(const AuditInfo &audit, Server &server)
+	: mAudit(audit), mSecurityAgent(NULL), mAuthHost(NULL)
 {
-    secdebug("SSsession", "%p CREATED: handle=%#x bootstrap=%d service=%d attrs=%#x",
-        this, handle(), mBootstrap.port(), mServicePort.port(), uint32_t(mAttributes));
-	SECURITYD_SESSION_CREATE(this, attrs, servicePort);
-	Syslog::notice("Session 0x%lx created", this->handle());
+	// link to Server as the global nexus in the object mesh
+	parent(server);
+	
+	// self-register
+	StLock<Mutex> _(mSessionLock);
+	assert(!mSessions[audit.sessionId()]);
+	mSessions[audit.sessionId()] = this;
+	
+	// log it
+	SECURITYD_SESSION_CREATE(this, this->sessionId(), &mAudit, sizeof(mAudit));
+	Syslog::notice("Session %d created", this->sessionId());
 }
 
 
@@ -67,64 +84,60 @@ Session::Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits att
 //
 Session::~Session()
 {
-    secdebug("SSsession", "%p DESTROYED: handle=%#x bootstrap=%d",
-        this, handle(), mBootstrap.port());
-	Syslog::notice("Session 0x%lx destroyed", this->handle());
+	SECURITYD_SESSION_DESTROY(this, this->sessionId());
+	Syslog::notice("Session %d destroyed", this->sessionId());
 }
 
 
 //
-// Locate a session object by service port or (Session API) identifier
+// Locate a session object by session identifier
 //
-Session &Session::find(Port servicePort)
+Session &Session::find(pid_t id, bool create)
 {
-    StLock<Mutex> _(mSessions);
-	PortMap<Session>::const_iterator it = mSessions.find(servicePort);
-	assert(it != mSessions.end());
-	return *it->second;
-}
+	if (id == callerSecuritySession)
+		return Server::session();
+	StLock<Mutex> _(mSessionLock);
+	SessionMap::iterator it = mSessions.find(id);
+	if (it != mSessions.end())
+		return *it->second;
 
-Session &Session::find(SecuritySessionId id)
-{
-    switch (id) {
-    case callerSecuritySession:
-        return Server::session();
-    default:
-		try {
-			return U32HandleObject::find<Session>(id, CSSMERR_CSSM_INVALID_ADDIN_HANDLE);
-		} catch (const CommonError &err) {
-			Syslog::warning("Session::find(%#x) failed rcode=%d", id, err.osStatus());
-			for (PortMap<Session>::const_iterator it = mSessions.begin(); it != mSessions.end(); ++it)
-				Syslog::notice(" Valid sessions include %#x attrs=%#x",
-					it->second->handle(), it->second->attributes());
-			throw;
-		}
-    }
+	// new session
+	if (!create)
+		CssmError::throwMe(errSessionInvalidId);
+	AuditInfo info;
+	info.get(id);
+	assert(info.sessionId() == id);
+	RefPointer<Session> session = new DynamicSession(info);
+	mSessions.insert(make_pair(id, session));
+	return *session;
 }
 
 
 //
-// Act on a death notification for a session's (sub)bootstrap port.
+// Act on a death notification for a session's underlying audit session object.
 // We may not destroy the Session outright here (due to processes that use it),
 // but we do clear out its accumulated wealth.
+// Note that we may get spurious death notifications for audit sessions that we
+// never learned about. Ignore those.
 //
-void Session::destroy(Port servPort)
+void Session::destroy(SessionId id)
 {
     // remove session from session map
-    StLock<Mutex> _(mSessions);
-    PortMap<Session>::iterator it = mSessions.find(servPort);
-    assert(it != mSessions.end());
-	RefPointer<Session> session = it->second;
-	SECURITYD_SESSION_DESTROY(session);
-	Syslog::notice("Session 0x%lx dead", session->handle());
-    mSessions.erase(it);
-	session->kill();
+    StLock<Mutex> _(mSessionLock);
+    SessionMap::iterator it = mSessions.find(id);
+	if (it != mSessions.end()) {
+		RefPointer<Session> session = it->second;
+		assert(session->sessionId() == id);
+		mSessions.erase(it);
+		session->kill();
+	}
 }
+
 
 void Session::kill()
 {
     StLock<Mutex> _(*this);     // do we need to take this so early?
-	
+	SECURITYD_SESSION_KILL(this, this->sessionId());
     invalidateSessionAuthHosts();
 	
     // invalidate shared credentials
@@ -142,6 +155,24 @@ void Session::kill()
 	PerSession::kill();
 }
 
+
+//
+// Refetch audit session data for the current audit session (to catch outside updates
+// to the audit record). This is the price we're paying for not requiring an IPC to
+// securityd when audit session data changes (this is desirable for delayering the
+// software layer cake).
+// If we ever disallow changes to (parts of the) audit session record in the kernel,
+// we can loosen up on this continual re-fetching.
+//
+void Session::updateAudit() const
+{
+	mAudit.get(mAudit.sessionId());
+}
+
+
+//
+// Manage authorization client processes
+//
 void Session::invalidateSessionAuthHosts()
 {
     StLock<Mutex> _(mAuthHostLock);
@@ -156,8 +187,8 @@ void Session::invalidateSessionAuthHosts()
 
 void Session::invalidateAuthHosts()
 {
-	StLock<Mutex> _(mSessions);
-	for (PortMap<Session>::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
+	StLock<Mutex> _(mSessionLock);
+	for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
         it->second->invalidateSessionAuthHosts();
 }
 
@@ -166,8 +197,8 @@ void Session::invalidateAuthHosts()
 //
 void Session::processSystemSleep()
 {
-	StLock<Mutex> _(mSessions);
-	for (PortMap<Session>::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
+	StLock<Mutex> _(mSessionLock);
+	for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
 		it->second->allReferences(&DbCommon::sleepProcessing);
 }
 
@@ -180,125 +211,29 @@ void Session::processLockAll()
 	allReferences(&DbCommon::lockProcessing);
 }
 
+
 //
-// The root session inherits the startup bootstrap and service port
+// The root session corresponds to the audit session that security is running in.
+// This is usually the initial system session; but in debug scenarios it may be
+// an "ordinary" graphic login session. In such a debug case, we may add attribute
+// flags to the session to make our (debugging) life easier.
 //
-RootSession::RootSession(Server &server, SessionAttributeBits attrs)
-    : Session(Bootstrap(), server.primaryServicePort(),
-		sessionIsRoot | sessionWasInitialized | attrs)
+RootSession::RootSession(uint64_t attributes, Server &server)
+	: Session(AuditInfo::current(), server)
 {
-	parent(server);		// the Server is our parent
 	ref();				// eternalize
-
-    // self-install (no thread safety issues here)
-	mSessions[mServicePort] = this;
+	mAudit.ai_flags |= attributes;		// merge imposed attributes
 }
 
+
 //
-// Dynamic sessions use the given bootstrap and re-register in it
+// Dynamic sessions use the audit session context of the first-contact client caller.
 //
-DynamicSession::DynamicSession(TaskPort taskPort)
-	: ReceivePort(Server::active().bootstrapName(), taskPort.bootstrap(), false),
-	  Session(taskPort.bootstrap(), *this),
-	  mOriginatorTask(taskPort), mHaveOriginatorUid(false)
+DynamicSession::DynamicSession(const AuditInfo &audit)
+	: Session(audit, Server::active())
 {
-	// link to Server as the global nexus in the object mesh
-	parent(Server::active());
-	
-	// tell the server to listen to our port
-	Server::active().add(*this);
-	
-	// register for port notifications
-    Server::active().notifyIfDead(bootstrapPort());	//@@@??? still needed?
-	Server::active().notifyIfUnused(*this);
-
-	// self-register
-	StLock<Mutex> _(mSessions);
-	assert(!mSessions[*this]);  // can't be registered already (we just made it)
-	mSessions[*this] = this;
-	
-	secdebug("SSsession", "%p dynamic session originator=%d (pid=%d)",
-		this, mOriginatorTask.port(), taskPort.pid());
 }
 
-DynamicSession::~DynamicSession()
-{
-	// remove our service port from the server
-	Server::active().remove(*this);
-}
-
-
-void DynamicSession::kill()
-{
-	StLock<Mutex> _(*this);
-	mBootstrap.destroy();		// release our bootstrap port
-	Session::kill();			// continue with parent kill
-}
-
-
-//
-// Set up a DynamicSession.
-// This call must be made from a process within the session, and it must be the first
-// such process to make the call.
-//
-void DynamicSession::setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs)
-{
-	StLock<Mutex> _(*this);
-	SECURITYD_SESSION_SETATTR(this, attrs);
-	Syslog::notice("Session 0x%lx attributes 0x%x", this->handle(), attrs);
-    secdebug("SSsession", "%p setup flags=%#x attrs=%#x", this, uint32_t(flags), uint32_t(attrs));
-    if (attrs & ~settableAttributes)
-        MacOSError::throwMe(errSessionInvalidAttributes);
-	checkOriginator();
-    if (attribute(sessionWasInitialized))
-        MacOSError::throwMe(errSessionAuthorizationDenied);
-    setAttributes(attrs | sessionWasInitialized);
-}
-
-
-//
-// Check whether the calling process is the session originator.
-// If it's not, throw.
-//
-void DynamicSession::checkOriginator()
-{
-	if (mOriginatorTask != Server::process().taskPort())
-		MacOSError::throwMe(errSessionAuthorizationDenied);
-}
-
-
-//
-// The "originator uid" is a uid value that can be provided by the session originator
-// and retrieved by anyone. Securityd places no semantic meaning on this value.
-//
-uid_t DynamicSession::originatorUid() const
-{
-	if (mHaveOriginatorUid)
-		return mOriginatorUid;
-	else
-		MacOSError::throwMe(errSessionValueNotSet);
-}
-
-
-void DynamicSession::originatorUid(uid_t uid)
-{
-	checkOriginator();
-	if (mHaveOriginatorUid)		// must not re-set this
-		MacOSError::throwMe(errSessionAuthorizationDenied);
-	mHaveOriginatorUid = true;
-	mOriginatorUid = uid;
-
-	Server::active().longTermActivity();
-	struct passwd *pw = getpwuid(uid);
-
-	if (pw != NULL) {
-
-        mOriginatorCredential = Credential(uid, pw->pw_name ? pw->pw_name : "", pw->pw_gecos ? pw->pw_gecos : "", "", true/*shared*/);
-        endpwent();
-	}
-
-	secdebug("SSsession", "%p session uid set to %d", this, uid);
-}
 
 //
 // Authorization operations
@@ -420,7 +355,7 @@ OSStatus Session::authExternalize(const AuthorizationBlob &authBlob,
         AuthorizationExternalBlob &extBlob =
             reinterpret_cast<AuthorizationExternalBlob &>(extForm);
         extBlob.blob = auth.handle();
-        extBlob.session = bootstrapPort();
+        extBlob.session = this->sessionId();
 		secdebug("SSauth", "Authorization %p externalized", &auth);
 		return noErr;
 	} else
@@ -448,6 +383,18 @@ OSStatus Session::authInternalize(const AuthorizationExternalForm &extForm,
 		return errAuthorizationInternalizeNotAllowed;
 }
 
+
+// 
+// Accessor method for setting audit session flags.
+// 
+void Session::setAttributes(SessionAttributeBits bits)
+{
+	StLock<Mutex> _(*this);
+	updateAudit();
+	assert((bits & ~settableAttributes) == 0);
+	mAudit.ai_flags = bits;
+	mAudit.set();
+}
 
 //
 // The default session setup operation always fails.
@@ -618,7 +565,6 @@ Session::authhost(const AuthHostType hostType, const bool restart)
 
 void DynamicSession::setUserPrefs(CFDataRef userPrefsDict)
 {
-	checkOriginator();
 	if (Server::process().uid() != 0)
 		MacOSError::throwMe(errSessionAuthorizationDenied);
 	StLock<Mutex> _(*this);
@@ -642,8 +588,8 @@ CFDataRef DynamicSession::copyUserPrefs()
 void Session::dumpNode()
 {
 	PerSession::dumpNode();
-	Debug::dump(" boot=%d service=%d attrs=%#x authhost=%p securityagent=%p",
-		mBootstrap.port(), mServicePort.port(), uint32_t(mAttributes), mAuthHost, mSecurityAgent);
+	Debug::dump(" auid=%d attrs=%#x authhost=%p securityagent=%p",
+		this->sessionId(), uint32_t(this->attributes()), mAuthHost, mSecurityAgent);
 }
 
 #endif //DEBUGDUMP

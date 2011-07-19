@@ -1,6 +1,8 @@
 /**
  * Copyright (C) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *           (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/) 
+ * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,22 +24,24 @@
 #include "config.h"
 #include "RenderTextControlSingleLine.h"
 
+#include "CSSFontSelector.h"
 #include "CSSStyleSelector.h"
+#include "Chrome.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
-#include "HitTestResult.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "InputElement.h"
+#include "HitTestResult.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
+#include "Page.h"
 #include "PlatformKeyboardEvent.h"
+#include "RenderLayer.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
-#include "SearchPopupMenu.h"
-#include "SelectionController.h"
 #include "Settings.h"
 #include "SimpleFontData.h"
 #include "TextControlInnerElements.h"
@@ -48,6 +52,23 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+VisiblePosition RenderTextControlInnerBlock::positionForPoint(const IntPoint& point)
+{
+    IntPoint contentsPoint(point);
+
+    // Multiline text controls have the scroll on shadowAncestorNode, so we need to take that
+    // into account here.
+    if (m_multiLine) {
+        RenderTextControl* renderer = toRenderTextControl(node()->shadowAncestorNode()->renderer());
+        if (renderer->hasOverflowClip())
+            contentsPoint += renderer->layer()->scrolledContentOffset();
+    }
+
+    return RenderBlock::positionForPoint(contentsPoint);
+}
+
+// ----------------------------
+
 RenderTextControlSingleLine::RenderTextControlSingleLine(Node* node, bool placeholderVisible)
     : RenderTextControl(node, placeholderVisible)
     , m_searchPopupIsVisible(false)
@@ -55,20 +76,30 @@ RenderTextControlSingleLine::RenderTextControlSingleLine(Node* node, bool placeh
     , m_searchEventTimer(this, &RenderTextControlSingleLine::searchEventTimerFired)
     , m_searchPopup(0)
 {
+    ASSERT(node->isHTMLElement());
+    ASSERT(node->toInputElement());
 }
 
 RenderTextControlSingleLine::~RenderTextControlSingleLine()
 {
     if (m_searchPopup) {
-        m_searchPopup->disconnectClient();
+        m_searchPopup->popupMenu()->disconnectClient();
         m_searchPopup = 0;
     }
  
-    if (m_innerBlock)
+    if (m_innerBlock) {
         m_innerBlock->detach();
+        m_innerBlock = 0;
+    }
 
+    if (m_innerSpinButton)
+        m_innerSpinButton->detach();
     if (m_outerSpinButton)
         m_outerSpinButton->detach();
+#if ENABLE(INPUT_SPEECH)
+    if (m_speechButton)
+        m_speechButton->detach();
+#endif
 }
 
 RenderStyle* RenderTextControlSingleLine::textBaseStyle() const
@@ -78,8 +109,7 @@ RenderStyle* RenderTextControlSingleLine::textBaseStyle() const
 
 void RenderTextControlSingleLine::addSearchResult()
 {
-    ASSERT(node()->isHTMLElement());
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
+    HTMLInputElement* input = inputElement();
     if (input->maxResults() <= 0)
         return;
 
@@ -103,25 +133,23 @@ void RenderTextControlSingleLine::addSearchResult()
 
     const AtomicString& name = autosaveName();
     if (!m_searchPopup)
-        m_searchPopup = SearchPopupMenu::create(this);
+        m_searchPopup = document()->page()->chrome()->createSearchPopupMenu(this);
 
     m_searchPopup->saveRecentSearches(name, m_recentSearches);
 }
 
 void RenderTextControlSingleLine::stopSearchEventTimer()
 {
-    ASSERT(node()->isHTMLElement());
     m_searchEventTimer.stop();
 }
 
 void RenderTextControlSingleLine::showPopup()
 {
-    ASSERT(node()->isHTMLElement());
     if (m_searchPopupIsVisible)
         return;
 
     if (!m_searchPopup)
-        m_searchPopup = SearchPopupMenu::create(this);
+        m_searchPopup = document()->page()->chrome()->createSearchPopupMenu(this);
 
     if (!m_searchPopup->enabled())
         return;
@@ -132,7 +160,7 @@ void RenderTextControlSingleLine::showPopup()
     m_searchPopup->loadRecentSearches(name, m_recentSearches);
 
     // Trim the recent searches list if the maximum size has changed since we last saved.
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
+    HTMLInputElement* input = inputElement();
     if (static_cast<int>(m_recentSearches.size()) > input->maxResults()) {
         do {
             m_recentSearches.removeLast();
@@ -141,27 +169,34 @@ void RenderTextControlSingleLine::showPopup()
         m_searchPopup->saveRecentSearches(name, m_recentSearches);
     }
 
-    m_searchPopup->show(absoluteBoundingBoxRect(true), document()->view(), -1);
+    m_searchPopup->popupMenu()->show(absoluteBoundingBoxRect(true), document()->view(), -1);
 }
 
 void RenderTextControlSingleLine::hidePopup()
 {
-    ASSERT(node()->isHTMLElement());
     if (m_searchPopup)
-        m_searchPopup->hide();
+        m_searchPopup->popupMenu()->hide();
 }
 
 void RenderTextControlSingleLine::subtreeHasChanged()
 {
-    bool wasChanged = wasChangedSinceLastChangeEvent();
     RenderTextControl::subtreeHasChanged();
 
-    InputElement* input = inputElement();
+    ASSERT(node()->isElementNode());
+    Element* element = static_cast<Element*>(node());
+    bool wasChanged = element->wasChangedSinceLastFormControlChangeEvent();
+    element->setChangedSinceLastFormControlChangeEvent(true);
+
+    HTMLInputElement* input = inputElement();
     // We don't need to call sanitizeUserInputValue() function here because
-    // InputElement::handleBeforeTextInsertedEvent() has already called
+    // HTMLInputElement::handleBeforeTextInsertedEvent() has already called
     // sanitizeUserInputValue().
     // sanitizeValue() is needed because IME input doesn't dispatch BeforeTextInsertedEvent.
-    input->setValueFromRenderer(input->sanitizeValue(text()));
+    String value = text();
+    if (input->isAcceptableValue(value))
+        input->setValueFromRenderer(input->sanitizeValue(input->convertFromVisibleValue(value)));
+    // Recalc for :invalid and hasUnacceptableValue() change.
+    input->setNeedsStyleRecalc();
 
     if (m_cancelButton)
         updateCancelButtonVisibility();
@@ -171,13 +206,13 @@ void RenderTextControlSingleLine::subtreeHasChanged()
         startSearchEventTimer();
 
     if (!wasChanged && node()->focused()) {
-        if (Frame* frame = document()->frame())
-            frame->textFieldDidBeginEditing(static_cast<Element*>(node()));
+        if (Frame* frame = this->frame())
+            frame->editor()->textFieldDidBeginEditing(static_cast<Element*>(node()));
     }
 
     if (node()->focused()) {
         if (Frame* frame = document()->frame())
-            frame->textDidChangeInTextField(static_cast<Element*>(node()));
+            frame->editor()->textDidChangeInTextField(static_cast<Element*>(node()));
     }
 }
 
@@ -199,7 +234,7 @@ void RenderTextControlSingleLine::paint(PaintInfo& paintInfo, int tx, int ty)
 
 void RenderTextControlSingleLine::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 {
-    paintBoxDecorationsWithSize(paintInfo, tx, ty, width() - decorationWidthRight(), height());
+    paintBoxDecorationsWithSize(paintInfo, IntRect(tx, ty, width() - decorationWidthRight(), height()));
 }
 
 void RenderTextControlSingleLine::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
@@ -212,10 +247,10 @@ void RenderTextControlSingleLine::addFocusRingRects(Vector<IntRect>& rects, int 
 void RenderTextControlSingleLine::layout()
 {
     int oldHeight = height();
-    calcHeight();
+    computeLogicalHeight();
 
     int oldWidth = width();
-    calcWidth();
+    computeLogicalWidth();
 
     bool relayoutChildren = oldHeight != height() || oldWidth != width();
 
@@ -255,6 +290,36 @@ void RenderTextControlSingleLine::layout()
     if (currentHeight < height())
         childBlock->setY((height() - currentHeight) / 2);
 
+    // Ignores the paddings for the inner spin button.
+    if (RenderBox* spinBox = m_innerSpinButton ? m_innerSpinButton->renderBox() : 0) {
+        spinBox->setLocation(IntPoint(spinBox->x() + paddingRight(), borderTop()));
+        spinBox->setHeight(height() - borderTop() - borderBottom());
+    }
+
+#if ENABLE(INPUT_SPEECH)
+    if (RenderBox* button = m_speechButton ? m_speechButton->renderBox() : 0) {
+        if (m_innerBlock) {
+            // This is mostly the case where this is a search field. The speech button is a sibling
+            // of the inner block and laid out at the far right.
+            int x = width() - borderAndPaddingWidth() - button->width() - button->borderAndPaddingWidth();
+            int y = (height() - button->height()) / 2;
+            button->setLocation(IntPoint(x, y));
+        } else {
+            int x = width() - borderRight() - paddingRight() - button->width();
+            if (m_outerSpinButton && m_outerSpinButton->renderBox())
+                x -= m_outerSpinButton->renderBox()->width();
+
+            RenderBox* spinBox = m_innerSpinButton ? m_innerSpinButton->renderBox() : 0;
+            if (style()->isLeftToRightDirection())
+                x -= spinBox ? spinBox->width() : 0;
+            else
+                innerTextRenderer->setX(paddingLeft() + borderLeft() + (spinBox ? spinBox->width() : 0));
+            int y = (height() - button->height()) / 2;
+            button->setLocation(IntPoint(x, y));
+        }
+    }
+#endif
+
     // Center the spin button vertically, and move it to the right by
     // padding + border of the text fields.
     if (RenderBox* spinBox = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
@@ -263,11 +328,12 @@ void RenderTextControlSingleLine::layout()
         // remaining one pixel. It's good for Mac NSStepper because it has
         // shadow at the bottom.
         int y = (diff / 2) + (diff % 2);
-        spinBox->setLocation(spinBox->x() + paddingRight() + borderRight(), y);
+        int x = width() - borderRight() - paddingRight() - spinBox->width();
+        spinBox->setLocation(IntPoint(x, y));
     }
 }
 
-bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int xPos, int yPos, int tx, int ty, HitTestAction hitTestAction)
+bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const IntPoint& pointInContainer, int tx, int ty, HitTestAction hitTestAction)
 {
     // If we're within the text control, we want to act as if we've hit the inner text block element, in case the point
     // was on the control but not on the inner element (see Radar 4617841).
@@ -275,19 +341,25 @@ bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, Hit
     // In a search field, we want to act as if we've hit the results block if we're to the left of the inner text block,
     // and act as if we've hit the close block if we're to the right of the inner text block.
 
-    if (!RenderTextControl::nodeAtPoint(request, result, xPos, yPos, tx, ty, hitTestAction))
+    if (!RenderTextControl::nodeAtPoint(request, result, pointInContainer, tx, ty, hitTestAction))
         return false;
 
     // If we hit a node inside the inner text element, say that we hit that element,
     // and if we hit our node (e.g. we're over the border or padding), also say that we hit the
     // inner text element so that it gains focus.
     if (result.innerNode()->isDescendantOf(innerTextElement()) || result.innerNode() == node())
-        hitInnerTextElement(result, xPos, yPos, tx, ty);
+        hitInnerTextElement(result, pointInContainer.x(), pointInContainer.y(), tx, ty);
 
     // If we found a spin button, we're done.
+    if (m_innerSpinButton && result.innerNode() == m_innerSpinButton)
+        return true;
     if (m_outerSpinButton && result.innerNode() == m_outerSpinButton)
         return true;
-    // If we're not a search field, or we already found the results or cancel buttons, we're done.
+#if ENABLE(INPUT_SPEECH)
+    if (m_speechButton && result.innerNode() == m_speechButton)
+        return true;
+#endif
+    // If we're not a search field, or we already found the speech, results or cancel buttons, we're done.
     if (!m_innerBlock || result.innerNode() == m_resultsButton || result.innerNode() == m_cancelButton)
         return true;
 
@@ -299,12 +371,20 @@ bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, Hit
     localPoint.move(-innerBlockRenderer->x(), -innerBlockRenderer->y());
 
     int textLeft = tx + x() + innerBlockRenderer->x() + innerTextRenderer->x();
-    if (m_resultsButton && m_resultsButton->renderer() && xPos < textLeft)
+    if (m_resultsButton && m_resultsButton->renderer() && pointInContainer.x() < textLeft)
         innerNode = m_resultsButton.get();
+
+#if ENABLE(INPUT_SPEECH)
+    if (!innerNode && m_speechButton && m_speechButton->renderer()) {
+        int buttonLeft = tx + x() + innerBlockRenderer->x() + innerBlockRenderer->width() - m_speechButton->renderBox()->width();
+        if (pointInContainer.x() >= buttonLeft)
+            innerNode = m_speechButton.get();
+    }
+#endif
 
     if (!innerNode) {
         int textRight = textLeft + innerTextRenderer->width();
-        if (m_cancelButton && m_cancelButton->renderer() && xPos > textRight)
+        if (m_cancelButton && m_cancelButton->renderer() && pointInContainer.x() > textRight)
             innerNode = m_cancelButton.get();
     }
 
@@ -324,7 +404,7 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
     if (event->type() == eventNames().blurEvent) {
         if (innerTextRenderer) {
             if (RenderLayer* innerLayer = innerTextRenderer->layer())
-                innerLayer->scrollToOffset(style()->direction() == RTL ? innerLayer->scrollWidth() : 0, 0);
+                innerLayer->scrollToOffset(!style()->isLeftToRightDirection() ? innerLayer->scrollWidth() : 0, 0);
         }
 
         capsLockStateMayHaveChanged();
@@ -336,14 +416,24 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
         return;
     }
 
+#if ENABLE(INPUT_SPEECH)
+    if (RenderBox* speechBox = m_speechButton ? m_speechButton->renderBox() : 0) {
+        RenderBox* parent = innerTextRenderer ? innerTextRenderer : this;
+        FloatPoint pointInTextControlCoords = parent->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
+        if (speechBox->frameRect().contains(roundedIntPoint(pointInTextControlCoords))) {
+            m_speechButton->defaultEventHandler(event);
+            return;
+        }
+    }
+#endif
+
     FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
-    int textRight = innerTextRenderer->borderBoxRect().right();
+    int textRight = innerTextRenderer->borderBoxRect().maxX();
+
     if (m_resultsButton && localPoint.x() < innerTextRenderer->borderBoxRect().x())
         m_resultsButton->defaultEventHandler(event);
     else if (m_cancelButton && localPoint.x() > textRight)
         m_cancelButton->defaultEventHandler(event);
-    else if (m_outerSpinButton && localPoint.x() > textRight)
-        m_outerSpinButton->defaultEventHandler(event);
     else
         RenderTextControl::forwardEvent(event);
 }
@@ -368,6 +458,14 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
 
     if (RenderObject* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderer() : 0)
         spinRenderer->setStyle(createOuterSpinButtonStyle());
+
+    if (RenderObject* spinRenderer = m_innerSpinButton ? m_innerSpinButton->renderer() : 0)
+        spinRenderer->setStyle(createInnerSpinButtonStyle());
+
+#if ENABLE(INPUT_SPEECH)
+    if (RenderObject* speechRenderer = m_speechButton ? m_speechButton->renderer() : 0)
+        speechRenderer->setStyle(createSpeechButtonStyle());
+#endif
 
     setHasOverflowClip(false);
 }
@@ -396,9 +494,15 @@ void RenderTextControlSingleLine::capsLockStateMayHaveChanged()
     }
 }
 
+bool RenderTextControlSingleLine::hasControlClip() const
+{
+    bool clip = m_cancelButton;
+    return clip;
+}
+
 IntRect RenderTextControlSingleLine::controlClipRect(int tx, int ty) const
 {
-    // This should only get called for search inputs.
+    // This should only get called for search & speech inputs.
     ASSERT(hasControlClip());
 
     IntRect clipRect = IntRect(m_innerBlock->renderBox()->frameRect());
@@ -411,14 +515,26 @@ int RenderTextControlSingleLine::textBlockWidth() const
     int width = RenderTextControl::textBlockWidth();
 
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0) {
-        resultsRenderer->calcWidth();
+        resultsRenderer->computeLogicalWidth();
         width -= resultsRenderer->width() + resultsRenderer->marginLeft() + resultsRenderer->marginRight();
     }
 
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0) {
-        cancelRenderer->calcWidth();
+        cancelRenderer->computeLogicalWidth();
         width -= cancelRenderer->width() + cancelRenderer->marginLeft() + cancelRenderer->marginRight();
     }
+
+    if (RenderBox* spinRenderer = m_innerSpinButton ? m_innerSpinButton->renderBox() : 0) {
+        spinRenderer->computeLogicalWidth();
+        width -= spinRenderer->width() + spinRenderer->marginLeft() + spinRenderer->marginRight();
+    }
+
+#if ENABLE(INPUT_SPEECH)
+    if (RenderBox* speechRenderer = m_speechButton ? m_speechButton->renderBox() : 0) {
+        speechRenderer->computeLogicalWidth();
+        width -= speechRenderer->width() + speechRenderer->marginLeft() + speechRenderer->marginRight();
+    }
+#endif
 
     return width - decorationWidthRight();
 }
@@ -427,7 +543,7 @@ int RenderTextControlSingleLine::decorationWidthRight() const
 {
     int width = 0;
     if (RenderBox* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
-        spinRenderer->calcWidth();
+        spinRenderer->computeLogicalWidth();
         width += spinRenderer->width() + spinRenderer->marginLeft() + spinRenderer->marginRight();
     }
     if (width > 0)
@@ -478,6 +594,12 @@ int RenderTextControlSingleLine::preferredContentWidth(float charWidth) const
         result += cancelRenderer->borderLeft() + cancelRenderer->borderRight() +
                   cancelRenderer->paddingLeft() + cancelRenderer->paddingRight();
 
+#if ENABLE(INPUT_SPEECH)
+    if (RenderBox* speechRenderer = m_speechButton ? m_speechButton->renderBox() : 0) {
+        result += speechRenderer->borderLeft() + speechRenderer->borderRight() +
+                  speechRenderer->paddingLeft() + speechRenderer->paddingRight();
+    }
+#endif
     return result;
 }
 
@@ -485,8 +607,8 @@ int RenderTextControlSingleLine::preferredDecorationWidthRight() const
 {
     int width = 0;
     if (RenderBox* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
-        spinRenderer->calcWidth();
-        width += spinRenderer->minPrefWidth() + spinRenderer->marginLeft() + spinRenderer->marginRight();
+        spinRenderer->computeLogicalWidth();
+        width += spinRenderer->minPreferredLogicalWidth() + spinRenderer->marginLeft() + spinRenderer->marginRight();
     }
     if (width > 0)
         width += paddingRight() + borderRight();
@@ -496,7 +618,7 @@ int RenderTextControlSingleLine::preferredDecorationWidthRight() const
 void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineHeight)
 {
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0) {
-        resultsRenderer->calcHeight();
+        resultsRenderer->computeLogicalHeight();
         setHeight(max(height(),
                   resultsRenderer->borderTop() + resultsRenderer->borderBottom() +
                   resultsRenderer->paddingTop() + resultsRenderer->paddingBottom() +
@@ -504,7 +626,7 @@ void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineH
         lineHeight = max(lineHeight, resultsRenderer->height());
     }
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0) {
-        cancelRenderer->calcHeight();
+        cancelRenderer->computeLogicalHeight();
         setHeight(max(height(),
                   cancelRenderer->borderTop() + cancelRenderer->borderBottom() +
                   cancelRenderer->paddingTop() + cancelRenderer->paddingBottom() +
@@ -517,34 +639,56 @@ void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineH
 
 void RenderTextControlSingleLine::createSubtreeIfNeeded()
 {
-    if (!inputElement()->isSearchField()) {
+    if (inputElement()->isSearchField()) {
+        if (!m_innerBlock) {
+            // Create the inner block element
+            m_innerBlock = TextControlInnerElement::create(toHTMLElement(node()));
+            m_innerBlock->attachInnerElement(node(), createInnerBlockStyle(style()), renderArena());
+        }
+
+#if ENABLE(INPUT_SPEECH)
+        if (inputElement()->isSpeechEnabled() && !m_speechButton) {
+            // Create the speech button element.
+            m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
+            m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
+        }
+#endif
+
+        if (!m_resultsButton) {
+            // Create the search results button element.
+            m_resultsButton = SearchFieldResultsButtonElement::create(document());
+            m_resultsButton->attachInnerElement(m_innerBlock.get(), createResultsButtonStyle(m_innerBlock->renderer()->style()), renderArena());
+        }
+
+        // Create innerText element before adding the other buttons.
         RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
-        if (inputElement()->hasSpinButton() && !m_outerSpinButton) {
-            m_outerSpinButton = new SpinButtonElement(document(), node());
+
+        if (!m_cancelButton) {
+            // Create the cancel button element.
+            m_cancelButton = SearchFieldCancelButtonElement::create(document());
+            m_cancelButton->attachInnerElement(m_innerBlock.get(), createCancelButtonStyle(m_innerBlock->renderer()->style()), renderArena());
+        }
+    } else {
+        RenderTextControl::createSubtreeIfNeeded(0);
+
+#if ENABLE(INPUT_SPEECH)
+        if (inputElement()->isSpeechEnabled() && !m_speechButton) {
+            // Create the speech button element.
+            m_speechButton = InputFieldSpeechButtonElement::create(toHTMLElement(node()));
+            m_speechButton->attachInnerElement(node(), createSpeechButtonStyle(), renderArena());
+        }
+#endif
+
+        bool hasSpinButton = theme()->shouldHaveSpinButton(inputElement());
+
+        if (hasSpinButton && !m_innerSpinButton) {
+            m_innerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
+            m_innerSpinButton->attachInnerElement(node(), createInnerSpinButtonStyle(), renderArena());
+        }
+        if (hasSpinButton && !m_outerSpinButton) {
+            m_outerSpinButton = SpinButtonElement::create(toHTMLElement(node()));
             m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
         }
-        return;
-    }
-
-    if (!m_innerBlock) {
-        // Create the inner block element
-        m_innerBlock = new TextControlInnerElement(document(), node());
-        m_innerBlock->attachInnerElement(node(), createInnerBlockStyle(style()), renderArena());
-    }
-
-    if (!m_resultsButton) {
-        // Create the search results button element
-        m_resultsButton = new SearchFieldResultsButtonElement(document());
-        m_resultsButton->attachInnerElement(m_innerBlock.get(), createResultsButtonStyle(m_innerBlock->renderer()->style()), renderArena());
-    }
-
-    // Create innerText element before adding the cancel button
-    RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
-
-    if (!m_cancelButton) {
-        // Create the cancel button element
-        m_cancelButton = new SearchFieldCancelButtonElement(document());
-        m_cancelButton->attachInnerElement(m_innerBlock.get(), createCancelButtonStyle(m_innerBlock->renderer()->style()), renderArena());
     }
 }
 
@@ -556,19 +700,20 @@ void RenderTextControlSingleLine::updateFromElement()
     if (m_cancelButton)
         updateCancelButtonVisibility();
 
-    if (m_placeholderVisible) {
-        ExceptionCode ec = 0;
-        innerTextElement()->setInnerText(static_cast<Element*>(node())->getAttribute(placeholderAttr), ec);
-        ASSERT(!ec);
-    } else {
-        if (!inputElement()->suggestedValue().isNull())
-            setInnerTextValue(inputElement()->suggestedValue());
-        else
-            setInnerTextValue(inputElement()->value());
+    if (!inputElement()->suggestedValue().isNull())
+        setInnerTextValue(inputElement()->suggestedValue());
+    else {
+        if (node()->hasTagName(inputTag)) {
+            // For HTMLInputElement, update the renderer value if the formControlValueMatchesRenderer()
+            // flag is false. It protects an unacceptable renderer value from
+            // being overwritten with the DOM value.
+            if (!inputElement()->formControlValueMatchesRenderer())
+                setInnerTextValue(inputElement()->visibleValue());
+        }
     }
 
     if (m_searchPopupIsVisible)
-        m_searchPopup->updateFromElement();
+        m_searchPopup->popupMenu()->updateFromElement();
 }
 
 void RenderTextControlSingleLine::cacheSelection(int start, int end)
@@ -578,16 +723,8 @@ void RenderTextControlSingleLine::cacheSelection(int start, int end)
 
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const RenderStyle* startStyle) const
 {
-    RefPtr<RenderStyle> textBlockStyle;
-    if (m_placeholderVisible) {
-        if (RenderStyle* pseudoStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER))
-            textBlockStyle = RenderStyle::clone(pseudoStyle);
-    } 
-    if (!textBlockStyle) {
-        textBlockStyle = RenderStyle::create();   
-        textBlockStyle->inheritFrom(startStyle);
-    }
-
+    RefPtr<RenderStyle> textBlockStyle = RenderStyle::create();   
+    textBlockStyle->inheritFrom(startStyle);
     adjustInnerTextStyle(startStyle, textBlockStyle.get());
 
     textBlockStyle->setWhiteSpace(PRE);
@@ -596,29 +733,25 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
     textBlockStyle->setOverflowY(OHIDDEN);
 
     // Do not allow line-height to be smaller than our default.
-    if (textBlockStyle->font().lineSpacing() > lineHeight(true, true))
+    if (textBlockStyle->fontMetrics().lineSpacing() > lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes))
         textBlockStyle->setLineHeight(Length(-100.0f, Percent));
 
-    textBlockStyle->setDisplay(m_innerBlock || inputElement()->hasSpinButton() ? INLINE_BLOCK : BLOCK);
+    WebCore::EDisplay display = (m_innerBlock || theme()->shouldHaveSpinButton(inputElement()) ? INLINE_BLOCK : BLOCK);
+#if ENABLE(INPUT_SPEECH)
+    if (inputElement()->isSpeechEnabled())
+      display = INLINE_BLOCK;
+#endif
+    textBlockStyle->setDisplay(display);
 
     // We're adding one extra pixel of padding to match WinIE.
     textBlockStyle->setPaddingLeft(Length(1, Fixed));
     textBlockStyle->setPaddingRight(Length(1, Fixed));
-
-    // When the placeholder is going to be displayed, temporarily override the text security to be "none".
-    // After this, updateFromElement will immediately update the text displayed.
-    // When the placeholder is no longer visible, updatePlaceholderVisiblity will reset the style, 
-    // and the text security mode will be set back to the computed value correctly.
-    if (m_placeholderVisible)
-        textBlockStyle->setTextSecurity(TSNONE);
 
     return textBlockStyle.release();
 }
 
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerBlockStyle(const RenderStyle* startStyle) const
 {
-    ASSERT(node()->isHTMLElement());
-
     RefPtr<RenderStyle> innerBlockStyle = RenderStyle::create();
     innerBlockStyle->inheritFrom(startStyle);
 
@@ -633,8 +766,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerBlockStyle(const
 
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createResultsButtonStyle(const RenderStyle* startStyle) const
 {
-    ASSERT(node()->isHTMLElement());
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
+    HTMLInputElement* input = inputElement();
 
     RefPtr<RenderStyle> resultsBlockStyle;
     if (input->maxResults() < 0)
@@ -655,7 +787,6 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createResultsButtonStyle(co
 
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createCancelButtonStyle(const RenderStyle* startStyle) const
 {
-    ASSERT(node()->isHTMLElement());
     RefPtr<RenderStyle> cancelBlockStyle;
     
     if (RefPtr<RenderStyle> pseudoStyle = getCachedPseudoStyle(SEARCH_CANCEL_BUTTON))
@@ -671,15 +802,34 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createCancelButtonStyle(con
     return cancelBlockStyle.release();
 }
 
+PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerSpinButtonStyle() const
+{
+    RefPtr<RenderStyle> buttonStyle = getCachedPseudoStyle(INNER_SPIN_BUTTON);
+    if (!buttonStyle)
+        buttonStyle = RenderStyle::create();
+    buttonStyle->inheritFrom(style());
+    return buttonStyle.release();
+}
+
 PassRefPtr<RenderStyle> RenderTextControlSingleLine::createOuterSpinButtonStyle() const
 {
-    ASSERT(node()->isHTMLElement());
     RefPtr<RenderStyle> buttonStyle = getCachedPseudoStyle(OUTER_SPIN_BUTTON);
     if (!buttonStyle)
         buttonStyle = RenderStyle::create();
     buttonStyle->inheritFrom(style());
     return buttonStyle.release();
 }
+
+#if ENABLE(INPUT_SPEECH)
+PassRefPtr<RenderStyle> RenderTextControlSingleLine::createSpeechButtonStyle() const
+{
+    RefPtr<RenderStyle> buttonStyle = getCachedPseudoStyle(INPUT_SPEECH_BUTTON);
+    if (!buttonStyle)
+        buttonStyle = RenderStyle::create();
+    buttonStyle->inheritFrom(style());
+    return buttonStyle.release();
+}
+#endif
 
 void RenderTextControlSingleLine::updateCancelButtonVisibility() const
 {
@@ -698,9 +848,7 @@ void RenderTextControlSingleLine::updateCancelButtonVisibility() const
 
 EVisibility RenderTextControlSingleLine::visibilityForCancelButton() const
 {
-    ASSERT(node()->isHTMLElement());
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
-    return input->value().isEmpty() ? HIDDEN : VISIBLE;
+    return inputElement()->value().isEmpty() ? HIDDEN : VISIBLE;
 }
 
 const AtomicString& RenderTextControlSingleLine::autosaveName() const
@@ -710,13 +858,12 @@ const AtomicString& RenderTextControlSingleLine::autosaveName() const
 
 void RenderTextControlSingleLine::startSearchEventTimer()
 {
-    ASSERT(node()->isHTMLElement());
     unsigned length = text().length();
 
     // If there's no text, fire the event right away.
     if (!length) {
         stopSearchEventTimer();
-        static_cast<HTMLInputElement*>(node())->onSearch();
+        inputElement()->onSearch();
         return;
     }
 
@@ -727,23 +874,21 @@ void RenderTextControlSingleLine::startSearchEventTimer()
 
 void RenderTextControlSingleLine::searchEventTimerFired(Timer<RenderTextControlSingleLine>*)
 {
-    ASSERT(node()->isHTMLElement());
-    static_cast<HTMLInputElement*>(node())->onSearch();
+    inputElement()->onSearch();
 }
 
 // PopupMenuClient methods
 void RenderTextControlSingleLine::valueChanged(unsigned listIndex, bool fireEvents)
 {
-    ASSERT(node()->isHTMLElement());
     ASSERT(static_cast<int>(listIndex) < listSize());
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
+    HTMLInputElement* input = inputElement();
     if (static_cast<int>(listIndex) == (listSize() - 1)) {
         if (fireEvents) {
             m_recentSearches.clear();
             const AtomicString& name = autosaveName();
             if (!name.isEmpty()) {
                 if (!m_searchPopup)
-                    m_searchPopup = SearchPopupMenu::create(this);
+                    m_searchPopup = document()->page()->chrome()->createSearchPopupMenu(this);
                 m_searchPopup->saveRecentSearches(name, m_recentSearches);
             }
         }
@@ -771,6 +916,16 @@ String RenderTextControlSingleLine::itemText(unsigned listIndex) const
     return m_recentSearches[listIndex - 1];
 }
 
+String RenderTextControlSingleLine::itemLabel(unsigned) const
+{
+    return String();
+}
+
+String RenderTextControlSingleLine::itemIcon(unsigned) const
+{
+    return String();
+}
+
 bool RenderTextControlSingleLine::itemIsEnabled(unsigned listIndex) const
 {
      if (!listIndex || itemIsSeparator(listIndex))
@@ -785,7 +940,7 @@ PopupMenuStyle RenderTextControlSingleLine::itemStyle(unsigned) const
 
 PopupMenuStyle RenderTextControlSingleLine::menuStyle() const
 {
-    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->textIndent(), style()->direction());
+    return PopupMenuStyle(style()->visitedDependentColor(CSSPropertyColor), style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->font(), style()->visibility() == VISIBLE, style()->display() == NONE, style()->textIndent(), style()->direction(), style()->unicodeBidi() == Override);
 }
 
 int RenderTextControlSingleLine::clientInsetLeft() const
@@ -808,7 +963,7 @@ int RenderTextControlSingleLine::clientPaddingLeft() const
     int padding = paddingLeft();
 
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0)
-        padding += resultsRenderer->width();
+        padding += resultsRenderer->width() + resultsRenderer->marginLeft() + resultsRenderer->paddingLeft() + resultsRenderer->marginRight() + resultsRenderer->paddingRight();
 
     return padding;
 }
@@ -818,7 +973,7 @@ int RenderTextControlSingleLine::clientPaddingRight() const
     int padding = paddingRight();
 
     if (RenderBox* cancelRenderer = m_cancelButton ? m_cancelButton->renderBox() : 0)
-        padding += cancelRenderer->width();
+        padding += cancelRenderer->width() + cancelRenderer->marginLeft() + cancelRenderer->paddingLeft() + cancelRenderer->marginRight() + cancelRenderer->paddingRight();
 
     return padding;
 }
@@ -860,8 +1015,7 @@ bool RenderTextControlSingleLine::itemIsSelected(unsigned) const
 
 void RenderTextControlSingleLine::setTextFromItem(unsigned listIndex)
 {
-    ASSERT(node()->isHTMLElement());
-    static_cast<HTMLInputElement*>(node())->setValue(itemText(listIndex));
+    inputElement()->setValue(itemText(listIndex));
 }
 
 FontSelector* RenderTextControlSingleLine::fontSelector() const
@@ -929,20 +1083,62 @@ bool RenderTextControlSingleLine::scroll(ScrollDirection direction, ScrollGranul
     return RenderBlock::scroll(direction, granularity, multiplier, stopNode);
 }
 
-PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
+bool RenderTextControlSingleLine::logicalScroll(ScrollLogicalDirection direction, ScrollGranularity granularity, float multiplier, Node** stopNode)
+{
+    RenderLayer* layer = innerTextElement()->renderBox()->layer();
+    if (layer && layer->scroll(logicalToPhysical(direction, style()->isHorizontalWritingMode(), style()->isFlippedBlocksWritingMode()), granularity, multiplier))
+        return true;
+    return RenderBlock::logicalScroll(direction, granularity, multiplier, stopNode);
+}
+
+PassRefPtr<Scrollbar> RenderTextControlSingleLine::createScrollbar(ScrollableArea* scrollableArea, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
     RefPtr<Scrollbar> widget;
     bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
-        widget = RenderScrollbar::createCustomScrollbar(client, orientation, this);
+        widget = RenderScrollbar::createCustomScrollbar(scrollableArea, orientation, this);
     else
-        widget = Scrollbar::createNativeScrollbar(client, orientation, controlSize);
+        widget = Scrollbar::createNativeScrollbar(scrollableArea, orientation, controlSize);
     return widget.release();
 }
 
-InputElement* RenderTextControlSingleLine::inputElement() const
+HTMLInputElement* RenderTextControlSingleLine::inputElement() const
 {
-    return toInputElement(static_cast<Element*>(node()));
+    return node()->toInputElement();
 }
+
+int RenderTextControlSingleLine::textBlockInsetLeft() const
+{
+    int inset = borderLeft() + clientPaddingLeft();
+    if (HTMLElement* innerText = innerTextElement()) {
+        if (RenderBox* innerTextRenderer = innerText->renderBox())
+            inset += innerTextRenderer->paddingLeft();
+    }
+    return inset;
+}
+    
+int RenderTextControlSingleLine::textBlockInsetRight() const
+{
+    int inset = borderRight() + clientPaddingRight();
+    if (HTMLElement* innerText = innerTextElement()) {
+        if (RenderBox* innerTextRenderer = innerText->renderBox())
+            inset += innerTextRenderer->paddingRight();
+    }
+    return inset;
+}
+
+int RenderTextControlSingleLine::textBlockInsetTop() const
+{
+    RenderBox* innerRenderer = 0;
+    if (m_innerBlock)
+        innerRenderer = m_innerBlock->renderBox();
+    else if (HTMLElement* innerText = innerTextElement())
+        innerRenderer = innerText->renderBox();
+    
+    if (innerRenderer)
+        return innerRenderer->y();
+    
+    return borderTop() + paddingTop();
+}    
 
 }

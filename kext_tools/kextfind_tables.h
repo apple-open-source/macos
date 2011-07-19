@@ -145,6 +145,8 @@ extern struct querySetup reportCallbackList[];
     { &kPredNameDefinesSymbol[1],          no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredNameReferencesSymbol[1],       no_argument, &longopt, kLongOptQueryPredicate },  \
     \
+    { &kPredNameDuplicate[1],              no_argument, &longopt, kLongOptQueryPredicate },  \
+    \
     { &kPredNameInvalid[1],                no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredNameInauthentic[1],            no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredNameDependenciesMissing[1],    no_argument, &longopt, kLongOptQueryPredicate },  \
@@ -183,6 +185,8 @@ extern struct querySetup reportCallbackList[];
     { &kPredCharDefinesSymbol[1],          no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredCharReferencesSymbol[1],       no_argument, &longopt, kLongOptQueryPredicate },  \
     \
+    { &kPredCharDuplicate[1],              no_argument, &longopt, kLongOptQueryPredicate },  \
+    \
     { &kPredCharInvalid[1],                no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredCharInauthentic[1],            no_argument, &longopt, kLongOptQueryPredicate },  \
     { &kPredCharDependenciesMissing[1],    no_argument, &longopt, kLongOptQueryPredicate },  \
@@ -219,4 +223,4 @@ extern struct querySetup reportCallbackList[];
     { &kPredCharPrintExecutable[1],        no_argument, &longopt, kLongOptQueryPredicate },
 
 
-#endif /* _KEXTFIND_TABLES_H_ */
+#endif

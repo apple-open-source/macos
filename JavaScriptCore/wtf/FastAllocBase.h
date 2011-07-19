@@ -32,8 +32,8 @@
 // Provides customizable overrides of fastMalloc/fastFree and operator new/delete
 //
 // Provided functionality:
+//    Macro: WTF_MAKE_FAST_ALLOCATED
 //    namespace WTF {
-//        class FastAllocBase;
 //
 //        T*    fastNew<T>();
 //        T*    fastNew<T>(arg);
@@ -48,7 +48,16 @@
 // FastDelete assumes that the underlying
 //
 // Example usage:
-//    class Widget : public FastAllocBase { ... };
+//    class Widget {
+//        WTF_MAKE_FAST_ALLOCATED
+//    ...
+//    };
+//
+//    struct Data {
+//        WTF_MAKE_FAST_ALLOCATED
+//    public:
+//    ...
+//    };
 //
 //    char* charPtr = fastNew<char>();
 //    fastDelete(charPtr);
@@ -83,40 +92,40 @@
 #include "FastMalloc.h"
 #include "TypeTraits.h"
 
+#define WTF_MAKE_FAST_ALLOCATED \
+public: \
+    void* operator new(size_t, void* p) { return p; } \
+    void* operator new[](size_t, void* p) { return p; } \
+    \
+    void* operator new(size_t size) \
+    { \
+        void* p = ::WTF::fastMalloc(size); \
+         ::WTF::fastMallocMatchValidateMalloc(p, ::WTF::Internal::AllocTypeClassNew); \
+        return p; \
+    } \
+    \
+    void operator delete(void* p) \
+    { \
+        ::WTF::fastMallocMatchValidateFree(p, ::WTF::Internal::AllocTypeClassNew); \
+        ::WTF::fastFree(p); \
+    } \
+    \
+    void* operator new[](size_t size) \
+    { \
+        void* p = ::WTF::fastMalloc(size); \
+        ::WTF::fastMallocMatchValidateMalloc(p, ::WTF::Internal::AllocTypeClassNewArray); \
+        return p; \
+    } \
+    \
+    void operator delete[](void* p) \
+    { \
+         ::WTF::fastMallocMatchValidateFree(p, ::WTF::Internal::AllocTypeClassNewArray); \
+         ::WTF::fastFree(p); \
+    } \
+private: \
+typedef int ThisIsHereToForceASemicolonAfterThisMacro
+
 namespace WTF {
-
-    class FastAllocBase {
-    public:
-        // Placement operator new.
-        void* operator new(size_t, void* p) { return p; }
-        void* operator new[](size_t, void* p) { return p; }
-
-        void* operator new(size_t size)
-        {
-            void* p = fastMalloc(size);
-            fastMallocMatchValidateMalloc(p, Internal::AllocTypeClassNew);
-            return p;
-        }
-
-        void operator delete(void* p)
-        {
-            fastMallocMatchValidateFree(p, Internal::AllocTypeClassNew);
-            fastFree(p);
-        }
-
-        void* operator new[](size_t size)
-        {
-            void* p = fastMalloc(size);
-            fastMallocMatchValidateMalloc(p, Internal::AllocTypeClassNewArray);
-            return p;
-        }
-
-        void operator delete[](void* p)
-        {
-            fastMallocMatchValidateFree(p, Internal::AllocTypeClassNewArray);
-            fastFree(p);
-        }
-    };
 
     // fastNew / fastDelete
 
@@ -407,7 +416,6 @@ namespace WTF {
 
 } // namespace WTF
 
-using WTF::FastAllocBase;
 using WTF::fastDeleteSkippingDestructor;
 
 #endif // FastAllocBase_h

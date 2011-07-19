@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -648,7 +648,7 @@ peap_process_extensions(PEAPPluginDataRef context,
     in_length = EAPPacketGetLength((EAPPacketRef)in_pkt_p);
     if (in_length < sizeof(EAPExtensionsPacket)) {
 	syslog(LOG_NOTICE, 
-	       "peap_process_extensions: packet too short %d < %d",
+	       "peap_process_extensions: packet too short %d < %ld",
 	       in_length, sizeof(EAPExtensionsPacket));
 	return (NULL);
     }
@@ -713,13 +713,11 @@ peap_eap_process(EAPClientPluginDataRef plugin, EAPRequestPacketRef in_pkt_p,
 		 bool * call_module_free_packet)
 {
     PEAPPluginDataRef		context = (PEAPPluginDataRef)plugin->private;
-    uint16_t			in_length;
     uint8_t			desired_type;
     EAPResponsePacketRef	out_pkt_p = NULL;
     EAPClientState		state;
 
     *call_module_free_packet = FALSE;
-    in_length = EAPPacketGetLength((EAPPacketRef)in_pkt_p);
     switch (in_pkt_p->code) {
     case kEAPCodeRequest:
 	if (in_pkt_p->type == kEAPTypeInvalid) {
@@ -858,7 +856,7 @@ peap_eap(EAPClientPluginDataRef plugin, EAPTLSPacketRef eaptls_in,
 			 sizeof(in_buf) - offset, &in_data_size);
 	if (status != noErr) {
 	    syslog(LOG_NOTICE, "peap_eap: SSLRead failed, %s (%d)",
-		   EAPSSLErrorString(status), status);
+		   EAPSSLErrorString(status), (int)status);
 	    context->plugin_state = kEAPClientStateFailure;
 	    context->last_ssl_error = status;
 	    goto done;
@@ -1024,7 +1022,7 @@ peap_verify_server(EAPClientPluginDataRef plugin,
 	syslog(LOG_NOTICE, 
 	       "peap_verify_server: server certificate not trusted"
 	       ", status %d %d", context->trust_status,
-	       context->trust_ssl_error);
+	       (int)context->trust_ssl_error);
     }
     switch (context->trust_status) {
     case kEAPClientStatusOK:
@@ -1037,7 +1035,7 @@ peap_verify_server(EAPClientPluginDataRef plugin,
 	    = kEAPClientStatusUserInputRequired;
 	break;
     default:
-	*client_status = context->trust_status;
+	*client_status = context->last_client_status = context->trust_status;
 	context->last_ssl_error = context->trust_ssl_error;
 	context->plugin_state = kEAPClientStateFailure;
 	SSLClose(context->ssl_context);
@@ -1143,7 +1141,7 @@ peap_handshake(EAPClientPluginDataRef plugin, int identifier,
 	break;
     default:
 	syslog(LOG_NOTICE, "peap_handshake: SSLHandshake failed, %s (%d)",
-	       EAPSSLErrorString(status), status);
+	       EAPSSLErrorString(status), (int)status);
 	context->last_ssl_error = status;
 	my_CFRelease(&context->server_certs);
 	(void) EAPSSLCopyPeerCertificates(context->ssl_context,
@@ -1193,7 +1191,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 
     eaptls_in_l = (EAPTLSLengthIncludedPacket *)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
-	syslog(LOG_NOTICE, "peap_request: length %d < %d",
+	syslog(LOG_NOTICE, "peap_request: length %d < %ld",
 	       in_length, sizeof(*eaptls_in));
 	goto ignore;
     }
@@ -1219,7 +1217,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     else if ((eaptls_in->flags & kEAPTLSPacketFlagsLengthIncluded) != 0) {
 	if (in_length < sizeof(EAPTLSLengthIncludedPacket)) {
 	    syslog(LOG_NOTICE, 
-		   "peap_request: packet too short %d < %d",
+		   "peap_request: packet too short %d < %ld",
 		   in_length, sizeof(EAPTLSLengthIncludedPacket));
 	    goto ignore;
 	}
@@ -1228,7 +1226,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
 	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
 		syslog(LOG_NOTICE, 
-		       "peap_request: received message too large, %ld > %d",
+		       "peap_request: received message too large, %d > %d",
 		       tls_message_length, kEAPTLSAvoidDenialOfServiceSize);
 		goto ignore;
 	    }
@@ -1262,7 +1260,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	if (status != errSSLWouldBlock) {
 	    syslog(LOG_NOTICE, 
 		   "peap_request: SSLHandshake failed, %s (%d)",
-		   EAPSSLErrorString(status), status);
+		   EAPSSLErrorString(status), (int)status);
 	    context->last_ssl_error = status;
 	    context->plugin_state = kEAPClientStateFailure;
 	    goto ignore;
@@ -1685,7 +1683,7 @@ static struct func_table_ent {
 } func_table[] = {
 #if 0
     { kEAPClientPluginFuncNameIntrospect, peap_introspect },
-#endif 0
+#endif /* 0 */
     { kEAPClientPluginFuncNameVersion, peap_version },
     { kEAPClientPluginFuncNameEAPType, peap_type },
     { kEAPClientPluginFuncNameEAPName, peap_name },

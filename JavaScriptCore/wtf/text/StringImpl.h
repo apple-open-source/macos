@@ -26,14 +26,15 @@
 #include <limits.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/CrossThreadRefCounted.h>
+#include <wtf/Forward.h>
 #include <wtf/OwnFastMallocPtr.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/StringHashFunctions.h>
+#include <wtf/StringHasher.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringImplBase.h>
 #include <wtf/unicode/Unicode.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -44,21 +45,15 @@ typedef const struct __CFString * CFStringRef;
 // FIXME: This is a temporary layering violation while we move string code to WTF.
 // Landing the file moves in one patch, will follow on with patches to change the namespaces.
 namespace JSC {
-
 struct IdentifierCStringTranslator;
 struct IdentifierUCharBufferTranslator;
-
 }
 
-// FIXME: This is a temporary layering violation while we move string code to WTF.
-// Landing the file moves in one patch, will follow on with patches to change the namespaces.
-namespace WebCore {
-
-class StringBuffer;
+namespace WTF {
 
 struct CStringTranslator;
 struct HashAndCharactersTranslator;
-struct StringHash;
+struct HashAndUTF8CharactersTranslator;
 struct UCharBufferTranslator;
 
 enum TextCaseSensitivity { TextCaseSensitive, TextCaseInsensitive };
@@ -70,9 +65,10 @@ typedef bool (*CharacterMatchFunctionPtr)(UChar);
 class StringImpl : public StringImplBase {
     friend struct JSC::IdentifierCStringTranslator;
     friend struct JSC::IdentifierUCharBufferTranslator;
-    friend struct CStringTranslator;
-    friend struct HashAndCharactersTranslator;
-    friend struct UCharBufferTranslator;
+    friend struct WTF::CStringTranslator;
+    friend struct WTF::HashAndCharactersTranslator;
+    friend struct WTF::HashAndUTF8CharactersTranslator;
+    friend struct WTF::UCharBufferTranslator;
     friend class AtomicStringImpl;
 private:
     // Used to construct static strings, which have an special refCount that can never hit zero.
@@ -116,7 +112,7 @@ private:
     StringImpl(const UChar* characters, unsigned length, PassRefPtr<StringImpl> base)
         : StringImplBase(length, BufferSubstring)
         , m_data(characters)
-        , m_substringBuffer(base.releaseRef())
+        , m_substringBuffer(base.leakRef())
         , m_hash(0)
     {
         ASSERT(m_data);
@@ -128,7 +124,7 @@ private:
     StringImpl(const UChar* characters, unsigned length, PassRefPtr<SharedUChar> sharedBuffer)
         : StringImplBase(length, BufferShared)
         , m_data(characters)
-        , m_sharedBuffer(sharedBuffer.releaseRef())
+        , m_sharedBuffer(sharedBuffer.leakRef())
         , m_hash(0)
     {
         ASSERT(m_data);
@@ -140,7 +136,7 @@ private:
     {
         ASSERT(!isStatic());
         ASSERT(!m_hash);
-        ASSERT(hash == computeHash(m_data, m_length));
+        ASSERT(hash == StringHasher::computeHash(m_data, m_length));
         m_hash = hash;
     }
 
@@ -151,7 +147,7 @@ public:
     static PassRefPtr<StringImpl> create(const char*, unsigned length);
     static PassRefPtr<StringImpl> create(const char*);
     static PassRefPtr<StringImpl> create(const UChar*, unsigned length, PassRefPtr<SharedUChar> sharedBuffer);
-    static PassRefPtr<StringImpl> create(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
+    static ALWAYS_INLINE PassRefPtr<StringImpl> create(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
     {
         ASSERT(rep);
         ASSERT(length <= rep->length());
@@ -164,18 +160,22 @@ public:
     }
 
     static PassRefPtr<StringImpl> createUninitialized(unsigned length, UChar*& data);
-    static PassRefPtr<StringImpl> tryCreateUninitialized(unsigned length, UChar*& output)
+    static ALWAYS_INLINE PassRefPtr<StringImpl> tryCreateUninitialized(unsigned length, UChar*& output)
     {
         if (!length) {
             output = 0;
             return empty();
         }
 
-        if (length > ((std::numeric_limits<unsigned>::max() - sizeof(StringImpl)) / sizeof(UChar)))
+        if (length > ((std::numeric_limits<unsigned>::max() - sizeof(StringImpl)) / sizeof(UChar))) {
+            output = 0;
             return 0;
+        }
         StringImpl* resultImpl;
-        if (!tryFastMalloc(sizeof(UChar) * length + sizeof(StringImpl)).getValue(resultImpl))
+        if (!tryFastMalloc(sizeof(UChar) * length + sizeof(StringImpl)).getValue(resultImpl)) {
+            output = 0;
             return 0;
+        }
         output = reinterpret_cast<UChar*>(resultImpl + 1);
         return adoptRef(new(resultImpl) StringImpl(length));
     }
@@ -235,11 +235,8 @@ public:
             m_refCountAndFlags &= ~s_refCountFlagIsAtomic;
     }
 
-    unsigned hash() const { if (!m_hash) m_hash = computeHash(m_data, m_length); return m_hash; }
+    unsigned hash() const { if (!m_hash) m_hash = StringHasher::computeHash(m_data, m_length); return m_hash; }
     unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
-    static unsigned computeHash(const UChar* data, unsigned length) { return WTF::stringHash(data, length); }
-    static unsigned computeHash(const char* data, unsigned length) { return WTF::stringHash(data, length); }
-    static unsigned computeHash(const char* data) { return WTF::stringHash(data); }
 
     ALWAYS_INLINE void deref() { m_refCountAndFlags -= s_refCountIncrement; if (!(m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic))) delete this; }
     ALWAYS_INLINE bool hasOneRef() const { return (m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic)) == s_refCountIncrement; }
@@ -281,12 +278,15 @@ public:
     uint64_t toUInt64(bool* ok = 0); // ignores trailing garbage
     intptr_t toIntPtr(bool* ok = 0); // ignores trailing garbage
 
-    double toDouble(bool* ok = 0);
-    float toFloat(bool* ok = 0);
+    double toDouble(bool* ok = 0, bool* didReadNumber = 0);
+    float toFloat(bool* ok = 0, bool* didReadNumber = 0);
 
     PassRefPtr<StringImpl> lower();
     PassRefPtr<StringImpl> upper();
-    PassRefPtr<StringImpl> secure(UChar aChar);
+
+    enum LastCharacterBehavior { ObscureLastCharacter, DisplayLastCharacter };
+
+    PassRefPtr<StringImpl> secure(UChar, LastCharacterBehavior = ObscureLastCharacter);
     PassRefPtr<StringImpl> foldCase();
 
     PassRefPtr<StringImpl> stripWhiteSpace();
@@ -294,15 +294,18 @@ public:
 
     PassRefPtr<StringImpl> removeCharacters(CharacterMatchFunctionPtr);
 
-    int find(const char*, int index = 0, bool caseSensitive = true);
-    int find(UChar, int index = 0);
-    int find(CharacterMatchFunctionPtr, int index = 0);
-    int find(StringImpl*, int index, bool caseSensitive = true);
+    size_t find(UChar, unsigned index = 0);
+    size_t find(CharacterMatchFunctionPtr, unsigned index = 0);
+    size_t find(const char*, unsigned index = 0);
+    size_t find(StringImpl*, unsigned index = 0);
+    size_t findIgnoringCase(const char*, unsigned index = 0);
+    size_t findIgnoringCase(StringImpl*, unsigned index = 0);
 
-    int reverseFind(UChar, int index);
-    int reverseFind(StringImpl*, int index, bool caseSensitive = true);
-    
-    bool startsWith(StringImpl* str, bool caseSensitive = true) { return reverseFind(str, 0, caseSensitive) == 0; }
+    size_t reverseFind(UChar, unsigned index = UINT_MAX);
+    size_t reverseFind(StringImpl*, unsigned index = UINT_MAX);
+    size_t reverseFindIgnoringCase(StringImpl*, unsigned index = UINT_MAX);
+
+    bool startsWith(StringImpl* str, bool caseSensitive = true) { return (caseSensitive ? reverseFind(str, 0) : reverseFindIgnoringCase(str, 0)) == 0; }
     bool endsWith(StringImpl*, bool caseSensitive = true);
 
     PassRefPtr<StringImpl> replace(UChar, UChar);
@@ -310,11 +313,9 @@ public:
     PassRefPtr<StringImpl> replace(StringImpl*, StringImpl*);
     PassRefPtr<StringImpl> replace(unsigned index, unsigned len, StringImpl*);
 
-    Vector<char> ascii();
+    WTF::Unicode::Direction defaultWritingDirection(bool* hasStrongDirectionality = 0);
 
-    WTF::Unicode::Direction defaultWritingDirection();
-
-#if PLATFORM(CF)
+#if USE(CF)
     CFStringRef createCFString();
 #endif
 #ifdef __OBJC__
@@ -350,6 +351,18 @@ inline bool equalIgnoringCase(const char* a, const UChar* b, unsigned length) { 
 
 bool equalIgnoringNullity(StringImpl*, StringImpl*);
 
+template<size_t inlineCapacity>
+bool equalIgnoringNullity(const Vector<UChar, inlineCapacity>& a, StringImpl* b)
+{
+    if (!b)
+        return !a.size();
+    if (a.size() != b->length())
+        return false;
+    return !memcmp(a.data(), b->characters(), b->length());
+}
+
+int codePointCompare(const StringImpl*, const StringImpl*);
+
 static inline bool isSpaceOrNewline(UChar c)
 {
     // Use isASCIISpace() for basic Latin-1.
@@ -380,21 +393,23 @@ inline PassRefPtr<StringImpl> StringImpl::createStrippingNullCharacters(const UC
     return StringImpl::createStrippingNullCharactersSlowCase(characters, length);
 }
 
-}
+struct StringHash;
 
-using WebCore::equal;
-
-namespace WTF {
-
-    // WebCore::StringHash is the default hash for StringImpl* and RefPtr<StringImpl>
-    template<typename T> struct DefaultHash;
-    template<> struct DefaultHash<WebCore::StringImpl*> {
-        typedef WebCore::StringHash Hash;
-    };
-    template<> struct DefaultHash<RefPtr<WebCore::StringImpl> > {
-        typedef WebCore::StringHash Hash;
-    };
+// StringHash is the default hash for StringImpl* and RefPtr<StringImpl>
+template<typename T> struct DefaultHash;
+template<> struct DefaultHash<StringImpl*> {
+    typedef StringHash Hash;
+};
+template<> struct DefaultHash<RefPtr<StringImpl> > {
+    typedef StringHash Hash;
+};
 
 }
+
+using WTF::StringImpl;
+using WTF::equal;
+using WTF::TextCaseSensitivity;
+using WTF::TextCaseSensitive;
+using WTF::TextCaseInsensitive;
 
 #endif

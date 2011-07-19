@@ -91,7 +91,7 @@ bool Trust::revocationPolicySpecified(CFArrayRef policies)
 		if(oid == CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_OCSP)) {
 			return true;
 		}
-	}	
+	}
 	return false;
 }
 
@@ -131,6 +131,38 @@ static SecRevocationPolicyStyle parseRevStyle(CFStringRef val)
 	}
 }
 
+CFDictionaryRef Trust::defaultRevocationSettings()
+{
+    /*
+        defaults read ~/Library/Preferences/com.apple.security.revocation
+        {
+            CRLStyle = BestAttempt;
+            CRLSufficientPerCert = 1;
+            OCSPStyle = BestAttempt;
+            OCSPSufficientPerCert = 1;
+            RevocationFirst = OCSP;
+        }
+    */
+    const void *keys[] = {
+		kSecRevocationCrlStyle,
+        kSecRevocationCRLSufficientPerCert,
+        kSecRevocationOcspStyle,
+        kSecRevocationOCSPSufficientPerCert,
+        kSecRevocationWhichFirst
+	};
+	const void *values[] = {
+		kSecRevocationBestAttempt,
+		kCFBooleanTrue,
+		kSecRevocationBestAttempt,
+		kCFBooleanTrue,
+		kSecRevocationOcspFirst
+	};
+
+    return CFDictionaryCreate(kCFAllocatorDefault, keys,
+		values, sizeof(keys) / sizeof(*keys),
+		&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+}
+
 CFMutableArrayRef Trust::addPreferenceRevocationPolicies( 
 	uint32 &numAdded, 
 	Allocator &alloc)
@@ -152,18 +184,27 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 		pd = Dictionary::CreateDictionary(kSecRevocationDomain, Dictionary::US_System, true);
 		if (!pd->dict()) {
 			delete pd;
+			pd = NULL;
 		}
-
-		return NULL;
 	}
 	
+    if(pd == NULL)
+    {
+        CFDictionaryRef tempDict = defaultRevocationSettings();
+        if (tempDict == NULL)
+            return NULL;
+        
+        pd = new Dictionary(tempDict);
+        CFRelease(tempDict);
+    }
+    
 	auto_ptr<Dictionary> prefsDict(pd);
 	
 	bool doOcsp = false;
 	bool doCrl = false;
 	CFStringRef val;
-	SecRevocationPolicyStyle ocspStyle = kSecDisabled;
-	SecRevocationPolicyStyle crlStyle = kSecDisabled;
+	SecRevocationPolicyStyle ocspStyle = kSecBestAttempt;
+	SecRevocationPolicyStyle crlStyle = kSecBestAttempt;
 	SecPointer<Policy> ocspPolicy;
 	SecPointer<Policy> crlPolicy;
 	
@@ -358,8 +399,8 @@ void Trust::freePreferenceRevocationPolicies(
  *
  * Caller is responsible for releasing the returned policies array.
  */
-CFMutableArrayRef Trust::forceRevocationPolicies(
-	uint32 &numAdded,
+CFMutableArrayRef Trust::forceRevocationPolicies( 
+	uint32 &numAdded, 
 	Allocator &alloc,
 	bool requirePerCert)
 {
@@ -370,7 +411,7 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 	bool hasOcspPolicy = false;
 	bool hasCrlPolicy = false;
 	numAdded = 0;
-
+	
 	ocspFlags = CSSM_TP_ACTION_OCSP_SUFFICIENT;
 	crlFlags = CSSM_TP_ACTION_FETCH_CRL_FROM_NET | CSSM_TP_ACTION_CRL_SUFFICIENT;
 	if (requirePerCert) {
@@ -475,7 +516,7 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 		if(prefsDict != NULL)
 			delete prefsDict;
 	}
-
+	
 	if(!hasCrlPolicy) {
 		/* Cook up a new Policy object */
 		crlPolicy = new Policy(mTP, CssmOid::overlay(CSSMOID_APPLE_TP_REVOCATION_CRL));
@@ -487,7 +528,7 @@ CFMutableArrayRef Trust::forceRevocationPolicies(
 		/* Policy manages its own copy of this data */
 		CSSM_DATA optData = {sizeof(opts), (uint8 *)&opts};
 		crlPolicy->value() = optData;
-
+		
 		/* Policies array retains the Policy object */
 		CFArrayAppendValue(policies, crlPolicy->handle(false));
 		numAdded++;

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009 Google Inc. All Rights Reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,19 +31,28 @@
 
 #include "WorkerContext.h"
 
+#include "AbstractDatabase.h"
 #include "ActiveDOMObject.h"
-#include "DOMTimer.h"
-#include "DOMWindow.h"
 #include "Database.h"
+#include "DatabaseCallback.h"
+#include "DatabaseSync.h"
+#include "DatabaseTracker.h"
+#include "DOMTimer.h"
+#include "DOMURL.h"
+#include "DOMWindow.h"
 #include "ErrorEvent.h"
 #include "Event.h"
 #include "EventException.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
+#include "KURL.h"
 #include "MessagePort.h"
 #include "NotImplemented.h"
+#include "ScheduledAction.h"
+#include "ScriptCallStack.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "SecurityOrigin.h"
+#include "WorkerInspectorController.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include "WorkerObjectProxy.h"
@@ -58,13 +67,29 @@
 #include "NotificationCenter.h"
 #endif
 
+#if ENABLE(FILE_SYSTEM)
+#include "AsyncFileSystem.h"
+#include "DirectoryEntrySync.h"
+#include "DOMFileSystem.h"
+#include "DOMFileSystemBase.h"
+#include "DOMFileSystemSync.h"
+#include "ErrorCallback.h"
+#include "FileEntrySync.h"
+#include "FileError.h"
+#include "FileException.h"
+#include "FileSystemCallback.h"
+#include "FileSystemCallbacks.h"
+#include "LocalFileSystem.h"
+#include "SyncCallbackHelper.h"
+#endif
+
 namespace WebCore {
 
 class CloseWorkerContextTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<CloseWorkerContextTask> create()
     {
-        return new CloseWorkerContextTask;
+        return adoptPtr(new CloseWorkerContextTask);
     }
 
     virtual void performTask(ScriptExecutionContext *context)
@@ -81,10 +106,12 @@ public:
 WorkerContext::WorkerContext(const KURL& url, const String& userAgent, WorkerThread* thread)
     : m_url(url)
     , m_userAgent(userAgent)
-    , m_script(new WorkerScriptController(this))
+    , m_script(adoptPtr(new WorkerScriptController(this)))
     , m_thread(thread)
+#if ENABLE(INSPECTOR)
+    , m_workerInspectorController(adoptPtr(new WorkerInspectorController(this)))
+#endif
     , m_closing(false)
-    , m_reportingException(false)
 {
     setSecurityOrigin(SecurityOrigin::create(url));
 }
@@ -95,6 +122,10 @@ WorkerContext::~WorkerContext()
 #if ENABLE(NOTIFICATIONS)
     m_notifications.clear();
 #endif
+
+    // Make sure we have no observers.
+    notifyObserversOfStop();
+
     // Notify proxy that we are going away. This can free the WorkerThread object, so do not access it after this.
     thread()->workerReportingProxy().workerContextDestroyed();
 }
@@ -141,9 +172,10 @@ void WorkerContext::close()
     if (m_closing)
         return;
 
-    m_closing = true;
     // Let current script run to completion but prevent future script evaluations.
-    m_script->forbidExecution(WorkerScriptController::LetRunningScriptFinish);
+    // After m_closing is set, all the tasks in the queue continue to be fetched but only
+    // tasks with isCleanupTask()==true will be executed.
+    m_closing = true;
     postTask(CloseWorkerContextTask::create());
 }
 
@@ -163,10 +195,9 @@ bool WorkerContext::hasPendingActivity() const
             return true;
     }
 
-    // Keep the worker active as long as there is a MessagePort with pending activity or that is remotely entangled.
     HashSet<MessagePort*>::const_iterator messagePortsEnd = messagePorts().end();
     for (HashSet<MessagePort*>::const_iterator iter = messagePorts().begin(); iter != messagePortsEnd; ++iter) {
-        if ((*iter)->hasPendingActivity() || ((*iter)->isEntangled() && !(*iter)->locallyEntangledPort()))
+        if ((*iter)->hasPendingActivity())
             return true;
     }
 
@@ -178,7 +209,7 @@ void WorkerContext::postTask(PassOwnPtr<Task> task)
     thread()->runLoop().postTask(task);
 }
 
-int WorkerContext::setTimeout(ScheduledAction* action, int timeout)
+int WorkerContext::setTimeout(PassOwnPtr<ScheduledAction> action, int timeout)
 {
     return DOMTimer::install(scriptExecutionContext(), action, timeout, true);
 }
@@ -188,7 +219,7 @@ void WorkerContext::clearTimeout(int timeoutId)
     DOMTimer::removeById(scriptExecutionContext(), timeoutId);
 }
 
-int WorkerContext::setInterval(ScheduledAction* action, int timeout)
+int WorkerContext::setInterval(PassOwnPtr<ScheduledAction> action, int timeout)
 {
     return DOMTimer::install(scriptExecutionContext(), action, timeout, false);
 }
@@ -223,13 +254,10 @@ void WorkerContext::importScripts(const Vector<String>& urls, ExceptionCode& ec)
             return;
         }
 
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(scriptLoader.identifier(), scriptLoader.script());
-#endif
+       InspectorInstrumentation::scriptImported(scriptExecutionContext(), scriptLoader.identifier(), scriptLoader.script());
 
         ScriptValue exception;
-        m_script->evaluate(ScriptSourceCode(scriptLoader.script(), *it), &exception);
+        m_script->evaluate(ScriptSourceCode(scriptLoader.script(), scriptLoader.responseURL()), &exception);
         if (!exception.hasNoValue()) {
             m_script->setException(exception);
             return;
@@ -237,23 +265,17 @@ void WorkerContext::importScripts(const Vector<String>& urls, ExceptionCode& ec)
     }
 }
 
-void WorkerContext::reportException(const String& errorMessage, int lineNumber, const String& sourceURL)
+EventTarget* WorkerContext::errorEventTarget()
 {
-    bool errorHandled = false;
-    if (!m_reportingException) {
-        if (onerror()) {
-            m_reportingException = true;
-            RefPtr<ErrorEvent> errorEvent(ErrorEvent::create(errorMessage, sourceURL, lineNumber));
-            onerror()->handleEvent(this, errorEvent.get());
-            errorHandled = errorEvent->defaultPrevented();
-            m_reportingException = false;
-        }
-    }
-    if (!errorHandled)
-        thread()->workerReportingProxy().postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
+    return this;
 }
 
-void WorkerContext::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+void WorkerContext::logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>)
+{
+    thread()->workerReportingProxy().postExceptionToWorkerObject(errorMessage, lineNumber, sourceURL);
+}
+
+void WorkerContext::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>)
 {
     thread()->workerReportingProxy().postConsoleMessageToWorkerObject(source, type, level, message, lineNumber, sourceURL);
 }
@@ -270,16 +292,31 @@ NotificationCenter* WorkerContext::webkitNotifications() const
 #if ENABLE(DATABASE)
 PassRefPtr<Database> WorkerContext::openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode& ec)
 {
-    if (!securityOrigin()->canAccessDatabase()) {
+    if (!securityOrigin()->canAccessDatabase() || !AbstractDatabase::isAvailable()) {
         ec = SECURITY_ERR;
         return 0;
     }
 
-    ASSERT(Database::isAvailable());
-    if (!Database::isAvailable())
-        return 0;
-
     return Database::openDatabase(this, name, version, displayName, estimatedSize, creationCallback, ec);
+}
+
+void WorkerContext::databaseExceededQuota(const String&)
+{
+#if !PLATFORM(CHROMIUM)
+    // FIXME: This needs a real implementation; this is a temporary solution for testing.
+    const unsigned long long defaultQuota = 5 * 1024 * 1024;
+    DatabaseTracker::tracker().setQuota(securityOrigin(), defaultQuota);
+#endif
+}
+
+PassRefPtr<DatabaseSync> WorkerContext::openDatabaseSync(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode& ec)
+{
+    if (!securityOrigin()->canAccessDatabase() || !AbstractDatabase::isAvailable()) {
+        ec = SECURITY_ERR;
+        return 0;
+    }
+
+    return DatabaseSync::openDatabaseSync(this, name, version, displayName, estimatedSize, creationCallback, ec);
 }
 #endif
 
@@ -288,7 +325,7 @@ bool WorkerContext::isContextThread() const
     return currentThread() == thread()->threadID();
 }
 
-bool WorkerContext::isJSExecutionTerminated() const
+bool WorkerContext::isJSExecutionForbidden() const
 {
     return m_script->isExecutionForbidden();
 }
@@ -301,6 +338,150 @@ EventTargetData* WorkerContext::eventTargetData()
 EventTargetData* WorkerContext::ensureEventTargetData()
 {
     return &m_eventTargetData;
+}
+
+#if ENABLE(BLOB)
+DOMURL* WorkerContext::webkitURL() const
+{
+    if (!m_domURL)
+        m_domURL = DOMURL::create(this->scriptExecutionContext());
+    return m_domURL.get();
+}
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+void WorkerContext::webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+{
+    if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem()) {
+        DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::SECURITY_ERR));
+        return;
+    }
+
+    AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent && fileSystemType != AsyncFileSystem::External) {
+        DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::INVALID_MODIFICATION_ERR));
+        return;
+    }
+
+    LocalFileSystem::localFileSystem().requestFileSystem(this, fileSystemType, size, FileSystemCallbacks::create(successCallback, errorCallback, this), false);
+}
+
+PassRefPtr<DOMFileSystemSync> WorkerContext::webkitRequestFileSystemSync(int type, long long size, ExceptionCode& ec)
+{
+    ec = 0;
+    if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem()) {
+        ec = FileException::SECURITY_ERR;
+        return 0;
+    }
+
+    AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent && fileSystemType != AsyncFileSystem::External) {
+        ec = FileException::INVALID_MODIFICATION_ERR;
+        return 0;
+    }
+
+    FileSystemSyncCallbackHelper helper;
+    LocalFileSystem::localFileSystem().requestFileSystem(this, fileSystemType, size, FileSystemCallbacks::create(helper.successCallback(), helper.errorCallback(), this), true);
+    return helper.getResult(ec);
+}
+
+void WorkerContext::webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+{
+    KURL completedURL = completeURL(url);
+    if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem() || !securityOrigin()->canRequest(completedURL)) {
+        DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::SECURITY_ERR));
+        return;
+    }
+
+    AsyncFileSystem::Type type;
+    String filePath;
+    if (!completedURL.isValid() || !DOMFileSystemBase::crackFileSystemURL(completedURL, type, filePath)) {
+        DOMFileSystem::scheduleCallback(this, errorCallback, FileError::create(FileError::ENCODING_ERR));
+        return;
+    }
+
+    LocalFileSystem::localFileSystem().readFileSystem(this, type, ResolveURICallbacks::create(successCallback, errorCallback, this, filePath));
+}
+
+PassRefPtr<EntrySync> WorkerContext::webkitResolveLocalFileSystemSyncURL(const String& url, ExceptionCode& ec)
+{
+    ec = 0;
+    KURL completedURL = completeURL(url);
+    if (!AsyncFileSystem::isAvailable() || !securityOrigin()->canAccessFileSystem() || !securityOrigin()->canRequest(completedURL)) {
+        ec = FileException::SECURITY_ERR;
+        return 0;
+    }
+
+    AsyncFileSystem::Type type;
+    String filePath;
+    if (!completedURL.isValid() || !DOMFileSystemBase::crackFileSystemURL(completedURL, type, filePath)) {
+        ec = FileException::ENCODING_ERR;
+        return 0;
+    }
+
+    FileSystemSyncCallbackHelper readFileSystemHelper;
+    LocalFileSystem::localFileSystem().readFileSystem(this, type, FileSystemCallbacks::create(readFileSystemHelper.successCallback(), readFileSystemHelper.errorCallback(), this), true);
+    RefPtr<DOMFileSystemSync> fileSystem = readFileSystemHelper.getResult(ec);
+    if (!fileSystem)
+        return 0;
+
+    RefPtr<EntrySync> entry = fileSystem->root()->getDirectory(filePath, 0, ec);
+    if (ec == FileException::TYPE_MISMATCH_ERR)
+        return fileSystem->root()->getFile(filePath, 0, ec);
+
+    return entry.release();
+}
+
+COMPILE_ASSERT(static_cast<int>(WorkerContext::TEMPORARY) == static_cast<int>(AsyncFileSystem::Temporary), enum_mismatch);
+COMPILE_ASSERT(static_cast<int>(WorkerContext::PERSISTENT) == static_cast<int>(AsyncFileSystem::Persistent), enum_mismatch);
+COMPILE_ASSERT(static_cast<int>(WorkerContext::EXTERNAL) == static_cast<int>(AsyncFileSystem::External), enum_mismatch);
+#endif
+
+WorkerContext::Observer::Observer(WorkerContext* context)
+    : m_context(context)
+{
+    ASSERT(m_context && m_context->isContextThread());
+    m_context->registerObserver(this);
+}
+
+WorkerContext::Observer::~Observer()
+{
+    if (!m_context)
+        return;
+    ASSERT(m_context->isContextThread());
+    m_context->unregisterObserver(this);
+}
+
+void WorkerContext::Observer::stopObserving()
+{
+    if (!m_context)
+        return;
+    ASSERT(m_context->isContextThread());
+    m_context->unregisterObserver(this);
+    m_context = 0;
+}
+
+void WorkerContext::registerObserver(Observer* observer)
+{
+    ASSERT(observer);
+    m_workerObservers.add(observer);
+}
+
+void WorkerContext::unregisterObserver(Observer* observer)
+{
+    ASSERT(observer);
+    m_workerObservers.remove(observer);
+}
+
+void WorkerContext::notifyObserversOfStop()
+{
+    HashSet<Observer*>::iterator iter = m_workerObservers.begin();
+    while (iter != m_workerObservers.end()) {
+        WorkerContext::Observer* observer = *iter;
+        observer->stopObserving();
+        observer->notifyStop();
+        iter = m_workerObservers.begin();
+    }
 }
 
 } // namespace WebCore

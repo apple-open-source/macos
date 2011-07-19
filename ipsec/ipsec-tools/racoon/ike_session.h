@@ -27,11 +27,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/param.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #include <netinet/in.h>
 #include "handler.h"
 #include "ipsecSessionTracer.h"
@@ -97,6 +93,9 @@ struct ike_session {
     int                                  i_sent_data_sc_idle:1;
     int					 is_client:1;
     time_t                               last_time_data_sc_detected;
+    int                                  controller_awaiting_peer_resp:1;
+    int                                  is_dying:1;
+    int                                  is_asserted:1;
     u_int32_t                            natt_flags;
 	u_int32_t                            natt_version;
 	char                                *term_reason;
@@ -115,8 +114,16 @@ struct ike_session {
 	LIST_ENTRY(ike_session)              chain;
 };
 
+typedef enum ike_session_rekey_type {
+	IKE_SESSION_REKEY_TYPE_NONE = 0,
+	IKE_SESSION_REKEY_TYPE_PH1,
+	IKE_SESSION_REKEY_TYPE_PH2,
+} ike_session_rekey_type_t;
+
 extern const char *	ike_session_stopped_by_vpn_disconnect;
 extern const char *	ike_session_stopped_by_flush;
+extern const char *	ike_session_stopped_by_sleepwake;
+extern const char *	ike_session_stopped_by_assert;
 
 extern void               ike_session_init __P((void));
 extern ike_session_t *	  ike_session_get_session __P((struct sockaddr *, struct sockaddr *, int));
@@ -146,6 +153,7 @@ extern u_int32_t          ike_session_get_sas_for_stats __P((ike_session_t *, u_
 extern void               ike_session_update_traffic_idle_status __P((ike_session_t *, u_int32_t, struct sastat *, u_int32_t));
 extern void               ike_session_cleanup __P((ike_session_t *, const char *));
 extern int                ike_session_has_negoing_ph1 __P((ike_session_t *));
+extern int                ike_session_has_established_ph1 __P((ike_session_t *));
 extern int                ike_session_has_negoing_ph2 __P((ike_session_t *));
 extern int                ike_session_has_established_ph2 __P((ike_session_t *));
 extern void               ike_session_cleanup_ph1s_by_ph2 __P((struct ph2handle *));
@@ -157,7 +165,11 @@ extern int                ike_session_get_sainfo_r __P((struct ph2handle *));
 extern int                ike_session_get_proposal_r __P((struct ph2handle *));
 extern void               ike_session_update_natt_version __P((struct ph1handle *));
 extern int                ike_session_get_natt_version __P((struct ph1handle *));
-extern int                ike_session_drop_rekey __P((ike_session_t *));
+extern int                ike_session_drop_rekey __P((ike_session_t *, ike_session_rekey_type_t));
+extern void               ike_session_sweep_sleepwake __P((void));
+extern int                ike_session_assert __P((struct sockaddr *, struct sockaddr *));
+extern int                ike_session_assert_session __P((ike_session_t *));
 extern void               ike_session_ph2_retransmits __P((struct ph2handle *));
+extern void               ike_session_ph1_retransmits __P((struct ph1handle *));
 
 #endif /* _IKE_SESSION_H */

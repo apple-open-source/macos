@@ -10,16 +10,19 @@ This can cause problems when the object state contains the
 object itself, which is why we need a 'setValue' callback for the
 load_* functions below.
 """
+import sys
 import objc
 from types import *
 import copy_reg
 import copy
-import sys
 
 from pickle import PicklingError, UnpicklingError, whichmodule
 
+if hasattr(sys, 'intern'):
+    intern = sys.intern
 
 
+# FIXME: This requires manual wrappers from the Foundation bindings
 def setupPythonObject():
     OC_PythonObject = objc.lookUpClass("OC_PythonObject")
 
@@ -67,100 +70,178 @@ def setupPythonObject():
     def save_reduce(coder, func, args, 
             state=None, listitems=None, dictitems=None, obj=None):
 
-        if not isinstance(args, TupleType):
+        if not isinstance(args, tuple):
             raise PicklingError("args from reduce() should be a tuple")
 
         if not callable(func):
             raise PicklingError("func from reduce should be callable")
 
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_REDUCE, kKIND)
+            coder.encodeObject_forKey_(func, kFUNC)
+            coder.encodeObject_forKey_(args, kARGS)
+            if listitems is None:
+                coder.encodeObject_forKey_(None, kLIST)
+            else:
+                coder.encodeObject_forKey_(list(listitems), kLIST)
 
-        coder.encodeInt_forKey_(kOP_REDUCE, kKIND)
-        coder.encodeObject_forKey_(func, kFUNC)
-        coder.encodeObject_forKey_(args, kARGS)
-        if listitems is None:
-            coder.encodeObject_forKey_(None, kLIST)
-        else:
-            coder.encodeObject_forKey_(list(listitems), kLIST)
-
-        if dictitems is None:
-            coder.encodeObject_forKey_(None, kDICT)
-        else:
-            coder.encodeObject_forKey_(dict(dictitems), kDICT)
-        coder.encodeObject_forKey_(state, kSTATE)
-
-    def save_inst(coder, obj):
-        if hasattr(obj, '__getinitargs__'):
-            args = obj.__getinitargs__()
-            len(args) # Assert it's a sequence
-        else:
-            args = ()
-
-        cls = obj.__class__
-
-        coder.encodeInt32_forKey_(kOP_INST, kKIND)
-        coder.encodeObject_forKey_(cls, kCLASS)
-        coder.encodeObject_forKey_(args, kARGS)
-
-        try:
-            getstate = obj.__getstate__
-        except AttributeError:
-            state = obj.__dict__
+            if dictitems is None:
+                coder.encodeObject_forKey_(None, kDICT)
+            else:
+                coder.encodeObject_forKey_(dict(dictitems), kDICT)
+            coder.encodeObject_forKey_(state, kSTATE)
 
         else:
-            state = getstate()
+            coder.__pyobjc__encodeInt_(kOP_REDUCE)
+            coder.encodeObject_(func)
+            coder.encodeObject_(args)
+            if listitems is None:
+                coder.encodeObject_(None)
+            else:
+                coder.encodeObject_(list(listitems))
 
-        coder.encodeObject_forKey_(state, kSTATE)
+            if dictitems is None:
+                coder.encodeObject_(None)
+            else:
+                coder.encodeObject_(dict(dictitems))
+            coder.encodeObject_(state)
 
-    encode_dispatch[InstanceType] = save_inst
+    if sys.version_info[0] == 2:
+        def save_inst(coder, obj):
+            if hasattr(obj, '__getinitargs__'):
+                args = obj.__getinitargs__()
+                len(args) # Assert it's a sequence
+            else:
+                args = ()
+
+            cls = obj.__class__
+
+            if coder.allowsKeyedCoding():
+                coder.encodeInt32_forKey_(kOP_INST, kKIND)
+                coder.encodeObject_forKey_(cls, kCLASS)
+                coder.encodeObject_forKey_(args, kARGS)
+
+            else:
+                coder.__pyobjc__encodeInt32_(kOP_INST)
+                coder.encodeObject_(cls)
+                coder.encodeObject_(args)
+
+            try:
+                getstate = obj.__getstate__
+            except AttributeError:
+                state = obj.__dict__
+
+            else:
+                state = getstate()
+
+            if coder.allowsKeyedCoding():
+                coder.encodeObject_forKey_(state, kSTATE)
+
+            else:
+                coder.encodeObject_(state)
+
+        encode_dispatch[InstanceType] = save_inst
 
 
     def save_none(coder, obj):
-        coder.encodeInt_forKey_(kOP_NONE, kKIND)
-    encode_dispatch[NoneType] = save_none
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_NONE, kKIND)
+        else:
+            coder.__pyobjc__encodeInt_(kOP_NONE)
+    encode_dispatch[type(None)] = save_none
 
     def save_bool(coder, obj):
-        coder.encodeInt_forKey_(kOP_BOOL, kKIND)
-        coder.encodeBool_forKey_(bool(obj), kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_BOOL, kKIND)
+            coder.encodeBool_forKey_(bool(obj), kVALUE)
+        else:
+            coder.__pyobjc__encodeInt_(kOP_BOOL)
+            coder.__pyobjc__encodeBool_(bool(obj))
     encode_dispatch[bool] = save_bool
 
-    def save_int(coder, obj):
-        coder.encodeInt_forKey_(kOP_INT, kKIND)
-        coder.encodeInt64_forKey_(obj, kVALUE)
-    encode_dispatch[int] = save_int
+    if sys.version_info[0] == 2:
+        def save_int(coder, obj):
+            if coder.allowsKeyedCoding():
+                coder.encodeInt_forKey_(kOP_INT, kKIND)
+                coder.encodeInt64_forKey_(obj, kVALUE)
+            else:
+                coder.__pyobjc__encodeInt_(kOP_INT)
+                coder.__pyobjc__encodeInt64_(obj)
+        encode_dispatch[int] = save_int
 
-    def save_long(coder, obj):
-        coder.encodeInt_forKey_(kOP_LONG, kKIND)
-        coder.encodeObject_forKey_(unicode(repr(obj)), kVALUE)
-    encode_dispatch[long] = save_long
+        def save_long(coder, obj):
+            if coder.allowsKeyedCoding():
+                coder.encodeInt_forKey_(kOP_LONG, kKIND)
+                coder.encodeObject_forKey_(unicode(repr(obj)), kVALUE)
+            else:
+                coder.__pyobjc__encodeInt_(kOP_LONG)
+                coder.encodeObject_(unicode(repr(obj)))
+
+        encode_dispatch[long] = save_long
+
+    else:
+        def save_int(coder, obj):
+            if coder.allowsKeyedCoding():
+                coder.encodeInt_forKey_(kOP_LONG, kKIND)
+                coder.encodeObject_forKey_(unicode(repr(obj)), kVALUE)
+            else:
+                coder.__pyobjc__encodeInt_(kOP_LONG)
+                coder.encodeObject_(unicode(repr(obj)))
+        encode_dispatch[int] = save_int
 
     def save_float(coder, obj):
         # Encode floats as strings, this seems to be needed to get
         # 100% reliable round-trips.
-        coder.encodeInt_forKey_(kOP_FLOAT_STR, kKIND)
-        coder.encodeObject_forKey_(unicode(repr(obj)), kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_FLOAT_STR, kKIND)
+            coder.encodeObject_forKey_(unicode(repr(obj)), kVALUE)
+        else:
+            coder.__pyobjc__encodeInt_(kOP_FLOAT_STR)
+            coder.encodeObject_(unicode(repr(obj)))
         #coder.encodeDouble_forKey_(obj, kVALUE)
     encode_dispatch[float] = save_float
 
     def save_string(coder, obj):
-        coder.encodeInt_forKey_(kOP_STRING, kKIND)
-        coder.encodeBytes_length_forKey_(obj, len(obj), kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_STRING, kKIND)
+            coder.encodeBytes_length_forKey_(obj, len(obj), kVALUE)
+        else:
+            encodeInt_(kOP_STRING)
+            coder.encodeBytes_length_(obj, len(obj))
+
     encode_dispatch[str] = save_string
 
     
     def save_tuple(coder, obj):
-        coder.encodeInt_forKey_(kOP_TUPLE, kKIND)
-        coder.encodeObject_forKey_(NSArray.arrayWithArray_(obj), kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_TUPLE, kKIND)
+            coder.encodeObject_forKey_(NSArray.arrayWithArray_(obj), kVALUE)
+
+        else:
+            coder.__pyobjc__encodeInt_(kOP_TUPLE)
+            coder.encodeObject_(NSArray.arrayWithArray_(obj))
     encode_dispatch[tuple] = save_tuple
 
     def save_list(coder, obj):
-        coder.encodeInt_forKey_(kOP_LIST, kKIND)
-        coder.encodeObject_forKey_(NSArray.arrayWithArray_(obj), kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_LIST, kKIND)
+            coder.encodeObject_forKey_(NSArray.arrayWithArray_(obj), kVALUE)
+
+        else:
+            coder.__pyobjc__encodeInt_(kOP_LIST)
+            coder.encodeObject_(NSArray.arrayWithArray_(obj))
     encode_dispatch[list] = save_list
 
     def save_dict(coder, obj):
-        coder.encodeInt_forKey_(kOP_DICT, kKIND)
-        v = NSDictionary.dictionaryWithDictionary_(obj)
-        coder.encodeObject_forKey_(v, kVALUE)
+        if coder.allowsKeyedCoding():
+            coder.encodeInt_forKey_(kOP_DICT, kKIND)
+            v = NSDictionary.dictionaryWithDictionary_(obj)
+            coder.encodeObject_forKey_(v, kVALUE)
+        else:
+            coder.__pyobjc__encodeInt_(kOP_DICT)
+            v = NSDictionary.dictionaryWithDictionary_(obj)
+            coder.encodeObject_(v)
+
     encode_dispatch[dict] = save_dict
 
     def save_global(coder, obj, name=None):
@@ -188,19 +269,32 @@ def setupPythonObject():
                     (obj, module, name))
 
         code = copy_reg._extension_registry.get((module, name))
-        if code:
-            coder.encodeInt_forKey_(kOP_GLOBAL_EXT, kKIND)
-            coder.encodeInt_forKey_(code, kCODE)
+
+        if coder.allowsKeyedCoding():
+            if code:
+                coder.encodeInt_forKey_(kOP_GLOBAL_EXT, kKIND)
+                coder.encodeInt_forKey_(code, kCODE)
+
+            else:
+                coder.encodeInt_forKey_(kOP_GLOBAL, kKIND)
+                coder.encodeObject_forKey_(unicode(module), kMODULE)
+                coder.encodeObject_forKey_(unicode(name), kNAME)
 
         else:
-            coder.encodeInt_forKey_(kOP_GLOBAL, kKIND)
-            coder.encodeObject_forKey_(unicode(module), kMODULE)
-            coder.encodeObject_forKey_(unicode(name), kNAME)
+            if code:
+                coder.__pyobjc__encodeInt_(kOP_GLOBAL_EXT)
+                coder.__pyobjc__encodeInt_(code)
 
-    encode_dispatch[ClassType] = save_global
-    encode_dispatch[FunctionType] = save_global
-    encode_dispatch[BuiltinFunctionType] = save_global
-    encode_dispatch[TypeType] = save_global
+            else:
+                coder.__pyobjc__encodeInt_(kOP_GLOBAL)
+                coder.encodeObject_(unicode(module))
+                coder.encodeObject_(unicode(name))
+
+    if sys.version_info[0] == 2:
+        encode_dispatch[ClassType] = save_global
+    encode_dispatch[type(save_global)] = save_global
+    encode_dispatch[type(dir)] = save_global
+    encode_dispatch[type] = save_global
 
 
     decode_dispatch = {}
@@ -210,39 +304,68 @@ def setupPythonObject():
     decode_dispatch[kOP_NONE] = load_none
 
     def load_bool(coder, setValue):
-        return coder.decodeBoolForKey_(kVALUE)
+        if coder.allowsKeyedCoding():
+            return coder.decodeBoolForKey_(kVALUE)
+        else:
+            return coder.__pyobjc__decodeBool()
+
     decode_dispatch[kOP_BOOL] = load_bool
 
     def load_int(coder, setValue):
-        return int(coder.decodeInt64ForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return int(coder.decodeInt64ForKey_(kVALUE))
+        else:
+            return int(coder.__pyobjc__decodeInt64())
     decode_dispatch[kOP_INT] = load_int
 
     def load_long(coder, setValue):
-        return long(coder.decodeObjectForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return long(coder.decodeObjectForKey_(kVALUE))
+        else:
+            return long(coder.decodeObject())
     decode_dispatch[kOP_LONG] = load_long
 
     def load_float(coder, setValue):
-        return coder.decodeFloatForKey_(kVALUE)
+        if coder.allowsKeyedCoding():
+            return coder.decodeFloatForKey_(kVALUE)
+        else:
+            raise RuntimeError("Unexpected encoding")
     decode_dispatch[kOP_FLOAT] = load_float
 
     def load_float_str(coder, setValue):
-        return float(coder.decodeObjectForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return float(coder.decodeObjectForKey_(kVALUE))
+        else:
+            return float(coder.decodeObject())
     decode_dispatch[kOP_FLOAT_STR] = load_float_str
 
     def load_tuple(coder, setValue):
-        return tuple(coder.decodeObjectForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return tuple(coder.decodeObjectForKey_(kVALUE))
+        else:
+            return tuple(coder.decodeObject())
+
     decode_dispatch[kOP_TUPLE] = load_tuple
 
     def load_list(coder, setValue):
-        return list(coder.decodeObjectForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return list(coder.decodeObjectForKey_(kVALUE))
+        else:
+            return list(coder.decodeObject())
     decode_dispatch[kOP_LIST] = load_list
 
     def load_dict(coder, setValue):
-        return dict(coder.decodeObjectForKey_(kVALUE))
+        if coder.allowsKeyedCoding():
+            return dict(coder.decodeObjectForKey_(kVALUE))
+        else:
+            return dict(coder.decodeObject())
     decode_dispatch[kOP_DICT] = load_dict
 
     def load_global_ext(coder, setValue):
-        code = coder.intForKey_(kCODE)
+        if coder.allowsKeyedCoding():
+            code = coder.intForKey_(kCODE)
+        else:
+            code = coder.__pyobjc__decodeInt()
         nil = []
         obj = copy_reg._extension_cache.get(code, nil)
         if obj is not nil:
@@ -259,8 +382,13 @@ def setupPythonObject():
     decode_dispatch[kOP_GLOBAL_EXT] = load_global_ext
 
     def load_global(coder, setValue):
-        module = coder.decodeObjectForKey_(kMODULE)
-        name = coder.decodeObjectForKey_(kNAME)
+        if coder.allowsKeyedCoding():
+            module = coder.decodeObjectForKey_(kMODULE)
+            name = coder.decodeObjectForKey_(kNAME)
+        else:
+            module = coder.decodeObject()
+            name = coder.decodeObject()
+
         __import__(module)
         mod = sys.modules[module]
         klass = getattr(mod, name)
@@ -270,11 +398,16 @@ def setupPythonObject():
 
 
     def load_inst(coder, setValue):
-        cls = coder.decodeObjectForKey_(kCLASS)
-        initargs = coder.decodeObjectForKey_(kARGS)
+        if coder.allowsKeyedCoding():
+            cls = coder.decodeObjectForKey_(kCLASS)
+            initargs = coder.decodeObjectForKey_(kARGS)
+        else:
+            cls = coder.decodeObject()
+            initargs = coder.decodeObject()
+
 
         instantiated = 0
-        if (not initargs and 
+        if (sys.version_info[0] == 2 and not initargs and 
                 type(cls) is ClassType and
                 not hasattr(cls, "__getinitargs__")):
             try:
@@ -299,7 +432,10 @@ def setupPythonObject():
         # of the object state which we'll retrieve next.
         setValue(value)
 
-        state = coder.decodeObjectForKey_(kSTATE)
+        if coder.allowsKeyedCoding():
+            state = coder.decodeObjectForKey_(kSTATE)
+        else:
+            state = coder.decodeObject()
         setstate = getattr(value, "__setstate__", None)
         if setstate is not None:
             setstate(state)
@@ -311,22 +447,32 @@ def setupPythonObject():
 
         if state:
             try:
-                value.__dict__.update(state)
+                inst_dict = value.__dict__
+                for k, v in state.iteritems():
+                    if type(k) == str:
+                        inst_dict[intern(k)] = v
+                    else:
+                        inst_dict[k] = v
+
             except RuntimeError:
                 for k, v in state.items():
-                    setattr(value, k, v)
+                    setattr(value, intern(k), v)
 
         if slotstate:
             for k, v in slotstate.items():
-                setattr(value, k, v)
+                setattr(value, intern(k), v)
 
         return value
     decode_dispatch[kOP_INST] = load_inst
         
 
     def load_reduce(coder, setValue):
-        func = coder.decodeObjectForKey_(kFUNC)
-        args = coder.decodeObjectForKey_(kARGS)
+        if coder.allowsKeyedCoding():
+            func = coder.decodeObjectForKey_(kFUNC)
+            args = coder.decodeObjectForKey_(kARGS)
+        else:
+            func = coder.decodeObject()
+            args = coder.decodeObject()
 
         value = func(*args)
 
@@ -336,9 +482,15 @@ def setupPythonObject():
         # of the object state which we'll retrieve next.
         setValue(value)
 
-        listitems = coder.decodeObjectForKey_(kLIST)
-        dictitems = coder.decodeObjectForKey_(kDICT)
-        state = coder.decodeObjectForKey_(kSTATE)
+        if coder.allowsKeyedCoding():
+            listitems = coder.decodeObjectForKey_(kLIST)
+            dictitems = coder.decodeObjectForKey_(kDICT)
+            state = coder.decodeObjectForKey_(kSTATE)
+        else:
+            listitems = coder.decodeObject()
+            dictitems = coder.decodeObject()
+            state = coder.decodeObject()
+
         setstate = getattr(value, "__setstate__", None)
         if setstate:
             setstate(state)
@@ -350,15 +502,21 @@ def setupPythonObject():
 
         if state:
             try:
-                value.__dict__.update(state)
+                inst_dict = value.__dict__
+
+                for k, v in state.iteritems():
+                    if type(k) == str:
+                        inst_dict[intern(k)] = v
+                    else:
+                        inst_dict[k] = v
 
             except RuntimeError:
                 for k, v in state.items():
-                    setattr(value, k, v)
+                    setattr(value, intern(k), v)
 
         if slotstate:
             for k, v in slotstate.items():
-                setattr(value, k, v)
+                setattr(value, intern(k), v)
 
         if listitems:
             for a in listitems:
@@ -383,7 +541,7 @@ def setupPythonObject():
 
         # Check for a class with a custom metaclass
         try:
-            issc = issubclass(t, TypeType)
+            issc = issubclass(t, type)
         except TypeError:
             issc = 0
 
@@ -410,11 +568,11 @@ def setupPythonObject():
                     raise PicklingError("Can't pickle %r object: %r" %
                             (t.__name__, self))
 
-        if type(rv) is StringType:
+        if type(rv) is str:
             save_global(coder, rv)
             return
 
-        if type(rv) is not TupleType:
+        if type(rv) is not tuple:
             raise PicklingError("%s must return string or tuple" % reduce)
 
         l = len(rv)
@@ -425,7 +583,10 @@ def setupPythonObject():
         save_reduce(coder, *rv)
 
     def pyobjectDecode(coder, setValue):
-        tp = coder.decodeIntForKey_(kKIND)
+        if coder.allowsKeyedCoding():
+            tp = coder.decodeIntForKey_(kKIND)
+        else:
+            tp = coder.__pyobjc__decodeInt()
         f = decode_dispatch.get(tp)
         if f is None:
             raise UnpicklingError("Unknown object kind: %s"%(tp,))

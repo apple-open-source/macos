@@ -98,7 +98,7 @@ void _msgout(msg)
 	else
 		(void) fprintf(stderr, "%s\n", msg);
 #else
-	syslog(LOG_ERR, msg);
+	syslog(LOG_ERR, "%s", msg);
 #endif
 }
 

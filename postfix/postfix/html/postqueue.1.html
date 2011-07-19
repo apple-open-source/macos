@@ -60,10 +60,8 @@ POSTQUEUE(1)                                                      POSTQUEUE(1)
               size, arrival time, sender, and the recipients that
               still  need  to be delivered.  If mail could not be
               delivered upon the last  attempt,  the  reason  for
-              failure  is shown. This mode of operation is imple-
-              mented by executing the <a href="postqueue.1.html"><b>postqueue</b>(1)</a>  command.  The
-              queue  ID  string is followed by an optional status
-              character:
+              failure  is  shown. The queue ID string is followed
+              by an optional status character:
 
               <b>*</b>      The message is in the <b>active</b> queue, i.e. the
                      message is selected for delivery.
@@ -147,7 +145,7 @@ POSTQUEUE(1)                                                      POSTQUEUE(1)
        <b><a href="postconf.5.html#syslog_facility">syslog_facility</a> (mail)</b>
               The syslog facility of Postfix logging.
 
-       <b><a href="postconf.5.html#syslog_name">syslog_name</a> (postfix)</b>
+       <b><a href="postconf.5.html#syslog_name">syslog_name</a> (see 'postconf -d' output)</b>
               The mail system  name  that  is  prepended  to  the
               process  name  in  syslog  records, so that "smtpd"
               becomes, for example, "postfix/smtpd".

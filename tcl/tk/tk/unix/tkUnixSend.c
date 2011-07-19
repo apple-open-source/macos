@@ -679,10 +679,74 @@ ServerSecure(
     int numHosts, secure;
     Bool enabled;
 
-    secure = 0;
     addrPtr = XListHosts(dispPtr->display, &numHosts, &enabled);
-    if (enabled && (numHosts == 0)) {
+    if (!enabled) {
+    insecure:
+	secure = 0;
+    } else if (numHosts == 0) {
 	secure = 1;
+    } else {
+	/*
+	 * Recent versions of X11 have the extra feature of allowing more
+	 * sophisticated authorization checks to be performed than the dozy
+	 * old ones that used to plague xhost usage. However, not all deployed
+	 * versions of Xlib know how to deal with this feature, so this code
+	 * is conditional on having the right #def in place. [Bug 1909931]
+	 *
+	 * Note that at this point we know that there's at least one entry in
+	 * the list returned by XListHosts. However there may be multiple
+	 * entries; as long as each is one of either 'SI:localhost:*' or
+	 * 'SI:localgroup:*' then we will claim to be secure enough.
+	 */
+
+#ifdef FamilyServerInterpreted
+	XServerInterpretedAddress *siPtr;
+	int i;
+
+	for (i=0 ; i<numHosts ; i++) {
+	    if (addrPtr[i].family != FamilyServerInterpreted) {
+		/*
+		 * We don't understand what the X server is letting in, so we
+		 * err on the side of safety.
+		 */
+
+		goto insecure;
+	    }
+	    siPtr = (XServerInterpretedAddress *) addrPtr[0].address;
+
+	    /*
+	     * We don't check the username or group here. This is because it's
+	     * officially non-portable and we are just making sure there
+	     * aren't silly misconfigurations. (Apparently 'root' is not a
+	     * very good choice, but we still don't put any effort in to spot
+	     * that.) However we do check to see that the constraints are
+	     * imposed against the connecting user and/or group.
+	     */
+
+	    if (       !(siPtr->typelength == 9 /* ==strlen("localuser") */
+			&& !memcmp(siPtr->type, "localuser", 9))
+		    && !(siPtr->typelength == 10 /* ==strlen("localgroup") */
+			&& !memcmp(siPtr->type, "localgroup", 10))) {
+		/*
+		 * The other defined types of server-interpreted controls
+		 * involve particular hosts. These are still insecure for the
+		 * same reasons that classic xhost access is insecure; there's
+		 * just no way to be sure that the users on those systems are
+		 * the ones who should be allowed to connect to this display.
+		 */
+
+		goto insecure;
+	    }
+	}
+	secure = 1;
+#else
+	/*
+	 * We don't understand what the X server is letting in, so we err on
+	 * the side of safety.
+	 */
+
+	goto insecure;
+#endif /* FamilyServerInterpreted */
     }
     if (addrPtr != NULL) {
 	XFree((char *) addrPtr);

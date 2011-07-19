@@ -7,7 +7,7 @@
 #   - Private procedures implementing the interactive cell editing
 #   - Private procedures used in bindings related to interactive cell editing
 #
-# Copyright (c) 2003-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2003-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 #
@@ -110,8 +110,8 @@ namespace eval tablelist {
     addTkCoreWidgets 
 
     #
-    # Register the tile widgets ttk::entry, ttk::combobox,
-    # and ttk::checkbutton for interactive cell editing
+    # Register the tile widgets ttk::entry, ttk::spinbox,
+    # ttk::combobox, and ttk::checkbutton for interactive cell editing
     #
     proc addTileWidgets {} {
 	set name ttk::entry
@@ -132,6 +132,26 @@ namespace eval tablelist {
 	    $name-isEntryLike	1 \
 	    $name-focusWin	%W \
 	    $name-reservedKeys	{Left Right} \
+	]
+
+	set name ttk::spinbox
+	array set ::tablelist::editWin [list \
+	    $name-creationCmd	"createTileSpinbox %W" \
+	    $name-putValueCmd	"%W delete 0 end; %W insert 0 %T" \
+	    $name-getValueCmd	"%W get" \
+	    $name-putTextCmd	"%W delete 0 end; %W insert 0 %T" \
+	    $name-getTextCmd	"%W get" \
+	    $name-putListCmd	"" \
+	    $name-getListCmd	"" \
+	    $name-selectCmd	"" \
+	    $name-invokeCmd	"" \
+	    $name-fontOpt	-font \
+	    $name-useFormat	1 \
+	    $name-useReqWidth	0 \
+	    $name-usePadX	1 \
+	    $name-isEntryLike	1 \
+	    $name-focusWin	%W \
+	    $name-reservedKeys	{Left Right Up Down} \
 	]
 
 	set name ttk::combobox
@@ -901,6 +921,37 @@ proc tablelist::addIPAddrMentry {{name ipAddrMentry}} {
     return $name
 }
 
+#------------------------------------------------------------------------------
+# tablelist::addIPv6AddrMentry
+#
+# Registers the widget created by the mentry::ipv6AddrMentry command from the
+# Mentry package for interactive cell editing.
+#------------------------------------------------------------------------------
+proc tablelist::addIPv6AddrMentry {{name ipv6AddrMentry}} {
+    checkEditWinName $name
+
+    array set ::tablelist::editWin [list \
+	$name-creationCmd	"mentry::ipv6AddrMentry %W" \
+	$name-putValueCmd	"mentry::putIPv6Addr %T %W" \
+	$name-getValueCmd	"mentry::getIPv6Addr %W" \
+	$name-putTextCmd	"" \
+	$name-getTextCmd	"%W getstring" \
+	$name-putListCmd	{eval [list %W put 0] %L} \
+	$name-getListCmd	"%W getlist" \
+	$name-selectCmd		"" \
+	$name-invokeCmd		"" \
+	$name-fontOpt		-font \
+	$name-useFormat		0 \
+	$name-useReqWidth	1 \
+	$name-usePadX		1 \
+	$name-isEntryLike	1 \
+	$name-focusWin		"" \
+	$name-reservedKeys	{Left Right Up Down Prior Next} \
+    ]
+
+    return $name
+}
+
 #
 # Private procedures implementing the interactive cell editing
 # ============================================================
@@ -910,7 +961,7 @@ proc tablelist::addIPAddrMentry {{name ipAddrMentry}} {
 # tablelist::checkEditWinName
 #
 # Generates an error if the given edit window name is one of "entry", "text",
-# "spinbox", "checkbutton", "ttk::entry", "ttk::combobox", or
+# "spinbox", "checkbutton", "ttk::entry", "ttk::spinbox", "ttk::combobox", or
 # "ttk::checkbutton".
 #------------------------------------------------------------------------------
 proc tablelist::checkEditWinName name {
@@ -919,7 +970,7 @@ proc tablelist::checkEditWinName name {
 	       "edit window name \"$name\" is reserved for Tk $name widgets"
     }
 
-    if {[regexp {^ttk::(entry|combobox|checkbutton)$} $name dummy name]} {
+    if {[regexp {^ttk::(entry|spinbox|combobox|checkbutton)$} $name]} {
 	return -code error \
 	       "edit window name \"$name\" is reserved for tile $name widgets"
     }
@@ -1008,9 +1059,11 @@ proc tablelist::createTileEntry {w args} {
 	}
 
 	xpnative {
-	    switch [winfo rgb . SystemButtonFace] {
-		"60652 59881 55512" -
-		"57568 57311 58339"	{ set padding 2 }
+	    switch [winfo rgb . SystemHighlight] {
+		"12593 27242 50629" -
+		"37779 41120 28784" -
+		"45746 46260 49087" -
+		"13107 39321 65535"	{ set padding 2 }
 		default			{ set padding 1 }
 	    }
 	}
@@ -1023,6 +1076,64 @@ proc tablelist::createTileEntry {w args} {
 				 -padding $padding
 
     ttk::entry $w -style Tablelist.TEntry
+
+    foreach {opt val} $args {
+	$w configure $opt $val
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::createTileSpinbox
+#
+# Creates a tile spinbox widget with the given path name for interactive cell
+# editing in a tablelist widget.
+#------------------------------------------------------------------------------
+proc tablelist::createTileSpinbox {w args} {
+    if {$::tk_version < 8.5 || [regexp {^8\.5a[1-5]$} $::tk_patchLevel]} {
+	package require tile 0.8.3
+    }
+    createTileAliases 
+
+    #
+    # The style of the tile entry widget should have -borderwidth
+    # 2 and -padding 1.  For those themes that don't honor the
+    # -borderwidth 2 setting, set the padding to another value.
+    #
+    set win [getTablelistPath $w]
+    switch [getCurrentTheme] {
+	aqua {
+	    set padding {0 0 0 -1}
+	}
+
+	tileqt {
+	    set padding 3
+	}
+
+	vista {
+	    switch [winfo rgb . SystemHighlight] {
+		"13107 39321 65535"	{ set padding 0 }
+		default			{ set padding 1 }
+	    }
+	}
+
+	xpnative {
+	    switch [winfo rgb . SystemHighlight] {
+		"12593 27242 50629" -
+		"37779 41120 28784" -
+		"45746 46260 49087" -
+		"13107 39321 65535"	{ set padding 2 }
+		default			{ set padding 1 }
+	    }
+	}
+
+	default {
+	    set padding 1
+	}
+    }
+    styleConfig Tablelist.TSpinbox -borderwidth 2 -highlightthickness 0 \
+				   -padding $padding
+
+    ttk::spinbox $w -style Tablelist.TSpinbox
 
     foreach {opt val} $args {
 	$w configure $opt $val
@@ -1106,15 +1217,22 @@ proc tablelist::createTileCheckbutton {w args} {
 	}
 
 	blue -
+	vista -
 	winxpblue {
 	    set height [winfo reqheight $w]
 	    [winfo parent $w] configure -width $height -height $height
 	    place $w -x 0
 	}
 
-	keramik {
+	keramik -
+	keramik_alt {
 	    [winfo parent $w] configure -width 16 -height 16
 	    place $w -x -1 -y -1
+	}
+
+	plastik {
+	    [winfo parent $w] configure -width 15 -height 15
+	    place $w -x -2 -y 1
 	}
 
 	sriv -
@@ -1222,6 +1340,13 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
     if {$data(editRow) == $row && $data(editCol) == $col} {
 	return ""
     }
+    set item [lindex $data(itemList) $row]
+    set key [lindex $item end]
+    getIndentData $win $key $col indentWidth
+    set pixels [colWidth $win $col -stretched]
+    if {$indentWidth >= $pixels} {
+	return ""
+    }
     if {$data(editRow) >= 0 && ![doFinishEditing $win]} {
 	return ""
     }
@@ -1233,7 +1358,7 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
     #
     seeCell $win $row $col
     set netRowHeight [lindex [bboxSubCmd $win $row] 3]
-    set frameHeight [expr {$netRowHeight + 6}]	;# + 6 because of -pady -3 below
+    set frameHeight [expr {$netRowHeight + 6}]	;# because of the -pady -3 below
     set f $data(bodyFr)
     tk::frame $f -borderwidth 0 -container 0 -height $frameHeight \
 		 -highlightthickness 0 -relief flat -takefocus 0
@@ -1252,8 +1377,6 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
     set name [getEditWindow $win $row $col]
     variable editWin
     set creationCmd [strMap {"%W" "$w"} $editWin($name-creationCmd)]
-    set item [lindex $data(itemList) $row]
-    set key [lindex $item end]
     append creationCmd { $editWin($name-fontOpt) [getCellFont $win $key $col]} \
 		       { -state normal}
     set w $data(bodyFrEd)
@@ -1285,21 +1408,28 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
     array set data [list editKey $key editRow $row editCol $col]
     findTabs $win [expr {$row + 1}] $col $col tabIdx1 tabIdx2
     set b $data(body)
+    getIndentData $win $data(editKey) $data(editCol) indentWidth
+    if {$indentWidth == 0} {
+	set textIdx [$b index $tabIdx1+1c]
+    } else {
+	$b mark set editIndentMark [$b index $tabIdx1+1c]
+	set textIdx [$b index $tabIdx1+2c]
+    }
     if {$isCheckbtn} {
-	set editIdx [$b index $tabIdx1+1c]
+	set editIdx $textIdx
 	$b delete $editIdx $tabIdx2
     } else {
 	getAuxData $win $data(editKey) $data(editCol) auxType auxWidth
-	if {$auxType == 0} {				;# no image or window
-	    set editIdx [$b index $tabIdx1+1c]
+	if {$auxWidth == 0} {				;# no image or window
+	    set editIdx $textIdx
 	    $b delete $editIdx $tabIdx2
 	} elseif {[string compare $alignment "right"] == 0} {
 	    $b mark set editAuxMark $tabIdx2-1c
-	    set editIdx [$b index $tabIdx1+1c]
+	    set editIdx $textIdx
 	    $b delete $editIdx $tabIdx2-1c
 	} else {
-	    $b mark set editAuxMark $tabIdx1+1c
-	    set editIdx [$b index $tabIdx1+2c]
+	    $b mark set editAuxMark $textIdx
+	    set editIdx [$b index $textIdx+1c]
 	    $b delete $editIdx $tabIdx2
 	}
     }
@@ -1425,14 +1555,15 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
 	}
     }
 
+    #
+    # Adjust the frame's height
+    #
     if {$isText} {
-	#
-	# Adjust the edit window's height
-	#
 	if {[string compare [$w cget -wrap] "none"] == 0 ||
 	    $::tk_version < 8.5} {
 	    scan [$w index end-1c] "%d" numLines
 	    $w configure -height $numLines
+	    $f configure -height [winfo reqheight $w]
 	} else {
 	    bind $w <Configure> {
 		%W configure -height [%W count -displaylines 1.0 end]
@@ -1443,28 +1574,19 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
 	    wcb::cbappend $w after insert tablelist::adjustTextHeight
 	    wcb::cbappend $w after delete tablelist::adjustTextHeight
 	}
+    } elseif {!$isCheckbtn} {
+	update idletasks
+	if {![winfo exists $win]} {		;# because of update idletasks
+	    return ""
+	}
+	$f configure -height [winfo reqheight $w]
     }
 
     #
-    # Adjust the frame's dimensions and paddings
+    # Adjust the frame's width and paddings
     #
-    update idletasks
-    if {![winfo exists $win]} {			;# because of update idletasks
-	return ""
-    }
     if {!$isCheckbtn} {
-	$f configure -height [winfo reqheight $w]
 	place $w -relwidth 1.0 -relheight 1.0
-	set pixels [lindex $data(colList) [expr {2*$col}]]
-	if {$pixels == 0} {			;# convention: dynamic width
-	    set pixels $data($col-reqPixels)
-	    if {$data($col-maxPixels) > 0} {
-		if {$pixels > $data($col-maxPixels)} {
-		    set pixels $data($col-maxPixels)
-		}
-	    }
-	}
-	incr pixels $data($col-delta)
 	adjustEditWindow $win $pixels
 	update idletasks
 	if {![winfo exists $win]} {		;# because of update idletasks
@@ -1472,9 +1594,7 @@ proc tablelist::doEditCell {win row col restore {cmd ""} {charPos -1}} {
 	}
     }
 
-    adjustElidedTextWhenIdle $win
-    updateColorsWhenIdle $win
-    adjustSepsWhenIdle $win
+    updateViewWhenIdle $win
     return ""
 }
 
@@ -1518,9 +1638,7 @@ proc tablelist::doCancelEditing win {
     set data(canceled) 1
     event generate $win <<TablelistCellRestored>>
 
-    adjustElidedTextWhenIdle $win
-    updateColorsWhenIdle $win
-    adjustSepsWhenIdle $win
+    updateViewWhenIdle $win
     return ""
 }
 
@@ -1599,9 +1717,12 @@ proc tablelist::doFinishEditing win {
 	event generate $win <<TablelistCellUpdated>>
     }
 
-    adjustElidedTextWhenIdle $win
-    updateColorsWhenIdle $win
-    adjustSepsWhenIdle $win
+    update idletasks
+    if {![winfo exists $win]} {			;# because of update idletasks
+	return 0
+    }
+
+    updateViewWhenIdle $win
     return $result
 }
 
@@ -1725,18 +1846,31 @@ proc tablelist::adjustEditWindow {win pixels} {
     # Adjust the width of the auxiliary object (if any)
     #
     upvar ::tablelist::ns${win}::data data
+    set indent [getIndentData $win $data(editKey) $data(editCol) indentWidth]
     set aux [getAuxData $win $data(editKey) $data(editCol) auxType auxWidth]
-    if {$auxType != 0} {				;# image or window
-	if {$auxWidth + 4 <= $pixels} {
-	    incr auxWidth 4
-	    incr pixels -$auxWidth
-	} elseif {$auxWidth <= $pixels} {
-	    set pixels 0
-	} else {
-	    set auxWidth $pixels
-	    set pixels 0
+    if {$indentWidth >= $pixels} {
+	set indentWidth $pixels
+	set pixels 0
+	set auxWidth 0
+    } else {
+	incr pixels -$indentWidth
+	if {$auxWidth != 0} {				;# image or window
+	    if {$auxWidth + 5 <= $pixels} {
+		incr auxWidth 5
+		incr pixels -$auxWidth
+	    } elseif {$auxWidth <= $pixels} {
+		set pixels 0
+	    } else {
+		set auxWidth $pixels
+		set pixels 0
+	    }
 	}
+    }
 
+    if {$indentWidth != 0} {
+	insertOrUpdateIndent $data(body) editIndentMark $indent $indentWidth
+    }
+    if {$auxWidth != 0} {
 	if {$auxType == 1} {					;# image
 	    setImgLabelWidth $data(body) editAuxMark $auxWidth
 	} else {						;# window
@@ -1795,7 +1929,7 @@ proc tablelist::setEditWinFont win {
 	return ""
     }
 
-    set key [lindex [lindex $data(itemList) $data(editRow)] end] 
+    set key [lindex $data(keyList) $data(editRow)]
     set cellFont [getCellFont $win $key $data(editCol)]
     $data(bodyFrEd) configure $editWin($name-fontOpt) $cellFont
 
@@ -1844,8 +1978,15 @@ proc tablelist::saveEditData win {
     saveEditConfigOpts $w
     if {[info exists ::wcb::version] &&
 	$editWin($name-isEntryLike) && !$isMentry} {
+	set wcbOptList {insert delete motion}
+	if {$isText} {
+	    lappend wcbOptList selset selclear
+	    if {$::wcb::version >= 3.2} {
+		lappend wcbOptList replace
+	    }
+	}
 	foreach when {before after} {
-	    foreach opt {insert delete motion} {
+	    foreach opt $wcbOptList {
 		set data(entryCb-$when-$opt) \
 		    [::wcb::callback $entry $when $opt]
 	    }
@@ -1933,8 +2074,15 @@ proc tablelist::restoreEditData win {
     restoreEditConfigOpts $w
     if {[info exists ::wcb::version] &&
 	$editWin($name-isEntryLike) && !$isMentry} {
+	set wcbOptList {insert delete motion}
+	if {$isText} {
+	    lappend wcbOptList selset selclear
+	    if {$::wcb::version >= 3.2} {
+		lappend wcbOptList replace
+	    }
+	}
 	foreach when {before after} {
-	    foreach opt {insert delete motion} {
+	    foreach opt $wcbOptList {
 		eval [list ::wcb::callback $entry $when $opt] \
 		     $data(entryCb-$when-$opt)
 	    }
@@ -2006,6 +2154,15 @@ proc tablelist::defineTablelistEdit {} {
     # Define some bindings for the binding tag TablelistEdit
     #
     bind TablelistEdit <Button-1> {
+	#
+	# Very short left-clicks on the tablelist's body are sometimes
+	# unexpectedly propagated to the edit window just created - make
+	# sure they won't be handled by the latter's default bindings
+	#
+	if {%t - $tablelist::priv(releaseTime) < 100} {
+	    break
+	}
+
 	set tablelist::priv(clicked) 1
 	set tablelist::priv(clickedInEditWin) 1
 	focus %W
@@ -2020,6 +2177,7 @@ proc tablelist::defineTablelistEdit {} {
 	    set tablelist::priv(clicked) 0
 	    after cancel $tablelist::priv(afterId)
 	    set tablelist::priv(afterId) ""
+	    set tablelist::priv(releaseTime) %t
 	    set tablelist::priv(releasedInEditWin) 1
 	    if {%t - $tablelist::priv(clickTime) < 300} {
 		tablelist::moveOrActivate $tablelist::W \
@@ -2029,7 +2187,7 @@ proc tablelist::defineTablelistEdit {} {
 		    [$tablelist::W nearest       $tablelist::y] \
 		    [$tablelist::W nearestcolumn $tablelist::x]
 	    }
-	    tablelist::condEvalInvokeCmd $tablelist::W
+	    after 100 [list tablelist::condEvalInvokeCmd $tablelist::W]
 	}
     }
     bind TablelistEdit <Control-i>    { tablelist::insertChar %W "\t" }
@@ -2197,7 +2355,7 @@ proc tablelist::insertChar {w str} {
 	    eval [strMap {"%W" "$w"} [bind Text <Control-i>]]
 	}
 	return -code break ""
-    } elseif {[regexp {^(T?Entry|TCombobox|Spinbox)$} $class]} {
+    } elseif {[regexp {^(T?Entry|TCombobox|T?Spinbox)$} $class]} {
 	if {[string match "T*" $class]} {
 	    if {[string compare [info procs "::ttk::entry::Insert"] ""] != 0} {
 		ttk::entry::Insert $w $str

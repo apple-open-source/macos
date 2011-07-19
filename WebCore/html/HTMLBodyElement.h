@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2004, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,13 +25,15 @@
 #define HTMLBodyElement_h
 
 #include "HTMLElement.h"
-#include "Document.h"
 
 namespace WebCore {
 
+class Document;
+
 class HTMLBodyElement : public HTMLElement {
 public:
-    HTMLBodyElement(const QualifiedName&, Document*);
+    static PassRefPtr<HTMLBodyElement> create(Document*);
+    static PassRefPtr<HTMLBodyElement> create(const QualifiedName&, Document*);
     virtual ~HTMLBodyElement();
 
     String aLink() const;
@@ -66,17 +68,18 @@ public:
 #endif
 
 private:
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 10; }
-    
+    HTMLBodyElement(const QualifiedName&, Document*);
+
     virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 
     virtual void insertedIntoDocument();
 
     void createLinkDecl();
     
     virtual bool isURLAttribute(Attribute*) const;
+    
+    virtual bool supportsFocus() const;
 
     virtual int scrollLeft() const;
     virtual void setScrollLeft(int scrollLeft);

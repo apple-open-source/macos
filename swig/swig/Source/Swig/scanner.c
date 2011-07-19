@@ -10,145 +10,173 @@
  * to easily construct yacc-compatible scanners.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_scanner_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/scanner.c,v 1.17 2006/11/01 23:54:53 wsfulton Exp $";
+char cvsroot_scanner_c[] = "$Id: scanner.c 11470 2009-07-29 20:50:39Z wsfulton $";
 
 #include "swig.h"
 #include <ctype.h>
 
-struct SwigScanner {
+extern String *cparse_file;
+extern int     cparse_start_line;
+
+struct Scanner {
   String *text;			/* Current token value */
-  List *scanobjs;		/* Objects being scanned */
+  List   *scanobjs;		/* Objects being scanned */
   String *str;			/* Current object being scanned */
-  char *idstart;		/* Optional identifier start characters */
-  int nexttoken;		/* Next token to be returned */
-  int start_line;		/* Starting line of certain declarations */
-  int string_start;
-  int line;
-  int yylen;			/* Length of text pushed into text */
+  char   *idstart;		/* Optional identifier start characters */
+  int     nexttoken;		/* Next token to be returned */
+  int     start_line;		/* Starting line of certain declarations */
+  int     line;
+  int     yylen;	        /* Length of text pushed into text */
   String *file;
+  String *error;                /* Last error message (if any) */
+  int     error_line;           /* Error line number */
+  int     freeze_line;          /* Suspend line number updates */
 };
 
 /* -----------------------------------------------------------------------------
- * NewSwigScanner()
+ * NewScanner()
  *
  * Create a new scanner object
  * ----------------------------------------------------------------------------- */
 
-SwigScanner *NewSwigScanner() {
-  SwigScanner *s;
-  s = (SwigScanner *) malloc(sizeof(SwigScanner));
+Scanner *NewScanner(void) {
+  Scanner *s;
+  s = (Scanner *) malloc(sizeof(Scanner));
   s->line = 1;
   s->file = 0;
   s->nexttoken = -1;
   s->start_line = 1;
-  s->string_start = 0;
   s->yylen = 0;
-  s->idstart = "";
+  s->idstart = NULL;
   s->scanobjs = NewList();
   s->text = NewStringEmpty();
   s->str = 0;
+  s->error = 0;
+  s->freeze_line = 0;
   return s;
 }
 
 /* -----------------------------------------------------------------------------
- * DelSwigScanner()
+ * DelScanner()
  *
  * Delete a scanner object.
  * ----------------------------------------------------------------------------- */
 
-void DelSwigScanner(SwigScanner * s) {
+void DelScanner(Scanner * s) {
   assert(s);
   Delete(s->scanobjs);
   Delete(s->text);
   Delete(s->file);
+  Delete(s->error);
+  Delete(s->str);
+  free(s->idstart);
   free(s);
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_clear()
+ * Scanner_clear()
  *
  * Clear the contents of a scanner object.
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_clear(SwigScanner * s) {
+void Scanner_clear(Scanner * s) {
   assert(s);
   Delete(s->str);
   Clear(s->text);
   Clear(s->scanobjs);
+  Delete(s->error);
+  s->str = 0;
+  s->error = 0;
   s->line = 1;
   s->nexttoken = -1;
   s->start_line = 0;
-  s->string_start = 0;
   s->yylen = 0;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_push()
+ * Scanner_push()
  *
  * Push some new text into the scanner.  The scanner will start parsing this text
  * immediately before returning to the old text.
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_push(SwigScanner * s, String *txt) {
+void Scanner_push(Scanner * s, String *txt) {
   assert(s && txt);
   Push(s->scanobjs, txt);
-  if (s->str)
+  if (s->str) {
+    Setline(s->str,s->line);
     Delete(s->str);
+  }
   s->str = txt;
   DohIncref(s->str);
   s->line = Getline(txt);
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_pushtoken()
+ * Scanner_pushtoken()
  *
  * Push a token into the scanner.  This token will be returned on the next
- * call to SwigScanner_token().
+ * call to Scanner_token().
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_pushtoken(SwigScanner * s, int nt) {
+void Scanner_pushtoken(Scanner * s, int nt, const_String_or_char_ptr val) {
   assert(s);
   assert((nt >= 0) && (nt < SWIG_MAXTOKENS));
   s->nexttoken = nt;
+  if ( Char(val) != Char(s->text) ) {
+    Clear(s->text);
+    Append(s->text,val);
+  }
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_set_location()
+ * Scanner_set_location()
  *
  * Set the file and line number location of the scanner.
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_set_location(SwigScanner * s, String *file, int line) {
+void Scanner_set_location(Scanner * s, String *file, int line) {
   Setline(s->str, line);
   Setfile(s->str, file);
+  s->line = line;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_get_file()
+ * Scanner_file()
  *
  * Get the current file.
  * ----------------------------------------------------------------------------- */
 
-String *SwigScanner_get_file(SwigScanner * s) {
+String *Scanner_file(Scanner * s) {
   return Getfile(s->str);
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_get_line()
+ * Scanner_line()
  *
  * Get the current line number
  * ----------------------------------------------------------------------------- */
-int SwigScanner_get_line(SwigScanner * s) {
-  return Getline(s->str);
+int Scanner_line(Scanner * s) {
+  return s->line;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_idstart()
+ * Scanner_start_line()
+ *
+ * Get the line number on which the current token starts
+ * ----------------------------------------------------------------------------- */
+int Scanner_start_line(Scanner * s) {
+  return s->start_line;
+}
+
+/* -----------------------------------------------------------------------------
+ * Scanner_idstart()
  *
  * Change the set of additional characters that can be used to start an identifier.
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_idstart(SwigScanner * s, char *id) {
+void Scanner_idstart(Scanner * s, const char *id) {
+  free(s->idstart);
   s->idstart = Swig_copy_string(id);
 }
 
@@ -157,8 +185,7 @@ void SwigScanner_idstart(SwigScanner * s, char *id) {
  * 
  * Returns the next character from the scanner or 0 if end of the string.
  * ----------------------------------------------------------------------------- */
-static char nextchar(SwigScanner * s) {
-  char c[2] = { 0, 0 };
+static char nextchar(Scanner * s) {
   int nc;
   if (!s->str)
     return 0;
@@ -174,12 +201,49 @@ static char nextchar(SwigScanner * s) {
       DohIncref(s->str);
     }
   }
-  if (nc == '\n')
+  if ((nc == '\n') && (!s->freeze_line)) 
     s->line++;
-  c[0] = (char) nc;
-  c[1] = 0;
-  Append(s->text, c);
-  return c[0];
+  Putc(nc,s->text);
+  return (char)nc;
+}
+
+/* -----------------------------------------------------------------------------
+ * set_error() 
+ *
+ * Sets error information on the scanner.
+ * ----------------------------------------------------------------------------- */
+
+static void set_error(Scanner *s, int line, const_String_or_char_ptr msg) {
+  s->error_line = line;
+  s->error = NewString(msg);
+}
+
+/* -----------------------------------------------------------------------------
+ * Scanner_errmsg()
+ * Scanner_errline()
+ *
+ * Returns error information (if any)
+ * ----------------------------------------------------------------------------- */
+
+String *
+Scanner_errmsg(Scanner *s) {
+  return s->error;
+}
+
+int
+Scanner_errline(Scanner *s) {
+  return s->error_line;
+}
+
+/* -----------------------------------------------------------------------------
+ * Scanner_freeze_line()
+ *
+ * Freezes the current line number.
+ * ----------------------------------------------------------------------------- */
+
+void
+Scanner_freeze_line(Scanner *s, int val) {
+  s->freeze_line = val;
 }
 
 /* -----------------------------------------------------------------------------
@@ -187,7 +251,7 @@ static char nextchar(SwigScanner * s) {
  *
  * Retract n characters
  * ----------------------------------------------------------------------------- */
-static void retract(SwigScanner * s, int n) {
+static void retract(Scanner * s, int n) {
   int i, l;
   char *str;
 
@@ -196,12 +260,130 @@ static void retract(SwigScanner * s, int n) {
   assert(n <= l);
   for (i = 0; i < n; i++) {
     if (str[l - 1] == '\n') {
-      s->line--;
+      if (!s->freeze_line) s->line--;
     }
-    /*    //    Ungetc(str[l-1],s->str); */
     Seek(s->str, -1, SEEK_CUR);
     Delitem(s->text, DOH_END);
   }
+}
+
+/* -----------------------------------------------------------------------------
+ * get_escape()
+ * 
+ * Get escape sequence.  Called when a backslash is found in a string
+ * ----------------------------------------------------------------------------- */
+
+static void get_escape(Scanner *s) {
+  int result = 0;
+  int state = 0;
+  int c;
+
+  while (1) {
+    c = nextchar(s);
+    if (c == 0)
+      break;
+    switch (state) {
+    case 0:
+      if (c == 'n') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\n");
+	return;
+      }
+      if (c == 'r') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\r");
+	return;
+      }
+      if (c == 't') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\t");
+	return;
+      }
+      if (c == 'a') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\a");
+	return;
+      }
+      if (c == 'b') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\b");
+	return;
+      }
+      if (c == 'f') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\f");
+	return;
+      }
+      if (c == '\\') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\\");
+	return;
+      }
+      if (c == 'v') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\v");
+	return;
+      }
+      if (c == 'e') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\033");
+	return;
+      }
+      if (c == '\'') {
+	Delitem(s->text, DOH_END);
+	Append(s->text,"\'");
+	return;
+      }
+      if (c == '\"') {
+	Delitem(s->text, DOH_END);	
+	Append(s->text,"\"");
+	return;
+      }
+      if (c == '\n') {
+	Delitem(s->text, DOH_END);
+	return;
+      }
+      if (isdigit(c)) {
+	state = 10;
+	result = (c - '0');
+	Delitem(s->text, DOH_END);
+      } else if (c == 'x') {
+	state = 20;
+	Delitem(s->text, DOH_END);
+      } else {
+	char tmp[3];
+	tmp[0] = '\\';
+	tmp[1] = (char)c;
+	tmp[2] = 0;
+	Delitem(s->text, DOH_END);
+	Append(s->text, tmp);
+	return;
+      }
+      break;
+    case 10:
+      if (!isdigit(c)) {
+	retract(s,1);
+	Putc((char)result,s->text);
+	return;
+      }
+      result = (result << 3) + (c - '0');
+      Delitem(s->text, DOH_END);
+      break;
+    case 20:
+      if (!isxdigit(c)) {
+	retract(s,1);
+	Putc((char)result, s->text);
+	return;
+      }
+      if (isdigit(c))
+	result = (result << 4) + (c - '0');
+      else
+	result = (result << 4) + (10 + tolower(c) - 'a');
+      Delitem(s->text, DOH_END);
+      break;
+    }
+  }
+  return;
 }
 
 /* -----------------------------------------------------------------------------
@@ -210,13 +392,13 @@ static void retract(SwigScanner * s, int n) {
  * Return the raw value of the next token.
  * ----------------------------------------------------------------------------- */
 
-static int look(SwigScanner * s) {
+static int look(Scanner * s) {
   int state;
   int c = 0;
 
   state = 0;
   Clear(s->text);
-  Setline(s->text, Getline(s->str));
+  s->start_line = s->line;
   Setfile(s->text, Getfile(s->str));
   while (1) {
     switch (state) {
@@ -232,7 +414,7 @@ static int look(SwigScanner * s) {
 	retract(s, 1);
 	state = 1000;
 	Clear(s->text);
-	Setline(s->text, Getline(s->str));
+	Setline(s->text, s->line);
 	Setfile(s->text, Getfile(s->str));
       }
       break;
@@ -245,7 +427,8 @@ static int look(SwigScanner * s) {
 
       /* Look for possible identifiers */
 
-      else if ((isalpha(c)) || (c == '_') || (strchr(s->idstart, c)))
+      else if ((isalpha(c)) || (c == '_') ||
+	       (s->idstart && strchr(s->idstart, c)))
 	state = 7;
 
       /* Look for single character symbols */
@@ -259,7 +442,7 @@ static int look(SwigScanner * s) {
       else if (c == ',')
 	return SWIG_TOKEN_COMMA;
       else if (c == '*')
-	return SWIG_TOKEN_STAR;
+	state = 220;
       else if (c == '}')
 	return SWIG_TOKEN_RBRACE;
       else if (c == '{')
@@ -267,15 +450,15 @@ static int look(SwigScanner * s) {
       else if (c == '=')
 	state = 33;
       else if (c == '+')
-	return SWIG_TOKEN_PLUS;
+	state = 200;
       else if (c == '-')
-	return SWIG_TOKEN_MINUS;
+	state = 210;
       else if (c == '&')
 	state = 31;
       else if (c == '|')
 	state = 32;
       else if (c == '^')
-	return SWIG_TOKEN_XOR;
+	state = 230;
       else if (c == '<')
 	state = 60;
       else if (c == '>')
@@ -293,17 +476,22 @@ static int look(SwigScanner * s) {
       else if (c == '@')
 	return SWIG_TOKEN_AT;
       else if (c == '$')
-	return SWIG_TOKEN_DOLLAR;
+	state = 75;
       else if (c == '#')
 	return SWIG_TOKEN_POUND;
+      else if (c == '?')
+	return SWIG_TOKEN_QUESTION;
 
       /* Look for multi-character sequences */
 
-      else if (c == '/')
+      else if (c == '/') {
 	state = 1;		/* Comment (maybe)  */
+	s->start_line = s->line;
+      }
       else if (c == '\"') {
 	state = 2;		/* Possibly a string */
-	s->string_start = s->line;
+	s->start_line = s->line;
+	Clear(s->text);
       }
 
       else if (c == ':')
@@ -311,10 +499,12 @@ static int look(SwigScanner * s) {
       else if (c == '0')
 	state = 83;		/* An octal or hex value */
       else if (c == '\'') {
-	s->string_start = s->line;
+	s->start_line = s->line;
+	Clear(s->text);
 	state = 9;		/* A character constant */
       } else if (c == '`') {
-	s->string_start = s->line;
+	s->start_line = s->line;
+	Clear(s->text);
 	state = 900;
       }
 
@@ -334,14 +524,15 @@ static int look(SwigScanner * s) {
 	Clear(s->text);
 	Setline(s->text, Getline(s->str));
 	Setfile(s->text, Getfile(s->str));
-
-	Append(s->text, "  ");
+	Append(s->text, "//");
       } else if (c == '*') {
 	state = 11;		/* C style comment */
 	Clear(s->text);
 	Setline(s->text, Getline(s->str));
 	Setfile(s->text, Getfile(s->str));
-	Append(s->text, "  ");
+	Append(s->text, "/*");
+      } else if (c == '=') {
+	return SWIG_TOKEN_DIVEQUAL;
       } else {
 	retract(s, 1);
 	return SWIG_TOKEN_SLASH;
@@ -349,19 +540,20 @@ static int look(SwigScanner * s) {
       break;
     case 10:			/* C++ style comment */
       if ((c = nextchar(s)) == 0) {
-	/*      add_error(0,"Unterminated comment",comment_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated comment\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '\n') {
-	return SWIG_TOKEN_ENDLINE;
+	retract(s,1);
+	return SWIG_TOKEN_COMMENT;
       } else {
 	state = 10;
       }
       break;
     case 11:			/* C style comment block */
       if ((c = nextchar(s)) == 0) {
-	/* add_error(0,"Unterminated comment",comment_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated comment\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '*') {
 	state = 12;
@@ -371,14 +563,13 @@ static int look(SwigScanner * s) {
       break;
     case 12:			/* Still in C style comment */
       if ((c = nextchar(s)) == 0) {
-	/*      add_error(0,"Unterminated comment",comment_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated comment\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '*') {
 	state = 12;
       } else if (c == '/') {
-	Clear(s->text);
-	state = 0;
+	return SWIG_TOKEN_COMMENT;
       } else {
 	state = 11;
       }
@@ -386,22 +577,17 @@ static int look(SwigScanner * s) {
 
     case 2:			/* Processing a string */
       if ((c = nextchar(s)) == 0) {
-	/*      add_error(0,"Unterminated string", string_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated string\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '\"') {
+	Delitem(s->text, DOH_END);
 	return SWIG_TOKEN_STRING;
       } else if (c == '\\') {
-	state = 21;		/* Possibly an escape sequence. */
-	break;
+	Delitem(s->text, DOH_END);
+	get_escape(s);
       } else
 	state = 2;
-      break;
-    case 21:			/* An escape sequence. get next character, then go
-				   back to processing strings */
-      if ((c = nextchar(s)) == 0)
-	return 0;
-      state = 2;
       break;
 
     case 3:			/* Maybe a not equals */
@@ -415,11 +601,13 @@ static int look(SwigScanner * s) {
       }
       break;
 
-    case 31:			/* AND or Logical AND */
+    case 31:			/* AND or Logical AND or ANDEQUAL */
       if ((c = nextchar(s)) == 0)
 	return SWIG_TOKEN_AND;
       else if (c == '&')
 	return SWIG_TOKEN_LAND;
+      else if (c == '=')
+	return SWIG_TOKEN_ANDEQUAL;
       else {
 	retract(s, 1);
 	return SWIG_TOKEN_AND;
@@ -431,6 +619,8 @@ static int look(SwigScanner * s) {
 	return SWIG_TOKEN_OR;
       else if (c == '|')
 	return SWIG_TOKEN_LOR;
+      else if (c == '=')
+	return SWIG_TOKEN_OREQUAL;
       else {
 	retract(s, 1);
 	return SWIG_TOKEN_OR;
@@ -457,9 +647,12 @@ static int look(SwigScanner * s) {
 	Setline(s->text, Getline(s->str));
 	Setfile(s->text, Getfile(s->str));
 	s->start_line = s->line;
-      } else if (strchr(s->idstart, '%') && ((isalpha(c)) || (c == '_')))
+      } else if (s->idstart && strchr(s->idstart, '%') &&
+	         ((isalpha(c)) || (c == '_'))) {
 	state = 7;
-      else {
+      } else if (c == '=') {
+	return SWIG_TOKEN_MODEQUAL;
+      } else {
 	retract(s, 1);
 	return SWIG_TOKEN_PERCENT;
       }
@@ -467,20 +660,21 @@ static int look(SwigScanner * s) {
 
     case 40:			/* Process an include block */
       if ((c = nextchar(s)) == 0) {
-	/* add_error(0,"Unterminated code block.", start_line); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated block\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '%')
 	state = 41;
       break;
     case 41:			/* Still processing include block */
       if ((c = nextchar(s)) == 0) {
-	/*      add_error(0,"Unterminated code block.", start_line); */
+	set_error(s,s->start_line,"Unterminated code block");
 	return 0;
       }
       if (c == '}') {
 	Delitem(s->text, DOH_END);
 	Delitem(s->text, DOH_END);
+	Seek(s->text,0,SEEK_SET);
 	return SWIG_TOKEN_CODEBLOCK;
       } else {
 	state = 40;
@@ -492,10 +686,21 @@ static int look(SwigScanner * s) {
       if ((c = nextchar(s)) == 0)
 	return SWIG_TOKEN_COLON;
       if (c == ':')
-	return SWIG_TOKEN_DCOLON;
+	state = 50;
       else {
 	retract(s, 1);
 	return SWIG_TOKEN_COLON;
+      }
+      break;
+
+    case 50:			/* DCOLON, DCOLONSTAR */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_DCOLON;
+      else if (c == '*')
+	return SWIG_TOKEN_DCOLONSTAR;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_DCOLON;
       }
       break;
 
@@ -503,7 +708,7 @@ static int look(SwigScanner * s) {
       if ((c = nextchar(s)) == 0)
 	return SWIG_TOKEN_LESSTHAN;
       if (c == '<')
-	return SWIG_TOKEN_LSHIFT;
+	state = 240;
       else if (c == '=')
 	return SWIG_TOKEN_LTEQUAL;
       else {
@@ -515,7 +720,7 @@ static int look(SwigScanner * s) {
       if ((c = nextchar(s)) == 0)
 	return SWIG_TOKEN_GREATERTHAN;
       if (c == '>')
-	return SWIG_TOKEN_RSHIFT;
+	state = 250;
       else if (c == '=')
 	return SWIG_TOKEN_GTEQUAL;
       else {
@@ -533,13 +738,26 @@ static int look(SwigScanner * s) {
 	return SWIG_TOKEN_ID;
       }
       break;
+
+    case 75:			/* Special identifier $ */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_DOLLAR;
+      if (isalnum(c) || (c == '_') || (c == '*') || (c == '&')) {
+	state = 7;
+      } else {
+	retract(s,1);
+	if (Len(s->text) == 1) return SWIG_TOKEN_DOLLAR;
+	return SWIG_TOKEN_ID;
+      }
+      break;
+
     case 8:			/* A numerical digit */
       if ((c = nextchar(s)) == 0)
 	return SWIG_TOKEN_INT;
       if (c == '.') {
 	state = 81;
       } else if ((c == 'e') || (c == 'E')) {
-	state = 86;
+	state = 82;
       } else if ((c == 'f') || (c == 'F')) {
 	Delitem(s->text, DOH_END);
 	return SWIG_TOKEN_FLOAT;
@@ -560,10 +778,13 @@ static int look(SwigScanner * s) {
       if (isdigit(c))
 	state = 81;
       else if ((c == 'e') || (c == 'E'))
-	state = 82;
-      else if ((c == 'f') || (c == 'F') || (c == 'l') || (c == 'L')) {
+	state = 820;
+      else if ((c == 'f') || (c == 'F')) {
 	Delitem(s->text, DOH_END);
 	return SWIG_TOKEN_FLOAT;
+      } else if ((c == 'l') || (c == 'L')) {
+	Delitem(s->text, DOH_END);
+	return SWIG_TOKEN_DOUBLE;
       } else {
 	retract(s, 1);
 	return (SWIG_TOKEN_DOUBLE);
@@ -579,6 +800,19 @@ static int look(SwigScanner * s) {
       else {
 	retract(s, 2);
 	return (SWIG_TOKEN_INT);
+      }
+      break;
+    case 820:
+      /* Like case 82, but we've seen a decimal point. */
+      if ((c = nextchar(s)) == 0) {
+	retract(s, 1);
+	return SWIG_TOKEN_DOUBLE;
+      }
+      if ((isdigit(c)) || (c == '-') || (c == '+'))
+	state = 86;
+      else {
+	retract(s, 2);
+	return (SWIG_TOKEN_DOUBLE);
       }
       break;
     case 83:
@@ -703,21 +937,16 @@ static int look(SwigScanner * s) {
       /* A character constant */
     case 9:
       if ((c = nextchar(s)) == 0) {
-	/* add_error(0,"Unterminated character constant", string_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated character constant\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '\'') {
+	Delitem(s->text, DOH_END);
 	return (SWIG_TOKEN_CHAR);
-      } else if (c == '\\')
-	state = 91;
-      break;
-
-    case 91:
-      if ((c = nextchar(s)) == 0) {
-	/* add_error(0,"Unterminated character constant", string_start); */
-	return 0;
+      } else if (c == '\\') {
+	Delitem(s->text, DOH_END);
+	get_escape(s);
       }
-      state = 9;
       break;
 
       /* A period or maybe a floating point number */
@@ -733,15 +962,101 @@ static int look(SwigScanner * s) {
       }
       break;
 
+    case 200:			/* PLUS, PLUSPLUS, PLUSEQUAL */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_PLUS;
+      else if (c == '+')
+	return SWIG_TOKEN_PLUSPLUS;
+      else if (c == '=')
+	return SWIG_TOKEN_PLUSEQUAL;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_PLUS;
+      }
+      break;
+
+    case 210:			/* MINUS, MINUSMINUS, MINUSEQUAL, ARROW */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_MINUS;
+      else if (c == '-')
+	return SWIG_TOKEN_MINUSMINUS;
+      else if (c == '=')
+	return SWIG_TOKEN_MINUSEQUAL;
+      else if (c == '>')
+	state = 211;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_MINUS;
+      }
+      break;
+
+    case 211:			/* ARROW, ARROWSTAR */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_ARROW;
+      else if (c == '*')
+	return SWIG_TOKEN_ARROWSTAR;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_ARROW;
+      }
+      break;
+
+
+    case 220:			/* STAR, TIMESEQUAL */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_STAR;
+      else if (c == '=')
+	return SWIG_TOKEN_TIMESEQUAL;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_STAR;
+      }
+      break;
+
+    case 230:			/* XOR, XOREQUAL */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_XOR;
+      else if (c == '=')
+	return SWIG_TOKEN_XOREQUAL;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_XOR;
+      }
+      break;
+
+    case 240:			/* LSHIFT, LSEQUAL */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_LSHIFT;
+      else if (c == '=')
+	return SWIG_TOKEN_LSEQUAL;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_LSHIFT;
+      }
+      break;
+
+    case 250:			/* RSHIFT, RSEQUAL */
+      if ((c = nextchar(s)) == 0)
+	return SWIG_TOKEN_RSHIFT;
+      else if (c == '=')
+	return SWIG_TOKEN_RSEQUAL;
+      else {
+	retract(s, 1);
+	return SWIG_TOKEN_RSHIFT;
+      }
+      break;
+
+
       /* An illegal character */
 
       /* Reverse string */
     case 900:
       if ((c = nextchar(s)) == 0) {
-	/* add_error(0,"Unterminated character constant", string_start); */
-	return 0;
+	Swig_error(cparse_file, cparse_start_line, "Unterminated character constant\n");
+	return SWIG_TOKEN_ERROR;
       }
       if (c == '`') {
+	Delitem(s->text, DOH_END);
 	return (SWIG_TOKEN_RSTRING);
       }
       break;
@@ -753,64 +1068,71 @@ static int look(SwigScanner * s) {
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_token()
+ * Scanner_token()
  *
  * Real entry point to return the next token. Returns 0 if at end of input.
  * ----------------------------------------------------------------------------- */
 
-int SwigScanner_token(SwigScanner * s) {
+int Scanner_token(Scanner * s) {
   int t;
-  Clear(s->text);
+  Delete(s->error);
   if (s->nexttoken >= 0) {
     t = s->nexttoken;
     s->nexttoken = -1;
     return t;
   }
+  s->start_line = 0;
   t = look(s);
+  if (!s->start_line) {
+    Setline(s->text,s->line);
+  } else {
+    Setline(s->text,s->start_line);
+  }
   return t;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_text()
+ * Scanner_text()
  *
  * Return the lexene associated with the last returned token.
  * ----------------------------------------------------------------------------- */
 
-String *SwigScanner_text(SwigScanner * s) {
+String *Scanner_text(Scanner * s) {
   return s->text;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_skip_line()
+ * Scanner_skip_line()
  *
  * Skips to the end of a line
  * ----------------------------------------------------------------------------- */
 
-void SwigScanner_skip_line(SwigScanner * s) {
+void Scanner_skip_line(Scanner * s) {
   char c;
   int done = 0;
   Clear(s->text);
   Setfile(s->text, Getfile(s->str));
-  Setline(s->text, Getline(s->str));
+  Setline(s->text, s->line);
   while (!done) {
     if ((c = nextchar(s)) == 0)
       return;
-    if (c == '\\')
+    if (c == '\\') {
       c = nextchar(s);
-    else if (c == '\n')
+    } else if (c == '\n') {
       done = 1;
+    }
   }
   return;
 }
 
 /* -----------------------------------------------------------------------------
- * SwigScanner_skip_balanced()
+ * Scanner_skip_balanced()
  *
  * Skips a piece of code enclosed in begin/end symbols such as '{...}' or
  * (...).  Ignores symbols inside comments or strings.
  * ----------------------------------------------------------------------------- */
 
-int SwigScanner_skip_balanced(SwigScanner * s, int startchar, int endchar) {
+int Scanner_skip_balanced(Scanner * s, int startchar, int endchar) {
   char c;
   int num_levels = 1;
   int l;
@@ -820,7 +1142,7 @@ int SwigScanner_skip_balanced(SwigScanner * s, int startchar, int endchar) {
   temp[0] = (char) startchar;
   Clear(s->text);
   Setfile(s->text, Getfile(s->str));
-  Setline(s->text, Getline(s->str));
+  Setline(s->text, s->line);
 
   Append(s->text, temp);
   while (num_levels > 0) {
@@ -888,5 +1210,18 @@ int SwigScanner_skip_balanced(SwigScanner * s, int startchar, int endchar) {
       break;
     }
   }
+  return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * Scanner_isoperator()
+ *
+ * Returns 0 or 1 depending on whether or not a token corresponds to a C/C++
+ * operator.
+ * ----------------------------------------------------------------------------- */
+
+int
+Scanner_isoperator(int tokval) {
+  if (tokval >= 100) return 1;
   return 0;
 }

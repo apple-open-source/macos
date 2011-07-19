@@ -13,16 +13,20 @@ if {[catch {tcltest::testConstraint notLoadable}]} {
     tcltest::testConstraint notLoadable 0
 }
 tcltest::testConstraint req85 [expr {![catch {package present Tcl 8.5-}]}]
+tcltest::testConstraint req86 [expr {![catch {package present Tcl 8.6-}]}]
 
 proc constraint {pkg} {
     # packages not intended for direct loading or known not to be present
-    if {[regexp {^(dom::c$|page::.*::|xotcl::.*::(ldap|.*gdbm))} $pkg]} {
+    if {[regexp {^(dom::c|page::((analysis|compiler|transform)::.*|(gen::peg|writer)::(me|mecpu)|(reader|util::norm)::(peg|lemon))|xotcl::.*::(ldap|.*gdbm)|(doctools::(toc|idx)|pt::peg)::(import|export)::.*)$} $pkg]} {
 	return notLoadable
     }
     # packages requiring tcl 8.5 or later
-    if {[lsearch -exact {chatwidget huddle json ntext S3 tablelist_tile
-	    vfs::webdav xsxp yaml} $pkg] != -1} {
+    if {[regexp {^(chatwidget|canvas::(mvg|snap)|char|configuration|controlwidget|diagram(|::.*)|gpx|huddle|yaml|imap4|json(|::.*)|JSONRPC|namespacex|ntext|paths|pt::.*|rest|S3|struct::graph::op|tablelist_tile|tcl::randomseed|text::write|vfs::webdav|xsxp|xyplot)$} $pkg]} {
 	return req85
+    }
+    # packages requiring tcl 8.6 or later
+    if {[regexp {^(coroutine(|::auto)|menubar(|::.*)|tcl::(chan|transform)::.*)$} $pkg]} {
+        return req86
     }
     return {}
 }

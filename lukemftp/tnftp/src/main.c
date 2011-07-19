@@ -675,7 +675,7 @@ cmdscanner(void)
 					fprintf(ttyout, "%s ", p);
 			}
 			(void)fflush(ttyout);
-			num = getline(stdin, line, sizeof(line), NULL);
+			num = get_line(stdin, line, sizeof(line), NULL);
 			switch (num) {
 			case -1:	/* EOF */
 			case -2:	/* error */

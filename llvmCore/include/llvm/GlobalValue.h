@@ -37,13 +37,13 @@ public:
     WeakAnyLinkage,     ///< Keep one copy of named function when linking (weak)
     WeakODRLinkage,     ///< Same, but only replaced by something equivalent.
     AppendingLinkage,   ///< Special purpose, only applies to global arrays
-    InternalLinkage,    ///< Rename collisions when linking (static functions)
-    PrivateLinkage,     ///< Like Internal, but omit from symbol table
+    InternalLinkage,    ///< Rename collisions when linking (static functions).
+    PrivateLinkage,     ///< Like Internal, but omit from symbol table.
+    LinkerPrivateLinkage, ///< Like Private, but linker removes.
     DLLImportLinkage,   ///< Function to be imported from DLL
-    DLLExportLinkage,   ///< Function to be accessible from DLL
-    ExternalWeakLinkage,///< ExternalWeak linkage description
-    GhostLinkage,       ///< Stand-in functions for streaming fns from BC files
-    CommonLinkage       ///< Tentative definitions
+    DLLExportLinkage,   ///< Function to be accessible from DLL.
+    ExternalWeakLinkage,///< ExternalWeak linkage description.
+    CommonLinkage       ///< Tentative definitions.
   };
 
   /// @brief An enumeration for the kinds of visibility of global values.
@@ -55,10 +55,10 @@ public:
 
 protected:
   GlobalValue(const Type *ty, ValueTy vty, Use *Ops, unsigned NumOps,
-              LinkageTypes linkage, const std::string &name = "")
+              LinkageTypes linkage, const Twine &Name)
     : Constant(ty, vty, Ops, NumOps), Parent(0),
       Linkage(linkage), Visibility(DefaultVisibility), Alignment(0) {
-    if (!name.empty()) setName(name);
+    setName(Name);
   }
 
   Module *Parent;
@@ -80,6 +80,7 @@ public:
   }
 
   VisibilityTypes getVisibility() const { return VisibilityTypes(Visibility); }
+  bool hasDefaultVisibility() const { return Visibility == DefaultVisibility; }
   bool hasHiddenVisibility() const { return Visibility == HiddenVisibility; }
   bool hasProtectedVisibility() const {
     return Visibility == ProtectedVisibility;
@@ -88,10 +89,10 @@ public:
   
   bool hasSection() const { return !Section.empty(); }
   const std::string &getSection() const { return Section; }
-  void setSection(const std::string &S) { Section = S; }
+  void setSection(StringRef S) { Section = S; }
   
   /// If the usage is empty (except transitively dead constants), then this
-  /// global value can can be safely deleted since the destructor will
+  /// global value can be safely deleted since the destructor will
   /// delete the dead constants as well.
   /// @brief Determine if the usage of this global value is empty except
   /// for transitively dead constants.
@@ -109,36 +110,51 @@ public:
     return ODR ? WeakODRLinkage : WeakAnyLinkage;
   }
 
-  bool hasExternalLinkage() const { return Linkage == ExternalLinkage; }
-  bool hasAvailableExternallyLinkage() const {
+  static bool isExternalLinkage(LinkageTypes Linkage) {
+    return Linkage == ExternalLinkage;
+  }
+  static bool isAvailableExternallyLinkage(LinkageTypes Linkage) {
     return Linkage == AvailableExternallyLinkage;
   }
-  bool hasLinkOnceLinkage() const {
+  static bool isLinkOnceLinkage(LinkageTypes Linkage) {
     return Linkage == LinkOnceAnyLinkage || Linkage == LinkOnceODRLinkage;
   }
-  bool hasWeakLinkage() const {
+  static bool isWeakLinkage(LinkageTypes Linkage) {
     return Linkage == WeakAnyLinkage || Linkage == WeakODRLinkage;
   }
-  bool hasAppendingLinkage() const { return Linkage == AppendingLinkage; }
-  bool hasInternalLinkage() const { return Linkage == InternalLinkage; }
-  bool hasPrivateLinkage() const { return Linkage == PrivateLinkage; }
-  bool hasLocalLinkage() const {
-    return Linkage == InternalLinkage || Linkage == PrivateLinkage ||
-           Linkage == AvailableExternallyLinkage;
+  static bool isAppendingLinkage(LinkageTypes Linkage) {
+    return Linkage == AppendingLinkage;
   }
-  bool hasDLLImportLinkage() const { return Linkage == DLLImportLinkage; }
-  bool hasDLLExportLinkage() const { return Linkage == DLLExportLinkage; }
-  bool hasExternalWeakLinkage() const { return Linkage == ExternalWeakLinkage; }
-  bool hasGhostLinkage() const { return Linkage == GhostLinkage; }
-  bool hasCommonLinkage() const { return Linkage == CommonLinkage; }
-
-  void setLinkage(LinkageTypes LT) { Linkage = LT; }
-  LinkageTypes getLinkage() const { return Linkage; }
+  static bool isInternalLinkage(LinkageTypes Linkage) {
+    return Linkage == InternalLinkage;
+  }
+  static bool isPrivateLinkage(LinkageTypes Linkage) {
+    return Linkage == PrivateLinkage;
+  }
+  static bool isLinkerPrivateLinkage(LinkageTypes Linkage) {
+    return Linkage==LinkerPrivateLinkage;
+  }
+  static bool isLocalLinkage(LinkageTypes Linkage) {
+    return isInternalLinkage(Linkage) || isPrivateLinkage(Linkage) ||
+      isLinkerPrivateLinkage(Linkage);
+  }
+  static bool isDLLImportLinkage(LinkageTypes Linkage) {
+    return Linkage == DLLImportLinkage;
+  }
+  static bool isDLLExportLinkage(LinkageTypes Linkage) {
+    return Linkage == DLLExportLinkage;
+  }
+  static bool isExternalWeakLinkage(LinkageTypes Linkage) {
+    return Linkage == ExternalWeakLinkage;
+  }
+  static bool isCommonLinkage(LinkageTypes Linkage) {
+    return Linkage == CommonLinkage;
+  }
 
   /// mayBeOverridden - Whether the definition of this global may be replaced
   /// by something non-equivalent at link time.  For example, if a function has
   /// weak linkage then the code defining it may be replaced by different code.
-  bool mayBeOverridden() const {
+  static bool mayBeOverridden(LinkageTypes Linkage) {
     return (Linkage == WeakAnyLinkage ||
             Linkage == LinkOnceAnyLinkage ||
             Linkage == CommonLinkage ||
@@ -147,7 +163,7 @@ public:
 
   /// isWeakForLinker - Whether the definition of this global may be replaced at
   /// link time.
-  bool isWeakForLinker() const {
+  static bool isWeakForLinker(LinkageTypes Linkage)  {
     return (Linkage == AvailableExternallyLinkage ||
             Linkage == WeakAnyLinkage ||
             Linkage == WeakODRLinkage ||
@@ -157,16 +173,64 @@ public:
             Linkage == ExternalWeakLinkage);
   }
 
+  bool hasExternalLinkage() const { return isExternalLinkage(Linkage); }
+  bool hasAvailableExternallyLinkage() const {
+    return isAvailableExternallyLinkage(Linkage);
+  }
+  bool hasLinkOnceLinkage() const {
+    return isLinkOnceLinkage(Linkage);
+  }
+  bool hasWeakLinkage() const {
+    return isWeakLinkage(Linkage);
+  }
+  bool hasAppendingLinkage() const { return isAppendingLinkage(Linkage); }
+  bool hasInternalLinkage() const { return isInternalLinkage(Linkage); }
+  bool hasPrivateLinkage() const { return isPrivateLinkage(Linkage); }
+  bool hasLinkerPrivateLinkage() const { return isLinkerPrivateLinkage(Linkage); }
+  bool hasLocalLinkage() const { return isLocalLinkage(Linkage); }
+  bool hasDLLImportLinkage() const { return isDLLImportLinkage(Linkage); }
+  bool hasDLLExportLinkage() const { return isDLLExportLinkage(Linkage); }
+  bool hasExternalWeakLinkage() const { return isExternalWeakLinkage(Linkage); }
+  bool hasCommonLinkage() const { return isCommonLinkage(Linkage); }
+
+  void setLinkage(LinkageTypes LT) { Linkage = LT; }
+  LinkageTypes getLinkage() const { return Linkage; }
+
+  bool mayBeOverridden() const { return mayBeOverridden(Linkage); }
+
+  bool isWeakForLinker() const { return isWeakForLinker(Linkage); }
+
   /// copyAttributesFrom - copy all additional attributes (those not needed to
   /// create a GlobalValue) from the GlobalValue Src to this one.
   virtual void copyAttributesFrom(const GlobalValue *Src);
 
-  /// hasNotBeenReadFromBitcode - If a module provider is being used to lazily
-  /// stream in functions from disk, this method can be used to check to see if
-  /// the function has been read in yet or not.  Unless you are working on the
-  /// JIT or something else that streams stuff in lazily, you don't need to
-  /// worry about this.
-  bool hasNotBeenReadFromBitcode() const { return Linkage == GhostLinkage; }
+/// @name Materialization
+/// Materialization is used to construct functions only as they're needed. This
+/// is useful to reduce memory usage in LLVM or parsing work done by the
+/// BitcodeReader to load the Module.
+/// @{
+
+  /// isMaterializable - If this function's Module is being lazily streamed in
+  /// functions from disk or some other source, this method can be used to check
+  /// to see if the function has been read in yet or not.
+  bool isMaterializable() const;
+
+  /// isDematerializable - Returns true if this function was loaded from a
+  /// GVMaterializer that's still attached to its Module and that knows how to
+  /// dematerialize the function.
+  bool isDematerializable() const;
+
+  /// Materialize - make sure this GlobalValue is fully read.  If the module is
+  /// corrupt, this returns true and fills in the optional string with
+  /// information about the problem.  If successful, this returns false.
+  bool Materialize(std::string *ErrInfo = 0);
+
+  /// Dematerialize - If this GlobalValue is read in, and if the GVMaterializer
+  /// supports it, release the memory for the function, and set it up to be
+  /// materialized lazily.  If !isDematerializable(), this method is a noop.
+  void Dematerialize();
+
+/// @}
 
   /// Override from Constant class. No GlobalValue's are null values so this
   /// always returns false.

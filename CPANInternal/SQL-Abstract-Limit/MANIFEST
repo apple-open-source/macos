@@ -13,3 +13,4 @@ t/04.args.t
 t/test_data.csv
 t/pod-coverage.t
 t/pod.t
+t/lib/SQL/Abstract/Limit/Test.pm

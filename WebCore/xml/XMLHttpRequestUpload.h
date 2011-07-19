@@ -26,33 +26,35 @@
 #ifndef XMLHttpRequestUpload_h
 #define XMLHttpRequestUpload_h
 
-#include "AtomicStringHash.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
+#include "XMLHttpRequest.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
-    class AtomicStringImpl;
     class ScriptExecutionContext;
     class XMLHttpRequest;
 
-    class XMLHttpRequestUpload : public RefCounted<XMLHttpRequestUpload>, public EventTarget {
+    class XMLHttpRequestUpload : public EventTarget {
     public:
-        static PassRefPtr<XMLHttpRequestUpload> create(XMLHttpRequest* xmlHttpRequest)
+        static PassOwnPtr<XMLHttpRequestUpload> create(XMLHttpRequest* xmlHttpRequest)
         {
-            return adoptRef(new XMLHttpRequestUpload(xmlHttpRequest));
+            return adoptPtr(new XMLHttpRequestUpload(xmlHttpRequest));
         }
 
-        virtual XMLHttpRequestUpload* toXMLHttpRequestUpload() { return this; }
+        void ref() { m_xmlHttpRequest->ref(); }
+        void deref() { m_xmlHttpRequest->deref(); }
+        XMLHttpRequest* xmlHttpRequest() const { return m_xmlHttpRequest; }
 
-        XMLHttpRequest* associatedXMLHttpRequest() const { return m_xmlHttpRequest; }
-        void disconnectXMLHttpRequest() { m_xmlHttpRequest = 0; }
+        virtual XMLHttpRequestUpload* toXMLHttpRequestUpload() { return this; }
 
         ScriptExecutionContext* scriptExecutionContext() const;
 
@@ -61,9 +63,6 @@ namespace WebCore {
         DEFINE_ATTRIBUTE_EVENT_LISTENER(load);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(loadstart);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(progress);
-
-        using RefCounted<XMLHttpRequestUpload>::ref;
-        using RefCounted<XMLHttpRequestUpload>::deref;
 
     private:
         XMLHttpRequestUpload(XMLHttpRequest*);

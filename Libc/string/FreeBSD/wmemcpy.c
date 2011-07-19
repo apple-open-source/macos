@@ -32,17 +32,13 @@
 __RCSID("$NetBSD: wmemcpy.c,v 1.1 2000/12/23 23:14:37 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wmemcpy.c,v 1.7 2002/09/21 00:29:23 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wmemcpy.c,v 1.8 2009/02/03 17:58:20 danger Exp $");
 
 #include <string.h>
 #include <wchar.h>
 
 wchar_t *
-wmemcpy(d, s, n)
-	wchar_t * __restrict d;
-	const wchar_t * __restrict s;
-	size_t n;
+wmemcpy(wchar_t * __restrict d, const wchar_t * __restrict s, size_t n)
 {
-
 	return (wchar_t *)memcpy(d, s, n * sizeof(wchar_t));
 }

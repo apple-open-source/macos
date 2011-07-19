@@ -41,7 +41,7 @@ extern "C"{
 #include <net/if_llc.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
-#include <netinet/in.h>	/* For M_LOOP */
+#include <sys/kpi_mbuf.h>	/* For MBUF_LOOP */
 
 #include <sys/socketvar.h>
 
@@ -182,7 +182,7 @@ firewire_add_proto_internal(ifnet_t ifp, u_long protocol_family, const struct if
 		
 		new_size = new_count * sizeof(struct fw_desc) + FIREWIRE_DESC_HEADER_SIZE;
 
-		tmp = (struct firewire_desc_blk_str*)_MALLOC(new_size, M_IFADDR, M_WAITOK);
+		tmp = (struct firewire_desc_blk_str*)_MALLOC(new_size, M_IFADDR, MBUF_WAITOK);
 		if (tmp  == 0) 
 			return ENOMEM;
 		
@@ -328,7 +328,7 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 	 */
 	 
 	if ((ifnet_flags(ifp) & IFF_SIMPLEX) &&
-	    (mbuf_flags(*m) & M_LOOP))
+	    (mbuf_flags(*m) & MBUF_LOOP))
 	{
 		if (loop_ifp == NULL) {
 			ifnet_find_by_name("lo0", &loop_ifp);
@@ -344,11 +344,11 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 		
 	    if (loop_ifp) 
 		{
-            if (mbuf_flags(*m) & M_BCAST)
+            if (mbuf_flags(*m) & MBUF_BCAST)
 			{
                 mbuf_t n;
                 
-                if (mbuf_copym(*m, 0, MBUF_COPYALL, M_WAITOK, &n) == 0)
+                if (mbuf_copym(*m, 0, MBUF_COPYALL, MBUF_WAITOK, &n) == 0)
                     ifnet_output(loop_ifp, PF_INET, n, 0, ndest);
             } 
             else 
@@ -366,7 +366,7 @@ firewire_frameout(ifnet_t ifp, mbuf_t *m,
 	// Add local net header.  If no space in first mbuf,
 	// allocate another.
 	//
-	if (mbuf_prepend(m, sizeof(struct firewire_header), M_DONTWAIT) != 0)
+	if (mbuf_prepend(m, sizeof(struct firewire_header), MBUF_DONTWAIT) != 0)
 	    return (EJUSTRETURN);
 
 	//

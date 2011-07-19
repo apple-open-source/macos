@@ -30,6 +30,7 @@
 #include <security_utilities/debugging.h>
 #include <Security/cssmapple.h>		// error codes
 #include <servers/bootstrap_defs.h>	// debug
+#include <bootstrap_priv.h>
 
 namespace Security {
 namespace MachPlusPlus {
@@ -239,6 +240,13 @@ mach_port_t Bootstrap::lookup(const char *name) const
 {
 	mach_port_t port;
 	check(::bootstrap_look_up(mPort, makeName(name), &port));
+	return port;
+}
+
+mach_port_t Bootstrap::lookup2(const char *name) const
+{
+	mach_port_t port;
+	check(::bootstrap_look_up2(mPort, makeName(name), &port, 0, BOOTSTRAP_PRIVILEGED_SERVER));
 	return port;
 }
 

@@ -114,11 +114,7 @@ protected:
 	void release() { if (ptr && ptr->unref() == 0) delete ptr; }
 	void setPointer(T *p) { if (p) p->ref(); release(); ptr = p; }
 	
-#if defined(NDEBUG) || !DEBUG_REFCOUNTS
 	void _check() const { }
-#else
-	void _check() const { assert(!ptr || ptr->refCountForDebuggingOnly()); }
-#endif //NDEBUG
 
 	T *ptr;
 };

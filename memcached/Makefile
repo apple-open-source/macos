@@ -11,7 +11,9 @@ ToolType    = Library
 Configure = $(BuildDirectory)/$(Project)-src/configure
 
 # libevent is installed in a private location
-Extra_Configure_Flags = --with-libevent="$(USRDIR)/local/libevent" #--enable-threads
+Extra_Configure_Flags = --with-libevent="$(USRDIR)/local/libevent"
+  #--enable-sasl   # Doesn't build properly; probably just needs a -lsasl or some such
+  #--enable-dtrace # Doesn't build properly due to objroot vs. srcdir
 
 # Link libevent in statically because the shared library won't be available
 Extra_Environment = LIBS="$(USRDIR)/local/libevent/lib/libevent.a"
@@ -26,7 +28,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-1.2.8
+AEP_ProjVers   = $(Project)-1.4.5
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 

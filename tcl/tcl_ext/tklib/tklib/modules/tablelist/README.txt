@@ -10,7 +10,7 @@
 What is Tablelist?
 ------------------
 
-Tablelist is a library package for Tcl/Tk version 8.0 or higher,
+Tablelist is a library package for Tcl/Tk versions 8.0 or higher,
 written in pure Tcl/Tk code.  It contains:
 
   - the implementation of the "tablelist" mega-widget, including a
@@ -18,10 +18,14 @@ written in pure Tcl/Tk code.  It contains:
   - a demo script containing a useful procedure that displays the
     configuration options of an arbitrary widget in a tablelist and
     enables you to edit their values interactively;
-  - a second demo script, implementing a simple widget browser based on
-    a tablelist;
-  - a third demo script, showing several ways to improve the appearance
-    of a tablelist widget;
+  - a demo script implementing a widget browser based on a tablelist
+    used as multi-column listbox;
+  - a demo script implementing a widget browser based on a tablelist
+    used as multi-column tree widget;
+  - a demo script implementing a directory viewer based on a tablelist
+    used as multi-column tree widget;
+  - a demo script showing several ways to improve the appearance of a
+    tablelist widget;
   - four further demo scripts, illustrating the interactive cell
     editing with the aid of various widgets from the Tk core and from
     the packages tile, BWidget, Iwidgets, combobox (by Bryan Oakley),
@@ -32,19 +36,22 @@ written in pure Tcl/Tk code.  It contains:
   - a tutorial in HTML format;
   - reference pages in HTML format.
 
-A tablelist widget is a multi-column listbox.  The width of each column
-can be dynamic (i.e., just large enough to hold all its elements,
-including the header) or static (specified in characters or pixels).
-The columns are, per default, resizable.  The alignment of each column
-can be specified as "left", "right", or "center".
+A tablelist is a multi-column listbox and tree widget.  The width of
+each column can be dynamic (i.e., just large enough to hold all its
+elements, including the header) or static (specified in characters or
+pixels).  The columns are, per default, resizable.  The alignment of
+each column can be specified as "left", "right", or "center".
 
 The columns, rows, and cells can be configured individually.  Several
 of the global and column-specific options refer to the headers,
 implemented as label widgets.  For instance, the "-labelcommand" option
 specifies a Tcl command to be invoked when mouse button 1 is released
-over a label.  The most common value of this option is
-"tablelist::sortByColumn", which sorts the items based on the
-respective column.
+over a label.  The most common value of this option sorts the items
+based on the respective column.
+
+The Tablelist package provides a great variety of tree styles
+controlling the look & feel of the column that displays the tree
+hierarchy with the aid of indentations and expand/collapse controls.
 
 Interactive editing of the elements of a tablelist widget can be
 enabled for individual cells and for entire columns.  A great variety
@@ -81,8 +88,8 @@ How to get it?
 --------------
 
 Tablelist is available for free download from the same URL as Wcb.  The
-distribution file is "tablelist4.10.tar.gz" for UNIX and
-"tablelist4_10.zip" for Windows.  These files contain the same
+distribution file is "tablelist5.1.tar.gz" for UNIX and
+"tablelist5_1.zip" for Windows.  These files contain the same
 information, except for the additional carriage return character
 preceding the linefeed at the end of each line in the text files for
 Windows.
@@ -102,16 +109,16 @@ locations of these library directories are given by the "tcl_library"
 and "tk_library" variables, respectively.
 
 To install Tablelist on UNIX, "cd" to the desired directory and unpack
-the distribution file "tablelist4.10.tar.gz":
+the distribution file "tablelist5.1.tar.gz":
 
-    gunzip -c tablelist4.10.tar.gz | tar -xf -
+    gunzip -c tablelist5.1.tar.gz | tar -xf -
 
-This command will create a directory named "tablelist4.10", with the
+This command will create a directory named "tablelist5.1", with the
 subdirectories "demos", "doc", and "scripts".
 
 On Windows, use WinZip or some other program capable of unpacking the
-distribution file "tablelist4_10.zip" into the directory
-"tablelist4.10", with the subdirectories "demos", "doc", and "scripts".
+distribution file "tablelist5_1.zip" into the directory "tablelist5.1",
+with the subdirectories "demos", "doc", and "scripts".
 
 Note that the file "tablelistEdit.tcl" in the "scripts" directory is
 only needed for applications making use of interactive cell editing.
@@ -140,17 +147,17 @@ namespace and provide identical commands.
 To be able to use the commands and variables implemented in the package
 Tablelist, your scripts must contain one of the lines
 
-    package require Tablelist
-    package require tablelist
+    package require tablelist ?version?
+    package require Tablelist ?version?
 
 Likewise, to be able to use the commands and variables implemented in
 the package Tablelist_tile, your scripts must contain one of the lines
 
-    package require Tablelist_tile
-    package require tablelist_tile
+    package require tablelist_tile ?version?
+    package require Tablelist_tile ?version?
 
-Since the packagse Tablelist and Tablelist_tile are implemented in the
-namespace "tablelist", you must either import the procedures you need,
+Since the packages Tablelist and Tablelist_tile are implemented in the
+"tablelist" namespace, you must either import the procedures you need,
 or use qualified names like "tablelist::tablelist".
 
 For a detailed description of the commands and variables provided by

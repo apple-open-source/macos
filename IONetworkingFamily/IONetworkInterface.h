@@ -181,7 +181,7 @@ class  IOCommandGate;
     all outbound packets sent to the interface from the data link layer.
     An output handler is registered with the interface by calling
     registerOutputHandler().
-    @param m A packet mbuf.
+    @param mbuf_t A packet mbuf.
     @param param A parameter for the output request. */
 
 typedef UInt32 (OSObject::*IOOutputAction)(mbuf_t, void * param);
@@ -266,8 +266,8 @@ private:
 		IONetworkStats  lastDriverStats;
 		struct ifnet_stat_increment_param inputDeltas;
 		IOLock			*detachLock;
-                char                          *remote_NMI_pattern;
-                unsigned int                   remote_NMI_len;
+        char            *remote_NMI_pattern;
+        unsigned int    remote_NMI_len;
     };
 
     ExpansionData *         _reserved;
@@ -381,7 +381,7 @@ public:
     to manage the input queue are flushInputQueue() and clearInputQueue().
     This input queue is not protected by a lock. Access to the queue by the
     controller must be serialized, otherwise its use must be avoided.
-    @param m The mbuf containing the received packet.
+    @param mbuf_t The mbuf containing the received packet.
     @param length Specify the size of the received packet in the mbuf.
            The mbuf length fields are updated with this value. If zero,
            then the mbuf length fields are not updated.
@@ -922,7 +922,7 @@ protected:
     @abstract Updates the interface object state flags.
     @discussion The kIOInterfaceState property is updated with the value
     provided.
-    @param flags The bits that should be set.
+    @param set The bits that should be set.
     @param clear The bits that should be cleared.
     @result Returns the resulting interface state flags following any changes
     made by this method. 
@@ -1059,23 +1059,23 @@ public:
     OSMetaClassDeclareReservedUsed(IONetworkInterface, 1);
 
 protected:
-/*! @function feedInputPacketTap
+/*! @function feedPacketInputTap
     @abstract Feed received packets to the BPF
     @discussion This function is called by the family for each inbound packet
     to feed it to the BPF function.  Interface classes can override if they
     need to provide class specific functionality or modifications to the BPF tap.
-    @param mbuf Pointer to the packet.
+    @param mbuf_t Pointer to the packet.
 */
     virtual void feedPacketInputTap(mbuf_t);
 
 	OSMetaClassDeclareReservedUsed( IONetworkInterface,  2);
 
-/*! @function feedOutputPacketTap
+/*! @function feedPacketOutputTap
     @abstract Feed sent packets to the BPF
     @discussion This function is called by the family for each outbound packet
     to feed it to the BPF function.  Interface classes can override if they
     need to provide class specific functionality or modifications to the BPF tap.
-    @param mbuf Pointer to the packet.
+    @param mbuf_t Pointer to the packet.
 */
 	virtual void feedPacketOutputTap(mbuf_t);
 

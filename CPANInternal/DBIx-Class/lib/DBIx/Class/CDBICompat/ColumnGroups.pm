@@ -3,6 +3,8 @@ package # hide from PAUSE
 
 use strict;
 use warnings;
+use Sub::Name ();
+use Storable 'dclone';
 
 use base qw/DBIx::Class::Row/;
 
@@ -12,6 +14,8 @@ sub columns {
   my $proto = shift;
   my $class = ref $proto || $proto;
   my $group = shift || "All";
+  $class->_init_result_source_instance();
+
   $class->_add_column_group($group => @_) if @_;
   return $class->all_columns    if $group eq "All";
   return $class->primary_column if $group eq "Primary";
@@ -20,33 +24,107 @@ sub columns {
 
 sub _add_column_group {
   my ($class, $group, @cols) = @_;
+  $class->mk_group_accessors(column => @cols);
   $class->add_columns(@cols);
   $class->_register_column_group($group => @cols);
+}
+
+sub add_columns {
+  my ($class, @cols) = @_;
+  $class->result_source_instance->add_columns(@cols);
 }
 
 sub _register_column_group {
   my ($class, $group, @cols) = @_;
 
-  my $groups = { %{$class->_column_groups} };
+  # Must do a complete deep copy else column groups
+  # might accidentally be shared.
+  my $groups = dclone $class->_column_groups;
 
   if ($group eq 'Primary') {
     $class->set_primary_key(@cols);
-    $groups->{'Essential'}{$_} ||= {} for @cols;
+    $groups->{'Essential'}{$_} ||= 1 for @cols;
   }
 
   if ($group eq 'All') {
     unless (exists $class->_column_groups->{'Primary'}) {
-      $groups->{'Primary'}{$cols[0]} = {};
+      $groups->{'Primary'}{$cols[0]} = 1;
       $class->set_primary_key($cols[0]);
     }
     unless (exists $class->_column_groups->{'Essential'}) {
-      $groups->{'Essential'}{$cols[0]} = {};
+      $groups->{'Essential'}{$cols[0]} = 1;
     }
   }
 
-  $groups->{$group}{$_} ||= {} for @cols;
+  $groups->{$group}{$_} ||= 1 for @cols;
 
   $class->_column_groups($groups);
+}
+
+# CDBI will never overwrite an accessor, but it only uses one
+# accessor for all column types.  DBIC uses many different
+# accessor types so, for example, if you declare a column()
+# and then a has_a() for that same column it must overwrite.
+#
+# To make this work CDBICompat has decide if an accessor
+# method was put there by itself and only then overwrite.
+{
+  my %our_accessors;
+
+  sub _has_custom_accessor {
+    my($class, $name) = @_;
+
+    no strict 'refs';
+    my $existing_accessor = *{$class .'::'. $name}{CODE};
+    return $existing_accessor && !$our_accessors{$existing_accessor};
+  }
+
+  sub _deploy_accessor {
+    my($class, $name, $accessor) = @_;
+
+    return if $class->_has_custom_accessor($name);
+
+    {
+      no strict 'refs';
+      no warnings 'redefine';
+      my $fullname = join '::', $class, $name;
+      *$fullname = Sub::Name::subname $fullname, $accessor;
+    }
+
+    $our_accessors{$accessor}++;
+
+    return 1;
+  }
+}
+
+sub _mk_group_accessors {
+  my ($class, $type, $group, @fields) = @_;
+
+  # So we don't have to do lots of lookups inside the loop.
+  my $maker = $class->can($type) unless ref $type;
+
+  # warn "$class $type $group\n";
+  foreach my $field (@fields) {
+    if( $field eq 'DESTROY' ) {
+        carp("Having a data accessor named DESTROY in ".
+             "'$class' is unwise.");
+    }
+
+    my $name = $field;
+
+    ($name, $field) = @$field if ref $field;
+
+    my $accessor = $class->$maker($group, $field);
+    my $alias = "_${name}_accessor";
+
+    # warn "  $field $alias\n";
+    {
+      no strict 'refs';
+
+      $class->_deploy_accessor($name,  $accessor);
+      $class->_deploy_accessor($alias, $accessor);
+    }
+  }
 }
 
 sub all_columns { return shift->result_source_instance->columns; }
@@ -55,6 +133,10 @@ sub primary_column {
   my ($class) = @_;
   my @pri = $class->primary_columns;
   return wantarray ? @pri : $pri[0];
+}
+
+sub _essential {
+    return shift->columns("Essential");
 }
 
 sub find_column {
@@ -73,7 +155,8 @@ sub _find_columns {
   return map { $class->find_column($_) } @col;
 }
 
-package DBIx::Class::CDBICompat::ColumnGroups::GrouperShim;
+package # hide from PAUSE (should be harmless, no POD no Version)
+    DBIx::Class::CDBICompat::ColumnGroups::GrouperShim;
 
 sub groups_for {
   my ($self, @cols) = @_;
@@ -85,6 +168,5 @@ sub groups_for {
   }
   return keys %groups;
 }
-    
 
 1;

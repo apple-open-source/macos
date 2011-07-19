@@ -1,0 +1,104 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin dia n 1.0]
+[copyright {2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[titledesc {Lightweight Diagram Processor}]
+[moddesc   {Documentation toolbox}]
+[category  {Documentation tools}]
+[description]
+[para]
+
+The application described by this document, [syscmd dia], is a
+lightweight processor for tklib diagram files
+
+[para]
+
+[syscmd dia] is based upon the package [package diagram].
+See it for examples and language reference.
+
+[subsection {USE CASES}]
+
+[syscmd dia] was written with the following two use cases in
+mind.
+
+[para]
+[list_begin enumerated]
+[enum]
+Processing and display of one or more diagram files.
+
+[enum]
+Batch conversion of one or more diagram files into raster image files.
+
+[list_end]
+
+[para]
+
+[subsection {COMMAND LINE}]
+
+[list_begin definitions]
+
+[call [cmd dia] [method show] [arg inputfile]...]
+
+This is the form for use case [lb]1[rb]. The application opens a gui
+showing the list of input files to the left, allowing the user to
+choose which of them to render to the canvas on the right.
+
+
+[call [cmd dia] [method convert] [option -o] [arg output] [arg format] [arg inputfile]...]
+
+This is the form for use case [lb]2[rb]. The application converts
+the input files into raster image of the specified [arg format].
+
+
+[list_begin arguments]
+
+[arg_def path output in]
+
+This argument specifies where to write the generated image. It can
+be the path to a file or directory.
+
+[para]
+
+If the [arg output] does not exist then [lb]file dirname $output[rb]
+has to exist and must be a writable directory.
+
+[para]
+In case of multiple input files the generated image will be written to
+a file in the directory, and the name of that file will be derived
+from the [arg inputfile], and [arg format].
+
+[para]
+In case of a single input file the generated image will be written to
+the file.
+
+
+[arg_def (handle) format in]
+
+This argument specifies the image format to convert the diagrams into
+when processing the input. The application recognizes all formats
+supported by the [package Img] package, i.e. for which it can load a
+package [package img::[var format]]
+
+[arg_def path inputfile in]
+
+This argument specifies the path to the diagram file to process. It
+has to exist, must be readable, and written in [term diagram] format.
+
+[list_end]
+[para]
+
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the application it describes, will undoubtedly
+contain bugs and other problems.
+
+Please report such in the category [emph diagram] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+application and/or documentation.
+
+
+[keywords diagram vector canvas conversion]
+[manpage_end]

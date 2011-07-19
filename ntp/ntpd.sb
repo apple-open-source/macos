@@ -1,6 +1,6 @@
 ;;
 ;; ntpd - sandbox profile
-;; Copyright (c) 2006-2007 Apple Inc.  All Rights reserved.
+;; Copyright (c) 2006-2009 Apple Inc.  All Rights reserved.
 ;;
 ;; WARNING: The sandbox rules in this file currently constitute 
 ;; Apple System Private Interface and are subject to change at any time and
@@ -9,29 +9,38 @@
 ;;
 (version 1)
 
-(debug deny)
-
 (deny default)
-(allow process*)
-; These were commented out, I think that was a pre-WWDC bug that has been fixed
-; and they can be brought back, and the above line removed:
-;  (allow process-fork)
-;  (allow process-exec (regex "^/usr/sbin/ntpd$"))
-(deny signal)
-(allow sysctl-read)
-; This might be able to be tightened up (I think networ filters were
-; broken pre-WWDC).  See named.sb for examples.
-(allow network*)
+
+(allow process-fork)
+
+(allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
 
 ;;; Allow NTP specific files
 (allow file-read-data file-read-metadata
-  (regex "^(/private)?/etc/ntp\\.(conf|keys)$"))
-
-(allow file-read-data file-read-metadata file-write-data
-  (regex "^(/private)?/var/db/ntp\\.drift(\\.TEMP)?$"))
+       (literal "/private/etc/ntp-restrict.conf")
+       (regex "^/private/etc/ntp\\.(conf|keys)$")
+       (literal "/private/var/mobile/Library/Preferences/ntp.conf")
+       (regex "^/private/etc/(services|hosts)$")
+       (regex "^/private/var/run/tmpntp.conf.*"))
 
 (allow file-write* file-read-data file-read-metadata
-  (regex "^(/private)?/var/run/ntpd\\.pid$"))
+       (literal "/private/var/run/ntpd.pid")
+       (regex "^/private/var/(db|mobile/Library/Preferences)/ntp\\.drift(\\.TEMP)?$")
+       (subpath "/private/tmp")
+       (subpath "/private/var/tmp"))
 
-(allow time-set)
+(allow network-inbound
+       (local udp "*:123"))
+
+(allow network-outbound
+       (control-name "com.apple.netsrc")
+       (control-name "com.apple.network.statistics")
+       (literal "/private/var/run/mDNSResponder")
+       (remote udp))
+
+(allow mach-lookup
+       (global-name "com.apple.SystemConfiguration.configd"))
+
+(allow system-set-time)
+(allow system-socket)
 (import "bsd.sb")

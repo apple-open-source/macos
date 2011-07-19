@@ -20,9 +20,10 @@
 #ifndef BINDINGS_QT_RUNTIME_H_
 #define BINDINGS_QT_RUNTIME_H_
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "Completion.h"
-#include "Protect.h"
+#include "Strong.h"
+#include "Weak.h"
 #include "runtime_method.h"
 
 #include <qbytearray.h>
@@ -62,7 +63,7 @@ public:
 
     virtual JSValue valueFromInstance(ExecState*, const Instance*) const;
     virtual void setValueToInstance(ExecState*, const Instance*, JSValue) const;
-    virtual const char* name() const;
+    QByteArray name() const;
     QtFieldType fieldType() const {return m_type;}
 private:
     QtFieldType m_type;
@@ -115,11 +116,15 @@ private:
 // Based on RuntimeMethod
 
 // Extra data classes (to avoid the CELL_SIZE limit on JS objects)
-
-class QtRuntimeMethodData {
+class QtRuntimeMethod;
+class QtRuntimeMethodData : public WeakHandleOwner {
     public:
         virtual ~QtRuntimeMethodData();
         RefPtr<QtInstance> m_instance;
+        Weak<QtRuntimeMethod> m_finalizer;
+
+    private:
+        void finalize(Handle<Unknown>, void*);
 };
 
 class QtRuntimeConnectionMethod;
@@ -129,8 +134,8 @@ class QtRuntimeMetaMethodData : public QtRuntimeMethodData {
         QByteArray m_signature;
         bool m_allowPrivate;
         int m_index;
-        QtRuntimeConnectionMethod *m_connect;
-        QtRuntimeConnectionMethod *m_disconnect;
+        WriteBarrier<QtRuntimeConnectionMethod> m_connect;
+        WriteBarrier<QtRuntimeConnectionMethod> m_disconnect;
 };
 
 class QtRuntimeConnectionMethodData : public QtRuntimeMethodData {
@@ -153,13 +158,13 @@ public:
         return globalObject->functionPrototype();
     }
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | InternalFunction::StructureFlags | OverridesMarkChildren;
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | InternalFunction::StructureFlags | OverridesVisitChildren;
 
     QtRuntimeMethodData *d_func() const {return d_ptr;}
     QtRuntimeMethod(QtRuntimeMethodData *dd, ExecState *exec, const Identifier &n, PassRefPtr<QtInstance> inst);
@@ -175,14 +180,14 @@ public:
     virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
     virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
-    virtual void markChildren(MarkStack& markStack);
+    virtual void visitChildren(SlotVisitor&);
 
 protected:
     QtRuntimeMetaMethodData* d_func() const {return reinterpret_cast<QtRuntimeMetaMethodData*>(d_ptr);}
 
 private:
     virtual CallType getCallData(CallData&);
-    static JSValue JSC_HOST_CALL call(ExecState* exec, JSObject* functionObject, JSValue thisValue, const ArgList& args);
+    static EncodedJSValue JSC_HOST_CALL call(ExecState* exec);
     static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
     static JSValue connectGetter(ExecState*, JSValue, const Identifier&);
     static JSValue disconnectGetter(ExecState*, JSValue, const Identifier&);
@@ -203,7 +208,7 @@ protected:
 
 private:
     virtual CallType getCallData(CallData&);
-    static JSValue JSC_HOST_CALL call(ExecState* exec, JSObject* functionObject, JSValue thisValue, const ArgList& args);
+    static EncodedJSValue JSC_HOST_CALL call(ExecState* exec);
     static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
     static QMultiMap<QObject *, QtConnectionObject *> connections;
     friend class QtConnectionObject;
@@ -212,7 +217,7 @@ private:
 class QtConnectionObject: public QObject
 {
 public:
-    QtConnectionObject(PassRefPtr<QtInstance> instance, int signalIndex, JSObject* thisObject, JSObject* funcObject);
+    QtConnectionObject(JSGlobalData&, PassRefPtr<QtInstance> instance, int signalIndex, JSObject* thisObject, JSObject* funcObject);
     ~QtConnectionObject();
 
     static const QMetaObject staticMetaObject;
@@ -229,8 +234,8 @@ private:
     RefPtr<QtInstance> m_instance;
     int m_signalIndex;
     QObject* m_originalObject; // only used as a key, not dereferenced
-    ProtectedPtr<JSObject> m_thisObject;
-    ProtectedPtr<JSObject> m_funcObject;
+    Strong<JSObject> m_thisObject;
+    Strong<JSObject> m_funcObject;
 };
 
 QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type hint, int *distance);

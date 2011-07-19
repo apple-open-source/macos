@@ -1,0 +1,609 @@
+diff -ur dovecot-1.1.7/src/auth/auth-cache.c dovecot-patch/src/auth/auth-cache.c
+--- dovecot-1.1.7/src/auth/auth-cache.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/auth-cache.c	2008-12-16 21:11:17.000000000 -0600
+@@ -119,8 +119,8 @@
+ 	struct auth_cache *cache;
+ 
+ 	cache = i_new(struct auth_cache, 1);
+-	cache->hash = hash_create(default_pool, default_pool, 0, str_hash,
+-				  (hash_cmp_callback_t *)strcmp);
++	cache->hash = hash_table_create(default_pool, default_pool, 0, str_hash,
++					(hash_cmp_callback_t *)strcmp);
+ 	cache->size_left = max_size;
+ 	cache->ttl_secs = ttl_secs;
+ 	cache->neg_ttl_secs = neg_ttl_secs;
+@@ -139,7 +139,7 @@
+ 	lib_signals_unset_handler(SIGUSR2, sig_auth_cache_stats, cache);
+ 
+ 	auth_cache_clear(cache);
+-	hash_destroy(&cache->hash);
++	hash_table_destroy(&cache->hash);
+ 	i_free(cache);
+ }
+ 
+diff -ur dovecot-1.1.7/src/auth/auth-request-handler.c dovecot-patch/src/auth/auth-request-handler.c
+--- dovecot-1.1.7/src/auth/auth-request-handler.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/auth-request-handler.c	2008-12-16 21:11:17.000000000 -0600
+@@ -52,7 +52,7 @@
+ 	handler = p_new(pool, struct auth_request_handler, 1);
+ 	handler->refcount = 1;
+ 	handler->pool = pool;
+-	handler->requests = hash_create(default_pool, pool, 0, NULL, NULL);
++	handler->requests = hash_table_create(default_pool, pool, 0, NULL, NULL);
+ 	handler->auth = auth;
+ 	handler->callback = callback;
+ 	handler->context = context;
+@@ -82,7 +82,7 @@
+ 	/* notify parent that we're done with all requests */
+ 	handler->callback(NULL, handler->context);
+ 
+-	hash_destroy(&handler->requests);
++	hash_table_destroy(&handler->requests);
+ 	pool_unref(&handler->pool);
+ }
+ 
+diff -ur dovecot-1.1.7/src/auth/db-ldap.c dovecot-patch/src/auth/db-ldap.c
+--- dovecot-1.1.7/src/auth/db-ldap.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/db-ldap.c	2008-12-16 21:11:17.000000000 -0600
+@@ -1260,9 +1260,9 @@
+ 	aqueue_deinit(&conn->request_queue);
+ 
+ 	if (conn->pass_attr_map != NULL)
+-		hash_destroy(&conn->pass_attr_map);
++		hash_table_destroy(&conn->pass_attr_map);
+ 	if (conn->user_attr_map != NULL)
+-		hash_destroy(&conn->user_attr_map);
++		hash_table_destroy(&conn->user_attr_map);
+ 	pool_unref(&conn->pool);
+ }
+ 
+diff -ur dovecot-1.1.7/src/auth/db-passwd-file.c dovecot-patch/src/auth/db-passwd-file.c
+--- dovecot-1.1.7/src/auth/db-passwd-file.c	2008-11-19 08:29:51.000000000 -0600
++++ dovecot-patch/src/auth/db-passwd-file.c	2008-12-16 21:11:17.000000000 -0600
+@@ -179,8 +179,8 @@
+ 	pw->size = st.st_size;
+ 
+ 	pw->pool = pool_alloconly_create(MEMPOOL_GROWING"passwd_file", 10240);
+-	pw->users = hash_create(default_pool, pw->pool, 100,
+-				str_hash, (hash_cmp_callback_t *)strcmp);
++	pw->users = hash_table_create(default_pool, pw->pool, 100,
++				      str_hash, (hash_cmp_callback_t *)strcmp);
+ 
+ 	input = i_stream_create_fd(pw->fd, 4096, FALSE);
+ 	i_stream_set_return_partial_line(input, TRUE);
+@@ -217,7 +217,7 @@
+ 	}
+ 
+ 	if (pw->users != NULL)
+-		hash_destroy(&pw->users);
++		hash_table_destroy(&pw->users);
+ 	if (pw->pool != NULL)
+ 		pool_unref(&pw->pool);
+ }
+@@ -309,9 +309,9 @@
+ 
+ 	db->path = i_strdup(path);
+ 	if (db->vars) {
+-		db->files = hash_create(default_pool, default_pool, 100,
+-					str_hash,
+-					(hash_cmp_callback_t *)strcmp);
++		db->files = hash_table_create(default_pool, default_pool, 100,
++					      str_hash,
++					      (hash_cmp_callback_t *)strcmp);
+ 	} else {
+ 		db->default_file = passwd_file_new(db, path);
+ 	}
+@@ -359,7 +359,7 @@
+ 			passwd_file_free(file);
+ 		}
+ 		hash_iterate_deinit(&iter);
+-		hash_destroy(&db->files);
++		hash_table_destroy(&db->files);
+ 	}
+ 	i_free(db->path);
+ 	i_free(db);
+diff -ur dovecot-1.1.7/src/auth/otp-skey-common.c dovecot-patch/src/auth/otp-skey-common.c
+--- dovecot-1.1.7/src/auth/otp-skey-common.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/otp-skey-common.c	2008-12-16 21:09:53.000000000 -0600
+@@ -20,9 +20,9 @@
+ 	if (otp_lock_table != NULL)
+ 		return;
+ 
+-	otp_lock_table = hash_create(system_pool, system_pool,
+-				     128, strcase_hash,
+-				     (hash_cmp_callback_t *)strcasecmp);
++	otp_lock_table = hash_table_create(system_pool, system_pool,
++					   128, strcase_hash,
++					   (hash_cmp_callback_t *)strcasecmp);
+ }
+ 
+ int otp_try_lock(struct auth_request *auth_request)
+diff -ur dovecot-1.1.7/src/auth/passdb-checkpassword.c dovecot-patch/src/auth/passdb-checkpassword.c
+--- dovecot-1.1.7/src/auth/passdb-checkpassword.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/passdb-checkpassword.c	2008-12-16 21:11:17.000000000 -0600
+@@ -438,7 +438,7 @@
+ 		PKG_LIBEXECDIR"/checkpassword-reply";
+ 
+ 	module->clients =
+-		hash_create(default_pool, default_pool, 0, NULL, NULL);
++		hash_table_create(default_pool, default_pool, 0, NULL, NULL);
+ 
+ 	return &module->module;
+ }
+@@ -464,7 +464,7 @@
+ 					     PASSDB_RESULT_INTERNAL_FAILURE);
+ 	}
+ 	hash_iterate_deinit(&iter);
+-	hash_destroy(&module->clients);
++	hash_table_destroy(&module->clients);
+ }
+ 
+ struct passdb_module_interface passdb_checkpassword = {
+diff -ur dovecot-1.1.7/src/auth/passdb-ldap.c dovecot-patch/src/auth/passdb-ldap.c
+--- dovecot-1.1.7/src/auth/passdb-ldap.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/passdb-ldap.c	2008-12-16 21:09:53.000000000 -0600
+@@ -393,8 +393,8 @@
+ 	module = p_new(auth_passdb->auth->pool, struct ldap_passdb_module, 1);
+ 	module->conn = conn = db_ldap_init(args);
+ 	conn->pass_attr_map =
+-		hash_create(default_pool, conn->pool, 0, str_hash,
+-			    (hash_cmp_callback_t *)strcmp);
++		hash_table_create(default_pool, conn->pool, 0, str_hash,
++				  (hash_cmp_callback_t *)strcmp);
+ 
+ 	db_ldap_set_attrs(conn, conn->set.pass_attrs, &conn->pass_attr_names,
+ 			  conn->pass_attr_map,
+diff -ur dovecot-1.1.7/src/auth/userdb-ldap.c dovecot-patch/src/auth/userdb-ldap.c
+--- dovecot-1.1.7/src/auth/userdb-ldap.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/auth/userdb-ldap.c	2008-12-16 21:09:53.000000000 -0600
+@@ -123,8 +123,8 @@
+ 	module = p_new(auth_userdb->auth->pool, struct ldap_userdb_module, 1);
+ 	module->conn = conn = db_ldap_init(args);
+ 	conn->user_attr_map =
+-		hash_create(default_pool, conn->pool, 0, str_hash,
+-			    (hash_cmp_callback_t *)strcmp);
++		hash_table_create(default_pool, conn->pool, 0, str_hash,
++				  (hash_cmp_callback_t *)strcmp);
+ 
+ 	db_ldap_set_attrs(conn, conn->set.user_attrs, &conn->user_attr_names,
+ 			  conn->user_attr_map, NULL);
+diff -ur dovecot-1.1.7/src/deliver/duplicate.c dovecot-patch/src/deliver/duplicate.c
+--- dovecot-1.1.7/src/deliver/duplicate.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/deliver/duplicate.c	2008-12-16 21:11:17.000000000 -0600
+@@ -212,8 +212,8 @@
+ 					 &file->dotlock);
+ 	if (file->new_fd == -1)
+ 		i_error("file_dotlock_create(%s) failed: %m", path);
+-	file->hash = hash_create(default_pool, pool, 0,
+-				 duplicate_hash, duplicate_cmp);
++	file->hash = hash_table_create(default_pool, pool, 0,
++				       duplicate_hash, duplicate_cmp);
+ 	(void)duplicate_read(file);
+ 	return file;
+ }
+@@ -226,7 +226,7 @@
+ 	if (file->dotlock != NULL)
+ 		file_dotlock_delete(&file->dotlock);
+ 
+-	hash_destroy(&file->hash);
++	hash_table_destroy(&file->hash);
+ 	pool_unref(&file->pool);
+ }
+ 
+diff -ur dovecot-1.1.7/src/imap/imap-thread.c dovecot-patch/src/imap/imap-thread.c
+--- dovecot-1.1.7/src/imap/imap-thread.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/imap/imap-thread.c	2008-12-16 21:11:17.000000000 -0600
+@@ -93,9 +93,9 @@
+ static void mail_thread_deinit(struct thread_context *ctx)
+ {
+ 	if (ctx->msgid_hash != NULL)
+-		hash_destroy(&ctx->msgid_hash);
++		hash_table_destroy(&ctx->msgid_hash);
+ 	if (ctx->subject_hash != NULL)
+-		hash_destroy(&ctx->subject_hash);
++		hash_table_destroy(&ctx->subject_hash);
+ 
+ 	pool_unref(&ctx->temp_pool);
+ 	pool_unref(&ctx->pool);
+@@ -131,9 +131,9 @@
+ 	ctx->temp_pool = pool_alloconly_create("thread_context temp",
+ 					       APPROX_MSG_COUNT *
+ 					       APPROX_MSGID_SIZE);
+-	ctx->msgid_hash = hash_create(default_pool, ctx->temp_pool,
+-				      APPROX_MSG_COUNT*2, str_hash,
+-				      (hash_cmp_callback_t *)strcmp);
++	ctx->msgid_hash = hash_table_create(default_pool, ctx->temp_pool,
++					    APPROX_MSG_COUNT*2, str_hash,
++					    (hash_cmp_callback_t *)strcmp);
+ 	ctx->id_is_uid = cmd->uid;
+ 
+ 	headers_ctx = mailbox_header_lookup_init(client->mailbox,
+@@ -676,8 +676,8 @@
+ 	uint32_t seq;
+ 
+ 	ctx->subject_hash =
+-		hash_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
+-			    str_hash, (hash_cmp_callback_t *)strcmp);
++		hash_table_create(default_pool, ctx->temp_pool, ctx->root_count * 2,
++				  str_hash, (hash_cmp_callback_t *)strcmp);
+ 
+ 	headers_ctx = mailbox_header_lookup_init(ctx->box, wanted_headers);
+ 	ctx->mail = mail_alloc(ctx->t, 0, headers_ctx);
+@@ -947,7 +947,7 @@
+ 
+ 	/* drop the memory allocated for message-IDs and msgid_hash,
+ 	   reuse their memory for base subjects */
+-	hash_destroy(&ctx->msgid_hash);
++	hash_table_destroy(&ctx->msgid_hash);
+ 	p_clear(ctx->temp_pool);
+ 
+ 	if (ctx->root_node.first_child == NULL) {
+diff -ur dovecot-1.1.7/src/lib/hash.c dovecot-patch/src/lib/hash.c
+--- dovecot-1.1.7/src/lib/hash.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib/hash.c	2008-12-16 21:11:17.000000000 -0600
+@@ -50,8 +50,8 @@
+ }
+ 
+ struct hash_table *
+-hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
+-	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
++hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
++		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb)
+ {
+ 	struct hash_table *table;
+ 
+@@ -101,7 +101,7 @@
+ 	}
+ }
+ 
+-void hash_destroy(struct hash_table **_table)
++void hash_table_destroy(struct hash_table **_table)
+ {
+ 	struct hash_table *table = *_table;
+ 
+diff -ur dovecot-1.1.7/src/lib/hash.h dovecot-patch/src/lib/hash.h
+--- dovecot-1.1.7/src/lib/hash.h	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib/hash.h	2008-12-16 21:11:17.000000000 -0600
+@@ -11,11 +11,12 @@
+ 
+    table_pool is used to allocate/free large hash tables, node_pool is used
+    for smaller allocations and can also be alloconly pool. The pools must not
+-   be free'd before hash_destroy() is called. */
++   be free'd before hash_table_destroy() is called. */
++/* APPLE - renamed from hash_create/hash_destroy to avoid libc conflict */
+ struct hash_table *
+-hash_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
+-	    hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
+-void hash_destroy(struct hash_table **table);
++hash_table_create(pool_t table_pool, pool_t node_pool, unsigned int initial_size,
++		  hash_callback_t *hash_cb, hash_cmp_callback_t *key_compare_cb);
++void hash_table_destroy(struct hash_table **table);
+ /* Remove all nodes from hash table. If free_collisions is TRUE, the
+    memory allocated from node_pool is freed, or discarded with
+    alloconly pools. */
+diff -ur dovecot-1.1.7/src/lib-auth/auth-server-connection.c dovecot-patch/src/lib-auth/auth-server-connection.c
+--- dovecot-1.1.7/src/lib-auth/auth-server-connection.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-auth/auth-server-connection.c	2008-12-16 21:11:17.000000000 -0600
+@@ -248,7 +248,7 @@
+ 	conn->input = i_stream_create_fd(fd, AUTH_CLIENT_MAX_LINE_LENGTH,
+ 					 FALSE);
+ 	conn->output = o_stream_create_fd(fd, (size_t)-1, FALSE);
+-	conn->requests = hash_create(default_pool, pool, 100, NULL, NULL);
++	conn->requests = hash_table_create(default_pool, pool, 100, NULL, NULL);
+ 	conn->auth_mechs_buf = buffer_create_dynamic(default_pool, 256);
+ 
+ 	conn->to = timeout_add(AUTH_HANDSHAKE_TIMEOUT,
+@@ -324,7 +324,7 @@
+ 		return;
+ 	i_assert(conn->refcount == 0);
+ 
+-	hash_destroy(&conn->requests);
++	hash_table_destroy(&conn->requests);
+ 	buffer_free(&conn->auth_mechs_buf);
+ 
+ 	i_stream_unref(&conn->input);
+diff -ur dovecot-1.1.7/src/lib-index/mail-cache.c dovecot-patch/src/lib-index/mail-cache.c
+--- dovecot-1.1.7/src/lib-index/mail-cache.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-index/mail-cache.c	2008-12-16 21:11:17.000000000 -0600
+@@ -409,8 +409,8 @@
+ 		i_strconcat(index->filepath, MAIL_CACHE_FILE_SUFFIX, NULL);
+ 	cache->field_pool = pool_alloconly_create("Cache fields", 1024);
+ 	cache->field_name_hash =
+-		hash_create(default_pool, cache->field_pool, 0,
+-			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
++		hash_table_create(default_pool, cache->field_pool, 0,
++				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+ 
+ 	cache->dotlock_settings.use_excl_lock = index->use_excl_dotlocks;
+ 	cache->dotlock_settings.nfs_flush = index->nfs_flush;
+@@ -478,7 +478,7 @@
+ 
+ 	mail_cache_file_close(cache);
+ 
+-	hash_destroy(&cache->field_name_hash);
++	hash_table_destroy(&cache->field_name_hash);
+ 	pool_unref(&cache->field_pool);
+ 	i_free(cache->field_file_map);
+ 	i_free(cache->file_field_map);
+diff -ur dovecot-1.1.7/src/lib-index/mail-index.c dovecot-patch/src/lib-index/mail-index.c
+--- dovecot-1.1.7/src/lib-index/mail-index.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-index/mail-index.c	2008-12-16 21:11:17.000000000 -0600
+@@ -47,8 +47,8 @@
+ 	index->keywords_pool = pool_alloconly_create("keywords", 512);
+ 	i_array_init(&index->keywords, 16);
+ 	index->keywords_hash =
+-		hash_create(default_pool, index->keywords_pool, 0,
+-			    strcase_hash, (hash_cmp_callback_t *)strcasecmp);
++		hash_table_create(default_pool, index->keywords_pool, 0,
++				  strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+ 	index->log = mail_transaction_log_alloc(index);
+ 	return index;
+ }
+@@ -61,7 +61,7 @@
+ 	mail_index_close(index);
+ 
+ 	mail_transaction_log_free(&index->log);
+-	hash_destroy(&index->keywords_hash);
++	hash_table_destroy(&index->keywords_hash);
+ 	pool_unref(&index->extension_pool);
+ 	pool_unref(&index->keywords_pool);
+ 
+diff -ur dovecot-1.1.7/src/lib-sql/sql-pool.c dovecot-patch/src/lib-sql/sql-pool.c
+--- dovecot-1.1.7/src/lib-sql/sql-pool.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-sql/sql-pool.c	2008-12-16 21:11:17.000000000 -0600
+@@ -122,8 +122,8 @@
+ 	struct sql_pool *pool;
+ 
+ 	pool = i_new(struct sql_pool, 1);
+-	pool->dbs = hash_create(default_pool, default_pool, 0, str_hash,
+-				(hash_cmp_callback_t *)strcmp);
++	pool->dbs = hash_table_create(default_pool, default_pool, 0, str_hash,
++				      (hash_cmp_callback_t *)strcmp);
+ 	pool->max_unused_connections = max_unused_connections;
+ 	return pool;
+ }
+@@ -133,6 +133,6 @@
+ 	struct sql_pool *pool = *_pool;
+ 
+ 	*_pool = NULL;
+-	hash_destroy(&pool->dbs);
++	hash_table_destroy(&pool->dbs);
+ 	i_free(pool);
+ }
+diff -ur dovecot-1.1.7/src/lib-storage/index/dbox/dbox-sync.c dovecot-patch/src/lib-storage/index/dbox/dbox-sync.c
+--- dovecot-1.1.7/src/lib-storage/index/dbox/dbox-sync.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-storage/index/dbox/dbox-sync.c	2008-12-16 21:11:17.000000000 -0600
+@@ -205,7 +205,7 @@
+ 
+ 	/* read all changes and sort them to file_id order */
+ 	ctx->pool = pool_alloconly_create("dbox sync pool", 1024*32);
+-	ctx->syncs = hash_create(default_pool, ctx->pool, 0, NULL, NULL);
++	ctx->syncs = hash_table_create(default_pool, ctx->pool, 0, NULL, NULL);
+ 	i_array_init(&ctx->expunge_files, 32);
+ 	i_array_init(&ctx->locked_files, 32);
+ 
+@@ -243,7 +243,7 @@
+ 
+ 	dbox_sync_unlock_files(ctx);
+ 	array_free(&ctx->locked_files);
+-	hash_destroy(&ctx->syncs);
++	hash_table_destroy(&ctx->syncs);
+ 	pool_unref(&ctx->pool);
+ 	return ret;
+ }
+diff -ur dovecot-1.1.7/src/lib-storage/index/maildir/maildir-keywords.c dovecot-patch/src/lib-storage/index/maildir/maildir-keywords.c
+--- dovecot-1.1.7/src/lib-storage/index/maildir/maildir-keywords.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-storage/index/maildir/maildir-keywords.c	2008-12-16 21:11:17.000000000 -0600
+@@ -71,8 +71,8 @@
+ 	mk->path = i_strconcat(dir, "/" MAILDIR_KEYWORDS_NAME, NULL);
+ 	mk->pool = pool_alloconly_create("maildir keywords", 512);
+ 	i_array_init(&mk->list, MAILDIR_MAX_KEYWORDS);
+-	mk->hash = hash_create(default_pool, mk->pool, 0,
+-			       strcase_hash, (hash_cmp_callback_t *)strcasecmp);
++	mk->hash = hash_table_create(default_pool, mk->pool, 0,
++				     strcase_hash, (hash_cmp_callback_t *)strcasecmp);
+ 
+ 	mk->dotlock_settings.use_excl_lock =
+ 		(box->storage->flags & MAIL_STORAGE_FLAG_DOTLOCK_USE_EXCL) != 0;
+@@ -91,7 +91,7 @@
+ 	struct maildir_keywords *mk = *_mk;
+ 
+ 	*_mk = NULL;
+-	hash_destroy(&mk->hash);
++	hash_table_destroy(&mk->hash);
+ 	array_free(&mk->list);
+ 	pool_unref(&mk->pool);
+ 	i_free(mk->path);
+diff -ur dovecot-1.1.7/src/lib-storage/index/maildir/maildir-uidlist.c dovecot-patch/src/lib-storage/index/maildir/maildir-uidlist.c
+--- dovecot-1.1.7/src/lib-storage/index/maildir/maildir-uidlist.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-storage/index/maildir/maildir-uidlist.c	2008-12-16 21:11:17.000000000 -0600
+@@ -228,9 +228,9 @@
+ 	uidlist->ibox = ibox;
+ 	uidlist->path = i_strconcat(control_dir, "/"MAILDIR_UIDLIST_NAME, NULL);
+ 	i_array_init(&uidlist->records, 128);
+-	uidlist->files = hash_create(default_pool, default_pool, 4096,
+-				     maildir_filename_base_hash,
+-				     maildir_filename_base_cmp);
++	uidlist->files = hash_table_create(default_pool, default_pool, 4096,
++					   maildir_filename_base_hash,
++					   maildir_filename_base_cmp);
+ 	uidlist->next_uid = 1;
+ 	uidlist->hdr_extensions = str_new(default_pool, 128);
+ 
+@@ -280,7 +280,7 @@
+ 	maildir_uidlist_update(uidlist);
+ 	maildir_uidlist_close(uidlist);
+ 
+-	hash_destroy(&uidlist->files);
++	hash_table_destroy(&uidlist->files);
+ 	if (uidlist->record_pool != NULL)
+ 		pool_unref(&uidlist->record_pool);
+ 
+@@ -1327,9 +1327,9 @@
+ 
+ 	ctx->record_pool = pool_alloconly_create(MEMPOOL_GROWING
+ 						 "maildir_uidlist_sync", 16384);
+-	ctx->files = hash_create(default_pool, ctx->record_pool, 4096,
+-				 maildir_filename_base_hash,
+-				 maildir_filename_base_cmp);
++	ctx->files = hash_table_create(default_pool, ctx->record_pool, 4096,
++				       maildir_filename_base_hash,
++				       maildir_filename_base_cmp);
+ 
+ 	i_array_init(&ctx->records, array_count(&uidlist->records));
+ 	return 1;
+@@ -1572,7 +1572,7 @@
+ 	uidlist->records = ctx->records;
+ 	ctx->records.arr.buffer = NULL;
+ 
+-	hash_destroy(&uidlist->files);
++	hash_table_destroy(&uidlist->files);
+ 	uidlist->files = ctx->files;
+ 	ctx->files = NULL;
+ 
+@@ -1626,7 +1626,7 @@
+ 		maildir_uidlist_unlock(ctx->uidlist);
+ 
+ 	if (ctx->files != NULL)
+-		hash_destroy(&ctx->files);
++		hash_table_destroy(&ctx->files);
+ 	if (ctx->record_pool != NULL)
+ 		pool_unref(&ctx->record_pool);
+ 	if (array_is_created(&ctx->records))
+diff -ur dovecot-1.1.7/src/login-common/master.c dovecot-patch/src/login-common/master.c
+--- dovecot-1.1.7/src/login-common/master.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/login-common/master.c	2008-12-16 21:11:17.000000000 -0600
+@@ -262,8 +262,8 @@
+ 	main_ref();
+ 
+ 	master_fd = fd;
+-	master_requests = hash_create(system_pool, system_pool,
+-				      0, NULL, NULL);
++	master_requests = hash_table_create(system_pool, system_pool,
++					    0, NULL, NULL);
+ 
+         master_pos = 0;
+ 	io_master = io_add(master_fd, IO_READ, master_input, NULL);
+@@ -271,7 +271,7 @@
+ 
+ void master_deinit(void)
+ {
+-	hash_destroy(&master_requests);
++	hash_table_destroy(&master_requests);
+ 
+ 	if (io_master != NULL)
+ 		io_remove(&io_master);
+diff -ur dovecot-1.1.7/src/login-common/ssl-proxy-gnutls.c dovecot-patch/src/login-common/ssl-proxy-gnutls.c
+--- dovecot-1.1.7/src/login-common/ssl-proxy-gnutls.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/login-common/ssl-proxy-gnutls.c	2008-12-16 21:11:17.000000000 -0600
+@@ -519,7 +519,7 @@
+         gnutls_certificate_set_dh_params(x509_cred, dh_params);
+         gnutls_certificate_set_rsa_export_params(x509_cred, rsa_params);
+ 
+-        ssl_proxies = hash_create(system_pool, system_pool, 0, NULL, NULL);
++        ssl_proxies = hash_table_create(system_pool, system_pool, 0, NULL, NULL);
+ 	ssl_initialized = TRUE;
+ }
+ 
+@@ -535,7 +535,7 @@
+ 	while (hash_iterate(iter, &key, &value))
+ 		ssl_proxy_destroy(value);
+ 	hash_iterate_deinit(iter);
+-	hash_destroy(ssl_proxies);
++	hash_table_destroy(ssl_proxies);
+ 
+ 	gnutls_certificate_free_credentials(x509_cred);
+ 	gnutls_global_deinit();
+diff -ur dovecot-1.1.7/src/master/auth-process.c dovecot-patch/src/master/auth-process.c
+--- dovecot-1.1.7/src/master/auth-process.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/master/auth-process.c	2008-12-16 21:11:17.000000000 -0600
+@@ -314,7 +314,7 @@
+ 	p->io = io_add(fd, IO_READ, auth_process_input, p);
+ 	p->input = i_stream_create_fd(fd, MAX_INBUF_SIZE, FALSE);
+ 	p->output = o_stream_create_fd(fd, MAX_OUTBUF_SIZE, FALSE);
+-	p->requests = hash_create(default_pool, default_pool, 0, NULL, NULL);
++	p->requests = hash_table_create(default_pool, default_pool, 0, NULL, NULL);
+ 
+ 	group->process_count++;
+ 
+@@ -381,7 +381,7 @@
+ 	while (hash_iterate(iter, &key, &value))
+ 		auth_master_callback(NULL, NULL, value);
+ 	hash_iterate_deinit(&iter);
+-	hash_destroy(&p->requests);
++	hash_table_destroy(&p->requests);
+ 
+ 	i_stream_destroy(&p->input);
+ 	o_stream_destroy(&p->output);
+diff -ur dovecot-1.1.7/src/master/child-process.c dovecot-patch/src/master/child-process.c
+--- dovecot-1.1.7/src/master/child-process.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/master/child-process.c	2008-12-16 21:11:17.000000000 -0600
+@@ -198,7 +198,7 @@
+ 
+ void child_processes_init(void)
+ {
+-	processes = hash_create(default_pool, default_pool, 128, NULL, NULL);
++	processes = hash_table_create(default_pool, default_pool, 128, NULL, NULL);
+ 	lib_signals_set_handler(SIGCHLD, TRUE, sigchld_handler, NULL);
+ }
+ 
+@@ -207,5 +207,5 @@
+ 	/* make sure we log if child processes died unexpectedly */
+ 	sigchld_handler(SIGCHLD, NULL);
+ 	lib_signals_unset_handler(SIGCHLD, sigchld_handler, NULL);
+-	hash_destroy(&processes);
++	hash_table_destroy(&processes);
+ }
+diff -ur dovecot-1.1.7/src/master/mail-process.c dovecot-patch/src/master/mail-process.c
+--- dovecot-1.1.7/src/master/mail-process.c	2008-11-15 11:36:54.000000000 -0600
++++ dovecot-patch/src/master/mail-process.c	2008-12-16 21:11:17.000000000 -0600
+@@ -912,9 +912,9 @@
+ 
+ void mail_processes_init(void)
+ {
+-	mail_process_groups = hash_create(default_pool, default_pool, 0,
+-					  mail_process_group_hash,
+-					  mail_process_group_cmp);
++	mail_process_groups = hash_table_create(default_pool, default_pool, 0,
++						mail_process_group_hash,
++						mail_process_group_cmp);
+ 
+ 	child_process_set_destroy_callback(PROCESS_TYPE_IMAP,
+ 					   mail_process_destroyed);
+@@ -934,5 +934,5 @@
+ 	}
+ 	hash_iterate_deinit(&iter);
+ 
+-	hash_destroy(&mail_process_groups);
++	hash_table_destroy(&mail_process_groups);
+ }
+diff -ur dovecot-1.1.7/src/plugins/acl/acl-cache.c dovecot-patch/src/plugins/acl/acl-cache.c
+--- dovecot-1.1.7/src/plugins/acl/acl-cache.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/plugins/acl/acl-cache.c	2008-12-16 21:11:17.000000000 -0600
+@@ -48,11 +48,11 @@
+ 	cache->validity_rec_size = validity_rec_size;
+ 	cache->right_names_pool =
+ 		pool_alloconly_create("ACL right names", 1024);
+-	cache->objects = hash_create(default_pool, default_pool, 0,
+-				     str_hash, (hash_cmp_callback_t *)strcmp);
++	cache->objects = hash_table_create(default_pool, default_pool, 0,
++					   str_hash, (hash_cmp_callback_t *)strcmp);
+ 	cache->right_name_idx_map =
+-		hash_create(default_pool, cache->right_names_pool, 0,
+-			    str_hash, (hash_cmp_callback_t *)strcmp);
++		hash_table_create(default_pool, cache->right_names_pool, 0,
++				  str_hash, (hash_cmp_callback_t *)strcmp);
+ 	i_array_init(&cache->right_idx_name_map, DEFAULT_ACL_RIGHTS_COUNT);
+ 	return cache;
+ }
+@@ -65,8 +65,8 @@
+ 
+ 	acl_cache_flush_all(cache);
+ 	array_free(&cache->right_idx_name_map);
+-	hash_destroy(&cache->right_name_idx_map);
+-	hash_destroy(&cache->objects);
++	hash_table_destroy(&cache->right_name_idx_map);
++	hash_table_destroy(&cache->objects);
+ 	pool_unref(&cache->right_names_pool);
+ 	i_free(cache);
+ }

@@ -46,18 +46,35 @@
 
 #include "dstools_version.h"
 
+static void print(CFStringRef formatString, ...) {
+	CFStringRef resultString;
+	CFDataRef data;
+	va_list argList;
+
+	va_start(argList, formatString);
+	resultString = CFStringCreateWithFormatAndArguments(NULL, NULL, 
+							    formatString, argList);
+	va_end(argList);
+
+	data = CFStringCreateExternalRepresentation(NULL, resultString, 
+						    kCFStringEncodingUTF8, '?');
+
+	if (data != NULL) {
+		printf ("%.*s\n", (int)CFDataGetLength(data), 
+			CFDataGetBytePtr(data));
+		CFRelease(data);
+	}
+	CFRelease(resultString);
+}
+
 static void printArray( const void *value, void *context )
 {
-	CFStringRef cfPrintString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("\t\t%@"), value );
-	CFShow( cfPrintString );
-	CFRelease( cfPrintString );
+	print(CFSTR("\t\t%@"), value );
 }
 
 static void printDictionary( const void *key, const void *value, void *context )
 {
-	CFStringRef cfPrintString = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("%@ -"), key );
-	CFShow( cfPrintString );
-	CFRelease( cfPrintString );
+	print(CFSTR("%@ -"), key );
 	
 	CFArrayApplyFunction( value, CFRangeMake(0, CFArrayGetCount(value)), printArray, NULL );
 }
@@ -110,7 +127,7 @@ static SInt32 printErrorOrMessage( CFErrorRef *inError, const char *errorString,
 
 volatile int intr;
 
-void
+static void
 intcatch(int dontcare)
 {
 	intr = 1;
@@ -230,7 +247,7 @@ static bool isLegacyGroup( ODRecordRef inRecordRef, CFArrayRef* outShortNameMemb
 //
 //-----------------------------------------------------------------------------
 
-void
+static void
 usage(void)
 {
 	printf("\ndseditgroup (%s):: Manipulate group records with the Open Directory API.\n\n", TOOLS_VERSION);

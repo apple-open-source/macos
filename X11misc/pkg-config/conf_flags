@@ -1,0 +1,1 @@
+--prefix=/usr/local --with-pc-path="/usr/share/pkgconfig:/usr/lib/pkgconfig:$X11_PREFIX/share/pkgconfig:$X11_PREFIX/lib/pkgconfig:/usr/X11/share/pkgconfig:/usr/X11/lib/pkgconfig:/usr/local/share/pkgconfig:/usr/local/lib/pkgconfig"

@@ -26,6 +26,8 @@
 #include "SecImportExportUtils.h"
 #include "SecImportExportAgg.h"
 #include "SecImportExportCrypto.h"
+#include "SecIdentityPriv.h"
+#include "SecItem.h"
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
@@ -866,3 +868,68 @@ OSStatus impExpPassphraseCommon(
 		return errSecPassphraseRequired;
 	}
 }
+
+CSSM_KEYATTR_FLAGS ConvertArrayToKeyAttributes(SecKeyRef aKey, CFArrayRef usage)
+{
+	CSSM_KEYATTR_FLAGS result = CSSM_KEYATTR_RETURN_DEFAULT;
+	if (NULL == aKey)
+	{
+		return result;
+	}
+	OSStatus err = noErr;
+	
+	const CSSM_KEY* cssmKey = NULL;
+	err = SecKeyGetCSSMKey(aKey, &cssmKey);
+	if (noErr != err)
+	{
+		return result;
+	}
+	
+	result = cssmKey->KeyHeader.KeyAttr;
+	
+	if (NULL != usage)
+	{
+		CFTypeRef item = NULL;
+		CFIndex numItems = CFArrayGetCount(usage);
+		for (CFIndex iCnt = 0L; iCnt < numItems; iCnt++)
+		{
+			item = (CFTypeRef)CFArrayGetValueAtIndex(usage, iCnt);
+			if (CFEqual(item, kSecAttrIsPermanent))
+			{
+				result |= CSSM_KEYATTR_PERMANENT;
+			}
+			/*
+			 Currently the kSecAttrIsModifiable is private.  Does this need to be
+			 made public?
+			else if (CFEqual(item, kSecAttrIsModifiable))
+			{
+				result |= CSSM_KEYATTR_MODIFIABLE;
+			}
+			*/
+		}
+	}
+	
+	return result;	
+	
+}
+
+Boolean ConvertSecKeyImportExportParametersToSecImportExportKeyParameters(SecKeyRef aKey,
+	const SecItemImportExportKeyParameters* newPtr, SecKeyImportExportParameters* oldPtr)
+{
+	Boolean result = false;
+	
+	if (NULL != oldPtr && NULL != newPtr)
+	{
+		oldPtr->version = newPtr->version;
+		oldPtr->flags = newPtr->flags;
+		oldPtr->passphrase = newPtr->passphrase;
+		oldPtr->alertTitle = newPtr->alertTitle;
+		oldPtr->alertPrompt = newPtr->alertPrompt;
+		oldPtr->accessRef = newPtr->accessRef;
+		oldPtr->keyUsage = ConvertArrayToKeyUsage(newPtr->keyUsage);
+		oldPtr->keyAttributes = ConvertArrayToKeyAttributes(aKey, newPtr->keyAttributes);
+		result = true;
+	}
+	return result;
+}
+

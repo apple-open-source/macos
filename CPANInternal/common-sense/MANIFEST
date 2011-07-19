@@ -1,0 +1,9 @@
+README
+LICENSE
+Changes
+MANIFEST
+Makefile.PL
+sense.pm
+t/00_load.t
+META.yml                                 Module meta-data (added by MakeMaker)
+META.json                                Module meta-data (added by MakeMaker)

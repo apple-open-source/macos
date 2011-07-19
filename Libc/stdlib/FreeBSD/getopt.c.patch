@@ -1,6 +1,6 @@
---- ../Libc/stdlib/FreeBSD/getopt.c	2004-11-25 11:38:41.000000000 -0800
-+++ getopt.c	2005-01-26 19:27:09.000000000 -0800
-@@ -48,16 +48,24 @@
+--- getopt.c.bsdnew	2009-11-13 14:11:48.000000000 -0800
++++ getopt.c	2009-11-13 14:11:48.000000000 -0800
+@@ -44,16 +44,24 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  
  #include "libc_private.h"
  
@@ -25,7 +25,7 @@
  /*
   * getopt --
   *	Parse argc/argv argument vector.
-@@ -103,8 +111,8 @@
+@@ -99,8 +107,8 @@ getopt(nargc, nargv, ostr)
  			++optind;
  		if (opterr && *ostr != ':')
  			(void)fprintf(stderr,
@@ -36,7 +36,7 @@
  		return (BADCH);
  	}
  
-@@ -123,13 +131,19 @@
+@@ -119,13 +127,19 @@ getopt(nargc, nargv, ostr)
  			optarg = nargv[optind];
  		else {
  			/* option-argument absent */

@@ -1,0 +1,28 @@
+[call [cmd line] [arg attr]...]
+[call [cmd --] [arg attr]...]
+
+[image figure-02-line]
+[include cat_open.inc]
+
+It handles the attributes
+
+[list_begin definitions]
+[include ../attr/anchor.inc]
+[include ../attr/arrowhead.inc]
+[include ../attr/line_at.inc]
+[include ../attr/chop.inc]
+[include ../attr/color.inc]
+[include ../attr/fillcolor.inc]
+[include ../attr/from.inc]
+[include ../attr/justify.inc]
+[include ../attr/noturn.inc]
+[include ../attr/smooth.inc]
+[include ../attr/stroke.inc]
+[include ../attr/style.inc]
+[include ../attr/text.inc]
+[include ../attr/textcolor.inc]
+[include ../attr/textfont.inc]
+[include ../attr/then.inc]
+[include ../attr/to.inc]
+[include ../attr/line_with.inc]
+[list_end]

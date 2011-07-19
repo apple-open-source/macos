@@ -3,12 +3,12 @@
   See the file "license.terms" for information on usage and redistribution
   of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
-  $Id: treectrl.man,v 1.57 2008/10/08 19:48:50 treectrl Exp $}
+  $Id: treectrl.man,v 1.61 2010/01/11 23:32:33 treectrl Exp $}
 ]
-[manpage_begin treectrl n 2.2.8]
+[manpage_begin treectrl n 2.2.10]
 [moddesc {Tk Commands}]
 [titledesc {Create and manipulate hierarchical multicolumn widgets}]
-[require treectrl 2.2.8]
+[require treectrl 2.2.10]
 
 [description]
 [list_begin definitions] 
@@ -159,14 +159,9 @@ indicate no style should be applied to a specific column. The list of styles
 is updated if a style is deleted or if a column is moved.
 
 [tkoption_def -doublebuffer doubleBuffer DoubleBuffer]
-Specifies if double-buffering should be used to improve displaying.
-The value should be one of [const none], [const window], or [const item].
-For [const none] no double-buffering is used at all, which may be most memory
-efficient, but will probably generate some flickering on the screen.
-For [const window] the complete tree is double-buffered, which requires
-a buffer big enough to contain the complete widget.
-For [const item], which is the default, every item is separately
-double-buffered, so it works with a buffer size as big as the biggest item.
+This option no longer has any effect, but was left in for compatibility.
+It used to control the amount of double-buffering that was used when
+displaying a treectrl.
 
 [tkoption_def -height height Height]
 Specifies the desired height for the window
@@ -324,21 +319,24 @@ not request any size at all.
 
 [tkoption_def -wrap wrap Wrap]
 Specifies whether items are arranged in a 1- or 2-dimensional layout.
-
+[nl]
 If the value is an empty string (the default), then items are arranged from top
 to bottom (-orient vertical) or from left to right (-orient horizontal) in
 a 1-dimensional layout.
-
-If the value is "[emph N] [const items]", then a no more than [emph N] items will appear in
+[nl]
+If the value is "[emph N] [const items]", then no more than [emph N] items will appear in
 a vertical group (-orient vertical) or horizontal group (-orient horizontal).
-
-If the value is "[emph N] [const pixels]", then a no vertical group of items will be
+[nl]
+If the value is "[emph N] [const pixels]", then no vertical group of items will be
 taller than [emph N] pixels (-orient vertical) or no horizontal group of items will
 be wider than [emph N] pixels (-orient horizontal).
-
+[nl]
 If the value is [const window], then a no vertical group of items will be
 taller than the window (-orient vertical) or no horizontal group of items will
 be wider than the window (-orient horizontal).
+[nl]
+It is also possible to cause wrapping to occur on a per-item basis by using
+the item option -wrap.  See the [cmd {item create}] command for that option.
 
 [tkoption_def -xscrolldelay xScrollDelay ScrollDelay]
 This option controls how quickly horizontal scrolling occurs while dragging
@@ -1075,6 +1073,7 @@ the meaning of each option):
 [opt_def [option -height] [arg height]]
 [opt_def [option -tags] [arg tagList]]
 [opt_def [option -visible] [arg boolean]]
+[opt_def [option -wrap] [arg boolean]]
 
 [list_end]
 
@@ -1151,6 +1150,11 @@ indicates that the item should be displayed in the list. The item will only be
 displayed if:
 a) each ancestor is a descendant of the root item (not an orphan);
 and b) each ancestor's [option -visible] option is true 
+
+[opt_def [option -wrap] [arg boolean]]
+[arg Boolean] must have one of the forms accepted by [fun Tcl_GetBoolean]. It
+indicates that this item should be the first one in a horizontal range or
+vertical range of items. See also the widget option [option -wrap].
 
 [list_end]
 
@@ -1888,39 +1892,23 @@ to produce the effect of dragging the treectrl at high speed through its window.
 The return value is an empty string.
 [list_end]
 
-[call [arg pathName] [cmd state] [arg option] [arg args]]
-This command is used to manipulate the list of user-defined states,
-see section [sectref STATES] below.
-The exact behavior of the command depends on the [arg option] argument
-that follows the [cmd state] argument.
-The following forms of the command are supported:
-
-[list_begin definitions]
-[call [arg pathName] [cmd {state define}] [arg stateName]]
-Defines a new state with the name [arg stateName],
-which must not be the name of an existing state.
-
-[call [arg pathName] [cmd {state linkage}] [arg stateName]]
-Returns a string indicating
-whether the specified state is user-defined
-by means of the [cmd {state define}] widget command ([const dynamic])
-or predefined by the treectrl widget itself ([const static]).
-
-[call [arg pathName] [cmd {state names}]]
-Returns a list containing the names of all user-defined states.
-
-[call [arg pathName] [cmd {state undefine}] [opt [arg {stateName ...}]]]
-Every [arg stateName] must be the name of a user-defined state.
-Removes this state from the list of user-defined states.
-[list_end]
-
-[call [arg pathName] [cmd see] [arg itemDesc]]
-Adjust the view in the treectrl so that the item
-described by [arg itemDesc] is visible.
+[call [arg pathName] [cmd see] [arg itemDesc] [opt [arg columnDesc]] [opt [arg {option value ...}]]]
+Adjust the view in the treectrl so that the item described by [arg itemDesc]
+is visible.
 If the item is already visible then the command has no effect;
 otherwise the treectrl scrolls to bring the item into view,
 and the corresponding [const <Scroll-x>] and/or [const <Scroll-y>]
-events are generated.
+events are generated. If [arg columnDesc] is specified then a specific column
+of the item is scrolled into view instead of the entire item.
+[nl]
+The following options are supported:
+[list_begin opt]
+[opt_def [option -center] [arg flags]]
+[arg Flags] is a string that contains zero or more of the characters [const x]
+or [const y]. This option is used to center the item horizontally and/or
+vertically in the window.  The item will be centered regardless of whether it
+is already visible.
+[list_end]
 
 [call [arg pathName] [cmd selection] [arg option] [arg args]]
 This command is used to adjust the selection within a treectrl.
@@ -1991,6 +1979,32 @@ Any unselected items in [arg select] are added to the selection,
 and any selected items in [arg deselect] are removed from the selection (except
 for those items which are also in [arg select]).
 A [const <Selection>] event is generated if any items were selected or deselected.
+[list_end]
+
+[call [arg pathName] [cmd state] [arg option] [arg args]]
+This command is used to manipulate the list of user-defined states,
+see section [sectref STATES] below.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd state] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {state define}] [arg stateName]]
+Defines a new state with the name [arg stateName],
+which must not be the name of an existing state.
+
+[call [arg pathName] [cmd {state linkage}] [arg stateName]]
+Returns a string indicating
+whether the specified state is user-defined
+by means of the [cmd {state define}] widget command ([const dynamic])
+or predefined by the treectrl widget itself ([const static]).
+
+[call [arg pathName] [cmd {state names}]]
+Returns a list containing the names of all user-defined states.
+
+[call [arg pathName] [cmd {state undefine}] [opt [arg {stateName ...}]]]
+Every [arg stateName] must be the name of a user-defined state.
+Removes this state from the list of user-defined states.
 [list_end]
 
 [call [arg pathName] [cmd style] [arg option] [opt [arg element]] \
@@ -2933,6 +2947,23 @@ If more than [arg lineCount] lines would be displayed, the last line will
 be truncated with an ellipsis at the right.
 If this option is specified as zero or an empty string (the default),
 there is no limit to the number of lines displayed.
+
+[opt_def [option -lmargin1] [arg pixels]]
+[arg Pixels] is a screen distance that specifies how much a line of text should be
+indented.  If a line of text wraps, this option only applies to the first line
+on the display; the [option -lmargin2] option controls the indentation for
+subsequent lines.
+If this option is specified as zero or an empty string (the default),
+then the line is not indented.
+This option was based on the Tk Text widget tag option of the same name.
+
+[opt_def [option -lmargin2] [arg pixels]]
+[arg Pixels] is a screen distance that specifies how much a line of text should be
+indented.  If a line of text wraps, this option only applies to the second and
+later display lines for a line of text.
+If this option is specified as zero or an empty string (the default),
+then the line is not indented.
+This option was based on the Tk Text widget tag option of the same name.
 
 [opt_def [option -text] [arg string]]
 [arg String] specifies a string to be displayed by the element.

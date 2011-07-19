@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2003-2011 Apple Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -51,11 +51,13 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 	// accumulate applications in this list
 	CFRef<CFMutableArrayRef> apps = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	
-	// add the new-fangled dot-mac application group
-	CFRef<SecTrustedApplicationRef> group;
-	MacOSError::check(SecTrustedApplicationCreateApplicationGroup("dot-mac", NULL, &group.aref()));
-	CFArrayAppendValue(apps, group);
-	
+	// add entries for application groups
+	CFRef<SecTrustedApplicationRef> dotMacGroup, accountsGroup;
+	MacOSError::check(SecTrustedApplicationCreateApplicationGroup("dot-mac", NULL, &dotMacGroup.aref()));
+	CFArrayAppendValue(apps, dotMacGroup);
+	MacOSError::check(SecTrustedApplicationCreateApplicationGroup("InternetAccounts", NULL, &accountsGroup.aref()));
+	CFArrayAppendValue(apps, accountsGroup);
+
 	// now add "myself" as an ordinary application
 	CFRef<SecTrustedApplicationRef> myself;
 	MacOSError::check(SecTrustedApplicationCreateFromPath(NULL, &myself.aref()));

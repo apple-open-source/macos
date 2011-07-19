@@ -17,13 +17,14 @@ snit::type ::transfer::connect {
     # ### ### ### ######### ######### #########
     ## API
 
-    option -host localhost
-    option -port 0
-    option -mode active
+    option -host        -default localhost
+    option -port        -default 0
+    option -mode        -default active    -type {snit::enum -values {active passive}}
+    option -socketcmd   -default ::socket
 
-    option -translation {}
-    option -encoding    {}
-    option -eofchar     {}
+    option -translation -default {}
+    option -encoding    -default {}
+    option -eofchar     -default {}
 
     method connect {command} {}
 
@@ -38,35 +39,17 @@ snit::type ::transfer::connect {
 
     method connect {command} {
 	if {$options(-mode) eq "active"} {
+	    set sock [Socket $options(-host) $options(-port)]
 
-	    set sock [socket $options(-host) $options(-port)]
-	    $self Setup $sock
-
-	    lappend command $self $sock
-	    uplevel \#0 $command
+	    $self ConfigureTheOpenedSocket $sock $command
 	    return
 	} else {
-	    set server [socket -server [mymethod Start $command] \
+	    set mysock [Socket -server [mymethod IsConnected $command] \
 			    $options(-port)]
 
-	    return [lindex [fconfigure $server -sockname] 2]
-	}
-	return
-    }
-
-    method Start {command sock peerhost peerport} {
-	close $server
-	$self Setup $sock
-
-	lappend command $self $sock
-	uplevel \#0 $command
-	return
-    }
-
-    method Setup {sock} {
-	foreach o {-translation -encoding -eofchar} {
-	    if {$options($o) eq ""} continue
-	    fconfigure $sock $o $options($o)
+	    # Return port the server socket is listening on for the
+	    # connection.
+	    return [lindex [fconfigure $mysock -sockname] 2]
 	}
 	return
     }
@@ -74,24 +57,35 @@ snit::type ::transfer::connect {
     # ### ### ### ######### ######### #########
     ## Internal helper commands.
 
-    onconfigure -mode {newvalue} {
-	upvar 0 options(-mode) value
-	if {$value eq $newvalue} return
-	switch -exact -- $newvalue {
-	    passive - active {
-		set value $newvalue
-	    }
-	    default {
-		return -code error "Bad value \"$newvalue\", expected active, or passive"
-	    }
-	}
+    method IsConnected {command sock peerhost peerport} {
+	# Accept only a one connection.
+	close $mysock
+	$self ConfigureTheOpenedSocket $sock $command
 	return
+    }
+
+    method ConfigureTheOpenedSocket {sock command} {
+	foreach o {-translation -encoding -eofchar} {
+	    if {$options($o) eq ""} continue
+	    fconfigure $sock $o $options($o)
+	}
+
+	after 0 [linsert $command end $self $sock]
+	return
+    }
+
+    # ### ### ### ######### ######### #########
+    ## Internal helper commands.
+
+    proc Socket {args} {
+	upvar 1 options(-socketcmd) socketcmd
+	return [eval [linsert $args 0 $socketcmd]]
     }
 
     # ### ### ### ######### ######### #########
     ## Data structures
 
-    variable server {}
+    variable mysock {}
 
     ##
     # ### ### ### ######### ######### #########
@@ -100,4 +94,4 @@ snit::type ::transfer::connect {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide transfer::connect 0.1
+package provide transfer::connect 0.2

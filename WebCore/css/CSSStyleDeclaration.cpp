@@ -22,10 +22,13 @@
 #include "CSSStyleDeclaration.h"
 
 #include "CSSMutableStyleDeclaration.h"
+#include "CSSMutableValue.h"
 #include "CSSParser.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
 #include "CSSRule.h"
+#include "Node.h"
+#include "SVGElement.h"
 #include <wtf/ASCIICType.h>
 
 using namespace WTF;
@@ -42,7 +45,28 @@ PassRefPtr<CSSValue> CSSStyleDeclaration::getPropertyCSSValue(const String& prop
     int propID = cssPropertyID(propertyName);
     if (!propID)
         return 0;
-    return getPropertyCSSValue(propID);
+
+    // Short-cut, not involving any change to the refcount.
+    if (!isMutableStyleDeclaration())
+        return getPropertyCSSValue(propID);
+
+    // Slow path.
+    RefPtr<CSSValue> value = getPropertyCSSValue(propID);
+    if (!value || !value->isMutableValue())
+        return value.release();
+
+    Node* node = static_cast<CSSMutableStyleDeclaration*>(this)->node();
+    if (!node || !node->isStyledElement())
+        return value.release();
+
+    Node* associatedNode = static_cast<CSSMutableValue*>(value.get())->node();
+    if (associatedNode) {
+        ASSERT(associatedNode == node);
+        return value.release();
+    }
+
+    static_cast<CSSMutableValue*>(value.get())->setNode(node);
+    return value.release();
 }
 
 String CSSStyleDeclaration::getPropertyValue(const String &propertyName)
@@ -82,11 +106,14 @@ bool CSSStyleDeclaration::isPropertyImplicit(const String& propertyName)
 
 void CSSStyleDeclaration::setProperty(const String& propertyName, const String& value, ExceptionCode& ec)
 {
-    int important = value.find("!important", 0, false);
-    if (important == -1)
-        setProperty(propertyName, value, "", ec);
+    size_t important = value.find("!important", 0, false);
+    int propertyID = cssPropertyID(propertyName);
+    if (!propertyID)
+        return;
+    if (important == notFound)
+        setProperty(propertyID, value, false, ec);
     else
-        setProperty(propertyName, value.left(important - 1), "important", ec);
+        setProperty(propertyID, value.left(important - 1), true, ec);
 }
 
 void CSSStyleDeclaration::setProperty(const String& propertyName, const String& value, const String& priority, ExceptionCode& ec)
@@ -96,7 +123,7 @@ void CSSStyleDeclaration::setProperty(const String& propertyName, const String& 
         // FIXME: Should we raise an exception here?
         return;
     }
-    bool important = priority.find("important", 0, false) != -1;
+    bool important = priority.find("important", 0, false) != notFound;
     setProperty(propID, value, important, ec);
 }
 
@@ -148,16 +175,12 @@ PassRefPtr<CSSMutableStyleDeclaration> CSSStyleDeclaration::copyPropertiesInSet(
 {
     Vector<CSSProperty> list;
     list.reserveInitialCapacity(length);
-    unsigned variableDependentValueCount = 0;
     for (unsigned i = 0; i < length; i++) {
         RefPtr<CSSValue> value = getPropertyCSSValue(set[i]);
-        if (value) {
-            if (value->isVariableDependentValue())
-                variableDependentValueCount++;
+        if (value)
             list.append(CSSProperty(set[i], value.release(), false));
-        }
     }
-    return CSSMutableStyleDeclaration::create(list, variableDependentValueCount);
+    return CSSMutableStyleDeclaration::create(list);
 }
 
 } // namespace WebCore

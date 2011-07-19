@@ -1,10 +1,14 @@
 " Vim syntax file
 " Language:	GNU Assembler
-" Maintainer:	Kevin Dahlhausen <kdahlhaus@yahoo.com>
-" Last Change:	2002 Sep 19
+" Maintainer:	Erik Wognsen <erik.wognsen@gmail.com>
+"		Previous maintainer:
+"		Kevin Dahlhausen <kdahlhaus@yahoo.com>
+" Last Change:	2010 Apr 18
+
+" Thanks to Ori Avtalion for feedback on the comment markers!
 
 " For version 5.x: Clear all syntax items
-" For version 6.x: Quit when a syntax file was already loaded
+" For version 6.0 and later: Quit when a syntax file was already loaded
 if version < 600
   syntax clear
 elseif exists("b:current_syntax")
@@ -12,7 +16,6 @@ elseif exists("b:current_syntax")
 endif
 
 syn case ignore
-
 
 " storage types
 syn match asmType "\.long"
@@ -44,9 +47,16 @@ syn match octNumber		"0[0-7][0-7]\+"
 syn match hexNumber		"0[xX][0-9a-fA-F]\+"
 syn match binNumber		"0[bB][0-1]*"
 
+syn keyword asmTodo		contained TODO
 
-syn match asmSpecialComment	";\*\*\*.*"
-syn match asmComment		";.*"hs=s+1
+" GAS supports various comment markers as described here:
+" http://sourceware.org/binutils/docs-2.19/as/Comments.html
+" I have commented out the ARM comment marker "@" by default as I think more
+" people are using "@" with the .type directive. See
+" http://sourceware.org/binutils/docs-2.19/as/Type.html
+syn region asmComment		start="/\*" end="\*/" contains=asmTodo
+syn match asmComment		"[#;!|].*" contains=asmTodo
+" syn match asmComment		"@.*" contains=asmTodo
 
 syn match asmInclude		"\.include"
 syn match asmCond		"\.if"
@@ -75,6 +85,7 @@ if version >= 508 || !exists("did_asm_syntax_inits")
   HiLink asmSection	Special
   HiLink asmLabel	Label
   HiLink asmComment	Comment
+  HiLink asmTodo	Todo
   HiLink asmDirective	Statement
 
   HiLink asmInclude	Include
@@ -86,14 +97,8 @@ if version >= 508 || !exists("did_asm_syntax_inits")
   HiLink octNumber	Number
   HiLink binNumber	Number
 
-  HiLink asmSpecialComment Comment
   HiLink asmIdentifier Identifier
   HiLink asmType	Type
-
-  " My default color overrides:
-  " hi asmSpecialComment ctermfg=red
-  " hi asmIdentifier ctermfg=lightcyan
-  " hi asmType ctermbg=black ctermfg=brown
 
   delcommand HiLink
 endif

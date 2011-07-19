@@ -1,0 +1,125 @@
+.TH Xv __libmansuffix__ __vendorversion__ "libXv Functions"
+.\"
+.SH NAME
+Xv \- X Window System video extension
+.SH DESCRIPTION
+The X Video Extension (Xv) extension provides support for video
+adaptors attached to an X display.  It takes the approach that a
+display may have one or more video adaptors, each of which has one or
+more ports through which independent video streams pass.
+.PP
+An adaptor may be able to display video in a drawable, capture video
+from a drawable, or both.  It translates between video encoding (NTSC,
+PAL, SECAM, etc...) and drawable format (depth and visual-id pair). An
+adaptor may support multiple video encodings and/or multiple drawable
+formats.
+.PP
+Clients use
+.BR Xv (__libmansuffix__)
+to gain access and manage sharing of a display's
+video resources.  Typically, a client will use
+.BR XvQueryExtension (__libmansuffix__)
+to determine the status of the extension,
+.BR XvQueryAdaptors (__libmansuffix__)
+to get a description of what video adaptors exist, and
+.BR XvQueryEncodings (__libmansuffix__)
+to get a description of what video encodings an adaptor supports.
+.PP
+Once a client has determined what video resources are available, it is
+free to put video into a drawable or get video from a drawable,
+according the capabilities supported.  Clients can select to receive
+events when video activity changes in a drawable and when port
+attributes have changed.
+.PP
+The Xv protocol version 2.2 and later is extended to
+support client images in alternate colorspaces (XvImages).
+Xv adaptors which are capable of displaying XvImages will have
+the XvImageMask field set in the type field of the XvAdaptorInfo.
+XvImage formats supported by the port may be queried with
+.BR XvListImageFormats (__libmansuffix__).
+XvImages may be created with the help of
+.BR XvCreateImage (__libmansuffix__)
+or
+.BR XvShmCreateImage (__libmansuffix__);
+XvImages may be displayed with
+.BR XvPutImage (__libmansuffix__)
+or
+.BR XvShmPutImage (__libmansuffix__).
+The Port attributes of the port specified in the Xv(Shm)PutImage
+command will be valid for the image operation when applicable.
+There will be a port encoding with the name "XV_IMAGE".  The width and height
+of that encoding will indicate the maximum source image size.
+.SH SUMMARY OF LIBRARY FUNCTIONS
+The following is a summary of Xv library functions and events:
+.sp 1l
+.BR XvCreateImage (__libmansuffix__)
+\- create an XvImage
+.sp 1l
+.BR XvGetPortAttribute (__libmansuffix__)
+\- return current port attribute value
+.sp 1l
+.BR XvGetStill (__libmansuffix__)
+\- capture a single frame of video from a drawable
+.sp 1l
+.BR XvGetVideo (__libmansuffix__)
+\- capture video from a drawable
+.sp 1l
+.BR XvGrabPort (__libmansuffix__)
+\- lock port for exclusive use by client
+.sp 1l
+.BR XvListImageFormats (__libmansuffix__)
+\- return list of image formats for a port
+.sp 1l
+.BR XvPortNotify (__libmansuffix__)
+\- event generated when port attributes change
+.sp 1l
+.BR XvPutImage (__libmansuffix__)
+\- write a XvImage to a drawable
+.sp 1l
+.BR XvPutStill (__libmansuffix__)
+\- write a single frame of video to a drawable
+.sp 1l
+.BR XvPutVideo (__libmansuffix__)
+\- write video into a drawable
+.sp 1l
+.BR XvQueryAdaptors (__libmansuffix__)
+\- return adaptor information for a screen
+.sp 1l
+.BR XvQueryBestSize (__libmansuffix__)
+\- determine the optimum drawable region size
+.sp 1l
+.BR XvQueryEncodings (__libmansuffix__)
+\- return list of encodings for an adaptor
+.sp 1l
+.BR XvQueryExtension (__libmansuffix__)
+\- return version and revision of extension
+.sp 1l
+.BR XvQueryPortAttributes (__libmansuffix__)
+\- return list of attributes of a port
+.sp 1l
+.BR XvSelectPortNotify (__libmansuffix__)
+\- enable or disable XvPortNotify events
+.sp 1l
+.BR XvSelectVideoNotify (__libmansuffix__)
+\- enable or disable XvVideoNotify events
+.sp 1l
+.BR XvSetPortAttribute (__libmansuffix__)
+\- set an attribute for a port
+.sp 1l
+.BR XvShmCreateImage (__libmansuffix__)
+\- create an XvImage in shared memory
+.sp 1l
+.BR XvShmPutImage (__libmansuffix__)
+\- write a XvImage in shared memory to a drawable
+.sp 1l
+.BR XvStopVideo (__libmansuffix__)
+\- stop active video
+.sp 1l
+.BR XvUngrabPort (__libmansuffix__)
+\- release a grabbed port
+.sp 1l
+.BR XvVideoNotify (__libmansuffix__)
+\- event generated for video processing
+.sp 1l
+.PP
+Each of these functions and events is described in its own Xv man page.

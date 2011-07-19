@@ -121,7 +121,7 @@ int ppp_socket_start_server ()
     unlink(PPP_PATH);
     bzero(&addr, sizeof(addr));
     addr.sun_family = AF_LOCAL;
-    strcpy(addr.sun_path, PPP_PATH);
+    strlcpy(addr.sun_path, PPP_PATH, sizeof(addr.sun_path));
     mask = umask(0);
     error = bind(s, (struct sockaddr *)&addr, SUN_LEN(&addr));
     umask(mask);
@@ -197,7 +197,8 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
                      CFDataRef address, const void *data, void *info)
 {
     struct sockaddr_un	addr;
-    int			s, len;
+    int			s;
+	uint32_t    len;
 	struct xucred xucred;
 
     len = sizeof(addr);
@@ -576,7 +577,8 @@ void socket_connect(struct client *client, struct msg *msg, void **reply)
     
     msg->hdr.m_result = scnc_start(serv, opts, 
         (msg->hdr.m_flags & CONNECT_ARBITRATED_FLAG) ? client : 0,  
-        (msg->hdr.m_flags & CONNECT_AUTOCLOSE_FLAG) ? 1 : 0, client->uid, client->gid, 0);
+        (msg->hdr.m_flags & CONNECT_AUTOCLOSE_FLAG) ? 1 : 0, client->uid, client->gid,
+        client->pid, 0);
     if (opts && msg->hdr.m_len) 
         CFRelease(opts);
     msg->hdr.m_len = 0;
@@ -696,7 +698,7 @@ void socket_enable_event(struct client *client, struct msg *msg, void **reply)
 	}
     if (msg->hdr.m_flags & USE_SERVICEID) {        
         if (client->notify_serviceid = malloc(msg->hdr.m_link + 1)) {
-            strncpy(client->notify_serviceid, msg->data, msg->hdr.m_link);
+            strncpy((char*)client->notify_serviceid, (char*)msg->data, msg->hdr.m_link);
             client->notify_serviceid[msg->hdr.m_link] = 0;
         }
         else 
@@ -841,7 +843,7 @@ void socket_getlinkbyserviceid(struct client *client, struct msg *msg, void **re
     CFStringRef		ref;
 
     msg->data[msg->hdr.m_len] = 0;
-    ref = CFStringCreateWithCString(NULL, msg->data, kCFStringEncodingUTF8);
+    ref = CFStringCreateWithCString(NULL, (char*)msg->data, kCFStringEncodingUTF8);
     if (ref) {
 	serv = findbyserviceID(ref);
         if (serv) {
@@ -874,15 +876,15 @@ void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply
     struct service	*serv;
 
     TAILQ_FOREACH(serv, &service_head, next) {
-        if (!strncmp(serv->u.ppp.ifname, &msg->data[0], sizeof(serv->u.ppp.ifname))) {
+        if (!strncmp((char*)serv->if_name, (char*)&msg->data[0], sizeof(serv->if_name))) {
             
             if (msg->hdr.m_flags & USE_SERVICEID) {
-                *reply = my_Allocate(strlen(serv->sid));
+                *reply = my_Allocate(strlen((char*)serv->sid));
                 if (*reply == 0)
                     err = ENOMEM;
                 else {
                     err = 0;
-                    len = strlen(serv->sid);
+                    len = strlen((char*)serv->sid);
                     bcopy(serv->sid, *reply, len);
                 }
             }
@@ -1016,7 +1018,7 @@ int set_long_opt(CFMutableDictionaryRef opts, CFStringRef entity, CFStringRef pr
     if (dict == 0)
         return ENOMEM;
     
-    num = CFNumberCreate(NULL, kCFNumberSInt32Type, &opt);
+    num = CFNumberCreate(NULL, kCFNumberLongType, &opt);
     if (num) {
         CFDictionaryAddValue(dict, property, num);
         CFRelease(num); 
@@ -1132,7 +1134,7 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
 
         // COMM options
         case PPP_OPT_DEV_NAME:
-            err = set_str_opt(opts, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, optstr, len, 0);
+            err = set_str_opt(opts, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, (char*)optstr, len, 0);
             break;
         case PPP_OPT_DEV_SPEED:
             // add flexibility and adapt the speed to the immediatly higher speed
@@ -1148,7 +1150,7 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
             err = set_long_opt(opts, kSCEntNetModem, kSCPropNetModemSpeed, speed, 0, 0xFFFFFFFF, 0);
             break;
         case PPP_OPT_DEV_CONNECTSCRIPT:
-            err = set_str_opt(opts, kSCEntNetModem, kSCPropNetModemConnectionScript, optstr, len, 0);
+            err = set_str_opt(opts, kSCEntNetModem, kSCPropNetModemConnectionScript, (char*)optstr, len, 0);
             break;
         case PPP_OPT_DEV_DIALMODE:
             string1 = kSCValNetModemDialModeWaitForDialTone;
@@ -1180,10 +1182,10 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
             }
 	    break;
         case PPP_OPT_COMM_TERMINALSCRIPT:
-            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPCommTerminalScript, optstr, len, 0);
+            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPCommTerminalScript, (char*)optstr, len, 0);
             break;
         case PPP_OPT_COMM_REMOTEADDR:
-            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, optstr, len, 0);
+            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, (char*)optstr, len, 0);
             break;
         case PPP_OPT_COMM_IDLETIMER:
             err = set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPDisconnectOnIdleTimer, optint, 0, 0xFFFFFFFF, 1)
@@ -1243,10 +1245,10 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
                 err = set_array_opt(opts, kSCEntNetPPP, kSCPropNetPPPAuthProtocol, string1, string2);
             break;
         case PPP_OPT_AUTH_NAME:
-           err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPAuthName, optstr, len, 0);
+           err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPAuthName, (char*)optstr, len, 0);
             break;
         case PPP_OPT_AUTH_PASSWD:
-            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPAuthPassword, optstr, len, 0);
+            err = set_str_opt(opts, kSCEntNetPPP, kSCPropNetPPPAuthPassword, (char*)optstr, len, 0);
             break;
 
             // IPCP options
@@ -1316,7 +1318,7 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
         // not connected, get the client options that will be used.
         opts = client_findoptset(client, serv->serviceID);
     
-    if (!ppp_getoptval(serv, opts, 0, opt->o_type, optdata, &optlen)) {
+    if (!ppp_getoptval(serv, opts, 0, opt->o_type, optdata, sizeof(optdata), &optlen)) {
         msg->hdr.m_len = 0;
         msg->hdr.m_result = EOPNOTSUPP;
         return;
@@ -1379,7 +1381,7 @@ void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long 
 	msg.m_cookie = error;
 	if (sid) {
 		msg.m_flags |= USE_SERVICEID;
-		msg.m_link = strlen(sid);
+		msg.m_link = strlen((char*)sid);
 		link_len = msg.m_link; /* save len */
 	}
 	

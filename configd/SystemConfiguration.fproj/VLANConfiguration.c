@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -336,7 +336,7 @@ SCVLANInterfaceCopyAll(SCPreferencesRef prefs)
 
 static void
 addAvailableInterfaces(CFMutableArrayRef available, CFArrayRef interfaces,
-		       CFSetRef exclude)
+		       CFSetRef excluded)
 {
 	CFIndex	i;
 	CFIndex	n;
@@ -349,8 +349,8 @@ addAvailableInterfaces(CFMutableArrayRef available, CFArrayRef interfaces,
 		interface = CFArrayGetValueAtIndex(interfaces, i);
 		interfacePrivate = (SCNetworkInterfacePrivateRef)interface;
 
-		if (exclude != NULL
-		    && CFSetContainsValue(exclude, interface)) {
+		if ((excluded != NULL)
+		    && CFSetContainsValue(excluded, interface)) {
 			// exclude this interface
 			continue;
 		}
@@ -368,8 +368,9 @@ CFArrayRef
 SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 {
 	CFMutableArrayRef	available;
-	CFArrayRef		bond_interfaces = NULL;
-	CFMutableSetRef		exclude = NULL;
+	CFArrayRef		bond_interfaces		= NULL;
+	CFArrayRef		bridge_interfaces	= NULL;
+	CFMutableSetRef		excluded		= NULL;
 	CFArrayRef		interfaces;
 	SCPreferencesRef	prefs;
 
@@ -378,17 +379,26 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 	prefs = SCPreferencesCreate(NULL, CFSTR("SCVLANInterfaceCopyAvailablePhysicalInterfaces"), NULL);
 	if (prefs != NULL) {
 		bond_interfaces = SCBondInterfaceCopyAll(prefs);
-		CFRelease(prefs);
 		if (bond_interfaces != NULL) {
-			exclude = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-			__SCBondInterfaceListCopyMembers(bond_interfaces, exclude);
+			excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+			__SCBondInterfaceListCollectMembers(bond_interfaces, excluded);
 		}
+
+		bridge_interfaces = SCBridgeInterfaceCopyAll(prefs);
+		if (bridge_interfaces != NULL) {
+			if (excluded == NULL) {
+				excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+			}
+			__SCBridgeInterfaceListCollectMembers(bridge_interfaces, excluded);
+		}
+
+		CFRelease(prefs);
 	}
 
-	// add real interfaces that aren't part of a bond
+	// add real interfaces that aren't part of a bond or bridge
 	interfaces = __SCNetworkInterfaceCopyAll_IONetworkInterface();
 	if (interfaces != NULL) {
-		addAvailableInterfaces(available, interfaces, exclude);
+		addAvailableInterfaces(available, interfaces, excluded);
 		CFRelease(interfaces);
 	}
 
@@ -397,8 +407,15 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 		addAvailableInterfaces(available, bond_interfaces, NULL);
 		CFRelease(bond_interfaces);
 	}
-	if (exclude != NULL) {
-		CFRelease(exclude);
+
+	// add bridge interfaces
+	if (bridge_interfaces != NULL) {
+		addAvailableInterfaces(available, bridge_interfaces, NULL);
+		CFRelease(bridge_interfaces);
+	}
+
+	if (excluded != NULL) {
+		CFRelease(excluded);
 	}
 
 	return available;
@@ -435,7 +452,7 @@ _SCVLANInterfaceCopyActive(void)
 		SCNetworkInterfaceRef	vlan_physical;
 		CFStringRef		vlan_physical_if;
 		CFNumberRef		vlan_tag;
-		char			vlr_parent[IFNAMSIZ + 1];
+		char			vlr_parent[IFNAMSIZ];
 		int			vlr_tag;
 		struct vlanreq		vreq;
 
@@ -448,7 +465,7 @@ _SCVLANInterfaceCopyActive(void)
 
 		bzero(&ifr, sizeof(ifr));
 		bzero(&vreq, sizeof(vreq));
-		strncpy(ifr.ifr_name, ifp->ifa_name, sizeof(ifr.ifr_name));
+		strlcpy(ifr.ifr_name, ifp->ifa_name, sizeof(ifr.ifr_name));
 		ifr.ifr_data = (caddr_t)&vreq;
 
 		if (ioctl(s, SIOCGIFVLAN, (caddr_t)&ifr) == -1) {
@@ -465,8 +482,7 @@ _SCVLANInterfaceCopyActive(void)
 		CFRelease(vlan_if);
 
 		// set the physical interface and tag
-		bzero(&vlr_parent, sizeof(vlr_parent));
-		bcopy(vreq.vlr_parent, vlr_parent, IFNAMSIZ);
+		strlcpy(vlr_parent, vreq.vlr_parent, sizeof(vlr_parent));
 		vlan_physical_if = CFStringCreateWithCString(NULL, vlr_parent, kCFStringEncodingASCII);
 		vlan_physical = _SCNetworkInterfaceCreateWithBSDName(NULL, vlan_physical_if,
 								     kIncludeBondInterfaces);
@@ -985,7 +1001,7 @@ _SCVLANInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 	/* configured VLANs */
 	config = SCVLANInterfaceCopyAll(prefs);
-	nConfig = CFArrayGetCount(config);
+	nConfig = (config != NULL) ? CFArrayGetCount(config) : 0;
 
 	/* physical interfaces */
 	devices = CFDictionaryCreateMutable(NULL,
@@ -995,7 +1011,7 @@ _SCVLANInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 	/* active VLANs */
 	active  = _SCVLANInterfaceCopyActive();
-	nActive = CFArrayGetCount(active);
+	nActive = (active != NULL) ? CFArrayGetCount(active) : 0;
 
 	/* remove any no-longer-configured VLAN interfaces */
 	for (i = 0; i < nActive; i++) {

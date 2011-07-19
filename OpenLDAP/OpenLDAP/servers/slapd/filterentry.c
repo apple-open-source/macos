@@ -1,8 +1,8 @@
 /* filterentry.c - apply a filter to an entry */
-/* $OpenLDAP: pkg/ldap/servers/slapd/filterentry.c,v 1.104.2.4 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/filterentry.c,v 1.104.2.9 2010/04/13 20:23:15 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -169,7 +169,7 @@ static int test_mra_filter(
 
 	if ( op == NULL ) {
 		memctx = NULL;
-		memfree = slap_sl_free;
+		memfree = slap_sl_mfuncs.bmf_free;
 	} else {
 		memctx = op->o_tmpmemctx;
 		memfree = op->o_tmpfree;
@@ -220,7 +220,7 @@ static int test_mra_filter(
 					num_attr_vals++;
 
 					/* following malloced will be freed by comp_tree_free () */
-					a->a_comp_data = malloc( sizeof( ComponentData ) +
+					a->a_comp_data = SLAP_MALLOC( sizeof( ComponentData ) +
 						sizeof( ComponentSyntaxInfo* )*num_attr_vals );
 
 					if ( !a->a_comp_data ) return LDAP_NO_MEMORY;
@@ -546,7 +546,7 @@ test_ava_filter(
 	if ( ava->aa_desc == slap_schema.si_ad_hasSubordinates 
 		&& op && op->o_bd && op->o_bd->be_has_subordinates )
 	{
-		int	hasSubordinates;
+		int	hasSubordinates = 0;
 		struct berval hs;
 
 		if( type != LDAP_FILTER_EQUALITY &&
@@ -716,7 +716,7 @@ test_ava_filter(
 			num_attr_vals++;/* for NULL termination */
 
 			/* following malloced will be freed by comp_tree_free () */
-			a->a_comp_data = malloc( sizeof( ComponentData ) + sizeof( ComponentSyntaxInfo* )*num_attr_vals );
+			a->a_comp_data = SLAP_MALLOC( sizeof( ComponentData ) + sizeof( ComponentSyntaxInfo* )*num_attr_vals );
 
 			if ( !a->a_comp_data ) {
 				return LDAP_NO_MEMORY;

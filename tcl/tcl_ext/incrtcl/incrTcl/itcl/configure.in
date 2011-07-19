@@ -18,7 +18,7 @@ AC_INIT([itcl], [3.4])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_PROG_LN_S
 CONFIG_CLEAN_FILES=
@@ -104,15 +104,8 @@ TEA_ADD_TCL_SOURCES([library/itcl.tcl])
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_itcl)
-    CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
     TEA_ADD_SOURCES([dllEntryPoint.c])
-else
-    CLEANFILES=
-    #TEA_ADD_SOURCES([])
 fi
-
-AC_SUBST(CLEANFILES)
 
 #--------------------------------------------------------------------
 # __CHANGE__
@@ -211,29 +204,7 @@ TEA_PROG_TCLSH
 # These are for itclConfig.sh
 #--------------------------------------------------------------------
 
-# pkglibdir must be a fully qualified path and (not ${exec_prefix}/lib)
-eval pkglibdir="${libdir}/${PACKAGE_NAME}${PACKAGE_VERSION}"
-if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
-    eval itcl_LIB_FLAG="-litcl${PACKAGE_VERSION}${DBGX}"
-    eval itcl_STUB_LIB_FLAG="-litclstub${PACKAGE_VERSION}${DBGX}"
-else
-    eval itcl_LIB_FLAG="-litcl`echo ${PACKAGE_VERSION} | tr -d .`${DBGX}"
-    eval itcl_STUB_LIB_FLAG="-litclstub`echo ${PACKAGE_VERSION} | tr -d .`${DBGX}"
-fi
-itcl_BUILD_LIB_SPEC="-L`pwd` ${itcl_LIB_FLAG}"
-itcl_LIB_SPEC="-L${pkglibdir} ${itcl_LIB_FLAG}"
-
-itcl_BUILD_STUB_LIB_SPEC="-L`pwd` ${itcl_STUB_LIB_FLAG}"
-itcl_STUB_LIB_SPEC="-L${pkglibdir} ${itcl_STUB_LIB_FLAG}"
-itcl_BUILD_STUB_LIB_PATH="`pwd`/${itcl_STUB_LIB_FILE}"
-itcl_STUB_LIB_PATH="${pkglibdir}/${itcl_STUB_LIB_FILE}"
-
-AC_SUBST(itcl_BUILD_LIB_SPEC)
-AC_SUBST(itcl_LIB_SPEC)
-AC_SUBST(itcl_BUILD_STUB_LIB_SPEC)
-AC_SUBST(itcl_STUB_LIB_SPEC)
-AC_SUBST(itcl_BUILD_STUB_LIB_PATH)
-AC_SUBST(itcl_STUB_LIB_PATH)
+TEA_EXPORT_CONFIG([itcl])
 
 # itcl_SRC_DIR must be a fully qualified path
 eval itcl_SRC_DIR="$srcdir"

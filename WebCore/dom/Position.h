@@ -26,9 +26,10 @@
 #ifndef Position_h
 #define Position_h
 
+#include "ContainerNode.h"
+#include "EditingBoundary.h"
 #include "TextAffinity.h"
 #include "TextDirection.h"
-#include "Node.h" // for position creation functions
 #include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -56,11 +57,6 @@ public:
         PositionIsBeforeAnchor
     };
 
-    enum EditingBoundaryCrossingRule {
-        CanCrossEditingBoundary,
-        CannotCrossEditingBoundary
-    };
-    
     Position()
         : m_offset(0)
         , m_anchorType(PositionIsOffsetInAnchor)
@@ -84,6 +80,7 @@ public:
     // will return img->parentNode() and img->nodeIndex() from these functions.
     Node* containerNode() const; // NULL for a before/after position anchored to a node with no parent
     int computeOffsetInContainerNode() const;  // O(n) for before/after-anchored positions, O(1) for parent-anchored positions
+    Position parentAnchoredEquivalent() const; // Convenience method for DOM positions that also fixes up some positions for editing
 
     // Inline O(1) access for Positions which callers know to be parent-anchored
     int offsetInContainerNode() const
@@ -95,8 +92,9 @@ public:
     // New code should not use this function.
     int deprecatedEditingOffset() const
     {
-        // This should probably ASSERT(m_isLegacyEditingPosition);
-        return m_offset;
+        if (m_isLegacyEditingPosition || m_anchorType != PositionIsAfterAnchor)
+            return m_offset;
+        return offsetForPositionAfterAnchor();
     }
 
     // These are convenience methods which are smart about whether the position is neighbor anchored or parent anchored
@@ -108,7 +106,9 @@ public:
     // FIXME: Callers should be moved off of node(), node() is not always the container for this position.
     // For nodes which editingIgnoresContent(node()) returns true, positions like [ignoredNode, 0]
     // will be treated as before ignoredNode (thus node() is really after the position, not containing it).
-    Node* node() const { return m_anchorNode.get(); }
+    Node* deprecatedNode() const { return m_anchorNode.get(); }
+
+    Document* document() const { return m_anchorNode ? m_anchorNode->document() : 0; }
 
     // These should only be used for PositionIsOffsetInAnchor positions, unless
     // the position is a legacy editing position.
@@ -133,11 +133,13 @@ public:
 
     // These can be either inside or just before/after the node, depending on
     // if the node is ignored by editing or not.
+    // FIXME: These should go away. They only make sense for legacy positions.
     bool atFirstEditingPositionForNode() const;
     bool atLastEditingPositionForNode() const;
 
     // Returns true if the visually equivalent positions around have different editability
     bool atEditingBoundary() const;
+    Node* parentEditingBoundary() const;
     
     bool atStartOfTree() const;
     bool atEndOfTree() const;
@@ -168,10 +170,13 @@ public:
 
 #ifndef NDEBUG
     void formatForDebugger(char* buffer, unsigned length) const;
+    void showAnchorTypeAndOffset() const;
     void showTreeForThis() const;
 #endif
     
 private:
+    int offsetForPositionAfterAnchor() const;
+
     int renderedOffset() const;
 
     Position previousCharacterPosition(EAffinity) const;
@@ -182,7 +187,7 @@ private:
     RefPtr<Node> m_anchorNode;
     // m_offset can be the offset inside m_anchorNode, or if editingIgnoresContent(m_anchorNode)
     // returns true, then other places in editing will treat m_offset == 0 as "before the anchor"
-    // and m_offset > 0 as "after the anchor node".  See rangeCompliantEquivalent for more info.
+    // and m_offset > 0 as "after the anchor node".  See parentAnchoredEquivalent for more info.
     int m_offset;
     unsigned m_anchorType : 2;
     bool m_isLegacyEditingPosition : 1;
@@ -192,7 +197,7 @@ inline bool operator==(const Position& a, const Position& b)
 {
     // FIXME: In <div><img></div> [div, 0] != [img, 0] even though most of the
     // editing code will treat them as identical.
-    return a.anchorNode() == b.anchorNode() && a.deprecatedEditingOffset() == b.deprecatedEditingOffset();
+    return a.anchorNode() == b.anchorNode() && a.deprecatedEditingOffset() == b.deprecatedEditingOffset() && a.anchorType() == b.anchorType();
 }
 
 inline bool operator!=(const Position& a, const Position& b)
@@ -234,7 +239,7 @@ inline Position positionAfterNode(Node* anchorNode)
 
 inline int lastOffsetInNode(Node* node)
 {
-    return node->offsetInCharacters() ? node->maxCharacterOffset() : node->childNodeCount();
+    return node->offsetInCharacters() ? node->maxCharacterOffset() : static_cast<int>(node->childNodeCount());
 }
 
 // firstPositionInNode and lastPositionInNode return parent-anchored positions, lastPositionInNode construction is O(n) due to childNodeCount()

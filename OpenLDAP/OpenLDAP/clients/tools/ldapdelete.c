@@ -1,8 +1,8 @@
 /* ldapdelete.c - simple program to delete an entry using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapdelete.c,v 1.118.2.7 2008/02/12 00:32:01 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapdelete.c,v 1.118.2.13 2010/04/15 22:16:50 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -71,6 +71,10 @@ usage( void )
 	fprintf( stderr, _("	dn: list of DNs to delete. If not given, it will be readed from stdin\n"));
 	fprintf( stderr, _("	    or from the file specified with \"-f file\".\n"));
 	fprintf( stderr, _("Delete Options:\n"));
+	fprintf( stderr, _("  -c         continuous operation mode (do not stop on errors)\n"));
+	fprintf( stderr, _("  -f file    read operations from `file'\n"));
+	fprintf( stderr, _("  -M         enable Manage DSA IT control (-MM to make critical)\n"));
+	fprintf( stderr, _("  -P version protocol version (default: 3)\n"));
 	fprintf( stderr, _("  -r         delete recursively\n"));
 	tool_common_usage();
 	exit( EXIT_FAILURE );
@@ -162,11 +166,9 @@ int
 main( int argc, char **argv )
 {
 	char		buf[ 4096 ];
-	FILE		*fp;
+	FILE		*fp = NULL;
 	LDAP		*ld;
 	int		rc, retval;
-
-    fp = NULL;
 
 	tool_init( TOOL_DELETE );
     prog = lutil_progname( "ldapdelete", argc, argv );
@@ -179,22 +181,12 @@ main( int argc, char **argv )
 			exit( EXIT_FAILURE );
 	    }
 	} else {
-	if ( optind >= argc ) {
-	    fp = stdin;
-	}
-    }
-
-	ld = tool_conn_setup( 0, &private_conn_setup );
-
-	if ( pw_file || want_bindpw ) {
-		if ( pw_file ) {
-			rc = lutil_get_filed_password( pw_file, &passwd );
-			if( rc ) return EXIT_FAILURE;
-		} else {
-			passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
-			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
+		if ( optind >= argc ) {
+			fp = stdin;
 		}
 	}
+
+	ld = tool_conn_setup( 0, &private_conn_setup );
 
 	tool_bind( ld );
 
@@ -222,6 +214,8 @@ main( int argc, char **argv )
 					retval = rc;
 			}
 		}
+		if ( fp != stdin )
+			fclose( fp );
 	}
 
 	tool_unbind( ld );

@@ -22,6 +22,7 @@
     <li><a href="#Preliminaries">Preliminaries</a></li>
   </ul>
   <li><a href="#TargetMachine">Target Machine</a></li>
+  <li><a href="#TargetRegistration">Target Registration</a></li>
   <li><a href="#RegisterSet">Register Set and Register Classes</a>
   <ul>
     <li><a href="#RegisterDef">Defining a Register</a></li>
@@ -353,8 +354,6 @@ public:
   // Pass Pipeline Configuration
   virtual bool addInstSelector(PassManagerBase &amp;PM, bool Fast);
   virtual bool addPreEmitPass(PassManagerBase &amp;PM, bool Fast);
-  virtual bool addAssemblyEmitter(PassManagerBase &amp;PM, bool Fast, 
-                                  std::ostream &amp;Out);
 };
 
 } // end namespace llvm
@@ -422,20 +421,61 @@ SparcTargetMachine::SparcTargetMachine(const Module &amp;M, const std::string &a
     alignment, and then ABI preferred alignment.</li>
 </ul>
 
+</div>
+
+<!-- *********************************************************************** -->
+<div class="doc_section">
+  <a name="TargetRegistration">Target Registration</a>
+</div>
+<!-- *********************************************************************** -->
+
+<div class="doc_text">
+
 <p>
-You must also register your target using the <tt>RegisterTarget</tt>
-template. (See the <tt>TargetMachineRegistry</tt> class.) For example,
-in <tt>SparcTargetMachine.cpp</tt>, the target is registered with:
+You must also register your target with the <tt>TargetRegistry</tt>, which is
+what other LLVM tools use to be able to lookup and use your target at
+runtime. The <tt>TargetRegistry</tt> can be used directly, but for most targets
+there are helper templates which should take care of the work for you.</p>
+
+<p>
+All targets should declare a global <tt>Target</tt> object which is used to
+represent the target during registration. Then, in the target's TargetInfo
+library, the target should define that object and use
+the <tt>RegisterTarget</tt> template to register the target. For example, the Sparc registration code looks like this:
 </p>
 
 <div class="doc_code">
 <pre>
-namespace {
-  // Register the target.
-  RegisterTarget&lt;SparcTargetMachine&gt;X("sparc", "SPARC");
+Target llvm::TheSparcTarget;
+
+extern "C" void LLVMInitializeSparcTargetInfo() { 
+  RegisterTarget&lt;Triple::sparc, /*HasJIT=*/false&gt;
+    X(TheSparcTarget, "sparc", "Sparc");
 }
 </pre>
 </div>
+
+<p>
+This allows the <tt>TargetRegistry</tt> to look up the target by name or by
+target triple. In addition, most targets will also register additional features
+which are available in separate libraries. These registration steps are
+separate, because some clients may wish to only link in some parts of the target
+-- the JIT code generator does not require the use of the assembler printer, for
+example. Here is an example of registering the Sparc assembly printer:
+</p>
+
+<div class="doc_code">
+<pre>
+extern "C" void LLVMInitializeSparcAsmPrinter() { 
+  RegisterAsmPrinter&lt;SparcAsmPrinter&gt; X(TheSparcTarget);
+}
+</pre>
+</div>
+
+<p>
+For more information, see
+"<a href="/doxygen/TargetRegistry_8h-source.html">llvm/Target/TargetRegistry.h</a>".
+</p>
 
 </div>
 
@@ -521,8 +561,7 @@ def AL : Register&lt;"AL"&gt;, DwarfRegNum&lt;[0, 0, 0]&gt;;
 <p>
 This defines the register <tt>AL</tt> and assigns it values (with
 <tt>DwarfRegNum</tt>) that are used by <tt>gcc</tt>, <tt>gdb</tt>, or a debug
-information writer (such as <tt>DwarfWriter</tt>
-in <tt>llvm/lib/CodeGen/AsmPrinter</tt>) to identify a register. For register
+information writer to identify a register. For register
 <tt>AL</tt>, <tt>DwarfRegNum</tt> takes an array of 3 values representing 3
 different modes: the first element is for X86-64, the second for exception
 handling (EH) on X86-32, and the third is generic. -1 is a special Dwarf number
@@ -2038,8 +2077,8 @@ SparcTargetAsmInfo::SparcTargetAsmInfo(const SparcTargetMachine &amp;TM) {
 
 <p>
 The X86 assembly printer implementation (<tt>X86TargetAsmInfo</tt>) is an
-example where the target specific <tt>TargetAsmInfo</tt> class uses overridden
-methods: <tt>ExpandInlineAsm</tt> and <tt>PreferredEHDataFormat</tt>.
+example where the target specific <tt>TargetAsmInfo</tt> class uses an 
+overridden methods: <tt>ExpandInlineAsm</tt>.
 </p>
 
 <p>
@@ -2110,21 +2149,13 @@ in <tt>XXXGenAsmWriter.inc</tt> contains an implementation of the
 <li><tt>printImplicitDef</tt></li>
 
 <li><tt>printInlineAsm</tt></li>
-
-<li><tt>printLabel</tt></li>
-
-<li><tt>printPICJumpTableEntry</tt></li>
-
-<li><tt>printPICJumpTableSetLabel</tt></li>
 </ul>
 
 <p>
 The implementations of <tt>printDeclare</tt>, <tt>printImplicitDef</tt>,
 <tt>printInlineAsm</tt>, and <tt>printLabel</tt> in <tt>AsmPrinter.cpp</tt> are
 generally adequate for printing assembly and do not need to be
-overridden. (<tt>printBasicBlockLabel</tt> is another method that is implemented
-in <tt>AsmPrinter.cpp</tt> that may be directly used in an implementation of
-<tt>XXXAsmPrinter</tt>.)
+overridden.
 </p>
 
 <p>
@@ -2523,7 +2554,7 @@ with assembler.
   <a href="http://www.woo.com">Mason Woo</a> and <a href="http://misha.brukman.net">Misha Brukman</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a>
   <br>
-  Last modified: $Date: 2009-04-04 17:44:06 -0700 (Sat, 04 Apr 2009) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 
 </body>

@@ -60,6 +60,7 @@
 #include "ipsec_utils.h"
 #include "RASSchemaDefinitions.h"
 #include "vpnoptions.h"
+#include "scnc_main.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -93,16 +94,16 @@ static int configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, C
 static int configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errstr);
 static int configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionaryRef proposal_dict, char **errstr);
 
-static void closeall();
+//static void closeall();
 static int racoon_pid();
-static int racoon_is_started(char *filename);
+//static int racoon_is_started(char *filename);
 static int racoon_restart();
-static int makepath( char *path);
+static service_route_t * get_service_route (struct service *serv, in_addr_t local_addr, in_addr_t dest_addr);
 
 /* -----------------------------------------------------------------------------
  Create directories and intermediate directories as required.
  ----------------------------------------------------------------------------- */
-static int makepath( char *path)
+int makepath( char *path)
 {
 	char	*c;
 	char	*thepath;
@@ -225,6 +226,7 @@ max(u_int a, u_int b)
 /* -----------------------------------------------------------------------------
 close all file descriptors, usefule in fork/exec operations
 ----------------------------------------------------------------------------- */
+#if 0
 void 
 closeall()
 {
@@ -236,6 +238,7 @@ closeall()
     dup(0);
     return;
 }
+#endif
 
 /* -----------------------------------------------------------------------------
 return the pid of racoon process
@@ -284,11 +287,13 @@ returns:
     1: racoon is already started with our configuration
     -1: racoon is already started but with a different configuration
 ----------------------------------------------------------------------------- */
+#if 0
 int 
 racoon_is_started(char *filename)
 {
     return (racoon_pid() != 0);
 }
+#endif
 
 /* -----------------------------------------------------------------------------
 sigusr1 racoon to reload configurations
@@ -300,7 +305,7 @@ racoon_restart()
 	int pid = racoon_pid();
 
 	if (pid) {
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 		kill(pid, SIGHUP);
 #else
 		kill(pid, SIGUSR1);
@@ -512,6 +517,11 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
     WRITE("doi ipsec_doi;\n");
 	WRITE("situation identity_only;\n");
 
+	/* get the default/preferred authentication from the ipsec dictionary, if available */
+	auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecAuthenticationMethod);
+	if (auth_method == NULL)
+		auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
+
 	/* 
 		exchange mode is OPTIONAL, default will be main mode 
 	*/
@@ -547,8 +557,10 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		}
 		if (nb == 0) {
 			char str[256];
-			/* default mode is main except if local identifier is defined */
-			if (GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""))
+			/* default mode is main except if local identifier is defined (and the auth method is shared secret) */
+			if ((CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret) ||
+				 CFEqual(auth_method, kRASValIPSecAuthenticationMethodHybrid)) &&
+				GetStrFromDict(ipsec_dict, kRASPropIPSecLocalIdentifier, str, sizeof(str), ""))
 				strlcat(text, "aggressive", sizeof(text));
 			else 
 				strlcat(text, "main", sizeof(text));
@@ -562,10 +574,6 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		verify all proposal have the same authentication method
 	*/
 	{
-		
-		/* get the default/preferred authentication from the ipsec dictionary, if available */
-		auth_method = CFDictionaryGetValue(ipsec_dict, kRASPropIPSecAuthenticationMethod);
-
 #if 0
 		CFArrayRef  proposals;
 		int 	 i, nb;
@@ -593,8 +601,6 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 			}
 		}
 #endif
-		if (auth_method == NULL)
-			auth_method = kRASValIPSecAuthenticationMethodSharedSecret;
 
 		if (!CFEqual(auth_method, kRASValIPSecAuthenticationMethodSharedSecret)
 			&& !CFEqual(auth_method, kRASValIPSecAuthenticationMethodCertificate)
@@ -996,6 +1002,8 @@ configure_sainfo(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionary
 							strlcat(text, "3des", sizeof(text));
 						else if (CFEqual(algo, kRASValIPSecPolicyEncryptionAlgorithmAES))
 							strlcat(text, "aes", sizeof(text));
+						else if (CFEqual(algo, kRASValIPSecPolicyEncryptionAlgorithmAES256))
+							strlcat(text, "aes 256", sizeof(text));
 						else 
 							FAIL("incorrect encryption algorithm");
 							
@@ -1135,6 +1143,17 @@ fail:
 }
 
 /* -----------------------------------------------------------------------------
+ Specifies the ipsec sub-type in the configuration dictionary
+ ----------------------------------------------------------------------------- */
+void
+IPSecConfigureVerboseLogging (CFMutableDictionaryRef ipsec_dict, int verbose_logging)
+{
+	CFNumberRef num = CFNumberCreate(0, kCFNumberIntType, &verbose_logging);
+	CFDictionarySetValue(ipsec_dict, CFSTR("VerboseLogging"), num);
+	CFRelease(num);
+}
+
+/* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int 
 IPSecApplyConfiguration(CFDictionaryRef ipsec_dict, char **errstr)
@@ -1176,11 +1195,14 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
 	char	text2[256];
 	char	local_address[32], remote_address[32];
 	struct stat	sb;
-	
+	u_int32_t verbose_logging;
+
 	filename[0] = 0;
 
 	if (!isDictionary(ipsec_dict))
 		FAIL("IPSec dictionary not present");
+
+	GetIntFromDict(ipsec_dict, CFSTR("VerboseLogging"), &verbose_logging, 0);
 
 	/* 
 		local address is REQUIRED 
@@ -1222,6 +1244,11 @@ racoon_configure(CFDictionaryRef ipsec_dict, char **errstr, int apply)
     if (file == NULL) {
 		snprintf(text, sizeof(text), "cannot create racoon configuration file (error %d)", errno);
 		FAIL(text);
+	}
+
+	if (verbose_logging) {
+		WRITE("log debug2;\n");
+		WRITE("path logfile \"/var/log/racoon.log\";\n\n");
 	}
 
     /*
@@ -1738,7 +1765,7 @@ fail:
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static int 
-install_remove_routes(int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+install_remove_routes(struct service *serv, int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
 {
     int			s = -1, i, nb;
     char		src_address[32], dst_address[32], str[32];
@@ -1756,8 +1783,10 @@ install_remove_routes(int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char *
         struct sockaddr_in	gway;
         struct sockaddr_in	mask;
     } rtmsg;
-
-    s = socket(PF_ROUTE, SOCK_RAW, AF_INET);
+	char                    remote_addr_str[INET_ADDRSTRLEN];
+	char                    gateway_addr_str[INET_ADDRSTRLEN];		
+	
+    s = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE);
     if (s < 0) 
 		FAIL("cannot open a routing socket");
     
@@ -1851,6 +1880,16 @@ install_remove_routes(int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char *
 		if (!inet_aton(str, &remote_net.sin_addr))
 			FAIL("incorrect remote network1");
 
+		// don't try to delete routes that weren't installed
+		if (cmd == RTM_DELETE) {
+			service_route_t *p = get_service_route(serv, local_net.sin_addr.s_addr, remote_net.sin_addr.s_addr);
+			if (!p || !p->installed) {
+				syslog(LOG_INFO, "ignoring uninstalled route: (address %s, gateway %s)\n",
+					   addr2ascii(AF_INET, &remote_net.sin_addr, sizeof(remote_net.sin_addr), remote_addr_str),
+					   addr2ascii(AF_INET, &gateway, sizeof(gateway), gateway_addr_str));
+				continue;
+			}
+		}
 
 		memset(&rtmsg, 0, sizeof(rtmsg));
 		rtmsg.hdr.rtm_type = cmd;
@@ -1873,8 +1912,18 @@ install_remove_routes(int cmd, CFDictionaryRef ipsec_dict, CFIndex index, char *
 		rtmsg.mask.sin_addr.s_addr = htonl(rtmsg.mask.sin_addr.s_addr);
 		len = sizeof(rtmsg);
 		rtmsg.hdr.rtm_msglen = len;
-		if (write(s, &rtmsg, len) < 0)
-			printf("cannot write on routing socket %d (0x%x --> 0x%x)\n", errno, htonl(remote_net.sin_addr.s_addr), htonl(gateway.s_addr));			;//FAIL("cannot write on routing socket", errno);
+		if (write(s, &rtmsg, len) < 0) {
+			syslog(LOG_ERR, "cannot write on routing socket: %s (address %s, gateway %s)\n", strerror(errno),
+				   addr2ascii(AF_INET, &remote_net.sin_addr, sizeof(remote_net.sin_addr), remote_addr_str),
+				   addr2ascii(AF_INET, &gateway, sizeof(gateway), gateway_addr_str)); //FAIL("cannot write on routing socket", errno);
+		} else {
+			// update service to indicate route was installed/not
+			update_service_route(serv,
+								 local_net.sin_addr.s_addr, 0xFFFFFFFF,
+								 remote_net.sin_addr.s_addr, ntohl(rtmsg.mask.sin_addr.s_addr),
+								 gateway.s_addr, 0,
+								 (cmd == RTM_ADD));
+		}
 		
 	}
 
@@ -1902,9 +1951,9 @@ Return code:
 0 if successful, -1 otherwise.
 ----------------------------------------------------------------------------- */
 int 
-IPSecInstallRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+IPSecInstallRoutes(struct service *serv, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
 {
-	return install_remove_routes(RTM_ADD, ipsec_dict, index, errstr, gateway);
+	return install_remove_routes(serv, RTM_ADD, ipsec_dict, index, errstr, gateway);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1922,9 +1971,9 @@ Return code:
 0 if successful, -1 otherwise.
 ----------------------------------------------------------------------------- */
 int 
-IPSecRemoveRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
+IPSecRemoveRoutes(struct service *serv, CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr, struct in_addr gateway) 
 {
-	return install_remove_routes(RTM_DELETE, ipsec_dict, index, errstr, gateway);
+	return install_remove_routes(serv, RTM_DELETE, ipsec_dict, index, errstr, gateway);
 }
 
 /* -----------------------------------------------------------------------------
@@ -2244,7 +2293,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     struct sockaddr	*rti_info[RTAX_MAX], *sa;
     struct sockaddr_dl	*sdl;
 
-    rsock = socket(PF_ROUTE, SOCK_RAW, 0);
+    rsock = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE);
     if (rsock == -1)
         return -1;
 
@@ -2253,7 +2302,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     rtm = (struct rt_msghdr *)&buf;
     rtm->rtm_msglen  = sizeof(struct rt_msghdr);
     rtm->rtm_version = RTM_VERSION;
-    rtm->rtm_type    = RTM_GET;
+    rtm->rtm_type    = RTM_GET_SILENT;
     rtm->rtm_flags   = RTF_STATIC|RTF_UP|RTF_HOST|RTF_GATEWAY;
     rtm->rtm_addrs   = RTA_DST|RTA_IFP; /* Both destination and device */
     rtm->rtm_pid     = pid;
@@ -2276,19 +2325,13 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
         }
     } while (n == -1); 
 
-    /* Type, seq, pid identify our response.
-        Routing sockets are broadcasters on input. */
     do {
-        do {
-            n = read(rsock, (void *)&buf, sizeof(buf));
-            if (n == -1 && errno != EINTR) {
-                close(rsock);
-                return -1;
-            }
-        } while (n == -1); 
-    } while (rtm->rtm_type != RTM_GET 
-            || rtm->rtm_seq != seq
-            || rtm->rtm_pid != pid);
+        n = read(rsock, (void *)&buf, sizeof(buf));
+        if (n == -1 && errno != EINTR) {
+            close(rsock);
+            return -1;
+        }
+    } while (n == -1); 
 
     get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
 
@@ -2307,10 +2350,32 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     }
 } /* DEBUG */
 #endif
+    if (rti_info[RTAX_IFA] == NULL ||
+        src == NULL ||
+        (if_name && rti_info[RTAX_IFP] == NULL)) {
+        close(rsock);
+        return -1;
+    }
     
-    bcopy(rti_info[5], src, rti_info[5]->sa_len);
+	if (rti_info[RTAX_IFA]->sa_family == AF_INET6) {
+		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)rti_info[RTAX_IFA];
+
+		/* XXX: check for link local and scopeid */
+		if (IN6_IS_ADDR_LINKLOCAL(&addr6->sin6_addr)) {
+			u_int16_t        index;
+			index = addr6->sin6_addr.__u6_addr.__u6_addr16[1];
+			if (index != 0) {
+				addr6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+				if (addr6->sin6_scope_id == 0) {
+					addr6->sin6_scope_id = ntohs(index);
+				}
+			}
+		}
+	}
+	
+    bcopy(rti_info[RTAX_IFA], src, rti_info[RTAX_IFA]->sa_len);
     if (if_name)
-        strncpy(if_name, ((struct sockaddr_dl *)rti_info[4])->sdl_data, IF_NAMESIZE);
+        strncpy(if_name, ((struct sockaddr_dl *)rti_info[RTAX_IFP])->sdl_data, IF_NAMESIZE);
 
     close(rsock);
     return 0;
@@ -2486,11 +2551,9 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 	CFStringRef				src_string, dst_string, hostname_string = NULL;
 	CFMutableDictionaryRef	ipsec_dict, policy0, policy1 = NULL;
 	CFMutableArrayRef		policy_array, encryption_array, hash_array;
-#if 0
 	CFMutableDictionaryRef	proposal_dict;
 	CFMutableArrayRef		proposal_array;
-#endif
-	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL;
+	CFNumberRef				src_port_num, dst_port_num, dst_port1_num, proto_num, natt_multiuser_mode = NULL, dhgroup, lifetime;
 	int						zero = 0, one = 1, udpproto = IPPROTO_UDP, val;
 	struct sockaddr_in		*our_address = (struct sockaddr_in *)src;
 	struct sockaddr_in		*peer_address = (struct sockaddr_in *)dst;
@@ -2535,17 +2598,68 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 		CFDictionarySetValue(ipsec_dict, kRASPropIPSecNattMultipleUsersEnabled, natt_multiuser_mode);
 	
 	/* create the phase 1 proposals */
-#if 0
-	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	CFDictionarySetValue(proposal_dict, kRASPropIPSecAuthenticationMethod, authenticationMethod);
-
 	proposal_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
+	val = 2;
+	dhgroup = CFNumberCreate(0, kCFNumberIntType, &val);
+	val = 3600; 
+	lifetime = CFNumberCreate(0, kCFNumberIntType, &val);
+	// --- AES-256/SHA1
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
 	CFArraySetValueAtIndex(proposal_array, 0, proposal_dict);
 	CFRelease(proposal_dict);
 
+	// --- AES-256/MD5
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES256);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+	CFArraySetValueAtIndex(proposal_array, 1, proposal_dict);
+	CFRelease(proposal_dict);
+
+	// --- AES/SHA1
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+	CFArraySetValueAtIndex(proposal_array, 2, proposal_dict);
+	CFRelease(proposal_dict);
+
+	// --- AES/MD5
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithmAES);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+	CFArraySetValueAtIndex(proposal_array, 3, proposal_dict);
+	CFRelease(proposal_dict);
+
+	// --- 3DES/SHA1
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmSHA1);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+	CFArraySetValueAtIndex(proposal_array, 4, proposal_dict);
+	CFRelease(proposal_dict);
+	
+	// --- 3DES/MD5
+	proposal_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalEncryptionAlgorithm, kRASValIPSecProposalEncryptionAlgorithm3DES);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalHashAlgorithm, kRASValIPSecProposalHashAlgorithmMD5);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalDHGroup, dhgroup);
+	CFDictionarySetValue(proposal_dict, kRASPropIPSecProposalLifetime, lifetime);
+	CFArraySetValueAtIndex(proposal_array, 5, proposal_dict);
+	CFRelease(proposal_dict);
+	CFRelease(dhgroup);
+	CFRelease(lifetime);
 	CFDictionarySetValue(ipsec_dict, kRASPropIPSecProposals, proposal_array);
 	CFRelease(proposal_array);
-#endif
 	
 	/* create the policies */
 	policy0 = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -2555,8 +2669,9 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyMode, kRASValIPSecPolicyModeTransport);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyLevel, kRASValIPSecPolicyLevelRequire);
 	encryption_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
-	CFArraySetValueAtIndex(encryption_array, 0, kRASValIPSecPolicyEncryptionAlgorithmAES);
-	CFArraySetValueAtIndex(encryption_array, 1, kRASValIPSecPolicyEncryptionAlgorithm3DES);
+	CFArraySetValueAtIndex(encryption_array, 0, kRASValIPSecPolicyEncryptionAlgorithmAES256);
+	CFArraySetValueAtIndex(encryption_array, 1, kRASValIPSecPolicyEncryptionAlgorithmAES);
+	CFArraySetValueAtIndex(encryption_array, 2, kRASValIPSecPolicyEncryptionAlgorithm3DES);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyEncryptionAlgorithm, encryption_array);
 	CFRelease(encryption_array);
 	hash_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
@@ -2587,6 +2702,7 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 	CFRelease(dst_string);
 	CFRelease(src_port_num);
 	CFRelease(dst_port_num);
+	CFRelease(dst_port1_num);
 	CFRelease(proto_num);
 	if (!isClient)
 		CFRelease(natt_multiuser_mode);
@@ -2926,6 +3042,7 @@ IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst,
 	CFRelease(dst_string);
 	CFRelease(src_port_num);
 	CFRelease(dst_port_num);
+	CFRelease(dst_port1_num);
 	CFRelease(proto_num);
 	if (cfone)
 		CFRelease(cfone);
@@ -2950,9 +3067,7 @@ Return code:
 ----------------------------------------------------------------------------- */
 int 
 IPSecSelfRepair() 
-{
-	int err;
-	
+{	
 	racoon_stop();
 		
 	return 0;
@@ -2998,7 +3113,7 @@ if_family2ascii (u_int32_t if_family)
 }
 
 void
-IPSecLogVPNInterfaceAddressEvent (char                  *location,
+IPSecLogVPNInterfaceAddressEvent (const char                  *location,
 								  struct kern_event_msg *ev_msg,
 								  int                    wait_interface_timeout,
 							 	  char                  *interface,
@@ -3021,7 +3136,7 @@ IPSecLogVPNInterfaceAddressEvent (char                  *location,
 		char                     new_mask_str[INET_ADDRSTRLEN];
 		char                     dst_addr_str[INET_ADDRSTRLEN];
 		
-		mask.s_addr = ntohl(inetdata->ia_netmask);
+		mask.s_addr = ntohl(inetdata->ia_subnetmask);
 		
 		switch (ev_msg->event_code) {
 			case KEV_INET_NEW_ADDR:
@@ -3084,217 +3199,76 @@ IPSecLogVPNInterfaceAddressEvent (char                  *location,
 	}
 }
 
-int
-IPSecCheckVPNInterfaceOrServiceUnrecoverable (void                  *dynamicStore,
-					      char                  *location,
-					      struct kern_event_msg *ev_msg,
-					      char                  *interface_buf)
+void
+update_service_route (struct service	*serv,
+					  in_addr_t			local_addr,
+					  in_addr_t			local_mask,
+					  in_addr_t			dest_addr,
+					  in_addr_t			dest_mask,
+					  in_addr_t			gtwy_addr,
+					  uint16_t			flags,
+					  int				installed)
 {
-	SCDynamicStoreRef dynamicStoreRef = (SCDynamicStoreRef)dynamicStore;
+	service_route_t *p, *route = NULL;
+	char             dest_addr_str[INET_ADDRSTRLEN];
+	char             gtwy_addr_str[INET_ADDRSTRLEN];		
 
-	// return 1, if this is a delete event, and;
-	// TODO: add support for IPv6 <rdar://problem/5920237>
-	// walk Setup:/Network/Service/* and check if there are service entries referencing this interface. e.g. Setup:/Network/Service/44DB8790-0177-4F17-8D4E-37F9413D1D87/Interface:DeviceName == interface, other_serv_found = 1
-	// Setup:/Network/Interface/"interface"/AirPort:'PowerEnable' == 0 || Setup:/Network/Interface/"interface"/IPv4 is missing, interf_down = 1
-	if (!dynamicStoreRef)
-		syslog(LOG_DEBUG, "%s: invalid SCDynamicStore reference", location);
-
-	if (dynamicStoreRef &&
-	    (ev_msg->event_code == KEV_INET_ADDR_DELETED || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
-		CFStringRef       interf_key;
-		CFMutableArrayRef interf_keys;
-		CFStringRef       pattern;
-		CFMutableArrayRef patterns;
-		CFDictionaryRef   dict = NULL;
-		CFIndex           i;
-		const void *      keys_q[128];
-		const void **     keys = keys_q;
-		const void *      values_q[128];
-		const void **     values = values_q;
-		CFIndex           n;
-		CFStringRef       vpn_if;
-		int               other_serv_found = 0, interf_down = 0;
-
-		vpn_if = CFStringCreateWithCStringNoCopy(NULL,
-							 interface_buf,
-							 kCFStringEncodingASCII,
-							 kCFAllocatorNull);
-		if (!vpn_if) {
-			// if we could not initialize interface CFString
-			syslog(LOG_NOTICE, "%s: failed to initialize interface CFString", location);
-			goto done;
+	for (p = serv->u.ipsec.routes; p != NULL; p = p->next) {
+		if (p->local_address.s_addr == local_addr &&
+			p->local_mask.s_addr == local_mask &&
+			p->dest_address.s_addr == dest_addr &&
+			p->dest_mask.s_addr == dest_mask) {
+			route = p;
+			break;
 		}
-
-		interf_keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		// get Setup:/Network/Interface/<vpn_if>/Airport
-		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
-									   kSCDynamicStoreDomainSetup,
-									   vpn_if,
-									   kSCEntNetAirPort);
-		CFArrayAppendValue(interf_keys, interf_key);
-		CFRelease(interf_key);
-		// get State:/Network/Interface/<vpn_if>/Airport
-		interf_key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
-									   kSCDynamicStoreDomainState,
-									   vpn_if,
-									   kSCEntNetAirPort);
-		CFArrayAppendValue(interf_keys, interf_key);
-		CFRelease(interf_key);
-		// get Setup:/Network/Service/*/Interface
-		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-								      kSCDynamicStoreDomainSetup,
-								      kSCCompAnyRegex,
-								      kSCEntNetInterface);
-		CFArrayAppendValue(patterns, pattern);
-		CFRelease(pattern);
-		// get Setup:/Network/Service/*/IPv4
-		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-								      kSCDynamicStoreDomainSetup,
-								      kSCCompAnyRegex,
-								      kSCEntNetIPv4);
-		CFArrayAppendValue(patterns, pattern);
-		CFRelease(pattern);
-		dict = SCDynamicStoreCopyMultiple(dynamicStoreRef, interf_keys, patterns);
-		CFRelease(interf_keys);
-		CFRelease(patterns);
-
-		if (!dict) {
-			// if we could not access the SCDynamicStore
-			syslog(LOG_NOTICE, "%s: failed to initialize SCDynamicStore dictionary", location);
-			goto done;
-		}
-		// look for the service which matches the provided prefixes
-		n = CFDictionaryGetCount(dict);
-		if (n <= 0) {
-			syslog(LOG_NOTICE, "%s: empty SCDynamicStore dictionary", location);
-			goto done;
-		}
-		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
-			keys   = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
-			values = CFAllocatorAllocate(NULL, n * sizeof(CFTypeRef), 0);
-		}
-		CFDictionaryGetKeysAndValues(dict, keys, values);
-		for (i=0; i < n; i++) {
-			CFStringRef     s_key  = (CFStringRef)keys[i];
-			CFDictionaryRef s_dict = (CFDictionaryRef)values[i];
-			CFStringRef     s_if;
-
-			if (!isA_CFString(s_key) || !isA_CFDictionary(s_dict)) {
-				continue;
-			}
-
-			//syslog(LOG_NOTICE, "processing key: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
-
-			if (CFStringHasSuffix(s_key, kSCEntNetInterface)) {
-				// is a Service Interface entity
-				s_if = CFDictionaryGetValue(s_dict, kSCPropNetInterfaceDeviceName);
-				if (isA_CFString(s_if) && CFEqual(vpn_if, s_if)) {
-					CFArrayRef        components;
-					CFStringRef       serviceIDRef = NULL, serviceKey = NULL;
-					CFPropertyListRef serviceRef = NULL;
-
-					syslog(LOG_NOTICE, "linked service found: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
-					other_serv_found = 1;
-					// extract service ID
-					components = CFStringCreateArrayBySeparatingStrings(NULL, s_key, CFSTR("/"));
-					if (CFArrayGetCount(components) > 3) {
-						serviceIDRef = CFArrayGetValueAtIndex(components, 3);
-						//if (new key) Setup:/Network/Service/service_id/IPv4 is missing, then interf_down = 1
-						serviceKey = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainSetup, serviceIDRef, kSCEntNetIPv4);
-						if (!serviceKey ||
-						    !(serviceRef = CFDictionaryGetValue(dict, serviceKey))) {
-							syslog(LOG_NOTICE, "%s: detected disabled IPv4 Config", location);
-							interf_down = 1;
-						}
-						if (serviceKey) CFRelease(serviceKey);
-					}
-					if (components) CFRelease(components);
-					if (interf_down) break;
-				}
-				continue;
-			} else if (CFStringHasSuffix(s_key, kSCEntNetAirPort)) {
-				// Interface/<vpn_if>/Airport entity
-				if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainSetup)) {
-					CFBooleanRef powerEnable = CFDictionaryGetValue(s_dict, kSCPropNetAirPortPowerEnabled);
-					if (isA_CFBoolean(powerEnable) &&
-					    CFEqual(powerEnable, kCFBooleanFalse)) {
-						syslog(LOG_NOTICE, "%s: detected AirPort, PowerEnable == FALSE", location);
-						interf_down = 1;
-						break;
-					}
-				} else if (CFStringHasPrefix(s_key, kSCDynamicStoreDomainState)) {
-					UInt16      temp;
-					CFNumberRef airStatus = CFDictionaryGetValue(s_dict, CFSTR("Power Status"));
-					if (isA_CFNumber(airStatus) &&
-					    CFNumberGetValue(airStatus, kCFNumberShortType, &temp)) {
-						if (temp ==0) {
-							syslog(LOG_NOTICE, "%s: detected AirPort, PowerStatus == 0", location);
-						}
-					}
-				}
-				continue;
-			}
-		}
-		if (vpn_if) CFRelease(vpn_if);
-		if (keys != keys_q) {
-			CFAllocatorDeallocate(NULL, keys);
-			CFAllocatorDeallocate(NULL, values);
-		}
-done :
-		if (dict) CFRelease(dict);
-
-		return (other_serv_found == 0 || interf_down == 1);             
 	}
-	return 0;
+	if (!route) {
+		if ((route = (__typeof__(route))calloc(1, sizeof(*route))) == 0) {
+			syslog(LOG_ERR, "%s: no memory\n", __FUNCTION__);
+			return;
+		}
+		route->local_address.s_addr = local_addr;
+		route->local_mask.s_addr = local_mask;
+		route->dest_address.s_addr = dest_addr;
+		route->dest_mask.s_addr = dest_mask;
+		route->next = serv->u.ipsec.routes;
+		serv->u.ipsec.routes = route;
+	}
+	route->gtwy_address.s_addr = gtwy_addr;
+	route->flags = flags;
+	route->installed = installed;
+	addr2ascii(AF_INET, (struct in_addr *)&dest_addr, sizeof(dest_addr), dest_addr_str);
+	addr2ascii(AF_INET, (struct in_addr *)&gtwy_addr, sizeof(gtwy_addr), gtwy_addr_str);
+
+	if (installed) {
+		syslog(LOG_NOTICE, "installed route: (address %s, gateway %s)\n", dest_addr_str, gtwy_addr_str);
+	}
 }
 
-int
-IPSecCheckVPNInterfaceAddressChange (int                    transport_down,
-                                     struct kern_event_msg *ev_msg,
-                                     char                  *interface_buf,
-                                     struct in_addr        *our_address)
+service_route_t *
+get_service_route (struct service	*serv,
+				   in_addr_t		local_addr,
+				   in_addr_t		dest_addr)
 {
-    struct kev_in_data *inetdata;
-
-    /* if transport is still down: ignore deletes, and check if the underlying interface's address has changed (ignore link-local addresses) */
-    if (transport_down &&
-        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
- 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
-#if 0
-        syslog(LOG_NOTICE, "%s: checking for interface address change. underlying %s, old-addr %x, new-addr %x\n",
-               __FUNCTION__, interface_buf, our_address->s_addr, inetdata->ia_addr.s_addr);
-#endif
-        /* check if address changed */
-        if (our_address->s_addr != inetdata->ia_addr.s_addr &&
-            !IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
-            return 1;
-        }
-    }
-    
-    return 0;
+	service_route_t *p;
+	
+	for (p = serv->u.ipsec.routes; p != NULL; p = p->next) {
+		if (p->local_address.s_addr == local_addr &&
+			p->dest_address.s_addr == dest_addr) {
+			return p;
+		}
+	}
+	return NULL;
 }
 
-int
-IPSecCheckVPNInterfaceAddressAlternate (int                    transport_down,
-                                        struct kern_event_msg *ev_msg,
-                                        char                  *interface_buf)
+void
+free_service_routes (struct service	*serv)
 {
-    struct kev_in_data *inetdata;
-    
-    /* if transport is still down: ignore deletes, and check if any interface address has alternative address */
-    if (transport_down &&
-        (ev_msg->event_code == KEV_INET_NEW_ADDR || ev_msg->event_code == KEV_INET_CHANGED_ADDR)) {
- 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
-#if 0
-        syslog(LOG_NOTICE, "%s: checking for alternate interface. underlying %s, new-addr %x\n",
-               __FUNCTION__, interface_buf, inetdata->ia_addr.s_addr);
-#endif
-        /* check if address changed */
-        if (!IN_LINKLOCAL(ntohl(inetdata->ia_addr.s_addr))) {
-            return 1;
-        }
-    }
-    
-    return 0;
+	service_route_t *p, *save;
+	
+	for (p = serv->u.ipsec.routes; p != NULL; p = save) {
+		save = p->next;
+		free(p);
+	}
+	serv->u.ipsec.routes = NULL;
 }

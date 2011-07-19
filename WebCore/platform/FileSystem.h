@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora, Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,9 +30,15 @@
 #ifndef FileSystem_h
 #define FileSystem_h
 
-#if PLATFORM(GTK)
-#include <gmodule.h>
+#include "PlatformString.h"
+#include <time.h>
+#include <wtf/Forward.h>
+#include <wtf/Vector.h>
+
+#if USE(CF)
+#include <wtf/RetainPtr.h>
 #endif
+
 #if PLATFORM(QT)
 #include <QFile>
 #include <QLibrary>
@@ -41,15 +47,15 @@
 #endif
 #endif
 
-#if PLATFORM(CF) || (PLATFORM(QT) && defined(Q_WS_MAC))
-#include <CoreFoundation/CFBundle.h>
+#if PLATFORM(WX)
+#include <wx/defs.h>
+#include <wx/file.h>
 #endif
 
-#include "PlatformString.h"
-#include <time.h>
-#include <wtf/Vector.h>
-
+#if USE(CF) || (PLATFORM(QT) && defined(Q_WS_MAC))
+typedef struct __CFBundle* CFBundleRef;
 typedef const struct __CFData* CFDataRef;
+#endif
 
 #if OS(WINDOWS)
 // These are to avoid including <winbase.h> in a header for Chromium
@@ -59,15 +65,21 @@ typedef struct HINSTANCE__* HINSTANCE;
 typedef HINSTANCE HMODULE;
 #endif
 
-namespace WTF {
-class CString;
-}
-using WTF::CString;
+#if PLATFORM(BREWMP)
+typedef struct _IFile IFile;
+#endif
+
+#if PLATFORM(GTK)
+typedef struct _GFileIOStream GFileIOStream;
+typedef struct _GModule GModule;
+#endif
 
 namespace WebCore {
 
 // PlatformModule
-#if OS(WINDOWS)
+#if PLATFORM(GTK)
+typedef GModule* PlatformModule;
+#elif OS(WINDOWS)
 typedef HMODULE PlatformModule;
 #elif PLATFORM(QT)
 #if defined(Q_WS_MAC)
@@ -77,9 +89,7 @@ typedef QLibrary* PlatformModule;
 #else
 typedef void* PlatformModule;
 #endif
-#elif PLATFORM(GTK)
-typedef GModule* PlatformModule;
-#elif PLATFORM(CF)
+#elif USE(CF)
 typedef CFBundleRef PlatformModule;
 #else
 typedef void* PlatformModule;
@@ -112,11 +122,20 @@ typedef unsigned PlatformModuleVersion;
 #if PLATFORM(QT)
 typedef QFile* PlatformFileHandle;
 const PlatformFileHandle invalidPlatformFileHandle = 0;
+#elif PLATFORM(GTK)
+typedef GFileIOStream* PlatformFileHandle;
+const PlatformFileHandle invalidPlatformFileHandle = 0;
 #elif OS(WINDOWS)
 typedef HANDLE PlatformFileHandle;
 // FIXME: -1 is INVALID_HANDLE_VALUE, defined in <winbase.h>. Chromium tries to
 // avoid using Windows headers in headers.  We'd rather move this into the .cpp.
 const PlatformFileHandle invalidPlatformFileHandle = reinterpret_cast<HANDLE>(-1);
+#elif PLATFORM(BREWMP)
+typedef IFile* PlatformFileHandle;
+const PlatformFileHandle invalidPlatformFileHandle = 0;
+#elif PLATFORM(WX)
+typedef wxFile* PlatformFileHandle;
+const PlatformFileHandle invalidPlatformFileHandle = 0;
 #else
 typedef int PlatformFileHandle;
 const PlatformFileHandle invalidPlatformFileHandle = -1;
@@ -133,6 +152,13 @@ enum FileSeekOrigin {
     SeekFromEnd
 };
 
+#if OS(WINDOWS)
+static const char PlatformFilePathSeparator = '\\';
+#else
+static const char PlatformFilePathSeparator = '/';
+#endif
+
+void revealFolderInOS(const String&);
 bool fileExists(const String&);
 bool deleteFile(const String&);
 bool deleteEmptyDirectory(const String&);
@@ -144,14 +170,17 @@ String homeDirectoryPath();
 String pathGetFileName(const String&);
 String directoryName(const String&);
 
+bool canExcludeFromBackup(); // Returns true if any file can ever be excluded from backup.
+bool excludeFromBackup(const String&); // Returns true if successful.
+
 Vector<String> listDirectory(const String& path, const String& filter = String());
 
-WTF::CString fileSystemRepresentation(const String&);
+CString fileSystemRepresentation(const String&);
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
 
 // Prefix is what the filename should be prefixed with, not the full path.
-WTF::CString openTemporaryFile(const char* prefix, PlatformFileHandle&);
+String openTemporaryFile(const String& prefix, PlatformFileHandle&);
 PlatformFileHandle openFile(const String& path, FileOpenMode);
 void closeFile(PlatformFileHandle&);
 // Returns the resulting offset from the beginning of the file if successful, -1 otherwise.
@@ -162,28 +191,30 @@ int writeToFile(PlatformFileHandle, const char* data, int length);
 // Returns number of bytes actually written if successful, -1 otherwise.
 int readFromFile(PlatformFileHandle, char* data, int length);
 
-// Methods for dealing with loadable modules
+// Functions for working with loadable modules.
 bool unloadModule(PlatformModule);
 
-#if PLATFORM(WIN)
-String localUserSpecificStorageDirectory();
-String roamingUserSpecificStorageDirectory();
+// Encode a string for use within a file name.
+String encodeForFileName(const String&);
 
-bool safeCreateFile(const String&, CFDataRef);
-#endif
-
-#if PLATFORM(GTK)
-String filenameToString(const char*);
-char* filenameFromString(const String&);
-String filenameForDisplay(const String&);
+#if USE(CF)
+RetainPtr<CFURLRef> pathAsURL(const String&);
 #endif
 
 #if PLATFORM(CHROMIUM)
 String pathGetDisplayFileName(const String&);
 #endif
 
-#if PLATFORM(EFL)
-char *filenameFromString(const String&);
+#if PLATFORM(GTK)
+String filenameToString(const char*);
+String filenameForDisplay(const String&);
+CString applicationDirectoryPath();
+#endif
+
+#if PLATFORM(WIN) && !OS(WINCE)
+String localUserSpecificStorageDirectory();
+String roamingUserSpecificStorageDirectory();
+bool safeCreateFile(const String&, CFDataRef);
 #endif
 
 } // namespace WebCore

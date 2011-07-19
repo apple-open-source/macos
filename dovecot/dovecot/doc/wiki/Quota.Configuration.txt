@@ -1,0 +1,314 @@
+Quota Configuration
+===================
+
+Contents
+
+
+ 1. Quota Configuration
+
+     1. Quota rules
+
+         1. Limit configuration
+
+     2. Per-user quota
+
+         1. LDAP
+
+         2. MySQL
+
+         3. PostgreSQL, SQLite
+
+         4. passwd-file
+
+         5. passwd
+
+     3. Quota for public namespaces
+
+     4. Custom Quota Exceeded Message
+
+     5. Quota warnings
+
+The configuration is split into multiple settings:
+
+First you have the quota root backend configuration. Quota root is a concept
+from IMAP Quota specifications [http://www.rfc-editor.org/rfc/rfc2087.txt].
+Normally you'll have only one quota root, but in theory there could be e.g.
+"user quota" and "domain quota" roots. It's unspecified how the quota roots
+interact with each others (if at all). In some systems for example INBOX could
+have a completely different quota root from the rest of the mailboxes (e.g.
+INBOX in '/var/mail/' partition and others in '/home/' partition).
+
+Quota root configuration includes the backend name, quota root name and its
+parameters, if there are any:
+
+---%<-------------------------------------------------------------------------
+quota = <backend>[:<quota root name>[:<backend args>]]
+---%<-------------------------------------------------------------------------
+
+The quota root name is just an arbitrary string that is sent to IMAP clients,
+which in turn may show it to the user. The name has no meaning. By default an
+empty string is used, but you may want to change that since some clients (Apple
+Mail) break and don't show quota at all then.
+
+You can define multiple quota roots by appending an increasing number, for
+example:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  quota = maildir:User quota
+  quota2 = fs:Disk quota
+  #quota3 = ...
+}
+---%<-------------------------------------------------------------------------
+
+Quota rules
+-----------
+
+Quota rules configure the actual quota limits. The syntax is:
+
+---%<-------------------------------------------------------------------------
+quota_rule = <mailbox name>:<limit configuration>
+#quota_rule2 = ...
+#quota_rule3 = ..etc..
+---%<-------------------------------------------------------------------------
+
+"*" as the mailbox name configures the default limit, which is applied on top
+of a mailbox-specific limit if found. So for example:
+
+---%<-------------------------------------------------------------------------
+quota_rule = *:storage=1G
+quota_rule2 = Trash:storage=100M
+quota_rule3 = SPAM:ignore
+---%<-------------------------------------------------------------------------
+
+This means that the user has 1GB quota, but when saving messages to Trash
+mailbox it's possible to use up to 1,1GB of quota. The quota isn't specifically
+assigned to Trash, so if you had 1GB of mails in Trash you could still save
+100MB of mails to Trash, but nothing to other mailboxes. The idea of this is
+mostly to allow the clients' move-to-Trash feature work while user is deleting
+messages to get under quota.  Additionally, any messages in the SPAM folder are
+ignored per the 'ignore' directive and would not count against the quota.
+
+"?" as the mailbox name works almost like "*". The difference is that "?" is
+used only if quota backend doesn't override the limit. For example with
+Maildir++ [http://www.inter7.com/courierimap/README.maildirquota.html] quota if
+'maildirsize' file exists the limits are taken from it, but if it doesn't exist
+the "?" limits are used.
+
+"*" can't be used as a generic wildcard in mailbox names, so for example "box*"
+wouldn't match "boxes". As shown in the above example, the first quota rule is
+named 'quota_rule' while the following rules have an increasing digit in them.
+You can have as many quota rules as you want.
+
+Limit configuration
+-------------------
+
+The following limit names are supported:
+
+ * *storage*: Quota limit in kilobytes, 0 means unlimited.
+ * *bytes*: Quota limit in bytes, 0 means unlimited.
+ * *messages*: Quota limit in number of messages, 0 means unlimited. This
+   probably isn't very useful.
+ * *backend*: Quota backend-specific limit configuration.
+ * *ignore*: Don't include the specified mailbox in quota at all.
+
+All of these support also b/k/M/G/T/% suffixes. So storage=100M and bytes=100M
+both mean the exact same thing. messages=1k also means 1024 messages (not
+1000).
+
+Percents are relative to the default rule. For example:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  quota = maildir:User quota
+  quota_rule = *:storage=1GB
+  # 10% of 1GB = 100MB
+  quota_rule2 = Trash:storage=10%%
+  # 20% of 1GB = 200MB
+  quota_rule3 = Spam:storage=20%%
+}
+---%<-------------------------------------------------------------------------
+
+Note that % is written twice to escape it, because <%variables> [Variables.txt]
+are expanded in plugin section. <userdb> [UserDatabase.txt] configuration may
+or may not require this escaping.
+
+Backend-specific configuration currently is used only with Maildir++ quota
+backend. It means you can have the quota in Maildir++ format (e.g.
+"10000000S").
+
+Per-user quota
+--------------
+
+You can override quota rules in your <userdb> [UserDatabase.txt]'s <extra
+fields> [UserDatabase.ExtraFields.txt]. Keep all the global settings in plugin
+section and override only those settings you need to in your userdb. For
+example:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  quota = maildir:User quota
+  quota_rule = *:storage=1G
+  quota_rule2 = Trash:storage=100M
+}
+---%<-------------------------------------------------------------------------
+
+Next override the default 1GB quota for users:
+
+LDAP
+----
+
+Quota limit is in quotaBytes field:
+
+---%<-------------------------------------------------------------------------
+user_attrs = homeDirectory=home, quotaBytes=quota_rule=*:bytes=%$
+---%<-------------------------------------------------------------------------
+
+MySQL
+-----
+
+---%<-------------------------------------------------------------------------
+user_query = SELECT uid, gid, home, \
+  concat('*:bytes=', quota_bytes) AS quota_rule \
+  FROM users WHERE userid = '%u'
+
+# MySQL with userdb prefetch: Remember to prefix quota_rule with userdb_
+# (just like all other userdb extra fields):
+password_query = SELECT userid AS user, password, \
+  uid AS userdb_uid, gid AS userdb_gid, \
+  concat('*:bytes=', quota_bytes) AS userdb_quota_rule \
+  FROM users WHERE userid = '%u'
+---%<-------------------------------------------------------------------------
+
+PostgreSQL, SQLite
+------------------
+
+---%<-------------------------------------------------------------------------
+user_query = SELECT uid, gid, home, \
+  '*:bytes=' || quota_bytes AS quota_rule \
+  FROM users WHERE userid = '%u'
+---%<-------------------------------------------------------------------------
+
+passwd-file
+-----------
+
+Example passwd-file entries:
+
+---%<-------------------------------------------------------------------------
+user:{plain}pass:1000:1000::/home/user::userdb_quota_rule=*:bytes=100M
+user2:{plain}pass2:1001:1001::/home/user2::userdb_quota_rule=*:bytes=200M
+user3:{plain}pass3:1002:1002::/home/user3::userdb_mail=maildir:~/Maildir
+userdb_quota_rule=*:bytes=300M
+---%<-------------------------------------------------------------------------
+
+passwd
+------
+
+The <passwd> [AuthDatabase.Passwd.txt] userdb doesn't support extra fields.
+That's why you can't directly set users' quota limits to passwd file. One
+possibility would be to write a script that reads quota limits from another
+file, merges them with passwd file and produces another passwd-file, which you
+could then use with Dovecot's <userdb passwd-file>
+[AuthDatabase.PasswdFile.txt].
+
+Quota for public namespaces
+---------------------------
+
+You can create a separate namespace-specific quota that's shared between all
+users. This is done simply by adding ':ns=<namespace prefix>' parameter to
+quota setting. For example you could have something like:
+
+---%<-------------------------------------------------------------------------
+namespace {
+  type = public
+  prefix = Public/
+  #location = ..
+}
+
+plugin {
+  quota = maildir:User quota
+  quota2 = maildir:Shared quota:ns=Public/
+  #quota_rules and quota2_rules..
+}
+---%<-------------------------------------------------------------------------
+
+Custom Quota Exceeded Message
+-----------------------------
+
+You can configure Dovecot to send a custom string instead of the default quota
+exceeded message. You could have something like:
+
+---%<-------------------------------------------------------------------------
+plugin {
+   quota_exceeded_message = Quota exceeded, please go to
+http://www.example.com/over_quota_help for instructions on how to fix this.
+}
+---%<-------------------------------------------------------------------------
+
+Quota warnings
+--------------
+
+You can configure Dovecot to run an external command when user's quota exceeds
+a specified limit. Note that the warning is ONLY executed at the exact time
+when the limit is being crossed, so when you're testing it you have to do it by
+crossing the limit by saving a new mail. If something else besides Dovecot
+updates quota so that the limit is crossed, the warning is never executed. The
+syntax is:
+
+---%<-------------------------------------------------------------------------
+quota_warning = <limit configuration> <quota-warning socket name> <parameters>
+#quota_warning2 = ...
+#quota_warning3 = ..etc..
+---%<-------------------------------------------------------------------------
+
+Limit configuration is the exact same as for rules. Usually you want to use
+percents instead of absolute limits. Only the command for the first exceeded
+limit is executed, so configure the highest limit first. The actual commands
+that are run need to be created as services.
+
+An example configuration:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  quota_warning = storage=95%% quota-warning 95 %u
+  quota_warning2 = storage=80%% quota-warning 80 %u
+}
+
+service quota-warning {
+  executable = script /usr/local/bin/quota-warning.sh
+  # use some unprivileged user for executing the quota warnings
+  user = vmail
+  unix_listener quota-warning {
+  }
+}
+---%<-------------------------------------------------------------------------
+
+With the above example when user's quota exceeds 80%, 'quota-warning.sh' is
+executed with parameter 80. The same goes for when quota exceeds 95%. If user
+suddenly receives a huge mail and the quota jumps from 70% to 99%, only the 95
+script is executed.
+
+You have to create the 'quota-warning.sh' script yourself. Here is an example
+that sends a mail to the user:
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+PERCENT=$1
+USER=$2
+cat << EOF | /usr/local/libexec/dovecot/dovecot-lda -d $USER -o
+"plugin/quota=maildir:User quota:noenforcing"
+From: postmaster@domain.com
+Subject: quota warning
+
+Your mailbox is now $PERCENT% full.
+EOF
+---%<-------------------------------------------------------------------------
+
+The quota enforcing is disabled to avoid looping. You'll of course need to
+change the 'plugin/quota' value to match the quota backend and other
+configuration you use. Basically preserve your original "quota" setting and
+just insert ":noenforcing" to proper location in it. For example with dict
+quota, you can use something like:'-o "plugin/quota=dict:User
+quota::noenforcing:proxy::quota"'
+
+(This file was created from the wiki on 2011-05-11 04:42)

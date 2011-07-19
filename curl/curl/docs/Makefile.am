@@ -1,5 +1,4 @@
 #
-# $Id: Makefile.am,v 1.38 2009-05-19 12:12:22 yangtse Exp $
 #
 
 AUTOMAKE_OPTIONS = foreign no-dependencies

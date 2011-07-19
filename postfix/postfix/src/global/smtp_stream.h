@@ -37,6 +37,9 @@ extern void PRINTFLIKE(2, 3) smtp_printf(VSTREAM *, const char *,...);
 extern void smtp_flush(VSTREAM *);
 extern int smtp_fgetc(VSTREAM *);
 extern int smtp_get(VSTRING *, VSTREAM *, ssize_t);
+extern int smtp_get_to_eof(VSTRING *, VSTREAM *, ssize_t);	/* APPLE - RFC 3030 */
+extern int smtp_get_binary_to_eof(VSTRING *, VSTREAM *, ssize_t);	/* APPLE - RFC 3030 */
+extern void smtp_discard(VSTREAM *, off_t);		/* APPLE - RFC 3030 */
 extern void smtp_fputs(const char *, ssize_t len, VSTREAM *);
 extern void smtp_fwrite(const char *, ssize_t len, VSTREAM *);
 extern void smtp_fputc(int, VSTREAM *);

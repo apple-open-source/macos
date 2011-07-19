@@ -40,7 +40,6 @@ public:
     RenderVideo(HTMLVideoElement*);
     virtual ~RenderVideo();
 
-    void videoSizeChanged();
     IntRect videoBox() const;
 
     static IntSize defaultSize();
@@ -50,11 +49,16 @@ public:
     void acceleratedRenderingStateChanged();
 #endif
 
+    virtual bool shouldDisplayVideo() const;
+
 private:
     virtual void updateFromElement();
     inline HTMLVideoElement* videoElement() const;
 
     virtual void intrinsicSizeChanged();
+    IntSize calculateIntrinsicSize();
+    void updateIntrinsicSize();
+
     virtual void imageChanged(WrappedImagePtr, const IntRect*);
 
     virtual const char* renderName() const { return "RenderVideo"; }
@@ -66,12 +70,9 @@ private:
 
     virtual void layout();
 
-    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int calcReplacedHeight() const;
+    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedLogicalHeight() const;
     virtual int minimumReplacedHeight() const;
-    
-    int calcAspectRatioWidth() const;
-    int calcAspectRatioHeight() const;
 
     void updatePlayer();
 

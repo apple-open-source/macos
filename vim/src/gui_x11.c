@@ -570,22 +570,20 @@ static char **gui_argv = NULL;
  * Call-back routines.
  */
 
-/* ARGSUSED */
     static void
 gui_x11_timer_cb(timed_out, interval_id)
     XtPointer	    timed_out;
-    XtIntervalId    *interval_id;
+    XtIntervalId    *interval_id UNUSED;
 {
     *((int *)timed_out) = TRUE;
 }
 
-/* ARGSUSED */
     static void
 gui_x11_visibility_cb(w, dud, event, dum)
-    Widget	w;
-    XtPointer	dud;
+    Widget	w UNUSED;
+    XtPointer	dud UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     if (event->type != VisibilityNotify)
 	return;
@@ -603,13 +601,12 @@ gui_x11_visibility_cb(w, dud, event, dum)
     gui_mch_update();
 }
 
-/* ARGSUSED */
     static void
 gui_x11_expose_cb(w, dud, event, dum)
-    Widget	w;
-    XtPointer	dud;
+    Widget	w UNUSED;
+    XtPointer	dud UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     XExposeEvent	*gevent;
     int			new_x;
@@ -638,8 +635,8 @@ gui_x11_expose_cb(w, dud, event, dum)
     gui_mch_update();
 }
 
-#if (defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)) \
-	|| defined(PROTO)
+#if ((defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)) \
+	&& defined(FEAT_GUI_MOTIF)) || defined(PROTO)
 /*
  * This function fills in the XRectangle object with the current x,y
  * coordinates and height, width so that an XtVaSetValues to the same shell of
@@ -680,13 +677,12 @@ shellRectangle(Widget shell, XRectangle *r)
 }
 #endif
 
-/* ARGSUSED */
     static void
 gui_x11_resize_window_cb(w, dud, event, dum)
-    Widget	w;
-    XtPointer	dud;
+    Widget	w UNUSED;
+    XtPointer	dud UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     static int lastWidth, lastHeight;
 
@@ -713,8 +709,8 @@ gui_x11_resize_window_cb(w, dud, event, dum)
 	workshop_frame_moved(rec.x, rec.y, rec.width, rec.height);
     }
 #endif
-#ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
+#if defined(FEAT_NETBEANS_INTG) && defined(FEAT_GUI_MOTIF)
+    if (netbeans_active())
     {
 	XRectangle  rec;
 
@@ -727,35 +723,32 @@ gui_x11_resize_window_cb(w, dud, event, dum)
 #endif
 }
 
-/* ARGSUSED */
     static void
 gui_x11_focus_change_cb(w, data, event, dum)
-    Widget	w;
-    XtPointer	data;
+    Widget	w UNUSED;
+    XtPointer	data UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     gui_focus_change(event->type == FocusIn);
 }
 
-/* ARGSUSED */
     static void
 gui_x11_enter_cb(w, data, event, dum)
-    Widget	w;
-    XtPointer	data;
-    XEvent	*event;
-    Boolean	*dum;
+    Widget	w UNUSED;
+    XtPointer	data UNUSED;
+    XEvent	*event UNUSED;
+    Boolean	*dum UNUSED;
 {
     gui_focus_change(TRUE);
 }
 
-/* ARGSUSED */
     static void
 gui_x11_leave_cb(w, data, event, dum)
-    Widget	w;
-    XtPointer	data;
-    XEvent	*event;
-    Boolean	*dum;
+    Widget	w UNUSED;
+    XtPointer	data UNUSED;
+    XEvent	*event UNUSED;
+    Boolean	*dum UNUSED;
 {
     gui_focus_change(FALSE);
 }
@@ -766,13 +759,12 @@ gui_x11_leave_cb(w, data, event, dum)
 # endif
 #endif
 
-/* ARGSUSED */
     void
 gui_x11_key_hit_cb(w, dud, event, dum)
-    Widget	w;
-    XtPointer	dud;
+    Widget	w UNUSED;
+    XtPointer	dud UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     XKeyPressedEvent	*ev_press;
 #ifdef FEAT_XIM
@@ -1078,13 +1070,12 @@ theend:
 #endif
 }
 
-/* ARGSUSED */
     static void
 gui_x11_mouse_cb(w, dud, event, dum)
-    Widget	w;
-    XtPointer	dud;
+    Widget	w UNUSED;
+    XtPointer	dud UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     static XtIntervalId timer = (XtIntervalId)0;
     static int	timed_out = TRUE;
@@ -1171,9 +1162,9 @@ gui_x11_mouse_cb(w, dud, event, dum)
 /* ARGSUSED */
     static void
 gui_x11_sniff_request_cb(closure, source, id)
-    XtPointer	closure;
-    int		*source;
-    XtInputId	*id;
+    XtPointer	closure UNUSED;
+    int		*source UNUSED;
+    XtInputId	*id UNUSED;
 {
     static char_u bytes[3] = {CSI, (int)KS_EXTRA, (int)KE_SNIFF};
 
@@ -1210,11 +1201,11 @@ gui_mch_prepare(argc, argv)
     while (arg < *argc)
     {
 	/* Look for argv[arg] in cmdline_options[] table */
-	for (i = 0; i < XtNumber(cmdline_options); i++)
+	for (i = 0; i < (int)XtNumber(cmdline_options); i++)
 	    if (strcmp(argv[arg], cmdline_options[i].option) == 0)
 		break;
 
-	if (i < XtNumber(cmdline_options))
+	if (i < (int)XtNumber(cmdline_options))
 	{
 	    /* Remember finding "-rv" or "-reverse" */
 	    if (strcmp("-rv", argv[arg]) == 0
@@ -1262,7 +1253,6 @@ gui_mch_prepare(argc, argv)
 #ifdef FEAT_NETBEANS_INTG
 	    if (strncmp("-nb", argv[arg], 3) == 0)
 	{
-	    usingNetbeans++;
 	    gui.dofork = FALSE;	/* don't fork() when starting GUI */
 	    netbeansArg = argv[arg];
 	    mch_memmove(&argv[arg], &argv[arg + 1],
@@ -1319,12 +1309,11 @@ static XtInputId _xsmp_xtinputid;
 
 static void local_xsmp_handle_requests __ARGS((XtPointer c, int *s, XtInputId *i));
 
-/*ARGSUSED*/
     static void
 local_xsmp_handle_requests(c, s, i)
-    XtPointer	c;
-    int		*s;
-    XtInputId	*i;
+    XtPointer	c UNUSED;
+    int		*s UNUSED;
+    XtInputId	*i UNUSED;
 {
     if (xsmp_handle_requests() == FAIL)
 	XtRemoveInput(_xsmp_xtinputid);
@@ -1438,7 +1427,7 @@ gui_mch_init()
 	    Columns = w;
 	if (mask & HeightValue)
 	{
-	    if (p_window > h - 1 || !option_was_set((char_u *)"window"))
+	    if (p_window > (long)h - 1 || !option_was_set((char_u *)"window"))
 		p_window = h - 1;
 	    Rows = h;
 	}
@@ -1587,6 +1576,8 @@ gui_mch_uninit()
     XtCloseDisplay(gui.dpy);
     gui.dpy = NULL;
     vimShell = (Widget)0;
+    vim_free(gui_argv);
+    gui_argv = NULL;
 }
 
 /*
@@ -1751,16 +1742,17 @@ gui_init_menu_font()
 }
 #endif
 
-/*ARGSUSED*/
     void
 gui_mch_exit(rc)
-    int		rc;
+    int		rc UNUSED;
 {
 #if 0
     /* Lesstif gives an error message here, and so does Solaris.  The man page
      * says that this isn't needed when exiting, so just skip it. */
     XtCloseDisplay(gui.dpy);
 #endif
+    vim_free(gui_argv);
+    gui_argv = NULL;
 }
 
 /*
@@ -1795,7 +1787,6 @@ gui_mch_set_winpos(x, y)
 	NULL);
 }
 
-/*ARGSUSED*/
     void
 gui_mch_set_shellsize(width, height, min_width, min_height,
 		    base_width, base_height, direction)
@@ -1805,7 +1796,7 @@ gui_mch_set_shellsize(width, height, min_width, min_height,
     int		min_height;
     int		base_width;
     int		base_height;
-    int		direction;
+    int		direction UNUSED;
 {
 #ifdef FEAT_XIM
     height += xim_get_status_area_height(),
@@ -1843,11 +1834,10 @@ gui_mch_get_screen_dimensions(screen_w, screen_h)
  * If "fontset" is TRUE, load the "font_name" as a fontset.
  * Return FAIL if the font could not be loaded, OK otherwise.
  */
-/*ARGSUSED*/
     int
 gui_mch_init_font(font_name, do_fontset)
     char_u	*font_name;
-    int		do_fontset;
+    int		do_fontset UNUSED;
 {
     XFontStruct	*font = NULL;
 
@@ -2025,10 +2015,9 @@ gui_mch_get_font(name, giveErrorIfMissing)
  * Return the name of font "font" in allocated memory.
  * Don't know how to get the actual name, thus use the provided name.
  */
-/*ARGSUSED*/
     char_u *
 gui_mch_get_fontname(font, name)
-    GuiFont font;
+    GuiFont font UNUSED;
     char_u  *name;
 {
     if (name == NULL)
@@ -2517,7 +2506,7 @@ draw_curl(row, col, cells)
 {
     int			i;
     int			offset;
-    const static int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
+    static const int	val[8] = {1, 0, 0, 0, 1, 2, 2, 2 };
 
     XSetForeground(gui.dpy, gui.text_gc, prev_sp_color);
     for (i = FILL_X(col); i < FILL_X(col + cells); ++i)
@@ -2565,8 +2554,10 @@ gui_mch_draw_string(row, col, s, len, flags)
 # ifdef FEAT_XFONTSET
 	    if (current_fontset != NULL)
 	    {
-		if (c >= 0x10000 && sizeof(wchar_t) <= 2)
+#  ifdef SMALL_WCHAR_T
+		if (c >= 0x10000)
 		    c = 0xbf;		/* show chars > 0xffff as ? */
+#  endif
 		((wchar_t *)buf)[wlen] = c;
 	    }
 	    else
@@ -3132,11 +3123,11 @@ gui_mch_draw_menubar()
     /* Nothing to do in X */
 }
 
-/* ARGSUSED */
     void
 gui_x11_menu_cb(w, client_data, call_data)
-    Widget	w;
-    XtPointer	client_data, call_data;
+    Widget	w UNUSED;
+    XtPointer	client_data;
+    XtPointer	call_data UNUSED;
 {
     gui_menu_cb((vimmenu_T *)client_data);
 }
@@ -3149,13 +3140,12 @@ gui_x11_menu_cb(w, client_data, call_data)
  * Function called when window closed.	Works like ":qa".
  * Should put up a requester!
  */
-/*ARGSUSED*/
     static void
 gui_x11_wm_protocol_handler(w, client_data, event, dum)
-    Widget	w;
-    XtPointer	client_data;
+    Widget	w UNUSED;
+    XtPointer	client_data UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     /*
      * Only deal with Client messages.
@@ -3168,7 +3158,7 @@ gui_x11_wm_protocol_handler(w, client_data, event, dum)
      * exit.  That can be cancelled though, thus Vim shouldn't exit here.
      * Just sync our swap files.
      */
-    if (((XClientMessageEvent *)event)->data.l[0] ==
+    if ((Atom)((XClientMessageEvent *)event)->data.l[0] ==
 						  wm_atoms[SAVE_YOURSELF_IDX])
     {
 	out_flush();
@@ -3181,7 +3171,7 @@ gui_x11_wm_protocol_handler(w, client_data, event, dum)
 	return;
     }
 
-    if (((XClientMessageEvent *)event)->data.l[0] !=
+    if ((Atom)((XClientMessageEvent *)event)->data.l[0] !=
 						  wm_atoms[DELETE_WINDOW_IDX])
 	return;
 
@@ -3192,13 +3182,12 @@ gui_x11_wm_protocol_handler(w, client_data, event, dum)
 /*
  * Function called when property changed. Check for incoming commands
  */
-/*ARGSUSED*/
     static void
 gui_x11_send_event_handler(w, client_data, event, dum)
-    Widget	w;
-    XtPointer	client_data;
+    Widget	w UNUSED;
+    XtPointer	client_data UNUSED;
     XEvent	*event;
-    Boolean	*dum;
+    Boolean	*dum UNUSED;
 {
     XPropertyEvent *e = (XPropertyEvent *) event;
 
@@ -3273,11 +3262,10 @@ gui_mch_start_blink()
     }
 }
 
-/* ARGSUSED */
     static void
 gui_x11_blink_cb(timed_out, interval_id)
-    XtPointer	    timed_out;
-    XtIntervalId    *interval_id;
+    XtPointer	    timed_out UNUSED;
+    XtIntervalId    *interval_id UNUSED;
 {
     if (blink_state == BLINK_ON)
     {
@@ -3404,17 +3392,6 @@ gui_x11_get_last_mouse_event()
  * to provide room for the bitmap! */
 # define SIGN_WIDTH (gui.char_width * 2)
 
-#if 0	/* not used */
-    void
-gui_mch_clearsign(row)
-    int		row;
-{
-    if (gui.in_use)
-	XClearArea(gui.dpy, gui.wid, 0, TEXT_Y(row) - gui.char_height,
-		SIGN_WIDTH, gui.char_height, FALSE);
-}
-#endif
-
     void
 gui_mch_drawsign(row, col, typenr)
     int		row;
@@ -3439,47 +3416,37 @@ gui_mch_register_sign(signfile)
     char_u	    *signfile;
 {
     XpmAttributes   attrs;
-    XImage	    *sign;
+    XImage	    *sign = NULL;
     int		    status;
 
     /*
      * Setup the color substitution table.
      */
-    sign = NULL;
     if (signfile[0] != NUL && signfile[0] != '-')
     {
-	sign = (XImage *)alloc(sizeof(XImage));
-	if (sign != NULL)
+	XpmColorSymbol color[5] =
 	{
-	    XpmColorSymbol color[5] =
-	    {
-		{"none", NULL, 0},
-		{"iconColor1", NULL, 0},
-		{"bottomShadowColor", NULL, 0},
-		{"topShadowColor", NULL, 0},
-		{"selectColor", NULL, 0}
-	    };
-	    attrs.valuemask = XpmColorSymbols;
-	    attrs.numsymbols = 2;
-	    attrs.colorsymbols = color;
-	    attrs.colorsymbols[0].pixel = gui.back_pixel;
-	    attrs.colorsymbols[1].pixel = gui.norm_pixel;
-	    status = XpmReadFileToImage(gui.dpy, (char *)signfile,
+	    {"none", NULL, 0},
+	    {"iconColor1", NULL, 0},
+	    {"bottomShadowColor", NULL, 0},
+	    {"topShadowColor", NULL, 0},
+	    {"selectColor", NULL, 0}
+	};
+	attrs.valuemask = XpmColorSymbols;
+	attrs.numsymbols = 2;
+	attrs.colorsymbols = color;
+	attrs.colorsymbols[0].pixel = gui.back_pixel;
+	attrs.colorsymbols[1].pixel = gui.norm_pixel;
+	status = XpmReadFileToImage(gui.dpy, (char *)signfile,
 							 &sign, NULL, &attrs);
-
-	    if (status == 0)
-	    {
-		/* Sign width is fixed at two columns now.
-		if (sign->width > gui.sign_width)
-		    gui.sign_width = sign->width + 8; */
-	    }
-	    else
-	    {
-		vim_free(sign);
-		sign = NULL;
-		EMSG(_(e_signdata));
-	    }
+	if (status == 0)
+	{
+	    /* Sign width is fixed at two columns now.
+	    if (sign->width > gui.sign_width)
+		gui.sign_width = sign->width + 8; */
 	}
+	else
+	    EMSG(_(e_signdata));
     }
 
     return (void *)sign;
@@ -3489,8 +3456,7 @@ gui_mch_register_sign(signfile)
 gui_mch_destroy_sign(sign)
     void *sign;
 {
-    XFree(((XImage *)sign)->data);
-    vim_free(sign);
+    XDestroyImage((XImage*)sign);
 }
 #endif
 

@@ -1,5 +1,5 @@
---- mbrlen.c.orig	Thu Nov 25 11:38:18 2004
-+++ mbrlen.c	Fri Feb 18 16:54:36 2005
+--- mbrlen.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbrlen.c	2009-11-09 15:05:25.000000000 -0800
 @@ -27,15 +27,23 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/mbrlen.c,v 1.4 2004/05/12 14:26:54 tjr Exp $");

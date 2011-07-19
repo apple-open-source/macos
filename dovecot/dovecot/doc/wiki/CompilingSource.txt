@@ -1,0 +1,367 @@
+Contents
+
+
+ 1. Compiling Dovecot From Sources
+
+ 2. Compiling Dovecot From Mercurial
+
+ 3. Compiling Dovecot with rpmbuild (Mandriva, RedHat, etc.)
+
+ 4. SSL/TLS Support
+
+     1. Solaris and OpenSSL problems
+
+ 5. Notify method
+
+     1. Linux
+
+ 6. Optional Configure Options
+
+     1. SQL Driver Options
+
+     2. Authentication Backend Options
+
+ 7. Dynamic IMAP and POP3 Modules
+
+Compiling Dovecot From Sources
+==============================
+
+For most people it is enough to do:
+
+---%<-------------------------------------------------------------------------
+./configure
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+That installs Dovecot under the '/usr/local' directory. The configuration file
+is in '/usr/local/etc/dovecot.conf'. Logging goes to syslog's mail facility by
+default, which typically goes to '/var/log/mail.log' or something similar. If
+you are in a hurry, you can then jump to <QuickConfiguration.txt>.
+
+ If you have installed some libraries into locations which require special
+include or library paths, you can pass them in the 'CPPFLAGS' and 'LDFLAGS'
+environment variables. For example:
+
+---%<-------------------------------------------------------------------------
+CPPFLAGS="-I/opt/openssl/include" LDFLAGS="-L/opt/openssl/lib -ldl" ./configure
+---%<-------------------------------------------------------------------------
+
+You'll need to create two users for Dovecot's internal use:
+
+ * *dovenull*: Used by untrusted imap-login and pop3-login processes
+   (default_login_user setting).
+ * *dovecot*: Used by slightly more trusted Dovecot processes
+   (default_internal_user setting).
+
+Both of them should also have their own *dovenull* and *dovecot* groups. See
+<UserIds.txt> for more information.
+
+Compiling Dovecot From Mercurial
+================================
+
+If you got Dovecot from Mercurial, for instance with
+
+---%<-------------------------------------------------------------------------
+hg clone http://hg.dovecot.org/dovecot-2.0/
+---%<-------------------------------------------------------------------------
+
+you will first need to run './autogen.sh' to generate the 'configure' script
+and some other files. This requires that you have the following
+software/packages installed:
+
+ * 'autoconf'
+ * 'automake'
+ * 'libtool'
+ * 'pkg-config'
+ * 'gettext'
+ * GNU make.
+
+It is advisable to add '--enable-maintainer-mode' to the 'configure' script.
+Thus:
+
+---%<-------------------------------------------------------------------------
+./autogen.sh
+./configure --enable-maintainer-mode
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+For later updates, you can use:
+
+---%<-------------------------------------------------------------------------
+hg pull -u
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+Compiling Dovecot with rpmbuild (Mandriva, RedHat, etc.)
+========================================================
+
+Fetch the source rpm from ftp://ftp.surfnet.nl/
+[ftp://ftp.surfnet.nl/vol/5/mandrakelinux/official/2007.0/SRPMS/contrib/release/]
+or any other mirror. At the moment of this writing dovecot-10.rc26.src.rpm can
+be found in the cooker subtree. If the current release is newer; updating the
+source rpm is not difficult. Unpack the source rpm with 'rpm -ivh
+dovecot-10.rc26.src.rpm' to a build environment (/usr/src/rpm...) Copy the
+newer tarball from the dovecot site to the SOURCES directory of the build
+environment. Change the dovecot.spec file in the SPECS directory to reflect the
+new release and the new name of the tarball. The maintainer seems to work with
+a bz2 tarball; a tar.gz tarball makes no difference Issue a rpmbuild -ba
+dovecot.spec. The resulting rpm will be placed in RPMS/i586 Install with rpm or
+urpmi.
+
+---%<-------------------------------------------------------------------------
+rpm -ivh dovecot-1.0.rc26.src.rpm
+cd /usr/src/rpm
+mv ~/downloads/dovecot-1.0.rc28.tar.gz ./SOURCES
+cd SPECS
+vi dovecot.spec
+...edit release and tarball name. Change default options if needed...
+rpmbuild -ba dovecot.spec
+cd ../RPMS/i586
+urpmi ./dovecot-1.0.rc28-1mdv2007.0.i586.rpm
+---%<-------------------------------------------------------------------------
+
+During this process missing prerequisites may be detected. Install them and
+rerun the build process. The spec file also need updating for the new add-ons
+(idxview and logview).
+
+SSL/TLS Support
+===============
+
+Dovecot was initially built to support both OpenSSL and GNUTLS. GNUTLS has
+however had some problems and nowadays it does not work any more. Patches to
+fix it are welcome.
+
+OpenSSL is used by default now, and it should be automatically detected. If it
+is not, you are missing some header files or libraries, or they are just in a
+non-standard path. Make sure you have the 'openssl-dev' or a similar package
+installed, and if it is not in the standard location, set 'CPPFLAGS' and
+'LDFLAGS' as shown in <the first section above.> [CompilingSource.txt]
+
+By default the SSL certificate is read from '/etc/ssl/certs/dovecot.pem' and
+the private key from '/etc/ssl/private/dovecot.pem'. The '/etc/ssl' directory
+can be changed using the '--with-ssldir=DIR' configure option. Both can of
+course be overridden from the configuration file.
+
+Solaris and OpenSSL problems
+----------------------------
+
+Solaris 10 includes a bundled OpenSSL that does not function correctly with
+Dovecot when attempting to use SSL/TLS with the default dovecot config. This is
+because the default setting of ssl_cipher_list in 'dovecot.conf' is HIGH:!ALL;
+due to import restrictions in some countries (now apparently relaxed) the high
+level routines are part of the unbundled SUNWcry package and are not available
+if you don't have this package installed. This confuses the client as dovecot
+announces support for high level crypto and then cannot deliver. In any case,
+to resolve this you can alternatively (in decreasing order of simplicity):
+
+ 1. Set 'ssl_cipher_list = MEDIUM:!LOW' in 'dovecot.conf'
+ 2. Find and install the missing SUNWcry package.
+ 3. Provide an alternate version of the openssl libraries that doesn't have the
+    high grade routines removed for your protection (sigh). The bundled version
+    of OpenSSL cannot be removed. Installing a newer OpenSSL from source or
+    package (for instance, from http://sunfreeware.com/) will enable Dovecot to
+    work correctly as long as you link against the new OpenSSL. Assuming you
+    are building with the built-in ld, make and gcc, then your build should go
+    something like this (notice the -R required by Sun's linker that sets the
+    runtime linking path in the resulting programs so the OpenSSL libraries
+    load from '/usr/local/ssl/lib'):
+
+---%<-------------------------------------------------------------------------
+PATH=$PATH:/usr/sfw/bin:/usr/ccs/bin
+export PATH
+mv /usr/lib/pkgconfig/openssl.pc /usr/lib/pkgconfig/openssl.pc.orig
+CPPFLAGS=-I/usr/local/ssl/include \
+ LDFLAGS='-L/usr/local/ssl/lib -R/usr/local/ssl/lib' \
+ ./configure --with-ssl=openssl
+make
+make install
+---%<-------------------------------------------------------------------------
+
+Notify method
+=============
+
+Linux
+-----
+
+Note that current 'inotify' is in the Linux kernel since version 2.6.13 and it
+is preferred over 'dnotify'. If your distribution does not have the required
+'inotify' header file, you can get it from the inotify maintainer (this example
+requires cURL [http://curl.haxx.se/]):
+
+---%<-------------------------------------------------------------------------
+mkdir -p /usr/local/include/sys
+cd /usr/local/include/sys
+curl ftp://ftp.kernel.org/pub/linux/kernel/people/rml/inotify/headers/inotify.h
+-O
+curl
+ftp://ftp.kernel.org/pub/linux/kernel/people/rml/inotify/headers/inotify-syscalls.h
+>> inotify.h
+---%<-------------------------------------------------------------------------
+
+/usr/local/include isn't in standard include lookup path, so you'll need to
+specify that to configure:
+
+---%<-------------------------------------------------------------------------
+CPPFLAGS=-I/usr/local/include ./configure --with-notify=inotify
+---%<-------------------------------------------------------------------------
+
+Debian Etch ships 'sys/inotify.h' wrapped in the 'inotify-tools' package and
+installs the header file into '/usr/include/inotifytools/'. To use the header
+file use:
+
+---%<-------------------------------------------------------------------------
+if ! test -e /usr/include/sys/inotify.h; then
+    aptitude install inotify-tools
+    ln -sf /usr/include/inotifytools/inotify.h /usr/include/sys/inotify.h
+fi
+---%<-------------------------------------------------------------------------
+
+Then pass 'CPPFLAGS' as in the example above:
+
+---%<-------------------------------------------------------------------------
+CPPFLAGS=-I/usr/include/inotifytools ./configure --with-notify=inotify
+---%<-------------------------------------------------------------------------
+
+Optional Configure Options
+==========================
+
+--help:
+  gives a full list of available options
+
+--help=short:
+  just lists the options added by the particular package (= Dovecot)
+
+Options are usually listed as '--with-something' or '--enable-something'. If
+you want to disable them, do it as '--without-something' or
+'--disable-something'. There are many default options that come from autoconf,
+automake or libtool. They are explained elsewhere.
+
+Here is a list of options that Dovecot adds. You should not usually have to
+change these, but they are described here just for completeness:
+
+--enable-devel-checks:
+  Enables some extra sanity checks. This is mainly useful for developers. It
+  does quite a lot of unnecessary work but should catch some programming
+  mistakes more quickly.
+
+--enable-asserts:
+  Enable assertion checks, enabled by default. Disabling them may slightly save
+  some CPU, but if there are bugs they can cause more problems since they are
+  not detected as early.
+
+--without-shared-libs:
+  Link Dovecot binaries with static libraries instead of dynamic libraries.
+
+--disable-largefile:
+  Specifies if we use 32bit or 64bit file offsets in 32bit CPUs. 64bit is the
+  default if the system supports it  (Linux and Solaris do). Dropping this to
+  32bit may save some memory, but it prevents accessing any file larger than 2
+  GB.
+
+--with-mem-align=BYTES:
+  Specifies memory alignment used for memory allocations. It is needed with
+  many non-x86 systems and it should speed up x86 systems too. Default is 8, to
+  make sure 64bit memory accessing works.
+
+--with-ioloop=IOLOOP:
+  Specifies what I/O loop method to use. Possibilities are 'select', 'poll',
+  'epoll' and 'kqueue'. The default is to use the best method available on your
+  system.
+
+--with-notify=NOTIFY:
+  Specifies what file system notification method to use. Possibilities are
+  'dnotify', 'inotify' (both on Linux), 'kqueue' (FreeBSD) and 'none'. The
+  default is to use the best method available on your system. See <Notify
+  method> [CompilingSource.txt] above for more information.
+
+--with-storages=FORMATS:
+  Specifies what mailbox formats to support. Note: Independent of this option,
+  the formats /raw/ and /shared/ will be always built.
+
+--with-solr:
+  Build with Solr full text search support
+
+--with-zlib:
+  Build with zlib compression support (default if detected)
+
+--with-bzlib:
+  Build with bzip2 compression support (default if detected)
+
+SQL Driver Options
+------------------
+
+SQL drivers are typically used only for authentication, but they may be used as
+a lib-dict backend too, which can be used by plugins for different purposes.
+
+--with-sql-drivers:
+  Build with specified SQL drivers. Defaults to all that were found with
+  autodetection.
+
+--with-pgsql:
+  Build with PostgreSQL support (requires pgsql-devel, libpq-dev or similar
+  package)
+
+--with-mysql:
+  Build with MySQL support (requires mysql-devel, libmysqlclient15-dev or
+  similar package)
+
+--with-sqlite:
+  Build with SQLite3 driver support (requires sqlite-devel, libsqlite3-dev or
+  similar package)
+
+Authentication Backend Options
+------------------------------
+
+The basic backends are built if the system is detected to support them:
+
+--with-shadow:
+  Build with <shadow> [PasswordDatabase.Shadow.txt] password support
+
+--with-pam:
+  Build with <PAM> [PasswordDatabase.PAM.txt] support
+
+--with-nss:
+  Build with <NSS> [UserDatabase.NSS.txt] support
+
+--with-sia:
+  Build with Tru64 SIA support
+
+--with-bsdauth:
+  Build with <BSD authentication> [PasswordDatabase.BSDAuth.txt] support (if
+  supported by your OS)
+
+Some backends require extra libraries and are not necessarily wanted, so they
+are built only if specifically enabled:
+
+--with-sql:
+  Build with generic SQL support (drivers are enabled separately)
+
+--with-ldap:
+  Build with LDAP support (requires openldap-devel, libldap2-dev or similar
+  package)
+
+--with-gssapi:
+  Build with GSSAPI authentication support (requires krb5-devel, libkrb5-dev or
+  similar package)
+
+--with-vpopmail:
+  Build with vpopmail support (requires vpopmail sources or a devel package)
+
+It's also possible to build these as plugins by giving e.g. --with-sql=plugin.
+
+Dynamic IMAP and POP3 Modules
+=============================
+
+The 'mail_plugins' setting lists all plugins that Dovecot is supposed to load
+from the 'mail_plugin_dir' directory at program start. These plugins can do
+anything they want. They are only expected to contain the '<plugin name>_init'
+and '<plugin name>_deinit' functions which are called at startup and at exit.
+
+The plugin filename is prefixed with a number which specifies the order in
+which the plugins are loaded. This is important if one plugin depends on
+another.
+
+(This file was created from the wiki on 2011-05-11 04:42)

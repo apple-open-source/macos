@@ -1,10 +1,5 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static const void* 
-mod_retain(const void* info) 
+mod_timer_retain(const void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +8,7 @@ mod_retain(const void* info)
 }
 
 static void
-mod_release(const void* info)
+mod_timer_release(const void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -24,8 +19,8 @@ mod_release(const void* info)
 static CFRunLoopTimerContext mod_CFRunLoopTimerContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_timer_retain,
+	mod_timer_release,
 	NULL
 };
 
@@ -161,7 +156,7 @@ mod_CFRunLoopTimerGetContext(
 		return NULL;
 	}
 
-	if (context.retain != mod_retain) {
+	if (context.retain != mod_timer_retain) {
 		PyErr_SetString(PyExc_ValueError, 
 			"retrieved context is not supported");
 		return NULL;
@@ -176,27 +171,16 @@ mod_CFRunLoopTimerGetContext(
 	return PyTuple_GET_ITEM((PyObject*)context.info, 1);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFRunLoopTimerCreate",
-		(PyCFunction)mod_CFRunLoopTimerCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_RUNLOOPTIMER_METHODS \
+        {	\
+		"CFRunLoopTimerCreate",	\
+		(PyCFunction)mod_CFRunLoopTimerCreate, \
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFRunLoopTimerGetContext",	\
+		(PyCFunction)mod_CFRunLoopTimerGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFRunLoopTimerGetContext",
-		(PyCFunction)mod_CFRunLoopTimerGetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFRunLoopTimer(void);
-void init_CFRunLoopTimer(void)
-{
-	PyObject* m = Py_InitModule4("_CFRunLoopTimer", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

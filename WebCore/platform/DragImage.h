@@ -28,6 +28,7 @@
 
 #include "IntSize.h"
 #include "FloatSize.h"
+#include <wtf/Forward.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -47,7 +48,7 @@ class wxDragImage;
 #elif PLATFORM(CHROMIUM)
 #include "DragImageRef.h"
 #elif PLATFORM(GTK)
-typedef struct _GdkPixbuf GdkPixbuf;
+typedef struct _cairo_surface cairo_surface_t;
 #elif PLATFORM(HAIKU)
 class BBitmap;
 #elif PLATFORM(BREWMP)
@@ -64,8 +65,7 @@ namespace WebCore {
     class Image;
     class KURL;
     class Range;
-    class String;
-    
+
 #if PLATFORM(MAC)
     typedef RetainPtr<NSImage> DragImageRef;
 #elif PLATFORM(QT)
@@ -75,12 +75,12 @@ namespace WebCore {
 #elif PLATFORM(WX)
     typedef wxDragImage* DragImageRef;
 #elif PLATFORM(GTK)
-    typedef GdkPixbuf* DragImageRef;
+    typedef cairo_surface_t* DragImageRef;
 #elif PLATFORM(HAIKU)
     typedef BBitmap* DragImageRef;
 #elif PLATFORM(BREWMP)
     typedef IImage* DragImageRef;
-#elif PLATFORM(EFL)
+#elif PLATFORM(EFL) || PLATFORM(ANDROID)
     typedef void* DragImageRef;
 #endif
     
@@ -96,6 +96,7 @@ namespace WebCore {
     DragImageRef createDragImageFromImage(Image*);
     DragImageRef createDragImageForSelection(Frame*);    
     DragImageRef createDragImageIconForCachedImage(CachedImage*);
+    DragImageRef createDragImageForLink(KURL&, const String& label, Frame*);
     void deleteDragImage(DragImageRef);
 }
 

@@ -42,7 +42,7 @@ typedef struct rlm_attr_rewrite_t {
 	int  attr_num;		/* The attribute number */
 	char *search;		/* The pattern to search for */
 	int search_len;		/* The length of the search pattern */
-	char *searchin_str;	/* The VALUE_PAIR list to search in. Can be either packet,reply,proxy,proxy_reply or config */
+	char *searchin_str;	/* The VALUE_PAIR list to search in. Can be either packet,reply,proxy,proxy_reply or control (plus it's alias 'config') */
 	char searchin;		/* The same as above just coded as a number for speed */
 	char *replace;		/* The replacement */
 	int replace_len;	/* The length of the replacement string */
@@ -120,6 +120,8 @@ static int attr_rewrite_instantiate(CONF_SECTION *conf, void **instance)
 			data->searchin = RLM_REGEX_INPACKET;
 		else if (strcmp(data->searchin_str, "config") == 0)
 			data->searchin = RLM_REGEX_INCONFIG;
+		else if (strcmp(data->searchin_str, "control") == 0)
+			data->searchin = RLM_REGEX_INCONFIG;
 		else if (strcmp(data->searchin_str, "reply") == 0)
 			data->searchin = RLM_REGEX_INREPLY;
 		else if (strcmp(data->searchin_str, "proxy") == 0)
@@ -166,7 +168,6 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 	char *ptr, *ptr2;
 	char search_STR[MAX_STRING_LEN];
 	char replace_STR[MAX_STRING_LEN];
-	int replace_len = 0;
 
 	if ((attr_vp = pairfind(request->config_items, PW_REWRITE_RULE)) != NULL){
 		if (data->name == NULL || strcmp(data->name,attr_vp->vp_strvalue))
@@ -179,7 +180,6 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 			DEBUG2("%s: xlat on replace string failed.", data->name);
 			return ret;
 		}
-		replace_len = strlen(replace_STR);
 		attr_vp = pairmake(data->attribute,replace_STR,0);
 		if (attr_vp == NULL){
 			DEBUG2("%s: Could not add new attribute %s with value '%s'", data->name,
@@ -219,6 +219,8 @@ static int do_attr_rewrite(void *instance, REQUEST *request)
 		DEBUG2("%s: Added attribute %s with value '%s'", data->name,data->attribute,replace_STR);
 		ret = RLM_MODULE_OK;
 	} else {
+		int replace_len = 0;
+
 		/* new_attribute = no */
 		switch (data->searchin) {
 			case RLM_REGEX_INPACKET:

@@ -1,0 +1,10 @@
+
+Xdm Sample Configuration
+
+This directory contains a collection of files which describe a sample
+configuration of xdm.  Choose between the sample Xservers.* files; copy the
+appropriate one to "$(XDMDIR)/Xservers" along with the other
+files in this directory.
+
+Only a few of the many configuration parameters which xdm can be tuned with
+are set in this sample, read the xdm manual page for a complete description.

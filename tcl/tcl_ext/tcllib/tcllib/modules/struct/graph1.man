@@ -3,6 +3,7 @@
 [copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate directed graph objects}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require struct::graph [opt 1.2.1]]
 [description]

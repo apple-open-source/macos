@@ -46,10 +46,9 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p);
 
 SupplicantRef
 EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
-				  CFDictionaryRef control_dict,
-				  bool system_mode);
+				  CFDictionaryRef control_dict);
 void
 EAPOLSocketSetGlobals(SCPreferencesRef prefs);
 
-#endif _S_EAPOLSOCKETPRIVATE_H
+#endif /* _S_EAPOLSOCKETPRIVATE_H */
 

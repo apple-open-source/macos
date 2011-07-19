@@ -2,17 +2,16 @@
 # -*- tcl -*- \
 exec tclsh "$0" ${1+"$@"}
 
-#
-# This demo script focuses on customising the plots
+# plotdemos7.tcl --
+#     This test/demo script focuses on customising the plots
 #
 
 package require Tcl 8.4
 package require Tk
-source ../../modules/plotchart/plotchart.tcl
 package require Plotchart
 
-# testplot.tcl --
-#    Test program for the Plotchart package
+# plotdemos7.tcl --
+#    Test/demo program 7 for the Plotchart package
 #
 
 #
@@ -85,7 +84,7 @@ $r plot right 30.0 0.03
 $r plot right 40.0 0.02
 
 tkwait visibility .c
-$s saveplot "aha.ps"
+#$s saveplot "aha.ps"
 
 
 set s [::Plotchart::createPiechart .c2]

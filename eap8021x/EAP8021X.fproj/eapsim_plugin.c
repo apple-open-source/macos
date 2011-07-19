@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -461,6 +461,7 @@ enum {
 };
 typedef int	EAPSIMClientState;
 
+#if 0
 STATIC const char *
 EAPSIMClientStateName(EAPSIMClientState state)
 {
@@ -481,6 +482,7 @@ EAPSIMClientStateName(EAPSIMClientState state)
 	return ("<unknown>");
     }
 }
+#endif /* 0 */
 
 typedef struct {
     CFArrayRef			kc;
@@ -2600,7 +2602,7 @@ eapsim_reauthentication(EAPClientPluginDataRef plugin,
 	goto done;
     }
     if (TLVBufferUsed(&encr_tb) != ENCR_BUFSIZE_R) {
-	syslog(LOG_NOTICE, "eapsim: Reauthentication %d != %d",
+	syslog(LOG_NOTICE, "eapsim: Reauthentication %d != %ld",
 	       TLVBufferUsed(&encr_tb), ENCR_BUFSIZE_R);
     }
     {
@@ -2696,7 +2698,7 @@ eapsim_request(EAPClientPluginDataRef plugin,
 
     TLVListInit(&tlvs);
     if (in_length <= EAPSIM_HEADER_LENGTH) {
-	syslog(LOG_NOTICE, "eapsim_request: length %d <= %d",
+	syslog(LOG_NOTICE, "eapsim_request: length %d <= %ld",
 	       in_length, EAPSIM_HEADER_LENGTH);
 	*client_status = kEAPClientStatusProtocolError;
 	goto done;
@@ -2926,7 +2928,7 @@ STATIC struct func_table_ent {
 } func_table[] = {
 #if 0
     { kEAPClientPluginFuncNameIntrospect, eapsim_introspect },
-#endif 0
+#endif /* 0 */
     { kEAPClientPluginFuncNameVersion, eapsim_version },
     { kEAPClientPluginFuncNameEAPType, eapsim_type },
     { kEAPClientPluginFuncNameEAPName, eapsim_name },

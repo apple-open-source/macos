@@ -4,8 +4,6 @@ package # hide from PAUSE
 use strict;
 use warnings;
 
-use base qw/DBIx::Class/;
-
 sub _register_column_group {
   my ($class, $group, @cols) = @_;
   return $class->next::method($group => map lc, @cols);
@@ -13,15 +11,16 @@ sub _register_column_group {
 
 sub add_columns {
   my ($class, @cols) = @_;
-  $class->mk_group_accessors(column => @cols);
-  $class->result_source_instance->add_columns(map lc, @cols);
+  return $class->result_source_instance->add_columns(map lc, @cols);
 }
 
 sub has_a {
-  my ($class, $col, @rest) = @_;
-  $class->next::method(lc($col), @rest);
-  $class->mk_group_accessors('inflated_column' => $col);
-  return 1;
+    my($self, $col, @rest) = @_;
+
+    $self->_declare_has_a(lc $col, @rest);
+    $self->_mk_inflated_column_accessor($col);
+
+    return 1;
 }
 
 sub has_many {
@@ -79,19 +78,15 @@ sub _build_query {
   return \%new_query;
 }
 
-sub _mk_group_accessors {
-  my ($class, $type, $group, @fields) = @_;
-  #warn join(', ', map { ref $_ ? (@$_) : ($_) } @fields);
-  my @extra;
-  foreach (@fields) {
-    my ($acc, $field) = ref $_ ? @$_ : ($_, $_);
-    #warn "$acc ".lc($acc)." $field";
-    next if defined &{"${class}::${acc}"};
-    push(@extra, [ lc $acc => $field ]);
-  }
-  return $class->next::method($type, $group,
-                                                     @fields, @extra);
+sub _deploy_accessor {
+  my($class, $name, $accessor) = @_;
+
+  return if $class->_has_custom_accessor($name);
+
+         $class->next::method(lc $name   => $accessor);
+  return $class->next::method($name      => $accessor);
 }
+
 
 sub new {
   my ($class, $attrs, @rest) = @_;

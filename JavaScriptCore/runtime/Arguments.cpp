@@ -35,7 +35,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(Arguments);
 
-const ClassInfo Arguments::info = { "Arguments", 0, 0, 0 };
+const ClassInfo Arguments::s_info = { "Arguments", &JSNonFinalObject::s_info, 0, 0 };
 
 Arguments::~Arguments()
 {
@@ -43,22 +43,25 @@ Arguments::~Arguments()
         delete [] d->extraArguments;
 }
 
-void Arguments::markChildren(MarkStack& markStack)
+void Arguments::visitChildren(SlotVisitor& visitor)
 {
-    JSObject::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    JSObject::visitChildren(visitor);
 
     if (d->registerArray)
-        markStack.appendValues(reinterpret_cast<JSValue*>(d->registerArray.get()), d->numParameters);
+        visitor.appendValues(d->registerArray.get(), d->numParameters);
 
     if (d->extraArguments) {
         unsigned numExtraArguments = d->numArguments - d->numParameters;
-        markStack.appendValues(reinterpret_cast<JSValue*>(d->extraArguments), numExtraArguments);
+        visitor.appendValues(d->extraArguments, numExtraArguments);
     }
 
-    markStack.append(d->callee);
+    visitor.append(&d->callee);
 
     if (d->activation)
-        markStack.append(d->activation);
+        visitor.append(&d->activation);
 }
 
 void Arguments::copyToRegisters(ExecState* exec, Register* buffer, uint32_t maxSize)
@@ -74,9 +77,9 @@ void Arguments::copyToRegisters(ExecState* exec, Register* buffer, uint32_t maxS
         unsigned parametersLength = min(min(d->numParameters, d->numArguments), maxSize);
         unsigned i = 0;
         for (; i < parametersLength; ++i)
-            buffer[i] = d->registers[d->firstParameterIndex + i].jsValue();
+            buffer[i] = d->registers[d->firstParameterIndex + i].get();
         for (; i < d->numArguments; ++i)
-            buffer[i] = d->extraArguments[i - d->numParameters].jsValue();
+            buffer[i] = d->extraArguments[i - d->numParameters].get();
         return;
     }
     
@@ -84,13 +87,13 @@ void Arguments::copyToRegisters(ExecState* exec, Register* buffer, uint32_t maxS
     unsigned i = 0;
     for (; i < parametersLength; ++i) {
         if (!d->deletedArguments[i])
-            buffer[i] = d->registers[d->firstParameterIndex + i].jsValue();
+            buffer[i] = d->registers[d->firstParameterIndex + i].get();
         else
             buffer[i] = get(exec, i);
     }
     for (; i < d->numArguments; ++i) {
         if (!d->deletedArguments[i])
-            buffer[i] = d->extraArguments[i - d->numParameters].jsValue();
+            buffer[i] = d->extraArguments[i - d->numParameters].get();
         else
             buffer[i] = get(exec, i);
     }
@@ -119,9 +122,9 @@ void Arguments::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
         unsigned parametersLength = min(d->numParameters, d->numArguments);
         unsigned i = 0;
         for (; i < parametersLength; ++i)
-            args.append(d->registers[d->firstParameterIndex + i].jsValue());
+            args.append(d->registers[d->firstParameterIndex + i].get());
         for (; i < d->numArguments; ++i)
-            args.append(d->extraArguments[i - d->numParameters].jsValue());
+            args.append(d->extraArguments[i - d->numParameters].get());
         return;
     }
 
@@ -129,13 +132,13 @@ void Arguments::fillArgList(ExecState* exec, MarkedArgumentBuffer& args)
     unsigned i = 0;
     for (; i < parametersLength; ++i) {
         if (!d->deletedArguments[i])
-            args.append(d->registers[d->firstParameterIndex + i].jsValue());
+            args.append(d->registers[d->firstParameterIndex + i].get());
         else
             args.append(get(exec, i));
     }
     for (; i < d->numArguments; ++i) {
         if (!d->deletedArguments[i])
-            args.append(d->extraArguments[i - d->numParameters].jsValue());
+            args.append(d->extraArguments[i - d->numParameters].get());
         else
             args.append(get(exec, i));
     }
@@ -145,36 +148,66 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, unsigned i, PropertySlot& sl
 {
     if (i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters) {
-            slot.setRegisterSlot(&d->registers[d->firstParameterIndex + i]);
+            slot.setValue(d->registers[d->firstParameterIndex + i].get());
         } else
-            slot.setValue(d->extraArguments[i - d->numParameters].jsValue());
+            slot.setValue(d->extraArguments[i - d->numParameters].get());
         return true;
     }
 
-    return JSObject::getOwnPropertySlot(exec, Identifier(exec, UString::from(i)), slot);
+    return JSObject::getOwnPropertySlot(exec, Identifier(exec, UString::number(i)), slot);
+}
+    
+void Arguments::createStrictModeCallerIfNecessary(ExecState* exec)
+{
+    if (d->overrodeCaller)
+        return;
+
+    d->overrodeCaller = true;
+    PropertyDescriptor descriptor;
+    JSValue thrower = createTypeErrorFunction(exec, "Unable to access caller of strict mode function");
+    descriptor.setAccessorDescriptor(thrower, thrower, DontEnum | DontDelete | Getter | Setter);
+    defineOwnProperty(exec, exec->propertyNames().caller, descriptor, false);
+}
+
+void Arguments::createStrictModeCalleeIfNecessary(ExecState* exec)
+{
+    if (d->overrodeCallee)
+        return;
+    
+    d->overrodeCallee = true;
+    PropertyDescriptor descriptor;
+    JSValue thrower = createTypeErrorFunction(exec, "Unable to access callee of strict mode function");
+    descriptor.setAccessorDescriptor(thrower, thrower, DontEnum | DontDelete | Getter | Setter);
+    defineOwnProperty(exec, exec->propertyNames().callee, descriptor, false);
 }
 
 bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     bool isArrayIndex;
-    unsigned i = propertyName.toArrayIndex(&isArrayIndex);
+    unsigned i = propertyName.toArrayIndex(isArrayIndex);
     if (isArrayIndex && i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters) {
-            slot.setRegisterSlot(&d->registers[d->firstParameterIndex + i]);
+            slot.setValue(d->registers[d->firstParameterIndex + i].get());
         } else
-            slot.setValue(d->extraArguments[i - d->numParameters].jsValue());
+            slot.setValue(d->extraArguments[i - d->numParameters].get());
         return true;
     }
 
     if (propertyName == exec->propertyNames().length && LIKELY(!d->overrodeLength)) {
-        slot.setValue(jsNumber(exec, d->numArguments));
+        slot.setValue(jsNumber(d->numArguments));
         return true;
     }
 
     if (propertyName == exec->propertyNames().callee && LIKELY(!d->overrodeCallee)) {
-        slot.setValue(d->callee);
-        return true;
+        if (!d->isStrictMode) {
+            slot.setValue(d->callee.get());
+            return true;
+        }
+        createStrictModeCalleeIfNecessary(exec);
     }
+
+    if (propertyName == exec->propertyNames().caller && d->isStrictMode)
+        createStrictModeCallerIfNecessary(exec);
 
     return JSObject::getOwnPropertySlot(exec, propertyName, slot);
 }
@@ -182,24 +215,30 @@ bool Arguments::getOwnPropertySlot(ExecState* exec, const Identifier& propertyNa
 bool Arguments::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
     bool isArrayIndex;
-    unsigned i = propertyName.toArrayIndex(&isArrayIndex);
+    unsigned i = propertyName.toArrayIndex(isArrayIndex);
     if (isArrayIndex && i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters) {
-            descriptor.setDescriptor(d->registers[d->firstParameterIndex + i].jsValue(), DontEnum);
+            descriptor.setDescriptor(d->registers[d->firstParameterIndex + i].get(), DontEnum);
         } else
-            descriptor.setDescriptor(d->extraArguments[i - d->numParameters].jsValue(), DontEnum);
+            descriptor.setDescriptor(d->extraArguments[i - d->numParameters].get(), DontEnum);
         return true;
     }
     
     if (propertyName == exec->propertyNames().length && LIKELY(!d->overrodeLength)) {
-        descriptor.setDescriptor(jsNumber(exec, d->numArguments), DontEnum);
+        descriptor.setDescriptor(jsNumber(d->numArguments), DontEnum);
         return true;
     }
     
     if (propertyName == exec->propertyNames().callee && LIKELY(!d->overrodeCallee)) {
-        descriptor.setDescriptor(d->callee, DontEnum);
-        return true;
+        if (!d->isStrictMode) {
+            descriptor.setDescriptor(d->callee.get(), DontEnum);
+            return true;
+        }
+        createStrictModeCalleeIfNecessary(exec);
     }
+
+    if (propertyName == exec->propertyNames().caller && d->isStrictMode)
+        createStrictModeCallerIfNecessary(exec);
     
     return JSObject::getOwnPropertyDescriptor(exec, propertyName, descriptor);
 }
@@ -209,7 +248,7 @@ void Arguments::getOwnPropertyNames(ExecState* exec, PropertyNameArray& property
     if (mode == IncludeDontEnumProperties) {
         for (unsigned i = 0; i < d->numArguments; ++i) {
             if (!d->deletedArguments || !d->deletedArguments[i])
-                propertyNames.add(Identifier(exec, UString::from(i)));
+                propertyNames.add(Identifier(exec, UString::number(i)));
         }
         propertyNames.add(exec->propertyNames().callee);
         propertyNames.add(exec->propertyNames().length);
@@ -217,42 +256,49 @@ void Arguments::getOwnPropertyNames(ExecState* exec, PropertyNameArray& property
     JSObject::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
-void Arguments::put(ExecState* exec, unsigned i, JSValue value, PutPropertySlot& slot)
+void Arguments::put(ExecState* exec, unsigned i, JSValue value)
 {
     if (i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters)
-            d->registers[d->firstParameterIndex + i] = JSValue(value);
+            d->registers[d->firstParameterIndex + i].set(exec->globalData(), d->activation ? static_cast<JSCell*>(d->activation.get()) : static_cast<JSCell*>(this), value);
         else
-            d->extraArguments[i - d->numParameters] = JSValue(value);
+            d->extraArguments[i - d->numParameters].set(exec->globalData(), this, value);
         return;
     }
 
-    JSObject::put(exec, Identifier(exec, UString::from(i)), value, slot);
+    PutPropertySlot slot;
+    JSObject::put(exec, Identifier(exec, UString::number(i)), value, slot);
 }
 
 void Arguments::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     bool isArrayIndex;
-    unsigned i = propertyName.toArrayIndex(&isArrayIndex);
+    unsigned i = propertyName.toArrayIndex(isArrayIndex);
     if (isArrayIndex && i < d->numArguments && (!d->deletedArguments || !d->deletedArguments[i])) {
         if (i < d->numParameters)
-            d->registers[d->firstParameterIndex + i] = JSValue(value);
+            d->registers[d->firstParameterIndex + i].set(exec->globalData(), d->activation ? static_cast<JSCell*>(d->activation.get()) : static_cast<JSCell*>(this), value);
         else
-            d->extraArguments[i - d->numParameters] = JSValue(value);
+            d->extraArguments[i - d->numParameters].set(exec->globalData(), this, value);
         return;
     }
 
     if (propertyName == exec->propertyNames().length && !d->overrodeLength) {
         d->overrodeLength = true;
-        putDirect(propertyName, value, DontEnum);
+        putDirect(exec->globalData(), propertyName, value, DontEnum);
         return;
     }
 
     if (propertyName == exec->propertyNames().callee && !d->overrodeCallee) {
-        d->overrodeCallee = true;
-        putDirect(propertyName, value, DontEnum);
-        return;
+        if (!d->isStrictMode) {
+            d->overrodeCallee = true;
+            putDirect(exec->globalData(), propertyName, value, DontEnum);
+            return;
+        }
+        createStrictModeCalleeIfNecessary(exec);
     }
+
+    if (propertyName == exec->propertyNames().caller && d->isStrictMode)
+        createStrictModeCallerIfNecessary(exec);
 
     JSObject::put(exec, propertyName, value, slot);
 }
@@ -261,7 +307,7 @@ bool Arguments::deleteProperty(ExecState* exec, unsigned i)
 {
     if (i < d->numArguments) {
         if (!d->deletedArguments) {
-            d->deletedArguments.set(new bool[d->numArguments]);
+            d->deletedArguments = adoptArrayPtr(new bool[d->numArguments]);
             memset(d->deletedArguments.get(), 0, sizeof(bool) * d->numArguments);
         }
         if (!d->deletedArguments[i]) {
@@ -270,16 +316,16 @@ bool Arguments::deleteProperty(ExecState* exec, unsigned i)
         }
     }
 
-    return JSObject::deleteProperty(exec, Identifier(exec, UString::from(i)));
+    return JSObject::deleteProperty(exec, Identifier(exec, UString::number(i)));
 }
 
 bool Arguments::deleteProperty(ExecState* exec, const Identifier& propertyName) 
 {
     bool isArrayIndex;
-    unsigned i = propertyName.toArrayIndex(&isArrayIndex);
+    unsigned i = propertyName.toArrayIndex(isArrayIndex);
     if (isArrayIndex && i < d->numArguments) {
         if (!d->deletedArguments) {
-            d->deletedArguments.set(new bool[d->numArguments]);
+            d->deletedArguments = adoptArrayPtr(new bool[d->numArguments]);
             memset(d->deletedArguments.get(), 0, sizeof(bool) * d->numArguments);
         }
         if (!d->deletedArguments[i]) {
@@ -294,9 +340,15 @@ bool Arguments::deleteProperty(ExecState* exec, const Identifier& propertyName)
     }
 
     if (propertyName == exec->propertyNames().callee && !d->overrodeCallee) {
-        d->overrodeCallee = true;
-        return true;
+        if (!d->isStrictMode) {
+            d->overrodeCallee = true;
+            return true;
+        }
+        createStrictModeCalleeIfNecessary(exec);
     }
+    
+    if (propertyName == exec->propertyNames().caller && !d->isStrictMode)
+        createStrictModeCallerIfNecessary(exec);
 
     return JSObject::deleteProperty(exec, propertyName);
 }

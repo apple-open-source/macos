@@ -83,6 +83,8 @@ void IOHIDUserDevice::free()
 {
     if ( _properties )
         _properties->release();
+        
+    super::free();
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -237,8 +239,25 @@ OSNumber *IOHIDUserDevice::newCountryCodeNumber() const
     
     if ( !number ) 
         return NULL;
-        
+    
     number->retain();
+    
+    return number;
+}
+
+//----------------------------------------------------------------------------------------------------
+// IOHIDUserDevice::newReportIntervalNumber
+//----------------------------------------------------------------------------------------------------
+OSNumber *IOHIDUserDevice::newReportIntervalNumber() const
+{
+    OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDReportIntervalKey));
+    
+    if ( !number ) {
+        number = IOHIDDevice::newReportIntervalNumber();
+    }
+    else {
+        number->retain();
+    }
         
     return number;
 }

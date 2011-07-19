@@ -14,7 +14,6 @@
 			);
 			dependencies = (
 				FD9B8811104C7F8A0096D791 /* PBXTargetDependency */,
-				FD9B8813104C7F8B0096D791 /* PBXTargetDependency */,
 				FD9B8815104C7F8D0096D791 /* PBXTargetDependency */,
 				FD9B8817104C7F8F0096D791 /* PBXTargetDependency */,
 				FD9B8819104C7F910096D791 /* PBXTargetDependency */,
@@ -89,13 +88,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = FD9B87D8104C7E630096D791;
 			remoteInfo = "libbz2 (dynamic)";
-		};
-		FD9B8812104C7F8B0096D791 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FD9B87E0104C7E830096D791;
-			remoteInfo = "libbz2 (static)";
 		};
 		FD9B8814104C7F8D0096D791 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -389,7 +381,14 @@
 			isa = PBXProject;
 			buildConfigurationList = FD9B87C9104C7D8B0096D791 /* Build configuration list for PBXProject "bzip2" */;
 			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = FD9B87C4104C7D8B0096D791;
 			productRefGroup = FD9B87DA104C7E630096D791 /* Products */;
 			projectDirPath = "";
@@ -419,7 +418,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n\nchmod +x ${DSTROOT}/usr/bin/bzdiff\nln -s bzdiff ${DSTROOT}/usr/bin/bzcmp\n\nchmod +x ${DSTROOT}/usr/bin/bzgrep\nln -s bzgrep ${DSTROOT}/usr/bin/bzegrep\nln -s bzgrep ${DSTROOT}/usr/bin/bzfgrep\n\nchmod +x ${DSTROOT}/usr/bin/bzmore\nln -s bzmore ${DSTROOT}/usr/bin/bzless\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/create_script_symlinks.sh";
 			showEnvVarsInLog = 0;
 		};
 		FD9B889A104C87620096D791 /* Create .dylib Links */ = {
@@ -434,7 +433,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\nln -fs libbz2.1.0.dylib ${DSTROOT}/usr/lib/libbz2.dylib\nln -fs libbz2.1.0.dylib ${DSTROOT}/usr/lib/libbz2.1.0.5.dylib\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/create_dylib_symlinks.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FD9B88BB104C917C0096D791 /* Create bzip2 Hardlinks */ = {
@@ -449,7 +448,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n# This script phase is run here, so that the hardlinks are created *after* stripping.\n# Doing it in the bzip2 target itself produces verification failures.\nln ${DSTROOT}/usr/bin/bzip2 ${DSTROOT}/usr/bin/bunzip2\nln ${DSTROOT}/usr/bin/bzip2 ${DSTROOT}/usr/bin/bzcat\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/create_bzip2_links.sh\n\n";
 			showEnvVarsInLog = 0;
 		};
 		FD9B88BE104C92410096D791 /* Install Open Source Info */ = {
@@ -464,7 +463,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\nmkdir -m 0755 -p ${DSTROOT}/usr/local/OpenSourceLicenses ${DSTROOT}/usr/local/OpenSourceVersions\ninstall -m 0444 ${SRCROOT}/bzip2.plist ${DSTROOT}/usr/local/OpenSourceVersions/bzip2.plist\ninstall -m 0444 ${SRCROOT}/bzip2/LICENSE ${DSTROOT}/usr/local/OpenSourceLicenses/bzip2.txt\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_opensource_versions.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FD9B88D0104C93E60096D791 /* Install Man Page Symlinks */ = {
@@ -479,7 +478,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n\nln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bunzip2.1\nln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bzcat.1\nln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bzip2recover.1\n\nln -s bzdiff.1 ${DSTROOT}/usr/share/man/man1/bzcmp.1\n\nln -s bzgrep.1 ${DSTROOT}/usr/share/man/man1/bzegrep.1\nln -s bzgrep.1 ${DSTROOT}/usr/share/man/man1/bzfgrep.1\n\nln -s bzmore.1 ${DSTROOT}/usr/share/man/man1/bzless.1\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/create_man_symlinks.sh";
 			showEnvVarsInLog = 0;
 		};
 		FD9B88D7104C96600096D791 /* ShellScript */ = {
@@ -493,7 +492,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# shell script goes here\nset -e\n\nBZIP2=${BUILT_PRODUCTS_DIR}/bzip2\nBZIP2_SOURCE=${SRCROOT}/bzip2\n\nprintf \"[TEST] Standard bzip2 Tests\\n\"\n\nexport DYLD_LIBRARY_PATH=${BUILT_PRODUCTS_DIR}\n${BZIP2} -1  < ${BZIP2_SOURCE}/sample1.ref > ${BUILT_PRODUCTS_DIR}/sample1.rb2\n${BZIP2} -2  < ${BZIP2_SOURCE}/sample2.ref > ${BUILT_PRODUCTS_DIR}/sample2.rb2\n${BZIP2} -3  < ${BZIP2_SOURCE}/sample3.ref > ${BUILT_PRODUCTS_DIR}/sample3.rb2\n${BZIP2} -d  < ${BZIP2_SOURCE}/sample1.bz2 > ${BUILT_PRODUCTS_DIR}/sample1.tst\n${BZIP2} -d  < ${BZIP2_SOURCE}/sample2.bz2 > ${BUILT_PRODUCTS_DIR}/sample2.tst\n${BZIP2} -ds < ${BZIP2_SOURCE}/sample3.bz2 > ${BUILT_PRODUCTS_DIR}/sample3.tst\nunset DYLD_LIBRARY_PATH\n\ncmp ${BZIP2_SOURCE}/sample1.bz2 ${BUILT_PRODUCTS_DIR}/sample1.rb2 && printf \"[PASS] 1\\n\" || printf \"[FAIL] 1\\n\"\ncmp ${BZIP2_SOURCE}/sample2.bz2 ${BUILT_PRODUCTS_DIR}/sample2.rb2 && printf \"[PASS] 2\\n\" || printf \"[FAIL] 2\\n\"\ncmp ${BZIP2_SOURCE}/sample3.bz2 ${BUILT_PRODUCTS_DIR}/sample3.rb2 && printf \"[PASS] 3\\n\" || printf \"[FAIL] 3\\n\"\ncmp ${BUILT_PRODUCTS_DIR}/sample1.tst ${BZIP2_SOURCE}/sample1.ref && printf \"[PASS] 4\\n\" || printf \"[FAIL] 4\\n\"\ncmp ${BUILT_PRODUCTS_DIR}/sample2.tst ${BZIP2_SOURCE}/sample2.ref && printf \"[PASS] 5\\n\" || printf \"[FAIL] 5\\n\"\ncmp ${BUILT_PRODUCTS_DIR}/sample3.tst ${BZIP2_SOURCE}/sample3.ref && printf \"[PASS] 6\\n\" || printf \"[FAIL] 6\\n\"\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/testbot.sh";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -550,11 +549,6 @@
 			isa = PBXTargetDependency;
 			target = FD9B87D8104C7E630096D791 /* libbz2.dylib */;
 			targetProxy = FD9B8810104C7F8A0096D791 /* PBXContainerItemProxy */;
-		};
-		FD9B8813104C7F8B0096D791 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD9B87E0104C7E830096D791 /* libbz2.a */;
-			targetProxy = FD9B8812104C7F8B0096D791 /* PBXContainerItemProxy */;
 		};
 		FD9B8815104C7F8D0096D791 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -628,8 +622,10 @@
 				DYLIB_CURRENT_VERSION = 1.0.5;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
 				PRODUCT_NAME = bz2.1.0;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
 				STRIP_STYLE = "non-global";
 			};
 			name = Release;

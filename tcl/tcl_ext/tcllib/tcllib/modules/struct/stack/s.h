@@ -10,6 +10,8 @@
 
 SPtr st_new	 (void);
 void st_delete	 (SPtr s);
+int  st_peek     (SPtr s, Tcl_Interp* interp, int n,
+		  int pop, int listall, int revers, int ret);
 
 #endif /* _T_H */
 

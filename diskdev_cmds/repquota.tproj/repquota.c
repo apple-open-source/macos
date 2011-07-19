@@ -176,27 +176,26 @@ main(argc, argv)
           return(1);
         }
 
-        for (i=0; i<nfst; i++) {
-                if(strcmp(fst[i].f_fstypename, "hfs")) {
-		    if (strcmp(fst[i].f_fstypename, "ufs"))
-		        continue;
+		for (i=0; i<nfst; i++) {
+			if(strcmp(fst[i].f_fstypename, "hfs")) {
+				continue;
+			}
+			if (aflag) {
+				if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+					errs += repquota(&fst[i], GRPQUOTA, qfnp);
+				if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+					errs += repquota(&fst[i], USRQUOTA, qfnp);
+				continue;
+			}
+			if ((argnum = oneof(fst[i].f_mntonname, argv, argc)) >= 0 ||
+					(argnum = oneof(fst[i].f_mntfromname, argv, argc)) >= 0) {
+				done |= 1 << argnum;
+				if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
+					errs += repquota(&fst[i], GRPQUOTA, qfnp);
+				if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
+					errs += repquota(&fst[i], USRQUOTA, qfnp);
+			}
 		}
-		if (aflag) {
-			if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
-				errs += repquota(&fst[i], GRPQUOTA, qfnp);
-			if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
-				errs += repquota(&fst[i], USRQUOTA, qfnp);
-			continue;
-		}
-		if ((argnum = oneof(fst[i].f_mntonname, argv, argc)) >= 0 ||
-		    (argnum = oneof(fst[i].f_mntfromname, argv, argc)) >= 0) {
-			done |= 1 << argnum;
-			if (gflag && hasquota(&fst[i], GRPQUOTA, &qfnp))
-				errs += repquota(&fst[i], GRPQUOTA, qfnp);
-			if (uflag && hasquota(&fst[i], USRQUOTA, &qfnp))
-				errs += repquota(&fst[i], USRQUOTA, qfnp);
-		}
-	}
 #else
 	if (gflag) {
 		setgrent();

@@ -1,0 +1,55 @@
+#!/bin/bash
+
+serial_cmd="./test_login_serial"
+
+declare -a users_name users_pass
+declare -i start_time stop_time
+
+total_count=$1
+recursion_count=$2
+
+if [[ $# -ne 2 ]]
+then
+	echo "Usage: <# logins> <# recursion>"
+	exit 1
+fi
+
+
+users_total=3
+users_name[0]="local"
+users_pass[0]="local"
+users_name[1]="local"
+users_pass[1]="local"
+users_name[2]="local"
+users_pass[2]="local"
+users_name[3]="local"
+users_pass[3]="local"
+users_name[4]="local"
+users_pass[4]="local"
+users_name[5]="local"
+users_pass[5]="local"
+
+printf "\n"
+printf "Starting test..."
+
+start_time=$(date +%s)
+
+for ((count=0; count<users_total; ++count))
+do
+	${serial_cmd} ${users_name[${count}]} ${users_pass[${count}]} \
+		${total_count} ${recursion_count} > /dev/null &
+done
+
+wait
+
+stop_time=$(date +%s)
+printf "\n"
+printf " done.\n"
+
+elap_time=$((${stop_time}-${start_time}))
+iter_total=$((${users_total}*${total_count}*${recursion_count}))
+
+printf "\n"
+printf "Total iterations: %d = %d * %d * %d\n" ${iter_total} ${total_count} ${recursion_count} ${users_total}
+printf "Elapsed time    : %d seconds\n" ${elap_time}
+printf "Login/second    : %d\n" $((iter_total/${elap_time}))

@@ -223,6 +223,7 @@ main(int  argc,				/* I - Number of command-line args */
     errors = do_ps_tests();
     errors += do_raster_tests(CUPS_RASTER_WRITE);
     errors += do_raster_tests(CUPS_RASTER_WRITE_COMPRESSED);
+    errors += do_raster_tests(CUPS_RASTER_WRITE_PWG);
   }
   else
   {
@@ -539,7 +540,8 @@ do_raster_tests(cups_mode_t mode)	/* O - Write mode */
 
   printf("cupsRasterOpen(%s): ",
          mode == CUPS_RASTER_WRITE ? "CUPS_RASTER_WRITE" :
-	     "CUPS_RASTER_WRITE_COMPRESSED");
+	     mode == CUPS_RASTER_WRITE ? "CUPS_RASTER_WRITE_COMPRESSED" :
+	                                 "CUPS_RASTER_WRITE_PWG");
   fflush(stdout);
 
   if ((fp = fopen("test.raster", "wb")) == NULL)

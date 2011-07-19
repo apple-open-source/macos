@@ -3,7 +3,7 @@
 # Class name: Constant
 # Synopsis: Holds constant info parsed by headerDoc
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:57 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,9 +27,35 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*!
+#     @header
+#     @abstract
+#         <code>Constant</code> class package file
+#     @discussion
+#         This file contains the <code>Constant</code> class.  This class
+#         is used to represent constants.
+#
+#         See the class documentation below for more information.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         API object that describes a standalone constant.
+#     @discussion
+#         This class is used to represent constants that are
+#         not part of a typedef or enumeration.  There is
+#         very little useful distinction between this and the
+#         {@link //apple_ref/perl/cl/HeaderDoc::Var Var} class.
+#
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found there.
+#  */
 package HeaderDoc::Constant;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash validTag);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::APIOwner;
 
@@ -37,31 +63,44 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::Constant::VERSION = '$Revision: 1.13 $';
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class); 
-    $self->_initialize();
-    return($self);
-}
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Constant::VERSION = '$Revision: 1298084577 $';
 
+
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>Constant</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
     $self->{CLASS} = "HeaderDoc::Constant";
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>Constant</code> object into another one.
+#     @param self
+#                The object to clone.
+#     @param clone
+#                The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
         $clone = shift;
     } else {
-        $clone = HeaderDoc::Constant->new();
+        $clone = HeaderDoc::Constant->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     }
 
     $self->SUPER::clone($clone);
@@ -71,116 +110,15 @@ sub clone {
     return $clone;
 }
 
-sub processComment_old {
-    my($self) = shift;
-    my $fieldArrayRef = shift;
-    my @fields = @$fieldArrayRef;
-    my $fullpath = $self->fullpath();
-    my $linenum = $self->linenum();
-    my $localDebug = 0;
 
-    foreach my $field (@fields) {
-    	print STDERR "Constant field is |$field|\n" if ($localDebug);
-	my $fieldname = "";
-	my $top_level_field = 0;
-	if ($field =~ /^(\w+)(\s|$)/) {
-		$fieldname = $1;
-		# print STDERR "FIELDNAME: $fieldname\n";
-		$top_level_field = validTag($fieldname, 1);
-	}
-	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
-	SWITCH: {
-            ($field =~ /^\/\*\!/o)&& do {
-                                my $copy = $field;
-                                $copy =~ s/^\/\*\!\s*//s;
-                                if (length($copy)) {
-                                        $self->discussion($copy);
-                                }
-                        last SWITCH;
-                        };
-	    ($field =~ s/^serial\s+//io) && do {$self->attribute("Serial Field Info", $field, 1); last SWITCH;};
-            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-            ($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
-            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
-            ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 0);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributelist\s+//io) && do {
-		    $field =~ s/^\s*//so;
-		    $field =~ s/\s*$//so;
-		    my ($name, $lines) = split(/\n/, $field, 2);
-		    $name =~ s/^\s*//so;
-		    $name =~ s/\s*$//so;
-		    $lines =~ s/^\s*//so;
-		    $lines =~ s/\s*$//so;
-		    if (length($name) && length($lines)) {
-			my @attlines = split(/\n/, $lines);
-			foreach my $line (@attlines) {
-			    $self->attributelist($name, $line);
-			}
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributeblock\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 1);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ /^see(also|)\s+/io) &&
-		do {
-		    $self->see($field);
-		    last SWITCH;
-		};
-		($top_level_field == 1) && do {
-			my $keepname = 1;
- 			if ($field =~ s/^(const(?:ant)?)(\s+|$)/$2/io) {
-				$keepname = 1;
-			} else {
-				$field =~ s/(\w+)(\s|$)/$2/io;
-				$keepname = 0;
-			}
-                	my ($name, $disc, $namedisc);
-                	($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
-                	$self->name($name);
-                	if (length($disc)) {
-				if ($namedisc) {
-					$self->nameline_discussion($disc);
-				} else {
-					$self->discussion($disc);
-				}
-			}
-                	last SWITCH;
-            	};
-	    # my $fullpath = $HeaderDoc::headerObject->fullpath();
-            # warn "$fullpath:$linenum: warning: Unknown field in constant comment: $field\n";
-		{
-		    if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in constant comment (".$self->name().")\n"; }
-		};
-	    }
-	}
-}
-
+# /*!
+#     @abstract
+#         Sets the declaration.
+#     @param self
+#         The constant object.
+#     @param declaration
+#         The line array.
+#  */
 sub setDeclaration {
     my($self) = shift;
     my ($dec) = @_;
@@ -194,6 +132,12 @@ sub setDeclaration {
 }
 
 
+# /*!
+#     @abstract
+#         Prints the object's fields for debugging purposes.
+#     @param self
+#         The <code>Constant</code> object.
+#  */
 sub printObject {
     my $self = shift;
  

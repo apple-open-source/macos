@@ -1,0 +1,24 @@
+Index: JSON-RPC/lib/JSON/RPC/Server.pm
+===================================================================
+--- JSON-RPC/lib/JSON/RPC/Server.pm	2008-02-24 17:48:24.000000000 -0800
++++ JSON-RPC/lib/JSON/RPC/Server.pm	2010-04-21 12:49:46.000000000 -0700
+@@ -205,8 +205,8 @@
+     my $result;
+ 
+     if ($obj->{version}) {
+-        $result = ref $params ? eval q| $procedure->{code}->($self, $params) |
+-                              : eval q| $procedure->{code}->($self) |
++        $result = ref $params ? eval q| $procedure->{code}->($params) |
++                              : eval q| $procedure->{code}->() |
+                               ;
+     }
+     else {
+@@ -217,7 +217,7 @@
+         else {
+             $params[0] = $params;
+         }
+-        $result = eval q| $procedure->{code}->($self, @params) |;
++        $result = eval q| $procedure->{code}->(@params) |;
+     }
+ 
+ 

@@ -1,8 +1,5 @@
-
-#ifndef _S_BPFLIB_H
-#define _S_BPFLIB_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +21,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+#ifndef _S_BPFLIB_H
+#define _S_BPFLIB_H
+
 int bpf_get_blen(int fd, int * blen);
 int bpf_new();
 int bpf_dispose(int fd);
@@ -35,4 +36,4 @@ int bpf_set_timeout(int fd, struct timeval * tv_p);
 int bpf_write(int fd, void * pkt, int len);
 
 
-#endif _S_BPFLIB_H
+#endif /* _S_BPFLIB_H */

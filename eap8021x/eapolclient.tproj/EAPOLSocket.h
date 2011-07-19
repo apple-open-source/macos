@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,6 +57,9 @@ EAPOLSocketIsLinkActive(EAPOLSocketRef sock);
 int
 EAPOLSocketMTU(EAPOLSocketRef sock);
 
+const struct ether_addr *
+EAPOLSocketGetAuthenticatorMACAddress(EAPOLSocketRef sock);
+
 boolean_t
 EAPOLSocketIsWireless(EAPOLSocketRef sock);
 
@@ -67,6 +70,9 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 boolean_t
 EAPOLSocketSetPMK(EAPOLSocketRef sock, 
 		  const uint8_t * key, int key_length);
+
+void
+EAPOLSocketClearPMKCache(EAPOLSocketRef sock);
 
 CFStringRef
 EAPOLSocketGetSSID(EAPOLSocketRef sock);
@@ -95,6 +101,9 @@ EAPOLSocketReportStatus(EAPOLSocketRef sock, CFDictionaryRef status_dict);
 
 EAPOLControlMode
 EAPOLSocketGetMode(EAPOLSocketRef sock);
+
+void
+EAPOLSocketStopClient(EAPOLSocketRef sock);
 
 #endif /* _S_EAPOLSOCKET_H */
 

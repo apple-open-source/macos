@@ -13,7 +13,7 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.0</string>
+	<string>1.6.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
@@ -151,6 +151,8 @@
 			<integer>128</integer>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
+			<key>FSXMLOutputArgument</key>
+			<string>-x</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
@@ -180,6 +182,8 @@
 			<integer>0</integer>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
+			<key>FSXMLOutputArgument</key>
+			<string>-x</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
@@ -209,6 +213,8 @@
 			<integer>1</integer>
 			<key>FSRepairArguments</key>
 			<string>-fy</string>
+			<key>FSXMLOutputArgument</key>
+			<string>-x</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
@@ -217,6 +223,9 @@
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSLiveVerificationArguments</key>
 			<string>-l</string>
+			<key>FSCoreStorageEncryptionName</key>
+				<string>Mac OS Extended (Journaled, Encrypted)</string>
+
 		</dict>
 		<key>Case-sensitive HFS+</key>
 		<dict>
@@ -240,6 +249,8 @@
 			<integer>2</integer>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
+			<key>FSXMLOutputArgument</key>
+			<string>-x</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
@@ -269,6 +280,8 @@
 			<integer>3</integer>
 			<key>FSRepairArguments</key>
 			<string>-fy</string>
+			<key>FSXMLOutputArgument</key>
+			<string>-x</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSVerificationArguments</key>
@@ -277,6 +290,8 @@
 			<string>../../../../../../sbin/fsck_hfs</string>
 			<key>FSLiveVerificationArguments</key>
 			<string>-l</string>
+			<key>FSCoreStorageEncryptionName</key>
+				<string>Mac OS Extended (Case-sensitive, Journaled, Encrypted)</string>
 		</dict>
 	</dict>
 </dict>

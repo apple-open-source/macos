@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,17 +37,46 @@
 
 
 static __inline__ void
-my_CFSetApplyFunction(CFSetRef			theSet,
-		      CFSetApplierFunction	applier,
-		      void			*context)
+my_CFArrayApplyFunction(CFArrayRef		theArray,
+			CFArrayApplierFunction	applier,
+			void			*context)
 {
 	CFAllocatorRef	myAllocator;
-	CFSetRef	mySet;
+	CFArrayRef	myArray;
 
-	myAllocator = CFGetAllocator(theSet);
-	mySet       = CFSetCreateCopy(myAllocator, theSet);
-	CFSetApplyFunction(mySet, applier, context);
-	CFRelease(mySet);
+	myAllocator = CFGetAllocator(theArray);
+	myArray     = CFArrayCreateCopy(myAllocator, theArray);
+	CFArrayApplyFunction(myArray, CFRangeMake(0, CFArrayGetCount(myArray)), applier, context);
+	CFRelease(myArray);
+	return;
+}
+
+
+static int
+hasKey(CFMutableArrayRef keys, CFStringRef key)
+{
+	if (keys != NULL) {
+		CFIndex	n;
+
+		n = CFArrayGetCount(keys);
+		if (CFArrayContainsValue(keys, CFRangeMake(0, n), key)) {
+			/* sorry, pattern already exists in notifier list */
+			return kSCStatusKeyExists;
+		}
+	}
+
+	return kSCStatusOK;
+}
+
+
+static void
+addKey(CFMutableArrayRef *keysP, CFStringRef key)
+{
+	if (*keysP == NULL) {
+		*keysP = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+
+	CFArrayAppendValue(*keysP, key);
 	return;
 }
 
@@ -76,9 +105,8 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 	sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 
 	if (isRegex) {
-		if (CFSetContainsValue(storePrivate->patterns, key)) {
-			/* sorry, pattern already exists in notifier list */
-			sc_status = kSCStatusKeyExists;
+		sc_status = hasKey(storePrivate->patterns, key);
+		if (sc_status != kSCStatusOK) {
 			goto done;
 		}
 
@@ -91,11 +119,10 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 		}
 
 		/* add pattern to this sessions notifier list */
-		CFSetAddValue(storePrivate->patterns, key);
+		addKey(&storePrivate->patterns, key);
 	} else {
-		if (CFSetContainsValue(storePrivate->keys, key)) {
-			/* sorry, key already exists in notifier list */
-			sc_status = kSCStatusKeyExists;
+		sc_status = hasKey(storePrivate->keys, key);
+		if (sc_status != kSCStatusOK) {
 			goto done;
 		}
 
@@ -106,7 +133,7 @@ __SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean 
 		_addWatcher(sessionNum, key);
 
 		/* add key to this sessions notifier list */
-		CFSetAddValue(storePrivate->keys, key);
+		addKey(&storePrivate->keys, key);
 	}
 
     done :
@@ -159,7 +186,7 @@ _notifyadd(mach_port_t 			server,
  */
 typedef struct {
 	SCDynamicStoreRef       store;
-	CFSetRef		oldKeys;	/* for addNewKey */
+	CFArrayRef		oldKeys;	/* for addNewKey */
 	CFArrayRef		newKeys;	/* for removeOldKey */
 	Boolean			isRegex;
 	int			sc_status;
@@ -202,7 +229,9 @@ addNewKey(const void *value, void *context)
 	}
 
 	if ((myContextRef->oldKeys == NULL) ||
-	    !CFSetContainsValue(myContextRef->oldKeys, newKey)) {
+	    !CFArrayContainsValue(myContextRef->oldKeys,
+				  CFRangeMake(0, CFArrayGetCount(myContextRef->oldKeys)),
+				  newKey)) {
 		/* if this is a new notification key */
 		myContextRef->sc_status = __SCDynamicStoreAddWatchedKey(myContextRef->store,
 									newKey,
@@ -237,30 +266,36 @@ __SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef store, CFArrayRef keys, CF
 	myContext.sc_status = kSCStatusOK;
 
 	/* remove any previously registered keys, register any new keys */
-	myContext.oldKeys = CFSetCreateCopy(NULL, storePrivate->keys);
+	myContext.oldKeys = NULL;
 	myContext.newKeys = keys;
 	myContext.isRegex = FALSE;
-	my_CFSetApplyFunction(storePrivate->keys, removeOldKey, &myContext);
+	if (storePrivate->keys != NULL) {
+		myContext.oldKeys = CFArrayCreateCopy(NULL, storePrivate->keys);
+		my_CFArrayApplyFunction(storePrivate->keys, removeOldKey, &myContext);
+	}
 	if (keys != NULL) {
 		CFArrayApplyFunction(keys,
 				     CFRangeMake(0, CFArrayGetCount(keys)),
 				     addNewKey,
 				     &myContext);
 	}
-	CFRelease(myContext.oldKeys);
+	if (myContext.oldKeys != NULL) CFRelease(myContext.oldKeys);
 
 	/* remove any previously registered patterns, register any new patterns */
-	myContext.oldKeys = CFSetCreateCopy(NULL, storePrivate->patterns);
+	myContext.oldKeys = NULL;
 	myContext.newKeys = patterns;
 	myContext.isRegex = TRUE;
-	my_CFSetApplyFunction(storePrivate->patterns, removeOldKey, &myContext);
+	if (storePrivate->patterns != NULL) {
+		myContext.oldKeys = CFArrayCreateCopy(NULL, storePrivate->patterns);
+		my_CFArrayApplyFunction(storePrivate->patterns, removeOldKey, &myContext);
+	}
 	if (patterns != NULL) {
 		CFArrayApplyFunction(patterns,
 				     CFRangeMake(0, CFArrayGetCount(patterns)),
 				     addNewKey,
 				     &myContext);
 	}
-	CFRelease(myContext.oldKeys);
+	if (myContext.oldKeys != NULL) CFRelease(myContext.oldKeys);
 
 	return myContext.sc_status;
 }

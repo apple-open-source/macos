@@ -13,7 +13,7 @@
 /* SUPPRESS 288 on yyerrlab *//* Label unused */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/getdate.y,v 1.4 2005/08/25 13:44:02 roberto Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/getdate.y,v 1.6 2009/12/13 03:14:06 delphij Exp $");
 
 #include <stdio.h>
 #include <ctype.h>

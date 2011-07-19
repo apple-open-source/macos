@@ -1,4 +1,4 @@
-use t::TestYAML tests => 44; 
+use t::TestYAML tests => 81;
 
 local $SIG{__WARN__} = sub { 1 } if $Test::VERSION < 1.20;
 
@@ -19,6 +19,19 @@ $YAML::Syck::DumpCode = 0;
 is(Dump(sub{ 42 }),  "--- !!perl/code: '{ \"DUMMY\" }'\n");
 $YAML::Syck::DumpCode = 1;
 ok(Dump(sub{ 42 }) =~ m#--- !!perl/code.*?{.*?42.*?}$#s);
+
+$YAML::Syck::LoadCode = 0;
+{
+    my $not_sub = Load("--- !!perl/code:Some::Class '{ \"foo\" . shift }'\n");
+    is( ref $not_sub, "Some::Class" );
+    is( $not_sub->("bar"), undef );
+}
+
+{
+    my $sub = Load("--- !!perl/code '{ \"foo\" . shift }'\n");
+    is( ref $sub, "CODE" );
+    is( $sub->("bar"), undef );
+}
 
 my $like_yaml_pm = 0;
 $YAML::Syck::LoadCode = 0;
@@ -94,6 +107,14 @@ $YAML::Syck::ImplicitTyping = $YAML::Syck::ImplicitTyping = 1;
 is(Load("--- true\n"), 1);
 is(Load("--- false\n"), '');
 
+# Various edge cases at grok_number boundary
+is(Load("--- 42949672\n"), 42949672);
+is(Load("--- -42949672\n"), -42949672);
+is(Load("--- 429496729\n"), 429496729);
+is(Load("--- -429496729\n"), -429496729);
+is(Load("--- 4294967296\n"), 4294967296);
+is(Load("--- -4294967296\n"), -4294967296);
+
 # RT #18752
 my $recurse1 = << '.';
 --- &1 
@@ -131,4 +152,42 @@ $YAML::Syck::ImplicitBinary = $YAML::Syck::ImplicitBinary = 1;
 is(Dump("\xff\xff"), "--- !binary //8=\n");
 is(Load("--- !binary //8=\n"), "\xff\xff");
 is(Dump("ascii"), "--- ascii\n");
+
+is(Dump("This is Perl 6 User's Golfing System\n", q[--- "This is Perl6 User's Golfing System\n"]));
+
+$YAML::Syck::SingleQuote = $YAML::Syck::SingleQuote = 1;
+
+is(Dump("This is Perl 6 User's Golfing System\n"), qq[--- 'This is Perl 6 User''s Golfing System\n\n'\n]);
+is(Dump('042'),    "--- '042'\n");
+
+roundtrip('042');
+roundtrip("This\nis\na\ntest");
+roundtrip("Newline\n");
+roundtrip(" ");
+roundtrip("\n");
+roundtrip("S p a c e");
+roundtrip("Space \n Around");
+
+# If implicit typing is on, quote strings corresponding to implicit boolean and null values
+$YAML::Syck::SingleQuote = 0;
+
+is(Dump('N'), "--- 'N'\n");
+is(Dump('NO'), "--- 'NO'\n");
+is(Dump('No'), "--- 'No'\n");
+is(Dump('no'), "--- 'no'\n");
+is(Dump('y'), "--- 'y'\n");
+is(Dump('YES'), "--- 'YES'\n");
+is(Dump('Yes'), "--- 'Yes'\n");
+is(Dump('yes'), "--- 'yes'\n");
+is(Dump('TRUE'), "--- 'TRUE'\n");
+is(Dump('false'), "--- 'false'\n");
+is(Dump('off'), "--- 'off'\n");
+
+is(Dump('null'), "--- 'null'\n");
+is(Dump('Null'), "--- 'Null'\n");
+is(Dump('NULL'), "--- 'NULL'\n");
+
+is(Dump('oN'), "--- oN\n"); # invalid case
+is(Dump('oFF'), "--- oFF\n"); # invalid case
+is(Dump('nULL'), "--- nULL\n"); # invalid case
 

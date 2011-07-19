@@ -21,7 +21,7 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
 #
-# $Id: sha1.tcl,v 1.21 2007/05/03 21:41:10 andreas_kupries Exp $
+# $Id: sha1.tcl,v 1.22 2009/05/07 00:35:10 patthoyts Exp $
 
 # @mdgen EXCLUDE: sha1c.tcl
 
@@ -29,7 +29,7 @@ package require Tcl 8.2;                # tcl minimum version
 
 namespace eval ::sha1 {
     variable  version 2.0.3
-    variable  rcsid {$Id: sha1.tcl,v 1.21 2007/05/03 21:41:10 andreas_kupries Exp $}
+    variable  rcsid {$Id: sha1.tcl,v 1.22 2009/05/07 00:35:10 patthoyts Exp $}
 
     variable  accel
     array set accel {tcl 0 critcl 0 cryptkit 0 trf 0}
@@ -607,6 +607,7 @@ if {[package vsatisfies [package provide Tcl] 8.5]} {
     proc ::sha1::SHA1Transform {token msg} $::sha1::SHA1Transform_body_tmp2
 }
 
+unset ::sha1::SHA1Transform_body
 unset ::sha1::SHA1Transform_body_tmp
 unset ::sha1::SHA1Transform_body_tmp2
 

@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,20 +26,96 @@
 #ifndef IDBDatabase_h
 #define IDBDatabase_h
 
-#include <wtf/Threading.h>
+#include "ActiveDOMObject.h"
+#include "DOMStringList.h"
+#include "Event.h"
+#include "EventTarget.h"
+#include "ExceptionCode.h"
+#include "IDBDatabaseBackendInterface.h"
+#include "IDBDatabaseCallbacksImpl.h"
+#include "IDBObjectStore.h"
+#include "IDBTransaction.h"
+#include "OptionsObject.h"
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
 namespace WebCore {
 
-// This class is shared by IDBDatabaseRequest (async) and IDBDatabaseSync (sync).
-// This is implemented by IDBDatabaseImpl and optionally others (in order to proxy
-// calls across process barriers). All calls to these classes should be non-blocking and
-// trigger work on a background thread if necessary.
-class IDBDatabase : public ThreadSafeShared<IDBDatabase> {
+class IDBVersionChangeRequest;
+class ScriptExecutionContext;
+
+class IDBDatabase : public RefCounted<IDBDatabase>, public EventTarget, public ActiveDOMObject {
 public:
-    virtual ~IDBDatabase() { }
-    // FIXME: Write.
+    static PassRefPtr<IDBDatabase> create(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
+    ~IDBDatabase();
+
+    void setSetVersionTransaction(IDBTransaction*);
+
+    // Implement the IDL
+    String name() const { return m_backend->name(); }
+    String version() const { return m_backend->version(); }
+    PassRefPtr<DOMStringList> objectStoreNames() const { return m_backend->objectStoreNames(); }
+
+    // FIXME: Try to modify the code generator so this is unneeded.
+    PassRefPtr<IDBObjectStore> createObjectStore(const String& name, ExceptionCode& ec) { return createObjectStore(name, OptionsObject(), ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext* context, ExceptionCode& ec) { return transaction(context, 0, ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext* context, PassRefPtr<DOMStringList> storeNames, ExceptionCode& ec) { return transaction(context, storeNames, IDBTransaction::READ_ONLY, ec); }
+    PassRefPtr<IDBTransaction> transaction(ScriptExecutionContext*, PassRefPtr<DOMStringList>, unsigned short mode, ExceptionCode&);
+
+    PassRefPtr<IDBObjectStore> createObjectStore(const String& name, const OptionsObject&, ExceptionCode&);
+    void deleteObjectStore(const String& name, ExceptionCode&);
+    PassRefPtr<IDBVersionChangeRequest> setVersion(ScriptExecutionContext*, const String& version, ExceptionCode&);
+    void close();
+
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(versionchange);
+
+    // IDBDatabaseCallbacks
+    virtual void onVersionChange(const String& requestedVersion);
+
+    // ActiveDOMObject
+    virtual bool hasPendingActivity() const;
+    virtual void stop();
+
+    // EventTarget
+    virtual IDBDatabase* toIDBDatabase() { return this; }
+    virtual ScriptExecutionContext* scriptExecutionContext() const;
+
+
+    void open();
+    void enqueueEvent(PassRefPtr<Event>);
+    bool dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec) { return EventTarget::dispatchEvent(event, ec); }
+    virtual bool dispatchEvent(PassRefPtr<Event>);
+
+    using RefCounted<IDBDatabase>::ref;
+    using RefCounted<IDBDatabase>::deref;
+
+private:
+    IDBDatabase(ScriptExecutionContext*, PassRefPtr<IDBDatabaseBackendInterface>);
+
+    // EventTarget
+    virtual void refEventTarget() { ref(); }
+    virtual void derefEventTarget() { deref(); }
+    virtual EventTargetData* eventTargetData();
+    virtual EventTargetData* ensureEventTargetData();
+
+    RefPtr<IDBDatabaseBackendInterface> m_backend;
+    RefPtr<IDBTransaction> m_setVersionTransaction;
+
+    bool m_noNewTransactions;
+    bool m_stopped;
+
+    EventTargetData m_eventTargetData;
+
+    // Keep track of the versionchange events waiting to be fired on this
+    // database so that we can cancel them if the database closes.
+    Vector<RefPtr<Event> > m_enqueuedEvents;
+
+    RefPtr<IDBDatabaseCallbacksImpl> m_databaseCallbacks;
 };
 
 } // namespace WebCore
@@ -50,4 +123,3 @@ public:
 #endif
 
 #endif // IDBDatabase_h
-

@@ -2,7 +2,7 @@
 	File:		MBCGameInfo.mm
 	Contains:	Managing information about the current game
 	Version:	1.0
-	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2003-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,36 @@
 	Change History (most recent first):
 
 		$Log: MBCGameInfo.mm,v $
+		Revision 1.23  2010/10/08 17:55:31  neerache
+		Disallow all selections in move list (They serve no purpose and mess up our visuals)
+		
+		Revision 1.22  2010/10/07 23:07:02  neerache
+		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
+		
+		Revision 1.21  2010/09/16 00:28:11  neerache
+		<rdar://problem/8352884> [Chess]: Ab-11A250: RTL: BIDI: Window Title flips entry of white user vs. black user depending on the name of users
+		
+		Revision 1.20  2010/07/20 23:40:40  neerache
+		Workaround for 10.6
+		
+		Revision 1.19  2010/07/20 23:26:09  neerache
+		<rdar://problem/8174548> 11A215: The countery and city names are not localize-able in the Edit Game info window.
+		
+		Revision 1.18  2010/07/20 20:47:24  neerache
+		<rdar://problem/8174514> 11A215: The string "Computer" is not localize-able in New Game window.
+		
+		Revision 1.17  2010/07/09 01:37:54  neerache
+		<rdar://problem/6655510> Leaks in chess
+		
+		Revision 1.16  2010/04/24 01:57:10  neerache
+		<rdar://problem/7641028> TAL: Chess doesn't reload my game
+		
+		Revision 1.15  2010/01/18 19:20:39  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 2
+		
+		Revision 1.14  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.13  2009/04/22 23:19:47  neerache
 		<rdar://problem/6815838> Chess crashes when editing Game Info from Game Log window
 		
@@ -62,6 +92,11 @@
 #import "MBCGameInfo.h"
 #import "MBCController.h"
 #import "MBCPlayer.h"
+
+//
+// Private Framework
+//
+#import <GeoKit/GeoKit.h>
 
 #include <sys/types.h>
 #include <regex.h>
@@ -146,33 +181,18 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 				 intoFirst:&humanFirst last:&humanLast];
 
 	// 
-	// Get the city we might be in. This technique may not necessarily
-	// work in future revisions of Mac OS X, I suppose.
+	// Get the city we might be in. This technique uses a private API and may not
+	// work in future revisions of Mac OS X. 
 	//
 	// PGN wants IOC codes for countries, which we're too lazy to convert.
 	//
-	NSArray *			cityInfo = 
-		(NSArray *)CFPreferencesCopyValue((CFStringRef)
-					@"com.apple.TimeZonePref.Last_Selected_City",
-					kCFPreferencesAnyApplication, kCFPreferencesAnyUser,
-					kCFPreferencesCurrentHost);
-	NSString *			city 	= cityInfo ? [cityInfo objectAtIndex:7] : @"?";
-	NSString *			country	= cityInfo ? [cityInfo objectAtIndex:8] : @"?";
-	
-	//
-	// PGN wants ISO Latin 1, so we fall back to the non-Localized Name 
-	// for non-Latin places.
-	//
-	if (![city canBeConvertedToEncoding:NSISOLatin1StringEncoding])
-		city	= [cityInfo objectAtIndex:5];
-	if (![country canBeConvertedToEncoding:NSISOLatin1StringEncoding])
-		country	= [cityInfo objectAtIndex:6];
-
-	if (cityInfo)
-		[cityInfo release];
+	NSDictionary*	cityInfoDict = [[NSUserDefaults standardUserDefaults] objectForKey:@"com.apple.preferences.timezone.selected_city"];    
+	GEOCity *		cityInfo = cityInfoDict ? [GEOCity cityWithDumpDictionary:cityInfoDict] : nil;
+	NSString *		city 	= cityInfo ? [cityInfo displayName] : @"?";
+	NSString *		country	= cityInfo ? [[cityInfo country] displayName] : @"?";
 
 	NSString * event = 
-		[NSLocalizedString(@"casual_game", @"casual game") retain];
+		[NSLocalizedString(@"casual_game", @"Casual Game") retain];
 
 	NSDictionary * defaults = 
 		[NSDictionary 
@@ -186,6 +206,9 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	[[NSUserDefaults standardUserDefaults] registerDefaults: defaults];
 }
 
++ (void)restoreWindowWithIdentifier:(NSString *)itemID state:(NSCoder *)coder completionHandler:(void (^)(NSWindow *, NSError *))handler {
+    handler([[MBCController controller] gameInfoWindow], NULL);
+}
 
 - (id) init
 {
@@ -213,6 +236,9 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	fOutcome	= nil;
 	fWhiteName	= nil;
 	fBlackName	= nil;
+	fStartDate	= nil;
+	fStartTime	= nil;
+	fResult		= nil;
 	fSetInfo	= false;
 
 	return self;
@@ -226,6 +252,9 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 
 	fRows	= 0;
 	fBoard	= [[MBCController controller] board];
+
+	if ([fInfoWindow respondsToSelector:@selector(setRestorationClass:)])
+		[fInfoWindow setRestorationClass:[self class]];
 }
 
 - (void) updateMoves:(NSNotification *)notification
@@ -237,7 +266,6 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	int rows = [self numberOfRowsInTableView:fMoveList]; 
 	if (rows != fRows) {
 		fRows = rows;
-		[fMoveList selectRow:rows-1 byExtendingSelection:NO];
 		[fMoveList scrollRowToVisible:rows-1];
 	}
 }
@@ -246,6 +274,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 {
 	[fOutcome release];
 	fOutcome 	= nil;
+	[fResult release];
 	fResult		= [@"*" retain];
 	[self updateMoves:notification];
 }
@@ -254,6 +283,8 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 {
 	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification object]);
 
+	[fResult autorelease];
+	[fOutcome autorelease];
 	switch (move->fCommand) {
 	case kCmdWhiteWins:
 		fResult		= @"1-0";
@@ -268,6 +299,8 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		fOutcome 	= NSLocalizedString(@"draw_msg", @"Draw");
 		break;
 	default:
+		[fResult retain];
+		[fOutcome retain];
 		return;
 	}
 	[fResult retain];
@@ -298,7 +331,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		[NSString stringWithFormat:@"%@ %@",
 				  [defaults stringForKey:kMBCHumanFirst],
 				  [defaults stringForKey:kMBCHumanLast]];
-	NSString * 		engine 		= @"Computer";
+	NSString * 		engine 		= NSLocalizedString(@"engine_player", @"Computer");
 
 	fSetInfo	= true;
 	[fWhiteName release];
@@ -315,13 +348,18 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		fBlackName 	= [human retain];
 	else
 		fBlackName 	= [engine retain];
+	[fStartDate release];
+	[fStartTime release];
+	[fResult	release];
 	fStartDate = [[dict objectForKey:@"StartDate"] retain];
 	fStartTime = [[dict objectForKey:@"StartTime"] retain];
 	fResult	   = [[dict objectForKey:@"Result"] retain];
 	if (NSString * city = [dict objectForKey:@"City"])
-		[defaults setObject:city forKey:kMBCGameCity];
+		if (![city isEqual:[defaults stringForKey:kMBCGameCity]])
+			[defaults setObject:city forKey:kMBCGameCity];
 	if (NSString * country = [dict objectForKey:@"Country"])
-		[defaults setObject:country forKey:kMBCGameCountry];
+		if (![country isEqual:[defaults stringForKey:kMBCGameCountry]])
+			[defaults setObject:country forKey:kMBCGameCountry];
 	if (NSString * event = [dict objectForKey:@"Event"])
 		[defaults setObject:event forKey:kMBCGameEvent];
 		
@@ -345,7 +383,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 			[NSString stringWithFormat:@"%@ %@",
 					  [defaults stringForKey:kMBCHumanFirst],
 					  [defaults stringForKey:kMBCHumanLast]];
-		NSString * 		engine 		= @"Computer";
+		NSString * 		engine 		= NSLocalizedString(@"engine_player", @"Computer");
 
 		[fWhiteName release];
 		[fBlackName release];
@@ -368,6 +406,9 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 			fBlackName 	= [engine retain];
 			break;
 		}
+		[fStartDate release];
+		[fStartTime release];
+		[fResult release];
 		NSDate * now	= [NSDate date];
 		fStartDate		= [[now descriptionWithCalendarFormat:@"%Y.%m.%d"
 								timeZone:nil locale:nil] retain];
@@ -452,8 +493,12 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		[defaults setObject:humanLast forKey:kMBCHumanLast];
 	}
 
-	[defaults setObject:[fCity stringValue] forKey:kMBCGameCity];
-	[defaults setObject:[fCountry stringValue] forKey:kMBCGameCountry];
+	NSString * cityName		= [fCity stringValue];
+	if (![cityName isEqual:[defaults stringForKey:kMBCGameCity]])
+		[defaults setObject:[fCity stringValue] forKey:kMBCGameCity];
+	NSString * countryName	= [fCountry stringValue];
+	if (![countryName isEqual:[defaults stringForKey:kMBCGameCountry]])
+		[defaults setObject:[fCountry stringValue] forKey:kMBCGameCountry];
 	[defaults setObject:[fEvent stringValue] forKey:kMBCGameEvent];
 
 	[self updateTitle:nil];
@@ -477,29 +522,18 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	}
 
 	NSString * 		ident 	= [col identifier];
-	if ([ident isEqual:@"Move"])
-		return [NSString stringWithFormat:@"%d.", row+1];
-	
-	NSString * move = [[fBoard move: row*2+[ident isEqual:@"Black"]] 
-						  localizedText:YES];
-	if (!move)
-		return nil;
-	NSMutableParagraphStyle * style = 
-		[[[NSParagraphStyle defaultParagraphStyle] mutableCopy] autorelease];
-	float tab   = [col width] / 14.0f;
-	[style setTabStops:
-			   [NSArray arrayWithObjects:
-							[move characterAtIndex:1]=='\t' 
-						? MakeTab(NSRightTabStopType, 1.0f) 
-						: MakeTab(NSRightTabStopType, 5.0f*tab),
-						MakeTab(NSCenterTabStopType, 6.0f*tab),
-						MakeTab(NSLeftTabStopType, 7.0f*tab),
-						nil]];
-	return [[[NSAttributedString alloc]
-				initWithString:move attributes:
-					[NSDictionary dictionaryWithObject:style
-								  forKey:NSParagraphStyleAttributeName]]
-			   autorelease];
+	if ([ident isEqual:@"Move"]) {
+		return [NSNumber numberWithInt:row+1];
+	} else {
+		NSArray * identComp = [ident componentsSeparatedByString:@":"];
+		return [[fBoard move: row*2+[[identComp objectAtIndex:0] isEqual:@"Black"]] 
+				valueForKey:[identComp objectAtIndex:1]];
+	}
+}
+
+- (BOOL)tableView:(NSTableView *)aTableView shouldSelectRow:(NSInteger)rowIndex
+{
+	return NO; /* Disallow all selections */
 }
 
 - (IBAction) updateTitle:(id)sender
@@ -514,22 +548,26 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 					  [fShowMoveInTitle intValue] forKey:kMBCShowMoveInTitle];
 	}
 	
-	if (numMoves && [fShowMoveInTitle intValue])
-		move = 	[NSString stringWithFormat:@"%d. %@%@",
-						  (numMoves+1)/2, numMoves&1 ? @"":@"... ",
-						  [[fBoard lastMove] localizedText:NO]];
-	else if (!numMoves)
+	if (numMoves && [fShowMoveInTitle intValue]) {
+		NSNumber * moveNum = [NSNumber numberWithInt:(numMoves+1)/2];
+		NSString * moveStr = [NSNumberFormatter localizedStringFromNumber:moveNum 
+															  numberStyle:NSNumberFormatterDecimalStyle];
+		move = 	[NSString stringWithFormat:NSLocalizedString(@"title_move_line_fmt", @"%@. %@%@"),
+						  moveStr, numMoves&1 ? @"":@"... ",
+						  [[fBoard lastMove] localizedText]];
+	} else if (!numMoves) {
 		move =	NSLocalizedString(@"new_msg", @"New Game");
-	else if (numMoves & 1)
+	} else if (numMoves & 1) {
 		move = 	NSLocalizedString(@"black_move_msg", @"Black to move");
-	else
+	} else {
 		move = 	NSLocalizedString(@"white_move_msg", @"White to move");
+	}
 
 	NSString * title =
-		[NSString stringWithFormat:@"%@ - %@   (%@)", 
+		[NSString stringWithFormat:NSLocalizedString(@"game_title_fmt", @"%@ - %@   (%@)"), 
 				  fWhiteName, fBlackName, move];
 	if (fOutcome)
-		title = [NSString stringWithFormat:@"%@   %@", title, fOutcome];
+		title = [NSString stringWithFormat:NSLocalizedString(@"game_outcome_fmt", @"%@   %@"), title, fOutcome];
 	[fMainWindow setTitle:title];
 	unichar emdash = 0x2014;
 	[fMatchup setStringValue:
@@ -590,7 +628,7 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	// PGN uses a standard format that is NOT localized
 	//
 	NSString * format = 
-		[NSString stringWithCString:
+		[NSString stringWithUTF8String:
 				  "[Event \"%@\"]\n"
 				  "[Site \"%@, %@\"]\n"
 				  "[Date \"%@\"]\n"
@@ -609,6 +647,22 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 - (NSString *)pgnResult
 {
 	return fResult;
+}
+
+@end
+
+@interface MBCBoardWindowController : NSWindowController
+{
+}
+
+- (void)synchronizeWindowTitleWithDocumentName;
+
+@end
+
+@implementation MBCBoardWindowController
+
+- (void)synchronizeWindowTitleWithDocumentName
+{
 }
 
 @end

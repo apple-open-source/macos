@@ -3,8 +3,13 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 17;
 use Test::Exception;
+
+use lib qw(t/lib);
+
+# dynamically load SQL::Abstract::Test;
+eval "use SQL::Abstract::Limit::Test; 1" or die $@;
 
 =for notes
 
@@ -44,71 +49,101 @@ my $last = $offset + $limit;
 
 my $base_sql = 'requestor, worker, colC, colH FROM TheTable WHERE ( requestor = ? AND status != ? AND ( ( worker = ? ) OR ( worker = ? ) OR ( worker = ? ) ) )';
 
+my @expected_bind = qw/inna completed nwiger rcwe sfz/; 
+
 my $sql_ab = SQL::Abstract::Limit->new( limit_dialect => 'LimitOffset' );
 
 my ( $stmt, @bind );
 
 # LimitOffset
 lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset) } 'select LimitOffset';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
-like( $stmt, qr~^\QSELECT $base_sql ORDER BY pay, age LIMIT $limit OFFSET $offset\E$~, 'complete SQL' );
+
+is_same_sql_bind(
+  $stmt, \@bind, 
+  "SELECT $base_sql ORDER BY pay, age LIMIT $limit OFFSET $offset", \@expected_bind,
+  'LimitOffset SQL',
+);
 
 # LimitXY
 lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'LimitXY' ) } 'select LimitXY';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
-like( $stmt, qr~^\QSELECT $base_sql ORDER BY pay, age LIMIT $offset, $limit\E$~, 'complete SQL' );
+is_same_sql_bind(
+  $stmt, \@bind, 
+  "SELECT $base_sql ORDER BY pay, age LIMIT $offset, $limit", \@expected_bind,
+  'LimitXY SQL',
+);
 
 # RowsTo
-lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'RowsTo' ) } 'select LimitXY';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
-like( $stmt, qr~^\QSELECT $base_sql ORDER BY pay, age ROWS $offset TO $last\E$~, 'complete SQL' );
+lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'RowsTo' ) } 'select RowsTo';
+is_same_sql_bind(
+  $stmt, \@bind, 
+  "SELECT $base_sql ORDER BY pay, age ROWS $offset TO $last", \@expected_bind,
+  'RowsTo SQL',
+);
 
-
-### TODO - regexes to match full query ###
 
 # Top
 lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'Top' ) } 'select Top';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
 
-TODO: {
-    local $TODO = 'need regex for complex query';
-    like( $stmt, qr~^\Qcomplete SQL\E$~, 'complete SQL' );
-}
+is_same_sql_bind(
+  $stmt, \@bind,
+  "SELECT * FROM ("
+ .  "SELECT TOP $limit * FROM ("
+ .     "SELECT TOP $last $base_sql ORDER BY pay ASC, age ASC"
+ .  ") AS foo ORDER BY pay DESC, age DESC"
+ .") AS bar ORDER BY pay ASC, age ASC", \@expected_bind,
+  'Top SQL',
+);
+
+
 
 # RowNum
 lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'RowNum' ) } 'select RowNum';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
 
-TODO: {
-    local $TODO = 'need regex for complex query';
-    like( $stmt, qr~^\Qcomplete SQL\E$~, 'complete SQL' );
-}
+is_same_sql_bind(
+  $stmt, \@bind,
+  "SELECT * FROM ("
+ .  "SELECT A.*, ROWNUM r FROM ("
+ .     "SELECT $base_sql ORDER BY pay, age"
+ .  ") A WHERE ROWNUM < @{[$last + 1]}"
+ .") B WHERE r >= @{[$offset + 1]}", \@expected_bind,
+  'RowNum SQL',
+);
+
+
 
 # GenericSubQ
 lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'GenericSubQ' ) } 'select GenericSubQ';
-my $gen_q_base_sql = $base_sql;
-$gen_q_base_sql =~ s/TheTable/TheTable X/;
-like( $stmt, qr~\Q$gen_q_base_sql\E~, 'GenericSubQ SQL' );
+(my $gen_q_base_sql = $base_sql) =~ s/TheTable/TheTable X/;
 
-TODO: {
-    local $TODO = 'need regex for complex query';
-    like( $stmt, qr~^\Qcomplete SQL\E$~, 'complete SQL' );
-}
+is_same_sql_bind(
+  $stmt, \@bind,
+  "SELECT $gen_q_base_sql AND"
+ .  "(SELECT COUNT(*) FROM TheTable WHERE requestor > X.requestor)"
+ .  "  BETWEEN $offset AND $last ORDER BY requestor DESC", \@expected_bind,
+  'GenericSubQ SQL',
+);
+
 
 # FetchFirst
-lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'FetchFirst' ) } 'select GenericSubQ';
-like( $stmt, qr~\Q$base_sql\E~, 'base SQL' );
+lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'FetchFirst' ) } 'select FetchFirst';
 
-TODO: {
-    local $TODO = 'need regex for complex query';
-    like( $stmt, qr~^\Qcomplete SQL\E$~, 'complete SQL' );
-}
+is_same_sql_bind(
+  $stmt, \@bind,
+  "SELECT * FROM ("
+ .  "SELECT * FROM ("
+ .    "SELECT $base_sql ORDER BY pay ASC, age ASC FETCH FIRST $last ROWS ONLY"
+ .    ") foo ORDER BY pay DESC, age DESC FETCH FIRST $limit ROWS ONLY"
+ .  ") bar ORDER BY pay ASC, age ASC", \@expected_bind,
+  'FetchFirst SQL',
+);
+
+# Skip
+lives_ok { ( $stmt, @bind ) = $sql_ab->select( $table, $fields, $where, $order, $limit, $offset, 'Skip' ) } 'select Skip';
+
+is_same_sql_bind(
+  $stmt, \@bind,
+  "select skip $offset limit $limit $base_sql ORDER BY pay, age", \@expected_bind,
+  'Skip SQL',
+);
 
 
-
-
-#warn "\n\n" . $stmt;
-#warn join( ', ', @bind ) . "\n\n";
-#
-#
-warn " *** not yet testing subquery LIMIT emulations\n";

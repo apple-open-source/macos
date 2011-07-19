@@ -1,0 +1,564 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$700|sub regex_test_4 {
+	        if ($access =~ /public/o || $ignore_access){
+	            push (@publics, $obj);
+	        } elsif ($access =~ /protected/o){
+	            push (@protecteds, $obj);
+	        } elsif ($access =~ /private/o){
+	            push (@privates, $obj);
+		} elsif ($access eq "") {
+		    push (@Cs, $obj);
+	        } else {
+		    # assume public (e.g. C)
+		    push (@publics, $obj);
+		}
+    $contentFrameName =~ s/(.*)\.h/$1/o; 
+    $contentFrameName = &safeName(filename => $contentFrameName);  
+    $contentFrameName = $contentFrameName . ".html";
+
+    my @properties = $self->props();
+			if (length($name) > 30) {
+				$name =~ s/:/:\&zwj;/g;
+			}
+}
+
+# Random bits of APIOwner.pm
+$20|/*! Regex test 4 */
+$0|$7414|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_regex_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_regex_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => *
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => regex_test_4
+$parserState->{functionContents} => {
+                if ($access =~ /public/o || $ignore_access){
+                    push (@publics, $obj);
+                } elsif ($access =~ /protected/o){
+                    push (@protecteds, $obj);
+                } elsif ($access =~ /private/o){
+                    push (@privates, $obj);
+                } elsif ($access eq "") {
+                    push (@Cs, $obj);
+                } else {
+                    # assume public (e.g. C)
+                    push (@publics, $obj);
+                }
+    $contentFrameName =~ s/(.*)\.h/$1/o;
+    $contentFrameName = &safeName(filename => $contentFrameName);
+    $contentFrameName = $contentFrameName . ".html";
+
+    my @properties = $self->props();
+                        if (length($name) > 30) {
+                                $name =~ s/:/:\&zwj;/g;
+                        }
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 22
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => regex_test_4
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub regex_test_4 
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => regex_test_4
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 22
+typelist: function
+namelist: regex_test_4
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+                if ($access =~ /public/o || $ignore_access){
+                    push (@publics, $obj);
+                } elsif ($access =~ /protected/o){
+                    push (@protecteds, $obj);
+                } elsif ($access =~ /private/o){
+                    push (@privates, $obj);
+                } elsif ($access eq "") {
+                    push (@Cs, $obj);
+                } else {
+                    # assume public (e.g. C)
+                    push (@publics, $obj);
+                }
+    $contentFrameName =~ s/(.*)\.h/$1/o;
+    $contentFrameName = &safeName(filename => $contentFrameName);
+    $contentFrameName = $contentFrameName . ".html";
+
+    my @properties = $self->props();
+                        if (length($name) > 30) {
+                                $name =~ s/:/:\&zwj;/g;
+                        }
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---regex_test_4
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl regex 4
+APIUID: //test_ref/doc/header/Perl_regex_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: regex_test_4
+    APIUID: //test_ref/perl/func/regex_test_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>Regex test 4 "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: regex_test_4 (HeaderDoc::Function)
++---sub
++--- 
++---regex_test_4
++--- 
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: regex_test_4 (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/regex_test_4 //test_ref/perl/clm/regex_test_4 //test_ref/perl/intfcm/regex_test_4 //test_ref/perl/intfm/regex_test_4 //test_ref/perl/func/regex_test_4 //test_ref/perl/ftmplt/regex_test_4 //test_ref/perl/defn/regex_test_4 //test_ref/perl/macro/regex_test_4 //test_ref/doc/anysymbol/regex_test_4" machineGenerated="true" --><span class="function">regex_test_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$7414|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_regex_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_regex_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => *
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => regex_test_4
+$parserState->{functionContents} => {
+                if ($access =~ /public/o || $ignore_access){
+                    push (@publics, $obj);
+                } elsif ($access =~ /protected/o){
+                    push (@protecteds, $obj);
+                } elsif ($access =~ /private/o){
+                    push (@privates, $obj);
+                } elsif ($access eq "") {
+                    push (@Cs, $obj);
+                } else {
+                    # assume public (e.g. C)
+                    push (@publics, $obj);
+                }
+    $contentFrameName =~ s/(.*)\.h/$1/o;
+    $contentFrameName = &safeName(filename => $contentFrameName);
+    $contentFrameName = $contentFrameName . ".html";
+
+    my @properties = $self->props();
+                        if (length($name) > 30) {
+                                $name =~ s/:/:\&zwj;/g;
+                        }
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 22
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => regex_test_4
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub regex_test_4 
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => regex_test_4
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 22
+typelist: function
+namelist: regex_test_4
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+                if ($access =~ /public/o || $ignore_access){
+                    push (@publics, $obj);
+                } elsif ($access =~ /protected/o){
+                    push (@protecteds, $obj);
+                } elsif ($access =~ /private/o){
+                    push (@privates, $obj);
+                } elsif ($access eq "") {
+                    push (@Cs, $obj);
+                } else {
+                    # assume public (e.g. C)
+                    push (@publics, $obj);
+                }
+    $contentFrameName =~ s/(.*)\.h/$1/o;
+    $contentFrameName = &safeName(filename => $contentFrameName);
+    $contentFrameName = $contentFrameName . ".html";
+
+    my @properties = $self->props();
+                        if (length($name) > 30) {
+                                $name =~ s/:/:\&zwj;/g;
+                        }
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---regex_test_4
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl regex 4
+APIUID: //test_ref/doc/header/Perl_regex_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: regex_test_4
+    APIUID: //test_ref/perl/func/regex_test_4
+    ABSTRACT: ""
+    DISCUSSION: "<p>Regex test 4 "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: regex_test_4 (HeaderDoc::Function)
++---sub
++--- 
++---regex_test_4
++--- 
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: regex_test_4 (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/regex_test_4 //test_ref/perl/clm/regex_test_4 //test_ref/perl/intfcm/regex_test_4 //test_ref/perl/intfm/regex_test_4 //test_ref/perl/func/regex_test_4 //test_ref/perl/ftmplt/regex_test_4 //test_ref/perl/defn/regex_test_4 //test_ref/perl/macro/regex_test_4 //test_ref/doc/anysymbol/regex_test_4" machineGenerated="true" --><span class="function">regex_test_4</span><!-- /a --> 
+END OF OBJECT
+
+
+
+_$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Perl_regex_4.test$4|perl$12|Perl regex 4$4|perl$6|parser

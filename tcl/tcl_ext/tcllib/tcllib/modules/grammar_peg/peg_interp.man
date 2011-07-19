@@ -3,6 +3,7 @@
 [copyright {2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Grammar operations and usage}]
 [titledesc {Interpreter for parsing expression grammars}]
+[category  {Grammars and finite automata}]
 [require Tcl 8.4]
 [require grammar::mengine     [opt 0.1]]
 [require grammar::peg::interp [opt 0.1]]

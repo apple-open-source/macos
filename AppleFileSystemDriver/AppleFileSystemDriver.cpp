@@ -69,7 +69,8 @@ OSDefineMetaClassAndStructors(AppleFileSystemDriver, IOService)
 #if VERBOSE
 
 static OSString *
-createStringFromUUID(const uuid_t uu) {
+createStringFromUUID(const uuid_t uu)
+{
     char buf[64];
 
     uuid_unparse_upper(uu, buf);
@@ -209,8 +210,10 @@ AppleFileSystemDriver::readHFSUUID(IOMedia *media, void **uuidPtr)
                    OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSXSigWord) {
             bcopy((void *)&volHdrPtr->finderInfo[24], volumeUUIDPtr->bytes, kVolumeUUIDValueLength);
             status = kIOReturnSuccess;
-        }
-        /* else return error */
+        } else {
+	    // status = 0 from earlier successful media->read()
+	    status = kIOReturnBadMedia;
+	}
 
     } while (false);
 	
@@ -266,7 +269,7 @@ AppleFileSystemDriver::mediaNotificationHandler(
 	    // if it decides to start working later, we'll get another shot
 	    if (!status->isEqualTo(kAppleRAIDStatusDegraded) &&
 			!status->isEqualTo(kAppleRAIDStatusOnline)) {
-		VERBOSE_LOG("skipping prematurely available RAID device");
+		DEBUG_LOG("skipping prematurely-available RAID device");
 		break;
 	    }
 	}
@@ -356,6 +359,9 @@ AppleFileSystemDriver::mediaNotificationHandler(
     }
     
     DEBUG_LOG("%s[%p]::%s returning false\n", kClassName, target, __func__);
+#if DEBUG
+//IOSleep(5000);
+#endif
     return false;
 }
 

@@ -1,6 +1,9 @@
 NAME
     Sub::Uplevel - apparently run a function in a higher stack frame
 
+VERSION
+    This documentation describes version 0.22
+
 SYNOPSIS
       use Sub::Uplevel;
 
@@ -30,7 +33,7 @@ DESCRIPTION
         caller($frames) it will actually give caller($frames + $num_frames)
         for them.
 
-        "uplevel(1, \&some_func, @_)" is effectively "goto &some_func" but
+        `uplevel(1, \&some_func, @_)' is effectively `goto &some_func' but
         you don't immediately exit the current subroutine. So while you
         can't do this:
 
@@ -49,6 +52,9 @@ DESCRIPTION
                 return @out;
             }
 
+        `uplevel' will issue a warning if `$num_frames' is more than the
+        current call stack depth.
+
 EXAMPLE
     The main reason I wrote this module is so I could write wrappers around
     functions and they wouldn't be aware they've been wrapped.
@@ -66,14 +72,33 @@ EXAMPLE
     If this code frightens you you should not use this module.
 
 BUGS and CAVEATS
-    Sub::Uplevel must be used as early as possible in your program's
-    compilation.
-
     Well, the bad news is uplevel() is about 5 times slower than a normal
-    function call. XS implementation anyone?
+    function call. XS implementation anyone? It also slows down every
+    invocation of caller(), regardless of whether uplevel() is in effect.
 
-    Blows over any CORE::GLOBAL::caller you might have (and if you do,
-    you're just sick).
+    Sub::Uplevel overrides CORE::GLOBAL::caller temporarily for the scope of
+    each uplevel call. It does its best to work with any previously existing
+    CORE::GLOBAL::caller (both when Sub::Uplevel is first loaded and within
+    each uplevel call) such as from Contextual::Return or Hook::LexWrap.
+
+    However, if you are routinely using multiple modules that override
+    CORE::GLOBAL::caller, you are probably asking for trouble.
+
+    You should load Sub::Uplevel as early as possible within your program.
+    As with all CORE::GLOBAL overloading, the overload will not affect
+    modules that have already been compiled prior to the overload. One
+    module that often is unavoidably loaded prior to Sub::Uplevel is
+    Exporter. To forceably recompile Exporter (and Exporter::Heavy) after
+    loading Sub::Uplevel, use it with the ":aggressive" tag:
+
+        use Sub::Uplevel qw/:aggressive/;
+
+    The private function `Sub::Uplevel::_force_reload()' may be passed a
+    list of additional modules to reload if ":aggressive" is not aggressive
+    enough. Reloading modules may break things, so only use this as a last
+    resort.
+
+    As of version 0.20, Sub::Uplevel requires Perl 5.6 or greater.
 
 HISTORY
     Those who do not learn from HISTORY are doomed to repeat it.
@@ -90,7 +115,8 @@ AUTHORS
     Michael G Schwern <schwern@pobox.com> (original author)
 
 LICENSE
-    Copyright by Michael G Schwern, David A Golden
+    Original code Copyright (c) 2001 to 2007 by Michael G Schwern.
+    Additional code Copyright (c) 2006 to 2008 by David A Golden.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

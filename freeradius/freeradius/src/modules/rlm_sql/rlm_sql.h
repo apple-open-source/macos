@@ -15,7 +15,7 @@ RCSIDH(rlm_sql_h, "$Id$")
 #include        <pthread.h>
 #endif
 
-#include	<ltdl.h>
+#include	<freeradius-devel/modpriv.h>
 
 #include "conf.h"
 
@@ -37,6 +37,8 @@ typedef struct sql_socket {
 
 	void	*conn;
 	SQL_ROW row;
+	time_t  connected;
+	int	queries;
 } SQLSOCK;
 
 typedef struct rlm_sql_module_t {
@@ -72,6 +74,9 @@ struct sql_inst {
 	SQLSOCK *(*sql_get_socket)(SQL_INST * inst);
 	int (*sql_release_socket)(SQL_INST * inst, SQLSOCK * sqlsocket);
 	size_t (*sql_escape_func)(char *out, size_t outlen, const char *in);
+	int (*sql_query)(SQLSOCK *sqlsocket, SQL_INST *inst, char *query);
+	int (*sql_select_query)(SQLSOCK *sqlsocket, SQL_INST *inst, char *query);
+	int (*sql_fetch_row)(SQLSOCK *sqlsocket, SQL_INST *inst);
 };
 
 typedef struct sql_grouplist {

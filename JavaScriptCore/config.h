@@ -20,10 +20,32 @@
  */
 
 #if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H
+#ifdef BUILDING_WITH_CMAKE
+#include "cmakeconfig.h"
+#else
 #include "autotoolsconfig.h"
+#endif
 #endif
 
 #include <wtf/Platform.h>
+
+/* See note in wtf/Platform.h for more info on EXPORT_MACROS. */
+#if USE(EXPORT_MACROS)
+
+#include <wtf/ExportMacros.h>
+
+#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
+#define WTF_EXPORT_PRIVATE WTF_EXPORT
+#define JS_EXPORT_PRIVATE WTF_EXPORT
+#else
+#define WTF_EXPORT_PRIVATE WTF_IMPORT
+#define JS_EXPORT_PRIVATE WTF_IMPORT
+#endif
+
+#define JS_EXPORTDATA JS_EXPORT_PRIVATE
+#define JS_EXPORTCLASS JS_EXPORT_PRIVATE
+
+#else /* !USE(EXPORT_MACROS) */
 
 #if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
 #if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
@@ -36,6 +58,11 @@
 #define JS_EXPORTDATA
 #define JS_EXPORTCLASS
 #endif
+
+#define WTF_EXPORT_PRIVATE
+#define JS_EXPORT_PRIVATE
+
+#endif /* USE(EXPORT_MACROS) */
 
 #if OS(WINDOWS)
 
@@ -51,6 +78,10 @@
 #endif
 #endif
 
+#endif
+
+#if OS(UNIX) || OS(WINDOWS)
+#define WTF_USE_OS_RANDOMNESS 1
 #endif
 
 #if OS(FREEBSD) || OS(OPENBSD)

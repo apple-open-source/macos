@@ -21,27 +21,30 @@
 #define XMLHttpRequest_h
 
 #include "ActiveDOMObject.h"
-#include "AtomicStringHash.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "FormData.h"
 #include "ResourceResponse.h"
-#include "ScriptString.h"
 #include "ThreadableLoaderClient.h"
 #include "XMLHttpRequestProgressEventThrottle.h"
 #include <wtf/OwnPtr.h>
+#include <wtf/text/AtomicStringHash.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
+class ArrayBuffer;
 class Blob;
 class Document;
 class DOMFormData;
 class ResourceRequest;
+class SharedBuffer;
 class TextResourceDecoder;
 class ThreadableLoader;
 
 class XMLHttpRequest : public RefCounted<XMLHttpRequest>, public EventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassRefPtr<XMLHttpRequest> create(ScriptExecutionContext* context) { return adoptRef(new XMLHttpRequest(context)); }
     ~XMLHttpRequest();
@@ -54,22 +57,35 @@ public:
         LOADING = 3,
         DONE = 4
     };
+    
+    enum ResponseTypeCode {
+        ResponseTypeDefault,
+        ResponseTypeText, 
+        ResponseTypeDocument,
+        ResponseTypeBlob,
+        ResponseTypeArrayBuffer
+    };
 
     virtual XMLHttpRequest* toXMLHttpRequest() { return this; }
 
     virtual void contextDestroyed();
     virtual bool canSuspend() const;
-    virtual void suspend();
+    virtual void suspend(ReasonForSuspension);
     virtual void resume();
     virtual void stop();
 
     virtual ScriptExecutionContext* scriptExecutionContext() const;
 
+    const KURL& url() const { return m_url; }
     String statusText(ExceptionCode&) const;
     int status(ExceptionCode&) const;
     State readyState() const;
     bool withCredentials() const { return m_includeCredentials; }
     void setWithCredentials(bool, ExceptionCode&);
+#if ENABLE(XHR_RESPONSE_BLOB)
+    bool asBlob() const { return responseTypeCode() == ResponseTypeBlob; }
+    void setAsBlob(bool, ExceptionCode&);
+#endif
     void open(const String& method, const KURL&, ExceptionCode&);
     void open(const String& method, const KURL&, bool async, ExceptionCode&);
     void open(const String& method, const KURL&, bool async, const String& user, ExceptionCode&);
@@ -79,13 +95,28 @@ public:
     void send(const String&, ExceptionCode&);
     void send(Blob*, ExceptionCode&);
     void send(DOMFormData*, ExceptionCode&);
+    void send(ArrayBuffer*, ExceptionCode&);
     void abort();
     void setRequestHeader(const AtomicString& name, const String& value, ExceptionCode&);
     void overrideMimeType(const String& override);
     String getAllResponseHeaders(ExceptionCode&) const;
     String getResponseHeader(const AtomicString& name, ExceptionCode&) const;
-    const ScriptString& responseText() const;
-    Document* responseXML() const;
+    String responseText(ExceptionCode&);
+    Document* responseXML(ExceptionCode&);
+    Document* optionalResponseXML() const { return m_responseXML.get(); }
+#if ENABLE(XHR_RESPONSE_BLOB)
+    Blob* responseBlob(ExceptionCode&) const;
+    Blob* optionalResponseBlob() const { return m_responseBlob.get(); }
+#endif
+
+    void setResponseType(const String&, ExceptionCode&);
+    String responseType();
+    ResponseTypeCode responseTypeCode() const { return m_responseTypeCode; }
+    
+    // response attribute has custom getter.
+    ArrayBuffer* responseArrayBuffer(ExceptionCode&);
+    ArrayBuffer* optionalResponseArrayBuffer() const { return m_responseArrayBuffer.get(); }
+
     void setLastSendLineNumber(unsigned lineNumber) { m_lastSendLineNumber = lineNumber; }
     void setLastSendURL(const String& url) { m_lastSendURL = url; }
 
@@ -118,8 +149,8 @@ private:
 
     virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
     virtual void didReceiveResponse(const ResourceResponse&);
-    virtual void didReceiveData(const char* data, int lengthReceived);
-    virtual void didFinishLoading(unsigned long identifier);
+    virtual void didReceiveData(const char* data, int dataLength);
+    virtual void didFinishLoading(unsigned long identifier, double finishTime);
     virtual void didFail(const ResourceError&);
     virtual void didFailRedirectCheck();
     virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
@@ -138,6 +169,7 @@ private:
     void dropProtection();
     void internalAbort();
     void clearResponse();
+    void clearResponseBuffers();
     void clearRequest();
 
     void createRequest(ExceptionCode&);
@@ -146,7 +178,7 @@ private:
     void networkError();
     void abortError();
 
-    RefPtr<XMLHttpRequestUpload> m_upload;
+    OwnPtr<XMLHttpRequestUpload> m_upload;
 
     KURL m_url;
     String m_method;
@@ -155,6 +187,9 @@ private:
     String m_mimeTypeOverride;
     bool m_async;
     bool m_includeCredentials;
+#if ENABLE(XHR_RESPONSE_BLOB)
+    RefPtr<Blob> m_responseBlob;
+#endif
 
     RefPtr<ThreadableLoader> m_loader;
     State m_state;
@@ -164,15 +199,12 @@ private:
 
     RefPtr<TextResourceDecoder> m_decoder;
 
-    // Unlike most strings in the DOM, we keep this as a ScriptString, not a WebCore::String.
-    // That's because these strings can easily get huge (they are filled from the network with
-    // no parsing) and because JS can easily observe many intermediate states, so it's very useful
-    // to be able to share the buffer with JavaScript versions of the whole or partial string.
-    // In contrast, this string doesn't interact much with the rest of the engine so it's not that
-    // big a cost that it isn't a String.
-    ScriptString m_responseText;
+    StringBuilder m_responseBuilder;
     mutable bool m_createdDocument;
     mutable RefPtr<Document> m_responseXML;
+    
+    RefPtr<SharedBuffer> m_binaryResponseBuilder;
+    mutable RefPtr<ArrayBuffer> m_responseArrayBuffer;
 
     bool m_error;
 
@@ -180,7 +212,6 @@ private:
     bool m_uploadComplete;
 
     bool m_sameOriginRequest;
-    bool m_didTellLoaderAboutRequest;
 
     // Used for onprogress tracking
     long long m_receivedLength;
@@ -192,6 +223,9 @@ private:
     EventTargetData m_eventTargetData;
 
     XMLHttpRequestProgressEventThrottle m_progressEventThrottle;
+
+    // An enum corresponding to the allowed string values for the responseType attribute.
+    ResponseTypeCode m_responseTypeCode;
 };
 
 } // namespace WebCore

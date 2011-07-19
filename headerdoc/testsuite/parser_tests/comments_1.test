@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$163|int comment_test_1(
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$163|int comment_test_1(
         // /* this is a test */
         char *k = "\0",
         // this is a // test
@@ -11,7 +11,7 @@ FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT
 
 }
 $12|/*! test */
-$0|$10312|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$10215|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -50,6 +50,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => ***
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => comment_test_1
@@ -108,8 +109,8 @@ $parserState->{sodname} => comment_test_1
 $parserState->{sodtype} =>  int
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => int
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -164,11 +165,7 @@ Parsed Param 1 => int a = 3
 |   +---        
 |   +---//
 |   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
+|   |   +---this is a // test
 |   |   +---[ NEWLINE ]
 |   +---        
 |   +---int
@@ -228,8 +225,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -262,15 +259,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -312,8 +309,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -354,8 +351,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: comment_test_1 (HeaderDoc::Function)
 +---int
@@ -385,11 +382,7 @@ OBJECT: comment_test_1 (HeaderDoc::Function)
 |   +---        
 |   +---//
 |   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
+|   |   +---this is a // test
 |   |   +---[ NEWLINE ]
 |   +---        
 |   +---int
@@ -408,16 +401,16 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: comment_test_1 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1" --><span class="function">comment_test_1</span><!-- /a -->( 
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1 //test_ref/doc/anysymbol/comment_test_1" machineGenerated="true" --><span class="function">comment_test_1</span><!-- /a -->( 
 	    <span class="comment">// /* this is a test */</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/econst/k //test_ref/c/struct/k //test_ref/c/clconst/k //test_ref/c/intf/k" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
-	    <span class="comment">// this is a // test</span> </span> 
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/econst/a //test_ref/c/struct/a //test_ref/c/clconst/a //test_ref/c/intf/a" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/struct/k //test_ref/c/intf/k //test_ref/doc/anysymbol/k" machineGenerated="true" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
+	    <span class="comment">// this is a // test</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/struct/a //test_ref/c/intf/a //test_ref/doc/anysymbol/a" machineGenerated="true" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
 END OF OBJECT
 
 
 
-$10312|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$10215|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -456,6 +449,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => ***
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => comment_test_1
@@ -514,8 +508,8 @@ $parserState->{sodname} => comment_test_1
 $parserState->{sodtype} =>  int
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => int
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -570,11 +564,7 @@ Parsed Param 1 => int a = 3
 |   +---        
 |   +---//
 |   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
+|   |   +---this is a // test
 |   |   +---[ NEWLINE ]
 |   +---        
 |   +---int
@@ -634,8 +624,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -668,15 +658,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -718,8 +708,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -760,8 +750,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: comment_test_1 (HeaderDoc::Function)
 +---int
@@ -791,11 +781,7 @@ OBJECT: comment_test_1 (HeaderDoc::Function)
 |   +---        
 |   +---//
 |   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
+|   |   +---this is a // test
 |   |   +---[ NEWLINE ]
 |   +---        
 |   +---int
@@ -814,825 +800,13 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: comment_test_1 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1" --><span class="function">comment_test_1</span><!-- /a -->( 
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1 //test_ref/doc/anysymbol/comment_test_1" machineGenerated="true" --><span class="function">comment_test_1</span><!-- /a -->( 
 	    <span class="comment">// /* this is a test */</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/econst/k //test_ref/c/struct/k //test_ref/c/clconst/k //test_ref/c/intf/k" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
-	    <span class="comment">// this is a // test</span> </span> 
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/econst/a //test_ref/c/struct/a //test_ref/c/clconst/a //test_ref/c/intf/a" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/struct/k //test_ref/c/intf/k //test_ref/doc/anysymbol/k" machineGenerated="true" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
+	    <span class="comment">// this is a // test</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/struct/a //test_ref/c/intf/a //test_ref/doc/anysymbol/a" machineGenerated="true" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
 END OF OBJECT
 
 
 
-_$38|testsuite/parser_tests/comments_1.test$1|C$10|comments_1$10312|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/comments_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/comments_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => comment_test_1
-$parserState->{functionContents} => {
-    char *j = k;
-
-    *j = '\0';
-
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 12
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => int
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => comment_test_1
-$parserState->{sodtype} =>  int
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => int
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 12
-typelist: function
-namelist: comment_test_1
-posstypes: function method
-value: 
-returntype:  int
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-    char *j = k;
-
-    *j = '\0';
-
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => char *k = "
-Parsed Param 1 => int a = 3
--=: DUMP OF PARSE TREE :=-
-+---int
-+--- 
-+---comment_test_1
-+---(
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---/* this is a test */
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---char
-|   +--- 
-|   +---*
-|   +---k
-|   +--- 
-|   +---=
-|   +--- 
-|   +---"
-|   |   +---\
-|   |   +---0
-|   |   +---"
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---int
-|   +--- 
-|   +---a
-|   +--- 
-|   +---=
-|   +--- 
-|   +---3
-|   +---[ NEWLINE ]
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: comments_1
-APIUID: //test_ref/doc/header/comments_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: comment_test_1
-    APIUID: //test_ref/c/func/comment_test_1
-    ABSTRACT: ""
-    DISCUSSION: "<p>test "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " int"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: k
-        TYPE: char *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: a
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: comment_test_1 (HeaderDoc::Function)
-+---int
-+--- 
-+---comment_test_1
-+---(
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---/* this is a test */
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---char
-|   +--- 
-|   +---*
-|   +---k
-|   +--- 
-|   +---=
-|   +--- 
-|   +---"
-|   |   +---\
-|   |   +---0
-|   |   +---"
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---int
-|   +--- 
-|   +---a
-|   +--- 
-|   +---=
-|   +--- 
-|   +---3
-|   +---[ NEWLINE ]
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: comment_test_1 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1" --><span class="function">comment_test_1</span><!-- /a -->( 
-	    <span class="comment">// /* this is a test */</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/econst/k //test_ref/c/struct/k //test_ref/c/clconst/k //test_ref/c/intf/k" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
-	    <span class="comment">// this is a // test</span> </span> 
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/econst/a //test_ref/c/struct/a //test_ref/c/clconst/a //test_ref/c/intf/a" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
-END OF OBJECT
-
-
-
-$10312|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/comments_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/comments_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => comment_test_1
-$parserState->{functionContents} => {
-    char *j = k;
-
-    *j = '\0';
-
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 12
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => int
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => comment_test_1
-$parserState->{sodtype} =>  int
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => int
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 12
-typelist: function
-namelist: comment_test_1
-posstypes: function method
-value: 
-returntype:  int
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-    char *j = k;
-
-    *j = '\0';
-
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => char *k = "
-Parsed Param 1 => int a = 3
--=: DUMP OF PARSE TREE :=-
-+---int
-+--- 
-+---comment_test_1
-+---(
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---/* this is a test */
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---char
-|   +--- 
-|   +---*
-|   +---k
-|   +--- 
-|   +---=
-|   +--- 
-|   +---"
-|   |   +---\
-|   |   +---0
-|   |   +---"
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---int
-|   +--- 
-|   +---a
-|   +--- 
-|   +---=
-|   +--- 
-|   +---3
-|   +---[ NEWLINE ]
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: comments_1
-APIUID: //test_ref/doc/header/comments_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: comment_test_1
-    APIUID: //test_ref/c/func/comment_test_1
-    ABSTRACT: ""
-    DISCUSSION: "<p>test "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " int"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: k
-        TYPE: char *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: a
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: comment_test_1 (HeaderDoc::Function)
-+---int
-+--- 
-+---comment_test_1
-+---(
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---/* this is a test */
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---char
-|   +--- 
-|   +---*
-|   +---k
-|   +--- 
-|   +---=
-|   +--- 
-|   +---"
-|   |   +---\
-|   |   +---0
-|   |   +---"
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---//
-|   |   +--- 
-|   |   +---this is a 
-|   |   +---//
-|   |   |   +--- 
-|   |   |   +---test
-|   |   |   +---[ NEWLINE ]
-|   |   +---[ NEWLINE ]
-|   +---        
-|   +---int
-|   +--- 
-|   +---a
-|   +--- 
-|   +---=
-|   +--- 
-|   +---3
-|   +---[ NEWLINE ]
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: comment_test_1 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/comment_test_1 //test_ref/c/clm/comment_test_1 //test_ref/c/intfcm/comment_test_1 //test_ref/c/intfm/comment_test_1 //test_ref/c/func/comment_test_1 //test_ref/c/ftmplt/comment_test_1 //test_ref/c/defn/comment_test_1 //test_ref/c/macro/comment_test_1" --><span class="function">comment_test_1</span><!-- /a -->( 
-	    <span class="comment">// /* this is a test */</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/cl/k //test_ref/c/tdef/k //test_ref/c/tag/k //test_ref/c/econst/k //test_ref/c/struct/k //test_ref/c/clconst/k //test_ref/c/intf/k" --><span class="type">k</span><!-- /a --> = "\<span class="string">0</span>", 
-	    <span class="comment">// this is a // test</span> </span> 
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/a //test_ref/c/tdef/a //test_ref/c/tag/a //test_ref/c/econst/a //test_ref/c/struct/a //test_ref/c/clconst/a //test_ref/c/intf/a" --><span class="type">a</span><!-- /a --> = <span class="number">3</span> ) 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$92|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/comments_1.test$1|C$10|comments_1$1|C$6|parser

@@ -25,12 +25,9 @@
 #include "RenderFieldset.h"
 
 #include "CSSPropertyNames.h"
-#include "HTMLNames.h"
 #include "GraphicsContext.h"
-
-#if ENABLE(WML)
-#include "WMLNames.h"
-#endif
+#include "HTMLNames.h"
+#include "PaintInfo.h"
 
 using std::min;
 using std::max;
@@ -44,11 +41,11 @@ RenderFieldset::RenderFieldset(Node* element)
 {
 }
 
-void RenderFieldset::calcPrefWidths()
+void RenderFieldset::computePreferredLogicalWidths()
 {
-    RenderBlock::calcPrefWidths();
+    RenderBlock::computePreferredLogicalWidths();
     if (RenderBox* legend = findLegend()) {
-        int legendMinWidth = legend->minPrefWidth();
+        int legendMinWidth = legend->minPreferredLogicalWidth();
 
         Length legendMarginLeft = legend->style()->marginLeft();
         Length legendMarginRight = legend->style()->marginLeft();
@@ -59,11 +56,11 @@ void RenderFieldset::calcPrefWidths()
         if (legendMarginRight.isFixed())
             legendMinWidth += legendMarginRight.value();
 
-        m_minPrefWidth = max(m_minPrefWidth, legendMinWidth + borderAndPaddingWidth());
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, legendMinWidth + borderAndPaddingWidth());
     }
 }
 
-RenderObject* RenderFieldset::layoutLegend(bool relayoutChildren)
+RenderObject* RenderFieldset::layoutSpecialExcludedChild(bool relayoutChildren)
 {
     RenderBox* legend = findLegend();
     if (legend) {
@@ -71,34 +68,43 @@ RenderObject* RenderFieldset::layoutLegend(bool relayoutChildren)
             legend->setNeedsLayout(true);
         legend->layoutIfNeeded();
 
-        int xPos;
-        if (style()->direction() == RTL) {
+        int logicalLeft;
+        if (style()->isLeftToRightDirection()) {
             switch (legend->style()->textAlign()) {
-                case LEFT:
-                    xPos = borderLeft() + paddingLeft();
-                    break;
-                case CENTER:
-                    xPos = (width() - legend->width()) / 2;
-                    break;
-                default:
-                    xPos = width() - paddingRight() - borderRight() - legend->width() - legend->marginRight();
+            case CENTER:
+                logicalLeft = (logicalWidth() - logicalWidthForChild(legend)) / 2;
+                break;
+            case RIGHT:
+                logicalLeft = logicalWidth() - borderEnd() - paddingEnd() - logicalWidthForChild(legend);
+                break;
+            default:
+                logicalLeft = borderStart() + paddingStart() + marginStartForChild(legend);
+                break;
             }
         } else {
             switch (legend->style()->textAlign()) {
-                case RIGHT:
-                    xPos = width() - paddingRight() - borderRight() - legend->width();
-                    break;
-                case CENTER:
-                    xPos = (width() - legend->width()) / 2;
-                    break;
-                default:
-                    xPos = borderLeft() + paddingLeft() + legend->marginLeft();
+            case LEFT:
+                logicalLeft = borderStart() + paddingStart();
+                break;
+            case CENTER: {
+                // Make sure that the extra pixel goes to the end side in RTL (since it went to the end side
+                // in LTR).
+                int centeredWidth = logicalWidth() - logicalWidthForChild(legend);
+                logicalLeft = centeredWidth - centeredWidth / 2;
+                break;
+            }
+            default:
+                logicalLeft = logicalWidth() - borderStart() - paddingStart() - marginStartForChild(legend) - logicalWidthForChild(legend);
+                break;
             }
         }
-        int b = borderTop();
-        int h = legend->height();
-        legend->setLocation(xPos, max((b-h)/2, 0));
-        setHeight(max(b, h) + paddingTop());
+
+        setLogicalLeftForChild(legend, logicalLeft);
+
+        int b = borderBefore();
+        int h = logicalHeightForChild(legend);
+        setLogicalTopForChild(legend, max((b - h) / 2, 0));
+        setLogicalHeight(max(b, h) + paddingBefore());
     }
     return legend;
 }
@@ -106,13 +112,7 @@ RenderObject* RenderFieldset::layoutLegend(bool relayoutChildren)
 RenderBox* RenderFieldset::findLegend() const
 {
     for (RenderObject* legend = firstChild(); legend; legend = legend->nextSibling()) {
-        if (!legend->isFloatingOrPositioned() && legend->node() &&
-            (legend->node()->hasTagName(legendTag)
-#if ENABLE(WML)
-            || legend->node()->hasTagName(WMLNames::insertedLegendTag)
-#endif
-            )
-           )
+        if (!legend->isFloatingOrPositioned() && legend->node() && (legend->node()->hasTagName(legendTag)))
             return toRenderBox(legend);
     }
     return 0;
@@ -120,7 +120,7 @@ RenderBox* RenderFieldset::findLegend() const
 
 void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 {
-    if (!shouldPaintWithinRoot(paintInfo))
+    if (!paintInfo.shouldPaintWithinRoot(this))
         return;
 
     int w = width();
@@ -129,150 +129,72 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     if (!legend)
         return RenderBlock::paintBoxDecorations(paintInfo, tx, ty);
 
-    int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
-    int legendBottom = ty + legend->y() + legend->height();
-    h -= yOff;
-    ty += yOff;
+    // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
+    // cases the legend is embedded in the right and bottom borders respectively.
+    // https://bugs.webkit.org/show_bug.cgi?id=47236
+    if (style()->isHorizontalWritingMode()) {
+        int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
+        h -= yOff;
+        ty += yOff;
+    } else {
+        int xOff = (legend->x() > 0) ? 0 : (legend->width() - borderLeft()) / 2;
+        w -= xOff;
+        tx += xOff;
+    }
 
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Normal);
-
-    paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), tx, ty, w, h);
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Inset);
+    IntRect paintRect = IntRect(tx, ty, w, h);
+    
+    paintBoxShadow(paintInfo.context, paintRect, style(), Normal);
+    paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), paintRect);
+    paintBoxShadow(paintInfo.context, paintRect, style(), Inset);
 
     if (!style()->hasBorder())
         return;
-
-    // Save time by not saving and restoring the GraphicsContext in the straight border case
-    if (!style()->hasBorderRadius())
-        return paintBorderMinusLegend(paintInfo.context, tx, ty, w, h, style(), legend->x(), legend->width(), legendBottom);
     
-    // We have rounded borders, create a clipping region 
-    // around the legend and paint the border as normal
+    // Create a clipping region around the legend and paint the border as normal
     GraphicsContext* graphicsContext = paintInfo.context;
-    graphicsContext->save();
+    GraphicsContextStateSaver stateSaver(*graphicsContext);
 
-    int clipTop = ty;
-    int clipHeight = max(static_cast<int>(style()->borderTopWidth()), legend->height());
+    // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
+    // cases the legend is embedded in the right and bottom borders respectively.
+    // https://bugs.webkit.org/show_bug.cgi?id=47236
+    if (style()->isHorizontalWritingMode()) {
+        int clipTop = ty;
+        int clipHeight = max(static_cast<int>(style()->borderTopWidth()), legend->height());
+        graphicsContext->clipOut(IntRect(tx + legend->x(), clipTop, legend->width(), clipHeight));
+    } else {
+        int clipLeft = tx;
+        int clipWidth = max(static_cast<int>(style()->borderLeftWidth()), legend->width());
+        graphicsContext->clipOut(IntRect(clipLeft, ty + legend->y(), clipWidth, legend->height()));
+    }
 
-    graphicsContext->clipOut(IntRect(tx + legend->x(), clipTop,
-                                       legend->width(), clipHeight));
-    paintBorder(paintInfo.context, tx, ty, w, h, style(), true, true);
-
-    graphicsContext->restore();
+    paintBorder(paintInfo.context, paintRect, style());
 }
 
-void RenderFieldset::paintMask(PaintInfo& paintInfo, int tx, int ty)
+void RenderFieldset::paintMask(PaintInfo& paintInfo, IntSize paintOffset)
 {
     if (style()->visibility() != VISIBLE || paintInfo.phase != PaintPhaseMask)
         return;
 
-    int w = width();
-    int h = height();
+    IntRect paintRect = IntRect(toPoint(paintOffset), size());
     RenderBox* legend = findLegend();
     if (!legend)
-        return RenderBlock::paintMask(paintInfo, tx, ty);
+        return RenderBlock::paintMask(paintInfo, paintOffset);
 
-    int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
-    h -= yOff;
-    ty += yOff;
+    // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
+    // cases the legend is embedded in the right and bottom borders respectively.
+    // https://bugs.webkit.org/show_bug.cgi?id=47236
+    if (style()->isHorizontalWritingMode()) {
+        int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
+        paintRect.expand(0, -yOff);
+        paintRect.move(0, yOff);
+    } else {
+        int xOff = (legend->x() > 0) ? 0 : (legend->width() - borderLeft()) / 2;
+        paintRect.expand(-xOff, 0);
+        paintRect.move(xOff, 0);
+    }
 
-    paintMaskImages(paintInfo, tx, ty, w, h);
+    paintMaskImages(paintInfo, paintRect);
 }
-        
-void RenderFieldset::paintBorderMinusLegend(GraphicsContext* graphicsContext, int tx, int ty, int w, int h,
-                                            const RenderStyle* style, int lx, int lw, int lb)
-{
-    const Color& tc = style->visitedDependentColor(CSSPropertyBorderTopColor);
-    const Color& bc = style->visitedDependentColor(CSSPropertyBorderBottomColor);
-
-    EBorderStyle ts = style->borderTopStyle();
-    EBorderStyle bs = style->borderBottomStyle();
-    EBorderStyle ls = style->borderLeftStyle();
-    EBorderStyle rs = style->borderRightStyle();
-
-    bool render_t = ts > BHIDDEN;
-    bool render_l = ls > BHIDDEN;
-    bool render_r = rs > BHIDDEN;
-    bool render_b = bs > BHIDDEN;
-
-    int borderLeftWidth = style->borderLeftWidth();
-    int borderRightWidth = style->borderRightWidth();
-
-    if (render_t) {
-        if (lx >= borderLeftWidth)
-            drawLineForBoxSide(graphicsContext, tx, ty, tx + min(lx, w), ty + style->borderTopWidth(), BSTop, tc, ts,
-                       (render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? borderLeftWidth : 0),
-                       (lx >= w && render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? borderRightWidth : 0));
-        if (lx + lw <=  w - borderRightWidth)
-            drawLineForBoxSide(graphicsContext, tx + max(0, lx + lw), ty, tx + w, ty + style->borderTopWidth(), BSTop, tc, ts,
-                       (lx + lw <= 0 && render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? borderLeftWidth : 0),
-                       (render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? borderRightWidth : 0));
-    }
-
-    if (render_b)
-        drawLineForBoxSide(graphicsContext, tx, ty + h - style->borderBottomWidth(), tx + w, ty + h, BSBottom, bc, bs,
-                   (render_l && (ls == DOTTED || ls == DASHED || ls == DOUBLE) ? style->borderLeftWidth() : 0),
-                   (render_r && (rs == DOTTED || rs == DASHED || rs == DOUBLE) ? style->borderRightWidth() : 0));
-
-    if (render_l) {
-        const Color& lc = style->visitedDependentColor(CSSPropertyBorderLeftColor);
-        int startY = ty;
-
-        bool ignore_top =
-            (tc == lc) &&
-            (ls >= OUTSET) &&
-            (ts == DOTTED || ts == DASHED || ts == SOLID || ts == OUTSET);
-
-        bool ignore_bottom =
-            (bc == lc) &&
-            (ls >= OUTSET) &&
-            (bs == DOTTED || bs == DASHED || bs == SOLID || bs == INSET);
-
-        if (lx < borderLeftWidth && lx + lw > 0) {
-            // The legend intersects the border.
-            ignore_top = true;
-            startY = lb;
-        }
-
-        drawLineForBoxSide(graphicsContext, tx, startY, tx + borderLeftWidth, ty + h, BSLeft, lc, ls,
-                           ignore_top ? 0 : style->borderTopWidth(), ignore_bottom ? 0 : style->borderBottomWidth());
-    }
-
-    if (render_r) {
-        const Color& rc = style->visitedDependentColor(CSSPropertyBorderRightColor);
-        int startY = ty;
-
-        bool ignore_top =
-            (tc == rc) &&
-            (rs >= DOTTED || rs == INSET) &&
-            (ts == DOTTED || ts == DASHED || ts == SOLID || ts == OUTSET);
-
-        bool ignore_bottom =
-            (bc == rc) &&
-            (rs >= DOTTED || rs == INSET) &&
-            (bs == DOTTED || bs == DASHED || bs == SOLID || bs == INSET);
-
-        if (lx < w && lx + lw > w - borderRightWidth) {
-            // The legend intersects the border.
-            ignore_top = true;
-            startY = lb;
-        }
-
-        drawLineForBoxSide(graphicsContext, tx + w - borderRightWidth, startY, tx + w, ty + h, BSRight, rc, rs,
-                   ignore_top ? 0 : style->borderTopWidth(), ignore_bottom ? 0 : style->borderBottomWidth());
-    }
-}
-
-void RenderFieldset::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
-{
-    RenderBlock::styleDidChange(diff, oldStyle);
-
-    // WinIE renders fieldsets with display:inline like they're inline-blocks.  For us,
-    // an inline-block is just a block element with replaced set to true and inline set
-    // to true.  Ensure that if we ended up being inline that we set our replaced flag
-    // so that we're treated like an inline-block.
-    if (isInline())
-        setReplaced(true);
-}    
 
 } // namespace WebCore

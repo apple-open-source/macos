@@ -11,6 +11,15 @@
 %feature("director") Base;
 %feature("director") Derived;
 
+// Test the throws attribute in these typemaps
+%typemap(javadirectorout, throws="InstantiationException/*javadirectorout Base&*/") Base& 
+  "$javaclassname.getCPtr($javacall)/* XYZ& typemap directorout*/"
+%typemap(javadirectorin, throws="ClassNotFoundException/*javadirectorin Base&*/") Base&
+  "new $javaclassname($jniinput, false)/*javadirectorin*/"
+%typemap(out, throws="IllegalAccessException/*out Base&*/") Base& {
+  // XYZ& typemap out
+  $result = 0; // remove unused variable warning
+}
 %inline %{
 
 template<class T> T maximum(const T a, const T b) { return  a>b ? a : b; }
@@ -42,6 +51,7 @@ public:
   Base(Base *b) : mVectInt(0) {}
   virtual ~Base() {}
   virtual Base& m1(Base &b) { return b; }
+  virtual Base& m1out() { static Base b; return b; }
   virtual Base* m2(Base *b) { return b; }
 //  virtual Base m3(Base b) { return b; }
   vector<int> mVectInt;

@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,9 @@
 static char sccsid[] = "@(#)findfp.c	8.2 (Berkeley) 1/4/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.29 2004/05/22 15:19:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.34 2009/12/05 19:31:38 ed Exp $");
+
+#include <TargetConditionals.h>
 
 #include <sys/param.h>
 #include <machine/atomic.h>
@@ -58,32 +56,44 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.29 2004/05/22 15:19:41 tjr E
 
 int	__sdidinit;
 
+#if !TARGET_OS_EMBEDDED
 #define	NDYNAMIC 10		/* add ten more whenever necessary */
+#else
+#define	NDYNAMIC 1		/* add one at a time on embedded */
+#endif
 
-#define	std(flags, file) \
-  	{0,0,0,flags,file,{0},0,__sF+file,__sclose,__sread,__sseek,__swrite, \
-	 {0}, __sFX + file}
-  /*	 p r w flags file _bf z  cookie      close    read    seek    write */
-  /*     _ub _extra */
-#define	__sFXInit	{0, PTHREAD_MUTEX_INITIALIZER}
+#define	std(flags, file) {		\
+	._flags = (flags),		\
+	._file = (file),		\
+	._cookie = __sF + (file),	\
+	._close = __sclose,		\
+	._read = __sread,		\
+	._seek = __sseek,		\
+	._write = __swrite,		\
+	._extra = __sFX + file,         \
+}
+#define __sFXInit       {.fl_mutex = PTHREAD_MUTEX_INITIALIZER}
   /* set counted */
-#define	__sFXInit3	{0, PTHREAD_MUTEX_INITIALIZER, 0, 0, 0, 1}
-				/* the usual - (stdin + stdout + stderr) */
+#define __sFXInit3      {.fl_mutex = PTHREAD_MUTEX_INITIALIZER, .counted = 1}
 
 static int __scounted;		/* streams counted against STREAM_MAX */
 static int __stream_max;
 
+#if !TARGET_OS_EMBEDDED
+/* usual and usual_extra are data pigs. See 7929728. For embedded we should
+ * always allocate dynamically, and probably should for desktop too. */
+				/* the usual - (stdin + stdout + stderr) */
 static FILE usual[FOPEN_MAX - 3];
 static struct __sFILEX usual_extra[FOPEN_MAX - 3];
 static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
+#endif /* !TARGET_OS_EMBEDDED */
 
 static struct __sFILEX __sFX[3] = {__sFXInit3, __sFXInit3, __sFXInit3};
 
 /*
- * We can't make this 'static' until 6.0-current due to binary
- * compatibility concerns.  This also means we cannot change the
- * sizeof(FILE) until that time either and must continue to use the
- * __sFILEX stuff to add to FILE.
+ * We can't make this 'static' due to binary compatibility concerns.
+ * This also means we cannot change the sizeof(FILE) and must continue to
+ * use the __sFILEX stuff to add to FILE.
  */
 FILE __sF[3] = {
 	std(__SRD, STDIN_FILENO),
@@ -91,19 +101,17 @@ FILE __sF[3] = {
 	std(__SWR|__SNBF, STDERR_FILENO)
 };
 
-/*
- * The following kludge is done to ensure enough binary compatibility
- * with future versions of libc.  Or rather it allows us to work with
- * libraries that have been built with a newer libc that defines these
- * symbols and expects libc to provide them.  We only have need to support
- * i386 and alpha because they are the only "old" systems we have deployed.
- */
 FILE *__stdinp = &__sF[0];
 FILE *__stdoutp = &__sF[1];
 FILE *__stderrp = &__sF[2];
 
+#if !TARGET_OS_EMBEDDED
 struct glue __sglue = { &uglue, 3, __sF };
 static struct glue *lastglue = &uglue;
+#else
+struct glue __sglue = { NULL, 3, __sF };
+static struct glue *lastglue = &__sglue;
+#endif
 
 static struct glue *	moreglue(int);
 
@@ -123,8 +131,8 @@ moreglue(n)
 {
 	struct glue *g;
 	static FILE empty;
-	static struct __sFILEX emptyx = __sFXInit;
 	FILE *p;
+	static struct __sFILEX emptyx = __sFXInit;
 	struct __sFILEX *fx;
 
 	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE) +
@@ -136,6 +144,7 @@ moreglue(n)
 	g->next = NULL;
 	g->niobs = n;
 	g->iobs = p;
+        
 	while (--n >= 0) {
 		*p = empty;
 		p->_extra = fx;
@@ -198,10 +207,8 @@ found:
 	fp->_lb._base = NULL;	/* no line buffer */
 	fp->_lb._size = 0;
 /*	fp->_lock = NULL; */	/* once set always set (reused) */
-	fp->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
-	fp->_extra->orientation = 0;
+	INITEXTRA(fp);
 	fp->_extra->counted = count ? 1 : 0;
-	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 	return (fp);
 }
 
@@ -211,9 +218,9 @@ found:
 __private_extern__ void
 __sfprelease(FILE *fp)
 {
-	if (fp->_extra->counted) {
+	if (fp->_counted) {
 		OSAtomicDecrement32(&__scounted);
-		fp->_extra->counted = 0;
+		fp->_counted = 0;
 	}
 	fp->_flags = 0;
 }
@@ -226,7 +233,7 @@ __warn_references(f_prealloc,
 	"warning: this program uses f_prealloc(), which is not recommended.");
 
 void
-f_prealloc()
+f_prealloc(void)
 {
 	struct glue *g;
 	int n;
@@ -267,19 +274,25 @@ _cleanup()
 void
 __sinit()
 {
-	int	i;
-
 	THREAD_LOCK();
 	if (__sdidinit == 0) {
-		/* Set _extra for the usual suspects. */
-		for (i = 0; i < FOPEN_MAX - 3; i++)
-			usual[i]._extra = &usual_extra[i];
-
+#if !TARGET_OS_EMBEDDED
+		int i;
+#endif
 		/* Make sure we clean up on exit. */
 		__cleanup = _cleanup;		/* conservative */
-		__sdidinit = 1;
 		__stream_max = sysconf(_SC_STREAM_MAX);
 		__scounted = 3;			/* std{in,out,err} already exists */
+
+#if !TARGET_OS_EMBEDDED
+		/* Set _extra for the usual suspects. */
+		for (i = 0; i < FOPEN_MAX - 3; i++) {
+			usual[i]._extra = &usual_extra[i];
+			INITEXTRA(&usual[i]);
+		}
+#endif
+
+		__sdidinit = 1;
 	}
 	THREAD_UNLOCK();
 }

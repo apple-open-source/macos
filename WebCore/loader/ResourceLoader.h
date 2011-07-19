@@ -32,19 +32,17 @@
 #include "ResourceHandleClient.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include <wtf/RefCounted.h>
-#include "AuthenticationChallenge.h"
-#include "KURL.h"
 
 #include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-    class ApplicationCacheHost;
+    class AuthenticationChallenge;
     class DocumentLoader;
     class Frame;
     class FrameLoader;
-    class ProtectionSpace;
+    class KURL;
     class ResourceHandle;
     class SharedBuffer;
     
@@ -54,7 +52,7 @@ namespace WebCore {
 
         void cancel();
 
-        virtual bool load(const ResourceRequest&);
+        virtual bool init(const ResourceRequest&);
 
         FrameLoader* frameLoader() const;
         DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
@@ -79,10 +77,14 @@ namespace WebCore {
         virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
         virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
+        virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
+        virtual void didReceiveCachedMetadata(const char*, int) { }
         void willStopBufferingData(const char*, int);
-        virtual void didFinishLoading();
+        virtual void didFinishLoading(double finishTime);
         virtual void didFail(const ResourceError&);
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+        virtual void didReceiveDataArray(CFArrayRef dataArray);
+#endif
 
         virtual bool shouldUseCredentialStorage();
         virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
@@ -96,8 +98,9 @@ namespace WebCore {
         virtual void willSendRequest(ResourceHandle*, ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(ResourceHandle*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
         virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
-        virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
-        virtual void didFinishLoading(ResourceHandle*);
+        virtual void didReceiveData(ResourceHandle*, const char*, int, int encodedDataLength);
+        virtual void didReceiveCachedMetadata(ResourceHandle*, const char* data, int length) { didReceiveCachedMetadata(data, length); }
+        virtual void didFinishLoading(ResourceHandle*, double finishTime);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
@@ -105,20 +108,34 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage(ResourceHandle*) { return shouldUseCredentialStorage(); }
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didReceiveAuthenticationChallenge(challenge); } 
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didCancelAuthenticationChallenge(challenge); } 
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+        virtual void didReceiveDataArray(ResourceHandle*, CFArrayRef dataArray);
+#endif
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
         virtual bool canAuthenticateAgainstProtectionSpace(ResourceHandle*, const ProtectionSpace& protectionSpace) { return canAuthenticateAgainstProtectionSpace(protectionSpace); }
 #endif
         virtual void receivedCancellation(ResourceHandle*, const AuthenticationChallenge& challenge) { receivedCancellation(challenge); }
         virtual void willCacheResponse(ResourceHandle*, CacheStoragePolicy&);
 #if PLATFORM(MAC)
+#if USE(CFNETWORK)
+        virtual CFCachedURLResponseRef willCacheResponse(ResourceHandle*, CFCachedURLResponseRef);
+#else
         virtual NSCachedURLResponse* willCacheResponse(ResourceHandle*, NSCachedURLResponse*);
 #endif
-#if USE(CFNETWORK)
+#endif // PLATFORM(MAC)
+#if PLATFORM(WIN) && USE(CFNETWORK)
+        // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
         virtual bool shouldCacheResponse(ResourceHandle*, CFCachedURLResponseRef);
 #endif
+#if ENABLE(BLOB)
+        virtual AsyncFileStream* createAsyncFileStream(FileStreamClient*);
+#endif
 
+        const KURL& url() const { return m_request.url(); } 
         ResourceHandle* handle() const { return m_handle.get(); }
         bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
+
+        bool reachedTerminalState() const { return m_reachedTerminalState; }
 
         void setShouldBufferData(bool shouldBufferData);
 
@@ -128,12 +145,14 @@ namespace WebCore {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         friend class ApplicationCacheHost;  // for access to request()
 #endif
-
-        virtual void didCancel(const ResourceError&);
-        void didFinishLoadingOnePart();
+        friend class ResourceLoadScheduler; // for access to start()
+        // start() actually sends the load to the network (unless the load is being 
+        // deferred) and should only be called by ResourceLoadScheduler or setDefersLoading().
+        void start();
+        
+        void didFinishLoadingOnePart(double finishTime);
 
         const ResourceRequest& request() const { return m_request; }
-        bool reachedTerminalState() const { return m_reachedTerminalState; }
         bool cancelled() const { return m_cancelled; }
         bool defersLoading() const { return m_defersLoading; }
 
@@ -143,12 +162,16 @@ namespace WebCore {
         ResourceResponse m_response;
         
     private:
+        virtual void willCancel(const ResourceError&) = 0;
+        virtual void didCancel(const ResourceError&) = 0;
+
         ResourceRequest m_request;
         RefPtr<SharedBuffer> m_resourceData;
         
         unsigned long m_identifier;
 
         bool m_reachedTerminalState;
+        bool m_calledWillCancel;
         bool m_cancelled;
         bool m_calledDidFinishLoad;
 

@@ -25,8 +25,6 @@
 <a href="../ko/vhosts/name-based.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/vhosts/name-based.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
-<div class="outofdate">Cette traduction peut être périmée. Vérifiez la version
-            anglaise pour les changements récents.</div>
 
     <p>Ce document décrit quand et comment utiliser des serveurs 
     virtuels par nom.</p>
@@ -42,7 +40,7 @@
     <p>Les hébergements virtuels par IP utilisent l'adresse IP 
     de la connexion afin de déterminer quel serveur virtuel doit 
     répondre. Par conséquent, vous devez disposer d'adresses IP 
-    différentes pour chaque nom de domaine complet (FQDN) que vous hébergez. 
+    différentes pour chaque serveur. 
     Avec un hébergement 
     virtuel par nom, le serveur s'appuit sur les informations 
     transmises par le client dans les en-têtes HTTP de ses requêtes. 
@@ -55,29 +53,12 @@
     configurer votre serveur Apache HTTP afin qu'il reconnaisse 
     ces domaines. Il réduit aussi la pénurie en adresses IP. Par 
     conséquent, vous devriez utiliser l'hébergement virtuel par 
-    nom à moins d'avoir une raison spécifique de préférer 
-    l'hébergement virtuel par IP. Certaines de ces raisons vous 
-    sont exposées ci-après&nbsp;:</p>
-
-    <ul>
-        <li>Certains anciens navigateurs ne sont pas compatibles 
-        avec les serveurs virtuels par nom, car pour fonctionner, 
-        un client doit transmettre un champ d'en-tête HTTP Host. 
-        Cet en-tête est exigé pour HTTP/1.1, et peut être implémenté 
-        sur des navigateurs modernes HTTP/1.0 grâce à une extension. 
-        Si vous devez maintenir des clients obsolètes tout en 
-        utilisant l'hébergement virtuel par nom, il existe une 
-        technique qui est traitée à la fin de ce document.</li>
-
-        <li>L'hébergement virtuel par nom ne peut pas être utilisé 
-        avec des serveurs sécurisés SSL à cause de la nature même 
-        du protocole SSL.</li>
-
-        <li>Certains systèmes d'exploitation et équipements réseaux 
-        emploient des techniques de gestion de la bande passante 
-        qui ne peuvent pas différencier des domaines autrement que 
-        par des adresses IP séparées.</li>
-    </ul>
+    nom, sauf dans le cas où vous utiliseriez des équipements qui
+    nécessitent un hébergement basé sur IP. Les raisons historiques de
+    l'hébergement basé sur IP dans un but de support de certains clients ne
+    s'appliquent plus à un serveur web d'usage général, sauf si vous
+    utilisez une version de <code class="module"><a href="../mod/mod_ssl.html">mod_ssl</a></code> sans support SNI
+    (situation  standard depuis la version 2.2.12 d'Apache).</p>
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
@@ -99,7 +80,8 @@
     IP dans une directive 
     <code class="directive"><a href="../mod/core.html#namevirtualhost">NameVirtualHost</a></code> ne suffit 
     pas à faire écouter le serveur sur cette IP. Consultez 
-    <a href="../bind.html">la page sur les liaisons</a> pour plus 
+    <a href="../bind.html">Définition des adresses et ports qu'utilise
+    Apache</a> pour plus 
     de détails. Par ailleurs, chaque adresse IP spécifiée ici doit 
     être associée avec une interface réseau sur le serveur.</p>
 
@@ -109,8 +91,7 @@
     <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code> 
     doit être le même que celui de la directive 
     <code class="directive"><a href="../mod/core.html#namevirtualhost">NameVirtualHost</a></code> 
-    (c'est-à-dire l'adresse IP ou <code>*</code> pour toutes les 
-    adresses). Dans chaque section 
+    (dans le cas présent "*:80"). Dans chaque section 
     <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>, 
     vous devez définir au minimum une directive 
     <code class="directive"><a href="../mod/core.html#servername">ServerName</a></code> pour désigner 
@@ -196,8 +177,8 @@
     La plupart des directives peut être placée dans ces sections en 
     y changeant seulement la configuration du serveur virtuel associé. 
     Pour déterminer si une directive particulière est permise, 
-    consultez <a href="../mod/directive-dict.html#Context">la page de 
-    contexte</a>. Le jeu de directives configurées dans le contexte 
+    consultez le <a href="../mod/directive-dict.html#Context">contexte</a> de la
+    directive. Le jeu de directives configurées dans le contexte 
     du <em>serveur principal</em> (en dehors de toutes sections 
     <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code>) 
     sera utilisé seulement s'il n'y a pas de configuration contraire 
@@ -217,14 +198,14 @@
     dont l'adresse IP correspond sera employé.</p>
 
     <p>En conséquence, le premier serveur virtuel listé est le 
-    serveur virtuel <em>default</em>. La directive 
+    serveur virtuel <em>par défaut</em>. La directive 
     <code class="directive"><a href="../mod/core.html#documentroot">DocumentRoot</a></code> du 
     <em>serveur principal</em> <strong>ne</strong> sera 
     <strong>jamais</strong> employée lorsqu'une adresse IP 
-    correspond dans une directive 
+    correspond à la directive 
     <code class="directive"><a href="../mod/core.html#namevirtualhost">NameVirtualHost</a></code>. Si vous 
-    ne voulez pas avoir de configuration spéciale pour les requêtes 
-    qui ne sont pas attachées à un serveur virtuel en particulier, 
+    souhaiter avoir une configuration spéciale pour les requêtes 
+    qui ne correspondent pas à un serveur virtuel en particulier, 
     mettez cette configuration dans une section 
     <code class="directive"><a href="../mod/core.html#virtualhost">&lt;VirtualHost&gt;</a></code> 
     que vous placerez en premier dans le fichier de configuration.</p>
@@ -235,13 +216,13 @@
 
     <p>Comme mentionné plus tôt, certains clients ne transmettent 
     pas les données nécessaires pour le bon fonctionnement des 
-    serveurs virtuels. Ces clients recevront toujours les pages 
+    serveurs virtuels par nom. Ces clients recevront toujours les pages
     du premier serveur virtuel listé pour cette adresse IP (le 
     serveur virtuel par nom <cite>primaire</cite>).</p>
 
     <div class="note"><h3>De combien plus anciens&nbsp;?</h3>
     <p>Veuillez noter que quand nous disons plus anciens, nous 
-    disons vraiment plus anciens. Vous seriez malchanceux de rencontrer 
+    disons vraiment plus anciens. Vous avez peu de chances de rencontrer 
     de tels navigateurs encore utilisés de nos jours. Toutes les 
     versions actuelles des navigateurs transmettent leur en-tête 
     <code>Host</code> comme exigé par les serveurs virtuels par nom.</p>
@@ -277,7 +258,7 @@
     <p>Pour rendre cette technique fonctionnelle, mettez un lien 
     dans votre serveur virtuel primaire vers 
     <code>http://www.domain.tld/domain/</code>. Ensuite, dans les 
-    pages de ce serveur virtuel, assurez vous ne n'utiliser que 
+    pages de ce serveur virtuel, assurez vous de n'utiliser que 
     des liens relatifs (<em>par exemple</em>, "<code>file.html</code>" 
     ou "<code>../icons/image.gif</code>") ou des liens contenant 
     le préfixe <code>/domain/</code> (<em>par exemple</em>, 
@@ -297,6 +278,6 @@
 <a href="../ko/vhosts/name-based.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/vhosts/name-based.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div>
 </body></html>

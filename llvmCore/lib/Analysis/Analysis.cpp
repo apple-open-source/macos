@@ -9,16 +9,15 @@
 
 #include "llvm-c/Analysis.h"
 #include "llvm/Analysis/Verifier.h"
-#include <fstream>
 #include <cstring>
 
 using namespace llvm;
 
-int LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
-                     char **OutMessages) {
+LLVMBool LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
+                          char **OutMessages) {
   std::string Messages;
   
-  int Result = verifyModule(*unwrap(M),
+  LLVMBool Result = verifyModule(*unwrap(M),
                             static_cast<VerifierFailureAction>(Action),
                             OutMessages? &Messages : 0);
   
@@ -28,7 +27,7 @@ int LLVMVerifyModule(LLVMModuleRef M, LLVMVerifierFailureAction Action,
   return Result;
 }
 
-int LLVMVerifyFunction(LLVMValueRef Fn, LLVMVerifierFailureAction Action) {
+LLVMBool LLVMVerifyFunction(LLVMValueRef Fn, LLVMVerifierFailureAction Action) {
   return verifyFunction(*unwrap<Function>(Fn),
                         static_cast<VerifierFailureAction>(Action));
 }

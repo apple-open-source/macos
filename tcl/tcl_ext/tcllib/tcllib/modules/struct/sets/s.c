@@ -2,6 +2,7 @@
  * Tcl_ObjType 'set'.
  */
 
+#include <string.h>
 #include "s.h"
 
 /* .................................................. */

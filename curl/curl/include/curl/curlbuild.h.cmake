@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curlbuild.h.cmake,v 1.3 2009-07-15 19:25:22 whoffman Exp $
  ***************************************************************************/
 
 /* ================================================================ */
@@ -144,6 +143,10 @@
 #  include <ws2tcpip.h>
 #endif
 
+#ifdef HAVE_SYS_SOCKET_H
+#  include <sys/socket.h>
+#endif
+
 /* Data type definition of curl_socklen_t. */
 typedef CURL_TYPEOF_CURL_SOCKLEN_T curl_socklen_t;
 
@@ -157,13 +160,13 @@ typedef CURL_TYPEOF_CURL_SOCKLEN_T curl_socklen_t;
 typedef CURL_TYPEOF_CURL_OFF_T curl_off_t;
 
 /* curl_off_t formatting string directive without "%" conversion specifier. */
-#cmakedefine CURL_FORMAT_CURL_OFF_T ${CURL_FORMAT_CURL_OFF_T}
+#cmakedefine CURL_FORMAT_CURL_OFF_T "${CURL_FORMAT_CURL_OFF_T}"
 
 /* unsigned curl_off_t formatting string without "%" conversion specifier. */
-#cmakedefine CURL_FORMAT_CURL_OFF_TU ${CURL_FORMAT_CURL_OFF_TU}
+#cmakedefine CURL_FORMAT_CURL_OFF_TU "${CURL_FORMAT_CURL_OFF_TU}"
 
 /* curl_off_t formatting string directive with "%" conversion specifier. */
-#cmakedefine CURL_FORMAT_OFF_T ${CURL_FORMAT_OFF_T}
+#cmakedefine CURL_FORMAT_OFF_T "${CURL_FORMAT_OFF_T}"
 
 /* The size of `curl_off_t', as computed by sizeof. */
 #cmakedefine CURL_SIZEOF_CURL_OFF_T ${CURL_SIZEOF_CURL_OFF_T}

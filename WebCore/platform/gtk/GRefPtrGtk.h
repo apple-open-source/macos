@@ -21,18 +21,17 @@
 #ifndef GRefPtrGtk_h
 #define GRefPtrGtk_h
 
-#include "GRefPtr.h"
-
-typedef struct _GtkTargetList GtkTargetList;
-typedef struct _GdkCursor GdkCursor;
+#include <wtf/gobject/GRefPtr.h>
 
 namespace WTF {
 
 template <> GtkTargetList* refGPtr(GtkTargetList* ptr);
 template <> void derefGPtr(GtkTargetList* ptr);
 
+#ifdef GTK_API_VERSION_2
 template <> GdkCursor* refGPtr(GdkCursor* ptr);
 template <> void derefGPtr(GdkCursor* ptr);
+#endif
 
 }
 

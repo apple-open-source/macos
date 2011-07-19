@@ -1,0 +1,1166 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$129|class static_and_virtual_in_return_types_class
+{
+
+/*! */
+struct staticBox foo(int a);
+
+/*! */
+struct virtualBox foo(int a);
+
+
+};
+$135|/*!
+    This class contains methods whose return types contain symbols that
+    contain (but are not equal to) static and virtual.
+ */
+$0|$17440|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/static_and_virtual_in_return_types.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/static_and_virtual_in_return_types.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 11
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class static_and_virtual_in_return_types_class  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => static_and_virtual_in_return_types_class
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 11
+typelist: class
+namelist: static_and_virtual_in_return_types_class
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---static_and_virtual_in_return_types_class
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---staticBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---virtualBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: static and virtual in return types
+APIUID: //test_ref/doc/header/static_and_virtual_in_return_types.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: static_and_virtual_in_return_types_class
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This class contains methods whose return types contain symbols that
+contain (but are not equal to) static and virtual.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/static_and_virtual_in_return_types.test" target="_top" machineGenerated="true">static and virtual in return types</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo/structstaticBox/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "struct staticBox "
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo/structvirtualBox/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "struct virtualBox "
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: static_and_virtual_in_return_types_class (HeaderDoc::CPPClass)
++---class
++--- 
++---static_and_virtual_in_return_types_class
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---staticBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---virtualBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-struct (HAS STATE)
++--- 
++---staticBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---*/
++---[ NEWLINE ]
++-*-struct (HAS STATE)
++--- 
++---virtualBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-struct (HAS STATE)
++--- 
++---virtualBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: static_and_virtual_in_return_types_class (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/static_and_virtual_in_return_types_class //test_ref/cpp/tdef/static_and_virtual_in_return_types_class //test_ref/cpp/tag/static_and_virtual_in_return_types_class //test_ref/cpp/struct/static_and_virtual_in_return_types_class //test_ref/cpp/intf/static_and_virtual_in_return_types_class //test_ref/doc/anysymbol/static_and_virtual_in_return_types_class" machineGenerated="true" --><span class="type">static_and_virtual_in_return_types_class</span><!-- /a --> {  
+	    <span class="comment">/*! */</span>
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/staticBox //test_ref/cpp/tdef/staticBox //test_ref/cpp/tag/staticBox //test_ref/cpp/struct/staticBox //test_ref/cpp/intf/staticBox //test_ref/doc/anysymbol/staticBox" machineGenerated="true" --><span class="type">staticBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="comment">/*! */</span>
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/virtualBox //test_ref/cpp/tdef/virtualBox //test_ref/cpp/tag/virtualBox //test_ref/cpp/struct/virtualBox //test_ref/cpp/intf/virtualBox //test_ref/doc/anysymbol/virtualBox" machineGenerated="true" --><span class="type">virtualBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);   
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/staticBox //test_ref/cpp/tdef/staticBox //test_ref/cpp/tag/staticBox //test_ref/cpp/struct/staticBox //test_ref/cpp/intf/staticBox //test_ref/doc/anysymbol/staticBox" machineGenerated="true" --><span class="type">staticBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/clm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfcm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/static_and_virtual_in_return_types_class/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/virtualBox //test_ref/cpp/tdef/virtualBox //test_ref/cpp/tag/virtualBox //test_ref/cpp/struct/virtualBox //test_ref/cpp/intf/virtualBox //test_ref/doc/anysymbol/virtualBox" machineGenerated="true" --><span class="type">virtualBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/clm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfcm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/static_and_virtual_in_return_types_class/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+
+$17440|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/static_and_virtual_in_return_types.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/static_and_virtual_in_return_types.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 11
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class static_and_virtual_in_return_types_class  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => static_and_virtual_in_return_types_class
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 11
+typelist: class
+namelist: static_and_virtual_in_return_types_class
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---static_and_virtual_in_return_types_class
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---staticBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---virtualBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: static and virtual in return types
+APIUID: //test_ref/doc/header/static_and_virtual_in_return_types.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: static_and_virtual_in_return_types_class
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This class contains methods whose return types contain symbols that
+contain (but are not equal to) static and virtual.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/static_and_virtual_in_return_types.test" target="_top" machineGenerated="true">static and virtual in return types</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo/structstaticBox/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "struct staticBox "
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo/structvirtualBox/(int)
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "struct virtualBox "
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: a
+            TYPE: int
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: static_and_virtual_in_return_types_class (HeaderDoc::CPPClass)
++---class
++--- 
++---static_and_virtual_in_return_types_class
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---staticBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-struct (HAS STATE)
+|   +--- 
+|   +---virtualBox
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---int
+|   |   +--- 
+|   |   +---a
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-struct (HAS STATE)
++--- 
++---staticBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---*/
++---[ NEWLINE ]
++-*-struct (HAS STATE)
++--- 
++---virtualBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-struct (HAS STATE)
++--- 
++---virtualBox
++--- 
++---foo
++---(
+|   +---int
+|   +--- 
+|   +---a
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: static_and_virtual_in_return_types_class (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/static_and_virtual_in_return_types_class //test_ref/cpp/tdef/static_and_virtual_in_return_types_class //test_ref/cpp/tag/static_and_virtual_in_return_types_class //test_ref/cpp/struct/static_and_virtual_in_return_types_class //test_ref/cpp/intf/static_and_virtual_in_return_types_class //test_ref/doc/anysymbol/static_and_virtual_in_return_types_class" machineGenerated="true" --><span class="type">static_and_virtual_in_return_types_class</span><!-- /a --> {  
+	    <span class="comment">/*! */</span>
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/staticBox //test_ref/cpp/tdef/staticBox //test_ref/cpp/tag/staticBox //test_ref/cpp/struct/staticBox //test_ref/cpp/intf/staticBox //test_ref/doc/anysymbol/staticBox" machineGenerated="true" --><span class="type">staticBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);  
+	    <span class="comment">/*! */</span>
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/virtualBox //test_ref/cpp/tdef/virtualBox //test_ref/cpp/tag/virtualBox //test_ref/cpp/struct/virtualBox //test_ref/cpp/intf/virtualBox //test_ref/doc/anysymbol/virtualBox" machineGenerated="true" --><span class="type">virtualBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/foo //test_ref/cpp/clm/foo //test_ref/cpp/intfcm/foo //test_ref/cpp/intfm/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>);   
+	};  
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/staticBox //test_ref/cpp/tdef/staticBox //test_ref/cpp/tag/staticBox //test_ref/cpp/struct/staticBox //test_ref/cpp/intf/staticBox //test_ref/doc/anysymbol/staticBox" machineGenerated="true" --><span class="type">staticBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/clm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfcm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/static_and_virtual_in_return_types_class/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/cpp/cl/virtualBox //test_ref/cpp/tdef/virtualBox //test_ref/cpp/tag/virtualBox //test_ref/cpp/struct/virtualBox //test_ref/cpp/intf/virtualBox //test_ref/doc/anysymbol/virtualBox" machineGenerated="true" --><span class="type">virtualBox</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/clm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfcm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/intfm/static_and_virtual_in_return_types_class/foo //test_ref/cpp/func/foo //test_ref/cpp/ftmplt/static_and_virtual_in_return_types_class/foo //test_ref/cpp/defn/foo //test_ref/cpp/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/int //test_ref/cpp/tdef/int //test_ref/cpp/tag/int //test_ref/cpp/struct/int //test_ref/cpp/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">a</span>); 
+END OF OBJECT
+
+
+
+$304|This tests a fix for type names that contain the word
+virtual or static as part of the name.  Previous versions
+stripped the entire token out because it contained
+one or more of those keywords.  The current code strips
+out those tokens only if they exactly match virtual or
+static from beginning to end.
+$116|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/static_and_virtual_in_return_types.test$1|C$34|static and virtual in return types$1|C$6|parser

@@ -1,4 +1,4 @@
-# RCS: @(#) $Id: filelist-bindings.tcl,v 1.26 2006/11/19 00:49:36 treectrl Exp $
+# RCS: @(#) $Id: filelist-bindings.tcl,v 1.28 2010/03/21 20:47:06 treectrl Exp $
 
 bind TreeCtrlFileList <Double-ButtonPress-1> {
     TreeCtrl::FileListEditCancel %W
@@ -79,8 +79,30 @@ bind TreeCtrlText <KeyPress-Escape> {
 
 namespace eval TreeCtrl {
     variable Priv
+
+    # Number of milliseconds after clicking a selected item before the Edit
+    # widget appears.
     set Priv(edit,delay) 500
+
+    # Try to deal with people importing ttk::entry into the global namespace;
+    # we want tk::entry
+    if {[llength [info commands ::tk::entry]]} {
+	set Priv(entryCmd) ::tk::entry
+    } else {
+	set Priv(entryCmd) ::entry
+    }
 }
+
+# ::TreeCtrl::IsSensitive
+#
+# Returns 1 if the given window coordinates are over an element that should
+# respond to mouse clicks.  The list of elements that respond to mouse clicks
+# is set by calling ::TreeCtrl::SetSensitive.
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
 
 proc ::TreeCtrl::IsSensitive {T x y} {
     variable Priv
@@ -93,9 +115,7 @@ proc ::TreeCtrl::IsSensitive {T x y} {
 	return 0
     }
     foreach list $Priv(sensitive,$T) {
-	set C [lindex $list 0]
-	set S [lindex $list 1]
-	set eList [lrange $list 2 end]
+	set eList [lassign $list C S]
 	if {[$T column compare $arg2 != $C]} continue
 	if {[$T item style set $item $C] ne $S} continue
 	if {[lsearch -exact $eList $arg4] == -1} continue
@@ -103,6 +123,15 @@ proc ::TreeCtrl::IsSensitive {T x y} {
     }
     return 0
 }
+
+# ::TreeCtrl::FileListButton1
+#
+# Handle <ButtonPress-1>.
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
 
 proc ::TreeCtrl::FileListButton1 {T x y} {
     variable Priv
@@ -178,6 +207,15 @@ proc ::TreeCtrl::FileListButton1 {T x y} {
     return
 }
 
+# ::TreeCtrl::FileListMotion1
+#
+# Override default <Button1-Motion> to handle "drag" and "marquee".
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
+
 proc ::TreeCtrl::FileListMotion1 {T x y} {
     variable Priv
     if {![info exists Priv(buttonMode)]} return
@@ -194,6 +232,15 @@ proc ::TreeCtrl::FileListMotion1 {T x y} {
     }
     return
 }
+
+# ::TreeCtrl::FileListMotion
+#
+# Handle <Button1-Motion>.
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
 
 proc ::TreeCtrl::FileListMotion {T x y} {
     variable Priv
@@ -217,9 +264,7 @@ proc ::TreeCtrl::FileListMotion {T x y} {
 		    # Check covered elements in this column
 		    foreach E [lrange $sublist 1 end] {
 			foreach sList $Priv(sensitive,$T) {
-			    set sC [lindex $sList 0]
-			    set sS [lindex $sList 1]
-			    set sEList [lrange $sList 2 end]
+			    set sEList [lassign $sList sC sS]
 			    if {[$T column compare $column != $sC]} continue
 			    if {[$T item style set $item $sC] ne $sS} continue
 			    if {[lsearch -exact $sEList $E] == -1} continue
@@ -259,10 +304,9 @@ proc ::TreeCtrl::FileListMotion {T x y} {
 		# For each selected item, add some elements to the dragimage
 		foreach I $Priv(selection) {
 		    foreach list $Priv(dragimage,$T) {
-			set C [lindex $list 0]
-			set S [lindex $list 1]
+			set EList [lassign $list C S]
 			if {[$T item style set $I $C] eq $S} {
-			    eval $T dragimage add $I $C [lrange $list 2 end]
+			    eval $T dragimage add $I $C $EList
 			}
 		    }
 		}
@@ -298,8 +342,13 @@ proc ::TreeCtrl::FileListMotion {T x y} {
 	    set Priv(drop) $drop
 
 	    # Show the dragimage in its new position
+if {0 && [$T dragimage cget -style] ne ""} {
+    set x [$T canvasx $x]
+    set y [$T canvasy $y]
+} else {
 	    set x [expr {[$T canvasx $x] - $Priv(drag,x)}]
 	    set y [expr {[$T canvasy $y] - $Priv(drag,y)}]
+}
 	    $T dragimage offset $x $y
 	    $T dragimage configure -visible yes
 	}
@@ -309,6 +358,15 @@ proc ::TreeCtrl::FileListMotion {T x y} {
     }
     return
 }
+
+# ::TreeCtrl::FileListLeave1
+#
+# Handle <Button1-Leave>.
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
 
 proc ::TreeCtrl::FileListLeave1 {T x y} {
     variable Priv
@@ -321,6 +379,15 @@ proc ::TreeCtrl::FileListLeave1 {T x y} {
     }
     return
 }
+
+# ::TreeCtrl::FileListRelease1
+#
+# Handle <Button1-Release>.
+#
+# Arguments:
+# T		The treectrl widget.
+# x		Window coord of pointer.
+# y		Window coord of pointer.
 
 proc ::TreeCtrl::FileListRelease1 {T x y} {
     variable Priv
@@ -353,9 +420,7 @@ proc ::TreeCtrl::FileListRelease1 {T x y} {
 		set S [$T item style set $I $C]
 		set ok 0
 		foreach list $Priv(edit,$T) {
-		    set eC [lindex $list 0]
-		    set eS [lindex $list 1]
-		    set eEList [lrange $list 2 end]
+		    set eEList [lassign $list eC eS]
 		    if {[$T column compare $C != $eC]} continue
 		    if {$S ne $eS} continue
 		    if {[lsearch -exact $eEList $E] == -1} continue
@@ -377,6 +442,17 @@ proc ::TreeCtrl::FileListRelease1 {T x y} {
     return
 }
 
+# ::TreeCtrl::FileListEdit
+#
+# Displays an Entry or Text widget to allow the user to edit the specified
+# text element.
+#
+# Arguments:
+# T		The treectrl widget.
+# I		Item.
+# C		Column.
+# E		Element.
+
 proc ::TreeCtrl::FileListEdit {T I C E} {
     variable Priv
     array unset Priv editId,$T
@@ -395,8 +471,7 @@ proc ::TreeCtrl::FileListEdit {T I C E} {
 	set S [$T item style set $I $C]
 	set padx [$T style layout $S $E -padx]
 	if {[llength $padx] == 2} {
-	    set padw [lindex $padx 0]
-	    set pade [lindex $padx 1]
+	    lassign $padx padw pade
 	} else {
 	    set pade [set padw $padx]
 	}
@@ -425,6 +500,13 @@ proc ::TreeCtrl::FileListEdit {T I C E} {
     return
 }
 
+# ::TreeCtrl::FileListEditCancel
+#
+# Aborts any scheduled display of the text-edit widget.
+#
+# Arguments:
+# T		The treectrl widget.
+
 proc ::TreeCtrl::FileListEditCancel {T} {
     variable Priv
     if {[info exists Priv(editId,$T)]} {
@@ -434,12 +516,18 @@ proc ::TreeCtrl::FileListEditCancel {T} {
     return
 }
 
+# ::TreeCtrl::SetDragImage
+#
+# Specifies the list of elements that should be added to the dragimage.
+#
+# Arguments:
+# T		The treectrl widget.
+# listOfLists	{{column style element ...} {column style element ...}}
+
 proc ::TreeCtrl::SetDragImage {T listOfLists} {
     variable Priv
     foreach list $listOfLists {
-	set column [lindex $list 0]
-	set style [lindex $list 1]
-	set elements [lrange $list 2 end]
+	set elements [lassign $list column style]
 	if {[$T column id $column] eq ""} {
 	    error "column \"$column\" doesn't exist"
 	}
@@ -456,12 +544,18 @@ proc ::TreeCtrl::SetDragImage {T listOfLists} {
     return
 }
 
+# ::TreeCtrl::SetEditable
+#
+# Specifies the list of text elements that can be edited.
+#
+# Arguments:
+# T		The treectrl widget.
+# listOfLists	{{column style element ...} {column style element ...}}
+
 proc ::TreeCtrl::SetEditable {T listOfLists} {
     variable Priv
     foreach list $listOfLists {
-	set column [lindex $list 0]
-	set style [lindex $list 1]
-	set elements [lrange $list 2 end]
+	set elements [lassign $list column style]
 	if {[$T column id $column] eq ""} {
 	    error "column \"$column\" doesn't exist"
 	}
@@ -481,12 +575,18 @@ proc ::TreeCtrl::SetEditable {T listOfLists} {
     return
 }
 
+# ::TreeCtrl::SetSensitive
+#
+# Specifies the list of elements that respond to mouse clicks.
+#
+# Arguments:
+# T		The treectrl widget.
+# listOfLists	{{column style element ...} {column style element ...}}
+
 proc ::TreeCtrl::SetSensitive {T listOfLists} {
     variable Priv
     foreach list $listOfLists {
-	set column [lindex $list 0]
-	set style [lindex $list 1]
-	set elements [lrange $list 2 end]
+	set elements [lassign $list column style]
 	if {[$T column id $column] eq ""} {
 	    error "column \"$column\" doesn't exist"
 	}
@@ -502,6 +602,16 @@ proc ::TreeCtrl::SetSensitive {T listOfLists} {
     set Priv(sensitive,$T) $listOfLists
     return
 }
+
+# ::TreeCtrl::EntryOpen
+#
+# Display a ::tk::entry so the user can edit the specified text element.
+#
+# Arguments:
+# T		The treectrl widget.
+# item		Item.
+# column	Column.
+# element	Element.
 
 proc ::TreeCtrl::EntryOpen {T item column element} {
 
@@ -529,7 +639,7 @@ proc ::TreeCtrl::EntryOpen {T item column element} {
     if {[winfo exists $e]} {
 	$e delete 0 end
     } else {
-	entry $e -borderwidth 1 -relief solid -highlightthickness 0
+	$Priv(entryCmd) $e -borderwidth 1 -relief solid -highlightthickness 0
 	bindtags $e [linsert [bindtags $e] 1 TreeCtrlEntry]
     }
 
@@ -563,7 +673,17 @@ proc ::TreeCtrl::EntryOpen {T item column element} {
     return
 }
 
-# Like EntryOpen, but Entry widget expands/shrinks during typing
+# ::TreeCtrl::EntryExpanderOpen
+#
+# Display a ::tk::entry so the user can edit the specified text element.
+# Like EntryOpen, but Entry widget expands/shrinks during typing.
+#
+# Arguments:
+# T		The treectrl widget.
+# item		Item.
+# column	Column.
+# element	Element.
+
 proc ::TreeCtrl::EntryExpanderOpen {T item column element} {
 
     variable Priv
@@ -592,7 +712,7 @@ proc ::TreeCtrl::EntryExpanderOpen {T item column element} {
     if {[winfo exists $e]} {
 	$e delete 0 end
     } else {
-	entry $e -borderwidth 1 -highlightthickness 0 \
+	$Priv(entryCmd) $e -borderwidth 1 -highlightthickness 0 \
 	    -selectborderwidth 0 -relief solid
 	bindtags $e [linsert [bindtags $e] 1 TreeCtrlEntry]
 
@@ -629,6 +749,17 @@ proc ::TreeCtrl::EntryExpanderOpen {T item column element} {
     return
 }
 
+# ::TreeCtrl::EditClose
+#
+# Hides the text-edit widget and restores the focus if needed.
+# Generates <Edit-accept> and <Edit-end> events as needed.
+#
+# Arguments:
+# T		The treectrl widget.
+# type		"entry" or "text".
+# accept	0/1: should an <Edit-accept> event be generated.
+# refocus	0/1: should the focus be restored to what it was before editing.
+
 proc ::TreeCtrl::EditClose {T type accept {refocus 0}} {
     variable Priv
 
@@ -664,6 +795,13 @@ proc ::TreeCtrl::EditClose {T type accept {refocus 0}} {
     return
 }
 
+# ::TreeCtrl::EntryExpanderKeypress
+#
+# Maintains the width of the text-edit widget during typing.
+#
+# Arguments:
+# T		The treectrl widget.
+
 proc ::TreeCtrl::EntryExpanderKeypress {T} {
 
     variable Priv
@@ -685,6 +823,18 @@ proc ::TreeCtrl::EntryExpanderKeypress {T} {
 
     return
 }
+
+# ::TreeCtrl::TextOpen
+#
+# Display a ::tk::text so the user can edit the specified text element.
+#
+# Arguments:
+# T		The treectrl widget.
+# item		Item.
+# column	Column.
+# element	Element.
+# width		unused.
+# height	unused.
 
 proc ::TreeCtrl::TextOpen {T item column element {width 0} {height 0}} {
     variable Priv
@@ -746,7 +896,18 @@ proc ::TreeCtrl::TextOpen {T item column element {width 0} {height 0}} {
     return
 }
 
-# Like TextOpen, but Text widget expands/shrinks during typing
+# ::TreeCtrl::TextExpanderOpen
+#
+# Display a ::tk::text so the user can edit the specified text element.
+# Like TextOpen, but Text widget expands/shrinks during typing.
+#
+# Arguments:
+# T		The treectrl widget.
+# item		Item.
+# column	Column.
+# element	Element.
+# width		Width of the text element.
+
 proc ::TreeCtrl::TextExpanderOpen {T item column element width} {
 
     variable Priv
@@ -822,6 +983,13 @@ proc ::TreeCtrl::TextExpanderOpen {T item column element width} {
 
     return
 }
+
+# ::TreeCtrl::TextExpanderKeypress
+#
+# Maintains the size of the text-edit widget during typing.
+#
+# Arguments:
+# T		The treectrl widget.
 
 proc ::TreeCtrl::TextExpanderKeypress {T} {
 

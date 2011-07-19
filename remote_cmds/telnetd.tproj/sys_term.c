@@ -47,7 +47,9 @@ __FBSDID("$FreeBSD: src/contrib/telnet/telnetd/sys_term.c,v 1.18 2003/05/04 02:5
 #include <libutil.h>
 #endif
 #include <stdlib.h>
+#ifndef __APPLE__
 #include <utmp.h>
+#endif
 
 #include "telnetd.h"
 #include "pathnames.h"
@@ -173,14 +175,19 @@ void
 init_termbuf(void)
 {
 #ifndef	USE_TERMIO
-	(void) ioctl(pty, TIOCGETP, (char *)&termbuf.sg);
-	(void) ioctl(pty, TIOCGETC, (char *)&termbuf.tc);
-	(void) ioctl(pty, TIOCGLTC, (char *)&termbuf.ltc);
+	if (ioctl(spty, TIOCGETP, (char *)&termbuf.sg) == -1)
+		perror("ioctl TIOCGETP");
+	if (ioctl(spty, TIOCGETC, (char *)&termbuf.tc) == -1)
+		perror("ioctl TIOCGETC");
+	if (ioctl(spty, TIOCGLTC, (char *)&termbuf.ltc) == -1)
+		perror("ioctl TIOCGLTC");
 # ifdef	TIOCGSTATE
-	(void) ioctl(pty, TIOCGSTATE, (char *)&termbuf.state);
+	if (-1 == ioctl(spty, TIOCGSTATE, (char *)&termbuf.state))
+		perror("ioctl TIOCGSTATE");
 # endif
 #else
-	(void) tcgetattr(pty, &termbuf);
+	if (-1 ==  tcgetattr(spty, &termbuf))
+		perror("tcgetattr");
 #endif
 	termbuf2 = termbuf;
 }
@@ -204,19 +211,28 @@ set_termbuf(void)
 	 */
 #ifndef	USE_TERMIO
 	if (memcmp((char *)&termbuf.sg, (char *)&termbuf2.sg,
-							sizeof(termbuf.sg)))
-		(void) ioctl(pty, TIOCSETN, (char *)&termbuf.sg);
+		   sizeof(termbuf.sg))) {
+		if (-1 == ioctl(spty, TIOCSETN, (char *)&termbuf.sg))
+			perror("ioctl TIOSETN");
+	}
 	if (memcmp((char *)&termbuf.tc, (char *)&termbuf2.tc,
-							sizeof(termbuf.tc)))
-		(void) ioctl(pty, TIOCSETC, (char *)&termbuf.tc);
+		   sizeof(termbuf.tc))) {
+		if (-1 == ioctl(spty, TIOCSETC, (char *)&termbuf.tc))
+			perror("ioctl TIOSETC");
+	}
 	if (memcmp((char *)&termbuf.ltc, (char *)&termbuf2.ltc,
-							sizeof(termbuf.ltc)))
-		(void) ioctl(pty, TIOCSLTC, (char *)&termbuf.ltc);
-	if (termbuf.lflags != termbuf2.lflags)
-		(void) ioctl(pty, TIOCLSET, (char *)&termbuf.lflags);
+		   sizeof(termbuf.ltc))) {
+		if (-1 == ioctl(spty, TIOCSLTC, (char *)&termbuf.ltc))
+			perror("ioctl TIOCSLTC");
+	}
+	if (termbuf.lflags != termbuf2.lflags) {
+		(void) ioctl(spty, TIOCLSET, (char *)&termbuf.lflags);
+	}
 #else	/* USE_TERMIO */
-	if (memcmp((char *)&termbuf, (char *)&termbuf2, sizeof(termbuf)))
-		(void) tcsetattr(pty, TCSANOW, &termbuf);
+	if (memcmp((char *)&termbuf, (char *)&termbuf2, sizeof(termbuf))) {
+		if (-1 == tcsetattr(spty, TCSANOW, &termbuf)) 
+			perror("tcsetattr");
+	}
 #endif	/* USE_TERMIO */
 }
 
@@ -410,16 +426,17 @@ char alpha[] = "0123456789abcdefghijklmnopqrstuv";
 char line[16];
 
 int
-getpty(int *ptynum __unused)
+getpty(int *ptynum __unused, int *slavepty)
 {
 	int p;
 #ifdef __APPLE__
 	// rdar://problem/5169227
 	p = open("/dev/ptmx", 2);
-	if (p > 0) {
+	if (p >= 0) {
 		grantpt(p);
 		unlockpt(p);
 		strcpy(line, ptsname(p));
+		*slavepty = cleanopen(line);
 		return(p);
 	}
 
@@ -498,7 +515,8 @@ tty_setlinemode(int on)
 {
 #ifdef	TIOCEXT
 	set_termbuf();
-	(void) ioctl(pty, TIOCEXT, (char *)&on);
+	if (-1 == ioctl(spty, TIOCEXT, (char *)&on))
+		perror("ioctl TIOCEXT");
 	init_termbuf();
 #else	/* !TIOCEXT */
 # ifdef	EXTPROC
@@ -925,7 +943,7 @@ getptyslave(void)
 	}
 # endif
 
-	t = cleanopen(line);
+	t = spty;
 	if (t < 0)
 		fatalperror(net, line);
 

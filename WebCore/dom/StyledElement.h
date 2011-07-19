@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,32 +25,27 @@
 #ifndef StyledElement_h
 #define StyledElement_h
 
-#include "CSSMutableStyleDeclaration.h"
-#include "CSSPrimitiveValue.h"
 #include "Element.h"
 #include "MappedAttributeEntry.h"
-#include "NamedMappedAttrMap.h"
 
 namespace WebCore {
 
+class Attribute;
 class CSSMappedAttributeDeclaration;
-class MappedAttribute;
+class CSSMutableStyleDeclaration;
 
 class StyledElement : public Element {
 public:
     virtual ~StyledElement();
 
-    NamedMappedAttrMap* mappedAttributes() { return static_cast<NamedMappedAttrMap*>(namedAttrMap.get()); }
-    const NamedMappedAttrMap* mappedAttributes() const { return static_cast<NamedMappedAttrMap*>(namedAttrMap.get()); }
-
-    bool hasMappedAttributes() const { return namedAttrMap && mappedAttributes()->hasMappedAttributes(); }
+    bool hasMappedAttributes() const { return attributeMap() && attributeMap()->hasMappedAttributes(); }
     bool isMappedAttribute(const QualifiedName& name) const { MappedAttributeEntry res = eNone; mapToEntry(name, res); return res != eNone; }
 
-    void addCSSLength(MappedAttribute*, int id, const String& value);
-    void addCSSProperty(MappedAttribute*, int id, const String& value);
-    void addCSSProperty(MappedAttribute*, int id, int value);
-    void addCSSImageProperty(MappedAttribute*, int propertyID, const String& url);
-    void addCSSColor(MappedAttribute*, int id, const String& color);
+    void addCSSLength(Attribute*, int id, const String& value);
+    void addCSSProperty(Attribute*, int id, const String& value);
+    void addCSSProperty(Attribute*, int id, int value);
+    void addCSSImageProperty(Attribute*, int propertyID, const String& url);
+    void addCSSColor(Attribute*, int id, const String& color);
 
     static CSSMappedAttributeDeclaration* getMappedAttributeDecl(MappedAttributeEntry, const QualifiedName& name, const AtomicString& value);
     static void setMappedAttributeDecl(MappedAttributeEntry, const QualifiedName& name, const AtomicString& value, CSSMappedAttributeDeclaration*);
@@ -61,12 +56,12 @@ public:
 
     CSSMutableStyleDeclaration* inlineStyleDecl() const { return m_inlineStyleDecl.get(); }
     virtual bool canHaveAdditionalAttributeStyleDecls() const { return false; }
-    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&) {};
+    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&) { }
     CSSMutableStyleDeclaration* getInlineStyleDecl();
     CSSStyleDeclaration* style();
     void invalidateStyleAttribute();
 
-    const SpaceSplitString& classNames() const { ASSERT(hasClass()); ASSERT(mappedAttributes()); return mappedAttributes()->classNames(); }
+    const SpaceSplitString& classNames() const;
 
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
 
@@ -79,7 +74,7 @@ protected:
     }
 
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
     virtual void copyNonAttributeProperties(const Element*);
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
@@ -92,7 +87,7 @@ protected:
     virtual void didMoveToNewOwnerDocument();
 
 private:
-    void createMappedDecl(MappedAttribute*);
+    void createMappedDecl(Attribute*);
 
     void createInlineStyleDecl();
     void destroyInlineStyleDecl();
@@ -100,6 +95,13 @@ private:
 
     RefPtr<CSSMutableStyleDeclaration> m_inlineStyleDecl;
 };
+
+inline const SpaceSplitString& StyledElement::classNames() const
+{
+    ASSERT(hasClass());
+    ASSERT(attributeMap());
+    return attributeMap()->classNames();
+}
 
 inline void StyledElement::invalidateStyleAttribute()
 {

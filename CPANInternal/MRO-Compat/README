@@ -44,11 +44,11 @@ DESCRIPTION
 
 Functions
   mro::get_linear_isa($classname[, $type])
-    Returns an arrayref which is the linearized MRO of the given class. Uses
-    whichever MRO is currently in effect for that class by default, or the
-    given MRO (either "c3" or "dfs" if specified as $type).
+    Returns an arrayref which is the linearized "ISA" of the given class.
+    Uses whichever MRO is currently in effect for that class by default, or
+    the given MRO (either "c3" or "dfs" if specified as $type).
 
-    The linearized MRO of a class is a single ordered list of all of the
+    The linearized ISA of a class is a single ordered list of all of the
     classes that would be visited in the process of resolving a method on
     the given class, starting with itself. It does not include any duplicate
     entries.
@@ -74,8 +74,8 @@ Functions
 
   mro::get_isarev($classname)
     Returns an arrayref of classes who are subclasses of the given
-    classname. In other words, classes who we exist, however indirectly, in
-    the @ISA inheritancy hierarchy of.
+    classname. In other words, classes in whose @ISA hierarchy we appear, no
+    matter how indirectly.
 
     This is much slower on pre-5.9.5 Perls with MRO::Compat than it is on
     5.9.5+, as it has to search the entire package namespace.
@@ -131,7 +131,7 @@ AUTHOR
     Brandon L. Black, <blblack@gmail.com>
 
 COPYRIGHT AND LICENSE
-    Copyright 2007 Brandon L. Black <blblack@gmail.com>
+    Copyright 2007-2008 Brandon L. Black <blblack@gmail.com>
 
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

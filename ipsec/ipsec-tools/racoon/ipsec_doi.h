@@ -181,7 +181,6 @@ struct ipsecdoi_pl_id {
 #define IDTYPE_ASN1DN		5
 #define IDTYPE_LOGIN		6
 #define IDTYPE_SUBNET		7
-#ifdef __APPLE__
 #define IDTYPE_KEYIDUSE     8
 
 /* shared secret type, it's internal use. */
@@ -198,7 +197,6 @@ struct ipsecdoi_pl_id {
 #define VERIFICATION_OPTION_NONE				0
 #define VERIFICATION_OPTION_PEERS_IDENTIFIER	1
 #define VERIFICATION_OPTION_OPEN_DIR			2
-#endif
 
 /* qualifiers for KEYID (and maybe others) */
 #define IDQUAL_UNSPEC		0
@@ -241,10 +239,8 @@ extern vchar_t *ipsecdoi_sockrange2id __P((	struct sockaddr *,
 extern vchar_t *ipsecdoi_setph1proposal __P((struct isakmpsa *));
 extern int ipsecdoi_setph2proposal __P((struct ph2handle *));
 extern int ipsecdoi_transportmode __P((struct saprop *));
-#ifdef __APPLE__
 extern int ipsecdoi_tunnelmode __P((struct ph2handle *));
 extern int ipsecdoi_any_transportmode __P((struct saprop *));
-#endif
 extern int ipsecdoi_get_defaultlifetime __P((void));
 extern int ipsecdoi_checkalgtypes __P((int, int, int, int));
 extern int ipproto2doi __P((int));

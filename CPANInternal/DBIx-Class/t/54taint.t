@@ -5,29 +5,41 @@
 use strict;
 use warnings;
 
-our @plan;
+use Test::More;
+BEGIN { plan tests => 7 }
 
-BEGIN {
-  eval "require Module::Find;";
-  @plan = $@ ? ( skip_all => 'Could not load Module::Find' )
-    : ( tests => 2 );
-}
+package DBICTest::Taint::Classes;
 
-package DBICTest::Schema;
-
-# Use the default test class namespace to avoid the need for a
-# new test infrastructure. If invalid classes will be introduced to
-# 't/lib/DBICTest/Schema/' someday, this has to be reworked.
+use Test::More;
+use Test::Exception;
 
 use lib qw(t/lib);
-
-use Test::More @plan;
-
 use base qw/DBIx::Class::Schema/;
 
-eval{ __PACKAGE__->load_classes() };
-cmp_ok( $@, 'eq', '',
-        'Loading classes with Module::Find worked in taint mode' );
-ok( __PACKAGE__->sources(), 'At least on source has been registered' );
+lives_ok (sub {
+  __PACKAGE__->load_classes(qw/Manual/);
+  ok( __PACKAGE__->source('Manual'), 'The Classes::Manual source has been registered' );
+  __PACKAGE__->_unregister_source (qw/Manual/);
+}, 'Loading classes with explicit load_classes worked in taint mode' );
+
+lives_ok (sub {
+  __PACKAGE__->load_classes();
+  ok( __PACKAGE__->source('Auto'), 'The Classes::Auto source has been registered' );
+  ok( __PACKAGE__->source('Auto'), 'The Classes::Manual source has been re-registered' );
+}, 'Loading classes with Module::Find/load_classes worked in taint mode' );
+
+
+package DBICTest::Taint::Namespaces;
+
+use Test::More;
+use Test::Exception;
+
+use lib qw(t/lib);
+use base qw/DBIx::Class::Schema/;
+
+lives_ok (sub {
+  __PACKAGE__->load_namespaces();
+  ok( __PACKAGE__->source('Test'), 'The Namespaces::Test source has been registered' );
+}, 'Loading classes with Module::Find/load_namespaces worked in taint mode' );
 
 1;

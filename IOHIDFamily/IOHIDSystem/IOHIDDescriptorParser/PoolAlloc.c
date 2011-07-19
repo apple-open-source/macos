@@ -23,6 +23,7 @@
 #include <IOKit/system.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
+#include "HIDMacTypes.h"
 
 __private_extern__ void *PoolAllocateResident (vm_size_t size, unsigned char clear)
 {

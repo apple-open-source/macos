@@ -28,12 +28,12 @@
 
 #include "DragData.h"
 #include <windows.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class Document;
 class KURL;
-class String;
 
 HGLOBAL createGlobalData(const String&);
 HGLOBAL createGlobalData(const Vector<char>&);
@@ -48,22 +48,40 @@ FORMATETC* filenameFormat();
 FORMATETC* htmlFormat();
 FORMATETC* cfHDropFormat();
 FORMATETC* smartPasteFormat();
+FORMATETC* fileDescriptorFormat();
+FORMATETC* fileContentFormatZero();
 
-void markupToCF_HTML(const String& markup, const String& srcURL, Vector<char>& result);
-String urlToMarkup(const KURL& url, const String& title);
+void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& result);
 
 void replaceNewlinesWithWindowsStyleNewlines(String&);
 void replaceNBSPWithSpace(String&);
 
 bool containsFilenames(const IDataObject*);
+bool containsFilenames(const DragDataMap*);
 bool containsHTML(IDataObject*);
+bool containsHTML(const DragDataMap*);
 
 PassRefPtr<DocumentFragment> fragmentFromFilenames(Document*, const IDataObject*);
+PassRefPtr<DocumentFragment> fragmentFromFilenames(Document*, const DragDataMap*);
 PassRefPtr<DocumentFragment> fragmentFromHTML(Document*, IDataObject*);
-PassRefPtr<DocumentFragment> fragmentFromCF_HTML(Document*, const String& cf_html);
+PassRefPtr<DocumentFragment> fragmentFromHTML(Document*, const DragDataMap*);
+PassRefPtr<DocumentFragment> fragmentFromCFHTML(Document*, const String& cfhtml);
 
-String getURL(IDataObject*, bool& success, String* title = 0);
+String getURL(IDataObject*, DragData::FilenameConversionPolicy, bool& success, String* title = 0);
+String getURL(const DragDataMap*, DragData::FilenameConversionPolicy, String* title = 0);
 String getPlainText(IDataObject*, bool& success);
+String getPlainText(const DragDataMap*);
+String getTextHTML(IDataObject*, bool& success);
+String getTextHTML(const DragDataMap*);
+String getCFHTML(IDataObject*, bool& success);
+String getCFHTML(const DragDataMap*);
+
+void getClipboardData(IDataObject*, FORMATETC* fetc, Vector<String>& dataStrings);
+void setClipboardData(IDataObject*, UINT format, const Vector<String>& dataStrings);
+void getFileDescriptorData(IDataObject*, int& size, String& pathname);
+void getFileContentData(IDataObject*, int size, void* dataBlob);
+void setFileDescriptorData(IDataObject*, int size, String pathname);
+void setFileContentData(IDataObject*, int size, void* dataBlob);
 
 } // namespace WebCore
 

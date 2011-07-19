@@ -129,6 +129,11 @@ options {
 			maker.put(slot);
 			CssmAutoData oid(Allocator::standard()); oid.fromOid(oids);
 			maker.putData(oid.data(), oid.length());
+		} else if (const char *oids = matchPrefix(key, "policy.")) {
+			maker.put(opCertPolicy);
+			maker.put(slot);
+			CssmAutoData oid(Allocator::standard()); oid.fromOid(oids);
+			maker.putData(oid.data(), oid.length());
 		} else {
 			throw antlr::SemanticException(key + ": unrecognized certificate field");
 		}
@@ -187,6 +192,8 @@ requirementType returns [uint32_t type = kSecInvalidRequirementType]
 			{ type = kSecDesignatedRequirementType; }
 	|	"library"
 			{ type = kSecLibraryRequirementType; }
+	|	"plugin"
+			{ type = kSecPluginRequirementType; }
 	|	stype:INTEGER
 			{ type = atol(stype->getText().c_str()); }
 	;
@@ -235,6 +242,8 @@ primary[Maker &maker]
 			{ maker.ident(code); }
 	|	"cdhash" { SHA1::Digest digest; } eql hash[digest]
 			{ maker.cdhash(digest); }
+	|	LPAREN { string name; } name=identifierString RPAREN
+			{ maker.put(opNamedCode); maker.put(name); }
 	;
 
 
@@ -257,6 +266,8 @@ appleanchor[Maker &maker]
 			{ maker.put(opAppleAnchor); }
 	|	"generic"
 			{ maker.put(opAppleGenericAnchor); }
+|	|	{ string name; } name=identifierString
+			{ maker.put(opNamedAnchor); maker.put(name); }
 	;
 
 certslotspec[Maker &maker, int32_t slot]	{ string key; }

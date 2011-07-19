@@ -1,0 +1,13 @@
+diff -ur dovecot-1.1.7/src/lib-storage/index/maildir/maildir-sync-index.c dovecot-patch/src/lib-storage/index/maildir/maildir-sync-index.c
+--- dovecot-1.1.7/src/lib-storage/index/maildir/maildir-sync-index.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-storage/index/maildir/maildir-sync-index.c	2008-12-15 09:44:46.000000000 -0600
+@@ -87,7 +87,8 @@
+ 	newfname = maildir_filename_set_flags(ctx->keywords_sync_ctx, fname,
+ 					      ctx->flags, &ctx->keywords);
+ 	newpath = t_strconcat(dir, newfname, NULL);
+-	if (rename(path, newpath) == 0) {
++	if (strcmp(path, newpath) == 0 ||		/* APPLE */
++	    rename(path, newpath) == 0) {
+ 		if (box->v.sync_notify != NULL) {
+ 			box->v.sync_notify(box, ctx->uid,
+ 					   index_sync_type_convert(sync_type));

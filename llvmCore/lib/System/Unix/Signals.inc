@@ -14,6 +14,7 @@
 
 #include "Unix.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/System/Mutex.h"
 #include <vector>
 #include <algorithm>
 #if HAVE_EXECINFO_H
@@ -33,11 +34,13 @@ using namespace llvm;
 
 static RETSIGTYPE SignalHandler(int Sig);  // defined below.
 
+static SmartMutex<true> SignalsMutex;
+
 /// InterruptFunction - The function to call if ctrl-c is pressed.
 static void (*InterruptFunction)() = 0;
 
-static std::vector<sys::Path> *FilesToRemove = 0;
-static std::vector<std::pair<void(*)(void*), void*> > *CallBacksToRun = 0;
+static std::vector<sys::Path> FilesToRemove;
+static std::vector<std::pair<void(*)(void*), void*> > CallBacksToRun;
 
 // IntSigs - Signals that may interrupt the program at any time.
 static const int IntSigs[] = {
@@ -49,7 +52,16 @@ static const int *const IntSigsEnd =
 // KillSigs - Signals that are synchronous with the program that will cause it
 // to die.
 static const int KillSigs[] = {
-  SIGILL, SIGTRAP, SIGABRT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ
+  SIGILL, SIGTRAP, SIGABRT, SIGFPE, SIGBUS, SIGSEGV
+#ifdef SIGSYS
+  , SIGSYS
+#endif
+#ifdef SIGXCPU
+  , SIGXCPU
+#endif
+#ifdef SIGXFSZ
+  , SIGXFSZ
+#endif
 #ifdef SIGEMT
   , SIGEMT
 #endif
@@ -113,43 +125,51 @@ static RETSIGTYPE SignalHandler(int Sig) {
   sigfillset(&SigMask);
   sigprocmask(SIG_UNBLOCK, &SigMask, 0);
 
-  if (FilesToRemove != 0)
-    while (!FilesToRemove->empty()) {
-      FilesToRemove->back().eraseFromDisk(true);
-      FilesToRemove->pop_back();
-    }
+  SignalsMutex.acquire();
+  while (!FilesToRemove.empty()) {
+    FilesToRemove.back().eraseFromDisk(true);
+    FilesToRemove.pop_back();
+  }
 
   if (std::find(IntSigs, IntSigsEnd, Sig) != IntSigsEnd) {
     if (InterruptFunction) {
       void (*IF)() = InterruptFunction;
+      SignalsMutex.release();
       InterruptFunction = 0;
       IF();        // run the interrupt function.
       return;
     }
+    
+    SignalsMutex.release();
     raise(Sig);   // Execute the default handler.
     return;
   }
 
+  SignalsMutex.release();
+
   // Otherwise if it is a fault (like SEGV) run any handler.
-  if (CallBacksToRun)
-    for (unsigned i = 0, e = CallBacksToRun->size(); i != e; ++i)
-      (*CallBacksToRun)[i].first((*CallBacksToRun)[i].second);
+  for (unsigned i = 0, e = CallBacksToRun.size(); i != e; ++i)
+    CallBacksToRun[i].first(CallBacksToRun[i].second);
 }
 
-
+void llvm::sys::RunInterruptHandlers() {
+  SignalHandler(SIGINT);
+}
 
 void llvm::sys::SetInterruptFunction(void (*IF)()) {
+  SignalsMutex.acquire();
   InterruptFunction = IF;
+  SignalsMutex.release();
   RegisterHandlers();
 }
 
 // RemoveFileOnSignal - The public API
 bool llvm::sys::RemoveFileOnSignal(const sys::Path &Filename,
                                    std::string* ErrMsg) {
-  if (FilesToRemove == 0)
-    FilesToRemove = new std::vector<sys::Path>();
+  SignalsMutex.acquire();
+  FilesToRemove.push_back(Filename);
 
-  FilesToRemove->push_back(Filename);
+  SignalsMutex.release();
 
   RegisterHandlers();
   return false;
@@ -159,9 +179,7 @@ bool llvm::sys::RemoveFileOnSignal(const sys::Path &Filename,
 /// to the process.  The handler can have a cookie passed to it to identify
 /// what instance of the handler it is.
 void llvm::sys::AddSignalHandler(void (*FnPtr)(void *), void *Cookie) {
-  if (CallBacksToRun == 0)
-    CallBacksToRun = new std::vector<std::pair<void(*)(void*), void*> >();
-  CallBacksToRun->push_back(std::make_pair(FnPtr, Cookie));
+  CallBacksToRun.push_back(std::make_pair(FnPtr, Cookie));
   RegisterHandlers();
 }
 
@@ -195,7 +213,7 @@ static void PrintStackTrace(void *) {
     Dl_info dlinfo;
     dladdr(StackTrace[i], &dlinfo);
 
-    fprintf(stderr, "%-3d", i);
+    fprintf(stderr, "%-2d", i);
 
     const char* name = strrchr(dlinfo.dli_fname, '/');
     if (name == NULL) fprintf(stderr, " %-*s", width, dlinfo.dli_fname);

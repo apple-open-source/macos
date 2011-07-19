@@ -1,17 +1,17 @@
---- signal.3.orig	2006-12-15 11:55:30.000000000 -0800
-+++ signal.3	2006-12-15 11:57:08.000000000 -0800
-@@ -48,9 +48,7 @@
- .Ft void \*(lp*
- .Fn signal "int sig" "void \*(lp*func\*(rp\*(lpint\*(rp\*(rp\*(rp\*(lpint"
+--- signal.3.bsdnew	2009-11-08 14:20:21.000000000 -0800
++++ signal.3	2009-11-08 14:26:22.000000000 -0800
+@@ -52,9 +52,7 @@
  .Pp
+ .nr in-synopsis-section 1
+ .\" XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
 -or in
--.Fx Ns 's
+-.Fx Ap s
 -equivalent but easier to read typedef'd version:
 +or in the equivalent but easier to read typedef'd version:
  .Ft typedef "void \*(lp*sig_t\*(rp \*(lpint\*(rp" ;
+ .Pp
  .Ft sig_t
- .Fn signal "int sig" "sig_t func"
-@@ -62,9 +60,9 @@
+@@ -67,9 +65,9 @@ is a simplified interface to the more ge
  .Xr sigaction 2
  facility.
  .Pp
@@ -24,7 +24,7 @@
  There are two general types of signals:
  those that cause termination of a process and those that do not.
  Signals which cause termination of a program might result from
-@@ -77,11 +75,10 @@
+@@ -82,11 +80,10 @@ Signals are optionally generated
  when a process resumes after being stopped,
  when the status of child processes changes,
  or when input is ready at the control terminal.
@@ -40,7 +40,7 @@
  Except for the
  .Dv SIGKILL
  and
-@@ -135,7 +132,6 @@
+@@ -140,7 +137,6 @@ is possible on a descriptor (see
  .It 29 Ta Dv SIGINFO Ta "discard signal" Ta "status request from keyboard"
  .It 30 Ta Dv SIGUSR1 Ta "terminate process" Ta "User defined signal 1"
  .It 31 Ta Dv SIGUSR2 Ta "terminate process" Ta "User defined signal 2"
@@ -48,7 +48,7 @@
  .El
  .Pp
  The
-@@ -151,7 +147,7 @@
+@@ -156,7 +152,7 @@ should be
  A
  .Dv SIG_DFL
  resets the default action.
@@ -57,7 +57,7 @@
  .Fa func
  should be
  .Dv SIG_IGN .
-@@ -185,7 +181,7 @@
+@@ -192,7 +188,7 @@ The affected system calls include
  .Xr write 2 ,
  .Xr sendto 2 ,
  .Xr recvfrom 2 ,

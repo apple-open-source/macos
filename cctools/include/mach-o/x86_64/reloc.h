@@ -181,4 +181,5 @@ enum reloc_type_x86_64
 	X86_64_RELOC_SIGNED_1,		// for signed 32-bit displacement with a -1 addend
 	X86_64_RELOC_SIGNED_2,		// for signed 32-bit displacement with a -2 addend
 	X86_64_RELOC_SIGNED_4,		// for signed 32-bit displacement with a -4 addend
+	X86_64_RELOC_TLV,		// for thread local variables
 };

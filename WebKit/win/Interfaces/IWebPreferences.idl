@@ -47,6 +47,13 @@ typedef enum WebKitEditableLinkBehavior {
     WebKitEditableLinkNeverLive
 } WebKitEditableLinkBehavior;
 
+typedef enum WebKitEditingBehavior {
+    WebKitEditingMacBehavior = 0,
+    WebKitEditingWinBehavior,
+    WebKitEditingUnixBehavior
+} WebKitEditingBehavior;
+
+
 typedef enum WebKitCookieStorageAcceptPolicy {
     WebKitCookieStorageAcceptPolicyAlways = 0,
     WebKitCookieStorageAcceptPolicyNever,
@@ -189,4 +196,7 @@ interface IWebPreferences : IUnknown
 
     HRESULT setAcceleratedCompositingEnabled(BOOL acceleratedCompositingEnabled);
     HRESULT acceleratedCompositingEnabled(BOOL *acceleratedCompositingEnabled);
+
+    HRESULT editingBehavior([out, retval] WebKitEditingBehavior* editingBehavior);
+    HRESULT setEditingBehavior([in] WebKitEditingBehavior behavior);
 }

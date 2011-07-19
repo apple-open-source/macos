@@ -2,6 +2,7 @@
 [manpage_begin counter n 2.0.4]
 [moddesc   {Counters and Histograms}]
 [titledesc {Procedures for counters and histograms}]
+[category  {Data structures}]
 [require Tcl 8]
 [require counter [opt 2.0.4]]
 [description]

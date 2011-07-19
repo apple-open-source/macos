@@ -69,8 +69,6 @@
 #include <util.h>
 #include <syslog.h>
 
-static char ptytemplate[] = "/dev/ptyXX";
-
 int openpty(amaster, aslave, name, termp, winp)
 	int *amaster, *aslave;
 	char *name;

@@ -1,7 +1,7 @@
 /*
  ******************************************************************************
- * Copyright (C) 1996-2008, International Business Machines Corporation and   *
- * others. All Rights Reserved.                                               *
+ * Copyright (C) 1996-2010, International Business Machines Corporation and
+ * others. All Rights Reserved.
  ******************************************************************************
  */
 
@@ -53,6 +53,8 @@
  *                          to implementation file.
  * 01/29/01     synwee      Modified into a C++ wrapper calling C APIs (ucol.h)
  */
+
+#include <typeinfo>  // for 'typeid' to work
 
 #include "unicode/utypes.h"
 
@@ -126,8 +128,8 @@ RuleBasedCollator::RuleBasedCollator(const UnicodeString& rules,
         decompositionMode,
         status);
 }
-RuleBasedCollator::RuleBasedCollator(const uint8_t *bin, int32_t length, 
-                    const RuleBasedCollator *base, 
+RuleBasedCollator::RuleBasedCollator(const uint8_t *bin, int32_t length,
+                    const RuleBasedCollator *base,
                     UErrorCode &status) :
 dataIsOwned(TRUE),
 isWriteThroughAlias(FALSE)
@@ -193,7 +195,7 @@ UBool RuleBasedCollator::operator==(const Collator& that) const
   if (Collator::operator==(that))
     return TRUE;
 
-  if (getDynamicClassID() != that.getDynamicClassID())
+  if (typeid(*this) != typeid(that))
     return FALSE;  /* not the same class */
 
   RuleBasedCollator& thatAlias = (RuleBasedCollator&)that;
@@ -303,7 +305,7 @@ void RuleBasedCollator::getRules(UColRuleOption delta, UnicodeString &buffer)
             ucol_getRulesEx(ucollator, delta, rules, rulesize);
             buffer.setTo(rules, rulesize);
             uprv_free(rules);
-        } else { // couldn't allocate 
+        } else { // couldn't allocate
             buffer.remove();
         }
     }
@@ -389,6 +391,16 @@ UCollationResult RuleBasedCollator::compare(
     if(U_SUCCESS(status)) {
         return ucol_strcoll(ucollator, source.getBuffer(), source.length(),
                                        target.getBuffer(), target.length());
+    } else {
+        return UCOL_EQUAL;
+    }
+}
+
+UCollationResult RuleBasedCollator::compare(UCharIterator &sIter,
+                                            UCharIterator &tIter,
+                                            UErrorCode &status) const {
+    if(U_SUCCESS(status)) {
+        return ucol_strcollIter(ucollator, &sIter, &tIter, &status);
     } else {
         return UCOL_EQUAL;
     }
@@ -575,6 +587,21 @@ void RuleBasedCollator::setStrength(ECollationStrength newStrength)
     ucol_setAttribute(ucollator, UCOL_STRENGTH, strength, &intStatus);
 }
 
+int32_t RuleBasedCollator::getReorderCodes(int32_t *dest,
+                                          int32_t destCapacity,
+                                          UErrorCode& status) const
+{
+    return ucol_getReorderCodes(ucollator, dest, destCapacity, &status);
+}
+
+void RuleBasedCollator::setReorderCodes(const int32_t *reorderCodes,
+                                       int32_t reorderCodesLength,
+                                       UErrorCode& status)
+{
+    ucol_setReorderCodes(ucollator, reorderCodes, reorderCodesLength, &status);
+}
+
+
 /**
 * Create a hash code for this collation. Just hash the main rule table -- that
 * should be good enough for almost any use.
@@ -590,7 +617,7 @@ int32_t RuleBasedCollator::hashCode() const
 * return the locale of this collator
 */
 const Locale RuleBasedCollator::getLocale(ULocDataLocaleType type, UErrorCode &status) const {
-    const char *result = ucol_getLocale(ucollator, type, &status);
+    const char *result = ucol_getLocaleByType(ucollator, type, &status);
     if(result == NULL) {
         Locale res("");
         res.setToBogus();
@@ -673,7 +700,7 @@ RuleBasedCollator::RuleBasedCollator(const Locale& desiredLocale,
     }
 }
 
-void 
+void
 RuleBasedCollator::setUCollator(const char *locale,
                                 UErrorCode &status)
 {

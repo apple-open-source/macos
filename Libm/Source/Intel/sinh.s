@@ -488,11 +488,10 @@ sinh_body:
 		 %edx - n
 	   Everything else is fair game. */
 	
-	// put 2^(n-1) into xmm7
-	movl		%edx,			%eax
-	addl		$(1023 - 1),	%edx
+	// put 2^(n-2) into xmm7
+	addl		$(1023 - 2),	%edx
 	movd		%edx,			%xmm7
-	psllq		$52,			%xmm7
+	psllq		$52,			%xmm7   // exp2(n-2)
 	
 	// polynomial in f_lo
 	movapd		%xmm0,			%xmm2
@@ -501,6 +500,12 @@ sinh_body:
 	mulsd		-64(CX_P),		%xmm2	// xmm2 <-- c3/c4 * x
 	movapd		%xmm3,			%xmm4	// xmm4 <-- x
 	mulsd		-32(CX_P),		%xmm3	// xmm3 <-- c1 * x
+
+    movl        $0x400,         %eax
+    movd        %eax,           %xmm6
+    psllq       $52,            %xmm6   // 2.0
+    mulsd       %xmm6,          %xmm1   // high = signbit * exp2(1 + f_hi)
+    
 	movapd		%xmm0,			%xmm5
 	mulsd		-80(CX_P),		%xmm0	// xmm0 <-- c4 * xx
 	addsd		%xmm5,			%xmm2	// xmm2 <-- xx + c3x/c4
@@ -509,11 +514,11 @@ sinh_body:
 	mulsd		%xmm2,			%xmm0	// xmm0 <-- c4xx * (xx + c3x/c4)		xmm0 freed
 	addsd		%xmm5,			%xmm3	// xmm3 <-- c2xx + (c1x + c0)			xmm5 freed
 	addsd		%xmm3,			%xmm0	// xmm0 <-- exp2poly(x)					xmm3 freed
-	
-	mulsd		%xmm7,			%xmm1	// xmm1 <-- high = signbit * exp2(n-1 + f_hi)
+    
 	mulsd		%xmm1,			%xmm4	// xmm4 <-- high * f_lo
 	mulsd		%xmm4,			%xmm0	// xmm2 <-- high * f_lo * poly(f_lo)
 	addsd		%xmm1,			%xmm0	// xmm0 <-- high + high * f_lo * poly(f_lo)
+    mulsd       %xmm7,          %xmm0   // scale result by 2**(n - 2)
 	
 #if defined(__i386__)
 	movsd		%xmm0,			FRAME_SIZE(STACKP)

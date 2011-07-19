@@ -1,0 +1,7 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+circle 1 radius [1 cm]
+move
+circle 2 radius [2 cm]
+move
+circle 3 radius [3 cm]

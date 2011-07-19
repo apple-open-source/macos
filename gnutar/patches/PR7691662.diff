@@ -1,0 +1,12 @@
+--- lib/rtapelib.c.orig	2010-10-04 15:49:08.000000000 -0700
++++ lib/rtapelib.c	2010-10-04 15:51:05.000000000 -0700
+@@ -570,7 +570,8 @@
+ 
+   sprintf (command_buffer, "R%lu\n", (unsigned long) length);
+   if (do_command (handle, command_buffer) == -1
+-      || (status = get_status (handle)) == SAFE_READ_ERROR)
++      || (status = get_status (handle)) == SAFE_READ_ERROR
++      || status > length)
+     return SAFE_READ_ERROR;
+ 
+   for (counter = 0; counter < status; counter += rlen, buffer += rlen)

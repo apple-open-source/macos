@@ -26,9 +26,10 @@
 #include "config.h"
 #include "FrameWin.h"
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "Document.h"
 #include "FloatRect.h"
+#include "Frame.h"
 #include "PrintContext.h"
 #include "RenderView.h"
 #include "Settings.h"

@@ -38,7 +38,7 @@ the following problem: </p>
 
 </ul>
 
-<p> This extension is implemented as a separate EMSTP command, and
+<p> This extension is implemented as a separate ESMTP command, and
 can be used to transmit client or message attributes incrementally.
 It is not implemented by passing additional parameters via the MAIL
 FROM command, because doing so would require extending the MAIL
@@ -55,7 +55,8 @@ of this document.  </p>
 extension is XFORWARD. The keyword is followed by the names of the
 attributes that the XFORWARD implementation supports. </p>
 
-<p> The client may send the XFORWARD request at any time except in
+<p> After receiving the server's announcement for XFORWARD support,
+the client may send XFORWARD requests at any time except in
 the middle of a mail delivery transaction (i.e.  between MAIL and
 RSET or DOT).  The command may be pipelined when the server supports
 ESMTP command pipelining.  </p>
@@ -71,7 +72,7 @@ names are shown in upper case, they are in fact case insensitive.
     xforward-command = XFORWARD 1*( SP attribute-name"="attribute-value )
 </p>
 <p>
-    attribute-name = ( NAME | ADDR | PORT | PROTO | HELO | SOURCE )
+    attribute-name = ( NAME | ADDR | PORT | PROTO | HELO | IDENT | SOURCE )
 </p>
 <p>
     attribute-value = xtext
@@ -88,9 +89,10 @@ names are shown in upper case, they are in fact case insensitive.
     hostname may be a non-DNS hostname. </p>
 
     <li> <p> The ADDR attribute specifies the up-stream network
-    address, or [UNAVAILABLE] when the information is unavailable.
-    Address information is not enclosed with []. The address may
-    be a non-IP address. </p>
+    address: a numerical IPv4 network address, an IPv6 address
+    prefixed with IPV6:, or [UNAVAILABLE] when the address information
+    is unavailable.  Address information is not enclosed with [].
+    </p>
 
     <li> <p> The PORT attribute specifies an up-stream client TCP
     port number in decimal, or [UNAVAILABLE] when the information
@@ -105,6 +107,12 @@ names are shown in upper case, they are in fact case insensitive.
     up-stream host announced itself with (not necessarily via the
     SMTP HELO command), or [UNAVAILABLE] when the information is
     unavailable. The hostname may be a non-DNS hostname. </p>
+
+    <li> <p> The IDENT attribute specifies a local message identifier
+    on the up-stream host, or [UNAVAILABLE] when the information
+    is unavailable. The down-stream MTA may log this information
+    together with its own local message identifier to facilitate
+    message tracking across MTAs. </p>
 
     <li> <p> The SOURCE attribute specifies LOCAL when the message
     was received from a source that is local with respect to the
@@ -130,22 +138,30 @@ exceed the 512 character limit for SMTP commands. </p>
 <p> Note 3: [UNAVAILABLE] may be specified in upper case, lower
 case or mixed case. </p>
 
-<p> Note 4: the XFORWARD server implementation must not mix
-information from the current SMTP session with forwarded information
-from an up-stream session. </p>
-
-<p> Note 5: Postfix implementations prior to version 2.3 do not
+<p> Note 4: Postfix implementations prior to version 2.3 do not
 xtext encode attribute values. Servers that wish to interoperate
 with these older implementations should be prepared to receive
 unencoded information. </p>
 
-<h2> XFORWARD Server response </h2>
+<h2> XFORWARD Server operation </h2>
 
-<p> Upon receipt of a correctly formatted XFORWARD command, the
-server stores the specified attribute values, and erases the
-attributes whose value was specified as [UNAVAILABLE]. All XFORWARD
-attributes are reset to the real client information after the MAIL
-FROM transaction completes (i.e. after RSET or DOT). </p>
+<p> The server maintains a set of XFORWARD attributes with forwarded
+information, in addition the current SMTP session attributes.
+Normally, all XFORWARD attributes are in the undefined state, and
+the server uses the current SMTP session attributes for logging
+purposes. </p>
+
+<p> Upon receipt of an initial XFORWARD command, the SMTP server
+initializes all XFORWARD attributes to [UNAVAILABLE].  With each
+valid XFORWARD command, the server updates XFORWARD attributes with
+the specified values. </p>
+
+<p> The server must not mix client attributes from XFORWARD with
+client attributes from the current SMTP session. </p>
+
+<p> At the end of each MAIL FROM transaction (i.e. RSET or DOT),
+the server resets all XFORWARD attributes to the undefined state,
+and is ready to receive another initial XFORWARD command.  </p>
 
 <h2> XFORWARD Server reply codes </h2>
 

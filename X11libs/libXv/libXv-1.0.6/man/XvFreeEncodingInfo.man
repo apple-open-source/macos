@@ -1,0 +1,22 @@
+.TH XvFreeEncodingInfo __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvFreeEncodingInfo \- free encoding information
+.\"
+.SH SYNOPSIS
+.BI "void XvFreeEncodingInfo(XvEncodingInfo *" p_encoding_info ");"
+.SH ARGUMENTS
+.\"
+.IP \fIp_encoding_info\fR 8
+Pointer to where the encoding information is located.
+.\"
+.SH DESCRIPTION
+.\"
+.BR XvFreeEncodingInfo (__libmansuffix__)
+frees encoding information that was returned by
+.BR XvQueryEncodings (__libmansuffix__).
+The data structure used for encoding information is defined in the
+reference page for
+.BR XvQueryEncodings (__libmansuffix__).
+.SH SEE ALSO
+.\"
+.BR XvQueryEncodings (__libmansuffix__)

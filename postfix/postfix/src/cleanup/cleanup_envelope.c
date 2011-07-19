@@ -267,7 +267,7 @@ static void cleanup_envelope_process(CLEANUP_STATE *state, int type,
 	if (cleanup_milters != 0
 	    && state->milters == 0
 	    && CLEANUP_MILTER_OK(state))
-	    cleanup_milter_emul_rcpt(state, cleanup_milters, buf);
+	    cleanup_milter_emul_rcpt(state, cleanup_milters, state->recip);
 	myfree(state->orig_rcpt);
 	state->orig_rcpt = 0;
 	if (state->dsn_orcpt != 0) {
@@ -377,11 +377,24 @@ static void cleanup_envelope_process(CLEANUP_STATE *state, int type,
 	    state->errs |= CLEANUP_STAT_BAD;
 	    return;
 	}
+	if (state->milters || cleanup_milters) {
+	    /* Remember the sender record offset. */
+	    if ((state->sender_pt_offset = vstream_ftell(state->dst)) < 0)
+		msg_fatal("%s: vstream_ftell %s: %m:", myname, cleanup_path);
+	}
 	cleanup_addr_sender(state, buf);
+	if (state->milters || cleanup_milters) {
+	    /* Make room to replace sender. */
+	    if ((len = strlen(state->sender)) < REC_TYPE_PTR_PAYL_SIZE)
+		rec_pad(state->dst, REC_TYPE_PTR, REC_TYPE_PTR_PAYL_SIZE - len);
+	    /* Remember the after-sender record offset. */
+	    if ((state->sender_pt_target = vstream_ftell(state->dst)) < 0)
+		msg_fatal("%s: vstream_ftell %s: %m:", myname, cleanup_path);
+	}
 	if (cleanup_milters != 0
 	    && state->milters == 0
 	    && CLEANUP_MILTER_OK(state))
-	    cleanup_milter_emul_mail(state, cleanup_milters, buf);
+	    cleanup_milter_emul_mail(state, cleanup_milters, state->sender);
 	return;
     }
     if (mapped_type == REC_TYPE_DSN_ENVID) {

@@ -11,6 +11,8 @@ DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PYTHONVERSIONS))
 VERSIONS := $(filter-out $(INCOMPATIBLE), $(shell grep '^[0-9]' $(PYTHONVERSIONS)))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PYTHONPROJECT) -I$(MYFIX) -framework CoreFoundation
+OSV = OpenSourceVersions
+OSL = OpenSourceLicenses
 
 RSYNC = rsync -rlpt
 PWD = $(shell pwd)
@@ -50,24 +52,36 @@ FIX = $(VERSIONERDIR)/$(PYTHONPROJECT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
 
 installsrc:
-	echo GNU installsrc
+	@echo "*** pyobjc installsrc ***"
 	$(MAKE) -f Makefile installsrc Project=$(Project)
+	for vers in $(VERSIONS); do \
+	    [ ! -d $$vers ] || $(MAKE) -C $$vers -f Makefile installsrc Project=$(Project) SRCROOT="$(SRCROOT)/$$vers" || exit 1; \
+	done
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 build::
+	$(MKDIR) $(OBJROOT)/$(OSL)
+	$(MKDIR) $(OBJROOT)/$(OSV)
 	@set -x && \
 	for vers in $(VERSIONS); do \
+	    Copt= && \
+	    srcroot='$(SRCROOT)' && \
+	    if [ -d $$vers ]; then \
+		srcroot="$(SRCROOT)/$$vers"; \
+		Copt="-C $$vers"; \
+	    fi && \
 	    mkdir -p "$(SYMROOT)/$$vers" && \
 	    mkdir -p "$(OBJROOT)/$$vers/DSTROOT" || exit 1; \
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
-		TOPSRCROOT='$(SRCROOT)' \
 		VERSIONER_PYTHON_VERSION=$$vers \
 		VERSIONER_PYTHON_PREFER_32_BIT=yes \
-		$(MAKE) -f Makefile install Project=$(Project) \
+		$(MAKE) $$Copt -f Makefile install Project=$(Project) \
+		SRCROOT="$$srcroot" \
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \
+		OSL='$(OBJROOT)/$(OSL)' OSV='$(OBJROOT)/$(OSV)' \
 		RC_ARCHS='$(RC_ARCHS) -g' >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
 		echo "######## Finished $$vers:" `date` '########' >> "$(SYMROOT)/$$vers/LOG" 2>&1 \
@@ -84,9 +98,23 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
+	$(MKDIR) $(DSTROOT)/usr/local/$(OSL)
+	@set -x && \
+	cd $(OBJROOT)/$(OSL) && \
+	for i in *; do \
+	    echo '##########' `basename $$i` '##########' && \
+	    cat $$i || exit 1; \
+	done > $(DSTROOT)/usr/local/$(OSL)/$(Project).txt
+	$(MKDIR) $(DSTROOT)/usr/local/$(OSV)
+	(cd $(OBJROOT)/$(OSV) && \
+	echo '<plist version="1.0">' && \
+	echo '<array>' && \
+	cat * && \
+	echo '</array>' && \
+	echo '</plist>') > $(DSTROOT)/usr/local/$(OSV)/$(Project).plist
 
 #merge: mergebegin mergedefault mergeversions mergebin mergeman
-merge: mergebegin mergedefault mergeversions
+merge: mergebegin mergedefault mergeversions rmempty
 
 mergebegin:
 	@echo '####### Merging #######'
@@ -101,8 +129,7 @@ mergebegin:
 #	done
 
 MERGEDEFAULT = \
-    Developer \
-    usr
+    Developer
 mergedefault:
 	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
 
@@ -136,4 +163,12 @@ mergeversions:
 	for vers in $(VERSIONS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
 	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
+	done
+
+# remove empty files (specific to pyobjc-2.3)
+EMPTY = /Developer/Documentation/Python/PyObjC/10PyObjCTools.txt
+rmempty:
+	@set -x && \
+	for empty in $(EMPTY); do \
+	    rm -f $(DSTROOT)$$empty || exit 1; \
 	done

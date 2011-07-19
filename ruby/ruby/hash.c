@@ -3,7 +3,7 @@
   hash.c -
 
   $Author: shyouhei $
-  $Date: 2009-02-24 02:40:05 +0900 (Tue, 24 Feb 2009) $
+  $Date: 2009-12-14 11:46:50 +0900 (Mon, 14 Dec 2009) $
   created at: Mon Nov 22 18:51:18 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -81,7 +81,19 @@ VALUE
 rb_hash(obj)
     VALUE obj;
 {
-    return rb_funcall(obj, id_hash, 0);
+    VALUE hval = rb_funcall(obj, id_hash, 0);
+  retry:
+    switch (TYPE(hval)) {
+      case T_FIXNUM:
+	return hval;
+
+      case T_BIGNUM:
+	return LONG2FIX(((long*)(RBIGNUM_DIGITS(hval)))[0]);
+
+      default:
+	hval = rb_to_int(hval);
+	goto retry;
+    }
 }
 
 static int
@@ -102,10 +114,7 @@ rb_any_hash(a)
 	break;
 
       default:
-	hval = rb_funcall(a, id_hash, 0);
-	if (!FIXNUM_P(hval)) {
-	    hval = rb_funcall(hval, '%', 1, INT2FIX(536870923));
-	}
+        hval = rb_hash(a);
 	hnum = (int)FIX2LONG(hval);
     }
     hnum <<= 1;
@@ -1938,7 +1947,19 @@ rb_env_path_tainted()
     return path_tainted;
 }
 
-#if !defined(_WIN32) && !(defined(HAVE_SETENV) && defined(HAVE_UNSETENV))
+#if defined(_WIN32) || (defined(HAVE_SETENV) && defined(HAVE_UNSETENV))
+#elif defined __sun__
+static int
+in_origenv(str)
+    const char *str;
+{
+    char **env;
+    for (env = origenviron; *env; ++env) {
+	if (*env == str) return 1;
+    }
+    return 0;
+}
+#else
 static int
 envix(nam)
     const char *nam;
@@ -1993,6 +2014,21 @@ ruby_setenv(name, value)
 	setenv(name,value,1);
     else
 	unsetenv(name);
+#elif defined __sun__
+    size_t len = strlen(name);
+    char **env_ptr, *str;
+    for (env_ptr = GET_ENVIRON(environ); (str = *env_ptr) != 0; ++env_ptr) {
+	if (!strncmp(str, name, len) && str[len] == '=') {
+	    if (!in_origenv(str)) free(str);
+	    while ((env_ptr[0] = env_ptr[1]) != 0) env_ptr++;
+	    break;
+	}
+    }
+    if (value) {
+	str = malloc(len += strlen(value) + 2);
+	snprintf(str, len, "%s=%s", name, value);
+	putenv(str);
+    }
 #else  /* WIN32 */
     size_t len;
     int i=envix(name);		        /* where does it go? */

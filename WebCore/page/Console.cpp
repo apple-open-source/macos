@@ -31,26 +31,32 @@
 
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "ConsoleMessage.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
+#include "InspectorConsoleInstrumentation.h"
 #include "InspectorController.h"
+#include "MemoryInfo.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformString.h"
-
+#include "ScriptArguments.h"
 #include "ScriptCallStack.h"
 #include "ScriptProfile.h"
 #include "ScriptProfiler.h"
+#include "ScriptValue.h"
 #include <stdio.h>
-#include <wtf/text/CString.h>
 #include <wtf/UnusedParam.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
 Console::Console(Frame* frame)
     : m_frame(frame)
+{
+}
+
+Console::~Console()
 {
 }
 
@@ -61,6 +67,8 @@ Frame* Console::frame() const
 
 void Console::disconnectFrame()
 {
+    if (m_memory)
+        m_memory = 0;
     m_frame = 0;
 }
 
@@ -74,28 +82,12 @@ static void printSourceURLAndLine(const String& sourceURL, unsigned lineNumber)
     }
 }
 
-static bool getFirstArgumentAsString(ScriptState* scriptState, const ScriptCallFrame& callFrame, String& result, bool checkForNullOrUndefined = false)
-{
-    if (!callFrame.argumentCount())
-        return false;
-
-    const ScriptValue& value = callFrame.argumentAt(0);
-    if (checkForNullOrUndefined && (value.isNull() || value.isUndefined()))
-        return false;
-
-    result = value.toString(scriptState);
-    return true;
-}
-
 static void printMessageSourceAndLevelPrefix(MessageSource source, MessageLevel level)
 {
     const char* sourceString;
     switch (source) {
     case HTMLMessageSource:
         sourceString = "HTML";
-        break;
-    case WMLMessageSource:
-        sourceString = "WML";
         break;
     case XMLMessageSource:
         sourceString = "XML";
@@ -143,16 +135,21 @@ static void printMessageSourceAndLevelPrefix(MessageSource source, MessageLevel 
 
 void Console::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
 {
+    addMessage(source, type, level, message, lineNumber, sourceURL, 0);
+}
+
+void Console::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack> callStack)
+{
     Page* page = this->page();
     if (!page)
         return;
 
-    if (source == JSMessageSource)
-        page->chrome()->client()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
+    page->chrome()->client()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
 
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
-#endif
+    if (callStack)
+        InspectorInstrumentation::addMessageToConsole(page, source, type, level, message, 0, callStack);
+    else
+        InspectorInstrumentation::addMessageToConsole(page, source, type, level, message, lineNumber, sourceURL);
 
     if (!Console::shouldPrintExceptions())
         return;
@@ -163,74 +160,75 @@ void Console::addMessage(MessageSource source, MessageType type, MessageLevel le
     printf(" %s\n", message.utf8().data());
 }
 
-void Console::addMessage(MessageType type, MessageLevel level, ScriptCallStack* callStack, bool acceptNoArguments)
+void Console::addMessage(MessageType type, MessageLevel level, PassRefPtr<ScriptArguments> prpArguments,  PassRefPtr<ScriptCallStack> prpCallStack, bool acceptNoArguments)
 {
+    RefPtr<ScriptArguments> arguments = prpArguments;
+    RefPtr<ScriptCallStack> callStack = prpCallStack;
+
     Page* page = this->page();
     if (!page)
         return;
 
     const ScriptCallFrame& lastCaller = callStack->at(0);
 
-    if (!acceptNoArguments && !lastCaller.argumentCount())
+    if (!acceptNoArguments && !arguments->argumentCount())
         return;
+
+    if (Console::shouldPrintExceptions()) {
+        printSourceURLAndLine(lastCaller.sourceURL(), 0);
+        printMessageSourceAndLevelPrefix(JSMessageSource, level);
+
+        for (unsigned i = 0; i < arguments->argumentCount(); ++i) {
+            String argAsString;
+            if (arguments->argumentAt(i).getString(arguments->globalState(), argAsString))
+                printf(" %s", argAsString.utf8().data());
+        }
+        printf("\n");
+    }
 
     String message;
-    if (getFirstArgumentAsString(callStack->state(), lastCaller, message))
-        page->chrome()->client()->addMessageToConsole(JSMessageSource, type, level, message, lastCaller.lineNumber(), lastCaller.sourceURL().prettyURL());
+    if (arguments->getFirstArgumentAsString(message))
+        page->chrome()->client()->addMessageToConsole(JSMessageSource, type, level, message, lastCaller.lineNumber(), lastCaller.sourceURL());
 
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->addMessageToConsole(JSMessageSource, type, level, callStack);
-#endif
-
-    if (!Console::shouldPrintExceptions())
-        return;
-
-    printSourceURLAndLine(lastCaller.sourceURL().prettyURL(), 0);
-    printMessageSourceAndLevelPrefix(JSMessageSource, level);
-
-    for (unsigned i = 0; i < lastCaller.argumentCount(); ++i) {
-        String argAsString;
-        if (lastCaller.argumentAt(i).getString(callStack->state(), argAsString))
-            printf(" %s", argAsString.utf8().data());
-    }
-    printf("\n");
+    InspectorInstrumentation::addMessageToConsole(page, JSMessageSource, type, level, message, arguments, callStack);
 }
 
-void Console::debug(ScriptCallStack* callStack)
+void Console::debug(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
     // In Firebug, console.debug has the same behavior as console.log. So we'll do the same.
-    log(callStack);
+    log(arguments, callStack);
 }
 
-void Console::error(ScriptCallStack* callStack)
+void Console::error(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-    addMessage(LogMessageType, ErrorMessageLevel, callStack);
+    addMessage(LogMessageType, ErrorMessageLevel, arguments, callStack);
 }
 
-void Console::info(ScriptCallStack* callStack)
+void Console::info(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-    log(callStack);
+    log(arguments, callStack);
 }
 
-void Console::log(ScriptCallStack* callStack)
+void Console::log(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-    addMessage(LogMessageType, LogMessageLevel, callStack);
+    addMessage(LogMessageType, LogMessageLevel, arguments, callStack);
 }
 
-void Console::dir(ScriptCallStack* callStack)
+void Console::dir(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-    addMessage(ObjectMessageType, LogMessageLevel, callStack);
+    addMessage(ObjectMessageType, LogMessageLevel, arguments, callStack);
 }
 
-void Console::dirxml(ScriptCallStack* callStack)
+void Console::dirxml(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
     // The standard behavior of our console.log will print the DOM tree for nodes.
-    log(callStack);
+    log(arguments, callStack);
 }
 
-void Console::trace(ScriptCallStack* callStack)
+void Console::trace(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> prpCallStack)
 {
-    addMessage(TraceMessageType, LogMessageLevel, callStack, true);
+    RefPtr<ScriptCallStack> callStack = prpCallStack;
+    addMessage(TraceMessageType, LogMessageLevel, arguments, callStack, true);
 
     if (!shouldPrintExceptions())
         return;
@@ -242,205 +240,112 @@ void Console::trace(ScriptCallStack* callStack)
     }
 }
 
-void Console::assertCondition(bool condition, ScriptCallStack* callStack)
+void Console::assertCondition(bool condition, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
     if (condition)
         return;
 
-    addMessage(AssertMessageType, ErrorMessageLevel, callStack, true);
+    addMessage(AssertMessageType, ErrorMessageLevel, arguments, callStack, true);
 }
 
-void Console::count(ScriptCallStack* callStack)
+void Console::count(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return;
-
-    const ScriptCallFrame& lastCaller = callStack->at(0);
-    // Follow Firebug's behavior of counting with null and undefined title in
-    // the same bucket as no argument
-    String title;
-    getFirstArgumentAsString(callStack->state(), lastCaller, title);
-
-    page->inspectorController()->count(title, lastCaller.lineNumber(), lastCaller.sourceURL().string());
-#else
-    UNUSED_PARAM(callStack);
-#endif
+    InspectorInstrumentation::consoleCount(page(), arguments, callStack);
 }
 
-void Console::markTimeline(ScriptCallStack* callStack)
+void Console::markTimeline(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack>)
 {
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return;
-
-    const ScriptCallFrame& lastCaller = callStack->at(0);
-    String message;
-    getFirstArgumentAsString(callStack->state(), lastCaller, message);
-
-    page->inspectorController()->markTimeline(message);
-#else
-    UNUSED_PARAM(callStack);
-#endif
+    InspectorInstrumentation::consoleMarkTimeline(page(), arguments);
 }
-
-#if ENABLE(WML)
-String Console::lastWMLErrorMessage() const
-{
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return String();
-
-    const Vector<ConsoleMessage*>& consoleMessages = page->inspectorController()->consoleMessages();
-    if (consoleMessages.isEmpty())
-        return String();
-
-    Vector<ConsoleMessage*>::const_iterator it = consoleMessages.begin();
-    const Vector<ConsoleMessage*>::const_iterator end = consoleMessages.end();
-
-    for (; it != end; ++it) {
-        ConsoleMessage* message = *it;
-        if (message->source() != WMLMessageSource)
-            continue;
-
-        return message->message();
-    }
-#endif
-    return String();
-}
-#endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
-void Console::profile(const String& title, ScriptCallStack* callStack)
+void Console::profile(const String& title, ScriptState* state, PassRefPtr<ScriptCallStack> callStack)
 {
     Page* page = this->page();
     if (!page)
         return;
 
-#if ENABLE(INSPECTOR)
-    InspectorController* controller = page->inspectorController();
     // FIXME: log a console message when profiling is disabled.
-    if (!controller->profilerEnabled())
+    if (!InspectorInstrumentation::profilerEnabled(page))
         return;
-#endif
 
     String resolvedTitle = title;
     if (title.isNull()) // no title so give it the next user initiated profile title.
-#if ENABLE(INSPECTOR)
-        resolvedTitle = controller->getCurrentUserInitiatedProfileName(true);
-#else
-        resolvedTitle = "";
-#endif
+        resolvedTitle = InspectorInstrumentation::getCurrentUserInitiatedProfileName(page, true);
 
-    ScriptProfiler::start(callStack->state(), resolvedTitle);
+    ScriptProfiler::start(state, resolvedTitle);
 
-#if ENABLE(INSPECTOR)
     const ScriptCallFrame& lastCaller = callStack->at(0);
-    controller->addStartProfilingMessageToConsole(resolvedTitle, lastCaller.lineNumber(), lastCaller.sourceURL());
-#endif
+    InspectorInstrumentation::addStartProfilingMessageToConsole(page, resolvedTitle, lastCaller.lineNumber(), lastCaller.sourceURL());
 }
 
-void Console::profileEnd(const String& title, ScriptCallStack* callStack)
+void Console::profileEnd(const String& title, ScriptState* state, PassRefPtr<ScriptCallStack> callStack)
 {
     Page* page = this->page();
     if (!page)
         return;
 
-#if ENABLE(INSPECTOR)
-    InspectorController* controller = page->inspectorController();
-    if (!controller->profilerEnabled())
+    if (!InspectorInstrumentation::profilerEnabled(page))
         return;
-#endif
 
-    RefPtr<ScriptProfile> profile = ScriptProfiler::stop(callStack->state(), title);
+    RefPtr<ScriptProfile> profile = ScriptProfiler::stop(state, title);
     if (!profile)
         return;
 
     m_profiles.append(profile);
-
-#if ENABLE(INSPECTOR)
-    const ScriptCallFrame& lastCaller = callStack->at(0);
-    controller->addProfile(profile, lastCaller.lineNumber(), lastCaller.sourceURL());
-#endif
+    InspectorInstrumentation::addProfile(page, profile, callStack);
 }
 
 #endif
 
 void Console::time(const String& title)
 {
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return;
-
-    // Follow Firebug's behavior of requiring a title that is not null or
-    // undefined for timing functions
-    if (title.isNull())
-        return;
-
-    page->inspectorController()->startTiming(title);
-#else
-    UNUSED_PARAM(title);
-#endif
+    InspectorInstrumentation::startConsoleTiming(page(), title);
 }
 
-void Console::timeEnd(const String& title, ScriptCallStack* callStack)
+void Console::timeEnd(const String& title, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack> callStack)
 {
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return;
-
-    // Follow Firebug's behavior of requiring a title that is not null or
-    // undefined for timing functions
-    if (title.isNull())
-        return;
-
-    double elapsed;
-    if (!page->inspectorController()->stopTiming(title, elapsed))
-        return;
-
-    String message = title + String::format(": %.0fms", elapsed);
-
-    const ScriptCallFrame& lastCaller = callStack->at(0);
-    page->inspectorController()->addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lastCaller.lineNumber(), lastCaller.sourceURL().string());
-#else
-    UNUSED_PARAM(title);
-    UNUSED_PARAM(callStack);
-#endif
+    InspectorInstrumentation::stopConsoleTiming(page(), title, callStack);
 }
 
-void Console::group(ScriptCallStack* callStack)
+void Console::group(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-#if ENABLE(INSPECTOR)
-    Page* page = this->page();
-    if (!page)
-        return;
+    InspectorInstrumentation::addMessageToConsole(page(), JSMessageSource, StartGroupMessageType, LogMessageLevel, String(), arguments, callStack);
+}
 
-    page->inspectorController()->startGroup(JSMessageSource, callStack);
-#else
-    UNUSED_PARAM(callStack);
-#endif
+void Console::groupCollapsed(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
+{
+    InspectorInstrumentation::addMessageToConsole(page(), JSMessageSource, StartGroupCollapsedMessageType, LogMessageLevel, String(), arguments, callStack);
 }
 
 void Console::groupEnd()
 {
+    InspectorInstrumentation::addMessageToConsole(page(), JSMessageSource, EndGroupMessageType, LogMessageLevel, String(), 0, String());
+}
+
+bool Console::shouldCaptureFullStackTrace() const
+{
 #if ENABLE(INSPECTOR)
     Page* page = this->page();
     if (!page)
-        return;
+        return false;
 
-    page->inspectorController()->endGroup(JSMessageSource, 0, String());
+    return page->inspectorController()->hasFrontend();
+#else
+    return false;
 #endif
 }
 
-void Console::warn(ScriptCallStack* callStack)
+void Console::warn(PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
 {
-    addMessage(LogMessageType, WarningMessageLevel, callStack);
+    addMessage(LogMessageType, WarningMessageLevel, arguments, callStack);
+}
+
+MemoryInfo* Console::memory() const
+{
+    m_memory = MemoryInfo::create(m_frame);
+    return m_memory.get();
 }
 
 static bool printExceptions = false;

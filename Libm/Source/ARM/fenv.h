@@ -35,10 +35,6 @@
 #if !defined(__VFP_FP__) || defined(__SOFTFP__)
 	#warning The <fenv.h> functions are not supported on platforms that do not have hardware floating-point.
 #else
-   
-#if defined(__GNUC__) && (__GNUC__ >= 4)   
-    #pragma GCC fenv
-#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,9 +50,9 @@ extern "C" {
     non-default modes must do so under the effect of an enabling
     "fenv_access" pragma:
 
-    Note that prior to iPhone OS 2.0, these interfaces did nothing.
-
     #pragma STDC FENV_ACCESS on
+ 
+    Note that prior to iPhone OS 2.0, these interfaces did nothing.
 */
 
 /********************************************************************************

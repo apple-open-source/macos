@@ -1,9 +1,9 @@
 .\"
 .\" "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $"
 .\"
-.\"   cupsd.conf man page for the Common UNIX Printing System (CUPS).
+.\"   cupsd.conf man page for CUPS.
 .\"
-.\"   Copyright 2007-2010 by Apple Inc.
+.\"   Copyright 2007-2011 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsd.conf 5 "CUPS" "28 January 2010" "Apple Inc."
+.TH cupsd.conf 5 "CUPS" "18 May 2011" "Apple Inc."
 .SH NAME
 cupsd.conf \- server configuration file for cups
 .SH DESCRIPTION
@@ -400,6 +400,26 @@ JobKillDelay seconds
 Specifies the number of seconds to wait before killing the filters and backend
 associated with a canceled or held job.
 .TP 5
+JobPrivateAccess all
+.TP 5
+JobPrivateAccess default
+.TP 5
+JobPrivateAccess {user|@group|@ACL|@OWNER|@SYSTEM}+
+.br
+Specifies an access list for a job's private values. The "default" access list
+is "@OWNER @SYSTEM". "@ACL" maps to the printer's requesting-user-name-allowed
+or requesting-user-name-denied values.
+.TP 5
+JobPrivateValues all
+.TP 5
+JobPrivateValues default
+.TP 5
+JobPrivateValues none
+.TP 5
+JobPrivateValues attribute-name-1 [ ... attribute-name-N ]
+Specifies the list of job values to make private. The "default" values are
+"job-name", "job-originating-host-name", and "job-originating-user-name".
+.TP 5
 JobRetryInterval seconds
 .br
 Specifies the interval between retries of jobs in seconds.
@@ -625,7 +645,9 @@ ServerAdmin user@domain.com
 .br
 Specifies the email address of the server administrator.
 .TP 5
-ServerAlias hostname
+ServerAlias hostname [... hostname]
+.TP 5
+ServerAlias *
 .br
 Specifies an alternate name that the server is known by. The special name "*"
 allows any name to be used.
@@ -686,6 +708,27 @@ SSLPort
 .br
 Listens on the specified port for encrypted connections.
 .TP 5
+SubscriptionPrivateAccess all
+.TP 5
+SubscriptionPrivateAccess default
+.TP 5
+SubscriptionPrivateAccess {user|@group|@ACL|@OWNER|@SYSTEM}+
+.br
+Specifies an access list for a subscription's private values. The "default"
+access list is "@OWNER @SYSTEM". "@ACL" maps to the printer's
+requesting-user-name-allowed or requesting-user-name-denied values.
+.TP 5
+SubscriptionPrivateValues all
+.TP 5
+SubscriptionPrivateValues default
+.TP 5
+SubscriptionPrivateValues none
+.TP 5
+SubscriptionPrivateValues attribute-name-1 [ ... attribute-name-N ]
+Specifies the list of job values to make private. The "default" values are
+"notify-events", "notify-pull-method", "notify-recipient-uri",
+"notify-subscriber-user-name", and "notify-user-data".
+.TP 5
 SystemGroup group-name [group-name ...]
 .br
 Specifies the group(s) to use for System class authentication.
@@ -701,6 +744,11 @@ Specifies the HTTP request timeout in seconds.
 User user-name
 .br
 Specifies the user name or ID that is used when running external programs.
+.TP 5
+WebInterface yes
+.TP 5
+WebInterface no
+Specifies whether the web interface is enabled.
 .SH SEE ALSO
 \fIclasses.conf(5)\fR, \fIcupsd(8)\fR, \fImime.convs(5)\fR,
 \fImime.types(5)\fR, \fIprinters.conf(5)\fR,
@@ -708,7 +756,7 @@ Specifies the user name or ID that is used when running external programs.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2009 by Apple Inc.
+Copyright 2007-2011 by Apple Inc.
 .\"
 .\" End of "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $".
 .\"

@@ -33,17 +33,13 @@
 #include "authority.h"
 #include "authhost.h"
 #include <Security/AuthSession.h>
+#include <security_utilities/ccaudit.h>
 #include <security_cdsa_utilities/handletemplates_defs.h>
 #include <security_cdsa_utilities/u32handleobject.h>
 #include <security_cdsa_utilities/cssmdb.h>
-
-#if __GNUC__ > 2
-#include <ext/hash_map>
-using __gnu_cxx::hash_map;
-#else
-#include <hash_map>
-#endif
-
+#include <bsm/audit.h>
+#include <bsm/audit_session.h>
+#include <sys/event.h>
 
 class Key;
 class Connection;
@@ -58,38 +54,34 @@ class AuthHostInstance;
 // with a modicum of security, and so Sessions are the natural nexus of
 // single-sign-on functionality.
 //
-class Session : public U32HandleObject, public PerSession {
+class Session : public PerSession {
 public:
-    typedef MachPlusPlus::Bootstrap Bootstrap;
+	typedef au_asid_t SessionId;			// internal session identifier (audit session id)
 
-    Session(Bootstrap bootstrap, Port servicePort, SessionAttributeBits attrs = 0);
+    Session(const CommonCriteria::AuditInfo &audit, Server &server);
 	virtual ~Session();
     
-    Bootstrap bootstrapPort() const		{ return mBootstrap; }
-	Port servicePort() const			{ return mServicePort; }
+	SessionId sessionId() const { return mAudit.sessionId(); }
+	CommonCriteria::AuditInfo &auditInfo() { return mAudit; }
     
 	IFDUMP(virtual void dumpNode());
     
 public:
     static const SessionAttributeBits settableAttributes =
-        sessionHasGraphicAccess | sessionHasTTY | sessionIsRemote;
+        sessionHasGraphicAccess | sessionHasTTY | sessionIsRemote | AU_SESSION_FLAG_HAS_AUTHENTICATED;
 
-    SessionAttributeBits attributes() const			{ return mAttributes; }
-    bool attribute(SessionAttributeBits bits) const	{ return mAttributes & bits; }
+    SessionAttributeBits attributes() const			{ updateAudit(); return mAudit.ai_flags; }
+    bool attribute(SessionAttributeBits bits) const	{ return attributes() & bits; }
+	void setAttributes(SessionAttributeBits bits);
 	
     virtual void setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs);
 
-	virtual bool haveOriginatorUid() const = 0;
-	virtual uid_t originatorUid() const = 0;
-    Credential originatorCredential() const { return mOriginatorCredential; }
+	virtual uid_t originatorUid() const		{ updateAudit(); return mAudit.uid(); }
 
 	virtual CFDataRef copyUserPrefs() = 0;
 
-	static std::string kUsername;
-    static std::string kRealname;
-    
-protected:
-    void setAttributes(SessionAttributeBits attrs)	{ mAttributes |= attrs; }
+	static const char kUsername[];
+    static const char kRealname[];
     
 public:
 	const CredentialSet &authCredentials() const	{ return mSessionCreds; }
@@ -119,10 +111,13 @@ public:
     // authCheckRight() with exception-handling and Boolean return semantics
     bool isRightAuthorized(string &rightName, Connection &connection, bool allowUI);
 
+protected:
+	void updateAudit() const;
+
 private:
     struct AuthorizationExternalBlob {
         AuthorizationBlob blob;
-        mach_port_t session;
+		uint32_t session;
     };
 	
 protected:
@@ -133,10 +128,6 @@ protected:
 	void mergeCredentials(CredentialSet &creds);
 
 public:
-    static Session &find(Port servPort);
-    static Session &find(SecuritySessionId id);
-	template <class SessionType> static SessionType &find(SecuritySessionId id);
-    static void destroy(Port servPort);
     void invalidateSessionAuthHosts();      // invalidate auth hosts in this session
     static void invalidateAuthHosts();      // invalidate auth hosts in all sessions
 	
@@ -146,12 +137,10 @@ public:
 	RefPointer<AuthHostInstance> authhost(const AuthHostType hostType = securityAgent, const bool restart = false);
 
 protected:
-    Bootstrap mBootstrap;			// session bootstrap port
-	Port mServicePort;				// SecurityServer service port for this session
-    SessionAttributeBits mAttributes; // attribute bits (see AuthSession.h)
-
-    mutable Mutex mCredsLock;	// lock for mSessionCreds
-	CredentialSet mSessionCreds;	// shared session authorization credentials
+ 	mutable CommonCriteria::AuditInfo mAudit;
+	
+	mutable Mutex mCredsLock;				// lock for mSessionCreds
+	CredentialSet mSessionCreds;			// shared session authorization credentials
 
 	mutable Mutex mAuthHostLock;
 	AuthHostInstance *mSecurityAgent;
@@ -161,15 +150,23 @@ protected:
     Credential mOriginatorCredential;
 	
 	void kill();
-	
+
+public:
+	static Session &find(SessionId id, bool create);	// find and optionally create
+    template <class SessionType> static SessionType &find(SecuritySessionId id);
+	static void destroy(SessionId id);
+
 protected:
-	static PortMap<Session> mSessions;
+	typedef std::map<SessionId, RefPointer<Session> > SessionMap;
+	static SessionMap mSessions;
+	static Mutex mSessionLock;
 };
+
 
 template <class SessionType>
 SessionType &Session::find(SecuritySessionId id)
 {
-	if (SessionType *ssn = dynamic_cast<SessionType *>(&find(id)))
+	if (SessionType *ssn = dynamic_cast<SessionType *>(&find(id, false)))
 		return *ssn;
 	else
 		MacOSError::throwMe(errSessionInvalidId);
@@ -177,49 +174,31 @@ SessionType &Session::find(SecuritySessionId id)
 
 
 //
-// The RootSession is the session (i.e. bootstrap dictionary) of system daemons that are
-// started early and don't belong to anything more restrictive. The RootSession is considered
-// immortal.
-// Currently, telnet sessions et al also default into this session, but this will change
-// (we hope).
+// The RootSession is the session of all code that originates from system startup processing
+// and does not belong to any particular login origin. (Or, if you prefer, whose login origin
+// is the system itself.)
 //
 class RootSession : public Session {
 public:
-    RootSession(Server &server, SessionAttributeBits attrs = 0);
+    RootSession(uint64_t attributes, Server &server);
 	
-	bool haveOriginatorUid() const		{ return true; }
-	uid_t originatorUid() const         { return 0; }
 	CFDataRef copyUserPrefs()           { return NULL; }
 };
 
 
 //
-// A DynamicSession is the default type of session object. We create one when a new
-// Connection initializes whose bootstrap port we haven't seen before. These Sessions
-// are torn down when their bootstrap object disappears (which happens when mach_init
-// destroys it due to its requestor referent vanishing).
+// A DynamicSession object represents a session that is dynamically constructed
+// when we first encounter it. These sessions are actually created in client
+// space using the audit session APIs.
+// We tear down a DynamicSession when the system reports (via kevents) that the
+// kernel audit session object has been destroyed.
 //
 class DynamicSession : private ReceivePort, public Session {
 public:
-    DynamicSession(TaskPort taskPort);
-	~DynamicSession();
-	
-	void setupAttributes(SessionCreationFlags flags, SessionAttributeBits attrs);
+    DynamicSession(const CommonCriteria::AuditInfo &audit);
 
-	bool haveOriginatorUid() const					{ return mHaveOriginatorUid; }
-	uid_t originatorUid() const;
-	void originatorUid(uid_t uid);
 	void setUserPrefs(CFDataRef userPrefsDict);
 	CFDataRef copyUserPrefs();
-	
-protected:
-	void checkOriginator();			// fail unless current process is originator
-	void kill();					// augment parent's kill
-
-private:
-	Port mOriginatorTask;			// originating process's task port
-	bool mHaveOriginatorUid;		// originator uid was set by session originator
-	uid_t mOriginatorUid;			// uid as set by session originator
 };
 
 

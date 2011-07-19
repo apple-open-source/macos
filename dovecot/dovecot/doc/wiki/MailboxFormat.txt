@@ -1,0 +1,139 @@
+Mailbox Formats
+===============
+
+Mailbox formats supported by Dovecot:
++-----------------------------+---------------+-------------------+-------------+
+| *Name*                      | *Tag*         | *Description*     |
++-----------------------------+---------------+-------------------+-------------+
+| <mbox>                      | 'mbox'        | Traditional UNIX  |
+| [MailboxFormat.mbox.txt]    |               | mailbox format.   |
+|                             |               | Users' INBOX      |
+|                             |               | mboxes are        |
+|                             |               | commonly stored in|
+|                             |               | '/var/spool/mail' |
+|                             |               | or '/var/mail'    |
+|                             |               | directory. Single |
+|                             |               | file contains     |
+|                             |               | multiple messages.|
++-----------------------------+---------------+-------------------+-------------+
+| <Maildir>                   | 'maildir'     | One file contains |
+| [MailboxFormat.Maildir.txt] |               | one message. A    |
+|                             |               | reliable choice   |
+|                             |               | since files are   |
+|                             |               | never modified and|
+|                             |               | all operations are|
+|                             |               | atomic. The       |
+|                             |               | top-level         |
+|                             |               | 'Maildir'         |
+|                             |               | directory contains|
+|                             |               | the 'Maildir/cur',|
+|                             |               | 'Maildir/new' and |
+|                             |               | 'Maildir/tmp'     |
+|                             |               | subdirectories.   |
++-----------------------------+---------------+-------------------+-------------+
+| <dbox>                      | 'sdbox'       | *single-dbox*, one| Dovecot's   |
+| [MailboxFormat.dbox.txt]    |               | message per file  | own high    |
+|                             |               |                   | performance |
+|                             |               |                   | mailbox     |
+|                             |               |                   | format.     |
+|                             |               |                   | Messages are|
+|                             |               |                   | stored in   |
+|                             |               |                   | one or more |
+|                             |               |                   | files, each |
+|                             |               |                   | containing  |
+|                             |               |                   | one or more |
+|                             |               |                   | messages.   |
++-----------------------------+---------------+-------------------+-------------+
+| 'mdbox'                     | *multi-dbox*, |
+|                             | multiple      |
+|                             | messages per  |
+|                             | file          |
++-----------------------------+---------------+-------------------+-------------+
+| 'dbox'                      | deprecated    |
+|                             | alias for     |
+|                             | 'sdbox'       |
++-----------------------------+---------------+-------------------+-------------+
+| <Cydir>                     | 'cydir'       | Dovecot's own     |
+| [MailboxFormat.Cydir.txt]   |               | simple and high   |
+|                             |               | performance       |
+|                             |               | Cyrus-like mailbox|
+|                             |               | format. It should |
+|                             |               | be mostly used for|
+|                             |               | testing and       |
+|                             |               | benchmarking only.|
++-----------------------------+---------------+-------------------+-------------+
+
+The *Tag* column indicates the tag which is used at the beginning of a <mailbox
+location specification> [MailLocation.txt].
+
+Mailbox formats *not* supported by Dovecot:
++-------------------------------+---------------------------------------------+
+| *Name*                        | *Description*                               |
++-------------------------------+---------------------------------------------+
+| <mbx> [MailboxFormat.mbx.txt] | UW-IMAP's old high performance mailbox      |
+|                               | format. One file contains all the mailboxes,|
+|                               | so expunges may still be slow.              |
++-------------------------------+---------------------------------------------+
+| <mix> [MailboxFormat.mix.txt] | UW-IMAP's new (2006) high performance       |
+|                               | mailbox format. Similar to multi-dbox.      |
++-------------------------------+---------------------------------------------+
+| <mailstore>                   | A format created by Exim.                   |
+| [MailboxFormat.mailstore.txt] |                                             |
++-------------------------------+---------------------------------------------+
+| <MH> [MailboxFormat.MH.txt]   | One file contains one message. Sort order of|
+|                               | the folder determines the message ID and    |
+|                               | name.  Actively used by projects such as    |
+|                               | MH-E, NMH, exmh.  Experimentally supported  |
+|                               | by UW-IMAP [http://www.washington.edu/imap/].|
++-------------------------------+---------------------------------------------+
+| <MMDF> [MailboxFormat.MMDF.txt]| Similar to mbox, but instead of From-line   |
+|                               | separators it uses four '^A' characters     |
++-------------------------------+---------------------------------------------+
+| <Cyrus>                       | One file contains one message, plus there   |
+| [MailboxFormat.Cyrus.txt]     | are a couple of index/cache files. Commonly |
+|                               | referred to as being maildir-like, although |
+|                               | they have only a single thing in common.    |
++-------------------------------+---------------------------------------------+
+
+Adding support for new formats for Dovecot isn't very difficult, although it
+can be time consuming. Dovecot exposes a nice and simple API which needs to be
+implemented. Use Cydir format as an example.
+
+Software Support
+----------------
+
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| *Format/Software*             | *Dovecot                   | *UW-IMAP                           | *Courier-IMAP                       | *Exim                   | *Postfix                   | *PINE                              | *mutt                   | *procmail                   | *maildrop                               |
+|                               | [http://www.dovecot.org/]* | [http://www.washington.edu/imap/]* | [http://www.courier-mta.org/imap/]* | [http://www.exim.org/]* | [http://www.postfix.org/]* | [http://www.washington.edu/pine/]* | [http://www.mutt.org/]* | [http://www.procmail.org/]* | [http://www.courier-mta.org/maildrop/]* |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <mbox> [MailboxFormat.mbox.txt]| Yes                        | Yes                                | No                                  | Yes                     | Yes                        | Yes                                | Yes                     | Yes                         | Yes                                     |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <mbx> [MailboxFormat.mbx.txt] | No                         | Yes                                | No                                  | Yes                     | No                         | Yes                                | No                      | No                          | No                                      |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <maildir>                     | Yes                        | No                                 | Yes                                 | Yes                     | Yes                        | No                                 | Yes                     | Yes (3.22)                  | Yes                                     |
+| [MailboxFormat.Maildir.txt]   |                            |                                    |                                     |                         |                            |                                    |                         |                             |                                         |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <mailstore>                   | No                         | No                                 | No                                  | Yes                     | No                         | No                                 | No                      | No                          | No                                      |
+| [MailboxFormat.mailstore.txt] |                            |                                    |                                     |                         |                            |                                    |                         |                             |                                         |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <dbox> [MailboxFormat.dbox.txt]| Yes                        | No                                 | No                                  | No                      | No                         | No                                 | No                      | No                          | No                                      |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+| <MH> [MailboxFormat.MH.txt]   | No                         | Yes                                | No                                  | No                      | No                         | Yes                                | Yes                     | Yes                         | No                                      |
++-------------------------------+----------------------------+------------------------------------+-------------------------------------+-------------------------+----------------------------+------------------------------------+-------------------------+-----------------------------+-----------------------------------------+
+
+Conversion Between Mailbox Formats
+----------------------------------
+
+See <Migration.MailFormat.txt>.
+
+References
+----------
+
+ * Mutt mailbox formats: http://rucus.ru.ac.za/docs/mutt/manual58.html
+ * Article on mailbox formats: http://www.livejournal.com/users/rfunk/1571.html
+
+ * Mbox and maildir comparison:
+   http://www.linuxmail.info/mbox-maildir-mail-storage-formats/
+   [http://www.linux-mail.info/mbox-maildir-mail-storage-formats/]
+
+(This file was created from the wiki on 2011-05-11 04:42)

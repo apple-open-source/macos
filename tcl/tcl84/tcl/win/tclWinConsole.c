@@ -706,7 +706,7 @@ ConsoleInputProc(
      */
 
     if (ReadConsole(infoPtr->handle, (LPVOID) buf, (DWORD) bufSize, &count,
-		    (LPOVERLAPPED) NULL) == TRUE) {
+		    NULL) == TRUE) {
 	buf[count] = '\0';
 	return count;
     }

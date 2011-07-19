@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,13 +26,14 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)getmntinfo.3	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/lib/libc/gen/getmntinfo.3,v 1.12 2002/12/19 09:40:21 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/getmntinfo.3,v 1.13 2007/01/09 00:27:54 imp Exp $
 .\"
-.Dd May 15, 2008
+.Dd May 4, 2010
 .Dt GETMNTINFO 3
 .Os
 .Sh NAME
 .Nm getmntinfo
+.Nm getmntinfo64
 .Nd get information about mounted file systems
 .Sh SYNOPSIS
 .In sys/param.h
@@ -44,12 +41,10 @@
 .In sys/mount.h
 .Ft int
 .Fn getmntinfo "struct statfs **mntbufp" "int flags"
-#ifdef UNIFDEF_LEGACY_64_APIS
 .Sh TRANSITIIONAL SYNOPSIS (NOW DEPRECATED)
 .Ft int
 .br
 .Fn getmntinfo64 "struct statfs64 **mntbufp" "int flags" ;
-#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh DESCRIPTION
 The
 .Fn getmntinfo
@@ -58,6 +53,12 @@ returns an array of
 .Ft statfs
 structures describing each currently mounted file system (see
 .Xr statfs 2 ) .
+As
+.Xr statfs 2
+indicates, the structure is defined differently depending on
+whether the macro _DARWIN_FEATURE_64_BIT_INODE is defined (see
+.Xr stat 2
+for more information on this macro).
 .Pp
 The
 .Fn getmntinfo
@@ -66,33 +67,6 @@ passes its
 .Fa flags
 argument transparently to
 .Xr getfsstat 2 .
-#ifdef UNIFDEF_LEGACY_64_APIS
-.Pp
-Like
-.Xr getfsstat 2 ,
-when the macro
-.Dv _DARWIN_FEATURE_64_BIT_INODE
-is defined, the
-.Ft ino_t
-type will be 64-bits (force 64-bit inode mode by defining the
-.Dv _DARWIN_USE_64_BIT_INODE
-macro before including header files).
-This will cause the symbol variant of
-.Fn getmntinfo ,
-with the
-.Fa $INODE64
-suffixes, to be automatically linked in.
-In addition, the
-.Ft statfs
-structure will be the 64-bit inode version.
-If
-.Dv _DARWIN_USE_64_BIT_INODE
-is not defined, both
-.Fn getmntinfo
-and the
-.Ft statfs
-structure will refer to the 32-bit inode versions.
-#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh RETURN VALUES
 On successful completion,
 .Fn getmntinfo
@@ -117,7 +91,6 @@ routines
 .Xr getfsstat 2
 or
 .Xr malloc 3 .
-#ifdef UNIFDEF_LEGACY_64_APIS
 .Sh TRANSITIONAL DESCRIPTION (NOW DEPRECATED)
 The
 .Fn getmntinfo64
@@ -134,10 +107,10 @@ The
 structure used by this deprecated routine is the same as the
 .Ft statfs
 structure when 64-bit inodes are in effect.
-#endif /* UNIFDEF_LEGACY_64_APIS */
 .Sh SEE ALSO
 .Xr getfsstat 2 ,
 .Xr mount 2 ,
+.Xr stat 2 ,
 .Xr statfs 2 ,
 .Xr mount 8
 .Sh HISTORY
@@ -148,29 +121,15 @@ function first appeared in
 .Sh BUGS
 The
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-and
-.Fn getmntinfo64
-functions write the array of structures to an internal static object
-#else /* !UNIFDEF_LEGACY_64_APIS */
 function writes the array of structures to an internal static object
-#endif /* UNIFDEF_LEGACY_64_APIS */
 and returns
 a pointer to that object.
 Subsequent calls to
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-and
-.Fn getmntinfo64
-#endif /* UNIFDEF_LEGACY_64_APIS */
 will modify the same object.
 .Pp
 The memory allocated by
 .Fn getmntinfo
-#ifdef UNIFDEF_LEGACY_64_APIS
-and
-.Fn getmntinfo64
-#endif /* UNIFDEF_LEGACY_64_APIS */
 cannot be
 .Xr free 3 Ns 'd
 by the application.

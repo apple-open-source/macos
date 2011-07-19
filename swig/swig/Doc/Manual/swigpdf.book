@@ -16,6 +16,7 @@ Contract.html
 Varargs.html
 Warnings.html
 Modules.html
+CCache.html
 Allegrocl.html
 CSharp.html
 Chicken.html
@@ -26,6 +27,7 @@ Lua.html
 Modula3.html
 Mzscheme.html
 Ocaml.html
+Octave.html
 Perl5.html
 Php.html
 Pike.html
@@ -34,3 +36,4 @@ Ruby.html
 Tcl.html
 R.html
 Extending.html
+

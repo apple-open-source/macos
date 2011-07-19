@@ -67,7 +67,7 @@
 #include <wtf/Locker.h>
 #include <wtf/MainThread.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/ThreadSafeShared.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadingPrimitives.h>
 
 // For portability, we do not use thread-safe statics natively supported by some compilers (e.g. gcc).
@@ -101,6 +101,7 @@ ThreadIdentifier currentThread();
 int waitForThreadCompletion(ThreadIdentifier, void**);
 void detachThread(ThreadIdentifier);
 
+void yield();
 
 void lockAtomicallyInitializedStaticMutex();
 void unlockAtomicallyInitializedStaticMutex();
@@ -112,5 +113,6 @@ using WTF::createThread;
 using WTF::currentThread;
 using WTF::detachThread;
 using WTF::waitForThreadCompletion;
+using WTF::yield;
 
 #endif // Threading_h

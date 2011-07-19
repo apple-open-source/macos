@@ -22,8 +22,8 @@
 #ifndef EventNames_h
 #define EventNames_h
 
-#include "AtomicString.h"
 #include "ThreadGlobalData.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -34,13 +34,16 @@ namespace WebCore {
     macro(beforecut) \
     macro(beforeload) \
     macro(beforepaste) \
+    macro(beforeprocess) \
     macro(beforeunload) \
+    macro(blocked) \
     macro(blur) \
     macro(cached) \
     macro(change) \
     macro(checking) \
     macro(click) \
     macro(close) \
+    macro(complete) \
     macro(compositionend) \
     macro(compositionstart) \
     macro(compositionupdate) \
@@ -49,6 +52,8 @@ namespace WebCore {
     macro(copy) \
     macro(cut) \
     macro(dblclick) \
+    macro(devicemotion) \
+    macro(deviceorientation) \
     macro(display) \
     macro(downloading) \
     macro(drag) \
@@ -94,11 +99,17 @@ namespace WebCore {
     macro(search) \
     macro(select) \
     macro(selectstart) \
+    macro(selectionchange) \
     macro(storage) \
     macro(submit) \
     macro(textInput) \
     macro(unload) \
     macro(updateready) \
+    macro(versionchange) \
+    macro(webkitvisibilitystatechange) \
+    macro(write) \
+    macro(writeend) \
+    macro(writestart) \
     macro(zoom) \
     \
     macro(DOMActivate) \
@@ -148,6 +159,8 @@ namespace WebCore {
     \
     macro(orientationchange) \
     \
+    macro(timeout) \
+    \
     macro(touchstart) \
     macro(touchmove) \
     macro(touchend) \
@@ -157,9 +170,20 @@ namespace WebCore {
     \
     macro(loadend) \
     \
+    macro(webkitfullscreenchange) \
+    \
+    macro(webkitspeechchange) \
+    \
+    macro(webglcontextlost) \
+    macro(webglcontextrestored) \
+    macro(webglcontextcreationerror) \
+    \
+    macro(audioprocess) \
+    \
 // end of DOM_EVENT_NAMES_FOR_EACH
 
-    class EventNames : public Noncopyable {
+    class EventNames {
+        WTF_MAKE_NONCOPYABLE(EventNames); WTF_MAKE_FAST_ALLOCATED;
         int dummy; // Needed to make initialization macro work.
         // Private to prevent accidental call to EventNames() instead of eventNames()
         EventNames();

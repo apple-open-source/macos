@@ -31,7 +31,7 @@
 #import "WebView.h"
 #import "WebViewInternal.h"
 #import <WebCore/ApplicationCacheStorage.h>
-#import <WebCore/Cache.h>
+#import <WebCore/MemoryCache.h>
 #import <WebCore/CrossOriginPreflightResultCache.h>
 
 @implementation WebCache
@@ -43,7 +43,7 @@
 
 + (NSArray *)statistics
 {
-    WebCore::Cache::Statistics s = WebCore::cache()->getStatistics();
+    WebCore::MemoryCache::Statistics s = WebCore::memoryCache()->getStatistics();
 
     return [NSArray arrayWithObjects:
         [NSDictionary dictionaryWithObjectsAndKeys:
@@ -130,12 +130,12 @@
     if (!pthread_main_np())
         return [[self _webkit_invokeOnMainThread] setDisabled:disabled];
 
-    WebCore::cache()->setDisabled(disabled);
+    WebCore::memoryCache()->setDisabled(disabled);
 }
 
 + (BOOL)isDisabled
 {
-    return WebCore::cache()->disabled();
+    return WebCore::memoryCache()->disabled();
 }
 
 @end

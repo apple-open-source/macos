@@ -1,9 +1,11 @@
 [manpage_begin exif n 1.1.2]
 [moddesc   {EXIF parsing}]
 [titledesc {Tcl EXIF extracts and parses EXIF fields from digital images}]
+[category  {File formats}]
 [require Tcl 8.2]
 [require exif [opt 1.1.2]]
 [description]
+[keywords exif jpeg {maker note} tiff]
 [para]
 
 The EXIF package is a recoding of Chris Breeze's Perl package to do

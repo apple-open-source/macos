@@ -28,7 +28,7 @@
 #include "wad.h"
 #include <stdarg.h>
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/io.c,v 1.5 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: io.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* Utility functions used to generate strings that are guaranteed not to 
    rely upon malloc() and related functions */

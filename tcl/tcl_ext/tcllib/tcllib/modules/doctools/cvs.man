@@ -3,6 +3,7 @@
 [copyright {2003-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {Processing text in 'cvs log' format}]
+[category  {Documentation tools}]
 [require Tcl 8.2]
 [require textutil]
 [require doctools::cvs [opt 1]]

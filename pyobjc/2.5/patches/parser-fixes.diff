@@ -1,0 +1,127 @@
+--- pyobjc-core/Modules/objc/parsexml.m.orig	2009-06-23 15:35:44.000000000 -0700
++++ pyobjc-core/Modules/objc/parsexml.m	2009-06-24 00:56:23.000000000 -0700
+@@ -70,9 +70,12 @@
+  * be used to represent 'bool' which has a different size on
+  * PPC. Therefore swap usage of _C_BOOL and _C_NSBOOL in data
+  * from metadata files.
++ *
++ * returns true if given a valid typecode, false for some manner of syntax error
+  */
+-static void typecode2typecode(char* buf)
++static int typecode2typecode(char* buf)
+ {
++	int rc;
+ 	/* Skip pointer declarations and anotations */
+ 	for (;;) {
+ 		switch(*buf) {
+@@ -106,12 +109,15 @@
+ 				/* embedded field name */
+ 				buf = strchr(buf+1, '"');
+ 				if (buf == NULL) {
+-					return;
++					return 0;
+ 				}
+ 				buf++;
+ 			}
+-			typecode2typecode(buf);
++			rc = typecode2typecode(buf);
+ 			buf = (char*)PyObjCRT_SkipTypeSpec(buf);
++			if (buf == NULL || rc == 0) {
++			    return 0;
++			}
+ 		}
+ 		break;
+ 
+@@ -123,27 +129,33 @@
+ 				/* embedded field name */
+ 				buf = strchr(buf+1, '"');
+ 				if (buf == NULL) {
+-					return;
++					return 0;
+ 				}
+ 				buf++;
+ 			}
+-			typecode2typecode(buf);
++			rc = typecode2typecode(buf);
+ 			buf = (char*)PyObjCRT_SkipTypeSpec(buf);
++			if (buf == NULL || rc == 0) {
++			    return 0;
++			}
+ 		}
+ 		break;
+ 
+ 
+ 	case _C_ARY_B:
+ 		while (isdigit(*++buf));
+-		typecode2typecode(buf);
++		return typecode2typecode(buf);
+ 		break;
+ 	}
++	return 1;
+ }
+ 
+-static void typestr2typestr(char* buf)
++/* Returns true for Ok, 0 for some sort of syntax error */
++static int typestr2typestr(char* buf)
+ {
+ 	while (buf && *buf) {
+-		typecode2typecode(buf);
++		if (typecode2typecode(buf) == 0)
++		    return 0;
+ 		if (buf && *buf == '\"') {
+ 			PyErr_Format(PyObjCExc_InternalError,
+ 				"typecode2typecode: invalid typecode '%c' at \"%s\"", 
+@@ -153,6 +165,7 @@
+ 			buf = (char*)PyObjCRT_SkipTypeSpec(buf);
+ 		}
+ 	}
++	return 1;
+ }
+ 
+ int
+@@ -779,13 +792,21 @@
+ 	int retval = -1;
+ 	PyObject* v;
+ 
+-	typestr2typestr(type);
++	if (!typestr2typestr(type)) {
++		PyErr_Format(PyExc_SyntaxError, "Syntax error for cftype %s\n", name);
++		goto end;
++	}
+ 
+ 	if (name == NULL || type == NULL || *type == '\0') {
+ 		retval = 0;
+ 		goto end;
+ 	}
+ 
++	if (tollfree == NULL && funcname == NULL) {
++		PyErr_Format(PyExc_ValueError, "cftype for '%s' must include gettypeid_func, tollfree or both", name);
++		goto end;
++	}
++
+ 	if (tollfree != NULL) {
+ 		Class cls = objc_lookUpClass(tollfree);
+ 		if (cls == NULL) {
+@@ -1474,7 +1495,10 @@
+ {
+ 	char* name = attribute_string(cur_node, "name", NULL);
+ 	char* type = attribute_string(cur_node, "type", "type64");
+-	typestr2typestr(type);
++	if (!typestr2typestr(type)) {
++	    PyErr_Format(PyExc_SyntaxError, "Syntax error for struct %s\n", name);
++	    return -1;
++	}
+ 
+ 	if (name != NULL && type != NULL && *type != '\0') {
+ 		PyObject* v = PyObjC_RegisterStructType(
+--- pyobjc-framework-Quartz/Exceptions/CoreVideo.bridgesupport.orig	2009-06-23 15:35:35.000000000 -0700
++++ pyobjc-framework-Quartz/Exceptions/CoreVideo.bridgesupport	2009-06-24 00:43:22.000000000 -0700
+@@ -8,7 +8,7 @@
+   <struct name='CVSMPTETime' />
+   <struct name='CVTime' />
+   <struct name='CVTimeStamp' />
+-  <cftype name='CVBufferRef' />
++  <struct name='CVBufferRef' />
+   <cftype gettypeid_func='CVDisplayLinkGetTypeID' name='CVDisplayLinkRef' />
+   <cftype gettypeid_func='CVOpenGLBufferPoolGetTypeID' name='CVOpenGLBufferPoolRef' />
+   <cftype gettypeid_func='CVOpenGLTextureCacheGetTypeID' name='CVOpenGLTextureCacheRef' />

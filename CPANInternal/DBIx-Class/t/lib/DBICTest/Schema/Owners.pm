@@ -1,11 +1,11 @@
 package # hide from PAUSE 
     DBICTest::Schema::Owners;
 
-use base qw/DBIx::Class::Core/;
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('owners');
 __PACKAGE__->add_columns(
-  'ownerid' => {
+  'id' => {
     data_type => 'integer',
     is_auto_increment => 1,
   },
@@ -14,7 +14,7 @@ __PACKAGE__->add_columns(
     size      => '100',
   },
 );
-__PACKAGE__->set_primary_key('ownerid');
+__PACKAGE__->set_primary_key('id');
 
 __PACKAGE__->has_many(books => "DBICTest::Schema::BooksInLibrary", "owner");
 

@@ -1001,6 +1001,7 @@ proc ::tk::dialog::file::Create {w class} {
     global tk_library
 
     toplevel $w -class $class
+    if {[tk windowingsystem] eq "x11"} {wm attributes $w -type dialog}
 
     # f1: the frame with the directory option menu
     #

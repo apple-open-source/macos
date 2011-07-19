@@ -15,3 +15,6 @@ my $schema = DBICTest->init_schema();
 my $a = $schema->resultset('FooA')->search;
 is($a->count, 3, 'have 3 artists');
 is($schema->class('FooA'), 'DBICTest::FooA', 'Correct artist class');
+
+# clean up
+DBICTest::Schema->_unregister_source('FooA');

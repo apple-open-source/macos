@@ -27,7 +27,7 @@
 
 #include "PlatformString.h"
 
-#define CERTIFICATE_CREDENTIALS_SUPPORTED ((PLATFORM(MAC) || PLATFORM(IPHONE)) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD))
+#define CERTIFICATE_CREDENTIALS_SUPPORTED ((PLATFORM(MAC) || PLATFORM(IOS)) && !defined(BUILDING_ON_LEOPARD))
 
 #if CERTIFICATE_CREDENTIALS_SUPPORTED
 #include <Security/SecBase.h>
@@ -69,7 +69,7 @@ public:
 #if CERTIFICATE_CREDENTIALS_SUPPORTED
     SecIdentityRef identity() const;
     CFArrayRef certificates() const;
-    const CredentialType type() const;
+    CredentialType type() const;
 #endif    
     
 private:

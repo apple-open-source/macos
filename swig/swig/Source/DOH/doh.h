@@ -8,7 +8,7 @@
  * Copyright (C) 1999-2000.  The University of Chicago
  * See the file LICENSE for information on usage and redistribution.
  *
- * $Header: /cvsroot/swig/SWIG/Source/DOH/doh.h,v 1.23 2006/11/01 23:54:50 wsfulton Exp $
+ * $Id: doh.h 11097 2009-01-30 10:27:37Z bhy $
  * ----------------------------------------------------------------------------- */
 
 #ifndef _DOH_H
@@ -73,17 +73,6 @@
 #define DohGetc            DOH_NAMESPACE(Getc)
 #define DohPutc            DOH_NAMESPACE(Putc)
 #define DohUngetc          DOH_NAMESPACE(Ungetc)
-
-#define DohStringPutc      DOH_NAMESPACE(StringPutc)
-#define DohStringGetc      DOH_NAMESPACE(StringGetc)
-#define DohStringUngetc    DOH_NAMESPACE(StringUngetc)
-#define DohStringAppend    DOH_NAMESPACE(StringAppend)
-#define DohStringLen       DOH_NAMESPACE(StringLen)
-#define DohStringChar      DOH_NAMESPACE(StringChar)
-#define DohStringEqual     DOH_NAMESPACE(StringEqual)
-
-
-
 #define DohGetline         DOH_NAMESPACE(Getline)
 #define DohSetline         DOH_NAMESPACE(Setline)
 #define DohGetfile         DOH_NAMESPACE(Getfile)
@@ -118,8 +107,6 @@
 #define DohCopyto          DOH_NAMESPACE(Copyto)
 #define DohNewList         DOH_NAMESPACE(NewList)
 #define DohNewHash         DOH_NAMESPACE(NewHash)
-#define DohHashGetAttr     DOH_NAMESPACE(HashGetAttr)
-#define DohHashCheckAttr   DOH_NAMESPACE(HashCheckAttr)
 #define DohNewVoid         DOH_NAMESPACE(NewVoid)
 #define DohSplit           DOH_NAMESPACE(Split)
 #define DohSplitLines      DOH_NAMESPACE(SplitLines)
@@ -156,6 +143,9 @@ typedef void DOH;
 #define DOHVoid            DOH
 #define DOHString_or_char  DOH
 #define DOHObj_or_char     DOH
+
+typedef const DOHString_or_char * const_String_or_char_ptr;
+typedef const DOHString_or_char * DOHconst_String_or_char_ptr;
 
 #define DOH_BEGIN          -1
 #define DOH_END            -2
@@ -206,6 +196,7 @@ extern void DohIncref(DOH *obj);
 extern DOH *DohGetattr(DOH *obj, const DOHString_or_char *name);
 extern int DohSetattr(DOH *obj, const DOHString_or_char *name, const DOHObj_or_char * value);
 extern int DohDelattr(DOH *obj, const DOHString_or_char *name);
+extern int DohCheckattr(DOH *obj, const DOHString_or_char *name, const DOHString_or_char *value);
 extern DOH *DohKeys(DOH *obj);
 extern int DohGetInt(DOH *obj, const DOHString_or_char *name);
 extern void DohSetInt(DOH *obj, const DOHString_or_char *name, int);
@@ -246,32 +237,15 @@ extern DohIterator DohNext(DohIterator x);
 
 /* Positional */
 
-extern int DohGetline(DOH *obj);
+extern int DohGetline(const DOH *obj);
 extern void DohSetline(DOH *obj, int line);
-extern DOH *DohGetfile(DOH *obj);
+extern DOH *DohGetfile(const DOH *obj);
 extern void DohSetfile(DOH *obj, DOH *file);
 
   /* String Methods */
 
 extern int DohReplace(DOHString * src, const DOHString_or_char *token, const DOHString_or_char *rep, int flags);
 extern void DohChop(DOHString * src);
-
-extern int DohString_putc(DOH *so, int ch);
-extern int DohString_getc(DOH *so);
-extern int DohString_ungetc(DOH *so, int ch);
-extern void DohString_append(DOH *so, DOH *str);
-extern int DohString_len(DOH *s1);
-extern char *DohString_char(DOH *s1);
-extern int DohString_equal(DOH *s1, DOH *s2);
-extern int DohString_delslice(DOH *so, int sindex, int eindex);
-
-#define DohStringPutc(ch,so)    DohString_putc(so, ch)
-#define DohStringGetc(so)       DohString_getc(so)
-#define DohStringUngetc(ch,so)  DohString_ungetc(so, ch)
-#define DohStringAppend(so,str) DohString_append(so, (DOH*)str)
-#define DohStringLen(so)        DohString_len((DOH*)so)
-#define DohStringChar(so)       DohString_char(so)
-#define DohStringEqual(s1,s2)   DohString_equal((DOH *)s1, (DOH *)s2)
 
 /* Meta-variables */
 extern DOH *DohGetmeta(DOH *, const DOH *);
@@ -300,7 +274,7 @@ extern int DohGetmark(DOH *obj);
  * Strings.
  * ----------------------------------------------------------------------------- */
 
-extern DOHString *DohNewStringEmpty();
+extern DOHString *DohNewStringEmpty(void);
 extern DOHString *DohNewString(const DOH *c);
 extern DOHString *DohNewStringWithSize(const DOH *c, int len);
 extern DOHString *DohNewStringf(const DOH *fmt, ...);
@@ -326,7 +300,7 @@ extern char *DohStrchr(const DOHString_or_char *s1, int ch);
  * Files
  * ----------------------------------------------------------------------------- */
 
-extern DOHFile *DohNewFile(DOH *file, const char *mode);
+extern DOHFile *DohNewFile(DOH *filename, const char *mode, DOHList *outfiles);
 extern DOHFile *DohNewFileFromFile(FILE *f);
 extern DOHFile *DohNewFileFromFd(int fd);
 extern void DohFileErrorDisplay(DOHString * filename);
@@ -338,16 +312,14 @@ extern int DohCopyto(DOHFile * input, DOHFile * output);
  * List
  * ----------------------------------------------------------------------------- */
 
-extern DOHList *DohNewList();
+extern DOHList *DohNewList(void);
 extern void DohSortList(DOH *lo, int (*cmp) (const DOH *, const DOH *));
 
 /* -----------------------------------------------------------------------------
  * Hash
  * ----------------------------------------------------------------------------- */
 
-extern DOHHash *DohNewHash();
-extern DOH *DohHashGetAttr(DOH *hash, const DOH *key);
-extern int DohHashCheckAttr(DOH *hash, DOH *key, DOH *value);
+extern DOHHash *DohNewHash(void);
 
 /* -----------------------------------------------------------------------------
  * Void
@@ -372,6 +344,7 @@ extern void DohMemoryDebug(void);
 #define Getattr            DohGetattr
 #define Setattr            DohSetattr
 #define Delattr            DohDelattr
+#define Checkattr          DohCheckattr
 #define Hashval            DohHashval
 #define Getitem            DohGetitem
 #define Setitem            DohSetitem
@@ -399,13 +372,13 @@ extern void DohMemoryDebug(void);
 #define Putc               DohPutc
 #define Ungetc             DohUngetc
 
-#define StringPutc         DohStringPutc
-#define StringGetc         DohStringGetc
-#define StringUngetc       DohStringUngetc
-#define StringAppend       DohStringAppend
-#define StringLen          DohStringLen
-#define StringChar         DohStringChar
-#define StringEqual        DohStringEqual
+/* #define StringPutc         DohStringPutc */
+/* #define StringGetc         DohStringGetc */
+/* #define StringUngetc       DohStringUngetc */
+/* #define StringAppend       Append */
+/* #define StringLen          DohStringLen */
+/* #define StringChar         DohStringChar */
+/* #define StringEqual        DohStringEqual */
 
 #define Close              DohClose
 #define vPrintf            DohvPrintf
@@ -434,8 +407,6 @@ extern void DohMemoryDebug(void);
 #define NewStringWithSize  DohNewStringWithSize
 #define NewStringf         DohNewStringf
 #define NewHash            DohNewHash
-#define HashGetAttr        DohHashGetAttr
-#define HashCheckAttr      DohHashCheckAttr
 #define NewList            DohNewList
 #define NewFile            DohNewFile
 #define NewFileFromFile    DohNewFileFromFile

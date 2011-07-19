@@ -57,6 +57,7 @@ extern "C"
  
 #include "AppleUSBCDCECM.h"
 #include "AppleUSBCDCECMData.h"
+#include "linkup.h"
 
 #define MIN_BAUD (50 << 1)
 
@@ -145,11 +146,11 @@ IOReturn findCDCDriverED(IOUSBDevice *myDevice, void *dataAddr, UInt8 dataInterf
     CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
     while (CDCDriver)
     {
-        XTRACE(me, 0, CDCDriver, "findCDCDriverED - CDC driver candidate");
+        XTRACEP(me, 0, CDCDriver, "findCDCDriverED - CDC driver candidate");
         
         if (me->fDataInterface->GetDevice() == CDCDriver->getCDCDevice())
         {
-            XTRACE(me, 0, CDCDriver, "findCDCDriverED - Found our CDC driver");
+            XTRACEP(me, 0, CDCDriver, "findCDCDriverED - Found our CDC driver");
             driverOK = CDCDriver->confirmDriver(kUSBEthernetControlModel, dataInterfaceNum);
             break;
         }
@@ -162,7 +163,7 @@ IOReturn findCDCDriverED(IOUSBDevice *myDevice, void *dataAddr, UInt8 dataInterf
     if (!CDCDriver)
     {
         XTRACE(me, 0, 0, "findCDCDriverED - CDC driver not found");
-        return kIOReturnError;
+        return kIOReturnNotReady;
     }
    
     if (!driverOK)
@@ -228,10 +229,10 @@ IOReturn findControlDriverED(AppleUSBCDCECMData *me)
     tempDriver = (AppleUSBCDCECMControl *)iterator->getNextObject();
     while (tempDriver)
     {
-        XTRACE(me, 0, tempDriver, "findControlDriverED - Control driver candidate");
+        XTRACEP(me, 0, tempDriver, "findControlDriverED - Control driver candidate");
         if (tempDriver->checkInterfaceNumber((AppleUSBCDCECMData *)me))
         {
-            XTRACE(me, 0, tempDriver, "findControlDriverED - Found our control driver");
+            XTRACEP(me, 0, tempDriver, "findControlDriverED - Found our control driver");
             me->fControlDriver = tempDriver;
             break;
         }
@@ -283,13 +284,13 @@ void AppleUSBCDCECMData::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
     switch (tDir)
     {
         case kDataIn:
-            Log("AppleUSBCDCECMData: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
+            Log("AppleUSBCDCECMData: USBLogData - Read Complete, address = %8p, size = %8d\n", (void *)buf, (UInt)Count);
             break;
         case kDataOut:
-            Log("AppleUSBCDCECMData: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
+            Log("AppleUSBCDCECMData: USBLogData - Write, address = %8p, size = %8d\n", (void *)buf, (UInt)Count);
             break;
         case kDataOther:
-            Log("AppleUSBCDCECMData: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count);
+            Log("AppleUSBCDCECMData: USBLogData - Other, address = %8p, size = %8d\n", (void *)buf, (UInt)Count);
             break;
         case kDataNone:
             tDir = kDataOther;
@@ -340,7 +341,7 @@ void AppleUSBCDCECMData::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
                 LocBuf[Aspnt++] = wchr;
             }
         }
-        LocBuf[(llen + Asciistart) + 1] = 0x00;
+        LocBuf[Aspnt] = 0x00;
 		
 		Log("%s\n", LocBuf);
 #if USE_IOL
@@ -369,7 +370,7 @@ void AppleUSBCDCECMData::dumpData(char *buf, SInt32 size)
 {
     SInt32	curr, len, dlen;
 
-    Log("AppleUSBCDCECMData: dumpData - Address = %8x, size = %8d\n", (UInt)buf, (UInt)size);
+    Log("AppleUSBCDCECMData: dumpData - Address = %8p, size = %8d\n", (void *)buf, (UInt)size);
 
     dlen = 0;
     len = size;
@@ -382,7 +383,7 @@ void AppleUSBCDCECMData::dumpData(char *buf, SInt32 size)
         } else {
             dlen = len;
         }
-        Log("%8x ", (UInt)&buf[curr]);
+        Log("%8p ", (void *)&buf[curr]);
         USBLogData(kDataNone, dlen, &buf[curr]);
         len -= dlen;
     }
@@ -410,15 +411,26 @@ void AppleUSBCDCECMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
     AppleUSBCDCECMData	*me = (AppleUSBCDCECMData*)obj;
     IOReturn			ior;
 	pipeInBuffers		*pipeInBuff = (pipeInBuffers *)param;
-//    UInt32				poolIndx = (UInt32)param;
     
-    XTRACE(me, 0, poolIndx, "dataReadComplete");
+    XTRACE(me, 0, pipeInBuff->indx, "dataReadComplete");
 
     if (rc == kIOReturnSuccess)	// If operation returned ok
     {	
         XTRACE(me, 0, me->fControlDriver->fMax_Block_Size - remaining, "dataReadComplete - data length");
 		
         meLogData(kDataIn, (me->fControlDriver->fMax_Block_Size - remaining), pipeInBuff->pipeInBuffer);
+		
+			// If the link is down we're probably in the state where the device is not sending interrupts
+			// If we're in the ready state then we probably need to start things up
+		
+		if (me->fLinkStatus == kLinkDown)
+		{
+			XTRACE(me, 0, me->fReady, "dataReadComplete - Link is down, checking ready state");
+			if (me->fReady)
+			{
+				me->linkStatusChange(kLinkUp);
+			}
+		}
 	
             // Move the incoming bytes up the stack
 
@@ -450,7 +462,7 @@ void AppleUSBCDCECMData::dataReadComplete(void *obj, void *param, IOReturn rc, U
             pipeInBuff->dead = true;
         }
     } else {
-        XTRACE(me, poolIndx, 0, "dataReadComplete - Read terminated");
+        XTRACE(me, pipeInBuff->indx, 0, "dataReadComplete - Read terminated");
         pipeInBuff->dead = true;
     }
 
@@ -478,13 +490,12 @@ void AppleUSBCDCECMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
     AppleUSBCDCECMData	*me = (AppleUSBCDCECMData *)obj;
     mbuf_t		m;
     UInt32		pktLen = 0;
-    UInt32		numbufs = 0;
 //    UInt32		poolIndx = (UInt32)param;
 	pipeOutBuffers	*pipeOutBuff = (pipeOutBuffers *)param;
     
     if (rc == kIOReturnSuccess)						// If operation returned ok
     {	
-        XTRACE(me, rc, poolIndx, "dataWriteComplete");
+        XTRACE(me, rc, pipeOutBuff->indx, "dataWriteComplete");
         
         if (pipeOutBuff->m != NULL)			// Null means zero length write
         {
@@ -492,7 +503,6 @@ void AppleUSBCDCECMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 			while (m)
 			{
 				pktLen += mbuf_len(m);
-				numbufs++;
 				m = mbuf_next(m);
 			}
                         
@@ -508,9 +518,19 @@ void AppleUSBCDCECMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
 				me->fOutPipe->Write(pipeOutBuff->pipeOutMDP, 2000, 5000, 0, &pipeOutBuff->writeCompletionInfo);
             } else {
                 pipeOutBuff->avail = true;
+                if (me->fTxStalled)
+                {
+                    me->fTxStalled = false;
+                    me->fTransmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+                }
             }
         } else {
             pipeOutBuff->avail = true;			// Make the buffer available again
+            if (me->fTxStalled)
+            {
+                me->fTxStalled = false;
+                me->fTransmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+            }
         }
     } else {
         XTRACE(me, rc, pipeOutBuff->indx, "dataWriteComplete - IO err");
@@ -519,8 +539,15 @@ void AppleUSBCDCECMData::dataWriteComplete(void *obj, void *param, IOReturn rc, 
         {
             me->freePacket(pipeOutBuff->m);		// Free the mbuf anyway
             pipeOutBuff->m = NULL;
-            pipeOutBuff->avail = true;
         }
+        
+        pipeOutBuff->avail = true;
+        if (me->fTxStalled)
+        {
+            me->fTxStalled = false;
+            me->fTransmitQueue->service(IOBasicOutputQueue::kServiceAsync);
+        }
+        
         if (rc != kIOReturnAborted)
         {
 			me->fDeferredClear = true;
@@ -565,6 +592,13 @@ bool AppleUSBCDCECMData::init(OSDictionary *properties)
 	fResetState = kResetNormal;
 	fSleeping = false;
 	fDeferredClear = false;
+	
+	fLinkStatus = kLinkDown;
+	fUpSpeed = 10000000;				// Set to 10 until we know better (bits/sec)
+    fDownSpeed = 10000000;				// Same here
+    
+    fQueueStarted = false;              // State of the IO output queue
+    fTxStalled = false;
 	
     for (i=0; i<kMaxOutBufPool; i++)
     {
@@ -641,10 +675,12 @@ IOService* AppleUSBCDCECMData::probe(IOService *provider, SInt32 *score)
 
 bool AppleUSBCDCECMData::start(IOService *provider)
 {
-    OSNumber		*bufNumber = NULL;
+	IOReturn	ret = kIOReturnSuccess;
+	UInt16		devDriverCount = 0;
+    OSNumber	*bufNumber = NULL;
     UInt16		bufValue = 0;
 
-    XTRACE(this, 0, provider, "start");
+    XTRACE(this, 0, 0, "start");
     
 		// Get my USB provider - the interface
 
@@ -656,12 +692,39 @@ bool AppleUSBCDCECMData::start(IOService *provider)
     }
     
     fDataInterfaceNumber = fDataInterface->GetInterfaceNumber();
-    
-    if (findCDCDriverED(fDataInterface->GetDevice(), this, fDataInterfaceNumber) != kIOReturnSuccess)
-    {
-        XTRACE(this, 0, 0, "start - Find CDC driver failed");
-        return false;
-    }
+	
+		// See if we can find/wait for the CDC driver
+		
+	while (1)
+	{
+		ret = findCDCDriverED(fDataInterface->GetDevice(), this, fDataInterfaceNumber);
+		if (ret == kIOReturnSuccess)
+		{
+			XTRACE (this, 0, 0, "start: Found the CDC device driver");
+			break;
+		} else {
+			if (ret == kIOReturnNotReady)
+			{
+				devDriverCount++;
+				XTRACE(this, devDriverCount, fDataInterfaceNumber, "start - Waiting for CDC device driver...");
+				if (devDriverCount > 9)
+				{
+					break;
+				}
+				IOSleep(100);
+			} else {
+				break;
+			}
+		}
+	}
+		
+		// If we didn't find him then we have to bail
+	
+	if (ret != kIOReturnSuccess)
+	{
+		ALERT(0, fDataInterfaceNumber, "start - Find CDC driver for ECM data interface failed");
+		return false;
+	}
 	
 		// Now we can start for real
 	
@@ -820,6 +883,8 @@ void AppleUSBCDCECMData::stop(IOService *provider)
     
     XTRACE(this, 0, 0, "stop");
     
+    fReady = false;
+    
         // Release all resources
 		
     releaseResources();
@@ -927,7 +992,7 @@ bool AppleUSBCDCECMData::configureData()
                     return false;
                 }
             } else {
-                XTRACE(this, 0, altInterfaceDesc, "configureData - No endpoints this alternate");
+                XTRACEP(this, 0, altInterfaceDesc, "configureData - No endpoints this alternate");
             }
             altInterfaceDesc = fDataInterface->FindNextAltInterface(altInterfaceDesc, &req);
         }
@@ -1019,10 +1084,8 @@ bool AppleUSBCDCECMData::createNetworkInterface()
 
 IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
 {
-    IONetworkMedium	*medium;
-    IOMediumType    	mediumType = kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex;
     
-    XTRACE(this, 0, netif, "enable");
+    XTRACEP(this, 0, netif, "enable");
     
     IOSleep(5);				// Just in case (to let start finish - on another thread)
 
@@ -1064,34 +1127,8 @@ IOReturn AppleUSBCDCECMData::enable(IONetworkInterface *netif)
 
     fNetifEnabled = true;
     
-        // Assume an active link (leave this in for now - until we know better)
-        // Should probably use the values returned in the Network Connection notification
-        // that is if we have an interrupt pipe, otherwise default to these
-    
-    fLinkStatus = 1;
-    
-    medium = IONetworkMedium::getMediumWithType(fMediumDict, mediumType);
-    XTRACE(this, mediumType, medium, "enable - medium type and pointer");
-    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, 10 * 1000000);
-    XTRACE(this, 0, 0, "enable - LinkStatus set");
-    
-        // Start our IOOutputQueue object.
-
-	if (fTransmitQueue)
-	{
-		fTransmitQueue->setCapacity(TRANSMIT_QUEUE_SIZE);
-		XTRACE(this, 0, TRANSMIT_QUEUE_SIZE, "enable - capicity set");
-		fTransmitQueue->start();
-		XTRACE(this, 0, 0, "enable - transmit queue started");
-	}
-    
-    if (fControlDriver)
-    {
-        fControlDriver->USBSetPacketFilter();
-        XTRACE(this, 0, 0, "enable - packet filter applied");
-    }
-	
-	Log("%s: - Link up\n", DEBUG_NAME);
+    fControlDriver->USBSetPacketFilter();
+    XTRACE(this, 0, 0, "enable - packet filter applied");
 
     return kIOReturnSuccess;
     
@@ -1116,21 +1153,6 @@ IOReturn AppleUSBCDCECMData::disable(IONetworkInterface *netif)
 
     XTRACE(this, 0, 0, "disable");
 	
-	setLinkStatus(kIONetworkLinkValid, 0);          // Link is inactive
-
-        // Disable our IOOutputQueue object. This will prevent the
-        // outputPacket() method from being called
-        
-	if (fTransmitQueue)
-	{
-		fTransmitQueue->stop();
-
-			// Flush all packets currently in the output queue
-
-		fTransmitQueue->setCapacity(0);
-		fTransmitQueue->flush();
-	}
-
     putToSleep();
 
     fNetifEnabled = false;
@@ -1224,7 +1246,7 @@ IOReturn AppleUSBCDCECMData::getPacketFilters(const OSSymbol *group, UInt32 *fil
 {
     IOReturn	rtn = kIOReturnSuccess;
     
-    XTRACE(this, group, filters, "getPacketFilters");
+    XTRACEP(this, group, filters, "getPacketFilters");
 
     if (group == gIOEthernetWakeOnLANFilterGroup)
     {
@@ -1298,11 +1320,52 @@ IOReturn AppleUSBCDCECMData::getMaxPacketSize(UInt32 *maxSize) const
 
 IOReturn AppleUSBCDCECMData::selectMedium(const IONetworkMedium *medium)
 {
+    IOMediumType	mType;
     
     XTRACE(this, 0, 0, "selectMedium");
-
-    setSelectedMedium(medium);
     
+    if (fTerminate)
+	{
+		XTRACE(this, 0, 0, "selectMedium - Device unplugged");
+		return kIOReturnIOError;
+	}
+    
+	if (!medium)
+	{
+		XTRACE(this, 0, 0, "selectMedium - No medium defined");
+		return kIOReturnError;
+	}
+    
+	mType = medium->getType();
+	XTRACE(this, 0, mType, "selectMedium - Type");
+    
+	if ((mType & kIOMediumNetworkTypeMask) != kIOMediumEthernet)
+	{
+		XTRACE(this, 0, 0, "selectMedium - Not ethernet medium");
+		return kIOReturnBadArgument;
+	}
+    
+        // Check the type (auto and none is really all we can accept)
+    
+    switch (mType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask))
+	{
+        case kIOMediumEthernetNone:
+			XTRACE(this, 0, 0, "selectMedium - None, link going down");
+            setSelectedMedium(medium);
+            linkStatusChange(kLinkDown);
+            
+            break;
+		case kIOMediumEthernetAuto:
+			XTRACE(this, 0, 0, "selectMedium - Auto, link going up");
+            setSelectedMedium(medium);
+            linkStatusChange(kLinkUp);
+            
+            break;
+        default:
+			XTRACE(this, 0, 0, "selectMedium - Unsupported");
+            return kIOReturnUnsupported;
+    }
+        
     return kIOReturnSuccess;
         
 }/* end selectMedium */
@@ -1423,6 +1486,11 @@ IOReturn AppleUSBCDCECMData::setMulticastMode(IOEnetMulticastMode active)
 
     XTRACE(this, 0, active, "setMulticastMode");
     
+    if (!fReady)
+    {
+        return kIOReturnSuccess;
+    }
+    
     if (fControlDriver)
     { 
         if (active)
@@ -1446,7 +1514,7 @@ IOReturn AppleUSBCDCECMData::setMulticastMode(IOEnetMulticastMode active)
 //		Method:		AppleUSBCDCECMData::setMulticastList
 //
 //		Inputs:		addrs - list of addresses
-//				count - number in the list
+//                  count - number in the list
 //
 //		Outputs:	Return code - kIOReturnSuccess or kIOReturnIOError
 //
@@ -1458,7 +1526,12 @@ IOReturn AppleUSBCDCECMData::setMulticastList(IOEthernetAddress *addrs, UInt32 c
 {
     bool	uStat;
     
-    XTRACE(this, addrs, count, "setMulticastList");
+    XTRACE(this, 0, count, "setMulticastList");
+    
+    if (!fReady)
+    {
+        return kIOReturnSuccess;
+    }
     
     if (fControlDriver)
     {
@@ -1495,6 +1568,11 @@ IOReturn AppleUSBCDCECMData::setPromiscuousMode(IOEnetPromiscuousMode active)
     
     XTRACE(this, 0, active, "setPromiscuousMode");
 
+    if (!fReady)
+    {
+        return kIOReturnSuccess;
+    }
+    
     if (fControlDriver)
     {
         if (active)
@@ -1562,11 +1640,18 @@ UInt32 AppleUSBCDCECMData::outputPacket(mbuf_t pkt, void *param)
 {
     UInt32	ior = kIOReturnSuccess;
     
-    XTRACE(this, pkt, 0, "outputPacket");
-
-    if (!fLinkStatus)
+    XTRACEP(this, pkt, 0, "outputPacket");
+    
+    if (!fControlDriver)
     {
-        XTRACE(this, pkt, fLinkStatus, "outputPacket - link is down");
+        XTRACE(this, 0, 0, "outputPacket - Control driver has gone");
+        freePacket(pkt);
+        return kIOReturnOutputDropped;
+    }
+
+    if (fLinkStatus == kLinkDown)
+    {
+        XTRACEP(this, pkt, 0, "outputPacket - link is down");
         if (fControlDriver->fOutputErrsOK)
             fpNetStats->outputErrors++;
         freePacket(pkt);
@@ -1575,7 +1660,7 @@ UInt32 AppleUSBCDCECMData::outputPacket(mbuf_t pkt, void *param)
 	
 	if (fResetState != kResetNormal)
 	{
-		XTRACE(this, pkt, 0, "outputPacket - deferred reset");
+		XTRACEP(this, pkt, 0, "outputPacket - deferred reset");
         if (fControlDriver->fOutputErrsOK)
             fpNetStats->outputErrors++;
         freePacket(pkt);
@@ -1590,10 +1675,16 @@ UInt32 AppleUSBCDCECMData::outputPacket(mbuf_t pkt, void *param)
     ior = USBTransmitPacket(pkt);
     if (ior != kIOReturnSuccess)
     {
-        return kIOReturnOutputStall;
+        if (ior == kIOReturnOutputStall)
+        {
+            fTxStalled = true;
+        } else {
+            freePacket(pkt);
+            ior = kIOReturnOutputDropped;
+        }
     }
 
-    return kIOReturnOutputSuccess;
+    return ior;
     
 }/* end outputPacket */
 
@@ -1613,7 +1704,7 @@ bool AppleUSBCDCECMData::configureInterface(IONetworkInterface *netif)
 {
     IONetworkData	*nd;
 
-    XTRACE(this, IOThreadSelf(), netif, "configureInterface");
+    XTRACEP(this, IOThreadSelf(), netif, "configureInterface");
 
     if (super::configureInterface(netif) == false)
     {
@@ -1676,9 +1767,7 @@ bool AppleUSBCDCECMData::wakeUp()
     { 
         fTimerSource->cancelTimeout();
     }
-    
-    setLinkStatus(kIONetworkLinkValid, 0);				// Initialize the link state
-    
+
     if (!allocateResources()) 
     {
         ALERT(0, 0, "wakeUp - allocateResources failed");
@@ -1770,13 +1859,10 @@ void AppleUSBCDCECMData::putToSleep()
     }
     
     releaseResources();
+    
+    linkStatusChange(kLinkDown);
 
-    setLinkStatus(kIONetworkLinkValid, 0);
-	
-	fLinkStatus = 0;
 	fSleeping = true;
-	
-	Log("%s: - Link down\n", DEBUG_NAME);
 
 }/* end putToSleep */
 
@@ -1876,7 +1962,7 @@ bool AppleUSBCDCECMData::allocateResources()
         XTRACE(this, 0, 0, "allocateResources - no bulk input pipe.");
         return false;
     }
-    XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fInPipe, "allocateResources - bulk input pipe.");
+    XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, 0, "allocateResources - bulk input pipe.");
 
     epReq.direction = kUSBOut;
     fOutPipe = fDataInterface->FindNextPipe(0, &epReq);
@@ -1886,13 +1972,14 @@ bool AppleUSBCDCECMData::allocateResources()
         return false;
     }
     fOutPacketSize = epReq.maxPacketSize;
-    XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fOutPipe, "allocateResources - bulk output pipe.");
+    XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, 0, "allocateResources - bulk output pipe.");
     
         // Allocate Memory Descriptor Pointer with memory for the data-in bulk pipe
 
     for (i=0; i<fInBufPool; i++)
     {
-        fPipeInBuff[i].pipeInMDP = IOBufferMemoryDescriptor::withCapacity(fControlDriver->fMax_Block_Size, kIODirectionIn);
+//        fPipeInBuff[i].pipeInMDP = IOBufferMemoryDescriptor::withCapacity(fControlDriver->fMax_Block_Size, kIODirectionIn);
+        fPipeInBuff[i].pipeInMDP = IOBufferMemoryDescriptor::withOptions(kIODirectionIn | kIOMemoryPhysicallyContiguous, fControlDriver->fMax_Block_Size, PAGE_SIZE);
         if (!fPipeInBuff[i].pipeInMDP)
         {
             XTRACE(this, 0, i, "allocateResources - Allocate input descriptor failed");
@@ -1901,7 +1988,7 @@ bool AppleUSBCDCECMData::allocateResources()
 		
         fPipeInBuff[i].pipeInMDP->setLength(fControlDriver->fMax_Block_Size);
         fPipeInBuff[i].pipeInBuffer = (UInt8*)fPipeInBuff[i].pipeInMDP->getBytesNoCopy();
-        XTRACE(this, fPipeInBuff[i].pipeInMDP, fPipeInBuff[i].pipeInBuffer, "allocateResources - input buffer");
+        XTRACEP(this, fPipeInBuff[i].pipeInMDP, fPipeInBuff[i].pipeInBuffer, "allocateResources - input buffer");
         fPipeInBuff[i].dead = false;
         fPipeInBuff[i].readCompletionInfo.target = this;
         fPipeInBuff[i].readCompletionInfo.action = dataReadComplete;
@@ -1912,7 +1999,8 @@ bool AppleUSBCDCECMData::allocateResources()
 
     for (i=0; i<fOutBufPool; i++)
     {
-        fPipeOutBuff[i].pipeOutMDP = IOBufferMemoryDescriptor::withCapacity(fControlDriver->fMax_Block_Size, kIODirectionOut);
+//        fPipeOutBuff[i].pipeOutMDP = IOBufferMemoryDescriptor::withCapacity(fControlDriver->fMax_Block_Size, kIODirectionOut);
+        fPipeOutBuff[i].pipeOutMDP = IOBufferMemoryDescriptor::withOptions(kIODirectionOut | kIOMemoryPhysicallyContiguous, fControlDriver->fMax_Block_Size, PAGE_SIZE);
         if (!fPipeOutBuff[i].pipeOutMDP)
         {
             XTRACE(this, 0, i, "allocateResources - Allocate output descriptor failed");
@@ -1921,7 +2009,7 @@ bool AppleUSBCDCECMData::allocateResources()
 		
         fPipeOutBuff[i].pipeOutMDP->setLength(fControlDriver->fMax_Block_Size);
         fPipeOutBuff[i].pipeOutBuffer = (UInt8*)fPipeOutBuff[i].pipeOutMDP->getBytesNoCopy();
-        XTRACE(this, fPipeOutBuff[i].pipeOutMDP, fPipeOutBuff[i].pipeOutBuffer, "allocateResources - output buffer");
+        XTRACEP(this, fPipeOutBuff[i].pipeOutMDP, fPipeOutBuff[i].pipeOutBuffer, "allocateResources - output buffer");
         fPipeOutBuff[i].avail = true;
         fPipeOutBuff[i].writeCompletionInfo.target = this;
         fPipeOutBuff[i].writeCompletionInfo.action = dataWriteComplete;
@@ -2045,14 +2133,13 @@ bool AppleUSBCDCECMData::getOutputBuffer(UInt32 *bufIndx)
 			} else {
 				fPipeOutBuff[indx].pipeOutMDP->setLength(fControlDriver->fMax_Block_Size);
 				fPipeOutBuff[indx].pipeOutBuffer = (UInt8*)fPipeOutBuff[indx].pipeOutMDP->getBytesNoCopy();
-				XTRACE(this, fPipeOutBuff[indx].pipeOutMDP, fPipeOutBuff[indx].pipeOutBuffer, "getOutputBuffer - output buffer");
+				XTRACEP(this, fPipeOutBuff[indx].pipeOutMDP, fPipeOutBuff[indx].pipeOutBuffer, "getOutputBuffer - output buffer");
 				fPipeOutBuff[indx].avail = false;
 				fPipeOutBuff[indx].writeCompletionInfo.target = this;
 				fPipeOutBuff[indx].writeCompletionInfo.action = dataWriteComplete;
 				fPipeOutBuff[indx].writeCompletionInfo.parameter = NULL;
 				fPipeOutBuff[indx].indx = indx;
 				fOutBufPool++;
-				fTransmitQueue->setCapacity(fOutBufPool);
 				fOutPoolIndex = 0;
 				gotBuffer = true;
 			}
@@ -2085,9 +2172,8 @@ IOReturn AppleUSBCDCECMData::USBTransmitPacket(mbuf_t packet)
     UInt32		rTotal = 0;
     IOReturn	ior = kIOReturnSuccess;
     UInt32		indx;
-	UInt16		bufTries = 0;
 	
-    XTRACE(this, 0, packet, "USBTransmitPacket");
+    XTRACEP(this, 0, packet, "USBTransmitPacket");
 	
 	if (fDeferredClear)
 	{
@@ -2119,31 +2205,14 @@ IOReturn AppleUSBCDCECMData::USBTransmitPacket(mbuf_t packet)
         XTRACE(this, 0, 0, "USBTransmitPacket - Bad packet size");	// Note for now and revisit later
         if (fControlDriver->fOutputErrsOK)
             fpNetStats->outputErrors++;
-		freePacket(packet);
         return kIOReturnOutputDropped;
     }
-	
-	while (1)
-	{
-		if (!getOutputBuffer(&indx))
-		{
-			if (bufTries++ > 8)
-			{
-				ALERT(fOutBufPool, fOutPoolIndex, "USBTransmitPacket - Output buffer unavailable");
-				if (fControlDriver->fOutputErrsOK)
-				{
-					fpNetStats->outputErrors++;
-				}
-				freePacket(packet);
-				return kIOReturnOutputDropped;
-			} else {
-//				ALERT(fOutBufPool, bufTries, "USBTransmitPacket - Sleeping 100 milliseconds...");
-				IOSleep(100);				// See if any free up
-			}
-		} else {
-			break;
-		}
-	}
+    
+    if (!getOutputBuffer(&indx))
+    {
+        ALERT(fOutBufPool, fOutPoolIndex, "USBTransmitPacket - Output buffer unavailable");
+        return kIOReturnOutputStall;
+    }
     
         // Start filling in the send buffer
 
@@ -2162,18 +2231,16 @@ IOReturn AppleUSBCDCECMData::USBTransmitPacket(mbuf_t packet)
     LogData(kDataOut, rTotal, fPipeOutBuff[indx].pipeOutBuffer);
 	
     fPipeOutBuff[indx].m = packet;
-//    fPipeOutBuff[indx].writeCompletionInfo.parameter = (void *)indx;
 	fPipeOutBuff[indx].writeCompletionInfo.parameter = (void *)&fPipeOutBuff[indx];
-//    fPipeOutBuff[indx].pipeOutMDP->setLength(rTotal);
-//    ior = fOutPipe->Write(fPipeOutBuff[indx].pipeOutMDP, &fPipeOutBuff[indx].writeCompletionInfo);
+
 	ior = fOutPipe->Write(fPipeOutBuff[indx].pipeOutMDP, 2000, 5000, rTotal, &fPipeOutBuff[indx].writeCompletionInfo);
     if (ior != kIOReturnSuccess)
     {
         XTRACE(this, 0, ior, "USBTransmitPacket - Write failed");
         if (ior == kIOUSBPipeStalled)
         {
-            fOutPipe->Reset();
-//            ior = fOutPipe->Write(fPipeOutBuff[indx].pipeOutMDP, &fPipeOutBuff[indx].writeCompletionInfo);
+//            fOutPipe->Reset();
+            clearPipeStall(fOutPipe);
 			ior = fOutPipe->Write(fPipeOutBuff[indx].pipeOutMDP, 2000, 5000, rTotal, &fPipeOutBuff[indx].writeCompletionInfo);
             if (ior != kIOReturnSuccess)
             {
@@ -2192,6 +2259,7 @@ IOReturn AppleUSBCDCECMData::USBTransmitPacket(mbuf_t packet)
 			return ior;
 		}
     }
+    
     if (fControlDriver->fOutputPktsOK)		
         fpNetStats->outputPackets++;
     
@@ -2215,7 +2283,7 @@ IOReturn AppleUSBCDCECMData::clearPipeStall(IOUSBPipe *thePipe)
 {
     IOReturn 	rtn = kIOReturnSuccess;
     
-    XTRACE(this, 0, thePipe, "clearPipeStall");
+    XTRACEP(this, 0, thePipe, "clearPipeStall");
     
 //    rtn = thePipe->GetPipeStatus();
 //    if (rtn == kIOUSBPipeStalled)
@@ -2251,9 +2319,16 @@ IOReturn AppleUSBCDCECMData::clearPipeStall(IOUSBPipe *thePipe)
 void AppleUSBCDCECMData::receivePacket(UInt8 *packet, UInt32 size)
 {
     mbuf_t		m;
+    errno_t     err;
     UInt32		submit;
     
     XTRACE(this, 0, size, "receivePacket");
+    
+    if (!fControlDriver)
+    {
+        XTRACE(this, 0, 0, "receivePacket - Control driver has gone, packet dropped");
+        return;
+    }
     
     if (size > fControlDriver->fMax_Block_Size)
     {
@@ -2266,7 +2341,16 @@ void AppleUSBCDCECMData::receivePacket(UInt8 *packet, UInt32 size)
     m = allocatePacket(size);
     if (m)
     {
-        bcopy(packet, mbuf_data(m), size);
+        err = mbuf_copyback(m, 0, size, packet, MBUF_DONTWAIT);
+        if (err)
+        {
+            XTRACE(this, 0, err, "receivePacket - Buffer copy failed, packet dropped");
+            if (fControlDriver->fInputErrsOK)
+                fpNetStats->inputErrors++;
+            freePacket(m);
+            return;
+        }
+//        bcopy(packet, mbuf_data(m), size);
         submit = fNetworkInterface->inputPacket(m, size);
         XTRACE(this, 0, submit, "receivePacket - Packets submitted");
         if (fControlDriver->fInputPktsOK)
@@ -2278,6 +2362,222 @@ void AppleUSBCDCECMData::receivePacket(UInt8 *packet, UInt32 size)
     }
 
 }/* end receivePacket */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCECMData::linkStatusChange
+//
+//		Inputs:		linkState - 0=down, 1=up
+//
+//		Outputs:	
+//
+//		Desc:		Notification from the control driver (or wherever) of the link state
+//
+/****************************************************************************************************/
+void AppleUSBCDCECMData::linkStatusChange(UInt8 linkState)
+{
+	
+	XTRACE(this, 0, linkState, "linkStatusChange");
+    
+        // Check the state actually changed
+	
+	if (fLinkStatus != linkState)
+	{
+		XTRACE(this, 0, linkState, "linkStatusChange - State has changed");
+		
+		if (linkState == kLinkUp)
+		{
+            setLinkStatusUp();
+			
+				// Start our IOOutputQueue object if not already started
+			
+			if (fTransmitQueue)
+			{
+                if (!fQueueStarted)
+                {
+                    fTransmitQueue->setCapacity(TRANSMIT_QUEUE_SIZE);
+                    XTRACE(this, 0, TRANSMIT_QUEUE_SIZE, "linkStatusChange - capacity set");
+                
+                    fTransmitQueue->start();
+                    XTRACE(this, 0, 0, "linkStatusChange - transmit queue started");
+                    
+                    fQueueStarted = true;
+                }
+			}
+		} else {
+            if (fQueueStarted)
+            {
+                fTransmitQueue->stop();
+                
+                    // Flush all packets currently in the output queue
+                
+                fTransmitQueue->setCapacity(0);
+                fTransmitQueue->flush();
+                
+                fQueueStarted = false;
+            }
+            setLinkStatusDown();
+		}
+	}
+	
+}/* end linkStatusChange */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCECMData::linkSpeedChange
+//
+//		Inputs:		upSpeed - in bits/second (already converted to host format)
+//					downSpeed - in bits/second (already converted to host format)
+//
+//		Outputs:	
+//
+//		Desc:		Notification from the control driver of the link speed
+//
+/****************************************************************************************************/
+void AppleUSBCDCECMData::linkSpeedChange(UInt32 upSpeed, UInt32 downSpeed)
+{
+	
+	XTRACE(this, upSpeed, downSpeed, "linkSpeedChange");
+	
+	fUpSpeed = upSpeed;
+    fDownSpeed = downSpeed;
+	
+}/* end linkSpeedChange */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCECMData::setLinkStatusUp
+//
+//		Inputs:		
+//
+//		Outputs:	
+//
+//		Desc:		Set our link status to up
+//
+/****************************************************************************************************/
+void AppleUSBCDCECMData::setLinkStatusUp()
+{
+    IONetworkMedium	*medium;
+    IOMediumType	mediumType = 0;
+	UInt32			speed;
+    char            line[256];
+    UInt16          linkSpeed;
+    UInt16          regs[LinkUp_Phy_Count] = {0, 0, 0, 0, 0, 0};
+    LinkUpFlow      flowState = kLinkUpFlow_None;
+    bool            fullduplex;
+    char            portNameBuffer[5];
+    OSNumber        *usbPortNumber;
+    char            *portName = NULL;
+    
+    XTRACE(this, fUpSpeed, fDownSpeed, "setLinkStatusUp");
+    
+    if (fUpSpeed == fDownSpeed)
+    {
+        mediumType = kIOMediumOptionFullDuplex;
+        speed = fDownSpeed;
+        fullduplex = true;
+    } else {
+        mediumType = kIOMediumOptionHalfDuplex;
+        if (fUpSpeed > fDownSpeed)
+        {
+            speed = fUpSpeed;
+        } else {
+            speed = fDownSpeed;
+        }
+        fullduplex = false;
+    }
+    if (speed > 10000000)
+    {
+        mediumType |= kIOMediumEthernet100BaseTX;
+    } else {
+        mediumType |= kIOMediumEthernet10BaseT;
+    }
+    
+    linkSpeed = speed/1000000;           // Need this in mbits
+    
+        // Log it if we need to
+    
+    if (fLinkStatus != kLinkUp)
+    {
+            // Get the port number
+        
+        usbPortNumber = OSDynamicCast(OSNumber, fDataInterface->GetDevice()->getProperty("PortNum"));
+        if (usbPortNumber)
+        {
+            snprintf(portNameBuffer, sizeof(portNameBuffer), "%d", usbPortNumber->unsigned16BitValue());
+            portName = portNameBuffer;
+        }
+        
+            // Get some debug info. (none at the moment)
+        
+        regs[0] = 0;
+        regs[1] = 0;
+        regs[2] = 0;
+        regs[3] = 0;
+        regs[4] = 0;
+        regs[5] = 0;
+        
+            // Now print it
+        
+        ::LinkUpMessage(line, sizeof(line),         // std link up msg to line buffer
+                        NULL,                       // get kext name from kmodinfo
+                        fNetworkInterface,			// where to get the en name
+                        linkSpeed,                  // speed in mbits
+                        fullduplex,					// boolean for full/half duplex
+                        flowState,					// flow control type
+                        portName,					// port name or NULL
+                        regs,						// array of 6 useful registers to log
+                        NULL);                      // string of loopback type or NULL
+#if USE_ELG				
+        Log("%s\n", line);                          // Above goes to IOLog, send a copy to firewire if debug enabled
+#endif
+    }
+    
+    medium = IONetworkMedium::getMediumWithType(fMediumDict, mediumType);
+    
+    XTRACE(this, 0, mediumType, "setLinkStatusUp - LinkStatus set");
+    
+    setLinkStatus(kIONetworkLinkActive | kIONetworkLinkValid, medium, speed);
+	
+	fLinkStatus = kLinkUp;
+    
+}/* end setLinkStatusUp */
+
+/****************************************************************************************************/
+//
+//		Method:		AppleUSBCDCECMData::setLinkStatusDown
+//
+//		Inputs:		
+//
+//		Outputs:	
+//
+//		Desc:		Set our link status to down
+//
+/****************************************************************************************************/
+void AppleUSBCDCECMData::setLinkStatusDown()
+{
+    
+    XTRACE(this, 0, 0, "setLinkStatusDown");
+    
+        // Set our status to inactive, with the current medium set to 'none'
+    
+	setLinkStatus(kIONetworkLinkValid, IONetworkMedium::getMediumWithType(fMediumDict, kIOMediumEthernetNone));
+	
+        // Log it if we need to
+    
+	if (fLinkStatus != kLinkDown)
+    {
+        if (fNetworkInterface)
+        {
+            Log("Ethernet [%s]: Link down on %s%d\n", DEBUG_NAME, fNetworkInterface->getNamePrefix(), fNetworkInterface->getUnitNumber());
+        } else {
+            Log("Ethernet [%s]: Link down\n", DEBUG_NAME);
+        }
+	}
+	
+	fLinkStatus = kLinkDown;
+    
+}/* end setLinkStatusDown */
 
 /****************************************************************************************************/
 //
@@ -2404,8 +2704,8 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
                 fDataInterface->release();
                 fDataInterface = NULL;
             }
-            fTerminate = true;		// we're being terminated (unplugged)
-            fLinkStatus = 0;		// and of course we're offline
+            fTerminate = true;              // we're being terminated (unplugged)
+            linkStatusChange(kLinkDown);    // and of course we're offline
             return kIOReturnSuccess;			
         case kIOMessageServiceIsSuspended: 	
             XTRACE(this, 0, type, "message - kIOMessageServiceIsSuspended");
@@ -2437,7 +2737,7 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
                     }
                 }
             }
-            break;
+            return kIOReturnSuccess;
         case kIOUSBMessageHubResumePort:
             XTRACE(this, 0, type, "message - kIOUSBMessageHubResumePort");
             break;
@@ -2449,7 +2749,7 @@ IOReturn AppleUSBCDCECMData::message(UInt32 type, IOService *provider, void *arg
             break;
     }
     
-    return kIOReturnUnsupported;
+    return super::message(type, provider, argument);
     
 }/* end message */
 

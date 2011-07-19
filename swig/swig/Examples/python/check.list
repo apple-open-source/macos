@@ -3,9 +3,10 @@ callback
 class
 constants
 contract
+docstrings
 enum
 exception
-exceptshadow
+exceptproxy
 extend
 funcptr
 funcptr2
@@ -14,12 +15,10 @@ import
 import_template
 java
 #libffi
-mpointer
 multimap
 operator
 pointer
 reference
-shadow
 simple
 smartptr
 std_vector

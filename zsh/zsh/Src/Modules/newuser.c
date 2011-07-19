@@ -78,7 +78,7 @@ boot_(UNUSED(Module m))
 	0 };
     const char **sp;
 
-    if (emulation != EMULATE_ZSH)
+    if (!EMULATION(EMULATE_ZSH))
 	return 0;
 
     if (!dotdir) {
@@ -97,7 +97,7 @@ boot_(UNUSED(Module m))
 	VARARR(char, buf, strlen(*sp) + 9);
 	sprintf(buf, "%s/newuser", *sp);
 
-	if (!source(buf))
+	if (source(buf) != SOURCE_NOT_FOUND)
 	    break;
     }
 

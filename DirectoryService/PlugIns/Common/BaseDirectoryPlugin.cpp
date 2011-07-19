@@ -26,7 +26,6 @@
 #include <Security/Authorization.h>
 #include <DirectoryService/DirServices.h>
 #include <DirectoryService/DirServicesUtils.h>
-#include <DirectoryService/DirServicesPriv.h>
 #include <DirectoryServiceCore/DSUtils.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DirectoryServiceCore/CSharedData.h>
@@ -35,6 +34,7 @@
 #include <DirectoryServiceCore/CBuff.h>
 #include <dispatch/dispatch.h>
 #include "BDPIVirtualNode.h"
+#include "DirServicesPriv.h"
 
 extern "C" int ConvertXMLPolicyToSpaceDelimited( const char *inXMLDataStr, char **outPolicyStr );
 
@@ -81,7 +81,6 @@ BaseDirectoryPlugin::BaseDirectoryPlugin( const char *inName ) : fBasePluginMute
 	fState = kUnknownState | kInactive;
 	fContextHash = new CPlugInRef( BaseDirectoryPlugin::ContextDeallocProc );
 	fContinueHash = new CContinue( BaseDirectoryPlugin::ContextDeallocProc );
-	fTransitionTimer = NULL;
 	fPluginRunLoop = NULL;
 	fKerberosMutex = NULL;
 	fReadyForRequests = new DSEventSemaphore;
@@ -104,7 +103,14 @@ BaseDirectoryPlugin::BaseDirectoryPlugin( const char *inName ) : fBasePluginMute
 	fCustomCallReadConfig = eDSCustomCallReadPluginConfigData;
 	fCustomCallWriteConfig = eDSCustomCallWritePluginConfigData;
 	fCustomCallVerifyConfig = eDSCustomCallVerifyPluginConfigData;	
-	fQueue = dispatch_queue_create( "BaseDirectoryPlugin fQueue", NULL );
+	fQueue = dispatch_queue_create("BaseDirectoryPlugin fQueue", NULL);
+    fTransitionTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, fQueue);
+    
+    dispatch_source_set_event_handler(fTransitionTimer,
+                                      ^(void) {
+                                          DbgLog( kLogInfo, "%s: Network transition - acting on the timer", fPlugInName );
+                                          NetworkTransition();
+                                      });
 } // BaseDirectoryPlugin
 
 // --------------------------------------------------------------------------------
@@ -119,6 +125,8 @@ BaseDirectoryPlugin::~BaseDirectoryPlugin ( void )
 	DSFree( fPluginPrefix );
 	DSCFRelease( fPluginPrefixCF );
 	dispatch_release( fQueue );
+    dispatch_source_cancel(fTransitionTimer);
+    dispatch_release(fTransitionTimer);
 } // ~BaseDirectoryPlugin
 
 SInt32 BaseDirectoryPlugin::Initialize( void )
@@ -402,38 +410,8 @@ SInt32 BaseDirectoryPlugin::ProcessRequest ( void *inData )
 			break;
 
 		case kHandleNetworkTransition:
-            // this is serialized on fQueue to ensure ordered operations on fTransitionTimer
-            {
-                void (^timerBlock)(dispatch_source_t) = ^(dispatch_source_t ds) {
-                    if ( dispatch_source_get_error(ds, NULL) == 0 ) {
-                        DbgLog( kLogInfo, "%s: Network transition - acting on the timer", fPlugInName );
-                        NetworkTransition();
-                        dispatch_cancel( ds );
-                    }
-                    else {
-                        dispatch_release( ds );
-                        fTransitionTimer = NULL;
-                    }
-                };
-                
-                dispatch_async( fQueue,
-                                ^(void) {
-                                    if ( fTransitionTimer != NULL ) {
-                                        dispatch_source_timer_set_time( fTransitionTimer, 2ull * NSEC_PER_SEC, 0 );
-                                        DbgLog( kLogInfo, "%s: Network transition - pushing previous timer forward (coalescing)", fPlugInName );
-                                    }
-                                    else {
-                                        DbgLog( kLogInfo, "%s: Network transition - creating timer for 2 seconds from now", fPlugInName );
-                                        fTransitionTimer = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
-                                                                                         2ull * NSEC_PER_SEC, 
-                                                                                         0,
-                                                                                         NULL,
-                                                                                         fQueue, 
-                                                                                         timerBlock );
-                                    }
-                                } );
-                siResult = eDSNoErr;
-            }
+            dispatch_source_set_timer(fTransitionTimer, dispatch_time(0, 2ull * NSEC_PER_SEC), 0, 0);
+            siResult = eDSNoErr;
 			break;
 		
 		default:

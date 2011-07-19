@@ -55,7 +55,7 @@ public:
         PluginsEnabled,
         PrivateBrowsingEnabled,
         JavascriptCanOpenWindows,
-        DOMPasteAllowed,
+        JavascriptCanAccessClipboard,
         DeveloperExtrasEnabled,
         LinksIncludedInFocusChain,
         ZoomTextOnly,
@@ -63,26 +63,31 @@ public:
         OfflineStorageDatabaseEnabled,
         OfflineWebApplicationCacheEnabled,
         LocalStorageEnabled,
-#ifdef QT_DEPRECATED
+#if defined(QT_DEPRECATED) || defined(qdoc)
         LocalStorageDatabaseEnabled = LocalStorageEnabled,
 #endif
         LocalContentCanAccessRemoteUrls,
         DnsPrefetchEnabled,
-        JavaScriptCanAccessClipboard,
         XSSAuditingEnabled,
         AcceleratedCompositingEnabled,
         SpatialNavigationEnabled,
         LocalContentCanAccessFileUrls,
         TiledBackingStoreEnabled,
         FrameFlatteningEnabled,
-        WebGLEnabled
+        SiteSpecificQuirksEnabled,
+        JavascriptCanCloseWindows,
+        WebGLEnabled,
+        HyperlinkAuditingEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,
         MissingPluginGraphic,
         DefaultFrameIconGraphic,
         TextAreaSizeGripCornerGraphic,
-        DeleteButtonGraphic
+        DeleteButtonGraphic,
+        InputSpeechButtonGraphic,
+        SearchCancelButtonGraphic,
+        SearchCancelButtonPressedGraphic
     };
     enum FontSize {
         MinimumFontSize,

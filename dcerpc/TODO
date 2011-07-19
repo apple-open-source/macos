@@ -1,0 +1,28 @@
+- Not all errors are in the message catalogue, eg.
+rpc_s_protseq_not_supported is missing. Need to find and catalogue
+all errors.
+
+- Fix the IDL compiler so that [in] reference parameters are declared
+as const.
+
+- Clean up the installed headers so that we only include the ones
+that are actually useful. We don't want to be installing cruft.
+
+- Consider not installing the libtool .la files. Not sure what
+impact this will have, probably should be OK.
+
+- Implement SMB named pipe client module using the the SMBClient
+framework.
+
+- Implement ncacn_mach transport for local RPC. We need this so
+that we can run the local services on well-known endpoints.
+
+- Add launchd support to rpcd.
+
+- Add instant-off support to the RPC runtime.
+
+- Clean up dce_error_inq_text to use error_status_t and dce_error_string_t
+parameters.
+
+- Fix CoreFoundation linking. This ought to only be linked with
+libdce, not with every application.

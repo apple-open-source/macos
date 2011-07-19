@@ -23,7 +23,7 @@
 	$Log: IOFWQEventSource.h,v $
 	Revision 1.2  2002/09/25 00:27:20  niels
 	flip your world upside-down
-	
+
 */
 
 #ifndef _IOKIT_IOFWQEVENTSOURCE_H

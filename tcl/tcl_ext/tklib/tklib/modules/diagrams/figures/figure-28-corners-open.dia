@@ -1,0 +1,24 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc showcorners {e corners} {
+    foreach {c anchor text} $corners {
+	circle radius 2 at [$e $c] color red text $text anchor $anchor
+    }
+}
+
+proc annotate {e} {
+    showcorners $e {
+	start  se start
+	center se center
+	end    se end
+    }
+}
+
+block { annotate [line right up] }
+move
+block { annotate [line right then down [1 cm] left then right] }
+move
+block { annotate [arc cw] }
+move
+block { annotate [spline right then right then down then down [1 cm] left then left] }
+

@@ -1,9 +1,9 @@
 /*
  * "$Id: testhttp.c 7742 2008-07-15 20:23:09Z mike $"
  *
- *   HTTP test program for the Common UNIX Printing System (CUPS).
+ *   HTTP test program for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,10 +23,8 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "string-private.h"
 #include "http-private.h"
-#include "string.h"
 
 
 /*
@@ -95,6 +93,8 @@ static uri_test_t	uri_tests[] =	/* URI test data */
 			    "http", "", "server", "/admin?DEVICE_URI=usb://HP/Photosmart%25202600%2520series?serial=MY53OK70V10400", 80, 0 },
 			  { HTTP_URI_OK, "lpd://Acme%20Laser%20(01%3A23%3A45).local._tcp._printer/",
 			    "lpd", "", "Acme Laser (01:23:45).local._tcp._printer", "/", 515, 0 },
+			  { HTTP_URI_OK, "ipp://HP%20Officejet%204500%20G510n-z%20%40%20Will's%20MacBook%20Pro%2015%22._ipp._tcp.local./",
+			    "ipp", "", "HP Officejet 4500 G510n-z @ Will's MacBook Pro 15\"._ipp._tcp.local.", "/", 631, 0 },
 
 			  /* Missing scheme */
 			  { HTTP_URI_MISSING_SCHEME, "/path/to/file/index.html",
@@ -465,12 +465,30 @@ main(int  argc,				/* I - Number of command-line arguments */
     char	resolved[1024];		/* Resolved URI */
 
 
-    printf("_httpResolveURI(%s): ", argv[1]);
+    printf("_httpResolveURI(%s, _HTTP_RESOLVE_DEFAULT): ", argv[1]);
     fflush(stdout);
 
-    if (!_httpResolveURI(argv[1], resolved, sizeof(resolved), 1))
+    if (!_httpResolveURI(argv[1], resolved, sizeof(resolved),
+                         _HTTP_RESOLVE_DEFAULT, NULL, NULL))
     {
       puts("FAIL");
+      return (1);
+    }
+    else
+      printf("PASS (%s)\n", resolved);
+
+    printf("_httpResolveURI(%s, _HTTP_RESOLVE_FQDN): ", argv[1]);
+    fflush(stdout);
+
+    if (!_httpResolveURI(argv[1], resolved, sizeof(resolved),
+                         _HTTP_RESOLVE_FQDN, NULL, NULL))
+    {
+      puts("FAIL");
+      return (1);
+    }
+    else if (strstr(resolved, ".local:"))
+    {
+      printf("FAIL (%s)\n", resolved);
       return (1);
     }
     else

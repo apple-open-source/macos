@@ -908,7 +908,9 @@ int cf_item_parse(CONF_SECTION *cs, const char *name,
 		if (value == dflt) {
 			char buffer[8192];
 
-			int lineno = cs->item.lineno;
+			int lineno = 0;
+
+			if (cs) lineno = cs->item.lineno;
 
 			/*
 			 *	FIXME: sizeof(buffer)?
@@ -942,7 +944,9 @@ int cf_item_parse(CONF_SECTION *cs, const char *name,
 		if (value == dflt) {
 			char buffer[8192];
 
-			int lineno = cs->item.lineno;
+			int lineno = 0;
+
+			if (cs) lineno = cs->item.lineno;
 
 			/*
 			 *	FIXME: sizeof(buffer)?
@@ -1164,6 +1168,7 @@ static int condition_looks_ok(const char **ptr)
 				 *	Parse error.
 				 */
 				if (*q != '{') {
+					DEBUG2("Expected open brace '{' after condition at %s", p);
 					return 0;
 				}
 
@@ -1187,6 +1192,7 @@ static int condition_looks_ok(const char **ptr)
 		}
 	}
 
+	DEBUG3("Unexpected error");
 	return 0;
 }
 
@@ -1458,12 +1464,19 @@ static int cf_section_read(const char *filename, int *lineno, FILE *fp,
 
 	       if (strcasecmp(buf1, "$template") == 0) {
 		       CONF_ITEM *ci;
-		       CONF_SECTION *parentcs;
+		       CONF_SECTION *parentcs, *templatecs;
 		       t2 = getword(&ptr, buf2, sizeof(buf2));
 
 		       parentcs = cf_top_section(current);
 
-		       ci = cf_reference_item(parentcs, this, buf2);
+		       templatecs = cf_section_sub_find(parentcs, "templates");
+		       if (!templatecs) {
+				radlog(L_ERR, "%s[%d]: No \"templates\" section for reference \"%s\"",
+				       filename, *lineno, buf2);
+				return -1;
+		       }
+
+		       ci = cf_reference_item(parentcs, templatecs, buf2);
 		       if (!ci || (ci->type != CONF_ITEM_SECTION)) {
 				radlog(L_ERR, "%s[%d]: Reference \"%s\" not found",
 				       filename, *lineno, buf2);
@@ -1498,6 +1511,7 @@ static int cf_section_read(const char *filename, int *lineno, FILE *fp,
 		case T_EOL:
 		case T_HASH:
 		do_bare_word:
+			t3 = t2;
 			t2 = T_OP_EQ;
 			value = NULL;
 			goto do_set;
@@ -1507,6 +1521,7 @@ static int cf_section_read(const char *filename, int *lineno, FILE *fp,
 		case T_OP_SUB:
 		case T_OP_LE:
 		case T_OP_GE:
+		case T_OP_CMP_FALSE:
 			if (!this || (strcmp(this->name1, "update") != 0)) {
 				radlog(L_ERR, "%s[%d]: Invalid operator in assignment",
 				       filename, *lineno);
@@ -1515,8 +1530,13 @@ static int cf_section_read(const char *filename, int *lineno, FILE *fp,
 
 		case T_OP_EQ:
 		case T_OP_SET:
-		do_set:
 			t3 = getstring(&ptr, buf3, sizeof(buf3));
+			if (t3 == T_OP_INVALID) {
+				radlog(L_ERR, "%s[%d]: Parse error: %s",
+				       filename, *lineno,
+				       fr_strerror());
+				return -1;
+			}
 
 			/*
 			 *	Handle variable substitution via ${foo}
@@ -1536,6 +1556,7 @@ static int cf_section_read(const char *filename, int *lineno, FILE *fp,
 			/*
 			 *	Add this CONF_PAIR to our CONF_SECTION
 			 */
+		do_set:
 			cpn = cf_pair_alloc(buf1, value, t2, t3, this);
 			cpn->item.filename = filename;
 			cpn->item.lineno = *lineno;
@@ -1688,6 +1709,13 @@ int cf_file_include(const char *filename, CONF_SECTION *cs)
 		return -1;
 	}
 
+	if (cf_data_find_internal(cs, filename, PW_TYPE_FILENAME)) {
+		fclose(fp);
+		radlog(L_ERR, "Cannot include the same file twice: \"%s\"",
+		       filename);
+		return -1;
+	}
+
 	/*
 	 *	Add the filename to the section
 	 */
@@ -1697,7 +1725,7 @@ int cf_file_include(const char *filename, CONF_SECTION *cs)
 	if (cf_data_add_internal(cs, filename, mtime, free,
 				 PW_TYPE_FILENAME) < 0) {
 		fclose(fp);
-		radlog(L_ERR|L_CONS, "Internal error open file \"%s\"",
+		radlog(L_ERR|L_CONS, "Internal error opening file \"%s\"",
 		       filename);
 		return -1;
 	}
@@ -1705,7 +1733,7 @@ int cf_file_include(const char *filename, CONF_SECTION *cs)
 	cd = cf_data_find_internal(cs, filename, PW_TYPE_FILENAME);
 	if (!cd) {
 		fclose(fp);
-		radlog(L_ERR|L_CONS, "Internal error open file \"%s\"",
+		radlog(L_ERR|L_CONS, "Internal error opening file \"%s\"",
 		       filename);
 		return -1;
 	}
@@ -2553,7 +2581,7 @@ static const char *cf_pair_print_value(const CONF_PAIR *cp,
 }
 
 
-int cf_pair2xml(FILE *fp, CONF_PAIR *cp)
+int cf_pair2xml(FILE *fp, const CONF_PAIR *cp)
 {
 	fprintf(fp, "<%s>", cp->attr);
 	if (cp->value) {
@@ -2562,7 +2590,7 @@ int cf_pair2xml(FILE *fp, CONF_PAIR *cp)
 		char *p = buffer;
 		const char *q = cp->value;
 
-		while (*q && (p < (buffer + sizeof(buffer)))) {
+		while (*q && (p < (buffer + sizeof(buffer) - 1))) {
 			if (q[0] == '&') {
 				memcpy(p, "&amp;", 4);
 				p += 5;
@@ -2590,7 +2618,7 @@ int cf_pair2xml(FILE *fp, CONF_PAIR *cp)
 	return 1;
 }
 
-int cf_section2xml(FILE *fp, CONF_SECTION *cs)
+int cf_section2xml(FILE *fp, const CONF_SECTION *cs)
 {
 	CONF_ITEM *ci, *next;
 
@@ -2628,7 +2656,7 @@ int cf_section2xml(FILE *fp, CONF_SECTION *cs)
 	return 1;		/* success */
 }
 
-int cf_pair2file(FILE *fp, CONF_PAIR *cp)
+int cf_pair2file(FILE *fp, const CONF_PAIR *cp)
 {
 	char buffer[2048];
 
@@ -2638,9 +2666,9 @@ int cf_pair2file(FILE *fp, CONF_PAIR *cp)
 	return 1;
 }
 
-int cf_section2file(FILE *fp, CONF_SECTION *cs)
+int cf_section2file(FILE *fp, const CONF_SECTION *cs)
 {
-	CONF_ITEM *ci, *next;
+	const CONF_ITEM *ci, *next;
 
 	/*
 	 *	Section header
@@ -2660,11 +2688,11 @@ int cf_section2file(FILE *fp, CONF_SECTION *cs)
 
 		switch (ci->type) {
 		case CONF_ITEM_PAIR:
-			if (!cf_pair2file(fp, (CONF_PAIR *) ci)) return 0;
+			if (!cf_pair2file(fp, (const CONF_PAIR *) ci)) return 0;
 			break;
 
 		case CONF_ITEM_SECTION:
-			if (!cf_section2file(fp, (CONF_SECTION *) ci)) return 0;
+			if (!cf_section2file(fp, (const CONF_SECTION *) ci)) return 0;
 			break;
 
 		default:	/* should really be an error. */

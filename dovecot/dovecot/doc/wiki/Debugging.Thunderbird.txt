@@ -1,0 +1,58 @@
+Debugging using Thunderbird's logging
+-------------------------------------
+
+Thunderbird has the ability to log its client actions based on protocol; this
+can be useful when you're experiencing a problem with Dovecot and want to trap
+the commands that the client is sending.
+
+Windows batch file
+------------------
+
+Save the below as 'runtbird.bat' and place it on the desktop, then run this
+instead of the Thunderbird icon.
+
+---%<-------------------------------------------------------------------------
+set mydate=%date:~-4,4%%date:~-7,2%%date:~-10,2%
+set mytime=%time:~0,2%%time:~+3,2%
+
+set NSPR_LOG_MODULES=IMAP:5
+set NSPR_LOG_FILE=%USERPROFILE%\thunderbird_%mydate%_%mytime%.log
+
+start /d "c:\program files\mozilla thunderbird" thunderbird.exe
+---%<-------------------------------------------------------------------------
+
+Adjust the log location and Thunderbird install folder as appropriate. If you
+want to log all modules instead of just IMAP (SMTP, e.g.) then replace "IMAP"
+above with "all". The above will create a date/time stamped logfile for each
+run, so  you won't lose the previous logs.
+
+Linux/BSD/etc. shell script
+---------------------------
+
+Save the below as 'runtbird.sh', chmod it 0755, then run this instead of the
+Thunderbird icon.
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+
+TB_PATH=`which thunderbird`
+# or for MacOSX:
+#TB_PATH="/Applications/Thunderbird.app/Contents/MacOS/thunderbird-bin"
+
+MYDATE=`date "+%Y%m%d_%H%M%S"`
+NSPR_LOG_MODULES=IMAP:5
+NSPR_LOG_FILE=/tmp/thunderbird_${MYDATE}.log
+export NSPR_LOG_MODULES NSPR_LOG_FILE
+
+$TB_PATH &
+exit $?
+---%<-------------------------------------------------------------------------
+
+Adjust the log location and Thunderbird launch binary as appropriate. If you
+want to log all modules instead of just IMAP (SMTP, e.g.) then replace "IMAP"
+above with "all". You can also get a timestamp at the begining of all the log
+lines, if you add ",timestamp" after "NSPR_LOG_MODULES=IMAP:5" for example. The
+above will create a date/time stamped logfile for each run, so  you won't lose
+the previous logs.
+
+(This file was created from the wiki on 2011-05-11 04:42)

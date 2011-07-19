@@ -49,10 +49,6 @@
 
 #include "sudo.h"
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: closefrom.c,v 1.14 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
-
 #ifndef HAVE_FCNTL_CLOSEM
 # ifndef HAVE_DIRFD
 #   define closefrom_fallback	closefrom

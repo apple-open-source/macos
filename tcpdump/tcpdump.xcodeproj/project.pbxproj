@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		720DEC89123167BE008A604E /* pcap_dump_ftell.c in Sources */ = {isa = PBXBuildFile; fileRef = 720DEC88123167BE008A604E /* pcap_dump_ftell.c */; };
+		720DEC8D1231682D008A604E /* print-netbios.c in Sources */ = {isa = PBXBuildFile; fileRef = 720DEC8C1231682D008A604E /* print-netbios.c */; };
+		720E462C1231629A0056BE01 /* print-forces.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462B1231629A0056BE01 /* print-forces.c */; };
+		720E462E123163AB0056BE01 /* print-ipnet.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462D123163AB0056BE01 /* print-ipnet.c */; };
+		720E46301231644C0056BE01 /* print-usb.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E462F1231644C0056BE01 /* print-usb.c */; };
+		720E46321231647B0056BE01 /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E46311231647B0056BE01 /* signature.c */; };
+		720E4634123164920056BE01 /* strcasecmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E4633123164920056BE01 /* strcasecmp.c */; };
+		720E4636123164FE0056BE01 /* bpf_dump.c in Sources */ = {isa = PBXBuildFile; fileRef = 720E4635123164FE0056BE01 /* bpf_dump.c */; };
+		E07AD53110AA1D0300E8B167 /* print-pflog.c in Sources */ = {isa = PBXBuildFile; fileRef = E07AD53010AA1D0300E8B167 /* print-pflog.c */; };
 		FC791681103A35FE00CBA90E /* addrtoname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC79153D103A295700CBA90E /* addrtoname.c */; };
 		FC791682103A35FE00CBA90E /* af.c in Sources */ = {isa = PBXBuildFile; fileRef = FC79153E103A295700CBA90E /* af.c */; };
 		FC791683103A35FE00CBA90E /* checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = FC79153F103A295700CBA90E /* checksum.c */; };
@@ -134,10 +143,18 @@
 		FC7916FD103A35FE00CBA90E /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7915B9103A295700CBA90E /* util.c */; };
 		FC7916FE103A35FE00CBA90E /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FC791662103A2F9100CBA90E /* version.c */; };
 		FC7916FF103A360A00CBA90E /* libpcap.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC791654103A2F1B00CBA90E /* libpcap.dylib */; };
-		FC791700103A360A00CBA90E /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC79165C103A2F4700CBA90E /* libcrypto.dylib */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		720DEC88123167BE008A604E /* pcap_dump_ftell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pcap_dump_ftell.c; path = tcpdump/pcap_dump_ftell.c; sourceTree = "<group>"; };
+		720DEC8C1231682D008A604E /* print-netbios.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-netbios.c"; path = "tcpdump/print-netbios.c"; sourceTree = "<group>"; };
+		720E462B1231629A0056BE01 /* print-forces.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-forces.c"; path = "tcpdump/print-forces.c"; sourceTree = "<group>"; };
+		720E462D123163AB0056BE01 /* print-ipnet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-ipnet.c"; path = "tcpdump/print-ipnet.c"; sourceTree = "<group>"; };
+		720E462F1231644C0056BE01 /* print-usb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-usb.c"; path = "tcpdump/print-usb.c"; sourceTree = "<group>"; };
+		720E46311231647B0056BE01 /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = tcpdump/signature.c; sourceTree = "<group>"; };
+		720E4633123164920056BE01 /* strcasecmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = strcasecmp.c; path = tcpdump/strcasecmp.c; sourceTree = "<group>"; };
+		720E4635123164FE0056BE01 /* bpf_dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bpf_dump.c; path = tcpdump/bpf_dump.c; sourceTree = "<group>"; };
+		E07AD53010AA1D0300E8B167 /* print-pflog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "print-pflog.c"; path = "tcpdump/print-pflog.c"; sourceTree = "<group>"; };
 		FC79153D103A295700CBA90E /* addrtoname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = addrtoname.c; path = tcpdump/addrtoname.c; sourceTree = "<group>"; };
 		FC79153E103A295700CBA90E /* af.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = af.c; path = tcpdump/af.c; sourceTree = "<group>"; };
 		FC79153F103A295700CBA90E /* checksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = checksum.c; path = tcpdump/checksum.c; sourceTree = "<group>"; };
@@ -264,7 +281,6 @@
 		FC7915B8103A295700CBA90E /* tcpdump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tcpdump.c; path = tcpdump/tcpdump.c; sourceTree = "<group>"; };
 		FC7915B9103A295700CBA90E /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = util.c; path = tcpdump/util.c; sourceTree = "<group>"; };
 		FC791654103A2F1B00CBA90E /* libpcap.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpcap.dylib; path = /usr/lib/libpcap.dylib; sourceTree = "<absolute>"; };
-		FC79165C103A2F4700CBA90E /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = /usr/lib/libcrypto.dylib; sourceTree = "<absolute>"; };
 		FC791662103A2F9100CBA90E /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = version.c; path = tcpdump/version.c; sourceTree = "<group>"; };
 		FC79167E103A35EA00CBA90E /* tcpdump */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tcpdump; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -275,7 +291,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FC7916FF103A360A00CBA90E /* libpcap.dylib in Frameworks */,
-				FC791700103A360A00CBA90E /* libcrypto.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,7 +302,6 @@
 			children = (
 				08FB7795FE84155DC02AAC07 /* Source */,
 				FC791654103A2F1B00CBA90E /* libpcap.dylib */,
-				FC79165C103A2F4700CBA90E /* libcrypto.dylib */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = tcpdump;
@@ -296,6 +310,15 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				720DEC8C1231682D008A604E /* print-netbios.c */,
+				720DEC88123167BE008A604E /* pcap_dump_ftell.c */,
+				720E4635123164FE0056BE01 /* bpf_dump.c */,
+				720E4633123164920056BE01 /* strcasecmp.c */,
+				720E46311231647B0056BE01 /* signature.c */,
+				720E462F1231644C0056BE01 /* print-usb.c */,
+				720E462D123163AB0056BE01 /* print-ipnet.c */,
+				720E462B1231629A0056BE01 /* print-forces.c */,
+				E07AD53010AA1D0300E8B167 /* print-pflog.c */,
 				FC79153D103A295700CBA90E /* addrtoname.c */,
 				FC79153E103A295700CBA90E /* af.c */,
 				FC79153F103A295700CBA90E /* checksum.c */,
@@ -461,7 +484,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "tcpdump" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* tcpdump */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -618,6 +645,15 @@
 				FC7916FC103A35FE00CBA90E /* tcpdump.c in Sources */,
 				FC7916FD103A35FE00CBA90E /* util.c in Sources */,
 				FC7916FE103A35FE00CBA90E /* version.c in Sources */,
+				E07AD53110AA1D0300E8B167 /* print-pflog.c in Sources */,
+				720E462C1231629A0056BE01 /* print-forces.c in Sources */,
+				720E462E123163AB0056BE01 /* print-ipnet.c in Sources */,
+				720E46301231644C0056BE01 /* print-usb.c in Sources */,
+				720E46321231647B0056BE01 /* signature.c in Sources */,
+				720E4634123164920056BE01 /* strcasecmp.c in Sources */,
+				720E4636123164FE0056BE01 /* bpf_dump.c in Sources */,
+				720DEC89123167BE008A604E /* pcap_dump_ftell.c in Sources */,
+				720DEC8D1231682D008A604E /* print-netbios.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -642,6 +678,11 @@
 					/usr/include,
 					"$(PROJECT_DIR)/tcpdump/missing",
 				);
+				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
+					"-DHAVE_OPENSSL_EVP_H=1",
+					"-DHAVE_LIBCRYPTO=1",
+				);
+				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
@@ -651,6 +692,12 @@
 		FC791680103A35EB00CBA90E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
+					"$(PROJECT_DIR)/tcpdump",
+					"$(SDKROOT)/usr/include",
+					"$(PROJECT_DIR)/tcpdump/missing",
+				);
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tcpdump;
 			};

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_IPCONFIG_EXT_H
+#define _S_IPCONFIG_EXT_H
+
 #define IPCONFIG_SERVER		"com.apple.network.IPConfiguration"
 
 #include <mach/mach_init.h>
@@ -31,3 +34,4 @@ ipconfig_server_port(mach_port_t * server)
 {
     return (bootstrap_look_up(bootstrap_port, IPCONFIG_SERVER, server));
 }
+#endif /* _S_IPCONFIG_EXT_H */

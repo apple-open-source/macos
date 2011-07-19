@@ -1,13 +1,18 @@
 SHELL		:= /bin/sh
-SDKROOT		?= /
 
 VERSION		= 1.0
 CC		= xcrun cc
 CPP		= xcrun c++
 CPPFLAGS	= -I$(SRCROOT)
-CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS) -isysroot $(SDKROOT)
+
+ifneq ($(SDKROOT),)
+CFLAGS_SDK	= -isysroot $(SDKROOT)
+LDFLAGS_SDK	= -Wl,-syslibroot,$(SDKROOT)
+endif
+
+CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS) $(CFLAGS_SDK)
 LDFLAGS		= $(RC_CFLAGS) -install_name /usr/lib/libutil.dylib -compatibility_version $(VERSION) \
-		  -current_version $(VERSION) -lstdc++ -exported_symbols_list libutil.exports -isysroot $(SDKROOT)
+		  -current_version $(VERSION) -lstdc++ -exported_symbols_list libutil.exports $(LDFLAGS_SDK)
 INSTALL		= install -c
 LN		= ln
 MKDIR		= mkdir -p
@@ -29,6 +34,13 @@ HDRS		:= libutil.h mntopts.h wipefs.h
 MAN3		:= _secure_path.3 getmntopts.3 humanize_number.3 pidfile.3 \
 		   property.3 realhostname.3 realhostname_sa.3 trimdomain.3 \
 		   uucplock.3 wipefs.3 reexec_to_match_kernel.3
+
+ifeq ($(RC_ProjectName),libutil_Sim)
+	INSTALL_PREFIX = $(SDKROOT)
+else
+	INSTALL_PREFIX = 
+endif
+
 
 .SUFFIXES :
 .SUFFIXES : .c .cpp .h .o
@@ -55,11 +67,15 @@ installsrc :
 	done
 
 installhdrs :
-	$(INSTALL) -d $(DSTROOT)/usr/local/include
-	$(INSTALL) -m 0644 $(HDRS) $(DSTROOT)/usr/local/include
+	$(INSTALL) -d $(DSTROOT)$(INSTALL_PREFIX)/usr/local/include
+	$(INSTALL) -m 0644 $(HDRS) $(DSTROOT)$(INSTALL_PREFIX)/usr/local/include
 
 
+ifeq ($(RC_ProjectName),libutil_Sim)
+install : installhdrs installlib strip install-plist
+else
 install : installhdrs installlib strip installman install-plist
+endif
 
 clean :
 	rm -f $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
@@ -68,16 +84,16 @@ clean :
 	rm -f $(SYMROOT)/$(LIB)
 
 strip:
-	$(STRIP) -x -S $(DSTROOT)/usr/lib/$(LIB)
+	$(STRIP) -x -S $(DSTROOT)$(INSTALL_PREFIX)/usr/lib/$(LIB)
 
 #
 # Internal targets and rules.
 #
 installlib : $(SYMROOT)/$(LIB)
 	$(DSYMUTIL) $(SYMROOT)/$(LIB) -o $(SYMROOT)/$(LIB).dSYM
-	$(INSTALL) -d $(DSTROOT)/usr/lib
-	$(INSTALL) -m 0755 $< $(DSTROOT)/usr/lib
-	$(LN) -fs libutil1.0.dylib $(DSTROOT)/usr/lib/libutil.dylib
+	$(INSTALL) -d $(DSTROOT)$(INSTALL_PREFIX)/usr/lib
+	$(INSTALL) -m 0755 $< $(DSTROOT)$(INSTALL_PREFIX)/usr/lib
+	$(LN) -fs libutil1.0.dylib $(DSTROOT)$(INSTALL_PREFIX)/usr/lib/libutil.dylib
 
 installman :
 	$(INSTALL) -d $(DSTROOT)/usr/local/share/man/man3
@@ -97,11 +113,11 @@ $(OBJROOT)/%.o : $(SRCROOT)/%.cpp \
 $(SYMROOT)/$(LIB) : $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
 	$(CC) -dynamiclib $(LDFLAGS) -o $@ $(patsubst %.cpp,$(OBJROOT)/%.o,$(patsubst %.c,$(OBJROOT)/%.o,$(SRCS)))
 
-OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
-OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
+OSV	= $(DSTROOT)$(INSTALL_PREFIX)/usr/local/OpenSourceVersions
+OSL	= $(DSTROOT)$(INSTALL_PREFIX)/usr/local/OpenSourceLicenses
 
 install-plist:
 	$(MKDIR) $(OSV)
-	$(INSTALL) $(SRCROOT)/libutil.plist $(OSV)/
+	$(INSTALL) -m 644 $(SRCROOT)/libutil.plist $(OSV)/
 	$(MKDIR) $(OSL)
-	$(INSTALL) $(SRCROOT)/libutil.txt $(OSL)/
+	$(INSTALL) -m 644 $(SRCROOT)/libutil.txt $(OSL)/

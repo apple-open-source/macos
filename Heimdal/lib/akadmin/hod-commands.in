@@ -1,0 +1,215 @@
+/*
+ * Copyright (c) 2010 Kungliga Tekniska Högskolan
+ * (Royal Institute of Technology, Stockholm, Sweden). 
+ * All rights reserved. 
+ *
+ * Portions Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without 
+ * modification, are permitted provided that the following conditions 
+ * are met: 
+ *
+ * 1. Redistributions of source code must retain the above copyright 
+ *    notice, this list of conditions and the following disclaimer. 
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright 
+ *    notice, this list of conditions and the following disclaimer in the 
+ *    documentation and/or other materials provided with the distribution. 
+ *
+ * 3. Neither the name of the Institute nor the names of its contributors 
+ *    may be used to endorse or promote products derived from this software 
+ *    without specific prior written permission. 
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+ * SUCH DAMAGE. 
+ */
+
+command = {
+	name = "principal-create"
+	argument = "record [principal]"
+	min_args = "1"
+	max_args = "2"
+	help = "Create principal."
+}
+command = {
+	name = "principal-delete"
+	argument = "record [principal]"
+	min_args = "1"
+	max_args = "2"
+	help = "Delete principal."
+}
+command = {
+	name = "principal-clearflags"
+	argument = "record flags..."
+	min_args = "2"
+	help = "Clear flags."
+}
+command = {
+	name = "principal-setflags"
+	argument = "record flags..."
+	min_args = "2"
+	help = "Set flags"
+}
+command = {
+	name = "principal-getflags"
+	argument = "record"
+	min_args = "1"
+	help = "Get flags"
+}
+command = {
+	name = "principal-get-keyinfo"
+	argument = "record"
+	min_args = "1"
+	help = "Get key info"
+}
+command = {
+	name = "principal-setacl"
+	argument = "record ace..."
+	min_args = "2"
+	help = "Set ACL"
+}
+command = {
+	name = "principal-getacl"
+	argument = "record"
+	min_args = "1"
+	help = "Get ACL"
+}
+command = {
+	name = "principal-clearacl"
+	argument = "record"
+	min_args = "1"
+	help = "Clear ACL"
+}
+command = {
+	option = {
+		long = "use-default-sharing-identity"
+		type = "flag"
+		help = "use default sharing identity"
+	}
+	name = "principal-add-cert"
+	argument = "record"
+	min_args = "1"
+	help = "add cert to principals ACL"
+}
+command = {
+	name = "alias-add"
+	argument = "record alias..."
+	min_args = "2"
+	help = "Add aliases."
+}
+command = {
+	name = "alias-remove"
+	argument = "record aliases..."
+	min_args = "2"
+	help = "Remove aliases"
+}
+command = {
+	name = "appleid-alias-add"
+	argument = "record ds-id"
+	min_args = "2"
+	help = "Add AppleID aliases."
+}
+command = {
+	name = "appleid-alias-remove"
+	argument = "record ds-id"
+	min_args = "2"
+	help = "Remove AppleID aliases"
+}
+command = {
+	name = "appleid-cert-add"
+	argument = "record cert-subject-name"
+	min_args = "2"
+	help = "Add AppleID cert name"
+}
+command = {
+	name = "appleid-cert-remove"
+	argument = "record cert-subject-name"
+	min_args = "2"
+	help = "Remove AppleID cert name"
+}
+command = {
+	option = {
+		long = "encryption-types"
+		type = "strings"
+		argument = "enctype"
+		help = "encryption types to use"
+	}
+	option = {
+		long = "append"
+		type = "flag"
+		help = "append password (instead of overwrite) entry"
+	}
+	function = "password_command"
+	name = "password"
+	argument = "record password [principal]"
+	min_args = "2"
+	max_args = "3"
+	help = "Change password for node (and if specified, specific principal)."
+}
+command = {
+	name = "dump"
+	argument = "record [principal]"
+	min_args = "1"
+	max_args = "2"
+	help = "Dump entry from database"
+}
+command = {
+	name = "load"
+    option = {
+	long = "append"
+	type = "flag"
+	help = "merge entry, only used for Mac OS X server for Snow Leopard compat"
+    }
+	argument = "record [dump.plist]"
+	min_args = "1"
+	max_args = "2"
+	help = "Load a plist dump info an entry in the database"
+}
+command = {
+	name = "default-enctypes"
+	help = "lists default enctypes"
+}
+command = {
+    name = "keyset"
+    help = "manipulate keysets"
+    option = {
+	long = "append"
+	type = "flag"
+	help = "append password (instead of replace) entry"
+    }
+    option = {
+	long = "old-keyset"
+	type = "strings"
+	help = "old keyset"
+    }
+    option = {
+	long = "enctype"
+	type = "strings"
+	help = "use specified enctype"
+    }
+    option = {
+	long = "delete"
+	type = "flag"
+	help = "delete specififed enctypes (or all enctypes)"
+    }
+    argument = "principal password"
+    min_args = "0"
+    max_args = "2"
+}
+command = {
+	name = "help"
+	name = "?"
+	argument = "[command]"
+	min_args = "0"
+	max_args = "1"
+	help = "Help! I need somebody."
+}

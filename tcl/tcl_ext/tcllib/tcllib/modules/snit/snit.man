@@ -1,10 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin snit n 2.2.1]
-[copyright {2003-2006, by William H. Duquette}]
+[manpage_begin snit n 2.3.2]
+[copyright {2003-2009, by William H. Duquette}]
 [moddesc {Snit's Not Incr Tcl, OO system}]
 [titledesc  {Snit's Not Incr Tcl}]
+[category  {Programming tools}]
 [require Tcl 8.5]
-[require snit [opt 2.2.1]]
+[require snit [opt 2.3.2]]
 [description]
 [para]
 
@@ -2382,6 +2383,11 @@ but throw an error if the value is invalid:
 
 [para]
 
+The [method validate] method will always return the validated value on success,
+and throw the [cmd -errorcode] INVALID on error.
+
+[para]
+
 Snit defines a family of validation types, all of which are
 implemented as [cmd snit::type]'s.  They can be used as is;
 in addition, their instances serve as parameterized
@@ -2653,18 +2659,19 @@ under [sectref "Validation Types"].
 The next simplest way to create a new validation type is as a 
 validation type command.  A validation type is simply an
 object that has a [method validate] method; the [method validate]
-method must take one argument, a value, and throw an error if the
+method must take one argument, a value, return the value if it is
+valid, and throw an error with [cmd -errorcode] INVALID if the
 value is invalid.  This can be done with a simple [cmd proc].  For
 example, the [cmd snit::boolean] validate type could have been
 implemented like this:
 
 [example {    proc ::snit::boolean {"validate" value} {
         if {![string is boolean -strict $value]} {
-            return -code error \
+            return -code error -errorcode INVALID \ 
                 "invalid boolean \"$value\", should be one of: 1, 0, ..."
         }
 
-        return
+        return $value
     }
 }]
 
@@ -2694,11 +2701,11 @@ as a [cmd snit::type].  Here's a skeleton to get you started:
 
         typemethod validate {value} {
             if {![string is integer -strict $value]} {
-                return -code error \
+                return -code error -errorcode INVALID \ 
                     "invalid value \"$value\", expected integer"
             }
 
-            return
+            return $value
         }
 
         # Next, the constructor should validate the subtype options,
@@ -2730,11 +2737,11 @@ as a [cmd snit::type].  Here's a skeleton to get you started:
 
                 set msg "...."
                 
-                return -code error $msg
+                return -code error -errorcode INVALID $msg
             }
 
-            # Otherwise, if it's valid just return.
-            return
+            # Otherwise, if it's valid just return it.
+            return $valid
         }
     }
 }]

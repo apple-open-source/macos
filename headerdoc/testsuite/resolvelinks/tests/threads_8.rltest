@@ -1,0 +1,1 @@
+COMMAND="\"$RESOLVELINKS\" -p -t 8 headerdoc_temptestdir"

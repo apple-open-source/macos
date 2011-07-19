@@ -1,12 +1,13 @@
 [manpage_begin S3 n 1.0.0]
 [moddesc {Amazon S3 Web Service Interface}]
+[category  Networking]
 [copyright {Copyright 2006,2008 Darren New. All Rights Reserved. See LICENSE.TXT for terms.}]
 [require Tcl 8.5]
 [require sha1 1.0]
 [require md5 2.0]
 [require base64 2.3]
 [require xsxp 1.0]
-
+[keywords amazon s3 cloud]
 [description]
 This package provides access to Amazon's Simple Storage Solution web service.
 

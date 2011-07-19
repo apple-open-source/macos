@@ -4,7 +4,7 @@
 <HEAD>
 	<TITLE>XOTcl - Tutorial</TITLE>
 	<META NAME="AUTHOR" CONTENT="Gustaf Neumann and Uwe Zdun">
-	<META NAME="DOCNUMBER" CONTENT="1.6.0">
+	<META NAME="DOCNUMBER" CONTENT="1.6.4">
 	<META NAME="CHANGEDBY" CONTENT="Gustaf Neumann">
 <STYLE>
 BODY	{
@@ -59,7 +59,7 @@ table {
 			<IMG SRC="logo-100.jpg" NAME="Graphic1" ALIGN=RIGHT WIDTH=102 HEIGHT=42 BORDER=0></TD>
 	</TR>
 </TABLE>
-<p align=right>Version: 1.5.5</p>
+<p align=right>Version: 1.6.4</p>
 
 <UL>
 	<LI>
@@ -68,6 +68,13 @@ table {
 	
 	<UL>
 		<LI><A HREF="#langOverview">Language Overview</A>
+                <LI><A HREF="#stack"> Introductory Overview Example: Stack</A>
+<ul>
+  <LI><A href="#object-methods">Object specific methods</<>
+  <li><A href="#refining-methods">Refining the behavior of objects and classes</<>
+  <li><A href="#integer-stack">Stack of integers</a>
+  <li><A href="#class-specific-method">Class specifc methods</a>
+</ul>
                 <LI><A HREF="#soccerClub"> Introductory Overview Example: Soccer Club</A>
         </UL>
 	</P>
@@ -214,7 +221,7 @@ meta-classes and offers method chaining. These abilities are
 integrated in XOTcl with only slight changes to OTcl visible to the
 programmer.
 </P>
-<P>The XOTcl extension aims at complexity and adaptability issues that
+<P>Extended Object Tcl aims at complexity and adaptability issues that
 may occur in context of large (object-oriented) software structures
 and in the context of component glueing. In particular we added the
 following support:
@@ -270,26 +277,212 @@ Language Extensions of XOTcl
 	</TABLE>
 </CENTER>
 
+<H2><A NAME="stack"></A>&#160;<BR>Introductory Overview Example: Stack</H2>
+        
+<p>
+To give you an impression of the language before we go into the details of the extended language constructs, we present in this section a simple, classical example, familiar to many from introductory programming courses: the <em>Stack</em> example. In the later section, we will present the <em>soccer club</em> example, which focuses more on the dynamic features of the Extended Object Tcl.
+</p>
+        
+<p>In a first step, we define a class <tt>Stack</tt>. A new class is defined in XOTcl via the command <tt>Class create yourclass</tt>. The stack will have a constructor (in XOTcl, the method <tt>init</tt>) and the methods <tt>push</tt> and <tt>pop</tt>. Methods which are inherited to objects are defined via <tt>instproc</tt>. In the following example, all predefined commands (some from Tcl, some from XOTcl) are emphasized.
+</p>
+        
+<pre CLASS="code">
+<it>#</it>
+<it># Create a stack class </it>
+<it>#</it>
+<tt>Class create</tt> Stack 
+
+Stack <tt>instproc</tt> init {} {
+  <it># Constructor</it>
+  <tt>my instvar</tt> things
+  <tt>set</tt> things ""
+}
+
+Stack <tt>instproc</tt> push {thing} {
+  <tt>my instvar</tt> things
+  <tt>set</tt> things [<tt>concat</tt> [<tt>list</tt> $thing] $things]
+  <tt>return</tt> $thing
+}
+  
+Stack <tt>instproc</tt> pop {} {
+  <tt>my instvar</tt> things
+  <tt>set</tt> top [<tt>lindex</tt> $things 0]
+  <tt>set</tt> things [<tt>lrange</tt> $things 1 end]
+  <tt>return</tt> $top
+}
+</pre>
+
+<p>
+The definition of the class <tt>Stack</tt> is typically saved in a file (say <tt>stack.xotcl</tt>)
+and can be used e.g. in an interactive Tcl shell (<tt>tclsh</tt>) as follows. The percent sign
+indicates the prompt of the Tcl shell, the reminder of the line is typed in, the result
+of the command is shown in the line below. Comments are lines starting with a hash symbol <tt>#</tt>.
+
+<pre CLASS="code">
+% <tt>package require</tt> XOTcl
+% <tt>namespace import</tt> xotcl::*
+% <tt>source</tt> stack.xotcl
+  
+<it># Create Object s1 of class Stack</it>
+% Stack <tt>create</tt> s1
+::s1
+% s1 push a
+a
+% s1 push b
+b
+% s1 push c
+c
+% s1 pop
+c
+% s1 pop
+b
+<it># Delete object s1</it>
+s1 <tt>destroy</tt>
+</pre>        
+
+<p>In the session above, we load XOTcl into the current shell, import the names from the xotcl namespace and we load the file <tt>stack.xotcl</tt>. At this time, the class <tt>Stack</tt> is available in the scripting session. In the next step, we create an stack object named <tt>s1</tt> and push into the stack the values <tt>a</tt>, <tt>b</tt> and <tt>c</tt> via separate push calls. Then we pop values from the stack and we destroy finally the stack <tt>s1</tt>.
+
+<H3><A NAME="object-methods"></A>&#160;<BR>Object specific methods</h3>
+
+<p>This definition is pretty similar to stack definitions in many other object oriented languages. The example below shows how to define purely object specific behavior. This way we can define an object <tt>stack</tt> without the need of a class <tt>Stack</tt>. Notice that the methods of the object <tt>stack</tt> are defined via <tt>proc</tt> and not via <tt>instproc</tt> in the example of the class <tt>Stack</tt>.
+
+<pre CLASS="code">
+<it>#</it>
+<it># Create an object named stack</it>
+<it>#</it>
+<tt>Object create</tt> stack
+
+stack <tt>set</tt> things ""
+
+stack <tt>proc</tt> push {thing} {
+  <tt>my instvar</tt> things
+  <tt>set</tt> things [<tt>concat</tt> [<tt>list</tt> $thing] $things]
+  <tt>return</tt> $thing
+}
+  
+stack <tt>proc</tt> pop {} {
+  <tt>my instvar</tt> things
+  <tt>set</tt> top [<tt>lindex</tt> $things 0]
+  <tt>set</tt> things [<tt>lrange</tt> $things 1 end]
+  <tt>return</tt> $top
+}
+</pre>
+
+<p>The object <tt>stack</tt> can be used in exactly the same way as <tt>s1</tt> (the instance of class <tt>Stack</tt>) before.
+
+<H3><A NAME="refining-methods"></A>&#160;<BR>Refining the behavior of objects and classes</h3>
+
+<p>So far, the definition of stacks were pretty minimal. Suppose, we want to define safe stacks, that check e.g. for stack underruns (more pop the push operations are issued).  Checking safety can be done mostly independent from the implementation details of the stack (usage of internal data structures).
+With XOTcl, one can define stack-safety as a separate class using methods with the same names as the implementations before, and "mix" this behavior later into classes or objects. The implementation of <tt>Safety</tt> uses a counter to check for stack underruns.</p>
+
+<pre CLASS="code">
+<it>#</it>
+<it># Create a safety class </it>
+<it>#</it>
+<tt>Class create</tt> Safety
+Safety <tt>instproc</tt> init {} {
+  <tt>my set</tt> count 0
+  <tt>next</tt>
+}
+Safety <tt>instproc</tt> push {thing} {
+  <tt>my incr</tt> count
+  <tt>next</tt>
+}
+  
+Safety <tt>instproc</tt> pop {} {
+  <tt>if</tt> {[<tt>my set</tt> count] == 0} <tt>then</tt> { <tt>error</tt> "Stack empty!" }
+  <tt>my incr</tt> count -1
+  <tt>next</tt>
+}
+</pre>
+
+<p>When we load the classes <tt>Stack</tt> and <tt>Safety</tt> into the same script,
+we can define e.g. a certain stack <tt>s2</tt> as a safe stack, while all other stacks
+might be still "unsafe". This can be achieved via the option <tt>-mixin</tt> during
+object creation.
+</p>
+<pre CLASS="code">
+% Stack <tt>create</tt> s2 <tt>-mixin</tt> Safety
+::s2
+% s2 push a
+a
+% s2 pop
+a
+% s2 pop
+Stack empty!
+</pre>
+
+Note that the definition of Saftey can be used not only for instances of the class <tt>Stack</tt>, but for arbitrary objects supporting the same interface.  Therefore we could as well make the stack object <tt>stack</tt> (that we created before) safe at any time by adding the safety at arbitrary times with the method <tt>mixin</tt>, and we can remove the safety as well at any time.
+
+<pre CLASS="code">
+<it># Add Safety to the object stack</it>
+% stack mixin Safety
+...
+% stack push a
+...
+<it># remove Safety</it>
+% stack mixin {}
+</pre>
+We can as well use <tt>Saftey</tt> to create a new class <tt>SafeStack</tt>. In this case, all instances of <tt>SafeStack</tt> have the safety property defined above.
+<pre CLASS="code">
+<it>#</it>
+<it># Create a safe stack class by using Stack and mixin </it>
+<it># Safety </it>
+<it>#</it>
+<tt>Class create</tt> SafeStack <tt>-superclass</tt> Stack <tt>-instmixin</tt> Safety
+
+SafeStack <tt>create</tt> s3
+</pre>
+
+<H3><A NAME="integer-stack"></A>&#160;<BR>Stack of integers</h3>
+
+<p>The definition of <tt>Stack</tt> is generic and allows all kind of elements to be stacked. Suppose, we want to use the generic stack definition, but a certain stack (say, <tt>s4</tt>) should allow only stacking of integers. This behavior can be achieved by defining an object specific method for the stack <tt>s4</tt> that checks the values to be pushed. In case the pushed value is ok, the push definition of <tt>Stack</tt> is called via <tt>next</tt>.
+<pre CLASS="code">
+<it># </it>
+<it># Create a stack with a object-specific method </it>
+<it># to check the type of entries </it>
+<it>#</it>
+<it># s4 is a stack of integer </it>
+ 
+Stack <tt>create</tt> s4
+s4 <tt>proc </tt> push {value} {
+   <tt>if </tt> {![ <tt>string is</tt> integer $value]} {
+     <tt>error</tt> "value $value is not an integer"
+  }
+   <tt>next</tt>
+}
+</pre>
+
+<H3><A NAME="class-specific-method"></A>&#160;<BR>Class specifc methods</h3>
+
+<p>In extended object Tcl, classes are objects as well (objects with different properties). We will come to this later in more detail. However, we can define as well methods of classes, which are not inherited to the instances,
+by defining class-specific methods using <tt>proc</tt>. This happens exactly like defining objects specific methods as shown before. In the following example, we will define a class-specific method <tt>available_stacks</tt> that returns the number of the currently existing stack instances.
+</p>
+
+<pre CLASS="code">
+Class <tt>create</tt> Stack
+<it># ...</it>
+Stack <tt>proc</tt> available_stacks {} {
+   <tt>return</tt> [<tt>llength</tt> [<tt>my info</tt> instances]]
+}
+
+Stack <tt>create</tt> s1
+Stack <tt>create</tt> s2
+
+<tt>puts</tt> [Stack available_stacks]
+</pre>
 
 <H2><A NAME="soccerClub"></A>&#160;<BR>Introductory Overview Example: Soccer Club
 </H2>
 <p>
-To give you an impression of the language before we go into the
-details of the language construct, we present in this section a
-simple, introductory example. It shall demonstrate the basic
-language constructs on the example of a soccer club (the full code can
+In our second example, we will focus on an application example where one can benefit substantially from the dynamic language constructs of XOTcl, the soccer club example (the full code can
 be found in the <tt>xotcl/src/scripts/soccerClub.xotcl</tt> file.  All
-the characters in this example are fictitious, and any resemblance to
+the persons and characters in this example are fictitious, and any resemblance to
 actual persons, living or deceased, is coincidental.
 </p>
-<p>
-In XOTcl we do not have to provide a file description as a comment,
-but we can use the <tt>@</tt> object, which is used generally to
-provide any kind of information, meta-data, and documentation on a
-running program. Here, we just give a file description.  Then the <tt>
-makeDoc.xotcl</tt> tool can automatically document the program file for
-us.
-</p>
+
+<p> Before we start, we introduce an instrument for making the documentation of programs more easy. In order to document source code files, we can use the <tt>@</tt> object, which is used generally to provide any kind of information, meta-data, and documentation on a running program. Here, we just give a file description.  Then the <tt> makeDoc.xotcl</tt> tool can automatically document the program file later for us.  </p>
+
 <pre CLASS="code">
   @ @File {
     description {
@@ -301,8 +494,8 @@ us.
 </pre>
 <p>
 
-All things and entities in XOTcl are objects, a special kind of objects 
-are classes. These define common properties for other objects. For a
+All things and entities in XOTcl are objects. A special kind of objects 
+are classes. Classes define common properties for other objects. For a
 soccer club, we firstly require a common class for all kinds of members.
 </p>
 <p>
@@ -1776,7 +1969,7 @@ However, this behavior is not implemented in XOTcl, but in C.
     <P>
     The method <tt>recreate</tt> can be customized like all other
   XOTcl methods (e.g. by overloading or interception). 
-    By default <tt>create</tt> calls <tt>cleanup</tt> followed by
+    By default <tt>recreate</tt> calls <tt>cleanup</tt> followed by
   <tt>doInitializations</tt>.
   </p>
   <p>
@@ -2506,14 +2699,14 @@ class <tt>Addition</tt> a new helper class (sometimes called
 intersection class) has to be defined, like: 
 </P>
 <pre CLASS="code">
-  Basic+Addition <tt>-superclass</tt> Addition Basic
+  Basic+Addition <tt>-superclass</tt> {Addition Basic}
 </pre><P>
 This is even applicable in a dynamical manner, every object of the
 class <tt>Basic</tt> may be changed to class <tt>Basic+Addition</tt>
 at arbitrary times, e.g.: 
 </P>
 <pre CLASS="code">
-  Basic+Addition basicObj
+  Basic basicObj
   ...
   basicObj class Basic+Addition
 </pre><P>
@@ -2524,12 +2717,12 @@ set of classes has to be defined to cover all possible combinations:
   <tt>Class</tt> Basic
   <tt>Class</tt> Addition1
   <tt>Class</tt> Addition2
-  <tt>Class</tt> Basic+Addition1 <tt>-superclass</tt> Addition1 Basic
-  <tt>Class</tt> Basic+Addition2 <tt>-superclass</tt> Addition2 Basic
-  <tt>Class</tt> Basic+Addition1+Addition2 <tt>-superclass</tt> Addition2 Addition1 Basic
+  <tt>Class</tt> Basic+Addition1 <tt>-superclass</tt> {Addition1 Basic}
+  <tt>Class</tt> Basic+Addition2 <tt>-superclass</tt> {Addition2 Basic}
+  <tt>Class</tt> Basic+Addition1+Addition2 <tt>-superclass</tt> {Addition2 Addition1 Basic}
 </pre><P>
 The number of necessary helper classes rises exponential. For <I>n</I>
-additions, 2<I><SUP>n</SUP></I>-1(or their permutations if order
+additions, 2<I><SUP>n-1</SUP></I> (or their permutations if order
 matters) artificially constructed helper-classes are needed to
 provide all combinations of additional mix-in functionality.
 Furthermore it is possible that the number of additions is unlimited,

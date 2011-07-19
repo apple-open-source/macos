@@ -32,12 +32,12 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/EAPClientProperties.h>
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED	// This file is not built for Embedded
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecKeychainItem.h>
 #include <Security/SecIdentity.h>
-#endif /* TARGET_EMBEDDED_OS */
+#endif /* TARGET_OS_EMBEDDED */
 #include <SystemConfiguration/SCNetworkConnection.h>
 
 #include "eaptls.h"
@@ -183,14 +183,14 @@ int Init (struct EAP_Input *eap_in, void **context)
 	}
 	
 	read(fd, eaptls_unique, sizeof(eaptls_unique) - 1);
-	eaptls_unique[sizeof(eaptls_unique)] = 0;
+	eaptls_unique[sizeof(eaptls_unique)-1] = 0;
 	close(fd);
 
     eapData.unique_id = eaptls_unique;  /* used for TLS session resumption */
 	*((uint32_t *)&eapData.unique_id_length) = strlen(eapData.unique_id);
 
-    eapData.username = eap_in->identity;
-	*((uint32_t *)&eapData.username_length) = strlen(eapData.username);
+    eapData.username = (u_char*)eap_in->identity;
+	*((uint32_t *)&eapData.username_length) = strlen((char*)eapData.username);
 
     eapData.password = 0; 	/* may be NULL */
 	*((uint32_t *)&eapData.password_length) = 0;

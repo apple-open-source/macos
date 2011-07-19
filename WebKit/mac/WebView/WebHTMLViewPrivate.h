@@ -46,10 +46,6 @@
 @protocol WebHTMLHighlighter
 - (NSRect)highlightRectForLine:(NSRect)lineRect representedNode:(DOMNode *)node;
 - (void)paintHighlightForBox:(NSRect)boxRect onLine:(NSRect)lineRect behindText:(BOOL)text entireLine:(BOOL)line representedNode:(DOMNode *)node;
-
-// the following methods are deprecated and will be removed once Mail switches to the new methods <rdar://problem/5050528>
-- (NSRect)highlightRectForLine:(NSRect)lineRect;
-- (void)paintHighlightForBox:(NSRect)boxRect onLine:(NSRect)lineRect behindText:(BOOL)text entireLine:(BOOL)line;
 @end
 
 extern const float _WebHTMLViewPrintingMinimumShrinkFactor;
@@ -81,8 +77,6 @@ extern const float _WebHTMLViewPrintingMaximumShrinkFactor;
 
 - (void)_frameOrBoundsChanged;
 
-- (NSImage *)_dragImageForLinkElement:(NSDictionary *)element;
-- (NSImage *)_dragImageForURL:(NSString*)linkURL withLabel:(NSString*)label;
 - (void)_handleAutoscrollForMouseDragged:(NSEvent *)event;
 - (WebPluginController *)_pluginController;
 
@@ -135,8 +129,15 @@ extern const float _WebHTMLViewPrintingMaximumShrinkFactor;
 - (void)_layoutForPrinting;
 - (WebCGFloat)_adjustedBottomOfPageWithTop:(WebCGFloat)top bottom:(WebCGFloat)bottom limit:(WebCGFloat)bottomLimit;
 - (BOOL)_isInPrintMode;
-- (BOOL)_beginPrintModeWithPageWidth:(float)pageWidth shrinkToFit:(BOOL)shrinkToFit;
+- (BOOL)_beginPrintModeWithPageWidth:(float)pageWidth height:(float)pageHeight shrinkToFit:(BOOL)shrinkToFit;
+// Lays out to pages of the given minimum width and height or more (increasing both dimensions proportionally)
+// as needed for the content to fit, but no more than the given maximum width.
+- (BOOL)_beginPrintModeWithMinimumPageWidth:(WebCGFloat)minimumPageWidth height:(WebCGFloat)minimumPageHeight maximumPageWidth:(WebCGFloat)maximumPageWidth;
 - (void)_endPrintMode;
+
+- (BOOL)_isInScreenPaginationMode;
+- (BOOL)_beginScreenPaginationModeWithPageSize:(CGSize)pageSize shrinkToFit:(BOOL)shrinkToFit;
+- (void)_endScreenPaginationMode;
 
 - (BOOL)_canSmartReplaceWithPasteboard:(NSPasteboard *)pasteboard;
 

@@ -1,0 +1,8 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+line <-> "both" above
+move
+line <- text "start" above
+move
+line -> text "end" above
+

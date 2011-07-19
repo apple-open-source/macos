@@ -1,0 +1,14 @@
+--- src/xdisp.c	2007/07/28 01:12:44	1.1159
++++ src/xdisp.c	2007/08/06 17:25:30	1.1160
+@@ -13520,7 +13520,10 @@
+   /* Restore current_buffer and value of point in it.  */
+   TEMP_SET_PT_BOTH (CHARPOS (opoint), BYTEPOS (opoint));
+   set_buffer_internal_1 (old);
+-  TEMP_SET_PT_BOTH (CHARPOS (lpoint), BYTEPOS (lpoint));
++  /* Avoid an abort in TEMP_SET_PT_BOTH if the buffer has become
++     shorter.  This can be caused by log truncation in *Messages*. */
++  if (CHARPOS (lpoint) <= ZV)
++    TEMP_SET_PT_BOTH (CHARPOS (lpoint), BYTEPOS (lpoint));
+ 
+   unbind_to (count, Qnil);
+ }

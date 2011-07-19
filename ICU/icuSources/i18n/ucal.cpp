@@ -1,9 +1,11 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2008, International Business Machines
+*   Copyright (C) 1996-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
+
+#include <typeinfo>  // for 'typeid' to work
 
 #include "unicode/utypes.h"
 
@@ -20,6 +22,8 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "ustrenum.h"
+#include "uenumimp.h"
+#include "ulist.h"
 
 U_NAMESPACE_USE
 
@@ -43,12 +47,12 @@ _createTimeZone(const UChar* zoneID, int32_t len, UErrorCode* ec) {
 
 U_CAPI UEnumeration* U_EXPORT2
 ucal_openTimeZones(UErrorCode* ec) {
-    return uenum_openStringEnumeration(TimeZone::createEnumeration(), ec);
+    return uenum_openFromStringEnumeration(TimeZone::createEnumeration(), ec);
 }
 
 U_CAPI UEnumeration* U_EXPORT2
 ucal_openCountryTimeZones(const char* country, UErrorCode* ec) {
-    return uenum_openStringEnumeration(TimeZone::createEnumeration(country), ec);
+    return uenum_openFromStringEnumeration(TimeZone::createEnumeration(country), ec);
 }
 
 U_CAPI int32_t U_EXPORT2
@@ -81,8 +85,9 @@ ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec) {
     int32_t result = 0;
     TimeZone* zone = _createTimeZone(zoneID, -1, ec);
     if (U_SUCCESS(*ec)) {
-        if (zone->getDynamicClassID() == SimpleTimeZone::getStaticClassID()) {
-            result = ((SimpleTimeZone*) zone)->getDSTSavings();
+        SimpleTimeZone* stz = dynamic_cast<SimpleTimeZone*>(zone);
+        if (stz != NULL) {
+            result = stz->getDSTSavings();
         } else {
             // Since there is no getDSTSavings on TimeZone, we use a
             // heuristic: Starting with the current time, march
@@ -133,6 +138,9 @@ ucal_open(  const UChar*  zoneID,
 
   if ( caltype == UCAL_GREGORIAN ) {
       char  localeBuf[ULOC_LOCALE_IDENTIFIER_CAPACITY];
+      if ( locale == NULL ) {
+          locale = uloc_getDefault();
+      }
       uprv_strncpy(localeBuf, locale, ULOC_LOCALE_IDENTIFIER_CAPACITY);
       uloc_setKeywordValue("calendar", "gregorian", localeBuf, ULOC_LOCALE_IDENTIFIER_CAPACITY, status);
       if (U_FAILURE(*status)) {
@@ -239,11 +247,15 @@ ucal_setGregorianChange(UCalendar *cal, UDate date, UErrorCode *pErrorCode) {
         return;
     }
     Calendar *cpp_cal = (Calendar *)cal;
-    if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
+    GregorianCalendar *gregocal = dynamic_cast<GregorianCalendar *>(cpp_cal);
+    // Not if(gregocal == NULL) {
+    // because we really want to work only with a GregorianCalendar, not with
+    // its subclasses like BuddhistCalendar.
+    if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return;
     }
-    ((GregorianCalendar *)cpp_cal)->setGregorianChange(date, *pErrorCode);
+    gregocal->setGregorianChange(date, *pErrorCode);
 }
 
 U_CAPI UDate U_EXPORT2
@@ -251,12 +263,15 @@ ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode) {
     if(U_FAILURE(*pErrorCode)) {
         return (UDate)0;
     }
-    Calendar *cpp_cal = (Calendar *)cal;
-    if(cpp_cal->getDynamicClassID() != GregorianCalendar::getStaticClassID()) {
+    const Calendar *cpp_cal = (const Calendar *)cal;
+    const GregorianCalendar *gregocal = dynamic_cast<const GregorianCalendar *>(cpp_cal);
+    // Not if(gregocal == NULL) {
+    // see comments in ucal_setGregorianChange().
+    if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return (UDate)0;
     }
-    return ((GregorianCalendar *)cpp_cal)->getGregorianChange();
+    return gregocal->getGregorianChange();
 }
 
 U_CAPI int32_t U_EXPORT2
@@ -531,12 +546,153 @@ ucal_getType(const UCalendar *cal, UErrorCode* status)
     return ((Calendar*)cal)->getType();
 }
 
-// The following is a temporary Apple-specific API to help InternationalPrefs
-// transition to the updated version of the above ICU API. It will be removed soon.
-U_CAPI const char * U_EXPORT2
-ucal_getTypeWithError(const UCalendar *cal, UErrorCode* status)
+U_CAPI UCalendarWeekdayType U_EXPORT2
+ucal_getDayOfWeekType(const UCalendar *cal, UCalendarDaysOfWeek dayOfWeek, UErrorCode* status)
 {
-    return ucal_getType(cal, status);
+    if (U_FAILURE(*status)) {
+        return UCAL_WEEKDAY;
+    }
+    return ((Calendar*)cal)->getDayOfWeekType(dayOfWeek, *status);
+}
+
+U_CAPI int32_t U_EXPORT2
+ucal_getWeekendTransition(const UCalendar *cal, UCalendarDaysOfWeek dayOfWeek, UErrorCode *status)
+{
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    return ((Calendar*)cal)->getWeekendTransition(dayOfWeek, *status);
+}
+
+U_CAPI UBool U_EXPORT2
+ucal_isWeekend(const UCalendar *cal, UDate date, UErrorCode *status)
+{
+    if (U_FAILURE(*status)) {
+        return FALSE;
+    }
+    return ((Calendar*)cal)->isWeekend(date, *status);
+}
+
+U_CAPI int32_t  U_EXPORT2
+ucal_getFieldDifference(UCalendar* cal, UDate target,
+                        UCalendarDateFields field,
+                        UErrorCode* status )
+{
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    return ((Calendar*)cal)->fieldDifference(target, field, *status);
+}
+
+
+static const UEnumeration defaultKeywordValues = {
+    NULL,
+    NULL,
+    ulist_close_keyword_values_iterator,
+    ulist_count_keyword_values,
+    uenum_unextDefault,
+    ulist_next_keyword_value, 
+    ulist_reset_keyword_values_iterator
+};
+
+static const char * const CAL_TYPES[] = {
+        "gregorian",
+        "japanese",
+        "buddhist",
+        "roc",
+        "persian",
+        "islamic-civil",
+        "islamic",
+        "hebrew",
+        "chinese",
+        "indian",
+        "coptic",
+        "ethiopic",
+        "ethiopic-amete-alem",
+        NULL
+};
+
+U_CAPI UEnumeration* U_EXPORT2
+ucal_getKeywordValuesForLocale(const char * /* key */, const char* locale, UBool commonlyUsed, UErrorCode *status) {
+    // Resolve region
+    char prefRegion[ULOC_FULLNAME_CAPACITY] = "";
+    int32_t prefRegionLength = 0;
+    prefRegionLength = uloc_getCountry(locale, prefRegion, sizeof(prefRegion), status);
+    if (prefRegionLength == 0) {
+        char loc[ULOC_FULLNAME_CAPACITY] = "";
+        int32_t locLength = 0;
+        locLength = uloc_addLikelySubtags(locale, loc, sizeof(loc), status);
+        
+        prefRegionLength = uloc_getCountry(loc, prefRegion, sizeof(prefRegion), status);
+    }
+    
+    // Read preferred calendar values from supplementalData calendarPreference
+    UResourceBundle *rb = ures_openDirect(NULL, "supplementalData", status);
+    ures_getByKey(rb, "calendarPreferenceData", rb, status);
+    UResourceBundle *order = ures_getByKey(rb, prefRegion, NULL, status);
+    if (*status == U_MISSING_RESOURCE_ERROR && rb != NULL) {
+        *status = U_ZERO_ERROR;
+        order = ures_getByKey(rb, "001", NULL, status);
+    }
+
+    // Create a list of calendar type strings
+    UList *values = NULL;
+    if (U_SUCCESS(*status)) {
+        values = ulist_createEmptyList(status);
+        if (U_SUCCESS(*status)) {
+            for (int i = 0; i < ures_getSize(order); i++) {
+                int32_t len;
+                const UChar *type = ures_getStringByIndex(order, i, &len, status);
+                char *caltype = (char*)uprv_malloc(len + 1);
+                if (caltype == NULL) {
+                    *status = U_MEMORY_ALLOCATION_ERROR;
+                    break;
+                }
+                u_UCharsToChars(type, caltype, len);
+                *(caltype + len) = 0;
+
+                ulist_addItemEndList(values, caltype, TRUE, status);
+                if (U_FAILURE(*status)) {
+                    break;
+                }
+            }
+
+            if (U_SUCCESS(*status) && !commonlyUsed) {
+                // If not commonlyUsed, add other available values
+                for (int32_t i = 0; CAL_TYPES[i] != NULL; i++) {
+                    if (!ulist_containsString(values, CAL_TYPES[i], (int32_t)uprv_strlen(CAL_TYPES[i]))) {
+                        ulist_addItemEndList(values, CAL_TYPES[i], FALSE, status);
+                        if (U_FAILURE(*status)) {
+                            break;
+                        }
+                    }
+                }
+            }
+            if (U_FAILURE(*status)) {
+                ulist_deleteList(values);
+                values = NULL;
+            }
+        }
+    }
+
+    ures_close(order);
+    ures_close(rb);
+
+    if (U_FAILURE(*status) || values == NULL) {
+        return NULL;
+    }
+
+    // Create string enumeration
+    UEnumeration *en = (UEnumeration*)uprv_malloc(sizeof(UEnumeration));
+    if (en == NULL) {
+        *status = U_MEMORY_ALLOCATION_ERROR;
+        ulist_deleteList(values);
+        return NULL;
+    }
+    ulist_resetList(values);
+    memcpy(en, &defaultKeywordValues, sizeof(UEnumeration));
+    en->context = values;
+    return en;
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

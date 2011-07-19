@@ -41,7 +41,7 @@ static char sccsid[] = "@(#)option.c	8.2 (Berkeley) 4/16/94";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/option.c,v 1.26 2008/02/23 16:29:04 imp Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/option.c,v 1.28 2009/12/13 03:14:06 delphij Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -67,9 +67,7 @@ static OPTION const options[] = {
 	{ "-Bnewer",	c_newer,	f_newer,	F_TIME_B },
 	{ "-Btime",	c_Xtime,	f_Xtime,	F_TIME_B },
 	{ "-a",		c_and,		NULL,		0 },
-#ifndef __APPLE__
 	{ "-acl",	c_acl,		f_acl,		0 },
-#endif /* !__APPLE__ */
 	{ "-amin",	c_Xmin,		f_Xmin,		F_TIME_A },
 	{ "-and",	c_and,		NULL,		0 },
 	{ "-anewer",	c_newer,	f_newer,	F_TIME_A },
@@ -156,6 +154,10 @@ static OPTION const options[] = {
 	{ "-uid",	c_user,		f_user,		0 },
 	{ "-user",	c_user,		f_user,		0 },
 	{ "-wholename",	c_name,		f_path,		0 },
+#ifdef __APPLE__
+	{ "-xattr",	c_simple,	f_xattr,	0 },
+	{ "-xattrname",	c_name,		f_xattrname,	0 },
+#endif /* __APPLE__ */
 	{ "-xdev",	c_xdev,		f_always_true,	0 },
 // -xtype
 };

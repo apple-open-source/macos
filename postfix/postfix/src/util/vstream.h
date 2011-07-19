@@ -33,11 +33,18 @@
 typedef ssize_t (*VSTREAM_FN) (int, void *, size_t, int, void *);
 typedef int (*VSTREAM_WAITPID_FN) (pid_t, WAIT_STATUS_T *, int);
 
+#ifdef NO_SIGSETJMP
+#define VSTREAM_JMP_BUF	jmp_buf
+#else
+#define VSTREAM_JMP_BUF	sigjmp_buf
+#endif
+
 typedef struct VSTREAM {
     VBUF    buf;			/* generic intelligent buffer */
     int     fd;				/* file handle, no 256 limit */
     VSTREAM_FN read_fn;			/* buffer fill action */
     VSTREAM_FN write_fn;		/* buffer fill action */
+    ssize_t req_bufsize;		/* requested read/write buffer size */
     void   *context;			/* application context */
     off_t   offset;			/* cached seek info */
     char   *path;			/* give it at least try */
@@ -48,10 +55,8 @@ typedef struct VSTREAM {
     pid_t   pid;			/* vstream_popen/close() */
     VSTREAM_WAITPID_FN waitpid_fn;	/* vstream_popen/close() */
     int     timeout;			/* read/write timout */
-    jmp_buf *jbuf;			/* exception handling */
+    VSTREAM_JMP_BUF *jbuf;		/* exception handling */
     struct timeval iotime;		/* time of last fill/flush */
-    /* At bottom for Postfix 2.4 binary compatibility. */
-    ssize_t req_bufsize;		/* write buffer size */
 } VSTREAM;
 
 extern VSTREAM vstream_fstd[];		/* pre-defined streams */
@@ -100,6 +105,7 @@ extern int vstream_fdclose(VSTREAM *);
 #define VSTREAM_GETCHAR()	VSTREAM_GETC(VSTREAM_IN)
 
 #define vstream_fileno(vp)	((vp)->fd)
+#define vstream_req_bufsize(vp)	((const ssize_t) ((vp)->req_bufsize))
 #define vstream_context(vp)	((vp)->context)
 #define vstream_ferror(vp)	vbuf_error(&(vp)->buf)
 #define vstream_feof(vp)	vbuf_eof(&(vp)->buf)
@@ -126,6 +132,8 @@ extern void vstream_control(VSTREAM *, int,...);
 #define VSTREAM_CTL_DUPFD	11
 #endif
 #define VSTREAM_CTL_BUFSIZE	12
+#define VSTREAM_CTL_SWAP_FD	13
+#define VSTREAM_CTL_CONTEXT_GET	41			/* APPLE - RFC 3030 */
 
 extern VSTREAM *PRINTFLIKE(1, 2) vstream_printf(const char *,...);
 extern VSTREAM *PRINTFLIKE(2, 3) vstream_fprintf(VSTREAM *, const char *,...);
@@ -148,19 +156,45 @@ extern int vstream_pclose(VSTREAM *);
 extern VSTREAM *vstream_vfprintf(VSTREAM *, const char *, va_list);
 
 extern ssize_t vstream_peek(VSTREAM *);
+extern ssize_t vstream_bufstat(VSTREAM *, int);
+
+#define VSTREAM_BST_FLAG_IN		(1<<0)
+#define VSTREAM_BST_FLAG_OUT		(1<<1)
+#define VSTREAM_BST_FLAG_PEND		(1<<2)
+
+#define VSTREAM_BST_MASK_DIR	(VSTREAM_BST_FLAG_IN | VSTREAM_BST_FLAG_OUT)
+#define VSTREAM_BST_IN_PEND	(VSTREAM_BST_FLAG_IN | VSTREAM_BST_FLAG_PEND)
+#define VSTREAM_BST_OUT_PEND	(VSTREAM_BST_FLAG_OUT | VSTREAM_BST_FLAG_PEND)
+
+#define vstream_peek(vp) vstream_bufstat((vp), VSTREAM_BST_IN_PEND)
 
  /*
   * Exception handling. We use pointer to jmp_buf to avoid a lot of unused
   * baggage for streams that don't need this functionality.
+  * 
+  * XXX sigsetjmp()/siglongjmp() save and restore the signal mask which can
+  * avoid surprises in code that manipulates signals, but unfortunately some
+  * systems have bugs in their implementation.
   */
+#ifdef NO_SIGSETJMP
 #define vstream_setjmp(stream)		setjmp((stream)->jbuf[0])
 #define vstream_longjmp(stream, val)	longjmp((stream)->jbuf[0], (val))
+#else
+#define vstream_setjmp(stream)		sigsetjmp((stream)->jbuf[0], 1)
+#define vstream_longjmp(stream, val)	siglongjmp((stream)->jbuf[0], (val))
+#endif
 
  /*
   * Tweaks and workarounds.
   */
 extern int vstream_tweak_sock(VSTREAM *);
 extern int vstream_tweak_tcp(VSTREAM *);
+
+/* APPLE - burl and RFC 3030 */
+/* Limit an existing stream to reading no more than a given number of bytes. */
+void vstream_limit_init(VSTREAM *stream, off_t limit);
+int vstream_limit_reached(const VSTREAM *stream);
+void vstream_limit_deinit(VSTREAM *stream);
 
 /* LICENSE
 /* .ad

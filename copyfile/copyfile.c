@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/xattr.h>
+#include <sys/attr.h>
 #include <sys/syscall.h>
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -44,6 +45,10 @@
 #include <membership.h>
 #include <fts.h>
 #include <libgen.h>
+
+#ifdef VOL_CAP_FMT_DECMPFS_COMPRESSION
+# include <Kernel/sys/decmpfs.h>
+#endif
 
 #include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
@@ -56,7 +61,7 @@
 static void * qtn_file_alloc(void) { return NULL; }
 static int qtn_file_init_with_fd(void *x, int y) { return -1; }
 static void qtn_file_free(void *x) { return; }
-static int qtn_file_apply_to_fd(void *x, int y) { return -1; }
+static int qtn_file_apply_to_fd(void *x, int y) { return 0; }
 static char *qtn_error(int x) { return NULL; }
 static int qtn_file_to_data(void *x, char *y, size_t z) { return -1; }
 static void *qtn_file_clone(void *x) { return NULL; }
@@ -66,7 +71,9 @@ static void *qtn_file_clone(void *x) { return NULL; }
 #include "copyfile.h"
 
 enum cfInternalFlags {
-	cfDelayAce = 1,
+	cfDelayAce = 1 << 0,
+	cfMakeFileInvisible = 1 << 1,
+	cfSawDecmpEA = 1 << 2,
 };
 
 /*
@@ -97,6 +104,7 @@ struct _copyfile_state
     filesec_t permissive_fsec;
     off_t totalCopied;
     int err;
+    char *xattr_name;
 };
 
 struct acl_entry {
@@ -127,6 +135,125 @@ acl_compare_permset_np(acl_permset_t p1, acl_permset_t p2)
 	ps2 = (struct pm*) p2;
 
     return ((ps1->ap_perms == ps2->ap_perms) ? 1 : 0);
+}
+
+
+static int
+doesdecmpfs(int fd) {
+#ifdef DECMPFS_XATTR_NAME
+	int rv;
+	struct attrlist attrs;
+	char volroot[MAXPATHLEN + 1];
+	struct statfs sfs;
+	struct {
+		uint32_t length;
+		vol_capabilities_attr_t volAttrs;
+	} volattrs;
+
+	(void)fstatfs(fd, &sfs);
+	strlcpy(volroot, sfs.f_mntonname, sizeof(volroot));
+
+	memset(&attrs, 0, sizeof(attrs));
+	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrs.volattr = ATTR_VOL_CAPABILITIES;
+
+	rv = getattrlist(volroot, &attrs, &volattrs, sizeof(volattrs), 0);
+
+	if (rv != -1 &&
+		(volattrs.volAttrs.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_DECMPFS_COMPRESSION) &&
+		(volattrs.volAttrs.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_DECMPFS_COMPRESSION)) {
+		return 1;
+	}
+#endif
+	return 0;
+}
+
+
+static void
+sort_xattrname_list(void *start, size_t length)
+{
+	char **ptrs = NULL;
+	int nel;
+	char *tmp;
+	int indx = 0;
+
+	/* If it's not a proper C string at the end, don't do anything */
+	if (((char*)start)[length] != 0)
+		return;
+	/*
+	 * In order to sort the list of names, we need to
+	 * make a list of pointers to strings.  To do that,
+	 * we need to run through the buffer, and find the
+	 * beginnings of strings.
+	 */
+	nel = 10;	// Most files don't have many EAs
+	ptrs = (char**)calloc(nel, sizeof(char*));
+
+	if (ptrs == NULL)
+		goto done;
+
+#ifdef DEBUG
+{
+	char *curPtr = start;
+	while (curPtr < (char*)start + length) {
+		printf("%s\n", curPtr);
+		curPtr += strlen(curPtr) + 1;
+	}
+}
+#endif
+
+	tmp = ptrs[indx++] = (char*)start;
+
+	while (tmp = memchr(tmp, 0, ((char*)start + length) - tmp)) {
+		if (indx == nel) {
+			nel += 10;
+			ptrs = realloc(ptrs, sizeof(char**) * nel);
+			if (ptrs == NULL)
+				goto done;
+		}
+		ptrs[indx++] = ++tmp;
+	}
+#ifdef DEBUG
+	printf("Unsorted:\n");
+	for (nel = 0; nel < indx-1; nel++) {
+		printf("\tEA %d = `%s'\n", nel, ptrs[nel]);
+	}
+#endif
+	qsort_b(ptrs, indx-1, sizeof(char*), ^(const void *left, const void *right) {
+		int rv;
+		char *lstr = *(char**)left, *rstr = *(char**)right;
+		rv = strcmp(lstr, rstr);
+		return rv;
+	});
+#ifdef DEBUG
+	printf("Sorted:\n");
+	for (nel = 0; nel < indx-1; nel++) {
+		printf("\tEA %d = `%s'\n", nel, ptrs[nel]);
+	}
+#endif
+	/*
+	 * Now that it's sorted, we need to make a copy, so we can
+	 * move the strings around into the new order.  Then we
+	 * copy that on top of the old buffer, and we're done.
+	 */
+	char *copy = malloc(length);
+	if (copy) {
+		int i;
+		char *curPtr = copy;
+
+		for (i = 0; i < indx-1; i++) {
+			size_t len = strlen(ptrs[i]);
+			memcpy(curPtr, ptrs[i], len+1);
+			curPtr += len+1;
+		}
+		memcpy(start, copy, length);
+		free(copy);
+	}
+
+done:
+	if (ptrs)
+		free(ptrs);
+	return;
 }
 
 /*
@@ -215,27 +342,47 @@ add_uberace(acl_t *acl)
 	 */
 	if (acl_create_entry_np(acl, &entry, ACL_FIRST_ENTRY) == -1)
 		goto error_exit;
-	if (acl_get_permset(entry, &permset) == -1)
+	if (acl_get_permset(entry, &permset) == -1) {
+		copyfile_warn("acl_get_permset");
 		goto error_exit;
-	if (acl_clear_perms(permset) == -1)
+	}
+	if (acl_clear_perms(permset) == -1) {
+		copyfile_warn("acl_clear_permset");
 		goto error_exit;
-	if (acl_add_perm(permset, ACL_WRITE_DATA) == -1)
+	}
+	if (acl_add_perm(permset, ACL_WRITE_DATA) == -1) {
+		copyfile_warn("add ACL_WRITE_DATA");
 		goto error_exit;
-	if (acl_add_perm(permset, ACL_WRITE_ATTRIBUTES) == -1)
+	}
+	if (acl_add_perm(permset, ACL_WRITE_ATTRIBUTES) == -1) {
+		copyfile_warn("add ACL_WRITE_ATTRIBUTES");
 		goto error_exit;
-	if (acl_add_perm(permset, ACL_WRITE_EXTATTRIBUTES) == -1)
+	}
+	if (acl_add_perm(permset, ACL_WRITE_EXTATTRIBUTES) == -1) {
+		copyfile_warn("add ACL_WRITE_EXTATTRIBUTES");
 		goto error_exit;
-	if (acl_add_perm(permset, ACL_APPEND_DATA) == -1)
+	}
+	if (acl_add_perm(permset, ACL_APPEND_DATA) == -1) {
+		copyfile_warn("add ACL_APPEND_DATA");
 		goto error_exit;
-	if (acl_add_perm(permset, ACL_WRITE_SECURITY) == -1)
+	}
+	if (acl_add_perm(permset, ACL_WRITE_SECURITY) == -1) {
+		copyfile_warn("add ACL_WRITE_SECURITY");
 		goto error_exit;
-	if (acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == -1)
+	}
+	if (acl_set_tag_type(entry, ACL_EXTENDED_ALLOW) == -1) {
+		copyfile_warn("set ACL_EXTENDED_ALLOW");
 		goto error_exit;
+	}
 
-	if(acl_set_permset(entry, permset) == -1)
+	if(acl_set_permset(entry, permset) == -1) {
+		copyfile_warn("acl_set_permset");
 		goto error_exit;
-	if(acl_set_qualifier(entry, qual) == -1)
+	}
+	if(acl_set_qualifier(entry, qual) == -1) {
+		copyfile_warn("acl_set_qualifier");
 		goto error_exit;
+	}
 
 	return 0;
 error_exit:
@@ -250,7 +397,7 @@ is_uberace(acl_entry_t ace)
 	acl_t tacl;
 	acl_entry_t tentry;
 	acl_tag_t tag;
-	guid_t *qual;
+	guid_t *qual = NULL;
 	uuid_t myuuid;
 
 	// Who am I, and who is the ACE for?
@@ -278,6 +425,9 @@ is_uberace(acl_entry_t ace)
 		retval = 1;
 
 done:
+
+	if (qual)
+		acl_free(qual);
 
 	if (tacl)
 		acl_free(tacl);
@@ -465,7 +615,7 @@ copytree(copyfile_state_t s)
 		retval = -1;
 		goto done;
 	}
-	if (sbuf.st_mode & S_IFDIR) {
+	if ((sbuf.st_mode & S_IFMT) == S_IFDIR) {
 		srcisdir = 1;
 	}
 
@@ -626,7 +776,8 @@ copytree(copyfile_state_t s)
 					goto stopit;
 				}
 			}
-			rv = copyfile(ftsent->fts_path, dstfile, tstate, flags);
+			int tmp_flags = (cmd == COPYFILE_RECURSE_DIR) ? (flags & ~COPYFILE_STAT) : flags;
+			rv = copyfile(ftsent->fts_path, dstfile, tstate, tmp_flags);
 			if (rv < 0) {
 				if (status) {
 					rv = (*status)(cmd, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
@@ -649,8 +800,6 @@ copytree(copyfile_state_t s)
 				}
 			}
 		} else if (cmd == COPYFILE_RECURSE_DIR_CLEANUP) {
-			int tfd;
-
 			if (status) {
 				rv = (*status)(cmd, COPYFILE_START, tstate, ftsent->fts_path, dstfile, s->ctx);
 				if (rv == COPYFILE_QUIT) {
@@ -661,24 +810,8 @@ copytree(copyfile_state_t s)
 					goto skipit;
 				}
 			}
-			tfd = open(dstfile,  O_RDONLY);
-			if (tfd != -1) {
-				struct stat sb;
-				if (s->flags & COPYFILE_STAT) {
-					(s->flags & COPYFILE_NOFOLLOW_SRC ? lstat : stat)(ftsent->fts_path, &sb);
-				} else {
-					(s->flags & COPYFILE_NOFOLLOW_DST ? lstat : stat)(dstfile, &sb);
-				}
-				remove_uberace(tfd, &sb);
-				close(tfd);
-				if (status) {
-					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
-					if (rv == COPYFILE_QUIT) {
-						rv = -1; errno = 0;
-						goto stopit;
-					}
-				}
-			} else {
+			rv = copyfile(ftsent->fts_path, dstfile, tstate, (flags & COPYFILE_NOFOLLOW) | COPYFILE_STAT);
+			if (rv < 0) {
 				if (status) {
 					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_ERR, tstate, ftsent->fts_path, dstfile, s->ctx);
 					if (rv == COPYFILE_QUIT) {
@@ -694,7 +827,16 @@ copytree(copyfile_state_t s)
 					retval = -1;
 					goto stopit;
 				}
+			} else {
+				if (status) {
+					rv = (*status)(COPYFILE_RECURSE_DIR_CLEANUP, COPYFILE_FINISH, tstate, ftsent->fts_path, dstfile, s->ctx);
+					if (rv == COPYFILE_QUIT) {
+						retval = -1; errno = 0;
+						goto stopit;
+					}
+				}
 			}
+
 			rv = 0;
 		}
 skipit:
@@ -860,7 +1002,7 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	goto error_exit;
 
     if ((s->flags & COPYFILE_NOFOLLOW_DST) && lstat(s->dst, &dst_sb) == 0 &&
-	(dst_sb.st_mode & S_IFLNK)) {
+	((dst_sb.st_mode & S_IFMT) == S_IFLNK)) {
 	if (s->permissive_fsec)
 	    free(s->permissive_fsec);
 	s->permissive_fsec = NULL;
@@ -902,6 +1044,9 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
     } else if ((ret = copyfile_open(s)) < 0)
 	goto error_exit;
 
+    (void)fcntl(s->src_fd, F_NOCACHE, 1);
+    (void)fcntl(s->dst_fd, F_NOCACHE, 1);
+
     ret = copyfile_internal(s, flags);
     if (ret == -1)
 	goto error_exit;
@@ -918,6 +1063,9 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 #endif
 
     reset_security(s);
+
+    if (s->src && (flags & COPYFILE_MOVE))
+	(void)remove(s->src);
 
 exit:
     if (state == NULL) {
@@ -1032,8 +1180,27 @@ static int copyfile_internal(copyfile_state_t s, copyfile_flags_t flags)
      * to apply it to dst_fd.  We don't care if
      * it fails, not yet anyway.
      */
-    if (s->qinfo)
-	(void)qtn_file_apply_to_fd(s->qinfo, s->dst_fd);
+    if (s->qinfo) {
+	int qr = qtn_file_apply_to_fd(s->qinfo, s->dst_fd);
+	if (qr != 0) {
+		if (s->statuscb) {
+			int rv;
+
+			s->xattr_name = (char*)XATTR_QUARANTINE_NAME;
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+			s->xattr_name = NULL;
+			if (rv == COPYFILE_QUIT) {
+				s->err = errno = (qr < 0 ? ENOTSUP : qr);
+				ret = -1;
+				goto exit;
+			}
+		} else {
+			s->err = errno = (qr < 0 ? ENOTSUP : qr);
+			ret = -1;
+			goto exit;
+		}
+	}
+    }
 
     /*
      * COPYFILE_XATTR tells us to copy the extended attributes;
@@ -1142,6 +1309,8 @@ int copyfile_state_free(copyfile_state_t s)
 	    copyfile_warn("error closing files");
 	    return -1;
 	}
+	if (s->xattr_name)
+	    free(s->xattr_name);
 	if (s->dst)
 	    free(s->dst);
 	if (s->src)
@@ -1403,7 +1572,7 @@ static int copyfile_open(copyfile_state_t s)
 
 		bp = calloc(1, sz);
 		if (bp == NULL) {
-			copyfile_warn("cannot allocate %d bytes", sz);
+			copyfile_warn("cannot allocate %zd bytes", sz);
 			return -1;
 		}
 		if (readlink(s->src, bp, sz-1) == -1) {
@@ -1426,7 +1595,7 @@ static int copyfile_open(copyfile_state_t s)
 		}
 	} else if (isdir) {
 		mode_t mode;
-		mode = s->sb.st_mode & ~S_IFMT;
+		mode = (s->sb.st_mode & ~S_IFMT) | S_IRWXU;
 
 		if (mkdir(s->dst, mode) == -1) {
 			if (errno != EEXIST || (s->flags & COPYFILE_EXCL)) {
@@ -1612,6 +1781,18 @@ static int copyfile_data(copyfile_state_t s)
     if ((s->sb.st_mode & S_IFMT) != S_IFREG)
 	return 0;
 
+#ifdef VOL_CAP_FMT_DECMPFS_COMPRESSION
+    if (s->internal_flags & cfSawDecmpEA) {
+	if (s->sb.st_flags & UF_COMPRESSED) {
+	    if ((s->flags & COPYFILE_STAT) == 0) {
+		if (fchflags(s->dst_fd, UF_COMPRESSED) == 0) {
+			goto exit;
+		}
+	    }
+	}
+    }
+#endif
+	
     if (fstatfs(s->src_fd, &sfs) == -1) {
 	iBlocksize = s->sb.st_blksize;
     } else {
@@ -1694,7 +1875,7 @@ static int copyfile_data(copyfile_state_t s)
 		if (status) {
 			int rv = (*status)(COPYFILE_COPY_DATA, COPYFILE_PROGRESS,  s, s->src, s->dst, s->ctx);
 			if (rv == COPYFILE_QUIT) {
-				ret = -1; s->err = ECANCELED;
+				ret = -1; s->err = errno = ECANCELED;
 				goto exit;
 			}
 		}
@@ -1707,7 +1888,7 @@ static int copyfile_data(copyfile_state_t s)
 	goto exit;
     }
 
-    if (ftruncate(s->dst_fd, s->sb.st_size) < 0)
+    if (ftruncate(s->dst_fd, s->totalCopied) < 0)
     {
 	ret = -1;
 	goto exit;
@@ -1731,11 +1912,8 @@ exit:
 static int copyfile_security(copyfile_state_t s)
 {
     int copied = 0;
-    int has_uberace = 0;
-    acl_flagset_t flags;
     struct stat sb;
-    acl_entry_t entry_src = NULL, entry_dst = NULL;
-    acl_t acl_src = NULL, acl_dst = NULL;
+    acl_t acl_src = NULL, acl_tmp = NULL, acl_dst = NULL;
     int ret = 0;
     filesec_t tmp_fsec = NULL;
     filesec_t fsec_dst = filesec_init();
@@ -1767,75 +1945,64 @@ static int copyfile_security(copyfile_state_t s)
 	    else
 		goto error_exit;
 	}
-	else
-	{
-		acl_t tmp = acl_init(4);
-		acl_entry_t ace = NULL;
-		int count = 0;
-
-		if (tmp == NULL)
-			goto error_exit;
-
-
-		for (; acl_get_entry(acl_dst,
-			ace == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
-			&ace) == 0;)
-		{
-			if (count++ == 0 && is_uberace(ace)) {
-				if ((ret = acl_create_entry(&tmp, &entry_dst)) == -1)
-					break;
-				if ((ret = acl_copy_entry(entry_dst, ace)) == -1)
-					break;
-				has_uberace = 1;
-				continue;
-			}
-			acl_get_flagset_np(ace, &flags);
-			if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
-			{
-				if ((ret = acl_create_entry(&tmp, &entry_dst)) == -1)
-					break;
-				if ((ret = acl_copy_entry(entry_dst, ace)) == -1)
-					break;
-			}
-		}
-		acl_free(acl_dst);
-		acl_dst = tmp;
-
-		if (ret == -1)
-			goto error_exit;
-	}
 
 	if (acl_src == NULL && acl_dst == NULL)
 		goto no_acl;
 
+	acl_tmp = acl_init(4);
+	if (acl_tmp == NULL)
+		goto error_exit;
+
 	if (acl_src) {
-		if (acl_dst == NULL)
-			acl_dst = acl_init(4);
-		for (copied = 0;acl_get_entry(acl_src,
-		    entry_src == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
-		    &entry_src) == 0;)
+		acl_entry_t ace = NULL;
+		acl_entry_t tmp = NULL;
+		for (copied = 0;
+			acl_get_entry(acl_src,
+			    ace == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
+			    &ace) == 0;)
 		{
-		    acl_get_flagset_np(entry_src, &flags);
+		    acl_flagset_t flags = { 0 };
+		    acl_get_flagset_np(ace, &flags);
 		    if (!acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
 		    {
-			if ((ret = acl_create_entry(&acl_dst, &entry_dst)) == -1)
+			if ((ret = acl_create_entry(&acl_tmp, &tmp)) == -1)
 			    goto error_exit;
 
-			if ((ret = acl_copy_entry(entry_dst, entry_src)) == -1)
+			if ((ret = acl_copy_entry(tmp, ace)) == -1)
 			    goto error_exit;
 
 			copyfile_debug(2, "copied acl entry from %s to %s",
 				s->src ? s->src : "(null src)",
-				s->dst ? s->dst : "(null dst)");
+				s->dst ? s->dst : "(null tmp)");
 			copied++;
 		    }
 		}
 	}
-	if (!has_uberace && (s->internal_flags & cfDelayAce)) {
-		if (add_uberace(&acl_dst))
-			goto error_exit;
+	if (acl_dst) {
+		acl_entry_t ace = NULL;
+		acl_entry_t tmp = NULL;
+		acl_flagset_t flags = { 0 };
+		for (copied = 0;acl_get_entry(acl_dst,
+		    ace == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY,
+		    &ace) == 0;)
+		{
+		    acl_get_flagset_np(ace, &flags);
+		    if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
+		    {
+			if ((ret = acl_create_entry(&acl_tmp, &tmp)) == -1)
+			    goto error_exit;
+
+			if ((ret = acl_copy_entry(tmp, ace)) == -1)
+			    goto error_exit;
+
+			copyfile_debug(2, "copied acl entry from %s to %s",
+				s->src ? s->src : "(null dst)",
+				s->dst ? s->dst : "(null tmp)");
+			copied++;
+		    }
+		}
 	}
-	if (!filesec_set_property(s->fsec, FILESEC_ACL, &acl_dst))
+	if (!filesec_set_property(s->fsec, FILESEC_ACL, &acl_tmp))
 	{
 	    copyfile_debug(3, "altered acl");
 	}
@@ -1876,10 +2043,14 @@ no_acl:
 		 * discretely.  We don't care if the fchown fails, but we do care
 		 * if the mode or ACL can't be set.  For historical reasons, we
 		 * simply log those failures, however.
+		 *
+		 * Big warning here:  we may NOT have COPYFILE_STAT set, since
+		 * we fell-through from COPYFILE_ACL.  So check for the fchmod.
 		 */
 
 #define NS(x)	((x) ? (x) : "(null string)")
-		if (fchmod(s->dst_fd, s->sb.st_mode) == -1) {
+		if ((s->flags & COPYFILE_STAT) &&
+			fchmod(s->dst_fd, s->sb.st_mode) == -1) {
 			copyfile_warn("could not change mode of destination file %s to match source file %s", NS(s->dst), NS(s->src));
 		}
 		(void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
@@ -1901,6 +2072,7 @@ exit:
     filesec_free(fsec_dst);
     if (acl_src) acl_free(acl_src);
     if (acl_dst) acl_free(acl_dst);
+    if (acl_tmp) acl_free(acl_tmp);
 
     return ret;
 
@@ -1917,15 +2089,16 @@ goto exit;
 static int copyfile_stat(copyfile_state_t s)
 {
     struct timeval tval[2];
+    unsigned int added_flags = 0;
+
     /*
-     * NFS doesn't support chflags; ignore errors unless there's reason
-     * to believe we're losing bits.  (Note, this still won't be right
-     * if the server supports flags and we were trying to *remove* flags
-     * on a file that we copied, i.e., that we didn't create.)
+     * NFS doesn't support chflags; ignore errors as a result, since
+     * we don't return failure for this.
      */
-    if (fchflags(s->dst_fd, (u_int)s->sb.st_flags))
-	if (errno != EOPNOTSUPP || s->sb.st_flags != 0)
-	    copyfile_warn("%s: set flags (was: 0%07o)", s->dst ? s->dst : "(null dst)", s->sb.st_flags);
+    if (s->internal_flags & cfMakeFileInvisible)
+	added_flags |= UF_HIDDEN;
+
+    (void)fchflags(s->dst_fd, (u_int)s->sb.st_flags | added_flags);
 
     /* If this fails, we don't care */
     (void)fchown(s->dst_fd, s->sb.st_uid, s->sb.st_gid);
@@ -1936,8 +2109,8 @@ static int copyfile_stat(copyfile_state_t s)
     tval[0].tv_sec = s->sb.st_atime;
     tval[1].tv_sec = s->sb.st_mtime;
     tval[0].tv_usec = tval[1].tv_usec = 0;
-    if (futimes(s->dst_fd, tval))
-	    copyfile_warn("%s: set times", s->dst ? s->dst : "(null dst)");
+    (void)futimes(s->dst_fd, tval);
+
     return 0;
 }
 
@@ -1961,6 +2134,7 @@ static int copyfile_xattr(copyfile_state_t s)
     ssize_t asize;
     ssize_t nsize;
     int ret = 0;
+    int look_for_decmpea = 0;
 
     /* delete EAs on destination */
     if ((nsize = flistxattr(s->dst_fd, 0, 0, 0)) > 0)
@@ -1998,8 +2172,17 @@ static int copyfile_xattr(copyfile_state_t s)
 	    return -1;
     }
 
+#ifdef DECMPFS_XATTR_NAME
+    if ((s->flags & COPYFILE_DATA) &&
+	(s->sb.st_flags & UF_COMPRESSED) &&
+	doesdecmpfs(s->src_fd) &&
+	doesdecmpfs(s->dst_fd)) {
+	look_for_decmpea = XATTR_SHOWCOMPRESSION;
+    }
+#endif
+
     /* get name list of EAs on source */
-    if ((nsize = flistxattr(s->src_fd, 0, 0, 0)) < 0)
+    if ((nsize = flistxattr(s->src_fd, 0, 0, look_for_decmpea)) < 0)
     {
 	if (errno == ENOTSUP || errno == EPERM)
 	    return 0;
@@ -2012,7 +2195,7 @@ static int copyfile_xattr(copyfile_state_t s)
     if ((namebuf = (char *) malloc(nsize)) == NULL)
 	return -1;
     else
-	nsize = flistxattr(s->src_fd, namebuf, nsize, 0);
+	nsize = flistxattr(s->src_fd, namebuf, nsize, look_for_decmpea);
 
     if (nsize <= 0) {
 	free(namebuf);
@@ -2040,9 +2223,8 @@ static int copyfile_xattr(copyfile_state_t s)
 	if (strncmp(name, XATTR_QUARANTINE_NAME, end - name) == 0)
 	    continue;
 
-	if ((xa_size = fgetxattr(s->src_fd, name, 0, 0, 0, 0)) < 0)
+	if ((xa_size = fgetxattr(s->src_fd, name, 0, 0, 0, look_for_decmpea)) < 0)
 	{
-	    ret = -1;
 	    continue;
 	}
 
@@ -2059,24 +2241,98 @@ static int copyfile_xattr(copyfile_state_t s)
 	    }
 	}
 
-	if ((asize = fgetxattr(s->src_fd, name, xa_dataptr, xa_size, 0, 0)) < 0)
+	if ((asize = fgetxattr(s->src_fd, name, xa_dataptr, xa_size, 0, look_for_decmpea)) < 0)
 	{
-	    ret = -1;
 	    continue;
 	}
 
 	if (xa_size != asize)
 	    xa_size = asize;
 
-	if (fsetxattr(s->dst_fd, name, xa_dataptr, xa_size, 0, 0) < 0)
+#ifdef DECMPFS_XATTR_NAME
+	if (strncmp(name, DECMPFS_XATTR_NAME, end-name) == 0)
 	{
-	    ret = -1;
-	    continue;
+	    decmpfs_disk_header *hdr = xa_dataptr;
+
+	    /*
+	     * If the EA has the decmpfs name, but is too
+	     * small, or doesn't have the right magic number,
+	     * or isn't the right type, we'll just skip it.
+	     * This means it won't end up in the destination
+	     * file, and data copy will happen normally.
+	     */
+	    if ((size_t)xa_size < sizeof(decmpfs_disk_header)) {
+		continue;
+	    }
+	    if (OSSwapLittleToHostInt32(hdr->compression_magic) != DECMPFS_MAGIC) {
+		continue;
+	    }
+	    if (OSSwapLittleToHostInt32(hdr->compression_type) != 3 &&
+		OSSwapLittleToHostInt32(hdr->compression_type) != 4) {
+		continue;
+	    }
+	    s->internal_flags |= cfSawDecmpEA;
+	}
+#endif
+
+	if (s->xattr_name) {
+		free(s->xattr_name);
+		s->xattr_name = NULL;
+	}
+	s->xattr_name = strdup(name);
+	
+	if (s->statuscb) {
+		int rv;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		if (rv == COPYFILE_QUIT) {
+			s->err = ECANCELED;
+			goto out;
+		} else if (rv == COPYFILE_SKIP) {
+			continue;
+		}
+	}
+	if (fsetxattr(s->dst_fd, name, xa_dataptr, xa_size, 0, look_for_decmpea) < 0)
+	{
+	    if (s->statuscb)
+	    {
+		int rv;
+		if (s->xattr_name == NULL)
+			s->xattr_name = strdup(name);
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+		if (rv == COPYFILE_QUIT)
+		{
+		    s->err = ECANCELED;
+		    ret = -1;
+		    goto out;
+		}
+	    }
+	    else
+	    {
+		ret = -1;
+		copyfile_warn("could not set attributes %s on destination file descriptor: %s", name, strerror(errno));
+		continue;
+	    }
+	}
+	if (s->statuscb) {
+		int rv;
+		if (s->xattr_name == NULL)
+			s->xattr_name = strdup(name);
+
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+		if (rv == COPYFILE_QUIT) {
+			s->err = ECANCELED;
+			goto out;
+		}
 	}
     }
+out:
     if (namebuf)
 	free(namebuf);
     free((void *) xa_dataptr);
+    if (s->xattr_name) {
+	free(s->xattr_name);
+	s->xattr_name = NULL;
+    }
     return ret;
 }
 
@@ -2126,6 +2382,11 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 	case COPYFILE_STATE_COPIED:
 	    *(off_t*)ret = s->totalCopied;
 	    break;
+#endif
+#ifdef COPYFILE_STATE_XATTRNAME
+	case COPYFILE_STATE_XATTRNAME:
+		*(char**)ret = s->xattr_name;
+		break;
 #endif
 	default:
 	    errno = EINVAL;
@@ -2271,7 +2532,7 @@ int main(int c, char *v[])
 
 #define offsetof(type, member)	((size_t)(&((type *)0)->member))
 
-#define	XATTR_MAXATTRLEN   (4*1024)
+#define	XATTR_MAXATTRLEN   (32*1024)
 
 
 /*
@@ -2564,7 +2825,7 @@ static int copyfile_unpack(copyfile_state_t s)
 
     buffer = calloc(1, hdrsize);
     if (buffer == NULL) {
-	copyfile_debug(1, "copyfile_unpack: calloc(1, %u) returned NULL", hdrsize);
+	copyfile_debug(1, "copyfile_unpack: calloc(1, %zu) returned NULL", hdrsize);
 	error = -1;
 	goto exit;
     } else
@@ -2574,7 +2835,7 @@ static int copyfile_unpack(copyfile_state_t s)
 
     if (bytes < 0)
     {
-	copyfile_debug(1, "pread returned: %d", bytes);
+	copyfile_debug(1, "pread returned: %zd", bytes);
 	error = -1;
 	goto exit;
     }
@@ -2608,30 +2869,27 @@ static int copyfile_unpack(copyfile_state_t s)
      * Remove any extended attributes on the target.
      */
 
-    if (COPYFILE_XATTR & s->flags)
+    if ((bytes = flistxattr(s->dst_fd, 0, 0, 0)) > 0)
     {
-	if ((bytes = flistxattr(s->dst_fd, 0, 0, 0)) > 0)
+	char *namebuf, *name;
+
+	if ((namebuf = (char*) malloc(bytes)) == NULL)
 	{
-	    char *namebuf, *name;
-
-	    if ((namebuf = (char*) malloc(bytes)) == NULL)
-	    {
-		s->err = ENOMEM;
-		goto exit;
-	    }
-	    bytes = flistxattr(s->dst_fd, namebuf, bytes, 0);
-
-	    if (bytes > 0)
-		for (name = namebuf; name < namebuf + bytes; name += strlen(name) + 1)
-		    (void)fremovexattr(s->dst_fd, name, 0);
-
-	    free(namebuf);
-	}
-	else if (bytes < 0)
-	{
-	    if (errno != ENOTSUP && errno != EPERM)
+	    s->err = ENOMEM;
 	    goto exit;
 	}
+    bytes = flistxattr(s->dst_fd, namebuf, bytes, 0);
+
+    if (bytes > 0)
+	for (name = namebuf; name < namebuf + bytes; name += strlen(name) + 1)
+	    (void)fremovexattr(s->dst_fd, name, 0);
+
+    free(namebuf);
+    }
+    else if (bytes < 0)
+    {
+	if (errno != ENOTSUP && errno != EPERM)
+	    goto exit;
     }
 
     /*
@@ -2650,7 +2908,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	int i;
 
 	if ((size_t)hdrsize < sizeof(attr_header_t)) {
-		copyfile_warn("bad attribute header:  %u < %u", hdrsize, sizeof(attr_header_t));
+		copyfile_warn("bad attribute header:  %zu < %zu", hdrsize, sizeof(attr_header_t));
 		error = -1;
 		goto exit;
 	}
@@ -2756,7 +3014,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	    dataptr = (char *)attrhdr + entry->offset;
 
 	    if (dataptr > endptr || dataptr < buffer) {
-		copyfile_debug(1, "Entry %d overflows:  offset = %u", entry->offset);
+		copyfile_debug(1, "Entry %d overflows:  offset = %u", i, entry->offset);
 		error = -1;
 		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
@@ -2767,7 +3025,7 @@ static int copyfile_unpack(copyfile_state_t s)
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("Incomplete or corrupt attribute entry");
 		copyfile_debug(1, "Entry %d length overflows:  offset = %u, length = %u",
-			entry->offset, entry->length);
+			i, entry->offset, entry->length);
 		error = -1;
 		s->err = EINVAL;	/* Invalid buffer */
 		goto exit;
@@ -2799,8 +3057,22 @@ static int copyfile_unpack(copyfile_state_t s)
 		{
 			int x;
 			x = qtn_file_apply_to_fd(tqinfo, s->dst_fd);
-			if (x != 0)
+			if (x != 0) {
 			    copyfile_warn("qtn_file_apply_to_fd failed: %s", qtn_error(x));
+				if (s->statuscb) {
+					int rv;
+					s->xattr_name = (char*)XATTR_QUARANTINE_NAME;
+					rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+					s->xattr_name = NULL;
+					if (rv == COPYFILE_QUIT) {
+						error = s->err = x < 0 ? ENOTSUP : errno;
+						goto exit;
+					}
+				} else {
+			    		error = s->err = x < 0 ? ENOTSUP : errno;
+			    		goto exit;
+				}
+			}
 		}
 		if (tqinfo && !s->qinfo)
 		{
@@ -2808,13 +3080,22 @@ static int copyfile_unpack(copyfile_state_t s)
 		}
 	    }
 	    /* Look for ACL data */
-	    else if (COPYFILE_ACL & s->flags && strcmp((char*)entry->name, XATTR_SECURITY_NAME) == 0)
+	    else if (strcmp((char*)entry->name, XATTR_SECURITY_NAME) == 0)
 	    {
 		acl_t acl;
 		struct stat sb;
 		int retry = 1;
 		char *tcp = dataptr;
 
+		if (entry->length == 0) {
+			/* Not sure how we got here, but we had one case
+			 * where it was 0.  In a normal EA, we can have a 0-byte
+			 * payload.  That means nothing in this case, so we'll
+			 * simply skip the EA.
+			 */
+			error = 0;
+			goto acl_done;
+		}
 		/*
 		 * acl_from_text() requires a NUL-terminated string.  The ACL EA,
 		 * however, may not be NUL-terminated.  So in that case, we need to
@@ -2862,17 +3143,59 @@ static int copyfile_unpack(copyfile_state_t s)
 		    acl_free(acl);
 		    filesec_free(fsec_tmp);
 
+acl_done:
 		    if (error == -1)
 			goto exit;
 		}
 	    }
 	    /* And, finally, everything else */
-	    else if (COPYFILE_XATTR & s->flags) {
-		 if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
+	    else
+	    {
+		if (s->statuscb) {
+			int rv;
+			s->xattr_name = strdup((char*)entry->name);
+			s->totalCopied = 0;
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+			if (rv == COPYFILE_QUIT) {
+				s->err = ECANCELED;
+				error = -1;
+				goto exit;
+			}
+		}
+		if (fsetxattr(s->dst_fd, (char *)entry->name, dataptr, entry->length, 0, 0) == -1) {
 			if (COPYFILE_VERBOSE & s->flags)
 				copyfile_warn("error %d setting attribute %s", error, entry->name);
-			error = -1;
-			goto exit;
+			if (s->statuscb) {
+				int rv;
+
+				s->xattr_name = strdup((char*)entry->name);
+				rv = (s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+				if (s->xattr_name) {
+					free(s->xattr_name);
+					s->xattr_name = NULL;
+				}
+				if (rv == COPYFILE_QUIT) {
+					error = -1;
+					goto exit;
+				}
+			} else {
+				error = -1;
+				goto exit;
+			}
+		} else if (s->statuscb) {
+			int rv;
+			s->xattr_name = strdup((char*)entry->name);
+			s->totalCopied = entry->length;
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+			if (s->xattr_name) {
+				free(s->xattr_name);
+				s->xattr_name = NULL;
+			}
+			if (rv == COPYFILE_QUIT) {
+				error = -1;
+				s->err = ECANCELED;
+				goto exit;
+			}
 		}
 	    }
 	    entry = ATTR_NEXT(entry);
@@ -2889,11 +3212,55 @@ static int copyfile_unpack(copyfile_state_t s)
 
     if (bcmp((u_int8_t*)buffer + adhdr->entries[0].offset, emptyfinfo, sizeof(emptyfinfo)) != 0)
     {
+	uint16_t *fFlags;
+	uint8_t *newFinfo;
+	enum { kFinderInvisibleMask = 1 << 14 };
+
+	newFinfo = (u_int8_t*)buffer + adhdr->entries[0].offset;
+	fFlags = (uint16_t*)&newFinfo[8];
 	copyfile_debug(3, " extracting \"%s\" (32 bytes)", XATTR_FINDERINFO_NAME);
+	if (s->statuscb) {
+		int rv;
+		s->xattr_name = (char*)XATTR_FINDERINFO_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT) {
+			error = -1;
+			s->err = ECANCELED;
+			goto exit;
+		} else if (rv == COPYFILE_SKIP) {
+			goto skip_fi;
+		}
+	}
 	error = fsetxattr(s->dst_fd, XATTR_FINDERINFO_NAME, (u_int8_t*)buffer + adhdr->entries[0].offset, sizeof(emptyfinfo), 0, 0);
-	if (error)
+	if (error) {
+		if (s->statuscb) {
+			int rv;
+			s->xattr_name = XATTR_FINDERINFO_NAME;
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+			s->xattr_name = NULL;
+			if (rv == COPYFILE_QUIT) {
+				error = -1;
+				s->err = ECANCELED;
+				goto exit;
+			}
+		}
 	    goto exit;
+	} else if (s->statuscb) {
+		int rv;
+		s->xattr_name = XATTR_FINDERINFO_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT) {
+			error = -1;
+			s->err = ECANCELED;
+			goto exit;
+		}
+	}
+	if (SWAP16(*fFlags) & kFinderInvisibleMask)
+		s->internal_flags |= cfMakeFileInvisible;
     }
+skip_fi:
 
     /*
      * Extract the Resource Fork.
@@ -2912,7 +3279,7 @@ static int copyfile_unpack(copyfile_state_t s)
 	rsrcforkdata = malloc(length);
 
 	if (rsrcforkdata == NULL) {
-		copyfile_debug(1, "could not allocate %u bytes for rsrcforkdata",
+		copyfile_debug(1, "could not allocate %zu bytes for rsrcforkdata",
 			length);
 		error = -1;
 		goto bad;
@@ -2941,6 +3308,21 @@ static int copyfile_unpack(copyfile_state_t s)
 	    error = -1;
 	    goto bad;
 	}
+	if (s->statuscb) {
+		int rv;
+		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT) {
+			error = -1;
+			s->err = ECANCELED;
+			if (rsrcforkdata)
+				free(rsrcforkdata);
+			goto exit;
+		} else if (rv == COPYFILE_SKIP) {
+			goto bad;
+		}
+	}
 	error = fsetxattr(s->dst_fd, XATTR_RESOURCEFORK_NAME, rsrcforkdata, bytes, 0, 0);
 	if (error)
 	{
@@ -2959,9 +3341,31 @@ static int copyfile_unpack(copyfile_state_t s)
 		    error = errno = 0;
 		    goto bad;
 	    }
+	    if (s->statuscb) {
+		int rv;
+		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_CONTINUE) {
+			error = errno = 0;
+			goto bad;
+		}
+	    }
 	    copyfile_debug(1, "error %d setting resource fork attribute", error);
 	    error = -1;
 	    goto bad;
+	} else if (s->statuscb) {
+		int rv;
+		s->xattr_name = XATTR_RESOURCEFORK_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT) {
+			error = -1;
+			s->err = ECANCELED;
+			if (rsrcforkdata)
+				free(rsrcforkdata);
+			goto exit;
+		}
 	}
 	copyfile_debug(3, "extracting \"%s\" (%d bytes)",
 		    XATTR_RESOURCEFORK_NAME, (int)length);
@@ -3064,6 +3468,29 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
     char *databuf = NULL;
     int ret = 0;
 
+/*
+ * XXX
+ * do COPYFILE_COPY_XATTR here; no need to
+ * the work if we want to skip.
+ */
+
+    if (s->statuscb)
+    {
+	int rv;
+
+	s->xattr_name = (char*)XATTR_RESOURCEFORK_NAME;
+
+	rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+	if (rv == COPYFILE_SKIP) {
+		ret = 0;
+		goto done;
+	}
+	if (rv == COPYFILE_QUIT) {
+		ret = -1;
+		s->err = ECANCELED;
+		goto done;
+	}
+    }
     /* Get the resource fork size */
     if ((datasize = fgetxattr(s->src_fd, XATTR_RESOURCEFORK_NAME, NULL, 0, 0, 0)) < 0)
     {
@@ -3078,6 +3505,19 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
 	goto done;
     }
 
+    if (s->statuscb) {
+	int rv;
+	s->xattr_name = (char*)XATTR_RESOURCEFORK_NAME;
+
+	s->totalCopied = 0;
+	rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_PROGRESS, s, s->src, s->dst, s->ctx);
+	s->xattr_name = NULL;
+	if (rv == COPYFILE_QUIT) {
+		s->err = ECANCELED;
+		ret = -1;
+		goto done;
+	}
+    }
     if ((databuf = malloc(datasize)) == NULL)
     {
 	copyfile_warn("malloc");
@@ -3099,14 +3539,38 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
 	if (COPYFILE_VERBOSE & s->flags)
 	    copyfile_warn("couldn't write resource fork");
     }
-    copyfile_debug(3, "copied %d bytes of \"%s\" data @ offset 0x%08x",
+    if (s->statuscb)
+    {
+	int rv;
+	rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+	if (rv == COPYFILE_QUIT) {
+	    ret = -1;
+	    goto done;
+	}
+    }
+    copyfile_debug(3, "copied %zd bytes of \"%s\" data @ offset 0x%08x",
 	datasize, XATTR_RESOURCEFORK_NAME, filehdr->appledouble.entries[1].offset);
     filehdr->appledouble.entries[1].length = (u_int32_t)datasize;
 
 done:
+    if (ret == -1 && s->statuscb)
+    {
+	int rv;
+	rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+	if (rv == COPYFILE_CONTINUE)
+	    ret = 0;
+    }
+    if (s->xattr_name) {
+	s->xattr_name = NULL;
+    }
     if (databuf)
 	free(databuf);
 
+/*
+ * XXX
+ * Do status callback here
+ * If ret == -1, then error callback
+ */
     return ret;
 }
 
@@ -3163,7 +3627,7 @@ static int copyfile_pack(copyfile_state_t s)
      * Fill in the initial Attribute Header.
      */
     filehdr->magic       = ATTR_HDR_MAGIC;
-    filehdr->debug_tag   = (u_int32_t)s->sb.st_ino;
+    filehdr->debug_tag   = 0;
     filehdr->data_start  = (u_int32_t)sizeof(attr_header_t);
 
     /*
@@ -3184,6 +3648,7 @@ static int copyfile_pack(copyfile_state_t s)
 	{
 	    offset = strlen(XATTR_SECURITY_NAME) + 1;
 	    strcpy(attrnamebuf, XATTR_SECURITY_NAME);
+	    endnamebuf = attrnamebuf + offset;
 	}
 	if (temp_acl)
 	    acl_free(temp_acl);
@@ -3202,12 +3667,14 @@ static int copyfile_pack(copyfile_state_t s)
 	    listsize = left;
 	}
 
-	listsize += offset;
-	endnamebuf = attrnamebuf + listsize;
+	endnamebuf = attrnamebuf + offset + (listsize > 0 ? listsize : 0);
 	if (endnamebuf > (attrnamebuf + ATTR_MAX_HDR_SIZE)) {
 		error = -1;
 		goto exit;
 	}
+
+	if (listsize > 0)
+		sort_xattrname_list(attrnamebuf, endnamebuf - attrnamebuf);
 
 	for (nameptr = attrnamebuf; nameptr < endnamebuf; nameptr += namelen)
 	{
@@ -3225,12 +3692,34 @@ static int copyfile_pack(copyfile_state_t s)
 	    if (namelen > XATTR_MAXNAMELEN + 1) {
 		namelen = XATTR_MAXNAMELEN + 1;
 	    }
+	    if (s->statuscb) {
+		int rv;
+		char eaname[namelen];
+		bcopy(nameptr, eaname, namelen);
+		eaname[namelen] = 0; // Just to be sure!
+		s->xattr_name = eaname;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT) {
+			error = -1;
+			s->err = ECANCELED;
+			goto exit;
+		} else if (rv == COPYFILE_SKIP) {
+			size_t amt = endnamebuf - (nameptr + namelen);
+			memmove(nameptr, nameptr + namelen, amt);
+			endnamebuf -= namelen;
+			/* Set namelen to 0 so continue doesn't miss names */
+			namelen = 0;
+			continue;
+		}
+	    }
 	    entry->namelen = namelen;
 	    entry->flags = 0;
 	    if (nameptr + namelen > endnamebuf) {
 		error = -1;
 		goto exit;
 	    }
+
 	    bcopy(nameptr, &entry->name[0], namelen);
 	    copyfile_debug(2, "copied name [%s]", entry->name);
 
@@ -3265,7 +3754,7 @@ static int copyfile_pack(copyfile_state_t s)
      */
     entry = (attr_entry_t *)((char *)filehdr + sizeof(attr_header_t));
 
-    for (nameptr = attrnamebuf; nameptr < attrnamebuf + listsize; nameptr += namelen + 1)
+    for (nameptr = attrnamebuf; nameptr < endnamebuf; nameptr += namelen + 1)
     {
 	namelen = strlen(nameptr);
 
@@ -3278,9 +3767,49 @@ static int copyfile_pack(copyfile_state_t s)
 	/* Check for Finder Info. */
 	else if (strcmp(nameptr, XATTR_FINDERINFO_NAME) == 0)
 	{
+	    if (s->statuscb)
+	    {
+		int rv;
+		s->xattr_name = (char*)XATTR_FINDERINFO_NAME;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		if (rv == COPYFILE_QUIT)
+		{
+		    s->xattr_name = NULL;
+		    s->err = ECANCELED;
+		    error = -1;
+		    goto exit;
+		}
+		else if (rv == COPYFILE_SKIP)
+		{
+		    s->xattr_name = NULL;
+		    continue;
+		}
+		s->totalCopied = 0;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_PROGRESS, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
+		if (rv == COPYFILE_QUIT)
+		{
+		    s->err = ECANCELED;
+		    error = -1;
+		    goto exit;
+		}
+	    }
 	    datasize = fgetxattr(s->src_fd, nameptr, (u_int8_t*)filehdr + filehdr->appledouble.entries[0].offset, 32, 0, 0);
 	    if (datasize < 0)
 	    {
+		    if (s->statuscb) {
+			int rv;
+			s->xattr_name = strdup(nameptr);
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+			if (s->xattr_name) {
+				free(s->xattr_name);
+				s->xattr_name = NULL;
+			}
+			if (rv == COPYFILE_QUIT) {
+				error = -1;
+				goto exit;
+			}
+		    }
 		    if (COPYFILE_VERBOSE & s->flags)
 			copyfile_warn("skipping attr \"%s\" due to error %d", nameptr, errno);
 	    } else if (datasize != 32)
@@ -3292,6 +3821,19 @@ static int copyfile_pack(copyfile_state_t s)
 		    if (COPYFILE_VERBOSE & s->flags)
 			copyfile_warn(" copied 32 bytes of \"%s\" data @ offset 0x%08x",
 			    XATTR_FINDERINFO_NAME, filehdr->appledouble.entries[0].offset);
+		    if (s->statuscb) {
+			int rv;
+			s->xattr_name = strdup(nameptr);
+			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+			if (s->xattr_name) {
+				free(s->xattr_name);
+				s->xattr_name = NULL;
+			}
+			if (rv == COPYFILE_QUIT) {
+				error = -1;
+				goto exit;
+			}
+		    }
 	    }
 	    continue;  /* finder info doesn't have an attribute entry */
 	}
@@ -3303,6 +3845,26 @@ static int copyfile_pack(copyfile_state_t s)
 	} else
 	{
 	    /* Just a normal attribute. */
+	    if (s->statuscb)
+	    {
+		int rv;
+		s->xattr_name = strdup(nameptr);
+		s->totalCopied = 0;
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_PROGRESS, s, s->src, s->dst, s->ctx);
+		if (s->xattr_name) {
+			free(s->xattr_name);
+			s->xattr_name = NULL;
+		}
+		/*
+		 * Due to the nature of the packed file, we can't skip at this point.
+		 */
+		if (rv == COPYFILE_QUIT)
+		{
+		    s->err = ECANCELED;
+		    error = -1;
+		    goto exit;
+		}
+	    }
 	    datasize = fgetxattr(s->src_fd, nameptr, NULL, 0, 0, 0);
 	    if (datasize == 0)
 		goto next;
@@ -3310,6 +3872,22 @@ static int copyfile_pack(copyfile_state_t s)
 	    {
 		if (COPYFILE_VERBOSE & s->flags)
 		    copyfile_warn("skipping attr \"%s\" due to error %d", nameptr, errno);
+		if (s->statuscb)
+		{
+		    int rv;
+		    s->xattr_name = strdup(nameptr);
+		    rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_ERR, s, s->src, s->dst, s->ctx);
+		    if (s->xattr_name) {
+			free(s->xattr_name);
+			s->xattr_name = NULL;
+		    }
+		    if (rv == COPYFILE_QUIT)
+		    {
+			s->err = ECANCELED;
+			error = -1;
+			goto exit;
+		    }
+		}
 		goto next;
 	    }
 	    if (datasize > XATTR_MAXATTRLEN)
@@ -3324,6 +3902,20 @@ static int copyfile_pack(copyfile_state_t s)
 		continue;
 	    }
 	    datasize = fgetxattr(s->src_fd, nameptr, databuf, datasize, 0, 0);
+	    if (s->statuscb) {
+		int rv;
+		s->xattr_name = strdup(nameptr);
+		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_FINISH, s, s->src, s->dst, s->ctx);
+		if (s->xattr_name) {
+			free(s->xattr_name);
+			s->xattr_name = NULL;
+		}
+		if (rv == COPYFILE_QUIT) {
+			s->err = ECANCELED;
+			error = -1;
+			goto exit;
+		}
+	    }
 	}
 
 	entry->length = (u_int32_t)datasize;

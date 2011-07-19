@@ -1,9 +1,12 @@
-TARGET = objc_test.bundle
-OBJS = objc_test.o
-CFLAGS = %%%other_cflags%%%
+TARGETS = objc_test.bundle objc_proto.bundle
+OBJS = objc_test.o objc_proto.o
+CFLAGS = %%%other_cflags%%% %%%arch_flags%%%
 
-${TARGET}: ${OBJS}
-	cc -o $@ ${CFLAGS} -bundle -framework Foundation -framework AddressBook ${OBJS}
+.SUFFIXES: .bundle
+.o.bundle:
+	cc -o $@ ${CFLAGS} -bundle -framework Foundation -framework AddressBook $<
+
+all: ${TARGETS}
 
 clean:
-	rm -f ${TARGET} ${OBJS}
+	rm -f ${TARGETS} ${OBJS}

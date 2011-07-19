@@ -8,8 +8,6 @@
 	<true/>
 	<key>Label</key>
 	<string>com.apple.configd</string>
-	<key>MachExceptionHandler</key>
-	<string>com.apple.ReportCrash.DirectoryService</string>
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.SystemConfiguration.configd</key>

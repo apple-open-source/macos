@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: splay.h,v 1.6 2009-06-10 02:49:43 yangtse Exp $
  ***************************************************************************/
 
 struct Curl_tree {

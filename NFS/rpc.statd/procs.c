@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -63,7 +63,7 @@ static const char rcsid[] = "$FreeBSD$";
 #include <string.h>
 #include <unistd.h>
 #include <search.h>
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <syslog.h>
 #include <vis.h>
 #include <netdb.h>		/* for getaddrinfo()		 */
@@ -73,6 +73,16 @@ static const char rcsid[] = "$FreeBSD$";
 #include <arpa/inet.h>
 
 #include "statd.h"
+
+static char *
+addrstr(struct sockaddr *saddr)
+{
+	static char addrbuf[NI_MAXHOST];
+
+	if (getnameinfo(saddr, saddr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST) != 0)
+		strlcpy(addrbuf, "<unknown>", sizeof(addrbuf));
+	return addrbuf;
+}
 
 /* sm_check_hostname -------------------------------------------------------- */
 /*
@@ -89,21 +99,20 @@ int
 sm_check_hostname(struct svc_req * req, char *arg)
 {
 	int len, dstlen, ret;
-	struct sockaddr_in *claddr;
+	struct sockaddr *claddr;
 	char *dst;
 
 	len = strlen(arg);
 	dstlen = (4 * len) + 1;
 	dst = malloc(dstlen);
-	claddr = svc_getcaller(req->rq_xprt);
+	claddr = svc_getcaller_sa(req->rq_xprt);
 	ret = 1;
 
 	if (claddr == NULL || dst == NULL) {
 		ret = 0;
 	} else if (strvis(dst, arg, VIS_WHITE) != len) {
-		log(LOG_ERR,
-		    "sm_stat: client %s hostname %s contained invalid characters.",
-		    inet_ntoa(claddr->sin_addr), dst);
+		log(LOG_ERR, "sm_stat: client %s hostname %s contained invalid characters.",
+			addrstr(claddr), dst);
 		ret = 0;
 	}
 	free(dst);
@@ -122,7 +131,6 @@ sm_stat_1_svc(sm_name * arg, struct svc_req * req)
 {
 	static sm_stat_res res;
 	struct addrinfo *ai;
-	struct sockaddr_in *claddr;
 	static int err;
 
 	err = 1;
@@ -135,9 +143,8 @@ sm_stat_1_svc(sm_name * arg, struct svc_req * req)
 			res.res_stat = stat_succ;
 			freeaddrinfo(ai);
 		} else {
-			claddr = svc_getcaller(req->rq_xprt);
 			log(LOG_ERR, "invalid hostname to sm_stat from %s: %s",
-			    inet_ntoa(claddr->sin_addr), arg->mon_name);
+				addrstr(svc_getcaller_sa(req->rq_xprt)), arg->mon_name);
 			res.res_stat = stat_fail;
 		}
 	}
@@ -354,17 +361,12 @@ sm_simu_crash_1_svc(void *v __unused, struct svc_req * req)
 	uint i;
 
 	if (!config.simu_crash_allowed) {
-		struct sockaddr_in *claddr;
-		struct hostent *he;
-		char *hname = NULL;
+		struct sockaddr *claddr;
+		char hname[NI_MAXHOST];
 
-		if ((claddr = svc_getcaller(req->rq_xprt))) {
-			he = gethostbyaddr((char *) &claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
-			if (he)
-				hname = he->h_name;
-			else
-				hname = inet_ntoa(claddr->sin_addr);
-		}
+		claddr = svc_getcaller_sa(req->rq_xprt);
+		if (!claddr || getnameinfo(claddr, claddr->sa_len, hname, sizeof(hname), NULL, 0, 0))
+			strlcpy(hname, "<unknown>", sizeof(hname));
 		log(LOG_WARNING, "simu_crash call from %s denied!", hname);
 		return (&dummy);
 	}
@@ -421,14 +423,17 @@ void *
 sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 {
 	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
+	struct timeval try = {4, 0};		/* 4 secs per try		 */
 	CLIENT *cli;
 	static char dummy;
-	char proto[] = "udp", empty[] = "";
+	char empty[] = "", *spcerr;
 	sm_status tx_arg;	/* arg sent to callback procedure	 */
 	MonitoredHost *mhp;
 	Notify *np;
 	HostInfo *hip;
 	pid_t pid;
+	struct addrinfo *ai, *ailist;
+	int error, sock, result;
 
 	DEBUG(1, "notify from host %s, new state %d", arg->mon_name, arg->state);
 
@@ -439,10 +444,20 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 	         * It's possible the host just didn't give us the right hostname.
 	         * Let's try the IP address the request came from and any hostnames it has.
 	         */
-		struct sockaddr_in *claddr;
-		if ((claddr = svc_getcaller(req->rq_xprt))) {
+		struct sockaddr *claddr;
+		if ((claddr = svc_getcaller_sa(req->rq_xprt))) {
+			void *sinaddr;
+			socklen_t sinlen;
 			struct hostent *he;
-			he = gethostbyaddr((char *) &claddr->sin_addr, sizeof(claddr->sin_addr), AF_INET);
+
+			if (claddr->sa_family == AF_INET) {
+				sinaddr = &((struct sockaddr_in*)claddr)->sin_addr;
+				sinlen = sizeof(((struct sockaddr_in*)claddr)->sin_addr);
+			} else {
+				sinaddr = &((struct sockaddr_in6*)claddr)->sin6_addr;
+				sinlen = sizeof(((struct sockaddr_in6*)claddr)->sin6_addr);
+			}
+			he = gethostbyaddr(sinaddr, sinlen, claddr->sa_family);
 			if (he) {
 				char **npp = he->h_aliases;
 				/* make sure host name isn't > SM_MAXSTRLEN */
@@ -455,6 +470,8 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 						npp++;
 				}
 			}
+			if (!mhp) /* Try the literal IP address */
+				mhp = find_host(addrstr(claddr), FALSE);
 			if (mhp)
 				DEBUG(1, "Notification from host %s found as %s",
 				      arg->mon_name, HOSTINFO(mhp->mh_hostinfo_offset)->hi_name);
@@ -477,21 +494,49 @@ sm_notify_1_svc(stat_chge * arg, struct svc_req * req)
 	if (pid)
 		return (&dummy); /* Parent returns */
 
-	while (np) {
+	for (; np; np = np->n_next) {
 		tx_arg.mon_name = hip->hi_name;
 		tx_arg.state = arg->state;
 		memcpy(tx_arg.priv, np->n_data, sizeof(tx_arg.priv));
-		cli = clnt_create(np->n_host, np->n_prog, np->n_vers, proto);
-		if (!cli) {
-			log(LOG_ERR, "Failed to contact host %s%s", np->n_host, clnt_spcreateerror(empty));
-		} else {
-			if (clnt_call(cli, np->n_proc, (xdrproc_t) xdr_sm_status, &tx_arg, (xdrproc_t) xdr_void,
-				      &dummy, timeout) != RPC_SUCCESS) {
-				log(LOG_ERR, "Failed to call rpc.statd client at host %s", np->n_host);
+		result = FALSE;
+		spcerr = NULL;
+
+		/* get the list of addresses for this host */
+		ailist = NULL;
+		if ((error = getaddresslist(np->n_host, &ailist))) {
+			log(LOG_ERR, "Failed to contact host %s - error %d resolving", np->n_host, error);
+			continue;
+		}
+		if (!ailist) {
+			log(LOG_ERR, "Failed to contact host %s - no addresses", np->n_host);
+			continue;
+		}
+
+		/* try each address until we get success */
+		for (ai=ailist; ai && (result == FALSE); ai = ai->ai_next) {
+			if (config.send_using_tcp) {
+				sock = RPC_ANYSOCK;
+				cli = clnttcp_create_sa(ai->ai_addr, np->n_prog, np->n_vers, &sock, 0, 0);
 			}
+			if (!config.send_using_tcp || !cli)
+				cli = clntudp_create_sa(ai->ai_addr, np->n_prog, np->n_vers, try, &sock);
+			if (!cli) {
+				spcerr = clnt_spcreateerror(empty);
+				continue;
+			}
+			if (clnt_call(cli, np->n_proc, (xdrproc_t)xdr_sm_status, &tx_arg,
+					(xdrproc_t) xdr_void, &dummy, timeout) == RPC_SUCCESS)
+				result = TRUE;
 			clnt_destroy(cli);
 		}
-		np = np->n_next;
+
+		if (result == FALSE) {
+			if (spcerr)
+				log(LOG_WARNING, "Failed to contact rpc.statd client host %s%s", np->n_host, spcerr);
+			log(LOG_ERR, "Failed to call rpc.statd client at host %s", np->n_host);
+		}
+
+		freeaddrinfo(ailist);
 	}
 
 	exit(0);		/* Child quits	 */

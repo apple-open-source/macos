@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.28 2008/10/21 16:21:41 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.29 2010/07/29 15:59:28 abe Exp $";
 #endif
 
 
@@ -45,6 +45,7 @@ static char *rcsid = "$Id: usage.c,v 1.28 2008/10/21 16:21:41 abe Exp $";
  */
 
 _PROTOTYPE(static char *isnullstr,(char *s));
+_PROTOTYPE(static int print_in_col,(int col, char *cp));
 _PROTOTYPE(static void report_HASDCACHE,(int type, char *ttl, char *det));
 _PROTOTYPE(static void report_HASKERNIDCK,(char *pfx, char *verb));
 _PROTOTYPE(static void report_SECURITY,(char *pfx, char *punct));
@@ -68,6 +69,33 @@ isnullstr(s)
 		s++;
 	}
 	return((char *)NULL);
+}
+
+
+/*
+ * print_in_col() -- print character string in help column
+ */
+
+static int
+print_in_col(col, cp)
+	int col;				/* column number */
+	char *cp;				/* what to print */
+{
+	if (cp && *cp) {
+	    switch (col) {
+	    case 1:
+		(void) fprintf(stderr, "  %-23.23s", cp);
+		break;
+	    case 2:
+		(void) fprintf(stderr, "  %-25.25s", cp);
+		break;
+	    default:
+		(void) fprintf(stderr, "  %s\n", cp);
+		col = 0;
+	    }
+	    col++;
+	}
+	return(col);
 }
 
 
@@ -308,7 +336,7 @@ usage(xv, fh, version)
 	int version;			/* ``-v'' status */
 {
 	char buf[MAXPATHLEN+1], *cp, *cp1, *cp2;
-	int  i;
+	int col, i;
 
 	if (Fhelp || xv) {
 	    (void) fprintf(stderr, "%s %s\n latest revision: %s\n",
@@ -316,13 +344,19 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr, " latest FAQ: %sFAQ\n", LSOF_URL);
 	    (void) fprintf(stderr, " latest man page: %slsof_man\n", LSOF_URL);
 	    (void) fprintf(stderr,
-		" usage: [-?ab%shlnNoOP%s%stUvV%s]",
+		" usage: [-?ab%sh%slnNoOP%s%stUvV%s]",
 
 #if	defined(HASNCACHE)
 		"C",
 #else	/* !defined(HASNCACHE) */
 		"",
 #endif	/* defined(HASNCACHE) */
+
+#if	defined(HASTASKS)
+		"K",
+#else	/* !defined(HASTASKS) */
+		"",
+#endif	/* defined(HASTASKS) */
 
 #if	defined(HASPPID)
 		"R",
@@ -452,24 +486,20 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr,
 		"Defaults in parentheses; comma-separated set (s) items;");
 	    (void) fprintf(stderr, " dash-separated ranges.\n");
-	    (void) fprintf(stderr, "  %-23.23s", "-?|-h list help");
-	    (void) fprintf(stderr, "  %-25.25s", "-a AND selections (OR)");
-	    (void) fprintf(stderr, "  %s\n", "-b avoid kernel blocks");
-	    (void) fprintf(stderr, "  %-23.23s", "-c c  cmd c ^c /c/[bix]");
+	    col = print_in_col(1, "-?|-h list help");
+	    col = print_in_col(col, "-a AND selections (OR)");
+	    col = print_in_col(col, "-b avoid kernel blocks");
+	    col = print_in_col(col,  "-c c  cmd c ^c /c/[bix]");
 	    (void) snpf(buf, sizeof(buf), "+c w  COMMAND width (%d)", CMDL);
-	    (void) fprintf(stderr, "  %-25.25s", buf);
-
-	    (void) fprintf(stderr, "  %s\n", 
+	    col = print_in_col(col, buf);
 
 #if	defined(HASNCACHE)
-		"-C no kernel name cache");
-#else	/* !defined(HASNCACHE) */
-		" ");
+	col = print_in_col(col, "-C no kernel name cache");
 #endif	/* defined(HASNCACHE) */
 
-	    (void) fprintf(stderr, "  %-23.23s", "+d s  dir s files");
-	    (void) fprintf(stderr, "  %-25.25s", "-d s  select by FD set");
-	    (void) fprintf(stderr, "  %s\n", "+D D  dir D tree *SLOW?*");
+	    col = print_in_col(col, "+d s  dir s files");
+	    col = print_in_col(col,  "-d s  select by FD set");
+	    col = print_in_col(col,  "+D D  dir D tree *SLOW?*");
 
 #if	defined(HASDCACHE)
 	    if (Setuidroot)
@@ -484,10 +514,10 @@ usage(xv, fh, version)
 		cp = "?|i|b|r|u[path]";
 	    (void) snpf(buf, sizeof(buf), "-D D  %s", cp);
 #else	/* !defined(HASDCACHE) */
-	    (void) snpf(buf, sizeof(buf), " ");
+	    buf[0] = '\0';
 #endif	/* defined(HASDCACHE) */
 
-	    (void) fprintf(stderr, "  %-23.23s", buf);
+	    col = print_in_col(col, buf);
 	    (void) snpf(buf, sizeof(buf), "-i select IPv%s files",
 
 #if	defined(HASIPv6)
@@ -497,38 +527,38 @@ usage(xv, fh, version)
 #endif	/* defined(HASIPv6) */
 
 			  );
-	    (void) fprintf(stderr, "  %-25.25s", buf);
-	    (void) fprintf(stderr, "  %s\n", "-l list UID numbers");
-	    (void) fprintf(stderr, "  %-23.23s", "-n no host names");
-	    (void) fprintf(stderr, "  %-25.25s", "-N select NFS files");
-	    (void) fprintf(stderr, "  %s\n", "-o list file offset");
-	    (void) fprintf(stderr, "  %-23.23s", "-O avoid overhead *RISKY*");
-	    (void) fprintf(stderr, "  %-25.25s", "-P no port names");
-	    (void) fprintf(stderr, "  %s\n",
+	    col = print_in_col(col, buf);
+
+#if	defined(HASTASKS)
+	    col = print_in_col(col, "-K list tasKs");
+#endif	/* defined(HASTASKS) */
+
+	    col = print_in_col(col, "-l list UID numbers");
+	    col = print_in_col(col, "-n no host names");
+	    col = print_in_col(col, "-N select NFS files");
+	    col = print_in_col(col, "-o list file offset");
+	    col = print_in_col(col, "-O avoid overhead *RISKY*");
+	    col = print_in_col(col, "-P no port names");
 
 #if	defined(HASPPID)
-	 	"-R list paRent PID"
-#else	/* !defined(HASPPID) */
-		""
+	     col = print_in_col(col, "-R list paRent PID");
 #endif	/* defined(HASPPID) */
 
-	    );
-	    (void) fprintf(stderr, "  %-23.23s", "-s list file size");
-	    (void) fprintf(stderr, "  %-25.25s", "-t terse listing");
-	    (void) fprintf(stderr, "  %s\n", "-T disable TCP/TPI info");
-	    (void) fprintf(stderr, "  %-23.23s", "-U select Unix socket");
-	    (void) fprintf(stderr, "  %-25.25s", "-v list version info");
-	    (void) fprintf(stderr, "  %s\n", "-V verbose search");
+	    col = print_in_col(col,  "-s list file size");
+	    col = print_in_col(col,  "-t terse listing");
+	    col = print_in_col(col,  "-T disable TCP/TPI info");
+	    col = print_in_col(col,  "-U select Unix socket");
+	    col = print_in_col(col,  "-v list version info");
+	    col = print_in_col(col,  "-V verbose search");
 	    (void) snpf(buf, sizeof(buf), "+|-w  Warnings (%s)",
 
 #if	defined(WARNINGSTATE)
-		"-"
+		"-");
 #else	/* !defined(WARNINGSTATE) */
-		"+"
+		"+");
 #endif	/* defined(WARNINGSTATE) */
 
-	    );
-	    (void) fprintf(stderr, "  %-23.23s", buf);
+	    col = print_in_col(col, buf);
 
 #if	defined(HASXOPT)
 # if	defined(HASXOPT_ROOT)
@@ -543,20 +573,19 @@ usage(xv, fh, version)
 	    buf[0] = '\0';
 #endif	/* defined(HASXOPT) */
 
-	    if (buf[0])
-		(void) fprintf(stderr, "  %-25.25s", buf);
+	    col = print_in_col(col, buf);
 
 #if	defined(HASZONES)
-	    (void) fprintf(stderr,
-		(buf[0]) ? "  %s\n" : "  %-25.25s", "-z z  zone [z]");
-#else	/* !defined(HASZONES) */
-# if	defined(HASSELINUX)
-	    (void) fprintf(stderr,
-		(buf[0]) ? "  %s\n" : "  %-25.25s", "-Z Z  context [Z]");
-# endif	/* defined(HASSELINUX) */
+	    col = print_in_col(col, "-z z  zone [z]");
 #endif	/* defined(HASZONES) */
 
-	    (void) fprintf(stderr, "  %s\n", "-- end option scan");
+#if	defined(HASSELINUX)
+	    col = print_in_col(col, "-Z Z  context [Z]");
+#endif	/* defined(HASSELINUX) */
+
+	    col = print_in_col(col, "-- end option scan");
+	    if (col != 1)
+		(void) fprintf(stderr, "\n");
 	    (void) fprintf(stderr, "  %-36.36s",
 		"+f|-f  +filesystem or -file names");
 

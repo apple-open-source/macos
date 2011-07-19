@@ -57,7 +57,6 @@ Declarations
 void pptp_init();
 int pptp_ctloutput(struct socket *so, struct sockopt *sopt);
 int pptp_usrreq();
-void pptp_fasttimo();
 void pptp_slowtimo();
 
 int pptp_attach(struct socket *, int, struct proc *);
@@ -125,7 +124,6 @@ int pptp_add(struct domain *domain)
     pptp.pr_flags		= PR_ATOMIC | PR_PROTOLOCK;
     pptp.pr_ctloutput 	= pptp_ctloutput;
     pptp.pr_init		= pptp_init;
-    pptp.pr_fasttimo  	= pptp_fasttimo;
     pptp.pr_slowtimo  	= pptp_slowtimo;
     pptp.pr_usrreqs 	= &pptp_usr;
 
@@ -236,16 +234,6 @@ int pptp_ctloutput(struct socket *so, struct sockopt *sopt)
 
     }
     return error;
-}
-
-/* -----------------------------------------------------------------------------
-fast timer function, called every 200ms
------------------------------------------------------------------------------ */
-void pptp_fasttimo()
-{
-	lck_mtx_lock(ppp_domain_mutex);
-    pptp_rfc_fasttimer();
-	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------

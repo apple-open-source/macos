@@ -1,6 +1,6 @@
 # -*- tcl -*-
 #
-# $Id: fmt.tmml,v 1.26 2008/11/26 21:49:14 andreas_kupries Exp $
+# $Id: fmt.tmml,v 1.27 2010/07/06 18:49:15 andreas_kupries Exp $
 #
 # [expand] definitions to convert a tcl based manpage definition
 # into TMML.
@@ -73,6 +73,9 @@ proc fmt_uri     {text {label {}}} {
 }
 proc fmt_term    {text} {wrap $text term}
 proc fmt_const   {text} {wrap $text l}
+
+proc fmt_mdash {} { return "[markup &]mdash;" }
+proc fmt_ndash {} { return "[markup &]ndash;" }
 
 
 c_pass 1 fmt_manpage_begin {args} NOP

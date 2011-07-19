@@ -11,14 +11,7 @@ plan tests => 4;
 my $artist = $schema->resultset('Artist')->find(1);
 my $artist_cds = $artist->search_related('cds');
 
-my $cover_band;
-
-{
-  no warnings qw(redefine once);
-  local *DBICTest::Artist::result_source_instance = \&DBICTest::Schema::Artist::result_source_instance;
-
-  $cover_band = $artist->copy;
-}
+my $cover_band = $artist->copy;
 
 my $cover_cds = $cover_band->search_related('cds');
 cmp_ok($cover_band->id, '!=', $artist->id, 'ok got new column id...');

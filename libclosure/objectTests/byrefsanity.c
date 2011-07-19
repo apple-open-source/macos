@@ -1,21 +1,27 @@
-// CONFIG
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
+// TEST_CONFIG
 
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <Block.h>
+#include "test.h"
 
 int
-main(int argc, char *argv[])
+main()
 {
     __block int var = 0;
     void (^b)(void) = ^{ var++; };
     
     //sanity(b);
     b();
-    printf("%s: success!\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }
 
 

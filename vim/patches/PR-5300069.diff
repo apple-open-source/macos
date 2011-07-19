@@ -1,0 +1,13 @@
+Index: src/xxd/xxd.c
+===================================================================
+--- src/xxd/xxd.c	(revision 57762)
++++ src/xxd/xxd.c	(working copy)
+@@ -503,7 +503,7 @@
+ 	}
+       else if (!STRNCMP(pp, "-g", 2))
+ 	{
+-	  if (pp[2] && STRNCMP("group", pp + 2, 5))
++	  if (pp[2] && STRNCMP("roupsize", pp + 2, 8))
+ 	    octspergrp = (int)strtol(pp + 2, NULL, 0);
+ 	  else
+ 	    {

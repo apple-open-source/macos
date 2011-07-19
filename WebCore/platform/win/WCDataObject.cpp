@@ -26,6 +26,8 @@
 #include "config.h"
 #include "WCDataObject.h"
 
+#include "ClipboardUtilitiesWin.h"
+#include "DragData.h"
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -160,6 +162,17 @@ HRESULT WCDataObject::createInstance(WCDataObject** result)
     return S_OK;
 }
 
+HRESULT WCDataObject::createInstance(WCDataObject** result, const DragDataMap& dataMap)
+{
+    if (!result)
+        return E_POINTER;
+    *result = new WCDataObject;
+
+    for (DragDataMap::const_iterator it = dataMap.begin(); it != dataMap.end(); ++it)
+        setClipboardData(*result, it->first, it->second);
+    return S_OK;
+}
+
 WCDataObject::WCDataObject()
 : m_ref(1)
 {
@@ -285,6 +298,7 @@ void WCDataObject::CopyMedium(STGMEDIUM* pMedDest, STGMEDIUM* pMedSrc, FORMATETC
 {
     switch(pMedSrc->tymed)
     {
+#if !OS(WINCE)
     case TYMED_HGLOBAL:
         pMedDest->hGlobal = (HGLOBAL)OleDuplicateData(pMedSrc->hGlobal,pFmtSrc->cfFormat, 0);
         break;
@@ -300,6 +314,7 @@ void WCDataObject::CopyMedium(STGMEDIUM* pMedDest, STGMEDIUM* pMedSrc, FORMATETC
     case TYMED_FILE:
         pMedSrc->lpszFileName = (LPOLESTR)OleDuplicateData(pMedSrc->lpszFileName,pFmtSrc->cfFormat, 0);
         break;
+#endif
     case TYMED_ISTREAM:
         pMedDest->pstm = pMedSrc->pstm;
         pMedSrc->pstm->AddRef();
@@ -377,6 +392,5 @@ void WCDataObject::clearData(CLIPFORMAT format)
         ptr++;
     }
 }
-
 
 }

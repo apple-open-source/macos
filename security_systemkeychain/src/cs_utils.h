@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <Security/CodeSigning.h>
 #include <Security/SecRequirementPriv.h>
 #include <security_utilities/unix++.h>
+#include <security_utilities/macho++.h>
 #include <security_utilities/errors.h>
 #include <security_utilities/hashing.h>
 #include <security_utilities/cfutilities.h>
@@ -87,6 +88,19 @@ private:
 
 
 //
+// Convert between hash code numbers and human-readable form
+//
+struct HashType {
+	const char *name;
+	uint32_t code;
+	unsigned size;
+};
+
+const HashType *findHashType(const char *hashName);
+const HashType *findHashType(uint32_t hashCode);
+
+
+//
 // Miscellaneous helpers and assistants
 //
 std::string keychainPath(CFTypeRef whatever);
@@ -101,15 +115,19 @@ inline CFDataRef readRequirements(const std::string &source)
 uint32_t parseCdFlags(const char *string);
 CFDateRef parseDate(const char *string);
 
+std::string cleanPath(const char *path);
+
 std::string hashString(const SHA1::Byte *hash);
 std::string hashString(SHA1 &hash);
+void stringHash(const char *string, SHA1::Digest digest);
+CFDataRef certificateHash(SecCertificateRef cert);
 
 void writeFileList(CFArrayRef list, const char *destination, const char *mode);
 void writeDictionary(CFDictionaryRef dict, const char *destination, const char *mode);
 void writeData(CFDataRef data, const char *destination, const char *mode);
 
-SecCodeRef codePath(const char *target);
-
+SecCodeRef dynamicCodePath(const char *target);
+SecStaticCodeRef staticCodePath(const char *target, const Architecture &arch, const char *version);
 
 
 //

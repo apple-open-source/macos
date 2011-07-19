@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$302|public void twoNum( int num, int val )
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$302|public void twoNum( int num, int val )
 {
 OUTER_LOOP: // OUTER_LOOP is a label
   for ( int i = 0 ; i < num ; i++ )
@@ -13,7 +13,7 @@ OUTER_LOOP: // OUTER_LOOP is a label
   // break comes here if it runs
 }
 $23|/** Java function 1 */
-$0|$9327|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$9348|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -52,6 +52,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => twoNum
@@ -117,8 +118,8 @@ $parserState->{sodname} => twoNum
 $parserState->{sodtype} =>  void
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => java
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => public
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -218,8 +219,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -252,15 +253,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -302,8 +303,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -344,8 +345,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: twoNum (HeaderDoc::Function)
 +---public
@@ -372,14 +373,14 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: twoNum (HeaderDoc::Function)
-	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum" --><span class="function">twoNum</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
+	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum //test_ref/doc/anysymbol/twoNum" machineGenerated="true" --><span class="function">twoNum</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/struct/int //test_ref/java/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
+	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/struct/int //test_ref/java/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
 END OF OBJECT
 
 
 
-$9327|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$9348|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -418,6 +419,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => twoNum
@@ -483,8 +485,8 @@ $parserState->{sodname} => twoNum
 $parserState->{sodtype} =>  void
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => java
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => public
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -584,8 +586,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -618,15 +620,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -668,8 +670,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -710,8 +712,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: twoNum (HeaderDoc::Function)
 +---public
@@ -738,743 +740,11 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: twoNum (HeaderDoc::Function)
-	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum" --><span class="function">twoNum</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
+	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum //test_ref/doc/anysymbol/twoNum" machineGenerated="true" --><span class="function">twoNum</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/struct/int //test_ref/java/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
+	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/struct/int //test_ref/java/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
 END OF OBJECT
 
 
 
-_$43|testsuite/parser_tests/Java_function_1.test$4|java$15|Java function 1$9327|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Java_function_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Java_function_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => twoNum
-$parserState->{functionContents} => {
-OUTER_LOOP: // OUTER_LOOP is a label
-  for ( int i = 0 ; i < num ; i++ )
-  {
-      for ( int j = 0 ; j < num ; j++ )
-      {
-         if ( i + j >= 2 * val )
-            break OUTER_LOOP ;
-         val = val / 2 ;
-      }
-  }
-  // break comes here if it runs
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 14
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => java
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => public void
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => twoNum
-$parserState->{sodtype} =>  void
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => public
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 14
-typelist: function
-namelist: twoNum
-posstypes: function method
-value: 
-returntype:  void
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-OUTER_LOOP: // OUTER_LOOP is a label
-  for ( int i = 0 ; i < num ; i++ )
-  {
-      for ( int j = 0 ; j < num ; j++ )
-      {
-         if ( i + j >= 2 * val )
-            break OUTER_LOOP ;
-         val = val / 2 ;
-      }
-  }
-  // break comes here if it runs
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int num
-Parsed Param 1 => int val
--=: DUMP OF PARSE TREE :=-
-+---public
-+--- 
-+---void
-+--- 
-+---twoNum
-+---(
-|   +--- 
-|   +---int
-|   +--- 
-|   +---num
-|   +---,
-|   +--- 
-|   +---int
-|   +--- 
-|   +---val
-|   +--- 
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Java function 1
-APIUID: //test_ref/doc/header/Java_function_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: twoNum
-    APIUID: //test_ref/java/func/twoNum
-    ABSTRACT: ""
-    DISCUSSION: "<p>Java function 1 "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " void"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: num
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: val
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: twoNum (HeaderDoc::Function)
-+---public
-+--- 
-+---void
-+--- 
-+---twoNum
-+---(
-|   +--- 
-|   +---int
-|   +--- 
-|   +---num
-|   +---,
-|   +--- 
-|   +---int
-|   +--- 
-|   +---val
-|   +--- 
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: twoNum (HeaderDoc::Function)
-	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum" --><span class="function">twoNum</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
-END OF OBJECT
-
-
-
-$9327|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Java_function_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Java_function_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => twoNum
-$parserState->{functionContents} => {
-OUTER_LOOP: // OUTER_LOOP is a label
-  for ( int i = 0 ; i < num ; i++ )
-  {
-      for ( int j = 0 ; j < num ; j++ )
-      {
-         if ( i + j >= 2 * val )
-            break OUTER_LOOP ;
-         val = val / 2 ;
-      }
-  }
-  // break comes here if it runs
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 14
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => java
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => public void
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => twoNum
-$parserState->{sodtype} =>  void
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => public
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 14
-typelist: function
-namelist: twoNum
-posstypes: function method
-value: 
-returntype:  void
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-OUTER_LOOP: // OUTER_LOOP is a label
-  for ( int i = 0 ; i < num ; i++ )
-  {
-      for ( int j = 0 ; j < num ; j++ )
-      {
-         if ( i + j >= 2 * val )
-            break OUTER_LOOP ;
-         val = val / 2 ;
-      }
-  }
-  // break comes here if it runs
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int num
-Parsed Param 1 => int val
--=: DUMP OF PARSE TREE :=-
-+---public
-+--- 
-+---void
-+--- 
-+---twoNum
-+---(
-|   +--- 
-|   +---int
-|   +--- 
-|   +---num
-|   +---,
-|   +--- 
-|   +---int
-|   +--- 
-|   +---val
-|   +--- 
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Java function 1
-APIUID: //test_ref/doc/header/Java_function_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: twoNum
-    APIUID: //test_ref/java/func/twoNum
-    ABSTRACT: ""
-    DISCUSSION: "<p>Java function 1 "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " void"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: num
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: val
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: twoNum (HeaderDoc::Function)
-+---public
-+--- 
-+---void
-+--- 
-+---twoNum
-+---(
-|   +--- 
-|   +---int
-|   +--- 
-|   +---num
-|   +---,
-|   +--- 
-|   +---int
-|   +--- 
-|   +---val
-|   +--- 
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: twoNum (HeaderDoc::Function)
-	<span class="keyword">public</span> <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/twoNum //test_ref/java/clm/twoNum //test_ref/java/intfcm/twoNum //test_ref/java/intfm/twoNum //test_ref/java/func/twoNum //test_ref/java/ftmplt/twoNum //test_ref/java/defn/twoNum //test_ref/java/macro/twoNum" --><span class="function">twoNum</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">num</span>,
-	    <!-- a logicalPath="//test_ref/java/cl/int //test_ref/java/tdef/int //test_ref/java/tag/int //test_ref/java/econst/int //test_ref/java/struct/int //test_ref/java/clconst/int //test_ref/java/intf/int" --><span class="type">int</span><!-- /a --> <span class="param">val</span> ) 
-END OF OBJECT
-
-
-
-$4|java$6|parser
+_$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Java_function_1.test$4|java$15|Java function 1$4|java$6|parser

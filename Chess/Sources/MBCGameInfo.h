@@ -2,7 +2,7 @@
 	File:		MBCGameInfo.h
 	Contains:	Managing information about the current game
 	Version:	1.0
-	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCGameInfo.h,v $
+		Revision 1.4  2010/10/07 23:07:02  neerache
+		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
+		
 		Revision 1.3  2003/06/12 07:27:10  neerache
 		Reorganize preferences window, Add simpler title style
 		

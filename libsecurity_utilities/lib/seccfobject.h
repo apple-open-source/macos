@@ -34,8 +34,6 @@ namespace Security {
 
 class CFClass;
 
-RecursiveMutex& GetDOMutex();
-
 #define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE, CFCLASS) \
 \
 void *operator new(size_t size) throw(std::bad_alloc) \
@@ -73,6 +71,9 @@ private:
 	// Align up to a multiple of 16 bytes
 	static const size_t kAlignedRuntimeSize = SECALIGNUP(sizeof(SecRuntimeBase), 4);
 
+    uint32_t mRetainCount;
+    OSSpinLock mRetainSpinLock;
+
 public:
 	// For use by SecPointer only. Returns true once the first time it's called after the object has been created.
 	bool isNew()
@@ -87,9 +88,12 @@ public:
 	static SecCFObject *required(CFTypeRef, OSStatus error);
 	static void *allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc);
 
+    SecCFObject();
 	virtual ~SecCFObject();
+    uint32_t updateRetainCount(intptr_t direction, uint32_t *oldCount);
+    uint32_t getRetainCount() {return updateRetainCount(0, NULL);}
 
-	void operator delete(void *object) throw();
+	static void operator delete(void *object) throw();
 	operator CFTypeRef() const throw()
 	{
 		return reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(this) - kAlignedRuntimeSize);
@@ -103,6 +107,7 @@ public:
 	virtual CFStringRef copyFormattingDesc(CFDictionaryRef dict);
 	virtual CFStringRef copyDebugDesc();
 	virtual void aboutToDestruct();
+	virtual Mutex* getMutexForObject();
 };
 
 //

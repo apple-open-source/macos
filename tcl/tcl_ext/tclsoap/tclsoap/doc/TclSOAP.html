@@ -34,7 +34,8 @@
     <table>
 <tr><td class="sidehead">Sections</td></tr>
 <tr><td class="sideelt"><a href="#introduction">Introduction</a></td></tr>
-<tr><td class="sideelt"><a href="#methods">Commands</a></td></tr>
+<tr><td class="sideelt"><a href="#methods">SOAP Commands</a></td></tr>
+<tr><td class="sideelt"><a href="#jsonrpc">JSON-RPC Commands</a></td></tr>
 <tr><td class="sideelt"><a href="SOAP-CGI.html">CGI Server</a></td></tr>
 <tr><td class="sideelt"><a href="#implementation">Implementation</a></td></tr>
 <tr><td class="sideelt"><a href="#download">Downloading</a></td></tr>
@@ -79,6 +80,7 @@
   <ol>
   <li><a href="#introduction">Introduction to TclSOAP</a></li>
   <li><a href="#methods">SOAP Package Commands</a></li>
+  <li><a href="#jsonrpc">JSON-RPC Package Commands</a></li>
   <li><a href="SOAP-CGI.html">CGI Server Package</a></li>
   <li><a href="SOAPURLDomain.html">TclHTTPD SOAP Server Utilities</a></li>
   <li><a href="XMLRPCDomain.html">TclHTTPD XML-RPC Server Utilities</a></li>
@@ -276,7 +278,7 @@ a {intValue 2 stringValue "Hello, World!" floatValue 2.5}</pre>
         SOAP. See <b>configure</b> for the permitted options.</p></dd>
 
 <!-- SOAP::configure -transport -->
-    <dt>SOAP::configure -transport <i>protocol ?option value ...?</i></dt>
+    <dt><a name="soapconfiguretransport">SOAP::configure -transport</a> <i>protocol ?option value ...?</i></dt>
     <dd><p>Used for global configuration of the available
     transports. The options passed in to this command are dependent on
     the transport mchanism. The only transports currently available<p>
@@ -294,8 +296,10 @@ SOAP::configure -transport http -proxy wwwproxy:8080 \
     </dd>
 
 <!-- SOAP::configure -->
-    <dt>SOAP::configure <i>methodName ?option value ...?</i></dt>
-    <dd><dl>
+    <dt><a name="soapconfigure">SOAP::configure</a> <i>methodName ?option value ...?</i></dt>
+    <dd><p>Sets various metadata and attributes of a specific RPC
+    method through the options listed below.</p>
+      <dl>
 
     <dt>-uri <i>URI</i></dt>
        <dd>The URI for the XML namespace in which this
@@ -305,7 +309,7 @@ SOAP::configure -transport http -proxy wwwproxy:8080 \
        <dd>Specify the URL of the server providing the
        implementation of this method.</dd>
 
-    <dt>-params <i>list</i></dt>
+    <dt><a name="soapconfigureparams">-params</a> <i>list</i></dt>
        <dd>Configure the parameters required for this
        method. <i>list</i> should be a list of pairs consisting of the
        parameter name and the parameter type. The Tcl procedure will
@@ -408,7 +412,7 @@ SOAP::configure hi -params {}
     </dl></dd><br>
 
 <!-- SOAP::cget -->
-    <dt>SOAP::cget <i>methodName option</i></dt>
+    <dt><a name="soapcget">SOAP::cget</a> <i>methodName option</i></dt>
       <dd><p>Retrieve a configuration value from the method. The
     <i>optionName</i> should be one of those listed for
     <i>configure</i>. There is one additional read-only value to be
@@ -425,7 +429,7 @@ SOAP::configure hi -params {}
     </p></dd>
 
 <!-- SOAP::dump -->
-    <dt>SOAP::dump <i>option</i> <i>methodName</i></dt>
+    <dt><a name="soapdump">SOAP::dump</a> <i>option</i> <i>methodName</i></dt>
       <dd><p>Returns information about the last HTTP transaction.
       <dl>
         <dt>-reply</dt>
@@ -458,6 +462,112 @@ SOAP::configure hi -params {}
     </dl>
   </p>
 
+  <!-- ================================================================ -->
+
+    <hr size="2" />
+
+    <h1><a name="jsonrpc">JSON-RPC Commands</a></h1>
+    <p>
+      The JSONRPC package provides support for the lightweight
+      RPC protocol defined in the
+      <a href="http://json-rpc.org/wiki/specification">JSON-RPC 1.0</a> and
+      <a href="http://groups.google.com/group/json-rpc/web/json-rpc-1-2-proposal">JSON-RPC 2.0</a>
+      draft specifications. Currently, the package implements only
+      client side interfaces.</p>
+
+    <p>
+      The simple example below shows a remote call to a echo service
+      method hosted at jsolait.net.
+    </p>
+    <pre>% package require JSONRPC
+0.1.0
+% JSONRPC::create echo -proxy "http://jsolait.net/services/test.jsonrpc" -params { val string }
+::echo
+% echo "This is a test"
+This is a test</pre>
+    <p>
+      The JSONRPC package makes use of the JSON package from tcllib
+      which in turn uses the <b>dict</b> Tcl data type and therefore
+      requires either Tcl 8.5 or the backported <b>dict</b> package
+      for earlier Tcl versions.
+    </p>
+
+     <p>The JSONRPC package usage follows the same idiom as
+       the <a href="#introduction">SOAP package</a>. The sample code
+       and examples described there will work with
+       the JSONRPC package. Moreover, the
+       commands defined by the package are almost identical to
+       the <a href="#methods">SOAP commands</a>. Only the differences
+       are described in the command descriptions below.</p>
+
+     <!-- JSONRPC::create -->
+    <dl>
+    <dt>JSONRPC::create <i>methodName ?option value ...?</i></dt>
+    <dd><p>Create a Tcl binding for a remote procedure call using
+        JSON-RPC. See <a href="#jsonconfigure">configure</a> for the
+        permitted options.</p></dd>
+
+    <!-- JSONRPC::configure -transport -->
+    <dt>JSONRPC::configure -transport <i>protocol ?option value ...?</i></dt>
+    <dd><p>Used for global configuration of the available
+        transports. See <a href="#soapconfiguretransport">SOAP::configure
+          -transport</a> for details.</p></dd>
+
+    <!-- JSONRPC::configure -->
+    <dt><a name="jsonconfigure">JSONRPC::configure</a> <i>methodName ?option value ...?</i></dt>
+    <dd><p>Sets various metadata and attributes of a specific RPC
+        method. Refer to <a href="#soapconfigure">SOAP::configure</a> for a
+        description of the options with the following differences. The
+        options <i>-action</i> and <i>-xmlrpc</i> are irrelevant for
+        JSON-RPC and should not be specified. The following options
+        are new or have different semantics.</p>
+      <dl>
+        <dt>-namedparams <i>boolean</i></dt>
+        <dd>
+          <p>If false (default), parameters are sent in the RPC call by
+            position. If specified as true, the parameters are passed by
+            name. JSON-RPC 1.x servers and even many 2.0 servers do not
+            support parameters passed by name.</p>
+        </dd>
+        <dt>-version <i>VERSION</i></dt>
+        <dd><p>
+            The JSON-RPC protocol version to be used. Should be either
+            <i>1.0</i> (default) or <i>2.0</i> although this not enforced. Any
+            version specification matching <i>1.*</i> results in
+            JSON-RPC 1.0 data formats. Any other results in JSON-RPC 2.0
+            data formats.</p>
+        </dd>
+        <dt>-params <i>list</i></dt>
+        <dd>
+          <p>This option has the same form and function as the
+          <a href="#soapconfigureparams">SOAP::configure <i>METHOD</i> -params</a>
+          option except that the only types supported are <i>boolean</i>,
+          <i>int</i> or <i>integer</i>, <i>float</i>, <i>double</i>,
+          <i>string</i>, <i>struct</i>, <i>array</i> and <i>any</i>.
+          The <i>any</i> type can be specified when an <i>array</i>
+          has mixed type elements or when a <i>struct</i> member
+          may hold data of multiple types.</p>
+        </dd>
+      </dl>
+    </dd>      
+
+    <!-- JSONRPC::cget -->
+    <dt>JSONRPC::cget <i>methodName option</i></dt>
+    <dd>
+      <p>Retrieve a configuration value from the method. Refer to
+        <a href="#soapcget">SOAP::cget</a> for details.</p>
+    </dd>
+
+    <!-- JSONRPC::dump -->
+    <dt>JSONRPC::dump <i>option</i> <i>methodName</i></dt>
+    <dd>
+      <p>Retrieve information about the last http transaction. Refer to
+        <a href="#soapdump">SOAP::dump</a> for details.</p>
+    </dd>
+    </dl>
+
+  <!-- ================================================================ -->
+
   <hr noshade="noshade" size="2" />
 
   <h1><a name="download">Download</a></h1>
@@ -489,7 +599,7 @@ SOAP::configure hi -params {}
 </td></tr>
 <tr class="footer">
 <td class="footer" colspan="3">
-$Id: TclSOAP.html,v 1.22 2003/09/06 17:08:46 patthoyts Exp $
+$Id: TclSOAP.html,v 1.25 2008/07/06 03:15:09 apnadkarni Exp $
 </td></tr>
 
     </table>

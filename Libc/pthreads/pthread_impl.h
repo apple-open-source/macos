@@ -35,9 +35,15 @@
  * [Internal] data structure signatures
  */
 #define _PTHREAD_MUTEX_SIG_init		0x32AAABA7
+
+#define _PTHREAD_ERRORCHECK_MUTEX_SIG_init      0x32AAABA1
+#define _PTHREAD_RECURSIVE_MUTEX_SIG_init       0x32AAABA2
+#define _PTHREAD_FIRSTFIT_MUTEX_SIG_init       0x32AAABA3
+
 #define _PTHREAD_COND_SIG_init		0x3CB0B1BB
 #define _PTHREAD_ONCE_SIG_init		0x30B1BCBA
 #define _PTHREAD_RWLOCK_SIG_init    0x2DA8B3B4
+
 /*
  * POSIX scheduling policies
  */

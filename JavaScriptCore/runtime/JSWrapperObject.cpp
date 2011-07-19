@@ -26,11 +26,14 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSWrapperObject);
 
-void JSWrapperObject::markChildren(MarkStack& markStack) 
+void JSWrapperObject::visitChildren(SlotVisitor& visitor) 
 {
-    JSObject::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    JSObject::visitChildren(visitor);
     if (m_internalValue)
-        markStack.append(m_internalValue);
+        visitor.append(&m_internalValue);
 }
 
 } // namespace JSC

@@ -3,18 +3,35 @@
  *
  * Needed for backward compatiblity with earlier versions of PyObjC.
  */
-#include "Python.h"
-
-
-
-#include "pyobjc-api.h"
-
-#include <Foundation/Foundation.h>
-
 /* inline definition of PyMac_GetOSType pymactoolbox.h doesn't work in 64-bit mode */
+
+#if PY_MAJOR_VERSION == 2
 extern int PyMac_GetOSType(PyObject *v, OSType *pr);
 extern PyObject * PyMac_BuildOSType(OSType t);
 
+#else
+
+static int
+PyMac_GetOSType(PyObject *v, OSType *pr)
+{
+	uint32_t tmp;
+	if (!PyBytes_Check(v) || PyBytes_Size(v) != 4) {
+		PyErr_SetString(PyExc_TypeError,
+			"OSType arg must be byte string of 4 chars");
+		return 0;
+	}
+	memcpy((char *)&tmp, PyBytes_AsString(v), 4);
+	*pr = (OSType)ntohl(tmp);
+	return 1;
+}
+
+PyObject *
+PyMac_BuildOSType(OSType t)
+{
+	uint32_t tmp = htonl((uint32_t)t);
+	return PyBytes_FromStringAndSize((char *)&tmp, 4);
+}
+#endif
 
 
 
@@ -85,31 +102,16 @@ static	char* keywords[] = { "hfsTypeCode", NULL };
 	return PyMac_BuildOSType(hfsTypeCode);
 }
 
-PyDoc_STRVAR(mod_doc, "");
-
-static PyMethodDef mod_methods[] = {
-	{ 
-		"NSFileTypeForHFSTypeCode", 
-		(PyCFunction)objc_NSFileTypeForHFSTypeCode, 
-		METH_VARARGS|METH_KEYWORDS, 
-		objc_NSFileTypeForHFSTypeCode_doc
+#define FOUNDATION_TYPECODE_METHODS				\
+	{ 							\
+		"NSFileTypeForHFSTypeCode", 			\
+		(PyCFunction)objc_NSFileTypeForHFSTypeCode, 	\
+		METH_VARARGS|METH_KEYWORDS, 			\
+		objc_NSFileTypeForHFSTypeCode_doc		\
+	},							\
+	{ 							\
+		"NSHFSFTypeCodeFromFileType",			\
+		(PyCFunction)objc_NSHFSTypeCodeFromFileType, 	\
+		METH_VARARGS|METH_KEYWORDS, 			\
+		objc_NSHFSTypeCodeFromFileType_doc 		\
 	},
-	{ 
-		"NSHFSFTypeCodeFromFileType", 
-		(PyCFunction)objc_NSHFSTypeCodeFromFileType, 
-		METH_VARARGS|METH_KEYWORDS, 
-		objc_NSHFSTypeCodeFromFileType_doc 
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_typecode(void);
-
-void
-init_typecode(void)
-{
-	PyObject* m = Py_InitModule4("_typecode", mod_methods,
-			mod_doc, NULL, PYTHON_API_VERSION);
-
-	if (PyObjC_ImportAPI(m) < 0) { return; }
-}

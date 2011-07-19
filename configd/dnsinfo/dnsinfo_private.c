@@ -33,6 +33,7 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 
 #include "dnsinfo_private.h"
 #include "shared_dns_info_types.h"
@@ -59,11 +60,23 @@ _dns_configuration_server_port()
 		server_name = DNS_SERVER;
 	}
 
+#ifdef	BOOTSTRAP_PRIVILEGED_SERVER
+	status = bootstrap_look_up2(bootstrap_port,
+				    server_name,
+				    &server,
+				    0,
+				    BOOTSTRAP_PRIVILEGED_SERVER);
+#else	// BOOTSTRAP_PRIVILEGED_SERVER
 	status = bootstrap_look_up(bootstrap_port, server_name, &server);
+#endif	// BOOTSTRAP_PRIVILEGED_SERVER
+
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
 			/* service currently registered, "a good thing" (tm) */
 			break;
+		case BOOTSTRAP_NOT_PRIVILEGED :
+			/* the service is not privileged */
+			return MACH_PORT_NULL;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
 			/* service not currently registered, try again later */
 			return MACH_PORT_NULL;

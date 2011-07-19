@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  simplemessage.m
 //  bocktest
@@ -5,15 +11,15 @@
 //  Created by Blaine Garst on 3/21/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC RR
+// TEST_CONFIG
 
 #import <Foundation/Foundation.h>
+#import "test.h"
 
-
-int main(char *argc, char *argv[]) {
-    void (^blockA)(void) = ^ { 1 + 3; };
+int main() {
+    void (^blockA)(void) = ^ { abort(); };
     // a block be able to be sent a message
     if (*(int *)(void *)blockA == 0x12345) [blockA copy];
-    printf("%s: success\n", argv[0]);
-    exit(0);
+
+    succeed(__FILE__);
 }

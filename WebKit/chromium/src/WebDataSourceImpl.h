@@ -31,17 +31,12 @@
 #ifndef WebDataSourceImpl_h
 #define WebDataSourceImpl_h
 
-// FIXME: This relative path is a temporary hack to support using this
-// header from webkit/glue.
-#include "../public/WebDataSource.h"
-
 #include "DocumentLoader.h"
 #include "KURL.h"
-
+#include "WebDataSource.h"
 #include "WebPluginLoadObserver.h"
 #include "WrappedResourceRequest.h"
 #include "WrappedResourceResponse.h"
-
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
@@ -68,11 +63,13 @@ public:
     virtual WebURL unreachableURL() const;
     virtual void redirectChain(WebVector<WebURL>&) const;
     virtual WebString pageTitle() const;
+    virtual WebTextDirection pageTitleDirection() const;
     virtual WebNavigationType navigationType() const;
     virtual double triggeringEventTime() const;
     virtual ExtraData* extraData() const;
     virtual void setExtraData(ExtraData*);
     virtual WebApplicationCacheHost* applicationCacheHost();
+    virtual void setDeferMainResourceDataLoad(bool);
 
     static WebNavigationType toWebNavigationType(WebCore::NavigationType type);
 
@@ -101,8 +98,6 @@ private:
 
     OwnPtr<ExtraData> m_extraData;
     OwnPtr<WebPluginLoadObserver> m_pluginLoadObserver;
-
-    static WebPluginLoadObserver* m_nextPluginLoadObserver;
 };
 
 } // namespace WebKit

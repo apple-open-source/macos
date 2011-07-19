@@ -1,0 +1,12 @@
+2010-05-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* namespacex.tcl: Fixed typos in docs, and left-over bug.
+	* namespacex.man: Bumped version to 0.1.
+	* pkgIndex.tcl: 
+
+2010-05-28  Andreas Kupries  <andreask@activestate.com>
+
+	* namespacex.test: New module and package holding a number of
+	* namespacex.tcl: utility commands for working with namespaces.
+	* namespacex.man: 
+	* pkgIndex.tcl: 

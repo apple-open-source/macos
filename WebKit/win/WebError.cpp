@@ -28,9 +28,7 @@
 #include "WebError.h"
 #include "WebKit.h"
 
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
-#pragma warning(pop)
 
 #if USE(CFNETWORK)
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
@@ -227,7 +225,7 @@ HRESULT STDMETHODCALLTYPE WebError::sslPeerCertificate(
     if (!m_cfErrorUserInfoDict)
         return E_FAIL;
 
-    void* data = wkGetSSLPeerCertificateData(m_cfErrorUserInfoDict.get());
+    void* data = wkGetSSLPeerCertificateDataBytePtr(m_cfErrorUserInfoDict.get());
     if (!data)
         return E_FAIL;
     *result = (OLE_HANDLE)(ULONG64)data;

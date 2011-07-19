@@ -1,6 +1,6 @@
 # -*- tcl -*-
 #
-# $Id: idx.text,v 1.3 2004/01/15 06:36:12 andreas_kupries Exp $
+# $Id: idx.text,v 1.4 2010/06/08 19:32:36 andreas_kupries Exp $
 #
 # Engine to convert a docidx document into plain text.
 #
@@ -36,7 +36,7 @@ proc fmt_index_begin {label title} {
     global max ; set max 0
 
     set hdr ""
-    append hdr "Index [textutil::uncap [c_provenance]]\n\n"
+    append hdr "Index [textutil::string::uncap [c_provenance]]\n\n"
 
     if {($label != {}) && ($title != {})} {
 	set title "$label -- $title"
@@ -46,7 +46,7 @@ proc fmt_index_begin {label title} {
 	 # title is set
     }
     append hdr $title \n
-    append hdr [textutil::strRepeat = [string length $title]]
+    append hdr [textutil::repeat::strRepeat = [string length $title]]
     Text  $hdr
     CloseParagraph [Verbatim]
     return
@@ -58,11 +58,11 @@ proc fmt_index_end {} {
     set rmargin [expr {80 - $max}]
     if {$rmargin < 20} {set rmargin 20}
     incr max
-    set pfx [textutil::blank $max]
+    set pfx [textutil::repeat::blank $max]
 
     foreach key [lsort [array names map]] {
 	set   opfx $key[string range $pfx [string length $key] end]
-	Text $opfx[textutil::indent [textutil::adjust [join $map($key) ", "] -length $rmargin] $pfx 1]
+	Text $opfx[textutil::adjust::indent [textutil::adjust::adjust [join $map($key) ", "] -length $rmargin] $pfx 1]
 	CloseParagraph [Verbatim]
     }
     return

@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::Collection;
 
-use base qw/DBIx::Class::Core/;
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('collection');
 __PACKAGE__->add_columns(

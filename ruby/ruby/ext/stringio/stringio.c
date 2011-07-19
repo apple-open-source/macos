@@ -3,7 +3,7 @@
   stringio.c -
 
   $Author: shyouhei $
-  $Date: 2009-02-09 13:40:47 +0900 (Mon, 09 Feb 2009) $
+  $Date: 2009-12-24 17:54:26 +0900 (Thu, 24 Dec 2009) $
   $RoughId: stringio.c,v 1.13 2002/03/14 03:24:18 nobu Exp $
   created at: Tue Feb 19 04:10:38 JST 2002
 
@@ -269,6 +269,8 @@ strio_init(argc, argv, ptr)
 	break;
     }
     ptr->string = string;
+    ptr->pos = 0;
+    ptr->lineno = 0;
 }
 
 static VALUE

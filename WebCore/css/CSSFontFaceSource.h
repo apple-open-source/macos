@@ -26,14 +26,10 @@
 #ifndef CSSFontFaceSource_h
 #define CSSFontFaceSource_h
 
-#include "AtomicString.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include <wtf/HashMap.h>
-
-#if ENABLE(SVG_FONTS)
-#include "SVGFontFaceElement.h"
-#endif
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -42,6 +38,11 @@ class CSSFontFace;
 class CSSFontSelector;
 class FontDescription;
 class SimpleFontData;
+#if ENABLE(SVG_FONTS)
+class SVGFontElement;
+class SVGFontFaceElement;
+#endif
+
 
 class CSSFontFaceSource : public CachedResourceClient {
 public:
@@ -62,8 +63,10 @@ public:
     void pruneTable();
 
 #if ENABLE(SVG_FONTS)
-    SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
-    void setSVGFontFaceElement(SVGFontFaceElement* element) { m_svgFontFaceElement = element; }
+    SVGFontFaceElement* svgFontFaceElement() const;
+    void setSVGFontFaceElement(PassRefPtr<SVGFontFaceElement>);
+    bool isSVGFontFaceSource() const;
+    void setHasExternalSVGFont(bool value) { m_hasExternalSVGFont = value; }
 #endif
 
 private:
@@ -73,8 +76,9 @@ private:
     HashMap<unsigned, SimpleFontData*> m_fontDataTable; // The hash key is composed of size synthetic styles.
 
 #if ENABLE(SVG_FONTS)
-    SVGFontFaceElement* m_svgFontFaceElement;
+    RefPtr<SVGFontFaceElement> m_svgFontFaceElement;
     RefPtr<SVGFontElement> m_externalSVGFontElement;
+    bool m_hasExternalSVGFont;
 #endif
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2008
+ * Copyright (c) 1996, 1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -38,11 +38,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -89,18 +88,18 @@
 #ifndef HAVE_EXTENDED_GLOB
 # include "emul/glob.h"
 #endif /* HAVE_EXTENDED_GLOB */
+#ifdef USING_NONUNIX_GROUPS
+# include "nonunix.h"
+#endif /* USING_NONUNIX_GROUPS */
 
-#ifdef __APPLE_MEMBERD__
 #include <membership.h>
-#endif
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: match.c,v 1.38 2008/11/02 14:35:37 millert Exp $";
-#endif /* lint */
 
 static struct member_list empty;
 
 static int command_matches_dir __P((char *, size_t));
+static int command_matches_glob __P((char *, char *));
+static int command_matches_fnmatch __P((char *, char *));
+static int command_matches_normal __P((char *, char *));
 
 /*
  * Returns TRUE if string 's' contains meta characters.
@@ -134,7 +133,7 @@ _userlist_matches(pw, list)
 		    matched = !m->negated;
 		break;
 	    case ALIAS:
-		if ((a = find_alias(m->name, USERALIAS)) != NULL) {
+		if ((a = alias_find(m->name, USERALIAS)) != NULL) {
 		    rval = _userlist_matches(pw, &a->members);
 		    if (rval != UNSPEC)
 			matched = m->negated ? !rval : rval;
@@ -173,72 +172,79 @@ _runaslist_matches(user_list, group_list)
 {
     struct member *m;
     struct alias *a;
-    int rval, matched = UNSPEC;
-
-    /* Deny if user specified a group but there is no group in sudoers */
-    if (runas_gr != NULL && tq_empty(group_list))
-	return(DENY);
-
-    if (tq_empty(user_list) && tq_empty(group_list))
-	return(userpw_matches(def_runas_default, runas_pw->pw_name, runas_pw));
+    int rval;
+    int user_matched = UNSPEC;
+    int group_matched = UNSPEC;
 
     if (runas_pw != NULL) {
+	/* If no runas user or runas group listed in sudoers, use default. */
+	if (tq_empty(user_list) && tq_empty(group_list))
+	    return(userpw_matches(def_runas_default, runas_pw->pw_name, runas_pw));
+
 	tq_foreach_rev(user_list, m) {
 	    switch (m->type) {
 		case ALL:
-		    matched = !m->negated;
+		    user_matched = !m->negated;
 		    break;
 		case NETGROUP:
 		    if (netgr_matches(m->name, NULL, NULL, runas_pw->pw_name))
-			matched = !m->negated;
+			user_matched = !m->negated;
 		    break;
 		case USERGROUP:
 		    if (usergr_matches(m->name, runas_pw->pw_name, runas_pw))
-			matched = !m->negated;
+			user_matched = !m->negated;
 		    break;
 		case ALIAS:
-		    if ((a = find_alias(m->name, RUNASALIAS)) != NULL) {
+		    if ((a = alias_find(m->name, RUNASALIAS)) != NULL) {
 			rval = _runaslist_matches(&a->members, &empty);
 			if (rval != UNSPEC)
-			    matched = m->negated ? !rval : rval;
+			    user_matched = m->negated ? !rval : rval;
 			break;
 		    }
 		    /* FALLTHROUGH */
 		case WORD:
 		    if (userpw_matches(m->name, runas_pw->pw_name, runas_pw))
-			matched = !m->negated;
+			user_matched = !m->negated;
 		    break;
 	    }
-	    if (matched != UNSPEC)
+	    if (user_matched != UNSPEC)
 		break;
 	}
     }
 
     if (runas_gr != NULL) {
+	if (user_matched == UNSPEC) {
+	    if (runas_pw == NULL || strcmp(runas_pw->pw_name, user_name) == 0)
+		user_matched = ALLOW;	/* only changing group */
+	}
 	tq_foreach_rev(group_list, m) {
 	    switch (m->type) {
 		case ALL:
-		    matched = !m->negated;
+		    group_matched = !m->negated;
 		    break;
 		case ALIAS:
-		    if ((a = find_alias(m->name, RUNASALIAS)) != NULL) {
+		    if ((a = alias_find(m->name, RUNASALIAS)) != NULL) {
 			rval = _runaslist_matches(&a->members, &empty);
 			if (rval != UNSPEC)
-			    matched = m->negated ? !rval : rval;
+			    group_matched = m->negated ? !rval : rval;
 			break;
 		    }
 		    /* FALLTHROUGH */
 		case WORD:
 		    if (group_matches(m->name, runas_gr))
-			matched = !m->negated;
+			group_matched = !m->negated;
 		    break;
 	    }
-	    if (matched != UNSPEC)
+	    if (group_matched != UNSPEC)
 		break;
 	}
     }
 
-    return(matched);
+    if (user_matched == DENY || group_matched == DENY)
+	return(DENY);
+    if (user_matched == group_matched || runas_gr == NULL)
+	return(user_matched);
+    return(UNSPEC);
 }
 
 int
@@ -277,7 +283,7 @@ _hostlist_matches(list)
 		    matched = !m->negated;
 		break;
 	    case ALIAS:
-		if ((a = find_alias(m->name, HOSTALIAS)) != NULL) {
+		if ((a = alias_find(m->name, HOSTALIAS)) != NULL) {
 		    rval = _hostlist_matches(&a->members);
 		    if (rval != UNSPEC)
 			matched = m->negated ? !rval : rval;
@@ -312,14 +318,12 @@ _cmndlist_matches(list)
     struct member_list *list;
 {
     struct member *m;
-    int rval, matched = UNSPEC;
+    int matched = UNSPEC;
 
     tq_foreach_rev(list, m) {
-	rval = cmnd_matches(m);
-	if (rval != UNSPEC) {
-	    matched = m->negated ? !rval : rval;
+	matched = cmnd_matches(m);
+	if (matched != UNSPEC)
 	    break;
-	}
     }
     return(matched);
 }
@@ -350,7 +354,7 @@ cmnd_matches(m)
 	    break;
 	case ALIAS:
 	    alias_seqno++;
-	    if ((a = find_alias(m->name, CMNDALIAS)) != NULL) {
+	    if ((a = alias_find(m->name, CMNDALIAS)) != NULL) {
 		rval = _cmndlist_matches(&a->members);
 		if (rval != UNSPEC)
 		    matched = m->negated ? !rval : rval;
@@ -374,13 +378,8 @@ command_matches(sudoers_cmnd, sudoers_args)
     char *sudoers_cmnd;
     char *sudoers_args;
 {
-    struct stat sudoers_stat;
-    char **ap, *base, *cp;
-    glob_t gl;
-    size_t dlen;
-
     /* Check for pseudo-commands */
-    if (strchr(user_cmnd, '/') == NULL) {
+    if (sudoers_cmnd[0] != '/') {
 	/*
 	 * Return true if both sudoers_cmnd and user_cmnd are "sudoedit" AND
 	 *  a) there are no args in sudoers OR
@@ -400,110 +399,163 @@ command_matches(sudoers_cmnd, sudoers_args)
 	} else
 	    return(FALSE);
     }
-    dlen = strlen(sudoers_cmnd);
 
-    /*
-     * If sudoers_cmnd has meta characters in it, we may need to
-     * use glob(3) and fnmatch(3) to do the matching.
-     */
     if (has_meta(sudoers_cmnd)) {
 	/*
-	 * First check to see if we can avoid the call to glob(3).
-	 * Short circuit if there are no meta chars in the command itself
-	 * and user_base and basename(sudoers_cmnd) don't match.
+	 * If sudoers_cmnd has meta characters in it, we need to
+	 * use glob(3) and/or fnmatch(3) to do the matching.
 	 */
-	if (sudoers_cmnd[dlen - 1] != '/') {
-	    if ((base = strrchr(sudoers_cmnd, '/')) != NULL) {
-		base++;
-		if (!has_meta(base) && strcmp(user_base, base) != 0)
-		    return(FALSE);
-	    }
-	}
-	/*
-	 * Return true if we find a match in the glob(3) results AND
-	 *  a) there are no args in sudoers OR
-	 *  b) there are no args on command line and none required by sudoers OR
-	 *  c) there are args in sudoers and on command line and they match
-	 * else return false.
-	 */
-#define GLOB_FLAGS	(GLOB_NOSORT | GLOB_MARK | GLOB_BRACE | GLOB_TILDE)
-	if (glob(sudoers_cmnd, GLOB_FLAGS, NULL, &gl) != 0) {
-	    globfree(&gl);
-	    return(FALSE);
-	}
-	/* For each glob match, compare basename, st_dev and st_ino. */
-	for (ap = gl.gl_pathv; (cp = *ap) != NULL; ap++) {
-	    /* If it ends in '/' it is a directory spec. */
-	    dlen = strlen(cp);
-	    if (cp[dlen - 1] == '/') {
-		if (command_matches_dir(cp, dlen))
-		    return(TRUE);
-		continue;
-	    }
+	if (def_fast_glob)
+	    return(command_matches_fnmatch(sudoers_cmnd, sudoers_args));
+	return(command_matches_glob(sudoers_cmnd, sudoers_args));
+    }
+    return(command_matches_normal(sudoers_cmnd, sudoers_args));
+}
 
-	    /* Only proceed if user_base and basename(cp) match */
-	    if ((base = strrchr(cp, '/')) != NULL)
-		base++;
-	    else
-		base = cp;
-	    if (strcmp(user_base, base) != 0 ||
-		stat(cp, &sudoers_stat) == -1)
-		continue;
-	    if (user_stat == NULL ||
-		(user_stat->st_dev == sudoers_stat.st_dev &&
-		user_stat->st_ino == sudoers_stat.st_ino)) {
-		efree(safe_cmnd);
-		safe_cmnd = estrdup(cp);
-		break;
-	    }
-	}
-	globfree(&gl);
-	if (cp == NULL)
-	    return(FALSE);
-
-	if (!sudoers_args ||
-	    (!user_args && sudoers_args && !strcmp("\"\"", sudoers_args)) ||
-	    (sudoers_args &&
-	     fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0)) {
-	    efree(safe_cmnd);
-	    safe_cmnd = estrdup(user_cmnd);
-	    return(TRUE);
-	}
+static int
+command_matches_fnmatch(sudoers_cmnd, sudoers_args)
+    char *sudoers_cmnd;
+    char *sudoers_args;
+{
+    /*
+     * Return true if fnmatch(3) succeeds AND
+     *  a) there are no args in sudoers OR
+     *  b) there are no args on command line and none required by sudoers OR
+     *  c) there are args in sudoers and on command line and they match
+     * else return false.
+     */
+    if (fnmatch(sudoers_cmnd, user_cmnd, FNM_PATHNAME) != 0)
 	return(FALSE);
-    } else {
-	/* If it ends in '/' it is a directory spec. */
-	if (sudoers_cmnd[dlen - 1] == '/')
-	    return(command_matches_dir(sudoers_cmnd, dlen));
+    if (!sudoers_args ||
+	(!user_args && sudoers_args && !strcmp("\"\"", sudoers_args)) ||
+	(sudoers_args &&
+	 fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0)) {
+	if (safe_cmnd)
+	    free(safe_cmnd);
+	safe_cmnd = estrdup(user_cmnd);
+	return(TRUE);
+    } else
+	return(FALSE);
+}
 
-	/* Only proceed if user_base and basename(sudoers_cmnd) match */
-	if ((base = strrchr(sudoers_cmnd, '/')) == NULL)
-	    base = sudoers_cmnd;
-	else
+static int
+command_matches_glob(sudoers_cmnd, sudoers_args)
+    char *sudoers_cmnd;
+    char *sudoers_args;
+{
+    struct stat sudoers_stat;
+    size_t dlen;
+    char **ap, *base, *cp;
+    glob_t gl;
+
+    /*
+     * First check to see if we can avoid the call to glob(3).
+     * Short circuit if there are no meta chars in the command itself
+     * and user_base and basename(sudoers_cmnd) don't match.
+     */
+    dlen = strlen(sudoers_cmnd);
+    if (sudoers_cmnd[dlen - 1] != '/') {
+	if ((base = strrchr(sudoers_cmnd, '/')) != NULL) {
 	    base++;
-	if (strcmp(user_base, base) != 0 ||
-	    stat(sudoers_cmnd, &sudoers_stat) == -1)
-	    return(FALSE);
-
-	/*
-	 * Return true if inode/device matches AND
-	 *  a) there are no args in sudoers OR
-	 *  b) there are no args on command line and none req by sudoers OR
-	 *  c) there are args in sudoers and on command line and they match
-	 */
-	if (user_stat != NULL &&
-	    (user_stat->st_dev != sudoers_stat.st_dev ||
-	    user_stat->st_ino != sudoers_stat.st_ino))
-	    return(FALSE);
-	if (!sudoers_args ||
-	    (!user_args && sudoers_args && !strcmp("\"\"", sudoers_args)) ||
-	    (sudoers_args &&
-	     fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0)) {
-	    efree(safe_cmnd);
-	    safe_cmnd = estrdup(sudoers_cmnd);
-	    return(TRUE);
+	    if (!has_meta(base) && strcmp(user_base, base) != 0)
+		return(FALSE);
 	}
+    }
+    /*
+     * Return true if we find a match in the glob(3) results AND
+     *  a) there are no args in sudoers OR
+     *  b) there are no args on command line and none required by sudoers OR
+     *  c) there are args in sudoers and on command line and they match
+     * else return false.
+     */
+#define GLOB_FLAGS	(GLOB_NOSORT | GLOB_MARK | GLOB_BRACE | GLOB_TILDE)
+    if (glob(sudoers_cmnd, GLOB_FLAGS, NULL, &gl) != 0 || gl.gl_pathc == 0) {
+	globfree(&gl);
 	return(FALSE);
     }
+    /* For each glob match, compare basename, st_dev and st_ino. */
+    for (ap = gl.gl_pathv; (cp = *ap) != NULL; ap++) {
+	/* If it ends in '/' it is a directory spec. */
+	dlen = strlen(cp);
+	if (cp[dlen - 1] == '/') {
+	    if (command_matches_dir(cp, dlen))
+		return(TRUE);
+	    continue;
+	}
+
+	/* Only proceed if user_base and basename(cp) match */
+	if ((base = strrchr(cp, '/')) != NULL)
+	    base++;
+	else
+	    base = cp;
+	if (strcmp(user_base, base) != 0 ||
+	    stat(cp, &sudoers_stat) == -1)
+	    continue;
+	if (user_stat == NULL ||
+	    (user_stat->st_dev == sudoers_stat.st_dev &&
+	    user_stat->st_ino == sudoers_stat.st_ino)) {
+	    efree(safe_cmnd);
+	    safe_cmnd = estrdup(cp);
+	    break;
+	}
+    }
+    globfree(&gl);
+    if (cp == NULL)
+	return(FALSE);
+
+    if (!sudoers_args ||
+	(!user_args && sudoers_args && !strcmp("\"\"", sudoers_args)) ||
+	(sudoers_args &&
+	 fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0)) {
+	efree(safe_cmnd);
+	safe_cmnd = estrdup(user_cmnd);
+	return(TRUE);
+    }
+    return(FALSE);
+}
+
+static int
+command_matches_normal(sudoers_cmnd, sudoers_args)
+    char *sudoers_cmnd;
+    char *sudoers_args;
+{
+    struct stat sudoers_stat;
+    char *base;
+    size_t dlen;
+
+    /* If it ends in '/' it is a directory spec. */
+    dlen = strlen(sudoers_cmnd);
+    if (sudoers_cmnd[dlen - 1] == '/')
+	return(command_matches_dir(sudoers_cmnd, dlen));
+
+    /* Only proceed if user_base and basename(sudoers_cmnd) match */
+    if ((base = strrchr(sudoers_cmnd, '/')) == NULL)
+	base = sudoers_cmnd;
+    else
+	base++;
+    if (strcmp(user_base, base) != 0 ||
+	stat(sudoers_cmnd, &sudoers_stat) == -1)
+	return(FALSE);
+
+    /*
+     * Return true if inode/device matches AND
+     *  a) there are no args in sudoers OR
+     *  b) there are no args on command line and none req by sudoers OR
+     *  c) there are args in sudoers and on command line and they match
+     */
+    if (user_stat != NULL &&
+	(user_stat->st_dev != sudoers_stat.st_dev ||
+	user_stat->st_ino != sudoers_stat.st_ino))
+	return(FALSE);
+    if (!sudoers_args ||
+	(!user_args && sudoers_args && !strcmp("\"\"", sudoers_args)) ||
+	(sudoers_args &&
+	 fnmatch(sudoers_args, user_args ? user_args : "", 0) == 0)) {
+	efree(safe_cmnd);
+	safe_cmnd = estrdup(sudoers_cmnd);
+	return(TRUE);
+    }
+    return(FALSE);
 }
 
 /*
@@ -526,8 +578,10 @@ command_matches_dir(sudoers_dir, dlen)
     if (dirp == NULL)
 	return(FALSE);
 
-    if (strlcpy(buf, sudoers_dir, sizeof(buf)) >= sizeof(buf))
+    if (strlcpy(buf, sudoers_dir, sizeof(buf)) >= sizeof(buf)) {
+	closedir(dirp);
 	return(FALSE);
+    }
     while ((dent = readdir(dirp)) != NULL) {
 	/* ignore paths > PATH_MAX (XXX - log) */
 	buf[dlen] = '\0';
@@ -555,22 +609,21 @@ addr_matches_if(n)
     char *n;
 {
     int i;
-    struct in_addr addr;
+    union sudo_in_addr_un addr;
     struct interface *ifp;
 #ifdef HAVE_IN6_ADDR
-    struct in6_addr addr6;
     int j;
 #endif
     int family;
 
 #ifdef HAVE_IN6_ADDR
-    if (inet_pton(AF_INET6, n, &addr6) > 0) {
+    if (inet_pton(AF_INET6, n, &addr.ip6) > 0) {
 	family = AF_INET6;
     } else
 #endif
     {
 	family = AF_INET;
-	addr.s_addr = inet_addr(n);
+	addr.ip4.s_addr = inet_addr(n);
     }
 
     for (i = 0; i < num_interfaces; i++) {
@@ -579,21 +632,21 @@ addr_matches_if(n)
 	    continue;
 	switch(family) {
 	    case AF_INET:
-		if (ifp->addr.ip4.s_addr == addr.s_addr ||
+		if (ifp->addr.ip4.s_addr == addr.ip4.s_addr ||
 		    (ifp->addr.ip4.s_addr & ifp->netmask.ip4.s_addr)
-		    == addr.s_addr)
+		    == addr.ip4.s_addr)
 		    return(TRUE);
 		break;
 #ifdef HAVE_IN6_ADDR
 	    case AF_INET6:
-		if (memcmp(ifp->addr.ip6.s6_addr, addr6.s6_addr,
-		    sizeof(addr6.s6_addr)) == 0)
+		if (memcmp(ifp->addr.ip6.s6_addr, addr.ip6.s6_addr,
+		    sizeof(addr.ip6.s6_addr)) == 0)
 		    return(TRUE);
-		for (j = 0; j < sizeof(addr6.s6_addr); j++) {
-		    if ((ifp->addr.ip6.s6_addr[j] & ifp->netmask.ip6.s6_addr[j]) != addr6.s6_addr[j])
+		for (j = 0; j < sizeof(addr.ip6.s6_addr); j++) {
+		    if ((ifp->addr.ip6.s6_addr[j] & ifp->netmask.ip6.s6_addr[j]) != addr.ip6.s6_addr[j])
 			break;
 		}
-		if (j == sizeof(addr6.s6_addr))
+		if (j == sizeof(addr.ip6.s6_addr))
 		    return(TRUE);
 #endif
 	}
@@ -608,46 +661,45 @@ addr_matches_if_netmask(n, m)
     char *m;
 {
     int i;
-    struct in_addr addr, mask;
+    union sudo_in_addr_un addr, mask;
     struct interface *ifp;
 #ifdef HAVE_IN6_ADDR
-    struct in6_addr addr6, mask6;
     int j;
 #endif
     int family;
 
 #ifdef HAVE_IN6_ADDR
-    if (inet_pton(AF_INET6, n, &addr6) > 0)
+    if (inet_pton(AF_INET6, n, &addr.ip6) > 0)
 	family = AF_INET6;
     else
 #endif
     {
 	family = AF_INET;
-	addr.s_addr = inet_addr(n);
+	addr.ip4.s_addr = inet_addr(n);
     }
 
     if (family == AF_INET) {
 	if (strchr(m, '.'))
-	    mask.s_addr = inet_addr(m);
+	    mask.ip4.s_addr = inet_addr(m);
 	else {
 	    i = 32 - atoi(m);
-	    mask.s_addr = 0xffffffff;
-	    mask.s_addr >>= i;
-	    mask.s_addr <<= i;
-	    mask.s_addr = htonl(mask.s_addr);
+	    mask.ip4.s_addr = 0xffffffff;
+	    mask.ip4.s_addr >>= i;
+	    mask.ip4.s_addr <<= i;
+	    mask.ip4.s_addr = htonl(mask.ip4.s_addr);
 	}
     }
 #ifdef HAVE_IN6_ADDR
     else {
-	if (inet_pton(AF_INET6, m, &mask6) <= 0) {
+	if (inet_pton(AF_INET6, m, &mask.ip6) <= 0) {
 	    j = atoi(m);
 	    for (i = 0; i < 16; i++) {
 		if (j < i * 8)
-		    mask6.s6_addr[i] = 0;
+		    mask.ip6.s6_addr[i] = 0;
 		else if (i * 8 + 8 <= j)
-		    mask6.s6_addr[i] = 0xff;
+		    mask.ip6.s6_addr[i] = 0xff;
 		else
-		    mask6.s6_addr[i] = 0xff00 >> (j - i * 8);
+		    mask.ip6.s6_addr[i] = 0xff00 >> (j - i * 8);
 	    }
 	}
     }
@@ -659,15 +711,15 @@ addr_matches_if_netmask(n, m)
 	    continue;
 	switch(family) {
 	    case AF_INET:
-		if ((ifp->addr.ip4.s_addr & mask.s_addr) == addr.s_addr)
+		if ((ifp->addr.ip4.s_addr & mask.ip4.s_addr) == addr.ip4.s_addr)
 		    return(TRUE);
 #ifdef HAVE_IN6_ADDR
 	    case AF_INET6:
-		for (j = 0; j < sizeof(addr6.s6_addr); j++) {
-		    if ((ifp->addr.ip6.s6_addr[j] & mask6.s6_addr[j]) != addr6.s6_addr[j])
+		for (j = 0; j < sizeof(addr.ip6.s6_addr); j++) {
+		    if ((ifp->addr.ip6.s6_addr[j] & mask.ip6.s6_addr[j]) != addr.ip6.s6_addr[j])
 			break;
 		}
-		if (j == sizeof(addr6.s6_addr))
+		if (j == sizeof(addr.ip6.s6_addr))
 		    return(TRUE);
 #endif /* HAVE_IN6_ADDR */
 	}
@@ -758,7 +810,6 @@ group_matches(sudoers_group, gr)
 /*
  *  Returns TRUE if the given user belongs to the named group,
  *  else returns FALSE.
- *  XXX - reduce the number of group lookups
  */
 int
 usergr_matches(group, user, pw)
@@ -766,53 +817,28 @@ usergr_matches(group, user, pw)
     char *user;
     struct passwd *pw;
 {
-    struct group *grp;
-    char **cur;
-    int i;
-
-#ifdef __APPLE_MEMBERD__
-    uuid_t uu, gu;
-    int ismember = 0;
-#endif
-
     /* make sure we have a valid usergroup, sudo style */
     if (*group++ != '%')
 	return(FALSE);
+
+#ifdef USING_NONUNIX_GROUPS
+    if (*group == ':')
+	return(sudo_nonunix_groupcheck(++group, user, pw));   
+#endif /* USING_NONUNIX_GROUPS */
 
     /* look up user's primary gid in the passwd file */
     if (pw == NULL && (pw = sudo_getpwnam(user)) == NULL)
 	return(FALSE);
 
-    if ((grp = sudo_getgrnam(group)) == NULL)
-	return(FALSE);
-
-    /* check against user's primary (passwd file) gid */
-    if (grp->gr_gid == pw->pw_gid)
+    if (user_in_group(pw, group))
 	return(TRUE);
 
-    /*
-     * If we are matching the invoking or list user and that user has a
-     * supplementary group vector, check it first.
-     */
-    if (strcmp(user, list_pw ? list_pw->pw_name : user_name) == 0) {
-	for (i = 0; i < user_ngroups; i++)
-	    if (grp->gr_gid == user_groups[i])
-		return(TRUE);
-    }
-
-#ifdef __APPLE_MEMBERD__
-    if (0 == mbr_uid_to_uuid(pw->pw_uid,uu) &&
-	0 == mbr_gid_to_uuid(grp->gr_gid,gu) &&
-	0 == mbr_check_membership(uu,gu,&ismember) &&
-	ismember)
-	return(TRUE);
-#else
-    if (grp->gr_mem != NULL) {
-	for (cur = grp->gr_mem; *cur; cur++)
-	    if (strcmp(*cur, user) == 0)
-		return(TRUE);
-    }
-#endif
+#ifdef USING_NONUNIX_GROUPS
+    /* not a Unix group, could be an AD group */
+    if (sudo_nonunix_groupcheck_available() &&
+	sudo_nonunix_groupcheck(group, user, pw))
+    	return(TRUE);
+#endif /* USING_NONUNIX_GROUPS */
 
     return(FALSE);
 }

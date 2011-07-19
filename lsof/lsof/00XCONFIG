@@ -136,6 +136,12 @@ LSOF_CCV        is the C compiler version.  You should specify it
 			 Check the dialect stanza in the lsof Configure
 			 script to see how lsof_CCV is set by default.
 
+LSOF_CFGF	may be used to specify additional configuration values
+		that will appear in the CFGF string of the Makefile.
+
+LSOF_CFGL	may be used to specify additional library specifications
+		that will appear in the CFGL string of the Makefile.
+
 LSOF_HOST       may be used to specify a value in lsof's -v output
 		other than the name of the host where lsof was
 		built.  A value of "none" inhibits host name display
@@ -158,11 +164,23 @@ LSOF_LOGNAME    may be used to specify a value in lsof's -v output
 
 		default: the LOGNAME environment variable
 
+LSOF_MAKE	is the path to the make command.
+
+		deafult: the output of `which make`, if it is not NULL;
+			 otherwise the string "make".
+
 LSOF_MKC        may be used to specify an alternate method of
 		connecting dialect sources to the top-level lsof
 		directory.  See 00PORTING for more information.
 
 		default: ln -s
+
+LSOF_RANLIB	may be used to specify an alternate command for the
+		randomizing of the lsof library.
+
+		default: ranlib for most dialects
+			 none for: IBM AIX; HP-UX; SCO OpenServer; Solaris
+				   and SCO|Caldera UnixWare
 
 LSOF_SYSINFO    may be used to specify a value in lsof's -v output
 		other than the standard system identification --
@@ -662,4 +680,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-April 15, 2008
+January 18, 2010

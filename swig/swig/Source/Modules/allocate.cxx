@@ -11,7 +11,7 @@
  * Doc/Manual/SWIGPlus.html for details.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_allocate_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/allocate.cxx,v 1.70 2006/11/06 22:45:31 wsfulton Exp $";
+char cvsroot_allocate_cxx[] = "$Id: allocate.cxx 11583 2009-08-15 23:22:20Z wsfulton $";
 
 #include "swigmod.h"
 #include "cparse.h"
@@ -527,8 +527,7 @@ class Allocate:public Dispatcher {
     }
     ParmList *throws = Getattr(n, "throws");
     if (throws) {
-      /* if there is no an explicit catchlist, 
-         we catch everything in the throwlist */
+      /* if there is no explicit catchlist, we catch everything in the throws list */
       if (!catchlist) {
 	Setattr(n, "catchlist", throws);
       }
@@ -613,7 +612,7 @@ Allocate():
 	  if (na) {
 	    Swig_warning(WARN_TYPE_ABSTRACT, Getfile(n), Getline(n),
 			 "Class '%s' might be abstract, " "no constructors generated,\n", SwigType_namestr(Getattr(n, "name")));
-	    Swig_warning(WARN_TYPE_ABSTRACT, Getfile(na), Getline(na), " method '%s' might not be implemented.\n", SwigType_namestr(Getattr(na, "name")));
+	    Swig_warning(WARN_TYPE_ABSTRACT, Getfile(na), Getline(na), "Method %s might not be implemented.\n", Swig_name_decl(na));
 	    if (!Getattr(n, "abstract")) {
 	      List *abstract = NewList();
 	      Append(abstract, na);

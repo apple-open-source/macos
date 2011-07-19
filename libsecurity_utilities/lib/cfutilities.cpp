@@ -209,7 +209,7 @@ string cfString(CFTypeRef it, OSStatus err)
 	else if (id == CFBundleGetTypeID())
 		return cfString(CFBundleRef(it));
 	else
-		MacOSError::throwMe(err);
+		return cfString(CFCopyDescription(it), true);
 }
 
 

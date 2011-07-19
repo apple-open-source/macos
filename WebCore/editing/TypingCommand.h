@@ -42,13 +42,28 @@ public:
         InsertParagraphSeparatorInQuotedContent
     };
 
-    static void deleteSelection(Document*, bool smartDelete = false);
-    static void deleteKeyPressed(Document*, bool smartDelete = false, TextGranularity = CharacterGranularity, bool killRing = false);
-    static void forwardDeleteKeyPressed(Document*, bool smartDelete = false, TextGranularity = CharacterGranularity, bool killRing = false);
-    static void insertText(Document*, const String&, bool selectInsertedText = false, bool insertedTextIsComposition = false);
-    static void insertText(Document*, const String&, const VisibleSelection&, bool selectInsertedText = false, bool insertedTextIsComposition = false);
-    static void insertLineBreak(Document*);
-    static void insertParagraphSeparator(Document*);
+    enum TextCompositionType {
+        TextCompositionNone,
+        TextCompositionUpdate,
+        TextCompositionConfirm
+    };
+
+    enum Option {
+        SelectInsertedText = 1 << 0,
+        KillRing = 1 << 1,
+        RetainAutocorrectionIndicator = 1 << 2,
+        PreventSpellChecking = 1 << 3,
+        SmartDelete = 1 << 4
+    };
+    typedef unsigned Options;
+
+    static void deleteSelection(Document*, Options = 0);
+    static void deleteKeyPressed(Document*, Options = 0, TextGranularity = CharacterGranularity);
+    static void forwardDeleteKeyPressed(Document*, Options = 0, TextGranularity = CharacterGranularity);
+    static void insertText(Document*, const String&, Options, TextCompositionType = TextCompositionNone);
+    static void insertText(Document*, const String&, const VisibleSelection&, Options, TextCompositionType = TextCompositionNone);
+    static void insertLineBreak(Document*, Options);
+    static void insertParagraphSeparator(Document*, Options);
     static void insertParagraphSeparatorInQuotedContent(Document*);
     static bool isOpenForMoreTypingCommand(const EditCommand*);
     static void closeTyping(EditCommand*);
@@ -64,14 +79,20 @@ public:
     void deleteKeyPressed(TextGranularity, bool killRing);
     void forwardDeleteKeyPressed(TextGranularity, bool killRing);
     void deleteSelection(bool smartDelete);
+    void setCompositionType(TextCompositionType type) { m_compositionType = type; }
 
 private:
-    static PassRefPtr<TypingCommand> create(Document* document, ETypingCommand command, const String& text = "", bool selectInsertedText = false, TextGranularity granularity = CharacterGranularity, bool killRing = false)
+    static PassRefPtr<TypingCommand> create(Document* document, ETypingCommand command, const String& text = "", Options options = 0, TextGranularity granularity = CharacterGranularity)
     {
-        return adoptRef(new TypingCommand(document, command, text, selectInsertedText, granularity, killRing));
+        return adoptRef(new TypingCommand(document, command, text, options, granularity, TextCompositionNone));
     }
 
-    TypingCommand(Document*, ETypingCommand, const String& text, bool selectInsertedText, TextGranularity, bool killRing);
+    static PassRefPtr<TypingCommand> create(Document* document, ETypingCommand command, const String& text, Options options, TextCompositionType compositionType)
+    {
+        return adoptRef(new TypingCommand(document, command, text, options, CharacterGranularity, compositionType));
+    }
+
+    TypingCommand(Document*, ETypingCommand, const String& text, Options, TextGranularity, TextCompositionType);
 
     bool smartDelete() const { return m_smartDelete; }
     void setSmartDelete(bool smartDelete) { m_smartDelete = smartDelete; }
@@ -80,18 +101,24 @@ private:
     virtual EditAction editingAction() const;
     virtual bool isTypingCommand() const;
     virtual bool preservesTypingStyle() const { return m_preservesTypingStyle; }
+    virtual bool shouldRetainAutocorrectionIndicator() const { return m_shouldRetainAutocorrectionIndicator; }
+    virtual void setShouldRetainAutocorrectionIndicator(bool retain) { m_shouldRetainAutocorrectionIndicator = retain; }
+    void setShouldPreventSpellChecking(bool prevent) { m_shouldPreventSpellChecking = prevent; }
+
+    static void updateSelectionIfDifferentFromCurrentSelection(TypingCommand*, Frame*);
 
     void updatePreservesTypingStyle(ETypingCommand);
-    void markMisspellingsAfterTyping();
+    void markMisspellingsAfterTyping(ETypingCommand);
     void typingAddedToOpenCommand(ETypingCommand);
     bool makeEditableRootEmpty();
-    
+
     ETypingCommand m_commandType;
     String m_textToInsert;
     bool m_openForMoreTyping;
     bool m_selectInsertedText;
     bool m_smartDelete;
     TextGranularity m_granularity;
+    TextCompositionType m_compositionType;
     bool m_killRing;
     bool m_preservesTypingStyle;
     
@@ -99,6 +126,9 @@ private:
     // characters that were deleted, but only if the typing command being undone
     // was opened with a backward delete.
     bool m_openedByBackwardDelete;
+
+    bool m_shouldRetainAutocorrectionIndicator;
+    bool m_shouldPreventSpellChecking;
 };
 
 } // namespace WebCore

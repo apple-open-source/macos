@@ -5,9 +5,8 @@ Install_Dir = /usr/bin
 CFILES = quota.c
 MANPAGES = quota.1
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic
-Extra_LD_Flags = -dead_strip \
-	-L"$(SYMROOT)" -ldisk
+Extra_CC_Flags = -Wall
+Extra_LD_Flags = -dead_strip 
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

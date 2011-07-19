@@ -31,8 +31,21 @@
 #include <paths.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include "util.h"
+
+/*
+ * opendev(3) is an inherently non-thread-safe API, since
+ * it returns a buffer to global storage. However we can
+ * at least make sure the storage allocation is thread safe
+ * and does not leak memory in case of simultaneous
+ * initialization
+ */
+static pthread_once_t opendev_namebuf_once = PTHREAD_ONCE_INIT;
+static char *namebuf = NULL;
+
+static void opendev_namebuf_init(void);
 
 int
 opendev(path, oflags, dflags, realpath)
@@ -43,13 +56,19 @@ opendev(path, oflags, dflags, realpath)
 {
 	int fd;
 	char *slash, *prefix;
-	static char namebuf[PATH_MAX];
 
 	/* Initial state */
 	if (realpath)
 		*realpath = path;
 	fd = -1;
 	errno = ENOENT;
+
+	if (pthread_once(&opendev_namebuf_once,
+					 opendev_namebuf_init)
+		|| !namebuf) {
+		errno = ENOMEM;
+		return -1;
+	}
 
 	if (dflags & OPENDEV_BLCK)
 		prefix = "";			/* block device */
@@ -59,8 +78,8 @@ opendev(path, oflags, dflags, realpath)
 	if ((slash = strchr(path, '/')))
 		fd = open(path, oflags);
 	else if (dflags & OPENDEV_PART) {
-		if (snprintf(namebuf, sizeof(namebuf), "%s%s%s",
-		    _PATH_DEV, prefix, path) < sizeof(namebuf)) {
+		if (snprintf(namebuf, PATH_MAX, "%s%s%s",
+		    _PATH_DEV, prefix, path) < PATH_MAX) {
 			char *slice;
 			while ((slice = strrchr(namebuf, 's')) &&
 			    isdigit(*(slice-1))) *slice = '\0';
@@ -71,8 +90,8 @@ opendev(path, oflags, dflags, realpath)
 			errno = ENAMETOOLONG;
 	}
 	if (!slash && fd == -1 && errno == ENOENT) {
-		if (snprintf(namebuf, sizeof(namebuf), "%s%s%s",
-		    _PATH_DEV, prefix, path) < sizeof(namebuf)) {
+		if (snprintf(namebuf, PATH_MAX, "%s%s%s",
+		    _PATH_DEV, prefix, path) < PATH_MAX) {
 			fd = open(namebuf, oflags);
 			if (realpath)
 				*realpath = namebuf;
@@ -80,4 +99,9 @@ opendev(path, oflags, dflags, realpath)
 			errno = ENAMETOOLONG;
 	}
 	return (fd);
+}
+
+static void opendev_namebuf_init(void)
+{
+	namebuf = malloc(PATH_MAX);
 }

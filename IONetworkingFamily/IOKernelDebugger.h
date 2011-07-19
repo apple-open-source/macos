@@ -55,6 +55,27 @@ typedef void (*IODebuggerTxHandler)( IOService * target,
                                      void *      buffer,
                                      UInt32      length );
 
+/*! @typedef IODebuggerLinkStatusHandler
+    @discussion Defines the link up handler that must be implemented
+    by the target to service KDP link status requests. This handler is called
+    by kdpLinkStatusDispatcher().
+    @param target The target object.
+    @result Return link status.
+*/
+
+typedef UInt32 (*IODebuggerLinkStatusHandler)( IOService * target); 
+
+/*! @typedef IODebuggerSetModeHandler
+    @discussion Defines the mode handler that must be implemented
+    by the target to service KDP link status requests. This handler is called
+    by kdpSetModeDispatcher().
+    @param target The target object.
+    @param active True if entering KDP and false if exiting KDP.
+    @result Return true on success and false on failure.
+*/
+
+typedef bool (*IODebuggerSetModeHandler)( IOService * target, bool active); 
+
 /*! @typedef IODebuggerLockState
     @discussion Defines flags returned by IOKernelDebugger::lock().
     @constant kIODebuggerLockTaken Set if the debugger lock was taken. */
@@ -95,7 +116,9 @@ protected:
     struct ExpansionData {
         thread_call_t  activationChangeThreadCall;
         UInt32         stateVars[2];
-		IONotifier  *  interfaceNotifier;
+        IONotifier  *  interfaceNotifier;
+        IODebuggerLinkStatusHandler linkStatusHandler; // target's link status handler.
+        IODebuggerSetModeHandler setModeHandler; // target's KDP mode handler.
     };
 
     /*! @var reserved
@@ -129,6 +152,27 @@ protected:
 
     static void kdpTransmitDispatcher(void * buffer, UInt32 length);
 
+/*! @function kdpLinkStatusDispatcher
+    @abstract The KDP link status dispatch function.
+    @discussion Field KDP link status requests, then dispatches the call to the
+    registered link up handler.
+    @result Return link status.
+*/
+
+    static UInt32 kdpLinkStatusDispatcher(void);
+
+
+/*! @function kdpSetModeDispatcher
+    @abstract The KDP set mode dispatch function.
+    @discussion Field KDP set mode requests, then dispatches the call to the
+    registered set mode handler.
+    @param active TRUE if entering KDP. FALSE if leaving KDP.
+    @result Return TRUE if the link is up and data can be sent/received. Otherwise,
+            return FALSE.
+*/
+
+    static boolean_t kdpSetModeDispatcher(boolean_t active);
+
 /*! @function free
     @abstract Frees the IOKernelDebugger instance. */
 
@@ -161,6 +205,28 @@ protected:
                                UInt32 *    length,
                                UInt32      timeout );
 
+/*! @function nullLinkStatusHandler
+    @abstract Null link status handler.
+    @discussion This function is registered as the link status handler when an
+    IOKernelDebugger object surrenders its status as the active debugger nub.
+    Until another IOKernelDebugger object gets promoted, this function will
+    handle polled link status requests from KDP. 
+    @result This function will always report link up.
+*/
+
+    static UInt32 nullLinkStatusHandler( IOService * target);
+
+/*! @function nullSetModeHandler
+    @abstract Null set mode handler.
+    @discussion This function is registered as the set mode handler when an
+    IOKernelDebugger object surrenders its status as the active debugger nub.
+    Until another IOKernelDebugger object gets promoted, this function will
+    handle set mode requests from KDP. 
+    @result This function will always return true.
+*/
+
+    static bool nullSetModeHandler( IOService * target, bool active);
+
 /*! @function registerHandler
     @abstract Registers the target and the handler functions.
     @discussion This method is called by handleOpen() and handleClose()
@@ -169,12 +235,15 @@ protected:
     @param txHandler The transmit handler function. The null handler is
     registered if the argument is zero.
     @param rxHandler The receive handler function. The null handler is
+    @param linkUpHandler The linkup handler function. The null handler is
     registered if the argument is zero. 
 */
 
-    static void registerHandler( IOService *          target,
-                                 IODebuggerTxHandler  txHandler = 0,
-                                 IODebuggerRxHandler  rxHandler = 0 );
+    static void registerHandler( IOService *                 target,
+                                 IODebuggerTxHandler         txHandler = 0,
+                                 IODebuggerRxHandler         rxHandler = 0,
+                                 IODebuggerLinkStatusHandler linkUpHandler = 0,
+                                 IODebuggerSetModeHandler    setModeHandler = 0);
 
 /*! @function powerStateWillChangeTo
     @abstract Handles notification that the network controller will change
@@ -278,12 +347,16 @@ public:
     @param target The target object that implements the debugger handlers.
     @param txHandler The target's transmit handler. A pointer to a 'C' function.
     @param rxHandler The target's receive handler. A pointer to a 'C' function.
+    @param linkStatusHandler The target's link status handler. A pointer to a 'C' function.
+    @param setModeHandler The target's set mode handler. A pointer to a 'C' function.
     @result Returns true if the instance initialized successfully, false otherwise. 
 */
 
-    virtual bool init( IOService *          target,
-                       IODebuggerTxHandler  txHandler,
-                       IODebuggerRxHandler  rxHandler );
+    virtual bool init( IOService *                 target,
+                       IODebuggerTxHandler         txHandler,
+                       IODebuggerRxHandler         rxHandler,
+                       IODebuggerLinkStatusHandler linkUpHandler,
+                       IODebuggerSetModeHandler    setModeHandler);
 
 /*! @function debugger
     @abstract Factory method that performs allocation and initialization
@@ -291,12 +364,16 @@ public:
     @param target The target object that implements the debugger handlers.
     @param txHandler The target's transmit handler. A pointer to a 'C' function.
     @param rxHandler The target's receive handler. A pointer to a 'C' function.
+    @param linkStatusHandler The target's link status handler. A pointer to a 'C' function.
+    @param setModeHandler The target's set mode handler. A pointer to a 'C' function.
     @result Returns an IOKernelDebugger instance on success, 0 otherwise. 
 */
 
-    static IOKernelDebugger * debugger( IOService *          target,
-                                        IODebuggerTxHandler  txHandler,
-                                        IODebuggerRxHandler  rxHandler );
+    static IOKernelDebugger * debugger( IOService *                 target,
+                                        IODebuggerTxHandler         txHandler,
+                                        IODebuggerRxHandler         rxHandler,
+                                        IODebuggerLinkStatusHandler linkStatusHandler,
+                                        IODebuggerSetModeHandler    setModeHandler);
 
     /*
      * Entry point for generic messages delivered from the provider.

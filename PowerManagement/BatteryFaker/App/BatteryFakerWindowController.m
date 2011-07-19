@@ -1,16 +1,42 @@
-#import "BatteryFakerWindowController.h"
+/*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #import <ApplicationServices/ApplicationServicesPriv.h>
+#import <CoreFoundation/CoreFoundation.h>
 #import <IOKit/pwr_mgt/IOPM.h>
 #import <IOKit/IOKitLib.h>
-#import <unistd.h>
-#import <CoreFoundation/CoreFoundation.h>
+#import <IOKit/pwr_mgt/IOPMLib.h>
+#import <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #import <IOKit/ps/IOPowerSources.h>
+#import <IOKit/kext/OSKext.h>
+#import <System/libkern/OSReturn.h>
 
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-#include <mach/mach_host.h>
+#import <unistd.h>
+#import <mach/mach.h>
+#import <mach/mach_error.h>
+#import <mach/mach_host.h>
 
+#import "BatteryFakerWindowController.h"
 
 #define kLoadArg                    "load"
 #define kUnloadArg                  "unload"
@@ -19,12 +45,10 @@
 #define kMBBBundleID				CFSTR("com.apple.menuextra.battery")
 #define kMBBBundlePath				CFSTR("/System/Library/CoreServices/Menu Extras/Battery.menu")
 
-static const char *kextBundleID = "com.apple.driver.BatteryFaker";
+#define kKextBundleID               CFSTR("com.apple.driver.BatteryFaker")
 static BatteryFakerWindowController *gBFWindowController = NULL;
 
-static int is_kext_loaded(const char * bundle_id);
-static kmod_info_t * kmod_get_loaded(unsigned int * kmod_count);
-static int kmod_ref_compare(const void * a, const void * b);
+static int is_kext_loaded(CFStringRef bundle_id);
 
 void powerSourceChangeCallBack(void *in);
 
@@ -99,14 +123,38 @@ void powerSourceChangeCallBack(void *in);
 - (void)awakeFromNib
 {
     // Send battery the defaults
-    [batt setPropertiesAndUpdate:
-        [self batterySettingsFromWindow]];
+    [batt setPropertiesAndUpdate: [self batterySettingsFromWindow]];
 
-//  UPS remains not-implemented
-//    [ups awake];
+
+    /* Trigger BatteryFaker.kext load with help of IOPMrootDomain
+     */
+    io_registry_entry_t root_domain = IOServiceGetMatchingService(MACH_PORT_NULL, IOServiceMatching("IOPMrootDomain"));    
+    if (MACH_PORT_NULL != root_domain)
+    {
+        kern_return_t       ret;
+        ret = IORegistryEntrySetCFProperty(root_domain, CFSTR("SoftwareSimulatedBatteries"), kCFBooleanTrue);
+        if (KERN_SUCCESS != ret) {
+            NSLog(@"BatteryFaker error initializing \"SoftwareSimulatedBatteries\" resource 0x%x\n", ret);
+        }
+        IOObjectRelease(root_domain);
+    }
     
-    [self runSUIDTool:kLoadArg];
+    /* Signal to PM Configd that we're running, and we want debug power sources instead of real power sources.
+     */
+    IOReturn ret;
+    IOPMAssertionID id = kIOPMNullAssertionID;
 
+    ret = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypeDisableRealPowerSources_Debug,
+                kIOPMAssertionLevelOn,
+                CFSTR("com.apple.iokit.powermanagement.assert_tool"),
+                &id);
+
+    if (kIOReturnSuccess != ret || kIOPMNullAssertionID == id)
+    {
+        NSLog(@"IOPMAssertionCreate failed: asserting %@ returned 0x%08x\n", kIOPMAssertionTypeDisableRealPowerSources_Debug, ret);
+    }
+    
     [self updateKEXTLoadStatus];
 
     [self updateUPSPlugInStatus];
@@ -135,7 +183,8 @@ void powerSourceChangeCallBack(void *in);
 - (void)windowWillClose:(NSNotification *)notification
 {
     /* attempt to unload BatteryFaker.kext */
-    [self runSUIDTool:kUnloadArg];
+
+    // TODO: Unload battery monitor
 }
 
 
@@ -171,7 +220,8 @@ void powerSourceChangeCallBack(void *in);
 
 - (IBAction)kickBatteryMonitorMenu:(id)sender
 {
-    [self runSUIDTool:kKickBattMonArg];
+    // TODO: kick battery monitor
+//    [self runSUIDTool:kKickBattMonArg];
 }
 
 - (IBAction)enableMenuExtra:(id)sender
@@ -274,6 +324,19 @@ void powerSourceChangeCallBack(void *in);
     // Max Err    
     [uiProperties setObject:[NSNumber numberWithInt:[MaxErrCell intValue]] 
                 forKey:@"MaxErr"];
+                
+    // PFStatus    
+    [uiProperties setObject:[NSNumber numberWithInt:[PFStatusCell intValue]] 
+                forKey:@"PermanentFailureStatus"];
+    // Error Condition
+    [uiProperties setObject:[ErrorConditionCell stringValue] forKey:@kIOPMPSErrorConditionKey];
+    // DesignCapacity 0x70    
+    [uiProperties setObject:[NSNumber numberWithInt:[DesignCap0x70Cell intValue]] 
+                forKey:@"DesignCycleCount70"];
+    // DesignCapacity 0x9C
+    [uiProperties setObject:[NSNumber numberWithInt:[DesignCap0x9CCell intValue]] 
+                forKey:@"DesignCycleCount9C"];
+
 
     // Time Remaining
     if (is_charging) {
@@ -289,7 +352,7 @@ void powerSourceChangeCallBack(void *in);
     [uiProperties setObject:[NSNumber numberWithInt:minutes_remaining] 
             forKey:@kIOPMPSTimeRemainingKey];
 
-    NSLog(@"Minutes remaining = %d\n", minutes_remaining);
+//    NSLog(@"Minutes remaining = %d\n", minutes_remaining);
 
     // Tell battery kext object
     [batt setPropertiesAndUpdate:uiProperties];
@@ -443,7 +506,7 @@ void powerSourceChangeCallBack(void *in);
 {
     // Time to publish whether the kext is loaded
     
-    if( is_kext_loaded( kextBundleID ) ) 
+    if( is_kext_loaded( kKextBundleID ) ) 
     {
         [BattFakerKEXTStatus setStringValue:@"Yes"];
     } else {
@@ -654,173 +717,19 @@ exit:
 * loaded in the kernel, and zero if not (or on failure). You might want to
 * change this to return -1 if an error occurs.
 *******************************************************************************/
-int is_kext_loaded(const char * bundle_id)
+int is_kext_loaded(CFStringRef bundle_id)
 {
-    int result = 0;
-    unsigned int num_kexts = 0;
-    kmod_info_t * kexts = NULL;  // must free
-    unsigned int i;
+    NSArray *kextIdentifiers = [NSArray arrayWithObject:(NSString *)bundle_id];
+    NSArray *loadedKextInfo = (NSArray *)OSKextCreateLoadedKextInfo((CFArrayRef)kextIdentifiers);
+    bool myKextIsLoaded = false;
 
-    kexts = kmod_get_loaded(&num_kexts);
-    if (!kexts) {
-        goto finish;
+    if (loadedKextInfo)
+    {
+        myKextIsLoaded = ([loadedKextInfo count] > 0);
+        [loadedKextInfo release];
     }
-
-    for (i = 0; i < num_kexts; i++) {
-        if (strcmp(bundle_id, kexts[i].name) == 0) {
-            result = 1;
-            goto finish;
-        }
-    }
-finish:
-    if (kexts) free(kexts);
-    return result;
+    
+    return myKextIsLoaded;
 }
 
-/*******************************************************************************
-* kmod_get_loaded()
-*
-* This function retrieves the list of loaded kmods from the kernel and massages
-* it into a more user-friendly form, including copying the kernel data from
-* a vm_allocated buffer into a regular malloc one.
-*******************************************************************************/
-static kmod_info_t * kmod_get_loaded(unsigned int * num_kmods)
-{
-    kmod_info_t * kmod_list_returned = NULL;  // returned
-
-    mach_port_t host_port = MACH_PORT_NULL;
-    kern_return_t mach_result = KERN_SUCCESS;
-    kmod_info_t * kmod_list = NULL;  // must vm_deallocate()
-    unsigned int kmod_bytecount;  // not really used
-    unsigned int kmod_count;
-    kmod_info_t * this_kmod;
-    kmod_reference_t * kmod_ref;
-    int ref_count;
-    int i, j;
-
-   /* Get the list of loaded kmods from the kernel.
-    */
-    host_port = mach_host_self();
-    mach_result = kmod_get_info(host_port, (void *)&kmod_list,
-        &kmod_bytecount);
-    if (mach_result != KERN_SUCCESS) {
-        NSLog(
-            @"couldn't get list of loaded kexts from kernel - %s\n",
-            mach_error_string(mach_result));
-        goto finish;
-    }
-
-    kmod_list_returned = (kmod_info_t *)malloc(kmod_bytecount);
-    if (!kmod_list_returned) {
-        NSLog(@"memory allocation failure\n");
-        goto finish;
-    }
-
-    memcpy(kmod_list_returned, kmod_list, kmod_bytecount);
-
-   /* kmod_get_info() doesn't return a proper count so we have
-    * to scan the array checking for a NULL next pointer.
-    */
-    this_kmod = kmod_list_returned;
-    kmod_count = 0;
-    while (this_kmod) {
-        kmod_count++;
-        this_kmod = (this_kmod->next) ? (this_kmod + 1) : 0;
-    }
-
-    if (num_kmods) {
-        *num_kmods = kmod_count;
-    }
-
-   /* rebuild the reference lists from their serialized pileup
-    * after the list of kmod_info_t structs.
-    */
-    this_kmod = kmod_list_returned;
-    kmod_ref = (kmod_reference_t *)(kmod_list_returned + kmod_count);
-    while (this_kmod) {
-
-       /* How many refs does this kmod have? Again, kmod_get_info ovverrides
-        * a field. Here what is the actual reference list in the kernel becomes
-        * the count of references tacked onto the end of the kmod_info_t list.
-        */
-        ref_count = (int)this_kmod->reference_list;
-        if (ref_count) {
-            this_kmod->reference_list = kmod_ref;
-
-            for (i = 0; i < ref_count; i++) {
-                int foundit = 0;
-                for (j = 0; j < kmod_count; j++) {
-                   /* kmod_get_info() made each kmod_info_t struct's .next field
-                    * point to itself IN KERNEL SPACE, so this is a sort of id
-                    * for the reference list. Here we replace the ref's
-                    * info field, a here-useless KERNEL SPACE ADDRESS,
-                    * with the list id of the kmod_info_t struct.
-                    * Gross, gross hack.
-                    */
-                    if (kmod_ref->info == kmod_list_returned[j].next) {
-                        kmod_ref->info = (kmod_info_t *)kmod_list_returned[j].id;
-                        foundit++;
-                        break;
-                    }
-                }
-
-               /* If we didn't find it, that's because the last entry's next
-                * pointer is SET TO ZERO to signal the end of the kmod_info_t
-                * list, even though the same field is used for other purposes
-                * in every other entry in the list. So set the ref's info
-                * field to the id of the last entry in the list.
-                */
-                if (!foundit) {
-                    kmod_ref->info =
-                        (kmod_info_t *)kmod_list_returned[kmod_count - 1].id;
-                }
-
-                kmod_ref++;
-            }
-
-           /* Sort the references in descending order of reference index.
-            */
-            qsort(this_kmod->reference_list, ref_count,
-                  sizeof(kmod_reference_t), kmod_ref_compare);
-
-           /* Patch up the links between ref structs and move on to the
-            * next one.
-            */
-            for (i = 0; i < ref_count - 1; i++) {
-                this_kmod->reference_list[i].next =
-                    &this_kmod->reference_list[i+1];
-            }
-            this_kmod->reference_list[ref_count - 1].next = 0;
-        }
-        this_kmod  = (this_kmod->next) ? (this_kmod + 1) : 0;
-    }
-
-finish:
-   /* Dispose of the host port to prevent security breaches and port
-    * leaks. We don't care about the kern_return_t value of this
-    * call for now as there's nothing we can do if it fails.
-    */
-    if (MACH_PORT_NULL != host_port) {
-        mach_port_deallocate(mach_task_self(), host_port);
-    }
-
-    if (kmod_list != NULL) {
-        vm_deallocate(mach_task_self(), (vm_address_t)kmod_list,
-            kmod_bytecount);
-    }
-
-    return kmod_list_returned;
-}
-
-/*******************************************************************************
-* Used for sorting kmod reference lists.
-*******************************************************************************/
-static int kmod_ref_compare(const void * a, const void * b)
-{
-    kmod_reference_t * r1 = (kmod_reference_t *)a;
-    kmod_reference_t * r2 = (kmod_reference_t *)b;
-    // these are load indices, not CFBundleIdentifiers
-    // sorting high-low.
-    return ((int)r2->info - (int)r1->info);
-}
 

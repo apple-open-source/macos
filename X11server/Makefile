@@ -11,7 +11,7 @@ install::
 	@echo "Building $(Project)..."
 	./build install
 	$(MKDIR) $(OSV)
-	$(INSTALL) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(INSTALL) -m 644 $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 
 clean::
 	@echo "Cleaning $(Project)..."

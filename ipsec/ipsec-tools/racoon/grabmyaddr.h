@@ -37,10 +37,8 @@ struct myaddrs {
 	struct sockaddr *addr;
 	int sock;
 	int udp_encap;
-#ifdef __APPLE__
 	int	in_use;
 	char *ifname;
-#endif
 };
 
 extern void clear_myaddr __P((void));

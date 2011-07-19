@@ -1,8 +1,16 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CFLAGS -framework Foundation
+
 #import <Foundation/Foundation.h>
 #import <Block.h>
 #import <Block_private.h>
-
-// CONFIG GC RR -C99
+#import <objc/objc-auto.h>
+#import "test.h"
 
 int recovered = 0;
 
@@ -33,42 +41,31 @@ void testRoutine() {
     for (int i = 0; i < 10; ++i)
         [b release];
     for (int i = 0; i < 10; ++i)
-        Block_copy(b);
+        (void)Block_copy(b);            // leak
     for (int i = 0; i < 10; ++i)
         Block_release(b);
+    for (int i = 0; i < 10; ++i) {
+        (void)Block_copy(b);   // make sure up
+        Block_release(b);  // and down work under GC
+    }
     [b release];
     [to release];
     // block_byref_release needed under non-GC to get rid of testobject
 }
     
-void testGC() {
-    NSGarbageCollector *collector = [NSGarbageCollector defaultCollector];
-    if (!collector) return;
-    for (int i = 0; i < 200; ++i)
-        [[TestObject alloc] init];
-    [collector collectIfNeeded];
-    [collector collectExhaustively];
-    if (recovered == 200) {
-        recovered = 0;
-        return;
-    }
-    printf("only recovered %d of 200\n", recovered);
-    exit(1);
-}
-    
 
-int main(char *argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    NSGarbageCollector *collector = [NSGarbageCollector defaultCollector];
-    //testGC();
     for (int i = 0; i < 200; ++i)   // do enough to trigger TLC if GC is on
         testRoutine();
-    [collector collectIfNeeded]; // trust that we can kick off TLC
-    [collector collectExhaustively];
-    if (recovered != 0) {
-        printf("%s: success\n", argv[0]);
-        exit(0);
+    if (objc_collectingEnabled()) {
+        objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
     }
-    printf("%s: *** didn't recover byref block variable\n", argv[0]);
-    exit(1);
+    [pool drain];
+
+    if (recovered == 0) {
+        fail("didn't recover byref block variable");
+    }
+
+    succeed(__FILE__);
 }

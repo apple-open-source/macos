@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCNetworkSignature.h"
 #include "SCNetworkSignaturePrivate.h"
+#include <arpa/inet.h>
 
 const char * kSCNetworkSignatureActiveChangedNotifyName = NETWORK_ID_KEY ".active";
 
@@ -166,6 +167,155 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 		_SCErrorSet(kSCStatusFailed);
 	}
 	return (active);
+}
+
+static CFDictionaryRef
+copy_services_for_address_family(CFAllocatorRef alloc,
+				 SCDynamicStoreRef store, int af)
+{
+	CFDictionaryRef	info;
+	CFArrayRef	patterns;
+	CFStringRef	pattern;
+	CFStringRef	prop;
+	Boolean		release_store = FALSE;
+
+	if (store == NULL) {
+		store = store_create(alloc);
+		if (store == NULL) {
+			return (NULL);
+		}
+		release_store = TRUE;
+	}
+	prop = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      kSCCompAnyRegex,
+							      prop);
+	patterns = CFArrayCreate(NULL,
+				 (const void * *)&pattern, 1,
+				 &kCFTypeArrayCallBacks);
+	CFRelease(pattern);
+	info = SCDynamicStoreCopyMultiple(store, NULL, patterns);
+	CFRelease(patterns);
+	if (release_store) {
+		CFRelease(store);
+	}
+	return (info);
+}
+
+static CFStringRef
+my_IPAddressToCFString(int af, const void * src_p)
+{
+	char		ntopbuf[INET6_ADDRSTRLEN];
+
+	if (inet_ntop(af, src_p, ntopbuf, sizeof(ntopbuf)) != NULL) {
+		return (CFStringCreateWithCString(NULL, ntopbuf,
+						  kCFStringEncodingASCII));
+	}
+	return (NULL);
+}
+
+CFStringRef
+SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
+						   int sock_fd)
+{
+	CFStringRef		addresses_key;
+	int			af;
+	int			count;
+	int			i;
+	const void * *		keys = NULL;
+#define KEYS_STATIC_COUNT	10
+	const void *		keys_static[KEYS_STATIC_COUNT];
+	static const void *	local_ip_p;
+	CFStringRef		local_ip_str = NULL;
+	CFStringRef		ret_signature = NULL;
+	CFDictionaryRef		service_info = NULL;
+	union {
+		struct sockaddr_in	inet;
+		struct sockaddr_in6	inet6;
+		struct sockaddr		sa;
+	} 			ss;
+	socklen_t		ss_len = sizeof(ss);
+	int			status = kSCStatusFailed;
+
+	if (getsockname(sock_fd, &ss.sa, &ss_len) != 0) {
+		status = kSCStatusInvalidArgument;
+		goto done;
+	}
+	af = ss.inet.sin_family;
+	switch (af) {
+	case AF_INET:
+		addresses_key = kSCPropNetIPv4Addresses;
+		local_ip_p = &ss.inet.sin_addr;
+		break;
+	case AF_INET6:
+		addresses_key = kSCPropNetIPv6Addresses;
+		local_ip_p = &ss.inet6.sin6_addr;
+		break;
+	default:
+		status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	/* find a service matching the local IP and get its network signature */
+	service_info = copy_services_for_address_family(alloc, NULL, af);
+	if (service_info == NULL) {
+		goto done;
+	}
+	local_ip_str = my_IPAddressToCFString(af, local_ip_p);
+	if (local_ip_str == NULL) {
+		goto done;
+	}
+	count = CFDictionaryGetCount(service_info);
+	if (count > KEYS_STATIC_COUNT) {
+		keys = (const void * *)malloc(sizeof(*keys) * count);
+	}
+	else {
+		keys = keys_static;
+	}
+	CFDictionaryGetKeysAndValues(service_info, keys, NULL);
+	for (i = 0; i < count; i++) {
+		CFArrayRef		addrs;
+		CFRange			range;
+		CFStringRef		signature;
+		CFDictionaryRef		value;
+
+		value = CFDictionaryGetValue(service_info, keys[i]);
+		if (isA_CFDictionary(value) == NULL) {
+			continue;
+		}
+		signature = CFDictionaryGetValue(value,
+						 kStoreKeyNetworkSignature);
+		if (isA_CFString(signature) == NULL) {
+			/* no signature */
+			continue;
+		}
+		addrs = CFDictionaryGetValue(value, addresses_key);
+		if (isA_CFArray(addrs) == NULL) {
+			continue;
+		}
+		range = CFRangeMake(0, CFArrayGetCount(addrs));
+		if (CFArrayContainsValue(addrs, range, local_ip_str)) {
+			ret_signature = CFRetain(signature);
+			status = kSCStatusOK;
+			break;
+		}
+	}
+
+ done:
+	if (local_ip_str != NULL) {
+		CFRelease(local_ip_str);
+	}
+	if (keys != NULL && keys != keys_static) {
+		free(keys);
+	}
+	if (service_info != NULL) {
+		CFRelease(service_info);
+	}
+	if (status != kSCStatusOK) {
+		_SCErrorSet(status);
+	}
+	return (ret_signature);
 }
 
 #pragma mark -

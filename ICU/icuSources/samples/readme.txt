@@ -1,4 +1,4 @@
-## Copyright (c) 2002-2005, International Business Machines Corporation 
+## Copyright (c) 2002-2010, International Business Machines Corporation 
 ## and others. All Rights Reserved.
 
 This directory contains sample code
@@ -9,6 +9,8 @@ break - demonstrates how to use BreakIterators in C and C++.
 cal      - prints out a calendar. 
 
 case    - demonstrates how to do Unicode case conversion in C and C++.
+
+csdet   -  demonstrates using ICU's CharSet Detection API
 
 date     - prints out the current date, localized. 
 
@@ -32,7 +34,7 @@ uciter8.c - demonstrates how to leniently read 8-bit Unicode text.
 
 ucnv     - demonstrates the use of ICU codepage conversion
 
-udata    - demonstrates the use of ICU low level data routines
+udata    - demonstrates the use of ICU low level data routines (reader/writer in 'all' MSVC solution)
 
 ufortune - demonstrates packaging and use of resources in an application
 
@@ -60,6 +62,12 @@ ustring  - demonstrates ICU string manipulation functions
  - See the Readme in each subdirectory
 
  To build all samples at once:
+
+    Windows MSVC:   
+            - build ICU
+	    - open 'all' project file in 'all' subdirectory
+            - build project
+            - sample executables will be located in /x86/Debug folders of each sample subdirectory
 
     Unix:   - build and install (make install) ICU
             - be sure 'icu-config' is accessible from the PATH

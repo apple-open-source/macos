@@ -199,7 +199,7 @@ sub showdiff {
 
     my $file1="$logdir/check-generated";
     my $file2="$logdir/check-expected";
-    
+
     open(TEMP, ">$file1");
     for(@$firstref) {
         print TEMP $_;
@@ -214,7 +214,7 @@ sub showdiff {
     my @out = `diff -u $file2 $file1 2>/dev/null`;
 
     if(!$out[0]) {
-	@out = `diff -c $file2 $file1 2>/dev/null`;
+        @out = `diff -c $file2 $file1 2>/dev/null`;
     }
 
     return @out;

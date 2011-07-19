@@ -1,0 +1,758 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$225|@protocol MyProtocol
+// Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+<
+        NSCopying // Bug 2: This comment ought not to appear in the generated doc.
+>
+/*!        @method
+*/
+-(void)myMethod;
+@end
+$63|/*!        @protocol MyProtocol
+        @abstract Abstract.
+*/
+$0|$10409|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_protocol_7.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_protocol_7.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @protocol
+$parserState->{extendsProtocol} => 
+        NSCopying 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inProtocol} => -1
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => protocol
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} =>  @protocol MyProtocol  // Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+<          NSCopying // Bug 2: This comment ought not to 
+appear in the generated doc.
+ >
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  MyProtocol
+$parserState->{sodtypeclasstoken} => protocol
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} =>  @protocol MyProtocol  // Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+<          NSCopying // Bug 2: This comment ought not to 
+
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @protocol
+namelist: MyProtocol
+posstypes: NSCopying
+value: 
+returntype: MyProtocol
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 1
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---protocol
+|   +--- 
+|   +---MyProtocol
+|   +---[ NEWLINE ]
+|   +---//
+|   |   +--- 
+|   |   +---Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+|   |   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +--- 
+|   |   +---//
+|   |   |   +--- 
+|   |   |   +---Bug 2: This comment ought not to appear in the generated doc.
+|   |   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---        @method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---myMethod
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC protocol 7
+APIUID: //test_ref/doc/header/ObjC_protocol_7.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCProtocol
+    NAME: MyProtocol
+    APIUID: 
+    ABSTRACT: "<p>Abstract.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCProtocol"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Protocol</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/intf/NSCopying" machineGenerated="true" -->NSCopying<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_protocol_7.test" target="_top" machineGenerated="true">ObjC protocol 7</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: myMethod
+        APIUID: //test_ref/occ/intfm/MyProtocol/myMethod
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: MyProtocol (HeaderDoc::ObjCProtocol)
++---@
++---protocol
+|   +--- 
+|   +---MyProtocol
+|   +---[ NEWLINE ]
+|   +---//
+|   |   +--- 
+|   |   +---Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+|   |   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +--- 
+|   |   +---//
+|   |   |   +--- 
+|   |   |   +---Bug 2: This comment ought not to appear in the generated doc.
+|   |   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---        @method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---myMethod
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: myMethod (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---myMethod
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: MyProtocol (HeaderDoc::ObjCProtocol)
+	@<!-- a logicalPath="//test_ref/occ/cl/protocol //test_ref/occ/tdef/protocol //test_ref/occ/tag/protocol //test_ref/occ/struct/protocol //test_ref/occ/intf/protocol //test_ref/doc/anysymbol/protocol" machineGenerated="true" --><span class="type">protocol</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/MyProtocol //test_ref/occ/tdef/MyProtocol //test_ref/occ/tag/MyProtocol //test_ref/occ/struct/MyProtocol //test_ref/occ/intf/MyProtocol //test_ref/doc/anysymbol/MyProtocol" machineGenerated="true" --><span class="type">MyProtocol</span><!-- /a --> <span class="comment">// Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.</span> 
+	    &lt; <span class="template">NSCopying</span> <span class="comment">// Bug 2: This comment ought not to appear in the generated doc.</span> 
+	        &gt; <span class="comment">/*!        @method</span>
+	        <span class="comment">*/</span>
+	    -(
+	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/econst/myMethod //test_ref/occ/data/myMethod //test_ref/occ/clconst/myMethod " machineGenerated="true" --><span class="var">myMethod</span><!-- /a -->;  @@end 
+END OF OBJECT
+
+
+OBJECT: myMethod (HeaderDoc::Method)
+	-(<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/myMethod //test_ref/occ/data/MyProtocol/myMethod //test_ref/occ/data/myMethod //test_ref/occ/clconst/MyProtocol/myMethod " machineGenerated="true" --><span class="var">myMethod</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$10409|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_protocol_7.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_protocol_7.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @protocol
+$parserState->{extendsProtocol} => 
+        NSCopying 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inProtocol} => -1
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => protocol
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} =>  @protocol MyProtocol  // Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+<          NSCopying // Bug 2: This comment ought not to 
+appear in the generated doc.
+ >
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  MyProtocol
+$parserState->{sodtypeclasstoken} => protocol
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} =>  @protocol MyProtocol  // Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+<          NSCopying // Bug 2: This comment ought not to 
+
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @protocol
+namelist: MyProtocol
+posstypes: NSCopying
+value: 
+returntype: MyProtocol
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 1
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---protocol
+|   +--- 
+|   +---MyProtocol
+|   +---[ NEWLINE ]
+|   +---//
+|   |   +--- 
+|   |   +---Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+|   |   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +--- 
+|   |   +---//
+|   |   |   +--- 
+|   |   |   +---Bug 2: This comment ought not to appear in the generated doc.
+|   |   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---        @method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---myMethod
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC protocol 7
+APIUID: //test_ref/doc/header/ObjC_protocol_7.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCProtocol
+    NAME: MyProtocol
+    APIUID: 
+    ABSTRACT: "<p>Abstract.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCProtocol"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Protocol</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/intf/NSCopying" machineGenerated="true" -->NSCopying<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_protocol_7.test" target="_top" machineGenerated="true">ObjC protocol 7</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: myMethod
+        APIUID: //test_ref/occ/intfm/MyProtocol/myMethod
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: MyProtocol (HeaderDoc::ObjCProtocol)
++---@
++---protocol
+|   +--- 
+|   +---MyProtocol
+|   +---[ NEWLINE ]
+|   +---//
+|   |   +--- 
+|   |   +---Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.
+|   |   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +--- 
+|   |   +---//
+|   |   |   +--- 
+|   |   |   +---Bug 2: This comment ought not to appear in the generated doc.
+|   |   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---        @method
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---myMethod
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: myMethod (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---myMethod
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: MyProtocol (HeaderDoc::ObjCProtocol)
+	@<!-- a logicalPath="//test_ref/occ/cl/protocol //test_ref/occ/tdef/protocol //test_ref/occ/tag/protocol //test_ref/occ/struct/protocol //test_ref/occ/intf/protocol //test_ref/doc/anysymbol/protocol" machineGenerated="true" --><span class="type">protocol</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/MyProtocol //test_ref/occ/tdef/MyProtocol //test_ref/occ/tag/MyProtocol //test_ref/occ/struct/MyProtocol //test_ref/occ/intf/MyProtocol //test_ref/doc/anysymbol/MyProtocol" machineGenerated="true" --><span class="type">MyProtocol</span><!-- /a --> <span class="comment">// Bug 1: Placing a comment here, on this very line, confuses HeaderDoc.</span> 
+	    &lt; <span class="template">NSCopying</span> <span class="comment">// Bug 2: This comment ought not to appear in the generated doc.</span> 
+	        &gt; <span class="comment">/*!        @method</span>
+	        <span class="comment">*/</span>
+	    -(
+	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/econst/myMethod //test_ref/occ/data/myMethod //test_ref/occ/clconst/myMethod " machineGenerated="true" --><span class="var">myMethod</span><!-- /a -->;  @@end 
+END OF OBJECT
+
+
+OBJECT: myMethod (HeaderDoc::Method)
+	-(<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/myMethod //test_ref/occ/data/MyProtocol/myMethod //test_ref/occ/data/myMethod //test_ref/occ/clconst/MyProtocol/myMethod " machineGenerated="true" --><span class="var">myMethod</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$60|Test for comment handling mixed with protocol declarations.
+$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/ObjC_protocol_7.test$1|C$15|ObjC protocol 7$1|C$6|parser

@@ -23,6 +23,7 @@
 #ifndef V8TestCallback_h
 #define V8TestCallback_h
 
+#include "ActiveDOMCallback.h"
 #include "TestCallback.h"
 #include "WorldContextHandle.h"
 #include <v8.h>
@@ -30,29 +31,31 @@
 
 namespace WebCore {
 
-class Frame;
+class ScriptExecutionContext;
 
-class V8TestCallback : public TestCallback {
+class V8TestCallback : public TestCallback, public ActiveDOMCallback {
 public:
-    static PassRefPtr<V8TestCallback> create(v8::Local<v8::Value> value, Frame* frame)
+    static PassRefPtr<V8TestCallback> create(v8::Local<v8::Value> value, ScriptExecutionContext* context)
     {
         ASSERT(value->IsObject());
-        return adoptRef(new V8TestCallback(value->ToObject(), frame));
+        ASSERT(context);
+        return adoptRef(new V8TestCallback(value->ToObject(), context));
     }
 
     virtual ~V8TestCallback();
 
     // Functions
-    virtual bool callbackWithClass1Param(ScriptExecutionContext*, Class1* class1Param);
-    virtual bool callbackWithClass2Param(ScriptExecutionContext*, Class2* class2Param, const String& strArg);
-    COMPILE_ASSERT(false)    virtual int callbackWithNonBoolReturnType(ScriptExecutionContext*, Class3* class3Param);
-    virtual int customCallback(ScriptExecutionContext*, Class5* class5Param, Class6* class6Param);
+    virtual bool callbackWithNoParam();
+    virtual bool callbackWithClass1Param(Class1* class1Param);
+    virtual bool callbackWithClass2Param(Class2* class2Param, const String& strArg);
+    COMPILE_ASSERT(false)    virtual int callbackWithNonBoolReturnType(Class3* class3Param);
+    virtual int customCallback(Class5* class5Param, Class6* class6Param);
+    virtual bool callbackWithStringList(PassRefPtr<DOMStringList> listParam);
 
 private:
-    V8TestCallback(v8::Local<v8::Object>, Frame*);
+    V8TestCallback(v8::Local<v8::Object>, ScriptExecutionContext*);
 
     v8::Persistent<v8::Object> m_callback;
-    RefPtr<Frame> m_frame;
     WorldContextHandle m_worldContext;
 };
 

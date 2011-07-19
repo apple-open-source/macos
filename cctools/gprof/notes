@@ -3,6 +3,22 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.28 release (the cctools-777 release):
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248 and 6756531.
+  - Fixed warnings about extra tokens at end of #endif directive in calls.c
+    by putting them in a comment.
+
 Changes for the 5.26 release (the cctools-705 release):
 - Ported to run on 64-bit hosts.  Radar bug #6022298.
 

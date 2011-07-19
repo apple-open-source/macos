@@ -30,7 +30,7 @@
 
 #import "WebNetscapePluginView.h"
 
-#import "WebBaseNetscapePluginStream.h"
+#import "QuickDrawCompatibility.h"
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebFrameInternal.h" 
@@ -49,6 +49,7 @@
 #import "WebNetscapeContainerCheckPrivate.h"
 #import "WebNetscapePluginEventHandler.h"
 #import "WebNetscapePluginPackage.h"
+#import "WebNetscapePluginStream.h"
 #import "WebPluginContainerCheck.h"
 #import "WebPluginRequest.h"
 #import "WebPreferences.h"
@@ -65,6 +66,7 @@
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/Page.h> 
 #import <WebCore/PluginMainThreadScheduler.h>
+#import <WebCore/ProxyServer.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SoftLinking.h> 
@@ -191,13 +193,11 @@ typedef struct {
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
     WKSendUserChangeNotifications();
 }
 
-#pragma mark EVENTS
+// MARK: EVENTS
 
 // The WindowRef created by -[NSWindow windowRef] has a QuickDraw GrafPort that covers 
 // the entire window frame (or structure region to use the Carbon term) rather then just the window content.
@@ -274,12 +274,14 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 - (PortState)saveAndSetNewPortStateForUpdate:(BOOL)forUpdate
 {
     ASSERT([self currentWindow] != nil);
-
-    // Use AppKit to convert view coordinates to NSWindow coordinates.
-    NSRect boundsInWindow = [self convertRect:[self bounds] toView:nil];
-    NSRect visibleRectInWindow = [self convertRect:[self visibleRect] toView:nil];
     
-    // Flip Y to convert NSWindow coordinates to top-left-based window coordinates.
+    // The base coordinates of a window and it's contentView happen to be the equal at a userSpaceScaleFactor
+    // of 1. For non-1.0 scale factors this assumption is false.
+    NSView *windowContentView = [[self window] contentView];
+    NSRect boundsInWindow = [self convertRect:[self bounds] toView:windowContentView];
+    NSRect visibleRectInWindow = [self actualVisibleRectInWindow];
+    
+    // Flip Y to convert -[NSWindow contentView] coordinates to top-left-based window coordinates.
     float borderViewHeight = [[self currentWindow] frame].size.height;
     boundsInWindow.origin.y = borderViewHeight - NSMaxY(boundsInWindow);
     visibleRectInWindow.origin.y = borderViewHeight - NSMaxY(visibleRectInWindow);
@@ -658,13 +660,19 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     
     // Temporarily retain self in case the plug-in view is released while sending an event. 
     [[self retain] autorelease];
-    
+
     BOOL acceptedEvent;
     [self willCallPlugInFunction];
+    // Set the pluginAllowPopup flag.
+    ASSERT(_eventHandler);
+    bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
+    frame->script()->setAllowPopupsFromPlugin(_eventHandler->currentEventIsUserGesture());    
     {
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
+    // Restore the old pluginAllowPopup flag.
+    frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);     
     [self didCallPlugInFunction];
         
     if (portState) {
@@ -849,7 +857,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     [self didCallPlugInFunction];
 }
 
-#pragma mark WEB_NETSCAPE_PLUGIN
+// MARK: WEB_NETSCAPE_PLUGIN
 
 - (BOOL)isNewWindowEqualToOldWindow
 {
@@ -978,8 +986,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         // protecting only against this one case, which actually comes up when
         // you first install the SVG viewer plug-in.
         NPError npErr;
-        ASSERT(!inSetWindow);
         
+        BOOL wasInSetWindow = inSetWindow;
         inSetWindow = YES;        
         [self willCallPlugInFunction];
         {
@@ -987,7 +995,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             npErr = [_pluginPackage.get() pluginFuncs]->setwindow(plugin, &window);
         }
         [self didCallPlugInFunction];
-        inSetWindow = NO;
+        inSetWindow = wasInSetWindow;
 
 #ifndef NDEBUG
         switch (drawingModel) {
@@ -1078,7 +1086,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     }        
 #endif // NP_NO_CARBON
     
-#ifndef BUILDING_ON_TIGER
     if (drawingModel == NPDrawingModelCoreAnimation) {
         void *value = 0;
         if ([_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVpluginCoreAnimationLayer, &value) == NPERR_NO_ERROR && value) {
@@ -1116,15 +1123,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
         ASSERT(_pluginLayer);
     }
-#endif
     
     // Create the event handler
-    _eventHandler.set(WebNetscapePluginEventHandler::create(self));
-        
+    _eventHandler = WebNetscapePluginEventHandler::create(self);
+
     return YES;
 }
 
-#ifndef BUILDING_ON_TIGER
 // FIXME: This method is an ideal candidate to move up to the base class
 - (CALayer *)pluginLayer
 {
@@ -1141,7 +1146,6 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         [newLayer addSublayer:_pluginLayer.get()];
     }
 }
-#endif
 
 - (void)loadStream
 {
@@ -1192,9 +1196,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     // Setting the window type to 0 ensures that NPP_SetWindow will be called if the plug-in is restarted.
     lastSetWindow.type = (NPWindowType)0;
     
-#ifndef BUILDING_ON_TIGER
     _pluginLayer = 0;
-#endif
     
     [self _destroyPlugin];
     [_pluginPackage.get() close];
@@ -1232,7 +1234,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         cValues = (char **)malloc([values count] * sizeof(char *));
     }
 
-    BOOL isWMP = [[[_pluginPackage.get() bundle] bundleIdentifier] isEqualToString:@"com.microsoft.WMP.defaultplugin"];
+    BOOL isWMP = [_pluginPackage.get() bundleIdentifier] == "com.microsoft.WMP.defaultplugin";
     
     unsigned i;
     unsigned count = [keys count];
@@ -1318,21 +1320,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     [self cancelCheckIfAllowedToLoadURL:[[check contextInfo] checkRequestID]];
 }
 
-#ifdef BUILDING_ON_TIGER
-// The Tiger compiler requires these two methods be present. Otherwise it doesn't think WebNetscapePluginView
-// conforms to the WebPluginContainerCheckController protocol.
-- (WebView *)webView
-{
-    return [super webView];   
-}
 
-- (WebFrame *)webFrame
-{
-    return [super webFrame];   
-}
-#endif
-
-#pragma mark NSVIEW
+// MARK: NSVIEW
 
 - (id)initWithFrame:(NSRect)frame
       pluginPackage:(WebNetscapePluginPackage *)pluginPackage
@@ -1731,7 +1720,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             return NPERR_INVALID_PARAM;
         }
     } else {
-        if (!SecurityOrigin::canLoad(URL, String(), core([self webFrame])->document()))
+        if (!core([self webFrame])->document()->securityOrigin()->canDisplay(URL))
             return NPERR_GENERIC_ERROR;
     }
         
@@ -2050,11 +2039,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         
         case NPNVsupportsCoreAnimationBool:
         {
-#ifdef BUILDING_ON_TIGER
-            *(NPBool *)value = FALSE;
-#else
             *(NPBool *)value = TRUE;
-#endif
             return NPERR_NO_ERROR;
         }
             
@@ -2114,9 +2099,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                 case NPDrawingModelQuickDraw:
 #endif
                 case NPDrawingModelCoreGraphics:
-#ifndef BUILDING_ON_TIGER
                 case NPDrawingModelCoreAnimation:
-#endif
                     drawingModel = newDrawingModel;
                     return NPERR_NO_ERROR;
                     
@@ -2228,7 +2211,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             break;
         }
         case NPNURLVProxy: {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
             if (!value)
                 break;
             
@@ -2236,7 +2219,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             if (!URL)
                 break;
 
-            CString proxiesUTF8 = proxiesForURL(URL);
+            Vector<ProxyServer> proxyServers = proxyServersForURL(URL, 0);
+            CString proxiesUTF8 = toString(proxyServers).utf8();
             
             *value = static_cast<char*>(NPN_MemAlloc(proxiesUTF8.length()));
             memcpy(*value, proxiesUTF8.data(), proxiesUTF8.length());
@@ -2337,7 +2321,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 // For now, we'll distinguish older broken versions of Silverlight by asking the plug-in if it resolved its full screen badness.
 - (void)_workaroundSilverlightFullscreenBug:(BOOL)initializedPlugin
 {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     ASSERT(_isSilverlight);
     NPBool isFullscreenPerformanceIssueFixed = 0;
     NPPluginFuncs *pluginFuncs = [_pluginPackage.get() pluginFuncs];
@@ -2374,9 +2358,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     ASSERT(pluginFunctionCallDepth == 0);
 
     PluginMainThreadScheduler::scheduler().registerPlugin(plugin);
-    
-    _isFlash = [[[_pluginPackage.get() bundle] bundleIdentifier] isEqualToString:@"com.macromedia.Flash Player.plugin"];
-    _isSilverlight = [[[_pluginPackage.get() bundle] bundleIdentifier] isEqualToString:@"com.microsoft.SilverlightPlugin"];
+
+    _isFlash = [_pluginPackage.get() bundleIdentifier] == "com.macromedia.Flash Player.plugin";
+    _isSilverlight = [_pluginPackage.get() bundleIdentifier] == "com.microsoft.SilverlightPlugin";
 
     [[self class] setCurrentPluginView:self];
     NPError npErr = [_pluginPackage.get() pluginFuncs]->newp((char *)[_MIMEType.get() cString], plugin, _mode, argsCount, cAttributes, cValues, NULL);

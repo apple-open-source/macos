@@ -6,7 +6,7 @@ use base 'DBIx::Class::Schema::Loader::DBI';
 use Carp::Clan qw/^DBIx::Class/;
 use Class::C3;
 
-our $VERSION = '0.04005';
+our $VERSION = '0.05003';
 
 =head1 NAME
 
@@ -27,20 +27,10 @@ See L<DBIx::Class::Schema::Loader::Base>.
 
 =cut
 
-# had to override here because MySQL apparently
-#  doesn't support '%' syntax.  Perhaps the other
-#  drivers support this syntax also, but I didn't
-#  want to risk breaking some esoteric DBD::foo version
-#  in a maint release...
 sub _tables_list { 
     my $self = shift;
 
-    my $dbh = $self->schema->storage->dbh;
-    my @tables = $dbh->tables(undef, $self->db_schema, undef, undef);
-    s/\Q$self->{_quoter}\E//g for @tables;
-    s/^.*\Q$self->{_namesep}\E// for @tables;
-
-    return @tables;
+    return $self->next::method(undef, undef);
 }
 
 sub _table_fk_info {
@@ -50,8 +40,12 @@ sub _table_fk_info {
     my $table_def_ref = $dbh->selectrow_arrayref("SHOW CREATE TABLE `$table`")
         or croak ("Cannot get table definition for $table");
     my $table_def = $table_def_ref->[1] || '';
-    
-    my (@reldata) = ($table_def =~ /CONSTRAINT `.*` FOREIGN KEY \(`(.*)`\) REFERENCES `(.*)` \(`(.*)`\)/ig);
+
+    my $qt = qr/["`]/;
+
+    my (@reldata) = ($table_def =~
+        /CONSTRAINT $qt.*$qt FOREIGN KEY \($qt(.*)$qt\) REFERENCES $qt(.*)$qt \($qt(.*)$qt\)/ig
+    );
 
     my @rels;
     while (scalar @reldata > 0) {
@@ -59,10 +53,10 @@ sub _table_fk_info {
         my $f_table = shift @reldata;
         my $f_cols = shift @reldata;
 
-        my @cols   = map { s/\Q$self->{_quoter}\E//; lc $_ }
+        my @cols   = map { s/(?: \Q$self->{_quoter}\E | $qt )//x; lc $_ }
             split(/\s*,\s*/, $cols);
 
-        my @f_cols = map { s/\Q$self->{_quoter}\E//; lc $_ }
+        my @f_cols = map { s/(?: \Q$self->{_quoter}\E | $qt )//x; lc $_ }
             split(/\s*,\s*/, $f_cols);
 
         push(@rels, {
@@ -83,7 +77,7 @@ sub _mysql_table_get_keys {
     if(!exists($self->{_cache}->{_mysql_keys}->{$table})) {
         my %keydata;
         my $dbh = $self->schema->storage->dbh;
-        my $sth = $dbh->prepare("SHOW INDEX FROM `$table`");
+        my $sth = $dbh->prepare('SHOW INDEX FROM '.$self->_table_as_sql($table));
         $sth->execute;
         while(my $row = $sth->fetchrow_hashref) {
             next if $row->{Non_unique};
@@ -121,10 +115,42 @@ sub _table_uniq_info {
     return \@uniqs;
 }
 
+sub _extra_column_info {
+    no warnings 'uninitialized';
+    my ($self, $info) = @_;
+    my %extra_info;
+
+    if ($info->{mysql_is_auto_increment}) {
+        $extra_info{is_auto_increment} = 1
+    }
+    if ($info->{mysql_type_name} =~ /\bunsigned\b/i) {
+        $extra_info{extra}{unsigned} = 1;
+    }
+    if ($info->{mysql_values}) {
+        $extra_info{extra}{list} = $info->{mysql_values};
+    }
+    if (   $info->{COLUMN_DEF}      =~ /^CURRENT_TIMESTAMP\z/i
+        && $info->{mysql_type_name} =~ /^TIMESTAMP\z/i) {
+
+        $extra_info{default_value} = \'CURRENT_TIMESTAMP';
+    }
+
+    return \%extra_info;
+}
+
 =head1 SEE ALSO
 
 L<DBIx::Class::Schema::Loader>, L<DBIx::Class::Schema::Loader::Base>,
 L<DBIx::Class::Schema::Loader::DBI>
+
+=head1 AUTHOR
+
+See L<DBIx::Class::Schema::Loader/AUTHOR> and L<DBIx::Class::Schema::Loader/CONTRIBUTORS>.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut
 

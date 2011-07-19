@@ -763,11 +763,21 @@ Boolean evalFlag(
     void * user_data,
     QEQueryError * error)
 {
-    OSKextRef theKext = (OSKextRef)object;
-    CFStringRef flag = CFDictionaryGetValue(element, CFSTR(kKeywordFlag));
+    Boolean     result  = false;
+    OSKextRef   theKext = (OSKextRef)object;
+    CFStringRef flag    = CFDictionaryGetValue(element, CFSTR(kKeywordFlag));
 
     if (CFEqual(flag, CFSTR(kPredNameLoaded))) {
         return OSKextIsLoaded(theKext);
+    } else if (CFEqual(flag, CFSTR(kPredNameDuplicate))) {
+        CFStringRef kextIdentifier = OSKextGetIdentifier(theKext);
+        if (kextIdentifier) {
+            CFArrayRef kexts = OSKextCopyKextsWithIdentifier(kextIdentifier);
+            if (kexts && CFArrayGetCount(kexts) > 1) {
+                result = true;
+            }
+            SAFE_RELEASE(kexts);
+        }
     } else if (CFEqual(flag, CFSTR(kPredNameValid))) {
         return OSKextIsValid(theKext);
     }  if (CFEqual(flag, CFSTR(kPredNameInvalid))) {
@@ -788,17 +798,17 @@ Boolean evalFlag(
         CFDictionaryRef warnings = OSKextCopyDiagnostics(theKext,
             kOSKextDiagnosticsFlagWarnings);
         if (warnings && CFDictionaryGetCount(warnings)) {
-            return true;
+            result = true;
         }
         SAFE_RELEASE(warnings);
     } else if (CFEqual(flag, CFSTR(kPredNameIsLibrary))) {
         if (OSKextGetCompatibleVersion(theKext) > 0) {
-            return true;
+            result = true;
         }
     } else if (CFEqual(flag, CFSTR(kPredNameHasPlugins))) {
         CFArrayRef plugins = OSKextCopyPlugins(theKext);
         if (plugins && CFArrayGetCount(plugins)) {
-            return true;
+            result = true;
         }
         SAFE_RELEASE(plugins);
     } else if (CFEqual(flag, CFSTR(kPredNameIsPlugin))) {
@@ -813,7 +823,7 @@ Boolean evalFlag(
         return !OSKextDeclaresExecutable(theKext);
     }
 
-    return false;
+    return result;
 }
 
 /*******************************************************************************
@@ -1399,20 +1409,21 @@ finish:
 *
 *******************************************************************************/
 Boolean evalDefinesOrReferencesSymbol(
-    CFDictionaryRef element,
-    void * object,
-    void * user_data,
-    QEQueryError * error)
+    CFDictionaryRef   element,
+    void            * object,
+    void            * user_data,
+    QEQueryError    * error)
 {
-    Boolean result = false;
-    OSKextRef  theKext = (OSKextRef)object;
-    CFStringRef predicate = NULL;  // don't release
-    Boolean seekingReference = false;
-    char * symbol = NULL;       // must free
-    fat_iterator fiter = NULL;  // must close
-    struct mach_header * farch = NULL;
-    void * farch_end = NULL;
-    uint8_t nlist_type;
+    Boolean              result           = false;
+    OSKextRef            theKext          = (OSKextRef)object;
+    CFStringRef          predicate        = NULL;  // don't release
+    Boolean              seekingReference = false;
+    char               * symbol           = NULL;  // must free
+    fat_iterator         fiter            = NULL;  // must close
+    struct mach_header * farch            = NULL;
+    void               * farch_end        = NULL;
+    Boolean              isKernelComponent;
+    uint8_t              nlist_type;
 
     predicate = QEQueryElementGetPredicate(element);
     if (CFEqual(predicate, CFSTR(kPredNameReferencesSymbol))) {
@@ -1431,15 +1442,11 @@ Boolean evalDefinesOrReferencesSymbol(
 
    /* KPI kexts have the symbols listed as undefined, and won't have
     * any unresolved references to anything. So, if seekingReference
-    * is true, we are done, but if it's false, we set it to true so
-    * that we find the "undefined" symbol!
+    * is true, we have nothing to do.
     */
-    if (OSKextIsKernelComponent(theKext)) {
-        if (seekingReference) {
-            goto finish;
-        } else {
-            seekingReference = true;
-        }
+    isKernelComponent = OSKextIsKernelComponent(theKext);
+    if (isKernelComponent && seekingReference) {
+        goto finish;
     }
 
     while ((farch = fat_iterator_next_arch(fiter, &farch_end))) {
@@ -1451,7 +1458,30 @@ Boolean evalDefinesOrReferencesSymbol(
 
             uint8_t n_type = N_TYPE & nlist_type;
 
-            if ((seekingReference && (n_type == N_UNDF)) ||
+           /* A non-kernel component symbol matches if we're seeking:
+            *   - a reference (-rsym) and the symbol n_type is N_UNDF, or
+            *   - a definition (-dsym) and the symbol n_type is anything else.
+            *
+            * For kernel components we only care about defined symbols,
+            * and in a KPI file those will be either N_UNDF or N_INDR.
+            */
+            if (!isKernelComponent) {
+                if ((seekingReference && (n_type == N_UNDF)) ||
+                    (!seekingReference && (n_type != N_UNDF))) {
+
+                    result = true;
+                }
+            } else {
+                if ((!seekingReference && (n_type == N_UNDF || n_type == N_INDR))) {
+                    result = true;
+                }
+            }
+            
+            if (result) {
+                goto finish;
+            }
+
+            if ((seekingReference && (n_type == N_UNDF || n_type == N_INDR)) ||
                 (!seekingReference && (n_type != N_UNDF))) {
 
                 result = true;
@@ -1634,6 +1664,7 @@ Boolean parseExec(
             index++;
             goto finish;
         }
+        SAFE_RELEASE_NULL(arg);
         arg = CFStringCreateWithCString(kCFAllocatorDefault,
             argv[index], kCFStringEncodingUTF8);
 
@@ -1650,6 +1681,7 @@ Boolean parseExec(
             "No terminating ; for %s.", kPredNameExec);
     *error = kQEQueryErrorInvalidOrMissingArgument;
 finish:
+    SAFE_RELEASE(arg);
     *num_used += index; 
     return result;
 }

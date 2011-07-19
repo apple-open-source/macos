@@ -55,6 +55,7 @@ __FBSDID("$FreeBSD: src/usr.bin/lam/lam.c,v 1.14 2005/08/05 01:04:36 jmallett Ex
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 
 #define	MAXOFILES	20
 #define	BIGBUFSIZ	5 * BUFSIZ
@@ -208,6 +209,9 @@ gatherline(struct openfile *ip)
 	*p = '\0';
 	if (c == EOF) {
 		ip->eof = 1;
+		if (ferror(ip->fp)) {
+			err(EX_IOERR, NULL);
+		}
 		if (ip->fp == stdin)
 			fclose(stdin);
 		morefiles--;

@@ -33,7 +33,7 @@
 #include "DSUtils.h"
 
 /* list of attributes that are audited */
-
+#if USE_BSM_AUDIT
 static const char *sAuditAttrTable[] = 
 {
 	/* attributes */
@@ -153,6 +153,8 @@ static const char *sAuditMethodTable[ kAuditAuthMethodConsts ] =
 // "Authentication for user <shortname>",													// 
 #define	kAuditCtlStrAuthenticateUser	"Authentication for user <%s>"
 
+#endif
+
 //------------------------------------------------------------------------------------
 //	* AuditForThisEvent
 //
@@ -163,6 +165,7 @@ static const char *sAuditMethodTable[ kAuditAuthMethodConsts ] =
 UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 {
 	UInt32				eventCode					= 0;
+#if USE_BSM_AUDIT
 	tDataNodePtr		recType						= NULL;
 	tRecordReference	recRef						= 0;
 	bool				typeIsAudited				= false;
@@ -181,7 +184,6 @@ UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 	char				textStr[256]				= {0};
 	int					idx							= 0;	
 	
-#if USE_BSM_AUDIT
 	if ( outTextStr != NULL )
 		*outTextStr = NULL;
 	

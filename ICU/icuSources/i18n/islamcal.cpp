@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2003-2008, International Business Machines Corporation
+* Copyright (C) 2003-2010, International Business Machines Corporation
 * and others. All Rights Reserved.
 ******************************************************************************
 *
@@ -194,7 +194,7 @@ UBool IslamicCalendar::civilLeapYear(int32_t year)
 */
 int32_t IslamicCalendar::yearStart(int32_t year) {
     if (civil == CIVIL) {
-        return (year-1)*354 + Math::floorDivide((3+11*year),30);
+        return (year-1)*354 + ClockMath::floorDivide((3+11*year),30);
     } else {
         return trueMonthStart(12*(year-1));
     }
@@ -210,7 +210,7 @@ int32_t IslamicCalendar::yearStart(int32_t year) {
 int32_t IslamicCalendar::monthStart(int32_t year, int32_t month) const {
     if (civil == CIVIL) {
         return (int32_t)uprv_ceil(29.5*month)
-            + (year-1)*354 + (int32_t)Math::floorDivide((3+11*year),30);
+            + (year-1)*354 + (int32_t)ClockMath::floorDivide((3+11*year),30);
     } else {
         return trueMonthStart(12*(year-1) + month);
     }
@@ -232,7 +232,7 @@ int32_t IslamicCalendar::trueMonthStart(int32_t month) const
     if (start==0) {
         // Make a guess at when the month started, using the average length
         UDate origin = HIJRA_MILLIS 
-            + uprv_floor(month * CalendarAstronomer::SYNODIC_MONTH - 1) * kOneDay;
+            + uprv_floor(month * CalendarAstronomer::SYNODIC_MONTH) * kOneDay;
 
         // moonAge will fail due to memory allocation error
         double age = moonAge(origin, status);
@@ -260,7 +260,7 @@ int32_t IslamicCalendar::trueMonthStart(int32_t month) const
                 }
             } while (age < 0);
         }
-        start = (int32_t)Math::floorDivide((origin - HIJRA_MILLIS), (double)kOneDay) + 1;
+        start = (int32_t)ClockMath::floorDivide((origin - HIJRA_MILLIS), (double)kOneDay) + 1;
         CalendarCache::put(&gMonthCache, month, start, status);
     }
 trueMonthStartEnd :
@@ -397,7 +397,7 @@ void IslamicCalendar::handleComputeFields(int32_t julianDay, UErrorCode &status)
 
     if (civil == CIVIL) {
         // Use the civil calendar approximation, which is just arithmetic
-        year  = (int)Math::floorDivide( (double)(30 * days + 10646) , 10631.0 );
+        year  = (int)ClockMath::floorDivide( (double)(30 * days + 10646) , 10631.0 );
         month = (int32_t)uprv_ceil((days - 29 - yearStart(year)) / 29.5 );
         month = month<11?month:11;
         startDate = monthStart(year, month);
@@ -405,14 +405,14 @@ void IslamicCalendar::handleComputeFields(int32_t julianDay, UErrorCode &status)
         // Guess at the number of elapsed full months since the epoch
         int32_t months = (int32_t)uprv_floor((double)days / CalendarAstronomer::SYNODIC_MONTH);
 
-        startDate = uprv_floor(months * CalendarAstronomer::SYNODIC_MONTH - 1);
+        startDate = uprv_floor(months * CalendarAstronomer::SYNODIC_MONTH);
 
         double age = moonAge(internalGetTime(), status);
         if (U_FAILURE(status)) {
         	status = U_MEMORY_ALLOCATION_ERROR;
         	return;
         }
-        if ( days - startDate >= 28 && age > 0) {
+        if ( days - startDate >= 25 && age > 0) {
             // If we're near the end of the month, assume next month and search backwards
             months++;
         }
@@ -517,27 +517,24 @@ IslamicCalendar::initializeSystemDefaultCentury()
     // initialize systemDefaultCentury and systemDefaultCenturyYear based
     // on the current time.  They'll be set to 80 years before
     // the current time.
-    // No point in locking as it should be idempotent.
-    if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
+    UErrorCode status = U_ZERO_ERROR;
+    IslamicCalendar calendar(Locale("@calendar=islamic-civil"),status);
+    if (U_SUCCESS(status))
     {
-        UErrorCode status = U_ZERO_ERROR;
-        IslamicCalendar calendar(Locale("@calendar=islamic-civil"),status);
-        if (U_SUCCESS(status))
+        calendar.setTime(Calendar::getNow(), status);
+        calendar.add(UCAL_YEAR, -80, status);
+        UDate    newStart =  calendar.getTime(status);
+        int32_t  newYear  =  calendar.get(UCAL_YEAR, status);
+        umtx_lock(NULL);
+        if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
         {
-            calendar.setTime(Calendar::getNow(), status);
-            calendar.add(UCAL_YEAR, -80, status);
-            UDate    newStart =  calendar.getTime(status);
-            int32_t  newYear  =  calendar.get(UCAL_YEAR, status);
-            {
-                umtx_lock(NULL);
-                fgSystemDefaultCenturyStart = newStart;
-                fgSystemDefaultCenturyStartYear = newYear;
-                umtx_unlock(NULL);
-            }
+            fgSystemDefaultCenturyStartYear = newYear;
+            fgSystemDefaultCenturyStart = newStart;
         }
-        // We have no recourse upon failure unless we want to propagate the failure
-        // out.
+        umtx_unlock(NULL);
     }
+    // We have no recourse upon failure unless we want to propagate the failure
+    // out.
 }
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(IslamicCalendar)

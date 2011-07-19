@@ -1,4 +1,4 @@
-# $Id: tz_1901_2038.t,v 1.2 2003/05/30 14:04:49 cfaerber Exp $
+# $Id: tz_1901_2038.t 1039 2003-05-30 14:04:49Z cfaerber $
 use Test::More tests => 4;
 use DateTime 0.10;
 use DateTime::TimeZone 0.12;

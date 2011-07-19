@@ -33,9 +33,12 @@
 
 #if ENABLE(NOTIFICATIONS)
 
+#include "Event.h"
 #include "Notification.h"
+#include "UserGestureIndicator.h"
 
 #include "WebString.h"
+#include "WebTextDirection.h"
 #include "WebURL.h"
 
 #include <wtf/PassRefPtr.h>
@@ -94,14 +97,21 @@ WebString WebNotification::body() const
     return m_private->contents().body();
 }
 
-WebString WebNotification::dir() const
+WebTextDirection WebNotification::direction() const
 {
-    return m_private->dir();
+    return (m_private->direction() == RTL) ?
+        WebTextDirectionRightToLeft :
+        WebTextDirectionLeftToRight;
 }
 
 WebString WebNotification::replaceId() const
 {
     return m_private->replaceId();
+}
+
+void WebNotification::detachPresenter()
+{
+    m_private->detachPresenter();
 }
 
 void WebNotification::dispatchDisplayEvent()
@@ -121,6 +131,14 @@ void WebNotification::dispatchCloseEvent(bool /* byUser */)
 {
     // FIXME: byUser flag not supported by WebCore yet
     RefPtr<Event> event = Event::create(eventNames().closeEvent, false, true);
+    m_private->dispatchEvent(event.release());
+}
+
+void WebNotification::dispatchClickEvent()
+{
+    // Make sure clicks on notifications are treated as user gestures.
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
+    RefPtr<Event> event = Event::create(eventNames().clickEvent, false, true);
     m_private->dispatchEvent(event.release());
 }
 

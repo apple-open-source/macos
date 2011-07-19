@@ -18,60 +18,83 @@
 // can specify '-debug-only=foo' to enable JUST the debug information for the
 // foo class.
 //
-// When compiling in release mode, the -debug-* options and all code in DEBUG()
-// statements disappears, so it does not effect the runtime of the code.
+// When compiling without assertions, the -debug-* options and all code in
+// DEBUG() statements disappears, so it does not effect the runtime of the code.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_DEBUG_H
 #define LLVM_SUPPORT_DEBUG_H
 
-#include "llvm/Support/Streams.h"
-
 namespace llvm {
 
-// DebugFlag - This boolean is set to true if the '-debug' command line option
-// is specified.  This should probably not be referenced directly, instead, use
-// the DEBUG macro below.
-//
-extern bool DebugFlag;
+class raw_ostream;
 
-// isCurrentDebugType - Return true if the specified string is the debug type
-// specified on the command line, or if none was specified on the command line
-// with the -debug-only=X option.
-//
+/// DEBUG_TYPE macro - Files can specify a DEBUG_TYPE as a string, which causes
+/// all of their DEBUG statements to be activatable with -debug-only=thatstring.
+#ifndef DEBUG_TYPE
+#define DEBUG_TYPE ""
+#endif
+  
+#ifndef NDEBUG
+/// DebugFlag - This boolean is set to true if the '-debug' command line option
+/// is specified.  This should probably not be referenced directly, instead, use
+/// the DEBUG macro below.
+///
+extern bool DebugFlag;
+  
+/// isCurrentDebugType - Return true if the specified string is the debug type
+/// specified on the command line, or if none was specified on the command line
+/// with the -debug-only=X option.
+///
 bool isCurrentDebugType(const char *Type);
+
+/// SetCurrentDebugType - Set the current debug type, as if the -debug-only=X
+/// option were specified.  Note that DebugFlag also needs to be set to true for
+/// debug output to be produced.
+///
+void SetCurrentDebugType(const char *Type);
+  
+/// DEBUG_WITH_TYPE macro - This macro should be used by passes to emit debug
+/// information.  In the '-debug' option is specified on the commandline, and if
+/// this is a debug build, then the code specified as the option to the macro
+/// will be executed.  Otherwise it will not be.  Example:
+///
+/// DEBUG_WITH_TYPE("bitset", dbgs() << "Bitset contains: " << Bitset << "\n");
+///
+/// This will emit the debug information if -debug is present, and -debug-only
+/// is not specified, or is specified as "bitset".
+#define DEBUG_WITH_TYPE(TYPE, X)                                        \
+  do { if (::llvm::DebugFlag && ::llvm::isCurrentDebugType(TYPE)) { X; } \
+  } while (0)
+
+#else
+#define isCurrentDebugType(X) (false)
+#define SetCurrentDebugType(X)
+#define DEBUG_WITH_TYPE(TYPE, X) do { } while (0)
+#endif
+
+/// EnableDebugBuffering - This defaults to false.  If true, the debug
+/// stream will install signal handlers to dump any buffered debug
+/// output.  It allows clients to selectively allow the debug stream
+/// to install signal handlers if they are certain there will be no
+/// conflict.
+///
+extern bool EnableDebugBuffering;
+
+/// dbgs() - This returns a reference to a raw_ostream for debugging
+/// messages.  If debugging is disabled it returns errs().  Use it
+/// like: dbgs() << "foo" << "bar";
+raw_ostream &dbgs();
 
 // DEBUG macro - This macro should be used by passes to emit debug information.
 // In the '-debug' option is specified on the commandline, and if this is a
 // debug build, then the code specified as the option to the macro will be
 // executed.  Otherwise it will not be.  Example:
 //
-// DEBUG(cerr << "Bitset contains: " << Bitset << "\n");
+// DEBUG(dbgs() << "Bitset contains: " << Bitset << "\n");
 //
-
-#ifndef DEBUG_TYPE
-#define DEBUG_TYPE ""
-#endif
-
-#ifdef NDEBUG
-#define DEBUG(X)
-#else
-#define DEBUG(X) \
-  do { if (DebugFlag && isCurrentDebugType(DEBUG_TYPE)) { X; } } while (0)
-#endif
-
-/// getErrorOutputStream - Returns the error output stream (std::cerr). This
-/// places the std::c* I/O streams into one .cpp file and relieves the whole
-/// program from having to have hundreds of static c'tor/d'tors for them.
-///
-OStream &getErrorOutputStream(const char *DebugType);
-
-#ifdef NDEBUG
-#define DOUT llvm::OStream(0)
-#else
-#define DOUT llvm::getErrorOutputStream(DEBUG_TYPE)
-#endif
+#define DEBUG(X) DEBUG_WITH_TYPE(DEBUG_TYPE, X)
 
 } // End llvm namespace
 

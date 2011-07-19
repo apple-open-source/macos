@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: util.h,v 1.20 2008-09-18 16:21:09 yangtse Exp $
  ***************************************************************************/
 
 void logmsg(const char *msg, ...);

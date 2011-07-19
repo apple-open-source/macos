@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: chkspeed.c,v 1.3 2009-09-10 18:36:06 gknauf Exp $
  *
  * Example source code to show how the callback function can be used to
  * download data into a chunk of memory instead of storing it in a file.
@@ -40,7 +39,9 @@
 static size_t WriteCallback(void *ptr, size_t size, size_t nmemb, void *data)
 {
   /* we are not interested in the downloaded bytes itself,
-     so we only return the size we would have saved ... */  
+     so we only return the size we would have saved ... */
+  (void)ptr;  /* unused */
+  (void)data; /* unused */
   return (size_t)(size * nmemb);
 }
 
@@ -49,7 +50,7 @@ int main(int argc, char *argv[])
   CURL *curl_handle;
   CURLcode res;
   int prtsep = 0, prttime = 0;
-  char *url = URL_1M;
+  const char *url = URL_1M;
   char *appname = argv[0];
 
   if (argc > 1) {
@@ -57,7 +58,7 @@ int main(int argc, char *argv[])
     for (argc--, argv++; *argv; argc--, argv++) {
       if (strncasecmp(*argv, "-", 1) == 0) {
         if (strncasecmp(*argv, "-H", 2) == 0) {
-          fprintf(stderr, 
+          fprintf(stderr,
                   "\rUsage: %s [-m=1|2|5|10|20|50|100] [-t] [-x] [url]\n",
                   appname);
           exit(1);
@@ -70,7 +71,7 @@ int main(int argc, char *argv[])
         } else if (strncasecmp(*argv, "-T", 2) == 0) {
           prttime = 1;
         } else if (strncasecmp(*argv, "-M=", 3) == 0) {
-          int m = atoi(*argv + 3);
+          long m = strtol((*argv)+3, NULL, 10);
           switch(m) {
             case   1: url = URL_1M;
                       break;
@@ -136,17 +137,17 @@ int main(int argc, char *argv[])
 
     /* check for bytes downloaded */
     res = curl_easy_getinfo(curl_handle, CURLINFO_SIZE_DOWNLOAD, &val);
-    if((CURLE_OK == res) && val)
+    if((CURLE_OK == res) && (val>0))
       printf("Data downloaded: %0.0f bytes.\n", val);
 
     /* check for total download time */
     res = curl_easy_getinfo(curl_handle, CURLINFO_TOTAL_TIME, &val);
-    if((CURLE_OK == res) && val)
+    if((CURLE_OK == res) && (val>0))
       printf("Total download time: %0.3f sec.\n", val);
 
     /* check for average download speed */
     res = curl_easy_getinfo(curl_handle, CURLINFO_SPEED_DOWNLOAD, &val);
-    if((CURLE_OK == res) && val)
+    if((CURLE_OK == res) && (val>0))
       printf("Average download speed: %0.3f kbyte/sec.\n", val / 1024);
 
   } else {

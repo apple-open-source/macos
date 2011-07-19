@@ -903,56 +903,6 @@ void ClientSession::authInternalize(const AuthorizationExternalForm &extForm,
 
 
 //
-// Get session information (security session status)
-//
-void ClientSession::getSessionInfo(SecuritySessionId &sessionId, SessionAttributeBits &attrs)
-{
-    IPC(ucsp_client_getSessionInfo(UCSP_ARGS, &sessionId, &attrs));
-}
-
-
-//
-// Create a new session.
-//
-// Caveat: This discards all SecurityServer held state for this process, including
-// authorizations, database handles, etc. If you are multi-threaded at this point,
-// and other threads have talked to SecurityServer, they will leak a few resources
-// (mach ports and the like). Nothing horrendous, unless you create masses of sessions
-// that way (which we wouldn't exactly recommend for other reasons).
-//
-// Hacker's note: This engages in an interesting dance with SecurityServer's state tracking.
-// If you don't know the choreography, don't change things here until talking to an expert.
-//
-// Yes, if the client had multiple threads each of which has talked to SecurityServer,
-// the reply ports for all but the calling thread will leak. If that ever turns out to
-// be a real problem, we can fix it by keeping a (locked) set of client replyPorts to ditch.
-// Hardly worth it, though. This is a rare call.
-//
-void ClientSession::setupSession(SessionCreationFlags flags, SessionAttributeBits attrs)
-{
-	mGlobal().thread().replyPort.destroy(); // kill this thread's reply port
-	mGlobal.reset();			// kill existing cache (leak all other threads)
-	mSetupSession = true;		// global flag to Global constructor
-	IPC(ucsp_client_setupSession(UCSP_ARGS, flags, attrs)); // reinitialize and call
-}
-
-
-//
-// Get/set distinguished uid
-//
-void ClientSession::setSessionDistinguishedUid(SecuritySessionId sessionId, uid_t user)
-{
-	assert(sizeof(uid_t) <= sizeof(uint32_t));	// (just in case uid_t gets too big one day)
-	IPC(ucsp_client_setSessionDistinguishedUid(UCSP_ARGS, sessionId, user));
-}
-
-void ClientSession::getSessionDistinguishedUid(SecuritySessionId sessionId, uid_t &user)
-{
-	IPC(ucsp_client_getSessionDistinguishedUid(UCSP_ARGS, sessionId, &user));
-}
-
-
-//
 // Push user preferences from an app in user space to securityd
 //
 void ClientSession::setSessionUserPrefs(SecuritySessionId sessionId, uint32_t userPreferencesLength, const void *userPreferences)

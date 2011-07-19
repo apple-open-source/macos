@@ -32,7 +32,7 @@
 #include <stdio.h>
 
 #include <netsmb/smb.h>
-#include <fs/smbfs/smbfs.h>
+#include <smbfs/smbfs.h>
 #include "load_smbfs.h"
 
 #include "smbfs_load_kext.h"

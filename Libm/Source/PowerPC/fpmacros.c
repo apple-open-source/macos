@@ -26,7 +26,7 @@
 *     Contains:  C source code for PowerPC implementations of the inquiry      *
 *     macros, as defined in C99.                                               *
 *                                                                              *
-*     Copyright © 1992-2001 Apple Computer, Inc.  All rights reserved.         *
+*     Copyright ï¿½ 1992-2001 Apple Computer, Inc.  All rights reserved.         *
 *                                                                              *
 *     Written by A. Sazegari and Jon Okada, started on November 29 1992.       *
 *     Modified and ported by Robert A. Murley (ram) for Mac OS X.              *
@@ -84,7 +84,7 @@
 *     No other functions are called by these routines outside of fpmacros.c.  *
 ******************************************************************************/
 
-unsigned int __math_errhandling ( void )
+int __math_errhandling ( void )
 {
     return (MATH_ERREXCEPT); // return the bitmask indicating the error discipline(s) in use.
 }

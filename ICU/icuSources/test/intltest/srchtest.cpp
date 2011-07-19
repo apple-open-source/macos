@@ -1,6 +1,6 @@
 /*
 *****************************************************************************
-* Copyright (C) 2001-2008, International Business Machines orporation  
+* Copyright (C) 2001-2010, International Business Machines orporation  
 * and others. All Rights Reserved.
 ****************************************************************************/
 
@@ -9,7 +9,9 @@
 #if !UCONFIG_NO_COLLATION
 
 #include "srchtest.h"
+#if !UCONFIG_NO_BREAK_ITERATION
 #include "../cintltst/usrchdat.c"
+#endif
 #include "unicode/stsearch.h"
 #include "unicode/ustring.h"
 #include "unicode/schriter.h"
@@ -25,7 +27,7 @@
             logln(#test "---");       \
             logln((UnicodeString)""); \
             if(areBroken) {           \
-                  errln(__FILE__ " cannot test - failed to create collator.");  \
+                  dataerrln(__FILE__ " cannot test - failed to create collator.");  \
             } else {                  \
                 test();               \
             }                         \
@@ -114,7 +116,9 @@ void StringSearchTest::runIndexedTest(int32_t index, UBool exec,
     }
 
     switch (index) {
+#if !UCONFIG_NO_FILE_IO
         CASE(0, TestOpenClose)
+#endif
         CASE(1, TestInitialization)
         CASE(2, TestBasic)
         CASE(3, TestNormExact)
@@ -255,6 +259,12 @@ UBool StringSearchTest::assertEqualWithStringSearch(StringSearch *strsrch,
     int32_t   matchindex  = search->offset[count];
     UnicodeString matchtext;
     
+    strsrch->setAttribute(USEARCH_ELEMENT_COMPARISON, search->elemCompare, status);
+    if (U_FAILURE(status)) {
+        errln("Error setting USEARCH_ELEMENT_COMPARISON attribute %s", u_errorName(status));
+        return FALSE;
+    }   
+
     if (strsrch->getMatchedStart() != USEARCH_DONE ||
         strsrch->getMatchedLength() != 0) {
         errln("Error with the initialization of match start and length");
@@ -269,8 +279,9 @@ UBool StringSearchTest::assertEqualWithStringSearch(StringSearch *strsrch,
             errln("Text: %s", str);
             str = toCharString(strsrch->getPattern());
             infoln("Pattern: %s", str);
-            infoln("Error following match found at %d %d", 
-                    strsrch->getMatchedStart(), strsrch->getMatchedLength());
+            infoln("Error following match found at idx,len %d,%d; expected %d,%d", 
+                    strsrch->getMatchedStart(), strsrch->getMatchedLength(),
+                    matchindex, matchlength);
             return FALSE;
         }
         count ++;
@@ -339,6 +350,7 @@ UBool StringSearchTest::assertEqualWithStringSearch(StringSearch *strsrch,
                     strsrch->getMatchedStart(), strsrch->getMatchedLength());
             return FALSE;
     }
+    strsrch->setAttribute(USEARCH_ELEMENT_COMPARISON, USEARCH_STANDARD_ELEMENT_COMPARISON, status);
     return TRUE;
 }
     

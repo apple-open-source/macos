@@ -37,8 +37,8 @@
 #include "CRCCalc.h"
 
 extern pid_t		gProcessPID;
-extern CDSRefMap	*gFWRefMap;
-extern CDSRefTable	*gFWRefTable;
+extern CDSRefMap	gFWRefMap;
+extern CDSRefTable	gFWRefTable;
 
 static const	UInt32	kFWBuffPad	= 16;
 
@@ -267,19 +267,19 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		pRecEntry->fRecordAttributeCount = usAttrCnt;
 
         //create a reference here
-        siResult = gFWRefTable->NewAttrListRef( outAttributeListRef, 0, gProcessPID );
+        siResult = gFWRefTable.NewAttrListRef( outAttributeListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetRecordEntry:ExtractRecordEntry:gFWRefTable->NewAttrListRef ref = %d", *outAttributeListRef);
+			syslog(LOG_CRIT, "DS:dsGetRecordEntry:ExtractRecordEntry:gFWRefTable.NewAttrListRef ref = %d", *outAttributeListRef);
 		}
 		        
 		//uberOffset + offset + 4;	// context used by next calls of GetAttributeEntry
 									// include the four bytes of the buffLen
-		siResult = gFWRefTable->SetOffset( *outAttributeListRef, eAttrListRefType, uberOffset + offset + 4, gProcessPID );
+		siResult = gFWRefTable.SetOffset( *outAttributeListRef, eAttrListRefType, uberOffset + offset + 4, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = gFWRefTable->SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable.SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outRecEntryPtr = pRecEntry;
@@ -338,10 +338,10 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 	try
 	{
 	
-		siResult = gFWRefTable->GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
+		siResult = gFWRefTable.GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = gFWRefTable->GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable.GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrInfoIndex;
@@ -498,17 +498,17 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		::memcpy( pAttribInfo->fAttributeSignature.fBufferData, pAttrType, usAttrTypeLen );
 
         //create a reference here
-        siResult = gFWRefTable->NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
+        siResult = gFWRefTable.NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractAttributeEntry:gFWRefTable->NewAttrValueRef ref = %d", *outAttrValueListRef);
+			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractAttributeEntry:gFWRefTable.NewAttrValueRef ref = %d", *outAttrValueListRef);
 		}
 		        
-		siResult = gFWRefTable->SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
+		siResult = gFWRefTable.SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = gFWRefTable->SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable.SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outAttrInfoPtr = pAttribInfo;
@@ -560,10 +560,10 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 
 	try
 	{
-		siResult = gFWRefTable->GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
+		siResult = gFWRefTable.GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = gFWRefTable->GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable.GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrValueIndex;
@@ -752,10 +752,10 @@ tDirStatus ExtractNextAttributeEntry (	tDataBufferPtr				inOutDataBuff,
 
 	try
 	{
-		siResult = gFWRefTable->GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
+		siResult = gFWRefTable.GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = gFWRefTable->GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable.GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrInfoIndex;
@@ -866,17 +866,17 @@ tDirStatus ExtractNextAttributeEntry (	tDataBufferPtr				inOutDataBuff,
 		::memcpy( pAttribInfo->fAttributeSignature.fBufferData, pAttrType, usAttrTypeLen );
 
         //create a reference here
-        siResult = gFWRefTable->NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
+        siResult = gFWRefTable.NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractNextAttributeEntry:gFWRefTable->NewAttrValueRef ref = %d", *outAttrValueListRef);
+			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractNextAttributeEntry:gFWRefTable.NewAttrValueRef ref = %d", *outAttrValueListRef);
 		}
 		        
-		siResult = gFWRefTable->SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
+		siResult = gFWRefTable.SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = gFWRefTable->SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable.SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outAttrInfoPtr = pAttribInfo;
@@ -946,10 +946,10 @@ tDirStatus ExtractNextAttributeValue (	tDataBufferPtr				inOutDataBuff,
 
 	try
 	{
-		siResult = gFWRefTable->GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
+		siResult = gFWRefTable.GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = gFWRefTable->GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable.GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrValueIndex;
@@ -1349,19 +1349,19 @@ tDirStatus MakeGDNIFWRef (	tDataBufferPtr		inOutDataBuff,
 		offset	+= usNameLen;
 
         //create a reference here
-        siResult = gFWRefTable->NewAttrListRef( outAttributeListRef, 0, gProcessPID );
+        siResult = gFWRefTable.NewAttrListRef( outAttributeListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetDirNodeInfo:MakeGDNIFWRef:gFWRefTable->NewAttrListRef ref = %d", *outAttributeListRef);
+			syslog(LOG_CRIT, "DS:dsGetDirNodeInfo:MakeGDNIFWRef:gFWRefTable.NewAttrListRef ref = %d", *outAttributeListRef);
 		}
 		        
 		//uiOffset + offset;	// context used by next calls of GetAttributeEntry
 								// include the four bytes of the buffLen
-		siResult = gFWRefTable->SetOffset( *outAttributeListRef, eAttrListRefType, offset + uiOffset, gProcessPID );
+		siResult = gFWRefTable.SetOffset( *outAttributeListRef, eAttrListRefType, offset + uiOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = gFWRefTable->SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable.SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 	}
 
@@ -1376,5 +1376,5 @@ tDirStatus MakeGDNIFWRef (	tDataBufferPtr		inOutDataBuff,
 
 const char *dsGetPluginNamePriv( UInt32 inNodeRefNum, UInt32 inPID )
 {
-	return gFWRefMap->GetPluginName( inNodeRefNum, inPID );
+	return gFWRefMap.GetPluginName( inNodeRefNum, inPID );
 }

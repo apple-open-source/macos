@@ -34,7 +34,7 @@
 #define super IOUserClient
 
 
-OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, super )
+OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, IOUserClient )
 
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -70,6 +70,11 @@ const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDRes
 //----------------------------------------------------------------------------------------------------
 bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * security_id, UInt32 type)
 {
+#if !TARGET_OS_EMBEDDED
+    if (kIOReturnSuccess != clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator))
+        return false;
+#endif
+    
     if (!super::initWithTask(owningTask, security_id, type)) {
 		IOLog("%s failed\n", __FUNCTION__);
 		return false;
@@ -99,6 +104,17 @@ bool IOHIDResourceDeviceUserClient::start(IOService * provider)
 }
 
 //----------------------------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::stop
+//----------------------------------------------------------------------------------------------------
+void IOHIDResourceDeviceUserClient::stop(IOService * provider)
+{
+    if ( _device )
+        _device->release();
+        
+    super::stop(provider);
+}
+
+//----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::free
 //----------------------------------------------------------------------------------------------------
 void IOHIDResourceDeviceUserClient::free()
@@ -106,9 +122,6 @@ void IOHIDResourceDeviceUserClient::free()
     if ( _queue )
         _queue->release();
 
-    if ( _device )
-        _device->release();
-        
     if ( _lock )
         IOLockFree(_lock);
         
@@ -233,7 +246,6 @@ IOService * IOHIDResourceDeviceUserClient::getService(void)
 IOReturn IOHIDResourceDeviceUserClient::clientClose(void)
 {
     cleanupPendingReports();
-    terminateDevice();
     terminate();
 	return kIOReturnSuccess;
 }
@@ -304,15 +316,25 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
 		return kIOReturnNoResources;
 	}
 
-	if (!_device->attach(this) || !_device->start(this)) {
-		IOLog("%s attach or start failed\n", __FUNCTION__);
-		
+    IOReturn ret = kIOReturnInternalError;
+    
+	if (_device->attach(this) ) {
+        if ( _device->start(this) ) {
+            ret = kIOReturnSuccess;
+        } else {
+            IOLog("%s start failed\n", __FUNCTION__);
+            _device->detach(this);
+        }
+	} else {
+		IOLog("%s attach failed\n", __FUNCTION__);
+    }
+    
+    if ( ret != kIOReturnSuccess ) {
 		_device->release();
 		_device = NULL;
-		return kIOReturnInternalError;
-	}
+    }
 
-    return kIOReturnSuccess;
+    return ret;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -545,7 +567,7 @@ void IOHIDResourceDeviceUserClient::cleanupPendingReports()
 IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
 {
 	if (_device) {
-		_device->stop(this);
+		_device->terminate();
 		_device->release();
 	}
 	_device = NULL;

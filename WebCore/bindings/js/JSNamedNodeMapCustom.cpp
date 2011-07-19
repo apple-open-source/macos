@@ -35,38 +35,6 @@ using namespace JSC;
 
 namespace WebCore {
 
-JSValue JSNamedNodeMap::setNamedItem(ExecState* exec, const ArgList& args)
-{
-    NamedNodeMap* imp = static_cast<NamedNodeMap*>(impl());
-    ExceptionCode ec = 0;
-    Node* newNode = toNode(args.at(0));
-
-    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
-        if (!allowSettingSrcToJavascriptURL(exec, imp->element(), newNode->nodeName(), newNode->nodeValue()))
-            return jsNull();
-    }
-
-    JSValue result = toJS(exec, globalObject(), WTF::getPtr(imp->setNamedItem(newNode, ec)));
-    setDOMException(exec, ec);
-    return result;
-}
-
-JSValue JSNamedNodeMap::setNamedItemNS(ExecState* exec, const ArgList& args)
-{
-    NamedNodeMap* imp = static_cast<NamedNodeMap*>(impl());
-    ExceptionCode ec = 0;
-    Node* newNode = toNode(args.at(0));
-
-    if (newNode && newNode->nodeType() == Node::ATTRIBUTE_NODE && imp->element()) {
-        if (!allowSettingSrcToJavascriptURL(exec, imp->element(), newNode->nodeName(), newNode->nodeValue()))
-            return jsNull();
-    }
-
-    JSValue result = toJS(exec, globalObject(), WTF::getPtr(imp->setNamedItemNS(newNode, ec)));
-    setDOMException(exec, ec);
-    return result;
-}
-
 bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Identifier& propertyName)
 {
     return impl->getNamedItem(identifierToString(propertyName));
@@ -75,17 +43,24 @@ bool JSNamedNodeMap::canGetItemsForName(ExecState*, NamedNodeMap* impl, const Id
 JSValue JSNamedNodeMap::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
     JSNamedNodeMap* thisObj = static_cast<JSNamedNodeMap*>(asObject(slotBase));
-    return toJS(exec, thisObj->impl()->getNamedItem(identifierToString(propertyName)));
+    return toJS(exec, thisObj->globalObject(), thisObj->impl()->getNamedItem(identifierToString(propertyName)));
 }
 
-void JSNamedNodeMap::markChildren(MarkStack& markStack)
+void JSNamedNodeMap::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
 
-    // Mark the element so that this will work to access the attribute even if the last
-    // other reference goes away.
-    if (Element* element = impl()->element())
-        markDOMNodeWrapper(markStack, element->document(), element);
+    // We need to keep the wrapper for our underlying NamedNodeMap's element
+    // alive because NamedNodeMap and Attr rely on the element for data, and
+    // don't know how to keep it alive correctly.
+    // FIXME: Fix this lifetime issue in the DOM, and remove this.
+    Element* element = impl()->element();
+    if (!element)
+        return;
+    visitor.addOpaqueRoot(root(element));
 }
 
 } // namespace WebCore

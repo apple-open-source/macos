@@ -17,17 +17,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target = install install.man
 
 install-rc:
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(ETCDIR)
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/README $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/aliases $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/completions $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/environment $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/login $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/logout $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/rc $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/$(Project)/init/tcsh.defaults $(DSTROOT)/usr/share/tcsh/examples
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(ETCDIR)/
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(ETCDIR)
 	$(_V) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/csh.cshrc $(DSTROOT)/$(ETCDIR)/
 	$(_V) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/csh.login $(DSTROOT)/$(ETCDIR)/
 	$(_V) $(INSTALL) -c -m 0644 -o root -g wheel $(SRCROOT)/csh.logout $(DSTROOT)/$(ETCDIR)/
@@ -52,15 +42,11 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 6.15.00
+AEP_Version    = 6.17.00
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = config_f.h.diff \
-		 init.login.patch init.README.patch init.logout.patch \
-		 init.aliases.patch init.rc.patch init.completions.patch init.tcsh.defaults.patch \
-		 init.environment.patch sh.proc.c.patch sh.lex.c.patch host.defs.patch sh.func.c.patch \
-		 tc.sig.h.patch
+AEP_Patches    = config_f.h.diff host.defs.patch tc.sig.h.patch
 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)

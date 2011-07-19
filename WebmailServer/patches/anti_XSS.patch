@@ -1,0 +1,12 @@
+--- roundcubemail-0.5.1/program/steps/mail/func.inc	2011-02-09 02:51:50.000000000 -0800
++++ roundcubemail/program/steps/mail/func.inc	2011-02-09 16:23:48.000000000 -0800
+@@ -683,7 +683,8 @@
+   else if ($data['type'] == 'enriched') {
+     $part->ctype_secondary = 'html';
+     require_once('lib/enriched.inc');
+-    $body = Q(enriched_to_html($data['body']), 'show');
++    $body_html = Q(enriched_to_html($data['body']), 'show');
++    $body = rcmail_wash_html($body_html, $data, $part->replaces);
+   }
+   else {
+     // assert plaintext

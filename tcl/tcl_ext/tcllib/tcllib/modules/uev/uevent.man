@@ -2,6 +2,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {User events}]
 [titledesc {User events}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require uevent [opt 0.2]]
 [require logger]

@@ -3,17 +3,6 @@ use strict;
 use warnings;
 use base qw/DBIx::Class/;
 
-BEGIN {
-
-    # Perl 5.8.0 doesn't have utf8::is_utf8()
-    # Yes, 5.8.0 support for Unicode is suboptimal, but things like RHEL3 ship with it.
-    if ($] <= 5.008000) {
-        require Encode;
-    } else {
-        require utf8;
-    }
-}
-
 __PACKAGE__->mk_classdata( '_utf8_columns' );
 
 =head1 NAME
@@ -23,9 +12,11 @@ DBIx::Class::UTF8Columns - Force UTF8 (Unicode) flag on columns
 =head1 SYNOPSIS
 
     package Artist;
-    __PACKAGE__->load_components(qw/UTF8Columns Core/);
+    use base 'DBIx::Class::Core';
+
+    __PACKAGE__->load_components(qw/UTF8Columns/);
     __PACKAGE__->utf8_columns(qw/name description/);
-    
+
     # then belows return strings with utf8 flag
     $artist->name;
     $artist->get_column('description');
@@ -33,6 +24,15 @@ DBIx::Class::UTF8Columns - Force UTF8 (Unicode) flag on columns
 =head1 DESCRIPTION
 
 This module allows you to get columns data that have utf8 (Unicode) flag.
+
+=head2 Warning
+
+Note that this module overloads L<DBIx::Class::Row/store_column> in a way
+that may prevent other components overloading the same method from working
+correctly. This component must be the last one before L<DBIx::Class::Row>
+(which is provided by L<DBIx::Class::Core>). DBIx::Class will detect such
+incorrect component order and issue an appropriate warning, advising which
+components need to be loaded differently.
 
 =head1 SEE ALSO
 
@@ -50,7 +50,7 @@ sub utf8_columns {
         foreach my $col (@_) {
             $self->throw_exception("column $col doesn't exist")
                 unless $self->has_column($col);
-        }        
+        }
         return $self->_utf8_columns({ map { $_ => 1 } @_ });
     } else {
         return $self->_utf8_columns;
@@ -67,17 +67,11 @@ sub get_column {
     my ( $self, $column ) = @_;
     my $value = $self->next::method($column);
 
-    my $cols = $self->_utf8_columns;
-    if ( $cols and defined $value and $cols->{$column} ) {
+    utf8::decode($value) if (
+      defined $value and $self->_is_utf8_column($column) and ! utf8::is_utf8($value)
+    );
 
-        if ($] <= 5.008000) {
-            Encode::_utf8_on($value) unless Encode::is_utf8($value);
-        } else {
-            utf8::decode($value) unless utf8::is_utf8($value);
-        }
-    }
-
-    $value;
+    return $value;
 }
 
 =head2 get_columns
@@ -88,16 +82,13 @@ sub get_columns {
     my $self = shift;
     my %data = $self->next::method(@_);
 
-    foreach my $col (grep { defined $data{$_} } keys %{ $self->_utf8_columns || {} }) {
-
-        if ($] <= 5.008000) {
-            Encode::_utf8_on($data{$col}) unless Encode::is_utf8($data{$col});
-        } else {
-            utf8::decode($data{$col}) unless utf8::is_utf8($data{$col});
-        }
+    foreach my $col (keys %data) {
+      utf8::decode($data{$col}) if (
+        exists $data{$col} and defined $data{$col} and $self->_is_utf8_column($col) and ! utf8::is_utf8($data{$col})
+      );
     }
 
-    %data;
+    return %data;
 }
 
 =head2 store_column
@@ -107,32 +98,33 @@ sub get_columns {
 sub store_column {
     my ( $self, $column, $value ) = @_;
 
-    my $cols = $self->_utf8_columns;
-    if ( $cols and defined $value and $cols->{$column} ) {
+    # the dirtyness comparison must happen on the non-encoded value
+    my $copy;
 
-        if ($] <= 5.008000) {
-            Encode::_utf8_off($value) if Encode::is_utf8($value);
-        } else {
-            utf8::encode($value) if utf8::is_utf8($value);
-        }
+    if ( defined $value and $self->_is_utf8_column($column) and utf8::is_utf8($value) ) {
+      $copy = $value;
+      utf8::encode($value);
     }
 
     $self->next::method( $column, $value );
+
+    return $copy || $value;
 }
 
-=head1 AUTHOR
+# override this if you want to force everything to be encoded/decoded
+sub _is_utf8_column {
+  # my ($self, $col) = @_;
+  return ($_[0]->utf8_columns || {})->{$_[1]};
+}
 
-Daisuke Murase <typester@cpan.org>
+=head1 AUTHORS
 
-=head1 COPYRIGHT
+See L<DBIx::Class/CONTRIBUTORS>.
 
-This program is free software; you can redistribute
-it and/or modify it under the same terms as Perl itself.
+=head1 LICENSE
 
-The full text of the license can be found in the
-LICENSE file included with this module.
+You may distribute this code under the same terms as Perl itself.
 
 =cut
 
 1;
-

@@ -53,6 +53,13 @@ enum nbstate {
 };
 
 
+#define	NBF_LOCADDR		0x0001		/* has local addr */
+#define	NBF_CONNECTED	0x0002
+#define	NBF_RECVLOCK	0x0004
+#define	NBF_UPCALLED	0x0010
+#define	NBF_NETBIOS		0x0020	
+
+
 /*
  * socket specific data
  */
@@ -63,27 +70,16 @@ struct nbpcb {
 	struct sockaddr_nb *nbp_paddr;	/* peer address */
 
 	int		nbp_flags;
-#define	NBF_LOCADDR	0x0001		/* has local addr */
-#define	NBF_CONNECTED	0x0002
-#define	NBF_RECVLOCK	0x0004
-#define	NBF_UPCALLED	0x0010
-
 	enum nbstate	nbp_state;
 	struct timespec	nbp_timo;
-	u_int32_t		nbp_sndbuf;
-	u_int32_t		nbp_rcvbuf;
+	uint32_t		nbp_sndbuf;
+	uint32_t		nbp_rcvbuf;
 	void *		nbp_selectid;
 	void		(* nbp_upcall)(void *);
 	lck_mtx_t	nbp_lock;
 
 /*	LIST_ENTRY(nbpcb) nbp_link;*/
 };
-
-/*
- * Nominal space allocated per a NETBIOS socket.
- */
-#define	NB_SNDQ		(10 * 1024)
-#define	NB_RCVQ		(20 * 1024)
 
 /*
  * TCP slowstart presents a problem in conjunction with large

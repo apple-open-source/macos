@@ -638,6 +638,19 @@ errOut:
 	 * don't have to release them. When P12 can vend SecKeyRefs, we release the 
 	 * keys here.
 	 */
+	 
+	 /*
+		The code below has no net effect, except for generating a leak. This was
+		found while investigating
+			<rdar://problem/8799913> SecItemImport() leaking
+		Code like this will need to be added when we return SecIdentityRefs in
+		the "in memory" case (destKeychain = NULL). Currently, when importing to
+		a physical keychain, the returned item array contains SecIdentityRefs,
+		whereas the "in memory" case returns SecCertificateRefs. See
+			<rdar://problem/8862809> ER: SecItemImport should return SecIdentityRefs in the "in memory" case
+	
+	*/
+#if 0
 	if(privKeys) {
 		if(ortn == noErr) {		// TBD OR keys are SecKeyRefs
 			numKeys = CFArrayGetCount(privKeys);
@@ -653,11 +666,15 @@ errOut:
 						SecImpExpDbg("SecKeyCreateWithCSSMKey error");
 					}
 					/* keep going for CFRelease */
+					if (keyRef)
+						CFRelease(keyRef);
 				}
 				/* TBD CFRelease the SecKeyRef */
 			}   /* for each privKey */
 		}		/* success so far */
 	}
+#endif
+
 	SecPkcs12CoderRelease(p12Coder);
 	if(passKey != NULL) {
 		CSSM_FreeKey(cspHand, NULL, passKey, CSSM_FALSE);
@@ -829,14 +846,22 @@ OSStatus impExpImportCertCommon(
 	SecKeychainRef		importKeychain, // optional
 	CFMutableArrayRef	outArray)		// optional, append here 
 {
-	OSStatus ortn;
+	OSStatus ortn = noErr;
 	SecCertificateRef certRef;
 	
-	ortn = SecCertificateCreateFromData(cdata,
-		CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER, &certRef);
-	if(ortn) {
+	if (!cdata)
+		return errSecUnsupportedFormat;
+
+	CFDataRef data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)cdata->Data, (CFIndex)cdata->Length, kCFAllocatorNull);
+	/* Pass kCFAllocatorNull as bytesDeallocator to assure the bytes aren't freed */
+	if (!data)
+		return errSecUnsupportedFormat;
+
+	certRef = SecCertificateCreateWithData(kCFAllocatorDefault, data);
+	CFRelease(data); /* certRef has its own copy of the data now */
+	if(!certRef) {
 		SecImpExpDbg("impExpHandleCert error\n");
-		return ortn;
+		return errSecUnsupportedFormat;
 	}
 
 	if(importKeychain != NULL) {

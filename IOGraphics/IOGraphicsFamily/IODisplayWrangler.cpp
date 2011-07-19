@@ -375,6 +375,7 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
 
 void IODisplayWrangler::activityChange( IOFramebuffer * fb )
 {
+    DEBG1("W", " activityChange\n");
     gIODisplayWrangler->activityTickle(0,0);
 }
 
@@ -589,6 +590,9 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
 {
     fPendingPowerState = powerStateOrdinal;
 
+    DEBG1("W", " (%ld), pwr %d open %d\n", 
+                powerStateOrdinal, gIOGraphicsSystemPower, fOpen);
+
     if (powerStateOrdinal == 0)
     {
         // system is going to sleep
@@ -596,8 +600,7 @@ IOReturn IODisplayWrangler::setPowerState( unsigned long powerStateOrdinal, IOSe
         changePowerStateToPriv(0);
         return (IOPMNoErr);
     }
-    DEBG1("W", " setPowerState(%ld), sys %d open %d\n", 
-                powerStateOrdinal, gIOGraphicsSystemPower, fOpen);
+
     if (!gIOGraphicsSystemPower || !fOpen)
         return (IOPMNoErr);
     else if (powerStateOrdinal < getPowerState())
@@ -995,6 +998,8 @@ IOReturn IODisplayWrangler::setProperties( OSObject * properties )
 
     if (idleFor)
     {
+		DEBG1("W", " idleFor(%d)\n", idleFor);
+
         clock_interval_to_deadline(idleFor, kMillisecondScale, &fIdleUntil);
 
         if (getPowerState() > 3)

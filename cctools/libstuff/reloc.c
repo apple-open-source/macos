@@ -148,7 +148,9 @@ uint32_t r_type)
 	    break;
 	case CPU_TYPE_ARM:
 	    if(r_type == ARM_RELOC_SECTDIFF ||
-	       r_type == ARM_RELOC_LOCAL_SECTDIFF) 
+	       r_type == ARM_RELOC_LOCAL_SECTDIFF ||
+	       r_type == ARM_RELOC_HALF ||
+	       r_type == ARM_RELOC_HALF_SECTDIFF)
 		return(TRUE);
 	    break;
 	default:
@@ -211,7 +213,8 @@ uint32_t r_type)
 	    break;
 	case CPU_TYPE_ARM:
 	    if(r_type == ARM_RELOC_SECTDIFF ||
-	       r_type == ARM_RELOC_LOCAL_SECTDIFF)
+	       r_type == ARM_RELOC_LOCAL_SECTDIFF ||
+	       r_type == ARM_RELOC_HALF_SECTDIFF)
 		return(TRUE);
 	    break;
 	default:
@@ -220,8 +223,3 @@ uint32_t r_type)
 	}
 	return(FALSE);
 }
-
-
-
-
-

@@ -39,6 +39,22 @@ enum reloc_type_arm
     ARM_RELOC_BR24,	/* 24 bit branch displacement (to a word address) */
     ARM_THUMB_RELOC_BR22, /* 22 bit branch displacement (to a half-word
 			     address) */
-    ARM_THUMB_32BIT_BRANCH, /* a thumb 32-bit branch instruction possibly
-				needing page-spanning branch workaround */
+    ARM_THUMB_32BIT_BRANCH, /* obsolete - a thumb 32-bit branch instruction
+			     possibly needing page-spanning branch workaround */
+
+    /*
+     * For these two r_type relocations they always have a pair following them
+     * and the r_length bits are used differently.  The encoding of the
+     * r_length is as follows:
+     * low bit of r_length:
+     *  0 - :lower16: for movw instructions
+     *  1 - :upper16: for movt instructions
+     * high bit of r_length:
+     *  0 - arm instructions
+     *  1 - thumb instructions   
+     * the other half of the relocated expression is in the following pair
+     * relocation entry in the the low 16 bits of r_address field.
+     */
+    ARM_RELOC_HALF,
+    ARM_RELOC_HALF_SECTDIFF
 };

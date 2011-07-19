@@ -57,7 +57,8 @@ const char *const Requirement::typeNames[] = {
 	"host",
 	"guest",
 	"designated",
-	"library"
+	"library",
+	"plugin",
 };
 
 
@@ -66,18 +67,24 @@ const char *const Requirement::typeNames[] = {
 //
 void Requirement::validate(const Requirement::Context &ctx, OSStatus failure /* = errSecCSReqFailed */) const
 {
+	if (!this->validates(ctx, failure))
+		MacOSError::throwMe(failure);
+}
+
+bool Requirement::validates(const Requirement::Context &ctx, OSStatus failure /* = errSecCSReqFailed */) const
+{
 	CODESIGN_EVAL_REQINT_START((void*)this, this->length());
 	switch (kind()) {
 	case exprForm:
 		if (Requirement::Interpreter(this, &ctx).evaluate()) {
-			CODESIGN_EVAL_REQINT_END(0);
-			return;
+			CODESIGN_EVAL_REQINT_END(this, 0);
+			return true;
 		} else {
-			CODESIGN_EVAL_REQINT_END(failure);
-			MacOSError::throwMe(failure);
+			CODESIGN_EVAL_REQINT_END(this, failure);
+			return false;
 		}
 	default:
-		CODESIGN_EVAL_REQINT_END(errSecCSReqUnsupported);
+		CODESIGN_EVAL_REQINT_END(this, errSecCSReqUnsupported);
 		MacOSError::throwMe(errSecCSReqUnsupported);
 	}
 }

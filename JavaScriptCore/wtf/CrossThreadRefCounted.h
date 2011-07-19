@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,17 +32,16 @@
 #ifndef CrossThreadRefCounted_h
 #define CrossThreadRefCounted_h
 
-#include <wtf/Noncopyable.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/Threading.h>
+#include "PassRefPtr.h"
+#include "RefCounted.h"
+#include "Threading.h"
 
 namespace WTF {
 
-    // Used to allowing sharing data across classes and threads (like ThreadedSafeShared).
+    // Used to allowing sharing data across classes and threads (like ThreadSafeRefCounted).
     //
-    // Why not just use ThreadSafeShared?
-    // ThreadSafeShared can have a significant perf impact when used in low level classes
+    // Why not just use ThreadSafeRefCounted?
+    // ThreadSafeRefCounted can have a significant perf impact when used in low level classes
     // (like UString) that get ref/deref'ed a lot. This class has the benefit of doing fast ref
     // counts like RefPtr whenever possible, but it has the downside that you need to copy it
     // to use it on another thread.
@@ -51,7 +51,8 @@ namespace WTF {
     // with respect to the original and any other copies.  The underlying m_data is jointly
     // owned by the original instance and all copies.
     template<class T>
-    class CrossThreadRefCounted : public Noncopyable {
+    class CrossThreadRefCounted {
+        WTF_MAKE_NONCOPYABLE(CrossThreadRefCounted);
     public:
         static PassRefPtr<CrossThreadRefCounted<T> > create(T* data)
         {
@@ -71,13 +72,16 @@ namespace WTF {
         }
 
     private:
-        CrossThreadRefCounted(T* data, ThreadSafeSharedBase* threadedCounter)
+        CrossThreadRefCounted(T* data, ThreadSafeRefCountedBase* threadedCounter)
             : m_threadSafeRefCounter(threadedCounter)
             , m_data(data)
 #ifndef NDEBUG
             , m_threadId(0)
 #endif
         {
+            // We use RefCountedBase in an unusual way here, so get rid of the requirement
+            // that adoptRef be called on it.
+            m_refCounter.relaxAdoptionRequirement();
         }
 
         ~CrossThreadRefCounted()
@@ -93,7 +97,7 @@ namespace WTF {
 #endif
 
         RefCountedBase m_refCounter;
-        ThreadSafeSharedBase* m_threadSafeRefCounter;
+        ThreadSafeRefCountedBase* m_threadSafeRefCounter;
         T* m_data;
 #ifndef NDEBUG
         ThreadIdentifier m_threadId;
@@ -150,7 +154,7 @@ namespace WTF {
         if (m_threadSafeRefCounter)
             m_threadSafeRefCounter->ref();
         else
-            m_threadSafeRefCounter = new ThreadSafeSharedBase(2);
+            m_threadSafeRefCounter = new ThreadSafeRefCountedBase(2);
 
         return adoptRef(new CrossThreadRefCounted<T>(m_data, m_threadSafeRefCounter));
     }

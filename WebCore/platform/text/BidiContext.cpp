@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2003, 2004, 2006, 2007, 2009 Apple Inc. All right reserved.
+ * Copyright (C) 2003, 2004, 2006, 2007, 2009, 2010 Apple Inc. All right reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,43 +21,80 @@
 
 #include "config.h"
 #include "BidiContext.h"
-
-#include <wtf/StdLibExtras.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 using namespace WTF::Unicode;
 
-PassRefPtr<BidiContext> BidiContext::create(unsigned char level, Direction direction, bool override, BidiContext* parent)
+inline PassRefPtr<BidiContext> BidiContext::createUncached(unsigned char level, Direction direction, bool override, BidiEmbeddingSource source, BidiContext* parent)
+{
+    return adoptRef(new BidiContext(level, direction, override, source, parent));
+}
+
+PassRefPtr<BidiContext> BidiContext::create(unsigned char level, Direction direction, bool override, BidiEmbeddingSource source, BidiContext* parent)
 {
     ASSERT(direction == (level % 2 ? RightToLeft : LeftToRight));
 
     if (parent)
-        return adoptRef(new BidiContext(level, direction, override, parent));
+        return createUncached(level, direction, override, source, parent);
 
     ASSERT(level <= 1);
     if (!level) {
-        DEFINE_STATIC_LOCAL(BidiContext, ltrContext, (0, LeftToRight, false, 0));
-        if (!override)
-            return &ltrContext;
+        if (!override) {
+            static BidiContext* ltrContext = createUncached(0, LeftToRight, false, FromStyleOrDOM, 0).releaseRef();
+            return ltrContext;
+        }
 
-        DEFINE_STATIC_LOCAL(BidiContext, ltrOverrideContext, (0, LeftToRight, true, 0));
-        return &ltrOverrideContext;
+        static BidiContext* ltrOverrideContext = createUncached(0, LeftToRight, true, FromStyleOrDOM, 0).releaseRef();
+        return ltrOverrideContext;
     }
 
-    DEFINE_STATIC_LOCAL(BidiContext, rtlContext, (1, RightToLeft, false, 0));
-    if (!override)
-        return &rtlContext;
+    if (!override) {
+        static BidiContext* rtlContext = createUncached(1, RightToLeft, false, FromStyleOrDOM, 0).releaseRef();
+        return rtlContext;
+    }
 
-    DEFINE_STATIC_LOCAL(BidiContext, rtlOverrideContext, (1, RightToLeft, true, 0));
-    return &rtlOverrideContext;
+    static BidiContext* rtlOverrideContext = createUncached(1, RightToLeft, true, FromStyleOrDOM, 0).releaseRef();
+    return rtlOverrideContext;
+}
+
+static inline PassRefPtr<BidiContext> copyContextAndRebaselineLevel(BidiContext* context, BidiContext* parent)
+{
+    ASSERT(context);
+    unsigned char newLevel = parent ? parent->level() : 0;
+    if (context->dir() == RightToLeft)
+        newLevel = nextGreaterOddLevel(newLevel);
+    else if (parent)
+        newLevel = nextGreaterEvenLevel(newLevel);
+
+    return BidiContext::create(newLevel, context->dir(), context->override(), context->source(), parent);
+}
+
+// The BidiContext stack must be immutable -- they're re-used for re-layout after
+// DOM modification/editing -- so we copy all the non-unicode contexts, and
+// recalculate their levels.
+PassRefPtr<BidiContext> BidiContext::copyStackRemovingUnicodeEmbeddingContexts()
+{
+    Vector<BidiContext*, 64> contexts;
+    for (BidiContext* iter = this; iter; iter = iter->parent()) {
+        if (iter->source() != FromUnicode)
+            contexts.append(iter);
+    }
+    ASSERT(contexts.size());
+ 
+    RefPtr<BidiContext> topContext = copyContextAndRebaselineLevel(contexts.last(), 0);
+    for (int i = contexts.size() - 1; i > 0; --i)
+        topContext = copyContextAndRebaselineLevel(contexts[i - 1], topContext.get());
+
+    return topContext.release();
 }
 
 bool operator==(const BidiContext& c1, const BidiContext& c2)
 {
     if (&c1 == &c2)
         return true;
-    if (c1.level() != c2.level() || c1.override() != c2.override() || c1.dir() != c2.dir())
+    if (c1.level() != c2.level() || c1.override() != c2.override() || c1.dir() != c2.dir() || c1.source() != c2.source())
         return false;
     if (!c1.parent())
         return !c2.parent();

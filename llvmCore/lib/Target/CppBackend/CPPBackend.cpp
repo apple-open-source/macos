@@ -23,13 +23,12 @@
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
 #include "llvm/TypeSymbolTable.h"
-#include "llvm/Target/TargetMachineRegistry.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Streams.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Target/TargetRegistry.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/config.h"
 #include <algorithm>
 #include <set>
@@ -71,16 +70,10 @@ static cl::opt<std::string> NameToGenerate("cppfor", cl::Optional,
   cl::desc("Specify the name of the thing to generate"),
   cl::init("!bad!"));
 
-/// CppBackendTargetMachineModule - Note that this is used on hosts
-/// that cannot link in a library unless there are references into the
-/// library.  In particular, it seems that it is not possible to get
-/// things to work on Win32 without this.  Though it is unused, do not
-/// remove it.
-extern "C" int CppBackendTargetMachineModule;
-int CppBackendTargetMachineModule = 0;
-
-// Register the target.
-static RegisterTarget<CPPTargetMachine> X("cpp", "C++ backend");
+extern "C" void LLVMInitializeCppBackendTarget() {
+  // Register the target.
+  RegisterTargetMachine<CPPTargetMachine> X(TheCppBackendTarget);
+}
 
 namespace {
   typedef std::vector<const Type*> TypeList;
@@ -94,8 +87,7 @@ namespace {
   /// CppWriter - This class is the main chunk of code that converts an LLVM
   /// module to a C++ translation unit.
   class CppWriter : public ModulePass {
-    const char* progname;
-    raw_ostream &Out;
+    formatted_raw_ostream &Out;
     const Module *TheModule;
     uint64_t uniqueNum;
     TypeMap TypeNames;
@@ -110,7 +102,7 @@ namespace {
 
   public:
     static char ID;
-    explicit CppWriter(raw_ostream &o) :
+    explicit CppWriter(formatted_raw_ostream &o) :
       ModulePass(&ID), Out(o), uniqueNum(0), is_inline(false) {}
 
     virtual const char *getPassName() const { return "C++ backend"; }
@@ -131,7 +123,7 @@ namespace {
   private:
     void printLinkageType(GlobalValue::LinkageTypes LT);
     void printVisibilityType(GlobalValue::VisibilityTypes VisTypes);
-    void printCallingConv(unsigned cc);
+    void printCallingConv(CallingConv::ID cc);
     void printEscapedString(const std::string& str);
     void printCFP(const ConstantFP* CFP);
 
@@ -163,7 +155,7 @@ namespace {
   };
 
   static unsigned indent_level = 0;
-  inline raw_ostream& nl(raw_ostream& Out, int delta = 0) {
+  inline formatted_raw_ostream& nl(formatted_raw_ostream& Out, int delta = 0) {
     Out << "\n";
     if (delta >= 0 || indent_level >= unsigned(-delta))
       indent_level += delta;
@@ -218,8 +210,7 @@ namespace {
   }
 
   void CppWriter::error(const std::string& msg) {
-    cerr << progname << ": " << msg << "\n";
-    exit(2);
+    report_fatal_error(msg);
   }
 
   // printCFP - Print a floating point constant .. very carefully :)
@@ -228,9 +219,9 @@ namespace {
   void CppWriter::printCFP(const ConstantFP *CFP) {
     bool ignored;
     APFloat APF = APFloat(CFP->getValueAPF());  // copy
-    if (CFP->getType() == Type::FloatTy)
+    if (CFP->getType() == Type::getFloatTy(CFP->getContext()))
       APF.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
-    Out << "ConstantFP::get(";
+    Out << "ConstantFP::get(mod->getContext(), ";
     Out << "APFloat(";
 #if HAVE_PRINTF_A
     char Buffer[100];
@@ -239,7 +230,7 @@ namespace {
          !strncmp(Buffer, "-0x", 3) ||
          !strncmp(Buffer, "+0x", 3)) &&
         APF.bitwiseIsEqual(APFloat(atof(Buffer)))) {
-      if (CFP->getType() == Type::DoubleTy)
+      if (CFP->getType() == Type::getDoubleTy(CFP->getContext()))
         Out << "BitsToDouble(" << Buffer << ")";
       else
         Out << "BitsToFloat((float)" << Buffer << ")";
@@ -257,11 +248,11 @@ namespace {
            ((StrVal[0] == '-' || StrVal[0] == '+') &&
             (StrVal[1] >= '0' && StrVal[1] <= '9'))) &&
           (CFP->isExactlyValue(atof(StrVal.c_str())))) {
-        if (CFP->getType() == Type::DoubleTy)
+        if (CFP->getType() == Type::getDoubleTy(CFP->getContext()))
           Out <<  StrVal;
         else
           Out << StrVal << "f";
-      } else if (CFP->getType() == Type::DoubleTy)
+      } else if (CFP->getType() == Type::getDoubleTy(CFP->getContext()))
         Out << "BitsToDouble(0x"
             << utohexstr(CFP->getValueAPF().bitcastToAPInt().getZExtValue())
             << "ULL) /* " << StrVal << " */";
@@ -277,7 +268,7 @@ namespace {
     Out << ")";
   }
 
-  void CppWriter::printCallingConv(unsigned cc){
+  void CppWriter::printCallingConv(CallingConv::ID cc){
     // Print the calling convention.
     switch (cc) {
     case CallingConv::C:     Out << "CallingConv::C"; break;
@@ -294,6 +285,8 @@ namespace {
       Out << "GlobalValue::InternalLinkage"; break;
     case GlobalValue::PrivateLinkage:
       Out << "GlobalValue::PrivateLinkage"; break;
+    case GlobalValue::LinkerPrivateLinkage:
+      Out << "GlobalValue::LinkerPrivateLinkage"; break;
     case GlobalValue::AvailableExternallyLinkage:
       Out << "GlobalValue::AvailableExternallyLinkage "; break;
     case GlobalValue::LinkOnceAnyLinkage:
@@ -314,8 +307,6 @@ namespace {
       Out << "GlobalValue::DLLExportLinkage"; break;
     case GlobalValue::ExternalWeakLinkage:
       Out << "GlobalValue::ExternalWeakLinkage"; break;
-    case GlobalValue::GhostLinkage:
-      Out << "GlobalValue::GhostLinkage"; break;
     case GlobalValue::CommonLinkage:
       Out << "GlobalValue::CommonLinkage"; break;
     }
@@ -323,7 +314,7 @@ namespace {
 
   void CppWriter::printVisibilityType(GlobalValue::VisibilityTypes VisType) {
     switch (VisType) {
-    default: assert(0 && "Unknown GVar visibility");
+    default: llvm_unreachable("Unknown GVar visibility");
     case GlobalValue::DefaultVisibility:
       Out << "GlobalValue::DefaultVisibility";
       break;
@@ -353,21 +344,23 @@ namespace {
 
   std::string CppWriter::getCppName(const Type* Ty) {
     // First, handle the primitive types .. easy
-    if (Ty->isPrimitiveType() || Ty->isInteger()) {
+    if (Ty->isPrimitiveType() || Ty->isIntegerTy()) {
       switch (Ty->getTypeID()) {
-      case Type::VoidTyID:   return "Type::VoidTy";
+      case Type::VoidTyID:   return "Type::getVoidTy(mod->getContext())";
       case Type::IntegerTyID: {
         unsigned BitWidth = cast<IntegerType>(Ty)->getBitWidth();
-        return "IntegerType::get(" + utostr(BitWidth) + ")";
+        return "IntegerType::get(mod->getContext(), " + utostr(BitWidth) + ")";
       }
-      case Type::FloatTyID:  return "Type::FloatTy";
-      case Type::DoubleTyID: return "Type::DoubleTy";
-      case Type::LabelTyID:  return "Type::LabelTy";
+      case Type::X86_FP80TyID: return "Type::getX86_FP80Ty(mod->getContext())";
+      case Type::FloatTyID:    return "Type::getFloatTy(mod->getContext())";
+      case Type::DoubleTyID:   return "Type::getDoubleTy(mod->getContext())";
+      case Type::LabelTyID:    return "Type::getLabelTy(mod->getContext())";
       default:
         error("Invalid primitive type");
         break;
       }
-      return "Type::VoidTy"; // shouldn't be returned, but make it sensible
+      // shouldn't be returned, but make it sensible
+      return "Type::getVoidTy(mod->getContext())";
     }
 
     // Now, see if we've seen the type before and return that
@@ -433,7 +426,10 @@ namespace {
     } else {
       name = getTypePrefix(val->getType());
     }
-    name += (val->hasName() ? val->getName() : utostr(uniqueNum++));
+    if (val->hasName())
+      name += val->getName();
+    else
+      name += utostr(uniqueNum++);
     sanitize(name);
     NameSet::iterator NI = UsedNames.find(name);
     if (NI != UsedNames.end())
@@ -465,15 +461,21 @@ namespace {
         
         HANDLE_ATTR(SExt);
         HANDLE_ATTR(ZExt);
-        HANDLE_ATTR(StructRet);
-        HANDLE_ATTR(InReg);
         HANDLE_ATTR(NoReturn);
+        HANDLE_ATTR(InReg);
+        HANDLE_ATTR(StructRet);
         HANDLE_ATTR(NoUnwind);
-        HANDLE_ATTR(ByVal);
         HANDLE_ATTR(NoAlias);
+        HANDLE_ATTR(ByVal);
         HANDLE_ATTR(Nest);
         HANDLE_ATTR(ReadNone);
         HANDLE_ATTR(ReadOnly);
+        HANDLE_ATTR(InlineHint);
+        HANDLE_ATTR(NoInline);
+        HANDLE_ATTR(AlwaysInline);
+        HANDLE_ATTR(OptimizeForSize);
+        HANDLE_ATTR(StackProtect);
+        HANDLE_ATTR(StackProtectReq);
         HANDLE_ATTR(NoCapture);
 #undef HANDLE_ATTR
         assert(attrs == 0 && "Unhandled attribute!");
@@ -491,7 +493,7 @@ namespace {
 
   bool CppWriter::printTypeInternal(const Type* Ty) {
     // We don't print definitions for primitive types
-    if (Ty->isPrimitiveType() || Ty->isInteger())
+    if (Ty->isPrimitiveType() || Ty->isIntegerTy())
       return false;
 
     // If we already defined this type, we don't need to define it again.
@@ -511,7 +513,8 @@ namespace {
     if (TI != TypeStack.end()) {
       TypeMap::const_iterator I = UnresolvedTypes.find(Ty);
       if (I == UnresolvedTypes.end()) {
-        Out << "PATypeHolder " << typeName << "_fwd = OpaqueType::get();";
+        Out << "PATypeHolder " << typeName;
+        Out << "_fwd = OpaqueType::get(mod->getContext());";
         nl(Out);
         UnresolvedTypes[Ty] = typeName;
       }
@@ -571,6 +574,7 @@ namespace {
         nl(Out);
       }
       Out << "StructType* " << typeName << " = StructType::get("
+          << "mod->getContext(), "
           << typeName << "_fields, /*isPacked=*/"
           << (ST->isPacked() ? "true" : "false") << ");";
       nl(Out);
@@ -610,7 +614,8 @@ namespace {
       break;
     }
     case Type::OpaqueTyID: {
-      Out << "OpaqueType* " << typeName << " = OpaqueType::get();";
+      Out << "OpaqueType* " << typeName;
+      Out << " = OpaqueType::get(mod->getContext());";
       nl(Out);
       break;
     }
@@ -681,7 +686,7 @@ namespace {
 
       // For primitive types and types already defined, just add a name
       TypeMap::const_iterator TNI = TypeNames.find(TI->second);
-      if (TI->second->isInteger() || TI->second->isPrimitiveType() ||
+      if (TI->second->isIntegerTy() || TI->second->isPrimitiveType() ||
           TNI != TypeNames.end()) {
         Out << "mod->addTypeName(\"";
         printEscapedString(TI->first);
@@ -745,9 +750,10 @@ namespace {
 
     if (const ConstantInt *CI = dyn_cast<ConstantInt>(CV)) {
       std::string constValue = CI->getValue().toString(10, true);
-      Out << "ConstantInt* " << constName << " = ConstantInt::get(APInt("
-          << cast<IntegerType>(CI->getType())->getBitWidth() << ",  \""
-          <<  constValue << "\", " << constValue.length() << ", 10));";
+      Out << "ConstantInt* " << constName
+          << " = ConstantInt::get(mod->getContext(), APInt("
+          << cast<IntegerType>(CI->getType())->getBitWidth()
+          << ", StringRef(\"" <<  constValue << "\"), 10));";
     } else if (isa<ConstantAggregateZero>(CV)) {
       Out << "ConstantAggregateZero* " << constName
           << " = ConstantAggregateZero::get(" << typeName << ");";
@@ -759,8 +765,11 @@ namespace {
       printCFP(CFP);
       Out << ";";
     } else if (const ConstantArray *CA = dyn_cast<ConstantArray>(CV)) {
-      if (CA->isString() && CA->getType()->getElementType() == Type::Int8Ty) {
-        Out << "Constant* " << constName << " = ConstantArray::get(\"";
+      if (CA->isString() &&
+          CA->getType()->getElementType() ==
+              Type::getInt8Ty(CA->getContext())) {
+        Out << "Constant* " << constName <<
+               " = ConstantArray::get(mod->getContext(), \"";
         std::string tmp = CA->getAsString();
         bool nullTerminate = false;
         if (tmp[tmp.length()-1] == 0) {
@@ -831,12 +840,12 @@ namespace {
             << getCppName(CE->getOperand(0)) << ", "
             << "&" << constName << "_indices[0], "
             << constName << "_indices.size()"
-            << " );";
+            << ");";
       } else if (CE->isCast()) {
         printConstant(CE->getOperand(0));
         Out << "Constant* " << constName << " = ConstantExpr::getCast(";
         switch (CE->getOpcode()) {
-        default: assert(0 && "Invalid cast opcode");
+        default: llvm_unreachable("Invalid cast opcode");
         case Instruction::Trunc: Out << "Instruction::Trunc"; break;
         case Instruction::ZExt:  Out << "Instruction::ZExt"; break;
         case Instruction::SExt:  Out << "Instruction::SExt"; break;
@@ -860,8 +869,11 @@ namespace {
         Out << "Constant* " << constName << " = ConstantExpr::";
         switch (CE->getOpcode()) {
         case Instruction::Add:    Out << "getAdd(";  break;
+        case Instruction::FAdd:   Out << "getFAdd(";  break;
         case Instruction::Sub:    Out << "getSub("; break;
+        case Instruction::FSub:   Out << "getFSub("; break;
         case Instruction::Mul:    Out << "getMul("; break;
+        case Instruction::FMul:   Out << "getFMul("; break;
         case Instruction::UDiv:   Out << "getUDiv("; break;
         case Instruction::SDiv:   Out << "getSDiv("; break;
         case Instruction::FDiv:   Out << "getFDiv("; break;
@@ -962,21 +974,20 @@ namespace {
     nl(Out);
     printType(GV->getType());
     if (GV->hasInitializer()) {
-      Constant* Init = GV->getInitializer();
+      Constant *Init = GV->getInitializer();
       printType(Init->getType());
-      if (Function* F = dyn_cast<Function>(Init)) {
+      if (Function *F = dyn_cast<Function>(Init)) {
         nl(Out)<< "/ Function Declarations"; nl(Out);
         printFunctionHead(F);
       } else if (GlobalVariable* gv = dyn_cast<GlobalVariable>(Init)) {
         nl(Out) << "// Global Variable Declarations"; nl(Out);
         printVariableHead(gv);
-      } else  {
-        nl(Out) << "// Constant Definitions"; nl(Out);
-        printConstant(gv);
-      }
-      if (GlobalVariable* gv = dyn_cast<GlobalVariable>(Init)) {
+        
         nl(Out) << "// Global Variable Definitions"; nl(Out);
         printVariableBody(gv);
+      } else  {
+        nl(Out) << "// Constant Definitions"; nl(Out);
+        printConstant(Init);
       }
     }
   }
@@ -984,13 +995,13 @@ namespace {
   void CppWriter::printVariableHead(const GlobalVariable *GV) {
     nl(Out) << "GlobalVariable* " << getCppName(GV);
     if (is_inline) {
-      Out << " = mod->getGlobalVariable(";
+      Out << " = mod->getGlobalVariable(mod->getContext(), ";
       printEscapedString(GV->getName());
       Out << ", " << getCppName(GV->getType()->getElementType()) << ",true)";
       nl(Out) << "if (!" << getCppName(GV) << ") {";
       in(); nl(Out) << getCppName(GV);
     }
-    Out << " = new GlobalVariable(";
+    Out << " = new GlobalVariable(/*Module=*/*mod, ";
     nl(Out) << "/*Type=*/";
     printCppName(GV->getType()->getElementType());
     Out << ",";
@@ -1005,8 +1016,7 @@ namespace {
     }
     nl(Out) << "/*Name=*/\"";
     printEscapedString(GV->getName());
-    Out << "\",";
-    nl(Out) << "mod);";
+    Out << "\");";
     nl(Out);
 
     if (GV->hasSection()) {
@@ -1026,6 +1036,11 @@ namespace {
       Out << "->setVisibility(";
       printVisibilityType(GV->getVisibility());
       Out << ");";
+      nl(Out);
+    }
+    if (GV->isThreadLocal()) {
+      printCppName(GV);
+      Out << "->setThreadLocal(true);";
       nl(Out);
     }
     if (is_inline) {
@@ -1072,8 +1087,9 @@ namespace {
 
     // Before we emit this instruction, we need to take care of generating any
     // forward references. So, we get the names of all the operands in advance
-    std::string* opNames = new std::string[I->getNumOperands()];
-    for (unsigned i = 0; i < I->getNumOperands(); i++) {
+    const unsigned Ops(I->getNumOperands());
+    std::string* opNames = new std::string[Ops];
+    for (unsigned i = 0; i < Ops; i++) {
       opNames[i] = getOpName(I->getOperand(i));
     }
 
@@ -1084,7 +1100,7 @@ namespace {
 
     case Instruction::Ret: {
       const ReturnInst* ret =  cast<ReturnInst>(I);
-      Out << "ReturnInst::Create("
+      Out << "ReturnInst::Create(mod->getContext(), "
           << (ret->getReturnValue() ? opNames[0] + ", " : "") << bbname << ");";
       break;
     }
@@ -1092,9 +1108,9 @@ namespace {
       const BranchInst* br = cast<BranchInst>(I);
       Out << "BranchInst::Create(" ;
       if (br->getNumOperands() == 3 ) {
-        Out << opNames[0] << ", "
+        Out << opNames[2] << ", "
             << opNames[1] << ", "
-            << opNames[2] << ", ";
+            << opNames[0] << ", ";
 
       } else if (br->getNumOperands() == 1) {
         Out << opNames[0] << ", ";
@@ -1105,16 +1121,27 @@ namespace {
       break;
     }
     case Instruction::Switch: {
-      const SwitchInst* sw = cast<SwitchInst>(I);
+      const SwitchInst *SI = cast<SwitchInst>(I);
       Out << "SwitchInst* " << iName << " = SwitchInst::Create("
           << opNames[0] << ", "
           << opNames[1] << ", "
-          << sw->getNumCases() << ", " << bbname << ");";
+          << SI->getNumCases() << ", " << bbname << ");";
       nl(Out);
-      for (unsigned i = 2; i < sw->getNumOperands(); i += 2 ) {
+      for (unsigned i = 2; i != SI->getNumOperands(); i += 2) {
         Out << iName << "->addCase("
             << opNames[i] << ", "
             << opNames[i+1] << ");";
+        nl(Out);
+      }
+      break;
+    }
+    case Instruction::IndirectBr: {
+      const IndirectBrInst *IBI = cast<IndirectBrInst>(I);
+      Out << "IndirectBrInst *" << iName << " = IndirectBrInst::Create("
+          << opNames[0] << ", " << IBI->getNumDestinations() << ");";
+      nl(Out);
+      for (unsigned i = 1; i != IBI->getNumOperands(); ++i) {
+        Out << iName << "->addDestination(" << opNames[i] << ");";
         nl(Out);
       }
       break;
@@ -1123,15 +1150,15 @@ namespace {
       const InvokeInst* inv = cast<InvokeInst>(I);
       Out << "std::vector<Value*> " << iName << "_params;";
       nl(Out);
-      for (unsigned i = 3; i < inv->getNumOperands(); ++i) {
+      for (unsigned i = 0; i < inv->getNumOperands() - 3; ++i) {
         Out << iName << "_params.push_back("
             << opNames[i] << ");";
         nl(Out);
       }
       Out << "InvokeInst *" << iName << " = InvokeInst::Create("
-          << opNames[0] << ", "
-          << opNames[1] << ", "
-          << opNames[2] << ", "
+          << opNames[Ops - 3] << ", "
+          << opNames[Ops - 2] << ", "
+          << opNames[Ops - 1] << ", "
           << iName << "_params.begin(), " << iName << "_params.end(), \"";
       printEscapedString(inv->getName());
       Out << "\", " << bbname << ");";
@@ -1148,14 +1175,18 @@ namespace {
           << bbname << ");";
       break;
     }
-    case Instruction::Unreachable:{
+    case Instruction::Unreachable: {
       Out << "new UnreachableInst("
+          << "mod->getContext(), "
           << bbname << ");";
       break;
     }
     case Instruction::Add:
+    case Instruction::FAdd:
     case Instruction::Sub:
+    case Instruction::FSub:
     case Instruction::Mul:
+    case Instruction::FMul:
     case Instruction::UDiv:
     case Instruction::SDiv:
     case Instruction::FDiv:
@@ -1171,8 +1202,11 @@ namespace {
       Out << "BinaryOperator* " << iName << " = BinaryOperator::Create(";
       switch (I->getOpcode()) {
       case Instruction::Add: Out << "Instruction::Add"; break;
+      case Instruction::FAdd: Out << "Instruction::FAdd"; break;
       case Instruction::Sub: Out << "Instruction::Sub"; break;
+      case Instruction::FSub: Out << "Instruction::FSub"; break;
       case Instruction::Mul: Out << "Instruction::Mul"; break;
+      case Instruction::FMul: Out << "Instruction::FMul"; break;
       case Instruction::UDiv:Out << "Instruction::UDiv"; break;
       case Instruction::SDiv:Out << "Instruction::SDiv"; break;
       case Instruction::FDiv:Out << "Instruction::FDiv"; break;
@@ -1193,7 +1227,7 @@ namespace {
       break;
     }
     case Instruction::FCmp: {
-      Out << "FCmpInst* " << iName << " = new FCmpInst(";
+      Out << "FCmpInst* " << iName << " = new FCmpInst(*" << bbname << ", ";
       switch (cast<FCmpInst>(I)->getPredicate()) {
       case FCmpInst::FCMP_FALSE: Out << "FCmpInst::FCMP_FALSE"; break;
       case FCmpInst::FCMP_OEQ  : Out << "FCmpInst::FCMP_OEQ"; break;
@@ -1215,11 +1249,11 @@ namespace {
       }
       Out << ", " << opNames[0] << ", " << opNames[1] << ", \"";
       printEscapedString(I->getName());
-      Out << "\", " << bbname << ");";
+      Out << "\");";
       break;
     }
     case Instruction::ICmp: {
-      Out << "ICmpInst* " << iName << " = new ICmpInst(";
+      Out << "ICmpInst* " << iName << " = new ICmpInst(*" << bbname << ", ";
       switch (cast<ICmpInst>(I)->getPredicate()) {
       case ICmpInst::ICMP_EQ:  Out << "ICmpInst::ICMP_EQ";  break;
       case ICmpInst::ICMP_NE:  Out << "ICmpInst::ICMP_NE";  break;
@@ -1235,26 +1269,7 @@ namespace {
       }
       Out << ", " << opNames[0] << ", " << opNames[1] << ", \"";
       printEscapedString(I->getName());
-      Out << "\", " << bbname << ");";
-      break;
-    }
-    case Instruction::Malloc: {
-      const MallocInst* mallocI = cast<MallocInst>(I);
-      Out << "MallocInst* " << iName << " = new MallocInst("
-          << getCppName(mallocI->getAllocatedType()) << ", ";
-      if (mallocI->isArrayAllocation())
-        Out << opNames[0] << ", " ;
-      Out << "\"";
-      printEscapedString(mallocI->getName());
-      Out << "\", " << bbname << ");";
-      if (mallocI->getAlignment())
-        nl(Out) << iName << "->setAlignment("
-            << mallocI->getAlignment() << ");";
-      break;
-    }
-    case Instruction::Free: {
-      Out << "FreeInst* " << iName << " = new FreeInst("
-          << getCppName(I->getOperand(0)) << ", " << bbname << ");";
+      Out << "\");";
       break;
     }
     case Instruction::Alloca: {
@@ -1663,7 +1678,8 @@ namespace {
     for (Function::const_iterator BI = F->begin(), BE = F->end();
          BI != BE; ++BI) {
       std::string bbname(getCppName(BI));
-      Out << "BasicBlock* " << bbname << " = BasicBlock::Create(\"";
+      Out << "BasicBlock* " << bbname <<
+             " = BasicBlock::Create(mod->getContext(), \"";
       if (BI->hasName())
         printEscapedString(BI->getName());
       Out << "\"," << getCppName(BI->getParent()) << ",0);";
@@ -1782,6 +1798,7 @@ namespace {
 
   void CppWriter::printProgram(const std::string& fname,
                                const std::string& mName) {
+    Out << "#include <llvm/LLVMContext.h>\n";
     Out << "#include <llvm/Module.h>\n";
     Out << "#include <llvm/DerivedTypes.h>\n";
     Out << "#include <llvm/Constants.h>\n";
@@ -1791,8 +1808,8 @@ namespace {
     Out << "#include <llvm/BasicBlock.h>\n";
     Out << "#include <llvm/Instructions.h>\n";
     Out << "#include <llvm/InlineAsm.h>\n";
+    Out << "#include <llvm/Support/FormattedStream.h>\n";
     Out << "#include <llvm/Support/MathExtras.h>\n";
-    Out << "#include <llvm/Support/raw_ostream.h>\n";
     Out << "#include <llvm/Pass.h>\n";
     Out << "#include <llvm/PassManager.h>\n";
     Out << "#include <llvm/ADT/SmallVector.h>\n";
@@ -1804,7 +1821,6 @@ namespace {
     Out << "int main(int argc, char**argv) {\n";
     Out << "  Module* Mod = " << fname << "();\n";
     Out << "  verifyModule(*Mod, PrintMessageAction);\n";
-    Out << "  outs().flush();\n";
     Out << "  PassManager PM;\n";
     Out << "  PM.add(createPrintModulePass(&outs()));\n";
     Out << "  PM.run(*Mod);\n";
@@ -1817,7 +1833,9 @@ namespace {
                               const std::string& mName) {
     nl(Out) << "Module* " << fname << "() {";
     nl(Out,1) << "// Module Construction";
-    nl(Out) << "Module* mod = new Module(\"" << mName << "\");";
+    nl(Out) << "Module* mod = new Module(\"";
+    printEscapedString(mName);
+    Out << "\", getGlobalContext());";
     if (!TheModule->getTargetTriple().empty()) {
       nl(Out) << "mod->setDataLayout(\"" << TheModule->getDataLayout() << "\");";
     }
@@ -1850,7 +1868,9 @@ namespace {
   void CppWriter::printContents(const std::string& fname,
                                 const std::string& mName) {
     Out << "\nModule* " << fname << "(Module *mod) {\n";
-    Out << "\nmod->setModuleIdentifier(\"" << mName << "\");\n";
+    Out << "\nmod->setModuleIdentifier(\"";
+    printEscapedString(mName);
+    Out << "\");\n";
     printModuleBody();
     Out << "\nreturn mod;\n";
     Out << "\n}\n";
@@ -1992,11 +2012,12 @@ char CppWriter::ID = 0;
 //                       External Interface declaration
 //===----------------------------------------------------------------------===//
 
-bool CPPTargetMachine::addPassesToEmitWholeFile(PassManager &PM,
-                                                raw_ostream &o,
-                                                CodeGenFileType FileType,
-                                                CodeGenOpt::Level OptLevel) {
-  if (FileType != TargetMachine::AssemblyFile) return true;
+bool CPPTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
+                                           formatted_raw_ostream &o,
+                                           CodeGenFileType FileType,
+                                           CodeGenOpt::Level OptLevel,
+                                           bool DisableVerify) {
+  if (FileType != TargetMachine::CGFT_AssemblyFile) return true;
   PM.add(new CppWriter(o));
   return false;
 }

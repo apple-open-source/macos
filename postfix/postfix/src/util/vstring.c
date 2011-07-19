@@ -173,7 +173,8 @@
 /*	arguments more than once. The result is NOT null-terminated.
 /*
 /*	vstring_truncate() truncates the named string to the specified
-/*	length. The operation has no effect when the string is shorter.
+/*	length. If length is negative, the trailing portion is kept.
+/*	The operation has no effect when the string is shorter.
 /*	The string is not null-terminated.
 /*
 /*	VSTRING_RESET() is a macro that resets the write position of its
@@ -299,7 +300,7 @@ static void vstring_extend(VBUF *bp, ssize_t incr)
      * negative length parameters).
      */
     new_len = bp->len + (bp->len > incr ? bp->len : incr);
-    if (new_len < 0)
+    if (new_len <= bp->len)
 	msg_fatal("vstring_extend: length overflow");
     bp->data = (unsigned char *) myrealloc((char *) bp->data, new_len);
     bp->len = new_len;
@@ -393,8 +394,13 @@ void    vstring_ctl(VSTRING *vp,...)
 
 VSTRING *vstring_truncate(VSTRING *vp, ssize_t len)
 {
-    if (len < 0)
-	msg_panic("vstring_truncate: bad length %ld", (long) len);
+    ssize_t move;
+
+    if (len < 0) {
+	len = (-len);
+	if ((move = VSTRING_LEN(vp) - len) > 0)
+	    memmove(vstring_str(vp), vstring_str(vp) + move, len);
+    }
     if (len < VSTRING_LEN(vp))
 	VSTRING_AT_OFFSET(vp, len);
     return (vp);

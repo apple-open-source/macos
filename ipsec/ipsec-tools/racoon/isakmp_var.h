@@ -66,20 +66,14 @@ extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr *,
 extern vchar_t *isakmp_parsewoh __P((int, struct isakmp_gen *, int));
 extern vchar_t *isakmp_parse __P((vchar_t *));
 
-#ifndef __APPLE__
-extern int isakmp_init __P((void));
-#else
-extern int isakmp_init __P((int));
-#endif /* __APPLE__ */
+extern int isakmp_init __P((int, int *));
 extern void isakmp_cleanup __P((void));
 
 extern const char *isakmp_pindex __P((const isakmp_index *, const u_int32_t));
-extern int isakmp_open __P((void));
+extern int isakmp_open __P((int *));
 extern void isakmp_close __P((void));
-#ifdef __APPLE__
 extern void isakmp_close_sockets __P((void));
 extern void isakmp_close_unused __P((void));
-#endif
 extern int isakmp_send __P((struct ph1handle *, vchar_t *));
 
 extern void isakmp_ph1resend_stub __P((void *));
@@ -122,7 +116,7 @@ extern struct payload_list *isakmp_plist_append __P((struct payload_list *plist,
 extern vchar_t *isakmp_plist_set_all __P((struct payload_list **plist,
 	struct ph1handle *iph1));
 extern vchar_t *isakmp_plist_append_initial_contact __P((struct ph1handle *,
-														 struct payload_list *));
+															struct payload_list *));
 
 #ifdef HAVE_PRINT_ISAKMP_C
 extern void isakmp_printpacket __P((vchar_t *, struct sockaddr *,

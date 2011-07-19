@@ -35,23 +35,31 @@
 
 #include "WebKitDefines.h"
 
+class WebDOMElement;
+class WebDOMNode;
+
+#include "WebDOMSelection.h"
+
+class Element;
+
 class WebFramePrivate;
 class WebViewFrameData;
 class wxWebView;
 
 namespace WebCore {
     class ChromeClientWx;
-    class FrameLoaderClientWx;
     class EditorClientWx;
-    class Frame;
+    class FrameLoaderClientWx;
+    class Frame;    
 }
 
 class WXDLLIMPEXP_WEBKIT wxWebViewDOMElementInfo
 {
 public:
     wxWebViewDOMElementInfo();
+    wxWebViewDOMElementInfo(const wxWebViewDOMElementInfo& other);
 
-    ~wxWebViewDOMElementInfo() { }
+    ~wxWebViewDOMElementInfo();
 
     wxString GetTagName() const { return m_tagName; }
     void SetTagName(const wxString& name) { m_tagName = name; }
@@ -67,9 +75,16 @@ public:
 
     wxString GetLink() const { return m_link; }
     void SetLink(const wxString& link) { m_link = link; }
+    
+    WebDOMNode* GetInnerNode() { return m_innerNode; }
+    void SetInnerNode(WebDOMNode* node) { m_innerNode = node; }
+    
+    WebDOMElement* GetURLElement() { return m_urlElement; }
+    void SetURLElement(WebDOMElement* url) { m_urlElement = url; }
 
 private:
-    void* m_domElement;
+    WebDOMNode* m_innerNode;
+    WebDOMElement* m_urlElement;
     bool m_isSelected;
     wxString m_tagName;
     wxString m_text;
@@ -78,10 +93,11 @@ private:
 };
 
 // based on enums in WebCore/dom/Document.h
-enum wxWebKitParseMode { Compat, AlmostStrict, Strict, NoDocument };
+enum wxWebKitCompatibilityMode { QuirksMode, LimitedQuirksMode, NoQuirksMode };
 
 class WXDLLIMPEXP_WEBKIT wxWebFrame
 {
+public:
     // ChromeClientWx needs to get the Page* stored by the wxWebView
     // for the createWindow function. 
     friend class WebCore::ChromeClientWx;
@@ -118,13 +134,20 @@ public:
     void Redo();
     
     wxString GetPageSource();
-    void SetPageSource(const wxString& source, const wxString& baseUrl = wxEmptyString);
+    void SetPageSource(const wxString& source, const wxString& baseUrl = wxEmptyString, const wxString& mimetype = wxT("text/html"));
     
     wxString GetInnerText();
     wxString GetAsMarkup();
     wxString GetExternalRepresentation();
     
+    wxWebKitSelection GetSelection();
+    wxString GetSelectionAsHTML();
+    wxString GetSelectionAsText();
+    
     wxString RunScript(const wxString& javascript);
+    bool ExecuteEditCommand(const wxString& command, const wxString& parameter = wxEmptyString);
+    EditState GetEditCommandState(const wxString& command) const;
+    wxString GetEditCommandValue(const wxString& command) const;
     
     bool FindString(const wxString& string, bool forward = true,
         bool caseSensitive = false, bool wrapSelection = true,
@@ -136,7 +159,7 @@ public:
     void DecreaseTextSize();
     void ResetTextSize();
     void MakeEditable(bool enable);
-    bool IsEditable() const { return m_isEditable; }
+    bool IsEditable() const;
     
     WebCore::Frame* GetFrame();
 
@@ -144,13 +167,12 @@ public:
     
     bool ShouldClose() const;
     
-    wxWebKitParseMode GetParseMode() const;
+    wxWebKitCompatibilityMode GetCompatibilityMode() const;
     
     void GrantUniversalAccess();
     
 private:
     float m_textMagnifier;
-    bool m_isEditable;
     bool m_isInitialized;
     bool m_beingDestroyed;
     WebFramePrivate* m_impl;

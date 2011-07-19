@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 120;
+use Test::More tests => 127;
 
 use DateTime;
 
@@ -25,9 +25,9 @@ use DateTime;
     is( $deltas1{minutes}, 0, 'delta_minutes is 0' );
     is( $deltas1{seconds}, 0, 'delta_seconds is 0' );
 
-    is( $dt1->clone->add_duration($dur1), $dt2,
+    is( DateTime->compare( $dt1->clone->add_duration($dur1), $dt2 ), 0,
         'subtract_datetime is reversible from start point' );
-    is( $dt2->clone->subtract_duration($dur1), $dt1,
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur1), $dt1 ), 0,
         'subtract_datetime is reversible from end point' );
     is( $deltas1{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
@@ -47,9 +47,9 @@ use DateTime;
     is( $deltas3{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas3{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur3), $dt2,
+    is( DateTime->compare( $dt1->clone->add_duration($dur3), $dt2 ), 0,
         'delta_md is reversible from start point' );
-    is( $dt2->clone->subtract_duration($dur3), $dt1,
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur3), $dt1 ), 0,
         'delta_md is reversible from end point' );
 
     my $dur4 = $dt2->delta_days($dt1);
@@ -60,9 +60,9 @@ use DateTime;
     is( $deltas4{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas4{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur3), $dt2,
+    is( DateTime->compare( $dt1->clone->add_duration($dur3), $dt2 ), 0,
         'delta_days is reversible from start point' );
-    is( $dt2->clone->subtract_duration($dur4), $dt1,
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur4), $dt1 ), 0,
         'delta_days is reversible from end point' );
 }
 
@@ -131,9 +131,9 @@ use DateTime;
 
     my $dur = $dt2->subtract_datetime($dt1);
 
-    is( $dt1->add_duration($dur), $dt2,
+    is( DateTime->compare( $dt1->add_duration($dur), $dt2 ), 0,
         'subtraction is reversible from start point with UTC' );
-    is( $dt2->subtract_duration($dur), $dt2,
+    is( DateTime->compare( $dt2->subtract_duration($dur), $dt2 ), 0,
         'subtraction is reversible from start point with UTC' );
 }
 
@@ -158,8 +158,10 @@ use DateTime;
     is( $deltas1{seconds}, 15901200, 'delta_seconds is 15901200' );
     is( $deltas1{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur1), $dt2, 'subtraction is reversible' );
-    is( $dt2->clone->subtract_duration($dur1), $dt1, 'subtraction is doubly reversible' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur1), $dt2 ), 0,
+        'subtraction is reversible' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur1), $dt1 ), 0,
+        'subtraction is doubly reversible' );
 
     my $dur2 = $dt1->subtract_datetime_absolute($dt2);
 
@@ -170,19 +172,21 @@ use DateTime;
     is( $deltas2{seconds}, -15901200, 'delta_seconds is -15901200' );
     is( $deltas2{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt2->clone->add_duration($dur2), $dt1, 'subtraction is reversible' );
-    is( $dt1->clone->subtract_duration($dur2), $dt2, 'subtraction is doubly reversible' );
+    is( DateTime->compare( $dt2->clone->add_duration($dur2), $dt1 ), 0,
+        'subtraction is reversible' );
+    is( DateTime->compare( $dt1->clone->subtract_duration($dur2), $dt2 ), 0,
+        'subtraction is doubly reversible' );
 }
 
 {
     my $dt1 = DateTime->new( year => 2003, month => 4, day => 6,
                              hour => 1, minute => 58,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dt2 = DateTime->new( year => 2003, month => 4, day => 6,
                              hour => 3, minute => 1,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dur = $dt2->subtract_datetime($dt1);
@@ -194,19 +198,21 @@ use DateTime;
     is( $deltas{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, 'subtraction is reversible' );
-    is( $dt2->clone->subtract_duration($dur), $dt1, 'subtraction is doubly reversible' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        'subtraction is reversible' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1), 0,
+        'subtraction is doubly reversible' );
 }
 
 {
     my $dt1 = DateTime->new( year => 2003, month => 4, day => 5,
                              hour => 1, minute => 58,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dt2 = DateTime->new( year => 2003, month => 4, day => 6,
                              hour => 3, minute => 1,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dur = $dt2->subtract_datetime($dt1);
@@ -218,13 +224,18 @@ use DateTime;
     is( $deltas{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, 'dt1 + dur = dt2' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        'dt1 + dur = dt2' );
     # this are two examples from the docs
-    is( $dt2->clone->subtract_duration($dur), $dt1->clone->add( hours => 1 ),
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur),
+                           $dt1->clone->add( hours => 1 ) ),
+        0,
         'dt2 - dur != dt1 (not reversible)' );
-    is( $dt2->clone->subtract_duration( $dur->clock_duration )
-                   ->subtract_duration( $dur->calendar_duration ),
-        $dt1, 'dt2 - dur->clock - dur->cal = dt1 (reversible when componentized)' );
+    is( DateTime->compare( $dt2->clone->subtract_duration( $dur->clock_duration )
+                               ->subtract_duration( $dur->calendar_duration ),
+                           $dt1 ),
+        0,
+        'dt2 - dur->clock - dur->cal = dt1 (reversible when componentized)' );
 
     my $dur2 = $dt1->subtract_datetime($dt2);
     my %deltas2 = $dur2->deltas;
@@ -234,10 +245,13 @@ use DateTime;
     is( $deltas2{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas2{nanoseconds}, 0, 'delta_nanoseconds is 0' );
     is( $dt2->clone->add_duration($dur2)->datetime, '2003-04-05T02:58:00', 'dt2 + dur2 != dt1' );
-    is( $dt2->clone->add_duration( $dur2->clock_duration )
-                   ->add_duration( $dur2->calendar_duration ),
-        $dt1, 'dt2 + dur2->clock + dur2->cal = dt1' );
-    is( $dt1->clone->subtract_duration($dur2), $dt2, 'dt1 - dur2 = dt2' );
+    is( DateTime->compare( $dt2->clone->add_duration( $dur2->clock_duration )
+                               ->add_duration( $dur2->calendar_duration ),
+                           $dt1 ),
+        0,
+        'dt2 + dur2->clock + dur2->cal = dt1' );
+    is( DateTime->compare( $dt1->clone->subtract_duration($dur2), $dt2 ), 0,
+        'dt1 - dur2 = dt2' );
 
 }
 
@@ -246,12 +260,12 @@ use DateTime;
 {
     my $dt1 = DateTime->new( year => 2003, month => 4, day => 6,
                              hour => 3, minute => 1,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dt2 = DateTime->new( year => 2003, month => 4, day => 7,
                              hour => 3, minute => 2,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dur = $dt2->subtract_datetime($dt1);
@@ -277,12 +291,12 @@ use DateTime;
 {
     my $dt1 = DateTime->new( year => 2003, month => 4, day => 5,
                              hour => 1, minute => 58,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dt2 = DateTime->new( year => 2003, month => 4, day => 7,
                              hour => 2, minute => 1,
-                             time_zone => "America/Chicago",
+                             time_zone => 'America/Chicago',
                            );
 
     my $dur = $dt2->subtract_datetime($dt1);
@@ -294,8 +308,9 @@ use DateTime;
     is( $deltas{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, 'subtraction is reversible' );
-    is( $dt2->clone->subtract_duration($dur), $dt1,
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        'subtraction is reversible' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1 ), 0,
         'subtraction is doubly reversible' );
 }
 
@@ -320,8 +335,10 @@ use DateTime;
     is( $deltas{seconds}, 0, 'delta_seconds is 0' );
     is( $deltas{nanoseconds}, 0, 'delta_nanoseconds is 0' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, 'subtraction is reversible from start point' );
-    is( $dt2->clone->subtract_duration($dur), $dt1, 'subtraction is reversible from end point' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        'subtraction is reversible from start point' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1 ), 0,
+        'subtraction is reversible from end point' );
 }
 
 {
@@ -373,8 +390,10 @@ use DateTime;
     is( $deltas{days}, 0, '0 days between two local times over DST change' );
     is( $deltas{minutes}, 60, '60 minutes between two local times over DST change' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, 'subtraction is reversible' );
-    is( $dt2->clone->subtract_duration($dur), $dt1, 'subtraction is doubly reversible' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        'subtraction is reversible' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1 ), 0,
+        'subtraction is doubly reversible' );
 }
 
 {
@@ -398,3 +417,86 @@ use DateTime;
     is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1 ), 0,
         'subtraction is doubly reversible' );
 }
+
+# Fix a bug that occurred when the local time zone had DST and the two
+# datetime objects were on the same day
+{
+    my $dt1 = DateTime->new( year => 2005, month => 4, day => 3,
+                             hour => 7, minute => 0,
+                             time_zone => 'America/New_York' );
+
+    my $dt2 = DateTime->new( year => 2005, month => 4, day => 3,
+                             hour => 8, minute => 0,
+                             time_zone => 'America/New_York' );
+
+    my $dur = $dt2->subtract_datetime($dt1);
+    my ( $minutes, $seconds ) = $dur->in_units( 'minutes','seconds' );
+
+    is( $minutes, 60, 'subtraction of two dates on a DST change date, minutes == 60' );
+    is( $seconds, 0, 'subtraction of two dates on a DST change date, seconds == 0' );
+
+    $dur = $dt1->subtract_datetime($dt1);
+    ok( $dur->is_zero, 'dst change date (no dst) - itself, duration is zero' );
+}
+
+{
+    my $dt1 = DateTime->new( year => 2005, month => 4, day => 3,
+                             hour => 1, minute => 0,
+                             time_zone => 'America/New_York' );
+
+    my $dur = $dt1->subtract_datetime($dt1);
+    ok( $dur->is_zero, 'dst change date (with dst) - itself, duration is zero' );
+}
+
+# This tests a bug where one of the datetimes is changing DST, and the
+# other is not. In this case, no "adjustments" (aka hacks) are made in
+# subtract_datetime, and it just gives the "UTC difference".
+{
+    # This is UTC-4
+    my $dt1 = DateTime->new( year => 2009, month => 3, day => 9,
+                             time_zone => 'America/New_York' );
+    # This is UTC+8
+    my $dt2 = DateTime->new( year => 2009, month => 3, day => 9,
+                             time_zone => 'Asia/Hong_Kong' );
+
+    my $dur = $dt1->subtract_datetime($dt2);
+
+    is( $dur->delta_minutes, 720,
+        'subtraction the day after a DST change in one zone, where the other datetime is in a different zone' );
+}
+
+{
+    # This is UTC-5
+    my $dt1 = DateTime->new( year => 2009, month => 3, day => 8,
+                             hour => 1,
+                             time_zone => 'America/New_York' );
+    # This is UTC+8
+    my $dt2 = DateTime->new( year => 2009, month => 3, day => 8,
+                             hour => 1,
+                             time_zone => 'Asia/Hong_Kong' );
+
+    my $dur = $dt1->subtract_datetime($dt2);
+
+    is( $dur->delta_minutes, 780,
+        'subtraction the day of a DST change in one zone (before the change),'
+        . ' where the other datetime is in a different zone' );
+}
+
+
+{
+    # This is UTC-4
+    my $dt1 = DateTime->new( year => 2009, month => 3, day => 8,
+                             hour => 4,
+                             time_zone => 'America/New_York' );
+    # This is UTC+8
+    my $dt2 = DateTime->new( year => 2009, month => 3, day => 8,
+                             hour => 4,
+                             time_zone => 'Asia/Hong_Kong' );
+
+    my $dur = $dt1->subtract_datetime($dt2);
+
+    is( $dur->delta_minutes, 720,
+        'subtraction the day of a DST change in one zone (after the change),'
+        . ' where the other datetime is in a different zone' );
+}
+

@@ -32,6 +32,8 @@
 #include "DOMFormData.h"
 
 #include "Blob.h"
+#include "HTMLFormControlElement.h"
+#include "HTMLFormElement.h"
 #include "PlatformString.h"
 #include "TextEncoding.h"
 
@@ -40,6 +42,19 @@ namespace WebCore {
 DOMFormData::DOMFormData(const TextEncoding& encoding)
     : FormDataList(encoding)
 {
+}
+
+DOMFormData::DOMFormData(HTMLFormElement* form)
+    : FormDataList(UTF8Encoding())
+{
+    if (!form)
+        return;
+
+    for (unsigned i = 0; i < form->associatedElements().size(); ++i) {
+        FormAssociatedElement* element = form->associatedElements()[i];
+        if (!toHTMLElement(element)->disabled())
+            element->appendFormData(*this, true);
+    }
 }
 
 void DOMFormData::append(const String& name, const String& value)

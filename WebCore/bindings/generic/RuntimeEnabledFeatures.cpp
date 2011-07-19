@@ -31,10 +31,14 @@
 #include "config.h"
 #include "RuntimeEnabledFeatures.h"
 
-#include "Database.h"
+#include "AbstractDatabase.h"
 #include "MediaPlayer.h"
 #include "SharedWorkerRepository.h"
 #include "WebSocket.h"
+
+#if ENABLE(FILE_SYSTEM)
+#include "AsyncFileSystem.h"
+#endif
 
 namespace WebCore {
 
@@ -42,11 +46,41 @@ bool RuntimeEnabledFeatures::isLocalStorageEnabled = true;
 bool RuntimeEnabledFeatures::isSessionStorageEnabled = true;
 bool RuntimeEnabledFeatures::isWebkitNotificationsEnabled = false;
 bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
+bool RuntimeEnabledFeatures::isDataTransferItemsEnabled = true;
 bool RuntimeEnabledFeatures::isGeolocationEnabled = true;
 bool RuntimeEnabledFeatures::isIndexedDBEnabled = false;
-bool RuntimeEnabledFeatures::isWebGLEnabled = false;
+bool RuntimeEnabledFeatures::isWebAudioEnabled = false;
 bool RuntimeEnabledFeatures::isPushStateEnabled = false;
-bool RuntimeEnabledFeatures::isTouchEnabled = false;
+bool RuntimeEnabledFeatures::isTouchEnabled = true;
+bool RuntimeEnabledFeatures::isDeviceMotionEnabled = true;
+bool RuntimeEnabledFeatures::isDeviceOrientationEnabled = true;
+bool RuntimeEnabledFeatures::isSpeechInputEnabled = true;
+
+#if ENABLE(MEDIA_STREAM)
+bool RuntimeEnabledFeatures::isMediaStreamEnabled = true;
+#endif
+
+#if ENABLE(XHR_RESPONSE_BLOB)
+bool RuntimeEnabledFeatures::isXHRResponseBlobEnabled = false;
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+bool RuntimeEnabledFeatures::isFileSystemEnabled = false;
+
+bool RuntimeEnabledFeatures::fileSystemEnabled()
+{
+    return isFileSystemEnabled && AsyncFileSystem::isAvailable();
+}
+#endif
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+bool RuntimeEnabledFeatures::isJavaScriptI18NAPIEnabled = false;
+
+bool RuntimeEnabledFeatures::javaScriptI18NAPIEnabled()
+{
+    return isJavaScriptI18NAPIEnabled;
+}
+#endif
 
 #if ENABLE(VIDEO)
 
@@ -75,6 +109,11 @@ bool RuntimeEnabledFeatures::mediaErrorEnabled()
     return MediaPlayer::isAvailable();
 }
 
+bool RuntimeEnabledFeatures::timeRangesEnabled()
+{
+    return MediaPlayer::isAvailable();
+}
+
 #endif
 
 #if ENABLE(SHARED_WORKERS)
@@ -94,8 +133,17 @@ bool RuntimeEnabledFeatures::webSocketEnabled()
 #if ENABLE(DATABASE)
 bool RuntimeEnabledFeatures::openDatabaseEnabled()
 {
-    return Database::isAvailable();
+    return AbstractDatabase::isAvailable();
 }
+
+bool RuntimeEnabledFeatures::openDatabaseSyncEnabled()
+{
+    return AbstractDatabase::isAvailable();
+}
+#endif
+
+#if ENABLE(QUOTA)
+bool RuntimeEnabledFeatures::isQuotaEnabled = false;
 #endif
 
 } // namespace WebCore

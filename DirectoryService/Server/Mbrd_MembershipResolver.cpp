@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if !defined(DISABLE_SEARCH_PLUGIN) || !defined(DISABLE_MEMBERSHIP_CACHE)
+
 #include "Mbrd_MembershipResolver.h"
 #include "Mbrd_Cache.h"
 #include <sys/syslog.h>
@@ -43,7 +45,6 @@
 #include <gssapi/gssapi.h>
 #include "CInternalDispatch.h"
 #include "CPlugInList.h"
-#include "CCachePlugin.h"
 #include <map>
 #include <string>
 #include <membershipPriv.h>
@@ -54,7 +55,6 @@
 #define kDefaultNegativeExpirationStr "DefaultFailureExpirationInSecs"
 #define kDefaultKernelExpirationInSecsStr "DefaultKernelExpirationInSecs"
 #define kKerberosFallbackToRecordName "KerberosFallbackToRecordName"
-#define kKernelResolverTimeout "KernelResolverTimeout"
 
 #define kUUIDBlock		1
 #define kSmallSIDBlock	2
@@ -98,8 +98,6 @@ extern dsBool		gDSInstallDaemonMode;
 extern dsBool		gServerOS;
 extern CPlugInList	*gPlugins;
 
-int gKernelTimeout = 60;
-
 static MbrdCache			*gMbrdCache		= NULL;
 
 // keep these around, we use them a lot
@@ -129,8 +127,8 @@ static pthread_mutex_t			sidMapLock = PTHREAD_MUTEX_INITIALIZER;	// waiting for 
 static dispatch_queue_t			gLookupQueue = NULL;
 static pthread_key_t			gMembershipThreadKey = NULL;
 
+#ifndef DISABLE_CACHE_PLUGIN
 extern CCachePlugin				*gCacheNode;
-extern uint32_t					gNumberOfCores;
 
 extern sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
 										   tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache,
@@ -138,6 +136,7 @@ extern sCacheValidation* ParsePasswdEntry( tDirReference inDirRef, tDirNodeRefer
 extern sCacheValidation* ParseGroupEntry( tDirReference inDirRef, tDirNodeReference inNodeRef, kvbuf_t *inBuffer, tDataBufferPtr inDataBuffer, 
 										  tRecordEntryPtr inRecEntry, tAttributeListRef inAttrListRef, void *additionalInfo, CCache *inCache, 
 										  const char **inKeys );
+#endif
 
 #pragma mark -
 #pragma mark Internal Routines
@@ -805,6 +804,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 				{
 					result = UserGroup_Create();
 					if ( strcmp(recTypeStr, kDSStdRecordTypeUsers) == 0 ) {
+#ifndef DISABLE_CACHE_PLUGIN
 						const char	*keys[] = { "pw_name", "pw_uid", "pw_gecos", NULL }; // "pw_uuid"
 						sCacheValidation *valid;
 						
@@ -815,6 +815,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 													  gCacheNode->fLibinfoCache, keys );
 							DSRelease( valid );
 						}
+#endif
 					}
 					else if ( strcmp(recTypeStr, kDSStdRecordTypeComputers) == 0 ) {
 						result->fRecordType = kUGRecordTypeComputer;
@@ -823,14 +824,12 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 						result->fRecordType = kUGRecordTypeComputerGroup;
 					}
 					else {
-#if defined(PRE_CACHE_GROUPS)
+#ifndef DISABLE_CACHE_PLUGIN
 						const char	*keys[] = { "gr_name", "gr_gid", "gr_uuid", NULL };
 						sCacheValidation *valid;
-#endif
 						
 						result->fRecordType = kUGRecordTypeGroup;
 						
-#if defined(PRE_CACHE_GROUPS)
 						if ( gCacheNode != NULL ) {
 							valid = ParseGroupEntry( gMbrdDirRef, dirNode, NULL, searchBuffer, recordEntryPtr, attributeListRef,
 													 NULL, gCacheNode->fLibinfoCache, keys );
@@ -869,9 +868,7 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 							{
 								result->fName = dsCStrFromCharacters( attrValue->fAttributeValueData.fBufferData,
 																	  attrValue->fAttributeValueData.fBufferLength );
-								if (result->fName != NULL) {
-									result->fFlags |= kUGFlagHasName;
-								}
+								result->fFlags |= kUGFlagHasName;
 							}
 							else if (strcmp(attrName, kDSNAttrAltSecurityIdentities) == 0 )
 							{
@@ -1164,15 +1161,6 @@ UserGroup **Mbrd_FindItemsAndRetain( tDirNodeReference dirNode, tDataListPtr rec
 	totalTime += GetElapsedMicroSeconds() - microsec;
 	
 	Mbrd_AddToAverage( statTime, statCount, totalTime );
-	
-	// let's total our membership searches properly
-	switch(idType) {
-		case ID_TYPE_GROUPMEMBERS:
-		case ID_TYPE_GROUPMEMBERSHIP:
-		case ID_TYPE_NESTEDGROUPS:
-			Mbrd_AddToAverage(&gStatBlock.fAverageuSecPerMembershipSearch, &gStatBlock.fTotalMembershipSearches, totalTime);
-			break;
-	}
 	
 	(*recCount) = totalCnt;
 	
@@ -1516,30 +1504,20 @@ static UserGroup* __Mbrd_GetItemWithIdentifierAndRetain( MbrdCache *cache, int i
 		
 		// issue a search again to find conflicts asynchronously
 		if ( bSearchAgain == true ) {
-			static dispatch_queue_t trampoline;
-			static dispatch_once_t once;
-			
-			dispatch_once(&once, ^(void) {
-				trampoline = dispatch_queue_create("itemRefreshTrampoline", NULL);
-				dispatch_queue_set_width(trampoline, 32); // only 32 lookups in flight at once
-			});
-			
 			UserGroup *origItem = UserGroup_Retain( item );
 			char *phID = copyIdentifierAsString( idType, identifier );
 			
-			dispatch_async(trampoline, ^(void) {
-				dispatch_sync(origItem->fRefreshQueue, ^(void) {
-					CInternalDispatch::AddCapability();
-					
-					UserGroup *tempItem = __Mbrd_FindItemWithIdentifierAndRetain( origItem, idType, phID, flags );
-					if ( tempItem != NULL ) {
-						UserGroup_Release( tempItem );
-					}
-				});
-				
-				UserGroup_Release( origItem );
-				free( phID );
-			});
+			dispatch_async( item->fQueue,
+						    ^(void) {
+								CInternalDispatch::AddCapability();
+								UserGroup *tempItem = __Mbrd_FindItemWithIdentifierAndRetain( origItem, idType, phID, flags );
+								if ( tempItem != NULL ) {
+									UserGroup_Release( tempItem );
+								}
+								
+								UserGroup_Release( origItem );
+								free( phID );
+							} );
 		}
 	}
 	
@@ -1609,371 +1587,6 @@ static UserGroup* Mbrd_GetItemWithIdentifierAndRetain( MbrdCache *cache, int idT
 	return item;
 }
 
-#if 1
-
-static void _addToHashes(UserGroup *item, UserGroup *groupItem, uint32_t flags, dispatch_group_t group);
-
-static bool
-_Mbrd_ItemMembership_NeedsRefresh(UserGroup *item, uint32_t flags, bool *outAsyncRefresh)
-{
-    __block bool bAsyncRefresh = ((flags & KAUTH_EXTLOOKUP_REFRESH_MEMBERSHIP) != 0 ? false : true); // refresh forces sync
-    __block bool bIssueRefresh = false;
-    
-    dispatch_sync(item->fQueue, ^(void) {
-        uint32_t currentTime = GetElapsedSeconds();
-        
-        // if we don't have valid memberships or the flags say to refresh them
-        if ((item->fFlags & kUGFlagValidMembership) == 0
-				|| ((flags & KAUTH_EXTLOOKUP_REFRESH_MEMBERSHIP) != 0 && item->fMaximumRefresh <= currentTime)) {
-			if ( __sync_bool_compare_and_swap(&item->fRefreshActive, false, true) == true ) {
-                if ((item->fFlags & kUGFlagValidMembership) == 0) {
-                    DbgLog(kLogInfo,
-						   "Resolve Groups - '%s' (%s) - generating group memberships",
-						   item->fName ? : "", item->fNode ? : "");
-                } else {
-                    DbgLog(kLogInfo,
-						   "Resolve Groups - '%s' (%s) force membership refresh requested - %s",
-						   item->fName ? : "", item->fNode ? : "", bAsyncRefresh ? "(Async requested)" : "");
-                }
-                
-                bIssueRefresh = true;
-                bAsyncRefresh = false;
-            } else if ((item->fFlags & kUGFlagValidMembership) == 0) {
-                bAsyncRefresh = false;
-            }
-        } else if (item->fExpiration <= currentTime) {
-			if ( __sync_bool_compare_and_swap(&item->fRefreshActive, false, true) == true ) {
-                DbgLog(kLogInfo,
-					   "Resolve Groups - '%s' (%s) outdated - will refresh entry and group memberships asynchronously",
-					   item->fName ? : "", item->fNode ? : "");
-                bIssueRefresh = true;
-                bAsyncRefresh = true;
-            } else {
-                DbgLog(kLogDebug,
-					   "Resolve Groups - '%s' outdated but refresh already active",
-					   item->fName ?: "");
-            }
-        } else {
-            DbgLog(kLogDebug, 
-				   "Resolve Groups - '%s' fresh %u > %u",
-				   item->fName ?: "", item->fExpiration, currentTime);
-        }
-    });
-    
-    (*outAsyncRefresh) = bAsyncRefresh;
-    
-    return bIssueRefresh;
-}
-
-static void
-_Mbrd_ResolveNestedGroups(UserGroup *item, uint32_t flags)
-{
-    uuid_string_t guidString;
-    char thread_name[256];
-    char queue_name[256];
-    UserGroup **items;
-    UInt32 count = 0;
-    
-    // if this item is not found, we don't try to resolve memberships
-    if (item == NULL || (item->fFlags & kUGFlagNotFound) != 0) {
-        return;
-    }
-    
-    snprintf(thread_name, sizeof(thread_name), "ResolveNestedGroups for '%s'", item->fName);
-    pthread_setname_np(thread_name);
-    
-    snprintf(queue_name, sizeof(queue_name), "ResolveNestedGroups.%s", item->fName);
-    
-    uuid_unparse_upper(item->fGUID, guidString);
-    
-    items = Mbrd_FindItemsAndRetain(gMbrdSearchNode, gAllGroupTypes, ID_TYPE_NESTEDGROUPS, guidString, flags, &count);
-    if (items != NULL) {
-        DbgLog(kLogInfo, "Resolve Groups - adding %d nested groups to membership for '%s'",
-			   count, item->fName ? : "");
-        for (UInt32 ii = 0; ii < count; ii++) {
-            UserGroup_AddToHashes(item, items[ii]);
-            UserGroup_Release(items[ii]);
-            items[ii] = NULL;
-        }
-        
-        DSFree(items);
-    }
-    
-    __sync_fetch_and_or(&item->fFlags, kUGFlagValidMembership);
-    
-    DbgLog(kLogInfo, "Resolve Groups - Finished resolving for %s '%s' - total %d",
-		   ((item->fRecordType & (kUGRecordTypeGroup | kUGRecordTypeComputerGroup)) ? "group" : "user"),
-		   item->fName ? : "", item->fGUIDMembershipHash.fNumEntries);
-    
-    pthread_setname_np("");
-}
-
-static void
-_addNestedToHashes(UserGroup *item, UserGroup *groupItem, uint32_t flags, dispatch_queue_t queue, dispatch_group_t group)
-{
-    __block UserGroup **groups = NULL;
-    __block int numResults;
-    
-    dispatch_sync(groupItem->fQueue, ^(void) {
-        numResults = HashTable_CreateItemArray(&groupItem->fGIDMembershipHash, &groups);
-    });
-    
-    for (int ii = 0; ii < numResults; ii++) {
-        _addToHashes(item, groups[ii], flags, group);
-        UserGroup_Release(groups[ii]);
-        groups[ii] = NULL;
-    }
-    
-    DSFree(groups);
-}
-
-static void
-_addToHashes(UserGroup *item, UserGroup *groupItem, uint32_t flags, dispatch_group_t group)
-{
-    static dispatch_queue_t nested_queue;
-    static dispatch_once_t once;
-    
-    dispatch_once(&once, ^(void) {
-        nested_queue = dispatch_queue_create("ResolveNestedGroups", NULL);
-        dispatch_queue_set_width(nested_queue, 32); // up to 32 refreshes
-    });
-    
-    // add to the membership root (user or computer)
-    //    success - continue resolve the group
-    //    failure - redundant or cyclic group
-    
-    if (UserGroup_AddToHashes(item, groupItem) == true) {
-        bool bAsyncRefresh;
-        bool bRefresh;
-        
-        bRefresh = _Mbrd_ItemMembership_NeedsRefresh(groupItem, flags, &bAsyncRefresh);
-        if (bRefresh == false || bAsyncRefresh == true) {
-            DbgLog(kLogInfo, "Resolve Groups - adding cached nested memberships from '%s' to '%s'",
-				   groupItem->fName ? : "", item->fName ? : "");
-            _addNestedToHashes(item, groupItem, flags, nested_queue, group);
-            __sync_add_and_fetch(&gStatBlock.fCacheHits, 1);
-        }
-        
-        if (bRefresh == true) {
-            if (bAsyncRefresh == true) {
-                DbgLog(kLogInfo, "Resolve Groups - issuing async refresh for nested group memberships '%s' for '%s'",
-					   groupItem->fName ? : "", item->fName ? : "");
-                
-                UserGroup_Retain(groupItem);
-                dispatch_async(nested_queue, ^(void) {
-                    _Mbrd_ResolveNestedGroups(groupItem, flags);
-                    UserGroup_Release(groupItem);
-                });
-            } else {
-				__sync_add_and_fetch(&gStatBlock.fCacheMisses, 1);
-				
-                DbgLog(kLogInfo, "Resolve Groups - issuing nested group memberships '%s' for '%s'",
-					   groupItem->fName ? : "", item->fName ? : "");
-
-                UserGroup_Retain(groupItem);
-                dispatch_group_async(group, nested_queue, ^(void) {
-                    _Mbrd_ResolveNestedGroups(groupItem, flags);
-                    _addNestedToHashes(item, groupItem, flags, nested_queue, group);
-                    UserGroup_Release(groupItem);
-               });
-            }
-        }
-    }
-}
-
-static void
-_Mbrd_GenerateItemMembership(UserGroup *item, uint32_t flags, bool bAsyncRefresh)
-{
-    UserGroup *refreshed = NULL;
-    uuid_string_t guidString;
-    char thread_name[256];
-    int isUser;
-    uid_t uid;
-    
-    /*
-     * #1 - if a user, we loop until we get how many we need
-     * #2 - if a group, we only resolve direct nested memberships
-     */
-    
-    snprintf(thread_name, sizeof(thread_name), "GenerateItemMembership for '%s' type '%d'", item->fName, item->fRecordType);
-    pthread_setname_np(thread_name);
-    
-    uuid_unparse_upper(item->fGUID, guidString);
-    
-    if ((item->fRecordType & (kUGRecordTypeUser | kUGRecordTypeComputer)) != 0) {
-        // if it is not a compatibility GUID, search via GUID again to refresh the entry
-        if ((item->fFlags & kUGFoundByGUID) != 0 && IsCompatibilityGUID(item->fGUID, &isUser, &uid) == false) {
-            uuid_string_t uuidStr;
-            
-            uuid_unparse_upper(item->fGUID, uuidStr);
-            refreshed = Mbrd_FindItemAndRetain(gMbrdSearchNode, gUserType, ID_TYPE_GUID, uuidStr, flags);
-        } else if ((item->fFlags & kUGFoundByID) != 0) {
-            char uidStr[16];
-            snprintf(uidStr, sizeof(uidStr), "%d", item->fID);
-            refreshed = Mbrd_FindItemAndRetain(gMbrdSearchNode, gUserType, ID_TYPE_UID, uidStr, flags);
-        } else if ((item->fFlags & kUGFoundByName) != 0) {
-            refreshed = Mbrd_FindItemAndRetain(gMbrdSearchNode, gUserType, ID_TYPE_USERNAME, item->fName, flags);
-        }
-    }
-    
-    // the find logic removes old entry if it's no longer found
-    if (refreshed != NULL) {
-        dispatch_group_t group = dispatch_group_create();
-        UserGroup *workingCopy = UserGroup_Create();
-        UserGroup **items;
-        UInt32 count;
-        
-        // copy the entry (skipping memberships) and resolve the memberships, then we'll merge back into the existing
-        UserGroup_Merge(workingCopy, refreshed, false);
-        
-        // things that only apply to users
-        if ((item->fRecordType & kUGRecordTypeUser) != 0) {
-            // first deal with the Primary group
-            UserGroup *tempItem = Mbrd_GetItemWithIdentifierAndRetain(gMbrdCache, ID_TYPE_GID, &item->fPrimaryGroup, flags);
-            if (tempItem != NULL) {
-                DbgLog(kLogInfo, "Resolve Groups - adding primary group '%d' to membership for '%s'",
-					   tempItem->fID, item->fName ? : "");
-                _addToHashes(item, tempItem, flags, group);
-                UserGroup_Release(tempItem);
-                tempItem = NULL;
-            }
-            
-            count = 0;
-            items = Mbrd_FindItemsAndRetain(gMbrdSearchNode, gAllGroupTypes, ID_TYPE_GROUPMEMBERSHIP, item->fName, flags, &count);
-            if (items != NULL) {
-                DbgLog(kLogInfo, "Resolve Groups - adding %d direct name memberships via GUID to membership for '%s'",
-					   count, (item->fName ? : ""));
-                for (UInt32 ii = 0; ii < count; ii++) {
-                    _addToHashes(item, items[ii], flags, group);
-                    UserGroup_Release(items[ii]);
-                    items[ii] = NULL;
-                }
-                
-                DSFree(items);
-            }
-        }
-        
-        // everyone may be nested inside of groups
-        UserGroup *tempItem = Mbrd_GetItemWithIdentifierAndRetain(gMbrdCache, ID_TYPE_GUID, gEveryoneUUID, flags);
-        if (tempItem != NULL) {   // should never fail, but safety
-            DbgLog(kLogInfo, "Resolve Groups - adding 'everyone' group %d to membership for '%s'",
-				   tempItem->fID, item->fName ? : "");
-            
-            _addToHashes(item, tempItem, flags, group);
-            UserGroup_Release(tempItem);
-            tempItem = NULL;
-        }
-        
-        // now check netaccounts or localaccounts
-        if ((item->fFlags & kUGFlagLocalAccount) != 0) {
-            tempItem = Mbrd_GetItemWithIdentifierAndRetain(gMbrdCache, ID_TYPE_GUID, gLocalAccountsUUID, flags);
-            if (tempItem != NULL) {   // should never fail, but safety
-                DbgLog(kLogInfo, "Resolve Groups - adding 'localaccounts' group %d to membership for '%s'",
-					   tempItem->fID, (item->fName ? : ""));
-                
-                _addToHashes(item, tempItem, flags, group);
-                UserGroup_Release(tempItem);
-                tempItem = NULL;
-            }
-        } else {
-            tempItem = Mbrd_GetItemWithIdentifierAndRetain(gMbrdCache, ID_TYPE_GUID, gNetAccountsUUID, flags);
-            if (tempItem != NULL) {   // should never fail, but safety
-                DbgLog(kLogInfo, "Resolve Groups - adding 'netaccounts' group %d to membership for '%s'",
-					   tempItem->fID, (item->fName ? : ""));
-                
-                _addToHashes(item, tempItem, flags, group);
-                UserGroup_Release(tempItem);
-                tempItem = NULL;
-            }
-        }
-        
-        count = 0;
-        items = Mbrd_FindItemsAndRetain(gMbrdSearchNode, gAllGroupTypes, ID_TYPE_GROUPMEMBERS, guidString, flags, &count);
-        if (items != NULL) {
-            DbgLog(kLogInfo, "Resolve Groups - adding %d direct UUID memberships to membership for '%s'",
-				   count, (item->fName ? : ""));
-            for (UInt32 ii = 0; ii < count; ii++) {
-                _addToHashes(item, items[ii], flags, group);
-                UserGroup_Release(items[ii]);
-                items[ii] = NULL;
-            }
-            
-            DSFree(items);
-        }
-        
-        dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-        dispatch_release(group);
-        
-        // now merge back into the original item
-        UserGroup_Merge(refreshed, workingCopy, true);
-        if (refreshed != item) {
-            UserGroup_Merge(item, workingCopy, true);
-            DbgLog(kLogNotice, "Resolve Groups - '%s' (%s) - inflight membership generation encountered a new entry - syncing groups to original request",
-				   item->fName ? : "", item->fNode ? : "");
-        }
-        
-        __sync_fetch_and_or(&item->fFlags, kUGFlagValidMembership);
-        
-        UserGroup_Release(workingCopy);
-        UserGroup_Release(refreshed);
-    }
-    
-	item->fRefreshActive = false;
-}
-
-static void
-Mbrd_GenerateItemMembership(UserGroup *item, uint32_t flags)
-{
-    static dispatch_semaphore_t semaphore;
-    static dispatch_queue_t trampoline;
-    static dispatch_once_t once;
-    
-    bool bAsyncRefresh;
-    bool bIssueRefresh;
-    
-    // ensure we don't issue too much work for group resolution
-    dispatch_once(&once, ^(void) {
-        semaphore = dispatch_semaphore_create(4); // hard limit of 4 membership generations
-        trampoline = dispatch_queue_create("membershipRefreshTrampoline", NULL);
-    });
-    
-    if (item == NULL) {
-        return;
-    }
-    
-    bIssueRefresh = _Mbrd_ItemMembership_NeedsRefresh(item, flags, &bAsyncRefresh);
-    if (bIssueRefresh == true) {
-        // use another queue that blocks waiting to issue the async refresh if we are at max
-        // we shouldn't block callers that expect async behavior because we've reached our max refresh limit
-        // if we are going to block for this refresh, let's log who is triggering the lookups
-        
-        item = UserGroup_Retain(item);
-
-        dispatch_group_async(item->fRefreshGroup, trampoline, ^(void) {
-            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-            dispatch_group_async(item->fRefreshGroup, item->fRefreshQueue, ^(void) {
-                _Mbrd_GenerateItemMembership(item, flags, bAsyncRefresh);
-                
-                dispatch_semaphore_signal(semaphore);
-                UserGroup_Release(item);
-            });
-        });
-    }
-    
-    if (bIssueRefresh == true || bAsyncRefresh == false) {
-        DbgLog(kLogInfo, "Resolve Groups - '%s' (%s) - waiting for an inflight membership generation to complete",
-			   item->fName ? : "", item->fNode ? : "");
-        dispatch_group_wait(item->fRefreshGroup, DISPATCH_TIME_FOREVER);
-
-		dispatch_sync(item->fQueue, ^(void) {
-			DbgLog(kLogDebug, "Resolve Groups - '%s' (%s) - finished waiting for an inflight membership generation to complete",
-				   item->fName ? : "", item->fNode ? : "");
-		});
-	}
-}
-
-#else
-
 static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGroup *membershipRoot = NULL )
 {
 	UserGroup **items;
@@ -1984,11 +1597,13 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 	if ( item == NULL || (item->fFlags & kUGFlagNotFound) != 0 )
 		return;
 	
+	uint64_t microsec = GetElapsedMicroSeconds();
 	const char *reqOrigin = ((flags & kKernelRequest) != 0 ? "mbr_syscall" : "mbr_mig");
 
 	uuid_unparse_upper( item->fGUID, guidString );
 	
-	dispatch_queue_t dispatchQueue = dispatch_queue_create("com.apple.DirectoryService.refresh", NULL);
+	// WARNING: do not use fQueue as refreshes are initiated on this queue to prevent collisions
+	dispatch_queue_t dispatchQueue = dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0 );
 	dispatch_group_t dispatchGroup = dispatch_group_create();
 	
 	void (^addToHashesAndRelease)(UserGroup *, UserGroup *, UserGroup *) = ^(UserGroup *userItem, UserGroup *memberItem, UserGroup *groupItem) {
@@ -2042,6 +1657,10 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 				addToHashesAndRelease( item, tempItem, NULL );
 				tempItem = NULL;
 			}
+			else
+			{
+				__sync_add_and_fetch( &gStatBlock.fNumFailedRecordLookups, 1 );
+			}
 			
 			count = 0;
 			items = Mbrd_FindItemsAndRetain( gMbrdSearchNode, gAllGroupTypes, ID_TYPE_GROUPMEMBERSHIP, item->fName, flags, &count );
@@ -2057,6 +1676,10 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 									
 				free( items );
 				items = NULL;
+			}
+			else
+			{
+				__sync_add_and_fetch( &gStatBlock.fNumFailedRecordLookups, 1 );
 			}
 		}
 		
@@ -2112,6 +1735,10 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 			free( items );
 			items = NULL;
 		}
+		else
+		{
+			__sync_add_and_fetch( &gStatBlock.fNumFailedRecordLookups, 1 );
+		}
 	}
 	else if ( membershipRoot != NULL )
 	{
@@ -2129,12 +1756,15 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 			free( items );
 			items = NULL;
 		}
+		else
+		{
+			__sync_add_and_fetch( &gStatBlock.fNumFailedRecordLookups, 1 );
+		}
 	}
 	
 	// now wait for group to finish
 	dispatch_group_wait( dispatchGroup, UINT64_MAX );
 	dispatch_release( dispatchGroup );
-	dispatch_release(dispatchQueue);
 	
 	DbgLog( kLogInfo, "%s - Membership - Finished resolving groups for %s '%s' - total %d", reqOrigin, 
 		    ((item->fRecordType & (kUGRecordTypeGroup | kUGRecordTypeComputerGroup)) ? "group" : "user"), 
@@ -2144,32 +1774,19 @@ static void Mbrd_ResolveGroupsForItem( UserGroup *item, uint32_t flags, UserGrou
 	if ( (item->fRecordType & (kUGRecordTypeUser | kUGRecordTypeComputer)) != 0 ) {
 		__sync_or_and_fetch( &item->fFlags, kUGFlagValidMembership );
 	}
+	
+	microsec = GetElapsedMicroSeconds() - microsec;
+	Mbrd_AddToAverage( &gStatBlock.fAverageuSecPerMembershipSearch, &gStatBlock.fTotalMembershipSearches, microsec);
 }
 
-static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool inAsyncRefresh = false )
+static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool bAsyncRefresh = false )
 {
-	static dispatch_semaphore_t semaphore;
-	static dispatch_queue_t trampoline;
-	static dispatch_once_t once;
-
 	// don't issue a refresh if one is in flight
 	if ( item == NULL ) return;
 	
-	// ensure we don't issue too much work for group resolution
-	dispatch_once(&once, ^(void) {
-		semaphore = dispatch_semaphore_create(4); // hard limit of 4 membership generations
-		trampoline = dispatch_queue_create("com.apple.DirectoryService.refreshTrampoline", NULL);
-	});
-	
-	/*
-	 * note we could make the group wait for membership generation be < timeout to the kernel if we wanted to
-	 * by forcing everything through the group_wait.  For kernel we wait N seconds, for user-space we wait indefinitely
-	 */
-	
+	__block bool bDoWaitBlock = false;
 	__block bool bIssueRefresh = false;
-	__block bool bAsyncRefresh = ((flags & kKernelRequest) != 0 ? true : inAsyncRefresh); // always async if kernel
 	const char *reqOrigin = ((flags & kKernelRequest) != 0 ? "mbr_syscall" : "mbr_mig");
-	dispatch_group_t group = dispatch_group_create();
 
 	dispatch_sync( item->fQueue,
 				   ^(void) {
@@ -2186,28 +1803,28 @@ static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool i
 							   }
 							   else {
 								   DbgLog( kLogInfo, "%s - Membership - '%s' (%s) force refresh requested - entry and group memberships %s", 
-										   reqOrigin, item->fName ? : "", item->fNode ? : "", bAsyncRefresh ? "(async requested but ignored)" : "" );
+										   reqOrigin, item->fName ? : "", item->fNode ? : "", bAsyncRefresh ? "(Async requested)" : "" );
 							   }
 							   
 							   bIssueRefresh = true;
 						   }
 						   
-						   bAsyncRefresh = false;
+						   bDoWaitBlock = true;
 					   }
 					   else if ( item->fExpiration <= currentTime )
 					   {
 						   if ( __sync_bool_compare_and_swap(&item->fRefreshActive, false, true) == true ) {
-							   DbgLog(kLogInfo, "%s - Membership - '%s' (%s) outdated - will refresh entry and group memberships%s", 
-									  reqOrigin, item->fName ? : "", item->fNode ? : "", (bAsyncRefresh ? " asynchronously" : ""));
+							   DbgLog( kLogInfo, "%s - Membership - '%s' (%s) outdated - will refresh entry and group memberships asynchronously", 
+									   reqOrigin, item->fName ? : "", item->fNode ? : "" );
 							   bIssueRefresh = true;
 						   }
 					   }
 				   } );
 	
 	if ( bIssueRefresh == true ) {
-		dispatch_block_t refresh_block;
-		
-		refresh_block = ^(void) {
+		UserGroup_Retain( item );
+		dispatch_async( item->fRefreshQueue, 
+					    ^(void) {
 							CInternalDispatch::AddCapability();
 							
 							UserGroup *refreshed = NULL;
@@ -2256,32 +1873,19 @@ static void Mbrd_GenerateItemMembership( UserGroup *item, uint32_t flags, bool i
 							}
 							
 							UserGroup_Release( item );
-							dispatch_semaphore_signal(semaphore);
-						};
-		
-		// use another queue that blocks waiting to issue the async refresh if we are at max
-		// we shouldn't block callers that expect async behavior because we've reached our max refresh limit
-		UserGroup_Retain( item );
-		dispatch_group_async(group, trampoline, ^(void) {
-			dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-			dispatch_group_async(group, item->fRefreshQueue, refresh_block);
-		});
+						} );
 	}
 	
-	if (bIssueRefresh == true && bAsyncRefresh == false) {
+	if ( bDoWaitBlock == true && bAsyncRefresh == false ) {
 		DbgLog( kLogInfo, "%s - Membership - '%s' (%s) - waiting for an inflight membership generation to complete",
 			    reqOrigin, item->fName ? : "", item->fNode ? : "" );
-		dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-		dispatch_sync(item->fRefreshQueue, ^(void) {
-			DbgLog(kLogDebug, "%s - Membership - '%s' (%s) - finished waiting for an inflight membership generation to complete",
-				   reqOrigin, item->fName ? : "", item->fNode ? : "");
-		});
+		dispatch_sync( item->fRefreshQueue, 
+					   ^(void) {
+						   DbgLog( kLogDebug, "%s - Membership - '%s' (%s) - finished waiting for an inflight membership generation to complete",
+								   reqOrigin, item->fName ? : "", item->fNode ? : "" );
+					   } );
 	}
-	
-	dispatch_release(group);
 }
-
-#endif
 
 int IsUserMemberOfGroupByGUID( UserGroup* user, uuid_t groupGUID, uint32_t flags )
 {
@@ -2312,7 +1916,7 @@ int IsUserMemberOfGroupByGUID( UserGroup* user, uuid_t groupGUID, uint32_t flags
 		return (((user->fRecordType & kUGRecordTypeUser) != 0 || (user->fRecordType & kUGRecordTypeComputer) != 0) && 
 				 (user->fFlags & kUGFlagLocalAccount) != 0);
 	
-	Mbrd_GenerateItemMembership(user, flags);
+	Mbrd_GenerateItemMembership( user, flags, bAsyncRefresh );
 	
 	UserGroup *result = HashTable_GetAndRetain( &user->fGUIDMembershipHash, groupGUID );
 	
@@ -2495,14 +2099,6 @@ void Mbrd_InitializeGlobals( void )
 					temp += sizeof(kKerberosFallbackToRecordName) - 1;
 					kerberosFallback = strtol(temp, &temp, 10);
 				}
-				else if (strncmp(temp, kKernelResolverTimeout, sizeof(kKernelResolverTimeout) - 1) == 0 )
-				{
-					temp += sizeof(kKernelResolverTimeout) - 1;
-					gKernelTimeout = strtol(temp, &temp, 10);
-					if (gKernelTimeout == 0) {
-						gKernelTimeout = 60; // default to 60 if timeout is 0
-					}
-				}
 				
 				i += strlen(temp) + 1;
 			}
@@ -2566,10 +2162,7 @@ void Mbrd_Initialize( void )
 	// extended list so that Cache node can use
 	gAttrsToGet = dsBuildListFromStringsPriv( kDSNAttrMetaNodeLocation, kDSNAttrRecordName, kDS1AttrPassword, kDS1AttrUniqueID,
 											  kDS1AttrGeneratedUID, kDS1AttrPrimaryGroupID, kDS1AttrNFSHomeDirectory, kDS1AttrUserShell,
-											  kDS1AttrDistinguishedName, kDS1AttrTimeToLive, kDS1AttrSMBSID,
-#if defined(PRE_CACHE_GROUPS)
-											  kDSNAttrGroupMembership, 
-#endif
+											  kDS1AttrDistinguishedName, kDSNAttrGroupMembership, kDS1AttrTimeToLive, kDS1AttrSMBSID,
 											  kDS1AttrENetAddress, kDS1AttrCopyTimestamp, kDSNAttrAltSecurityIdentities, kDS1AttrSMBRID,
 											  kDS1AttrSMBGroupRID, kDS1AttrSMBPrimaryGroupSID, kDS1AttrOriginalNodeName, kDSNAttrKeywords, NULL );
 }
@@ -2864,7 +2457,7 @@ void Mbrd_ProcessLookup(struct kauth_identity_extlookup* request)
 	request->el_result = KAUTH_EXTLOOKUP_SUCCESS;
 }
 
-void Mbrd_SweepCache( void )
+void Mbrd_SweepCache( void *)
 {
 	dispatch_async( gLookupQueue,
 				    ^(void) {
@@ -3164,7 +2757,6 @@ void Mbrd_ProcessResetStats(void)
 {
 	gMbrdGlobalMutex.WaitLock();
 	memset( &gStatBlock, 0, sizeof(StatBlock) );
-	gStatBlock.fTotalUpTime = GetElapsedSeconds();
 	gMbrdGlobalMutex.SignalLock();
 	DbgLog( kLogDebug, "mbr_mig - Membership - Reset stats" );
 }
@@ -3219,3 +2811,44 @@ bool dsIsUserMemberOfGroup( const char *inUsername, const char *inGroupName )
 	
 	return returnVal;
 }
+
+#else
+
+#include "Mbrd_MembershipResolver.h"
+#include <membership.h>
+#include <membershipPriv.h>
+#include "CSharedData.h"
+
+bool dsIsUserMemberOfGroup( const char *inUsername, const char *inGroupName )
+{
+	uuid_t uu;
+	uuid_t group;
+	int isMember;
+	
+	if (mbr_user_name_to_uuid(inUsername, uu) == 0) {
+		if (mbr_group_name_to_uuid(inGroupName, group) == 0) {
+			if (mbr_check_membership(uu, group, &isMember) == 0) {
+				return isMember != 0;
+			}
+		}
+	}
+	return false;
+}
+
+void dsFlushMembershipCache( void )
+{
+	mbr_reset_cache();
+}
+
+void dsSetNodeCacheAvailability( char *inNodeName, int inAvailable )
+{
+	
+}
+
+void dsFlushLibinfoCache( void )
+{
+	
+}
+
+
+#endif // DISABLE_SEARCH_PLUGIN

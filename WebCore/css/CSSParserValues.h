@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,11 +21,13 @@
 #ifndef CSSParserValues_h
 #define CSSParserValues_h
 
-#include "AtomicString.h"
+#include "CSSSelector.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 class CSSValue;
+class QualifiedName;
 
 struct CSSParserString {
     UChar* characters;
@@ -55,22 +57,23 @@ struct CSSParserValue {
     };
     int unit;
     
-    bool isVariable() const;
     
     PassRefPtr<CSSValue> createCSSValue();
 };
 
-class CSSParserValueList : public FastAllocBase {
+class CSSParserValueList {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CSSParserValueList()
         : m_current(0)
-        , m_variablesCount(0)
     {
     }
     ~CSSParserValueList();
     
     void addValue(const CSSParserValue&);
+    void insertValueAt(unsigned, const CSSParserValue&);
     void deleteValueAt(unsigned);
+    void extend(CSSParserValueList&);
 
     unsigned size() const { return m_values.size(); }
     CSSParserValue* current() { return m_current < m_values.size() ? &m_values[m_current] : 0; }
@@ -80,20 +83,55 @@ public:
         
     void clear() { m_values.clear(); }
 
-    bool containsVariables() const { return m_variablesCount; }
+private:
+    unsigned m_current;
+    Vector<CSSParserValue, 4> m_values;
+};
+
+struct CSSParserFunction {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    CSSParserString name;
+    OwnPtr<CSSParserValueList> args;
+};
+
+class CSSParserSelector {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    CSSParserSelector();
+    ~CSSParserSelector();
+
+    PassOwnPtr<CSSSelector> releaseSelector() { return m_selector.release(); }
+    
+    void setTag(const QualifiedName& value) { m_selector->setTag(value); }
+    void setValue(const AtomicString& value) { m_selector->setValue(value); }
+    void setAttribute(const QualifiedName& value) { m_selector->setAttribute(value); }
+    void setArgument(const AtomicString& value) { m_selector->setArgument(value); }
+    void setMatch(CSSSelector::Match value) { m_selector->m_match = value; }
+    void setRelation(CSSSelector::Relation value) { m_selector->m_relation = value; }
+    void setForPage() { m_selector->setForPage(); }
+
+    void adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector);
+
+    CSSSelector::PseudoType pseudoType() const { return m_selector->pseudoType(); }
+    bool isUnknownPseudoElement() const { return m_selector->isUnknownPseudoElement(); }
+    bool isSimple() const { return !m_tagHistory && m_selector->isSimple(); }
+    bool hasShadowDescendant() const;
+
+    CSSParserSelector* tagHistory() const { return m_tagHistory.get(); }
+    void setTagHistory(PassOwnPtr<CSSParserSelector> selector) { m_tagHistory = selector; }
+    void insertTagHistory(CSSSelector::Relation before, PassOwnPtr<CSSParserSelector>, CSSSelector::Relation after);
+    void appendTagHistory(CSSSelector::Relation, PassOwnPtr<CSSParserSelector>);
 
 private:
-    Vector<CSSParserValue, 4> m_values;
-    unsigned m_current;
-    unsigned m_variablesCount;
+    OwnPtr<CSSSelector> m_selector;
+    OwnPtr<CSSParserSelector> m_tagHistory;
 };
 
-struct CSSParserFunction : FastAllocBase {
-    CSSParserString name;
-    CSSParserValueList* args;
-
-    ~CSSParserFunction() { delete args; }
-};
+inline bool CSSParserSelector::hasShadowDescendant() const
+{
+    return m_selector->relation() == CSSSelector::ShadowDescendant;
+}
 
 }
 

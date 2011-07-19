@@ -1,3 +1,32 @@
+Changes in release 0.29.0:
+* Interface changes:
+ - none, API and ABI backwards-compatible with 0.28.x and 0.27.x
+* New interfaces and features:
+ - added NTLM auth support for Unix builds (Kai Sommerfeld, Daniel Stenberg)
+ - ne_auth.h: added NE_AUTH_GSSAPI and NE_AUTH_NTLM auth protocol codes
+ - added ne_acl3744.h, updated WebDAV ACL support (Henrik Holst)
+ - added built-in SOCKS v4/v4a/v5 support: ne_socket.h:ne_sock_proxy(),       
+   and ne_session.h:ne_session_socks_proxy()
+ - added support for system-default proxies: ne_session_system_proxy(),
+   implemented using libproxy where available
+ - ne_session.h: added NE_SESSFLAG_EXPECT100 session flag, SSL verification
+   failure bits extended by NE_SSL_BADCHAIN and NE_SSL_REVOKED, better 
+   handling of failures within the cert chain (thanks to Ludwig Nussel)
+ - ne_utils.h: added feature code NE_FEATURE_SYSPROXY
+ - ne_socket.h: ne_sock_writev() (Julien Reichel), ne_sock_set_error(),
+   ne_iaddr_raw(), ne_iaddr_parse()
+ - ne_string.h: ne_buffer_qappend(), ne_strnqdup()
+* Deprecated interfaces:
+ - ne_acl.h is obsoleted by ne_acl3744.h (but is still present)
+ - obsolete feature "NE_FEATURE_SOCKS" now never marked present
+* Other changes:
+ - fix handling of "stale" flag in RFC2069-style Digest auth challenge
+ - ne_free() implemented as a function on Win32 (thanks to Helge Hess)
+ - symbol versioning used for new symbols, where supported
+ - ensure SSL connections are closed cleanly with OpenSSL
+ - fix build with OpenSSL 1.0 beta
+ - updated Polish (pl) translation (Arfrever Frehtes Taifersar Arahesis)
+
 Changes in release 0.28.6:
 * SECURITY (CVE-2009-2473): Fix "billion laughs" attack against expat;
   could allow a Denial of Service attack by a malicious server.
@@ -25,7 +54,7 @@ Changes in release 0.28.3:
   Digest domain parameter support; could allow a DoS by a malicious server
 * Fix parsing of *-Authenticate response header with LWS after quoted value
 * Fix ne_set_progress(, NULL, ) to match pre-0.27 behaviour (and not crash)
-* Fix to disable Nagle on Win32 with newer toolchain (thanks to Stefan KÃ¼ng)
+* Fix to disable Nagle on Win32 with newer toolchain (thanks to Stefan Küng)
 * Fix build on Netware (Guenter Knauf)
 * Document existing ne_uri_parse() API postcondition and ne_uri_resolve()
   pre/postconditions regarding the ->path field in ne_uri structures 
@@ -194,7 +223,7 @@ Changes in release 0.25.5:
   with mismatched key/cert pair.
 * Fix build issue on AIX 5.1.
 * Fix warnings if built against OpenSSL >= 0.9.8.
-* Win32: fix issues in SSPI implementation (Stefan KÃ¼ng).
+* Win32: fix issues in SSPI implementation (Stefan Küng).
 
 Changes in release 0.25.4:
 * GSSAPI fixes for non-MIT implementations (Mikhail Teterin).
@@ -398,7 +427,7 @@ Changes in release 0.23.5:
 * Fix rejection of SSL server certificates which had commonName as
  the least specific attribute in the subject name.
 * Fix to dereference entities (e.g. "&amp;") in attribute values with libxml.
-* Fix ne_socket.c build on HP-UX 10.20 (thanks to Branko Ãˆibej)
+* Fix ne_socket.c build on HP-UX 10.20 (thanks to Branko Èibej)
 * Remove misguided insistence on "secure" versions of zlib/OpenSSL;
  no checks for zlib version are now performed, only OpenSSL 0.9.6 is
  required.  --with-force-ssl, --with-force-zlib option removed.
@@ -483,12 +512,12 @@ Changes in release 0.22.0:
 * XML request bodies use a content-type of "application/xml" now; 
  applications can use NE_XML_MEDIA_TYPE from ne_xml.h
 * Fix decompress code on big-endian or 64-bit platforms.
-* Fix to build on Darwin 6 (aka Mac OS X 10.2) (Wilfredo SÃ¡nchez,
+* Fix to build on Darwin 6 (aka Mac OS X 10.2) (Wilfredo Sánchez,
  <wsanchez@mit.edu>)
 * Win32 changes:
  - remove conflict between OpenSSL's X509_NAME and recent versions of
- the Platform SDK (Branko Ãˆibej)
- - fix inverted debug/non-debug build logic (Branko Ãˆibej)
+ the Platform SDK (Branko Èibej)
+ - fix inverted debug/non-debug build logic (Branko Èibej)
  - add NODAV and OPENSSL_STATIC flags to neon.mak (Gerald Richter)
 
 Changes in release 0.21.3:
@@ -502,7 +531,7 @@ Changes in release 0.21.2:
 * Fix 'make install' for VPATH builds.
 * Use $(mandir) for installing man pages (Rodney Dawes).
 * Follow some simple (yet illegal) relativeURI redirects.
-* Always build ne_compress.obj in Win32 build (Branko Ãˆibej).
+* Always build ne_compress.obj in Win32 build (Branko Èibej).
 * Fix decompression logic bug (Justin Erenkrantz <jerenkrantz@apache.org>)
  (could give a decompress failure for particular responses)
 * Fix ne_proppatch() to submit lock tokens for available locks.
@@ -584,12 +613,12 @@ Changes in release 0.20.0:
 * Miscellaneous cleanups and fixes (Jeff Johnson <jbj@redhat.com>).
 
 Changes in release 0.19.4:
-* Support bundled build of expat 1.95.x (Branko Ãˆibej).
+* Support bundled build of expat 1.95.x (Branko Èibej).
 
 Changes in release 0.19.3:
 * For platforms lacking snprintf or vsnprintf in libc, require trio.
-* Add NE_FMT_OFF_T to fix Win32 build (Dan Berlin, Branko Ãˆibej).
-* Fix SSL support in Win32 build (Branko Ãˆibej).
+* Add NE_FMT_OFF_T to fix Win32 build (Dan Berlin, Branko Èibej).
+* Fix SSL support in Win32 build (Branko Èibej).
 
 Changes in release 0.19.2:
 * Fix non-SSL build broken in 0.19.1.
@@ -642,8 +671,8 @@ Changes in release 0.19.0:
 
 Changes in release 0.18.5:
 * Removed old neon.dsp, neon.dsw.
-* Update Win32 build to add OpenSSL and zlib support (Branko Ãˆibej).
-* Fix ne_compress.c to compile on Win32 (Branko Ãˆibej).
+* Update Win32 build to add OpenSSL and zlib support (Branko Èibej).
+* Fix ne_compress.c to compile on Win32 (Branko Èibej).
 
 Changes in release 0.18.4:
 * Fixes for Content-Type parsing using ne_content_type_handler (Greg Stein)
@@ -654,7 +683,7 @@ Changes in release 0.18.3:
 * Fix parsing lock timeout from server (Arun Garg).
 * Send Timeout headers in LOCK and refresh LOCK requests (Arun Garg).
 * Updated neon.mak and config.hw.in for Win32 build (patch from
- Branko Ãˆibej <brane@xbc.nu>).
+ Branko Èibej <brane@xbc.nu>).
 * Define XML_BYTE_ORDER for bundled expat build in support macro
  NEON_XML_PARSER().
 
@@ -864,7 +893,7 @@ Changes in release 0.14.0:
  - all properties not handled by caller are stored as flat properties.
 * Untested: add basic SOCKSv5 support: configure --with-socks.
  - please report success/failure to neon@webdav.org
-* Win32/MSVC build files from Magnus SirwiÃ¶ <sirwio@hotmail.com>.
+* Win32/MSVC build files from Magnus Sirwiö <sirwio@hotmail.com>.
 * Fix for expat detection from Shane Mayer <shanemayer42@yahoo.com>.
 * Namespace-protect md5 code and more.
  - md5_* -> ne_md5_*

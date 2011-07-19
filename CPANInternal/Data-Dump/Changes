@@ -1,3 +1,98 @@
+2010-06-12  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.17
+
+   Fix dump of "1\n" (the newline was lost) [RT#56595]
+
+   Start using the range operator to shorten list dumps.
+   For instance dump(1,2,3,4,5) now returns '(1 .. 5)'.
+
+   CODE references now dumped as 'sub { ... }'.
+   Potetential compatibility issue as perl-5.12 or better
+   to eval such strings.
+
+   Fix how multiline hash values are indented.
+
+   Make indentation configurable
+
+   Improved documentation
+
+
+
+2010-06-09  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.16
+
+   Add support for filter callbacks
+      - filters can modify how selected objects are dumped
+
+   Various enhancements to how/when hash keys are quoted
+      - don't quote keywords
+      - don't quote words prefixed with "-"
+      - don't quote long identifier keys
+      - quote all hash keys if one needs quoting for better alignment
+
+   Use case-insensitive sorting for hash keys
+
+
+
+2009-07-26  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.15
+
+   Fixed regexp that determines if hash keys are numeric [RT#48003]
+
+
+
+2009-01-12  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.14
+
+   Data::Dump::Trace enhancements:
+      - trace() function
+      - prototypes
+
+
+
+2009-01-02  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.13
+
+   Added the Data::Dump::Trace module
+
+
+
+2008-10-21  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.12
+
+   Documentation tweaks.
+
+
+
+2008-08-23  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.11
+
+   Documentation tweaks.
+
+
+
+2008-08-21  Gisle Aas <gisle@ActiveState.com>
+
+   Release 1.10
+
+   Add the functions quote(), dd() and ddx().
+
+   Fix segfault when duming large repeated strings [RT#33520]
+
+   Incorporated documentation improvements from Mark Stosberg
+
+   Apply Data-Dump-1.08-ANDK-01.patch from CPAN.  Might do some
+   good on older perls I guess.
+
+
+
 2006-11-29  Gisle Aas <gisle@ActiveState.com>
 
    Release 1.08

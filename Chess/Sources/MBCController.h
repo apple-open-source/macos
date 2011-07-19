@@ -2,7 +2,7 @@
 	File:		MBCController.h
 	Contains:	Managing the entire user interface
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCController.h,v $
+		Revision 1.25  2011/03/12 23:43:53  neerache
+		<rdar://problem/9079430> 11A390: Can't understand what Japanese voice (Kyoko Premium) says when pieces move at all.
+		
+		Revision 1.24  2010/04/24 01:57:10  neerache
+		<rdar://problem/7641028> TAL: Chess doesn't reload my game
+		
 		Revision 1.23  2007/03/02 07:40:45  neerache
 		Revise document handling & saving <rdar://problems/3776337&4186113>
 		
@@ -112,6 +118,7 @@
 	IBOutlet id		fTakebackMenuItem;
 	IBOutlet id		fLicense;
 	IBOutlet id		fGameInfo;
+	IBOutlet id		fGameInfoWindow;
 	IBOutlet id 	fOpaqueView;
 	IBOutlet id		fComputerVoice;
 	IBOutlet id		fAlternateVoice;
@@ -134,6 +141,9 @@
 	NSMutableDictionary * 	fStyleLocMap;
 	NSSpeechSynthesizer *	fDefaultSynth;
 	NSSpeechSynthesizer *	fAlternateSynth;
+	NSDictionary *			fDefaultLocalization;
+	NSDictionary *			fAlternateLocalization;
+	NSDocument *			fDocument;
 }
 
 + (MBCController *)controller;
@@ -166,6 +176,7 @@
 - (MBCBoardView *)			view;
 - (MBCInteractivePlayer *)	interactive;
 - (MBCEngine *)				engine;
+- (NSWindow *)				gameInfoWindow;
 
 - (void) logToEngine:(NSString *)text;
 - (void) logFromEngine:(NSString *)text;
@@ -174,7 +185,7 @@
 - (BOOL)	speakHumanMoves;
 - (BOOL)	listenForMoves;
 
-- (BOOL) loadGame:(NSString *)fileName fromDict:(NSDictionary *)dict;
+- (BOOL) loadGame:(NSDictionary *)dict;
 - (NSDictionary *) saveGameToDict;
 - (BOOL) saveMovesTo:(NSString *)fileName;
 
@@ -182,7 +193,11 @@
 
 - (NSSpeechSynthesizer *) defaultSynth;
 - (NSSpeechSynthesizer *) alternateSynth;
+- (NSDictionary *) defaultLocalization;
+- (NSDictionary *) alternateLocalization;
 - (void)loadVoiceMenu:(id)menu withSelectedVoice:(NSString *)voiceIdentifierToSelect;
+
+- (void)setDocument:(NSDocument *)doc;
 
 @end
 

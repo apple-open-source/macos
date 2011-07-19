@@ -23,7 +23,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDEventSystem.h>
 
-int main (int argc, const char * argv[]) 
+int main (int argc __unused, const char * argv[] __unused) 
 {
     IOHIDEventSystemRef eventSystem = IOHIDEventSystemCreate(kCFAllocatorDefault);
     

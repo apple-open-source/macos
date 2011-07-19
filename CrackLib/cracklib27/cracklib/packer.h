@@ -10,8 +10,8 @@
 #include <ctype.h>
 #include <stdint.h>
 
-#define STRINGSIZE	1024
-#define TRUNCSTRINGSIZE	(STRINGSIZE/4)
+#define STRINGSIZE		1024
+#define TRUNCSTRINGSIZE		(STRINGSIZE/4)
 
 typedef uint8_t int8;
 typedef uint16_t int16;

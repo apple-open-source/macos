@@ -61,7 +61,10 @@ static void TkMacOSXEventsCheckProc(ClientData clientData, int flags);
     if (event) {
 	TSD_INIT();
 	if (tsdPtr->sendEventNestingLevel) {
-	    event = [NSApp tkProcessEvent:event];
+	    if (![NSApp tkProcessEvent:event]) {
+		[event release];
+		event = nil;
+	    }
 	}
     }
     [pool drain];
@@ -279,7 +282,10 @@ TkMacOSXEventsCheckProc(
 	    if (tkMacOSXGCEnabled) {
 		objc_clear_stack(0);
 	    }
-	    currentEvent = [NSApp tkProcessEvent:currentEvent];
+	    if (![NSApp tkProcessEvent:currentEvent]) {
+		[currentEvent release];
+		currentEvent = nil;
+	    }
 	    if (currentEvent) {
 #ifdef TK_MAC_DEBUG_EVENTS
 		TKLog(@"   event: %@", currentEvent);

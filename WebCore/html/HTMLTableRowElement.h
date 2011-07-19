@@ -4,7 +4,7 @@
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,12 +32,8 @@ namespace WebCore {
 
 class HTMLTableRowElement : public HTMLTablePartElement {
 public:
-    HTMLTableRowElement(const QualifiedName&, Document*);
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual int tagPriority() const { return 7; }
-    virtual bool checkDTD(const Node*);
-    virtual ContainerNode* addChild(PassRefPtr<Node>);
+    static PassRefPtr<HTMLTableRowElement> create(Document*);
+    static PassRefPtr<HTMLTableRowElement> create(const QualifiedName&, Document*);
 
     int rowIndex() const;
     void setRowIndex(int);
@@ -51,20 +47,8 @@ public:
     PassRefPtr<HTMLCollection> cells();
     void setCells(HTMLCollection *, ExceptionCode&);
 
-    String align() const;
-    void setAlign(const String&);
-
-    String bgColor() const;
-    void setBgColor(const String&);
-
-    String ch() const;
-    void setCh(const String&);
-
-    String chOff() const;
-    void setChOff(const String&);
-
-    String vAlign() const;
-    void setVAlign(const String&);
+private:
+    HTMLTableRowElement(const QualifiedName&, Document*);
 };
 
 } // namespace

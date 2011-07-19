@@ -2,7 +2,7 @@
 	File:		MBCInteractivePlayer.h
 	Contains:	An agent representing a local human player
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCInteractivePlayer.h,v $
+		Revision 1.10  2010/01/18 19:20:39  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 2
+		
 		Revision 1.9  2007/01/17 06:10:13  neerache
 		Make last move / hint speakable <rdar://problem/4510483>
 		
@@ -73,6 +76,7 @@
 
 - (id) initWithController:(MBCController *)controller;
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay;
+- (void) updateNeedMouse:(id)arg;
 
 //
 // The board view translates coordinates into board squares and handles

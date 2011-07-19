@@ -33,6 +33,8 @@
 
 #include "WebCommon.h"
 
+#define HAS_WEBAUDIO_FEATURE_ENABLE 1
+
 namespace WebKit {
 
 class WebString;
@@ -40,9 +42,15 @@ class WebURL;
 
 // WebSettings is owned by the WebView and allows code to modify the settings for
 // the WebView's page without any knowledge of WebCore itself.  For the most part,
-// these functions have a 1:1 mapping with the methods in WebCore/page/settings.h.
+// these functions have a 1:1 mapping with the methods in WebCore/page/Settings.h.
 class WebSettings {
 public:
+    enum EditingBehavior {
+        EditingBehaviorMac,
+        EditingBehaviorWin,
+        EditingBehaviorUnix
+    };
+
     virtual void setStandardFontFamily(const WebString&) = 0;
     virtual void setFixedFontFamily(const WebString&) = 0;
     virtual void setSerifFontFamily(const WebString&) = 0;
@@ -74,16 +82,47 @@ public:
     virtual void setDownloadableBinaryFontsEnabled(bool) = 0;
     virtual void setJavaScriptCanAccessClipboard(bool) = 0;
     virtual void setXSSAuditorEnabled(bool) = 0;
+    virtual void setDNSPrefetchingEnabled(bool) = 0;
     virtual void setLocalStorageEnabled(bool) = 0;
     virtual void setEditableLinkBehaviorNeverLive() = 0;
+    virtual void setFrameFlatteningEnabled(bool) = 0;
     virtual void setFontRenderingModeNormal() = 0;
     virtual void setShouldPaintCustomScrollbars(bool) = 0;
     virtual void setAllowUniversalAccessFromFileURLs(bool) = 0;
     virtual void setAllowFileAccessFromFileURLs(bool) = 0;
     virtual void setTextDirectionSubmenuInclusionBehaviorNeverIncluded() = 0;
     virtual void setOfflineWebApplicationCacheEnabled(bool) = 0;
+    virtual void setWebAudioEnabled(bool) = 0;
     virtual void setExperimentalWebGLEnabled(bool) = 0;
+    virtual void setOpenGLMultisamplingEnabled(bool) = 0;
     virtual void setShowDebugBorders(bool) = 0;
+    virtual void setShowFPSCounter(bool) = 0;
+    virtual bool showFPSCounter() const = 0;
+    virtual void setShowPlatformLayerTree(bool) = 0;
+    virtual bool showPlatformLayerTree() const = 0;
+    virtual void setEditingBehavior(EditingBehavior) = 0;
+    virtual void setAcceleratedCompositingEnabled(bool) = 0;
+    virtual void setForceCompositingMode(bool) = 0;
+    virtual void setCompositeToTextureEnabled(bool) = 0;
+    virtual bool compositeToTextureEnabled() const = 0;
+    virtual void setAcceleratedCompositingFor3DTransformsEnabled(bool) = 0;
+    virtual void setAcceleratedCompositingForVideoEnabled(bool) = 0;
+    virtual void setAcceleratedCompositingForCanvasEnabled(bool) = 0;
+    virtual void setAcceleratedCompositingForPluginsEnabled(bool) = 0;
+    virtual void setAcceleratedCompositingForAnimationEnabled(bool) = 0;
+    virtual void setAccelerated2dCanvasEnabled(bool) = 0;
+    virtual void setLegacyAccelerated2dCanvasEnabled(bool) = 0;
+    virtual void setAcceleratedDrawingEnabled(bool) = 0;
+    virtual void setMemoryInfoEnabled(bool) = 0;
+    virtual void setHyperlinkAuditingEnabled(bool) = 0;
+    virtual void setAsynchronousSpellCheckingEnabled(bool) = 0;
+    virtual void setCaretBrowsingEnabled(bool) = 0;
+    virtual void setInteractiveFormValidationEnabled(bool) = 0;
+    virtual void setValidationMessageTimerMagnification(int) = 0;
+    virtual void setMinimumTimerInterval(double) = 0;
+    virtual void setFullScreenEnabled(bool) = 0;
+    virtual void setAllowDisplayOfInsecureContent(bool) = 0;
+    virtual void setAllowRunningOfInsecureContent(bool) = 0;
 
 protected:
     ~WebSettings() { }

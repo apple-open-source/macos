@@ -1,0 +1,96 @@
+[libdefaults]
+	default_realm = TEST.H5L.SE TEST2.H5L.SE
+	no-addresses = TRUE
+	allow_weak_crypto = @WEAK@
+
+[appdefaults]
+	pkinit_anchors = FILE:@certdir@/ca.crt
+	reconnect-min = 2s
+	reconnect-backoff = 2s
+	reconnect-max = 10s
+
+[realms]
+	TEST.H5L.SE = {
+		kdc = localhost:@port@
+		admin_server = localhost:@admport@
+		kpasswd_server = localhost:@pwport@
+	}
+	SUB.TEST.H5L.SE = {
+		kdc = localhost:@port@
+	}
+	TEST2.H5L.SE = {
+		kdc = localhost:@port@
+		kpasswd_server = localhost:@pwport@
+	}
+	TEST3.H5L.SE = {
+		kdc = localhost:@port@
+	}
+	TEST4.H5L.SE = {
+		kdc = localhost:@port@
+	}
+	TEST-HTTP.H5L.SE = {
+		kdc = http/localhost:@port@
+	}
+
+[domain_realm]
+	.test.h5l.se = TEST.H5L.SE
+	.sub.test.h5l.se = SUB.TEST.H5L.SE
+	.example.com = TEST2.H5L.SE
+	localhost = TEST.H5L.SE
+	
+
+[kdc]
+	enable-digest = true
+	allow-anonymous = true
+	digests_allowed = chap-md5,digest-md5,ntlm-v1,ntlm-v1-session,ntlm-v2,ms-chap-v2
+
+	enable-http = true
+
+	enable-pkinit = true
+	pkinit_identity = FILE:@certdir@/kdc.crt,@certdir@/kdc.key
+	pkinit_anchors = FILE:@certdir@/ca.crt
+	pkinit_pool = FILE:@certdir@/sub-ca.crt
+#	pkinit_revoke = CRL:@certdir@/crl1.crl
+	pkinit_mappings_file = @confdir@/pki-mapping
+	pkinit_allow_proxy_certificate = true
+	pkinit_kdc_friendly_name = CN=kdc,C=SE
+
+	database = {
+		label = { 
+			dbname = @testdir@/current-db@kdc@
+			realm = TEST.H5L.SE
+			mkey_file = @testdir@/mkey.file
+			acl_file = @confdir@/heimdal.acl
+			log_file = @testdir@/current@kdc@.log
+		}
+		label2 = { 
+			dbname = @testdir@/current-db@kdc@
+			realm = TEST2.H5L.SE
+			mkey_file = @testdir@/mkey.file
+			acl_file = @confdir@/heimdal.acl
+			log_file = @testdir@/current@kdc@.log
+		}
+	}
+
+	signal_socket = @testdir@/signal
+	iprop-stats = @testdir@/iprop-stats
+	iprop-acl = @confdir@/iprop-acl
+
+[logging]
+	kdc = 0-/FILE:@testdir@/messages.log
+	default = 0-/FILE:@testdir@/messages.log
+	krb5 = 0-/FILE:@testdir@/messages.log
+	kpasswdd = 0-/FILE:@testdir@/messages.log
+
+[kadmin]
+	save-password = true
+	@dk@
+
+[capaths]
+	TEST.H5L.SE = {
+		TEST3.H5L.SE = TEST2.H5L.SE
+	}
+	TEST.H5L.SE = {
+		TEST4.H5L.SE = TEST2.H5L.SE
+		TEST4.H5L.SE = TEST3.H5L.SE
+	}

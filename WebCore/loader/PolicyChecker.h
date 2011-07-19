@@ -45,14 +45,15 @@ class NavigationAction;
 class ResourceError;
 class ResourceResponse;
 
-class PolicyChecker : public Noncopyable {
+class PolicyChecker {
+    WTF_MAKE_NONCOPYABLE(PolicyChecker);
 public:
     PolicyChecker(Frame*);
 
     void checkNavigationPolicy(const ResourceRequest&, DocumentLoader*, PassRefPtr<FormState>, NavigationPolicyDecisionFunction, void* argument);
     void checkNavigationPolicy(const ResourceRequest&, NavigationPolicyDecisionFunction, void* argument);
     void checkNewWindowPolicy(const NavigationAction&, NewWindowPolicyDecisionFunction, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName, void* argument);
-    void checkContentPolicy(const String& MIMEType, ContentPolicyDecisionFunction, void* argument);
+    void checkContentPolicy(const ResourceResponse&, ContentPolicyDecisionFunction, void* argument);
 
     // FIXME: These are different.  They could use better names.
     void cancelCheck();

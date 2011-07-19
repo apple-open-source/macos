@@ -2,7 +2,6 @@ package DBIx::Class::Core;
 
 use strict;
 use warnings;
-no warnings 'qw';
 
 use base qw/DBIx::Class/;
 
@@ -12,7 +11,8 @@ __PACKAGE__->load_components(qw/
   PK::Auto
   PK
   Row
-  ResultSourceProxy::Table/);
+  ResultSourceProxy::Table
+/);
 
 1;
 
@@ -22,8 +22,8 @@ DBIx::Class::Core - Core set of DBIx::Class modules
 
 =head1 SYNOPSIS
 
-  # In your table classes
-  __PACKAGE__->load_components(qw/Core/);
+  # In your result (table) classes
+  use base 'DBIx::Class::Core';
 
 =head1 DESCRIPTION
 
@@ -33,8 +33,6 @@ L<DBIx::Class> core features.  You almost certainly want these.
 The core modules currently are:
 
 =over 4
-
-=item L<DBIx::Class::Serialize::Storable>
 
 =item L<DBIx::Class::InflateColumn>
 

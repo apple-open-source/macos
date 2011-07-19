@@ -70,9 +70,7 @@
 
 #include <resolv.h>
 #include <TargetConditionals.h>
-#if __APPLE__
 #include <vproc_priv.h>
-#endif
 
 #include "libpfkey.h"
 
@@ -107,16 +105,18 @@
 #include "algorithm.h" /* XXX ??? */
 
 #include "sainfo.h"
+#include "power_mgmt.h"
 
 
 
 extern pid_t racoon_pid;
+extern char	logFileStr[];
 extern int launchedbylaunchd(void);
 static void close_session __P((void));
 static void check_rtsock __P((void *));
 static void initfds __P((void));
 static void init_signal __P((void));
-static int set_signal __P((int sig, RETSIGTYPE (*func) __P((int))));
+static int set_signal __P((int sig, RETSIGTYPE (*func) __P((int, siginfo_t *, void *))));
 static void check_sigreq __P((void));
 static void check_flushsa_stub __P((void *));
 static void check_flushsa __P((void));
@@ -131,25 +131,38 @@ static int dying = 0;
 static struct sched *check_rtsock_sched = NULL;
 int terminated = 0;
 
+#define HANDLE_TENTATIVE_INTF_FAILURES() do {																			  \
+											if (tentative_failures) {													  \
+												plog(LLV_ERROR, LOCATION, NULL,											  \
+													 "detected tentative interface/address issues: will retry later.\n"); \
+												if (check_rtsock_sched == NULL) {										  \
+													/* only schedule if not already done */								  \
+													check_rtsock_sched = sched_new(5, check_rtsock, NULL);				  \
+												}																		  \
+											}																			  \
+										} while(0)
+
 static void
 reinit_socks (void)
 {
+	int tentative_failures;
+
 	isakmp_close(); 
 	close(lcconf->rtsock);
 	initmyaddr();
-	if (isakmp_open() < 0) {
+	if (isakmp_open(&tentative_failures) < 0) {
 		plog(LLV_ERROR2, LOCATION, NULL,
 			 "failed to reopen isakmp sockets\n");
 	}
 	initfds();	
+	HANDLE_TENTATIVE_INTF_FAILURES();
 }
 
-#ifdef __APPLE__
 static int64_t racoon_keepalive = -1;
 
 /*
  * This is used to (manually) update racoon's launchd keepalive, which is needed because racoon is (mostly) 
- * launched on demand and for <rdar://problem/8773022> requires a keepalive on dirty/failure exits.
+ * launched on demand and for <rdar://problem/8768510> requires a keepalive on dirty/failure exits.
  * The launchd plist can't be used for this because RunOnLoad is required to have keepalive on a failure exit.
  */
 int64_t
@@ -171,7 +184,6 @@ launchd_update_racoon_keepalive (Boolean enabled)
 	}
 	return racoon_keepalive;
 }
-#endif // __APPLE__
 
 int
 session(void)
@@ -183,22 +195,25 @@ session(void)
 	char pid_file[MAXPATHLEN];
 	FILE *fp;
 	int i, update_fds;
+	int tentative_failures;
 
 	/* initialize schedular */
 	sched_init();
 
+	/* needs to be called after schedular */
+	if (init_power_mgmt() < 0) {
+		errx(1, "failed to initialize power-mgmt.");
+	}
+
 	initmyaddr();
 
-#ifndef __APPLE__
-	if (isakmp_init() < 0) {
-#else
-	if (isakmp_init(false) < 0) {
-#endif /* __APPLE__ */
+	if (isakmp_init(false, &tentative_failures) < 0) {
 		plog(LLV_ERROR2, LOCATION, NULL,
 				"failed to initialize isakmp");
 		exit(1);
 	}
-
+	HANDLE_TENTATIVE_INTF_FAILURES();
+		
 #ifdef ENABLE_ADMINPORT
 	if (admin_init() < 0) {
 		plog(LLV_ERROR2, LOCATION, NULL,
@@ -218,18 +233,14 @@ session(void)
 	init_signal();
 	initfds();
 
-#ifndef __APPLE__
-#ifdef ENABLE_NATT
-	natt_keepalive_init ();
-#endif
-#endif
-
+#ifdef HAVE_OPENSSL
 	if (privsep_init() != 0) {
 		plog(LLV_ERROR2, LOCATION, NULL,
 			"failed to initialize privsep");
 		exit(1);
 	}
-
+#endif
+	
 	for (i = 0; i <= NSIG; i++)
 		sigreq[i] = 0;
 
@@ -260,12 +271,10 @@ session(void)
 		}
 	}
 
-#ifdef __APPLE__
 #if !TARGET_OS_EMBEDDED
 	// enable keepalive for recovery (from crashes and bad exits... after init)
 	(void)launchd_update_racoon_keepalive(true);
 #endif // !TARGET_OS_EMBEDDED
-#endif // __APPLE__
 		
 	while (1) {
 		if (!TAILQ_EMPTY(&lcconf->saved_msg_queue))
@@ -276,6 +285,8 @@ session(void)
 		 * make sure to reset sigreq to 0.
 		 */
 		check_sigreq();
+
+		check_power_mgmt();
 
 		/* scheduling */
 		timeout = schedular();
@@ -292,7 +303,7 @@ session(void)
 				timeout->tv_sec = 1;
 			}
 		}
-		
+
 		if (dying)
 			rfds = maskdying;
 		else
@@ -304,8 +315,8 @@ session(void)
 				continue;
 			default:
 				plog(LLV_ERROR2, LOCATION, NULL,
-					 "failed select (%s) nfds %d\n",
-					 strerror(errno), nfds);					
+					"failed select (%s) nfds %d\n",
+					strerror(errno), nfds);
 				reinit_socks();
 				update_fds = 0;
 				continue;
@@ -344,13 +355,17 @@ session(void)
 		for (p = lcconf->myaddrs; p; p = p->next) {
 			if (!p->addr)
 				continue;
-			if (FD_ISSET(p->sock, &rfds))
+			if ((p->sock != -1) &&
+				(FD_ISSET(p->sock, &rfds)))
 				if ((error = isakmp_handler(p->sock)) == -2)
 					break;
 		}
 		if (error == -2) {
+			plog(LLV_ERROR2, LOCATION, NULL,
+				 "failed to process isakmp port\n");
 			reinit_socks();
 			update_fds = 0;
+			continue;
 		}
 
 		if (FD_ISSET(lcconf->sock_pfkey, &rfds))
@@ -359,7 +374,7 @@ session(void)
 		if (lcconf->rtsock >= 0 && FD_ISSET(lcconf->rtsock, &rfds)) {
 			if (update_myaddrs() && lcconf->autograbaddr)
 				if (check_rtsock_sched == NULL)	/* only schedule if not already done */
-					check_rtsock_sched = sched_new(5, check_rtsock, NULL);
+					check_rtsock_sched = sched_new(1, check_rtsock, NULL);
 			// initfds();	//%%% BUG FIX - not needed here
 		}
 		if (update_fds) {
@@ -380,12 +395,10 @@ close_session()
 	close_sockets();
 	backupsa_clean();
 
-#ifdef __APPLE__
 #if !TARGET_OS_EMBEDDED
 	// a clean exit, so disable launchd keepalive
 	(void)launchd_update_racoon_keepalive(false);
 #endif // !TARGET_OS_EMBEDDED
-#endif // __APPLE__
 
 	plog(LLV_INFO, LOCATION, NULL, "racoon shutdown\n");
 	exit(0);
@@ -395,16 +408,18 @@ static void
 check_rtsock(p)
 	void *p;
 {	
+	int tentative_failures;
 
 	check_rtsock_sched = NULL;
 	grab_myaddrs();
 	isakmp_close_unused();
 
 	autoconf_myaddrsport();
-	isakmp_open();
+	isakmp_open(&tentative_failures);
 
 	/* initialize socket list again */
 	initfds();
+	HANDLE_TENTATIVE_INTF_FAILURES();
 }
 
 static void
@@ -506,9 +521,17 @@ static int signals[] = {
  * main loop in session().
  */
 RETSIGTYPE
-signal_handler(sig)
+signal_handler(sig, sigi, ctx)
 	int sig;
+	siginfo_t *sigi;
+	void *ctx;
 {
+#if 0
+	plog(LLV_DEBUG, LOCATION, NULL, 
+		 "%s received signal %d from pid %d uid %d\n\n",
+		 __FUNCTION__, sig, sigi->si_pid, sigi->si_uid);
+#endif
+
 	/* Do not just set it to 1, because we may miss some signals by just setting
 	 * values to 0/1
 	 */
@@ -522,6 +545,7 @@ static void
 check_sigreq()
 {
 	int sig;
+	int tentative_failures;
 
 	/* 
 	 * XXX We are not able to tell if we got 
@@ -574,6 +598,14 @@ check_sigreq()
 			if ( terminated )
 				break;
 				
+			/*
+			 * if we got a HUP... try graceful teardown of sessions before we close and reopen sockets...
+			 * so that info-deletes notifications can make it to the peer.
+			 */
+			if (sig == SIGHUP) {
+				flushph2(true);
+				flushph1(true);
+			}		
 			/* Save old configuration, load new one...  */
 			isakmp_close();
 			close(lcconf->rtsock);
@@ -582,16 +614,13 @@ check_sigreq()
 					 "configuration read failed\n");
 				exit(1);
 			}
-			if (lcconf->logfile_param == NULL)
+			if (lcconf->logfile_param == NULL && logFileStr[0] == 0)
 				plogreset(lcconf->pathinfo[LC_PATHTYPE_LOGFILE]);
 				
 			initmyaddr();
 			isakmp_cleanup();
-#ifdef __APPLE__
-			isakmp_init(true);
-#else
-			isakmp_init();
-#endif /* __APPLE__ */
+			isakmp_init(true, &tentative_failures);
+			HANDLE_TENTATIVE_INTF_FAILURES();
 			initfds();
 #if TARGET_OS_EMBEDDED
 			if (no_remote_configs(TRUE)) {
@@ -704,15 +733,6 @@ check_flushsa()
 		return;
 	}
 
-#if !TARGET_OS_EMBEDDED
-	// abort exit if policies/config/control state is still there
-	if (vpn_control_connected() ||
-		policies_installed() ||
-		!no_remote_configs(FALSE)) {
-		return;
-	}
-#endif
-	
 	close_session();
 #if !TARGET_OS_EMBEDDED
 	if (lcconf->vt)
@@ -770,13 +790,13 @@ init_signal()
 static int
 set_signal(sig, func)
 	int sig;
-	RETSIGTYPE (*func) __P((int));
+	RETSIGTYPE (*func) __P((int, siginfo_t *, void *));
 {
 	struct sigaction sa;
 
 	memset((caddr_t)&sa, 0, sizeof(sa));
 	sa.sa_handler = func;
-	sa.sa_flags = SA_RESTART;
+	sa.sa_flags = SA_RESTART | SA_SIGINFO;
 
 	if (sigemptyset(&sa.sa_mask) < 0)
 		return -1;

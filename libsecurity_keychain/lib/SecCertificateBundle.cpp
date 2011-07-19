@@ -25,6 +25,19 @@
 
 #include "SecBridge.h"
 
+#if defined(__cplusplus)
+extern "C" {
+#endif
+// misspelled function name is declared here so symbol won't be stripped
+OSStatus SecCertifcateBundleExport(
+        CFArrayRef itemList,
+        CSSM_CERT_BUNDLE_TYPE type,
+        CSSM_CERT_BUNDLE_ENCODING encodingType,
+        CSSM_DATA* data);
+#if defined(__cplusplus)
+}
+#endif
+
 
 OSStatus
 SecCertificateBundleImport(
@@ -43,8 +56,8 @@ SecCertificateBundleImport(
 
 
 OSStatus
-SecCertifcateBundleExport(
-        CFArrayRef itemList,
+SecCertificateBundleExport(
+        CFArrayRef certificates,
         CSSM_CERT_BUNDLE_TYPE type,
         CSSM_CERT_BUNDLE_ENCODING encodingType,
         CSSM_DATA* data)
@@ -54,4 +67,16 @@ SecCertifcateBundleExport(
 	MacOSError::throwMe(unimpErr);//%%%for now
 
     END_SECAPI
+}
+
+// note: misspelled function name is still exported as a precaution;
+// can remove this after deprecation
+OSStatus
+SecCertifcateBundleExport(
+        CFArrayRef itemList,
+        CSSM_CERT_BUNDLE_TYPE type,
+        CSSM_CERT_BUNDLE_ENCODING encodingType,
+        CSSM_DATA* data)
+{
+	return SecCertificateBundleExport(itemList, type, encodingType, data);
 }

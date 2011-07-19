@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 1997-2007, International Business Machines Corporation
+ * Copyright (c) 1997-2009, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -216,7 +216,9 @@ public: // package
 
   // internal - for other test use
  public:
-
+    void Test6703(void);
+    void Test3785(void);
+    void Test1624(void);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

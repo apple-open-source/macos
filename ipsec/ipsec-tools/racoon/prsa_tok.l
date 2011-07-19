@@ -35,14 +35,13 @@
 
 /* This file contains a tokeniser for FreeS/WAN-style ipsec.secrets RSA keys. */
 
+#include <config.h>
 #include <string.h>
+#ifdef HAVE_OPENSSL
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
-#ifdef __APPLE__
+#endif	
 #include "y.tab.h"
-#else
-#include "prsa_par.h"
-#endif
 
 extern int prsalex (void);
 extern int prsa_cur_lineno;

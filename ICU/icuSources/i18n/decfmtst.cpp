@@ -1,5 +1,5 @@
 //
-//  decfmtst.h
+//  decfmtst.cpp
 //
 //  Copyright (C) 20098, International Business Machines Corporation and others.
 //  All Rights Reserved.
@@ -10,6 +10,8 @@
 //  parsing of decimal and group separators.
 //
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_FORMATTING
 
 #include "unicode/unistr.h"
 #include "unicode/uniset.h"
@@ -46,8 +48,8 @@ static const UChar gOtherGroupingSeparatorsPattern[] = {
         0x005B, 0x005C, 0x0020, 0x0027, 0x00A0, 0x066C, 0x2000, 0x002D, 0x200A, 0x2018, 0x2019, 0x202F, 0x205F, 0x3000, 0xFF07, 0x005D, 0x0000};
 
 static const UChar gDashEquivalentsPattern[] = {
-    // [       \      -     HYPHEN  F_DASH  N_DASH   MINUS     ]
-    0x005B, 0x005C, 0x002D, 0x2010, 0x2012, 0x2013, 0x2212, 0x005D, 0x0000};
+        // [       \      -     HYPHEN  F_DASH  N_DASH   MINUS     ]
+        0x005B, 0x005C, 0x002D, 0x2010, 0x2012, 0x2013, 0x2212, 0x005D, 0x0000};
 
 static const UChar gStrictDotEquivalentsPattern[] = {
 		// [      .     \u2024  \uFE52  \uFF0E  \uFF61    ]
@@ -117,7 +119,7 @@ DecimalFormatStaticSets::DecimalFormatStaticSets(UErrorCode *status)
     fStrictDashEquivalents->freeze();
     fDefaultGroupingSeparators->freeze();
     fStrictDefaultGroupingSeparators->freeze();
-	
+
     return; // If we reached this point, everything is fine so just exit
 
 ExitConstrDeleteAll: // Remove fPropSets and fRuleSets and return error
@@ -232,3 +234,4 @@ UnicodeSet *DecimalFormatStaticSets::getSimilarDecimals(UChar32 decimal, UBool s
 
 
 U_NAMESPACE_END
+#endif   // !UCONFIG_NO_FORMATTING

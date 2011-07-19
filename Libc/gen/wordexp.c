@@ -45,7 +45,7 @@ static regex_t re_cmd, re_goodchars, re_subcmd_syntax_err_kludge, re_quoted_stri
 
 /* Similar to popen, but captures stderr for you.  Doesn't interoperate
   with pclose.  Call wait4 on your own */
-pid_t popen_oe(char *cmd, FILE **out, FILE **err) {
+static pid_t popen_oe(char *cmd, FILE **out, FILE **err) {
     int out_pipe[2], err_pipe[2];
     char *argv[4];
     pid_t pid;
@@ -105,7 +105,7 @@ pid_t popen_oe(char *cmd, FILE **out, FILE **err) {
     return pid;
 }
 
-void re_init(void) {
+static void re_init(void) {
     int rc = regcomp(&re_cmd, "(^|[^\\])(`|\\$\\([^(])", REG_EXTENDED|REG_NOSUB);
     /* XXX I'm not sure the { } stuff is correct,
       it may be overly restrictave */

@@ -1,59 +1,50 @@
-/* utility functions for `patch' */
+/*	$OpenBSD: util.h,v 1.15 2005/06/20 07:14:06 otto Exp $	*/
 
-/* $Id: util.h,v 1.1.1.3 2003/05/08 18:38:04 rbraun Exp $ */
+/*
+ * patch - a program to apply diffs to original files
+ * 
+ * Copyright 1986, Larry Wall
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following condition is met:
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this condition and the following disclaimer.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * 
+ * -C option added in 1998, original code by Marc Espie, based on FreeBSD
+ * behaviour
+ */
 
-/* Copyright (C) 1986 Larry Wall
+char		*fetchname(const char *, bool *, int);
+char		*checked_in(char *);
+int		backup_file(const char *);
+int		move_file(const char *, const char *);
+int		copy_file(const char *, const char *);
+void		say(const char *, ...)
+		    __attribute__((__format__(__printf__, 1, 2)));
+void		fatal(const char *, ...)
+		    __attribute__((__format__(__printf__, 1, 2)));
+void		pfatal(const char *, ...)
+		    __attribute__((__format__(__printf__, 1, 2)));
+void		ask(const char *, ...)
+		    __attribute__((__format__(__printf__, 1, 2)));
+char		*savestr(const char *);
+void		set_signals(int);
+void		ignore_signals(void);
+void		makedirs(const char *, bool);
+void		version(void);
+void		my_exit(int) __attribute__((noreturn));
 
-   Copyright (C) 1992, 1993, 1997, 1998, 1999, 2001, 2002 Free
-   Software Foundation, Inc.
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.
-   If not, write to the Free Software Foundation,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
-/* An upper bound on the print length of a signed decimal line number.
-   Add one for the sign.  */
-#define LINENUM_LENGTH_BOUND (sizeof (LINENUM) * CHAR_BIT / 3 + 1)
-
-XTERN enum backup_type backup_type;
-
-int ok_to_reverse (char const *, ...) __attribute__ ((format (printf, 1, 2)));
-void ask (char const *, ...) __attribute__ ((format (printf, 1, 2)));
-void say (char const *, ...) __attribute__ ((format (printf, 1, 2)));
-
-void fatal (char const *, ...)
-	__attribute__ ((noreturn, format (printf, 1, 2)));
-void pfatal (char const *, ...)
-	__attribute__ ((noreturn, format (printf, 1, 2)));
-
-char *fetchname (char *, int, time_t *);
-char *savebuf (char const *, size_t);
-char *savestr (char const *);
-char const *version_controller (char const *, int, struct stat const *, char **, char **);
-int version_get (char const *, char const *, int, int, char const *, struct stat *);
-int create_file (char const *, int, mode_t);
-int systemic (char const *);
-char *format_linenum (char[LINENUM_LENGTH_BOUND + 1], LINENUM);
-void Fseek (FILE *, file_offset, int);
-void copy_file (char const *, char const *, int, mode_t);
-void exit_with_signal (int) __attribute__ ((noreturn));
-void ignore_signals (void);
-void init_time (void);
-void memory_fatal (void) __attribute__ ((noreturn));
-void move_file (char const *, int volatile *, char *, mode_t, int);
-void read_fatal (void) __attribute__ ((noreturn));
-void remove_prefix (char *, size_t);
-void removedirs (char *);
-void set_signals (int);
-void write_fatal (void) __attribute__ ((noreturn));
+/* in mkpath.c */
+extern int mkpath(char *);

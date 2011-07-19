@@ -25,13 +25,14 @@
 
 #include "AppleCSPContext.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <CommonCrypto/rc4.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
 
 class RC4Context : public AppleCSPContext {
 public:
 	RC4Context(AppleCSPSession &session) :
 		AppleCSPContext(session)	{ }
-	~RC4Context();
+	virtual ~RC4Context();
 	
 	// called by CSPFullPluginSession
 	void init(
@@ -55,7 +56,7 @@ public:
 		size_t 			&out); 				// minimum progress chunks
 	
 private:
-	RC4_KEY				rc4Key;
+    CCCryptorRef    rc4Key;
 	
 };	/* RC4Context */
 

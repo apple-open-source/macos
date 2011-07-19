@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 use strict;
-use Test::More tests => 36;
+use Test::More tests => 39;
 
 use operator_overload;
 
@@ -35,7 +35,7 @@ ok_not(($op == $op2), "operator equal: not equal");
 $op->{i} = 3;
 ok(($op == $op2), "operator equal: equal");
 
-# operator equal
+# operator not equal
 $op->{i} = 5;
 $op2->{i} = 3;
 
@@ -64,13 +64,18 @@ is($op->{i}, 6, "operator additive assignment");
 $op3->{i} = 6;
 $op2->{i} = 3;
 $op = $op3 - $op2;
-is($op->{i}, 3, "operator subtration");
+is($op->{i}, 3, "operator subtraction");
+
+# reversed subtraction operator (with int)
+$op3->{i} = 3;
+$op = 6 - $op3;
+is($op->{i}, 3, "reversed operator subtraction (with int)");
 
 # subtractive assignment operator
 $op->{i} = 6;
 $op2->{i} = 3;
 $op -= $op2;
-is($op->{i}, 3, "operator subtrative assignment");
+is($op->{i}, 3, "operator subtractive assignment");
 
 # multiplication operator
 $op->{i} = 3;
@@ -126,15 +131,25 @@ $op2->{i} = 3;
 ok(($op2 <= $op), "operator less than or equal");
 ok(($op <= $op2), "operator less than or equal");
 
-# increment operator
+# post-increment operator
 $op->{i} = 7;
 $op++;
-is($op->{i}, 8, "operator increment");
+is($op->{i}, 8, "operator post-increment");
 
-# decrement operator
+# pre-increment operator
+$op->{i} = 7;
+++$op;
+is($op->{i}, 8, "operator pre-increment");
+
+# post-decrement operator
 $op->{i} = 7;
 $op--;
-is($op->{i}, 6, "operator decrement");
+is($op->{i}, 6, "operator post-decrement");
+
+# pre-decrement operator
+$op->{i} = 7;
+--$op;
+is($op->{i}, 6, "operator pre-decrement");
 
 # neg operator
 $op->{i} = 3;
@@ -147,6 +162,14 @@ is(!$op, !0, "operator not");
 
 $op->{i} = 1;
 is(!$op, !1, "operator not");
+
+### # and operator
+### $op->{i} = 4;
+### $op2->{i} = 2;
+### 
+### is($op & $op2, 4 & 2, "operator and");
+### 
+### isnt(($op & $op2), (10 & 2), "operator and - false");
 
 # fail("testing failed condition");
 

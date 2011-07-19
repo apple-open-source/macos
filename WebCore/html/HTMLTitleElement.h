@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,25 +23,27 @@
 #define HTMLTitleElement_h
 
 #include "HTMLElement.h"
+#include "StringWithDirection.h"
 
 namespace WebCore {
 
 class HTMLTitleElement : public HTMLElement {
 public:
-    HTMLTitleElement(const QualifiedName&, Document*);
-    ~HTMLTitleElement();
+    static PassRefPtr<HTMLTitleElement> create(const QualifiedName&, Document*);
 
-    virtual bool checkDTD(const Node* newChild) { return newChild->isTextNode(); }
+    String text() const;
+    void setText(const String&);
+
+    StringWithDirection textWithDirection();
+
+private:
+    HTMLTitleElement(const QualifiedName&, Document*);
 
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    String text() const;
-    void setText(const String&);
-
-protected:
-    String m_title;
+    StringWithDirection m_title;
 };
 
 } //namespace

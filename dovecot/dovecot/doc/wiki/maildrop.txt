@@ -1,0 +1,73 @@
+Maildrop
+========
+
+Maildrop is available at http://www.courier-mta.org/maildrop
+
+Although it is the default LDA for the courier mail server, it also works as a
+standalone LDA.  The install script can even build an rpm package if you prefer
+to manage software that way.  Maildrop can be used with sendmail as a drop-in
+replacement for procmail.  It has better maildir support than procmail and it
+has filtering capability using syntax that looks a lot like shell script
+language with a little bit of perl thrown in.
+
+To use maildrop with sendmail, make the following change in your sendmail.mc
+file, then make etc.
+
+---%<-------------------------------------------------------------------------
+dnl FEATURE(`local_procmail,', `procmail -t -Y -a $h -d $u')dnl
+dnl # replace above line with below line to use maildrop instead of procmail
+FEATURE(`local_procmail', `/usr/bin/maildrop', `maildrop -d $u')dnl
+---%<-------------------------------------------------------------------------
+
+A default system wide configuration file for maildir style mailboxes might look
+like the following:
+
+---%<-------------------------------------------------------------------------
+# file: /etc/maildroprc
+# system-wide settings for maildrop
+
+SHELL="/bin/bash"
+SENDMAIL="/usr/sbin/sendmail -oi -t"
+logfile "/var/log/maildrop.log"
+
+DEFAULT="$HOME/Maildir/"
+---%<-------------------------------------------------------------------------
+
+In the above configuration, the users should be a member of the same group and
+the group should have write privileges to the logfile.
+
+To use maildrop with Postfix, take a look at
+http://www.postfix.org/MAILDROP_README.html
+
+Dovecot Authentication extension for maildrop
+---------------------------------------------
+
+Announced on the Dovecot's mailing list:
+http://www.dovecot.org/list/dovecot/2009-April/039121.html
+
+A patch for maildrop that would allow it to perform user lookups directly
+against Dovecot in a similar way how they are done by Dovecot's LDA deliver
+depending on used version of maildrop is available at the following locations:
++--------------+--------------------------------------------------------------+
+| *maildrop*   | *patch*                                                      |
++--------------+--------------------------------------------------------------+
+| 2.0.4        | http://www.max.rs/ozone/maildrop-2.0.4-dovecotauth.patch.txt |
++--------------+--------------------------------------------------------------+
+| 2.1.0        | http://www.max.rs/ozone/maildrop-2.1.0-dovecotauth.patch.txt |
++--------------+--------------------------------------------------------------+
+| 2.2.0        | http://www.max.rs/ozone/maildrop-2.2.0-dovecotauth.patch.txt |
++--------------+--------------------------------------------------------------+
+| 2.3.0, 2.4.0,| http://www.max.rs/ozone/maildrop-2.3.0-dovecotauth.patch.txt |
+| 2.4.1, 2.4.2,|                                                              |
+| 2.4.3, 2.5.0,|                                                              |
+| 2.5.1, 2.5.2,|                                                              |
+| 2.5.3        |                                                              |
++--------------+--------------------------------------------------------------+
+
+When this patch is applied, maildrop will be extended with another command line
+option "-t", which can be used to specify the location of Dovecot's master auth
+socket that will be used when performing user lookups. There's a readme file
+(README.dovecotauth) together with patch with a little bit more information
+regarding the use of this extension.
+
+(This file was created from the wiki on 2011-05-11 04:42)

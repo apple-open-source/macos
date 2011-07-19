@@ -32,6 +32,8 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sandbox.h>
+#include <set>
 
 #define kAtomicFileMaxBlockSize INT_MAX
 
@@ -44,6 +46,15 @@ AtomicFile::AtomicFile(const std::string &inPath) :
 {
 	pathSplit(inPath, mDir, mFile);
 	
+    if (mDir.length() == 0)
+    {
+        const char* buffer = getwd(NULL);
+        mDir = buffer;
+        free((void*) buffer);
+    }
+    
+    mDir += '/';
+
 	// determine if the path is on a local or a networked volume
 	struct statfs info;
 	int result = statfs(mDir.c_str(), &info);
@@ -270,11 +281,53 @@ AtomicFile::mkpath(const std::string &inDir, mode_t mode)
 int
 AtomicFile::ropen(const char *const name, int flags, mode_t mode)
 {
-	int fd, tries_left = 4 /* kNoResRetry */;
+    bool isCreate = (flags & O_CREAT) != 0;
+    
+    bool checkForRead = false;
+    bool checkForWrite = false;
+    
+    // if we are actually trying to create the file, we
+    int fd, tries_left = 4 /* kNoResRetry */;
+
+    if (!isCreate)
+    {
+        switch (flags & O_ACCMODE) 
+        {
+            case O_RDONLY:
+                checkForRead = true;
+                break;
+            case O_WRONLY:
+                checkForWrite = true;
+                break;
+            case O_RDWR:
+                checkForRead = true;
+                checkForWrite = true;
+                break;
+        }
+
+        if (checkForRead)
+        {
+            int result = sandbox_check(getpid(), "file-read-data", SANDBOX_FILTER_PATH, name);
+            if (result != 0)
+            {
+                return -1;
+            }
+        }
+        
+        if (checkForWrite)
+        {
+            int result = sandbox_check(getpid(), "file-write-data", SANDBOX_FILTER_PATH, name);
+            if (result != 0)
+            {
+                return -1;
+            }
+        }
+    }
+
 	do
 	{
 		fd = ::open(name, flags, mode);
-	} while (fd < 0 && (errno == EINTR || errno == ENFILE && --tries_left >= 0));
+	} while (fd < 0 && (errno == EINTR || (errno == ENFILE && --tries_left >= 0)));
 
 	return fd;
 }
@@ -527,7 +580,30 @@ AtomicTempFile::~AtomicTempFile()
 void
 AtomicTempFile::create(mode_t mode)
 {
-	mPath = mFile.dir() + "," + mFile.file();
+	// we now generate our temporary file name through sandbox API's.
+    
+    // put the dir into a canonical form
+    string dir = mFile.dir();
+    int i = dir.length() - 1;
+    
+    // walk backwards until we get to a non / character
+    while (i >= 0 && dir[i] == '/')
+    {
+        i -= 1;
+    }
+    
+    // point one beyond the string
+    i += 1;
+    
+    const char* temp = _amkrtemp((dir.substr(0, i) + "/" + mFile.file()).c_str());
+    if (temp == NULL)
+    {
+        UnixError::throwMe(errno);
+    }
+    
+	mPath = temp;
+    free((void*) temp);
+    
 	const char *path = mPath.c_str();
 
 	mFileRef = AtomicFile::ropen(path, O_WRONLY|O_CREAT|O_TRUNC, mode);

@@ -24,7 +24,7 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/archive_read_support_format_zip.c,v 1.28 2008/12/06 06:45:15 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_zip.c 201102 2009-12-28 03:11:36Z kientzle $");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -36,10 +36,6 @@ __FBSDID("$FreeBSD: src/lib/libarchive/archive_read_support_format_zip.c,v 1.28 
 #include <time.h>
 #ifdef HAVE_ZLIB_H
 #include <zlib.h>
-#else
-/* Hmmm... This is necessary, but means that we can't correctly extract
- * even uncompressed entries on platforms that lack zlib. */
-#define	crc32(crc, buf, len) (unsigned long)0
 #endif
 
 #include "archive.h"
@@ -47,6 +43,10 @@ __FBSDID("$FreeBSD: src/lib/libarchive/archive_read_support_format_zip.c,v 1.28 
 #include "archive_private.h"
 #include "archive_read_private.h"
 #include "archive_endian.h"
+
+#ifndef HAVE_ZLIB_H
+#include "archive_crc32.h"
+#endif
 
 struct zip {
 	/* entry_bytes_remaining is the number of bytes we expect. */
@@ -75,7 +75,6 @@ struct zip {
 	/* Flags to mark progress of decompression. */
 	char			decompress_init;
 	char			end_of_entry;
-	char			end_of_entry_cleanup;
 
 	unsigned long		crc32;
 	ssize_t			filename_length;
@@ -154,7 +153,9 @@ archive_read_support_format_zip(struct archive *_a)
 
 	r = __archive_read_register_format(a,
 	    zip,
+	    "zip",
 	    archive_read_format_zip_bid,
+	    NULL,
 	    archive_read_format_zip_read_header,
 	    archive_read_format_zip_read_data,
 	    archive_read_format_zip_read_data_skip,
@@ -171,7 +172,7 @@ archive_read_format_zip_bid(struct archive_read *a)
 {
 	const char *p;
 	const void *buff;
-	size_t bytes_avail, offset;
+	ssize_t bytes_avail, offset;
 
 	if ((p = __archive_read_ahead(a, 4, NULL)) == NULL)
 		return (-1);
@@ -209,7 +210,7 @@ archive_read_format_zip_bid(struct archive_read *a)
 			/* Get 4k of data beyond where we stopped. */
 			buff = __archive_read_ahead(a, offset + 4096,
 			    &bytes_avail);
-			if (bytes_avail < offset + 1)
+			if (buff == NULL)
 				break;
 			p = (const char *)buff + offset;
 			while (p + 9 < (const char *)buff + bytes_avail) {
@@ -240,7 +241,8 @@ skip_sfx(struct archive_read *a)
 {
 	const void *h;
 	const char *p, *q;
-	size_t skip, bytes;
+	size_t skip;
+	ssize_t bytes;
 
 	/*
 	 * TODO: We should be able to skip forward by a bunch
@@ -298,7 +300,6 @@ archive_read_format_zip_read_header(struct archive_read *a,
 	zip = (struct zip *)(a->format->data);
 	zip->decompress_init = 0;
 	zip->end_of_entry = 0;
-	zip->end_of_entry_cleanup = 0;
 	zip->entry_uncompressed_bytes_read = 0;
 	zip->entry_compressed_bytes_read = 0;
 	zip->entry_crc32 = crc32(0, NULL, 0);
@@ -373,7 +374,7 @@ archive_read_format_zip_read_header(struct archive_read *a,
 	return (ARCHIVE_FATAL);
 }
 
-int
+static int
 zip_read_file_header(struct archive_read *a, struct archive_entry *entry,
     struct zip *zip)
 {
@@ -499,45 +500,6 @@ archive_read_format_zip_read_data(struct archive_read *a,
 	 * ARCHIVE_EOF this time.
 	 */
 	if (zip->end_of_entry) {
-		if (!zip->end_of_entry_cleanup) {
-			if (zip->flags & ZIP_LENGTH_AT_END) {
-				const char *p;
-
-				if ((p = __archive_read_ahead(a, 16, NULL)) == NULL) {
-					archive_set_error(&a->archive,
-					    ARCHIVE_ERRNO_FILE_FORMAT,
-					    "Truncated ZIP end-of-file record");
-					return (ARCHIVE_FATAL);
-				}
-				zip->crc32 = archive_le32dec(p + 4);
-				zip->compressed_size = archive_le32dec(p + 8);
-				zip->uncompressed_size = archive_le32dec(p + 12);
-				__archive_read_consume(a, 16);
-			}
-
-			/* Check file size, CRC against these values. */
-			if (zip->compressed_size != zip->entry_compressed_bytes_read) {
-				archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
-				    "ZIP compressed data is wrong size");
-				return (ARCHIVE_WARN);
-			}
-			/* Size field only stores the lower 32 bits of the actual size. */
-			if ((zip->uncompressed_size & UINT32_MAX)
-			    != (zip->entry_uncompressed_bytes_read & UINT32_MAX)) {
-				archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
-				    "ZIP uncompressed data is wrong size");
-				return (ARCHIVE_WARN);
-			}
-			/* Check computed CRC against header */
-			if (zip->crc32 != zip->entry_crc32) {
-				archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
-				    "ZIP bad CRC: 0x%lx should be 0x%lx",
-				    zip->entry_crc32, zip->crc32);
-				return (ARCHIVE_WARN);
-			}
-			/* End-of-entry cleanup done. */
-			zip->end_of_entry_cleanup = 1;
-		}
 		*offset = zip->entry_uncompressed_bytes_read;
 		*size = 0;
 		*buff = NULL;
@@ -578,8 +540,45 @@ archive_read_format_zip_read_data(struct archive_read *a,
 		return (r);
 	/* Update checksum */
 	if (*size)
-		zip->entry_crc32 =
-		    crc32(zip->entry_crc32, *buff, *size);
+		zip->entry_crc32 = crc32(zip->entry_crc32, *buff, *size);
+	/* If we hit the end, swallow any end-of-data marker. */
+	if (zip->end_of_entry) {
+		if (zip->flags & ZIP_LENGTH_AT_END) {
+			const char *p;
+
+			if ((p = __archive_read_ahead(a, 16, NULL)) == NULL) {
+				archive_set_error(&a->archive,
+				    ARCHIVE_ERRNO_FILE_FORMAT,
+				    "Truncated ZIP end-of-file record");
+				return (ARCHIVE_FATAL);
+			}
+			zip->crc32 = archive_le32dec(p + 4);
+			zip->compressed_size = archive_le32dec(p + 8);
+			zip->uncompressed_size = archive_le32dec(p + 12);
+			__archive_read_consume(a, 16);
+		}
+		/* Check file size, CRC against these values. */
+		if (zip->compressed_size != zip->entry_compressed_bytes_read) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+			    "ZIP compressed data is wrong size");
+			return (ARCHIVE_WARN);
+		}
+		/* Size field only stores the lower 32 bits of the actual size. */
+		if ((zip->uncompressed_size & UINT32_MAX)
+		    != (zip->entry_uncompressed_bytes_read & UINT32_MAX)) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+			    "ZIP uncompressed data is wrong size");
+			return (ARCHIVE_WARN);
+		}
+		/* Check computed CRC against header */
+		if (zip->crc32 != zip->entry_crc32) {
+			archive_set_error(&a->archive, ARCHIVE_ERRNO_MISC,
+			    "ZIP bad CRC: 0x%lx should be 0x%lx",
+			    zip->entry_crc32, zip->crc32);
+			return (ARCHIVE_WARN);
+		}
+	}
+
 	/* Return EOF immediately if this is a non-regular file. */
 	if (AE_IFREG != (zip->mode & AE_IFMT))
 		return (ARCHIVE_EOF);
@@ -761,7 +760,7 @@ archive_read_format_zip_read_data_skip(struct archive_read *a)
 	zip = (struct zip *)(a->format->data);
 
 	/* If we've already read to end of data, we're done. */
-	if (zip->end_of_entry_cleanup)
+	if (zip->end_of_entry)
 		return (ARCHIVE_OK);
 
 	/*
@@ -788,7 +787,7 @@ archive_read_format_zip_read_data_skip(struct archive_read *a)
 		return (ARCHIVE_FATAL);
 
 	/* This entry is finished and done. */
-	zip->end_of_entry_cleanup = zip->end_of_entry = 1;
+	zip->end_of_entry = 1;
 	return (ARCHIVE_OK);
 }
 

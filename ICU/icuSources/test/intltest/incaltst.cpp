@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation
+ * Copyright (c) 1997-2010, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -18,7 +18,7 @@
 
 #define CHECK(status, msg) \
     if (U_FAILURE(status)) { \
-      errln((UnicodeString(u_errorName(status)) + UnicodeString(" : " ) )+ msg); \
+      dataerrln((UnicodeString(u_errorName(status)) + UnicodeString(" : " ) )+ msg); \
         return; \
     }
 
@@ -104,16 +104,26 @@ IntlCalendarTest::TestTypes()
                             "ja_JP_TRADITIONAL",   
                             "th_TH_TRADITIONAL", 
                             "th_TH_TRADITIONAL@calendar=gregorian", 
-                            "en_US", NULL };
+                            "en_US",
+                            "th_TH",    // Default calendar for th_TH is buddhist
+                            "th",       // th's default region is TH and buddhist is used as default for TH
+                            "en_TH",    // Default calendar for any locales with region TH is buddhist
+                            "en-TH-u-ca-gregory",
+                            NULL };
   const char *types[40] = { "gregorian", 
                             "japanese",
                             "gregorian",
                             "japanese",
-                            "buddhist",           
+                            "buddhist",
                             "japanese",
                             "buddhist",           
                             "gregorian",
-                            "gregorian", NULL };
+                            "gregorian",
+                            "buddhist",           
+                            "buddhist",           
+                            "buddhist",           
+                            "gregorian",
+                            NULL };
 
   for(j=0;locs[j];j++) {
     logln(UnicodeString("Creating calendar of locale ")  + locs[j]);
@@ -123,7 +133,7 @@ IntlCalendarTest::TestTypes()
     if(U_SUCCESS(status)) {
       logln(UnicodeString(" type is ") + c->getType());
       if(strcmp(c->getType(), types[j])) {
-        errln(UnicodeString(locs[j]) + UnicodeString("Calendar type ") + c->getType() + " instead of " + types[j]);
+        dataerrln(UnicodeString(locs[j]) + UnicodeString("Calendar type ") + c->getType() + " instead of " + types[j]);
       }
     }
     delete c;
@@ -523,21 +533,7 @@ void IntlCalendarTest::TestJapaneseFormat() {
 
     // Test parse with incomplete information
     fmt = new SimpleDateFormat(UnicodeString("G y"), Locale("en_US@calendar=japanese"), status);
-    /* The test data below should points to 1868-09-08T00:00:00 in America/Los_Angeles.
-     * The time calculated by original test code uses -7:00 UTC offset, because it assumes
-     * DST is observed (because of a timezone bug, DST is observed for early 20th century
-     * day to infinite past time).  The bug was fixed and DST is no longer used for time before
-     * 1900 for any zones.  However, ICU timezone transition data is represented by 32-bit integer
-     * (sec) and cannot represent transitions before 1901 defined in Olson tzdata.  For example,
-     * based on Olson definition, offset -7:52:58 should be used for Nov 18, 1883 or older dates.
-     * If ICU properly capture entire Olson zone definition, the start time of "Meiji 1" is
-     * -3197117222000. -Yoshito
-     */
-    /* TODO: When ICU support the Olson LMT offset for America/Los_Angeles, we need to update
-     * the reference data.
-     */
-    //aDate = -3197120400000.;
-    aDate = -3197116800000.;
+    aDate = -3197117222000.0;
     CHECK(status, "creating date format instance");
     if(!fmt) { 
         errln("Coudln't create en_US instance");
@@ -589,8 +585,7 @@ void IntlCalendarTest::TestJapaneseFormat() {
     }
     {
         UnicodeString expect = CharsToUnicodeString("\\u5b89\\u6c385\\u5e747\\u67084\\u65e5\\u6728\\u66dc\\u65e5");
-        //UDate         expectDate = -6106035600000.0;
-        UDate         expectDate = -6106032000000.0; // 1776-07-04T00:00:00Z-0800
+        UDate         expectDate = -6106032422000.0; // 1776-07-04T00:00:00Z-075258
         Locale        loc("ja_JP@calendar=japanese");
         
         status = U_ZERO_ERROR;
@@ -608,9 +603,7 @@ void IntlCalendarTest::TestJapaneseFormat() {
     }
     {   // This Feb 29th falls on a leap year by gregorian year, but not by Japanese year.
         UnicodeString expect = CharsToUnicodeString("\\u5EB7\\u6B632\\u5e742\\u670829\\u65e5\\u65e5\\u66dc\\u65e5");
-        // Add -1:00 to the following for historical TZ - aliu
-        //UDate         expectDate =  -16214403600000.0;  // courtesy of date format round trip test
-        UDate         expectDate =  -16214400000000.0;  // 1456-03-09T00:00:00Z-0800
+        UDate         expectDate =  -16214400422000.0;  // 1456-03-09T00:00Z-075258
         Locale        loc("ja_JP@calendar=japanese");
         
         status = U_ZERO_ERROR;
@@ -670,8 +663,6 @@ void IntlCalendarTest::TestJapanese3860()
         }
     }
     
-#if 0
-    // this will NOT work - *all the time*. If it is the 1st of the month, for example it will get Jan 1 heisei 1  => jan 1 showa 64,  wrong era.
     {
         // Test simple parse/format with adopt
         UDate aDate = 0; 
@@ -701,7 +692,7 @@ void IntlCalendarTest::TestJapanese3860()
             int32_t gotYear = cal2->get(UCAL_YEAR, s2);
             int32_t gotEra = cal2->get(UCAL_ERA, s2);
             int32_t expectYear = 1;
-            int32_t expectEra = JapaneseCalendar::kCurrentEra;
+            int32_t expectEra = 235; //JapaneseCalendar::kCurrentEra;
             if((gotYear!=1) || (gotEra != expectEra)) {
                 errln(UnicodeString("parse "+samplestr+" of 'y' as Japanese Calendar, expected year ") + expectYear + 
                     UnicodeString(" and era ") + expectEra +", but got year " + gotYear + " and era " + gotEra + " (Gregorian:" + str +")");
@@ -711,7 +702,7 @@ void IntlCalendarTest::TestJapanese3860()
             delete fmt;
         }
     }    
-#endif
+
     delete cal2;
     delete cal;
     delete fmt2;

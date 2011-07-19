@@ -41,15 +41,15 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, ImageData* imageD
     if (!imageData)
         return jsNull();
     
-    DOMObject* wrapper = getCachedDOMObjectWrapper(exec, imageData);
+    JSDOMWrapper* wrapper = getCachedWrapper(currentWorld(exec), imageData);
     if (wrapper)
         return wrapper;
     
-    wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, ImageData, imageData);
+    wrapper = CREATE_DOM_WRAPPER(exec, globalObject, ImageData, imageData);
     Identifier dataName(exec, "data");
-    DEFINE_STATIC_LOCAL(RefPtr<Structure>, cpaStructure, (JSByteArray::createStructure(jsNull())));
-    static const ClassInfo cpaClassInfo = { "CanvasPixelArray", 0, 0, 0 };
-    wrapper->putDirect(dataName, new (exec) JSByteArray(exec, cpaStructure, imageData->data()->data(), &cpaClassInfo), DontDelete | ReadOnly);
+    static const ClassInfo cpaClassInfo = { "CanvasPixelArray", &JSByteArray::Base::s_info, 0, 0 };
+    DEFINE_STATIC_LOCAL(Strong<Structure>, cpaStructure, (exec->globalData(), JSByteArray::createStructure(exec->globalData(), jsNull(), &cpaClassInfo)));
+    wrapper->putDirect(exec->globalData(), dataName, new (exec) JSByteArray(exec, cpaStructure.get(), imageData->data()->data()), DontDelete | ReadOnly);
     exec->heap()->reportExtraMemoryCost(imageData->data()->length());
     
     return wrapper;

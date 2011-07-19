@@ -12,7 +12,7 @@ SITEDIR = $(DSTROOT)/Library/Ruby/Site
 Project                = ruby
 Extra_CC_Flags         = -fno-common -DENABLE_DTRACE
 GnuNoBuild             = YES
-GnuAfterInstall        = post-install install-manpage install-plist install-sample install-irbrc install-dtrace-sample install-xray-template
+GnuAfterInstall        = post-install install-manpage install-plist install-sample install-irbrc install-rails-placeholder install-dtrace-sample install-xray-template
 Extra_Configure_Flags  = --enable-pthread --enable-shared --prefix=/System/Library/Frameworks/Ruby.framework/Versions/$(VERSION)/usr --with-sitedir=/Library/Ruby/Site
  
 # [gs]etcontext() functions are broken
@@ -88,6 +88,8 @@ post-install:
 	$(MKDIR) $(SITEDIR)
 	$(LN) -fsh ../../../../../../../../../../Library/Ruby/Site $(FW_VERSION_DIR)/usr/lib/ruby/site_ruby
 #	sh $(EXTRAS_DIR)/test_framework.sh $(FWS_DIR) || exit 1
+	# rdar://problem/8937160
+	$(CHMOD) -h 0755 $(FW_VERSION_DIR)/usr/lib/libruby.dylib
 
 install-manpage:
 	$(INSTALL_FILE) $(SRCROOT)/irb.1 $(DSTROOT)$(MANDIR)/man1
@@ -114,6 +116,10 @@ install-sample:
 
 ETC_DIR = $(DSTROOT)/private/etc
 
+install-rails-placeholder:
+	$(INSTALL_FILE) $(EXTRAS_DIR)/rails $(DSTROOT)/usr/bin
+	chmod +x $(DSTROOT)/usr/bin/rails
+
 install-irbrc:
 	$(MKDIR) $(ETC_DIR)
 	$(INSTALL_FILE) $(EXTRAS_DIR)/irbrc $(ETC_DIR)/irbrc
@@ -134,7 +140,7 @@ install-xray-template:
 
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
-AEP_Version    = 1.8.7-p174
+AEP_Version    = 1.8.7-p249
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -149,13 +155,15 @@ AEP_Patches    = patch-configure \
                  ext_digest_md5_md5.h.diff \
                  ext_digest_sha1_extconf.rb.diff \
                  ext_digest_sha1_sha1.h.diff \
-                 ext_tk_extconf.rb.diff \
                  lib_rdoc_usage.rb.diff \
                  lib_irb_init.rb.diff \
                  dtrace.diff \
                  rexml_bugs.diff \
+		 revert_thread_scheduler_optimizations.diff \
+		 ext_bigdecimal_bigdecimal.c.diff \
+		 process.c.diff \
 		 lib_webrick_httpresponse.rb.diff \
-		 ext_bigdecimal_bigdecimal.c.diff
+		 PR8383516.diff
 
 # Extract the source.
 install_source::
@@ -163,8 +171,12 @@ install_source::
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
+		echo $$patchfile; \
 		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 	$(TOUCH) $(SRCROOT)/$(Project)/ext/win32ole/.document
 	dtrace -h -s $(EXTRAS_DIR)/dtrace.d -o $(SRCROOT)/$(Project)/dtrace.h
 	$(RMDIR) $(SRCROOT)/$(Project)/ext/tk
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/rake-0.8.7.tgz
+	ditto $(SRCROOT)/rake-0.8.7/bin $(SRCROOT)/$(Project)/bin
+	ditto $(SRCROOT)/rake-0.8.7/lib $(SRCROOT)/$(Project)/lib

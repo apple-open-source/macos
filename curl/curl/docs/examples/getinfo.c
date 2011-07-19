@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: getinfo.c,v 1.4 2009-05-19 12:12:22 yangtse Exp $
  */
 
 #include <stdio.h>
@@ -20,7 +19,7 @@ int main(void)
   curl = curl_easy_init();
   if(curl) {
     /* http://curl.haxx.se/libcurl/c/curl_easy_setopt.html#CURLOPTURL */
-    curl_easy_setopt(curl, CURLOPT_URL, "curl.haxx.se");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://www.example.com/");
     /* http://curl.haxx.se/libcurl/c/curl_easy_perform.html */
     res = curl_easy_perform(curl);
 

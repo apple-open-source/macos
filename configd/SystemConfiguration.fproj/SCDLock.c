@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,11 +58,13 @@ SCDynamicStoreLock(SCDynamicStoreRef store)
 		return FALSE;
 	}
 
+    retry :
+
 	/* get the lock from the server */
 	status = configlock(storePrivate->server, (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -70,8 +72,12 @@ SCDynamicStoreLock(SCDynamicStoreRef store)
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreLock configlock(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
 
 	if (sc_status != kSCStatusOK) {

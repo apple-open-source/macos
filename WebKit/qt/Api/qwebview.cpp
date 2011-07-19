@@ -39,19 +39,26 @@ public:
     QWebViewPrivate(QWebView *view)
         : view(view)
         , page(0)
-        , renderHints(QPainter::TextAntialiasing)
+        , renderHints(QPainter::TextAntialiasing | QPainter::SmoothPixmapTransform)
     {
         Q_ASSERT(view);
     }
 
+    virtual ~QWebViewPrivate();
+
     void _q_pageDestroyed();
-    void unsetPageIfExists();
+    void detachCurrentPage();
 
     QWebView *view;
     QWebPage *page;
 
     QPainter::RenderHints renderHints;
 };
+
+QWebViewPrivate::~QWebViewPrivate()
+{
+    detachCurrentPage();
+}
 
 void QWebViewPrivate::_q_pageDestroyed()
 {
@@ -300,9 +307,7 @@ QWebView::QWebView(QWidget *parent)
     setAttribute(Qt::WA_InputMethodEnabled);
 #endif
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     setAttribute(Qt::WA_AcceptTouchEvents);
-#endif
 #if defined(Q_WS_MAEMO_5)
     QAbstractKineticScroller* scroller = new QWebViewKineticScroller();
     static_cast<QWebViewKineticScroller*>(scroller)->setWidget(this);
@@ -319,18 +324,6 @@ QWebView::QWebView(QWidget *parent)
 */
 QWebView::~QWebView()
 {
-    if (d->page) {
-#if QT_VERSION >= 0x040600
-        d->page->d->view.clear();
-#else
-        d->page->d->view = 0;
-#endif
-        delete d->page->d->client;
-        d->page->d->client = 0;
-    }
-
-    if (d->page && d->page->parent() == this)
-        delete d->page;
     delete d;
 }
 
@@ -348,19 +341,21 @@ QWebPage *QWebView::page() const
     return d->page;
 }
 
-void QWebViewPrivate::unsetPageIfExists()
+void QWebViewPrivate::detachCurrentPage()
 {
     if (!page)
         return;
+
+    page->d->view.clear();
 
     // if the page client is the special client constructed for
     // delegating the responsibilities to a QWidget, we need
     // to destroy it.
 
     if (page->d->client && page->d->client->isQWidgetClient())
-        delete page->d->client;
+        page->d->client.clear();
 
-    page->d->client = 0;
+    page->d->client.release();
 
     // if the page was created by us, we own it and need to
     // destroy it as well.
@@ -369,6 +364,8 @@ void QWebViewPrivate::unsetPageIfExists()
         delete page;
     else
         page->disconnect(view);
+
+    page = 0;
 }
 
 /*!
@@ -385,7 +382,7 @@ void QWebView::setPage(QWebPage* page)
     if (d->page == page)
         return;
 
-    d->unsetPageIfExists();
+    d->detachCurrentPage();
     d->page = page;
 
     if (d->page) {
@@ -410,6 +407,8 @@ void QWebView::setPage(QWebPage* page)
                 this, SIGNAL(statusBarMessage(QString)));
         connect(d->page, SIGNAL(linkClicked(QUrl)),
                 this, SIGNAL(linkClicked(QUrl)));
+        connect(d->page, SIGNAL(selectionChanged()),
+                this, SIGNAL(selectionChanged()));
 
         connect(d->page, SIGNAL(microFocusChanged()),
                 this, SLOT(updateMicroFocus()));
@@ -465,7 +464,12 @@ void QWebView::load(const QNetworkRequest &request,
     through the charset attribute of the HTML script tag. Alternatively, the
     encoding can also be specified by the web server.
 
-    \sa load(), setContent(), QWebFrame::toHtml()
+    This is a convenience function equivalent to setContent(html, "text/html", baseUrl).
+
+    \warning This function works only for HTML, for other mime types (i.e. XHTML, SVG)
+    setContent() should be used instead.
+
+    \sa load(), setContent(), QWebFrame::toHtml(), QWebFrame::setContent()
 */
 void QWebView::setHtml(const QString &html, const QUrl &baseUrl)
 {
@@ -568,17 +572,48 @@ QIcon QWebView::icon() const
 }
 
 /*!
+    \property QWebView::hasSelection
+    \brief whether this page contains selected content or not.
+
+    By default, this property is false.
+
+    \sa selectionChanged()
+*/
+bool QWebView::hasSelection() const
+{
+    if (d->page)
+        return d->page->hasSelection();
+    return false;
+}
+
+/*!
     \property QWebView::selectedText
     \brief the text currently selected
 
     By default, this property contains an empty string.
 
-    \sa findText(), selectionChanged()
+    \sa findText(), selectionChanged(), selectedHtml()
 */
 QString QWebView::selectedText() const
 {
     if (d->page)
         return d->page->selectedText();
+    return QString();
+}
+
+/*!
+    \since 4.8
+    \property QWebView::selectedHtml
+    \brief the HTML currently selected
+
+    By default, this property contains an empty string.
+
+    \sa findText(), selectionChanged(), selectedText()
+*/
+QString QWebView::selectedHtml() const
+{
+    if (d->page)
+        return d->page->selectedHtml();
     return QString();
 }
 
@@ -709,7 +744,7 @@ qreal QWebView::textSizeMultiplier() const
 
     These hints are used to initialize QPainter before painting the Web page.
 
-    QPainter::TextAntialiasing is enabled by default.
+    QPainter::TextAntialiasing and QPainter::SmoothPixmapTransform are enabled by default.
 
     \note This property is not available on Symbian. However, the getter and
     setter functions can still be used directly.
@@ -816,14 +851,13 @@ bool QWebView::event(QEvent *e)
             if (cursor().shape() == Qt::ArrowCursor)
                 d->page->d->client->resetCursor();
 #endif
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         } else if (e->type() == QEvent::TouchBegin 
                    || e->type() == QEvent::TouchEnd 
                    || e->type() == QEvent::TouchUpdate) {
             d->page->event(e);
-            if (e->isAccepted())
-                return true;
-#endif
+
+            // Always return true so that we'll receive also TouchUpdate and TouchEnd events
+            return true;
         } else if (e->type() == QEvent::Leave)
             d->page->event(e);
     }
@@ -940,7 +974,11 @@ void QWebView::paintEvent(QPaintEvent *ev)
     \note If the createWindow() method of the associated page is reimplemented, this
     method is not called, unless explicitly done so in the reimplementation.
 
-    \sa QWebPage::createWindow()
+    \note In the cases when the window creation is being triggered by JavaScript, apart from
+    reimplementing this method application must also set the JavaScriptCanOpenWindows attribute
+    of QWebSettings to true in order for it to get called.
+
+    \sa QWebPage::createWindow(), QWebPage::acceptNavigationRequest()
 */
 QWebView *QWebView::createWindow(QWebPage::WebWindowType type)
 {

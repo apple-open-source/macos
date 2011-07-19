@@ -42,11 +42,11 @@ struct ProtectionSpaceHash {
             protectionSpace.realm().impl() ? protectionSpace.realm().impl()->hash() : 0
         };
 
-        unsigned codeCount = sizeof(hashCodes) / sizeof(UChar);
+        unsigned codeCount = sizeof(hashCodes);
         // Ignore realm for proxies.
         if (protectionSpace.isProxy())
-            codeCount -= sizeof(hashCodes[0]) / sizeof(UChar);
-        return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), codeCount);
+            codeCount -= sizeof(hashCodes[0]);
+        return StringHasher::hashMemory(hashCodes, codeCount);
     }
     
     static bool equal(const ProtectionSpace& a, const ProtectionSpace& b) { return a == b; }
@@ -57,12 +57,7 @@ struct ProtectionSpaceHash {
 
 namespace WTF {
 
-    // WebCore::ProtectionSpaceHash is the default hash for ProtectionSpace
-    template<> struct HashTraits<WebCore::ProtectionSpace> : GenericHashTraits<WebCore::ProtectionSpace> {
-        static const bool emptyValueIsZero = true;
-        static void constructDeletedValue(WebCore::ProtectionSpace& slot) { new (&slot) WebCore::ProtectionSpace(HashTableDeletedValue); }
-        static bool isDeletedValue(const WebCore::ProtectionSpace& slot) { return slot.isHashTableDeletedValue(); }
-    };
+    template<> struct HashTraits<WebCore::ProtectionSpace> : SimpleClassHashTraits<WebCore::ProtectionSpace> { };
 
     template<typename T> struct DefaultHash;
     template<> struct DefaultHash<WebCore::ProtectionSpace> {

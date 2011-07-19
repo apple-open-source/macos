@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+          "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd" [
+]>
+
+<article>
+
+  <articleinfo>
+
+    <title>The XKB Configuration Guide</title>
+    <authorgroup>
+      <author>
+	<firstname>Kamil</firstname><surname>Toman</surname>
+      </author>
+      <author>
+	<firstname>Ivan</firstname><othername>U.</othername>
+	<surname>Pascal</surname>
+      </author>
+    </authorgroup>
+    <pubdate>November 2010</pubdate>
+
+    <abstract>
+
+      <para>
+This document describes how to configure Xorg XKB from a user's point
+of view. It covers basic configuration syntax and gives also a few examples.
+      </para>
+      <para>
+This version covers Xorg server versions 1.8 and later, used with the
+data files from the <ulink
+url="http://www.freedesktop.org/wiki/Software/XKeyboardConfig"
+>xkeyboard-config</ulink> project.
+      </para>
+
+    </abstract>
+
+  </articleinfo>
+
+  <sect1>
+    <title>Overview</title>
+
+    <para>
+The XKB configuration is decomposed into a number of components. Selecting
+proper parts and combining them back you can achieve most of the configurations
+you might need. Unless you have a completely atypical keyboard you really don't
+need to touch any of the xkb configuration files.
+    </para>
+
+    <para>
+Some desktop environments now provide integrated graphical configuration
+tools for setting XKB configuration as part of your desktop session.  The
+instructions in this document are provided for those without such support,
+those who need to configure XKB before the session startup (such as at the
+login screen), or those who need to perform more advanced configuration
+than those tools provide.
+    </para>
+
+  </sect1>
+
+  <sect1>
+    <title>Selecting XKB Configuration</title>
+
+    <para>
+The easiest and the most natural way to specify a keyboard mapping is to use
+the <literal remap="tt">rules</literal> component. As its name suggests it describes a number of
+general rules to combine all bits and pieces into a valid and useful keyboard
+mapping. All you need to do is to select a suitable rules file and then to
+feed it with a few parameters that will adjust the keyboard behaviour to
+fulfill your needs.
+    </para>
+
+    <para>
+      The parameters are:
+
+      <variablelist>
+	<varlistentry>
+	  <term><option>XkbRules</option></term>
+	  <listitem><para>
+files of rules to be used for keyboard mapping composition
+	  </para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	  <term><option>XkbModel</option></term>
+	  <listitem><para>
+ name of the model of your keyboard type
+	  </para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	  <term><option>XkbLayout</option></term>
+	  <listitem><para>
+ layout(s) you intend to use
+	  </para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	  <term><option>XkbVariant</option></term>
+	  <listitem><para>
+ variant(s) of the layout you intend to use
+	  </para></listitem>
+	</varlistentry>
+
+	<varlistentry>
+	  <term><option>XkbOptions</option></term>
+	  <listitem><para>
+ extra xkb configuration options
+	  </para></listitem>
+	</varlistentry>
+
+      </variablelist>
+
+    </para>
+
+    <para>
+The rules file used depends on your system.  The rules files commonly
+used with Xorg are provided by the <ulink
+url="http://www.freedesktop.org/wiki/Software/XKeyboardConfig"
+>xkeyboard-config</ulink> project.
+On Linux systems, the <filename>evdev</filename> rules are most
+commonly used, on other systems the <filename>base</filename> rules
+are used.  Some additional rules files exist for historical reasons,
+but are no longer widely used.  In general, it's best to simply not
+specify the rules file, in order to use the default rules selected
+automatically by the X server.
+    </para>
+    <para>
+For each rules file there is a description file named
+<filename>&lt;<replaceable>vendor-rules</replaceable>&gt;.lst</filename>,
+for instance <filename>base.lst</filename> which is located in
+the xkb configuration subdirectory <filename>rules</filename>
+(for example <filename>/usr/share/X11/xkb/rules</filename>).
+    </para>
+
+    <sect2>
+      <title>Basic Configuration</title>
+
+      <para>
+Let's say you want to configure a PC-style American keyboard with 104
+keys as described in <filename>base.lst</filename>.  This can be done
+by simply writing several lines from below to a new configuration file
+in <filename>/etc/X11/xorg.conf.d</filename>, such
+as <filename>/etc/X11/xorg.conf.d/90-custom-kbd.conf</filename>.
+
+
+	<screen>
+Section "InputClass"
+    Identifier "keyboard defaults"
+    MatchIsKeyboard "on"
+
+    Option "XkbModel" "pc104"
+    Option "XkbLayout" "us"
+    Option "XKbOptions" ""
+EndSection
+	</screen>
+
+The values of <option>XkbModel</option> and <option>XkbLayout</option> are
+really not surprising. The <option>XkbOptions</option>
+has been explicitly set to the empty set of parameters.
+The <option>XkbVariant</option> option has been left out.
+That means the default variant named <literal remap="tt">basic</literal>
+is loaded.
+      </para>
+
+      <para>
+Of course, this can be also done at runtime using the utility
+<command>setxkbmap</command>.
+The shell command loading the same keyboard mapping would look like:
+
+	<screen>
+setxkbmap -model pc104 -layout us -option ""
+	</screen>
+
+The configuration and the shell command would be very analogous
+for most other layouts (internationalized mappings).
+      </para>
+
+      <para id="zap">
+If you wanted to enable the <keycombo action='simul'><keycap>Ctrl</keycap>
+<keycap>Alt</keycap><keycap>Backspace</keycap></keycombo> sequence to kill
+the X server by default, you could create a configuration snippet
+<filename>/etc/X11/xorg.conf.d/90-zap.conf</filename> containing:
+
+	<screen>
+Section "InputClass"
+    Identifier "keyboard defaults"
+    MatchIsKeyboard "on"
+
+    Option "XKbOptions" "terminate:ctrl_alt_bksp"
+EndSection
+	</screen>
+
+This would be equivalent to running the shell command:
+
+	<screen>
+setxkbmap -option "terminate:ctrl_alt_bksp"
+	</screen>
+      </para>
+
+    </sect2>
+
+    <sect2>
+      <title>Advanced Configuration</title>
+
+      <para>
+You can use multi-layouts xkb configuration.
+What does it mean? Basically it allows to load up to four different
+keyboard layouts at a time. Each such layout would reside in its
+own group. The groups (unlike complete keyboard remapping) can be
+switched very fast from one to another by a combination of keys.
+      </para>
+
+      <para>
+Let's say you want to configure your new Logitech cordless desktop
+keyboard, you intend to use three different layouts at the same
+time - us, czech and german (in this order), and that you are used to
+<keycombo action='simul'><keycap>Alt</keycap><keycap>Shift</keycap></keycombo>
+combination for switching among them.
+      </para>
+
+      <para>
+Then the configuration snippet could look like this:
+
+	<screen>
+Section "InputClass"
+    Identifier "Logitech Cordless"
+    MatchIsKeyboard   "on"
+
+    Option "XkbModel" "logicordless"
+    Option "XkbLayout" "us,cz,de"
+    Option "XKbOptions" "grp:alt_shift_toggle"
+EndSection
+	</screen>
+
+Of course, this can be also done at runtime using the utility
+<command>setxkbmap</command>.
+The shell command loading the same keyboard mapping would look like:
+
+	<screen>
+setxkbmap -model logicordless -layout "us,cz,de" \
+         -option "grp:alt_shift_toggle"
+	</screen>
+
+      </para>
+
+    </sect2>
+
+    <sect2>
+      <title>Even More Advanced Configuration</title>
+
+      <para>
+Okay, let's say you are more demanding. You do like the example
+above but you want it to change a bit. Let's imagine you want
+the czech keyboard mapping to use another variant but basic.
+The configuration snippet then changes into:
+
+	<screen>
+Section "InputClass"
+    Identifier "Logitech Cordless"
+    MatchIsKeyboard   "on"
+
+    Option "XkbModel" "logicordless"
+    Option "XkbLayout" "us,cz,de"
+    Option "XkbVariant" ",bksl,"
+    Option "XKbOptions" "grp:alt_shift_toggle"
+EndSection
+	</screen>
+
+That seems tricky but it is not. The logic for settings of variants
+is the same as for layouts, that means the first and the third variant
+settings are left out (set to <literal remap="tt">basic</literal>),
+the second is set to <literal remap="tt">bksl</literal> (a special
+variant with an enhanced definition of the backslash key).
+      </para>
+
+      <para>
+Analogously, the loading runtime will change to:
+
+	<screen>
+setxkbmap -model logicordless -layout "us,cz,de" \
+         -variant ",bksl," -option "grp:alt_shift_toggle"
+	</screen>
+
+      </para>
+
+    </sect2>
+
+    <sect2>
+      <title>Basic Global Options</title>
+
+      <para>
+For a list of available options, with a short decription of what they do,
+see the section starting with <quote><literal>! option</literal></quote> in the
+<filename>rules/*.lst</filename> files.
+      </para>
+
+<!--
+  TODO: More detailed descriptions of options. Users often get confused.
+-->
+
+    </sect2>
+
+  </sect1>
+
+  <sect1>
+    <title>Keymap XKB Configuration</title>
+
+    <para>
+Keymap configuration is the way formerly used to configure xkb. The
+user included a special keymap file which specified the direct xkb
+configuration. This method has been obsoleted by previously described
+rules files which are far more flexible and allow simpler and more
+intuitive syntax. It is preserved merely for compatibility reasons and
+should be avoided if possible.
+    </para>
+
+  </sect1>
+
+</article>

@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.6.1
+VERSION = 2.6.6
 
 PWD := $(shell pwd)
 ifndef DSTROOT
@@ -116,22 +116,22 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/os.py < $(FIX)/Lib_os.py.ed && \
 	ed - $(PROJECT)/Lib/plat-mac/bundlebuilder.py < $(FIX)/bundlebuilder.py.ed && \
 	ed - $(PROJECT)/Lib/plat-mac/Carbon/AppleEvents.py < $(FIX)/AppleEvents.py.ed && \
+	ed - $(PROJECT)/Lib/platform.py < $(FIX)/Lib_platform.py.ed && \
 	ed - $(PROJECT)/Lib/pydoc.py < $(FIX)/pydoc.py.ed && \
 	ed - $(PROJECT)/Lib/rlcompleter.py < $(FIX)/rlcompleter.py.ed && \
 	ed - $(PROJECT)/Lib/site.py < $(FIX)/site.py.ed && \
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_httpservers.py < $(FIX)/Lib_test_test_httpservers.py.ed && \
 	ed - $(PROJECT)/Lib/test/test_platform.py < $(FIX)/Lib_test_test_platform.py.ed && \
-	ed - $(PROJECT)/Lib/test/test_signal.py < $(FIX)/Lib_test_test_signal.py.ed && \
 	ed - $(PROJECT)/Mac/Makefile.in  < $(FIX)/Mac_Makefile.in.ed && \
+	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
 	ed - $(PROJECT)/Mac/Modules/cg/_CGmodule.c  < $(FIX)/_CGmodule.c.ed && \
-	ed - $(PROJECT)/Mac/Modules/launch/_Launchmodule.c < $(FIX)/_Launchmodule.c.ed && \
 	ed - $(PROJECT)/Mac/Tools/pythonw.c < $(FIX)/pythonw.c.ed && \
 	ed - $(PROJECT)/Makefile.pre.in < $(FIX)/Makefile.pre.in.ed && \
 	patch $(PROJECT)/Misc/python.man $(FIX)/python.man.patch && \
-	patch $(PROJECT)/Lib/urllib.py $(FIX)/urllib.patch && \
 	ed - $(PROJECT)/Modules/_cursesmodule.c < $(FIX)/_cursesmodule.c.ed && \
 	ed - $(PROJECT)/Modules/dlmodule.c < $(FIX)/dlmodule.c.ed && \
+	ed - $(PROJECT)/Modules/errnomodule.c < $(FIX)/errnomodule.c.ed && \
 	rm $(PROJECT)/Modules/expat/expat.h $(PROJECT)/Modules/expat/expat_external.h && \
 	ed - $(PROJECT)/Modules/getpath.c < $(FIX)/getpath.c.ed && \
 	ed - $(PROJECT)/Modules/_localemodule.c < $(FIX)/_localemodule.c.ed && \
@@ -139,6 +139,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Modules/pwdmodule.c < $(FIX)/pwdmodule.c.ed && \
 	sed 's/@VERSION@/$(VERS)/' $(FIX)/python.c.ed | ed - $(PROJECT)/Modules/python.c && \
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
+	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
 	ed - $(PROJECT)/pyconfig.h.in < $(FIX)/pyconfig.h.in.ed && \
 	ed - $(PROJECT)/Python/ceval.c < $(FIX)/ceval.c.ed && \
 	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
@@ -151,10 +152,6 @@ $(OBJROOT)/$(PROJECT):
 	    echo '#' > $$i; \
 	done && \
 	echo > $(PROJECT)/Lib/test/nullcert.pem
-	@set -x && \
-	cd '$(OBJROOT)/$(PROJECT)' && \
-	patch -p0 -i $(FIX)/qt-changes.diff && \
-	patch -p0 -i $(FIX)/CVE-2010-1634,CVE-2010-2089-audioop-int-overflow.patch
 	cd '$(OBJROOT)/$(PROJECT)' && autoconf
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 

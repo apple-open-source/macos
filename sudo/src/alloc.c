@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2005, 2007
+ * Copyright (c) 1999-2005, 2007, 2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -34,10 +34,9 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
+#endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
 #endif /* HAVE_STRING_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
 # include <malloc.h>
@@ -47,10 +46,6 @@
 #endif
 
 #include "sudo.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: alloc.c,v 1.33 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
 
 /*
  * If there is no SIZE_MAX or SIZE_T_MAX we have to assume that size_t

@@ -1,6 +1,7 @@
 [manpage_begin textutil::tabify n 0.7]
 [moddesc   {Text and string utilities, macro processing}]
 [titledesc {Procedures to (un)tabify strings}]
+[category  {Text processing}]
 [require Tcl 8.2]
 [require textutil::tabify [opt 0.7]]
 [description]

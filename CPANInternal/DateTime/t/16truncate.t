@@ -2,18 +2,33 @@
 
 use strict;
 
-use Test::More tests => 40;
+use Test::More tests => 52;
 
 use DateTime;
 
 my %vals =
-    ( year   => 50,
-      month  => 3,
-      day    => 15,
-      hour   => 10,
-      minute => 55,
-      second => 17,
+    ( year       => 50,
+      month      => 3,
+      day        => 15,
+      hour       => 10,
+      minute     => 55,
+      second     => 17,
+      nanosecond => 1234,
     );
+
+{
+    my $dt = DateTime->new(%vals);
+    $dt->truncate( to => 'second' );
+    foreach my $f ( qw( year month day hour minute second ) )
+    {
+        is( $dt->$f(), $vals{$f}, "$f should be $vals{$f}" );
+    }
+
+    foreach my $f ( qw( nanosecond ) )
+    {
+        is( $dt->$f(), 0, "$f should be 0" );
+    }
+}
 
 {
     my $dt = DateTime->new(%vals);
@@ -23,7 +38,7 @@ my %vals =
         is( $dt->$f(), $vals{$f}, "$f should be $vals{$f}" );
     }
 
-    foreach my $f ( qw( second ) )
+    foreach my $f ( qw( second nanosecond ) )
     {
         is( $dt->$f(), 0, "$f should be 0" );
     }
@@ -37,7 +52,7 @@ my %vals =
         is( $dt->$f(), $vals{$f}, "$f should be $vals{$f}" );
     }
 
-    foreach my $f ( qw( minute second ) )
+    foreach my $f ( qw( minute second nanosecond ) )
     {
         is( $dt->$f(), 0, "$f should be 0" );
     }
@@ -51,7 +66,7 @@ my %vals =
         is( $dt->$f(), $vals{$f}, "$f should be $vals{$f}" );
     }
 
-    foreach my $f ( qw( hour minute second ) )
+    foreach my $f ( qw( hour minute second nanosecond ) )
     {
         is( $dt->$f(), 0, "$f should be 0" );
     }
@@ -70,7 +85,7 @@ my %vals =
         is( $dt->$f(), 1, "$f should be 1" );
     }
 
-    foreach my $f ( qw( hour minute second ) )
+    foreach my $f ( qw( hour minute second nanosecond ) )
     {
         is( $dt->$f(), 0, "$f should be 0" );
     }
@@ -89,7 +104,7 @@ my %vals =
         is( $dt->$f(), 1, "$f should be 1" );
     }
 
-    foreach my $f ( qw( hour minute second ) )
+    foreach my $f ( qw( hour minute second nanosecond ) )
     {
         is( $dt->$f(), 0, "$f should be 0" );
     }

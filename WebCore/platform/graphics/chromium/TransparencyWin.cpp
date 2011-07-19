@@ -49,14 +49,14 @@ namespace {
 // into. Buffers larger than this will be destroyed when we're done with them.
 const int maxCachedBufferPixelSize = 65536;
 
-inline skia::PlatformCanvas* canvasForContext(const GraphicsContext& context)
+inline SkCanvas* canvasForContext(const GraphicsContext& context)
 {
     return context.platformContext()->canvas();
 }
 
 inline const SkBitmap& bitmapForContext(const GraphicsContext& context)
 {
-    return canvasForContext(context)->getTopPlatformDevice().accessBitmap(false);
+    return canvasForContext(context)->getTopDevice()->accessBitmap(false);
 }
 
 void compositeToCopy(const GraphicsContext& sourceLayers,
@@ -252,7 +252,7 @@ void TransparencyWin::setupLayerForOpaqueCompositeLayer()
     if (m_transformMode == Untransform){ 
         // Compute the inverse mapping from the canvas space to the
         // coordinate space of our bitmap.
-        mapping = m_orgTransform.inverse() * mapping;
+        mapping *= m_orgTransform.inverse();
     }
     compositeToCopy(*m_destContext, *m_drawContext, mapping);
 
@@ -275,7 +275,7 @@ void TransparencyWin::setupLayerForWhiteLayer()
     if (!m_validLayer)
         return;
 
-    m_drawContext->fillRect(IntRect(IntPoint(0, 0), m_layerSize), Color::white, DeviceColorSpace);
+    m_drawContext->fillRect(IntRect(IntPoint(0, 0), m_layerSize), Color::white, ColorSpaceDeviceRGB);
     // Layer rect represents the part of the original layer.
 }
 
@@ -313,7 +313,7 @@ void TransparencyWin::setupTransformForKeepTransform(const IntRect& region)
         // We're making a layer, so apply the old transform to the new one
         // so it's maintained. We know the new layer has the identity
         // transform now, we we can just multiply it.
-        xform = m_orgTransform * xform;
+        xform *= m_orgTransform;
         m_drawContext->concatCTM(xform);
     }
     m_drawRect = m_sourceRect;
@@ -365,7 +365,7 @@ void TransparencyWin::initializeNewContext()
         // Create a 1-off buffer for drawing into. We only need the reference
         // buffer if we're making an OpaqueCompositeLayer.
         bool needReferenceBitmap = m_layerMode == OpaqueCompositeLayer;
-        m_ownedBuffers.set(new OwnedBuffers(m_layerSize, needReferenceBitmap));
+        m_ownedBuffers = adoptPtr(new OwnedBuffers(m_layerSize, needReferenceBitmap));
         m_layerBuffer = m_ownedBuffers->destBitmap();
         if (!m_layerBuffer)
             return;
@@ -446,9 +446,9 @@ void TransparencyWin::compositeOpaqueComposite()
         identity.reset();
         destCanvas->setMatrix(identity);
 
-        destRect.set(m_transformedSourceRect.x(), m_transformedSourceRect.y(), m_transformedSourceRect.right(), m_transformedSourceRect.bottom());
+        destRect.set(m_transformedSourceRect.x(), m_transformedSourceRect.y(), m_transformedSourceRect.maxX(), m_transformedSourceRect.maxY());
     } else
-        destRect.set(m_sourceRect.x(), m_sourceRect.y(), m_sourceRect.right(), m_sourceRect.bottom());
+        destRect.set(m_sourceRect.x(), m_sourceRect.y(), m_sourceRect.maxX(), m_sourceRect.maxY());
 
     SkPaint paint;
     paint.setFilterBitmap(true);
@@ -466,7 +466,7 @@ void TransparencyWin::compositeTextComposite()
     if (!m_validLayer)
         return;
 
-    const SkBitmap& bitmap = m_layerBuffer->context()->platformContext()->canvas()->getTopPlatformDevice().accessBitmap(true);
+    const SkBitmap& bitmap = m_layerBuffer->context()->platformContext()->canvas()->getTopDevice()->accessBitmap(true);
     SkColor textColor = m_textCompositeColor.rgb();
     for (int y = 0; y < m_layerSize.height(); y++) {
         uint32_t* row = bitmap.getAddr32(0, y);
@@ -487,7 +487,7 @@ void TransparencyWin::compositeTextComposite()
     SkMatrix identity;
     identity.reset();
     destCanvas->setMatrix(identity);
-    SkRect destRect = { m_transformedSourceRect.x(), m_transformedSourceRect.y(), m_transformedSourceRect.right(), m_transformedSourceRect.bottom() };
+    SkRect destRect = { m_transformedSourceRect.x(), m_transformedSourceRect.y(), m_transformedSourceRect.maxX(), m_transformedSourceRect.maxY() };
 
     // Note that we need to specify the source layer subset, since the bitmap
     // may have been cached and it could be larger than what we're using.
@@ -502,7 +502,7 @@ void TransparencyWin::makeLayerOpaque()
         return;
 
     SkBitmap& bitmap = const_cast<SkBitmap&>(m_drawContext->platformContext()->
-        canvas()->getTopPlatformDevice().accessBitmap(true));
+        canvas()->getTopDevice()->accessBitmap(true));
     for (int y = 0; y < m_layerSize.height(); y++) {
         uint32_t* row = bitmap.getAddr32(0, y);
         for (int x = 0; x < m_layerSize.width(); x++)

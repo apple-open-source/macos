@@ -25,6 +25,9 @@
 #include <security_utilities/seccfobject.h>
 #include <security_utilities/threading.h>
 #include <CoreFoundation/CFString.h>
+#include <sys/time.h>
+#include <auto_zone.h>
+#include <objc/objc-auto.h>
 
 //
 // CFClass
@@ -42,22 +45,165 @@ CFClass::CFClass(const char *name)
 	copyFormattingDesc = copyFormattingDescType;
 	copyDebugDesc = copyDebugDescType;
 	
+    // update because we are now doing our own reference counting
+    version |= _kCFRuntimeCustomRefCount; // see ma, no hands!
+    refcount = refCountForType;
+
 	// register
 	typeID = _CFRuntimeRegisterClass(this);
 	assert(typeID != _kCFRuntimeNotATypeID);
 }
 
+uint32_t
+CFClass::cleanupObject(intptr_t op, CFTypeRef cf, bool &zap)
+{
+    // the default is to not throw away the object
+    zap = false;
+    
+    bool isGC = CF_IS_COLLECTABLE(cf);
+    
+    uint32_t currentCount;
+    SecCFObject *obj = SecCFObject::optional(cf);
+
+    uint32_t oldCount;
+    currentCount = obj->updateRetainCount(op, &oldCount);
+    
+    if (isGC)
+    {
+        auto_zone_t* zone = objc_collectableZone();
+        
+        if (op == -1 && oldCount == 0)
+        {
+            auto_zone_release(zone, (void*) cf);
+        }
+        else if (op == 1 && oldCount == 0 && currentCount == 1)
+        {
+           auto_zone_retain(zone, (void*) cf);
+        }
+        else if (op == -1 && oldCount == 1 && currentCount == 0)
+        {
+            /*
+                To prevent accidental resurrection, just pull it out of the
+                cache.
+            */
+            obj->aboutToDestruct();
+            auto_zone_release(zone, (void*) cf);
+        }
+        else if (op == 0)
+        {
+            return currentCount;
+        }
+        
+        return 0;
+    }
+
+    if (op == 0)
+    {
+        return currentCount;
+    }
+    else if (currentCount == 0)
+    {
+        finalizeType(cf);
+        zap = true; // the the caller to release the mutex and zap the object
+        return 0;
+    }
+    else 
+    {
+        return 0;
+    }
+}
+
+uint32_t
+CFClass::refCountForType(intptr_t op, CFTypeRef cf) throw()
+{
+    uint32_t result = 0;
+    bool zap = false;
+
+    try
+    {
+        SecCFObject *obj = SecCFObject::optional(cf);
+		Mutex* mutex = obj->getMutexForObject();
+		if (mutex == NULL)
+		{
+			// if the object didn't have a mutex, it wasn't cached.
+			// Just clean it up and get out.
+            result = cleanupObject(op, cf, zap);
+		}
+		else
+        {
+            // we have a mutex, so we need to do our cleanup operation under its control
+            StLock<Mutex> _(*mutex);
+            result = cleanupObject(op, cf, zap);
+        }
+        
+        if (zap) // did we release the object?
+        {
+            delete obj; // should call the overloaded delete for the object
+        }
+    }
+    catch (...)
+    {
+    }
+    
+    // keep the compiler happy
+    return result;
+}
+
+
+
 void
 CFClass::finalizeType(CFTypeRef cf) throw()
 {
-	SecCFObject *obj = SecCFObject::optional(cf);
-	if (!obj->isNew())
+    /*
+        Why are we asserting the mutex here as well as in refCountForType?
+        Because the way we control the objects and the queues are different
+        under GC than they are under non-GC operations.
+        
+        In non-GC, we need to control the lifetime of the object.  This means
+        that the cache lock has to be asserted while we are determining if the
+        object should live or die.  The mutex is recursive, which means that
+        we won't end up with mutex inversion.
+        
+        In GC, GC figures out the lifetime of the object.  We probably don't need
+        to assert the mutex here, but it doesn't hurt.
+    */
+    
+    SecCFObject *obj = SecCFObject::optional(cf);
+
+	bool isCollectable = CF_IS_COLLECTABLE(cf);
+
+    try
 	{
-		try {
-			// Call the destructor.
-			obj->~SecCFObject();
-		} catch (...) {}
+		Mutex* mutex = obj->getMutexForObject();
+		if (mutex == NULL)
+		{
+			// if the object didn't have a mutex, it wasn't cached.
+			// Just clean it up and get out.
+			obj->aboutToDestruct(); // removes the object from its associated cache.
+		}
+		else
+        {
+            StLock<Mutex> _(*mutex);
+            
+            if (obj->isNew())
+            {
+                // New objects aren't in the cache.
+                // Just clean it up and get out.
+                obj->aboutToDestruct(); // removes the object from its associated cache.
+                return;
+            }
+            
+            obj->aboutToDestruct(); // removes the object from its associated cache.
+        }
 	}
+	catch(...)
+	{
+	}
+    
+    if (isCollectable)
+    {
+        delete obj;
+    }
 }
 
 Boolean

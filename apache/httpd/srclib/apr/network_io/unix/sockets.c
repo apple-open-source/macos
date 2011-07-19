@@ -222,7 +222,13 @@ apr_status_t apr_socket_accept(apr_socket_t **new, apr_socket_t *sock,
     }
 #endif
     alloc_socket(new, connection_context);
-    set_socket_vars(*new, sock->local_addr->sa.sin.sin_family, SOCK_STREAM, sock->protocol);
+
+    /* Set up socket variables -- note that it may be possible for
+     * *new to be an AF_INET socket when sock is AF_INET6 in some
+     * dual-stack configurations, so ensure that the remote_/local_addr
+     * structures are adjusted for the family of the accepted
+     * socket: */
+    set_socket_vars(*new, sa.sa.sin.sin_family, SOCK_STREAM, sock->protocol);
 
 #ifndef HAVE_POLL
     (*new)->connected = 1;
@@ -338,18 +344,18 @@ apr_status_t apr_socket_connect(apr_socket_t *sock, apr_sockaddr_t *sa)
 #endif /* SO_ERROR */
     }
 
-    if (rc == -1 && errno != EISCONN) {
-        return errno;
-    }
 
     if (memcmp(sa->ipaddr_ptr, generic_inaddr_any, sa->ipaddr_len)) {
         /* A real remote address was passed in.  If the unspecified
          * address was used, the actual remote addr will have to be
          * determined using getpeername() if required. */
-        /* ### this should probably be a structure copy + fixup as per
-         * _accept()'s handling of local_addr */
-        sock->remote_addr = sa;
         sock->remote_addr_unknown = 0;
+
+        /* Copy the address structure details in. */
+        sock->remote_addr->sa = sa->sa;
+        sock->remote_addr->salen = sa->salen;
+        /* Adjust ipaddr_ptr et al. */
+        apr_sockaddr_vars_set(sock->remote_addr, sa->family, sa->port);
     }
 
     if (sock->local_addr->port == 0) {
@@ -364,6 +370,11 @@ apr_status_t apr_socket_connect(apr_socket_t *sock, apr_sockaddr_t *sa)
          */
         sock->local_interface_unknown = 1;
     }
+
+    if (rc == -1 && errno != EISCONN) {
+        return errno;
+    }
+
 #ifndef HAVE_POLL
     sock->connected=1;
 #endif

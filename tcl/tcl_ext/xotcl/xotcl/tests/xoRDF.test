@@ -1,7 +1,7 @@
 #!../../src/xotclsh
 # $Id: xoRDF.test,v 1.5 2007/08/14 16:38:27 neumann Exp $
 #
-package require XOTcl; namespace import -force xotcl::*
+package require XOTcl 1; namespace import -force xotcl::*
 
 lappend auto_path [file dir [info script]]/..
 #package require xotcl::test

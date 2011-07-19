@@ -1,3 +1,120 @@
+2009-11-13 <Gustaf.Neumann@wu-wien.ac.at>
+    * Release of XOTcl 1.6.6
+
+2010-04-01 <Gustaf.Neumann@wu-wien.ac.at>
+    * make sure, Tcl var traces are not called twice
+      for volatile objects
+    * fix for info: make sure, value is always initialized
+
+2010-03-27 <Gustaf.Neumann@wu-wien.ac.at>
+    * avoid cyclic dependencies with namespace imported command
+      during final cleanup
+
+2010-03-26 <Gustaf.Neumann@wu-wien.ac.at>
+    * fixed 64bit problem in expat code
+    * fixed memory leaks in info methods and forward (error case)
+
+2010-03-22 <Gustaf.Neumann@wu-wien.ac.at>
+    * clean up compilation when compile with assertions turned on
+    * make sure to use xotcl 1.* when regression testing xotcl 1.*
+
+2010-03-06 <Gustaf.Neumann@wu-wien.ac.at>
+    * use installed expat when specified
+      This option is needed fro debian packaging rules.
+      (Many thanks to Stefan Sobernig for this contribution)
+    * cleanup of redundant section in configure.in
+    * update to TEA 3.7
+
+2010-02-09 <Gustaf.Neumann@wu-wien.ac.at>
+    * provide compatibility with 8.6b1
+    * bumped version number to 1.6.6
+
+2010-12-29 <Gustaf.Neumann@wu-wien.ac.at>
+    * fix example in tutorial
+
+2009-11-13 <Gustaf.Neumann@wu-wien.ac.at>
+    * Release of XOTcl 1.6.5
+
+2009-11-06 <Gustaf.Neumann@wu-wien.ac.at>
+    * applied per-object slot changes from Stefan Sobernig
+    * extended regression tests
+    * fix package resolution, if multiple XOTcl versions are installed
+
+2009-11-02 <Gustaf.Neumann@wu-wien.ac.at>
+    * fixed namespace visibility problem reported by Mykhaylo Sorochan
+
+2009-10-24 <Gustaf.Neumann@wu-wien.ac.at>
+    * fixed var resolver/memory leak problem reported by Victor Mayevski
+    * bumped version number to 1.6.5
+
+2009-10-17 <Gustaf.Neumann@wu-wien.ac.at>
+    * clean removal of __trace__ method in serializer
+    * Some documentation fixes, added stack example to documentation
+    * Bumped version number to 1.6.4
+    * Release of XOTcl 1.6.4
+
+2009-06-19 <Gustaf.Neumann@wu-wien.ac.at>
+    - minor variable renaming to follow tcl naming convetions more closely
+
+2009-06-14 <Gustaf.Neumann@wu-wien.ac.at>
+    - fixed potential access to deleted command list item in
+      FilterSearchAgain()
+    - fixed potential access deleted xotcl object by switching order
+      in a condition
+    - some minor cleanup for configuration flags
+
+2009-03-19 <Gustaf.Neumann@wu-wien.ac.at>
+    * Release of XOTcl 1.6.3
+
+2009-03-19 <Gustaf.Neumann@wu-wien.ac.at>
+    - removed references to 1.6.2
+
+2009-03-04 <Gustaf.Neumann@wu-wien.ac.at>
+    - re-enable small optimization
+    - factor out common code
+    - fix compatibility with Tcl 8.4
+    - bump version number to 1.6.3
+
+2009-03-03 <Gustaf.Neumann@wu-wien.ac.at>
+    - simplify semantics of MixinSeekCurrent and FilterSeekCurrent, improve speed
+    - remove necessity to have tclCompile.h
+    - improve documentation
+
+2009-03-02 <Gustaf.Neumann@wu-wien.ac.at>
+    - some small performance improvements (use CreateHashEntry instead
+      of FindHashEntry, remove unneded argument, improve order of long
+      and expressions)
+    - some code cleanup
+    - new methods, when compiled with tcl 8.5;
+       + MakeProcError (producing error messages from xotcl methods)
+       + PushProcCallFrame (compile method to byte-code)
+       The new support allows to call code at the begin of a proc
+       without using the old approach based on :xotcl::initProcNS
+
+2009-02-19 <Gustaf.Neumann@wu-wien.ac.at>
+    - add comments to var resolution tests for objects without namespaces
+    - fixed reference counting
+    - removed temporary hacks
+    - added CONST to several functions
+    - added relative namespace handling
+
+2009-02-18 <Gustaf.Neumann@wu-wien.ac.at>, sobernig@wu-wien.ac.at
+    - added Stefan's work for namespace resolvers
+    - fixed a memory leak for "obj exists" due to the changes
+    - found another memory leak, when e.g. "::info" is added as an
+      alias and "info exists" is tested against non-existing vars
+
+2009-01-19 <Gustaf.Neumann@wu-wien.ac.at>
+    - Finish work on deletion of user-metaclasses
+    - commenting existing and potential usage of namespace resolvers
+
+2008-12-01 <Gustaf.Neumann@wu-wien.ac.at>
+    * Correct deletion of user-metaclasses: Deletion of
+      user-metaclasses could lead to undestroyable objects, since the
+      instances of the user-metaclasses were reclassed to
+      ::xotcl::Object instead of ::xotcl::Class.
+    * extend regression test for such situations
+
 2008-11-02 <Gustaf.Neumann@wu-wien.ac.at>
     * Release of XOTcl 1.6.2
 

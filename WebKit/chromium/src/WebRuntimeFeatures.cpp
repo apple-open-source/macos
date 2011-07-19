@@ -31,7 +31,7 @@
 #include "config.h"
 #include "WebRuntimeFeatures.h"
 
-#include "Database.h"
+#include "AbstractDatabase.h"
 #include "RuntimeEnabledFeatures.h"
 #include "WebMediaPlayerClientImpl.h"
 #include "WebSocket.h"
@@ -43,14 +43,14 @@ namespace WebKit {
 void WebRuntimeFeatures::enableDatabase(bool enable)
 {
 #if ENABLE(DATABASE)
-    Database::setIsAvailable(enable);
+    AbstractDatabase::setIsAvailable(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isDatabaseEnabled()
 {
 #if ENABLE(DATABASE)
-    return Database::isAvailable();
+    return AbstractDatabase::isAvailable();
 #else
     return false;
 #endif
@@ -152,6 +152,22 @@ bool WebRuntimeFeatures::isApplicationCacheEnabled()
 #endif
 }
 
+void WebRuntimeFeatures::enableDataTransferItems(bool enable)
+{
+#if ENABLE(DATA_TRANSFER_ITEMS)
+    RuntimeEnabledFeatures::setDataTransferItemsEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isDataTransferItemsEnabled()
+{
+#if ENABLE(DATA_TRANSFER_ITEMS)
+    return RuntimeEnabledFeatures::dataTransferItemsEnabled();
+#else
+    return false;
+#endif
+}
+
 void WebRuntimeFeatures::enableGeolocation(bool enable)
 {
 #if ENABLE(GEOLOCATION)
@@ -171,30 +187,30 @@ bool WebRuntimeFeatures::isGeolocationEnabled()
 void WebRuntimeFeatures::enableIndexedDatabase(bool enable)
 {
 #if ENABLE(INDEXED_DATABASE)
-    RuntimeEnabledFeatures::setIndexedDBEnabled(enable);
+    RuntimeEnabledFeatures::setWebkitIndexedDBEnabled(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isIndexedDatabaseEnabled()
 {
 #if ENABLE(INDEXED_DATABASE)
-    return RuntimeEnabledFeatures::indexedDBEnabled();
+    return RuntimeEnabledFeatures::webkitIndexedDBEnabled();
 #else
     return false;
 #endif
 }
 
-void WebRuntimeFeatures::enableWebGL(bool enable)
+void WebRuntimeFeatures::enableWebAudio(bool enable)
 {
-#if ENABLE(3D_CANVAS)
-    RuntimeEnabledFeatures::setWebGLEnabled(enable);
+#if ENABLE(WEB_AUDIO)
+    RuntimeEnabledFeatures::setWebkitAudioContextEnabled(enable);
 #endif
 }
 
-bool WebRuntimeFeatures::isWebGLEnabled()
+bool WebRuntimeFeatures::isWebAudioEnabled()
 {
-#if ENABLE(3D_CANVAS)
-    return RuntimeEnabledFeatures::webGLRenderingContextEnabled();
+#if ENABLE(WEB_AUDIO)
+    return RuntimeEnabledFeatures::webkitAudioContextEnabled();
 #else
     return false;
 #endif
@@ -221,6 +237,100 @@ bool WebRuntimeFeatures::isTouchEnabled()
 {
 #if ENABLE(TOUCH_EVENTS)
     return RuntimeEnabledFeatures::touchEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableDeviceMotion(bool enable)
+{
+    RuntimeEnabledFeatures::setDeviceMotionEnabled(enable);
+}
+
+bool WebRuntimeFeatures::isDeviceMotionEnabled()
+{
+    return RuntimeEnabledFeatures::deviceMotionEnabled();
+}
+
+void WebRuntimeFeatures::enableDeviceOrientation(bool enable)
+{
+    RuntimeEnabledFeatures::setDeviceOrientationEnabled(enable);
+}
+
+bool WebRuntimeFeatures::isDeviceOrientationEnabled()
+{
+    return RuntimeEnabledFeatures::deviceOrientationEnabled();
+}
+
+void WebRuntimeFeatures::enableSpeechInput(bool enable)
+{
+    RuntimeEnabledFeatures::setSpeechInputEnabled(enable);
+}
+
+bool WebRuntimeFeatures::isSpeechInputEnabled()
+{
+    return RuntimeEnabledFeatures::speechInputEnabled();
+}
+
+void WebRuntimeFeatures::enableXHRResponseBlob(bool enable)
+{
+#if ENABLE(XHR_RESPONSE_BLOB)
+    RuntimeEnabledFeatures::setXHRResponseBlobEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isXHRResponseBlobEnabled()
+{
+#if ENABLE(XHR_RESPONSE_BLOB)
+    return RuntimeEnabledFeatures::xhrResponseBlobEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableFileSystem(bool enable)
+{
+#if ENABLE(FILE_SYSTEM)
+    RuntimeEnabledFeatures::setFileSystemEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isFileSystemEnabled()
+{
+#if ENABLE(FILE_SYSTEM)
+    return RuntimeEnabledFeatures::fileSystemEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableJavaScriptI18NAPI(bool enable)
+{
+#if ENABLE(JAVASCRIPT_I18N_API)
+    RuntimeEnabledFeatures::setJavaScriptI18NAPIEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isJavaScriptI18NAPIEnabled()
+{
+#if ENABLE(JAVASCRIPT_I18N_API)
+    return RuntimeEnabledFeatures::javaScriptI18NAPIEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableQuota(bool enable)
+{
+#if ENABLE(QUOTA)
+    RuntimeEnabledFeatures::setQuotaEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isQuotaEnabled()
+{
+#if ENABLE(QUOTA)
+    return RuntimeEnabledFeatures::quotaEnabled();
 #else
     return false;
 #endif

@@ -28,10 +28,6 @@
 #include "llvm/Support/MathExtras.h"
 using namespace llvm;
 
-void ScheduleDAG::AddMemOperand(MachineInstr *MI, const MachineMemOperand &MO) {
-  MI->addMemOperand(MF, MO);
-}
-
 void ScheduleDAG::EmitNoop() {
   TII->insertNoop(*BB, InsertPos);
 }
@@ -54,8 +50,11 @@ void ScheduleDAG::EmitPhysRegCopy(SUnit *SU,
           break;
         }
       }
-      TII->copyRegToReg(*BB, InsertPos, Reg, VRI->second,
-                        SU->CopyDstRC, SU->CopySrcRC);
+      bool Success = TII->copyRegToReg(*BB, InsertPos, Reg, VRI->second,
+                                       SU->CopyDstRC, SU->CopySrcRC,
+                                       DebugLoc());
+      (void)Success;
+      assert(Success && "copyRegToReg failed!");
     } else {
       // Copy from physical register.
       assert(I->getReg() && "Unknown physical register!");
@@ -63,8 +62,11 @@ void ScheduleDAG::EmitPhysRegCopy(SUnit *SU,
       bool isNew = VRBaseMap.insert(std::make_pair(SU, VRBase)).second;
       isNew = isNew; // Silence compiler warning.
       assert(isNew && "Node emitted out of order - early");
-      TII->copyRegToReg(*BB, InsertPos, VRBase, I->getReg(),
-                        SU->CopyDstRC, SU->CopySrcRC);
+      bool Success = TII->copyRegToReg(*BB, InsertPos, VRBase, I->getReg(),
+                                       SU->CopyDstRC, SU->CopySrcRC,
+                                       DebugLoc());
+      (void)Success;
+      assert(Success && "copyRegToReg failed!");
     }
     break;
   }

@@ -26,6 +26,7 @@
  */
 
 #include <stdint.h>
+#include <Availability.h>
 
 #define asl_msg_list_t asl_search_result_t
 
@@ -74,11 +75,13 @@
 #define ASL_QUERY_MATCH_FALSE    0x40000000
 #define ASL_QUERY_MATCH_ERROR    0x20000000
 
-uint32_t asl_core_string_hash(const char *str, uint32_t len);
-const char *asl_core_error(uint32_t code);
-uint32_t asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags);
-uint64_t asl_core_htonq(uint64_t n);
-uint64_t asl_core_ntohq(uint64_t n);
-uint64_t asl_core_new_msg_id(uint64_t start);
+uint32_t asl_core_string_hash(const char *str, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+const char *asl_core_error(uint32_t code) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_core_check_access(int32_t msgu, int32_t msgg, int32_t readu, int32_t readg, uint16_t flags) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint64_t asl_core_htonq(uint64_t n) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint64_t asl_core_ntohq(uint64_t n)__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint64_t asl_core_new_msg_id(uint64_t start) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+char *asl_core_encode_buffer(const char *in, uint32_t len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+int32_t asl_core_decode_buffer(const char *in, char **buf, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #endif __ASL_CORE_H__

@@ -294,6 +294,15 @@ main(int argc, char **argv)
 	if (data.prefer32bit < 0) data.prefer32bit = DEFAULTPREFER32BIT;
 	if (*data.version == 0) strcpy(data.version, DEFAULTVERSION);
     }
+#ifdef FORCE_TWO_NUMBER_VERSIONS
+    {
+	/* Only allow two number versions */
+	char *dot;
+	if (EXPECT_TRUE((dot = strchr(data.version, '.')) != NULL)) {
+	    if (EXPECT_FALSE((dot = strchr(dot + 1, '.')) != NULL)) *dot = 0;
+	}
+    }
+#endif /* FORCE_TWO_NUMBER_VERSIONS */
     if (EXPECT_FALSE(debug)) warnx("prefer32bit=%d version=%s", data.prefer32bit, data.version);
 
     vlen = strlen(data.version);

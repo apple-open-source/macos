@@ -1,6 +1,6 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$50|char *TEST_MACRO_8734723487_CAT(my,cat) = "meow";
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$50|char *TEST_MACRO_8734723487_CAT(my,cat) = "meow";
 $0|$44|#define TEST_MACRO_8734723487_CAT(a,b) a##b
-$3091|-=: CPP MACROS PARSED :=-
+$3118|-=: CPP MACROS PARSED :=-
 PARSED: TEST_MACRO_8734723487_CAT
 
 -=: BLOCKPARSE PARSER STATE KEYS :=-
@@ -15,6 +15,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -66,9 +67,9 @@ $parserState->{sodname} => mycat
 $parserState->{sodtype} =>  char *
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => char
 $parserState->{value} =>  "meow"
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -107,7 +108,7 @@ VALUE: 0
 -=: CPP CHANGES :=-
 $CPP_HASH{TEST_MACRO_8734723487_CAT} => a##b
 $CPP_ARG_HASH{TEST_MACRO_8734723487_CAT} => a,b
-$3091|-=: CPP MACROS PARSED :=-
+$3118|-=: CPP MACROS PARSED :=-
 PARSED: TEST_MACRO_8734723487_CAT
 
 -=: BLOCKPARSE PARSER STATE KEYS :=-
@@ -122,6 +123,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -173,9 +175,9 @@ $parserState->{sodname} => mycat
 $parserState->{sodtype} =>  char *
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => char
 $parserState->{value} =>  "meow"
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -214,218 +216,4 @@ VALUE: 0
 -=: CPP CHANGES :=-
 $CPP_HASH{TEST_MACRO_8734723487_CAT} => a##b
 $CPP_ARG_HASH{TEST_MACRO_8734723487_CAT} => a,b
-_$56|testsuite/c_preprocessor_tests/string_concatenation.test$1|C$20|string concatenation$3091|-=: CPP MACROS PARSED :=-
-PARSED: TEST_MACRO_8734723487_CAT
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/string_concatenation.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => mycat
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => char *mycat = 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => variable
-$parserState->{sodname} => mycat
-$parserState->{sodtype} =>  char *
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => char
-$parserState->{value} =>  "meow"
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: variable
-namelist: mycat
-posstypes: constant
-value: "meow"
-returntype:  char *
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 1
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---char
-+--- 
-+---*
-+---mycat
-+--- 
-+---=
-+--- 
-+---"
-|   +---meow
-|   +---"
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{TEST_MACRO_8734723487_CAT} => a##b
-$CPP_ARG_HASH{TEST_MACRO_8734723487_CAT} => a,b
-$3091|-=: CPP MACROS PARSED :=-
-PARSED: TEST_MACRO_8734723487_CAT
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/string_concatenation.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => mycat
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => char *mycat = 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => variable
-$parserState->{sodname} => mycat
-$parserState->{sodtype} =>  char *
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => char
-$parserState->{value} =>  "meow"
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: variable
-namelist: mycat
-posstypes: constant
-value: "meow"
-returntype:  char *
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 1
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---char
-+--- 
-+---*
-+---mycat
-+--- 
-+---=
-+--- 
-+---"
-|   +---meow
-|   +---"
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{TEST_MACRO_8734723487_CAT} => a##b
-$CPP_ARG_HASH{TEST_MACRO_8734723487_CAT} => a,b
-$1|C$3|cpp
+_$110|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/c_preprocessor_tests/string_concatenation.test$1|C$20|string concatenation$1|C$3|cpp

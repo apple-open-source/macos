@@ -26,9 +26,12 @@
 #define FontDescription_h
 
 #include "FontFamily.h"
+#include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include "FontSmoothingMode.h"
 #include "FontTraitsMask.h"
+#include "FontWidthVariant.h"
+#include "TextOrientation.h"
 #include "TextRenderingMode.h"
 
 namespace WebCore {
@@ -47,6 +50,16 @@ enum FontWeight {
     FontWeightBold = FontWeight700
 };
 
+enum FontItalic {
+    FontItalicOff = 0,
+    FontItalicOn = 1
+};
+
+enum FontSmallCaps {
+    FontSmallCapsOff = 0,
+    FontSmallCapsOn = 1
+};
+
 class FontDescription {
 public:
     enum GenericFamilyType { NoFamily, StandardFamily, SerifFamily, SansSerifFamily, 
@@ -55,8 +68,11 @@ public:
     FontDescription()
         : m_specifiedSize(0)
         , m_computedSize(0)
-        , m_italic(false)
-        , m_smallCaps(false)
+        , m_orientation(Horizontal)
+        , m_textOrientation(TextOrientationVerticalRight)
+        , m_widthVariant(RegularWidth)
+        , m_italic(FontItalicOff)
+        , m_smallCaps(FontSmallCapsOff)
         , m_isAbsoluteSize(false)
         , m_weight(FontWeightNormal)
         , m_genericFamily(NoFamily)
@@ -65,6 +81,7 @@ public:
         , m_keywordSize(0)
         , m_fontSmoothing(AutoSmoothing)
         , m_textRendering(AutoTextRendering)
+        , m_isSpecifiedFont(false)
     {
     }
 
@@ -75,9 +92,9 @@ public:
     FontFamily& firstFamily() { return m_familyList; }
     float specifiedSize() const { return m_specifiedSize; }
     float computedSize() const { return m_computedSize; }
-    bool italic() const { return m_italic; }
+    FontItalic italic() const { return static_cast<FontItalic>(m_italic); }
     int computedPixelSize() const { return int(m_computedSize + 0.5f); }
-    bool smallCaps() const { return m_smallCaps; }
+    FontSmallCaps smallCaps() const { return static_cast<FontSmallCaps>(m_smallCaps); }
     bool isAbsoluteSize() const { return m_isAbsoluteSize; }
     FontWeight weight() const { return static_cast<FontWeight>(m_weight); }
     FontWeight lighterWeight() const;
@@ -92,20 +109,34 @@ public:
     TextRenderingMode textRenderingMode() const { return static_cast<TextRenderingMode>(m_textRendering); }
 
     FontTraitsMask traitsMask() const;
+    bool isSpecifiedFont() const { return m_isSpecifiedFont; }
+    FontOrientation orientation() const { return m_orientation; }
+    TextOrientation textOrientation() const { return m_textOrientation; }
+    FontWidthVariant widthVariant() const { return m_widthVariant; }
 
     void setFamily(const FontFamily& family) { m_familyList = family; }
     void setComputedSize(float s) { m_computedSize = s; }
     void setSpecifiedSize(float s) { m_specifiedSize = s; }
-    void setItalic(bool i) { m_italic = i; }
-    void setSmallCaps(bool c) { m_smallCaps = c; }
+    void setItalic(FontItalic i) { m_italic = i; }
+    void setItalic(bool i) { setItalic(i ? FontItalicOn : FontItalicOff); }
+    void setSmallCaps(FontSmallCaps c) { m_smallCaps = c; }
+    void setSmallCaps(bool c) { setSmallCaps(c ? FontSmallCapsOn : FontSmallCapsOff); }
     void setIsAbsoluteSize(bool s) { m_isAbsoluteSize = s; }
     void setWeight(FontWeight w) { m_weight = w; }
     void setGenericFamily(GenericFamilyType genericFamily) { m_genericFamily = genericFamily; }
+#if PLATFORM(CHROMIUM) && OS(DARWIN)
+    void setUsePrinterFont(bool) { }
+#else
     void setUsePrinterFont(bool p) { m_usePrinterFont = p; }
+#endif
     void setRenderingMode(FontRenderingMode mode) { m_renderingMode = mode; }
     void setKeywordSize(unsigned s) { m_keywordSize = s; }
     void setFontSmoothing(FontSmoothingMode smoothing) { m_fontSmoothing = smoothing; }
     void setTextRenderingMode(TextRenderingMode rendering) { m_textRendering = rendering; }
+    void setIsSpecifiedFont(bool isSpecifiedFont) { m_isSpecifiedFont = isSpecifiedFont; }
+    void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
+    void setTextOrientation(TextOrientation textOrientation) { m_textOrientation = textOrientation; }
+    void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = widthVariant; }
 
 private:
     FontFamily m_familyList; // The list of font families to be used.
@@ -114,8 +145,13 @@ private:
                              // rounding, minimum font sizes, and zooming.
     float m_computedSize;    // Computed size adjusted for the minimum font size and the zoom factor.  
 
-    bool m_italic : 1;
-    bool m_smallCaps : 1;
+    FontOrientation m_orientation; // Whether the font is rendering on a horizontal line or a vertical line.
+    TextOrientation m_textOrientation; // Only used by vertical text. Determines the default orientation for non-ideograph glyphs.
+
+    FontWidthVariant m_widthVariant;
+
+    unsigned m_italic : 1; // FontItalic
+    unsigned m_smallCaps : 1; // FontSmallCaps
     bool m_isAbsoluteSize : 1;   // Whether or not CSS specified an explicit size
                                  // (logical sizes like "medium" don't count).
     unsigned m_weight : 8; // FontWeight
@@ -130,6 +166,7 @@ private:
 
     unsigned m_fontSmoothing : 2; // FontSmoothingMode
     unsigned m_textRendering : 2; // TextRenderingMode
+    bool m_isSpecifiedFont : 1; // True if a web page specifies a non-generic font family as the first font family.
 };
 
 inline bool FontDescription::operator==(const FontDescription& other) const
@@ -146,7 +183,11 @@ inline bool FontDescription::operator==(const FontDescription& other) const
         && m_renderingMode == other.m_renderingMode
         && m_keywordSize == other.m_keywordSize
         && m_fontSmoothing == other.m_fontSmoothing
-        && m_textRendering == other.m_textRendering;
+        && m_textRendering == other.m_textRendering
+        && m_isSpecifiedFont == other.m_isSpecifiedFont
+        && m_orientation == other.m_orientation
+        && m_textOrientation == other.m_textOrientation
+        && m_widthVariant == other.m_widthVariant;
 }
 
 }

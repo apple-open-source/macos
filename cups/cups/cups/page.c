@@ -1,9 +1,9 @@
 /*
- * "$Id: page.c 7791 2008-07-24 00:55:30Z mike $"
+ * "$Id: page.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   Page size functions for the Common UNIX Printing System (CUPS).
+ *   Page size functions for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,10 +28,9 @@
  * Include necessary headers...
  */
 
+#include "string-private.h"
+#include "debug-private.h"
 #include "ppd.h"
-#include "string.h"
-#include <ctype.h>
-#include "debug.h"
 
 
 /*
@@ -97,27 +96,27 @@ ppdPageSize(ppd_file_t *ppd,		/* I - PPD file record */
       if (!nameptr)
         return (NULL);
 
-      if (!strcasecmp(nameptr, "in"))
+      if (!_cups_strcasecmp(nameptr, "in"))
       {
         w *= 72.0;
 	l *= 72.0;
       }
-      else if (!strcasecmp(nameptr, "ft"))
+      else if (!_cups_strcasecmp(nameptr, "ft"))
       {
         w *= 12.0 * 72.0;
 	l *= 12.0 * 72.0;
       }
-      else if (!strcasecmp(nameptr, "mm"))
+      else if (!_cups_strcasecmp(nameptr, "mm"))
       {
         w *= 72.0 / 25.4;
         l *= 72.0 / 25.4;
       }
-      else if (!strcasecmp(nameptr, "cm"))
+      else if (!_cups_strcasecmp(nameptr, "cm"))
       {
         w *= 72.0 / 2.54;
         l *= 72.0 / 2.54;
       }
-      else if (!strcasecmp(nameptr, "m"))
+      else if (!_cups_strcasecmp(nameptr, "m"))
       {
         w *= 72.0 / 0.0254;
         l *= 72.0 / 0.0254;
@@ -137,10 +136,10 @@ ppdPageSize(ppd_file_t *ppd,		/* I - PPD file record */
       if ((coption = ppdFindCustomOption(ppd, "PageSize")) != NULL)
       {
         if ((cparam = ppdFindCustomParam(coption, "Width")) != NULL)
-	  cparam->current.custom_points = w;
+	  cparam->current.custom_points = (float)w;
 
         if ((cparam = ppdFindCustomParam(coption, "Height")) != NULL)
-	  cparam->current.custom_points = l;
+	  cparam->current.custom_points = (float)l;
       }
 
      /*
@@ -159,7 +158,7 @@ ppdPageSize(ppd_file_t *ppd,		/* I - PPD file record */
       */
 
       for (i = ppd->num_sizes, size = ppd->sizes; i > 0; i --, size ++)
-	if (!strcasecmp(name, size->name))
+	if (!_cups_strcasecmp(name, size->name))
 	{
 	  DEBUG_printf(("3ppdPageSize: Returning %p (\"%s\", %gx%g)", size,
 			size->name, size->width, size->length));
@@ -393,5 +392,5 @@ ppdPageLength(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: page.c 7791 2008-07-24 00:55:30Z mike $".
+ * End of "$Id: page.c 9042 2010-03-24 00:45:34Z mike $".
  */

@@ -81,7 +81,7 @@ LinkAddresses_print(LinkAddressesRef link_addrs)
 	sockaddr_dl_print(sdl);
     }
 }
-#endif TEST_LINKADDRESSES
+#endif /* TEST_LINKADDRESSES */
 
 struct sockaddr_dl *
 LinkAddresses_lookup(LinkAddressesRef list, char * ifname)
@@ -238,4 +238,4 @@ main()
     }
     exit(0);
 }
-#endif TEST_LINKADDRESSES
+#endif /* TEST_LINKADDRESSES */

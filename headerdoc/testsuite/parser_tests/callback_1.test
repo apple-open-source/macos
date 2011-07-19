@@ -1,11 +1,12 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$103|typedef const void *    (*CFDictionaryRetainCallBack)(CFAllocatorRef allocator, const void *v
-alue);  
-$1543|/*!
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$100|typedef const void *    (*CFDictionaryRetainCallBack)(CFAllocatorRef allocator, const void *value);
+$1576|/*!
         @typedef CFDictionaryKeyCallBacks
         Structure containing the callbacks for keys of a CFDictionary.
         @field version The version number of the structure type being passed
-                in as a parameter to the CFDictionary creation functions.                This structure is version 0.
-        @field retain The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
+                in as a parameter to the CFDictionary creation functions.                
+                This structure is version 0.
+        @field retain The callback used to add a retain for the dictionary                
+                on keys as they are used to put values into the dictionary.
                 This callback returns the value to use as the key in the
                 dictionary, which is usually the value parameter passed to
                 this callback, but may be a different value if a different
@@ -17,13 +18,13 @@ $1543|/*!
                 first argument.
         @field copyDescription The callback used to create a descriptive
                 string representation of each key in the dictionary. This
-                is used by the CFCopyDescription() function. 
+                is used by the CFCopyDescription() function.
         @field equal The callback used to compare keys in the dictionary for
                 equality.
         @field hash The callback used to compute a hash code for keys as they
                 are used to access, add, or remove values in the dictionary.
 */
-$0|$29987|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$30537|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -64,6 +65,7 @@ $parserState->{categoryClass} =>
 $parserState->{cbsodname} => 
 $parserState->{classtype} => 
 $parserState->{constKeywordFound} => 1
+$parserState->{curvarstars} => ***
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -82,7 +84,7 @@ $parserState->{inString} => 0
 $parserState->{inTemplate} => 0
 $parserState->{inTypedef} => 1
 $parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
+$parserState->{inputCounter} => 1
 $parserState->{kr_c_function} => 0
 $parserState->{kr_c_name} => 
 $parserState->{lang} => C
@@ -105,7 +107,7 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>   typedef const void *( *CFDictionaryRetainCallBack )(
     CFAllocatorRef allocator,
-const void *v  alue 
+const void *value 
 $parserState->{seenBraces} => 0
 $parserState->{seenMacroPart} => 0
 $parserState->{seenTilde} => 0
@@ -116,18 +118,19 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
+newcount: 1
 typelist: typedef
 namelist: CFDictionaryRetainCallBack
 posstypes: function
 value: 
-returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *v  alue 
+returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *value 
 pridec: 
 simpleTDcontents: 
 bpavail: 
@@ -138,7 +141,7 @@ extendsClass:
 implementsClass: 
 -=: LIST OF PARSED PARAMETERS :=-
 Parsed Param 0 => CFAllocatorRef allocator
-Parsed Param 1 => const void *v alue
+Parsed Param 1 => const void *value
 -=: DUMP OF PARSE TREE :=-
 +---typedef
 +--- 
@@ -163,9 +166,7 @@ Parsed Param 1 => const void *v alue
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -217,8 +218,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -257,11 +258,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CFDictionaryRetainCallBack" --><p>CFDictionaryRetainCallBack<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tdef/CFDictionaryRetainCallBack">CFDictionaryRetainCallBack</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -303,14 +304,14 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
+        NAME: value
+        TYPE: const void *
         APIUID: 
         ABSTRACT: ""
         DISCUSSION: "<p></p>"
@@ -345,8 +346,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -357,7 +358,8 @@ LONG ATTRIBUTES: <p></p>
         APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version
         ABSTRACT: ""
         DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
+in as a parameter to the CFDictionary creation functions.                
+This structure is version 0."
         UPDATED: ""
         COPYRIGHT: ""
         HTMLMETA: ""
@@ -389,8 +391,8 @@ in as a parameter to the CFDictionary creation functions.                This st
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -399,7 +401,8 @@ in as a parameter to the CFDictionary creation functions.                This st
         TYPE: 
         APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain
         ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
+        DISCUSSION: "<p>The callback used to add a retain for the dictionary                
+on keys as they are used to put values into the dictionary.
 This callback returns the value to use as the key in the
 dictionary, which is usually the value parameter passed to
 this callback, but may be a different value if a different
@@ -436,8 +439,8 @@ is passed as the first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -481,8 +484,8 @@ first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -525,8 +528,8 @@ is used by the CFCopyDescription() function."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -568,8 +571,8 @@ equality."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -611,8 +614,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -651,11 +654,11 @@ are used to access, add, or remove values in the dictionary."
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks" --><p>CFDictionaryKeyCallBacks<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks">CFDictionaryKeyCallBacks</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -697,14 +700,14 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
+        NAME: value
+        TYPE: const void *
         APIUID: 
         ABSTRACT: ""
         DISCUSSION: "<p></p>"
@@ -739,8 +742,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -748,10 +751,11 @@ are used to access, add, or remove values in the dictionary."
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: version
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/version
         ABSTRACT: ""
         DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
+in as a parameter to the CFDictionary creation functions.                
+This structure is version 0."
         UPDATED: ""
         COPYRIGHT: ""
         HTMLMETA: ""
@@ -783,17 +787,18 @@ in as a parameter to the CFDictionary creation functions.                This st
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: retain
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/retain
         ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
+        DISCUSSION: "<p>The callback used to add a retain for the dictionary                
+on keys as they are used to put values into the dictionary.
 This callback returns the value to use as the key in the
 dictionary, which is usually the value parameter passed to
 this callback, but may be a different value if a different
@@ -830,15 +835,15 @@ is passed as the first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: release
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/release
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to remove a retain previously added
 for the dictionary from keys as their values are removed from
@@ -875,15 +880,15 @@ first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: copyDescription
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/copyDescription
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to create a descriptive
 string representation of each key in the dictionary. This
@@ -919,15 +924,15 @@ is used by the CFCopyDescription() function."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: equal
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/equal
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to compare keys in the dictionary for
 equality."
@@ -962,15 +967,15 @@ equality."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: hash
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/hash
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to compute a hash code for keys as they
 are used to access, add, or remove values in the dictionary."
@@ -1005,8 +1010,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 +---typedef
@@ -1032,9 +1037,7 @@ OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -1066,9 +1069,7 @@ OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -1079,17 +1080,21 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
+	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span> ( <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/CFDictionaryRetainCallBack //test_ref/c/clm/CFDictionaryRetainCallBack //test_ref/c/intfcm/CFDictionaryRetainCallBack //test_ref/c/intfm/CFDictionaryRetainCallBack //test_ref/c/func/CFDictionaryRetainCallBack //test_ref/c/ftmplt/CFDictionaryRetainCallBack //test_ref/c/defn/CFDictionaryRetainCallBack //test_ref/c/macro/CFDictionaryRetainCallBack //test_ref/doc/anysymbol/CFDictionaryRetainCallBack" machineGenerated="true" --><span class="function">CFDictionaryRetainCallBack</span><!-- /a -->)(
+	    <!-- a logicalPath="//test_ref/c/cl/CFAllocatorRef //test_ref/c/tdef/CFAllocatorRef //test_ref/c/tag/CFAllocatorRef //test_ref/c/struct/CFAllocatorRef //test_ref/c/intf/CFAllocatorRef //test_ref/doc/anysymbol/CFAllocatorRef" machineGenerated="true" --><span class="type">CFAllocatorRef</span><!-- /a --> <span class="param">allocator</span>,
+	    <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">value</span>);  
 END OF OBJECT
 
 
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
+	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span> ( <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/CFDictionaryRetainCallBack //test_ref/c/clm/CFDictionaryRetainCallBack //test_ref/c/intfcm/CFDictionaryRetainCallBack //test_ref/c/intfm/CFDictionaryRetainCallBack //test_ref/c/func/CFDictionaryRetainCallBack //test_ref/c/ftmplt/CFDictionaryRetainCallBack //test_ref/c/defn/CFDictionaryRetainCallBack //test_ref/c/macro/CFDictionaryRetainCallBack //test_ref/doc/anysymbol/CFDictionaryRetainCallBack" machineGenerated="true" --><span class="function">CFDictionaryRetainCallBack</span><!-- /a -->)(
+	    <!-- a logicalPath="//test_ref/c/cl/CFAllocatorRef //test_ref/c/tdef/CFAllocatorRef //test_ref/c/tag/CFAllocatorRef //test_ref/c/struct/CFAllocatorRef //test_ref/c/intf/CFAllocatorRef //test_ref/doc/anysymbol/CFAllocatorRef" machineGenerated="true" --><span class="type">CFAllocatorRef</span><!-- /a --> <span class="param">allocator</span>,
+	    <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">value</span>);  
 END OF OBJECT
 
 
 
-$29987|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$30537|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -1130,6 +1135,7 @@ $parserState->{categoryClass} =>
 $parserState->{cbsodname} => 
 $parserState->{classtype} => 
 $parserState->{constKeywordFound} => 1
+$parserState->{curvarstars} => ***
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -1148,7 +1154,7 @@ $parserState->{inString} => 0
 $parserState->{inTemplate} => 0
 $parserState->{inTypedef} => 1
 $parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
+$parserState->{inputCounter} => 1
 $parserState->{kr_c_function} => 0
 $parserState->{kr_c_name} => 
 $parserState->{lang} => C
@@ -1171,7 +1177,7 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>   typedef const void *( *CFDictionaryRetainCallBack )(
     CFAllocatorRef allocator,
-const void *v  alue 
+const void *value 
 $parserState->{seenBraces} => 0
 $parserState->{seenMacroPart} => 0
 $parserState->{seenTilde} => 0
@@ -1182,18 +1188,19 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
+newcount: 1
 typelist: typedef
 namelist: CFDictionaryRetainCallBack
 posstypes: function
 value: 
-returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *v  alue 
+returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *value 
 pridec: 
 simpleTDcontents: 
 bpavail: 
@@ -1204,7 +1211,7 @@ extendsClass:
 implementsClass: 
 -=: LIST OF PARSED PARAMETERS :=-
 Parsed Param 0 => CFAllocatorRef allocator
-Parsed Param 1 => const void *v alue
+Parsed Param 1 => const void *value
 -=: DUMP OF PARSE TREE :=-
 +---typedef
 +--- 
@@ -1229,9 +1236,7 @@ Parsed Param 1 => const void *v alue
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -1283,8 +1288,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1323,11 +1328,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CFDictionaryRetainCallBack" --><p>CFDictionaryRetainCallBack<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tdef/CFDictionaryRetainCallBack">CFDictionaryRetainCallBack</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -1369,14 +1374,14 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
+        NAME: value
+        TYPE: const void *
         APIUID: 
         ABSTRACT: ""
         DISCUSSION: "<p></p>"
@@ -1411,8 +1416,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -1423,7 +1428,8 @@ LONG ATTRIBUTES: <p></p>
         APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version
         ABSTRACT: ""
         DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
+in as a parameter to the CFDictionary creation functions.                
+This structure is version 0."
         UPDATED: ""
         COPYRIGHT: ""
         HTMLMETA: ""
@@ -1455,8 +1461,8 @@ in as a parameter to the CFDictionary creation functions.                This st
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1465,7 +1471,8 @@ in as a parameter to the CFDictionary creation functions.                This st
         TYPE: 
         APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain
         ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
+        DISCUSSION: "<p>The callback used to add a retain for the dictionary                
+on keys as they are used to put values into the dictionary.
 This callback returns the value to use as the key in the
 dictionary, which is usually the value parameter passed to
 this callback, but may be a different value if a different
@@ -1502,8 +1509,8 @@ is passed as the first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1547,8 +1554,8 @@ first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1591,8 +1598,8 @@ is used by the CFCopyDescription() function."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1634,8 +1641,8 @@ equality."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1677,8 +1684,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1717,11 +1724,11 @@ are used to access, add, or remove values in the dictionary."
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks" --><p>CFDictionaryKeyCallBacks<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks">CFDictionaryKeyCallBacks</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -1763,14 +1770,14 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
+        NAME: value
+        TYPE: const void *
         APIUID: 
         ABSTRACT: ""
         DISCUSSION: "<p></p>"
@@ -1805,8 +1812,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -1814,10 +1821,11 @@ are used to access, add, or remove values in the dictionary."
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: version
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/version
         ABSTRACT: ""
         DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
+in as a parameter to the CFDictionary creation functions.                
+This structure is version 0."
         UPDATED: ""
         COPYRIGHT: ""
         HTMLMETA: ""
@@ -1849,17 +1857,18 @@ in as a parameter to the CFDictionary creation functions.                This st
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: retain
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/retain
         ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
+        DISCUSSION: "<p>The callback used to add a retain for the dictionary                
+on keys as they are used to put values into the dictionary.
 This callback returns the value to use as the key in the
 dictionary, which is usually the value parameter passed to
 this callback, but may be a different value if a different
@@ -1896,15 +1905,15 @@ is passed as the first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: release
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/release
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to remove a retain previously added
 for the dictionary from keys as their values are removed from
@@ -1941,15 +1950,15 @@ first argument."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: copyDescription
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/copyDescription
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to create a descriptive
 string representation of each key in the dictionary. This
@@ -1985,15 +1994,15 @@ is used by the CFCopyDescription() function."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: equal
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/equal
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to compare keys in the dictionary for
 equality."
@@ -2028,15 +2037,15 @@ equality."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: hash
         TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash_DONTLINK_0
+        APIUID: //test_ref/doc/typedeffield/CFDictionaryRetainCallBack/hash
         ABSTRACT: ""
         DISCUSSION: "<p>The callback used to compute a hash code for keys as they
 are used to access, add, or remove values in the dictionary."
@@ -2071,8 +2080,8 @@ are used to access, add, or remove values in the dictionary."
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 +---typedef
@@ -2098,9 +2107,7 @@ OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -2132,9 +2139,7 @@ OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
 |   +---void
 |   +--- 
 |   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
+|   +---value
 |   +---)
 +---;
 +--- 
@@ -2145,2146 +2150,18 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
+	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span> ( <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/CFDictionaryRetainCallBack //test_ref/c/clm/CFDictionaryRetainCallBack //test_ref/c/intfcm/CFDictionaryRetainCallBack //test_ref/c/intfm/CFDictionaryRetainCallBack //test_ref/c/func/CFDictionaryRetainCallBack //test_ref/c/ftmplt/CFDictionaryRetainCallBack //test_ref/c/defn/CFDictionaryRetainCallBack //test_ref/c/macro/CFDictionaryRetainCallBack //test_ref/doc/anysymbol/CFDictionaryRetainCallBack" machineGenerated="true" --><span class="function">CFDictionaryRetainCallBack</span><!-- /a -->)(
+	    <!-- a logicalPath="//test_ref/c/cl/CFAllocatorRef //test_ref/c/tdef/CFAllocatorRef //test_ref/c/tag/CFAllocatorRef //test_ref/c/struct/CFAllocatorRef //test_ref/c/intf/CFAllocatorRef //test_ref/doc/anysymbol/CFAllocatorRef" machineGenerated="true" --><span class="type">CFAllocatorRef</span><!-- /a --> <span class="param">allocator</span>,
+	    <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">value</span>);  
 END OF OBJECT
 
 
 OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
+	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span> ( <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/CFDictionaryRetainCallBack //test_ref/c/clm/CFDictionaryRetainCallBack //test_ref/c/intfcm/CFDictionaryRetainCallBack //test_ref/c/intfm/CFDictionaryRetainCallBack //test_ref/c/func/CFDictionaryRetainCallBack //test_ref/c/ftmplt/CFDictionaryRetainCallBack //test_ref/c/defn/CFDictionaryRetainCallBack //test_ref/c/macro/CFDictionaryRetainCallBack //test_ref/doc/anysymbol/CFDictionaryRetainCallBack" machineGenerated="true" --><span class="function">CFDictionaryRetainCallBack</span><!-- /a -->)(
+	    <!-- a logicalPath="//test_ref/c/cl/CFAllocatorRef //test_ref/c/tdef/CFAllocatorRef //test_ref/c/tag/CFAllocatorRef //test_ref/c/struct/CFAllocatorRef //test_ref/c/intf/CFAllocatorRef //test_ref/doc/anysymbol/CFAllocatorRef" machineGenerated="true" --><span class="type">CFAllocatorRef</span><!-- /a --> <span class="param">allocator</span>,
+	    <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><span class="param">value</span>);  
 END OF OBJECT
 
 
 
-_$38|testsuite/parser_tests/callback_1.test$1|C$10|callback 1$29987|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/callback_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/callback_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => CFDictionaryRetainCallBack
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{cbsodname} => 
-$parserState->{classtype} => 
-$parserState->{constKeywordFound} => 1
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>   typedef const void *( *CFDictionaryRetainCallBack )(
-    CFAllocatorRef allocator,
-const void *v  alue 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
-typelist: typedef
-namelist: CFDictionaryRetainCallBack
-posstypes: function
-value: 
-returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *v  alue 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => CFAllocatorRef allocator
-Parsed Param 1 => const void *v alue
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: callback 1
-APIUID: //test_ref/doc/header/callback_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CFDictionaryKeyCallBacks
-    APIUID: //test_ref/doc/title:tdef/CFDictionaryKeyCallBacks
-    ABSTRACT: ""
-    DISCUSSION: "<p>Structure containing the callbacks for keys of a CFDictionary."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "1"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CFDictionaryRetainCallBack" --><p>CFDictionaryRetainCallBack<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: allocator
-        TYPE: CFAllocatorRef
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: version
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version
-        ABSTRACT: ""
-        DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: retain
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
-This callback returns the value to use as the key in the
-dictionary, which is usually the value parameter passed to
-this callback, but may be a different value if a different
-value should be used as the key. The dictionary's allocator
-is passed as the first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: release
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to remove a retain previously added
-for the dictionary from keys as their values are removed from
-the dictionary. The dictionary's allocator is passed as the
-first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: copyDescription
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to create a descriptive
-string representation of each key in the dictionary. This
-is used by the CFCopyDescription() function."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: equal
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compare keys in the dictionary for
-equality."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: hash
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compute a hash code for keys as they
-are used to access, add, or remove values in the dictionary."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CFDictionaryRetainCallBack
-    APIUID: //test_ref/c/tdef/CFDictionaryRetainCallBack
-    ABSTRACT: ""
-    DISCUSSION: "<p>Structure containing the callbacks for keys of a CFDictionary."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks" --><p>CFDictionaryKeyCallBacks<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: allocator
-        TYPE: CFAllocatorRef
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: version
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: retain
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
-This callback returns the value to use as the key in the
-dictionary, which is usually the value parameter passed to
-this callback, but may be a different value if a different
-value should be used as the key. The dictionary's allocator
-is passed as the first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: release
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to remove a retain previously added
-for the dictionary from keys as their values are removed from
-the dictionary. The dictionary's allocator is passed as the
-first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: copyDescription
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to create a descriptive
-string representation of each key in the dictionary. This
-is used by the CFCopyDescription() function."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: equal
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compare keys in the dictionary for
-equality."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: hash
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compute a hash code for keys as they
-are used to access, add, or remove values in the dictionary."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
-END OF OBJECT
-
-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$29987|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/callback_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/callback_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => CFDictionaryRetainCallBack
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{cbsodname} => 
-$parserState->{classtype} => 
-$parserState->{constKeywordFound} => 1
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>   typedef const void *( *CFDictionaryRetainCallBack )(
-    CFAllocatorRef allocator,
-const void *v  alue 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
-typelist: typedef
-namelist: CFDictionaryRetainCallBack
-posstypes: function
-value: 
-returntype:   typedef const void *( *CFDictionaryRetainCallBack )(    CFAllocatorRef allocator,const void *v  alue 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => CFAllocatorRef allocator
-Parsed Param 1 => const void *v alue
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: callback 1
-APIUID: //test_ref/doc/header/callback_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CFDictionaryKeyCallBacks
-    APIUID: //test_ref/doc/title:tdef/CFDictionaryKeyCallBacks
-    ABSTRACT: ""
-    DISCUSSION: "<p>Structure containing the callbacks for keys of a CFDictionary."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "1"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CFDictionaryRetainCallBack" --><p>CFDictionaryRetainCallBack<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: allocator
-        TYPE: CFAllocatorRef
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: version
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version
-        ABSTRACT: ""
-        DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: retain
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
-This callback returns the value to use as the key in the
-dictionary, which is usually the value parameter passed to
-this callback, but may be a different value if a different
-value should be used as the key. The dictionary's allocator
-is passed as the first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: release
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to remove a retain previously added
-for the dictionary from keys as their values are removed from
-the dictionary. The dictionary's allocator is passed as the
-first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: copyDescription
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to create a descriptive
-string representation of each key in the dictionary. This
-is used by the CFCopyDescription() function."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: equal
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compare keys in the dictionary for
-equality."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: hash
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compute a hash code for keys as they
-are used to access, add, or remove values in the dictionary."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CFDictionaryRetainCallBack
-    APIUID: //test_ref/c/tdef/CFDictionaryRetainCallBack
-    ABSTRACT: ""
-    DISCUSSION: "<p>Structure containing the callbacks for keys of a CFDictionary."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:tdef/CFDictionaryKeyCallBacks" --><p>CFDictionaryKeyCallBacks<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: allocator
-        TYPE: CFAllocatorRef
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: alue
-        TYPE: const void * v
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: version
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/version_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The version number of the structure type being passed
-in as a parameter to the CFDictionary creation functions.                This structure is version 0."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: retain
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/retain_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to add a retain for the dictionary                on keys as they are used to put values into the dictionary.
-This callback returns the value to use as the key in the
-dictionary, which is usually the value parameter passed to
-this callback, but may be a different value if a different
-value should be used as the key. The dictionary's allocator
-is passed as the first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: release
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/release_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to remove a retain previously added
-for the dictionary from keys as their values are removed from
-the dictionary. The dictionary's allocator is passed as the
-first argument."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: copyDescription
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/copyDescription_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to create a descriptive
-string representation of each key in the dictionary. This
-is used by the CFCopyDescription() function."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: equal
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/equal_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compare keys in the dictionary for
-equality."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: hash
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/CFDictionaryKeyCallBacks/hash_DONTLINK_0
-        ABSTRACT: ""
-        DISCUSSION: "<p>The callback used to compute a hash code for keys as they
-are used to access, add, or remove values in the dictionary."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: "0"
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---const
-+--- 
-+---void
-+--- 
-+---*
-+---    
-+---(
-|   +---*
-|   +---CFDictionaryRetainCallBack
-|   +---)
-+---(
-|   +---CFAllocatorRef
-|   +--- 
-|   +---allocator
-|   +---,
-|   +--- 
-|   +---const
-|   +--- 
-|   +---void
-|   +--- 
-|   +---*
-|   +---v
-|   +---[ NEWLINE ]
-|   +---alue
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
-END OF OBJECT
-
-
-OBJECT: CFDictionaryRetainCallBack (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span> (<span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/CFDictionaryRetainCallBack //test_ref/c/data/CFDictionaryRetainCallBack" --><span class="var">CFDictionaryRetainCallBack</span><!-- /a -->)(<!-- a logicalPath="//test_ref/c/econst/CFAllocatorRef //test_ref/c/data/CFAllocatorRef" --><span class="var">CFAllocatorRef</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/allocator //test_ref/c/data/allocator" --><span class="var">allocator</span><!-- /a -->, <span class="keyword">const</span> <!-- a logicalPath="//test_ref/c/econst/void //test_ref/c/data/void" --><span class="var">void</span><!-- /a --> <span class="var">*</span><!-- a logicalPath="//test_ref/c/econst/v //test_ref/c/data/v" --><span class="var">v</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/alue //test_ref/c/data/alue" --><span class="var">alue</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$92|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/callback_1.test$1|C$10|callback 1$1|C$6|parser

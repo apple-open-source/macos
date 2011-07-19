@@ -34,7 +34,7 @@
  * Copyright (C) 2004
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: eventhandler.h 2151 2006-09-06 20:02:47Z rousseau $
+ * $Id: eventhandler.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

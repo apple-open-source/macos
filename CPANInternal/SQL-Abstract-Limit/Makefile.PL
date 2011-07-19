@@ -2,15 +2,19 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
           'NAME' => 'SQL::Abstract::Limit',
           'VERSION_FROM' => 'lib/SQL/Abstract/Limit.pm',
           'PREREQ_PM' => {
-                           'Test::More' => 0,
+                           'DBI' => '0',
+                           'Data::Dumper' => '0',
                            'SQL::Abstract' => '1.2',
-                           'Test::Exception' => 0,
-                           'DBI' => 0
-                         }
+                           'Scalar::Util' => '0',
+                           'Test::Builder' => '0',
+                           'Test::Deep' => '0',
+                           'Test::Exception' => '0',
+                           'Test::More' => '0'
+                         },
+          'INSTALLDIRS' => 'site',
+          'PL_FILES' => {}
         )
 ;

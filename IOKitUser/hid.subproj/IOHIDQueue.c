@@ -24,6 +24,7 @@
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
+#include <asl.h>
 #include "IOHIDLibPrivate.h"
 #include "IOHIDDevice.h"
 #include "IOHIDQueue.h"
@@ -49,8 +50,7 @@ typedef struct __IOHIDQueue
     CFStringRef                     asyncRunLoopMode;
 
     IOHIDDeviceRef                  device;
-    void *                          context;
-    IOHIDCallback                   callback;
+    CFMutableDictionaryRef          callbackDictionary;
     
     CFMutableSetRef                 elements;
 } __IOHIDQueue, *__IOHIDQueueRef;
@@ -64,6 +64,7 @@ static const CFRuntimeClass __IOHIDQueueClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL,
     NULL
 };
@@ -121,10 +122,14 @@ void __IOHIDQueueRelease( CFTypeRef object )
     }
     
     if ( queue->device ) {
-        CFRelease(queue->device);
         queue->device = NULL;
     }
-
+    
+    if ( queue->callbackDictionary ) {
+        CFRelease(queue->callbackDictionary);
+        queue->callbackDictionary = NULL;
+    }
+    
 }
 
 //------------------------------------------------------------------------------
@@ -137,12 +142,16 @@ void __IOHIDQueueValueAvailableCallback(
 {
     IOHIDQueueRef queue = (IOHIDQueueRef)context;
 
-    if ( !queue || !queue->callback)
+    if ( !queue || !queue->callbackDictionary)
         return;
-        
-    (*queue->callback)( queue->context,
-                        result,
-                        queue);
+    
+    IOHIDCallbackApplierContext applierContext = {
+        result, queue
+    };
+    
+    CFRetain(queue);
+    CFDictionaryApplyFunction(queue->callbackDictionary, _IOHIDCallbackApplier, (void*)&applierContext);
+    CFRelease(queue);
 }
 
 //------------------------------------------------------------------------------
@@ -194,7 +203,8 @@ IOHIDQueueRef IOHIDQueueCreate(
     }
 
     queue->queueInterface   = queueInterface;
-    queue->device           = (IOHIDDeviceRef)CFRetain(device);
+    /* 9254987 - device is retained by our caller */
+    queue->device           = device;
     
     (*queue->queueInterface)->setDepth(queue->queueInterface, depth, options);
     
@@ -207,6 +217,7 @@ IOHIDQueueRef IOHIDQueueCreate(
 IOHIDDeviceRef IOHIDQueueGetDevice(     
                                 IOHIDQueueRef                   queue)
 {
+    /* caller should retain */
     return queue->device;
 }
 
@@ -353,20 +364,30 @@ void IOHIDQueueUnscheduleFromRunLoop(
 }
                                 
 //------------------------------------------------------------------------------
-// IOHIDQueueSetValueCallback
+// IOHIDQueueRegisterValueAvailableCallback
 //------------------------------------------------------------------------------
 void IOHIDQueueRegisterValueAvailableCallback(
-                                IOHIDQueueRef                   queue,
-                                IOHIDCallback                   callback,
-                                void *                          context)
+                                              IOHIDQueueRef                   queue,
+                                              IOHIDCallback                   callback,
+                                              void *                          context)
 {
-    queue->context  = context;
-    queue->callback = callback;
+    if (!callback) {
+        _IOHIDLog(ASL_LEVEL_ERR, "%s called with a NULL callback\n", __func__);
+        return;
+    }    
+    if (!queue->callbackDictionary) {
+        queue->callbackDictionary = CFDictionaryCreateMutable(NULL, 2, NULL, NULL);
+    }
+    if (!queue->callbackDictionary) {
+        _IOHIDLog(ASL_LEVEL_ERR, "%s unable to create dictionary\n", __func__);
+        return;
+    }
+    CFDictionarySetValue(queue->callbackDictionary, (void*)callback, context);
     
     (*queue->queueInterface)->setValueAvailableCallback(
-                                queue->queueInterface,
-                                __IOHIDQueueValueAvailableCallback,
-                                queue);
+                                                        queue->queueInterface,
+                                                        __IOHIDQueueValueAvailableCallback,
+                                                        queue);
 }
 
 //------------------------------------------------------------------------------

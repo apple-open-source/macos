@@ -3,6 +3,7 @@
 \bCVS\b
 ,v$
 .svn/
+^.git
 
 # ExtUtils::MakeMaker generated files and dirs.
 ^MANIFEST\.(?!SKIP)
@@ -15,6 +16,7 @@
 # Module::Build
 ^Build$
 ^_build
+^MYMETA
 
 # Temp, old, vi and emacs files.
 ~$

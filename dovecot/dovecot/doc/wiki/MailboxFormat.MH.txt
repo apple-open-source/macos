@@ -1,0 +1,52 @@
+MH Mailbox Format
+=================
+
+The MH mailbox format originated with a system developed by the RAND
+corporation and the University of California.  Each email message is stored in
+a single file, with directories indicating folders and subfolders.  The index
+or order of the messages in the folder determine what each message is named
+(which may not correspond to the inode index).  The "safe" way to guarantee a
+message gets written to a mail folder is to first write the message out to a
+randomly chosen temporary file name, then link or rename the file to the number
+LAST+1, where LAST is the last sequential message in the folder.  If the rename
+fails, increment the counter and try again.
+
+MH folders also maintains a meta-file called '~/Mail/.mh_context' that contains
+information about the most current folder and message chosen.  Each sub-folder
+also contains a meta-file called '.mh_sequences' or '.xmhcache', which
+maintains keyword association lists for stored queries.  New messages are
+stored in the "unseen" sequence for a folder.  Procmail itself does not bother
+making changes to this file, rather simply delivers the message to the folder
+and leaves determining new messages as an exercise for the MUA.  For example:
+
+---%<-------------------------------------------------------------------------
+unseen: 1-3 8 15
+projectB: 2-8 10
+---%<-------------------------------------------------------------------------
+
+shows two stored sequences of messages.  Command-line utilities can then use
+these sequences as shortcuts.'show unseen', for example, is short-hand for
+'show 1-3 8 15'.
+
+Deleted emails are indicated by prepending a "," to the name.  One of the
+largest problems that IMAP servers have with MH format is the volatility of the
+email message name itself.  The command-line utility 'sortm' is used to sort
+mail folders by date or string matching.  To do this, messages are actually
+renamed to reflect the new sort order.  IMAP servers are required to maintain
+an index of the folder contents, so when the names of the file entries cannot
+be guaranteed to be stable, IMAP servers have to throw out previous index
+caches and re-index.
+
+When operating with a shell account on a machine that also provides IMAP access
+to folders, users are encouraged not to re-sort email locally while accessing
+the IMAP server remotely.
+
+Links
+
+ * NMH [http://www.nongnu.org/nmh/]: New MH Client
+ * Original RAND MH [http://rand-mh.sourceforge.net] Code
+ * MH-Book [http://rand-mh.sourceforge.net/book/]
+ * Mutt Manual [http://www.mutt.org/doc/manual/manual-4.html#ss4.6]: Describing
+   how it handles MH folders
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -40,7 +40,7 @@ my $dbh = $schema->storage->dbh;
 
 $dbh->do("DROP TABLE IF EXISTS artist;");
 
-$dbh->do("CREATE TABLE artist (artistid INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), charfield CHAR(10));");
+$dbh->do("CREATE TABLE artist (artistid INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), rank INTEGER NOT NULL DEFAULT '13', charfield CHAR(10));");
 
 $schema->class('Artist')->load_components('PK::Auto');
 
@@ -57,7 +57,7 @@ my $it = $schema->resultset('Artist')->search( {},
       offset => 2,
       order_by => 'artistid' }
 );
-is( $it->count, 3, "LIMIT count ok" );
+is( $it->count, 3, "LIMIT count ok" );  # ask for 3 rows out of 7 artists
 is( $it->next->name, "Artist 2", "iterator->next ok" );
 $it->next;
 $it->next;
@@ -65,5 +65,6 @@ is( $it->next, undef, "next past end of resultset ok" );
 
 # clean up our mess
 END {
+    my $dbh = eval { $schema->storage->_dbh };
     $dbh->do("DROP TABLE artist") if $dbh;
 }

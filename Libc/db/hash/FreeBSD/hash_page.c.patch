@@ -1,32 +1,33 @@
---- hash_page.c.orig	2006-04-22 23:04:55.000000000 -0700
-+++ hash_page.c	2006-04-23 00:23:46.000000000 -0700
-@@ -74,7 +74,7 @@
+--- hash_page.c.orig	2009-11-06 12:41:16.000000000 -0800
++++ hash_page.c	2009-11-06 12:43:23.000000000 -0800
+@@ -70,7 +70,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash
  #include <db.h>
  #include "hash.h"
  #include "page.h"
 -#include "extern.h"
 +#include "hash_extern.h"
  
- static u_int32_t	*fetch_bitmap(HTAB *, int);
- static u_int32_t	 first_free(u_int32_t);
-@@ -586,7 +586,7 @@
- 	int is_bucket, is_bitmap;
+ static u_int32_t *fetch_bitmap(HTAB *, int);
+ static u_int32_t  first_free(u_int32_t);
+@@ -571,7 +571,7 @@ __get_page(HTAB *hashp, char *p, u_int32
+ int
+ __put_page(HTAB *hashp, char *p, u_int32_t bucket, int is_bucket, int is_bitmap)
  {
- 	int fd, page, size;
--	int wsize;
-+	int wsize, max;
+-	int fd, page, size, wsize;
++	int fd, page, size, wsize, max;
  
  	size = hashp->BSIZE;
  	if ((hashp->fp == -1) && open_temp(hashp))
-@@ -595,7 +595,6 @@
+@@ -579,7 +579,7 @@ __put_page(HTAB *hashp, char *p, u_int32
+ 	fd = hashp->fp;
  
  	if (hashp->LORDER != BYTE_ORDER) {
- 		int i;
--		int max;
+-		int i, max;
++		int i;
  
  		if (is_bitmap) {
  			max = hashp->BSIZE >> 2;	/* divide by 4 */
-@@ -619,6 +618,18 @@
+@@ -602,6 +602,18 @@ __put_page(HTAB *hashp, char *p, u_int32
  		errno = EFTYPE;
  		return (-1);
  	}

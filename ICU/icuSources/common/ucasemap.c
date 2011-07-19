@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2005-2008, International Business Machines
+*   Copyright (C) 2005-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -45,7 +45,7 @@ ucasemap_open(const char *locale, uint32_t options, UErrorCode *pErrorCode) {
     }
     uprv_memset(csm, 0, sizeof(UCaseMap));
 
-    csm->csp=ucase_getSingleton(pErrorCode);
+    csm->csp=ucase_getSingleton();
     ucasemap_setLocale(csm, locale, pErrorCode);
     if(U_FAILURE(*pErrorCode)) {
         uprv_free(csm);
@@ -225,7 +225,7 @@ _caseMap(const UCaseMap *csm, UCaseMapFull *map,
          int32_t srcStart, int32_t srcLimit,
          UErrorCode *pErrorCode) {
     const UChar *s;
-    UChar32 c, c2;
+    UChar32 c, c2 = 0;
     int32_t srcIndex, destIndex;
     int32_t locCache;
 
@@ -274,7 +274,7 @@ _toTitle(UCaseMap *csm,
     UText utext=UTEXT_INITIALIZER;
     const UChar *s;
     UChar32 c;
-    int32_t prev, titleStart, titleLimit, index, destIndex, length;
+    int32_t prev, titleStart, titleLimit, idx, destIndex, length;
     UBool isFirstIndex;
 
     utext_openUTF8(&utext, (const char *)src, srcLength, pErrorCode);
@@ -302,12 +302,12 @@ _toTitle(UCaseMap *csm,
         /* find next index where to titlecase */
         if(isFirstIndex) {
             isFirstIndex=FALSE;
-            index=ubrk_first(csm->iter);
+            idx=ubrk_first(csm->iter);
         } else {
-            index=ubrk_next(csm->iter);
+            idx=ubrk_next(csm->iter);
         }
-        if(index==UBRK_DONE || index>srcLength) {
-            index=srcLength;
+        if(idx==UBRK_DONE || idx>srcLength) {
+            idx=srcLength;
         }
 
         /*
@@ -323,22 +323,22 @@ _toTitle(UCaseMap *csm,
          * b) first case letter (titlecase)         [titleStart..titleLimit[
          * c) subsequent characters (lowercase)                 [titleLimit..index[
          */
-        if(prev<index) {
+        if(prev<idx) {
             /* find and copy uncased characters [prev..titleStart[ */
             titleStart=titleLimit=prev;
-            U8_NEXT(src, titleLimit, index, c);
+            U8_NEXT(src, titleLimit, idx, c);
             if((csm->options&U_TITLECASE_NO_BREAK_ADJUSTMENT)==0 && UCASE_NONE==ucase_getType(csm->csp, c)) {
                 /* Adjust the titlecasing index (titleStart) to the next cased character. */
                 for(;;) {
                     titleStart=titleLimit;
-                    if(titleLimit==index) {
+                    if(titleLimit==idx) {
                         /*
                          * only uncased characters in [prev..index[
                          * stop with titleStart==titleLimit==index
                          */
                         break;
                     }
-                    U8_NEXT(src, titleLimit, index, c);
+                    U8_NEXT(src, titleLimit, idx, c);
                     if(UCASE_NONE!=ucase_getType(csm->csp, c)) {
                         break; /* cased letter at [titleStart..titleLimit[ */
                     }
@@ -361,7 +361,7 @@ _toTitle(UCaseMap *csm,
 
                 
                 /* Special case Dutch IJ titlecasing */
-                if ( titleStart+1 < index && 
+                if ( titleStart+1 < idx && 
                      ucase_getCaseLocale(csm->locale,&csm->locCache) == UCASE_LOC_DUTCH &&
                      ( src[titleStart] == 0x0049 || src[titleStart] == 0x0069 ) &&
                      ( src[titleStart+1] == 0x004A || src[titleStart+1] == 0x006A )) { 
@@ -370,7 +370,7 @@ _toTitle(UCaseMap *csm,
                             titleLimit++;
                 }
                 /* lowercase [titleLimit..index[ */
-                if(titleLimit<index) {
+                if(titleLimit<idx) {
                     if((csm->options&U_TITLECASE_NO_LOWERCASE)==0) {
                         /* Normal operation: Lowercase the rest of the word. */
                         destIndex+=
@@ -378,11 +378,11 @@ _toTitle(UCaseMap *csm,
                                 csm, ucase_toFullLower,
                                 dest+destIndex, destCapacity-destIndex,
                                 src, csc,
-                                titleLimit, index,
+                                titleLimit, idx,
                                 pErrorCode);
                     } else {
                         /* Optionally just copy the rest of the word unchanged. */
-                        length=index-titleLimit;
+                        length=idx-titleLimit;
                         if((destIndex+length)<=destCapacity) {
                             uprv_memcpy(dest+destIndex, src+titleLimit, length);
                         }
@@ -392,7 +392,7 @@ _toTitle(UCaseMap *csm,
             }
         }
 
-        prev=index;
+        prev=idx;
     }
 
     if(destIndex>destCapacity) {
@@ -472,7 +472,7 @@ caseMap(const UCaseMap *csm,
 
     /* get the string length */
     if(srcLength==-1) {
-        srcLength=uprv_strlen((const char *)src);
+        srcLength=(int32_t)uprv_strlen((const char *)src);
     }
 
     /* check for overlapping source and destination */
@@ -512,7 +512,8 @@ caseMap(const UCaseMap *csm,
             *pErrorCode=U_UNSUPPORTED_ERROR;
 #else
             /* UCaseMap is actually non-const in toTitle() APIs. */
-            destLength=_toTitle((UCaseMap *)csm, dest, destCapacity,
+            UCaseMap *tmp = (UCaseMap *)csm;
+            destLength=_toTitle(tmp, dest, destCapacity,
                                 src, &csc, srcLength,
                                 pErrorCode);
 #endif

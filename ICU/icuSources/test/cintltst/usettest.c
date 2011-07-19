@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2008, International Business Machines
+* Copyright (c) 2002-2009, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -84,6 +84,14 @@ static void TestAPI() {
     UErrorCode ec;
     
     /* [] */
+    set = uset_openEmpty();
+    expect(set, "", "abc{ab}", NULL);
+    uset_close(set);
+
+    set = uset_open(1, 0);
+    expect(set, "", "abc{ab}", NULL);
+    uset_close(set);
+
     set = uset_open(1, 1);
     uset_clear(set);
     expect(set, "", "abc{ab}", NULL);
@@ -278,7 +286,7 @@ static void expectContainment(const USet* set,
                             (isIn ? "contains" : "does not contain"),
                             strCopy);
             } else {
-                log_err("FAIL: %s %s \"%s\"\n", pat,
+                log_data_err("FAIL: %s %s \"%s\" (Are you missing data?)\n", pat,
                         (isIn ? "does not contain" : "contains"),
                         strCopy);
             }
@@ -295,7 +303,7 @@ static void expectContainment(const USet* set,
                             (isIn ? "contains" : "does not contain"),
                             *p);
             } else {
-                log_err("FAIL: %s %s '%c'\n", pat,
+                log_data_err("FAIL: %s %s '%c' (Are you missing data?)\n", pat,
                         (isIn ? "does not contain" : "contains"),
                         *p);
             }
@@ -310,7 +318,7 @@ static void expectContainment(const USet* set,
                                     (isIn ? "contains" : "does not contain"),
                                     rangeStart, rangeEnd);
                     } else {
-                        log_err("FAIL: %s %s U+%04X-U+%04X\n", pat,
+                        log_data_err("FAIL: %s %s U+%04X-U+%04X (Are you missing data?)\n", pat,
                                 (isIn ? "does not contain" : "contains"),
                                 rangeStart, rangeEnd);
                     }
@@ -328,7 +336,7 @@ static void expectContainment(const USet* set,
                         (isIn ? "contains" : "does not contain"),
                         rangeStart, rangeEnd);
         } else {
-            log_err("FAIL: %s %s U+%04X-U+%04X\n", pat,
+            log_data_err("FAIL: %s %s U+%04X-U+%04X (Are you missing data?)\n", pat,
                     (isIn ? "does not contain" : "contains"),
                     rangeStart, rangeEnd);
         }
@@ -366,7 +374,7 @@ static void expectItems(const USet* set,
     pat=aescstrdup(ustr, length);
 
     if (uset_isEmpty(set) != (strlen(items)==0)) {
-        log_err("FAIL: %s should return %s from isEmpty\n",
+        log_data_err("FAIL: %s should return %s from isEmpty (Are you missing data?)\n",
                 pat,
                 strlen(items)==0 ? "TRUE" : "FALSE");
     }
@@ -383,7 +391,7 @@ static void expectItems(const USet* set,
         if (start > end || start == -1) {
             /* Fetch our next item */
             if (itemIndex >= itemCount) {
-                log_err("FAIL: ran out of items iterating %s\n", pat);
+                log_data_err("FAIL: ran out of items iterating %s (Are you missing data?)\n", pat);
                 return;
             }
 
@@ -480,7 +488,7 @@ TestSerialized() {
     errorCode=U_ZERO_ERROR;
     set=uset_openPattern(pattern, -1, &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("uset_openPattern([:Cf:]) failed - %s\n", u_errorName(errorCode));
+        log_data_err("uset_openPattern([:Cf:]) failed - %s (Are you missing data?)\n", u_errorName(errorCode));
         return;
     }
 
@@ -548,7 +556,7 @@ static void TestFreezable() {
     idSet=openIDSet();
 
     if (idSet == NULL) {
-        log_err("openIDSet() returned NULL\n");
+        log_data_err("openIDSet() returned NULL. (Are you missing data?)\n");
         uset_close(idSet);
         return;
     }
@@ -598,7 +606,7 @@ static void TestSpan() {
     USet *idSet=openIDSet();
 
     if (idSet == NULL) {
-        log_err("openIDSet() returned NULL\n");
+        log_data_err("openIDSet() returned NULL (Are you missing data?)\n");
         return;
     }
 

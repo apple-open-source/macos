@@ -69,38 +69,49 @@ using namespace KeychainCore;
 
 //-----------------------------------------------------------------------------------
 
-StorageManager::StorageManager() :
-	mSavedList(kSecPreferencesDomainUser),
-	mCommonList(kSecPreferencesDomainCommon),
-	mDomain(kSecPreferencesDomainUser),
-	mMutex(Mutex::recursive)
+static SecPreferencesDomain defaultPreferenceDomain()
 {
-	// get session attributes
 	SessionAttributeBits sessionAttrs;
 	if (gServerMode) {
 		secdebug("servermode", "StorageManager initialized in server mode");
 		sessionAttrs = sessionIsRoot;
 	} else {
-		// this forces a connection to securityd
-		MacOSError::check(SessionGetInfo(callerSecuritySession,
-			NULL, &sessionAttrs));
+		MacOSError::check(SessionGetInfo(callerSecuritySession, NULL, &sessionAttrs));
 	}
 	
-	// If this is the root session, switch to system preferences.
+	// If this is the root session, use system preferences.
 	// (In SecurityServer debug mode, you'll get a (fake) root session
 	// that has graphics access. Ignore that to help testing.)
 	if ((sessionAttrs & sessionIsRoot)
 			IFDEBUG( && !(sessionAttrs & sessionHasGraphicAccess))) {
-		secdebug("storagemgr", "switching to system preferences");
-		mDomain = kSecPreferencesDomainSystem;
-		mSavedList.set(kSecPreferencesDomainSystem);
+		secdebug("storagemgr", "using system preferences");
+		return kSecPreferencesDomainSystem;
 	}
+	
+	// otherwise, use normal (user) preferences
+	return kSecPreferencesDomainUser;
 }
+
+StorageManager::StorageManager() :
+	mSavedList(defaultPreferenceDomain()),
+	mCommonList(kSecPreferencesDomainCommon),
+	mDomain(kSecPreferencesDomainUser),
+	mMutex(Mutex::recursive)
+{
+}
+
+
+Mutex*
+StorageManager::getStorageManagerMutex()
+{
+	return &mKeychainMapMutex;
+}
+	
 
 Keychain
 StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 {
-	StLock<Mutex>__(mKeychainMapMutex);
+	StLock<Mutex>_(mKeychainMapMutex);
 	
 	if (!dLDbIdentifier)
 		return Keychain();
@@ -113,8 +124,14 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
     KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
     if (it != mKeychains.end())
 	{
-		it->second->handle(true); // causes a retain
-		return it->second;
+		if (it->second == NULL) // cleared by weak reference?
+		{
+			mKeychains.erase(it);
+		}
+		else
+		{
+			return it->second;
+		}
 	}
 	
 	// The keychain is not in our cache.  Create it.
@@ -134,47 +151,7 @@ StorageManager::keychain(const DLDbIdentifier &dLDbIdentifier)
 	mKeychains.insert(KeychainMap::value_type(dLDbIdentifier, &*keychain));
 	keychain->inCache(true);
 
-	// get the CF handle for the keychain and retain it
-	CFRetain(keychain->handle(false));
-	
 	return keychain;
-}
-
-void StorageManager::cleanup()
-{
-	StLock<Mutex>__(mKeychainMapMutex);
-	
-	bool didErase = true;
-	
-	while (didErase)
-	{
-		didErase = false;
-		
-		KeychainMap::iterator it = mKeychains.begin();
-		
-		while (it != mKeychains.end())
-		{
-			KeychainMap::iterator current = it++;
-			DLDbIdentifier dbid = current->first;
-			
-			KeychainImpl* k = current->second;
-			
-			// cleanup any items held by this keychain
-			k->cleanup();
-			
-			// cleanup the keychain itself
-			CFTypeRef ref = k->handle(false);
-			if (CFGetRetainCount(ref) == 1)
-			{
-				// deleting removes items from the list we are iterating.  As this would
-				// invalidate our iterator, we start over
-				CFRelease(ref);
-				didErase = true;
-				
-				break;
-			}
-		}
-	}
 }
 
 void 
@@ -182,18 +159,13 @@ StorageManager::removeKeychain(const DLDbIdentifier &dLDbIdentifier,
 	KeychainImpl *keychainImpl)
 {
 	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
-	
-	// If this keychain isn't in the map anymore we're done
-	if (!keychainImpl->inCache())
-		return;
 
-	KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
-	if (it != mKeychains.end() && it->second == keychainImpl)
-	{
-		mKeychains.erase(it);
-	}
+	StLock<Mutex>_(mKeychainMapMutex);
 	
+	KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
+	if (it != mKeychains.end() && (KeychainImpl*) it->second == keychainImpl)
+		mKeychains.erase(it);
+
 	keychainImpl->inCache(false);
 }
 
@@ -201,15 +173,19 @@ void
 StorageManager::didRemoveKeychain(const DLDbIdentifier &dLDbIdentifier)
 {
 	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
+
+	StLock<Mutex>_(mKeychainMapMutex);
 
 	KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
 	if (it != mKeychains.end())
 	{
-		KeychainImpl *keychainImpl = it->second;
-		assert(keychainImpl->inCache());
+		if (it->second != NULL) // did we get zapped by weak reference destruction
+		{
+			KeychainImpl *keychainImpl = it->second;
+			keychainImpl->inCache(false);
+		}
+		
 		mKeychains.erase(it);
-		keychainImpl->inCache(false);
 	}
 }
 
@@ -218,7 +194,8 @@ StorageManager::didRemoveKeychain(const DLDbIdentifier &dLDbIdentifier)
 Keychain
 StorageManager::makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add)
 {
-	StLock<Mutex>__(mKeychainMapMutex);
+
+	StLock<Mutex>_(mKeychainMapMutex);
 	
 	bool post = false;
 
@@ -261,6 +238,9 @@ StorageManager::makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add)
 void
 StorageManager::created(const Keychain &keychain)
 {
+
+	StLock<Mutex>_(mKeychainMapMutex);
+	
     DLDbIdentifier dLDbIdentifier = keychain->dlDbIdentifier();
 	bool defaultChanged = false;
 
@@ -324,12 +304,15 @@ StorageManager::defaultKeychain()
 	StLock<Mutex>_(mMutex);
 	
 	Keychain theKeychain;
+    CFTypeRef ref;
+    
 	{
 		mSavedList.revert(false);
 		DLDbIdentifier defaultDLDbIdentifier(mSavedList.defaultDLDbIdentifier());
 		if (defaultDLDbIdentifier)
 		{
 			theKeychain = keychain(defaultDLDbIdentifier);
+            ref = theKeychain->handle(false);
 		}
 	}
 
@@ -343,7 +326,6 @@ void
 StorageManager::defaultKeychain(const Keychain &keychain)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
 	
 	// Only set a keychain as the default if we own it and can read/write it,
 	// and our uid allows modifying the directory for that preference domain.
@@ -370,8 +352,6 @@ Keychain
 StorageManager::defaultKeychain(SecPreferencesDomain domain)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	if (domain == kSecPreferencesDomainDynamic)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
@@ -392,8 +372,6 @@ void
 StorageManager::defaultKeychain(SecPreferencesDomain domain, const Keychain &keychain)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	if (domain == kSecPreferencesDomainDynamic)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
@@ -408,8 +386,6 @@ Keychain
 StorageManager::loginKeychain()
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	Keychain theKeychain;
 	{
@@ -451,8 +427,6 @@ Keychain
 StorageManager::at(unsigned int ix)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	mSavedList.revert(false);
 	DLDbList dLDbList = mSavedList.searchList();
@@ -476,15 +450,14 @@ Keychain
 StorageManager::operator[](unsigned int ix)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
     return at(ix);
 }	
 
 void StorageManager::rename(Keychain keychain, const char* newName)
 {
-	StLock<Mutex>__(mKeychainMapMutex);
+
+	StLock<Mutex>_(mKeychainMapMutex);
 	
     bool changedDefault = false;
 	DLDbIdentifier newDLDbIdentifier;
@@ -511,12 +484,14 @@ void StorageManager::rename(Keychain keychain, const char* newName)
 
 		mSavedList.save();
 
+		// we aren't worried about a weak reference here, becase we have to
+		// hold a lock on an item in order to do the rename
+		
 		// Now update the Keychain cache
 		if (keychain->inCache())
 		{
 			KeychainMap::iterator it = mKeychains.find(dLDbIdentifier);
-			assert(it != mKeychains.end() && it->second == keychain.get());
-			if (it != mKeychains.end() && it->second == keychain.get())
+			if (it != mKeychains.end() && (KeychainImpl*) it->second == keychain.get())
 			{
 				// Remove the keychain from the cache under its old
 				// dLDbIdentifier
@@ -666,8 +641,10 @@ void StorageManager::removeKeychainFromSyncList (const DLDbIdentifier &id)
 	
 	if (found)
 	{
+#ifndef NDEBUG
 		CFShow (mtValue.get());
-		
+#endif
+
 		CFPreferencesSetValue (KEYCHAIN_SYNC_KEY,
 							   mtValue,
 							   KEYCHAIN_SYNC_DOMAIN,
@@ -680,8 +657,6 @@ void StorageManager::removeKeychainFromSyncList (const DLDbIdentifier &id)
 void StorageManager::remove(const KeychainList &kcsToRemove, bool deleteDb)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	bool unsetDefault = false;
 	{
@@ -703,8 +678,8 @@ void StorageManager::remove(const KeychainList &kcsToRemove, bool deleteDb)
 			{
 				removeKeychainFromSyncList (dLDbIdentifier);
 				
-				// Now remove our reference.
-				CFRelease(theKeychain->handle(false));
+				// Now remove it from the cache
+				removeKeychain(dLDbIdentifier, theKeychain.get());
 			}
 		}
 
@@ -734,10 +709,10 @@ void StorageManager::remove(const KeychainList &kcsToRemove, bool deleteDb)
 void
 StorageManager::getSearchList(KeychainList &keychainList)
 {
+	// hold the global lock since we make keychain objects in this function
+
+	// to do:  each of the items in this list must be retained, otherwise mayhem will occur
 	StLock<Mutex>_(mMutex);
-	
-	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
 	
 	if (gServerMode) {
 		keychainList.clear();
@@ -758,19 +733,22 @@ StorageManager::getSearchList(KeychainList &keychainList)
 		for (DLDbList::const_iterator it = dynamicList.begin();
 			it != dynamicList.end(); ++it)
 		{
-			result.push_back(keychain(*it));
+			Keychain k = keychain(*it);
+			result.push_back(k);
 		}
 
 		for (DLDbList::const_iterator it = dLDbList.begin();
 			it != dLDbList.end(); ++it)
 		{
-			result.push_back(keychain(*it));
+			Keychain k = keychain(*it);
+			result.push_back(k);
 		}
 
 		for (DLDbList::const_iterator it = commonList.begin();
 			it != commonList.end(); ++it)
 		{
-			result.push_back(keychain(*it));
+			Keychain k = keychain(*it);
+			result.push_back(k);
 		}
 	}
 
@@ -781,9 +759,6 @@ void
 StorageManager::setSearchList(const KeychainList &keychainList)
 {
 	StLock<Mutex>_(mMutex);
-	
-	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
 	
 	DLDbList commonList = mCommonList.searchList();
 
@@ -830,10 +805,7 @@ void
 StorageManager::getSearchList(SecPreferencesDomain domain, KeychainList &keychainList)
 {
 	StLock<Mutex>_(mMutex);
-
-	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
-		
+	
 	if (gServerMode) {
 		keychainList.clear();
 		return;
@@ -863,9 +835,6 @@ void
 StorageManager::setSearchList(SecPreferencesDomain domain, const KeychainList &keychainList)
 {
 	StLock<Mutex>_(mMutex);
-	
-	// Lock the recursive mutex
-	StLock<Mutex>__(mKeychainMapMutex);
 	
 	if (domain == kSecPreferencesDomainDynamic)
 		MacOSError::throwMe(errSecInvalidPrefsDomain);
@@ -945,7 +914,6 @@ StorageManager::optionalSearchList(CFTypeRef keychainOrArray, KeychainList &keyc
 void
 StorageManager::convertToKeychainList(CFArrayRef keychainArray, KeychainList &keychainList)
 {
-	assert(keychainArray);
 	CFIndex count = CFArrayGetCount(keychainArray);
 	KeychainList keychains(count);
 	for (CFIndex ix = 0; ix < count; ++ix)
@@ -1267,7 +1235,7 @@ void StorageManager::login(UInt32 nameLength, const void *name,
     }
 
     // make sure that the default keychain is in the search list; if not, reset the default to login.keychain
-	if (!mSavedList.defaultDLDbIdentifier() || !mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
+	if (!mSavedList.member(mSavedList.defaultDLDbIdentifier())) {
     	secdebug("KCLogin", "Changing default keychain to %s", (loginDLDbIdentifier) ? loginDLDbIdentifier.dbName() : "<NULL>");
         mSavedList.defaultDLDbIdentifier(loginDLDbIdentifier);
         mSavedList.save();
@@ -1342,8 +1310,6 @@ void StorageManager::changeLoginPassword(UInt32 oldPasswordLength, const void *o
 void StorageManager::resetKeychain(Boolean resetSearchList)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
     // Clear the keychain search list.
     try
@@ -1405,8 +1371,6 @@ Keychain StorageManager::make(const char *pathName)
 Keychain StorageManager::make(const char *pathName, bool add)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-	
 	
 	string fullPathName;
     if ( pathName[0] == '/' )
@@ -1644,8 +1608,7 @@ Keychain StorageManager::makeLoginAuthUI(const Item *item)
 Keychain StorageManager::defaultKeychainUI(Item &item)
 {
 	StLock<Mutex>_(mMutex);
-	StLock<Mutex>__(mKeychainMapMutex);
-		
+	
     Keychain returnedKeychain;
     try
     {

@@ -1,22 +1,22 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -24,6 +24,7 @@
 #include "SVGTRefElement.h"
 
 #include "RenderSVGInline.h"
+#include "RenderSVGResource.h"
 #include "SVGDocument.h"
 #include "SVGNames.h"
 #include "Text.h"
@@ -31,19 +32,23 @@
 
 namespace WebCore {
 
-SVGTRefElement::SVGTRefElement(const QualifiedName& tagName, Document* doc)
-    : SVGTextPositioningElement(tagName, doc)
-    , SVGURIReference()
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGTRefElement, XLinkNames::hrefAttr, Href, href)
+
+inline SVGTRefElement::SVGTRefElement(const QualifiedName& tagName, Document* document)
+    : SVGTextPositioningElement(tagName, document)
 {
+    ASSERT(hasTagName(SVGNames::trefTag));
 }
 
-SVGTRefElement::~SVGTRefElement()
+PassRefPtr<SVGTRefElement> SVGTRefElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGTRefElement(tagName, document));
 }
 
 void SVGTRefElement::updateReferencedText()
 {
-    Element* target = document()->getElementById(SVGURIReference::getTarget(href()));
+    Element* target = treeScope()->getElementById(SVGURIReference::getTarget(href()));
     String textContent;
     if (target && target->isSVGElement())
         textContent = static_cast<SVGElement*>(target)->textContent();
@@ -51,7 +56,7 @@ void SVGTRefElement::updateReferencedText()
     setTextContent(textContent, ignore);
 }
 
-void SVGTRefElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGTRefElement::parseMappedAttribute(Attribute* attr)
 {
     if (SVGURIReference::parseMappedAttribute(attr)) {
         updateReferencedText();
@@ -69,7 +74,7 @@ void SVGTRefElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
 
     if (SVGURIReference::isKnownAttribute(attrName))
-        renderer()->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer());
 }
 
 void SVGTRefElement::synchronizeProperty(const QualifiedName& attrName)
@@ -80,17 +85,46 @@ void SVGTRefElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHref();
 }
 
-bool SVGTRefElement::childShouldCreateRenderer(Node* child) const
+AttributeToPropertyTypeMap& SVGTRefElement::attributeToPropertyTypeMap()
 {
-    if (child->isTextNode() || child->hasTagName(SVGNames::tspanTag) ||
-        child->hasTagName(SVGNames::trefTag))
-        return true;
-    return false;
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGTRefElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGTextPositioningElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
 }
 
 RenderObject* SVGTRefElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGInline(this);
+}
+
+bool SVGTRefElement::childShouldCreateRenderer(Node* child) const
+{
+    if (child->isTextNode())
+        return true;
+
+    return false;
+}
+
+bool SVGTRefElement::rendererIsNeeded(RenderStyle* style)
+{
+    if (parentNode()
+        && (parentNode()->hasTagName(SVGNames::aTag)
+#if ENABLE(SVG_FONTS)
+            || parentNode()->hasTagName(SVGNames::altGlyphTag)
+#endif
+            || parentNode()->hasTagName(SVGNames::textTag)
+            || parentNode()->hasTagName(SVGNames::textPathTag)
+            || parentNode()->hasTagName(SVGNames::tspanTag)))
+        return StyledElement::rendererIsNeeded(style);
+
+    return false;
 }
 
 }

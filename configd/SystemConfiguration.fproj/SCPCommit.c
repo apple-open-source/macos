@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
  * - initial revision
  */
 
+#include <TargetConditionals.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
@@ -49,22 +50,24 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 	uint32_t		status		= kSCStatusOK;
 	CFDataRef		reply		= NULL;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		// if no helper
+		status = kSCStatusAccessError;
 		goto fail;
 	}
 
 	if (prefsPrivate->changed) {
 		ok = _SCSerialize(prefsPrivate->prefs, &data, NULL, NULL);
 		if (!ok) {
-			goto fail;
+			status = kSCStatusFailed;
+			goto error;
 		}
 	}
 
 	// have the helper "commit" the prefs
 //	status = kSCStatusOK;
 //	reply  = NULL;
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_PREFS_COMMIT,
 			   data,
 			   &status,
@@ -81,6 +84,8 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 	if (prefsPrivate->changed) {
 		if (prefsPrivate->signature != NULL) CFRelease(prefsPrivate->signature);
 		prefsPrivate->signature = reply;
+	} else {
+		if (reply != NULL) CFRelease(reply);
 	}
 
 	prefsPrivate->changed = FALSE;
@@ -89,12 +94,9 @@ __SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
-
-	status = kSCStatusAccessError;
 
     error :
 
@@ -130,7 +132,10 @@ Boolean
 SCPreferencesCommitChanges(SCPreferencesRef prefs)
 {
 	Boolean			ok		= FALSE;
+	char *			path;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	Boolean			save		= TRUE;
+	struct stat		statBuf;
 	Boolean			wasLocked;
 
 	if (prefs == NULL) {
@@ -162,12 +167,33 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 	/*
 	 * if necessary, apply changes
 	 */
-	if (prefsPrivate->changed) {
+	if (!prefsPrivate->changed) {
+		goto committed;
+	}
+
+	/*
+	 * check if the preferences should be removed
+	 */
+	if (CFDictionaryGetCount(prefsPrivate->prefs) == 0) {
+		CFBooleanRef	val;
+
+		/* if empty */
+		if ((prefsPrivate->options != NULL) &&
+		    CFDictionaryGetValueIfPresent(prefsPrivate->options,
+						  kSCPreferencesOptionRemoveWhenEmpty,
+						  (const void **)&val) &&
+		    isA_CFBoolean(val) &&
+		    CFBooleanGetValue(val)) {
+			/* if we've been asked to remove empty .plists */
+			save = FALSE;
+		}
+	}
+
+	path = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
+	if (save) {
 		int		fd;
 		CFDataRef	newPrefs;
-		char *		path;
 		int		pathLen;
-		struct stat	statBuf;
 		char *		thePath;
 
 		if (stat(prefsPrivate->path, &statBuf) == -1) {
@@ -183,7 +209,6 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		}
 
 		/* create the (new) preferences file */
-		path = prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path;
 		pathLen = strlen(path) + sizeof("-new");
 		thePath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(thePath, pathLen, "%s-new", path);
@@ -201,10 +226,18 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		(void) fchmod(fd, statBuf.st_mode);
 
 		/* write the new preferences */
-		newPrefs = CFPropertyListCreateXMLData(NULL, prefsPrivate->prefs);
+		newPrefs = CFPropertyListCreateData(NULL,
+						    prefsPrivate->prefs,
+#if	TARGET_OS_IPHONE
+						    kCFPropertyListBinaryFormat_v1_0,
+#else	// TARGET_OS_IPHONE
+						    kCFPropertyListXMLFormat_v1_0,
+#endif	// TARGET_OS_IPHONE
+						    0,
+						    NULL);
 		if (!newPrefs) {
 			_SCErrorSet(kSCStatusFailed);
-			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges CFPropertyListCreateXMLData() failed"));
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges CFPropertyListCreateData() failed"));
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  prefs = %s"), path);
 			CFAllocatorDeallocate(NULL, thePath);
 			(void) close(fd);
@@ -273,16 +306,26 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			prefsPrivate->newPath = NULL;
 		}
 
-		/* update signature */
+		/* grab the new signature */
 		if (stat(path, &statBuf) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges stat() failed: %s"), strerror(errno));
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  path = %s"), thePath);
 			goto done;
 		}
-		if (prefsPrivate->signature != NULL) CFRelease(prefsPrivate->signature);
-		prefsPrivate->signature = __SCPSignatureFromStatbuf(&statBuf);
+	} else {
+		/* remove the empty .plist */
+		unlink(path);
+
+		/* init the new signature */
+		bzero(&statBuf, sizeof(statBuf));
 	}
+
+	/* update signature */
+	if (prefsPrivate->signature != NULL) CFRelease(prefsPrivate->signature);
+	prefsPrivate->signature = __SCPSignatureFromStatbuf(&statBuf);
+
+    committed :
 
 	/* post notification */
 	if (prefsPrivate->session == NULL) {
@@ -300,6 +343,12 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 
     done :
 
-	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
+	if (!wasLocked) {
+		uint32_t	status;
+
+		status = SCError();	// preserve status across unlock
+		(void) SCPreferencesUnlock(prefs);
+		_SCErrorSet(status);
+	}
 	return ok;
 }

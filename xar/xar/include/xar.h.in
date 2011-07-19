@@ -216,6 +216,9 @@ char *xar_get_owner(xar_t x, xar_file_t f);
 char *xar_get_group(xar_t x, xar_file_t f);
 char *xar_get_mtime(xar_t x, xar_file_t f);
 
+/* For helping calling apps harden against hacked archives that attempt to escape their extraction roots. */
+int xar_path_issane(char* path);
+
 /* These are for xar modules and should never be needed from a calling app */
 void xar_register_errhandler(xar_t x, err_handler callback, void *usrctx);
 xar_t xar_err_get_archive(xar_errctx_t ctx);

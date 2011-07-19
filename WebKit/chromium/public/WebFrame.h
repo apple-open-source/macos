@@ -32,7 +32,12 @@
 #define WebFrame_h
 
 #include "WebCanvas.h"
+#include "WebFileSystem.h"
+#include "WebIconURL.h"
+#include "WebNode.h"
 #include "WebURL.h"
+// FIXME : Remove this file when transient done.
+#include "WebVector.h"
 
 struct NPObject;
 
@@ -56,17 +61,22 @@ class WebFormElement;
 class WebHistoryItem;
 class WebInputElement;
 class WebPasswordAutocompleteListener;
+class WebPerformance;
 class WebRange;
 class WebSecurityOrigin;
 class WebString;
 class WebURL;
+class WebURLLoader;
 class WebURLRequest;
 class WebView;
 struct WebConsoleMessage;
 struct WebFindOptions;
+struct WebPoint;
 struct WebRect;
 struct WebScriptSource;
 struct WebSize;
+struct WebURLLoaderOptions;
+
 template <typename T> class WebVector;
 
 class WebFrame {
@@ -93,6 +103,13 @@ public:
     WEBKIT_API static WebFrame* frameForEnteredContext();
     WEBKIT_API static WebFrame* frameForCurrentContext();
 
+#if WEBKIT_USING_V8
+    // Returns the frame corresponding to the given context. This can return 0
+    // if the context is detached from the frame, or if the context doesn't
+    // correspond to a frame (e.g., workers).
+    WEBKIT_API static WebFrame* frameForContext(v8::Handle<v8::Context>);
+#endif
+
     // Returns the frame inside a given frame or iframe element. Returns 0 if
     // the given element is not a frame, iframe or if the frame is empty.
     WEBKIT_API static WebFrame* fromFrameOwnerElement(const WebElement&);
@@ -102,15 +119,24 @@ public:
 
     // The name of this frame.
     virtual WebString name() const = 0;
-    virtual void clearName() = 0;
+
+    // Sets the name of this frame. For child frames (frames that are not a
+    // top-most frame) the actual name may have a suffix appended to make the
+    // frame name unique within the hierarchy.
+    virtual void setName(const WebString&) = 0;
+
+    // A globally unique identifier for this frame.
+    virtual long long identifier() const = 0;
 
     // The url of the document loaded in this frame.  This is equivalent to
     // dataSource()->request().url().
     virtual WebURL url() const = 0;
 
-    // The url of the favicon (if any) specified by the document loaded in
-    // this frame.
-    virtual WebURL favIconURL() const = 0;
+    // The urls of the given combination types of favicon (if any) specified by
+    // the document loaded in this frame. The iconTypes is a bit-mask of
+    // WebIconURL::Type values, used to select from the available set of icon
+    // URLs
+    virtual WebVector<WebIconURL> iconURLs(int iconTypes) const = 0;
 
     // The url of the OpenSearch Desription Document (if any) specified by
     // the document loaded in this frame.
@@ -130,6 +156,7 @@ public:
 
     // The scroll offset from the top-left corner of the frame in pixels.
     virtual WebSize scrollOffset() const = 0;
+    virtual void setScrollOffset(const WebSize&) = 0;
 
     // The size of the contents area.
     virtual WebSize contentsSize() const = 0;
@@ -154,6 +181,10 @@ public:
 
     // Returns the frame that opened this frame or 0 if there is none.
     virtual WebFrame* opener() const = 0;
+
+    // Reset the frame that opened this frame to 0.
+    // This is executed between layout tests runs
+    virtual void clearOpener() = 0;
 
     // Returns the parent frame or 0 if this is a top-most frame.
     virtual WebFrame* parent() const = 0;
@@ -188,6 +219,8 @@ public:
     virtual void forms(WebVector<WebFormElement>&) const = 0;
 
     virtual WebAnimationController* animationController() = 0;
+
+    virtual WebPerformance performance() const = 0;
 
 
     // Scripting ----------------------------------------------------------
@@ -235,6 +268,17 @@ public:
     // Returns the V8 context for this frame, or an empty handle if there
     // is none.
     virtual v8::Local<v8::Context> mainWorldScriptContext() const = 0;
+
+    // Creates an instance of file system object.
+    virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
+                                                   const WebString& name,
+                                                   const WebString& path) = 0;
+    // Creates an instance of file or directory entry object.
+    virtual v8::Handle<v8::Value> createFileEntry(WebFileSystem::Type,
+                                                  const WebString& fileSystemName,
+                                                  const WebString& fileSystemPath,
+                                                  const WebString& filePath,
+                                                  bool isDirectory) = 0;
 #endif
 
 
@@ -317,7 +361,16 @@ public:
     // Called to associate the WebURLRequest with this frame.  The request
     // will be modified to inherit parameters that allow it to be loaded.
     // This method ends up triggering WebFrameClient::willSendRequest.
+    // DEPRECATED: Please use createAssociatedURLLoader instead.
     virtual void dispatchWillSendRequest(WebURLRequest&) = 0;
+
+    // FIXME: Remove this overload when clients have been changed to pass options.
+    virtual WebURLLoader* createAssociatedURLLoader() = 0;
+
+    // Returns a WebURLLoader that is associated with this frame.  The loader
+    // will, for example, be cancelled when WebFrame::stopLoading is called.
+    // FIXME: stopLoading does not yet cancel an associated loader!!
+    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&) = 0;
 
     // Called from within WebFrameClient::didReceiveDocumentData to commit
     // data for the frame that will be used to construct the frame's
@@ -348,6 +401,15 @@ public:
 
     virtual WebRange markedRange() const = 0;
 
+    // Returns the frame rectangle in window coordinate space of the given text
+    // range.
+    virtual bool firstRectForCharacterRange(unsigned location, unsigned length, WebRect&) const = 0;
+
+    // Returns the index of a character in the Frame's text stream at the given
+    // point. The point is in the window coordinate space. Will return
+    // WTF::notFound if the point is invalid.
+    virtual size_t characterIndexForPoint(const WebPoint&) const = 0;
+
     // Supports commands like Undo, Redo, Cut, Copy, Paste, SelectAll,
     // Unselect, etc. See EditorCommand.cpp for the full list of supported
     // commands.
@@ -374,16 +436,22 @@ public:
     // there is ranged selection.
     virtual bool selectWordAroundCaret() = 0;
 
+    virtual void selectRange(const WebPoint& start, const WebPoint& end) = 0;
+
 
     // Printing ------------------------------------------------------------
 
     // Reformats the WebFrame for printing. pageSize is the page size in
-    // points (a point in 1/72 of an inch). printerDPI is the user selected,
-    // DPI for the printer. Returns the number of pages that
-    // can be printed at the given page size. The out param useBrowserOverlays
+    // points (a point in 1/72 of an inch). If |constrainToNode| node is
+    // specified, then only the given node is printed (for now only plugins are
+    // supported), instead of the entire frame.  printerDPI is the user
+    // selected, DPI for the printer. Returns the number of pages that can be
+    // printed at the given page size. The out param useBrowserOverlays
     // specifies whether the browser process should use its overlays (header,
     // footer, margins etc) or whether the renderer controls this.
-    virtual int printBegin(const WebSize& pageSize, int printerDPI = 72,
+    virtual int printBegin(const WebSize& pageSize,
+                           const WebNode& constrainToNode = WebNode(),
+                           int printerDPI = 72,
                            bool* useBrowserOverlays = 0) = 0;
 
     // Returns the page shrinking factor calculated by webkit (usually
@@ -399,6 +467,21 @@ public:
     // Reformats the WebFrame for screen display.
     virtual void printEnd() = 0;
 
+    // CSS3 Paged Media ----------------------------------------------------
+
+    // Returns true if page box (margin boxes and page borders) is visible.
+    virtual bool isPageBoxVisible(int pageIndex) = 0;
+
+    // Returns the preferred page size and margins in pixels, assuming 96
+    // pixels per inch. pageSize, marginTop, marginRight, marginBottom,
+    // marginLeft must be initialized to the default values that are used if
+    // auto is specified.
+    virtual void pageSizeAndMarginsInPixels(int pageIndex,
+                                            WebSize& pageSize,
+                                            int& marginTop,
+                                            int& marginRight,
+                                            int& marginBottom,
+                                            int& marginLeft) = 0;
 
     // Find-in-page --------------------------------------------------------
 
@@ -462,20 +545,20 @@ public:
     // Registers a listener for the specified user name input element. The
     // listener will receive notifications for blur and when autocomplete
     // should be triggered.
-    // The WebFrame becomes the owner of the passed listener.
-    virtual void registerPasswordListener(
+    // An element can have only one listener. If a listener already exists,
+    // this method returns false and does not add the new one.
+    // Either way, the WebFrame becomes the owner of the passed listener.
+    virtual bool registerPasswordListener(
         WebInputElement,
         WebPasswordAutocompleteListener*) = 0;
 
+    // Dispatches an Autocompletion notification to registered listener if one
+    // exists that is registered against the WebInputElement specified.
+    virtual void notifiyPasswordListenerOfAutocomplete(
+        const WebInputElement&) = 0;
+
 
     // Utility -------------------------------------------------------------
-
-    // Given a relative URL, returns an absolute URL by resolving the URL
-    // relative to the base URL of the frame's document.  This uses the
-    // same algorithm that WebKit uses to resolve hyperlinks found in a
-    // HTML document.
-    // Deprecated. Use document().completeURL() instead.
-    virtual WebURL completeURL(const WebString&) const = 0;
 
     // Returns the contents of this frame as a string.  If the text is
     // longer than maxChars, it will be clipped to that length.  WARNING:
@@ -493,12 +576,14 @@ public:
 
     // Returns a text representation of the render tree.  This method is used
     // to support layout tests.
-    virtual WebString renderTreeAsText() const = 0;
+    virtual WebString renderTreeAsText(bool showDebugInfo = false) const = 0;
 
     // Returns the counter value for the specified element.  This method is
     // used to support layout tests.
     virtual WebString counterValueForElementById(const WebString& id) const = 0;
 
+    // Calls markerTextForListItem() defined in WebCore/rendering/RenderTreeAsText.h.
+    virtual WebString markerTextForListItem(const WebElement&) const = 0;
 
     // Returns the number of page where the specified element will be put.
     // This method is used to support layout tests.
@@ -511,6 +596,20 @@ public:
     // not be transformed itself. If no selection is present, the rect will be
     // empty ((0,0), (0,0)).
     virtual WebRect selectionBoundsRect() const = 0;
+
+    // Only for testing purpose: 
+    // Returns true if selection.anchorNode has a marker on range from |from| with |length|.
+    virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const = 0;
+
+    // Pauses and samples an SVG animation.  Returns false if there's no svg
+    // animation to pause.  This is only for testing.
+    virtual bool pauseSVGAnimation(const WebString& animationId,
+                                   double time,
+                                   const WebString& elementId) = 0;
+
+    // Dumps the layer tree, used by the accelerated compositor, in
+    // text form. This is used only by layout tests.
+    virtual WebString layerTreeAsText(bool showDebugInfo = false) const = 0;
 
 protected:
     ~WebFrame() { }

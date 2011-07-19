@@ -32,9 +32,10 @@
 #include "config.h"
 #include "Font.h"
 
-#include "ChromiumBridge.h"
 #include "FontFallbackList.h"
 #include "GlyphBuffer.h"
+#include "NotImplemented.h"
+#include "PlatformBridge.h"
 #include "PlatformContextSkia.h"
 #include "SimpleFontData.h"
 #include "SkiaFontWin.h"
@@ -42,7 +43,7 @@
 #include "TransparencyWin.h"
 #include "UniscribeHelperTextRun.h"
 
-#include "skia/ext/platform_canvas_win.h"
+#include "skia/ext/platform_canvas.h"
 #include "skia/ext/skia_utils_win.h"  // FIXME: remove this dependency.
 
 #include <windows.h>
@@ -164,7 +165,7 @@ void TransparencyAwareFontPainter::initializeForGDI()
 
     // Set up the DC, using the one from the transparency helper.
     if (m_transparency.platformContext()) {
-        m_hdc = m_transparency.platformContext()->canvas()->beginPlatformPaint();
+        m_hdc = skia::BeginPlatformPaint(m_transparency.platformContext()->canvas());
         SetTextColor(m_hdc, skia::SkColorToCOLORREF(color));
         SetBkMode(m_hdc, TRANSPARENT);
     }
@@ -178,7 +179,8 @@ TransparencyAwareFontPainter::~TransparencyAwareFontPainter()
     if (m_createdTransparencyLayer)
         m_graphicsContext->endTransparencyLayer();
     m_graphicsContext->restore();
-    m_platformContext->canvas()->endPlatformPaint();
+    if (m_transparency.platformContext())
+        skia::EndPlatformPaint(m_transparency.platformContext()->canvas());
 }
 
 // Specialization for simple GlyphBuffer painting.
@@ -195,7 +197,7 @@ class TransparencyAwareGlyphPainter : public TransparencyAwareFontPainter {
     // left of m_point. We express it this way so that if we're using the Skia
     // drawing path we can use floating-point positioning, even though we have
     // to use integer positioning in the GDI path.
-    bool drawGlyphs(int numGlyphs, const WORD* glyphs, const int* advances, int startAdvance) const;
+    bool drawGlyphs(int numGlyphs, const WORD* glyphs, const int* advances, float startAdvance) const;
 
  private:
     virtual IntRect estimateTextBounds();
@@ -245,20 +247,21 @@ IntRect TransparencyAwareGlyphPainter::estimateTextBounds()
     for (int i = 0; i < m_numGlyphs; i++)
         totalWidth += lroundf(m_glyphBuffer.advanceAt(m_from + i));
 
-    return IntRect(m_point.x() - (m_font->ascent() + m_font->descent()) / 2,
-                   m_point.y() - m_font->ascent() - m_font->lineGap(),
-                   totalWidth + m_font->ascent() + m_font->descent(),
-                   m_font->lineSpacing()); 
+    const FontMetrics& fontMetrics = m_font->fontMetrics();
+    return IntRect(m_point.x() - (fontMetrics.ascent() + fontMetrics.descent()) / 2,
+                   m_point.y() - fontMetrics.ascent() - fontMetrics.lineGap(),
+                   totalWidth + fontMetrics.ascent() + fontMetrics.descent(),
+                   fontMetrics.lineSpacing()); 
 }
 
 bool TransparencyAwareGlyphPainter::drawGlyphs(int numGlyphs,
                                                const WORD* glyphs,
                                                const int* advances,
-                                               int startAdvance) const
+                                               float startAdvance) const
 {
     if (!m_useGDI) {
         SkPoint origin = m_point;
-        origin.fX += startAdvance;
+        origin.fX += SkFloatToScalar(startAdvance);
         return paintSkiaText(m_graphicsContext, m_font->platformData().hfont(),
                              numGlyphs, glyphs, advances, 0, &origin);
     }
@@ -269,14 +272,15 @@ bool TransparencyAwareGlyphPainter::drawGlyphs(int numGlyphs,
     // Windows' origin is the top-left of the bounding box, so we have
     // to subtract off the font ascent to get it.
     int x = lroundf(m_point.x() + startAdvance);
-    int y = lroundf(m_point.y() - m_font->ascent());
+    int y = lroundf(m_point.y() - m_font->fontMetrics().ascent());
 
     // If there is a non-blur shadow and both the fill color and shadow color 
     // are opaque, handle without skia. 
-    IntSize shadowSize;
-    int shadowBlur;
+    FloatSize shadowOffset;
+    float shadowBlur;
     Color shadowColor;
-    if (m_graphicsContext->getShadow(shadowSize, shadowBlur, shadowColor)) {
+    ColorSpace shadowColorSpace;
+    if (m_graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace)) {
         // If there is a shadow and this code is reached, windowsCanHandleDrawTextShadow()
         // will have already returned true during the ctor initiatization of m_useGDI
         ASSERT(shadowColor.alpha() == 255);
@@ -285,7 +289,7 @@ bool TransparencyAwareGlyphPainter::drawGlyphs(int numGlyphs,
         COLORREF textColor = skia::SkColorToCOLORREF(SkColorSetARGB(255, shadowColor.red(), shadowColor.green(), shadowColor.blue()));
         COLORREF savedTextColor = GetTextColor(m_hdc);
         SetTextColor(m_hdc, textColor);
-        ExtTextOut(m_hdc, x + shadowSize.width(), y + shadowSize.height(), ETO_GLYPH_INDEX, 0, reinterpret_cast<const wchar_t*>(&glyphs[0]), numGlyphs, &advances[0]);
+        ExtTextOut(m_hdc, x + shadowOffset.width(), y + shadowOffset.height(), ETO_GLYPH_INDEX, 0, reinterpret_cast<const wchar_t*>(&glyphs[0]), numGlyphs, &advances[0]);
         SetTextColor(m_hdc, savedTextColor);
     }
     
@@ -352,10 +356,11 @@ IntRect TransparencyAwareUniscribePainter::estimateTextBounds()
     // This algorithm for estimating how much extra space we need (the text may
     // go outside the selection rect) is based roughly on
     // TransparencyAwareGlyphPainter::estimateTextBounds above.
-    return IntRect(left - (m_font->ascent() + m_font->descent()) / 2,
-                   m_point.y() - m_font->ascent() - m_font->lineGap(),
-                   (right - left) + m_font->ascent() + m_font->descent(),
-                   m_font->lineSpacing());
+    const FontMetrics& fontMetrics = m_font->fontMetrics();
+    return IntRect(left - (fontMetrics.ascent() + fontMetrics.descent()) / 2,
+                   m_point.y() - fontMetrics.ascent() - fontMetrics.lineGap(),
+                   (right - left) + fontMetrics.ascent() + fontMetrics.descent(),
+                   fontMetrics.lineSpacing());
 }
 
 }  // namespace
@@ -365,18 +370,18 @@ bool Font::canReturnFallbackFontsForComplexText()
     return false;
 }
 
-void Font::drawGlyphs(GraphicsContext* graphicsContext,
-                      const SimpleFontData* font,
-                      const GlyphBuffer& glyphBuffer,
-                      int from,
-                      int numGlyphs,
-                      const FloatPoint& point) const
+bool Font::canExpandAroundIdeographsInComplexText()
 {
-    SkColor color = graphicsContext->platformContext()->effectiveFillColor();
-    unsigned char alpha = SkColorGetA(color);
-    // Skip 100% transparent text; no need to draw anything.
-    if (!alpha && graphicsContext->platformContext()->getStrokeStyle() == NoStroke)
-        return;
+    return false;
+}
+
+static void drawGlyphsWin(GraphicsContext* graphicsContext,
+                          const SimpleFontData* font,
+                          const GlyphBuffer& glyphBuffer,
+                          int from,
+                          int numGlyphs,
+                          const FloatPoint& point) {
+    graphicsContext->platformContext()->prepareForSoftwareDraw();
 
     TransparencyAwareGlyphPainter painter(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
 
@@ -389,17 +394,25 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext,
     Vector<WORD, kMaxBufferLength> glyphs;
     Vector<int, kMaxBufferLength> advances;
     int glyphIndex = 0;  // The starting glyph of the current chunk.
-    int curAdvance = 0;  // How far from the left the current chunk is.
+
+    // In order to round all offsets to the correct pixel boundary, this code keeps track of the absolute position
+    // of each glyph in floating point units and rounds to integer advances at the last possible moment.
+
+    float horizontalOffset = point.x(); // The floating point offset of the left side of the current glyph.
+    int lastHorizontalOffsetRounded = lroundf(horizontalOffset); // The rounded offset of the left side of the last glyph rendered.
     while (glyphIndex < numGlyphs) {
         // How many chars will be in this chunk?
         int curLen = std::min(kMaxBufferLength, numGlyphs - glyphIndex);
         glyphs.resize(curLen);
         advances.resize(curLen);
 
-        int curWidth = 0;
+        float currentWidth = 0;
         for (int i = 0; i < curLen; ++i, ++glyphIndex) {
             glyphs[i] = glyphBuffer.glyphAt(from + glyphIndex);
-            advances[i] = static_cast<int>(glyphBuffer.advanceAt(from + glyphIndex));
+            horizontalOffset += glyphBuffer.advanceAt(from + glyphIndex);
+            advances[i] = lroundf(horizontalOffset) - lastHorizontalOffsetRounded;
+            lastHorizontalOffsetRounded += advances[i];
+            currentWidth += glyphBuffer.advanceAt(from + glyphIndex);
             
             // Bug 26088 - very large positive or negative runs can fail to
             // render so we clamp the size here. In the specs, negative
@@ -409,18 +422,17 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext,
             // -32830, so we give ourselves a little breathing room.
             const int maxNegativeRun = -32768;
             const int maxPositiveRun =  32768;
-            if ((curWidth + advances[i] < maxNegativeRun) || (curWidth + advances[i] > maxPositiveRun)) 
+            if ((currentWidth + advances[i] < maxNegativeRun) || (currentWidth + advances[i] > maxPositiveRun)) 
                 advances[i] = 0;
-            curWidth += advances[i];
         }
 
         // Actually draw the glyphs (with retry on failure).
         bool success = false;
         for (int executions = 0; executions < 2; ++executions) {
-            success = painter.drawGlyphs(curLen, &glyphs[0], &advances[0], curAdvance);
+            success = painter.drawGlyphs(curLen, &glyphs[0], &advances[0], horizontalOffset - point.x() - currentWidth);
             if (!success && executions == 0) {
                 // Ask the browser to load the font for us and retry.
-                ChromiumBridge::ensureFontLoaded(font->platformData().hfont());
+                PlatformBridge::ensureFontLoaded(font->platformData().hfont());
                 continue;
             }
             break;
@@ -428,13 +440,27 @@ void Font::drawGlyphs(GraphicsContext* graphicsContext,
 
         if (!success)
             LOG_ERROR("Unable to draw the glyphs after second attempt");
-
-        curAdvance += curWidth;
     }
 }
 
+void Font::drawGlyphs(GraphicsContext* graphicsContext,
+                      const SimpleFontData* font,
+                      const GlyphBuffer& glyphBuffer,
+                      int from,
+                      int numGlyphs,
+                      const FloatPoint& point) const
+{
+    SkColor color = graphicsContext->platformContext()->effectiveFillColor();
+    unsigned char alpha = SkColorGetA(color);
+    // Skip 100% transparent text; no need to draw anything.
+    if (!alpha && graphicsContext->platformContext()->getStrokeStyle() == NoStroke && !graphicsContext->hasShadow())
+        return;
+
+    drawGlyphsWin(graphicsContext, font, glyphBuffer, from, numGlyphs, point);
+}
+
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
-                                            const IntPoint& point,
+                                            const FloatPoint& point,
                                             int h,
                                             int from,
                                             int to) const
@@ -445,10 +471,10 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
 
     // If the text is RTL, left will actually be after right.
     if (left < right)
-        return FloatRect(left, static_cast<float>(point.y()),
+        return FloatRect(left, point.y(),
                        right - left, static_cast<float>(h));
 
-    return FloatRect(right, static_cast<float>(point.y()),
+    return FloatRect(right, point.y(),
                      left - right, static_cast<float>(h));
 }
 
@@ -483,24 +509,27 @@ void Font::drawComplexText(GraphicsContext* graphicsContext,
 
     // If there is a non-blur shadow and both the fill color and shadow color 
     // are opaque, handle without skia. 
-    IntSize shadowSize;
-    int shadowBlur;
+    FloatSize shadowOffset;
+    float shadowBlur;
     Color shadowColor;
-    if (graphicsContext->getShadow(shadowSize, shadowBlur, shadowColor) && windowsCanHandleDrawTextShadow(graphicsContext)) {
+    ColorSpace shadowColorSpace;
+    if (graphicsContext->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace) && windowsCanHandleDrawTextShadow(graphicsContext)) {
         COLORREF textColor = skia::SkColorToCOLORREF(SkColorSetARGB(255, shadowColor.red(), shadowColor.green(), shadowColor.blue()));
         COLORREF savedTextColor = GetTextColor(hdc);
         SetTextColor(hdc, textColor);
-        state.draw(graphicsContext, hdc, static_cast<int>(point.x()) + shadowSize.width(),
-                   static_cast<int>(point.y() - ascent()) + shadowSize.height(), from, to);
+        state.draw(graphicsContext, hdc, static_cast<int>(point.x()) + shadowOffset.width(),
+                   static_cast<int>(point.y() - fontMetrics().ascent()) + shadowOffset.height(), from, to);
         SetTextColor(hdc, savedTextColor); 
     }
 
     // Uniscribe counts the coordinates from the upper left, while WebKit uses
     // the baseline, so we have to subtract off the ascent.
-    state.draw(graphicsContext, hdc, static_cast<int>(point.x()),
-               static_cast<int>(point.y() - ascent()), from, to);
+    state.draw(graphicsContext, hdc, lroundf(point.x()), lroundf(point.y() - fontMetrics().ascent()), from, to);
+}
 
-    context->canvas()->endPlatformPaint();
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
 }
 
 float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow* /* glyphOverflow */) const
@@ -509,9 +538,13 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     return static_cast<float>(state.width());
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int x,
+int Font::offsetForPositionForComplexText(const TextRun& run, float xFloat,
                                           bool includePartialGlyphs) const
 {
+    // FIXME: This truncation is not a problem for HTML, but only affects SVG, which passes floating-point numbers
+    // to Font::offsetForPosition(). Bug http://webkit.org/b/40673 tracks fixing this problem.
+    int x = static_cast<int>(xFloat);
+
     // Mac code ignores includePartialGlyphs, and they don't know what it's
     // supposed to do, so we just ignore it as well.
     UniscribeHelperTextRun state(run, *this);

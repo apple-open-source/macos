@@ -22,17 +22,23 @@
 #define LLVM_CALL_GRAPH_SCC_PASS_H
 
 #include "llvm/Pass.h"
+#include "llvm/Analysis/CallGraph.h"
 
 namespace llvm {
 
 class CallGraphNode;
 class CallGraph;
 class PMStack;
+class CallGraphSCC;
+  
+class CallGraphSCCPass : public Pass {
+public:
+  explicit CallGraphSCCPass(intptr_t pid) : Pass(PT_CallGraphSCC, pid) {}
+  explicit CallGraphSCCPass(void *pid) : Pass(PT_CallGraphSCC, pid) {}
 
-struct CallGraphSCCPass : public Pass {
-
-  explicit CallGraphSCCPass(intptr_t pid) : Pass(pid) {}
-  explicit CallGraphSCCPass(void *pid) : Pass(pid) {}
+  /// createPrinterPass - Get a pass that prints the Module
+  /// corresponding to a CallGraph.
+  Pass *createPrinterPass(raw_ostream &O, const std::string &Banner) const;
 
   /// doInitialization - This method is called before the SCC's of the program
   /// has been processed, allowing the pass to do initialization as necessary.
@@ -45,7 +51,10 @@ struct CallGraphSCCPass : public Pass {
   /// non-recursive (or only self-recursive) functions will have an SCC size of
   /// 1, where recursive portions of the call graph will have SCC size > 1.
   ///
-  virtual bool runOnSCC(const std::vector<CallGraphNode *> &SCC) = 0;
+  /// SCC passes that add or delete functions to the SCC are required to update
+  /// the SCC list, otherwise stale pointers may be dereferenced.
+  ///
+  virtual bool runOnSCC(CallGraphSCC &SCC) = 0;
 
   /// doFinalization - This method is called after the SCC's of the program has
   /// been processed, allowing the pass to do final cleanup as necessary.
@@ -55,7 +64,7 @@ struct CallGraphSCCPass : public Pass {
 
   /// Assign pass manager to manager this pass
   virtual void assignPassManager(PMStack &PMS,
-                                 PassManagerType PMT = PMT_CallGraphPassManager);
+                                 PassManagerType PMT =PMT_CallGraphPassManager);
 
   ///  Return what kind of Pass Manager can manage this pass.
   virtual PassManagerType getPotentialPassManagerType() const {
@@ -66,6 +75,29 @@ struct CallGraphSCCPass : public Pass {
   /// the call graph.  If the derived class implements this method, it should
   /// always explicitly call the implementation here.
   virtual void getAnalysisUsage(AnalysisUsage &Info) const;
+};
+
+/// CallGraphSCC - This is a single SCC that a CallGraphSCCPass is run on. 
+class CallGraphSCC {
+  void *Context; // The CGPassManager object that is vending this.
+  std::vector<CallGraphNode*> Nodes;
+public:
+  CallGraphSCC(void *context) : Context(context) {}
+  
+  void initialize(CallGraphNode*const*I, CallGraphNode*const*E) {
+    Nodes.assign(I, E);
+  }
+  
+  bool isSingular() const { return Nodes.size() == 1; }
+  unsigned size() const { return Nodes.size(); }
+  
+  /// ReplaceNode - This informs the SCC and the pass manager that the specified
+  /// Old node has been deleted, and New is to be used in its place.
+  void ReplaceNode(CallGraphNode *Old, CallGraphNode *New);
+  
+  typedef std::vector<CallGraphNode*>::const_iterator iterator;
+  iterator begin() const { return Nodes.begin(); }
+  iterator end() const { return Nodes.end(); }
 };
 
 } // End llvm namespace

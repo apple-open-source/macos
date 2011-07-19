@@ -27,8 +27,8 @@
 #include "DragController.h"
 
 #include "DragData.h"
-#include "windows.h" 
-#include "SelectionController.h"
+#include "FrameSelection.h"
+#include "windows.h"
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -47,10 +47,10 @@ DragOperation DragController::dragOperation(DragData* dragData)
     //If this can be determined from within WebCore operationForDrag can be pulled into 
     //WebCore itself
     ASSERT(dragData);
-    return dragData->containsURL() && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
+    return dragData->containsURL(0) && !m_didInitiateDrag ? DragOperationCopy : DragOperationNone;
 }
 
-bool DragController::isCopyKeyDown()
+bool DragController::isCopyKeyDown(DragData*)
 {
     return ::GetAsyncKeyState(VK_CONTROL);
 }

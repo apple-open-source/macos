@@ -1,8 +1,8 @@
 /*
  * ntfs_quota.c - NTFS kernel quota ($Quota) handling.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -74,7 +74,7 @@ errno_t ntfs_quotas_mark_out_of_date(ntfs_volume *vol)
 		ntfs_error(vol->mp, "Quota inodes are not open.");
 		return EINVAL;
 	}
-	err = vnode_getwithref(vol->quota_q_ni->vn);
+	err = vnode_get(vol->quota_q_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get index vnode for "
 				"$Quota/$Q.");

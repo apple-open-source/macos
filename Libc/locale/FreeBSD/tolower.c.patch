@@ -1,11 +1,13 @@
---- tolower.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ tolower.c	2005-02-17 16:43:19.000000000 -0800
-@@ -37,20 +37,32 @@
- #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.11 2004/07/29 06:16:19 tjr Exp $");
+--- tolower.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ tolower.c	2009-11-09 17:31:29.000000000 -0800
+@@ -32,22 +32,34 @@
  
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.13 2007/01/09 00:28:01 imp Exp $");
++  
 +#include "xlocale_private.h"
-+
+ 
+ #include <ctype.h>
  #include <stdio.h>
  #include <runetype.h>
  
@@ -35,7 +37,7 @@
  	/* Binary search -- see bsearch.c for explanation. */
  	base = rr->__ranges;
  	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
-@@ -65,3 +77,10 @@
+@@ -62,3 +74,10 @@ ___tolower(c)
  
  	return(c);
  }

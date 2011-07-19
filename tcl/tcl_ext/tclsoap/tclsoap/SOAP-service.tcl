@@ -1,4 +1,5 @@
 # SOAP-service.tcl - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#                    Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # Provide a SOAP demo service.
 #
@@ -24,13 +25,8 @@
 # for more details.
 # -------------------------------------------------------------------------
 
-package provide SOAP::Service 0.4
-
-if { [catch {package require dom 2.0}] } {
-    if { [catch {package require dom 1.6}] } {
-        error "require dom package greater than 1.6"
-    }
-}
+package require SOAP::Utils
+package provide SOAP::Service 0.5
 
 if { [catch {package require Trf}] } {
     if { [catch {package require base64}] } {
@@ -41,12 +37,14 @@ if { [catch {package require Trf}] } {
 # -------------------------------------------------------------------------
 
 namespace eval SOAP::Service {
-    variable version 1.0
-    variable rcs_version { $Id: SOAP-service.tcl,v 1.6 2003/09/06 17:08:46 patthoyts Exp $ }
+    variable version 0.5
+    variable rcs_version { $Id: SOAP-service.tcl,v 1.7 2008/07/09 16:14:23 andreas_kupries Exp $ }
     variable socket
     variable port
     variable stats
     namespace export start stop stats
+
+    catch {namespace import -force ::SOAP::Utils::*}
 }
 
 # -------------------------------------------------------------------------
@@ -246,31 +244,35 @@ proc SOAP::Service::error500 {} {
 proc SOAP::Service::base64_service { request } {
     variable stats
     
-    package require SOAP::xpath
-    set req [dom::DOMImplementation parse $request]
-    set failed [catch {SOAP::xpath::xpath $req "Envelope/Body/zsplat-Base64/*"} result]
-    if { $failed } {
+    set req [parseXML $request]
+    set failed [catch {
+        set value {}
+        foreach node [selectNode $req "SENV:Envelope/SENV:Body/zsplat-Base64/*"] {
+            lappend value [getSimpleElementValue $node]
+        }
+        set value
+    } result]
 
-        set doc [dom::DOMImplementation create]
+    if { $failed } {
+        set doc [newDocument]
         set bod [gen_reply_envelope $doc]
-        set flt [dom::document createElement $bod "SOAP-ENV:Fault"]
-        set fcd [dom::document createElement $flt "faultcode"]
-        dom::document createTextNode $fcd {SOAP-ENV:Client}
-        set fst [dom::document createElement $flt "faultstring"]
-        dom::document createTextNode $fst {Incorrect number of arguments}
-        #set dtl [dom::document createElement $flt "detail"]
+        set flt [addNode $bod "SOAP-ENV:Fault"]
+        set fcd [addNode $flt "faultcode"]
+        addTextNode $fcd {SOAP-ENV:Client}
+        set fst [addNode $flt "faultstring"]
+        addTextNode $fst {Incorrect number of arguments}
+        #set dtl [addNode $flt "detail"]
 
         set head {HTTP/1.1 500 Internal Server Error}
         incr stats(fault)
     } else {
-        set doc [zsplat_base64_reply [dom::DOMImplementation create] $result]
+        set doc [zsplat_base64_reply [newDocument] $result]
         set head {HTTP/1.1 200 OK}
         incr stats(zsplat-Base64)
     }
 
-    set prebody [dom::DOMImplementation serialize $doc]
-    dom::DOMImplementation destroy $doc            ;# clean up
-    regsub {<!DOCTYPE[^>]*>\n} $prebody {} body    ;# SOAP disallows DOCTYPE
+    set body [generateXML $doc]
+    deleteDocument $doc            ;# clean up
 
     set head [join [list $head \
             "Content-Type: text/xml" \
@@ -283,13 +285,13 @@ proc SOAP::Service::base64_service { request } {
 
 proc SOAP::Service::zsplat_base64_reply { doc msg } {
     set bod [gen_reply_envelope $doc]
-    set cmd [dom::document createElement $bod "zsplat:getBase64"]
-    dom::element setAttribute $cmd "xmlns:zsplat" "urn:zsplat-Base64"
-    dom::element setAttribute $cmd \
+    set cmd [addNode $bod "zsplat:getBase64"]
+    setElementAttribute $cmd "xmlns:zsplat" "urn:zsplat-Base64"
+    setElementAttribute $cmd \
 	    "SOAP-ENV:encodingStyle" "http://schemas.xmlsoap.org/soap/encoding/"
-    set par [dom::document createElement $cmd "return"]
-    dom::element setAttribute $par "xsi:type" "xsd:string"
-    dom::document createTextNode $par [base64 -mode enc $msg]
+    set par [addNode $cmd "return"]
+    setElementAttribute $par "xsi:type" "xsd:string"
+    addTextNode $par [base64 -mode enc $msg]
     return $doc
     
 }
@@ -297,14 +299,14 @@ proc SOAP::Service::zsplat_base64_reply { doc msg } {
 # Mostly this boilerplate code to generate a general SOAP reply
 
 proc SOAP::Service::gen_reply_envelope { doc } {
-    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
-    dom::element setAttribute $env \
+    set env [addNode $doc "SOAP-ENV:Envelope"]
+    setElementAttribute $env \
 	    "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
-    dom::element setAttribute $env \
+    setElementAttribute $env \
 	    "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
-    dom::element setAttribute $env \
+    setElementAttribute $env \
 	    "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
-    set bod [dom::document createElement $env "SOAP-ENV:Body"]
+    set bod [addNode $env "SOAP-ENV:Body"]
     return $bod
 }
 

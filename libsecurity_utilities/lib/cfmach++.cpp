@@ -52,8 +52,11 @@ CFAutoPort::~CFAutoPort()
 	disable();
 	
 	// invalidate everything
-	CFMachPortInvalidate(mPort);
-	CFRunLoopSourceInvalidate(mSource);
+	if (mPort)
+	{
+		CFMachPortInvalidate(mPort);
+		CFRunLoopSourceInvalidate(mSource);
+	}
 }
 
 

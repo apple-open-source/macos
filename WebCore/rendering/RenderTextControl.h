@@ -34,27 +34,22 @@ class RenderTextControl : public RenderBlock {
 public:
     virtual ~RenderTextControl();
 
-    bool wasChangedSinceLastChangeEvent() const { return m_wasChangedSinceLastChangeEvent; }
-    void setChangedSinceLastChangeEvent(bool wasChangedSinceLastChangeEvent) { m_wasChangedSinceLastChangeEvent = wasChangedSinceLastChangeEvent; }
+    HTMLElement* innerTextElement() const;
 
     bool lastChangeWasUserEdit() const { return m_lastChangeWasUserEdit; }
     void setLastChangeWasUserEdit(bool lastChangeWasUserEdit);
 
-    int selectionStart();
-    int selectionEnd();
-    void setSelectionStart(int);
-    void setSelectionEnd(int);
-    void select();
-    void setSelectionRange(int start, int end);
-    VisibleSelection selection(int start, int end) const;
+    int selectionStart() const;
+    int selectionEnd() const;
+    PassRefPtr<Range> selection(int start, int end) const;
 
     virtual void subtreeHasChanged();
     String text();
     String textWithHardLineBreaks();
     void selectionChanged(bool userTriggered);
 
-    VisiblePosition visiblePositionForIndex(int index);
-    int indexForVisiblePosition(const VisiblePosition&);
+    VisiblePosition visiblePositionForIndex(int index) const;
+    int indexForVisiblePosition(const VisiblePosition&) const;
 
     void updatePlaceholderVisibility(bool, bool);
 
@@ -85,21 +80,19 @@ protected:
     virtual RenderStyle* textBaseStyle() const = 0;
 
     virtual void updateFromElement();
-    virtual void calcHeight();
-
-    friend class TextIterator;
-    HTMLElement* innerTextElement() const;
+    virtual void computeLogicalHeight();
 
     bool m_placeholderVisible;
 
 private:
     virtual const char* renderName() const { return "RenderTextControl"; }
     virtual bool isTextControl() const { return true; }
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
     virtual void removeLeftoverAnonymousBlock(RenderBlock*) { }
     virtual bool canHaveChildren() const { return false; }
     virtual bool avoidsFloats() const { return true; }
     void setInnerTextStyle(PassRefPtr<RenderStyle>);
+    virtual void paintObject(PaintInfo&, int tx, int ty);
     
     virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
@@ -109,10 +102,21 @@ private:
 
     String finishText(Vector<UChar>&) const;
 
-    bool m_wasChangedSinceLastChangeEvent;
+    bool hasVisibleTextArea() const;
+    friend void setSelectionRange(Node*, int start, int end);
+    bool isSelectableElement(Node*) const;
+    
+    virtual int textBlockInsetLeft() const = 0;
+    virtual int textBlockInsetRight() const = 0;
+    virtual int textBlockInsetTop() const = 0;
+
+    void paintPlaceholder(PaintInfo&, int tx, int ty);
+
     bool m_lastChangeWasUserEdit;
     RefPtr<TextControlInnerTextElement> m_innerText;
 };
+
+void setSelectionRange(Node*, int start, int end);
 
 inline RenderTextControl* toRenderTextControl(RenderObject* object)
 { 

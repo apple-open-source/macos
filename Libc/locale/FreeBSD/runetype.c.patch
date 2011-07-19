@@ -1,19 +1,18 @@
---- runetype.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ runetype.c	2005-02-16 22:43:53.000000000 -0800
-@@ -37,20 +37,25 @@
+--- runetype.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ runetype.c	2009-11-09 16:54:21.000000000 -0800
+@@ -33,20 +33,24 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/runetype.c,v 1.11 2004/07/29 06:16:19 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/runetype.c,v 1.14 2007/01/09 00:28:00 imp Exp $");
  
 +#include "xlocale_private.h"
 +
+ #include <ctype.h>
  #include <stdio.h>
  #include <runetype.h>
  
  unsigned long
--___runetype(c)
-+___runetype_l(c, loc)
- 	__ct_rune_t c;
-+	locale_t loc;
+-___runetype(__ct_rune_t c)
++___runetype_l(__ct_rune_t c, locale_t loc)
  {
  	size_t lim;
 -	_RuneRange *rr = &_CurrentRuneLocale->__runetype_ext;
@@ -28,14 +27,13 @@
  	/* Binary search -- see bsearch.c for explanation. */
  	base = rr->__ranges;
  	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
-@@ -68,3 +73,10 @@
+@@ -64,3 +68,9 @@ ___runetype(__ct_rune_t c)
  
  	return(0L);
  }
 +
 +unsigned long
-+___runetype(c)
-+	__ct_rune_t c;
++___runetype(__ct_rune_t c)
 +{
 +	return ___runetype_l(c, __current_locale());
 +}

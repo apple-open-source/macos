@@ -831,6 +831,9 @@ int32_t xar_stat_extract(xar_t x, xar_file_t f, const char *file, char *buffer, 
 	}
 
 CREATEFILE:
+	if (!file)
+        return 0;
+	
 	unlink(file);
 	fd = open(file, O_RDWR|O_CREAT|O_TRUNC, 0600);
 	if( fd > 0 )

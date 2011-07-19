@@ -302,6 +302,10 @@ case $host in
       APR_SETVAR(APACHE_MPM, [prefork])
       APR_SETVAR(SINGLE_LISTEN_UNSERIALIZED_ACCEPT, [1])
       ;;
+  *mingw32*)
+      APR_SETVAR(APACHE_MPM, [winnt])
+      APR_ADDTO(CPPFLAGS, [-DAP_DECLARE_EXPORT])
+      ;;
   *aix*)
       aixver=`echo $host | sed 's/^[[^0-9]]*//' | sed 's/\.//g'`
       if test $aixver -ge 4320; then
@@ -397,6 +401,13 @@ AC_C_CONST
 dnl ## Check for library functions
 AC_SEARCH_LIBS(sqrt, m)
 
+saved_LIBS="$LIBS"
+LIBS=""
+AC_SEARCH_LIBS(crypt, crypt)
+CRYPT_LIBS="$LIBS"
+APACHE_SUBST(CRYPT_LIBS)
+LIBS="$saved_LIBS"
+
 dnl See Comment #Spoon
 
 AC_CHECK_FUNCS( \
@@ -461,6 +472,11 @@ AC_ARG_ENABLE(v4-mapped,APACHE_HELP_STRING(--enable-v4-mapped,Allow IPv6 sockets
 [
     case $host in
     *freebsd5*|*netbsd*|*openbsd*)
+        v4mapped=no
+        ;;
+    *mingw*)
+        dnl WinNT is the only MPM on this platform, and it doesn't support
+        dnl this feature.
         v4mapped=no
         ;;
     *)

@@ -4,8 +4,9 @@
 #    (Tcl-only version)
 #
 #    version 0.2: improved and extended, march 2002
+#    version 0.2.1: fix bug #2933130, january 2010
 
-package provide math::fuzzy 0.2
+package provide math::fuzzy 0.2.1
 
 namespace eval ::math::fuzzy {
    variable eps3 2.2e-16
@@ -82,11 +83,7 @@ proc tle { first second } {
 }
 
 proc tlt { first second } {
-   if { [tgt $first $second] } {
-      return 1
-   } else {
-      return [tne $first $second]
-   }
+   expr { [tle $first $second] && [tne $first $second] }
 }
 
 proc tge { first second } {

@@ -31,10 +31,13 @@
 #ifndef FontPlatformDataLinux_h
 #define FontPlatformDataLinux_h
 
+#include "FontOrientation.h"
 #include "FontRenderStyle.h"
-#include "StringImpl.h"
+#include "TextOrientation.h"
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringImpl.h>
 #include <SkPaint.h>
 
 class SkTypeface;
@@ -45,7 +48,6 @@ struct HB_FaceRec_;
 namespace WebCore {
 
 class FontDescription;
-class String;
 
 // -----------------------------------------------------------------------------
 // FontPlatformData is the handle which WebKit has on a specific face. A face
@@ -62,26 +64,35 @@ public:
     FontPlatformData(WTF::HashTableDeletedValueType)
         : m_typeface(hashTableDeletedFontValue())
         , m_textSize(0)
+        , m_emSizeInFontUnits(0)
         , m_fakeBold(false)
         , m_fakeItalic(false)
+        , m_orientation(Horizontal)
+        , m_textOrientation(TextOrientationVerticalRight)
         { }
 
     FontPlatformData()
         : m_typeface(0)
         , m_textSize(0)
+        , m_emSizeInFontUnits(0)
         , m_fakeBold(false)
         , m_fakeItalic(false)
+        , m_orientation(Horizontal)
+        , m_textOrientation(TextOrientationVerticalRight)
         { }
 
     FontPlatformData(float textSize, bool fakeBold, bool fakeItalic)
         : m_typeface(0)
         , m_textSize(textSize)
+        , m_emSizeInFontUnits(0)
         , m_fakeBold(fakeBold)
         , m_fakeItalic(fakeItalic)
+        , m_orientation(Horizontal)
+        , m_textOrientation(TextOrientationVerticalRight)
         { }
 
     FontPlatformData(const FontPlatformData&);
-    FontPlatformData(SkTypeface*, const char* name, float textSize, bool fakeBold, bool fakeItalic);
+    FontPlatformData(SkTypeface*, const char* name, float textSize, bool fakeBold, bool fakeItalic, FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight);
     FontPlatformData(const FontPlatformData& src, float textSize);
     ~FontPlatformData();
 
@@ -104,7 +115,11 @@ public:
 
     unsigned hash() const;
     float size() const { return m_textSize; }
+    int emSizeInFontUnits() const;
 
+    FontOrientation orientation() const { return m_orientation; }
+    void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
+    
     bool operator==(const FontPlatformData&) const;
     FontPlatformData& operator=(const FontPlatformData&);
     bool isHashTableDeletedValue() const { return m_typeface == hashTableDeletedFontValue(); }
@@ -148,8 +163,11 @@ private:
     SkTypeface* m_typeface;
     CString m_family;
     float m_textSize;
+    mutable int m_emSizeInFontUnits;
     bool m_fakeBold;
     bool m_fakeItalic;
+    FontOrientation m_orientation;
+    TextOrientation m_textOrientation;
     FontRenderStyle m_style;
     mutable RefPtr<RefCountedHarfbuzzFace> m_harfbuzzFace;
 

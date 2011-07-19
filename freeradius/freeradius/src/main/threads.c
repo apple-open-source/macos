@@ -157,6 +157,7 @@ typedef struct THREAD_POOL {
 static THREAD_POOL thread_pool;
 static int pool_initialized = FALSE;
 static time_t last_cleaned = 0;
+static time_t almost_now = 0;
 
 static void thread_pool_manage(time_t now);
 
@@ -263,12 +264,13 @@ static void reap_children(void)
 	pthread_mutex_lock(&thread_pool.wait_mutex);
 
 	do {
+	retry:
 		pid = waitpid(0, &status, WNOHANG);
 		if (pid <= 0) break;
 
 		mytf.pid = pid;
 		tf = fr_hash_table_finddata(thread_pool.waiters, &mytf);
-		if (!tf) continue;
+		if (!tf) goto retry;
 
 		tf->status = status;
 		tf->exited = 1;
@@ -300,10 +302,13 @@ static int request_enqueue(REQUEST *request, RAD_REQUEST_FUNP fun)
 		/*
 		 *	Mark the request as done.
 		 */
-		radlog(L_ERR, "!!! ERROR !!! The server is blocked: discarding new request %d", request->number);
+		radlog(L_ERR, "Something is blocking the server.  There are %d packets in the queue, waiting to be processed.  Ignoring the new request.", thread_pool.max_queue_size);
 		request->child_state = REQUEST_DONE;
 		return 0;
 	}
+	request->child_state = REQUEST_QUEUED;
+	request->component = "<core>";
+	request->module = "<queue>";
 
 	entry = rad_malloc(sizeof(*entry));
 	entry->request = request;
@@ -343,6 +348,7 @@ static int request_enqueue(REQUEST *request, RAD_REQUEST_FUNP fun)
  */
 static int request_dequeue(REQUEST **request, RAD_REQUEST_FUNP *fun)
 {
+	int blocked;
 	RAD_LISTEN_TYPE i, start;
 	request_queue_t *entry;
 
@@ -406,6 +412,9 @@ static int request_dequeue(REQUEST **request, RAD_REQUEST_FUNP *fun)
 	rad_assert((*request)->magic == REQUEST_MAGIC);
 	rad_assert(*fun != NULL);
 
+	(*request)->component = "<core>";
+	(*request)->module = "<thread>";
+
 	/*
 	 *	If the request has sat in the queue for too long,
 	 *	kill it.
@@ -415,8 +424,27 @@ static int request_dequeue(REQUEST **request, RAD_REQUEST_FUNP *fun)
 	 *	have acknowledged it as "done".
 	 */
 	if ((*request)->master_state == REQUEST_STOP_PROCESSING) {
+		(*request)->module = "<done>";
 		(*request)->child_state = REQUEST_DONE;
 		goto retry;
+	}
+
+	/*
+	 *	Produce messages for people who have 10 million rows
+	 *	in a database, without indexes.
+	 */
+	rad_assert(almost_now != 0);
+	blocked = almost_now - (*request)->timestamp;
+	if (blocked < 5) {
+		blocked = 0;
+	} else {
+		static time_t last_complained = 0;
+		
+		if (last_complained != almost_now) {
+			last_complained = almost_now;
+		} else {
+			blocked = 0;
+		}
 	}
 
 	/*
@@ -425,6 +453,11 @@ static int request_dequeue(REQUEST **request, RAD_REQUEST_FUNP *fun)
 	thread_pool.active_threads++;
 
 	pthread_mutex_unlock(&thread_pool.queue_mutex);
+
+	if (blocked) {
+		radlog(L_ERR, "Request %u has been waiting in the processing queue for %d seconds.  Check that all databases are running properly!",
+		       (*request)->number, blocked);
+	}
 
 	return 1;
 }
@@ -693,7 +726,7 @@ static int pid_cmp(const void *one, const void *two)
  *
  *	FIXME: What to do on a SIGHUP???
  */
-int thread_pool_init(CONF_SECTION *cs, int spawn_flag)
+int thread_pool_init(CONF_SECTION *cs, int *spawn_flag)
 {
 	int		i, rcode;
 	CONF_SECTION	*pool_cf;
@@ -701,52 +734,48 @@ int thread_pool_init(CONF_SECTION *cs, int spawn_flag)
 
 	now = time(NULL);
 
-	/*
-	 *	We're not spawning new threads, don't do
-	 *	anything.
-	 */
-	if (!spawn_flag) return 0;
-
-	/*
-	 *	After a SIGHUP, we don't over-write the previous values.
-	 */
-	if (!pool_initialized) {
-		/*
-		 *	Initialize the thread pool to some reasonable values.
-		 */
-		memset(&thread_pool, 0, sizeof(THREAD_POOL));
-		thread_pool.head = NULL;
-		thread_pool.tail = NULL;
-		thread_pool.total_threads = 0;
-		thread_pool.max_thread_num = 1;
-		thread_pool.cleanup_delay = 5;
-		thread_pool.spawn_flag = spawn_flag;
-
-#ifdef WNOHANG
-		if ((pthread_mutex_init(&thread_pool.wait_mutex,NULL) != 0)) {
-			radlog(L_ERR, "FATAL: Failed to initialize wait mutex: %s",
-			       strerror(errno));
-			return -1;
-		}
-
-		/*
-		 *	Create the hash table of child PID's
-		 */
-		thread_pool.waiters = fr_hash_table_create(pid_hash,
-							     pid_cmp,
-							     free);
-		if (!thread_pool.waiters) {
-			radlog(L_ERR, "FATAL: Failed to set up wait hash");
-			return -1;
-		}
-#endif
-	}
+	rad_assert(spawn_flag != NULL);
+	rad_assert(*spawn_flag == TRUE);
+	rad_assert(pool_initialized == FALSE); /* not called on HUP */
 
 	pool_cf = cf_subsection_find_next(cs, NULL, "thread");
-	if (!pool_cf) {
-		radlog(L_ERR, "FATAL: Attempting to start in multi-threaded mode with no thread configuration in radiusd.conf");
+	if (!pool_cf) *spawn_flag = FALSE;
+
+	/*
+	 *	Initialize the thread pool to some reasonable values.
+	 */
+	memset(&thread_pool, 0, sizeof(THREAD_POOL));
+	thread_pool.head = NULL;
+	thread_pool.tail = NULL;
+	thread_pool.total_threads = 0;
+	thread_pool.max_thread_num = 1;
+	thread_pool.cleanup_delay = 5;
+	thread_pool.spawn_flag = *spawn_flag;
+	
+	/*
+	 *	Don't bother initializing the mutexes or
+	 *	creating the hash tables.  They won't be used.
+	 */
+	if (!*spawn_flag) return 0;
+	
+#ifdef WNOHANG
+	if ((pthread_mutex_init(&thread_pool.wait_mutex,NULL) != 0)) {
+		radlog(L_ERR, "FATAL: Failed to initialize wait mutex: %s",
+		       strerror(errno));
 		return -1;
 	}
+	
+	/*
+	 *	Create the hash table of child PID's
+	 */
+	thread_pool.waiters = fr_hash_table_create(pid_hash,
+						   pid_cmp,
+						   free);
+	if (!thread_pool.waiters) {
+		radlog(L_ERR, "FATAL: Failed to set up wait hash");
+		return -1;
+	}
+#endif
 
 	if (cf_section_parse(pool_cf, NULL, thread_config) < 0) {
 		return -1;
@@ -836,7 +865,7 @@ int thread_pool_init(CONF_SECTION *cs, int spawn_flag)
  */
 int thread_pool_addrequest(REQUEST *request, RAD_REQUEST_FUNP fun)
 {
-	time_t now = request->timestamp;
+	almost_now = request->timestamp;
 
 	/*
 	 *	We've been told not to spawn threads, so don't.
@@ -865,9 +894,9 @@ int thread_pool_addrequest(REQUEST *request, RAD_REQUEST_FUNP fun)
 	 *	in a while, OR if the thread pool appears to be full,
 	 *	go manage it.
 	 */
-	if ((last_cleaned < now) ||
+	if ((last_cleaned < almost_now) ||
 	    (thread_pool.active_threads == thread_pool.total_threads)) {
-		thread_pool_manage(now);
+		thread_pool_manage(almost_now);
 	}
 
 	return 1;
@@ -1068,6 +1097,7 @@ pid_t rad_fork(void)
 		if (!rcode) {
 			radlog(L_ERR, "Failed to store PID, creating what will be a zombie process %d",
 			       (int) child_pid);
+			free(tf);
 		}
 	}
 

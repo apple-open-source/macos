@@ -1,0 +1,24 @@
+[libdefaults]
+	default_realm = LKDC:SHA1.58FCE36DBDBD86AE701093B4B1D79ADD0705D00B
+
+[logging]
+	kdc = 0-/FILE:@testdir@/messages.log
+	default = 0-/FILE:@testdir@/messages.log
+	krb5 = 0-/FILE:@testdir@/messages.log
+
+[kdc]
+	database = {
+		label = { 
+			dbname = mit-db:@confdir@/principal.LKDC:SHA1.58FCE36DBDBD86AE701093B4B1D79ADD0705D00B
+			realm = LKDC:SHA1.58FCE36DBDBD86AE701093B4B1D79ADD0705D00B
+			mkey_file = FILE:@confdir@/k5.LKDC:SHA1.58FCE36DBDBD86AE701093B4B1D79ADD0705D00B
+			acl_file = @confdir@/heimdal.acl
+			log_file = @testdir@/current@kdc@.log
+	}
+	label2 = {
+	    dbname = mit-db:/tmp/does-not-exists-really
+	    mkey_file = FILE:/tmp/really-dont-exists-really
+	    realm = LKDC:SHA1.doesnotexists
+	}
+
+	}

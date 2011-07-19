@@ -1,0 +1,27 @@
+Pigeonhole ManageSieve Server
+=============================
+
+The <Pigeonhole project> [Pigeonhole.txt] provides Sieve [http://sieve.info]
+support for Dovecot, which allows users to filter incoming messages by writing
+scripts specified in the Sieve language (RFC 5228). The PigeonholeManageSieve
+service is used to manage a user's Sieve script collection. It has the
+following advantages over doing it directly via filesystem:
+
+ * No need to let users log in via FTP/SFTP/etc, which could be difficult
+   especially with virtual users.
+ * ManageSieve is a standard protocol [http://tools.ietf.org/html/rfc5804], so
+   users can manage their scripts using (hopefully) user-friendlyManageSieve
+   clients. Many webmails already include aManageSieve client.
+ * Scripts are compiled before they are installed, which guarantees that the
+   uploaded script is valid. This prevents a user from inadvertently installing
+   a broken Sieve script.
+
+Configuration and Use
+---------------------
+
+ * <Download and Installation> [Pigeonhole.Installation.txt]
+ * <Configuration> [Pigeonhole.ManageSieve.Configuration.txt]
+ * <Troubleshooting> [Pigeonhole.ManageSieve.Troubleshooting.txt]
+ * <Client Issues> [Pigeonhole.ManageSieve.Clients.txt]
+
+(This file was created from the wiki on 2011-05-11 04:42)

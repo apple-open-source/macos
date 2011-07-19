@@ -343,7 +343,7 @@ _jn
 _yn
 
 #libm.a(sqrt970.o):
-_hw_sqrt
+#_hw_sqrt -- removed because you can't export hidden symbols
 
 #libm.a(ld64.o):
 _acoshl

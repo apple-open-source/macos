@@ -87,13 +87,6 @@ The
 .Fn nanosleep
 call fails if:
 .Bl -tag -width Er
-.It Bq Er EFAULT
-Either
-.Fa rqtp
-or
-.Fa rmtp
-points to memory that is not a valid part of the process
-address space.
 .It Bq Er EINTR
 .Fn nanosleep
 was interrupted by the delivery of a signal.
@@ -101,9 +94,6 @@ was interrupted by the delivery of a signal.
 .Fa rqtp
 specified a nanosecond value less than zero
 or greater than or equal to 1000 million.
-.It Bq Er ENOSYS
-.Fn nanosleep
-is not supported by this implementation.
 .El
 .Sh SEE ALSO
 .Xr sigsuspend 2 ,

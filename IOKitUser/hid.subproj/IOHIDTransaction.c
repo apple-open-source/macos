@@ -63,6 +63,7 @@ static const CFRuntimeClass __IOHIDTransactionClass = {
     NULL,                       // hash
     NULL,                       // copyFormattingDesc
     NULL,
+    NULL,
     NULL
 };
 

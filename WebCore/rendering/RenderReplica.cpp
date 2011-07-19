@@ -49,14 +49,15 @@ RenderReplica::~RenderReplica()
 void RenderReplica::layout()
 {
     setFrameRect(parentBox()->borderBoxRect());
+    updateLayerTransform();
     setNeedsLayout(false);
 }
 
-void RenderReplica::calcPrefWidths()
+void RenderReplica::computePreferredLogicalWidths()
 {
-    m_minPrefWidth = parentBox()->width();
-    m_maxPrefWidth = m_minPrefWidth;
-    setPrefWidthsDirty(false);
+    m_minPreferredLogicalWidth = parentBox()->width();
+    m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth;
+    setPreferredLogicalWidthsDirty(false);
 }
 
 void RenderReplica::paint(PaintInfo& paintInfo, int tx, int ty)
@@ -75,7 +76,7 @@ void RenderReplica::paint(PaintInfo& paintInfo, int tx, int ty)
                                       PaintBehaviorNormal, 0, 0,
                                       RenderLayer::PaintLayerHaveTransparency | RenderLayer::PaintLayerAppliedTransform | RenderLayer::PaintLayerTemporaryClipRects | RenderLayer::PaintLayerPaintingReflection);
     else if (paintInfo.phase == PaintPhaseMask)
-        paintMask(paintInfo, tx, ty);
+        paintMask(paintInfo, IntSize(tx, ty));
 }
 
 } // namespace WebCore

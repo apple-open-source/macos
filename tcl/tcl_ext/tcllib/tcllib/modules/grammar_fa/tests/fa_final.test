@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2004-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 #
-# RCS: @(#) $Id: fa_final.test,v 1.5 2007/04/12 03:43:14 andreas_kupries Exp $
+# RCS: @(#) $Id: fa_final.test,v 1.6 2009/10/27 21:17:23 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -80,7 +80,8 @@ test fa-final-${setimpl}-2.0 {final, error} {
     catch {a final} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodfinal {type selfns win self cmd args} 5]
+} {wrong number args: should be "::a final method args"}
+# [tcltest::wrongNumArgs {::a final method} {args} 0]
 
 
 test fa-final-${setimpl}-2.1 {final, error} {
@@ -88,7 +89,7 @@ test fa-final-${setimpl}-2.1 {final, error} {
     catch {a final foo} res
     a destroy
     set res
-} {Expected add, clear, remove, or set, got "foo"}
+} {"::a final foo" is not defined}
 
 
 test fa-final-${setimpl}-2.2 {final, error} {
@@ -96,7 +97,9 @@ test fa-final-${setimpl}-2.2 {final, error} {
     catch {a final add} res
     a destroy
     set res
-} {wrong#args: final add state ...}
+} [tcltest::wrongNumArgs {::grammar::fa::Snit_hmethodfinal_add} {type selfns win self state args} 0]
+# [snitWrongNumArgs a {final add} {state args} 0]
+# {wrong # args: should be "::grammar::fa::Snit_hmethodfinal_add type selfns win self state args"}
 
 
 test fa-final-${setimpl}-2.3 {final, error} {
@@ -120,7 +123,8 @@ test fa-final-${setimpl}-2.5 {final states} {
     catch {a final remove} res
     a destroy
     set res
-} {wrong#args: final remove state ...}
+} [tcltest::wrongNumArgs {::grammar::fa::Snit_hmethodfinal_remove} {type selfns win self state args} 0]
+# {wrong # args: should be "::grammar::fa::Snit_hmethodfinal_remove type selfns win self state args"}
 
 
 test fa-final-${setimpl}-2.6 {final states} {
@@ -144,7 +148,7 @@ test fa-final-${setimpl}-2.8 {final states} {
     catch {a final set} res
     a destroy
     set res
-} {wrong#args: final set states}
+} {wrong # args: should be "::grammar::fa::Snit_hmethodfinal_set type selfns win self states"}
 
 
 test fa-final-${setimpl}-2.9 {final states} {

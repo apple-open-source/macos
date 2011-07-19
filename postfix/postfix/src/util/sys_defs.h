@@ -25,6 +25,7 @@
   */
 #if defined(FREEBSD2) || defined(FREEBSD3) || defined(FREEBSD4) \
     || defined(FREEBSD5) || defined(FREEBSD6) || defined(FREEBSD7) \
+    || defined(FREEBSD8) \
     || defined(BSDI2) || defined(BSDI3) || defined(BSDI4) \
     || defined(OPENBSD2) || defined(OPENBSD3) || defined(OPENBSD4) \
     || defined(NETBSD1) || defined(NETBSD2) || defined(NETBSD3) \
@@ -93,7 +94,7 @@
 /* __FreeBSD_version version is major+minor */
 
 #if __FreeBSD_version >= 220000
-#define HAS_DEV_URANDOM			/* introduced in 2.1.5 */
+#define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"	/* introduced 2.1.5 */
 #endif
 
 #if __FreeBSD_version >= 300000
@@ -110,15 +111,22 @@
 #define HAS_DUPLEX_PIPE			/* 4.1 breaks with kqueue(2) */
 #endif
 
+#if __FreeBSD_version >= 800107		/* safe; don't believe the experts */
+#define HAS_CLOSEFROM
+#endif
+
 /* OpenBSD version is year+month */
 
 #if OpenBSD >= 199805			/* XXX */
 #define HAS_FUTIMES			/* XXX maybe earlier */
 #endif
 
+#if (defined(OpenBSD) && OpenBSD >= 199608)
+#define PREFERRED_RAND_SOURCE	"dev:/dev/arandom"	/* XXX earlier */
+#endif
+
 #if OpenBSD >= 200000			/* XXX */
 #define HAS_ISSETUGID
-#define HAS_DEV_URANDOM			/* XXX probably earlier */
 #endif
 
 #if OpenBSD >= 200200			/* XXX */
@@ -135,7 +143,7 @@
 #if __NetBSD_Version__ >= 103000000	/* XXX maybe earlier */
 #undef DEF_MAILBOX_LOCK
 #define DEF_MAILBOX_LOCK "flock, dotlock"
-#define HAS_DEV_URANDOM			/* XXX probably earlier */
+#define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"	/* XXX maybe earlier */
 #endif
 
 #if __NetBSD_Version__ >= 105000000
@@ -200,14 +208,15 @@
 #define DEF_DB_TYPE	"hash"
 #define ALIAS_DB_MAP	"hash:/etc/aliases"
 #define GETTIMEOFDAY(t) gettimeofday(t,(struct timezone *) 0)
-#define RESOLVE_H_NEEDS_NAMESER8_COMPAT_H
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin"
 #define USE_STATFS
 #define STATFS_IN_SYS_MOUNT_H
 #define HAS_POSIX_REGEXP
+/*
 #define NORETURN	void
 #define PRINTFLIKE(x,y)
 #define SCANFLIKE(x,y)
+*/
 #ifndef NO_NETINFO
 # define HAS_NETINFO
 #endif
@@ -223,6 +232,11 @@
 #define NATIVE_DAEMON_DIR "/usr/libexec/postfix"
 #define SOCKADDR_SIZE	socklen_t
 #define SOCKOPT_SIZE	socklen_t
+#ifndef NO_KQUEUE
+# define EVENTS_STYLE	EVENTS_STYLE_KQUEUE
+# define USE_SYSV_POLL
+#endif
+
 #endif
 
  /*
@@ -403,6 +417,10 @@ extern int opterr;
 #define LOCAL_TRIGGER	stream_trigger
 #define LOCAL_SEND_FD	stream_send_fd
 #define LOCAL_RECV_FD	stream_recv_fd
+#define PASS_CONNECT	stream_pass_connect
+#define PASS_LISTEN	stream_pass_listen
+#define PASS_ACCEPT	stream_pass_accept
+#define PASS_TRIGGER	stream_pass_trigger
 #define HAS_VOLATILE_LOCKS
 #define BROKEN_READ_SELECT_ON_TCP_SOCKET
 #define CANT_WRITE_BEFORE_SENDING_FD
@@ -417,7 +435,7 @@ extern int opterr;
 # define HAS_CLOSEFROM
 #endif
 #ifndef NO_DEV_URANDOM
-# define HAS_DEV_URANDOM
+# define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"
 #endif
 #ifndef NO_FUTIMESAT
 # define HAS_FUTIMESAT
@@ -559,6 +577,7 @@ extern int opterr;
 #define BROKEN_AI_PASSIVE_NULL_HOST
 #define BROKEN_AI_NULL_SERVICE
 #define USE_SYSV_POLL
+#define MYMALLOC_FUZZ	1
 #endif
 
 #ifdef AIX4
@@ -718,19 +737,25 @@ extern int initgroups(const char *, int);
 #define NATIVE_NEWALIAS_PATH "/usr/bin/newaliases"
 #define NATIVE_COMMAND_DIR "/usr/sbin"
 #define NATIVE_DAEMON_DIR "/usr/libexec/postfix"
-#if __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1
-#define SOCKADDR_SIZE	socklen_t
-#define SOCKOPT_SIZE	socklen_t
+#ifdef __GLIBC_PREREQ
+# define HAVE_GLIBC_API_VERSION_SUPPORT(maj, min) __GLIBC_PREREQ(maj, min)
+#else
+# define HAVE_GLIBC_API_VERSION_SUPPORT(maj, min) \
+    ((__GLIBC__ << 16) + __GLIBC_MINOR__ >= ((maj) << 16) + (min))
+#endif
+#if HAVE_GLIBC_API_VERSION_SUPPORT(2, 1)
+# define SOCKADDR_SIZE	socklen_t
+# define SOCKOPT_SIZE	socklen_t
 #endif
 #ifndef NO_IPV6
 # define HAS_IPV6
-#if defined(__GLIBC_PREREQ) && __GLIBC_PREREQ(2,4)
+# if HAVE_GLIBC_API_VERSION_SUPPORT(2, 4)
 /* Really 2.3.3 or later, but there's no __GLIBC_MICRO version macro. */
-# define HAVE_GETIFADDRS
-#else
-# define HAS_PROCNET_IFINET6
-# define _PATH_PROCNET_IFINET6 "/proc/net/if_inet6"
-#endif
+#  define HAVE_GETIFADDRS
+# else
+#  define HAS_PROCNET_IFINET6
+#  define _PATH_PROCNET_IFINET6 "/proc/net/if_inet6"
+# endif
 #endif
 #include <linux/version.h>
 #if !defined(KERNEL_VERSION) 
@@ -743,7 +768,7 @@ extern int initgroups(const char *, int);
 #else
 # define CANT_WRITE_BEFORE_SENDING_FD
 #endif
-#define HAS_DEV_URANDOM			/* introduced in 1.1 */
+#define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"	/* introduced in 1.1 */
 #ifndef NO_EPOLL
 # define EVENTS_STYLE	EVENTS_STYLE_EPOLL	/* introduced in 2.5 */
 #endif
@@ -841,7 +866,7 @@ extern int initgroups(const char *, int);
 #endif
 #define CANT_USE_SEND_RECV_MSG
 #define DEF_SMTP_CACHE_DEMAND	0
-#define HAS_DEV_URANDOM
+#define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"
 #endif
 
  /*
@@ -1259,6 +1284,17 @@ extern int inet_pton(int, const char *, void *);
 #endif
 
  /*
+  * Workaround: after a watchdog alarm signal, wake up from select/poll/etc.
+  * by writing to a pipe. Solaris needs this, and HP-UX apparently, too. The
+  * run-time cost is negligible so we just turn it on for all systems. As a
+  * side benefit, making this code system-independent will simplify the
+  * detection of bit-rot problems.
+  */
+#ifndef NO_WATCHDOG_PIPE
+#define USE_WATCHDOG_PIPE
+#endif
+
+ /*
   * Defaults for systems without kqueue, /dev/poll or epoll support.
   * master/multi-server.c and *qmgr/qmgr_transport.c depend on this.
   */
@@ -1270,6 +1306,10 @@ extern int inet_pton(int, const char *, void *);
 #define EVENTS_STYLE_KQUEUE	2	/* FreeBSD kqueue */
 #define EVENTS_STYLE_DEVPOLL	3	/* Solaris /dev/poll */
 #define EVENTS_STYLE_EPOLL	4	/* Linux epoll */
+
+#if !defined(USE_SYSV_POLL) && (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+#error "need USE_SYSV_POLL with EVENTS_STYLE != EVENTS_STYLE_SELECT"
+#endif
 
  /*
   * Defaults for all systems.
@@ -1302,9 +1342,10 @@ extern int inet_pton(int, const char *, void *);
 #endif
 
 #ifndef PASS_LISTEN
-#define PASS_LISTEN	upass_listen
-#define PASS_ACCEPT	upass_accept
-#define PASS_TRIGGER	upass_trigger
+#define PASS_CONNECT	unix_pass_connect
+#define PASS_LISTEN	unix_pass_listen
+#define PASS_ACCEPT	unix_pass_accept
+#define PASS_TRIGGER	unix_pass_trigger
 #endif
 
 #if !defined (HAVE_SYS_NDIR_H) && !defined (HAVE_SYS_DIR_H) \
@@ -1453,7 +1494,7 @@ typedef int pid_t;
   * sections above.
   */
 #ifndef PRINTFLIKE
-#if (__GNUC__ == 2 && __GNUC_MINOR__ >= 7) || __GNUC__ == 3
+#if (__GNUC__ == 2 && __GNUC_MINOR__ >= 7) || __GNUC__ >= 3
 #define PRINTFLIKE(x,y) __attribute__ ((format (printf, (x), (y))))
 #else
 #define PRINTFLIKE(x,y)
@@ -1461,10 +1502,37 @@ typedef int pid_t;
 #endif
 
 #ifndef SCANFLIKE
-#if (__GNUC__ == 2 && __GNUC_MINOR__ >= 7) || __GNUC__ == 3
+#if (__GNUC__ == 2 && __GNUC_MINOR__ >= 7) || __GNUC__ >= 3
 #define SCANFLIKE(x,y) __attribute__ ((format (scanf, (x), (y))))
 #else
 #define SCANFLIKE(x,y)
+#endif
+#endif
+
+ /*
+  * Some gcc implementations don't grok these attributes with pointer to
+  * function. Again, wild guess of what is supported. To override, specify
+  * #define PRINTPTRFLIKE  in the system-dependent sections above.
+  */
+#ifndef PRINTFPTRLIKE
+#if (__GNUC__ >= 3)			/* XXX Rough estimate */
+#define PRINTFPTRLIKE(x,y) PRINTFLIKE(x,y)
+#else
+#define PRINTFPTRLIKE(x,y)
+#endif
+#endif
+
+ /*
+  * Compiler optimization hint. This makes sense only for code in a
+  * performance-critical loop.
+  */
+#ifndef EXPECTED
+#if defined(__GNUC__) && (__GNUC__ > 2)
+#define EXPECTED(x)	__builtin_expect(!!(x), 1)
+#define UNEXPECTED(x)	__builtin_expect(!!(x), 0)
+#else
+#define EXPECTED(x)	(x)
+#define UNEXPECTED(x)	(x)
 #endif
 #endif
 

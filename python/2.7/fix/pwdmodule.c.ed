@@ -1,0 +1,2 @@
+/#define[ 	]SETI(i,val)/s/PyInt_FromLong((long) val)/PyInt_FromLong((long) (int)val)/
+w

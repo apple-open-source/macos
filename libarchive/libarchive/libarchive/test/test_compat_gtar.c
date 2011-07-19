@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_compat_gtar.c,v 1.4 2008/12/17 19:05:00 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_compat_gtar.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 /*
  * Verify our ability to read sample files created by GNU tar.
@@ -40,7 +40,7 @@ __FBSDID("$FreeBSD: src/lib/libarchive/test/test_compat_gtar.c,v 1.4 2008/12/17 
 static void
 test_compat_gtar_1(void)
 {
-	char name[] = "test_compat_gtar_1.tgz";
+	char name[] = "test_compat_gtar_1.tar";
 	struct archive_entry *ae;
 	struct archive *a;
 	int r;
@@ -99,7 +99,7 @@ test_compat_gtar_1(void)
 	assertEqualIntA(a, ARCHIVE_EOF, archive_read_next_header(a, &ae));
 
 	/* Verify that the format detection worked. */
-	assertEqualInt(archive_compression(a), ARCHIVE_COMPRESSION_GZIP);
+	assertEqualInt(archive_compression(a), ARCHIVE_COMPRESSION_NONE);
 	assertEqualInt(archive_format(a), ARCHIVE_FORMAT_TAR_GNUTAR);
 
 	assertEqualInt(ARCHIVE_OK, archive_read_close(a));

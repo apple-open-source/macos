@@ -1,6 +1,6 @@
 --- shmem/unix/shm.c.orig	2008-06-02 17:15:38.000000000 -0700
 +++ shmem/unix/shm.c	2008-08-12 20:27:35.000000000 -0700
-@@ -274,12 +274,14 @@
+@@ -270,12 +270,14 @@
                                   APR_READ | APR_WRITE | APR_CREATE | APR_EXCL,
                                   pool); 
          if (status != APR_SUCCESS) {

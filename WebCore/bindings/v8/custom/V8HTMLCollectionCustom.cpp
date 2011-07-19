@@ -52,15 +52,17 @@ static v8::Handle<v8::Value> getNamedItems(HTMLCollection* collection, AtomicStr
     if (namedItems.size() == 1)
         return toV8(namedItems.at(0).release());
 
-    NodeList* list = new V8NamedNodesCollection(namedItems);
-    return toV8(list);
+    return toV8(V8NamedNodesCollection::create(namedItems));
 }
 
 static v8::Handle<v8::Value> getItem(HTMLCollection* collection, v8::Handle<v8::Value> argument)
 {
     v8::Local<v8::Uint32> index = argument->ToArrayIndex();
     if (index.IsEmpty()) {
-        v8::Handle<v8::Value> result = getNamedItems(collection, toWebCoreString(argument->ToString()));
+        v8::Local<v8::String> asString = argument->ToString();
+        if (asString.IsEmpty())
+            return v8::Handle<v8::Value>();
+        v8::Handle<v8::Value> result = getNamedItems(collection, toWebCoreString(asString));
 
         if (result.IsEmpty())
             return v8::Undefined();

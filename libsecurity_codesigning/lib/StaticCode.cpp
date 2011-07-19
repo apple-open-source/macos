@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,8 +70,10 @@ SecStaticCode::SecStaticCode(DiskRep *rep)
 // Clean up a SecStaticCode object
 //
 SecStaticCode::~SecStaticCode() throw()
-{
+try {
 	::free(const_cast<Requirement *>(mDesignatedReq));
+} catch (...) {
+	return;
 }
 
 
@@ -209,7 +211,7 @@ void SecStaticCode::resetValidity()
 // Otherwise, retrieve the component without validation (but cache it). Validation
 // will go through the cache and validate all cached components.
 //
-CFDataRef SecStaticCode::component(CodeDirectory::SpecialSlot slot)
+CFDataRef SecStaticCode::component(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)
 {
 	assert(slot <= cdSlotMax);
 	
@@ -219,12 +221,12 @@ CFDataRef SecStaticCode::component(CodeDirectory::SpecialSlot slot)
 			if (validated()) // if the directory has been validated...
 				if (!codeDirectory()->validateSlot(CFDataGetBytePtr(data), // ... and it's no good
 						CFDataGetLength(data), -slot))
-					MacOSError::throwMe(errSecCSSignatureFailed); // ... then bail
+					MacOSError::throwMe(fail); // ... then bail
 			cache = data;	// it's okay, cache it
 		} else {	// absent, mark so
 			if (validated())	// if directory has been validated...
 				if (codeDirectory()->slotIsPresent(-slot)) // ... and the slot is NOT missing
-					MacOSError::throwMe(errSecCSSignatureFailed);	// was supposed to be there
+					MacOSError::throwMe(fail);	// was supposed to be there
 			cache = CFDataRef(kCFNull);		// white lie
 		}
 	}
@@ -300,7 +302,7 @@ void SecStaticCode::validateDirectory()
 			// perform validation (or die trying)
 			CODESIGN_EVAL_STATIC_DIRECTORY(this);
 			mValidationExpired = verifySignature();
-			component(cdInfoSlot);		// force load of Info Dictionary (if any)
+			component(cdInfoSlot, errSecCSInfoPlistFailed);	// force load of Info Dictionary (if any)
 			CodeDirectory::SpecialSlot slot = codeDirectory()->nSpecialSlots;
 			if (slot > cdSlotMax)	// might have more special slots than we know about...
 				slot = cdSlotMax;	// ... but only process the ones we understand
@@ -429,9 +431,10 @@ bool SecStaticCode::verifySignature()
 			{
 				OSStatus result;
 				MacOSError::check(SecTrustGetCssmResultCode(mTrust, &result));
-				if (result == CSSMERR_TP_CERT_EXPIRED && !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
+				if (((result == CSSMERR_TP_CERT_EXPIRED) || (result == CSSMERR_TP_CERT_NOT_VALID_YET))
+						&& !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
 					CODESIGN_EVAL_STATIC_SIGNATURE_EXPIRED(this);
-					actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED;
+					actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
 					continue;		// retry validation
 				}
 				MacOSError::throwMe(result);
@@ -460,17 +463,17 @@ SecPolicyRef SecStaticCode::verificationPolicy()
 // The resource must already have been placed in the cache.
 // This does NOT perform basic validation.
 //
-void SecStaticCode::validateComponent(CodeDirectory::SpecialSlot slot)
+void SecStaticCode::validateComponent(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)
 {
 	assert(slot <= cdSlotMax);
 	CFDataRef data = mCache[slot];
 	assert(data);		// must be cached
 	if (data == CFDataRef(kCFNull)) {
 		if (codeDirectory()->slotIsPresent(-slot)) // was supposed to be there...
-				MacOSError::throwMe(errSecCSSignatureFailed);	// ... and is missing
+				MacOSError::throwMe(fail);	// ... and is missing
 	} else {
 		if (!codeDirectory()->validateSlot(CFDataGetBytePtr(data), CFDataGetLength(data), -slot))
-			MacOSError::throwMe(errSecCSSignatureFailed);
+			MacOSError::throwMe(fail);
 	}
 }
 
@@ -543,7 +546,7 @@ void SecStaticCode::validateResources()
 
 	// scan through the resources on disk, checking each against the resourceDirectory
 	CollectingContext ctx(*this);		// collect all failures in here
-	ResourceBuilder resources(cfString(this->resourceBase()), rules);
+	ResourceBuilder resources(cfString(this->resourceBase()), rules, codeDirectory()->hashType);
 	mRep->adjustResources(resources);
 	string path;
 	ResourceBuilder::Rule *rule;
@@ -583,7 +586,7 @@ void SecStaticCode::checkOptionalResource(CFTypeRef key, CFTypeRef value, void *
 CFDictionaryRef SecStaticCode::infoDictionary()
 {
 	if (!mInfoDict) {
-		mInfoDict.take(getDictionary(cdInfoSlot));
+		mInfoDict.take(getDictionary(cdInfoSlot, errSecCSInfoPlistFailed));
 		secdebug("staticCode", "%p loaded InfoDict %p", this, mInfoDict.get());
 	}
 	return mInfoDict;
@@ -610,7 +613,7 @@ CFDictionaryRef SecStaticCode::resourceDictionary()
 {
 	if (mResourceDict)	// cached
 		return mResourceDict;
-	if (CFRef<CFDictionaryRef> dict = getDictionary(cdResourceDirSlot))
+	if (CFRef<CFDictionaryRef> dict = getDictionary(cdResourceDirSlot, errSecCSSignatureFailed))
 		if (cfscan(dict, "{rules=%Dn,files=%Dn}")) {
 			secdebug("staticCode", "%p loaded ResourceDict %p",
 				this, mResourceDict.get());
@@ -642,11 +645,11 @@ CFURLRef SecStaticCode::resourceBase()
 // This will force load and validation, which means that it will perform basic
 // validation if it hasn't been done yet.
 //
-CFDictionaryRef SecStaticCode::getDictionary(CodeDirectory::SpecialSlot slot)
+CFDictionaryRef SecStaticCode::getDictionary(CodeDirectory::SpecialSlot slot, OSStatus fail /* = errSecCSSignatureFailed */)
 {
 	validateDirectory();
-	if (CFDataRef infoData = component(slot)) {
-		validateComponent(slot);
+	if (CFDataRef infoData = component(slot, fail)) {
+		validateComponent(slot, fail);
 		if (CFDictionaryRef dict = makeCFDictionaryFrom(infoData))
 			return dict;
 		else
@@ -681,9 +684,9 @@ CFDataRef SecStaticCode::resource(string path, ValidationContext &ctx)
 				MacOSError::throwMe(errSecCSResourcesNotFound);
 			CFRef<CFURLRef> fullpath = makeCFURL(path, false, resourceBase());
 			if (CFRef<CFDataRef> data = cfLoadFile(fullpath)) {
-				SHA1 hasher;
-				hasher(CFDataGetBytePtr(data), CFDataGetLength(data));
-				if (hasher.verify(seal.hash()))
+				MakeHash<CodeDirectory> hasher(this->codeDirectory());
+				hasher->update(CFDataGetBytePtr(data), CFDataGetLength(data));
+				if (hasher->verify(seal.hash()))
 					return data.yield();	// good
 				else
 					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
@@ -717,9 +720,9 @@ void SecStaticCode::validateResource(string path, ValidationContext &ctx)
 			CFRef<CFURLRef> fullpath = makeCFURL(path, false, resourceBase());
 			AutoFileDesc fd(cfString(fullpath), O_RDONLY, FileDesc::modeMissingOk);	// open optional filee
 			if (fd) {
-				SHA1 hasher;
-				hashFileData(fd, hasher);
-				if (hasher.verify(seal.hash()))
+				MakeHash<CodeDirectory> hasher(this->codeDirectory());
+				hashFileData(fd, hasher.get());
+				if (hasher->verify(seal.hash()))
 					return;			// verify good
 				else
 					ctx.reportProblem(errSecCSBadResource, kSecCFErrorResourceAltered, fullpath); // altered
@@ -911,7 +914,7 @@ void SecStaticCode::validateRequirements(SecRequirementType type, SecStaticCode 
 {
 	DTRACK(CODESIGN_EVAL_STATIC_INTREQ, this, type, target, nullError);
 	if (const Requirement *req = internalRequirement(type))
-		target->validateRequirements(req, nullError ? nullError : errSecCSReqFailed);
+		target->validateRequirement(req, nullError ? nullError : errSecCSReqFailed);
 	else if (nullError)
 		MacOSError::throwMe(nullError);
 	else
@@ -922,11 +925,17 @@ void SecStaticCode::validateRequirements(SecRequirementType type, SecStaticCode 
 //
 // Validate this StaticCode against an external Requirement
 //
-void SecStaticCode::validateRequirements(const Requirement *req, OSStatus failure)
+bool SecStaticCode::satisfiesRequirement(const Requirement *req, OSStatus failure)
 {
 	assert(req);
 	validateDirectory();
-	req->validate(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()), failure);
+	return req->validates(Requirement::Context(mCertChain, infoDictionary(), entitlements(), codeDirectory()), failure);
+}
+
+void SecStaticCode::validateRequirement(const Requirement *req, OSStatus failure)
+{
+	if (!this->satisfiesRequirement(req, failure))
+		MacOSError::throwMe(failure);
 }
 
 
@@ -989,6 +998,7 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 	if (CFDictionaryRef info = this->infoDictionary())
 		CFDictionaryAddValue(dict, kSecCodeInfoPList, info);
 	CFDictionaryAddValue(dict, kSecCodeInfoUnique, this->cdHash());
+	CFDictionaryAddValue(dict, kSecCodeInfoDigestAlgorithm, CFTempNumber(this->codeDirectory(false)->hashType));
 
 	//
 	// kSecCSSigningInformation adds information about signing certificates and chains
@@ -1092,6 +1102,58 @@ void SecStaticCode::CollectingContext::throwMe()
 {
 	assert(mStatus != noErr);
 	throw CSError(mStatus, mCollection.yield());
+}
+
+
+//
+// SecStaticCode::AllArchitectures produces SecStaticCode objects separately
+// for each architecture represented by a base object.
+//
+// Performance note: This is a simple, straight-forward implementation that
+// does not heroically try to share resources between the code objects produced.
+// In practice, this means we'll re-open files and re-read resource files.
+// In exchange, we enter all the code paths in the normal way, and do not have
+// special sharing paths to worry about.
+// If a performance tool brings you here because you have *proof* of a performance
+// problem, consider digging up MachO and Universal (for sharing file descriptors),
+// and SecStaticCode (for sharing resource iterators). That ought to cover most of
+// the big chunks. If you're just offended by the simplicity of this implementation,
+// go play somewhere else.
+//
+SecStaticCode::AllArchitectures::AllArchitectures(SecStaticCode *code)
+	: mBase(code)
+{
+	if (Universal *fat = code->diskRep()->mainExecutableImage()) {
+		fat->architectures(mArchitectures);
+		mCurrent = mArchitectures.begin();
+		mState = fatBinary;
+	} else {
+		mState = firstNonFat;
+	}
+}
+
+SecStaticCode *SecStaticCode::AllArchitectures::operator () ()
+{
+	switch (mState) {
+	case firstNonFat:
+		mState = atEnd;
+		return mBase;
+	case fatBinary:
+		{
+			if (mCurrent == mArchitectures.end())
+				return NULL;
+			Architecture arch = *mCurrent++;
+			if (arch == mBase->diskRep()->mainExecutableImage()->bestNativeArch()) {
+				return mBase;
+			} else {
+				DiskRep::Context ctx;
+				ctx.arch = arch;
+				return new SecStaticCode(DiskRep::bestGuess(mBase->mainExecutablePath(), &ctx));
+			}
+		}
+	default:
+		return NULL;
+	}
 }
 
 

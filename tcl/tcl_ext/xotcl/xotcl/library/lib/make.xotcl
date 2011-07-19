@@ -2,9 +2,9 @@
 ### inEachDir changes now to each directory
 ### install clears tgarget directory before installing
 ### Object file added (for better -n processing)
-lappend auto_path ..
+#lappend auto_path ..
 
-package require XOTcl
+package require XOTcl 1
 namespace import -force ::xotcl::*
 
 ###

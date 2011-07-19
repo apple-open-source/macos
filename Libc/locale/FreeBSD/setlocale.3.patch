@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/setlocale.3	2004-11-25 11:38:19.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/setlocale.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -46,7 +46,10 @@
+--- setlocale.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ setlocale.3	2009-11-09 15:05:26.000000000 -0800
+@@ -42,7 +42,10 @@
  .Sh SYNOPSIS
  .In locale.h
  .Ft char *
@@ -12,7 +12,7 @@
  .Sh DESCRIPTION
  The
  .Fn setlocale
-@@ -105,14 +108,14 @@
+@@ -101,14 +104,14 @@ Set a locale for formatting dates and ti
  function.
  .El
  .Pp

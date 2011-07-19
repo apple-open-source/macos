@@ -1,13 +1,15 @@
---- assert.c.orig	2008-09-06 16:27:37.000000000 -0700
-+++ assert.c	2008-09-07 01:35:02.000000000 -0700
-@@ -41,20 +41,39 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ass
- #include <stdio.h>
- #include <stdlib.h>
+--- assert.c.orig	2010-09-24 10:27:46.000000000 -0700
++++ assert.c	2010-09-24 10:37:33.000000000 -0700
+@@ -34,23 +34,60 @@ static char sccsid[] = "@(#)assert.c	8.1
+ __FBSDID("$FreeBSD: src/lib/libc/gen/assert.c,v 1.8 2007/01/09 00:27:53 imp Exp $");
  
-+extern const char *__crashreporter_info__;
-+static const char badasprintf[] =
-+    "Assertion failed and asprintf also failed to create full error string";
-+
+ #include <assert.h>
+-#include <stdio.h>
+ #include <stdlib.h>
++#include <unistd.h>
++#include "CrashReporterClient.h"
++#include "_simple.h"
+ 
  void
 -__assert(func, file, line, failedexpr)
 +__assert_rtn(func, file, line, failedexpr)
@@ -16,28 +18,50 @@
  	const char *failedexpr;
  {
 -	if (func == NULL)
-+	char *str = NULL;
-+
-+	if (func == NULL) {
- 		(void)fprintf(stderr,
+-		(void)fprintf(stderr,
++	if (func == (const char *)-1L) {
++		/* 8462256: special case to replace __eprintf */
++		_simple_dprintf(STDERR_FILENO,
++		     "%s:%u: failed assertion `%s'\n", file, line, failedexpr);
++		if (!CRGetCrashLogMessage()) {
++			_SIMPLE_STRING s = _simple_salloc();
++			if (s) {
++				_simple_sprintf(s,
++				  "%s:%u: failed assertion `%s'\n",
++				  file, line, failedexpr);
++				CRSetCrashLogMessage(_simple_string(s));
++			} else
++				CRSetCrashLogMessage(failedexpr);
++		}
++	} else if (func == NULL) {
++		_simple_dprintf(STDERR_FILENO,
  		     "Assertion failed: (%s), file %s, line %d.\n", failedexpr,
  		     file, line);
 -	else
-+		if (!__crashreporter_info__) {
-+			asprintf(&str,
-+			     "Assertion failed: (%s), file %s, line %d.\n",
-+			     failedexpr, file, line);
-+			__crashreporter_info__ = str ? str : badasprintf;
+-		(void)fprintf(stderr,
++		if (!CRGetCrashLogMessage()) {
++			_SIMPLE_STRING s = _simple_salloc();
++			if (s) {
++				_simple_sprintf(s,
++				  "Assertion failed: (%s), file %s, line %d.\n",
++				  failedexpr, file, line);
++				CRSetCrashLogMessage(_simple_string(s));
++			} else
++				CRSetCrashLogMessage(failedexpr);
 +		}
 +	} else {
- 		(void)fprintf(stderr,
++		_simple_dprintf(STDERR_FILENO,
  		     "Assertion failed: (%s), function %s, file %s, line %d.\n",
  		     failedexpr, func, file, line);
-+		if (!__crashreporter_info__) {
-+			asprintf(&str,
-+			     "Assertion failed: (%s), function %s, file %s, line %d.\n",
-+			     failedexpr, func, file, line);
-+			__crashreporter_info__ = str ? str : badasprintf;
++		if (!CRGetCrashLogMessage()) {
++			_SIMPLE_STRING s = _simple_salloc();
++			if (s) {
++				_simple_sprintf(s,
++				  "Assertion failed: (%s), function %s, file %s, line %d.\n",
++				  failedexpr, func, file, line);
++				CRSetCrashLogMessage(_simple_string(s));
++			} else
++				CRSetCrashLogMessage(failedexpr);
 +		}
 +	}
  	abort();

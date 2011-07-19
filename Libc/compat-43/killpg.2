@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)killpg.2	8.1 (Berkeley) 6/2/93
-.\" $FreeBSD: src/lib/libc/compat-43/killpg.2,v 1.12 2002/12/19 09:40:21 ru Exp $
+.\" $FreeBSD: src/lib/libc/compat-43/killpg.2,v 1.14 2007/01/09 00:27:49 imp Exp $
 .\"
-.Dd June 2, 1993
+.Dd October 10, 2006
 .Dt KILLPG 2
 .Os
 .Sh NAME
@@ -65,7 +61,7 @@ The sending process and members of the process group must
 have the same effective user ID, or
 the sender must be the super-user.
 As a single special case the continue signal SIGCONT may be sent
-to any process that is a descendant of the current process.
+to any process with the same session ID as the caller.
 .Sh RETURN VALUES
 .Rv -std killpg
 .Sh ERRORS

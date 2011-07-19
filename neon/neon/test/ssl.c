@@ -48,6 +48,7 @@
 #include "ne_pkcs11.h"
 
 #define SERVER_CERT "server.cert"
+#define CA2_SERVER_CERT "ca2server.pem"
 #define CA_CERT "ca/cert.pem"
 
 #define P12_PASSPHRASE "foobar"
@@ -61,6 +62,8 @@ static char *server_key = NULL;
 
 static ne_ssl_certificate *def_ca_cert = NULL, *def_server_cert;
 static ne_ssl_client_cert *def_cli_cert;
+
+static char *nul_cn_fn;
 
 static int check_dname(const ne_ssl_dname *dn, const char *expected,
                        const char *which);
@@ -274,6 +277,8 @@ static int init(void)
         return FAIL;
     }
 
+    nul_cn_fn = ne_concat(srcdir, "/nulcn.pem", NULL);
+
     return OK;
 }
 
@@ -403,13 +408,18 @@ static int simple(void)
 /* Test for SSL operation when server uses SSLv2 */
 static int simple_sslv2(void)
 {
+#ifdef HAVE_OPENSSL
+    return SKIP; /* this is breaking with current SSL. */
+#else
     ne_session *sess = ne_session_create("https", "localhost", 7777);
     struct ssl_server_args args = {SERVER_CERT, 0};
     args.use_ssl2 = 1;
+    
     ne_set_session_flag(sess, NE_SESSFLAG_SSLv2, 1);
     CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT, NULL, NULL));
     ne_session_destroy(sess);
     return OK;
+#endif
 }
 
 /* Serves using HTTP/1.0 get-till-EOF semantics. */
@@ -432,6 +442,15 @@ static int simple_eof(void)
     ne_session *sess = DEFSESS;
 
     CALL(any_ssl_request(sess, serve_eof, SERVER_CERT, CA_CERT, NULL, NULL));
+    ne_session_destroy(sess);
+    return OK;
+}
+
+static int intermediary(void)
+{
+    ne_session *sess = DEFSESS;
+    struct ssl_server_args args = {CA2_SERVER_CERT, 0};
+    CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT, NULL, NULL));
     ne_session_destroy(sess);
     return OK;
 }
@@ -490,6 +509,20 @@ static int wildcard_match(void)
 {
     ne_session *sess;
     struct ssl_server_args args = {"wildcard.cert", 0};
+    
+    sess = ne_session_create("https", "anything.example.com", 443);
+    ne_session_proxy(sess, "localhost", 7777);
+
+    CALL(any_ssl_request(sess, tunnel_server, &args, CA_CERT, NULL, NULL));
+    ne_session_destroy(sess);
+    
+    return OK;
+}
+
+static int wildcard_match_altname(void)
+{
+    ne_session *sess;
+    struct ssl_server_args args = {"altname9.cert", 0};
     
     sess = ne_session_create("https", "anything.example.com", 443);
     ne_session_proxy(sess, "localhost", 7777);
@@ -654,11 +687,11 @@ static int parse_chain(void)
     int ret = 0;
     struct ssl_server_args args = {"wrongcn.cert", 0};
 
-    args.ca_list = "ca/cert.pem";    
+    args.ca_list = CA_CERT;
 
     /* The cert is signed by the CA but has a CN mismatch, so will
      * force the verification callback to be invoked. */
-    CALL(any_ssl_request(sess, ssl_server, &args, "ca/cert.pem", 
+    CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT, 
 			 check_chain, &ret));
     ne_session_destroy(sess);
 
@@ -770,6 +803,10 @@ static int fail_ssl_request_with_error2(char *cert, char *key, char *cacert,
     /* and check that the request was failed too. */
     ONV(ret == NE_OK, ("%s", msg));
 
+    ONV(errstr && strstr(ne_get_error(sess), errstr) == NULL,
+        ("unexpected failure message '%s', wanted '%s'",
+         ne_get_error(sess), errstr));
+        
     ne_session_destroy(sess);
 
     return OK;
@@ -778,11 +815,23 @@ static int fail_ssl_request_with_error2(char *cert, char *key, char *cacert,
 /* Helper function: run a request using the given self-signed server
  * certificate, and expect the request to fail with the given
  * verification failure flags. */
+static int fail_ssl_request_with_error(char *cert, char *cacert, const char *host,
+                                       const char *msg, int failures,
+                                       const char *errstr)
+{
+    return fail_ssl_request_with_error2(cert, NULL, cacert, host, NULL,
+                                        msg, failures, errstr);
+}
+
+
+/* Helper function: run a request using the given self-signed server
+ * certificate, and expect the request to fail with the given
+ * verification failure flags. */
 static int fail_ssl_request(char *cert, char *cacert, const char *host,
 			    const char *msg, int failures)
 {
-    return fail_ssl_request_with_error2(cert, NULL, cacert, host, NULL,
-                                        msg, failures, NULL);
+    return fail_ssl_request_with_error(cert, cacert, host, msg, failures,
+                                       NULL);
 }        
 
 /* Note that the certs used for fail_* are mostly self-signed, so the
@@ -792,35 +841,51 @@ static int fail_ssl_request(char *cert, char *cacert, const char *host,
  * flagged as such. */
 static int fail_wrongCN(void)
 {
-    return fail_ssl_request("wrongcn.cert", "ca/cert.pem", "localhost",
-			    "certificate with incorrect CN was accepted",
-			    NE_SSL_IDMISMATCH);
+    return fail_ssl_request_with_error("wrongcn.cert", "ca/cert.pem", "localhost",
+                                       "certificate with incorrect CN was accepted",
+                                       NE_SSL_IDMISMATCH,
+                                       "certificate issued for a different hostname");
+                            
 }
+
+#define SRCDIR(s) ne_concat(srcdir, "/" s, NULL)
 
 static int fail_nul_cn(void)
 {
-    return fail_ssl_request_with_error2("nulcn.pem", "nulsrv.key", "nulca.pem", 
-                                        "www.bank.com", "localhost",
-                                        "certificate with incorrect CN was accepted",
-                                        NE_SSL_IDMISMATCH,
-                                        "certificate issued for a different hostname");
+    char *key = SRCDIR("nulsrv.key"), *ca = SRCDIR("nulca.pem");
+    CALL(fail_ssl_request_with_error2(nul_cn_fn, key, ca,
+                                      "www.bank.com", "localhost",
+                                      "certificate with incorrect CN was accepted",
+                                      NE_SSL_IDMISMATCH,
+                                      "certificate issued for a different hostname"));
+    ne_free(key);
+    ne_free(ca);
+    return OK;
 }
 
 static int fail_nul_san(void)
 {
-    return fail_ssl_request_with_error2("nulsan.pem", "nulsrv.key", "nulca.pem", 
-                                        "www.bank.com", "localhost",
-                                        "certificate with incorrect CN was accepted",
-                                        NE_SSL_IDMISMATCH,
-                                        "certificate issued for a different hostname");
+    char *cert = SRCDIR("nulsan.pem"), *key = SRCDIR("nulsrv.key"),
+        *ca = SRCDIR("nulca.pem");
+    CALL(fail_ssl_request_with_error2(cert, key, ca, 
+                                      "www.bank.com", "localhost",
+                                      "certificate with incorrect CN was accepted",
+                                      NE_SSL_IDMISMATCH,
+                                      "certificate issued for a different hostname"));
+    ne_free(cert);
+    ne_free(key);
+    ne_free(ca);
+    return OK;
 }
 
 /* Check that an expired certificate is flagged as such. */
 static int fail_expired(void)
 {
     char *c = ne_concat(srcdir, "/expired.pem", NULL);
-    CALL(fail_ssl_request(c, c,  "localhost",
-                          "expired certificate was accepted", NE_SSL_EXPIRED));
+    CALL(fail_ssl_request_with_error(c, c,  "localhost",
+                                     "expired certificate was accepted", 
+                                     NE_SSL_EXPIRED,
+                                     "certificate has expired"));
     ne_free(c);
     return OK;
 }
@@ -828,9 +893,10 @@ static int fail_expired(void)
 static int fail_notvalid(void)
 {
     char *c = ne_concat(srcdir, "/notvalid.pem", NULL);
-    CALL(fail_ssl_request(c, c,  "localhost",
-                          "not yet valid certificate was accepted",
-                          NE_SSL_NOTYETVALID));
+    CALL(fail_ssl_request_with_error(c, c,  "localhost",
+                                     "not yet valid certificate was accepted",
+                                     NE_SSL_NOTYETVALID,
+                                     "certificate is not yet valid"));
     ne_free(c);
     return OK;    
 }
@@ -839,8 +905,9 @@ static int fail_notvalid(void)
  * fail with UNTRUSTED. */
 static int fail_untrusted_ca(void)
 {
-    return fail_ssl_request("server.cert", NULL, "localhost",
-                            "untrusted CA.", NE_SSL_UNTRUSTED);
+    return fail_ssl_request_with_error("server.cert", NULL, "localhost",
+                                       "untrusted CA.", NE_SSL_UNTRUSTED,
+                                       "issuer is not trusted");
 }
 
 static int fail_self_signed(void)
@@ -885,6 +952,26 @@ static int fail_bad_urialtname(void)
 {
     return fail_ssl_request("altname8.cert", CA_CERT, "localhost",
                             "bad URI altname cert", NE_SSL_IDMISMATCH);
+}
+
+static int fail_wildcard(void)
+{
+    return fail_ssl_request("altname9.cert", CA_CERT, "localhost",
+                            "subjaltname not honored", NE_SSL_IDMISMATCH);
+}
+
+static int fail_ca_expired(void)
+{
+    return fail_ssl_request_with_error("ca1server.cert", "ca1/cert.pem", 
+                                       "localhost", "issuer ca expired", 
+                                       NE_SSL_BADCHAIN,
+                                       "bad certificate chain");
+}
+
+static int fail_ca_notyetvalid(void)
+{
+    return fail_ssl_request("ca3server.cert", "ca3/cert.pem", "localhost",
+                            "issuer ca not yet valid", NE_SSL_BADCHAIN);
 }
 
 /* Test that the SSL session is cached across connections. */
@@ -1349,7 +1436,7 @@ static int cert_identities(void)
 
 static int nulcn_identity(void)
 {
-    ne_ssl_certificate *cert = ne_ssl_cert_read("nulcn.pem");
+    ne_ssl_certificate *cert = ne_ssl_cert_read(nul_cn_fn);
     const char *id, *expected = "www.bank.com\\x00.badguy.com";
 
     ONN("could not read nulcn.pem", cert == NULL);
@@ -1684,8 +1771,7 @@ static int pkcs11_pin(void *userdata, int attempt,
     }
 }
 
-/* Test that the on-demand client cert provider callback is used. */
-static int pkcs11(void)
+static int nss_pkcs11_test(const char *dbname)
 {
     ne_session *sess = DEFSESS;
     struct ssl_server_args args = {SERVER_CERT, NULL};
@@ -1694,12 +1780,12 @@ static int pkcs11(void)
 
     args.require_cc = 1;
 
-    if (access("nssdb", R_OK|X_OK)) {
+    if (access(dbname, R_OK|X_OK)) {
         t_warning("NSS required for PKCS#11 testing");
         return SKIP;
     }
 
-    ret = ne_ssl_pkcs11_nss_provider_init(&prov, "softokn3", "nssdb/", NULL, 
+    ret = ne_ssl_pkcs11_nss_provider_init(&prov, "softokn3", dbname, NULL, 
                                           NULL, NULL);
     if (ret) {
         if (ret == NE_PK11_NOTIMPL)
@@ -1710,16 +1796,24 @@ static int pkcs11(void)
     }
 
     ne_ssl_pkcs11_provider_pin(prov, pkcs11_pin, "foobar");
-    
     ne_ssl_set_pkcs11_provider(sess, prov);
 
-    CALL(any_ssl_request(sess, ssl_server, &args, CA_CERT,
-                         NULL, NULL));
+    ret = any_ssl_request(sess, ssl_server, &args, CA_CERT, NULL, NULL);
 
     ne_session_destroy(sess);
     ne_ssl_pkcs11_provider_destroy(prov);
 
-    return OK;
+    return ret;
+}
+
+static int pkcs11(void)
+{
+    return nss_pkcs11_test("nssdb");
+}
+
+static int pkcs11_dsa(void)
+{
+    return nss_pkcs11_test("nssdb-dsa");
 }
 
 /* TODO: code paths still to test in cert verification:
@@ -1759,6 +1853,7 @@ ne_test tests[] = {
     T(empty_truncated_eof),
     T(fail_not_ssl),
     T(cache_cert),
+    T(intermediary),
 
     T(client_cert_pkcs12),
     T(ccert_unencrypted),
@@ -1773,6 +1868,7 @@ ne_test tests[] = {
     T(no_verify),
     T(cache_verify),
     T(wildcard_match),
+    T(wildcard_match_altname),
     T(caseless_match),
 
     T(subject_altname),
@@ -1794,6 +1890,9 @@ ne_test tests[] = {
     T(fail_host_ipaltname),
     T(fail_bad_ipaltname),
     T(fail_bad_urialtname),
+    T(fail_wildcard),
+    T(fail_ca_notyetvalid),
+    T(fail_ca_expired),
 
     T(nulcn_identity),
     T(fail_nul_cn),
@@ -1810,6 +1909,7 @@ ne_test tests[] = {
     T(nonssl_trust),
 
     T(pkcs11),
+    T_XFAIL(pkcs11_dsa), /* unclear why this fails currently. */
 
     T(NULL) 
 };

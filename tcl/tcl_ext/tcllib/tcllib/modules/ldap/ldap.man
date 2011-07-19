@@ -5,6 +5,7 @@
 [copyright {2006 Michael Schlenker <mic42@users.sourceforge.net>}]
 [moddesc   {LDAP client}]
 [titledesc {LDAP client}]
+[category  Networking]
 [require Tcl 8.4]
 [require ldap [opt 1.8]]
 [description]

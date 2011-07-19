@@ -2536,7 +2536,7 @@ gb2312_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;
-    if (wc >= 0x0000 && wc < 0x0460)
+    if (/* wc >= 0x0000 && */ wc < 0x0460)
       summary = &gb2312_uni2indx_page00[(wc>>4)];
     else if (wc >= 0x2000 && wc < 0x2650)
       summary = &gb2312_uni2indx_page20[(wc>>4)-0x200];

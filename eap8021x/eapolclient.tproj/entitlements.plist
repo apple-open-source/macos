@@ -7,6 +7,7 @@
 	<key>keychain-access-groups</key>
 	<array>
 		<string>apple</string>
+		<string>com.apple.identities</string>
 	</array>
 </dict>
 </plist>

@@ -4,6 +4,7 @@ reserved. Redistribution permitted under the terms of the Open\
 Publication License <http://www.opencontent.org/openpub/>"]
 [moddesc {Tcl Math Library}]
 [titledesc {Romberg integration}]
+[category  Mathematics]
 [require Tcl 8.2]
 [require math::calculus 0.6]
 [description]

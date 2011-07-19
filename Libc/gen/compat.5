@@ -1,4 +1,4 @@
-.Dd October 23, 2005
+.Dd June 30, 2010
 .Os Darwin
 .Dt COMPAT 5
 .Sh NAME
@@ -17,7 +17,12 @@
 .Sh DESCRIPTION
 Setting the environment variable
 .Ev COMMAND_MODE
-to the value legacy causes utility programs to behave as closely to Mac OS X 10.3's utility programs as possible.  When in this mode all of 10.3's flags are accepted, and in some cases extra flags are accepted, but no flags that were used in 10.3 will have been removed or changed in meaning.  Any behavioral changes in this mode are documented in the LEGACY sections of the individual utilities.
+to the value legacy causes utility programs to behave as closely to
+Mac OS X 10.3's utility programs as possible.  When in this mode all of 10.3's
+flags are accepted, and in some cases extra flags are accepted, but no flags
+that were used in 10.3 will have been removed or changed in meaning.  Any
+behavioral changes in this mode are documented in the LEGACY sections of the
+individual utilities.
 .Pp
 Setting the environment variable
 .Ev COMMAND_MODE 
@@ -27,11 +32,16 @@ standards even if doing so would alter the behavior of flags used in 10.3.
 .Pp
 The value of
 .Ev COMMAND_MODE
-is case insensitive and if it is unset or set to something other than legacy or unix2003 it behaves as if it were set to unix2003.
-.Sh 32-BIT COMPILATION
+is case insensitive and if it is unset or set to something other than legacy
+or unix2003 it behaves as if it were set to unix2003.
+.Sh COMPILATION
 Defining
 .Dv _NONSTD_SOURCE
-causes library and kernel calls to behave as closely to Mac OS X 10.3's library and kernel calls as possible.  Any behavioral changes in this mode are documented in the LEGACY sections of the individual function calls.
+for i386 causes library and kernel calls to behave as closely to Mac 
+OS X 10.3's library and kernel calls as possible.  Any behavioral changes are
+documented in the LEGACY sections of the man pages for the individual function
+calls.  Defining this macro when compiling for any other architecture will
+result in a compilation error.
 .Pp
 Defining
 .Dv _POSIX_C_SOURCE
@@ -69,27 +79,100 @@ is either not specified or set to 10.5 or greater), then UNIX conformance will
 be on by default, and non-POSIX extensions will also be available
 (this is the equivalent of defining
 .Dv _DARWIN_C_SOURCE ) .
-For version values less that 10.5, UNIX conformance will be off (the
-equivalent of defining
+For version values less that 10.5, UNIX conformance will be off when targeting
+i386 (the equivalent of defining
 .Dv _NONSTD_SOURCE ) .
-.Sh 64-BIT COMPILATION
-When compiling for 64-bit architectures, the
-.Dv __LP64__
-macro will be defined to 1, and UNIX conformance is always on (the
-.Dv _DARWIN_FEATURE_UNIX_CONFORMANCE
-macro will also be defined to the SUS conformance level).
-Defining
-.Dv _NONSTD_SOURCE
-will cause a compilation error.
+.Pp
+In order to provide both legacy and conformance versions of functions, two
+versions of affected functions are provided.  Legacy variants have symbol names
+with no suffix in order to maintain ABI compatibility.  Conformance versions
+have a $UNIX2003 suffix appended to their symbol name.  These $UNIX2003
+suffixes are automatically appended by the compiler tool-chain and should not
+be used directly.
+.Pp
+Platforms that were released after these updates only have conformance variants
+available and do not have a $UNIX2003 suffix.
+.Pp
+.TS
+center;
+c s s s s
+c c | c c c
+c c | c c c
+l c | c c c
+l c | c c c
+l c | c c c
+l c | c c c
+l c | c c c
+l c | c c c
+l c | c c c.
+T{
+.Dv i386
+T}
+=
+user defines	deployment	namespace	conformance	suffix
+	target
+_
+T{
+.Em (none)
+T}	< 10.5	full	10.3 compatibility	(none)
+T{
+.Em (none)
+T}	>= 10.5	full	SUSv3 conformance	$UNIX2003
+T{
+.Em _NONSTD_SOURCE
+T}	(any)	full	10.3 compatibility	(none)
+T{
+.Em _DARWIN_C_SOURCE
+T}	< 10.4	full	10.3 compatibility	(none)
+T{
+.Em _DARWIN_C_SOURCE
+T}	>= 10.4	full	SUSv3 conformance	$UNIX2003
+T{
+.Em _POSIX_C_SOURCE
+T}	< 10.4	strict	10.3 compatibility	(none)
+T{
+.Em _POSIX_C_SOURCE
+T}	>= 10.4	strict	SUSv3 conformance	$UNIX2003
+_
+.T&
+c s s s s
+c s s s s
+c c | c c c
+c c | c c c
+l c | c c c
+l c | c s s
+l c | c c c
+l c | c c c.
+T{
+.Dv Newer Architectures
+T}
+=
+user defines	deployment	namespace	conformance	suffix
+	target
+_
+T{
+.Em (none)
+T}	(any)	full	SUSv3 conformance	(none)
+T{
+.Em _NONSTD_SOURCE
+T}	(any)	(error)
+T{
+.Em _DARWIN_C_SOURCE
+T}	(any)	full	SUSv3 conformance	(none)
+T{
+.Em _POSIX_C_SOURCE
+T}	(any)	strict	SUSv3 conformance	(none)
+_
+.TE
 .Sh STANDARDS
-With COMMAND_MODE set to unix2003 utility functions conform to 
+With COMMAND_MODE set to anything other than legacy, utility functions conform to 
 .St -susv3 .
 .Pp
 With
-.Dv _POSIX_C_SOURCE ,
-.Dv _DARWIN_C_SOURCE ,
+.Dv _POSIX_C_SOURCE
 or
-.Dv __LP64__ ,
+.Dv _DARWIN_C_SOURCE
+for i386, or when building for any other architecture,
 system and library calls conform to
 .St -susv3 .
 .Sh BUGS

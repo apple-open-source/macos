@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -271,25 +271,25 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
 		dhcpo_err_str_t * err)
 {
     switch (type) {
-      case dhcptype_bool_e:
+    case dhcptype_bool_e:
 	snprintf(tmp, maxtmplen, "%d", *((boolean_t *)opt));
 	break;
-      case dhcptype_uint8_e:
+    case dhcptype_uint8_e:
 	snprintf(tmp, maxtmplen, "%d", *((uint8_t *)opt));
 	break;
-      case dhcptype_uint16_e:
-	snprintf(tmp, maxtmplen, "%d", *((u_int16_t *)opt));
+    case dhcptype_uint16_e:
+	snprintf(tmp, maxtmplen, "%d", ntohs(*((u_int16_t *)opt)));
 	break;
-      case dhcptype_int32_e:
-	snprintf(tmp, maxtmplen, "%d", *((int32_t *)opt));
+    case dhcptype_int32_e:
+	snprintf(tmp, maxtmplen, "%d", ntohl(*((int32_t *)opt)));
 	break;
-      case dhcptype_uint32_e:
-	snprintf(tmp, maxtmplen, "%u", *((u_int32_t *)opt));
+    case dhcptype_uint32_e:
+	snprintf(tmp, maxtmplen, "%u", ntohl(*((u_int32_t *)opt)));
 	break;
-      case dhcptype_ip_e:
+    case dhcptype_ip_e:
 	snprintf(tmp, maxtmplen, IP_FORMAT, IP_LIST((struct in_addr *)opt));
 	break;
-      case dhcptype_string_e:
+    case dhcptype_string_e:
 	if (len < maxtmplen) {
 	    strncpy(tmp, opt, len);
 	    tmp[len] = '\0';
@@ -300,13 +300,13 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
 	    return (FALSE);
 	}
 	break;
-      default: {
-	  if (err)
-	      snprintf(err->str, sizeof(err->str),
-		       "type %d: not supported", type);
-	  return (FALSE);
-	  break;
-      }
+    default:
+	if (err) {
+	    snprintf(err->str, sizeof(err->str),
+		     "type %d: not supported", type);
+	    return (FALSE);
+	    break;
+	}
     }
     return (TRUE);
 }
@@ -797,7 +797,7 @@ dhcpol_find_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
 }
 
 /*
- * Function: dhcpol_get
+ * Function: dhcpol_option_copy
  * 
  * Purpose:
  *   Accumulate all occurences of the given option into a
@@ -808,7 +808,7 @@ dhcpol_find_with_length(dhcpol_t * options, dhcptag_t tag, int min_length)
  *   Use free() to free the returned data area.
  */
 void *
-dhcpol_get(dhcpol_t * list, int tag, int * len_p)
+dhcpol_option_copy(dhcpol_t * list, int tag, int * len_p)
 {
     int 	i;
     void *	data = NULL;
@@ -986,6 +986,21 @@ dhcpol_print(dhcpol_t * list)
     dhcpol_fprint(stdout, list);
     return;
 }
+
+
+int
+dhcpol_count_params(dhcpol_t * options, const uint8_t * tags, int size)
+{
+    int		i;
+    int		param_count = 0;
+
+    for (i = 0; i < size; i++) {
+	if (dhcpol_find(options, tags[i], NULL, NULL) != NULL)
+	    param_count++;
+    }
+    return (param_count);
+}
+
 
 /*
  * Module: dhcpoa

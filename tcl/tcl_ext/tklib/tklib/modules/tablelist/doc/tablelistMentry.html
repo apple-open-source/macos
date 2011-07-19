@@ -40,6 +40,9 @@
 
     <li><a href="#IPAddr">The <code><b>tablelist::addIPAddrMentry</b></code>
     Command</a></li>
+
+    <li><a href="#IPv6Addr">The
+    <code><b>tablelist::addIPv6AddrMentry</b></code> Command</a></li>
   </ul>
 
   <div align="center">
@@ -67,9 +70,10 @@
 
   <p>Tablelist supports interactive cell editing with the aid of the mentry
   widgets of type <code>"Date"</code>, <code>"Time"</code>,
-  <code>"DateTime</code>, <code>"FixedPoint"</code>, and
-  <code>"IPAddr"</code>.&nbsp; The steps needed for using one of these widgets
-  for editing the cells of a given column are as follows:</p>
+  <code>"DateTime</code>, <code>"FixedPoint"</code>,
+  <code>"IPAddr"</code>, and <code>"IPv6Addr"</code>.&nbsp; The steps needed
+  for using one of these widgets for editing the cells of a given column are as
+  follows:</p>
 
   <ol>
     <li>Register the desired widget for interactive cell editing by invoking
@@ -130,8 +134,9 @@
     cell configuration option.&nbsp; It may be any string that is different
     from <code><b>entry</b></code>, <code><b>text</b></code>,
     <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
-    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
-    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
     <code><b>dateMentry</b></code>.&nbsp; The command returns its
     <code><i>name</i></code> argument.</dd>
 
@@ -205,8 +210,9 @@
     cell configuration option.&nbsp; It may be any string that is different
     from <code><b>entry</b></code>, <code><b>text</b></code>,
     <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
-    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
-    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
     <code><b>timeMentry</b></code>.&nbsp; The command returns its
     <code><i>name</i></code> argument.</dd>
 
@@ -280,8 +286,9 @@
     cell configuration option.&nbsp; It may be any string that is different
     from <code><b>entry</b></code>, <code><b>text</b></code>,
     <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
-    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
-    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
     <code><b>dateTimeMentry</b></code>.&nbsp; The command returns its
     <code><i>name</i></code> argument.</dd>
 
@@ -352,8 +359,9 @@
     cell configuration option.&nbsp; It may be any string that is different
     from <code><b>entry</b></code>, <code><b>text</b></code>,
     <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
-    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
-    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
     <code><b>fixedPointMentry_</b><i>count1</i><b>.</b><i>count2</i></code>
     (e.g., <code><b>fixedPointMentry_6.2</b></code>) or
     <code><b>fixedPointMentry_</b><i>count1</i><b>,</b><i>count2</i></code>
@@ -413,7 +421,7 @@
     <dt><b>DESCRIPTION</b></dt>
 
     <dd>This command registers the widget created by the
-    <code><b>tablelist::addIPAddrMentry</b></code> command from the Mentry (or
+    <code><b>mentry::ipAddrMentry</b></code> command from the Mentry (or
     Mentry_tile) package for interactive cell editing in tablelist
     widgets.&nbsp; The optional argument specifies the name to be used for the
     mentry widget as the value of the <code><b><a href=
@@ -421,8 +429,9 @@
     cell configuration option.&nbsp; It may be any string that is different
     from <code><b>entry</b></code>, <code><b>text</b></code>,
     <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
-    <code><b>ttk::entry</b></code>, <code><b>ttk::checkbutton</b></code>, and
-    <code><b>ttk::combobox</b></code>.&nbsp; The default is
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
     <code><b>ipAddrMentry</b></code>.&nbsp; The command returns its
     <code><i>name</i></code> argument.</dd>
 
@@ -448,6 +457,72 @@
     <b>KEYWORDS</b></dt>
 
     <dd>tablelist, editing, Mentry, IP address</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="IPv6Addr"></a>The
+  <code><b>tablelist::addIPv6AddrMentry</b></code> Command</h2>
+
+  <dl>
+    <dt><b>NAME</b></dt>
+
+    <dd><code>tablelist::addIPv6AddrMentry</code> - Register the mentry widget
+    of type <code>"IPv6Addr"</code> for interactive cell editing</dd>
+
+    <dt><br>
+    <b>SYNOPSIS</b></dt>
+
+    <dd>
+      <pre>
+<b>tablelist::addIPv6AddrMentry</b> ?<i>name</i>?
+</pre>
+    </dd>
+
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>This command registers the widget created by the
+    <code><b>mentry::ipv6AddrMentry</b></code> command from the Mentry (or
+    Mentry_tile) package for interactive cell editing in tablelist
+    widgets.&nbsp; The optional argument specifies the name to be used for the
+    mentry widget as the value of the <code><b><a href=
+    "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> column or
+    cell configuration option.&nbsp; It may be any string that is different
+    from <code><b>entry</b></code>, <code><b>text</b></code>,
+    <code><b>spinbox</b></code>, <code><b>checkbutton</b></code>,
+    <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+    <code><b>ttk::combobox</b></code>, and
+    <code><b>ttk::checkbutton</b></code>.&nbsp; The default is
+    <code><b>ipv6AddrMentry</b></code>.&nbsp; The command returns its
+    <code><i>name</i></code> argument.</dd>
+
+    <dd><br>
+    A tablelist column having the above <code><i>name</i></code> as the value
+    of its <code><b>-editwindow</b></code> option must contain IPv6 addresses
+    as internal cell values.&nbsp; The <code><b><a href=
+    "tablelistWidget.html#finishediting">finishediting</a></b></code>
+    subcommand of the Tcl command associated with the tablelist widget will
+    retrieve the contents of the embedded window used for interactive cell
+    editing by invoking the <code><b>mentry::getIPv6Addr</b></code>
+    command.&nbsp; The value returned by this command (an IPv6 address or the
+    error string <code>"EMPTY"</code>) will be passed to the script
+    corresponding to the <code><b><a href=
+    "tablelistWidget.html#editendcommand">-editendcommand</a></b></code>
+    tablelist configuration option (if any), as its last argument.&nbsp; If
+    this value is the above error string then the script should reject the
+    mentry's contents by invoking the <code><b><a href=
+    "tablelistWidget.html#rejectinput">rejectinput</a></b></code>
+    subcommand.</dd>
+
+    <dt><br>
+    <b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, Mentry, IPv6 address</dd>
   </dl>
 
   <div align="center">

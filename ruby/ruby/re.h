@@ -3,7 +3,7 @@
   re.h -
 
   $Author: shyouhei $
-  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+  $Date: 2009-08-04 11:04:58 +0900 (Tue, 04 Aug 2009) $
   created at: Thu Sep 30 14:18:32 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -27,6 +27,7 @@ struct RMatch {
 };
 
 #define RMATCH(obj)  (R_CAST(RMatch)(obj))
+#define RMATCH_REGS(obj)  (R_CAST(RMatch)(obj)->regs)
 
 VALUE rb_reg_regcomp _((VALUE));
 long rb_reg_search _((VALUE, VALUE, long, long));

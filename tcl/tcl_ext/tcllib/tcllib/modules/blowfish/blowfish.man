@@ -3,6 +3,7 @@
 [copyright {2003, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [moddesc   {Blowfish Block Cipher}]
 [titledesc {Implementation of the Blowfish block cipher}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.4]
 [require blowfish [opt 1.0.4]]
 [description]

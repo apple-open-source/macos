@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2005-2008, International Business Machines
+*   Copyright (C) 2005-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -26,6 +26,12 @@
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
 #include "unicode/udata.h"
+
+/* Explicit include statement for std_string.h is needed
+ * for compilation on certain platforms. (e.g. AIX/VACPP)
+ */
+#include "unicode/std_string.h"
+
 #include "cmemory.h"
 #include "cstring.h"
 #include "uinvchar.h"
@@ -44,12 +50,19 @@
 #include "ucol_swp.h"
 #include "ucnv_bld.h"
 #include "unormimp.h"
+#include "normalizer2impl.h"
 #include "sprpimpl.h"
 #include "propname.h"
 #include "rbbidata.h"
 #include "triedict.h"
+#include "utrie2.h"
 
 /* swapping implementations in i18n */
+
+#if !UCONFIG_NO_NORMALIZATION
+#include "uspoof_impl.h"
+#endif
+
 
 /* definitions */
 
@@ -80,9 +93,10 @@ uprops_swap(const UDataSwapper *ds,
         pInfo->dataFormat[1]==0x50 &&
         pInfo->dataFormat[2]==0x72 &&
         pInfo->dataFormat[3]==0x6f &&
-        (pInfo->formatVersion[0]==3 || pInfo->formatVersion[0]==4 || pInfo->formatVersion[0]==5) &&
-        pInfo->formatVersion[2]==UTRIE_SHIFT &&
-        pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT
+        (3<=pInfo->formatVersion[0] && pInfo->formatVersion[0]<=7) &&
+        (pInfo->formatVersion[0]>=7 ||
+            (pInfo->formatVersion[2]==UTRIE_SHIFT &&
+             pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT))
     )) {
         udata_printError(ds, "uprops_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not a Unicode properties file\n",
                          pInfo->dataFormat[0], pInfo->dataFormat[1],
@@ -110,10 +124,18 @@ uprops_swap(const UDataSwapper *ds,
      * comments are copied from the data format description in genprops/store.c
      * indexes[] constants are in uprops.h
      */
+    int32_t dataTop;
     if(length>=0) {
         int32_t *outData32;
 
-        if((length-headerSize)<(4*dataIndexes[UPROPS_RESERVED_INDEX])) {
+        /*
+         * In formatVersion 7, UPROPS_DATA_TOP_INDEX has the post-header data size.
+         * In earlier formatVersions, it is 0 and a lower dataIndexes entry
+         * has the top of the last item.
+         */
+        for(i=UPROPS_DATA_TOP_INDEX; i>0 && (dataTop=dataIndexes[i])==0; --i) {}
+
+        if((length-headerSize)<(4*dataTop)) {
             udata_printError(ds, "uprops_swap(): too few bytes (%d after header) for a Unicode properties file\n",
                              length-headerSize);
             *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
@@ -124,7 +146,7 @@ uprops_swap(const UDataSwapper *ds,
 
         /* copy everything for inaccessible data (padding) */
         if(inData32!=outData32) {
-            uprv_memcpy(outData32, inData32, 4*dataIndexes[UPROPS_RESERVED_INDEX]);
+            uprv_memcpy(outData32, inData32, 4*dataTop);
         }
 
         /* swap the indexes[16] */
@@ -134,7 +156,7 @@ uprops_swap(const UDataSwapper *ds,
          * swap the main properties UTrie
          * PT serialized properties trie, see utrie.h (byte size: 4*(i0-16))
          */
-        utrie_swap(ds,
+        utrie2_swapAnyVersion(ds,
             inData32+UPROPS_INDEX_COUNT,
             4*(dataIndexes[UPROPS_PROPS32_INDEX]-UPROPS_INDEX_COUNT),
             outData32+UPROPS_INDEX_COUNT,
@@ -165,7 +187,7 @@ uprops_swap(const UDataSwapper *ds,
          * swap the additional UTrie
          * i3 additionalTrieIndex; -- 32-bit unit index to the additional trie for more properties
          */
-        utrie_swap(ds,
+        utrie2_swapAnyVersion(ds,
             inData32+dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX],
             4*(dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX]-dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX]),
             outData32+dataIndexes[UPROPS_ADDITIONAL_TRIE_INDEX],
@@ -177,13 +199,21 @@ uprops_swap(const UDataSwapper *ds,
          */
         ds->swapArray32(ds,
             inData32+dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX],
-            4*(dataIndexes[UPROPS_RESERVED_INDEX]-dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX]),
+            4*(dataIndexes[UPROPS_SCRIPT_EXTENSIONS_INDEX]-dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX]),
             outData32+dataIndexes[UPROPS_ADDITIONAL_VECTORS_INDEX],
+            pErrorCode);
+
+        // swap the Script_Extensions data
+        // SCX const uint16_t scriptExtensions[2*(i7-i6)];
+        ds->swapArray16(ds,
+            inData32+dataIndexes[UPROPS_SCRIPT_EXTENSIONS_INDEX],
+            4*(dataIndexes[UPROPS_RESERVED_INDEX_7]-dataIndexes[UPROPS_SCRIPT_EXTENSIONS_INDEX]),
+            outData32+dataIndexes[UPROPS_SCRIPT_EXTENSIONS_INDEX],
             pErrorCode);
     }
 
-    /* i6 reservedItemIndex; -- 32-bit unit index to the top of the properties vectors table */
-    return headerSize+4*dataIndexes[UPROPS_RESERVED_INDEX];
+    /* i7 reservedIndex7; -- 32-bit unit index to the top of the Script_Extensions data */
+    return headerSize+4*dataIndexes[UPROPS_RESERVED_INDEX_7];
 }
 
 /* Unicode case mapping data swapping --------------------------------------- */
@@ -216,9 +246,10 @@ ucase_swap(const UDataSwapper *ds,
         pInfo->dataFormat[1]==UCASE_FMT_1 &&
         pInfo->dataFormat[2]==UCASE_FMT_2 &&
         pInfo->dataFormat[3]==UCASE_FMT_3 &&
-        pInfo->formatVersion[0]==1 &&
-        pInfo->formatVersion[2]==UTRIE_SHIFT &&
-        pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT
+        ((pInfo->formatVersion[0]==1 &&
+          pInfo->formatVersion[2]==UTRIE_SHIFT &&
+          pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT) ||
+         pInfo->formatVersion[0]==2)
     )) {
         udata_printError(ds, "ucase_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not recognized as case mapping data\n",
                          pInfo->dataFormat[0], pInfo->dataFormat[1],
@@ -273,7 +304,7 @@ ucase_swap(const UDataSwapper *ds,
 
         /* swap the UTrie */
         count=indexes[UCASE_IX_TRIE_SIZE];
-        utrie_swap(ds, inBytes+offset, count, outBytes+offset, pErrorCode);
+        utrie2_swapAnyVersion(ds, inBytes+offset, count, outBytes+offset, pErrorCode);
         offset+=count;
 
         /* swap the uint16_t exceptions[] and unfold[] */
@@ -317,9 +348,10 @@ ubidi_swap(const UDataSwapper *ds,
         pInfo->dataFormat[1]==UBIDI_FMT_1 &&
         pInfo->dataFormat[2]==UBIDI_FMT_2 &&
         pInfo->dataFormat[3]==UBIDI_FMT_3 &&
-        pInfo->formatVersion[0]==1 &&
-        pInfo->formatVersion[2]==UTRIE_SHIFT &&
-        pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT
+        ((pInfo->formatVersion[0]==1 &&
+          pInfo->formatVersion[2]==UTRIE_SHIFT &&
+          pInfo->formatVersion[3]==UTRIE_INDEX_SHIFT) ||
+         pInfo->formatVersion[0]==2)
     )) {
         udata_printError(ds, "ubidi_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not recognized as bidi/shaping data\n",
                          pInfo->dataFormat[0], pInfo->dataFormat[1],
@@ -374,7 +406,7 @@ ubidi_swap(const UDataSwapper *ds,
 
         /* swap the UTrie */
         count=indexes[UBIDI_IX_TRIE_SIZE];
-        utrie_swap(ds, inBytes+offset, count, outBytes+offset, pErrorCode);
+        utrie2_swapAnyVersion(ds, inBytes+offset, count, outBytes+offset, pErrorCode);
         offset+=count;
 
         /* swap the uint32_t mirrors[] */
@@ -519,6 +551,68 @@ unorm_swap(const UDataSwapper *ds,
 
 #endif
 
+/* Swap 'Test' data from gentest */
+U_CAPI int32_t U_EXPORT2
+test_swap(const UDataSwapper *ds,
+           const void *inData, int32_t length, void *outData,
+           UErrorCode *pErrorCode) {
+    const UDataInfo *pInfo;
+    int32_t headerSize;
+
+    const uint8_t *inBytes;
+    uint8_t *outBytes;
+
+    int32_t offset;
+
+    /* udata_swapDataHeader checks the arguments */
+    headerSize=udata_swapDataHeader(ds, inData, length, outData, pErrorCode);
+    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+        udata_printError(ds, "test_swap(): data header swap failed %s\n", u_errorName(*pErrorCode));
+        return 0;
+    }
+
+    /* check data format and format version */
+    pInfo=(const UDataInfo *)((const char *)inData+4);
+    if(!(
+        pInfo->dataFormat[0]==0x54 &&   /* dataFormat="Norm" */
+        pInfo->dataFormat[1]==0x65 &&
+        pInfo->dataFormat[2]==0x73 &&
+        pInfo->dataFormat[3]==0x74 &&
+        pInfo->formatVersion[0]==1
+    )) {
+        udata_printError(ds, "test_swap(): data format %02x.%02x.%02x.%02x (format version %02x) is not recognized as testdata\n",
+                         pInfo->dataFormat[0], pInfo->dataFormat[1],
+                         pInfo->dataFormat[2], pInfo->dataFormat[3],
+                         pInfo->formatVersion[0]);
+        *pErrorCode=U_UNSUPPORTED_ERROR;
+        return 0;
+    }
+
+    inBytes=(const uint8_t *)inData+headerSize;
+    outBytes=(uint8_t *)outData+headerSize;
+
+    int32_t size16 = 2; // 16bit plus padding
+    int32_t sizeStr = 5; // 4 char inv-str plus null
+    int32_t size = size16 + sizeStr;
+
+    if(length>=0) {
+        if(length<size) {
+            udata_printError(ds, "test_swap(): too few bytes (%d after header, wanted %d) for all of testdata\n",
+                             length, size);
+            *pErrorCode=U_INDEX_OUTOFBOUNDS_ERROR;
+            return 0;
+        }
+
+	offset =0;
+	/* swap a 1 entry array */
+        ds->swapArray16(ds, inBytes+offset, size16, outBytes+offset, pErrorCode);
+	offset+=size16;
+	ds->swapInvChars(ds, inBytes+offset, sizeStr, outBytes+offset, pErrorCode);
+    }
+
+    return headerSize+size;
+}
+
 /* swap any data (except a .dat package) ------------------------------------ */
 
 static const struct {
@@ -546,6 +640,7 @@ static const struct {
 
 #if !UCONFIG_NO_NORMALIZATION
     { { 0x4e, 0x6f, 0x72, 0x6d }, unorm_swap },         /* dataFormat="Norm" */
+    { { 0x4e, 0x72, 0x6d, 0x32 }, unorm2_swap },        /* dataFormat="Nrm2" */
 #endif
 #if !UCONFIG_NO_COLLATION
     { { 0x55, 0x43, 0x6f, 0x6c }, ucol_swap },          /* dataFormat="UCol" */
@@ -556,7 +651,11 @@ static const struct {
     { { 0x54, 0x72, 0x44, 0x63 }, triedict_swap },      /* dataFormat="TrDc " */
 #endif
     { { 0x70, 0x6e, 0x61, 0x6d }, upname_swap },        /* dataFormat="pnam" */
-    { { 0x75, 0x6e, 0x61, 0x6d }, uchar_swapNames }     /* dataFormat="unam" */
+    { { 0x75, 0x6e, 0x61, 0x6d }, uchar_swapNames },    /* dataFormat="unam" */
+#if !UCONFIG_NO_NORMALIZATION
+    { { 0x43, 0x66, 0x75, 0x20 }, uspoof_swap },         /* dataFormat="Cfu " */
+#endif
+    { { 0x54, 0x65, 0x73, 0x74 }, test_swap }            /* dataFormat="Test" */
 };
 
 U_CAPI int32_t U_EXPORT2

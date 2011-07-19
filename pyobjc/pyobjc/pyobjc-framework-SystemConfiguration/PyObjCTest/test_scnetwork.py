@@ -1,6 +1,14 @@
 from PyObjCTools.TestSupport import *
 
 from SystemConfiguration import *
+import socket, sys
+
+def resolver_available():
+    try:
+        socket.gethostbyname('www.python.org')
+        return True
+    except socket.error:
+        return False
 
 class TestSCNetwork (TestCase):
     def testConstants(self):
@@ -12,22 +20,28 @@ class TestSCNetwork (TestCase):
         self.assertEquals(kSCNetworkFlagsIsLocalAddress, 1<<16)
         self.assertEquals(kSCNetworkFlagsIsDirect, 1<<17)
 
+    def testHardFunctionsNoHost(self):
+        self.assertRaises(socket.gaierror, SCNetworkCheckReachabilityByAddress,
+            ('no-such-host.objective-python.org', 80), objc._size_sockaddr_ip4, None)
+
+    @onlyIf(resolver_available(), "No DNS resolver available")
     def testHardFunctions(self):
         b, flags = SCNetworkCheckReachabilityByAddress(
                 ('www.python.org', 80), objc._size_sockaddr_ip4, None)
-        self.failUnlessIsInstance(b, bool)
-        self.failUnlessIsInstance(flags, (int, long))
-        self.failUnlessEqual(b, True)
-        self.failUnlessEqual(flags, kSCNetworkFlagsReachable)
+        self.assertIsInstance(b, bool)
+        self.assertIsInstance(flags, (int, long))
+        self.assertEqual(b, True)
+        self.assertEqual(flags, kSCNetworkFlagsReachable)
 
 
+    @onlyIf(resolver_available(), "No DNS resolver available")
     def testFunctions(self):
-        r, flags = SCNetworkCheckReachabilityByName("www.python.org", None)
-        self.failUnless(r is True or r is False)
-        self.failUnless(isinstance(flags, (int, long)))
+        r, flags = SCNetworkCheckReachabilityByName(b"www.python.org", None)
+        self.assertTrue(r is True or r is False)
+        self.assertTrue(isinstance(flags, (int, long)))
 
         r = SCNetworkInterfaceRefreshConfiguration("en0")
-        self.failUnless(r is True or r is False)
+        self.assertTrue(r is True or r is False)
 
 
 if __name__ == "__main__":

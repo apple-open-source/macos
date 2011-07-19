@@ -1,6 +1,6 @@
---- _SB/Libc/stdio/FreeBSD/fread.3	2003-05-20 15:22:42.000000000 -0700
-+++ _SB/Libc/stdio/FreeBSD/fread.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -48,14 +48,16 @@
+--- fread.3.bsdnew	2009-11-11 13:33:08.000000000 -0800
++++ fread.3	2009-11-11 13:33:09.000000000 -0800
+@@ -44,14 +44,16 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft size_t
@@ -20,7 +20,7 @@
  objects, each
  .Fa size
  bytes long, from the stream pointed to by
-@@ -66,7 +68,7 @@
+@@ -62,7 +64,7 @@ storing them at the location given by
  The function
  .Fn fwrite
  writes
@@ -29,7 +29,7 @@
  objects, each
  .Fa size
  bytes long, to the stream pointed to by
-@@ -86,7 +88,7 @@
+@@ -82,7 +84,7 @@ the return value is a short object count
  .Pp
  The function
  .Fn fread
@@ -38,7 +38,7 @@
  must use
  .Xr feof 3
  and
-@@ -95,7 +97,7 @@
+@@ -91,7 +93,7 @@ to determine which occurred.
  The function
  .Fn fwrite
  returns a value less than

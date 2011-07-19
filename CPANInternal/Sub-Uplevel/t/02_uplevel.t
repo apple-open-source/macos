@@ -2,7 +2,7 @@
 
 use lib qw(t/lib);
 use strict;
-use Test::More tests => 20;
+use Test::More tests => 23;
 
 BEGIN { use_ok('Sub::Uplevel'); }
 can_ok('Sub::Uplevel', 'uplevel');
@@ -68,18 +68,31 @@ sub try_croak {
 
 sub wrap_croak {
 # line 68
-    uplevel(1, \&try_croak);
+    uplevel(shift, \&try_croak);
 }
 
 
-my $croak_diag = $] <= 5.006 ? 'require 0' : 'eval {...}';
+# depending on perl version, we could get 'require 0' or 'eval {...}'
+# in the stack. This test used to be 'require 0' for <= 5.006, but
+# it broke on 5.005_05 test release, so we'll just take either
 # line 72
-eval { wrap_croak() };
-is( $@, <<CARP, 'croak() fooled');
+eval { wrap_croak(1) };
+my $croak_regex = quotemeta( <<"CARP" );
 Now we can fool croak! at $0 line 64
-	main::wrap_croak() called at $0 line 72
-	$croak_diag called at $0 line 72
+	main::wrap_croak(1) called at $0 line 72
 CARP
+$croak_regex .= '\t(require 0|eval \{\.\.\.\})'
+                . quotemeta( " called at $0 line 72" );
+like( $@, "/$croak_regex/", 'croak() fooled');
+
+# Try to wrap higher -- this may have been a problem that was exposed on
+# Test Exception
+# line 75
+eval { wrap_croak(2) };
+$croak_regex = quotemeta( <<"CARP" );
+Now we can fool croak! at $0 line 64
+CARP
+like( $@, "/$croak_regex/", 'croak() fooled');
 
 #line 79
 ok( !caller,                                "caller() not screwed up" );
@@ -128,6 +141,22 @@ is_deeply(   [ ( caller_check(0), 0, 4 )[0 .. 3] ],
              ['main', $0, 122, 'main::caller_check' ],
     'caller check' );
 
+is( (() = caller_check(0)), (() = core_caller_check(0)) ,
+    "caller() with args returns right number of values"
+);
+
+sub core_caller_no_args {
+    return CORE::caller();
+}
+
+sub caller_no_args {
+    return caller();
+}
+
+is( (() = caller_no_args()), (() = core_caller_no_args()),
+    "caller() with no args returns right number of values"
+);
+
 sub deep_caller {
     return caller(1);
 }
@@ -141,7 +170,7 @@ is_deeply([(check_deep_caller)[0..2]], ['main', $0, 134], 'shallow caller' );
 
 sub deeper { deep_caller() }        # caller 0
 sub still_deeper { deeper() }       # caller 1 -- should give this line, 137
-sub ever_deeper  { still_deeper }   # caller 2
+sub ever_deeper  { still_deeper() } # caller 2
 
 is_deeply([(ever_deeper)[0..2]], ['main', $0, 137], 'deep caller()' );
 

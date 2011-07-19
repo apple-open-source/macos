@@ -2,7 +2,7 @@
 #
 # Extract architecture flags needed for programs.
 #
-# Currently passes i386, ppc, and x86_64.
+# Currently passes i386 and x86_64.
 #
 
 ldarchflags=""

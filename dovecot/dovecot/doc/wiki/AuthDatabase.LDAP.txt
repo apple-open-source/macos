@@ -1,0 +1,60 @@
+LDAP
+====
+
+There are two ways to do LDAP authentication:
+
+ * <Password lookups> [AuthDatabase.LDAP.PasswordLookups.txt]
+ * <Authentication binds> [AuthDatabase.LDAP.AuthBinds.txt]
+
+Both of these have their own advantages and disadvantages.
+
+ * <LDAP as userdb> [AuthDatabase.LDAP.Userdb.txt]
+
+Configuration common to LDAP passdb and userdb
+----------------------------------------------
+
+Connecting
+----------
+
+There are two alternative ways to specify what LDAP server(s) to connect to:
+
+ * 'hosts': A space separated list of LDAP hosts to connect to. You can also
+   use host:port syntax to use different ports.
+ * 'uris': A space separated list of LDAP URIs to connect to. This isn't
+   supported by all LDAP libraries. The URIs are in syntax
+   'protocol://host:port'. For example 'ldap://localhost' or
+   'ldaps://secure.domain.org'
+
+If multiple LDAP servers are specified, it's decided by the LDAP library how
+the server connections are handled. Typically the first working server is used,
+and it's never disconnected from. So there is no load balancing or automatic
+reconnecting to the "primary" server.
+
+SSL/TLS
+-------
+
+You can enable TLS in two alternative ways:
+
+ * Connect to ldaps port (636) by using "ldaps" protocol, e.g. 'uris =
+   ldaps://secure.domain.org'
+ * Connect to ldap port (389) and use STARTTLS command. Use 'tls=yes' to enable
+   this.
+
+See the tls_* settings in 'dovecot-ldap-example.conf' for how to configure TLS.
+(I think they apply to ldaps too?)
+
+SASL binds
+----------
+
+It's possible to use SASL binds instead of the regular plaintext binds if your
+LDAP library supports them. See the sasl_* settings in
+'dovecot-ldap-example.conf'. Note that SASL binds are currently incompatible
+with authentication binds.
+
+Active Directory
+----------------
+
+When connecting to AD, you may need to use port 3268. Then again, not all LDAP
+fields are available in port 3268. Use whatever works.
+
+(This file was created from the wiki on 2011-05-11 04:42)

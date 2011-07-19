@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$117|typedef enum {
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$117|typedef enum {
     kCFCompareLessThan = -1,
     kCFCompareEqualTo = 0,
     kCFCompareGreaterThan = 1
@@ -11,7 +11,7 @@ $335|/*!
     @constant kCFCompareEqualTo Description of second constant.
     @constant kCFCompareGreaterThan Description of third constant.
 */
-$0|$10388|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$10603|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -105,6 +105,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
@@ -213,8 +214,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -256,8 +257,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -299,8 +300,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -341,8 +342,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -383,8 +384,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: TypedefdEnum (HeaderDoc::Typedef)
 +---typedef
@@ -430,15 +431,15 @@ END OF OBJECT
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: TypedefdEnum (HeaderDoc::Typedef)
 	<span class="keyword">typedef</span> <span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
-	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum" --><span class="var">TypedefdEnum</span><!-- /a -->;  
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan //test_ref/c/clconst/kCFCompareLessThan " machineGenerated="true" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo //test_ref/c/clconst/kCFCompareEqualTo " machineGenerated="true" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan //test_ref/c/clconst/kCFCompareGreaterThan " machineGenerated="true" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
+	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum //test_ref/c/clconst/TypedefdEnum " machineGenerated="true" --><span class="var">TypedefdEnum</span><!-- /a -->;  
 END OF OBJECT
 
 
 
-$10388|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$10603|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -532,6 +533,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
@@ -640,8 +642,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -683,8 +685,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -726,8 +728,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -768,8 +770,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -810,8 +812,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: TypedefdEnum (HeaderDoc::Typedef)
 +---typedef
@@ -857,866 +859,12 @@ END OF OBJECT
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: TypedefdEnum (HeaderDoc::Typedef)
 	<span class="keyword">typedef</span> <span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
-	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum" --><span class="var">TypedefdEnum</span><!-- /a -->;  
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan //test_ref/c/clconst/kCFCompareLessThan " machineGenerated="true" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo //test_ref/c/clconst/kCFCompareEqualTo " machineGenerated="true" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
+	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan //test_ref/c/clconst/kCFCompareGreaterThan " machineGenerated="true" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
+	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum //test_ref/c/clconst/TypedefdEnum " machineGenerated="true" --><span class="var">TypedefdEnum</span><!-- /a -->;  
 END OF OBJECT
 
 
 
-_$37|testsuite/parser_tests/typedef_3.test$1|C$9|typedef 3$10388|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => enum
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 1
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 5
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => TypedefdEnum;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef enum
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  typedef enum {
-         kCFCompareLessThan = -1,
-         kCFCompareEqualTo = 0,
-     kCFCompareGreaterThan = 1  } 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 5
-typelist: typedef
-namelist: TypedefdEnum
-posstypes:  typedef enum
-value: 
-returntype:  typedef enum {         kCFCompareLessThan = -1,         kCFCompareEqualTo = 0,     kCFCompareGreaterThan = 1  } 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => kCFCompareLessThan = -1
-Parsed Param 1 => kCFCompareEqualTo = 0
-Parsed Param 2 => kCFCompareGreaterThan = 1
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareLessThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +----
-|   +---1
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareEqualTo
-|   +--- 
-|   +---=
-|   +--- 
-|   +---0
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareGreaterThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +---1
-|   +---[ NEWLINE ]
-|   +---}
-+--- 
-+---TypedefdEnum
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 3
-APIUID: //test_ref/doc/header/typedef_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: TypedefdEnum
-    APIUID: //test_ref/c/tdef/TypedefdEnum
-    ABSTRACT: "<p>Abstract for this API.
-"
-    DISCUSSION: "<p>Discussion that applies to the entire typedef'd enum.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareLessThan
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareEqualTo
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareGreaterThan
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: TypedefdEnum (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareLessThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +----
-|   +---1
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareEqualTo
-|   +--- 
-|   +---=
-|   +--- 
-|   +---0
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareGreaterThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +---1
-|   +---[ NEWLINE ]
-|   +---}
-+--- 
-+---TypedefdEnum
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: TypedefdEnum (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
-	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum" --><span class="var">TypedefdEnum</span><!-- /a -->;  
-END OF OBJECT
-
-
-
-$10388|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => enum
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 1
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 5
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => TypedefdEnum;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef enum
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  typedef enum {
-         kCFCompareLessThan = -1,
-         kCFCompareEqualTo = 0,
-     kCFCompareGreaterThan = 1  } 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 5
-typelist: typedef
-namelist: TypedefdEnum
-posstypes:  typedef enum
-value: 
-returntype:  typedef enum {         kCFCompareLessThan = -1,         kCFCompareEqualTo = 0,     kCFCompareGreaterThan = 1  } 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => kCFCompareLessThan = -1
-Parsed Param 1 => kCFCompareEqualTo = 0
-Parsed Param 2 => kCFCompareGreaterThan = 1
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareLessThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +----
-|   +---1
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareEqualTo
-|   +--- 
-|   +---=
-|   +--- 
-|   +---0
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareGreaterThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +---1
-|   +---[ NEWLINE ]
-|   +---}
-+--- 
-+---TypedefdEnum
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 3
-APIUID: //test_ref/doc/header/typedef_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: TypedefdEnum
-    APIUID: //test_ref/c/tdef/TypedefdEnum
-    ABSTRACT: "<p>Abstract for this API.
-"
-    DISCUSSION: "<p>Discussion that applies to the entire typedef'd enum.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareLessThan
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareEqualTo
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kCFCompareGreaterThan
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: TypedefdEnum (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareLessThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +----
-|   +---1
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareEqualTo
-|   +--- 
-|   +---=
-|   +--- 
-|   +---0
-|   +---,
-|   +---[ NEWLINE ]
-|   +---    
-|   +---kCFCompareGreaterThan
-|   +--- 
-|   +---=
-|   +--- 
-|   +---1
-|   +---[ NEWLINE ]
-|   +---}
-+--- 
-+---TypedefdEnum
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: TypedefdEnum (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareLessThan //test_ref/c/data/kCFCompareLessThan" --><span class="var">kCFCompareLessThan</span><!-- /a --> = -<span class="number">1</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareEqualTo //test_ref/c/data/kCFCompareEqualTo" --><span class="var">kCFCompareEqualTo</span><!-- /a --> = <span class="number">0</span>, 
-	    <!-- a logicalPath="//test_ref/c/econst/kCFCompareGreaterThan //test_ref/c/data/kCFCompareGreaterThan" --><span class="var">kCFCompareGreaterThan</span><!-- /a --> = <span class="number">1</span> 
-	} <!-- a logicalPath="//test_ref/c/econst/TypedefdEnum //test_ref/c/data/TypedefdEnum" --><span class="var">TypedefdEnum</span><!-- /a -->;  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$91|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/typedef_3.test$1|C$9|typedef 3$1|C$6|parser

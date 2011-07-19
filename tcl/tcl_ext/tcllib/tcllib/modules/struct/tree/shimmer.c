@@ -3,6 +3,7 @@
  * Tcl_ObjType for nodes, and shimmering to it.
  */
 
+#include <string.h>
 #include <tn.h>
 
 /* .................................................. */

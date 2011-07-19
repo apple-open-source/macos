@@ -24,8 +24,14 @@
 /* to disable FTP */
 #undef CURL_DISABLE_FTP
 
+/* to disable Gopher */
+#undef CURL_DISABLE_GOPHER
+
 /* to disable HTTP */
 #undef CURL_DISABLE_HTTP
+
+/* to disable IMAP */
+#undef CURL_DISABLE_IMAP
 
 /* to disable LDAP */
 #undef CURL_DISABLE_LDAP
@@ -33,14 +39,26 @@
 /* to disable LDAPS */
 #undef CURL_DISABLE_LDAPS
 
+/* to disable POP3 */
+#undef CURL_DISABLE_POP3
+
 /* to disable proxies */
 #undef CURL_DISABLE_PROXY
+
+/* to disable RTSP */
+#undef CURL_DISABLE_RTSP
+
+/* to disable SMTP */
+#undef CURL_DISABLE_SMTP
 
 /* to disable TELNET */
 #undef CURL_DISABLE_TELNET
 
 /* to disable TFTP */
 #undef CURL_DISABLE_TFTP
+
+/* to disable TLS-SRP authentication */
+#undef CURL_DISABLE_TLS_SRP
 
 /* to disable verbose strings */
 #undef CURL_DISABLE_VERBOSE_STRINGS
@@ -51,17 +69,11 @@
 /* to enable hidden symbols */
 #undef CURL_HIDDEN_SYMBOLS
 
-/* W$ LDAP with non-W$ compiler */
-#undef CURL_LDAP_HYBRID
-
-/* Use W$ LDAP implementation */
+/* Use Windows LDAP implementation */
 #undef CURL_LDAP_WIN
 
 /* when not building a shared library */
 #undef CURL_STATICLIB
-
-/* Set to explicitly specify we don't want to use thread-safe functions */
-#undef DISABLED_THREADSAFE
 
 /* your Entropy Gathering Daemon socket pathname */
 #undef EGD_SOCKET
@@ -135,6 +147,9 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Define to 1 if you have the `ENGINE_cleanup' function. */
+#undef HAVE_ENGINE_CLEANUP
+
 /* Define to 1 if you have the `ENGINE_load_builtin_engines' function. */
 #undef HAVE_ENGINE_LOAD_BUILTIN_ENGINES
 
@@ -165,11 +180,23 @@
 /* Define to 1 if you have the freeifaddrs function. */
 #undef HAVE_FREEIFADDRS
 
+/* Define to 1 if you have the fsetxattr function. */
+#undef HAVE_FSETXATTR
+
+/* fsetxattr() takes 5 args */
+#undef HAVE_FSETXATTR_5
+
+/* fsetxattr() takes 6 args */
+#undef HAVE_FSETXATTR_6
+
 /* Define to 1 if you have the ftruncate function. */
 #undef HAVE_FTRUNCATE
 
 /* Define to 1 if you have a working getaddrinfo function. */
 #undef HAVE_GETADDRINFO
+
+/* Define to 1 if the getaddrinfo function is threadsafe. */
+#undef HAVE_GETADDRINFO_THREADSAFE
 
 /* Define to 1 if you have the `geteuid' function. */
 #undef HAVE_GETEUID
@@ -239,6 +266,9 @@
 
 /* Define to 1 if you have a working gmtime_r function. */
 #undef HAVE_GMTIME_R
+
+/* if you have the function gnutls_srp_verifier */
+#undef HAVE_GNUTLS_SRP
 
 /* if you have the gssapi libraries */
 #undef HAVE_GSSAPI
@@ -337,6 +367,9 @@
 /* Define to 1 if you have the ldap.h header file. */
 #undef HAVE_LDAP_H
 
+/* Define to 1 if you have the `ldap_init_fd' function. */
+#undef HAVE_LDAP_INIT_FD
+
 /* Use LDAPS implementation */
 #undef HAVE_LDAP_SSL
 
@@ -345,6 +378,9 @@
 
 /* Define to 1 if you have the `ldap_url_parse' function. */
 #undef HAVE_LDAP_URL_PARSE
+
+/* Define to 1 if you have the `gcrypt' library (-lgcrypt). */
+#undef HAVE_LIBGCRYPT
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #undef HAVE_LIBGEN_H
@@ -358,11 +394,26 @@
 /* Define to 1 if you have the `resolve' library (-lresolve). */
 #undef HAVE_LIBRESOLVE
 
+/* Define to 1 if you have the <librtmp/rtmp.h> header file. */
+#undef HAVE_LIBRTMP_RTMP_H
+
 /* Define to 1 if you have the `ssh2' library (-lssh2). */
 #undef HAVE_LIBSSH2
 
+/* Define to 1 if you have the `libssh2_exit' function. */
+#undef HAVE_LIBSSH2_EXIT
+
 /* Define to 1 if you have the <libssh2.h> header file. */
 #undef HAVE_LIBSSH2_H
+
+/* Define to 1 if you have the `libssh2_init' function. */
+#undef HAVE_LIBSSH2_INIT
+
+/* Define to 1 if you have the `libssh2_scp_send64' function. */
+#undef HAVE_LIBSSH2_SCP_SEND64
+
+/* Define to 1 if you have the `libssh2_session_handshake' function. */
+#undef HAVE_LIBSSH2_SESSION_HANDSHAKE
 
 /* Define to 1 if you have the `libssh2_version' function. */
 #undef HAVE_LIBSSH2_VERSION
@@ -466,6 +517,9 @@
 
 /* Define to 1 if you have a working POSIX-style strerror_r function. */
 #undef HAVE_POSIX_STRERROR_R
+
+/* if you have <pthread.h> */
+#undef HAVE_PTHREAD_H
 
 /* Define to 1 if you have the <pwd.h> header file. */
 #undef HAVE_PWD_H
@@ -665,6 +719,9 @@
 /* Define to 1 if you have the <sys/utime.h> header file. */
 #undef HAVE_SYS_UTIME_H
 
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#undef HAVE_SYS_XATTR_H
+
 /* Define to 1 if you have the <termios.h> header file. */
 #undef HAVE_TERMIOS_H
 
@@ -746,6 +803,9 @@
 
 /* Define to 1 if _REENTRANT preprocessor symbol must be defined. */
 #undef NEED_REENTRANT
+
+/* Define to 1 if _THREAD_SAFE preprocessor symbol must be defined. */
+#undef NEED_THREAD_SAFE
 
 /* cpu-machine-OS */
 #undef OS
@@ -864,6 +924,9 @@
 /* The size of `off_t', as computed by sizeof. */
 #undef SIZEOF_OFF_T
 
+/* The size of `short', as computed by sizeof. */
+#undef SIZEOF_SHORT
+
 /* The size of `size_t', as computed by sizeof. */
 #undef SIZEOF_SIZE_T
 
@@ -882,14 +945,20 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #undef TIME_WITH_SYS_TIME
 
-/* Define if you want to enable c-ares support */
+/* Define to enable c-ares support */
 #undef USE_ARES
+
+/* if axTLS is enabled */
+#undef USE_AXTLS
 
 /* Define to disable non-blocking sockets. */
 #undef USE_BLOCKING_SOCKETS
 
 /* if GnuTLS is enabled */
 #undef USE_GNUTLS
+
+/* if librtmp is in use */
+#undef USE_LIBRTMP
 
 /* if libSSH2 is in use */
 #undef USE_LIBSSH2
@@ -900,15 +969,31 @@
 /* if NSS is enabled */
 #undef USE_NSS
 
+/* Use OpenLDAP-specific code */
+#undef USE_OPENLDAP
+
 /* if OpenSSL is in use */
 #undef USE_OPENSSL
+
+/* if PolarSSL is enabled */
+#undef USE_POLARSSL
 
 /* if SSL is enabled */
 #undef USE_SSLEAY
 
+/* if you want POSIX threaded DNS lookup */
+#undef USE_THREADS_POSIX
+
+/* Use TLS-SRP authentication */
+#undef USE_TLS_SRP
+
+/* Define to 1 if you are building a Windows target with large file support.
+   */
+#undef USE_WIN32_LARGE_FILES
+
 /* Define to 1 if you are building a Windows target without large file
    support. */
-#undef USE_WIN32_LARGE_FILES
+#undef USE_WIN32_SMALL_FILES
 
 /* to enable SSPI support */
 #undef USE_WINDOWS_SSPI
@@ -932,9 +1017,6 @@
 
 /* Define for large files, on AIX-style hosts. */
 #undef _LARGE_FILES
-
-/* define this if you need it to compile thread-safe code */
-#undef _THREAD_SAFE
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

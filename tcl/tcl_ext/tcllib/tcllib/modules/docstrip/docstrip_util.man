@@ -3,6 +3,7 @@
   <Lars dot Hellstrom at residenset dot net>"]
 [moddesc {Literate programming tool}]
 [titledesc {Docstrip-related utilities}]
+[category  {Documentation tools}]
 [require Tcl 8.4]
 [require docstrip::util [opt 1.2]]
 [description]

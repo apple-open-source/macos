@@ -30,7 +30,8 @@
 #import "WebTiledLayer.h"
 
 #import "GraphicsContext.h"
-#import "GraphicsLayer.h"
+#import "GraphicsLayerCA.h"
+#import "PlatformCALayer.h"
 #import <wtf/UnusedParam.h>
 
 using namespace WebCore;
@@ -56,70 +57,35 @@ using namespace WebCore;
     return nil;
 }
 
-// Implement this so presentationLayer can get our custom attributes
-- (id)initWithLayer:(id)layer
-{
-    if ((self = [super initWithLayer:layer]))
-        m_layerOwner = [(WebLayer*)layer layerOwner];
-
-    return self;
-}
-
 - (void)setNeedsDisplay
 {
-    if (m_layerOwner && m_layerOwner->client() && m_layerOwner->drawsContent())
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer && layer->owner() && layer->owner()->platformCALayerDrawsContent())
         [super setNeedsDisplay];
 }
 
 - (void)setNeedsDisplayInRect:(CGRect)dirtyRect
 {
-    if (m_layerOwner && m_layerOwner->client() && m_layerOwner->drawsContent()) {
-#if defined(BUILDING_ON_LEOPARD)
-        dirtyRect = CGRectApplyAffineTransform(dirtyRect, [self contentsTransform]);
-#endif
-        [super setNeedsDisplayInRect:dirtyRect];
-
-#ifndef NDEBUG
-        if (m_layerOwner->showRepaintCounter()) {
-            CGRect bounds = [self bounds];
-            CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 46, 25);
-#if defined(BUILDING_ON_LEOPARD)
-            indicatorRect = CGRectApplyAffineTransform(indicatorRect, [self contentsTransform]);
-#endif
-            [super setNeedsDisplayInRect:indicatorRect];
-        }
-#endif
-    }
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer)
+        setLayerNeedsDisplayInRect(self, layer->owner(), dirtyRect);
 }
 
 - (void)display
 {
     [super display];
-    if (m_layerOwner)
-        m_layerOwner->didDisplay(self);
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer && layer->owner())
+        layer->owner()->platformCALayerLayerDidDisplay(self);
 }
 
-- (void)drawInContext:(CGContextRef)ctx
+- (void)drawInContext:(CGContextRef)context
 {
-    [WebLayer drawContents:m_layerOwner ofLayer:self intoContext:ctx];
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer)
+        drawLayerContents(context, self, layer);
 }
 
 @end // implementation WebTiledLayer
-
-#pragma mark -
-
-@implementation WebTiledLayer(LayerMacAdditions)
-
-- (void)setLayerOwner:(GraphicsLayer*)aLayer
-{
-    m_layerOwner = aLayer;
-}
-
-- (GraphicsLayer*)layerOwner
-{
-    return m_layerOwner;
-}
-
-@end
 
 #endif // USE(ACCELERATED_COMPOSITING)

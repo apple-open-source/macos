@@ -1,0 +1,11 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+proc mark {at args} {
+    circle radius 2 at $at color red {*}$args
+}
+proc vector {p args} {
+    mark $p {*}$args
+    arrow from [0 0] to $p 
+}
+
+mark [0 0] "\[0 0\]" anchor ne
+vector [50 20] "\[50 20\]" anchor sw

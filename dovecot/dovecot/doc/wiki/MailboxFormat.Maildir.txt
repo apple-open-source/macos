@@ -1,0 +1,312 @@
+Maildir
+=======
+
+This format debuted with the qmail server in the mid-1990s. Each mailbox folder
+is a directory and each message a file. This improves efficiency because
+individual emails can be modified, deleted and added without affecting the
+mailbox or other emails, and makes it safer to use on networked file systems
+such as NFS.
+
+Dovecot extensions
+------------------
+
+Since the standard maildir specification [http://cr.yp.to/proto/maildir.html]
+doesn't provide everything needed to fully support the IMAP protocol, Dovecot
+had to create some of its own non-standard extensions. The extensions still
+keep the maildir standards compliant, so MUAs not supporting the extensions can
+still safely use it as a normal maildir.
+
+IMAP UID mapping
+----------------
+
+IMAP requires each message to have a permanent unique ID number. Dovecot uses
+'dovecot-uidlist' file to keep UID <-> filename mapping. The file is basically
+in the same format as Courier IMAP's courierimapuiddb file, except for one
+difference (see below).
+
+The file begins with a header:
+
+---%<-------------------------------------------------------------------------
+3 V1275660208 N25022 G3085f01b7f11094c501100008c4a11c1
+---%<-------------------------------------------------------------------------
+
+ * 3 is the file format version number used by Dovecot v1.1+
+ * 1275660208 is the IMAP UIDVALIDITY
+ * 25022 is the UID that will be given to the next added message
+ * 3085f01b7f11094c501100008c4a11c1 is the 128 bit mailbox global UID in hex
+ * There may be other fields, and the order of these fields isn't important
+
+Version 1 file format is compatible with Courier. Version 2 was used by a few
+non-release versions.
+
+After the header comes the list of UID <-> filename mappings:
+
+---%<-------------------------------------------------------------------------
+25006 :1276528487.M364837P9451.kurkku,S=1355,W=1394:2,
+25017 W2481 :1276533073.M242911P3632.kurkku:2,F
+---%<-------------------------------------------------------------------------
+
+ * 25006, 25017 are message UIDs
+ * 2481 is the second message's virtual size. First message contains it in the
+   filename itself, so it's not duplicated.
+ * There may be more fields before ':' character
+ * Rest of the line after ':' is the last known filename. This filename doesn't
+   necessarily exist currently, because filename changes every time message's
+   flags change. Dovecot doesn't waste disk I/O by rewriting uidlist file every
+   time flags change, but whenever it is rewritten the latest filenames are
+   used. This allows Dovecot to try to guess what the message's current
+   filename is and if successful, avoid having to scan the directory's
+   contents.
+
+The dovecot-uidlist file doesn't need to be locked for reading. When writing
+dovecot-uidlist.lock file needs to be created. New lines can be appended to the
+end of file, but existing data must never be directly modified, it can only be
+replaced with rename() call.
+
+dovecot-uidlist is updated lazily to optimize for disk I/O. If a message is
+expunged, it may not be removed from dovecot-uidlist until sometimes later.
+This means that if you create a new file using the same file name as what
+already exists in dovecot-uidlist, Dovecot thinks you "unexpunged" message by
+restoring a message from backup. This causes a warning to be logged and the
+file to be renamed.
+
+Note that messages must not be modified once they've been delivered. IMAP (and
+Dovecot) requires that messages are immutable. If you wish to modify them in
+any way, create a new message instead and expunge the old one.
+
+IMAP keywords
+-------------
+
+All the non-standard message flags are called keywords in IMAP. Some clients
+use these automatically for marking spam (eg. $Junk, $NonJunk, $Spam, $NonSpam
+keywords). Thunderbird uses labels which map to keywords $Label1, $Label2, etc.
+
+Dovecot stores keywords in the maildir filename's flags field using letters
+a..z. This means that only 26 keywords are possible to store in the maildir. If
+more are used, they're still stored in Dovecot's index files. The mapping from
+single letters to keyword names is stored in dovecot-keywords file. The file is
+in format:
+
+---%<-------------------------------------------------------------------------
+0 $Junk
+1 $NonJunk
+---%<-------------------------------------------------------------------------
+
+0 means letter 'a' in the maildir filename, 1 means 'b' and so on. The file
+doesn't need to be locked for reading, but when writing dovecot-uidlist file
+must be locked. The file must not be directly modified, it can only be replaced
+with rename() call.
+
+Maildir filename extensions
+---------------------------
+
+The standard filename definition is: "<base filename>:2,<flags>". Dovecot has
+extended the<flags> field to be "<flags>[,<non-standard fields>]". This means
+that if Dovecot sees a comma in the<flags> field while updating flags in the
+filename, it doesn't touch anything after the comma. However other maildir MUAs
+may mess them up, so it's still not such a good idea to do that. Basic<flags>
+are described here [http://cr.yp.to/proto/maildir.html]. The <non-standard
+fields> isn't used by Dovecot for anything currently.
+
+Dovecot supports reading a few fields from the <base filename>:
+
+ * ',S=<size>': <size> contains the file size. Getting the size from the
+   filename avoids doing a stat(), which may improve the performance. This is
+   especially useful with <Maildir++ quota> [Quota.Maildir.txt].
+ * ',W=<vsize>': <vsize> contains the file's RFC822.SIZE, ie. the file size
+   with linefeeds being CR+LF characters. If the message was stored with CR+LF
+   linefeeds,<size> and <vsize> are the same. Setting this may give a small
+   speedup because now Dovecot doesn't need to calculate the size itself.
+
+A maildir filename with those fields would look something like:
+'1035478339.27041_118.foo.org,S=1000,W=1030:2,S'
+
+Maildir and filesystems
+-----------------------
+
+General comparisons of Maildir on different filesystems
+-------------------------------------------------------
+
+ * http://www.thesmbexchange.com/eng/qmail_fs_benchmark.html
+ * http://www.htiweb.inf.br/benchmark/fsbench.htm (including some graphs)
+
+Linux ext2 / ext3
+-----------------
+
+The main disadvantage is that searching can be slightly slower, and access to
+very large mailboxes (thousands of messages) can get slow with filesystems
+which don't have directory indexes.
+
+Old versions of ext2 and ext3 on Linux don't support directory indexing (to
+speed up access), but newer versions of ext3 do, although you may have to
+manually enable it. You can check if the indexing is already enabled with
+tune2fs:
+
+---%<-------------------------------------------------------------------------
+tune2fs -l /dev/hda3 | grep features
+---%<-------------------------------------------------------------------------
+
+If you see dir_index, you're all set. If dir_index is missing, add it using:
+
+---%<-------------------------------------------------------------------------
+umount /dev/hda3
+tune2fs -O dir_index /dev/hda3
+e2fsck -fD /dev/hda3
+mount /dev/hda3
+---%<-------------------------------------------------------------------------
+
+ReiserFS
+--------
+
+ReiserFS was built to be fast with lots of small files, so it works well with
+maildir.
+
+XFS
+---
+
+XFS performance seems to depend on a lot of factors, also on the system and the
+file system parameters.
+
+ * There are early reports on the dovecot mailing list which suggest that XFS
+   seems quite a lot slower than ext3 or
+   ReiserFS:http://www.dovecot.org/list/dovecot/2007-January/018994.html
+ * But then again others recommend XFS for the use with Maildir and dovecot:
+   http://www.dovecot.org/list/dovecot/2006-May/013216.html
+ * This 2007 Linux.conf.au talk about "Choosing and Tuning Linux File Systems"
+   (Slides as PDF)
+   [http://mirror.linux.org.au/pub/linux.conf.au/2007/video/talks/348.pdf] also
+   recommends XFS for Maildir (alternatively ext3 with small blocks and high
+   inodetofile ratio)
+ * Someone else wrote here in the wiki: XFS on TSL 3.0.5 works almost twice as
+   fast as our prior EXT3 installation of which is significant in size.
+   ReiserFS is also a good option.
+ * Comparisons which suggest XFS as being best choice:
+    * http://www.thesmbexchange.com/eng/qmail_fs_benchmark.html
+    * http://www.htiweb.inf.br/benchmark/fsbench.htm
+
+Various tips
+------------
+
+ * Mounting XFS with 'logbufs=8' option might increase the speed.
+ * Create the XFS with options '-b size=1024 -d su=16k,sw=3 -l
+   logdev=<some_other_device>' (Source:
+   http://www.thesmbexchange.com/eng/qmail_fs_benchmark.html)
+ * Use 'mkfs.xfs -f -l size=32768b,version=2' and 'mount.xfs -o
+   noatime,logbufs=8,logbsize=131072' (Source:
+   http://www.htiweb.inf.br/benchmark/fsbench.htm)
+
+Directory Structure
+-------------------
+
+Dovecot uses Maildir++
+[http://www.inter7.com/courierimap/README.maildirquota.html] directory layout
+for organizing mailbox directories. This means that all the folders are
+directly inside '~/Maildir' directory:
+
+ * '~/Maildir/new', '~/Maildir/cur' and '~/Maildir/tmp' directories contain the
+   messages for INBOX. The 'tmp' directory is used during delivery, new
+   messages arrive in 'new' and read shall be moved to 'cur' by the clients.
+ * '~/Maildir/.folder/' is a mailbox folder
+ * '~/Maildir/.folder.subfolder/' is a subfolder of a folder (ie.
+   "folder/subfolder")
+
+Most importantly this means that if your maildir folders exist in eg.
+'~/Maildir/folder' and '~/Maildir/folder/subfolder', Dovecot won't see them
+unless you rename them to Maildir++ layout. v1.1 supports them by adding
+':LAYOUT=fs' to <mail_location> [MailLocation.txt].
+
+Issues with the specification
+-----------------------------
+
+Locking
+-------
+
+Although maildir was designed to be lockless, Dovecot locks the maildir while
+doing modifications to it or while looking for new messages in it. This is
+required because otherwise Dovecot might temporarily see mails incorrectly
+deleted, which would cause trouble. Basically the problem is that if one
+process modifies the maildir (eg. a rename() to change a message's flag),
+another process in the middle of listing files at the same time could skip a
+file. The skipping happens because readdir() system call doesn't guarantee that
+all the files are returned if the directory is modified between the calls to
+it. This problem exists with all the commonly used filesystems.
+
+Because Dovecot uses its own non-standard locking ('dovecot-uidlist.lock'
+dotlock file), other MUAs accessing the maildir don't support it. This means
+that if another MUA is updating messages' flags or expunging messages, Dovecot
+might temporarily lose some message. After the next sync when it finds it
+again, an error message may be written to log and the message will receive a
+new UID.
+
+Delivering mails to new/ directory doesn't have any problems, so there's no
+need for LDAs to support any type of locking.
+
+Mail delivery
+-------------
+
+Qmail's how a message is delivered page
+[http://www.qmail.org/man/man5/maildir.html] suggests to deliver the mail like
+this:
+
+ 1. Create a unique filename (only "time.pid.host" here, later Maildir spec has
+    been updated to allow more uniqueness identifiers)
+ 2. Do 'stat(tmp/<filename>)'. If the 'stat()' found a file, wait 2 seconds and
+    go back to step 1.
+ 3. Create and write the message to the 'tmp/<filename>'.
+ 4. link() it into new/ directory. Although not mentioned here, the link()
+    could again fail if the mail existed in new/ dir. In that case you should
+    probably go back to step 1.
+
+All this trouble is rather pointless. Only the first step is what really
+guarantees that the mails won't get overwritten, the rest just sounds nice.
+Even though they might catch a problem once in a while, they give no guaranteed
+protection and will just as easily pass duplicate filenames through and
+overwrite existing mails.
+
+Step 2 is pointless because there's a race condition between steps 2 and 3.
+PID/host combination by itself should already guarantee that it never finds
+such a file. If it does, something's broken and the stat() check won't help
+since another process might be doing the same thing at the same time, and you
+end up writing to the same file in tmp/, causing the mail to get corrupted.
+
+In step 4 the link() would fail if an identical file already existed in the
+maildir, right? Wrong. The file may already have been moved to cur/ directory,
+and since it may contain any number of flags by then you can't check with a
+simple stat() anymore if it exists or not.
+
+Step 2 was pointed out to be useful if clock had moved backwards. However again
+this doesn't give any actual safety guarantees, because an identical base
+filename could already exist in cur/. Besides if the system was just rebooted,
+the file in tmp/ could probably be even overwritten safely (assuming it wasn't
+already link()ed to new/).
+
+So really, all that's important in not getting mails overwritten in your
+maildir is the step 1: Always create filenames that are guaranteed to be
+unique. Forget about the 2 second waits and such that the Qmail's man page
+talks about.
+
+Procmail Problems
+-----------------
+
+Maildir format is somewhat compatible with MH format. This is sometimes a
+problem when people configure their procmail to deliver mails to 'Maildir/new'.
+This makes procmail create the messages in MH format, which basically means
+that the file is called 'msg.inode_number'. While this appears to work first,
+after expunging messages from the maildir the inodes are freed and will be
+reused later. This means that another file with the same name may come to the
+maildir, which makes Dovecot think that an expunged file reappeared into the
+mailbox and an error is logged.
+
+The proper way to configure procmail to deliver to a Maildir is to use
+'Maildir/' as the destination.
+
+References
+----------
+
+ * Official Maildir format page [http://cr.yp.to/proto/maildir.html]
+ * Qmail's how to deliver to Maildir man page
+   [http://www.qmail.org/man/man5/maildir.html]
+ * Maildir++ [http://www.inter7.com/courierimap/README.maildirquota.html]
+ * Wikipedia [http://en.wikipedia.org/wiki/Maildir]
+
+(This file was created from the wiki on 2011-05-11 04:42)

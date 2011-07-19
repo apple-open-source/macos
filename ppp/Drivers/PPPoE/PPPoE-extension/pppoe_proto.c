@@ -24,7 +24,7 @@
 
 #include <sys/systm.h>
 #include <sys/malloc.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/protosw.h>
@@ -268,8 +268,8 @@ int pppoe_ctloutput(struct socket *so, struct sockopt *sopt)
                     else {
                         pppoe_rfc_command(so->so_pcb, PPPOE_CMD_GETUNIT, &val);
                         // Fix Me : should get the name from ifnet
-                        snprintf(str, sizeof(str), "en%d", val);
-                        error = sooptcopyout(sopt, str, strlen(str));
+                        snprintf((char*)str, sizeof(str), "en%d", val);
+                        error = sooptcopyout(sopt, str, strlen((char*)str));
                     }
                     break;
                 case PPPOE_OPT_CONNECT_TIMER:
@@ -428,7 +428,7 @@ int pppoe_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
     //IOLog("pppoe_bind, so = %p\n", so);
 
     // bind pppoe protocol
-    if (pppoe_rfc_bind(so->so_pcb, &adr->pppoe_ac_name[0], &adr->pppoe_service[0]))
+    if (pppoe_rfc_bind(so->so_pcb, (u_char*)&adr->pppoe_ac_name[0], (u_char*)&adr->pppoe_service[0]))
         error = EINVAL;		/* XXX ??? */
 
     return error;
@@ -447,7 +447,7 @@ int pppoe_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
     //IOLog("pppoe_connect, so = %p\n", so);
 
     // connect pppoe protocol
-    if (pppoe_rfc_connect(so->so_pcb, adr->pppoe_ac_name, adr->pppoe_service))
+    if (pppoe_rfc_connect(so->so_pcb, (u_char*)adr->pppoe_ac_name, (u_char*)adr->pppoe_service))
         error = EINVAL;		/* XXX ??? */
     else {
         soisconnecting(so);
@@ -596,7 +596,7 @@ int pppoe_send(struct socket *so, int flags, struct mbuf *m,
     //IOLog("pppoe_send, so = %p\n", so);
 
     if (error = pppoe_rfc_output(so->so_pcb, (mbuf_t)m)) {
-        m_freem(m);
+        mbuf_freem((mbuf_t)m);
     }
 
     return error;

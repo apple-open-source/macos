@@ -30,7 +30,7 @@
  */
 
 #include <sys/param.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/gb18030.c,v 1.6 2004/05/12 14:09:04 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/gb18030.c,v 1.8 2007/10/13 16:28:21 ache Exp $");
 
 #include <errno.h>
 #include <runetype.h>
@@ -39,11 +39,13 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/gb18030.c,v 1.6 2004/05/12 14:09:04 tjr 
 #include <wchar.h>
 #include "mblocal.h"
 
-int	_GB18030_init(_RuneLocale *);
-size_t	_GB18030_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict);
-int	_GB18030_mbsinit(const mbstate_t *);
-size_t	_GB18030_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+extern int __mb_sb_limit;
+
+static size_t	_GB18030_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict);
+static int	_GB18030_mbsinit(const mbstate_t *);
+static size_t	_GB18030_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict);
 
 typedef struct {
 	int	count;
@@ -59,18 +61,19 @@ _GB18030_init(_RuneLocale *rl)
 	__mbsinit = _GB18030_mbsinit;
 	_CurrentRuneLocale = rl;
 	__mb_cur_max = 4;
+	__mb_sb_limit = 128;
 
 	return (0);
 }
 
-int
+static int
 _GB18030_mbsinit(const mbstate_t *ps)
 {
 
 	return (ps == NULL || ((const _GB18030State *)ps)->count == 0);
 }
 
-size_t
+static size_t
 _GB18030_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s,
     size_t n, mbstate_t * __restrict ps)
 {
@@ -154,7 +157,7 @@ ilseq:
 	return ((size_t)-1);
 }
 
-size_t
+static size_t
 _GB18030_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
 	_GB18030State *gs;

@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>Sockets</key>
+	<dict>
+		<key>Listener</key>
+		<dict>
+			<key>SockPathName</key>
+			<string>/var/run/systemkeychaincheck.socket</string>
+			<key>SockPathMode</key>
+			<!-- 438 == 0666 == r/w for eveyone -->
+			<integer>438</integer>
+		</dict>
+	</dict>
 	<key>Label</key>
 	<string>com.apple.systemkeychain</string>
 	<key>ProgramArguments</key>
 	<array>
-		<string>/usr/libexec/security-checksystem</string>
+		<string>/usr/sbin/systemkeychain</string>
+		<string>-d</string>
 	</array>
-	<key>RunAtLoad</key>
-	<true/>
 </dict>
 </plist>

@@ -26,9 +26,9 @@
 #include "config.h"
 #include "BinaryPropertyList.h"
 
-#include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/text/StringHash.h>
 #include <limits>
 
 using namespace std;
@@ -92,7 +92,7 @@ struct IntegerArrayHash {
 
 unsigned IntegerArrayHash::hash(const IntegerArray& array)
 {
-    return StringImpl::computeHash(reinterpret_cast<const UChar*>(array.integers()), array.size() / (sizeof(int) / sizeof(UChar)));
+    return StringHasher::hashMemory(array.integers(), array.size() * sizeof(int));
 }
 
 bool IntegerArrayHash::equal(const IntegerArray& a, const IntegerArray& b)

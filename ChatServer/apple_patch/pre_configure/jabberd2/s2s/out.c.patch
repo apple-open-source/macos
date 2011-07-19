@@ -1,11 +1,13 @@
---- /tmp/jabberd-2.1.24.1/s2s/out.c	2008-04-27 02:57:31.000000000 -0700
-+++ ./jabberd2/s2s/out.c	2009-05-26 14:27:28.000000000 -0700
-@@ -228,6 +228,20 @@ void out_packet(s2s_t s2s, pkt_t pkt) {
-     snprintf(ipport, INET6_ADDRSTRLEN + 16, "%s/%d", pkt->ip, pkt->port);
-     out = (conn_t) xhash_get(s2s->out, ipport);
+--- /tmp/jabberd-2.2.13/s2s/out.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/s2s/out.c	2011-02-24 16:47:41.000000000 -0800
+@@ -596,6 +596,22 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
+     conn_state_t state;
+     int ret;
  
 +    /* perform check against whitelist */
-+    if (s2s->enable_whitelist > 0 && (s2s_domain_in_whitelist(s2s, pkt->to->domain) == 0)) {
++    if (s2s->enable_whitelist > 0 && 
++    		(pkt->to->domain != NULL) && 
++    		(s2s_domain_in_whitelist(s2s, pkt->to->domain) == 0)) {
 +        log_write(s2s->log, LOG_NOTICE, "sending a packet to domain not in the whitelist, dropping it");
 +        if (pkt->to != NULL)
 +            jid_free(pkt->to);
@@ -20,28 +22,28 @@
 +
      /* new route key */
      rkey = s2s_route_key(NULL, pkt->from->domain, pkt->to->domain);
- 
-@@ -365,7 +379,9 @@ void out_packet(s2s_t s2s, pkt_t pkt) {
+     rkeylen = strlen(rkey);
+@@ -683,8 +699,9 @@ int out_packet(s2s_t s2s, pkt_t pkt) {
      }
  
      /* this is a new route - send dialback auth request to piggyback on the existing connection */
 +	if (out->s2s->require_tls == 0 || out->s->ssf > 0) {
-     _out_dialback(out, rkey);
-+	}
- 
+     _out_dialback(out, rkey, rkeylen);
+-
++    }
      free(rkey);
+     return 0;
  }
-@@ -617,7 +633,8 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1536,7 +1553,7 @@ static int _out_sx_callback(sx_t s, sx_e
  
                  /* if no stream version from either side, kick off dialback for each route, */
                  /* otherwise wait for stream features */
--                if ((out->s->res_version==NULL) || (out->s2s->sx_ssl == NULL) || (out->s2s->local_pemfile == NULL)) {
-+                if (((out->s->res_version==NULL) || (out->s2s->sx_ssl == NULL) || (out->s2s->local_pemfile == NULL)) 
-+					&& out->s2s->require_tls == 0) {
+-                if ((out->s->res_version==NULL) || (out->s2s->sx_ssl == NULL)) {
++                if (((out->s->res_version==NULL) || (out->s2s->sx_ssl == NULL)) && out->s2s->require_tls == 0) {
                       log_debug(ZONE, "no stream version, sending dialbacks for %s immediately", out->key);
                       out->online = 1;
                       send_dialbacks(out);
-@@ -649,7 +666,7 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1568,7 +1585,7 @@ static int _out_sx_callback(sx_t s, sx_e
                          elem = nad_find_elem(nad, 0, ns, "starttls", 1);
                          if(elem >= 0) {
                              log_debug(ZONE, "got STARTTLS in stream features");
@@ -50,11 +52,11 @@
                                  starttls = 1;
                                  nad_free(nad);
                                  return 0;
-@@ -661,13 +678,19 @@ static int _out_sx_callback(sx_t s, sx_e
+@@ -1580,13 +1597,19 @@ static int _out_sx_callback(sx_t s, sx_e
  
                  /* If we're not establishing a starttls connection, send dialbacks */
                  if (!starttls) {
-+					if (out->s2s->require_tls == 0 || s->ssf > 0) {
++				    if (out->s2s->require_tls == 0 || s->ssf > 0) {
                       log_debug(ZONE, "No STARTTLS, sending dialbacks for %s", out->key);
                       out->online = 1;
                       send_dialbacks(out);
@@ -63,10 +65,21 @@
 +					}
                  }
  #else
-+                if (out->s2s->require_tls == 0) {
++				if (out->s2s->require_tls == 0) {
                  out->online = 1;
                  send_dialbacks(out);
-+                }
++            	}
  #endif
              }
+ 
+@@ -1617,7 +1640,10 @@ static int _out_sx_callback(sx_t s, sx_e
+             return 0;
+ 
+         case event_CLOSED:
++            if (out->fd != NULL) {
+             mio_close(out->s2s->mio, out->fd);
++                out->fd = NULL;
++            }
+             return -1;
+     }
  

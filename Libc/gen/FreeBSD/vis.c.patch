@@ -1,15 +1,15 @@
---- vis.c.orig	2004-11-25 11:38:02.000000000 -0800
-+++ vis.c	2005-02-24 16:58:00.000000000 -0800
-@@ -37,6 +37,8 @@
+--- vis.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ vis.c	2009-11-07 14:51:40.000000000 -0800
+@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)vis.c	8.1 (B
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/gen/vis.c,v 1.13 2003/10/30 12:41:50 phk Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/gen/vis.c,v 1.14 2007/01/09 00:27:56 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <sys/types.h>
  #include <limits.h>
  #include <ctype.h>
-@@ -54,18 +56,20 @@
+@@ -50,18 +52,20 @@ vis(dst, c, flag, nextc)
  	int c, nextc;
  	int flag;
  {
@@ -32,7 +32,7 @@
  			dst += 2;
  			goto done;
  		}
-@@ -74,7 +78,7 @@
+@@ -70,7 +74,7 @@ vis(dst, c, flag, nextc)
  	if ((flag & VIS_GLOB) &&
  	    (c == '*' || c == '?' || c == '[' || c == '#'))
  		;
@@ -41,7 +41,7 @@
  	   ((flag & VIS_SP) == 0 && c == ' ') ||
  	   ((flag & VIS_TAB) == 0 && c == '\t') ||
  	   ((flag & VIS_NL) == 0 && c == '\n') ||
-@@ -130,7 +134,7 @@
+@@ -126,7 +130,7 @@ vis(dst, c, flag, nextc)
  			goto done;
  		}
  	}
@@ -50,7 +50,7 @@
  		*dst++ = '\\';
  		*dst++ = ((u_char)c >> 6 & 07) + '0';
  		*dst++ = ((u_char)c >> 3 & 07) + '0';
-@@ -143,7 +147,7 @@
+@@ -139,7 +143,7 @@ vis(dst, c, flag, nextc)
  		c &= 0177;
  		*dst++ = 'M';
  	}

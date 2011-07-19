@@ -97,7 +97,7 @@ strtopx(CONST char *s, char **sp, void *V, locale_t loc)
 
 	  case STRTOG_Infinite:
 		L[_0] = 0x7fff;
-		L[_1] = 0x8000; /* 4306392: to match gcc */
+		L[_1] = 0x8000;
 		L[_2] = L[_3] = L[_4] = 0;
 		break;
 

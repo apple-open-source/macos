@@ -71,6 +71,7 @@ struct __xlocale_st_runelocale {
 	__STRUCT_COMMON
 	char __ctype_encoding[ENCODING_LEN + 1];
 	int __mb_cur_max;
+	int __mb_sb_limit;
 	size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict,
 	    size_t, __darwin_mbstate_t * __restrict, struct _xlocale *);
 	int (*__mbsinit)(const __darwin_mbstate_t *, struct _xlocale *);

@@ -25,10 +25,10 @@
 #ifndef KeyframeList_h
 #define KeyframeList_h
 
-#include "AtomicString.h"
 #include <wtf/Vector.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -37,15 +37,25 @@ class RenderStyle;
 
 class KeyframeValue {
 public:
-    KeyframeValue()
-        : m_key(-1)
+    KeyframeValue(float key, PassRefPtr<RenderStyle> style)
+        : m_key(key)
+        , m_style(style)
     {
     }
 
-    float key() const { return m_key; }
-    const RenderStyle* style() const { return m_style.get(); }
+    void addProperty(int prop) { m_properties.add(prop); }
+    bool containsProperty(int prop) const { return m_properties.contains(prop); }
+    const HashSet<int>& properties() const { return m_properties; }
 
+    float key() const { return m_key; }
+    void setKey(float key) { m_key = key; }
+
+    const RenderStyle* style() const { return m_style.get(); }
+    void setStyle(PassRefPtr<RenderStyle> style) { m_style = style; }
+
+private:
     float m_key;
+    HashSet<int> m_properties; // The properties specified in this keyframe.
     RefPtr<RenderStyle> m_style;
 };
 
@@ -55,8 +65,8 @@ public:
         : m_animationName(animationName)
         , m_renderer(renderer)
     {
-        insert(0, 0);
-        insert(1, 0);
+        insert(KeyframeValue(0, 0));
+        insert(KeyframeValue(1, 0));
     }
     ~KeyframeList();
         
@@ -65,7 +75,7 @@ public:
     
     const AtomicString& animationName() const { return m_animationName; }
     
-    void insert(float key, PassRefPtr<RenderStyle> style);
+    void insert(const KeyframeValue& keyframe);
     
     void addProperty(int prop) { m_properties.add(prop); }
     bool containsProperty(int prop) const { return m_properties.contains(prop); }
@@ -75,13 +85,12 @@ public:
     void clear();
     bool isEmpty() const { return m_keyframes.isEmpty(); }
     size_t size() const { return m_keyframes.size(); }
-    Vector<KeyframeValue>::const_iterator beginKeyframes() const { return m_keyframes.begin(); }
-    Vector<KeyframeValue>::const_iterator endKeyframes() const { return m_keyframes.end(); }
+    const KeyframeValue& operator[](size_t index) const { return m_keyframes[index]; }
 
 private:
     AtomicString m_animationName;
-    Vector<KeyframeValue> m_keyframes;
-    HashSet<int> m_properties;       // the properties being animated
+    Vector<KeyframeValue> m_keyframes; // kept sorted by key
+    HashSet<int> m_properties; // the properties being animated
     RenderObject* m_renderer;
 };
 

@@ -726,7 +726,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 	
     if ( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
-		if (!(_errataBits & kErrataDontUseCompanionController) || (gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+		if (!(_errataBits & kErrataDontUseCompanionController))
 		{
 
 			value |= kEHCIPortSC_Owner;
@@ -842,7 +842,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     if ( (portSC & kEHCIPortSC_Enabled) == 0)
     {
 		// USBLog(2, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x",  this, portSC);
-		if (!(_errataBits & kErrataDontUseCompanionController) || (gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+		if (!(_errataBits & kErrataDontUseCompanionController))
 		{
 			value = getPortSCForWriting(_pEHCIRegisters, port);
 			value |= kEHCIPortSC_Owner;

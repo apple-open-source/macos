@@ -1,0 +1,85 @@
+LMTP Server
+===========
+
+LMTP uses the same settings as <LDA.txt>, as specified in 'conf.d/15-lda.conf'
+in example configuration. There is also a bit of extra configuration in
+'conf.d/20-lmtp.conf'. The main difference is that the LDA is a short-running
+process, started as a binary from command line, while LMTP is a long-runing
+process started by Dovecot's master process.
+
+Envelope Addresses
+------------------
+
+Compared to dovecot-lda parameters, the addresses are taken from:
+
+ * -f / Envelope sender address: This is the MAIL FROM: value from LMTP
+   session.
+ * -r / Final envelope recipient address: This is the RCPT TO: value from LMTP
+   session.
+ * -a / Original envelope recipient address: This defaults to same as RCPT TO:
+   value, but may be overridden by reading it from a header specified by
+   'lda_original_recipient_header' setting.
+ * -d / Destination username: This is the same as RCPT TO: value, but with the
+   "+extension" part removed when 'recipient_delimiter' setting is set. If
+   usernames differ from recipient email addresses, the userdb must handle the
+   translation.
+
+Listeners
+---------
+
+You can configure LMTP to be listening on TCP or UNIX sockets:
+
+---%<-------------------------------------------------------------------------
+# add lmtp to protocols, otherwise its listeners are ignored
+protocols = imap pop3 lmtp
+
+service lmtp {
+  inet_listener lmtp {
+    address = 192.168.0.24 127.0.0.1 ::1
+    port = 24
+  }
+
+  unix_listener lmtp {
+    #mode = 0666
+  }
+}
+---%<-------------------------------------------------------------------------
+
+The UNIX listener on $base_dir/lmtp is enabled by default when protocols
+setting contains lmtp.
+
+Security
+--------
+
+Unfortunately LMTP process currently needs to run as root, and only temporarily
+drop privileges to users. Otherwise it couldn't handle mail deliveries to more
+than a single user with different UID. If you're using only a single global
+UID/GID, you can improve security by running lmtp processes as that user:
+
+---%<-------------------------------------------------------------------------
+service lmtp {
+  user = vmail
+}
+---%<-------------------------------------------------------------------------
+
+LMTP Proxying
+-------------
+
+It's possible to use Dovecot LMTP server as a proxy to remote LMTP or SMTP
+servers. The configuration is similar to <IMAP/POP3 proxying>
+[PasswordDatabase.ExtraFields.Proxy.txt], but you'll need to tell Dovecot LMTP
+to issue passdb lookups:
+
+---%<-------------------------------------------------------------------------
+lmtp_proxy = yes
+---%<-------------------------------------------------------------------------
+
+Plugins
+-------
+
+ * Most of the <Dovecot plugins> [Plugins.txt] work with LMTP.
+ * Virtual quota can be enforced using <Quota plugin> [Quota.txt].
+ * Sieve language support can be added with the <Pigeonhole Sieve plugin>
+   [Pigeonhole.Sieve.txt].
+
+(This file was created from the wiki on 2011-05-11 04:42)

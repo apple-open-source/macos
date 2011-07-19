@@ -370,7 +370,7 @@ static inline int NXEvSetParameterInt(	NXEventHandle handle,
 
     CFMutableArrayRef 	arrayRef;
     CFNumberRef 	numberRef;
-    IOReturn		ret;
+    IOReturn		ret = kIOReturnNoMemory;
     unsigned int	i;
 
 

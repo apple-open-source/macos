@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1999-2008 International Business Machines Corporation and
+*   Copyright (C) 1999-2010 International Business Machines Corporation and
 *   others. All Rights Reserved.
 ********************************************************************************
 *   Date        Name        Description
@@ -27,11 +27,11 @@
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
 #define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
-    errln("fail in file \"%s\", line %d: \"%s\"", __FILE__, __LINE__, \
+    dataerrln("fail in file \"%s\", line %d: \"%s\"", __FILE__, __LINE__, \
     u_errorName(status));}}
 
 #define TEST_ASSERT(expr) {if (!(expr)) { \
-    errln("fail in file \"%s\", line %d", __FILE__, __LINE__); }}
+    dataerrln("fail in file \"%s\", line %d", __FILE__, __LINE__); }}
 
 UnicodeString operator+(const UnicodeString& left, const UnicodeSet& set) {
     UnicodeString pat;
@@ -130,7 +130,7 @@ void UnicodeSetTest::TestToPattern() {
             ec = U_ZERO_ERROR;
             UnicodeSet s(OTHER_TOPATTERN_TESTS[j], ec);
             if (U_FAILURE(ec)) {
-                errln((UnicodeString)"FAIL: bad pattern " + OTHER_TOPATTERN_TESTS[j]);
+                dataerrln((UnicodeString)"FAIL: bad pattern " + OTHER_TOPATTERN_TESTS[j] + " - " + UnicodeString(u_errorName(ec)));
                 continue;
             }
             checkPat(OTHER_TOPATTERN_TESTS[j], s);
@@ -281,7 +281,8 @@ UnicodeSetTest::TestCategories(void) {
     const char* pat = " [:Lu:] "; // Whitespace ok outside [:..:]
     UnicodeSet set(pat, status);
     if (U_FAILURE(status)) {
-        errln((UnicodeString)"Fail: Can't construct set with " + pat);
+        dataerrln((UnicodeString)"Fail: Can't construct set with " + pat + " - " + UnicodeString(u_errorName(status)));
+        return;
     } else {
         expectContainment(set, pat, "ABC", "abc");
     }
@@ -321,7 +322,7 @@ UnicodeSetTest::TestCloneEqualHash(void) {
     UnicodeSet *set1=new UnicodeSet(UNICODE_STRING_SIMPLE("\\p{Lowercase Letter}"), status); //  :Ll: Letter, lowercase
     UnicodeSet *set1a=new UnicodeSet(UNICODE_STRING_SIMPLE("[:Ll:]"), status); //  Letter, lowercase
     if (U_FAILURE(status)){
-        errln((UnicodeString)"FAIL: Can't construst set with category->Ll");
+        dataerrln((UnicodeString)"FAIL: Can't construst set with category->Ll" + " - " + UnicodeString(u_errorName(status)));
         return;
     }
     UnicodeSet *set2=new UnicodeSet(UNICODE_STRING_SIMPLE("\\p{Decimal Number}"), status);   //Number, Decimal digit
@@ -696,6 +697,49 @@ void UnicodeSetTest::TestAPI() {
         errln("FAIL: serialize");
         return;
     }
+
+    // Conversions to and from USet
+    UnicodeSet *uniset = &set;
+    USet *uset = uniset->toUSet();
+    TEST_ASSERT((void *)uset == (void *)uniset);
+    UnicodeSet *setx = UnicodeSet::fromUSet(uset);
+    TEST_ASSERT((void *)setx == (void *)uset);
+    const UnicodeSet *constSet = uniset;
+    const USet *constUSet = constSet->toUSet();
+    TEST_ASSERT((void *)constUSet == (void *)constSet);
+    const UnicodeSet *constSetx = UnicodeSet::fromUSet(constUSet);
+    TEST_ASSERT((void *)constSetx == (void *)constUSet);
+
+    // span(UnicodeString) and spanBack(UnicodeString) convenience methods
+    UnicodeString longString=UNICODE_STRING_SIMPLE("aaaaaaaaaabbbbbbbbbbcccccccccc");
+    UnicodeSet ac(0x61, 0x63);
+    ac.remove(0x62).freeze();
+    if( ac.span(longString, -5, USET_SPAN_CONTAINED)!=10 ||
+        ac.span(longString, 0, USET_SPAN_CONTAINED)!=10 ||
+        ac.span(longString, 5, USET_SPAN_CONTAINED)!=10 ||
+        ac.span(longString, 10, USET_SPAN_CONTAINED)!=10 ||
+        ac.span(longString, 15, USET_SPAN_CONTAINED)!=15 ||
+        ac.span(longString, 20, USET_SPAN_CONTAINED)!=30 ||
+        ac.span(longString, 25, USET_SPAN_CONTAINED)!=30 ||
+        ac.span(longString, 30, USET_SPAN_CONTAINED)!=30 ||
+        ac.span(longString, 35, USET_SPAN_CONTAINED)!=30 ||
+        ac.span(longString, INT32_MAX, USET_SPAN_CONTAINED)!=30
+    ) {
+        errln("UnicodeSet.span(UnicodeString, ...) returns incorrect end indexes");
+    }
+    if( ac.spanBack(longString, -5, USET_SPAN_CONTAINED)!=0 ||
+        ac.spanBack(longString, 0, USET_SPAN_CONTAINED)!=0 ||
+        ac.spanBack(longString, 5, USET_SPAN_CONTAINED)!=0 ||
+        ac.spanBack(longString, 10, USET_SPAN_CONTAINED)!=0 ||
+        ac.spanBack(longString, 15, USET_SPAN_CONTAINED)!=15 ||
+        ac.spanBack(longString, 20, USET_SPAN_CONTAINED)!=20 ||
+        ac.spanBack(longString, 25, USET_SPAN_CONTAINED)!=20 ||
+        ac.spanBack(longString, 30, USET_SPAN_CONTAINED)!=20 ||
+        ac.spanBack(longString, 35, USET_SPAN_CONTAINED)!=20 ||
+        ac.spanBack(longString, INT32_MAX, USET_SPAN_CONTAINED)!=20
+    ) {
+        errln("UnicodeSet.spanBack(UnicodeString, ...) returns incorrect start indexes");
+    }
 }
 
 void UnicodeSetTest::TestIteration() {
@@ -850,6 +894,7 @@ void UnicodeSetTest::TestPropertySet() {
         "abc",
         "ABC",
 
+#if !UCONFIG_NO_NORMALIZATION
         // Combining class: @since ICU 2.2
         // Check both symbolic and numeric
         "\\p{ccc=Nukta}",
@@ -863,6 +908,7 @@ void UnicodeSetTest::TestPropertySet() {
         "[:c c c = iota subscript :]",
         "\\u0345",
         "xyz",
+#endif
 
         // Bidi class: @since ICU 2.2
         "\\p{bidiclass=lefttoright}",
@@ -974,6 +1020,7 @@ void UnicodeSetTest::TestPropertySet() {
         "abcd\\uDC00",
         "ef\\uD800\\U00010000",
 
+#if !UCONFIG_NO_NORMALIZATION
         "[:^lccc=0:]", // Lead canonical class
         "\\u0300\\u0301",
         "abcd\\u00c0\\u00c5",
@@ -993,10 +1040,22 @@ void UnicodeSetTest::TestPropertySet() {
         "[[:ccc=0:]-[:lccc=0:]-[:tccc=0:]]", // Weirdos. Complete canonical class is zero, but both lead and trail are not
         "\\u0F73\\u0F75\\u0F81",
         "abcd\\u0300\\u0301\\u00c0\\u00c5",
+#endif /* !UCONFIG_NO_NORMALIZATION */
 
         "[:Assigned:]",
         "A\\uE000\\uF8FF\\uFDC7\\U00010000\\U0010FFFD",
-        "\\u0888\\uFDD3\\uFFFE\\U00050005"
+        "\\u0888\\uFDD3\\uFFFE\\U00050005",
+
+        // Script_Extensions, new in Unicode 6.0
+        "[:scx=Arab:]",
+        "\\u061E\\u061F\\u0620\\u0621\\u063F\\u0640\\u0650\\u065E\\uFDF1\\uFDF2\\uFDF3",
+        "\\u061D\\u065F\\uFDEF\\uFDFE",
+
+        // U+FDF2 has Script=Arabic and also Arab in its Script_Extensions,
+        // so scx-sc is missing U+FDF2.
+        "[[:Script_Extensions=Arabic:]-[:Arab:]]",
+        "\\u0640\\u064B\\u0650\\u0655\\uFDFD",
+        "\\uFDF2"
     };
 
     static const int32_t DATA_LEN = sizeof(DATA)/sizeof(DATA[0]);
@@ -1202,9 +1261,11 @@ void UnicodeSetTest::TestCloseOver() {
 
         CASE, "[{\\u1f7c\\u03b9}]", "[\\u1ff2{\\u1f7c\\u03b9}]", // last in sorted table
 
+#if !UCONFIG_NO_FILE_IO
         CASE_MAPPINGS,
         "[aq\\u00DF{Bc}{bC}{Fi}]",
         "[aAqQ\\u00DF{ss}{Ss}{SS}{Bc}{BC}{bC}{bc}{FI}{Fi}{fi}]",
+#endif
 
         CASE_MAPPINGS,
         "[\\u01F1]", // 'DZ'
@@ -1234,7 +1295,7 @@ void UnicodeSetTest::TestCloseOver() {
         if (s == t) {
             logln((UnicodeString)"Ok: " + pat + ".closeOver(" + selector + ") => " + exp);
         } else {
-            errln((UnicodeString)"FAIL: " + pat + ".closeOver(" + selector + ") => " +
+            dataerrln((UnicodeString)"FAIL: " + pat + ".closeOver(" + selector + ") => " +
                   s.toPattern(buf, TRUE) + ", expected " + exp);
         }
     }
@@ -1641,7 +1702,8 @@ void UnicodeSetTest::TestSurrogate() {
     for (int i=0; DATA[i] != 0; ++i) {
         UErrorCode ec = U_ZERO_ERROR;
         logln((UnicodeString)"Test pattern " + i + " :" + UnicodeString(DATA[i], -1, US_INV));
-        UnicodeSet set(UnicodeString(DATA[i], -1, US_INV), ec);
+        UnicodeString str = UnicodeString(DATA[i], -1, US_INV);
+        UnicodeSet set(str, ec);
         if (U_FAILURE(ec)) {
             errln("FAIL: UnicodeSet constructor");
             continue;
@@ -1909,7 +1971,7 @@ UnicodeSetTest::expectContainment(const UnicodeString& pat,
     UErrorCode ec = U_ZERO_ERROR;
     UnicodeSet set(pat, ec);
     if (U_FAILURE(ec)) {
-        errln((UnicodeString)"FAIL: pattern \"" +
+        dataerrln((UnicodeString)"FAIL: pattern \"" +
               pat + "\" => " + u_errorName(ec));
         return;
     }
@@ -2091,14 +2153,14 @@ void UnicodeSetTest::TestFreezable() {
     UnicodeString idPattern=UNICODE_STRING("[:ID_Continue:]", 15);
     UnicodeSet idSet(idPattern, errorCode);
     if(U_FAILURE(errorCode)) {
-        errln("FAIL: unable to create UnicodeSet([:ID_Continue:]) - %s", u_errorName(errorCode));
+        dataerrln("FAIL: unable to create UnicodeSet([:ID_Continue:]) - %s", u_errorName(errorCode));
         return;
     }
 
     UnicodeString wsPattern=UNICODE_STRING("[:White_Space:]", 15);
     UnicodeSet wsSet(wsPattern, errorCode);
     if(U_FAILURE(errorCode)) {
-        errln("FAIL: unable to create UnicodeSet([:White_Space:]) - %s", u_errorName(errorCode));
+        dataerrln("FAIL: unable to create UnicodeSet([:White_Space:]) - %s", u_errorName(errorCode));
         return;
     }
 
@@ -3584,7 +3646,7 @@ void UnicodeSetTest::TestSpan() {
             UErrorCode errorCode=U_ZERO_ERROR;
             sets[SLOW]=new UnicodeSet(UnicodeString(s, -1, US_INV).unescape(), errorCode);
             if(U_FAILURE(errorCode)) {
-                errln("FAIL: Unable to create UnicodeSet(%s) - %s", s, u_errorName(errorCode));
+                dataerrln("FAIL: Unable to create UnicodeSet(%s) - %s", s, u_errorName(errorCode));
                 break;
             }
             sets[SLOW_NOT]=new UnicodeSet(*sets[SLOW]);

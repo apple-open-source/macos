@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  objectRRGC.c
  *  testObjects
  *
@@ -6,14 +12,13 @@
  *  Copyright 2008 __MyCompanyName__. All rights reserved.
  *
  * Test that the runtime honors the new callouts properly for retain/release and GC
- * CON FIG C  rdar://6175959
  */
 
-
+// TEST_DISABLED
 
 #include <stdio.h>
 #include <Block_private.h>
-
+#include "test.h"
 
 int AssignCalled = 0;
 int DisposeCalled = 0;
@@ -36,7 +41,7 @@ struct MyStruct {
 
 typedef struct MyStruct *__attribute__((NSObject)) MyStruct_t;
 
-int main(int argc, char *argv[]) {
+int main() {
     // create a block
     struct MyStruct X;
     MyStruct_t xp = (MyStruct_t)&X;
@@ -46,12 +51,10 @@ int main(int argc, char *argv[]) {
     // Lets find out!
     struct Block_layout *bl = (struct Block_layout *)(void *)myBlock;
     if ((bl->flags & BLOCK_HAS_DESCRIPTOR) != BLOCK_HAS_DESCRIPTOR) {
-        printf("using old runtime layout!\n");
-        return 1;
+        fail("using old runtime layout!");
     }
     if ((bl->flags & BLOCK_HAS_COPY_DISPOSE) != BLOCK_HAS_COPY_DISPOSE) {
-        printf("no copy dispose!!!!\n");
-        return 1;
+        fail("no copy dispose!!!!");
     }
     // call helper routines directly.  These will, in turn, we hope, call the stubs above
     long destBuffer[256];
@@ -60,13 +63,11 @@ int main(int argc, char *argv[]) {
     bl->descriptor->copy(destBuffer, bl);
     bl->descriptor->dispose(bl);
     if (AssignCalled == 0) {
-        printf("did not call assign helper!\n");
-        return 1;
+        fail("did not call assign helper!");
     }
     if (DisposeCalled == 0) {
-        printf("did not call dispose helper\n");
-        return 1;
+        fail("did not call dispose helper");
     }
-    printf("%s: Success!\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

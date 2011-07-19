@@ -25,7 +25,7 @@
  * It was generated using rpcgen.
  */
 
-#include <rpcsvc/sm_inter.h>
+#include "sm_inter.h"
 #ifndef lint
 /*static char sccsid[] = "from: @(#)sm_inter.x 1.7 87/06/24 Copyr 1987 Sun Micro";*/
 /*static char sccsid[] = "from: @(#)sm_inter.x	2.2 88/08/01 4.0 RPCSRC";*/
@@ -73,7 +73,7 @@ xdr_mon(XDR *xdrs, mon *objp)
 
 	if (!xdr_mon_id(xdrs, &objp->mon_id))
 		return (FALSE);
-	if (!xdr_opaque(xdrs, objp->priv, 16))
+	if (!xdr_opaque(xdrs, (uint8_t *)objp->priv, 16))
 		return (FALSE);
 	return (TRUE);
 }
@@ -126,7 +126,7 @@ xdr_sm_status(XDR *xdrs, sm_status *objp)
 		return (FALSE);
 	if (!xdr_int(xdrs, &objp->state))
 		return (FALSE);
-	if (!xdr_opaque(xdrs, objp->priv, 16))
+	if (!xdr_opaque(xdrs, (uint8_t *)objp->priv, 16))
 		return (FALSE);
 	return (TRUE);
 }

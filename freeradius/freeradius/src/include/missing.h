@@ -371,6 +371,7 @@ int gettimeofday (struct timeval *tv, void *tz);
 #endif
 
 #ifdef WIN32
+#undef interface
 #undef mkdir
 #define mkdir(_d, _p) mkdir(_d)
 #define FR_DIR_SEP '\\'
@@ -394,5 +395,8 @@ int gettimeofday (struct timeval *tv, void *tz);
 #ifndef offsetof
 # define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
+
+void timeval2ntp(const struct timeval *tv, uint8_t *ntp);
+void ntp2timeval(struct timeval *tv, const char *ntp);
 
 #endif /* _FR_MISSING_H */

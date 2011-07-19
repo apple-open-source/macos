@@ -25,6 +25,7 @@ WebKitWebSettingsClass
 <TITLE>WebKitWebBackForwardList</TITLE>
 WebKitWebBackForwardList
 webkit_web_back_forward_list_add_item
+webkit_web_back_forward_list_clear
 webkit_web_back_forward_list_contains_item
 webkit_web_back_forward_list_get_back_item
 webkit_web_back_forward_list_get_back_length
@@ -418,6 +419,7 @@ WebKitNetworkResponseClass
 <FILE>webkitwebview</FILE>
 WebKitNavigationResponse
 WebKitWebViewTargetInfo
+WebKitWebViewViewMode
 <TITLE>WebKitWebView</TITLE>
 WebKitWebView
 webkit_web_view_can_copy_clipboard
@@ -436,6 +438,7 @@ webkit_web_view_execute_script
 webkit_web_view_get_back_forward_list
 webkit_web_view_get_copy_target_list
 webkit_web_view_get_custom_encoding
+webkit_web_view_get_dom_document
 webkit_web_view_get_editable
 webkit_web_view_get_encoding
 webkit_web_view_get_focused_frame
@@ -451,7 +454,9 @@ webkit_web_view_get_settings
 webkit_web_view_get_title
 webkit_web_view_get_transparent
 webkit_web_view_get_uri
+webkit_web_view_get_view_mode
 webkit_web_view_get_view_source_mode
+webkit_web_view_get_viewport_attributes
 webkit_web_view_get_zoom_level
 webkit_web_view_go_back
 webkit_web_view_go_back_or_forward
@@ -479,6 +484,7 @@ webkit_web_view_set_highlight_text_matches
 webkit_web_view_set_maintains_back_forward_list
 webkit_web_view_set_settings
 webkit_web_view_set_transparent
+webkit_web_view_set_view_mode
 webkit_web_view_set_view_source_mode
 webkit_web_view_set_zoom_level
 webkit_web_view_stop_loading
@@ -526,13 +532,20 @@ WebKitWebWindowFeaturesPrivate
 
 <SECTION>
 <FILE>webkit</FILE>
+<TITLE>Global functions</TITLE>
 webkit_init
 webkit_get_default_session
 webkit_get_default_web_database_quota
 webkit_get_web_database_directory_path
+webkit_get_web_plugin_database
 webkit_remove_all_web_databases
 webkit_set_default_web_database_quota
 webkit_set_web_database_directory_path
+<SUBSECTION CacheModel>
+WebKitCacheModel
+webkit_get_cache_model
+webkit_set_cache_model
+</SUBSECTION>
 </SECTION>
 
 <SECTION>
@@ -559,6 +572,93 @@ webkit_web_resource_new
 WebKitWebResourcePrivate
 WebKitWebResource
 WebKitWebResourceClass
+</SECTION>
+
+<SECTION>
+<FILE>webkitviewportattributes</FILE>
+<TITLE>WebKitViewportAttributes</TITLE>
+webkit_viewport_attributes_recompute
+<SUBSECTION Standard>
+WEBKIT_IS_VIEWPORT_ATTRIBUTES
+WEBKIT_IS_VIEWPORT_ATTRIBUTES_CLASS
+WEBKIT_TYPE_VIEWPORT_ATTRIBUTES
+WEBKIT_VIEWPORT_ATTRIBUTES
+WEBKIT_VIEWPORT_ATTRIBUTES_CLASS
+WEBKIT_VIEWPORT_ATTRIBUTES_GET_CLASS
+<SUBSECTION Private>
+webkit_viewport_attributes_get_type
+WebKitViewportAttributes
+WebKitViewportAttributesClass
+WebKitViewportAttributesPrivate
+</SECTION>
+
+<SECTION>
+<FILE>webkitwebplugin</FILE>
+<TITLE>WebKitWebPlugin</TITLE>
+WebKitWebPluginMIMEType
+webkit_web_plugin_get_description
+webkit_web_plugin_get_enabled
+webkit_web_plugin_get_mimetypes
+webkit_web_plugin_get_name
+webkit_web_plugin_set_enabled
+<SUBSECTION Standard>
+WEBKIT_IS_WEB_PLUGIN
+WEBKIT_IS_WEB_PLUGIN_CLASS
+WEBKIT_TYPE_WEB_PLUGIN
+WEBKIT_WEB_PLUGIN
+WEBKIT_WEB_PLUGIN_CLASS
+WEBKIT_WEB_PLUGIN_GET_CLASS
+<SUBSECTION Private>
+webkit_web_plugin_get_type
+WebKitWebPlugin
+WebKitWebPluginClass
+WebKitWebPluginPrivate
+</SECTION>
+
+<SECTION>
+<FILE>webkitwebplugindatabase</FILE>
+<TITLE>WebKitWebPluginDatabase</TITLE>
+webkit_web_plugin_database_get_plugin_for_mimetype
+webkit_web_plugin_database_get_plugins
+webkit_web_plugin_database_new
+webkit_web_plugin_database_plugins_list_free
+webkit_web_plugin_database_refresh
+<SUBSECTION Standard>
+WEBKIT_IS_WEB_PLUGIN_DATABASE
+WEBKIT_IS_WEB_PLUGIN_DATABASE_CLASS
+WEBKIT_TYPE_WEB_PLUGIN_DATABASE
+WEBKIT_WEB_PLUGIN_DATABASE
+WEBKIT_WEB_PLUGIN_DATABASE_CLASS
+WEBKIT_WEB_PLUGIN_DATABASE_GET_CLASS
+<SUBSECTION Private>
+WebKitWebPluginDatabase
+WebKitWebPluginDatabaseClass
+WebKitWebPluginDatabasePrivate
+webkit_web_plugin_database_get_type
+</SECTION>
+
+<SECTION>
+<FILE>soup-cache</FILE>
+<TITLE>WebKitSoupCache</TITLE>
+webkit_soup_cache_new
+webkit_soup_cache_flush
+webkit_soup_cache_clear
+webkit_soup_cache_dump
+webkit_soup_cache_load
+webkit_soup_cache_set_max_size
+webkit_soup_cache_get_max_size
+<SUBSECTION Standard>
+WEBKIT_IS_SOUP_CACHE
+WEBKIT_IS_SOUP_CACHE_CLASS
+WEBKIT_TYPE_SOUP_CACHE
+WEBKIT_SOUP_CACHE
+WEBKIT_SOUP_CACHE_CLASS
+WEBKIT_SOUP_CACHE_GET_CLASS
+<SUBSECTION Private>
+webkit_soup_cache_get_type
+WebKitSoupCachePrivate
+WebKitSoupCache
+WebKitSoupCacheClass
 </SECTION>
 
 <SECTION>
@@ -602,11 +702,4 @@ webkit_check_version
 webkit_major_version
 webkit_micro_version
 webkit_minor_version
-</SECTION>
-
-<SECTION>
-<FILE>webkitcachemodel</FILE>
-WebKitCacheModel
-webkit_get_cache_model
-webkit_set_cache_model
 </SECTION>

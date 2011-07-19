@@ -35,6 +35,16 @@ QT_END_NAMESPACE
 #include "IntPoint.h"
 #endif
 
+#if PLATFORM(BREWMP)
+typedef unsigned short    uint16;
+typedef unsigned long int uint32;
+#define AEEEvent uint16
+#endif
+
+#if PLATFORM(EFL)
+typedef struct _Eina_List Eina_List;
+#endif
+
 namespace WebCore {
 
 enum TouchEventType {
@@ -52,11 +62,16 @@ public:
         , m_altKey(false)
         , m_shiftKey(false)
         , m_metaKey(false)
+        , m_timestamp(0)
     {}
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    PlatformTouchEvent(const IntPoint& windowPos, TouchEventType, PlatformTouchPoint::State, int metaState);
+    PlatformTouchEvent(const Vector<int>&, const Vector<IntPoint>&, TouchEventType, const Vector<PlatformTouchPoint::State>&, int metaState);
+#elif PLATFORM(BREWMP)
+    PlatformTouchEvent(AEEEvent, uint16 wParam, uint32 dwParam);
+#elif PLATFORM(EFL)
+    PlatformTouchEvent(Eina_List*, const IntPoint, TouchEventType, int metaState);
 #endif
 
     TouchEventType type() const { return m_type; }
@@ -67,6 +82,9 @@ public:
     bool shiftKey() const { return m_shiftKey; }
     bool metaKey() const { return m_metaKey; }
 
+    // Time in seconds.
+    double timestamp() const { return m_timestamp; }
+
 protected:
     TouchEventType m_type;
     Vector<PlatformTouchPoint> m_touchPoints;
@@ -74,6 +92,7 @@ protected:
     bool m_altKey;
     bool m_shiftKey;
     bool m_metaKey;
+    double m_timestamp;
 };
 
 }

@@ -1,6 +1,9 @@
 # utils.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
+#             Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # DOM data access utilities for use in the TclSOAP package.
+# This is the only place which has to be modified to switch
+# between different dom implementations, like TclDOM and tDOM.
 #
 # -------------------------------------------------------------------------
 # This software is distributed in the hope that it will be useful, but
@@ -9,10 +12,12 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require tdom
+
 namespace eval ::SOAP {
     namespace eval Utils {
-        variable version 1.0.1
-        variable rcsid {$Id: utils.tcl,v 1.9 2003/09/06 17:08:46 patthoyts Exp $}
+        variable version 1.1
+        variable rcsid {$Id: utils.tcl,v 1.10 2008/07/09 16:14:23 andreas_kupries Exp $}
         namespace export getElements getElementsByName \
                 getElementValue getElementName \
                 getElementValues getElementNames \
@@ -20,8 +25,66 @@ namespace eval ::SOAP {
                 getElementAttributes getElementAttribute \
                 decomposeSoap decomposeXMLRPC selectNode \
                 namespaceURI targetNamespaceURI \
-                nodeName baseElementName
+                nodeName baseElementName \
+                newDocument deleteDocument \
+                parseXML generateXML \
+                addNode addTextNode setElementAttribute \
+                documentElement getSimpleElementValue
     }
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::createDocument {name} {
+    return [addNode [newDocument] $name]
+}
+
+proc ::SOAP::Utils::newDocument {} {
+    return [NamespaceSetup [dom createDocumentNode]]
+}
+
+proc ::SOAP::Utils::deleteDocument {doc} {
+    $doc delete
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::parseXML {xml} {
+    return [NamespaceSetup [dom parse -keepEmpties $xml]]
+}
+
+proc ::SOAP::Utils::generateXML {doc} {
+    set    xml "<?xml version=\"1.0\"?>\n"
+    append xml [$doc asXML -indent 0]
+    return $xml
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::NamespaceSetup {doc} {
+    $doc selectNodesNamespaces [list \
+         SENC  "http://schemas.xmlsoap.org/soap/encoding/" \
+         SENV  "http://schemas.xmlsoap.org/soap/envelope/" \
+         xsd   "http://www.w3.org/1999/XMLSchema"          \
+         xsi   "http://www.w3.org/1999/XMLSchema-instance" \
+    ]
+    return $doc
+}
+
+# -------------------------------------------------------------------------
+
+proc ::SOAP::Utils::addNode {parent tag} {
+   return [$parent appendChild [[$parent ownerDocument] createElement $tag]]
+}
+
+proc ::SOAP::Utils::addTextNode {parent value} {
+   return [$parent appendChild [[$parent ownerDocument] createTextNode $value]]
+}
+
+proc ::SOAP::Utils::setElementAttribute {node name value} {
+    $node setAttribute $name $value
+    return
 }
 
 # -------------------------------------------------------------------------
@@ -38,11 +101,7 @@ namespace eval ::SOAP {
 #   if no match.
 #
 proc ::SOAP::Utils::selectNode {node path} {
-    package require SOAP::xpath
-    if {[catch {SOAP::xpath::xpath -node $node $path} r]} {
-        set r {}
-    }
-    return $r
+    return [$node selectNodes $path]
 }
 
 # -------------------------------------------------------------------------
@@ -59,8 +118,7 @@ proc ::SOAP::Utils::is_array {domElement} {
     # FIX ME
     # This code should check the namespace using namespaceURI code (CGI)
     #
-    set attr [dom::node cget $domElement -attributes]
-    upvar #0 attr Attr
+    array set Attr [getElementAttributes $domElement]
     if {[info exists Attr(SOAP-ENC:arrayType)]} {
         return 1
     }
@@ -166,8 +224,8 @@ proc ::SOAP::Utils::getXMLRPCValue {value_elt} {
 proc ::SOAP::Utils::getElements {domNode} {
     set elements {}
     if {$domNode != {}} {
-        foreach node [dom::node children $domNode] {
-            if {[dom::node cget $node -nodeType] == "element"} {
+        foreach node [Children $domNode] {
+            if {[IsElement $node]} {
                 lappend elements $node
             }
         }
@@ -264,7 +322,7 @@ proc ::SOAP::Utils::getElementNamedValues {domElement} {
 #
 proc ::SOAP::Utils::getElementValue {domElement} {
     set r {}
-    set dataNodes [dom::node children $domElement]
+    set dataNodes [Children $domElement]
     if {[set href [href $domElement]] != {}} {
         if {[string match "\#*" $href]} {
             set href [string trimleft $href "\#"]
@@ -275,7 +333,16 @@ proc ::SOAP::Utils::getElementValue {domElement} {
                 [getDocumentElement $domElement] $href]]
     }
     foreach dataNode $dataNodes {
-        append r [dom::node cget $dataNode -nodeValue]
+        append r [NodeValue $dataNode]
+    }
+    return $r
+}
+
+proc ::SOAP::Utils::getSimpleElementValue {domElement} {
+    set r {}
+    set dataNodes [Children $domElement]
+    foreach dataNode $dataNodes {
+        append r [NodeValue $dataNode]
     }
     return $r
 }
@@ -292,8 +359,7 @@ proc ::SOAP::Utils::proc:name {} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::href {node} {
-    set a [dom::node cget $node -attributes]
-    upvar #0 $a A
+    array set A [getElementAttributes $node]
     if {[info exists A(href)]} {
         return $A(href)
     }
@@ -303,8 +369,7 @@ proc ::SOAP::Utils::href {node} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::id {node} {
-    set a [dom::node cget $node -attributes]
-    upvar #0 $a A
+    array set A [getElementAttributes $node]
     if {[info exists A(id)]} {
         return $A(id)
     }
@@ -313,15 +378,19 @@ proc ::SOAP::Utils::id {node} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::getElementName {domElement} {
-    return [dom::node cget $domElement -nodeName]
+    return [$domElement nodeName]
 }
 
 # -------------------------------------------------------------------------
 
 proc ::SOAP::Utils::getElementAttributes {domElement} {
-    set attr [dom::node cget $domElement -attributes]
-    set attrlist [array get $attr]
-    return $attrlist
+    set res {}
+    foreach item [$domElement attributes] {
+        foreach {name prefix ns} $item break
+        if {[catch {$domElement getAttributeNS $ns $name} r]} continue
+        lappend res $name $r
+    }
+    return $res
 }
 
 # -------------------------------------------------------------------------
@@ -332,7 +401,7 @@ proc ::SOAP::Utils::getNodeById {base id} {
         return $base
     }
     set r {}
-    set children [dom::node children $base]
+    set children [Children $base]
     foreach child $children {
         set r [getNodeById $child $id]
         if {$r != {}} { return $r }
@@ -344,12 +413,17 @@ proc ::SOAP::Utils::getNodeById {base id} {
 
 # Walk up the DOM until you get to the top.
 proc ::SOAP::Utils::getDocumentElement {node} {
-    set parent [dom::node parent $node]
-    if {$parent == {}} {
-        return $node
-    } else {
-        return [getDocumentElement $parent]
+    while {1} {
+        set parent [Parent $node]
+        if {$parent == {}} {
+            return $node
+        }
+        set node $parent
     }
+}
+
+proc ::SOAP::Utils::documentElement {domNode} {
+    return [$domNode documentElement]
 }
 
 # -------------------------------------------------------------------------
@@ -361,7 +435,7 @@ proc ::SOAP::Utils::getDocumentElement {node} {
 #
 proc ::SOAP::Utils::getElementAttribute {node attrname} {
     set r {}
-    set attrs [array get [dom::node cget $node -attributes]]
+    set attrs [getElementAttributes $node]
     if {[set ndx [lsearch -exact $attrs $attrname]] == -1} {
         set ndx [lsearch -regexp $attrs ":${attrname}\$"]
     }
@@ -391,15 +465,14 @@ proc ::SOAP::Utils::getElementAttribute {node attrname} {
 #  method so we'll use this test for now.
 #
 proc ::SOAP::Utils::namespaceURI {node} {
-    #if {[dom::DOMImplementation hasFeature query 1.0]} {
-    #    return [dom::node cget $node -namespaceURI]
-    #} 
-    if {[catch {dom::node cget $node -namespaceURI} result]} {
-        set nodeName [dom::node cget $node -nodeName]
+    if {[catch {
+        $node namespaceURI
+    } result]} {
+        set nodeName [getElementName $node]
         set ndx [string last : $nodeName]
         set nodeNS [string range $nodeName 0 $ndx]
         set nodeNS [string trimright $nodeNS :]
-        
+
         set result [find_namespaceURI $node $nodeNS]
     }
     return $result
@@ -427,7 +500,7 @@ proc ::SOAP::Utils::targetNamespaceURI {node value} {
 #   the node name without any namespace prefix.
 #
 proc ::SOAP::Utils::nodeName {node} {
-    set nodeName [dom::node cget $node -nodeName]
+    set nodeName [$node nodeName]
     set nodeName [string range $nodeName [string last : $nodeName] end]
     return [string trimleft $nodeName :]
 }
@@ -449,8 +522,7 @@ proc ::SOAP::Utils::baseElementName {nodeName} {
 #
 proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     if {$node == {}} { return {} }
-    set atts [dom::node cget $node -attributes]
-    upvar #0 atts Atts
+    array set Atts [getElementAttributes $node]
 
     # check for the default namespace or targetNamespace
     if {$nsname == {}} {
@@ -475,7 +547,7 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
     }
     
     # recurse through the parents.
-    return [find_namespaceURI [dom::node parent $node] $nsname $find_targetNamespace]
+    return [find_namespaceURI [Parent $node] $nsname $find_targetNamespace]
 }
 
 # -------------------------------------------------------------------------
@@ -489,14 +561,32 @@ proc ::SOAP::Utils::find_namespaceURI {node nsname {find_targetNamespace 0}} {
 proc ::SOAP::Utils::getElementsByName {domNode name} {
     set elements {}
     if {$domNode != {}} {
-        foreach node [dom::node children $domNode] {
-            if {[dom::node cget $node -nodeType] == "element"
-                && [string match $name [dom::node cget $node -nodeName]]} {
+        foreach node [Children $domNode] {
+            if {[IsElement $node]
+                && [string match $name [getElementName $node]]} {
                 lappend elements $node
             }
         }
     }
     return $elements
+}
+
+# -------------------------------------------------------------------------       
+
+proc ::SOAP::Utils::IsElement {domNode} {
+    return [string equal [$domNode nodeType] ELEMENT_NODE]
+}
+
+proc ::SOAP::Utils::Children {domNode} {
+    return [$domNode childNodes]
+}
+
+proc ::SOAP::Utils::NodeValue {domNode} {
+    return [$domNode nodeValue]
+}
+
+proc ::SOAP::Utils::Parent {domNode} {
+    return [$domNode nodeParent]
 }
 
 # -------------------------------------------------------------------------       

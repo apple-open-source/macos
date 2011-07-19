@@ -2,6 +2,7 @@
 [manpage_begin fileutil::magic::filetype n 1.0.2]
 [moddesc   {file utilities}]
 [titledesc {Procedures implementing file-type recognition}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require fileutil::magic::filetype [opt 1.0.2]]
 [description]

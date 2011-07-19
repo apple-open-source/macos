@@ -122,7 +122,7 @@ typedef struct mds_funcs {
     CSSM_RETURN (CSSMAPI *DestroyRelation)
         (MDS_DB_HANDLE MdsDbHandle,
          CSSM_DB_RECORDTYPE RelationID);
-} MDS_FUNCS, *MDS_FUNCS_PTR;
+} MDS_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *MDS_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 
 /* MDS Context APIs */
@@ -131,16 +131,20 @@ CSSM_RETURN CSSMAPI
 MDS_Initialize (const CSSM_GUID *pCallerGuid,
                 const CSSM_MEMORY_FUNCS *pMemoryFunctions,
                 MDS_FUNCS_PTR pDlFunctions,
-                MDS_HANDLE *hMds);
+                MDS_HANDLE *hMds)
+				DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMAPI
-MDS_Terminate (MDS_HANDLE MdsHandle);
+MDS_Terminate (MDS_HANDLE MdsHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMAPI
-MDS_Install (MDS_HANDLE MdsHandle);
+MDS_Install (MDS_HANDLE MdsHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMAPI
-MDS_Uninstall (MDS_HANDLE MdsHandle);
+MDS_Uninstall (MDS_HANDLE MdsHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #ifdef __cplusplus
 }

@@ -26,42 +26,74 @@
 #include "config.h"
 #include "StructureStubInfo.h"
 
+#include "JSObject.h"
+#include "ScopeChain.h"
+
 namespace JSC {
 
 #if ENABLE(JIT)
 void StructureStubInfo::deref()
 {
     switch (accessType) {
-    case access_get_by_id_self:
-        u.getByIdSelf.baseObjectStructure->deref();
-        return;
-    case access_get_by_id_proto:
-        u.getByIdProto.baseObjectStructure->deref();
-        u.getByIdProto.prototypeStructure->deref();
-        return;
-    case access_get_by_id_chain:
-        u.getByIdChain.baseObjectStructure->deref();
-        u.getByIdChain.chain->deref();
-        return;
     case access_get_by_id_self_list: {
         PolymorphicAccessStructureList* polymorphicStructures = u.getByIdSelfList.structureList;
-        polymorphicStructures->derefStructures(u.getByIdSelfList.listSize);
         delete polymorphicStructures;
         return;
     }
     case access_get_by_id_proto_list: {
         PolymorphicAccessStructureList* polymorphicStructures = u.getByIdProtoList.structureList;
-        polymorphicStructures->derefStructures(u.getByIdProtoList.listSize);
         delete polymorphicStructures;
         return;
     }
+    case access_get_by_id_self:
+    case access_get_by_id_proto:
+    case access_get_by_id_chain:
     case access_put_by_id_transition:
-        u.putByIdTransition.previousStructure->deref();
-        u.putByIdTransition.structure->deref();
-        u.putByIdTransition.chain->deref();
+    case access_put_by_id_replace:
+    case access_get_by_id:
+    case access_put_by_id:
+    case access_get_by_id_generic:
+    case access_put_by_id_generic:
+    case access_get_array_length:
+    case access_get_string_length:
+        // These instructions don't have to release any allocated memory
+        return;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+}
+
+void StructureStubInfo::visitAggregate(SlotVisitor& visitor)
+{
+    switch (accessType) {
+    case access_get_by_id_self:
+        visitor.append(&u.getByIdSelf.baseObjectStructure);
+        return;
+    case access_get_by_id_proto:
+        visitor.append(&u.getByIdProto.baseObjectStructure);
+        visitor.append(&u.getByIdProto.prototypeStructure);
+        return;
+    case access_get_by_id_chain:
+        visitor.append(&u.getByIdChain.baseObjectStructure);
+        visitor.append(&u.getByIdChain.chain);
+        return;
+    case access_get_by_id_self_list: {
+        PolymorphicAccessStructureList* polymorphicStructures = u.getByIdSelfList.structureList;
+        polymorphicStructures->visitAggregate(visitor, u.getByIdSelfList.listSize);
+        return;
+    }
+    case access_get_by_id_proto_list: {
+        PolymorphicAccessStructureList* polymorphicStructures = u.getByIdProtoList.structureList;
+        polymorphicStructures->visitAggregate(visitor, u.getByIdProtoList.listSize);
+        return;
+    }
+    case access_put_by_id_transition:
+        visitor.append(&u.putByIdTransition.previousStructure);
+        visitor.append(&u.putByIdTransition.structure);
+        visitor.append(&u.putByIdTransition.chain);
         return;
     case access_put_by_id_replace:
-        u.putByIdReplace.baseObjectStructure->deref();
+        visitor.append(&u.putByIdReplace.baseObjectStructure);
         return;
     case access_get_by_id:
     case access_put_by_id:
@@ -69,7 +101,7 @@ void StructureStubInfo::deref()
     case access_put_by_id_generic:
     case access_get_array_length:
     case access_get_string_length:
-        // These instructions don't ref their Structures.
+        // These instructions don't need to mark anything
         return;
     default:
         ASSERT_NOT_REACHED();

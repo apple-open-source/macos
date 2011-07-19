@@ -134,6 +134,11 @@ static char *(features[]) =
 #else
 	"-comments",
 #endif
+#ifdef FEAT_CONCEAL
+	"+conceal",
+#else
+	"-conceal",
+#endif
 #ifdef FEAT_CRYPT
 	"+cryptv",
 #else
@@ -143,6 +148,11 @@ static char *(features[]) =
 	"+cscope",
 #else
 	"-cscope",
+#endif
+#ifdef FEAT_CURSORBIND
+	"+cursorbind",
+#else
+	"-cursorbind",
 #endif
 #ifdef CURSOR_SHAPE
 	"+cursorshape",
@@ -304,6 +314,15 @@ static char *(features[]) =
 #else
 	"-localmap",
 #endif
+#ifdef FEAT_LUA
+# ifdef DYNAMIC_LUA
+	"+lua/dyn",
+# else
+	"+lua",
+# endif
+#else
+	"-lua",
+#endif
 #ifdef FEAT_MENU
 	"+menu",
 #else
@@ -426,6 +445,11 @@ static char *(features[]) =
 #else
 	"-perl",
 #endif
+#ifdef FEAT_PERSISTENT_UNDO
+	"+persistent_undo",
+#else
+	"-persistent_undo",
+#endif
 #ifdef FEAT_PRINTER
 # ifdef FEAT_POSTSCRIPT
 	"+postscript",
@@ -449,6 +473,15 @@ static char *(features[]) =
 # endif
 #else
 	"-python",
+#endif
+#ifdef FEAT_PYTHON3
+# ifdef DYNAMIC_PYTHON3
+	"+python3/dyn",
+# else
+	"+python3",
+# endif
+#else
+	"-python3",
 #endif
 #ifdef FEAT_QUICKFIX
 	"+quickfix",
@@ -493,6 +526,11 @@ static char *(features[]) =
 	"+sniff",
 #else
 	"-sniff",
+#endif
+#ifdef STARTUPTIME
+	"+startuptime",
+#else
+	"-startuptime",
 #endif
 #ifdef FEAT_STL_OPT
 	"+statusline",
@@ -676,222 +714,6 @@ static char *(features[]) =
 
 static int included_patches[] =
 {   /* Add new patch number below this line */
-/**/
-    108,
-/**/
-    107,
-/**/
-    106,
-/**/
-    105,
-/**/
-    104,
-/**/
-    103,
-/**/
-    102,
-/**/
-    101,
-/**/
-    100,
-/**/
-    99,
-/**/
-    98,
-/**/
-    97,
-/**/
-    96,
-/**/
-    95,
-/**/
-    94,
-/**/
-    93,
-/**/
-    92,
-/**/
-    91,
-/**/
-    90,
-/**/
-    89,
-/**/
-    88,
-/**/
-    87,
-/**/
-    86,
-/**/
-    85,
-/**/
-    84,
-/**/
-    83,
-/**/
-    82,
-/**/
-    81,
-/**/
-    80,
-/**/
-    79,
-/**/
-    78,
-/**/
-    77,
-/**/
-    76,
-/**/
-    75,
-/**/
-    74,
-/**/
-    73,
-/**/
-    72,
-/**/
-    71,
-/**/
-    70,
-/**/
-    69,
-/**/
-    68,
-/**/
-    67,
-/**/
-    66,
-/**/
-    65,
-/**/
-    64,
-/**/
-    63,
-/**/
-    62,
-/**/
-    61,
-/**/
-    60,
-/**/
-    59,
-/**/
-    58,
-/**/
-    57,
-/**/
-    56,
-/**/
-    55,
-/**/
-    54,
-/**/
-    53,
-/**/
-    52,
-/**/
-    51,
-/**/
-    50,
-/**/
-    49,
-/**/
-    48,
-/**/
-    47,
-/**/
-    46,
-/**/
-    45,
-/**/
-    44,
-/**/
-    43,
-/**/
-    42,
-/**/
-    41,
-/**/
-    40,
-/**/
-    39,
-/**/
-    38,
-/**/
-    37,
-/**/
-    36,
-/**/
-    35,
-/**/
-    34,
-/**/
-    33,
-/**/
-    32,
-/**/
-    31,
-/**/
-    30,
-/**/
-    29,
-/**/
-    28,
-/**/
-    27,
-/**/
-    26,
-/**/
-    25,
-/**/
-    24,
-/**/
-    23,
-/**/
-    22,
-/**/
-    21,
-/**/
-    20,
-/**/
-    19,
-/**/
-    18,
-/**/
-    17,
-/**/
-    16,
-/**/
-    15,
-/**/
-    14,
-/**/
-    13,
-/**/
-    12,
-/**/
-    11,
-/**/
-    10,
-/**/
-    9,
-/**/
-    8,
-/**/
-    7,
-/**/
-    6,
-/**/
-    5,
-/**/
-    4,
-/**/
-    3,
-/**/
-    2,
-/**/
-    1,
 /**/
     0
 };
@@ -1112,17 +934,9 @@ list_version()
 #else
 # ifdef FEAT_GUI_GTK
 #  ifdef FEAT_GUI_GNOME
-#   ifdef HAVE_GTK2
     MSG_PUTS(_("with GTK2-GNOME GUI."));
-#   else
-    MSG_PUTS(_("with GTK-GNOME GUI."));
-#   endif
 #  else
-#   ifdef HAVE_GTK2
     MSG_PUTS(_("with GTK2 GUI."));
-#   else
-    MSG_PUTS(_("with GTK GUI."));
-#   endif
 #  endif
 # else
 #  ifdef FEAT_GUI_MOTIF
@@ -1141,13 +955,13 @@ list_version()
 #      if defined(MSWIN)
     MSG_PUTS(_("with GUI."));
 #      else
-#	if defined (TARGET_API_MAC_CARBON) && TARGET_API_MAC_CARBON
+#	if defined(TARGET_API_MAC_CARBON) && TARGET_API_MAC_CARBON
     MSG_PUTS(_("with Carbon GUI."));
 #	else
-#	 if defined (TARGET_API_MAC_OSX) && TARGET_API_MAC_OSX
+#	 if defined(TARGET_API_MAC_OSX) && TARGET_API_MAC_OSX
     MSG_PUTS(_("with Cocoa GUI."));
 #	 else
-#	  if defined (MACOS)
+#	  if defined(MACOS)
     MSG_PUTS(_("with (classic) GUI."));
 #	  endif
 #	 endif
@@ -1495,10 +1309,9 @@ do_intro_line(row, mesg, add_version, attr)
 /*
  * ":intro": clear screen, display intro screen and wait for return.
  */
-/*ARGSUSED*/
     void
 ex_intro(eap)
-    exarg_T	*eap;
+    exarg_T	*eap UNUSED;
 {
     screenclear();
     intro_message(TRUE);

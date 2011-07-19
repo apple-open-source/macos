@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2007, 2009-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -472,7 +470,7 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 	CFStringEncoding encoding;
     struct passwd *passwdp;
 	int fd;
-	size_t size;
+	ssize_t size;
 	char buffer[MAXPATHLEN + 1];
 
 	/*
@@ -750,7 +748,15 @@ end_of_dir:
 	if (cfstr == NULL)
 		args->label[0] = 0;
 	else {
-		CFStringGetCString(cfstr, (char *)args->label, sizeof(args->label), kCFStringEncodingUTF8);
+		CFMutableStringRef mutable;
+		
+		mutable = CFStringCreateMutableCopy(NULL, 0, cfstr);
+		if (mutable != NULL) {
+			CFStringNormalize(mutable, kCFStringNormalizationFormD);
+			CFStringGetCString(mutable, (char *)args->label, sizeof(args->label), kCFStringEncodingUTF8);
+			CFRelease(mutable);
+		}
+		
 		CFRelease(cfstr);
 	}
 	args->flags |= MSDOSFSMNT_LABEL;

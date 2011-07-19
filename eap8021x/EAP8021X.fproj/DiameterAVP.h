@@ -77,4 +77,4 @@ DiameterAVPFlagsFromFlagsLength(u_int32_t flags_length)
     return (flags_length >> 24);
 }
 
-#endif _EAP8021X_DIAMETERAVP_H
+#endif /* _EAP8021X_DIAMETERAVP_H */

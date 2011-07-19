@@ -5,7 +5,7 @@
 #           from database output. Since we need only one of these DBLookups
 #           we implement only class methods
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:57 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -30,19 +30,46 @@
 #
 ######################################################################
 
-## 
-## This module is slated to be removed in future releases. It was used 
-## for special purpose dumps of the documentation, and is no longer needed.   
-## If you rely on this module, please send a note to matt@apple.com and
-## we can reconsider its future.
-## 
 
-
+# /*! @header
+#     @abstract
+#         <code>DBLookup</code> package file.
+#     @discussion
+#         This module is slated to be removed in future releases.
+#         It was used for special purpose dumps of the documentation,
+#         and is no longer needed.   If you rely on this module,
+#         please send a note to dgatwood\@apple.com and we can
+#         reconsider its future.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+# /*!
+#     @abstract
+#         Deprecated and defunct.
+#     @discussion
+#         File for <code>DBLookup</code> class.
+#
+#         This module is slated to be removed in future releases.
+#         It was used for special purpose dumps of the documentation,
+#         and is no longer needed.  Further, the command-line flags
+#         that took advantage of this module have been reused for
+#         other things.
+#
+#         If you rely on this module, please send a note to
+#         dgatwood\@apple.com and we can reconsider its future.
+#  */
 package HeaderDoc::DBLookup;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::DBLookup::VERSION = '$Revision: 1.8 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::DBLookup::VERSION = '$Revision: 1298084577 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -72,6 +99,9 @@ my %functionNameToIDHash;
 ######################################################################
 
 
+# /*! @abstract
+#         Deprecated.
+#  */
 sub loadUsingFolderAndFiles {
     my($class) = shift;
     my $folder = shift;
@@ -131,14 +161,23 @@ sub loadUsingFolderAndFiles {
 	undef @enumIDLines;
 }
 
+# /*! @abstract
+#         Deprecated.
+#  */
 sub dataTypeNameToIDHash {
     return %datatypeNameToIDHash;
 }
 
+# /*! @abstract
+#         Deprecated.
+#  */
 sub functionNameToIDHash {
     return %functionNameToIDHash;
 }
 
+# /*! @abstract
+#         Deprecated.
+#  */
 sub functionIDForName {
     my $class = shift;
     my $name = shift;
@@ -150,6 +189,9 @@ sub functionIDForName {
     }
 }
 
+# /*! @abstract
+#         Deprecated.
+#  */
 sub typeIDForName {
     my $class = shift;
     my $name = shift;

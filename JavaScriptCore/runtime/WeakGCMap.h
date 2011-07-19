@@ -26,96 +26,165 @@
 #ifndef WeakGCMap_h
 #define WeakGCMap_h
 
-#include "Collector.h"
+#include "Handle.h"
+#include "JSGlobalData.h"
 #include <wtf/HashMap.h>
 
 namespace JSC {
 
-class JSCell;
+// A HashMap for GC'd values that removes entries when the associated value
+// dies.
+template <typename KeyType, typename MappedType> struct DefaultWeakGCMapFinalizerCallback {
+    static void* finalizerContextFor(KeyType key)
+    {
+        return reinterpret_cast<void*>(key);
+    }
 
-// A HashMap whose get() function returns emptyValue() for cells awaiting destruction.
-template<typename KeyType, typename MappedType>
-class WeakGCMap : public FastAllocBase {
-    /*
-    Invariants:
-        * A value enters the WeakGCMap marked. (Guaranteed by set().)
-        * A value that becomes unmarked leaves the WeakGCMap before being recycled. (Guaranteed by the value's destructor removing it from the WeakGCMap.)
-        * A value that becomes unmarked leaves the WeakGCMap before becoming marked again. (Guaranteed by all destructors running before the mark phase begins.)
-        * During the mark phase, all values in the WeakGCMap are valid. (Guaranteed by all destructors running before the mark phase begins.)
-    */
-
-public:
-    typedef typename HashMap<KeyType, MappedType>::iterator iterator;
-    typedef typename HashMap<KeyType, MappedType>::const_iterator const_iterator;
-    
-    bool isEmpty() { return m_map.isEmpty(); }
-
-    MappedType get(const KeyType& key) const;
-    pair<iterator, bool> set(const KeyType&, const MappedType&); 
-    MappedType take(const KeyType& key);
-
-    // These unchecked functions provide access to a value even if the value's
-    // mark bit is not set. This is used, among other things, to retrieve values
-    // during the GC mark phase, which begins by clearing all mark bits.
-
-    MappedType uncheckedGet(const KeyType& key) const { return m_map.get(key); }
-    bool uncheckedRemove(const KeyType&, const MappedType&);
-
-    iterator uncheckedBegin() { return m_map.begin(); }
-    iterator uncheckedEnd() { return m_map.end(); }
-
-    const_iterator uncheckedBegin() const { return m_map.begin(); }
-    const_iterator uncheckedEnd() const { return m_map.end(); }
-
-private:
-    HashMap<KeyType, MappedType> m_map;
+    static KeyType keyForFinalizer(void* context, typename HandleTypes<MappedType>::ExternalType)
+    {
+        return reinterpret_cast<KeyType>(context);
+    }
 };
 
-template<typename KeyType, typename MappedType>
-inline MappedType WeakGCMap<KeyType, MappedType>::get(const KeyType& key) const
-{
-    MappedType result = m_map.get(key);
-    if (result == HashTraits<MappedType>::emptyValue())
-        return result;
-    if (!Heap::isCellMarked(result))
-        return HashTraits<MappedType>::emptyValue();
-    return result;
-}
+template<typename KeyType, typename MappedType, typename FinalizerCallback = DefaultWeakGCMapFinalizerCallback<KeyType, MappedType>, typename HashArg = typename DefaultHash<KeyType>::Hash, typename KeyTraitsArg = HashTraits<KeyType> >
+class WeakGCMap : private WeakHandleOwner {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(WeakGCMap);
 
-template<typename KeyType, typename MappedType>
-MappedType WeakGCMap<KeyType, MappedType>::take(const KeyType& key)
-{
-    MappedType result = m_map.take(key);
-    if (result == HashTraits<MappedType>::emptyValue())
-        return result;
-    if (!Heap::isCellMarked(result))
-        return HashTraits<MappedType>::emptyValue();
-    return result;
-}
+    typedef HashMap<KeyType, HandleSlot, HashArg, KeyTraitsArg> MapType;
+    typedef typename HandleTypes<MappedType>::ExternalType ExternalType;
+    typedef typename MapType::iterator map_iterator;
 
-template<typename KeyType, typename MappedType>
-pair<typename HashMap<KeyType, MappedType>::iterator, bool> WeakGCMap<KeyType, MappedType>::set(const KeyType& key, const MappedType& value)
-{
-    Heap::markCell(value); // If value is newly allocated, it's not marked, so mark it now.
-    pair<iterator, bool> result = m_map.add(key, value);
-    if (!result.second) { // pre-existing entry
-        result.second = !Heap::isCellMarked(result.first->second);
-        result.first->second = value;
+public:
+
+    struct iterator {
+        friend class WeakGCMap;
+        iterator(map_iterator iter)
+            : m_iterator(iter)
+        {
+        }
+        
+        std::pair<KeyType, ExternalType> get() const { return std::make_pair(m_iterator->first, HandleTypes<MappedType>::getFromSlot(m_iterator->second)); }
+        std::pair<KeyType, HandleSlot> getSlot() const { return *m_iterator; }
+        
+        iterator& operator++() { ++m_iterator; return *this; }
+        
+        // postfix ++ intentionally omitted
+        
+        // Comparison.
+        bool operator==(const iterator& other) const { return m_iterator == other.m_iterator; }
+        bool operator!=(const iterator& other) const { return m_iterator != other.m_iterator; }
+        
+    private:
+        map_iterator m_iterator;
+    };
+
+    WeakGCMap()
+    {
     }
-    return result;
-}
 
-template<typename KeyType, typename MappedType>
-bool WeakGCMap<KeyType, MappedType>::uncheckedRemove(const KeyType& key, const MappedType& value)
-{
-    iterator it = m_map.find(key);
-    if (it == m_map.end())
-        return false;
-    if (it->second != value)
-        return false;
-    m_map.remove(it);
-    return true;
-}
+    bool isEmpty() { return m_map.isEmpty(); }
+    void clear()
+    {
+        map_iterator end = m_map.end();
+        for (map_iterator ptr = m_map.begin(); ptr != end; ++ptr)
+            HandleHeap::heapFor(ptr->second)->deallocate(ptr->second);
+        m_map.clear();
+    }
+
+    bool contains(const KeyType& key) const
+    {
+        return m_map.contains(key);
+    }
+
+    iterator find(const KeyType& key)
+    {
+        return m_map.find(key);
+    }
+
+    void remove(iterator iter)
+    {
+        ASSERT(iter.m_iterator != m_map.end());
+        HandleSlot slot = iter.m_iterator->second;
+        ASSERT(slot);
+        HandleHeap::heapFor(slot)->deallocate(slot);
+        m_map.remove(iter.m_iterator);
+    }
+
+    ExternalType get(const KeyType& key) const
+    {
+        return HandleTypes<MappedType>::getFromSlot(m_map.get(key));
+    }
+
+    HandleSlot getSlot(const KeyType& key) const
+    {
+        return m_map.get(key);
+    }
+
+    pair<iterator, bool> add(JSGlobalData& globalData, const KeyType& key, ExternalType value)
+    {
+        pair<typename MapType::iterator, bool> iter = m_map.add(key, 0);
+        if (iter.second) {
+            HandleSlot slot = globalData.allocateGlobalHandle();
+            iter.first->second = slot;
+            HandleHeap::heapFor(slot)->makeWeak(slot, this, FinalizerCallback::finalizerContextFor(key));
+            HandleHeap::heapFor(slot)->writeBarrier(slot, value);
+            *slot = value;
+        }
+        return iter;
+    }
+    
+    void set(iterator iter, ExternalType value)
+    {
+        HandleSlot slot = iter.m_iterator->second;
+        ASSERT(slot);
+        HandleHeap::heapFor(slot)->writeBarrier(slot, value);
+        *slot = value;
+    }
+
+    void set(JSGlobalData& globalData, const KeyType& key, ExternalType value)
+    {
+        pair<typename MapType::iterator, bool> iter = m_map.add(key, 0);
+        HandleSlot slot = iter.first->second;
+        if (iter.second) {
+            slot = globalData.allocateGlobalHandle();
+            HandleHeap::heapFor(slot)->makeWeak(slot, this, key);
+            iter.first->second = slot;
+        }
+        HandleHeap::heapFor(slot)->writeBarrier(slot, value);
+        *slot = value;
+    }
+
+    ExternalType take(const KeyType& key)
+    {
+        HandleSlot slot = m_map.take(key);
+        if (!slot)
+            return HashTraits<ExternalType>::emptyValue();
+        ExternalType result = HandleTypes<MappedType>::getFromSlot(slot);
+        HandleHeap::heapFor(slot)->deallocate(slot);
+        return result;
+    }
+
+    size_t size() { return m_map.size(); }
+
+    iterator begin() { return iterator(m_map.begin()); }
+    iterator end() { return iterator(m_map.end()); }
+    
+    ~WeakGCMap()
+    {
+        clear();
+    }
+    
+private:
+    virtual void finalize(Handle<Unknown> handle, void* context)
+    {
+        HandleSlot slot = m_map.take(FinalizerCallback::keyForFinalizer(context, HandleTypes<MappedType>::getFromSlot(handle.slot())));
+        ASSERT(slot);
+        HandleHeap::heapFor(slot)->deallocate(slot);
+    }
+
+    MapType m_map;
+};
 
 } // namespace JSC
 

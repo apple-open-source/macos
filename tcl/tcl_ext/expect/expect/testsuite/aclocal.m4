@@ -3,7 +3,6 @@
 #
 
 builtin(include,../tclconfig/tcl.m4)
-builtin(include,../expect.m4)
 
 #
 # Add here whatever m4 macros you want to define for your package

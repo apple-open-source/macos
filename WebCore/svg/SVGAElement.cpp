@@ -1,23 +1,24 @@
 /*
-    Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2007 Rob Buis <buis@kde.org>
-                  2007 Eric Seidel <eric@webkit.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -25,15 +26,16 @@
 #include "SVGAElement.h"
 
 #include "Attr.h"
-#include "CSSHelper.h"
+#include "Attribute.h"
 #include "Document.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderTypes.h"
+#include "HTMLAnchorElement.h"
+#include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
-#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "PlatformMouseEvent.h"
 #include "RenderSVGInline.h"
@@ -45,17 +47,20 @@
 
 namespace WebCore {
 
-SVGAElement::SVGAElement(const QualifiedName& tagName, Document *doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGURIReference()
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGAElement, SVGNames::targetAttr, SVGTarget, svgTarget)
+DEFINE_ANIMATED_STRING(SVGAElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGAElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+inline SVGAElement::SVGAElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
 {
+    ASSERT(hasTagName(SVGNames::aTag));
 }
 
-SVGAElement::~SVGAElement()
+PassRefPtr<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGAElement(tagName, document));
 }
 
 String SVGAElement::title() const
@@ -69,10 +74,10 @@ String SVGAElement::title() const
     return SVGStyledElement::title();
 }
 
-void SVGAElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGAElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::targetAttr)
-        setTargetBaseValue(attr->value());
+        setSVGTargetBaseValue(attr->value());
     else {
         if (SVGURIReference::parseMappedAttribute(attr))
             return;
@@ -101,92 +106,97 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 }
 
+AttributeToPropertyTypeMap& SVGAElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGAElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::targetAttr, AnimatedString);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+}
+
 void SVGAElement::synchronizeProperty(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::synchronizeProperty(attrName);
 
     if (attrName == anyQName()) {
-        synchronizeTarget();
+        synchronizeSVGTarget();
         synchronizeHref();
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
     if (attrName == SVGNames::targetAttr)
-        synchronizeTarget();
+        synchronizeSVGTarget();
     else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    if (static_cast<SVGElement*>(parent())->isTextContent())
+    if (static_cast<SVGElement*>(parentNode())->isTextContent())
         return new (arena) RenderSVGInline(this);
 
     return new (arena) RenderSVGTransformableContainer(this);
 }
 
-void SVGAElement::defaultEventHandler(Event* evt)
+void SVGAElement::defaultEventHandler(Event* event)
 {
-    if (isLink() && (evt->type() == eventNames().clickEvent || (evt->type() == eventNames().keydownEvent && focused()))) {
-        MouseEvent* e = 0;
-        if (evt->type() == eventNames().clickEvent && evt->isMouseEvent())
-            e = static_cast<MouseEvent*>(evt);
-        
-        KeyboardEvent* k = 0;
-        if (evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent())
-            k = static_cast<KeyboardEvent*>(evt);
-        
-        if (e && e->button() == RightButton) {
-            SVGStyledTransformableElement::defaultEventHandler(evt);
+    if (isLink()) {
+        if (focused() && isEnterKeyKeydownEvent(event)) {
+            event->setDefaultHandled();
+            dispatchSimulatedClick(event);
             return;
         }
-        
-        if (k) {
-            if (k->keyIdentifier() != "Enter") {
-                SVGStyledTransformableElement::defaultEventHandler(evt);
-                return;
-            }
-            evt->setDefaultHandled();
-            dispatchSimulatedClick(evt);
-            return;
-        }
-        
-        String target = this->target();
-        if (e && e->button() == MiddleButton)
-            target = "_blank";
-        else if (target.isEmpty()) // if target is empty, default to "_self" or use xlink:target if set
-            target = (getAttribute(XLinkNames::showAttr) == "new") ? "_blank" : "_self";
 
-        if (!evt->defaultPrevented()) {
-            String url = deprecatedParseURL(href());
+        if (isLinkClick(event)) {
+            String url = stripLeadingAndTrailingHTMLSpaces(href());
+
 #if ENABLE(SVG_ANIMATION)
-            if (url.startsWith("#")) {
-                Element* targetElement = document()->getElementById(url.substring(1));
+            if (url[0] == '#') {
+                Element* targetElement = treeScope()->getElementById(url.substring(1));
                 if (SVGSMILElement::isSMILElement(targetElement)) {
-                    SVGSMILElement* timed = static_cast<SVGSMILElement*>(targetElement);
-                    timed->beginByLinkActivation();
-                    evt->setDefaultHandled();
-                    SVGStyledTransformableElement::defaultEventHandler(evt);
+                    static_cast<SVGSMILElement*>(targetElement)->beginByLinkActivation();
+                    event->setDefaultHandled();
                     return;
                 }
             }
 #endif
-            if (document()->frame())
-                document()->frame()->loader()->urlSelected(document()->completeURL(url), target, evt, false, false, true, SendReferrer);
-        }
 
-        evt->setDefaultHandled();
+            // FIXME: Why does the SVG anchor element have this special logic
+            // for middle click that the HTML anchor element does not have?
+            // Making a middle click open a link in a new window or tab is
+            // properly handled at the client level, not inside WebKit; this
+            // code should be deleted.
+            String target = isMiddleMouseButtonEvent(event) ? "_blank" : this->target();
+
+            // FIXME: It's not clear why setting target to "_self" is ever
+            // helpful.
+            if (target.isEmpty())
+                target = (getAttribute(XLinkNames::showAttr) == "new") ? "_blank" : "_self";
+
+            handleLinkClick(event, document(), url, target);
+            return;
+        }
     }
 
-    SVGStyledTransformableElement::defaultEventHandler(evt);
+    SVGStyledTransformableElement::defaultEventHandler(event);
 }
 
 bool SVGAElement::supportsFocus() const
 {
-    if (isContentEditable())
+    if (rendererIsEditable())
         return SVGStyledTransformableElement::supportsFocus();
     return true;
 }
@@ -221,8 +231,8 @@ bool SVGAElement::childShouldCreateRenderer(Node* child) const
     // The 'a' element may contain any element that its parent may contain, except itself.
     if (child->hasTagName(SVGNames::aTag))
         return false;
-    if (parent() && parent()->isSVGElement())
-        return static_cast<SVGElement*>(parent())->childShouldCreateRenderer(child);
+    if (parentNode() && parentNode()->isSVGElement())
+        return parentNode()->childShouldCreateRenderer(child);
 
     return SVGElement::childShouldCreateRenderer(child);
 }

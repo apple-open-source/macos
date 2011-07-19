@@ -30,8 +30,8 @@ class HitTestResult;
 class EllipsisBox : public InlineBox {
 public:
     EllipsisBox(RenderObject* obj, const AtomicString& ellipsisStr, InlineFlowBox* parent,
-                int width, int height, int y, bool firstLine, InlineBox* markupBox)
-        : InlineBox(obj, 0, y, width, firstLine, true, false, false, 0, 0, parent)
+                int width, int height, int y, bool firstLine, bool isVertical, InlineBox* markupBox)
+        : InlineBox(obj, 0, y, width, firstLine, true, false, false, isVertical, 0, 0, parent)
         , m_height(height)
         , m_str(ellipsisStr)
         , m_markupBox(markupBox)
@@ -39,8 +39,8 @@ public:
     {
     }
 
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
+    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
     void setSelectionState(RenderObject::SelectionState s) { m_selectionState = s; }
     IntRect selectionRect(int tx, int ty);
 

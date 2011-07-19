@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_main.c	1.69	05/06/08 SMI"
@@ -36,6 +36,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <stdarg.h>
 #include <sys/resource.h>
@@ -68,10 +69,9 @@ static void compute_new_timeout(struct timespec *);
 static void *shutdown_thread(void *);
 static void *timeout_thread(void *);
 static void *wait_for_flush_indication_thread(void *);
-static int do_mount_trigger(autofs_pathname, autofs_pathname,
+static int do_mount_subtrigger(autofs_pathname, autofs_pathname,
     autofs_pathname, autofs_opts, autofs_pathname, autofs_pathname,
-    autofs_component, uint32_t, uint32_t, int32_t, int32_t, int32_t,
-    int32_t *, int32_t *, boolean_t *);
+    autofs_component, uint32_t, uint32_t, int32_t, fsid_t *, boolean_t *);
 
 #define	CTIME_BUF_LEN 26
 
@@ -98,6 +98,8 @@ static sigset_t waitset;	/* Signals that we wait for */
 static sigset_t contset;	/* Signals that we don't exit from */
 
 static mach_port_t service_port_receive_right;
+
+static int autofs_fd;
 
 #define	RESOURCE_FACTOR 8
 
@@ -139,7 +141,6 @@ main(argc, argv)
 
 {
 	int c, error;
-	int autofs_fd;
 	kern_return_t ret;
 	pthread_t thread, timeout_thr, shutdown_thr;
 	char *defval;
@@ -355,7 +356,7 @@ main(argc, argv)
 	 * Create wait-for-cache-flush-indication thread.
 	 */
 	error = pthread_create(&thread, &attr, wait_for_flush_indication_thread,
-	    &autofs_fd);
+	    NULL);
 	if (error) {
 		syslog(LOG_ERR, "unable to create wait-for-flush-indication thread: %s",
 		    strerror(error));
@@ -407,6 +408,7 @@ automount_thread(__unused void *arg)
 {
 	kern_return_t ret;
 
+	pthread_setname_np("upcall receiver");
 	ret = mach_msg_server_once(autofs_server, AUTOFS_MAX_MSG_SIZE,
 	    service_port_receive_right,
 	    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_SENDER) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
@@ -477,6 +479,7 @@ shutdown_thread(__unused void *arg)
 {
 	int sig;
 
+	pthread_setname_np("shutdown");
 	do {
 		sigwait(&waitset, &sig);
 		switch (sig) {
@@ -526,6 +529,7 @@ timeout_thread(__unused void *arg)
 	int rv = 0;
 	struct timespec exittime;
 
+	pthread_setname_np("timeout");
 	(void) pthread_mutex_lock(&numthreads_lock);
 
 	/*
@@ -555,15 +559,14 @@ timeout_thread(__unused void *arg)
 }
 
 static void *
-wait_for_flush_indication_thread(void *arg)
+wait_for_flush_indication_thread(__unused void *arg)
 {
-	int *autofs_fdp = arg;
-
 	/*
 	 * This thread waits for an indication that we should flush
 	 * our caches.  It quits if bye >= 1, meaning we're shutting
 	 * down.
 	 */
+	pthread_setname_np("wait for flush indication");
 	for (;;) {
 		/*
 		 * Check whether we're shutting down.
@@ -575,7 +578,7 @@ wait_for_flush_indication_thread(void *arg)
 		}
 		pthread_mutex_unlock(&numthreads_lock);
 
-		if (ioctl(*autofs_fdp, AUTOFS_WAITFORFLUSH, 0) == -1) {
+		if (ioctl(autofs_fd, AUTOFS_WAITFORFLUSH, 0) == -1) {
 			if (errno != EINTR) {
 				syslog(LOG_ERR,
 				    "AUTOFS_WAITFORFLUSH failed: %s",
@@ -594,6 +597,8 @@ autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
     mach_msg_type_number_t *rddir_entriesCnt, security_token_t token)
 {
 	new_worker_thread();
+
+	pthread_setname_np("readdir worker");
 
 	/*
 	 * Reject this if the sender wasn't root
@@ -621,12 +626,72 @@ autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
 }
 
 kern_return_t
-autofs_unmount(__unused mach_port_t server, int32_t fsid_val0,
-    int32_t fsid_val1, autofs_pathname mntresource,
-    autofs_pathname mntpnt, autofs_component fstype, autofs_opts mntopts,
-    int *status, security_token_t token)
+autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
+    autofs_component rda_name, mach_msg_type_number_t rda_nameCnt,
+    autofs_pathname rda_subdir, autofs_opts rda_mntopts,
+    uint32_t rda_parentino, int64_t rda_offset, uint32_t rda_count,
+    int *status, int64_t *rddir_offset, boolean_t *rddir_eof,
+    byte_buffer *rddir_entries, mach_msg_type_number_t *rddir_entriesCnt,
+    security_token_t token)
+{
+	char *key;
+
+	new_worker_thread();
+
+	/*
+	 * Reject this if the sender wasn't root
+	 * (all messages from the kernel will be from root).
+	 */
+	if (token.val[0] != 0) {
+		*status  = EPERM;
+		end_worker_thread();
+		return KERN_SUCCESS;
+	}
+
+	/*
+	 * The name component is a counted string; make a
+	 * null-terminated string out of it.
+	 */
+	if (rda_nameCnt < 1 || rda_nameCnt > MAXNAMLEN) {
+		*status = ENOENT;
+		end_worker_thread();
+		return KERN_SUCCESS;
+	}
+	key = malloc(rda_nameCnt + 1);
+	if (key == NULL) {
+		*status = ENOMEM;
+		end_worker_thread();
+		return KERN_SUCCESS;
+	}
+	memcpy(key, rda_name, rda_nameCnt);
+	key[rda_nameCnt] = '\0';
+
+	if (trace > 0)
+		trace_prt(1, "READSUBDIR REQUEST   : name=%s[%s] map=%s @ %llu\n",
+                key, rda_subdir, rda_map, rda_offset);
+
+	*status = do_readsubdir(rda_map, key, rda_subdir, rda_mntopts,
+	    rda_parentino, rda_offset, rda_count, rddir_offset, rddir_eof,
+	    rddir_entries, rddir_entriesCnt);
+	free(key);
+
+	if (trace > 0)
+		trace_prt(1, "READSUBDIR REPLY	: status=%d\n", *status);
+
+	end_worker_thread();
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+autofs_unmount(__unused mach_port_t server, fsid_t mntpnt_fsid,
+    autofs_pathname mntresource, autofs_pathname mntpnt,
+    autofs_component fstype, autofs_opts mntopts, int *status,
+    security_token_t token)
 {
 	new_worker_thread();
+
+	pthread_setname_np("unmount worker");
 
 	/*
 	 * Reject this if the sender wasn't root
@@ -652,8 +717,8 @@ autofs_unmount(__unused mach_port_t server, int32_t fsid_val0,
 			mntopts);
 	}
 
-	*status = do_unmount1(fsid_val0, fsid_val1, mntresource,
-	    mntpnt, fstype, mntopts);
+	*status = do_unmount1(mntpnt_fsid, mntresource, mntpnt, fstype,
+	    mntopts);
 
 	if (trace > 0)
 		trace_prt(1, "UNMOUNT REPLY: status=%d\n", *status);
@@ -667,12 +732,14 @@ kern_return_t
 autofs_lookup(__unused mach_port_t server, autofs_pathname map,
     autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
     autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
-    uint32_t sendereuid, int *err, int *lu_action, boolean_t *lu_verbose,
+    uint32_t sendereuid, int *err, int *node_type, boolean_t *lu_verbose,
     security_token_t token)
 {
 	char *key;
 
 	new_worker_thread();
+
+	pthread_setname_np("lookup worker");
 
 	/*
 	 * Reject this if the sender wasn't root
@@ -680,6 +747,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	 */
 	if (token.val[0] != 0) {
 		*err = EPERM;
+		*node_type = 0;
 		*lu_verbose = 0;
 		end_worker_thread();
 		return KERN_SUCCESS;
@@ -691,6 +759,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	 */
 	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
 		*err = ENOENT;
+		*node_type = 0;
 		*lu_verbose = 0;
 		end_worker_thread();
 		return KERN_SUCCESS;
@@ -698,6 +767,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	key = malloc(nameCnt + 1);
 	if (key == NULL) {
 		*err = ENOMEM;
+		*node_type = 0;
 		*lu_verbose = 0;
 		end_worker_thread();
 		return KERN_SUCCESS;
@@ -716,7 +786,7 @@ autofs_lookup(__unused mach_port_t server, autofs_pathname map,
 	}
 
 	*err = do_lookup1(map, key, subdir, opts, isdirect, sendereuid,
-	    lu_action);
+	    node_type);
 	*lu_verbose = verbose;
 	free(key);
 
@@ -732,14 +802,19 @@ kern_return_t
 autofs_mount(__unused mach_port_t server, autofs_pathname map,
     autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
     autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
-    uint32_t sendereuid, mach_port_t gssd_port, int *mr_type,
-    byte_buffer *actions, mach_msg_type_number_t *actionsCnt,
-    int *err, boolean_t *mr_verbose, security_token_t token)
+    boolean_t issubtrigger, fsid_t mntpnt_fsid, uint32_t sendereuid,
+    mach_port_t gssd_port, int *mr_type, fsid_t *fsidp, uint32_t *retflags,
+    byte_buffer *actions, mach_msg_type_number_t *actionsCnt, int *err,
+    boolean_t *mr_verbose, security_token_t token)
 {
 	char *key;
 	int status;
 
 	new_worker_thread();
+
+	pthread_setname_np("mount worker");
+
+	*retflags = 0;	/* what we call sets retflags as needed */
 
 	/*
 	 * Reject this if the sender wasn't root
@@ -797,8 +872,9 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 			key, subdir, map, opts, path, isdirect);
 	}
 
-	status = do_mount1(map, key, subdir, opts, path, isdirect, sendereuid,
-	    gssd_port, actions, actionsCnt);
+	status = do_mount1(map, key, subdir, opts, path, isdirect,
+	    issubtrigger, mntpnt_fsid, sendereuid, gssd_port, fsidp,
+	    retflags, actions, actionsCnt);
 	/*
 	 * Release the GSSD port send right, as we're done with it.
 	 */
@@ -832,11 +908,13 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	if (status && verbose) {
 		if (isdirect) {
 			/* direct mount */
-			syslog(LOG_ERR, "mount of %s failed", path);
+			syslog(LOG_ERR, "mount of %s%s failed", path,
+				issubtrigger ? "" : subdir);
 		} else {
 			/* indirect mount */
 			syslog(LOG_ERR,
-				"mount of %s/%s failed", path, key);
+				"mount of %s/%s%s failed", path, key,
+				issubtrigger ? "" : subdir);
 		}
 	}
 	free(key);
@@ -847,16 +925,17 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 }
 
 kern_return_t
-autofs_mount_trigger(__unused mach_port_t server,
+autofs_mount_subtrigger(__unused mach_port_t server,
     autofs_pathname mntpt, autofs_pathname submntpt,
     autofs_pathname path, autofs_opts opts,
     autofs_pathname map, autofs_pathname subdir,
     autofs_component key, uint32_t flags, uint32_t mntflags,
-    int32_t mount_to, int32_t mach_to, int32_t direct,
-    int32_t *fsid_val0, int32_t *fsid_val1, boolean_t *top_level,
-    int *err, security_token_t token)
+    int32_t direct, fsid_t *fsidp, boolean_t *top_level, int *err,
+    security_token_t token)
 {
 	new_worker_thread();
+
+	pthread_setname_np("mount-subtrigger worker");
 
 	/*
 	 * Reject this if the sender wasn't root
@@ -868,12 +947,11 @@ autofs_mount_trigger(__unused mach_port_t server,
 		return KERN_SUCCESS;
 	}
 
-	*err = do_mount_trigger(mntpt, submntpt, path, opts, map, subdir, key,
-	    flags, mntflags, mount_to, mach_to, direct, fsid_val0, fsid_val1,
-	    top_level);
+	*err = do_mount_subtrigger(mntpt, submntpt, path, opts, map, subdir,
+	    key, flags, mntflags, direct, fsidp, top_level);
 
 	if (*err)
-		syslog(LOG_ERR, "trigger mount on %s failed: %s", mntpt,
+		syslog(LOG_ERR, "subtrigger mount on %s failed: %s", mntpt,
 		    strerror(*err));
 
 	end_worker_thread();
@@ -882,12 +960,11 @@ autofs_mount_trigger(__unused mach_port_t server,
 }
 
 static int
-do_mount_trigger(autofs_pathname mntpt, autofs_pathname submntpt,
+do_mount_subtrigger(autofs_pathname mntpt, autofs_pathname submntpt,
     autofs_pathname path, autofs_opts opts,
     autofs_pathname map, autofs_pathname subdir,
     autofs_component key, uint32_t flags, uint32_t mntflags,
-    int32_t mount_to, int32_t mach_to, int32_t direct,
-    int32_t *fsid_val0, int32_t *fsid_val1, boolean_t *top_level)
+    int32_t direct, fsid_t *fsidp, boolean_t *top_level)
 {
 	struct stat statb;
 	struct autofs_args mnt_args;
@@ -902,6 +979,13 @@ do_mount_trigger(autofs_pathname mntpt, autofs_pathname submntpt,
 	 *
 	 * (We don't want to be tricked by sneaky servers into mounting
 	 * a trigger on top of, for example, "/etc".)
+	 *
+	 * XXX - will this still happen?  These mounts will only be
+	 * done as a result of a planted trigger; will vfs_addtrigger(),
+	 * which takes a relative path as an argument and won't cross
+	 * mount points, handle that?  Should vfs_addtrigger() not follow
+	 * symlinks?  Or is it sufficient that it won't leave the file
+	 * system that was just mounted?
 	 */
 	if (lstat(mntpt, &statb) == 0) {
 		if (S_ISLNK(statb.st_mode)) {
@@ -918,10 +1002,15 @@ do_mount_trigger(autofs_pathname mntpt, autofs_pathname submntpt,
 	mnt_args.subdir = subdir;
 	mnt_args.key = key;
 	mnt_args.mntflags = mntflags;
-	mnt_args.mount_to = mount_to;
-	mnt_args.mach_to = mach_to;
 	mnt_args.direct = direct;
-	mnt_args.trigger = 1;		/* special trigger submount */
+	mnt_args.mount_type = MOUNT_TYPE_SUBTRIGGER;		/* special trigger submount */
+	/*
+	 * XXX - subtriggers are always direct maps, right?
+	 */
+	if (direct)
+		mnt_args.node_type = NT_TRIGGER;
+	else
+		mnt_args.node_type = 0;	/* not a trigger */
 
 	if (mount(MNTTYPE_AUTOFS, mntpt, flags|MNT_AUTOMOUNTED|MNT_DONTBROWSE,
 	    &mnt_args) == -1)
@@ -941,103 +1030,293 @@ do_mount_trigger(autofs_pathname mntpt, autofs_pathname submntpt,
 		unmount(mntpt, MNT_FORCE);
 		return (err);
 	}
-	*fsid_val0 = buf.f_fsid.val[0];
-	*fsid_val1 = buf.f_fsid.val[1];
+	*fsidp = buf.f_fsid;
 	*top_level = (strcmp(submntpt, ".") == 0);
 	return (0);
 }
 
 kern_return_t
-autofs_check_thishost(__unused mach_port_t server, autofs_component name,
-    mach_msg_type_number_t nameCnt, boolean_t *is_us, security_token_t token)
+autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
+    autofs_pathname mountpoint, autofs_opts opts, fsid_t mntpnt_fsid,
+    uint32_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t *retflags, int *err, security_token_t token)
 {
-	new_worker_thread();
-
-	/*
-	 * Reject this if the sender wasn't root
-	 * (all messages from the kernel will be from root).
-	 */
-	if (token.val[0] != 0) {
-		*is_us = 0;
-		end_worker_thread();
-		return KERN_SUCCESS;
-	}
-
-	*is_us = host_is_us(name, nameCnt);
-
-	end_worker_thread();
-	return KERN_SUCCESS;
-}
-
-kern_return_t
-autofs_check_trigger(__unused mach_port_t server, autofs_pathname map,
-    autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
-    autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
-    int *err, boolean_t *istrigger, security_token_t token)
-{
-	char *key;
 	int status;
 
 	new_worker_thread();
 
+	pthread_setname_np("mount-url worker");
+
+	*retflags = 0;	/* what we call sets retflags as needed */
+
 	/*
 	 * Reject this if the sender wasn't root
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
 		*err  = EPERM;
 		end_worker_thread();
 		return KERN_SUCCESS;
 	}
-
-	/*
-	 * The name component is a counted string; make a
-	 * null-terminated string out of it.
-	 */
-	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
-		*err = ENOENT;
-		end_worker_thread();
-		return KERN_SUCCESS;
-	}
-	key = malloc(nameCnt + 1);
-	if (key == NULL) {
-		*err = ENOMEM;
-		end_worker_thread();
-		return KERN_SUCCESS;
-	}
-	memcpy(key, name, nameCnt);
-	key[nameCnt] = '\0';
 
 	if (trace > 0) {
 		char ctime_buf[CTIME_BUF_LEN];
 		if (ctime_r(&timenow, ctime_buf) == NULL)
 			ctime_buf[0] = '\0';
 
-		trace_prt(1, "CHECK TRIGGER REQUEST:   %s", ctime_buf);
-		trace_prt(1, "  name=%s[%s] map=%s opts=%s path=%s direct=%d\n",
-			key, subdir, map, opts, path, isdirect);
+		trace_prt(1, "MOUNT_URL REQUEST:   %s", ctime_buf);
+		trace_prt(1, "  url=%s mountpoint=%s\n",
+			url, mountpoint);
 	}
 
-	status = do_check_trigger(map, key, subdir, opts, path, isdirect, istrigger);
+	status = mount_generic(url, "url", opts, 0, mountpoint, FALSE,
+	    TRUE, mntpnt_fsid, sendereuid, gssd_port, fsidp, retflags);
+
+	/*
+	 * Release the GSSD port send right, as we're done with it.
+	 */
+	mach_port_deallocate(current_task(), gssd_port);
 
 	*err = status;
 
 	if (trace > 0) {
-		trace_prt(1, "CHECK TRIGGER REPLY    : status=%d, istrigger = %d\n",
-			status, *istrigger);
+		trace_prt(1,
+			"MOUNT_URL REPLY    : status=%d\n",
+			status);
 	}
 
-	if (status && verbose) {
-		if (isdirect) {
-			/* direct mount */
-			syslog(LOG_ERR, "check trigger of %s failed", path);
-		} else {
-			/* indirect mount */
-			syslog(LOG_ERR,
-				"check trigger of %s/%s failed", path, key);
-		}
+	if (status && verbose)
+		syslog(LOG_ERR, "mount of %s on %s failed", url, mountpoint);
+
+	end_worker_thread();
+
+	return KERN_SUCCESS;
+}
+
+#define SMBREMOUNTSERVER_PATH	"/System/Library/Extensions/autofs.kext/Contents/Resources/smbremountserver"
+
+kern_return_t
+autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
+    mach_msg_type_number_t blobCnt, mach_port_t gssd_port,
+    security_token_t token)
+{
+	kern_return_t ret;
+	int pipefds[2];
+	mach_port_t saved_gssd_port;
+	int child_pid;
+	int res;
+	uint32_t byte_count;
+	ssize_t bytes_written;
+	int stat_loc;
+
+	new_worker_thread();
+
+	pthread_setname_np("smb-remount-server worker");
+
+	/*
+	 * Reject this if the sender wasn't root
+	 * (all messages from the kernel will be from root).
+	 */
+	if (token.val[0] != 0) {
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
+		end_worker_thread();
+		return KERN_SUCCESS;
 	}
-	free(key);
+
+	if (trace > 0) {
+		char ctime_buf[CTIME_BUF_LEN];
+		if (ctime_r(&timenow, ctime_buf) == NULL)
+			ctime_buf[0] = '\0';
+
+		trace_prt(1, "SMB_REMOUNT_SERVER REQUEST:   %s\n", ctime_buf);
+	}
+
+	/*
+	 * This is a bit ugly; we have to do the SMBRemountServer()
+	 * call in a subprocess, for reasons listed in the comment
+	 * in smbremountserver.c.
+	 */
+
+	/*
+	 * Set up a pipe over which we send the blob to the subprocess.
+	 */
+	if (pipe(pipefds) == -1) {
+		syslog(LOG_ERR, "Can't create pipe to smbremountserver: %m");
+		goto done;
+	}
+
+	/*
+	 * We set the gssd task special port to the one we were handed,
+	 * which is the one for the task that triggered this mount; we
+	 * want the mount to talk to that task's gssd, so it can get
+	 * that task's credentials to do the mount.
+	 *
+	 * XXX - we can't just pass the supplied port to the child; we
+	 * have to save our current GSSD task special port, set that
+	 * port to the specified port, fork, and then set it back in
+	 * the parent after the fork.
+	 *
+	 * The task special port isn't per-thread, so we grab a mutex
+	 * to make sure only one thread is doing anything with the port
+	 * at a time.
+	 */
+	pthread_mutex_lock(&gssd_port_lock);
+	ret = task_get_gssd_port(current_task(), &saved_gssd_port);
+	if (ret != KERN_SUCCESS) {
+		pthread_mutex_unlock(&gssd_port_lock);
+		/*
+		 * Release the GSSD port send right, as we won't be using it.
+		 */
+		mach_port_deallocate(current_task(), gssd_port);
+		syslog(LOG_ERR, "Cannot get gssd port: %s",
+		    mach_error_string(ret));
+		close(pipefds[0]);
+		close(pipefds[1]);
+		goto done;
+	}
+	ret = task_set_gssd_port(current_task(), gssd_port);
+	if (ret != KERN_SUCCESS) {
+		/*
+		 * Release send right on saved_gssd_port, as we
+		 * won't be using it.
+		 */
+		mach_port_deallocate(current_task(), saved_gssd_port);
+		pthread_mutex_unlock(&gssd_port_lock);
+		syslog(LOG_ERR, "Cannot set gssd port: %s",
+		    mach_error_string(ret));
+		close(pipefds[0]);
+		close(pipefds[1]);
+		goto done;
+	}
+
+	switch ((child_pid = fork1())) {
+
+	case -1:
+		/*
+		 * Fork failure.  Close the pipe, clean up the GSSD port,
+		 * log an error, and quit.
+		 */
+		close(pipefds[0]);
+		close(pipefds[1]);
+		put_back_gssd_port(saved_gssd_port);
+		syslog(LOG_ERR, "Cannot fork: %m");
+		break;
+
+	case 0:
+		/*
+		 * Child.
+		 *
+		 * We make the read side of the pipe our standard
+		 * input.
+		 *
+		 * We leave the rest of our environment as it is; we assume
+		 * that launchd has made the right thing happen for us,
+		 * and that this is also the right thing for the processes
+		 * we run.
+		 */
+		if (dup2(pipefds[0], 0) == -1) {
+			res = errno;
+			syslog(LOG_ERR, "Cannot dup2: %m");
+			_exit(res);
+		}
+		close(pipefds[0]);
+		close(pipefds[1]);
+		(void) execl(SMBREMOUNTSERVER_PATH, SMBREMOUNTSERVER_PATH,
+		    NULL);
+		res = errno;
+		syslog(LOG_ERR, "exec %s: %m", SMBREMOUNTSERVER_PATH);
+		_exit(res);
+
+	default:
+		/*
+		 * Parent.
+		 *
+		 * Close the read side of the pipe.
+		 */
+		close(pipefds[0]);
+
+		/*
+		 * Send the size of the blob down the pipe, in host
+		 * byte order.
+		 */
+		byte_count = blobCnt;
+		bytes_written = write(pipefds[1], &byte_count,
+		    sizeof byte_count);
+		if (bytes_written == -1) {
+			syslog(LOG_ERR, "Write of byte count to pipe failed: %m");
+			close(pipefds[1]);
+			put_back_gssd_port(saved_gssd_port);
+			goto done;
+		}
+		if ((size_t)bytes_written != sizeof byte_count) {
+			syslog(LOG_ERR, "Write of byte count to pipe wrote only %zd of %zu bytes",
+			    bytes_written, sizeof byte_count);
+			close(pipefds[1]);
+			put_back_gssd_port(saved_gssd_port);
+			goto done;
+		}
+
+		/*
+		 * Send the blob itself.
+		 */
+		bytes_written = write(pipefds[1], blob, byte_count);
+		if (bytes_written == -1) {
+			syslog(LOG_ERR, "Write of blob to pipe failed: %m");
+			close(pipefds[1]);
+			put_back_gssd_port(saved_gssd_port);
+			goto done;
+		}
+		if (bytes_written != (ssize_t)byte_count) {
+			syslog(LOG_ERR, "Write of blob to pipe wrote only %zd of %u bytes",
+			    bytes_written, byte_count);
+			close(pipefds[1]);
+			put_back_gssd_port(saved_gssd_port);
+			goto done;
+		}
+		
+		/*
+		 * Close the pipe, so the subprocess knows there's nothing
+		 * more to read, and clean up the GSSD port.
+		 */
+		close(pipefds[1]);
+		put_back_gssd_port(saved_gssd_port);
+
+		/*
+		 * Now wait for the child to finish.
+		 */
+		(void) waitpid(child_pid, &stat_loc, WUNTRACED);
+
+		if (WIFSIGNALED(stat_loc)) {
+			syslog(LOG_ERR, "SMBRemountServer subprocess terminated with %s",
+			    strsignal(WTERMSIG(stat_loc)));
+		} else if (WIFSTOPPED(stat_loc)) {
+			syslog(LOG_ERR, "SMBRemountServer subprocess stopped with %s",
+			    strsignal(WSTOPSIG(stat_loc)));
+		} else if (!WIFEXITED(stat_loc)) {
+			syslog(LOG_ERR, "SMBRemountServer subprocess got unknown status 0x%08x",
+			    stat_loc);
+		}
+		break;
+	}
+
+	/*
+	 * Release the GSSD port send right, as we're done with it.
+	 */
+	mach_port_deallocate(current_task(), gssd_port);
+
+done:
+
+	if (trace > 0) {
+		trace_prt(1,
+			"SMB_REMOUNT_SERVER REPLY\n");
+	}
 
 	end_worker_thread();
 

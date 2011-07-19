@@ -29,17 +29,18 @@
 #ifndef GlyphMetricsMap_h
 #define GlyphMetricsMap_h
 
+#include "Glyph.h"
+#include <wtf/FixedArray.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
-typedef unsigned short Glyph;
-
 const float cGlyphSizeUnknown = -1;
 
-template<class T> class GlyphMetricsMap : public Noncopyable {
+template<class T> class GlyphMetricsMap {
+    WTF_MAKE_NONCOPYABLE(GlyphMetricsMap);
 public:
     GlyphMetricsMap() : m_filledPrimaryPage(false) { }
     ~GlyphMetricsMap()
@@ -61,7 +62,7 @@ public:
 private:
     struct GlyphMetricsPage {
         static const size_t size = 256; // Usually covers Latin-1 in a single page.
-        T m_metrics[size];
+        FixedArray<T, size> m_metrics;
 
         T metricsForGlyph(Glyph glyph) const { return m_metrics[glyph % size]; }
         void setMetricsForGlyph(Glyph glyph, const T& metrics)
@@ -112,7 +113,7 @@ template<class T> typename GlyphMetricsMap<T>::GlyphMetricsPage* GlyphMetricsMap
             if ((page = m_pages->get(pageNumber)))
                 return page;
         } else
-            m_pages.set(new HashMap<int, GlyphMetricsPage*>);
+            m_pages = adoptPtr(new HashMap<int, GlyphMetricsPage*>);
         page = new GlyphMetricsPage;
         m_pages->set(pageNumber, page);
     }

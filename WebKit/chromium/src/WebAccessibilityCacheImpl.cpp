@@ -63,15 +63,15 @@ WebAccessibilityCache* WebAccessibilityCache::create()
 
 PassRefPtr<WebAccessibilityCacheImpl::WeakHandle> WebAccessibilityCacheImpl::WeakHandle::create(AccessibilityObject* object)
 {
-    // FIXME: Remove resetting ref-count from AccessibilityObjectWrapper
-    // and convert to use adoptRef.
-    return new WebAccessibilityCacheImpl::WeakHandle(object);
+    RefPtr<WebAccessibilityCacheImpl::WeakHandle> weakHandle = adoptRef(new WebAccessibilityCacheImpl::WeakHandle(object));
+    weakHandle->m_object->setWrapper(weakHandle.get());
+    
+    return weakHandle.release();
 }
 
 WebAccessibilityCacheImpl::WeakHandle::WeakHandle(AccessibilityObject* object)
     : AccessibilityObjectWrapper(object)
 {
-    m_object->setWrapper(this);
 }
 
 // WebAccessibilityCacheImpl ----------------------------------------
@@ -118,11 +118,6 @@ WebAccessibilityObject WebAccessibilityCacheImpl::getObjectById(int id)
     return WebAccessibilityObject(it->second->accessibilityObject());
 }
 
-bool WebAccessibilityCacheImpl::isValidId(int id) const
-{
-    return id >= firstObjectId;
-}
-
 void WebAccessibilityCacheImpl::remove(int id)
 {
     ObjectMap::iterator it = m_objectMap.find(id);
@@ -148,7 +143,7 @@ void WebAccessibilityCacheImpl::clear()
 
 int WebAccessibilityCacheImpl::addOrGetId(const WebAccessibilityObject& object)
 {
-    if (object.isNull())
+    if (!object.isValid())
         return invalidObjectId;
 
     RefPtr<AccessibilityObject> o = toAccessibilityObject(object);
@@ -164,6 +159,19 @@ int WebAccessibilityCacheImpl::addOrGetId(const WebAccessibilityObject& object)
     m_idMap.set(o.get(), m_nextNewId);
 
     return m_nextNewId++;
+}
+
+bool WebAccessibilityCacheImpl::isCached(const WebAccessibilityObject& object)
+{
+    if (!object.isValid())
+        return false;
+
+    RefPtr<AccessibilityObject> o = toAccessibilityObject(object);
+    IdMap::iterator it = m_idMap.find(o.get());
+    if (it == m_idMap.end())
+        return false;
+        
+    return true;
 }
 
 }

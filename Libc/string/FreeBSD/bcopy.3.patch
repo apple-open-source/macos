@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/bcopy.3	2004-11-25 11:38:46.000000000 -0800
-+++ _SB/Libc/string/FreeBSD/bcopy.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -46,20 +46,20 @@
+--- bcopy.3.bsdnew	2009-11-18 18:24:32.000000000 -0800
++++ bcopy.3	2009-11-18 18:24:32.000000000 -0800
+@@ -42,20 +42,20 @@
  .Sh SYNOPSIS
  .In strings.h
  .Ft void

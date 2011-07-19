@@ -1,4 +1,4 @@
-*version5.txt*  For Vim version 7.2.  Last change: 2008 Jun 28
+*version5.txt*  For Vim version 7.3.  Last change: 2008 Dec 17
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -460,10 +460,10 @@ See |--|.
 Regular expression patterns				*added-regexp*
 ---------------------------
 
-Added specifying a range for the number of matches of a atom: "\{a,b}". |/\{|
+Added specifying a range for the number of matches of an atom: "\{a,b}". |/\{|
 Added the "shortest match" regexp "\{-}" (Webb).
-Added "\s", matches a white character.  Can replace "[ \t]".		|/\s|
-Added "\S", matches a non-white character.  Can replace "[^ \t]".	|/\S|
+Added "\s", matches a white character.  Can replace "[ \t]".		 |/\s|
+Added "\S", matches a non-white character.  Can replace "[^ \t]".	 |/\S|
 
 
 Overloaded tags						*tag-overloaded*
@@ -1500,7 +1500,7 @@ the whole thing.
 
 "r<CR>" didn't work correctly on the last char of a line.
 
-sometimes a window resize or other signal caused an endless loop, involving
+Sometimes a window resize or other signal caused an endless loop, involving
 set_winsize().
 
 "vim -r" didn't work, it would just hang (using tgetent() while 'term' is
@@ -7149,7 +7149,7 @@ Files:	    src/gui.c, src/gui.h, src/gui_w32.c
 Patch 5.6.060
 Problem:    Some bold characters spill over to the cell on the left, that
 	    spill-over can remain sometimes.
-Solution:   Redraw a characters when the next character was bold and needs
+Solution:   Redraw a character when the next character was bold and needs
 	    redrawing. (Robert Webb)
 Files:	    src/screen.c
 

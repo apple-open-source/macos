@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,6 +49,9 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_gss.h>
+#include <netsmb/netbios.h>
+
+extern uint32_t smbfs_deadtimer;
 
 static struct smb_connobj smb_vclist;
 static int smb_vcnext = 1;	/* next unique id for VC */
@@ -189,6 +192,15 @@ static void smb_co_put(struct smb_connobj *cp, vfs_context_t context)
 static void smb_co_ref(struct smb_connobj *cp)
 {
 	lck_mtx_lock(&(cp)->co_interlock);
+	if (cp->co_flags & SMBO_GONE) {
+		/* 
+		 * This can happen when we are doing a tree disconnect or a VC log off.
+		 * In the future we could fix the tree disconnect by only taking a reference
+		 * on the VC. Not sure what to do about the VC. If we could solve those 
+		 * two issues then we should make this a fatal error.
+		 */
+		SMBDEBUG("The object is in the gone state level = 0x%x\n",cp->co_level);
+	}
 	cp->co_usecount++;
 	lck_mtx_unlock(&(cp)->co_interlock);
 }
@@ -238,7 +250,7 @@ smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 
 int smb_sm_init(void)
 {
-	smb_co_init(&smb_vclist, SMBL_SM, "smbsm", current_proc());
+	smb_co_init(&smb_vclist, SMBL_VCLIST, "smb_vclist", current_proc());
 	smb_co_unlock(&smb_vclist);
 	return (0);
 }
@@ -314,11 +326,13 @@ void smb_vc_unlock(struct smb_vc *vcp)
 
 static void smb_vc_free(struct smb_connobj *cp)
 {
-	struct smb_vc *vcp = CPTOVC(cp);
+	struct smb_vc *vcp = (struct smb_vc*)cp;
 	
+	smb_gss_rel_cred(vcp);
 	if (vcp->vc_iod)
 		smb_iod_destroy(vcp->vc_iod);
 	vcp->vc_iod = NULL;
+	SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
 	SMB_STRFREE(vcp->NativeOS);
 	SMB_STRFREE(vcp->NativeLANManager);
 	SMB_STRFREE(vcp->vc_username);
@@ -328,18 +342,18 @@ static void smb_vc_free(struct smb_connobj *cp)
 	SMB_STRFREE(vcp->vc_pass);
 	SMB_STRFREE(vcp->vc_domain);
 	if (vcp->vc_mackey)
-		free(vcp->vc_mackey, M_SMBTEMP);
+		FREE(vcp->vc_mackey, M_SMBTEMP);
 	if (vcp->vc_saddr)
-		free(vcp->vc_saddr, M_SONAME);
+		FREE(vcp->vc_saddr, M_SONAME);
 	if (vcp->vc_laddr)
-		free(vcp->vc_laddr, M_SONAME);
+		FREE(vcp->vc_laddr, M_SONAME);
 	smb_gss_destroy(&vcp->vc_gss);
 	if (vcp->throttle_info)
 		throttle_info_release(vcp->throttle_info);
 	vcp->throttle_info = NULL;
 	smb_co_done(VCTOCP(vcp));
 	lck_mtx_destroy(&vcp->vc_stlock, vcst_lck_group);
-	free(vcp, M_SMBCONN);
+	SMB_FREE(vcp, M_SMBCONN);
 }
 
 
@@ -361,8 +375,7 @@ static int smb_vc_disconnect(struct smb_vc *vcp)
 static void smb_vc_gone(struct smb_connobj *cp, vfs_context_t context)
 {
 #pragma unused(context)
-	struct smb_vc *vcp = CPTOVC(cp);
-	
+	struct smb_vc *vcp = (struct smb_vc*)cp;
 	smb_vc_disconnect(vcp);
 }
 
@@ -371,9 +384,13 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 						 vfs_context_t context, struct smb_vc **vcpp)
 {
 	struct smb_vc *vcp;
-	int error;
+	int error = 0;
 	
-	vcp = smb_zmalloc(sizeof(*vcp), M_SMBCONN, M_WAITOK);
+	/* Should never happen, but just to be safe */
+	if (context == NULL) {
+		return ENOTSUP;
+	}
+	MALLOC(vcp, struct smb_vc *, sizeof(*vcp), M_SMBCONN, M_WAITOK | M_ZERO);
 	smb_co_init(VCTOCP(vcp), SMBL_VC, "smb_vc", vfs_context_proc(context));
 	vcp->obj.co_free = smb_vc_free;
 	vcp->obj.co_gone = smb_vc_gone;
@@ -386,10 +403,11 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	vcp->vc_mackeylen = 0;
 	vcp->vc_saddr = saddr;
 	vcp->vc_laddr = laddr;
+	vcp->supportHighPID = FALSE;
 	/* Remove any user setable items */
 	vcp->vc_flags &= ~SMBV_USER_LAND_MASK;
 	/* Now add the users setable items */
-	vcp->vc_flags |= (vcspec->ioc_ssn.ioc_opt & SMBV_USER_LAND_MASK);
+	vcp->vc_flags |= (vcspec->ioc_userflags & SMBV_USER_LAND_MASK);
 	
 	/* Now add the throttle info */
 	vcp->throttle_info = throttle_info_create();
@@ -404,25 +422,54 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	vcp->reconnect_wait_time = vcspec->ioc_ssn.ioc_reconnect_wait_time;	
 	
 	lck_mtx_init(&vcp->vc_stlock, vcst_lck_group, vcst_lck_attr);
-	error = 0;
-	itry {
-		
-		ierror((vcp->vc_srvname = smb_strdup(vcspec->ioc_ssn.ioc_srvname, 
-						sizeof(vcspec->ioc_ssn.ioc_srvname))) == NULL, ENOMEM);
-		
-		ierror((vcp->vc_localname = smb_strdup(vcspec->ioc_ssn.ioc_localname, 
-						sizeof(vcspec->ioc_ssn.ioc_localname))) == NULL, ENOMEM);
-				
-		ithrow(smb_iod_create(vcp));
-		*vcpp = vcp;
-		smb_sm_lockvclist();
-		smb_co_addchild(&smb_vclist, VCTOCP(vcp));
-		smb_sm_unlockvclist();
-	} icatch(error) {
+	vcp->vc_srvname = smb_strndup(vcspec->ioc_ssn.ioc_srvname, sizeof(vcspec->ioc_ssn.ioc_srvname));
+	if (vcp->vc_srvname)
+		vcp->vc_localname = smb_strndup(vcspec->ioc_ssn.ioc_localname,  sizeof(vcspec->ioc_ssn.ioc_localname));
+	if ((vcp->vc_srvname == NULL) || (vcp->vc_localname == NULL)) {
+		error = ENOMEM;
+	}
+	if (!error)
+		error = smb_iod_create(vcp);
+	if (error) {
 		smb_vc_put(vcp, context);
-	} ifinally {
-	} iendtry;
-	return error;
+		return error;
+	}
+	*vcpp = vcp;
+	smb_sm_lockvclist();
+	smb_co_addchild(&smb_vclist, VCTOCP(vcp));
+	smb_sm_unlockvclist();
+	return 0;
+}
+
+/*
+ * So we have three types of sockaddr strcutures, IPv4, IPv6 or NetBIOS. 
+ *
+ * If both sa_family equal AF_NETBIOS then we can just compare the two sockaddr
+ * structures.
+ * 
+ * If neither sa_family equal AF_NETBIOS then we can just compare the two sockaddr
+ * structures.
+ * 
+ * If the search sa_family equal AF_NETBIOS and the vc sa_family doesn't then we
+ * can just compare, since its its not going to match. We never support sharing
+ * a AF_NETBIOS with a non AF_NETBIOS connection.
+ * 
+ * Now that just leaves the cases were the VC is connected using AF_NETBIOS and
+ * the search sockaddr is either IPv4 or IPv6. We need to compare using the real
+ * sockaddr that is inside the AF_NETBIOS sockaddr_nb structure.
+ */
+static int addressMatch(struct smb_vc *vcp, struct sockaddr *saddr)
+{
+	struct sockaddr *vc_saddr = vcp->vc_saddr;
+
+	if ((vc_saddr->sa_family == AF_NETBIOS) && (saddr->sa_family != AF_NETBIOS)) {		
+		vc_saddr = (struct sockaddr *)&((struct sockaddr_nb *)vcp->vc_saddr)->snb_addrin;
+	}
+	
+	if ((vc_saddr->sa_len == saddr->sa_len) && (memcmp(vc_saddr, saddr, saddr->sa_len) == 0))
+		return TRUE;
+	
+	return FALSE;
 }
 
 /*
@@ -432,9 +479,9 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
  * vcp to search on.
  */
 static int smb_sm_lookupint(struct sockaddr *sap, uid_t owner, char *username, 
-							u_int32_t user_flags, struct smb_vc **vcpp)
+							uint32_t user_flags, struct smb_vc **vcpp)
 {
-	struct smb_vc *vcp;
+	struct smb_vc *vcp, *tvcp;
 	int error;
 	
 	
@@ -442,7 +489,7 @@ static int smb_sm_lookupint(struct sockaddr *sap, uid_t owner, char *username,
 tryagain:
 	smb_sm_lockvclist();
 	error = ENOENT;
-	SMBCO_FOREACH(vcp, &smb_vclist) {
+	SMBCO_FOREACH_SAFE(vcp, &smb_vclist, tvcp) {
 		
 		if (*vcpp && vcp != *vcpp)
 			continue;
@@ -463,12 +510,8 @@ tryagain:
 				continue;
 			}
 			
-			/* 
-			 * Socket family, address and port all need to match. In the 
-			 * future should we allow port mismatch? See Radar 5483417 for
-			 * more on this issue.
-			 */
-			if (!CONNADDREQ(vcp->vc_saddr, sap)) {
+			/* The sock address structure needs to match. */
+			if (!addressMatch(vcp, sap)) {
 				continue;
 			}
 			
@@ -477,11 +520,6 @@ tryagain:
 				continue;
 			}
 			
-			/* Private vc session, don't share this session */
-			if (vcp->vc_flags & SMBV_PRIVATE_VC) {
-				continue;
-			}
-
 			/* Ok we have a lock on the vcp, any error needs to unlock it */
 			error = smb_vc_lock(vcp);
 			/*
@@ -494,25 +532,62 @@ tryagain:
 				smb_sm_unlockvclist();
 				goto tryagain;
 			}
+			
+			/* 
+			 * The VC must be active and not in reconnect, otherwise we should 
+			 * just skip this VC.
+			 */
+			if ((vcp->vc_iod->iod_state != SMBIOD_ST_VCACTIVE) || 
+				(vcp->vc_iod->iod_flags & SMBIOD_RECONNECT)) {
+				SMBWARNING("Skipping %s becasue its down or in reconnect: flags = 0x%x state = 0x%x\n", 
+						   vcp->vc_srvname, vcp->vc_iod->iod_flags, vcp->vc_iod->iod_state);
+				smb_vc_unlock(vcp);									
+				error = ENOENT;
+				continue;				
+			}
+			
 			/*
-			 * If they ask for authentication then the vcp needs to match that
+			 * If they ask for authentication then the VC needs to match that
 			 * authentication or we need to keep looking. So here are the 
 			 * scenarios we need to deal with here.
 			 *
-			 * 1. They are requesting kerberos access. If the current vcp isn't
-			 *    using kerberos then do not reuse the vcp.
-			 * 2. They are requesting guest access. If the current vcp isn't
-			 *    using guest then do not reuse the vcp.
-			 * 3. They are using user level security. The vcp user name needs to
+			 * 1. If they are asking for a private guest access and the VC has
+			 *    private guest access set then use this VC. If either is set,
+			 *    but not both then don't reuse the VC.
+			 * 2. If they are asking for a anonymous access and the VC has
+			 *    anonymous access set then use this VC. If either is set,
+			 *    but not both then don't reuse the VC.
+			 * 3. They are requesting kerberos access. If the current VC isn't
+			 *    using kerberos then don't reuse the vcp.
+			 * 4. They are requesting guest access. If the current VC isn't
+			 *    using guest then don't reuse the VC.
+			 * 4. They are using user level security. The VC user name needs to
 			 *	  match the one passed in.
-			 * 4. They don't care. Always use the authentication of this vcp.
+			 * 4. They don't care. Always use the authentication of this VC.
 			 */
-			
-			/*
-			 * They are asking for Kerberos access, if the vcp is using Kerberos
-			 * then use this vcp otherwise keep looking.
-			 */
-			if (user_flags & SMBV_KERBEROS_ACCESS) {
+			if ((vcp->vc_flags & SMBV_SFS_ACCESS)) {
+				/* We're guest no matter what the user says, just use this VC */
+				error = 0;
+				break;
+			} else if ((user_flags & SMBV_PRIV_GUEST_ACCESS) || (vcp->vc_flags & SMBV_PRIV_GUEST_ACCESS)) {
+				if ((user_flags & SMBV_PRIV_GUEST_ACCESS) && (vcp->vc_flags & SMBV_PRIV_GUEST_ACCESS)) {
+					error = 0;
+					break;				
+				} else {
+					smb_vc_unlock(vcp);									
+					error = ENOENT;
+					continue;				
+				}
+			} else if ((user_flags & SMBV_ANONYMOUS_ACCESS) || (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS)) {
+				if ((user_flags & SMBV_ANONYMOUS_ACCESS) && (vcp->vc_flags & SMBV_ANONYMOUS_ACCESS)) {
+					error = 0;
+					break;				
+				} else {
+					smb_vc_unlock(vcp);									
+					error = ENOENT;
+					continue;				
+				}
+			} else if (user_flags & SMBV_KERBEROS_ACCESS) {
 				if (vcp->vc_flags & SMBV_KERBEROS_ACCESS) {
 					error = 0;
 					break;				
@@ -521,13 +596,7 @@ tryagain:
 					error = ENOENT;
 					continue;				
 				}
-			}
-			
-			/*
-			 * They are asking for guest access, if the vcp is using guest
-			 * then use this vcp otherwise keep looking.
-			 */
-			if (user_flags & SMBV_GUEST_ACCESS) {
+			} else if (user_flags & SMBV_GUEST_ACCESS) {
 				if (vcp->vc_flags & SMBV_GUEST_ACCESS) {
 					error = 0;
 					break;				
@@ -536,14 +605,7 @@ tryagain:
 					error = ENOENT;
 					continue;				
 				}
-			}
-			
-			/*
-			 * They are asking for user level access, if the vcp is using user
-			 * level access and the user names match then use this vcp otherwise 
-			 * keep looking.
-			 */
-			if (username && username[0]) {
+			} else if (username && username[0]) {
 				if (vcp->vc_username && 
 					((strncmp(vcp->vc_username, username, SMB_MAXUSERNAMELEN + 1)) == 0)) {
 					error = 0;
@@ -554,7 +616,6 @@ tryagain:
 					continue;				
 				}
 			}
-			/* They don't care which access to use so use this vcp. */
 			error = 0;
 			break;
 		}
@@ -568,50 +629,60 @@ tryagain:
 }
 
 int smb_sm_negotiate(struct smbioc_negotiate *vcspec, vfs_context_t context, 
-				 struct smb_vc **vcpp, struct smb_dev *sdp)
+				 struct smb_vc **vcpp, struct smb_dev *sdp, int searchOnly)
 {
 	struct smb_vc *vcp = NULL;
-	struct sockaddr	*saddr, *laddr;
+	struct sockaddr	*saddr = NULL, *laddr = NULL;
 	int error;
 
 	saddr = smb_memdupin(vcspec->ioc_kern_saddr, vcspec->ioc_saddr_len);
 	if (saddr == NULL) {
 		return ENOMEM;
 	}
-	laddr = smb_memdupin(vcspec->ioc_kern_laddr, vcspec->ioc_laddr_len);
-	if (laddr == NULL) {
-		free(saddr, M_SMBDATA);	
-		return ENOMEM;
-	}
+
 	*vcpp = vcp = NULL;
 
-	if ((vcspec->ioc_ssn.ioc_opt & SMBV_PRIVATE_VC) != SMBV_PRIVATE_VC) {
-		error = smb_sm_lookupint(saddr, vcspec->ioc_ssn.ioc_owner, 
-								 vcspec->ioc_user, vcspec->ioc_ssn.ioc_opt, &vcp);
+	if (vcspec->ioc_extra_flags & SMB_FORCE_NEW_SESSION) {
+		error = ENOENT;	/* Force a new virtual circuit session */
+	} else {
+		error = smb_sm_lookupint(saddr, vcspec->ioc_ssn.ioc_owner, vcspec->ioc_user, 
+							 vcspec->ioc_userflags, &vcp);
 	}
-	else
-		error = ENOENT;
 		
-	if (error == 0) {
-		free(saddr, M_SMBDATA);	
-		free(laddr, M_SMBDATA);
+	if ((error == 0) || (searchOnly)) {
+		free(saddr, M_SMBDATA);
 		vcspec->ioc_extra_flags |= SMB_SHARING_VC;
 	} else {
+		/* NetBIOS connections require a local address */
+		if (saddr->sa_family == AF_NETBIOS) {
+			laddr = smb_memdupin(vcspec->ioc_kern_laddr, vcspec->ioc_laddr_len);
+			if (laddr == NULL) {
+				free(saddr, M_SMBDATA);	
+				return ENOMEM;
+			}
+		}
 		/* If smb_vc_create fails it will clean up saddr and laddr */
 		error = smb_vc_create(vcspec, saddr, laddr, context, &vcp);
 		if (error == 0) {
 			/* Flags used to cancel the connection */
-			if (vcspec->ioc_extra_flags & TRY_BOTH_PORTS)
-				sdp->sd_flags |= NSMBFL_TRYBOTH;
 			vcp->connect_flag = &sdp->sd_flags;
 			error = smb_vc_negotiate(vcp, context);
 			vcp->connect_flag = NULL;
-			sdp->sd_flags &= ~NSMBFL_TRYBOTH;
 			if (error) /* Remove the lock and reference */
 				smb_vc_put(vcp, context);
+			else if (smbfs_kern_ntlmssp)
+				vcspec->ioc_extra_flags |= SMB_KERN_NTLMSSP;
 		}		
 	}
 	if ((error == 0) && (vcp)) {
+		/* 
+		 * They don't want us to touch the home directory, remove the flag. This
+		 * will prevent any shared sessions to touch the home directory when they
+		 * shouldn't.
+		 */
+		if ((vcspec->ioc_userflags & SMBV_HOME_ACCESS_OK) != SMBV_HOME_ACCESS_OK) {
+			vcp->vc_flags &= ~SMBV_HOME_ACCESS_OK;							
+		}		
 		*vcpp = vcp;
 		smb_vc_unlock(vcp);
 	}
@@ -641,7 +712,7 @@ int smb_sm_ssnsetup(struct smb_vc *vcp, struct smbioc_setup *sspec,
 	/* Remove any user setable items */
 	vcp->vc_flags &= ~SMBV_USER_LAND_MASK;
 	/* Now add the users setable items */
-	vcp->vc_flags |= (sspec->ioc_vcflags & SMBV_USER_LAND_MASK);
+	vcp->vc_flags |= (sspec->ioc_userflags & SMBV_USER_LAND_MASK);
 	/* 
 	 * Reset the username, password, domain, kerb client and service names. We
 	 * never want to use any values left over from any previous calls.
@@ -657,25 +728,45 @@ int smb_sm_ssnsetup(struct smb_vc *vcp, struct smbioc_setup *sspec,
 	 * land to send us a SPN, if we are going to use one.
 	 */
 	SMB_STRFREE(vcp->vc_gss.gss_spn);
-	vcp->vc_username = smb_strdup(sspec->ioc_user, sizeof(sspec->ioc_user));
-	vcp->vc_uppercase_username = smb_strdup(sspec->ioc_uppercase_user, sizeof(sspec->ioc_uppercase_user));
-	vcp->vc_pass = smb_strdup(sspec->ioc_password, sizeof(sspec->ioc_password));
-	vcp->vc_domain = smb_strdup(sspec->ioc_domain, sizeof(sspec->ioc_domain));
+	vcp->vc_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user));
+	vcp->vc_uppercase_username = smb_strndup(sspec->ioc_uppercase_user, sizeof(sspec->ioc_uppercase_user));
+	vcp->vc_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password));
+	vcp->vc_domain = smb_strndup(sspec->ioc_domain, sizeof(sspec->ioc_domain));
+	/*
+	 * We should see if vc_domain or vc_uppercase_username is really needed once
+	 * we remove the internal NTLM code. See <rdar://problem/7016849>
+	 */
 	if ((vcp->vc_pass == NULL) || (vcp->vc_domain == NULL) || 
-		(vcp->vc_username == NULL)) {
+		(vcp->vc_username == NULL) || (vcp->vc_uppercase_username == NULL)) {
 		error = ENOMEM;
 		goto done;
 	}
-	/* Kerberos client principal name is only set if we are doing kerberos */
-	if (sspec->ioc_kclientpn[0])
-		vcp->vc_gss.gss_cpn = smb_strdup(sspec->ioc_kclientpn,  sizeof(sspec->ioc_kclientpn));
-	/* Kerberos service principal name is only set if we are doing kerberos */
-	if (sspec->ioc_kservicepn[0])
-		vcp->vc_gss.gss_spn = smb_strdup(sspec->ioc_kservicepn, sizeof(sspec->ioc_kservicepn));
+
+	/* GSS principal names are only set if we are doing kerberos or ntlmssp */
+	if (sspec->ioc_gss_client_size) {
+		vcp->vc_gss.gss_cpn = smb_memdupin(sspec->ioc_gss_client_name, sspec->ioc_gss_client_size);
+	}
+	vcp->vc_gss.gss_cpn_len = sspec->ioc_gss_client_size;
+	vcp->vc_gss.gss_client_nt = sspec->ioc_gss_client_nt;
+
+	if (sspec->ioc_gss_target_size) {
+		vcp->vc_gss.gss_spn = smb_memdupin(sspec->ioc_gss_target_name, sspec->ioc_gss_target_size);
+	}
+	vcp->vc_gss.gss_spn_len = sspec->ioc_gss_target_size;
+	vcp->vc_gss.gss_target_nt = sspec->ioc_gss_target_nt;
+	if (!(sspec->ioc_userflags & SMBV_ANONYMOUS_ACCESS)) {
+		SMB_LOG_AUTH("client size = %d client name type = %d\n", 
+				   sspec->ioc_gss_client_size, vcp->vc_gss.gss_client_nt);
+		SMB_LOG_AUTH("taget size = %d target name type = %d\n", 
+				   sspec->ioc_gss_target_size, vcp->vc_gss.gss_target_nt);
+	}
+	
 	error = smb_vc_ssnsetup(vcp);
 	/* If no error then this virtual circuit has been authorized */
-	if (error == 0)		
+	if (error == 0) {
+		smb_gss_ref_cred(vcp);
 		vcp->vc_flags |= SMBV_AUTH_DONE;
+	}
 
 done:
 	if (error) {
@@ -686,13 +777,16 @@ done:
 		 * not every return these values after authorization
 		 * fails.
 		 */ 
-		vcp->vc_flags &= ~(SMBV_GUEST_ACCESS | SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
+		vcp->vc_flags &= ~(SMBV_GUEST_ACCESS | SMBV_PRIV_GUEST_ACCESS | 
+						   SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
 		SMB_STRFREE(vcp->vc_username);
 		SMB_STRFREE(vcp->vc_uppercase_username);
 		SMB_STRFREE(vcp->vc_pass);
 		SMB_STRFREE(vcp->vc_domain);
 		SMB_STRFREE(vcp->vc_gss.gss_cpn);
 		SMB_STRFREE(vcp->vc_gss.gss_spn);
+		vcp->vc_gss.gss_spn_len = 0;
+		vcp->vc_gss.gss_cpn_len = 0;
 	}
 	
 	/* Release the reference and lock that smb_sm_lookupint took on the vcp */
@@ -700,81 +794,35 @@ done:
 	return error;
 }
 
-static int smb_vc_cmpshare(struct smb_vc *vcp, struct smb_share *ssp, 
-						   char *sh_name,  vfs_context_t context)
-{
-	if (strncmp(ssp->ss_name, sh_name, SMB_MAXUSERNAMELEN + 1) != 0)
-		return 1;
-	
-	if (smb_vc_access(vcp, context) != 0)
-		return 1;
-	return (0);
-}
-
 static void smb_share_free(struct smb_connobj *cp)
 {
-	struct smb_share *ssp = CPTOSS(cp);
+	struct smb_share *share = (struct smb_share *)cp;
 	
-	SMB_STRFREE(ssp->ss_name);
-	SMB_STRFREE(ssp->ss_fsname);
-	lck_mtx_destroy(&ssp->ss_stlock, ssst_lck_group);
-	lck_mtx_destroy(&ssp->ss_mntlock, ssst_lck_group);
-	smb_co_done(SSTOCP(ssp));
-	free(ssp, M_SMBCONN);
+	SMB_STRFREE(share->ss_name);
+	lck_mtx_destroy(&share->ss_stlock, ssst_lck_group);
+	lck_mtx_destroy(&share->ss_shlock, ssst_lck_group);
+	smb_co_done(SSTOCP(share));
+	SMB_FREE(share, M_SMBCONN);
 }
 
 static void smb_share_gone(struct smb_connobj *cp, vfs_context_t context)
 {
-	struct smb_share *ssp = CPTOSS(cp);
+	struct smb_share *share = (struct smb_share *)cp;
 	
-	DBG_ASSERT(ssp);
-	DBG_ASSERT(SSTOVC(ssp));
-	DBG_ASSERT(SSTOVC(ssp)->vc_iod);
-	smb_smb_treedisconnect(ssp, context);
+	DBG_ASSERT(share);
+	DBG_ASSERT(SSTOVC(share));
+	DBG_ASSERT(SSTOVC(share)->vc_iod);
+	smb_smb_treedisconnect(share, context);
 }
 
-void smb_share_ref(struct smb_share *ssp)
+void smb_share_ref(struct smb_share *share)
 {
-	smb_co_ref(SSTOCP(ssp));
+	smb_co_ref(SSTOCP(share));
 }
 
-void smb_share_rele(struct smb_share *ssp, vfs_context_t context)
+void smb_share_rele(struct smb_share *share, vfs_context_t context)
 {	
-	smb_co_rele(SSTOCP(ssp), context);
-}
-
-/*
- * Look up the share on the given VC. If we find it then take a reference 
- * out on the share. The VC should to be locked on entry and will be left 
- * locked on exit.
- */
-static int smb_vc_lookupshare(struct smb_vc *vcp, char *sh_name, 
-					   struct smb_share **sspp, vfs_context_t context)
-{
-	struct smb_share *ssp = NULL;
-	int error;
-	
-	SMBCO_FOREACH(ssp, VCTOCP(vcp)) {
-		/* 
-		 * We have the vc locked so the share isn't going away. We need to take
-		 * a reference only if the tree is connected and the name matches.
-		 * NOTE: The name is added to the share before its put on the list
-		 * and stays until its remove from the list.
-		 */
-		if ((ssp->ss_tid != SMB_TID_UNKNOWN) &&
-			(smb_vc_cmpshare(vcp, ssp, sh_name, context) == 0)) {
-			smb_share_ref(ssp);			
-			break;
-		}
-	}
-	if (ssp) {
-		*sspp = ssp;
-		error = 0;
-	} else {
-		*sspp = NULL;
-		error = ENOENT;
-	}
-	return error;
+	smb_co_rele(SSTOCP(share), context);
 }
 
 /*
@@ -784,30 +832,39 @@ static int smb_vc_lookupshare(struct smb_vc *vcp, char *sh_name,
  */
 static int
 smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
-				 struct smb_share **sspp, vfs_context_t context)
+				 struct smb_share **outShare, vfs_context_t context)
 {
-	struct smb_share *ssp;
+	struct smb_share *share;
 	
-	ssp = smb_zmalloc(sizeof(*ssp), M_SMBCONN, M_WAITOK);
-	if (ssp == NULL)
+	/* Should never happen, but just to be safe */
+	if (context == NULL)
+		return ENOTSUP;
+	
+	MALLOC(share, struct smb_share *, sizeof(*share), M_SMBCONN, M_WAITOK | M_ZERO);
+	if (share == NULL) {
 		return ENOMEM;
+	}
+	share->ss_name = smb_strndup(shspec->ioc_share, sizeof(shspec->ioc_share));
+	if (share->ss_name == NULL) {
+		SMB_FREE(share, M_SMBCONN);
+		return ENOMEM;
+	}
 	/* The smb_co_init routine locks the share and takes a reference */
-	smb_co_init(SSTOCP(ssp), SMBL_SHARE, "smbss", vfs_context_proc(context));
-	ssp->obj.co_free = smb_share_free;
-	ssp->obj.co_gone = smb_share_gone;
-	lck_mtx_init(&ssp->ss_mntlock, ssst_lck_group, ssst_lck_attr);
-	lck_mtx_init(&ssp->ss_stlock, ssst_lck_group, ssst_lck_attr);
-	ssp->ss_name = smb_strdup(shspec->ioc_share, sizeof(shspec->ioc_share));
-	lck_mtx_lock(&ssp->ss_mntlock);
-	ssp->ss_mount = NULL;	/* Just to be safe clear it out */
-	lck_mtx_unlock(&ssp->ss_mntlock);
-	ssp->ss_type = shspec->ioc_stype;
-	ssp->ss_tid = SMB_TID_UNKNOWN;
-	ssp->ss_fsname = NULL;
+	smb_co_init(SSTOCP(share), SMBL_SHARE, "smbss", vfs_context_proc(context));
+	share->obj.co_free = smb_share_free;
+	share->obj.co_gone = smb_share_gone;
+	lck_mtx_init(&share->ss_shlock, ssst_lck_group, ssst_lck_attr);
+	lck_mtx_init(&share->ss_stlock, ssst_lck_group, ssst_lck_attr);
+	lck_mtx_lock(&share->ss_shlock);
+	share->ss_mount = NULL;	/* Just to be safe clear it out */
+	/* Set the default dead timer */
+	share->ss_dead_timer = smbfs_deadtimer;
+	lck_mtx_unlock(&share->ss_shlock);
+	share->ss_tid = SMB_TID_UNKNOWN;
 	/* unlock the share we no longer need the lock */
-	smb_co_unlock(SSTOCP(ssp));
-	smb_co_addchild(VCTOCP(vcp), SSTOCP(ssp));
-	*sspp = ssp;
+	smb_co_unlock(SSTOCP(share));
+	smb_co_addchild(VCTOCP(vcp), SSTOCP(share));
+	*outShare = share;
 	return (0);
 }
 
@@ -833,30 +890,24 @@ int smb_sm_tcon(struct smb_vc *vcp, struct smbioc_share *shspec,
 		SMBERROR("The virtual circtuit was not found: error = %d\n", error);
 		return error;
 	}
-	/* At this point we have a locked vcp see if we already have the share */
-	error = smb_vc_lookupshare(vcp, shspec->ioc_share, shpp, context);
-	if (error == 0) {
-		/*
-		 * We only have a reference on the share. We hold a lock and reference 
-		 * on the vc. We are done with the vc lock, so release the lock, but
-		 * hold on to the references.
-		 */
-		smb_vc_unlock(vcp);				
-	} else {
-		error = smb_share_create(vcp, shspec, shpp, context);
-		/*
-		 * We hold a lock and reference on the vc. We are done with the vc lock 
-		 * so unlock the vc but hold on to the vc references.
-		 */
-		smb_vc_unlock(vcp);				
-		if (error == 0) {
-			error = smb_smb_treeconnect(*shpp, context);
-			if (error) {
-				/* Let the share drain, so it can get removed */
-				smb_share_rele(*shpp, context);		
-				*shpp = NULL; /* We failed reset it to NULL */
-			}
-		}
+	/* At this point we have a locked vcp create the share */
+    error = smb_share_create(vcp, shspec, shpp, context);
+    /*
+     * We hold a lock and reference on the vc. We are done with the vc lock 
+     * so unlock the vc but hold on to the vc references.
+     */
+    smb_vc_unlock(vcp);				
+    if (error == 0) {
+        error = smb_smb_treeconnect(*shpp, context);
+        if (error) {
+            /* Let the share drain, so it can get removed */
+            smb_share_rele(*shpp, context);		
+            *shpp = NULL; /* We failed reset it to NULL */
+        }
+    }
+	if (*shpp && (error == 0)) {
+		shspec->ioc_optionalSupport = (*shpp)->optionalSupport;
+		shspec->ioc_fstype = (*shpp)->ss_fstype;
 	}
 	
 	/* Release the reference that smb_sm_lookupint took on the vc */
@@ -866,9 +917,13 @@ int smb_sm_tcon(struct smb_vc *vcp, struct smbioc_share *shspec,
 
 int smb_vc_access(struct smb_vc *vcp, vfs_context_t context)
 {	
-	if (vcp->vc_flags & SMBV_GUEST_ACCESS)
+	if (SMBV_HAS_GUEST_ACCESS(vcp))
 		return(0);
 	
+	/* The smbfs_vnop_strategy routine has no context, we always allow these */
+	if (context == NULL) {
+		return(0);
+	}
 	if ((vfs_context_suser(context) == 0) || 
 		(kauth_cred_getuid(vfs_context_ucred(context)) == vcp->vc_uid))
 		return (0);
@@ -901,21 +956,10 @@ const char * smb_vc_getpass(struct smb_vc *vcp)
  * a password. Use the vcp password always. On required for
  * Windows 98, should drop support someday.
  */
-const char * smb_share_getpass(struct smb_share *ssp)
+const char * smb_share_getpass(struct smb_share *share)
 {
-	DBG_ASSERT(SSTOVC(ssp));
-	return smb_vc_getpass(SSTOVC(ssp));
-}
-
-u_short smb_vc_nextmid(struct smb_vc *vcp)
-{
-	u_short r;
-	struct smb_connobj *cp = &vcp->obj;
-	
-	lck_mtx_lock(&(cp)->co_interlock);
-	r = vcp->vc_mid++;
-	lck_mtx_unlock(&(cp)->co_interlock);
-	return r;
+	DBG_ASSERT(SSTOVC(share));
+	return smb_vc_getpass(SSTOVC(share));
 }
 
 /*

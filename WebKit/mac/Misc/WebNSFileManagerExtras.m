@@ -31,7 +31,6 @@
 #import "WebKitNSStringExtras.h"
 #import "WebNSURLExtras.h"
 #import <JavaScriptCore/Assertions.h>
-#import <WebCore/FoundationExtras.h>
 #import <WebKitSystemInterface.h>
 #import <sys/stat.h>
 
@@ -87,21 +86,27 @@
 
 typedef struct MetaDataInfo
 {
-    NSString *URLString;
-    NSString *referrer;
-    NSString *path;
+    CFStringRef URLString;
+    CFStringRef referrer;
+    CFStringRef path;
 } MetaDataInfo;
 
 static void *setMetaData(void* context)
 {
     MetaDataInfo *info = (MetaDataInfo *)context;
-    WKSetMetadataURL(info->URLString, info->referrer, info->path);
-    
-    HardRelease(info->URLString);
-    HardRelease(info->referrer);
-    HardRelease(info->path);
-    
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    WKSetMetadataURL((NSString *)info->URLString, (NSString *)info->referrer, (NSString *)info->path);
+
+    if (info->URLString)
+        CFRelease(info->URLString);
+    if (info->referrer)
+        CFRelease(info->referrer);
+    if (info->path)
+        CFRelease(info->path);
+
     free(info);
+    [pool drain];
+
     return 0;
 }
 
@@ -124,9 +129,9 @@ static void *setMetaData(void* context)
 
     MetaDataInfo *info = malloc(sizeof(MetaDataInfo));
     
-    info->URLString = HardRetainWithNSRelease([URLString copy]);
-    info->referrer = HardRetainWithNSRelease([referrer copy]);
-    info->path = HardRetainWithNSRelease([path copy]);
+    info->URLString = URLString ? CFStringCreateCopy(0, (CFStringRef)URLString) : 0;
+    info->referrer = referrer ? CFStringCreateCopy(0, (CFStringRef)referrer) : 0;
+    info->path = path ? CFStringCreateCopy(0, (CFStringRef)path) : 0;
 
     pthread_create(&tid, &attr, setMetaData, info);
     pthread_attr_destroy(&attr);
@@ -181,60 +186,3 @@ static BOOL fileExists(NSString *path)
 
 @end
 
-#ifdef BUILDING_ON_TIGER
-
-@implementation NSFileManager (WebNSFileManagerTigerForwardCompatibility)
-
-- (NSArray *)contentsOfDirectoryAtPath:(NSString *)path error:(NSError **)error
-{
-    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
-    ASSERT_ARG(error, !error);
-
-    return [self directoryContentsAtPath:path];
-}
-
-- (NSString *)destinationOfSymbolicLinkAtPath:(NSString *)path error:(NSError **)error
-{
-    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
-    ASSERT_ARG(error, !error);
-
-    return [self pathContentOfSymbolicLinkAtPath:path];
-}
-
-- (NSDictionary *)attributesOfFileSystemForPath:(NSString *)path error:(NSError **)error
-{
-    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
-    ASSERT_ARG(error, !error);
-
-    return [self fileSystemAttributesAtPath:path];
-}
-
-- (NSDictionary *)attributesOfItemAtPath:(NSString *)path error:(NSError **)error
-{
-    // We don't report errors via the NSError* output parameter, so ensure that the caller does not expect us to do so.
-    ASSERT_ARG(error, !error);
-
-    return [self fileAttributesAtPath:path traverseLink:NO];
-}
-
-- (BOOL)moveItemAtPath:(NSString *)srcPath toPath:(NSString *)dstPath error:(NSError **)error
-{
-    // The implementation of moveItemAtPath:toPath:error: interacts with the NSFileManager's delegate.
-    // We are not matching that behaviour at the moment, but it should not be a problem as any client
-    // expecting that would need to call setDelegate: first which will generate a compile-time warning,
-    // as that method is not available on Tiger.
-    return [self movePath:srcPath toPath:dstPath handler:nil];
-}
-
-- (BOOL)removeItemAtPath:(NSString *)path error:(NSError **)error
-{
-    // The implementation of removeItemAtPath:error: interacts with the NSFileManager's delegate.
-    // We are not matching that behaviour at the moment, but it should not be a problem as any client
-    // expecting that would need to call setDelegate: first which will generate a compile-time warning,
-    // as that method is not available on Tiger.
-    return [self removeFileAtPath:path handler:nil];
-}
-
-@end
-
-#endif

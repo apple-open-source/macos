@@ -78,48 +78,50 @@ proc ::Plotchart::GanttFont { w component font } {
 #    Data bars drawn in canvas
 #
 proc ::Plotchart::DrawGanttPeriod { w text time_begin time_end completed } {
-   variable settings
-   variable data_series
-   variable scaling
+    variable settings
+    variable data_series
+    variable scaling
 
-   #
-   # Draw the text first
-   #
-   set ytext [expr {$scaling($w,current)-0.5}]
-   foreach {x y} [coordsToPixel $w $scaling($w,xmin) $ytext] {break}
+    #
+    # Draw the text first
+    #
+    set ytext [expr {$scaling($w,current)-0.5}]
+    foreach {x y} [coordsToPixel $w $scaling($w,xmin) $ytext] {break}
 
-   set items {}
-   lappend items \
-       [$w create text 5 $y -text $text -anchor w \
-                                   -tag description \
-                                   -font $settings($w,font,description)]
+    set items {}
+    lappend items \
+        [$w create text 5 $y -text $text -anchor w \
+                                    -tag {description vertscroll above} \
+                                    -font $settings($w,font,description)]
 
-   #
-   # Draw the bar to indicate the period
-   #
-   set xmin  [clock scan $time_begin]
-   set xmax  [clock scan $time_end]
-   set xcmp  [expr {$xmin + $completed*($xmax-$xmin)/100.0}]
-   set ytop  [expr {$scaling($w,current)-0.5*(1.0-$scaling($w,dy))}]
-   set ybott [expr {$scaling($w,current)-0.5*(1.0+$scaling($w,dy))}]
+    #
+    # Draw the bar to indicate the period
+    #
+    set xmin  [clock scan $time_begin]
+    set xmax  [clock scan $time_end]
+    set xcmp  [expr {$xmin + $completed*($xmax-$xmin)/100.0}]
+    set ytop  [expr {$scaling($w,current)-0.5*(1.0-$scaling($w,dy))}]
+    set ybott [expr {$scaling($w,current)-0.5*(1.0+$scaling($w,dy))}]
 
-   foreach {x1 y1} [coordsToPixel $w $xmin $ytop ] {break}
-   foreach {x2 y2} [coordsToPixel $w $xmax $ybott] {break}
-   foreach {x3 y2} [coordsToPixel $w $xcmp $ybott] {break}
+    foreach {x1 y1} [coordsToPixel $w $xmin $ytop ] {break}
+    foreach {x2 y2} [coordsToPixel $w $xmax $ybott] {break}
+    foreach {x3 y2} [coordsToPixel $w $xcmp $ybott] {break}
 
-   lappend items \
-       [$w create rectangle $x1 $y1 $x3 $y2 -fill $settings($w,color,completed) \
-                                            -tag completed ] \
-       [$w create rectangle $x3 $y1 $x2 $y2 -fill $settings($w,color,left) \
-                                            -tag left ] \
-       [$w create text      [expr {$x2+10}] $y -text "$completed%" \
-                                            -anchor w \
-                                            -tag description \
-                                            -font $settings($w,font,description)]
+    lappend items \
+        [$w create rectangle $x1 $y1 $x3 $y2 -fill $settings($w,color,completed) \
+                                             -tag {completed vertscroll horizscroll below}] \
+        [$w create rectangle $x3 $y1 $x2 $y2 -fill $settings($w,color,left) \
+                                             -tag {left vertscroll horizscroll below}] \
+        [$w create text      [expr {$x2+10}] $y -text "$completed%" \
+                                             -anchor w \
+                                             -tag {description vertscroll horizscroll below} \
+                                             -font $settings($w,font,description)]
 
-   set scaling($w,current) [expr {$scaling($w,current)-1.0}]
+    set scaling($w,current) [expr {$scaling($w,current)-1.0}]
 
-   return $items
+    ReorderChartItems $w
+
+    return $items
 }
 
 # DrawGanttVertLine --
@@ -134,26 +136,29 @@ proc ::Plotchart::DrawGanttPeriod { w text time_begin time_end completed } {
 #    Line drawn in canvas
 #
 proc ::Plotchart::DrawGanttVertLine { w text time {colour black}} {
-   variable settings
-   variable data_series
-   variable scaling
+    variable settings
+    variable data_series
+    variable scaling
 
-   #
-   # Draw the text first
-   #
-   set xtime [clock scan $time]
-   set ytext [expr {$scaling($w,ymax)-0.5*$scaling($w,dy)}]
-   foreach {x y} [coordsToPixel $w $xtime $ytext] {break}
+    #
+    # Draw the text first
+    #
+    set xtime [clock scan $time]
+    set ytext [expr {$scaling($w,ymax)-0.5*$scaling($w,dy)}]
+    foreach {x y} [coordsToPixel $w $xtime $ytext] {break}
 
-   $w create text $x $y -text $text -anchor w -font $settings($w,font,scale)
+    $w create text $x $y -text $text -anchor w -font $settings($w,font,scale) \
+        -tag {horizscroll timeline}
 
-   #
-   # Draw the line
-   #
-   foreach {x1 y1} [coordsToPixel $w $xtime $scaling($w,ymin)] {break}
-   foreach {x2 y2} [coordsToPixel $w $xtime $scaling($w,ymax)] {break}
+    #
+    # Draw the line
+    #
+    foreach {x1 y1} [coordsToPixel $w $xtime $scaling($w,ymin)] {break}
+    foreach {x2 y2} [coordsToPixel $w $xtime $scaling($w,ymax)] {break}
 
-   $w create line $x1 $y1 $x2 $y2 -fill black
+    $w create line $x1 $y1 $x2 $y2 -fill black -tag {horizscroll timeline tline}
+
+    $w raise topmask
 }
 
 # DrawGanttMilestone --
@@ -181,7 +186,7 @@ proc ::Plotchart::DrawGanttMilestone { w text time {colour black}} {
 
     set items {}
     lappend items \
-       [$w create text 5 $y -text $text -anchor w -tag description \
+       [$w create text 5 $y -text $text -anchor w -tag {description vertscroll above} \
              -font $settings($w,font,description)]
        # Colour text?
 
@@ -200,9 +205,12 @@ proc ::Plotchart::DrawGanttMilestone { w text time {colour black}} {
     set y3 $y2
 
     lappend items \
-        [$w create polygon $x1 $y1 $x2 $y2 $x3 $y3 -fill $colour]
+        [$w create polygon $x1 $y1 $x2 $y2 $x3 $y3 -fill $colour \
+            -tag {vertscroll horizscroll below}]
 
     set scaling($w,current) [expr {$scaling($w,current)-1.0}]
+
+    ReorderChartItems $w
 
     return $items
 }
@@ -243,7 +251,9 @@ proc ::Plotchart::DrawGanttConnect { w from to } {
                          $xt1             $ytc            ]
     }
 
-    return [$w create line $coords -arrow last]
+    ReorderChartItems $w
+
+    return [$w create line $coords -arrow last -tag {vertscroll horizscroll below}]
 }
 
 # DrawGanttSummary --
@@ -307,7 +317,7 @@ proc ::Plotchart::DrawGanttSummary { w text args } {
 
     set items {}
     lappend items \
-        [$w create text 5 $ytext -text $text -anchor w -tag summary \
+        [$w create text 5 $ytext -text $text -anchor w -tag {summary vertscroll above} \
               -font $settings($w,font,summary)]
         # Colour text?
 
@@ -324,10 +334,12 @@ proc ::Plotchart::DrawGanttSummary { w text args } {
                      [expr {$xmin-5}] [expr {$ymin+5}]  ]
 
     lappend items \
-        [$w create polygon $coords -tag summarybar \
+        [$w create polygon $coords -tag {summarybar vertscroll horizscroll below} \
               -fill $settings($w,color,summarybar)]
 
     set scaling($w,current) [expr {$scaling($w,current)-1.0}]
+
+    ReorderChartItems $w
 
     return $items
 }

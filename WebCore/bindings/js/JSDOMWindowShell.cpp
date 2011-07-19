@@ -41,13 +41,13 @@ namespace WebCore {
 
 ASSERT_CLASS_FITS_IN_CELL(JSDOMWindowShell);
 
-const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", 0, 0, 0 };
+const ClassInfo JSDOMWindowShell::s_info = { "JSDOMWindowShell", &Base::s_info, 0, 0 };
 
 JSDOMWindowShell::JSDOMWindowShell(PassRefPtr<DOMWindow> window, DOMWrapperWorld* world)
-    : Base(JSDOMWindowShell::createStructure(jsNull()))
-    , m_window(0)
+    : Base(*world->globalData(), JSDOMWindowShell::createStructure(*world->globalData(), jsNull()))
     , m_world(world)
 {
+    ASSERT(inherits(&s_info));
     setWindow(window);
 }
 
@@ -60,23 +60,27 @@ void JSDOMWindowShell::setWindow(PassRefPtr<DOMWindow> domWindow)
     // Explicitly protect the global object's prototype so it isn't collected
     // when we allocate the global object. (Once the global object is fully
     // constructed, it can mark its own prototype.)
-    RefPtr<Structure> prototypeStructure = JSDOMWindowPrototype::createStructure(jsNull());
-    ProtectedPtr<JSDOMWindowPrototype> prototype = new JSDOMWindowPrototype(prototypeStructure.release());
+    Structure* prototypeStructure = JSDOMWindowPrototype::createStructure(*JSDOMWindow::commonJSGlobalData(), jsNull());
+    Strong<JSDOMWindowPrototype> prototype(*JSDOMWindow::commonJSGlobalData(), new JSDOMWindowPrototype(*JSDOMWindow::commonJSGlobalData(), 0, prototypeStructure));
 
-    RefPtr<Structure> structure = JSDOMWindow::createStructure(prototype);
-    JSDOMWindow* jsDOMWindow = new (JSDOMWindow::commonJSGlobalData()) JSDOMWindow(structure.release(), domWindow, this);
-    setWindow(jsDOMWindow);
+    Structure* structure = JSDOMWindow::createStructure(*JSDOMWindow::commonJSGlobalData(), prototype.get());
+    JSDOMWindow* jsDOMWindow = new (JSDOMWindow::commonJSGlobalData()) JSDOMWindow(*JSDOMWindow::commonJSGlobalData(), structure, domWindow, this);
+    prototype->putAnonymousValue(*JSDOMWindow::commonJSGlobalData(), 0, jsDOMWindow);
+    setWindow(*JSDOMWindow::commonJSGlobalData(), jsDOMWindow);
 }
 
 // ----
 // JSObject methods
 // ----
 
-void JSDOMWindowShell::markChildren(MarkStack& markStack)
+void JSDOMWindowShell::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
     if (m_window)
-        markStack.append(m_window);
+        visitor.append(&m_window);
 }
 
 UString JSDOMWindowShell::className() const
@@ -146,7 +150,7 @@ JSValue JSDOMWindowShell::lookupSetter(ExecState* exec, const Identifier& proper
 
 JSObject* JSDOMWindowShell::unwrappedObject()
 {
-    return m_window;
+    return m_window.get();
 }
 
 // ----

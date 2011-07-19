@@ -42,6 +42,8 @@ public:
         return adoptRef(new MatrixTransformOperation(t));
     }
 
+    TransformationMatrix matrix() const { return TransformationMatrix(m_a, m_b, m_c, m_d, m_e, m_f); }
+
 private:
     virtual bool isIdentity() const { return m_a == 1 && m_b == 0 && m_c == 0 && m_d == 1 && m_e == 0 && m_f == 0; }
 
@@ -60,7 +62,7 @@ private:
     virtual bool apply(TransformationMatrix& transform, const IntSize&) const
     {
         TransformationMatrix matrix(m_a, m_b, m_c, m_d, m_e, m_f);
-        transform.multLeft(TransformationMatrix(matrix));
+        transform.multiply(matrix);
         return false;
     }
 

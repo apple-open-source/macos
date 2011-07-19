@@ -1,0 +1,296 @@
+Pigeonhole for Dovecot v2.0
+
+Introduction
+============
+
+This package is part of the Pigeonhole project (http://pigeonhole.dovecot.org). 
+It adds support for the Sieve language (RFC 5228) and the ManageSieve protocol
+(RFC 5804) to the Dovecot Secure IMAP Server. In the literal sense, a pigeonhole 
+is a a hole or recess inside a dovecot for pigeons to nest in. It is, however, 
+also the name for one of a series of small, open compartments in a cabinet used 
+for filing or sorting mail. As a verb, it describes the act of putting an item 
+into one of those pigeonholes. The name `Pigeonhole' therefore well describes an
+important part of the functionality that this project adds to Dovecot: sorting 
+and filing e-mail messages.
+
+The Sieve language is used to specify how e-mail needs to be processed. By 
+writing Sieve scripts, users can customize how messages are delivered, e.g.
+whether they are forwarded or stored in special folders. Unwanted messages can 
+be discarded or rejected, and, when the user is not available, the Sieve
+interpreter can send an automated reply. Above all, the Sieve language is meant
+to be simple, extensible and system independent. And, unlike most other mail
+filtering script languages, it does not allow users to execute arbitrary
+programs. This is particularly useful to prevent virtual users from having full
+access to the mail store. The intention of the language is to make it impossible
+for users to do anything more complex (and dangerous) than write simple mail 
+filters.
+
+Using the ManageSieve protocol, users can upload their Sieve scripts remotely, 
+without needing direct filesystem access through FTP or SCP. Additionally, a
+ManageSieve server always makes sure that uploaded scripts are valid, preventing 
+compile failures at mail delivery.
+
+This package provides Sieve support as a plugin to Dovecot's Local Delivery 
+Agent (LDA) and Dovecot's LMTP service. The ManageSieve protocol is provided is
+an additional service, next to Dovecot's own POP3 and IMAP services. 
+
+Features
+========
+
+  * The Pigeonhole Sieve implementation aims to be admin- and user-friendly. 
+    Much like Dovecot itself, common error messages are made as easily 
+    understandable as possible. Any crash, no matter how it happened, is 
+    considered a bug that will be fixed. The compiler does not bail on the first
+    error, but it looks for more script errors to make debugging more efficient.
+
+  * The Pigeonhole Sieve implementation is, much like the Sieve language itself,
+    highly extensible with new Sieve capabilities. This includes support for
+    third-party plugins. It should eventually provide the necessary 
+    infrastructure for at least all currently known relevant (proposed) Sieve
+    extensions. The goal is to keep the extension interface provided by the
+    Sieve implementation as generic as possible, i.e. without explicit support
+    for specific extensions. New similar extensions can then use the same
+    interface methods without changes to the Sieve engine code. If an extension
+    is not loaded using the require command, the compiler truly does not know of
+    its existence.
+
+  * The Pigeonhole Sieve plugin is backwards compatible with the old CMUSieve
+    plugin, which provided Sieve support for older versions of Dovecot. All
+    Sieve extensions supported by the old plugin are also supported by the 
+    Pigeonhole Sieve plugin, including those that are now considered to be 
+    deprecated.
+
+  * The Pigeonhole Sieve implementation supports executing multiple Sieve
+    scripts sequentially. Using this feature it is possible to execute
+    administrator-controlled Sieve scripts before and after the user's personal
+    Sieve script, guaranteeing that responses and message deliveries are never
+    duplicated. This implementation is based on a draft specification 
+    (http://tools.ietf.org/html/draft-degener-sieve-multiscript-00), which 
+    defines the Sieve behavior when multiple scripts are executed sequentially
+    on the same message.
+
+  * The Pigeonhole Sieve implementation includes a test suite to automatically
+    assess whether the compiled Sieve engine works correctly. The test suite is
+    an extension to the Sieve language and is therefore easily extended with new
+    tests. Currently, the test suite is mostly limited to testing script
+    processing. The performed actions are not tested fully yet.
+
+  * The Pigeonhole Sieve implementation supports the new and very useful
+    variables extension, which allows maintaining state information throughout
+    a Sieve script across subsequent rules.
+
+  * The Pigeonhole Sieve plugin is distributed with a sieve-test tool that 
+    simplifies testing Sieve scripts and provides additional debugging 
+    facilities. 
+
+Sieve Implementation Status
+===========================
+
+The core of the language (as specified in RFC 5228) is fully supported. In
+addition to that, this Sieve implementation features various extensions. The
+following list outlines the implementation status of each supported extension:
+
+  The language extensions defined in the base specification are fully supported:
+
+    encoded-character (RFC 5228; page 10)
+    fileinto (RFC 5228; page 23)
+    envelope (RFC 5228; page 27)
+
+  The following Sieve language extensions are also supported:
+
+    copy (RFC 3894): fully supported.
+    body (RFC 5173): almost fully supported, but the text body-transform
+      implementation is simple and some issues make it still not completely RFC 
+      compliant.
+    environment (RFC 5183): basic support is provided (v0.1.5+).
+    variables (RFC 5229): fully supported.
+    vacation (RFC 5230): fully supported.
+    relational (RFC 5231): fully supported.
+    imap4flags (RFC 5232): fully supported.
+    subaddress (RFC 5233): fully supported, but with limited configurability.
+    spamtest and virustest (RFC 5235): fully supported (v0.1.16+), but currently
+      considered experimental.
+    date (RFC 5260; page 3): fully supported (v0.1.12+).
+    reject (RFC 5429; page 6): fully supported.
+    enotify (RFC 5435): fully supported (v0.1.3+). Currently, only the mailto
+      notification mechanism (RFC 5436) is available. The xmpp notification
+      mechanism (RFC 5437) is under development and will become available as a 
+      plugin.
+    mailbox (RFC 5490; page 2): fully supported (v0.1.10+), but ACL permissions
+      are not verified for mailboxexists.
+    include (draft v05): almost fully supported, but interaction with
+      ManageSieve is not in accordance with specification.
+    regex (draft v08; not latest ietf version): almost fully supported, but
+      UTF-8 is not supported.
+
+  The following deprecated extensions are supported for backwards
+  compatibility:
+
+    imapflags (obsolete draft): fully backwards compatible (v0.1.3+)
+    notify (obsolete draft): fully backwards compatible (v0.1.15+)
+
+    The availability of these deprecated extensions is disabled by default.
+
+  The following extensions are under development:
+
+    ereject (RFC 5429; page 4): implemented, but currently equal to reject
+
+  Many more extensions to the language exist. Not all of these extensions are
+  useful for Dovecot in particular, but many of them are. Currently, the
+  author has taken notice of the following extensions:
+
+    vacation-seconds (draft): planned.
+    index (RFC 5260; page 7): planned.
+    editheader (RFC 5293): planned.
+    foreverypart, mime, replace, enclose, and extracttext (RFC 5703): planned.
+
+    These extensions will be added as soon as the necessary infrastructure is
+    available.
+
+Compiling and Configuring
+=========================
+
+Refer to INSTALL file.
+
+Sieve Tools
+===========
+
+To test the sieve engine outside deliver, it is useful to try the commands that 
+exist in the src/sieve-tools/ directory of this package. After installation, 
+these are available at your $prefix/bin directory. The following commands are 
+installed:
+
+sievec     - Compiles sieve scripts into a binary representation for later 
+             execution. Refer to the next section on manually compiling Sieve 
+             scripts.
+
+sieve-test - This is a universal Sieve test tool for testing the effect of a
+             Sieve script on a particular message. It allows compiling, running 
+             and testing Sieve scripts. It can either be used to display the
+             actions that would be performed on the provided test message or it
+             can be used to test the actual delivery of the message and show the
+             messages that would normally be sent through SMTP.
+
+sieve-dump - Dumps the content of a Sieve binary file for (development) 
+             debugging purposes.
+
+When installed, man pages are also available for these commands. In this package
+the man pages are present in doc/man and can be viewed before install using 
+e.g.: 
+
+man -l doc/man/sieve-test.1
+
+Various example scripts are bundled in the directory 'examples'. These scripts
+were downloaded from various locations. View the top comment in the scripts for 
+url and author information.
+
+Compiling Sieve Scripts
+=======================
+
+When the LDA Sieve plugin executes a script for the first time (or after it has 
+been changed), it is compiled into into a binary form. The Pigeonhole Sieve 
+implementation uses the .svbin extension to store compiled Sieve scripts (e.g. 
+.dovecot.svbin). To store the binary, the plugin needs write access in the 
+directory in which the script is located.
+
+A problem occurs when a global script is encountered by the plugin. For security
+reasons, global script directories are not supposed to be writable by the user.
+Therefore, the plugin cannot store the binary when the script is first compiled.
+Note that this doesn't mean that the old compiled version of the script is used
+when the binary cannot be written: it compiles and uses the current script
+version. The only real problem is that the plugin will not be able to update
+the binary on disk, meaning that the global script needs to be recompiled each
+time it needs to be executed, i.e. for every incoming message, which is
+inefficient.
+
+To mitigate this problem, the administrator must manually pre-compile global
+scripts using the sievec command line tool. For example:
+
+sievec /var/lib/dovecot/sieve/global/
+
+This is necessary for scripts listed in the sieve_global_path, sieve_before and
+sieve_after settings. For global scripts that are only included in other scripts
+using the include extension, this step is not necessary, since included scripts
+are incorporated into the binary produced for the main script located in a
+user directory.
+
+Compile and Runtime Logging
+===========================
+
+Log messages produced at runtime by the Sieve plugin are written to two
+locations:
+
+  * A log file is written in the same directory as the user's main private 
+    script (as specified by the sieve setting). This log file bears the name of
+    that script file appended with ".log", e.g. .dovecot.sieve.log. If there are
+    errors or warnings in the script, the messages are appended to that log file
+    until it eventually grows too large. When that happens, the old log file is
+    rotated to a ".log.0" file and an empty log file is started. Informational
+    messages are not written to this log file and the log file is not created
+    until messages are actually logged, i.e. when an error or warning is
+    produced.
+
+  * Messages that could be of interest to the system administrator are also
+    written to the Dovecot LDA logging facility (usually syslog). This includes
+    informational messages that indicate what actions are executed on incoming
+    messages. Compile errors encountered in the user's private script are not
+    logged here.
+
+The ManageSieve service reports compile errors and warnings only back to the 
+user. System and configuration-related messages are written to the Dovecot 
+logging facility. 
+
+Known issues
+============
+
+Sieve
+-----
+
+Most open issues are outlined in the TODO file. The more generic ones are (re-)
+listed here:
+
+* Compile errors are sometimes a bit obscure and long. This needs work. 
+  Suggestions for improvement are welcome. 
+
+* The documentation needs work.
+
+ManageSieve
+-----------
+
+* Although this ManageSieve server should comply with the draft specification of
+  the ManageSieve protocol, quite a few clients don't. This is particularly true
+  for the TLS support. However, now that Cyrus' Timsieved has changed its
+  behavior towards protocol compliance, all those clients will follow
+  eventually.
+
+  Clients known to have TLS issues:
+	- Thunderbird Sieve add-on: fixed as per version 0.1.5
+	- AvelSieve: patch on the wiki:	http://wiki.dovecot.org/ManageSieve
+	- KMail + kio_sieve: TLS broken for old versions. This issue is fixed at
+	  least in kmail 1.9.9 / kde 3.5.9.
+
+  Unfortunately, there is no reliable way to provide a workaround for this
+  problem. We will have to wait for the authors of these clients to make the
+  proper adjustments.
+
+* Other client issues:
+
+	- SmartSieve, WebSieve:
+	  These clients are specifically written for Cyrus timsieved and fail on
+	  multiple stages of the protocol when connected to Pigeonhole ManageSieve.
+
+Authors
+=======
+
+Refer to AUTHORS file.
+
+Contact Info
+============
+
+Stephan Bosch <stephan at rename-it dot nl>
+IRC: Freenode, #dovecot, S[r]us
+Web: http://pigeonhole.dovecot.org
+
+Please use the Dovecot mailing list <dovecot at dovecot.org> for questions about 
+this package. You can post to the list without subscribing, the mail then waits 
+in a moderator queue for a while. See http://dovecot.org/mailinglists.html

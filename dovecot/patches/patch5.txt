@@ -1,0 +1,10 @@
+diff -ur dovecot-1.1.7/AUTHORS dovecot-patch/AUTHORS
+--- dovecot-1.1.7/AUTHORS	2008-10-26 10:00:38.000000000 -0500
++++ dovecot-patch/AUTHORS	2008-12-15 09:37:55.000000000 -0600
+@@ -13,4 +13,6 @@
+ Vaclav Haisman <v.haisman@sh.cvut.cz> (src/lib/ioloop-kqueue.c,
+   src/lib/ioloop-notify-kqueue.c)
+ 
++Portions Copyright (c) 2008 Apple Inc.  All rights reserved.
++
+ Grepping 'Patch by' from ChangeLog shows up more people.

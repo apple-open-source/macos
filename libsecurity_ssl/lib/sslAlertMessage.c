@@ -95,7 +95,7 @@ SSLProcessAlert(SSLRecord rec, SSLContext *ctx)
     while (remaining > 0)
     {   level = (AlertLevel)*charPtr++;
         desc = (AlertDescription)*charPtr++;
-		sslHdskMsgDebug("alert msg recieved level %d   desc %d",
+		sslHdskMsgDebug("alert msg received level %d   desc %d",
 			(int)level, (int)desc);
         remaining -= 2;
         SSLLogAlertMsg(desc, false);

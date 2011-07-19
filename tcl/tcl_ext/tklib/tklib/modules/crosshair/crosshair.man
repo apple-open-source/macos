@@ -1,0 +1,110 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin crosshair n 1.0.2]
+[copyright {2003 Kevin Kenny}]
+[copyright {2008 (docs) Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   Crosshairs]
+[titledesc {Crosshairs for Tk canvas}]
+[require Tcl [opt 8.4]]
+[require Tk  [opt 8.4]]
+[require crosshair [opt 1.0.2]]
+[keywords canvas cross-hairs tracking viewport location]
+
+[description]
+
+The [package crosshair] package provides commands to (de)activate and
+track crosshairs on canvas widgets.
+
+[section API]
+
+The following commands are exported to the public:
+
+[list_begin definitions]
+
+[call [cmd crosshair::crosshair] [arg w] [opt [arg arg]...]]
+
+This command activates the display of a pair of cross-hairs for the
+canvas widget [arg w]. The cross-hairs track the pointing device. The
+result of the command is the empty string.
+
+[para]
+
+All arguments after the widget [arg w] are treated as options as for a
+canvas line item in [arg w]. Of particular interest are [option -fill]
+and [option -dash].
+
+
+[call [cmd crosshair::off] [arg w]]
+
+This command removes the cross-hairs from the canvas widget [arg w].
+Nothing is done if the widget had no cross-hairs. The result of the
+command is the empty string.
+
+
+[call [cmd crosshair::configure] [arg w] [opt [arg arg]...]]
+
+This command changes the appearance of the cross-hairs in the canvas
+widget [arg w]. It is an error to call it for a canvas which has no
+cross-hairs.
+
+[para]
+
+All arguments after the widget [arg w] are treated as options as for a
+canvas line item in [arg w]. Of particular interest are [option -fill]
+and [option -dash].
+
+[para]
+
+The result of the command are the current configuration settings.
+
+
+[call [cmd crosshair::track] [method on] [arg w] [arg cmdprefix]]
+
+This command activates reporting of the location of the cross-hairs in
+the canvas widget [arg w]. It is an error to use this command for a
+canvas which has no cross-hairs. The result of the command is the
+empty string.
+
+[para]
+
+After the invokation of this command the specified command prefix
+[arg cmdprefix] will be called whenever the mouse moves within the
+canvas, with 7 arguments. These are, in order:
+
+[list_begin enum]
+[enum] The widget [arg w]
+[enum] The x-location of the cross-hairs, in pixels.
+[enum] The y-location of the cross-hairs, in pixels.
+[enum] The x-location of the top-left corner of the viewport, in pixels.
+[enum] The y-location of the top-left corner of the viewport, in pixels.
+[enum] The x-location of the bottom-right corner of the viewport, in pixels.
+[enum] The y-location of the bottom-right corner of the viewport, in pixels.
+[list_end]
+
+A previously existing callback for [arg w] will be disabled. I.e. per
+canvas widget with cross-hairs only one callback reporting their
+location is possible.
+
+
+[call [cmd crosshair::track] [method off] [arg w]]
+
+This command disables the reporting of the location of the cross-hairs
+in the canvas widget [arg w]. It is an error to use this command for a
+canvas which has no cross-hairs. The result of the command is the
+empty string.
+
+[list_end]
+
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph {tklib :: crosshair}] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+[manpage_end]

@@ -1,7 +1,7 @@
 ## -*-makefile-*-
 ## Darwin-specific setup (Darwin is the Mac OS X developer preview, successor
 ## to Rhapsody, aka Mac OS X Server)
-## Copyright (c) 1999-2008 International Business Machines Corporation and
+## Copyright (c) 1999-2009 International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Flags for position independent code
@@ -21,8 +21,8 @@ COMPILE.c=	$(CC) $(DEFS) $(CPPFLAGS) $(CFLAGS) -fno-common -c
 COMPILE.cc=	$(CXX) $(DEFS) $(CPPFLAGS) $(CXXFLAGS) -fno-common -c
 
 ## Commands to make a shared library
-SHLIB.c=	$(CC) -dynamiclib -dynamic $(CFLAGS) $(LDFLAGS)
-SHLIB.cc=	$(CXX) -dynamiclib -dynamic $(CXXFLAGS) $(LDFLAGS)
+SHLIB.c=	$(CC) -dynamiclib -dynamic $(CFLAGS) $(LDFLAGS) $(LD_SOOPTIONS)
+SHLIB.cc=	$(CXX) -dynamiclib -dynamic $(CXXFLAGS) $(LDFLAGS) $(LD_SOOPTIONS)
 
 ## Compiler switches to embed a library name and version information
 LD_SONAME = -Wl,-compatibility_version -Wl,$(SO_TARGET_VERSION_MAJOR) -Wl,-current_version -Wl,$(SO_TARGET_VERSION) -install_name $(notdir $(MIDDLE_SO_TARGET))
@@ -86,5 +86,9 @@ TZORIG_EXTRA_CFLAGS=-DSTD_INSPIRED
 
 # genren opts
 GENREN_PL_OPTS=-x Mach-O -n '-g' -p '| c++filt'
+
+## Remove shared library 's'
+STATIC_PREFIX_WHEN_USED = 
+STATIC_PREFIX = 
 
 ## End Darwin-specific setup

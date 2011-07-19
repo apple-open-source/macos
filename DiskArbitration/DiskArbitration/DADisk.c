@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -386,12 +386,12 @@ DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef sessio
 
         if ( strncmp( name, _PATH_DEV, strlen( _PATH_DEV ) ) )
         {
-            strcpy( id, _PATH_DEV );
-            strcat( id, name );
+            strlcpy( id, _PATH_DEV, sizeof( id ) );
+            strlcat( id, name,      sizeof( id ) );
         }
         else
         {
-            strcpy( id, name );
+            strlcpy( id, name, sizeof( id ) );
         }
 
         disk = _DADiskCreate( allocator, session, id );

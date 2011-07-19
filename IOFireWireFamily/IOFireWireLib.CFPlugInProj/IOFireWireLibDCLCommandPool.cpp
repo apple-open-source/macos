@@ -10,7 +10,7 @@
 	$Log: IOFireWireLibDCLCommandPool.cpp,v $
 	Revision 1.17  2007/02/15 19:42:08  ayanowit
 	For 4369537, eliminated support for legacy DCL SendPacketWithHeader, since it didn't work anyway, and NuDCL does support it.
-	
+
 	Revision 1.16  2007/02/07 06:35:22  collin
 	*** empty log message ***
 	

@@ -104,6 +104,13 @@ struct soliciter {
 	struct sockaddr_in6 addr;
 };
 
+struct rdnss {
+	struct rdnss *next;	/* forward link */
+	struct rdnss *prev;	/* previous link */
+	
+	struct in6_addr addr;
+};
+
 struct	rainfo {
 	/* pointer for list */
 	struct	rainfo *next;
@@ -145,6 +152,11 @@ struct	rainfo {
 #endif
 	struct rtinfo route;	/* route information option (link head) */
 	int	routes;		/* number of route information options */
+
+    	/* Recursive DNS Servers RFC5006 */
+	struct rdnss rdnss_list;
+	int rdnss_length;
+	u_int32_t rdnss_lifetime;
 
 	/* actual RA packet data and its length */
 	size_t ra_datalen;

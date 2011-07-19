@@ -54,19 +54,20 @@ public:
 	CFDataRef identification();
 	std::string mainExecutablePath();
 	CFURLRef canonicalPath();
-	std::string recommendedIdentifier();
 	std::string resourcesRootPath();
-	CFDictionaryRef defaultResourceRules();
 	void adjustResources(ResourceBuilder &builder);
-	const Requirements *defaultRequirements(const Architecture *arch);
 	Universal *mainExecutableImage();
-	size_t pageSize();
 	size_t signingBase();
 	size_t signingLimit();
 	std::string format();
 	CFArrayRef modifiedFiles();
 	UnixPlusPlus::FileDesc &fd();
 	void flush();
+	
+	std::string recommendedIdentifier(const SigningContext &ctx);
+	CFDictionaryRef defaultResourceRules(const SigningContext &ctx);
+	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
+	size_t pageSize(const SigningContext &ctx);
 
 	CFBundleRef bundle() const { return mBundle; }
 	
@@ -81,6 +82,7 @@ protected:
 	void createMeta();						// (try to) create the meta-file directory
 	
 private:
+	void setup(const Context *ctx);			// shared init
 	void checkModifiedFile(CFMutableArrayRef files, CodeDirectory::SpecialSlot slot);
 
 private:

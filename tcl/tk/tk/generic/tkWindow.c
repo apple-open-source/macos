@@ -2955,7 +2955,7 @@ Initialize(
      * only an issue when Tk is loaded dynamically.
      */
 
-    if (Tcl_InitStubs(interp, TCL_VERSION, 1) == NULL) {
+    if (Tcl_InitStubs(interp, TCL_VERSION, 0) == NULL) {
 	return TCL_ERROR;
     }
 
@@ -3310,7 +3310,7 @@ Tk_PkgInitStubsCheck(
 	int count = 0;
 
 	while (*p) {
-	    count += !isdigit(*p++);
+	    count += !isdigit(UCHAR(*p++));
 	}
 	if (count == 1) {
 	    if (0 != strncmp(version, actualVersion, strlen(version))) {

@@ -1,7 +1,7 @@
 
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -58,10 +58,13 @@ void IntlTestSimpleDateFormatAPI::testAPI(/*char *par*/)
     }
 
     status = U_ZERO_ERROR;
-    const UnicodeString pattern("yyyy.MM.dd G 'at' hh:mm:ss z");
+    const UnicodeString pattern("yyyy.MM.dd G 'at' hh:mm:ss z", "");
+    const UnicodeString override("y=hebr;d=thai;s=arab", ""); /* use invariant converter */
+    const UnicodeString override_bogus("y=hebr;d=thai;s=bogus", "");
+
     SimpleDateFormat pat(pattern, status);
     if(U_FAILURE(status)) {
-        errln("ERROR: Could not create SimpleDateFormat (pattern)");
+       errln("ERROR: Could not create SimpleDateFormat (pattern) - %s", u_errorName(status));
     }
 
     status = U_ZERO_ERROR;
@@ -88,6 +91,27 @@ void IntlTestSimpleDateFormatAPI::testAPI(/*char *par*/)
     if(U_FAILURE(status)) {
         errln("ERROR: Could not create SimpleDateFormat (pattern, symbols)");
     }
+
+    status = U_ZERO_ERROR;
+    logln(UnicodeString("Override with: ") + override);
+    SimpleDateFormat ovr1(pattern, override, status);
+    if(U_FAILURE(status)) {
+      errln("ERROR: Could not create SimpleDateFormat (pattern, override) - %s", u_errorName(status));
+    }
+
+    status = U_ZERO_ERROR;
+    SimpleDateFormat ovr2(pattern, override, Locale::getGerman(), status);
+    if(U_FAILURE(status)) {
+        errln("ERROR: Could not create SimpleDateFormat (pattern, override, locale) - %s", u_errorName(status));
+    }
+
+    status = U_ZERO_ERROR;
+    logln(UnicodeString("Override with: ") + override_bogus);
+    SimpleDateFormat ovr3(pattern, override_bogus, Locale::getGerman(), status);
+    if(U_SUCCESS(status)) {
+        errln("ERROR: Should not have been able to create SimpleDateFormat (pattern, override, locale) with a bogus override");
+    }
+
 
     SimpleDateFormat copy(pat);
 
@@ -235,13 +259,12 @@ void IntlTestSimpleDateFormatAPI::testAPI(/*char *par*/)
     delete test;
     
 // ======= Test Ticket 5684 (Parsing with 'e' and 'Y')
-    SimpleDateFormat object("en", "us", status);
+    SimpleDateFormat object(UNICODE_STRING_SIMPLE("YYYY'W'wwe"), status);
     if(U_FAILURE(status)) {
         errln("ERROR: Couldn't create a SimpleDateFormat");
     }
     object.setLenient(false);
     ParsePosition pp(0);
-    object.applyPattern("YYYY'W'wwe");
     UDate udDate = object.parse("2007W014", pp);
     if ((double)udDate == 0.0) {
         errln("ERROR: Parsing failed using 'Y' and 'e'");

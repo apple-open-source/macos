@@ -229,7 +229,7 @@ NTSessionKey16(const uint8_t * password, uint32_t password_len,
     /* add hash of the hash of the unicode password */
     offset = 0;
     password_to_unicode(password, password_len, unicode_password);
-    NTPasswordHashHash(unicode_password, password_len * 2, input + offset);
+    NTPasswordHashHash(unicode_password, password_len * 2, input);
     offset += NT_PASSWORD_HASH_SIZE;
 
     /* add the client challenge */
@@ -636,4 +636,4 @@ main()
     exit(0);
     return (0);
 }
-#endif TEST_MSCHAP
+#endif /* TEST_MSCHAP */

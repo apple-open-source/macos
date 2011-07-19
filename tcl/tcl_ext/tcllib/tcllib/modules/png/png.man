@@ -3,6 +3,7 @@
 [copyright {2004, Doc:  Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Image manipulation}]
 [titledesc {PNG querying and manipulation of meta data}]
+[category  {File formats}]
 [require Tcl 8.2]
 [require crc32]
 [require png [opt 0.1.2]]

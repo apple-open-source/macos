@@ -25,7 +25,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: dig_opt.c,v 1.10 2000/11/18 22:42:31 aku Exp $
+ * CVS: $Id: dig_opt.c,v 1.11 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -120,7 +120,7 @@ ClientData clientData;
 {
   TrfMDOptionBlock* o;
 
-  o			= (TrfMDOptionBlock*) Tcl_Alloc (sizeof (TrfMDOptionBlock));
+  o			= (TrfMDOptionBlock*) ckalloc (sizeof (TrfMDOptionBlock));
   o->behaviour		= TRF_IMMEDIATE; /* irrelevant until set by 'CheckOptions' */
   o->mode		= TRF_UNKNOWN_MODE;
   o->readDestination	= (char*) NULL;
@@ -162,18 +162,18 @@ ClientData  clientData;
   TrfMDOptionBlock* o = (TrfMDOptionBlock*) options;
 
   if (o->readDestination) {
-    Tcl_Free ((char*) o->readDestination);
+    ckfree ((char*) o->readDestination);
   }
 
   if (o->writeDestination) {
-    Tcl_Free ((char*) o->writeDestination);
+    ckfree ((char*) o->writeDestination);
   }
 
   if (o->matchFlag) {
-    Tcl_Free ((char*) o->matchFlag);
+    ckfree ((char*) o->matchFlag);
   }
 
-  Tcl_Free ((char*) o);
+  ckfree ((char*) o);
 }
 
 /*
@@ -371,11 +371,11 @@ ClientData  clientData;
 
     } else if (0 == strncmp (optname, "-matchflag", len)) {
       if (o->matchFlag) {
-	Tcl_Free (o->matchFlag);
+	ckfree (o->matchFlag);
       }
 
       o->vInterp   = interp;
-      o->matchFlag = strcpy (Tcl_Alloc (1 + strlen (value)), value);
+      o->matchFlag = strcpy (ckalloc (1 + strlen (value)), value);
 
     } else
       goto unknown_option;
@@ -387,11 +387,11 @@ ClientData  clientData;
 
     if (0 == strncmp (optname, "-write-destination", len)) {
       if (o->writeDestination) {
-	Tcl_Free (o->writeDestination);
+	ckfree (o->writeDestination);
       }
 
       o->vInterp          = interp;
-      o->writeDestination = strcpy (Tcl_Alloc (1+strlen (value)), value);
+      o->writeDestination = strcpy (ckalloc (1+strlen (value)), value);
 
     } else if (0 == strncmp (optname, "-write-type", len)) {
       return TargetType (interp, value, &o->wdIsChannel);
@@ -405,11 +405,11 @@ ClientData  clientData;
 
     if (0 == strncmp (optname, "-read-destination", len)) {
       if (o->readDestination) {
-	Tcl_Free (o->readDestination);
+	ckfree (o->readDestination);
       }
 
       o->vInterp         = interp;
-      o->readDestination = strcpy (Tcl_Alloc (1+strlen (value)), value);
+      o->readDestination = strcpy (ckalloc (1+strlen (value)), value);
 
     } else if (0 == strncmp (optname, "-read-type", len)) {
       return TargetType (interp, value, &o->rdIsChannel);

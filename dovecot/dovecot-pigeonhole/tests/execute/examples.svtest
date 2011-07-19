@@ -1,0 +1,115 @@
+require "vnd.dovecot.testsuite";
+
+/* Compile and execute all example scripts to trigger 
+ * any Segfaults. No message is set and no results are checked.
+ */
+
+test "Elvey example" {
+	if not test_script_compile "../../examples/elvey.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "elvey";
+	test_binary_load "elvey";
+
+	if not test_script_run { }
+}
+
+test "M. Johnson example" {
+	if not test_script_compile "../../examples/mjohnson.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "mjohnson";
+	test_binary_load "mjohnson";
+
+	if not test_script_run { }
+}
+
+test "RFC 3028 example" {
+	if not test_script_compile "../../examples/rfc3028.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "rfc3028";
+	test_binary_load "rfc3028";
+
+	if not test_script_run { }
+}
+
+test "Sieve examples" {
+	if not test_script_compile "../../examples/sieve_examples.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "sieve_examples";
+	test_binary_load "sieve_examples";
+
+	if not test_script_run { }
+}
+
+test "Vivil example" {
+	if not test_script_compile "../../examples/vivil.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "vivil";
+	test_binary_load "vivil";
+
+	if not test_script_run { }
+}
+
+test "Jerry example" {
+	if not test_script_compile "../../examples/jerry.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "jerry";
+	test_binary_load "jerry";
+
+	if not test_script_run { }
+}
+
+test "M. Klose example" {
+	if not test_script_compile "../../examples/mklose.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "mklose";
+	test_binary_load "mklose";
+
+	if not test_script_run { }
+}
+
+test "Sanjay example" {
+	if not test_script_compile "../../examples/sanjay.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "sanjay";
+	test_binary_load "sanjay";
+
+	if not test_script_run { }
+}
+
+test "Relational (RFC5231) example" {
+	if not test_script_compile "../../examples/relational.rfc5231.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "relational";
+	test_binary_load "relational";
+
+	if not test_script_run { }
+}
+
+test "Subaddress (RFC5233) example" {
+	if not test_script_compile "../../examples/subaddress.rfc5233.sieve" {
+		test_fail "could not compile";
+	}
+
+	test_binary_save "subaddress";
+	test_binary_load "subaddress";
+
+	if not test_script_run { }
+}

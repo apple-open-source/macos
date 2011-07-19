@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$263|@interface Trains_2(TrainsCanFly)
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$263|@interface Trains_2(TrainsCanFly)
 /*!     
         @method levitateToHeight:
         @abstract Raises the train specified number of centimeters
@@ -12,7 +12,7 @@ $275|/*!
         @abstract The TrainsCanFly category adds levitation methods to the Train class.
         @discussion Methods declared in the TrainsCanFly category of the Train class can only be used with properly equiped Train objects.
 */
-$0|$13433|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$13852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 1
 inInterface: 0
@@ -105,7 +105,7 @@ $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 0
 $parserState->{storeDec} =>  @interface Trains_2(
 
-$parserState->{typestring} => Trains_2
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -210,8 +210,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -246,17 +246,19 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class:</b> <!-- a logicalPath="//test_ref/occ/cl/Trains_2" -->Trains_2<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC category 3</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/Trains_2" machineGenerated="true" -->Trains_2<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_category_3.test" target="_top" machineGenerated="true">ObjC category 3</a></p>
+
+    LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -297,8 +299,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         PARSED PARAMETERS:
             TREE COUNT: 0
             INDEX GROUP: 
@@ -340,8 +342,8 @@ LONG ATTRIBUTES: <p></p>
             HIDECONTENTS: ""
             MAINOBJECT: ""
             LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
         TAGGED PARAMETERS:
             TREE COUNT: 0
             INDEX GROUP: 
@@ -349,7 +351,7 @@ LONG ATTRIBUTES: <p></p>
             OBJECT TYPE: HeaderDoc::MinorAPIElement
             NAME: height
             TYPE: 
-            APIUID: 
+            APIUID: //test_ref/doc/methodparam/Trains_2(TrainsCanFly)/levitateToHeight:/height
             ABSTRACT: ""
             DISCUSSION: "<p>The number of centimeters to levitate."
             UPDATED: ""
@@ -383,8 +385,8 @@ LONG ATTRIBUTES: <p></p>
             HIDECONTENTS: ""
             MAINOBJECT: ""
             LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
 +---@
@@ -452,25 +454,25 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2" --><span class="function">Trains_2</span><!-- /a -->(
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2 //test_ref/doc/anysymbol/Trains_2" machineGenerated="true" --><span class="function">Trains_2</span><!-- /a -->(
 	        <span class="param">TrainsCanFly</span>) <span class="comment">/*! 
 	@method levitateToHeight:
 	@abstract Raises the train specified number of centimeters
 	@param height The number of centimeters to levitate.</span>
 	        <span class="comment">*/</span>
 	    - (
-	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/econst/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/clconst/levitateToHeight //test_ref/occ/intf/levitateToHeight" --><span class="type">levitateToHeight</span><!-- /a -->:(
-	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->;  @@end 
+	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/intf/levitateToHeight //test_ref/doc/anysymbol/levitateToHeight" machineGenerated="true" --><span class="type">levitateToHeight</span><!-- /a -->:(
+	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height //test_ref/occ/clconst/height " machineGenerated="true" --><span class="var">height</span><!-- /a -->;  @@end 
 END OF OBJECT
 
 
 OBJECT: levitateToHeight: (HeaderDoc::Method)
-	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/econst/void //test_ref/occ/struct/void //test_ref/occ/clconst/void //test_ref/occ/intf/void" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/levitateToHeight //test_ref/occ/clm/levitateToHeight //test_ref/occ/intfcm/levitateToHeight //test_ref/occ/intfm/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/econst/float //test_ref/occ/struct/float //test_ref/occ/clconst/float //test_ref/occ/intf/float" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->; 
+	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/Trains_2/levitateToHeight //test_ref/occ/clm/Trains_2/levitateToHeight //test_ref/occ/intfcm/Trains_2/levitateToHeight //test_ref/occ/intfm/Trains_2/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/Trains_2/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight //test_ref/doc/anysymbol/levitateToHeight" machineGenerated="true" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/Trains_2/height //test_ref/occ/data/height //test_ref/occ/clconst/Trains_2/height " machineGenerated="true" --><span class="var">height</span><!-- /a -->; 
 END OF OBJECT
 
 
 
-$13433|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$13852|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 1
 inInterface: 0
@@ -563,7 +565,7 @@ $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 0
 $parserState->{storeDec} =>  @interface Trains_2(
 
-$parserState->{typestring} => Trains_2
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -668,8 +670,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -704,17 +706,19 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class:</b> <!-- a logicalPath="//test_ref/occ/cl/Trains_2" -->Trains_2<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC category 3</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/Trains_2" machineGenerated="true" -->Trains_2<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_category_3.test" target="_top" machineGenerated="true">ObjC category 3</a></p>
+
+    LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -755,8 +759,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         PARSED PARAMETERS:
             TREE COUNT: 0
             INDEX GROUP: 
@@ -798,8 +802,8 @@ LONG ATTRIBUTES: <p></p>
             HIDECONTENTS: ""
             MAINOBJECT: ""
             LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
         TAGGED PARAMETERS:
             TREE COUNT: 0
             INDEX GROUP: 
@@ -807,7 +811,7 @@ LONG ATTRIBUTES: <p></p>
             OBJECT TYPE: HeaderDoc::MinorAPIElement
             NAME: height
             TYPE: 
-            APIUID: 
+            APIUID: //test_ref/doc/methodparam/Trains_2(TrainsCanFly)/levitateToHeight:/height
             ABSTRACT: ""
             DISCUSSION: "<p>The number of centimeters to levitate."
             UPDATED: ""
@@ -841,8 +845,8 @@ LONG ATTRIBUTES: <p></p>
             HIDECONTENTS: ""
             MAINOBJECT: ""
             LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
 +---@
@@ -910,938 +914,22 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2" --><span class="function">Trains_2</span><!-- /a -->(
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2 //test_ref/doc/anysymbol/Trains_2" machineGenerated="true" --><span class="function">Trains_2</span><!-- /a -->(
 	        <span class="param">TrainsCanFly</span>) <span class="comment">/*! 
 	@method levitateToHeight:
 	@abstract Raises the train specified number of centimeters
 	@param height The number of centimeters to levitate.</span>
 	        <span class="comment">*/</span>
 	    - (
-	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/econst/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/clconst/levitateToHeight //test_ref/occ/intf/levitateToHeight" --><span class="type">levitateToHeight</span><!-- /a -->:(
-	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->;  @@end 
+	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/intf/levitateToHeight //test_ref/doc/anysymbol/levitateToHeight" machineGenerated="true" --><span class="type">levitateToHeight</span><!-- /a -->:(
+	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height //test_ref/occ/clconst/height " machineGenerated="true" --><span class="var">height</span><!-- /a -->;  @@end 
 END OF OBJECT
 
 
 OBJECT: levitateToHeight: (HeaderDoc::Method)
-	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/econst/void //test_ref/occ/struct/void //test_ref/occ/clconst/void //test_ref/occ/intf/void" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/levitateToHeight //test_ref/occ/clm/levitateToHeight //test_ref/occ/intfcm/levitateToHeight //test_ref/occ/intfm/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/econst/float //test_ref/occ/struct/float //test_ref/occ/clconst/float //test_ref/occ/intf/float" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->; 
+	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/Trains_2/levitateToHeight //test_ref/occ/clm/Trains_2/levitateToHeight //test_ref/occ/intfcm/Trains_2/levitateToHeight //test_ref/occ/intfm/Trains_2/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/Trains_2/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight //test_ref/doc/anysymbol/levitateToHeight" machineGenerated="true" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/Trains_2/height //test_ref/occ/data/height //test_ref/occ/clconst/Trains_2/height " machineGenerated="true" --><span class="var">height</span><!-- /a -->; 
 END OF OBJECT
 
 
 
-_$43|testsuite/parser_tests/ObjC_category_3.test$1|C$15|ObjC category 3$13433|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 1
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/ObjC_category_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_category_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => (TrainsCanFly)
-$parserState->{classIsObjC} => 1
-$parserState->{classtype} => @interface
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => end
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => interface
-$parserState->{returntype} => @interface
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => Trains_2
-$parserState->{sodtype} => 
-$parserState->{sodtypeclasstoken} => interface
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 0
-$parserState->{storeDec} =>  @interface Trains_2(
-
-$parserState->{typestring} => Trains_2
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: @interface
-namelist: Trains_2(TrainsCanFly)
-posstypes: Trains_2
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 4
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---@
-+---interface
-|   +--- 
-|   +---Trains_2
-|   +---(
-|   |   +---TrainsCanFly
-|   |   +---)
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---!
-|   |   +---     
-|   |   +---
-@method levitateToHeight:
-|   |   +---
-@abstract Raises the train specified number of centimeters
-|   |   +---
-@param height The number of centimeters to levitate.
-|   |   +---[ NEWLINE ]
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +-*-- (HAS STATE)
-|   |   +--- 
-|   |   +---(
-|   |   |   +---void
-|   |   |   +---)
-|   |   +---levitateToHeight
-|   |   +---:
-|   |   +---(
-|   |   |   +---float
-|   |   |   +---)
-|   |   +---height
-|   |   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: ObjC category 3
-APIUID: //test_ref/doc/header/ObjC_category_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::ObjCCategory
-    NAME: Trains_2(TrainsCanFly)
-    APIUID: 
-    ABSTRACT: "<p>The TrainsCanFly category adds levitation methods to the Train class.
-"
-    DISCUSSION: "<p>Methods declared in the TrainsCanFly category of the Train class can only be used with properly equiped Train objects.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::ObjCCategory"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class:</b> <!-- a logicalPath="//test_ref/occ/cl/Trains_2" -->Trains_2<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC category 3</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Method
-        NAME: levitateToHeight:
-        APIUID: //test_ref/occ/instm/Trains_2(TrainsCanFly)/levitateToHeight:
-        ABSTRACT: "<p>Raises the train specified number of centimeters
-"
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: "void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Method"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        PARSED PARAMETERS:
-            TREE COUNT: 0
-            INDEX GROUP: 
-            IS BLOCK: 
-            OBJECT TYPE: HeaderDoc::MinorAPIElement
-            NAME: height
-            TYPE: (float)
-            APIUID: 
-            ABSTRACT: ""
-            DISCUSSION: "<p></p>"
-            UPDATED: ""
-            COPYRIGHT: ""
-            HTMLMETA: ""
-            PRIVATEDECLARATION: ""
-            GROUP: ""
-            INDEXGROUP: ""
-            THROWS: ""
-            XMLTHROWS: ""
-            UPDATED: ""
-            LINKAGESTATE: ""
-            ACCESSCONTROL: ""
-            AVAILABILITY: ""
-            LINKUID: ""
-            ORIGCLASS: ""
-            ISDEFINE: ""
-            ISTEMPLATE: ""
-            VALUE: "UNKNOWN"
-            RETURNTYPE: ""
-            LINENUM: ""
-            CLASS: "HeaderDoc::MinorAPIElement"
-            MASTERENUM: ""
-            APIREFSETUPDONE: "1"
-            TPCDONE: ""
-            NOREGISTERUID: ""
-            SUPPRESSCHILDREN: ""
-            NAMELINE_DISCUSSION: ""
-            HIDEDOC: ""
-            HIDESINGLETONS: ""
-            HIDECONTENTS: ""
-            MAINOBJECT: ""
-            LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
-        TAGGED PARAMETERS:
-            TREE COUNT: 0
-            INDEX GROUP: 
-            IS BLOCK: 
-            OBJECT TYPE: HeaderDoc::MinorAPIElement
-            NAME: height
-            TYPE: 
-            APIUID: 
-            ABSTRACT: ""
-            DISCUSSION: "<p>The number of centimeters to levitate."
-            UPDATED: ""
-            COPYRIGHT: ""
-            HTMLMETA: ""
-            PRIVATEDECLARATION: ""
-            GROUP: ""
-            INDEXGROUP: ""
-            THROWS: ""
-            XMLTHROWS: ""
-            UPDATED: ""
-            LINKAGESTATE: ""
-            ACCESSCONTROL: ""
-            AVAILABILITY: ""
-            LINKUID: ""
-            ORIGCLASS: ""
-            ISDEFINE: ""
-            ISTEMPLATE: ""
-            VALUE: "UNKNOWN"
-            RETURNTYPE: ""
-            LINENUM: ""
-            CLASS: "HeaderDoc::MinorAPIElement"
-            MASTERENUM: ""
-            APIREFSETUPDONE: "1"
-            TPCDONE: ""
-            NOREGISTERUID: ""
-            SUPPRESSCHILDREN: ""
-            NAMELINE_DISCUSSION: ""
-            HIDEDOC: ""
-            HIDESINGLETONS: ""
-            HIDECONTENTS: ""
-            MAINOBJECT: ""
-            LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-+---@
-+---interface
-|   +--- 
-|   +---Trains_2
-|   +---(
-|   |   +---TrainsCanFly
-|   |   +---)
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---!
-|   |   +---     
-|   |   +---
-@method levitateToHeight:
-|   |   +---
-@abstract Raises the train specified number of centimeters
-|   |   +---
-@param height The number of centimeters to levitate.
-|   |   +---[ NEWLINE ]
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +-*-- (HAS STATE)
-|   |   +--- 
-|   |   +---(
-|   |   |   +---void
-|   |   |   +---)
-|   |   +---levitateToHeight
-|   |   +---:
-|   |   +---(
-|   |   |   +---float
-|   |   |   +---)
-|   |   +---height
-|   |   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: levitateToHeight: (HeaderDoc::Method)
-+-*-- (HAS STATE)
-|   +--- 
-|   +---(
-|   |   +---void
-|   |   +---)
-|   +---levitateToHeight
-|   +---:
-|   +---(
-|   |   +---float
-|   |   +---)
-|   +---height
-|   +---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---@
-+---@end
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2" --><span class="function">Trains_2</span><!-- /a -->(
-	        <span class="param">TrainsCanFly</span>) <span class="comment">/*! 
-	@method levitateToHeight:
-	@abstract Raises the train specified number of centimeters
-	@param height The number of centimeters to levitate.</span>
-	        <span class="comment">*/</span>
-	    - (
-	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/econst/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/clconst/levitateToHeight //test_ref/occ/intf/levitateToHeight" --><span class="type">levitateToHeight</span><!-- /a -->:(
-	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->;  @@end 
-END OF OBJECT
-
-
-OBJECT: levitateToHeight: (HeaderDoc::Method)
-	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/econst/void //test_ref/occ/struct/void //test_ref/occ/clconst/void //test_ref/occ/intf/void" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/levitateToHeight //test_ref/occ/clm/levitateToHeight //test_ref/occ/intfcm/levitateToHeight //test_ref/occ/intfm/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/econst/float //test_ref/occ/struct/float //test_ref/occ/clconst/float //test_ref/occ/intf/float" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->; 
-END OF OBJECT
-
-
-
-$13433|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 1
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/ObjC_category_3.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_category_3.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => (TrainsCanFly)
-$parserState->{classIsObjC} => 1
-$parserState->{classtype} => @interface
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => end
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => interface
-$parserState->{returntype} => @interface
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => Trains_2
-$parserState->{sodtype} => 
-$parserState->{sodtypeclasstoken} => interface
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 0
-$parserState->{storeDec} =>  @interface Trains_2(
-
-$parserState->{typestring} => Trains_2
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: @interface
-namelist: Trains_2(TrainsCanFly)
-posstypes: Trains_2
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 4
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---@
-+---interface
-|   +--- 
-|   +---Trains_2
-|   +---(
-|   |   +---TrainsCanFly
-|   |   +---)
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---!
-|   |   +---     
-|   |   +---
-@method levitateToHeight:
-|   |   +---
-@abstract Raises the train specified number of centimeters
-|   |   +---
-@param height The number of centimeters to levitate.
-|   |   +---[ NEWLINE ]
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +-*-- (HAS STATE)
-|   |   +--- 
-|   |   +---(
-|   |   |   +---void
-|   |   |   +---)
-|   |   +---levitateToHeight
-|   |   +---:
-|   |   +---(
-|   |   |   +---float
-|   |   |   +---)
-|   |   +---height
-|   |   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: ObjC category 3
-APIUID: //test_ref/doc/header/ObjC_category_3.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::ObjCCategory
-    NAME: Trains_2(TrainsCanFly)
-    APIUID: 
-    ABSTRACT: "<p>The TrainsCanFly category adds levitation methods to the Train class.
-"
-    DISCUSSION: "<p>Methods declared in the TrainsCanFly category of the Train class can only be used with properly equiped Train objects.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::ObjCCategory"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class:</b> <!-- a logicalPath="//test_ref/occ/cl/Trains_2" -->Trains_2<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC category 3</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Method
-        NAME: levitateToHeight:
-        APIUID: //test_ref/occ/instm/Trains_2(TrainsCanFly)/levitateToHeight:
-        ABSTRACT: "<p>Raises the train specified number of centimeters
-"
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: "void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Method"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        PARSED PARAMETERS:
-            TREE COUNT: 0
-            INDEX GROUP: 
-            IS BLOCK: 
-            OBJECT TYPE: HeaderDoc::MinorAPIElement
-            NAME: height
-            TYPE: (float)
-            APIUID: 
-            ABSTRACT: ""
-            DISCUSSION: "<p></p>"
-            UPDATED: ""
-            COPYRIGHT: ""
-            HTMLMETA: ""
-            PRIVATEDECLARATION: ""
-            GROUP: ""
-            INDEXGROUP: ""
-            THROWS: ""
-            XMLTHROWS: ""
-            UPDATED: ""
-            LINKAGESTATE: ""
-            ACCESSCONTROL: ""
-            AVAILABILITY: ""
-            LINKUID: ""
-            ORIGCLASS: ""
-            ISDEFINE: ""
-            ISTEMPLATE: ""
-            VALUE: "UNKNOWN"
-            RETURNTYPE: ""
-            LINENUM: ""
-            CLASS: "HeaderDoc::MinorAPIElement"
-            MASTERENUM: ""
-            APIREFSETUPDONE: "1"
-            TPCDONE: ""
-            NOREGISTERUID: ""
-            SUPPRESSCHILDREN: ""
-            NAMELINE_DISCUSSION: ""
-            HIDEDOC: ""
-            HIDESINGLETONS: ""
-            HIDECONTENTS: ""
-            MAINOBJECT: ""
-            LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
-        TAGGED PARAMETERS:
-            TREE COUNT: 0
-            INDEX GROUP: 
-            IS BLOCK: 
-            OBJECT TYPE: HeaderDoc::MinorAPIElement
-            NAME: height
-            TYPE: 
-            APIUID: 
-            ABSTRACT: ""
-            DISCUSSION: "<p>The number of centimeters to levitate."
-            UPDATED: ""
-            COPYRIGHT: ""
-            HTMLMETA: ""
-            PRIVATEDECLARATION: ""
-            GROUP: ""
-            INDEXGROUP: ""
-            THROWS: ""
-            XMLTHROWS: ""
-            UPDATED: ""
-            LINKAGESTATE: ""
-            ACCESSCONTROL: ""
-            AVAILABILITY: ""
-            LINKUID: ""
-            ORIGCLASS: ""
-            ISDEFINE: ""
-            ISTEMPLATE: ""
-            VALUE: "UNKNOWN"
-            RETURNTYPE: ""
-            LINENUM: ""
-            CLASS: "HeaderDoc::MinorAPIElement"
-            MASTERENUM: ""
-            APIREFSETUPDONE: "1"
-            TPCDONE: ""
-            NOREGISTERUID: ""
-            SUPPRESSCHILDREN: ""
-            NAMELINE_DISCUSSION: ""
-            HIDEDOC: ""
-            HIDESINGLETONS: ""
-            HIDECONTENTS: ""
-            MAINOBJECT: ""
-            LIST ATTRIBUTES: 
-            SHORT ATTRIBUTES: <p></p>
-            LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-+---@
-+---interface
-|   +--- 
-|   +---Trains_2
-|   +---(
-|   |   +---TrainsCanFly
-|   |   +---)
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---!
-|   |   +---     
-|   |   +---
-@method levitateToHeight:
-|   |   +---
-@abstract Raises the train specified number of centimeters
-|   |   +---
-@param height The number of centimeters to levitate.
-|   |   +---[ NEWLINE ]
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +-*-- (HAS STATE)
-|   |   +--- 
-|   |   +---(
-|   |   |   +---void
-|   |   |   +---)
-|   |   +---levitateToHeight
-|   |   +---:
-|   |   +---(
-|   |   |   +---float
-|   |   |   +---)
-|   |   +---height
-|   |   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: levitateToHeight: (HeaderDoc::Method)
-+-*-- (HAS STATE)
-|   +--- 
-|   +---(
-|   |   +---void
-|   |   +---)
-|   +---levitateToHeight
-|   +---:
-|   +---(
-|   |   +---float
-|   |   +---)
-|   +---height
-|   +---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---@
-+---@end
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Trains_2(TrainsCanFly) (HeaderDoc::ObjCCategory)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/Trains_2 //test_ref/occ/clm/Trains_2 //test_ref/occ/intfcm/Trains_2 //test_ref/occ/intfm/Trains_2 //test_ref/occ/func/Trains_2 //test_ref/occ/ftmplt/Trains_2 //test_ref/occ/defn/Trains_2 //test_ref/occ/macro/Trains_2" --><span class="function">Trains_2</span><!-- /a -->(
-	        <span class="param">TrainsCanFly</span>) <span class="comment">/*! 
-	@method levitateToHeight:
-	@abstract Raises the train specified number of centimeters
-	@param height The number of centimeters to levitate.</span>
-	        <span class="comment">*/</span>
-	    - (
-	            <span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/cl/levitateToHeight //test_ref/occ/tdef/levitateToHeight //test_ref/occ/tag/levitateToHeight //test_ref/occ/econst/levitateToHeight //test_ref/occ/struct/levitateToHeight //test_ref/occ/clconst/levitateToHeight //test_ref/occ/intf/levitateToHeight" --><span class="type">levitateToHeight</span><!-- /a -->:(
-	            <span class="param">float</span>)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->;  @@end 
-END OF OBJECT
-
-
-OBJECT: levitateToHeight: (HeaderDoc::Method)
-	- (<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/econst/void //test_ref/occ/struct/void //test_ref/occ/clconst/void //test_ref/occ/intf/void" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/levitateToHeight //test_ref/occ/clm/levitateToHeight //test_ref/occ/intfcm/levitateToHeight //test_ref/occ/intfm/levitateToHeight //test_ref/occ/func/levitateToHeight //test_ref/occ/ftmplt/levitateToHeight //test_ref/occ/defn/levitateToHeight //test_ref/occ/macro/levitateToHeight" --><span class="function">levitateToHeight</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/econst/float //test_ref/occ/struct/float //test_ref/occ/clconst/float //test_ref/occ/intf/float" --><span class="type">float</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/height //test_ref/occ/data/height" --><span class="var">height</span><!-- /a -->; 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/ObjC_category_3.test$1|C$15|ObjC category 3$1|C$6|parser

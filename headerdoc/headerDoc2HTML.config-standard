@@ -1,5 +1,5 @@
 # Configuration file for HeaderDoc
-# $Revision: 1.3 $
+# $Revision: 1.5 $
 ###########################################################
 copyrightOwner =>
 defaultFrameName => index.html
@@ -9,6 +9,9 @@ ignorePrefixes =>
 htmlHeader => 
 htmlHeaderFile =>
 htmlFooterFile =>
+suppressDefaultStyles => 0
+suppressDefaultJavaScript => 0
+TOCFormat => default
 stripDotH => 1
 TOCTemplateFile => exampletoctemplate.html
 dateFormat => %A, %B %d, %Y

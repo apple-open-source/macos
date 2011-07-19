@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib518.c,v 1.36 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
@@ -216,7 +215,7 @@ static int rlimit(int keep_open)
 
   /*
    * verify that soft limit is higher than NUM_NEEDED,
-   * which is the number of file descriptors we would 
+   * which is the number of file descriptors we would
    * try to open plus SAFETY_MARGIN to not exhaust the
    * file descriptor pool
    */
@@ -329,8 +328,8 @@ static int rlimit(int keep_open)
 
   /* create a bunch of file descriptors */
 
-  for (num_open.rlim_cur = 1; 
-       num_open.rlim_cur < num_open.rlim_max; 
+  for (num_open.rlim_cur = 1;
+       num_open.rlim_cur < num_open.rlim_max;
        num_open.rlim_cur++) {
 
     fd[num_open.rlim_cur] = dup(fd[0]);
@@ -468,7 +467,7 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  /* run the test with the bunch of open file descriptors 
+  /* run the test with the bunch of open file descriptors
      and close them all once the test is over */
 
   if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
@@ -484,10 +483,12 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  curl_easy_setopt(curl, CURLOPT_URL, URL);
-  curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
+  test_setopt(curl, CURLOPT_URL, URL);
+  test_setopt(curl, CURLOPT_HEADER, 1L);
 
   res = curl_easy_perform(curl);
+
+test_cleanup:
 
   close_file_descriptors();
   curl_easy_cleanup(curl);

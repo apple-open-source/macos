@@ -1,17 +1,23 @@
+Changes
+examples/example.pl
 Find.pm
 Makefile.PL
 MANIFEST
+MANIFEST.skip
+META.yml			Module meta-data (added by MakeMaker)
 README
-Changes
 t/1-use.t
 t/2-find.t
 t/3-usesub.t
 t/4-useall.t
 t/5-setmoduledirs.t
-t/pod.t
+t/6-duplicate-modules.t
 t/pod-coverage.t
-META.yml                                Module meta-data (added by MakeMaker)
-test/ModuleFindTest/SubMod/SubSubMod.pm
-test/ModuleFindTest/SubMod.pm
+t/pod.t
+test/duplicates/ModuleFindTest.pm
+test/duplicates/ModuleFindTest/SubMod.pm
+test/duplicates/ModuleFindTest/SubMod/SubSubMod.pm
 test/ModuleFindTest.pm
+test/ModuleFindTest/SubMod.pm
+test/ModuleFindTest/SubMod/SubSubMod.pm
 test/README

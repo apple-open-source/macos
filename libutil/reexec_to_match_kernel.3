@@ -12,6 +12,10 @@
 .Fo reexec_to_match_kernel
 .Fa "void"
 .Fc
+.Ft int
+.Fo reexec_to_match_lp64ness
+.Fa "bool isLP64"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn reexec_to_match_kernel
@@ -20,10 +24,26 @@ That is, if the current kernel is a 64-bit Intel kernel, it will attempt to
 execute the 64-bit x86_64 userspace slice of the universal binary. The API
 intentionally does not take arguments because its use should be transparent
 to the program and to the user.
+.Pp
+The
+.Fn reexec_to_match_lp64ness
+is coarser-grained, and only attempts to match the word width that is requested.
+For example, if the current system defaults to executing the 64-bit x86_64
+userspace slice, but the program should instead run in 32-bit i386 mode,
+this routine can be used.
+.Pp
+Both
+.Fn reexec_to_match_kernel
+and
+.Fn reexec_to_match_lp64ness
+can each be used exactly once in a program's lifetime. In certain circumstances,
+it may even be desirable to use one, and then the other.
 .Sh RETURN VALUES
 The
 .Fn reexec_to_match_kernel
-function returns 0 if re-execution was not required. It returns -1 and
+and
+.Fn reexec_to_match_lp64ness
+functions return 0 if re-execution was not required. It returns -1 and
 sets errno if there was an error performing the re-execution, for example
 if the binary is not universal, or does not contain a slice to match the running
 kernel's ABI. If the function succeeds, control never returns to the caller

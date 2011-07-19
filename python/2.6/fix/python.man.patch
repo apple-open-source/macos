@@ -1,6 +1,6 @@
---- python.man.orig	2005-03-20 06:16:03.000000000 -0800
-+++ python.man	2007-02-22 23:05:24.000000000 -0800
-@@ -374,6 +374,49 @@
+--- Misc/python.man.orig	2010-01-31 08:09:16.000000000 -0800
++++ Misc/python.man	2010-03-22 12:44:37.000000000 -0700
+@@ -411,6 +411,49 @@
  If this is set to a non-empty string it is equivalent to specifying
  the \fB\-v\fP option. If set to an integer, it is equivalent to
  specifying \fB\-v\fP multiple times. 

@@ -143,6 +143,8 @@ WebInspector.Color.prototype = {
             format = this.format;
 
         switch (format) {
+            case "original":
+                return this.value;
             case "rgb":
                 return "rgb(" + this.rgb.join(", ") + ")";
             case "rgba":
@@ -324,7 +326,7 @@ WebInspector.Color.prototype = {
                     throw "unknown color name";
             } else if (match[4]) { // hsl
                 this.format = "hsl";
-                var hsl = match[4].replace(/%g/, "").split(/\s*,\s*/);
+                var hsl = match[4].replace(/%/g, "").split(/\s*,\s*/);
                 this.hsl = hsl;
                 this.rgb = this._hslToRGB(hsl);
                 this.hex = this._rgbToHex(this.rgb);
@@ -595,7 +597,7 @@ WebInspector.Color.Nicknames = {
     "mediumaquamarine": "66CDAA",
     "mediumblue": "0000CD",
     "mediumorchid": "BA55D3",
-    "mediumpurple": "9370D8",
+    "mediumpurple": "9370DB",
     "mediumseagreen": "3CB371",
     "mediumslateblue": "7B68EE",
     "mediumspringgreen": "00FA9A",
@@ -616,7 +618,7 @@ WebInspector.Color.Nicknames = {
     "palegoldenrod": "EEE8AA",
     "palegreen": "98FB98",
     "paleturquoise": "AFEEEE",
-    "palevioletred": "D87093",
+    "palevioletred": "DB7093",
     "papayawhip": "FFEFD5",
     "peachpuff": "FFDAB9",
     "peru": "CD853F",

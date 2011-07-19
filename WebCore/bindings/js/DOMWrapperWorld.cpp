@@ -29,41 +29,49 @@ using namespace JSC;
 
 namespace WebCore {
 
+void JSDOMWrapperOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
+{
+    JSDOMWrapper* wrapper = static_cast<JSDOMWrapper*>(handle.get().asCell());
+    void* domObject = context;
+    uncacheWrapper(m_world, domObject, wrapper);
+}
+
+void JSStringOwner::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
+{
+    JSString* jsString = static_cast<JSString*>(handle.get().asCell());
+    StringImpl* stringImpl = static_cast<StringImpl*>(context);
+    ASSERT_UNUSED(jsString, m_world->m_stringCache.find(stringImpl)->second.get() == jsString);
+    m_world->m_stringCache.remove(stringImpl);
+}
+
 DOMWrapperWorld::DOMWrapperWorld(JSC::JSGlobalData* globalData, bool isNormal)
     : m_globalData(globalData)
     , m_isNormal(isNormal)
-    , m_isRegistered(false)
-{
-    registerWorld();
-}
-
-DOMWrapperWorld::~DOMWrapperWorld()
-{
-    unregisterWorld();
-}
-
-void DOMWrapperWorld::registerWorld()
+    , m_defaultWrapperOwner(this)
+    , m_stringWrapperOwner(this)
 {
     JSGlobalData::ClientData* clientData = m_globalData->clientData;
     ASSERT(clientData);
     static_cast<WebCoreJSClientData*>(clientData)->rememberWorld(this);
-    m_isRegistered = true;
 }
 
-void DOMWrapperWorld::unregisterWorld()
+DOMWrapperWorld::~DOMWrapperWorld()
 {
-    if (!m_isRegistered)
-        return;
-    m_isRegistered = false;
-
     JSGlobalData::ClientData* clientData = m_globalData->clientData;
     ASSERT(clientData);
     static_cast<WebCoreJSClientData*>(clientData)->forgetWorld(this);
 
     // These items are created lazily.
-    while (!m_documentsWithWrapperCaches.isEmpty())
-        (*m_documentsWithWrapperCaches.begin())->destroyWrapperCache(this);
+    while (!m_scriptControllersWithWindowShells.isEmpty())
+        (*m_scriptControllersWithWindowShells.begin())->destroyWindowShell(this);
+}
 
+void DOMWrapperWorld::clearWrappers()
+{
+    m_wrappers.clear();
+    m_stringCache.clear();
+
+    // These items are created lazily.
     while (!m_scriptControllersWithWindowShells.isEmpty())
         (*m_scriptControllersWithWindowShells.begin())->destroyWindowShell(this);
 }

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,30 +35,38 @@
 
 #include "SharedWorker.h"
 
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "KURL.h"
 #include "MessageChannel.h"
 #include "MessagePort.h"
+#include "ScriptExecutionContext.h"
 #include "SharedWorkerRepository.h"
 
 namespace WebCore {
 
-SharedWorker::SharedWorker(const String& url, const String& name, ScriptExecutionContext* context, ExceptionCode& ec)
+inline SharedWorker::SharedWorker(ScriptExecutionContext* context)
     : AbstractWorker(context)
 {
-    RefPtr<MessageChannel> channel = MessageChannel::create(scriptExecutionContext());
-    m_port = channel->port1();
-    OwnPtr<MessagePortChannel> remotePort = channel->port2()->disentangle(ec);
-    ASSERT(!ec);
+}
 
-    KURL scriptUrl = resolveURL(url, ec);
-    if (ec)
-        return;
-    SharedWorkerRepository::connect(this, remotePort.release(), scriptUrl, name, ec);
-#if ENABLE(INSPECTOR)
-    if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-        inspector->didCreateWorker(asID(), scriptUrl.string(), true);
-#endif
+PassRefPtr<SharedWorker> SharedWorker::create(const String& url, const String& name, ScriptExecutionContext* context, ExceptionCode& ec)
+{
+    RefPtr<SharedWorker> worker = adoptRef(new SharedWorker(context));
+
+    RefPtr<MessageChannel> channel = MessageChannel::create(context);
+    worker->m_port = channel->port1();
+    OwnPtr<MessagePortChannel> remotePort = channel->port2()->disentangle(ec);
+    ASSERT(remotePort);
+
+    KURL scriptURL = worker->resolveURL(url, ec);
+    if (scriptURL.isEmpty())
+        return 0;
+
+    SharedWorkerRepository::connect(worker.get(), remotePort.release(), scriptURL, name, ec);
+
+    InspectorInstrumentation::didCreateWorker(context, worker->asID(), scriptURL.string(), true);
+
+    return worker.release();
 }
 
 SharedWorker::~SharedWorker()

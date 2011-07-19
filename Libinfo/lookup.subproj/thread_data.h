@@ -26,9 +26,9 @@
 
 #include <si_data.h>
 
-__private_extern__ si_item_t *LI_get_thread_item(uint32_t key);
-__private_extern__ si_list_t *LI_get_thread_list(uint32_t key);
-__private_extern__ void LI_set_thread_item(uint32_t key, si_item_t *item);
-__private_extern__ void LI_set_thread_list(uint32_t key, si_list_t *list);
+si_item_t *LI_get_thread_item(uint32_t key);
+si_list_t *LI_get_thread_list(uint32_t key);
+void LI_set_thread_item(uint32_t key, si_item_t *item);
+void LI_set_thread_list(uint32_t key, si_list_t *list);
 
 #endif /* ! __THREAD_DATA_H__ */

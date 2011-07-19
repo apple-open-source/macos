@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: first.c,v 1.20 2009-01-21 04:30:05 danf Exp $
  */
 
 #include "test.h"
@@ -38,7 +37,7 @@ char *libtest_arg2=NULL;
 char *libtest_arg3=NULL;
 int test_argc;
 char **test_argv;
-
+int unitfail; /* for unittests */
 
 int main(int argc, char **argv)
 {
@@ -60,7 +59,10 @@ int main(int argc, char **argv)
   /* this enables the fail-on-alloc-number-N functionality */
   env = curl_getenv("CURL_MEMLIMIT");
   if(env) {
-    curl_memlimit(atoi(env));
+    char *endptr;
+    long num = strtol(env, &endptr, 10);
+    if((endptr != env) && (endptr == env + strlen(env)) && (num > 0))
+      curl_memlimit(num);
     curl_free(env);
   }
 #endif

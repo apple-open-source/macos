@@ -26,15 +26,13 @@
 #include "config.h"
 #include "Color.h"
 
-#include "PlatformString.h"
-#include <math.h>
+#include "HashTools.h"
 #include <wtf/Assertions.h>
+#include <wtf/HexNumber.h>
 #include <wtf/MathExtras.h>
-
-#include "ColorData.c"
+#include <wtf/text/StringBuilder.h>
 
 using namespace std;
-using namespace WTF;
 
 namespace WebCore {
 
@@ -126,9 +124,8 @@ RGBA32 makeRGBAFromCMYKA(float c, float m, float y, float k, float a)
 }
 
 // originally moved here from the CSS parser
-bool Color::parseHexColor(const String& name, RGBA32& rgb)
+bool Color::parseHexColor(const UChar* name, unsigned length, RGBA32& rgb)
 {
-    unsigned length = name.length();
     if (length != 3 && length != 6)
         return false;
     unsigned value = 0;
@@ -150,6 +147,11 @@ bool Color::parseHexColor(const String& name, RGBA32& rgb)
     return true;
 }
 
+bool Color::parseHexColor(const String& name, RGBA32& rgb)
+{
+    return parseHexColor(name.characters(), name.length(), rgb);
+}
+
 int differenceSquared(const Color& c1, const Color& c2)
 {
     int dR = c1.red() - c2.red();
@@ -160,8 +162,8 @@ int differenceSquared(const Color& c1, const Color& c2)
 
 Color::Color(const String& name)
 {
-    if (name.startsWith("#"))
-        m_valid = parseHexColor(name.substring(1), m_color);
+    if (name[0] == '#')
+        m_valid = parseHexColor(name.characters() + 1, name.length() - 1, m_color);
     else
         setNamedColor(name);
 }
@@ -172,13 +174,49 @@ Color::Color(const char* name)
         m_valid = parseHexColor(&name[1], m_color);
     else {
         const NamedColor* foundColor = findColor(name, strlen(name));
-        m_color = foundColor ? foundColor->RGBValue : 0;
-        m_color |= 0xFF000000;
+        m_color = foundColor ? foundColor->ARGBValue : 0;
         m_valid = foundColor;
     }
 }
 
-String Color::name() const
+String Color::serialized() const
+{
+    DEFINE_STATIC_LOCAL(const String, commaSpace, (", "));
+    DEFINE_STATIC_LOCAL(const String, rgbaParen, ("rgba("));
+    DEFINE_STATIC_LOCAL(const String, zeroPointZero, ("0.0"));
+
+    if (!hasAlpha()) {
+        StringBuilder builder;
+        builder.reserveCapacity(7);
+        builder.append('#');
+        appendByteAsHex(red(), builder, Lowercase);
+        appendByteAsHex(green(), builder, Lowercase);
+        appendByteAsHex(blue(), builder, Lowercase);
+        return builder.toString();
+    }
+
+    Vector<UChar> result;
+    result.reserveInitialCapacity(28);
+
+    append(result, rgbaParen);
+    appendNumber(result, red());
+    append(result, commaSpace);
+    appendNumber(result, green());
+    append(result, commaSpace);
+    appendNumber(result, blue());
+    append(result, commaSpace);
+
+    // Match Gecko ("0.0" for zero, 5 decimals for anything else)
+    if (!alpha())
+        append(result, zeroPointZero);
+    else
+        append(result, String::format("%.5f", alpha() / 255.0f));
+
+    result.append(')');
+    return String::adopt(result);
+}
+
+String Color::nameForRenderTreeAsText() const
 {
     if (alpha() < 0xFF)
         return String::format("#%02X%02X%02X%02X", red(), green(), blue(), alpha());
@@ -204,8 +242,7 @@ static inline const NamedColor* findNamedColor(const String& name)
 void Color::setNamedColor(const String& name)
 {
     const NamedColor* foundColor = findNamedColor(name);
-    m_color = foundColor ? foundColor->RGBValue : 0;
-    m_color |= 0xFF000000;
+    m_color = foundColor ? foundColor->ARGBValue : 0;
     m_valid = foundColor;
 }
 

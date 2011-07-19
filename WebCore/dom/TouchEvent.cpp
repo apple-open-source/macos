@@ -28,8 +28,13 @@
 #if ENABLE(TOUCH_EVENTS)
 
 #include "TouchEvent.h"
+#include "TouchList.h"
 
 namespace WebCore {
+
+TouchEvent::TouchEvent()
+{
+}
 
 TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type, 
@@ -43,6 +48,10 @@ TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
 {
 }
 
+TouchEvent::~TouchEvent()
+{
+}
+
 void TouchEvent::initTouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type, 
         PassRefPtr<AbstractView> view, int screenX, int screenY, int clientX, int clientY,
@@ -53,6 +62,9 @@ void TouchEvent::initTouchEvent(TouchList* touches, TouchList* targetTouches,
 
     initUIEvent(type, true, true, view, 0);
 
+    m_touches = touches;
+    m_targetTouches = targetTouches;
+    m_changedTouches = changedTouches;
     m_screenX = screenX;
     m_screenY = screenY;
     m_ctrlKey = ctrlKey;

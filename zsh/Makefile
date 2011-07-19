@@ -4,7 +4,7 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 4.3.9
+ProjectVersion	      = 4.3.11
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp
@@ -13,9 +13,7 @@ Extra_Install_Flags   = bindir="$(DSTROOT)$(BINDIR)"
 GnuAfterInstall	      = post-install install-plist strip-binaries
 
 Patches = utmpx_ut_user.patch no_strip.patch arg_zero.patch \
-          zsh-Doc.patch svn-zsh-complete.patch \
-          configure-traditional-cpp.patch utils.c.patch \
-          PR-6370391.patch
+          zsh-Doc.patch svn-zsh-complete.patch
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make

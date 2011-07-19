@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 #  messagedlg.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: messagedlg.tcl,v 1.91 2009/09/06 21:23:06 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - MessageDlg::create
@@ -9,17 +10,26 @@
 namespace eval MessageDlg {
     Widget::define MessageDlg messagedlg Dialog
 
-    Widget::tkinclude MessageDlg message .frame.msg \
-	    remove [list -cursor -highlightthickness		\
-		-highlightbackground -highlightcolor		\
-		-relief -borderwidth -takefocus -textvariable	\
+    if {[BWidget::using ttk]} {
+        Widget::tkinclude MessageDlg ttk::label .frame.msg \
+            rename {
+                -text -message
+            } initialize {
+                 -aspect 800 -anchor c -justify center
+            }
+    } else {
+        Widget::tkinclude MessageDlg message .frame.msg \
+	    remove [list -cursor -highlightthickness \
+		-highlightbackground -highlightcolor \
+		-relief -borderwidth -takefocus -textvariable \
 		] \
-	    rename [list -text -message]			\
+	    rename [list -text -message] \
 	    initialize [list -aspect 800 -anchor c -justify center]
+    }
 
     Widget::bwinclude MessageDlg Dialog :cmd \
 	    remove [list -modal -image -bitmap -side -anchor -separator \
-		-homogeneous -padx -pady -spacing]
+		         -homogeneous -padx -pady -spacing]
 
     Widget::declare MessageDlg {
         {-icon       Enum   info 0 {none error info question warning}}

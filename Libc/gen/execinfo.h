@@ -24,12 +24,13 @@
 #define _EXECINFO_H_ 1
 
 #include <sys/cdefs.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
 
-int backtrace(void**,int);
-char** backtrace_symbols(void* const*,int);
-void backtrace_symbols_fd(void* const*,int,int);
+int backtrace(void**,int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+char** backtrace_symbols(void* const*,int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+void backtrace_symbols_fd(void* const*,int,int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 __END_DECLS
 

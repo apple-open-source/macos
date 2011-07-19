@@ -131,11 +131,12 @@
 #endif
 #ifndef BUILDING_VARIANT
 STATIC void init_des(), init_perm(), permute();
+#ifdef DEBUG
+#include <stdio.h>
+STATIC void prtab();
+#endif
 #endif /* BUILDING_VARIANT */
 __private_extern__ int __crypt_des_cipher(), __crypt_des_setkey();
-#ifdef DEBUG
-STATIC prtab();
-#endif
 
 /* ==================================== */
 
@@ -1023,7 +1024,7 @@ int encrypt(block, flag)
 
 #ifndef BUILDING_VARIANT
 #ifdef DEBUG
-STATIC
+STATIC void
 prtab(s, t, num_rows)
 	char *s;
 	unsigned char *t;

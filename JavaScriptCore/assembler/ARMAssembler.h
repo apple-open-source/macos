@@ -40,32 +40,54 @@ namespace JSC {
             r0 = 0,
             r1,
             r2,
-            r3,
-            S0 = r3,
+            r3, S0 = r3,
             r4,
             r5,
             r6,
             r7,
-            r8,
-            S1 = r8,
+            r8, S1 = r8,
             r9,
             r10,
             r11,
             r12,
-            r13,
-            sp = r13,
-            r14,
-            lr = r14,
-            r15,
-            pc = r15
+            r13, sp = r13,
+            r14, lr = r14,
+            r15, pc = r15
         } RegisterID;
 
         typedef enum {
             d0,
             d1,
             d2,
-            d3,
-            SD0 = d3
+            d3, SD0 = d3,
+            d4,
+            d5,
+            d6,
+            d7,
+            d8,
+            d9,
+            d10,
+            d11,
+            d12,
+            d13,
+            d14,
+            d15,
+            d16,
+            d17,
+            d18,
+            d19,
+            d20,
+            d21,
+            d22,
+            d23,
+            d24,
+            d25,
+            d26,
+            d27,
+            d28,
+            d29,
+            d30,
+            d31
         } FPRegisterID;
 
     } // namespace ARMRegisters
@@ -75,7 +97,7 @@ namespace JSC {
         typedef ARMRegisters::RegisterID RegisterID;
         typedef ARMRegisters::FPRegisterID FPRegisterID;
         typedef AssemblerBufferWithConstantPool<2048, 4, 4, ARMAssembler> ARMBuffer;
-        typedef SegmentedVector<int, 64> Jumps;
+        typedef SegmentedVector<AssemblerLabel, 64> Jumps;
 
         ARMAssembler() { }
 
@@ -118,12 +140,12 @@ namespace JSC {
             MVN = (0xf << 21),
             MUL = 0x00000090,
             MULL = 0x00c00090,
-            FADDD = 0x0e300b00,
-            FDIVD = 0x0e800b00,
-            FSUBD = 0x0e300b40,
-            FMULD = 0x0e200b00,
-            FCMPD = 0x0eb40b40,
-            FSQRTD = 0x0eb10bc0,
+            VADD_F64 = 0x0e300b00,
+            VDIV_F64 = 0x0e800b00,
+            VSUB_F64 = 0x0e300b40,
+            VMUL_F64 = 0x0e200b00,
+            VCMP_F64 = 0x0eb40b40,
+            VSQRT_F64 = 0x0eb10bc0,
             DTR = 0x05000000,
             LDRH = 0x00100090,
             STRH = 0x00000090,
@@ -135,14 +157,15 @@ namespace JSC {
 #if WTF_ARM_ARCH_AT_LEAST(5) || defined(__ARM_ARCH_4T__)
             BX = 0x012fff10,
 #endif
-            FMSR = 0x0e000a10,
-            FMRS = 0x0e100a10,
-            FSITOD = 0x0eb80bc0,
-            FTOSID = 0x0ebd0b40,
-            FMSTAT = 0x0ef1fa10,
+            VMOV_VFP = 0x0e000a10,
+            VMOV_ARM = 0x0e100a10,
+            VCVT_F64_S32 = 0x0eb80bc0,
+            VCVT_S32_F64 = 0x0ebd0b40,
+            VCVTR_S32_F64 = 0x0ebd0bc0,
+            VMRS_APSR = 0x0ef1fa10,
 #if WTF_ARM_ARCH_AT_LEAST(5)
             CLZ = 0x016f0f10,
-            BKPT = 0xe120070,
+            BKPT = 0xe1200070,
             BLX = 0x012fff30,
 #endif
 #if WTF_ARM_ARCH_AT_LEAST(7)
@@ -183,59 +206,35 @@ namespace JSC {
         enum {
             padForAlign8  = 0x00,
             padForAlign16 = 0x0000,
-            padForAlign32 = 0xee120070,
+            padForAlign32 = 0xe12fff7f // 'bkpt 0xffff' instruction.
         };
 
         static const ARMWord INVALID_IMM = 0xf0000000;
         static const ARMWord InvalidBranchTarget = 0xffffffff;
         static const int DefaultPrefetching = 2;
 
-        class JmpSrc {
-            friend class ARMAssembler;
-        public:
-            JmpSrc()
-                : m_offset(-1)
-            {
-            }
-
-        private:
-            JmpSrc(int offset)
-                : m_offset(offset)
-            {
-            }
-
-            int m_offset;
-        };
-
-        class JmpDst {
-            friend class ARMAssembler;
-        public:
-            JmpDst()
-                : m_offset(-1)
-                , m_used(false)
-            {
-            }
-
-            bool isUsed() const { return m_used; }
-            void used() { m_used = true; }
-        private:
-            JmpDst(int offset)
-                : m_offset(offset)
-                , m_used(false)
-            {
-                ASSERT(m_offset == offset);
-            }
-
-            int m_offset : 31;
-            int m_used : 1;
-        };
-
         // Instruction formating
 
         void emitInst(ARMWord op, int rd, int rn, ARMWord op2)
         {
-            ASSERT ( ((op2 & ~OP2_IMM) <= 0xfff) || (((op2 & ~OP2_IMMh) <= 0xfff)) );
+            ASSERT(((op2 & ~OP2_IMM) <= 0xfff) || (((op2 & ~OP2_IMMh) <= 0xfff)));
             m_buffer.putInt(op | RN(rn) | RD(rd) | op2);
+        }
+
+        void emitDoublePrecisionInst(ARMWord op, int dd, int dn, int dm)
+        {
+            ASSERT((dd >= 0 && dd <= 31) && (dn >= 0 && dn <= 31) && (dm >= 0 && dm <= 31));
+            m_buffer.putInt(op | ((dd & 0xf) << 12) | ((dd & 0x10) << (22 - 4))
+                               | ((dn & 0xf) << 16) | ((dn & 0x10) << (7 - 4))
+                               | (dm & 0xf) | ((dm & 0x10) << (5 - 4)));
+        }
+
+        void emitSinglePrecisionInst(ARMWord op, int sd, int sn, int sm)
+        {
+            ASSERT((sd >= 0 && sd <= 31) && (sn >= 0 && sn <= 31) && (sm >= 0 && sm <= 31));
+            m_buffer.putInt(op | ((sd >> 1) << 12) | ((sd & 0x1) << 22)
+                               | ((sn >> 1) << 16) | ((sn & 0x1) << 7)
+                               | (sm >> 1) | ((sm & 0x1) << 5));
         }
 
         void and_r(int rd, int rn, ARMWord op2, Condition cc = AL)
@@ -333,6 +332,11 @@ namespace JSC {
             emitInst(static_cast<ARMWord>(cc) | CMP | SET_CC, 0, rn, op2);
         }
 
+        void cmn_r(int rn, ARMWord op2, Condition cc = AL)
+        {
+            emitInst(static_cast<ARMWord>(cc) | CMN | SET_CC, 0, rn, op2);
+        }
+
         void orr_r(int rd, int rn, ARMWord op2, Condition cc = AL)
         {
             emitInst(static_cast<ARMWord>(cc) | ORR, rd, rn, op2);
@@ -402,34 +406,34 @@ namespace JSC {
             m_buffer.putInt(static_cast<ARMWord>(cc) | MULL | RN(rdhi) | RD(rdlo) | RS(rn) | RM(rm));
         }
 
-        void faddd_r(int dd, int dn, int dm, Condition cc = AL)
+        void vadd_f64_r(int dd, int dn, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FADDD, dd, dn, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VADD_F64, dd, dn, dm);
         }
 
-        void fdivd_r(int dd, int dn, int dm, Condition cc = AL)
+        void vdiv_f64_r(int dd, int dn, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FDIVD, dd, dn, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VDIV_F64, dd, dn, dm);
         }
 
-        void fsubd_r(int dd, int dn, int dm, Condition cc = AL)
+        void vsub_f64_r(int dd, int dn, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FSUBD, dd, dn, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VSUB_F64, dd, dn, dm);
         }
 
-        void fmuld_r(int dd, int dn, int dm, Condition cc = AL)
+        void vmul_f64_r(int dd, int dn, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FMULD, dd, dn, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VMUL_F64, dd, dn, dm);
         }
 
-        void fcmpd_r(int dd, int dm, Condition cc = AL)
+        void vcmp_f64_r(int dd, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FCMPD, dd, 0, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VCMP_F64, dd, 0, dm);
         }
 
-        void fsqrtd_r(int dd, int dm, Condition cc = AL)
+        void vsqrt_f64_r(int dd, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FSQRTD, dd, 0, dm);
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VSQRT_F64, dd, 0, dm);
         }
 
         void ldr_imm(int rd, ARMWord imm, Condition cc = AL)
@@ -516,29 +520,39 @@ namespace JSC {
             dtr_u(true, reg, ARMRegisters::sp, 0, cc);
         }
 
-        void fmsr_r(int dd, int rn, Condition cc = AL)
+        void vmov_vfp_r(int sn, int rt, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FMSR, rn, dd, 0);
+            ASSERT(rt <= 15);
+            emitSinglePrecisionInst(static_cast<ARMWord>(cc) | VMOV_VFP, rt << 1, sn, 0);
         }
 
-        void fmrs_r(int rd, int dn, Condition cc = AL)
+        void vmov_arm_r(int rt, int sn, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FMRS, rd, dn, 0);
+            ASSERT(rt <= 15);
+            emitSinglePrecisionInst(static_cast<ARMWord>(cc) | VMOV_ARM, rt << 1, sn, 0);
         }
 
-        void fsitod_r(int dd, int dm, Condition cc = AL)
+        void vcvt_f64_s32_r(int dd, int sm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FSITOD, dd, 0, dm);
+            ASSERT(!(sm & 0x1)); // sm must be divisible by 2
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VCVT_F64_S32, dd, 0, (sm >> 1));
         }
 
-        void ftosid_r(int fd, int dm, Condition cc = AL)
+        void vcvt_s32_f64_r(int sd, int dm, Condition cc = AL)
         {
-            emitInst(static_cast<ARMWord>(cc) | FTOSID, fd, 0, dm);
+            ASSERT(!(sd & 0x1)); // sd must be divisible by 2
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VCVT_S32_F64, (sd >> 1), 0, dm);
         }
 
-        void fmstat(Condition cc = AL)
+        void vcvtr_s32_f64_r(int sd, int dm, Condition cc = AL)
         {
-            m_buffer.putInt(static_cast<ARMWord>(cc) | FMSTAT);
+            ASSERT(!(sd & 0x1)); // sd must be divisible by 2
+            emitDoublePrecisionInst(static_cast<ARMWord>(cc) | VCVTR_S32_F64, (sd >> 1), 0, dm);
+        }
+
+        void vmrs_apsr(Condition cc = AL)
+        {
+            m_buffer.putInt(static_cast<ARMWord>(cc) | VMRS_APSR);
         }
 
 #if WTF_ARM_ARCH_AT_LEAST(5)
@@ -567,19 +581,17 @@ namespace JSC {
 #endif
         }
 
-        JmpSrc blx(int rm, Condition cc = AL)
+        AssemblerLabel blx(int rm, Condition cc = AL)
         {
 #if WTF_ARM_ARCH_AT_LEAST(5)
-            int s = m_buffer.uncheckedSize();
             emitInst(static_cast<ARMWord>(cc) | BLX, 0, 0, RM(rm));
 #else
             ASSERT(rm != 14);
             ensureSpace(2 * sizeof(ARMWord), 0);
             mov_r(ARMRegisters::lr, ARMRegisters::pc, cc);
-            int s = m_buffer.uncheckedSize();
             bx(rm, cc);
 #endif
-            return JmpSrc(s);
+            return m_buffer.label();
         }
 
         static ARMWord lsl(int reg, ARMWord value)
@@ -626,9 +638,9 @@ namespace JSC {
 
         // General helpers
 
-        int size()
+        size_t codeSize() const
         {
-            return m_buffer.size();
+            return m_buffer.codeSize();
         }
 
         void ensureSpace(int insnSpace, int constSpace)
@@ -641,12 +653,13 @@ namespace JSC {
             return m_buffer.sizeOfConstantPool();
         }
 
-        JmpDst label()
+        AssemblerLabel label()
         {
-            return JmpDst(m_buffer.size());
+            m_buffer.ensureSpaceForAnyOneInstruction();
+            return m_buffer.label();
         }
 
-        JmpDst align(int alignment)
+        AssemblerLabel align(int alignment)
         {
             while (!m_buffer.isAligned(alignment))
                 mov_r(ARMRegisters::r0, ARMRegisters::r0);
@@ -654,21 +667,24 @@ namespace JSC {
             return label();
         }
 
-        JmpSrc loadBranchTarget(int rd, Condition cc = AL, int useConstantPool = 0)
+        AssemblerLabel loadBranchTarget(int rd, Condition cc = AL, int useConstantPool = 0)
         {
             ensureSpace(sizeof(ARMWord), sizeof(ARMWord));
-            int s = m_buffer.uncheckedSize();
+            m_jumps.append(m_buffer.codeSize() | (useConstantPool & 0x1));
             ldr_un_imm(rd, InvalidBranchTarget, cc);
-            m_jumps.append(s | (useConstantPool & 0x1));
-            return JmpSrc(s);
+            return m_buffer.label();
         }
 
-        JmpSrc jmp(Condition cc = AL, int useConstantPool = 0)
+        AssemblerLabel jmp(Condition cc = AL, int useConstantPool = 0)
         {
             return loadBranchTarget(ARMRegisters::pc, cc, useConstantPool);
         }
 
         void* executableCopy(ExecutablePool* allocator);
+
+#ifndef NDEBUG
+        unsigned debugOffset() { return m_buffer.debugOffset(); }
+#endif
 
         // Patching helpers
 
@@ -719,7 +735,7 @@ namespace JSC {
 
         // Patch pointers
 
-        static void linkPointer(void* code, JmpDst from, void* to)
+        static void linkPointer(void* code, AssemblerLabel from, void* to)
         {
             patchPointerInternal(reinterpret_cast<intptr_t>(code) + from.m_offset, to);
         }
@@ -734,73 +750,56 @@ namespace JSC {
             patchPointerInternal(reinterpret_cast<intptr_t>(from), to);
         }
 
-        static void repatchLoadPtrToLEA(void* from)
+        // Linkers
+        static intptr_t getAbsoluteJumpAddress(void* base, int offset = 0)
         {
-            // On arm, this is a patch from LDR to ADD. It is restricted conversion,
-            // from special case to special case, altough enough for its purpose
-            ARMWord* insn = reinterpret_cast<ARMWord*>(from);
-            ASSERT((*insn & 0x0ff00f00) == 0x05900000);
-
-            *insn = (*insn & 0xf00ff0ff) | 0x02800000;
-            ExecutableAllocator::cacheFlush(insn, sizeof(ARMWord));
+            return reinterpret_cast<intptr_t>(base) + offset - sizeof(ARMWord);
         }
 
-        // Linkers
-
-        void linkJump(JmpSrc from, JmpDst to)
+        void linkJump(AssemblerLabel from, AssemblerLabel to)
         {
-            ARMWord* insn = reinterpret_cast<ARMWord*>(m_buffer.data()) + (from.m_offset / sizeof(ARMWord));
+            ARMWord* insn = reinterpret_cast<ARMWord*>(getAbsoluteJumpAddress(m_buffer.data(), from.m_offset));
             ARMWord* addr = getLdrImmAddressOnPool(insn, m_buffer.poolAddress());
             *addr = static_cast<ARMWord>(to.m_offset);
         }
 
-        static void linkJump(void* code, JmpSrc from, void* to)
+        static void linkJump(void* code, AssemblerLabel from, void* to)
         {
-            patchPointerInternal(reinterpret_cast<intptr_t>(code) + from.m_offset, to);
+            patchPointerInternal(getAbsoluteJumpAddress(code, from.m_offset), to);
         }
 
         static void relinkJump(void* from, void* to)
         {
-            patchPointerInternal(reinterpret_cast<intptr_t>(from) - sizeof(ARMWord), to);
+            patchPointerInternal(getAbsoluteJumpAddress(from), to);
         }
 
-        static void linkCall(void* code, JmpSrc from, void* to)
+        static void linkCall(void* code, AssemblerLabel from, void* to)
         {
-            patchPointerInternal(reinterpret_cast<intptr_t>(code) + from.m_offset, to);
+            patchPointerInternal(getAbsoluteJumpAddress(code, from.m_offset), to);
         }
 
         static void relinkCall(void* from, void* to)
         {
-            patchPointerInternal(reinterpret_cast<intptr_t>(from) - sizeof(ARMWord), to);
+            patchPointerInternal(getAbsoluteJumpAddress(from), to);
         }
 
         // Address operations
 
-        static void* getRelocatedAddress(void* code, JmpSrc jump)
+        static void* getRelocatedAddress(void* code, AssemblerLabel label)
         {
-            return reinterpret_cast<void*>(reinterpret_cast<ARMWord*>(code) + jump.m_offset / sizeof(ARMWord) + 1);
-        }
-
-        static void* getRelocatedAddress(void* code, JmpDst label)
-        {
-            return reinterpret_cast<void*>(reinterpret_cast<ARMWord*>(code) + label.m_offset / sizeof(ARMWord));
+            return reinterpret_cast<void*>(reinterpret_cast<char*>(code) + label.m_offset);
         }
 
         // Address differences
 
-        static int getDifferenceBetweenLabels(JmpDst from, JmpSrc to)
+        static int getDifferenceBetweenLabels(AssemblerLabel a, AssemblerLabel b)
         {
-            return (to.m_offset + sizeof(ARMWord)) - from.m_offset;
+            return b.m_offset - a.m_offset;
         }
 
-        static int getDifferenceBetweenLabels(JmpDst from, JmpDst to)
+        static unsigned getCallReturnOffset(AssemblerLabel call)
         {
-            return to.m_offset - from.m_offset;
-        }
-
-        static unsigned getCallReturnOffset(JmpSrc call)
-        {
-            return call.m_offset + sizeof(ARMWord);
+            return call.m_offset;
         }
 
         // Handle immediates
@@ -824,6 +823,15 @@ namespace JSC {
         ARMWord getImm(ARMWord imm, int tmpReg, bool invert = false);
         void moveImm(ARMWord imm, int dest);
         ARMWord encodeComplexImm(ARMWord imm, int dest);
+
+        ARMWord getOffsetForHalfwordDataTransfer(ARMWord imm, int tmpReg)
+        {
+            // Encode immediate data in the instruction if it is possible
+            if (imm <= 0xff)
+                return getOp2Byte(imm);
+            // Otherwise, store the data in a temporary register
+            return encodeComplexImm(imm, tmpReg);
+        }
 
         // Memory load/store helpers
 

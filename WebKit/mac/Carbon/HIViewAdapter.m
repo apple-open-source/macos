@@ -30,6 +30,7 @@
 
 #import "HIViewAdapter.h"
 
+#import "QuickDrawCompatibility.h"
 #import "WebNSObjectExtras.h"
 #import <wtf/Assertions.h>
 
@@ -140,7 +141,7 @@ static void _webkit_NSView_setNeedsDisplayInRect(id self, SEL _cmd, NSRect inval
     
     if (!NSIsEmptyRect(invalidRect)) {
         HIViewRef hiView = NULL;
-        NSRect targetBounds = [self bounds];
+        NSRect targetBounds = [(NSView *)self bounds];
         NSView *view = self;
         
         while (view) {

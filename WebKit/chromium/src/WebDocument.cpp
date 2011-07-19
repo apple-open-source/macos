@@ -31,7 +31,9 @@
 #include "config.h"
 #include "WebDocument.h"
 
+#include "AXObjectCache.h"
 #include "Document.h"
+#include "DocumentType.h"
 #include "Element.h"
 #include "HTMLAllCollection.h"
 #include "HTMLBodyElement.h"
@@ -40,6 +42,8 @@
 #include "HTMLHeadElement.h"
 #include "NodeList.h"
 
+#include "WebAccessibilityObject.h"
+#include "WebDocumentType.h"
 #include "WebElement.h"
 #include "WebFrameImpl.h"
 #include "WebNodeCollection.h"
@@ -60,6 +64,11 @@ WebFrame* WebDocument::frame() const
 bool WebDocument::isHTMLDocument() const
 {  
     return constUnwrap<Document>()->isHTMLDocument();
+}
+
+bool WebDocument::isXHTMLDocument() const
+{
+    return constUnwrap<Document>()->isXHTMLDocument();
 }
 
 bool WebDocument::isPluginDocument() const
@@ -115,6 +124,18 @@ WebElement WebDocument::getElementById(const WebString& id) const
 WebNode WebDocument::focusedNode() const
 {
     return WebNode(constUnwrap<Document>()->focusedNode());
+}
+
+WebDocumentType WebDocument::doctype() const
+{
+    return WebDocumentType(constUnwrap<Document>()->doctype());
+}
+
+WebAccessibilityObject WebDocument::accessibilityObject() const
+{
+    const Document* document = constUnwrap<Document>();
+    return WebAccessibilityObject(
+        document->axObjectCache()->getOrCreate(document->renderer()));
 }
 
 WebDocument::WebDocument(const PassRefPtr<Document>& elem)

@@ -563,28 +563,28 @@ SOURCE=..\libaprutil.rc
 
 
 "$(INTDIR)\apr_dbd_sqlite3-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbd_sqlite3" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_sqlite3" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_sqlite3 - Win32 Debug"
 
 
 "$(INTDIR)\apr_dbd_sqlite3-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbd_sqlite3" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_sqlite3" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_sqlite3 - x64 Release"
 
 
 "$(INTDIR)\apr_dbd_sqlite3-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbd_sqlite3" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_sqlite3" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbd_sqlite3 - x64 Debug"
 
 
 "$(INTDIR)\apr_dbd_sqlite3-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbd_sqlite3" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbd_sqlite3-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbd_sqlite3" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

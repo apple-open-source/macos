@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,10 +23,11 @@
 #include "config.h"
 #include "HTMLFontElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
+#include "HTMLParserIdioms.h"
 
 using namespace WTF;
 
@@ -40,49 +41,83 @@ HTMLFontElement::HTMLFontElement(const QualifiedName& tagName, Document* documen
     ASSERT(hasTagName(fontTag));
 }
 
-// Allows leading spaces.
-// Allows trailing nonnumeric characters.
-// Returns 10 for any size greater than 9.
-static bool parseFontSizeNumber(const String& s, int& size)
+PassRefPtr<HTMLFontElement> HTMLFontElement::create(const QualifiedName& tagName, Document* document)
 {
-    unsigned pos = 0;
-    
-    // Skip leading spaces.
-    while (isSpaceOrNewline(s[pos]))
-        ++pos;
-    
-    // Skip a plus or minus.
-    bool sawPlus = false;
-    bool sawMinus = false;
-    if (s[pos] == '+') {
-        ++pos;
-        sawPlus = true;
-    } else if (s[pos] == '-') {
-        ++pos;
-        sawMinus = true;
+    return adoptRef(new HTMLFontElement(tagName, document));
+}
+
+// http://www.whatwg.org/specs/web-apps/current-work/multipage/rendering.html#fonts-and-colors
+static bool parseFontSize(const String& input, int& size)
+{
+
+    // Step 1
+    // Step 2
+    const UChar* position = input.characters();
+    const UChar* end = position + input.length();
+
+    // Step 3
+    while (position < end) {
+        if (!isHTMLSpace(*position))
+            break;
+        ++position;
     }
-    
-    // Parse a single digit.
-    if (!isASCIIDigit(s[pos]))
+
+    // Step 4
+    if (position == end)
         return false;
-    int num = s[pos++] - '0';
-    
-    // Check for an additional digit.
-    if (isASCIIDigit(s[pos]))
-        num = 10;
-    
-    if (sawPlus) {
-        size = num + 3;
-        return true;
+    ASSERT(position < end);
+
+    // Step 5
+    enum {
+        RelativePlus,
+        RelativeMinus,
+        Absolute
+    } mode;
+
+    switch (*position) {
+    case '+':
+        mode = RelativePlus;
+        ++position;
+        break;
+    case '-':
+        mode = RelativeMinus;
+        ++position;
+        break;
+    default:
+        mode = Absolute;
+        break;
     }
-    
-    // Don't return 0 (which means 3) or a negative number (which means the same as 1).
-    if (sawMinus) {
-        size = num == 1 ? 2 : 1;
-        return true;
+
+    // Step 6
+    Vector<UChar, 16> digits;
+    while (position < end) {
+        if (!isASCIIDigit(*position))
+            break;
+        digits.append(*position++);
     }
-    
-    size = num;
+
+    // Step 7
+    if (digits.isEmpty())
+        return false;
+
+    // Step 8
+    int value = charactersToIntStrict(digits.data(), digits.size());
+
+    // Step 9
+    if (mode == RelativePlus)
+        value += 3;
+    else if (mode == RelativeMinus)
+        value = 3 - value;
+
+    // Step 10
+    if (value > 7)
+        value = 7;
+
+    // Step 11
+    if (value < 1)
+        value = 1;
+
+    size = value;
     return true;
 }
 
@@ -100,40 +135,43 @@ bool HTMLFontElement::mapToEntry(const QualifiedName& attrName, MappedAttributeE
 
 bool HTMLFontElement::cssValueFromFontSizeNumber(const String& s, int& size)
 {
-    int num;
-    if (!parseFontSizeNumber(s, num))
+    int num = 0;
+    if (!parseFontSize(s, num))
         return false;
-        
+
     switch (num) {
-        case 2: 
-            size = CSSValueSmall; 
-            break;
-        case 0: // treat 0 the same as 3, because people expect it to be between -1 and +1
-        case 3: 
-            size = CSSValueMedium; 
-            break;
-        case 4: 
-            size = CSSValueLarge; 
-            break;
-        case 5: 
-            size = CSSValueXLarge; 
-            break;
-        case 6: 
-            size = CSSValueXxLarge; 
-            break;
-        default:
-            if (num > 6)
-                size = CSSValueWebkitXxxLarge;
-            else
-                size = CSSValueXSmall;
+    case 1:
+        // FIXME: The spec says that we're supposed to use CSSValueXxSmall here.
+        size = CSSValueXSmall;
+        break;
+    case 2: 
+        size = CSSValueSmall;
+        break;
+    case 3: 
+        size = CSSValueMedium;
+        break;
+    case 4: 
+        size = CSSValueLarge;
+        break;
+    case 5: 
+        size = CSSValueXLarge;
+        break;
+    case 6: 
+        size = CSSValueXxLarge;
+        break;
+    case 7:
+        size = CSSValueWebkitXxxLarge;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
     }
     return true;
 }
 
-void HTMLFontElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLFontElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == sizeAttr) {
-        int size;
+        int size = 0;
         if (cssValueFromFontSizeNumber(attr->value(), size))
             addCSSProperty(attr, CSSPropertyFontSize, size);
     } else if (attr->name() == colorAttr) {
@@ -142,36 +180,6 @@ void HTMLFontElement::parseMappedAttribute(MappedAttribute *attr)
         addCSSProperty(attr, CSSPropertyFontFamily, attr->value());
     } else
         HTMLElement::parseMappedAttribute(attr);
-}
-
-String HTMLFontElement::color() const
-{
-    return getAttribute(colorAttr);
-}
-
-void HTMLFontElement::setColor(const String& value)
-{
-    setAttribute(colorAttr, value);
-}
-
-String HTMLFontElement::face() const
-{
-    return getAttribute(faceAttr);
-}
-
-void HTMLFontElement::setFace(const String& value)
-{
-    setAttribute(faceAttr, value);
-}
-
-String HTMLFontElement::size() const
-{
-    return getAttribute(sizeAttr);
-}
-
-void HTMLFontElement::setSize(const String& value)
-{
-    setAttribute(sizeAttr, value);
 }
 
 }

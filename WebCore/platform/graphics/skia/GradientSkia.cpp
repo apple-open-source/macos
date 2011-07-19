@@ -42,7 +42,7 @@ namespace WebCore {
 void Gradient::platformDestroy()
 {
     if (m_gradient)
-        m_gradient->safeUnref();
+        SkSafeUnref(m_gradient);
     m_gradient = 0;
 }
 
@@ -110,23 +110,14 @@ static void fillStops(const Gradient::ColorStop* stopData,
     }
 }
 
-static inline bool compareStops(const Gradient::ColorStop& a, const Gradient::ColorStop& b)
-{
-    return a.stop < b.stop;
-}
-
 SkShader* Gradient::platformGradient()
 {
     if (m_gradient)
         return m_gradient;
 
-    // FIXME: This and compareStops() are also in Gradient.cpp and
-    // CSSGradientValue.cpp; probably should refactor in WebKit.
-    if (!m_stopsSorted) {
-        if (m_stops.size())
-            std::stable_sort(m_stops.begin(), m_stops.end(), compareStops);
-        m_stopsSorted = true;
-    }
+    sortStopsIfNecessary();
+    ASSERT(m_stopsSorted);
+
     size_t countUsed = totalStopsNeeded(m_stops.data(), m_stops.size());
     ASSERT(countUsed >= 2);
     ASSERT(countUsed >= m_stops.size());
@@ -154,30 +145,36 @@ SkShader* Gradient::platformGradient()
     if (m_radial) {
         // Since the two-point radial gradient is slower than the plain radial,
         // only use it if we have to.
-        if (m_p0 != m_p1) {
-            // The radii we give to Skia must be positive.  If we're given a 
-            // negative radius, ask for zero instead.
-            SkScalar radius0 = m_r0 >= 0.0f ? WebCoreFloatToSkScalar(m_r0) : 0;
-            SkScalar radius1 = m_r1 >= 0.0f ? WebCoreFloatToSkScalar(m_r1) : 0;
-            m_gradient = SkGradientShader::CreateTwoPointRadial(m_p0, radius0, m_p1, radius1, colors, pos, static_cast<int>(countUsed), tile);
-        } else {
+        if (m_p0 == m_p1 && m_r0 <= 0.0f) {
             // The radius we give to Skia must be positive (and non-zero).  If
             // we're given a zero radius, just ask for a very small radius so
             // Skia will still return an object.
             SkScalar radius = m_r1 > 0 ? WebCoreFloatToSkScalar(m_r1) : SK_ScalarMin;
             m_gradient = SkGradientShader::CreateRadial(m_p1, radius, colors, pos, static_cast<int>(countUsed), tile);
+        } else {
+            // The radii we give to Skia must be positive.  If we're given a 
+            // negative radius, ask for zero instead.
+            SkScalar radius0 = m_r0 >= 0.0f ? WebCoreFloatToSkScalar(m_r0) : 0;
+            SkScalar radius1 = m_r1 >= 0.0f ? WebCoreFloatToSkScalar(m_r1) : 0;
+            m_gradient = SkGradientShader::CreateTwoPointRadial(m_p0, radius0, m_p1, radius1, colors, pos, static_cast<int>(countUsed), tile);
+        }
+
+        if (aspectRatio() != 1) {
+            // CSS3 elliptical gradients: apply the elliptical scaling at the
+            // gradient center point.
+            m_gradientSpaceTransformation.translate(m_p0.x(), m_p0.y());
+            m_gradientSpaceTransformation.scale(1, 1 / aspectRatio());
+            m_gradientSpaceTransformation.translate(-m_p0.x(), -m_p0.y());
+            ASSERT(m_p0 == m_p1);
         }
     } else {
         SkPoint pts[2] = { m_p0, m_p1 };
-        m_gradient = SkGradientShader::CreateLinear(pts, colors, pos,
-            static_cast<int>(countUsed), tile);
+        m_gradient = SkGradientShader::CreateLinear(pts, colors, pos, static_cast<int>(countUsed), tile);
     }
 
     ASSERT(m_gradient);
-
     SkMatrix matrix = m_gradientSpaceTransformation;
     m_gradient->setLocalMatrix(matrix);
-
     return m_gradient;
 }
 

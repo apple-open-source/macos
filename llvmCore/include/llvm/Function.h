@@ -19,14 +19,16 @@
 #define LLVM_FUNCTION_H
 
 #include "llvm/GlobalValue.h"
+#include "llvm/CallingConv.h"
 #include "llvm/BasicBlock.h"
 #include "llvm/Argument.h"
-#include "llvm/Support/Annotation.h"
 #include "llvm/Attributes.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
 class FunctionType;
+class LLVMContext;
 
 // Traits for intrusive list of basic blocks...
 template<> struct ilist_traits<BasicBlock>
@@ -45,7 +47,7 @@ template<> struct ilist_traits<BasicBlock>
 
   static ValueSymbolTable *getSymTab(Function *ItemParent);
 private:
-  mutable ilist_node<BasicBlock> Sentinel;
+  mutable ilist_half_node<BasicBlock> Sentinel;
 };
 
 template<> struct ilist_traits<Argument>
@@ -62,10 +64,10 @@ template<> struct ilist_traits<Argument>
 
   static ValueSymbolTable *getSymTab(Function *ItemParent);
 private:
-  mutable ilist_node<Argument> Sentinel;
+  mutable ilist_half_node<Argument> Sentinel;
 };
 
-class Function : public GlobalValue, public Annotable,
+class Function : public GlobalValue,
                  public ilist_node<Function> {
 public:
   typedef iplist<Argument> ArgumentListType;
@@ -85,8 +87,11 @@ private:
   ValueSymbolTable *SymTab;               ///< Symbol table of args/instructions
   AttrListPtr AttributeList;              ///< Parameter attributes
 
+  // HasLazyArguments is stored in Value::SubclassData.
+  /*bool HasLazyArguments;*/
+                   
   // The Calling Convention is stored in Value::SubclassData.
-  /*unsigned CallingConvention;*/
+  /*CallingConv::ID CallingConvention;*/
 
   friend class SymbolTableListTraits<Function, Module>;
 
@@ -97,7 +102,7 @@ private:
   /// needs it.  The hasLazyArguments predicate returns true if the arg list
   /// hasn't been set up yet.
   bool hasLazyArguments() const {
-    return SubclassData & 1;
+    return getSubclassDataFromValue() & 1;
   }
   void CheckLazyArguments() const {
     if (hasLazyArguments())
@@ -113,11 +118,11 @@ private:
   /// the module.
   ///
   Function(const FunctionType *Ty, LinkageTypes Linkage,
-           const std::string &N = "", Module *M = 0);
+           const Twine &N = "", Module *M = 0);
 
 public:
   static Function *Create(const FunctionType *Ty, LinkageTypes Linkage,
-                          const std::string &N = "", Module *M = 0) {
+                          const Twine &N = "", Module *M = 0) {
     return new(0) Function(Ty, Linkage, N, M);
   }
 
@@ -125,6 +130,10 @@ public:
 
   const Type *getReturnType() const;           // Return the type of the ret val
   const FunctionType *getFunctionType() const; // Return the FunctionType for me
+
+  /// getContext - Return a pointer to the LLVMContext associated with this 
+  /// function, or NULL if this function is not bound to a context yet.
+  LLVMContext &getContext() const;
 
   /// isVarArg - Return true if this function takes a variable number of
   /// arguments.
@@ -143,15 +152,18 @@ public:
   /// The particular intrinsic functions which correspond to this value are
   /// defined in llvm/Intrinsics.h.
   ///
-  unsigned getIntrinsicID() const;
+  unsigned getIntrinsicID() const ATTRIBUTE_READONLY;
   bool isIntrinsic() const { return getIntrinsicID() != 0; }
 
-  /// getCallingConv()/setCallingConv(uint) - These method get and set the
+  /// getCallingConv()/setCallingConv(CC) - These method get and set the
   /// calling convention of this function.  The enum values for the known
   /// calling conventions are defined in CallingConv.h.
-  unsigned getCallingConv() const { return SubclassData >> 1; }
-  void setCallingConv(unsigned CC) {
-    SubclassData = (SubclassData & 1) | (CC << 1);
+  CallingConv::ID getCallingConv() const {
+    return static_cast<CallingConv::ID>(getSubclassDataFromValue() >> 1);
+  }
+  void setCallingConv(CallingConv::ID CC) {
+    setValueSubclassData((getSubclassDataFromValue() & 1) |
+                         (static_cast<unsigned>(CC) << 1));
   }
   
   /// getAttributes - Return the attribute list for this Function.
@@ -395,6 +407,19 @@ public:
   /// including any contained basic blocks.
   ///
   void dropAllReferences();
+
+  /// hasAddressTaken - returns true if there are any uses of this function
+  /// other than direct calls or invokes to it. Optionally passes back the
+  /// offending user for diagnostic purposes.
+  ///
+  bool hasAddressTaken(const User** = 0) const;
+
+private:
+  // Shadow Value::setValueSubclassData with a private forwarding method so that
+  // subclasses cannot accidentally use it.
+  void setValueSubclassData(unsigned short D) {
+    Value::setValueSubclassData(D);
+  }
 };
 
 inline ValueSymbolTable *

@@ -85,7 +85,7 @@
 #include "../../../Helpers/pppd/lcp.h"
 #include "pptp.h"
 
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #endif
 
@@ -145,9 +145,7 @@ static void enable_keepalive (int fd);
  PPP globals
 ----------------------------------------------------------------------------- */
 
-#ifndef TARGET_EMBEDDED_OS
 int     interface_media = 0;
-#endif /* !iPhone */
 
 static int 	ctrlsockfd = -1;		/* control socket (TCP) file descriptor */
 static int 	datasockfd = -1;		/* data socket (GRE) file descriptor */
@@ -174,7 +172,7 @@ static u_int8_t routeraddress[16];
 static u_int8_t interface[17];
 static pthread_t resolverthread = 0;
 static int 	resolverfds[2];
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 static pthread_t edgethread = 0;
 static int 	edgefds[2];
 #endif
@@ -222,6 +220,10 @@ option_t pptp_options[] = {
     { NULL }
 };
 
+
+void pptp_init_session __P((char *, u_int32_t, struct in_addr *, link_failure_func));
+
+static ppp_session_t pptp_session = PPP_SESSION_INITIALIZER();
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by pppd
@@ -304,10 +306,16 @@ static void pptp_start_wait_interface ()
 {
     int timeout_scale_factor = 0;
     
+    if (!wait_underlying_interface_up && lcp_echo_interval) {
+        wait_underlying_interface_up = 1;
+    }
+    // the interface timer takes priority over the mapping timer
+    ppp_block_public_nat_port_mapping_timer();
+
     if (wait_interface_timer_running != 0)
         return;
 
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     // increase the timeout if we're waiting for a wireless interface
     if (IFM_TYPE(interface_media) == IFM_IEEE80211) {
         timeout_scale_factor = 2;
@@ -323,10 +331,13 @@ static void pptp_start_wait_interface ()
 ----------------------------------------------------------------------------- */
 static void pptp_stop_wait_interface ()
 {
+    ppp_variable_echo_start();
+
     if (wait_interface_timer_running) {
         UNTIMEOUT (pptp_wait_interface_timeout, 0);
         wait_interface_timer_running = 0;
     }
+    ppp_unblock_public_nat_port_mapping_timer();
 }
 
 /* -----------------------------------------------------------------------------
@@ -351,7 +362,16 @@ void pptp_wait_input()
 {
     int err, found;
     struct ifaddrs *ifap = NULL;
-    
+
+#if 0
+    // Code removed. See radar 9129161
+    if (linkdown && !hungup) {
+        notice("PPTP linkdown");
+        pptp_link_failure();
+        return;
+    }
+#endif
+
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
         char                 	buf[256], ev_if[32];
@@ -368,7 +388,7 @@ void pptp_wait_input()
                 case KEV_INET_ADDR_DELETED:
                     snprintf(ev_if, sizeof(ev_if), "%s%d", inetdata->link_data.if_name, inetdata->link_data.if_unit);
                     // check if changes occured on the interface we are using
-                    if (!strncmp(ev_if, interface, sizeof(interface))) {
+                    if (!strncmp(ev_if, (char*)interface, sizeof(interface))) {
                         if (inetdata->link_data.if_family == APPLE_IF_FAM_PPP
                             || echo_interval == 0
                             || echo_fails == 0) {
@@ -384,7 +404,7 @@ void pptp_wait_input()
                                 for (ifa = ifap; ifa && !found ; ifa = ifa->ifa_next) {
                                     found = (ifa->ifa_name  
                                             && ifa->ifa_addr
-                                            && !strncmp(ifa->ifa_name, interface, sizeof(interface))
+                                            && !strncmp(ifa->ifa_name, (char*)interface, sizeof(interface))
                                             && ifa->ifa_addr->sa_family == AF_INET
                                             && ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == ouraddress.sin_addr.s_addr);
                                 }
@@ -421,7 +441,7 @@ void pptp_wait_input()
 								if (check_vpn_interface_or_service_unrecoverable(cfgCache,
 														 __FUNCTION__,
 														 ev_msg,
-														 interface)) {
+														 (char*)interface)) {
 									error("PPTP: the underlying interface/service has changed unrecoverably\n");
 									transport_up = 0;
 									pptp_link_failure();
@@ -437,7 +457,8 @@ void pptp_wait_input()
 								        // transport is still down: check if there was a valid address change
 								        if (check_vpn_interface_address_change(wait_interface_timer_running /* && !transport_up */,
 													       ev_msg,
-													       interface,
+													       (char*)interface,
+														   interface_media,
 													       &ouraddress.sin_addr)) {
 									        error("PPTP: the underlying interface %s address changed\n",
 										      interface);
@@ -452,7 +473,7 @@ void pptp_wait_input()
 		            /* if transport is still down: ignore deletes, and check if this alternative interface has a valid address */
 		            if (check_vpn_interface_alternate((!transport_up && wait_interface_timer_running),
 							      ev_msg,
-							      interface)) {
+							      (char*)interface)) {
 			            error("PPTP: an alternative interface %s was detected while the underlying interface %s was down\n",
 					  ev_if, interface);
 				    // disconnect immediately
@@ -479,8 +500,15 @@ void pptp_wait_input()
             hungup = 1;
             lcp_lowerdown(0);	/* PPTP link is no longer available */
             link_terminated(0);
-        }
+            ppp_auxiliary_probe_stop();
+            pptp_clear_nat_port_mapping();
+			ppp_session_clear(&pptp_session);
+            session = NULL;
+	   }
     }
+
+	ppp_process_nat_port_mapping_events();
+	ppp_process_auxiliary_probe_input();
 }
 
 /* -----------------------------------------------------------------------------
@@ -506,7 +534,9 @@ void *pptp_resolver_thread(void *arg)
 				close(fd);
 			}
 			
-            peeraddress = *(struct in_addr*)host->h_addr_list[rd8 % count];
+			bzero(&peeraddress, sizeof(peeraddress));
+			if (count)
+				peeraddress = *(struct in_addr*)host->h_addr_list[rd8 % count];
             bzero(alt_peer_address, sizeof(alt_peer_address));
             num_alt_peer_address = 0;
             if (count > 1) {
@@ -524,7 +554,7 @@ void *pptp_resolver_thread(void *arg)
     return 0;
 }
 
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 static 
 void callbackEDGE(CTServerConnectionRef connection, CFStringRef notification, CFDictionaryRef notificationInfo, void* info) {
 	
@@ -548,7 +578,7 @@ void *pptp_edge_thread(void *arg)
 		if (edgeConnection) {
 			_CTServerConnectionSetPacketContextActive(edgeConnection, 0, TRUE);		// Zero is the main PDP context.
 			
-			count = 8; // give 8 seconds for edge to come up
+			count = PPPD_WWAN_INTERFACE_TIMEOUT;
 			cterror = _CTServerConnectionGetPacketContextActive(edgeConnection, 0, &active);
 			while (!cterror.error && !active && count--) {
 				sleep(1);
@@ -598,7 +628,8 @@ That is, open the socket and start the PPTP dialog
 int pptp_connect(int *errorcode)
 {
     char 		dev[32], name[MAXPATHLEN], c; 
-    int 		err = 0, len, fd, val;  
+    int 		err = 0, fd, val;  
+	uint32_t    len;
     CFURLRef		url;
     CFDictionaryRef	dict;
     CFStringRef		string, key;
@@ -630,16 +661,16 @@ int pptp_connect(int *errorcode)
 	CFRelease(key);
         if (dict) {
             if (string  = CFDictionaryGetValue(dict, kSCPropNetIPv4Router))
-                CFStringGetCString(string, routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
+                CFStringGetCString(string, (char*)routeraddress, sizeof(routeraddress), kCFStringEncodingUTF8);
             if (string  = CFDictionaryGetValue(dict, kSCDynamicStorePropNetPrimaryInterface)) 
-                CFStringGetCString(string, interface, sizeof(interface), kCFStringEncodingUTF8);
+                CFStringGetCString(string, (char*)interface, sizeof(interface), kCFStringEncodingUTF8);
             CFRelease(dict);
         }
     }
 
 	/* now that we know our interface, adjust the MTU if necessary */
 	if (interface[0]) {
-		int min_mtu = pptp_get_if_mtu(interface) - PPTP_MIN_HDR_SIZE;
+		int min_mtu = pptp_get_if_mtu((char*)interface) - PPTP_MIN_HDR_SIZE;
 		if (lcp_allowoptions[0].mru > min_mtu)	/* defines out mtu */
 			lcp_allowoptions[0].mru = min_mtu;
 		
@@ -652,13 +683,22 @@ int pptp_connect(int *errorcode)
 #endif
 	}
 
-#ifndef TARGET_EMBEDDED_OS
-    interface_media = pptp_get_if_media(interface);
+#if !TARGET_OS_EMBEDDED
+    interface_media = pptp_get_if_media((char*)interface);
 #endif /* !iPhone */
 
+	// check to see if interface is captive: if so, bail if the interface is not ready.
+	if (check_vpn_interface_captive_and_not_ready(cfgCache, (char *)interface)) {
+		// TODO: perhaps we should wait for a few seconds?
+		goto fail;
+	}
+	
 	/* let's say our underlying transport is up */
 	transport_up = 1;
 	wait_interface_timer_running = 0;
+	wait_underlying_interface_up = 0;
+	ppp_session_clear(&pptp_session);
+	session = NULL;
 
     eventsockfd = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
     if (eventsockfd != -1) {
@@ -680,7 +720,7 @@ int pptp_connect(int *errorcode)
 
 		set_network_signature("VPN.RemoteAddress", remoteaddress, 0, 0);
 
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 		{
 			/* first, bring up EDGE */
 			int need_edge = FALSE;
@@ -928,9 +968,9 @@ int pptp_connect(int *errorcode)
                     CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
                         MAXPATHLEN - strlen(name) - strlen(PPTP_NKE) - 1);
                     CFRelease(url);
-                    strcat(name, "/");
-                    strcat(name, PPTP_NKE);
-#ifndef TARGET_EMBEDDED_OS
+                    strlcat(name, "/", sizeof(name));
+                    strlcat(name, PPTP_NKE, sizeof(name));
+#if !TARGET_OS_EMBEDDED
                     if (!load_kext(name, 0))
 #else
                     if (!load_kext(PPTP_NKE_ID, 1))
@@ -968,7 +1008,7 @@ int pptp_connect(int *errorcode)
         goto fail;
     }
 	
-	baudrate = pptp_get_if_baudrate(interface);
+	baudrate = pptp_get_if_baudrate((char*)interface);
 	if (setsockopt(datasockfd, PPPPROTO_PPTP, PPTP_OPT_BAUDRATE, &baudrate, 4)) {
         error("PPTP can't set our baudrate...\n");
         goto fail;
@@ -998,6 +1038,11 @@ int pptp_connect(int *errorcode)
     if (setsockopt(datasockfd, PPPPROTO_PPTP, PPTP_OPT_MAXTIMEOUT, &maxtimeout, 2)) {
         error("PPTP can't set adaptative maximum timeout ...\n");
         goto fail;
+    }
+
+    if (!strcmp(mode, MODE_CONNECT)) {
+        pptp_init_session((char *)interface, sizeof(interface), &ouraddress.sin_addr, ppp_variable_echo_start);
+        pptp_set_nat_port_mapping();
     }
 
     return datasockfd;
@@ -1031,6 +1076,11 @@ void pptp_disconnect()
         close(ctrlsockfd);
         ctrlsockfd = -1;
     }
+
+    ppp_auxiliary_probe_stop();
+    pptp_clear_nat_port_mapping();
+    ppp_session_clear(&pptp_session);
+    session = NULL;
 
     notice("PPTP disconnected\n");
 }
@@ -1279,12 +1329,12 @@ int pptp_set_peer_route()
 
     if (is_peer_local 
         || routeraddress[0] == 0
-        || inet_aton(routeraddress, &gateway) != 1) {
+        || inet_aton((char*)routeraddress, &gateway) != 1) {
         
         if (interface[0]) {
             bzero(&gateway, sizeof(gateway));
             /* subnet route */
-            host_gateway(RTM_ADD, peeraddress, gateway, interface, 1);
+            host_gateway(RTM_ADD, peeraddress, gateway, (char*)interface, 1);
             peer_route_set = 2;
         }
     }
@@ -1342,7 +1392,7 @@ host_gateway(int cmd, struct in_addr host, struct in_addr gateway, char *ifname,
     } 				rtmsg;
     int 			sockfd = -1;
 
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
 	syslog(LOG_INFO, "host_gateway: open routing socket failed, %s",
 	       strerror(errno));
 	return (FALSE);
@@ -1456,6 +1506,10 @@ static void pptp_link_failure ()
     hungup = 1;
     lcp_lowerdown(0);	/* PPTP link is no longer available */
     link_terminated(0);
+    ppp_auxiliary_probe_stop();
+    pptp_clear_nat_port_mapping();
+    ppp_session_clear(&pptp_session);
+    session = NULL;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1491,5 +1545,63 @@ static void enable_keepalive (int fd)
 		val = 1;
 		setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
 		setsockopt(fd, IPPROTO_TCP, TCP_KEEPALIVE, &tcp_keepalive, sizeof(tcp_keepalive));
+		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
 	}
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+int
+pptp_ip_probe_init (struct sockaddr_in *probe_addrs,
+					int                *probe_fds,
+					int                 num)
+{
+	int scope;
+
+	if (!probe_addrs || !probe_fds || num < 3) {
+		return -1;
+	}
+
+	scope = if_nametoindex((char *)interface);
+
+	bzero(probe_addrs, (sizeof(*probe_addrs) * num));
+	probe_addrs[GOOG_DNS_PROBE].sin_len = sizeof(struct in_addr);
+	probe_addrs[GOOG_DNS_PROBE].sin_family = AF_INET;
+	probe_addrs[GOOG_DNS_PROBE].sin_port = 0;
+	probe_addrs[GOOG_DNS_PROBE].sin_addr.s_addr = GOOG_DNS_PROBE_ADDR_A; // google-public-dns-a.google.com
+	if (peeraddress.s_addr) {
+		probe_addrs[PEER_ADDR_PROBE].sin_len = sizeof(peeraddress);
+		probe_addrs[PEER_ADDR_PROBE].sin_family = AF_INET;
+		probe_addrs[PEER_ADDR_PROBE].sin_port = 0;
+		probe_addrs[PEER_ADDR_PROBE].sin_addr = peeraddress;
+		if (num_alt_peer_address) {
+			probe_addrs[ALT_PEER_ADDR_PROBE].sin_len = sizeof(peeraddress);
+			probe_addrs[ALT_PEER_ADDR_PROBE].sin_family = AF_INET;
+			probe_addrs[ALT_PEER_ADDR_PROBE].sin_port = 0;
+			probe_addrs[ALT_PEER_ADDR_PROBE].sin_addr = alt_peer_address[(arc4random() % num_alt_peer_address)];
+		}
+	}
+	probe_fds[GOOG_DNS_PROBE] = -1;
+	probe_fds[PEER_ADDR_PROBE] = -1;
+	probe_fds[ALT_PEER_ADDR_PROBE] = -1;
+	return 0;
+}
+
+static char *pptp_sd_name = "PPTP";
+void
+pptp_init_session (char              *interface_name,
+				   u_int32_t          interface_name_siz,
+				   struct in_addr    *addr,
+				   link_failure_func  func)
+{
+	ppp_session_clear(&pptp_session);
+	pptp_session.sd_name = pptp_sd_name;
+	pptp_session.interface_name = interface_name;
+	pptp_session.interface_name_siz = interface_name_siz;
+	pptp_session.interface_address.s_addr = addr->s_addr;
+	pptp_session.failure_func = func;
+	//sess->probe_timer_running = 0;
+	pptp_ip_probe_init(pptp_session.probe_addrs, pptp_session.probe_fds, MAX_PROBE_ADDRS);
+	pptp_session.valid = 1;
+	session = &pptp_session;
 }

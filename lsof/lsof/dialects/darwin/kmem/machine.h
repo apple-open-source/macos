@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: machine.h,v 1.15 2006/03/27 23:24:50 abe Exp $
+ * $Id: machine.h,v 1.16 2010/07/29 16:03:04 abe Exp $
  */
 
 
@@ -467,6 +467,13 @@
  */
 
 /* #define	HASSNODE	1 */
+
+
+/*
+ * HASTASKS is defined for those dialects that have task reporting support.
+ */
+
+/* #define	HASTASKS	1 */
 
 
 /*

@@ -27,7 +27,8 @@ WebInspector.Object = function() {
 }
 
 WebInspector.Object.prototype = {
-    addEventListener: function(eventType, listener, thisObject) {
+    addEventListener: function(eventType, listener, thisObject)
+    {
         if (!("_listeners" in this))
             this._listeners = {};
         if (!(eventType in this._listeners))
@@ -35,7 +36,8 @@ WebInspector.Object.prototype = {
         this._listeners[eventType].push({ thisObject: thisObject, listener: listener });
     },
 
-    removeEventListener: function(eventType, listener, thisObject) {
+    removeEventListener: function(eventType, listener, thisObject)
+    {
         if (!("_listeners" in this) || !(eventType in this._listeners))
             return;
         var listeners = this._listeners[eventType];
@@ -50,7 +52,20 @@ WebInspector.Object.prototype = {
             delete this._listeners[eventType];
     },
 
-    dispatchEventToListeners: function(eventType) {
+    removeAllListeners: function()
+    {
+        delete this._listeners;
+    },
+
+    hasEventListeners: function(eventType)
+    {
+        if (!("_listeners" in this) || !(eventType in this._listeners))
+            return false;
+        return true;
+    },
+
+    dispatchEventToListeners: function(eventType, eventData)
+    {
         if (!("_listeners" in this) || !(eventType in this._listeners))
             return;
 
@@ -66,7 +81,7 @@ WebInspector.Object.prototype = {
             this.defaultPrevented = true;
         }
 
-        var event = {target: this, type: eventType, defaultPrevented: false};
+        var event = {target: this, type: eventType, data: eventData, defaultPrevented: false};
         event.stopPropagation = stopPropagation;
         event.preventDefault = preventDefault;
 

@@ -40,6 +40,7 @@ extern char debug;
 
 
 extern Boolean NodesAreContiguous(SFCB *fcb, UInt32 nodeSize);
+extern void fplog(FILE *stream, const char *fmt, ...);
 
 /*-------------------------------------------------------------------------------
 Routine:	CopyKey

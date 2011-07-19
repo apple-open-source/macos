@@ -33,7 +33,7 @@
 #endif
 #ifdef __CENTERLINE__
 #undef	EXP_VERSION
-#define	EXP_VERSION		"5.43.0"		/* I give up! */
+#define	EXP_VERSION		"5.45.0"		/* I give up! */
 					/* It is not necessary that number */
 					/* be accurate.  It is just here to */
 					/* pacify Centerline which doesn't */
@@ -481,7 +481,8 @@ Tcl_Interp *interp;
 	  char buffer [] = "exit 1";
 	  Tcl_Eval(interp, buffer); 
 	}
-	/*NOTREACHED*/
+	/*NOTREACHED, but keep compiler from complaining*/
+	return TCL_ERROR;
 }
 
 static char init_auto_path[] = "\

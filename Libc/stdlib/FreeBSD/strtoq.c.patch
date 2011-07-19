@@ -1,15 +1,15 @@
---- strtoq.c.orig	2003-05-20 15:23:25.000000000 -0700
-+++ strtoq.c	2005-02-23 18:26:32.000000000 -0800
-@@ -37,6 +37,8 @@
+--- strtoq.c.bsdnew	2009-11-13 14:11:51.000000000 -0800
++++ strtoq.c	2009-11-13 14:11:51.000000000 -0800
+@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)strtoq.c	8.1
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoq.c,v 1.11 2002/08/15 09:25:04 robert Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoq.c,v 1.12 2007/01/09 00:28:10 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <sys/types.h>
  
  #include <stdlib.h>
-@@ -48,5 +50,13 @@
+@@ -44,5 +46,13 @@ quad_t
  strtoq(const char *nptr, char **endptr, int base)
  {
  

@@ -32,14 +32,14 @@
 #include "config.h"
 #include "FontCache.h"
 
-#include "ChromiumBridge.h"
 #include "Font.h"
 #include "FontUtilsChromiumWin.h"
 #include "HashMap.h"
 #include "HashSet.h"
+#include "PlatformBridge.h"
 #include "SimpleFontData.h"
-#include "StringHash.h"
 #include <unicode/uniset.h>
+#include <wtf/text/StringHash.h>
 
 #include <windows.h>
 #include <objidl.h>
@@ -50,15 +50,10 @@ using std::min;
 namespace WebCore
 {
 
-void FontCache::platformInit()
-{
-    // Not needed on Windows.
-}
-
 // FIXME: consider adding to WebKit String class
 static bool charactersAreAllASCII(const String& s)
 {
-    return charactersAreAllASCII(s.characters(), s.length());
+    return WTF::charactersAreAllASCII(s.characters(), s.length());
 }
 
 // When asked for a CJK font with a native name under a non-CJK locale or
@@ -211,9 +206,8 @@ static bool LookupAltName(const String& name, String& altName)
     static NameMap* fontNameMap = 0;
 
     if (!fontNameMap) {
-        size_t numElements = sizeof(namePairs) / sizeof(NamePair);
         fontNameMap = new NameMap;
-        for (size_t i = 0; i < numElements; ++i)
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(namePairs); ++i)
             fontNameMap->set(String(namePairs[i].name), &(namePairs[i].altNameCodepage));
     }
 
@@ -294,9 +288,9 @@ static bool fontContainsCharacter(const FontPlatformData* fontData,
     HDC hdc = GetDC(0);
     HGDIOBJ oldFont = static_cast<HFONT>(SelectObject(hdc, hfont));
     int count = GetFontUnicodeRanges(hdc, 0);
-    if (count == 0 && ChromiumBridge::ensureFontLoaded(hfont))
+    if (!count && PlatformBridge::ensureFontLoaded(hfont))
         count = GetFontUnicodeRanges(hdc, 0);
-    if (count == 0) {
+    if (!count) {
         LOG_ERROR("Unable to get the font unicode range after second attempt");
         SelectObject(hdc, oldFont);
         ReleaseDC(0, hdc);
@@ -328,6 +322,108 @@ static bool fontContainsCharacter(const FontPlatformData* fontData,
     // and they're already lowercased. 
     fontCmapCache->set(family, cmap); 
     return cmap->contains(character);
+}
+
+// Tries the given font and save it |outFontFamilyName| if it succeeds.
+static SimpleFontData* fontDataFromDescriptionAndLogFont(FontCache* fontCache, const FontDescription& fontDescription, const LOGFONT& font, wchar_t* outFontFamilyName)
+{
+    SimpleFontData* fontData = fontCache->getCachedFontData(fontDescription, font.lfFaceName);
+    if (fontData)
+        memcpy(outFontFamilyName, font.lfFaceName, sizeof(font.lfFaceName));
+    return fontData;
+}
+
+static LONG toGDIFontWeight(FontWeight fontWeight)
+{
+    static LONG gdiFontWeights[] = {
+        FW_THIN, // FontWeight100
+        FW_EXTRALIGHT, // FontWeight200
+        FW_LIGHT, // FontWeight300
+        FW_NORMAL, // FontWeight400
+        FW_MEDIUM, // FontWeight500
+        FW_SEMIBOLD, // FontWeight600
+        FW_BOLD, // FontWeight700
+        FW_EXTRABOLD, // FontWeight800
+        FW_HEAVY // FontWeight900
+    };
+    return gdiFontWeights[fontWeight];
+}
+
+static void FillLogFont(const FontDescription& fontDescription, LOGFONT* winfont)
+{
+    // The size here looks unusual.  The negative number is intentional.
+    // Unlike WebKit trunk, we don't multiply the size by 32.  That seems to be
+    // some kind of artifact of their CG backend, or something.
+    winfont->lfHeight = -fontDescription.computedPixelSize();
+    winfont->lfWidth = 0;
+    winfont->lfEscapement = 0;
+    winfont->lfOrientation = 0;
+    winfont->lfUnderline = false;
+    winfont->lfStrikeOut = false;
+    winfont->lfCharSet = DEFAULT_CHARSET;
+    winfont->lfOutPrecision = OUT_TT_ONLY_PRECIS;
+    winfont->lfQuality = PlatformBridge::layoutTestMode() ? NONANTIALIASED_QUALITY : DEFAULT_QUALITY; // Honor user's desktop settings.
+    winfont->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
+    winfont->lfItalic = fontDescription.italic();
+    winfont->lfWeight = toGDIFontWeight(fontDescription.weight());
+}
+
+struct TraitsInFamilyProcData {
+    TraitsInFamilyProcData(const AtomicString& familyName)
+        : m_familyName(familyName)
+    {
+    }
+
+    const AtomicString& m_familyName;
+    HashSet<unsigned> m_traitsMasks;
+};
+
+static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC* metrics, DWORD fontType, LPARAM lParam)
+{
+    TraitsInFamilyProcData* procData = reinterpret_cast<TraitsInFamilyProcData*>(lParam);
+
+    unsigned traitsMask = 0;
+    traitsMask |= logFont->lfItalic ? FontStyleItalicMask : FontStyleNormalMask;
+    traitsMask |= FontVariantNormalMask;
+    LONG weight = logFont->lfWeight;
+    traitsMask |= weight == FW_THIN ? FontWeight100Mask :
+        weight == FW_EXTRALIGHT ? FontWeight200Mask :
+        weight == FW_LIGHT ? FontWeight300Mask :
+        weight == FW_NORMAL ? FontWeight400Mask :
+        weight == FW_MEDIUM ? FontWeight500Mask :
+        weight == FW_SEMIBOLD ? FontWeight600Mask :
+        weight == FW_BOLD ? FontWeight700Mask :
+        weight == FW_EXTRABOLD ? FontWeight800Mask :
+                                 FontWeight900Mask;
+    procData->m_traitsMasks.add(traitsMask);
+    return 1;
+}
+
+struct GetLastResortFallbackFontProcData {
+    GetLastResortFallbackFontProcData(FontCache* fontCache, const FontDescription* fontDescription, wchar_t* fontName)
+        : m_fontCache(fontCache)
+        , m_fontDescription(fontDescription)
+        , m_fontName(fontName)
+        , m_fontData(0)
+    {
+    }
+
+    FontCache* m_fontCache;
+    const FontDescription* m_fontDescription;
+    wchar_t* m_fontName;
+    SimpleFontData* m_fontData;
+};
+
+static int CALLBACK getLastResortFallbackFontProc(const LOGFONT* logFont, const TEXTMETRIC* metrics, DWORD fontType, LPARAM lParam)
+{
+    GetLastResortFallbackFontProcData* procData = reinterpret_cast<GetLastResortFallbackFontProcData*>(lParam);
+    procData->m_fontData = fontDataFromDescriptionAndLogFont(procData->m_fontCache, *procData->m_fontDescription, *logFont, procData->m_fontName);
+    return !procData->m_fontData;
+}
+
+void FontCache::platformInit()
+{
+    // Not needed on Windows.
 }
 
 // Given the desired base font, this will create a SimpleFontData for a specific
@@ -391,10 +487,10 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
     int numFonts = 0;
     if (script == USCRIPT_HAN) {
         panUniFonts = cjkFonts;
-        numFonts = ARRAYSIZE(cjkFonts);
+        numFonts = WTF_ARRAY_LENGTH(cjkFonts);
     } else {
         panUniFonts = commonFonts;
-        numFonts = ARRAYSIZE(commonFonts);
+        numFonts = WTF_ARRAY_LENGTH(commonFonts);
     }
     // Font returned from GetFallbackFamily may not cover |characters|
     // because it's based on script to font mapping. This problem is
@@ -410,8 +506,8 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
     // last font in the array covers the character, |i| will be numFonts.
     // So, we have to use '<=" rather than '<' to see if we found a font
     // covering the character.
-    if (i <= numFonts) 
-       return getCachedFontData(data);
+    if (i <= numFonts)
+        return getCachedFontData(data, DoNotRetain);
 
     return 0;
 
@@ -439,73 +535,58 @@ SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& desc
     else if (generic == FontDescription::MonospaceFamily)
         fontStr = courierStr;
 
-    return getCachedFontData(description, fontStr);
-}
+    SimpleFontData* simpleFont = getCachedFontData(description, fontStr);
+    if (simpleFont)
+        return simpleFont;
 
-static LONG toGDIFontWeight(FontWeight fontWeight)
-{
-    static LONG gdiFontWeights[] = {
-        FW_THIN,        // FontWeight100
-        FW_EXTRALIGHT,  // FontWeight200
-        FW_LIGHT,       // FontWeight300
-        FW_NORMAL,      // FontWeight400
-        FW_MEDIUM,      // FontWeight500
-        FW_SEMIBOLD,    // FontWeight600
-        FW_BOLD,        // FontWeight700
-        FW_EXTRABOLD,   // FontWeight800
-        FW_HEAVY        // FontWeight900
-    };
-    return gdiFontWeights[fontWeight];
-}
+    // Fall back to system fonts as Win Safari does because this function must
+    // return a valid font. Once we find a valid system font, we save its name
+    // to a static variable and use it to prevent trying system fonts again.
+    static wchar_t fallbackFontName[LF_FACESIZE] = {0};
+    if (fallbackFontName[0])
+        return getCachedFontData(description, fallbackFontName);
 
-static void FillLogFont(const FontDescription& fontDescription, LOGFONT* winfont)
-{
-    // The size here looks unusual.  The negative number is intentional.
-    // Unlike WebKit trunk, we don't multiply the size by 32.  That seems to be
-    // some kind of artifact of their CG backend, or something.
-    winfont->lfHeight = -fontDescription.computedPixelSize();
-    winfont->lfWidth = 0;
-    winfont->lfEscapement = 0;
-    winfont->lfOrientation = 0;
-    winfont->lfUnderline = false;
-    winfont->lfStrikeOut = false;
-    winfont->lfCharSet = DEFAULT_CHARSET;
-    winfont->lfOutPrecision = OUT_TT_ONLY_PRECIS;
-    winfont->lfQuality = ChromiumBridge::layoutTestMode() ? NONANTIALIASED_QUALITY : DEFAULT_QUALITY; // Honor user's desktop settings.
-    winfont->lfPitchAndFamily = DEFAULT_PITCH | FF_DONTCARE;
-    winfont->lfItalic = fontDescription.italic();
-    winfont->lfWeight = toGDIFontWeight(fontDescription.weight());
-}
-
-struct TraitsInFamilyProcData {
-    TraitsInFamilyProcData(const AtomicString& familyName)
-        : m_familyName(familyName)
-    {
+    // Fall back to the DEFAULT_GUI_FONT if no known Unicode fonts are available.
+    if (HFONT defaultGUIFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT))) {
+        LOGFONT defaultGUILogFont;
+        GetObject(defaultGUIFont, sizeof(defaultGUILogFont), &defaultGUILogFont);
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, defaultGUILogFont, fallbackFontName))
+            return simpleFont;
     }
 
-    const AtomicString& m_familyName;
-    HashSet<unsigned> m_traitsMasks;
-};
+    // Fall back to Non-client metrics fonts.
+    NONCLIENTMETRICS nonClientMetrics = {0};
+    nonClientMetrics.cbSize = sizeof(nonClientMetrics);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(nonClientMetrics), &nonClientMetrics, 0)) {
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, nonClientMetrics.lfMessageFont, fallbackFontName))
+            return simpleFont;
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, nonClientMetrics.lfMenuFont, fallbackFontName))
+            return simpleFont;
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, nonClientMetrics.lfStatusFont, fallbackFontName))
+            return simpleFont;
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, nonClientMetrics.lfCaptionFont, fallbackFontName))
+            return simpleFont;
+        if (simpleFont = fontDataFromDescriptionAndLogFont(this, description, nonClientMetrics.lfSmCaptionFont, fallbackFontName))
+            return simpleFont;
+    }
 
-static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMETRIC* metrics, DWORD fontType, LPARAM lParam)
-{
-    TraitsInFamilyProcData* procData = reinterpret_cast<TraitsInFamilyProcData*>(lParam);
+    // Fall back to all the fonts installed in this PC. When a font has a
+    // localized name according to the system locale as well as an English name,
+    // both GetTextFace() and EnumFontFamilies() return the localized name. So,
+    // FontCache::createFontPlatformData() does not filter out the fonts
+    // returned by this EnumFontFamilies() call.
+    HDC dc = GetDC(0);
+    if (dc) {
+        GetLastResortFallbackFontProcData procData(this, &description, fallbackFontName);
+        EnumFontFamilies(dc, 0, getLastResortFallbackFontProc, reinterpret_cast<LPARAM>(&procData));
+        ReleaseDC(0, dc);
 
-    unsigned traitsMask = 0;
-    traitsMask |= logFont->lfItalic ? FontStyleItalicMask : FontStyleNormalMask;
-    traitsMask |= FontVariantNormalMask;
-    LONG weight = logFont->lfWeight;
-    traitsMask |= weight == FW_THIN ? FontWeight100Mask :
-        weight == FW_EXTRALIGHT ? FontWeight200Mask :
-        weight == FW_LIGHT ? FontWeight300Mask :
-        weight == FW_NORMAL ? FontWeight400Mask :
-        weight == FW_MEDIUM ? FontWeight500Mask :
-        weight == FW_SEMIBOLD ? FontWeight600Mask :
-        weight == FW_BOLD ? FontWeight700Mask :
-        weight == FW_EXTRABOLD ? FontWeight800Mask :
-                                 FontWeight900Mask;
-    procData->m_traitsMasks.add(traitsMask);
-    return 1;
+        if (procData.m_fontData)
+            return procData.m_fontData;
+    }
+
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)

@@ -165,3 +165,18 @@ ok $dbh = DBI->connect_cached(@args), "Create handle with callbacks";
 is $called{cached}, 1, "connect_cached.reused called";
 is $called{new}, 1, "connect_cached.new not called again";
 
+__END__
+
+A generic 'transparent' callback looks like this:
+(this assumes only scalar context will be used)
+
+    sub {
+        my $h = shift;
+        return if our $avoid_deep_recursion->{"$h $_"}++;
+        my $this = $h->$_(@_);
+        undef $_;    # tell DBI not to call original method
+        return $this; # tell DBI to return this instead
+    };
+
+XXX should add a test for this
+XXX even better would be to run chunks of the test suite with that as a '*' callback. In theory everything should pass (except this test file, naturally)..

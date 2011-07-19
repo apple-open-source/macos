@@ -1,13 +1,17 @@
-#include <CoreFoundation/CoreFoundation.h>
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
+// TEST_CONFIG
+// rdar://problem/6371811
+
+#include <CoreFoundation/CoreFoundation.h>
 #include <dispatch/dispatch.h>
 #include <unistd.h>
-//#import <Foundation/Foundation.h>
 #include <Block.h>
-
-// CONFIG rdar://problem/6371811
-
-const char *whoami = "nobody";
+#include "test.h"
 
 void EnqueueStuff(dispatch_queue_t q)
 {
@@ -27,25 +31,20 @@ void EnqueueStuff(dispatch_queue_t q)
             //printf("inner block.\n");
             counter--;
             if(counter == 0) {
-                printf("%s: success\n", whoami);
-                exit(0);
+                succeed(__FILE__);
             }
         });
         if(counter == 0) {
-            printf("already done? inconceivable!\n");
-            exit(1);
+            fail("already done? inconceivable!");
         }
     });        
 }
 
-int main (int argc, const char * argv[]) {
+int main () {
     dispatch_queue_t q = dispatch_queue_create("queue", NULL);
 
-    whoami = argv[0];
-    
     EnqueueStuff(q);
     
     dispatch_main();
-    printf("shouldn't get here\n");
-    return 1;
+    fail("unreachable");
 }

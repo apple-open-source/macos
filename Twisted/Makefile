@@ -18,7 +18,7 @@ PYTHON_VERSIONS = $(shell \
 )
 
 PYTHON = /usr/bin/python
-EXTRAS26 := $(shell "$(PYTHON)2.6" -c 'import sys; print sys.prefix')/Extras
+EXTRAS := $(shell "$(PYTHON)" -c 'import sys; print sys.prefix')/Extras
 CORE_SCRIPTS = trial twistd
 
 build:: extract_source
@@ -33,14 +33,19 @@ install::
 	        echo "Installing for Python $${version}..."; \
 	        cd $(OBJROOT)/$(Project) && $(Environment) "$(PYTHON)$${version}" setup.py install --home="$${extras}" --root="$(DSTROOT)"; \
 	        for so in $$(find "$(DSTROOT)$${extras}" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done; \
-	        for zsh_turd in "$(DSTROOT)$${extras}/lib/python/twisted/python/zsh/"*; do \
-	          if [ ! -s "$${zsh_turd}" ]; then rm -f "$${zsh_turd}"; fi; \
+	        echo "Removing turds for Python $${version}..."; \
+	        for turd in "$(DSTROOT)$${extras}/lib/python/twisted/python/zsh/"* "$(DSTROOT)$${extras}/lib/python/twisted/topfiles/"*.misc; do \
+	          if [ ! -s "$${turd}" ]; then rm -f "$${turd}"; fi; \
 	        done; \
+	        echo "Removing empty files for Python $${version}..."; \
+	        find "$(DSTROOT)$${extras}/lib/python" -name '*.py' -empty -exec cp "$(SRCROOT)/empty.py" '{}' ";" -print; \
+	        echo "Initializing dropin.cache for Python $${version}..."; \
+	        PYTHONPATH="$(DSTROOT)$${extras}/lib/python" "$(DSTROOT)$${extras}/bin/twistd" --help 2>&1 >/dev/null; \
 	      done;
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(USRBINDIR)";
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(MANDIR)/man1";
 	$(_v) for script in $(CORE_SCRIPTS); do \
-	    $(LN) -s "$(EXTRAS26)/bin/$${script}" "$(DSTROOT)$(USRBINDIR)/$${script}"; \
+	    $(LN) -s "$(EXTRAS)/bin/$${script}" "$(DSTROOT)$(USRBINDIR)/$${script}"; \
 	    $(INSTALL_FILE) "$(OBJROOT)/$(Project)/doc/core/man/$${script}.1" "$(DSTROOT)$(MANDIR)/man1/"; \
 	done;
 
@@ -49,7 +54,7 @@ install::
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-8.2.0
+AEP_ProjVers   = $(Project)-11.0.0
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 

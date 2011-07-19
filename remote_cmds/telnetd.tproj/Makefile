@@ -35,3 +35,4 @@ ifeq "$(Product)" "iPhone"
 		"$(DSTROOT)/System/Library/LaunchDaemons/telnet.plist"
 endif
 endif
+	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"

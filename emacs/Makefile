@@ -3,7 +3,7 @@
 ##
 
 Extra_CC_Flags = -no-cpp-precomp -mdynamic-no-pic -Wno-pointer-sign -D_FORTIFY_SOURCE=2
-Extra_LD_Flags = -Wl,-headerpad,0x1000
+Extra_LD_Flags = -Wl,-headerpad,0x1000 -Wl,-no_pie -Wl,-no_function_starts
 Extra_Configure_Flags = --without-x --without-carbon ac_cv_host=mac-apple-darwin ac_cv_func_posix_memalign=no
 
 # Project info
@@ -27,8 +27,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Apple.diff files.el.diff \
 	CVE-2007-6109.diff darwin.h.diff vcdiff.diff lread.c.diff \
-	fast-lock.el.diff python.el.diff \
-	src_Makefile.in.diff lisp_Makefile.in.diff
+	fast-lock.el.diff python.el.diff src_Makefile.in.diff \
+	lisp_Makefile.in.diff xdisp.c.diff
 
 # Extract the source.
 install_source::
@@ -38,9 +38,9 @@ install_source::
 	for patchfile in $(AEP_Patches); do \
 		cd "$(SRCROOT)/$(Project)" && patch -lp0 -F0 < "$(SRCROOT)/patches/$$patchfile" || exit 1; \
 	done
-	$(CP) "$(SRCROOT)/mac.h" "$(SRCROOT)/$(AEP_Project)/src/m"
-	$(CP) "$(SRCROOT)/unexmacosx.c" "$(SRCROOT)/$(AEP_Project)/src"
-	for f in $(EXTRAEL); do $(RM) -f "$(SRCROOT)/$$f"; done
+	$(INSTALL_FILE) "$(SRCROOT)/mac.h" "$(SRCROOT)/$(AEP_Project)/src/m"
+	$(INSTALL_FILE) "$(SRCROOT)/unexmacosx.c" "$(SRCROOT)/$(AEP_Project)/src"
+	for f in $(EXTRAEL); do $(RM) "$(SRCROOT)/$$f"; done
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -85,7 +85,8 @@ build::
 	@echo "Bootstraping $(Project)..."
 	$(MKDIR) $(OBJROOT)/src/arch
 ifeq (ppc,$(filter ppc,$(RC_ARCHS)))
-	$(CC) $(CFLAGS) -o $(OBJROOT)/src/arch/emacs-ppc $(SRCROOT)/emacs-ppc.c
+	$(CC) $(CFLAGS) -c -o $(OBJROOT)/emacs-ppc.o $(SRCROOT)/emacs-ppc.c
+	$(CC) $(CFLAGS) -o $(OBJROOT)/src/arch/emacs-ppc $(OBJROOT)/emacs-ppc.o
 	lipo $(OBJROOT)/src/arch/emacs-ppc -extract_family ppc -output $(OBJROOT)/src/arch/emacs-ppc
 endif
 	${SDKROOT}/Developer/Makefiles/bin/version.pl emacs > $(OBJROOT)/src/version.h
@@ -97,12 +98,13 @@ endif
 	$(MV) $(OBJROOT)/src/temacs $(OBJROOT)/src/temacs+save
 	$(RM) $(DSTROOT)/usr/bin/emacs-undumped
 	$(_v) $(MAKE) -C $(BuildDirectory)/src $(Environment) MYCPPFLAGS=-DEMACS_UNDUMPED temacs
-	$(CP) $(OBJROOT)/src/temacs $(OBJROOT)/src/emacs-undumped
-	$(CP) $(OBJROOT)/src/emacs-undumped $(SYMROOT)
+	$(INSTALL_FILE) $(OBJROOT)/src/temacs $(OBJROOT)/src/emacs-undumped
+	$(INSTALL_FILE) $(OBJROOT)/src/emacs-undumped $(SYMROOT)
 	$(DSYMUTIL) $(SYMROOT)/emacs-undumped
 # Don't rebuild anything else
 	$(MV) -f $(OBJROOT)/src/lread.o+save $(OBJROOT)/src/lread.o
 	$(MV) -f $(OBJROOT)/src/temacs+save $(OBJROOT)/src/temacs
+	$(INSTALL_FILE) $(OBJROOT)/lib-src/{emacsclient,etags,cvtmail,digest-doc,fakemail,hexl,movemail,profile,sorted-doc,update-game-score} $(SYMROOT)
 
 cleanup:			# Return sources to pristine state
 	@echo "Cleaning $(Project)..."

@@ -28,16 +28,18 @@
 #include "JSSVGElementInstance.h"
 
 #if ENABLE(SVG)
+#include "JSNode.h"
 #include "SVGElementInstance.h"
 
 namespace WebCore {
 
-void JSSVGElementInstance::markChildren(JSC::MarkStack& markStack)
+void JSSVGElementInstance::visitChildren(JSC::SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
-
-    // Mark the wrapper for our corresponding element, so it can mark its event handlers.
-    markDOMNodeWrapper(markStack, impl()->correspondingElement()->document(), impl()->correspondingElement());
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & JSC::OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
+    visitor.addOpaqueRoot(root(impl()->correspondingElement()));
 }
 
 } // namespace WebCore

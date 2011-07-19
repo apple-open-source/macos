@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2009-08-20</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>kerberos.html</string>
+	<key>OpenSourceProject</key>
+	<string>Heimdal</string>
+	<key>OpenSourceURL</key>
+	<string>git://svn.h5l.org/heimdal.git</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.99pre7</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.h5l.org/</string>
+</dict>
+</plist>

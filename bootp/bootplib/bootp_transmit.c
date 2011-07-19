@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2000, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,8 +90,11 @@ get_bpf_fd(const char * if_name)
 	bpf_fd = -1;
     }
     else if (bpf_setif(bpf_fd, if_name) < 0) {
-	my_log(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)", if_name,
-	       strerror(errno), errno);
+	if (errno != ENXIO) {
+	    my_log(LOG_ERR, "Transmitter: bpf_setif(%s) failed: %s (%d)",
+		   if_name,
+		   strerror(errno), errno);
+	}
 	bpf_dispose(bpf_fd);
 	bpf_fd = -1;
     }
@@ -100,7 +103,7 @@ get_bpf_fd(const char * if_name)
 }
 
 int
-bootp_transmit(int sockfd, char sendbuf[2048],
+bootp_transmit(int sockfd, char * sendbuf,
 	       const char * if_name, int hwtype, const void * hwaddr, int hwlen,
 	       struct in_addr dest_ip,
 	       struct in_addr src_ip,
@@ -178,8 +181,8 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	    bcopy(data, payload, len);
 
 	    /* fill in udp pseudo header */
-	    udp_pseudo->src_ip = src_ip;
-	    udp_pseudo->dest_ip = dest_ip;
+	    bcopy(&src_ip, &udp_pseudo->src_ip, sizeof(src_ip));
+	    bcopy(&dest_ip, &udp_pseudo->dest_ip, sizeof(dest_ip));
 	    udp_pseudo->zero = 0;
 	    udp_pseudo->proto = IPPROTO_UDP;
 	    udp_pseudo->length = htons(sizeof(ip_udp->udp) + len);
@@ -198,8 +201,8 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	    ip_udp->ip.ip_hl = sizeof(struct ip) >> 2;
 	    ip_udp->ip.ip_ttl = MAXTTL;
 	    ip_udp->ip.ip_p = IPPROTO_UDP;
-	    ip_udp->ip.ip_src = src_ip;
-	    ip_udp->ip.ip_dst = dest_ip;
+	    bcopy(&src_ip, &ip_udp->ip.ip_src, sizeof(src_ip));
+	    bcopy(&dest_ip, &ip_udp->ip.ip_dst, sizeof(dest_ip));
 	    ip_udp->ip.ip_len = htons(sizeof(*ip_udp) + len);
 	    ip_udp->ip.ip_id = htons(ip_id++);
 	    /* compute the IP checksum */

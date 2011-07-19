@@ -1,6 +1,6 @@
---- killpg.c.orig	2005-01-26 12:24:56.000000000 -0800
-+++ killpg.c	2005-01-26 12:23:37.000000000 -0800
-@@ -41,6 +41,16 @@
+--- killpg.c.orig	2009-11-06 10:36:38.000000000 -0800
++++ killpg.c	2009-11-06 10:41:47.000000000 -0800
+@@ -37,6 +37,16 @@ __FBSDID("$FreeBSD: src/lib/libc/compat-
  #include <signal.h>
  #include <errno.h>
  
@@ -17,7 +17,7 @@
  /*
   * Backwards-compatible killpg().
   */
-@@ -48,8 +58,8 @@
+@@ -44,8 +54,8 @@ int
  killpg(pid_t pgid, int sig)
  {
  	if (pgid == 1) {

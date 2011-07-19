@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,7 +22,6 @@
 #define Chrome_h
 
 #include "Cursor.h"
-#include "FileChooser.h"
 #include "FocusDirection.h"
 #include "HostWindow.h"
 #include <wtf/Forward.h>
@@ -36,20 +36,24 @@ class NSView;
 namespace WebCore {
 
     class ChromeClient;
-    class ContextMenu;
+    class FileChooser;
     class FloatRect;
     class Frame;
     class Geolocation;
     class HitTestResult;
     class IntRect;
+    class NavigationAction;
     class Node;
     class Page;
-    class String;
+    class PopupMenu;
+    class PopupMenuClient;
 #if ENABLE(NOTIFICATIONS)
     class NotificationPresenter;
 #endif
+    class SearchPopupMenu;
 
     struct FrameLoadRequest;
+    struct ViewportArguments;
     struct WindowFeatures;
     
     class Chrome : public HostWindow {
@@ -65,10 +69,17 @@ namespace WebCore {
         virtual void invalidateContentsAndWindow(const IntRect&, bool);
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
         virtual void scroll(const IntSize&, const IntRect&, const IntRect&);
+#if ENABLE(TILED_BACKING_STORE)
+        virtual void delegatedScrollRequested(const IntPoint& scrollPoint);
+#endif
         virtual IntPoint screenToWindow(const IntPoint&) const;
         virtual IntRect windowToScreen(const IntRect&) const;
         virtual PlatformPageClient platformPageClient() const;
         virtual void scrollbarsModeDidChange() const;
+        virtual void setCursor(const Cursor&);
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+        virtual void scheduleAnimation();
+#endif
 
         void scrollRectIntoView(const IntRect&) const;
 
@@ -88,8 +99,9 @@ namespace WebCore {
         void takeFocus(FocusDirection) const;
 
         void focusedNodeChanged(Node*) const;
+        void focusedFrameChanged(Frame*) const;
 
-        Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) const;
+        Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) const;
         void show() const;
 
         bool canRunModal() const;
@@ -121,8 +133,9 @@ namespace WebCore {
         void setStatusbarText(Frame*, const String&);
         bool shouldInterruptJavaScript();
 
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
         void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title);
-        void registerContentHandler(const String& mimeType, const String& baseURL, const String& url, const String& title);
+#endif
 
         IntRect windowResizerRect() const;
 
@@ -132,13 +145,20 @@ namespace WebCore {
 
         void print(Frame*);
 
+        // FIXME: Remove once all ports are using client-based geolocation. https://bugs.webkit.org/show_bug.cgi?id=40373
+        // For client-based geolocation, these two methods have moved to GeolocationClient. https://bugs.webkit.org/show_bug.cgi?id=50061
         void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
 
         void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         void chooseIconForFiles(const Vector<String>&, FileChooser*);
+#if ENABLE(DIRECTORY_UPLOAD)
+        void enumerateChosenDirectory(const String&, FileChooser*);
+#endif
 
-        bool setCursor(PlatformCursorHandle);
+        void dispatchViewportDataDidChange(const ViewportArguments&) const;
+
+        bool requiresFullscreenForVideoPlayback();
 
 #if PLATFORM(MAC)
         void focusNSView(NSView*);
@@ -147,6 +167,17 @@ namespace WebCore {
 #if ENABLE(NOTIFICATIONS)
         NotificationPresenter* notificationPresenter() const; 
 #endif
+
+        bool selectItemWritingDirectionIsNatural();
+        bool selectItemAlignmentFollowsMenuWritingDirection();
+        PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
+        PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
+
+#if ENABLE(CONTEXT_MENUS)
+        void showContextMenu();
+#endif
+
+        void willRunModalHTMLDialog(const Frame*) const;
 
     private:
         Page* m_page;

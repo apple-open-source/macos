@@ -29,6 +29,7 @@ case "$daily_clean_tmps_enable" in
 	    args="-atime +$daily_clean_tmps_days -mtime +$daily_clean_tmps_days"
 	    args="${args} -ctime +$daily_clean_tmps_days"
 	    dargs="-empty -mtime +$daily_clean_tmps_days"
+	    dargs="${dargs} ! -name .vfs_rsrc_streams_*"
 	    [ -n "$daily_clean_tmps_ignore" ] && {
 		args="$args "`echo " ${daily_clean_tmps_ignore% }" |
 		    sed 's/[ 	][ 	]*/ ! -name /g'`

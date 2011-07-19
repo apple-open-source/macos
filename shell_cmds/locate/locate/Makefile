@@ -10,7 +10,7 @@ MANPAGES = locate.1 locate.updatedb.8
             concatdb.sh mklocatedb.sh updatedb.sh
 LAUNCHD_PLISTS = com.apple.locate.plist
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic
+Extra_CC_Flags = -Wall
 Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
@@ -24,3 +24,4 @@ after_install:
 	$(LN) $(DSTROOT)/usr/share/man/man8/locate.updatedb.8 $(DSTROOT)/usr/share/man/man8/locate.mklocatedb.8
 	$(INSTALL_DIRECTORY) $(DSTROOT)/private/etc
 	$(INSTALL_FILE) locate.rc $(DSTROOT)/private/etc
+	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/$(LAUNCHD_PLISTS)"

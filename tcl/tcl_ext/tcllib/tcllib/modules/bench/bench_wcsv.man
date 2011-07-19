@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Benchmarking/Performance tools}]
 [titledesc {bench::out::csv - Formatting benchmark results as CSV}]
+[category  {Benchmark tools}]
 [require Tcl 8.2]
 [require bench::out::csv [opt 0.1.2]]
 [description]

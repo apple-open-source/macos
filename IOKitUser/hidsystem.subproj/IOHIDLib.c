@@ -29,13 +29,14 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <libkern/OSByteOrder.h>
-
-
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
+#include <IOKit/hid/IOHIDLibPrivate.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <servers/bootstrap.h>
+#include "powermanagement.h"
 
 #if !TARGET_OS_EMBEDDED
 kern_return_t IOFramebufferServerStart( void );
@@ -80,6 +81,20 @@ IOHIDPostEvent( mach_port_t connect,
                 int type, IOGPoint location, NXEventData *data,
                 boolean_t setCursor, int flags, boolean_t setFlags)
 */
+
+static void _IOPMReportSoftwareHIDEvent(UInt32 eventType)
+{
+    mach_port_t         newConnection;
+    kern_return_t       kern_result = KERN_SUCCESS;
+
+    kern_result = bootstrap_look_up(bootstrap_port, 
+                    kIOPMServerBootstrapName, &newConnection);
+    if(KERN_SUCCESS == kern_result) {
+        io_pm_hid_event_report_activity(newConnection, eventType);
+        mach_port_deallocate(mach_task_self(), newConnection);
+    }
+    return;
+}
 
 kern_return_t
 IOHIDPostEvent( io_connect_t        connect,
@@ -128,6 +143,9 @@ IOHIDPostEvent( io_connect_t        connect,
         bcopy( eventData, &event->data, sizeof(event->data) );
 
 
+    // Let PM log the software HID events
+    _IOPMReportSoftwareHIDEvent(event->type);
+
     return IOConnectCallMethod(connect, 3,		// Index
 			   NULL, 0,    data, dataSize,	// Input
 			   NULL, NULL, NULL, NULL);	// Output
@@ -139,35 +157,27 @@ IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds )
 	if ( !bounds )
 		return kIOReturnBadArgument;
 
-
 	return IOConnectCallMethod(connect, 6,			// Index
 			NULL, 0,    bounds, sizeof(*bounds),	// Input,
 			NULL, NULL, NULL,   NULL);				// Output
 }
 
 kern_return_t
-IOHIDSetMouseLocation( io_connect_t connect,
-	int x, int y)
+IOHIDSetMouseLocation( io_connect_t connect, int x, int y )
 {
-    const size_t    dataSize = sizeof(IOGPoint) + sizeof(int);
-    char            data[dataSize];
-        
-    bzero(data, dataSize);
-    
-    IOGPoint *loc = (IOGPoint *)data;
-    
-	int pid = getpid();
-    int *eventPid = (int *) &loc[1];
+    return IOHIDSetFixedMouseLocation(connect, x << 8, y << 8);
+}
 
-    {
-		loc->x = x;
-		loc->y = y;
-		*eventPid = pid;
-	}
-
-	return IOConnectCallMethod(connect, 4,		// Index
-			NULL, 0,    data, dataSize, 	// Input
-			NULL, NULL, NULL, NULL);	// Output
+kern_return_t
+IOHIDSetFixedMouseLocation( io_connect_t connect, int32_t x, int32_t y )
+{
+    int32_t     data[3] = {x, y, 0};
+    
+    data[2] = getpid();
+    
+    return IOConnectCallMethod(connect, 4,                      // Index
+                               NULL, 0,    data, sizeof(data),  // Input
+                               NULL, NULL, NULL, NULL);         // Output
 }
 
 kern_return_t

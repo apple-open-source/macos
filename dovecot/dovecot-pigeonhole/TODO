@@ -1,0 +1,92 @@
+Current activities:
+
+* Build a sieve tool to filter an entire existing mailbox through a Sieve 
+  script.
+
+Next (in order of descending priority/precedence):
+
+* Improve error handling. 
+	- Implement dropping errors in the user's mailbox as a mail message.
+* Add normalize() method to comparators to normalize the string before matching
+  (for efficiency).
+* Further develop regex extension and update it to the latest draft:
+	- Implement the :quoteregex set modifier
+	- Investigate the use of the TRE regexp library to gain UTF-8 capability
+* Finish body extension:
+	- Implement proper :content "multipart" behavior
+	- Implement proper :content "message/rfc822" behavior
+	- Build test cases for decoding MIME encodings to UTF-8
+* Cleanup the test suite
+	- Restructure test scripts
+	- Add more comment on purpose of tests
+* Implement index extension
+* Update include extension to latest draft (v05 currently):
+	- Implement required ManageSieve behavior (pending IETF discussion)
+* Finish the ereject extension
+* Vacation extension improvements:
+	- Implement configurable sender exclusion list.
+	- Implement mechanism for implicitly including an account's aliases in the
+	  vacation command's :addresses list.
+* Optimize code containing true/false tests to omit explicit JMP opcodes
+  (i.e. optimize the test away and any code that negatively depends on it)
+* Implement ihave extension.
+* Fix remaining RFC deviations:
+	- Fix issues listed in doc/rfc/RFC-questions.txt based on answers
+	- Allow for the existence of dynamic comparators (i.e. specified by 
+	  variables). 
+	- Verify outgoing mail addresses at runtime when necessary
+	  (e.g. after variables substitution)
+	- Improve handling of invalid addresses in headers (requires Dovecot changes)
+* Properly implement Sieve internationalization support (utf-8 handling), 
+  currently it is not complete:
+	- Make this implementation fully conform section 2.7.2 of RFC5228 (Comparisons 
+	  Across Character Sets). 
+	- Verify validity of utf8 where necessary.
+	- Implement comparator-i;unicode-casemap.
+* Make testsuite much more exhaustive:
+	- Add support for testing the content of result actions
+	- Test as many error/warning/info conditions as possible. 
+	- Review the specification documents and check whether the given requirements
+	  are tested at least once.
+* Fix ManageSieve proxy to recognize response codes from the backend and forward
+  them to the user if appropriate/safe.
+* Test ManageSieve behavior thoroughly:
+	- Test pipelined behavior
+	- Test proxy authentication
+* Code cleanup:
+	- Make address handling more uniform. 
+	- Review all FIXMEs 
+
+* Build a server with test mail accounts that processes lots and lots of mail 
+  (e.g. spam, mailing lists etc.)
+
+* ## MAKE A THIRD RELEASE (0.3.x) ##
+
+* Implement extlists extension as a plugin
+* Enotify extension: detect use of variable values extracted from the message 
+  that are used in the method argument. RFC reports this as a security issue.
+* Make the sieve storage a base class with (possibly) various implementations, 
+  just like mail-storage. This aims to provide support for alternate types
+  of script storage like LDAP or SQL database.
+* Add support for stream matching for handling large values, e.g. from the body
+  extension.
+* Implement message modification and extraction API in order to:
+	- Implement editheader extension
+	- Implement replace, enclose, foreverypart, mime and extracttext extensions 
+* Provide a solution for mail_get_headers_utf8 reparsing the whole message each
+  time it is called (header and address test; Timo might provide solution from
+  within Dovecot)
+* Use lib/str-find.h for :contains and :matches match types 
+* Warn during compile if using non-existent folders.
+
+* Implement IMAP plugin for IMAPSieve support:
+	- This may include support for manually running a script on a set of messages
+	  through IMAP (no specification for something like this is available; we will 
+	  have to provide our own)
+* Variables extension: implement compile time evaluation of constant values
+	- Detect assignment of too large constant values to variables at compile
+	  time.
+* Add development documentation, i.e. comment on library functions and document
+  the binary and byte-code format. 
+* Implement sip-message notify mechanism.
+

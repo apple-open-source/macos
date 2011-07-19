@@ -162,3 +162,12 @@ proc _exa {module exadir} {
 	    1
     return
 }
+
+proc _exax {actual module exadir} {
+    global distribution
+    xcopy \
+	    [file join $distribution examples $actual] \
+	    [file join $exadir $module] \
+	    1
+    return
+}

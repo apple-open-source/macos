@@ -1819,6 +1819,10 @@ struct vnop_pathconf_args {
 			*pathConfArgsPtr->a_retval = 0;
 			break;
 			
+		case _PC_XATTR_SIZE_BITS:
+			*pathConfArgsPtr->a_retval = 0;
+			break;
+			
 		default:
 			returnValue = EINVAL;
 			break;

@@ -3,6 +3,7 @@
 [copyright {2005, Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [copyright {2005, Colin McCormack <coldstore@users.sourceforge.net>}]
 [titledesc {RCS low level utilities}]
+[category  {Text processing}]
 [require Tcl 8.4]
 [require rcs [opt 0.1]]
 [description]

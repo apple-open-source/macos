@@ -8,11 +8,11 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: queue.tcl,v 1.14 2008/07/02 23:35:07 andreas_kupries Exp $
+# RCS: @(#) $Id: queue.tcl,v 1.15 2010/03/24 06:13:00 andreas_kupries Exp $
 
 # @mdgen EXCLUDE: queue_c.tcl
 
-package require Tcl 8.2
+package require Tcl 8.4
 namespace eval ::struct::queue {}
 
 # ### ### ### ######### ######### #########
@@ -41,7 +41,14 @@ proc ::struct::queue::LoadAccelerator {key} {
 	}
 	tcl {
 	    variable selfdir
-	    source [file join $selfdir queue_tcl.tcl]
+	    if {
+		[package vsatisfies [package provide Tcl] 8.5] &&
+		![catch {package require TclOO}]
+	    } {
+		source [file join $selfdir queue_oo.tcl]
+	    } else {
+		source [file join $selfdir queue_tcl.tcl]
+	    }
 	    set r 1
 	}
         default {
@@ -177,4 +184,4 @@ namespace eval ::struct {
     namespace export queue
 }
 
-package provide struct::queue 1.4.1
+package provide struct::queue 1.4.2

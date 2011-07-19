@@ -56,43 +56,27 @@ prefork(LinkList list, int flags)
 
     queue_signals();
     for (node = firstnode(list); node; incnode(node)) {
-	char *str, c;
-
-	str = (char *)getdata(node);
-	if (((c = *str) == Inang || c == Outang || c == Equals) &&
-	    str[1] == Inpar) {
-	    if (c == Inang || c == Outang)
-		setdata(node, (void *) getproc(str));	/* <(...) or >(...) */
-	    else
-		setdata(node, (void *) getoutputfile(str));	/* =(...) */
-	    if (!getdata(node)) {
-		setdata(node, dupstring(""));
-		unqueue_signals();
-		return;
-	    }
-	} else {
-	    if (isset(SHFILEEXPANSION)) {
-		/*
-		 * Here and below we avoid taking the address
-		 * of a void * and then pretending it's a char **
-		 * instead of a void ** by a little inefficiency.
-		 * This could be avoided with some extra linked list
-		 * machinery, but that would need quite a lot of work
-		 * to ensure consistency.  What we really need is
-		 * templates...
-		 */
-		char *cptr = (char *)getdata(node);
-		filesub(&cptr, flags & (PF_TYPESET|PF_ASSIGN));
-		/*
-		 * The assignment is so simple it's not worth
-		 * testing if cptr changed...
-		 */
-		setdata(node, cptr);
-	    }
-	    if (!(node = stringsubst(list, node, flags & PF_SINGLE, asssub))) {
-		unqueue_signals();
-		return;
-	    }
+	if (isset(SHFILEEXPANSION)) {
+	    /*
+	     * Here and below we avoid taking the address
+	     * of a void * and then pretending it's a char **
+	     * instead of a void ** by a little inefficiency.
+	     * This could be avoided with some extra linked list
+	     * machinery, but that would need quite a lot of work
+	     * to ensure consistency.  What we really need is
+	     * templates...
+	     */
+	    char *cptr = (char *)getdata(node);
+	    filesub(&cptr, flags & (PF_TYPESET|PF_ASSIGN));
+	    /*
+	     * The assignment is so simple it's not worth
+	     * testing if cptr changed...
+	     */
+	    setdata(node, cptr);
+	}
+	if (!(node = stringsubst(list, node, flags & PF_SINGLE, asssub))) {
+	    unqueue_signals();
+	    return;
 	}
     }
     for (node = firstnode(list); node; incnode(node)) {
@@ -166,6 +150,42 @@ stringsubst(LinkList list, LinkNode node, int ssub, int asssub)
     int qt;
     char *str3 = (char *)getdata(node);
     char *str  = str3, c;
+
+    while (!errflag && (c = *str)) {
+	if (((c = *str) == Inang || c == OutangProc ||
+	     (str == str3 && c == Equals))
+	    && str[1] == Inpar) {
+	    char *subst, *rest, *snew, *sptr;
+	    int str3len = str - str3, sublen, restlen;
+
+	    if (c == Inang || c == OutangProc)
+		subst = getproc(str, &rest);	/* <(...) or >(...) */
+	    else
+		subst = getoutputfile(str, &rest);	/* =(...) */
+	    if (!subst)
+		subst = "";
+
+	    sublen = strlen(subst);
+	    restlen = strlen(rest);
+	    sptr = snew = hcalloc(str3len + sublen + restlen + 1);
+	    if (str3len) {
+		memcpy(sptr, str3, str3len);
+		sptr += str3len;
+	    }
+	    if (sublen) {
+		memcpy(sptr, subst, sublen);
+		sptr += sublen;
+	    }
+	    if (restlen)
+		memcpy(sptr, rest, restlen);
+	    sptr[restlen] = '\0';
+	    str3 = snew;
+	    str = snew + str3len + sublen;
+	    setdata(node, str3);
+	} else
+	    str++;
+    }
+    str = str3;
 
     while (!errflag && (c = *str)) {
 	if ((qt = c == Qstring) || c == String) {
@@ -519,12 +539,43 @@ filesub(char **namptr, int assign)
     }
 }
 
+#define isend(c) ( !(c) || (c)=='/' || (c)==Inpar || (assign && (c)==':') )
+#define isend2(c) ( !(c) || (c)==Inpar || (assign && (c)==':') )
+
+/*
+ * do =foo substitution, or equivalent.
+ * on entry, str should point to the "foo".
+ * if assign, this is in an assignment
+ * if nomatch, report hard error on failure.
+ * if successful, returns the expansion, else NULL.
+ */
+
+/**/
+char *
+equalsubstr(char *str, int assign, int nomatch)
+{
+    char *pp, *cnam, *cmdstr, *ret;
+
+    for (pp = str; !isend2(*pp); pp++)
+	;
+    cmdstr = dupstrpfx(str, pp-str);
+    untokenize(cmdstr);
+    remnulargs(cmdstr);
+    if (!(cnam = findcmd(cmdstr, 1))) {
+	if (nomatch)
+	    zerr("%s not found", cmdstr);
+	return NULL;
+    }
+    ret = dupstring(cnam);
+    if (*pp)
+	ret = dyncat(ret, pp);
+    return ret;
+}
+
 /**/
 mod_export int
 filesubstr(char **namptr, int assign)
 {
-#define isend(c) ( !(c) || (c)=='/' || (c)==Inpar || (assign && (c)==':') )
-#define isend2(c) ( !(c) || (c)==Inpar || (assign && (c)==':') )
     char *str = *namptr;
 
     if (*str == Tilde && str[1] != '=' && str[1] != Equals) {
@@ -586,27 +637,17 @@ filesubstr(char **namptr, int assign)
 	    return 1;
 	}
     } else if (*str == Equals && isset(EQUALS) && str[1]) {   /* =foo */
-	char *pp, *cnam, *cmdstr, *str1 = str+1;
-
-	for (pp = str1; !isend2(*pp); pp++)
-	    ;
-	cmdstr = dupstrpfx(str1, pp-str1);
-	untokenize(cmdstr);
-	remnulargs(cmdstr);
-	if (!(cnam = findcmd(cmdstr, 1))) {
-	    if (isset(NOMATCH))
-		zerr("%s not found", cmdstr);
-	    return 0;
+	char *expn = equalsubstr(str+1, assign, isset(NOMATCH));
+	if (expn) {
+	    *namptr = expn;
+	    return 1;
 	}
-	*namptr = dupstring(cnam);
-	if (*pp)
-	    *namptr = dyncat(*namptr, pp);
-	return 1;
     }
     return 0;
+}
+
 #undef isend
 #undef isend2
-}
 
 /**/
 static char *
@@ -633,6 +674,40 @@ strcatsub(char **d, char *pb, char *pe, char *src, int l, char *s, int glbsub,
     }
     return dest;
 }
+
+#ifdef MULTIBYTE_SUPPORT
+#define WCPADWIDTH(cchar, mw)	wcpadwidth(cchar, mw)
+
+/*
+ * Width of character for padding purposes.
+ * 0: all characters count 1.
+ * 1: use width of multibyte character.
+ * 2: non-zero width characters count 1, zero width 0.
+ */
+static int
+wcpadwidth(wchar_t wc, int multi_width)
+{
+    int width;
+
+    switch (multi_width)
+    {
+    case 0:
+	return 1;
+
+    case 1:
+	width = WCWIDTH(wc);
+	if (width >= 0)
+	    return width;
+	return 0;
+
+    default:
+	return WCWIDTH(wc) > 0 ? 1 : 0;
+    }
+}
+
+#else
+#define WCPADWIDTH(cchar, mw)	(1)
+#endif
 
 /*
  * Pad the string str, returning a result from the heap (or str itself,
@@ -662,20 +737,15 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 #endif
     )
 {
-#ifdef MULTIBYTE_SUPPORT
-#define WCPADWIDTH(cchar)	(multi_width ? WCWIDTH(cchar) : 1)
-#else
-#define WCPADWIDTH(cchar)	(1)
-#endif
-
     char *def, *ret, *t, *r;
     int ls, ls2, lpreone, lpostone, lpremul, lpostmul, lr, f, m, c, cc, cl;
     convchar_t cchar;
 
     MB_METACHARINIT();
-    if (*ifs)
-	def = dupstrpfx(ifs, MB_METACHARLEN(ifs));
-    else
+    if (!ifs || *ifs) {
+	char *tmpifs = ifs ? ifs : DEFAULT_IFS;
+	def = dupstrpfx(tmpifs, MB_METACHARLEN(tmpifs));
+    } else
 	def = "";
     if (preone && !*preone)
 	preone = def;
@@ -732,15 +802,20 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		f = -f;
 		MB_METACHARINIT();
 		while (f > 0) {
-		    str += MB_METACHARLENCONV(str, &cchar);
-		    f -= WCPADWIDTH(cchar);
+		    cl = MB_METACHARLENCONV(str, &cchar);
+		    if (!cl)
+			break;
+		    str += cl;
+		    f -= WCPADWIDTH(cchar, multi_width);
 		}
 		/* Now finish the first half. */
 		for (c = prenum; c > 0; ) {
 		    cl = MB_METACHARLENCONV(str, &cchar);
+		    if (!cl)
+			break;
 		    while (cl--)
 			*r++ = *str++;
-		    c -= WCPADWIDTH(cchar);
+		    c -= WCPADWIDTH(cchar, multi_width);
 		}
 	    } else {
 		if (f <= lpreone) {
@@ -753,8 +828,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			f = lpreone - f;
 			/* So skip. */
 			for (t = preone; f > 0; ) {
-			    t += MB_METACHARLENCONV(t, &cchar);
-			    f -= WCPADWIDTH(cchar);
+			    cl = MB_METACHARLENCONV(t, &cchar);
+			    if (!cl)
+				break;
+			    t += cl;
+			    f -= WCPADWIDTH(cchar, multi_width);
 			}
 			/* Then copy the entire remainder. */
 			while (*t)
@@ -771,8 +849,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			    /* Skip this much. */
 			    m = lpremul - m;
 			    for (t = premul; m > 0; ) {
-				t += MB_METACHARLENCONV(t, &cchar);
-				m -= WCPADWIDTH(cchar);
+				cl = MB_METACHARLENCONV(t, &cchar);
+				if (!cl)
+				    break;
+				t += cl;
+				m -= WCPADWIDTH(cchar, multi_width);
 			    }
 			    /* Output the rest. */
 			    while (*t)
@@ -783,9 +864,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			    MB_METACHARINIT();
 			    for (c = lpremul, t = premul; c > 0; ) {
 				cl = MB_METACHARLENCONV(t, &cchar);
+				if (!cl)
+				    break;
 				while (cl--)
 				    *r++ = *t++;
-				c -= WCPADWIDTH(cchar);
+				c -= WCPADWIDTH(cchar, multi_width);
 			    }
 			}
 		    }
@@ -798,7 +881,9 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		/* Output the first half width of the original string. */
 		for (c = ls2; c > 0; ) {
 		    cl = MB_METACHARLENCONV(str, &cchar);
-		    c -= WCPADWIDTH(cchar);
+		    if (!cl)
+			break;
+		    c -= WCPADWIDTH(cchar, multi_width);
 		    while (cl--)
 			*r++ = *str++;
 		}
@@ -812,7 +897,9 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		MB_METACHARINIT();
 		for (c = postnum; c > 0; ) {
 		    cl = MB_METACHARLENCONV(str, &cchar);
-		    c -= WCPADWIDTH(cchar);
+		    if (!cl)
+			break;
+		    c -= WCPADWIDTH(cchar, multi_width);
 		    while (cl--)
 			*r++ = *str++;
 		}
@@ -825,7 +912,9 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			/* Can't fit unrepeated string, truncate it */
 			for (c = f; c > 0; ) {
 			    cl = MB_METACHARLENCONV(postone, &cchar);
-			    c -= WCPADWIDTH(cchar);
+			    if (!cl)
+				break;
+			    c -= WCPADWIDTH(cchar, multi_width);
 			    while (cl--)
 				*r++ = *postone++;
 			}
@@ -848,7 +937,9 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			    MB_METACHARINIT();
 			    while (m > 0) {
 				cl = MB_METACHARLENCONV(postmul, &cchar);
-				m -= WCPADWIDTH(cchar);
+				if (!cl)
+				    break;
+				m -= WCPADWIDTH(cchar, multi_width);
 				while (cl--)
 				    *r++ = *postmul++;
 			    }
@@ -871,15 +962,20 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		f = -f;
 		MB_METACHARINIT();
 		while (f > 0) {
-		    str += MB_METACHARLENCONV(str, &cchar);
-		    f -= WCPADWIDTH(cchar);
+		    cl = MB_METACHARLENCONV(str, &cchar);
+		    if (!cl)
+			break;
+		    str += cl;
+		    f -= WCPADWIDTH(cchar, multi_width);
 		}
 		/* Copy the rest of the original string */
 		for (c = prenum; c > 0; ) {
 		    cl = MB_METACHARLENCONV(str, &cchar);
+		    if (!cl)
+			break;
 		    while (cl--)
 			*r++ = *str++;
-		    c -= WCPADWIDTH(cchar);
+		    c -= WCPADWIDTH(cchar, multi_width);
 		}
 	    } else {
 		/*
@@ -899,8 +995,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			f = lpreone - f;
 			MB_METACHARINIT();
 			for (t = preone; f > 0; ) {
-			    t += MB_METACHARLENCONV(t, &cchar);
-			    f -= WCPADWIDTH(cchar);
+			    cl = MB_METACHARLENCONV(t, &cchar);
+			    if (!cl)
+				break;
+			    t += cl;
+			    f -= WCPADWIDTH(cchar, multi_width);
 			}
 			/* Copy the rest of preone */
 			while (*t)
@@ -923,15 +1022,20 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			    m = lpremul - m;
 			    MB_METACHARINIT();
 			    for (t = premul; m > 0; ) {
-				t += MB_METACHARLENCONV(t, &cchar);
-				m -= WCPADWIDTH(cchar);
+				cl = MB_METACHARLENCONV(t, &cchar);
+				if (!cl)
+				    break;
+				t += cl;
+				m -= WCPADWIDTH(cchar, multi_width);
 			    }
 			    /* Now the rest of the repeated string. */
 			    while (c > 0) {
 				cl = MB_METACHARLENCONV(t, &cchar);
+				if (!cl)
+				    break;
 				while (cl--)
 				    *r++ = *t++;
-				c -= WCPADWIDTH(cchar);
+				c -= WCPADWIDTH(cchar, multi_width);
 			    }
 			}
 			for (cc = f / lpremul; cc--;) {
@@ -941,9 +1045,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			    MB_METACHARINIT();
 			    for (c = lpremul, t = premul; c > 0; ) {
 				cl = MB_METACHARLENCONV(t, &cchar);
+				if (!cl)
+				    break;
 				while (cl--)
 				    *r++ = *t++;
-				c -= WCPADWIDTH(cchar);
+				c -= WCPADWIDTH(cchar, multi_width);
 			    }
 			}
 		    }
@@ -979,9 +1085,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 	     */
 	    for (c = postnum; c > 0; ) {
 		cl = MB_METACHARLENCONV(str, &cchar);
+		if (!cl)
+		    break;
 		while (cl--)
 		    *r++ = *str++;
-		c -= WCPADWIDTH(cchar);
+		c -= WCPADWIDTH(cchar, multi_width);
 	    }
 	} else {
 	    /*
@@ -991,9 +1099,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 	     */
 	    for (c = ls; *str; ) {
 		cl = MB_METACHARLENCONV(str, &cchar);
+		if (!cl)
+		    break;
 		while (cl--)
 		    *r++ = *str++;
-		c -= WCPADWIDTH(cchar);
+		c -= WCPADWIDTH(cchar, multi_width);
 	    }
 	    MB_METACHARINIT();
 	    if (f <= lpostone) {
@@ -1004,9 +1114,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		     */
 		    for (c = f; c > 0; ) {
 			cl = MB_METACHARLENCONV(postone, &cchar);
+			if (!cl)
+			    break;
 			while (cl--)
 			    *r++ = *postone++;
-			c -= WCPADWIDTH(cchar);
+			c -= WCPADWIDTH(cchar, multi_width);
 		    }
 		}
 	    } else {
@@ -1015,9 +1127,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 		    /* Copy the entire unrepeated string */
 		    for (c = lpostone; *postone; ) {
 			cl = MB_METACHARLENCONV(postone, &cchar);
+			if (!cl)
+			    break;
 			while (cl--)
 			    *r++ = *postone++;
-			c -= WCPADWIDTH(cchar);
+			c -= WCPADWIDTH(cchar, multi_width);
 		    }
 		}
 		if (lpostmul) {
@@ -1026,9 +1140,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			MB_METACHARINIT();
 			for (c = lpostmul, t = postmul; *t; ) {
 			    cl = MB_METACHARLENCONV(t, &cchar);
+			    if (!cl)
+				break;
 			    while (cl--)
 				*r++ = *t++;
-			    c -= WCPADWIDTH(cchar);
+			    c -= WCPADWIDTH(cchar, multi_width);
 			}
 		    }
 		    /*
@@ -1039,9 +1155,11 @@ dopadding(char *str, int prenum, int postnum, char *preone, char *postone,
 			MB_METACHARINIT();
 			while (m > 0) {
 			    cl = MB_METACHARLENCONV(postmul, &cchar);
+			    if (!cl)
+				break;
 			    while (cl--)
 				*r++ = *postmul++;
-			    m -= WCPADWIDTH(cchar);
+			    m -= WCPADWIDTH(cchar, multi_width);
 			}
 		    }
 		}
@@ -1253,6 +1371,45 @@ untok_and_escape(char *s, int escapes, int tok_arg)
     return dst;
 }
 
+/*
+ * See if an argument str looks like a subscript or length following
+ * a colon and parse it.  It must be followed by a ':' or nothing.
+ * If this succeeds, expand and return the evaulated expression if
+ * found, else return NULL.
+ *
+ * We assume this is what is meant if the first character is not
+ * an alphabetic character or '&', which signify modifiers.
+ *
+ * Set *endp to point to the next character following.
+ */
+static char *
+check_colon_subscript(char *str, char **endp)
+{
+    int sav;
+
+    /* Could this be a modifier (or empty)? */
+    if (!*str || ialpha(*str) || *str == '&')
+	return NULL;
+
+    *endp = parse_subscript(str, 0, ':');
+    if (!*endp) {
+	/* No trailing colon? */
+	*endp = parse_subscript(str, 0, '\0');
+	if (!*endp)
+	    return NULL;
+    }
+    sav = **endp;
+    **endp = '\0';
+    if (parsestr(str = dupstring(str)))
+	return NULL;
+    singsub(&str);
+    remnulargs(str);
+    untokenize(str);
+
+    **endp = sav;
+    return str;
+}
+
 /* parameter substitution */
 
 #define	isstring(c) ((c) == '$' || (char)(c) == String || (char)(c) == Qstring)
@@ -1316,7 +1473,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     int plan9 = isset(RCEXPANDPARAM);
     /*
      * Likwise, but with ~ and ~~.  Also, we turn it off later
-     * on if qt is passed down.
+     * on if qt is passed down. The value can go to 2 if we
+     * use ~ to force this on.
      */
     int globsubst = isset(GLOBSUBST);
     /*
@@ -1388,14 +1546,18 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      */
     int quotemod = 0, quotetype = QT_NONE, quoteerr = 0;
     /*
-     * (V) flag: fairly straightforward, except that as with so
-     * many flags it's not easy to decide where to put it in the order.
+     * Various fairly straightforward modifications, except that as with so
+     * many flags it's not easy to decide where to put them in the order.
+     * bit 0: (D) flag.
+     * bit 1: (V) flag.
      */
-    int visiblemod = 0;
+    int mods = 0;
     /*
      * The (z) flag, nothing to do with SH_WORD_SPLIT which is tied
      * spbreak, see above; fairly straighforward in use but c.f.
-     * the comment for visiblemod.
+     * the comment for mods.
+     *
+     * This gets set to one of the LEXFLAGS_* values.
      */
     int shsplit = 0;
     /*
@@ -1443,7 +1605,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      */
     int aspar = 0;
     /*
-     * The (%) flag, c.f. visiblemod again.
+     * The (%) flag, c.f. mods again.
      */	
     int presc = 0;
     /*
@@ -1478,6 +1640,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * and the argument passing to fetchvalue has another kludge.
      */
     int subexp;
+    /*
+     * If we're referring to the positional parameters, then
+     * e.g ${*:1:1} refers to $1.
+     * This is for compatibility.
+     */
+    int horrible_offset_hack = 0;
 
     *s++ = '\0';
     /*
@@ -1514,7 +1682,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	 * doesn't have parameter flags it might be neater to
 	 * handle this with the ^, =, ~ stuff, below.
 	 */
-	if ((c = *s) == '!' && s[1] != Outbrace && emulation == EMULATE_KSH) {
+	if ((c = *s) == '!' && s[1] != Outbrace && EMULATION(EMULATE_KSH)) {
 	    hkeys = SCANPM_WANTKEYS;
 	    s++;
 	} else if (c == '(' || c == Inpar) {
@@ -1541,6 +1709,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		switch (c) {
 		case ')':
 		case Outpar:
+		    /* how can this happen? */
 		    break;
 		case '~':
 		case Tilde:
@@ -1606,12 +1775,25 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    indord = 1;
 		    break;
 
+		case 'D':
+		    mods |= 1;
+		    break;
 		case 'V':
-		    visiblemod++;
+		    mods |= 2;
 		    break;
 
 		case 'q':
-		    quotemod++, quotetype++;
+		    if (quotetype == QT_DOLLARS)
+			goto flagerr;
+		    if (s[1] == '-') {
+			if (quotemod)
+			    goto flagerr;
+			s++;
+			quotemod = 1;
+			quotetype = QT_SINGLE_OPTIONAL;
+		    } else {
+			quotemod++, quotetype++;
+		    }
 		    break;
 		case 'Q':
 		    quotemod--;
@@ -1729,7 +1911,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 
 		case 'm':
 #ifdef MULTIBYTE_SUPPORT
-		    multi_width = 1;
+		    multi_width++;
 #endif
 		    break;
 
@@ -1753,7 +1935,40 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    break;
 
 		case 'z':
-		    shsplit = 1;
+		    shsplit = LEXFLAGS_ACTIVE;
+		    break;
+
+		case 'Z':
+		    t = get_strarg(++s, &arglen);
+		    if (*t) {
+			sav = *t;
+			*t = 0;
+			while (*++s) {
+			    switch (*s) {
+			    case 'c':
+				/* Parse and keep comments */
+				shsplit |= LEXFLAGS_COMMENTS_KEEP;
+				break;
+
+			    case 'C':
+				/* Parse and remove comments */
+				shsplit |= LEXFLAGS_COMMENTS_STRIP;
+				break;
+
+			    case 'n':
+				/* Treat newlines as whitespace */
+				shsplit |= LEXFLAGS_NEWLINE;
+				break;
+
+			    default:
+				*t = sav;
+ 				goto flagerr;
+			    }
+			}
+			*t = sav;
+			s = t + arglen - 1;
+		    } else
+			goto flagerr;
 		    break;
 
 		case 'u':
@@ -1763,6 +1978,25 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		case '#':
 		case Pound:
 		    evalchar = 1;
+		    break;
+
+		case '_':
+		    t = get_strarg(++s, &arglen);
+		    if (*t) {
+			sav = *t;
+			*t = 0;
+			while (*++s) {
+			    /* Reserved for future use */
+			    switch (*s) {
+			    default:
+				*t = sav;
+				goto flagerr;
+			    }
+			}
+			*t = sav;
+			s = t + arglen - 1;
+		    } else
+			goto flagerr;
 		    break;
 
 		default:
@@ -1818,12 +2052,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	     * spsep, NULL means $IFS.
 	     */
 	} else if (c == '~' || c == Tilde) {
-	    /* GLOB_SUBST on or off (doubled) */
+	    /* GLOB_SUBST (forced) on or off (doubled) */
 	    if ((c = *++s) == '~' || c == Tilde) {
 		globsubst = 0;
 		s++;
 	    } else
-		globsubst = 1;
+		globsubst = 2;
 	} else if (c == '+') {
 	    /*
 	     * Return whether indicated parameter is set. 
@@ -1854,7 +2088,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    break;
     }
     /* Don't activate special pattern characters if inside quotes */
-    globsubst = globsubst && !qt;
+    if (qt)
+	globsubst = 0;
 
     /*
      * At this point, we usually expect a parameter name.
@@ -2108,6 +2343,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		val = getstrvalue(v);
 	    }
 	}
+	/* See if this is a reference to the positional parameters. */
+	if (v && v->pm && v->pm->gsu.a == &vararray_gsu &&
+	    (char ***)v->pm->u.data == &pparams)
+	    horrible_offset_hack = 1;
+	else
+	    horrible_offset_hack = 0;
 	/*
 	 * Finished with the original parameter and its indices;
 	 * carry on looping to see if we need to do more indexing.
@@ -2303,6 +2544,11 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	if (!(flags & (SUB_MATCH|SUB_REST|SUB_BIND|SUB_EIND|SUB_LEN)))
 	    flags |= SUB_REST;
 
+	/*
+	 * With ":" treat a value as unset if the variable is set but
+	 * - (array) contains no elements
+	 * - (scalar) contains an empty string
+	 */
 	if (colf && !vunset)
 	    vunset = (isarr) ? !*aval : !*val || (*val == Nularg && !val[1]);
 
@@ -2332,6 +2578,9 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		opts[SHWORDSPLIT] = ws;
 		copied = 1;
 		spbreak = 0;
+		/* Leave globsubst on if forced */
+		if (globsubst != 2)
+		    globsubst = 0;
 	    }
 	    break;
 	case ':':
@@ -2505,8 +2754,14 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		}
 		getmatcharr(&aval, s, flags, flnum, replstr);
 	    } else {
-		if (vunset)
+		if (vunset) {
+		    if (unset(UNSET)) {
+			*idend = '\0';
+			zerr("%s: parameter not set", idbeg);
+			return NULL;
+		    }
 		    val = dupstring("");
+		}
 		if (!copied) {
 		    val = dupstring(val);
 		    copied = 1;
@@ -2532,6 +2787,116 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		return NULL;
 	    }
 	    val = dupstring("");
+	}
+	if (colf && inbrace) {
+	    /*
+	     * Look for ${PARAM:OFFSET} or ${PARAM:OFFSET:LENGTH}.
+	     * This must appear before modifiers.  For compatibility
+	     * with bash we perform both standard string substitutions
+	     * and math eval.
+	     */
+	    char *check_offset2;
+	    char *check_offset = check_colon_subscript(s, &check_offset2);
+	    if (check_offset) {
+		zlong offset = mathevali(check_offset);
+		zlong length = (zlong)-1;
+		int offset_hack_argzero = 0;
+		if (errflag)
+		    return NULL;
+		if ((*check_offset2 && *check_offset2 != ':')) {
+		    zerr("invalid subscript: %s", check_offset);
+		    return NULL;
+		}
+		if (*check_offset2) {
+		    check_offset = check_colon_subscript(check_offset2 + 1,
+							 &check_offset2);
+		    if (*check_offset2 && *check_offset2 != ':') {
+			zerr("invalid length: %s", check_offset);
+			return NULL;
+		    }
+		    length = mathevali(check_offset);
+		    if (errflag)
+			return NULL;
+		    if (length < (zlong)0) {
+			zerr("invalid length: %s", check_offset);
+			return NULL;
+		    }
+		}
+		if (horrible_offset_hack) {
+		    /*
+		     * As part of the 'orrible hoffset 'ack,
+		     * (what hare you? Han 'orrible hoffset 'ack,
+		     * sergeant major), if we are given a ksh/bash/POSIX
+		     * style positional parameter array which includes
+		     * offset 0, we use $0.
+		     */
+		    if (offset == 0 && isarr) {
+			offset_hack_argzero = 1;
+		    } else if (offset > 0) {
+			offset--;
+		    }
+		}
+		if (isarr) {
+		    int alen = arrlen(aval), count;
+		    char **srcptr, **dstptr, **newarr;
+
+		    if (offset < 0) {
+			offset += alen;
+			if (offset < 0)
+			    offset = 0;
+		    }
+		    if (offset_hack_argzero)
+			alen++;
+		    if (length < 0)
+		      length = alen;
+		    if (offset > alen)
+			offset = alen;
+		    if (offset + length > alen)
+			length = alen - offset;
+		    count = length;
+		    srcptr = aval + offset;
+		    newarr = dstptr = (char **)
+			zhalloc((length+1)*sizeof(char *));
+		    if (count && offset_hack_argzero) {
+			*dstptr++ = dupstring(argzero);
+			count--;
+		    }
+		    while (count--)
+			*dstptr++ = dupstring(*srcptr++);
+		    *dstptr = (char *)NULL;
+		    aval = newarr;
+		} else {
+		    char *sptr, *eptr;
+		    if (offset < 0) {
+			MB_METACHARINIT();
+			for (sptr = val; *sptr; ) {
+			    sptr += MB_METACHARLEN(sptr);
+			    offset++;
+			}
+			if (offset < 0)
+			    offset = 0;
+		    }
+		    MB_METACHARINIT();
+		    for (sptr = val; *sptr && offset; ) {
+			sptr += MB_METACHARLEN(sptr);
+			offset--;
+		    }
+		    if (length >= 0) {
+			for (eptr = sptr; *eptr && length; ) {
+			    eptr += MB_METACHARLEN(eptr);
+			    length--;
+			}
+			val = dupstrpfx(sptr, eptr - sptr);
+		    } else {
+			val = dupstring(sptr);
+		    }
+		}
+		if (!*check_offset2) {
+		    colf = 0;
+		} else {
+		    s = check_offset2 + 1;
+		}
+	    }
 	}
 	if (colf) {
 	    /*
@@ -2714,7 +3079,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      */
     if (presc) {
 	int ops = opts[PROMPTSUBST], opb = opts[PROMPTBANG];
-	int opp = opts[PROMPTPERCENT], len;
+	int opp = opts[PROMPTPERCENT];
 
 	if (presc < 2) {
 	    opts[PROMPTPERCENT] = 1;
@@ -2736,10 +3101,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    ap = aval;
 	    for (; *ap; ap++) {
 		char *tmps;
-		unmetafy(*ap, &len);
 		untokenize(*ap);
-		tmps = promptexpand(metafy(*ap, len, META_NOALLOC),
-				    0, NULL, NULL, NULL);
+		tmps = promptexpand(*ap, 0, NULL, NULL, NULL);
 		*ap = dupstring(tmps);
 		free(tmps);
 	    }
@@ -2747,10 +3110,8 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	    char *tmps;
 	    if (!copied)
 		val = dupstring(val), copied = 1;
-	    unmetafy(val, &len);
 	    untokenize(val);
-	    tmps = promptexpand(metafy(val, len, META_NOALLOC),
-					0, NULL, NULL, NULL);
+	    tmps = promptexpand(val, 0, NULL, NULL, NULL);
 	    val = dupstring(tmps);
 	    free(tmps);
 	}
@@ -2763,8 +3124,26 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
      * the repetitions of the (q) flag.
      */
     if (quotemod) {
-	if (quotetype > QT_DOLLARS)
-	    quotetype = QT_DOLLARS;
+	int pre = 0, post = 0;
+
+	if (quotemod > 0 && quotetype > QT_BACKSLASH) {
+	    switch (quotetype)
+	    {
+	    case QT_DOLLARS:
+		/* space for "$" */
+		pre = 2;
+		post = 1;
+		break;
+
+	    case QT_SINGLE_OPTIONAL:
+		/* quotes will be added for us */
+		break;
+
+	    default:
+		pre = post = 1;
+		break;
+	    }
+	}
 	if (isarr) {
 	    char **ap;
 
@@ -2778,20 +3157,20 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		    char *tmp;
 
 		    for (; *ap; ap++) {
-			int pre = quotetype != QT_DOLLARS ? 1 : 2;
 			tmp = quotestring(*ap, NULL, quotetype);
 			sl = strlen(tmp);
-			*ap = (char *) zhalloc(pre + sl + 2);
+			*ap = (char *) zhalloc(pre + sl + post + 1);
 			strcpy((*ap) + pre, tmp);
-			ap[0][pre - 1] = ap[0][pre + sl] =
-			    (quotetype != QT_DOUBLE ? '\'' : '"');
+			if (pre)
+			    ap[0][pre - 1] = ap[0][pre + sl] =
+				(quotetype != QT_DOUBLE ? '\'' : '"');
 			ap[0][pre + sl + 1] = '\0';
 			if (quotetype == QT_DOLLARS)
 			  ap[0][0] = '$';
 		    }
 		} else
 		    for (; *ap; ap++)
-			*ap = quotestring(*ap, NULL, QT_BACKSLASH);
+			*ap = quotestring(*ap, NULL, QT_BACKSLASH_SHOWNULL);
 	    } else {
 		int one = noerrs, oef = errflag, haserr = 0;
 
@@ -2815,20 +3194,20 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 		val = dupstring(val), copied = 1;
 	    if (quotemod > 0) {
 		if (quotetype > QT_BACKSLASH) {
-		    int pre = quotetype != QT_DOLLARS ? 1 : 2;
 		    int sl;
 		    char *tmp;
 		    tmp = quotestring(val, NULL, quotetype);
 		    sl = strlen(tmp);
 		    val = (char *) zhalloc(pre + sl + 2);
 		    strcpy(val + pre, tmp);
-		    val[pre - 1] = val[pre + sl] =
-			(quotetype != QT_DOUBLE ? '\'' : '"');
+		    if (pre)
+			val[pre - 1] = val[pre + sl] =
+			    (quotetype != QT_DOUBLE ? '\'' : '"');
 		    val[pre + sl + 1] = '\0';
 		    if (quotetype == QT_DOLLARS)
 		      val[0] = '$';
 		} else
-		    val = quotestring(val, NULL, QT_BACKSLASH);
+		    val = quotestring(val, NULL, QT_BACKSLASH_SHOWNULL);
 	    } else {
 		int one = noerrs, oef = errflag, haserr;
 
@@ -2849,19 +3228,26 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
     }
     /*
      * Transform special characters in the string to make them
-     * printable.
+     * printable, or to show directories, or possibly even both.
      */
-    if (visiblemod) {
+    if (mods) {
 	if (isarr) {
 	    char **ap;
 	    if (!copied)
 		aval = arrdup(aval), copied = 1;
-	    for (ap = aval; *ap; ap++)
-		*ap = nicedupstring(*ap);
+	    for (ap = aval; *ap; ap++) {
+		if (mods & 1)
+		    *ap = substnamedir(*ap);
+		if (mods & 2)
+		    *ap = nicedupstring(*ap);
+	    }
 	} else {
 	    if (!copied)
 		val = dupstring(val), copied = 1;
-	    val = nicedupstring(val);
+	    if (mods & 1)
+		val = substnamedir(val);
+	    if (mods & 2)
+		val = nicedupstring(val);
 	}
     }
     /*
@@ -2875,10 +3261,10 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int ssub)
 	if (isarr) {
 	    char **ap;
 	    for (ap = aval; *ap; ap++)
-		list = bufferwords(list, *ap, NULL);
+		list = bufferwords(list, *ap, NULL, shsplit);
 	    isarr = 0;
 	} else
-	    list = bufferwords(NULL, val, NULL);
+	    list = bufferwords(NULL, val, NULL, shsplit);
 
 	if (!list || !firstnode(list))
 	    val = dupstring("");
@@ -3183,6 +3569,9 @@ modify(char **str, char **ptr)
 
 	for (; !c && **ptr;) {
 	    switch (**ptr) {
+            case 'a':
+            case 'A':
+	    case 'c':
 	    case 'h':
 	    case 'r':
 	    case 'e':
@@ -3207,6 +3596,13 @@ modify(char **str, char **ptr)
 		ptr1 += charlen;
 		for (ptr2 = ptr1, charlen = 0; *ptr2; ptr2 += charlen) {
 		    convchar_t del2;
+		    if ((*ptr2 == Bnull || *ptr2 == '\\') && ptr2[1]) {
+			/* in double quotes, the backslash isn't tokenized */
+			if (*ptr2 == '\\')
+			    *ptr2 = Bnull;
+			charlen = 2;
+			continue;
+		    }
 		    charlen = MB_METACHARLENCONV(ptr2, &del2);
 #ifdef MULTIBYTE_SUPPORT
 		    if (del2 == WEOF)
@@ -3226,6 +3622,13 @@ modify(char **str, char **ptr)
 		*ptr1end = '\0';
 		for (ptr3 = ptr2, charlen = 0; *ptr3; ptr3 += charlen) {
 		    convchar_t del3;
+		    if ((*ptr3 == Bnull || *ptr3 == '\\') && ptr3[1]) {
+			/* in double quotes, the backslash isn't tokenized */
+			if (*ptr3 == '\\')
+			    *ptr3 = Bnull;
+			charlen = 2;
+			continue;
+		    }
 		    charlen = MB_METACHARLENCONV(ptr3, &del3);
 #ifdef MULTIBYTE_SUPPORT
 		    if (del3 == WEOF)
@@ -3251,9 +3654,20 @@ modify(char **str, char **ptr)
 			chuck(tt--);
 		if (!isset(HISTSUBSTPATTERN))
 		    untokenize(hsubl);
-		for (tt = hsubr = ztrdup(ptr2); *tt; tt++)
-		    if (inull(*tt) && *tt != Bnullkeep)
-			chuck(tt--);
+		for (tt = hsubr = ztrdup(ptr2); *tt; tt++) {
+		    if (inull(*tt) && *tt != Bnullkeep) {
+			if (*tt == Bnull && (tt[1] == '&' || tt[1] == '\\')) {
+			    /*
+			     * The substitution will treat \& and \\
+			     * specially.  We need to leave real \'s
+			     * as the first character for this to work.
+			     */
+			    *tt = '\\';
+			} else {
+			    chuck(tt--);
+			}
+		    }
+		}
 		*ptr1end = sav1;
 		*ptr3 = sav;
 		*ptr = ptr3 - 1;
@@ -3321,6 +3735,19 @@ modify(char **str, char **ptr)
 			copy = dupstring(tt);
 		    *e = tc;
 		    switch (c) {
+                    case 'a':
+			chabspath(&copy);
+			break;
+		    case 'A':
+			chrealpath(&copy);
+			break;
+		    case 'c':
+		    {
+			char *copy2 = equalsubstr(copy, 0, 0);
+			if (copy2)
+			    copy = copy2;
+			break;
+		    }
 		    case 'h':
 			remtpath(&copy);
 			break;
@@ -3344,7 +3771,7 @@ modify(char **str, char **ptr)
 			    subst(&copy, hsubl, hsubr, gbal);
 			break;
 		    case 'q':
-			copy = quotestring(copy, NULL, QT_BACKSLASH);
+			copy = quotestring(copy, NULL, QT_BACKSLASH_SHOWNULL);
 			break;
 		    case 'Q':
 			{
@@ -3380,6 +3807,19 @@ modify(char **str, char **ptr)
 
 	    } else {
 		switch (c) {
+		case 'a':
+		    chabspath(str);
+		    break;
+		case 'A':
+		    chrealpath(str);
+		    break;
+		case 'c':
+		{
+		    char *copy2 = equalsubstr(*str, 0, 0);
+		    if (copy2)
+			*str = copy2;
+		    break;
+		}
 		case 'h':
 		    remtpath(str);
 		    break;

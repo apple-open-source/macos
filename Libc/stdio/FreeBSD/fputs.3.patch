@@ -1,6 +1,6 @@
---- fputs.3	2003-05-20 15:22:42.000000000 -0700
-+++ fputs.3.edit	2006-07-13 09:28:07.000000000 -0700
-@@ -48,14 +48,19 @@
+--- fputs.3.bsdnew	2009-11-11 13:33:07.000000000 -0800
++++ fputs.3	2009-11-11 13:33:08.000000000 -0800
+@@ -44,14 +44,19 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft int
@@ -23,7 +23,7 @@
  to the stream pointed to by
  .Fa stream .
  .\" The terminating
-@@ -65,7 +70,7 @@
+@@ -61,7 +66,7 @@ to the stream pointed to by
  The function
  .Fn puts
  writes the string
@@ -32,7 +32,7 @@
  and a terminating newline character,
  to the stream
  .Dv stdout .
-@@ -97,6 +102,14 @@
+@@ -90,6 +95,14 @@ may also fail and set
  .Va errno
  for any of the errors specified for the routines
  .Xr write 2 .
@@ -47,7 +47,7 @@
  .Sh SEE ALSO
  .Xr ferror 3 ,
  .Xr fputws 3 ,
-@@ -109,3 +122,13 @@
+@@ -102,3 +115,13 @@ and
  .Fn puts
  conform to
  .St -isoC .

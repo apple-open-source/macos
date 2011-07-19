@@ -1,0 +1,356 @@
+Contents
+
+
+ 1. POP3 (IMAP) before SMTP
+
+     1. Are you sure you want this?
+
+         1. Problems with POP-before-SMTP
+
+         2. Advantages of POP-before-SMTP over SMTP AUTH
+
+ 2. Pop-before-smtp.pl
+
+ 3. DRAC
+
+ 4. SQL
+
+     1. Example for postgresql, postfix
+
+     2. Example for MySQL, postfix
+
+ 5. relay-ctrl
+
+POP3 (IMAP) before SMTP
+=======================
+
+/sometimes also called SMTP-after-POP3 or SMTP-after-IMAP/
+
+Are you sure you want this?
+---------------------------
+
+POP-before-SMTP is generally considered a kludge, originally invented to make
+up for the lack of authentication in the original SMTP
+[http://en.wikipedia.org/wiki/Smtp] specification for clients on dynamic IP
+addresses.ESMTP [http://en.wikipedia.org/wiki/Extended_SMTP] resolved that
+shortcoming long ago, and all modern mail clients and servers support it by
+now. You should consider implementing ESMTP AUTH
+[http://en.wikipedia.org/wiki/SMTP-AUTH] in your mail transport/submission
+agent, and using it in your clients, rather than using POP-before-SMTP. See
+also <PostfixAndDovecotSASL.txt> or <EximAndDovecotSASL.txt>.
+
+Problems with POP-before-SMTP
+-----------------------------
+
+ * *Shared IP addresses* are in widespread use. You are opening your server not
+   only to your user, but to anyone else who might be sharing the same IP
+   address, other users, other computers in the same NAT. If you lose the
+   connection, the next one who is assigned your IP also inherits your relay
+   permit. This might include virus-infected spambot machines. Or consider a
+   public wireless hotspot or an Internet cafe: both types of establishments
+   are known to be frequented by spammers.
+ * *Not properly implemented* in all mail clients: it only works right if the
+   client checks for new mail immediately before attempting to send. And it can
+   be very unsafe if longer timeouts are used, such that the user has time to
+   write an email.
+ * Probably others. <I> [RobMcGee.txt] ( <Rob McGee> [RobMcGee.txt]) just
+   thought it was wrong to have a HOWTO page here without a warning about why
+   /not/ to. Know what you are doing. If you are setting up a new mail service
+   from scratch, by all means, do it right!
+
+Advantages of POP-before-SMTP over SMTP AUTH
+--------------------------------------------
+
+ * Likely to be relatively easier to implement in your mail submission agent.
+   What's easier is a matter of opinion, and it varies, of course, but probably
+   all MTA/MSA servers support some form of access lists without patching or
+   recompiling.
+ * Simple non-technical instructions for users: /"Remember to check for new
+   mail before you try to send mail."/
+
+Pop-before-smtp.pl
+==================
+
+If you want to use pop-before-smtp.pl (from http://popbsmtp.sourceforge.net/)
+together with Dovecot, you can use this regular expression to match successful
+POP3 and IMAP logins:
+
+---%<-------------------------------------------------------------------------
+$pat = '^(... .. ..:..:..) \S+ (?:pop3|imap)-login: Login: .+
+\[(\d+\.\d+\.\d+\.\d+)\]';
+---%<-------------------------------------------------------------------------
+
+v1.0RC2 seems to need this format to work properly:
+
+---%<-------------------------------------------------------------------------
+$pat = '^dovecot: (... .. ..:..:..) \S+ (?:pop3|imap)-login: Login: \S+ \S+ \S+
+lip=(\d+\.\d+\.\d+\.\d+)';
+---%<-------------------------------------------------------------------------
+
+Note: This only works with IPv4, anyone who wants to fix it for IPv6, please do
+so:)
+
+worked for me on Fedora: <drak at navel.gr>
+
+---%<-------------------------------------------------------------------------
+$pat = '(?:pop3|imap)-login: (... .. ..:..:..) Info: Login: \S+
+\[(\d+\.\d+\.\d+\.\d+)\]';
+---%<-------------------------------------------------------------------------
+
+With v1.0 Alpha 4, the following pattern works:
+
+---%<-------------------------------------------------------------------------
+$pat = '^(... .. ..:..:..) \S+ (?:dovecot: )?(?:imap|pop3)-login: Login: \S+
+\S+ rip=(\d+\.\d+\.\d+\.\d+)'
+---%<-------------------------------------------------------------------------
+
+This works with RHEL 4.3 (at least until IPv6 really catches):
+
+---%<-------------------------------------------------------------------------
+$pat = '(?:pop3|imap)-login: (... .. ..:..:..) Info: Login: \S+
+\[::ffff:(\d+\.\d+\.\d+\.\d+)\]';
+---%<-------------------------------------------------------------------------
+
+DRAC
+====
+
+There is a Dovecot plugin for DRAC [http://mail.cc.umanitoba.ca/drac/] at
+drac.c [http://www.dovecot.org/patches/1.1/drac.c]. DRAC runs as a separate
+daemon, maintaining a BerkeleyDB database of IPs that have successfully
+authenticated via POP3 or IMAP, expiring them after 30 minutes. Installing it
+therefore requires that both your POP3/IMAP server and your SMTP daemon
+(Postfix/Sendmail/qmail) be set up to support it. DRAC is a small C program,
+and accessing BerkeleyDB databases is efficient so it works pretty well.
+
+The file drac.c has instructions on how to compile it in a comment at the top.
+By following the instructions you will install a file drac.so in your dovecot
+'lib/' directories for IMAP and/or POP3 loadable modules.
+
+To turn on the new DRAC plugin in dovecot, you must set up these lines in your
+dovecot.conf. There is a separate section for ''protocol imap'' and another
+under ''protocol pop3''; make sure you enable both.
+
+---%<-------------------------------------------------------------------------
+  # Support for dynamically loadable modules
+  mail_plugin_dir = /usr/lib/dovecot/imap
+  mail_plugins = drac                            # provide a list of all
+plugins you want to load here
+---%<-------------------------------------------------------------------------
+
+Permissions note: the directory containing the drac.so file has to be readable
+by ordinary users. Check your Dovecot error log for help.
+
+To get DRAC working on your machine, download the main DRAC
+[http://mail.cc.umanitoba.ca/drac/] daemon, edit the makefile as directed in
+the instructions, and make and install it.  You will also want to ensure that
+you register the rpcs by executing rpcgen.  See the Makefile for more details.
+
+SQL
+===
+
+Advantage: you do not have a multi-megabyte Perl daemon reading your logs
+
+Disadvantage: for each login you need the time and space to execute this script
+
+ 1. tell your MTA to look up IPs authorized to relay in an SQL table
+ 2. delete old IPs from the table regularly (cron job for example, or a
+    modification to the script below)
+ 3. tell dovecot to update the SQL table upon successful login
+
+Dovecot 1.0 (and probably 0.99) can update a SQL table with the script below.
+
+/!\ *Note* that *you* must set up a script that deletes old IPs separately, and
+*you* also must configure your MTA properly. The script *only* performs the
+'update on successful login' step, which alone is insecure without expiring
+older IPs!/Add your working examples to this section. This Wiki depends on your
+help!/
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+# This script created 2005-08-21 by Lorens Kockum
+# Released into the Public Domain
+# Changes:
+# 2006-06-06 Matthias Andree
+#  - changed $* to "$@" for more robust argument quoting
+# Action: when called by dovecot 1.0 as described below, updates an SQL table
+# with logged-in IP and current time, and then executes the relevant process.
+# Output: normally nothing
+# dovecot.conf should be modified with these lines (where
+# /usr/lib/dovecot/popbsmtp.sh represents this script):
+# protocol pop3 {
+#   mail_executable = /usr/lib/dovecot/popbsmtp.sh /usr/lib/dovecot/pop3
+# }
+# protocol imap {
+#   mail_executable = /usr/lib/dovecot/popbsmtp.sh /usr/lib/dovecot/imap
+# }
+# The HOME= lines are necessary to find $HOME/.my.cnf containing login info,
+# because mail_executable is executed as root, but without a home directory.
+# Of course this script must not be writable by anyone else than root.
+(
+    # drop out IPs from local networks that can relay anyway
+    IP=`echo $IP | grep -v '^192\.168\.'`
+    if [ -n "$IP" ]
+    then
+        export HOME=/root/
+        echo "replace into popbsmtp VALUES('$IP',now());" | mysql mail
+        export HOME=/
+    fi
+) >> /var/log/dovecot3 2>&1
+exec "$@"
+---%<-------------------------------------------------------------------------
+
+Example for postgresql, postfix
+-------------------------------
+
+/usr/lib/dovecot/popbsmtp.sh
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+(
+    if [ -n "$IP" ]
+    then
+        /usr/bin/psql -U popbsmtp -d popbsmtp -c "begin;update auth set
+accessed=now() where host=substring('$IP' from 8);commit;insert into auth(host,
+accessed) values(substring('$IP' from 8),now());"
+    fi
+
+) >> /var/log/dovecot3 2>&1
+exec "$@"
+---%<-------------------------------------------------------------------------
+
+The substring call was necessary because $IP has '::ffff:' or something like
+that in front of the IP address on my system. The update followed by an insert,
+with the update in a transaction is necessary to replicate mysql's REPLACE INTO
+functionality. The INSERT will produce an error if the IP already exists but it
+doesn't matter as the UPDATE will have committed by then.
+
+/etc/postfix/main.cf
+
+---%<-------------------------------------------------------------------------
+smtpd_recipient_restrictions =
+  permit_mynetworks
+  permit_sasl_authenticated
+  permit_tls_clientcerts
+  check_client_access pgsql:/etc/postfix/popbsmtp.cf
+  reject_unauth_destination
+  check_policy_service unix:private/policy
+---%<-------------------------------------------------------------------------
+
+/etc/postfix/popbsmtp.cf
+
+---%<-------------------------------------------------------------------------
+hosts = localhost
+user = username
+password = secret
+dbname = popbsmtp
+query = SELECT 'OK' as result FROM auth WHERE host = '%s'
+---%<-------------------------------------------------------------------------
+
+/etc/cron.hourly/popbsmtp_purge
+
+---%<-------------------------------------------------------------------------
+#!/bin/bash
+/usr/bin/psql -U popbsmtp -d popbsmtp -c "DELETE FROM auth WHERE (now() -
+accessed)  > '30 minutes'::interval"
+---%<-------------------------------------------------------------------------
+
+Example for MySQL, postfix
+--------------------------
+
+Note that you can use this even if pop/imap and smtp are not on the same host
+as it is the case in my setup.
+
+First you have to create a table (in this example named "popbsmtp") with 2
+fields:
+
+ * address (varchar 39, primary)
+ * last_seen (datetime)
+
+varchar size 39 is for IPv6 addresses.You should definitely consider adding
+IPv6 support to your popbsmtp solution because postfix and dovecot do well with
+IPv6.
+
+/!\ *address field* must be *primary* for "REPLACE into" to work.
+
+/opt/dovecot-popbsmtp.sh
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+(
+        if [ -n "$IP" ]
+        then
+                echo "REPLACE INTO virtual_mail.popbsmtp (address,last_seen)
+VALUES ('$IP', NOW( ))" \
+                | mysql -u user -p secret -h host > /dev/null 2>&1
+        fi
+)
+exec "$@"
+---%<-------------------------------------------------------------------------
+
+mail_executable in dovecot.conf looks something like this:
+
+---%<-------------------------------------------------------------------------
+mail_executable = /opt/dovecot-popbsmtp.sh /usr/libexec/dovecot/imap
+---%<-------------------------------------------------------------------------
+
+postfix map (/etc/postfix/mysql_popbsmtp_access_maps.cf):
+
+---%<-------------------------------------------------------------------------
+hosts = mysqlhost
+user = user
+password = secret
+dbname = virtual_mail
+query = SELECT 'OK' FROM popbsmtp WHERE last_seen >= DATE_SUB(NOW(),INTERVAL 30
+MINUTE) AND address = '%s'
+---%<-------------------------------------------------------------------------
+
+In postfix main.cf add the following access map to your recipient restrictions
+(/!\  *before* "reject_unauth_destination"):
+
+---%<-------------------------------------------------------------------------
+check_client_access mysql:$config_directory/mysql_popbsmtp_access_maps.cf
+---%<-------------------------------------------------------------------------
+
+The 30 minute relay access period is handled by the INTERVAL in DATE_SUB. So
+it's safe anyway, but you should definitely run a cron job daily that deletes
+older records. That's to keep the table clean and speed up lookups. You might
+also need to run "OPTIMIZE TABLE" via the cron job to free up allocated space.
+
+relay-ctrl
+==========
+
+relay-ctrl [http://untroubled.org/relay-ctrl/] consists of a few small programs
+designed to fit in qmail-like command chains. The most important:
+
+ * 'relay-ctrl-allow' runs after a successful POP/IMAP login, recording the
+   client IP and timestamp
+ * 'relay-ctrl-check' runs before the SMTP server, enabling relaying if the
+   client IP has authenticated recently
+
+'relay-ctrl-allow' expects to find the client IP in the environment as
+'$TCPREMOTEIP'. Dovecot provides it as '$IP', so you'll need this tiny
+'dovecot-settcpremoteip' wrapper script:
+
+---%<-------------------------------------------------------------------------
+#!/bin/sh
+#
+# Wrapper for relay-ctrl-allow that sets TCPREMOTEIP.
+TCPREMOTEIP="${IP}"; export TCPREMOTEIP
+exec "$@"
+---%<-------------------------------------------------------------------------
+
+Edit 'dovecot.conf' and set 'mail_executable' appropriately, e.g., for IMAP
+(this is one long line):
+
+---%<-------------------------------------------------------------------------
+mail_executable = /usr/local/bin/envdir /etc/relay-ctrl
+/usr/local/bin/relay-ctrl-chdir /usr/local/bin/dovecot-settcpremoteip
+/usr/local/bin/relay-ctrl-allow /usr/local/libexec/dovecot/imap
+Dove
+---%<-------------------------------------------------------------------------
+
+Restart Dovecot. Verify that your IMAP client still works. Verify that
+relay-ctrl has recorded your client IP. Hook 'relay-ctrl-check' into your SMTP
+service, as documented in the relay-ctrl README, and you're done.
+
+(This file was created from the wiki on 2011-05-11 04:42)

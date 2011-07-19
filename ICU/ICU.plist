@@ -4,19 +4,17 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008/07/11</string>
+		<string>2011-03-13</string>
 		<key>OpenSourceLicense</key>
 		<string>other</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>ICU.html</string>
 		<key>OpenSourceProject</key>
 		<string>International Components for Unicode</string>
-		<key>OpenSourceSHA1</key>
-		<string>7485e594002bef61c28822c3c2bfe722f35fdf4b</string>
 		<key>OpenSourceURL</key>
-		<string>http://download.icu-project.org/files/icu4c/4.0/icu4c-4_0-src.tgz</string>
+		<string>http://source.icu-project.org/repos/icu/icu/tags/release-4-6-1/</string>
 		<key>OpenSourceVersion</key>
-		<string>4.0</string>
+		<string>4.6.1</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.icu-project.org/</string>
 	</dict>

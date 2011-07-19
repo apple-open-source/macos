@@ -29,12 +29,11 @@
 #ifndef CompositeAnimation_h
 #define CompositeAnimation_h
 
-#include "AtomicString.h"
-
 #include "ImplicitAnimation.h"
 #include "KeyframeAnimation.h"
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -42,6 +41,7 @@ class AnimationControllerPrivate;
 class AnimationController;
 class RenderObject;
 class RenderStyle;
+class WebKitAnimationList;
 
 // A CompositeAnimation represents a collection of animations that are running
 // on a single RenderObject, such as a number of properties transitioning at once.
@@ -65,13 +65,13 @@ public:
 
     void suspendAnimations();
     void resumeAnimations();
-    bool isSuspended() const { return m_isSuspended; }
+    bool suspended() const { return m_suspended; }
     
     bool hasAnimations() const  { return !m_transitions.isEmpty() || !m_keyframeAnimations.isEmpty(); }
 
     void setAnimating(bool);
-    bool isAnimatingProperty(int property, bool isRunningNow) const;
-    
+    bool isAnimatingProperty(int property, bool acceleratedOnly, bool isRunningNow) const;
+
     PassRefPtr<KeyframeAnimation> getAnimationForProperty(int property) const;
 
     void overrideImplicitAnimations(int property);
@@ -81,11 +81,13 @@ public:
     bool pauseTransitionAtTime(int property, double t);
     unsigned numberOfActiveAnimations() const;
 
+    PassRefPtr<WebKitAnimationList> animations() const;
+
 private:
     CompositeAnimation(AnimationControllerPrivate* animationController)
         : m_animationController(animationController)
         , m_numStyleAvailableWaiters(0)
-        , m_isSuspended(false)
+        , m_suspended(false)
     {
     }
 
@@ -100,7 +102,7 @@ private:
     AnimationNameMap m_keyframeAnimations;
     Vector<AtomicStringImpl*> m_keyframeAnimationOrderMap;
     unsigned m_numStyleAvailableWaiters;
-    bool m_isSuspended;
+    bool m_suspended;
 };
 
 } // namespace WebCore

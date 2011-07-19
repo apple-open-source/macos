@@ -58,3 +58,13 @@ routine txStart(agentPort: mach_port_t;
     sreplyport clientReplyPort: mach_port_make_send_once_t);
     
 simpleroutine txEnd(agentPort: mach_port_t);
+
+//
+// client check-in
+//
+simpleroutine contact(requestport agentPort: mach_port_t;
+    clientPort: mach_port_make_send_t;
+    serveraudittoken sourceAudit: audit_token_t; 
+    jobPort: mach_port_move_send_t;
+    processBootstrap: mach_port_t;
+    userPrefs: mach_port_t);

@@ -1,0 +1,11 @@
+--- hash_log2.c.orig	2009-11-06 14:27:02.000000000 -0800
++++ hash_log2.c	2009-11-06 14:27:42.000000000 -0800
+@@ -39,7 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ u_int32_t
+ __log2(u_int32_t num)

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  byrefcopyid.m
 //  testObjects
@@ -6,21 +12,19 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
-// NON-GC ONLY
 // Tests copying of blocks with byref ints and an id
-// CONFIG RR
+// TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
-
 #import <Block.h>
 #import <Block_private.h>
-
-
+#import "test.h"
 
 
 int CalledRetain = 0;
 int CalledRelease = 0;
 int CalledSelf = 0;
+int CalledDealloc = 0;
 
 
 @interface DumbObject : NSObject {
@@ -40,6 +44,12 @@ int CalledSelf = 0;
     CalledSelf = 1;
     return self;
 }
+
+- (void)dealloc {
+    CalledDealloc = 1;
+    [super dealloc];
+}
+
 @end
 
 
@@ -63,26 +73,21 @@ id testRoutine(const char *whoami) {
     
     callVoidVoid(copy);
     if (CalledSelf == 0) {
-        printf("%s: **** copy helper of byref id didn't call self\n", whoami);
-        exit(1);
+        fail("copy helper of byref id didn't call self", whoami);
     }
 
     return copy;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc __unused, char *argv[]) {
     id copy = testRoutine(argv[0]);
     Block_release(copy);
     if (CalledRetain != 0) {
-        printf("%s: **** copy helper of byref retained the id\n", argv[0]);
-        return 1;
+        fail("copy helper of byref retained the id");
     }
     if (CalledRelease != 0) {
-        printf("%s: **** copy helper of byref id did release the id\n", argv[0]);
-        return 1;
+        fail("copy helper of byref id did release the id");
     }
     
-    
-    printf("%s: success\n", argv[0]);
-    return 0;
+    succeed(__FILE__);
 }

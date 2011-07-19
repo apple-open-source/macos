@@ -1,6 +1,6 @@
---- lockf.3	2004-11-25 11:38:01.000000000 -0800
-+++ lockf.3.edit	2006-07-15 14:04:01.000000000 -0700
-@@ -47,7 +47,7 @@
+--- lockf.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ lockf.3	2009-11-07 14:51:40.000000000 -0800
+@@ -40,7 +40,7 @@
  .Sh SYNOPSIS
  .In unistd.h
  .Ft int
@@ -9,7 +9,7 @@
  .Sh DESCRIPTION
  The
  .Fn lockf
-@@ -56,10 +56,10 @@
+@@ -49,10 +49,10 @@ Calls to
  .Fn lockf
  from other processes which attempt to lock the locked file section will
  either return an error value or block until the section becomes unlocked.
@@ -22,7 +22,7 @@
  is an open file descriptor.
  The file descriptor must have been opened either for write-only
  .Dv ( O_WRONLY )
-@@ -214,7 +214,7 @@
+@@ -207,7 +207,7 @@ or
  and the section is already locked by another process.
  .It Bq Er EBADF
  The argument
@@ -31,7 +31,7 @@
  is not a valid open file descriptor.
  .Pp
  The argument
-@@ -224,7 +224,7 @@
+@@ -217,7 +217,7 @@ is
  or
  .Dv F_TLOCK ,
  and
@@ -40,7 +40,7 @@
  is not a valid file descriptor open for writing.
  .It Bq Er EDEADLK
  The argument
-@@ -243,25 +243,29 @@
+@@ -236,25 +236,29 @@ was interrupted by the delivery of a sig
  The argument
  .Fa function
  is not one of

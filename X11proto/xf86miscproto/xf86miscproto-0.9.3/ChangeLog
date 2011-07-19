@@ -1,0 +1,171 @@
+commit 92eba87e3783665e7de9867a3787bb7a07ac14ee
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 16:06:04 2009 -0700
+
+    xf86miscproto 0.9.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ae859017a1bf5842c9f3f861f7d47ff464e4c2f1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 16:04:01 2009 -0700
+
+    Add README with pointers to mailing list, bugzilla & git repos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2e7a5733e310c18381ce7a7ec664fab9215cc8b4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 15:57:20 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e31076f71177062f481b9f83f925e68b608b2ff9
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit caee025000e3e9ea5ca0eb47411ebef9dea8481d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:13 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 0c4674418127e206486464decf11d6ac4bf0400a
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:30 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 21a60a7b9347fa77680893219a4e69353377fae7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:47 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 00d954080f86c9ccdfa03935e668d181db8d603c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:39 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 5944d8aafbd7081ab6638c736f81cd87162d090c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:16 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit c33f553594d98492604f78272901a22d7e709f86
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:40 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit b3d547ee35269da703bb212deb755e24dc230c62
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:57 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit e7aaf0f2b8324cd0b8e0c117b37e923ca52a8f89
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:56:11 2005 +0000
+
+    Set version to 0.9.
+
+commit e075aa9aff1861b0275f5800d9de0d6ae4c870f7
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:41 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit cfd303bbaa90ea4348707ceb0e06a2463855750a
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:20 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit 0c18b93340024fccb0f113635b53e5ecf95e7964
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Wed May 18 07:39:06 2005 +0000
+
+    Add COPYING file for XF86Misc; assumed to be under the XFree86 catch-all
+        license.
+
+commit 1008673c584d1e24b2805e8a046a659ada625acf
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:07 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 872ca18bd982ae1771244ed5bc2c75aa88c89ce7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:32 2005 +0000
+
+    Initial build system files for proto module.
+
+commit a7b4efb5eaba1f8d5220622b721120cb37984442
+Author: Thomas Winischhofer <thomas@winischhofer.net>
+Date:   Wed Dec 15 00:34:34 2004 +0000
+
+    Make MISC extension's PassMessage() actually work and fix memory leaks
+        (Increase minor version to 9 to indicate that PassMessage() is usable)
+
+commit 495c71ddaaeeebab3efe7d3d73d7c5168e3803c5
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 186ca3a9e37a23c639a0661f06d014b6dbb82eea
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:36 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit d37bdeb7fa2ad258478041f908be29aa177d5378
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 5ab4fef0fdf25f5abcb8093ba9636d0dc11b9dec
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:14 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit e015688e22b1040093cefc3f595d7b460e543c4d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:28 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 020b11346dd9664f3f592ad1dce16394e27a703d
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 8f8aad59b81bb63f00cba371b952115725757d4f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit e89404f8dc67932eab7fbc163e8b6c645943cc05
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    Initial revision

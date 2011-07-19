@@ -1,0 +1,52 @@
+Listescape plugin
+=================
+
+The Listescape plugin allows users to use characters in mailboxes names that
+would otherwise be illegal, for example:
+
+ * Maildir++ layout disallows using the '.' character, since it's used
+   internally as the hierarchy separator.
+ * The '~' character at the beginning of the mailbox name is disallowed,
+   because of the possibility that it gets expanded to user's home directory.
+ * The '/' character is disallowed with all layouts (if it's not the hierarchy
+   separator).
+
+The Listescape plugin allows you to use all of these characters, as long as the
+virtual separator is changed to something else. The characters are escaped to
+the mailbox name as \NN hex codes.
+
+Examples
+--------
+
+Allow '.' characters with Maildir++ layout when virtual hierarchy separator is
+changed to '/':
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins listescape
+
+namespace private {
+  separator = /
+  inbox = yes
+}
+
+plugin {
+  # The default escape character is '\', but you can change it.
+  # Note that even here the expansion of % takes place, thus you need to
+  # use "%%" if you want to have the % sign as the escape character.
+  #listescape_char = "\\"
+}
+---%<-------------------------------------------------------------------------
+
+Allow both '.' and '/' characters when virtual hierarchy separator is changed
+to '^':
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins listescape
+
+namespace private {
+  separator = ^
+  inbox = yes
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

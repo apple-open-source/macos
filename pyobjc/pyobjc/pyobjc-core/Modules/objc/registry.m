@@ -55,8 +55,12 @@ PyObjC_FindInRegistry(PyObject* registry, Class cls, SEL selector)
 	if (registry == NULL) {
 		return NULL;
 	}
-	sublist = PyDict_GetItemString(registry, (char*)sel_getName(selector));
+
+	PyObject* k = PyBytes_FromString(sel_getName(selector));
+	sublist = PyDict_GetItem(registry, k);
+	Py_DECREF(k);
 	if (sublist == NULL) return NULL;
+
 
 	len = PyList_Size(sublist);
 	for (i = 0; i < len; i++) {
@@ -74,8 +78,27 @@ PyObjC_FindInRegistry(PyObject* registry, Class cls, SEL selector)
 			return NULL;
 		}
 
-		cur_class = objc_lookUpClass(
-				PyString_AsString(PyTuple_GET_ITEM(cur, 0)));
+		PyObject* nm = PyTuple_GET_ITEM(cur, 0);
+		if (PyUnicode_Check(nm)) {
+			PyObject* bytes = PyUnicode_AsEncodedString(nm, NULL, NULL);
+			if (bytes == NULL) {
+				return NULL;
+			}
+			cur_class = objc_lookUpClass(PyBytes_AsString(bytes));
+			Py_DECREF(bytes);
+#if PY_MAJOR_VERSION == 2
+		} else if (PyString_Check(nm)) {
+			cur_class = objc_lookUpClass(PyString_AsString(nm));
+#else
+		} else if (PyBytes_Check(nm)) {
+			cur_class = objc_lookUpClass(PyBytes_AsString(nm));
+
+#endif
+		} else {
+			PyErr_SetString(PyExc_TypeError, "Exception registry class name is not a string");
+			return NULL;
+		}
+
 		if (cur_class == nil) {
 			continue;
 		}

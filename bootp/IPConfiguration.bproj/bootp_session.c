@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,14 +72,9 @@
 
 struct bootp_session {
     dynarray_t			clients;
-    int				sockfd;
-    int				sockfd_refcount;
-    u_short			client_port;
-    char 			receive_buf[2048];
-    char 			send_buf[2048];
-    int 			ip_id;
-    FDSet_t *			readers;
-    FDCallout_t *		callout;
+    FDCalloutRef		read_fd;
+    int				read_fd_refcount;
+    uint16_t			client_port;
     FILE *			log_file;
     timer_callout_t *		timer_callout;
 };
@@ -98,7 +93,7 @@ static void
 bootp_session_read(void * arg1, void * arg2);
 
 static int
-S_get_bootp_socket(u_short client_port)
+S_open_bootp_socket(uint16_t client_port)
 {
     struct sockaddr_in 		me;
     int 			status;
@@ -141,8 +136,9 @@ S_get_bootp_socket(u_short client_port)
     return sockfd;
 
  failed:
-    if (sockfd >= 0)
+    if (sockfd >= 0) {
 	close(sockfd);
+    }
     return (-1);
 }
 
@@ -203,24 +199,22 @@ bootp_session_delayed_close(void * arg1, void * arg2, void * arg3)
 {
     bootp_session_t * 	session = (bootp_session_t *)arg1;
 
-    if (session->sockfd < 0 || session->callout == NULL) {
+    if (session->read_fd == NULL) {
 	my_log(LOG_ERR, 
 	       "bootp_session_delayed_close(): socket is already closed");
 	return;
     }
-    if (session->sockfd_refcount > 0) {
+    if (session->read_fd_refcount > 0) {
 	my_log(LOG_ERR, 
 	       "bootp_session_delayed_close(): called when socket in use");
 	return;
     }
     my_log(LOG_DEBUG, 
 	   "bootp_session_delayed_close(): closing bootp socket %d",
-	   session->sockfd);
+	   FDCalloutGetFD(session->read_fd));
 
     /* this closes the file descriptor */
-    FDSet_remove_callout(session->readers, &session->callout);
-    session->sockfd = -1;
-
+    FDCalloutRelease(&session->read_fd);
     return;
 }
 
@@ -232,16 +226,16 @@ bootp_client_close_socket(bootp_client_t * client)
     if (client->fd_open == FALSE) {
 	return;
     }
-    if (session->sockfd_refcount <= 0) {
+    if (session->read_fd_refcount <= 0) {
 	my_log(LOG_INFO, "bootp_client_close_socket(%s): refcount %d",
-	       if_name(client->if_p), session->sockfd_refcount);
+	       if_name(client->if_p), session->read_fd_refcount);
 	return;
     }
-    session->sockfd_refcount--;
+    session->read_fd_refcount--;
     my_log(LOG_DEBUG, "bootp_client_close_socket(%s): refcount %d",
-	   if_name(client->if_p), session->sockfd_refcount);
+	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = FALSE;
-    if (session->sockfd_refcount == 0) {
+    if (session->read_fd_refcount == 0) {
 	struct timeval tv;
 
 	my_log(LOG_DEBUG, 
@@ -265,20 +259,22 @@ bootp_client_open_socket(bootp_client_t * client)
 	return (TRUE);
     }
     timer_cancel(session->timer_callout);
-    session->sockfd_refcount++;
+    session->read_fd_refcount++;
     my_log(LOG_DEBUG, "bootp_client_open_socket (%s): refcount %d", 
-	   if_name(client->if_p), session->sockfd_refcount);
+	   if_name(client->if_p), session->read_fd_refcount);
     client->fd_open = TRUE;
-    if (session->sockfd_refcount > 1) {
+    if (session->read_fd_refcount > 1) {
 	/* already open */
 	return (TRUE);
     }
-    if (session->sockfd >= 0) {
+    if (session->read_fd != NULL) {
 	my_log(LOG_DEBUG, "bootp_client_open_socket(): socket is still open");
     }
     else {
-	session->sockfd = S_get_bootp_socket(session->client_port);
-	if (session->sockfd < 0) {
+	int	sockfd;
+
+	sockfd =  S_open_bootp_socket(session->client_port);
+	if (sockfd < 0) {
 	    my_log(LOG_ERR, 
 		   "bootp_client_open_socket: S_get_bootp_socket() failed, %s",
 		   strerror(errno));
@@ -286,12 +282,11 @@ bootp_client_open_socket(bootp_client_t * client)
 	}
 	my_log(LOG_DEBUG, 
 	       "bootp_client_open_socket(): opened bootp socket %d\n",
-	       session->sockfd);
+	       sockfd);
 	/* register as a reader */
-	session->callout = FDSet_add_callout(session->readers,
-					     session->sockfd,
-					     bootp_session_read,
-					     session, NULL);
+	session->read_fd = FDCalloutCreate(sockfd,
+					   bootp_session_read,
+					   session, NULL);
     }
     return (TRUE);
 
@@ -329,14 +324,17 @@ static void
 bootp_client_bind_socket_to_if(bootp_client_t * client, int opt)
 {
     bootp_session_t *	session = client->session;
-    
-    if (session->sockfd < 0) {
+    int			fd = -1;
+
+    if (session->read_fd != NULL) {
+	fd = FDCalloutGetFD(session->read_fd);
+    }
+    if (fd < 0) {
 	my_log(LOG_ERR, 
 	       "bootp_client_bind_socket_to_if(%s, %d):"
 	       " session socket isn't open", if_name(client->if_p), opt);
     }
-    else if (setsockopt(session->sockfd, 
-			IPPROTO_IP, IP_BOUND_IF, &opt, sizeof(opt)) < 0) {
+    else if (setsockopt(fd, IPPROTO_IP, IP_BOUND_IF, &opt, sizeof(opt)) < 0) {
 	my_log(LOG_ERR, 
 	       "bootp_client_bind_socket_to_if(%s, %d):"
 	       " setsockopt IP_BOUND_IF failed",
@@ -349,14 +347,21 @@ int
 bootp_client_transmit(bootp_client_t * client,
 		      struct in_addr dest_ip,
 		      struct in_addr src_ip,
-		      u_short dest_port,
-		      u_short src_port,
+		      uint16_t dest_port,
+		      uint16_t src_port,
 		      void * data, int len)
 {
     int			error;
     int			if_index = 0;
     boolean_t		needs_close = FALSE;
+    /*
+     * send_buf is cast to some struct types containing short fields;
+     * force it to be aligned as much as an int
+     */
+    int 		send_buf_aligned[512];
+    char * 		send_buf = (char *)send_buf_aligned;
     bootp_session_t *	session = client->session;
+    int			sockfd = -1;
 
     /* if we're not broadcasting, bind the socket to the interface */
     if (dest_ip.s_addr != INADDR_BROADCAST) {
@@ -374,9 +379,11 @@ bootp_client_transmit(bootp_client_t * client,
 	fprintf(session->log_file, "============================\n");
 	if (if_index != 0) {
 	    timestamp_fprintf(session->log_file, 
-			      "[%s] Transmit %d byte packet dest %s scope %d\n",
+			      "[%s] Transmit %d byte packet dest "
+			      IP_FORMAT
+			      " scope %d\n",
 			      if_name(client->if_p), len, 
-			      inet_ntoa(dest_ip), if_index);
+			      IP_LIST(&dest_ip), if_index);
 	}
 	else {
 	    timestamp_fprintf(session->log_file, 
@@ -385,7 +392,10 @@ bootp_client_transmit(bootp_client_t * client,
 	}
 	dhcp_fprint_packet(session->log_file, (struct dhcp *)data, len);
     }
-    error = bootp_transmit(session->sockfd, session->send_buf, 
+    if (session->read_fd != NULL) {
+	sockfd = FDCalloutGetFD(session->read_fd);
+    }
+    error = bootp_transmit(sockfd, send_buf, 
 			   if_name(client->if_p), 
 			   if_link_arptype(client->if_p), NULL, 0, 
 			   dest_ip, src_ip, dest_port, src_port, data, len);
@@ -401,16 +411,14 @@ bootp_client_transmit(bootp_client_t * client,
 
 
 bootp_session_t *
-bootp_session_init(FDSet_t * readers, u_short client_port)
+bootp_session_init(uint16_t client_port)
 {
     bootp_session_t * session = malloc(sizeof(*session));
     if (session == NULL)
 	return (NULL);
     bzero(session, sizeof(*session));
     dynarray_init(&session->clients, bootp_client_free_element, NULL);
-    session->sockfd = -1;
     session->client_port = client_port;
-    session->readers = readers;
     session->timer_callout = timer_callout_init();
 
     return (session);
@@ -422,9 +430,7 @@ bootp_session_free(bootp_session_t * * session_p)
     bootp_session_t * session = *session_p;
 
     dynarray_free(&session->clients);
-    if (session->callout != NULL) {
-	FDSet_remove_callout(session->readers, &session->callout);
-    }
+    FDCalloutRelease(&session->read_fd);
     timer_callout_free(&session->timer_callout);
     bzero(session, sizeof(*session));
     free(session);
@@ -515,6 +521,7 @@ bootp_session_read(void * arg1, void * arg2)
     struct iovec 	 	iov;
     struct msghdr 		msg;
     int 			n;
+    char 			receive_buf[2048];
     bootp_session_t * 		session = (bootp_session_t *)arg1;
 
     msg.msg_name = (caddr_t)&from;
@@ -524,12 +531,12 @@ bootp_session_read(void * arg1, void * arg2)
     msg.msg_control = control;
     msg.msg_controllen = sizeof(control);
     msg.msg_flags = 0;
-    iov.iov_base = (caddr_t)session->receive_buf;
-    iov.iov_len = sizeof(session->receive_buf);
-    n = recvmsg(session->sockfd, &msg, 0);
+    iov.iov_base = (caddr_t)receive_buf;
+    iov.iov_len = sizeof(receive_buf);
+    n = recvmsg(FDCalloutGetFD(session->read_fd), &msg, 0);
     if (n > 0) {
 	if (msghdr_copy_ifname(&msg, ifname, sizeof(ifname))) {
-	    bootp_session_deliver(session, ifname, session->receive_buf, n);
+	    bootp_session_deliver(session, ifname, receive_buf, n);
 	}
     }
     else if (n < 0) {

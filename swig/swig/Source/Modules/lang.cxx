@@ -7,15 +7,18 @@
  * Language base class functions.  Default C++ handling is also implemented here.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_lang_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/lang.cxx,v 1.169 2006/11/08 00:54:28 wsfulton Exp $";
+char cvsroot_lang_cxx[] = "$Id: lang.cxx 11482 2009-07-30 18:48:14Z wsfulton $";
 
 #include "swigmod.h"
 #include "cparse.h"
 #include <ctype.h>
 
-static int director_mode = 0;	/* set to 0 on default */
-static int director_protected_mode = 1;	/* set to 1 on default */
+/* default mode settings */
+static int director_mode = 0;
+static int director_protected_mode = 1;
+static int all_protected_mode = 0;
 static int naturalvar_mode = 0;
+Language* Language::this_ = 0;
 
 /* Set director_protected_mode */
 void Wrapper_director_mode_set(int flag) {
@@ -26,6 +29,10 @@ void Wrapper_director_protected_mode_set(int flag) {
   director_protected_mode = flag;
 }
 
+void Wrapper_all_protected_mode_set(int flag) {
+  all_protected_mode = flag;
+}
+
 void Wrapper_naturalvar_mode_set(int flag) {
   naturalvar_mode = flag;
 }
@@ -33,6 +40,15 @@ void Wrapper_naturalvar_mode_set(int flag) {
 extern "C" {
   int Swig_director_mode() {
     return director_mode;
+  }
+  int Swig_director_protected_mode() {
+    return director_protected_mode;
+  }
+  int Swig_all_protected_mode() {
+    return all_protected_mode;
+  }
+  void Language_replace_special_variables(String *method, String *tm, Parm *parm) {
+  Language::instance()->replaceSpecialVariables(method, tm, parm);
   }
 }
 
@@ -49,7 +65,7 @@ static String *AttributeFunctionGet = 0;
 static String *AttributeFunctionSet = 0;
 static Node *CurrentClass = 0;
 int line_number = 0;
-char *input_file = 0;
+String *input_file = 0;
 int SmartPointer = 0;
 static Hash *classhash;
 
@@ -296,6 +312,7 @@ classtypes(NewHash()),
 enumtypes(NewHash()),
 overloading(0),
 multiinput(0),
+cplus_runtime(0),
 directors(0) {
   argc_template_string = NewString("argc");
   argv_template_string = NewString("argv[%d]");
@@ -310,6 +327,8 @@ directors(0) {
   director_prot_ctor_code = 0;
   director_multiple_inheritance = 1;
   director_language = 0;
+  assert(!this_);
+  this_ = this;
 }
 
 Language::~Language() {
@@ -318,6 +337,7 @@ Language::~Language() {
   Delete(enumtypes);
   Delete(director_ctor_code);
   Delete(none_comparison);
+  this_ = 0;
 }
 
 /* ----------------------------------------------------------------------
@@ -339,7 +359,7 @@ int Language::emit_one(Node *n) {
     Extend = 1;
 
   line_number = Getline(n);
-  input_file = Char(Getfile(n));
+  input_file = Getfile(n);
 
   /*
      symtab = Getattr(n,"symtab");
@@ -424,9 +444,7 @@ void swig_pragma(char *lang, char *name, char *value) {
 }
 
 /* --------------------------------------------------------------------------
- * swig_pragma()
- *
- * Handle swig pragma directives.  
+ * use_naturalvar_mode()
  * -------------------------------------------------------------------------- */
 int use_naturalvar_mode(Node *n) {
   if (Getattr(n, "unnamed"))
@@ -435,14 +453,16 @@ int use_naturalvar_mode(Node *n) {
   if (!nvar) {
     /* look for feature in the class */
     SwigType *ty = Getattr(n, "type");
-    if (SwigType_isclass(ty)) {
+    SwigType *fullty = SwigType_typedef_resolve_all(ty);
+    if (SwigType_isclass(fullty)) {
       Node *m = Copy(n);
-      SwigType *tys = SwigType_strip_qualifiers(ty);
+      SwigType *tys = SwigType_strip_qualifiers(fullty);
       Swig_features_get(Swig_cparse_features(), 0, tys, 0, m);
       nvar = GetFlag(m, "feature:naturalvar");
       Delete(tys);
       Delete(m);
     }
+    Delete(fullty);
   }
   return nvar ? CWRAP_NATURAL_VAR : 0;
 }
@@ -776,6 +796,7 @@ int Language::typemapcopyDirective(Node *n) {
 
 int Language::typesDirective(Node *n) {
   Parm *parms = Getattr(n, "parms");
+  String *convcode = Getattr(n, "convcode"); /* optional user supplied conversion code for custom casting */
   while (parms) {
     SwigType *t = Getattr(parms, "type");
     String *v = Getattr(parms, "value");
@@ -783,7 +804,7 @@ int Language::typesDirective(Node *n) {
       SwigType_remember(t);
     } else {
       if (SwigType_issimple(t)) {
-	SwigType_inherit(t, v, 0);
+	SwigType_inherit(t, v, 0, convcode);
       }
     }
     parms = nextSibling(parms);
@@ -811,13 +832,14 @@ int Language::cDeclaration(Node *n) {
     /* except for friends, they are not affected by access control */
     int isfriend = storage && (Cmp(storage, "friend") == 0);
     if (!isfriend) {
-      /* we check what the director needs. If the method is pure virtual,
-         it is always needed. */
-      if (!(directorsEnabled() && is_member_director(CurrentClass, n) && need_nonpublic_member(n))) {
-	return SWIG_NOWRAP;
+      /* Check what the director needs. If the method is pure virtual, it is always needed.
+       * Also wrap non-virtual protected members if asked for (allprotected mode). */
+      if (!(directorsEnabled() && ((is_member_director(CurrentClass, n) && need_nonpublic_member(n)) || is_non_virtual_protected_access(n)))) {
+          return SWIG_NOWRAP;
       }
-      /* prevent wrapping the method twice due to overload */
-      String *wrapname = NewStringf("nonpublic_%s%s", Getattr(n, "sym:name"), Getattr(n, "sym:overname"));
+      // Prevent wrapping protected overloaded director methods more than once -
+      // This bit of code is only needed due to the cDeclaration call in classHandler()
+      String *wrapname = NewStringf("nonpublic_%s%s", symname, Getattr(n, "sym:overname"));
       if (Getattr(CurrentClass, wrapname)) {
 	Delete(wrapname);
 	return SWIG_NOWRAP;
@@ -859,30 +881,8 @@ int Language::cDeclaration(Node *n) {
     if (over)
       over = first_nontemplate(over);
     if (over && (over != n)) {
-      SwigType *tc = Copy(decl);
-      SwigType *td = SwigType_pop_function(tc);
-      String *oname;
-      String *cname;
-      if (CurrentClass) {
-	oname = NewStringf("%s::%s", ClassName, name);
-	cname = NewStringf("%s::%s", ClassName, Getattr(over, "name"));
-      } else {
-	oname = NewString(name);
-	cname = NewString(Getattr(over, "name"));
-      }
-
-      SwigType *tc2 = Copy(Getattr(over, "decl"));
-      SwigType *td2 = SwigType_pop_function(tc2);
-
-      Swig_warning(WARN_LANG_OVERLOAD_DECL, input_file, line_number, "Overloaded declaration ignored.  %s\n", SwigType_str(td, SwigType_namestr(oname)));
-      Swig_warning(WARN_LANG_OVERLOAD_DECL, Getfile(over), Getline(over), "Previous declaration is %s\n", SwigType_str(td2, SwigType_namestr(cname)));
-
-      Delete(tc2);
-      Delete(td2);
-      Delete(tc);
-      Delete(td);
-      Delete(oname);
-      Delete(cname);
+      Swig_warning(WARN_LANG_OVERLOAD_DECL, input_file, line_number, "Overloaded declaration ignored.  %s\n", Swig_name_decl(n));
+      Swig_warning(WARN_LANG_OVERLOAD_DECL, Getfile(over), Getline(over), "Previous declaration is %s\n", Swig_name_decl(over));
       return SWIG_NOWRAP;
     }
   }
@@ -957,13 +957,24 @@ int Language::cDeclaration(Node *n) {
     Delete(SwigType_pop_function(ty));
     DohIncref(type);
     Setattr(n, "type", ty);
-    functionHandler(n);
+    if (GetFlag(n, "feature:onlychildren") && !GetFlag(n, "feature:ignore")) {
+      // Found an unignored templated method that has a an empty template instantiation (%template())
+      // Ignore it unless it has been %rename'd
+      if (Strncmp(symname, "__dummy_", 8) == 0) {
+        SetFlag(n, "feature:ignore");
+        Swig_warning(WARN_LANG_TEMPLATE_METHOD_IGNORE, input_file, line_number,
+                     "%%template() contains no name. Template method ignored: %s\n", Swig_name_decl(n));
+      }
+    }
+    if (!GetFlag(n, "feature:ignore"))
+      functionHandler(n);
     Setattr(n, "type", type);
     Delete(ty);
     Delete(type);
     return SWIG_OK;
   } else {
     /* Some kind of variable declaration */
+    String *declaration = Copy(decl);
     Delattr(n, "decl");
     if (Getattr(n, "nested"))
       SetFlag(n, "feature:immutable");
@@ -994,7 +1005,7 @@ int Language::cDeclaration(Node *n) {
     Setattr(n, "type", ty);
     variableHandler(n);
     Setattr(n, "type", type);
-    Setattr(n, "decl", decl);
+    Setattr(n, "decl", declaration);
     Delete(ty);
     Delete(type);
     Delete(fullty);
@@ -1069,38 +1080,33 @@ int Language::globalfunctionHandler(Node *n) {
   String *name = Getattr(n, "name");
   String *symname = Getattr(n, "sym:name");
   SwigType *type = Getattr(n, "type");
-  String *storage = Getattr(n, "storage");
   ParmList *parms = Getattr(n, "parms");
 
-  if (0 && (Cmp(storage, "static") == 0)) {
-    Swig_restore(n);
-    return SWIG_NOWRAP;		/* Can't wrap static functions */
-  } else {
-    /* Check for callback mode */
-    String *cb = GetFlagAttr(n, "feature:callback");
-    if (cb) {
-      String *cbname = Getattr(n, "feature:callback:name");
-      if (!cbname) {
-	cbname = NewStringf(cb, symname);
-	Setattr(n, "feature:callback:name", cbname);
-      }
-
-      callbackfunctionHandler(n);
-      if (Cmp(cbname, symname) == 0) {
-	Delete(cbname);
-	Swig_restore(n);
-	return SWIG_NOWRAP;
-      }
-      Delete(cbname);
+  /* Check for callback mode */
+  String *cb = GetFlagAttr(n, "feature:callback");
+  if (cb) {
+    String *cbname = Getattr(n, "feature:callback:name");
+    if (!cbname) {
+      cbname = NewStringf(cb, symname);
+      Setattr(n, "feature:callback:name", cbname);
     }
-    Setattr(n, "parms", nonvoid_parms(parms));
-    String *call = Swig_cfunction_call(name, parms);
-    String *cres = Swig_cresult(type, "result", call);
-    Setattr(n, "wrap:action", cres);
-    Delete(cres);
-    Delete(call);
-    functionWrapper(n);
+
+    callbackfunctionHandler(n);
+    if (Cmp(cbname, symname) == 0) {
+      Delete(cbname);
+      Swig_restore(n);
+      return SWIG_NOWRAP;
+    }
+    Delete(cbname);
   }
+  Setattr(n, "parms", nonvoid_parms(parms));
+  String *call = Swig_cfunction_call(name, parms);
+  String *cres = Swig_cresult(type, "result", call);
+  Setattr(n, "wrap:action", cres);
+  Delete(cres);
+  Delete(call);
+  functionWrapper(n);
+
   Swig_restore(n);
   return SWIG_OK;
 }
@@ -1204,11 +1210,11 @@ int Language::memberfunctionHandler(Node *n) {
     }
   }
   // Set up the type for the cast to this class for use when wrapping const director (virtual) methods.
-  // Note: protected director methods only.
+  // Note: protected director methods or when allprotected mode turned on.
   String *director_type = 0;
-  if (!is_public(n) && (is_member_director(CurrentClass, n) || GetFlag(n, "explicitcall"))) {
+  if (!is_public(n) && (is_member_director(CurrentClass, n) || GetFlag(n, "explicitcall") || is_non_virtual_protected_access(n))) {
     director_type = Copy(DirectorClassName);
-    String *qualifier = Getattr(n, k_qualifier);
+    String *qualifier = Getattr(n, "qualifier");
     if (qualifier)
       SwigType_push(director_type, qualifier);
     SwigType_add_pointer(director_type);
@@ -1222,9 +1228,10 @@ int Language::memberfunctionHandler(Node *n) {
   if (GetFlag(n, "explicitcall"))
     DirectorExtraCall = CWRAP_DIRECTOR_ONE_CALL;
 
-  Swig_MethodToFunction(n, ClassType, Getattr(n, "template") ? 0 : Extend | SmartPointer | DirectorExtraCall, director_type,
+  Swig_MethodToFunction(n, ClassType, Getattr(n, "template") ? SmartPointer : Extend | SmartPointer | DirectorExtraCall, director_type,
 			is_member_director(CurrentClass, n));
   Setattr(n, "sym:name", fname);
+
   functionWrapper(n);
 
   Delete(director_type);
@@ -1250,12 +1257,11 @@ int Language::staticmemberfunctionHandler(Node *n) {
 
   if (!Extend) {
     Node *sb = Getattr(n, "cplus:staticbase");
-    String *sname = sb ? Getattr(sb, "name") : 0;
-    if (sname) {
+    String *sname = Getattr(sb, "name");
+    if (is_non_virtual_protected_access(n))
+      cname = NewStringf("%s::%s", DirectorClassName, name);
+    else
       cname = NewStringf("%s::%s", sname, name);
-    } else {
-      cname = NewStringf("%s::%s", ClassName, name);
-    }
   } else {
     String *mname = Swig_name_mangle(ClassName);
     cname = Swig_name_member(mname, name);
@@ -1333,8 +1339,7 @@ int Language::variableHandler(Node *n) {
 	SetFlag(n, "feature:immutable");
       }
     }
-    if ((Cmp(storage, "static") == 0)
-	&& !(SmartPointer && Getattr(n, "allocate:smartpointeraccess"))) {
+    if ((Cmp(storage, "static") == 0) && !(SmartPointer && Getattr(n, "allocate:smartpointeraccess"))) {
       staticmembervariableHandler(n);
     } else {
       membervariableHandler(n);
@@ -1349,9 +1354,6 @@ int Language::variableHandler(Node *n) {
  * ---------------------------------------------------------------------- */
 
 int Language::globalvariableHandler(Node *n) {
-  String *storage = Getattr(n, "storage");
-  if (0 && (Cmp(storage, "static") == 0))
-    return SWIG_NOWRAP;
   variableWrapper(n);
   return SWIG_OK;
 }
@@ -1401,38 +1403,43 @@ int Language::membervariableHandler(Node *n) {
 	    Delete(pname);
 	  }
 	} else {
-	  String *pname = Swig_cparm_name(0, 0);
+	  String *pname = is_non_virtual_protected_access(n) ? NewString("darg") : Swig_cparm_name(0, 0);
 	  target = NewStringf("%s->%s", pname, name);
 	  Delete(pname);
 	}
-	tm = Swig_typemap_lookup_new("memberin", n, target, 0);
+      } else {
+	 target = NewStringf("$extendgetcall"); // member variable access expanded later
       }
+      tm = Swig_typemap_lookup("memberin", n, target, 0);
       int flags = Extend | SmartPointer | use_naturalvar_mode(n);
+      if (is_non_virtual_protected_access(n))
+        flags = flags | CWRAP_ALL_PROTECTED_ACCESS;
 
-      Swig_MembersetToFunction(n, ClassType, flags);
+      String *call = 0;
+      Swig_MembersetToFunction(n, ClassType, flags, &call);
       Setattr(n, "memberset", "1");
-      if (!Extend) {
-	/* Check for a member in typemap here */
 
-	if (!tm) {
-	  if (SwigType_isarray(type)) {
-	    Swig_warning(WARN_TYPEMAP_VARIN_UNDEF, input_file, line_number, "Unable to set variable of type %s.\n", SwigType_str(type, 0));
-	    make_set_wrapper = 0;
-	  }
-	} else {
-	  String *pname0 = Swig_cparm_name(0, 0);
-	  String *pname1 = Swig_cparm_name(0, 1);
-	  Replace(tm, "$source", pname1, DOH_REPLACE_ANY);
-	  Replace(tm, "$target", target, DOH_REPLACE_ANY);
-	  Replace(tm, "$input", pname1, DOH_REPLACE_ANY);
-	  Replace(tm, "$self", pname0, DOH_REPLACE_ANY);
-	  Setattr(n, "wrap:action", tm);
-	  Delete(tm);
-	  Delete(pname0);
-	  Delete(pname1);
+      if (!tm) {
+	if (SwigType_isarray(type)) {
+	  Swig_warning(WARN_TYPEMAP_VARIN_UNDEF, input_file, line_number, "Unable to set variable of type %s.\n", SwigType_str(type, 0));
+	  make_set_wrapper = 0;
 	}
-	Delete(target);
+      } else {
+	String *pname0 = Swig_cparm_name(0, 0);
+	String *pname1 = Swig_cparm_name(0, 1);
+	Replace(tm, "$source", pname1, DOH_REPLACE_ANY);
+	Replace(tm, "$target", target, DOH_REPLACE_ANY);
+	Replace(tm, "$input", pname1, DOH_REPLACE_ANY);
+	Replace(tm, "$self", pname0, DOH_REPLACE_ANY);
+	Replace(tm, "$extendgetcall", call, DOH_REPLACE_ANY);
+	Setattr(n, "wrap:action", tm);
+	Delete(tm);
+	Delete(pname0);
+	Delete(pname1);
       }
+      Delete(call);
+      Delete(target);
+
       if (make_set_wrapper) {
 	Setattr(n, "sym:name", mrename_set);
 	functionWrapper(n);
@@ -1454,6 +1461,8 @@ int Language::membervariableHandler(Node *n) {
     /* Emit get function */
     {
       int flags = Extend | SmartPointer | use_naturalvar_mode(n);
+      if (is_non_virtual_protected_access(n))
+        flags = flags | CWRAP_ALL_PROTECTED_ACCESS;
       Swig_MembergetToFunction(n, ClassType, flags);
       Setattr(n, "sym:name", mrename_get);
       Setattr(n, "memberget", "1");
@@ -1512,7 +1521,8 @@ int Language::membervariableHandler(Node *n) {
 int Language::staticmembervariableHandler(Node *n) {
   Swig_require("staticmembervariableHandler", n, "*name", "*sym:name", "*type", "?value", NIL);
   String *value = Getattr(n, "value");
-  String *classname = !SmartPointer ? ClassName : Getattr(CurrentClass, "allocate:smartpointerbase");
+  String *classname = !SmartPointer ? (is_non_virtual_protected_access(n) ? DirectorClassName : ClassName) : Getattr(CurrentClass, "allocate:smartpointerbase");
+
   if (!value || !Getattr(n, "hasconsttype")) {
     String *name = Getattr(n, "name");
     String *symname = Getattr(n, "sym:name");
@@ -1538,7 +1548,7 @@ int Language::staticmembervariableHandler(Node *n) {
 
        class Foo {
        public:
-       static const int x = 3;
+         static const int x = 3;
        };
 
        Some discussion of this in section 9.4 of the C++ draft standard.
@@ -1548,7 +1558,7 @@ int Language::staticmembervariableHandler(Node *n) {
        class Foo {
        public:
        %extend {
-       static const int x = 3;
+         static const int x = 3;
        }
        };
 
@@ -1668,7 +1678,7 @@ int Language::memberconstantHandler(Node *n) {
   if (Extend)
     new_name = Copy(value);
   else
-    new_name = NewStringf("%s::%s", ClassName, name);
+    new_name = NewStringf("%s::%s", is_non_virtual_protected_access(n) ? DirectorClassName : ClassName, name);
   Setattr(n, "name", new_name);
 
   constantWrapper(n);
@@ -2070,6 +2080,23 @@ int Language::classDirector(Node *n) {
   List *vtable = NewList();
   int virtual_destructor = 0;
   unrollVirtualMethods(n, n, vtable, 0, virtual_destructor);
+
+  // Emit all the using base::member statements for non virtual members (allprotected mode)
+  Node *ni;
+  String *using_protected_members_code = NewString("");
+  for (ni = Getattr(n, "firstChild"); ni; ni = nextSibling(ni)) {
+    Node *nodeType = Getattr(ni, "nodeType");
+    bool cdeclaration = (Cmp(nodeType, "cdecl") == 0);
+    if (cdeclaration && !GetFlag(ni, "feature:ignore")) {
+      if (is_non_virtual_protected_access(ni)) {
+        Node *overloaded = Getattr(ni, "sym:overloaded");
+        // emit the using base::member statement (but only once if the method is overloaded)
+        if (!overloaded || (overloaded && (overloaded == ni)))
+          Printf(using_protected_members_code, "    using %s::%s;\n", SwigType_namestr(ClassName), Getattr(ni, "name"));
+      }
+    }
+  }
+
   if (virtual_destructor || Len(vtable) > 0) {
     if (!virtual_destructor) {
       String *classtype = Getattr(n, "classtype");
@@ -2083,9 +2110,14 @@ int Language::classDirector(Node *n) {
     classDirectorInit(n);
     classDirectorConstructors(n);
     classDirectorMethods(n);
+
+    File *f_directors_h = Swig_filebyname("director_h");
+    Printv(f_directors_h, using_protected_members_code, NIL);
+
     classDirectorEnd(n);
   }
   Delete(vtable);
+  Delete(using_protected_members_code);
   return SWIG_OK;
 }
 
@@ -2117,8 +2149,8 @@ static void addCopyConstructor(Node *n) {
     for (c = firstChild(n); c; c = nextSibling(c)) {
       const char *tag = Char(nodeType(c));
       if (strcmp(tag, "constructor") == 0) {
-	String *cname = Getattr(c, k_name);
-	String *csname = Getattr(c, k_symname);
+	String *cname = Getattr(c, "name");
+	String *csname = Getattr(c, "sym:name");
 	String *clast = Swig_scopename_last(cname);
 	if (Equal(csname, clast)) {
 	  oldname = csname;
@@ -2129,34 +2161,36 @@ static void addCopyConstructor(Node *n) {
   }
 
   String *symname = Swig_name_make(cn, cname, last, decl, oldname);
-  if (!symname) {
-    symname = Copy(csymname);
-  }
-  Parm *p = NewParm(cc, "other");
+  if (Strcmp(symname, "$ignore") != 0) {
+    if (!symname) {
+      symname = Copy(csymname);
+    }
+    Parm *p = NewParm(cc, "other");
 
-  Setattr(cn, "name", name);
-  Setattr(cn, "sym:name", symname);
-  SetFlag(cn, "feature:new");
-  Setattr(cn, "decl", decl);
-  Setattr(cn, "parentNode", n);
-  Setattr(cn, "parms", p);
-  Setattr(cn, "copy_constructor", "1");
+    Setattr(cn, "name", name);
+    Setattr(cn, "sym:name", symname);
+    SetFlag(cn, "feature:new");
+    Setattr(cn, "decl", decl);
+    Setattr(cn, "parentNode", n);
+    Setattr(cn, "parms", p);
+    Setattr(cn, "copy_constructor", "1");
 
-  Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
-  Node *on = Swig_symbol_add(symname, cn);
-  Swig_symbol_setscope(oldscope);
-  Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
+    Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
+    Node *on = Swig_symbol_add(symname, cn);
+    Swig_symbol_setscope(oldscope);
+    Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
 
-  if (on == cn) {
-    Node *access = NewHash();
-    set_nodeType(access, "access");
-    Setattr(access, "kind", "public");
-    appendChild(n, access);
-    appendChild(n, cn);
-    Setattr(n, "has_copy_constructor", "1");
-    Setattr(n, "copy_constructor_decl", decl);
-    Setattr(n, "allocate:copy_constructor", "1");
-    Delete(access);
+    if (on == cn) {
+      Node *access = NewHash();
+      set_nodeType(access, "access");
+      Setattr(access, "kind", "public");
+      appendChild(n, access);
+      appendChild(n, cn);
+      Setattr(n, "has_copy_constructor", "1");
+      Setattr(n, "copy_constructor_decl", decl);
+      Setattr(n, "allocate:copy_constructor", "1");
+      Delete(access);
+    }
   }
   Delete(cn);
   Delete(last);
@@ -2179,31 +2213,33 @@ static void addDefaultConstructor(Node *n) {
   String *csymname = Getattr(n, "sym:name");
   String *oldname = csymname;
   String *symname = Swig_name_make(cn, cname, last, decl, oldname);
-  if (!symname) {
-    symname = Copy(csymname);
-  }
+  if (Strcmp(symname, "$ignore") != 0) {
+    if (!symname) {
+      symname = Copy(csymname);
+    }
 
-  Setattr(cn, "name", name);
-  Setattr(cn, "sym:name", symname);
-  SetFlag(cn, "feature:new");
-  Setattr(cn, "decl", decl);
-  Setattr(cn, "parentNode", n);
-  Setattr(cn, "default_constructor", "1");
+    Setattr(cn, "name", name);
+    Setattr(cn, "sym:name", symname);
+    SetFlag(cn, "feature:new");
+    Setattr(cn, "decl", decl);
+    Setattr(cn, "parentNode", n);
+    Setattr(cn, "default_constructor", "1");
 
-  Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
-  Node *on = Swig_symbol_add(symname, cn);
-  Swig_symbol_setscope(oldscope);
-  Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
+    Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
+    Node *on = Swig_symbol_add(symname, cn);
+    Swig_symbol_setscope(oldscope);
+    Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
 
-  if (on == cn) {
-    Node *access = NewHash();
-    set_nodeType(access, "access");
-    Setattr(access, "kind", "public");
-    appendChild(n, access);
-    appendChild(n, cn);
-    Setattr(n, "has_default_constructor", "1");
-    Setattr(n, "allocate:default_constructor", "1");
-    Delete(access);
+    if (on == cn) {
+      Node *access = NewHash();
+      set_nodeType(access, "access");
+      Setattr(access, "kind", "public");
+      appendChild(n, access);
+      appendChild(n, cn);
+      Setattr(n, "has_default_constructor", "1");
+      Setattr(n, "allocate:default_constructor", "1");
+      Delete(access);
+    }
   }
   Delete(cn);
   Delete(last);
@@ -2225,29 +2261,31 @@ static void addDestructor(Node *n) {
   String *name = NewStringf("%s::%s", cname, last);
   String *decl = NewString("f().");
   String *symname = Swig_name_make(cn, cname, last, decl, 0);
-  if (!symname) {
-    symname = NewStringf("~%s", Getattr(n, "sym:name"));
-  }
+  if (Strcmp(symname, "$ignore") != 0) {
+    if (!symname) {
+      symname = NewStringf("~%s", Getattr(n, "sym:name"));
+    }
 
-  Setattr(cn, "name", name);
-  Setattr(cn, "sym:name", symname);
-  Setattr(cn, "decl", "f().");
-  Setattr(cn, "parentNode", n);
+    Setattr(cn, "name", name);
+    Setattr(cn, "sym:name", symname);
+    Setattr(cn, "decl", "f().");
+    Setattr(cn, "parentNode", n);
 
-  Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
-  Node *on = Swig_symbol_add(symname, cn);
-  Swig_symbol_setscope(oldscope);
-  Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
+    Symtab *oldscope = Swig_symbol_setscope(Getattr(n, "symtab"));
+    Node *on = Swig_symbol_add(symname, cn);
+    Swig_symbol_setscope(oldscope);
+    Swig_features_get(Swig_cparse_features(), 0, name, decl, cn);
 
-  if (on == cn) {
-    Node *access = NewHash();
-    set_nodeType(access, "access");
-    Setattr(access, "kind", "public");
-    appendChild(n, access);
-    appendChild(n, cn);
-    Setattr(n, "has_destructor", "1");
-    Setattr(n, "allocate:destructor", "1");
-    Delete(access);
+    if (on == cn) {
+      Node *access = NewHash();
+      set_nodeType(access, "access");
+      Setattr(access, "kind", "public");
+      appendChild(n, access);
+      appendChild(n, cn);
+      Setattr(n, "has_destructor", "1");
+      Setattr(n, "allocate:destructor", "1");
+      Delete(access);
+    }
   }
   Delete(cn);
   Delete(last);
@@ -2282,8 +2320,6 @@ int Language::classDeclaration(Node *n) {
   }
 
   /* Check symbol name for template.   If not renamed. Issue a warning */
-  /*    Printf(stdout,"sym:name = %s\n", symname); */
-
   if (!validIdentifier(symname)) {
     Swig_warning(WARN_LANG_IDENTIFIER, input_file, line_number, "Can't wrap class %s unless renamed to a valid identifier.\n", SwigType_namestr(symname));
     return SWIG_NOWRAP;
@@ -2426,6 +2462,13 @@ int Language::classHandler(Node *n) {
 	  Node *m = Copy(method);
 	  Setattr(m, "director", "1");
 	  Setattr(m, "parentNode", n);
+	  /*
+	   * There is a bug that needs fixing still... 
+	   * This area of code is creating methods which have not been overidden in a derived class (director methods that are protected in the base)
+	   * If the method is overloaded, then Swig_overload_dispatch() incorrectly generates a call to the base wrapper, _wrap_xxx method
+	   * See director_protected_overloaded.i - Possibly sym:overname needs correcting here.
+	  Printf(stdout, "new method: %s::%s(%s)\n", Getattr(parentNode(m), "name"), Getattr(m, "name"), ParmList_str_defaultargs(Getattr(m, "parms")));
+	  */
 	  cDeclaration(m);
 	  Delete(m);
 	}
@@ -2463,8 +2506,7 @@ int Language::constructorDeclaration(Node *n) {
     return SWIG_NOWRAP;
 
   if (Extend) {
-    /* extend default constructor can be safetly ignored if there is
-       already one */
+    /* extend default constructor can be safely ignored if there is already one */
     int num_required = ParmList_numrequired(Getattr(n, "parms"));
     if ((num_required == 0) && Getattr(CurrentClass, "has_default_constructor")) {
       return SWIG_NOWRAP;
@@ -2477,8 +2519,7 @@ int Language::constructorDeclaration(Node *n) {
     }
   }
 
-  /* clean protected overloaded constructors, in case they are not
-     needed anymore */
+  /* clean protected overloaded constructors, in case they are not needed anymore */
   Node *over = Swig_symbol_isoverloaded(n);
   if (over && !Getattr(CurrentClass, "sym:cleanconstructor")) {
     int dirclass = Swig_directorclass(CurrentClass);
@@ -2528,22 +2569,17 @@ int Language::constructorDeclaration(Node *n) {
 	if (Getattr(over, "copy_constructor"))
 	  over = Getattr(over, "sym:nextSibling");
 	if (over != n) {
-	  String *oname = NewStringf("%s::%s", ClassName, Swig_scopename_last(SwigType_namestr(name)));
-	  String *cname = NewStringf("%s::%s", ClassName, Swig_scopename_last(SwigType_namestr(Getattr(over, "name"))));
-	  SwigType *decl = Getattr(n, "decl");
 	  Swig_warning(WARN_LANG_OVERLOAD_CONSTRUCT, input_file, line_number,
-		       "Overloaded constructor ignored.  %s\n", SwigType_str(decl, SwigType_namestr(oname)));
+		       "Overloaded constructor ignored.  %s\n", Swig_name_decl(n));
 	  Swig_warning(WARN_LANG_OVERLOAD_CONSTRUCT, Getfile(over), Getline(over),
-		       "Previous declaration is %s\n", SwigType_str(Getattr(over, "decl"), SwigType_namestr(cname)));
-	  Delete(oname);
-	  Delete(cname);
+		       "Previous declaration is %s\n", Swig_name_decl(over));
 	} else {
 	  constructorHandler(n);
 	}
       }
     } else {
       if (name && (Cmp(Swig_scopename_last(name), Swig_scopename_last(ClassName))) && !(Getattr(n, "template"))) {
-	Swig_warning(WARN_LANG_RETURN_TYPE, input_file, line_number, "Function %s must have a return type.\n", name);
+	Swig_warning(WARN_LANG_RETURN_TYPE, input_file, line_number, "Function %s must have a return type.\n", SwigType_namestr(name));
 	Swig_restore(n);
 	return SWIG_NOWRAP;
       }
@@ -2557,7 +2593,7 @@ int Language::constructorDeclaration(Node *n) {
 }
 
 /* ----------------------------------------------------------------------
- * Language::constructorHandler()
+ * get_director_ctor_code()
  * ---------------------------------------------------------------------- */
 
 static String *get_director_ctor_code(Node *n, String *director_ctor_code, String *director_prot_ctor_code, List *&abstract) {
@@ -2584,6 +2620,10 @@ static String *get_director_ctor_code(Node *n, String *director_ctor_code, Strin
   return director_ctor;
 }
 
+
+/* ----------------------------------------------------------------------
+ * Language::constructorHandler()
+ * ---------------------------------------------------------------------- */
 
 int Language::constructorHandler(Node *n) {
   Swig_require("constructorHandler", n, "?name", "*sym:name", "?type", "?parms", NIL);
@@ -2789,16 +2829,17 @@ int Language::variableWrapper(Node *n) {
   /* If no way to set variables.  We simply create functions */
   int assignable = is_assignable(n);
   int flags = use_naturalvar_mode(n);
+  if (!GetFlag(n, "wrappedasconstant"))
+    flags = flags | Extend;
+
   if (assignable) {
     int make_set_wrapper = 1;
-    String *tm = Swig_typemap_lookup_new("globalin", n, name, 0);
+    String *tm = Swig_typemap_lookup("globalin", n, name, 0);
 
     Swig_VarsetToFunction(n, flags);
     String *sname = Swig_name_set(symname);
     Setattr(n, "sym:name", sname);
     Delete(sname);
-
-    /*    String *tm = Swig_typemap_lookup((char *) "globalin",type,name,name,Swig_cparm_name(0,0),name,0); */
 
     if (!tm) {
       if (SwigType_isarray(type)) {
@@ -2829,6 +2870,7 @@ int Language::variableWrapper(Node *n) {
 	Delattr(n, ki.key);
     }
   }
+
   Swig_VargetToFunction(n, flags);
   String *gname = Swig_name_get(symname);
   Setattr(n, "sym:name", gname);
@@ -2906,12 +2948,9 @@ Node *Language::classLookup(SwigType *s) {
   n = Getattr(classtypes, s);
   if (!n) {
     Symtab *stab = 0;
-    SwigType *lt = SwigType_ltype(s);
-    SwigType *ty1 = SwigType_typedef_resolve_all(lt);
+    SwigType *ty1 = SwigType_typedef_resolve_all(s);
     SwigType *ty2 = SwigType_strip_qualifiers(ty1);
-    Delete(lt);
     Delete(ty1);
-    lt = 0;
     ty1 = 0;
 
     String *base = SwigType_base(ty2);
@@ -2919,6 +2958,12 @@ Node *Language::classLookup(SwigType *s) {
     Replaceall(base, "class ", "");
     Replaceall(base, "struct ", "");
     Replaceall(base, "union ", "");
+
+    if (strncmp(Char(base), "::", 2) == 0) {
+      String *oldbase = base;
+      base = NewString(Char(base) + 2);
+      Delete(oldbase);
+    }
 
     String *prefix = SwigType_prefix(ty2);
 
@@ -2942,10 +2987,12 @@ Node *Language::classLookup(SwigType *s) {
     }
     if (n) {
       /* Found a match.  Look at the prefix.  We only allow
-         a few cases: pointers, references, and simple */
-      if ((Len(prefix) == 0) ||	/* Simple type */
-	  (Strcmp(prefix, "p.") == 0) ||	/* pointer     */
-	  (Strcmp(prefix, "r.") == 0)) {	/* reference   */
+         the cases where where we want a proxy class for the particular type */
+      if ((Len(prefix) == 0) ||	                // simple type (pass by value)
+	  (Strcmp(prefix, "p.") == 0) ||	// pointer
+	  (Strcmp(prefix, "r.") == 0) ||	// reference
+	  (Strcmp(prefix, "r.p.") == 0) || 	// pointer by reference
+          SwigType_prefix_is_simple_1D_array(prefix)) { // Simple 1D array (not arrays of pointers/references)
 	SwigType *cs = Copy(s);
 	Setattr(classtypes, cs, n);
 	Delete(cs);
@@ -2990,6 +3037,12 @@ Node *Language::enumLookup(SwigType *s) {
 
     Replaceall(base, "enum ", "");
     String *prefix = SwigType_prefix(ty2);
+
+    if (strncmp(Char(base), "::", 2) == 0) {
+      String *oldbase = base;
+      base = NewString(Char(base) + 2);
+      Delete(oldbase);
+    }
 
     /* Look for type in symbol table */
     while (!n) {
@@ -3045,6 +3098,22 @@ void Language::allow_multiple_input(int val) {
 }
 
 /* -----------------------------------------------------------------------------
+ * Language::enable_cplus_runtime_mode()
+ * ----------------------------------------------------------------------------- */
+
+void Language::enable_cplus_runtime_mode() {
+  cplus_runtime = 1;
+}
+
+/* -----------------------------------------------------------------------------
+ * Language::cplus_runtime_mode()
+ * ----------------------------------------------------------------------------- */
+
+int Language::cplus_runtime_mode() {
+  return cplus_runtime;
+}
+
+/* -----------------------------------------------------------------------------
  * Language::allow_directors()
  * ----------------------------------------------------------------------------- */
 
@@ -3069,11 +3138,19 @@ void Language::allow_dirprot(int val) {
 }
 
 /* -----------------------------------------------------------------------------
+ * Language::allow_allprotected()
+ * ----------------------------------------------------------------------------- */
+
+void Language::allow_allprotected(int val) {
+  all_protected_mode = val;
+}
+
+/* -----------------------------------------------------------------------------
  * Language::dirprot_mode()
  * ----------------------------------------------------------------------------- */
 
 int Language::dirprot_mode() const {
-  return directorsEnabled()? director_protected_mode : 0;
+  return directorsEnabled() ? director_protected_mode : 0;
 }
 
 /* -----------------------------------------------------------------------------
@@ -3145,8 +3222,7 @@ int Language::need_nonpublic_member(Node *n) {
   if (directorsEnabled()) {
     if (is_protected(n)) {
       if (dirprot_mode()) {
-	/* when using dirprot mode, the protected members are always
-	   needed. */
+	/* when using dirprot mode, the protected members are always needed. */
 	return 1;
       } else {
 	/* if the method is pure virtual, we need it. */
@@ -3307,7 +3383,8 @@ int Language::is_assignable(Node *n) {
   SwigType *ftd = SwigType_typedef_resolve_all(type);
   SwigType *td = SwigType_strip_qualifiers(ftd);
   if (SwigType_type(td) == T_USER) {
-    if ((cn = Swig_symbol_clookup(td, 0))) {
+    cn = Swig_symbol_clookup(td, 0);
+    if (cn) {
       if ((Strcmp(nodeType(cn), "class") == 0)) {
 	if (Getattr(cn, "allocate:noassign")) {
 	  SetFlag(n, "feature:immutable");
@@ -3329,4 +3406,26 @@ String *Language::runtimeCode() {
 
 String *Language::defaultExternalRuntimeFilename() {
   return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * Language::replaceSpecialVariables()
+ * Language modules should implement this if special variables are to be handled
+ * correctly in the $typemap(...) special variable macro.
+ * method - typemap method name
+ * tm - string containing typemap contents
+ * parm - a parameter describing the typemap type to be handled
+ * ----------------------------------------------------------------------------- */
+void Language::replaceSpecialVariables(String *method, String *tm, Parm *parm) {
+  (void)method;
+  (void)tm;
+  (void)parm;
+}
+
+Language *Language::instance() {
+  return this_;
+}
+
+Hash *Language::getClassHash() const {
+  return classhash;
 }

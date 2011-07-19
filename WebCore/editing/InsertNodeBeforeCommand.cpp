@@ -26,6 +26,8 @@
 #include "config.h"
 #include "InsertNodeBeforeCommand.h"
 
+#include "AXObjectCache.h"
+#include "Document.h"
 #include "htmlediting.h"
 
 namespace WebCore {
@@ -40,24 +42,31 @@ InsertNodeBeforeCommand::InsertNodeBeforeCommand(PassRefPtr<Node> insertChild, P
     ASSERT(m_refChild);
     ASSERT(m_refChild->parentNode());
 
-    ASSERT(m_refChild->parentNode()->isContentEditable() || !m_refChild->parentNode()->attached());
+    ASSERT(m_refChild->parentNode()->rendererIsEditable() || !m_refChild->parentNode()->attached());
 }
 
 void InsertNodeBeforeCommand::doApply()
 {
-    Node* parent = m_refChild->parentNode();
-    if (!parent || !parent->isContentEditable())
+    ContainerNode* parent = m_refChild->parentNode();
+    if (!parent || !parent->rendererIsEditable())
         return;
 
     ExceptionCode ec;
     parent->insertBefore(m_insertChild.get(), m_refChild.get(), ec);
+
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextInserted, 0, m_insertChild->nodeValue().length());
 }
 
 void InsertNodeBeforeCommand::doUnapply()
 {
-    if (!m_insertChild->isContentEditable())
+    if (!m_insertChild->rendererIsEditable())
         return;
         
+    // Need to notify this before actually deleting the text
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextDeleted, 0, m_insertChild->nodeValue().length());
+
     ExceptionCode ec;
     m_insertChild->remove(ec);
 }

@@ -60,7 +60,7 @@ protected:
     uint8_t                     fInitialPollCountdown;
     uint8_t                     fIncompleteReadRetries;
     int                         fRetryAttempts;
-    
+
     IOService *                 fPowerServiceToAck;
     bool                        fSystemSleeping;
 

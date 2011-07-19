@@ -15,10 +15,13 @@ _inflateSetDictionary
 _inflateSync
 _inflateCopy
 _inflateReset
+_inflateReset2
 _inflatePrime
 _inflateGetHeader
 _inflateBack
 _inflateBackEnd
+_inflateMark
+_inflateUndermine
 _zlibCompileFlags
 _compress
 _compress2
@@ -42,8 +45,12 @@ _gztell
 _gzeof
 _gzdirect
 _gzclose
+_gzclose_r
+_gzclose_w
 _gzerror
 _gzclearerr
+_gzbuffer
+_gzoffset
 _adler32
 _adler32_combine
 _crc32

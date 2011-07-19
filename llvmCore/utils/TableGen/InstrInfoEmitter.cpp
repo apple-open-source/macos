@@ -15,12 +15,12 @@
 #include "InstrInfoEmitter.h"
 #include "CodeGenTarget.h"
 #include "Record.h"
+#include "llvm/ADT/StringExtras.h"
 #include <algorithm>
-#include <iostream>
 using namespace llvm;
 
 static void PrintDefList(const std::vector<Record*> &Uses,
-                         unsigned Num, std::ostream &OS) {
+                         unsigned Num, raw_ostream &OS) {
   OS << "static const unsigned ImplicitList" << Num << "[] = { ";
   for (unsigned i = 0, e = Uses.size(); i != e; ++i)
     OS << getQualifiedName(Uses[i]) << ", ";
@@ -28,7 +28,7 @@ static void PrintDefList(const std::vector<Record*> &Uses,
 }
 
 static void PrintBarriers(std::vector<Record*> &Barriers,
-                          unsigned Num, std::ostream &OS) {
+                          unsigned Num, raw_ostream &OS) {
   OS << "static const TargetRegisterClass* Barriers" << Num << "[] = { ";
   for (unsigned i = 0, e = Barriers.size(); i != e; ++i)
     OS << "&" << getQualifiedName(Barriers[i]) << "RegClass, ";
@@ -39,16 +39,10 @@ static void PrintBarriers(std::vector<Record*> &Barriers,
 // Instruction Itinerary Information.
 //===----------------------------------------------------------------------===//
 
-struct RecordNameComparator {
-  bool operator()(const Record *Rec1, const Record *Rec2) const {
-    return Rec1->getName() < Rec2->getName();
-  }
-};
-
 void InstrInfoEmitter::GatherItinClasses() {
   std::vector<Record*> DefList =
   Records.getAllDerivedDefinitions("InstrItinClass");
-  std::sort(DefList.begin(), DefList.end(), RecordNameComparator());
+  std::sort(DefList.begin(), DefList.end(), LessRecord());
   
   for (unsigned i = 0, N = DefList.size(); i < N; i++)
     ItinClassMap[DefList[i]->getName()] = i;
@@ -95,13 +89,16 @@ InstrInfoEmitter::GetOperandInfo(const CodeGenInstruction &Inst) {
       
       if (OpR->isSubClassOf("RegisterClass"))
         Res += getQualifiedName(OpR) + "RegClassID, ";
+      else if (OpR->isSubClassOf("PointerLikeRegClass"))
+        Res += utostr(OpR->getValueAsInt("RegClassKind")) + ", ";
       else
         Res += "0, ";
+      
       // Fill in applicable flags.
       Res += "0";
         
       // Ptr value whose register class is resolved via callback.
-      if (OpR->getName() == "ptr_rc")
+      if (OpR->isSubClassOf("PointerLikeRegClass"))
         Res += "|(1<<TOI::LookupPtrRegClass)";
 
       // Predicate operands.  Check to see if the original unexpanded operand
@@ -115,7 +112,20 @@ InstrInfoEmitter::GetOperandInfo(const CodeGenInstruction &Inst) {
         Res += "|(1<<TOI::OptionalDef)";
 
       // Fill in constraint info.
-      Res += ", " + Inst.OperandList[i].Constraints[j];
+      Res += ", ";
+      
+      const CodeGenInstruction::ConstraintInfo &Constraint =
+        Inst.OperandList[i].Constraints[j];
+      if (Constraint.isNone())
+        Res += "0";
+      else if (Constraint.isEarlyClobber())
+        Res += "(1 << TOI::EARLY_CLOBBER)";
+      else {
+        assert(Constraint.isTied());
+        Res += "((" + utostr(Constraint.getTiedOperand()) +
+                    " << 16) | (1 << TOI::TIED_TO))";
+      }
+        
       Result.push_back(Res);
     }
   }
@@ -123,7 +133,7 @@ InstrInfoEmitter::GetOperandInfo(const CodeGenInstruction &Inst) {
   return Result;
 }
 
-void InstrInfoEmitter::EmitOperandInfo(std::ostream &OS, 
+void InstrInfoEmitter::EmitOperandInfo(raw_ostream &OS, 
                                        OperandInfoMapTy &OperandInfoIDs) {
   // ID #0 is for no operand info.
   unsigned OperandListNum = 0;
@@ -133,7 +143,7 @@ void InstrInfoEmitter::EmitOperandInfo(std::ostream &OS,
   const CodeGenTarget &Target = CDP.getTargetInfo();
   for (CodeGenTarget::inst_iterator II = Target.inst_begin(),
        E = Target.inst_end(); II != E; ++II) {
-    std::vector<std::string> OperandInfo = GetOperandInfo(II->second);
+    std::vector<std::string> OperandInfo = GetOperandInfo(**II);
     unsigned &N = OperandInfoIDs[OperandInfo];
     if (N != 0) continue;
     
@@ -177,7 +187,7 @@ void InstrInfoEmitter::DetectRegisterClassBarriers(std::vector<Record*> &Defs,
 //===----------------------------------------------------------------------===//
 
 // run - Emit the main instruction description records for the target...
-void InstrInfoEmitter::run(std::ostream &OS) {
+void InstrInfoEmitter::run(raw_ostream &OS) {
   GatherItinClasses();
 
   EmitSourceFileHeader("Target Instruction Descriptors", OS);
@@ -198,7 +208,7 @@ void InstrInfoEmitter::run(std::ostream &OS) {
   // Emit all of the instruction's implicit uses and defs.
   for (CodeGenTarget::inst_iterator II = Target.inst_begin(),
          E = Target.inst_end(); II != E; ++II) {
-    Record *Inst = II->second.TheDef;
+    Record *Inst = (*II)->TheDef;
     std::vector<Record*> Uses = Inst->getValueAsListOfDefs("Uses");
     if (!Uses.empty()) {
       unsigned &IL = EmittedLists[Uses];
@@ -228,8 +238,8 @@ void InstrInfoEmitter::run(std::ostream &OS) {
   //
   OS << "\nstatic const TargetInstrDesc " << TargetName
      << "Insts[] = {\n";
-  std::vector<const CodeGenInstruction*> NumberedInstructions;
-  Target.getInstructionsByEnumValue(NumberedInstructions);
+  const std::vector<const CodeGenInstruction*> &NumberedInstructions =
+    Target.getInstructionsByEnumValue();
 
   for (unsigned i = 0, e = NumberedInstructions.size(); i != e; ++i)
     emitRecord(*NumberedInstructions[i], i, InstrInfo, EmittedLists,
@@ -243,7 +253,7 @@ void InstrInfoEmitter::emitRecord(const CodeGenInstruction &Inst, unsigned Num,
                          std::map<std::vector<Record*>, unsigned> &EmittedLists,
                                   std::map<Record*, unsigned> &BarriersMap,
                                   const OperandInfoMapTy &OpInfo,
-                                  std::ostream &OS) {
+                                  raw_ostream &OS) {
   int MinOperands = 0;
   if (!Inst.OperandList.empty())
     // Each logical operand can be multiple MI operands.
@@ -272,24 +282,25 @@ void InstrInfoEmitter::emitRecord(const CodeGenInstruction &Inst, unsigned Num,
   if (Inst.isReMaterializable) OS << "|(1<<TID::Rematerializable)";
   if (Inst.isNotDuplicable)    OS << "|(1<<TID::NotDuplicable)";
   if (Inst.hasOptionalDef)     OS << "|(1<<TID::HasOptionalDef)";
-  if (Inst.usesCustomDAGSchedInserter)
-    OS << "|(1<<TID::UsesCustomDAGSchedInserter)";
+  if (Inst.usesCustomInserter) OS << "|(1<<TID::UsesCustomInserter)";
   if (Inst.isVariadic)         OS << "|(1<<TID::Variadic)";
   if (Inst.hasSideEffects)     OS << "|(1<<TID::UnmodeledSideEffects)";
   if (Inst.isAsCheapAsAMove)   OS << "|(1<<TID::CheapAsAMove)";
-  OS << ", 0";
+  if (Inst.hasExtraSrcRegAllocReq) OS << "|(1<<TID::ExtraSrcRegAllocReq)";
+  if (Inst.hasExtraDefRegAllocReq) OS << "|(1<<TID::ExtraDefRegAllocReq)";
 
   // Emit all of the target-specific flags...
-  ListInit *LI    = InstrInfo->getValueAsListInit("TSFlagsFields");
-  ListInit *Shift = InstrInfo->getValueAsListInit("TSFlagsShifts");
-  if (LI->getSize() != Shift->getSize())
-    throw "Lengths of " + InstrInfo->getName() +
-          ":(TargetInfoFields, TargetInfoPositions) must be equal!";
-
-  for (unsigned i = 0, e = LI->getSize(); i != e; ++i)
-    emitShiftedValue(Inst.TheDef, dynamic_cast<StringInit*>(LI->getElement(i)),
-                     dynamic_cast<IntInit*>(Shift->getElement(i)), OS);
-
+  BitsInit *TSF = Inst.TheDef->getValueAsBitsInit("TSFlags");
+  if (!TSF) throw "no TSFlags?";
+  uint64_t Value = 0;
+  for (unsigned i = 0, e = TSF->getNumBits(); i != e; ++i) {
+    if (BitInit *Bit = dynamic_cast<BitInit*>(TSF->getBit(i)))
+      Value |= uint64_t(Bit->getValue()) << i;
+    else
+      throw "Invalid TSFlags bit in " + Inst.TheDef->getName();
+  }
+  OS << ", 0x";
+  OS.write_hex(Value);
   OS << ", ";
 
   // Emit the implicit uses and defs lists...
@@ -317,65 +328,6 @@ void InstrInfoEmitter::emitRecord(const CodeGenInstruction &Inst, unsigned Num,
     OS << "0";
   else
     OS << "OperandInfo" << OpInfo.find(OperandInfo)->second;
-  
+
   OS << " },  // Inst #" << Num << " = " << Inst.TheDef->getName() << "\n";
 }
-
-
-void InstrInfoEmitter::emitShiftedValue(Record *R, StringInit *Val,
-                                        IntInit *ShiftInt, std::ostream &OS) {
-  if (Val == 0 || ShiftInt == 0)
-    throw std::string("Illegal value or shift amount in TargetInfo*!");
-  RecordVal *RV = R->getValue(Val->getValue());
-  int Shift = ShiftInt->getValue();
-
-  if (RV == 0 || RV->getValue() == 0) {
-    // This isn't an error if this is a builtin instruction.
-    if (R->getName() != "PHI" &&
-        R->getName() != "INLINEASM" &&
-        R->getName() != "DBG_LABEL" &&
-        R->getName() != "EH_LABEL" &&
-        R->getName() != "GC_LABEL" &&
-        R->getName() != "DECLARE" &&
-        R->getName() != "EXTRACT_SUBREG" &&
-        R->getName() != "INSERT_SUBREG" &&
-        R->getName() != "IMPLICIT_DEF" &&
-        R->getName() != "SUBREG_TO_REG" &&
-        R->getName() != "COPY_TO_REGCLASS")
-      throw R->getName() + " doesn't have a field named '" + 
-            Val->getValue() + "'!";
-    return;
-  }
-
-  Init *Value = RV->getValue();
-  if (BitInit *BI = dynamic_cast<BitInit*>(Value)) {
-    if (BI->getValue()) OS << "|(1<<" << Shift << ")";
-    return;
-  } else if (BitsInit *BI = dynamic_cast<BitsInit*>(Value)) {
-    // Convert the Bits to an integer to print...
-    Init *I = BI->convertInitializerTo(new IntRecTy());
-    if (I)
-      if (IntInit *II = dynamic_cast<IntInit*>(I)) {
-        if (II->getValue()) {
-          if (Shift)
-            OS << "|(" << II->getValue() << "<<" << Shift << ")";
-          else
-            OS << "|" << II->getValue();
-        }
-        return;
-      }
-
-  } else if (IntInit *II = dynamic_cast<IntInit*>(Value)) {
-    if (II->getValue()) {
-      if (Shift)
-        OS << "|(" << II->getValue() << "<<" << Shift << ")";
-      else
-        OS << II->getValue();
-    }
-    return;
-  }
-
-  std::cerr << "Unhandled initializer: " << *Val << "\n";
-  throw "In record '" + R->getName() + "' for TSFlag emission.";
-}
-

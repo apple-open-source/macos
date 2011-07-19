@@ -62,7 +62,5 @@ const AccessCredentials * Globals::smartcardItemCredentials()
 	return (mUI ? mACLFactory.promptedPINItemCred() : mACLFactory.cancelCred()); 
 }
 	
-	
-
 }	// namespace KeychainCore
 }	// namespace Security

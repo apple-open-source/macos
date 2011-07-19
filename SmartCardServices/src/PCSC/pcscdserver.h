@@ -27,6 +27,7 @@
 #ifndef _H_PCSCDSERVER
 #define _H_PCSCDSERVER
 
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_utilities/machserver.h>
 #include <security_utilities/powerwatch.h>
 #include <map>

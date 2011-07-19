@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,6 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*!
+    @header
+        Converts HeaderDoc-generated XML output into a
+	form suitable for use with <code>xml2man</code>.
+    @indexgroup HeaderDoc Tools
+ */
+
 #include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -39,13 +46,15 @@ typedef struct usage {
     char *longflag;
     char *text;
     char *arg;
-    char *desc;
+    xmlNode *descnode;
     char *functype;
     char *funcname;
     struct usage *funcargs;
     struct usage *optionlist;
     int optional;
     struct usage *next;
+    int nextwithsamename;
+    int emitted;
 } *usage_t;
 
 #define MAXCOMMANDS 100
@@ -58,6 +67,7 @@ int multi_command_syntax = 0;
 int funccount = 0;
 
 char *striplines(char *line);
+int safe_asprintf(char **ret, const char *format, ...) __attribute__((format (printf, 2, 3)));
 
 #define MAX(a, b) ((a<b) ? b : a)
 #define MIN(a, b) ((a>b) ? b : a)
@@ -70,12 +80,21 @@ void writeOptionsSub(FILE *fp, xmlNode *description, int lwc);
 
 char *formattext(char *text, int textcontainer);
 
+/*!
+    @abstract
+        Strips the trailing <code>.mxml</code> from a filename.
+ */
 void strip_dotmxml(char *filename)
 {
     char *last = &filename[strlen(filename)-5];
     if (!strcmp(last, ".mxml")) *last = '\0';
 }
 
+/*!
+    @abstract
+        Main.
+    @apiuid //apple_ref/c/func/xml2man_main
+ */
 int main(int argc, char *argv[])
 {
     xmlDocPtr dp;
@@ -156,13 +175,18 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-inline char *malloccat(const char *string1, const char *string2)
+/*!
+    @abstract
+        A <code>strcat</code> variant that returns an allocated string.
+ */
+char *malloccat(const char *string1, const char *string2)
 {
     // char *ret = malloc((strlen(string1) + strlen(string2) + 1) * sizeof(char));
     // strcpy(ret, string1);
     // strcat(ret, string2);
     char *ret = NULL;
-    asprintf(&ret, "%s%s", string1, string2);
+    safe_asprintf(&ret, "%s%s", string1, string2);
+    if (!ret) { fprintf(stderr, "Out of memory.\n"); exit(1); }
     return ret;
 }
 
@@ -175,6 +199,15 @@ void writeUsage(FILE *fp, xmlNode *description);
 int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_empty, char *optional_separator);
 void printUsageOptionList(usage_t cur, FILE *fp, char *starting, char *separator);
 
+/*!
+    @abstract
+        The main body of the translator code.
+    @discussion
+        Takes an XML tree, an output filename, and a flag to
+        indicate whether the section number should be appended
+        to that filename, then translatest that into the -mdoc
+        macro set.
+ */
 void xml2man(xmlNode *root, char *output_filename, int append_section_number)
 {
     int section;
@@ -234,6 +267,7 @@ void xml2man(xmlNode *root, char *output_filename, int append_section_number)
 	}
 	if (!force_write && ((fp = fopen(output_filename, "r")))) {
 	    fprintf(stderr, "error: file %s exists.\n", output_filename);
+	    fclose(fp);
 	    exit(-1);
 	} else {
 	    if (!(fp = fopen(output_filename, "w"))) {
@@ -279,6 +313,12 @@ void xml2man(xmlNode *root, char *output_filename, int append_section_number)
     }
 }
 
+/*!
+    @abstract
+        Returns the first node at the current level that matches
+        the specified tag name.
+    @apiuid //apple_ref/c/func/xml2man_nodematching
+ */
 xmlNode *nodematching(char *name, xmlNode *cur)
 {
     while (cur) {
@@ -290,6 +330,11 @@ xmlNode *nodematching(char *name, xmlNode *cur)
     return cur;
 }
 
+/*!
+    @abstract
+        Returns an array of nodes at the current level that match
+        the specified tag name.
+ */
 xmlNode **nodesmatching(char *name, xmlNode *cur)
 {
     xmlNode **buf = malloc(sizeof(xmlNode) * 10);
@@ -316,6 +361,12 @@ xmlNode **nodesmatching(char *name, xmlNode *cur)
     return buf;
 }
 
+/*!
+    @abstract
+        Returns the first text content of the first node at
+        the current level that matches the specified tag name.
+    @apiuid //apple_ref/c/func/xml2man_textmatching
+ */
 char *textmatching(char *name, xmlNode *node, int missing_ok, char *debugstr)
 {
     xmlNode *cur = nodematching(name, node);
@@ -340,22 +391,49 @@ char *textmatching(char *name, xmlNode *node, int missing_ok, char *debugstr)
     return ret;
 }
 
+/*!
+    @abstract
+        State values that represent where we are in the
+        document.
+    @constant kGeneral
+        The normal state.
+    @constant kNames
+        Inside the NAME section.
+    @constant kRetval
+        Inside the RETURN VALUES section.
+    @constant kMan
+        Inside a .Xr cross reference.
+ */
 enum states
 {
     kGeneral = 0,
     kNames   = 1,
     kRetval  = 2,
     kMan     = 3,
-    kLast    = 256
 };
 
 void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int next, int seendt);
+
+/*!
+    @abstract
+        Writes a normal section to the output file.
+    @discussion
+        Calls {@link writeData_sub} to do all the real work.
+ */
 void writeData(FILE *fp, xmlNode *node)
 {
     writeData_sub(fp, node, 0, 0, 0, 0);
 }
 
 
+/*!
+    @abstract
+        Writes the guts of a term-and-definition, flag, or argument.
+    @discussion
+        In this context, we can't change lines to send a new command,
+        so only certain things are allowed, and all commands are
+        handled inline.
+ */
 void dodtguts(FILE *fp, xmlNode *parent, char *initial_add)
 {
   xmlNode *node = parent->children;
@@ -406,6 +484,11 @@ void dodtguts(FILE *fp, xmlNode *parent, char *initial_add)
   // fprintf(fp, "%s", add); add = "";
 }
 
+/*!
+    @abstract
+        Returns the last sibling of the current node, but
+        only if it is a text node.
+ */
 xmlNode *lasttextnode(xmlNode *node)
 {
 	xmlNode *nextnode = NULL;
@@ -417,16 +500,25 @@ xmlNode *lasttextnode(xmlNode *node)
 }
 
 
+/*!
+    @abstract
+        Writes a normal section to the output file.
+ */
 void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int next, int seendt)
 {
     int oldtextcontainer = textcontainer;
     int oldstate = state;
     int drop_children = 0;
     int localdebug = 0;
+    char *xreftail = NULL;
 
     char *tail = NULL;
 
     if (!node) return;
+
+    if (localdebug && node->content) {
+	printf("NODE CONTENT: %s\n", node->content);
+    }
 
     /* The reason for this block is that it is not possible (outside of
        argument lists) to have non-underlined/bold commas or periods after
@@ -439,6 +531,9 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
        We do not do this for content immediately after a <url> tag because
        that does not add any man-page-specific formatting.  The format of
        a URL is simply presented as <URL> in the output.
+
+       We do something special for cross references because otherwise
+       you would get "see foo.(3)" instead of "see foo(3)."
      */
     if (node->next && !strcmp((char *)node->next->name, "text") && strcmp((char *)node->name, "url")) {
 	char *tmp = node->next->content ? (char *)node->next->content : "";
@@ -462,16 +557,21 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 		nexttext[(end-tmp)/sizeof(char)] = '\0';
 
 		if (localdebug) printf("Appending \"%s\" to \"%s\"\n", nexttext, searchnode->content);
+		if (!strcmp((char *)node->name, "manpage")) {
+			safe_asprintf(&xreftail, "%s", nexttext);
+			if (!xreftail) { fprintf(stderr, "Out of memory.\n"); exit(1); }
+		} else {
+			alloc_len = ((strlen((char *)searchnode->content) + strlen(nexttext) + 2) * sizeof(char));
+			sntext = malloc(alloc_len);
+			strlcpy(sntext, (char *)searchnode->content, alloc_len);
+			// strcat(sntext, " ");
+			strlcat(sntext, nexttext, alloc_len);
+			if (localdebug) printf("new text \"%s\"\n", sntext);
 
-		alloc_len = ((strlen((char *)searchnode->content) + strlen(nexttext) + 2) * sizeof(char));
-		sntext = malloc(alloc_len);
-		strlcpy(sntext, (char *)searchnode->content, alloc_len);
-		// strcat(sntext, " ");
-		strlcat(sntext, nexttext, alloc_len);
-		if (localdebug) printf("new text \"%s\"\n", sntext);
+			free(searchnode->content);
+			searchnode->content = (unsigned char *)sntext;
 
-		free(searchnode->content);
-		searchnode->content = (unsigned char *)sntext;
+		}
 
 		tmp = strdup(end);
 		free(node->next->content);
@@ -494,14 +594,16 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	if (localdebug) printf("section\n");
 	if (state == kMan) {
 		char *childtext = textmatching("text", node->children, 1, "man section element");
-		char *tailcontents = NULL;
 		char *pos = childtext;
+    		char *tailcontents = NULL;
 
 		while (pos && *pos && *pos != ',' && *pos != '.') pos++;
 		if (pos && *pos) {
 			tailcontents = strdup(pos);
 			*pos = '\0';
 		}
+
+		if (localdebug) fprintf(stderr, "TAILCONTENTS: %s\n", tailcontents);
 
 		fprintf(fp, " %s", formattext(childtext, textcontainer));
 		if (tailcontents) fprintf(fp, " %s", tailcontents);
@@ -550,8 +652,13 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 	textcontainer = 0;
 	drop_children = 1;
     } else if (!strcmp((char *)node->name, "flag")) {
-	if (localdebug) printf("flag\n");
-	fprintf(fp, ".Pa "); dodtguts(fp, node, "\n"); drop_children = 1;
+	if (textcontainer) {
+		fprintf(fp, ".Fl "); dodtguts(fp, node, "\n"); drop_children = 1;
+		tail = "\n";
+	} else {
+		if (localdebug) printf("flag\n");
+		fprintf(fp, ".Pa "); dodtguts(fp, node, "\n"); drop_children = 1;
+	}
     } else if (!strcmp((char *)node->name, "arg")) {
 	if (localdebug) printf("arg\n");
 	fprintf(fp, ".Pa "); dodtguts(fp, node, "\n"); drop_children = 1;
@@ -781,6 +888,9 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
     }
     textcontainer = oldtextcontainer;
     state = oldstate;
+    if (xreftail) {
+	fprintf(fp, " %s", xreftail);
+    }
     if (tail) {
 	fprintf(fp, "%s", tail);
     }
@@ -790,15 +900,28 @@ void writeData_sub(FILE *fp, xmlNode *node, int state, int textcontainer, int ne
 }
 
 
+/*!
+    @abstract
+        Writes function arguments to the output file.
+ */
 void write_funcargs(FILE *fp, usage_t cur)
 {
     for (; cur; cur = cur->next) {
 	fprintf(fp, ".It Ar \"%s\"", formattext(cur->arg ? cur->arg : "", 1));
-	fprintf(fp, "\n%s%s", formattext(cur->desc ? cur->desc : "", 1), (cur->desc ? "\n" : ""));
+	fprintf(fp, "\n");
+	// @@@
+	if (cur->descnode && cur->descnode->children) {
+		writeData_sub(fp, cur->descnode->children, 0, 1, 1, 0);
+	} // %s%s", formattext(cur->desc ? cur->desc : "", 1), (cur->desc ? "\n" : ""));
     }
 }
 
 
+/*!
+    @abstract
+        Returns a static buffer (not thread safe) containing
+        the specified number of "X" characters.
+ */
 char *xs(int count)
 {
     static char *buffer = NULL;
@@ -807,13 +930,16 @@ char *xs(int count)
     if (buffer) {
 	int i;
 	for (i=0; i<count; i++) buffer[i] = 'X';
+	buffer[count] = '\0';
     }
-    buffer[count] = '\0';
 
     return buffer;
 }
 
-
+/*!
+    @abstract
+        Writes the USAGE section of a manual page.
+ */
 void writeUsage(FILE *fp, xmlNode *description)
 {
     int lwc, pos;
@@ -828,6 +954,7 @@ void writeUsage(FILE *fp, xmlNode *description)
 
 	// fprintf(stderr, "MCS: %d\n", multi_command_syntax);
 	for (pos = 0; pos < (multi_command_syntax ? multi_command_syntax : 1); pos++) {
+
 		if (multi_command_syntax) {
 			name_or_empty = commandnames[pos];
 		}
@@ -855,11 +982,15 @@ void writeUsage(FILE *fp, xmlNode *description)
     writeOptionsSub(fp, description, lwc);
 }
 
+/*!
+    @abstract
+        Writes an individual command usage inside the USAGE
+        section of a manual page.
+ */
 int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_empty, char *optional_separator)
 {
     usage_t cur;
     int first;
-    int function = 0;
     char dot = '.';
 	int nonl = 0;
 	int lastnonl = 0;
@@ -943,7 +1074,6 @@ int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_emp
 			for (arg = cur->funcargs; arg; arg = arg->next) {
 				fprintf(fp, "\"%s\" ", formattext(arg->arg, 1));
 			}
-			function = 1;
 			isliteral = 0;
 		} else if (cur->funcargs) {
 			usage_t arg;
@@ -968,18 +1098,73 @@ int writeUsageSub(FILE *fp, int showname, usage_t myusagehead, char *name_or_emp
     return 0;
 }
 
-void writeOptionsSub(FILE *fp, xmlNode *description, int lwc) {
-    usage_t cur;
-    int first, topfirst;
+int writeOptionsSubWithObject(FILE *fp, usage_t obj, int pos, int topfirst, int lwc, int noheading);
+
+/*!
+    @abstract
+        Writes the OPTIONS section of a manual page.
+ */
+void writeOptionsSub(FILE *fp, xmlNode *description, int lwc)
+{
+    int topfirst;
     int pos;
-    char *name_or_empty = NULL;
+
+    if (multi_command_syntax) {
+	int outerpos, innerpos;
+
+	for (outerpos = 0; outerpos < multi_command_syntax; outerpos++) {
+		usage_head[outerpos]->emitted = 0;
+		usage_head[outerpos]->nextwithsamename = 0;
+		for (innerpos = outerpos + 1; innerpos < (multi_command_syntax ? multi_command_syntax : 1); innerpos++) {
+			if (!strcmp(commandnames[outerpos], commandnames[innerpos])) {
+				usage_head[outerpos]->nextwithsamename = innerpos;
+				break;
+			}
+		}
+	}
+    }
 
     topfirst = 1;
     for (pos = 0; pos < (multi_command_syntax ? multi_command_syntax : 1); pos++) {
+	if (!usage_head[pos]) continue;
+	if (usage_head[pos]->emitted) continue;
+
+	topfirst = writeOptionsSubWithObject(fp, usage_head[pos], pos, topfirst, lwc, usage_head[pos]->nextwithsamename ? 2 : 0);
+
+	int temppos = usage_head[pos]->nextwithsamename;
+	while (temppos) {
+		topfirst = writeOptionsSubWithObject(fp, usage_head[temppos], temppos, topfirst, lwc, usage_head[temppos]->nextwithsamename ? 3 : 1);
+		usage_head[temppos]->emitted = 1;
+		temppos = usage_head[temppos]->nextwithsamename;
+	}
+    }
+	
+}
+
+
+/*!
+    @abstract
+        Writes an individual option entry in the OPTIONS section of a manual page.
+ */
+int writeOptionsSubWithObject(FILE *fp, usage_t obj, int pos, int topfirst, int lwc, int noheading)
+{
+	int first;
+	char *name_or_empty = NULL;
+	usage_t cur;
+
 	if (multi_command_syntax) {
 		name_or_empty = commandnames[pos];
 	}
-        first=1;
+
+	/* noheading:
+		0 - normal output.
+		1 - no heading, but closes the container.
+		2 - normal output, but leaves the container open.
+		3 - no heading, but leaves the container open.
+	 */
+	if (noheading == 1 || noheading == 3) first = 0;
+	else first = 1;
+
 	for (cur = usage_head[pos]; cur; cur = cur->next) {
 		if (cur->funcargs && !cur->flag && !cur->longflag) {
 			if (first) {
@@ -995,7 +1180,7 @@ void writeOptionsSub(FILE *fp, xmlNode *description, int lwc) {
 			continue;
 		}
 		// if (!cur->flag) continue;
-		if (!cur->desc) continue;
+		if (!cur->descnode) continue;
 		if (first) {
 			if (topfirst) { fprintf(fp, ".Sh OPTIONS\n"); }
 			fprintf(fp, "The available options %s%s%sare as follows:\n",  (name_or_empty ? "for\n.Sy " : ""), formattext(name_or_empty ? name_or_empty : "", 1), (name_or_empty ? " Li " : ""));
@@ -1008,13 +1193,25 @@ void writeOptionsSub(FILE *fp, xmlNode *description, int lwc) {
 		if (cur->arg) {
 			fprintf(fp, " Ar \"%s\"", formattext(cur->arg, 1));
 		}
-		fprintf(fp, "\n%s\n", formattext(cur->desc ? cur->desc : "", 1));
+		// fprintf(fp, "\n%s\n", formattext(cur->desc ? cur->desc : "", 1));
+		fprintf(fp, "\n");
+		// @@@
+		if (cur->descnode && cur->descnode->children) {
+			writeData_sub(fp, cur->descnode->children, 0, 1, 1, 0);
+		} // %s%s", formattext(cur->desc ? cur->desc : "", 1), (cur->desc ? "\n" : ""));
 	}
-	if (!first) { fprintf(fp, ".El\n"); }
-    }
-	
+	if (noheading < 2) {
+		if (!first) { fprintf(fp, ".El\n"); }
+	}
+
+	return topfirst;
 }
 
+/*!
+    @abstract
+        Prints a list of options (A | B | C) for the USAGE
+        section of a manual page.
+ */
 void printUsageOptionList(usage_t cur, FILE *fp, char *starting, char *separator)
 {
 	// usage_t temppos;
@@ -1049,6 +1246,12 @@ void printUsageOptionList(usage_t cur, FILE *fp, char *starting, char *separator
 	// fprintf(fp, "]\n");
 }
 
+/*!
+    @abstract
+        Searches a list of XML properties and returns a string
+        containing the text of the first property that matches
+        the specified name.
+ */
 char *propstring(char *name, struct _xmlAttr *prop)
 {
     for (; prop; prop=prop->next) {
@@ -1061,7 +1264,11 @@ char *propstring(char *name, struct _xmlAttr *prop)
     return NULL;
 }
 
-
+/*!
+    @abstract
+        Returns the numerical value (integer) of an XML property.
+    @apiuid //apple_ref/c/func/xml2man_propval
+ */
 int propval(char *name, struct _xmlAttr *prop)
 {
     char *ps = propstring(name, prop);
@@ -1074,6 +1281,11 @@ int propval(char *name, struct _xmlAttr *prop)
     return atoi(ps);
 }
 
+/*!
+    @abstract
+        Reads the argument list for a flag (from the XML tree) and
+        creates data structures accordingly.
+ */
 usage_t getflagargs(xmlNode *node)
 {
     usage_t head = NULL, tail = NULL;
@@ -1087,7 +1299,7 @@ usage_t getflagargs(xmlNode *node)
 	newnode->flag = NULL;
 	newnode->longflag = NULL;
 	newnode->arg  = textmatching("text", node->children, 0, "flag argument");
-	newnode->desc = NULL;
+	newnode->descnode = NULL;
 	newnode->optional = propval("optional", node->properties);
 	newnode->functype = NULL;
 	newnode->funcname = NULL;
@@ -1108,10 +1320,19 @@ usage_t getflagargs(xmlNode *node)
 
 
 void parseUsageSub(xmlNode *node, int pos, int drop_first_text);
+/*!
+    @abstract
+        Calls {@link parseUsageSub}.
+ */
 void parseUsage(xmlNode *node, int pos) {
     parseUsageSub(node, pos, 1);
 }
 
+/*!
+    @abstract
+        Extracts the usage section from the XML tree and
+        builds up data structures.
+ */
 void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 {
     usage_t flag_or_arg = NULL;
@@ -1185,7 +1406,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
-	flag_or_arg->desc = NULL;
+	flag_or_arg->descnode = NULL;
 	flag_or_arg->optional = 1;
 	tempstring = propstring("optional", node->properties);
 	if (tempstring) {
@@ -1218,7 +1439,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 		flag_or_arg->text  = strdup(striplines(textmatching("text", node->children, 0, dbstr)));
 	}
 	free(dbstr);
-	flag_or_arg->desc = NULL;
+	flag_or_arg->descnode = NULL;
 	flag_or_arg->optional = propval("optional", node->properties);
 	flag_or_arg->functype = NULL;
 	flag_or_arg->funcname = NULL;
@@ -1240,7 +1461,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg  = strdup(striplines(textmatching("text", node->children, 0, "arg tag")));
-	flag_or_arg->desc = textmatching("desc", node->children, 1, "arg desc");
+	flag_or_arg->descnode = nodematching("desc", node->children);
 	flag_or_arg->optional = propval("optional", node->properties);
 	flag_or_arg->functype = NULL;
 	flag_or_arg->funcname = NULL;
@@ -1264,7 +1485,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
-	flag_or_arg->desc = textmatching("desc", node->children, 1, "flag desc");
+	flag_or_arg->descnode = nodematching("desc", node->children);
 	flag_or_arg->optional = propval("optional", node->properties);
 	flag_or_arg->functype = NULL;
 	flag_or_arg->funcname = NULL;
@@ -1277,14 +1498,18 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg  = NULL;
-	flag_or_arg->desc = NULL;
+	flag_or_arg->descnode = NULL;
 	flag_or_arg->optional = 0;
 	flag_or_arg->functype = strdup(striplines(textmatching("type", node->children, 0, "func type")));
 	flag_or_arg->funcname = strdup(striplines(textmatching("name", node->children, 0, "func name")));
 	flag_or_arg->next = NULL;
 	// printf("RECURSE\n");
 	parseUsage(node->children, pos);
-	if (++funccount > 1) strncpy(commandnames[multi_command_syntax++], flag_or_arg->funcname, MAXNAMLEN-1);
+	if (++funccount > 1) {
+		strncpy(commandnames[multi_command_syntax], flag_or_arg->funcname, MAXNAMLEN-1);
+		commandnames[multi_command_syntax][MAXNAMLEN-1] = '\0';
+		multi_command_syntax++;
+	}
 	// printf("RECURSEOUT\n");
 	flag_or_arg->funcargs = flag_or_arg->next;
 	usage_tail[pos] = flag_or_arg;
@@ -1296,7 +1521,7 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
 	flag_or_arg->optionlist = NULL;
 	flag_or_arg->text  = NULL;
 	flag_or_arg->arg = NULL;
-	flag_or_arg->desc = NULL;
+	flag_or_arg->descnode = NULL;
 	flag_or_arg->optional = 1;
 	flag_or_arg->functype = NULL;
 	flag_or_arg->funcname = NULL;
@@ -1309,12 +1534,25 @@ void parseUsageSub(xmlNode *node, int pos, int drop_first_text)
     parseUsageSub(node->next, pos, 0);
 }
 
+/*!
+    @abstract
+        The current state in the {@link striplines} function.
+    @constant kSOL
+	Short for "start of line", this is the initial state
+	and the state after a newline but before any non-whitespace.
+    @constant kText
+	This is the state after text has appeared on a line.
+ */
 enum stripstate
 {
     kSOL = 1,
     kText = 2
 };
 
+/*!
+    @abstract
+        Strips leading whitespace and replaces all line breaks with spaces.
+ */
 char *striplines(char *line)
 {
     static char *ptr = NULL;
@@ -1329,8 +1567,7 @@ char *striplines(char *line)
     ptr = malloc((strlen(line) + 1) * sizeof(char));
 
     state = kSOL;
-    pos = ptr;
-    for (pos=ptr; (*linepos); linepos++,pos++) {
+    for (pos = ptr; (*linepos); linepos++,pos++) {
 	switch(state) {
 		case kSOL:
 			if (*linepos == ' ' || *linepos == '\n' || *linepos == '\r' ||
@@ -1352,6 +1589,11 @@ char *striplines(char *line)
     return ptr;
 }
 
+/*!
+    @abstract
+        Returns 1 if a token might potentially be misinterpreted
+        as a macro.  Used to control quoting.
+ */
 int checkcurword(char *word, int textcontainer)
 {
     if (textcontainer == 2) return 0;
@@ -1362,6 +1604,10 @@ int checkcurword(char *word, int textcontainer)
     return 0;
 }
 
+/*!
+    @abstract
+        Emits a block of text, quoting tokens within it as needed.
+ */
 char *formattext(char *text, int textcontainer)
 {
     static char *result = NULL;
@@ -1375,8 +1621,10 @@ char *formattext(char *text, int textcontainer)
 
 // fprintf(stderr, "TC: %d STRING: %s\n", textcontainer, text);
 
-    asprintf(&result, "");
-    asprintf(&curword, "");
+    // safe_asprintf(&result, "");
+    result = calloc(1,1);
+    // safe_asprintf(&curword, "");
+    curword = calloc(1,1);
 
     for (pos = text; *pos; pos++) {
 	iskey = checkcurword(curword, textcontainer);
@@ -1384,33 +1632,76 @@ char *formattext(char *text, int textcontainer)
 		case ' ':
 			temp = result;
 			result = NULL;
-			asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+			safe_asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+			if (!result) { fprintf(stderr, "Out of memory.\n"); exit(1); }
 			free(temp);
-			free(curword); asprintf(&curword, "");
+			free(curword);
+			// safe_asprintf(&curword, "");
+			curword = calloc(1,1);
 			space = " ";
 			break;
 		case '\\':
 			temp = result;
 			result = NULL;
-			asprintf(&result, "%s%s%s%s\\e", temp, space, iskey ? "\\&" : "", curword);
+			safe_asprintf(&result, "%s%s%s%s\\e", temp, space, iskey ? "\\&" : "", curword);
+			if (!result) { fprintf(stderr, "Out of memory.\n"); exit(1); }
 			free(temp);
-			free(curword); asprintf(&curword, "");
+			free(curword);
+			// safe_asprintf(&curword, "");
+			curword = calloc(1,1);
 			space = " ";
 			break;
 		default:
 			temp = curword;
 			curword = NULL;
-			asprintf(&curword, "%s%c", temp, *pos);
+			safe_asprintf(&curword, "%s%c", temp, *pos);
+			if (!curword) { fprintf(stderr, "Out of memory.\n"); exit(1); }
 			free(temp);
 	}
     }
     iskey = checkcurword(curword, textcontainer);
     temp = result;
     result = NULL;
-    asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+    safe_asprintf(&result, "%s%s%s%s", temp, space, iskey ? "\\&" : "", curword);
+    if (!result) { fprintf(stderr, "Out of memory.\n"); exit(1); }
     free(temp);
     free(curword);
 
     return result;
+}
+
+/*!
+    @abstract
+	Compatibility shim for Linux
+    @discussion
+	Unlike the BSD implementation of <code>asprintf</code>,
+	the Linux implementation does not guarantee that the
+	variable pointed to by <code>ret</code> is set to
+	<code>NULL</code> in the event of an error.
+
+	Because it is poor programming practice to accept a
+	pointer from a system routine without checking to see
+	if the routine returned NULL, this results in a rather
+	messy pair of checks in order to get the desired
+	behavior (one check for the return value, then another
+	for the pointer).
+
+	This function works around that flaw in the Linux
+	implementation by simply checking the return value,
+	then setting the variable pointed to by <code>ret</code>
+	to NULL in the event of an error.
+ */
+int safe_asprintf(char **ret, const char *format, ...)
+{
+    va_list ap;
+    int retval;
+
+    va_start(ap, format);
+    retval = vasprintf(ret, format, ap);
+    if (ret && (retval < 0)) {
+	*ret = NULL;
+    }
+
+    return retval;
 }
 

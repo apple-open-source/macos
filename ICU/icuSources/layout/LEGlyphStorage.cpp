@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1998-2006, International Business Machines
+ *   Copyright (C) 1998-2009, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -109,6 +109,16 @@ void LEGlyphStorage::allocateGlyphArray(le_int32 initialGlyphCount, le_bool righ
     if (fInsertionList == NULL) {
         // FIXME: check this for failure?
         fInsertionList = new LEInsertionList(rightToLeft);
+        if (fInsertionList == NULL) { 
+            LE_DELETE_ARRAY(fCharIndices);
+            fCharIndices = NULL;
+
+            LE_DELETE_ARRAY(fGlyphs);
+            fGlyphs = NULL;
+
+            success = LE_MEMORY_ALLOCATION_ERROR;
+            return;
+        }
     }
 }
 
@@ -500,10 +510,49 @@ void LEGlyphStorage::adoptGlyphCount(le_int32 newGlyphCount)
     fGlyphCount = newGlyphCount;
 }
 
-// FIXME: add error checking?
+// Move a glyph to a different position in the LEGlyphStorage ( used for Indic v2 processing )
+
+void LEGlyphStorage::moveGlyph(le_int32 fromPosition, le_int32 toPosition, le_uint32 marker )
+{
+
+    LEErrorCode success = LE_NO_ERROR;
+
+    LEGlyphID holdGlyph = getGlyphID(fromPosition,success);
+    le_int32 holdCharIndex = getCharIndex(fromPosition,success);
+    le_uint32 holdAuxData = getAuxData(fromPosition,success);
+
+    if ( fromPosition < toPosition ) {
+        for ( le_int32 i = fromPosition ; i < toPosition ; i++ ) {
+            setGlyphID(i,getGlyphID(i+1,success),success);
+            setCharIndex(i,getCharIndex(i+1,success),success);
+            setAuxData(i,getAuxData(i+1,success),success);
+        }
+    } else {
+        for ( le_int32 i = toPosition ; i > fromPosition ; i-- ) {
+            setGlyphID(i,getGlyphID(i-1,success),success);
+            setCharIndex(i,getCharIndex(i-1,success),success);
+            setAuxData(i,getAuxData(i-1,success),success);
+
+        }
+    }
+
+    setGlyphID(toPosition,holdGlyph,success);
+    setCharIndex(toPosition,holdCharIndex,success);
+    setAuxData(toPosition,holdAuxData | marker,success);
+
+}
+
+// Glue code for existing stable API
 LEGlyphID *LEGlyphStorage::insertGlyphs(le_int32  atIndex, le_int32 insertCount)
 {
-    return fInsertionList->insert(atIndex, insertCount);
+    LEErrorCode ignored = LE_NO_LAYOUT_ERROR;
+    return insertGlyphs(atIndex, insertCount, ignored);
+}
+
+// FIXME: add error checking?
+LEGlyphID *LEGlyphStorage::insertGlyphs(le_int32  atIndex, le_int32 insertCount, LEErrorCode& success)
+{
+    return fInsertionList->insert(atIndex, insertCount, success);
 }
 
 le_int32 LEGlyphStorage::applyInsertions()
@@ -516,11 +565,27 @@ le_int32 LEGlyphStorage::applyInsertions()
 
     le_int32 newGlyphCount = fGlyphCount + growAmount;
 
-    fGlyphs      = (LEGlyphID *) LE_GROW_ARRAY(fGlyphs,      newGlyphCount);
-    fCharIndices = (le_int32 *)  LE_GROW_ARRAY(fCharIndices, newGlyphCount);
+    LEGlyphID *newGlyphs = (LEGlyphID *) LE_GROW_ARRAY(fGlyphs, newGlyphCount); 
+    if (newGlyphs == NULL) { 
+        // Could not grow the glyph array 
+        return fGlyphCount; 
+    } 
+    fGlyphs = newGlyphs; 
 
-    if (fAuxData != NULL) {
-        fAuxData = (le_uint32 *) LE_GROW_ARRAY(fAuxData,     newGlyphCount);
+    le_int32 *newCharIndices = (le_int32 *) LE_GROW_ARRAY(fCharIndices, newGlyphCount);
+    if (newCharIndices == NULL) { 
+        // Could not grow the glyph array 
+        return fGlyphCount; 
+    } 
+    fCharIndices = newCharIndices;
+
+    if (fAuxData != NULL) {	
+        le_uint32 *newAuxData = (le_uint32 *) LE_GROW_ARRAY(fAuxData, newGlyphCount); 
+        if (newAuxData == NULL) { 
+            // could not grow the aux data array 
+            return fGlyphCount; 
+        } 
+        fAuxData = (le_uint32 *)newAuxData;
     }
 
     fSrcIndex  = fGlyphCount - 1;

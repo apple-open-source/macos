@@ -1,0 +1,696 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin menubar n 0.5]
+
+[copyright "2009 Tom Krehbiel <krehbiel.tom@gmail.com> All rights reserved."]
+
+[titledesc "Creates an instance of the [emph menubar] Class."]
+[moddesc   {Create and manipulate menubars}]
+
+[require Tcl 8.6]
+[require Tk 8.6]
+[require menubar [opt 0.5]]
+
+[description]
+
+[list_begin definitions]
+[call [cmd {menubar new}]  [opt options]]
+[list_end]
+
+[para] 
+Create and return a new instance of the menubar class. The
+menubar class encapsulates the definition, installation and
+dynamic behavior of a menubar. The class doesn't depend on a
+widget framework and therefore can be used with or without a
+framework (e.g. Bwidget, IWidget, Snit, etc.). Unlike other Tk
+widget commands, the menubar command doesn't have a [emph pathName]
+argument because menubars are handled by the window manager (i.e. wm)
+and not the application.
+
+
+[section {Options}]
+
+The following options can be passed to the [emph {menubar new}] command.
+
+[para]
+These options are inherited from the Tk menu command, their effect is
+platform specific.
+
+[list_begin options]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-activebackground -activebackground]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-activeborderwidth -activeborderwidth]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-activeforeground -activeforeground]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-background -background]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-borderwidth -borderwidth]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-cursor -cursor]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-disabledforeground -disabledforeground]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-font -font]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-foreground -foreground]]
+[opt_def [uri http://docs.activestate.com/activetcl/8.5/tcl/TkCmd/options.htm#M-relief -relief]]
+[list_end]
+
+[section Introduction]
+
+[para]
+An instance of the menubar class provides methods for compiling a
+description of the menubar, configuring menu items and 
+installing the menubar in toplevel windows.
+
+[para]
+A menubar can be thought of as a tree of cascading menus. Users define
+a menubar using a language that results in a human readable description
+of a menubar. The description of the menubar is then compiled by an
+instance of the menubar class after which it can be installed in one or more
+toplevel windows.
+
+[para]
+The menubar class provides many unique capabilities that are not
+found in other tcl/tk menubar implementation. Some of these are:
+
+[list_begin itemized]
+[item] A tagging system that simplifies access to menu entries in the menu tree.
+[item] Support for user defined tags that depend on the toplevel window context.
+[item] A simplified and uniform interface for all callback commands.
+[item] Namespace support for all callback commands so callback commands can be easily grouped into namespaces.
+[item] Support for hiding and exposing menus on the menubar.
+[item] A simplified method for creating radiobutton groups.
+[item] Automatic management of state variables for checkbuttons and radiobuttons.
+[item] Scope control for the state variables of checkbuttons and radiobuttons.
+[item] Tear-off menu management that ensures only one tearoff menu is created.
+[item] Support for dynamic menu extension to simplify the creation of recent document menus.
+[item] Support for saving and restoring dynamic menu extensions.
+[list_end]
+
+[section Terminology]
+
+[list_begin definitions]
+
+	[def MENUBAR]
+
+	The visible rendering of a menubar in a toplevel window is a horizontally
+	group of cascading Tk menus.
+
+	[def MENU]
+
+	A menu is an ordered list of items that is rendered
+	vertically. Menus are not visible until a user
+	preforms some action (normally a <ButtonPress-1> event). A menu
+	may contain any number of child menus that are rendered as
+	cascading menus. Cascading menus are rendered next to the parent menu
+	when they are activated.
+
+	[def {MENU ENTRY}]
+
+	A menu contains an ordered list of items called entries.
+	Menu entries have a type and the menubar class supports the
+	following 6 entry types: 
+	[emph Command], [emph Checkbutton], [emph Radiobutton], [emph Separator], [emph Group] and [emph Menu]. 
+
+	[def {ENTRY LABEL}]
+
+	Each menu entry has a visible string that is called the entry label.
+
+	[def {TAG}]
+
+	A tag is name that is normally used to referr to an item in a menu
+	tree. A tag name is an alphanumeric character string
+	that may include the underscore character. Menu tree tags are
+	defined for all nodes and leafs in a menu tree. This provides a
+	flat abstraction of the tree and simplifies item referencing in
+	menubar methods. Without this abstraction it would be
+	necessary to reference menu elements using a tree path which
+	could change at run-time. The menubar class also has a method that
+	can create a user defined tag. User
+	defined tags store values that change based on the currently
+	active toplevel window. User defined tags can be used to store widget
+	pathnames use by callback code so that output can be routed to the
+	appropriate toplevel window.
+
+[list_end]
+
+[section Methods]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd define] [arg body]]
+
+	Compiles [emph body] into a tree of menu entries which define the 
+	visual layout of the menubar. The [emph body] argument 
+	describes the layout using the following syntax, where the
+	elements of the syntax are described below.
+
+	[para]
+	[emph {body == definitions}]
+
+[example_begin]
+definitions    ::= { <ignore> | <definition> | <definition> <definitions> }
+ignore         ::= { <nl> | <white-space> <nl> | # <comment> <nl> }
+definition     ::= { <command> | <checkbutton> | <radiobutton> | <separator> | <group> | <menu> }
+command        ::= <label> C <tag> <nl>
+checkbutton    ::= <label> X<scope> { <tag> | <tag>+ } <nl>
+radiobutton    ::= <label> R<scope> { <tag> | <tag>+ } <nl>
+separator      ::= <stext> S <tag> <nl>
+group          ::= <dummy> G <tag> <nl>
+menu           ::= <label> { M:<tag> | M:<tag>+ } <nl> <definitions>
+stext          ::= '--' | <label>
+scope          ::= '' | '@' | '='
+[example_end]
+
+	[emph { }]
+
+	[list_begin definitions]
+
+	[def {C - Command}] 
+	The C type entry is the most common type of entry. This entry executes
+	a command when it is invoked.
+
+	[def {X - Checkbutton}] 
+	A X type entry behaves much like a Tk checkbutton
+	widget. When it is invoked it toggles back and forth between
+	a selected and deselected states. The value of a checkbutton
+	is a boolean (i.e. 1 or 0). By default all checkbuttons are
+	deselected. If you want the checkbutton to be initially selected
+	then include a trailing plus (+) with the tag name. See SCOPE CONTROL
+	below for a description of the scope indicator.
+
+	[def {R - Radiobutton}] 
+	A R type menu entry behaves much like a Tk radiobutton widget. Each
+	radiobutton entry is a member of a radiobutton group that
+	controls the behavior of the radiobuttons in the group. All
+	radiobuttons in a group are given the same tag name. In the
+	example below Red, Green and Blue all have the same tag and are
+	therefore all in the same radiobutton group. A trailing plus
+	(+) on the tag name of a radiobutton entry will cause the entry to be 
+	the initially selected entry. See SCOPE CONTROL
+	below for a description of the scope indicator.
+
+	[def {S - Separator}] 
+	A S type menu entry is an entry that is displayed either as a horizontal
+	dividing line or a label. Separators are not active elements of a menu and
+	have no associated behavior if they are invoked. If <stext> is two dashes
+	(i.e. '--') then the separator will be displayed as a horizontal line
+	otherwise <stext> will be displayed as a bold label surrounded by double
+	dashes (e.g. "-- <stext> --") with a lightgray background. 
+
+	[def {G - Command Group}] 
+	The G type menu entry marks a location in the menu tree where
+	entries can be dynamically added and removed. Menu extension can only
+	occur at the end of a menu so G type entries must be the last item on a menu. 
+	A G	type entry is rendered as a separator line. The [emph group.<xxx>]
+	sub-commands are used to manipulate command group entries.
+
+	[def {M - Menu}] 
+	An M type entry is used to define both menubar menus and cascading
+	menus. Menu entries are the most complicated of the 6 menu types.
+	A menu entry is composed of three list elements. The first element
+	of the list is its label. The second element of the list is a
+	composite string consisting of a type identifier (M) followed by
+	an optional tag (beginning with a ':' separator) and finally an
+	optional plus (+) which indicates that the menu is a tear-off
+	menu. The final element of the list is a LIST VALUE.
+
+	[list_end]
+	
+[list_end]
+
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd install] [arg {pathName body}]]
+
+	The [emph install] method installs the menubar created with the
+	[emph define] method into toplevel window [emph pathName]. The
+	[emph body] argument of the command contains a tcl script which
+	is used to initialize the installed menubar. Normally the tcl
+	script will contain calls to various menubar methods to perform
+	the initialization. The initialization code is only run once
+	when the menubar is installed. The namespace in which the [emph install] 
+	method is executed becomes the default namespace for callback commands
+	(see [emph menu.namespace] below for more details).
+
+[list_end]
+
+[section {Methods - menu.xxx}]
+
+[list_begin definitions]
+	[call [arg mBarInst] [cmd menu.configure] [arg {option tag-settings ?option tag-settings ...?}]]
+
+		Configures the tags of a menubar and returns an empty string. This method provides a convenient
+		way to configure a larger number of tags without the verbosity of using the [emph tag.configure] method.
+
+		[list_begin definitions]
+
+		[def [arg {option}]]
+			[emph Option] may have any of the values accepted by the [emph tag.configure] method.
+
+		[def [arg {tag-settings}]]
+			The [emph {tag-settings}] argument is a string that is converted to a list of tag-value pairs
+			using the following syntax.
+
+			[para]
+			Syntax for [emph tag-settings].
+
+[example_begin]
+tag-settings ::= { <ignore> | <value> | <value> <tag-settings> }
+ignore       ::= { <nl> | <white-space> <nl> | # <comment> <nl> }
+value        ::= <tag> <option-value> <nl>
+[example_end]
+
+		[list_end]
+
+[list_end]
+
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd menu.namespace] [arg {tag namespace}]]
+
+		Change the namespace for a sub-tree of the menubar
+		starting at entry [emph tag]. The new value will be [emph namespace]. 
+		Each entry in the menubar tree has an
+		associated namespace which will be used for its callback
+		procedure. The default namespace is the namespace where
+		the [emph install]  method was executed. The [emph namespace] 
+		method can be used to change the namespace
+		that will be used for callbacks in a sub-tree of the
+		menubar. This method can only be used in the context of
+		an [emph install] script.
+
+[list_end]
+
+[list_begin definitions]
+		
+	[call [arg mBarInst] [cmd menu.hide] [arg tag]]
+	
+		Remove (hide) a menubar entry. When a
+		menubar tree is defined all entries are visible by default.
+		This method can be used to hide a menubar entry.
+		The [emph hide] methods can be used in the
+		context of an [emph install] script so that a menu will be
+		initially hidden at application start up. The [emph tag] argument
+		is the tag name of the menu to be hidden.
+
+	[call [arg mBarInst] [cmd menu.show] [arg tag]]
+		Exposes (shows) a hidden menubar entry. When a
+		menubar tree is defined all entries are visible by default.
+		If a entry is hidden from the user (using the menu.hide method)
+		then it can be exposed again using the show method. The [emph tag]
+		argument is the tag name of the menu to be shown.
+
+[list_end]
+
+[section {Methods - tag.xxx}]
+
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd tag.add] [arg {tag value}]]
+	
+		Add a user defined [emph tag] value. The [emph tag.add] method
+		adds a new tag-value pair to the the tags defined for a
+		menubar. User defined tags are different from the tags
+		created by the [emph define] method. The [emph tag.add]
+		method can only be used in an [emph install] script and its
+		value is associated with the toplevel where the menubar is
+		installed. This makes the tag context sensitive so callback
+		code that queries the tag value will receive a value that
+		is associated with the window that performed the callback.
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd tag.configure] [arg {pathName tag ?option value ...option value?}]]
+
+		Given the [emph pathName] of a toplevel window and a [emph tag] this method configures the
+		menu entry associated with the tag and return an empty string. 
+
+			[list_begin definitions]
+
+			[def [arg {Standard Options}]]
+			
+			These option are the same as those described for menu entries in the Tk [emph menu] documentation.
+			
+			[list_begin options]
+			[opt_def -activebackground]
+			[opt_def -activeforeground]
+			[opt_def -background	  ]
+			[opt_def -bitmap		  ]
+			[opt_def -columnbreak	  ]
+			[opt_def -compound		  ]
+			[opt_def -font			  ]
+			[opt_def -foreground	  ]
+			[opt_def -hidemargin	  ]
+			[opt_def -image 		  ]
+			[opt_def -indicatoron	  ]
+			[opt_def -label 		  ]
+			[opt_def -selectcolor	  ]
+			[opt_def -selectimage	  ]
+			[opt_def -state  ]
+			[list_end]
+
+			[emph { }]
+
+			[def {Class Specific Options}]
+			
+			[list_begin options]
+			[opt_def -bind {{uline accel sequence}}]
+			The value of the [emph -bind] option is three element list where the values are as follows.
+			
+			[list_begin definitions]
+			[def {uline}] 
+			  An integer index of a character to underline in the entry.
+			  This value performs the same function as the Tk [emph menu] -underline option.
+			  If this value is an empty string then no underlining is performed.
+			[def {accel}] 
+			  A string to display at the right side of the menu
+			  entry. The string normally describes an accelerator keystroke sequence that
+			  may be typed to invoke the same function as the menu entry.
+			  This value performs the same function as the Tk [emph menu] -accelerator option.
+			  If this value is an empty string then no accelerator is displayed.
+			[def {sequence}] 
+			  A bind sequence that will cause the entries associated command to fire.
+			[list_end]
+
+			[opt_def -command {cmdprefix}]
+			  The value of the [emph -command] option a command
+			  prefix that is evaluated when the menu entry is invoked.
+			  By default the callback is evaluate in the
+			  namespace where the [emph install] method was executed. Additional values
+			  are appended to the [emph cmdprefix] and are thus passed to the
+			  callback command as argument. These additional arguments are described
+			  in the list below.
+
+			[list_begin definitions]
+			[def {command entry}]
+			  1) The pathname of the toplevel window that invoked the callback.
+			[def {checkbutton entry}]
+			  1) The pathname of the toplevel window that invoked the callback.
+			  [para]
+			  2) The checkbutton's tag name
+			  [para]
+			  3) The new value for the checkbutton
+			[def {radiobutton entry}]
+			  1) The pathname of the toplevel window that invoked the callback.
+			  [para]
+			  2) The radiobutton's tag name
+			  [para]
+			  3) The label of the button that was selected
+			[def {group entry}]
+			  1) The pathname of the toplevel window that invoked the callback.
+			[list_end]
+
+		[list_end]
+
+	[list_end]
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd tag.cget] [arg {pathName tag ?option?}]]
+	
+	Returns the value of the configuration option given by [emph option]
+	or the value of a user defined tag. The option argument may be any
+	of the options accepted by the [emph tag.configure] method for the
+	[emph tag] type. User defined tags are queried without an [emph option]
+	value.
+
+[list_end]
+
+[section {Methods - group.xxx}]
+
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.add] [arg {tag label ?cmd? ?accel? ?sequence? ?state?}]]
+	
+	Add a command to the group with tag name [emph tag]. This method
+	appends a new command entry to the end of a command group. The order of the
+	arguments is fixed but arguments to the right can be ignored. Arguments to
+	this method have the following meaning.
+	
+	[list_begin arguments]
+	[arg_def tag (string)]		The tag name of the command group.
+	[arg_def label (string)]	The displayed label for the menu entry.
+	[arg_def cmd (string)]		A command prefix that will be used for callback command.
+	[arg_def accel (string)]	An accelerator string that will be displayed next to the entry label.
+	[arg_def sequence (string)]	A bind sequence that will be bound to the callback command. 
+	[arg_def state (enum)]		Sets the active state of the command. One of:  normal, disabled, active
+	[list_end]
+	
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.delete] [arg {tag label}]]
+	
+	Delete a command from a group with tag name [emph tag]. This method
+	deletes command [emph label] from a command group.
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.move] [arg {direction tag label}]]
+	
+	Change the position of an entry in a group with tag name [emph tag].
+	The [emph direction] argument is the direction ('up' or 'down') the
+	entry will be moved. The entry that is moved has the name [emph label].
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.configure] [arg {tag label ?option value ...option value?}]]
+	
+	Configure the options of an entry in the command group with
+	tag name [emph tag]. This method is similar to the [emph tag.configure] 
+	method except that it works on entries in a command group. Set documentation 
+	for the [emph tag.configure] method (above) for more details on command
+	entry options.
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.serialize] [arg {tag}]]
+	
+	Return a string serialization of the entries in a command group. The
+	argument [emph tag] is the tag name for the group that is to be serialized.
+	The resulting serialization is a list containing three
+	element  (1) the tag name of the group  (2) a dictionary
+	containing group level options (3) a list of zero or more similar three
+	element lists that describe the entries in the group.
+
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd group.deserialize] [arg {tag stream}]]
+	
+	Replace the contents of group tag [emph tag] with the commands
+	defined in the serialization [emph stream]. The original contents of
+	the group are lost.
+
+[list_end]
+
+[section {Methods - notebook.xxx}]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd notebook.addTabStore] [arg {pathname}]]
+
+	This method should be used in code that creates a new notebook tab.
+	Execution of this method will cause state storage to be allocated
+	for the new notebook tab. The pathname for the notebook tab is passed
+	as an argument to the method.
+	
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd notebook.deleteTabStore] [arg {pathname}]]
+
+	This command deallocates the state store for a notebook tab. The
+	pathname for the notebook tab is passed as an argument to the method.
+	
+	
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd notebook.setTabValue] [arg {pathname tag}]]
+
+	This method should be used in the callback for menubar checkbuttons or
+	radiobuttons that have notebook tab scope control. When this method is
+	executed it will move the value associated with tag into the tab store
+	for the tab identified by pathname.
+	
+[list_end]
+
+[list_begin definitions]
+
+	[call [arg mBarInst] [cmd notebook.restoreTabValues] [arg {pathname}]]
+
+	This method should be place in a bind script that is triggered by
+	a notebooks <<NotebookTabChanged>> event. 
+	
+[list_end]
+
+
+[section "Scope Control"]
+
+[para]
+By default a menubar instance looks the same in all installed toplevel
+windows. As changes are made to one instance of a menubar all the other
+instances are immediately updated. This means the internal state of all
+the menu entries for the instances are synchronized. This behavior is
+called global scope control of the menubar state.
+
+[para]
+The menubar class allows finer scope control on check and radio buttons.
+The scope of these entry types can be modified by adding a
+modifier character to their type character. Two
+modifier characters are supported as show in the table below.
+
+[example_begin]
+''  ::= global scope (no character)
+'@' ::= local scope modifier
+'=' ::= notebook tab scope modifier
+[example_end]
+
+[para]
+When the local scope character (@) is added to the definition of a button,
+the button is given a new variable for each installed toplevel window. This
+has the effect of making the button's state local to the window (i.e. local scope).
+An example use case for this behavior might be a status bar that can be
+toggled on an off by a checkbutton. The developer may want to allow the
+user to control the visibility of the status bar on a per window basis. In this
+case a local modifier would be added to the status bar selector so the callback
+code would receive an appropriate value based on the current toplevel window.
+
+[para]
+The notebook tab scope character (=) is similar in effect to the local scope
+character but it allows a notebook tab selection to also manage the state of
+of a button. Adding the notebook tab scope modifier enables notebook tab
+scope control but the developer must then make use of the notebook.xxxx sub-commands
+to actively manage state values as tabs are added, deleted and selected.
+
+[section Example]
+
+[example_begin]
+package require Tcl
+package require Tk
+package require menubar
+
+set tout [lb]text .t -width 25 -height 12[rb]
+pack ${tout} -expand 1 -fill both
+set mbar [lb]menubar new \
+    -borderwidth 4 \
+    -relief groove  \
+    -foreground black \
+    -background tan \
+    [rb]
+${mbar} define {
+    File M:file {
+        Exit                 C      exit
+    }
+    Edit M:items+ {
+    #   Label               Type    Tag Name(s)
+    #   -----------------   ----    ---------
+        "Cut"               C       cut
+        "Copy"              C       copy
+        "Paste"             C       paste
+        --                  S       s2
+        "Options" M:opts {
+            "CheckList" M:chx+ {
+                Coffee      X       coffee+
+                Donut       X       donut
+                Eggs        X       eggs
+                }
+            "RadioButtons" M:btn+ {
+                "Red"       R       color
+                "Green"     R       color+
+                "Blue"      R       color
+                }
+        }
+    }
+    Help M:help {
+        About               C       about
+    }
+}
+${mbar} install . {
+    ${mbar} tag.add tout ${tout}
+    ${mbar} menu.configure -command {
+        # file menu
+        exit            {Exit}
+        # Item menu
+        cut             {CB Edit cut}
+        copy            {CB Edit copy}
+        paste           {CB Edit paste}
+        # boolean menu
+        coffee          {CB CheckButton}
+        donut           {CB CheckButton}
+        eggs            {CB CheckButton}
+        # radio menu
+        color           {CB RadioButton}
+        # Help menu
+        about           {CB About}
+    } -bind {
+        exit        {1 Cntl+Q  Control-Key-q}
+        cut         {2 Cntl+X  Control-Key-x}
+        copy        {0 Cntl+C  Control-Key-c}
+        paste       {0 Cntl+V  Control-Key-v}
+        coffee      {0 Cntl+A  Control-Key-a}
+        donut       {0 Cntl+B  Control-Key-b}
+        eggs        {0 Cntl+C  Control-Key-c}
+        about       0
+    } -background {
+        exit red
+    } -foreground {
+        exit white
+    }
+}
+proc pout { txt } {
+    global mbar
+    set tout [lb]${mbar} tag.cget . tout[rb]
+    ${tout} insert end "${txt}\n"
+}
+proc Exit { args } {
+    puts "Goodbye"
+    exit
+}
+proc CB { args } {
+    set alist [lb]lassign ${args} cmd[rb]
+    pout "${cmd}: [lb]join ${alist} {, }[rb]"
+}
+wm minsize . 300 300
+wm geometry . +4+4
+wm protocol . WM_DELETE_WINDOW exit
+wm title . "Example"
+wm focusmodel . active
+pout "Example started ..."
+[example_end]
+
+
+[section Caveats]
+
+[para]
+This implementation uses TclOO so it requires 8.6. The code has been
+tested on Windows (Vista), Linux and OSX (10.4).
+
+[see_also [uri http://www.tcl.tk/man/tcl8.6/TkCmd/menu.htm menu]]
+[see_also [uri http://wiki.tcl.tk/25231 {A command that creates menubar objects}]]
+
+[manpage_end]
+
+
+
+
+
+
+
+
+
+
+

@@ -37,18 +37,19 @@
 #include "ThreadableWebSocketChannel.h"
 #include "Timer.h"
 #include "WebSocketHandshake.h"
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
     class ScriptExecutionContext;
-    class String;
     class SocketStreamHandle;
     class SocketStreamError;
     class WebSocketChannelClient;
 
     class WebSocketChannel : public RefCounted<WebSocketChannel>, public SocketStreamHandleClient, public ThreadableWebSocketChannel {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         static PassRefPtr<WebSocketChannel> create(ScriptExecutionContext* context, WebSocketChannelClient* client, const KURL& url, const String& protocol) { return adoptRef(new WebSocketChannel(context, client, url, protocol)); }
         virtual ~WebSocketChannel();
@@ -82,6 +83,7 @@ namespace WebCore {
         bool appendToBuffer(const char* data, size_t len);
         void skipBuffer(size_t len);
         bool processBuffer();
+        void resumeTimerFired(Timer<WebSocketChannel>* timer);
 
         ScriptExecutionContext* m_context;
         WebSocketChannelClient* m_client;
@@ -90,10 +92,13 @@ namespace WebCore {
         char* m_buffer;
         size_t m_bufferSize;
 
+        Timer<WebSocketChannel> m_resumeTimer;
         bool m_suspended;
         bool m_closed;
         bool m_shouldDiscardReceivedData;
         unsigned long m_unhandledBufferedAmount;
+
+        unsigned long m_identifier; // m_identifier == 0 means that we could not obtain a valid identifier.
     };
 
 } // namespace WebCore

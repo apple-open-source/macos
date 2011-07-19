@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved. 
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved. 
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,6 @@
 #include <sys/stat.h>
 #include <sys/errno.h>
 #include <sys/mount.h>
-#include <URLMount/URLMount.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -47,14 +46,11 @@
 #include <stdlib.h>
 #include <err.h>
 #include <sysexits.h>
-#include <cflib.h>
+#include <smbclient/smbclient.h>
+#include <smbclient/smbclient_internal.h>
+#include <smbclient/ntstatus.h>
 
-#include <netsmb/smb.h>
-#include <netsmb/smb_conn.h>
-#include <netsmb/smb_lib.h>
-#include <charsets.h>
-
-#include <fs/smbfs/smbfs.h>
+#include "SetNetworkAccountSID.h"
 
 #include <mntopts.h>
 
@@ -68,106 +64,89 @@ static struct mntopt mopts[] = {
 	{ NULL, 0, 0, 0 }
 };
 
-static char *readstring(int fd)
+
+static unsigned xtoi(unsigned u)
 {
-	uint32_t stringlen;
-	char *string;
-	ssize_t bytes_read;
-	
-	bytes_read = read(fd, &stringlen, sizeof stringlen);
-	if (bytes_read != sizeof stringlen) {
-		if (bytes_read < 0) {
-			err(EX_IOERR, "error reading from authentication pipe: ");
-		} else
-			errx(EX_USAGE, "error reading from authentication pipe: expected %lu bytes, got %lld",
-				 sizeof(stringlen), bytes_read);
-	}
-	
-	if (stringlen == 0xFFFFFFFF)
-		return (NULL);	/* This string isn't present. */
-	
-	stringlen = ntohl(stringlen);
-	string = malloc(stringlen + 1);
-	if (string == NULL)
-		err(EX_UNAVAILABLE, "can't allocate memory for string: ");
-	
-	bytes_read = read(fd, string, stringlen);
-	if ((uint32_t)bytes_read != stringlen) {
-		if (bytes_read < 0)
-			err(EX_IOERR, "error reading from authentication pipe: ");
-		else
-			errx(EX_USAGE, "error reading from authentication pipe: expected %u bytes, got %ld",
-				 stringlen, (int32_t)bytes_read);
-	}
-	string[stringlen] = '\0';
-	return (string);
+	if (isdigit(u))
+		return (u - '0'); 
+	else if (islower(u))
+		return (10 + u - 'a'); 
+	else if (isupper(u))
+		return (10 + u - 'A'); 
+	return (16);
 }
 
-int
-main(int argc, char *argv[])
+/* Removes the "%" escape sequences from a URL component.
+ * See IETF RFC 2396.
+ *
+ * Someday we should convert this to use CFURLCreateStringByReplacingPercentEscapesUsingEncoding
+ */
+static char * unpercent(char * component)
 {
-	CFMutableDictionaryRef mOptions;
-	CFNumberRef numRef;
-	struct smb_ctx *ctx = NULL;
-	char mount_point[MAXPATHLEN];
-	CFStringRef	mountRef = NULL;
+	unsigned char c, *s;
+	unsigned hi, lo; 
+	
+	if (component)
+		for (s = (unsigned char *)component; (c = (unsigned char)*s); s++) {
+			if (c != '%') 
+				continue;
+			if ((hi = xtoi(s[1])) > 15 || (lo = xtoi(s[2])) > 15)
+				continue; /* ignore invalid escapes */
+			s[0] = hi*16 + lo;
+			/*      
+			 * This was strcpy(s + 1, s + 3);
+			 * But nowadays leftward overlapping copies are
+			 * officially undefined in C.  Ours seems to
+			 * work or not depending upon alignment.
+			 */      
+			memmove(s+1, s+3, (strlen((char *)(s+3))) + 1);
+		}       
+	return (component);
+}
+
+int main(int argc, char *argv[])
+{
+	SMBHANDLE serverConnection = NULL;
+	uint64_t options = kSMBOptionSessionOnly;
+	uint64_t mntOptions = 0;
+	int altflags = SMBFS_MNT_STREAMS_ON;
+	mode_t fileMode = 0, dirMode = 0;
+	int mntflags = 0;
+	NTSTATUS	status;
+	char mountPoint[MAXPATHLEN];
 	struct stat st;
 	char *next;
-	const char *cp;
 	int opt;
-	int authpipe = -1;
 	const char * url = NULL;
-	int error = 0;
-	int mntflags = 0;
-	int altflags = SMBFS_MNT_STREAMS_ON;
-	mode_t	mode;
-	mntoptparse_t mp;
-	int prompt_user = (isatty(STDIN_FILENO)) ? TRUE : FALSE;
-	
-	mOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
-										&kCFTypeDictionaryValueCallBacks);
-	while ((opt = getopt(argc, argv, "Nvhp:d:f:o:")) != -1) {
+	int version = SMBFrameworkVersion();
+
+	while ((opt = getopt(argc, argv, "Nvhd:f:o:")) != -1) {
 		switch (opt) {
-		    case 'p':
+		    case 'd':
 				errno = 0;
-				authpipe = (int)strtol(optarg, &next, 0);
-				if (errno || (next == optarg) || (*next != 0))
-					errx(EX_NOUSER, "invalid value for authentication pipe FD");
-				break;
-		    case 'd':	/* XXX Not sure we should even support this anymore */
-				errno = 0;
-				mode = strtol(optarg, &next, 8);
+				dirMode = strtol(optarg, &next, 8);
 				if (errno || *next != 0)
 					errx(EX_DATAERR, "invalid value for directory mode");
-				numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &mode);
-				if ((mOptions == NULL) || (numRef == NULL))
-					errx(EX_NOUSER, "option failed '%s'", optarg);
-				CFDictionarySetValue (mOptions, kdirModeKey, numRef);
-				CFRelease(numRef);
 				break;
-		    case 'f':	/* XXX Not sure we should even support this anymore */
+		    case 'f':
 				errno = 0;
-				mode = strtol(optarg, &next, 8);
+				fileMode = strtol(optarg, &next, 8);
 				if (errno || *next != 0)
 					errx(EX_DATAERR, "invalid value for file mode");
-				numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &mode);
-				if ((mOptions == NULL) || (numRef == NULL))
-					errx(EX_NOUSER, "option failed '%s'", optarg);
-				CFDictionarySetValue (mOptions, kfileModeKey, numRef);
-				CFRelease(numRef);
 				break;
 			case 'N':
-				prompt_user = FALSE;
+				options |= kSMBOptionNoPrompt;
 				break;
-			case 'o':
-				mp = getmntopts(optarg, mopts, &mntflags, &altflags);
+			case 'o': {
+				mntoptparse_t mp = getmntopts(optarg, mopts, &mntflags, &altflags);
 				if (mp == NULL)
 					err(1, NULL);
 				freemntopts(mp);
 				break;
+			}
 			case 'v':
 				errx(EX_OK, "version %d.%d.%d", 
-					SMBFS_VERSION / 100000, (SMBFS_VERSION % 10000) / 1000, (SMBFS_VERSION % 1000) / 100);
+					version / 100000, (version % 10000) / 1000, (version % 1000) / 100);
 				break;
 			case '?':
 			case 'h':
@@ -176,150 +155,85 @@ main(int argc, char *argv[])
 				break;
 		}
 	}
-	/* We now have the mount flags and alternative mount flags add them to the mount options */
-	if (mOptions) {
-		numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mntflags);
-
-		if (numRef) {
-			CFDictionarySetValue (mOptions, kMountFlagsKey, numRef);
-			CFRelease(numRef);
-		}
-		if (altflags & SMBFS_MNT_STREAMS_ON)
-			CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanTrue);
-		else
-			CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanFalse);
-
-		if (altflags & SMBFS_MNT_NOTIFY_OFF)
-			CFDictionarySetValue (mOptions, kNotifyOffMountKey, kCFBooleanTrue);
-		
-		if (altflags & SMBFS_MNT_SOFT)
-			CFDictionarySetValue (mOptions, kSoftMountKey, kCFBooleanTrue);
-	}
-
-	/* Read in all the arguments, now get the URL */
-	for (opt = 1; opt < argc; opt++) {
-		cp = argv[opt];
-		if (strncmp(cp, "//", 2) != 0)
-			continue;
-		url = (char *)cp;
-		optind++;
-		break;
-	}
-	
-	/* At this point we need a URL and a Mount Point  */
-	if ((!url) || (optind != (argc - 1)))
+	if (optind >= argc)
 		usage();
 	
-	/* Make sure everything is correct */
-	realpath(unpercent(argv[optind]), mount_point);
-	if (stat(mount_point, &st) == -1)
-		err(EX_OSERR, "could not find mount point %s", mount_point);
+	argc -= optind;
+	/* At this point we should only have a url and a mount point */
+	if (argc != 2)
+		usage();
+	url = argv[optind];
+	optind++;
+	realpath(unpercent(argv[optind]), mountPoint);
+	
+	if (stat(mountPoint, &st) == -1)
+		err(EX_OSERR, "could not find mount point %s", mountPoint);
 	
 	if (!S_ISDIR(st.st_mode)) {
 		errno = ENOTDIR;
-		err(EX_OSERR, "can't mount on %s", mount_point);
+		err(EX_OSERR, "can't mount on %s", mountPoint);
 	}
 	
-	mountRef = CFStringCreateWithCString(NULL, mount_point, kCFStringEncodingUTF8);
-	if (mountRef == NULL)
-		err(EX_NOPERM, "couldn't create mount point reference");
-	
-	/* We should have all our arguments by now load the kernel and initialize the library */
-	if ((errno = smb_load_library()) != 0)
-		err(EX_UNAVAILABLE, "failed to load the smb library");
-	
-	/* Initialize the context structure */
-	if ((errno = smb_ctx_init(&ctx, url, SMBL_SHARE, SMB_ST_DISK, (mntflags & MNT_AUTOMOUNTED))) != 0) {
-		/* 
-		 * We will either get an ENOMEM if the library 
-		 * intitialization failed or some error from the URL parse. 
-		 */
-		if (errno == ENOMEM)
-			err(EX_UNAVAILABLE, "failed to intitialize the smb library");
-		else
-			err(EX_UNAVAILABLE, "URL parsing failed, please correct the URL and try again");
+	if (mntflags & MNT_AUTOMOUNTED) {
+		/* Automount volume, don't look in the user home directory */
+		options |= kSMBOptionNoUserPreferences;
 	}
-	
-	/* Force a private session, if being automounted */
-	if (mntflags & (MNT_DONTBROWSE | MNT_AUTOMOUNTED))
-		ctx->ct_ssn.ioc_opt |= SMBV_PRIVATE_VC;
 
- 	/*
-	 * If "-p" was specified, read the user name and password from the pipe; If 
-	 * present, they override any user nameand password supplied in the "UNC name" 
-	 * (which is really a URL with "smb:" or "cifs:" stripped off).
+	if ((altflags & SMBFS_MNT_STREAMS_ON) != SMBFS_MNT_STREAMS_ON) {
+		/* They told us to turn of named streams */
+		mntOptions |= kSMBMntOptionNoStreams;
+	}
+	if ((altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
+		/* They told us to turn off remote notifications */
+		mntOptions |= kSMBMntOptionNoNotifcations;
+	}
+	if ((altflags & SMBFS_MNT_SOFT) == SMBFS_MNT_SOFT) {
+		/* Make this a soft mount */
+		mntOptions |= kSMBMntOptionSoftMount;
+	}
+	
+	status = SMBOpenServerEx(url, &serverConnection, options);
+	if (NT_SUCCESS(status)) {
+		status = SMBMountShareEx(serverConnection, NULL, mountPoint, mntflags, 
+								 mntOptions, fileMode, dirMode, setNetworkAccountSID, NULL);
+	}
+	/* 
+	 * SMBOpenServerEx now sets errno, so err will work correctly. We change 
+	 * the string based on the NTSTATUS Error.
 	 */
-	if (authpipe != -1) {
-		char *string = readstring(authpipe);
-		
-		if (string != NULL) {
-			error = smb_ctx_setuser(ctx, string);
-			if (error)
-				exit(error);
-			free(string);
+	if (!NT_SUCCESS(status)) {
+		switch (status) {
+			case STATUS_NO_SUCH_DEVICE:
+				err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+				break;
+			case STATUS_LOGON_FAILURE:
+				err(EX_NOPERM, "server rejected the connection");
+				break;
+			case STATUS_CONNECTION_REFUSED:
+				err(EX_NOHOST, "server connection failed");
+			break;
+			case STATUS_INVALID_HANDLE:
+			case STATUS_NO_MEMORY:
+				err(EX_UNAVAILABLE, "internal error");
+				break;
+			case STATUS_UNSUCCESSFUL:
+				err(EX_USAGE, "mount error: %s", mountPoint);
+				break;
+			case STATUS_INVALID_PARAMETER:
+				err(EX_USAGE, "URL parsing failed, please correct the URL and try again");
+				break;
+			case STATUS_BAD_NETWORK_NAME:
+				err(EX_NOHOST, "share connection failed");
+				break;
+			default:
+				err(EX_OSERR, "unknown status %d", status);
+				break;
 		}
-		string = readstring(authpipe);
-		if (string != NULL) {
-			error = smb_ctx_setpassword(ctx, string);
-			if (error)
-				exit(error);
-			free(string);
-		}
-		close(authpipe);
 	}
-	
-	error  = smb_connect(ctx);
-	if (error) {
-		errno = error;
-		err(EX_NOHOST, "server connection failed");
-	}
-	
-	/* The server supports Kerberos then see if we can connect with Kerberos. */
-	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
-		ctx->ct_ssn.ioc_opt |= SMBV_KERBEROS_ACCESS;		
-		error = smb_session_security(ctx, NULL, NULL);		
-	} else if (ctx->ct_vc_shared) {
-		/* See if we can use the same security session with this connectation */
-		error = smb_session_security(ctx, NULL, NULL);				
-	} else
-		error = ENOTSUP;	/* If no Kerberos support then force normal security */
-	
-	/* Either Kerberos failed or the server doesn't support Kerberos, so now try normal security */ 
-	if (error) {
-		/* need to command-line prompting for the password */
-		if (prompt_user && ((ctx->ct_flags & SMBCF_EXPLICITPWD) != SMBCF_EXPLICITPWD)) {
-			char passwd[SMB_MAXPASSWORDLEN + 1];
 
-			strncpy(passwd, getpass(SMB_PASSWORD_KEY ":"), SMB_MAXPASSWORDLEN);
-			smb_ctx_setpassword(ctx, passwd);
-		}
-			
-		/* No username or password then they must want anonymous authentication */
-		if ((ctx->ct_setup.ioc_user[0] == 0) && (ctx->ct_setup.ioc_password[0] == 0)) {
-			ctx->ct_ssn.ioc_opt |= SMBV_ANONYMOUS_ACCESS;
-			fprintf(stderr, "Connecting with anonymous authentication.\n");
-		}
-		
-		error = smb_session_security(ctx, NULL, NULL);
-		if (error) {
-			if (error < 0) /* Could be an expired password error */
-				error = EAUTH;
-			errno = error;
-			err(EX_NOPERM, "server rejected the connection");
-		}
-	}
-		
-	error = smb_mount(ctx, mountRef, mOptions, NULL);
-	if (error) {
-		errno = error;
-		err(error, "mount error: %s", mount_point);
-	}
 	/* We are done clean up anything left around */
-	if (mountRef)
-		CFRelease(mountRef);
-	if (mOptions)
-		CFRelease(mOptions);
-	smb_ctx_done(ctx);
+	if (serverConnection)
+		SMBReleaseServer(serverConnection);
 	return 0;
 }
 

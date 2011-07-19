@@ -23,13 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#ifndef WebCoreTextRenderer_h
+#define WebCoreTextRenderer_h
+
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
     class Color;
     class Font;
     class GraphicsContext;
     class IntPoint;
-    class String;
 
     void WebCoreDrawTextAtPoint(GraphicsContext&, const String&, const IntPoint&, const Font&, const Color&, int underlinedIndex = -1);
     void WebCoreDrawDoubledTextAtPoint(GraphicsContext&, const String&, const IntPoint&, const Font&, const Color& topColor, const Color& bottomColor, int underlinedIndex = -1);
@@ -42,3 +46,5 @@ namespace WebCore {
     bool WebCoreAlwaysUsesComplexTextCodePath();
 
 } // namespace WebCore
+
+#endif // WebCoreTextRenderer_h

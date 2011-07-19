@@ -4,7 +4,7 @@
 # --------
 #
 # The Values are sorted according to the properties they belong to,
-# and have to be in the same order as the enums in RenderStyle.h.
+# and have to be in the same order as the enums in RenderStyleConstants.h.
 #
 # If not, the optimizations in the cssparser and style selector will fail,
 # and produce incorrect results.
@@ -212,6 +212,7 @@ justify
 -webkit-left
 -webkit-right
 -webkit-center
+-webkit-match-parent
 #
 # CSS_PROP_LIST_STYLE_POSITION:
 #
@@ -288,8 +289,12 @@ tigrinya-et-abegede
 ethiopic-abegede-ti-et
 upper-greek
 upper-norwegian
+asterisks
+footnotes
 hebrew
 armenian
+lower-armenian
+upper-armenian
 georgian
 cjk-ideographic
 hiragana
@@ -402,6 +407,7 @@ hand
 hide
 higher
 invert
+-webkit-isolate
 landscape
 ledger
 legal
@@ -555,9 +561,9 @@ space
 #
 after-white-space
 
-#
-# CSS_PROP__KHTML_APPEARANCE
-#
+# -webkit-appearance
+# The order here should match the order in the ControlPart enum in ThemeTypes.h.
+# All appearance values that should be accepted by the parser should be listed between 'checkbox' and 'textarea':
 checkbox
 radio
 push-button
@@ -566,6 +572,7 @@ button
 button-bevel
 default-button
 inner-spin-button
+-webkit-input-speech-button
 list-button
 listbox
 listitem
@@ -582,13 +589,16 @@ media-sliderthumb
 media-volume-slider-container
 media-volume-slider
 media-volume-sliderthumb
+media-volume-slider-mute-button
 media-controls-background
+media-controls-fullscreen-background
 media-current-time-display
 media-time-remaining-display
 menulist
 menulist-button
 menulist-text
 menulist-textfield
+meter
 outer-spin-button
 progress-bar
 progress-bar-value
@@ -603,7 +613,12 @@ searchfield-results-decoration
 searchfield-results-button
 searchfield-cancel-button
 textfield
+relevancy-level-indicator
+continuous-capacity-level-indicator
+discrete-capacity-level-indicator
+rating-level-indicator
 textarea
+# An appearance value that should not be accepted by the parser:
 caps-lock-indicator
 
 #
@@ -681,6 +696,8 @@ linear
 ease-in
 ease-out
 ease-in-out
+step-start
+step-end
 
 #
 # CSS_PROP_ZOOM
@@ -700,6 +717,14 @@ fill
 stroke
 #all
 #none
+
+#
+# CSS_PROP_SPEECH
+#
+spell-out
+digits
+literal-punctuation
+no-punctuation
 
 #
 # -webkit-font-smoothing
@@ -725,3 +750,57 @@ fullscreen
 maximized
 minimized
 windowed
+
+# -webkit-hyphens
+# none
+manual
+# auto
+
+# -webkit-writing-mode
+# SVG compatibility
+lr
+rl
+tb
+lr-tb
+rl-tb
+tb-rl
+# Standard values from CSS3
+horizontal-tb
+vertical-rl
+vertical-lr
+horizontal-bt
+
+# -webkit-text-emphasis-position
+over
+under
+
+# -webkit-text-emphasis-style
+filled
+open
+dot
+# circle
+double-circle
+triangle
+sesame
+
+# -webkit-radial-gradient
+# circle
+ellipse
+closest-side
+closest-corner
+farthest-side
+farthest-corner
+# contain
+# cover
+
+# -webkit-text-orientation
+upright
+vertical-right
+
+# -webkit-line-box-contain
+font
+glyphs
+inline-box
+replaced
+
+

@@ -77,10 +77,11 @@ Matches \fIdomain.tld\fR as the domain part of an email address.
 .sp
 The pattern \fIdomain.tld\fR also matches subdomains, but only
 when the string \fBsmtpd_access_maps\fR is listed in the Postfix
-\fBparent_domain_matches_subdomains\fR configuration setting
-(note that this is the default for some versions of Postfix).
-Otherwise, specify \fI.domain.tld\fR (note the initial dot) in
-order to match subdomains.
+\fBparent_domain_matches_subdomains\fR configuration setting.
+.IP \fI.domain.tld\fR
+Matches subdomains of \fIdomain.tld\fR, but only when the
+string \fBsmtpd_access_maps\fR is not listed in the Postfix
+\fBparent_domain_matches_subdomains\fR configuration setting.
 .IP \fIuser\fR@
 Matches all mail addresses with the specified user part.
 .PP
@@ -112,8 +113,10 @@ Matches \fIdomain.tld\fR.
 The pattern \fIdomain.tld\fR also matches subdomains, but only
 when the string \fBsmtpd_access_maps\fR is listed in the Postfix
 \fBparent_domain_matches_subdomains\fR configuration setting.
-Otherwise, specify \fI.domain.tld\fR (note the initial dot) in
-order to match subdomains.
+.IP \fI.domain.tld\fR
+Matches subdomains of \fIdomain.tld\fR, but only when the
+string \fBsmtpd_access_maps\fR is not listed in the Postfix
+\fBparent_domain_matches_subdomains\fR configuration setting.
 .IP \fInet.work.addr.ess\fR
 .IP \fInet.work.addr\fR
 .IP \fInet.work\fR
@@ -185,27 +188,53 @@ defer actions. See "ENHANCED STATUS CODES" below.
 Reject the address etc. that matches the pattern, and respond with
 the numerical three-digit code and text. \fB4\fINN\fR means "try
 again later", while \fB5\fINN\fR means "do not try again".
+
+The following responses have special meaning for the Postfix
+SMTP server:
+.RS
+.IP "\fB421 \fItext\fR (Postfix 2.3 and later)"
+.IP "\fB521 \fItext\fR (Postfix 2.6 and later)"
+After responding with the numerical three-digit code and
+text, disconnect immediately from the SMTP client.  This
+frees up SMTP server resources so that they can be made
+available to another SMTP client.
 .IP
-The reply code "421" causes Postfix to disconnect immediately
-(Postfix version 2.3 and later).
+Note: The "521" response should be used only with botnets
+and other malware where interoperability is of no concern.
+The "send 521 and disconnect" behavior is NOT defined in
+the SMTP standard.
+.RE
 .IP "\fBREJECT \fIoptional text...\fR
 Reject the address etc. that matches the pattern. Reply with
-\fI$reject_code optional text...\fR when the optional text is
+"\fB$access_map_reject_code \fIoptional text...\fR" when the
+optional text is
 specified, otherwise reply with a generic error response message.
+.IP "\fBDEFER \fIoptional text...\fR
+Reject the address etc. that matches the pattern. Reply with
+"\fB$access_map_defer_code \fIoptional text...\fR" when the
+optional text is
+specified, otherwise reply with a generic error response message.
+.sp
+This feature is available in Postfix 2.6 and later.
 .IP "\fBDEFER_IF_REJECT \fIoptional text...\fR
 Defer the request if some later restriction would result in a
-REJECT action. Reply with "\fB450 4.7.1 \fI optional
-text...\fR when the
+REJECT action. Reply with "\fB$access_map_defer_code 4.7.1
+\fIoptional text...\fR" when the
 optional text is specified, otherwise reply with a generic error
 response message.
+.sp
+Prior to Postfix 2.6, the SMTP reply code is 450.
 .sp
 This feature is available in Postfix 2.1 and later.
 .IP "\fBDEFER_IF_PERMIT \fIoptional text...\fR
 Defer the request if some later restriction would result in a
 an explicit or implicit PERMIT action.
-Reply with "\fB450 4.7.1 \fI optional text...\fR when the
+Reply with "\fB$access_map_defer_code 4.7.1 \fI optional
+text...\fR" when the
 optional text is specified, otherwise reply with a generic error
 response message.
+.sp
+Prior to Postfix 2.6, the SMTP reply code is 450.
 .sp
 This feature is available in Postfix 2.1 and later.
 .SH "OTHER ACTIONS"
@@ -241,18 +270,39 @@ prevents Postfix from trying substrings of the lookup key
 This feature is available in Postfix 2.0 and later.
 .IP "\fBFILTER \fItransport:destination\fR"
 After the message is queued, send the entire message through
-the specified external content filter. The \fItransport:destination\fR
-syntax is described in the \fBtransport\fR(5) manual page.
-More information
-about external content filters is in the Postfix FILTER_README file.
+the specified external content filter. The \fItransport\fR
+name specifies the first field of a mail delivery agent
+definition in master.cf; the syntax of the next-hop
+\fIdestination\fR is described in the manual page of the
+corresponding delivery agent.  More information about
+external content filters is in the Postfix FILTER_README
+file.
 .sp
-Note: this action overrides the \fBcontent_filter\fR setting,
-and currently affects all recipients of the message.
+Note 1: do not use $\fInumber\fR regular expression
+substitutions for \fItransport\fR or \fIdestination\fR
+unless you know that the information has a trusted origin.
+.sp
+Note 2: this action overrides the main.cf \fBcontent_filter\fR
+setting, and affects all recipients of the message. In the
+case that multiple \fBFILTER\fR actions fire, only the last
+one is executed.
+.sp
+Note 3: the purpose of the FILTER command is to override
+message routing.  To override the recipient's \fItransport\fR
+but not the next-hop \fIdestination\fR, specify an empty
+filter \fIdestination\fR (Postfix 2.7 and later), or specify
+a \fItransport:destination\fR that delivers through a
+different Postfix instance (Postfix 2.6 and earlier). Other
+options are using the recipient-dependent \fBtrans\%port\%_maps\fR
+or the sen\%der-dependent
+\fBsender\%_de\%pen\%dent\%_de\%fault\%_trans\%port\%_maps\fR
+features.
 .sp
 This feature is available in Postfix 2.0 and later.
 .IP "\fBHOLD \fIoptional text...\fR"
-Place the message on the \fBhold\fR queue, where it will sit
-until someone either deletes it or releases it for delivery.
+Place the message on the \fBhold\fR queue, where it will
+sit until someone either deletes it or releases it for
+delivery.
 Log the optional text if specified, otherwise log a generic
 message.
 

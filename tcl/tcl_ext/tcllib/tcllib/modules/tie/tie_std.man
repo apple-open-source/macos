@@ -2,6 +2,7 @@
 [copyright {2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Array persistence, standard data sources}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require tie::std::log [opt 1.1]]
 [require tie::std::array [opt 1.1]]

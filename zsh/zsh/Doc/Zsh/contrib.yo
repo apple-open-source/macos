@@ -11,6 +11,7 @@ such as shell functions, look for comments in the function source files.
 
 startmenu()
 menu(Utilities)
+menu(Recent Directories)
 menu(Version Control Information)
 menu(Prompt Themes)
 menu(ZLE Functions)
@@ -21,7 +22,7 @@ menu(User Configuration Functions)
 menu(Other Functions)
 endmenu()
 
-texinode(Utilities)(Version Control Information)()(User Contributions)
+texinode(Utilities)(Recent Directories)()(User Contributions)
 sect(Utilities)
 
 subsect(Accessing On-Line Help)
@@ -305,7 +306,7 @@ var(hook) is one of tt(chpwd), tt(periodic), tt(precmd) or tt(preexec),
 the special functions in question.
 
 var(functions) is name of an ordinary shell function.  If no options
-are given this will be added to the array of functions to be executed.
+are given this will be added to the array of functions to be executed
 in the given context.
 
 If the option tt(-d) is given, the var(function) is removed from
@@ -317,14 +318,292 @@ functions to be executed.
 )
 enditem()
 
-texinode(Version Control Information)(Prompt Themes)(Utilities)(User Contributions)
+texinode(Recent Directories)(Version Control Information)(Utilities)(User Contributions)
+cindex(recent directories, maintaining list of)
+cindex(directories, maintaining list of recent)
+findex(cdr)
+findex(_cdr)
+findex(chpwd_recent_add)
+findex(chpwd_recent_dirs)
+findex(chpwd_recent_filehandler)
+sect(Remembering Recent Directories)
+
+The function tt(cdr) allows you to change the working directory to a
+previous working directory from a list maintained automatically.  It is
+similar in concept to the directory stack controlled by the tt(pushd),
+tt(popd) and tt(dirs) builtins, but is more configurable, and as it stores
+all entries in files it is maintained across sessions and (by default)
+between terminal emulators in the current session.  (The tt(pushd)
+directory stack is not actually modified or used by tt(cdr) unless you
+configure it to do so as described in the configuration section below.)
+
+subsect(Installation)
+
+The system works by means of a hook function that is called every time the
+directory changes.  To install the system, autoload the required functions
+and use the tt(add-zsh-hook) function described above:
+
+example(autoload -Uz chpwd_recent_dirs cdr add-zsh-hook
+add-zsh-hook chpwd chpwd_recent_dirs)
+
+Now every time you change directly interactively, no matter which
+command you use, the directory to which you change will be remembered
+in most-recent-first order.
+
+subsect(Use)
+
+All direct user interaction is via the tt(cdr) function.
+
+The argument to cdr is a number var(N) corresponding to the var(N)th most
+recently changed-to directory.  1 is the immediately preceeding directory;
+the current directory is remembered but is not offered as a destination.
+Note that if you have multiple windows open 1 may refer to a directory
+changed to in another window; you can avoid this by having per-terminal
+files for storing directory as described for the
+tt(recent-dirs-file) style below.
+
+If you set the tt(recent-dirs-default) style described below tt(cdr)
+will behave the same as tt(cd) if given a non-numeric argument, or more
+than one argument.  The recent directory list is updated just the same
+however you change directory.
+
+If the argument is omitted, 1 is assumed.  This is similar to tt(pushd)'s
+behaviour of swapping the two most recent directories on the stack.
+
+Completion for the argument to tt(cdr) is available if compinit has been
+run; menu selection is recommended, using:
+
+example(zstyle ':completion:*:*:cdr:*:*' menu selection)
+
+to allow you to cycle through recent directories; the order is preserved,
+so the first choice is the most recent directory before the current one.
+The verbose style is also recommended to ensure the directory is shown; this
+style is on by default so no action is required unless you have changed it.
+
+subsect(Options)
+
+The behaviour of tt(cdr) may be modified by the following options.
+
+startitem()
+item(tt(-l))(
+lists the numbers and the corresponding directories in
+abbreviated form (i.e. with tt(~) substitution reapplied), one per line.
+The directories here are not quoted (this would only be an issue if a
+directory name contained a newline).  This is used by the completion
+system.
+)
+item(tt(-r))(
+sets the variable tt(reply) to the current set of directories.  Nothing
+is printed and the directory is not changed.
+)
+item(tt(-e))(
+allows you to edit the list of directories, one per line.  The
+list can be edited to any extent you like; no sanity checking is
+performed.  Completion is available.  No quoting is necessary (except for
+newlines, where I have in any case no sympathy); directories are in
+unabbreviated from and contain an absolute path, i.e. they start with tt(/).
+Usually the first entry should be left as the current directory.
+)
+enditem()
+
+subsect(Configuration)
+
+Configuration is by means of the styles mechanism that should be familiar
+from completion; if not, see the description of the tt(zstyle) command in
+ifzman(see zmanref(zshmodules))\
+ifnzman(noderef(The zsh/zutil Module)).  The context for setting styles
+should be tt(':chpwd:*') in case the meaning of the context is extended in
+future, for example:
+
+example(zstyle ':chpwd:*' recent-dirs-max 0)
+
+sets the value of the tt(recent-dirs-max) style to 0.  In practice the
+style name is specific enough that a context of '*' should be fine.
+
+An exception is tt(recent-dirs-insert), which is used exclusively by the
+completion system and so has the usual completion system context
+(tt(':completion:*') if nothing more specific is needed), though again
+tt('*') should be fine in practice.
+
+startitem()
+item(tt(recent-dirs-default))(
+If true, and the command is expecting a recent directory index, and
+either there is more than one argument or the argument is not an
+integer, then fall through to "cd".  This allows the lazy to use only
+one command for directory changing.  Completion recognises this, too;
+see recent-dirs-insert for how to control completion when this option
+is in use.
+)
+item(tt(recent-dirs-file))(
+The file where the list of directories is saved.  The default
+is tt(${ZDOTDIR:-$HOME}/.chpwd-recent-dirs), i.e. this is in your
+home directory unless you have set the variable tt(ZDOTDIR) to point
+somewhere else.  Directory names are saved in tt($')var(...)tt(') quoted
+form, so each line in the file can be supplied directly to the shell as an
+argument.
+
+The value of this style may be an array.  In this case, the first
+file in the list will always be used for saving directories while any
+other files are left untouched.  When reading the recent directory
+list, if there are fewer than the maximum number of entries in the
+first file, the contents of later files in the array will be appended
+with duplicates removed from the list shown.  The contents of the two
+files are not sorted together, i.e. all the entries in the first file
+are shown first.  The special value tt(+) can appear in the list to
+indicate the default file should be read at that point.  This allows
+effects like the following:
+
+example(zstyle ':chpwd:*' recent-dirs-file \ 
+~/.chpwd-recent-dirs-${TTY##*/} +)
+
+Recent directories are read from a file numbered according to
+the terminal.  If there are insufficient entries the list
+is supplemented from the default file.
+
+It is possible to use tt(zstyle -e) to make the directory configurable
+at run time:
+
+example(zstyle -e ':chpwd:*' recent-dirs-file pick-recent-dirs-file
+pick-recent-dirs-file+LPAR()RPAR() {
+  if [[ $PWD = ~/text/writing+LPAR()|/*RPAR() ]]; then
+    reply=(~/.chpwd-recent-dirs-writing)
+  else
+    reply=(+)
+  fi
+})
+
+In this example, if the current directory is tt(~/text/writing) or a
+directory under it, then use a special file for saving recent
+directories, else use the default.
+)
+item(tt(recent-dirs-insert))(
+Used by completion.  If tt(recent-dirs-default) is true, then setting
+this to tt(true) causes the actual directory, rather than its index, to
+be inserted on the command line; this has the same effect as using
+the corresponding index, but makes the history clearer and the line
+easier to edit.  With this setting, if part of an argument was
+already typed, normal directory completion rather than recent
+directory completion is done; this is because recent directory
+completion is expected to be done by cycling through entries menu
+fashion.
+
+If the value of the style is tt(always), then only recent directories will
+be completed; in that case, use the tt(cd) command when you want to
+complete other directories.
+
+If the value is tt(fallback), recent directories will be tried first, then
+normal directory completion is performed if recent directory completion
+failed to find a match.
+
+Finally, if the value is tt(both) then both sets of completions are
+presented; the usual tag mechanism can be used to distinguish results, with
+recent directories tagged as tt(recent-dirs).  Note that the recent
+directories inserted are abbreviated with directory names where appropriate.
+)
+item(tt(recent-dirs-max))(
+The maximum number of directories to save to the file.  If
+this is zero or negative there is no maximum.  The default is 20.
+Note this includes the current directory, which isn't offered,
+so the highest number of directories you will be offered
+is one less than the maximum.
+)
+item(tt(recent-dirs-prune))(
+This style is an array determining what directories should (or should
+not) be added to the recent list.  Elements of the array can include:
+
+startitem()
+item(tt(parent))(
+Prune parents (more accurately, ancestors) from the recent list.
+If present, changing directly down by any number of directories
+causes the current directory to be overwritten.  For example,
+changing from ~pws to ~pws/some/other/dir causes ~pws not to be
+left on the recent directory stack.  This only applies to direct
+changes to descendant directories; earlier directories on the
+list are not pruned.  For example, changing from ~pws/yet/another
+to ~pws/some/other/dir does not cause ~pws to be pruned.
+)
+item(tt(pattern:var(pattern)))(
+Gives a zsh pattern for directories that should not be
+added to the recent list (if not already there).  This element
+can be repeated to add different patterns.  For example,
+tt('pattern:/tmp+LPAR()|/*RPAR()') stops tt(/tmp) or its descendants
+from being added.  The tt(EXTENDED_GLOB) option is always turned on
+for these patterns.
+)
+enditem()
+)
+item(tt(recent-dirs-pushd))(
+If set to true, tt(cdr) will use tt(pushd) instead of tt(cd) to change the
+directory, so the directory is saved on the directory stack.  As the
+directory stack is completely separate from the list of files saved
+by the mechanism used in this file there is no obvious reason to do
+this.
+)
+enditem()
+
+subsect(Use with dynamic directory naming)
+
+It is possible to refer to recent directories using the dynamic directory
+name syntax that appeared in zsh version 4.3.7.  If you create and
+autoload a function tt(zsh_directory_name) containing the following code,
+tt(~[1]) will refer to the most recent directory other than $PWD, and so on.
+This also includes completion.
+
+example(if [[ $1 = n ]]; then
+  if [[ $2 = <-> ]]; then
+    # Recent directory
+    typeset -ga reply
+    autoload -Uz cdr
+    cdr -r
+    if [[ -n ${reply[$2]} ]]; then
+      reply=LPAR()${reply[$2]}RPAR()
+      return 0
+    else
+      reply=LPAR()RPAR()
+      return 1
+    fi
+  fi
+elif [[ $1 = c ]]; then
+  if [[ $PREFIX = <-> || -z $PREFIX ]]; then
+    typeset -a keys values
+    values=LPAR()${${(f)"$+LPAR()cdr -l+RPAR()"}/ ##/:}RPAR()
+    keys=LPAR()${values%%:*}RPAR()
+    _describe -t dir-index 'recent directory index' \
+      values keys -V unsorted -S']'
+    return
+  fi
+fi
+return 1)
+
+subsect(Details of directory handling)
+
+This section is for the curious or confused; most users will not
+need to know this information.
+
+Recent directories are saved to a file immediately and hence are
+preserved across sessions.  Note currently no file locking is applied:
+the list is updated immediately on interactive commands and nowhere else
+(unlike history), and it is assumed you are only going to change
+directory in one window at once.  This is not safe on shared accounts,
+but in any case the system has limited utility when someone else is
+changing to a different set of directories behind your back.
+
+To make this a little safer, only directory changes instituted from the
+command line, either directly or indirectly through shell function calls
+(but not through subshells, evals, traps, completion functions and the
+like) are saved.  Shell functions should use tt(cd -q) or tt(pushd -q) to
+avoid side effects if the change to the directory is to be invisible at the
+command line.  See the contents of the function tt(chpwd_recent_dirs) for
+more details.
+
+texinode(Version Control Information)(Prompt Themes)(Recent Directories)(User Contributions)
 sect(Gathering information from version control systems)
 cindex(version control utility)
 
 In a lot of cases, it is nice to automatically retrieve information from
 version control systems (VCSs), such as subversion, CVS or git, to be able
 to provide it to the user; possibly in the user's prompt. So that you can
-instantly tell on which branch you are currently on,  for example.
+instantly tell which branch you are currently on, for example.
 
 In order to do that, you may use the tt(vcs_info) function.
 
@@ -334,15 +613,19 @@ startsitem()
 sitem(Bazaar (tt(bzr)))(http://bazaar-vcs.org/)
 sitem(Codeville (tt(cdv)))(http://codeville.org/)
 sitem(Concurrent Versioning System (tt(cvs)))(http://www.nongnu.org/cvs/)
-sitem(tt(darcs))(http://darcs.net/)
-sitem(tt(git))(http://git.or.cz/)
+sitem(Darcs (tt(darcs)))(http://darcs.net/)
+sitem(Git (tt(git)))(http://git-scm.com/)
 sitem(GNU arch (tt(tla)))(http://www.gnu.org/software/gnu-arch/)
-sitem(Mercurial (tt(hg)))(http://selenic.com/mercurial/)
+sitem(Mercurial (tt(hg)))(http://mercurial.selenic.com/)
 sitem(Monotone (tt(mtn)))(http://monotone.ca/)
 sitem(Perforce (tt(p4)))(http://www.perforce.com/)
 sitem(Subversion (tt(svn)))(http://subversion.tigris.org/)
 sitem(SVK (tt(svk)))(http://svk.bestpractical.com/)
 endsitem()
+
+There is also support for the patch management system tt(quilt)
+(http://savannah.nongnu.org/projects/quilt). See tt(Quilt Support)
+below for details.
 
 To load var(vcs_info):
 
@@ -356,17 +639,20 @@ subsect(Quickstart)
 To get this feature working quickly (including colors), you can do the
 following (assuming, you loaded var(vcs_info) properly - see above):
 
-example(zstyle ':vcs_info:*' actionformats \ 
+example(zstyle ':vcs_info:*' actionformats \
     '%F{5}(%f%s%F{5})%F{3}-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
-zstyle ':vcs_info:*' formats       \ 
+zstyle ':vcs_info:*' formats       \
     '%F{5}(%f%s%F{5})%F{3}-%F{5}[%F{2}%b%F{5}]%f '
 zstyle ':vcs_info:(sv[nk]|bzr):*' branchformat '%b%F{1}:%F{3}%r'
 precmd () { vcs_info }
-PS1='%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}'"%f%# ')
+PS1='%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}%f%# ')
 
-Obviously, the last two lines are there for demonstration: You need to
+Obviously, the last two lines are there for demonstration. You need to
 call var(vcs_info) from your var(precmd) function. Once that is done you need
 a tt(single quoted) var('${vcs_info_msg_0_}') in your prompt.
+
+To be able to use var('${vcs_info_msg_0_}') directly in your prompt like
+this, you will need to have the tt(PROMPT_SUBST) option enabled.
 
 Now call the tt(vcs_info_printsys) utility from the command line:
 
@@ -386,9 +672,12 @@ svn
 tla
 ## flavours (cannot be used in the enable or disable styles; they
 ## are enabled and disabled with their master [git-svn -> git])
-## they *can* be used contexts: ':vcs_info:git-svn:*'.
+## they *can* be used in contexts: ':vcs_info:git-svn:*'.
 git-p4
-git-svn)
+git-svn
+hg-git
+hg-hgsubversion
+hg-hgsvn)
 
 You may not want all of these because there is no point in running the
 code to detect systems you do not use.  So there is a way to disable
@@ -406,6 +695,7 @@ var(enable) style - if you used that) marked as disabled by a hash sign.
 That means the detection of these systems is skipped tt(completely). No
 wasted time there.
 
+
 subsect(Configuration)
 
 The var(vcs_info) feature can be configured via var(zstyle).
@@ -415,8 +705,9 @@ example(:vcs_info:<vcs-string>:<user-context>:<repo-root-name>)
 
 startitem()
 item(tt(<vcs-string>))(
-is one of: git, git-svn, git-p4, hg, darcs, bzr,
-cdv, mtn, svn, cvs, svk, tla or p4.
+is one of: git, git-svn, git-p4, hg, hg-git, hg-hgsubversion, hg-hgsvn,
+darcs, bzr, cdv, mtn, svn, cvs, svk, tla or p4. When hooks are active the
+hooks name is added after a `+'. (See tt(Hooks in vcs_info) below.)
 )
 item(tt(<user-context>))(
 is a freely configurable string, assignable by
@@ -426,13 +717,13 @@ below).
 item(tt(<repo-root-name>))(
 is the name of a repository in which you want a
 style to match. So, if you want a setting specific to var(/usr/src/zsh),
-with that being a cvs checkout, you can set tt(<repo-root-name>) to
+with that being a CVS checkout, you can set tt(<repo-root-name>) to
 var(zsh) to make it so.
 )
 enditem()
 
 There are three special values for tt(<vcs-string>): The first is named
-var(-init-), that is in effect as long as there was no decision what vcs
+var(-init-), that is in effect as long as there was no decision what VCS
 backend to use. The second is var(-preinit-); it is used tt(before)
 var(vcs_info) is run, when initializing the data exporting variables. The
 third special value is var(formats) and is used by the tt(vcs_info_lastmsg)
@@ -441,7 +732,7 @@ for looking up its styles.
 The initial value of tt(<repo-root-name>) is var(-all-) and it is replaced
 with the actual name, as soon as it is known. Only use this part of the
 context for defining the var(formats), var(actionformats) or
-var(branchformat) styles. As it is guaranteed that tt(<repo-root-name>) is
+var(branchformat) styles, as it is guaranteed that tt(<repo-root-name>) is
 set up correctly for these only. For all other styles, just use tt('*')
 instead.
 
@@ -464,44 +755,120 @@ A list of formats, used when actionformats is not used
 )
 kindex(actionformats)
 item(tt(actionformats))(
-A list of formats, used if a there is a special
-action going on in your current repository; (like an interactive rebase or
-a merge conflict).
+A list of formats, used if there is a special
+action going on in your current repository; like an interactive rebase or
+a merge conflict.
 )
 kindex(branchformat)
 item(tt(branchformat))(
 Some backends replace var(%b) in the formats and
 actionformats styles above, not only by a branch name but also by a
-revision number. This style let's you modify how that string should look
-like.
+revision number. This style lets you modify how that string should look.
 )
 kindex(nvcsformats)
 item(tt(nvcsformats))(
-These "formats" are exported, when we didn't detect
-a version control system for the current directory. This is useful, if you
+These "formats" are exported when we didn't detect
+a version control system for the current directory. This is useful if you
 want var(vcs_info) to completely take over the generation of your prompt.
 You would do something like tt(PS1='${vcs_info_msg_0_}') to accomplish
 that.
 )
+kindex(hgrevformat)
+item(tt(hgrevformat))(
+tt(hg) uses both a hash and a revision number to reference a specific
+changeset in a repository. With this style you can format the revision
+string (see var(branchformat)) to include either or both. It's only
+useful when var(get-revision) is true.
+)
 kindex(max-exports)
 item(tt(max-exports))(
-Defines the maximum number if
+Defines the maximum number of
 var(vcs_info_msg_*_) variables var(vcs_info) will export.
 )
 kindex(enable)
 item(tt(enable))(
-A list of backends you want to use. Checked in the
-var(-init-) context. If this list contains an item called tt(NONE) no
-backend is used at all and var(vcs_info) will do nothing. If this list
-contains tt(ALL) var(vcs_info) will use all backends known to it. Only with
-tt(ALL) in tt(enable), the tt(disable) style has any effect. tt(ALL) and
-tt(NONE) are actually tested case insensitively.
+A list of backends you want to use. Checked in the var(-init-) context. If
+this list contains an item called tt(NONE) no backend is used at all and
+var(vcs_info) will do nothing. If this list contains tt(ALL) var(vcs_info)
+will use all known backends. Only with tt(ALL) in tt(enable) will the
+tt(disable) style have any effect. tt(ALL) and tt(NONE) are case insensitive.
 )
 kindex(disable)
 item(tt(disable))(
-A list of VCSs, you don't want var(vcs_info) to test for
+A list of VCSs you don't want var(vcs_info) to test for
 repositories (checked in the var(-init-) context, too). Only used if
 tt(enable) contains tt(ALL).
+)
+kindex(disable-patterns)
+item(tt(disable-patterns))(
+A list of patterns that are checked against tt($PWD). If a pattern
+matches, var(vcs_info) will be disabled. This style is checked in the
+var(:vcs_info:-init-:*:-all-) context.
+
+Say, tt(~/.zsh) is a directory under version control, in which you do
+not want var(vcs_info) to be active, do:
+example(zstyle ':vcs_info:*' disable-patterns "$HOME/.zsh+LPAR()|/*+RPAR()")
+)
+kindex(use-quilt)
+item(tt(use-quilt))(
+If enabled, the tt(quilt) support code is active in `addon' mode.
+See tt(Quilt Support) for details.
+)
+kindex(quilt-standalone)
+item(tt(quilt-standalone))(
+If enabled, `standalone' mode detection is attempted if no VCS is active
+in a given directory. See tt(Quilt Support) for details.
+)
+kindex(quilt-patch-dir)
+item(tt(quilt-patch-dir))(
+Overwrite the value of the var($QUILT_PATCHES) environment variable. See
+tt(Quilt Support) for details.
+)
+kindex(quiltcommand)
+item(tt(quiltcommand))(
+When tt(quilt) itself is called in quilt support the value of this style
+is used as the command name.
+)
+kindex(check-for-changes)
+item(tt(check-for-changes))(
+If enabled, this style causes the tt(%c) and tt(%u) format escapes to show
+when the working directory has uncommitted changes. The strings displayed by
+these escapes can be controlled via the var(stagedstr) and var(unstagedstr)
+styles. The only backends that currently support this option are tt(git) and
+tt(hg) (tt(hg) only supports unstaged).
+
+Note, the actions taken if this style is enabled are potentially expensive
+(read: they may be slow, depending on how big the current repository is).
+Therefore, it is disabled by default.
+)
+kindex(stagedstr)
+item(tt(stagedstr))(
+This string will be used in the tt(%c) escape if there are staged changes in
+the repository.
+)
+kindex(unstagedstr)
+item(tt(unstagedstr))(
+This string will be used in the tt(%u) escape if there are unstaged changes
+in the repository.
+)
+kindex(command)
+item(tt(command))(
+This style causes var(vcs_info) to use the supplied string as the command
+to use as the VCS's binary. Note, that setting this in ':vcs_info:*' is
+not a good idea.
+
+If the value of this style is empty (which is the default), the used binary
+name is the name of the backend in use (e.g. var(svn) is used in an var(svn)
+repository).
+
+The var(repo-root-name) part in the context is always the default tt(-all-)
+when this style is looked up.
+
+For example, this style can be used to use binaries from non-default
+installation directories. Assume, var(git) is installed in /usr/bin but
+your sysadmin installed a newer version in /usr/bin/local. Instead of
+changing the order of your tt($PATH) parameter, you can do this:
+example(zstyle ':vcs_info:git:*:-all-' command /usr/local/bin/git)
 )
 kindex(use-server)
 item(tt(use-server))(
@@ -510,8 +877,8 @@ contact the Perforce server to find out if a directory is managed
 by Perforce.  This is the only reliable way of doing this, but runs
 the risk of a delay if the server name cannot be found.  If the
 server (more specifically, the var(host)tt(:)var(port) pair describing the
-server) cannot be contacted its name is put into the associative array
-tt(vcs_info_p4_dead_servers) and not contacted again during the session
+server) cannot be contacted, its name is put into the associative array
+tt(vcs_info_p4_dead_servers) and is not contacted again during the session
 until it is removed by hand.  If you do not set this style, the tt(p4)
 backend is only usable if you have set the environment variable
 tt(P4CONFIG) to a file name and have corresponding files in the root
@@ -523,8 +890,29 @@ item(tt(use-simple))(
 If there are two different ways of gathering
 information, you can select the simpler one by setting this style to true;
 the default is to use the not-that-simple code, which is potentially a lot
-slower but might be more accurate in all possible cases. This style is only
-used by the tt(bzr) backend.
+slower but might be more accurate in all possible cases. This style is
+used by the tt(bzr) and tt(hg) backends. In the case of tt(hg) it will invoke
+the external hexdump program to parse the binary dirstate cache file; this
+method will not return the local revision number.
+)
+kindex(get-revision)
+item(tt(get-revision))(
+If set to true, vcs_info goes the extra mile to figure out the revision of
+a repository's work tree (currently for the tt(git) and tt(hg) backends,
+where this kind of information is not always vital). For tt(git), the
+hash value of the currently checked out commit is available via the tt(%i)
+expansion. With tt(hg), the local revision number and the corresponding
+global hash are available via tt(%i).
+)
+kindex(get-mq)
+item(tt(get-mq))(
+If set to true, the tt(hg) backend will look for a Mercurial Queue (tt(mq))
+patch directory. Information will be available via the `tt(%m)' replacement.
+)
+kindex(get-bookmarks)
+item(tt(get-bookmarks))(
+If set to true, the tt(hg) backend will try to get a list of current
+bookmarks. They will be available via the `tt(%m)' replacement.
 )
 kindex(use-prompt-escapes)
 item(tt(use-prompt-escapes))(
@@ -532,73 +920,217 @@ Determines if we assume that the assembled
 string from var(vcs_info) includes prompt escapes. (Used by
 tt(vcs_info_lastmsg).)
 )
+kindex(debug)
+item(tt(debug))(
+Enable debugging output to track possible problems. Currently this style
+is only used by var(vcs_info)'s hooks system.
+)
+kindex(hooks)
+item(tt(hooks))(
+A list style that defines hook-function names. See tt(Hooks in vcs_info)
+below for details.
+)
 enditem()
 
 The default values for these styles in all contexts are:
 
 startsitem()
-sitem(tt(formats))(" (%s)-[%b|%a]-")
-sitem(tt(actionformats))(" (%s)-[%b]-")
-sitem(tt(branchformat))("%b:%r" (for bzr, svn and svk))
+sitem(tt(formats))(" (%s)-[%b]%u%c-")
+sitem(tt(actionformats))(" (%s)-[%b|%a]%u%c-")
+sitem(tt(branchformat))("%b:%r" (for bzr, svn, svk and hg))
 sitem(tt(nvcsformats))("")
+sitem(tt(hgrevformat))("%r:%h")
 sitem(tt(max-exports))(2)
 sitem(tt(enable))(ALL)
 sitem(tt(disable))((empty list))
+sitem(tt(disable-patterns))((empty list))
+sitem(tt(check-for-changes))(false)
+sitem(tt(stagedstr))((string: "S"))
+sitem(tt(unstagedstr))((string: "U"))
+sitem(tt(command))((empty string))
+sitem(tt(use-server))(false)
 sitem(tt(use-simple))(false)
+sitem(tt(get-revision))(false)
+sitem(tt(get-mq))(true)
+sitem(tt(get-bookmarks))(false)
 sitem(tt(use-prompt-escapes))(true)
+sitem(tt(debug))(false)
+sitem(tt(hooks))((empty list))
+sitem(tt(use-quilt))(false)
+sitem(tt(quilt-standalone))(false)
+sitem(tt(quilt-patch-dir))(empty - use var($QUILT_PATCHES))
+sitem(tt(quiltcommand))(quilt)
 endsitem()
 
-In normal tt(formats) and tt(actionformats), the following replacements are
+In normal tt(formats) and tt(actionformats) the following replacements are
 done:
 
 startsitem()
-sitem(tt(%s))(The vcs in use (git, hg, svn etc.))
+sitem(tt(%s))(The VCS in use (git, hg, svn, etc.).)
 sitem(tt(%b))(Information about the current branch.)
-sitem(tt(%a))(An identifier, that describes the action. Only makes sense in
-actionformats.)
-sitem(tt(%R))(base directory of the repository.)
-sitem(tt(%r))(repository name. If tt(%R) is var(/foo/bar/repoXY), tt(%r) is
-var(repoXY).)
-sitem(tt(%S))(subdirectory within a repository. If tt($PWD) is
-var(/foo/bar/reposXY/beer/tasty), tt(%S) is var(beer/tasty).)
+sitem(tt(%a))(An identifier that describes the action. Only makes sense in
+var(actionformats).)
+sitem(tt(%i))(The current revision number or identifier. For tt(hg)
+the var(hgrevformat) style may be used to customize the output.)
+sitem(tt(%c))(The string from the var(stagedstr) style if there are staged
+changes in the repository.)
+sitem(tt(%u))(The string from the var(unstagedstr) style if there are
+unstaged changes in the repository.)
+sitem(tt(%R))(The base directory of the repository.)
+sitem(tt(%r))(The repository name. If tt(%R) is var(/foo/bar/repoXY), tt(%r)
+is var(repoXY).)
+sitem(tt(%S))(A subdirectory within a repository. If tt($PWD) is
+var(/foo/bar/repoXY/beer/tasty), tt(%S) is var(beer/tasty).)
+sitem(tt(%m))(A "misc" replacement. It is at the discretion of the backend to
+decide what this replacement expands to. It is currently used by the tt(hg)
+and tt(git) backends to display patch information from the tt(mq) and
+tt(stgit) extensions.)
 endsitem()
 
 In tt(branchformat) these replacements are done:
 
 startsitem()
-sitem(tt(%b))(the branch name)
-sitem(tt(%r))(the current revision number)
+sitem(tt(%b))(The branch name.)
+sitem(tt(%r))(The current revision number or the var(hgrevformat) style for
+tt(hg).)
 endsitem()
 
-Not all vcs backends have to support all replacements. For tt(nvcsformats)
-no replacements are performed at all. It is just a string.
+In tt(hgrevformat) these replacements are done:
+
+startsitem()
+sitem(tt(%r))(The current local revision number.)
+sitem(tt(%h))(The current 40-character changeset ID hash identifier.)
+endsitem()
+
+In tt(patch-format) and tt(nopatch-format) these replacements are done:
+
+startsitem()
+sitem(tt(%p))(The name of the top-most applied patch.)
+sitem(tt(%u))(The number of unapplied patches.)
+sitem(tt(%n))(The number of applied patches.)
+sitem(tt(%c))(The number of unapplied patches.)
+sitem(tt(%g))(The names of active tt(mq) guards (tt(hg) backend).)
+sitem(tt(%G))(The number of active tt(mq) guards (tt(hg) backend).)
+endsitem()
+
+Not all VCS backends have to support all replacements. For tt(nvcsformats)
+no replacements are performed at all, it is just a string.
 
 subsect(Oddities)
 
 If you want to use the tt(%b) (bold off) prompt expansion in var(formats),
 which expands tt(%b) itself, use tt(%%b). That will cause the var(vcs_info)
-expansion to replace tt(%%b) with tt(%b). So zsh's prompt expansion
+expansion to replace tt(%%b) with tt(%b), so that zsh's prompt expansion
 mechanism can handle it. Similarly, to hand down tt(%b) from
 var(branchformat), use tt(%%%%b). Sorry for this inconvenience, but it
 cannot be easily avoided. Luckily we do not clash with a lot of prompt
 expansions and this only needs to be done for those.
 
 
-subsect(Function descriptions (public API))
+subsect(Quilt Support)
+
+tt(Quilt) is not a version control system, therefore this is not implemented
+as a backend. It can help keeping track of a series of patches. People use it
+to keep a set of changes they want to use on top of software packages (which
+is tightly integrated into the package build process - the Debian project
+does this for a large number of packages). Quilt can also help individual
+developers keep track of their own patches on top of real version control
+systems.
+
+The var(vcs_info) integration tries to support both ways of using quilt by
+having two slightly different modes of operation: `addon' mode and
+`standalone' mode).
+
+For `addon' mode to become active var(vcs_info) must have already detected a
+real version control system controlling the directory. If that is the case,
+a directory that holds quilt's patches needs to be found. That directory is
+configurable via the var(`QUILT_PATCHES') environment variable. If that
+variable exists its value is used, otherwise the value tt(`patches') is
+assumed. The value from var($QUILT_PATCHES) can be overwritten using the
+tt(`quilt-patches') style. (Note: you can use var(vcs_info) to keep the value
+of var($QUILT_PATCHES) correct all the time via the tt(post-quilt) hook).
+
+When the directory in question is found, quilt is assumed to be active. To
+gather more information, var(vcs_info) looks for a directory called `.pc';
+Quilt uses that directory to track its current state. If this directory does
+not exist we know that quilt has not done anything to the working directory
+(read: no patches have been applied yet).
+
+If patches are applied, var(vcs_info) will try to find out which. If you want
+to know which patches of a series are not yet applied, you need to activate
+the tt(get-unapplied) style in the appropriate context.
+
+var(vcs_info) allows for very detailed control over how the gathered
+information is presented (see the below sections, tt(Styles) and tt(Hooks in
+vcs_info)), all of which are documented below. Note there are a number of
+other patch tracking systems that work on top of a certain version control
+system (like tt(stgit) for tt(git), or tt(mq) for tt(hg)); the configuration
+for systems like that are generally configured the same way as the tt(quilt)
+support.
+
+If the tt(quilt) support is working in `addon' mode, the produced string is
+available as a simple format replacement (var(%Q) to be precise), which can
+be used in tt(formats) and tt(actionformats); see below for details).
+
+If, on the other hand, the support code is working in `standalone' mode,
+var(vcs_info) will pretend as if tt(quilt) were an actual version control
+system. That means that the version control system identifier (which
+otherwise would be something like `svn' or `cvs') will be set to
+`tt(-quilt-)'. This has implications on the used style context where this
+identifier is the second element. var(vcs_info) will have filled in a proper
+value for the "repository's" root directory and the string containing the
+information about quilt's state will be available as the `misc' replacement
+(and var(%Q) for compatibility with `addon' mode.
+
+What is left to discuss is how `standalone' mode is detected. The detection
+itself is a series of searches for directories. You can have this detection
+enabled all the time in every directory that is not otherwise under version
+control. If you know there is only a limited set of trees where you would
+like var(vcs_info) to try and look for Quilt in `standalone' mode to minimise
+the amount of searching on every call to var(vcs_info), there are a number of
+ways to do that:
+
+Essentially, `standalone' mode detection is controlled by a style called
+`tt(quilt-standalone)'. It is a string style and its value can have different
+effects. The simplest values are: `tt(always)' to run detection every time
+var(vcs_info) is run, and `tt(never)' to turn the detection off entirely.
+
+If the value of tt(quilt-standalone) is something else, it is interpreted
+differently. If the value is the name of a scalar variable the value of that
+variable is checked and that value is used in the same `always'/`never' way
+as described above.
+
+If the value of tt(quilt-standalone) is an array, the elements of that array
+are used as directory names under which you want the detection to be active.
+
+If tt(quilt-standalone) is an associative array, the keys are taken as
+directory names under which you want the detection to be active, but only if
+the corresponding value is the string `tt(true)'.
+
+Last, but not least, if the value of tt(quilt-standalone) is the name of a
+function, the function is called without arguments and the return value
+decides whether detection should be active. A `0' return value is true; a
+non-zero return value is interpreted as false.
+
+Note, if there is both a function and a variable by the name of
+tt(quilt-standalone), the function will take precedence.
+
+
+subsect(Function Descriptions (Public API))
 
 startitem()
 findex(vcs_info)
 item(tt(vcs_info) [var(user-context)])(
-The main function, that runs all
-backends and assembles all data into var(${vcs_info_msg_*_}). This is the
-function you want to call from tt(precmd) if you want to include up-to-date
-information in your prompt (see Variable description below). If an argument
-is given, that string will be used instead of tt(default) in the
-user-context field of the style context.
+The main function, that runs all backends and assembles all data into
+var(${vcs_info_msg_*_}). This is the function you want to call from
+tt(precmd) if you want to include up-to-date information in your prompt (see
+tt(Variable description) below). If an argument is given, that string will be
+used instead of tt(default) in the tt(user-context) field of the style
+context.
 )
 item(tt(vcs_info_lastmsg))(
 Outputs the last var(${vcs_info_msg_*_}) value.
-Takes into account the value of the use-prompt-escapes style in
+Takes into account the value of the tt(use-prompt-escapes) style in
 var(':vcs_info:formats:command:-all-'). It also only prints tt(max-exports)
 values.
 )
@@ -617,14 +1149,14 @@ enditem()
 
 All functions named VCS_INFO_* are for internal use only.
 
-subsect(Variable description)
+subsect(Variable Description)
 
 startitem()
 item(tt(${vcs_info_msg_N_}) (Note the trailing underscore))
 (
-Where var(N) is an integer, eg: var(vcs_info_msg_0_) These variables
+Where var(N) is an integer, e.g., var(vcs_info_msg_0_). These variables
 are the storage for the informational message the last var(vcs_info) call
-has assembled. These are strongly connected to the formats,
+has assembled. These are strongly connected to the tt(formats),
 tt(actionformats) and tt(nvcsformats) styles described above. Those styles
 are lists. The first member of that list gets expanded into
 var(${vcs_info_msg_0_}), the second into var(${vcs_info_msg_1_})
@@ -635,9 +1167,198 @@ enditem()
 
 All variables named VCS_INFO_* are for internal use only.
 
+subsect(Hooks in vcs_info)
+
+Hooks are places in var(vcs_info) where you can run your own code. That
+code can communicate with the code that called it and through that,
+change the system's behaviour.
+
+For configuration, hooks change the style context:
+example(:vcs_info:<vcs-string>+<hook-name>:<user-context>:<repo-root-name>)
+
+To register functions to a hook, you need to list them in the tt(hooks)
+style in the appropriate context.
+
+Example:
+example(zstyle ':vcs_info:*+foo:*' hooks bar baz)
+
+This registers functions to the hook `foo' for all backends. In order to
+avoid namespace problems, all registered function names are prepended by
+a `+vi-', so the actual functions called for the `foo' hook are
+`tt(+vi-bar)' and `tt(+vi-baz)'.
+
+If something seems weird, you can enable the `debug' boolean style in
+the proper context and the hook-calling code will print what it tried
+to execute and whether the function in question existed.
+
+When you register more than one function to a hook, all functions are
+executed one after another until one function returns non-zero or until
+all functions have been called.
+
+You may pass data between functions via an associative array, tt(user_data).
+For example:
+example(
++vi-git-myfirsthook+LPAR()RPAR(){
+    user_data[myval]=$myval
+}
++vi-git-mysecondhook+LPAR()RPAR(){
+    # do something with ${user_data[myval]}
+})
+
+There are a number of variables that are special in hook contexts:
+
+startitem()
+item(tt(ret))(
+The return value that the hooks system will return to the caller. The
+default is an integer `zero'. If and how a changed tt(ret) value changes
+the execution of the caller depends on the specific hook. See the hook
+documentation below for details.
+)
+item(tt(hook_com))(
+An associated array which is used for bidirectional communication from
+the caller to hook functions. The used keys depend on the specific hook.
+)
+item(tt(context))(
+The active context of the hook. Functions that wish to change this
+variable should make it local scope first.
+)
+item(tt(vcs))(
+The current VCS after it was detected. The same values as in the
+enable/disable style are used. Available in all hooks except tt(start-up).
+)
+enditem()
+
+Finally, the full list of currently available hooks:
+
+startitem()
+item(tt(start-up))(
+Called after starting var(vcs_info) but before the VCS in this directory is
+determined. It can be used to deactivate var(vcs_info) temporarily if
+necessary. When tt(ret) is set to var(1), var(vcs_info) aborts and does
+nothing; when set to var(2), var(vcs_info) sets up everything as if no
+version control were active and exits.
+)
+item(tt(pre-get-data))(
+Same as tt(start-up) but after the VCS was detected.
+)
+item(tt(gen-hg-bookmark-string))(
+Called in the Mercurial backend when a bookmark string is generated; the
+tt(get-revision) and tt(get-bookmarks) styles must be true.
+
+This hook gets the names of the Mercurial bookmarks that
+var(vcs_info) collected from `hg'.
+
+When setting tt(ret) to non-zero, the string in
+tt(${hook_com[hg-bookmark-string]}) will be used in the var(%m) escape in
+tt(formats) and tt(actionformats) and will be availabe in the global
+var(backend_misc) array as tt(${backend_misc[bookmarks]}).
+)
+item(tt(gen-applied-string))(
+Called in the tt(git) (with tt(stgit)), and tt(hg) (with tt(mq)) backends
+and in tt(quilt) support when the var(applied-string) is generated; the
+tt(use-quilt) zstyle must be true for tt(quilt) (the tt(mq) and tt(stgit)
+backends are active by default).
+
+This hook gets the names of all applied patches which var(vcs_info) collected
+so far in the opposite order, which means that the first argument is the
+top-most patch and so forth.
+
+When setting tt(ret) to non-zero, the string in
+tt(${hook_com[applied-string]}) will be used in the var(%m) escape in
+tt(formats) and tt(actionformats); it will be available in the global
+var(backend_misc) array as tt($backend_misc[patches]}); and it will be
+available as var(%p) in the tt(patch-format) and tt(nopatch-format) styles.
+)
+item(tt(gen-unapplied-string))(
+Called in the tt(git) (with tt(stgit)), and tt(hg) (with tt(mq)) backend
+and in tt(quilt) support when the var(unapplied-string) is generated; the
+tt(get-unapplied) style must be true.
+
+This hook gets the names of all unapplied patches which var(vcs_info)
+collected so far in the opposite order, which mean that the first argument is
+the patch next-in-line to be applied and so forth.
+
+When setting tt(ret) to non-zero, the string in
+tt(${hook_com[unapplied-string]}) will be available as var(%u) in the
+tt(patch-format) and tt(nopatch-format) styles.
+)
+item(tt(gen-mqguards-string))(
+Called in the tt(hg) backend when tt(guards-string) is generated; the
+tt(get-mq) style must be true (default).
+
+This hook gets the names of any active tt(mq) guards.
+
+When setting tt(ret) to non-zero, the string in
+tt(${hook_com[guards-string]}) will be used in the var(%g) escape in the
+tt(patch-format) and tt(nopatch-format) styles.
+)
+item(tt(post-quilt))(
+Called after the tt(quilt) support is done. The following information
+is passed as arguments to the hook: 1. the quilt-support mode (`addon' or
+`standalone'); 2. the directory that contains the patch series; 3. the
+directory that holds quilt's status information (the `.pc' directory) or
+the string tt("-nopc-") if that directory wasn't found.
+
+The `hook_com' parameter is not used.
+)
+item(tt(set-branch-format))(
+Called before `tt(branchformat)' is set. The only argument to the
+hook is the format that is configured at this point.
+
+The `tt(hook_com)' keys considered are `tt(branch)' and `tt(revision)'.
+They are set to the values figured out so far by var(vcs_info) and any
+change will be used directly when the actual replacement is done.
+
+If tt(ret) is set to to non-zero, the string in
+tt(${hook_com[branch-replace]}) will be used unchanged as the
+`tt(%b)' replacement in the variables set by var(vcs_info).
+)
+item(tt(set-hgrev-format))(
+Called before a `tt(hgrevformat)' is set. The only argument to the
+hook is the format that is configured at this point.
+
+The `tt(hook_com)' keys considered are `tt(hash)' and `tt(localrev)'.
+They are set to the values figured out so far by var(vcs_info) and any
+change will be used directly when the actual replacement is done.
+
+If tt(ret) is set to to non-zero, the string in
+tt(${hook_com[rev-replace]}) will be used unchanged as the
+`tt(%i)' replacement in the variables set by var(vcs_info).
+)
+item(tt(set-message))(
+Called each time before a `tt(vcs_info_msg_N_)' message is set.
+It takes two arguments; the first being the `N' in the message
+variable name, the second is the currently configured tt(formats) or
+tt(actionformats).
+
+There are a number of `tt(hook_com)' keys, that are used here:
+`tt(action)', `tt(branch)', `tt(base)', `tt(base-name)', `tt(subdir)',
+`tt(staged)', `tt(unstaged)', `tt(revision)', `tt(misc)', `tt(vcs)'
+and one `tt(miscN)' entry for each backend-specific data field (tt(N)
+starting at zero). They are set to the values figured out so far by
+var(vcs_info) and any change will be used directly when the actual
+replacement is done.
+
+Since this hook is triggered multiple times (once for each configured
+tt(formats) or tt(actionformats)), each of the `tt(hook_com)' keys mentioned
+above (except for the tt(miscN) entries) has an `tt(_orig)' counterpart,
+so even if you changed a value to your liking you can still get the
+original value in the next run. Changing the `tt(_orig)' values is
+probably not a good idea.
+
+If tt(ret) is set to to non-zero, the string in
+tt(${hook_com[message]}) will be used unchanged as the message by
+var(vcs_info).
+)
+enditem()
+
+If all of this sounds rather confusing, take a look at the tt(Examples)
+section below and also in the Misc/vcs_info-examples file in the Zsh source.
+They contain some explanatory code.
+
 subsect(Examples)
 
-Don't use tt(vcs_info) at all (even though it's in your prompt):
+Don't use var(vcs_info) at all (even though it's in your prompt):
 example(zstyle ':vcs_info:*' enable NONE)
 
 Disable the backends for tt(bzr) and tt(svk):
@@ -650,6 +1371,17 @@ Provide a special formats for tt(git):
 example(zstyle ':vcs_info:git:*' formats       ' GIT, BABY! [%b]'
 zstyle ':vcs_info:git:*' actionformats ' GIT ACTION! [%b|%a]')
 
+All tt(%x) expansion in all sorts of formats ("formats", "actionformats",
+branchformat, you name it) are done using the `tt(zformat)' builtin from
+the `tt(zsh/zutil)' module. That means you can do everything with these
+tt(%x) items what zformat supports. In particular, if you want something
+that is really long to have a fixed width, like a hash in a mercurial
+branchformat, you can do this: tt(%12.12i). That'll shrink the 40 character
+hash to its 12 leading characters. The form is actually
+`tt(%)var(min)tt(.)var(max)tt(x)'. More is possible.
+See ifzman(the section `The zsh/zutil Module' in zmanref(zshmodules))\
+ifnzman(noderef(The zsh/zutil Module)) for details.
+
 Use the quicker tt(bzr) backend
 example(zstyle ':vcs_info:bzr:*' use-simple true)
 
@@ -658,14 +1390,96 @@ If you do use tt(use-simple), please report if it does `the-right-thing[tm]'.
 Display the revision number in yellow for tt(bzr) and tt(svn):
 example(zstyle ':vcs_info:(svn|bzr):*' branchformat '%b%{'${fg[yellow]}'%}:%r')
 
-If you want colors, make sure you enclose the color codes in tt(%{...%}),
-if you want to use the string provided by tt(vcs_info) in prompts.
+If you want colors, make sure you enclose the color codes in tt(%{...%})
+if you want to use the string provided by var(vcs_info) in prompts.
 
-Here is how to print the vcs information as a command (not in a prompt):
+Here is how to print the VCS information as a command (not in a prompt):
 example(alias vcsi='vcs_info command; vcs_info_lastmsg')
 
 This way, you can even define different formats for output via
-tt(vcs_info_lastmsg) in the ':vcs_info:formats:command:*' namespace.
+tt(vcs_info_lastmsg) in the ':vcs_info:*:command:*' namespace.
+
+Now as promised, some code that uses hooks:
+say, you'd like to replace the string `svn' by `subversion' in
+var(vcs_info)'s tt(%s) tt(formats) replacement.
+
+First, we will tell var(vcs_info) to call a function when populating
+the message variables with the gathered information:
+example(zstyle ':vcs_info:*+set-message:*' hooks svn2subversion)
+
+Nothing happens. Which is reasonable, since we didn't define the actual
+function yet. To see what the hooks subsystem is trying to do, enable the
+`tt(debug)' style:
+example(zstyle ':vcs_info:*+*:*' debug true)
+
+That should give you an idea what is going on. Specifically, the function
+that we are looking for is `tt(+vi-svn2subversion)'. Note, the `tt(+vi-)'
+prefix. So, everything is in order, just as documented. When you are done
+checking out the debugging output, disable it again:
+example(zstyle ':vcs_info:*+*:*' debug false)
+
+Now, let's define the function:
+example(
+function +vi-svn2subversion+LPAR()RPAR() {
+    [[ ${hook_com[vcs_orig]} == svn ]] && hook_com[vcs]=subversion
+})
+
+Simple enough. And it could have even been simpler, if only we had
+registered our function in a less generic context. If we do it only in
+the `tt(svn)' backend's context, we don't need to test which the active
+backend is:
+example(zstyle ':vcs_info:svn+set-message:*' hooks svn2subversion)
+example(
+function +vi-svn2subversion+LPAR()RPAR() {
+    hook_com[vcs]=subversion
+})
+
+And finally a little more elaborate example, that uses a hook to create
+a customised bookmark string for the tt(hg) backend.
+
+Again, we start off by registering a function:
+example(zstyle ':vcs_info:hg+gen-hg-bookmark-string:*' hooks hgbookmarks)
+
+And then we define the `tt(+vi-hgbookmarks) function:
+example(
+function +vi-hgbookmarks+LPAR()RPAR() {
+    # The default is to connect all bookmark names by
+    # commas. This mixes things up a little.
+    # Imagine, there's one type of bookmarks that is
+    # special to you. Say, because it's *your* work.
+    # Those bookmarks look always like this: "sh/*"
+    # (because your initials are sh, for example).
+    # This makes the bookmarks string use only those
+    # bookmarks. If there's more than one, it
+    # concatenates them using commas.
+    local s i
+    # The bookmarks returned by `hg' are available in
+    # the functions positional parameters.
+    (( $# == 0 )) && return 0
+    for i in "$@"; do
+        if [[ $i == sh/* ]]; then
+            [[ -n $s ]] && s=$s,
+            s=${s}$i
+        fi
+    done
+    # Now, the communication with the code that calls
+    # the hook functions is done via the hook_com[]
+    # hash. The key, at which the `gen-hg-bookmark-string'
+    # hook looks at is `hg-bookmark-string'. So:
+    hook_com[hg-bookmark-string]=$s
+    # And to signal, that we want to use the sting we
+    # just generated, set the special variable `ret' to
+    # something other than the default zero:
+    ret=1
+    return 0
+}
+)
+
+Some longer examples and code snippets which might be useful are available in
+the examples file located at Misc/vcs_info-examples in the Zsh source
+directory.
+
+This concludes our guided tour through zsh's var(vcs_info).
 
 
 texinode(Prompt Themes)(ZLE Functions)(Version Control Information)(User Contributions)
@@ -1153,7 +1967,7 @@ The set of accented characters is reasonably complete up to Unicode
 character U+0180, the set of special characters less so.  However, it it
 is very sporadic from that point.  Adding new characters is easy,
 however; see the function tt(define-composed-chars).  Please send any
-additions to tt(zsh-workers@sunsite.dk).
+additions to tt(zsh-workers@zsh.org).
 
 The codes for the second character when used to accent the first are as
 follows.  Note that not every character can take every accent.
@@ -1205,7 +2019,7 @@ endsitem()
 item(Special letters)(
 Characters found in various variants of the Latin alphabet:
 startsitem()
-sitem(tt(ss))(Eszett (scafes S))
+sitem(tt(ss))(Eszett (scharfes S))
 sitem(tt(D-), tt(d-))(Eth)
 sitem(tt(TH), tt(th))(Thorn)
 sitem(tt(kk))(Kra)
@@ -1458,14 +2272,14 @@ tindex(replace-string-again)
 tindex(replace-pattern)
 xitem(tt(replace-string), tt(replace-pattern))
 item(tt(replace-string-again), tt(replace-pattern-again))(
-The function tt(replace-string) implements two widgets.
+The function tt(replace-string) implements three widgets.
 If defined under the same name as the function, it prompts for two
 strings; the first (source) string will be replaced by the second
 everywhere it occurs in the line editing buffer.
 
 If the widget name contains the word `tt(pattern)', for example by
 defining the widget using the command `tt(zle -N replace-pattern
-replace-string)', then the replacement is done by pattern matching.  All
+replace-string)', then the matching is performed using zsh patterns.  All
 zsh extended globbing patterns can be used in the source string; note
 that unlike filename generation the pattern does not need to match an
 entire word, nor do glob qualifiers have any effect.  In addition, the
@@ -1476,6 +2290,12 @@ replaced by the var(N)th parenthesised expression matched.  The form
 `tt(\{)var(N)tt(})' may be used to protect the digit from following
 digits.
 
+If the widget instead contains the word `tt(regex)' (or `tt(regexp)'),
+then the matching is performed using regular expressions, respecting
+the setting of the option tt(RE_MATCH_PCRE) (see the description of the
+function tt(regexp-replace) below).  The special replacement facilities
+described above for pattern matching are available.
+
 By default the previous source or replacement string will not be offered
 for editing.  However, this feature can be activated by setting the style
 tt(edit-previous) in the context tt(:zle:)var(widget) (for example,
@@ -1483,12 +2303,12 @@ tt(:zle:replace-string)) to tt(true).  In addition, a positive
 numeric argument forces the previous values to be offered, a negative or
 zero argument forces them not to be.
 
-The function tt(replace-string-again) can be used to repeat the
-previous replacement; no prompting is done.  As with tt(replace-string), if
-the name of the widget contains the word `tt(pattern)', pattern matching
-is performed, else a literal string replacement.  Note that the
-previous source and replacement text are the same whether pattern or string
-matching is used.
+The function tt(replace-string-again) can be used to repeat the previous
+replacement; no prompting is done.  As with tt(replace-string), if the name
+of the widget contains the word `tt(pattern)' or `tt(regex)', pattern or
+regular expression matching is performed, else a literal string
+replacement.  Note that the previous source and replacement text are the
+same whether pattern, regular expression or string matching is used.
 
 For example, starting from the line:
 
@@ -1531,6 +2351,23 @@ If no interesting word is found and the tt(auto-previous) style is set to
 a true value, the search continues upward through the history.  When
 tt(auto-previous) is unset or false (the default), the widget must be
 invoked repeatedly in order to search earlier history lines.
+)
+tindex(transpose-lines)
+item(tt(transpose-lines))(
+Only useful with a multi-line editing buffer; the lines here are
+lines within the current on-screen buffer, not history lines.
+The effect is similar to the function of the same name in Emacs.
+
+Transpose the current line with the previous line and move the cursor
+to the start of the next line.  Repeating this (which can be done by
+providing a positive numeric prefix argument) has the effect of moving
+the line above the cursor down by a number of lines.
+
+With a negative numeric prefix argument, requires two lines above the
+cursor.  These two lines are transposed and the cursor moved to the
+start of the previous line.  Using a numeric prefix less than -1
+has the effect of moving the line above the cursor up by minus that
+number of lines.
 )
 tindex(which-command)
 item(tt(which-command))(
@@ -1871,7 +2708,7 @@ startitem()
 findex(zsh-mime-setup)
 findex(zsh-mime-handler)
 xitem(tt(zsh-mime-setup) [ tt(-fv) ] [ tt(-l) [ var(suffix ...) ] ])
-item(tt(zsh-mime-handler))(
+item(tt(zsh-mime-handler [-l] var(command arguments ...)))(
 These two functions use the files tt(~/.mime.types) and tt(/etc/mime.types),
 which associate types and extensions, as well as tt(~/.mailcap) and
 tt(/etc/mailcap) files, which associate types and the programs that
@@ -1886,6 +2723,10 @@ user.
 
 The system works by setting up suffix aliases with `tt(alias -s)'.
 Suffix aliases already installed by the user will not be overwritten.
+
+For suffixes defined in lower case, upper case variants will also
+automatically be handled (e.g. tt(PDF) is automatically handled if
+handling for the suffix tt(pdf) is defined), but not vice versa.
 
 Repeated calls to tt(zsh-mime-setup) do not override the existing
 mapping between suffixes and executable files unless the option tt(-f)
@@ -2091,6 +2932,12 @@ terminal; the second flag is used if the output should be sent to a pager.
 An example of a suitable tt(mailcap) entry for such a program is:
 
 example(text/html; /usr/bin/lynx '%s'; needsterminal)
+
+Running `tt(zsh-mime-handler -l) var(command line)' prints the command
+line that would be executed, simplified to remove the effect of any
+flags, and quoted so that the output can be run as a complete zsh
+command line.  This is used by the completion system to decide how to
+complete after a file handled by tt(zsh-mime-setup).
 )
 findex(pick-web-browser)
 item(tt(pick-web-browser))(
@@ -2287,7 +3134,7 @@ enditem()
 See the comments in the function for a few extra tips.
 )
 findex(zmathfuncdef)
-item(tt(zmathfuncdef) var(mathfunc) [ var(body) ])(
+item(tt(zmathfuncdef) [ var(mathfunc) [ var(body) ] ])(
 A convenient front end to tt(functions -M).
 
 With two arguments, define a mathematical function named var(mathfunc)
@@ -2299,10 +3146,15 @@ to refer to optional parameters.  Note that the forms must be
 strictly adhered to for the function to calculate the correct number
 of arguments.  The implementation is held in a shell function named
 tt(zsh_math_func_)var(mathfunc); usually the user will not need
-to refer to the shell function directly.
+to refer to the shell function directly.  Any existing function
+of the same name is silently replaced.
 
 With one argument, remove the mathematical function var(mathfunc)
 as well as the shell function implementation.
+
+With no arguments, list all var(mathfunc) functions in a form
+suitable for restoring the definition.
+The functions have not necessarily been defined by tt(zmathfuncdef).
 )
 enditem()
 
@@ -2453,6 +3305,27 @@ the context prefix `tt(:completion:nslookup)'.
 
 See also the tt(pager), tt(prompt) and tt(rprompt) styles below.
 )
+findex(regexp-replace)
+item(tt(regexp-replace) var(var) var(regexp) var(replace))(
+Use regular expressions to perform a global search and replace operation
+on a variable.  If the option tt(RE_MATCH_PCRE) is not set, POSIX
+extended regular expressions are used, else Perl-compatible regular
+expressions (this requires the shell to be linked against the tt(pcre)
+library).
+
+var(var) is the name of the variable containing the string to be matched.
+The variable will be modified directly by the function.  The
+variables tt(MATCH), tt(MBEGIN), tt(MEND), tt(match), tt(mbegin), tt(mend)
+should be avoided as these are used by the regular expression code.
+
+var(regexp) is the regular expression to match against the string.
+
+var(replace) is the replacement text.  This can contain parameter, command
+and arithmetic expressions which will be replaced:  in particular, a
+reference to tt($MATCH) will be replaced by the text matched by the pattern.
+
+The return status is 0 if at least one match was performed, else 1.
+)
 findex(run-help)
 item(tt(run-help) var(cmd))(
 This function is designed to be invoked by the tt(run-help) ZLE widget,
@@ -2460,7 +3333,7 @@ in place of the default alias.  See `Accessing On-Line Help'
 ifzman(above)\
 ifnzman((noderef(Utilities))) for setup instructions.
 
-In the discussion which follows, if var(cmd) is a filesystem path, it is
+In the discussion which follows, if var(cmd) is a file system path, it is
 first reduced to its rightmost component (the file name).
 
 Help is first sought by looking for a file named var(cmd) in the directory
@@ -2733,7 +3606,7 @@ The tt(nslookup) function looks up this style in the context
 `tt(:nslookup)' to set the prompt and the right-side prompt, respectively.
 The usual expansions for the tt(PS1) and tt(RPS1) parameters may be used
 (see
-ifzman(zmanref(zshmisc))\
+ifzman(EXPANSION OF PROMPT SEQUENCES in zmanref(zshmisc))\
 ifnzman(noderef(Prompt Expansion))\
 ).
 )

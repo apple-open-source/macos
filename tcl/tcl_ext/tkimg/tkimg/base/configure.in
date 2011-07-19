@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
+AC_REVISION($Id: configure.in 230 2010-03-31 20:17:36Z nijtmans $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkimg', as distributed at November 20, 2001.
@@ -10,7 +10,7 @@ AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
 
 AC_INIT([tkimg],[1.4])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../tclconfig)
 
@@ -73,13 +73,9 @@ TEA_ADD_TCL_SOURCES([])
 
 TEA_PUBLIC_TCL_HEADERS
 TEA_PUBLIC_TK_HEADERS
-#TEA_PRIVATE_TCL_HEADERS
 
 #--------------------------------------------------------------------
 # A few miscellaneous platform-specific items:
-#
-# We have to define a special symbol for Windows (BUILD_tkimg in this
-# case) so that we create the export library with the dll.
 #
 # Windows creates a few extra files that need to be cleaned up.
 # We can add more files to clean if our extension creates any extra
@@ -91,7 +87,6 @@ TEA_PUBLIC_TK_HEADERS
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_tkimg)
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
 else
     CLEANFILES=""
@@ -131,7 +126,8 @@ TEA_ENABLE_SYMBOLS
 # This must be called after TEA_CONFIG_CFLAGS as it adjusts LIBS.
 #--------------------------------------------------------------------
 
-TEA_PATH_X
+# See [Bug #82910]
+#TEA_PATH_X
 
 #--------------------------------------------------------------------
 # Everyone should be linking against the Tcl stub library.  If you

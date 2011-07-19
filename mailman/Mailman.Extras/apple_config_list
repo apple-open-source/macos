@@ -1,0 +1,404 @@
+#! /usr/bin/python
+#
+# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+"""Configure a list from a text file description.
+
+Usage: apple_config_list [options] listname
+
+Options:
+    --inputfile filename
+    -i filename
+        Configure the list by assigning each module-global variable in the
+        file to an attribute on the list object, then saving the list.  The
+        named file is loaded with execfile() and must be legal Python code.
+        Any variable that isn't already an attribute of the list object is
+        ignored (a warning message is printed).  See also the -c option.
+
+        A special variable named `mlist' is put into the globals during the
+        execfile, which is bound to the actual MailList object.  This lets you
+        do all manner of bizarre thing to the list object, but BEWARE!  Using
+        this can severely (and possibly irreparably) damage your mailing list!
+
+    --outputfile filename
+    -o filename
+        Instead of configuring the list, print out a list's configuration
+        variables in a format suitable for input using this script.  In this
+        way, you can easily capture the configuration settings for a
+        particular list and imprint those settings on another list.  filename
+        is the file to output the settings to.  If filename is `-', standard
+        out is used.
+
+    --checkonly
+    -c
+        With this option, the modified list is not actually changed.  Only
+        useful with -i.
+
+    --verbose
+    -v
+        Print the name of each attribute as it is being changed.  Only useful
+        with -i.
+
+    --help
+    -h
+        Print this help message and exit.
+
+The options -o and -i are mutually exclusive.
+
+"""
+
+import sys
+import re
+import time
+import getopt
+from types import TupleType
+
+import paths
+from email.Utils import parseaddr
+
+from Mailman import mm_cfg
+from Mailman import MailList
+from Mailman import Utils
+from Mailman import MemberAdaptor
+from Mailman import Errors
+from Mailman.i18n import _
+
+NL = '\n'
+
+
+
+def usage(code, msg=''):
+    if code:
+        fd = sys.stderr
+    else:
+        fd = sys.stdout
+    print >> fd, _(__doc__)
+    if msg:
+        print >> fd, msg
+    sys.exit(code)
+
+
+
+def do_output(listname, outfile):
+    closep = 0
+    try:
+        if outfile == '-':
+            outfp = sys.stdout
+        else:
+            outfp = open(outfile, 'w')
+            closep = 1
+        # Open the specified list unlocked, since we're only reading it.
+        try:
+            mlist = MailList.MailList(listname, lock=0)
+        except Errors.MMListError:
+            usage(1, _('No such list: %(listname)s'))
+        # get all the list config info.  all this stuff is accessible via the
+        # web interface
+        when = time.ctime(time.time())
+        print >> outfp, _('''\
+## "%(listname)s" mailing list configuration settings -*- python -*-
+## captured on %(when)s
+''')
+
+        for k in mm_cfg.ADMIN_CATEGORIES:
+            subcats = mlist.GetConfigSubCategories(k)
+            if subcats is None:
+                do_list_categories(mlist, k, None, outfp)
+            else:
+                for subcat in [t[0] for t in subcats]:
+                    do_list_categories(mlist, k, subcat, outfp)
+    finally:
+        if closep:
+            outfp.close()
+
+
+def do_list_categories(mlist, k, subcat, outfp):
+    info = mlist.GetConfigInfo(k, subcat)
+    label, gui = mlist.GetConfigCategories()[k]
+    if info is None:
+        return
+    print >> outfp, '##', k.capitalize(), _('options')
+    print >> outfp, '#'
+    # First, massage the descripton text, which could have obnoxious
+    # leading whitespace on second and subsequent lines due to
+    # triple-quoted string nonsense in the source code.
+    desc = NL.join([s.lstrip() for s in info[0].split('\n')])
+    # Print out the category description
+    desc = Utils.wrap(desc)
+    for line in desc.split('\n'):
+        print >> outfp, '#', line
+    print >> outfp
+    for data in info[1:]:
+        if not isinstance(data, TupleType):
+            continue
+        varname = data[0]
+        # Variable could be volatile
+        if varname[0] == '_':
+            continue
+        vtype = data[1]
+        # First, massage the descripton text, which could have
+        # obnoxious leading whitespace on second and subsequent lines
+        # due to triple-quoted string nonsense in the source code.
+        desc = NL.join([s.lstrip() for s in data[-1].split('\n')])
+        # Now strip out all HTML tags
+        desc = re.sub('<.*?>', '', desc)
+        # And convert &lt;/&gt; to <>
+        desc = re.sub('&lt;', '<', desc)
+        desc = re.sub('&gt;', '>', desc)
+        # Print out the variable description.
+        desc = Utils.wrap(desc)
+        for line in desc.split('\n'):
+            print >> outfp, '#', line
+        # munge the value based on its type
+        value = None
+        if hasattr(gui, 'getValue'):
+            value = gui.getValue(mlist, vtype, varname, data[2])
+        if value is None and not varname.startswith('_'):
+            value = getattr(mlist, varname)
+        if vtype in (mm_cfg.Text, mm_cfg.FileUpload):
+            print >> outfp, varname, '=',
+            lines = value.splitlines()
+            if not lines:
+                print >> outfp, "''"
+            elif len(lines) == 1:
+                print >> outfp, repr(lines[0])
+            else:
+                first = 1
+                outfp.write(' """')
+                for line in lines:
+                    if first:
+                        first = 0
+                    else:
+                        print >> outfp
+                    outfp.write(line.replace('"', '\\"'))
+                print >> outfp, '"""'
+        elif vtype in (mm_cfg.Radio, mm_cfg.Toggle):
+            print >> outfp, '#'
+            print >> outfp, '#', _('legal values are:')
+            # TBD: This is disgusting, but it's special cased
+            # everywhere else anyway...
+            if varname == 'subscribe_policy' and \
+                   not mm_cfg.ALLOW_OPEN_SUBSCRIBE:
+                i = 1
+            else:
+                i = 0
+            for choice in data[2]:
+                print >> outfp, '#   ', i, '= "%s"' % choice
+                i += 1
+            print >> outfp, varname, '=', repr(value)
+        else:
+            print >> outfp, varname, '=', repr(value)
+        print >> outfp
+
+
+
+def getPropertyMap(mlist):
+    guibyprop = {}
+    categories = mlist.GetConfigCategories()
+    for category, (label, gui) in categories.items():
+        if not hasattr(gui, 'GetConfigInfo'):
+            continue
+        subcats = mlist.GetConfigSubCategories(category)
+        if subcats is None:
+            subcats = [(None, None)]
+        for subcat, sclabel in subcats:
+            for element in gui.GetConfigInfo(mlist, category, subcat):
+                if not isinstance(element, TupleType):
+                    continue
+                propname = element[0]
+                wtype = element[1]
+                guibyprop[propname] = (gui, wtype)
+    return guibyprop
+
+
+class FakeDoc:
+    # Fake the error reporting API for the htmlformat.Document class
+    def addError(self, s, tag=None, *args):
+        if tag:
+            print >> sys.stderr, tag
+        print >> sys.stderr, s % args
+
+    def set_language(self, val):
+        pass
+
+
+class UserDesc: pass
+
+
+
+def do_input(listname, infile, checkonly, verbose):
+    fakedoc = FakeDoc()
+    # open the specified list locked, unless checkonly is set
+    try:
+        mlist = MailList.MailList(listname, lock=not checkonly)
+    except Errors.MMListError, e:
+        usage(1, _('No such list "%(listname)s"\n%(e)s'))
+    savelist = 0
+    guibyprop = getPropertyMap(mlist)
+    try:
+        globals = {'mlist': mlist}
+        # Any exception that occurs in execfile() will cause the list to not
+        # be saved, but any other problems are not save-fatal.
+        execfile(infile, globals)
+        savelist = 1
+        for j, w in globals.items():
+            if j in ('mlist', '__builtins__'):
+                continue
+            if j == 'add_members':
+                for addr in w:
+                    if verbose:
+                        print >> sys.stderr, _('add member: %(addr)s')
+                    if not mlist.isMember(addr):
+                        userdesc = UserDesc()
+                        userdesc.fullname, userdesc.address = parseaddr(addr)
+                        userdesc.digest = 0
+                        mlist.ApprovedAddMember(userdesc, None, 0)
+        for k, v in globals.items():
+            if k in ('mlist', '__builtins__'):
+                continue
+            if verbose:
+                print >> sys.stderr, _('attribute "%(k)s" changed')
+            missing = []
+            gui, wtype = guibyprop.get(k, (missing, missing))
+            if gui is missing:
+                # This isn't an official property of the list, but that's
+                # okay, we'll just restore it the old fashioned way
+                if k == 'add_members':
+                    continue
+                elif k == 'remove_members':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('remove member: %(addr)s')
+                        if mlist.isMember(addr):
+                            mlist.ApprovedDeleteMember(addr, 'bin/remove_members', None, None)
+                elif k == 'add_owners':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('add owner: %(addr)s')
+                        addrdict = Utils.List2Dict(mlist.owner, foldcase=1)
+                        if addr not in (mlist.owner):
+                            print >> sys.stderr, _('adding owner: %(addr)s')
+                            mlist.owner.append(addr)
+                elif k == 'remove_owner':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('remove owner: %(addr)s')
+                        if addr in (mlist.owner):
+                            print >> sys.stderr, _('removeing owner: %(addr)s')
+                            mlist.owner.remove(addr)
+                elif k == 'post':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('set post flag: %(addr)s')
+                        mlist.setMemberOption(addr, mm_cfg.Moderate, 0)
+                elif k == 'no_post':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('remove post flag: %(addr)s')
+                        mlist.setMemberOption(addr, mm_cfg.Moderate, 1)
+                elif k == 'subscribe':
+                    for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('subscribe member: %(addr)s')
+                        if mlist.isMember(addr):
+                            mlist.setDeliveryStatus(addr, MemberAdaptor.ENABLED)
+                elif k == 'unsubscribe':
+                     for addr in v:
+                        if verbose:
+                            print >> sys.stderr, _('subscribe member: %(addr)s')
+                        if mlist.isMember(addr):
+                            mlist.setDeliveryStatus(addr, MemberAdaptor.BYADMIN)
+                else:
+                    if not hasattr(mlist, k):
+                        print >> sys.stderr, _('attribute "%(k)s" ignored')
+                    else:
+                        print >> sys.stderr, _('Non-standard property restored: %(k)s')
+                        setattr(mlist, k, v)
+            else:
+                # BAW: This uses non-public methods.  This logic taken from
+                # the guts of GUIBase.handleForm().
+                try:
+                    validval = gui._getValidValue(mlist, k, wtype, v)
+                except ValueError:
+                    print >> sys.stderr, _('Invalid value for property: %(k)s')
+                except Errors.EmailAddressError:
+                    print >> sys.stderr, _(
+                        'Bad email address for option %(k)s: %(v)s')
+                else:
+                    # BAW: Horrible hack, but then this is special cased
+                    # everywhere anyway. :(  Privacy._setValue() knows that
+                    # when ALLOW_OPEN_SUBSCRIBE is false, the web values are
+                    # 0, 1, 2 but these really should be 1, 2, 3, so it adds
+                    # one.  But we really do provide [0..3] so we need to undo
+                    # the hack that _setValue adds. :( :(
+                    if k == 'subscribe_policy' and \
+                           not mm_cfg.ALLOW_OPEN_SUBSCRIBE:
+                        validval -= 1
+                    gui._setValue(mlist, k, validval, fakedoc)
+            # BAW: when to do gui._postValidate()???
+    finally:
+        if savelist and not checkonly:
+            mlist.Save()
+        mlist.Unlock()
+
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(
+            sys.argv[1:], 'ci:o:vh',
+            ['checkonly', 'inputfile=', 'outputfile=', 'verbose', 'help'])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    # defaults
+    infile = None
+    outfile = None
+    checkonly = 0
+    verbose = 0
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-o', '--outputfile'):
+            outfile = arg
+        elif opt in ('-i', '--inputfile'):
+            infile = arg
+        elif opt in ('-c', '--checkonly'):
+            checkonly = 1
+        elif opt in ('-v', '--verbose'):
+            verbose = 1
+
+    # sanity check
+    if infile is not None and outfile is not None:
+        usage(1, _('Only one of -i or -o is allowed'))
+    if infile is None and outfile is None:
+        usage(1, _('One of -i or -o is required'))
+
+    # get the list name
+    if len(args) <> 1:
+        usage(1, _('List name is required'))
+    listname = args[0].lower().strip()
+
+    if outfile:
+        do_output(listname, outfile)
+    else:
+        do_input(listname, infile, checkonly, verbose)
+
+
+
+if __name__ == '__main__':
+    main()

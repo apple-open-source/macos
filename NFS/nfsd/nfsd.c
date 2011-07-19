@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,9 +66,9 @@
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
-#include <rpc/pmap_prot.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/pmap_clnt.h>
+#include <oncrpc/pmap_prot.h>
 
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
@@ -86,7 +86,8 @@
 
 #include "common.h"
 
-int nfstcpsock;
+int nfstcpsock, nfstcp6sock;
+int nfsudpsock, nfsudp6sock;
 
 /*
  * The incredibly complex nfsd thread function
@@ -106,16 +107,24 @@ nfsd_accept_thread(__unused void *arg)
 {
 	struct nfsd_args nfsdargs;
 	fd_set ready, sockbits;
-	struct sockaddr_in inetpeer;
+	struct sockaddr_storage peer;
+	struct sockaddr *sa = (struct sockaddr *)&peer;
 	socklen_t len;
-	int msgsock, on = 1;
+	int maxlistensock = -1;
+	int newsock, on = 1;
 	struct timeval tv;
+	char hostbuf[NI_MAXHOST];
 
 	set_thread_sigmask();
 
 	FD_ZERO(&sockbits);
-	if (config.tcp)
-		FD_SET(nfstcpsock, &sockbits);
+	if (config.tcp) {
+		if (nfstcpsock != -1)
+			FD_SET(nfstcpsock, &sockbits);
+		if (nfstcp6sock != -1)
+			FD_SET(nfstcp6sock, &sockbits);
+		maxlistensock = MAX(nfstcpsock, nfstcp6sock);
+	}
 
 	/*
 	 * Loop until terminated.
@@ -126,28 +135,54 @@ nfsd_accept_thread(__unused void *arg)
 		tv.tv_sec = 3600;
 		tv.tv_usec = 0;
 		ready = sockbits;
-		if (select(nfstcpsock+1, ((nfstcpsock < 0) ? NULL : &ready), NULL, NULL, &tv) < 0) {
+		if (select(maxlistensock+1, ((maxlistensock < 0) ? NULL : &ready), NULL, NULL, &tv) < 0) {
 			if (errno == EINTR)
 				continue;
 			log(LOG_ERR, "select failed: %s (%d)", strerror(errno), errno);
 			break;
 		}
-		if (config.tcp && FD_ISSET(nfstcpsock, &ready)) {
-			len = sizeof(inetpeer);
-			if ((msgsock = accept(nfstcpsock, (struct sockaddr *)&inetpeer, &len)) < 0) {
+		if (!config.tcp || (maxlistensock < 0))
+			continue;
+		if ((nfstcpsock >= 0) && FD_ISSET(nfstcpsock, &ready)) {
+			len = sizeof(peer);
+			if ((newsock = accept(nfstcpsock, (struct sockaddr *)&peer, &len)) < 0) {
 				log(LOG_WARNING, "accept failed: %s (%d)", strerror(errno), errno);
 				continue;
 			}
-			DEBUG(1, "NFS socket accepted");
-			memset(inetpeer.sin_zero, 0, sizeof(inetpeer.sin_zero));
-			if (setsockopt(msgsock, SOL_SOCKET,
+			if (config.verbose >= 3) {
+				hostbuf[0] = '\0';
+				getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0);
+				DEBUG(1, "NFS IPv4 socket accepted from %s", hostbuf);
+			}
+			memset(&((struct sockaddr_in*)&peer)->sin_zero[0], 0, sizeof(&((struct sockaddr_in*)&peer)->sin_zero[0]));
+			if (setsockopt(newsock, SOL_SOCKET,
 			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
 				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
-			nfsdargs.sock = msgsock;
-			nfsdargs.name = (caddr_t)&inetpeer;
-			nfsdargs.namelen = sizeof(inetpeer);
+			nfsdargs.sock = newsock;
+			nfsdargs.name = (caddr_t)&peer;
+			nfsdargs.namelen = len;
 			nfssvc(NFSSVC_ADDSOCK, &nfsdargs);
-			close(msgsock);
+			close(newsock);
+		}
+		if ((nfstcp6sock >= 0) && FD_ISSET(nfstcp6sock, &ready)) {
+			len = sizeof(peer);
+			if ((newsock = accept(nfstcp6sock, (struct sockaddr *)&peer, &len)) < 0) {
+				log(LOG_WARNING, "accept failed: %s (%d)", strerror(errno), errno);
+				continue;
+			}
+			if (config.verbose >= 3) {
+				hostbuf[0] = '\0';
+				getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0);
+				DEBUG(1, "NFS IPv6 socket accepted from %s", hostbuf);
+			}
+			if (setsockopt(newsock, SOL_SOCKET,
+			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
+				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
+			nfsdargs.sock = newsock;
+			nfsdargs.name = (caddr_t)&peer;
+			nfsdargs.namelen = len;
+			nfssvc(NFSSVC_ADDSOCK, &nfsdargs);
+			close(newsock);
 		}
 	}
 
@@ -196,63 +231,157 @@ void
 nfsd(void)
 {
 	struct nfsd_args nfsdargs;
-	struct sockaddr_in inetaddr;
-	int rv;
-	int on, sock;
+	struct sockaddr_storage saddr;
+	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
+	int rv, on = 1;
 	pthread_t thd;
 
-	nfstcpsock = -1;
+	nfsudpsock = nfsudp6sock = -1;
+	nfstcpsock = nfstcp6sock = -1;
 
-	/* If we are serving UDP, set up the NFS/UDP socket. */
+	/* If we are serving UDP, set up the NFS/UDP sockets. */
 	if (config.udp) {
-		if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			log(LOG_ERR, "can't create NFS/UDP socket");
-			exit(1);
-		}
-		inetaddr.sin_family = AF_INET;
-		inetaddr.sin_addr.s_addr = INADDR_ANY;
-		inetaddr.sin_port = htons(config.port);
-		inetaddr.sin_len = sizeof(inetaddr);
-		if (bind(sock, (struct sockaddr *)&inetaddr, sizeof(inetaddr)) < 0) {
-			/* socket may still be lingering from previous incarnation */
-			/* wait a few seconds and try again */
-			sleep(6);
-			if (bind(sock, (struct sockaddr *)&inetaddr, sizeof(inetaddr)) < 0) {
-				log(LOG_ERR, "can't bind NFS/UDP addr");
-				exit(1);
+
+		/* IPv4 */
+		if ((nfsudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/UDP IPv4 socket");
+		if (nfsudpsock >= 0) {
+			nfsudpport = config.port;
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.port);
+			sin->sin_len = sizeof(*sin);
+			if (bind(nfsudpsock, (struct sockaddr *)sin, sizeof(*sin)) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bind(nfsudpsock, (struct sockaddr *)sin, sizeof(*sin)) < 0) {
+					log(LOG_WARNING, "can't bind NFS/UDP IPv4 addr");
+					close(nfsudpsock);
+					nfsudpsock = -1;
+					nfsudpport = 0;
+				}
 			}
 		}
-		nfsdargs.sock = sock;
-		nfsdargs.name = NULL;
-		nfsdargs.namelen = 0;
-		if (nfssvc(NFSSVC_ADDSOCK, &nfsdargs) < 0) {
-			log(LOG_ERR, "can't add NFS/UDP socket");
-			exit(1);
+		if (nfsudpsock >= 0) {
+			nfsdargs.sock = nfsudpsock;
+			nfsdargs.name = NULL;
+			nfsdargs.namelen = 0;
+			if (nfssvc(NFSSVC_ADDSOCK, &nfsdargs) < 0) {
+				log(LOG_WARNING, "can't add NFS/UDP IPv4 socket");
+				close(nfsudpsock);
+				nfsudpsock = -1;
+				nfsudpport = 0;
+			} else {
+				close(nfsudpsock);
+			}
 		}
-		close(sock);
+
+		/* IPv6 */
+		if ((nfsudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/UDP IPv6 socket");
+		if (nfsudp6sock >= 0) {
+			nfsudp6port = config.port;
+			if (setsockopt(nfsudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt NFS/UDP IPV6_V6ONLY: %s (%d)", strerror(errno), errno);
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bind(nfsudp6sock, (struct sockaddr *)sin6, sizeof(*sin6)) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bind(nfsudp6sock, (struct sockaddr *)sin6, sizeof(*sin6)) < 0) {
+					log(LOG_WARNING, "can't bind NFS/UDP IPv6 addr");
+					close(nfsudp6sock);
+					nfsudp6sock = -1;
+					nfsudp6port = 0;
+				}
+			}
+		}
+		if (nfsudp6sock >= 0) {
+			nfsdargs.sock = nfsudp6sock;
+			nfsdargs.name = NULL;
+			nfsdargs.namelen = 0;
+			if (nfssvc(NFSSVC_ADDSOCK, &nfsdargs) < 0) {
+				log(LOG_WARNING, "can't add NFS/UDP IPv6 socket");
+				close(nfsudp6sock);
+				nfsudp6sock = -1;
+				nfsudp6port = 0;
+			} else {
+				close(nfsudp6sock);
+			}
+		}
+
 	}
 
 	/* If we are serving TCP, set up the NFS/TCP socket. */
-	on = 1;
 	if (config.tcp) {
-		if ((nfstcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			log(LOG_ERR, "can't create NFS/TCP socket");
-			exit(1);
+
+		/* IPv4 */
+		if ((nfstcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/TCP IPv4 socket");
+		if (nfstcpsock >= 0) {
+			nfstcpport = config.port;
+			if (setsockopt(nfstcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt NFS/TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.port);
+			sin->sin_len = sizeof(*sin);
+			if (bind(nfstcpsock, (struct sockaddr *)sin, sizeof(*sin)) < 0) {
+				log(LOG_WARNING, "can't bind NFS/TCP IPv4 addr");
+				close(nfstcpsock);
+				nfstcpsock = -1;
+				nfstcpport = 0;
+			}
 		}
-		if (setsockopt(nfstcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
-			log(LOG_WARNING, "setsockopt SO_REUSEADDR: %s (%d)", strerror(errno), errno);
-		inetaddr.sin_family = AF_INET;
-		inetaddr.sin_addr.s_addr = INADDR_ANY;
-		inetaddr.sin_port = htons(config.port);
-		inetaddr.sin_len = sizeof(inetaddr);
-		if (bind(nfstcpsock, (struct sockaddr *)&inetaddr, sizeof (inetaddr)) < 0) {
-			log(LOG_ERR, "can't bind NFS/TCP addr");
-			exit(1);
+		if ((nfstcpsock >= 0) && (listen(nfstcpsock, 128) < 0)) {
+			log(LOG_WARNING, "NFS IPv4 listen failed");
+			close(nfstcpsock);
+			nfstcpsock = -1;
+			nfstcpport = 0;
 		}
-		if (listen(nfstcpsock, 128) < 0) {
-			log(LOG_ERR, "NFS listen failed");
-			exit(1);
+
+		/* IPv6 */
+		if ((nfstcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+			log(LOG_WARNING, "can't create NFS/TCP IPv6 socket");
+		if (nfstcp6sock >= 0) {
+			nfstcp6port = config.port;
+			if (setsockopt(nfstcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt NFS/TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			if (setsockopt(nfstcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt NFS/TCP IPV6_V6ONLY: %s (%d)", strerror(errno), errno);
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bind(nfstcp6sock, (struct sockaddr *)sin6, sizeof(*sin6)) < 0) {
+				log(LOG_WARNING, "can't bind NFS/TCP IPv6 addr");
+				close(nfstcp6sock);
+				nfstcp6sock = -1;
+				nfstcp6port = 0;
+			}
 		}
+		if ((nfstcp6sock >= 0) && (listen(nfstcp6sock, 128) < 0)) {
+			log(LOG_WARNING, "NFS IPv6 listen failed");
+			close(nfstcp6sock);
+			nfstcp6sock = -1;
+			nfstcp6port = 0;
+		}
+
+	}
+
+	if ((nfsudp6sock < 0) && (nfstcp6sock < 0))
+		log(LOG_WARNING, "Can't create NFS IPv6 sockets");
+	if ((nfsudpsock < 0) && (nfstcpsock < 0))
+		log(LOG_WARNING, "Can't create NFS IPv4 sockets");
+	if ((nfsudp6sock < 0) && (nfstcp6sock < 0) &&
+	    (nfsudpsock < 0) && (nfstcpsock < 0)) {
+		log(LOG_ERR, "Can't create any NFS sockets!");
+		exit(1);
 	}
 
 	/* start up all the server threads */

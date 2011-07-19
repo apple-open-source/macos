@@ -33,7 +33,7 @@
 #     ifdef EBCDIC
 #define DFLT_EFM	"%*[^ ] %*[^ ] %f:%l%*[ ]%m,%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%DMaking %*\\a in %f,%f|%l| %m"
 #     else
-#define DFLT_EFM	"%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%-G%f:%l: (Each undeclared identifier is reported only once,%-G%f:%l: for each function it appears in.),%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%D%*\\a: Entering directory `%f',%X%*\\a: Leaving directory `%f',%DMaking %*\\a in %f,%f|%l| %m"
+#define DFLT_EFM	"%*[^\"]\"%f\"%*\\D%l: %m,\"%f\"%*\\D%l: %m,%-G%f:%l: (Each undeclared identifier is reported only once,%-G%f:%l: for each function it appears in.),%-GIn file included from %f:%l:%c,%-GIn file included from %f:%l,%-Gfrom %f:%l:%c,%-Gfrom %f:%l,%f:%l:%c:%m,%f(%l):%m,%f:%l:%m,\"%f\"\\, line %l%*\\D%c%*[^ ] %m,%D%*\\a[%*\\d]: Entering directory `%f',%X%*\\a[%*\\d]: Leaving directory `%f',%D%*\\a: Entering directory `%f',%X%*\\a: Leaving directory `%f',%DMaking %*\\a in %f,%f|%l| %m"
 #     endif
 #    endif
 #   endif
@@ -189,6 +189,8 @@
 #define MOUSE_NONE	' '		/* don't use Visual selection */
 #define MOUSE_NONEF	'x'		/* forced modeless selection */
 
+#define COCU_ALL	"nvic"		/* flags for 'concealcursor' */
+
 /* characters for p_shm option: */
 #define SHM_RO		'r'		/* readonly */
 #define SHM_MOD		'm'		/* modified */
@@ -271,6 +273,7 @@
 #define STL_PREVIEWFLAG_ALT 'W'		/* - other display */
 #define STL_MODIFIED	'm'		/* modified flag */
 #define STL_MODIFIED_ALT 'M'		/* - other display */
+#define STL_QUICKFIX	'q'		/* quickfix window description */
 #define STL_PERCENTAGE	'p'		/* percentage through file */
 #define STL_ALTPERCENT	'P'		/* percentage as TOP BOT ALL or NN% */
 #define STL_ARGLISTSTAT	'a'		/* argument list status as (x of y) */
@@ -282,7 +285,7 @@
 #define STL_HIGHLIGHT	'#'		/* highlight name */
 #define STL_TABPAGENR	'T'		/* tab page label nr */
 #define STL_TABCLOSENR	'X'		/* tab page close nr */
-#define STL_ALL		((char_u *) "fFtcvVlLknoObBrRhHmYyWwMpPaN{#")
+#define STL_ALL		((char_u *) "fFtcvVlLknoObBrRhHmYyWwMqpPaN{#")
 
 /* flags used for parsed 'wildmode' */
 #define WIM_FULL	1
@@ -333,6 +336,9 @@ EXTERN char_u	*p_bdir;	/* 'backupdir' */
 EXTERN char_u	*p_bex;		/* 'backupext' */
 #ifdef FEAT_WILDIGN
 EXTERN char_u	*p_bsk;		/* 'backupskip' */
+#endif
+#ifdef FEAT_CRYPT
+EXTERN char_u	*p_cm;		/* 'cryptmethod' */
 #endif
 #ifdef FEAT_BEVAL
 EXTERN long	p_bdlay;	/* 'balloondelay' */
@@ -546,7 +552,7 @@ EXTERN int	p_icon;		/* 'icon' */
 EXTERN char_u	*p_iconstring;	/* 'iconstring' */
 #endif
 EXTERN int	p_ic;		/* 'ignorecase' */
-#if defined(FEAT_XIM) && (defined(FEAT_GUI_GTK))
+#if defined(FEAT_XIM) && defined(FEAT_GUI_GTK)
 EXTERN char_u	*p_imak;	/* 'imactivatekey' */
 #endif
 #ifdef USE_IM_CONTROL
@@ -590,6 +596,10 @@ EXTERN int	p_magic;	/* 'magic' */
 #ifdef FEAT_QUICKFIX
 EXTERN char_u	*p_mef;		/* 'makeef' */
 EXTERN char_u	*p_mp;		/* 'makeprg' */
+#endif
+#ifdef FEAT_SYN_HL
+EXTERN char_u   *p_cc;		/* 'colorcolumn' */
+EXTERN int      p_cc_cols[256]; /* array for 'colorcolumn' columns */
 #endif
 EXTERN long	p_mat;		/* 'matchtime' */
 #ifdef FEAT_MBYTE
@@ -792,7 +802,7 @@ static char *(p_toolbar_values[]) = {"text", "icons", "tooltips", "horiz", NULL}
 # define TOOLBAR_TOOLTIPS	0x04
 # define TOOLBAR_HORIZ		0x08
 #endif
-#if defined(FEAT_TOOLBAR) && defined(FEAT_GUI_GTK) && defined(HAVE_GTK2)
+#if defined(FEAT_TOOLBAR) && defined(FEAT_GUI_GTK)
 EXTERN char_u	*p_tbis;	/* 'toolbariconsize' */
 EXTERN unsigned tbis_flags;
 # ifdef IN_OPTION_C
@@ -817,7 +827,9 @@ static char *(p_ttym_values[]) = {"xterm", "xterm2", "dec", "netterm", "jsbterm"
 # define TTYM_JSBTERM		0x10
 # define TTYM_PTERM		0x20
 #endif
+EXTERN char_u	*p_udir;	/* 'undodir' */
 EXTERN long	p_ul;		/* 'undolevels' */
+EXTERN long	p_ur;		/* 'undoreload' */
 EXTERN long	p_uc;		/* 'updatecount' */
 EXTERN long	p_ut;		/* 'updatetime' */
 #if defined(FEAT_WINDOWS) || defined(FEAT_FOLDING)
@@ -910,6 +922,7 @@ enum
 #if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT)
     , BV_CINW
 #endif
+    , BV_CM
 #ifdef FEAT_FOLDING
     , BV_CMS
 #endif
@@ -1005,6 +1018,7 @@ enum
     , BV_TS
     , BV_TW
     , BV_TX
+    , BV_UDF
     , BV_WM
     , BV_COUNT	    /* must be the last one */
 };
@@ -1019,6 +1033,13 @@ enum
     WV_LIST = 0
 #ifdef FEAT_ARABIC
     , WV_ARAB
+#endif
+#ifdef FEAT_CONCEAL
+    , WV_COCU
+    , WV_COLE
+#endif
+#ifdef FEAT_CURSORBIND
+    , WV_CRBIND
 #endif
 #ifdef FEAT_DIFF
     , WV_DIFF
@@ -1041,6 +1062,7 @@ enum
     , WV_LBR
 #endif
     , WV_NU
+    , WV_RNU
 #ifdef FEAT_LINEBREAK
     , WV_NUW
 #endif
@@ -1061,6 +1083,7 @@ enum
 #ifdef FEAT_SYN_HL
     , WV_CUC
     , WV_CUL
+    , WV_CC
 #endif
 #ifdef FEAT_STL_OPT
     , WV_STL

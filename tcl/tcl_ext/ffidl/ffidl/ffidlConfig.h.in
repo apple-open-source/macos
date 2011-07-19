@@ -98,7 +98,7 @@
 /* ffidl::stubsymbol can lookup in Tk stubs tables */
 #undef LOOKUP_TK_STUBS
 
-/* Compiler support for module scope symbols */
+/* No Compiler support for module scope symbols */
 #undef MODULE_SCOPE
 
 /* Do we have <dirent.h>? */
@@ -127,6 +127,9 @@
 
 /* Do we have <values.h>? */
 #undef NO_VALUES_H
+
+/* No visibility hidden passed to zlib? */
+#undef NO_VIZ
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -193,9 +196,6 @@
 
 /* Implement callbacks */
 #undef USE_CALLBACKS
-
-/* Do we need a special AIX hack for timezones? */
-#undef USE_DELTA_FOR_TZ
 
 /* Use Tcl stubs */
 #undef USE_TCL_STUBS

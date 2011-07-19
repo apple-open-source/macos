@@ -1,15 +1,15 @@
---- wcstoll.c.orig	Tue May 20 15:21:45 2003
-+++ wcstoll.c	Fri Feb 18 14:54:25 2005
-@@ -40,6 +40,8 @@
+--- wcstoll.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcstoll.c	2009-11-09 15:05:26.000000000 -0800
+@@ -36,6 +36,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdlib/s
  #endif
- __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoll.c,v 1.1 2002/09/22 08:06:45 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoll.c,v 1.2 2007/01/09 00:28:01 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <errno.h>
  #include <limits.h>
  #include <stdlib.h>
-@@ -50,7 +52,8 @@
+@@ -46,7 +48,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * Convert a wide character string to a long long integer.
   */
  long long
@@ -19,7 +19,7 @@
  {
  	const wchar_t *s;
  	unsigned long long acc;
-@@ -58,13 +61,14 @@
+@@ -54,13 +57,14 @@ wcstoll(const wchar_t * __restrict nptr,
  	unsigned long long cutoff;
  	int neg, any, cutlim;
  
@@ -35,7 +35,7 @@
  	if (c == L'-') {
  		neg = 1;
  		c = *s++;
-@@ -91,8 +95,8 @@
+@@ -87,8 +91,8 @@ wcstoll(const wchar_t * __restrict nptr,
  	cutoff /= base;
  	for ( ; ; c = *s++) {
  #ifdef notyet
@@ -46,14 +46,13 @@
  		else
  #endif
  		if (c >= L'0' && c <= L'9')
-@@ -124,4 +128,10 @@
- 	if (endptr != NULL)
+@@ -121,3 +125,9 @@ noconv:
  		*endptr = (wchar_t *)(any ? s - 1 : nptr);
  	return (acc);
-+}
+ }
 +
 +long long
 +wcstoll(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr, int base)
 +{
 +	return wcstoll_l(nptr, endptr, base, __current_locale());
- }
++}

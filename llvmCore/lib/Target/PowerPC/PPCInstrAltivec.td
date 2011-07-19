@@ -15,6 +15,10 @@
 // Altivec transformation functions and pattern fragments.
 //
 
+// Since we canonicalize buildvectors to v16i8, all vnots "-1" operands will be
+// of that type.
+def vnot_ppc : PatFrag<(ops node:$in),
+                       (xor node:$in, (bitconvert (v16i8 immAllOnesV)))>;
 
 def vpkuhum_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
                               (vector_shuffle node:$lhs, node:$rhs), [{
@@ -35,33 +39,33 @@ def vpkuwum_unary_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
 
 
 def vmrglb_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGLShuffleMask(cast<ShuffleVectorSDNode>(N), 1, false);
 }]>;
 def vmrglh_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGLShuffleMask(cast<ShuffleVectorSDNode>(N), 2, false);
 }]>;
 def vmrglw_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGLShuffleMask(cast<ShuffleVectorSDNode>(N), 4, false);
 }]>;
 def vmrghb_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGHShuffleMask(cast<ShuffleVectorSDNode>(N), 1, false);
 }]>;
 def vmrghh_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGHShuffleMask(cast<ShuffleVectorSDNode>(N), 2, false);
 }]>;
 def vmrghw_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                             (vector_shuffle node:$lhs, node:$rhs), [{
+                             (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGHShuffleMask(cast<ShuffleVectorSDNode>(N), 4, false);
 }]>;
 
 
 def vmrglb_unary_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
-                                   (vector_shuffle node:$lhs, node:$rhs), [{
+                               (vector_shuffle (v16i8 node:$lhs), node:$rhs), [{
   return PPC::isVMRGLShuffleMask(cast<ShuffleVectorSDNode>(N), 1, true);
 }]>;
 def vmrglh_unary_shuffle : PatFrag<(ops node:$lhs, node:$rhs),
@@ -321,7 +325,8 @@ def VAND : VXForm_1<1028, (outs VRRC:$vD), (ins VRRC:$vA, VRRC:$vB),
                     [(set VRRC:$vD, (and (v4i32 VRRC:$vA), VRRC:$vB))]>;
 def VANDC : VXForm_1<1092, (outs VRRC:$vD), (ins VRRC:$vA, VRRC:$vB),
                      "vandc $vD, $vA, $vB", VecFP,
-                     [(set VRRC:$vD, (and (v4i32 VRRC:$vA), (vnot VRRC:$vB)))]>;
+                     [(set VRRC:$vD, (and (v4i32 VRRC:$vA),
+                                          (vnot_ppc VRRC:$vB)))]>;
 
 def VCFSX  : VXForm_1<842, (outs VRRC:$vD), (ins u5imm:$UIMM, VRRC:$vB),
                       "vcfsx $vD, $vB, $UIMM", VecFP,
@@ -435,7 +440,8 @@ def VSUM4UBS: VX1_Int<1544, "vsum4ubs", int_ppc_altivec_vsum4ubs>;
 
 def VNOR : VXForm_1<1284, (outs VRRC:$vD), (ins VRRC:$vA, VRRC:$vB),
                     "vnor $vD, $vA, $vB", VecFP,
-                    [(set VRRC:$vD, (vnot (or (v4i32 VRRC:$vA), VRRC:$vB)))]>;
+                    [(set VRRC:$vD, (vnot_ppc (or (v4i32 VRRC:$vA),
+                                                  VRRC:$vB)))]>;
 def VOR : VXForm_1<1156, (outs VRRC:$vD), (ins VRRC:$vA, VRRC:$vB),
                       "vor $vD, $vA, $vB", VecFP,
                       [(set VRRC:$vD, (or (v4i32 VRRC:$vA), VRRC:$vB))]>;
@@ -640,12 +646,11 @@ def:Pat<(vmrghw_unary_shuffle (v16i8 VRRC:$vA), undef),
         (VMRGHW VRRC:$vA, VRRC:$vA)>;
 
 // Logical Operations
-def : Pat<(v4i32 (vnot VRRC:$vA)),      (VNOR VRRC:$vA, VRRC:$vA)>;
-def : Pat<(v4i32 (vnot_conv VRRC:$vA)), (VNOR VRRC:$vA, VRRC:$vA)>;
+def : Pat<(v4i32 (vnot_ppc VRRC:$vA)), (VNOR VRRC:$vA, VRRC:$vA)>;
 
-def : Pat<(v4i32 (vnot_conv (or VRRC:$A, VRRC:$B))),
+def : Pat<(v4i32 (vnot_ppc (or VRRC:$A, VRRC:$B))),
           (VNOR VRRC:$A, VRRC:$B)>;
-def : Pat<(v4i32 (and VRRC:$A, (vnot_conv VRRC:$B))),
+def : Pat<(v4i32 (and VRRC:$A, (vnot_ppc VRRC:$B))),
           (VANDC VRRC:$A, VRRC:$B)>;
 
 def : Pat<(fmul VRRC:$vA, VRRC:$vB),
@@ -666,3 +671,25 @@ def : Pat<(int_ppc_altivec_vnmsubfp VRRC:$A, VRRC:$B, VRRC:$C),
 
 def : Pat<(PPCvperm (v16i8 VRRC:$vA), VRRC:$vB, VRRC:$vC),
           (VPERM VRRC:$vA, VRRC:$vB, VRRC:$vC)>;
+
+// Vector shifts
+def : Pat<(v16i8 (shl (v16i8 VRRC:$vA), (v16i8 VRRC:$vB))),
+          (v16i8 (VSLB VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v8i16 (shl (v8i16 VRRC:$vA), (v8i16 VRRC:$vB))),
+          (v8i16 (VSLH VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v4i32 (shl (v4i32 VRRC:$vA), (v4i32 VRRC:$vB))),
+          (v4i32 (VSLW VRRC:$vA, VRRC:$vB))>;
+
+def : Pat<(v16i8 (srl (v16i8 VRRC:$vA), (v16i8 VRRC:$vB))),
+          (v16i8 (VSRB VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v8i16 (srl (v8i16 VRRC:$vA), (v8i16 VRRC:$vB))),
+          (v8i16 (VSRH VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v4i32 (srl (v4i32 VRRC:$vA), (v4i32 VRRC:$vB))),
+          (v4i32 (VSRW VRRC:$vA, VRRC:$vB))>;
+
+def : Pat<(v16i8 (sra (v16i8 VRRC:$vA), (v16i8 VRRC:$vB))),
+          (v16i8 (VSRAB VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v8i16 (sra (v8i16 VRRC:$vA), (v8i16 VRRC:$vB))),
+          (v8i16 (VSRAH VRRC:$vA, VRRC:$vB))>;
+def : Pat<(v4i32 (sra (v4i32 VRRC:$vA), (v4i32 VRRC:$vB))),
+          (v4i32 (VSRAW VRRC:$vA, VRRC:$vB))>;

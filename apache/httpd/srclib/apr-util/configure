@@ -1455,7 +1455,7 @@ Optional Packages:
   --with-ldap-lib=path    path to ldap lib file
   --with-ldap=library     ldap library to use
   --with-dbm=DBM          choose the DBM type to use.
-                          DBM={sdbm,gdbm,ndbm,db,db1,db185,db2,db3,db4,db41,db42,db43,db44,db45,db46,db47,db48,db50}
+                          DBM={sdbm,gdbm,ndbm,db,db1,db185,db2,db3,db4,db41,db42,db43,db44,db45,db46,db47,db48,db50,db51}
   --with-gdbm=DIR         enable GDBM support
   --with-ndbm=PATH        Find the NDBM header and library in `PATH/include'
                           and `PATH/lib'. If PATH is of the form `HEADER:LIB',
@@ -1963,6 +1963,7 @@ fi
 ac_config_guess="$SHELL $ac_aux_dir/config.guess"  # Please don't use this var.
 ac_config_sub="$SHELL $ac_aux_dir/config.sub"  # Please don't use this var.
 ac_configure="$SHELL $ac_aux_dir/configure"  # Please don't use this var.
+
 
 
 
@@ -3875,7 +3876,7 @@ else
       done
     fi
         if test "$apr_found" = "no" && test -d ""; then
-      apr_temp_abs_srcdir="`cd  && pwd`"
+      apr_temp_abs_srcdir="`cd \"\" && pwd`"
       apr_found="reconfig"
       apr_bundled_major="`sed -n '/#define.*APR_MAJOR_VERSION/s/^[^0-9]*\([0-9]*\).*$/\1/p' \"/include/apr_version.h\"`"
       case $apr_bundled_major in
@@ -14729,9 +14730,9 @@ if test "${with_dbm+set}" = set; then
   withval=$with_dbm;
     if test "$withval" = "yes"; then
       { { $as_echo "$as_me:$LINENO: error: --with-dbm needs to specify a DBM type to use.
-        One of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50" >&5
+        One of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50, db51" >&5
 $as_echo "$as_me: error: --with-dbm needs to specify a DBM type to use.
-        One of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50" >&2;}
+        One of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50, db51" >&2;}
    { (exit 1); exit 1; }; }
     fi
     requested="$withval"
@@ -15754,6 +15755,630 @@ if test "${with_berkeley_db+set}" = set; then
 
   places="$all_places"
   if test -z "$places"; then
+    places="std /usr/local/BerkeleyDB.5.1 /boot/home/config"
+  fi
+
+  bdb_version="5"
+  if test ""1"" != "-1"; then
+    bdb_version="$bdb_version."1""
+    if test ""-1"" != "-1"; then
+      bdb_version="$bdb_version."-1""
+    fi
+  fi
+  bdb_places="$places"
+  bdb_default_search_headers="db51/db.h db5/db.h db.h"
+  bdb_default_search_lib_names="db-5.1 db5-5.1 db51 db5 db"
+
+
+  apu_have_db=0
+
+  # Save the original values of the flags we tweak.
+  apu_check_lib_save_libs="$LIBS"
+  apu_check_lib_save_ldflags="$LDFLAGS"
+  apu_check_lib_save_cppflags="$CPPFLAGS"
+
+  # The variable `found' is the prefix under which we've found
+  # Berkeley DB, or `not' if we haven't found it anywhere yet.
+  found=not
+  for bdb_place in $bdb_places; do
+
+    LDFLAGS="$apu_check_lib_save_ldflags"
+    CPPFLAGS="$apu_check_lib_save_cppflags"
+    case "$bdb_place" in
+      "std" )
+        description="the standard places"
+      ;;
+      *":"* )
+        header="`echo $bdb_place | sed -e 's/:.*$//'`"
+        lib="`echo $bdb_place | sed -e 's/^.*://'`"
+        CPPFLAGS="$CPPFLAGS -I$header"
+        LDFLAGS="$LDFLAGS -L$lib"
+        description="$header and $lib"
+      ;;
+      * )
+        if test -d $bdb_place; then
+          LDFLAGS="$LDFLAGS -L$bdb_place/lib"
+          CPPFLAGS="$CPPFLAGS -I$bdb_place/include"
+        else
+          { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $bdb_place" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $bdb_place... " >&6; }
+          { $as_echo "$as_me:$LINENO: result: directory not found" >&5
+$as_echo "directory not found" >&6; }
+          continue
+        fi
+        description="$bdb_place"
+      ;;
+    esac
+
+    # Since there is no AC_MSG_NOTICE in autoconf 2.13, we use this
+    # trick to display a message instead.
+    { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $description" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $description... " >&6; }
+    { $as_echo "$as_me:$LINENO: result: " >&5
+$as_echo "" >&6; }
+
+    for bdb_libname in $bdb_default_search_lib_names; do
+      for bdb_header in $bdb_default_search_headers; do
+        # Clear the header cache variable for each location
+
+        cache_id="`echo ac_cv_header_${bdb_header} \
+                 | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+        unset $cache_id
+        as_ac_Header=`$as_echo "ac_cv_header_$bdb_header" | $as_tr_sh`
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  { $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+else
+  # Is the header compilable?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header usability" >&5
+$as_echo_n "checking $bdb_header usability... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <$bdb_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+$as_echo "$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header presence" >&5
+$as_echo_n "checking $bdb_header presence... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$bdb_header>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+$as_echo "$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&5
+$as_echo "$as_me: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the compiler's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: present but cannot be compiled" >&5
+$as_echo "$as_me: WARNING: $bdb_header: present but cannot be compiled" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     check for missing prerequisite headers?" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     check for missing prerequisite headers?" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: see the Autoconf documentation" >&5
+$as_echo "$as_me: WARNING: $bdb_header: see the Autoconf documentation" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the preprocessor's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the preprocessor's result" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: in the future, the compiler will take precedence" >&5
+$as_echo "$as_me: WARNING: $bdb_header: in the future, the compiler will take precedence" >&2;}
+
+    ;;
+esac
+{ $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  eval "$as_ac_Header=\$ac_header_preproc"
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+
+fi
+as_val=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+
+          if test ""5"" = "3" -o ""5"" = "4" -o ""5"" = "5"; then
+            # We generate a separate cache variable for each prefix and libname
+            # we search under.  That way, we avoid caching information that
+            # changes if the user runs `configure' with a different set of
+            # switches.
+
+            cache_id="`echo apu_cv_check_berkeley_db_"5"_"1"_"-1"_${bdb_header}_${bdb_libname}_in_${bdb_place} \
+                     | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+
+            { $as_echo "$as_me:$LINENO: checking for -l$bdb_libname" >&5
+$as_echo_n "checking for -l$bdb_libname... " >&6; }
+                                    if { as_var=$cache_id; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+
+
+    apu_try_berkeley_db_save_libs="$LIBS"
+
+    apu_check_berkeley_db_major="5"
+    apu_check_berkeley_db_minor="1"
+    apu_check_berkeley_db_patch="-1"
+    apu_try_berkeley_db_header=$bdb_header
+    apu_try_berkeley_db_libname=$bdb_libname
+
+    LIBS="$LIBS -l$apu_try_berkeley_db_libname"
+    if test "$cross_compiling" = yes; then
+  apu_try_berkeley_db=yes
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <$apu_try_berkeley_db_header>
+main ()
+{
+  int major, minor, patch;
+
+  db_version(&major, &minor, &patch);
+
+  /* Sanity check: ensure that db.h constants actually match the db library */
+  if (major != DB_VERSION_MAJOR
+      || minor != DB_VERSION_MINOR
+      || patch != DB_VERSION_PATCH)
+    exit (1);
+
+  /* Run-time check:  ensure the library claims to be the correct version. */
+
+  if ($apu_check_berkeley_db_major != -1) {
+    if (major < $apu_check_berkeley_db_major)
+      exit (1);
+    if (major > $apu_check_berkeley_db_major)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_minor != -1) {
+    if (minor < $apu_check_berkeley_db_minor)
+      exit (1);
+    if (minor > $apu_check_berkeley_db_minor)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_patch == -1
+      || patch >= $apu_check_berkeley_db_patch)
+    exit (0);
+  else
+    exit (1);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apu_try_berkeley_db=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apu_try_berkeley_db=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+
+    LIBS="$apu_try_berkeley_db_save_libs"
+
+
+                eval "$cache_id=$apu_try_berkeley_db"
+
+fi
+
+            result="`eval echo '$'$cache_id`"
+            { $as_echo "$as_me:$LINENO: result: $result" >&5
+$as_echo "$result" >&6; }
+          elif test ""5"" = "1"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_dbopen" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for dbopen in -l$bdb_libname" >&5
+$as_echo_n "checking for dbopen in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dbopen ();
+int
+main ()
+{
+return dbopen ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          elif test ""5"" = "2"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_db_open" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for db_open in -l$bdb_libname" >&5
+$as_echo_n "checking for db_open in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_open ();
+int
+main ()
+{
+return db_open ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          fi
+
+else
+  result="no"
+fi
+
+
+
+        # If we found it, no need to search any more.
+        if test "$result" = "yes"; then
+          found="$bdb_place"
+          break
+        fi
+      done
+      test "$found" != "not" && break
+    done
+    test "$found" != "not" && break
+  done
+
+  # Restore the original values of the flags we tweak.
+  LDFLAGS="$apu_check_lib_save_ldflags"
+  CPPFLAGS="$apu_check_lib_save_cppflags"
+
+  case "$found" in
+  "not")
+    apu_have_db=0
+    ;;
+  "std")
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *":"*)
+    header="`echo $found | sed -e 's/:.*$//'`"
+    lib="`echo $found | sed -e 's/^.*://'`"
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$header\""
+    APRUTIL_INCLUDES="-I$header"
+  else
+    apr_addto_bugger="-I$header"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$lib\""
+    APRUTIL_LDFLAGS="-L$lib"
+  else
+    apr_addto_bugger="-L$lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *)
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$found/include\""
+    APRUTIL_INCLUDES="-I$found/include"
+  else
+    apr_addto_bugger="-I$found/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$found/lib\""
+    APRUTIL_LDFLAGS="-L$found/lib"
+  else
+    apr_addto_bugger="-L$found/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  esac
+
+  if test "$apu_have_db" = "1"; then
+    apu_db_version=5
+  fi
+
+  if test "$apu_db_version" != "5"; then
+
+  places="$all_places"
+  if test -z "$places"; then
     places="std /usr/local/BerkeleyDB.5.0 /boot/home/config"
   fi
 
@@ -16374,7 +16999,7 @@ fi
     apu_db_version=5
   fi
 
-  if test "$apu_db_version" != "5"; then
+    if test "$apu_db_version" != "5"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -16998,7 +17623,7 @@ fi
     apu_db_version=4
   fi
 
-    if test "$apu_db_version" != "4"; then
+      if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -17622,7 +18247,7 @@ fi
     apu_db_version=4
   fi
 
-      if test "$apu_db_version" != "4"; then
+        if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -18246,7 +18871,7 @@ fi
     apu_db_version=4
   fi
 
-        if test "$apu_db_version" != "4"; then
+          if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -18870,7 +19495,7 @@ fi
     apu_db_version=4
   fi
 
-          if test "$apu_db_version" != "4"; then
+            if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -19494,7 +20119,7 @@ fi
     apu_db_version=4
   fi
 
-            if test "$apu_db_version" != "4"; then
+              if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -20118,7 +20743,7 @@ fi
     apu_db_version=4
   fi
 
-              if test "$apu_db_version" != "4"; then
+                if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -20742,7 +21367,7 @@ fi
     apu_db_version=4
   fi
 
-                if test "$apu_db_version" != "4"; then
+                  if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -21366,7 +21991,7 @@ fi
     apu_db_version=4
   fi
 
-                  if test "$apu_db_version" != "4"; then
+                    if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -21990,7 +22615,7 @@ fi
     apu_db_version=4
   fi
 
-                    if test "$apu_db_version" != "4"; then
+                      if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -22614,7 +23239,7 @@ fi
     apu_db_version=3
   fi
 
-                      if test "$apu_db_version" != "3"; then
+                        if test "$apu_db_version" != "3"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -23238,7 +23863,7 @@ fi
     apu_db_version=2
   fi
 
-                        if test "$apu_db_version" != "2"; then
+                          if test "$apu_db_version" != "2"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -23862,7 +24487,7 @@ fi
     apu_db_version=1
   fi
 
-                          if test "$apu_db_version" != "1"; then
+                            if test "$apu_db_version" != "1"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -24486,6 +25111,7 @@ fi
     apu_db_version=185
   fi
 
+                            fi
                           fi
                         fi
                       fi
@@ -33335,10 +33961,1264 @@ $as_echo "$as_me: error: Berkeley db5 not found" >&2;}
    { (exit 1); exit 1; }; }
     fi
     ;;
+  db51)
+
+  places="$check_places"
+  if test -z "$places"; then
+    places="std /usr/local/BerkeleyDB.5.1 /boot/home/config"
+  fi
+
+  bdb_version="5"
+  if test ""1"" != "-1"; then
+    bdb_version="$bdb_version."1""
+    if test ""-1"" != "-1"; then
+      bdb_version="$bdb_version."-1""
+    fi
+  fi
+  bdb_places="$places"
+  bdb_default_search_headers="db51/db.h db5/db.h db.h"
+  bdb_default_search_lib_names="db-5.1 db5-5.1 db51 db5 db"
+
+
+  apu_have_db=0
+
+  # Save the original values of the flags we tweak.
+  apu_check_lib_save_libs="$LIBS"
+  apu_check_lib_save_ldflags="$LDFLAGS"
+  apu_check_lib_save_cppflags="$CPPFLAGS"
+
+  # The variable `found' is the prefix under which we've found
+  # Berkeley DB, or `not' if we haven't found it anywhere yet.
+  found=not
+  for bdb_place in $bdb_places; do
+
+    LDFLAGS="$apu_check_lib_save_ldflags"
+    CPPFLAGS="$apu_check_lib_save_cppflags"
+    case "$bdb_place" in
+      "std" )
+        description="the standard places"
+      ;;
+      *":"* )
+        header="`echo $bdb_place | sed -e 's/:.*$//'`"
+        lib="`echo $bdb_place | sed -e 's/^.*://'`"
+        CPPFLAGS="$CPPFLAGS -I$header"
+        LDFLAGS="$LDFLAGS -L$lib"
+        description="$header and $lib"
+      ;;
+      * )
+        if test -d $bdb_place; then
+          LDFLAGS="$LDFLAGS -L$bdb_place/lib"
+          CPPFLAGS="$CPPFLAGS -I$bdb_place/include"
+        else
+          { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $bdb_place" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $bdb_place... " >&6; }
+          { $as_echo "$as_me:$LINENO: result: directory not found" >&5
+$as_echo "directory not found" >&6; }
+          continue
+        fi
+        description="$bdb_place"
+      ;;
+    esac
+
+    # Since there is no AC_MSG_NOTICE in autoconf 2.13, we use this
+    # trick to display a message instead.
+    { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $description" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $description... " >&6; }
+    { $as_echo "$as_me:$LINENO: result: " >&5
+$as_echo "" >&6; }
+
+    for bdb_libname in $bdb_default_search_lib_names; do
+      for bdb_header in $bdb_default_search_headers; do
+        # Clear the header cache variable for each location
+
+        cache_id="`echo ac_cv_header_${bdb_header} \
+                 | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+        unset $cache_id
+        as_ac_Header=`$as_echo "ac_cv_header_$bdb_header" | $as_tr_sh`
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  { $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+else
+  # Is the header compilable?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header usability" >&5
+$as_echo_n "checking $bdb_header usability... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <$bdb_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+$as_echo "$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header presence" >&5
+$as_echo_n "checking $bdb_header presence... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$bdb_header>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+$as_echo "$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&5
+$as_echo "$as_me: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the compiler's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: present but cannot be compiled" >&5
+$as_echo "$as_me: WARNING: $bdb_header: present but cannot be compiled" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     check for missing prerequisite headers?" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     check for missing prerequisite headers?" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: see the Autoconf documentation" >&5
+$as_echo "$as_me: WARNING: $bdb_header: see the Autoconf documentation" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the preprocessor's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the preprocessor's result" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: in the future, the compiler will take precedence" >&5
+$as_echo "$as_me: WARNING: $bdb_header: in the future, the compiler will take precedence" >&2;}
+
+    ;;
+esac
+{ $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  eval "$as_ac_Header=\$ac_header_preproc"
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+
+fi
+as_val=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+
+          if test ""5"" = "3" -o ""5"" = "4" -o ""5"" = "5"; then
+            # We generate a separate cache variable for each prefix and libname
+            # we search under.  That way, we avoid caching information that
+            # changes if the user runs `configure' with a different set of
+            # switches.
+
+            cache_id="`echo apu_cv_check_berkeley_db_"5"_"1"_"-1"_${bdb_header}_${bdb_libname}_in_${bdb_place} \
+                     | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+
+            { $as_echo "$as_me:$LINENO: checking for -l$bdb_libname" >&5
+$as_echo_n "checking for -l$bdb_libname... " >&6; }
+                                    if { as_var=$cache_id; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+
+
+    apu_try_berkeley_db_save_libs="$LIBS"
+
+    apu_check_berkeley_db_major="5"
+    apu_check_berkeley_db_minor="1"
+    apu_check_berkeley_db_patch="-1"
+    apu_try_berkeley_db_header=$bdb_header
+    apu_try_berkeley_db_libname=$bdb_libname
+
+    LIBS="$LIBS -l$apu_try_berkeley_db_libname"
+    if test "$cross_compiling" = yes; then
+  apu_try_berkeley_db=yes
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <$apu_try_berkeley_db_header>
+main ()
+{
+  int major, minor, patch;
+
+  db_version(&major, &minor, &patch);
+
+  /* Sanity check: ensure that db.h constants actually match the db library */
+  if (major != DB_VERSION_MAJOR
+      || minor != DB_VERSION_MINOR
+      || patch != DB_VERSION_PATCH)
+    exit (1);
+
+  /* Run-time check:  ensure the library claims to be the correct version. */
+
+  if ($apu_check_berkeley_db_major != -1) {
+    if (major < $apu_check_berkeley_db_major)
+      exit (1);
+    if (major > $apu_check_berkeley_db_major)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_minor != -1) {
+    if (minor < $apu_check_berkeley_db_minor)
+      exit (1);
+    if (minor > $apu_check_berkeley_db_minor)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_patch == -1
+      || patch >= $apu_check_berkeley_db_patch)
+    exit (0);
+  else
+    exit (1);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apu_try_berkeley_db=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apu_try_berkeley_db=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+
+    LIBS="$apu_try_berkeley_db_save_libs"
+
+
+                eval "$cache_id=$apu_try_berkeley_db"
+
+fi
+
+            result="`eval echo '$'$cache_id`"
+            { $as_echo "$as_me:$LINENO: result: $result" >&5
+$as_echo "$result" >&6; }
+          elif test ""5"" = "1"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_dbopen" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for dbopen in -l$bdb_libname" >&5
+$as_echo_n "checking for dbopen in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dbopen ();
+int
+main ()
+{
+return dbopen ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          elif test ""5"" = "2"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_db_open" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for db_open in -l$bdb_libname" >&5
+$as_echo_n "checking for db_open in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_open ();
+int
+main ()
+{
+return db_open ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          fi
+
+else
+  result="no"
+fi
+
+
+
+        # If we found it, no need to search any more.
+        if test "$result" = "yes"; then
+          found="$bdb_place"
+          break
+        fi
+      done
+      test "$found" != "not" && break
+    done
+    test "$found" != "not" && break
+  done
+
+  # Restore the original values of the flags we tweak.
+  LDFLAGS="$apu_check_lib_save_ldflags"
+  CPPFLAGS="$apu_check_lib_save_cppflags"
+
+  case "$found" in
+  "not")
+    apu_have_db=0
+    ;;
+  "std")
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *":"*)
+    header="`echo $found | sed -e 's/:.*$//'`"
+    lib="`echo $found | sed -e 's/^.*://'`"
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$header\""
+    APRUTIL_INCLUDES="-I$header"
+  else
+    apr_addto_bugger="-I$header"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$lib\""
+    APRUTIL_LDFLAGS="-L$lib"
+  else
+    apr_addto_bugger="-L$lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *)
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$found/include\""
+    APRUTIL_INCLUDES="-I$found/include"
+  else
+    apr_addto_bugger="-I$found/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$found/lib\""
+    APRUTIL_LDFLAGS="-L$found/lib"
+  else
+    apr_addto_bugger="-L$found/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  esac
+
+  if test "$apu_have_db" = "1"; then
+    apu_db_version=5
+  fi
+
+    if test "$apu_db_version" != "5"; then
+      { { $as_echo "$as_me:$LINENO: error: Berkeley db5 not found" >&5
+$as_echo "$as_me: error: Berkeley db5 not found" >&2;}
+   { (exit 1); exit 1; }; }
+    fi
+    ;;
   default)
 
   all_places="$check_places"
 
+
+  places="$all_places"
+  if test -z "$places"; then
+    places="std /usr/local/BerkeleyDB.5.1 /boot/home/config"
+  fi
+
+  bdb_version="5"
+  if test ""1"" != "-1"; then
+    bdb_version="$bdb_version."1""
+    if test ""-1"" != "-1"; then
+      bdb_version="$bdb_version."-1""
+    fi
+  fi
+  bdb_places="$places"
+  bdb_default_search_headers="db51/db.h db5/db.h db.h"
+  bdb_default_search_lib_names="db-5.1 db5-5.1 db51 db5 db"
+
+
+  apu_have_db=0
+
+  # Save the original values of the flags we tweak.
+  apu_check_lib_save_libs="$LIBS"
+  apu_check_lib_save_ldflags="$LDFLAGS"
+  apu_check_lib_save_cppflags="$CPPFLAGS"
+
+  # The variable `found' is the prefix under which we've found
+  # Berkeley DB, or `not' if we haven't found it anywhere yet.
+  found=not
+  for bdb_place in $bdb_places; do
+
+    LDFLAGS="$apu_check_lib_save_ldflags"
+    CPPFLAGS="$apu_check_lib_save_cppflags"
+    case "$bdb_place" in
+      "std" )
+        description="the standard places"
+      ;;
+      *":"* )
+        header="`echo $bdb_place | sed -e 's/:.*$//'`"
+        lib="`echo $bdb_place | sed -e 's/^.*://'`"
+        CPPFLAGS="$CPPFLAGS -I$header"
+        LDFLAGS="$LDFLAGS -L$lib"
+        description="$header and $lib"
+      ;;
+      * )
+        if test -d $bdb_place; then
+          LDFLAGS="$LDFLAGS -L$bdb_place/lib"
+          CPPFLAGS="$CPPFLAGS -I$bdb_place/include"
+        else
+          { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $bdb_place" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $bdb_place... " >&6; }
+          { $as_echo "$as_me:$LINENO: result: directory not found" >&5
+$as_echo "directory not found" >&6; }
+          continue
+        fi
+        description="$bdb_place"
+      ;;
+    esac
+
+    # Since there is no AC_MSG_NOTICE in autoconf 2.13, we use this
+    # trick to display a message instead.
+    { $as_echo "$as_me:$LINENO: checking for Berkeley DB $bdb_version in $description" >&5
+$as_echo_n "checking for Berkeley DB $bdb_version in $description... " >&6; }
+    { $as_echo "$as_me:$LINENO: result: " >&5
+$as_echo "" >&6; }
+
+    for bdb_libname in $bdb_default_search_lib_names; do
+      for bdb_header in $bdb_default_search_headers; do
+        # Clear the header cache variable for each location
+
+        cache_id="`echo ac_cv_header_${bdb_header} \
+                 | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+        unset $cache_id
+        as_ac_Header=`$as_echo "ac_cv_header_$bdb_header" | $as_tr_sh`
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  { $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+else
+  # Is the header compilable?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header usability" >&5
+$as_echo_n "checking $bdb_header usability... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#include <$bdb_header>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+$as_echo "$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ $as_echo "$as_me:$LINENO: checking $bdb_header presence" >&5
+$as_echo_n "checking $bdb_header presence... " >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <$bdb_header>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ $as_echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+$as_echo "$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
+  yes:no: )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&5
+$as_echo "$as_me: WARNING: $bdb_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the compiler's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: present but cannot be compiled" >&5
+$as_echo "$as_me: WARNING: $bdb_header: present but cannot be compiled" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     check for missing prerequisite headers?" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     check for missing prerequisite headers?" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: see the Autoconf documentation" >&5
+$as_echo "$as_me: WARNING: $bdb_header: see the Autoconf documentation" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&5
+$as_echo "$as_me: WARNING: $bdb_header:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: proceeding with the preprocessor's result" >&5
+$as_echo "$as_me: WARNING: $bdb_header: proceeding with the preprocessor's result" >&2;}
+    { $as_echo "$as_me:$LINENO: WARNING: $bdb_header: in the future, the compiler will take precedence" >&5
+$as_echo "$as_me: WARNING: $bdb_header: in the future, the compiler will take precedence" >&2;}
+
+    ;;
+esac
+{ $as_echo "$as_me:$LINENO: checking for $bdb_header" >&5
+$as_echo_n "checking for $bdb_header... " >&6; }
+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  eval "$as_ac_Header=\$ac_header_preproc"
+fi
+ac_res=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+
+fi
+as_val=`eval 'as_val=${'$as_ac_Header'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+
+          if test ""5"" = "3" -o ""5"" = "4" -o ""5"" = "5"; then
+            # We generate a separate cache variable for each prefix and libname
+            # we search under.  That way, we avoid caching information that
+            # changes if the user runs `configure' with a different set of
+            # switches.
+
+            cache_id="`echo apu_cv_check_berkeley_db_"5"_"1"_"-1"_${bdb_header}_${bdb_libname}_in_${bdb_place} \
+                     | sed -e 's/[^a-zA-Z0-9_]/_/g'`"
+
+
+            { $as_echo "$as_me:$LINENO: checking for -l$bdb_libname" >&5
+$as_echo_n "checking for -l$bdb_libname... " >&6; }
+                                    if { as_var=$cache_id; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+
+
+    apu_try_berkeley_db_save_libs="$LIBS"
+
+    apu_check_berkeley_db_major="5"
+    apu_check_berkeley_db_minor="1"
+    apu_check_berkeley_db_patch="-1"
+    apu_try_berkeley_db_header=$bdb_header
+    apu_try_berkeley_db_libname=$bdb_libname
+
+    LIBS="$LIBS -l$apu_try_berkeley_db_libname"
+    if test "$cross_compiling" = yes; then
+  apu_try_berkeley_db=yes
+
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <$apu_try_berkeley_db_header>
+main ()
+{
+  int major, minor, patch;
+
+  db_version(&major, &minor, &patch);
+
+  /* Sanity check: ensure that db.h constants actually match the db library */
+  if (major != DB_VERSION_MAJOR
+      || minor != DB_VERSION_MINOR
+      || patch != DB_VERSION_PATCH)
+    exit (1);
+
+  /* Run-time check:  ensure the library claims to be the correct version. */
+
+  if ($apu_check_berkeley_db_major != -1) {
+    if (major < $apu_check_berkeley_db_major)
+      exit (1);
+    if (major > $apu_check_berkeley_db_major)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_minor != -1) {
+    if (minor < $apu_check_berkeley_db_minor)
+      exit (1);
+    if (minor > $apu_check_berkeley_db_minor)
+      exit (0);
+  }
+
+  if ($apu_check_berkeley_db_patch == -1
+      || patch >= $apu_check_berkeley_db_patch)
+    exit (0);
+  else
+    exit (1);
+}
+
+_ACEOF
+rm -f conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_try") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  apu_try_berkeley_db=yes
+else
+  $as_echo "$as_me: program exited with status $ac_status" >&5
+$as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+apu_try_berkeley_db=no
+fi
+rm -rf conftest.dSYM
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+
+
+
+    LIBS="$apu_try_berkeley_db_save_libs"
+
+
+                eval "$cache_id=$apu_try_berkeley_db"
+
+fi
+
+            result="`eval echo '$'$cache_id`"
+            { $as_echo "$as_me:$LINENO: result: $result" >&5
+$as_echo "$result" >&6; }
+          elif test ""5"" = "1"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_dbopen" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for dbopen in -l$bdb_libname" >&5
+$as_echo_n "checking for dbopen in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char dbopen ();
+int
+main ()
+{
+return dbopen ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          elif test ""5"" = "2"; then
+            as_ac_Lib=`$as_echo "ac_cv_lib_$bdb_libname''_db_open" | $as_tr_sh`
+{ $as_echo "$as_me:$LINENO: checking for db_open in -l$bdb_libname" >&5
+$as_echo_n "checking for db_open in -l$bdb_libname... " >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-l$bdb_libname  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char db_open ();
+int
+main ()
+{
+return db_open ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  eval "$as_ac_Lib=yes"
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+	       { $as_echo "$as_me:$LINENO: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+as_val=`eval 'as_val=${'$as_ac_Lib'}
+		 $as_echo "$as_val"'`
+   if test "x$as_val" = x""yes; then
+  result=yes
+else
+  result=no
+
+fi
+
+          fi
+
+else
+  result="no"
+fi
+
+
+
+        # If we found it, no need to search any more.
+        if test "$result" = "yes"; then
+          found="$bdb_place"
+          break
+        fi
+      done
+      test "$found" != "not" && break
+    done
+    test "$found" != "not" && break
+  done
+
+  # Restore the original values of the flags we tweak.
+  LDFLAGS="$apu_check_lib_save_ldflags"
+  CPPFLAGS="$apu_check_lib_save_cppflags"
+
+  case "$found" in
+  "not")
+    apu_have_db=0
+    ;;
+  "std")
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *":"*)
+    header="`echo $found | sed -e 's/:.*$//'`"
+    lib="`echo $found | sed -e 's/^.*://'`"
+
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$header\""
+    APRUTIL_INCLUDES="-I$header"
+  else
+    apr_addto_bugger="-I$header"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$lib\""
+    APRUTIL_LDFLAGS="-L$lib"
+  else
+    apr_addto_bugger="-L$lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  *)
+
+  if test "x$APRUTIL_INCLUDES" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$found/include\""
+    APRUTIL_INCLUDES="-I$found/include"
+  else
+    apr_addto_bugger="-I$found/include"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_INCLUDES; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_INCLUDES"
+        APRUTIL_INCLUDES="$APRUTIL_INCLUDES $i"
+      fi
+    done
+  fi
+
+
+  if test "x$APRUTIL_LDFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_LDFLAGS to \"-L$found/lib\""
+    APRUTIL_LDFLAGS="-L$found/lib"
+  else
+    apr_addto_bugger="-L$found/lib"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $APRUTIL_LDFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to APRUTIL_LDFLAGS"
+        APRUTIL_LDFLAGS="$APRUTIL_LDFLAGS $i"
+      fi
+    done
+  fi
+
+    apu_db_header=$bdb_header
+    apu_db_lib=$bdb_libname
+    apu_have_db=1
+    ;;
+  esac
+
+  if test "$apu_have_db" = "1"; then
+    apu_db_version=5
+  fi
+
+  if test "$apu_db_version" != "5"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -33962,7 +35842,7 @@ fi
     apu_db_version=5
   fi
 
-  if test "$apu_db_version" != "5"; then
+    if test "$apu_db_version" != "5"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -34586,7 +36466,7 @@ fi
     apu_db_version=4
   fi
 
-    if test "$apu_db_version" != "4"; then
+      if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -35210,7 +37090,7 @@ fi
     apu_db_version=4
   fi
 
-      if test "$apu_db_version" != "4"; then
+        if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -35834,7 +37714,7 @@ fi
     apu_db_version=4
   fi
 
-        if test "$apu_db_version" != "4"; then
+          if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -36458,7 +38338,7 @@ fi
     apu_db_version=4
   fi
 
-          if test "$apu_db_version" != "4"; then
+            if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -37082,7 +38962,7 @@ fi
     apu_db_version=4
   fi
 
-            if test "$apu_db_version" != "4"; then
+              if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -37706,7 +39586,7 @@ fi
     apu_db_version=4
   fi
 
-              if test "$apu_db_version" != "4"; then
+                if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -38330,7 +40210,7 @@ fi
     apu_db_version=4
   fi
 
-                if test "$apu_db_version" != "4"; then
+                  if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -38954,7 +40834,7 @@ fi
     apu_db_version=4
   fi
 
-                  if test "$apu_db_version" != "4"; then
+                    if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -39578,7 +41458,7 @@ fi
     apu_db_version=4
   fi
 
-                    if test "$apu_db_version" != "4"; then
+                      if test "$apu_db_version" != "4"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -40202,7 +42082,7 @@ fi
     apu_db_version=3
   fi
 
-                      if test "$apu_db_version" != "3"; then
+                        if test "$apu_db_version" != "3"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -40826,7 +42706,7 @@ fi
     apu_db_version=2
   fi
 
-                        if test "$apu_db_version" != "2"; then
+                          if test "$apu_db_version" != "2"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -41450,7 +43330,7 @@ fi
     apu_db_version=1
   fi
 
-                          if test "$apu_db_version" != "1"; then
+                            if test "$apu_db_version" != "1"; then
 
   places="$all_places"
   if test -z "$places"; then
@@ -42074,6 +43954,7 @@ fi
     apu_db_version=185
   fi
 
+                            fi
                           fi
                         fi
                       fi
@@ -42187,15 +44068,19 @@ fi
       apu_use_db=1
       apu_default_dbm=db5
       ;;
+    db51)
+      apu_use_db=1
+      apu_default_dbm=db5
+      ;;
     default)
             apu_default_dbm="sdbm (default)"
       apu_use_sdbm=1
       ;;
     *)
       { { $as_echo "$as_me:$LINENO: error: --with-dbm=$look_for is an unknown DBM type.
-        Use one of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50" >&5
+        Use one of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50, db51" >&5
 $as_echo "$as_me: error: --with-dbm=$look_for is an unknown DBM type.
-        Use one of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50" >&2;}
+        Use one of: sdbm, gdbm, ndbm, db, db1, db185, db2, db3, db4, db41, db42, db43, db44, db45, db46, db47, db48, db50, db51" >&2;}
    { (exit 1); exit 1; }; }
       ;;
   esac
@@ -49876,8 +51761,14 @@ fi
         odbc_LDFLAGS="-L`$ODBC_CONFIG --lib-prefix`"
         odbc_LIBS="`$ODBC_CONFIG --libs`"
       else
-        odbc_CPPFLAGS="-I$withval/include"
-        odbc_LDFLAGS="-L$withval/lib "
+        if test -f "$withval" && test -x "$withval"; then
+          odbc_CPPFLAGS="-I`$withval --include-prefix`"
+          odbc_LDFLAGS="-L`$withval --lib-prefix`"
+          odbc_LIBS="`$withval --libs`"
+        else
+          odbc_CPPFLAGS="-I$withval/include"
+          odbc_LDFLAGS="-L$withval/lib "
+        fi
       fi
 
 
@@ -51773,10 +53664,10 @@ fi
 
 
   if test "x$APRUTIL_INCLUDES" = "x"; then
-    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$top_builddir/$bundled_subdir/lib\""
-    APRUTIL_INCLUDES="-I$top_builddir/$bundled_subdir/lib"
+    test "x$silent" != "xyes" && echo "  setting APRUTIL_INCLUDES to \"-I$abs_srcdir/$bundled_subdir/lib\""
+    APRUTIL_INCLUDES="-I$abs_srcdir/$bundled_subdir/lib"
   else
-    apr_addto_bugger="-I$top_builddir/$bundled_subdir/lib"
+    apr_addto_bugger="-I$abs_srcdir/$bundled_subdir/lib"
     for i in $apr_addto_bugger; do
       apr_addto_duplicate="0"
       for j in $APRUTIL_INCLUDES; do

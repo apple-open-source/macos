@@ -33,6 +33,8 @@
 .Op Fl log_facility Ar facility_name
 .Op Fl punch_fw Ar firewall_range
 .Op Fl clamp_mss
+.Op Fl enable_natportmap
+.Op Fl natportmap_interface Ar interface
 .Ek
 .Sh DESCRIPTION
 This program provides a Network Address Translation facility for use
@@ -462,29 +464,21 @@ This option enables MSS clamping.  The MSS value is derived from the
 MTU of the interface specified in the
 .Fl interface
 option.
+.It Fl enable_natportmap Xo
+.Xc
+This option enables port forwarding using the NATPMP protocol.
+.It Fl natportmap_interface Ar interface Xo
+.Xc
+This option instructs natd to listen for NATPMP requests. This option should appear for each 
+interface on which natd will listen for NATPMP requests.
 .El
 .Sh RUNNING NATD
 The following steps are necessary before attempting to run
 .Nm :
 .Bl -enum
 .It
-Build a custom kernel with the following options:
-.Bd -literal -offset indent
-options IPFIREWALL
-options IPDIVERT
-.Ed
-.Pp
-Refer to the handbook for detailed instructions on building a custom
-kernel.
-.It
 Ensure that your machine is acting as a gateway.
-This can be done by specifying the line
-.Pp
-.Dl gateway_enable=YES
-.Pp
-in the
-.Pa /etc/rc.conf
-file or using the command
+This can be done by using the command
 .Pp
 .Dl sysctl -w net.inet.ip.forwarding=1
 .Pp
@@ -512,23 +506,18 @@ The line
 .Dl natd -interface en0
 .Pp
 should suffice in most cases (substituting the correct interface name).
-Please check
-.Xr rc.conf 5
-on how to configure it to be started automatically during boot.
+.Pp
 Once
 .Nm
 is running, you must ensure that traffic is diverted to
 .Nm :
 .Bl -enum
 .It
-You will need to adjust the
-.Pa /etc/rc.firewall
-script to taste.
 If you are not interested in having a firewall, the
 following lines will do:
 .Bd -literal -offset indent
 /sbin/ipfw -f flush
-/sbin/ipfw add divert natd all from any to any via ed0
+/sbin/ipfw add divert natd all from any to any via en0
 /sbin/ipfw add pass all from any to any
 .Ed
 .Pp
@@ -544,7 +533,7 @@ encouraged to create firewall rules that only allow traffic to and
 from trusted hosts.
 .Pp
 If you specify real firewall rules, it is best to specify line 2 at
-the start of the script so that
+the start of the rules so that
 .Nm
 sees all packets before they are dropped by the firewall.
 .Pp
@@ -554,23 +543,10 @@ packets re-enter the firewall at the rule number following the rule number
 that caused the diversion (not the next rule if there are several at the
 same number).
 .It
-Enable your firewall by setting
+Enable your firewall by using the command
 .Pp
-.Dl firewall_enable=YES
+.Dl sysctl -w net.inet.ip.fw.enable=1
 .Pp
-in
-.Pa /etc/rc.conf .
-This tells the system startup scripts to run the
-.Pa /etc/rc.firewall
-script.
-If you do not wish to reboot now, just run this by hand from the console.
-NEVER run this from a remote session unless you put it into the background.
-If you do, you will lock yourself out after the flush takes place, and
-execution of
-.Pa /etc/rc.firewall
-will stop at this point - blocking all accesses permanently.
-Running the script in the background should be enough to prevent this
-disaster.
 .El
 .Sh SEE ALSO
 .Xr divert 4 ,

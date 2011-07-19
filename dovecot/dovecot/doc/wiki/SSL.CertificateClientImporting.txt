@@ -1,0 +1,65 @@
+SSL certificate importing to clients
+====================================
+
+You may import either the server's self-signed certificate or the CA
+certificate (see <SSL.CertificateCreation.txt>).
+
+Windows XP
+----------
+
+Import to Trusted Root Certification Authorities store: 
+http://www.microsoft.com/resources/documentation/windows/xp/all/proddocs/en-us/sag_cmprocsimport.mspx?mfr=true
+
+Outlook and Outlook Express uses the Windows's certificate store.
+
+Mac OS X
+--------
+
+ * Doubleclick the certificate
+ * Keychain should open
+ * Add the certificate to X509 Anchors keychain
+
+Apple Mail uses the OS X's certificate store.
+
+Thunderbird
+-----------
+
+Preferences -> Privacy -> Security -> View Certificates -> Authorities ->
+Import -> Trust this CA to identify email users.
+
+Opera Mail
+----------
+
+Preferences -> Advanced > Security > Certificates > Import certificate file.
+
+Evolution
+---------
+
+Preferences -> Certificates -> Authorities -> Import -> Trust this CA to
+identify email users.
+
+Pine
+----
+
+http://www.madboa.com/geek/pine-ssl/ tells a story how to do this. Basically it
+seems to be:
+
+ 1. Find out your OPENSSLDIR: 'openssl version -d'
+ 2. Get a hash of your certificate: 'openssl x509 -in cert.pem -hash -noout'
+ 3. Copy the certificate to '$OPENSSLDIR/certs/$hash.0'
+
+This probably works only for self-signed certificates.
+
+KMail
+-----
+
+Instructions needed.
+
+Claws Mail
+----------
+
+Configuration -> Edit accounts (Choose here your's one and press 'Edit'-button)
+
+Account -> SSL -> Certificate for receiving->Browse
+
+(This file was created from the wiki on 2011-05-11 04:42)

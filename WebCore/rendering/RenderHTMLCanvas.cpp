@@ -26,12 +26,14 @@
 #include "config.h"
 #include "RenderHTMLCanvas.h"
 
+#include "CanvasRenderingContext.h"
 #include "Document.h"
+#include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLNames.h"
+#include "PaintInfo.h"
 #include "RenderView.h"
-#include "FrameView.h"
 
 namespace WebCore {
 
@@ -48,12 +50,8 @@ bool RenderHTMLCanvas::requiresLayer() const
     if (RenderReplaced::requiresLayer())
         return true;
     
-#if ENABLE(3D_CANVAS)
     HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(node());
-    return canvas && canvas->is3D();
-#else
-    return false;
-#endif
+    return canvas && canvas->renderingContext() && canvas->renderingContext()->isAccelerated();
 }
 
 void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
@@ -76,12 +74,12 @@ void RenderHTMLCanvas::canvasSizeChanged()
     if (!parent())
         return;
 
-    if (!prefWidthsDirty())
-        setPrefWidthsDirty(true);
+    if (!preferredLogicalWidthsDirty())
+        setPreferredLogicalWidthsDirty(true);
 
     IntSize oldSize = size();
-    calcWidth();
-    calcHeight();
+    computeLogicalWidth();
+    computeLogicalHeight();
     if (oldSize == size())
         return;
 

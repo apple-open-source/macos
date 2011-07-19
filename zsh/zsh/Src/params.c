@@ -31,6 +31,16 @@
 #include "params.pro"
 
 #include "version.h"
+#ifdef CUSTOM_PATCHLEVEL
+#define ZSH_PATCHLEVEL	CUSTOM_PATCHLEVEL
+#else
+#include "patchlevel.h"
+
+/* If removed from the ChangeLog for some reason */
+#ifndef ZSH_PATCHLEVEL
+#define ZSH_PATCHLEVEL "unknown"
+#endif
+#endif
 
 /* what level of localness we are at */
  
@@ -47,7 +57,8 @@ char **pparams,		/* $argv        */
      **mailpath,	/* $mailpath    */
      **manpath,		/* $manpath     */
      **psvar,		/* $psvar       */
-     **watch;		/* $watch       */
+     **watch,		/* $watch       */
+     **zsh_eval_context; /* $zsh_eval_context */
 /**/
 mod_export
 char **path,		/* $path        */
@@ -98,6 +109,9 @@ zlong lineno,		/* $LINENO      */
 mod_export unsigned char bangchar;
 /**/
 unsigned char hatchar, hashchar;
+
+/**/
+unsigned char keyboardhackchar = '\0';
  
 /* $SECONDS = now.tv_sec - shtimer.tv_sec
  *          + (now.tv_usec - shtimer.tv_usec) / 1000000.0
@@ -194,6 +208,8 @@ static const struct gsu_scalar ifs_gsu =
 { ifsgetfn, ifssetfn, stdunsetfn };
 static const struct gsu_scalar underscore_gsu =
 { underscoregetfn, nullstrsetfn, stdunsetfn };
+static const struct gsu_scalar keyboard_hack_gsu =
+{ keyboardhackgetfn, keyboardhacksetfn, stdunsetfn };
 #ifdef USE_LOCALE
 static const struct gsu_scalar lc_blah_gsu =
 { strgetfn, lcsetfn, stdunsetfn };
@@ -263,6 +279,7 @@ IPDEF2("TERM", term_gsu, 0),
 IPDEF2("WORDCHARS", wordchars_gsu, 0),
 IPDEF2("IFS", ifs_gsu, PM_DONTIMPORT),
 IPDEF2("_", underscore_gsu, PM_READONLY),
+IPDEF2("KEYBOARD_HACK", keyboard_hack_gsu, PM_DONTIMPORT),
 
 #ifdef USE_LOCALE
 # define LCIPDEF(name) IPDEF2(name, lc_blah_gsu, PM_UNSET)
@@ -325,6 +342,7 @@ IPDEF8("MAILPATH", &mailpath, "mailpath", 0),
 IPDEF8("WATCH", &watch, "watch", 0),
 IPDEF8("PATH", &path, "path", PM_RESTRICTED),
 IPDEF8("PSVAR", &psvar, "psvar", 0),
+IPDEF8("ZSH_EVAL_CONTEXT", &zsh_eval_context, "zsh_eval_context", PM_READONLY),
 
 /* MODULE_PATH is not imported for security reasons */
 IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED),
@@ -333,12 +351,21 @@ IPDEF8("MODULE_PATH", &module_path, "module_path", PM_DONTIMPORT|PM_RESTRICTED),
 #define IPDEF9(A,B,C) IPDEF9F(A,B,C,0)
 IPDEF9F("*", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
 IPDEF9F("@", &pparams, NULL, PM_ARRAY|PM_SPECIAL|PM_DONTIMPORT|PM_READONLY),
+
+/*
+ * This empty row indicates the end of parameters available in
+ * all emulations.
+ */
 {{NULL,NULL,0},BR(NULL),NULL_GSU,0,0,NULL,NULL,NULL,0},
 
 #define IPDEF10(A,B) {{NULL,A,PM_ARRAY|PM_SPECIAL},BR(NULL),GSU(B),10,0,NULL,NULL,NULL,0}
 
-/* The following parameters are not available in sh/ksh compatibility *
- * mode. All of these have sh compatible equivalents.                */
+/*
+ * The following parameters are not available in sh/ksh compatibility *
+ * mode.
+ */
+
+/* All of these have sh compatible equivalents.                */
 IPDEF1("ARGC", argc_gsu, PM_READONLY),
 IPDEF2("HISTCHARS", histchars_gsu, PM_DONTIMPORT),
 IPDEF4("status", &lastval),
@@ -357,8 +384,12 @@ IPDEF9("manpath", &manpath, "MANPATH"),
 IPDEF9("psvar", &psvar, "PSVAR"),
 IPDEF9("watch", &watch, "WATCH"),
 
+IPDEF9F("zsh_eval_context", &zsh_eval_context, "ZSH_EVAL_CONTEXT", PM_READONLY),
+
 IPDEF9F("module_path", &module_path, "MODULE_PATH", PM_RESTRICTED),
 IPDEF9F("path", &path, "PATH", PM_RESTRICTED),
+
+/* These are known to zsh alone. */
 
 IPDEF10("pipestatus", pipestatus_gsu),
 
@@ -430,7 +461,8 @@ getparamnode(HashTable ht, const char *nam)
 	     * stuff to go ahead with the autoload stub with
 	     * no error status we're in for all sorts of mayhem?
 	     */
-	    zerr("unknown parameter: %s", nam);
+	    zerr("autoloading module %s failed to define parameter: %s", mn,
+		 nam);
 	}
     }
     return hn;
@@ -495,10 +527,10 @@ scancountparams(UNUSED(HashNode hn), int flags)
 static Patprog scanprog;
 static char *scanstr;
 static char **paramvals;
-static Param foundparam;     
+static Param foundparam;
 
 /**/
-void
+static void
 scanparamvals(HashNode hn, int flags)
 {
     struct value v;
@@ -538,6 +570,7 @@ scanparamvals(HashNode hn, int flags)
 	    --numparamvals;	/* Value didn't match, discard key */
     } else
 	++numparamvals;
+    foundparam = NULL;
 }
 
 /**/
@@ -631,7 +664,7 @@ createparamtable(void)
     /* Add the special parameters to the hash table */
     for (ip = special_params; ip->node.nam; ip++)
 	paramtab->addnode(paramtab, ztrdup(ip->node.nam), ip);
-    if (emulation != EMULATE_SH && emulation != EMULATE_KSH)
+    if (!EMULATION(EMULATE_SH|EMULATE_KSH))
 	while ((++ip)->node.nam)
 	    paramtab->addnode(paramtab, ztrdup(ip->node.nam), ip);
 
@@ -709,7 +742,7 @@ createparamtable(void)
 #endif
     opts[ALLEXPORT] = oae;
 
-    if (emulation == EMULATE_ZSH)
+    if (EMULATION(EMULATE_ZSH))
     {
 	/*
 	 * For native emulation we always set the variable home
@@ -747,6 +780,7 @@ createparamtable(void)
     setsparam("VENDOR", ztrdup(VENDOR));
     setsparam("ZSH_NAME", ztrdup(zsh_name));
     setsparam("ZSH_VERSION", ztrdup(ZSH_VERSION));
+    setsparam("ZSH_PATCHLEVEL", ztrdup(ZSH_PATCHLEVEL));
     setaparam("signals", sigptr = zalloc((SIGCOUNT+4) * sizeof(char *)));
     for (t = sigs; (*sigptr++ = ztrdup(*t++)); );
 
@@ -893,11 +927,17 @@ createspecialhash(char *name, GetNodeFunc get, ScanTabFunc scan, int flags)
 }
 
 
-/* Copy a parameter */
+/*
+ * Copy a parameter
+ *
+ * If fakecopy is set, we are just saving the details of a special
+ * parameter.  Otherwise, the result will be used as a real parameter
+ * and we need to do more work.
+ */
 
 /**/
 void
-copyparam(Param tpm, Param pm, int toplevel)
+copyparam(Param tpm, Param pm, int fakecopy)
 {
     /*
      * Note that tpm, into which we're copying, may not be in permanent
@@ -908,7 +948,8 @@ copyparam(Param tpm, Param pm, int toplevel)
     tpm->node.flags = pm->node.flags;
     tpm->base = pm->base;
     tpm->width = pm->width;
-    if (!toplevel)
+    tpm->level = pm->level;
+    if (!fakecopy)
 	tpm->node.flags &= ~PM_SPECIAL;
     switch (PM_TYPE(pm->node.flags)) {
     case PM_SCALAR:
@@ -929,13 +970,15 @@ copyparam(Param tpm, Param pm, int toplevel)
 	break;
     }
     /*
-     * If called from inside an associative array, that array is later going
-     * to be passed as a real parameter, so we need the gets and sets
-     * functions to be useful.  However, the saved associated array is
-     * not itself special, so we just use the standard ones.
-     * This is also why we switch off PM_SPECIAL.
+     * If the value is going to be passed as a real parameter (e.g. this is
+     * called from inside an associative array), we need the gets and sets
+     * functions to be useful.
+     *
+     * In this case we assume the the saved parameter is not itself special,
+     * so we just use the standard functions.  This is also why we switch off
+     * PM_SPECIAL.
      */
-    if (!toplevel)
+    if (!fakecopy)
 	assigngetset(tpm);
 }
 
@@ -970,7 +1013,7 @@ isident(char *s)
 	return 0;
 
     /* Require balanced [ ] pairs with something between */
-    if (!(ss = parse_subscript(++ss, 1)))
+    if (!(ss = parse_subscript(++ss, 1, ']')))
 	return 0;
     untokenize(s);
     return !ss[1];
@@ -1333,6 +1376,11 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	    len = arrlen(ta);
 	    if (beg < 0)
 		beg += len;
+	    if (down) {
+		if (beg < 0)
+		    return 0;
+	    } else if (beg >= len)
+		return len + 1;
 	    if (beg >= 0 && beg < len) {
 		if (down) {
 		    if (!hasbeg)
@@ -1351,6 +1399,11 @@ getarg(char **str, int *inv, Value v, int a2, zlong *w,
 	    len = arrlen(ta);
 	    if (beg < 0)
 		beg += len;
+	    if (down) {
+		if (beg < 0)
+		    return 0;
+	    } else if (beg >= len)
+		return len + 1;
 	    if (beg >= 0 && beg < len) {
 		if (down) {
 		    if (!hasbeg)
@@ -1575,7 +1628,7 @@ getindex(char **pptr, Value v, int flags)
 
     *s++ = '[';
     /* Error handled after untokenizing */
-    s = parse_subscript(s, flags & SCANPM_DQUOTED);
+    s = parse_subscript(s, flags & SCANPM_DQUOTED, ']');
     /* Now we untokenize everything except inull() markers so we can check *
      * for the '*' and '@' special subscripts.  The inull()s are removed  *
      * in getarg() after we know whether we're doing reverse indexing.    */
@@ -1869,7 +1922,7 @@ getstrvalue(Value v)
     switch(PM_TYPE(v->pm->node.flags)) {
     case PM_HASHED:
 	/* (!v->isarr) should be impossible unless emulating ksh */
-	if (!v->isarr && emulation == EMULATE_KSH) {
+	if (!v->isarr && EMULATION(EMULATE_KSH)) {
 	    s = dupstring("[0]");
 	    if (getindex(&s, v, 0) == 0)
 		s = getstrvalue(v);
@@ -2152,7 +2205,7 @@ export_param(Param pm)
 
     if (PM_TYPE(pm->node.flags) & (PM_ARRAY|PM_HASHED)) {
 #if 0	/* Requires changes elsewhere in params.c and builtin.c */
-	if (emulation == EMULATE_KSH /* isset(KSHARRAYS) */) {
+	if (EMULATION(EMULATE_KSH) /* isset(KSHARRAYS) */) {
 	    struct value v;
 	    v.isarr = 1;
 	    v.flags = 0;
@@ -2222,9 +2275,22 @@ setstrvalue(Value v, char *val)
 	    if (v->start > zlen)
 		v->start = zlen;
 	    if (v->end < 0) {
-		v->end += zlen + 1;
-		if (v->end < 0)
+		v->end += zlen;
+		if (v->end < 0) {
 		    v->end = 0;
+		} else if (v->end >= zlen) {
+		    v->end = zlen;
+		} else {
+#ifdef MULTIBYTE_SUPPORT
+		    if (isset(MULTIBYTE)) {
+			v->end += MB_METACHARLEN(z + v->end);
+		    } else {
+			v->end++;
+		    }
+#else
+		    v->end++;
+#endif
+		}
 	    }
 	    else if (v->end > zlen)
 		v->end = zlen;
@@ -2270,7 +2336,15 @@ setstrvalue(Value v, char *val)
 	break;
     case PM_HASHED:
         {
-	    foundparam->gsu.s->setfn(foundparam, val);
+	    if (foundparam == NULL)
+	    {
+		zerr("%s: attempt to set associative array to scalar",
+		     v->pm->node.nam);
+		zsfree(val);
+		return;
+	    }
+	    else
+		foundparam->gsu.s->setfn(foundparam, val);
         }
 	break;
     }
@@ -2517,8 +2591,15 @@ assignsparam(char *s, char *val, int flags)
 	*ss = '\0';
 	if (!(v = getvalue(&vbuf, &s, 1)))
 	    createparam(t, PM_ARRAY);
-	else
+	else {
+	    if (v->pm->node.flags & PM_READONLY) {
+		zerr("read-only variable: %s", v->pm->node.nam);
+		*ss = '[';
+		zsfree(val);
+		return NULL;
+	    }
 	    flags &= ~ASSPM_WARN_CREATE;
+	}
 	*ss = '[';
 	v = NULL;
     } else {
@@ -3507,7 +3588,11 @@ usernamesetfn(UNUSED(Param pm), char *x)
 # ifdef USE_INITGROUPS
 	initgroups(x, pswd->pw_gid);
 # endif
-	if(!setgid(pswd->pw_gid) && !setuid(pswd->pw_uid)) {
+	if (setgid(pswd->pw_gid))
+	    zwarn("failed to change group ID: %e", errno);
+	else if (setuid(pswd->pw_uid))
+	    zwarn("failed to change user ID: %e", errno);
+	else {
 	    zsfree(cached_username);
 	    cached_username = ztrdup(pswd->pw_name);
 	    cached_uid = pswd->pw_uid;
@@ -3533,7 +3618,8 @@ void
 uidsetfn(UNUSED(Param pm), zlong x)
 {
 #ifdef HAVE_SETUID
-    setuid((uid_t)x);
+    if (setuid((uid_t)x))
+	zwarn("failed to change user ID: %e", errno);
 #endif
 }
 
@@ -3553,7 +3639,8 @@ void
 euidsetfn(UNUSED(Param pm), zlong x)
 {
 #ifdef HAVE_SETEUID
-    seteuid((uid_t)x);
+    if (seteuid((uid_t)x))
+	zwarn("failed to change effective user ID: %e", errno);
 #endif
 }
 
@@ -3573,7 +3660,8 @@ void
 gidsetfn(UNUSED(Param pm), zlong x)
 {
 #ifdef HAVE_SETUID
-    setgid((gid_t)x);
+    if (setgid((gid_t)x))
+	zwarn("failed to change group ID: %e", errno);
 #endif
 }
 
@@ -3593,7 +3681,8 @@ void
 egidsetfn(UNUSED(Param pm), zlong x)
 {
 #ifdef HAVE_SETEUID
-    setegid((gid_t)x);
+    if (setegid((gid_t)x))
+	zwarn("failed to change effective group ID: %e", errno);
 #endif
 }
 
@@ -3796,6 +3885,46 @@ errnogetfn(UNUSED(Param pm))
     return errno;
 }
 
+/* Function to get value for special parameter `KEYBOARD_HACK' */
+
+/**/
+char *
+keyboardhackgetfn(UNUSED(Param pm))
+{
+    static char buf[2];
+
+    buf[0] = keyboardhackchar;
+    buf[1] = '\0';
+    return buf;
+}
+
+
+/* Function to set value of special parameter `KEYBOARD_HACK' */
+
+/**/
+void
+keyboardhacksetfn(UNUSED(Param pm), char *x)
+{
+    if (x) {
+	int len, i;
+
+	unmetafy(x, &len);
+	if (len > 1) {
+	    len = 1;
+	    zwarn("Only one KEYBOARD_HACK character can be defined");  /* could be changed if needed */
+	}
+	for (i = 0; i < len; i++) {
+	    if (!isascii(STOUC(x[i]))) {
+		zwarn("KEYBOARD_HACK can only contain ASCII characters");
+		return;
+	    }
+	}
+	keyboardhackchar = len ? STOUC(x[0]) : '\0';
+	free(x);
+    } else
+	keyboardhackchar = '\0';
+}
+
 /* Function to get value for special parameter `histchar' */
 
 /**/
@@ -3890,7 +4019,7 @@ wordcharssetfn(UNUSED(Param pm), char *x)
 char *
 underscoregetfn(UNUSED(Param pm))
 {
-    char *u = dupstring(underscore);
+    char *u = dupstring(zunderscore);
 
     untokenize(u);
     return u;

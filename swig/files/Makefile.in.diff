@@ -1,15 +1,15 @@
 --- Makefile.in.orig	2006-04-11 11:13:59.000000000 -0700
 +++ Makefile.in	2006-04-11 11:25:58.000000000 -0700
-@@ -24,7 +24,7 @@
- source:
- 	@cd $(SOURCE) && $(MAKE)
+@@ -31,7 +31,7 @@
+ ccache:
+ 	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE))
  
 -libfiles: $(srcdir)/Lib/swigwarn.swg
 +libfiles: Lib/swigwarn.swg
  
- .PHONY: source libfiles
- 
-@@ -355,7 +355,7 @@
+ # Files required just for the tarball
+ maintainer: libfiles
+@@ -415,7 +415,7 @@
  # Note: Generated into the source tree rather than build tree
  #####################################################################
  

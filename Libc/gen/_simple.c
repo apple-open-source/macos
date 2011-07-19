@@ -38,10 +38,15 @@
 #include <sys/un.h>
 #include <pthread.h>
 #include <errno.h>
+#include <servers/bootstrap.h>
+#include <asl_ipc.h>
 
 #include "_simple.h"
 
+#ifndef VM_PAGE_SIZE
 #define VM_PAGE_SIZE	4096
+#endif
+
 #define SBUF_SIZE(s)	(((SBUF *)(s))->b.end - ((SBUF *)(s))->b.buf + 1)
 /* we use a small buffer to minimize stack usage constraints */
 #define MYBUFSIZE	32
@@ -61,8 +66,10 @@ typedef struct _SBUF {
 #endif /* !VARIANT_DYLD */
 } SBUF;
 
-static int asl_socket;
-static pthread_once_t asl_socket_once = PTHREAD_ONCE_INIT;
+#define ASL_SERVICE_NAME "com.apple.system.logger"
+
+static mach_port_t asl_port;
+static pthread_once_t asl_init_once = PTHREAD_ONCE_INIT;
 
 /* private extern exports from asl.c */
 const char *_asl_escape(unsigned char);
@@ -608,6 +615,7 @@ _simple_sfree(_SIMPLE_STRING b)
 {
     vm_size_t s;
 
+	if(b == NULL) return;
     if(((intptr_t)(((SBUF *)b)->b.buf) & (VM_PAGE_SIZE - 1)) == 0) {
 	vm_deallocate(mach_task_self(), (vm_address_t)((SBUF *)b)->b.buf, SBUF_SIZE(b));
 	s = VM_PAGE_SIZE;
@@ -620,95 +628,87 @@ _simple_sfree(_SIMPLE_STRING b)
  * Simplified ASL log interface; does not use malloc.  Unfortunately, this
  * requires knowledge of the format used by ASL.
  */
+
 static void
-socket_init(void)
+_simple_asl_init(void)
 {
-    struct sockaddr_un server;
+	kern_return_t status;
+	char *str;
 
-	server.sun_family = AF_UNIX;
-	strncpy(server.sun_path, _PATH_LOG, sizeof(server.sun_path));
-	asl_socket = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (asl_socket < 0) return;
-
-	fcntl(asl_socket, F_SETFD, 1);
-
-	if (connect(asl_socket, (struct sockaddr *)&server, sizeof(server)) == -1)
+	if (asl_port == MACH_PORT_NULL) 
 	{
-		close(asl_socket);
-		asl_socket = -1;
+		str = getenv("ASL_DISABLE");
+		if ((str != NULL) && (!strcmp(str, "1"))) return;
+
+		status = bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_port);
+		if (status != KERN_SUCCESS) asl_port = MACH_PORT_NULL;
 	}
+}
+
+void
+_simple_asl_log_prog(int level, const char *facility, const char *message, const char *prog)
+{
+    _SIMPLE_STRING b;
+
+    if (pthread_once(&asl_init_once, _simple_asl_init) != 0) return;
+	if (asl_port == MACH_PORT_NULL) return;
+
+    if ((b = _simple_salloc()) == NULL) return;
+
+    do
+	{
+		kern_return_t kstatus;
+		vm_address_t out;
+		int outlen;
+		char *cp;
+		struct timeval tv;
+
+		gettimeofday(&tv, NULL);
+
+		if (_simple_sprintf(b, "         0 [Time ", 0)) break;
+		if (_simple_esprintf(b, _asl_escape, "%lu", tv.tv_sec)) break;
+		if (_simple_sappend(b, "] [Sender ")) break;
+		if (_simple_esappend(b, _asl_escape, prog)) break;
+		if (_simple_sappend(b, "] [Level ")) break;
+		if (_simple_esprintf(b, _asl_escape, "%d", level)) break;
+		if (_simple_sappend(b, "] [Facility ")) break;
+		if (_simple_esappend(b, _asl_escape, facility)) break;
+		if (_simple_sappend(b, "] [Message ")) break;
+		if (_simple_esappend(b, _asl_escape, message)) break;
+
+		/* remove trailing (escaped) newlines */
+		cp = _simple_string(b);
+		cp += strlen(cp);
+		for (;;)
+		{
+			cp -= 2;
+			if (strcmp(cp, "\\n") != 0) break;
+			*cp = 0;
+		}
+
+		_simple_sresize(b);
+
+		if (_simple_sappend(b, "]\n")) break;
+
+		cp = _simple_string(b);
+
+		/*
+		 * The MIG defs for _asl_server_message specifies "dealloc",
+		 * so we copy the string into a new vm buffer and send that.
+		 */
+		outlen = strlen(cp);
+		kstatus = vm_allocate(mach_task_self(), &out, outlen, TRUE);
+		if (kstatus != KERN_SUCCESS) break;
+
+		memcpy((void *)out, cp, outlen);
+		_asl_server_message(asl_port, (caddr_t)out, outlen);
+    } while (0);
+
+   _simple_sfree(b);
 }
 
 void
 _simple_asl_log(int level, const char *facility, const char *message)
 {
-    _SIMPLE_STRING b;
-
-    if(pthread_once(&asl_socket_once, socket_init) != 0)
-	return;
-    if((b = _simple_salloc()) == NULL)
-	return;
-    do {
-	char *cp, *bp;
-	unsigned u;
-	struct timeval tv;
-
-	if(_simple_sprintf(b, "%10u [Time ", 0))
-	    break;
-	gettimeofday(&tv, NULL);
-	if(_simple_esprintf(b, _asl_escape, "%lu", tv.tv_sec))
-	    break;
-	if(_simple_sappend(b, "] [Host] [Sender "))
-	    break;
-	if(_simple_esappend(b, _asl_escape, getprogname()))
-	    break;
-	if(_simple_sappend(b, "] [PID "))
-	    break;
-	if(_simple_esprintf(b, _asl_escape, "%u", getpid()))
-	    break;
-	if(_simple_sappend(b, "] [UID "))
-	    break;
-	if(_simple_esprintf(b, _asl_escape, "%d", getuid()))
-	    break;
-	if(_simple_sappend(b, "] [GID "))
-	    break;
-	if(_simple_esprintf(b, _asl_escape, "%d", getgid()))
-	    break;
-	if(_simple_sappend(b, "] [Level "))
-	    break;
-	if(_simple_esprintf(b, _asl_escape, "%d", level))
-	    break;
-	if(_simple_sappend(b, "] [Message "))
-	    break;
-	if(_simple_esappend(b, _asl_escape, message))
-	    break;
-	/* remove trailing (escaped) newlines */
-	cp = _simple_string(b);
-	cp += strlen(cp);
-	for(;;) {
-	    cp -= 2;
-	    if(strcmp(cp, "\\n") != 0)
-		break;
-	    *cp = 0;
-	}
-	_simple_sresize(b);
-	if(_simple_sappend(b, "] [Facility "))
-	    break;
-	if(_simple_esappend(b, _asl_escape, facility))
-	    break;
-	if(_simple_sappend(b, "]\n"))
-	    break;
-	cp = _simple_string(b);
-	u = strlen(cp) - 10; // includes newline and null
-	bp = cp + 10;
-	if(u == 0)
-	    *--bp = '0';
-	else
-	    while(bp > cp && u) {
-		*--bp = u % 10 + '0';
-		u /= 10;
-	    }
-	write(asl_socket, cp, strlen(cp) + 1);
-    } while(0);
-    _simple_sfree(b);
+    _simple_asl_log_prog(level, facility, message, getprogname());
 }

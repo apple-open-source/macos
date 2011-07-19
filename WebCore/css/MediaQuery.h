@@ -2,6 +2,7 @@
  * CSS Media Query
  *
  * Copyright (C) 2006 Kimmo Kinnunen <kimmo.t.kinnunen@nokia.com>.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,31 +30,40 @@
 #define MediaQuery_h
 
 #include "PlatformString.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 class MediaQueryExp;
 
-class MediaQuery : public Noncopyable {
+class MediaQuery {
+    WTF_MAKE_NONCOPYABLE(MediaQuery); WTF_MAKE_FAST_ALLOCATED;
 public:
     enum Restrictor {
         Only, Not, None
     };
 
-    MediaQuery(Restrictor r, const String& mediaType, Vector<MediaQueryExp*>* exprs);
+    typedef Vector<OwnPtr<MediaQueryExp> > ExpressionVector;
+
+    MediaQuery(Restrictor, const String& mediaType, PassOwnPtr<ExpressionVector> exprs);
     ~MediaQuery();
 
     Restrictor restrictor() const { return m_restrictor; }
-    const Vector<MediaQueryExp*>* expressions() const { return m_expressions; }
+    const Vector<OwnPtr<MediaQueryExp> >* expressions() const { return m_expressions.get(); }
     String mediaType() const { return m_mediaType; }
     bool operator==(const MediaQuery& other) const;
-    void append(MediaQueryExp* newExp) { m_expressions->append(newExp); }
     String cssText() const;
+    bool ignored() const { return m_ignored; }
 
  private:
     Restrictor m_restrictor;
     String m_mediaType;
-    Vector<MediaQueryExp*>* m_expressions;
+    OwnPtr<ExpressionVector> m_expressions;
+    bool m_ignored;
+    String m_serializationCache;
+
+    String serialize() const;
 };
 
 } // namespace

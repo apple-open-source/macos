@@ -32,6 +32,7 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
 
     this._headerTable = document.createElement("table");
     this._headerTable.className = "header";
+    this._headerTableHeaders = {};
 
     this._dataTable = document.createElement("table");
     this._dataTable.className = "data";
@@ -52,12 +53,12 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
     
     this.aligned = {};
 
-    var scrollContainer = document.createElement("div");
-    scrollContainer.className = "data-container";
-    scrollContainer.appendChild(this._dataTable);
+    this._scrollContainer = document.createElement("div");
+    this._scrollContainer.className = "data-container";
+    this._scrollContainer.appendChild(this._dataTable);
 
     this.element.appendChild(this._headerTable);
-    this.element.appendChild(scrollContainer);
+    this.element.appendChild(this._scrollContainer);
 
     var headerRow = document.createElement("tr");
     var columnGroup = document.createElement("colgroup");
@@ -77,9 +78,13 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
         var cell = document.createElement("th");
         cell.className = columnIdentifier + "-column";
         cell.columnIdentifier = columnIdentifier;
+        this._headerTableHeaders[columnIdentifier] = cell;
 
         var div = document.createElement("div");
-        div.textContent = column.title;
+        if (column.titleDOMFragment)
+            div.appendChild(column.titleDOMFragment);
+        else
+            div.textContent = column.title;
         cell.appendChild(div);
 
         if (column.sort) {
@@ -92,10 +97,8 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
             cell.addStyleClass("sortable");
         }
 
-        if (column.aligned) {
-            cell.addStyleClass(column.aligned);
+        if (column.aligned)
             this.aligned[columnIdentifier] = column.aligned;
-        }
 
         headerRow.appendChild(cell);
 
@@ -115,16 +118,28 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
     var fillerRow = document.createElement("tr");
     fillerRow.className = "filler";
 
-    for (var i = 0; i < this._columnCount; ++i) {
+    for (var columnIdentifier in columns) {
+        var column = columns[columnIdentifier];
         var cell = document.createElement("td");
+        cell.className = columnIdentifier + "-column";
         fillerRow.appendChild(cell);
     }
-    
+
     this._dataTableColumnGroup = columnGroup.cloneNode(true);
     this._dataTable.appendChild(this._dataTableColumnGroup);
     this.dataTableBody.appendChild(fillerRow);
 
     this.columns = columns || {};
+    this._columnsArray = [];
+    for (var columnIdentifier in columns) {
+        columns[columnIdentifier].ordinal = this._columnsArray.length;
+        columns[columnIdentifier].identifier = columnIdentifier;
+        this._columnsArray.push(columns[columnIdentifier]);
+    }
+
+    for (var i = 0; i < this._columnsArray.length; ++i)
+        this._columnsArray[i].bodyElement = this._dataTableColumnGroup.children[i];
+
     this.children = [];
     this.selectedNode = null;
     this.expandNodesWhenArrowing = false;
@@ -136,7 +151,7 @@ WebInspector.DataGrid = function(columns, editCallback, deleteCallback)
     this.dataGrid = this;
     this.indentWidth = 15;
     this.resizers = [];
-    this.columnWidthsInitialized = false;
+    this._columnWidthsInitialized = false;
 }
 
 WebInspector.DataGrid.prototype = {
@@ -155,7 +170,11 @@ WebInspector.DataGrid.prototype = {
         this._editingNode.select();
 
         var element = this._editingNode._element.children[column];
-        WebInspector.startEditing(element, this._editingCommitted.bind(this), this._editingCancelled.bind(this), element.textContent);
+        WebInspector.startEditing(element, {
+            context: element.textContent,
+            commitHandler: this._editingCommitted.bind(this),
+            cancelHandler: this._editingCancelled.bind(this)
+        });
         window.getSelection().setBaseAndExtent(element, 0, element, 1);
     },
 
@@ -177,7 +196,11 @@ WebInspector.DataGrid.prototype = {
             return this._startEditingColumnOfDataGridNode(this._editingNode, 0);
 
         this._editing = true;
-        WebInspector.startEditing(element, this._editingCommitted.bind(this), this._editingCancelled.bind(this), element.textContent);
+        WebInspector.startEditing(element, {
+            context: element.textContent,
+            commitHandler: this._editingCommitted.bind(this),
+            cancelHandler: this._editingCancelled.bind(this)
+        });
         window.getSelection().setBaseAndExtent(element, 0, element, 1);
     },
 
@@ -294,7 +317,7 @@ WebInspector.DataGrid.prototype = {
         return this._dataTableBody;
     },
 
-    autoSizeColumns: function(minPercent, maxPercent)
+    autoSizeColumns: function(minPercent, maxPercent, maxDescentLevel)
     {
         if (minPercent)
             minPercent = Math.min(minPercent, Math.floor(100 / this._columnCount));
@@ -303,8 +326,9 @@ WebInspector.DataGrid.prototype = {
         for (var columnIdentifier in columns)
             widths[columnIdentifier] = (columns[columnIdentifier].title || "").length;
 
-        for (var i = 0; i < this.children.length; ++i) {
-            var node = this.children[i];
+        var children = maxDescentLevel ? this._enumerateChildren(this, [], maxDescentLevel + 1) : this.children;
+        for (var i = 0; i < children.length; ++i) {
+            var node = children[i];
             for (var columnIdentifier in columns) {
                 var text = node.data[columnIdentifier] || "";
                 if (text.length > widths[columnIdentifier])
@@ -353,8 +377,19 @@ WebInspector.DataGrid.prototype = {
 
         for (var columnIdentifier in columns)
             columns[columnIdentifier].element.style.width = widths[columnIdentifier] + "%";
-        this.columnWidthsInitialized = false;
+        this._columnWidthsInitialized = false;
         this.updateWidths();
+    },
+
+    _enumerateChildren: function(rootNode, result, maxLevel)
+    {
+        if (!rootNode.root)
+            result.push(rootNode);
+        if (!maxLevel)
+            return;
+        for (var i = 0; i < rootNode.children.length; ++i)
+            this._enumerateChildren(rootNode.children[i], result, maxLevel - 1);
+        return result;
     },
 
     // Updates the widths of the table, including the positions of the column
@@ -371,11 +406,11 @@ WebInspector.DataGrid.prototype = {
     {
         var headerTableColumns = this._headerTableColumnGroup.children;
         
-        var left = 0;
         var tableWidth = this._dataTable.offsetWidth;
         var numColumns = headerTableColumns.length;
         
-        if (!this.columnWidthsInitialized) {
+        // Do not attempt to use offsetes if we're not attached to the document tree yet.
+        if (!this._columnWidthsInitialized && this.element.offsetWidth) {
             // Give all the columns initial widths now so that during a resize,
             // when the two columns that get resized get a percent value for
             // their widths, all the other columns already have percent values
@@ -386,9 +421,101 @@ WebInspector.DataGrid.prototype = {
                 this._headerTableColumnGroup.children[i].style.width = percentWidth;
                 this._dataTableColumnGroup.children[i].style.width = percentWidth;
             }
-            this.columnWidthsInitialized = true;
+            this._columnWidthsInitialized = true;
         }
-        
+        this._positionResizers();
+        this.dispatchEventToListeners("width changed");
+    },
+
+    columnWidthsMap: function()
+    {
+        var result = {};
+        for (var i = 0; i < this._columnsArray.length; ++i) {
+            var width = this._headerTableColumnGroup.children[i].style.width;
+            result[this._columnsArray[i].columnIdentifier] = parseFloat(width);
+        }
+        return result;
+    },
+
+    applyColumnWidthsMap: function(columnWidthsMap)
+    {
+        for (var columnIdentifier in this.columns) {
+            var column = this.columns[columnIdentifier];
+            var width = (columnWidthsMap[columnIdentifier] || 0) + "%";
+            this._headerTableColumnGroup.children[column.ordinal].style.width = width;
+            this._dataTableColumnGroup.children[column.ordinal].style.width = width;
+        }
+
+        // Normalize widths
+        delete this._columnWidthsInitialized;
+        this.updateWidths();
+    },
+
+    isColumnVisible: function(columnIdentifier)
+    {
+        var column = this.columns[columnIdentifier];
+        var columnElement = column.element;
+        return !columnElement.hidden;
+    },
+
+    showColumn: function(columnIdentifier)
+    {
+        var column = this.columns[columnIdentifier];
+        var columnElement = column.element;
+        if (!columnElement.hidden)
+            return;
+
+        columnElement.hidden = false;
+        columnElement.removeStyleClass("hidden");
+
+        var columnBodyElement = column.bodyElement;
+        columnBodyElement.hidden = false;
+        columnBodyElement.removeStyleClass("hidden");
+    },
+
+    hideColumn: function(columnIdentifier)
+    {
+        var column = this.columns[columnIdentifier];
+        var columnElement = column.element;
+        if (columnElement.hidden)
+            return;
+
+        var oldWidth = parseFloat(columnElement.style.width);
+
+        columnElement.hidden = true;
+        columnElement.addStyleClass("hidden");
+        columnElement.style.width = 0;
+
+        var columnBodyElement = column.bodyElement;
+        columnBodyElement.hidden = true;
+        columnBodyElement.addStyleClass("hidden");
+        columnBodyElement.style.width = 0;
+
+        this._columnWidthsInitialized = false;
+    },
+
+    get scrollContainer()
+    {
+        return this._scrollContainer;        
+    },
+
+    isScrolledToLastRow: function()
+    {
+        return this._scrollContainer.isScrolledToBottom();
+    },
+
+    scrollToLastRow: function()
+    {
+        this._scrollContainer.scrollTop = this._scrollContainer.scrollHeight - this._scrollContainer.offsetHeight;
+    },
+
+    _positionResizers: function()
+    {
+        var headerTableColumns = this._headerTableColumnGroup.children;
+        var numColumns = headerTableColumns.length;
+        var left = 0;
+        var previousResizer = null;
+
         // Make n - 1 resizers for n columns. 
         for (var i = 0; i < numColumns - 1; i++) {
             var resizer = this.resizers[i];
@@ -399,7 +526,6 @@ WebInspector.DataGrid.prototype = {
                 resizer = document.createElement("div");
                 resizer.addStyleClass("data-grid-resizer");
                 // This resizer is associated with the column to its right.
-                resizer.rightNeighboringColumnID = i + 1;
                 resizer.addEventListener("mousedown", this._startResizerDragging.bind(this), false);
                 this.element.appendChild(resizer);
                 this.resizers[i] = resizer;
@@ -409,9 +535,23 @@ WebInspector.DataGrid.prototype = {
             // header table in order to determine the width of the column, since
             // it is not possible to query a column for its width.
             left += this.headerTableBody.rows[0].cells[i].offsetWidth;
-            
-            resizer.style.left = left + "px";
+
+            var columnIsVisible = !this._headerTableColumnGroup.children[i].hidden;
+            if (columnIsVisible) {
+                resizer.style.removeProperty("display");
+                resizer.style.left = left + "px";
+                resizer.leftNeighboringColumnID = i;
+                if (previousResizer)
+                    previousResizer.rightNeighboringColumnID = i;
+                previousResizer = resizer;
+            } else {
+                resizer.style.setProperty("display", "none");
+                resizer.leftNeighboringColumnID = 0;
+                resizer.rightNeighboringColumnID = 0;
+            }
         }
+        if (previousResizer)
+            previousResizer.rightNeighboringColumnID = numColumns - 1;
     },
 
     addCreationNode: function(hasChildren)
@@ -475,6 +615,7 @@ WebInspector.DataGrid.prototype = {
             throw("removeChild: Node is not a child of this node.");
 
         child.deselect();
+        child._detach();
 
         this.children.remove(child, true);
 
@@ -535,6 +676,48 @@ WebInspector.DataGrid.prototype = {
         this.children = [];
     },
 
+    sortNodes: function(comparator, reverseMode)
+    {
+        function comparatorWrapper(a, b)
+        {
+            if (a._dataGridNode._data.summaryRow)
+                return 1;
+            if (b._dataGridNode._data.summaryRow)
+                return -1;
+
+            var aDataGirdNode = a._dataGridNode;
+            var bDataGirdNode = b._dataGridNode;
+            return reverseMode ? comparator(bDataGirdNode, aDataGirdNode) : comparator(aDataGirdNode, bDataGirdNode);
+        }
+
+        var tbody = this.dataTableBody;
+        var tbodyParent = tbody.parentElement;
+        tbodyParent.removeChild(tbody);
+
+        var childNodes = tbody.childNodes;
+        var fillerRow = childNodes[childNodes.length - 1];
+
+        var sortedRows = Array.prototype.slice.call(childNodes, 0, childNodes.length - 1);
+        sortedRows.sort(comparatorWrapper);
+        var sortedRowsLength = sortedRows.length;
+
+        tbody.removeChildren();
+        var previousSiblingNode = null;
+        for (var i = 0; i < sortedRowsLength; ++i) {
+            var row = sortedRows[i];
+            var node = row._dataGridNode;
+            node.previousSibling = previousSiblingNode;
+            if (previousSiblingNode)
+                previousSiblingNode.nextSibling = node;
+            tbody.appendChild(row);
+            previousSiblingNode = node;
+        }
+        if (previousSiblingNode)
+            previousSiblingNode.nextSibling = null;
+
+        tbody.appendChild(fillerRow);
+        tbodyParent.appendChild(tbody);
+    },
 
     _keyDown: function(event)
     {
@@ -627,14 +810,14 @@ WebInspector.DataGrid.prototype = {
     dataGridNodeFromNode: function(target)
     {
         var rowElement = target.enclosingNodeOrSelfWithNodeName("tr");
-        return rowElement._dataGridNode;
+        return rowElement && rowElement._dataGridNode;
     },
 
     dataGridNodeFromPoint: function(x, y)
     {
         var node = this._dataTable.ownerDocument.elementFromPoint(x, y);
         var rowElement = node.enclosingNodeOrSelfWithNodeName("tr");
-        return rowElement._dataGridNode;
+        return rowElement && rowElement._dataGridNode;
     },
 
     _clickInHeaderCell: function(event)
@@ -645,13 +828,11 @@ WebInspector.DataGrid.prototype = {
 
         var sortOrder = this.sortOrder;
 
-        if (this._sortColumnCell) {
-            this._sortColumnCell.removeStyleClass("sort-ascending");
-            this._sortColumnCell.removeStyleClass("sort-descending");
-        }
+        if (this._sortColumnCell)
+            this._sortColumnCell.removeMatchingStyleClasses("sort-\\w+");
 
         if (cell == this._sortColumnCell) {
-            if (sortOrder == "ascending")
+            if (sortOrder === "ascending")
                 sortOrder = "descending";
             else
                 sortOrder = "ascending";
@@ -662,6 +843,19 @@ WebInspector.DataGrid.prototype = {
         cell.addStyleClass("sort-" + sortOrder);
 
         this.dispatchEventToListeners("sorting changed");
+    },
+
+    markColumnAsSortedBy: function(columnIdentifier, sortOrder)
+    {
+        if (this._sortColumnCell)
+            this._sortColumnCell.removeMatchingStyleClasses("sort-\\w+");
+        this._sortColumnCell = this._headerTableHeaders[columnIdentifier];
+        this._sortColumnCell.addStyleClass("sort-" + sortOrder);
+    },
+
+    headerTableHeader: function(columnIdentifier)
+    {
+        return this._headerTableHeaders[columnIdentifier];
     },
 
     _mouseDownInDataTable: function(event)
@@ -750,34 +944,37 @@ WebInspector.DataGrid.prototype = {
         // column directly to the left and the column directly to the right.
         var leftEdgeOfPreviousColumn = 0;
         var firstRowCells = this.headerTableBody.rows[0].cells;
-        for (var i = 0; i < resizer.rightNeighboringColumnID - 1; i++)
+        for (var i = 0; i < resizer.leftNeighboringColumnID; i++)
             leftEdgeOfPreviousColumn += firstRowCells[i].offsetWidth;
             
-        var rightEdgeOfNextColumn = leftEdgeOfPreviousColumn + firstRowCells[resizer.rightNeighboringColumnID - 1].offsetWidth + firstRowCells[resizer.rightNeighboringColumnID].offsetWidth;
-        
-        // Give each column some padding so that they don't disappear.               
+        var rightEdgeOfNextColumn = leftEdgeOfPreviousColumn + firstRowCells[resizer.leftNeighboringColumnID].offsetWidth + firstRowCells[resizer.rightNeighboringColumnID].offsetWidth;
+
+        // Give each column some padding so that they don't disappear.
         var leftMinimum = leftEdgeOfPreviousColumn + this.ColumnResizePadding;
         var rightMaximum = rightEdgeOfNextColumn - this.ColumnResizePadding;
-        
+
         dragPoint = Number.constrain(dragPoint, leftMinimum, rightMaximum);
-        
+
         resizer.style.left = (dragPoint - this.CenterResizerOverBorderAdjustment) + "px";
-        
+
         var percentLeftColumn = (((dragPoint - leftEdgeOfPreviousColumn) / this._dataTable.offsetWidth) * 100) + "%";
-        this._headerTableColumnGroup.children[resizer.rightNeighboringColumnID - 1].style.width = percentLeftColumn;
-        this._dataTableColumnGroup.children[resizer.rightNeighboringColumnID - 1].style.width = percentLeftColumn;
-        
+        this._headerTableColumnGroup.children[resizer.leftNeighboringColumnID].style.width = percentLeftColumn;
+        this._dataTableColumnGroup.children[resizer.leftNeighboringColumnID].style.width = percentLeftColumn;
+
         var percentRightColumn = (((rightEdgeOfNextColumn - dragPoint) / this._dataTable.offsetWidth) * 100) + "%";
         this._headerTableColumnGroup.children[resizer.rightNeighboringColumnID].style.width =  percentRightColumn;
         this._dataTableColumnGroup.children[resizer.rightNeighboringColumnID].style.width = percentRightColumn;
-        
+
+        this._positionResizers();
         event.preventDefault();
+        this.dispatchEventToListeners("width changed");
     },
     
     _endResizerDragging: function(event)
     {
         WebInspector.elementDragEnd(event);
         this.currentResizer = null;
+        this.dispatchEventToListeners("width changed");
     },
     
     ColumnResizePadding: 10,
@@ -825,12 +1022,16 @@ WebInspector.DataGridNode.prototype = {
         if (this.revealed)
             this._element.addStyleClass("revealed");
 
+        this.createCells();
+        return this._element;
+    },
+
+    createCells: function()
+    {
         for (var columnIdentifier in this.dataGrid.columns) {
             var cell = this.createCell(columnIdentifier);
             this._element.appendChild(cell);
         }
-
-        return this._element;
     },
 
     get data()
@@ -964,11 +1165,7 @@ WebInspector.DataGridNode.prototype = {
             return;
 
         this._element.removeChildren();
-
-        for (var columnIdentifier in this.dataGrid.columns) {
-            var cell = this.createCell(columnIdentifier);
-            this._element.appendChild(cell);
-        }
+        this.createCells();
     },
 
     createCell: function(columnIdentifier)

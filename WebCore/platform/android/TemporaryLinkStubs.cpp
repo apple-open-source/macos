@@ -36,6 +36,7 @@
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
 #include "CookieJar.h"
+#include "CookieStorage.h"
 #include "Cursor.h"
 #include "Database.h"
 #include "DocumentFragment.h"
@@ -66,7 +67,6 @@
 #include "PageCache.h"
 #include "Pasteboard.h"
 #include "Path.h"
-#include "PluginInfoStore.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoader.h"
@@ -75,9 +75,10 @@
 #include "ScrollbarTheme.h"
 #include "SmartReplace.h"
 #include "Widget.h"
-#include "loader.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <wtf/Assertions.h>
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 #if USE(JSC)
@@ -93,60 +94,11 @@ using namespace WebCore;
 /* Completely empty stubs (mostly to allow DRT to run): */
 /********************************************************/
 
-// This function is used by Javascript to find out what the default language
-// the user has selected. It is used by the JS object Navigator.language
-// I guess this information should be mapped with the Accept-Language: HTTP header.
-String WebCore::defaultLanguage()
-{
-    verifiedOk();
-    return "en";
-}
-
 namespace WebCore {
-
-#if !defined(ANDROID_PLUGINS)
-// If plugins support is turned on, don't use these stubs.
-
-// Except for supportsMIMEType(), these Plugin functions are used by javascript's
-// navigator.plugins[] object to provide the list of available plugins. This is most
-// often used with to check to see if the browser supports Flash or which video
-// codec to use.
-// The supportsMIMEType() is used by the Frame to determine if a full screen instance
-// of a plugin can be used to render a mimetype that is not native to the browser.
-PluginInfo* PluginInfoStore::createPluginInfoForPluginAtIndex(unsigned)
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-unsigned PluginInfoStore::pluginCount() const
-{
-    verifiedOk();
-    return 0;
-}
-
-String PluginInfoStore::pluginNameForMIMEType(const String&)
-{
-    notImplemented();
-    return String();
-}
-
-bool PluginInfoStore::supportsMIMEType(const String&)
-{
-    verifiedOk();
-    return false;
-}
-
-void refreshPlugins(bool)
-{
-    verifiedOk();
-}
-
-#endif // !defined(ANDROID_PLUGINS)
 
 // This function tells the bridge that a resource was loaded from the cache and thus
 // the app may update progress with the amount of data loaded.
-void CheckCacheObjectStatus(DocLoader*, CachedResource*)
+void CheckCacheObjectStatus(CachedResourceLoader*, CachedResource*)
 {
     ASSERT_NOT_REACHED();
     notImplemented();
@@ -216,7 +168,7 @@ Pasteboard::~Pasteboard()
 }
 
 
-ContextMenu::ContextMenu(const HitTestResult& result) : m_hitTestResult(result)
+ContextMenu::ContextMenu()
 {
     ASSERT_NOT_REACHED();
     notImplemented();
@@ -354,12 +306,13 @@ void* WebCore::Frame::dragImageForSelection()
 }
 
 
-WebCore::String WebCore::MIMETypeRegistry::getMIMETypeForExtension(WebCore::String const&)
+WTF::String WebCore::MIMETypeRegistry::getMIMETypeForExtension(WTF::String const&)
 {
-    return WebCore::String();
+    ASSERT(isMainThread());
+    return WTF::String();
 }
 
-void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WebCore::String const&) {}
+void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WTF::String const&) {}
 
 namespace WebCore {
 
@@ -542,3 +495,22 @@ OpaqueJSClassContextData::~OpaqueJSClassContextData()
 }
 
 #endif
+
+namespace WebCore {
+
+void setCookieStoragePrivateBrowsingEnabled(bool)
+{
+    notImplemented();
+}
+
+void startObservingCookieChanges()
+{
+    notImplemented();
+}
+
+void stopObservingCookieChanges()
+{
+    notImplemented();
+}
+
+} // namespace WebCore

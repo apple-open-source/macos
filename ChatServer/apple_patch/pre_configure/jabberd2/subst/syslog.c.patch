@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.1.24.1/subst/syslog.c	2008-04-27 02:57:38.000000000 -0700
-+++ ./jabberd2/subst/syslog.c	2009-04-27 12:50:09.000000000 -0700
+--- /tmp/jabberd-2.2.13/subst/syslog.c	2011-02-23 08:24:35.000000000 -0800
++++ ./jabberd2/subst/syslog.c	2011-02-24 16:25:21.000000000 -0800
 @@ -68,6 +68,7 @@ static struct dsn_c_pvt_sfnt {
          { LOG_LOCAL5,           "local5"},
          { LOG_LOCAL6,           "local6"},

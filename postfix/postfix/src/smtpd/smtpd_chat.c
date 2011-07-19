@@ -83,10 +83,12 @@
 #include <mail_addr.h>
 #include <post_mail.h>
 #include <mail_error.h>
+#include <smtp_reply_footer.h>
 
 /* Application-specific. */
 
 #include "smtpd.h"
+#include "smtpd_expand.h"
 #include "smtpd_chat.h"
 
 #define STR	vstring_str
@@ -156,6 +158,13 @@ void    smtpd_chat_reply(SMTPD_STATE *state, const char *format,...)
     va_start(ap, format);
     vstring_vsprintf(state->buffer, format, ap);
     va_end(ap);
+
+    if (*var_smtpd_rej_footer
+	&& (*(cp = STR(state->buffer)) == '4' || *cp == '5'))
+	smtp_reply_footer(state->buffer, 0, var_smtpd_rej_footer,
+			  STR(smtpd_expand_filter), smtpd_expand_lookup,
+			  (char *) state);
+
     /* All 5xx replies must have a 5.xx.xx detail code. */
     for (cp = STR(state->buffer), end = cp + strlen(STR(state->buffer));;) {
 	if (var_soft_bounce) {
@@ -168,6 +177,7 @@ void    smtpd_chat_reply(SMTPD_STATE *state, const char *format,...)
 	/* This is why we use strlen() above instead of VSTRING_LEN(). */
 	if ((next = strstr(cp, "\r\n")) != 0) {
 	    *next = 0;
+	    cp[3] = '-';			/* contact footer kludge */
 	} else {
 	    next = end;
 	}
@@ -200,9 +210,10 @@ void    smtpd_chat_reply(SMTPD_STATE *state, const char *format,...)
 	vstream_longjmp(state->client, SMTP_ERR_EOF);
 
     /*
-     * Orderly disconnect in case of 421 reply.
+     * Orderly disconnect in case of 421 or 521 reply.
      */
-    if (strncmp(STR(state->buffer), "421", 3) == 0)
+    if (strncmp(STR(state->buffer), "421", 3) == 0
+	|| strncmp(STR(state->buffer), "521", 3) == 0)
 	state->flags |= SMTPD_FLAG_HANGUP;
 }
 
@@ -245,7 +256,7 @@ void    smtpd_chat_notify(SMTPD_STATE *state)
 
     notice = post_mail_fopen_nowait(mail_addr_double_bounce(),
 				    var_error_rcpt,
-				    INT_FILT_NOTIFY,
+				    INT_FILT_MASK_NOTIFY,
 				    NULL_TRACE_FLAGS, NO_QUEUE_ID);
     if (notice == 0) {
 	msg_warn("postmaster notify: %m");
@@ -266,5 +277,7 @@ void    smtpd_chat_notify(SMTPD_STATE *state)
     post_mail_fputs(notice, "");
     if (state->reason)
 	post_mail_fprintf(notice, "Session aborted, reason: %s", state->reason);
+    post_mail_fputs(notice, "");
+    post_mail_fprintf(notice, "For other details, see the local mail logfile");
     (void) post_mail_fclose(notice);
 }

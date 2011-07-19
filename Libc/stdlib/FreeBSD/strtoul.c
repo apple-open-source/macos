@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)strtoul.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoul.c,v 1.16 2002/09/06 11:23:59 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoul.c,v 1.19 2007/01/09 00:28:10 imp Exp $");
 
 #include <limits.h>
 #include <ctype.h>
@@ -73,7 +69,10 @@ strtoul(const char * __restrict nptr, char ** __restrict endptr, int base)
 			c = *s++;
 	}
 	if ((base == 0 || base == 16) &&
-	    c == '0' && (*s == 'x' || *s == 'X')) {
+	    c == '0' && (*s == 'x' || *s == 'X') &&
+	    ((s[1] >= '0' && s[1] <= '9') ||
+	    (s[1] >= 'A' && s[1] <= 'F') ||
+	    (s[1] >= 'a' && s[1] <= 'f'))) {
 		c = s[1];
 		s += 2;
 		base = 16;

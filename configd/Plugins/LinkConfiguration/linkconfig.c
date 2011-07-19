@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,6 @@
 
 #include <stdio.h>
 #include <unistd.h>
-//#include <sys/fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -44,6 +43,8 @@
 #include <SystemConfiguration/LinkConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>		// for _SCDPluginExecCommand
 
+#include "SCNetworkConfigurationInternal.h"
+
 
 static CFMutableDictionaryRef	baseSettings	= NULL;
 static CFStringRef		interfacesKey	= NULL;
@@ -54,9 +55,87 @@ static CFMutableDictionaryRef	wantSettings	= NULL;
 static Boolean			_verbose	= FALSE;
 
 
-/* in SystemConfiguration/LinkConfiguration.c */
-int
-__createMediaOptions(CFStringRef interfaceName, CFDictionaryRef media_options);
+#pragma mark -
+#pragma mark Capabilities
+
+
+#define	CAPABILITIES_KEY	CFSTR("_CAPABILITIES_")
+
+
+__private_extern__
+Boolean
+_SCNetworkInterfaceSetCapabilities(SCNetworkInterfaceRef	interface,
+				   CFDictionaryRef		options)
+{
+	CFDictionaryRef	baseOptions;
+	int		cap_base;
+	int		cap_current;
+	int		cap_requested;
+	CFStringRef	interfaceName;
+
+#ifdef	SIOCSIFCAP
+	struct ifreq	ifr;
+	int		ret;
+	int		sock;
+#endif	// SIOCSIFCAP
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		/* if no BSD interface name */
+		return FALSE;
+	}
+
+	cap_current = __SCNetworkInterfaceCreateCapabilities(interface, -1, NULL);
+	if (cap_current == -1) {
+		/* could not get current capabilities */
+		return FALSE;
+	}
+
+	// get base capabilities
+	cap_base = cap_current;
+	baseOptions = CFDictionaryGetValue(baseSettings, interfaceName);
+	if (baseOptions != NULL) {
+		CFNumberRef	num;
+
+		num = CFDictionaryGetValue(baseOptions, CAPABILITIES_KEY);
+		if (num != NULL) {
+			CFNumberGetValue(num, kCFNumberIntType, &cap_base);
+		}
+	}
+
+	cap_requested = __SCNetworkInterfaceCreateCapabilities(interface, cap_base, options);
+
+#ifdef	SIOCSIFCAP
+	if (cap_requested == cap_current) {
+		/* if current setting is as requested */
+		return TRUE;
+	}
+
+	bzero((char *)&ifr, sizeof(ifr));
+	(void)_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII);
+	ifr.ifr_curcap = cap_current;
+	ifr.ifr_reqcap = cap_requested;
+
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == -1) {
+		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		return FALSE;
+	}
+
+	ret = ioctl(sock, SIOCSIFCAP, (caddr_t)&ifr);
+	(void)close(sock);
+	if (ret == -1) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("ioctl(SIOCSIFCAP) failed: %s"), strerror(errno));
+		return FALSE;
+	}
+#endif	// SIOCSIFCAP
+
+	return TRUE;
+}
+
+
+#pragma mark -
+#pragma mark Media options
 
 
 static CFDictionaryRef
@@ -109,10 +188,16 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 	CFDictionaryRef		requested;
 	int			sock		= -1;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
 		/* if no BSD interface name */
 		SCLog(_verbose, LOG_INFO, CFSTR("no BSD interface name for %@"), interface);
+		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
@@ -153,7 +238,7 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 		goto done;
 	}
 
-	newOptions = __createMediaOptions(interfaceName, requested);
+	newOptions = __SCNetworkInterfaceCreateMediaOptions(interface, requested);
 	if (newOptions == -1) {
 		/* since we have just validated, this should never happen */
 		goto done;
@@ -197,6 +282,10 @@ _SCNetworkInterfaceSetMediaOptions(SCNetworkInterfaceRef	interface,
 
 	return ok;
 }
+
+
+#pragma mark -
+#pragma mark MTU
 
 
 #ifndef	USE_SIOCSIFMTU
@@ -336,6 +425,10 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
 }
 
 
+#pragma mark -
+#pragma mark Update link configuration
+
+
 /*
  * Function: parse_component
  * Purpose:
@@ -427,6 +520,7 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 
 	if (options != NULL) {
 		if (!CFDictionaryContainsKey(baseSettings, interfaceName)) {
+			int			cur_cap		= -1;
 			CFDictionaryRef		cur_media	= NULL;
 			CFMutableDictionaryRef	new_media	= NULL;
 			int			cur_mtu		= -1;
@@ -457,6 +551,23 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 				}
 			}
 
+			/* preserve capabilities */
+			cur_cap = __SCNetworkInterfaceCreateCapabilities(interface, -1, NULL);
+			if (cur_cap != -1) {
+				CFNumberRef	num;
+
+				if (new_media == NULL) {
+					new_media = CFDictionaryCreateMutable(NULL,
+									      0,
+									      &kCFTypeDictionaryKeyCallBacks,
+									      &kCFTypeDictionaryValueCallBacks);
+				}
+
+				num = CFNumberCreate(NULL, kCFNumberIntType, &cur_cap);
+				CFDictionaryAddValue(new_media, CAPABILITIES_KEY, num);
+				CFRelease(num);
+			}
+
 			if (new_media != NULL) {
 				CFDictionarySetValue(baseSettings, interfaceName, new_media);
 				CFRelease(new_media);
@@ -464,6 +575,7 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 		}
 
 		/* establish new settings */
+		(void)_SCNetworkInterfaceSetCapabilities(interface, options);
 		(void)_SCNetworkInterfaceSetMediaOptions(interface, options);
 		(void)_SCNetworkInterfaceSetMTU         (interface, options);
 	} else {
@@ -471,6 +583,7 @@ updateLink(CFStringRef interfaceName, CFDictionaryRef options)
 		options = CFDictionaryGetValue(baseSettings, interfaceName);
 		if (options != NULL) {
 			/* restore original settings */
+			(void)_SCNetworkInterfaceSetCapabilities(interface, options);
 			(void)_SCNetworkInterfaceSetMediaOptions(interface, options);
 			(void)_SCNetworkInterfaceSetMTU         (interface, options);
 			CFDictionaryRemoveValue(baseSettings, interfaceName);
@@ -634,11 +747,80 @@ load_LinkConfiguration(CFBundleRef bundle, Boolean bundleVerbose)
 
 
 #ifdef	MAIN
+
+
+#pragma mark -
+#pragma mark Standalone test code
+
+
 int
 main(int argc, char **argv)
 {
+	SCPreferencesRef	prefs;
+
 	_sc_log     = FALSE;
 	_sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+	prefs = SCPreferencesCreate(NULL, CFSTR("linkconfig"), NULL);
+	if (prefs != NULL) {
+		SCNetworkSetRef	set;
+
+		set = SCNetworkSetCopyCurrent(prefs);
+		if (set != NULL) {
+			CFMutableSetRef	seen;
+			CFArrayRef	services;
+
+			services = SCNetworkSetCopyServices(set);
+			if (services != NULL) {
+				CFIndex		i;
+				CFIndex		n;
+
+				seen = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+
+				n = CFArrayGetCount(services);
+				for (i = 0; i < n; i++) {
+					SCNetworkInterfaceRef	interface;
+					SCNetworkServiceRef	service;
+
+					service = CFArrayGetValueAtIndex(services, i);
+					interface = SCNetworkServiceGetInterface(service);
+					if ((interface != NULL) &&
+					    !CFSetContainsValue(seen, interface)){
+						CFDictionaryRef	capabilities;
+
+						capabilities = SCNetworkInterfaceCopyCapability(interface, NULL);
+						if (capabilities != NULL) {
+							int		cap_current;
+							int		cap_requested;
+							CFDictionaryRef	options;
+
+							options = SCNetworkInterfaceGetConfiguration(interface);
+							cap_current   = __SCNetworkInterfaceCreateCapabilities(interface, -1, NULL);
+							cap_requested = __SCNetworkInterfaceCreateCapabilities(interface, cap_current, options);
+
+							SCPrint(TRUE, stdout,
+								CFSTR("%sinterface = %@, current = %p, requested = %p\n%@\n"),
+								(i == 0) ? "" : "\n",
+								SCNetworkInterfaceGetBSDName(interface),
+								(void *)(uintptr_t)cap_current,
+								(void *)(uintptr_t)cap_requested,
+								capabilities);
+							CFRelease(capabilities);
+						}
+
+						CFSetAddValue(seen, interface);
+					}
+				}
+
+				CFRelease(seen);
+				CFRelease(services);
+			}
+
+			CFRelease(set);
+		}
+
+		CFRelease(prefs);
+	}
 
 	load_LinkConfiguration(CFBundleGetMainBundle(), (argc > 1) ? TRUE : FALSE);
 	CFRunLoopRun();

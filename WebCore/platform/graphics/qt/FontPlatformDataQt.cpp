@@ -1,6 +1,7 @@
 /*
     Copyright (C) 2008 Holger Hans Peter Freyther
     Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
+    Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -26,7 +27,28 @@
 
 namespace WebCore {
 
-static inline bool isEmtpyValue(const float size, const bool bold, const bool oblique)
+static inline QFont::Weight toQFontWeight(FontWeight fontWeight)
+{
+    switch (fontWeight) {
+    case FontWeight100:
+    case FontWeight200:
+        return QFont::Light; // QFont::Light == Weight of 25
+    case FontWeight600:
+        return QFont::DemiBold; // QFont::DemiBold == Weight of 63
+    case FontWeight700:
+    case FontWeight800:
+        return QFont::Bold; // QFont::Bold == Weight of 75
+    case FontWeight900:
+        return QFont::Black; // QFont::Black == Weight of 87
+    case FontWeight300:
+    case FontWeight400:
+    case FontWeight500:
+    default:
+        return QFont::Normal; // QFont::Normal == Weight of 50
+    }
+}
+
+static inline bool isEmptyValue(const float size, const bool bold, const bool oblique)
 {
      // this is the empty value by definition of the trait FontDataCacheKeyTraits
     return !bold && !oblique && size == 0.f;
@@ -34,70 +56,56 @@ static inline bool isEmtpyValue(const float size, const bool bold, const bool ob
 
 FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
 {
-    if (isEmtpyValue(size, bold, oblique))
-        m_data = 0;
-    else
-        m_data = new FontPlatformDataPrivate(size, bold, oblique);
-}
-
-FontPlatformData::FontPlatformData(const FontPlatformData &other) : m_data(other.m_data)
-{
-    if (m_data && m_data != reinterpret_cast<FontPlatformDataPrivate*>(-1))
-        ++m_data->refCount;
+    if (!isEmptyValue(size, bold, oblique))
+        m_data = adoptRef(new FontPlatformDataPrivate(size, bold, oblique));
 }
 
 FontPlatformData::FontPlatformData(const FontDescription& description, const AtomicString& familyName, int wordSpacing, int letterSpacing)
-    : m_data(new FontPlatformDataPrivate())
+    : m_data(adoptRef(new FontPlatformDataPrivate()))
 {
     QFont& font = m_data->font;
+    int requestedSize = qRound(description.computedPixelSize());
     font.setFamily(familyName);
-    font.setPixelSize(qRound(description.computedSize()));
+    font.setPixelSize(qRound(requestedSize));
     font.setItalic(description.italic());
     font.setWeight(toQFontWeight(description.weight()));
     font.setWordSpacing(wordSpacing);
     font.setLetterSpacing(QFont::AbsoluteSpacing, letterSpacing);
     const bool smallCaps = description.smallCaps();
     font.setCapitalization(smallCaps ? QFont::SmallCaps : QFont::MixedCase);
-#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     font.setStyleStrategy(QFont::ForceIntegerMetrics);
-#endif
 
     m_data->bold = font.bold();
-    m_data->size = font.pointSizeF();
+    // WebKit allows font size zero but QFont does not. We will return
+    // m_data->size if a font size of zero is requested and pixelSize()
+    // otherwise.
+    m_data->size = (!requestedSize) ? requestedSize : font.pixelSize();
+#if HAVE(QRAWFONT)
+    m_data->rawFont = QRawFont::fromFont(font, QFontDatabase::Any);
+#endif
 }
 
-FontPlatformData::~FontPlatformData()
+#if HAVE(QRAWFONT)
+FontPlatformData::FontPlatformData(const FontPlatformData& other, float size)
+    : m_data(adoptRef(new FontPlatformDataPrivate()))
 {
-    if (!m_data || m_data == reinterpret_cast<FontPlatformDataPrivate*>(-1))
-        return;
-    --m_data->refCount;
-    if (!m_data->refCount)
-        delete m_data;
+    m_data->font = other.m_data->font;
+    m_data->rawFont = other.m_data->rawFont;
+    m_data->bold = other.m_data->bold;
+    m_data->oblique = other.m_data->oblique;
+    m_data->font.setPixelSize(size);
+    m_data->rawFont.setPixelSize(size);
+    m_data->size = size ? m_data->font.pixelSize() : 0;
 }
-
-FontPlatformData& FontPlatformData::operator=(const FontPlatformData& other)
-{
-    if (m_data == other.m_data)
-        return *this;
-    if (m_data && m_data != reinterpret_cast<FontPlatformDataPrivate*>(-1)) {
-        --m_data->refCount;
-        if (!m_data->refCount)
-            delete m_data;
-    }
-    m_data = other.m_data;
-    if (m_data && m_data != reinterpret_cast<FontPlatformDataPrivate*>(-1))
-        ++m_data->refCount;
-    return *this;
-}
+#endif
 
 bool FontPlatformData::operator==(const FontPlatformData& other) const
 {
     if (m_data == other.m_data)
         return true;
 
-    if (!m_data || !other.m_data
-        || m_data == reinterpret_cast<FontPlatformDataPrivate*>(-1) || other.m_data == reinterpret_cast<FontPlatformDataPrivate*>(-1))
-        return  false;
+    if (!m_data || !other.m_data || m_data->isDeletedValue || other.m_data->isDeletedValue)
+        return false;
 
     const bool equals = (m_data->size == other.m_data->size
                          && m_data->bold == other.m_data->bold
@@ -110,7 +118,7 @@ unsigned FontPlatformData::hash() const
 {
     if (!m_data)
         return 0;
-    if (m_data == reinterpret_cast<FontPlatformDataPrivate*>(-1))
+    if (m_data->isDeletedValue)
         return 1;
     return qHash(m_data->font.toString())
            ^ qHash(*reinterpret_cast<quint32*>(&m_data->size))

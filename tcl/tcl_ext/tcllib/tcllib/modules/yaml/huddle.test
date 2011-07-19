@@ -12,7 +12,7 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     lappend auto_path [pwd]
     package require tcltest
     namespace import ::tcltest::*
-    puts [package require huddle]
+    puts [source huddle.tcl]
     package require json
 
     proc dictsort {dict} {
@@ -33,11 +33,11 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     testsNeedTcltest 1.0
 
     if {$::tcl_version < 8.5} {
-	if {[catch {package require dict}]} {
-	    puts "    Aborting the tests found in \"[file tail [info script]]\""
-	    puts "    Requiring dict package, not found."
-	    return
-	}
+        if {[catch {package require dict}]} {
+            puts "    Aborting the tests found in \"[file tail [info script]]\""
+            puts "    Requiring dict package, not found."
+            return
+        }
     }
 
     support {
@@ -46,6 +46,7 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     testing {
         useLocal huddle.tcl huddle
     }
+
 }
 
 test huddle-1.1 "test of huddle create" -body {
@@ -133,30 +134,77 @@ test huddle-2.10 "test of huddle list" -body {
     huddle type $folding 0 1 3
 } -result {string}
 
-test huddle-3.1 "test of huddle jsondump" {[info tclversion] >= 8.5} {
-    # build a huddle container from normal tcl's container(multi rank dict/list)
-    proc huddle_build {data} {
-        foreach {key val} $data {
-            if {$key eq "layers"} {
-                foreach {l} [dict get $data layers] {
-                    lappend subs [huddle_build $l]
-                }
-                set val [eval huddle list $subs]
-            }
-            lappend result $key $val
-        }
-        return [eval huddle create $result]
-    }
-    set fd [open [file join [file dirname [info script]] layers.txt] r]
-    set json1 [read $fd]
-    close $fd
+#test huddle-3.1 "test of huddle jsondump" {[info tclversion] >= 8.5} {
+#    # build a huddle container from normal tcl's container(multi rank dict/list)
+#    proc huddle_build {data} {
+#        foreach {key val} $data {
+#            if {$key eq "layers"} {
+#                foreach {l} [dict get $data layers] {
+#                    lappend subs [huddle_build $l]
+#                }
+#                set val [eval huddle list $subs]
+#            }
+#            lappend result $key $val
+#        }
+#        return [eval huddle create $result]
+#    }
+#    set fd [open [file join [file dirname [info script]] layers.txt] r]
+#    set json1 [read $fd]
+#    close $fd
+#
+#    set data [json::json2dict $json1]
+##    set data [huddle_build $data]
+##
+##    set json2 [huddle jsondump $data]
+##    expr $json1 eq $json2
+##    set json2
+#} {1}
 
+test huddle-3.2 "test of huddle jsondump" -body {
+    huddle jsondump {HUDDLE {L {{L {{s i} {s baa} {s k} {L {{s 1.0} {s true} {s g} {s h}}}}} {s t}}}}
+} -result {[
+  [
+    "i",
+    "baa",
+    "k",
+    [
+      1.0,
+      true,
+      "g",
+      "h"
+    ]
+  ],
+  "t"
+]}
+
+if { [package vcompare [package provide Tcl] 8.5] > 0 } {
+test huddle-3.3 "test of huddle jsondump" -body {
+    set huddle1 {HUDDLE {D {dd {D {bb {D {a {s baa} c {s {d
+a}}}} cc {D {g {s h}}}}} ee {D {i {s j} k {s 1} j {s { m\a}}}}}}}
+    set json1 [huddle jsondump $huddle1]
+    set json2 {{
+  "dd": {
+    "bb": {
+      "a": "baa",
+      "c": "d\na"
+    },
+    "cc": {"g": "h"}
+  },
+  "ee": {
+    "i": "j",
+    "k": 1,
+    "j": " m\\a"
+  }
+}}
+    if {$json1 == $json2} {return 1}
     set data [json::json2dict $json1]
-    set data [huddle_build $data]
+    set data [huddle compile {dict dd {dict * dict} ee dict} $data]
+    huddle equal $huddle1 $data
+} -result {1}
+}
 
-    set json2 [huddle jsondump $data]
-    expr $json1 eq $json2
-} {1}
+# ... Tests of addStrings ...
+#     (Requires introspection of parser state)
 
 test huddle-4.1 "test of huddle set" -body {
     huddle set data_dict dd bb a baa
@@ -197,8 +245,6 @@ test huddle-4.9 "test of huddle equal" -body {
 test huddle-4.10 "test of huddle equal" -body {
     huddle equal $data_list {HUDDLE {L {{L {{s i} {s baa} {s k} {L {{s e} {s f} {s g} {s h}}}}} {s t}}}}
 } -result 0
-
-
 
 # ... Tests of addStrings ...
 #     (Requires introspection of parser state)

@@ -32,11 +32,9 @@
 #include "HaltablePlugin.h"
 #include "IntRect.h"
 #include "MediaCanStartListener.h"
-#include "PluginStream.h"
+#include "PluginViewBase.h"
 #include "ResourceRequest.h"
 #include "Timer.h"
-#include "Widget.h"
-#include "npruntime_internal.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
@@ -44,6 +42,11 @@
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
+
+#if ENABLE(NETSCAPE_PLUGIN_API)
+#include "PluginStream.h"
+#include "npruntime_internal.h"
+#endif
 
 #if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
 typedef struct HWND__* HWND;
@@ -54,12 +57,28 @@ typedef PlatformWidget PlatformPluginWidget;
 #include <QPixmap>
 #endif
 #endif
+#if PLATFORM(QT)
+#if USE(TEXTURE_MAPPER)
+#include "TextureMapperPlatformLayer.h"
+#endif
 
+#include <QGraphicsItem>
+#include <QImage>
+QT_BEGIN_NAMESPACE
+class QPainter;
+QT_END_NAMESPACE
+#endif
+#if PLATFORM(GTK)
+typedef struct _GtkSocket GtkSocket;
+#endif
+
+#if USE(JSC)
 namespace JSC {
     namespace Bindings {
         class Instance;
     }
 }
+#endif
 
 namespace WebCore {
     class Element;
@@ -83,7 +102,8 @@ namespace WebCore {
         PluginStatusLoadedSuccessfully
     };
 
-    class PluginRequest : public Noncopyable {
+    class PluginRequest {
+        WTF_MAKE_NONCOPYABLE(PluginRequest); WTF_MAKE_FAST_ALLOCATED;
     public:
         PluginRequest(const FrameLoadRequest& frameLoadRequest, bool sendNotification, void* notifyData, bool shouldAllowPopups)
             : m_frameLoadRequest(frameLoadRequest)
@@ -111,21 +131,35 @@ namespace WebCore {
         virtual void didFail(const ResourceError&) = 0;
     };
 
-    class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader, private HaltablePlugin, private MediaCanStartListener {
+    class PluginView : public PluginViewBase
+#if ENABLE(NETSCAPE_PLUGIN_API)
+                     , private PluginStreamClient
+#endif
+                     , public PluginManualLoader
+                     , private HaltablePlugin
+                     , private MediaCanStartListener {
     public:
         static PassRefPtr<PluginView> create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
         virtual ~PluginView();
 
         PluginPackage* plugin() const { return m_plugin.get(); }
+#if ENABLE(NETSCAPE_PLUGIN_API)
         NPP instance() const { return m_instance; }
+#endif
 
         void setNPWindowRect(const IntRect&);
         static PluginView* currentPluginView();
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+        NPObject* npObject();
+#endif
+#if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
+#endif
 
         PluginStatus status() const { return m_status; }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
         // NPN functions
         NPError getURLNotify(const char* url, const char* target, void* notifyData);
         NPError getURL(const char* url, const char* target);
@@ -134,6 +168,7 @@ namespace WebCore {
         NPError newStream(NPMIMEType type, const char* target, NPStream** stream);
         int32_t write(NPStream* stream, int32_t len, void* buffer);
         NPError destroyStream(NPStream* stream, NPReason reason);
+#endif
         const char* userAgent();
 #if ENABLE(NETSCAPE_PLUGIN_API)
         static const char* userAgentStatic();
@@ -143,10 +178,13 @@ namespace WebCore {
 #if ENABLE(NETSCAPE_PLUGIN_API)
         NPError getValue(NPNVariable variable, void* value);
         static NPError getValueStatic(NPNVariable variable, void* value);
-#endif
         NPError setValue(NPPVariable variable, void* value);
+        NPError getValueForURL(NPNURLVariable variable, const char* url, char** value, uint32_t* len);
+        NPError setValueForURL(NPNURLVariable variable, const char* url, const char* value, uint32_t len);
+        NPError getAuthenticationInfo(const char* protocol, const char* host, int32_t port, const char* scheme, const char* realm, char** username, uint32_t* ulen, char** password, uint32_t* plen);
         void invalidateRect(NPRect*);
         void invalidateRegion(NPRegion);
+#endif
         void forceRedraw();
         void pushPopupsEnabledState(bool state);
         void popPopupsEnabledState();
@@ -220,6 +258,14 @@ namespace WebCore {
 #endif
         void keepAlive();
 
+#if USE(ACCELERATED_COMPOSITING)
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API) && PLATFORM(QT)
+        virtual PlatformLayer* platformLayer() const;
+#else
+        virtual PlatformLayer* platformLayer() const { return 0; }
+#endif
+#endif
+
     private:
         PluginView(Frame* parentFrame, const IntSize&, PluginPackage*, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
 
@@ -230,9 +276,11 @@ namespace WebCore {
         void stop();
         void platformDestroy();
         static void setCurrentPluginView(PluginView*);
+#if ENABLE(NETSCAPE_PLUGIN_API)
         NPError load(const FrameLoadRequest&, bool sendNotification, void* notifyData);
         NPError handlePost(const char* url, const char* target, uint32_t len, const char* buf, bool file, void* notifyData, bool sendNotification, bool allowHeaders);
         NPError handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf);
+#endif
         static void freeStringArray(char** stringArray, int length);
         void setCallingPlugin(bool) const;
 
@@ -246,8 +294,10 @@ namespace WebCore {
         static BOOL WINAPI hookedEndPaint(HWND, const PAINTSTRUCT*);
 #endif
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
         static bool platformGetValueStatic(NPNVariable variable, void* value, NPError* result);
         bool platformGetValue(NPNVariable variable, void* value, NPError* result);
+#endif
 
         RefPtr<Frame> m_parentFrame;
         RefPtr<PluginPackage> m_plugin;
@@ -272,7 +322,9 @@ namespace WebCore {
         Timer<PluginView> m_lifeSupportTimer;
 
 #ifndef NP_NO_CARBON
+#if ENABLE(NETSCAPE_PLUGIN_API)
         bool dispatchNPEvent(NPEvent&);
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 #endif
         void updatePluginWidget();
         void paintMissingPluginIcon(GraphicsContext*, const IntRect&);
@@ -298,9 +350,11 @@ namespace WebCore {
         String m_mimeType;
         WTF::CString m_userAgent;
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
         NPP m_instance;
         NPP_t m_instanceStruct;
         NPWindow m_npWindow;
+#endif
 
         Vector<bool, 4> m_popupStateStack;
 
@@ -340,7 +394,7 @@ public:
 
 private:
 
-#if defined(XP_UNIX) || OS(SYMBIAN)
+#if defined(XP_UNIX) || OS(SYMBIAN) || PLATFORM(GTK)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
@@ -368,6 +422,29 @@ private:
         Display* m_pluginDisplay;
 
         void initXEvent(XEvent* event);
+#endif
+
+#if PLATFORM(QT) 
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
+        QImage m_image;
+        bool m_renderToImage;
+        void paintUsingImageSurfaceExtension(QPainter* painter, const IntRect& exposedRect);
+#endif
+#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
+        void paintUsingXPixmap(QPainter* painter, const QRect &exposedRect);
+#if USE(ACCELERATED_COMPOSITING)
+        OwnPtr<PlatformLayer> m_platformLayer;
+        friend class PluginGraphicsLayerQt;
+#endif // USE(ACCELERATED_COMPOSITING)
+#endif
+#endif // PLATFORM(QT)
+
+#if PLATFORM(GTK)
+        static gboolean plugRemovedCallback(GtkSocket*, PluginView*);
+        static void plugAddedCallback(GtkSocket*, PluginView*);
+        void updateWidgetAllocationAndClip();
+        bool m_plugAdded;
+        IntRect m_delayedAllocation;
 #endif
 
         IntRect m_clipRect; // The clip rect to apply to a windowed plug-in

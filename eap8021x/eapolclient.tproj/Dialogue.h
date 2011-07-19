@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,31 +34,43 @@
 
 #include <sys/types.h>
 #include <CoreFoundation/CFString.h>
+#include <Security/SecIdentity.h>
 
+/**
+ ** CredentialsDialogue
+ **/
 typedef struct {
     CFStringRef		username;
     CFStringRef		password;
     Boolean		user_cancelled;
-} UserPasswordDialogueResponse, *UserPasswordDialogueResponseRef;
+    Boolean		remember_information;
+    SecIdentityRef	chosen_identity;
+} CredentialsDialogueResponse, *CredentialsDialogueResponseRef;
 
 typedef void 
-(*UserPasswordDialogueResponseCallBack)(const void * arg1, 
+(*CredentialsDialogueResponseCallBack)(const void * arg1, 
 					const void * arg2, 
-					UserPasswordDialogueResponseRef data);
+					CredentialsDialogueResponseRef data);
 
-typedef struct UserPasswordDialogue_s UserPasswordDialogue, 
-    *UserPasswordDialogueRef;
+typedef struct CredentialsDialogue_s CredentialsDialogue, 
+    *CredentialsDialogueRef;
 
-UserPasswordDialogueRef
-UserPasswordDialogue_create(UserPasswordDialogueResponseCallBack func,
-			    const void * arg1, const void * arg2, 
-			    CFStringRef icon,
-			    CFStringRef title, CFStringRef message, 
-			    CFStringRef username, CFStringRef password);
+extern const CFStringRef	kCredentialsDialogueSSID;
+extern const CFStringRef	kCredentialsDialogueAccountName;
+extern const CFStringRef	kCredentialsDialoguePassword;
+extern const CFStringRef	kCredentialsDialogueCertificates;
+extern const CFStringRef	kCredentialsDialogueRememberInformation;
 
+CredentialsDialogueRef
+CredentialsDialogue_create(CredentialsDialogueResponseCallBack func,
+			   const void * arg1, const void * arg2, 
+			   CFDictionaryRef details);
 void
-UserPasswordDialogue_free(UserPasswordDialogueRef * dialogue_p_p);
+CredentialsDialogue_free(CredentialsDialogueRef * dialogue_p_p);
 
+/**
+ ** TrustDialogue
+ **/
 typedef struct {
     Boolean		proceed;
 } TrustDialogueResponse, *TrustDialogueResponseRef;
@@ -73,8 +85,8 @@ typedef struct TrustDialogue_s TrustDialogue, *TrustDialogueRef;
 TrustDialogueRef
 TrustDialogue_create(TrustDialogueResponseCallBack func,
 		     const void * arg1, const void * arg2,
-		     CFDictionaryRef trust_info, 
-		     CFStringRef icon, CFStringRef title);
+		     CFDictionaryRef trust_info,
+		     CFTypeRef ssid);
 
 CFDictionaryRef
 TrustDialogue_trust_info(TrustDialogueRef dialogue);
@@ -82,4 +94,22 @@ TrustDialogue_trust_info(TrustDialogueRef dialogue);
 void
 TrustDialogue_free(TrustDialogueRef * dialogue_p_p);
 
-#endif _S_DIALOGUE_H
+/**
+ ** AlertDialogue
+ **/
+
+typedef void 
+(*AlertDialogueResponseCallBack)(const void * arg1, 
+				 const void * arg2);
+
+typedef struct AlertDialogue_s AlertDialogue, *AlertDialogueRef;
+
+AlertDialogueRef
+AlertDialogue_create(AlertDialogueResponseCallBack func,
+		     const void * arg1, const void * arg2, 
+		     CFStringRef message);
+void
+AlertDialogue_free(AlertDialogueRef * dialogue_p_p);
+
+
+#endif /* _S_DIALOGUE_H */

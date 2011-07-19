@@ -1,8 +1,8 @@
---- collate.c.orig	2004-11-25 11:38:16.000000000 -0800
-+++ collate.c	2005-10-20 01:00:19.000000000 -0700
+--- collate.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ collate.c	2009-11-09 15:20:20.000000000 -0800
 @@ -28,14 +28,26 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.33 2004/09/22 16:56:48 stefanf Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.35 2005/02/27 20:31:13 ru Exp $");
  
 +#include "xlocale_private.h"
 +/* assumes the locale_t variable is named loc */
@@ -27,7 +27,7 @@
  #include "un-namespace.h"
  
  #include "collate.h"
-@@ -44,36 +56,50 @@
+@@ -44,36 +56,50 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  
  #include "libc_private.h"
  
@@ -94,18 +94,18 @@
  		return (_LDP_CACHE);
  	}
  
-@@ -97,9 +123,7 @@
+@@ -97,9 +123,7 @@ __collate_load_tables(const char *encodi
  		return (_LDP_ERROR);
  	}
  	chains = -1;
 -	if (strcmp(strbuf, COLLATE_VERSION) == 0)
 -		chains = 0;
--	else if (strcmp(strbuf, COLLATE_VERSION1_1) == 0)
+-	else if (strcmp(strbuf, COLLATE_VERSION1_2) == 0)
 +	if (strcmp(strbuf, COLLATE_VERSION1_1A) == 0)
  		chains = 1;
  	if (chains < 0) {
  		(void)fclose(fp);
-@@ -107,13 +131,21 @@
+@@ -107,13 +131,21 @@ __collate_load_tables(const char *encodi
  		return (_LDP_ERROR);
  	}
  	if (chains) {
@@ -129,17 +129,23 @@
  			(void)fclose(fp);
  			errno = EFTYPE;
  			return (_LDP_ERROR);
-@@ -121,136 +153,446 @@
+@@ -121,143 +153,446 @@ __collate_load_tables(const char *encodi
  	} else
  		chains = TABLE_SIZE;
  
 -	if ((TMP_substitute_table =
 -	     malloc(sizeof(__collate_substitute_table))) == NULL) {
--		saverr = errno;
--		(void)fclose(fp);
--		errno = saverr;
--		return (_LDP_ERROR);
--	}
++	i = sizeof(struct __xlocale_st_collate)
++	    + sizeof(struct __collate_st_chain_pri) * chains
++	    + sizeof(struct __collate_st_large_char_pri) * info.large_pri_count;
++	for(z = 0; z < info.directive_count; z++)
++		i += sizeof(struct __collate_st_subst) * info.subst_count[z];
++	if ((TMP = (struct __xlocale_st_collate *)malloc(i)) == NULL) {
+ 		saverr = errno;
+ 		(void)fclose(fp);
+ 		errno = saverr;
+ 		return (_LDP_ERROR);
+ 	}
 -	if ((TMP_char_pri_table =
 -	     malloc(sizeof(__collate_char_pri_table))) == NULL) {
 -		saverr = errno;
@@ -150,19 +156,13 @@
 -	}
 -	if ((TMP_chain_pri_table =
 -	     malloc(sizeof(*__collate_chain_pri_table) * chains)) == NULL) {
-+	i = sizeof(struct __xlocale_st_collate)
-+	    + sizeof(struct __collate_st_chain_pri) * chains
-+	    + sizeof(struct __collate_st_large_char_pri) * info.large_pri_count;
-+	for(z = 0; z < info.directive_count; z++)
-+		i += sizeof(struct __collate_st_subst) * info.subst_count[z];
-+	if ((TMP = (struct __xlocale_st_collate *)malloc(i)) == NULL) {
- 		saverr = errno;
+-		saverr = errno;
 -		free(TMP_substitute_table);
 -		free(TMP_char_pri_table);
- 		(void)fclose(fp);
- 		errno = saverr;
- 		return (_LDP_ERROR);
- 	}
+-		(void)fclose(fp);
+-		errno = saverr;
+-		return (_LDP_ERROR);
+-	}
 +	TMP->__refcount = 2; /* one for the locale, one for the cache */
 +	TMP->__free_extra = NULL;
  
@@ -196,10 +196,21 @@
 -	if (__collate_char_pri_table_ptr != NULL)
 -		free(__collate_char_pri_table_ptr);
 -	__collate_char_pri_table_ptr = TMP_char_pri_table;
+-	for (i = 0; i < UCHAR_MAX + 1; i++) {
+-		__collate_char_pri_table[i].prim =
+-		    ntohl(__collate_char_pri_table[i].prim);
+-		__collate_char_pri_table[i].sec =
+-		    ntohl(__collate_char_pri_table[i].sec);
+-	}
 -	if (__collate_chain_pri_table != NULL)
 -		free(__collate_chain_pri_table);
 -	__collate_chain_pri_table = TMP_chain_pri_table;
--	
+-	for (i = 0; i < chains; i++) {
+-		__collate_chain_pri_table[i].prim =
+-		    ntohl(__collate_chain_pri_table[i].prim);
+-		__collate_chain_pri_table[i].sec =
+-		    ntohl(__collate_chain_pri_table[i].sec);
+-	}
 -	__collate_substitute_nontrivial = 0;
 -	for (i = 0; i < UCHAR_MAX + 1; i++) {
 -		if (__collate_substitute_table[i][0] != i ||
@@ -283,8 +294,7 @@
  }
  
 -u_char *
--__collate_substitute(s)
--	const u_char *s;
+-__collate_substitute(const u_char *s)
 +static int
 +__collate_wcsnlen(const wchar_t *s, int len)
 +{
@@ -373,9 +383,7 @@
  }
  
 -void
--__collate_lookup(t, len, prim, sec)
--	const u_char *t;
--	int *len, *prim, *sec;
+-__collate_lookup(const u_char *t, int *len, int *prim, int *sec)
 +static struct __collate_st_chain_pri *
 +chainsearch(const wchar_t *key, int *len, locale_t loc)
 +{
@@ -500,9 +508,11 @@
 +		if (p >= 0) {
 +			*len = l;
 +			*pri = p;
-+			return;
-+		}
-+	}
+ 			return;
+ 		}
+ 	}
+-	*prim = __collate_char_pri_table[*t].prim;
+-	*sec = __collate_char_pri_table[*t].sec;
 +	if (*t <= UCHAR_MAX) {
 +		*pri = __collate_char_pri_table[*t].pri[which];
 +		return;
@@ -512,21 +522,15 @@
 +		match = largesearch(*t, loc);
 +		if (match) {
 +			*pri = match->pri.pri[which];
- 			return;
- 		}
- 	}
--	*prim = __collate_char_pri_table[*t].prim;
--	*sec = __collate_char_pri_table[*t].sec;
++			return;
++		}
++	}
 +	*pri = (l = __collate_info->undef_pri[which]) >= 0 ? l : *t - l;
- }
- 
--u_char *
--__collate_strdup(s)
--	u_char *s;
++}
++
 +__private_extern__ wchar_t *
 +__collate_mbstowcs(const char *s, locale_t loc)
- {
--	u_char *t = strdup(s);
++{
 +	static const mbstate_t initial;
 +	mbstate_t st;
 +	size_t len;
@@ -542,17 +546,20 @@
 +	st = initial;
 +	mbsrtowcs_l(wcs, &s, len, &st, loc);
 +	wcs[len] = 0;
- 
--	if (t == NULL)
-+	return (wcs);
-+}
 +
++	return (wcs);
+ }
+ 
+-u_char *
+-__collate_strdup(u_char *s)
 +__private_extern__ wchar_t *
 +__collate_wcsdup(const wchar_t *s)
-+{
+ {
+-	u_char *t = strdup(s);
 +	size_t len = wcslen(s) + 1;
 +	wchar_t *wcs;
-+
+ 
+-	if (t == NULL)
 +	if ((wcs = (wchar_t *)malloc(len * sizeof(wchar_t))) == NULL)
  		__collate_err(EX_OSERR, __func__);
 -	return (t);
@@ -651,7 +658,7 @@
  __collate_err(int ex, const char *f)
  {
  	const char *s;
-@@ -268,24 +610,345 @@
+@@ -275,24 +610,345 @@ __collate_err(int ex, const char *f)
  	exit(ex);
  }
  

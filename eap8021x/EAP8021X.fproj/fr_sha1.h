@@ -13,7 +13,7 @@ void fr_SHA1Init(fr_SHA1_CTX* context);
 #if 0
 void fr_SHA1Update(fr_SHA1_CTX* context, const uint8_t* data, unsigned int len);
 void fr_SHA1Final(uint8_t digest[20], fr_SHA1_CTX* context);
-#endif 0
+#endif /* 0 */
 
 /*
  * this version implements a raw SHA1 transform, no length is appended,

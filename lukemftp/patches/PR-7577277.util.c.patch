@@ -1,0 +1,29 @@
+--- src/util.c.orig	2007-08-06 00:33:24.000000000 -0400
++++ src/util.c	2010-02-23 15:06:09.000000000 -0500
+@@ -422,7 +422,7 @@
+ 		else
+ 			fprintf(ttyout, "Name (%s): ", host);
+ 		errormsg = NULL;
+-		nlen = getline(stdin, tmp, sizeof(tmp), &errormsg);
++		nlen = get_line(stdin, tmp, sizeof(tmp), &errormsg);
+ 		if (nlen < 0) {
+ 			fprintf(ttyout, "%s; %s aborted.\n", errormsg, "login");
+ 			code = -1;
+@@ -530,7 +530,7 @@
+ 	fprintf(ttyout, "(%s) ", prompt);
+ 	line[len++] = ' ';
+ 	errormsg = NULL;
+-	nlen = getline(stdin, line + len, sizeof(line)-len, &errormsg);
++	nlen = get_line(stdin, line + len, sizeof(line)-len, &errormsg);
+ 	if (nlen < 0) {
+ 		fprintf(ttyout, "%s; %s aborted.\n", errormsg, "operation");
+ 		intr(0);
+@@ -1295,7 +1295,7 @@
+  *	-3	line was too long
+  */
+ int
+-getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
++get_line(FILE *stream, char *buf, size_t buflen, const char **errormsg)
+ {
+ 	int	rv, ch;
+ 	size_t	len;

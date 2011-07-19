@@ -93,6 +93,9 @@
 #include "nattraversal.h"
 #include "ipsecSessionTracer.h"
 #include "ipsecMessageTracer.h"
+#ifndef HAVE_OPENSSL
+#include <Security/SecDH.h>
+#endif
 
 /* quick mode */
 static vchar_t *quick_ir1mx __P((struct ph2handle *, vchar_t *, vchar_t *));
@@ -218,8 +221,13 @@ quick_i1send(iph2, msg)
 				"failed to set DH value.\n");
 			goto end;
 		}
+#ifdef HAVE_OPENSSL
 		if (oakley_dh_generate(iph2->pfsgrp,
-				&iph2->dhpub, &iph2->dhpriv) < 0) {
+							   &iph2->dhpub, &iph2->dhpriv) < 0) {
+#else
+		if (oakley_dh_generate(iph2->pfsgrp,
+				&iph2->dhpub, &iph2->publicKeySize, &iph2->dhC) < 0) {
+#endif
 			plog(LLV_ERROR, LOCATION, NULL,
 				 "failed to generate DH");
 			goto end;
@@ -468,6 +476,12 @@ quick_i2recv(iph2, msg0)
 	/* allocate buffer for computing HASH(2) */
 	tlen = iph2->nonce->l
 		+ ntohl(isakmp->len) - sizeof(*isakmp);
+	if (tlen < 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "invalid length (%d,%d) while getting hash buffer.\n",
+			 iph2->nonce->l, ntohl(isakmp->len));
+		goto end;
+	}
 	hbuf = vmalloc(tlen);
 	if (hbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -555,6 +569,10 @@ quick_i2recv(iph2, msg0)
 						if (f_id == 0 && (iph2->ph1->natt_flags & NAT_DETECTED_ME)) {
 							if (lcconf->ext_nat_id)
 								vfree(lcconf->ext_nat_id);
+							if (idp_ptr->h.len < sizeof(struct isakmp_gen)) {
+								plog(LLV_ERROR, LOCATION, NULL, "invalid length (%d) while allocating external nat id.\n", idp_ptr->h.len);
+								goto end;
+							}
 							lcconf->ext_nat_id = vmalloc(ntohs(idp_ptr->h.len) - sizeof(struct isakmp_gen));
 							if (lcconf->ext_nat_id == NULL) {
 								plog(LLV_ERROR, LOCATION, NULL, "memory error while allocating external nat id.\n");
@@ -843,7 +861,7 @@ quick_i2send(iph2, msg0)
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph2->ph1->remote, iph2->ph1->local,
                      iph2->sendbuf, msg0,
-                     PH2_NON_ESP_EXTRA_LEN(iph2)) == -1) {
+                     PH2_NON_ESP_EXTRA_LEN(iph2), PH2_FRAG_FLAGS(iph2)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -944,7 +962,7 @@ quick_i3recv(iph2, msg0)
 	msg = oakley_do_decrypt(iph2->ph1, msg0, iph2->ivm->iv, iph2->ivm->ive);
 	if (msg == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to decrypt packet");
+			 "failed to decrypt packet\n");
 		goto end;
 	}
 
@@ -952,7 +970,7 @@ quick_i3recv(iph2, msg0)
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to parse msg");
+			 "failed to parse msg\n");
 		goto end;
 	}
 
@@ -1012,7 +1030,7 @@ quick_i3recv(iph2, msg0)
 	vfree(tmp);
 	if (my_hash == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to compute HASH");
+			 "failed to compute HASH\n");
 		goto end;
 	}
 
@@ -1116,7 +1134,7 @@ quick_r1recv(iph2, msg0)
 	msg = oakley_do_decrypt(iph2->ph1, msg0, iph2->ivm->iv, iph2->ivm->ive);
 	if (msg == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to decrypt packet");
+			 "failed to decrypt packet\n");
 		goto end;
 	}
 
@@ -1130,7 +1148,7 @@ quick_r1recv(iph2, msg0)
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to parse msg");
+			 "failed to parse msg\n");
 		goto end;
 	}
 	pa = (struct isakmp_parse_t *)pbuf->v;
@@ -1163,6 +1181,11 @@ quick_r1recv(iph2, msg0)
 
 	/* allocate buffer for computing HASH(1) */
 	tlen = ntohl(isakmp->len) - sizeof(*isakmp);
+	if (tlen < 0) {
+		plog(LLV_ERROR, LOCATION, NULL, "invalid length (%d) while extracting hash.\n",
+			 ntohl(isakmp->len));
+		goto end;
+	}
 	hbuf = vmalloc(tlen);
 	if (hbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -1207,7 +1230,7 @@ quick_r1recv(iph2, msg0)
 			}
 			if (isakmp_p2ph(&iph2->sa, pa->ptr) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process SA payload");
+					 "failed to process SA payload\n");
 				goto end;
 			}
 			break;
@@ -1215,7 +1238,7 @@ quick_r1recv(iph2, msg0)
 		case ISAKMP_NPTYPE_NONCE:
 			if (isakmp_p2ph(&iph2->nonce_p, pa->ptr) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process NONCE payload");
+					 "failed to process NONCE payload\n");
 				goto end;
 			}
 			break;
@@ -1223,7 +1246,7 @@ quick_r1recv(iph2, msg0)
 		case ISAKMP_NPTYPE_KE:
 			if (isakmp_p2ph(&iph2->dhpub_p, pa->ptr) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					 "failed to process KE payload");
+					 "failed to process KE payload\n");
 				goto end;
 			}
 			break;
@@ -1235,7 +1258,7 @@ quick_r1recv(iph2, msg0)
 
 				if (isakmp_p2ph(&iph2->id_p, pa->ptr) < 0) {
 					plog(LLV_ERROR, LOCATION, NULL,
-						 "failed to process IDci2 payload");
+						 "failed to process IDci2 payload\n");
 					goto end;
 				}
 
@@ -1251,7 +1274,7 @@ quick_r1recv(iph2, msg0)
 
 				if (isakmp_p2ph(&iph2->id, pa->ptr) < 0) {
 					plog(LLV_ERROR, LOCATION, NULL,
-						 "failed to process IDcr2 payload");
+						 "failed to process IDcr2 payload\n");
 					goto end;
 				}
 			} else {
@@ -1348,7 +1371,7 @@ quick_r1recv(iph2, msg0)
 	my_hash = oakley_compute_hash1(iph2->ph1, iph2->msgid, hbuf);
 	if (my_hash == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to compute HASH");
+			 "failed to compute HASH\n");
 		goto end;
 	}
 
@@ -1558,8 +1581,13 @@ quick_r2send(iph2, msg)
 			goto end;
 		}
 		/* generate DH public value */
+#ifdef HAVE_OPENSSL
 		if (oakley_dh_generate(iph2->pfsgrp,
 				&iph2->dhpub, &iph2->dhpriv) < 0) {
+#else
+			if (oakley_dh_generate(iph2->pfsgrp,
+								   &iph2->dhpub, &iph2->publicKeySize, &iph2->dhC) < 0) {
+#endif		
 			plog(LLV_ERROR, LOCATION, NULL,
 				 "failed to generate DH public");
 			goto end;
@@ -1750,7 +1778,7 @@ quick_r2send(iph2, msg)
 
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph2->ph1->remote, iph2->ph1->local, iph2->sendbuf, iph2->msg1,
-                     PH2_NON_ESP_EXTRA_LEN(iph2)) == -1) {
+                     PH2_NON_ESP_EXTRA_LEN(iph2), PH2_FRAG_FLAGS(iph2)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -1816,7 +1844,7 @@ quick_r3recv(iph2, msg0)
 	msg = oakley_do_decrypt(iph2->ph1, msg0, iph2->ivm->iv, iph2->ivm->ive);
 	if (msg == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to decrypt packet");
+			 "failed to decrypt packet\n");
 		goto end;
 	}
 
@@ -1824,7 +1852,7 @@ quick_r3recv(iph2, msg0)
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to parse msg");
+			 "failed to parse msg\n");
 		goto end;
 	}
 
@@ -1882,7 +1910,7 @@ quick_r3recv(iph2, msg0)
 	vfree(tmp);
 	if (my_hash == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to compute HASH");
+			 "failed to compute HASH\n");
 		goto end;
 	}
 
@@ -2023,7 +2051,7 @@ quick_r3send(iph2, msg0)
 
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph2->ph1->remote, iph2->ph1->local, iph2->sendbuf, msg0,
-                     PH2_NON_ESP_EXTRA_LEN(iph2)) == -1) {
+                     PH2_NON_ESP_EXTRA_LEN(iph2), PH2_FRAG_FLAGS(iph2)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -2353,14 +2381,12 @@ get_sainfo_r(iph2)
 		}
 		iph2->sainfo = anonymous;
 	}
-#ifdef __APPLE__
 	if (link_sainfo_to_ph2(iph2->sainfo) != 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to link sainfo\n");
 		iph2->sainfo = NULL;
 		goto end;
 	}
-#endif
 	
 #ifdef ENABLE_HYBRID
 	/* xauth group inclusion check */

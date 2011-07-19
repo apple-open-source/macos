@@ -34,7 +34,7 @@
  * Copyright (C) 2004
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: prothandler.h 1421 2005-04-12 12:09:21Z rousseau $
+ * $Id: prothandler.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

@@ -19,18 +19,18 @@
 #include "llvm/Value.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
-#include <iostream>
-#include <fstream>
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 template<typename GraphType>
-static void WriteGraphToFile(std::ostream &O, const std::string &GraphName,
+static void WriteGraphToFile(raw_ostream &O, const std::string &GraphName,
                              const GraphType &GT) {
   std::string Filename = GraphName + ".dot";
   O << "Writing '" << Filename << "'...";
-  std::ofstream F(Filename.c_str());
+  std::string ErrInfo;
+  raw_fd_ostream F(Filename.c_str(), ErrInfo);
 
-  if (F.good())
+  if (ErrInfo.empty())
     WriteGraph(F, GT);
   else
     O << "  error opening file for writing!";
@@ -45,6 +45,9 @@ static void WriteGraphToFile(std::ostream &O, const std::string &GraphName,
 namespace llvm {
   template<>
   struct DOTGraphTraits<CallGraph*> : public DefaultDOTGraphTraits {
+
+  DOTGraphTraits (bool isSimple=false) : DefaultDOTGraphTraits(isSimple) {}
+
     static std::string getGraphName(CallGraph *F) {
       return "Call Graph";
     }
@@ -65,12 +68,11 @@ namespace {
     CallGraphPrinter() : ModulePass(&ID) {}
 
     virtual bool runOnModule(Module &M) {
-      WriteGraphToFile(std::cerr, "callgraph", &getAnalysis<CallGraph>());
+      WriteGraphToFile(llvm::errs(), "callgraph", &getAnalysis<CallGraph>());
       return false;
     }
 
-    void print(std::ostream &OS) const {}
-    void print(std::ostream &OS, const llvm::Module*) const {}
+    void print(raw_ostream &OS, const llvm::Module*) const {}
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<CallGraph>();

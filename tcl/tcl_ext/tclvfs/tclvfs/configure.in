@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
 #
-# RCS: @(#) $Id: configure.in,v 1.18 2008/12/03 02:30:42 hobbs Exp $
+# RCS: @(#) $Id: configure.in,v 1.19 2009/02/06 19:13:27 andreas_kupries Exp $
 
 #--------------------------------------------------------------------
 # This configure.in is based on the Tcl Extension Architecture (TEA)
@@ -13,7 +13,7 @@ dnl	to configure the system for the local environment.
 #    http://www.tcl.tk/           Tcl Developer Exchange
 #--------------------------------------------------------------------
 
-AC_INIT([vfs], [1.4])
+AC_INIT([vfs], [1.4.1])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -21,7 +21,7 @@ AC_INIT([vfs], [1.4])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 
@@ -80,4 +80,4 @@ TEA_MAKE_LIB
 
 TEA_PROG_TCLSH
 
-AC_OUTPUT([Makefile pkgIndex.tcl])
+AC_OUTPUT([Makefile pkgIndex.tcl library/vfs.tcl])

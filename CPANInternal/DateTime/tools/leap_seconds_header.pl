@@ -131,7 +131,7 @@ EOF
 */
 EOF
 
-    open my $fh, '>leap_seconds.h' or die "Cannot write to leap_seconds.h: $!";
+    open my $fh, '>', 'c/leap_seconds.h' or die "Cannot write to c/leap_seconds.h: $!";
 
     print $fh ( $header,
                 $set_leap_seconds,

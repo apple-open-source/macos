@@ -1,8 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin docidx_lang_syntax n 1.0]
-[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2007-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {docidx language syntax}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -76,7 +77,7 @@ The syntax:
 [example {
 index     = defs
             INDEX_BEGIN
-            contents
+            [ contents ]
             INDEX_END  
             { <WHITE> }
 
@@ -86,6 +87,25 @@ contents  = keyword { keyword }
 keyword   = defs KEY ref { ref }
 ref       = MANPAGE | URL | defs
 }]
+
+At last a rule we were unable to capture in the EBNF syntax, as it is
+about the arguments of the markup commands, something which is not
+modeled here.
+
+[list_begin enumerated]
+[enum]
+
+The arguments of all markup commands have to be plain text, and/or text
+markup commands, i.e. one of
+
+[list_begin enumerated]
+[enum][cmd lb],
+[enum][cmd rb], or
+[enum][cmd vset] (1-argument form).
+[list_end]
+
+[list_end]
+
 
 [section {BUGS, IDEAS, FEEDBACK}]
 

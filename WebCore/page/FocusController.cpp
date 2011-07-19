@@ -38,19 +38,24 @@
 #include "EventNames.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include "HTMLFrameOwnerElement.h"
+#include "HTMLAreaElement.h"
+#include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "HitTestResult.h"
 #include "KeyboardEvent.h"
 #include "Page.h"
 #include "Range.h"
+#include "RenderLayer.h"
 #include "RenderObject.h"
 #include "RenderWidget.h"
-#include "SelectionController.h"
+#include "ScrollAnimator.h"
 #include "Settings.h"
 #include "SpatialNavigation.h"
 #include "Widget.h"
+#include "htmlediting.h" // For firstPositionInOrBeforeNode
 
 namespace WebCore {
 
@@ -86,6 +91,7 @@ FocusController::FocusController(Page* page)
 
 void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
 {
+    ASSERT(!frame || frame->page() == m_page);
     if (m_focusedFrame == frame || m_isChangingFocusedFrame)
         return;
 
@@ -107,10 +113,12 @@ void FocusController::setFocusedFrame(PassRefPtr<Frame> frame)
         newFrame->document()->dispatchWindowEvent(Event::create(eventNames().focusEvent, false, false));
     }
 
+    m_page->chrome()->focusedFrameChanged(newFrame.get());
+
     m_isChangingFocusedFrame = false;
 }
 
-Frame* FocusController::focusedOrMainFrame()
+Frame* FocusController::focusedOrMainFrame() const
 {
     if (Frame* frame = focusedFrame())
         return frame;
@@ -123,8 +131,14 @@ void FocusController::setFocused(bool focused)
         return;
     
     m_isFocused = focused;
-    
-    if (m_focusedFrame && m_focusedFrame->view()) {
+
+    if (!m_isFocused)
+        focusedOrMainFrame()->eventHandler()->stopAutoscrollTimer();
+
+    if (!m_focusedFrame)
+        setFocusedFrame(m_page->mainFrame());
+
+    if (m_focusedFrame->view()) {
         m_focusedFrame->selection()->setFocused(focused);
         dispatchEventsOnWindowAndFocusedNode(m_focusedFrame->document(), focused);
     }
@@ -156,7 +170,15 @@ static Node* deepFocusableNode(FocusDirection direction, Node* node, KeyboardEve
 
 bool FocusController::setInitialFocus(FocusDirection direction, KeyboardEvent* event)
 {
-    return advanceFocus(direction, event, true);
+    bool didAdvanceFocus = advanceFocus(direction, event, true);
+    
+    // If focus is being set initially, accessibility needs to be informed that system focus has moved 
+    // into the web area again, even if focus did not change within WebCore. PostNotification is called instead
+    // of handleFocusedUIElementChanged, because this will send the notification even if the element is the same.
+    if (AXObjectCache::accessibilityEnabled())
+        focusedOrMainFrame()->document()->axObjectCache()->postNotification(focusedOrMainFrame()->document()->renderer(), AXObjectCache::AXFocusedUIElementChanged, true);
+
+    return didAdvanceFocus;
 }
 
 bool FocusController::advanceFocus(FocusDirection direction, KeyboardEvent* event, bool initialFocus)
@@ -188,7 +210,7 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
     bool caretBrowsing = focusedOrMainFrame()->settings()->caretBrowsingEnabled();
 
     if (caretBrowsing && !currentNode)
-        currentNode = frame->selection()->start().node();
+        currentNode = frame->selection()->start().deprecatedNode();
 
     document->updateLayoutIgnorePendingStylesheets();
 
@@ -274,8 +296,9 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
         setFocusedFrame(newDocument->frame());
 
     if (caretBrowsing) {
-        VisibleSelection newSelection(Position(node, 0), Position(node, 0), DOWNSTREAM);
-        if (frame->shouldChangeSelection(newSelection))
+        Position position = firstPositionInOrBeforeNode(node);
+        VisibleSelection newSelection(position, position, DOWNSTREAM);
+        if (frame->selection()->shouldChangeSelection(newSelection))
             frame->selection()->setSelection(newSelection);
     }
 
@@ -283,205 +306,10 @@ bool FocusController::advanceFocusInDocumentOrder(FocusDirection direction, Keyb
     return true;
 }
 
-bool FocusController::advanceFocusDirectionally(FocusDirection direction, KeyboardEvent* event)
-{
-    Frame* frame = focusedOrMainFrame();
-    ASSERT(frame);
-    Document* focusedDocument = frame->document();
-    if (!focusedDocument)
-        return false;
-
-    Node* focusedNode = focusedDocument->focusedNode();
-    if (!focusedNode) {
-        // Just move to the first focusable node.
-        FocusDirection tabDirection = (direction == FocusDirectionUp || direction == FocusDirectionLeft) ?
-                                       FocusDirectionForward : FocusDirectionBackward;
-        // 'initialFocus' is set to true so the chrome is not focused.
-        return advanceFocusInDocumentOrder(tabDirection, event, true);
-    }
-
-    // Move up in the chain of nested frames.
-    frame = frame->tree()->top();
-
-    FocusCandidate focusCandidate;
-    findFocusableNodeInDirection(frame->document()->firstChild(), focusedNode, direction, event, focusCandidate);
-
-    Node* node = focusCandidate.node;
-    if (!node || !node->isElementNode()) {
-        // FIXME: May need a way to focus a document here.
-        Frame* frame = focusedOrMainFrame();
-        scrollInDirection(frame, direction);
-        return false;
-    }
-
-    // In order to avoid crazy jump between links that are either far away from each other,
-    // or just not currently visible, lets do a scroll in the given direction and bail out
-    // if |node| element is not in the viewport.
-    if (hasOffscreenRect(node)) {
-        Frame* frame = node->document()->view()->frame();
-        scrollInDirection(frame, direction);
-        return true;
-    }
-
-    Document* newDocument = node->document();
-
-    if (newDocument != focusedDocument) {
-        // Focus is going away from the originally focused document, so clear the focused node.
-        focusedDocument->setFocusedNode(0);
-    }
-
-    if (newDocument)
-        setFocusedFrame(newDocument->frame());
-
-    Element* element = static_cast<Element*>(node);
-    ASSERT(element);
-
-    scrollIntoView(element);
-    element->focus(false);
-    return true;
-}
-
-// FIXME: Make this method more modular, and simpler to understand and maintain.
-static void updateFocusCandidateIfCloser(Node* focusedNode, const FocusCandidate& candidate, FocusCandidate& closest)
-{
-    bool sameDocument = candidate.document() == closest.document();
-    if (sameDocument) {
-        if (closest.alignment > candidate.alignment
-         || (closest.parentAlignment && candidate.alignment > closest.parentAlignment))
-            return;
-    } else if (closest.alignment > candidate.alignment
-            && (closest.parentAlignment && candidate.alignment > closest.parentAlignment))
-        return;
-
-    if (candidate.alignment != None
-     || (closest.parentAlignment >= candidate.alignment
-     && closest.document() == candidate.document())) {
-
-        // If we are now in an higher precedent case, lets reset the current closest's
-        // distance so we force it to be bigger than any result we will get from
-        // spatialDistance().
-        if (closest.alignment < candidate.alignment
-         && closest.parentAlignment < candidate.alignment)
-            closest.distance = maxDistance();
-    }
-
-    // Bail out if candidate's distance is larger than that of the closest candidate.
-    if (candidate.distance >= closest.distance)
-        return;
-
-    if (closest.isNull()) {
-        closest = candidate;
-        return;
-    }
-
-    // If the focused node and the candadate are in the same document and current
-    // closest candidate is not in an {i}frame that is preferable to get focused ...
-    if (focusedNode->document() == candidate.document()
-        && candidate.distance < closest.parentDistance)
-        closest = candidate;
-    else if (focusedNode->document() != candidate.document()) {
-        // If the focusedNode is in an inner document and candidate is in a
-        // different document, we only consider to change focus if there is not
-        // another already good focusable candidate in the same document as focusedNode.
-        if (!((isInRootDocument(candidate.node) && !isInRootDocument(focusedNode))
-            && focusedNode->document() == closest.document()))
-            closest = candidate;
-    }
-}
-
-void FocusController::findFocusableNodeInDirection(Node* outer, Node* focusedNode,
-                                                   FocusDirection direction, KeyboardEvent* event,
-                                                   FocusCandidate& closestFocusCandidate,
-                                                   const FocusCandidate& candidateParent)
-{
-    ASSERT(outer);
-    ASSERT(candidateParent.isNull()
-        || candidateParent.node->hasTagName(frameTag)
-        || candidateParent.node->hasTagName(iframeTag));
-
-    // Walk all the child nodes and update closestFocusCandidate if we find a nearer node.
-    Node* candidate = outer;
-    while (candidate) {
-        // Inner documents case.
-
-        if (candidate->isFrameOwnerElement())
-            deepFindFocusableNodeInDirection(candidate, focusedNode, direction, event, closestFocusCandidate);
-        else if (candidate != focusedNode && candidate->isKeyboardFocusable(event)) {
-            FocusCandidate currentFocusCandidate(candidate);
-
-            // Get distance and alignment from current candidate.
-            distanceDataForNode(direction, focusedNode, currentFocusCandidate);
-
-            // Bail out if distance is maximum.
-            if (currentFocusCandidate.distance == maxDistance()) {
-                candidate = candidate->traverseNextNode(outer->parent());
-                continue;
-            }
-
-            // If candidateParent is not null, it means that we are in a recursive call
-            // from deepFineFocusableNodeInDirection (i.e. processing an element in an iframe),
-            // and holds the distance and alignment data of the iframe element itself.
-            if (!candidateParent.isNull()) {
-                currentFocusCandidate.parentAlignment = candidateParent.alignment;
-                currentFocusCandidate.parentDistance = candidateParent.distance;
-            }
-
-            updateFocusCandidateIfCloser(focusedNode, currentFocusCandidate, closestFocusCandidate);
-        }
-
-        candidate = candidate->traverseNextNode(outer->parent());
-    }
-}
-
-void FocusController::deepFindFocusableNodeInDirection(Node* container, Node* focusedNode,
-                                                       FocusDirection direction, KeyboardEvent* event,
-                                                       FocusCandidate& closestFocusCandidate)
-{
-    ASSERT(container->hasTagName(frameTag) || container->hasTagName(iframeTag));
-
-    // Track if focusedNode is a descendant of the current container node being processed.
-    bool descendantOfContainer = false;
-    Node* firstChild = 0;
-
-    // Iframe or Frame.
-    if (container->hasTagName(frameTag) || container->hasTagName(iframeTag)) {
-
-        HTMLFrameOwnerElement* owner = static_cast<HTMLFrameOwnerElement*>(container);
-        if (!owner->contentFrame())
-            return;
-
-        Document* innerDocument = owner->contentFrame()->document();
-        if (!innerDocument)
-            return;
-
-        descendantOfContainer = innerDocument == focusedNode->document();
-        firstChild = innerDocument->firstChild();
-
-    }
-
-    if (descendantOfContainer) {
-        findFocusableNodeInDirection(firstChild, focusedNode, direction, event, closestFocusCandidate);
-        return;
-    }
-
-    // Check if the current container element itself is a good candidate
-    // to move focus to. If it is, then we traverse its inner nodes.
-    FocusCandidate candidateParent = FocusCandidate(container);
-    distanceDataForNode(direction, focusedNode, candidateParent);
-
-    // Bail out if distance is maximum.
-    if (candidateParent.distance == maxDistance())
-        return;
-
-    // FIXME: Consider alignment?
-    if (candidateParent.distance < closestFocusCandidate.distance)
-        findFocusableNodeInDirection(firstChild, focusedNode, direction, event, closestFocusCandidate, candidateParent);
-}
-
 static bool relinquishesEditingFocus(Node *node)
 {
     ASSERT(node);
-    ASSERT(node->isContentEditable());
+    ASSERT(node->rendererIsEditable());
 
     Node* root = node->rootEditableElement();
     Frame* frame = node->document()->frame();
@@ -499,7 +327,7 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     if (oldFocusedFrame->document() != newFocusedFrame->document())
         return;
     
-    SelectionController* s = oldFocusedFrame->selection();
+    FrameSelection* s = oldFocusedFrame->selection();
     if (s->isNone())
         return;
 
@@ -507,18 +335,23 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     if (caretBrowsing)
         return;
 
-    Node* selectionStartNode = s->selection().start().node();
+    Node* selectionStartNode = s->selection().start().deprecatedNode();
     if (selectionStartNode == newFocusedNode || selectionStartNode->isDescendantOf(newFocusedNode) || selectionStartNode->shadowAncestorNode() == newFocusedNode)
         return;
         
-    if (Node* mousePressNode = newFocusedFrame->eventHandler()->mousePressNode())
-        if (mousePressNode->renderer() && !mousePressNode->canStartSelection())
-            if (Node* root = s->rootEditableElement())
-                if (Node* shadowAncestorNode = root->shadowAncestorNode())
-                    // Don't do this for textareas and text fields, when they lose focus their selections should be cleared
-                    // and then restored when they regain focus, to match other browsers.
-                    if (!shadowAncestorNode->hasTagName(inputTag) && !shadowAncestorNode->hasTagName(textareaTag))
-                        return;
+    if (Node* mousePressNode = newFocusedFrame->eventHandler()->mousePressNode()) {
+        if (mousePressNode->renderer() && !mousePressNode->canStartSelection()) {
+            // Don't clear the selection for contentEditable elements, but do clear it for input and textarea. See bug 38696.
+            Node * root = s->rootEditableElement();
+            if (!root)
+                return;
+
+            if (Node* shadowAncestorNode = root->shadowAncestorNode()) {
+                if (!shadowAncestorNode->hasTagName(inputTag) && !shadowAncestorNode->hasTagName(textareaTag))
+                    return;
+            }
+        }
+    }
     
     s->clear();
 }
@@ -535,9 +368,11 @@ bool FocusController::setFocusedNode(Node* node, PassRefPtr<Frame> newFocusedFra
     // FIXME: Might want to disable this check for caretBrowsing
     if (oldFocusedNode && oldFocusedNode->rootEditableElement() == oldFocusedNode && !relinquishesEditingFocus(oldFocusedNode))
         return false;
-        
+
+    m_page->editorClient()->willSetInputMethodState();
+
     clearSelectionIfNeeded(oldFocusedFrame.get(), newFocusedFrame.get(), node);
-    
+
     if (!node) {
         if (oldDocument)
             oldDocument->setFocusedNode(0);
@@ -559,8 +394,11 @@ bool FocusController::setFocusedNode(Node* node, PassRefPtr<Frame> newFocusedFra
 
     // Setting the focused node can result in losing our last reft to node when JS event handlers fire.
     RefPtr<Node> protect = node;
-    if (newDocument)
-        newDocument->setFocusedNode(node);
+    if (newDocument) {
+        bool successfullyFocused = newDocument->setFocusedNode(node);
+        if (!successfullyFocused)
+            return false;
+    }
 
     if (newDocument->focusedNode() == node)
         m_page->editorClient()->setInputMethodState(node->shouldUseInputMethod());
@@ -577,8 +415,18 @@ void FocusController::setActive(bool active)
 
     if (FrameView* view = m_page->mainFrame()->view()) {
         if (!view->platformWidget()) {
-            view->layoutIfNeededRecursive();
+            view->updateLayoutAndStyleIfNeededRecursive();
             view->updateControlTints();
+        }
+
+        if (const HashSet<ScrollableArea*>* scrollableAreas = m_page->scrollableAreaSet()) {
+            HashSet<ScrollableArea*>::const_iterator end = scrollableAreas->end(); 
+            for (HashSet<ScrollableArea*>::const_iterator it = scrollableAreas->begin(); it != end; ++it) {
+                if (!active)
+                    (*it)->scrollAnimator()->contentAreaDidHide();
+                else
+                    (*it)->scrollAnimator()->contentAreaDidShow();
+            }
         }
     }
 
@@ -586,6 +434,195 @@ void FocusController::setActive(bool active)
     
     if (m_focusedFrame && isFocused())
         dispatchEventsOnWindowAndFocusedNode(m_focusedFrame->document(), active);
+}
+
+static void updateFocusCandidateIfNeeded(FocusDirection direction, const FocusCandidate& current, FocusCandidate& candidate, FocusCandidate& closest)
+{
+    ASSERT(candidate.visibleNode->isElementNode());
+    ASSERT(candidate.visibleNode->renderer());
+
+    // Ignore iframes that don't have a src attribute
+    if (frameOwnerElement(candidate) && (!frameOwnerElement(candidate)->contentFrame() || candidate.rect.isEmpty()))
+        return;
+
+    // Ignore off screen child nodes of containers that do not scroll (overflow:hidden)
+    if (candidate.isOffscreen && !canBeScrolledIntoView(direction, candidate))
+        return;
+
+    distanceDataForNode(direction, current, candidate);
+    if (candidate.distance == maxDistance())
+        return;
+
+    if (candidate.isOffscreenAfterScrolling && candidate.alignment < Full)
+        return;
+
+    if (closest.isNull()) {
+        closest = candidate;
+        return;
+    }
+
+    IntRect intersectionRect = intersection(candidate.rect, closest.rect);
+    if (!intersectionRect.isEmpty() && !areElementsOnSameLine(closest, candidate)) {
+        // If 2 nodes are intersecting, do hit test to find which node in on top.
+        int x = intersectionRect.x() + intersectionRect.width() / 2;
+        int y = intersectionRect.y() + intersectionRect.height() / 2;
+        HitTestResult result = candidate.visibleNode->document()->page()->mainFrame()->eventHandler()->hitTestResultAtPoint(IntPoint(x, y), false, true);
+        if (candidate.visibleNode->contains(result.innerNode())) {
+            closest = candidate;
+            return;
+        }
+        if (closest.visibleNode->contains(result.innerNode()))
+            return;
+    }
+
+    if (candidate.alignment == closest.alignment) {
+        if (candidate.distance < closest.distance)
+            closest = candidate;
+        return;
+    }
+
+    if (candidate.alignment > closest.alignment)
+        closest = candidate;
+}
+
+void FocusController::findFocusCandidateInContainer(Node* container, const IntRect& startingRect, FocusDirection direction, KeyboardEvent* event, FocusCandidate& closest)
+{
+    ASSERT(container);
+    Node* focusedNode = (focusedFrame() && focusedFrame()->document()) ? focusedFrame()->document()->focusedNode() : 0;
+
+    Node* node = container->firstChild();
+    FocusCandidate current;
+    current.rect = startingRect;
+    current.focusableNode = focusedNode;
+    current.visibleNode = focusedNode;
+
+    for (; node; node = (node->isFrameOwnerElement() || canScrollInDirection(node, direction)) ? node->traverseNextSibling(container) : node->traverseNextNode(container)) {
+        if (node == focusedNode)
+            continue;
+
+        if (!node->isElementNode())
+            continue;
+
+        if (!node->isKeyboardFocusable(event) && !node->isFrameOwnerElement() && !canScrollInDirection(node, direction))
+            continue;
+
+        FocusCandidate candidate = FocusCandidate(node, direction);
+        if (candidate.isNull())
+            continue;
+
+        candidate.enclosingScrollableBox = container;
+        updateFocusCandidateIfNeeded(direction, current, candidate, closest);
+    }
+}
+
+bool FocusController::advanceFocusDirectionallyInContainer(Node* container, const IntRect& startingRect, FocusDirection direction, KeyboardEvent* event)
+{
+    if (!container || !container->document())
+        return false;
+
+    IntRect newStartingRect = startingRect;
+
+    if (startingRect.isEmpty())
+        newStartingRect = virtualRectForDirection(direction, nodeRectInAbsoluteCoordinates(container));
+
+    // Find the closest node within current container in the direction of the navigation.
+    FocusCandidate focusCandidate;
+    findFocusCandidateInContainer(container, newStartingRect, direction, event, focusCandidate);
+
+    if (focusCandidate.isNull()) {
+        // Nothing to focus, scroll if possible.
+        // NOTE: If no scrolling is performed (i.e. scrollInDirection returns false), the
+        // spatial navigation algorithm will skip this container.
+        return scrollInDirection(container, direction);
+    }
+
+    if (HTMLFrameOwnerElement* frameElement = frameOwnerElement(focusCandidate)) {
+        // If we have an iframe without the src attribute, it will not have a contentFrame().
+        // We ASSERT here to make sure that
+        // updateFocusCandidateIfNeeded() will never consider such an iframe as a candidate.
+        ASSERT(frameElement->contentFrame());
+
+        if (focusCandidate.isOffscreenAfterScrolling) {
+            scrollInDirection(focusCandidate.visibleNode->document(), direction);
+            return true;
+        }
+        // Navigate into a new frame.
+        IntRect rect;
+        Node* focusedNode = focusedOrMainFrame()->document()->focusedNode();
+        if (focusedNode && !hasOffscreenRect(focusedNode))
+            rect = nodeRectInAbsoluteCoordinates(focusedNode, true /* ignore border */);
+        frameElement->contentFrame()->document()->updateLayoutIgnorePendingStylesheets();
+        if (!advanceFocusDirectionallyInContainer(frameElement->contentFrame()->document(), rect, direction, event)) {
+            // The new frame had nothing interesting, need to find another candidate.
+            return advanceFocusDirectionallyInContainer(container, nodeRectInAbsoluteCoordinates(focusCandidate.visibleNode, true), direction, event);
+        }
+        return true;
+    }
+
+    if (canScrollInDirection(focusCandidate.visibleNode, direction)) {
+        if (focusCandidate.isOffscreenAfterScrolling) {
+            scrollInDirection(focusCandidate.visibleNode, direction);
+            return true;
+        }
+        // Navigate into a new scrollable container.
+        IntRect startingRect;
+        Node* focusedNode = focusedOrMainFrame()->document()->focusedNode();
+        if (focusedNode && !hasOffscreenRect(focusedNode))
+            startingRect = nodeRectInAbsoluteCoordinates(focusedNode, true);
+        return advanceFocusDirectionallyInContainer(focusCandidate.visibleNode, startingRect, direction, event);
+    }
+    if (focusCandidate.isOffscreenAfterScrolling) {
+        Node* container = focusCandidate.enclosingScrollableBox;
+        scrollInDirection(container, direction);
+        return true;
+    }
+
+    // We found a new focus node, navigate to it.
+    Element* element = toElement(focusCandidate.focusableNode);
+    ASSERT(element);
+
+    element->focus(false);
+    return true;
+}
+
+bool FocusController::advanceFocusDirectionally(FocusDirection direction, KeyboardEvent* event)
+{
+    Frame* curFrame = focusedOrMainFrame();
+    ASSERT(curFrame);
+
+    Document* focusedDocument = curFrame->document();
+    if (!focusedDocument)
+        return false;
+
+    Node* focusedNode = focusedDocument->focusedNode();
+    Node* container = focusedDocument;
+
+    if (container->isDocumentNode())
+        static_cast<Document*>(container)->updateLayoutIgnorePendingStylesheets();
+        
+    // Figure out the starting rect.
+    IntRect startingRect;
+    if (focusedNode) {
+        if (!hasOffscreenRect(focusedNode)) {
+            container = scrollableEnclosingBoxOrParentFrameForNodeInDirection(direction, focusedNode);
+            startingRect = nodeRectInAbsoluteCoordinates(focusedNode, true /* ignore border */);
+        } else if (focusedNode->hasTagName(areaTag)) {
+            HTMLAreaElement* area = static_cast<HTMLAreaElement*>(focusedNode);
+            container = scrollableEnclosingBoxOrParentFrameForNodeInDirection(direction, area->imageElement());
+            startingRect = virtualRectForAreaElementAndDirection(area, direction);
+        }
+    }
+
+    bool consumed = false;
+    do {
+        consumed = advanceFocusDirectionallyInContainer(container, startingRect, direction, event);
+        startingRect = nodeRectInAbsoluteCoordinates(container, true /* ignore border */);
+        container = scrollableEnclosingBoxOrParentFrameForNodeInDirection(direction, container);
+        if (container && container->isDocumentNode())
+            static_cast<Document*>(container)->updateLayoutIgnorePendingStylesheets();
+    } while (!consumed && container);
+
+    return consumed;
 }
 
 } // namespace WebCore

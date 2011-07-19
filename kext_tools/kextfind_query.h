@@ -66,6 +66,8 @@
 #define kPredNameHasDebugProperties      "-debug"
 #define kPredNameIsKernelResource        "-kernel-resource"
 
+#define kPredNameDuplicate               "-duplicate-id"
+
 // Flag Shorthands; I may dump these as they are all just logical
 // negations of shorter predicates.
 #define kPredNameInvalid                 "-invalid"
@@ -161,6 +163,8 @@
 #define kPredCharAuthentic               "-a"
 #define kPredCharDependenciesMet         "-d"
 #define kPredCharLoadable                "-l"
+
+#define kPredCharDuplicate               "-dup"
 
 #define kPredCharInvalid                 "-nv"
 #define kPredCharInauthentic             "-na"
@@ -438,4 +442,4 @@ Boolean evalExec(
     void * user_data,
     QEQueryError * error);
 
-#endif /* _KEXTFIND_QUERY_H_ */
+#endif

@@ -56,7 +56,8 @@ enum
     kHIDUsage_AppleVendor_Keyboard              = 0x0006, /* Application Collection */
     kHIDUsage_AppleVendor_Headset               = 0x0007, /* Application Collection */
     kHIDUsage_AppleVendor_ProximitySensor	    = 0x0008, /* Application Collection */
-	kHIDUsage_AppleVendor_Gyro				= 0x0009  /* Application Collection */
+	kHIDUsage_AppleVendor_Gyro                  = 0x0009,  /* Application Collection */
+	kHIDUsage_AppleVendor_Compass               = 0x000A  /* Application Collection */
 };
 
 
@@ -66,6 +67,7 @@ enum
     kHIDUsage_AppleVendorKeyboard_Spotlight             = 0x0001,
     kHIDUsage_AppleVendorKeyboard_Dashboard             = 0x0002,
     kHIDUsage_AppleVendorKeyboard_Function              = 0x0003,
+    kHIDUsage_AppleVendorKeyboard_Launchpad             = 0x0004,
     kHIDUsage_AppleVendorKeyboard_Reserved              = 0x000a,
     kHIDUsage_AppleVendorKeyboard_CapsLockDelayEnable   = 0x000b,
     kHIDUsage_AppleVendorKeyboard_PowerState            = 0x000c,
@@ -91,6 +93,7 @@ enum
     kHIDUsage_AV_TopCase_IlluminationToggle    = 0x0007,
     kHIDUsage_AV_TopCase_IlluminationUp        = 0x0008,
     kHIDUsage_AV_TopCase_IlluminationDown      = 0x0009,
+    kHIDUsage_AV_TopCase_ClamshellLatched      = 0x000a,
     kHIDUsage_AV_TopCase_Reserved_MouseData    = 0x00c0
 };
 

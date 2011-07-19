@@ -24,11 +24,15 @@
 
 int PyObjC_VerboseLevel = 0;
 int PyObjC_HideProtected = 1;
+BOOL PyObjC_useKVO = YES;
+BOOL PyObjC_nativeProperties = NO;
 
 PyObject* PyObjCClass_DefaultModule = NULL;
 PyObject* PyObjC_NSNumberWrapper = NULL;
+#if PY_MAJOR_VERSION == 2
 PyObject* PyObjCStrBridgeWarning = NULL;
 int PyObjC_StrBridgeEnabled = 1;
+#endif
 
 
 PyObject* PyObjC_TypeStr2CFTypeID = NULL;
@@ -36,6 +40,12 @@ PyObject* PyObjC_TypeStr2CFTypeID = NULL;
 static NSAutoreleasePool* global_release_pool = nil;
 
 @interface OC_NSAutoreleasePoolCollector: NSObject
+  /* 
+   * This class is used to automaticly reset the
+   * global pool when an outer autorelease pool is
+   * recycled. This avoids problems when a python
+   * plugin is loaded in an Objective-C program.
+   */
 {}
 +(void)newAutoreleasePool;
 +(void)targetForBecomingMultiThreaded:(id)sender;
@@ -73,7 +83,7 @@ PyObject *kwds)
 {
 	static char* keywords[] = { "obj", NULL };
 	PyObject *o;
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:pyobjc_id",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O",
 		keywords, &o)) {
 		return NULL;
 	}
@@ -103,7 +113,8 @@ PyObject *kwds)
 	void *datum;
 	Py_ssize_t size;
 	PyObject *o;
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|s:repythonify",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				"O|"Py_ARG_BYTES,
 		keywords, &o, &type)) {
 		return NULL;
 	}
@@ -125,7 +136,7 @@ PyObject *kwds)
 	return rval;
 }
 
-
+#if PY_MAJOR_VERSION == 2
 PyDoc_STRVAR(setStrBridgeEnabled_doc,
   "setStrBridgeEnabled(bool)\n"
   "\n"
@@ -164,7 +175,7 @@ getStrBridgeEnabled(PyObject* self __attribute__((__unused__)), PyObject* args, 
 
 	return PyBool_FromLong(PyObjC_StrBridgeEnabled);
 }
-
+#endif /* !Py3k */
 
 PyDoc_STRVAR(lookUpClass_doc,
   "lookUpClass(class_name) -> class\n"
@@ -209,16 +220,6 @@ classAddMethods(PyObject* self __attribute__((__unused__)),
 	static 	char* kwlist[] = { "targetClass", "methodsArray", NULL };
 	PyObject* classObject = NULL;
 	PyObject* methodsArray = NULL;
-	Class targetClass;
-	Py_ssize_t methodCount;
-	Py_ssize_t methodIndex;
-	int r;
-	struct PyObjC_method *methodsToAdd;
-	size_t curMethodIndex;
-	struct PyObjC_method *classMethodsToAdd;
-	size_t curClassMethodIndex;
-	PyObject* extraDict = NULL;
-	PyObject* metaDict = NULL;
 
 	if (!PyArg_ParseTupleAndKeywords(args, keywds, 
 			"OO:classAddMethods", kwlist,
@@ -235,133 +236,19 @@ classAddMethods(PyObject* self __attribute__((__unused__)),
 			methodsArray, "methodsArray must be a sequence");
 	if (methodsArray == NULL) return NULL;
 	
-	targetClass  = PyObjCClass_GetClass(classObject);
-	methodCount  = PySequence_Fast_GET_SIZE(methodsArray);
+	int r = PyObjCClass_AddMethods(classObject, 
+			PySequence_Fast_ITEMS(methodsArray),
+			PySequence_Fast_GET_SIZE(methodsArray));
+	Py_DECREF(methodsArray);
 
-	if (methodCount == 0) {
-		Py_INCREF(Py_None);
-		return Py_None;
-	}
-	
-	extraDict = PyDict_New();
-	if (extraDict == NULL) {
+	if (r == -1) {
 		return NULL;
 	}
-
-	metaDict = PyDict_New();
-	if (metaDict == NULL) {
-		Py_DECREF(extraDict);
-		return NULL;
-	}
-
-	methodsToAdd = PyMem_Malloc(sizeof(*methodsToAdd) * methodCount);
-	if (methodsToAdd == NULL) {
-		Py_DECREF(extraDict);
-		Py_DECREF(metaDict);
-		PyErr_NoMemory();
-		return NULL;
-	}
-
-	classMethodsToAdd = PyMem_Malloc(sizeof(*methodsToAdd) * methodCount);
-	if (classMethodsToAdd == NULL) {
-		Py_DECREF(extraDict);
-		Py_DECREF(metaDict);
-		PyMem_Free(methodsToAdd);
-		PyErr_NoMemory();
-		return NULL;
-	}
-		
-	curMethodIndex = 0;
-	curClassMethodIndex = 0;
-
-	for (methodIndex = 0; methodIndex < methodCount; methodIndex++) {
-		PyObject* aMethod = PySequence_Fast_GET_ITEM(
-				methodsArray, methodIndex);
-		PyObject* name;
-		struct PyObjC_method *objcMethod;
-
-		if (PyObjCNativeSelector_Check(aMethod)) {
-			PyErr_Format(PyExc_TypeError,
-				"Cannot add a native selector to other "
-				"classes");
-			goto cleanup_and_return_error;
-		}
-
-		aMethod = PyObjCSelector_FromFunction(
-			NULL,
-			aMethod,
-			classObject,
-			NULL);
-		if (aMethod == NULL) {
-			PyErr_Format(PyExc_TypeError ,
-			      "All objects in methodArray must be of "
-			      "type <objc.selector>, <function>, "
-			      " <method> or <classmethod>");
-			goto cleanup_and_return_error;
-		}
-
-		/* install in methods to add */
-		if (PyObjCSelector_IsClassMethod(aMethod)) {
-			objcMethod = classMethodsToAdd + curClassMethodIndex++;
-		} else {
-			objcMethod = methodsToAdd + curMethodIndex++;
-		}
-		
-		objcMethod->name = PyObjCSelector_GetSelector(aMethod);
-		objcMethod->type = strdup(
-				PyObjCSelector_Signature(aMethod));
-
-		PyObjC_RemoveInternalTypeCodes((char*)(objcMethod->type));
-		if (objcMethod->type == NULL) {
-			goto cleanup_and_return_error;
-		}
-		objcMethod->imp = PyObjCFFI_MakeIMPForPyObjCSelector(
-			(PyObjCSelector*)aMethod);
-		
-		name = PyObject_GetAttrString(aMethod, "__name__");
-
-		if (PyObjCSelector_IsClassMethod(aMethod)) {
-			r = PyDict_SetItem(metaDict, name, aMethod);
-		} else {
-			r = PyDict_SetItem(extraDict, name, aMethod);
-		}
-		Py_DECREF(name); name = NULL;
-		Py_DECREF(aMethod); aMethod = NULL;
-		if (r == -1) {
-			goto cleanup_and_return_error;
-		}
-	}
-
-	/* add the methods */
-	if (curMethodIndex != 0) {
-		class_addMethodList(targetClass, methodsToAdd, curMethodIndex);
-	}
-	PyMem_Free(methodsToAdd);
-	if (curClassMethodIndex != 0) {
-		class_addMethodList(object_getClass(targetClass),
-				classMethodsToAdd, curClassMethodIndex);
-	}
-	PyMem_Free(classMethodsToAdd);
-
-	r = PyDict_Merge(((PyTypeObject*)classObject)->tp_dict, extraDict, 1);
-	if (r == -1) goto cleanup_and_return_error;
-
-	r = PyDict_Merge(classObject->ob_type->tp_dict, metaDict, 1);
-	if (r == -1) goto cleanup_and_return_error;
-
-	Py_DECREF(extraDict); extraDict = NULL;
-	Py_DECREF(metaDict); metaDict = NULL;
 
 	Py_INCREF(Py_None);
 	return Py_None;
-
-cleanup_and_return_error:
-	Py_XDECREF(metaDict);
-	Py_XDECREF(extraDict);
-	if (methodsToAdd) PyMem_Free(methodsToAdd);
-	if (classMethodsToAdd) PyMem_Free(classMethodsToAdd);
-	return NULL;
 }
+
 
 
 PyDoc_STRVAR(remove_autorelease_pool_doc,
@@ -406,14 +293,17 @@ recycle_autorelease_pool(PyObject* self __attribute__((__unused__)),
 		return NULL;
 	}
 
-	PyObjC_DURING
-		[global_release_pool release];
-		[OC_NSAutoreleasePoolCollector newAutoreleasePool];
-	PyObjC_HANDLER
-		PyObjCErr_FromObjC(localException);
-	PyObjC_ENDHANDLER
+	if (global_release_pool != NULL) {
 
-	if (PyErr_Occurred()) return NULL;
+		PyObjC_DURING
+			[global_release_pool release];
+			[OC_NSAutoreleasePoolCollector newAutoreleasePool];
+		PyObjC_HANDLER
+			PyObjCErr_FromObjC(localException);
+		PyObjC_ENDHANDLER
+
+		if (PyErr_Occurred()) return NULL;
+	}
 
 	Py_INCREF(Py_None);
 	return Py_None;
@@ -568,7 +458,7 @@ setHideProtected(PyObject* self __attribute__((__unused__)), PyObject* args, PyO
 static 	char* keywords[] = { "flag", NULL };
 	PyObject* o;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O:setVerbose",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O",
 			keywords, &o)) {
 		return NULL;
 	}
@@ -600,6 +490,28 @@ static 	char* keywords[] = { "level", NULL };
 
 	Py_INCREF(Py_None);
 	return Py_None;
+}
+
+PyDoc_STRVAR(setUseKVOForSetattr_doc,
+	"setUseKVOForSetattr(bool) -> bool\n"
+	"\n"
+	"Specify the default value for __useKVO__ on classes defined "
+	"after this call. Returns the previous value."
+);
+static PyObject* 
+setUseKVOForSetattr(PyObject* self __attribute__((__unused__)), PyObject* args, PyObject* kwds)
+{
+static 	char* keywords[] = { "value", NULL };
+	PyObject* o;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", keywords, &o)) {
+		return NULL;
+	}
+
+	PyObject* result = PyBool_FromLong(PyObjC_useKVO);
+	PyObjC_useKVO = PyObject_IsTrue(o);
+
+	return result;
 }
 
 PyDoc_STRVAR(getVerbose_doc,
@@ -644,7 +556,11 @@ allocateBuffer(PyObject* self __attribute__((__unused__)), PyObject* args, PyObj
 		return NULL;
 	}
 
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 6
 	return PyBuffer_New(length);
+#else
+	return PyByteArray_FromStringAndSize(NULL, length);
+#endif
 }
 
 PyDoc_STRVAR(currentBundle_doc,
@@ -698,7 +614,11 @@ static	Py_ssize_t	curClassCount = -1;
 	PyObject* scanClasses = NULL;
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
-			"SO|O&O&O:loadBundle",
+#if PY_MAJOR_VERSION == 2
+			"SO|O&O&O",
+#else
+			"UO|O&O&O",
+#endif
 			keywords, &module_name, &module_globals,
 			PyObjCObject_Convert, &bundle_path, PyObjCObject_Convert, &bundle_identifier, &scanClasses)) {
 		return NULL;
@@ -815,7 +735,7 @@ static  char* keywords[] = { "signature", NULL };
 	PyObject* tuple;
 
 	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
-			"s:splitSignature",
+			Py_ARG_BYTES,
 			keywords, &signature)) {
 		return NULL;
 	}
@@ -839,7 +759,7 @@ static  char* keywords[] = { "signature", NULL };
 		}
 		t ++;
 
-		str = PyString_FromStringAndSize(signature, t - signature);
+		str = PyBytes_FromStringAndSize(signature, t - signature);
 		if (str == NULL) {
 			Py_DECREF(result);
 			return NULL;
@@ -900,7 +820,7 @@ static  char* keywords[] = { "signature", NULL };
 		}
 		t ++;
 
-		str = PyString_FromStringAndSize(signature, t - signature);
+		str = PyText_FromStringAndSize(signature, t - signature);
 		if (str == NULL) {
 			Py_DECREF(result);
 			return NULL;
@@ -1101,7 +1021,9 @@ static char* keywords[] = { "name", "typestr", "doc", NULL };
 	char* typestr;
 	char* docstr = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ss|s", keywords, 
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				"s"Py_ARG_BYTES"|s", 
+				keywords, 
 				&name, &typestr, &docstr)) {
 		return NULL;
 	}
@@ -1137,6 +1059,35 @@ static char* keywords[] = { "class", "selector", "metadata", NULL };
 	}
 }
 
+PyDoc_STRVAR(registerStructAlias_doc,
+	"registerStructAlias(typestr, structType)\n"
+	"\n"
+	"Registers 'typestr' as a type that should be mapped onto 'structType'\n"
+	"'structType' must be created using 'createStructType' (or through \n"
+	"a metadata file."
+);
+static PyObject*
+registerStructAlias(PyObject* self __attribute__((__unused__)),
+		                PyObject* args, PyObject* kwds)
+{
+	static char* keywords[] = { "typestr", "structType", NULL };
+	char* typestr;
+	PyObject* structType;
+
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				Py_ARG_BYTES "O",
+				keywords, &typestr, &structType)) {
+		return NULL;
+	}
+
+	if (PyObjC_RegisterStructAlias(typestr, structType) == -1) {
+		return NULL;
+	}
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
+
 PyDoc_STRVAR(createStructType_doc,
 	"createStructType(name, typestr, fieldnames, doc) -> type\n"
 	"\n"
@@ -1158,7 +1109,9 @@ static char* keywords[] = { "name", "typestr", "fieldnames", "doc", NULL };
 	Py_ssize_t i;
 	Py_ssize_t field_count;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ssO|s", keywords, 
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				"s"Py_ARG_BYTES"O|s", 
+				keywords, 
 				&name, &typestr, &pyfieldnames, &docstr)) {
 		return NULL;
 	}
@@ -1188,12 +1141,22 @@ static char* keywords[] = { "name", "typestr", "fieldnames", "doc", NULL };
 				sizeof(char*) * PySequence_Fast_GET_SIZE(pyfieldnames));
 		for (i = 0; i < PySequence_Fast_GET_SIZE(pyfieldnames); i++) {
 			PyObject* v = PySequence_Fast_GET_ITEM(pyfieldnames, i);
-			if (!PyString_Check(v)) {
+			if (PyUnicode_Check(v)) {
+				PyObject* bytes = PyUnicode_AsEncodedString(v, NULL, NULL);
+				if (bytes == NULL) {
+					goto error_cleanup;
+				}
+				fieldnames[i] = PyObjCUtil_Strdup(PyBytes_AsString(bytes));
+				Py_DECREF(bytes);
+#if PY_MAJOR_VERSION == 2
+			} else if (PyString_Check(v)) {
+				fieldnames[i] = PyObjCUtil_Strdup(PyString_AS_STRING(v));
+#endif
+			} else {
 				PyErr_SetString(PyExc_TypeError,
 					"fieldnames must be a sequence of strings");
 				goto error_cleanup;
 			}
-			fieldnames[i] = PyObjCUtil_Strdup(PyString_AS_STRING(v));
 			if (fieldnames[i] == NULL) {
 				PyErr_NoMemory();
 				goto error_cleanup;
@@ -1267,7 +1230,8 @@ registerCFSignature(PyObject* self __attribute__((__unused__)),
 	CFTypeID typeId;
 	char* tollfreeName = NULL;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "ssO|s:pyobjc_id",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+		"s"Py_ARG_BYTES"O|s",
 		keywords, &name, &encoding, &pTypeId, &tollfreeName)) {
 		return NULL;
 	}
@@ -1432,10 +1396,17 @@ PyDoc_STRVAR(_makeClosure_doc,
   "Returns a closure object that can be used to call the function from\n"
   "C. This object has no useable interface from Python.\n"
  );
-static void _callback_cleanup(void* closure, void* unused __attribute__((__unused__)))
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
+static void _callback_cleanup(void* closure)
 {
 	PyObjCFFI_FreeIMP((IMP)closure);
 }
+#else
+static void _callback_cleanup(PyObject* closure)
+{
+	PyObjCFFI_FreeIMP((IMP)PyCapsule_GetPointer(closure, "objc.__imp__"));
+}
+#endif
 
 static PyObject*
 _makeClosure(
@@ -1476,12 +1447,13 @@ static  char* keywords[] = { "callable", "closureFor", "argIndex", NULL };
 		}
 
 	} else {
-		PyErr_Format(PyExc_TypeError, "Don't know how to create closure for instance of %s", closureFor->ob_type->tp_name);
+		PyErr_Format(PyExc_TypeError, "Don't know how to create closure for instance of %s", 
+				Py_TYPE(closureFor)->tp_name);
 		return NULL;
 	}
 
 	if (argIndex == -1) {
-		for (i = 0; i < methinfo->ob_size; i++) {
+		for (i = 0; i < Py_SIZE(methinfo); i++) {
 			if (methinfo->argtype[i].callable != NULL) {
 				argIndex = i;
 				break;
@@ -1494,7 +1466,7 @@ static  char* keywords[] = { "callable", "closureFor", "argIndex", NULL };
 		}
 
 	} else {
-		if (argIndex < 0 || argIndex >= methinfo->ob_size) {
+		if (argIndex < 0 || argIndex >= Py_SIZE(methinfo)) {
 			PyErr_SetString(PyExc_IndexError,
 				"No such argument");
 			return NULL;
@@ -1514,10 +1486,10 @@ static  char* keywords[] = { "callable", "closureFor", "argIndex", NULL };
 		return NULL;
 	}
 
-	PyObject* retval = PyCObject_FromVoidPtrAndDesc(
-		result, &PyObjCMethodSignature_Type, _callback_cleanup);
+	PyObject* retval = PyCapsule_New(
+		result, "objc.__imp__", _callback_cleanup);
 	if (retval == NULL) {
-		_callback_cleanup(result, NULL);
+		PyObjCFFI_FreeIMP((IMP)result);
 		return NULL;
 	}
 
@@ -1543,8 +1515,176 @@ PyObjC_AdjustSelf(PyObject* object)
 	return object;
 }
 
+static PyObject*
+mod_propertiesForClass(PyObject* mod __attribute__((__unused__)), PyObject* object)
+{
+	return PyObjCClass_ListProperties(object);
+}
+
+static PyObject* 
+mod_setClassSetupHook(PyObject* mod __attribute__((__unused__)), PyObject* hook)
+{
+	PyObject* curval = PyObjC_class_setup_hook;
+
+	PyObjC_class_setup_hook = hook;
+	Py_INCREF(hook);
+
+	return curval;
+}
+
+/* 
+ * Helper function for decoding XML metadata:
+ *
+ * This fixes an issue with metadata files: metadata files use
+ * _C_BOOL to represent type 'BOOL', but that the string should
+ * be used to represent 'bool' which has a different size on
+ * PPC. Therefore swap usage of _C_BOOL and _C_NSBOOL in data
+ * from metadata files.
+ */
+static void typecode2typecode(char* buf)
+{
+	/* Skip pointer declarations and anotations */
+	for (;;) {
+		switch(*buf) {
+		case _C_PTR:
+		case _C_IN:
+		case _C_OUT:
+		case _C_INOUT:
+		case _C_ONEWAY:
+		case _C_CONST:
+			buf++;
+			break;
+		default:
+		      goto exit;
+		}
+	}
+exit:
+
+	switch (*buf) {
+	case _C_BOOL:
+		*buf = _C_NSBOOL;
+		break;
+	case _C_NSBOOL:
+		*buf = _C_BOOL;
+		break;
+        case _C_STRUCT_B:
+		while (buf && *buf != _C_STRUCT_E && *buf && *buf++ != '=') {
+		}
+		while (buf && *buf && *buf != _C_STRUCT_E) {
+			if (*buf == '"') {
+				/* embedded field name */
+				buf = strchr(buf+1, '"');
+				if (buf == NULL) {
+					return;
+				}
+				buf++;
+			}
+			typecode2typecode(buf);
+			buf = (char*)PyObjCRT_SkipTypeSpec(buf);
+		}
+		break;
+	
+	case _C_UNION_B:
+		while (buf && *buf != _C_UNION_E && *buf && *buf++ != '=') {
+		}
+		while (buf && *buf && *buf != _C_UNION_E) {
+			if (*buf == '"') {
+				/* embedded field name */
+				buf = strchr(buf+1, '"');
+				if (buf == NULL) {
+					return;
+				}
+				buf++;
+			}
+			typecode2typecode(buf);
+			buf = (char*)PyObjCRT_SkipTypeSpec(buf);
+		}
+		break;
+
+
+	case _C_ARY_B:
+		while (isdigit(*++buf));
+		typecode2typecode(buf);
+		break;
+	}
+}
+
+
+
+static PyObject*
+typestr2typestr(PyObject* args)
+{
+	char* s;
+	char* buf;
+
+	if (PyUnicode_Check(args)) {
+		PyObject* bytes = PyUnicode_AsEncodedString(args, NULL, NULL);
+		if (bytes == NULL) {
+			return NULL;
+		}
+		buf = PyObjCUtil_Strdup(PyBytes_AsString(args));
+		Py_DECREF(bytes);
+
+	} else if (PyBytes_Check(args)) {
+		buf = PyObjCUtil_Strdup(PyBytes_AsString(args));
+	} else {
+		PyErr_SetString(PyExc_TypeError, "expecing string");
+		return NULL;
+	}
+
+	
+	if (buf == NULL) {
+		PyErr_NoMemory();
+		return NULL;
+	}
+
+	s = buf;
+	while (s && *s) {
+		typecode2typecode(s);
+		if (s && *s == '\"') {
+			PyErr_Format(PyObjCExc_InternalError,
+				"typecode2typecode: invalid typecode '%c' "
+				"at \"%s\"", *s, s);
+			*s = '\0';
+			PyMem_Free(buf);
+			return NULL;
+
+		} else {
+			s = (char*)PyObjCRT_SkipTypeSpec(s);
+		}
+	}
+
+	PyObject* result = PyBytes_FromString(buf);
+	PyMem_Free(buf);
+
+	return result;
+}
+
+
+
+static PyObject*
+_clear_intern(PyObject* self __attribute__((__unused__)))
+{
+	PyObjC_ClearIntern();
+	Py_INCREF(Py_None);
+	return Py_None;
+}
+
 
 static PyMethodDef mod_methods[] = {
+	{
+		"_setClassSetUpHook",
+		(PyCFunction)mod_setClassSetupHook,
+		METH_O,
+		"Private: set hook used during subclass creation",
+	},
+
+	{
+		"propertiesForClass",
+	  	(PyCFunction)mod_propertiesForClass,
+		METH_O,
+		"Return information about properties from the runtim",
+	},
 	{
 	  "splitSignature",
 	  (PyCFunction)objc_splitSignature,
@@ -1552,7 +1692,7 @@ static PyMethodDef mod_methods[] = {
 	  objc_splitSignature_doc
 	},
 	{
-	  "_splitStruct",
+	  "splitStruct",
 	  (PyCFunction)objc_splitStruct,
 	  METH_VARARGS|METH_KEYWORDS,
 	  objc_splitStruct_doc,
@@ -1571,19 +1711,22 @@ static PyMethodDef mod_methods[] = {
 	},
 	{ "currentBundle", (PyCFunction)currentBundle, METH_NOARGS, currentBundle_doc },
 	{ "getClassList", (PyCFunction)getClassList, METH_NOARGS, getClassList_doc },
-	{ "setClassExtender", (PyCFunction)set_class_extender, METH_VARARGS|METH_KEYWORDS, set_class_extender_doc  },
+	{ "_setClassExtender", (PyCFunction)set_class_extender, METH_VARARGS|METH_KEYWORDS, set_class_extender_doc  },
 	{ "setSignatureForSelector", (PyCFunction)set_signature_for_selector, METH_VARARGS|METH_KEYWORDS, set_signature_for_selector_doc },
 	{ "recycleAutoreleasePool", (PyCFunction)recycle_autorelease_pool, METH_VARARGS|METH_KEYWORDS, recycle_autorelease_pool_doc },
 	{ "removeAutoreleasePool", (PyCFunction)remove_autorelease_pool, METH_VARARGS|METH_KEYWORDS, remove_autorelease_pool_doc },
 	{ "_setNSNumberWrapper", (PyCFunction)setNSNumberWrapper, METH_VARARGS|METH_KEYWORDS, setNSNumberWrapper_doc },
 	{ "_getNSNumberWrapper", (PyCFunction)getNSNumberWrapper, METH_VARARGS|METH_KEYWORDS, getNSNumberWrapper_doc },
 	{ "setVerbose", (PyCFunction)setVerbose, METH_VARARGS|METH_KEYWORDS, setVerbose_doc },
+	{ "setUseKVOForSetattr", (PyCFunction)setUseKVOForSetattr, METH_VARARGS|METH_KEYWORDS, setUseKVOForSetattr_doc },
 	{ "setHideProtected", (PyCFunction)setHideProtected, METH_VARARGS|METH_KEYWORDS, setHideProtected_doc },
 	{ "getVerbose", (PyCFunction)getVerbose, METH_VARARGS|METH_KEYWORDS, getVerbose_doc },
 	{ "pyobjc_id", (PyCFunction)pyobjc_id, METH_VARARGS|METH_KEYWORDS, pyobjc_id_doc },
 	{ "repythonify", (PyCFunction)repythonify, METH_VARARGS|METH_KEYWORDS, repythonify_doc },
+#if PY_MAJOR_VERSION == 2
 	{ "setStrBridgeEnabled", (PyCFunction)setStrBridgeEnabled, METH_VARARGS|METH_KEYWORDS, setStrBridgeEnabled_doc },
 	{ "getStrBridgeEnabled", (PyCFunction)getStrBridgeEnabled, METH_VARARGS|METH_KEYWORDS, getStrBridgeEnabled_doc },
+#endif
 	{ "loadBundle", (PyCFunction)loadBundle, METH_VARARGS|METH_KEYWORDS, loadBundle_doc },
 	{ "allocateBuffer", (PyCFunction)allocateBuffer, METH_VARARGS|METH_KEYWORDS, allocateBuffer_doc },
 	{ "protocolsForClass", (PyCFunction)protocolsForClass, METH_VARARGS|METH_KEYWORDS, protocolsForClass_doc },
@@ -1609,6 +1752,8 @@ static PyMethodDef mod_methods[] = {
 		METH_VARARGS|METH_KEYWORDS, createOpaquePointerType_doc },
 	{ "createStructType", (PyCFunction)createStructType,
 		METH_VARARGS|METH_KEYWORDS, createStructType_doc },
+	{ "registerStructAlias", (PyCFunction)registerStructAlias,
+		METH_VARARGS|METH_KEYWORDS, registerStructAlias_doc },
 	{ "registerMetaDataForSelector", (PyCFunction)registerMetaData,
 		METH_VARARGS|METH_KEYWORDS, registerMetaData_doc },
 	{ "_updatingMetadata", (PyCFunction)_updatingMetadata,
@@ -1635,6 +1780,11 @@ static PyMethodDef mod_methods[] = {
 	{ "_block_call", (PyCFunction)PyObjCBlock_Call,
 		METH_VARARGS,
 		"_block_call(block, signature, args, kwds) -> retval" },
+
+	{ "_typestr2typestr", (PyCFunction)typestr2typestr, 
+		METH_O, "private function" },
+
+	{ "_clear_intern", (PyCFunction)_clear_intern, METH_NOARGS,  NULL },
 
 
 	{ 0, 0, 0, 0 } /* sentinel */
@@ -1694,49 +1844,80 @@ struct objc_typestr_values {
 };
 
 
-void init_objc(void);
 
-void 
-init_objc(void)
+PyObjC_MODULE_INIT(_objc)
 {
 	PyObject *m, *d, *v;
 
 	PyObjC_SetupRuntimeCompat();
+	if (PyErr_Occurred()) {
+		PyObjC_INITERROR();
+	}
 
 	NSAutoreleasePool *initReleasePool = [[NSAutoreleasePool alloc] init];
 	[OC_NSBundleHack installBundleHack];
 
-	PyObjCClass_DefaultModule = PyString_FromString("objc");
+	PyObjCClass_DefaultModule = PyText_FromString("objc");
 
 	if (PyObjC_InitProxyRegistry() < 0) {
-		return;
+		PyObjC_INITERROR();
 	}
 
 	PyObjC_TypeStr2CFTypeID = PyDict_New();
 	if (PyObjC_TypeStr2CFTypeID == NULL) {
-		return;
+		PyObjC_INITERROR();
 	}
 
 	if (PyObjCBlock_Setup() == -1) {
-		return;
+		PyObjC_INITERROR();
 	}
 
 
-	PyType_Ready(&PyObjCClass_Type); 
-	PyType_Ready((PyTypeObject*)&PyObjCObject_Type);
-	PyType_Ready(&PyObjCSelector_Type); 
-	PyType_Ready(&PyObjCNativeSelector_Type);
-	PyType_Ready(&PyObjCPythonSelector_Type);
-	PyType_Ready(&PyObjCInstanceVariable_Type);
-	PyType_Ready(&PyObjCInformalProtocol_Type);
-	PyType_Ready(&PyObjCFormalProtocol_Type);
-	PyType_Ready(&PyObjCUnicode_Type);
-	PyType_Ready(&PyObjCIMP_Type);
-	PyType_Ready(&PyObjCMethodAccessor_Type);
-	PyType_Ready(&PyObjCMethodSignature_Type);
-	PyType_Ready(&PyObjC_VarList_Type);
-	PyType_Ready(&PyObjC_FSRefType);
-	PyType_Ready(&PyObjC_FSSpecType);
+	if (PyType_Ready(&PyObjCClass_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready((PyTypeObject*)&PyObjCObject_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCSelector_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCNativeSelector_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCPythonSelector_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCInstanceVariable_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCInformalProtocol_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCFormalProtocol_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCUnicode_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCIMP_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCMethodAccessor_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjCMethodSignature_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjC_VarList_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjC_FSRefType) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyType_Ready(&PyObjC_FSSpecType) < 0) {
+		PyObjC_INITERROR();
+	}
 
 	PyObjCSuper_Type.tp_doc = PySuper_Type.tp_doc;
 	PyObjCSuper_Type.tp_init = PySuper_Type.tp_init;
@@ -1745,112 +1926,200 @@ init_objc(void)
 	PyObjCSuper_Type.tp_dealloc = PySuper_Type.tp_dealloc;
 	PyObjCSuper_Type.tp_free = PySuper_Type.tp_free;
 	PyObjCSuper_Type.tp_traverse = PySuper_Type.tp_traverse;
-	PyType_Ready(&PyObjCSuper_Type);
+	if (PyType_Ready(&PyObjCSuper_Type) < 0) {
+		PyObjC_INITERROR();
+	}
 
 	if (PyObjCCFType_Setup() == -1) {
-		return;
+		PyObjC_INITERROR();
 	}
 	if (PyObjCXML_Init() == -1) {
-		return;
+		PyObjC_INITERROR();
 	}
 
-	m = Py_InitModule4("_objc", mod_methods, NULL,
-			NULL, PYTHON_API_VERSION);
+	m = PyObjC_MODULE_CREATE(_objc);
+	if (m == 0) {
+		PyObjC_INITERROR();
+	}
 
 
 	d = PyModule_GetDict(m);
+	if (d == 0) {
+		PyObjC_INITERROR();
+	}
 	/* use PyDict_SetItemString for the retain, non-heap types can't be dealloc'ed */
 
-	PyDict_SetItemString(d, "objc_class", (PyObject*)&PyObjCClass_Type);
-	PyDict_SetItemString(d, "objc_object", (PyObject*)&PyObjCObject_Type);
-	PyDict_SetItemString(d, "pyobjc_unicode", (PyObject*)&PyObjCUnicode_Type);
-	PyDict_SetItemString(d, "selector", (PyObject*)&PyObjCSelector_Type);
-	PyDict_SetItemString(d, "FSRef", (PyObject*)&PyObjC_FSRefType);
-	PyDict_SetItemString(d, "FSSpec", (PyObject*)&PyObjC_FSSpecType);
-	PyDict_SetItemString(d, "ivar", (PyObject*)&PyObjCInstanceVariable_Type);
-	PyDict_SetItemString(d, "informal_protocol", (PyObject*)&PyObjCInformalProtocol_Type);
-	PyDict_SetItemString(d, "formal_protocol", (PyObject*)&PyObjCFormalProtocol_Type);
-	PyDict_SetItemString(d, "varlist", (PyObject*)&PyObjC_VarList_Type);
-	PyDict_SetItemString(d, "function", (PyObject*)&PyObjCFunc_Type);
-	PyDict_SetItemString(d, "IMP", (PyObject*)&PyObjCIMP_Type);
-	PyDict_SetItemString(d, "super", (PyObject*)&PyObjCSuper_Type);
+	if (PyDict_SetItemString(d, "objc_class", (PyObject*)&PyObjCClass_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "objc_object", (PyObject*)&PyObjCObject_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "pyobjc_unicode", (PyObject*)&PyObjCUnicode_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "selector", (PyObject*)&PyObjCSelector_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "FSRef", (PyObject*)&PyObjC_FSRefType) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "FSSpec", (PyObject*)&PyObjC_FSSpecType) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "ivar", (PyObject*)&PyObjCInstanceVariable_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "informal_protocol", (PyObject*)&PyObjCInformalProtocol_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "formal_protocol", (PyObject*)&PyObjCFormalProtocol_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "varlist", (PyObject*)&PyObjC_VarList_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "function", (PyObject*)&PyObjCFunc_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "IMP", (PyObject*)&PyObjCIMP_Type) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyDict_SetItemString(d, "super", (PyObject*)&PyObjCSuper_Type) < 0) {
+		PyObjC_INITERROR();
+	}
 
 	v = PyObjCInitNULL();
-	if (v == NULL) return;
+	if (v == NULL) {
+		PyObjC_INITERROR();
+	}
 
 	if (PyDict_SetItemString(d, "NULL", v) < 0) {
 		Py_DECREF(v);
-		return;
+		PyObjC_INITERROR();
 	}
 	Py_DECREF(v);
 
-	if (PyObjCUtil_Init(m) < 0) return;
-	if (PyObjCAPI_Register(m) < 0) return;
-	if (PyObjCIMP_SetUpMethodWrappers() < 0) return;
+	if (PyObjCUtil_Init(m) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyObjCAPI_Register(m) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyObjCIMP_SetUpMethodWrappers() < 0) {
+		PyObjC_INITERROR();
+	}
 
+#if PY_MAJOR_VERSION == 2
 	PyObjCStrBridgeWarning = PyErr_NewException("objc.PyObjCStrBridgeWarning", PyExc_DeprecationWarning, NULL);
 	PyModule_AddObject(m, "PyObjCStrBridgeWarning", PyObjCStrBridgeWarning);
+#endif
 
 	{
 		struct objc_typestr_values* cur = objc_typestr_values;
 
 		for (; cur->name != NULL; cur ++)  {
-			PyModule_AddObject(m, cur->name,
-				PyString_FromStringAndSize(&cur->value, 1));
+			PyObject* t = PyBytes_FromStringAndSize(&cur->value, 1);
+			if (t == NULL) {
+				PyObjC_INITERROR();
+			}
+			if (PyModule_AddObject(m, cur->name, t)) {
+				PyObjC_INITERROR();
+			}
 		}
 	}
 
 	/* Add _C_CFTYPEID to avoid hardcoding this in our python code */
-	PyModule_AddStringConstant(m, "_C_CFTYPEID", @encode(CFTypeID));
+	if (PyModule_AddObject(m, "_C_CFTYPEID", PyBytes_FromString(@encode(CFTypeID))) < 0) {
+		PyObjC_INITERROR();
+	}
 
 	/* Likewise for _C_NSInteger and _C_NSUInteger */
-	PyModule_AddStringConstant(m, "_C_NSInteger", @encode(NSInteger));
-	PyModule_AddStringConstant(m, "_C_NSUInteger", @encode(NSUInteger));
-	PyModule_AddStringConstant(m, "_C_CFIndex", @encode(CFIndex));
-	PyModule_AddStringConstant(m, "_C_CGFloat", @encode(CGFloat));
+	if (PyModule_AddObject(m, "_C_NSInteger", PyBytes_FromString(@encode(NSInteger))) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyModule_AddObject(m, "_C_NSUInteger", PyBytes_FromString(@encode(NSUInteger))) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyModule_AddObject(m, "_C_CFIndex", PyBytes_FromString(@encode(CFIndex))) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyModule_AddObject(m, "_C_CGFloat", PyBytes_FromString(@encode(CGFloat))) < 0) {
+		PyObjC_INITERROR();
+	}
 
 
-	PyModule_AddIntConstant(m, "_size_sockaddr_ip4", sizeof(struct sockaddr_in));
-	PyModule_AddIntConstant(m, "_size_sockaddr_ip6", sizeof(struct sockaddr_in6));
+	if (PyModule_AddIntConstant(m, "_size_sockaddr_ip4", sizeof(struct sockaddr_in)) < 0) {
+		PyObjC_INITERROR();
+	}
+	if (PyModule_AddIntConstant(m, "_size_sockaddr_ip6", sizeof(struct sockaddr_in6)) < 0) {
+		PyObjC_INITERROR();
+	}
 
 
-	PyModule_AddStringConstant(m, "__version__", OBJC_VERSION);
+	if (PyModule_AddStringConstant(m, "__version__", OBJC_VERSION) < 0) {
+		PyObjC_INITERROR();
+	}
 
-	PyModule_AddStringConstant(m, "_sockaddr_type", @encode(struct sockaddr));
+	if (PyModule_AddObject(m, "_sockaddr_type", PyBytes_FromString(@encode(struct sockaddr))) < 0) {
+		PyObjC_INITERROR();
+	}
 
 	PyObjCPointerWrapper_Init();
 	PyObjC_InstallAllocHack();
 
 #ifdef MAC_OS_X_VERSION_MAX_ALLOWED
 	/* An easy way to check for the MacOS X version we did build for */
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_MAX_ALLOWED", MAC_OS_X_VERSION_MAX_ALLOWED);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_MAX_ALLOWED", MAC_OS_X_VERSION_MAX_ALLOWED) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_MAX_ALLOWED */
 
 #ifdef MAC_OS_X_VERSION_MIN_REQUIRED
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_MIN_REQUIRED", MAC_OS_X_VERSION_MAX_ALLOWED);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_MIN_REQUIRED", MAC_OS_X_VERSION_MAX_ALLOWED) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_MIN_REQUIRED */
 
 #ifdef MAC_OS_X_VERSION_10_1
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_1", MAC_OS_X_VERSION_10_1);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_1", MAC_OS_X_VERSION_10_1) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_10_1 */
 
 #ifdef MAC_OS_X_VERSION_10_2
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_2", MAC_OS_X_VERSION_10_2);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_2", MAC_OS_X_VERSION_10_2) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_10_2 */
 
 #ifdef MAC_OS_X_VERSION_10_3
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_3", MAC_OS_X_VERSION_10_3);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_3", MAC_OS_X_VERSION_10_3) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_10_3 */
 
 #ifdef MAC_OS_X_VERSION_10_4
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_4", MAC_OS_X_VERSION_10_4);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_4", MAC_OS_X_VERSION_10_4) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_10_4 */
 
 #ifdef MAC_OS_X_VERSION_10_5
-	PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_5", MAC_OS_X_VERSION_10_5);
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_5", MAC_OS_X_VERSION_10_5) < 0) {
+		PyObjC_INITERROR();
+	}
 #endif /* MAC_OS_X_VERSION_10_5 */
 
-	PyModule_AddStringConstant(m, "platform", "MACOSX");
+#ifdef MAC_OS_X_VERSION_10_6
+	if (PyModule_AddIntConstant(m, "MAC_OS_X_VERSION_10_6", MAC_OS_X_VERSION_10_6) < 0) {
+		PyObjC_INITERROR();
+	}
+#endif /* MAC_OS_X_VERSION_10_6 */
+
+	if (PyModule_AddStringConstant(m, "platform", "MACOSX") < 0) {
+		PyObjC_INITERROR();
+	}
 
 	PyEval_InitThreads();
 	if (![NSThread isMultiThreaded]) {
@@ -1860,5 +2129,20 @@ init_objc(void)
 	/* Allocate an auto-release pool for our own use, this avoids numerous
 	 * warnings during startup of a python script.
 	 */
+	global_release_pool = [[NSAutoreleasePool alloc] init];
 	[OC_NSAutoreleasePoolCollector newAutoreleasePool];
+
+#ifndef Py_ARG_BYTES
+#error "No Py_ARG_BYTES"
+#endif
+
+#ifndef Py_ARG_NSInteger
+#error "No Py_ARG_NSInteger"
+#endif
+
+#ifndef Py_ARG_NSUInteger
+#error "No Py_ARG_NSUInteger"
+#endif
+
+	PyObjC_INITDONE();
 }

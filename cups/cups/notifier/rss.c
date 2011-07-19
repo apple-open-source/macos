@@ -1,9 +1,9 @@
 /*
- * "$Id: rss.c 7824 2008-08-01 21:11:55Z mike $"
+ * "$Id: rss.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   RSS notifier for the Common UNIX Printing System (CUPS).
+ *   RSS notifier for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -30,9 +30,8 @@
 
 #include <cups/cups.h>
 #include <cups/language.h>
-#include <cups/string.h>
+#include <cups/string-private.h>
 #include <cups/array.h>
-#include <errno.h>
 #include <sys/select.h>
 
 
@@ -728,5 +727,5 @@ xml_escape(const char *s)		/* I - String to escape */
 
 
 /*
- * End of "$Id: rss.c 7824 2008-08-01 21:11:55Z mike $".
+ * End of "$Id: rss.c 9042 2010-03-24 00:45:34Z mike $".
  */

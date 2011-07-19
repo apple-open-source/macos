@@ -1,8 +1,6 @@
 /* 
    neon SSL/TLS support using OpenSSL
    Copyright (C) 2002-2009, Joe Orton <joe@manyfish.co.uk>
-   Portions are:
-   Copyright (C) 1999-2000 Tommi Komulainen <Tommi.Komulainen@iki.fi>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -36,6 +34,7 @@
 #include <openssl/pkcs12.h>
 #include <openssl/x509v3.h>
 #include <openssl/rand.h>
+#include <openssl/opensslv.h>
 
 #ifdef NE_HAVE_TS_SSL
 #include <stdlib.h> /* for abort() */
@@ -84,6 +83,8 @@ struct ne_ssl_client_cert_s {
     char *friendly_name;
 };
 
+#define NE_SSL_UNHANDLED (0x20) /* failure bit for unhandled case. */
+
 /* Append an ASN.1 DirectoryString STR to buffer BUF as UTF-8.
  * Returns zero on success or non-zero on error. */
 static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
@@ -95,7 +96,7 @@ static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
     case V_ASN1_IA5STRING: /* definitely ASCII */
     case V_ASN1_VISIBLESTRING: /* probably ASCII */
     case V_ASN1_PRINTABLESTRING: /* subset of ASCII */
-        ne__buffer_qappend(buf, str->data, str->length);
+        ne_buffer_qappend(buf, str->data, str->length);
         break;
     case V_ASN1_UTF8STRING:
         /* Fail for embedded NUL bytes. */
@@ -136,7 +137,7 @@ static int append_dirstring(ne_buffer *buf, ASN1_STRING *str)
  * safety. */
 static char *dup_ia5string(const ASN1_IA5STRING *as)
 {
-    return ne__strnqdup(as->data, as->length);
+    return ne_strnqdup(as->data, as->length);
 }
 
 char *ne_ssl_readable_dname(const ne_ssl_dname *name)
@@ -353,6 +354,61 @@ static ne_ssl_certificate *populate_cert(ne_ssl_certificate *cert, X509 *x5)
     return cert;
 }
 
+/* OpenSSL cert verification callback.  This is invoked for *each*
+ * error which is encoutered whilst verifying the cert chain; multiple
+ * invocations for any particular cert in the chain are possible. */
+static int verify_callback(int ok, X509_STORE_CTX *ctx)
+{
+    /* OpenSSL, living in its own little happy world of global state,
+     * where userdata was just a twinkle in the eye of an API designer
+     * yet to be born.  Or... "Seriously, wtf?"  */
+    SSL *ssl = X509_STORE_CTX_get_ex_data(ctx, 
+                                          SSL_get_ex_data_X509_STORE_CTX_idx());
+    ne_session *sess = SSL_get_app_data(ssl);
+    int depth = X509_STORE_CTX_get_error_depth(ctx);
+    int err = X509_STORE_CTX_get_error(ctx);
+    int failures = 0;
+
+    /* If there's no error, nothing to do here. */
+    if (ok) return ok;
+
+    NE_DEBUG(NE_DBG_SSL, "ssl: Verify callback @ %d => %d\n", depth, err);
+
+    /* Map the error code onto any of the exported cert validation
+     * errors, if possible. */
+    switch (err) {
+    case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+    case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
+    case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+    case X509_V_ERR_CERT_UNTRUSTED:
+    case X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE:
+        failures |= NE_SSL_UNTRUSTED;
+        break;
+    case X509_V_ERR_CERT_NOT_YET_VALID:
+        failures |= depth > 0 ? NE_SSL_BADCHAIN : NE_SSL_NOTYETVALID;
+        break;
+    case X509_V_ERR_CERT_HAS_EXPIRED:
+        failures |= depth > 0 ? NE_SSL_BADCHAIN : NE_SSL_EXPIRED;
+        break;
+    case X509_V_OK:
+        break;
+    default:
+        /* Clear the failures bitmask so check_certificate knows this
+         * is a bailout. */
+        sess->ssl_context->failures |= NE_SSL_UNHANDLED;
+        NE_DEBUG(NE_DBG_SSL, "ssl: Unhandled verification error %d -> %s\n", 
+                 err, X509_verify_cert_error_string(err));
+        return 0;
+    }
+
+    sess->ssl_context->failures |= failures;
+
+    NE_DEBUG(NE_DBG_SSL, "ssl: Verify failures |= %d => %d\n", failures,
+             sess->ssl_context->failures);
+    
+    return 1;
+}
+
 /* Return a linked list of certificate objects from an OpenSSL chain. */
 static ne_ssl_certificate *make_chain(STACK_OF(X509) *chain)
 {
@@ -385,17 +441,21 @@ static ne_ssl_certificate *make_chain(STACK_OF(X509) *chain)
 static int check_certificate(ne_session *sess, SSL *ssl, ne_ssl_certificate *chain)
 {
     X509 *cert = chain->subject;
-    ASN1_TIME *notBefore = X509_get_notBefore(cert);
-    ASN1_TIME *notAfter = X509_get_notAfter(cert);
-    int ret, failures = 0;
-    long result;
+    int ret, failures = sess->ssl_context->failures;
     ne_uri server;
 
-    /* check expiry dates */
-    if (X509_cmp_current_time(notBefore) >= 0)
-	failures |= NE_SSL_NOTYETVALID;
-    else if (X509_cmp_current_time(notAfter) <= 0)
-	failures |= NE_SSL_EXPIRED;
+    /* If the verification callback hit a case which can't be mapped
+     * to one of the exported error bits, it's treated as a hard
+     * failure rather than invoking the callback, which can't present
+     * a useful error to the user.  "Um, something is wrong.  OK?" */
+    if (failures & NE_SSL_UNHANDLED) {
+        long result = SSL_get_verify_result(ssl);
+
+        ne_set_error(sess, _("Certificate verification error: %s"),
+                    X509_verify_cert_error_string(result));
+
+        return NE_ERROR;
+    }
 
     /* Check certificate was issued to this server; pass URI of
      * server. */
@@ -408,38 +468,6 @@ static int check_certificate(ne_session *sess, SSL *ssl, ne_ssl_certificate *cha
                              "attribute in subject name"));
         return NE_ERROR;
     } else if (ret > 0) failures |= NE_SSL_IDMISMATCH;
-
-    /* get the result of the cert verification out of OpenSSL */
-    result = SSL_get_verify_result(ssl);
-
-    NE_DEBUG(NE_DBG_SSL, "Verify result: %ld = %s\n", result,
-	     X509_verify_cert_error_string(result));
-
-    switch (result) {
-    case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
-    case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
-    case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
-	/* TODO: and probably more result codes here... */
-	failures |= NE_SSL_UNTRUSTED;
-	break;
-	/* ignore these, since we've already noticed them: */
-    case X509_V_ERR_CERT_NOT_YET_VALID:
-    case X509_V_ERR_CERT_HAS_EXPIRED:
-        /* cert was trusted: */
-    case X509_V_OK:
-	break;
-    default:
-	/* TODO: tricky to handle the 30-odd failure cases OpenSSL
-	 * presents here (see x509_vfy.h), and present a useful API to
-	 * the application so it in turn can then present a meaningful
-	 * UI to the user.  The only thing to do really would be to
-	 * pass back the error string, but that's not localisable.  So
-	 * just fail the verification here - better safe than
-	 * sorry. */
-	ne_set_error(sess, _("Certificate verification error: %s"),
-		     X509_verify_cert_error_string(result));
-	return NE_ERROR;
-    }
 
     if (failures == 0) {
         /* verified OK! */
@@ -480,7 +508,7 @@ static int provide_client_cert(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
     ne_session *const sess = SSL_get_app_data(ssl);
 
     if (!sess->client_cert && sess->ssl_provide_fn) {
-	ne_ssl_dname **dnames = NULL;
+	ne_ssl_dname **dnames = NULL, *dnarray = NULL;
         int n, count = 0;
 	STACK_OF(X509_NAME) *ca_list = SSL_get_client_CA_list(ssl);
 
@@ -488,9 +516,10 @@ static int provide_client_cert(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
 
         if (count > 0) {
             dnames = ne_malloc(count * sizeof(ne_ssl_dname *));
+            dnarray = ne_malloc(count * sizeof(ne_ssl_dname));
             
             for (n = 0; n < count; n++) {
-                dnames[n] = ne_malloc(sizeof(ne_ssl_dname));
+                dnames[n] = &dnarray[n];
                 dnames[n]->dn = sk_X509_NAME_value(ca_list, n);
             }
         }
@@ -499,8 +528,7 @@ static int provide_client_cert(SSL *ssl, X509 **cert, EVP_PKEY **pkey)
 	sess->ssl_provide_fn(sess->ssl_provide_ud, sess, 
                              (const ne_ssl_dname *const *)dnames, count);
         if (count) {
-            for (n = 0; n < count; n++)
-                ne_free(dnames[n]);
+            ne_free(dnarray);
             ne_free(dnames);
         }
     }
@@ -535,6 +563,7 @@ ne_ssl_context *ne_ssl_context_create(int mode)
         SSL_CTX_set_client_cert_cb(ctx->ctx, provide_client_cert);
         /* enable workarounds for buggy SSL server implementations */
         SSL_CTX_set_options(ctx->ctx, SSL_OP_ALL);
+        SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_PEER, verify_callback);
     } else if (mode == NE_SSL_CTX_SERVER) {
         ctx->ctx = SSL_CTX_new(SSLv23_server_method());
         SSL_CTX_set_session_cache_mode(ctx->ctx, SSL_SESS_CACHE_CLIENT);
@@ -571,7 +600,7 @@ int ne_ssl_context_keypair(ne_ssl_context *ctx, const char *cert,
 
     ret = SSL_CTX_use_PrivateKey_file(ctx->ctx, key, SSL_FILETYPE_PEM);
     if (ret == 1) {
-        ret = SSL_CTX_use_certificate_file(ctx->ctx, cert, SSL_FILETYPE_PEM);
+        ret = SSL_CTX_use_certificate_chain_file(ctx->ctx, cert);
     }
 
     return ret == 1 ? 0 : -1;
@@ -604,6 +633,19 @@ void ne_ssl_context_destroy(ne_ssl_context *ctx)
     ne_free(ctx);
 }
 
+#if !defined(HAVE_SSL_SESSION_CMP) && !defined(SSL_SESSION_cmp) \
+    && defined(OPENSSL_VERSION_NUMBER) \
+    && OPENSSL_VERSION_NUMBER > 0x10000000L
+/* OpenSSL 1.0 removed SSL_SESSION_cmp for no apparent reason - hoping
+ * it is reasonable to assume that comparing the session IDs is
+ * sufficient. */
+static int SSL_SESSION_cmp(SSL_SESSION *a, SSL_SESSION *b)
+{
+    return a->session_id_length == b->session_id_length
+        && memcmp(a->session_id, b->session_id, a->session_id_length) == 0;
+}
+#endif
+
 /* For internal use only. */
 int ne__negotiate_ssl(ne_session *sess)
 {
@@ -619,6 +661,7 @@ int ne__negotiate_ssl(ne_session *sess)
         sess->flags[NE_SESSFLAG_TLS_SNI] ? sess->server.hostname : NULL;
 
     sess->ssl_cc_requested = 0;
+    ctx->failures = 0;
 
     if (ne_sock_connect_ssl(sess->socket, ctx, sess)) {
 	if (ctx->sess) {
@@ -627,12 +670,12 @@ int ne__negotiate_ssl(ne_session *sess)
 	    ctx->sess = NULL;
 	}
         if (sess->ssl_cc_requested) {
-            ne_set_error(sess, _("SSL negotiation failed, "
+            ne_set_error(sess, _("SSL handshake failed, "
                                  "client certificate was requested: %s"),
                          ne_sock_error(sess->socket));
         }
         else {
-            ne_set_error(sess, _("SSL negotiation failed: %s"),
+            ne_set_error(sess, _("SSL handshake failed: %s"),
                          ne_sock_error(sess->socket));
         }
         return NE_ERROR;

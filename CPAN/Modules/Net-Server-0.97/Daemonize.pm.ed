@@ -1,0 +1,6 @@
+/the ps command itself really isn't portable/a
+.
+.,/^  *[^# ]/-1d
+/`ps h o pid p $$`[^)]*/s,,system("ps -p $$ >/dev/null") == 0 ,
+/`ps h o pid p $current_pid`/s,,( system("ps -p $current_pid >/dev/null" ) == 0),
+w

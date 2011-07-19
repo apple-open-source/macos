@@ -1,0 +1,30 @@
+twm - Tab Window Manager for the X Window System
+
+twm is a window manager for the X Window System.  It provides
+titlebars, shaped windows, several forms of icon management,
+user-defined macro functions, click-to-type and pointer-driven
+keyboard focus, and user-specified key and pointer button bindings.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/twm
+
+        http://cgit.freedesktop.org/xorg/app/twm
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

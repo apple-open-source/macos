@@ -1,13 +1,13 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin ipentry n 0.2]
+[manpage_begin ipentry n 0.3]
 [moddesc   {An IP address entry widget}]
 [titledesc {An IP address entry widget}]
 [require Tcl 8.4]
-[require ipentry [opt 0.2]]
+[require Tk 8.4]
+[require ipentry [opt 0.3]]
 [description]
 
-This package provides a widget for the entering of a IP address.  It
-guarantees a valid address at all times.
+This package provides a widget for the entering of a IP address. 
 
 [para]
 
@@ -15,7 +15,13 @@ guarantees a valid address at all times.
 
 [call [cmd ::ipentry::ipentry] [arg pathName] [opt "[arg option] [arg value]..."]]
 
-Creates a new ipentry widget and configures it with the given options and their values.
+Creates a new IPv4 ipentry widget and configures it with the given options and
+their values. 
+
+[call [cmd ::ipentry::ipentry6] [arg pathName] [opt "[arg option] [arg value]..."]]
+
+Creates a new ipentry widget for the entry of an IPv6 address. All options
+are the same as the IPv4 widget.
 
 [list_end]
 
@@ -27,22 +33,30 @@ Each widget created with the command above supports the following methods:
 [call [arg pathName] [method complete]]
 
 Returns a boolean value. True indicates that the entry contains a
-complete IP address, meaning all 4 fields have a value.
+complete IP address, meaning all fields have a value. In some cases
+IPv6 address are valid when fields are missing. You will need to do your
+own validation to detect this.
 
 [call [arg pathName] [method get]]
 
-Returns the contents of the entry as a list consisting of 4 elements.
+Returns the contents of the entry as a list consisting of 4 or 8 elements.
 
 [call [arg pathName] [method insert] [arg iplist]]
 
+IPv4
 Takes a list of 4 elements and inserts one into each quad of the entry, in order.
-All values in the list must be integers. Values outside the range 0 to 255
+All values in the list must be empty or integers. Values outside the range 0 to 255
 are modified to be within the range.
+
+IPv6
+Takes a list of 8 elements and inserts one into each quad of the entry, in order.
+All values in the list must be empty or 1 to 4 hex digits.
 
 [call [arg pathName] [method icursor] [arg index]]
 
 Sets the position of the widgets insertion cursor. Only integer values between
-0 and 15 are valid. Setting the icursor will only have an effect if the widget
+0 and 15 are valid for ipentry and 0 to 31 for ipentry6.
+Setting the icursor will only have an effect if the widget
 already has the input focus.
 
 [call [arg pathName] [method configure] [arg option] [arg value]...]
@@ -61,11 +75,15 @@ options section.
 
 [section {Widget options}]
 
-[list_begin tkoption]
+[list_begin tkoptions]
 
 [tkoption_def -textvariable textvariable Variable]
 
-The name of a variable which holds the value of the IP address.  The value must be a string of the form NNN.NNN.NNN.NNN or it will be modified to represent a valid IP address.
+The name of a variable which holds the value of the IP address.
+The value must be a string of the form NNN.NNN.NNN.NNN for IPv4 or
+HHHH:HHHH:HHHH:HHHH:HHHH:HHHH:HHHH:HHHH for IPv6 where H is a hex digit.
+The variable will be modified to represent a valid IP address if it is not
+already.
 
 [tkoption_def -state state State]
 

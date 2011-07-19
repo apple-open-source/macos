@@ -1,0 +1,1451 @@
+Prereq: "2.8.0"
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/global/mail_version.h ./src/global/mail_version.h
+*** /var/tmp/postfix-2.8.0/src/global/mail_version.h	Thu Jan 20 20:10:41 2011
+--- ./src/global/mail_version.h	Tue Feb 22 17:06:08 2011
+***************
+*** 20,27 ****
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20110120"
+! #define MAIL_VERSION_NUMBER	"2.8.0"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+--- 20,27 ----
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20110222"
+! #define MAIL_VERSION_NUMBER	"2.8.1"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+diff -cr --new-file /var/tmp/postfix-2.8.0/HISTORY ./HISTORY
+*** /var/tmp/postfix-2.8.0/HISTORY	Tue Jan 18 18:21:44 2011
+--- ./HISTORY	Tue Feb 22 17:22:03 2011
+***************
+*** 16514,16516 ****
+--- 16514,16540 ----
+  	Bugfix: support for the "dunno" command somehow disappeared
+  	from the postscreen_access_list implementation.  File:
+  	postscreen/postscreen_access.c.
++ 
++ 20110123
++ 
++ 	Cleanup: remove #ifdef MIGRATION_WARNING transitional code
++ 	from postscreen. File: postscreen/postscreen.c.
++ 
++ 20110201
++ 
++ 	Cleanup: when verifying that the client_address->client_name
++ 	lookup result resolves to the client_address, request
++ 	hostname->address lookup with the same protocol family (IPv4
++ 	or IPv6) as the client_address.  Files: util/myaddrinfo.[hc],
++ 	smtpd/smtpd_peer.c, qmqpd/qmqpd_peer.c.
++ 
++ 20110207
++ 
++ 	Bugfix (introduced Postfix 2.8): segfault with smtpd_tls_loglevel
++ 	>= 3. Files: tls/tls_server.c, tls.h, smtpd.c, tlsproxy.c.
++ 
++ 20110216
++ 
++ 	Cleanup: don't log a "connection reset by peer" warning
++ 	when postscreen(8) tries to send a server response.  File:
++ 	postscreen/postscreen_send.c.
+diff -cr --new-file /var/tmp/postfix-2.8.0/README_FILES/POSTSCREEN_README ./README_FILES/POSTSCREEN_README
+*** /var/tmp/postfix-2.8.0/README_FILES/POSTSCREEN_README	Tue Jan 18 09:16:19 2011
+--- ./README_FILES/POSTSCREEN_README	Tue Feb  8 10:59:33 2011
+***************
+*** 318,328 ****
+  
+  When a client sends multiple commands, postscreen(8) logs this as:
+  
+!     CCOOMMMMAANNDD PPIIPPEELLIINNIINNGG aafftteerr time ffrroomm [address]:port
+  
+  Translation: the SMTP client at [address]:port sent multiple SMTP commands,
+  instead of sending one command and then waiting for the server to reply. This
+! happened time seconds after the "220 " server greeting was sent.
+  
+  The postscreen_pipelining_action parameter specifies the action that is taken
+  next. See "When tests fail after the 220 SMTP server greeting" below.
+--- 318,329 ----
+  
+  When a client sends multiple commands, postscreen(8) logs this as:
+  
+!     CCOOMMMMAANNDD PPIIPPEELLIINNIINNGG ffrroomm [address]:port aafftteerr command
+  
+  Translation: the SMTP client at [address]:port sent multiple SMTP commands,
+  instead of sending one command and then waiting for the server to reply. This
+! happened after the client sent command. Postfix 2.8 does not log the input that
+! was sent too early.
+  
+  The postscreen_pipelining_action parameter specifies the action that is taken
+  next. See "When tests fail after the 220 SMTP server greeting" below.
+***************
+*** 505,511 ****
+  
+   3. Uncomment the new "smtpd pass ... smtpd" service in master.cf, and
+      duplicate any "-o parameter=value" entries from the smtpd service that was
+!     commented out in step 1.
+  
+      /etc/postfix/master.cf:
+          smtpd     pass  -       -       n       -       -       smtpd
+--- 506,512 ----
+  
+   3. Uncomment the new "smtpd pass ... smtpd" service in master.cf, and
+      duplicate any "-o parameter=value" entries from the smtpd service that was
+!     commented out in the previous step.
+  
+      /etc/postfix/master.cf:
+          smtpd     pass  -       -       n       -       -       smtpd
+diff -cr --new-file /var/tmp/postfix-2.8.0/html/POSTSCREEN_README.html ./html/POSTSCREEN_README.html
+*** /var/tmp/postfix-2.8.0/html/POSTSCREEN_README.html	Tue Jan 18 09:16:19 2011
+--- ./html/POSTSCREEN_README.html	Tue Feb  8 10:59:33 2011
+***************
+*** 432,444 ****
+  as: </p>
+  
+  <pre>
+!     <b>COMMAND PIPELINING after</b> <i>time</i> <b>from</b> <i>[address]:port</i>
+  </pre>
+  
+! <p> Translation: the SMTP client at <i>[address]:port</i> sent multiple
+! SMTP commands, instead of sending one command and then waiting for
+! the server to reply. This happened <i>time</i> seconds after the
+! "220 " server greeting was sent. </p>
+  
+  <p> The <a href="postconf.5.html#postscreen_pipelining_action">postscreen_pipelining_action</a> parameter specifies the action
+  that is taken next.  See "<a href="#fail_after_220">When tests fail
+--- 432,445 ----
+  as: </p>
+  
+  <pre>
+!     <b>COMMAND PIPELINING from</b> <i>[address]:port</i> <b>after</b> <i>command</i>
+  </pre>
+  
+! <p> Translation: the SMTP client at <i>[address]:port</i> sent
+! multiple SMTP commands, instead of sending one command and then
+! waiting for the server to reply. This happened after the client
+! sent <i>command</i>. Postfix 2.8 does not log the input that was
+! sent too early. </p>
+  
+  <p> The <a href="postconf.5.html#postscreen_pipelining_action">postscreen_pipelining_action</a> parameter specifies the action
+  that is taken next.  See "<a href="#fail_after_220">When tests fail
+***************
+*** 701,707 ****
+  
+  <li> <p> Uncomment the new "<tt>smtpd pass ... smtpd</tt>" service
+  in <a href="master.5.html">master.cf</a>, and duplicate any "<tt>-o parameter=value</tt>" entries
+! from the smtpd service that was commented out in step 1. </p>
+  
+  <pre>
+  /etc/postfix/<a href="master.5.html">master.cf</a>:
+--- 702,709 ----
+  
+  <li> <p> Uncomment the new "<tt>smtpd pass ... smtpd</tt>" service
+  in <a href="master.5.html">master.cf</a>, and duplicate any "<tt>-o parameter=value</tt>" entries
+! from the smtpd service that was commented out in the previous step.
+! </p>
+  
+  <pre>
+  /etc/postfix/<a href="master.5.html">master.cf</a>:
+diff -cr --new-file /var/tmp/postfix-2.8.0/html/postscreen.8.html ./html/postscreen.8.html
+*** /var/tmp/postfix-2.8.0/html/postscreen.8.html	Mon Jan 17 19:40:55 2011
+--- ./html/postscreen.8.html	Tue Feb 22 17:22:32 2011
+***************
+*** 61,67 ****
+         <a href="http://tools.ietf.org/html/rfc1985">RFC 1985</a> (ETRN command)
+         <a href="http://tools.ietf.org/html/rfc2034">RFC 2034</a> (SMTP Enhanced Status Codes)
+         <a href="http://tools.ietf.org/html/rfc2821">RFC 2821</a> (SMTP protocol)
+!        <a href="http://tools.ietf.org/html/rfc2920">RFC 2920</a> (SMTP Pipelining)
+         <a href="http://tools.ietf.org/html/rfc3207">RFC 3207</a> (STARTTLS command)
+         <a href="http://tools.ietf.org/html/rfc3461">RFC 3461</a> (SMTP DSN Extension)
+         <a href="http://tools.ietf.org/html/rfc3463">RFC 3463</a> (Enhanced Status Codes)
+--- 61,67 ----
+         <a href="http://tools.ietf.org/html/rfc1985">RFC 1985</a> (ETRN command)
+         <a href="http://tools.ietf.org/html/rfc2034">RFC 2034</a> (SMTP Enhanced Status Codes)
+         <a href="http://tools.ietf.org/html/rfc2821">RFC 2821</a> (SMTP protocol)
+!        Not: <a href="http://tools.ietf.org/html/rfc2920">RFC 2920</a> (SMTP Pipelining)
+         <a href="http://tools.ietf.org/html/rfc3207">RFC 3207</a> (STARTTLS command)
+         <a href="http://tools.ietf.org/html/rfc3461">RFC 3461</a> (SMTP DSN Extension)
+         <a href="http://tools.ietf.org/html/rfc3463">RFC 3463</a> (Enhanced Status Codes)
+***************
+*** 76,139 ****
+         Support for AUTH may be added in the future.  In the  mean
+         time, if you need to make these services available on port
+         25, then do not enable  the  optional  "after  220  server
+!        greeting" tests.
+  
+!        The  optional  "after  220  server greeting" tests involve
+!        <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s built-in SMTP protocol engine. When  these
+         tests succeed, <a href="postscreen.8.html"><b>postscreen</b>(8)</a> adds the client to the tempo-
+!        rary whitelist but it cannot not hand off the "live"  con-
+!        nection  to a Postfix SMTP server process in the middle of
+!        a session.   Instead,  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  defers  attempts  to
+!        deliver  mail  with a 4XX status, and waits for the client
+!        to disconnect.  The next time a good client  connects,  it
+!        will  be  allowed to talk to a Postfix SMTP server process
+!        to deliver mail. <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  mitigates  the  impact  of
+!        this  limitation  by  giving  such tests a long expiration
+         time.
+  
+  <b>CONFIGURATION PARAMETERS</b>
+!        Changes to <a href="postconf.5.html">main.cf</a> are not  picked  up  automatically,  as
+!        <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  processes  may  run for several hours.  Use
+         the command "postfix reload" after a configuration change.
+  
+!        The  text  below  provides  only  a parameter summary. See
+         <a href="postconf.5.html"><b>postconf</b>(5)</a> for more details including examples.
+  
+         NOTE:  Some  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  parameters  implement  stress-
+!        dependent  behavior.   This  is  supported  only  when the
+!        default parameter value is stress-dependent (that  is,  it
+!        looks  like  ${stress?X}${stress:Y}, or it is the $<i>name</i> of
+         an  smtpd  parameter  with  a  stress-dependent  default).
+!        Other  parameters always evaluate as if the <b>stress</b> parame-
+         ter value is the empty string.
+  
+  <b>COMPATIBILITY CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_command_filter">postscreen_command_filter</a> ($<a href="postconf.5.html#smtpd_command_filter">smtpd_command_filter</a>)</b>
+!               A mechanism to transform commands from remote  SMTP
+                clients.
+  
+         <b><a href="postconf.5.html#postscreen_discard_ehlo_keyword_address_maps">postscreen_discard_ehlo_keyword_address_maps</a>  ($<a href="postconf.5.html#smtpd_discard_ehlo_keyword_address_maps">smtpd_dis</a>-</b>
+         <b><a href="postconf.5.html#smtpd_discard_ehlo_keyword_address_maps">card_ehlo_keyword_address_maps</a>)</b>
+!               Lookup  tables,  indexed  by the remote SMTP client
+!               address, with case insensitive lists of  EHLO  key-
+!               words  (pipelining,  starttls, auth, etc.) that the
+!               <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server will  not  send  in  the  EHLO
+                response to a remote SMTP client.
+  
+         <b><a href="postconf.5.html#postscreen_discard_ehlo_keywords">postscreen_discard_ehlo_keywords</a> ($<a href="postconf.5.html#smtpd_discard_ehlo_keywords">smtpd_discard_ehlo_key</a>-</b>
+         <b><a href="postconf.5.html#smtpd_discard_ehlo_keywords">words</a>)</b>
+!               A  case insensitive list of EHLO keywords (pipelin-
+!               ing, starttls, auth, etc.) that  the  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+!               server  will  not  send  in  the EHLO response to a
+                remote SMTP client.
+  
+  <b>TROUBLE SHOOTING CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_expansion_filter">postscreen_expansion_filter</a> (see 'postconf -d' output)</b>
+!               List  of   characters   that   are   permitted   in
+                <a href="postconf.5.html#postscreen_reject_footer">postscreen_reject_footer</a> attribute expansions.
+  
+         <b><a href="postconf.5.html#postscreen_reject_footer">postscreen_reject_footer</a> ($<a href="postconf.5.html#smtpd_reject_footer">smtpd_reject_footer</a>)</b>
+!               Optional  information  that is appended after a 4XX
+                or 5XX server response.
+  
+         <b><a href="postconf.5.html#soft_bounce">soft_bounce</a> (no)</b>
+--- 76,140 ----
+         Support for AUTH may be added in the future.  In the  mean
+         time, if you need to make these services available on port
+         25, then do not enable  the  optional  "after  220  server
+!        greeting" tests, and do not use DNSBLs that reject traffic
+!        from dial-up and residential networks.
+  
+!        The optional "after 220  server  greeting"  tests  involve
+!        <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s  built-in SMTP protocol engine. When these
+         tests succeed, <a href="postscreen.8.html"><b>postscreen</b>(8)</a> adds the client to the tempo-
+!        rary  whitelist but it cannot not hand off the "live" con-
+!        nection to a Postfix SMTP server process in the middle  of
+!        a  session.   Instead,  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  defers  attempts to
+!        deliver mail with a 4XX status, and waits for  the  client
+!        to  disconnect.   The next time a good client connects, it
+!        will be allowed to talk to a Postfix SMTP  server  process
+!        to  deliver  mail.  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  mitigates the impact of
+!        this limitation by giving such  tests  a  long  expiration
+         time.
+  
+  <b>CONFIGURATION PARAMETERS</b>
+!        Changes  to  <a href="postconf.5.html">main.cf</a>  are  not picked up automatically, as
+!        <a href="postscreen.8.html"><b>postscreen</b>(8)</a> processes may run for  several  hours.   Use
+         the command "postfix reload" after a configuration change.
+  
+!        The text below provides  only  a  parameter  summary.  See
+         <a href="postconf.5.html"><b>postconf</b>(5)</a> for more details including examples.
+  
+         NOTE:  Some  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  parameters  implement  stress-
+!        dependent behavior.   This  is  supported  only  when  the
+!        default  parameter  value is stress-dependent (that is, it
+!        looks like ${stress?X}${stress:Y}, or it is the  $<i>name</i>  of
+         an  smtpd  parameter  with  a  stress-dependent  default).
+!        Other parameters always evaluate as if the <b>stress</b>  parame-
+         ter value is the empty string.
+  
+  <b>COMPATIBILITY CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_command_filter">postscreen_command_filter</a> ($<a href="postconf.5.html#smtpd_command_filter">smtpd_command_filter</a>)</b>
+!               A  mechanism to transform commands from remote SMTP
+                clients.
+  
+         <b><a href="postconf.5.html#postscreen_discard_ehlo_keyword_address_maps">postscreen_discard_ehlo_keyword_address_maps</a>  ($<a href="postconf.5.html#smtpd_discard_ehlo_keyword_address_maps">smtpd_dis</a>-</b>
+         <b><a href="postconf.5.html#smtpd_discard_ehlo_keyword_address_maps">card_ehlo_keyword_address_maps</a>)</b>
+!               Lookup tables, indexed by the  remote  SMTP  client
+!               address,  with  case insensitive lists of EHLO key-
+!               words (pipelining, starttls, auth, etc.)  that  the
+!               <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  server  will  not  send  in the EHLO
+                response to a remote SMTP client.
+  
+         <b><a href="postconf.5.html#postscreen_discard_ehlo_keywords">postscreen_discard_ehlo_keywords</a> ($<a href="postconf.5.html#smtpd_discard_ehlo_keywords">smtpd_discard_ehlo_key</a>-</b>
+         <b><a href="postconf.5.html#smtpd_discard_ehlo_keywords">words</a>)</b>
+!               A case insensitive list of EHLO keywords  (pipelin-
+!               ing,  starttls,  auth, etc.) that the <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+!               server will not send in  the  EHLO  response  to  a
+                remote SMTP client.
+  
+  <b>TROUBLE SHOOTING CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_expansion_filter">postscreen_expansion_filter</a> (see 'postconf -d' output)</b>
+!               List   of   characters   that   are   permitted  in
+                <a href="postconf.5.html#postscreen_reject_footer">postscreen_reject_footer</a> attribute expansions.
+  
+         <b><a href="postconf.5.html#postscreen_reject_footer">postscreen_reject_footer</a> ($<a href="postconf.5.html#smtpd_reject_footer">smtpd_reject_footer</a>)</b>
+!               Optional information that is appended after  a  4XX
+                or 5XX server response.
+  
+         <b><a href="postconf.5.html#soft_bounce">soft_bounce</a> (no)</b>
+***************
+*** 141,149 ****
+                be returned to the sender.
+  
+  <b>PERMANENT WHITE/BLACKLIST TEST</b>
+!        This  test  is  executed  immediately  after a remote SMTP
+!        client connects. If a client is  permanently  whitelisted,
+!        the  client  will  be  handed off immediately to a Postfix
+         SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_access_list">postscreen_access_list</a> (<a href="postconf.5.html#permit_mynetworks">permit_mynetworks</a>)</b>
+--- 142,150 ----
+                be returned to the sender.
+  
+  <b>PERMANENT WHITE/BLACKLIST TEST</b>
+!        This test is executed  immediately  after  a  remote  SMTP
+!        client  connects.  If a client is permanently whitelisted,
+!        the client will be handed off  immediately  to  a  Postfix
+         SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_access_list">postscreen_access_list</a> (<a href="postconf.5.html#permit_mynetworks">permit_mynetworks</a>)</b>
+***************
+*** 151,195 ****
+                addresses.
+  
+         <b><a href="postconf.5.html#postscreen_blacklist_action">postscreen_blacklist_action</a> (ignore)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+!               client  is   permanently   blacklisted   with   the
+                <a href="postconf.5.html#postscreen_access_list">postscreen_access_list</a> parameter.
+  
+  <b>BEFORE-GREETING TESTS</b>
+!        These  tests  are  executed  before the remote SMTP client
+         receives the "220 servername" greeting. If no tests remain
+!        after  the successful completion of this phase, the client
+!        will be handed off immediately to a  Postfix  SMTP  server
+         process.
+  
+         <b><a href="postconf.5.html#dnsblog_service_name">dnsblog_service_name</a> (dnsblog)</b>
+!               The  name  of  the <a href="dnsblog.8.html"><b>dnsblog</b>(8)</a> service entry in mas-
+                ter.cf.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_action">postscreen_dnsbl_action</a> (ignore)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+                client's  combined  DNSBL  score  is  equal  to  or
+!               greater than  a  threshold  (as  defined  with  the
+                <a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a> and <a href="postconf.5.html#postscreen_dnsbl_threshold">postscreen_dnsbl_thresh</a>-
+                <a href="postconf.5.html#postscreen_dnsbl_threshold">old</a> parameters).
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_reply_map">postscreen_dnsbl_reply_map</a> (empty)</b>
+!               A mapping  from  actual  DNSBL  domain  name  which
+!               includes  a  secret  password,  to the DNSBL domain
+                name  that  postscreen  will  reply  with  when  it
+                rejects mail.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a> (empty)</b>
+!               Optional  list of DNS white/blacklist domains, fil-
+                ters and weight factors.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_threshold">postscreen_dnsbl_threshold</a> (1)</b>
+!               The inclusive lower  bound  for  blocking  an  SMTP
+                client,  based  on  its  combined  DNSBL  score  as
+!               defined with the <a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a>  parameter.
+  
+         <b><a href="postconf.5.html#postscreen_greet_action">postscreen_greet_action</a> (ignore)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+                client speaks before its turn within the time spec-
+                ified with the <a href="postconf.5.html#postscreen_greet_wait">postscreen_greet_wait</a> parameter.
+  
+--- 152,196 ----
+                addresses.
+  
+         <b><a href="postconf.5.html#postscreen_blacklist_action">postscreen_blacklist_action</a> (ignore)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+!               client   is   permanently   blacklisted   with  the
+                <a href="postconf.5.html#postscreen_access_list">postscreen_access_list</a> parameter.
+  
+  <b>BEFORE-GREETING TESTS</b>
+!        These tests are executed before  the  remote  SMTP  client
+         receives the "220 servername" greeting. If no tests remain
+!        after the successful completion of this phase, the  client
+!        will  be  handed  off immediately to a Postfix SMTP server
+         process.
+  
+         <b><a href="postconf.5.html#dnsblog_service_name">dnsblog_service_name</a> (dnsblog)</b>
+!               The name of the <a href="dnsblog.8.html"><b>dnsblog</b>(8)</a> service  entry  in  mas-
+                ter.cf.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_action">postscreen_dnsbl_action</a> (ignore)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+                client's  combined  DNSBL  score  is  equal  to  or
+!               greater  than  a  threshold  (as  defined  with the
+                <a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a> and <a href="postconf.5.html#postscreen_dnsbl_threshold">postscreen_dnsbl_thresh</a>-
+                <a href="postconf.5.html#postscreen_dnsbl_threshold">old</a> parameters).
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_reply_map">postscreen_dnsbl_reply_map</a> (empty)</b>
+!               A  mapping  from  actual  DNSBL  domain  name which
+!               includes a secret password,  to  the  DNSBL  domain
+                name  that  postscreen  will  reply  with  when  it
+                rejects mail.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a> (empty)</b>
+!               Optional list of DNS white/blacklist domains,  fil-
+                ters and weight factors.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_threshold">postscreen_dnsbl_threshold</a> (1)</b>
+!               The  inclusive  lower  bound  for  blocking an SMTP
+                client,  based  on  its  combined  DNSBL  score  as
+!               defined  with the <a href="postconf.5.html#postscreen_dnsbl_sites">postscreen_dnsbl_sites</a> parameter.
+  
+         <b><a href="postconf.5.html#postscreen_greet_action">postscreen_greet_action</a> (ignore)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+                client speaks before its turn within the time spec-
+                ified with the <a href="postconf.5.html#postscreen_greet_wait">postscreen_greet_wait</a> parameter.
+  
+***************
+*** 197,235 ****
+                The  <i>text</i>  in  the  optional  "220-<i>text</i>..."  server
+                response that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> sends ahead of the real
+                Postfix SMTP server's "220 text..." response, in an
+!               attempt to confuse bad SMTP clients  so  that  they
+                speak before their turn (pre-greet).
+  
+         <b><a href="postconf.5.html#postscreen_greet_wait">postscreen_greet_wait</a> (${stress?2}${stress:6}s)</b>
+                The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will wait for
+!               an SMTP client to send a command before  its  turn,
+!               and  for  DNS  blocklist  lookup  results to arrive
+!               (default: up to 2 seconds under  stress,  up  to  6
+                seconds otherwise).
+  
+         <b><a href="postconf.5.html#smtpd_service_name">smtpd_service_name</a> (smtpd)</b>
+!               The  internal  service  that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> forwards
+                allowed connections to.
+  
+  <b>AFTER-GREETING TESTS</b>
+!        These tests are executed  after  the  remote  SMTP  client
+         receives the "220 servername" greeting. If a client passes
+!        all tests  during  this  phase,  it  will  receive  a  4XX
+!        response  to  RCPT  TO commands until the client hangs up.
+         After this, the client will be allowed to talk directly to
+         a Postfix SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_action">postscreen_bare_newline_action</a> (ignore)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+!               client sends a bare newline character, that  is,  a
+                newline not preceded by carriage return.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_enable">postscreen_bare_newline_enable</a> (no)</b>
+!               Enable  "bare  newline"  SMTP protocol tests in the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+         <b><a href="postconf.5.html#postscreen_disable_vrfy_command">postscreen_disable_vrfy_command</a> ($<a href="postconf.5.html#disable_vrfy_command">disable_vrfy_command</a>)</b>
+!               Disable the SMTP VRFY command in the  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+                daemon.
+  
+         <b><a href="postconf.5.html#postscreen_forbidden_commands">postscreen_forbidden_commands</a> ($<a href="postconf.5.html#smtpd_forbidden_commands">smtpd_forbidden_commands</a>)</b>
+--- 198,236 ----
+                The  <i>text</i>  in  the  optional  "220-<i>text</i>..."  server
+                response that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> sends ahead of the real
+                Postfix SMTP server's "220 text..." response, in an
+!               attempt  to  confuse  bad SMTP clients so that they
+                speak before their turn (pre-greet).
+  
+         <b><a href="postconf.5.html#postscreen_greet_wait">postscreen_greet_wait</a> (${stress?2}${stress:6}s)</b>
+                The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will wait for
+!               an  SMTP  client to send a command before its turn,
+!               and for DNS  blocklist  lookup  results  to  arrive
+!               (default:  up  to  2  seconds under stress, up to 6
+                seconds otherwise).
+  
+         <b><a href="postconf.5.html#smtpd_service_name">smtpd_service_name</a> (smtpd)</b>
+!               The internal service  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  forwards
+                allowed connections to.
+  
+  <b>AFTER-GREETING TESTS</b>
+!        These  tests  are  executed  after  the remote SMTP client
+         receives the "220 servername" greeting. If a client passes
+!        all  tests  during  this  phase,  it  will  receive  a 4XX
+!        response to RCPT TO commands until the  client  hangs  up.
+         After this, the client will be allowed to talk directly to
+         a Postfix SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_action">postscreen_bare_newline_action</a> (ignore)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+!               client  sends  a bare newline character, that is, a
+                newline not preceded by carriage return.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_enable">postscreen_bare_newline_enable</a> (no)</b>
+!               Enable "bare newline" SMTP protocol  tests  in  the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+         <b><a href="postconf.5.html#postscreen_disable_vrfy_command">postscreen_disable_vrfy_command</a> ($<a href="postconf.5.html#disable_vrfy_command">disable_vrfy_command</a>)</b>
+!               Disable  the SMTP VRFY command in the <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+                daemon.
+  
+         <b><a href="postconf.5.html#postscreen_forbidden_commands">postscreen_forbidden_commands</a> ($<a href="postconf.5.html#smtpd_forbidden_commands">smtpd_forbidden_commands</a>)</b>
+***************
+*** 237,393 ****
+                siders in violation of the SMTP protocol.
+  
+         <b><a href="postconf.5.html#postscreen_helo_required">postscreen_helo_required</a> ($<a href="postconf.5.html#smtpd_helo_required">smtpd_helo_required</a>)</b>
+!               Require that a remote SMTP  client  sends  HELO  or
+                EHLO before commencing a MAIL transaction.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_action">postscreen_non_smtp_command_action</a> (drop)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+!               client sends non-SMTP commands  as  specified  with
+                the <a href="postconf.5.html#postscreen_forbidden_commands">postscreen_forbidden_commands</a> parameter.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_enable">postscreen_non_smtp_command_enable</a> (no)</b>
+!               Enable    "non-SMTP    command"    tests   in   the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_action">postscreen_pipelining_action</a> (enforce)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+!               client  sends  multiple commands instead of sending
+!               one command and waiting for the server to  respond.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_enable">postscreen_pipelining_enable</a> (no)</b>
+!               Enable  "pipelining"  SMTP  protocol  tests  in the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+  <b>CACHE CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_cache_cleanup_interval">postscreen_cache_cleanup_interval</a> (12h)</b>
+!               The amount  of  time  between  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  cache
+                cleanup runs.
+  
+         <b><a href="postconf.5.html#postscreen_cache_map">postscreen_cache_map</a>                   (btree:$data_direc-</b>
+         <b>tory/postscreen_cache)</b>
+!               Persistent  storage  for  the  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server
+                decisions.
+  
+         <b><a href="postconf.5.html#postscreen_cache_retention_time">postscreen_cache_retention_time</a> (7d)</b>
+                The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will cache an
+!               expired  temporary  whitelist  entry  before  it is
+                removed.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_ttl">postscreen_bare_newline_ttl</a> (30d)</b>
+!               The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use  the
+                result from a successful "bare newline" SMTP proto-
+                col test.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_ttl">postscreen_dnsbl_ttl</a> (1h)</b>
+!               The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use  the
+                result from a successful DNS blocklist test.
+  
+         <b><a href="postconf.5.html#postscreen_greet_ttl">postscreen_greet_ttl</a> (1d)</b>
+!               The  amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use the
+                result from a successful PREGREET test.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_ttl">postscreen_non_smtp_command_ttl</a> (30d)</b>
+!               The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use  the
+!               result  from  a  successful "non_smtp_command" SMTP
+                protocol test.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_ttl">postscreen_pipelining_ttl</a> (30d)</b>
+!               The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use  the
+                result from a successful "pipelining" SMTP protocol
+                test.
+  
+  <b>RESOURCE CONTROLS</b>
+         <b><a href="postconf.5.html#line_length_limit">line_length_limit</a> (2048)</b>
+!               Upon input, long lines are chopped up  into  pieces
+!               of  at  most this length; upon delivery, long lines
+                are reconstructed.
+  
+         <b><a href="postconf.5.html#postscreen_client_connection_count_limit">postscreen_client_connection_count_limit</a></b>
+         <b>($<a href="postconf.5.html#smtpd_client_connection_count_limit">smtpd_client_connection_count_limit</a>)</b>
+!               How many simultaneous  connections  any  client  is
+                allowed to have with the <a href="postscreen.8.html"><b>postscreen</b>(8)</a> daemon.
+  
+         <b><a href="postconf.5.html#postscreen_command_count_limit">postscreen_command_count_limit</a> (20)</b>
+!               The  limit on the total number of commands per SMTP
+!               session for <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s built-in SMTP  protocol
+                engine.
+  
+         <b><a href="postconf.5.html#postscreen_command_time_limit">postscreen_command_time_limit</a> (${stress?10}${stress:300}s)</b>
+!               The  time limit to read an entire command line with
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s built-in SMTP protocol engine.
+  
+         <b><a href="postconf.5.html#postscreen_post_queue_limit">postscreen_post_queue_limit</a> ($<a href="postconf.5.html#default_process_limit">default_process_limit</a>)</b>
+!               The number of clients that can be waiting for  ser-
+                vice from a real SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_pre_queue_limit">postscreen_pre_queue_limit</a> ($<a href="postconf.5.html#default_process_limit">default_process_limit</a>)</b>
+!               The  number  of non-whitelisted clients that can be
+!               waiting for a decision whether  they  will  receive
+                service from a real SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_watchdog_timeout">postscreen_watchdog_timeout</a> (10s)</b>
+!               How  much  time a <a href="postscreen.8.html"><b>postscreen</b>(8)</a> process may take to
+!               respond to an SMTP client command or to  perform  a
+                cache operation before it is terminated by a built-
+                in watchdog timer.
+  
+  <b>STARTTLS CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_tls_security_level">postscreen_tls_security_level</a> ($<a href="postconf.5.html#smtpd_tls_security_level">smtpd_tls_security_level</a>)</b>
+!               The SMTP TLS security level for  the  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+!               server;  when  a non-empty value is specified, this
+                overrides       the       obsolete       parameters
+                <a href="postconf.5.html#postscreen_use_tls">postscreen_use_tls</a> and <a href="postconf.5.html#postscreen_enforce_tls">postscreen_enforce_tls</a>.
+  
+         <b><a href="postconf.5.html#tlsproxy_service_name">tlsproxy_service_name</a> (tlsproxy)</b>
+!               The  name  of the <a href="tlsproxy.8.html"><b>tlsproxy</b>(8)</a> service entry in mas-
+                ter.cf.
+  
+  <b>OBSOLETE STARTTLS SUPPORT CONTROLS</b>
+!        These parameters  are  supported  for  compatibility  with
+         <a href="smtpd.8.html"><b>smtpd</b>(8)</a> legacy parameters.
+  
+         <b><a href="postconf.5.html#postscreen_use_tls">postscreen_use_tls</a> ($<a href="postconf.5.html#smtpd_use_tls">smtpd_use_tls</a>)</b>
+!               Opportunistic  TLS:  announce  STARTTLS  support to
+!               SMTP clients, but do not require that  clients  use
+                TLS encryption.
+  
+         <b><a href="postconf.5.html#postscreen_enforce_tls">postscreen_enforce_tls</a> ($<a href="postconf.5.html#smtpd_enforce_tls">smtpd_enforce_tls</a>)</b>
+!               Mandatory  TLS:  announce  STARTTLS support to SMTP
+!               clients, and require that clients use  TLS  encryp-
+                tion.
+  
+  <b>MISCELLANEOUS CONTROLS</b>
+         <b><a href="postconf.5.html#config_directory">config_directory</a> (see 'postconf -d' output)</b>
+!               The  default  location  of  the Postfix <a href="postconf.5.html">main.cf</a> and
+                <a href="master.5.html">master.cf</a> configuration files.
+  
+         <b><a href="postconf.5.html#delay_logging_resolution_limit">delay_logging_resolution_limit</a> (2)</b>
+!               The maximal number  of  digits  after  the  decimal
+                point when logging sub-second delay values.
+  
+         <b><a href="postconf.5.html#command_directory">command_directory</a> (see 'postconf -d' output)</b>
+!               The  location  of  all  postfix administrative com-
+                mands.
+  
+         <b><a href="postconf.5.html#max_idle">max_idle</a> (100s)</b>
+!               The maximum amount of time  that  an  idle  Postfix
+!               daemon  process  waits  for  an incoming connection
+                before terminating voluntarily.
+  
+         <b><a href="postconf.5.html#process_id">process_id</a> (read-only)</b>
+!               The process ID  of  a  Postfix  command  or  daemon
+                process.
+  
+         <b><a href="postconf.5.html#process_name">process_name</a> (read-only)</b>
+!               The  process  name  of  a Postfix command or daemon
+                process.
+  
+         <b><a href="postconf.5.html#syslog_facility">syslog_facility</a> (mail)</b>
+                The syslog facility of Postfix logging.
+  
+         <b><a href="postconf.5.html#syslog_name">syslog_name</a> (see 'postconf -d' output)</b>
+!               The mail system  name  that  is  prepended  to  the
+!               process  name  in  syslog  records, so that "smtpd"
+                becomes, for example, "postfix/smtpd".
+  
+  <b>SEE ALSO</b>
+--- 238,394 ----
+                siders in violation of the SMTP protocol.
+  
+         <b><a href="postconf.5.html#postscreen_helo_required">postscreen_helo_required</a> ($<a href="postconf.5.html#smtpd_helo_required">smtpd_helo_required</a>)</b>
+!               Require  that  a  remote  SMTP client sends HELO or
+                EHLO before commencing a MAIL transaction.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_action">postscreen_non_smtp_command_action</a> (drop)</b>
+!               The action that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes  when  an  SMTP
+!               client  sends  non-SMTP  commands as specified with
+                the <a href="postconf.5.html#postscreen_forbidden_commands">postscreen_forbidden_commands</a> parameter.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_enable">postscreen_non_smtp_command_enable</a> (no)</b>
+!               Enable   "non-SMTP   command"    tests    in    the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_action">postscreen_pipelining_action</a> (enforce)</b>
+!               The  action  that  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> takes when an SMTP
+!               client sends multiple commands instead  of  sending
+!               one  command and waiting for the server to respond.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_enable">postscreen_pipelining_enable</a> (no)</b>
+!               Enable "pipelining"  SMTP  protocol  tests  in  the
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a> server.
+  
+  <b>CACHE CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_cache_cleanup_interval">postscreen_cache_cleanup_interval</a> (12h)</b>
+!               The  amount  of  time  between  <a href="postscreen.8.html"><b>postscreen</b>(8)</a> cache
+                cleanup runs.
+  
+         <b><a href="postconf.5.html#postscreen_cache_map">postscreen_cache_map</a>                   (btree:$data_direc-</b>
+         <b>tory/postscreen_cache)</b>
+!               Persistent storage  for  the  <a href="postscreen.8.html"><b>postscreen</b>(8)</a>  server
+                decisions.
+  
+         <b><a href="postconf.5.html#postscreen_cache_retention_time">postscreen_cache_retention_time</a> (7d)</b>
+                The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will cache an
+!               expired temporary  whitelist  entry  before  it  is
+                removed.
+  
+         <b><a href="postconf.5.html#postscreen_bare_newline_ttl">postscreen_bare_newline_ttl</a> (30d)</b>
+!               The  amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use the
+                result from a successful "bare newline" SMTP proto-
+                col test.
+  
+         <b><a href="postconf.5.html#postscreen_dnsbl_ttl">postscreen_dnsbl_ttl</a> (1h)</b>
+!               The  amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use the
+                result from a successful DNS blocklist test.
+  
+         <b><a href="postconf.5.html#postscreen_greet_ttl">postscreen_greet_ttl</a> (1d)</b>
+!               The amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use  the
+                result from a successful PREGREET test.
+  
+         <b><a href="postconf.5.html#postscreen_non_smtp_command_ttl">postscreen_non_smtp_command_ttl</a> (30d)</b>
+!               The  amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use the
+!               result from a  successful  "non_smtp_command"  SMTP
+                protocol test.
+  
+         <b><a href="postconf.5.html#postscreen_pipelining_ttl">postscreen_pipelining_ttl</a> (30d)</b>
+!               The  amount of time that <a href="postscreen.8.html"><b>postscreen</b>(8)</a> will use the
+                result from a successful "pipelining" SMTP protocol
+                test.
+  
+  <b>RESOURCE CONTROLS</b>
+         <b><a href="postconf.5.html#line_length_limit">line_length_limit</a> (2048)</b>
+!               Upon  input,  long lines are chopped up into pieces
+!               of at most this length; upon delivery,  long  lines
+                are reconstructed.
+  
+         <b><a href="postconf.5.html#postscreen_client_connection_count_limit">postscreen_client_connection_count_limit</a></b>
+         <b>($<a href="postconf.5.html#smtpd_client_connection_count_limit">smtpd_client_connection_count_limit</a>)</b>
+!               How  many  simultaneous  connections  any client is
+                allowed to have with the <a href="postscreen.8.html"><b>postscreen</b>(8)</a> daemon.
+  
+         <b><a href="postconf.5.html#postscreen_command_count_limit">postscreen_command_count_limit</a> (20)</b>
+!               The limit on the total number of commands per  SMTP
+!               session  for <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s built-in SMTP protocol
+                engine.
+  
+         <b><a href="postconf.5.html#postscreen_command_time_limit">postscreen_command_time_limit</a> (${stress?10}${stress:300}s)</b>
+!               The time limit to read an entire command line  with
+                <a href="postscreen.8.html"><b>postscreen</b>(8)</a>'s built-in SMTP protocol engine.
+  
+         <b><a href="postconf.5.html#postscreen_post_queue_limit">postscreen_post_queue_limit</a> ($<a href="postconf.5.html#default_process_limit">default_process_limit</a>)</b>
+!               The  number of clients that can be waiting for ser-
+                vice from a real SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_pre_queue_limit">postscreen_pre_queue_limit</a> ($<a href="postconf.5.html#default_process_limit">default_process_limit</a>)</b>
+!               The number of non-whitelisted clients that  can  be
+!               waiting  for  a  decision whether they will receive
+                service from a real SMTP server process.
+  
+         <b><a href="postconf.5.html#postscreen_watchdog_timeout">postscreen_watchdog_timeout</a> (10s)</b>
+!               How much time a <a href="postscreen.8.html"><b>postscreen</b>(8)</a> process may  take  to
+!               respond  to  an SMTP client command or to perform a
+                cache operation before it is terminated by a built-
+                in watchdog timer.
+  
+  <b>STARTTLS CONTROLS</b>
+         <b><a href="postconf.5.html#postscreen_tls_security_level">postscreen_tls_security_level</a> ($<a href="postconf.5.html#smtpd_tls_security_level">smtpd_tls_security_level</a>)</b>
+!               The  SMTP  TLS security level for the <a href="postscreen.8.html"><b>postscreen</b>(8)</a>
+!               server; when a non-empty value is  specified,  this
+                overrides       the       obsolete       parameters
+                <a href="postconf.5.html#postscreen_use_tls">postscreen_use_tls</a> and <a href="postconf.5.html#postscreen_enforce_tls">postscreen_enforce_tls</a>.
+  
+         <b><a href="postconf.5.html#tlsproxy_service_name">tlsproxy_service_name</a> (tlsproxy)</b>
+!               The name of the <a href="tlsproxy.8.html"><b>tlsproxy</b>(8)</a> service entry  in  mas-
+                ter.cf.
+  
+  <b>OBSOLETE STARTTLS SUPPORT CONTROLS</b>
+!        These  parameters  are  supported  for  compatibility with
+         <a href="smtpd.8.html"><b>smtpd</b>(8)</a> legacy parameters.
+  
+         <b><a href="postconf.5.html#postscreen_use_tls">postscreen_use_tls</a> ($<a href="postconf.5.html#smtpd_use_tls">smtpd_use_tls</a>)</b>
+!               Opportunistic TLS:  announce  STARTTLS  support  to
+!               SMTP  clients,  but do not require that clients use
+                TLS encryption.
+  
+         <b><a href="postconf.5.html#postscreen_enforce_tls">postscreen_enforce_tls</a> ($<a href="postconf.5.html#smtpd_enforce_tls">smtpd_enforce_tls</a>)</b>
+!               Mandatory TLS: announce STARTTLS  support  to  SMTP
+!               clients,  and  require that clients use TLS encryp-
+                tion.
+  
+  <b>MISCELLANEOUS CONTROLS</b>
+         <b><a href="postconf.5.html#config_directory">config_directory</a> (see 'postconf -d' output)</b>
+!               The default location of  the  Postfix  <a href="postconf.5.html">main.cf</a>  and
+                <a href="master.5.html">master.cf</a> configuration files.
+  
+         <b><a href="postconf.5.html#delay_logging_resolution_limit">delay_logging_resolution_limit</a> (2)</b>
+!               The  maximal  number  of  digits  after the decimal
+                point when logging sub-second delay values.
+  
+         <b><a href="postconf.5.html#command_directory">command_directory</a> (see 'postconf -d' output)</b>
+!               The location of  all  postfix  administrative  com-
+                mands.
+  
+         <b><a href="postconf.5.html#max_idle">max_idle</a> (100s)</b>
+!               The  maximum  amount  of  time that an idle Postfix
+!               daemon process waits  for  an  incoming  connection
+                before terminating voluntarily.
+  
+         <b><a href="postconf.5.html#process_id">process_id</a> (read-only)</b>
+!               The  process  ID  of  a  Postfix  command or daemon
+                process.
+  
+         <b><a href="postconf.5.html#process_name">process_name</a> (read-only)</b>
+!               The process name of a  Postfix  command  or  daemon
+                process.
+  
+         <b><a href="postconf.5.html#syslog_facility">syslog_facility</a> (mail)</b>
+                The syslog facility of Postfix logging.
+  
+         <b><a href="postconf.5.html#syslog_name">syslog_name</a> (see 'postconf -d' output)</b>
+!               The  mail  system  name  that  is  prepended to the
+!               process name in syslog  records,  so  that  "smtpd"
+                becomes, for example, "postfix/smtpd".
+  
+  <b>SEE ALSO</b>
+***************
+*** 400,413 ****
+         <a href="POSTSCREEN_README.html">POSTSCREEN_README</a>, Postfix Postscreen Howto
+  
+  <b>LICENSE</b>
+!        The  Secure  Mailer  license must be distributed with this
+         software.
+  
+  <b>HISTORY</b>
+         This service was introduced with Postfix version 2.8.
+  
+!        Many ideas in <a href="postscreen.8.html"><b>postscreen</b>(8)</a> were explored in earlier  work
+!        by  Michael Tokarev, in OpenBSD spamd, and in MailChannels
+         Traffic Control.
+  
+  <b>AUTHOR(S)</b>
+--- 401,414 ----
+         <a href="POSTSCREEN_README.html">POSTSCREEN_README</a>, Postfix Postscreen Howto
+  
+  <b>LICENSE</b>
+!        The Secure Mailer license must be  distributed  with  this
+         software.
+  
+  <b>HISTORY</b>
+         This service was introduced with Postfix version 2.8.
+  
+!        Many  ideas in <a href="postscreen.8.html"><b>postscreen</b>(8)</a> were explored in earlier work
+!        by Michael Tokarev, in OpenBSD spamd, and in  MailChannels
+         Traffic Control.
+  
+  <b>AUTHOR(S)</b>
+diff -cr --new-file /var/tmp/postfix-2.8.0/man/man8/postscreen.8 ./man/man8/postscreen.8
+*** /var/tmp/postfix-2.8.0/man/man8/postscreen.8	Mon Jan 17 19:40:54 2011
+--- ./man/man8/postscreen.8	Tue Feb 22 17:22:32 2011
+***************
+*** 64,70 ****
+  RFC 1985 (ETRN command)
+  RFC 2034 (SMTP Enhanced Status Codes)
+  RFC 2821 (SMTP protocol)
+! RFC 2920 (SMTP Pipelining)
+  RFC 3207 (STARTTLS command)
+  RFC 3461 (SMTP DSN Extension)
+  RFC 3463 (Enhanced Status Codes)
+--- 64,70 ----
+  RFC 1985 (ETRN command)
+  RFC 2034 (SMTP Enhanced Status Codes)
+  RFC 2821 (SMTP protocol)
+! Not: RFC 2920 (SMTP Pipelining)
+  RFC 3207 (STARTTLS command)
+  RFC 3461 (SMTP DSN Extension)
+  RFC 3463 (Enhanced Status Codes)
+***************
+*** 82,88 ****
+  Support for AUTH may be added in the future.
+  In the mean time, if you need to make these services available
+  on port 25, then do not enable the optional "after 220
+! server greeting" tests.
+  
+  The optional "after 220 server greeting" tests involve
+  \fBpostscreen\fR(8)'s built-in SMTP protocol engine. When
+--- 82,89 ----
+  Support for AUTH may be added in the future.
+  In the mean time, if you need to make these services available
+  on port 25, then do not enable the optional "after 220
+! server greeting" tests, and do not use DNSBLs that reject
+! traffic from dial-up and residential networks.
+  
+  The optional "after 220 server greeting" tests involve
+  \fBpostscreen\fR(8)'s built-in SMTP protocol engine. When
+diff -cr --new-file /var/tmp/postfix-2.8.0/proto/POSTSCREEN_README.html ./proto/POSTSCREEN_README.html
+*** /var/tmp/postfix-2.8.0/proto/POSTSCREEN_README.html	Tue Jan 18 09:16:07 2011
+--- ./proto/POSTSCREEN_README.html	Tue Feb  8 10:59:25 2011
+***************
+*** 432,444 ****
+  as: </p>
+  
+  <pre>
+!     <b>COMMAND PIPELINING after</b> <i>time</i> <b>from</b> <i>[address]:port</i>
+  </pre>
+  
+! <p> Translation: the SMTP client at <i>[address]:port</i> sent multiple
+! SMTP commands, instead of sending one command and then waiting for
+! the server to reply. This happened <i>time</i> seconds after the
+! "220 " server greeting was sent. </p>
+  
+  <p> The postscreen_pipelining_action parameter specifies the action
+  that is taken next.  See "<a href="#fail_after_220">When tests fail
+--- 432,445 ----
+  as: </p>
+  
+  <pre>
+!     <b>COMMAND PIPELINING from</b> <i>[address]:port</i> <b>after</b> <i>command</i>
+  </pre>
+  
+! <p> Translation: the SMTP client at <i>[address]:port</i> sent
+! multiple SMTP commands, instead of sending one command and then
+! waiting for the server to reply. This happened after the client
+! sent <i>command</i>. Postfix 2.8 does not log the input that was
+! sent too early. </p>
+  
+  <p> The postscreen_pipelining_action parameter specifies the action
+  that is taken next.  See "<a href="#fail_after_220">When tests fail
+***************
+*** 701,707 ****
+  
+  <li> <p> Uncomment the new "<tt>smtpd pass ... smtpd</tt>" service
+  in master.cf, and duplicate any "<tt>-o parameter=value</tt>" entries
+! from the smtpd service that was commented out in step 1. </p>
+  
+  <pre>
+  /etc/postfix/master.cf:
+--- 702,709 ----
+  
+  <li> <p> Uncomment the new "<tt>smtpd pass ... smtpd</tt>" service
+  in master.cf, and duplicate any "<tt>-o parameter=value</tt>" entries
+! from the smtpd service that was commented out in the previous step.
+! </p>
+  
+  <pre>
+  /etc/postfix/master.cf:
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/postscreen/postscreen.c ./src/postscreen/postscreen.c
+*** /var/tmp/postfix-2.8.0/src/postscreen/postscreen.c	Thu Jan 20 13:54:49 2011
+--- ./src/postscreen/postscreen.c	Tue Feb 22 17:21:34 2011
+***************
+*** 54,60 ****
+  /*	RFC 1985 (ETRN command)
+  /*	RFC 2034 (SMTP Enhanced Status Codes)
+  /*	RFC 2821 (SMTP protocol)
+! /*	RFC 2920 (SMTP Pipelining)
+  /*	RFC 3207 (STARTTLS command)
+  /*	RFC 3461 (SMTP DSN Extension)
+  /*	RFC 3463 (Enhanced Status Codes)
+--- 54,60 ----
+  /*	RFC 1985 (ETRN command)
+  /*	RFC 2034 (SMTP Enhanced Status Codes)
+  /*	RFC 2821 (SMTP protocol)
+! /*	Not: RFC 2920 (SMTP Pipelining)
+  /*	RFC 3207 (STARTTLS command)
+  /*	RFC 3461 (SMTP DSN Extension)
+  /*	RFC 3463 (Enhanced Status Codes)
+***************
+*** 68,74 ****
+  /*	Support for AUTH may be added in the future.
+  /*	In the mean time, if you need to make these services available
+  /*	on port 25, then do not enable the optional "after 220
+! /*	server greeting" tests.
+  /*
+  /*	The optional "after 220 server greeting" tests involve
+  /*	\fBpostscreen\fR(8)'s built-in SMTP protocol engine. When
+--- 68,75 ----
+  /*	Support for AUTH may be added in the future.
+  /*	In the mean time, if you need to make these services available
+  /*	on port 25, then do not enable the optional "after 220
+! /*	server greeting" tests, and do not use DNSBLs that reject
+! /*	traffic from dial-up and residential networks.
+  /*
+  /*	The optional "after 220 server greeting" tests involve
+  /*	\fBpostscreen\fR(8)'s built-in SMTP protocol engine. When
+***************
+*** 416,428 ****
+  int     var_psc_pre_queue_limit;
+  int     var_psc_watchdog;
+  
+- #undef MIGRATION_WARNING
+- 
+- #ifdef MIGRATION_WARNING
+- char   *var_psc_wlist_nets;
+- char   *var_psc_blist_nets;
+- 
+- #endif
+  char   *var_psc_acl;
+  char   *var_psc_blist_action;
+  
+--- 417,422 ----
+***************
+*** 495,505 ****
+   /*
+    * Local variables.
+    */
+- #ifdef MIGRATION_WARNING
+- static ADDR_MATCH_LIST *psc_wlist_nets;	/* permanently whitelisted networks */
+- static ADDR_MATCH_LIST *psc_blist_nets;	/* permanently blacklisted networks */
+- 
+- #endif
+  static ARGV *psc_acl;			/* permanent white/backlist */
+  static int psc_blist_action;		/* PSC_ACT_DROP/ENFORCE/etc */
+  
+--- 489,494 ----
+***************
+*** 715,761 ****
+  	    break;
+  	}
+      }
+- #ifdef MIGRATION_WARNING
+- 
+-     /*
+-      * The permanent whitelist has highest precedence (never block mail from
+-      * whitelisted sites, and never run tests against those sites).
+-      */
+-     if (psc_wlist_nets != 0
+-     && psc_addr_match_list_match(psc_wlist_nets, state->smtp_client_addr)) {
+- 	msg_info("WHITELISTED [%s]:%s", PSC_CLIENT_ADDR_PORT(state));
+- 	psc_conclude(state);
+- 	return;
+-     }
+- 
+-     /*
+-      * The permanent blacklist has second precedence. If the client is
+-      * permanently blacklisted, send some generic reply and hang up
+-      * immediately, or run more tests for logging purposes.
+-      */
+-     if (psc_blist_nets != 0
+-     && psc_addr_match_list_match(psc_blist_nets, state->smtp_client_addr)) {
+- 	msg_info("BLACKLISTED [%s]:%s", PSC_CLIENT_ADDR_PORT(state));
+- 	PSC_FAIL_SESSION_STATE(state, PSC_STATE_FLAG_BLIST_FAIL);
+- 	switch (psc_blist_action) {
+- 	case PSC_ACT_DROP:
+- 	    PSC_DROP_SESSION_STATE(state,
+- 			     "521 5.3.2 Service currently unavailable\r\n");
+- 	    return;
+- 	case PSC_ACT_ENFORCE:
+- 	    PSC_ENFORCE_SESSION_STATE(state,
+- 			     "550 5.3.2 Service currently unavailable\r\n");
+- 	    break;
+- 	case PSC_ACT_IGNORE:
+- 	    PSC_UNFAIL_SESSION_STATE(state, PSC_STATE_FLAG_BLIST_FAIL);
+- 	    /* Not: PSC_PASS_SESSION_STATE. Repeat this test the next time. */
+- 	    break;
+- 	default:
+- 	    msg_panic("%s: unknown blacklist action value %d",
+- 		      myname, psc_blist_action);
+- 	}
+-     }
+- #endif
+  
+      /*
+       * The temporary whitelist (i.e. the postscreen cache) has the lowest
+--- 704,709 ----
+***************
+*** 841,861 ****
+       * Open read-only maps before dropping privilege, for consistency with
+       * other Postfix daemons.
+       */
+- #ifdef MIGRATION_WARNING
+-     if (*var_psc_wlist_nets)
+- 	psc_wlist_nets =
+- 	    addr_match_list_init(MATCH_FLAG_NONE, var_psc_wlist_nets);
+- 
+-     if (*var_psc_blist_nets)
+- 	psc_blist_nets = addr_match_list_init(MATCH_FLAG_NONE,
+- 					      var_psc_blist_nets);
+-     if (psc_blist_nets || psc_wlist_nets) {
+- 	msg_warn("The %s and %s features will be removed soon. Use %s instead",
+- 		 VAR_PSC_WLIST_NETS, VAR_PSC_BLIST_NETS, VAR_PSC_ACL);
+- 	msg_warn("To stop this warning, specify empty values for %s and %s",
+- 		 VAR_PSC_WLIST_NETS, VAR_PSC_BLIST_NETS);
+-     }
+- #endif
+      psc_acl_pre_jail_init();
+      if (*var_psc_acl)
+  	psc_acl = psc_acl_parse(var_psc_acl, VAR_PSC_ACL);
+--- 789,794 ----
+***************
+*** 1095,1104 ****
+  	VAR_PSC_PIPEL_ACTION, DEF_PSC_PIPEL_ACTION, &var_psc_pipel_action, 1, 0,
+  	VAR_PSC_NSMTP_ACTION, DEF_PSC_NSMTP_ACTION, &var_psc_nsmtp_action, 1, 0,
+  	VAR_PSC_BARLF_ACTION, DEF_PSC_BARLF_ACTION, &var_psc_barlf_action, 1, 0,
+- #ifdef MIGRATION_WARNING
+- 	VAR_PSC_WLIST_NETS, DEF_PSC_WLIST_NETS, &var_psc_wlist_nets, 0, 0,
+- 	VAR_PSC_BLIST_NETS, DEF_PSC_BLIST_NETS, &var_psc_blist_nets, 0, 0,
+- #endif
+  	VAR_PSC_ACL, DEF_PSC_ACL, &var_psc_acl, 0, 0,
+  	VAR_PSC_BLIST_ACTION, DEF_PSC_BLIST_ACTION, &var_psc_blist_action, 1, 0,
+  	VAR_PSC_FORBID_CMDS, DEF_PSC_FORBID_CMDS, &var_psc_forbid_cmds, 0, 0,
+--- 1028,1033 ----
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/postscreen/postscreen_send.c ./src/postscreen/postscreen_send.c
+*** /var/tmp/postfix-2.8.0/src/postscreen/postscreen_send.c	Sun Jan 16 12:53:43 2011
+--- ./src/postscreen/postscreen_send.c	Wed Feb 16 08:40:32 2011
+***************
+*** 121,127 ****
+  		STR(state->send_buf), LEN(state->send_buf));
+      if (ret > 0)
+  	vstring_truncate(state->send_buf, ret - LEN(state->send_buf));
+!     if (ret < 0 && errno != EAGAIN && errno != EPIPE)
+  	msg_warn("write [%s]:%s: %m", state->smtp_client_addr,
+  		 state->smtp_client_port);
+      return (ret < 0 && errno != EAGAIN);
+--- 121,127 ----
+  		STR(state->send_buf), LEN(state->send_buf));
+      if (ret > 0)
+  	vstring_truncate(state->send_buf, ret - LEN(state->send_buf));
+!     if (ret < 0 && errno != EAGAIN && errno != EPIPE && errno != ECONNRESET)
+  	msg_warn("write [%s]:%s: %m", state->smtp_client_addr,
+  		 state->smtp_client_port);
+      return (ret < 0 && errno != EAGAIN);
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/qmqpd/qmqpd_peer.c ./src/qmqpd/qmqpd_peer.c
+*** /var/tmp/postfix-2.8.0/src/qmqpd/qmqpd_peer.c	Mon Nov  8 17:27:31 2010
+--- ./src/qmqpd/qmqpd_peer.c	Tue Feb 22 16:45:22 2011
+***************
+*** 243,249 ****
+  	    /*
+  	     * Reject the hostname if it does not list the peer address.
+  	     */
+! 	    aierr = hostname_to_sockaddr(state->name, (char *) 0, 0, &res0);
+  	    if (aierr) {
+  		msg_warn("%s: hostname %s verification failed: %s",
+  			 state->addr, state->name, MAI_STRERROR(aierr));
+--- 243,250 ----
+  	    /*
+  	     * Reject the hostname if it does not list the peer address.
+  	     */
+! 	    aierr = hostname_to_sockaddr_pf(state->name, state->addr_family,
+! 					    (char *) 0, 0, &res0);
+  	    if (aierr) {
+  		msg_warn("%s: hostname %s verification failed: %s",
+  			 state->addr, state->name, MAI_STRERROR(aierr));
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/smtpd/smtpd.c ./src/smtpd/smtpd.c
+*** /var/tmp/postfix-2.8.0/src/smtpd/smtpd.c	Sat Jan 15 18:18:14 2011
+--- ./src/smtpd/smtpd.c	Mon Feb  7 13:34:41 2011
+***************
+*** 4028,4033 ****
+--- 4028,4034 ----
+  	TLS_SERVER_START(&props,
+  			 ctx = smtpd_tls_ctx,
+  			 stream = state->client,
++ 			 fd = -1,
+  			 log_level = var_smtpd_tls_loglevel,
+  			 timeout = var_smtpd_starttls_tmout,
+  			 requirecert = requirecert,
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/smtpd/smtpd_peer.c ./src/smtpd/smtpd_peer.c
+*** /var/tmp/postfix-2.8.0/src/smtpd/smtpd_peer.c	Mon Nov  8 17:27:14 2010
+--- ./src/smtpd/smtpd_peer.c	Tue Feb 22 16:45:22 2011
+***************
+*** 337,343 ****
+  	     * must not be allowed to enter the audit trail, as people would
+  	     * draw false conclusions.
+  	     */
+! 	    aierr = hostname_to_sockaddr(state->name, (char *) 0, 0, &res0);
+  	    if (aierr) {
+  		msg_warn("%s: hostname %s verification failed: %s",
+  			 state->addr, state->name, MAI_STRERROR(aierr));
+--- 337,344 ----
+  	     * must not be allowed to enter the audit trail, as people would
+  	     * draw false conclusions.
+  	     */
+! 	    aierr = hostname_to_sockaddr_pf(state->name, state->addr_family,
+! 					    (char *) 0, 0, &res0);
+  	    if (aierr) {
+  		msg_warn("%s: hostname %s verification failed: %s",
+  			 state->addr, state->name, MAI_STRERROR(aierr));
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/tls/tls.h ./src/tls/tls.h
+*** /var/tmp/postfix-2.8.0/src/tls/tls.h	Tue Dec 28 19:24:31 2010
+--- ./src/tls/tls.h	Mon Feb  7 10:25:04 2011
+***************
+*** 268,273 ****
+--- 268,274 ----
+  typedef struct {
+      TLS_APPL_STATE *ctx;		/* TLS application context */
+      VSTREAM *stream;			/* Client stream */
++     int     fd;				/* Event-driven file descriptor */
+      int     log_level;			/* TLS log level */
+      int     timeout;			/* TLS handshake timeout */
+      int     requirecert;		/* Insist on client cert? */
+***************
+*** 293,302 ****
+      ((props)->a12), ((props)->a13), ((props)->a14), ((props)->a15), \
+      ((props)->a16), ((props)->a17), ((props)->a18), ((props)->a19), (props)))
+  
+! #define TLS_SERVER_START(props, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+      tls_server_start((((props)->a1), ((props)->a2), ((props)->a3), \
+      ((props)->a4), ((props)->a5), ((props)->a6), ((props)->a7), \
+!     ((props)->a8), ((props)->a9), ((props)->a10), (props)))
+  
+   /*
+    * tls_session.c
+--- 294,303 ----
+      ((props)->a12), ((props)->a13), ((props)->a14), ((props)->a15), \
+      ((props)->a16), ((props)->a17), ((props)->a18), ((props)->a19), (props)))
+  
+! #define TLS_SERVER_START(props, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+      tls_server_start((((props)->a1), ((props)->a2), ((props)->a3), \
+      ((props)->a4), ((props)->a5), ((props)->a6), ((props)->a7), \
+!     ((props)->a8), ((props)->a9), ((props)->a10), ((props)->a11), (props)))
+  
+   /*
+    * tls_session.c
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/tls/tls_server.c ./src/tls/tls_server.c
+*** /var/tmp/postfix-2.8.0/src/tls/tls_server.c	Fri Dec 31 19:01:44 2010
+--- ./src/tls/tls_server.c	Mon Feb  7 10:38:33 2011
+***************
+*** 89,95 ****
+  /*	SSL_accept(), SSL_read(), SSL_write() and SSL_shutdown().
+  /*
+  /*	To maintain control over TLS I/O, an event-driven server
+! /*	invokes tls_server_start() with a null VSTREAM argument.
+  /*	Then, tls_server_start() performs all the necessary
+  /*	preparations before the TLS handshake and returns a partially
+  /*	populated TLS context. The event-driven application is then
+--- 89,96 ----
+  /*	SSL_accept(), SSL_read(), SSL_write() and SSL_shutdown().
+  /*
+  /*	To maintain control over TLS I/O, an event-driven server
+! /*	invokes tls_server_start() with a null VSTREAM argument and
+! /*	with an fd argument that specifies the I/O file descriptor.
+  /*	Then, tls_server_start() performs all the necessary
+  /*	preparations before the TLS handshake and returns a partially
+  /*	populated TLS context. The event-driven application is then
+***************
+*** 658,663 ****
+--- 659,676 ----
+      SSL_set_accept_state(TLScontext->con);
+  
+      /*
++      * Connect the SSL connection with the network socket.
++      */
++     if (SSL_set_fd(TLScontext->con, props->stream == 0 ? props->fd :
++ 		   vstream_fileno(props->stream)) != 1) {
++ 	msg_info("SSL_set_fd error to %s", props->namaddr);
++ 	tls_print_errors();
++ 	uncache_session(app_ctx->ssl_ctx, TLScontext);
++ 	tls_free_context(TLScontext);
++ 	return (0);
++     }
++ 
++     /*
+       * If the debug level selected is high enough, all of the data is dumped:
+       * 3 will dump the SSL negotiation, 4 will dump everything.
+       * 
+***************
+*** 676,692 ****
+  	return (TLScontext);
+  
+      /*
+-      * Connect the SSL connection with the network socket.
+-      */
+-     if (SSL_set_fd(TLScontext->con, vstream_fileno(props->stream)) != 1) {
+- 	msg_info("SSL_set_fd error to %s", props->namaddr);
+- 	tls_print_errors();
+- 	uncache_session(app_ctx->ssl_ctx, TLScontext);
+- 	tls_free_context(TLScontext);
+- 	return (0);
+-     }
+- 
+-     /*
+       * Turn on non-blocking I/O so that we can enforce timeouts on network
+       * I/O.
+       */
+--- 689,694 ----
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/tlsproxy/tlsproxy.c ./src/tlsproxy/tlsproxy.c
+*** /var/tmp/postfix-2.8.0/src/tlsproxy/tlsproxy.c	Mon Jan 17 10:43:31 2011
+--- ./src/tlsproxy/tlsproxy.c	Mon Feb  7 10:32:28 2011
+***************
+*** 687,692 ****
+--- 687,693 ----
+  	TLS_SERVER_START(&props,
+  			 ctx = tlsp_server_ctx,
+  			 stream = (VSTREAM *) 0,/* unused */
++ 			 fd = state->ciphertext_fd,
+  			 log_level = var_tlsp_tls_loglevel,
+  			 timeout = 0,		/* unused */
+  			 requirecert = (var_tlsp_tls_req_ccert
+***************
+*** 703,720 ****
+      }
+  
+      /*
+-      * This program will do the ciphertext I/O, not libtls. In the future,
+-      * the above event-driven engine may be factored out as a libtls library
+-      * module.
+-      */
+-     if (SSL_set_fd(state->tls_context->con, state->ciphertext_fd) != 1) {
+- 	msg_info("SSL_set_fd error to %s", state->remote_endpt);
+- 	tls_print_errors();
+- 	tlsp_state_free(state);
+- 	return;
+-     }
+- 
+-     /*
+       * XXX Do we care about TLS session rate limits? Good postscreen(8)
+       * clients will occasionally require the tlsproxy to renew their
+       * whitelist status, but bad clients hammering the server can suck up
+--- 704,709 ----
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/util/myaddrinfo.c ./src/util/myaddrinfo.c
+*** /var/tmp/postfix-2.8.0/src/util/myaddrinfo.c	Fri Sep 29 19:34:20 2006
+--- ./src/util/myaddrinfo.c	Tue Feb 22 16:45:22 2011
+***************
+*** 22,27 ****
+--- 22,34 ----
+  /*	int	socktype;
+  /*	struct addrinfo **result;
+  /*
++ /*	int	hostname_to_sockaddr_pf(hostname, pf, service, socktype, result)
++ /*	const char *hostname;
++ /*	int	pf;
++ /*	const char *service;
++ /*	int	socktype;
++ /*	struct addrinfo **result;
++ /*
+  /*	int	hostaddr_to_sockaddr(hostaddr, service, socktype, result)
+  /*	const char *hostaddr;
+  /*	const char *service;
+***************
+*** 59,64 ****
+--- 66,74 ----
+  /*	result should be destroyed with freeaddrinfo(). A null host
+  /*	pointer converts to the null host address.
+  /*
++ /*	hostname_to_sockaddr_pf() is an extended interface that
++ /*	provides a protocol family override.
++ /*
+  /*	hostaddr_to_sockaddr() converts a printable network address
+  /*	into the corresponding binary form.  The result should be
+  /*	destroyed with freeaddrinfo(). A null host pointer converts
+***************
+*** 100,105 ****
+--- 110,119 ----
+  /*	hostname, or a null pointer (meaning the wild-card listen
+  /*	address).  On output from sockaddr_to_hostname(), storage
+  /*	for the result hostname, or a null pointer.
++ /* .IP pf
++ /*	Protocol type: PF_UNSPEC (meaning: use any protocol that is
++ /*	available), PF_INET, or PF_INET6.  This argument is ignored
++ /*	in EMULATE_IPV4_ADDRINFO mode.
+  /* .IP hostaddr
+  /*	On input to hostaddr_to_sockaddr(), a numeric hostname,
+  /*	or a null pointer (meaning the wild-card listen address).
+***************
+*** 274,283 ****
+  
+  #endif
+  
+! /* hostname_to_sockaddr - hostname to binary address form */
+  
+! int     hostname_to_sockaddr(const char *hostname, const char *service,
+! 			             int socktype, struct addrinfo ** res)
+  {
+  #ifdef EMULATE_IPV4_ADDRINFO
+  
+--- 288,298 ----
+  
+  #endif
+  
+! /* hostname_to_sockaddr_pf - hostname to binary address form */
+  
+! int     hostname_to_sockaddr_pf(const char *hostname, int pf,
+! 			             const char *service, int socktype,
+! 			             struct addrinfo ** res)
+  {
+  #ifdef EMULATE_IPV4_ADDRINFO
+  
+***************
+*** 408,414 ****
+      int     err;
+  
+      memset((char *) &hints, 0, sizeof(hints));
+!     hints.ai_family = inet_proto_info()->ai_family;
+      hints.ai_socktype = service ? socktype : MAI_SOCKTYPE;
+      if (!hostname) {
+  	hints.ai_flags = AI_PASSIVE;
+--- 423,429 ----
+      int     err;
+  
+      memset((char *) &hints, 0, sizeof(hints));
+!     hints.ai_family = (pf != PF_UNSPEC) ? pf : inet_proto_info()->ai_family;
+      hints.ai_socktype = service ? socktype : MAI_SOCKTYPE;
+      if (!hostname) {
+  	hints.ai_flags = AI_PASSIVE;
+diff -cr --new-file /var/tmp/postfix-2.8.0/src/util/myaddrinfo.h ./src/util/myaddrinfo.h
+*** /var/tmp/postfix-2.8.0/src/util/myaddrinfo.h	Thu Nov 27 14:10:17 2008
+--- ./src/util/myaddrinfo.h	Tue Feb 22 16:45:22 2011
+***************
+*** 154,161 ****
+      char    buf[MAI_SERVPORT_STRSIZE];
+  } MAI_SERVPORT_STR;
+  
+! extern int hostname_to_sockaddr(const char *, const char *, int,
+! 				        struct addrinfo **);
+  extern int hostaddr_to_sockaddr(const char *, const char *, int,
+  				        struct addrinfo **);
+  extern int sockaddr_to_hostaddr(const struct sockaddr *, SOCKADDR_SIZE,
+--- 154,161 ----
+      char    buf[MAI_SERVPORT_STRSIZE];
+  } MAI_SERVPORT_STR;
+  
+! extern int hostname_to_sockaddr_pf(const char *, int, const char *, int,
+! 				           struct addrinfo **);
+  extern int hostaddr_to_sockaddr(const char *, const char *, int,
+  				        struct addrinfo **);
+  extern int sockaddr_to_hostaddr(const struct sockaddr *, SOCKADDR_SIZE,
+***************
+*** 168,185 ****
+  
+  #define MAI_STRERROR(e) ((e) == EAI_SYSTEM ? strerror(errno) : gai_strerror(e))
+  
+   /*
+    * Macros for the case where we really don't want to be bothered with things
+    * that may fail.
+    */
+! #define HOSTNAME_TO_SOCKADDR(host, serv, sock, res) \
+      do { \
+  	int _aierr; \
+! 	_aierr = hostname_to_sockaddr((host), (serv), (sock), (res)); \
+  	if (_aierr) \
+! 	    msg_fatal("hostname_to_sockaddr: %s", MAI_STRERROR(_aierr)); \
+      } while (0)
+  
+  #define HOSTADDR_TO_SOCKADDR(host, serv, sock, res) \
+      do { \
+  	int _aierr; \
+--- 168,191 ----
+  
+  #define MAI_STRERROR(e) ((e) == EAI_SYSTEM ? strerror(errno) : gai_strerror(e))
+  
++ #define hostname_to_sockaddr(host, serv, sock, res) \
++ 	hostname_to_sockaddr_pf((host), PF_UNSPEC, (serv), (sock), (res))
++ 
+   /*
+    * Macros for the case where we really don't want to be bothered with things
+    * that may fail.
+    */
+! #define HOSTNAME_TO_SOCKADDR_PF(host, pf, serv, sock, res) \
+      do { \
+  	int _aierr; \
+! 	_aierr = hostname_to_sockaddr_pf((host), (pf), (serv), (sock), (res)); \
+  	if (_aierr) \
+! 	    msg_fatal("hostname_to_sockaddr_pf: %s", MAI_STRERROR(_aierr)); \
+      } while (0)
+  
++ #define HOSTNAME_TO_SOCKADDR(host, serv, sock, res) \
++ 	HOSTNAME_TO_SOCKADDR_PF((host), PF_UNSPEC, (serv), (sock), (res))
++ 
+  #define HOSTADDR_TO_SOCKADDR(host, serv, sock, res) \
+      do { \
+  	int _aierr; \

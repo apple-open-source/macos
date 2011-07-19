@@ -3,6 +3,7 @@
   <Lars dot Hellstrom at residenset dot net>"]
 [moddesc {Literate programming tool}]
 [titledesc {Docstrip style source code extraction}]
+[category  {Documentation tools}]
 [require Tcl 8.4]
 [require docstrip [opt 1.2]]
 [description]

@@ -2,7 +2,7 @@
  * This file is part of the select element renderer in WebCore.
  *
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +24,7 @@
 #ifndef RenderMenuList_h
 #define RenderMenuList_h
 
+#include "PopupMenu.h"
 #include "PopupMenuClient.h"
 #include "RenderFlexibleBox.h"
 
@@ -35,7 +36,6 @@
 
 namespace WebCore {
 
-class PopupMenu;
 class RenderText;
 
 #if ENABLE(NO_LISTBOX_RENDERING)
@@ -74,7 +74,7 @@ private:
 
     virtual const char* renderName() const { return "RenderMenuList"; }
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
@@ -82,6 +82,8 @@ private:
 
     // PopupMenuClient methods
     virtual String itemText(unsigned listIndex) const;
+    virtual String itemLabel(unsigned listIndex) const;
+    virtual String itemIcon(unsigned listIndex) const;
     virtual String itemToolTip(unsigned listIndex) const;
     virtual String itemAccessibilityText(unsigned listIndex) const;
     virtual bool itemIsEnabled(unsigned listIndex) const;
@@ -101,9 +103,11 @@ private:
     virtual bool valueShouldChangeOnHotTrack() const { return true; }
     virtual bool shouldPopOver() const { return !POPUP_MENU_PULLS_DOWN; }
     virtual void valueChanged(unsigned listIndex, bool fireOnChange = true);
+    virtual void selectionChanged(unsigned, bool) {}
+    virtual void selectionCleared() {}
     virtual FontSelector* fontSelector() const;
     virtual HostWindow* hostWindow() const;
-    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize);
 
 #if ENABLE(NO_LISTBOX_RENDERING)
     virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true);
@@ -128,12 +132,14 @@ private:
 
     int m_lastSelectedIndex;
 
+    RefPtr<RenderStyle> m_optionStyle;
+
     RefPtr<PopupMenu> m_popup;
     bool m_popupIsVisible;
 };
 
 inline RenderMenuList* toRenderMenuList(RenderObject* object)
-{ 
+{
     ASSERT(!object || object->isMenuList());
     return static_cast<RenderMenuList*>(object);
 }

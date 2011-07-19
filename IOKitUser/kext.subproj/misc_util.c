@@ -78,7 +78,7 @@ CFStringRef createCFStringForData(CFDataRef aData, CFIndex maxBytes)
         }
         if (maxBytes < count) {
             CFStringAppendFormat(result, /* options */ NULL,
-                CFSTR("...(%u bytes total)>"), (unsigned)count);
+                CFSTR("...(%u bytes total)"), (unsigned)count);
         }
     }
     CFStringAppend(result, CFSTR(">"));

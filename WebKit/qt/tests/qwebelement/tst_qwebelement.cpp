@@ -71,6 +71,7 @@ private slots:
     void lastChildPreviousSibling();
     void hasSetFocus();
     void render();
+    void addElementToHead();
 
 private:
     QWebView* m_view;
@@ -430,9 +431,9 @@ void tst_QWebElement::frame()
     QWebElement doc = m_mainFrame->documentElement();
     QVERIFY(doc.webFrame() == m_mainFrame);
 
-    m_view->setHtml(QString("data:text/html,<frameset cols=\"25%,75%\"><frame src=\"data:text/html,"
-                            "<p>frame1\">"
-                            "<frame src=\"data:text/html,<p>frame2\"></frameset>"), QUrl());
+    m_mainFrame->load(QUrl("data:text/html,<frameset cols=\"25%,75%\"><frame src=\"data:text/html,"
+                           "<p>frame1\">"
+                           "<frame src=\"data:text/html,<p>frame2\"></frameset>"));
 
     waitForSignal(m_page, SIGNAL(loadFinished(bool)));
 
@@ -482,7 +483,7 @@ void tst_QWebElement::style()
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue");
-    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("green"));
+    QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue !important");
@@ -887,7 +888,7 @@ void tst_QWebElement::nullSelect()
 
 void tst_QWebElement::firstChildNextSibling()
 {
-    m_mainFrame->setHtml("<body><!--comment--><p>Test</p><!--another commend><table>");
+    m_mainFrame->setHtml("<body><!--comment--><p>Test</p><!--another comment--><table>");
 
     QWebElement body = m_mainFrame->findFirstElement("body");
     QVERIFY(!body.isNull());
@@ -902,7 +903,7 @@ void tst_QWebElement::firstChildNextSibling()
 
 void tst_QWebElement::lastChildPreviousSibling()
 {
-    m_mainFrame->setHtml("<body><!--comment--><p>Test</p><!--another commend><table>");
+    m_mainFrame->setHtml("<body><!--comment--><p>Test</p><!--another comment--><table>");
 
     QWebElement body = m_mainFrame->findFirstElement("body");
     QVERIFY(!body.isNull());
@@ -938,7 +939,7 @@ void tst_QWebElement::render()
 {
     QString html( "<html>"
                     "<head><style>"
-                       "body, iframe { margin: 0px; border: none; }"
+                       "body, iframe { margin: 0px; border: none; background: white; }"
                     "</style></head>"
                     "<body><table width='300px' height='300px' border='1'>"
                            "<tr>"
@@ -1011,6 +1012,31 @@ void tst_QWebElement::render()
     painter4.end();
 
     QVERIFY(image3 == image4);
+
+    // Chunked render test reuses page rendered in image4 in previous test
+    const int chunkHeight = tableRect.height();
+    const int chunkWidth = tableRect.width() / 3;
+    QImage chunk(chunkWidth, chunkHeight, QImage::Format_ARGB32);
+    QRect chunkRect(0, 0, chunkWidth, chunkHeight);
+    for (int x = 0; x < tableRect.width(); x += chunkWidth) {
+        QPainter painter(&chunk);
+        painter.fillRect(chunkRect, Qt::white);
+        QRect chunkPaintRect(x, 0, chunkWidth, chunkHeight);
+        tables[0].render(&painter, chunkPaintRect);
+        painter.end();
+
+        QVERIFY(chunk == image4.copy(chunkPaintRect));
+    }
+}
+
+void tst_QWebElement::addElementToHead()
+{
+    m_mainFrame->setHtml("<html><head></head><body></body></html>");
+    QWebElement head = m_mainFrame->findFirstElement("head");
+    QVERIFY(!head.isNull());
+    QString append = "<script type=\"text/javascript\">var t = 0;</script>";
+    head.appendInside(append);
+    QCOMPARE(head.toInnerXml(), append);
 }
 
 QTEST_MAIN(tst_QWebElement)

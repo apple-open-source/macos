@@ -85,8 +85,8 @@
 /*	configuration parameter. The group ID must be non-zero.
 /* .IP "PIPE_CMD_TIME_LIMIT (int)"
 /*	The amount of time the command is allowed to run before it
-/*	is terminated with SIGKILL. The default is the limit given
-/*	with the \fIcommand_time_limit\fR configuration parameter.
+/*	is terminated with SIGKILL. A non-negative PIPE_CMD_TIME_LIMIT
+/*	value must be specified.
 /* .IP "PIPE_CMD_SHELL (char *)"
 /*	The shell to use when executing the command specified with
 /*	PIPE_CMD_COMMAND. This shell is invoked regardless of the
@@ -211,7 +211,7 @@ static void get_pipe_args(struct pipe_args * args, va_list ap)
     args->cwd = 0;
     args->chroot = 0;
 
-    pipe_command_maxtime = var_command_maxtime;
+    pipe_command_maxtime = -1;
 
     /*
      * Then, override the defaults with user-supplied inputs.
@@ -277,6 +277,8 @@ static void get_pipe_args(struct pipe_args * args, va_list ap)
 	msg_panic("%s: privileged uid", myname);
     if (args->gid == 0)
 	msg_panic("%s: privileged gid", myname);
+    if (pipe_command_maxtime < 0)
+	msg_panic("%s: missing or invalid PIPE_CMD_TIME_LIMIT", myname);
 }
 
 /* pipe_command_write - write to command with time limit */
@@ -628,7 +630,7 @@ int     pipe_command(VSTREAM *src, DSN_BUF *why,...)
 	 */
 	if (!NORMAL_EXIT_STATUS(wait_status)) {
 	    if (WIFSIGNALED(wait_status)) {
-		dsb_unix(why, "5.3.0", log_len ?
+		dsb_unix(why, "4.3.0", log_len ?
 			 log_buf : sys_exits_detail(EX_SOFTWARE)->text,
 			 "Command died with signal %d: \"%s\"%s%s",
 			 WTERMSIG(wait_status), args.command,

@@ -1,9 +1,17 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 #include <stdio.h>
 #include <Block.h>
+#include "test.h"
 
-// CONFIG
+// TEST_CONFIG
 
-void callsomething(const char *format, int argument) {
+void callsomething(const char *format __unused, int argument __unused) {
+    asm("");
 }
 
 void
@@ -14,12 +22,12 @@ dispatch_call_Block_with_release2(void *block)
         Block_release(b);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[] __unused) {
      void (^b1)(void) = ^{ callsomething("argc is %d\n", argc); };
      void (^b2)(void) = ^{ callsomething("hellow world\n", 0); }; // global block now
 
      dispatch_call_Block_with_release2(Block_copy(b1));
      dispatch_call_Block_with_release2(Block_copy(b2));
-     printf("%s: Success\n", argv[0]);
-     return 0;
+
+     succeed(__FILE__);
 }

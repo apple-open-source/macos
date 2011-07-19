@@ -3,6 +3,7 @@
 [copyright {2003-2006, by William H. Duquette}]
 [moddesc {Snit's Not Incr Tcl, OO system}]
 [titledesc   {Snit Frequently Asked Questions}]
+[category  {Programming tools}]
 [description]
 [para]
 
@@ -178,13 +179,13 @@ two versions) you can use Snit 1.3 for Tcl 8.4 and Snit 2.2 for Tcl
 To always use Snit 1.3 (or a later version of Snit 1.x), invoke Snit
 as follows:
 
-[example {package require Snit 1.3
+[example {package require snit 1.3
 }]
 
 To always use Snit 2.2 (or a later version of Snit 2.x), say this
 instead:
 
-[example {package require Snit 2.2
+[example {package require snit 2.2
 }]
 
 Note that if you request Snit 2.2 explicitly, your application will
@@ -195,7 +196,7 @@ halt with Tcl 8.4, since Snit 2.2 is unavailable for Tcl 8.4.
 If you wish your application to always use the latest available
 version of Snit, don't specify a version number:
 
-[example {package require Snit
+[example {package require snit
 }]
 
 Tcl will find and load the latest version that's available relative to

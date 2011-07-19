@@ -1,34 +1,34 @@
-#ifndef __ASL_FILE_H__
-#define __ASL_FILE_H__
-
 /*
- * Copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 2007 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef __ASL_FILE_H__
+#define __ASL_FILE_H__
 
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <asl.h>
+#include <Availability.h>
 
 #define DB_HEADER_LEN 80
 #define DB_HEADER_COOKIE_OFFSET 0
@@ -119,32 +119,32 @@ typedef struct asl_file_list_s
 	struct asl_file_list_s *next;
 } asl_file_list_t;
 
-asl_file_list_t *asl_file_list_add(asl_file_list_t *list, asl_file_t *f);
-void asl_file_list_close(asl_file_list_t *list);
+asl_file_list_t *asl_file_list_add(asl_file_list_t *list, asl_file_t *f) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+void asl_file_list_close(asl_file_list_t *list) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_file_t **s);
-uint32_t asl_file_close(asl_file_t *s);
+uint32_t asl_file_open_write(const char *path, mode_t mode, uid_t uid, gid_t gid, asl_file_t **s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_close(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_save(asl_file_t *s, aslmsg msg, uint64_t *mid);
+uint32_t asl_file_save(asl_file_t *s, aslmsg msg, uint64_t *mid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_open_read(const char *path, asl_file_t **s);
-uint32_t asl_file_fetch(asl_file_t *s, uint64_t mid, aslmsg *msg);
+uint32_t asl_file_open_read(const char *path, asl_file_t **s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch(asl_file_t *s, uint64_t mid, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_read_set_position(asl_file_t *s, uint32_t pos);
-uint32_t asl_file_fetch_next(asl_file_t *s, aslmsg *msg);
-uint32_t asl_file_fetch_previous(asl_file_t *s, aslmsg *msg);
+uint32_t asl_file_read_set_position(asl_file_t *s, uint32_t pos) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch_next(asl_file_t *s, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_fetch_previous(asl_file_t *s, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction);
-uint32_t asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, uint32_t usec);
-uint32_t asl_file_list_match(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction);
+uint32_t asl_file_match(asl_file_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_list_match_timeout(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, uint32_t usec) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_3_2);
+uint32_t asl_file_list_match(asl_file_list_t *list, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-void *asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t direction);
-uint32_t asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint32_t count);
-void asl_file_list_match_end(void *token);
+void *asl_file_list_match_start(asl_file_list_t *list, uint64_t start_id, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_file_list_match_next(void *token, aslresponse query, aslresponse *res, uint32_t count) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+void asl_file_list_match_end(void *token) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-size_t asl_file_size(asl_file_t *s);
-uint64_t asl_file_ctime(asl_file_t *s);
+size_t asl_file_size(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint64_t asl_file_ctime(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-uint32_t asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t gid);
+uint32_t asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t gid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 #endif __ASL_FILE_H__

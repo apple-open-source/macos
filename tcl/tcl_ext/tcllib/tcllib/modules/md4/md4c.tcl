@@ -10,11 +10,11 @@
 # This package uses critcl (http://wiki.tcl.tk/critcl). To build do:
 #  critcl -libdir <your-tcl-lib-dir> -pkg md4c md4c
 #
-# $Id: md4c.tcl,v 1.5 2008/03/25 07:15:35 andreas_kupries Exp $
+# $Id: md4c.tcl,v 1.6 2009/05/06 22:57:50 patthoyts Exp $
 
 package require critcl
 # @sak notprovided md4c
-package provide md4c 1.0.0
+package provide md4c 1.1.0
 
 critcl::cheaders md4.h
 critcl::csources md4.c
@@ -77,11 +77,9 @@ namespace eval ::md4 {
 
     critcl::ccommand md4c {dummy interp objc objv} {
         MD4_CTX *ctx;
-        unsigned char* data;
+        unsigned char *data;
         int size;
-        Tcl_Obj* obj;
-        
-        /* Tcl_RegisterObjType(&md4_type); */
+        Tcl_Obj *obj;
         
         if (objc < 2 || objc > 3) {
             Tcl_WrongNumArgs(interp, 1, objv, "data ?context?");
@@ -90,32 +88,27 @@ namespace eval ::md4 {
         
         if (objc == 3) {
             if (objv[2]->typePtr != &md4_type 
-                && md4_from_any(interp, objv[2]) != TCL_OK)
+                && md4_from_any(interp, objv[2]) != TCL_OK) {
                 return TCL_ERROR;
+            }
             obj = objv[2];
-            if (Tcl_IsShared(obj))
+            if (Tcl_IsShared(obj)) {
                 obj = Tcl_DuplicateObj(obj);
+            }
         } else {
-            obj = Tcl_NewObj();
             ctx = (MD4_CTX *)Tcl_Alloc(sizeof(MD4_CTX));
             MD4Init(ctx);
-        
-            if (obj->typePtr != NULL && obj->typePtr->freeIntRepProc != NULL)
-                obj->typePtr->freeIntRepProc(obj);
-        
+            obj = Tcl_NewObj();
+	    Tcl_InvalidateStringRep(obj);
             obj->internalRep.otherValuePtr = ctx;
             obj->typePtr = &md4_type;
         }
     
-        Tcl_SetObjResult(interp, obj);
-        Tcl_IncrRefCount(obj); //!! huh?
-        
-        Tcl_InvalidateStringRep(obj);
         ctx = (MD4_CTX *)obj->internalRep.otherValuePtr;
-    
         data = Tcl_GetByteArrayFromObj(objv[1], &size);
         MD4Update(ctx, data, size);
-    
+        Tcl_SetObjResult(interp, obj);
+
         return TCL_OK;
     }
 }

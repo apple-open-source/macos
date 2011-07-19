@@ -38,7 +38,7 @@
 packets to network hosts
 .Sh SYNOPSIS
 .Nm
-.Op Fl AaDdfnoQqRrv
+.Op Fl AaCDdfnoQqRrv
 .Op Fl b Ar boundif
 .Op Fl c Ar count
 .Op Fl G Ar sweepmaxsize
@@ -118,6 +118,8 @@ if other format options are present.
 Bind the socket to interface
 .Ar boundif
 for sending.
+.It Fl C
+Prohibit the socket from using the cellular network interface.
 .It Fl c Ar count
 Stop after sending
 (and receiving)
@@ -522,7 +524,8 @@ if an error occurred.
 .Xr netstat 1 ,
 .Xr ifconfig 8 ,
 .Xr routed 8 ,
-.Xr traceroute 8
+.Xr traceroute 8 ,
+.Xr ping6 8
 .Sh HISTORY
 The
 .Nm

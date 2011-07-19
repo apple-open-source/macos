@@ -120,7 +120,8 @@ Archive::parseMemberHeader(const char*& At, const char* End, std::string* error)
       if (Hdr->name[1] == '1' && Hdr->name[2] == '/') {
         if (isdigit(Hdr->name[3])) {
           unsigned len = atoi(&Hdr->name[3]);
-          pathname.assign(At, len);
+          const char *nulp = (const char *)memchr(At, '\0', len);
+          pathname.assign(At, nulp != 0 ? (uintptr_t)(nulp - At) : len);
           At += len;
           MemberSize -= len;
           flags |= ArchiveMember::HasLongFilenameFlag;
@@ -327,9 +328,9 @@ Archive::loadArchive(std::string* error) {
 
 // Open and completely load the archive file.
 Archive*
-Archive::OpenAndLoad(const sys::Path& file, std::string* ErrorMessage) 
-{
-  std::auto_ptr<Archive> result ( new Archive(file));
+Archive::OpenAndLoad(const sys::Path& file, LLVMContext& C, 
+                     std::string* ErrorMessage) {
+  std::auto_ptr<Archive> result ( new Archive(file, C));
   if (result->mapToMemory(ErrorMessage))
     return 0;
   if (!result->loadArchive(ErrorMessage))
@@ -339,17 +340,18 @@ Archive::OpenAndLoad(const sys::Path& file, std::string* ErrorMessage)
 
 // Get all the bitcode modules from the archive
 bool
-Archive::getAllModules(std::vector<Module*>& Modules, std::string* ErrMessage) {
+Archive::getAllModules(std::vector<Module*>& Modules,
+                       std::string* ErrMessage) {
 
   for (iterator I=begin(), E=end(); I != E; ++I) {
     if (I->isBitcode()) {
-      std::string FullMemberName = archPath.toString() +
-        "(" + I->getPath().toString() + ")";
+      std::string FullMemberName = archPath.str() +
+        "(" + I->getPath().str() + ")";
       MemoryBuffer *Buffer =
-        MemoryBuffer::getNewMemBuffer(I->getSize(), FullMemberName.c_str());
-      memcpy((char*)Buffer->getBufferStart(), I->getData(), I->getSize());
+        MemoryBuffer::getMemBufferCopy(StringRef(I->getData(), I->getSize()),
+                                       FullMemberName.c_str());
       
-      Module *M = ParseBitcodeFile(Buffer, ErrMessage);
+      Module *M = ParseBitcodeFile(Buffer, Context, ErrMessage);
       delete Buffer;
       if (!M)
         return true;
@@ -440,9 +442,10 @@ Archive::loadSymbolTable(std::string* ErrorMsg) {
 }
 
 // Open the archive and load just the symbol tables
-Archive*
-Archive::OpenAndLoadSymbols(const sys::Path& file, std::string* ErrorMessage) {
-  std::auto_ptr<Archive> result ( new Archive(file) );
+Archive* Archive::OpenAndLoadSymbols(const sys::Path& file,
+                                     LLVMContext& C,
+                                     std::string* ErrorMessage) {
+  std::auto_ptr<Archive> result ( new Archive(file, C) );
   if (result->mapToMemory(ErrorMessage))
     return 0;
   if (!result->loadSymbolTable(ErrorMessage))
@@ -450,9 +453,9 @@ Archive::OpenAndLoadSymbols(const sys::Path& file, std::string* ErrorMessage) {
   return result.release();
 }
 
-// Look up one symbol in the symbol table and return a ModuleProvider for the
-// module that defines that symbol.
-ModuleProvider*
+// Look up one symbol in the symbol table and return the module that defines
+// that symbol.
+Module*
 Archive::findModuleDefiningSymbol(const std::string& symbol, 
                                   std::string* ErrMsg) {
   SymTabType::iterator SI = symTab.find(symbol);
@@ -481,27 +484,27 @@ Archive::findModuleDefiningSymbol(const std::string& symbol,
   if (!mbr)
     return 0;
 
-  // Now, load the bitcode module to get the ModuleProvider
-  std::string FullMemberName = archPath.toString() + "(" +
-    mbr->getPath().toString() + ")";
-  MemoryBuffer *Buffer =MemoryBuffer::getNewMemBuffer(mbr->getSize(),
-                                                      FullMemberName.c_str());
-  memcpy((char*)Buffer->getBufferStart(), mbr->getData(), mbr->getSize());
+  // Now, load the bitcode module to get the Module.
+  std::string FullMemberName = archPath.str() + "(" +
+    mbr->getPath().str() + ")";
+  MemoryBuffer *Buffer =
+    MemoryBuffer::getMemBufferCopy(StringRef(mbr->getData(), mbr->getSize()),
+                                   FullMemberName.c_str());
   
-  ModuleProvider *mp = getBitcodeModuleProvider(Buffer, ErrMsg);
-  if (!mp)
+  Module *m = getLazyBitcodeModule(Buffer, Context, ErrMsg);
+  if (!m)
     return 0;
 
-  modules.insert(std::make_pair(fileOffset, std::make_pair(mp, mbr)));
+  modules.insert(std::make_pair(fileOffset, std::make_pair(m, mbr)));
 
-  return mp;
+  return m;
 }
 
 // Look up multiple symbols in the symbol table and return a set of
-// ModuleProviders that define those symbols.
+// Modules that define those symbols.
 bool
 Archive::findModulesDefiningSymbols(std::set<std::string>& symbols,
-                                    std::set<ModuleProvider*>& result,
+                                    std::set<Module*>& result,
                                     std::string* error) {
   if (!mapfile || !base) {
     if (error)
@@ -532,25 +535,25 @@ Archive::findModulesDefiningSymbols(std::set<std::string>& symbols,
       if (mbr->isBitcode()) {
         // Get the symbols
         std::vector<std::string> symbols;
-        std::string FullMemberName = archPath.toString() + "(" +
-          mbr->getPath().toString() + ")";
-        ModuleProvider* MP = 
-          GetBitcodeSymbols((const unsigned char*)At, mbr->getSize(),
-                            FullMemberName, symbols, error);
+        std::string FullMemberName = archPath.str() + "(" +
+          mbr->getPath().str() + ")";
+        Module* M = 
+          GetBitcodeSymbols(At, mbr->getSize(), FullMemberName, Context,
+                            symbols, error);
 
-        if (MP) {
+        if (M) {
           // Insert the module's symbols into the symbol table
           for (std::vector<std::string>::iterator I = symbols.begin(),
                E=symbols.end(); I != E; ++I ) {
             symTab.insert(std::make_pair(*I, offset));
           }
-          // Insert the ModuleProvider and the ArchiveMember into the table of
+          // Insert the Module and the ArchiveMember into the table of
           // modules.
-          modules.insert(std::make_pair(offset, std::make_pair(MP, mbr)));
+          modules.insert(std::make_pair(offset, std::make_pair(M, mbr)));
         } else {
           if (error)
             *error = "Can't parse bitcode member: " + 
-              mbr->getPath().toString() + ": " + *error;
+              mbr->getPath().str() + ": " + *error;
           delete mbr;
           return false;
         }
@@ -569,11 +572,11 @@ Archive::findModulesDefiningSymbols(std::set<std::string>& symbols,
   for (std::set<std::string>::iterator I=symbols.begin(),
        E=symbols.end(); I != E;) {
     // See if this symbol exists
-    ModuleProvider* mp = findModuleDefiningSymbol(*I,error);
-    if (mp) {
-      // The symbol exists, insert the ModuleProvider into our result,
-      // duplicates wil be ignored
-      result.insert(mp);
+    Module* m = findModuleDefiningSymbol(*I,error);
+    if (m) {
+      // The symbol exists, insert the Module into our result, duplicates will
+      // be ignored.
+      result.insert(m);
 
       // Remove the symbol now that its been resolved, being careful to
       // post-increment the iterator.
@@ -610,12 +613,12 @@ bool Archive::isBitcodeArchive() {
       continue;
     
     std::string FullMemberName = 
-      archPath.toString() + "(" + I->getPath().toString() + ")";
+      archPath.str() + "(" + I->getPath().str() + ")";
 
     MemoryBuffer *Buffer =
-      MemoryBuffer::getNewMemBuffer(I->getSize(), FullMemberName.c_str());
-    memcpy((char*)Buffer->getBufferStart(), I->getData(), I->getSize());
-    Module *M = ParseBitcodeFile(Buffer);
+      MemoryBuffer::getMemBufferCopy(StringRef(I->getData(), I->getSize()),
+                                     FullMemberName.c_str());
+    Module *M = ParseBitcodeFile(Buffer, Context);
     delete Buffer;
     if (!M)
       return false;  // Couldn't parse bitcode, not a bitcode archive.

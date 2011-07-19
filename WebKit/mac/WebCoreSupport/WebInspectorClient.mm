@@ -33,8 +33,10 @@
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebInspector.h"
-#import "WebLocalizableStrings.h"
-#import "WebNodeHighlight.h"
+#import "WebInspectorPrivate.h"
+#import "WebInspectorFrontend.h"
+#import "WebLocalizableStringsInternal.h"
+#import "WebNodeHighlighter.h"
 #import "WebUIDelegate.h"
 #import "WebViewInternal.h"
 #import <WebCore/InspectorController.h>
@@ -47,9 +49,10 @@ using namespace WebCore;
 
 @interface WebInspectorWindowController : NSWindowController <NSWindowDelegate> {
 @private
-    WebView *_inspectedWebView;
+    RetainPtr<WebView> _inspectedWebView;
     WebView *_webView;
     WebInspectorFrontendClient* _frontendClient;
+    WebInspectorClient* _inspectorClient;
     BOOL _attachedToInspectedWebView;
     BOOL _shouldAttach;
     BOOL _visible;
@@ -61,28 +64,19 @@ using namespace WebCore;
 - (void)detach;
 - (BOOL)attached;
 - (void)setFrontendClient:(WebInspectorFrontendClient*)frontendClient;
+- (void)setInspectorClient:(WebInspectorClient*)inspectorClient;
+- (WebInspectorClient*)inspectorClient;
 - (void)setAttachedWindowHeight:(unsigned)height;
-- (void)destroyInspectorView;
+- (void)destroyInspectorView:(bool)notifyInspectorController;
 @end
 
-#pragma mark -
 
-@interface WebNodeHighlighter : NSObject {
-@private
-    WebView *_inspectedWebView;
-    WebNodeHighlight *_currentHighlight;
-}
-- (id)initWithInspectedWebView:(WebView *)webView;
-- (void)highlightNode:(DOMNode *)node;
-- (void)hideHighlight;
-@end
-
-#pragma mark -
-
+// MARK: -
 
 WebInspectorClient::WebInspectorClient(WebView *webView)
-: m_webView(webView)
-, m_highlighter(AdoptNS, [[WebNodeHighlighter alloc] initWithInspectedWebView:webView])
+    : m_webView(webView)
+    , m_highlighter(AdoptNS, [[WebNodeHighlighter alloc] initWithInspectedWebView:webView])
+    , m_frontendPage(0)
 {
 }
 
@@ -94,9 +88,13 @@ void WebInspectorClient::inspectorDestroyed()
 void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorController)
 {
     RetainPtr<WebInspectorWindowController> windowController(AdoptNS, [[WebInspectorWindowController alloc] initWithInspectedWebView:m_webView]);
-    Page* frontendPage = core([windowController.get() webView]);
+    [windowController.get() setInspectorClient:this];
 
-    frontendPage->inspectorController()->setInspectorFrontendClient(new WebInspectorFrontendClient(m_webView, windowController.get(), inspectorController, frontendPage));
+    m_frontendPage = core([windowController.get() webView]);
+    OwnPtr<WebInspectorFrontendClient> frontendClient = adoptPtr(new WebInspectorFrontendClient(m_webView, windowController.get(), inspectorController, m_frontendPage, createFrontendSettings()));
+    RetainPtr<WebInspectorFrontend> webInspectorFrontend(AdoptNS, [[WebInspectorFrontend alloc] initWithFrontendClient:frontendClient.get()]);
+    [[m_webView inspector] setFrontend:webInspectorFrontend.get()];
+    m_frontendPage->inspectorController()->setInspectorFrontendClient(frontendClient.release());
 }
 
 void WebInspectorClient::highlight(Node* node)
@@ -109,8 +107,8 @@ void WebInspectorClient::hideHighlight()
     [m_highlighter.get() hideHighlight];
 }
 
-WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, WebInspectorWindowController* windowController, InspectorController* inspectorController, Page* frontendPage)
-    : InspectorFrontendClientLocal(inspectorController,  frontendPage)
+WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, WebInspectorWindowController* windowController, InspectorController* inspectorController, Page* frontendPage, WTF::PassOwnPtr<Settings> settings)
+    : InspectorFrontendClientLocal(inspectorController,  frontendPage, settings)
     , m_inspectedWebView(inspectedWebView)
     , m_windowController(windowController)
 {
@@ -160,7 +158,12 @@ void WebInspectorFrontendClient::bringToFront()
 
 void WebInspectorFrontendClient::closeWindow()
 {
-    [m_windowController.get() destroyInspectorView];
+    [m_windowController.get() destroyInspectorView:true];
+}
+
+void WebInspectorFrontendClient::disconnectFromBackend()
+{
+    [m_windowController.get() destroyInspectorView:false];
 }
 
 void WebInspectorFrontendClient::attachWindow()
@@ -187,27 +190,39 @@ void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
     updateWindowTitle();
 }
 
+void WebInspectorFrontendClient::saveSessionSetting(const String& key, const String& value)
+{
+    WebInspectorClient* client = [m_windowController.get() inspectorClient];
+    if (client)
+        client->saveSessionSetting(key, value);
+}
+
+void WebInspectorFrontendClient::loadSessionSetting(const String& key, String* value)
+{
+    WebInspectorClient* client = [m_windowController.get() inspectorClient];
+    if (client)
+        client->loadSessionSetting(key, value);
+}
+
 void WebInspectorFrontendClient::updateWindowTitle() const
 {
-    NSString *title = [NSString stringWithFormat:UI_STRING("Web Inspector — %@", "Web Inspector window title"), (NSString *)m_inspectedURL];
+    NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Web Inspector — %@", "Web Inspector window title"), (NSString *)m_inspectedURL];
     [[m_windowController.get() window] setTitle:title];
 }
 
 
-#pragma mark -
+// MARK: -
 
 @implementation WebInspectorWindowController
 - (id)init
 {
-    if (![super initWithWindow:nil])
+    if (!(self = [super initWithWindow:nil]))
         return nil;
 
     // Keep preferences separate from the rest of the client, making sure we are using expected preference values.
-    // One reason this is good is that it keeps the inspector out of history via "private browsing".
 
     WebPreferences *preferences = [[WebPreferences alloc] init];
     [preferences setAutosaves:NO];
-    [preferences setPrivateBrowsingEnabled:YES];
     [preferences setLoadsImagesAutomatically:YES];
     [preferences setAuthorAndUserStylesEnabled:YES];
     [preferences setJavaScriptEnabled:YES];
@@ -218,7 +233,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     [preferences setTabsToLinks:NO];
     [preferences setMinimumFontSize:0];
     [preferences setMinimumLogicalFontSize:9];
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     [preferences setFixedFontFamily:@"Menlo"];
     [preferences setDefaultFixedFontSize:11];
 #else
@@ -245,10 +260,9 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
 - (id)initWithInspectedWebView:(WebView *)webView
 {
-    if (![self init])
+    if (!(self = [self init]))
         return nil;
 
-    // Don't retain to avoid a circular reference
     _inspectedWebView = webView;
     return self;
 }
@@ -259,7 +273,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     [super dealloc];
 }
 
-#pragma mark -
+// MARK: -
 
 - (WebView *)webView
 {
@@ -274,20 +288,16 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
     NSUInteger styleMask = (NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask);
 
-#ifndef BUILDING_ON_TIGER
     styleMask |= NSTexturedBackgroundWindowMask;
-#endif
 
     window = [[NSWindow alloc] initWithContentRect:NSMakeRect(60.0, 200.0, 750.0, 650.0) styleMask:styleMask backing:NSBackingStoreBuffered defer:NO];
     [window setDelegate:self];
     [window setMinSize:NSMakeSize(400.0, 400.0)];
 
-#ifndef BUILDING_ON_TIGER
     [window setAutorecalculatesContentBorderThickness:NO forEdge:NSMaxYEdge];
     [window setContentBorderThickness:55. forEdge:NSMaxYEdge];
 
     WKNSWindowMakeBottomCornersSquare(window);
-#endif
 
     [self setWindow:window];
     [window release];
@@ -295,11 +305,11 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     return window;
 }
 
-#pragma mark -
+// MARK: -
 
 - (BOOL)windowShouldClose:(id)sender
 {
-    [self destroyInspectorView];
+    [self destroyInspectorView:true];
 
     return YES;
 }
@@ -312,12 +322,12 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     _visible = NO;
 
     if (_attachedToInspectedWebView) {
-        if ([_inspectedWebView _isClosed])
+        if ([_inspectedWebView.get() _isClosed])
             return;
 
         [_webView removeFromSuperview];
 
-        WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
+        WebFrameView *frameView = [[_inspectedWebView.get() mainFrame] frameView];
         NSRect frameViewRect = [frameView frame];
 
         // Setting the height based on the previous height is done to work with
@@ -328,7 +338,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
         [frameView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable)];
         [frameView setFrame:frameViewRect];
 
-        [_inspectedWebView displayIfNeeded];
+        [_inspectedWebView.get() displayIfNeeded];
     } else
         [super close];
 }
@@ -343,18 +353,16 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
     _visible = YES;
     
-    // If no preference is set - default to an attached window. This is important for inspector LayoutTests.
-    String shouldAttach = [_inspectedWebView page]->inspectorController()->setting(InspectorController::inspectorStartsAttachedSettingName());
-    _shouldAttach = shouldAttach != "false";
+    _shouldAttach = _inspectorClient->inspectorStartsAttached();
     
     if (_shouldAttach && !_frontendClient->canAttachWindow())
         _shouldAttach = NO;
 
     if (_shouldAttach) {
-        WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
+        WebFrameView *frameView = [[_inspectedWebView.get() mainFrame] frameView];
 
         [_webView removeFromSuperview];
-        [_inspectedWebView addSubview:_webView positioned:NSWindowBelow relativeTo:(NSView *)frameView];
+        [_inspectedWebView.get() addSubview:_webView positioned:NSWindowBelow relativeTo:(NSView *)frameView];
 
         [_webView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMaxYMargin)];
         [frameView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMinYMargin)];
@@ -373,14 +381,14 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     }
 }
 
-#pragma mark -
+// MARK: -
 
 - (void)attach
 {
     if (_attachedToInspectedWebView)
         return;
 
-    [_inspectedWebView page]->inspectorController()->setSetting(InspectorController::inspectorStartsAttachedSettingName(), "true");
+    _inspectorClient->setInspectorStartsAttached(true);
 
     [self close];
     [self showWindow:nil];
@@ -391,7 +399,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     if (!_attachedToInspectedWebView)
         return;
 
-    [_inspectedWebView page]->inspectorController()->setSetting(InspectorController::inspectorStartsAttachedSettingName(), "false");
+    _inspectorClient->setInspectorStartsAttached(false);
 
     [self close];
     [self showWindow:nil];
@@ -407,12 +415,22 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     _frontendClient = frontendClient;
 }
 
+- (void)setInspectorClient:(WebInspectorClient*)inspectorClient
+{
+    _inspectorClient = inspectorClient;
+}
+
+- (WebInspectorClient*)inspectorClient
+{
+    return _inspectorClient;
+}
+
 - (void)setAttachedWindowHeight:(unsigned)height
 {
     if (!_attachedToInspectedWebView)
         return;
 
-    WebFrameView *frameView = [[_inspectedWebView mainFrame] frameView];
+    WebFrameView *frameView = [[_inspectedWebView.get() mainFrame] frameView];
     NSRect frameViewRect = [frameView frame];
 
     // Setting the height based on the difference is done to work with
@@ -425,7 +443,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     [frameView setFrame:frameViewRect];
 }
 
-- (void)destroyInspectorView
+- (void)destroyInspectorView:(bool)notifyInspectorController
 {
     if (_destroyingInspectorView)
         return;
@@ -436,56 +454,46 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
     _visible = NO;
 
-    if (Page* inspectedPage = [_inspectedWebView page])
-        inspectedPage->inspectorController()->disconnectFrontend();
+    if (notifyInspectorController) {
+        if (Page* inspectedPage = [_inspectedWebView.get() page])
+            inspectedPage->inspectorController()->disconnectFrontend();
+
+        _inspectorClient->releaseFrontendPage();
+    }
 
     [_webView close];
 }
 
-#pragma mark -
-#pragma mark WebNodeHighlight delegate
-
-- (void)didAttachWebNodeHighlight:(WebNodeHighlight *)highlight
-{
-    [_inspectedWebView setCurrentNodeHighlight:highlight];
-}
-
-- (void)willDetachWebNodeHighlight:(WebNodeHighlight *)highlight
-{
-    [_inspectedWebView setCurrentNodeHighlight:nil];
-}
-
-#pragma mark -
-#pragma mark UI delegate
+// MARK: -
+// MARK: UI delegate
 
 - (NSUInteger)webView:(WebView *)sender dragDestinationActionMaskForDraggingInfo:(id <NSDraggingInfo>)draggingInfo
 {
     return WebDragDestinationActionNone;
 }
 
-#pragma mark -
-
+// MARK: -
 // These methods can be used by UI elements such as menu items and toolbar buttons when the inspector is the key window.
 
 // This method is really only implemented to keep any UI elements enabled.
 - (void)showWebInspector:(id)sender
 {
-    [[_inspectedWebView inspector] show:sender];
+    [[_inspectedWebView.get() inspector] show:sender];
 }
 
 - (void)showErrorConsole:(id)sender
 {
-    [[_inspectedWebView inspector] showConsole:sender];
+    [[_inspectedWebView.get() inspector] showConsole:sender];
 }
 
 - (void)toggleDebuggingJavaScript:(id)sender
 {
-    [[_inspectedWebView inspector] toggleDebuggingJavaScript:sender];
+    [[_inspectedWebView.get() inspector] toggleDebuggingJavaScript:sender];
 }
 
 - (void)toggleProfilingJavaScript:(id)sender
 {
-    [[_inspectedWebView inspector] toggleProfilingJavaScript:sender];
+    [[_inspectedWebView.get() inspector] toggleProfilingJavaScript:sender];
 }
 
 - (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
@@ -493,76 +501,20 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     BOOL isMenuItem = [(id)item isKindOfClass:[NSMenuItem class]];
     if ([item action] == @selector(toggleDebuggingJavaScript:) && isMenuItem) {
         NSMenuItem *menuItem = (NSMenuItem *)item;
-        if ([[_inspectedWebView inspector] isDebuggingJavaScript])
-            [menuItem setTitle:UI_STRING("Stop Debugging JavaScript", "title for Stop Debugging JavaScript menu item")];
+        if ([[_inspectedWebView.get() inspector] isDebuggingJavaScript])
+            [menuItem setTitle:UI_STRING_INTERNAL("Stop Debugging JavaScript", "title for Stop Debugging JavaScript menu item")];
         else
-            [menuItem setTitle:UI_STRING("Start Debugging JavaScript", "title for Start Debugging JavaScript menu item")];
+            [menuItem setTitle:UI_STRING_INTERNAL("Start Debugging JavaScript", "title for Start Debugging JavaScript menu item")];
     } else if ([item action] == @selector(toggleProfilingJavaScript:) && isMenuItem) {
         NSMenuItem *menuItem = (NSMenuItem *)item;
-        if ([[_inspectedWebView inspector] isProfilingJavaScript])
-            [menuItem setTitle:UI_STRING("Stop Profiling JavaScript", "title for Stop Profiling JavaScript menu item")];
+        if ([[_inspectedWebView.get() inspector] isProfilingJavaScript])
+            [menuItem setTitle:UI_STRING_INTERNAL("Stop Profiling JavaScript", "title for Stop Profiling JavaScript menu item")];
         else
-            [menuItem setTitle:UI_STRING("Start Profiling JavaScript", "title for Start Profiling JavaScript menu item")];
+            [menuItem setTitle:UI_STRING_INTERNAL("Start Profiling JavaScript", "title for Start Profiling JavaScript menu item")];
     }
 
     return YES;
 }
 
-@end
 
-
-#pragma mark -
-
-@implementation WebNodeHighlighter
-- (id)initWithInspectedWebView:(WebView *)webView
-{
-    // Don't retain to avoid a circular reference
-    _inspectedWebView = webView;
-    return self;
-}
-
-- (void)dealloc
-{
-    ASSERT(!_currentHighlight);
-    [super dealloc];
-}
-
-#pragma mark -
-
-- (void)highlightNode:(DOMNode *)node
-{
-    // The scrollview's content view stays around between page navigations, so target it
-    NSView *view = [[[[[_inspectedWebView mainFrame] frameView] documentView] enclosingScrollView] contentView];
-    if (![view window])
-        return; // skip the highlight if we have no window (e.g. hidden tab)
-    
-    if (!_currentHighlight) {
-        _currentHighlight = [[WebNodeHighlight alloc] initWithTargetView:view inspectorController:[_inspectedWebView page]->inspectorController()];
-        [_currentHighlight setDelegate:self];
-        [_currentHighlight attach];
-    } else
-        [[_currentHighlight highlightView] setNeedsDisplay:YES];
-}
-
-- (void)hideHighlight
-{
-    [_currentHighlight detach];
-    [_currentHighlight setDelegate:nil];
-    [_currentHighlight release];
-    _currentHighlight = nil;
-}
-
-#pragma mark -
-#pragma mark WebNodeHighlight delegate
-
-- (void)didAttachWebNodeHighlight:(WebNodeHighlight *)highlight
-{
-    [_inspectedWebView setCurrentNodeHighlight:highlight];
-}
-
-- (void)willDetachWebNodeHighlight:(WebNodeHighlight *)highlight
-{
-    [_inspectedWebView setCurrentNodeHighlight:nil];
-}
-    
 @end

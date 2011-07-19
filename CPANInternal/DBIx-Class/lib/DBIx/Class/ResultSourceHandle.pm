@@ -3,6 +3,7 @@ package DBIx::Class::ResultSourceHandle;
 use strict;
 use warnings;
 use Storable;
+use Carp;
 
 use base qw/DBIx::Class/;
 
@@ -19,7 +20,7 @@ our $thaw_schema;
 
 =head1 NAME
 
-DBIx::Class::ResultSourceHandle
+DBIx::Class::ResultSourceHandle - Decouple Rows/ResultSets objects from their Source objects
 
 =head1 DESCRIPTION
 
@@ -76,24 +77,37 @@ sub STORABLE_freeze {
     my ($self, $cloning) = @_;
 
     my $to_serialize = { %$self };
-    
+
     delete $to_serialize->{schema};
+    $to_serialize->{_frozen_from_class} = $self->schema->class($self->source_moniker);
+
     return (Storable::freeze($to_serialize));
 }
 
 =head2 STORABLE_thaw
 
 Thaws frozen handle. Resets the internal schema reference to the package
-variable C<$thaw_schema>. The recomened way of setting this is to use 
-C<$schema->thaw($ice)> which handles this for you.
+variable C<$thaw_schema>. The recommended way of setting this is to use 
+C<< $schema->thaw($ice) >> which handles this for you.
 
 =cut
 
 
 sub STORABLE_thaw {
-    my ($self, $cloning,$ice) = @_;
+    my ($self, $cloning, $ice) = @_;
     %$self = %{ Storable::thaw($ice) };
-    $self->{schema} = $thaw_schema;
+
+    my $class = delete $self->{_frozen_from_class};
+    if( $thaw_schema ) {
+        $self->{schema} = $thaw_schema;
+    }
+    else {
+        my $rs = $class->result_source_instance;
+        $self->{schema} = $rs->schema if $rs;
+    }
+
+    carp "Unable to restore schema. Look at 'freeze' and 'thaw' methods in DBIx::Class::Schema."
+        unless $self->{schema};
 }
 
 =head1 AUTHOR

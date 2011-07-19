@@ -136,7 +136,6 @@ OSErr	RebuildBTree( SGlobPtr theSGlobPtr, int FileID )
 	OSErr					myErr;
 	Boolean 				isHFSPlus;
 	UInt32					numRecords = 0;
-	Boolean				printEvery = false;
 	
 #if SHOW_ELAPSED_TIMES 
 	struct timeval 			myStartTime;
@@ -447,7 +446,7 @@ ExitThisRoutine:
 {
 	OSErr					myErr;
 	BTreeControlBlock *		myBTreeCBPtr, * oldBCBPtr;
-	SVCB *					myVCBPtr, * oldVCBPtr;
+	SVCB *					myVCBPtr;
 	SFCB *					myFCBPtr, * oldFCBPtr;
 	UInt32 					myBytesUsed = 0;
 	UInt32 					myMapNodeCount;

@@ -2,6 +2,7 @@
 [manpage_begin fileutil::multi n 0.1]
 [moddesc   {file utilities}]
 [titledesc {Multi-file operation, scatter/gather, standard object}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require fileutil::multi [opt 0.1]]
 [require fileutil::multi::op [opt 0.1]]

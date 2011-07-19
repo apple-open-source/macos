@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-04-22</string>
+		<string>2010-01-20</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -15,12 +15,14 @@
 		</array>
 		<key>OpenSourceProject</key>
 		<string>BerkeleyDB</string>
+		<key>OpenSourceSHA1</key>
+		<string></string>
 		<key>OpenSourceURL</key>
-		<string>http://www.oracle.com/technology/software/products/berkeley-db/db/index.html</string>
+		<string>http://download.oracle.com/berkeley-db/db-4.7.25.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>4.6.21</string>
+		<string>4.7.25</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.oracle.com/technology/products/berkeley-db/db/index.html</string>
+		<string>http://www.oracle.com/technology/products/berkeley-db/index.html</string>
 	</dict>
 </array>
 </plist>

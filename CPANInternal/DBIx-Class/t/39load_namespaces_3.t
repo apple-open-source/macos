@@ -4,7 +4,8 @@ use strict;
 use warnings;
 use Test::More;
 
-unshift(@INC, './t/lib');
+use lib qw(t/lib);
+use DBICTest; # do not remove even though it is not used
 
 plan tests => 7;
 

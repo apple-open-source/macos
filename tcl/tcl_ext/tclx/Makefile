@@ -10,7 +10,7 @@ ProjectName           = Tclx
 
 # Fetch info
 Release               = 8.4
-TEApotVersion         = 0.0.0.2008.06.29.23.11.20
+TEApotVersion         = 0.0.0.2010.08.18.09.12.06
 
 Extra_Configure_Flags = $(TEA_Configure_Flags) --with-help
 Extra_Environment     = $(TEA_Environment)

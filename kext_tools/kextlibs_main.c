@@ -112,6 +112,7 @@ int main(int argc, char * const * argv)
         goto finish;
     }
     
+    // see comment below about clang not understanding exit() :P
     toolArgs.kextURL = CFURLCreateFromFileSystemRepresentation(
         kCFAllocatorDefault, (u_char *)toolArgs.kextName,
         strlen(toolArgs.kextName), /* isDirectory */ true);
@@ -124,6 +125,43 @@ int main(int argc, char * const * argv)
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Can't open %s.", toolArgs.kextName);
+        goto finish;
+    }
+
+   /* A codeless kext is either a library redirect,
+    * so we can't advise, or it doesn't need any libraries!
+    */
+    if (!OSKextDeclaresExecutable(toolArgs.theKext)) {
+        if (OSKextIsLibrary(toolArgs.theKext)) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "%s is a library without an executable; "
+                "defining its OSBundleLibraries (if any) is up to you.",
+                toolArgs.kextName);
+        } else {
+            CFDictionaryRef libs = OSKextGetValueForInfoDictionaryKey(toolArgs.theKext,
+                CFSTR(kOSBundleLibrariesKey));
+                
+            if (libs &&
+                CFDictionaryGetTypeID() == CFGetTypeID(libs) &&
+                CFDictionaryGetCount(libs)) {
+
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "%s has no executable and should not declare OSBundleLibraries.",
+                    toolArgs.kextName);
+            } else {
+            
+               /* In this one case, the exit status will be EX_OK.
+                */
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "%s has no executable and does not need to declare OSBundleLibraries.",
+                    toolArgs.kextName);
+                result = EX_OK;
+            }
+        }
+        
         goto finish;
     }
 
@@ -193,20 +231,17 @@ int main(int argc, char * const * argv)
     } else if (toolArgs.flagXML) {
 
         for (i = 0; i < numArches; i++) {
-            if (libsAreArchSpecific) {
-                printResult = printLibs(&toolArgs, arches[i],
-                    libInfo[i].libKexts,
-                    /* extraNewline? */ i + 1 == numArches);
-                if (printResult > result) {
-                    result = printResult;
-                }
+            printResult = printLibs(&toolArgs, arches[i],
+                libInfo[i].libKexts,
+                /* extraNewline? */ i + 1 == numArches);
+            if (printResult > result) {
+                result = printResult;
             }
         }
     }
 
-   /* If all the libs are the same for all arches, then just print them
-    * once at the top of the output. Otherwise, only when doing XML,
-    * print the arch-specific XML declarations before the diagnostics.
+   /* Down here, for each arch, print arch-specific non-XML library declarations,
+    * followed by any problems found for that arch.
     */
     for (i = 0; i < numArches; i++) {
 
@@ -237,6 +272,8 @@ int main(int argc, char * const * argv)
 finish:
 
    /* We're done so we just exit without cleaning up.
+      clang's analyzer is now smart enough to know that exit() never
+      returns but not smart enough to know that it frees all resources.
     */
     exit(result);
 
@@ -267,8 +304,9 @@ ExitStatus readArgs(
     char * const * argv,
     KextlibsArgs * toolArgs)
 {
-    ExitStatus  result  = EX_USAGE;
-    int         optChar = 0;
+    ExitStatus  result         = EX_USAGE;
+    ExitStatus  scratchResult  = EX_USAGE;
+    int         optChar        = 0;
 
     bzero(toolArgs, sizeof(*toolArgs));
 
@@ -300,10 +338,11 @@ ExitStatus readArgs(
                 break;
 
             case kOptRepository:
-                result = addRepository(toolArgs, optarg);
-                if (result != EX_OK) {
+                scratchResult = addRepository(toolArgs, optarg);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
                     goto finish;
-                };
+                }
                 break;
 
             case kOptCompatible:
@@ -319,7 +358,11 @@ ExitStatus readArgs(
                 break;
 
             case kOptVerbose:
-                result = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                scratchResult = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
+                    goto finish;
+                }
                 break;
 
             case 0:
@@ -373,9 +416,10 @@ ExitStatus readArgs(
         goto finish;
     }
 
-    result = checkPath(argv[0], kOSKextBundleExtension,
+    scratchResult = checkPath(argv[0], kOSKextBundleExtension,
         /* directoryRequired */ TRUE, /* writableRequired */ FALSE);
-    if (result != EX_OK) {
+    if (scratchResult != EX_OK) {
+        result = scratchResult;
         goto finish;
     }
     toolArgs->kextName = argv[0];
@@ -442,7 +486,10 @@ ExitStatus printLibs(
     char             * libIdentifier = NULL;  // must free
     CFIndex            count, i;
 
-    if (arch) {
+   /* Get the generic architecture name for the arch, except for PPC,
+    * which we no longer support.
+    */
+    if (arch && arch->cputype != CPU_TYPE_POWERPC) {
         genericArch = NXGetArchInfoFromCpuType(arch->cputype,
             CPU_SUBTYPE_MULTIPLE);
         if (!genericArch) {
@@ -610,7 +657,8 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-void printUndefSymbol(const void * key, const void * value, void * context)
+void printUndefSymbol(const void * key,
+                      const void * value __unused, void * context __unused)
 {
     char * cSymbol = NULL; // must free
 

@@ -44,12 +44,14 @@
 
 @class NSError;
 @class WebFrame;
+@class WebDeviceOrientation;
 @class WebGeolocationPosition;
 @class WebInspector;
 @class WebPreferences;
 @class WebScriptWorld;
 @class WebTextIterator;
 
+@protocol WebDeviceOrientationProvider;
 @protocol WebFormDelegate;
 
 extern NSString *_WebCanGoBackKey;
@@ -65,9 +67,10 @@ extern NSString *_WebMainFrameDocumentKey;
 extern NSString *WebElementTitleKey;             // NSString of the title of the element (used by Safari)
 extern NSString *WebElementSpellingToolTipKey;   // NSString of a tooltip representing misspelling or bad grammar (used internally)
 extern NSString *WebElementIsContentEditableKey; // NSNumber indicating whether the inner non-shared node is content editable (used internally)
+extern NSString *WebElementMediaURLKey;          // NSURL of the media element
 
 // other WebElementDictionary keys
-extern NSString *WebElementLinkIsLiveKey;        // NSNumber of BOOL indictating whether the link is live or not
+extern NSString *WebElementLinkIsLiveKey;        // NSNumber of BOOL indicating whether the link is live or not
 extern NSString *WebElementIsInScrollBarKey;
 
 // One of the subviews of the WebView entered compositing mode.
@@ -88,6 +91,21 @@ typedef enum {
     WebInjectAtDocumentEnd,
 } WebUserScriptInjectionTime;
 
+typedef enum {
+    WebInjectInAllFrames,
+    WebInjectInTopFrameOnly
+} WebUserContentInjectedFrames;
+
+enum {
+    WebFindOptionsCaseInsensitive = 1 << 0,
+    WebFindOptionsAtWordStarts = 1 << 1,
+    WebFindOptionsTreatMedialCapitalAsWordStart = 1 << 2,
+    WebFindOptionsBackwards = 1 << 3,
+    WebFindOptionsWrapAround = 1 << 4,
+    WebFindOptionsStartInSelection = 1 << 5
+};
+typedef NSUInteger WebFindOptions;
+
 @interface WebController : NSTreeController {
     IBOutlet WebView *webView;
 }
@@ -106,18 +124,7 @@ typedef enum {
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 - (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 
-/*!
-@method searchFor:direction:caseSensitive:wrap:startInSelection:
- @abstract Searches a document view for a string and highlights the string if it is found.
- Starts the search from the current selection.  Will search across all frames.
- @param string The string to search for.
- @param forward YES to search forward, NO to seach backwards.
- @param caseFlag YES to for case-sensitive search, NO for case-insensitive search.
- @param wrapFlag YES to wrap around, NO to avoid wrapping.
- @param startInSelection YES to begin search in the selected text (useful for incremental searching), NO to begin search after the selected text.
- @result YES if found, NO if not found.
- */
-- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection;
+- (BOOL)findString:(NSString *)string options:(WebFindOptions)options;
 
 - (void)setMainFrameDocumentReady:(BOOL)mainFrameDocumentReady;
 
@@ -174,7 +181,8 @@ typedef enum {
 // whether or not they implement the protocol. For now we'll just deal with HTML.
 // These methods are still in flux; don't rely on them yet.
 - (BOOL)canMarkAllTextMatches;
-- (WebNSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(WebNSUInteger)limit;
+- (WebNSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
+- (WebNSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
 - (void)unmarkAllTextMatches;
 - (NSArray *)rectsForTextMatches;
 
@@ -479,6 +487,12 @@ Could be worth adding to the API.
 - (void)_setPostsAcceleratedCompositingNotifications:(BOOL)flag;
 - (BOOL)_isUsingAcceleratedCompositing;
 
+// For DumpRenderTree
+- (BOOL)interactiveFormValidationEnabled;
+- (void)setInteractiveFormValidationEnabled:(BOOL)enabled;
+- (int)validationMessageTimerMagnification;
+- (void)setValidationMessageTimerMagnification:(int)newValue;
+
 // Returns YES if NSView -displayRectIgnoringOpacity:inContext: will produce a faithful representation of the content.
 - (BOOL)_isSoftwareRenderable;
 // When drawing into a bitmap context, we normally flatten compositing layers (and distort 3D transforms).
@@ -504,13 +518,20 @@ Could be worth adding to the API.
 // Removes all white list entries created with _addOriginAccessWhitelistEntryWithSourceOrigin.
 + (void)_resetOriginAccessWhitelists;
 
+// FIXME: The following two methods are deprecated in favor of the overloads below that take the WebUserContentInjectedFrames argument. https://bugs.webkit.org/show_bug.cgi?id=41800.
 + (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
 + (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
+
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
 + (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
 + (void)_removeUserStyleSheetFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
 + (void)_removeUserScriptsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
 + (void)_removeUserStyleSheetsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
 + (void)_removeAllUserContentFromGroup:(NSString *)groupName;
+
+// SPI for DumpRenderTree
++ (void)_setLoadResourcesSerially:(BOOL)serialize;
 
 /*!
     @method cssAnimationsSuspended
@@ -528,6 +549,66 @@ Could be worth adding to the API.
 
 + (void)_setDomainRelaxationForbidden:(BOOL)forbidden forURLScheme:(NSString *)scheme;
 + (void)_registerURLSchemeAsSecure:(NSString *)scheme;
+
+- (void)_scaleWebView:(float)scale atOrigin:(NSPoint)origin;
+- (float)_viewScaleFactor;
+
+- (void)_setUseFixedLayout:(BOOL)fixed;
+- (void)_setFixedLayoutSize:(NSSize)size;
+
+- (BOOL)_useFixedLayout;
+- (NSSize)_fixedLayoutSize;
+
+// Deprecated. Use the methods in pending public above instead.
+- (WebNSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(WebNSUInteger)limit;
+- (WebNSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
+
+/*!
+ @method searchFor:direction:caseSensitive:wrap:startInSelection:
+ @abstract Searches a document view for a string and highlights the string if it is found.
+ Starts the search from the current selection.  Will search across all frames.
+ @param string The string to search for.
+ @param forward YES to search forward, NO to seach backwards.
+ @param caseFlag YES to for case-sensitive search, NO for case-insensitive search.
+ @param wrapFlag YES to wrap around, NO to avoid wrapping.
+ @param startInSelection YES to begin search in the selected text (useful for incremental searching), NO to begin search after the selected text.
+ @result YES if found, NO if not found.
+ */
+// Deprecated. Use findString.
+- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection;
+
+/*!
+    @method defaultMinimumTimerInterval
+    @discussion Should consider moving this to the public API.
+    @result Returns the default minimum timer interval.
+*/
++ (double)_defaultMinimumTimerInterval;
+
+/*!
+    @method setMinimumTimerInterval:
+    @discussion Sets the minimum interval for DOMTimers in this WebView. This method is
+    exposed here in the Mac port rather than through WebPreferences (which generally
+    governs Settings) because this value is something adjusted at run time, not set
+    globally via "defaults write". Should consider adding this to the public API.
+    @param intervalInSeconds The new minimum timer interval, in seconds.
+*/
+- (void)_setMinimumTimerInterval:(double)intervalInSeconds;
+
+/*!
+    @method _HTTPPipeliningEnabled
+    @abstract Checks the HTTP pipelining status.
+    @discussion Defaults to NO.
+    @result YES if HTTP pipelining is enabled, NO if not enabled.
+ */
++ (BOOL)_HTTPPipeliningEnabled;
+
+/*!
+    @method _setHTTPPipeliningEnabled:
+    @abstract Set the HTTP pipelining status.
+    @discussion Defaults to NO.
+    @param enabled The new HTTP pipelining status.
+ */
++ (void)_setHTTPPipeliningEnabled:(BOOL)enabled;
 
 @end
 
@@ -557,12 +638,10 @@ Could be worth adding to the API.
 
 // FIXME: These two methods should be merged into WebViewEditing when we're not in API freeze
 - (BOOL)isGrammarCheckingEnabled;
-#ifndef BUILDING_ON_TIGER
 - (void)setGrammarCheckingEnabled:(BOOL)flag;
 
 // FIXME: This method should be merged into WebIBActions when we're not in API freeze
 - (void)toggleGrammarChecking:(id)sender;
-#endif
 
 @end
 
@@ -573,7 +652,7 @@ Could be worth adding to the API.
 - (BOOL)isAutomaticDashSubstitutionEnabled;
 - (BOOL)isAutomaticTextReplacementEnabled;
 - (BOOL)isAutomaticSpellingCorrectionEnabled;
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
 - (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)flag;
 - (void)toggleAutomaticQuoteSubstitution:(id)sender;
 - (void)setAutomaticLinkDetectionEnabled:(BOOL)flag;
@@ -585,7 +664,9 @@ Could be worth adding to the API.
 - (void)setAutomaticSpellingCorrectionEnabled:(BOOL)flag;
 - (void)toggleAutomaticSpellingCorrection:(id)sender;
 #endif
-
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+- (void)handleCorrectionPanelResult:(NSString*)result;
+#endif
 @end
 
 @interface WebView (WebViewEditingInMail)
@@ -593,6 +674,11 @@ Could be worth adding to the API.
 - (void)_replaceSelectionWithNode:(DOMNode *)node matchStyle:(BOOL)matchStyle;
 - (BOOL)_selectionIsCaret;
 - (BOOL)_selectionIsAll;
+@end
+
+@interface WebView (WebViewDeviceOrientation)
+- (void)_setDeviceOrientationProvider:(id<WebDeviceOrientationProvider>)deviceOrientationProvider;
+- (id<WebDeviceOrientationProvider>)_deviceOrientationProvider;
 @end
 
 @protocol WebGeolocationProvider <NSObject>
@@ -611,6 +697,10 @@ Could be worth adding to the API.
 
 @interface WebView (WebViewPrivateStyleInfo)
 - (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
+@end
+
+@interface WebView (WebViewPrivateNodesFromRect)
+- (JSValueRef)_nodesFromRect:(JSContextRef)context forDocument:(JSValueRef)value x:(int)x  y:(int)y top:(unsigned)top right:(unsigned)right bottom:(unsigned)bottom left:(unsigned)left ignoreClipping:(BOOL)ignoreClipping;
 @end
 
 @interface NSObject (WebFrameLoadDelegatePrivate)
@@ -635,6 +725,17 @@ Could be worth adding to the API.
 // Addresses <rdar://problem/5008925> - SPI for now
 - (NSCachedURLResponse *)webView:(WebView *)sender resource:(id)identifier willCacheResponse:(NSCachedURLResponse *)response fromDataSource:(WebDataSource *)dataSource;
 @end
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// This is a C function to avoid calling +[WebView initialize].
+void WebInstallMemoryPressureHandler(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #undef WebNSInteger
 #undef WebNSUInteger

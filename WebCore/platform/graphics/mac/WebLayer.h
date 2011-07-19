@@ -32,15 +32,9 @@
 
 namespace WebCore {
     class GraphicsLayer;
+    class PlatformCALayer;
+    class PlatformCALayerClient;
 }
-
-// Category implemented by WebLayer and WebTiledLayer.
-@interface CALayer(WebLayerAdditions)
-
-- (void)setLayerOwner:(WebCore::GraphicsLayer*)layer;
-- (WebCore::GraphicsLayer*)layerOwner;
-
-@end
 
 #if defined(BUILDING_ON_LEOPARD)
 @interface CALayer(WebLayerInternal)
@@ -51,13 +45,12 @@ namespace WebCore {
 
 @interface WebLayer : CALayer 
 {
-    WebCore::GraphicsLayer* m_layerOwner;
 }
-
-// Class method allows us to share implementation across TiledLayerMac and WebLayer
-+ (void)drawContents:(WebCore::GraphicsLayer*)layerContents ofLayer:(CALayer*)layer intoContext:(CGContextRef)context;
-
 @end
+
+// Functions allows us to share implementation across WebTiledLayer and WebLayer
+void drawLayerContents(CGContextRef, CALayer *, WebCore::PlatformCALayer*);
+void setLayerNeedsDisplayInRect(CALayer *, WebCore::PlatformCALayerClient*, CGRect);
 
 #endif // USE(ACCELERATED_COMPOSITING)
 

@@ -432,7 +432,7 @@ Tk_GetOpenFileObjCmd(
 	}
     }
     if (fl.filters) {
-	fileTypes = [[NSMutableArray array] autorelease];
+	fileTypes = [NSMutableArray array];
 	for (FileFilter *filterPtr = fl.filters; filterPtr;
 		filterPtr = filterPtr->next) {
 	    for (FileFilterClause *clausePtr = filterPtr->clauses; clausePtr;
@@ -491,11 +491,15 @@ Tk_GetOpenFileObjCmd(
     }
     result = (returnCode != NSAlertErrorReturn) ? TCL_OK : TCL_ERROR;
     if (typeVariablePtr && result == TCL_OK) {
-	Tcl_SetVar(interp, Tcl_GetString(typeVariablePtr), "", 0);
+	/*
+	 * The -typevariable option is not really supported.
+	 */
+
+	Tcl_SetVar(interp, Tcl_GetString(typeVariablePtr), "",
+		TCL_GLOBAL_ONLY);
     }
 end:
     TkFreeFileFilters(&fl);
-    [panel release];
     return result;
 }
 
@@ -607,7 +611,7 @@ Tk_GetSaveFileObjCmd(
 	}
     }
     if (fl.filters || defaultType) {
-	fileTypes = [[NSMutableArray array] autorelease];
+	fileTypes = [NSMutableArray array];
 	[fileTypes addObject:defaultType ? defaultType : (id)kUTTypeContent];
 	for (FileFilter *filterPtr = fl.filters; filterPtr;
 		filterPtr = filterPtr->next) {
@@ -661,7 +665,6 @@ Tk_GetSaveFileObjCmd(
     result = (returnCode != NSAlertErrorReturn) ? TCL_OK : TCL_ERROR;
 end:
     TkFreeFileFilters(&fl);
-    [panel release];
     return result;
 }
 
@@ -782,7 +785,6 @@ Tk_ChooseDirectoryObjCmd(
     }
     result = (returnCode != NSAlertErrorReturn) ? TCL_OK : TCL_ERROR;
 end:
-    [panel release];
     return result;
 }
 
@@ -834,7 +836,7 @@ TkAboutDlg(void)
 	     "%1$C 2001-2009 Apple Inc." "\n\n"
 	     "%1$C 2001-2002 Jim Ingham & Ian Reid" "\n\n"
 	     "%1$C 1998-2000 Jim Ingham & Ray Johnson" "\n\n"
-	     "%1$C 1998-2000 Scriptics Inc." "\n"
+	     "%1$C 1998-2000 Scriptics Inc." "\n\n"
 	     "%1$C 1996-1997 Sun Microsystems Inc.", 0xA9, year] attributes:
 	    [NSDictionary dictionaryWithObject:style
 	    forKey:NSParagraphStyleAttributeName]] autorelease], @"Credits",

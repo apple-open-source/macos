@@ -21,12 +21,12 @@
 #ifndef EventListener_h
 #define EventListener_h
 
-#include "PlatformString.h"
 #include <wtf/RefCounted.h>
 
 namespace JSC {
     class JSObject;
     class MarkStack;
+    typedef MarkStack SlotVisitor;
 }
 
 namespace WebCore {
@@ -36,21 +36,25 @@ namespace WebCore {
 
     class EventListener : public RefCounted<EventListener> {
     public:
-        enum Type { JSEventListenerType, 
-                    ImageEventListenerType, 
-                    InspectorDOMAgentType,
-                    InspectorDOMStorageResourceType,
-                    ObjCEventListenerType, 
-                    ConditionEventListenerType };
-                    
+        enum Type {
+            JSEventListenerType, 
+            ImageEventListenerType, 
+            InspectorDOMAgentType,
+            InspectorDOMStorageResourceType,
+            ObjCEventListenerType,
+            CPPEventListenerType,
+            ConditionEventListenerType,
+            GObjectEventListenerType,
+            NativeEventListenerType
+        };
+
         virtual ~EventListener() { }
         virtual bool operator==(const EventListener&) = 0;
         virtual void handleEvent(ScriptExecutionContext*, Event*) = 0;
         virtual bool wasCreatedFromMarkup() const { return false; }
 
 #if USE(JSC)
-        virtual void markJSFunction(JSC::MarkStack&) { }
-        virtual void invalidateJSFunction(JSC::JSObject*) { }
+        virtual void visitJSFunction(JSC::SlotVisitor&) { }
 #endif
 
         bool isAttribute() const { return virtualisAttribute(); }

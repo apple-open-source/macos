@@ -7,7 +7,7 @@
  * Support for Wrap by Contract in SWIG.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_contract_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/contract.cxx,v 1.17 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_contract_cxx[] = "$Id: contract.cxx 11049 2009-01-10 01:15:03Z wsfulton $";
 
 #include "swigmod.h"
 
@@ -46,6 +46,7 @@ public:
   int extendDirective(Node *n);
   int importDirective(Node *n);
   int includeDirective(Node *n);
+  int namespaceDeclaration(Node *n);
   int classDeclaration(Node *n);
   virtual int top(Node *n);
 };
@@ -220,14 +221,14 @@ String *Contracts::make_expression(String *s, Node *n) {
 
 /* This function substitutes parameter names for argument names in the
    contract specification.  Note: it is assumed that the wrapper code 
-   uses arg1--argn for arguments. */
+   uses arg1 for self and arg2..argn for arguments. */
 
 void Contracts::substitute_parms(String *s, ParmList *p, int method) {
   int argnum = 1;
   char argname[32];
 
   if (method) {
-    Replaceid(s, "self", "arg0");
+    Replaceid(s, "$self", "arg1");
     argnum++;
   }
   while (p) {
@@ -320,13 +321,20 @@ int Contracts::constructorDeclaration(Node *n) {
 int Contracts::externDeclaration(Node *n) {
   return emit_children(n);
 }
+
 int Contracts::extendDirective(Node *n) {
   return emit_children(n);
 }
+
 int Contracts::importDirective(Node *n) {
   return emit_children(n);
 }
+
 int Contracts::includeDirective(Node *n) {
+  return emit_children(n);
+}
+
+int Contracts::namespaceDeclaration(Node *n) {
   return emit_children(n);
 }
 

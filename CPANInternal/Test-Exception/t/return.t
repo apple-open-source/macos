@@ -14,6 +14,8 @@ sub div {
    return( $a / $b );
 };
 
+my $filename = sub { return (caller)[1] }->();
+
 {
     my $ok = dies_ok { div(1, 0) } 'dies_ok passed on die';
     ok($ok, 'dies_ok returned true when block dies');
@@ -54,7 +56,7 @@ sub div {
 {
     test_out('not ok 1 - lives_ok failed');
     test_fail(+2);
-    test_err('# died: Illegal division by zero at t/return.t line 14.');
+    test_err("# died: Illegal division by zero at $filename line 14.");
     my $ok = lives_ok { div(1, 0) } 'lives_ok failed';
     test_test("dies_ok fails"); 
 

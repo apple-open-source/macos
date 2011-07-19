@@ -8,12 +8,12 @@
  * encountered during preprocessing.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_expr_c[] = "$Header: /cvsroot/swig/SWIG/Source/Preprocessor/expr.c,v 1.14 2006/11/01 23:54:53 wsfulton Exp $";
+char cvsroot_expr_c[] = "$Id: expr.c 10310 2008-03-17 00:36:35Z olly $";
 
 #include "swig.h"
 #include "preprocessor.h"
 
-static SwigScanner *scan = 0;
+static Scanner *scan = 0;
 
 typedef struct {
   int op;
@@ -222,12 +222,11 @@ void Preprocessor_expr_init(void) {
   if (!expr_init)
     init_precedence();
   if (!scan)
-    scan = NewSwigScanner();
+    scan = NewScanner();
 }
 
 void Preprocessor_expr_delete(void) {
-  SwigScanner_clear(scan);
-  DelSwigScanner(scan);
+  DelScanner(scan);
 }
 
 
@@ -235,11 +234,11 @@ void Preprocessor_expr_delete(void) {
  * Tokenizer 
  * ----------------------------------------------------------------------------- */
 
-static int expr_token(SwigScanner * s) {
+static int expr_token(Scanner * s) {
   int t;
   while (1) {
-    t = SwigScanner_token(s);
-    if (!((t == SWIG_TOKEN_BACKSLASH) || (t == SWIG_TOKEN_ENDLINE)))
+    t = Scanner_token(s);
+    if (!((t == SWIG_TOKEN_BACKSLASH) || (t == SWIG_TOKEN_ENDLINE) || (t == SWIG_TOKEN_COMMENT)))
       break;
   }
   return t;
@@ -262,8 +261,8 @@ int Preprocessor_expr(DOH *s, int *error) {
   Seek(s, 0, SEEK_SET);
   /* Printf(stdout,"evaluating : '%s'\n", s); */
   *error = 0;
-  SwigScanner_clear(scan);
-  SwigScanner_push(scan, s);
+  Scanner_clear(scan);
+  Scanner_push(scan, s);
 
   /* Put initial state onto the stack */
   stack[sp].op = EXPR_TOP;
@@ -282,10 +281,10 @@ int Preprocessor_expr(DOH *s, int *error) {
       }
       if ((token == SWIG_TOKEN_INT) || (token == SWIG_TOKEN_UINT) || (token == SWIG_TOKEN_LONG) || (token == SWIG_TOKEN_ULONG)) {
 	/* A number.  Reduce EXPR_TOP to an EXPR_VALUE */
-	char *c = Char(SwigScanner_text(scan));
+	char *c = Char(Scanner_text(scan));
 	stack[sp].value = (long) strtol(c, 0, 0);
 	stack[sp].svalue = 0;
-	/*        stack[sp].value = (long) atol(Char(SwigScanner_text(scan))); */
+	/*        stack[sp].value = (long) atol(Char(Scanner_text(scan))); */
 	stack[sp].op = EXPR_VALUE;
       } else if (token == SWIG_TOKEN_PLUS) {
       } else if ((token == SWIG_TOKEN_MINUS) || (token == SWIG_TOKEN_LNOT) || (token == SWIG_TOKEN_NOT)) {
@@ -302,7 +301,7 @@ int Preprocessor_expr(DOH *s, int *error) {
 	stack[sp].svalue = 0;
       } else if (token == SWIG_TOKEN_ENDLINE) {
       } else if ((token == SWIG_TOKEN_STRING)) {
-	stack[sp].svalue = NewString(SwigScanner_text(scan));
+	stack[sp].svalue = NewString(Scanner_text(scan));
 	stack[sp].op = EXPR_VALUE;
       } else if ((token == SWIG_TOKEN_ID)) {
 	stack[sp].value = 0;

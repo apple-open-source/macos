@@ -1,13 +1,6 @@
---- swab.c.orig	2004-08-03 14:33:13.000000000 -0700
-+++ swab.c	2004-08-03 15:05:03.000000000 -0700
-@@ -43,12 +43,14 @@
- #include <string.h>
- 
- void
--swab(const void * __restrict from, void * __restrict to, size_t len)
-+swab(const void * __restrict from, void * __restrict to, ssize_t len)
- {
- 	unsigned long temp;
+--- swab.c.bsdnew	2009-11-18 18:24:38.000000000 -0800
++++ swab.c	2009-11-18 18:40:17.000000000 -0800
+@@ -45,6 +45,8 @@ swab(const void * __restrict from, void 
  	int n;
  	char *fp, *tp;
  

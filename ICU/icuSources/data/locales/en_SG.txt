@@ -1,44 +1,70 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en_SG.xml
 // *
 // ***************************************************************************
 en_SG{
-    Currencies{
-        SGD{
-            "$",
-            "Singapore Dollar",
-        }
-        USD{
-            "US$",
-            "USD",
-        }
-    }
-    NumberPatterns{
-        "#,##0.###",
-        "¤#,##0.00",
-        "#,##0%",
-        "#E0",
-    }
-    Version{"1.54"}
+    Version{"2.0.45.82"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
                 1,
-                1,
+                4,
             }
             DateTimePatterns{
-                "a hh:mm:ss v",
-                "a hh:mm:ss z",
-                "a hh:mm:ss",
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
                 "h:mm a",
-                "EEEE, MMMM d, yyyy",
-                "MMMM d, yyyy",
-                "dd-MMM-yyyy",
-                "M/d/yy",
+                "EEEE, MMMM d, y",
+                "MMMM d, y",
+                "MMM d, y",
+                "d/M/yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MEd{"E, d/M"}
+                Md{"d/M"}
+                yMEd{"EEE, d/M/yyyy"}
+            }
+            intervalFormats{
+                MEd{
+                    M{"E, d/M – E, d/M"}
+                    d{"E, d/M – E, d/M"}
+                }
+                yMEd{
+                    M{"E, d/M/yy – E, d/M/yy"}
+                    d{"E, d/M/yy – E, d/M/yy"}
+                    y{"E, d/M/yy – E, d/M/yy"}
+                }
+                yMd{
+                    M{"d/M/yy – d/M/yy"}
+                    d{"d/M/yy – d/M/yy"}
+                    y{"d/M/yy – d/M/yy"}
+                }
+            }
+        }
+        japanese{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, MMMM d, y G",
+                "MMMM d, y G",
+                "MMM d, y G",
+                "M/d/yy G",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
                 "{1} {0}",
             }
         }

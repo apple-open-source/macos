@@ -207,7 +207,9 @@ public:
 
     virtual OSNumber * 	newCountryCodeNumber() const;
 
-    virtual IOReturn	getReport( IOMemoryDescriptor * report,
+	virtual OSNumber *	newReportIntervalNumber() const;
+
+	virtual IOReturn	getReport( IOMemoryDescriptor * report,
                                 IOHIDReportType      reportType,
                                 IOOptionBits         options = 0 );
                                 

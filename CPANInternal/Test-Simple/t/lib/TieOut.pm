@@ -1,13 +1,15 @@
 package TieOut;
 
+use strict;
+
 sub TIEHANDLE {
     my $scalar = '';
-    bless( \$scalar, $_[0]);
+    bless( \$scalar, $_[0] );
 }
 
 sub PRINT {
     my $self = shift;
-    $$self .= join('', @_);
+    $$self .= join( '', @_ );
 }
 
 sub PRINTF {
@@ -16,7 +18,7 @@ sub PRINTF {
     $$self .= sprintf $fmt, @_;
 }
 
-sub FILENO {}
+sub FILENO { }
 
 sub read {
     my $self = shift;

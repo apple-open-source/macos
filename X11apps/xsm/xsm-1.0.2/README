@@ -1,0 +1,60 @@
+README file for the X Session Manager (xsm)
+-------------------------------------------
+
+xsm is a session manager.  A session is a group of applications, each
+of which has a particular state.  xsm allows you to create arbitrary
+sessions - for example, you might have a "light" session, a "development"
+session, or an "xterminal" session.  Each session can have its own set of
+applications.  Within a session, you can perform a "checkpoint" to save
+application state, or a "shutdown" to save state and exit the session.  When
+you log back in to the system, you can load a specific session, and you can
+delete sessions you no longer want to keep.
+
+Some session managers simply allow you to manually specify a list of
+applications to be started in a session.  xsm is more powerful because it
+lets you run applications and have them automatically become part of the
+session.  On a simple level, xsm is useful because it gives you this ability
+to easily define which applications are in a session.  The true power of
+xsm, however, can be taken advantage of when more and more applications
+learn to save and restore their state.
+
+This README file discusses the necessary steps you must take to run xsm.  To
+learn more about the details of xsm's functionality, read the xsm man page.
+
+Before building xsm, you should make sure you have the following libraries
+built on your system:
+
+libICE - the Inter Client Exchange Library
+libSM  - the Session Management Library
+libXt  - the X Toolkit with support for session management
+
+Once you are sure all of the required libraries are built, you are ready
+to build xsm.
+
+Before you can run xsm, you must make sure that the following programs are
+built and installed on your system:
+
+smproxy - the session manager proxy for applications that don't support
+          R6 style session management
+iceauth - handles storing/retrieving ICE authentication information
+rstart  - allows xsm to start applications on remote machines
+twm     - window manager that support R6 style session management - takes
+          care of saving window configurations in a session
+
+Note that to install rstart, you will need to have root privileges because
+the program must be installed in a system wide default path.
+
+*** rstart and iceauth should be installed on each machine that you expect
+    to run applications on that will be part of your session ***
+
+Also note that twm is the default window manager that xsm starts up.  If you
+would like to use a different window manager, follow the instructions in the
+xsm man page for defining the default startup applications.  Be aware that if
+the window manager you choose has not been modified to support R6 style
+session management, window configurations will not be saved in your sessions.
+
+Once again, for more information about actually using xsm, please read the
+xsm man page.
+
+To learn more about making your applications "session aware", consult the
+X Toolkit Intrinsics documentation.

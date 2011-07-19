@@ -1,0 +1,874 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$406|class Python_class_1(UserDict):
+    """
+        !headerdoc!
+        Python_class_1::__init__
+    """
+    def __init__(self, filename=None):
+        print self
+    """
+    !headerdoc!
+        var_1 comment
+    """
+    var_1 = 3
+    """
+    !headerdoc!
+        Python_class_1::foo
+    """
+    def foo(bar):
+        print bar
+
+"""
+!headerdoc!
+        Baz (non-class function)
+"""
+def baz(bat):
+    print bat
+
+$23|        Python_class_1
+$0|$21117|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Python_class_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Python_class_1.test
+$parserState->{autoContinue} => 1
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 1
+$parserState->{braceStack} => ARRAY(OBJID)
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => class
+$parserState->{endOfTripleQuote} => 0
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 0
+$parserState->{justLeftStringToken} => 0
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => python
+$parserState->{lastpart} => )
+$parserState->{leadspace} => 0
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{namepending} => 0
+$parserState->{nestAfter} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{onlyComments} => 0
+$parserState->{parsedParam} => 
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{popAfter} => 0
+$parserState->{popAtEnd} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{pushParserStateOnBrace} => 3
+$parserState->{returntype} => 
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{seenToken} => 1
+$parserState->{setHollowAfter} => 0
+$parserState->{setleading} => 1
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => Python_class_1
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => python
+$parserState->{treeStack} => ARRAY(OBJID)
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 19
+typelist: class
+namelist: Python_class_1
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => UserDict
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---Python_class_1
++---(
+|   +---UserDict
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---Python_class_1
+|   |   +---:
+|   |   +---:
+|   |   +---__init__
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---__init__
+|   +---(
+|   |   +---self
+|   |   +---,
+|   |   +--- 
+|   |   +---filename
+|   |   +---=
+|   |   +---None
+|   |   +---)
+|   +---:
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---print
+|   |   +--- 
+|   |   +---self
+|   |   +---[ NEWLINE ]
+|   |   +---    
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---var_1
+|   |   +--- 
+|   |   +---comment
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-var_1 (HAS STATE)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---3
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---Python_class_1
+|   |   +---:
+|   |   +---:
+|   |   +---foo
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---bar
+|   |   +---)
+|   +---:
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---print
+|   |   +--- 
+|   |   +---bar
+|   |   +---[ NEWLINE ]
+|   |   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Python class 1
+APIUID: //test_ref/doc/header/Python_class_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: Python_class_1
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>Python_class_1
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Python_class_1.test" target="_top" machineGenerated="true">Python class 1</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: __init__
+        APIUID: //test_ref/python/instm/Python_class_1/__init__//(self,filename)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Python_class_1::__init__
+    "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  self
+            APIUID: //test_ref/python/internal_temporary_object/Python_class_1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  filename
+            APIUID: //test_ref/python/internal_temporary_object/Python_class_1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: foo
+        APIUID: //test_ref/python/instm/Python_class_1/foo//(bar)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Python_class_1::foo
+    "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  bar
+            APIUID: //test_ref/python/internal_temporary_object/Python_class_1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: var_1
+        APIUID: //test_ref/python/data/Python_class_1/var_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>var_1 comment
+    "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "3"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Python_class_1 (HeaderDoc::CPPClass)
++---class
++--- 
++---Python_class_1
++---(
+|   +---UserDict
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---Python_class_1
+|   |   +---:
+|   |   +---:
+|   |   +---__init__
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---__init__
+|   +---(
+|   |   +---self
+|   |   +---,
+|   |   +--- 
+|   |   +---filename
+|   |   +---=
+|   |   +---None
+|   |   +---)
+|   +---:
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---print
+|   |   +--- 
+|   |   +---self
+|   |   +---[ NEWLINE ]
+|   |   +---    
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---    
+|   |   +---var_1
+|   |   +--- 
+|   |   +---comment
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-var_1 (HAS STATE)
+|   +--- 
+|   +---=
+|   +--- 
+|   +---3
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---!headerdoc!
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---Python_class_1
+|   |   +---:
+|   |   +---:
+|   |   +---foo
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---foo
+|   +---(
+|   |   +---bar
+|   |   +---)
+|   +---:
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---print
+|   |   +--- 
+|   |   +---bar
+|   |   +---[ NEWLINE ]
+|   |   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: __init__ (HeaderDoc::Function)
++-*-def (HAS STATE)
++--- 
++---__init__
++---(
+|   +---self
+|   +---,
+|   +--- 
+|   +---filename
+|   +---=
+|   +---None
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---        
+|   +---    
+|   +---print
+|   +--- 
+|   +---self
+|   +---[ NEWLINE ]
+|   +---    
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +---!headerdoc!
+|   +---[ NEWLINE ]
+|   +---        
+|   +---    
+|   +---var_1
+|   +--- 
+|   +---comment
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
++---[ NEWLINE ]
++---    
++-*-var_1 (HAS STATE)
++--- 
++---=
++--- 
++---3
++---[ NEWLINE ]
++---[ NEWLINE ]
++---    
++---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +---!headerdoc!
+|   +---[ NEWLINE ]
+|   +---        
+|   +---Python_class_1
+|   +---:
+|   +---:
+|   +---foo
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
++---[ NEWLINE ]
++---    
++-*-def (HAS STATE)
++--- 
++---foo
++---(
+|   +---bar
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---        
+|   +---print
+|   +--- 
+|   +---bar
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
++-*-def (HAS STATE)
++--- 
++---foo
++---(
+|   +---bar
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---        
+|   +---print
+|   +--- 
+|   +---bar
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+END OF OBJECT
+
+
+OBJECT: var_1 (HeaderDoc::Var)
++-*-var_1 (HAS STATE)
++--- 
++---=
++--- 
++---3
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++---"""
+|   +---[ NEWLINE ]
+|   +---    
+|   +---!headerdoc!
+|   +---[ NEWLINE ]
+|   +---        
+|   +---Python_class_1
+|   +---:
+|   +---:
+|   +---foo
+|   +---[ NEWLINE ]
+|   +---    
+|   +---"""
++---[ NEWLINE ]
++---    
++-*-def (HAS STATE)
++--- 
++---foo
++---(
+|   +---bar
+|   +---)
++---:
+|   +---[ NEWLINE ]
+|   +---        
+|   +---print
+|   +--- 
+|   +---bar
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Python_class_1 (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/python/instm/Python_class_1 //test_ref/python/clm/Python_class_1 //test_ref/python/intfcm/Python_class_1 //test_ref/python/intfm/Python_class_1 //test_ref/python/func/Python_class_1 //test_ref/python/ftmplt/Python_class_1 //test_ref/python/defn/Python_class_1 //test_ref/python/macro/Python_class_1 //test_ref/doc/anysymbol/Python_class_1" machineGenerated="true" --><span class="function">Python_class_1</span><!-- /a -->(<span class="param">UserDict</span>)<span class="comment">"""
+	            !headerdoc!
+	            Python_class_1::__init__
+	    """
+	    <span class="keyword">def</span> <!-- a logicalPath="//test_ref/python/instm/__init__ //test_ref/python/clm/__init__ //test_ref/python/intfcm/__init__ //test_ref/python/intfm/__init__ //test_ref/python/func/__init__ //test_ref/python/ftmplt/__init__ //test_ref/python/defn/__init__ //test_ref/python/macro/__init__ //test_ref/doc/anysymbol/__init__" machineGenerated="true" --><span class="function">__init__</span><!-- /a -->(<span class="param">self</span>, <span class="param">filename</span>=<span class="param">None</span>)<span class="comment">"""
+	    !headerdoc!
+	            var_1 comment
+	    """
+	    <span class="param">var_1</span> = <span class="number">3</span>
+	
+	    <span class="comment">"""
+	    !headerdoc!
+	        Python_class_1::foo
+	    """
+	    <span class="keyword">def</span> <!-- a logicalPath="//test_ref/python/instm/foo //test_ref/python/clm/foo //test_ref/python/intfcm/foo //test_ref/python/intfm/foo //test_ref/python/func/foo //test_ref/python/ftmplt/foo //test_ref/python/defn/foo //test_ref/python/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(<span class="param">bar</span>)
+END OF OBJECT
+
+
+OBJECT: __init__ (HeaderDoc::Function)
+	<span class="keyword">def</span> <!-- a logicalPath="//test_ref/python/instm/Python_class_1/__init__ //test_ref/python/clm/Python_class_1/__init__ //test_ref/python/intfcm/Python_class_1/__init__ //test_ref/python/intfm/Python_class_1/__init__ //test_ref/python/func/__init__ //test_ref/python/ftmplt/Python_class_1/__init__ //test_ref/python/defn/__init__ //test_ref/python/macro/__init__ //test_ref/doc/anysymbol/__init__" machineGenerated="true" --><span class="function">__init__</span><!-- /a -->(<span class="param">self</span>, <span class="param">filename</span>=<span class="param">None</span>)
+END OF OBJECT
+
+
+OBJECT: foo (HeaderDoc::Function)
+	<span class="keyword">def</span> <!-- a logicalPath="//test_ref/python/instm/Python_class_1/foo //test_ref/python/clm/Python_class_1/foo //test_ref/python/intfcm/Python_class_1/foo //test_ref/python/intfm/Python_class_1/foo //test_ref/python/func/foo //test_ref/python/ftmplt/Python_class_1/foo //test_ref/python/defn/foo //test_ref/python/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(<span class="param">bar</span>)
+END OF OBJECT
+
+
+OBJECT: var_1 (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/python/econst/var_1 //test_ref/python/data/Python_class_1/var_1 //test_ref/python/data/var_1 //test_ref/python/clconst/Python_class_1/var_1 " machineGenerated="true" --><span class="var">var_1</span><!-- /a --> = <span class="number">3</span>
+END OF OBJECT
+
+
+
+__$96|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Python_class_1.test$6|python$14|Python class 1$6|python$6|parser

@@ -31,9 +31,6 @@
 #include "config.h"
 #include "EditorClientQt.h"
 
-#include "qwebpage.h"
-#include "qwebpage_p.h"
-
 #include "CSSStyleDeclaration.h"
 #include "Document.h"
 #include "EditCommandQt.h"
@@ -46,29 +43,20 @@
 #include "KeyboardEvent.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "QWebPageClient.h"
 #include "Range.h"
+#include "Settings.h"
+#include "SpatialNavigation.h"
 #include "WindowsKeyboardCodes.h"
-
-#include <stdio.h>
+#include "qwebpage.h"
+#include "qwebpage_p.h"
 
 #include <QUndoStack>
+#include <stdio.h>
+#include <wtf/OwnPtr.h>
+
 #define methodDebug() qDebug("EditorClientQt: %s", __FUNCTION__);
-
-static bool dumpEditingCallbacks = false;
-static bool acceptsEditing = true;
-void QWEBKIT_EXPORT qt_dump_editing_callbacks(bool b)
-{
-    dumpEditingCallbacks = b;
-}
-
-void QWEBKIT_EXPORT qt_dump_set_accepts_editing(bool b)
-{
-    acceptsEditing = b;
-}
-
 
 static QString dumpPath(WebCore::Node *node)
 {
@@ -89,15 +77,18 @@ static QString dumpRange(WebCore::Range *range)
         return QLatin1String("(null)");
     WebCore::ExceptionCode code;
 
-    QString str = QString("range from %1 of %2 to %3 of %4")
-        .arg(range->startOffset(code)).arg(dumpPath(range->startContainer(code)))
-        .arg(range->endOffset(code)).arg(dumpPath(range->endContainer(code)));
+    QString str = QString::fromLatin1("range from %1 of %2 to %3 of %4")
+            .arg(range->startOffset(code)).arg(dumpPath(range->startContainer(code)))
+            .arg(range->endOffset(code)).arg(dumpPath(range->endContainer(code)));
 
     return str;
 }
 
 
 namespace WebCore {
+
+bool EditorClientQt::dumpEditingCallbacks = false;
+bool EditorClientQt::acceptsEditing = true;
 
 using namespace HTMLNames;
 
@@ -248,18 +239,12 @@ bool EditorClientQt::selectWordBeforeMenuEvent()
     return false;
 }
 
-bool EditorClientQt::isEditable()
-{ 
-    return m_page->isContentEditable();
-}
-
 void EditorClientQt::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> cmd)
 {
 #ifndef QT_NO_UNDOSTACK
     Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
-    if (m_inUndoRedo || (frame && !frame->editor()->lastEditCommand() /* HACK!! Don't recreate undos */)) {
+    if (m_inUndoRedo || (frame && !frame->editor()->lastEditCommand() /* HACK!! Don't recreate undos */))
         return;
-    }
     m_page->undoStack()->push(new EditCommandQt(cmd));
 #endif // QT_NO_UNDOSTACK
 }
@@ -273,6 +258,16 @@ void EditorClientQt::clearUndoRedoOperations()
 #ifndef QT_NO_UNDOSTACK
     return m_page->undoStack()->clear();
 #endif
+}
+
+bool EditorClientQt::canCopyCut(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientQt::canPaste(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientQt::canUndo() const
@@ -357,25 +352,92 @@ void EditorClientQt::toggleGrammarChecking()
     notImplemented();
 }
 
+static const unsigned CtrlKey = 1 << 0;
+static const unsigned AltKey = 1 << 1;
+static const unsigned ShiftKey = 1 << 2;
+
+struct KeyDownEntry {
+    unsigned virtualKey;
+    unsigned modifiers;
+    const char* editorCommand;
+};
+
+// Handle here key down events that are needed for spatial navigation and caret browsing, or
+// are not handled by QWebPage.
+static const KeyDownEntry keyDownEntries[] = {
+    // Ones that do not have an associated QAction:
+    { VK_DELETE, 0,                  "DeleteForward"                     },
+    { VK_BACK,   ShiftKey,           "DeleteBackward"                    },
+    { VK_BACK,   0,                  "DeleteBackward"                    },
+    // Ones that need special handling for caret browsing:
+    { VK_PRIOR,  0,                  "MovePageUp"                        },
+    { VK_PRIOR,  ShiftKey,           "MovePageUpAndModifySelection"      },
+    { VK_NEXT,   0,                  "MovePageDown"                      },
+    { VK_NEXT,   ShiftKey,           "MovePageDownAndModifySelection"    },
+    // Ones that need special handling for spatial navigation:
+    { VK_LEFT,   0,                  "MoveLeft"                          },
+    { VK_RIGHT,  0,                  "MoveRight"                         },
+    { VK_UP,     0,                  "MoveUp"                            },
+    { VK_DOWN,   0,                  "MoveDown"                          },
+};
+
+const char* editorCommandForKeyDownEvent(const KeyboardEvent* event)
+{
+    if (event->type() != eventNames().keydownEvent)
+        return "";
+
+    static HashMap<int, const char*> keyDownCommandsMap;
+    if (keyDownCommandsMap.isEmpty()) {
+
+        unsigned numEntries = sizeof(keyDownEntries) / sizeof((keyDownEntries)[0]);
+        for (unsigned i = 0; i < numEntries; i++)
+            keyDownCommandsMap.set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].editorCommand);
+    }
+
+    unsigned modifiers = 0;
+    if (event->shiftKey())
+        modifiers |= ShiftKey;
+    if (event->altKey())
+        modifiers |= AltKey;
+    if (event->ctrlKey())
+        modifiers |= CtrlKey;
+
+    int mapKey = modifiers << 16 | event->keyCode();
+    return mapKey ? keyDownCommandsMap.get(mapKey) : 0;
+}
+
 void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
 {
     Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
-    if (!frame || !frame->document()->focusedNode())
+    if (!frame)
         return;
 
     const PlatformKeyboardEvent* kevent = event->keyEvent();
     if (!kevent || kevent->type() == PlatformKeyboardEvent::KeyUp)
         return;
 
-    Node* start = frame->selection()->start().node();
+    Node* start = frame->selection()->start().containerNode();
     if (!start)
         return;
 
     // FIXME: refactor all of this to use Actions or something like them
     if (start->isContentEditable()) {
+        bool doSpatialNavigation = false;
+        if (isSpatialNavigationEnabled(frame)) {
+            if (!kevent->modifiers()) {
+                switch (kevent->windowsVirtualKeyCode()) {
+                case VK_LEFT:
+                case VK_RIGHT:
+                case VK_UP:
+                case VK_DOWN:
+                    doSpatialNavigation = true;
+                }
+            }
+        }
+
 #ifndef QT_NO_SHORTCUT
         QWebPage::WebAction action = QWebPagePrivate::editorActionForKeyEvent(kevent->qtEvent());
-        if (action != QWebPage::NoWebAction) {
+        if (action != QWebPage::NoWebAction && !doSpatialNavigation) {
             const char* cmd = QWebPagePrivate::editorCommandForWebActions(action);
             // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
             // so we leave it upon WebCore to either handle them immediately (e.g. Tab that changes focus) or let a keypress event be generated
@@ -385,128 +447,106 @@ void EditorClientQt::handleKeyboardEvent(KeyboardEvent* event)
                 return;
 
             m_page->triggerAction(action);
-        } else
+            event->setDefaultHandled();
+            return;
+        } else 
 #endif // QT_NO_SHORTCUT
-        switch (kevent->windowsVirtualKeyCode()) {
-            case VK_BACK:
-                frame->editor()->deleteWithDirection(SelectionController::BACKWARD,
-                        CharacterGranularity, false, true);
-                break;
-            case VK_DELETE:
-                frame->editor()->deleteWithDirection(SelectionController::FORWARD,
-                        CharacterGranularity, false, true);
-                break;
-            case VK_LEFT:
-                if (kevent->shiftKey())
-                    frame->editor()->command("MoveLeftAndModifySelection").execute();
-                else
-                    frame->editor()->command("MoveLeft").execute();
-                break;
-            case VK_RIGHT:
-                if (kevent->shiftKey())
-                    frame->editor()->command("MoveRightAndModifySelection").execute();
-                else
-                    frame->editor()->command("MoveRight").execute();
-                break;
-            case VK_UP:
-                if (kevent->shiftKey())
-                    frame->editor()->command("MoveUpAndModifySelection").execute();
-                else
-                    frame->editor()->command("MoveUp").execute();
-                break;
-            case VK_DOWN:
-                if (kevent->shiftKey())
-                    frame->editor()->command("MoveDownAndModifySelection").execute();
-                else
-                    frame->editor()->command("MoveDown").execute();
-                break;
-            case VK_PRIOR:  // PageUp
-                if (kevent->shiftKey())
-                    frame->editor()->command("MovePageUpAndModifySelection").execute();
-                else
-                    frame->editor()->command("MovePageUp").execute();
-                break;
-            case VK_NEXT:  // PageDown
-                if (kevent->shiftKey())
-                    frame->editor()->command("MovePageDownAndModifySelection").execute();
-                else
-                    frame->editor()->command("MovePageDown").execute();
-                break;
-            case VK_TAB:
+        {
+            String commandName = editorCommandForKeyDownEvent(event);
+            if (!commandName.isEmpty()) {
+                if (frame->editor()->command(commandName).execute()) // Event handled.
+                    event->setDefaultHandled();
                 return;
-            default:
-                if (kevent->type() != PlatformKeyboardEvent::KeyDown && !kevent->ctrlKey()
-#ifndef Q_WS_MAC
-                    // We need to exclude checking for Alt because it is just a different Shift
-                    && !kevent->altKey()
-#endif
-                    && !kevent->text().isEmpty()) {
-                    frame->editor()->insertText(kevent->text(), event);
-                } else if (kevent->ctrlKey()) {
-                    switch (kevent->windowsVirtualKeyCode()) {
-                        case VK_A:
-                            frame->editor()->command("SelectAll").execute();
-                            break;
-                        case VK_B:
-                            frame->editor()->command("ToggleBold").execute();
-                            break;
-                        case VK_I:
-                            frame->editor()->command("ToggleItalic").execute();
-                            break;
-                        default:
-                            // catch combination AltGr+key or Ctrl+Alt+key
-                            if (kevent->type() != PlatformKeyboardEvent::KeyDown && kevent->altKey() && !kevent->text().isEmpty()) {
-                                frame->editor()->insertText(kevent->text(), event);
-                                break;
-                            }
-                            return;
-                    }
-                } else return;
-        }
-    } else {
-#ifndef QT_NO_SHORTCUT
-        if (kevent->qtEvent() == QKeySequence::Copy) {
-            m_page->triggerAction(QWebPage::Copy);
-        } else
-#endif // QT_NO_SHORTCUT
-        switch (kevent->windowsVirtualKeyCode()) {
-            case VK_UP:
-                frame->editor()->command("MoveUp").execute();
-                break;
-            case VK_DOWN:
-                frame->editor()->command("MoveDown").execute();
-                break;
-            case VK_PRIOR:  // PageUp
-                frame->editor()->command("MovePageUp").execute();
-                break;
-            case VK_NEXT:  // PageDown
-                frame->editor()->command("MovePageDown").execute();
-                break;
-            case VK_HOME:
-                if (kevent->ctrlKey())
-                    frame->editor()->command("MoveToBeginningOfDocument").execute();
-                break;
-            case VK_END:
-                if (kevent->ctrlKey())
-                    frame->editor()->command("MoveToEndOfDocument").execute();
-                break;
-            default:
+            }
+
+            if (kevent->windowsVirtualKeyCode() == VK_TAB) {
+                // Do not handle TAB text insertion here.
+                return;
+            }
+
+            // Text insertion.
+            bool shouldInsertText = false;
+            if (kevent->type() != PlatformKeyboardEvent::KeyDown && !kevent->text().isEmpty()) {
+
                 if (kevent->ctrlKey()) {
-                    switch (kevent->windowsVirtualKeyCode()) {
-                        case VK_A:
-                            frame->editor()->command("SelectAll").execute();
-                            break;
-                        default:
-                            return;
-                    }
-                } else return;
+                    if (kevent->altKey())
+                        shouldInsertText = true;
+                } else {
+#ifndef Q_WS_MAC
+                // We need to exclude checking for Alt because it is just a different Shift
+                if (!kevent->altKey())
+#endif
+                    shouldInsertText = true;
+
+                }
+            }
+
+            if (shouldInsertText) {
+                frame->editor()->insertText(kevent->text(), event);
+                event->setDefaultHandled();
+                return;
+            }
+        }
+
+        // Event not handled.
+        return;
+    }
+
+    // Non editable content.
+    if (m_page->handle()->page->settings()->caretBrowsingEnabled()) {
+        switch (kevent->windowsVirtualKeyCode()) {
+        case VK_LEFT:
+        case VK_RIGHT:
+        case VK_UP:
+        case VK_DOWN:
+        case VK_HOME:
+        case VK_END:
+            {
+#ifndef QT_NO_SHORTCUT
+                QWebPage::WebAction action = QWebPagePrivate::editorActionForKeyEvent(kevent->qtEvent());
+                ASSERT(action != QWebPage::NoWebAction);
+                m_page->triggerAction(action);
+                event->setDefaultHandled();
+#endif
+                return;
+            }
+        case VK_PRIOR: // PageUp
+        case VK_NEXT:  // PageDown
+            {
+                String commandName = editorCommandForKeyDownEvent(event);
+                ASSERT(!commandName.isEmpty());
+                frame->editor()->command(commandName).execute();
+                event->setDefaultHandled();
+                return;
+            }
         }
     }
-    event->setDefaultHandled();
+
+#ifndef QT_NO_SHORTCUT
+    if (kevent->qtEvent() == QKeySequence::Copy) {
+        m_page->triggerAction(QWebPage::Copy);
+        event->setDefaultHandled();
+        return;
+    }
+#endif // QT_NO_SHORTCUT
 }
 
-void EditorClientQt::handleInputMethodKeydown(KeyboardEvent*)
+void EditorClientQt::handleInputMethodKeydown(KeyboardEvent* event)
 {
+#ifndef QT_NO_SHORTCUT
+    const PlatformKeyboardEvent* kevent = event->keyEvent();
+    if (kevent->type() == PlatformKeyboardEvent::RawKeyDown) {
+        QWebPage::WebAction action = QWebPagePrivate::editorActionForKeyEvent(kevent->qtEvent());
+        switch (action) {
+        case QWebPage::InsertParagraphSeparator:
+        case QWebPage::InsertLineSeparator:
+            m_page->triggerAction(action);
+            break;
+        default:
+            break;
+        }
+    }
+#endif
 }
 
 EditorClientQt::EditorClientQt(QWebPage* page)
@@ -588,7 +628,7 @@ bool EditorClientQt::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientQt::getGuessesForWord(const String&, Vector<String>&)
+void EditorClientQt::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
 {
     notImplemented();
 }
@@ -598,31 +638,47 @@ bool EditorClientQt::isEditing() const
     return m_editing;
 }
 
+void EditorClientQt::willSetInputMethodState()
+{
+}
+
 void EditorClientQt::setInputMethodState(bool active)
 {
-    QWebPageClient* webPageClient = m_page->d->client;
+    QWebPageClient* webPageClient = m_page->d->client.get();
     if (webPageClient) {
-#if QT_VERSION >= 0x040600
-        bool isPasswordField = false;
-        if (!active) {
+        Qt::InputMethodHints hints;
+
+        HTMLInputElement* inputElement = 0;
+        Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
+        if (frame && frame->document() && frame->document()->focusedNode())
+            if (frame->document()->focusedNode()->hasTagName(HTMLNames::inputTag))
+                inputElement = static_cast<HTMLInputElement*>(frame->document()->focusedNode());
+
+        if (inputElement) {
+            // Set input method hints for "number", "tel", "email", "url" and "password" input elements.
+            if (inputElement->isTelephoneField())
+                hints |= Qt::ImhDialableCharactersOnly;
+            if (inputElement->isNumberField())
+                hints |= Qt::ImhDigitsOnly;
+            if (inputElement->isEmailField())
+                hints |= Qt::ImhEmailCharactersOnly;
+            if (inputElement->isURLField())
+                hints |= Qt::ImhUrlCharactersOnly;
             // Setting the Qt::WA_InputMethodEnabled attribute true and Qt::ImhHiddenText flag
-            // for password fields. The Qt platform is responsible for determining which widget 
+            // for password fields. The Qt platform is responsible for determining which widget
             // will receive input method events for password fields.
-            Frame* frame = m_page->d->page->focusController()->focusedOrMainFrame();
-            if (frame && frame->document() && frame->document()->focusedNode()) {
-                if (frame->document()->focusedNode()->hasTagName(HTMLNames::inputTag)) {
-                    HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(frame->document()->focusedNode());
-                    active = isPasswordField = inputElement->isPasswordField();
-              }
+            if (inputElement->isPasswordField()) {
+                active = true;
+                hints |= Qt::ImhHiddenText;
             }
         }
-        webPageClient->setInputMethodHint(Qt::ImhHiddenText, isPasswordField);
-#if defined(Q_WS_MAEMO_5) || defined(Q_OS_SYMBIAN)
+
+#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
         // disables auto-uppercase and predictive text for mobile devices
-        webPageClient->setInputMethodHint(Qt::ImhNoAutoUppercase, true);
-        webPageClient->setInputMethodHint(Qt::ImhNoPredictiveText, true);
-#endif // Q_WS_MAEMO_5 || Q_OS_SYMBIAN
-#endif // QT_VERSION check
+        hints |= Qt::ImhNoAutoUppercase;
+        hints |= Qt::ImhNoPredictiveText;
+#endif // Q_WS_MAEMO_5 || Q_WS_MAEMO_6 || Q_OS_SYMBIAN
+        webPageClient->setInputMethodHints(hints);
         webPageClient->setInputMethodEnabled(active);
     }
     emit m_page->microFocusChanged();

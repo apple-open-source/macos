@@ -101,6 +101,9 @@
 #include <servers/bootstrap.h>
 #include <arpa/inet.h>
 #include <bsm/libbsm.h>
+#include <ifaddrs.h>
+#include <netinet/ip.h>
+#include <netinet/ip_icmp.h>
 
 #include "pppcontroller.h"
 #include <ppp/pppcontroller_types.h>
@@ -166,9 +169,12 @@ int unpublish_dictentry(CFStringRef dict, CFStringRef entry);
 static void sys_eventnotify(void *param, uintptr_t code);
 static void sys_timeremaining(void *param, uintptr_t info);
 static void sys_authpeersuccessnotify(void *param, uintptr_t info);
+static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m);
 int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m);
 int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
 int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
+static void ppp_ip_probe_timeout (void *arg);
+static void republish_dict();
 
 /* -----------------------------------------------------------------------------
  Globals
@@ -200,6 +206,7 @@ static u_int32_t 	ifaddrs[2];		/* local and remote addresses we set */
 static u_int32_t 	default_route_gateway;	/* gateway addr for default route */
 static u_int32_t 	proxy_arp_addr;		/* remote addr for proxy arp */
 SCDynamicStoreRef	cfgCache = 0;		/* configd session */
+CFRunLoopSourceRef	rls = 0;		/* runloop source */
 CFStringRef		serviceidRef = 0;	/* service id ref */
 CFStringRef		serveridRef = 0;	/* server id ref */
 
@@ -226,6 +233,7 @@ double	 		timeScaleMicroSeconds;	/* scale factor for machine absolute time to mi
 CFPropertyListRef 		userOptions		= NULL;
 CFPropertyListRef 		systemOptions		= NULL;
 
+CFMutableDictionaryRef	publish_dict = NULL;
 
 option_t sys_options[] = {
     { "serviceid", o_string, &serviceid,
@@ -244,6 +252,17 @@ option_t sys_options[] = {
       "Don't loop local traffic destined to the local address", 0},
     { NULL }
 };
+
+ppp_session_t *session = NULL;
+static int ppp_auxiliary_probe_echos_pending = 0;
+static int ppp_auxiliary_probe_success = 0;
+static int ppp_auxiliary_probe_ip_notify_init = 0;
+static int ppp_auxiliary_probe_ip = 0;
+
+static int override_primary = 0;
+static int wait_port_mapping_changed = 0;
+
+extern int kill_link;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -480,6 +499,21 @@ void CopyServerData()
 }
 
 /* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+static int setstorevalue(CFStringRef key, CFMutableDictionaryRef dict)
+{
+	int result = 1;
+	
+	if (SCDynamicStoreSetValue(cfgCache, key, dict) == 0)
+		result = 0;
+	
+	if (publish_dict){
+		CFDictionarySetValue(publish_dict, key, dict);
+	}
+	return result;
+}
+
+/* -----------------------------------------------------------------------------
 System-dependent initialization
 ----------------------------------------------------------------------------- */
 void sys_init()
@@ -557,6 +591,20 @@ void sys_init()
     	publish_dictstrentry(kSCEntNetInterface, CFSTR("ServerID"), serverid, kCFStringEncodingMacRoman);
 	}
 	
+	if (!controlled){
+		
+		publish_dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (publish_dict){
+			rls = SCDynamicStoreCreateRunLoopSource(kCFAllocatorDefault, cfgCache, 0);
+			if ( rls == NULL ){
+				notice("SCDynamicStoreCreateRunLoopSource FAILED %s", SCErrorString(SCError()));
+			}else {
+				CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+			}
+			SCDynamicStoreSetDisconnectCallBack(cfgCache, republish_dict);
+		}
+	}
+	
 	
     //add_notifier(&pidchange, sys_pidchange, 0);
     add_notifier(&phasechange, sys_phasechange, 0);
@@ -609,6 +657,13 @@ void sys_cleanup()
 {
     struct ifreq ifr;
 
+	if (!controlled && rls) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+		CFRunLoopSourceInvalidate(rls);
+		CFRelease(rls);
+		rls = NULL;
+	}
+	
 	cifroute();
 
     if (if_is_up) {
@@ -627,6 +682,19 @@ void sys_cleanup()
 	cifdefaultroute(0, 0, default_route_gateway);
     if (proxy_arp_addr)
 	cifproxyarp(0, proxy_arp_addr);
+}
+
+/* ----------------------------------------------------------------------------- 
+ sys_runloop - called from main loop
+----------------------------------------------------------------------------- */
+void sys_runloop()
+{
+	if (!controlled && rls) {
+		if (kill_link)
+			CFRunLoopStop(CFRunLoopGetCurrent());
+		else
+			CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0, true);
+	}
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -820,7 +888,7 @@ the steps detailed in the README.MacOSX file.\n";
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
         if (!noload && !load_kext(PPP_NKE_PATH, 0))
 #else
         if (!noload && !load_kext(PPP_NKE_ID, 1))
@@ -1335,6 +1403,9 @@ void wait_input(struct timeval *timo)
    if (n < 0 && errno != EINTR)
 	fatal("select: %m");
 
+   if (n < 0) {
+        FD_ZERO(&ready_fds);
+   }
 }
 
 /* -----------------------------------------------------------------------------
@@ -1933,6 +2004,57 @@ int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
 }
 
 /* -----------------------------------------------------------------------------
+ Update the interface IP addresses and netmask
+ ----------------------------------------------------------------------------- */
+int uifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
+{
+    struct ifaliasreq ifra;
+    struct ifreq ifr;
+	
+	// XXX from sys/sockio.h
+#define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
+#define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
+	
+    // first plumb ip over ppp
+    if (ipv4_plumbed == 0) {
+		error("Interface should have been plumbed already");
+		return -1;
+    }
+    
+    strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
+    SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
+    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
+    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    if (m != 0) {
+		SET_SA_FAMILY(ifra.ifra_mask, AF_INET);
+		((struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
+    } else
+		BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
+    BZERO(&ifr, sizeof(ifr));
+    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
+		if (errno != EADDRNOTAVAIL)
+			warning("Couldn't remove interface address: %m");
+    }
+    if (ioctl(ip_sockfd, SIOCAIFADDR, (caddr_t) &ifra) < 0) {
+		if (errno != EEXIST) {
+			error("Couldn't set interface address: %m");
+			return 0;
+		}
+		warning("Couldn't set interface address: Address %I already exists", o);
+    }
+    ifaddrs[0] = o;
+    ifaddrs[1] = h;
+    
+	sifroute(u, o, h, m);
+	
+    update_stateaddr(o, h, m);
+	
+	return 1;
+}
+
+/* -----------------------------------------------------------------------------
 Clear the interface IP addresses, and delete routes
  * through the interface if possible
  ----------------------------------------------------------------------------- */
@@ -2262,7 +2384,8 @@ ether_to_eui64(eui64_t *p_eui64)
 assign a default route through the address given 
 ----------------------------------------------------------------------------- */
 int sifdefaultroute(int u, u_int32_t l, u_int32_t g)
-{    
+{
+    override_primary = 1;
     return publish_dictnumentry(kSCEntNetIPv4, kSCPropNetOverridePrimary, 1);
 }
 
@@ -2271,7 +2394,106 @@ delete a default route through the address given
 ----------------------------------------------------------------------------- */
 int cifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
+    override_primary = 0;
     return unpublish_dictentry(kSCEntNetIPv4, kSCPropNetOverridePrimary);
+}
+
+/* ----------------------------------------------------------------------------
+ update ip addresses using configd cache mechanism
+ use new state information model
+ ----------------------------------------------------------------------------- */
+static int update_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
+{
+    struct in_addr             addr;
+    CFMutableArrayRef          array;
+    CFMutableDictionaryRef     ipv4_dict;
+    CFStringRef                        str;
+    CFStringRef                        key;
+
+    // ppp daemons without services are not published in the cache
+    if (cfgCache == NULL)
+        return 0;
+
+    /* update the store now */
+    if (key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
+        CFPropertyListRef ref;
+        if ((ref = SCDynamicStoreCopyValue(cfgCache, key)) == NULL ||
+            CFGetTypeID(ref) != CFDictionaryGetTypeID()) {
+            warning("SCDynamicStoreCopyValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
+            if (ref) {
+                CFRelease(ref);
+            }
+            CFRelease(key);
+            return 0;
+        }
+        ipv4_dict = CFDictionaryCreateMutableCopy(NULL, 0, ref);
+        CFRelease(ref);
+        if (!ipv4_dict || CFGetTypeID(ipv4_dict) != CFDictionaryGetTypeID()) {
+            warning("CFDictionaryCreateMutableCopy IP %s failed: %s\n", ifname, SCErrorString(SCError()));
+            if (ipv4_dict) {
+                CFRelease(ipv4_dict);
+            }
+            CFRelease(key);
+            return 0;
+        }
+    } else {
+        return 0;
+    }
+
+    /* set the ip address src and dest arrays */
+    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+        addr.s_addr = o;
+        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+            CFArrayAppendValue(array, str);
+            CFRelease(str);
+            CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array); 
+        }
+        CFRelease(array);
+    }
+       
+    if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
+        addr.s_addr = h;
+        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+            CFArrayAppendValue(array, str);
+            CFRelease(str);
+            CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4DestAddresses, array);
+        }
+        CFRelease(array);
+    }
+       
+    /* set the router */
+    addr.s_addr = h;
+    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
+        CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
+        CFRelease(str);
+    }
+       
+    /* add the interface name */
+    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), ifname)) {
+        CFDictionarySetValue(ipv4_dict, kSCPropInterfaceName, str);
+        CFRelease(str);
+    }
+       
+    /* add the network signature */
+    if (network_signature) {
+               if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature)) {
+                       CFDictionarySetValue(ipv4_dict, CFSTR("NetworkSignature"), str);
+                       CFRelease(str);
+               }
+       }
+       
+    /* add the remote server peer address */
+    if (server_peer) {
+        CFDictionarySetValue(ipv4_dict, CFSTR("ServerAddress"), server_peer);
+    }
+
+
+	if (setstorevalue(key, ipv4_dict) == 0)
+        warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
+
+    CFRelease(ipv4_dict);
+    CFRelease(key);
+    return 1;
 }
 
 /* ----------------------------------------------------------------------------
@@ -2296,7 +2518,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
    /* set the ip address src and dest arrays */
     if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
         addr.s_addr = o;
-        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr))) {
+        if (str = CFStringCreateWithFormat(0, 0, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Addresses, array); 
@@ -2306,7 +2528,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 
     if (array = CFArrayCreateMutable(0, 1, &kCFTypeArrayCallBacks)) {
         addr.s_addr = h;
-        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr))) {
+        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
             CFArrayAppendValue(array, str);
             CFRelease(str);
             CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4DestAddresses, array);
@@ -2316,7 +2538,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 
     /* set the router */
     addr.s_addr = h;
-    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr))) {
+    if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&addr.s_addr))) {
         CFDictionarySetValue(ipv4_dict, kSCPropNetIPv4Router, str);
         CFRelease(str);
     }
@@ -2343,7 +2565,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
     /* update the store now */
     if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
         
-        if (SCDynamicStoreSetValue(cfgCache, str, ipv4_dict) == 0)
+		if (setstorevalue(str, ipv4_dict) == 0)
             warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
 
         CFRelease(str);
@@ -2431,7 +2653,7 @@ int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef 
 		CFRelease(mutable_array);
     }
 	    
-    if (SCDynamicStoreSetValue(cfgCache, key, dict))
+	if (setstorevalue(key,dict))
         ret = 1;
     else
         warning("SCDynamicStoreSetValue DNS/WINS %s failed: %s\n", ifname, SCErrorString(SCError()));
@@ -2471,7 +2693,7 @@ int sifdns(u_int32_t dns1, u_int32_t dns2)
 	if (!str1)
 		goto done;
 		
-	if (dns2)
+	if (dns2 && (dns2!=dns1))
 		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns2));
 		
 	result = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSServerAddresses, str1, str2, kSCPropNetDNSSupplementalMatchDomains, strname, kSCPropNetDNSSupplementalMatchOrders, num, clean);
@@ -2494,7 +2716,7 @@ set wins information
 ----------------------------------------------------------------------------- */
 int sifwins(u_int32_t wins1, u_int32_t wins2)
 {    
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     CFStringRef		str1 = 0, str2 = 0;
     int				result = 0, clean = 1;
 
@@ -2533,7 +2755,7 @@ clear wins information
 ----------------------------------------------------------------------------- */
 int cifwins(u_int32_t wins1, u_int32_t wins2)
 {
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     return unpublish_dict(kSCEntNetSMB);
 #else
 	return 0;
@@ -2567,7 +2789,7 @@ int sifproxyarp(int unit, u_int32_t hisaddr)
 	return 0;
     }
 
-    if ((routes = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((routes = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
 	error("Couldn't add proxy arp entry: socket: %m");
 	return 0;
     }
@@ -2611,7 +2833,7 @@ int cifproxyarp(int unit, u_int32_t hisaddr)
     arpmsg.hdr.rtm_type = RTM_DELETE;
     arpmsg.hdr.rtm_seq = ++rtm_seq;
 
-    if ((routes = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((routes = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
 	error("Couldn't delete proxy arp entry: socket: %m");
 	return 0;
     }
@@ -3001,7 +3223,7 @@ int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value)
         return 0;
     
     CFDictionarySetValue(dict,  entry, value);
-    if (SCDynamicStoreSetValue(cfgCache, key, dict) == 0)
+	if (setstorevalue(key,dict) == 0)
         warning("publish_entry SCDSet() failed: %s\n", SCErrorString(SCError()));
     CFRelease(dict);
     
@@ -3054,6 +3276,53 @@ int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int enc
 }
 
 /* -----------------------------------------------------------------------------
+ republish Dynamic store
+ ----------------------------------------------------------------------------- */
+static void
+republish_dict(SCDynamicStoreRef store __unused, void *info  __unused)
+{
+	int i,count;
+	const void	**keys = NULL;
+	const void	**values = NULL;
+	
+    dbglog("DynamicStore Server has reconnected, republish keys");
+	if (publish_dict == NULL)
+		return;
+	
+	count = CFDictionaryGetCount(publish_dict);
+	if ( count ){
+		CFRelease(cfgCache);
+		cfgCache = SCDynamicStoreCreate(0, CFSTR("pppd"), 0, 0);		/* create new ref with server */
+		if (cfgCache == 0){
+			fatal("republish_dict SCDynamicStoreCreate failed: %s", SCErrorString(SCError()));
+			return;
+		}
+		
+		keys = (const void * *)malloc(sizeof(keys) * count);
+		values = (const void * *)malloc(sizeof(values) * count);
+		
+		if ((keys == NULL) || (values == NULL))
+			goto done;
+		
+		CFDictionaryGetKeysAndValues(publish_dict, keys, values);
+		dbglog("republish_dict: processing %d keys", count);
+		for (i=0 ; i<count; i++){
+			if (!SCDynamicStoreSetValue(cfgCache, keys[i], values[i])){
+				warning("republish_dict SCDynamicStoreSetValue failed key %s: %s\n", CFStringGetCStringPtr(keys[i], kCFStringEncodingMacRoman), SCErrorString(SCError()));
+			}
+			
+		}
+	}
+	
+done:
+	if (keys)
+		free(keys);
+	if (values)
+		free(values);
+	
+}
+
+/* -----------------------------------------------------------------------------
 unpublish a dictionnary entry from the cache, given the dict key
 ----------------------------------------------------------------------------- */
 int unpublish_keyentry(CFStringRef key, CFStringRef entry)
@@ -3068,7 +3337,7 @@ int unpublish_keyentry(CFStringRef key, CFStringRef entry)
     if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
         if (dict = CFDictionaryCreateMutableCopy(0, 0, ref)) {
             CFDictionaryRemoveValue(dict, entry);
-            if (SCDynamicStoreSetValue(cfgCache, key, dict) == 0)
+			if (setstorevalue(key, dict) == 0)
                 warning("unpublish_keyentry SCDSet() failed: %s\n", SCErrorString(SCError()));
             CFRelease(dict);
         }
@@ -3090,6 +3359,9 @@ int unpublish_dict(CFStringRef dict)
             
     key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, dict);
     if (key) {
+		if (publish_dict){
+			CFDictionaryRemoveValue(publish_dict, key);
+		}
         ret = !SCDynamicStoreRemoveValue(cfgCache, key);
         CFRelease(key);
     }
@@ -3245,7 +3517,7 @@ void sys_exitnotify(void *arg, uintptr_t exitcode)
     // unpublish the various info about the connection
     unpublish_dict(kSCEntNetPPP);
     unpublish_dict(kSCEntNetDNS);
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     unpublish_dict(kSCEntNetSMB);
 #endif
     unpublish_dict(kSCEntNetInterface);
@@ -3256,6 +3528,11 @@ void sys_exitnotify(void *arg, uintptr_t exitcode)
         CFRelease(cfgCache);
         cfgCache = 0;
     }
+	
+	if (publish_dict){
+		CFRelease(publish_dict);
+		publish_dict = NULL;
+	}
 }
 
 /* -----------------------------------------------------------------------------
@@ -3277,7 +3554,7 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
 	char            mask_str[INET_ADDRSTRLEN];
     int 			sockfd = -1;
 
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
 		error("route_interface: open routing socket failed, %m. (address %s, mask %s, interface %s, host %d).",
 			  addr2ascii(AF_INET, &host, sizeof(host), host_str),
 			  addr2ascii(AF_INET, &addr_mask, sizeof(addr_mask), mask_str),
@@ -3349,7 +3626,7 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
    
     int 			sockfd = -1;
     
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE)) < 0) {
 		syslog(LOG_INFO, "host_gateway: open routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
 			   strerror(errno),
 			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
@@ -3392,4 +3669,958 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
 
     close(sockfd);
     return (1);
+}
+
+// Here stealing the in_cksum function which computes checksum from original ping.
+static int
+in_cksum(u_short *addr, int len)
+{
+	register int nleft = len;
+	register u_short *w = addr;
+	register int sum = 0;
+	u_short answer = 0;
+	
+	// Our algorithm is simple, using a 32 bit accumulator (sum), we add
+	// sequential 16 bit words to it, and at the end, fold back all the
+	// carry bits from the top 16 bits into the lower 16 bits.
+	
+	while (nleft > 1) {
+		sum += *w++;
+		nleft -= 2;
+	}
+	
+	/* mop up an odd byte, if necessary */
+	if (nleft == 1) {
+		*(u_char *)(&answer) = *(u_char *)w;
+		sum += answer;
+	}
+	
+	// Add back carry outs from top 16 bits to low 16 bits
+	sum = (sum >> 16) + (sum & 0xffff);  // Add hi 16 to low 16
+	sum += (sum >> 16);                  // Add carry
+	answer = ~sum;                       // Truncate to 16 bits
+	
+	return answer;
+}
+
+static int
+ppp_scoped_ping (int                 s,
+				 unsigned int        ifscope,
+				 struct sockaddr_in *dst,
+				 int                 ntransmit)
+{
+	int          i;
+	int          hold;
+	struct icmp *icp;
+	u_char      *packet;
+	u_char       outpack[IP_MAXPACKET];
+	
+	if (s < 0) {
+		s = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
+		if (s < 0) {
+			return -1;
+		}
+		if (ifscope) {
+			if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF, (char *)&ifscope, sizeof(ifscope)) != 0) {
+				close(s);
+				return -1;
+			}
+		}
+		
+		hold = IP_MAXPACKET + 128;
+		(void)setsockopt(s, SOL_SOCKET, SO_RCVBUF, (char *)&hold, sizeof(hold));
+	}
+	
+	packet = outpack;
+	icp = (struct icmp *)outpack;
+	icp->icmp_type = ICMP_ECHO;
+	icp->icmp_code = 0;
+	icp->icmp_cksum = 0;
+	icp->icmp_seq = htons(ntransmit);
+	icp->icmp_id = getpid() & 0xFFFF;
+	icp->icmp_cksum = in_cksum((u_short *)icp, ICMP_MINLEN);
+	if ((i = sendto(s, (char *)packet, ICMP_MINLEN, 0, (struct sockaddr *)dst, sizeof(*dst))) != ICMP_MINLEN) {
+		close(s);
+		return -1;
+	}
+	return s;
+}
+
+int
+ppp_ip_probe_send (void *arg)
+{
+	int scope;
+	int i = 0;
+
+	dbglog("%s: starting", __FUNCTION__);
+
+	if (!session || !session->valid) {
+		return -1;
+	}
+
+	scope = if_nametoindex(session->interface_name);
+
+	session->probe_success = 0;
+
+	// first probe to goog-dns
+	if ((session->probe_addrs[GOOG_DNS_PROBE].sin_family == AF_INET) &&
+		session->probe_addrs[GOOG_DNS_PROBE].sin_addr.s_addr) {
+		dbglog("%s: found goog-dns address", __FUNCTION__);		
+		if ((session->probe_fds[GOOG_DNS_PROBE] = ppp_scoped_ping(session->probe_fds[GOOG_DNS_PROBE],
+																  scope,
+																  &session->probe_addrs[GOOG_DNS_PROBE],
+																  session->probe_ntransmit)) != -1) {
+			add_fd(session->probe_fds[GOOG_DNS_PROBE]);
+			dbglog("%s: sent to goog-dns over scope %d", __FUNCTION__, scope);
+			i++;
+		}
+	} else {
+		info("%s: no goog-dns address", __FUNCTION__);		
+	}
+	// next probes to server and alternate server
+	if ((session->probe_addrs[PEER_ADDR_PROBE].sin_family == AF_INET) &&
+		session->probe_addrs[PEER_ADDR_PROBE].sin_addr.s_addr) {
+		dbglog("%s: found peer address", __FUNCTION__);		
+		// current vpn server
+		if ((session->probe_fds[PEER_ADDR_PROBE] = ppp_scoped_ping(session->probe_fds[PEER_ADDR_PROBE],
+																   scope,
+																   &session->probe_addrs[PEER_ADDR_PROBE],
+																   session->probe_ntransmit)) != -1) {
+			add_fd(session->probe_fds[PEER_ADDR_PROBE]);
+			dbglog("%s: sent to peer over scope %d", __FUNCTION__, scope);
+			i++;
+		}
+		
+		if ((session->probe_addrs[ALT_PEER_ADDR_PROBE].sin_family == AF_INET) &&
+			session->probe_addrs[ALT_PEER_ADDR_PROBE].sin_addr.s_addr) {
+			dbglog("%s: found alternate peer address", __FUNCTION__);		
+			// alternate vpn server
+			if ((session->probe_fds[ALT_PEER_ADDR_PROBE] = ppp_scoped_ping(session->probe_fds[ALT_PEER_ADDR_PROBE],
+																		   scope,
+																		   &session->probe_addrs[ALT_PEER_ADDR_PROBE],
+																		   session->probe_ntransmit)) != -1) {
+				add_fd(session->probe_fds[ALT_PEER_ADDR_PROBE]);
+				info("%s: sent to alternate peer over scope %d", __FUNCTION__, scope);
+				i++;
+			}
+		} else {
+			dbglog("%s: no alternate peer address", __FUNCTION__);		
+		}
+	} else {
+		dbglog("%s: no peer address", __FUNCTION__);		
+	}
+	if (i) {
+		dbglog("%s: %d probes sent", __FUNCTION__, i);
+		session->probe_tries++;
+		if (!session->probe_timer_running) {
+			session->probe_timer_running = 1;
+			TIMEOUT(ppp_ip_probe_timeout, 0, 3);
+		}
+		return 0;
+	}
+	return -1;
+}
+
+int
+ppp_ip_probe_stop (void *arg)
+{
+	int i;
+
+	if (!session || !session->valid) {
+		return -1;
+	}
+
+	if (session->probe_timer_running) {
+		session->probe_timer_running = 0;
+		UNTIMEOUT(ppp_ip_probe_timeout, 0);
+		dbglog("ppp_auxiliary_probe stopped");
+	}
+
+	for (i = 0; i < MAX_PROBE_ADDRS; i++) {
+		if (session->probe_fds[i] > 0) {
+			remove_fd(session->probe_fds[i]);
+			close(session->probe_fds[i]);
+			session->probe_fds[i] = -1;
+		}
+	}
+	session->probe_tries = 0;
+	session->probe_success = 0;
+	return 0;
+}
+
+static void
+ppp_ip_probe_timeout (void *arg)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+	
+	if (session->probe_tries < 15) {
+		if (!ppp_ip_probe_send(arg)) {
+			return;
+		}
+	}
+	error("ppp_auxiliary_probe timed out");
+}
+
+void ppp_session_clear (ppp_session_t *sess)
+{
+	int i;
+
+	if (sess) {
+		bzero(sess, sizeof(*sess));
+		for (i = 0; i < MAX_PROBE_ADDRS; i++) {
+			sess->probe_fds[i] = -1;
+		}
+	}
+}
+
+int
+ppp_variable_echo_is_off (void)
+{
+	if (!session || !session->valid) {
+		return 1;
+	}
+	return(!wait_underlying_interface_up);
+}
+
+void
+ppp_variable_echo_start (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+    if (wait_underlying_interface_up || wait_port_mapping_changed) {
+        // speed up LCP echos
+        if (!lcp_echos_hastened) {
+			dbglog("ppp_variable_echo_start");
+            lcp_echo_interval_slow = lcp_echo_interval;
+            lcp_echo_interval = 1;
+            lcp_echo_fails_slow = lcp_echo_fails;
+            if (lcp_echo_fails > 10) {
+                lcp_echo_fails = 10; // max of 10 secs
+            }
+            lcp_echos_hastened = 1;
+            lcp_echo_restart(0);
+        }
+    }
+}
+
+void
+ppp_variable_echo_stop (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+    if (wait_underlying_interface_up || wait_port_mapping_changed) {
+        dbglog("received echo-reply, ppp_variable_echo_stop!");
+        wait_underlying_interface_up = 0;
+        wait_port_mapping_changed = 0;
+        if (lcp_echos_hastened) {
+            lcp_echo_interval = lcp_echo_interval_slow;
+            lcp_echo_fails = lcp_echo_fails_slow;
+            lcp_echos_hastened = 0;
+        }
+    }
+}
+
+void ppp_auxiliary_probe_ip_up(void *arg, uintptr_t p)
+{
+	ppp_auxiliary_probe_ip = 1;
+}
+
+void ppp_auxiliary_probe_ip_down(void *arg, uintptr_t p)
+{
+	ppp_auxiliary_probe_ip = 0;
+}
+
+void
+ppp_auxiliary_probe_init (void)
+{
+	ppp_auxiliary_probe_echos_pending = 0;
+	ppp_auxiliary_probe_success = 0;
+	if (!ppp_auxiliary_probe_ip_notify_init) {
+		add_notifier(&ip_up_notify, ppp_auxiliary_probe_ip_up, 0);
+		add_notifier(&ip_down_notify, ppp_auxiliary_probe_ip_down, 0);
+		ppp_auxiliary_probe_ip_notify_init= 1;
+	}
+}
+
+void
+ppp_auxiliary_probe_stop (void)
+{
+	ppp_ip_probe_stop(session);
+	ppp_auxiliary_probe_echos_pending = 0;
+	ppp_auxiliary_probe_success = 0;
+}
+
+void
+ppp_auxiliary_probe_check (int                    echos_pending,
+							probe_disconnect_func  disconnect_func,
+							fsm                   *f)
+{
+	if (ppp_auxiliary_probe_ip &&
+		!wait_underlying_interface_up &&
+		!wait_port_mapping_changed &&    
+		echos_pending > 1){
+		// more than 2 echo responses pending: try probing the network
+		if (!ppp_auxiliary_probe_echos_pending) {
+			// probe hasn't been started
+			error("no echo-reply, start ppp_auxiliary_probe!");
+			ppp_ip_probe_send(session);
+			ppp_auxiliary_probe_echos_pending = 1;
+			ppp_auxiliary_probe_success = 0;
+		} else if (++ppp_auxiliary_probe_echos_pending > 1 &&
+				   ppp_auxiliary_probe_success) {
+			// we have more than 3 pending echo responses, while the network
+			// probe succeeded... disconnect
+			error("no echo-reply, despite successful ppp_auxiliary_probe!");
+			// network probe succeeded but no echo replies, disconnect
+			if (disconnect_func) {
+				disconnect_func(f);
+			}
+		}
+	}	
+}
+
+void
+ppp_process_auxiliary_probe_input (void)
+{
+	int i, j, result;
+
+	if (!session || !session->valid) {
+		return;
+	}
+
+	for (i = 0, j = 0; i < MAX_PROBE_ADDRS; i++) {
+		if (session->probe_fds[i] > 0 && is_ready_fd(session->probe_fds[i])) {
+			result = 0;
+			read(session->probe_fds[i], &result, 1);
+			remove_fd(session->probe_fds[i]);
+			if (result > 0) {
+				// assume success for now. TODO: log and ignore alt-peer success
+				session->probe_success++;
+				j++;
+				dbglog("ppp_auxiliary_probe[%d] response!", i);
+			}
+			close(session->probe_fds[i]);
+			session->probe_fds[i] = -1;
+		}
+	}
+	if (j) {
+		if (session->probe_timer_running) {
+			session->probe_timer_running = 0;
+			UNTIMEOUT(ppp_ip_probe_timeout, 0);
+		}
+		if (ppp_auxiliary_probe_echos_pending) {
+			ppp_auxiliary_probe_success++;
+		}
+	}
+}
+
+#if !TARGET_OS_EMBEDDED
+static void
+ppp_clear_one_nat_port_mapping (mdns_nat_mapping_t *mapping)
+{
+	if (mapping) {
+		// what about mapping->mDNSRef_fd?
+		if (mapping->mDNSRef != NULL) {
+			if (mapping->mDNSRef_fd)
+				remove_fd(mapping->mDNSRef_fd);
+			DNSServiceRefDeallocate(mapping->mDNSRef);
+		}
+		bzero(mapping, sizeof(*mapping));
+	}
+}
+
+static int
+ppp_ignore_nat_port_mapping_update (DNSServiceRef       sdRef,
+									char               *sd_name,
+									char               *if_name,
+									uint32_t            if_name_siz,
+									uint32_t            interfaceIndex,
+									uint32_t            publicAddress,
+									DNSServiceProtocol  protocol,
+									uint16_t            privatePort,
+									uint16_t            publicPort)
+{
+	int i = 0, vpn = 0, found = 0;
+	struct ifaddrs *ifap = NULL;
+	char interfaceName[32];
+
+	/* check if address still exist */
+	if (getifaddrs(&ifap) == 0) {
+		struct ifaddrs *ifa;
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+			if (ifa->ifa_name  
+				&& ifa->ifa_addr
+				&& (!strncmp(ifa->ifa_name, "utun", 4) || !strncmp(ifa->ifa_name, "ppp", 3))
+				&& ifa->ifa_addr->sa_family == AF_INET
+				&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == htonl(publicAddress)) {
+				notice("%s port-mapping update for %s ignored: related to VPN interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+					   sd_name,
+					   ifa->ifa_name,
+					   publicAddress,
+					   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+					   privatePort,
+					   publicPort);
+				vpn = 1;
+			}
+			if (ifa->ifa_name  
+				&& ifa->ifa_addr
+				&& !strncmp(ifa->ifa_name, if_name, if_name_siz)
+				&& ifa->ifa_addr->sa_family == AF_INET
+				&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == session->interface_address.s_addr) {
+				found = 1;
+			}
+		}
+		freeifaddrs(ifap);
+	} else {
+		error("%s port-mapping update for %s ignored: failed to get interface list",
+			  sd_name,
+			  if_name);
+		return 1;
+	}
+	
+	if (vpn) {
+		return 1;
+	}
+	bzero(interfaceName, sizeof(interfaceName));
+	if_indextoname(interfaceIndex, (char *)interfaceName);
+	if (!strncmp(interfaceName, if_name, if_name_siz)) {
+		if (strstr(if_name, "ppp") || strstr(if_name, "utun")) {
+			// change on PPP interface... we don't care
+			notice("%s port-mapping update for %s ignored: underlying interface is PPP/VPN. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+				   sd_name,
+				   if_name,
+				   publicAddress,
+				   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+				   privatePort,
+				   publicPort);
+			return 1;
+		} else {
+			/* check if address still exist */
+			if (found) {
+				return 0;
+			} else {
+				if (!publicAddress || (!publicPort && privatePort)) {
+					notice("%s port-mapping update for %s ignored: underlying interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+						   sd_name,
+						   if_name,
+						   publicAddress,
+						   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+						   privatePort,
+						   publicPort);
+					for (i = 0; i < session->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
+						if (session->nat_mapping[i].mDNSRef_tmp == sdRef) {
+							session->nat_mapping[i].up = 0;
+							notice("%s port-mapping for %s flagged down because of no connectivity\n", sd_name, if_name);
+						}
+					}
+					return 1;
+				}
+				notice("%s port-mapping update for %s ignored: underlying interface's address changed. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+					   sd_name,
+					   if_name,
+					   publicAddress,
+					   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+					   privatePort,
+					   publicPort);
+				return 1;
+			}
+		}
+	} else if (publicAddress && !publicPort && !privatePort && !protocol) {
+		// an update on the NAT's public IP
+		return 0;
+	} else {
+		// public interface disappeared?
+		if (!publicAddress && !publicPort && !privatePort && !protocol) {
+			return 0;
+		}
+		/* check if address still exist */
+		if (session->interface_address.s_addr == htonl(publicAddress) && found) {
+			return 0;
+		}
+		// change due to another interface, ignore for now
+		notice("%s port-mapping update for %s ignored: not for interface %s. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+			   sd_name,
+			   interfaceName,
+			   if_name,
+			   publicAddress,
+			   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+			   privatePort,
+			   publicPort);
+		return 1;
+	}
+}
+#endif
+
+static void
+ppp_public_nat_port_mapping_timeout (void *arg)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (session->nat_mapping_timer_running) {
+		session->nat_mapping_timer_running = 0;
+		syslog(LOG_ERR, "NAT's public interface down for more than %d secs... starting faster probe.\n",
+			   PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
+		// our public interface didn't come back... start faster probe
+		if (session->failure_func) {
+			wait_port_mapping_changed = 1;
+			session->failure_func();
+		}
+	}
+}
+
+void
+ppp_start_public_nat_port_mapping_timer (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (session->nat_mapping_timer_blocked) {
+		return;
+	}
+
+	if (session->nat_mapping_timer_running) {
+		return;
+	}
+
+	notice("starting wait-port-mapping timer for %s: %d secs", session->sd_name, PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
+	TIMEOUT (ppp_public_nat_port_mapping_timeout, 0, PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
+	session->nat_mapping_timer_running = 1;
+}
+
+void
+ppp_stop_public_nat_port_mapping_timer (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (session->nat_mapping_timer_running) {
+		UNTIMEOUT (ppp_public_nat_port_mapping_timeout, 0);
+		session->nat_mapping_timer_running = 0;
+	}
+}
+
+void
+ppp_block_public_nat_port_mapping_timer (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+
+	ppp_stop_public_nat_port_mapping_timer();
+	session->nat_mapping_timer_blocked = 1;
+}
+
+void
+ppp_unblock_public_nat_port_mapping_timer (void)
+{
+	if (!session || !session->valid) {
+		return;
+	}
+	
+	session->nat_mapping_timer_blocked = 0;
+}
+
+#if !TARGET_OS_EMBEDDED
+
+static void ppp_clear_nat_port_mapping(void);
+
+static void
+ppp_set_nat_port_mapping_callback (DNSServiceRef        sdRef,
+								   DNSServiceFlags      flags,
+								   uint32_t             interfaceIndex,
+								   DNSServiceErrorType  errorCode,
+								   uint32_t             nPublicAddress,	   /* four byte IPv4 address in network byte order */
+								   DNSServiceProtocol   protocol,
+								   uint16_t             nPrivatePort,
+								   uint16_t             nPublicPort,	   /* may be different than the requested port */
+								   uint32_t             ttl,			   /* may be different than the requested ttl */
+								   void                *context)
+{
+	uint32_t publicAddress = ntohl(nPublicAddress);
+	uint16_t privatePort = ntohs(nPrivatePort);
+	uint16_t publicPort = ntohs(nPublicPort);
+	int i;
+	char *sd_name = session->sd_name;
+	int is_connected = session->valid;
+	char *if_name = session->interface_name;
+	uint32_t if_name_siz = session->interface_name_siz;
+
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (override_primary) {
+		info("%s port-mapping update for %s ignored: VPN is the Primary interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+			 sd_name,
+			 if_name,
+			 publicAddress,
+			 (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+			 privatePort,
+			 publicPort);
+		ppp_clear_nat_port_mapping();
+		return;
+	}
+
+	if (errorCode != kDNSServiceErr_NoError && errorCode != kDNSServiceErr_DoubleNAT) {
+		error("%s failed to set port-mapping for %s, errorCode: %d\n", sd_name, if_name, errorCode);
+		if (errorCode == kDNSServiceErr_NATPortMappingUnsupported || errorCode == kDNSServiceErr_NATPortMappingDisabled) {
+			for (i = 0; i < session->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
+				if (session->nat_mapping[i].mDNSRef_tmp == sdRef) {
+					error("%s port-mapping for %s became invalid. is Connected: %d, Protocol: %s, Private Port: %d, Previous publicAddress: (%x), Previous publicPort: (%d)\n",
+						  sd_name,
+						  if_name,
+						  is_connected,
+						  (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+						  privatePort,
+						  session->nat_mapping[i].reflexive.addr,
+						  session->nat_mapping[i].reflexive.port);
+					if (session->nat_mapping[i].up && is_connected && session->failure_func) {
+						notice("%s public port-mapping for %s changed... starting faster probe.\n", sd_name, if_name);
+						wait_port_mapping_changed = 1;
+						session->failure_func();
+					} else {
+						ppp_clear_nat_port_mapping();
+					}
+					return;
+				}
+			}
+		} else if (errorCode == kDNSServiceErr_ServiceNotRunning) {
+			ppp_clear_nat_port_mapping();
+		}
+		return;
+	}
+	
+	if (ppp_ignore_nat_port_mapping_update(sdRef, sd_name, if_name, if_name_siz, interfaceIndex, publicAddress, protocol, privatePort, publicPort)) {
+		return;
+	}
+	
+	info("%s port-mapping for %s, interfaceIndex: %d, Protocol: %s, Private Port: %d, Public Address: %x, Public Port: %d, TTL: %d%s\n",
+		 sd_name,
+		 if_name,
+		 interfaceIndex,
+		 (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+		 privatePort,
+		 publicAddress,
+		 publicPort,
+		 ttl,
+		 (errorCode == kDNSServiceErr_DoubleNAT)? " (Double NAT)" : ".");
+	
+	// generate a disconnect if we were already connected and we just detected a change in publicAddress or publicPort
+	for (i = 0; i < session->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
+		if (session->nat_mapping[i].mDNSRef_tmp == sdRef) {
+			if (session->nat_mapping[i].up && !publicAddress && !publicPort) {
+				notice("%s port-mapping for %s indicates public interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+					   sd_name,
+					   if_name,
+					   publicAddress,
+					   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+					   privatePort,
+					   publicPort);
+				// start timer
+				ppp_start_public_nat_port_mapping_timer();
+				return;
+			} else if (session->nat_mapping[i].up) {
+				ppp_stop_public_nat_port_mapping_timer();
+			}
+			
+			if (session->interface_address.s_addr == htonl(publicAddress) && privatePort == publicPort) {
+				notice("%s port-mapping update for %s indicates no NAT. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n",
+					   sd_name,
+					   if_name,
+					   publicAddress,
+					   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
+					   privatePort,
+					   publicPort);
+			}
+			
+			if (session->nat_mapping[i].interfaceIndex == interfaceIndex &&
+				session->nat_mapping[i].protocol == protocol &&
+				session->nat_mapping[i].privatePort == privatePort) {
+				info("%s port-mapping for %s consistent. is Connected: %d, interface: %d, protocol: %d, privatePort: %d\n",
+					 sd_name, if_name, is_connected, interfaceIndex, protocol, privatePort);
+			} else {
+				// inconsistency (mostly because of mdns api only works for the primary interface): TODO revise
+				if (session->nat_mapping[i].interfaceIndex != interfaceIndex) {
+					info("%s port-mapping for %s inconsistent. is Connected: %d, Previous interface: %d, Current interface %d\n",
+						 sd_name, if_name, is_connected, session->nat_mapping[i].interfaceIndex, interfaceIndex);
+					session->nat_mapping[i].interfaceIndex = interfaceIndex;
+				}
+				if (session->nat_mapping[i].protocol != protocol) {
+					info("%s port-mapping for %s inconsistent. is Connected: %d, Previous protocol: %x, Current protocol %x\n",
+						 sd_name, if_name, is_connected, session->nat_mapping[i].protocol, protocol);
+					session->nat_mapping[i].protocol = protocol;
+				}
+				if (session->nat_mapping[i].privatePort != privatePort) {
+					info("%s port-mapping for %s inconsistent. is Connected: %d, Previous privatePort: %d, Current privatePort %d\n",
+						 sd_name, if_name, session->nat_mapping[i].privatePort, privatePort);
+					session->nat_mapping[i].privatePort = privatePort;
+				}
+			}
+			// is mapping up?
+			if (!session->nat_mapping[i].up) {
+				if (session->nat_mapping[i].reflexive.addr != publicAddress) {
+					info("%s port-mapping for %s initialized. is Connected: %d, Previous publicAddress: (%d), Current publicAddress %x\n",
+						 sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.addr, publicAddress);
+					session->nat_mapping[i].reflexive.addr = publicAddress;
+				}
+				if (session->nat_mapping[i].reflexive.port != publicPort) {
+					info("%s port-mapping for %s initialized. is Connected: %d, Previous publicPort: (%d), Current publicPort %d\n",
+						 sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.port, publicPort);
+					session->nat_mapping[i].reflexive.port = publicPort;
+				}
+				if (session->nat_mapping[i].reflexive.addr &&
+				    ((!privatePort && !session->nat_mapping[i].reflexive.port) || (session->nat_mapping[i].reflexive.port))) {
+					// flag up mapping
+					session->nat_mapping[i].up = 1;
+					info("%s port-mapping for %s fully initialized. Flagging up\n", sd_name, if_name);
+				}
+				return;
+			}
+			
+			if (session->nat_mapping[i].reflexive.addr != publicAddress) {
+				error("%s port-mapping for %s changed. is Connected: %d, Previous publicAddress: (%x), Current publicAddress %x\n",
+					  sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.addr, publicAddress);
+				if (is_connected) {
+					if (!privatePort || publicAddress) {
+						syslog(LOG_ERR, "NAT's public address down or changed... starting faster probe.\n");
+						if (session->failure_func) {
+                            wait_port_mapping_changed = 1;
+							session->failure_func();
+						}
+						return;
+					}
+					// let function that handles (KEV_INET_NEW_ADDR || KEV_INET_CHANGED_ADDR || KEV_INET_ADDR_DELETED) deal with the connection
+					return;
+				}
+				session->nat_mapping[i].reflexive.addr = publicAddress;
+				return;
+			}
+			if (session->nat_mapping[i].reflexive.port != publicPort) {
+				error("%s port-mapping for %s changed. is Connected: %d, Previous publicPort: (%d), Current publicPort %d\n",
+					  sd_name, if_name, is_connected, session->nat_mapping[i].reflexive.port, publicPort);
+				if (is_connected) {
+					if (!privatePort || publicPort) {
+						syslog(LOG_ERR, "NAT's public port down or changed... starting faster probe.\n");
+						if (session->failure_func) {
+							wait_port_mapping_changed = 1;
+							session->failure_func();
+						}
+						return;
+					}
+					// let function that handles (KEV_INET_NEW_ADDR || KEV_INET_CHANGED_ADDR || KEV_INET_ADDR_DELETED) deal with the connection
+					return;
+				}
+				session->nat_mapping[i].reflexive.port = publicPort;
+				return;
+			}
+			if (errorCode == kDNSServiceErr_DoubleNAT) {
+				error("%s port-mapping for %s hasn't changed, however there's a Double NAT.  is Connected: %d\n",
+					  sd_name, if_name, is_connected);
+			}
+			return;
+		}
+	}
+	return;
+}
+
+static void
+ppp_clear_nat_port_mapping (void)
+{
+	int i;
+
+	if (!session || !session->valid)
+		return;
+
+	info("%s clearing port-mapping for %s\n", session->sd_name, session->interface_name);
+
+	ppp_stop_public_nat_port_mapping_timer();
+
+	for (i = 0; i < session->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
+		ppp_clear_one_nat_port_mapping(&session->nat_mapping[i]);
+	}
+	session->nat_mapping_cnt = 0;
+}
+
+static int
+ppp_set_nat_port_mapping (mdns_nat_mapping_t *mapping,
+						  DNSServiceProtocol  protocol,
+						  uint16_t            privatePort,
+						  int                 probe_only)
+{
+	DNSServiceErrorType  err = kDNSServiceErr_NoError;
+	uint16_t             publicPort;
+	uint32_t             ttl;
+	char                *sd_name = session->sd_name;
+	char                *if_name = session->interface_name;
+	uint32_t             interfaceIndex = if_nametoindex(session->interface_name);
+
+	if (!probe_only) {
+		publicPort = 0;
+		ttl = 2 * 3600; // 2 hours
+	} else {
+		publicPort = 0;
+		ttl = 0;
+		protocol = 0;
+		privatePort = 0;
+	}
+
+	if (mapping == NULL) {
+		error("%s invalid mapping pointer for %s\n", sd_name, if_name);
+		return -1;
+	}
+
+	if (mapping->mDNSRef == NULL) {
+		err = DNSServiceCreateConnection(&mapping->mDNSRef);
+		if (err != kDNSServiceErr_NoError || mapping->mDNSRef == NULL) {
+			error("%s Error calling DNSServiceCreateConnection for %s, error: %d\n", sd_name, if_name, err);
+			ppp_clear_one_nat_port_mapping(mapping);
+			return -1;
+		}
+		mapping->mDNSRef_fd = DNSServiceRefSockFD(mapping->mDNSRef);
+		add_fd(mapping->mDNSRef_fd);
+	}
+	mapping->mDNSRef_tmp = mapping->mDNSRef;
+	err = DNSServiceNATPortMappingCreate(&mapping->mDNSRef_tmp, kDNSServiceFlagsShareConnection, interfaceIndex, protocol, htons(privatePort), publicPort, ttl, ppp_set_nat_port_mapping_callback, session);
+	if (err != kDNSServiceErr_NoError) {
+		error("%s Error calling DNSServiceNATPortMappingCreate for %s, error: %d\n", sd_name, if_name, err);
+		ppp_clear_one_nat_port_mapping(mapping);
+		return -1;
+	}
+	mapping->interfaceIndex = interfaceIndex;
+	mapping->protocol = protocol;
+	mapping->privatePort = privatePort;
+	bzero(&mapping->reflexive, sizeof(mapping->reflexive));
+	
+	info("%s set port-mapping for %s, interface: %d, protocol: %d, privatePort: %d\n", sd_name, if_name, interfaceIndex, protocol, privatePort);
+	return 0;
+}
+
+static void
+l2tp_ipsec_set_nat_port_mapping (void)
+{
+	if (ppp_set_nat_port_mapping(&session->nat_mapping[0], 0, 0, 1) == 0) {
+		session->nat_mapping_cnt++;
+	}
+#if 0 // <rdar://problem/8001582>
+	if (ppp_set_nat_port_mapping(&session->nat_mapping[1], kDNSServiceProtocol_UDP, (u_int16_t)500, 0) == 0) {
+		session->nat_mapping_cnt++;
+	}
+	if (ppp_set_nat_port_mapping(&session->nat_mapping[2], kDNSServiceProtocol_UDP, (u_int16_t)4500, 0) == 0) {
+		session->nat_mapping_cnt++;
+	}
+#endif
+}
+#endif
+
+void
+l2tp_set_nat_port_mapping (void)
+{
+#if !TARGET_OS_EMBEDDED
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (override_primary) {
+		info("%s port-mapping API for %s ignored: VPN is the Primary interface.\n",
+             session->sd_name,
+             session->interface_name);
+		return;
+	}
+
+	// exit early if interface is PPP/VPN
+	if (strstr(session->interface_name, "ppp") || strstr(session->interface_name, "utun")) {
+		return;
+	}
+
+	if (!session->opt_noipsec) {
+		// we always tranport l2tp over ipsec
+		l2tp_ipsec_set_nat_port_mapping();
+	} else {
+		if (ppp_set_nat_port_mapping(&session->nat_mapping[0], 0, 0, 1) == 0) {
+			session->nat_mapping_cnt++;
+		}
+#if 0 // <rdar://problem/8001582>
+		if (ppp_set_nat_port_mapping(&session->nat_mapping[1], kDNSServiceProtocol_UDP, (u_int16_t)1701, 0) == 0) {
+			session->nat_mapping_cnt++;
+		}
+#endif
+	}
+#endif // TARGET_OS_EMBEDDED
+}
+
+void
+l2tp_clear_nat_port_mapping (void)
+{
+#if !TARGET_OS_EMBEDDED
+	ppp_clear_nat_port_mapping();
+#endif // TARGET_OS_EMBEDDED
+}
+
+void
+pptp_set_nat_port_mapping (void)
+{
+#if !TARGET_OS_EMBEDDED
+	if (!session || !session->valid) {
+		return;
+	}
+
+	if (override_primary) {
+		info("%s port-mapping API for %s ignored: VPN is the Primary interface.\n",
+             session->sd_name,
+             session->interface_name);
+		return;
+	}
+	
+	// exit early if interface is PPP/VPN
+	if (strstr(session->interface_name, "ppp") || strstr(session->interface_name, "utun")) {
+		return;
+	}
+	
+	if (ppp_set_nat_port_mapping(&session->nat_mapping[0], 0, 0, 1) == 0) {
+		session->nat_mapping_cnt++;
+	}
+#if 0 // <rdar://problem/8001582>
+	if (ppp_set_nat_port_mapping(&session->nat_mapping[1], kDNSServiceProtocol_TCP, (u_int16_t)1723, 0) == 0) {
+		session->nat_mapping_cnt++;
+	}
+#endif
+#endif // TARGET_OS_EMBEDDED
+}
+
+void
+pptp_clear_nat_port_mapping (void)
+{
+#if !TARGET_OS_EMBEDDED
+	ppp_clear_nat_port_mapping();
+#endif // TARGET_OS_EMBEDDED
+}
+
+void
+ppp_process_nat_port_mapping_events (void)
+{
+#if !TARGET_OS_EMBEDDED
+	int i = 0;
+	DNSServiceErrorType ret;
+
+	for (i = 0; session && session->valid && i < session->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
+		if (session->nat_mapping[i].mDNSRef && is_ready_fd(session->nat_mapping[i].mDNSRef_fd)) {
+			ret = DNSServiceProcessResult(session->nat_mapping[i].mDNSRef);
+			if (ret != kDNSServiceErr_NoError && ret != kDNSServiceErr_Transient) {
+				error("Error calling DNSServiceProcessResult, error: %d\n", ret);
+				if (ret == kDNSServiceErr_ServiceNotRunning) {
+					ppp_clear_nat_port_mapping();
+				}
+			}
+			// the connection may have been disconnected... hence session may be invalidated after DNSServiceProcessResult.
+		}
+	}
+#endif // TARGET_OS_EMBEDDED
 }

@@ -26,13 +26,16 @@
 #ifndef HostWindow_h
 #define HostWindow_h
 
-#include <wtf/Noncopyable.h>
 #include "Widget.h"
 
 namespace WebCore {
 
-class HostWindow : public Noncopyable {
+class Cursor;
+
+class HostWindow {
+    WTF_MAKE_NONCOPYABLE(HostWindow); WTF_MAKE_FAST_ALLOCATED;
 public:
+    HostWindow() { }
     virtual ~HostWindow() { }
 
     // Requests the host invalidate the window, not the contents.  If immediate is true do so synchronously, otherwise async.
@@ -46,7 +49,12 @@ public:
 
     // Requests the host invalidate the contents, not the window.  This is the slow path for scrolling.
     virtual void invalidateContentsForSlowScroll(const IntRect& updateRect, bool immediate) = 0;
-    
+
+#if ENABLE(TILED_BACKING_STORE)
+    // Requests the host to do the actual scrolling. This is only used in combination with a tiled backing store.
+    virtual void delegatedScrollRequested(const IntPoint& scrollPoint) = 0;
+#endif
+
     // Methods for doing coordinate conversions to and from screen coordinates.
     virtual IntPoint screenToWindow(const IntPoint&) const = 0;
     virtual IntRect windowToScreen(const IntRect&) const = 0;
@@ -56,6 +64,13 @@ public:
     
     // To notify WebKit of scrollbar mode changes.
     virtual void scrollbarsModeDidChange() const = 0;
+
+    // Request that the cursor change.
+    virtual void setCursor(const Cursor&) = 0;
+
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    virtual void scheduleAnimation() = 0;
+#endif
 };
 
 } // namespace WebCore

@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -110,34 +108,45 @@
  */
 #define	DOS_FILESIZE_MAX	0xffffffff
 
-#define	GENERIC_DIRSIZ(dp) \
-    ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
+union msdosfs_dirbuf {
+	struct dirent   dirent;
+	struct direntry direntry;
+};
 
 /*
  * Prototypes for MSDOSFS vnode operations
  */
-static int msdosfs_create __P((struct vnop_create_args *));
-static int msdosfs_mknod __P((struct vnop_mknod_args *));
-static int msdosfs_open(struct vnop_open_args *ap);
-static int msdosfs_close __P((struct vnop_close_args *));
-static int msdosfs_getattr __P((struct vnop_getattr_args *));
-static int msdosfs_setattr __P((struct vnop_setattr_args *));
-static int msdosfs_read __P((struct vnop_read_args *));
-static int msdosfs_write __P((struct vnop_write_args *));
-static int msdosfs_pagein __P((struct vnop_pagein_args *));
-static int msdosfs_fsync __P((struct vnop_fsync_args *));
-static int msdosfs_remove __P((struct vnop_remove_args *));
-static int msdosfs_rename __P((struct vnop_rename_args *));
-static int msdosfs_mkdir __P((struct vnop_mkdir_args *));
-static int msdosfs_rmdir __P((struct vnop_rmdir_args *));
-static int msdosfs_readdir __P((struct vnop_readdir_args *));
-static int msdosfs_strategy __P((struct vnop_strategy_args *));
-static int msdosfs_pathconf __P((struct vnop_pathconf_args *ap));
-static int msdosfs_symlink(struct vnop_symlink_args *ap);
-static int msdosfs_readlink(struct vnop_readlink_args *ap);
-static int msdosfs_ioctl(struct vnop_ioctl_args *ap);
-static int msdosfs_pageout(struct vnop_pageout_args *ap);
-	
+int msdosfs_vnop_create(struct vnop_create_args *);
+int msdosfs_vnop_mknod(struct vnop_mknod_args *);
+int msdosfs_vnop_open(struct vnop_open_args *ap);
+int msdosfs_vnop_close(struct vnop_close_args *);
+int msdosfs_vnop_getattr(struct vnop_getattr_args *);
+int msdosfs_vnop_setattr(struct vnop_setattr_args *);
+int msdosfs_vnop_read(struct vnop_read_args *);
+int msdosfs_vnop_write(struct vnop_write_args *);
+int msdosfs_vnop_pagein(struct vnop_pagein_args *);
+int msdosfs_vnop_fsync(struct vnop_fsync_args *);
+int msdosfs_vnop_remove(struct vnop_remove_args *);
+int msdosfs_vnop_rename(struct vnop_rename_args *);
+int msdosfs_vnop_mkdir(struct vnop_mkdir_args *);
+int msdosfs_vnop_rmdir(struct vnop_rmdir_args *);
+int msdosfs_vnop_readdir(struct vnop_readdir_args *);
+int msdosfs_vnop_strategy(struct vnop_strategy_args *);
+int msdosfs_vnop_pathconf(struct vnop_pathconf_args *ap);
+int msdosfs_vnop_symlink(struct vnop_symlink_args *ap);
+int msdosfs_vnop_readlink(struct vnop_readlink_args *ap);
+int msdosfs_vnop_ioctl(struct vnop_ioctl_args *ap);
+int msdosfs_vnop_pageout(struct vnop_pageout_args *ap);
+
+/* Other prototypes */
+void msdosfs_lock_two(struct denode *dep1, struct denode *dep2);
+void msdosfs_sort_denodes(struct denode *deps[4]);
+void msdosfs_lock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3);
+void msdosfs_unlock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3);
+void msdosfs_md5_digest(void *text, unsigned length, char digest[33]);
+ssize_t msdosfs_dirbuf_size(union msdosfs_dirbuf *buf, size_t name_length, int flags);
+
+
 /*
  * Some general notes:
  *
@@ -158,27 +167,12 @@ static int msdosfs_pageout(struct vnop_pageout_args *ap);
 
 
 /*
- * Return the owning user ID for a given volume.  If the volume was mounted
- * with "unknown permissions", then the user ID making the request is the
- * owner.  This is the "everyone is an owner" model.
- */
-__private_extern__ uid_t
-get_pmuid(struct msdosfsmount *pmp, uid_t current_user)
-{
-	if (vfs_flags(pmp->pm_mountp) & MNT_UNKNOWNPERMISSIONS)
-		return current_user;
-	else
-		return pmp->pm_uid;
-}
-
-/*
  * msdosfs_lock_two
  *
  * Acquire the denode locks for two denodes.  The locks are always
  * acquired in order of increasing address of the denode.
  */
-static void
-msdosfs_lock_two(struct denode *dep1, struct denode *dep2)
+void msdosfs_lock_two(struct denode *dep1, struct denode *dep2)
 {
 	if (dep1 == NULL)
 		panic("msdosfs_lock_two: dep1 == NULL\n");
@@ -203,8 +197,7 @@ msdosfs_lock_two(struct denode *dep1, struct denode *dep2)
  * Sort a list of denodes into increasing address order.  Remove duplicate addresses.
  * Any unused entries will be NULL.  Some of the entries may be NULL on input.
  */
-static void
-msdosfs_sort_denodes(struct denode *deps[4])
+void msdosfs_sort_denodes(struct denode *deps[4])
 {
 	int i, j;
 	struct denode *temp;
@@ -225,8 +218,7 @@ msdosfs_sort_denodes(struct denode *deps[4])
 			deps[i] = NULL;
 }
 
-static void
-msdosfs_lock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3)
+void msdosfs_lock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3)
 {
 	int i;
 	struct denode *deps[4] = {dep0, dep1, dep2, dep3};
@@ -238,8 +230,7 @@ msdosfs_lock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2,
 			lck_mtx_lock(deps[i]->de_lock);
 }
 
-static void
-msdosfs_unlock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3)
+void msdosfs_unlock_four(struct denode *dep0, struct denode *dep1, struct denode *dep2, struct denode *dep3)
 {
 	int i;
 	struct denode *deps[4] = {dep0, dep1, dep2, dep3};
@@ -258,15 +249,14 @@ msdosfs_unlock_four(struct denode *dep0, struct denode *dep1, struct denode *dep
 /*
  * Create a regular file.
  */
-static int
-msdosfs_create(ap)
-	struct vnop_create_args /* {
+int msdosfs_vnop_create(struct vnop_create_args *ap)
+/* {
 		vnode_t a_dvp;
 		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vnode_attr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t dvp = ap->a_dvp;
 	struct denode *pdep = VTODE(dvp);
@@ -307,7 +297,7 @@ msdosfs_create(ap)
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	error = msdosfs_findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
@@ -327,17 +317,17 @@ msdosfs_create(ap)
 	}
 
 	/*
-	 * Create a directory entry for the file, then call createde() to
+	 * Create a directory entry for the file, then call msdosfs_createde() to
 	 * have it installed. NOTE: DOS files are always executable.
 	 * The supplied mode is ignored (DOS doesn't store mode, so
 	 * all files on a volume have a constant mode).  The immutable
 	 * flag is used to set DOS's read-only attribute.
 	 */
 	bzero(&ndirent, sizeof(ndirent));
-	error = uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_create: uniqdosname returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_create: msdosfs_uniqdosname returned %d\n", error);
 		goto exit;
 	}
 
@@ -366,14 +356,14 @@ msdosfs_create(ap)
 	ndirent.de_flag = DE_ACCESS | DE_CREATE | DE_UPDATE;
 	getnanotime(&ts);
 	DETIMES(&ndirent, &ts, &ts, &ts);
-	error = createde(&ndirent, pdep, &dep, cnp, offset, long_count, context);
+	error = msdosfs_createde(&ndirent, pdep, &dep, cnp, offset, long_count, context);
 	if (error)
 	{
 		/*
 		 * ENOSPC is a common and expected failure.  Anything else is
 		 * unexpected, and I want a chance to debug it.
 		 */
-		if (DEBUG && error != ENOSPC) panic("msdosfs_create: createde returned %d\n", error);
+		if (DEBUG && error != ENOSPC) panic("msdosfs_vnop_create: msdosfs_createde returned %d\n", error);
 		goto exit;
 	}
 	*ap->a_vpp = DETOV(dep);
@@ -385,40 +375,37 @@ exit:
 	return error;
 }
 
-static int
-msdosfs_mknod(ap)
-	struct vnop_mknod_args /* {
+int msdosfs_vnop_mknod(struct vnop_mknod_args *ap)
+/* {
 		vnode_t a_dvp;
 		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 #pragma unused (ap)
 	/* We don't support special files */
 	return EINVAL;
 }
 
-static int
-msdosfs_open(
-	struct vnop_open_args /* {
+int msdosfs_vnop_open(struct vnop_open_args *ap)
+/* {
 		vnode_t a_vp;
 		int a_mode;
 		vfs_context_t a_context;
-	} */ *ap)
+	} */
 {
 #pragma unused (ap)
 	return 0;
 }
 
-static int
-msdosfs_close(ap)
-	struct vnop_close_args /* {
+int msdosfs_vnop_close(struct vnop_close_args *ap)
+/* {
 		vnode_t a_vp;
 		int a_fflag;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
@@ -426,7 +413,7 @@ msdosfs_close(ap)
 	lck_mtx_lock(dep->de_lock);
 	
 	cluster_push(vp, IO_CLOSE);
-	deupdat(dep, 0, ap->a_context);
+	msdosfs_deupdat(dep, 0, ap->a_context);
 	msdosfs_meta_flush(dep->de_pmp, FALSE);
 
 	lck_mtx_unlock(dep->de_lock);
@@ -434,13 +421,12 @@ msdosfs_close(ap)
 	return 0;
 }
 
-static int
-msdosfs_getattr(ap)
-	struct vnop_getattr_args /* {
+int msdosfs_vnop_getattr(struct vnop_getattr_args *ap)
+/* {
 		vnode_t a_vp;
 		struct vnode_attr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
@@ -482,9 +468,9 @@ msdosfs_getattr(ap)
 		getnanotime(&ts);
 		DETIMES(dep, &ts, &ts, &ts);
 		
-		dos2unixtime(dep->de_CDate, dep->de_CTime, 0, &vap->va_create_time);
-		dos2unixtime(dep->de_ADate, 0, 0, &vap->va_access_time);
-		dos2unixtime(dep->de_MDate, dep->de_MTime, 0, &vap->va_modify_time);
+		msdosfs_dos2unixtime(dep->de_CDate, dep->de_CTime, 0, &vap->va_create_time);
+		msdosfs_dos2unixtime(dep->de_ADate, 0, 0, &vap->va_access_time);
+		msdosfs_dos2unixtime(dep->de_MDate, dep->de_MTime, 0, &vap->va_modify_time);
 		vap->va_change_time = vap->va_modify_time;
 		/* FAT doesn't have a backup date/time */
 		
@@ -495,7 +481,7 @@ msdosfs_getattr(ap)
 	}
 	
 	if (VATTR_IS_ACTIVE(vap, va_fileid))
-		VATTR_RETURN(vap, va_fileid, defileid(dep));
+		VATTR_RETURN(vap, va_fileid, msdosfs_defileid(dep));
 	/* FAT has no va_linkid, and no easy access to va_parentid */
 
 	VATTR_RETURN(vap, va_fsid, dep->de_dev);
@@ -507,8 +493,7 @@ msdosfs_getattr(ap)
 	return 0;
 }
 
-static int
-msdosfs_setattr(struct vnop_setattr_args *ap)
+int msdosfs_vnop_setattr(struct vnop_setattr_args *ap)
 	/* {
 		vnode_t a_vp;
 		struct vnode_attr *a_vap;
@@ -528,11 +513,11 @@ msdosfs_setattr(struct vnop_setattr_args *ap)
 			goto exit;
 		}
 		if (dep->de_FileSize != vap->va_data_size) {
-			/* detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
+			/* msdosfs_detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
 			if (vap->va_data_size > DOS_FILESIZE_MAX)
 				error = EFBIG;
 			else
-				error = detrunc(dep, vap->va_data_size, vap->va_vaflags, ap->a_context);
+				error = msdosfs_detrunc(dep, vap->va_data_size, vap->va_vaflags, ap->a_context);
 			if (error)
 				goto exit;
 		}
@@ -591,22 +576,22 @@ msdosfs_setattr(struct vnop_setattr_args *ap)
 		VATTR_IS_ACTIVE(vap, va_modify_time))
 	{
 		if (VATTR_IS_ACTIVE(vap, va_create_time)) {
-			unix2dostime(&vap->va_create_time, &dep->de_CDate, &dep->de_CTime, NULL);
+			msdosfs_unix2dostime(&vap->va_create_time, &dep->de_CDate, &dep->de_CTime, NULL);
 			VATTR_SET_SUPPORTED(vap, va_create_time);
 		}
 		if (VATTR_IS_ACTIVE(vap, va_access_time)) {
-			unix2dostime(&vap->va_access_time, &dep->de_ADate, NULL, NULL);
+			msdosfs_unix2dostime(&vap->va_access_time, &dep->de_ADate, NULL, NULL);
 			VATTR_SET_SUPPORTED(vap, va_access_time);
 		}
 		if (VATTR_IS_ACTIVE(vap, va_modify_time)) {
-			unix2dostime(&vap->va_modify_time, &dep->de_MDate, &dep->de_MTime, NULL);
+			msdosfs_unix2dostime(&vap->va_modify_time, &dep->de_MDate, &dep->de_MTime, NULL);
 			VATTR_SET_SUPPORTED(vap, va_modify_time);
 		}
 		dep->de_Attributes |= ATTR_ARCHIVE;
 		dep->de_flag |= DE_MODIFIED;
 	}
 
-	error = deupdat(dep, 1, ap->a_context);
+	error = msdosfs_deupdat(dep, 1, ap->a_context);
 	msdosfs_meta_flush(dep->de_pmp, FALSE);
 
 exit:
@@ -615,14 +600,13 @@ exit:
 }
 
 
-static int
-msdosfs_read(ap)
-	struct vnop_read_args /* {
+int msdosfs_vnop_read(struct vnop_read_args *ap)
+/* {
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	int error = 0;
 	int orig_resid;
@@ -671,7 +655,7 @@ msdosfs_read(ap)
 			 * vnode for the directory.
 			 */
 			/* convert cluster # to block # */
-			error = pcbmap(dep, lbn, 1, &lbn, NULL, &blsize);
+			error = msdosfs_pcbmap(dep, lbn, 1, &lbn, NULL, &blsize);
 			if (error == E2BIG) {
 				error = EINVAL;
 				break;
@@ -704,16 +688,15 @@ msdosfs_read(ap)
 }
 
 /*
- * Write data to a file or directory.
+ * Write data to a file.
  */
-static int
-msdosfs_write(ap)
-	struct vnop_write_args /* {
+int msdosfs_vnop_write(struct vnop_write_args *ap)
+/* {
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	int error;
 	vnode_t vp = ap->a_vp;
@@ -737,7 +720,7 @@ msdosfs_write(ap)
 	case VDIR:
 		return EISDIR;
 	default:
-		panic("msdosfs_write: bad file type");
+		panic("msdosfs_vnop_write: bad file type");
 		return EINVAL;
 	}
 	
@@ -791,7 +774,7 @@ msdosfs_write(ap)
 		if ((ioflag & IO_UNIT) && (count > pmp->pm_freeclustercount))
 			error = ENOSPC;
         else
-			error = extendfile(dep, count);
+			error = msdosfs_extendfile(dep, count);
         if (error &&  (error != ENOSPC || (ioflag & IO_UNIT)))
             goto errexit;
 		filesize = offset + original_resid;
@@ -830,18 +813,18 @@ msdosfs_write(ap)
 errexit:
 	if (error) {
 		if (ioflag & IO_UNIT) {
-			/* detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
-			detrunc(dep, original_size, ioflag, context);
+			/* msdosfs_detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
+			msdosfs_detrunc(dep, original_size, ioflag, context);
 			uio_setoffset(uio, original_offset);
 			uio_setresid(uio, original_resid);
 		} else {
-			/* detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
-			detrunc(dep, dep->de_FileSize, ioflag, context);
+			/* msdosfs_detrunc internally updates dep->de_FileSize and calls ubc_setsize. */
+			msdosfs_detrunc(dep, dep->de_FileSize, ioflag, context);
 			if (uio_resid(uio) != original_resid)
 				error = 0;
 		}
 	} else if (ioflag & IO_SYNC)
-		error = deupdat(dep, 1, context);
+		error = msdosfs_deupdat(dep, 1, context);
 	msdosfs_meta_flush(pmp, (ioflag & IO_SYNC));
 
 exit:
@@ -853,15 +836,14 @@ exit:
  * Read one or more VM pages from a file on disk.
  *
  * This routine assumes that the denode's de_lock has already been acquired
- * (such as inside of msdosfs_read).
+ * (such as inside of msdosfs_vnop_read).
  *
  * [It wouldn't make sense to call this routine if the file's size or
  * location on disk could be changing.  If it could, then the page(s)
  * passed in could be invalid before we could reference them.]
  */
-static int
-msdosfs_pagein(ap)
-	struct vnop_pagein_args /* {
+int msdosfs_vnop_pagein(struct vnop_pagein_args *ap)
+/* {
 		vnode_t a_vp;
 		upl_t a_pl;
 		vm_offset_t a_pl_offset;
@@ -869,7 +851,7 @@ msdosfs_pagein(ap)
 		size_t a_size;
 		int a_flags;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
@@ -886,15 +868,14 @@ msdosfs_pagein(ap)
  * Write one or more VM pages to a file on disk.
  *
  * This routine assumes that the denode's de_lock has already been acquired
- * (such as inside of msdosfs_write).
+ * (such as inside of msdosfs_vnop_write).
  *
  * [It wouldn't make sense to call this routine if the file's size or
  * location on disk could be changing.  If it could, then the page(s)
  * passed in could be invalid before we could reference them.]
  */
-static int
-msdosfs_pageout(
-	struct vnop_pageout_args /* {
+int msdosfs_vnop_pageout(struct vnop_pageout_args *ap)
+/* {
 		vnode_t a_vp;
 		upl_t a_pl;
 		vm_offset_t a_pl_offset;
@@ -902,7 +883,7 @@ msdosfs_pageout(
 		size_t a_size;
 		int a_flags;
 		vfs_context_t a_context;
-	} */ *ap)
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
@@ -920,8 +901,7 @@ msdosfs_pageout(
 /*
  * Assumes the denode's de_lock is already acquired.
  */
-__private_extern__ int
-msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context)
+int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context)
 {
 	int error;
 	struct denode *dep = VTODE(vp);
@@ -939,7 +919,7 @@ msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context)
 	if (do_dirs && (dep->de_Attributes & ATTR_DIRECTORY))
 		(void) msdosfs_dir_flush(dep, sync);
 
-	error = deupdat(dep, sync, context);
+	error = msdosfs_deupdat(dep, sync, context);
 	
 	return error;
 }
@@ -956,13 +936,12 @@ msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context)
  * directory blocks; skip the msdosfs_fsync_internal and msdosfs_meta_flush
  * if nothing is dirty.
  */
-static int
-msdosfs_fsync(ap)
-	struct vnop_fsync_args /* {
+int msdosfs_vnop_fsync(struct vnop_fsync_args *ap)
+/* {
 		vnode_t a_vp;
 		int a_waitfor;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	int error;
 	vnode_t vp = ap->a_vp;
@@ -1002,15 +981,14 @@ msdosfs_fsync(ap)
 /*
  * Remove (unlink) a file.
  */
-static int
-msdosfs_remove(ap)
-	struct vnop_remove_args /* {
+int msdosfs_vnop_remove(struct vnop_remove_args *ap)
+/* {
 		vnode_t a_dvp;
 		vnode_t a_vp;
 		struct componentname *a_cnp;
 		int a_flags;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
     vnode_t vp = ap->a_vp;
     vnode_t dvp = ap->a_dvp;
@@ -1071,9 +1049,9 @@ msdosfs_remove(ap)
 	cache_purge(vp);
 	dep->de_refcnt--;
 	if (DEBUG && dep->de_refcnt < 0)
-		panic("msdosfs_remove: de_refcnt went negative");
-    error = removede(ddep, dep->de_diroffset, ap->a_context);
-	if (DEBUG && error) panic("msdosfs_remove: removede returned %d\n", error);
+		panic("msdosfs_vnop_remove: de_refcnt went negative");
+    error = msdosfs_removede(ddep, dep->de_diroffset, ap->a_context);
+	if (DEBUG && error) panic("msdosfs_vnop_remove: msdosfs_removede returned %d\n", error);
 	msdosfs_meta_flush(ddep->de_pmp, FALSE);
 	
 exit:
@@ -1161,9 +1139,8 @@ exit:
  *	It is sufficient if the rename mutex is taken only
  *	when the source parent is not the destination parent.
  */
-static int
-msdosfs_rename(ap)
-	struct vnop_rename_args /* {
+int msdosfs_vnop_rename(struct vnop_rename_args *ap)
+/* {
 		vnode_t a_fdvp;
 		vnode_t a_fvp;
 		struct componentname *a_fcnp;
@@ -1171,7 +1148,7 @@ msdosfs_rename(ap)
 		vnode_t a_tvp;
 		struct componentname *a_tcnp;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t tdvp = ap->a_tdvp;
 	vnode_t fvp = ap->a_fvp;
@@ -1309,7 +1286,7 @@ msdosfs_rename(ap)
         /* Pretend the destination doesn't exist. */
         tvp = NULL;
 		
-        /* Remember we're changing case, so we can skip uniqdosname() */
+        /* Remember we're changing case, so we can skip msdosfs_uniqdosname() */
         change_case = 1;
 	}
 
@@ -1333,7 +1310,7 @@ msdosfs_rename(ap)
 	/*
 	 * Figure out where to put the new directory entry.
 	 */
-	error = findslots(tddep, tcnp, &new_deLowerCase, &to_diroffset, &to_long_count, context);
+	error = msdosfs_findslots(tddep, tcnp, &new_deLowerCase, &to_diroffset, &to_long_count, context);
 	if (error)
 		goto exit;
 
@@ -1352,7 +1329,7 @@ msdosfs_rename(ap)
 		newparent = 1;
 	if (doingdirectory && newparent) {
 		lck_mtx_lock(pmp->pm_rename_lock);
-		error = doscheckpath(fdep, tddep, context);
+		error = msdosfs_doscheckpath(fdep, tddep, context);
 		if (error) goto exit;
 	}
 
@@ -1368,7 +1345,7 @@ msdosfs_rename(ap)
 		 * (both directories, or both not directories).
 		 */
 		if (tdep->de_Attributes & ATTR_DIRECTORY) {
-			if (!dosdirempty(tdep, context)) {
+			if (!msdosfs_dosdirempty(tdep, context)) {
 				error = ENOTEMPTY;
 				goto exit;
 			}
@@ -1386,11 +1363,11 @@ msdosfs_rename(ap)
 		cache_purge(tvp);		/* Purge tvp before we delete it on disk */
 		tdep->de_refcnt--;
 		if (DEBUG && tdep->de_refcnt < 0)
-			panic("msdosfs_rename: de_refcnt went negative");
-		error = removede(tddep, dest_offset, context);
+			panic("msdosfs_vnop_rename: de_refcnt went negative");
+		error = msdosfs_removede(tddep, dest_offset, context);
 		if (error)
 		{
-			if (DEBUG) panic("msdosfs_rename: removede (destination) returned %d\n", error);
+			if (DEBUG) panic("msdosfs_vnop_rename: msdosfs_removede (destination) returned %d\n", error);
 			goto flush_exit;
 		}
 	}
@@ -1406,11 +1383,11 @@ msdosfs_rename(ap)
 	}
 	else
 	{
-        error = uniqdosname(tddep, tcnp, toname, &new_deLowerCase, context);
+        error = msdosfs_uniqdosname(tddep, tcnp, toname, &new_deLowerCase, context);
         /*¥ What if we get an error and we already deleted the target? */
         if (error)
 		{
-			if (DEBUG) panic("msdosfs_rename: uniqdosname returned %d\n", error);
+			if (DEBUG) panic("msdosfs_vnop_rename: msdosfs_uniqdosname returned %d\n", error);
 			goto flush_exit;
 		}
     }
@@ -1444,10 +1421,10 @@ msdosfs_rename(ap)
 	else
 		fdep->de_Attributes &= ~ATTR_HIDDEN;
 
-	error = createde(fdep, tddep, NULL, tcnp, to_diroffset, to_long_count, context);
+	error = msdosfs_createde(fdep, tddep, NULL, tcnp, to_diroffset, to_long_count, context);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_rename: createde returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_rename: msdosfs_createde returned %d\n", error);
 		bcopy(oldname, fdep->de_Name, SHORT_NAME_LEN);
 		/*¥ What if we already deleted the target? */
 		/* And shouldn't we also restore fdep->de_LowerCase? */
@@ -1460,9 +1437,9 @@ msdosfs_rename(ap)
 
 	fdep->de_parent = tddep;
 	
-	error = removede(fddep, from_offset, context);
+	error = msdosfs_removede(fddep, from_offset, context);
 	if (error) {
-		if (DEBUG) panic("msdosfs_rename: removede (source) returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_rename: msdosfs_removede (source) returned %d\n", error);
 		goto flush_exit;
 	}
 
@@ -1470,19 +1447,19 @@ msdosfs_rename(ap)
 	 * Fix fdep's de_dirclust and de_diroffset to reflect
 	 * its new location in the destination directory.
 	 */
-	error = pcbmap(tddep, de_cluster(pmp, to_diroffset), 1,
+	error = msdosfs_pcbmap(tddep, de_cluster(pmp, to_diroffset), 1,
 				NULL, &fdep->de_dirclust, NULL);
 	if (error) {
-		if (DEBUG) panic("msdosfs_rename: pcbmap returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_rename: msdosfs_pcbmap returned %d\n", error);
 		goto flush_exit;
 	}
 	fdep->de_diroffset = to_diroffset;
 
 	/*
-	 * fdep's identity (name and parent) have changed, so we must reinsert
+	 * fdep's identity (name and parent) have changed, so we must msdosfs_hash_reinsert
 	 * it in our denode hash.
 	 */
-	reinsert(fdep);
+	msdosfs_hash_reinsert(fdep);
 
 	/*
 	 * If we moved a directory to a new parent directory, then we must
@@ -1496,7 +1473,7 @@ msdosfs_rename(ap)
 		bn = cntobn(pmp, cn);
 		error = (int)buf_meta_bread(pmp->pm_devvp, bn, pmp->pm_bpcluster, vfs_context_ucred(context), &bp);
 		if (error) {
-			if (DEBUG) panic("msdosfs_rename: buf_meta_bread returned %d\n", error);
+			if (DEBUG) panic("msdosfs_vnop_rename: buf_meta_bread returned %d\n", error);
 			buf_brelse(bp);
 			goto flush_exit;
 		}
@@ -1509,7 +1486,7 @@ msdosfs_rename(ap)
 
 		error = (int)buf_bdwrite(bp);
 		if (error) {
-			if (DEBUG) panic("msdosfs_rename: buf_bdwrite returned %d\n", error);
+			if (DEBUG) panic("msdosfs_vnop_rename: buf_bdwrite returned %d\n", error);
 			goto flush_exit;
 		}
 	}
@@ -1552,15 +1529,14 @@ static struct {
 	}
 };
 
-static int
-msdosfs_mkdir(ap)
-	struct vnop_mkdir_args /* {
+int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
+/* {
 		vnode_t a_dvp;
 		vnode_t *a_vpp;
 		struct componentname *a_cnp;
 		struct vattr *a_vap;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t dvp = ap->a_dvp;
 	struct denode *pdep = VTODE(dvp);
@@ -1606,7 +1582,7 @@ msdosfs_mkdir(ap)
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	error = msdosfs_findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
@@ -1625,7 +1601,7 @@ msdosfs_mkdir(ap)
 	/*
 	 * Allocate a cluster to hold the about to be created directory.
 	 */
-	error = clusteralloc(pmp, 0, 1, CLUST_EOFE, &newcluster, NULL);
+	error = msdosfs_clusteralloc(pmp, 0, 1, CLUST_EOFE, &newcluster, NULL);
 	if (error)
 		goto exit;
 
@@ -1678,7 +1654,7 @@ msdosfs_mkdir(ap)
 	 * cluster.  This will be written to an empty slot in the parent
 	 * directory.
 	 */
-	error = uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
 	if (error)
 		goto exit;
 
@@ -1694,12 +1670,12 @@ msdosfs_mkdir(ap)
 	if (cnp->cn_nameptr[0] == '.')
 		ndirent.de_Attributes |= ATTR_HIDDEN;
 
-	error = createde(&ndirent, pdep, &dep, cnp, offset, long_count, context);
+	error = msdosfs_createde(&ndirent, pdep, &dep, cnp, offset, long_count, context);
 	if (error)
 	{
 		if (DEBUG)
-			panic("msodsfs_mkdir: createde failed\n");
-		clusterfree(pmp, newcluster, NULL);
+			panic("msodsfs_mkdir: msdosfs_createde failed\n");
+		msdosfs_clusterfree(pmp, newcluster, NULL);
 	}
 	else
 	{
@@ -1723,14 +1699,13 @@ exit:
  * VFS has already checked that dvp != vp.
  * 
  */
-static int
-msdosfs_rmdir(ap)
-	struct vnop_rmdir_args /* {
+int msdosfs_vnop_rmdir(struct vnop_rmdir_args *ap)
+/* {
 		vnode_t a_dvp;
 		vnode_t a_vp;
 		struct componentname *a_cnp;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	vnode_t vp = ap->a_vp;
 	vnode_t dvp = ap->a_dvp;
@@ -1795,7 +1770,7 @@ msdosfs_rmdir(ap)
 	 *  non-empty.)
 	 */
 	error = 0;
-	if (!dosdirempty(ip, context)) {
+	if (!msdosfs_dosdirempty(ip, context)) {
 		error = ENOTEMPTY;
 		goto exit;
 	}
@@ -1804,38 +1779,38 @@ msdosfs_rmdir(ap)
 	 * Delete the entry from the directory.  For dos filesystems this
 	 * gets rid of the directory entry on disk.  The in memory copy
 	 * still exists but the de_refcnt is <= 0.  This prevents it from
-	 * being found by deget().  When the vput() on dep is done we give
-	 * up access and eventually msdosfs_reclaim() will be called which
+	 * being found by msdosfs_deget().  When the vput() on dep is done we give
+	 * up access and eventually msdosfs_vnop_reclaim() will be called which
 	 * will remove it from the denode cache.
 	 */
 	ip->de_refcnt--;
 	if (DEBUG && ip->de_refcnt < 0)
-		panic("msdosfs_rmdir: de_refcnt went negative");
-	error = removede(dp, ip->de_diroffset, context);
+		panic("msdosfs_vnop_rmdir: de_refcnt went negative");
+	error = msdosfs_removede(dp, ip->de_diroffset, context);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_rmdir: removede returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_rmdir: msdosfs_removede returned %d\n", error);
 		goto flush_exit;
 	}
 	
 	/*
 	 * Invalidate the directory's contents.  If directory I/O went through
 	 * the directory's vnode, this wouldn't be needed; the invalidation
-	 * done in detrunc would be sufficient.
+	 * done in msdosfs_detrunc would be sufficient.
 	 */
 	error = msdosfs_dir_invalidate(ip);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_rmdir: msdosfs_dir_invalidate returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_rmdir: msdosfs_dir_invalidate returned %d\n", error);
 		goto flush_exit;
 	}
 
 	/*
 	 * Truncate the directory that is being deleted.
-	 * detrunc internally updates dep->de_FileSize and calls ubc_setsize.
+	 * msdosfs_detrunc internally updates dep->de_FileSize and calls ubc_setsize.
 	 */
-	error = detrunc(ip, 0, 0, context);
-	if (DEBUG && error) panic("msdosfs_rmdir: detrunc returned %d\n", error);
+	error = msdosfs_detrunc(ip, 0, 0, context);
+	if (DEBUG && error) panic("msdosfs_vnop_rmdir: msdosfs_detrunc returned %d\n", error);
 	cache_purge(vp);
 
 flush_exit:
@@ -1846,16 +1821,35 @@ exit:
 	return error;
 }
 
-static int
-msdosfs_readdir(ap)
-	struct vnop_readdir_args /* {
+
+/*
+ * Set the d_namlen and d_reclen fields in a directory buffer.
+ */
+ssize_t msdosfs_dirbuf_size(union msdosfs_dirbuf *buf, size_t name_length, int flags)
+{
+	if (flags & VNODE_READDIR_EXTENDED)
+	{
+		buf->direntry.d_namlen = name_length;
+		buf->direntry.d_reclen = (offsetof(struct direntry, d_name) + name_length + 4) & ~3;
+		return buf->direntry.d_reclen;
+	}
+	else
+	{
+		buf->dirent.d_namlen = name_length;
+		buf->dirent.d_reclen = (offsetof(struct dirent, d_name) + name_length + 4) & ~3;
+		return buf->dirent.d_reclen;
+	}
+}
+
+int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
+/* {
 		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_flags;
 		int *a_eofflag;
 		int *a_numdirent;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	int error = 0;
 	vnode_t vp = ap->a_vp;
@@ -1863,17 +1857,14 @@ msdosfs_readdir(ap)
 	struct denode *dep = VTODE(vp);
 	struct msdosfsmount *pmp = dep->de_pmp;
 	vfs_context_t context = ap->a_context;
-	int diff;
-	int32_t n;
 	uint32_t blsize;
-	int32_t on;
+	int32_t entry_offset;
 	uint32_t cn;
 	uint32_t fileno;
 	int32_t bias = 0;
-	daddr64_t bn, lbn;
+	daddr64_t bn, dir_cluster;
 	struct buf *bp;
 	struct dosdirentry *dentp;
-	struct dirent dirbuf;
 	off_t offset;			/* Current offset within directory */
 	off_t long_name_offset;	/* Offset to start of long name */
 	int chksum = -1;
@@ -1881,7 +1872,12 @@ msdosfs_readdir(ap)
 	u_int16_t unichars;
 	size_t outbytes;
 	char *bdata;
-
+	union msdosfs_dirbuf buf;
+	char *buf_name;
+	size_t max_name;
+	ssize_t buf_reclen;
+	uint8_t buf_type;
+	
 	if (ap->a_numdirent)
 		*ap->a_numdirent = 0;
 
@@ -1889,23 +1885,31 @@ msdosfs_readdir(ap)
 	if (ap->a_eofflag)
 		*ap->a_eofflag = 0;
 
-	if (ap->a_flags & (VNODE_READDIR_EXTENDED | VNODE_READDIR_REQSEEKOFF))
+	if (ap->a_flags & VNODE_READDIR_REQSEEKOFF)
 		return EINVAL;
 
+	/* Make a pointer to the start of the name field in the buffer. */
+	if (ap->a_flags & VNODE_READDIR_EXTENDED)
+	{
+		buf_name = &buf.direntry.d_name[0];
+		max_name = sizeof(buf.direntry.d_name);
+		buf.direntry.d_seekoff = 0;
+	}
+	else
+	{
+		buf_name = &buf.dirent.d_name[0];
+		max_name = sizeof(buf.dirent.d_name);
+	}
+	
 	/*
-	 * msdosfs_readdir() won't operate properly on regular files since
+	 * msdosfs_vnop_readdir() won't operate properly on regular files since
 	 * it does i/o only with the device vnode, and hence can
 	 * retrieve the wrong block from the buffer cache for a plain file.
 	 * So, fail attempts to readdir() on a plain file.
 	 */
 	if (!vnode_isdir(vp))
 		return ENOTDIR;
-
-	/*
-	 * To be safe, initialize dirbuf
-	 */
-	bzero(dirbuf.d_name, sizeof(dirbuf.d_name));
-
+	
 	/*
 	 * If the file offset is not a multiple of the size of a
 	 * directory entry, then we fail the read.  The remaining
@@ -1918,7 +1922,7 @@ msdosfs_readdir(ap)
 	lck_mtx_lock(dep->de_lock);
 	
 	/*
-	 * If they are reading from the root directory then, we simulate
+	 * If they are reading from the root directory, then we simulate
 	 * the . and .. entries since these don't exist in the root
 	 * directory.  We also set the offset bias to make up for having to
 	 * simulate these entries. By this I mean that at file offset 64 we
@@ -1927,47 +1931,42 @@ msdosfs_readdir(ap)
 	if (dep->de_StartCluster == MSDOSFSROOT
 	    || (FAT32(pmp) && dep->de_StartCluster == pmp->pm_rootdirblk)) {
 		bias = 2 * sizeof(struct dosdirentry);
-		if (offset < bias) {
-			for (n = (int)offset / sizeof(struct dosdirentry);
-			     n < 2; n++) {
-                dirbuf.d_fileno = defileid(dep);
-				dirbuf.d_type = DT_DIR;
-				switch (n) {
-				case 0:
-					dirbuf.d_namlen = 1;
-					strlcpy(dirbuf.d_name, ".", sizeof(dirbuf.d_name));
-					break;
-				case 1:
-					dirbuf.d_namlen = 2;
-					strlcpy(dirbuf.d_name, "..", sizeof(dirbuf.d_name));
-					break;
-				}
-				dirbuf.d_reclen = GENERIC_DIRSIZ(&dirbuf);
-				if (uio_resid(uio) < dirbuf.d_reclen)
-					goto out;
-				error = uiomove((caddr_t) &dirbuf,
-						dirbuf.d_reclen, uio);
-				if (error)
-					goto out;
-				if (ap->a_numdirent)
-					++(*ap->a_numdirent);
-				offset += sizeof(struct dosdirentry);
+		while (offset < bias) {
+			if (ap->a_flags & VNODE_READDIR_EXTENDED) {
+				buf.direntry.d_fileno = msdosfs_defileid(dep);
+				buf.direntry.d_type = DT_DIR;
+			} else {
+				buf.dirent.d_fileno = msdosfs_defileid(dep);
+				buf.dirent.d_type = DT_DIR;
 			}
+			if (offset == 0) {
+				strlcpy(buf_name, ".", max_name);
+				outbytes = 2;
+			} else {
+				strlcpy(buf_name, "..", max_name);
+				outbytes = 3;
+			}
+			buf_reclen = msdosfs_dirbuf_size(&buf, outbytes, ap->a_flags);
+			if (uio_resid(uio) < buf_reclen)
+				goto out;
+			error = uiomove((caddr_t) &buf, buf_reclen, uio);
+			if (error)
+				goto out;
+			if (ap->a_numdirent)
+				++(*ap->a_numdirent);
+			offset += sizeof(struct dosdirentry);
 		}
 	}
 
 	while (uio_resid(uio) > 0) {
-		lbn = de_cluster(pmp, offset - bias);
-		on = (offset - bias) & pmp->pm_crbomask;
-		n = min(pmp->pm_bpcluster - on, uio_resid(uio));
-		diff = dep->de_FileSize - (offset - bias);
-		if (diff <= 0) {
+		dir_cluster = de_cluster(pmp, offset - bias);
+		entry_offset = (offset - bias) & pmp->pm_crbomask;
+		if (dep->de_FileSize <= (offset - bias)) {
 			if (ap->a_eofflag)
 				*ap->a_eofflag = 1;	/* Hit end of directory */
 			break;
 		}
-		n = min(n, diff);
-		error = pcbmap(dep, lbn, 1, &bn, &cn, &blsize);
+		error = msdosfs_pcbmap(dep, dir_cluster, 1, &bn, &cn, &blsize);
 		if (error)
 			break;
 		error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
@@ -1975,15 +1974,30 @@ msdosfs_readdir(ap)
 			buf_brelse(bp);
 			goto exit;
 		}
-		n = min(n, blsize - buf_resid(bp));
-
 		bdata = (char *)buf_dataptr(bp);
+
+		/*
+		 * Correct the block size to be just the amount of data actually
+		 * returned in the buffer.  That is, the amount we asked to read
+		 * minus the "resid" (amount remaining to read).
+		 *
+		 * Normally, buf_resid() should return 0; that is, it should have
+		 * read as much as we asked for.  But we've seen some badly behaved
+		 * devices which either misreport the number of sectors (giving us
+		 * a value that is too large), or are unable to access sectors past
+		 * a given offset.  If we end up trying to read past that offset,
+		 * the devices tend to return success but zero bytes of data,
+		 * and buf_resid() will end up being the number of bytes we
+		 * expected to get, but didn't actually get.
+		 */
+		blsize -= buf_resid(bp);
+		
 		/*
 		 * Convert from dos directory entries to fs-independent
 		 * directory entries.
 		 */
-		for (dentp = (struct dosdirentry *)(bdata + on);
-		     (char *)dentp < bdata + on + n;
+		for (dentp = (struct dosdirentry *)(bdata + entry_offset);
+		     (char *)dentp < bdata + blsize;
 		     dentp++, offset += sizeof(struct dosdirentry)) {
 			/*
 			 * If this is an unused entry, we can stop.
@@ -2005,10 +2019,10 @@ msdosfs_readdir(ap)
 			/*
 			 * Handle Win95 long directory entries
 			 */
-			if (dentp->deAttributes == ATTR_WIN95) {
+			if ((dentp->deAttributes & ATTR_WIN95_MASK) == ATTR_WIN95) {
 				if (dentp->deName[0] & WIN_LAST)
 					long_name_offset = offset;
-				chksum = getunicodefn((struct winentry *)dentp,
+				chksum = msdosfs_getunicodefn((struct winentry *)dentp,
 						ucfn, &unichars, chksum);
 				continue;
 			}
@@ -2020,9 +2034,10 @@ msdosfs_readdir(ap)
 				chksum = -1;
 				continue;
 			}
+			
 			/*
 			 * This computation of d_fileno must match
-			 * the computation in defileid().
+			 * the computation in msdosfs_defileid().
              */
             fileno = getuint16(dentp->deStartCluster);
             if (FAT32(pmp))
@@ -2035,38 +2050,44 @@ msdosfs_readdir(ap)
                     else
                         fileno = FILENO_ROOT;
                 }
-				dirbuf.d_type = DT_DIR;
+				buf_type = DT_DIR;
 			} else {
                 if (fileno == 0)
                     fileno = FILENO_EMPTY;	/* constant for empty files */
 				if (getuint32(dentp->deFileSize) == sizeof(struct symlink))
-					dirbuf.d_type = DT_UNKNOWN;	/* Might be a symlink */
+					buf_type = DT_UNKNOWN;	/* Might be a symlink */
 				else
-					dirbuf.d_type = DT_REG;
+					buf_type = DT_REG;
 			}
-            dirbuf.d_fileno = fileno;
-			if (chksum != winChksum(dentp->deName)) {
+			if (chksum != msdosfs_winChksum(dentp->deName)) {
 				chksum = -1;
-				unichars = dos2unicodefn(dentp->deName, ucfn,
+				unichars = msdosfs_dos2unicodefn(dentp->deName, ucfn,
 				    dentp->deLowerCase);
 			}
 			
 			/* translate the name in ucfn into UTF-8 */
-			(void) utf8_encodestr(ucfn, unichars * 2,
-					(u_int8_t*)dirbuf.d_name, &outbytes,
-					sizeof(dirbuf.d_name), 0,
-					UTF_DECOMPOSED|UTF_SFM_CONVERSIONS);
-			dirbuf.d_namlen = outbytes;
-			dirbuf.d_reclen = GENERIC_DIRSIZ(&dirbuf);
+			(void) utf8_encodestr(ucfn, unichars * 2, (u_int8_t*)buf_name,
+						&outbytes, max_name, 0,
+						UTF_DECOMPOSED|UTF_SFM_CONVERSIONS);
+			
+			/* Fill in the other buffer fields. */
+			if (ap->a_flags & VNODE_READDIR_EXTENDED)
+			{
+				buf.direntry.d_ino = fileno;
+				buf.direntry.d_type = buf_type;
+			}
+			else
+			{
+				buf.dirent.d_ino = fileno;
+				buf.dirent.d_type = buf_type;
+			}
+			buf_reclen = msdosfs_dirbuf_size(&buf, outbytes, ap->a_flags);
 
-			if (uio_resid(uio) < dirbuf.d_reclen) {
-				if (chksum != -1)
-					offset = long_name_offset;	/* Resume with start of long name */
+			if (uio_resid(uio) < buf_reclen) {
 				buf_brelse(bp);
 				goto out;
 			}
-			error = uiomove((caddr_t) &dirbuf,
-					dirbuf.d_reclen, uio);
+			error = uiomove((caddr_t) &buf, buf_reclen, uio);
 			if (error) {
 				buf_brelse(bp);
 				goto out;
@@ -2080,6 +2101,8 @@ msdosfs_readdir(ap)
 
 out:
 	/* Update the current position within the directory */
+	if (chksum != -1)
+		offset = long_name_offset;
 	uio_setoffset(uio, offset);
 exit:
 	lck_mtx_unlock(dep->de_lock);
@@ -2087,13 +2110,12 @@ exit:
 }
 
 /* blktooff converts a logical block number to a file offset */
-__private_extern__ int
-msdosfs_blktooff(ap)
-	struct vnop_blktooff_args /* {
+int msdosfs_vnop_blktooff(struct vnop_blktooff_args *ap)
+/* {
 		vnode_t a_vp;
 		daddr64_t a_lblkno;
 		off_t *a_offset;    
-	} */ *ap;
+	} */
 {
 	if (ap->a_vp == NULL)
 		return EINVAL;
@@ -2104,13 +2126,12 @@ msdosfs_blktooff(ap)
 }
 
 /* offtoblk converts a file offset to a logical block number */
-__private_extern__ int
-msdosfs_offtoblk(ap)
-	struct vnop_offtoblk_args /* {
+int msdosfs_vnop_offtoblk(struct vnop_offtoblk_args *ap)
+/* {
 		vnode_t a_vp;
 		off_t a_offset;    
 		daddr64_t *a_lblkno;
-	} */ *ap;
+	} */
 {
 	if (ap->a_vp == NULL)
 		return EINVAL;
@@ -2126,16 +2147,15 @@ msdosfs_offtoblk(ap)
  * (block number and number of contiguous blocks).
  *
  * This routine assumes that the denode's de_lock has already been acquired
- * (such as inside of msdosfs_read or msdosfs_write, or by the caller of
+ * (such as inside of msdosfs_vnop_read or msdosfs_vnop_write, or by the caller of
  * buf_meta_bread).
  *
  * [It wouldn't make sense to call this routine if the file's size or
  * location on disk could be changing.  If it could, then any output
  * from this routine could be obsolete before the caller could use it.]
  */
-__private_extern__ int
-msdosfs_blockmap(ap)
-	struct vnop_blockmap_args /* {
+int msdosfs_vnop_blockmap(struct vnop_blockmap_args *ap)
+/* {
 		vnode_t a_vp;
 		off_t a_foffset;
 		size_t a_size;
@@ -2144,7 +2164,7 @@ msdosfs_blockmap(ap)
 		void *a_poff;
 		int a_flags;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	int error;
 	vnode_t vp = ap->a_vp;
@@ -2159,7 +2179,7 @@ msdosfs_blockmap(ap)
 		return 0;
 
     if (ap->a_size == 0)
-        panic("msdosfs_blockmap: a_size == 0");
+        panic("msdosfs_vnop_blockmap: a_size == 0");
 
     /* Find the cluster that contains the given file offset */
     cn = de_cluster(pmp, ap->a_foffset);
@@ -2168,7 +2188,7 @@ msdosfs_blockmap(ap)
     numclusters = de_cluster(pmp, ap->a_foffset + ap->a_size - 1) - cn + 1;
 	 
     /* Find the physical (device) block where that cluster starts */
-    error = pcbmap(dep, cn, numclusters, &bn, NULL, &runsize);
+    error = msdosfs_pcbmap(dep, cn, numclusters, &bn, NULL, &runsize);
 
     /* Add the offset in physical (device) blocks from the start of the cluster */
     bn += (((uint32_t)ap->a_foffset - de_cn2off(pmp, cn)) >> pmp->pm_bnshift);
@@ -2193,11 +2213,10 @@ msdosfs_blockmap(ap)
  * with requests that require 
  * fragmented I/Os
  */
-static int
-msdosfs_strategy(ap)
-	struct vnop_strategy_args /* {
+int msdosfs_vnop_strategy(struct vnop_strategy_args *ap)
+/* {
 		struct buf *a_bp;
-	} */ *ap;
+	} */
 {
 	buf_t	bp = ap->a_bp;
 	vnode_t	vp = buf_vnode(bp);
@@ -2208,14 +2227,13 @@ msdosfs_strategy(ap)
 	return error;
 }
 
-static int
-msdosfs_pathconf(ap)
-	struct vnop_pathconf_args /* {
+int msdosfs_vnop_pathconf(struct vnop_pathconf_args *ap)
+/* {
 		vnode_t a_vp;
 		int a_name;
 		register_t *a_retval;
 		vfs_context_t a_context;
-	} */ *ap;
+	} */
 {
 	switch (ap->a_name) {
 	case _PC_LINK_MAX:
@@ -2253,7 +2271,7 @@ msdosfs_pathconf(ap)
  * Given a chunk of memory, compute the md5 digest as a string of 32
  * hex digits followed by a NUL character.
  */
-static void msdosfs_md5_digest(void *text, unsigned length, char digest[33])
+void msdosfs_md5_digest(void *text, unsigned length, char digest[33])
 {
 	int i;
 	MD5_CTX context;
@@ -2287,14 +2305,14 @@ static void msdosfs_md5_digest(void *text, unsigned length, char digest[33])
  * In order to tell whether the file is an ordinary file or a symlink,
  * we need to read from it.  The easiest way to do this is to create a
  * temporary vnode of type VREG, so we can use the buffer cache.  We will
- * terminate the vnode before returning.  deget() will create the real
+ * terminate the vnode before returning.  msdosfs_deget() will create the real
  * vnode to be returned.
  *
  * Assumes that the denode's de_lock is already acquired, or that the denode is
  * otherwise protected (not part of the denode hash, not in the name cache, not
  * in the volume's name space).
  */
-__private_extern__ enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context)
+enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context)
 {
 	int error;
 	int i;
@@ -2325,9 +2343,9 @@ __private_extern__ enum vtype msdosfs_check_link(struct denode *dep, vfs_context
 	 *
 	 * The temporary vnode's type is set to VNON instead of VREG so that
 	 * vnode_iterate won't return it.  This prevents a race with
-	 * msdosfs_sync that might try to fsync this vnode as its v_data pointer
+	 * msdosfs_vfs_sync that might try to fsync this vnode as its v_data pointer
 	 * gets cleared by vnode_clearfsnode below.  (The race can lead to a
-	 * NULL denode pointer in deupdat(), which causes a panic.)
+	 * NULL denode pointer in msdosfs_deupdat(), which causes a panic.)
 	 */
 	result = VREG;		/* Assume it's not a symlink, until we verify it. */
 	pmp = dep->de_pmp;
@@ -2407,17 +2425,18 @@ exit:
  *
  * The idea is to write the symlink file content to disk and
  * create a new directory entry pointing at the symlink content.
- * Then createde will automatically create the correct type of
+ * Then msdosfs_createde will automatically create the correct type of
  * vnode.
  */
-static int msdosfs_symlink(struct vnop_symlink_args /* {
+int msdosfs_vnop_symlink(struct vnop_symlink_args *ap)
+/* {
 	vnode_t a_dvp;
 	vnode_t *a_vpp;
 	struct componentname *a_cnp;
 	struct vnode_attr *a_vap;
 	char *a_target;
 	vfs_context_t a_context;
-	} */ *ap)
+	} */
 {
 	int error;
 	vnode_t dvp = ap->a_dvp;
@@ -2465,7 +2484,7 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = findslots(dep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	error = msdosfs_findslots(dep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
@@ -2499,7 +2518,7 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	 * vnode and creating a real one with the correct vtype).
 	 */
 	clusters = de_clcount(pmp, sizeof(*link));
-	error = clusteralloc(pmp, 0, clusters, CLUST_EOFE, &cn, &got);
+	error = msdosfs_clusteralloc(pmp, 0, clusters, CLUST_EOFE, &cn, &got);
 	if (error) goto exit;
 	if (got < clusters)
 	{
@@ -2541,16 +2560,16 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	buf_invalblkno(pmp->pm_devvp, cntobn(pmp, cn), BUF_WAIT);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_symlink: buf_bwrite returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_symlink: buf_bwrite returned %d\n", error);
 		goto exit;
 	}
 
 	/* Start setting up new directory entry */
 	bzero(&ndirent, sizeof(ndirent));
-	error = uniqdosname(dep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(dep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_symlink: uniqdosname returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_symlink: msdosfs_uniqdosname returned %d\n", error);
 		goto exit;
 	}
 	
@@ -2576,10 +2595,10 @@ static int msdosfs_symlink(struct vnop_symlink_args /* {
 	DETIMES(&ndirent, &ts, &ts, &ts);
 	
 	/* Create a new directory entry pointing at the newly allocated clusters */
-	error = createde(&ndirent, dep, &new_dep, cnp, offset, long_count, context);
+	error = msdosfs_createde(&ndirent, dep, &new_dep, cnp, offset, long_count, context);
 	if (error)
 	{
-		if (DEBUG) panic("msdosfs_symlink: createde returned %d\n", error);
+		if (DEBUG) panic("msdosfs_vnop_symlink: msdosfs_createde returned %d\n", error);
 		goto exit;
 	}
 	*ap->a_vpp = DETOV(new_dep);
@@ -2597,7 +2616,7 @@ exit:
 		buf_brelse(bp);
 	}
 	if (error != 0 && cn != 0)
-		(void) freeclusterchain(pmp, cn);
+		(void) msdosfs_freeclusterchain(pmp, cn);
 
 	msdosfs_meta_flush(pmp, FALSE);
 	lck_mtx_unlock(dep->de_lock);
@@ -2605,11 +2624,12 @@ exit:
 }
 
 
-static int msdosfs_readlink(struct vnop_readlink_args /* {
+int msdosfs_vnop_readlink(struct vnop_readlink_args *ap)
+/* {
 	vnode_t a_vp;
 	struct uio *a_uio;
 	vfs_context_t a_context;
-	} */ *ap)
+	} */
 {
 	int error;
 	vnode_t vp = ap->a_vp;
@@ -2631,7 +2651,7 @@ static int msdosfs_readlink(struct vnop_readlink_args /* {
 	}
 	
 	if (dep->de_StartCluster == 0)
-		panic("msdosfs_readlink: de_StartCluster == 0!\n");
+		panic("msdosfs_vnop_readlink: de_StartCluster == 0!\n");
 	
 	/*
 	 * If the vnode was created of type VLNK, then we assume the symlink
@@ -2658,13 +2678,14 @@ exit:
 }
 
 
-static int msdosfs_ioctl(struct vnop_ioctl_args /* {
+int msdosfs_vnop_ioctl(struct vnop_ioctl_args *ap)
+/* {
 	vnode_t a_vp;
 	uint32_t a_command;
 	caddr_t a_data;
 	int a_fflag;
 	vfs_context_t a_context;
-	} */ *ap)
+	} */
 {
 	int error;
 	vnode_t vp = ap->a_vp;
@@ -2679,7 +2700,7 @@ static int msdosfs_ioctl(struct vnop_ioctl_args /* {
 			fsync_args.a_waitfor = MNT_WAIT;
 			fsync_args.a_context = ap->a_context;
 
-			error = msdosfs_fsync(&fsync_args);
+			error = msdosfs_vnop_fsync(&fsync_args);
 			if (error) {
 				goto exit;
 			}
@@ -2709,38 +2730,38 @@ exit:
 
 /* Global vfs data structures for msdosfs */
 
-typedef int     vnop_t __P((void *));
+typedef int     vnop_t(void *);
 
 int (**msdosfs_vnodeop_p)(void *);
 static struct vnodeopv_entry_desc msdosfs_vnodeop_entries[] = {
 	{ &vnop_default_desc,		(vnop_t *) vn_default_error },
-	{ &vnop_lookup_desc,		(vnop_t *) msdosfs_lookup },
-	{ &vnop_create_desc,		(vnop_t *) msdosfs_create },
-	{ &vnop_mknod_desc,			(vnop_t *) msdosfs_mknod },
-	{ &vnop_open_desc,			(vnop_t *) msdosfs_open },
-	{ &vnop_close_desc,			(vnop_t *) msdosfs_close },
-	{ &vnop_getattr_desc,		(vnop_t *) msdosfs_getattr },
-	{ &vnop_setattr_desc,		(vnop_t *) msdosfs_setattr },
-	{ &vnop_read_desc,			(vnop_t *) msdosfs_read },
-	{ &vnop_write_desc,			(vnop_t *) msdosfs_write },
-	{ &vnop_fsync_desc,			(vnop_t *) msdosfs_fsync },
-	{ &vnop_remove_desc,		(vnop_t *) msdosfs_remove },
-	{ &vnop_rename_desc,		(vnop_t *) msdosfs_rename },
-	{ &vnop_mkdir_desc,			(vnop_t *) msdosfs_mkdir },
-	{ &vnop_rmdir_desc,			(vnop_t *) msdosfs_rmdir },
-	{ &vnop_readdir_desc,		(vnop_t *) msdosfs_readdir },
-	{ &vnop_inactive_desc,		(vnop_t *) msdosfs_inactive },
-	{ &vnop_reclaim_desc,		(vnop_t *) msdosfs_reclaim },
-	{ &vnop_pathconf_desc,		(vnop_t *) msdosfs_pathconf },
-	{ &vnop_pagein_desc,		(vnop_t *) msdosfs_pagein },
-	{ &vnop_pageout_desc,		(vnop_t *) msdosfs_pageout },
-	{ &vnop_blktooff_desc,		(vnop_t *) msdosfs_blktooff },
-	{ &vnop_offtoblk_desc,		(vnop_t *) msdosfs_offtoblk },
-  	{ &vnop_blockmap_desc,		(vnop_t *) msdosfs_blockmap },
-	{ &vnop_strategy_desc,		(vnop_t *) msdosfs_strategy },
-	{ &vnop_symlink_desc,		(vnop_t *) msdosfs_symlink },
-	{ &vnop_readlink_desc,		(vnop_t *) msdosfs_readlink },
-	{ &vnop_ioctl_desc, 		(vnop_t *) msdosfs_ioctl},
+	{ &vnop_lookup_desc,		(vnop_t *) msdosfs_vnop_lookup },
+	{ &vnop_create_desc,		(vnop_t *) msdosfs_vnop_create },
+	{ &vnop_mknod_desc,			(vnop_t *) msdosfs_vnop_mknod },
+	{ &vnop_open_desc,			(vnop_t *) msdosfs_vnop_open },
+	{ &vnop_close_desc,			(vnop_t *) msdosfs_vnop_close },
+	{ &vnop_getattr_desc,		(vnop_t *) msdosfs_vnop_getattr },
+	{ &vnop_setattr_desc,		(vnop_t *) msdosfs_vnop_setattr },
+	{ &vnop_read_desc,			(vnop_t *) msdosfs_vnop_read },
+	{ &vnop_write_desc,			(vnop_t *) msdosfs_vnop_write },
+	{ &vnop_fsync_desc,			(vnop_t *) msdosfs_vnop_fsync },
+	{ &vnop_remove_desc,		(vnop_t *) msdosfs_vnop_remove },
+	{ &vnop_rename_desc,		(vnop_t *) msdosfs_vnop_rename },
+	{ &vnop_mkdir_desc,			(vnop_t *) msdosfs_vnop_mkdir },
+	{ &vnop_rmdir_desc,			(vnop_t *) msdosfs_vnop_rmdir },
+	{ &vnop_readdir_desc,		(vnop_t *) msdosfs_vnop_readdir },
+	{ &vnop_inactive_desc,		(vnop_t *) msdosfs_vnop_inactive },
+	{ &vnop_reclaim_desc,		(vnop_t *) msdosfs_vnop_reclaim },
+	{ &vnop_pathconf_desc,		(vnop_t *) msdosfs_vnop_pathconf },
+	{ &vnop_pagein_desc,		(vnop_t *) msdosfs_vnop_pagein },
+	{ &vnop_pageout_desc,		(vnop_t *) msdosfs_vnop_pageout },
+	{ &vnop_blktooff_desc,		(vnop_t *) msdosfs_vnop_blktooff },
+	{ &vnop_offtoblk_desc,		(vnop_t *) msdosfs_vnop_offtoblk },
+  	{ &vnop_blockmap_desc,		(vnop_t *) msdosfs_vnop_blockmap },
+	{ &vnop_strategy_desc,		(vnop_t *) msdosfs_vnop_strategy },
+	{ &vnop_symlink_desc,		(vnop_t *) msdosfs_vnop_symlink },
+	{ &vnop_readlink_desc,		(vnop_t *) msdosfs_vnop_readlink },
+	{ &vnop_ioctl_desc, 		(vnop_t *) msdosfs_vnop_ioctl},
 	{ &vnop_bwrite_desc,		(vnop_t *) vn_bwrite },
 	{ NULL, NULL }
 };

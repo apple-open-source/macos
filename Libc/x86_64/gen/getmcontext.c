@@ -68,7 +68,7 @@ getmcontext(ucontext_t *uctx, void *sp)
 		uctx->uc_mcontext = mctx;
 
 #ifdef __DYNAMIC__
-		uctx->uc_link = (ucontext_t*)__in_sigtramp; /* non-zero if in signal handler */
+		uctx->uc_link = (ucontext_t*)(uintptr_t)__in_sigtramp; /* non-zero if in signal handler */
 #else  /* !__DYNAMIC__ */
 		uctx->uc_link = 0;
 #endif /* __DYNAMIC__ */

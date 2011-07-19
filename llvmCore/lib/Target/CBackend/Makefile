@@ -9,6 +9,8 @@
 
 LEVEL = ../../..
 LIBRARYNAME = LLVMCBackend
+DIRS = TargetInfo
+
 include $(LEVEL)/Makefile.common
 
 CompileCommonOpts += -Wno-format

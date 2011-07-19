@@ -47,7 +47,12 @@ String resetButtonDefaultLabel()
     return String("Reset"); 
 }
 
-String defaultLanguage() 
+String defaultDetailsSummaryText()
+{
+    return String("Details");
+}
+
+String platformDefaultLanguage() 
 { 
     return String("en"); 
 }
@@ -95,6 +100,56 @@ String contextMenuItemTagDownloadImageToDisk()
 String contextMenuItemTagCopyImageToClipboard() 
 { 
     return String("Copy Image to Clipboard"); 
+}
+
+String contextMenuItemTagOpenVideoInNewWindow()
+{
+    return String("Open Video in New Window");
+}
+
+String contextMenuItemTagOpenAudioInNewWindow()
+{
+    return String("Open Audio in New Window");
+}
+
+String contextMenuItemTagCopyVideoLinkToClipboard()
+{
+    return String("Copy Video Link Location");
+}
+
+String contextMenuItemTagCopyAudioLinkToClipboard()
+{
+    return String("Copy Audio Link Location");
+}
+
+String contextMenuItemTagToggleMediaControls()
+{
+    return String("Toggle Media Controls");
+}
+
+String contextMenuItemTagToggleMediaLoop()
+{
+    return String("Toggle Media Loop Playback");
+}
+
+String contextMenuItemTagEnterVideoFullscreen()
+{
+    return String("Switch Video to Fullscreen");
+}
+
+String contextMenuItemTagMediaPlay()
+{
+    return String("Play");
+}
+
+String contextMenuItemTagMediaPause()
+{
+    return String("Pause");
+}
+
+String contextMenuItemTagMediaMute()
+{
+    return String("Mute");
 }
 
 String contextMenuItemTagOpenFrameInNewWindow() 
@@ -157,7 +212,7 @@ String contextMenuItemTagSearchWeb()
     return String("Search Web");
 }
 
-String contextMenuItemTagLookUpInDictionary() 
+String contextMenuItemTagLookUpInDictionary(const String&)
 {
     return String("Look Up in Dictionary");
 }
@@ -340,10 +395,58 @@ String validationMessageValueMissingText()
     return String();
 }
 
+String validationMessageValueMissingForCheckboxText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForMultipleFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForRadioText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForSelectText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
 String validationMessageTypeMismatchText()
 {
     notImplemented();
     return String();
+}
+
+String validationMessageTypeMismatchForEmailText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+String validationMessageTypeMismatchForMultipleEmailText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+String validationMessageTypeMismatchForURLText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
 }
 
 String validationMessagePatternMismatchText()
@@ -352,25 +455,25 @@ String validationMessagePatternMismatchText()
     return String();
 }
 
-String validationMessageTooLongText()
+String validationMessageTooLongText(int, int)
 {
     notImplemented();
     return String();
 }
 
-String validationMessageRangeUnderflowText()
+String validationMessageRangeUnderflowText(const String&)
 {
     notImplemented();
     return String();
 }
 
-String validationMessageRangeOverflowText()
+String validationMessageRangeOverflowText(const String&)
 {
     notImplemented();
     return String();
 }
 
-String validationMessageStepMismatchText()
+String validationMessageStepMismatchText(const String&, const String&)
 {
     notImplemented();
     return String();

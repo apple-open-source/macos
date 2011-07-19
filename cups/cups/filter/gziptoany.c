@@ -1,5 +1,5 @@
 /*
- * "$Id: gziptoany.c 6649 2007-07-11 21:46:42Z mike $"
+ * "$Id: gziptoany.c 9048 2010-03-24 08:07:15Z mike $"
  *
  *   GZIP/raw pre-filter for CUPS.
  *
@@ -23,12 +23,7 @@
  * Include necessary headers...
  */
 
-#include <cups/file.h>
-#include <cups/string.h>
-#include <cups/i18n.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -52,7 +47,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (argc != 7)
   {
     _cupsLangPrintf(stderr,
-                    _("Usage: %s job-id user title copies options file\n"),
+                    _("Usage: %s job-id user title copies options file"),
                     argv[0]);
     return (1);
   }
@@ -73,8 +68,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if ((fp = cupsFileOpen(argv[6], "r")) == NULL)
   {
-    _cupsLangPrintf(stderr, _("ERROR: Unable to open file \"%s\": %s\n"),
-                    argv[6], strerror(errno));
+    _cupsLangPrintError("ERROR", _("Unable to open print file"));
     return (1);
   }
 
@@ -92,9 +86,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     while ((bytes = cupsFileRead(fp, buffer, sizeof(buffer))) > 0)
       if (write(1, buffer, bytes) < bytes)
       {
-	_cupsLangPrintf(stderr,
-	                _("ERROR: Unable to write uncompressed document data: "
-			  "%s\n"), strerror(errno));
+	_cupsLangPrintFilter(stderr, "ERROR",
+			     _("Unable to write uncompressed print data: %s"),
+			     strerror(errno));
 	cupsFileClose(fp);
 
 	return (1);
@@ -114,5 +108,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: gziptoany.c 6649 2007-07-11 21:46:42Z mike $".
+ * End of "$Id: gziptoany.c 9048 2010-03-24 08:07:15Z mike $".
  */

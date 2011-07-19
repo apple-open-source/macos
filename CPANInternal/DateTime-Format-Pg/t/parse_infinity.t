@@ -1,4 +1,4 @@
-# $Id$
+# $Id: parse_infinity.t 1061 2006-01-07 00:45:49Z lestrrat $
 use Test::More tests => 4;
 use DateTime::Format::Pg 0.02;
 

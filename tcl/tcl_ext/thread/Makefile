@@ -9,9 +9,11 @@ Project               = thread
 ProjectName           = Thread
 
 # Fetch info
-Release               = 2.6.5
-TEApotVersion         = 0.0.0.2008.11.04.18.15.38
+Release               = 2.6.6
+TEApotVersion         = 0.0.0.2010.08.18.09.07.53
 TEApotProject         = $(Project)
+#UrlFile               = $(Project)$(Release)
+#Url                   = $(UrlBase)/tcl/Thread%20Extension/$(Release)/$(UrlFile)$(UrlExt)
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)

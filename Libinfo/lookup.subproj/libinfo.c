@@ -33,7 +33,6 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <netinet/if_ether.h>
-#include <libkern/OSAtomic.h>
 #include "si_module.h"
 #include "libinfo.h"
 #include <thread_data.h>
@@ -45,10 +44,15 @@
 #define IPV6_ADDR_LEN 16
 #define IPV4_ADDR_LEN 4
 
+/* The kernel's initgroups call */
+extern int __initgroups(u_int gidsetsize, gid_t *gidset, int gmuid);
+
 /* SPI from long ago */
 int _proto_stayopen;
 
-__private_extern__ struct addrinfo *si_list_to_addrinfo(si_list_t *list);
+extern struct addrinfo *si_list_to_addrinfo(si_list_t *list);
+extern int getnameinfo_link(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags);
+__private_extern__ void search_set_flags(si_mod_t *si, const char *name, uint32_t flag);
 
 /*
  * Impedence matching for async calls.
@@ -68,20 +72,20 @@ typedef struct
 	int32_t key_offset;
 } si_context_t;
 
-__private_extern__ si_mod_t *
+si_mod_t *
 si_search(void)
 {
 	static si_mod_t *search = NULL;
-	static OSSpinLock spin = OS_SPINLOCK_INIT;
 
-	if (search == NULL)
-	{
-		OSSpinLockLock(&spin);
-		if (search == NULL) search = si_module_with_name("search");
-		OSSpinLockUnlock(&spin);
-	}
+	if (search == NULL) search = si_module_with_name("search");
 
 	return search;
+}
+
+void
+si_search_module_set_flags(const char *name, uint32_t flag)
+{
+	search_set_flags(si_search(), name, flag);
 }
 
 static void
@@ -555,8 +559,8 @@ endnetgrent(void)
 
 /* GROUPLIST */
 
-int
-getgrouplist(const char *name, int basegid, int *groups, int *ngroups)
+static int
+getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ngroups, int set_thread_data)
 {
 	int i, j, x, g, add, max;
 	si_item_t *item;
@@ -584,7 +588,7 @@ getgrouplist(const char *name, int basegid, int *groups, int *ngroups)
 	*ngroups = 1;
 
 	item = si_grouplist(si_search(), name);
-	LI_set_thread_item(CATEGORY_GROUPLIST, item);
+	if (set_thread_data != 0) LI_set_thread_item(CATEGORY_GROUPLIST, item);
 	if (item == NULL) return 0;
 
 	gl = (si_grouplist_t *)((uintptr_t)item + sizeof(si_item_t));
@@ -613,6 +617,12 @@ getgrouplist(const char *name, int basegid, int *groups, int *ngroups)
 	}
 
 	return 0;
+}
+
+int
+getgrouplist(const char *name, int basegid, int *groups, int *ngroups)
+{
+	return getgrouplist_internal(name, basegid, (gid_t *)groups, (uint32_t *)ngroups, 1);
 }
 
 /* XXX to do: async getgrouplist */
@@ -737,7 +747,9 @@ getgroupcount(const char *name, gid_t basegid)
 int
 initgroups(const char *name, int basegid)
 {
-	int status, ngroups, groups[NGROUPS];
+	int status;
+	uint32_t ngroups;
+	gid_t groups[NGROUPS];
 	uid_t uid;
 #ifdef DS_AVAILABLE
 	si_item_t *item;
@@ -765,14 +777,14 @@ initgroups(const char *name, int basegid)
 
 	ngroups = NGROUPS;
 
-	status = getgrouplist(name, basegid, groups, &ngroups);
+	status = getgrouplist_internal(name, basegid, groups, &ngroups, 0);
 	/*
 	 * Ignore status.
 	 * A failure either means that user belongs to more than NGROUPS groups 
 	 * or no groups at all.
 	 */
 
-	status = syscall(SYS_initgroups, ngroups, groups, uid);
+	status = __initgroups(ngroups, groups, uid);
 	if (status < 0) return -1;
 
 	return 0;
@@ -1470,7 +1482,7 @@ int
 ether_hostton(const char *name, struct ether_addr *e)
 {
 	si_item_t *item;
-	char *cmac;
+	si_mac_t *mac;
 	uint32_t t[6];
 	int i;
 
@@ -1485,9 +1497,9 @@ ether_hostton(const char *name, struct ether_addr *e)
 	LI_set_thread_item(CATEGORY_MAC + 100, item);
 	if (item == NULL) return -1;
 
-	cmac = (char *)((uintptr_t)item + sizeof(si_item_t));
+	mac = (si_mac_t *)((uintptr_t)item + sizeof(si_item_t));
 
-	i = sscanf(cmac, " %x:%x:%x:%x:%x:%x", &t[0], &t[1], &t[2], &t[3], &t[4], &t[5]);
+	i = sscanf(mac->mac, " %x:%x:%x:%x:%x:%x", &t[0], &t[1], &t[2], &t[3], &t[4], &t[5]);
 	if (i != 6) return -1;
 
 	for (i = 0; i < 6; i++) e->ether_addr_octet[i] = t[i];
@@ -1500,7 +1512,7 @@ int
 ether_ntohost(char *name, const struct ether_addr *e)
 {
 	si_item_t *item;
-	char *cname;
+	si_mac_t *mac;
 	uint32_t i, x[6];
 	char str[256];
 
@@ -1518,9 +1530,9 @@ ether_ntohost(char *name, const struct ether_addr *e)
 	LI_set_thread_item(CATEGORY_MAC + 200, item);
 	if (item == NULL) return -1;
 
-	cname = (char *)((uintptr_t)item + sizeof(si_item_t));
+	mac = (si_mac_t *)((uintptr_t)item + sizeof(si_item_t));
 
-	memcpy(name, cname, strlen(cname) + 1);
+	memcpy(name, mac->host, strlen(mac->host) + 1);
 	return 0;
 }
 
@@ -2264,7 +2276,7 @@ _getaddrinfo_internal(const char *nodename, const char *servname, const struct a
 #endif
 
 	list = si_addrinfo(si_search(), nodename, servname, family, socktype, protocol, flags, interface, &status);
-	if ((status != SI_STATUS_NO_ERROR) || (list == NULL))
+	if ((status != SI_STATUS_NO_ERROR) || (list == NULL) || (list->count == 0))
 	{
 		si_list_release(list);
 
@@ -2681,6 +2693,9 @@ _getnameinfo_interface_internal(const struct sockaddr *sa, socklen_t salen, char
 int
 getnameinfo(const struct sockaddr *sa, socklen_t salen, char *node, socklen_t nodelen, char *service, socklen_t servicelen, int flags)
 {
+	if (sa == NULL) return EAI_FAIL;
+
+	if (sa->sa_family == AF_LINK) return getnameinfo_link(sa, salen, node, nodelen, service, servicelen, flags);
 	return _getnameinfo_interface_internal(sa, salen, node, nodelen, service, servicelen, flags, NULL);
 }
 

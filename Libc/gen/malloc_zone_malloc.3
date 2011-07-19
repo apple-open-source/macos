@@ -92,10 +92,11 @@ function creates a malloc zone, advising an initial allocation of
 .Fa start_size
 bytes, and specifying 
 .Fa flags
-that alter the standard behavior of the zone.
 The returned malloc zone can be used to provide custom allocation and 
 deallocation behavior, and to retrieve additional information about the
 allocations in that zone.
+At present there are no client settable flag values recognized by malloc_create_zone(),
+the flags argument should always be passed as zero.
 .Pp
 The
 .Fn malloc_destroy_zone

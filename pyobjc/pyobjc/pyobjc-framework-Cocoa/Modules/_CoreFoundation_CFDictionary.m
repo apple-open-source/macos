@@ -1,8 +1,3 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static PyObject*
 mod_CFDictionaryGetKeysAndValues(
 	PyObject* self __attribute__((__unused__)),
@@ -100,21 +95,10 @@ mod_CFDictionaryGetKeysAndValues(
 	return result;
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFDictionaryGetKeysAndValues",
-		(PyCFunction)mod_CFDictionaryGetKeysAndValues,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_DICTIONARY_METHODS \
+        {	\
+		"CFDictionaryGetKeysAndValues",	\
+		(PyCFunction)mod_CFDictionaryGetKeysAndValues,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFDictionary(void);
-void init_CFDictionary(void)
-{
-	PyObject* m = Py_InitModule4("_CFDictionary", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

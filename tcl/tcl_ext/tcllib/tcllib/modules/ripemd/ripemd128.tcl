@@ -23,14 +23,14 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
 #
-# $Id: ripemd128.tcl,v 1.9 2005/10/17 19:39:52 andreas_kupries Exp $
+# $Id: ripemd128.tcl,v 1.10 2009/05/07 01:12:59 patthoyts Exp $
 
 package require Tcl 8.2;                # tcl minimum version
 
 namespace eval ::ripemd {
     namespace eval ripemd128 {
-        variable version 1.0.3
-        variable rcsid {$Id: ripemd128.tcl,v 1.9 2005/10/17 19:39:52 andreas_kupries Exp $}
+        variable version 1.0.4
+        variable rcsid {$Id: ripemd128.tcl,v 1.10 2009/05/07 01:12:59 patthoyts Exp $}
         variable accel
         array set accel {trf 0}
 
@@ -501,7 +501,10 @@ regsub -all -line \
     ::ripemd::ripemd128::RIPEMD128Hash_body
 
 # Define the MD4 hashing procedure with inline functions.
-proc ::ripemd::ripemd128::RIPEMD128Hash {token msg} $::ripemd::ripemd128::RIPEMD128Hash_body
+proc ::ripemd::ripemd128::RIPEMD128Hash {token msg} \
+    $::ripemd::ripemd128::RIPEMD128Hash_body
+
+unset ::ripemd::ripemd128::RIPEMD128Hash_body
 
 # -------------------------------------------------------------------------
 
@@ -717,6 +720,7 @@ namespace eval ::ripemd {
 # Try and load a compiled extension to help.
 namespace eval ::ripemd::ripemd128 {
     foreach e {trf} { if {[LoadAccelerator $e]} { break } }
+    unset e
 }
 
 package provide ripemd128 $::ripemd::ripemd128::version

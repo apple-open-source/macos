@@ -1,0 +1,48 @@
+[comment {-*- tcl -*- sdx manpage}]
+[manpage_begin sdx 1 2.0]
+[moddesc   {sdx}]
+[titledesc {Starkit Developer eXtension}]
+
+[description]
+[para]
+[cmd sdx] combines a number of functions into a single command-line developer
+utility. Its most common use is to create, browse, and unravel Starkits:
+
+[list_begin definitions]
+[lst_item "[cmd sdx] [cmd qwrap] [arg myscript.tcl] ?[arg options] ...?"]
+create a starkit from a single Tcl script
+
+[lst_item "[cmd sdx] [cmd wrap] [arg mystar.kit] ?[arg options] ...?"]
+create a starkit from a mystar.vfs directory structure
+
+[lst_item "[cmd sdx] [cmd unwrap] [arg mystar.kit]"]
+the reverse of wrap, lets you dissect any starkit
+
+[lst_item "[cmd sdx] [cmd lsk] [arg mystar.kit]"]
+list the contents of a starkit, as seen when mounted in Tcl
+
+[lst_item "[cmd sdx] [cmd version] [arg mystar.kit]"]
+calculate the version ID of a starkit, report newest file found inside
+
+[lst_item "[cmd sdx] [cmd mkpack] [arg oldstar.kit] [arg newstar.kit]"]
+copy and optimally pack the Metakit data by removing all unused areas
+
+[lst_item "[cmd sdx] [cmd mksplit] [arg mystar.kit]"]
+split a starkit into mystar.head and a mystar.tail parts
+[list_end]
+
+[cmd sdx] also has other, less frequently used commands, see
+[cmd sdx] [cmd help] and [cmd sdx] [cmd help] [arg command] for more
+information.
+[para]
+[cmd sdx] is itself a Starkit, you can inspect its contents by doing
+[cmd sdx] [cmd unwrap] [cmd "`which sdx`"].
+
+[see_also [uri http://wiki.tcl.tk/sdx/]]
+[see_also [uri http://code.google.com/p/tclkit/]]
+[see_also [uri http://wiki.tcl.tk/starkit/]]
+[see_also [uri http://www.equi4.com/starkit/]]
+[see_also [uri http://www.equi4.com/starkit/sdx.html]]
+[keywords Tcl Starkit]
+
+[manpage_end]

@@ -30,6 +30,7 @@
 #import "WebPreferencesPrivate.h"
 #import "WebPreferenceKeysPrivate.h"
 
+#import "WebApplicationCache.h"
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitSystemBits.h"
@@ -37,9 +38,11 @@
 #import "WebKitVersionChecks.h"
 #import "WebNSDictionaryExtras.h"
 #import "WebNSURLExtras.h"
+#import <WebCore/ApplicationCacheStorage.h>
 
 NSString *WebPreferencesChangedNotification = @"WebPreferencesChangedNotification";
 NSString *WebPreferencesRemovedNotification = @"WebPreferencesRemovedNotification";
+NSString *WebPreferencesChangedInternalNotification = @"WebPreferencesChangedInternalNotification";
 
 #define KEY(x) (_private->identifier ? [_private->identifier stringByAppendingString:(x)] : (x))
 
@@ -170,13 +173,15 @@ static WebCacheModel cacheModelForMainBundle(void)
 - (void)_setIntegerValue:(int)value forKey:(NSString *)key;
 - (float)_floatValueForKey:(NSString *)key;
 - (void)_setFloatValue:(float)value forKey:(NSString *)key;
+- (void)_setLongLongValue:(long long)value forKey:(NSString *)key;
+- (long long)_longLongValueForKey:(NSString *)key;
 - (void)_setUnsignedLongLongValue:(unsigned long long)value forKey:(NSString *)key;
 - (unsigned long long)_unsignedLongLongValueForKey:(NSString *)key;
 @end
 
 @implementation WebPreferences
 
-- init
+- (id)init
 {
     // Create fake identifier
     static int instanceCount = 1;
@@ -212,7 +217,7 @@ static WebCacheModel cacheModelForMainBundle(void)
 
     [[self class] _setInstance:self forIdentifier:_private->identifier];
 
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
 
     return self;
 }
@@ -301,7 +306,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         @"Helvetica",                   WebKitSansSerifFontPreferenceKey,
         @"Apple Chancery",              WebKitCursiveFontPreferenceKey,
         @"Papyrus",                     WebKitFantasyFontPreferenceKey,
-        @"1",                           WebKitMinimumFontSizePreferenceKey,
+        @"0",                           WebKitMinimumFontSizePreferenceKey,
         @"9",                           WebKitMinimumLogicalFontSizePreferenceKey, 
         @"16",                          WebKitDefaultFontSizePreferenceKey,
         @"13",                          WebKitDefaultFixedFontSizePreferenceKey,
@@ -325,6 +330,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImagesPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAllowAnimatedImageLoopingPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDisplayImagesKey,
+        [NSNumber numberWithBool:NO],   WebKitLoadSiteIconsKey,
         @"1800",                        WebKitBackForwardCacheExpirationIntervalKey,
         [NSNumber numberWithBool:NO],   WebKitTabToLinksPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitPrivateBrowsingEnabledPreferenceKey,
@@ -334,7 +340,8 @@ static WebCacheModel cacheModelForMainBundle(void)
         @"0",                           WebKitPDFScaleFactorPreferenceKey,
         @"0",                           WebKitUseSiteSpecificSpoofingPreferenceKey,
         [NSNumber numberWithInt:WebKitEditableLinkDefaultBehavior], WebKitEditableLinkBehaviorPreferenceKey,
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+        [NSNumber numberWithInt:WebKitEditingMacBehavior], WebKitEditingBehaviorPreferenceKey,
+#ifndef BUILDING_ON_LEOPARD
         [NSNumber numberWithInt:WebTextDirectionSubmenuAutomaticallyIncluded],
 #else
         [NSNumber numberWithInt:WebTextDirectionSubmenuNeverIncluded],
@@ -353,13 +360,24 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitJavaScriptCanAccessClipboardPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],  WebKitAcceleratedDrawingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],  WebKitCanvasUsesAcceleratedDrawingPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowRepaintCounterPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
-        [NSNumber numberWithBool:NO],   WebKitUsesProxiedOpenPanelPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitAccelerated2dCanvasEnabledPreferenceKey,
         [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
-        [NSNumber numberWithBool:YES],  WebKitDNSPrefetchingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitSpatialNavigationEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],  WebKitDNSPrefetchingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitFullScreenEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitAsynchronousSpellCheckingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitMemoryInfoEnabledPreferenceKey,
+        [NSNumber numberWithBool:YES],  WebKitHyperlinkAuditingEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitUsePreHTML5ParserQuirksKey,
+        [NSNumber numberWithBool:YES],  WebKitAVFoundationEnabledKey,
+        [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheTotalQuota,
+        [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheDefaultOriginQuota,
         nil];
 
     // This value shouldn't ever change, which is assumed in the initialization of WebKitPDFDisplayModePreferenceKey above
@@ -404,7 +422,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [_private->values setObject:value forKey:_key];
     if (_private->autosaves)
         [[NSUserDefaults standardUserDefaults] setObject:value forKey:_key];
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
 }
 
 - (int)_integerValueForKey:(NSString *)key
@@ -421,7 +439,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [_private->values _webkit_setInt:value forKey:_key];
     if (_private->autosaves)
         [[NSUserDefaults standardUserDefaults] setInteger:value forKey:_key];
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
 }
 
 - (float)_floatValueForKey:(NSString *)key
@@ -438,7 +456,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [_private->values _webkit_setFloat:value forKey:_key];
     if (_private->autosaves)
         [[NSUserDefaults standardUserDefaults] setFloat:value forKey:_key];
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
 }
 
 - (BOOL)_boolValueForKey:(NSString *)key
@@ -454,7 +472,24 @@ static WebCacheModel cacheModelForMainBundle(void)
     [_private->values _webkit_setBool:value forKey:_key];
     if (_private->autosaves)
         [[NSUserDefaults standardUserDefaults] setBool:value forKey:_key];
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
+}
+
+- (long long)_longLongValueForKey:(NSString *)key
+{
+    id o = [self _valueForKey:key];
+    return [o respondsToSelector:@selector(longLongValue)] ? [o longLongValue] : 0;
+}
+
+- (void)_setLongLongValue:(long long)value forKey:(NSString *)key
+{
+    if ([self _longLongValueForKey:key] == value)
+        return;
+    NSString *_key = KEY(key);
+    [_private->values _webkit_setLongLong:value forKey:_key];
+    if (_private->autosaves)
+        [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithLongLong:value] forKey:_key];
+    [self _postPreferencesChangedNotification];
 }
 
 - (unsigned long long)_unsignedLongLongValueForKey:(NSString *)key
@@ -471,7 +506,7 @@ static WebCacheModel cacheModelForMainBundle(void)
     [_private->values _webkit_setUnsignedLongLong:value forKey:_key];
     if (_private->autosaves)
         [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithUnsignedLongLong:value] forKey:_key];
-    [self _postPreferencesChangesNotification];
+    [self _postPreferencesChangedNotification];
 }
 
 - (NSString *)standardFontFamily
@@ -615,7 +650,10 @@ static WebCacheModel cacheModelForMainBundle(void)
     } else {
         locationString = [URL _web_originalDataAsString];
     }
-    
+
+    if (!locationString)
+        locationString = @"";
+
     [self _setStringValue:locationString forKey: WebKitUserStyleSheetLocationPreferenceKey];
 }
 
@@ -969,6 +1007,29 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setFloatValue:factor forKey:WebKitPDFScaleFactorPreferenceKey];
 }
 
+- (int64_t)applicationCacheTotalQuota
+{
+    return [self _longLongValueForKey:WebKitApplicationCacheTotalQuota];
+}
+
+- (void)setApplicationCacheTotalQuota:(int64_t)quota
+{
+    [self _setLongLongValue:quota forKey:WebKitApplicationCacheTotalQuota];
+
+    // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
+    [WebApplicationCache setMaximumSize:quota];
+}
+
+- (int64_t)applicationCacheDefaultOriginQuota
+{
+    return [self _longLongValueForKey:WebKitApplicationCacheDefaultOriginQuota];
+}
+
+- (void)setApplicationCacheDefaultOriginQuota:(int64_t)quota
+{
+    [self _setLongLongValue:quota forKey:WebKitApplicationCacheDefaultOriginQuota];
+}
+
 - (PDFDisplayMode)PDFDisplayMode
 {
     PDFDisplayMode value = [self _integerValueForKey:WebKitPDFDisplayModePreferenceKey];
@@ -1098,16 +1159,25 @@ static WebCacheModel cacheModelForMainBundle(void)
         [self performSelector:@selector(_checkLastReferenceForIdentifier:) withObject:[self _concatenateKeyWithIBCreatorID:ident] afterDelay:0.1];
 }
 
-- (void)_postPreferencesChangesNotification
+- (void)_postPreferencesChangedNotification
 {
     if (!pthread_main_np()) {
         [self performSelectorOnMainThread:_cmd withObject:nil waitUntilDone:NO];
         return;
     }
 
-    [[NSNotificationCenter defaultCenter]
-        postNotificationName:WebPreferencesChangedNotification object:self
-                    userInfo:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:WebPreferencesChangedInternalNotification object:self userInfo:nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName:WebPreferencesChangedNotification object:self userInfo:nil];
+}
+
+- (void)_postPreferencesChangedAPINotification
+{
+    if (!pthread_main_np()) {
+        [self performSelectorOnMainThread:_cmd withObject:nil waitUntilDone:NO];
+        return;
+    }
+
+    [[NSNotificationCenter defaultCenter] postNotificationName:WebPreferencesChangedNotification object:self userInfo:nil];
 }
 
 + (CFStringEncoding)_systemCFStringEncoding
@@ -1178,6 +1248,26 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:force forKey:WebKitForceFTPDirectoryListings];
 }
 
+- (BOOL)acceleratedDrawingEnabled
+{
+    return [self _boolValueForKey:WebKitAcceleratedDrawingEnabledPreferenceKey];
+}
+
+- (void)setAcceleratedDrawingEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitAcceleratedDrawingEnabledPreferenceKey];
+}
+
+- (BOOL)canvasUsesAcceleratedDrawing
+{
+    return [self _boolValueForKey:WebKitCanvasUsesAcceleratedDrawingPreferenceKey];
+}
+
+- (void)setCanvasUsesAcceleratedDrawing:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitCanvasUsesAcceleratedDrawingPreferenceKey];
+}
+
 - (BOOL)acceleratedCompositingEnabled
 {
     return [self _boolValueForKey:WebKitAcceleratedCompositingEnabledPreferenceKey];
@@ -1208,6 +1298,16 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitShowRepaintCounterPreferenceKey];
 }
 
+- (BOOL)webAudioEnabled
+{
+    return [self _boolValueForKey:WebKitWebAudioEnabledPreferenceKey];
+}
+
+- (void)setWebAudioEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitWebAudioEnabledPreferenceKey];
+}
+
 - (BOOL)webGLEnabled
 {
     return [self _boolValueForKey:WebKitWebGLEnabledPreferenceKey];
@@ -1218,14 +1318,14 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitWebGLEnabledPreferenceKey];
 }
 
-- (BOOL)usesProxiedOpenPanel
+- (BOOL)accelerated2dCanvasEnabled
 {
-    return [self _boolValueForKey:WebKitUsesProxiedOpenPanelPreferenceKey];
+    return [self _boolValueForKey:WebKitAccelerated2dCanvasEnabledPreferenceKey];
 }
 
-- (void)setUsesProxiedOpenPanel:(BOOL)enabled
+- (void)setAccelerated2dCanvasEnabled:(BOOL)enabled
 {
-    [self _setBoolValue:enabled forKey:WebKitUsesProxiedOpenPanelPreferenceKey];
+    [self _setBoolValue:enabled forKey:WebKitAccelerated2dCanvasEnabledPreferenceKey];
 }
 
 - (unsigned)pluginAllowedRunTime
@@ -1248,6 +1348,66 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:flag forKey:WebKitFrameFlatteningEnabledPreferenceKey];
 }
 
+- (BOOL)isSpatialNavigationEnabled
+{
+    return [self _boolValueForKey:WebKitSpatialNavigationEnabledPreferenceKey];
+}
+
+- (void)setSpatialNavigationEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitSpatialNavigationEnabledPreferenceKey];
+}
+
+- (BOOL)paginateDuringLayoutEnabled
+{
+    return [self _boolValueForKey:WebKitPaginateDuringLayoutEnabledPreferenceKey];
+}
+
+- (void)setPaginateDuringLayoutEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitPaginateDuringLayoutEnabledPreferenceKey];
+}
+
+- (BOOL)memoryInfoEnabled
+{
+    return [self _boolValueForKey:WebKitMemoryInfoEnabledPreferenceKey];
+}
+
+- (void)setMemoryInfoEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitMemoryInfoEnabledPreferenceKey];
+}
+
+- (BOOL)hyperlinkAuditingEnabled
+{
+    return [self _boolValueForKey:WebKitHyperlinkAuditingEnabledPreferenceKey];
+}
+
+- (void)setHyperlinkAuditingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitHyperlinkAuditingEnabledPreferenceKey];
+}
+
+- (WebKitEditingBehavior)editingBehavior
+{
+    return static_cast<WebKitEditingBehavior>([self _integerValueForKey:WebKitEditingBehaviorPreferenceKey]);
+}
+
+- (void)setEditingBehavior:(WebKitEditingBehavior)behavior
+{
+    [self _setIntegerValue:behavior forKey:WebKitEditingBehaviorPreferenceKey];
+}
+
+- (BOOL)usePreHTML5ParserQuirks
+{
+    return [self _boolValueForKey:WebKitUsePreHTML5ParserQuirksKey];
+}
+
+- (void)setUsePreHTML5ParserQuirks:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitUsePreHTML5ParserQuirksKey];
+}
+
 - (void)didRemoveFromWebView
 {
     ASSERT(_private->numWebViews);
@@ -1268,6 +1428,50 @@ static NSString *classIBCreatorID = nil;
     [self _setStringValue:value forKey:key];
 }
 
+- (void)setFullScreenEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitFullScreenEnabledPreferenceKey];
+}
+
+- (BOOL)fullScreenEnabled
+{
+    return [self _boolValueForKey:WebKitFullScreenEnabledPreferenceKey];
+}
+
+- (void)setAsynchronousSpellCheckingEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitAsynchronousSpellCheckingEnabledPreferenceKey];
+}
+
+- (BOOL)asynchronousSpellCheckingEnabled
+{
+    return [self _boolValueForKey:WebKitAsynchronousSpellCheckingEnabledPreferenceKey];
+}
+
++ (void)setWebKitLinkTimeVersion:(int)version
+{
+    setWebKitLinkTimeVersion(version);
+}
+
+- (void)setLoadsSiteIconsIgnoringImageLoadingPreference: (BOOL)flag
+{
+    [self _setBoolValue: flag forKey: WebKitLoadSiteIconsKey];
+}
+
+- (BOOL)loadsSiteIconsIgnoringImageLoadingPreference
+{
+    return [self _boolValueForKey: WebKitLoadSiteIconsKey];
+}
+
+- (void)setAVFoundationEnabled:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitAVFoundationEnabledKey];
+}
+
+- (BOOL)isAVFoundationEnabled
+{
+    return [self _boolValueForKey:WebKitAVFoundationEnabledKey];
+}
 @end
 
 @implementation WebPreferences (WebInternal)

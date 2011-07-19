@@ -38,3 +38,6 @@ userprefix self_client_;
 //
 simpleroutine handleSignal(requestport sport: mach_port_make_send_once_t;
     in task_port: mach_port_t; in signal_number: int);
+
+simpleroutine handleSession(requestport sport: mach_port_make_send_once_t;
+	in task_port: mach_port_t; in events: uint32_t; in ident: uint64_t);

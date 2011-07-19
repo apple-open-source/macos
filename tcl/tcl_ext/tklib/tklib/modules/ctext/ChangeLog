@@ -1,3 +1,9 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
 2008-08-19  George Peter Staplin  <georgeps@users.sourceforge.net>
 
 	ctext.tcl: I fixed bug 2059415 by saving the id from [after idle].

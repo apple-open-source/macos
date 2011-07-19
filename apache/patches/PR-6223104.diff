@@ -1,0 +1,90 @@
+--- docs/conf/extra/httpd-mpm.conf.in.orig	2010-10-28 15:17:47.000000000 -0500
++++ docs/conf/extra/httpd-mpm.conf.in	2010-11-01 16:15:08.000000000 -0500
+@@ -33,11 +33,16 @@
+ # MaxSpareServers: maximum number of server processes which are kept spare
+ # MaxClients: maximum number of server processes allowed to start
+ # MaxRequestsPerChild: maximum number of requests a server process serves
++# ServerLimit and MaxClients support n% syntax which sets them to a
++# fraction of the current RLIMIT_NPROC limit.  On error the values
++# are unchanged, so set a numeric value first just in case.
+ <IfModule mpm_prefork_module>
+     StartServers          1
+     MinSpareServers       1
+     MaxSpareServers      10
++    ServerLimit          50%
+     MaxClients          150
++    MaxClients           50%
+     MaxRequestsPerChild   0
+ </IfModule>
+ 
+--- server/mpm/prefork/prefork.c.orig	2010-10-11 23:21:28.000000000 -0500
++++ server/mpm/prefork/prefork.c	2010-11-01 16:13:10.000000000 -0500
+@@ -1407,14 +1407,42 @@
+     return NULL;
+ }
+ 
++#include <sys/resource.h>
++static int getproclimit(void)
++{
++    struct rlimit rl;
++    memset(&rl, 0, sizeof rl);
++    return getrlimit(RLIMIT_NPROC, &rl) == 0 ? rl.rlim_cur : 0;
++}
++
+ static const char *set_max_clients (cmd_parms *cmd, void *dummy, const char *arg)
+ {
++    int tmp_daemons_limit;
++
+     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
+     if (err != NULL) {
+         return err;
+     }
+ 
+-    ap_daemons_limit = atoi(arg);
++    tmp_daemons_limit = atoi(arg);
++    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
++	int proclimit = getproclimit();
++	if (proclimit <= 0) {
++	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
++			 "WARNING: MaxClients %d%% ignored because "
++			 "RLIMIT_NPROC is unknown", tmp_daemons_limit);
++	    return NULL;
++	}
++	if (tmp_daemons_limit < 1 || tmp_daemons_limit > 100) {
++	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
++			 "WARNING: MaxClients %d%% ignored because "
++			 "percentage is out of range 1-100%%",
++			 tmp_daemons_limit);
++	    return NULL;
++	}
++	tmp_daemons_limit = proclimit * tmp_daemons_limit / 100.0 + 0.5;
++    }
++    ap_daemons_limit = tmp_daemons_limit;
+     if (ap_daemons_limit > server_limit) {
+        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+                     "WARNING: MaxClients of %d exceeds ServerLimit value "
+@@ -1444,6 +1472,23 @@
+     }
+ 
+     tmp_server_limit = atoi(arg);
++    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
++	int proclimit = getproclimit();
++	if (proclimit <= 0) {
++	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
++			 "WARNING: ServerLimit %d%% ignored because "
++			 "RLIMIT_NPROC is unknown", tmp_server_limit);
++	    return NULL;
++	}
++	if (tmp_server_limit < 1 || tmp_server_limit > 100) {
++	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
++			 "WARNING: ServerLimit %d%% ignored because "
++			 "percentage is out of range 1-100%%",
++			 tmp_server_limit);
++	    return NULL;
++	}
++	tmp_server_limit = proclimit * tmp_server_limit / 100.0 + 0.5;
++    }
+     /* you cannot change ServerLimit across a restart; ignore
+      * any such attempts
+      */
+

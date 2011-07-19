@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,23 +29,17 @@ namespace WebCore {
 
 class HTMLLIElement : public HTMLElement {
 public:
+    static PassRefPtr<HTMLLIElement> create(Document*);
+    static PassRefPtr<HTMLLIElement> create(const QualifiedName&, Document*);
+
+private:
     HTMLLIElement(const QualifiedName&, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual int tagPriority() const { return 3; }
-
     virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 
     virtual void attach();
 
-    String type() const;
-    void setType(const String&);
-
-    int value() const;
-    void setValue(int);
-
-private:
     int m_requestedValue;
 };
 

@@ -30,6 +30,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <TargetConditionals.h>
 
 U_NAMESPACE_BEGIN
 
@@ -44,6 +45,8 @@ AppleLanguageBreakFactory::AppleLanguageBreakFactory(UErrorCode &status)
 
 AppleLanguageBreakFactory::~AppleLanguageBreakFactory() {
 }
+
+#if !TARGET_OS_EMBEDDED
 
 // Helper function that makes a length-delimited buffer look NUL-terminated
 static __attribute__((always_inline)) inline UChar nextUChar(const UChar *&p, ptrdiff_t &l) {
@@ -176,9 +179,12 @@ static void addDictFile(MutableTrieDictionary *to, const char *path) {
 	static const char	sArchType[] = ".le";	// little endian
 #endif
 
+#endif
+
 const CompactTrieDictionary *
 AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakType) {
 	const CompactTrieDictionary *icuDict = ICULanguageBreakFactory::loadDictionaryFor(script, breakType);
+#if !TARGET_OS_EMBEDDED
 	// We only look for a user dictionary if there is actually an ICU dictionary
 	if (icuDict != NULL) {
 		UErrorCode status = U_ZERO_ERROR;
@@ -359,6 +365,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 			delete cacheDict;
 		}
 	}
+#endif
 	return icuDict;
 }
 

@@ -1,8 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin doctools_lang_cmdref n 1.0]
-[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2007-2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctools language command reference}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -158,6 +159,16 @@ paths in free-form text.
 Text markup. The argument is marked up as the name of a
 [term function]. The text may have other markup already applied to
 it. Main use is the highlighting of function names in free-form text.
+
+[call [cmd image] [arg name] [opt [arg label]]]
+
+Text markup. The argument is the symbolic name of an [term image]
+and replaced with the image itself, if a suitable variant is found
+by the backend. The second argument, should it be present, will be
+interpreted the human-readable description of the image, and put
+into the output in a suitable position, if such is supported by the
+format. The HTML format, for example, can place it into the [term alt]
+attribute of image references.
 
 [call [cmd include] [arg filename]]
 

@@ -34,6 +34,9 @@
 
 #include "PlatformBridge.h"
 #include "Document.h"
+#include "ScriptCallStack.h"
+#include "ScriptCallStackFactory.h"
+#include "ScriptableDocumentParser.h"
 #include "DOMWindow.h"
 #include "Event.h"
 #include "EventListener.h"
@@ -52,14 +55,18 @@
 #include "V8BindingState.h"
 #include "V8DOMWindow.h"
 #include "V8Event.h"
+#include "V8HiddenPropertyName.h"
 #include "V8HTMLEmbedElement.h"
 #include "V8IsolatedContext.h"
 #include "V8NPObject.h"
 #include "V8Proxy.h"
 #include "Widget.h"
-#include "XSSAuditor.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
+
+#if PLATFORM(QT)
+#include <QScriptEngine>
+#endif
 
 namespace WebCore {
 
@@ -88,19 +95,14 @@ Frame* ScriptController::retrieveFrameForCurrentContext()
     return V8Proxy::retrieveFrameForCurrentContext();
 }
 
+bool ScriptController::canAccessFromCurrentOrigin(Frame *frame)
+{
+    return !v8::Context::InContext() || V8BindingSecurity::canAccessFrame(V8BindingState::Only(), frame, true);
+}
+
 bool ScriptController::isSafeScript(Frame* target)
 {
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), target, true);
-}
-
-void ScriptController::gcProtectJSWrapper(void* domObject)
-{
-    V8GCController::gcProtect(domObject);
-}
-
-void ScriptController::gcUnprotectJSWrapper(void* domObject)
-{
-    V8GCController::gcUnprotect(domObject);
 }
 
 ScriptController::ScriptController(Frame* frame)
@@ -109,11 +111,11 @@ ScriptController::ScriptController(Frame* frame)
     , m_inExecuteScript(false)
     , m_processingTimerCallback(false)
     , m_paused(false)
-    , m_proxy(new V8Proxy(frame))
+    , m_allowPopupsFromPlugin(false)
+    , m_proxy(adoptPtr(new V8Proxy(frame)))
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_windowScriptNPObject(0)
 #endif
-    , m_XSSAuditor(new XSSAuditor(frame))
 {
 }
 
@@ -152,13 +154,13 @@ void ScriptController::updatePlatformScriptObjects()
     notImplemented();
 }
 
-bool ScriptController::processingUserGesture(DOMWrapperWorld*) const
+bool ScriptController::processingUserGesture()
 {
     Frame* activeFrame = V8Proxy::retrieveFrameForEnteredContext();
     // No script is running, so it is user-initiated unless the gesture stack
     // explicitly says it is not.
     if (!activeFrame)
-        return UserGestureIndicator::processingUserGesture();
+        return UserGestureIndicator::getUserGestureState() != DefinitelyNotProcessingUserGesture;
 
     V8Proxy* activeProxy = activeFrame->script()->proxy();
 
@@ -173,39 +175,35 @@ bool ScriptController::processingUserGesture(DOMWrapperWorld*) const
     v8::Context::Scope scope(v8Context);
 
     v8::Handle<v8::Object> global = v8Context->Global();
-    v8::Handle<v8::Value> jsEvent = global->Get(v8::String::NewSymbol("event"));
+    v8::Handle<v8::String> eventSymbol = V8HiddenPropertyName::event();
+    v8::Handle<v8::Value> jsEvent = global->GetHiddenValue(eventSymbol);
     Event* event = V8DOMWrapper::isValidDOMObject(jsEvent) ? V8Event::toNative(v8::Handle<v8::Object>::Cast(jsEvent)) : 0;
 
-    // Based on code from kjs_bindings.cpp.
+    // Based on code from JSC's ScriptController::processingUserGesture.
     // Note: This is more liberal than Firefox's implementation.
     if (event) {
-        if (!UserGestureIndicator::processingUserGesture())
-            return false;
-
-        const AtomicString& type = event->type();
-        bool eventOk =
-            // mouse events
-            type == eventNames().clickEvent || type == eventNames().mousedownEvent || type == eventNames().mouseupEvent || type == eventNames().dblclickEvent
-            // keyboard events
-            || type == eventNames().keydownEvent || type == eventNames().keypressEvent || type == eventNames().keyupEvent
-            // other accepted events
-            || type == eventNames().selectEvent || type == eventNames().changeEvent || type == eventNames().focusEvent || type == eventNames().blurEvent || type == eventNames().submitEvent;
-
-        if (eventOk)
-            return true;
-    } else if (m_sourceURL && m_sourceURL->isNull() && !activeProxy->timerCallback()) {
+        // Event::fromUserGesture will return false when UserGestureIndicator::processingUserGesture() returns false.
+        return event->fromUserGesture();
+    }
+    // FIXME: We check the javascript anchor navigation from the last entered
+    // frame becuase it should only be initiated on the last entered frame in
+    // which execution began if it does happen.    
+    const String* sourceURL = activeFrame->script()->sourceURL();
+    if (sourceURL && sourceURL->isNull() && !activeProxy->timerCallback()) {
         // This is the <a href="javascript:window.open('...')> case -> we let it through.
         return true;
     }
-
+    if (activeFrame->script()->allowPopupsFromPlugin())
+        return true;
     // This is the <script>window.open(...)</script> case or a timer callback -> block it.
-    return false;
+    // Based on JSC version, use returned value of UserGestureIndicator::processingUserGesture for all other situations. 
+    return UserGestureIndicator::processingUserGesture();
 }
 
 bool ScriptController::anyPageIsProcessingUserGesture() const
 {
     // FIXME: is this right?
-    return processingUserGesture();
+    return ScriptController::processingUserGesture();
 }
 
 void ScriptController::evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>& sources)
@@ -219,16 +217,11 @@ void ScriptController::evaluateInIsolatedWorld(unsigned worldID, const Vector<Sc
 }
 
 // Evaluate a script file in the environment of this proxy.
-ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode, ShouldAllowXSS shouldAllowXSS)
+ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
 {
     String sourceURL = sourceCode.url();
     const String* savedSourceURL = m_sourceURL;
     m_sourceURL = &sourceURL;
-
-    if (!shouldAllowXSS && !m_XSSAuditor->canEvaluate(sourceCode.source())) {
-        // This script is not safe to be evaluated.
-        return ScriptValue();
-    }
 
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_proxy->frame());
@@ -247,15 +240,18 @@ ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode, Shoul
 
     m_sourceURL = savedSourceURL;
 
-    if (object.IsEmpty() || object->IsUndefined())
+    if (object.IsEmpty())
         return ScriptValue();
 
     return ScriptValue(object);
 }
 
-void ScriptController::setEventHandlerLineNumber(int lineNumber)
+TextPosition0 ScriptController::eventHandlerPosition() const
 {
-    m_proxy->setEventHandlerLineNumber(lineNumber);
+    ScriptableDocumentParser* parser = m_frame->document()->scriptableDocumentParser();
+    if (parser)
+        return parser->textPosition();
+    return TextPosition0::minimumPosition();
 }
 
 void ScriptController::finishedWithEvent(Event* event)
@@ -284,13 +280,19 @@ void ScriptController::bindToWindowObject(Frame* frame, const String& key, NPObj
 void ScriptController::collectGarbage()
 {
     v8::HandleScope handleScope;
-    v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_proxy->frame());
+
+    v8::Persistent<v8::Context> v8Context = v8::Context::New();
     if (v8Context.IsEmpty())
         return;
-
-    v8::Context::Scope scope(v8Context);
-
-    m_proxy->evaluate(ScriptSourceCode("if (window.gc) void(gc());"), 0);
+    {
+        v8::Context::Scope scope(v8Context);
+        v8::Local<v8::String> source = v8::String::New("if (gc) gc();");
+        v8::Local<v8::String> name = v8::String::New("gc");
+        v8::Handle<v8::Script> script = v8::Script::Compile(source, name);
+        if (!script.IsEmpty())
+            script->Run();
+    }
+    v8Context.Dispose();
 }
 
 void ScriptController::lowMemoryNotification()
@@ -301,6 +303,18 @@ void ScriptController::lowMemoryNotification()
 bool ScriptController::haveInterpreter() const
 {
     return m_proxy->windowShell()->isContextInitialized();
+}
+
+void ScriptController::disableEval()
+{
+    m_proxy->windowShell()->initContextIfNeeded();
+
+    v8::HandleScope handleScope;
+    v8::Handle<v8::Context> v8Context = V8Proxy::mainWorldContext(m_frame);
+    if (v8Context.IsEmpty())
+        return;
+
+    v8Context->AllowCodeGenerationFromStrings(false);
 }
 
 PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widget)
@@ -431,13 +445,20 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
 }
 
 
-void ScriptController::clearWindowShell()
+void ScriptController::clearWindowShell(bool)
 {
     // V8 binding expects ScriptController::clearWindowShell only be called
     // when a frame is loading a new page. V8Proxy::clearForNavigation
     // creates a new context for the new page.
     m_proxy->clearForNavigation();
 }
+
+#if ENABLE(INSPECTOR)
+void ScriptController::setCaptureCallStackForUncaughtExceptions(bool value)
+{
+    v8::V8::SetCaptureStackTraceForUncaughtExceptions(value, ScriptCallStack::maxCallStackSizeToCapture, stackTraceOptions);
+}
+#endif
 
 void ScriptController::attachDebugger(void*)
 {
@@ -447,6 +468,16 @@ void ScriptController::attachDebugger(void*)
 void ScriptController::updateDocument()
 {
     m_proxy->windowShell()->updateDocument();
+}
+
+void ScriptController::namedItemAdded(HTMLDocument* doc, const AtomicString& name)
+{
+    m_proxy->windowShell()->namedItemAdded(doc, name);
+}
+
+void ScriptController::namedItemRemoved(HTMLDocument* doc, const AtomicString& name)
+{
+    m_proxy->windowShell()->namedItemRemoved(doc, name);
 }
 
 } // namespace WebCore

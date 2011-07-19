@@ -264,5 +264,5 @@ int	 writeback(FILE *);
 extern char *__progname;
 extern char *tmpdir;
 
-#endif EXTERN_H
+#endif /* EXTERN_H */
 

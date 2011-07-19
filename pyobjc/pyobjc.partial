@@ -1,0 +1,16 @@
+<dict>
+	<key>OpenSourceProject</key>
+	<string>pyobjc</string>
+	<key>OpenSourceVersion</key>
+	<string>2.3.2a0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://pyobjc.sourceforge.net/</string>
+	<key>OpenSourceImportDate</key>
+	<string>2011-02-08</string>
+	<key>OpenSourceSVN</key>
+	<string>https://svn.red-bean.com/pyobjc/branches/pyobjc-2.3.x</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>pyobjc.txt</string>
+</dict>

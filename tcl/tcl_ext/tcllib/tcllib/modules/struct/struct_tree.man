@@ -3,6 +3,7 @@
 [copyright {2002-2004 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate tree objects}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require struct::tree [opt 2.1.1]]
 [require struct::list [opt 1.5]]
@@ -774,7 +775,7 @@ The superfluous option [option -command] has been removed.
 [item]
 
 Ditto for the place holders. Instead of the placeholders two loop
-variables have to be specified to contain node and action infromation.
+variables have to be specified to contain node and action information.
 
 [item]
 
@@ -786,7 +787,9 @@ was in the past too.
 The fact that [const enter] actions are called before the walker looks
 at the children of a node has been documented now. In other words it
 is now officially allowed to manipulate the list of children for a
-node under [emph these] circumstances. It has been made clear that changes under any other circumstances will have undefined results, from silently computing the wrong result to erroring out.
+node under [emph these] circumstances. It has been made clear that
+changes under any other circumstances will have undefined results,
+from silently computing the wrong result to erroring out.
 
 [list_end]
 
@@ -801,7 +804,6 @@ The method [method children] has been extended with the ability to
 select from the children of the node based on an arbitrary filtering
 criterium. Another extension is the ability to look not only at the
 immediate children of the node, but the whole tree below it.
-
 
 [list_end]
 

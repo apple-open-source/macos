@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 struct objc_selector; struct objc_class;
 #ifndef OBJC_SUPER
 struct objc_super { struct objc_object *object; struct objc_object *superClass; objc_super(struct objc_object *o, struct objc_object *s) : object(o), superClass(s) {} };

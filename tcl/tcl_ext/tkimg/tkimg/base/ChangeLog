@@ -1,3 +1,8 @@
+2010-04-09  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Make all of Tk's stub table entries available to tkImg,
+	  no matter what Tk version we are compiling against.
+
 2008-11-14  Andreas Kupries  <andreask@activestate.com>
 
 	* tkImgUtils.c: Fixed syntax error reported by MSVC.

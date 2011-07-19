@@ -105,6 +105,8 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 
 #ifdef USE_BSM_AUDIT
 #include <bsm/libbsm.h>
+#include <bsm/audit.h>
+#include <bsm/audit_session.h>
 #include <bsm/audit_uevents.h>
 #endif
 
@@ -127,7 +129,7 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login.c,v 1.106 2007/07/04 00:00:40 scf Ex
 #include "pathnames.h"
 
 #ifdef USE_PAM
-static int		 auth_pam(void);
+static int		 auth_pam(int skip_auth);
 #endif /* USE_PAM */
 static void		 bail(int, int);
 #ifdef USE_PAM
@@ -228,7 +230,7 @@ static struct lastlogx lastlog;
 #endif /* USE_PAM */
 
 #ifdef USE_BSM_AUDIT
-au_tid_t tid;
+extern au_tid_addr_t tid;
 #endif /* USE_BSM_AUDIT */
 #endif /* __APPLE__ */
 
@@ -386,16 +388,19 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 #ifdef USE_BSM_AUDIT
 	/* Set the terminal id */
-	audit_set_terminal_id(&tid);
+	au_tid_t old_tid;
+	audit_set_terminal_id(&old_tid);
+	tid.at_type = AU_IPv4;
+	tid.at_addr[0] = old_tid.machine;
 	if (fstat(STDIN_FILENO, &st) < 0) {
 		fprintf(stderr, "login: Unable to stat terminal\n");
 		au_login_fail("Unable to stat terminal", 1);
 		exit(-1);
 	}
 	if (S_ISCHR(st.st_mode)) {
-		tid.port = st.st_rdev;
+		tid.at_port = st.st_rdev;
 	} else {
-		tid.port = 0;
+		tid.at_port = 0;
 	}
 #endif /* USE_BSM_AUDIT */
 #endif /* __APPLE__ */
@@ -483,8 +488,11 @@ main(int argc, char *argv[])
 		 */
 		if (pwd != NULL && fflag &&
 		    (uid == (uid_t)0 || uid == (uid_t)pwd->pw_uid)) {
-			/* already authenticated */
+#ifdef USE_PAM
+			rval = auth_pam(fflag);
+#else
 			rval = 0;
+#endif /* USE_PAM */
 #ifdef USE_BSM_AUDIT
 			auditsuccess = 0; /* opened a terminal window only */
 #endif
@@ -500,7 +508,7 @@ main(int argc, char *argv[])
 			fflag = 0;
 			(void)setpriority(PRIO_PROCESS, 0, -4);
 #ifdef USE_PAM
-			rval = auth_pam();
+			rval = auth_pam(fflag);
 #else
 		{
 			char* salt = pwd->pw_passwd;
@@ -585,7 +593,7 @@ main(int argc, char *argv[])
 #ifdef USE_BSM_AUDIT
 	/* Audit successful login. */
 	if (auditsuccess)
-		au_login_success();
+		au_login_success(fflag);
 #endif
 
 #ifdef LOGIN_CAP
@@ -778,12 +786,14 @@ main(int argc, char *argv[])
 	}
 #endif /* !__APPLE__ */
 #ifdef USE_PAM
-	pam_err = pam_setcred(pamh, pam_silent|PAM_ESTABLISH_CRED);
-	if (pam_err != PAM_SUCCESS) {
-		pam_syslog("pam_setcred()");
-		bail(NO_SLEEP_EXIT, 1);
+	if (!fflag) {
+		pam_err = pam_setcred(pamh, pam_silent|PAM_ESTABLISH_CRED);
+		if (pam_err != PAM_SUCCESS) {
+			pam_syslog("pam_setcred()");
+			bail(NO_SLEEP_EXIT, 1);
+		}
+		pam_cred_established = 1;
 	}
-	pam_cred_established = 1;
 
 	pam_err = pam_open_session(pamh, pam_silent);
 	if (pam_err != PAM_SUCCESS) {
@@ -872,7 +882,6 @@ main(int argc, char *argv[])
 	(void)setgid(pwd->pw_gid);
 	if (initgroups(username, pwd->pw_gid) == -1)
 		syslog(LOG_ERR, "login: initgroups() failed");
-	pwd = getpwnam(username); // 7258548
 	(void) setuid(rootlogin ? 0 : pwd->pw_uid);		
 #else /* !__APPLE__ */
 	if (setusercontext(lc, pwd, pwd->pw_uid,
@@ -907,7 +916,7 @@ main(int argc, char *argv[])
 	if (pwd->pw_shell) {
 		(void)setenv("SHELL", pwd->pw_shell, 1);
 	} else {
-		syslog(LOG_ERR, "pwd->pw_shell not set - exiting", username);
+		syslog(LOG_ERR, "pwd->pw_shell not set - exiting");
 		bail(NO_SLEEP_EXIT, 1);
 	}
 	if (pwd->pw_dir) {
@@ -964,7 +973,7 @@ main(int argc, char *argv[])
 		  break;
 		}
 	} while (0);
-#endif __APPLE__
+#endif /* __APPLE__ */
 
 	if (!quietlog) {
 #ifdef LOGIN_CAP
@@ -1058,54 +1067,59 @@ main(int argc, char *argv[])
  * fall back to a different authentication mechanism.
  */
 static int
-auth_pam(void)
+auth_pam(int skip_auth)
 {
 	const char *tmpl_user;
 	const void *item;
 	int rval;
 
-	pam_err = pam_authenticate(pamh, pam_silent);
-	switch (pam_err) {
+	rval = 0;
+	
+	if (skip_auth == 0)
+	{
+		pam_err = pam_authenticate(pamh, pam_silent);
+		switch (pam_err) {
 
-	case PAM_SUCCESS:
-		/*
-		 * With PAM we support the concept of a "template"
-		 * user.  The user enters a login name which is
-		 * authenticated by PAM, usually via a remote service
-		 * such as RADIUS or TACACS+.  If authentication
-		 * succeeds, a different but related "template" name
-		 * is used for setting the credentials, shell, and
-		 * home directory.  The name the user enters need only
-		 * exist on the remote authentication server, but the
-		 * template name must be present in the local password
-		 * database.
-		 *
-		 * This is supported by two various mechanisms in the
-		 * individual modules.  However, from the application's
-		 * point of view, the template user is always passed
-		 * back as a changed value of the PAM_USER item.
-		 */
-		pam_err = pam_get_item(pamh, PAM_USER, &item);
-		if (pam_err == PAM_SUCCESS) {
-			tmpl_user = (const char *)item;
-			if (strcmp(username, tmpl_user) != 0)
-				pwd = getpwnam(tmpl_user);
-		} else {
-			pam_syslog("pam_get_item(PAM_USER)");
+		case PAM_SUCCESS:
+			/*
+			 * With PAM we support the concept of a "template"
+			 * user.  The user enters a login name which is
+			 * authenticated by PAM, usually via a remote service
+			 * such as RADIUS or TACACS+.  If authentication
+			 * succeeds, a different but related "template" name
+			 * is used for setting the credentials, shell, and
+			 * home directory.  The name the user enters need only
+			 * exist on the remote authentication server, but the
+			 * template name must be present in the local password
+			 * database.
+			 *
+			 * This is supported by two various mechanisms in the
+			 * individual modules.  However, from the application's
+			 * point of view, the template user is always passed
+			 * back as a changed value of the PAM_USER item.
+			 */
+			pam_err = pam_get_item(pamh, PAM_USER, &item);
+			if (pam_err == PAM_SUCCESS) {
+				tmpl_user = (const char *)item;
+				if (strcmp(username, tmpl_user) != 0)
+					pwd = getpwnam(tmpl_user);
+			} else {
+				pam_syslog("pam_get_item(PAM_USER)");
+			}
+			rval = 0;
+			break;
+
+		case PAM_AUTH_ERR:
+		case PAM_USER_UNKNOWN:
+		case PAM_MAXTRIES:
+			rval = 1;
+			break;
+
+		default:
+			pam_syslog("pam_authenticate()");
+			rval = -1;
+			break;
 		}
-		rval = 0;
-		break;
-
-	case PAM_AUTH_ERR:
-	case PAM_USER_UNKNOWN:
-	case PAM_MAXTRIES:
-		rval = 1;
-		break;
-
-	default:
-		pam_syslog("pam_authenticate()");
-		rval = -1;
-		break;
 	}
 
 	if (rval == 0) {
@@ -1114,11 +1128,18 @@ auth_pam(void)
 		case PAM_SUCCESS:
 			break;
 		case PAM_NEW_AUTHTOK_REQD:
-			pam_err = pam_chauthtok(pamh,
-			    pam_silent|PAM_CHANGE_EXPIRED_AUTHTOK);
-			if (pam_err != PAM_SUCCESS) {
-				pam_syslog("pam_chauthtok()");
-				rval = 1;
+			if (skip_auth == 0)
+			{
+				pam_err = pam_chauthtok(pamh,
+				    pam_silent|PAM_CHANGE_EXPIRED_AUTHTOK);
+				if (pam_err != PAM_SUCCESS) {
+					pam_syslog("pam_chauthtok()");
+					rval = 1;
+				}
+			}
+			else
+			{
+				pam_syslog("pam_acct_mgmt()");
 			}
 			break;
 		default:

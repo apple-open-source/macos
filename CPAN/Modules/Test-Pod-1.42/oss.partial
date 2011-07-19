@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Test-Pod</string>
+        <key>OpenSourceVersion</key>
+        <string>1.42</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DW/DWHEELER/Test-Pod-1.42.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-03-15</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

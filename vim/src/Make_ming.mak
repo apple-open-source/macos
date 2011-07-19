@@ -104,6 +104,23 @@ PERLLIB=$(PERL)/lib
 PERLLIBS=$(PERLLIB)/Core
 endif
 
+# uncomment 'LUA' if you want a Lua-enabled version
+#LUA=/usr/local
+ifdef LUA
+ifndef DYNAMIC_LUA
+DYNAMIC_LUA=yes
+endif
+
+ifndef LUA_VER
+LUA_VER=51
+endif
+
+ifeq (no,$(DYNAMIC_LUA))
+LUA_LIB = -L$(LUA)/lib -llua
+endif
+
+endif
+
 # uncomment 'MZSCHEME' if you want a MzScheme-enabled version
 #MZSCHEME=d:/plt
 ifdef MZSCHEME
@@ -115,14 +132,27 @@ ifndef MZSCHEME_VER
 MZSCHEME_VER=205_000
 endif
 
+ifndef MZSCHEME_PRECISE_GC
+MZSCHEME_PRECISE_GC=no
+endif
+
+# for version 4.x we need to generate byte-code for Scheme base
+ifndef MZSCHEME_GENERATE_BASE
+MZSCHEME_GENERATE_BASE=no
+endif
+
 ifeq (no,$(DYNAMIC_MZSCHEME))
+ifeq (yes,$(MZSCHEME_PRECISE_GC))
+MZSCHEME_LIB=-lmzsch$(MZSCHEME_VER)
+else
 MZSCHEME_LIB = -lmzsch$(MZSCHEME_VER) -lmzgc$(MZSCHEME_VER)
+endif
 # the modern MinGW can dynamically link to dlls directly.
 # point MZSCHEME_DLLS to where you put libmzschXXXXXXX.dll and libgcXXXXXXX.dll
 ifndef MZSCHEME_DLLS
 MZSCHEME_DLLS=$(MZSCHEME)
 endif
-MZSCHEME_LIBDIR=-L$(MZSCHEME_DLLS)
+MZSCHEME_LIBDIR=-L$(MZSCHEME_DLLS) -L$(MZSCHEME_DLLS)\lib
 endif
 
 endif
@@ -164,6 +194,28 @@ PYTHONINC=-I $(PYTHON)/win32inc
 endif
 endif
 
+#PYTHON3: See comment for Python 2 above
+
+ifdef PYTHON3
+ifndef DYNAMIC_PYTHON3
+DYNAMIC_PYTHON3=yes
+endif
+
+ifndef PYTHON3_VER
+PYTHON3_VER=31
+endif
+
+ifeq (no,$(DYNAMIC_PYTHON3))
+PYTHON3LIB=-L$(PYTHON3)/libs -lPYTHON$(PYTHON3_VER)
+endif
+
+ifeq ($(CROSS),no)
+PYTHON3INC=-I $(PYTHON3)/include
+else
+PYTHON3INC=-I $(PYTHON3)/win32inc
+endif
+endif
+
 #	TCL interface:
 #	  TCL=[Path to TCL directory]
 #	  DYNAMIC_TCL=yes (to load the TCL DLL dynamically)
@@ -199,23 +251,27 @@ ifndef RUBY_VER_LONG
 RUBY_VER_LONG = 1.6
 endif
 
+ifndef RUBY_PLATFORM
 ifeq ($(RUBY_VER), 16)
-ifndef RUBY_PLATFORM
 RUBY_PLATFORM = i586-mswin32
-endif
-ifndef RUBY_INSTALL_NAME
-RUBY_INSTALL_NAME = mswin32-ruby$(RUBY_VER)
-endif
 else
-ifndef RUBY_PLATFORM
+ifneq ($(wildcard $(RUBY)/lib/ruby/$(RUBY_VER_LONG)/i386-mingw32),)
+RUBY_PLATFORM = i386-mingw32
+else
 RUBY_PLATFORM = i386-mswin32
 endif
+endif
+endif
+
 ifndef RUBY_INSTALL_NAME
+ifeq ($(RUBY_VER), 16)
+RUBY_INSTALL_NAME = mswin32-ruby$(RUBY_VER)
+else
 RUBY_INSTALL_NAME = msvcrt-ruby$(RUBY_VER)
 endif
 endif
 
-RUBYINC =-I $(RUBY)/lib/ruby/$(RUBY_VER_LONG)/$(RUBY_PLATFORM)
+RUBYINC =-I $(RUBY)/lib/ruby/$(RUBY_VER_LONG)/$(RUBY_PLATFORM) -I $(RUBY)/include/ruby-$(RUBY_VER_LONG) -I $(RUBY)/include/ruby-$(RUBY_VER_LONG)/$(RUBY_PLATFORM)
 ifeq (no, $(DYNAMIC_RUBY))
 RUBYLIB = -L$(RUBY)/lib -l$(RUBY_INSTALL_NAME)
 endif
@@ -228,14 +284,14 @@ DEF_GUI=-DFEAT_GUI_W32 -DFEAT_CLIPBOARD
 DEFINES=-DWIN32 -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER) \
 	-DHAVE_PATHDEF -DFEAT_$(FEATURES)
 ifeq ($(CROSS),yes)
-# cross-compiler:
-CC = i586-pc-mingw32msvc-gcc
+# cross-compiler prefix:
+CROSS_COMPILE = i586-pc-mingw32msvc-
 DEL = rm
 MKDIR = mkdir -p
-WINDRES = i586-pc-mingw32msvc-windres
+DIRSLASH = /
 else
 # normal (Windows) compilation:
-CC = gcc
+CROSS_COMPILE =
 ifneq (sh.exe, $(SHELL))
 DEL = rm
 MKDIR = mkdir -p
@@ -245,8 +301,9 @@ DEL = del
 MKDIR = mkdir
 DIRSLASH = \\
 endif
-WINDRES = windres
 endif
+CC := $(CROSS_COMPILE)gcc
+WINDRES := $(CROSS_COMPILE)windres
 
 #>>>>> end of choices
 ###########################################################################
@@ -276,6 +333,13 @@ CFLAGS += -DDYNAMIC_PERL -DDYNAMIC_PERL_DLL=\"perl$(PERL_VER).dll\"
 endif
 endif
 
+ifdef LUA
+CFLAGS += -I$(LUA)/include -DFEAT_LUA
+ifeq (yes, $(DYNAMIC_LUA))
+CFLAGS += -DDYNAMIC_LUA -DDYNAMIC_LUA_DLL=\"lua$(LUA_VER).dll\"
+endif
+endif
+
 ifdef MZSCHEME
 CFLAGS += -I$(MZSCHEME)/include -DFEAT_MZSCHEME -DMZSCHEME_COLLECTS=\"$(MZSCHEME)/collects\"
 ifeq (yes, $(DYNAMIC_MZSCHEME))
@@ -292,9 +356,16 @@ endif
 endif
 
 ifdef PYTHON
-CFLAGS += -DFEAT_PYTHON $(PYTHONINC)
+CFLAGS += -DFEAT_PYTHON 
 ifeq (yes, $(DYNAMIC_PYTHON))
-CFLAGS += -DDYNAMIC_PYTHON -DDYNAMIC_PYTHON_DLL=\"python$(PYTHON_VER).dll\"
+CFLAGS += -DDYNAMIC_PYTHON
+endif
+endif
+
+ifdef PYTHON3 
+CFLAGS += -DFEAT_PYTHON3 
+ifeq (yes, $(DYNAMIC_PYTHON3))
+CFLAGS += -DDYNAMIC_PYTHON3 
 endif
 endif
 
@@ -357,6 +428,7 @@ endif
 LIB = -lkernel32 -luser32 -lgdi32 -ladvapi32 -lcomdlg32 -lcomctl32 -lversion
 GUIOBJ =  $(OUTDIR)/gui.o $(OUTDIR)/gui_w32.o $(OUTDIR)/gui_beval.o $(OUTDIR)/os_w32exe.o
 OBJ = \
+	$(OUTDIR)/blowfish.o \
 	$(OUTDIR)/buffer.o \
 	$(OUTDIR)/charset.o \
 	$(OUTDIR)/diff.o \
@@ -394,6 +466,7 @@ OBJ = \
 	$(OUTDIR)/regexp.o \
 	$(OUTDIR)/screen.o \
 	$(OUTDIR)/search.o \
+	$(OUTDIR)/sha256.o \
 	$(OUTDIR)/spell.o \
 	$(OUTDIR)/syntax.o \
 	$(OUTDIR)/tag.o \
@@ -407,12 +480,25 @@ OBJ = \
 ifdef PERL
 OBJ += $(OUTDIR)/if_perl.o
 endif
+ifdef LUA
+OBJ += $(OUTDIR)/if_lua.o
+endif
 ifdef MZSCHEME
 OBJ += $(OUTDIR)/if_mzsch.o
 MZSCHEME_INCL = if_mzsch.h
+ifeq (yes,$(MZSCHEME_GENERATE_BASE))
+CFLAGS += -DINCLUDE_MZSCHEME_BASE
+MZ_EXTRA_DEP += mzscheme_base.c
+endif
+ifeq (yes,$(MZSCHEME_PRECISE_GC))
+CFLAGS += -DMZ_PRECISE_GC
+endif
 endif
 ifdef PYTHON
 OBJ += $(OUTDIR)/if_python.o
+endif
+ifdef PYTHON3
+OBJ += $(OUTDIR)/if_python3.o
 endif
 ifdef RUBY
 OBJ += $(OUTDIR)/if_ruby.o
@@ -522,17 +608,17 @@ uninstal.exe: uninstal.c
 	$(CC) $(CFLAGS) -o uninstal.exe uninstal.c $(LIB)
 
 $(TARGET): $(OUTDIR) $(OBJ)
-	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ) $(LIB) -lole32 -luuid $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(RUBYLIB)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)
 
 upx: exes
 	upx gvim.exe
 	upx vim.exe
 
 xxd/xxd.exe: xxd/xxd.c
-	$(MAKE) -C xxd -f Make_cyg.mak
+	$(MAKE) -C xxd -f Make_cyg.mak CC=$(CC)
 
 GvimExt/gvimext.dll: GvimExt/gvimext.cpp GvimExt/gvimext.rc GvimExt/gvimext.h
-	$(MAKE) -C GvimExt -f Make_ming.mak
+	$(MAKE) -C GvimExt -f Make_ming.mak CROSS=$(CROSS) CROSS_COMPILE=$(CROSS_COMPILE)
 
 clean:
 	-$(DEL) $(OUTDIR)$(DIRSLASH)*.o
@@ -543,6 +629,9 @@ clean:
 ifdef PERL
 	-$(DEL) if_perl.c
 endif
+ifdef MZSCHEME
+	-$(DEL) mzscheme_base.c
+endif
 	$(MAKE) -C GvimExt -f Make_ming.mak clean
 	$(MAKE) -C xxd -f Make_cyg.mak clean
 
@@ -550,6 +639,12 @@ endif
 INCL = vim.h feature.h os_win32.h os_dos.h ascii.h keymap.h term.h macros.h \
 	structs.h regexp.h option.h ex_cmds.h proto.h globals.h farsi.h \
 	gui.h
+
+$(OUTDIR)/if_python.o : if_python.c $(INCL)
+	$(CC) -c $(CFLAGS) $(PYTHONINC) -DDYNAMIC_PYTHON_DLL=\"python$(PYTHON_VER).dll\" $< -o $@
+
+$(OUTDIR)/if_python3.o : if_python3.c $(INCL)
+	$(CC) -c $(CFLAGS) $(PYTHON3INC) -DDYNAMIC_PYTHON3_DLL=\"PYTHON$(PYTHON3_VER).dll\" $< -o $@
 
 $(OUTDIR)/%.o : %.c $(INCL)
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -588,6 +683,12 @@ if_perl.c: if_perl.xs typemap
 $(OUTDIR)/netbeans.o:	netbeans.c $(INCL) $(NBDEBUG_INCL) $(NBDEBUG_SRC)
 	$(CC) -c $(CFLAGS) netbeans.c -o $(OUTDIR)/netbeans.o
 
+$(OUTDIR)/if_mzsch.o:	if_mzsch.c $(INCL) if_mzsch.h $(MZ_EXTRA_DEP)
+	$(CC) -c $(CFLAGS) if_mzsch.c -o $(OUTDIR)/if_mzsch.o
+
+mzscheme_base.c:
+	$(MZSCHEME)/mzc --c-mods mzscheme_base.c ++lib scheme/base
+
 pathdef.c: $(INCL)
 ifneq (sh.exe, $(SHELL))
 	@echo creating pathdef.c
@@ -596,7 +697,7 @@ ifneq (sh.exe, $(SHELL))
 	@echo 'char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)";' >> pathdef.c
 	@echo 'char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)";' >> pathdef.c
 	@echo 'char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)";' >> pathdef.c
-	@echo 'char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(RUBYLIB)";' >> pathdef.c
+	@echo 'char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)";' >> pathdef.c
 	@echo 'char_u *compiled_user = (char_u *)"$(USERNAME)";' >> pathdef.c
 	@echo 'char_u *compiled_sys = (char_u *)"$(USERDOMAIN)";' >> pathdef.c
 else
@@ -606,7 +707,7 @@ else
 	@echo char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)"; >> pathdef.c
 	@echo char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)"; >> pathdef.c
 	@echo char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)"; >> pathdef.c
-	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(RUBYLIB)"; >> pathdef.c
+	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)"; >> pathdef.c
 	@echo char_u *compiled_user = (char_u *)"$(USERNAME)"; >> pathdef.c
 	@echo char_u *compiled_sys = (char_u *)"$(USERDOMAIN)"; >> pathdef.c
 endif

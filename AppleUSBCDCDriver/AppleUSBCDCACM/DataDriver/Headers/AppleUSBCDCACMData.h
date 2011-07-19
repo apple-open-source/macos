@@ -126,8 +126,9 @@ typedef struct
 {
     IOBufferMemoryDescriptor	*pipeMDP;
     UInt8			*pipeBuffer;
-//    SInt32			count;
+    SInt32			count;
     bool			dead;
+	bool			held;
     IOUSBCompletion		completionInfo;
 } inPipeBuffers;
 
@@ -152,6 +153,10 @@ typedef struct
 			
     CirQueue		RX;
     CirQueue		TX;
+
+	inPipeBuffers	*holdQueue[kMaxInBufPool];
+	UInt16			holdQueueIndxIn;
+	UInt16			holdQueueIndxOut;
 
     BufferMarks		RXStats;
     BufferMarks		TXStats;
@@ -224,6 +229,8 @@ private:
 	bool			fWoR;					// Wake on Ring flag
 	OSObject		*fWakeSettingControllerHandle;	// Wake setting handle
     
+    bool            fReady;                 // Are we ready to allow acquires
+    
     static void			dataReadComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
     static void			dataWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
 	
@@ -251,6 +258,8 @@ public:
 
 	UInt16			fVendorID;				// Vendor ID
     UInt16			fProductID;				// Product ID
+    
+    SInt16			fThreadSleepCount;		// Count of number of threads currently asleep on the command gate
 
 	UInt32				bsdClientState;
 	IONotifier *		bsdClientAddedNotifier;
@@ -260,7 +269,8 @@ public:
 	virtual IOService   *probe(IOService *provider, SInt32 *score);
     virtual bool		start(IOService *provider);
     virtual void		stop(IOService *provider);
-    virtual IOReturn 		message(UInt32 type, IOService *provider,  void *argument = 0);
+    virtual bool		didTerminate(IOService *provider, IOOptionBits options, bool *defer);
+    virtual IOReturn 	message(UInt32 type, IOService *provider,  void *argument = 0);
 
         // IOSerialDriverSync Abstract Method Implementation
 
@@ -327,6 +337,7 @@ public:
     bool			WakeonRing(void);
 	void			setWakeFeature(void);
 	void			resurrectRead(void);
+    virtual void    clearSleepingThreads(void);
 
 	OSString		*getPortNameForInterface(UInt8 interfaceNumber);
 
@@ -339,12 +350,14 @@ private:
     QueueStatus			InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);
     QueueStatus			CloseQueue(CirQueue *Queue);
     size_t 			AddtoQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size);
+	size_t			AddtoRXQueue(CirQueue *Queue, inPipeBuffers *buffs, size_t Size);
     size_t 			RemovefromQueue(CirQueue *Queue, UInt8 *Buffer, size_t MaxSize);
     size_t 			FreeSpaceinQueue(CirQueue *Queue);
     size_t 			UsedSpaceinQueue(CirQueue *Queue);
     size_t 			GetQueueSize(CirQueue *Queue);
     QueueStatus 		GetQueueStatus(CirQueue *Queue);
     void 			CheckQueues(void);
+	void			CheckHold(void);
     
 }; /* end class AppleUSBCDCACMData */
 

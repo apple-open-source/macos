@@ -105,7 +105,7 @@ y_entries()
 			while (GETC(!=, EOF) && (intoken(c) || c == '.'))
 				*sp++ = c;
 			*sp = EOS;
-			getline();		/* may change before ':' */
+			ct_getline();		/* may change before ':' */
 			while (iswhite(c)) {
 				if (c == '\n')
 					SETLINE;

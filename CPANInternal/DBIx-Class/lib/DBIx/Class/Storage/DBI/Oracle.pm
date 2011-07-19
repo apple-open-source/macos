@@ -4,11 +4,12 @@ use strict;
 use warnings;
 
 use base qw/DBIx::Class::Storage::DBI/;
+use mro 'c3';
 
 sub _rebless {
     my ($self) = @_;
 
-    my $version = eval { $self->_dbh->get_info(18); };
+    my $version = eval { $self->_get_dbh->get_info(18); };
 
     if ( !$@ ) {
         my ($major, $minor, $patchlevel) = split(/\./, $version);
@@ -18,24 +19,16 @@ sub _rebless {
           ? 'DBIx::Class::Storage::DBI::Oracle::WhereJoins'
           : 'DBIx::Class::Storage::DBI::Oracle::Generic';
 
-        # Load and rebless
-        eval "require $class";
-
-        bless $self, $class unless $@;
+        $self->ensure_class_loaded ($class);
+        bless $self, $class;
     }
 }
-
 
 1;
 
 =head1 NAME
 
 DBIx::Class::Storage::DBI::Oracle - Base class for Oracle driver
-
-=head1 SYNOPSIS
-
-  # In your table classes
-  __PACKAGE__->load_components(qw/Core/);
 
 =head1 DESCRIPTION
 

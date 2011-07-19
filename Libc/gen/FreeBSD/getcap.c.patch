@@ -1,15 +1,15 @@
---- getcap.c.orig	2003-05-20 15:21:01.000000000 -0700
-+++ getcap.c	2005-02-27 15:52:46.000000000 -0800
-@@ -40,6 +40,8 @@
+--- getcap.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ getcap.c	2009-11-07 14:51:40.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)getcap.c	8.3
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/gen/getcap.c,v 1.19 2003/01/02 10:19:43 thomas Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/gen/getcap.c,v 1.22 2009/05/14 23:09:33 delphij Exp $");
  
 +#include "xlocale_private.h"
 +
  #include "namespace.h"
  #include <sys/types.h>
  
-@@ -70,7 +72,7 @@
+@@ -66,7 +68,7 @@ static char	*toprec;	/* Additional recor
  static int	 gottoprec;	/* Flag indicating retrieval of toprecord */
  
  static int	cdbget(DB *, char **, const char *);
@@ -18,7 +18,7 @@
  static int	nfcmp(char *, char *);
  
  /*
-@@ -166,7 +168,7 @@
+@@ -162,7 +164,7 @@ cgetent(char **buf, char **db_array, con
  {
  	u_int dummy;
  
@@ -27,7 +27,7 @@
  }
  
  /*
-@@ -189,7 +191,7 @@
+@@ -185,7 +187,7 @@ cgetent(char **buf, char **db_array, con
   */
  static int
  getent(char **cap, u_int *len, char **db_array, int fd, const char *name,
@@ -36,7 +36,7 @@
  {
  	DB *capdbp;
  	char *r_end, *rp, **db_p;
-@@ -428,7 +430,7 @@
+@@ -426,7 +428,7 @@ tc_exp:	{
  			tcend = s;
  
  			iret = getent(&icap, &ilen, db_p, fd, tc, depth+1,
@@ -45,7 +45,7 @@
  			newicap = icap;		/* Put into a register. */
  			newilen = ilen;
  			if (iret != 0) {
-@@ -652,6 +654,7 @@
+@@ -650,6 +652,7 @@ cgetnext(char **bp, char **db_array)
  	int done, hadreaderr, i, savederrno, status;
  	char *cp, *line, *rp, *np, buf[BSIZE], nbuf[BSIZE];
  	u_int dummy;
@@ -53,7 +53,7 @@
  
  	if (dbp == NULL)
  		dbp = db_array;
-@@ -693,7 +696,7 @@
+@@ -691,7 +694,7 @@ cgetnext(char **bp, char **db_array)
  				slash = 0;
  				continue;
  			}
@@ -62,7 +62,7 @@
  			    *line == ':' || *line == '#' || slash) {
  				if (line[len - 2] == '\\')
  					slash = 1;
-@@ -765,7 +768,7 @@
+@@ -763,7 +766,7 @@ cgetnext(char **bp, char **db_array)
  		 * rather than the duplicate entry record.  This is a
  		 * matter of semantics that should be resolved.
  		 */

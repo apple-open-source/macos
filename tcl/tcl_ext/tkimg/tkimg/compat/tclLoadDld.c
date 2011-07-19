@@ -41,7 +41,7 @@ static int returnCode = 0;
 
 extern char *tclExecutableName;
 
-VOID *dlopen(path, mode)
+void *dlopen(path, mode)
     const char *path;
     int mode;
 {
@@ -55,42 +55,42 @@ VOID *dlopen(path, mode)
     returnCode = 0;
     if (firstTime) {
 	if (tclExecutableName == NULL) {
-	    return (VOID *) NULL;
+	    return (void *) NULL;
 	}
 	returnCode = dld_init(tclExecutableName);
 	if (returnCode != 0) {
-	    return (VOID *) NULL;
+	    return (void *) NULL;
 	}
 	firstTime = 0;
     }
 
     if ((path != NULL) && ((returnCode = dld_link(path)) != 0)) {
-	return (VOID *) NULL;
+	return (void *) NULL;
     }
 
-    return (VOID *) 1;
+    return (void *) 1;
 }
 
-VOID *
+void *
 dlsym(handle, symbol)
-    VOID *handle;
+    void *handle;
     const char *symbol;
 {
-    return (VOID *) dld_get_func(symbol);
+    return (void *) dld_get_func(symbol);
 }
 
 char *
 dlerror()
 {
     if (tclExecutableName == NULL) {
-	return "don't know name of application binary file, so can't initialize dynamic loader";
+	return (char *) "don't know name of application binary file, so can't initialize dynamic loader";
     }
     return dld_strerror(returnCode);
 }
 
 int
 dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
     return 0;
 }

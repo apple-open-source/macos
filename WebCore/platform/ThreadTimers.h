@@ -24,8 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef ThreadTimer_h
-#define ThreadTimer_h
+#ifndef ThreadTimers_h
+#define ThreadTimers_h
 
 #include <wtf/Noncopyable.h>
 #include <wtf/HashSet.h>
@@ -37,7 +37,8 @@ namespace WebCore {
     class TimerBase;
 
     // A collection of timers per thread. Kept in ThreadGlobalData.
-    class ThreadTimers : public Noncopyable {
+    class ThreadTimers {
+        WTF_MAKE_NONCOPYABLE(ThreadTimers); WTF_MAKE_FAST_ALLOCATED;
     public:
         ThreadTimers();
 

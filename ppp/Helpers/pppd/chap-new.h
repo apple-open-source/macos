@@ -133,17 +133,17 @@ struct chap_digest_type {
 		unsigned char *challenge, unsigned char *response,
 		char *message, int message_space);
 	void (*make_response)(unsigned char *response, int id, char *our_name,
-		unsigned char *challenge, char *secret, int secret_len,
+		unsigned char *challenge, u_char *secret, int secret_len,
 		unsigned char *priv);
 	int (*check_success)(unsigned char *pkt, int len, unsigned char *priv);
 	int (*handle_failure)(unsigned char *pkt, int len, char *message, int message_max_len);
 #ifdef __APPLE__
 	int (*make_change_password)(unsigned char *response, char *our_name,
-		unsigned char *status_pkt, char *secret, int secret_len, 
-		char *new_secret, int new_secret_len,
+		unsigned char *status_pkt, u_char *secret, int secret_len, 
+		u_char *new_secret, int new_secret_len,
 		unsigned char *priv);
 	int (*make_retry_password)(unsigned char *response, char *our_name,
-		unsigned char *status_pkt, char *secret, int secret_len, 
+		unsigned char *status_pkt, u_char *secret, int secret_len, 
 		unsigned char *priv);
 #endif
 
@@ -151,7 +151,7 @@ struct chap_digest_type {
 };
 
 /* Hook for a plugin to validate CHAP challenge */
-extern int (*chap_verify_hook)(char *name, char *ourname, int id,
+extern int (*chap_verify_hook)(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space);

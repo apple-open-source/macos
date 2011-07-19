@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1999-2005, 2007 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999-2005, 2007, 2009, 2010
+ *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -29,11 +30,10 @@
 #include <stdio.h>
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #include <ctype.h>
 #include <limits.h>
 #ifdef HAVE_UNISTD_H
@@ -53,33 +53,29 @@
 # define LINE_MAX 2048
 #endif
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: fileops.c,v 1.16 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
-
 /*
  * Update the access and modify times on an fd or file.
  */
 int
-touch(fd, path, tsp)
+touch(fd, path, tvp)
     int fd;
     char *path;
-    struct timespec *tsp;
+    struct timeval *tvp;
 {
     struct timeval times[2];
 
-    if (tsp != NULL) {
-	times[0].tv_sec = times[1].tv_sec = tsp->tv_sec;
-	times[0].tv_usec = times[1].tv_usec = tsp->tv_nsec / 1000;
+    if (tvp != NULL) {
+	times[0].tv_sec = times[1].tv_sec = tvp->tv_sec;
+	times[0].tv_usec = times[1].tv_usec = tvp->tv_usec;
     }
 
 #if defined(HAVE_FUTIME) || defined(HAVE_FUTIMES)
     if (fd != -1)
-	return(futimes(fd, tsp ? times : NULL));
+	return(futimes(fd, tvp ? times : NULL));
     else
 #endif
     if (path != NULL)
-	return(utimes(path, tsp ? times : NULL));
+	return(utimes(path, tvp ? times : NULL));
     else
 	return(-1);
 }
@@ -144,7 +140,7 @@ lock_file(fd, lockit)
     lock.l_pid = getpid();
     lock.l_type = (lockit == SUDO_UNLOCK) ? F_UNLCK : F_WRLCK;
     lock.l_whence = SEEK_SET;
-    func = (lockit == SUDO_TLOCK) ? F_SETLK : F_SETLKW;
+    func = (lockit == SUDO_LOCK) ? F_SETLKW : F_SETLK;
 
     return(fcntl(fd, func, &lock) == 0);
 #else
@@ -172,7 +168,7 @@ sudo_parseln(fp)
 
 	/* Trim leading and trailing whitespace/newline */
 	len = strlen(buf);
-	while (len > 0 && isspace(buf[len - 1]))
+	while (len > 0 && isspace((unsigned char)buf[len - 1]))
 	    buf[--len] = '\0';
 	for (cp = buf; isblank(*cp); cp++)
 	    continue;

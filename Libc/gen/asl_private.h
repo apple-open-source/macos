@@ -1,33 +1,37 @@
 /*
- * Copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 2007 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef __ASL_PRIVATE_H__
+#define __ASL_PRIVATE_H__
+
 #include <stdint.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-#define _PATH_ASL_OUT "/var/log/asl.log"
+#include "asl_file.h"
+#include "asl_msg.h"
+#include <Availability.h>
 
 #define ASL_QUERY_OP_NULL          0x00000
 
@@ -52,15 +56,16 @@
 #define ASL_ENCODE_VIS  2
 #define ASL_ENCODE_ASL  3
 
-#define ASL_KEY_REF_PID  "RefPID"
-#define ASL_KEY_REF_PROC "RefProc"
-#define ASL_KEY_OPTION "ASLOption"
-
 #define ASL_OPT_IGNORE "ignore"
 #define ASL_OPT_STORE "store"
 
 #define ASL_STORE_LOCATION_FILE 0
 #define ASL_STORE_LOCATION_MEMORY 1
+
+#define ASL_OPT_SYSLOG_LEGACY  0x00010000
+
+/* SPI to enable ASL filter tunneling using asl_set_filter() */
+#define ASL_FILTER_MASK_TUNNEL   0x100
 
 typedef struct __aslclient
 {
@@ -80,18 +85,11 @@ typedef struct __aslclient
 	char **fd_mfmt;
 	char **fd_tfmt;
 	uint32_t *fd_encoding;
+	asl_file_t *aslfile;
+	uint64_t aslfileid;
 	uint32_t reserved1;
 	void *reserved2;
 } asl_client_t;
-
-typedef struct __aslmsg
-{
-	uint32_t type;
-	uint32_t count;
-	char **key;
-	char **val;
-	uint32_t *op;
-} asl_msg_t;
 
 typedef struct __aslresponse
 {
@@ -100,13 +98,20 @@ typedef struct __aslresponse
 	asl_msg_t **msg;
 } asl_search_result_t;
 
-
 __BEGIN_DECLS
 
-int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding);
-int asl_remove_output(aslclient asl, int fd);
-char *asl_format_message(aslmsg msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen);
-int asl_store_location();
+int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int asl_remove_output(aslclient asl, int fd) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+char *asl_format_message(asl_msg_t *msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_msg_string_length(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+uint32_t asl_msg_to_string_buffer(asl_msg_t *msg, char *buf, uint32_t bufsize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+char *asl_msg_to_string(asl_msg_t *in, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+asl_search_result_t *asl_list_from_string(const char *buf) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+char *asl_list_to_string(asl_search_result_t *, uint32_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int asl_store_location() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+int asl_get_filter(aslclient asl, int *local, int *master, int *remote, int *active) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+char *asl_remote_notify_name() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 __END_DECLS
 
+#endif /* __ASL_PRIVATE_H__ */

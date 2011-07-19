@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,6 +50,32 @@ enum {
 };
 
 /*!
+	@function SecTrustGetUserTrust
+	@abstract Gets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting On return, a pointer to the user specified trust settings.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+*/
+OSStatus SecTrustGetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting *trustSetting)
+	/*DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER*/;
+
+/*!
+	@function SecTrustSetUserTrust
+	@abstract Sets the user-specified trust settings of a certificate and policy.
+	@param certificate A reference to a certificate.
+	@param policy A reference to a policy.
+	@param trustSetting The user-specified trust settings.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
+	@discussion as of Mac OS version 10.5, this will result in a call to 
+	 SecTrustSettingsSetTrustSettings(). 
+*/
+OSStatus SecTrustSetUserTrust(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting)
+	/*DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER*/;
+
+/*!
 	@function SecTrustSetUserTrustLegacy
 	@abstract Sets the user-specified trust settings of a certificate and policy.
 	@param certificate A reference to a certificate.
@@ -64,35 +90,15 @@ enum {
 OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate, SecPolicyRef policy, SecTrustUserSetting trustSetting);
 
 /*!
-	@function SecTrustCopyPublicKey
-	@abstract Return the public key for a leaf certificate after it has 
-	been evaluated.
-	@param trust A reference to the trust object which has been evaluated.
-	@result The certificate's public key, or NULL if it the public key could
-	not be extracted (this can happen with DSA certificate chains if the
-        parameters in the chain cannot be found).  The caller is responsible
-        for calling CFRelease on the returned key when it is no longer needed.
+	@function SecTrustGetCSSMAnchorCertificates
+	@abstract Retrieves the CSSM anchor certificates.
+	@param cssmAnchors A pointer to an array of anchor certificates.
+	@param cssmAnchorCount A pointer to the number of certificates in anchors.
+	@result A result code. See "Security Error Codes" (SecBase.h).
+	@availability Mac OS X version 10.4. Deprecated in Mac OS X version 10.5.
 */
-SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust);
-
-/*!
-	@function SecTrustGetCertificateCount
-	@abstract Returns the number of certificates in an evaluated certificate
-    chain.
-	@param trust A reference to the trust object to evaluate.
-	@result The number of certificates in the trust chain.
-*/
-CFIndex SecTrustGetCertificateCount(SecTrustRef trust);
-
-/*!
-	@function SecTrustGetCertificateAtIndex
-	@abstract Returns a certificate from the trust chain.
-	@param trust A reference to the trust object to evaluate.
-	@param ix The index of the requested certificate.  Indices run from 0
-    (leaf) to the anchor (or last certificate found if no anchor was found).
-	@result A SecCertificateRef for the requested certificate.
-*/
-SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix);
+OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors, uint32 *cssmAnchorCount)
+	/*DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER*/;
 
 /*!
 	@function SecTrustCopyExtendedResult
@@ -108,15 +114,6 @@ SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix);
 */
 OSStatus SecTrustCopyExtendedResult(SecTrustRef trust, CFDictionaryRef *result);
 
-
-/*!
-	@function SecGetAppleTPHandle - NOT EXPORTED YET; copied from SecurityInterface, 
-                                                      but could be useful in the future.
-	@abstract Gets the Apple Trust Policy handle (TPHandle).
-	@param result On return, the Apple TPHandle.
-*/
-/* CSSM_TP_HANDLE SecGetAppleTPHandle();
-*/
 
 /*
  * Preference-related strings for Revocation policies.

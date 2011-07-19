@@ -182,6 +182,12 @@ protected:
     provider is returned. */
 
     virtual IOReturn setProperties(OSObject * properties);
+
+/*! @function getService
+    @abstract Get the IOService which is the provider of this user client.
+    @result Returns the IONetworkInterface that created the user client. */
+
+    virtual IOService * getService();
 };
 
 #endif /* KERNEL */

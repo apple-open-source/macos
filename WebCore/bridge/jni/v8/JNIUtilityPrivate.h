@@ -26,18 +26,28 @@
 #ifndef JNIUtilityPrivate_h
 #define JNIUtilityPrivate_h
 
+#if ENABLE(JAVA_BRIDGE)
+
 #include "JNIUtility.h"
 #include "npruntime.h"
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
 namespace Bindings {
 
-jvalue convertNPVariantToJValue(NPVariant, JNIType, const char* javaClassName);
-void convertJValueToNPVariant(jvalue, JNIType, const char* javaClassName, NPVariant*);
+class JavaValue;
+
+JavaValue convertNPVariantToJavaValue(NPVariant, const String& javaClass);
+void convertJavaValueToNPVariant(JavaValue, NPVariant*);
+
+JavaValue jvalueToJavaValue(const jvalue&, const JavaType&);
+jvalue javaValueToJvalue(const JavaValue&);
 
 } // namespace Bindings
 
 } // namespace JSC
+
+#endif // ENABLE(JAVA_BRIDGE)
 
 #endif // JNIUtilityPrivate_h

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2009, 2010 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010, 2011 Apple, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,9 @@
 #include <Movies.h>
 #include <QTML.h>
 #include <QuickTimeComponents.h>
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <wtf/Assertions.h>
+#include <wtf/MathExtras.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
@@ -46,7 +48,6 @@ static const long subTitleTrackType = 'sbtl';
 static const long mpeg4ObjectDescriptionTrackType = 'odsm';
 static const long mpeg4SceneDescriptionTrackType = 'sdsm';
 static const long closedCaptionDisplayPropertyID = 'disp';
-static LPCTSTR fullscreenQTMoviePointerProp = TEXT("fullscreenQTMoviePointer");
 
 // Resizing GWorlds is slow, give them a minimum size so size of small 
 // videos can be animated smoothly
@@ -60,10 +61,11 @@ union UppParam {
     void* ptr;
 };
 
-static Vector<CFStringRef>* gSupportedTypes = 0;
+static CFMutableArrayRef gSupportedTypes = 0;
 static SInt32 quickTimeVersion = 0;
 
-class QTMoviePrivate : public Noncopyable, public QTMovieTaskClient {
+class QTMoviePrivate : public QTMovieTaskClient {
+    WTF_MAKE_NONCOPYABLE(QTMoviePrivate);
 public:
     QTMoviePrivate();
     ~QTMoviePrivate();
@@ -94,6 +96,7 @@ public:
     CFURLRef m_currentURL;
     float m_timeToRestore;
     float m_rateToRestore;
+    bool m_privateBrowsing;
 #if !ASSERT_DISABLED
     bool m_scaleCached;
 #endif
@@ -119,6 +122,7 @@ QTMoviePrivate::QTMoviePrivate()
     , m_timeToRestore(-1.0f)
     , m_rateToRestore(-1.0f)
     , m_disabled(false)
+    , m_privateBrowsing(false)
 #if !ASSERT_DISABLED
     , m_scaleCached(false)
 #endif
@@ -241,6 +245,9 @@ void QTMoviePrivate::createMovieController()
     m_movieController = NewMovieController(m_movie, &bounds, flags);
     if (!m_movieController)
         return;
+
+    // Disable automatic looping.
+    MCDoAction(m_movieController, mcActionSetLooping, 0);
 }
 
 void QTMoviePrivate::cacheMovieScale()
@@ -275,6 +282,16 @@ QTMovie::QTMovie(QTMovieClient* client)
 QTMovie::~QTMovie()
 {
     delete m_private;
+}
+
+void QTMovie::disableComponent(uint32_t cd[5])
+{
+    ComponentDescription nullDesc = {'null', 'base', kAppleManufacturer, 0, 0};
+    Component nullComp = FindNextComponent(0, &nullDesc);
+    Component disabledComp = 0;
+
+    while (disabledComp = FindNextComponent(disabledComp, (ComponentDescription*)&cd[0]))
+        CaptureComponent(disabledComp, nullComp);
 }
 
 void QTMovie::addClient(QTMovieClient* client)
@@ -360,10 +377,10 @@ void QTMovie::setCurrentTime(float time) const
     m_private->m_seeking = true;
     TimeScale scale = GetMovieTimeScale(m_private->m_movie);
     if (m_private->m_movieController) {
-        QTRestartAtTimeRecord restart = { time * scale , 0 };
+        QTRestartAtTimeRecord restart = { lroundf(time * scale) , 0 };
         MCDoAction(m_private->m_movieController, mcActionRestartAtTime, (void *)&restart);
     } else
-        SetMovieTimeValue(m_private->m_movie, TimeValue(time * scale));
+        SetMovieTimeValue(m_private->m_movie, TimeValue(lroundf(time * scale)));
     QTMovieTask::sharedTask()->updateTaskTimer();
 }
 
@@ -425,6 +442,17 @@ void QTMovie::getNaturalSize(int& width, int& height)
     height = (rect.bottom - rect.top) * m_private->m_heightScaleFactor;
 }
 
+void QTMovie::loadPath(const UChar* url, int len, bool preservesPitch)
+{
+    CFStringRef urlStringRef = CFStringCreateWithCharacters(kCFAllocatorDefault, reinterpret_cast<const UniChar*>(url), len);
+    CFURLRef cfURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, urlStringRef, kCFURLWindowsPathStyle, false);
+
+    load(cfURL, preservesPitch);
+
+    CFRelease(cfURL);
+    CFRelease(urlStringRef);
+}
+
 void QTMovie::load(const UChar* url, int len, bool preservesPitch)
 {
     CFStringRef urlStringRef = CFStringCreateWithCharacters(kCFAllocatorDefault, reinterpret_cast<const UniChar*>(url), len);
@@ -451,8 +479,8 @@ void QTMovie::load(CFURLRef url, bool preservesPitch)
         m_private->m_loadState = 0;
     }  
 
-    // Define a property array for NewMovieFromProperties. 8 should be enough for our needs. 
-    QTNewMoviePropertyElement movieProps[8]; 
+    // Define a property array for NewMovieFromProperties.
+    QTNewMoviePropertyElement movieProps[9]; 
     ItemCount moviePropCount = 0; 
 
     bool boolTrue = true;
@@ -535,7 +563,15 @@ void QTMovie::load(CFURLRef url, bool preservesPitch)
     movieProps[moviePropCount].propStatus = 0; 
     moviePropCount++; 
 
-    ASSERT(moviePropCount <= sizeof(movieProps) / sizeof(movieProps[0]));
+    bool allowCaching = !m_private->m_privateBrowsing;
+    movieProps[moviePropCount].propClass = kQTPropertyClass_MovieInstantiation; 
+    movieProps[moviePropCount].propID = 'pers';
+    movieProps[moviePropCount].propValueSize = sizeof(allowCaching); 
+    movieProps[moviePropCount].propValueAddress = &allowCaching; 
+    movieProps[moviePropCount].propStatus = 0; 
+    moviePropCount++;
+
+    ASSERT(moviePropCount <= WTF_ARRAY_LENGTH(movieProps));
     m_private->m_loadError = NewMovieFromProperties(moviePropCount, movieProps, 0, 0, &m_private->m_movie);
 
 end:
@@ -725,112 +761,67 @@ void QTMovie::setClosedCaptionsVisible(bool visible)
     QTSetTrackProperty(ccTrack, closedCaptionTrackType, closedCaptionDisplayPropertyID, sizeof(doDisplay), &doDisplay);
 }
 
+long QTMovie::timeScale() const 
+{
+    if (!m_private->m_movie)
+        return 0;
+
+    return GetMovieTimeScale(m_private->m_movie);
+}
+
+static void getMIMETypeCallBack(const char* type);
+
 static void initializeSupportedTypes() 
 {
     if (gSupportedTypes)
         return;
 
-    gSupportedTypes = new Vector<CFStringRef>;
+    gSupportedTypes = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if (quickTimeVersion < minimumQuickTimeVersion) {
         LOG_ERROR("QuickTime version %x detected, at least %x required. Returning empty list of supported media MIME types.", quickTimeVersion, minimumQuickTimeVersion);
         return;
     }
 
     // QuickTime doesn't have an importer for video/quicktime. Add it manually.
-    gSupportedTypes->append(CFSTR("video/quicktime"));
+    CFArrayAppendValue(gSupportedTypes, CFSTR("video/quicktime"));
+    
+    wkGetQuickTimeMIMETypeList(getMIMETypeCallBack);
+}
 
-    for (int index = 0; index < 2; index++) {
-        ComponentDescription findCD;
+static void getMIMETypeCallBack(const char* type)
+{
+    ASSERT(type);
+    CFStringRef cfType = CFStringCreateWithCString(kCFAllocatorDefault, type, kCFStringEncodingMacRoman);
+    if (!cfType)
+        return;
 
-        // look at all movie importers that can import in place and are installed. 
-        findCD.componentType = MovieImportType;
-        findCD.componentSubType = 0;
-        findCD.componentManufacturer = 0;
-        findCD.componentFlagsMask = cmpIsMissing | movieImportSubTypeIsFileExtension | canMovieImportInPlace | dontAutoFileMovieImport;
-
-        // look at those registered by HFS file types the first time through, by file extension the second time
-        findCD.componentFlags = canMovieImportInPlace | (index ? movieImportSubTypeIsFileExtension : 0);
-        
-        long componentCount = CountComponents(&findCD);
-        if (!componentCount)
-            continue;
-
-        Component comp = 0;
-        while (comp = FindNextComponent(comp, &findCD)) {
-            // Does this component have a MIME type container?
-            ComponentDescription infoCD;
-            OSErr err = GetComponentInfo(comp, &infoCD, nil /*name*/, nil /*info*/, nil /*icon*/);
-            if (err)
-                continue;
-            if (!(infoCD.componentFlags & hasMovieImportMIMEList))
-                continue;
-            QTAtomContainer mimeList = 0;
-            err = MovieImportGetMIMETypeList((ComponentInstance)comp, &mimeList);
-            if (err || !mimeList)
-                continue;
-
-            // Grab every type from the container.
-            QTLockContainer(mimeList);
-            int typeCount = QTCountChildrenOfType(mimeList, kParentAtomIsContainer, kMimeInfoMimeTypeTag);
-            for (int typeIndex = 1; typeIndex <= typeCount; typeIndex++) {
-                QTAtom mimeTag = QTFindChildByIndex(mimeList, 0, kMimeInfoMimeTypeTag, typeIndex, 0);
-                if (!mimeTag)
-                    continue;
-                char* atomData;
-                long typeLength;
-                if (noErr != QTGetAtomDataPtr(mimeList, mimeTag, &typeLength, &atomData))
-                    continue;
-
-                char typeBuffer[256];
-                if (typeLength >= sizeof(typeBuffer))
-                    continue;
-                memcpy(typeBuffer, atomData, typeLength);
-                typeBuffer[typeLength] = 0;
-
-                // Only add "audio/..." and "video/..." types.
-                if (strncmp(typeBuffer, "audio/", 6) && strncmp(typeBuffer, "video/", 6))
-                    continue;
-
-                CFStringRef cfMimeType = CFStringCreateWithCString(0, typeBuffer, kCFStringEncodingUTF8);
-                if (!cfMimeType)
-                    continue;
-
-                // Only add each type once.
-                bool alreadyAdded = false;
-                for (int addedIndex = 0; addedIndex < gSupportedTypes->size(); addedIndex++) {
-                    CFStringRef type = gSupportedTypes->at(addedIndex);
-                    if (kCFCompareEqualTo == CFStringCompare(cfMimeType, type, kCFCompareCaseInsensitive)) {
-                        alreadyAdded = true;
-                        break;
-                    }
-                }
-                if (!alreadyAdded)
-                    gSupportedTypes->append(cfMimeType);
-                else
-                    CFRelease(cfMimeType);
-            }
-            DisposeHandle(mimeList);
-        }
+    // Filter out all non-audio or -video MIME Types, and only add each type once:
+    if (CFStringHasPrefix(cfType, CFSTR("audio/")) || CFStringHasPrefix(cfType, CFSTR("video/"))) {
+        CFRange range = CFRangeMake(0, CFArrayGetCount(gSupportedTypes));
+        if (!CFArrayContainsValue(gSupportedTypes, range, cfType))
+            CFArrayAppendValue(gSupportedTypes, cfType);
     }
+
+    CFRelease(cfType);
 }
 
 unsigned QTMovie::countSupportedTypes()
 {
     initializeSupportedTypes();
-    return static_cast<unsigned>(gSupportedTypes->size());
+    return static_cast<unsigned>(CFArrayGetCount(gSupportedTypes));
 }
 
 void QTMovie::getSupportedType(unsigned index, const UChar*& str, unsigned& len)
 {
     initializeSupportedTypes();
-    ASSERT(index < gSupportedTypes->size());
+    ASSERT(index < CFArrayGetCount(gSupportedTypes));
 
     // Allocate sufficient buffer to hold any MIME type
     static UniChar* staticBuffer = 0;
     if (!staticBuffer)
         staticBuffer = new UniChar[32];
 
-    CFStringRef cfstr = gSupportedTypes->at(index);
+    CFStringRef cfstr = (CFStringRef)CFArrayGetValueAtIndex(gSupportedTypes, index);
     len = CFStringGetLength(cfstr);
     CFRange range = { 0, len };
     CFStringGetCharacters(cfstr, range, staticBuffer);
@@ -876,6 +867,14 @@ void QTMovie::resetTransform()
     m_private->cacheMovieScale();
 }
 
+void QTMovie::setPrivateBrowsingMode(bool privateBrowsing)
+{
+    m_private->m_privateBrowsing = privateBrowsing;
+    if (m_private->m_movie) {
+        bool allowCaching = !m_private->m_privateBrowsing;
+        QTSetMovieProperty(m_private->m_movie, 'cach', 'pers', sizeof(allowCaching), &allowCaching);
+    }
+}
 
 bool QTMovie::initializeQuickTime() 
 {

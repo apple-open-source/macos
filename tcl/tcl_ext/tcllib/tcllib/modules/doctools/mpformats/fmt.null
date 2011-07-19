@@ -20,9 +20,9 @@ foreach p {
     manpage_begin moddesc titledesc manpage_end require description
     section para list_begin list_end lst_item call usage bullet enum
     arg_def cmd_def opt_def tkoption_def see_also keywords example
-    example_begin example_end nl arg cmd opt emph comment
+    example_begin example_end nl arg cmd opt emph comment image mdash
     sectref syscmd method option widget fun type package class var
-    file uri term const copyright namespace subsection category
+    file uri term const copyright namespace subsection category ndash
 } {
     proc fmt_$p {args} {return ""}
 }

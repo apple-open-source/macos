@@ -1,0 +1,63 @@
+# Tests for the map::slippy module.                           -*- tcl -*- 
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2010 Andreas Kupries
+# All rights reserved.
+#
+# RCS: @(#) $Id: map_slippy.test,v 1.1 2010/05/27 18:48:20 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+
+package require tcltest
+
+source [file join \
+    [file dirname [file dirname [file join [pwd] [info script]]]] \
+    devtools testutilities.tcl]
+
+testsNeedTcl     8.4
+testsNeedTcltest 2.1
+
+support {
+    use snit/snit.tcl      snit
+    use math/math.tcl      math
+    use math/constants.tcl math::constants
+}
+testing {
+    useLocal map_slippy.tcl map::slippy
+}
+
+# -------------------------------------------------------------------------
+
+proc 4digits {args} {
+    set res {}
+    foreach arg $args {lappend res [expr (round(10000*$arg))/10000.0]}
+    return $res
+}
+
+#
+# Match floating point numbers to within 4 digits.
+#
+
+proc matchNumbers {expected actual} {
+    set match 1
+    foreach a $actual e $expected {
+        if {abs($a-$e) > 0.1e-4} {
+            set match 0
+            break
+        }
+    }
+    return $match
+}
+
+customMatch 4digits matchNumbers
+
+# -------------------------------------------------------------------------
+# Encoding tests
+# -------------------------------------------------------------------------
+
+test map-slippy-7.0 {tile 2geo} -body {
+    eval 4digits [::map::slippy tile 2geo [list 11 504 775]]
+} -result {11.0 67.0674 -43.7695}

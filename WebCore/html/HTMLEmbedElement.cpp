@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
- * Copyright (C) 2004, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * This library is free software; you can redistribute it and/or
@@ -24,34 +24,35 @@
 #include "config.h"
 #include "HTMLEmbedElement.h"
 
-#include "CSSHelper.h"
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
-#include "MappedAttribute.h"
+#include "HTMLParserIdioms.h"
+#include "MainResourceLoader.h"
+#include "PluginDocument.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderImage.h"
 #include "RenderWidget.h"
-#include "ScriptController.h"
 #include "Settings.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* document)
-    : HTMLPlugInImageElement(tagName, document)
-    , m_needWidgetUpdate(false)
+inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* document, bool createdByParser)
+    : HTMLPlugInImageElement(tagName, document, createdByParser, ShouldPreferPlugInsForImages)
 {
     ASSERT(hasTagName(embedTag));
 }
 
-PassRefPtr<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    return adoptRef(new HTMLEmbedElement(tagName, document));
+    return adoptRef(new HTMLEmbedElement(tagName, document, createdByParser));
 }
 
 static inline RenderWidget* findWidgetRenderer(const Node* n) 
@@ -80,27 +81,27 @@ bool HTMLEmbedElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
         return false;
     }
         
-    return HTMLPlugInElement::mapToEntry(attrName, result);
+    return HTMLPlugInImageElement::mapToEntry(attrName, result);
 }
 
-void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
 {
     const AtomicString& value = attr->value();
   
     if (attr->name() == typeAttr) {
         m_serviceType = value.string().lower();
-        int pos = m_serviceType.find(";");
-        if (pos != -1)
+        size_t pos = m_serviceType.find(";");
+        if (pos != notFound)
             m_serviceType = m_serviceType.left(pos);
         if (!isImageType() && m_imageLoader)
             m_imageLoader.clear();
     } else if (attr->name() == codeAttr)
-        m_url = deprecatedParseURL(value.string());
+        m_url = stripLeadingAndTrailingHTMLSpaces(value.string());
     else if (attr->name() == srcAttr) {
-        m_url = deprecatedParseURL(value.string());
+        m_url = stripLeadingAndTrailingHTMLSpaces(value.string());
         if (renderer() && isImageType()) {
             if (!m_imageLoader)
-                m_imageLoader.set(new HTMLImageLoader(this));
+                m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
         }
     } else if (attr->name() == hiddenAttr) {
@@ -118,22 +119,88 @@ void HTMLEmbedElement::parseMappedAttribute(MappedAttribute* attr)
         }
         m_name = value;
     } else
-        HTMLPlugInElement::parseMappedAttribute(attr);
+        HTMLPlugInImageElement::parseMappedAttribute(attr);
+}
+
+void HTMLEmbedElement::parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues)
+{
+    NamedNodeMap* attributes = this->attributes(true);
+    if (!attributes)
+        return;
+
+    for (unsigned i = 0; i < attributes->length(); ++i) {
+        Attribute* it = attributes->attributeItem(i);
+        paramNames.append(it->localName().string());
+        paramValues.append(it->value().string());
+    }
+}
+
+// FIXME: This should be unified with HTMLObjectElement::updateWidget and
+// moved down into HTMLPluginImageElement.cpp
+void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
+{
+    ASSERT(!renderEmbeddedObject()->pluginCrashedOrWasMissing());
+    // FIXME: We should ASSERT(needsWidgetUpdate()), but currently
+    // FrameView::updateWidget() calls updateWidget(false) without checking if
+    // the widget actually needs updating!
+    setNeedsWidgetUpdate(false);
+
+    if (m_url.isEmpty() && m_serviceType.isEmpty())
+        return;
+
+    // Note these pass m_url and m_serviceType to allow better code sharing with
+    // <object> which modifies url and serviceType before calling these.
+    if (!allowedToLoadFrameURL(m_url))
+        return;
+    // FIXME: It's sadness that we have this special case here.
+    //        See http://trac.webkit.org/changeset/25128 and
+    //        plugins/netscape-plugin-setwindow-size.html
+    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(m_url, m_serviceType))
+        return;
+
+    // FIXME: These should be joined into a PluginParameters class.
+    Vector<String> paramNames;
+    Vector<String> paramValues;
+    parametersForPlugin(paramNames, paramValues);
+
+    ASSERT(!m_inBeforeLoadEventHandler);
+    m_inBeforeLoadEventHandler = true;
+    bool beforeLoadAllowedLoad = dispatchBeforeLoadEvent(m_url);
+    m_inBeforeLoadEventHandler = false;
+
+    if (!beforeLoadAllowedLoad) {
+        if (document()->isPluginDocument()) {
+            // Plugins inside plugin documents load differently than other plugins. By the time
+            // we are here in a plugin document, the load of the plugin (which is the plugin document's
+            // main resource) has already started. We need to explicitly cancel the main resource load here.
+            toPluginDocument(document())->cancelManualPluginLoad();
+        }
+        return;
+    }
+
+    SubframeLoader* loader = document()->frame()->loader()->subframeLoader();
+    // FIXME: beforeLoad could have detached the renderer!  Just like in the <object> case above.
+    loader->requestObject(this, m_url, getAttribute(nameAttr), m_serviceType, paramNames, paramValues);
 }
 
 bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
 {
     if (isImageType())
-        return HTMLPlugInElement::rendererIsNeeded(style);
+        return HTMLPlugInImageElement::rendererIsNeeded(style);
 
     Frame* frame = document()->frame();
     if (!frame)
         return false;
 
-    Node* p = parentNode();
+    // If my parent is an <object> and is not set to use fallback content, I
+    // should be ignored and not get a renderer.
+    ContainerNode* p = parentNode();
     if (p && p->hasTagName(objectTag)) {
         ASSERT(p->renderer());
-        return false;
+        if (!static_cast<HTMLObjectElement*>(p)->useFallbackContent()) {
+            ASSERT(!p->renderer()->isEmbeddedObject());
+            return false;
+        }
     }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -144,55 +211,24 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
     }
 #endif
 
-    return HTMLPlugInElement::rendererIsNeeded(style);
-}
-
-RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
-{
-    if (isImageType())
-        return new (arena) RenderImage(this);
-    return new (arena) RenderEmbeddedObject(this);
-}
-
-void HTMLEmbedElement::attach()
-{
-    m_needWidgetUpdate = true;
-
-    bool isImage = isImageType();
-
-    if (!isImage)
-        queuePostAttachCallback(&HTMLPlugInElement::updateWidgetCallback, this);
-
-    HTMLPlugInElement::attach();
-
-    if (isImage && renderer()) {
-        if (!m_imageLoader)
-            m_imageLoader.set(new HTMLImageLoader(this));
-        m_imageLoader->updateFromElement();
-
-        if (renderer())
-            toRenderImage(renderer())->setCachedImage(m_imageLoader->image());
-    }
-}
-
-void HTMLEmbedElement::updateWidget()
-{
-    document()->updateStyleIfNeeded();
-    if (m_needWidgetUpdate && renderer() && !isImageType())
-        toRenderEmbeddedObject(renderer())->updateWidget(true);
+    return HTMLPlugInImageElement::rendererIsNeeded(style);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()
 {
+    HTMLPlugInImageElement::insertedIntoDocument();
+    if (!inDocument())
+        return;
+
     if (document()->isHTMLDocument())
         static_cast<HTMLDocument*>(document())->addNamedItem(m_name);
 
     String width = getAttribute(widthAttr);
     String height = getAttribute(heightAttr);
     if (!width.isEmpty() || !height.isEmpty()) {
-        Node* n = parent();
+        Node* n = parentNode();
         while (n && !n->hasTagName(objectTag))
-            n = n->parent();
+            n = n->parentNode();
         if (n) {
             if (!width.isEmpty())
                 static_cast<HTMLObjectElement*>(n)->setAttribute(widthAttr, width);
@@ -200,8 +236,6 @@ void HTMLEmbedElement::insertedIntoDocument()
                 static_cast<HTMLObjectElement*>(n)->setAttribute(heightAttr, height);
         }
     }
-
-    HTMLPlugInElement::insertedIntoDocument();
 }
 
 void HTMLEmbedElement::removedFromDocument()
@@ -209,17 +243,17 @@ void HTMLEmbedElement::removedFromDocument()
     if (document()->isHTMLDocument())
         static_cast<HTMLDocument*>(document())->removeNamedItem(m_name);
 
-    HTMLPlugInElement::removedFromDocument();
+    HTMLPlugInImageElement::removedFromDocument();
 }
 
 void HTMLEmbedElement::attributeChanged(Attribute* attr, bool preserveDecls)
 {
-    HTMLPlugInElement::attributeChanged(attr, preserveDecls);
+    HTMLPlugInImageElement::attributeChanged(attr, preserveDecls);
 
     if ((attr->name() == widthAttr || attr->name() == heightAttr) && !attr->isEmpty()) {
-        Node* n = parent();
+        ContainerNode* n = parentNode();
         while (n && !n->hasTagName(objectTag))
-            n = n->parent();
+            n = n->parentNode();
         if (n)
             static_cast<HTMLObjectElement*>(n)->setAttribute(attr->name(), attr->value());
     }

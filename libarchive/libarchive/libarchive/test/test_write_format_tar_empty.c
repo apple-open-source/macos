@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_write_format_tar_empty.c,v 1.4 2008/09/01 05:38:33 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_write_format_tar_empty.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 /*
  * Check that an "empty" tar archive is correctly created.
@@ -83,7 +83,7 @@ DEFINE_TEST(test_write_format_tar_empty)
 	/* Earlier versions wrote 0-length files for empty tar archives. */
 	skipping("empty tar archive size");
 #else
-	assertEqualInt(used, 1024);
+	assertEqualInt((int)used, 1024);
 #endif
 	for (i = 0; i < used; i++) {
 		failure("Empty tar archive should be all nulls.");

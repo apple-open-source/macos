@@ -2,12 +2,12 @@
 .\"     Title: ne_set_session_flag
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
-.\"      Date: 18 August 2009
+.\"      Date: 13 September 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.6
+.\"    Source: neon 0.29.0
 .\"  Language: English
 .\"
-.TH "NE_SET_SESSION_FLAG" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.TH "NE_SET_SESSION_FLAG" "3" "13 September 2009" "neon 0.29.0" "neon API reference"
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -70,6 +70,13 @@ enable this flag if an RFC\-violating connection\-based HTTP authentication sche
 .RS 4
 disable this flag if a server is used which does not correctly support the TLS SNI extension
 .RE
+.PP
+\fBNE_SESSFLAG_EXPECT100\fR
+.RS 4
+enable this flag to enable the request flag
+\fBNE_REQFLAG_EXPECT100\fR
+for new requests
+.RE
 .SH "RETURN VALUE"
 .PP
 The
@@ -77,7 +84,8 @@ The
 function returns zero if a flag is disabled, less than zero if the flag is not supported, or greater than zero if the flag is enabled\&.
 .SH "SEE ALSO"
 .PP
-ne_session_create\&.
+ne_session_create,
+ne_set_request_flag\&.
 .SH "AUTHOR"
 .PP
 \fBJoe Orton\fR <\&neon@lists.manyfish.co.uk\&>

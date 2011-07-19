@@ -1,13 +1,26 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 /*  block_prop.m
     Created by Chris Parker on 29 Sep 2008
+    compiler should warn that block properties require a copy attribute
 */
 
-// cmake: gcc -o block_prop block_prop.m -std=gnu99 -framework Foundation -arch x86_64 -fobjc-gc-only
-
-// CONFIG GC rdar://6379842 
+// rdar://6379842 warn: 'copy' attribute
+// TEST_CONFIG GC=1
+// TEST_CFLAGS -fobjc-gc-only -framework Foundation
+/*
+TEST_BUILD_OUTPUT
+.*block_prop.m:29:(1:)? warning: 'copy' attribute must be specified for the block property( 'someBlock')? when -fobjc-gc-only is specified
+END
+*/
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
+#import "test.h"
 
 @interface Thing : NSObject {
     void (^someBlock)(void);
@@ -34,20 +47,17 @@
 
 @end
 
-int main (int argc, char const* argv[]) {
+int main () {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     
     Thing *t = [Thing new];
     
-    [t setSomeBlock:^{
-        NSLog(@"Things");
-    }];
+    [t setSomeBlock:^{ }];
     [t emit];
     
     [t release];
     
     [pool drain];
-    
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

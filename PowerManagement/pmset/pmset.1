@@ -10,19 +10,8 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl a | b | c | u
-.Op displaysleep Ar minutes
-.Op disksleep Ar minutes
-.Op sleep Ar minutes
-.Op womp Ar 1/0
-.Op ring Ar 1/0
-.Op autorestart Ar 1/0
-.Op powerbutton Ar 1/0
-.Op lidwake Ar 1/0
-.Op acwake Ar 1/0
-.Op lessbright Ar 1/0
-.Op halfdim Ar 1/0
-.Op sms Ar 1/0
-.Op boot
+.Op Ar setting Ar value
+.Op ...
 .Nm
 .Fl u
 .Op haltlevel Ar percent
@@ -30,7 +19,7 @@
 .Op haltremain Ar minutes
 .Nm
 .Fl g
-.Op custom | live | cap | sched | ups | ps | pslog | rawlog
+.Op Ar option
 .Nm
 schedule
 .Op cancel 
@@ -41,7 +30,7 @@ repeat cancel
 .Nm
 repeat type weekdays time
 .Nm
-.Op touch | sleepnow | noidle | lock
+.Op touch | sleepnow | noidle | lock | boot
 .\.Nm
 .\.Op Fl a b c u
 .\.Op dim
@@ -53,8 +42,10 @@ repeat type weekdays time
 .\.Op acwake
 .Sh DESCRIPTION
 .Nm
-changes and reads power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc.
+manages power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc.
 .Sh SETTING
+.Nm
+can modify the values of any of the power management settings defined below. You may specify one or moe setting & value pairs on the command-line invocation of pmset.
 The
 .Fl a,
 .Fl b,
@@ -71,48 +62,16 @@ charger (wall power) (
 .Fl a
 ).
 .Pp
-Use a minutes argument of 0 to set the idle time to never.
+Use a minutes argument of 0 to set the idle time to never for
+.Ar sleep
+.Ar disksleep
+and
+.Ar displaysleep
+.
 .Pp
 .Nm
 must be run as root in order to modify any settings.
-.Pp
-The boot argument tells power management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
-.Sh GETTING
-.Fl g
-(with no argument) will display the settings currently in use.
-.br
-.Fl g
-.Ar live
-will also display the settings currently in use.
-.br
-.Fl g
-.Ar custom
-will display custom settings for all power sources.
-.br
-.Fl g
-.Ar cap
-will display which power management features the machine supports.
-.br
-.Fl g
-.Ar sched 
-will display scheduled startup/wake and shutdown/sleep events.
-.br
-.Fl g
-.Ar ups
-will display UPS emergency thresholds.
-.br
-.Fl g
-.Ar ps
-will display status of batteries and UPSs.
-.br
-.Fl g
-.Ar pslog
-will display an ongoing log of power source (battery and UPS) state.
-.br
-.Fl g
-.Ar rawlog
-will display an ongoing log of battery state as read directly from battery.
-.Sh ARGUMENTS
+.Sh SETTINGS
 .Ar displaysleep
 - display sleep timer; replaces 'dim' argument in 10.4 (value in minutes, or 0 to disable)
 .br
@@ -157,6 +116,108 @@ will display an ongoing log of battery state as read directly from battery.
 .br
 .Ar ttyskeepawake
 - prevent idle system sleep when any tty (e.g. remote login session) is 'active'. A tty is 'inactive' only when its idle time exceeds the system sleep timer. (value = 0/1)
+.br
+.Ar networkoversleep
+- this setting affects how OS X networking presents shared network services during system sleep. This setting is not used by all platforms; changing its value is unsupported.
+.br
+.Ar panicrestart
+- The OS X kernel will automatically restart after a kernel panic if this setting defines a timeout in seconds. The value 157680000 indicates the system will not automatically restart after a panic.
+.br
+.Ar destroyfvkeyonstandby
+- Destroy File Vault Key when going to standby mode. By default File vault keys are retained even when system goes to standby. If the keys are destroyed, user will be prompted to enter the password while coming out of standby mode.(value: 1 - Destroy, 0 - Retain)
+.Sh GETTING
+.Fl g
+(with no argument) will display the settings currently in use.
+.br
+.Fl g
+.Ar live
+displays the settings currently in use.
+.br
+.Fl g
+.Ar custom
+displays custom settings for all power sources.
+.br
+.Fl g
+.Ar cap
+displays which power management features the machine supports.
+.br
+.Fl g
+.Ar sched 
+displays scheduled startup/wake and shutdown/sleep events.
+.br
+.Fl g
+.Ar ups
+displays UPS emergency thresholds.
+.br
+.Fl g
+.Ar ps
+/
+.Ar batt
+displays status of batteries and UPSs.
+.br
+.Fl g
+.Ar pslog
+displays an ongoing log of power source (battery and UPS) state.
+.br
+.Fl g
+.Ar rawlog
+displays an ongoing log of battery state as read directly from battery.
+.br
+.Fl g
+.Ar thermlog
+shows a log of thermal notifications that affect CPU speed. Not available on all platforms.
+.br
+.Fl g
+.Ar assertions
+displays a summary of power assertions. Assertions may prevent system sleep or display sleep. Available 10.6 and later.
+.br
+.Fl g
+.Ar assertionslog
+shows a log of assertion creations and releases. Available 10.6 and later.
+.br
+.Fl g
+.Ar activity
+displays a summary of power state of Display wrangler and Disk Queue Manager. Available 10.6 and later.
+.br
+.Fl g
+.Ar activitylog
+shows a log of power state changes to Display Wrangler and Disk Queue Manager. Available 10.6 and later.
+.br
+.Fl g
+.Ar sysload
+displays the "system load advisory" - a summary of system activity available from the IOGetSystemLoadAdvisory API. Available 10.6 and later.
+.br
+.Fl g
+.Ar sysloadlog
+displays an ongoing log of lives changes to the system load advisory. Available 10.6 and later.
+.br
+.Fl g
+.Ar ac
+/
+.Ar adapter
+will display details about an attached AC power adapter. Only supported for MacBook and MacBook Pro.
+.br
+.Fl g
+.Ar log
+displays a history of sleeps, wakes, and other power management events. This log is for admin & debugging purposes.
+.br
+.Fl g
+.Ar uuid
+displays the currently active sleep/wake UUID; used within OS X to correlate sleep/wake activity within one sleep cycle.
+.Ar history
+.br
+.Fl g
+.Ar uuidlog 
+displays the currently active sleep/wake UUID, and prints a new UUID as they're set by the system.
+.br
+.Fl g
+.Ar history
+is a debugging tool. Prints a timeline of system sleeplwake UUIDs, when enabled with boot-arg io=0x3000000.
+.br
+.Fl g
+.Ar historydetailed
+Prints driver-level timings for a sleep/wake. Pass a UUID as an argument.
+
 .Sh SAFE SLEEP ARGUMENTS
 .Ar hibernatemode
 takes a bitfield argument defining SafeSleep behavior. Passing 0 disables SafeSleep altogether, forcing the computer into a regular sleep.
@@ -204,7 +265,7 @@ only works if
 is turned on to hibernatemode 3 or 25.
 .Pp
 .Ar standbydelay
-specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for standby.
+specifies the delay, in seconds, before writing the hibernation image to disk and powering off memory for Standby.
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 
@@ -273,7 +334,7 @@ a problem with an aging battery.
 - PM re-reads existing settings from disk.
 .br
 .Ar noidle
-- while continuousy running, pmset prevents idle sleep.
+- pmset prevents idle sleep my creating a PM assertion to prevent idle sleep(while running; hit ctrl-c to cancel).
 .br
 .Ar sleepnow
 - causes an immediate system sleep
@@ -335,6 +396,11 @@ Schedules a repeating shutdown to occur each day, Tuesday through Saturday, at 1
 .Pp
 .Nm
 repeat shutdown TWRFS 11:00:00
+.Pp
+Schedules a repeating wake or power on event every tuesday at 12:00 noon, and a repeating sleep event every night at 8:00 PM.
+.Pp
+.Nm
+repeat wakeorpoweron T 12:00:00 MTWRFSU 20:00
 .Pp
 Prints the power management settings in use by the system.
 .Pp

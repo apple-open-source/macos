@@ -21,9 +21,6 @@
 #ifndef CSSValue_h
 #define CSSValue_h
 
-#include "StyleBase.h"
-
-#include "CSSParserValues.h"
 #include "KURLHash.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
@@ -53,6 +50,8 @@ public:
     virtual String cssText() const = 0;
     void setCssText(const String&, ExceptionCode&) { } // FIXME: Not implemented.
 
+    virtual bool isMutableValue() const { return false; }
+
     virtual bool isBorderImageValue() const { return false; }
     virtual bool isCursorImageValue() const { return false; }
     virtual bool isFontFamilyValue() const { return false; }
@@ -66,14 +65,12 @@ public:
     virtual bool isTimingFunctionValue() const { return false; }
     virtual bool isValueList() const { return false; }
     virtual bool isWebKitCSSTransformValue() const { return false; }
-
+    virtual bool isCSSLineBoxContainValue() const { return false; }
+    
 #if ENABLE(SVG)
     virtual bool isSVGColor() const { return false; }
     virtual bool isSVGPaint() const { return false; }
 #endif
-
-    virtual bool isVariableDependentValue() const { return false; }
-    virtual CSSParserValue parserValue() const { ASSERT_NOT_REACHED(); return CSSParserValue(); }
 
     virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*) { }
 };

@@ -1,49 +1,373 @@
+0.53   2009-12-06
+
+- Added Test::Exception to build_requires.
+
+
+0.52   2009-12-05
+
+- Numeric to ->new() are now all validated to make sure they are
+  integers. Previously, things like "month => 11.2" would have been
+  allowed. Based on a bug report from Max Kanat-Alexandar. RT #45767.
+
+- Added a warning to the docs suggesting that you cache the locale time zone
+  if you need to make many DateTime objects in the local zone. Looking up the
+  local zone can be fairly expensive. RT #46753.
+
+
+0.51   2009-11-01
+
+- Switched to Module::Build. To force a non-XS build, start the build
+  process with "perl Build.PL --pp".
+
+- POD-related tests are only run for the maintainer now.
+
+- Fixed handling of negative years in CLDR formatting for "y" and "u"
+  patterns. Note that the LDML spec says nothing about how this should work,
+  so I took my best guess.
+
+
+0.50   2009-05-11
+
+- Tests were failing on Win32 because they attempted to use a negative
+  epoch. Fixed so that these tests are skipped. Fixes RT #45966.
+
+
+0.49   2009-05-04
+
+- A bug in the test code for handling overloaded objects in from_epoch
+  resulted in a test failure on Perl 5.8.x. This release contains no
+  changes besides a test code fix.
+
+
+0.48   2009-05-04
+
+- Some of the accessors (the "main" ones like year(), month(), day(),
+  etc) now warn if they are passed a value. Patch from Shawn
+  Moore. Fixes RT #6979.
+
+- DateTime::Duration expected DateTime to be loaded and used some
+  constants from it, but did not explicitly "use DateTime". Reported
+  by Jeff Kubina. RT #44740.
+
+- The CLDR formatting for "c" and "cc" was incorrectly using the local
+  day of the week. This meant that it gave the wrong result for
+  locales where Monday is not considered the first day of the
+  week. Reported by Maros Kollar. RT #45007.
+
+- DateTime->from_epoch did not allow an object which overloaded
+  numification as the epoch value. Patch by Michael Schwern. RT
+  #45653.
+
+- Fixed how datetime subtraction is handled for some cases around DST
+  changes. This had been improved back in 0.30, but there were still
+  bugs. RT #45235.
+
+
+0.47   2009-03-01
+
+- The handling of CLDR format 'j' and 'jj' was backwards, using 24
+  hour time for locales that wanted 12 hour, and vice versa. Reported
+  by Maros Kollar.
+
+- The CLDR formatting was missing support for lower-case "q"
+  patterns. Reported by Maros Kollar.
+
+
+0.46   2009-02-28
+
+- Added a duration_class method for the benefit of DateTime.pm
+  subclasses. Patch by Shawn Moore.
+
+
+0.4501 2008-11-25
+
+- The epoch() method got broken in the recent shuffling between
+  Time::Local and Time::y2038. Unfortunately, the tests to catch this
+  also got lost in the shuffle. Reported by Avianna Chao.
+
+
+0.45   2008-11-11
+
+- Reverted the changes to use Time::y2038, on the recommendation of
+  Michael Schwern (the author of said module), because it is not yet
+  stable. This may come back in a future release.
+
+
+0.4401 2008-11-03
+
+- In order to handle epochs > 2**32 properly on a 32-bit machine, we
+  also need to import gmtime from Time::y2038. This changes fixes a
+  whole bunch of test failures seen with 0.44.
+
+
+0.44   2008-11-01
+
+- XS-capable DateTime.pm now uses Time::y2038 instead of
+  Time::Local. This lets it handle epochs up to 142 million years
+  before and after the Unix epoch.
+
+- Fixed a compiler warning with Perl 5.10.0.
+
+- Fixed docs for year_with_era, which had AD and BC
+  backwards. Reported by Vynce Montgomery. RT #39923.
+
+- The format_cldr() method did not format the "yy" format properly
+  when the year ended in "0X". Reported by Wilson Santos. RT #40555.
+
+
+0.4305 2008-10-03
+
+- The pure Perl version of this module did not know about the end of
+  2008 leap second. Reported by James T Monty.
+
+
+0.4304 2008-07-13
+
+- Fix test failures when tests are run with DateTime::Locale
+  0.41. Reported by David Cantrell via CPAN Testers.
+
+
+0.4303 2008-07-12
+
+- There is a new leap second coming at the end of 2008.
+
+
+0.4302 2008-05-20
+
+[ BUG FIXES ]
+
+- The 41cldr_format.t test blew up on Perl 5.6.x, because of a bug in
+  the test code.
+
+
+0.4301 2008-05-18
+
+[ BUG FIXES ]
+
+- In the 0.43 release, I forgot to change the DateTime::Locale
+  dependency to require DT::Locale 0.40.
+
+
+0.43   2008-05-18
+
+[ *** BACKWARDS INCOMPATIBILITIES *** ]
+
+* Dropped support for Perl 5.005.
+
+[ ENHANCEMENTS ]
+
+- Added support for formatting the CLDR date pattern language, which
+  is much more powerful than strftime. This, combined with the latest
+  DateTime::Locale, makes the localized output much more correct.
+
+[ BUG FIXES ]
+
+- The hour_1() method was returning the real hour + 1, rather than
+  just representing midnight as 24 instead of 0. This bug fix will
+  probably break someone's code.
+
+
+0.42   2008-02-29
+
+[ BUG FIXES ]
+
+- The 17set_return.t tests failed on leap days, like today. Reported
+  by Duncan Ferguson. RT #33695.
+
+
+0.41   2007-09-10
+
+[ BUG FIXES ]
+
+- The 13strftime.t test was failing when DateTime::Locale 0.35 was
+  installed. The test has been adjusted and we now list DT::Locale
+  0.35 as the minimum version. Reported by David Cantrell.
+
+
+0.40   2007-08-30
+
+[ BUG FIXES ]
+
+- A custom formatter would be lost after a call to set() or
+  truncate(). Reported by Kjell-Magne Øierud. RT #28728.
+
+- The truncate() method docs said it accepted "second" as a parameter,
+  but it didn't actually do the right thing with it. Now it always
+  truncates nanoseconds to 0 for any parameter it is passed.
+
+
+0.39   2007-07-17
+
+[ BUG FIXES ]
+
+- Yet more changes to how infinity is handled and tested. This passes
+  for me on 32-bit Win XP and 64-bit Linux, which is promising. Patch
+  by Yitzchak Scott-Thoennes. RT #22392.
+
+
+0.38   2007-06-30
+
+[ BUG FIXES ]
+
+- Require Test::Pod::Coverage 1.08 in pod-coverage.t, since we use
+  all_modules, which was only exported as of version 1.08. Reported by
+  MATSUNO Tokuhiro. Fixes RT #26594.
+
+- Fixed a bad link to the old FAQ location in the docs. Reported by
+  Ric Signes. Fixes RT #26846.
+
+[ ENHANCEMENTS ]
+
+- DateTime.pm now explicitly overloads string comparison. This was
+  done so that comparing a DateTime.pm object to a string returns
+  false, rather than throwing an exception. Reported by Chris
+  Dolan. Addresses RT #26085.
+
+
+0.37   2007-03-30
+
+[ BUG FIXES ]
+
+- Require DateTime::Locale 0.34, which fixes a problem that manifested
+  when thawing a DateTime.pm object. See
+  http://www.mail-archive.com/datetime@perl.org/msg05633.html for some
+  discussion of this.
+
+- Added pod coverage tests, and added some POD for undocumented
+  methods as a result.
+
+[ ENHANCEMENTS ]
+
+- This distro is now GPG-signed, per RT #24776.
+
+
+0.36   2007-01-18
+
+[ BUG FIXES ]
+
+- For infinity, use 100 ** 1000 instead of 100 ** 100 ** 100. This may
+  fix the problems with infinity on some platforms (or may
+  not). Suggested by Bjorn Tackmann. See RT #17390, #19626, and
+  #22392.
+
+- Require DateTime::TimeZone 0.59, which includes a similar fix.
+
+
+0.35   2006-10-22
+
+[ ENHANCEMENTS ]
+
+- Added several new methods for getting locale-based data, era_abbr(),
+  era_name(), quarter_abbr(), and quarter_name(). The era() method
+  returns the same data as era_abbr(), but is deprecated.
+
+
+0.34   2006-08-11
+
+[ BUG FIXES ]
+
+- DateTime's code to fall back to the pure Perl implementation was
+  broken in most cases, making it fairly useless. Reported by Adam
+  Kennedy and Brendan Gibson.
+
+- Under Perl 5.6.2 (and presumably 5.6.x), some of the tests
+  mysteriously failed. I tracked this down to a weird interaction
+  between DateTime's string overloading and
+  Test::Builder->cmp_ok(). See RT 19626.
+
+
+0.33   2006-08-09  (the "Asia/Kaohsiung" release)
+
+[ ENHANCEMENTS ]
+
+- Attempting to do an overloaded operation (add, subtract, compare)
+  with an inappropriate argument (like $dt + 1) gives a more useful
+  error message.
+
+[ BUG FIXES ]
+
+- The fixes in 0.30 for subtract_datetime() crossing a DST change had
+  a bug. When subtracting two dates, both occurring on a DST change
+  date, but where the dates did not cross the change, the answer was
+  off by an hour. Reported by Chris Prather. See RT 20697.
+
+- Borrowed a tweak from version.pm's Makefile.PL to make compiler
+  detection work with MSVC.
+
+
+0.32    2006-07-24
+
+[ BUG FIXES ]
+
+- Change how C compiler detection is done in the Makefile.PL so it
+  does not rely on having make on the system. The new way should work
+  on (most?) Unix and Win32 systems. Suggested by David Golden. See RT
+  18969.
+
+
+0.31    2006-05-21
+
+[ ENHANCEMENTS ]
+
+- Switched some uses of die() to Carp::croak(), where
+  appropriate. This should make error messages more useful in many
+  cases. Based on a suggestion by Max Maischein. See RT tickets 11692
+  & 18728.
+
+[ BUG FIXES ]
+
+- Removed all uses of UNIVERSAL::isa and UNIVERSAL::can as functions.
+
+- Tweaked 20infinite.t test to give more useful output for some
+  failures, though it probably doesn't fix them. See RT 17390.
+
+
 0.30    2005-12-22
 
 [ ENHANCEMENTS ]
 
 - Expanded and rewrote the docs on date math to try to explain exactly
-how DateTime.pm works, and in particular cover the problems DST
-introduces to various types of date math.  The docs now also include
-some specific recommendations on getting sane results from datetime
-math.
+  how DateTime.pm works, and in particular cover the problems DST
+  introduces to various types of date math.  The docs now also include
+  some specific recommendations on getting sane results from datetime
+  math.
 
 - Added calendar_duration() and clock_duration() methods to
-DateTime::Duration
+  DateTime::Duration
 
 - Explicitly override the stringification method for
-DateTime::Infinite objects.  They now stringify as whatever the IEEE
-infinity and negative infinity numbers stringify to on your platform.
-On Linux this is "inf" and "-inf". CPAN RT #16632.
+  DateTime::Infinite objects.  They now stringify as whatever the IEEE
+  infinity and negative infinity numbers stringify to on your
+  platform.  On Linux this is "inf" and "-inf". CPAN RT #16632.
 
 [ BUG FIXES ]
 
 - delta_md() and delta_days() did not always return correct values
-when crossing a DST change.
+  when crossing a DST change.
 
 - The pure Perl version of the code had a dependency ordering problem
-where DateTime::LeapSecond depended on other pure Perl code that
-wasn't yet available.  I'm not sure how this ever worked.
+  where DateTime::LeapSecond depended on other pure Perl code that
+  wasn't yet available.  I'm not sure how this ever worked.
 
 - Remove mentions of leap second on 1971-12-31 from the docs, because
-there was no leap second that day.  Reported by Mike Schilli.
+  there was no leap second that day.  Reported by Mike Schilli.
 
 - If you added a second to a datetime that was on a leap second (like
-2005-12-31T23:59:60) it got "stuck" and kept returning the same
-datetime.  Reported by Mike Schilli.
+  2005-12-31T23:59:60) it got "stuck" and kept returning the same
+  datetime.  Reported by Mike Schilli.
 
 - Changes to the tests in 20infinite.t may fix failures seen on some
-platforms and with new versions of Test::More (0.62 was known to cause
-failures)
+  platforms and with new versions of Test::More (0.62 was known to
+  cause failures)
 
 [ *** BACKWARDS INCOMPATIBILITIES *** ]
 
 - The subtract_datetime() method switched back to using the local
-portion of the date _and_ time, but it now accounts for days with DST
-changes specially.  This produces results that fix the bugs that were
-fixed by previous subtraction changes in 0.28 and 0.29, but without
-introducing even more bugs.  The overall result should be sane, but
-please see the docs for details.
+  portion of the date _and_ time, but it now accounts for days with
+  DST changes specially.  This produces results that fix the bugs that
+  were fixed by previous subtraction changes in 0.28 and 0.29, but
+  without introducing even more bugs.  The overall result should be
+  sane, but please see the docs for details.
 
 
 0.2901  2005-07-04
@@ -56,9 +380,10 @@ please see the docs for details.
 [ *** BACKWARDS INCOMPATIBILITIES *** ]
 
 - When adding/subtracting a duration with months or days that crossed
-a DST change, the result was based on the local time, not the UTC
-time.  For consistent results, it is necessary to use the UTC time
-(but local date) for all date math.  Reported by J. Alexander Docauer.
+  a DST change, the result was based on the local time, not the UTC
+  time.  For consistent results, it is necessary to use the UTC time
+  (but local date) for all date math.  Reported by J. Alexander
+  Docauer.
 
 
 0.28    2005-02-27
@@ -66,21 +391,21 @@ time.  For consistent results, it is necessary to use the UTC time
 [ ENHANCEMENTS ]
 
 - The era names for the era() method are now retrieved from the
-DateTime.pm object's associated locale.  The old era() method, which
-was hard-coded to use BCE and CE, is renamed secular_era().  The
-christian_era() method remains the same.
+  DateTime.pm object's associated locale.  The old era() method, which
+  was hard-coded to use BCE and CE, is renamed secular_era().  The
+  christian_era() method remains the same.
 
 [ BUG FIXES ]
 
 - Fixed an embarassing bug in the subtract_datetime() method.  It was
-subtracting local times, not UTC, which caused bugs when doing
-subtraction across a DST change.  This method is used to implement
-subtraction overloading, so that was affected as well.  Reported by
-Mike Schilli.
+  subtracting local times, not UTC, which caused bugs when doing
+  subtraction across a DST change.  This method is used to implement
+  subtraction overloading, so that was affected as well.  Reported by
+  Mike Schilli.
 
 - The docs for the %U and %W strftime specifiers implied that these
-should be zero-padded, but the code was not doing so.  Reported by J
-Docauer.
+  should be zero-padded, but the code was not doing so.  Reported by J
+  Docauer.
 
 
 0.27    2005-01-31
@@ -88,7 +413,7 @@ Docauer.
 [ ENHANCEMENTS ]
 
 - Added local_rd_values() method for the benefit of other modules like
-DateTime::Event::Recurrence.
+  DateTime::Event::Recurrence.
 
 
 0.26    2005-01-27
@@ -96,8 +421,8 @@ DateTime::Event::Recurrence.
 [ BUG FIXES ]
 
 - The docs claimed that the delta_ms(), delta_md(), delta_days()
-methods always returned a positive duration, but this was not true for
-delta_md() or delta_days().
+  methods always returned a positive duration, but this was not true
+  for delta_md() or delta_days().
 
 
 0.25    2005-01-10 (the "new year, new bugs" release)
@@ -105,12 +430,12 @@ delta_md() or delta_days().
 [ BUG FIXES ]
 
 - Calling set_time_zone() for a datetime very close to a time zone
-change died for many of the Olson time zones.
+  change died for many of the Olson time zones.
 
 - The docs for the from_object constructor said that by default, new
-objects were in the UTC time zone, but in reality the default was the
-floating time zone.  The docs were changed to match the code.  Ticket
-9278 on rt.cpan.org.
+  objects were in the UTC time zone, but in reality the default was
+  the floating time zone.  The docs were changed to match the code.
+  Ticket 9278 on rt.cpan.org.
 
 
 0.24    2004-12-10 (the "have I mentioned I hate leap seconds" release)
@@ -118,13 +443,13 @@ floating time zone.  The docs were changed to match the code.  Ticket
 [ BUG FIXES ]
 
 - Fixed even more bugs related to leap seconds and time zones.
-Reported by Eugene van der Pijll.
+  Reported by Eugene van der Pijll.
 
 [ KNOWN BUGS ]
 
 - Offsets with a seconds portion (like "+00:00:30") act strangely near
-leap seconds.  Reported by Eugene van der Pijll.  This will be fixed
-in a future release.
+  leap seconds.  Reported by Eugene van der Pijll.  This will be fixed
+  in a future release.
 
 
 0.23    2004-12-09 (the "oh how I hate leap seconds" release)
@@ -132,31 +457,31 @@ in a future release.
 [ ENHANCEMENTS ]
 
 - Added a number of convenience "set" methods: set_year, set_month,
-set_day, set_hour, set_minute, set_second, set_nanosecond, and
-set_locale.  Suggested by Michael Schwern.
+  set_day, set_hour, set_minute, set_second, set_nanosecond, and
+  set_locale.  Suggested by Michael Schwern.
 
 - Added christian_era and year_with_christian_era methods.
 
 - Clarified that from_epoch(), today(), and now() all return objects
-in the UTC time zone.  Suggested by Sagar Shah and others.
+  in the UTC time zone.  Suggested by Sagar Shah and others.
 
 - Added formatter parameter to constructor, which allows per-object
-stringification.  Based on a patch from Daisuke Maki.
+  stringification.  Based on a patch from Daisuke Maki.
 
 [ BUG FIXES ]
 
 - Trying to serialize DateTime::Infinite objects with Storable blew
-up.  Patch by Daisuke Maki.
+  up.  Patch by Daisuke Maki.
 
 - Require Test::More 0.34+, since I use a function introduced in that
-version in the tests.  Suggested by Jean Forget.
+  version in the tests.  Suggested by Jean Forget.
 
 - Fix a bug in strftime() which could cause weirdness with
-pathological specifiers like "%%{day_name}%n".  Reported by Jean
-Forget.
+  pathological specifiers like "%%{day_name}%n".  Reported by Jean
+  Forget.
 
 - Fixed a number of bugs related to leap seconds and time zones.
-Reported by Eugene van der Pijll.
+  Reported by Eugene van der Pijll.
 
 
 0.22    2004-07-23
@@ -164,10 +489,10 @@ Reported by Eugene van der Pijll.
 [ *** BACKWARDS INCOMPATIBILITIES *** ]
 
 - The leap second table we were using mistakenly included a leap
-second on December 31, 1971.  This will break all versions of the
-DateTime::Format::Epoch::TAI64 module up to and including version
-0.06.  Most users of DateTime.pm will not be affected.  Patch by
-Joshua Hoblitt.
+  second on December 31, 1971.  This will break all versions of the
+  DateTime::Format::Epoch::TAI64 module up to and including version
+  0.06.  Most users of DateTime.pm will not be affected.  Patch by
+  Joshua Hoblitt.
 
 
 0.2101  2004-06-10
@@ -175,11 +500,11 @@ Joshua Hoblitt.
 [ BUG FIXES ]
 
 - There was a bug in the date math code that occurred if you tried to
-add enough days, minutes or seconds to generate a datetime 10 years in
-the future (or so).  If the the DateTime object had a a time zone with
-recurring DST changes, then the date math operation would cause a
-fatal error "Invalid local time for date in time zone ...".  Reported
-by Dave Faraldo.
+  add enough days, minutes or seconds to generate a datetime 10 years
+  in the future (or so).  If the the DateTime object had a a time zone
+  with recurring DST changes, then the date math operation would cause
+  a fatal error "Invalid local time for date in time zone ...".
+  Reported by Dave Faraldo.
 
 
 0.21  2004-03-28 (The "Another YAPC::Taipei release party release" release)
@@ -187,36 +512,36 @@ by Dave Faraldo.
 [ *** BACKWARDS INCOMPATIBILITIES *** ]
 
 - When given mixed positive & negative arguments, DateTime::Duration
-no longer forces all arguments to be negative.
+  no longer forces all arguments to be negative.
 
 - For mixed durations, the is_positive, is_zero, and is_negative
-methods all return false.
+  methods all return false.
 
 - Brought back stringification overloading.  As of version 1.06,
-Devel::StackTrace will ignore this overloading when displaying a
-trace.
+  Devel::StackTrace will ignore this overloading when displaying a
+  trace.
 
 [ ENHANCEMENTS ]
 
 - Add a new in_units() method to DateTime::Duration.  Patch by Andrew
-Pimlott.
+  Pimlott.
 
 - Rely on DateTime::TimeZone and DateTime::Locale having their own
-Storable hooks, as opposed to handling them in DateTime.pm's own
-Storable hooks.  This should fix RT ticket #5542, reported by Dan
-Rowles (I hope).
+  Storable hooks, as opposed to handling them in DateTime.pm's own
+  Storable hooks.  This should fix RT ticket #5542, reported by Dan
+  Rowles (I hope).
 
 - More docs on how date math is done.  See the new section "The
-Results of Date Math".
+  Results of Date Math".
 
 [ BUG FIXES ]
 
 - DateTime::Duration's is_positive, is_zero, and is_negative methods
-could incorrectly return true if a duration contained mixed positive
-and negative units.
+  could incorrectly return true if a duration contained mixed positive
+  and negative units.
 
 - Better normalization of nanoseconds in DateTime::Duration.  Patch by
-Andrew Pimlott.
+  Andrew Pimlott.
 
 
 0.20  2004-02-12
@@ -224,21 +549,21 @@ Andrew Pimlott.
 [ IMPROVEMENTS ]
 
 - Tweaked the "How Date Math is Done" section in DateTime.pm to
-provide some more explicit examples.
+  provide some more explicit examples.
 
 [ BUG FIXES ]
 
 - If seconds are not negative, DateTime::Duration will try to keep
-nanoseconds >= 0 when normalizing them to seconds, as long as this
-doesn't make seconds become negative.  Suggested by Andrew Pimlott.
+  nanoseconds >= 0 when normalizing them to seconds, as long as this
+  doesn't make seconds become negative.  Suggested by Andrew Pimlott.
 
 - In the datetime subtraction code, there was an off-by-one error in
-the code to determine if one of the datetimes occurred in a minute
-containing a leap second.  This led to the result of the subtraction
-being off by one second.  Patch by Andrew Pimlott.
+  the code to determine if one of the datetimes occurred in a minute
+  containing a leap second.  This led to the result of the subtraction
+  being off by one second.  Patch by Andrew Pimlott.
 
 - A duration's nanoseconds weren't normalized after multiplication.
-Patch by Andrew Pimlott.
+  Patch by Andrew Pimlott.
 
 
 0.1901  2004-01-07  (the "people care about ancient history?" release)
@@ -246,7 +571,7 @@ Patch by Andrew Pimlott.
 [ BUG FIXES ]
 
 - The day of week was totally busted for dates before 0000-12-25.
-Reported by Flavio Glock.
+  Reported by Flavio Glock.
 
 
 0.19  2003-12-01  (the "never look before a leap second" release)
@@ -256,33 +581,34 @@ Reported by Flavio Glock.
 - DateTime::Duration now provides a compare() class method.
 
 - DateTime::Duration now overloads comparison to throw an exception,
-because comparison requires a base DateTime object.  Note that
-previous versions of DateTime::Duration _did not_ overload comparison,
-so if you were comparing them, you were just comparing the value of
-the object references.  Thanks to Rick Measham, Jon Swartz, and Max
-Maischein for contributing to the discussion on datetime@perl.org
-about how to implement this feature.
+  because comparison requires a base DateTime object.  Note that
+  previous versions of DateTime::Duration _did not_ overload
+  comparison, so if you were comparing them, you were just comparing
+  the value of the object references.  Thanks to Rick Measham, Jon
+  Swartz, and Max Maischein for contributing to the discussion on
+  datetime@perl.org about how to implement this feature.
 
 - Added DateTime::Duration->multiply to complement multiplication
-overloading.
+  overloading.
 
 - Added a leap_seconds method.
 
 - Added a section to the docs about floating datetimes.
 
 - DateTime::LeapSecond no longer contains code copied from
-DateTime.pm, instead it just uses DateTime.pm directly.  Patch by
-Joshua Hoblitt.
+  DateTime.pm, instead it just uses DateTime.pm directly.  Patch by
+  Joshua Hoblitt.
 
 [ BACKWARDS INCOMPATIBILITIES ]
 
 - DateTime::LeapSecond's leap_seconds() function now returns the
-number of leap seconds that have occurred, as opposed to the
-difference between TAI and UTC for a given Rata Die day, which is what
-it was returning previously.  This means that the values it returns
-are 9 second less than the previous version.  This does not affect
-DateTime.pm because it never looke at the actual value, just the
-difference between two leap second values, which remains the same.
+  number of leap seconds that have occurred, as opposed to the
+  difference between TAI and UTC for a given Rata Die day, which is
+  what it was returning previously.  This means that the values it
+  returns are 9 second less than the previous version.  This does not
+  affect DateTime.pm because it never looke at the actual value, just
+  the difference between two leap second values, which remains the
+  same.
 
 
 0.18  2003-10-26  (the "delta, delta, delta, can I help ya, help ya, help ya?" release)
@@ -290,19 +616,19 @@ difference between two leap second values, which remains the same.
 [ IMPROVEMENTS ]
 
 - Added several new methods for calculating the difference between two
-datetime objects.  These are delta_md(), delta_days(), and delta_ms().
-Each of these methods returns the difference as a duration containing
-just certain units.
+  datetime objects.  These are delta_md(), delta_days(), and
+  delta_ms().  Each of these methods returns the difference as a
+  duration containing just certain units.
 
 [ BUG FIXES ]
 
 - Require Pod::Man 1.14+, so that head3/head4 markup doesn't cause
-installation to die.
+  installation to die.
 
 [ BACKWARDS INCOMPATIBILITIES ]
 
 - The local_rd_as_seconds method is deprecated, as it doesn't really
-serve much purpose.
+  serve much purpose.
 
 
 0.1705  2003-10-07
@@ -310,11 +636,11 @@ serve much purpose.
 [ BUG FIXES ]
 
 - Subtracting one datetime from another was still broken, and my fix
-in 0.1704 broke many other subtractions.  Reported by Pierre Denis
-again.  Many thanks to Pierre for paying attention.
+  in 0.1704 broke many other subtractions.  Reported by Pierre Denis
+  again.  Many thanks to Pierre for paying attention.
 
 - Subtracting datetimes where the subtraction crossed a leap second
-was also broken.
+  was also broken.
 
 
 0.1704  2003-10-07
@@ -327,11 +653,11 @@ was also broken.
 [ BUG FIXES ]
 
 - The DateTime::Duration synopsis showed a sign() method that doesn't
-exist, so I removed it from the synopsis.  Reported by Flavio Glock.
+  exist, so I removed it from the synopsis.  Reported by Flavio Glock.
 
 - Subtracting one datetime from another was seriously broken.  The
-values for days & weeks were wrong in many cases.  Reported by Pierre
-Denis.
+  values for days & weeks were wrong in many cases.  Reported by
+  Pierre Denis.
 
 
 0.1703  2003-09-22
@@ -340,8 +666,8 @@ Denis.
 [ BUG FIXES ]
 
 - truncate( to => 'week' ) caused a fatal error when the beginning of
-the week was in the previous month.  Reported by R. Mathews
-(rt.cpan.org #3843).
+  the week was in the previous month.  Reported by R. Mathews
+  (rt.cpan.org #3843).
 
 
 0.1702  2003-09-18
@@ -356,16 +682,16 @@ the week was in the previous month.  Reported by R. Mathews
 [ BUG FIXES ]
 
 - If from_epoch was given a fractional epoch with a floating point
-value with more than 9 digits after the decimal point, the object
-ended up containing a floating point number of nanoseconds.  We now
-truncate this number to an integer.  Fixed by Joshua Hoblitt.
+  value with more than 9 digits after the decimal point, the object
+  ended up containing a floating point number of nanoseconds.  We now
+  truncate this number to an integer.  Fixed by Joshua Hoblitt.
 
 - The %V strftime specifier was documented, but not implemented.
-Reported by Joshua Hoblitt.
+  Reported by Joshua Hoblitt.
 
 - Test #56 in 03components.t would die with "Invalid offset: -124"
-when run with DateTime::TimeZone 0.2502+.  Next time, I'll read my own
-docs ;)
+  when run with DateTime::TimeZone 0.2502+.  Next time, I'll read my
+  own docs ;)
 
 
 0.17  2003-08-29  (the "math is hard" release)
@@ -373,31 +699,32 @@ docs ;)
 [ BACKWARDS INCOMPATIBILITIES ]
 
 - The default end_of_month mode for negative durations is now
-"preserve".  This makes more sense, as the previous default meant that
-the following code:
+  "preserve".  This makes more sense, as the previous default meant
+  that the following code:
 
- print DateTime->new( year => 2003, month => 5, day => 31 )->subtract( months => 1 )->ymd;
+    print DateTime->new( year => 2003, month => 5, day => 31 )
+                  ->subtract( months => 1 )->ymd;
 
-printed "2003-05-01" as opposed to "2003-04-30".  Thanks to Thomas
-Klausner for starting a discussion on this problem.
+  printed "2003-05-01" as opposed to "2003-04-30".  Thanks to Thomas
+  Klausner for starting a discussion on this problem.
 
 - The subtract_datetime method now returns different results, as does
-subtraction overloading when both sides of the subtraction are
-DateTime objects.
+  subtraction overloading when both sides of the subtraction are
+  DateTime objects.
 
-The subtract_datetime_absolute method returns results similar to what
-was previously returned from subtract_datetime.
+  The subtract_datetime_absolute method returns results similar to
+  what was previously returned from subtract_datetime.
 
-Thanks to Matthew McGillis for bringing this up, and Joshua Hoblitt
-and Eugene van der Pijll for contributing to the ensuing discussion.
+  Thanks to Matthew McGillis for bringing this up, and Joshua Hoblitt
+  and Eugene van der Pijll for contributing to the ensuing discussion.
 
 [ IMPROVEMENTS ]
 
 - DateTime.pm compare() method is now documented to work with any
-other calendar class that provides a utc_rd_values() method.
+  other calendar class that provides a utc_rd_values() method.
 
 - Added the subtract_datetime_absolute method.  See the docs for
-details.
+  details.
 
 - Documented the inverse() method in DateTime::Duration.
 
@@ -407,8 +734,8 @@ details.
 [ BUG FIXES ]
 
 - On platforms like Win32, where we can't find a finite() or
-isfinite() function/macro, the DateTime::LeapSecond code wasn't being
-loaded, so many tests failed.  Reported by Ron Hill.
+  isfinite() function/macro, the DateTime::LeapSecond code wasn't
+  being loaded, so many tests failed.  Reported by Ron Hill.
 
 
 0.16    2003-08-06
@@ -416,11 +743,11 @@ loaded, so many tests failed.  Reported by Ron Hill.
 [ IMPROVEMENTS ]
 
 - The XS code now implements leap second-related calculations.
-However, this is only used on platforms where we can find a usable
-finite() or isfinite() function/macro, so it isn't used on Win32.
+  However, this is only used on platforms where we can find a usable
+  finite() or isfinite() function/macro, so it isn't used on Win32.
 
 - This distro has now borged the DateTime::LeapSecond module.  It is
-only loaded when the XS leap second code cannot be used.
+  only loaded when the XS leap second code cannot be used.
 
 - Other miscellaneous performance improvements.
 
@@ -430,7 +757,7 @@ only loaded when the XS leap second code cannot be used.
 [ BUG FIXES ]
 
 - Adding a duration with delta months to an infinite DateTime was
-quite broken.  Reported by Eugene van der Pijll.
+  quite broken.  Reported by Eugene van der Pijll.
 
 
 0.1502  2003-07-31
@@ -440,9 +767,9 @@ quite broken.  Reported by Eugene van der Pijll.
 - XSLoader wasn't the problem on Solaris, so it's back.
 
 - Now loading the XS version of DateTime.pm is wrapped in an eval
-block.  If it fails with an error about the object version not
-matching, the pure Perl version is loaded instead.  This should fix
-Solaris.  Thanks to Joshua Hoblitt for identifying this bug.
+  block.  If it fails with an error about the object version not
+  matching, the pure Perl version is loaded instead.  This should fix
+  Solaris.  Thanks to Joshua Hoblitt for identifying this bug.
 
 
 0.1501  2003-07-30
@@ -450,14 +777,14 @@ Solaris.  Thanks to Joshua Hoblitt for identifying this bug.
 [ BUG FIXES ]
 
 - Fixed the from_object() method to set the returned object's time
-zone to the floating time zone if the source object did not have a
-time zone, as specified in the docs.  Previously, the returned
-object's time zone was UTC.  Patch by Eugene van der Pjill.
+  zone to the floating time zone if the source object did not have a
+  time zone, as specified in the docs.  Previously, the returned
+  object's time zone was UTC.  Patch by Eugene van der Pjill.
 
 - For this release, at least, the module always uses Dynaloader.  This
-is in order to see if this fixes a problem on Solaris where the
-install library version of the DateTime .so file is loaded instead of
-the newly compiled version in the blib directory.
+  is in order to see if this fixes a problem on Solaris where the
+  install library version of the DateTime .so file is loaded instead
+  of the newly compiled version in the blib directory.
 
 
 0.15    2003-07-29
@@ -465,17 +792,18 @@ the newly compiled version in the blib directory.
 [ IMPROVEMENTS ]
 
 - The utc_rd_values() method now returns nanoseconds in addition to
-Rata Die days and seconds.  Based on a patch by Joshua Hoblitt.
+  Rata Die days and seconds.  Based on a patch by Joshua Hoblitt.
 
 - The from_object() method expects objects to return the same values
-from their utc_rd_values() methods.  Based on a patch by Joshua Hoblitt.
+  from their utc_rd_values() methods.  Based on a patch by Joshua
+  Hoblitt.
 
 [ BUG FIXES ]
 
 - Fixed a bug in the pure Perl version of _normalize_tai_seconds that
-caused very weird results from datetime math.  This version may be
-used on platforms where the XS code compiles, so it can affect quite a
-number of systems.  Reported by Dan Sully.
+  caused very weird results from datetime math.  This version may be
+  used on platforms where the XS code compiles, so it can affect quite
+  a number of systems.  Reported by Dan Sully.
 
 
 0.1402   2003-07-24
@@ -483,7 +811,7 @@ number of systems.  Reported by Dan Sully.
 [ BUG FIXES ]
 
 - Fix DefaultLocale method, which didn't work at all.  Reported by
-Serge Leger.
+  Serge Leger.
 
 
 0.1401   2003-07-24
@@ -491,7 +819,7 @@ Serge Leger.
 [ BUG FIXES ]
 
 - Fix a test failure in 13strftime.t under Perl 5.6.1 (and probably
-5.6.0).
+  5.6.0).
 
 
 0.14     2003-07-23
@@ -499,52 +827,52 @@ Serge Leger.
 [ BACKWARDS INCOMPATIBILITIES ]
 
 - The DateTime::Language modules are no longer being developed or
-distributed as part of the DateTime.pm distribution.
+  distributed as part of the DateTime.pm distribution.
 
-Because of this, all "language" parameters should now be replaced by
-"locale" parameter.  The "language" parameter is deprecated and will
-be removed in a future release.
+  Because of this, all "language" parameters should now be replaced by
+  "locale" parameter.  The "language" parameter is deprecated and will
+  be removed in a future release.
 
-Also note that locales should be specified via ISO codes, not names
-like "English".  The old DateTime::Language names will continue to
-work indefinitely, but they load DateTime::Locale objects instead.
+  Also note that locales should be specified via ISO codes, not names
+  like "English".  The old DateTime::Language names will continue to
+  work indefinitely, but they load DateTime::Locale objects instead.
 
-Locale-specific data will be returned in utf8 when necessary.
+  Locale-specific data will be returned in utf8 when necessary.
 
 - Similarly, the "language" and "DefaultLanguage" methods are now
-deprecated in favor of "locale" and "DefaultLocale".
+  deprecated in favor of "locale" and "DefaultLocale".
 
 
 [ IMPROVEMENTS ]
 
 - DateTime::Duration now returns the object from mutator methods, in
-order to make method chaining possible.  Suggested by Ben Bennett.
+  order to make method chaining possible.  Suggested by Ben Bennett.
 
 - If the value for second given to new() is 60 or 61, then it must be
-a valid leap second.
+  a valid leap second.
 
 - DateTime now uses DateTime::Locale for localization, which allows
-for real language and territory based localization.  The locale code
-is generated from the ICU project's data, and is much more complete
-than the DateTime::Language modules.  However, we are losing
-(hopefully only temporarily) support for the various African languages
-contributed by Daniel Yacob.  Support for those languages should
-return in a future release of DateTime::Locale.
+  for real language and territory based localization.  The locale code
+  is generated from the ICU project's data, and is much more complete
+  than the DateTime::Language modules.  However, we are losing
+  (hopefully only temporarily) support for the various African
+  languages contributed by Daniel Yacob.  Support for those languages
+  should return in a future release of DateTime::Locale.
 
 - Support for the '%c', '%x', and '%X' strftime format specifiers,
-which output localized date and time strings.
+  which output localized date and time strings.
 
 - Added the time_zone_long_name method, primarily for the benefit of
-DateTime::Locale.
+  DateTime::Locale.
 
 - Added a note to the DateTime::Infinite docs warning that it may not
-work well on Win32.
+  work well on Win32.
 
 [ BUG FIXES ]
 
 - DateTime::Duration was not consistent in how it handled mixed
-positive and negative constructor parameters.  Reported by Ben
-Bennett.
+  positive and negative constructor parameters.  Reported by Ben
+  Bennett.
 
 
 0.13     2003-05-05
@@ -552,99 +880,99 @@ Bennett.
 [ IMPROVEMENTS ]
 
 - DateTime now does more validation of parameters given to
-constructors and to the set() method, so bogus values like a month of
-13 are a fatal error.
+  constructors and to the set() method, so bogus values like a month
+  of 13 are a fatal error.
 
 - Added a new constructor, from_day_of_year().
 
 - Added a number of new "get" methods, including era, year_with_era,
-hour_1, hour_12, hour_12_0, weekday_of_month, and week_of_month.
-Based in part on a patch from Rick Measham.
+  hour_1, hour_12, hour_12_0, weekday_of_month, and week_of_month.
+  Based in part on a patch from Rick Measham.
 
 - Now any object method can be called in strftime format by using
-"%{method}" as a format specifier.  Patch from Rick Measham
+  "%{method}" as a format specifier.  Patch from Rick Measham
 
 - Added an is_zero method to DateTime::Duration, for objects of zero
-length.
+  length.
 
 - DateTime->from_epoch will now accept a floating point epoch and turn
-the post-decimal portion into nanoseconds.  This was done in order to
-interface more accurately with Time::HiRes.
+  the post-decimal portion into nanoseconds.  This was done in order
+  to interface more accurately with Time::HiRes.
 
 - Added a DateTime->hires_epoch method that returns a floating point
-value for epoch, also for compatibility with Time::HiRes.
+  value for epoch, also for compatibility with Time::HiRes.
 
 - DateTime.pm now implements Storable hooks to reduce the size of
-serialized DateTime objects.  In particular, the contained time zone
-object is not serialized along with the DateTime object.
+  serialized DateTime objects.  In particular, the contained time zone
+  object is not serialized along with the DateTime object.
 
 - It is now possible to create arbitrary DateTime::Language subclasses
-in any namespace.
+  in any namespace.
 
 [ BUG FIXES ]
 
 - "Fixed" 20infinite.t failures on Windows with 2 icky hacks.  The
-first simply doesn't compile the XS code that deals with infinite
-numbers on Win32, so the pure Perl version is used instead.  However,
-the rest of the XS code is still compiled on Win32.  The other hack is
-to simply skip a failing test in 20infinite.t on Win32.  Hopefully,
-this will eventually be fixed but given that this is not core
-functionality for most users, I'd rather get this release out the door
-now.
+  first simply doesn't compile the XS code that deals with infinite
+  numbers on Win32, so the pure Perl version is used instead.
+  However, the rest of the XS code is still compiled on Win32.  The
+  other hack is to simply skip a failing test in 20infinite.t on
+  Win32.  Hopefully, this will eventually be fixed but given that this
+  is not core functionality for most users, I'd rather get this
+  release out the door now.
 
 - Fix epoch() method to work properly with dates greater than 50 years
-ago.  Apparently, if Time::Local is given a year less than 100, it
-tries to guess the century, and it doesn't do this by simply adding
-1900.  Numbers less than 53 (for the year 2003) are treated as being
-in the current century.  Ugh.
+  ago.  Apparently, if Time::Local is given a year less than 100, it
+  tries to guess the century, and it doesn't do this by simply adding
+  1900.  Numbers less than 53 (for the year 2003) are treated as being
+  in the current century.  Ugh.
 
 - Fixed compilation on HPUX.  Patch from Dan Sully.
 
 - The last_day_of_month() method did not accept a nanosecond
-parameter.
+  parameter.
 
 - A DT::Duration object created with just nanoseconds was always
-positive, regardless of the value given for nanoseconds.
+  positive, regardless of the value given for nanoseconds.
 
 - Fixed a serious bug when subtracting one datetime from another that
-could cause the result to be off by up to a second, and negative when
-it should be positive.  This was caused by the introduction of
-nanoseconds in 0.10.
+  could cause the result to be off by up to a second, and negative
+  when it should be positive.  This was caused by the introduction of
+  nanoseconds in 0.10.
 
 - A zero length duration reported itself as positive when it should be
-neither positive nor negative.
+  neither positive nor negative.
 
 - In Perl 5.6.1/Red Hat Linux 7.2, multiplying a variable with value
-zero by -1 gives negative-zero, which breaks tests.
+  zero by -1 gives negative-zero, which breaks tests.
 
-   perl -e ' $x=0; $x*=-1; print $x '
+    perl -e ' $x=0; $x*=-1; print $x '
 
-   -0
+    -0
 
-Patch by Flavio Glock.
+  Patch by Flavio Glock.
 
 - Comparing a DateTime::Infinite object to a regular datetime could
-cause a fatal error.  Reported by John Peacock.
+  cause a fatal error.  Reported by John Peacock.
 
 - Fixed a failure in the 04epoch.t tests on Win32.  Negative epoch
-values don't work on Win32.
+  values don't work on Win32.
 
 [ BACKWARDS INCOMPATIBILITIES ]
 
 - The "Portugese" language module has been renamed to "Portuguese".
-I'm so embarassed!  Reported by Richard Evans.
+  I'm so embarassed!  Reported by Richard Evans.
 
 - DateTime::Infinite objects no longer die if "set" methods are
-called.  Instead, these methods are now no-op methods that simply
-return the original object.  This makes these objects more usable when
-mixed with regular datetime objects.
+  called.  Instead, these methods are now no-op methods that simply
+  return the original object.  This makes these objects more usable
+  when mixed with regular datetime objects.
 
 - Removed the fractional_second constructor parameter.  It was
-incorrectly documented anyway.  The fractional_second _accessor_ is
-still there.
+  incorrectly documented anyway.  The fractional_second _accessor_ is
+  still there.
 
 - DateTime::Duration objects of zero length no longer return true for
-is_positive.
+  is_positive.
 
 
 0.12     2003-05-05
@@ -654,12 +982,12 @@ is_positive.
 - Make sure tests always run with warnings on.
 
 - Fix line that had "$] >= 5.6.0" to be "$] >= 5.006".  This caused
-warnings and was just wrong.  Reported by John Siracusa.
+  warnings and was just wrong.  Reported by John Siracusa.
 
 - Quiet warnings from pure Perl implementation.
 
 - Quiet warnings from language modules with Unicode when used with
-Perl 5.00503.
+  Perl 5.00503.
 
 
 0.11     2003-05-03
@@ -667,36 +995,36 @@ Perl 5.00503.
 [ IMPROVEMENTS ]
 
 - Moved a little bit of the leap second code to XS, so DateTime.pm may
-be a tiny bit faster.
+  be a tiny bit faster.
 
 - Added name() method to DateTime::Language.  Suggested by Rick
-Measham.
+  Measham.
 
 - Use XSLoader with Perl 5.6.0+, which according to ancient
-perl5-porters discussions saves some memory.
+  perl5-porters discussions saves some memory.
 
 - Added infinite DateTime objects.  See the DateTime::Infinite docs
-for details.
+  for details.
 
 [ BUG FIXES ]
 
 - The %I and %l strftime formats were formatting hours as 0-11, not
-1-12 as documented.  Patch by Simon Newton.
+  1-12 as documented.  Patch by Simon Newton.
 
 - A DateTime::Duration object created only with weeks as a parameter
-always was positive.  Fixed by Flavio Glock.
+  always was positive.  Fixed by Flavio Glock.
 
 [ BACKWARDS INCOMPATIBILTIES ]
 
 - Because of changes in DateTime::TimeZone 0.13, which this version
-now requires, when a local time is ambiguous, the latest UTC time is
-used, rather than the earliest, as was done previously.
+  now requires, when a local time is ambiguous, the latest UTC time is
+  used, rather than the earliest, as was done previously.
 
 - The Brazilian language module has been renamed as Portugese.
 
 - Removed DateTime::Duration->compare (which I forgot to document
-anyway ;) and comparison overloading for DT::Duration.  There's no
-meaningful way to compare 60 days to 2 months.
+  anyway ;) and comparison overloading for DT::Duration.  There's no
+  meaningful way to compare 60 days to 2 months.
 
 
 0.10     2003-04-19 (the "I'm sure the new regime will be spiffy" release)
@@ -706,20 +1034,20 @@ meaningful way to compare 60 days to 2 months.
 - Added Tigre language module.  Contributed by Daniel Yacob.
 
 - DateTime::Duration objects now overload multiplication.  Implemented
-by Flavio Glock.
+  by Flavio Glock.
 
 - Added support for nanoseconds in DateTime.pm and DateTime::Duration.
-Implemented by Flavio Glock.
+  Implemented by Flavio Glock.
 
 - Added complete support for leap seconds (through use of
-DateTime::LeapSecond).  Mostly implemented by Flavio Glock.
+  DateTime::LeapSecond).  Mostly implemented by Flavio Glock.
 
 [ BACKWARDS INCOMPATIBILTIES ]
 
 - Because of the addition of leap seconds to the mix, we are now
-forced to handle seconds separately from minutes when doing date math.
-This means that several aspects of the DateTime::Duration API have
-changed.  Specifically:
+  forced to handle seconds separately from minutes when doing date
+  math.  This means that several aspects of the DateTime::Duration API
+  have changed.  Specifically:
 
 -- There is now an additional delta_minutes() method.
 -- The hash returned by the deltas() method now includes a "minutes" key.
@@ -732,32 +1060,32 @@ changed.  Specifically:
 [IMPROVEMENTS]
 
 - As requested by numerous people, there is now a pure Perl
-implementation of DateTime.pm included with this distribution.  If you
-don't have a C compiler it will be used instead of the XS
-implementation.
+  implementation of DateTime.pm included with this distribution.  If
+  you don't have a C compiler it will be used instead of the XS
+  implementation.
 
 - Document how floating time zones are handling in comparisons, and
-add the compare_ignore_floating method.  Based on a patch from Eugene
-van der Pijll.
+  add the compare_ignore_floating method.  Based on a patch from
+  Eugene van der Pijll.
 
 - Allow from_epoch(), now(), and today() to accept a time_zone
-parameter.  Based on suggestions from Tim Bunce and Joshua Hoblitt.
+  parameter.  Based on suggestions from Tim Bunce and Joshua Hoblitt.
 
 - Allow extraction of AM/PM string list from DateTime::Language classes.
 
 - Added quarter() and day_of_quarter() methods.  Based on a patch from
-Tim Allwine.
+  Tim Allwine.
 
 [BUG FIXES]
 
 - If a datetime had the floating timezone and then set_time_zone was
-used to set it to something else, the internal UTC time of the object
-was not changed, meaning that its offset could be calculated
-incorrectly.  Patch by Eugene van der Pijll.
+  used to set it to something else, the internal UTC time of the
+  object was not changed, meaning that its offset could be calculated
+  incorrectly.  Patch by Eugene van der Pijll.
 
 - If datetime math was done with hours, minutes, or seconds, the
-return value of ->epoch would be wrong after this.  Based on report
-and patch from Iain Truskett.
+  return value of ->epoch would be wrong after this.  Based on report
+  and patch from Iain Truskett.
 
 
 0.08     2003-03-21 (the "anti-war" release)
@@ -765,43 +1093,46 @@ and patch from Iain Truskett.
 [IMPROVEMENTS]
 
 - All set/modify methods now return the datetime object, in order to
-make method chaining possible.  Patch by Iain Truskett.
+  make method chaining possible.  Patch by Iain Truskett.
 
 - The _greg2rd and _rd2greg methods have been renamed _ymd2rd and
-_rd2ymd, so as to make them look more normal when used in subclasses.
+  _rd2ymd, so as to make them look more normal when used in
+  subclasses.
 
 - Added a truncate() method.  Suggested by Flavio Glock.
 
 - Added Swedish language module.  Contributed by Christian Hansen.
 
 - Added language modules for Afar, Amharic, Gedeo, Oromo, Sidama,
-Somali, and Tigrinya (Eritrean and Ethiopian), all courtesy of Daniel
-Yacob.
+  Somali, and Tigrinya (Eritrean and Ethiopian), all courtesy of
+  Daniel Yacob.
 
-- Various doc improvements, including a section on invalid local times.
+- Various doc improvements, including a section on invalid local
+  times.
 
 [BUG FIXES]
 
 - The week() method was wrong for many dates.  Reported by Christian
-Hansen.
+  Hansen.
 
 - The last_day_of_month() method had the DateTime class hard-coded in
-it.  Reported by Eugene van der Pijll.
+  it.  Reported by Eugene van der Pijll.
 
 - Fixed a bug when comparing a datetime object to infinity (or
-negative infinity).  Fixed by Flavio Glock.
+  negative infinity).  Fixed by Flavio Glock.
 
 - Date math has been fixed so that it affects the _local_ times.  This
-means that sometimes 1 day is not equal to 24 hours when the
-addition/subtraction crosses over a Daylight Saving Time change.  See
-the "How Date Math is Done" section of the docs for more details.
+  means that sometimes 1 day is not equal to 24 hours when the
+  addition/subtraction crosses over a Daylight Saving Time change.
+  See the "How Date Math is Done" section of the docs for more
+  details.
 
 [BACKWARDS INCOMPATIBILITIES]
 
 - Objects constructed via the new() method now have a "floating" time
-zone by default, instead of using the "local" time zone.  This is just
-simpler to deal with, and for code where time zones are unimportant,
-this is the most appropriate default.
+  zone by default, instead of using the "local" time zone.  This is
+  just simpler to deal with, and for code where time zones are
+  unimportant, this is the most appropriate default.
 
 
 0.07     2003-02-26
@@ -809,44 +1140,45 @@ this is the most appropriate default.
 [IMPROVEMENTS]
 
 - Added a small hack to the compare() method so that this module can
-be used with Set::Infinite.
+  be used with Set::Infinite.
 
 - Changed compare so that it can be used to compare two objects from
-different calendars that conform to the DateTime::Calendar interface.
+  different calendars that conform to the DateTime::Calendar
+  interface.
 
 - Added explanation of exactly what calendar this module represents
-("proleptic Gregorian calendar") to docs.
+  ("proleptic Gregorian calendar") to docs.
 
 - Added a Spanish language DateTime::Language subclass.  Implemented
-by Flavio S. Glock.
+  by Flavio S. Glock.
 
 - Added support for specifying a language by ISO code ("en" or
-"pt-br") as well as the subclass name.  Based on a patch from Eric
-Cholet.
+  "pt-br") as well as the subclass name.  Based on a patch from Eric
+  Cholet.
 
 - Revamped the externally visible DateTime::Language API.
 
 - Objects created via the from_object() method are set to the time
-zone of the object from which they were created, if it has one, or UTC
-otherwise.
+  zone of the object from which they were created, if it has one, or
+  UTC otherwise.
 
 [BUG FIXES]
 
 - The from_object() method was broken because it retrieved a UTC
-datetime from the object passed in, and then created a new DateTime
-object using that UTC time as a _local_ time.
+  datetime from the object passed in, and then created a new DateTime
+  object using that UTC time as a _local_ time.
 
 [BACKWARDS INCOMPATIBILITIES]
 
 - Removed stringification overloading.  Having this in place made it
-impossible to create a strack trace in much of the time zone code.
+  impossible to create a strack trace in much of the time zone code.
 
 - Renamed the DateTime::Language->subclasses method as languages.
 
 - It is no longer possible to directly instantiate a
-DateTime::Language subclass, instead use:
+  DateTime::Language subclass, instead use:
 
-  my $en = DateTime::Language->new( language => 'English' );
+    my $en = DateTime::Language->new( language => 'English' );
 
 - The from_object() method no longer accepts a "time_zone" parameter.
 
@@ -854,8 +1186,8 @@ DateTime::Language subclass, instead use:
 0.06     2003-02-16
 
 - The docs said that there was no year 0 in the Gregorian calendar,
-but that was wrong.  The year() method can now return 0.  The year_0()
-method has been removed.
+  but that was wrong.  The year() method can now return 0.  The
+  year_0() method has been removed.
 
 - Added jd() and mjd() methods.
 
@@ -864,18 +1196,18 @@ method has been removed.
 0.05     2003-02-13
 
 - Fix handling and reporting of epoch times.  Epoch times are, by
-definition, UTC times, so any time created from an epoch should always
-have its time zone set to "UTC".  This can be changed after the object
-is created.  Similarly, value returned by the epoch() method needs to
-be based on the object's UTC time, not it's local time.  Bug reported
-by Kellan Elliott-McCrea.
+  definition, UTC times, so any time created from an epoch should
+  always have its time zone set to "UTC".  This can be changed after
+  the object is created.  Similarly, value returned by the epoch()
+  method needs to be based on the object's UTC time, not it's local
+  time.  Bug reported by Kellan Elliott-McCrea.
 
 - Change year_0 so that -1 BCE is 0, not 1 CE.  This corresponds to
-astronomical years.
+  astronomical years.
 
 - Change ymd, dmy, mdy, and iso8601 to use Gregorian years (..., -2,
--1, 1, 2, ... ) as opposed to astronomical years.  Also make sure all
-negative years are formatted as 4 digits.
+  -1, 1, 2, ... ) as opposed to astronomical years.  Also make sure
+  all negative years are formatted as 4 digits.
 
 0.04     2003-02-10
 
@@ -884,27 +1216,28 @@ negative years are formatted as 4 digits.
 0.03     2003-02-09
 
 - Giving a language parameter to a constructor method didn't load the
-language class.
+  language class.
 
 - Test that all language classes are at least loadable.
 
 - Added Brazilian (not quite a language ;) and Danish, again stolen
-from Graham Barr's TimeDate suite.
+  from Graham Barr's TimeDate suite.
 
 - Added is_dst method.  Requested by Matt Sergeant.
 
 0.02     2003-02-09
 
 - Fixed a bug in calculating day of year in leap years (it was +1 off
-starting in February).  Reported by Matt Sergeant.
+  starting in February).  Reported by Matt Sergeant.
 
 - Subtracting one datetime from another was broken in most cases.
-Improved the tests for this quite a bit.  Reported by Eric Cholet.
+  Improved the tests for this quite a bit.  Reported by Eric Cholet.
 
 - Made the version number a non-dev-release so it's visible when
-CPAN.pm tries to install it as a prereq for something else.
+  CPAN.pm tries to install it as a prereq for something else.
 
 0.01_00  2003-02-04
 
 - The first alpha release.  This module draws on Date::ICal for much
-of its internals, so it has more history than a normal alpha release.
+  of its internals, so it has more history than a normal alpha
+  release.

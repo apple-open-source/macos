@@ -1,0 +1,140 @@
+Maildir configuration
+=====================
+
+See <MailboxFormat.Maildir.txt> for a complete description of how Dovecot has
+implemented Maildir support.
+
+Mail location
+-------------
+
+Maildir exists almost always in '~/Maildir' directory. The mail location is
+specified with:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir
+---%<-------------------------------------------------------------------------
+
+Directory layout
+----------------
+
+By default Dovecot uses Maildir++ directory layout. This means that all
+mailboxes are stored in a single directory and prefixed with a dot. For
+example:
+
+ * Maildir/.folder/
+ * Maildir/.folder.subfolder/
+
+If you want maildirs to use hierarchical directories, such as:
+
+ * Maildir/folder/
+ * Maildir/folder/subfolder/
+
+you'll need to enable fs layout:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir:LAYOUT=fs
+---%<-------------------------------------------------------------------------
+
+Control files
+-------------
+
+Dovecot stores some Maildir metadata into two control files:
+
+ * 'dovecot-uidlist' file contains IMAP UID <-> Maildir filename mapping
+ * 'dovecot-keywords' file contains Maildir filename flag (a..z = 0..25) <->
+   keyword name mapping
+
+Both of these files are described fully in <MailboxFormat.Maildir.txt>. The
+important thing to remember about them however is that they shouldn't be
+treated the same way as index files. Index files can be deleted and rebuilt
+without any side effects, but if you delete control files you'll cause messages
+to get new UIDs and possibly lose keyword names.
+
+If the messages get new UIDs, the IMAP clients will invalidate their local
+cache and download the messages all over again. If you do this for all the
+users, you could cause huge disk I/O bursts to your server.
+
+Dovecot can't currently handle not being able to write the control files, so it
+will cause problems with <filesystem quota> [Quota.FS.txt]. To avoid problems
+with this, you should place control files into a partition where quota isn't
+checked. You can specify this by adding ':CONTROL=<path>' to 'mail_location',
+for example:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir:CONTROL=/var/no-quota/%u
+---%<-------------------------------------------------------------------------
+
+Index files
+-----------
+
+See <MailLocation#indexfiles> [MailLocation.txt] for full explanation of how to
+change the index path. For example:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir:INDEX=/var/indexes/%u
+---%<-------------------------------------------------------------------------
+
+Optimizations
+-------------
+
+ * 'maildir_very_dirty_syncs=yes': Assume that only Dovecot accesses 'cur/'
+   directory. If another process (or even Dovecot which doesn't update index
+   files) does changes to 'cur/' while the mailbox is simultaneously being
+   modified by Dovecot, Dovecot may not notice those external changes. It's
+   still safe to deliver new mails to 'new/' using non-Dovecot software.
+ * 'maildir_copy_with_hardlinks=yes' (default): When copying a message, do it
+   with hard links whenever possible. This makes the performance much better,
+   and it's unlikely to have any side effects. Only reason to disable this is
+   if you're using a filesystem where hard links are slow (e.g. HFS+).
+ * 'maildir_stat_dirs=no' (default): Assume that all the files beginning with a
+   dot in the maildir are maildirs. You shouldn't have any non-directory files
+   beginning with a dot in the maildirs, but if you do you may need to set this
+   to "yes", in which case Dovecot needs to stat() each directory entry, which
+   degrades the performance. Some filesystems provide the
+   directory/non-directory status for free without having to stat(). In those
+   filesystems this setting is ignored.
+
+Filesystem optimizations
+------------------------
+
+See "Maildir and filesystems" section in <MailboxFormat.Maildir.txt>.
+
+Mailbox directory name
+----------------------
+
+When using 'LAYOUT=fs', there is a potential for naming collisions between
+Maildir's 'new/', 'cur/' and 'tmp/' subdirectories, and mail folders of the
+same names. For example, consider a mail folder "foo/bar". Under 'LAYOUT=fs',
+data for this mail folder will be stored at under Maildir's usual three
+directories '~/Maildir/foo/bar/{new,cur,tmp}/'.
+
+If the user then tries to create a mail folder "foo/bar/new", this would then
+imply that data should be stored in Maildir's three directories
+'~/Maildir/foo/bar/new/{new,cur,tmp}/'. But this would overlap Maildir's 'new/'
+subdirectory of mail folder "foo/bar".
+
+This may not be a problem in many installations, but if a risk of collisions
+with Maildir's three subdirectory names is perceived, then the 'DIRNAME'
+parameter can be used. For example, if we specify mail location as:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir:LAYOUT=fs:DIRNAME=mAildir
+---%<-------------------------------------------------------------------------
+
+then this will push Maildir's 'new/', 'cur/' and 'tmp/' subdirectories down
+into a subdirectory 'mAildir/', so a mail folder "foo/bar" would be stored at
+'~/Maildir/foo/bar/mAildir/{new,cur,tmp}/'. A mail folder "foo/bar/new" would
+be stored at '~/Maildir/foo/bar/new/mAildir/{new,cur,tmp}/', which would then
+have no overlap with the mail folder "foo/bar".
+
+'DIRNAME' affects INBOX slightly differently. Without 'DIRNAME', INBOX will be
+stored at '~/Maildir/{new,cur,tmp}/', but when 'DIRNAME' is specified, we get
+an extra path component 'INBOX/' immediately prior to the 'DIRNAME' value, so
+in the example above INBOX would be stored at
+'~/Maildir/INBOX/mAildir/{new,cur,tmp}/'.
+
+The value for 'DIRNAME' should be chosen carefully so as to minimise the
+chances of clashing with mail folder names. In the example here, unusual
+upper/lower casing has been used.
+
+(This file was created from the wiki on 2011-05-11 04:42)

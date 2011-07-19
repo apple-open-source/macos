@@ -40,7 +40,7 @@ static char sccsid[] = "@(#)chflags.c	8.5 (Berkeley) 4/1/94";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/chflags/chflags.c,v 1.23 2005/05/14 23:23:10 dd Exp $");
+__FBSDID("$FreeBSD: src/bin/chflags/chflags.c,v 1.26.2.1.2.1 2009/10/25 01:10:29 kensmith Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -53,25 +53,22 @@ __FBSDID("$FreeBSD: src/bin/chflags/chflags.c,v 1.23 2005/05/14 23:23:10 dd Exp 
 #include <string.h>
 #include <unistd.h>
 
-void	usage(void);
+static void usage(void);
 
 int
 main(int argc, char *argv[])
 {
 	FTS *ftsp;
 	FTSENT *p;
-	u_long clear, set;
+	u_long clear, newflags, set;
 	long val;
-	int Hflag, Lflag, Rflag, hflag, ch, fts_options, oct, rval;
+	int Hflag, Lflag, Rflag, fflag, hflag, vflag;
+	int ch, fts_options, oct, rval;
 	char *flags, *ep;
 	int (*change_flags)(const char *, u_int);
 
-	Hflag = Lflag = Rflag = hflag = 0;
-#ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "HLPR")) != -1)
-#else /* !__APPLE__ */
-	while ((ch = getopt(argc, argv, "HLPRh")) != -1)
-#endif /* __APPLE__ */
+	Hflag = Lflag = Rflag = fflag = hflag = vflag = 0;
+	while ((ch = getopt(argc, argv, "HLPRfhv")) != -1)
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -87,11 +84,15 @@ main(int argc, char *argv[])
 		case 'R':
 			Rflag = 1;
 			break;
-#ifndef __APPLE__
+		case 'f':
+			fflag = 1;
+			break;
 		case 'h':
 			hflag = 1;
 			break;
-#endif /* !__APPLE__ */
+		case 'v':
+			vflag++;
+			break;
 		case '?':
 		default:
 			usage();
@@ -114,14 +115,11 @@ main(int argc, char *argv[])
 			fts_options |= FTS_LOGICAL;
 		}
 	} else
-		fts_options = FTS_LOGICAL;
+		fts_options = hflag ? FTS_PHYSICAL : FTS_LOGICAL;
 
-	/* XXX: Why don't chflags and lchflags have compatible prototypes? */
-#ifndef __APPLE__
 	if (hflag)
-		change_flags = (int (*)(const char *, u_int))lchflags;
+		change_flags = lchflags;
 	else
-#endif /* !__APPLE__ */
 		change_flags = chflags;
 
 	flags = *argv;
@@ -174,32 +172,33 @@ main(int argc, char *argv[])
 		default:
 			break;
 		}
-		if (oct) {
-			if (!(*change_flags)(p->fts_accpath, set))
-				continue;
-		} else {
-			p->fts_statp->st_flags |= set;
-			p->fts_statp->st_flags &= clear;
-			if (!(*change_flags)(p->fts_accpath,
-				    (u_long)p->fts_statp->st_flags))
-				continue;
+		if (oct)
+			newflags = set;
+		else
+			newflags = (p->fts_statp->st_flags | set) & clear;
+		if (newflags == p->fts_statp->st_flags)
+			continue;
+		if ((*change_flags)(p->fts_accpath, (u_int)newflags) && !fflag) {
+			warn("%s", p->fts_path);
+			rval = 1;
+		} else if (vflag) {
+			(void)printf("%s", p->fts_path);
+			if (vflag > 1)
+				(void)printf(": 0%lo -> 0%lo",
+				    (u_long)p->fts_statp->st_flags,
+				    newflags);
+			(void)printf("\n");
 		}
-		warn("%s", p->fts_path);
-		rval = 1;
 	}
 	if (errno)
 		err(1, "fts_read");
 	exit(rval);
 }
 
-void
+static void
 usage(void)
 {
 	(void)fprintf(stderr,
-#ifdef __APPLE__
-	    "usage: chflags [-R [-H | -L | -P]] flags file ...\n");
-#else /* !__APPLE__ */
-	    "usage: chflags [-h] [-R [-H | -L | -P]] flags file ...\n");
-#endif /* __APPLE__ */
+	    "usage: chflags [-fhv] [-R [-H | -L | -P]] flags file ...\n");
 	exit(1);
 }

@@ -19,6 +19,9 @@
 #include <map>
 #include <string>
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/ValueMap.h"
+#include "llvm/Support/ValueHandle.h"
 #include "llvm/System/Mutex.h"
 #include "llvm/Target/TargetMachine.h"
 
@@ -26,53 +29,75 @@ namespace llvm {
 
 struct GenericValue;
 class Constant;
+class ExecutionEngine;
 class Function;
 class GlobalVariable;
 class GlobalValue;
+class JITEventListener;
+class JITMemoryManager;
+class MachineCodeInfo;
 class Module;
-class ModuleProvider;
+class MutexGuard;
 class TargetData;
 class Type;
-class MutexGuard;
-class JITMemoryManager;
 
 class ExecutionEngineState {
+public:
+  struct AddressMapConfig : public ValueMapConfig<const GlobalValue*> {
+    typedef ExecutionEngineState *ExtraData;
+    static sys::Mutex *getMutex(ExecutionEngineState *EES);
+    static void onDelete(ExecutionEngineState *EES, const GlobalValue *Old);
+    static void onRAUW(ExecutionEngineState *, const GlobalValue *,
+                       const GlobalValue *);
+  };
+
+  typedef ValueMap<const GlobalValue *, void *, AddressMapConfig>
+      GlobalAddressMapTy;
+
 private:
+  ExecutionEngine &EE;
+
   /// GlobalAddressMap - A mapping between LLVM global values and their
   /// actualized version...
-  std::map<const GlobalValue*, void *> GlobalAddressMap;
+  GlobalAddressMapTy GlobalAddressMap;
 
   /// GlobalAddressReverseMap - This is the reverse mapping of GlobalAddressMap,
   /// used to convert raw addresses into the LLVM global value that is emitted
   /// at the address.  This map is not computed unless getGlobalValueAtAddress
   /// is called at some point.
-  std::map<void *, const GlobalValue*> GlobalAddressReverseMap;
+  std::map<void *, AssertingVH<const GlobalValue> > GlobalAddressReverseMap;
 
 public:
-  std::map<const GlobalValue*, void *> &
+  ExecutionEngineState(ExecutionEngine &EE);
+
+  GlobalAddressMapTy &
   getGlobalAddressMap(const MutexGuard &) {
     return GlobalAddressMap;
   }
 
-  std::map<void*, const GlobalValue*> & 
+  std::map<void*, AssertingVH<const GlobalValue> > &
   getGlobalAddressReverseMap(const MutexGuard &) {
     return GlobalAddressReverseMap;
   }
+
+  // Returns the address ToUnmap was mapped to.
+  void *RemoveMapping(const MutexGuard &, const GlobalValue *ToUnmap);
 };
 
 
 class ExecutionEngine {
   const TargetData *TD;
-  ExecutionEngineState state;
-  bool LazyCompilationDisabled;
+  ExecutionEngineState EEState;
+  bool CompilingLazily;
   bool GVCompilationDisabled;
   bool SymbolSearchingDisabled;
-  bool DlsymStubsEnabled;
+
+  friend class EngineBuilder;  // To allow access to JITCtor and InterpCtor.
 
 protected:
-  /// Modules - This is a list of ModuleProvider's that we are JIT'ing from.  We
-  /// use a smallvector to optimize for the case where there is only one module.
-  SmallVector<ModuleProvider*, 1> Modules;
+  /// Modules - This is a list of Modules that we are JIT'ing from.  We use a
+  /// smallvector to optimize for the case where there is only one module.
+  SmallVector<Module*, 1> Modules;
   
   void setTargetData(const TargetData *td) {
     TD = td;
@@ -84,9 +109,18 @@ protected:
   // To avoid having libexecutionengine depend on the JIT and interpreter
   // libraries, the JIT and Interpreter set these functions to ctor pointers
   // at startup time if they are linked in.
-  typedef ExecutionEngine *(*EECtorFn)(ModuleProvider*, std::string*,
-                                       CodeGenOpt::Level OptLevel);
-  static EECtorFn JITCtor, InterpCtor;
+  static ExecutionEngine *(*JITCtor)(
+    Module *M,
+    std::string *ErrorStr,
+    JITMemoryManager *JMM,
+    CodeGenOpt::Level OptLevel,
+    bool GVsWithCode,
+    CodeModel::Model CMM,
+    StringRef MArch,
+    StringRef MCPU,
+    const SmallVectorImpl<std::string>& MAttrs);
+  static ExecutionEngine *(*InterpCtor)(Module *M,
+                                        std::string *ErrorStr);
 
   /// LazyFunctionCreator - If an unknown function is needed, this function
   /// pointer is invoked to create it. If this returns null, the JIT will abort.
@@ -111,32 +145,43 @@ public:
 
   /// create - This is the factory method for creating an execution engine which
   /// is appropriate for the current machine.  This takes ownership of the
-  /// module provider.
-  static ExecutionEngine *create(ModuleProvider *MP,
+  /// module.
+  static ExecutionEngine *create(Module *M,
                                  bool ForceInterpreter = false,
                                  std::string *ErrorStr = 0,
                                  CodeGenOpt::Level OptLevel =
-                                   CodeGenOpt::Default);
-  
-  /// create - This is the factory method for creating an execution engine which
-  /// is appropriate for the current machine.  This takes ownership of the
-  /// module.
-  static ExecutionEngine *create(Module *M);
+                                   CodeGenOpt::Default,
+                                 // Allocating globals with code breaks
+                                 // freeMachineCodeForFunction and is probably
+                                 // unsafe and bad for performance.  However,
+                                 // we have clients who depend on this
+                                 // behavior, so we must support it.
+                                 // Eventually, when we're willing to break
+                                 // some backwards compatability, this flag
+                                 // should be flipped to false, so that by
+                                 // default freeMachineCodeForFunction works.
+                                 bool GVsWithCode = true);
 
   /// createJIT - This is the factory method for creating a JIT for the current
   /// machine, it does not fall back to the interpreter.  This takes ownership
-  /// of the ModuleProvider and JITMemoryManager if successful.
-  static ExecutionEngine *createJIT(ModuleProvider *MP,
+  /// of the Module and JITMemoryManager if successful.
+  ///
+  /// Clients should make sure to initialize targets prior to calling this
+  /// function.
+  static ExecutionEngine *createJIT(Module *M,
                                     std::string *ErrorStr = 0,
                                     JITMemoryManager *JMM = 0,
                                     CodeGenOpt::Level OptLevel =
-                                      CodeGenOpt::Default);
+                                      CodeGenOpt::Default,
+                                    bool GVsWithCode = true,
+				    CodeModel::Model CMM =
+				      CodeModel::Default);
 
-  /// addModuleProvider - Add a ModuleProvider to the list of modules that we
-  /// can JIT from.  Note that this takes ownership of the ModuleProvider: when
-  /// the ExecutionEngine is destroyed, it destroys the MP as well.
-  virtual void addModuleProvider(ModuleProvider *P) {
-    Modules.push_back(P);
+  /// addModule - Add a Module to the list of modules that we can JIT from.
+  /// Note that this takes ownership of the Module: when the ExecutionEngine is
+  /// destroyed, it destroys the Module as well.
+  virtual void addModule(Module *M) {
+    Modules.push_back(M);
   }
   
   //===----------------------------------------------------------------------===//
@@ -144,16 +189,9 @@ public:
   const TargetData *getTargetData() const { return TD; }
 
 
-  /// removeModuleProvider - Remove a ModuleProvider from the list of modules.
-  /// Relases the Module from the ModuleProvider, materializing it in the
-  /// process, and returns the materialized Module.
-  virtual Module* removeModuleProvider(ModuleProvider *P,
-                                       std::string *ErrInfo = 0);
-
-  /// deleteModuleProvider - Remove a ModuleProvider from the list of modules,
-  /// and deletes the ModuleProvider and owned Module.  Avoids materializing 
-  /// the underlying module.
-  virtual void deleteModuleProvider(ModuleProvider *P,std::string *ErrInfo = 0);
+  /// removeModule - Remove a Module from the list of modules.  Returns true if
+  /// M is found.
+  virtual bool removeModule(Module *M);
 
   /// FindFunctionNamed - Search all of the active modules to find the one that
   /// defines FnName.  This is very slow operation and shouldn't be used for
@@ -187,7 +225,8 @@ public:
   /// at the specified location.  This is used internally as functions are JIT'd
   /// and as global variables are laid out in memory.  It can and should also be
   /// used by clients of the EE that want to have an LLVM global overlay
-  /// existing data in memory.
+  /// existing data in memory.  Mappings are automatically removed when their
+  /// GlobalValue is destroyed.
   void addGlobalMapping(const GlobalValue *GV, void *Addr);
   
   /// clearAllGlobalMappings - Clear all global mappings and start over again
@@ -217,18 +256,30 @@ public:
 
   /// getPointerToFunction - The different EE's represent function bodies in
   /// different ways.  They should each implement this to say what a function
-  /// pointer should look like.
+  /// pointer should look like.  When F is destroyed, the ExecutionEngine will
+  /// remove its global mapping and free any machine code.  Be sure no threads
+  /// are running inside F when that happens.
   ///
   virtual void *getPointerToFunction(Function *F) = 0;
 
+  /// getPointerToBasicBlock - The different EE's represent basic blocks in
+  /// different ways.  Return the representation for a blockaddress of the
+  /// specified block.
+  ///
+  virtual void *getPointerToBasicBlock(BasicBlock *BB) = 0;
+  
   /// getPointerToFunctionOrStub - If the specified function has been
   /// code-gen'd, return a pointer to the function.  If not, compile it, or use
-  /// a stub to implement lazy compilation if available.
+  /// a stub to implement lazy compilation if available.  See
+  /// getPointerToFunction for the requirements on destroying F.
   ///
   virtual void *getPointerToFunctionOrStub(Function *F) {
     // Default implementation, just codegen the function.
     return getPointerToFunction(F);
   }
+
+  // The JIT overrides a version that actually does this.
+  virtual void runJITOnFunction(Function *, MachineCodeInfo * = 0) { }
 
   /// getGlobalValueAtAddress - Return the LLVM global value object that starts
   /// at the specified address.
@@ -260,14 +311,37 @@ public:
   virtual void *getOrEmitGlobalVariable(const GlobalVariable *GV) {
     return getPointerToGlobal((GlobalValue*)GV);
   }
-  
-  /// DisableLazyCompilation - If called, the JIT will abort if lazy compilation
-  /// is ever attempted.
+
+  /// Registers a listener to be called back on various events within
+  /// the JIT.  See JITEventListener.h for more details.  Does not
+  /// take ownership of the argument.  The argument may be NULL, in
+  /// which case these functions do nothing.
+  virtual void RegisterJITEventListener(JITEventListener *) {}
+  virtual void UnregisterJITEventListener(JITEventListener *) {}
+
+  /// DisableLazyCompilation - When lazy compilation is off (the default), the
+  /// JIT will eagerly compile every function reachable from the argument to
+  /// getPointerToFunction.  If lazy compilation is turned on, the JIT will only
+  /// compile the one function and emit stubs to compile the rest when they're
+  /// first called.  If lazy compilation is turned off again while some lazy
+  /// stubs are still around, and one of those stubs is called, the program will
+  /// abort.
+  ///
+  /// In order to safely compile lazily in a threaded program, the user must
+  /// ensure that 1) only one thread at a time can call any particular lazy
+  /// stub, and 2) any thread modifying LLVM IR must hold the JIT's lock
+  /// (ExecutionEngine::lock) or otherwise ensure that no other thread calls a
+  /// lazy stub.  See http://llvm.org/PR5184 for details.
   void DisableLazyCompilation(bool Disabled = true) {
-    LazyCompilationDisabled = Disabled;
+    CompilingLazily = !Disabled;
   }
+  bool isCompilingLazily() const {
+    return CompilingLazily;
+  }
+  // Deprecated in favor of isCompilingLazily (to reduce double-negatives).
+  // Remove this in LLVM 2.8.
   bool isLazyCompilationDisabled() const {
-    return LazyCompilationDisabled;
+    return !CompilingLazily;
   }
 
   /// DisableGVCompilation - If called, the JIT will abort if it's asked to
@@ -289,15 +363,7 @@ public:
   bool isSymbolSearchingDisabled() const {
     return SymbolSearchingDisabled;
   }
-  
-  /// EnableDlsymStubs - 
-  void EnableDlsymStubs(bool Enabled = true) {
-    DlsymStubsEnabled = Enabled;
-  }
-  bool areDlsymStubsEnabled() const {
-    return DlsymStubsEnabled;
-  }
-  
+
   /// InstallLazyFunctionCreator - If an unknown function is needed, the
   /// specified function pointer is invoked to create it.  If it returns null,
   /// the JIT will abort.
@@ -319,7 +385,7 @@ public:
   }
 
 protected:
-  explicit ExecutionEngine(ModuleProvider *P);
+  explicit ExecutionEngine(Module *M);
 
   void emitGlobals();
 
@@ -331,6 +397,122 @@ protected:
   GenericValue getConstantValue(const Constant *C);
   void LoadValueFromMemory(GenericValue &Result, GenericValue *Ptr, 
                            const Type *Ty);
+};
+
+namespace EngineKind {
+  // These are actually bitmasks that get or-ed together.
+  enum Kind {
+    JIT         = 0x1,
+    Interpreter = 0x2
+  };
+  const static Kind Either = (Kind)(JIT | Interpreter);
+}
+
+/// EngineBuilder - Builder class for ExecutionEngines.  Use this by
+/// stack-allocating a builder, chaining the various set* methods, and
+/// terminating it with a .create() call.
+class EngineBuilder {
+
+ private:
+  Module *M;
+  EngineKind::Kind WhichEngine;
+  std::string *ErrorStr;
+  CodeGenOpt::Level OptLevel;
+  JITMemoryManager *JMM;
+  bool AllocateGVsWithCode;
+  CodeModel::Model CMModel;
+  std::string MArch;
+  std::string MCPU;
+  SmallVector<std::string, 4> MAttrs;
+
+  /// InitEngine - Does the common initialization of default options.
+  ///
+  void InitEngine() {
+    WhichEngine = EngineKind::Either;
+    ErrorStr = NULL;
+    OptLevel = CodeGenOpt::Default;
+    JMM = NULL;
+    AllocateGVsWithCode = false;
+    CMModel = CodeModel::Default;
+  }
+
+ public:
+  /// EngineBuilder - Constructor for EngineBuilder.  If create() is called and
+  /// is successful, the created engine takes ownership of the module.
+  EngineBuilder(Module *m) : M(m) {
+    InitEngine();
+  }
+
+  /// setEngineKind - Controls whether the user wants the interpreter, the JIT,
+  /// or whichever engine works.  This option defaults to EngineKind::Either.
+  EngineBuilder &setEngineKind(EngineKind::Kind w) {
+    WhichEngine = w;
+    return *this;
+  }
+
+  /// setJITMemoryManager - Sets the memory manager to use.  This allows
+  /// clients to customize their memory allocation policies.  If create() is
+  /// called and is successful, the created engine takes ownership of the
+  /// memory manager.  This option defaults to NULL.
+  EngineBuilder &setJITMemoryManager(JITMemoryManager *jmm) {
+    JMM = jmm;
+    return *this;
+  }
+
+  /// setErrorStr - Set the error string to write to on error.  This option
+  /// defaults to NULL.
+  EngineBuilder &setErrorStr(std::string *e) {
+    ErrorStr = e;
+    return *this;
+  }
+
+  /// setOptLevel - Set the optimization level for the JIT.  This option
+  /// defaults to CodeGenOpt::Default.
+  EngineBuilder &setOptLevel(CodeGenOpt::Level l) {
+    OptLevel = l;
+    return *this;
+  }
+
+  /// setCodeModel - Set the CodeModel that the ExecutionEngine target
+  /// data is using. Defaults to target specific default "CodeModel::Default".
+  EngineBuilder &setCodeModel(CodeModel::Model M) {
+    CMModel = M;
+    return *this;
+  }
+
+  /// setAllocateGVsWithCode - Sets whether global values should be allocated
+  /// into the same buffer as code.  For most applications this should be set
+  /// to false.  Allocating globals with code breaks freeMachineCodeForFunction
+  /// and is probably unsafe and bad for performance.  However, we have clients
+  /// who depend on this behavior, so we must support it.  This option defaults
+  /// to false so that users of the new API can safely use the new memory
+  /// manager and free machine code.
+  EngineBuilder &setAllocateGVsWithCode(bool a) {
+    AllocateGVsWithCode = a;
+    return *this;
+  }
+
+  /// setMArch - Override the architecture set by the Module's triple.
+  EngineBuilder &setMArch(StringRef march) {
+    MArch.assign(march.begin(), march.end());
+    return *this;
+  }
+
+  /// setMCPU - Target a specific cpu type.
+  EngineBuilder &setMCPU(StringRef mcpu) {
+    MCPU.assign(mcpu.begin(), mcpu.end());
+    return *this;
+  }
+
+  /// setMAttrs - Set cpu-specific attributes.
+  template<typename StringSequence>
+  EngineBuilder &setMAttrs(const StringSequence &mattrs) {
+    MAttrs.clear();
+    MAttrs.append(mattrs.begin(), mattrs.end());
+    return *this;
+  }
+
+  ExecutionEngine *create();
 };
 
 } // End llvm namespace

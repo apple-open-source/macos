@@ -17,8 +17,9 @@
 #include "SPUTargetMachine.h"
 #include "SPUGenInstrInfo.inc"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/Support/Streams.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -254,15 +255,13 @@ bool SPUInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MI,
                                    unsigned DestReg, unsigned SrcReg,
                                    const TargetRegisterClass *DestRC,
-                                   const TargetRegisterClass *SrcRC) const
+                                   const TargetRegisterClass *SrcRC,
+                                   DebugLoc DL) const
 {
   // We support cross register class moves for our aliases, such as R3 in any
   // reg class to any other reg class containing R3.  This is required because
   // we instruction select bitconvert i64 -> f64 as a noop for example, so our
   // types have no specific meaning.
-
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
 
   if (DestRC == SPU::R8CRegisterClass) {
     BuildMI(MBB, MI, DL, get(SPU::LRr8), DestReg).addReg(SrcReg);
@@ -290,9 +289,10 @@ bool SPUInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
 
 void
 SPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator MI,
-                                     unsigned SrcReg, bool isKill, int FrameIdx,
-                                     const TargetRegisterClass *RC) const
+                                  MachineBasicBlock::iterator MI,
+                                  unsigned SrcReg, bool isKill, int FrameIdx,
+                                  const TargetRegisterClass *RC,
+                                  const TargetRegisterInfo *TRI) const
 {
   unsigned opc;
   bool isValidFrameIdx = (FrameIdx < SPUFrameInfo::maxFrameOffset());
@@ -313,58 +313,21 @@ SPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
   } else if (RC == SPU::VECREGRegisterClass) {
     opc = (isValidFrameIdx) ? SPU::STQDv16i8 : SPU::STQXv16i8;
   } else {
-    assert(0 && "Unknown regclass!");
-    abort();
+    llvm_unreachable("Unknown regclass!");
   }
 
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+  DebugLoc DL;
   if (MI != MBB.end()) DL = MI->getDebugLoc();
   addFrameReference(BuildMI(MBB, MI, DL, get(opc))
-                    .addReg(SrcReg, false, false, isKill), FrameIdx);
-}
-
-void SPUInstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
-                                  bool isKill,
-                                  SmallVectorImpl<MachineOperand> &Addr,
-                                  const TargetRegisterClass *RC,
-                                  SmallVectorImpl<MachineInstr*> &NewMIs) const {
-  cerr << "storeRegToAddr() invoked!\n";
-  abort();
-
-  if (Addr[0].isFI()) {
-    /* do what storeRegToStackSlot does here */
-  } else {
-    unsigned Opc = 0;
-    if (RC == SPU::GPRCRegisterClass) {
-      /* Opc = PPC::STW; */
-    } else if (RC == SPU::R16CRegisterClass) {
-      /* Opc = PPC::STD; */
-    } else if (RC == SPU::R32CRegisterClass) {
-      /* Opc = PPC::STFD; */
-    } else if (RC == SPU::R32FPRegisterClass) {
-      /* Opc = PPC::STFD; */
-    } else if (RC == SPU::R64FPRegisterClass) {
-      /* Opc = PPC::STFS; */
-    } else if (RC == SPU::VECREGRegisterClass) {
-      /* Opc = PPC::STVX; */
-    } else {
-      assert(0 && "Unknown regclass!");
-      abort();
-    }
-    DebugLoc DL = DebugLoc::getUnknownLoc();
-    MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc))
-      .addReg(SrcReg, false, false, isKill);
-    for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-      MIB.addOperand(Addr[i]);
-    NewMIs.push_back(MIB);
-  }
+                    .addReg(SrcReg, getKillRegState(isKill)), FrameIdx);
 }
 
 void
 SPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
-                                        MachineBasicBlock::iterator MI,
-                                        unsigned DestReg, int FrameIdx,
-                                        const TargetRegisterClass *RC) const
+                                   MachineBasicBlock::iterator MI,
+                                   unsigned DestReg, int FrameIdx,
+                                   const TargetRegisterClass *RC,
+                                   const TargetRegisterInfo *TRI) const
 {
   unsigned opc;
   bool isValidFrameIdx = (FrameIdx < SPUFrameInfo::maxFrameOffset());
@@ -385,54 +348,12 @@ SPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   } else if (RC == SPU::VECREGRegisterClass) {
     opc = (isValidFrameIdx) ? SPU::LQDv16i8 : SPU::LQXv16i8;
   } else {
-    assert(0 && "Unknown regclass in loadRegFromStackSlot!");
-    abort();
+    llvm_unreachable("Unknown regclass in loadRegFromStackSlot!");
   }
 
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+  DebugLoc DL;
   if (MI != MBB.end()) DL = MI->getDebugLoc();
-  addFrameReference(BuildMI(MBB, MI, DL, get(opc)).addReg(DestReg), FrameIdx);
-}
-
-/*!
-  \note We are really pessimistic here about what kind of a load we're doing.
- */
-void SPUInstrInfo::loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
-                                   SmallVectorImpl<MachineOperand> &Addr,
-                                   const TargetRegisterClass *RC,
-                                   SmallVectorImpl<MachineInstr*> &NewMIs)
-    const {
-  cerr << "loadRegToAddr() invoked!\n";
-  abort();
-
-  if (Addr[0].isFI()) {
-    /* do what loadRegFromStackSlot does here... */
-  } else {
-    unsigned Opc = 0;
-    if (RC == SPU::R8CRegisterClass) {
-      /* do brilliance here */
-    } else if (RC == SPU::R16CRegisterClass) {
-      /* Opc = PPC::LWZ; */
-    } else if (RC == SPU::R32CRegisterClass) {
-      /* Opc = PPC::LD; */
-    } else if (RC == SPU::R32FPRegisterClass) {
-      /* Opc = PPC::LFD; */
-    } else if (RC == SPU::R64FPRegisterClass) {
-      /* Opc = PPC::LFS; */
-    } else if (RC == SPU::VECREGRegisterClass) {
-      /* Opc = PPC::LVX; */
-    } else if (RC == SPU::GPRCRegisterClass) {
-      /* Opc = something else! */
-    } else {
-      assert(0 && "Unknown regclass!");
-      abort();
-    }
-    DebugLoc DL = DebugLoc::getUnknownLoc();
-    MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc), DestReg);
-    for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-      MIB.addOperand(Addr[i]);
-    NewMIs.push_back(MIB);
-  }
+  addFrameReference(BuildMI(MBB, MI, DL, get(opc), DestReg), FrameIdx);
 }
 
 //! Return true if the specified load or store can be folded
@@ -491,19 +412,22 @@ SPUInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
     if (OpNum == 0) {  // move -> store
       unsigned InReg = MI->getOperand(1).getReg();
       bool isKill = MI->getOperand(1).isKill();
+      bool isUndef = MI->getOperand(1).isUndef();
       if (FrameIndex < SPUFrameInfo::maxFrameOffset()) {
         MachineInstrBuilder MIB = BuildMI(MF, MI->getDebugLoc(),
                                           get(SPU::STQDr32));
 
-        MIB.addReg(InReg, false, false, isKill);
+        MIB.addReg(InReg, getKillRegState(isKill) | getUndefRegState(isUndef));
         NewMI = addFrameReference(MIB, FrameIndex);
       }
     } else {           // move -> load
       unsigned OutReg = MI->getOperand(0).getReg();
       bool isDead = MI->getOperand(0).isDead();
+      bool isUndef = MI->getOperand(0).isUndef();
       MachineInstrBuilder MIB = BuildMI(MF, MI->getDebugLoc(), get(Opc));
 
-      MIB.addReg(OutReg, true, false, false, isDead);
+      MIB.addReg(OutReg, RegState::Define | getDeadRegState(isDead) |
+                 getUndefRegState(isUndef));
       Opc = (FrameIndex < SPUFrameInfo::maxFrameOffset())
         ? SPU::STQDr32 : SPU::STQXr32;
       NewMI = addFrameReference(MIB, FrameIndex);
@@ -526,7 +450,15 @@ SPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
                             bool AllowModify) const {
   // If the block has no terminators, it just falls into the block after it.
   MachineBasicBlock::iterator I = MBB.end();
-  if (I == MBB.begin() || !isUnpredicatedTerminator(--I))
+  if (I == MBB.begin())
+    return false;
+  --I;
+  while (I->isDebugValue()) {
+    if (I == MBB.begin())
+      return false;
+    --I;
+  }
+  if (!isUnpredicatedTerminator(I))
     return false;
 
   // Get the last instruction in the block.
@@ -535,12 +467,15 @@ SPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
   // If there is only one terminator instruction, process it.
   if (I == MBB.begin() || !isUnpredicatedTerminator(--I)) {
     if (isUncondBranch(LastInst)) {
+      // Check for jump tables
+      if (!LastInst->getOperand(0).isMBB())
+        return true;
       TBB = LastInst->getOperand(0).getMBB();
       return false;
     } else if (isCondBranch(LastInst)) {
       // Block ends with fall-through condbranch.
       TBB = LastInst->getOperand(1).getMBB();
-      DEBUG(cerr << "Pushing LastInst:               ");
+      DEBUG(errs() << "Pushing LastInst:               ");
       DEBUG(LastInst->dump());
       Cond.push_back(MachineOperand::CreateImm(LastInst->getOpcode()));
       Cond.push_back(LastInst->getOperand(0));
@@ -561,7 +496,7 @@ SPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
   // If the block ends with a conditional and unconditional branch, handle it.
   if (isCondBranch(SecondLastInst) && isUncondBranch(LastInst)) {
     TBB =  SecondLastInst->getOperand(1).getMBB();
-    DEBUG(cerr << "Pushing SecondLastInst:         ");
+    DEBUG(errs() << "Pushing SecondLastInst:         ");
     DEBUG(SecondLastInst->dump());
     Cond.push_back(MachineOperand::CreateImm(SecondLastInst->getOpcode()));
     Cond.push_back(SecondLastInst->getOperand(0));
@@ -589,11 +524,16 @@ SPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   if (I == MBB.begin())
     return 0;
   --I;
+  while (I->isDebugValue()) {
+    if (I == MBB.begin())
+      return 0;
+    --I;
+  }
   if (!isCondBranch(I) && !isUncondBranch(I))
     return 0;
 
   // Remove the first branch.
-  DEBUG(cerr << "Removing branch:                ");
+  DEBUG(errs() << "Removing branch:                ");
   DEBUG(I->dump());
   I->eraseFromParent();
   I = MBB.end();
@@ -605,7 +545,7 @@ SPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
     return 1;
 
   // Remove the second branch.
-  DEBUG(cerr << "Removing second branch:         ");
+  DEBUG(errs() << "Removing second branch:         ");
   DEBUG(I->dump());
   I->eraseFromParent();
   return 2;
@@ -616,7 +556,7 @@ SPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                            MachineBasicBlock *FBB,
                            const SmallVectorImpl<MachineOperand> &Cond) const {
   // FIXME this should probably have a DebugLoc argument
-  DebugLoc dl = DebugLoc::getUnknownLoc();
+  DebugLoc dl;
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 2 || Cond.size() == 0) &&
@@ -629,14 +569,14 @@ SPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
       MachineInstrBuilder MIB = BuildMI(&MBB, dl, get(SPU::BR));
       MIB.addMBB(TBB);
 
-      DEBUG(cerr << "Inserted one-way uncond branch: ");
+      DEBUG(errs() << "Inserted one-way uncond branch: ");
       DEBUG((*MIB).dump());
     } else {
       // Conditional branch
       MachineInstrBuilder  MIB = BuildMI(&MBB, dl, get(Cond[0].getImm()));
       MIB.addReg(Cond[1].getReg()).addMBB(TBB);
 
-      DEBUG(cerr << "Inserted one-way cond branch:   ");
+      DEBUG(errs() << "Inserted one-way cond branch:   ");
       DEBUG((*MIB).dump());
     }
     return 1;
@@ -648,18 +588,14 @@ SPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
     MIB.addReg(Cond[1].getReg()).addMBB(TBB);
     MIB2.addMBB(FBB);
 
-    DEBUG(cerr << "Inserted conditional branch:    ");
+    DEBUG(errs() << "Inserted conditional branch:    ");
     DEBUG((*MIB).dump());
-    DEBUG(cerr << "part 2: ");
+    DEBUG(errs() << "part 2: ");
     DEBUG((*MIB2).dump());
    return 2;
   }
 }
 
-bool
-SPUInstrInfo::BlockHasNoFallThrough(const MachineBasicBlock &MBB) const {
-  return (!MBB.empty() && isUncondBranch(&MBB.back()));
-}
 //! Reverses a branch's condition, returning false on success.
 bool
 SPUInstrInfo::ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond)

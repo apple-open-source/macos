@@ -43,7 +43,8 @@
 typedef struct ActivateEvent {
     Tcl_Event ev;
     TkWindow *winPtr;
-    int *flagPtr;
+    const int *flagPtr;
+    HWND hwnd;
 } ActivateEvent;
 
 /*
@@ -422,7 +423,7 @@ TCL_DECLARE_MUTEX(winWmMutex)
 static int		ActivateWindow(Tcl_Event *evPtr, int flags);
 static void		ConfigureTopLevel(WINDOWPOS *pos);
 static void		GenerateConfigureNotify(TkWindow *winPtr);
-static void		GenerateActivateEvent(TkWindow *winPtr, int *flagPtr);
+static void		GenerateActivateEvent(TkWindow *winPtr, const int *flagPtr);
 static void		GetMaxSize(WmInfo *wmPtr,
 			    int *maxWidthPtr, int *maxHeightPtr);
 static void		GetMinSize(WmInfo *wmPtr,
@@ -836,18 +837,19 @@ static int
 ReadICOHeader(
     Tcl_Channel channel)
 {
-    WORD Input;
-    DWORD dwBytesRead;
+    union {
+	WORD word;
+	char bytes[sizeof(WORD)];
+    } input;
 
     /*
      * Read the 'reserved' WORD, which should be a zero word.
      */
 
-    dwBytesRead = Tcl_Read(channel, (char*) &Input, sizeof(WORD));
-    if (dwBytesRead != sizeof(WORD)) {
+    if (Tcl_Read(channel, input.bytes, sizeof(WORD)) != sizeof(WORD)) {
 	return -1;
     }
-    if (Input != 0) {
+    if (input.word != 0) {
 	return -1;
     }
 
@@ -855,28 +857,21 @@ ReadICOHeader(
      * Read the type WORD, which should be of type 1.
      */
 
-    dwBytesRead = Tcl_Read(channel, (char*)&Input, sizeof(WORD));
-    if (dwBytesRead != sizeof(WORD)) {
+    if (Tcl_Read(channel, input.bytes, sizeof(WORD)) != sizeof(WORD)) {
 	return -1;
     }
-    if (Input != 1) {
-	return -1;
-    }
-
-    /*
-     * Get the count of images
-     */
-
-    dwBytesRead = Tcl_Read( channel, (char*)&Input, sizeof( WORD ));
-    if (dwBytesRead != sizeof(WORD)) {
+    if (input.word != 1) {
 	return -1;
     }
 
     /*
-     * Return the count
+     * Get and return the count of images.
      */
 
-    return (int)Input;
+    if (Tcl_Read(channel, input.bytes, sizeof(WORD)) != sizeof(WORD)) {
+	return -1;
+    }
+    return (int) input.word;
 }
 
 /*
@@ -2353,7 +2348,7 @@ UpdateWrapper(
      */
 
     if (wmPtr->hMenu != NULL) {
-	wmPtr->flags = WM_SYNC_PENDING;
+	wmPtr->flags |= WM_SYNC_PENDING;
 	SetMenu(wmPtr->wrapper, wmPtr->hMenu);
 	wmPtr->flags &= ~WM_SYNC_PENDING;
     }
@@ -4319,11 +4314,14 @@ WmIconphotoCmd(
     Tk_PhotoHandle photo;
     Tk_PhotoImageBlock block;
     int i, width, height, idx, bufferSize, startObj = 3;
-    unsigned char *bgraPixelPtr;
+    union {unsigned char *ptr; void *voidPtr;} bgraPixel;
+    void *bgraMaskPtr;
     BlockOfIconImagesPtr lpIR;
     WinIconPtr titlebaricon = NULL;
     HICON hIcon;
     unsigned size;
+    BITMAPINFO bmInfo;
+    ICONINFO iconInfo;
 
     if (objc < 4) {
 	Tcl_WrongNumArgs(interp, 2, objv,
@@ -4359,39 +4357,91 @@ WmIconphotoCmd(
      */
 
     size = sizeof(BlockOfIconImages) + (sizeof(ICONIMAGE) * (objc-startObj-1));
-    lpIR = (BlockOfIconImagesPtr) Tcl_AttemptAlloc(size);
+    lpIR = (BlockOfIconImagesPtr) attemptckalloc(size);
     if (lpIR == NULL) {
 	return TCL_ERROR;
     }
     ZeroMemory(lpIR, size);
 
     lpIR->nNumImages = objc - startObj;
+
     for (i = startObj; i < objc; i++) {
 	photo = Tk_FindPhoto(interp, Tcl_GetString(objv[i]));
 	Tk_PhotoGetSize(photo, &width, &height);
 	Tk_PhotoGetImage(photo, &block);
 
 	/*
-	 * Convert the image data into BGRA format (RGBQUAD) and then
-	 * encode the image data into an HICON.
+	 * Don't use CreateIcon to create the icon, as it requires color
+	 * bitmap data in device-dependent format.  Instead we use
+	 * CreateIconIndirect which takes device-independent bitmaps
+	 * and converts them as required.  Initialise icon info structure.
 	 */
-	bufferSize = height * width * block.pixelSize;
-	bgraPixelPtr = ckalloc(bufferSize);
-	for (idx = 0 ; idx < bufferSize ; idx += 4) {
-	    bgraPixelPtr[idx] = block.pixelPtr[idx+2];
-	    bgraPixelPtr[idx+1] = block.pixelPtr[idx+1];
-	    bgraPixelPtr[idx+2] = block.pixelPtr[idx+0];
-	    bgraPixelPtr[idx+3] = block.pixelPtr[idx+3];
+	
+	ZeroMemory( &iconInfo, sizeof iconInfo );
+	iconInfo.fIcon = TRUE;
+
+	/*
+	 * Create device-independant color bitmap.
+	 */
+	ZeroMemory(&bmInfo,sizeof bmInfo);
+	bmInfo.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmInfo.bmiHeader.biWidth = width;
+	bmInfo.bmiHeader.biHeight = -height;
+	bmInfo.bmiHeader.biPlanes = 1;
+	bmInfo.bmiHeader.biBitCount = 32;
+	bmInfo.bmiHeader.biCompression = BI_RGB;
+
+	iconInfo.hbmColor = CreateDIBSection( NULL, &bmInfo,
+	    DIB_RGB_COLORS, &bgraPixel.voidPtr, NULL, 0 );
+	if ( !iconInfo.hbmColor ) {
+	    ckfree((char *) lpIR);
+	    Tcl_AppendResult(interp, "failed to create color bitmap for \"",
+		    Tcl_GetString(objv[i]), "\"", NULL);
+	    return TCL_ERROR;	    
 	}
-	hIcon = CreateIcon(Tk_GetHINSTANCE(), width, height, 1, 32,
-		NULL, (BYTE *) bgraPixelPtr);
-	ckfree(bgraPixelPtr);
+
+	/*
+	 * Convert the photo image data into BGRA format (RGBQUAD).
+	 */
+	bufferSize = height * width * 4;
+	for (idx = 0 ; idx < bufferSize ; idx += 4) {
+	    bgraPixel.ptr[idx] = block.pixelPtr[idx+2];
+	    bgraPixel.ptr[idx+1] = block.pixelPtr[idx+1];
+	    bgraPixel.ptr[idx+2] = block.pixelPtr[idx+0];
+	    bgraPixel.ptr[idx+3] = block.pixelPtr[idx+3];
+	}
+
+	/*
+	 * Create a dummy mask bitmap.  The contents of this don't
+	 * appear to matter, as CreateIconIndirect will setup the icon
+	 * mask based on the alpha channel in our color bitmap.
+	 */
+	bmInfo.bmiHeader.biBitCount = 1;
+
+	iconInfo.hbmMask = CreateDIBSection( NULL, &bmInfo,
+	    DIB_RGB_COLORS, &bgraMaskPtr, NULL, 0 );
+	if ( !iconInfo.hbmMask ) {
+	    DeleteObject(iconInfo.hbmColor);
+	    ckfree((char *) lpIR);
+	    Tcl_AppendResult(interp, "failed to create mask bitmap for \"",
+		    Tcl_GetString(objv[i]), "\"", NULL);
+	    return TCL_ERROR;	    
+	}
+	
+	ZeroMemory( bgraMaskPtr, width*height/8 );
+	
+	/*
+	 * Create an icon from the bitmaps.
+	 */
+	hIcon = CreateIconIndirect( &iconInfo);
+	DeleteObject(iconInfo.hbmColor);
+	DeleteObject(iconInfo.hbmMask);
 	if (hIcon == NULL) {
 	    /*
 	     * XXX should free up created icons.
 	     */
 
-	    Tcl_Free((char *) lpIR);
+	    ckfree((char *) lpIR);
 	    Tcl_AppendResult(interp, "failed to create icon for \"",
 		    Tcl_GetString(objv[i]), "\"", NULL);
 	    return TCL_ERROR;
@@ -4401,6 +4451,7 @@ WmIconphotoCmd(
 	lpIR->IconImages[i-startObj].Colors = 4;
 	lpIR->IconImages[i-startObj].hIcon = hIcon;
     }
+
     titlebaricon = (WinIconPtr) ckalloc(sizeof(WinIconInstance));
     titlebaricon->iconBlock = lpIR;
     titlebaricon->refCount = 1;
@@ -7976,6 +8027,10 @@ WmProc(
     case WM_SYSCOMMAND:
 	/*
 	 * If there is a grab in effect then ignore the minimize command
+	 * unless the grab is on the main window (.). This is to permit
+	 * applications that leave a grab on . to work normally.
+	 * All other toplevels are deemed non-minimizable when a grab is
+	 * present.
 	 * If there is a grab in effect and this window is outside the
 	 * grab tree then ignore all system commands. [Bug 1847002]
 	 */
@@ -7983,8 +8038,11 @@ WmProc(
 	if (winPtr) {
 	    int cmd = wParam & 0xfff0;
 	    int grab = TkGrabState(winPtr);
-	    if (grab != TK_GRAB_NONE && SC_MINIMIZE == cmd)
+	    if ((SC_MINIMIZE == cmd)
+		&& (grab == TK_GRAB_IN_TREE || grab == TK_GRAB_ANCESTOR)
+		&& (winPtr != winPtr->mainPtr->winPtr)) {
 		goto done;
+	    }
 	    if (grab == TK_GRAB_EXCLUDED 
 		&& !(SC_MOVE == cmd || SC_SIZE == cmd)) {
 		goto done;
@@ -8174,13 +8232,14 @@ TkpGetWrapperWindow(
  */
 
 static void
-GenerateActivateEvent(TkWindow * winPtr, int *flagPtr)
+GenerateActivateEvent(TkWindow * winPtr, const int *flagPtr)
 {
     ActivateEvent *eventPtr;
     eventPtr = (ActivateEvent *)ckalloc(sizeof(ActivateEvent));
     eventPtr->ev.proc = ActivateWindow;
     eventPtr->winPtr = winPtr;
     eventPtr->flagPtr = flagPtr;
+    eventPtr->hwnd = Tk_GetHWND(winPtr->window);
     Tcl_QueueEvent((Tcl_Event *)eventPtr, TCL_QUEUE_TAIL);
 }
 
@@ -8213,6 +8272,15 @@ ActivateWindow(
     }
 
     /*
+     * Ensure the window has not been destroyed while we delayed
+     * processing the WM_ACTIVATE message [Bug 2899949].
+     */
+
+    if (!IsWindow(eventPtr->hwnd)) {
+	return 1;
+    }
+
+    /*
      * If the toplevel is in the middle of a move or size operation then
      * we must delay handling of this event to avoid stealing the focus
      * while the window manage is in control.
@@ -8228,10 +8296,20 @@ ActivateWindow(
      */
 
     if (winPtr) {
+	Window window;
 	if (TkGrabState(winPtr) != TK_GRAB_EXCLUDED) {
-	    SetFocus(Tk_GetHWND(winPtr->window));
+	    window = winPtr->window;
 	} else {
-	    SetFocus(Tk_GetHWND(winPtr->dispPtr->grabWinPtr->window));
+	    window = winPtr->dispPtr->grabWinPtr->window;
+	}
+
+	/*
+	 * Ensure the window was not destroyed while we were postponing
+	 * the activation [Bug 2799589]
+	 */
+
+	if (window) {
+	    SetFocus(Tk_GetHWND(window));
 	}
     }
 

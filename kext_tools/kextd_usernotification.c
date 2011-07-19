@@ -124,7 +124,6 @@ ExitStatus startMonitoringConsoleUser(
     bzero(&sourceContext, sizeof(CFRunLoopSourceContext));
     sourceContext.version = 0;
     sourceContext.perform = _checkNotificationQueue;
-    sourceContext.info    = toolArgs;
     sNotificationQueueRunLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault,
         (*sourcePriority)++, &sourceContext);
     if (!sNotificationQueueRunLoopSource) {
@@ -254,10 +253,8 @@ void resetUserNotifications(Boolean dismissAlert)
 
 /*******************************************************************************
 *******************************************************************************/
-void _checkNotificationQueue(void * info)
+void _checkNotificationQueue(void * info __unused)
 {
-    KextdArgs       * toolArgs          = (KextdArgs *)info;
-
     CFStringRef       kextPath          = NULL;  // do not release
     CFMutableArrayRef alertMessageArray = NULL;  // must release
 
@@ -269,25 +266,7 @@ void _checkNotificationQueue(void * info)
         goto finish;
     }
 
-    if (toolArgs->staleBootNotificationNeeded) {
-        alertMessageArray = CFArrayCreateMutable(
-            kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-        if (!alertMessageArray) {
-            goto finish;
-        }
-        
-        // xxx:loc - is this getting localized?
-        CFArrayAppendValue(alertMessageArray,
-            CFSTR("Important system files in memory do not match those on disk. "
-            "Kernel extensions can not be loaded, and some devices may not work. "
-            "Resetting your startup disk in System Preferences may help."));
-
-        kextd_raise_notification(CFSTR("Inconsistent system files"),
-            alertMessageArray);
-
-        toolArgs->staleBootNotificationNeeded = false;
-
-    } else if (CFArrayGetCount(sPendedNonsecureKextPaths)) {
+    if (CFArrayGetCount(sPendedNonsecureKextPaths)) {
         kextPath = (CFStringRef)CFArrayGetValueAtIndex(
             sPendedNonsecureKextPaths, 0);
         alertMessageArray = CFArrayCreateMutable(
@@ -370,7 +349,6 @@ void kextd_raise_notification(
     CFStringRef alertHeader,
     CFArrayRef  alertMessageArray)
 {
-    Boolean                result                  = -1;
     CFMutableDictionaryRef alertDict               = NULL;  // must release
     CFURLRef               iokitFrameworkBundleURL = NULL;  // must release
     SInt32                 userNotificationError   = 0;
@@ -383,7 +361,6 @@ void kextd_raise_notification(
         OSKextLog(/* kext */ NULL,
             kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
             "No logged in user.");
-        result = 0;
         goto finish;
     }
 
@@ -420,7 +397,6 @@ void kextd_raise_notification(
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag, 
             "Can't create user notification - %d",
             (int)userNotificationError);
-        result = 0;
         goto finish;
     }
 
@@ -430,12 +406,10 @@ void kextd_raise_notification(
     if (!sCurrentNotificationRunLoopSource) {
         CFRelease(sCurrentNotification);
         sCurrentNotification = NULL;
-        result = -1;
     }
     CFRunLoopAddSource(CFRunLoopGetCurrent(), sCurrentNotificationRunLoopSource,
         kCFRunLoopDefaultMode);
 
-    result = 1;
 finish:
     SAFE_RELEASE(alertDict);
     SAFE_RELEASE(iokitFrameworkBundleURL);
@@ -468,4 +442,4 @@ void _notificationDismissed(
     return;
 }
 
-#endif /* ifndef NO_CFUserNotification */
+#endif

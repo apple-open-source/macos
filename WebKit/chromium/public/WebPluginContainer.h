@@ -35,6 +35,8 @@ struct NPObject;
 
 namespace WebKit {
 
+class WebElement;
+class WebPlugin;
 class WebString;
 class WebURL;
 class WebURLRequest;
@@ -42,13 +44,24 @@ struct WebRect;
 
 class WebPluginContainer {
 public:
+    // Returns the element containing this plugin.
+    virtual WebElement element() = 0;
+
     virtual void invalidate() = 0;
     virtual void invalidateRect(const WebRect&) = 0;
+    virtual void scrollRect(int dx, int dy, const WebRect&) = 0;
 
     // Causes the container to report its current geometry via
     // WebPlugin::updateGeometry.
     virtual void reportGeometry() = 0;
-
+    
+    // Sets the id of the texture used for hw-accel compositing.
+    // The default value for id is zero which indicates software rendering.
+    // A non-zero value will trigger hw-accelerated compositing.
+    virtual void setBackingTextureId(unsigned) = 0;
+    // Called when the backing texture is ready to be composited.
+    virtual void commitBackingTexture() {}
+    
     // Drop any references to script objects allocated by the plugin.
     // These are objects derived from WebPlugin::scriptableObject.  This is
     // called when the plugin is being destroyed or if it needs to be
@@ -72,6 +85,12 @@ public:
     // the callback.
     virtual void loadFrameRequest(
         const WebURLRequest&, const WebString& target, bool notifyNeeded, void* notifyData) = 0;
+
+    // Notifies that the zoom level has changed.
+    virtual void zoomLevelChanged(double zoomLevel) = 0;
+
+    virtual WebPlugin* plugin() = 0;
+    virtual void setPlugin(WebPlugin*) = 0;
 
 protected:
     ~WebPluginContainer() { }

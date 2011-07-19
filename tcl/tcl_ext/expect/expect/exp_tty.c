@@ -497,11 +497,11 @@ Exp_SttyCmd(
 
 		/* if no result, make a crude one */
 		if (0 == strcmp(Tcl_GetString(Tcl_GetObjResult(interp)),"")) {
-	    char buf [12];
-	    sprintf(buf,"%sraw %secho",
-				(was_raw?"":"-"),
-				(was_echo?"":"-"));
-	    Tcl_SetResult (interp, buf, TCL_VOLATILE);
+		    char buf [11];
+		    sprintf(buf,"%sraw %secho",
+			    (was_raw?"":"-"),
+			    (was_echo?"":"-"));
+		    Tcl_SetResult (interp, buf, TCL_VOLATILE);
 		}
 	} else {
 		/* a different tty */
@@ -635,11 +635,11 @@ Exp_SystemCmd(
 			    return(TCL_ERROR);
 			}
 			if (cmd_is_stty) {
-		char buf [12];
-		sprintf(buf,"%sraw %secho",
-					(was_raw?"":"-"),
-					(was_echo?"":"-"));
-		Tcl_SetResult (interp, buf, TCL_VOLATILE);
+			    char buf [11];
+			    sprintf(buf,"%sraw %secho",
+				    (was_raw?"":"-"),
+				    (was_echo?"":"-"));
+			    Tcl_SetResult (interp, buf, TCL_VOLATILE);
 			}
 			return(TCL_OK);
 		}
@@ -699,11 +699,11 @@ Exp_SystemCmd(
 	}
 
 	if (cmd_is_stty) {
-	char buf [12];
-	sprintf(buf,"%sraw %secho",
-			(was_raw?"":"-"),
-			(was_echo?"":"-"));
-	Tcl_SetResult (interp, buf, TCL_VOLATILE);
+	    char buf [11];
+	    sprintf(buf,"%sraw %secho",
+		    (was_raw?"":"-"),
+		    (was_echo?"":"-"));
+	    Tcl_SetResult (interp, buf, TCL_VOLATILE);
 	}
 
 /* following macros stolen from Tcl's tclUnix.h file */

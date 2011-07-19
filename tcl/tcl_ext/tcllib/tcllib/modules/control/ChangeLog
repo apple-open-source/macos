@@ -1,3 +1,13 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* do.test: Fixed result difference between 8.5/8.6.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

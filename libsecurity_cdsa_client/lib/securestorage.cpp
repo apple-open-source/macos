@@ -513,7 +513,10 @@ SSDbUniqueRecordImpl::deleteRecord(const CSSM_ACCESS_CREDENTIALS *cred)
 	// Get the datablob for this record
 	// @@@ Fixme so we don't need to call DbUniqueRecordImpl::get
 	CssmDataContainer dataBlob(allocator());
-	DbUniqueRecordImpl::get(NULL, &dataBlob);
+	DbAttributes attributes;
+
+	DbUniqueRecordImpl::get(&attributes, &dataBlob);
+	CSSM_KEY_PTR keyPtr = (CSSM_KEY_PTR) dataBlob.data();
 
 	// delete data part first:
 	// (1) don't leave data without keys around
@@ -533,8 +536,23 @@ SSDbUniqueRecordImpl::deleteRecord(const CSSM_ACCESS_CREDENTIALS *cred)
 			// Zombie item (no group key). Finally at peace! No error
 			break;
 		default:
+			
+			if (attributes.recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY ||
+				attributes.recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY ||
+				attributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+			{
+				allocator().free(keyPtr->KeyData.Data);
+			}
+
 			throw;
 		}
+	}
+	
+	if (attributes.recordType() == CSSM_DL_DB_RECORD_PUBLIC_KEY ||
+		attributes.recordType() == CSSM_DL_DB_RECORD_PRIVATE_KEY ||
+		attributes.recordType() == CSSM_DL_DB_RECORD_SYMMETRIC_KEY)
+	{
+		allocator().free(keyPtr->KeyData.Data);
 	}
 }
 

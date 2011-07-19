@@ -1,0 +1,36 @@
+diff -Naur tnftpd-20100324/src/ftpd.conf.manin tnftpd/src/ftpd.conf.manin
+--- tnftpd-20100324/src/ftpd.conf.manin	2010-01-03 17:10:43.000000000 -0800
++++ tnftpd/src/ftpd.conf.manin	2010-05-13 15:05:27.000000000 -0700
+@@ -718,10 +718,10 @@
+ umask         guest  0707
+ .Ed
+ .Sh FILES
+-.Bl -tag -width @datadir@/examples/tnftpd/ftpd.conf -compact
++.Bl -tag -width @datadir@/ftpd/examples/ftpd.conf -compact
+ .It Pa @sysconfdir@/ftpd.conf
+ This file.
+-.It Pa @datadir@/examples/tnftpd/ftpd.conf
++.It Pa @datadir@/ftpd/examples/ftpd.conf
+ A sample
+ .Nm
+ file.
+diff -Naur tnftpd-20100324/src/ftpusers.manin tnftpd/src/ftpusers.manin
+--- tnftpd-20100324/src/ftpusers.manin	2010-01-03 17:10:03.000000000 -0800
++++ tnftpd/src/ftpusers.manin	2010-05-13 15:06:01.000000000 -0700
+@@ -161,14 +161,14 @@
+ No further comparisons are attempted after the first successful match.
+ This syntax is backward-compatible with the old syntax.
+ .Sh FILES
+-.Bl -tag -width @datadir@/examples/tnftpd/ftpusers -compact
++.Bl -tag -width @datadir@/ftpd/examples/ftpusers -compact
+ .It Pa @sysconfdir@/ftpchroot
+ List of normal users who should have their ftp session's root directory
+ changed by using
+ .Xr chroot 2 .
+ .It Pa @sysconfdir@/ftpusers
+ This file.
+-.It Pa @datadir@/examples/tnftpd/ftpusers
++.It Pa @datadir@/ftpd/examples/ftpusers
+ A sample
+ .Nm
+ file.

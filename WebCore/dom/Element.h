@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,23 +25,28 @@
 #ifndef Element_h
 #define Element_h
 
-#include "ContainerNode.h"
 #include "Document.h"
-#include "HTMLNames.h"
-#include "MappedAttributeEntry.h"
+#include "FragmentScriptingPermission.h"
 #include "NamedNodeMap.h"
-#include "QualifiedName.h"
 #include "ScrollTypes.h"
 
 namespace WebCore {
 
-class Attr;
 class Attribute;
-class CSSStyleDeclaration;
 class ClientRect;
 class ClientRectList;
+class DOMStringMap;
+class DOMTokenList;
 class ElementRareData;
 class IntSize;
+class ShadowRoot;
+class WebKitAnimationList;
+
+enum SpellcheckAttributeState {
+    SpellcheckAttributeTrue,
+    SpellcheckAttributeFalse,
+    SpellcheckAttributeDefault
+};
 
 class Element : public ContainerNode {
 public:
@@ -77,10 +82,10 @@ public:
 
     // These four attribute event handler attributes are overridden by HTMLBodyElement
     // and HTMLFrameSetElement to forward to the DOMWindow.
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(blur);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(error);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(focus);
-    DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(load);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(blur);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(error);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(focus);
+    DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(load);
 
     // WebKit extensions
     DEFINE_ATTRIBUTE_EVENT_LISTENER(beforecut);
@@ -98,21 +103,27 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
 #endif
+#if ENABLE(FULLSCREEN_API)
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitfullscreenchange);
+#endif
 
-    virtual PassRefPtr<DocumentFragment> createContextualFragment(const String&, FragmentScriptingPermission = FragmentScriptingAllowed);
+    virtual PassRefPtr<DocumentFragment> deprecatedCreateContextualFragment(const String&, FragmentScriptingPermission = FragmentScriptingAllowed);
 
     bool hasAttribute(const QualifiedName&) const;
     const AtomicString& getAttribute(const QualifiedName&) const;
     void setAttribute(const QualifiedName&, const AtomicString& value, ExceptionCode&);
     void removeAttribute(const QualifiedName&, ExceptionCode&);
 
+    // Typed getters and setters for language bindings.
+    int getIntegralAttribute(const QualifiedName& attributeName) const;
+    void setIntegralAttribute(const QualifiedName& attributeName, int value);
+    unsigned getUnsignedIntegralAttribute(const QualifiedName& attributeName) const;
+    void setUnsignedIntegralAttribute(const QualifiedName& attributeName, unsigned value);
+
     // Call this to get the value of an attribute that is known not to be the style
     // attribute or one of the SVG animatable attributes.
     bool fastHasAttribute(const QualifiedName&) const;
     const AtomicString& fastGetAttribute(const QualifiedName&) const;
-
-    // Call this to get the value of the id attribute. Faster than calling fastGetAttribute.
-    const AtomicString& getIDAttribute() const;
 
     bool hasAttributes() const;
 
@@ -125,7 +136,14 @@ public:
     void setAttribute(const AtomicString& name, const AtomicString& value, ExceptionCode&);
     void setAttributeNS(const AtomicString& namespaceURI, const AtomicString& qualifiedName, const AtomicString& value, ExceptionCode&, FragmentScriptingPermission = FragmentScriptingAllowed);
 
-    const QualifiedName& idAttributeName() const;
+    bool isIdAttributeName(const QualifiedName&) const;
+    const AtomicString& getIdAttribute() const;
+    void setIdAttribute(const AtomicString&);
+
+    // Call this to get the value of the id attribute for style resolution purposes.
+    // The value will already be lowercased if the document is in compatibility mode,
+    // so this function is not suitable for non-style uses.
+    const AtomicString& idForStyleResolution() const;
 
     void scrollIntoView(bool alignToTop = true);
     void scrollIntoViewIfNeeded(bool centerIfNeeded = true);
@@ -133,10 +151,10 @@ public:
     void scrollByLines(int lines);
     void scrollByPages(int pages);
 
-    int offsetLeft();
-    int offsetTop();
-    int offsetWidth();
-    int offsetHeight();
+    virtual int offsetLeft();
+    virtual int offsetTop();
+    virtual int offsetWidth();
+    virtual int offsetHeight();
     Element* offsetParent();
     int clientLeft();
     int clientTop();
@@ -149,8 +167,13 @@ public:
     virtual int scrollWidth() const;
     virtual int scrollHeight() const;
 
+    IntRect boundsInWindowSpace() const;
+
     PassRefPtr<ClientRectList> getClientRects() const;
     PassRefPtr<ClientRect> getBoundingClientRect() const;
+    
+    // Returns the absolute bounding box translated into screen coordinates:
+    IntRect screenRect() const;
 
     void removeAttribute(const String& name, ExceptionCode&);
     void removeAttributeNS(const String& namespaceURI, const String& localName, ExceptionCode&);
@@ -192,24 +215,30 @@ public:
     // use a static AtomicString value instead to avoid the conversion overhead.
     void setCStringAttribute(const QualifiedName&, const char* cStringValue);
 
-    virtual NamedNodeMap* attributes() const;
-    NamedNodeMap* attributes(bool readonly) const;
+    NamedNodeMap* attributes(bool readonly = false) const;
 
     // This method is called whenever an attribute is added, changed or removed.
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
-    // not part of the DOM
     void setAttributeMap(PassRefPtr<NamedNodeMap>, FragmentScriptingPermission = FragmentScriptingAllowed);
-    NamedNodeMap* attributeMap() const { return namedAttrMap.get(); }
+    NamedNodeMap* attributeMap() const { return m_attributeMap.get(); }
 
-    virtual void copyNonAttributeProperties(const Element* /*source*/) { }
+    virtual void copyNonAttributeProperties(const Element* source);
 
     virtual void attach();
     virtual void detach();
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange = NoChange);
 
+    ShadowRoot* shadowRoot() const;
+    ShadowRoot* ensureShadowRoot();
+    void removeShadowRoot();
+
+    virtual const AtomicString& shadowPseudoId() const;
+
     RenderStyle* computedStyle(PseudoId = NOPSEUDO);
+
+    AtomicString computeInheritedLanguage() const;
 
     void dispatchAttrRemovalEvent(Attribute*);
     void dispatchAttrAdditionEvent(Attribute*);
@@ -217,7 +246,10 @@ public:
     virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
 
     virtual bool isURLAttribute(Attribute*) const;
+
     KURL getURLAttribute(const QualifiedName&) const;
+    KURL getNonEmptyURLAttribute(const QualifiedName&) const;
+
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
 
@@ -244,9 +276,15 @@ public:
     // Use Document::registerForMediaVolumeCallbacks() to subscribe to this
     virtual void mediaVolumeDidChange() { }
 
+    // Use Document::registerForPrivateBrowsingStateChangedCallbacks() to subscribe to this.
+    virtual void privateBrowsingStateDidChange() { }
+
+    virtual void didBecomeFullscreenElement() { }
+    virtual void willStopBeingFullscreenElement() { }
+
     bool isFinishedParsingChildren() const { return isParsingChildrenFinished(); }
     virtual void finishParsingChildren();
-    virtual void beginParsingChildren() { clearIsParsingChildrenFinished(); }
+    virtual void beginParsingChildren();
 
     // ElementTraversal API
     Element* firstElementChild() const;
@@ -256,6 +294,25 @@ public:
     unsigned childElementCount() const;
 
     bool webkitMatchesSelector(const String& selectors, ExceptionCode&);
+
+    DOMTokenList* classList();
+    DOMTokenList* optionalClassList() const;
+
+    DOMStringMap* dataset();
+
+#if ENABLE(MATHML)
+    virtual bool isMathMLElement() const { return false; }
+#else
+    static bool isMathMLElement() { return false; }
+#endif
+
+#if ENABLE(VIDEO)
+    virtual bool isMediaElement() const { return false; }
+#endif
+
+#if ENABLE(INPUT_SPEECH)
+    virtual bool isInputFieldSpeechButtonElement() const { return false; }
+#endif
 
     virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
@@ -267,6 +324,12 @@ public:
     virtual bool isDefaultButtonForForm() const { return false; }
     virtual bool willValidate() const { return false; }
     virtual bool isValidFormControlElement() { return false; }
+    virtual bool hasUnacceptableValue() const { return false; }
+    virtual bool isInRange() const { return false; }
+    virtual bool isOutOfRange() const { return false; }
+    virtual bool isFrameElementBase() const { return false; }
+
+    virtual bool canContainRangeEndPoint() const { return true; }
 
     virtual bool formControlValueMatchesRenderer() const { return false; }
     virtual void setFormControlValueMatchesRenderer(bool) { }
@@ -278,11 +341,27 @@ public:
     virtual bool saveFormControlState(String&) const { return false; }
     virtual void restoreFormControlState(const String&) { }
 
+    virtual bool wasChangedSinceLastFormControlChangeEvent() const;
+    virtual void setChangedSinceLastFormControlChangeEvent(bool);
     virtual void dispatchFormControlChangeEvent() { }
 
 #if ENABLE(SVG)
     virtual bool childShouldCreateRenderer(Node*) const; 
 #endif
+    
+#if ENABLE(FULLSCREEN_API)
+    enum {
+        ALLOW_KEYBOARD_INPUT = 1
+    };
+    
+    void webkitRequestFullScreen(unsigned short flags);
+    virtual bool containsFullScreenElement() const;
+    virtual void setContainsFullScreenElement(bool);
+#endif
+
+    virtual bool isSpellCheckingEnabled() const;
+
+    PassRefPtr<WebKitAnimationList> webkitGetAnimations() const;
 
 protected:
     Element(const QualifiedName& tagName, Document* document, ConstructionType type)
@@ -291,24 +370,29 @@ protected:
     {
     }
 
+    virtual void willRemove();
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
+    virtual void insertedIntoTree(bool);
+    virtual void removedFromTree(bool);
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     // The implementation of Element::attributeChanged() calls the following two functions.
     // They are separated to allow a different flow of control in StyledElement::attributeChanged().
     void recalcStyleIfNeededAfterAttributeChanged(Attribute*);
     void updateAfterAttributeChanged(Attribute*);
+    
+    void idAttributeChanged(Attribute*);
 
+    static int adjustForLocalZoom(int value, RenderObject* renderer);
 private:
     void scrollByUnits(int units, ScrollGranularity);
 
     virtual void setPrefix(const AtomicString&, ExceptionCode&);
     virtual NodeType nodeType() const;
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
 
     virtual PassRefPtr<Attribute> createAttribute(const QualifiedName&, const AtomicString& value);
-    const QualifiedName& rareIDAttributeName() const;
     
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
@@ -334,41 +418,59 @@ private:
     // cloneNode is private so that non-virtual cloneElementWithChildren and cloneElementWithoutChildren
     // are used instead.
     virtual PassRefPtr<Node> cloneNode(bool deep);
+    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() const;
 
     QualifiedName m_tagName;
     virtual NodeRareData* createRareData();
 
     ElementRareData* rareData() const;
     ElementRareData* ensureRareData();
-    
-protected:
-    mutable RefPtr<NamedNodeMap> namedAttrMap;
+
+    SpellcheckAttributeState spellcheckAttributeState() const;
+
+private:
+    mutable RefPtr<NamedNodeMap> m_attributeMap;
 };
     
+inline Element* toElement(Node* node)
+{
+    ASSERT(!node || node->isElementNode());
+    return static_cast<Element*>(node);
+}
+
+inline const Element* toElement(const Node* node)
+{
+    ASSERT(!node || node->isElementNode());
+    return static_cast<const Element*>(node);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toElement(const Element*);
+
 inline bool Node::hasTagName(const QualifiedName& name) const
 {
-    return isElementNode() && static_cast<const Element*>(this)->hasTagName(name);
+    return isElementNode() && toElement(this)->hasTagName(name);
+}
+    
+inline bool Node::hasLocalName(const AtomicString& name) const
+{
+    return isElementNode() && toElement(this)->hasLocalName(name);
 }
 
 inline bool Node::hasAttributes() const
 {
-    return isElementNode() && static_cast<const Element*>(this)->hasAttributes();
+    return isElementNode() && toElement(this)->hasAttributes();
 }
 
 inline NamedNodeMap* Node::attributes() const
 {
-    return isElementNode() ? static_cast<const Element*>(this)->attributes() : 0;
+    return isElementNode() ? toElement(this)->attributes() : 0;
 }
 
 inline Element* Node::parentElement() const
 {
-    Node* parent = parentNode();
-    return parent && parent->isElementNode() ? static_cast<Element*>(parent) : 0;
-}
-
-inline const QualifiedName& Element::idAttributeName() const
-{
-    return hasRareData() ? rareIDAttributeName() : HTMLNames::idAttr;
+    ContainerNode* parent = parentNode();
+    return parent && parent->isElementNode() ? toElement(parent) : 0;
 }
 
 inline NamedNodeMap* Element::attributes(bool readonly) const
@@ -381,9 +483,9 @@ inline NamedNodeMap* Element::attributes(bool readonly) const
         updateAnimatedSVGAttribute(anyQName());
 #endif
 
-    if (!readonly && !namedAttrMap)
+    if (!readonly && !m_attributeMap)
         createAttributeMap();
-    return namedAttrMap.get();
+    return m_attributeMap.get();
 }
 
 inline void Element::updateId(const AtomicString& oldId, const AtomicString& newId)
@@ -394,27 +496,66 @@ inline void Element::updateId(const AtomicString& oldId, const AtomicString& new
     if (oldId == newId)
         return;
 
-    Document* doc = document();
+    TreeScope* scope = treeScope();
     if (!oldId.isEmpty())
-        doc->removeElementById(oldId, this);
+        scope->removeElementById(oldId, this);
     if (!newId.isEmpty())
-        doc->addElementById(newId, this);
+        scope->addElementById(newId, this);
 }
 
 inline bool Element::fastHasAttribute(const QualifiedName& name) const
 {
-    return namedAttrMap && namedAttrMap->getAttributeItem(name);
+    return m_attributeMap && m_attributeMap->getAttributeItem(name);
 }
 
 inline const AtomicString& Element::fastGetAttribute(const QualifiedName& name) const
 {
-    if (namedAttrMap) {
-        if (Attribute* attribute = namedAttrMap->getAttributeItem(name))
+    if (m_attributeMap) {
+        if (Attribute* attribute = m_attributeMap->getAttributeItem(name))
             return attribute->value();
     }
     return nullAtom;
 }
 
-} //namespace
+inline const AtomicString& Element::idForStyleResolution() const
+{
+    ASSERT(hasID());
+    return m_attributeMap->idForStyleResolution();
+}
+
+inline bool Element::isIdAttributeName(const QualifiedName& attributeName) const
+{
+    // FIXME: This check is probably not correct for the case where the document has an id attribute
+    // with a non-null namespace, because it will return false, a false negative, if the prefixes
+    // don't match but the local name and namespace both do. However, since this has been like this
+    // for a while and the code paths may be hot, we'll have to measure performance if we fix it.
+    return attributeName == document()->idAttributeName();
+}
+
+inline const AtomicString& Element::getIdAttribute() const
+{
+    return fastGetAttribute(document()->idAttributeName());
+}
+
+inline void Element::setIdAttribute(const AtomicString& value)
+{
+    setAttribute(document()->idAttributeName(), value);
+}
+
+inline const AtomicString& Element::shadowPseudoId() const
+{
+    return nullAtom;
+}
+    
+inline Element* firstElementChild(const ContainerNode* container)
+{
+    ASSERT_ARG(container, container);
+    Node* child = container->firstChild();
+    while (child && !child->isElementNode())
+        child = child->nextSibling();
+    return static_cast<Element*>(child);
+}
+
+} // namespace
 
 #endif

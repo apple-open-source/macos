@@ -26,6 +26,7 @@
 
 //#define DEBUG_MACH_PORT_ALLOCATIONS 1
 
+
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -38,9 +39,8 @@
 #include <SystemConfiguration/SCDPlugin.h>
 #if TARGET_OS_EMBEDDED
 #define __MACH_PORT_DEBUG(cond, str, port) do {} while(0)
-#else
-#include <SystemConfiguration/SCPrivate.h>
 #endif
+#include <SystemConfiguration/SCPrivate.h>
 
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
@@ -56,6 +56,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOReturn.h>
 
+#include <dispatch/dispatch.h>
 
 #if !TARGET_OS_EMBEDDED
   #define HAVE_CF_USER_NOTIFICATION     1
@@ -94,16 +95,23 @@ enum {
     kSmartBattPFFuseBlown =                 (1<<15)
 };
 
+typedef enum {
+   kBatteryPowered = 0,
+   kACPowered
+} PowerSources;
+
+
 
 struct IOPMBattery {
     io_registry_entry_t     me;
     io_object_t             msg_port;
     CFMutableDictionaryRef  properties;
-    bool                    externalConnected:1;
-    bool                    externalChargeCapable:1;
-    bool                    isCharging:1;
-    bool                    isPresent:1;
-    bool                    markedDeclining:1;
+    int                     externalConnected:1;
+    int                     externalChargeCapable:1;
+    int                     isCharging:1;
+    int                     isPresent:1;
+    int                     markedDeclining:1;
+    int                     isTimeRemainingUnknown:1;
     uint32_t                pfStatus;
     int                     currentCap;
     int                     maxCap;
@@ -128,7 +136,10 @@ struct IOPMBattery {
 typedef struct IOPMBattery IOPMBattery;
 
 
+#define kPowerManagementBundlePathCString       "/System/Library/CoreServices/powerd.bundle"
+#define kPowerdBundleIdentifier                 CFSTR("com.apple.powerd")
 
+#define kPowerManagementBundlePathString        CFSTR(kPowerManagementBundlePathCString)
 
 
 /* ASL Keys
@@ -144,9 +155,10 @@ typedef struct IOPMBattery IOPMBattery;
 #define kMsgTracerResultFailure                 "Failure"
 #define kMsgTracerResultNoop                    "Noop"
 
-#define kMsgTracerDomainPMSleep           	  	"com.apple.powermanagement.sleep"
+#define kMsgTracerDomainPMSleep                 "com.apple.powermanagement.sleep"
 #define kMsgTracerDomainPMMaintenance           "com.apple.powermanagement.maintenancewake"
 #define kMsgTracerDomainPMWake                  "com.apple.powermanagement.wake"
+#define kMsgTraceRDomainPMSystemPowerState      "com.apple.powermanagement.systempowerstate"
 #define kMsgTracerDomainHibernateStatistics     "com.apple.powermanagement.hibernatestats"
 #define kMsgTracerDomainFilteredFailure         "com.apple.powermanagement.filteredfailure"
 #define kMsgTracerDomainAppResponse             "com.apple.powermanagement.applicationresponse"
@@ -157,8 +169,15 @@ typedef struct IOPMBattery IOPMBattery;
 #define kMsgTracerSigSuccess                    kMsgTracerResultSuccess
 #define kMsgTracerSigEarlyFailure               "Early Failure"
 #define kMsgTracerSigAppsFailure                "Apps Failure"
+#define kMsgTracerSigPriorityFailure            "Priority Failure"
+#define kMsgTracerSigInterestFailure            "Interest Failure"
+#define kMsgTracerSigCapabilityFailure          "Capability Failure"
+#define kMsgTracerSigNotificationFailure        "Notification Failure"
 #define kMsgTracerSigDriversFailure             "Drivers Failure"
 #define kMsgTracerSigHibernateFailure           "Hibernate Failure"
+#define kMsgTracerSigPlatformActionFailure      "Platform Action Failure"
+#define kMsgTracerSigPlatformDriverFailure      "Platform Driver Failure"
+#define kMsgTracerSigCpusFailure                "Cpus Failure"
 #define kMsgTracerSigPlatformFailure            "Platform Failure"
 #define kMsgTracerSigLoginwindowAuthFailure     "Loginwindow Authorization Failure"
 
@@ -168,33 +187,47 @@ typedef struct IOPMBattery IOPMBattery;
 
 #define kMsgTracerValueUndefined                "undefined"
 
+#define kPMASLMessageKey                        "com.apple.powermanagement"
+#define kPMASLMessageLogValue                   "pmlog"
+
+
+/* ASL Assertion Keys
+ */
+#define kPMASLActionKey                         "Action"
+#define kPMASLPIDKey                            "Process"
+#define kPMASLAssertionNameKey                  "AssertionName"
+#define kPMASLAssertionActionCreate             "Created"
+#define kPMASLAssertionActionRelease            "Released"
+#define kPMASLAssertionActionClientDeath        "ClientDied"
+#define kPMASLAssertionActionTimeOut            "TimedOut"
+#define kPMASLAssertionActionSummary            "Summary"
+
+
+#define kAssertionHumanReadableReasonTTY        CFSTR("A remote user is connected. That prevents system sleep.")
+
 // MY_CAST_INT_POINTER casts a mach_port_t into a void * for CF containers
 #define MY_CAST_INT_POINTER(x)  ((void *)(uintptr_t)(x))
 
 
-__private_extern__ void logASLMessageSleep(
-                            const char *sig, 
-                            const char *uuidStr, 
-                            CFAbsoluteTime date,
-                            const char *failureStr);
-__private_extern__ void logASLMessageWake(
-                            const char *sig, 
-                            const char *uuidStr, 
-                            CFAbsoluteTime date, 
-                            const char *failureStr);
-__private_extern__ void logASLMessageFilteredFailure(
-                            uint32_t pmFailureStage,
-                            const char *pmFailureString,
-                            const char *uuidStr, 
-                            int shutdowncode);
-__private_extern__ void logASLMessageHibernateStatistics(void);
-__private_extern__ void logASLMessageApplicationResponse(
-                            CFStringRef logSourceString,
-                            CFStringRef appNameString,
-                            CFStringRef responseTypeString,
-                            CFNumberRef responseTime);
-__private_extern__ void logASLMessageKernelApplicationResponses(void);
-__private_extern__ void logASLMessageMaintenanceWake(void);
+__private_extern__ void                 logASLMessageSleep(const char *sig, const char *uuidStr, 
+                                                           CFAbsoluteTime date, const char *failureStr);
+
+__private_extern__ void                 logASLMessageWake(const char *sig, const char *uuidStr, 
+                                                          CFAbsoluteTime date, const char *failureStr);
+
+__private_extern__ void                 logASLMessageDarkWake(void);
+
+__private_extern__ void                 logASLMessageFilteredFailure(uint32_t pmFailureStage, const char *pmFailureString,
+                                                                     const char *uuidStr, int shutdowncode);
+
+__private_extern__ void                 logASLMessageHibernateStatistics(void);
+
+__private_extern__ void                 logASLMessageApplicationResponse(CFStringRef logSourceString, CFStringRef appNameString,
+                                                                         CFStringRef responseTypeString, CFNumberRef responseTime);
+
+__private_extern__ void                 logASLMessageKernelApplicationResponses(void);
+
+__private_extern__ void                 logASLMessageSystemPowerState(bool inS3, int runState);
 
 #define kAppResponseLogSourceKernel             CFSTR("Kernel")
 #define kAppResponseLogSourcePMConnection       CFSTR("PMConnection")
@@ -207,59 +240,60 @@ __private_extern__ void logASLMessageMaintenanceWake(void);
 #define kPMSettingsDictionaryDateKey            "Date"
 #define kPMSettingsDictionaryUUIDKey            "UUID"
 
-__private_extern__ IOPMBattery **_batteries(void);
-__private_extern__ IOPMBattery *_newBatteryFound(io_registry_entry_t);
-__private_extern__ void _batteryChanged(IOPMBattery *);
-__private_extern__ bool _batteryHas(IOPMBattery *, CFStringRef);
-__private_extern__ int  _batteryCount(void);
-__private_extern__ void  _removeBattery(io_registry_entry_t);
+/* PM Kernel shares times with user space in a packed 64-bit integer. 
+ * Seconds since 1970 in the lower 32, microseconds in the upper 32.
+ */
+__private_extern__ CFAbsoluteTime       _CFAbsoluteTimeFromPMEventTimeStamp(uint64_t kernelPackedTime);
 
-// Returns 10.0 - 10.4 style IOPMCopyBatteryInfo dictionary, when possible.
-__private_extern__ CFArrayRef _copyLegacyBatteryInfo(void);
+__private_extern__ IOPMBattery          **_batteries(void);
+__private_extern__ IOPMBattery          *_newBatteryFound(io_registry_entry_t);
+__private_extern__ void                 _batteryChanged(IOPMBattery *);
+__private_extern__ bool                 _batteryHas(IOPMBattery *, CFStringRef);
+__private_extern__ int                  _batteryCount(void);
+__private_extern__ void                 _removeBattery(io_registry_entry_t);
+__private_extern__ IOReturn             _getSystemManagementKeyInt32(uint32_t key, uint32_t *val);
+__private_extern__ IOReturn             _getACAdapterInfo(uint64_t *acBits);
+__private_extern__ PowerSources         _getPowerSource(void);
 
-__private_extern__ void _askNicelyThenShutdownSystem(void);
-__private_extern__ void _askNicelyThenRestartSystem(void);
-__private_extern__ void _askNicelyThenSleepSystem(void);
-
-__private_extern__ IOReturn _getSystemManagementKeyInt32(uint32_t key, uint32_t *val);
-__private_extern__ IOReturn _getACAdapterInfo(uint64_t *acBits);
-
-__private_extern__ IOReturn _smcWakeTimerPrimer(void);
-__private_extern__ IOReturn _smcWakeTimerGetResults(uint16_t *mSec);
+__private_extern__ void                 wakeDozingMachine(void);
 
 #if !TARGET_OS_EMBEDDED
 __private_extern__ CFUserNotificationRef _showUPSWarning(void);
 #endif
 
-__private_extern__ SCDynamicStoreRef _getSharedPMDynamicStore(void);
+__private_extern__ void                 _askNicelyThenShutdownSystem(void);
+__private_extern__ void                 _askNicelyThenRestartSystem(void);
+__private_extern__ void                 _askNicelyThenSleepSystem(void);
 
+__private_extern__ IOReturn             _smcWakeTimerPrimer(void);
+__private_extern__ IOReturn             _smcWakeTimerGetResults(uint16_t *mSec);
 
-// _PortInvalidatedCallout is implemented in pmconfigd.c
-__private_extern__ void _PortInvalidatedCallout(CFMachPortRef port, void *info);
+__private_extern__ SCDynamicStoreRef    _getSharedPMDynamicStore(void);
 
 
 // getUUIDString copies the UUID string into the provided buffer
 // returns true on success; or false if the copy failed, or the UUID does not exist
-__private_extern__ bool _getUUIDString(char *buf, int buflen);
+__private_extern__ bool                 _getUUIDString(char *buf, int buflen);
+__private_extern__ bool                 _getSleepReason(char *buf, int buflen);
+__private_extern__ bool                 _getWakeReason(char *buf, int buflen);
 
-__private_extern__ bool _getSleepReason(char *buf, int buflen);
-__private_extern__ bool _getWakeReason(char *buf, int buflen);
-
-__private_extern__ io_registry_entry_t getRootDomain(void);
-__private_extern__ IOReturn _setRootDomainProperty(
-                                    CFStringRef     key,
-                                    CFTypeRef       val);
-__private_extern__ CFTypeRef _copyRootDomainProperty(
-                                    CFStringRef     key);
+__private_extern__ io_registry_entry_t  getRootDomain(void);
+__private_extern__ IOReturn             _setRootDomainProperty(CFStringRef key, CFTypeRef val);
+__private_extern__ CFTypeRef            _copyRootDomainProperty(CFStringRef key);
 
 
-__private_extern__ int callerIsRoot(int uid, int gid);
-__private_extern__ int callerIsAdmin(int uid, int gid);
-__private_extern__ int callerIsConsole(int uid, int gid);
+__private_extern__ int                  callerIsRoot(int uid, int gid);
+__private_extern__ int                  callerIsAdmin(int uid, int gid);
+__private_extern__ int                  callerIsConsole(int uid, int gid);
+__private_extern__ void                 _PortInvalidatedCallout(CFMachPortRef port, void *info);
 
-__private_extern__ const char *stringForLWCode(uint8_t code);
-__private_extern__ const char *stringForPMCode(uint8_t code);
+__private_extern__ const char           *stringForLWCode(uint8_t code);
+__private_extern__ const char           *stringForPMCode(uint8_t code);
 
+__private_extern__ CFTimeInterval       _getHIDIdleTime(void);
+
+__private_extern__ CFRunLoopRef         _getPMRunLoop(void);
+__private_extern__ dispatch_queue_t     _getPMDispatchQueue(void);
 
 enum {
     kChooseMaintenance      = 1,
@@ -272,12 +306,11 @@ enum {
 //  - once from PMConnection.c when a system maintenance time is chosen
 //  - _choose_best_wake_event will select the earlier of the two, and activate
 //      that event.
-__private_extern__ IOReturn _pm_scheduledevent_choose_best_wake_event(
-            int                 selector,
-            CFAbsoluteTime      chosenTime);
+__private_extern__ IOReturn             _pm_scheduledevent_choose_best_wake_event(
+                                                    int selector, CFAbsoluteTime chosenTime);
 
 
-__private_extern__ void _oneOffHacksSetup(void);
+__private_extern__ void                 _oneOffHacksSetup(void);
 
 #endif
 

@@ -41,9 +41,8 @@ int mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember);
 int mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember);
 int mbr_uuid_to_string(const uuid_t uu, char *string);
 int mbr_string_to_uuid(const char *string, uuid_t uu);
-int mbr_sid_to_string(const nt_sid_t *sid, char *string);
-int mbr_string_to_sid(const char *string, nt_sid_t *sid);
 int mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type);
+int mbr_set_identifier_ttl(int id_type, const void *identifier, size_t identifier_size, unsigned int seconds);
 
 __END_DECLS
 

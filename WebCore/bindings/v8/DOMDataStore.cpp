@@ -88,7 +88,6 @@ DOMDataStore::DOMDataStore(DOMData* domData)
     , m_activeDomObjectMap(0)
 #if ENABLE(SVG)
     , m_domSvgElementInstanceMap(0)
-    , m_domSvgObjectWithContextMap(0)
 #endif
     , m_domData(domData)
 {
@@ -126,8 +125,6 @@ void* DOMDataStore::getDOMWrapperMap(DOMWrapperMapType type)
 #if ENABLE(SVG)
     case DOMSVGElementInstanceMap:
         return m_domSvgElementInstanceMap;
-    case DOMSVGObjectWithContextMap:
-        return m_domSvgObjectWithContextMap;
 #endif
     }
 
@@ -151,11 +148,13 @@ void DOMDataStore::weakActiveDOMObjectCallback(v8::Persistent<v8::Value> v8Objec
     DOMData::handleWeakObject(DOMDataStore::ActiveDOMObjectMap, v8::Persistent<v8::Object>::Cast(v8Object), domObject);
 }
 
-void DOMDataStore::weakNodeCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
+void DOMDataStore::weakNodeCallback(v8::Persistent<v8::Value> value, void* domObject)
 {
     ASSERT(WTF::isMainThread());
 
     Node* node = static_cast<Node*>(domObject);
+    // Node wrappers must be JS objects.
+    v8::Persistent<v8::Object> v8Object = v8::Persistent<v8::Object>::Cast(value);
 
     WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
     DOMDataList& list = DOMDataStore::allStores();
@@ -163,24 +162,15 @@ void DOMDataStore::weakNodeCallback(v8::Persistent<v8::Value> v8Object, void* do
         DOMDataStore* store = list[i];
         if (store->domNodeMap().removeIfPresent(node, v8Object)) {
             ASSERT(store->domData()->owningThread() == WTF::currentThread());
-            node->deref();  // Nobody overrides Node::deref so it's safe
-            break;  // There might be at most one wrapper for the node in world's maps
+            node->deref(); // Nobody overrides Node::deref so it's safe
+            return; // There might be at most one wrapper for the node in world's maps
         }
     }
-}
 
-bool DOMDataStore::IntrusiveDOMWrapperMap::removeIfPresent(Node* obj, v8::Persistent<v8::Data> value)
-{
-    ASSERT(obj);
-    v8::Persistent<v8::Object>* entry = obj->wrapper();
-    if (!entry)
-        return false;
-    if (*entry != value)
-        return false;
-    obj->clearWrapper();
-    m_table.remove(entry);
-    value.Dispose();
-    return true;
+    // If not found, it means map for the wrapper has been already destroyed, just dispose the
+    // handle and deref the object to fight memory leak.
+    v8Object.Dispose();
+    node->deref(); // Nobody overrides Node::deref so it's safe
 }
 
 #if ENABLE(SVG)
@@ -190,13 +180,6 @@ void DOMDataStore::weakSVGElementInstanceCallback(v8::Persistent<v8::Value> v8Ob
     v8::HandleScope scope;
     ASSERT(v8Object->IsObject());
     DOMData::handleWeakObject(DOMDataStore::DOMSVGElementInstanceMap, v8::Persistent<v8::Object>::Cast(v8Object), static_cast<SVGElementInstance*>(domObject));
-}
-
-void DOMDataStore::weakSVGObjectWithContextCallback(v8::Persistent<v8::Value> v8Object, void* domObject)
-{
-    v8::HandleScope scope;
-    ASSERT(v8Object->IsObject());
-    DOMData::handleWeakObject(DOMDataStore::DOMSVGObjectWithContextMap, v8::Persistent<v8::Object>::Cast(v8Object), domObject);
 }
 
 #endif  // ENABLE(SVG)

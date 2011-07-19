@@ -12,7 +12,7 @@
  * software for any purpose.  It is provided "as is" without express or
  * implied warranty.
  *-----------------------------------------------------------------------------
- * $Id: tclExtdInt.h,v 1.7 2005/07/12 19:03:15 hobbs Exp $
+ * $Id: tclExtdInt.h,v 1.8 2008/12/15 20:00:27 andreas_kupries Exp $
  *-----------------------------------------------------------------------------
  */
 
@@ -183,6 +183,15 @@ extern Tcl_Obj *tclXWrongArgsObj;
 
 #define ckbinstrdup(sourceStr, length) \
   ((char *) memcpy (ckalloc (length + 1), sourceStr, length + 1))
+
+/*
+ * Handle hiding of errorLine in 8.6
+ */
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+#define ERRORLINE(interp) ((interp)->errorLine)
+#else
+#define ERRORLINE(interp) (Tcl_GetErrorLine(interp))
+#endif
 
 /*
  * Callback type for walking directories.

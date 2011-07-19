@@ -1,0 +1,4 @@
+SUBDIRS = \
+	gtf \
+	cvt \
+	man

@@ -9,7 +9,7 @@
 #
 # Monte Carlo Tests with 4 Million cycles through the algorithm will need too much time
 #
-# $Id: aes.test,v 1.7 2008/05/12 23:16:09 andreas_kupries Exp $
+# $Id: aes.test,v 1.8 2010/07/06 19:39:00 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -231,6 +231,14 @@ foreach {n key iv pt ct} $vectors {
         } msg] $msg
     } [list 0 $pt]
 }
+
+test aes-sf2993029 {aes decrypt, wide integer, sf bug 2993029} {
+
+    aes::aes -hex -mode ecb -dir decrypt \
+        -key [binary format H* FEDCBA98FEDCBA98FEDCBA98FEDCBA98] \
+        [binary format H* 2a666624a86d4c29de37b520781c1069]
+
+} {01000000000000003d5afbb584a29f57}
 
 testsuiteCleanup
 

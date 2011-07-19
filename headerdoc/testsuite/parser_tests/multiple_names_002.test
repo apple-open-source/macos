@@ -1,0 +1,3865 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$489|typedef struct _manynames_xrefnode {
+    char *manynames_basepath;
+    char *manynames_filename;
+#ifdef RP_CACHE
+    char *manynames_filename_rp;
+#endif
+    char *manynames_fullpath; //
+    char *manynames_xref;
+    char *manynames_title;
+    int manynames_fromseed : 1;
+    int manynames_force_absolute : 1;
+    DEPTH_TYPE manynames_maxleftdepth, manynames_maxrightdepth;
+    struct _xrefnode *manynames_left, *manynames_right, *manynames_dup, *manynames_parent;
+} *manynames_xrefnode_t;
+$77|/*!
+    @abstract
+        Blah
+    @param manynames_fromseed
+	From seed?
+ */
+$0|$58425|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/multiple_names_002.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/multiple_names_002.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 1
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => ***********
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inTypedef} => 1
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 14
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => manynames_xrefnode_t;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => _manynames_xrefnode
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  typedef struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  typedef struct _manynames_xrefnode {
+     char *
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => typedef
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 14
+typelist: typedef struct
+namelist: manynames_xrefnode_t,_manynames_xrefnode
+posstypes:  typedef struct
+value: 
+returntype:  typedef struct _manynames_xrefnode {     char *
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => char *manynames_basepath
+Parsed Param 1 => char *manynames_filename
+Parsed Param 2 => char *manynames_filename_rp
+Parsed Param 3 => char *manynames_fullpath
+Parsed Param 4 => char *manynames_xref
+Parsed Param 5 => char *manynames_title
+Parsed Param 6 => int manynames_fromseed : 1
+Parsed Param 7 => int manynames_force_absolute : 1
+Parsed Param 8 => DEPTH_TYPE manynames_maxleftdepth, manynames_maxrightdepth
+Parsed Param 9 => struct _xrefnode *manynames_left, *manynames_right, *manynames_dup, *manynames_parent
+-=: DUMP OF PARSE TREE :=-
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: multiple names 002
+APIUID: //test_ref/doc/header/multiple_names_002.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: manynames_xrefnode_t
+    APIUID: //test_ref/c/tdef/manynames_xrefnode_t
+    ABSTRACT: "<p>Blah
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_basepath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename_rp
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fullpath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_xref
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_title
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_force_absolute
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxleftdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxrightdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_left
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_right
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_dup
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_parent
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: 
+        APIUID: //test_ref/doc/typedeffield/manynames_xrefnode_t/manynames_fromseed
+        ABSTRACT: ""
+        DISCUSSION: "<p>From seed?"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Struct
+    NAME: _manynames_xrefnode
+    APIUID: //test_ref/c/tag/_manynames_xrefnode
+    ABSTRACT: "<p>Blah
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Struct"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_basepath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename_rp
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fullpath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_xref
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_title
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_force_absolute
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxleftdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxrightdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_left
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_right
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_dup
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_parent
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/_manynames_xrefnode/manynames_fromseed
+        ABSTRACT: ""
+        DISCUSSION: "<p>From seed?"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_manynames_xrefnode //test_ref/c/tdef/_manynames_xrefnode //test_ref/c/tag/_manynames_xrefnode //test_ref/c/struct/_manynames_xrefnode //test_ref/c/intf/_manynames_xrefnode //test_ref/doc/anysymbol/_manynames_xrefnode" machineGenerated="true" --><span class="type">_manynames_xrefnode</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_basepath //test_ref/c/data/manynames_basepath //test_ref/c/clconst/manynames_basepath " machineGenerated="true" --><span class="var">manynames_basepath</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename //test_ref/c/data/manynames_filename //test_ref/c/clconst/manynames_filename " machineGenerated="true" --><span class="var">manynames_filename</span><!-- /a -->; 
+	    <span class="preprocessor">#ifdef</span> <!-- a logicalPath="//test_ref/c/cl/RP_CACHE //test_ref/c/tdef/RP_CACHE //test_ref/c/tag/RP_CACHE //test_ref/c/struct/RP_CACHE //test_ref/c/intf/RP_CACHE //test_ref/c/econst/RP_CACHE //test_ref/c/data/RP_CACHE //test_ref/c/clconst/RP_CACHE //test_ref/c/instm/RP_CACHE //test_ref/c/clm/RP_CACHE //test_ref/c/intfcm/RP_CACHE //test_ref/c/intfm/RP_CACHE //test_ref/c/func/RP_CACHE //test_ref/c/ftmplt/RP_CACHE //test_ref/c/defn/RP_CACHE //test_ref/c/macro/RP_CACHE //test_ref/doc/com/intfm/RP_CACHE //test_ref/doc/anysymbol/RP_CACHE" machineGenerated="true" --><span class="preprocessor">RP_CACHE</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename_rp //test_ref/c/data/manynames_filename_rp //test_ref/c/clconst/manynames_filename_rp " machineGenerated="true" --><span class="var">manynames_filename_rp</span><!-- /a -->; 
+	    <span class="preprocessor">#endif</span>  
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_fullpath //test_ref/c/data/manynames_fullpath //test_ref/c/clconst/manynames_fullpath " machineGenerated="true" --><span class="var">manynames_fullpath</span><!-- /a -->; <span class="comment">//</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xref //test_ref/c/data/manynames_xref //test_ref/c/clconst/manynames_xref " machineGenerated="true" --><span class="var">manynames_xref</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_title //test_ref/c/data/manynames_title //test_ref/c/clconst/manynames_title " machineGenerated="true" --><span class="var">manynames_title</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_fromseed //test_ref/c/tdef/manynames_fromseed //test_ref/c/tag/manynames_fromseed //test_ref/c/struct/manynames_fromseed //test_ref/c/intf/manynames_fromseed //test_ref/doc/anysymbol/manynames_fromseed" machineGenerated="true" --><span class="type">manynames_fromseed</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_force_absolute //test_ref/c/tdef/manynames_force_absolute //test_ref/c/tag/manynames_force_absolute //test_ref/c/struct/manynames_force_absolute //test_ref/c/intf/manynames_force_absolute //test_ref/doc/anysymbol/manynames_force_absolute" machineGenerated="true" --><span class="type">manynames_force_absolute</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/DEPTH_TYPE //test_ref/c/tdef/DEPTH_TYPE //test_ref/c/tag/DEPTH_TYPE //test_ref/c/struct/DEPTH_TYPE //test_ref/c/intf/DEPTH_TYPE //test_ref/doc/anysymbol/DEPTH_TYPE" machineGenerated="true" --><span class="type">DEPTH_TYPE</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/manynames_maxleftdepth //test_ref/c/data/manynames_maxleftdepth //test_ref/c/clconst/manynames_maxleftdepth " machineGenerated="true" --><span class="var">manynames_maxleftdepth</span><!-- /a -->, <!-- a logicalPath="//test_ref/c/econst/manynames_maxrightdepth //test_ref/c/data/manynames_maxrightdepth //test_ref/c/clconst/manynames_maxrightdepth " machineGenerated="true" --><span class="var">manynames_maxrightdepth</span><!-- /a -->; 
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_xrefnode //test_ref/c/tdef/_xrefnode //test_ref/c/tag/_xrefnode //test_ref/c/struct/_xrefnode //test_ref/c/intf/_xrefnode //test_ref/doc/anysymbol/_xrefnode" machineGenerated="true" --><span class="type">_xrefnode</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_left //test_ref/c/data/manynames_left //test_ref/c/clconst/manynames_left " machineGenerated="true" --><span class="var">manynames_left</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_right //test_ref/c/data/manynames_right //test_ref/c/clconst/manynames_right " machineGenerated="true" --><span class="var">manynames_right</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_dup //test_ref/c/data/manynames_dup //test_ref/c/clconst/manynames_dup " machineGenerated="true" --><span class="var">manynames_dup</span><!-- /a -->, 
+	    <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_parent //test_ref/c/data/manynames_parent //test_ref/c/clconst/manynames_parent " machineGenerated="true" --><span class="var">manynames_parent</span><!-- /a -->; 
+	} <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xrefnode_t //test_ref/c/data/manynames_xrefnode_t //test_ref/c/clconst/manynames_xrefnode_t " machineGenerated="true" --><span class="var">manynames_xrefnode_t</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_manynames_xrefnode //test_ref/c/tdef/_manynames_xrefnode //test_ref/c/tag/_manynames_xrefnode //test_ref/c/struct/_manynames_xrefnode //test_ref/c/intf/_manynames_xrefnode //test_ref/doc/anysymbol/_manynames_xrefnode" machineGenerated="true" --><span class="type">_manynames_xrefnode</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_basepath //test_ref/c/data/manynames_basepath //test_ref/c/clconst/manynames_basepath " machineGenerated="true" --><span class="var">manynames_basepath</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename //test_ref/c/data/manynames_filename //test_ref/c/clconst/manynames_filename " machineGenerated="true" --><span class="var">manynames_filename</span><!-- /a -->; 
+	    <span class="preprocessor">#ifdef</span> <!-- a logicalPath="//test_ref/c/cl/RP_CACHE //test_ref/c/tdef/RP_CACHE //test_ref/c/tag/RP_CACHE //test_ref/c/struct/RP_CACHE //test_ref/c/intf/RP_CACHE //test_ref/c/econst/RP_CACHE //test_ref/c/data/RP_CACHE //test_ref/c/clconst/RP_CACHE //test_ref/c/instm/RP_CACHE //test_ref/c/clm/RP_CACHE //test_ref/c/intfcm/RP_CACHE //test_ref/c/intfm/RP_CACHE //test_ref/c/func/RP_CACHE //test_ref/c/ftmplt/RP_CACHE //test_ref/c/defn/RP_CACHE //test_ref/c/macro/RP_CACHE //test_ref/doc/com/intfm/RP_CACHE //test_ref/doc/anysymbol/RP_CACHE" machineGenerated="true" --><span class="preprocessor">RP_CACHE</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename_rp //test_ref/c/data/manynames_filename_rp //test_ref/c/clconst/manynames_filename_rp " machineGenerated="true" --><span class="var">manynames_filename_rp</span><!-- /a -->; 
+	    <span class="preprocessor">#endif</span>  
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_fullpath //test_ref/c/data/manynames_fullpath //test_ref/c/clconst/manynames_fullpath " machineGenerated="true" --><span class="var">manynames_fullpath</span><!-- /a -->; <span class="comment">//</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xref //test_ref/c/data/manynames_xref //test_ref/c/clconst/manynames_xref " machineGenerated="true" --><span class="var">manynames_xref</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_title //test_ref/c/data/manynames_title //test_ref/c/clconst/manynames_title " machineGenerated="true" --><span class="var">manynames_title</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_fromseed //test_ref/c/tdef/manynames_fromseed //test_ref/c/tag/manynames_fromseed //test_ref/c/struct/manynames_fromseed //test_ref/c/intf/manynames_fromseed //test_ref/doc/anysymbol/manynames_fromseed" machineGenerated="true" --><span class="type">manynames_fromseed</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_force_absolute //test_ref/c/tdef/manynames_force_absolute //test_ref/c/tag/manynames_force_absolute //test_ref/c/struct/manynames_force_absolute //test_ref/c/intf/manynames_force_absolute //test_ref/doc/anysymbol/manynames_force_absolute" machineGenerated="true" --><span class="type">manynames_force_absolute</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/DEPTH_TYPE //test_ref/c/tdef/DEPTH_TYPE //test_ref/c/tag/DEPTH_TYPE //test_ref/c/struct/DEPTH_TYPE //test_ref/c/intf/DEPTH_TYPE //test_ref/doc/anysymbol/DEPTH_TYPE" machineGenerated="true" --><span class="type">DEPTH_TYPE</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/manynames_maxleftdepth //test_ref/c/data/manynames_maxleftdepth //test_ref/c/clconst/manynames_maxleftdepth " machineGenerated="true" --><span class="var">manynames_maxleftdepth</span><!-- /a -->, <!-- a logicalPath="//test_ref/c/econst/manynames_maxrightdepth //test_ref/c/data/manynames_maxrightdepth //test_ref/c/clconst/manynames_maxrightdepth " machineGenerated="true" --><span class="var">manynames_maxrightdepth</span><!-- /a -->; 
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_xrefnode //test_ref/c/tdef/_xrefnode //test_ref/c/tag/_xrefnode //test_ref/c/struct/_xrefnode //test_ref/c/intf/_xrefnode //test_ref/doc/anysymbol/_xrefnode" machineGenerated="true" --><span class="type">_xrefnode</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_left //test_ref/c/data/manynames_left //test_ref/c/clconst/manynames_left " machineGenerated="true" --><span class="var">manynames_left</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_right //test_ref/c/data/manynames_right //test_ref/c/clconst/manynames_right " machineGenerated="true" --><span class="var">manynames_right</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_dup //test_ref/c/data/manynames_dup //test_ref/c/clconst/manynames_dup " machineGenerated="true" --><span class="var">manynames_dup</span><!-- /a -->, 
+	    <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_parent //test_ref/c/data/manynames_parent //test_ref/c/clconst/manynames_parent " machineGenerated="true" --><span class="var">manynames_parent</span><!-- /a -->; 
+	} <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xrefnode_t //test_ref/c/data/manynames_xrefnode_t //test_ref/c/clconst/manynames_xrefnode_t " machineGenerated="true" --><span class="var">manynames_xrefnode_t</span><!-- /a -->;  
+END OF OBJECT
+
+
+
+$58425|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/multiple_names_002.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/multiple_names_002.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 1
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => ***********
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inTypedef} => 1
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 14
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => manynames_xrefnode_t;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => _manynames_xrefnode
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  typedef struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  typedef struct _manynames_xrefnode {
+     char *
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => typedef
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 14
+typelist: typedef struct
+namelist: manynames_xrefnode_t,_manynames_xrefnode
+posstypes:  typedef struct
+value: 
+returntype:  typedef struct _manynames_xrefnode {     char *
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => char *manynames_basepath
+Parsed Param 1 => char *manynames_filename
+Parsed Param 2 => char *manynames_filename_rp
+Parsed Param 3 => char *manynames_fullpath
+Parsed Param 4 => char *manynames_xref
+Parsed Param 5 => char *manynames_title
+Parsed Param 6 => int manynames_fromseed : 1
+Parsed Param 7 => int manynames_force_absolute : 1
+Parsed Param 8 => DEPTH_TYPE manynames_maxleftdepth, manynames_maxrightdepth
+Parsed Param 9 => struct _xrefnode *manynames_left, *manynames_right, *manynames_dup, *manynames_parent
+-=: DUMP OF PARSE TREE :=-
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: multiple names 002
+APIUID: //test_ref/doc/header/multiple_names_002.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: manynames_xrefnode_t
+    APIUID: //test_ref/c/tdef/manynames_xrefnode_t
+    ABSTRACT: "<p>Blah
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_basepath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename_rp
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fullpath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_xref
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_title
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_force_absolute
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxleftdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxrightdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_left
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_right
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_dup
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_parent
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: 
+        APIUID: //test_ref/doc/typedeffield/manynames_xrefnode_t/manynames_fromseed
+        ABSTRACT: ""
+        DISCUSSION: "<p>From seed?"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Struct
+    NAME: _manynames_xrefnode
+    APIUID: //test_ref/c/tag/_manynames_xrefnode
+    ABSTRACT: "<p>Blah
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Struct"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_basepath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_filename_rp
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fullpath
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_xref
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_title
+        TYPE: char *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_force_absolute
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxleftdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_maxrightdepth
+        TYPE: DEPTH_TYPE
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_left
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_right
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_dup
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_parent
+        TYPE: struct _xrefnode *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: manynames_fromseed
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/_manynames_xrefnode/manynames_fromseed
+        ABSTRACT: ""
+        DISCUSSION: "<p>From seed?"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
++---typedef
++--- 
++---struct
++--- 
++---_manynames_xrefnode
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_basepath
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#ifdef
+|   |   +--- 
+|   |   +---RP_CACHE
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_filename_rp
+|   +---;
+|   +---[ NEWLINE ]
+|   +---#endif
+|   |   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_fullpath
+|   +---;
+|   +--- 
+|   +---//
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_xref
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---char
+|   +--- 
+|   +---*
+|   +---manynames_title
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_fromseed
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---int
+|   +--- 
+|   +---manynames_force_absolute
+|   +--- 
+|   +---:
+|   +--- 
+|   +---1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---DEPTH_TYPE
+|   +--- 
+|   +---manynames_maxleftdepth
+|   +---,
+|   +--- 
+|   +---manynames_maxrightdepth
+|   +---;
+|   +---[ NEWLINE ]
+|   +---    
+|   +---struct
+|   +--- 
+|   +---_xrefnode
+|   +--- 
+|   +---*
+|   +---manynames_left
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_right
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_dup
+|   +---,
+|   +--- 
+|   +---*
+|   +---manynames_parent
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---*
++---manynames_xrefnode_t
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_manynames_xrefnode //test_ref/c/tdef/_manynames_xrefnode //test_ref/c/tag/_manynames_xrefnode //test_ref/c/struct/_manynames_xrefnode //test_ref/c/intf/_manynames_xrefnode //test_ref/doc/anysymbol/_manynames_xrefnode" machineGenerated="true" --><span class="type">_manynames_xrefnode</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_basepath //test_ref/c/data/manynames_basepath //test_ref/c/clconst/manynames_basepath " machineGenerated="true" --><span class="var">manynames_basepath</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename //test_ref/c/data/manynames_filename //test_ref/c/clconst/manynames_filename " machineGenerated="true" --><span class="var">manynames_filename</span><!-- /a -->; 
+	    <span class="preprocessor">#ifdef</span> <!-- a logicalPath="//test_ref/c/cl/RP_CACHE //test_ref/c/tdef/RP_CACHE //test_ref/c/tag/RP_CACHE //test_ref/c/struct/RP_CACHE //test_ref/c/intf/RP_CACHE //test_ref/c/econst/RP_CACHE //test_ref/c/data/RP_CACHE //test_ref/c/clconst/RP_CACHE //test_ref/c/instm/RP_CACHE //test_ref/c/clm/RP_CACHE //test_ref/c/intfcm/RP_CACHE //test_ref/c/intfm/RP_CACHE //test_ref/c/func/RP_CACHE //test_ref/c/ftmplt/RP_CACHE //test_ref/c/defn/RP_CACHE //test_ref/c/macro/RP_CACHE //test_ref/doc/com/intfm/RP_CACHE //test_ref/doc/anysymbol/RP_CACHE" machineGenerated="true" --><span class="preprocessor">RP_CACHE</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename_rp //test_ref/c/data/manynames_filename_rp //test_ref/c/clconst/manynames_filename_rp " machineGenerated="true" --><span class="var">manynames_filename_rp</span><!-- /a -->; 
+	    <span class="preprocessor">#endif</span>  
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_fullpath //test_ref/c/data/manynames_fullpath //test_ref/c/clconst/manynames_fullpath " machineGenerated="true" --><span class="var">manynames_fullpath</span><!-- /a -->; <span class="comment">//</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xref //test_ref/c/data/manynames_xref //test_ref/c/clconst/manynames_xref " machineGenerated="true" --><span class="var">manynames_xref</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_title //test_ref/c/data/manynames_title //test_ref/c/clconst/manynames_title " machineGenerated="true" --><span class="var">manynames_title</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_fromseed //test_ref/c/tdef/manynames_fromseed //test_ref/c/tag/manynames_fromseed //test_ref/c/struct/manynames_fromseed //test_ref/c/intf/manynames_fromseed //test_ref/doc/anysymbol/manynames_fromseed" machineGenerated="true" --><span class="type">manynames_fromseed</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_force_absolute //test_ref/c/tdef/manynames_force_absolute //test_ref/c/tag/manynames_force_absolute //test_ref/c/struct/manynames_force_absolute //test_ref/c/intf/manynames_force_absolute //test_ref/doc/anysymbol/manynames_force_absolute" machineGenerated="true" --><span class="type">manynames_force_absolute</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/DEPTH_TYPE //test_ref/c/tdef/DEPTH_TYPE //test_ref/c/tag/DEPTH_TYPE //test_ref/c/struct/DEPTH_TYPE //test_ref/c/intf/DEPTH_TYPE //test_ref/doc/anysymbol/DEPTH_TYPE" machineGenerated="true" --><span class="type">DEPTH_TYPE</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/manynames_maxleftdepth //test_ref/c/data/manynames_maxleftdepth //test_ref/c/clconst/manynames_maxleftdepth " machineGenerated="true" --><span class="var">manynames_maxleftdepth</span><!-- /a -->, <!-- a logicalPath="//test_ref/c/econst/manynames_maxrightdepth //test_ref/c/data/manynames_maxrightdepth //test_ref/c/clconst/manynames_maxrightdepth " machineGenerated="true" --><span class="var">manynames_maxrightdepth</span><!-- /a -->; 
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_xrefnode //test_ref/c/tdef/_xrefnode //test_ref/c/tag/_xrefnode //test_ref/c/struct/_xrefnode //test_ref/c/intf/_xrefnode //test_ref/doc/anysymbol/_xrefnode" machineGenerated="true" --><span class="type">_xrefnode</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_left //test_ref/c/data/manynames_left //test_ref/c/clconst/manynames_left " machineGenerated="true" --><span class="var">manynames_left</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_right //test_ref/c/data/manynames_right //test_ref/c/clconst/manynames_right " machineGenerated="true" --><span class="var">manynames_right</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_dup //test_ref/c/data/manynames_dup //test_ref/c/clconst/manynames_dup " machineGenerated="true" --><span class="var">manynames_dup</span><!-- /a -->, 
+	    <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_parent //test_ref/c/data/manynames_parent //test_ref/c/clconst/manynames_parent " machineGenerated="true" --><span class="var">manynames_parent</span><!-- /a -->; 
+	} <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xrefnode_t //test_ref/c/data/manynames_xrefnode_t //test_ref/c/clconst/manynames_xrefnode_t " machineGenerated="true" --><span class="var">manynames_xrefnode_t</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: _manynames_xrefnode (HeaderDoc::Struct)
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_manynames_xrefnode //test_ref/c/tdef/_manynames_xrefnode //test_ref/c/tag/_manynames_xrefnode //test_ref/c/struct/_manynames_xrefnode //test_ref/c/intf/_manynames_xrefnode //test_ref/doc/anysymbol/_manynames_xrefnode" machineGenerated="true" --><span class="type">_manynames_xrefnode</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_basepath //test_ref/c/data/manynames_basepath //test_ref/c/clconst/manynames_basepath " machineGenerated="true" --><span class="var">manynames_basepath</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename //test_ref/c/data/manynames_filename //test_ref/c/clconst/manynames_filename " machineGenerated="true" --><span class="var">manynames_filename</span><!-- /a -->; 
+	    <span class="preprocessor">#ifdef</span> <!-- a logicalPath="//test_ref/c/cl/RP_CACHE //test_ref/c/tdef/RP_CACHE //test_ref/c/tag/RP_CACHE //test_ref/c/struct/RP_CACHE //test_ref/c/intf/RP_CACHE //test_ref/c/econst/RP_CACHE //test_ref/c/data/RP_CACHE //test_ref/c/clconst/RP_CACHE //test_ref/c/instm/RP_CACHE //test_ref/c/clm/RP_CACHE //test_ref/c/intfcm/RP_CACHE //test_ref/c/intfm/RP_CACHE //test_ref/c/func/RP_CACHE //test_ref/c/ftmplt/RP_CACHE //test_ref/c/defn/RP_CACHE //test_ref/c/macro/RP_CACHE //test_ref/doc/com/intfm/RP_CACHE //test_ref/doc/anysymbol/RP_CACHE" machineGenerated="true" --><span class="preprocessor">RP_CACHE</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_filename_rp //test_ref/c/data/manynames_filename_rp //test_ref/c/clconst/manynames_filename_rp " machineGenerated="true" --><span class="var">manynames_filename_rp</span><!-- /a -->; 
+	    <span class="preprocessor">#endif</span>  
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_fullpath //test_ref/c/data/manynames_fullpath //test_ref/c/clconst/manynames_fullpath " machineGenerated="true" --><span class="var">manynames_fullpath</span><!-- /a -->; <span class="comment">//</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xref //test_ref/c/data/manynames_xref //test_ref/c/clconst/manynames_xref " machineGenerated="true" --><span class="var">manynames_xref</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_title //test_ref/c/data/manynames_title //test_ref/c/clconst/manynames_title " machineGenerated="true" --><span class="var">manynames_title</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_fromseed //test_ref/c/tdef/manynames_fromseed //test_ref/c/tag/manynames_fromseed //test_ref/c/struct/manynames_fromseed //test_ref/c/intf/manynames_fromseed //test_ref/doc/anysymbol/manynames_fromseed" machineGenerated="true" --><span class="type">manynames_fromseed</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/manynames_force_absolute //test_ref/c/tdef/manynames_force_absolute //test_ref/c/tag/manynames_force_absolute //test_ref/c/struct/manynames_force_absolute //test_ref/c/intf/manynames_force_absolute //test_ref/doc/anysymbol/manynames_force_absolute" machineGenerated="true" --><span class="type">manynames_force_absolute</span><!-- /a --> : <span class="number">1</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/DEPTH_TYPE //test_ref/c/tdef/DEPTH_TYPE //test_ref/c/tag/DEPTH_TYPE //test_ref/c/struct/DEPTH_TYPE //test_ref/c/intf/DEPTH_TYPE //test_ref/doc/anysymbol/DEPTH_TYPE" machineGenerated="true" --><span class="type">DEPTH_TYPE</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/manynames_maxleftdepth //test_ref/c/data/manynames_maxleftdepth //test_ref/c/clconst/manynames_maxleftdepth " machineGenerated="true" --><span class="var">manynames_maxleftdepth</span><!-- /a -->, <!-- a logicalPath="//test_ref/c/econst/manynames_maxrightdepth //test_ref/c/data/manynames_maxrightdepth //test_ref/c/clconst/manynames_maxrightdepth " machineGenerated="true" --><span class="var">manynames_maxrightdepth</span><!-- /a -->; 
+	    <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/_xrefnode //test_ref/c/tdef/_xrefnode //test_ref/c/tag/_xrefnode //test_ref/c/struct/_xrefnode //test_ref/c/intf/_xrefnode //test_ref/doc/anysymbol/_xrefnode" machineGenerated="true" --><span class="type">_xrefnode</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_left //test_ref/c/data/manynames_left //test_ref/c/clconst/manynames_left " machineGenerated="true" --><span class="var">manynames_left</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_right //test_ref/c/data/manynames_right //test_ref/c/clconst/manynames_right " machineGenerated="true" --><span class="var">manynames_right</span><!-- /a -->, <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_dup //test_ref/c/data/manynames_dup //test_ref/c/clconst/manynames_dup " machineGenerated="true" --><span class="var">manynames_dup</span><!-- /a -->, 
+	    <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_parent //test_ref/c/data/manynames_parent //test_ref/c/clconst/manynames_parent " machineGenerated="true" --><span class="var">manynames_parent</span><!-- /a -->; 
+	} <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/manynames_xrefnode_t //test_ref/c/data/manynames_xrefnode_t //test_ref/c/clconst/manynames_xrefnode_t " machineGenerated="true" --><span class="var">manynames_xrefnode_t</span><!-- /a -->;  
+END OF OBJECT
+
+
+
+$109|Another test of multiple names on a single line.  Watch for
+changes to the number of leading '*' characters.
+$100|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/multiple_names_002.test$1|C$18|multiple names 002$1|C$6|parser

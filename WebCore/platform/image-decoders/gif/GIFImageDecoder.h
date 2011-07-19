@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef GIFImageDecoder_h
@@ -29,14 +29,14 @@
 #include "ImageDecoder.h"
 #include <wtf/OwnPtr.h>
 
-class GIFImageReader;
+struct GIFImageReader;
 
 namespace WebCore {
 
     // This class decodes the GIF image format.
     class GIFImageDecoder : public ImageDecoder {
     public:
-        GIFImageDecoder();
+        GIFImageDecoder(ImageSource::AlphaOption, ImageSource::GammaAndColorProfileOption);
         virtual ~GIFImageDecoder();
 
         enum GIFQuery { GIFFullQuery, GIFSizeQuery, GIFFrameCountQuery };
@@ -48,13 +48,17 @@ namespace WebCore {
         virtual bool setSize(unsigned width, unsigned height);
         virtual size_t frameCount();
         virtual int repetitionCount() const;
-        virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
+        virtual ImageFrame* frameBufferAtIndex(size_t index);
+        // CAUTION: setFailed() deletes |m_reader|.  Be careful to avoid
+        // accessing deleted memory, especially when calling this from inside
+        // GIFImageReader!
+        virtual bool setFailed();
         virtual void clearFrameBufferCache(size_t clearBeforeFrame);
 
         // Callbacks from the GIF reader.
         void decodingHalted(unsigned bytesLeft);
         bool haveDecodedRow(unsigned frameIndex, unsigned char* rowBuffer, unsigned char* rowEnd, unsigned rowNumber, unsigned repeatCount, bool writeTransparentPixels);
-        bool frameComplete(unsigned frameIndex, unsigned frameDuration, RGBA32Buffer::FrameDisposalMethod disposalMethod);
+        bool frameComplete(unsigned frameIndex, unsigned frameDuration, ImageFrame::FrameDisposalMethod disposalMethod);
         void gifComplete();
 
     private:

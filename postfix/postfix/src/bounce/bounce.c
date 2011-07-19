@@ -35,10 +35,11 @@
 /* STANDARDS
 /*	RFC 822 (ARPA Internet Text Messages)
 /*	RFC 2045 (Format of Internet Message Bodies)
-/*	RFC 2822 (ARPA Internet Text Messages)
+/*	RFC 2822 (Internet Message Format)
 /*	RFC 3462 (Delivery Status Notifications)
 /*	RFC 3464 (Delivery Status Notifications)
 /*	RFC 3834 (Auto-Submitted: message header)
+/*	RFC 5322 (Internet Message Format)
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /* CONFIGURATION PARAMETERS
@@ -107,7 +108,7 @@
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* FILES

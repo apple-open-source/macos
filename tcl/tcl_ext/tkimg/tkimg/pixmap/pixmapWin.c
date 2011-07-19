@@ -11,14 +11,12 @@
  *
  */
 
-/*#include <windows.h>*/
 #include "tkInt.h"
 #include "tkWinInt.h"
+#include "pixmapInt.h"
 #include <stdlib.h>
-#include <pixmapInt.h>
-/* #include "imgInt.h" */ /* ---- what is used ?? */
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
+#include "X11/Xlib.h"
+#include "X11/Xutil.h"
 
 typedef struct PixmapData {
     HDC bitmapDC;               /* Bitmap used on Windows platforms */
@@ -27,13 +25,13 @@ typedef struct PixmapData {
     HBITMAP maskBm, maskBmOld;
 } PixmapData;
 
-static void		CopyTransparent _ANSI_ARGS_((Display* display,
-			    HDC srcDC, Drawable dest,
-			    int src_x, int src_y, int width,
-			    int height, int dest_x, int dest_y,
-			    HDC maskDC));
+static void CopyTransparent(Display* display,
+	HDC srcDC, Drawable dest,
+	int src_x, int src_y, int width,
+	int height, int dest_x, int dest_y,
+	HDC maskDC);
 
-
+
 /*----------------------------------------------------------------------
  * TkimgInitPixmapInstance --
  *
@@ -56,7 +54,7 @@ TkimgInitPixmapInstance(masterPtr, instancePtr)
     instancePtr->clientData = (ClientData)dataPtr;
 }
 
-
+
 /*----------------------------------------------------------------------
  * TkimgXpmAllocTmpBuffer --
  *
@@ -94,7 +92,7 @@ TkimgXpmAllocTmpBuffer(masterPtr, instancePtr, imagePtr, maskPtr)
     *maskPtr = mask;
 }
 
-
+
 void
 TkimgXpmFreeTmpBuffer(masterPtr, instancePtr, image, mask)
     PixmapMaster * masterPtr;
@@ -114,7 +112,7 @@ TkimgXpmFreeTmpBuffer(masterPtr, instancePtr, image, mask)
     }
 }
 
-
+
 /*----------------------------------------------------------------------
  * TkimgXpmSetPixel --
  *
@@ -157,7 +155,7 @@ TkimgXpmSetPixel(instancePtr, image, mask, x, y, colorPtr, isTranspPtr)
 	*isTranspPtr = 1;
     }
 }
-
+
 /*----------------------------------------------------------------------
  * TkimgXpmRealizePixmap --
  *
@@ -198,7 +196,7 @@ TkimgXpmRealizePixmap(masterPtr, instancePtr, image, mask, isTransp)
 	 * There are transparent pixels. We need a mask.
 	 */
 	maskDC = CreateCompatibleDC(dc);
-	maskBm = CreateBitmap(w, h, 1, 1, (const VOID*)mask->data);
+	maskBm = CreateBitmap(w, h, 1, 1, (const void*)mask->data);
 	maskBmOld = SelectObject(maskDC, maskBm);
 
 	BitBlt(bitmapDC, 0, 0, w, h, maskDC, 0, 0, SRCAND);

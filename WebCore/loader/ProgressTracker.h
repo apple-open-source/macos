@@ -36,12 +36,13 @@ class Frame;
 class ResourceResponse;
 struct ProgressItem;
 
-class ProgressTracker : public Noncopyable {
+class ProgressTracker {
+    WTF_MAKE_NONCOPYABLE(ProgressTracker); WTF_MAKE_FAST_ALLOCATED;
 public:
     ProgressTracker();
     ~ProgressTracker();
     
-    unsigned long createUniqueIdentifier();
+    static unsigned long createUniqueIdentifier();
 
     double estimatedProgress() const;
 
@@ -59,7 +60,7 @@ private:
     void reset();
     void finalProgressComplete();
     
-    unsigned long m_uniqueIdentifier;
+    static unsigned long s_uniqueIdentifier;
     
     long long m_totalPageAndResourceBytesToLoad;
     long long m_totalBytesReceived;

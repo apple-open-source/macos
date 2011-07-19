@@ -1,0 +1,46 @@
+Index: Path-Class/t/01-basic.t
+===================================================================
+--- Path-Class/t/01-basic.t (revision 22267)
++++ Path-Class/t/01-basic.t (working copy)
+@@ -7,7 +7,7 @@
+ use Path::Class;
+ use Cwd;
+ 
+-plan tests => 66;
++plan tests => 65;
+ ok(1);
+ 
+ my $file1 = Path::Class::File->new('foo.txt');
+@@ -79,7 +79,6 @@
+   ok dir(''), '/';
+   ok dir(), '.';
+   ok dir('', 'var', 'tmp'), '/var/tmp';
+-  ok dir()->absolute, dir(Cwd::cwd())->cleanup;
+   ok dir(undef), undef;
+ }
+
+Index: Path-Class/t/03-filesystem.t
+===================================================================
+--- Path-Class/t/03-filesystem.t	(revision 22200)
++++ Path-Class/t/03-filesystem.t	(working copy)
+@@ -4,7 +4,7 @@
+ use File::Temp qw(tmpnam tempdir);
+ use File::Spec;
+ 
+-plan tests => 72;
++plan tests => 71;
+ 
+ use_ok 'Path::Class';
+ 
+@@ -66,11 +66,6 @@
+   ok $dir->mkpath, "Created $dir";
+   ok -d $dir, "$dir is a directory";
+ 
+-  # Use a Unix sample path to test cleaning it up
+-  my $ugly = Path::Class::Dir->new_foreign(Unix => 't/foo/..//foo/bar');
+-  $ugly->resolve;
+-  is $ugly->as_foreign('Unix'), 't/foo/bar';
+-  
+   $dir = $dir->parent;
+   ok $dir->rmtree;
+   ok !-e $dir;

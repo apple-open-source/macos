@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.h,v 1.87 2009/01/22 10:02:34 djm Exp $ */
+/* $OpenBSD: servconf.h,v 1.93 2010/05/07 11:30:30 djm Exp $ */
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -24,6 +24,7 @@
 #define MAX_DENY_GROUPS		256	/* Max # groups on deny list. */
 #define MAX_SUBSYSTEMS		256	/* Max # subsystems. */
 #define MAX_HOSTKEYS		256	/* Max # hostkeys. */
+#define MAX_HOSTCERTS		256	/* Max # host certificates. */
 #define MAX_ACCEPT_ENV		256	/* Max # of env vars. */
 #define MAX_MATCH_GROUPS	256	/* Max # of groups for Match. */
 
@@ -49,6 +50,8 @@ typedef struct {
 	int     address_family;		/* Address family used by the server. */
 	char   *host_key_files[MAX_HOSTKEYS];	/* Files containing host keys. */
 	int     num_host_key_files;     /* Number of files for host keys. */
+	char   *host_cert_files[MAX_HOSTCERTS];	/* Files containing host certs. */
+	int     num_host_cert_files;     /* Number of files for host certs. */
 	char   *pid_file;	/* Where to put our pid */
 	int     server_key_bits;/* Size of the server key. */
 	int     login_grace_time;	/* Disconnect if no auth in this time
@@ -91,9 +94,10 @@ typedef struct {
 	int     kerberos_get_afs_token;		/* If true, try to get AFS token if
 						 * authenticated with Kerberos. */
 	int     gss_authentication;	/* If true, permit GSSAPI authentication */
-	int 	gss_keyex;		/* If true, permit GSSAPI key exchange */
+	int     gss_keyex;		/* If true, permit GSSAPI key exchange */
 	int     gss_cleanup_creds;	/* If true, destroy cred cache on logout */
 	int 	gss_strict_acceptor;	/* If true, restrict the GSSAPI acceptor name */
+	int 	gss_store_rekey;
 	int     password_authentication;	/* If true, permit password
 						 * authentication. */
 	int     kbd_interactive_authentication;	/* If true, permit */
@@ -147,13 +151,15 @@ typedef struct {
 	char   *adm_forced_command;
 
 	int	use_pam;		/* Enable auth via PAM */
-	int	sacl_support;		/* Enable use of SACLs */
 
 	int	permit_tun;
 
 	int	num_permitted_opens;
 
 	char   *chroot_directory;
+	char   *revoked_keys_file;
+	char   *trusted_user_ca_keys;
+	char   *authorized_principals_file;
 }       ServerOptions;
 
 void	 initialize_server_options(ServerOptions *);
@@ -167,5 +173,6 @@ void	 parse_server_match_config(ServerOptions *, const char *, const char *,
 	     const char *);
 void	 copy_set_server_options(ServerOptions *, ServerOptions *, int);
 void	 dump_config(ServerOptions *);
+char	*derelativise_path(const char *);
 
 #endif				/* SERVCONF_H */

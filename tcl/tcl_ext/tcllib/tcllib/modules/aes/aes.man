@@ -1,10 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin aes n 1.0.1]
+[manpage_begin aes n 1.0.2]
 [copyright {2005, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [moddesc {Advanced Encryption Standard (AES)}]
 [titledesc {Implementation of the AES block cipher}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
-[require aes [opt 1.0.1]]
+[require aes [opt 1.0.2]]
 [description]
 [para]
 
@@ -117,7 +118,8 @@ block size is used to handle the first block. The initialization
 vector should be chosen randomly and transmitted as the first block of
 the output. Errors in encryption affect the current block and the next
 block after which the cipher will correct itself. CBC is the most
-commonly used mode in software encryption.
+commonly used mode in software encryption. This is the default mode
+of operation for this module.
 
 [list_end]
 

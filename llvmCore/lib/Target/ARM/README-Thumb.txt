@@ -37,7 +37,7 @@ LPCRELL0:
 	mov r1, #PCRELV0
 	add r1, pc
 	ldr r0, [r0, r1]
-	cpy pc, r0 
+	mov pc, r0 
 	.align	2
 LJTI1_0_0:
 	.long	 LBB1_3
@@ -51,7 +51,7 @@ We should be able to generate:
 LPCRELL0:
 	add r1, LJTI1_0_0
 	ldr r0, [r0, r1]
-	cpy pc, r0 
+	mov pc, r0 
 	.align	2
 LJTI1_0_0:
 	.long	 LBB1_3
@@ -196,14 +196,6 @@ This is especially bad when dynamic alloca is used. The all fixed size stack
 objects are referenced off the frame pointer with negative offsets. See
 oggenc for an example.
 
-//===---------------------------------------------------------------------===//
-
-We are reserving R3 as a scratch register under thumb mode. So if it is live in
-to the function, we save / restore R3 to / from R12. Until register scavenging
-is done, we should save R3 to a high callee saved reg at emitPrologue time
-(when hasFP is true or stack size is large) and restore R3 from that register
-instead. This allows us to at least get rid of the save to r12 everytime it is
-used.
 
 //===---------------------------------------------------------------------===//
 
@@ -214,8 +206,8 @@ LPC0:
 	add r5, pc
 	ldr r6, LCPI1_1
 	ldr r2, LCPI1_2
-	cpy r3, r6
-	cpy lr, pc
+	mov r3, r6
+	mov lr, pc
 	bx r5
 
 //===---------------------------------------------------------------------===//
@@ -226,3 +218,31 @@ etc. Almost all Thumb instructions clobber condition code.
 //===---------------------------------------------------------------------===//
 
 Add ldmia, stmia support.
+
+//===---------------------------------------------------------------------===//
+
+Thumb load / store address mode offsets are scaled. The values kept in the
+instruction operands are pre-scale values. This probably ought to be changed
+to avoid extra work when we convert Thumb2 instructions to Thumb1 instructions.
+
+//===---------------------------------------------------------------------===//
+
+We need to make (some of the) Thumb1 instructions predicable. That will allow
+shrinking of predicated Thumb2 instructions. To allow this, we need to be able
+to toggle the 's' bit since they do not set CPSR when they are inside IT blocks.
+
+//===---------------------------------------------------------------------===//
+
+Make use of hi register variants of cmp: tCMPhir / tCMPZhir.
+
+//===---------------------------------------------------------------------===//
+
+Thumb1 immediate field sometimes keep pre-scaled values. See
+Thumb1RegisterInfo::eliminateFrameIndex. This is inconsistent from ARM and
+Thumb2.
+
+//===---------------------------------------------------------------------===//
+
+Rather than having tBR_JTr print a ".align 2" and constant island pass pad it,
+add a target specific ALIGN instruction instead. That way, GetInstSizeInBytes
+won't have to over-estimate. It can also be used for loop alignment pass.

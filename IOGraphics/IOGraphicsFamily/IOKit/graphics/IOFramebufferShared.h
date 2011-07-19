@@ -25,6 +25,7 @@
 
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/graphics/IOGraphicsTypes.h>
+#include <IOKit/IOSharedLock.h>
 
 #ifdef __cplusplus
 extern "C" {

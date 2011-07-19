@@ -3,8 +3,8 @@
 /*
  * token.re
  *
- * $Author: kojima1 $
- * $Date: 2007/03/09 23:41:58 $
+ * $Author: why $
+ * $Date: 2005-09-21 07:42:51 +0800 (三, 21  9 2005) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */

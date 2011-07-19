@@ -9,8 +9,8 @@ Project               = tls
 ProjectName           = TLS
 
 # Fetch info
-Release               = 1.6
-TEApotVersion         = 0.0.0.2008.06.18.23.14.00
+Release               = 1.6.1
+TEApotVersion         = 0.0.0.2010.08.18.09.08.25
 TEApotProject         = $(Project)
 
 Extra_Configure_Flags = $(TEA_Configure_Flags) --with-ssl-dir=$(USRDIR)

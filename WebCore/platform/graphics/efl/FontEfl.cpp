@@ -40,7 +40,17 @@ void Font::drawComplexText(GraphicsContext*, const TextRun&, const FloatPoint&, 
     notImplemented();
 }
 
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
+}
+
 bool Font::canReturnFallbackFontsForComplexText()
+{
+    return false;
+}
+
+bool Font::canExpandAroundIdeographsInComplexText()
 {
     return false;
 }
@@ -51,13 +61,13 @@ float Font::floatWidthForComplexText(const TextRun&, HashSet<const SimpleFontDat
     return 0.0f;
 }
 
-int Font::offsetForPositionForComplexText(const TextRun&, int, bool) const
+int Font::offsetForPositionForComplexText(const TextRun&, float, bool) const
 {
     notImplemented();
     return 0;
 }
 
-FloatRect Font::selectionRectForComplexText(const TextRun&, const IntPoint&, int, int, int) const
+FloatRect Font::selectionRectForComplexText(const TextRun&, const FloatPoint&, int, int, int) const
 {
     notImplemented();
     return FloatRect();

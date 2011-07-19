@@ -63,8 +63,7 @@ static GdkVisual* getVisual(Widget* widget)
             return 0;
     }
 
-
-    return gdk_drawable_get_visual(GDK_DRAWABLE(container->window));
+    return gdk_window_get_visual(gtk_widget_get_window(container));
 }
 
 int screenDepth(Widget* widget)
@@ -72,7 +71,7 @@ int screenDepth(Widget* widget)
     GdkVisual* visual = getVisual(widget);
     if (!visual)
         return 24;
-    return visual->depth;
+    return gdk_visual_get_depth(visual);
 }
 
 int screenDepthPerComponent(Widget* widget)
@@ -81,7 +80,7 @@ int screenDepthPerComponent(Widget* widget)
     if (!visual)
         return 8;
 
-    return visual->bits_per_rgb;
+    return gdk_visual_get_bits_per_rgb(visual);
 }
 
 bool screenIsMonochrome(Widget* widget)
@@ -102,7 +101,7 @@ FloatRect screenRect(Widget* widget)
     if (!screen)
         return FloatRect();
 
-    gint monitor = gdk_screen_get_monitor_at_window(screen, GTK_WIDGET(container)->window);
+    gint monitor = gdk_screen_get_monitor_at_window(screen, gtk_widget_get_window(GTK_WIDGET(container)));
     GdkRectangle geometry;
     gdk_screen_get_monitor_geometry(screen, monitor, &geometry);
     
@@ -122,8 +121,8 @@ FloatRect screenAvailableRect(Widget* widget)
     if (!gtk_widget_get_realized(container))
         return screenRect(widget);
 
-    GdkDrawable* rootWindow = GDK_DRAWABLE(gtk_widget_get_root_window(container));
-    GdkDisplay* display = gdk_drawable_get_display(rootWindow);
+    GdkWindow* rootWindow = gtk_widget_get_root_window(container);
+    GdkDisplay* display = gdk_window_get_display(rootWindow);
     Atom xproperty = gdk_x11_get_xatom_by_name_for_display(display, "_NET_WORKAREA");
 
     Atom retType;

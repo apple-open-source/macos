@@ -58,9 +58,11 @@ namespace WebCore {
             Token(int t, EqTestOp::Opcode v): type(t), eqop(v) {}
         };
 
-        class Parser : public Noncopyable {
+        class Parser {
+            WTF_MAKE_NONCOPYABLE(Parser);
         public:
             Parser();
+            ~Parser();
 
             XPathNSResolver* resolver() const { return m_resolver.get(); }
             bool expandQName(const String& qName, String& localName, String& namespaceURI);
@@ -90,7 +92,7 @@ namespace WebCore {
             void deleteNodeTest(Step::NodeTest*);
 
         private:
-            bool isOperatorContext() const;
+            bool isBinaryOperatorContext() const;
 
             void skipWS();
             Token makeTokenAndAdvance(int type, int advance = 1);

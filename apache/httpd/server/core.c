@@ -66,6 +66,9 @@
 #define AP_MAX_INCLUDE_DEPTH            (128)
 #endif
 
+/* valid in core-conf, but not in runtime r->used_path_info */
+#define AP_ACCEPT_PATHINFO_UNSET 3 
+
 APR_HOOK_STRUCT(
     APR_HOOK_LINK(get_mgmt_items)
 )
@@ -114,7 +117,7 @@ static void *create_core_dir_config(apr_pool_t *a, char *dir)
     conf->override_opts = OPT_UNSET | OPT_ALL | OPT_SYM_OWNER | OPT_MULTI;
 
     conf->content_md5 = 2;
-    conf->accept_path_info = 3;
+    conf->accept_path_info = AP_ACCEPT_PATHINFO_UNSET;
 
     conf->use_canonical_name = USE_CANONICAL_NAME_UNSET;
     conf->use_canonical_phys_port = USE_CANONICAL_PHYS_PORT_UNSET;
@@ -161,6 +164,7 @@ static void *create_core_dir_config(apr_pool_t *a, char *dir)
     conf->enable_mmap = ENABLE_MMAP_UNSET;
     conf->enable_sendfile = ENABLE_SENDFILE_UNSET;
     conf->allow_encoded_slashes = 0;
+    conf->decode_encoded_slashes = 0;
 
     return (void *)conf;
 }
@@ -447,6 +451,7 @@ static void *merge_core_dir_configs(apr_pool_t *a, void *basev, void *newv)
     }
 
     conf->allow_encoded_slashes = new->allow_encoded_slashes;
+    conf->decode_encoded_slashes = new->decode_encoded_slashes;
 
     return (void*)conf;
 }
@@ -2432,7 +2437,7 @@ static const char *set_timeout(cmd_parms *cmd, void *dummy, const char *arg)
     return NULL;
 }
 
-static const char *set_allow2f(cmd_parms *cmd, void *d_, int arg)
+static const char *set_allow2f(cmd_parms *cmd, void *d_, const char *arg)
 {
     core_dir_config *d = d_;
     const char *err = ap_check_cmd_context(cmd, NOT_IN_LIMIT);
@@ -2441,7 +2446,20 @@ static const char *set_allow2f(cmd_parms *cmd, void *d_, int arg)
         return err;
     }
 
-    d->allow_encoded_slashes = arg != 0;
+    if (0 == strcasecmp(arg, "on")) {
+        d->allow_encoded_slashes = 1;
+        d->decode_encoded_slashes = 1;
+    } else if (0 == strcasecmp(arg, "off")) {
+        d->allow_encoded_slashes = 0;
+        d->decode_encoded_slashes = 0;
+    } else if (0 == strcasecmp(arg, "nodecode")) {
+        d->allow_encoded_slashes = 1;
+        d->decode_encoded_slashes = 0;
+    } else {
+        return apr_pstrcat(cmd->pool,
+                           cmd->cmd->name, " must be On, Off, or NoDecode",
+                           NULL);
+    }
     return NULL;
 }
 
@@ -3434,7 +3452,7 @@ AP_INIT_TAKE1("SetInputFilter", ap_set_string_slot,
 AP_INIT_ITERATE2("AddOutputFilterByType", add_ct_output_filters,
        (void *)APR_OFFSETOF(core_dir_config, ct_output_filters), OR_FILEINFO,
      "output filter name followed by one or more content-types"),
-AP_INIT_FLAG("AllowEncodedSlashes", set_allow2f, NULL, RSRC_CONF,
+AP_INIT_TAKE1("AllowEncodedSlashes", set_allow2f, NULL, RSRC_CONF,
              "Allow URLs containing '/' encoded as '%2F'"),
 
 /*
@@ -3480,6 +3498,10 @@ AP_INIT_TAKE1("EnableExceptionHook", ap_mpm_set_exception_hook, NULL, RSRC_CONF,
 #endif
 AP_INIT_TAKE1("TraceEnable", set_trace_enable, NULL, RSRC_CONF,
               "'on' (default), 'off' or 'extended' to trace request body content"),
+#ifdef SUEXEC_BIN
+AP_INIT_FLAG("Suexec", unixd_set_suexec, NULL, RSRC_CONF,
+             "Enable or disable suEXEC support"),
+#endif
 { NULL }
 };
 
@@ -3596,15 +3618,17 @@ static int core_override_type(request_rec *r)
     /* Deal with the poor soul who is trying to force path_info to be
      * accepted within the core_handler, where they will let the subreq
      * address its contents.  This is toggled by the user in the very
-     * beginning of the fixup phase, so modules should override the user's
+     * beginning of the fixup phase (here!), so modules should override the user's
      * discretion in their own module fixup phase.  It is tristate, if
-     * the user doesn't specify, the result is 2 (which the module may
-     * interpret to its own customary behavior.)  It won't be touched
-     * if the value is no longer undefined (2), so any module changing
-     * the value prior to the fixup phase OVERRIDES the user's choice.
+     * the user doesn't specify, the result is AP_REQ_DEFAULT_PATH_INFO.
+     * (which the module may interpret to its own customary behavior.)  
+     * It won't be touched if the value is no longer AP_ACCEPT_PATHINFO_UNSET,
+     * so any module changing the value prior to the fixup phase 
+     * OVERRIDES the user's choice.
      */
     if ((r->used_path_info == AP_REQ_DEFAULT_PATH_INFO)
-        && (conf->accept_path_info != 3)) {
+        && (conf->accept_path_info != AP_ACCEPT_PATHINFO_UNSET)) {
+        /* No module knew better, and the user coded AcceptPathInfo */
         r->used_path_info = conf->accept_path_info;
     }
 

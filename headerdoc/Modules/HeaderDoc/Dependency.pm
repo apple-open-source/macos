@@ -1,8 +1,8 @@
 #! /usr/bin/perl -w
 #
 # Class name: 	Dependency
-# Synopsis: 	Used by headerdoc2html.pl to handle dependency tracking.
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Synopsis: 	Used by headerdoc2html to handle dependency tracking.
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -26,13 +26,69 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*!
+#     @header
+#     @abstract
+#         <code>Dependency</code> class package file.
+#     @discussion
+#         This file contains the <code>Dependency</code> class.  This class
+#         is used to describe a dependency between two headers.
+#
+#         See the class documentation below for more details.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         Represents an inter-header dependency.
+#     @discussion
+#         Instances of this class describe dependencies between
+#         headers.A
+#
+#         The actual dependency ordering process is described in the
+#         documentation for the {@link fix_dependency_order} function.
+#
+#     @var NAME
+#         The name of the header.
+#     @var DEPNAME
+#         The name of the header with leading path parts
+#         stripped off.
+#     @var MARKED
+#         Used by upper layers.
+#     @var EXISTS
+#         Set to 1 if this header was one of the headers
+#         listed on the command line.
+#     @var PARENT
+#         The parent for this dependency (the header that
+#         has a #include directive for this one).
+#     @var CHILDREN
+#         An array of references to other dependency nodes
+#         for the headers that this header includes.
+#     @var DEPTH
+#         The depth for the deepest place that this
+#         header appears within the dependency tree.  Used
+#         in a depth-first traversal of the tree.
+#     @var PRINTED
+#         Used to flag nodes already traversed.  This prevents
+#         the possibility of loops in the graph from causing
+#         incorrect behavior (a hang).
+#  */
 package HeaderDoc::Dependency;
 
 use strict;
 use vars qw($VERSION @ISA);
-use HeaderDoc::Utilities qw(isKeyword quote stringToFields casecmp);
 
-$HeaderDoc::Dependency::VERSION = '$Revision: 1.3 $';
+use HeaderDoc::Utilities qw(isKeyword casecmp);
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Dependency::VERSION = '$Revision: 1298084578 $';
 ################ General Constants ###################################
 my $debugging = 0;
 
@@ -46,6 +102,14 @@ my %defaults = (
 	CHILDREN => ()
 );
 
+# /*!
+#     @abstract
+#         Creates a new <code>Dependency</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::Dependency->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
@@ -57,12 +121,17 @@ sub new {
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;
     foreach my $key (keys(%attributeHash)) {
-        my $ucKey = uc($key);
-        $self->{$ucKey} = $attributeHash{$key};
+        $self->{$key} = $attributeHash{$key};
     }  
     return ($self);
 }
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>Dependency</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     # my($self) = shift;
     # $self->{NAME} = undef;
@@ -73,6 +142,14 @@ sub _initialize {
     # $self->{CHILDREN} = ();
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>Dependency</code> object into another one.
+#     @param self
+#         The object to clone.
+#     @param clone
+#         The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
@@ -91,6 +168,15 @@ sub clone {
 
 }
 
+# /*!
+#     @abstract
+#         Adds a dependency.
+#     @param self
+#         The <code>Dependency</code> object for the current header.
+#     @param name
+#         The child <code>Dependency</code> object for the header this
+#         header includes.
+#  */
 sub addchild {
     my $self = shift;
     my $child = shift;
@@ -100,6 +186,14 @@ sub addchild {
 
 my %namehash = ();
 
+# /*!
+#     @abstract
+#         Returns the dependency object for a given header filename.
+#     @param self
+#         The <code>Dependency</code> object.
+#     @param name
+#         The name to look up.
+#  */
 sub findname {
     my $self = shift;
     my $name = shift;
@@ -110,6 +204,19 @@ sub findname {
     return $namehash{$name};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the name for this header/dependency.
+#     @param self
+#         The <code>Dependency</code> object.
+#     @param name
+#         The new name.  (Optional.)
+#     @discussion
+#         The <code>name</code> value contains the name,
+#         including any leading path parts.  The
+#         <code>depname</code> value contains the name of the
+#         header without any leading path parts.  
+#  */
 sub name {
     my $self = shift;
     if (@_) {
@@ -119,6 +226,19 @@ sub name {
     return $self->{NAME};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the short name for this header/dependency.
+#     @param self
+#         The <code>Dependency</code> object.
+#     @param name
+#         The new name.  (Optional.)
+#     @discussion
+#         The <code>depname</code> value contains the name of the
+#         header without any leading path parts.  The <code>name</code>
+#         value contains the name of the header with any leading path
+#         parts.
+#  */
 sub depname {
     my $self = shift;
     if (@_) {
@@ -130,6 +250,12 @@ sub depname {
     return $self->{DEPNAME};
 }
 
+# /*!
+#     @abstract
+#         Reparents a depdency under another one.
+#     @discussion
+#         Currently unused.
+#  */
 sub reparent {
     my $self = shift;
     my $name = shift;
@@ -149,6 +275,9 @@ sub reparent {
     $self->addchild($node);
 }
 
+# /*! @abstract
+#         Prints the object for debugging purposes.
+#  */
 sub dbprint {
     my $self = shift;
     my $indent = "";

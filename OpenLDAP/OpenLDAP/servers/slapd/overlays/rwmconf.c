@@ -1,8 +1,8 @@
 /* rwmconf.c - rewrite/map configuration file routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmconf.c,v 1.25.2.3 2008/02/11 23:26:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwmconf.c,v 1.25.2.7 2010/06/10 17:37:40 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -50,9 +50,9 @@ rwm_map_config(
 	int			rc = 0;
 
 	if ( argc < 3 || argc > 4 ) {
-		fprintf( stderr,
+		Debug( LDAP_DEBUG_ANY,
 	"%s: line %d: syntax is \"map {objectclass | attribute} [<local> | *] {<foreign> | *}\"\n",
-			fname, lineno );
+			fname, lineno, 0 );
 		return 1;
 	}
 
@@ -64,11 +64,18 @@ rwm_map_config(
 		map = at_map;
 
 	} else {
-		fprintf( stderr, "%s: line %d: syntax is "
+		Debug( LDAP_DEBUG_ANY, "%s: line %d: syntax is "
 			"\"map {objectclass | attribute} [<local> | *] "
 			"{<foreign> | *}\"\n",
-			fname, lineno );
+			fname, lineno, 0 );
 		return 1;
+	}
+
+	if ( !is_oc && map->map == NULL ) {
+		/* only init if required */
+		if ( rwm_map_init( map, &mapping ) != LDAP_SUCCESS ) {
+			return 1;
+		}
 	}
 
 	if ( strcmp( argv[2], "*" ) == 0 ) {
@@ -91,18 +98,18 @@ rwm_map_config(
 			&& ( strcasecmp( src, "objectclass" ) == 0
 			|| strcasecmp( dst, "objectclass" ) == 0 ) )
 	{
-		fprintf( stderr,
+		Debug( LDAP_DEBUG_ANY,
 			"%s: line %d: objectclass attribute cannot be mapped\n",
-			fname, lineno );
+			fname, lineno, 0 );
 		return 1;
 	}
 
 	mapping = (struct ldapmapping *)ch_calloc( 2,
 		sizeof(struct ldapmapping) );
 	if ( mapping == NULL ) {
-		fprintf( stderr,
+		Debug( LDAP_DEBUG_ANY,
 			"%s: line %d: out of memory\n",
-			fname, lineno );
+			fname, lineno, 0 );
 		return 1;
 	}
 	ber_str2bv( src, 0, 1, &mapping[0].m_src );
@@ -120,7 +127,7 @@ rwm_map_config(
 		if ( src[0] != '\0' ) {
 			mapping[0].m_src_oc = oc_bvfind( &mapping[0].m_src );
 			if ( mapping[0].m_src_oc == NULL ) {
-				fprintf( stderr,
+				Debug( LDAP_DEBUG_ANY,
 	"%s: line %d: warning, source objectClass '%s' "
 	"should be defined in schema\n",
 					fname, lineno, src );
@@ -138,14 +145,14 @@ rwm_map_config(
 
 		mapping[0].m_dst_oc = oc_bvfind( &mapping[0].m_dst );
 		if ( mapping[0].m_dst_oc == NULL ) {
-			fprintf( stderr,
+			Debug( LDAP_DEBUG_ANY,
 	"%s: line %d: warning, destination objectClass '%s' "
 	"is not defined in schema\n",
 				fname, lineno, dst );
 
 			mapping[0].m_dst_oc = oc_bvfind_undef( &mapping[0].m_dst );
 			if ( mapping[0].m_dst_oc == NULL ) {
-				fprintf( stderr, "%s: line %d: unable to mimic destination objectClass '%s'\n",
+				Debug( LDAP_DEBUG_ANY, "%s: line %d: unable to mimic destination objectClass '%s'\n",
 					fname, lineno, dst );
 				goto error_return;
 			}
@@ -163,7 +170,7 @@ rwm_map_config(
 			rc = slap_bv2ad( &mapping[0].m_src,
 					&mapping[0].m_src_ad, &text );
 			if ( rc != LDAP_SUCCESS ) {
-				fprintf( stderr,
+				Debug( LDAP_DEBUG_ANY,
 	"%s: line %d: warning, source attributeType '%s' "
 	"should be defined in schema\n",
 					fname, lineno, src );
@@ -177,9 +184,12 @@ rwm_map_config(
 						&mapping[0].m_src_ad, &text,
 						SLAP_AD_PROXIED );
 				if ( rc != LDAP_SUCCESS ) {
-					fprintf( stderr,
-	"%s: line %d: source attributeType '%s': %d (%s)\n",
-						fname, lineno, src, rc, text ? text : "null" );
+					char prefix[1024];
+					snprintf( prefix, sizeof(prefix),
+	"%s: line %d: source attributeType '%s': %d",
+						fname, lineno, src, rc );
+					Debug( LDAP_DEBUG_ANY, "%s (%s)\n",
+						prefix, text ? text : "null", 0 );
 					goto error_return;
 				}
 
@@ -189,7 +199,7 @@ rwm_map_config(
 
 		rc = slap_bv2ad( &mapping[0].m_dst, &mapping[0].m_dst_ad, &text );
 		if ( rc != LDAP_SUCCESS ) {
-			fprintf( stderr,
+			Debug( LDAP_DEBUG_ANY,
 	"%s: line %d: warning, destination attributeType '%s' "
 	"is not defined in schema\n",
 				fname, lineno, dst );
@@ -198,9 +208,12 @@ rwm_map_config(
 					&mapping[0].m_dst_ad, &text,
 					SLAP_AD_PROXIED );
 			if ( rc != LDAP_SUCCESS ) {
-				fprintf( stderr,
-	"%s: line %d: destination attributeType '%s': %d (%s)\n",
-					fname, lineno, dst, rc, text ? text : "null" );
+				char prefix[1024];
+				snprintf( prefix, sizeof(prefix), 
+	"%s: line %d: destination attributeType '%s': %d",
+					fname, lineno, dst, rc );
+				Debug( LDAP_DEBUG_ANY, "%s (%s)\n",
+					prefix, text ? text : "null", 0 );
 				goto error_return;
 			}
 		}
@@ -210,9 +223,9 @@ rwm_map_config(
 	if ( ( src[0] != '\0' && avl_find( map->map, (caddr_t)mapping, rwm_mapping_cmp ) != NULL)
 			|| avl_find( map->remap, (caddr_t)&mapping[1], rwm_mapping_cmp ) != NULL)
 	{
-		fprintf( stderr,
+		Debug( LDAP_DEBUG_ANY,
 			"%s: line %d: duplicate mapping found.\n",
-			fname, lineno );
+			fname, lineno, 0 );
 		/* FIXME: free stuff */
 		goto error_return;
 	}
@@ -225,11 +238,6 @@ rwm_map_config(
 				rwm_mapping_cmp, rwm_mapping_dup );
 
 success_return:;
-	if ( !is_oc && map->map == NULL ) {
-		/* only init if required */
-		rc = rwm_map_init( map, &mapping ) != LDAP_SUCCESS;
-	}
-
 	return rc;
 
 error_return:;

@@ -53,9 +53,6 @@
 /* Define this to your Entropy Gathering Daemon socket pathname */
 #undef EGD_SOCKET
 
-/* Set to explicitly specify we don't want to use thread-safe functions */
-#define DISABLED_THREADSAFE
-
 /* Define if you want to enable IPv6 support */
 #undef ENABLE_IPV6
 
@@ -332,11 +329,17 @@
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
 
-/* The size of a `long double', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT 4
+
+/* The size of `long double', as computed by sizeof. */
 #undef SIZEOF_LONG_DOUBLE
 
-/* The size of a `long long', as computed by sizeof. */
+/* The size of `long long', as computed by sizeof. */
 #undef SIZEOF_LONG_LONG
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT 2
 
 /* Define if you have the ANSI C header files. */
 #undef STDC_HEADERS

@@ -24,53 +24,33 @@
 #define LLVM_SUPPORT_GRAPHWRITER_H
 
 #include "llvm/Support/DOTGraphTraits.h"
-#include "llvm/Support/Streams.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/System/Path.h"
-#include <fstream>
 #include <vector>
+#include <cassert>
 
 namespace llvm {
 
 namespace DOT {  // Private functions...
-  inline std::string EscapeString(const std::string &Label) {
-    std::string Str(Label);
-    for (unsigned i = 0; i != Str.length(); ++i)
-      switch (Str[i]) {
-      case '\n':
-        Str.insert(Str.begin()+i, '\\');  // Escape character...
-        ++i;
-        Str[i] = 'n';
-        break;
-      case '\t':
-        Str.insert(Str.begin()+i, ' ');  // Convert to two spaces
-        ++i;
-        Str[i] = ' ';
-        break;
-      case '\\':
-        if (i+1 != Str.length())
-          switch (Str[i+1]) {
-            case 'l': continue; // don't disturb \l
-            case '|': case '{': case '}':
-               Str.erase(Str.begin()+i); continue;
-            default: break;
-          }
-      case '{': case '}':
-      case '<': case '>':
-      case '|': case '"':
-        Str.insert(Str.begin()+i, '\\');  // Escape character...
-        ++i;  // don't infinite loop
-        break;
-      }
-    return Str;
-  }
+  std::string EscapeString(const std::string &Label);
 }
 
-void DisplayGraph(const sys::Path& Filename);
+namespace GraphProgram {
+   enum Name {
+      DOT,
+      FDP,
+      NEATO,
+      TWOPI,
+      CIRCO
+   };
+}
+
+void DisplayGraph(const sys::Path& Filename, bool wait=true, GraphProgram::Name program = GraphProgram::DOT);
 
 template<typename GraphType>
 class GraphWriter {
-  std::ostream &O;
+  raw_ostream &O;
   const GraphType &G;
 
   typedef DOTGraphTraits<GraphType>           DOTTraits;
@@ -78,11 +58,42 @@ class GraphWriter {
   typedef typename GTraits::NodeType          NodeType;
   typedef typename GTraits::nodes_iterator    node_iterator;
   typedef typename GTraits::ChildIteratorType child_iterator;
+  DOTTraits DTraits;
+
+  // Writes the edge labels of the node to O and returns true if there are any
+  // edge labels not equal to the empty string "".
+  bool getEdgeSourceLabels(raw_ostream &O, NodeType *Node) {
+    child_iterator EI = GTraits::child_begin(Node);
+    child_iterator EE = GTraits::child_end(Node);
+    bool hasEdgeSourceLabels = false;
+
+    for (unsigned i = 0; EI != EE && i != 64; ++EI, ++i) {
+      std::string label = DTraits.getEdgeSourceLabel(Node, EI);
+
+      if (label == "")
+        continue;
+
+      hasEdgeSourceLabels = true;
+
+      if (i)
+        O << "|";
+
+      O << "<s" << i << ">" << DTraits.getEdgeSourceLabel(Node, EI);
+    }
+
+    if (EI != EE && hasEdgeSourceLabels)
+      O << "|<s64>truncated...";
+
+    return hasEdgeSourceLabels;
+  }
+
 public:
-  GraphWriter(std::ostream &o, const GraphType &g) : O(o), G(g) {}
+  GraphWriter(raw_ostream &o, const GraphType &g, bool SN) : O(o), G(g) {
+  DTraits = DOTTraits(SN); 
+}
 
   void writeHeader(const std::string &Name) {
-    std::string GraphName = DOTTraits::getGraphName(G);
+    std::string GraphName = DTraits.getGraphName(G);
 
     if (!Name.empty())
       O << "digraph \"" << DOT::EscapeString(Name) << "\" {\n";
@@ -91,14 +102,14 @@ public:
     else
       O << "digraph unnamed {\n";
 
-    if (DOTTraits::renderGraphFromBottomUp())
+    if (DTraits.renderGraphFromBottomUp())
       O << "\trankdir=\"BT\";\n";
 
     if (!Name.empty())
       O << "\tlabel=\"" << DOT::EscapeString(Name) << "\";\n";
     else if (!GraphName.empty())
       O << "\tlabel=\"" << DOT::EscapeString(GraphName) << "\";\n";
-    O << DOTTraits::getGraphProperties(G);
+    O << DTraits.getGraphProperties(G);
     O << "\n";
   }
 
@@ -111,7 +122,20 @@ public:
     // Loop over the graph, printing it out...
     for (node_iterator I = GTraits::nodes_begin(G), E = GTraits::nodes_end(G);
          I != E; ++I)
-      writeNode(*I);
+      if (!isNodeHidden(*I))
+        writeNode(*I);
+  }
+
+  bool isNodeHidden(NodeType &Node) {
+    return isNodeHidden(&Node);
+  }
+
+  bool isNodeHidden(NodeType *const *Node) {
+    return isNodeHidden(*Node);
+  }
+
+  bool isNodeHidden(NodeType *Node) {
+    return DTraits.isNodeHidden(Node);
   }
 
   void writeNode(NodeType& Node) {
@@ -123,53 +147,48 @@ public:
   }
 
   void writeNode(NodeType *Node) {
-    std::string NodeAttributes = DOTTraits::getNodeAttributes(Node, G);
+    std::string NodeAttributes = DTraits.getNodeAttributes(Node, G);
 
     O << "\tNode" << static_cast<const void*>(Node) << " [shape=record,";
     if (!NodeAttributes.empty()) O << NodeAttributes << ",";
     O << "label=\"{";
 
-    if (!DOTTraits::renderGraphFromBottomUp()) {
-      O << DOT::EscapeString(DOTTraits::getNodeLabel(Node, G));
+    if (!DTraits.renderGraphFromBottomUp()) {
+      O << DOT::EscapeString(DTraits.getNodeLabel(Node, G));
 
       // If we should include the address of the node in the label, do so now.
-      if (DOTTraits::hasNodeAddressLabel(Node, G))
+      if (DTraits.hasNodeAddressLabel(Node, G))
         O << "|" << (void*)Node;
     }
 
-    // Print out the fields of the current node...
-    child_iterator EI = GTraits::child_begin(Node);
-    child_iterator EE = GTraits::child_end(Node);
-    if (EI != EE) {
-      if (!DOTTraits::renderGraphFromBottomUp()) O << "|";
-      O << "{";
+    std::string edgeSourceLabels;
+    raw_string_ostream EdgeSourceLabels(edgeSourceLabels);
+    bool hasEdgeSourceLabels = getEdgeSourceLabels(EdgeSourceLabels, Node);
 
-      for (unsigned i = 0; EI != EE && i != 64; ++EI, ++i) {
-        if (i) O << "|";
-        O << "<s" << i << ">" << DOTTraits::getEdgeSourceLabel(Node, EI);
-      }
+    if (hasEdgeSourceLabels) {
+      if (!DTraits.renderGraphFromBottomUp()) O << "|";
 
-      if (EI != EE)
-        O << "|<s64>truncated...";
-      O << "}";
-      if (DOTTraits::renderGraphFromBottomUp()) O << "|";
+      O << "{" << EdgeSourceLabels.str() << "}";
+
+      if (DTraits.renderGraphFromBottomUp()) O << "|";
     }
 
-    if (DOTTraits::renderGraphFromBottomUp()) {
-      O << DOT::EscapeString(DOTTraits::getNodeLabel(Node, G));
+    if (DTraits.renderGraphFromBottomUp()) {
+      O << DOT::EscapeString(DTraits.getNodeLabel(Node, G));
 
       // If we should include the address of the node in the label, do so now.
-      if (DOTTraits::hasNodeAddressLabel(Node, G))
+      if (DTraits.hasNodeAddressLabel(Node, G))
         O << "|" << (void*)Node;
     }
 
-    if (DOTTraits::hasEdgeDestLabels()) {
+    if (DTraits.hasEdgeDestLabels()) {
       O << "|{";
 
-      unsigned i = 0, e = DOTTraits::numEdgeDestLabels(Node);
+      unsigned i = 0, e = DTraits.numEdgeDestLabels(Node);
       for (; i != e && i != 64; ++i) {
         if (i) O << "|";
-        O << "<d" << i << ">" << DOTTraits::getEdgeDestLabel(Node, i);
+        O << "<d" << i << ">"
+          << DOT::EscapeString(DTraits.getEdgeDestLabel(Node, i));
       }
 
       if (i != e)
@@ -180,18 +199,21 @@ public:
     O << "}\"];\n";   // Finish printing the "node" line
 
     // Output all of the edges now
-    EI = GTraits::child_begin(Node);
+    child_iterator EI = GTraits::child_begin(Node);
+    child_iterator EE = GTraits::child_end(Node);
     for (unsigned i = 0; EI != EE && i != 64; ++EI, ++i)
-      writeEdge(Node, i, EI);
+      if (!DTraits.isNodeHidden(*EI))
+        writeEdge(Node, i, EI);
     for (; EI != EE; ++EI)
-      writeEdge(Node, 64, EI);
+      if (!DTraits.isNodeHidden(*EI))
+        writeEdge(Node, 64, EI);
   }
 
   void writeEdge(NodeType *Node, unsigned edgeidx, child_iterator EI) {
     if (NodeType *TargetNode = *EI) {
       int DestPort = -1;
-      if (DOTTraits::edgeTargetsEdgeSource(Node, EI)) {
-        child_iterator TargetIt = DOTTraits::getEdgeTarget(Node, EI);
+      if (DTraits.edgeTargetsEdgeSource(Node, EI)) {
+        child_iterator TargetIt = DTraits.getEdgeTarget(Node, EI);
 
         // Figure out which edge this targets...
         unsigned Offset =
@@ -199,9 +221,12 @@ public:
         DestPort = static_cast<int>(Offset);
       }
 
+      if (DTraits.getEdgeSourceLabel(Node, EI) == "")
+        edgeidx = -1;
+
       emitEdge(static_cast<const void*>(Node), edgeidx,
                static_cast<const void*>(TargetNode), DestPort,
-               DOTTraits::getEdgeAttributes(Node, EI));
+               DTraits.getEdgeAttributes(Node, EI));
     }
   }
 
@@ -220,8 +245,8 @@ public:
 
       for (unsigned i = 0; i != NumEdgeSources; ++i) {
         if (i) O << "|";
-        O << "<g" << i << ">";
-        if (EdgeSourceLabels) O << (*EdgeSourceLabels)[i];
+        O << "<s" << i << ">";
+        if (EdgeSourceLabels) O << DOT::EscapeString((*EdgeSourceLabels)[i]);
       }
       O << "}}";
     }
@@ -239,7 +264,7 @@ public:
     if (SrcNodePort >= 0)
       O << ":s" << SrcNodePort;
     O << " -> Node" << DestNodeID;
-    if (DestNodePort >= 0)
+    if (DestNodePort >= 0 && DTraits.hasEdgeDestLabels())
       O << ":d" << DestNodePort;
 
     if (!Attrs.empty())
@@ -249,11 +274,12 @@ public:
 };
 
 template<typename GraphType>
-std::ostream &WriteGraph(std::ostream &O, const GraphType &G,
-                         const std::string &Name = "",
-                         const std::string &Title = "") {
+raw_ostream &WriteGraph(raw_ostream &O, const GraphType &G,
+                        bool ShortNames = false,
+                        const std::string &Name = "",
+                        const std::string &Title = "") {
   // Start the graph emission process...
-  GraphWriter<GraphType> W(O, G);
+  GraphWriter<GraphType> W(O, G, ShortNames);
 
   // Output the header for the graph...
   W.writeHeader(Title);
@@ -270,32 +296,30 @@ std::ostream &WriteGraph(std::ostream &O, const GraphType &G,
 }
 
 template<typename GraphType>
-sys::Path WriteGraph(const GraphType &G,
-                     const std::string& Name,
-                     const std::string& Title = "") {
+sys::Path WriteGraph(const GraphType &G, const std::string &Name,
+                     bool ShortNames = false, const std::string &Title = "") {
   std::string ErrMsg;
   sys::Path Filename = sys::Path::GetTemporaryDirectory(&ErrMsg);
   if (Filename.isEmpty()) {
-    cerr << "Error: " << ErrMsg << "\n";
+    errs() << "Error: " << ErrMsg << "\n";
     return Filename;
   }
   Filename.appendComponent(Name + ".dot");
   if (Filename.makeUnique(true,&ErrMsg)) {
-    cerr << "Error: " << ErrMsg << "\n";
+    errs() << "Error: " << ErrMsg << "\n";
     return sys::Path();
   }
 
-  cerr << "Writing '" << Filename << "'... ";
+  errs() << "Writing '" << Filename.str() << "'... ";
 
-  std::ofstream O(Filename.c_str());
+  std::string ErrorInfo;
+  raw_fd_ostream O(Filename.c_str(), ErrorInfo);
 
-  if (O.good()) {
-    WriteGraph(O, G, Name, Title);
-    cerr << " done. \n";
-
-    O.close();
+  if (ErrorInfo.empty()) {
+    WriteGraph(O, G, ShortNames, Name, Title);
+    errs() << " done. \n";
   } else {
-    cerr << "error opening file for writing!\n";
+    errs() << "error opening file '" << Filename.str() << "' for writing!\n";
     Filename.clear();
   }
 
@@ -306,16 +330,15 @@ sys::Path WriteGraph(const GraphType &G,
 /// then cleanup.  For use from the debugger.
 ///
 template<typename GraphType>
-void ViewGraph(const GraphType& G,
-               const std::string& Name,
-               const std::string& Title = "") {
-  sys::Path Filename =  WriteGraph(G, Name, Title);
+void ViewGraph(const GraphType &G, const std::string &Name,
+               bool ShortNames = false, const std::string &Title = "",
+               GraphProgram::Name Program = GraphProgram::DOT) {
+  sys::Path Filename = WriteGraph(G, Name, ShortNames, Title);
 
-  if (Filename.isEmpty()) {
+  if (Filename.isEmpty())
     return;
-  }
 
-  DisplayGraph(Filename);
+  DisplayGraph(Filename, true, Program);
 }
 
 } // End llvm namespace

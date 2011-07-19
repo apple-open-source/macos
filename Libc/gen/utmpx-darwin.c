@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 #endif /* UTMP_COMPAT */
 #include <utmpx.h>
 #include <utmpx-darwin.h>
+#include <utmpx_thread.h>
 #include <asl.h>
 #include <asl_private.h>
 #include <asl_store.h>
@@ -57,9 +58,9 @@
 #include <ttyent.h>
 #endif /* UTMP_COMPAT */
 
+__private_extern__ const char __utx_magic__[UTMPX_MAGIC] = __UTX_MAGIC__;
+
 extern const char _utmpx_vers[];	/* in utmpx.c */
-extern char *asl_list_to_string(asl_search_result_t *, uint32_t *);
-extern asl_search_result_t *asl_list_from_string(const char *);
 
 static void msg2lastlogx(const aslmsg, struct lastlogx *);
 static void msg2utmpx(const aslmsg, struct utmpx *);
@@ -76,6 +77,7 @@ static int pw_size = 0;
 /* indirection causes argument to be substituted before stringification */
 #define STR(x)		__STRING(x)
 
+#ifdef UTMP_COMPAT
 static char *
 _pwnam_r(const char *user, struct passwd *pw)
 {
@@ -97,6 +99,7 @@ _pwnam_r(const char *user, struct passwd *pw)
 	}
 	return buf;
 }
+#endif
 
 static char *
 _pwuid_r(uid_t uid, struct passwd *pw)
@@ -165,7 +168,7 @@ getlastlogxbyname(const char *user, struct lastlogx *lx)
 
 	asl_set_query(m, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
 	asl_set_query(m, "ut_user", user, ASL_QUERY_OP_EQUAL);
-	qm[0] = m;
+	qm[0] = (asl_msg_t *)m;
 	query.count = 1;
 	query.msg = qm;
 
@@ -243,7 +246,7 @@ static void
 utmpx2msg(const struct utmpx *u, aslmsg m)
 {
 	char buf[_UTX_HOSTSIZE + 1];	/* the largest string in struct utmpx */
-	char *cp;
+	const char *cp;
 #define ISET(e)	{ snprintf(buf, sizeof(buf), "%d", u->e); \
 		asl_set(m, #e, buf); }
 #define LSET(e)	{ snprintf(buf, sizeof(buf), "%ld", u->e); \
@@ -255,7 +258,7 @@ utmpx2msg(const struct utmpx *u, aslmsg m)
 		}
 
 	SSET(ut_user);
-	cp = u->ut_id + sizeof(u->ut_id);
+	cp = (char *)u->ut_id + sizeof(u->ut_id);
 	while(--cp >= u->ut_id && isprint(*cp)) {}
 	if(cp < u->ut_id) {
 	    SSET(ut_id);
@@ -489,7 +492,7 @@ static struct {
 static struct {
 	int fd;
 	int dir;
-	char file[MAXPATHLEN];
+	char *file;
 	off_t off;
 	size_t count;
 #ifdef __LP64__
@@ -540,14 +543,12 @@ wtmpxname(const char *fname)
 	}
 
 	len = strlen(fname);
-	if (len >= sizeof(wtmp_file.file))
+	if (len >= MAXPATHLEN)
 		return 0;
 
 	/* must end in x! */
 	if (fname[len - 1] != 'x')
 		return 0;
-
-	(void)strlcpy(wtmp_file.file, fname, sizeof(wtmp_file.file));
 
 	if (wtmp_func.which == WTMP_ASL)
 		end_asl();
@@ -555,6 +556,14 @@ wtmpxname(const char *fname)
 		close(wtmp_file.fd);
 		wtmp_file.fd = -1;
 	}
+
+	if (wtmp_file.file)
+		free(wtmp_file.file);
+
+	wtmp_file.file = strdup(fname);
+	if (wtmp_file.file == NULL)
+		return 0;
+
 	wtmp_func.which = WTMP_FILE;
 	wtmp_func.end = end_file;
 	wtmp_func.get = get_file;
@@ -746,8 +755,8 @@ set_asl(int forward)
 	asl_set_query(q0, FACILITY, UTMPX_FACILITY, ASL_QUERY_OP_EQUAL);
 	asl_set_query(q1, FACILITY, LASTLOG_FACILITY, ASL_QUERY_OP_EQUAL);
 
-	m[0] = q0;
-	m[1] = q1;
+	m[0] = (asl_msg_t *)q0;
+	m[1] = (asl_msg_t *)q1;
 	query.count = 2;
 	query.msg = m;
 
@@ -1145,3 +1154,43 @@ _write_wtmp(const struct utmp *u)
 	(void) close(fd);
 }
 #endif /* UTMP_COMPAT */
+
+/*
+ * thread aware SPI
+ */
+utmpx_t
+_openutx(const char *name)
+{
+	struct _utmpx *U;
+
+	if ((U = calloc(1, sizeof(struct _utmpx))) == NULL)
+		return NULL;
+	memcpy(U->magic, __utx_magic__, UTMPX_MAGIC);
+	U->utmpx_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+	if (__utmpxname(U, name) == 0) {
+		if (!U->utfile_system)
+			free(U->utfile);
+		free(U);
+		errno = EINVAL;
+		return NULL;
+	}
+	return (utmpx_t)U;
+}
+
+int
+_closeutx(utmpx_t u)
+{
+	struct _utmpx *U = (struct _utmpx *)u;
+
+	if (!U || memcmp(U->magic, __utx_magic__, UTMPX_MAGIC) != 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	UTMPX_LOCK(U);
+	__endutxent(U);
+	if (!U->utfile_system)
+		free(U->utfile);
+	UTMPX_UNLOCK(U);
+	free(U);
+	return 0;
+}

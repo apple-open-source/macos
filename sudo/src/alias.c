@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2005m, 2007-2008
+ * Copyright (c) 2004-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -32,10 +32,9 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
+#endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
 #endif /* HAVE_STRING_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -46,10 +45,6 @@
 #include "redblack.h"
 #include <gram.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: alias.c,v 1.14 2008/11/18 13:29:58 millert Exp $";
-#endif /* lint */
-
 /*
  * Globals
  */
@@ -57,16 +52,10 @@ struct rbtree *aliases;
 unsigned int alias_seqno;
 
 /*
- * Local protoypes
- */
-static int   alias_compare	__P((const void *, const void *));
-static void  alias_free		__P((void *));
-
-/*
  * Comparison function for the red-black tree.
  * Aliases are sorted by name with the type used as a tie-breaker.
  */
-static int
+int
 alias_compare(v1, v2)
     const void *v1, *v2;
 {
@@ -88,7 +77,7 @@ alias_compare(v1, v2)
  * Returns a pointer to the alias structure or NULL if not found.
  */
 struct alias *
-find_alias(name, type)
+alias_find(name, type)
     char *name;
     int type;
 {
@@ -131,8 +120,8 @@ alias_add(name, type, members)
     a->seqno = 0;
     list2tq(&a->members, members);
     if (rbinsert(aliases, a)) {
-	alias_free(a);
 	snprintf(errbuf, sizeof(errbuf), "Alias `%s' already defined", name);
+	alias_free(a);
 	return(errbuf);
     }
     return(NULL);
@@ -161,7 +150,7 @@ no_aliases()
 /*
  * Free memory used by an alias struct and its members.
  */
-static void
+void
 alias_free(v)
     void *v;
 {
@@ -185,9 +174,9 @@ alias_free(v)
 }
 
 /*
- * Find the named alias, delete it from the tree and recover its resources.
+ * Find the named alias, remove it from the tree and return it.
  */
-int
+struct alias *
 alias_remove(name, type)
     char *name;
     int type;
@@ -198,10 +187,9 @@ alias_remove(name, type)
     key.name = name;
     key.type = type;
     if ((node = rbfind(aliases, &key)) == NULL)
-	return(FALSE);
+	return(NULL);
     a = rbdelete(aliases, node);
-    alias_free(a);
-    return(TRUE);
+    return(a);
 }
 
 void

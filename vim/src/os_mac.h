@@ -22,7 +22,7 @@
  * Include the Mac header files, unless also compiling with X11 (the header
  * files have many conflicts).
  */
-#ifndef FEAT_X11
+#ifdef FEAT_GUI_MAC
 # include <Quickdraw.h>	    /* Apple calls it QuickDraw.h... */
 # include <ToolUtils.h>
 # include <LowMem.h>
@@ -204,7 +204,7 @@
 #endif
 
 #ifndef DFLT_VDIR
-#  define DFLT_VDIR	"$VIM/vimfiles/view"	/* default for 'viewdir' */
+# define DFLT_VDIR	"$VIM/vimfiles/view"	/* default for 'viewdir' */
 #endif
 
 #define DFLT_ERRORFILE		"errors.err"
@@ -268,9 +268,15 @@
  */
 
 #ifdef MACOS_X_UNIX
-# define SIGPROTOARG	(int)
-# define SIGDEFARG(s)	(s) int s;
-# define SIGDUMMYARG	0
+# ifndef SIGPROTOARG
+#  define SIGPROTOARG	(int)
+# endif
+# ifndef SIGDEFARG
+#  define SIGDEFARG(s)	(s) int s UNUSED;
+# endif
+# ifndef SIGDUMMYARG
+#  define SIGDUMMYARG	0
+# endif
 # undef  HAVE_AVAIL_MEM
 # ifndef HAVE_CONFIG_H
 #  define RETSIGTYPE void
@@ -285,7 +291,6 @@
 #  define HAVE_SETENV
 #  define HAVE_RENAME
 # endif
-# define mch_chdir(s) chdir(s)
 #endif
 
 #if defined(MACOS_X) && !defined(HAVE_CONFIG_H)
@@ -294,15 +299,3 @@
 
 /* A Mac constant causing big problem to syntax highlighting */
 #define UNKNOWN_CREATOR '\?\?\?\?'
-
-/*
- * for debugging
- */
-#ifdef MACOS_X
-# ifdef _DEBUG
-#  define TRACE			Trace
-   void Trace(char *fmt, ...);
-# else
-#  define TRACE			1 ? (void)0 : printf
-# endif
-#endif

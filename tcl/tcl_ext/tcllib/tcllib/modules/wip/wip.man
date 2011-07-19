@@ -1,10 +1,11 @@
 [comment {-*- text -*-}]
-[manpage_begin wip n 2.1.1]
-[copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin wip n 2.2]
+[copyright {2007-2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Word Interpreter}]
 [titledesc {Word Interpreter}]
+[category  {Programming tools}]
 [require Tcl 8.4]
-[require wip [opt 2.1.1]]
+[require wip [opt 2.2]]
 [require snit [opt 1.3]]
 [require struct::set]
 [description]
@@ -224,6 +225,14 @@ Removes the named series of language commands from the mapping.
 As method [method undefl], however the list of names is specified
 through multiple arguments.
 
+[call [arg wipName] [method unknown] [arg cmdprefix]]
+
+Sets the handler for unknown words to [arg cmdprefix]. This command
+prefix takes one argument, the current word, and either throws some
+error, or returns the result of executing the word, as defined by the
+handler. The default handler simply throws an error.
+
+
 [call [arg wipName] [method runl] [arg wordlist]]
 
 Treats the list of words in [arg wordlist] as a program and executes
@@ -259,8 +268,9 @@ until their word list is exhausted.
 [call [arg wipName] [method run_next_while] [arg acceptable]]
 
 Low-level method. Invokes the method [method run_next] as long as the
-next word is in the set of [arg acceptable] words. The result of the
-command executed last is returned as the result of this command.
+next word is in the set of [arg acceptable] words, and the program is
+not empty. The result of the command executed last is returned as the
+result of this command.
 
 [para]
 
@@ -270,8 +280,33 @@ execution.
 [call [arg wipName] [method run_next_until] [arg rejected]]
 
 Low-level method. Invokes the method [method run_next] until the next
-word is in the set of [arg rejected] words. The result of the command
-executed last is returned as the result of this command.
+word is in the set of [arg rejected] words, and the program is not
+empty. The result of the command executed last is returned as the
+result of this command.
+
+[para]
+
+Exposed for use within command implementations to change the order of
+execution.
+
+[call [arg wipName] [method run_next_if] [arg acceptable]]
+
+Low-level method. Invokes the method [method run_next] if the next
+word is in the set of [arg acceptable] words, and the program is not
+empty. The result of the command executed last is returned as the
+result of this command.
+
+[para]
+
+Exposed for use within command implementations to change the order of
+execution.
+
+[call [arg wipName] [method run_next_ifnot] [arg rejected]]
+
+Low-level method. Invokes the method [method run_next] if the next
+word is not in the set of [arg rejected] words, and the program is not
+empty. The result of the command executed last is returned as the
+result of this command.
 
 [para]
 

@@ -2,6 +2,7 @@
 [copyright {2002, Pat Thoyts}]
 [moddesc   {Cyclic Redundancy Checks}]
 [titledesc {Perform a 16bit Cyclic Redundancy Check}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require crc16 [opt 1.1.1]]
 [description]

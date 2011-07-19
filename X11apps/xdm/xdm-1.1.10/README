@@ -1,0 +1,49 @@
+The default installation settings of xdm match those used for most platforms
+in the previous X.Org releases:
+
+Scripts & modules:	$(libdir)/X11/xdm (aka $(prefix)/lib/X11/xdm)
+Configuration files:	$(libdir)/X11/xdm
+Pixmap files:		$(libdir)/X11/xdm/pixmaps
+Log files:		/var/log
+Process id/lock files:	/var/run
+xauth cookie files:	/var/lib/xdm
+
+These may be overridden with the following options to configure:
+Loadable modules:	--with-xdmlibdir
+Scripts:		--with-xdmscriptdir (or --with-xdmlibdir)
+Configuration files:	--with-xdmconfigdir (or --with-xdmlibdir)
+Pixmap files:		--with-xdmpixmapdir (or --with-xdmlibdir)
+Log files:		--with-logdir
+Process id/lock files:	--with-piddir
+xauth cookie files:	--with-authdir
+
+For instance, some packagers/sites may prefer:
+	--with-xdmconfigdir=/etc/X11/xdm
+	--with-xdmlibdir=$(prefix)/lib/xdm
+	--with-xdmscriptdir=/etc/X11/xdm
+
+	----------------------------------------------------------------
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xdm
+
+        http://cgit.freedesktop.org/xorg/app/xdm
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

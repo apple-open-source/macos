@@ -183,16 +183,16 @@ bool _NPN_InvokeDefault(NPP, NPObject* o, const NPVariant* args, uint32_t argCou
         // Call the function object.
         JSValue function = obj->imp;
         CallData callData;
-        CallType callType = function.getCallData(callData);
+        CallType callType = getCallData(function, callData);
         if (callType == CallTypeNone)
             return false;
         
         MarkedArgumentBuffer argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
-        globalObject->globalData()->timeoutChecker.start();
+        RefPtr<JSGlobalData> globalData(&exec->globalData());
+        globalData->timeoutChecker.start();
         JSValue resultV = JSC::call(exec, function, callType, callData, function, argList);
-        globalObject->globalData()->timeoutChecker.stop();
+        globalData->timeoutChecker.stop();
 
         // Convert and return the result of the function call.
         convertValueToNPVariant(exec, resultV, result);
@@ -232,17 +232,17 @@ bool _NPN_Invoke(NPP npp, NPObject* o, NPIdentifier methodName, const NPVariant*
         JSLock lock(SilenceAssertionsOnly);
         JSValue function = obj->imp->get(exec, identifierFromNPIdentifier(exec, i->string()));
         CallData callData;
-        CallType callType = function.getCallData(callData);
+        CallType callType = getCallData(function, callData);
         if (callType == CallTypeNone)
             return false;
 
         // Call the function object.
         MarkedArgumentBuffer argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
-        globalObject->globalData()->timeoutChecker.start();
+        RefPtr<JSGlobalData> globalData(&exec->globalData());
+        globalData->timeoutChecker.start();
         JSValue resultV = JSC::call(exec, function, callType, callData, obj->imp, argList);
-        globalObject->globalData()->timeoutChecker.stop();
+        globalData->timeoutChecker.stop();
 
         // Convert and return the result of the function call.
         convertValueToNPVariant(exec, resultV, result);
@@ -273,10 +273,10 @@ bool _NPN_Evaluate(NPP instance, NPObject* o, NPString* s, NPVariant* variant)
         ExecState* exec = rootObject->globalObject()->globalExec();
         JSLock lock(SilenceAssertionsOnly);
         String scriptString = convertNPStringToUTF16(s);
-        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
-        globalObject->globalData()->timeoutChecker.start();
-        Completion completion = JSC::evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(scriptString), JSC::JSValue());
-        globalObject->globalData()->timeoutChecker.stop();
+        RefPtr<JSGlobalData> globalData(&exec->globalData());
+        globalData->timeoutChecker.start();
+        Completion completion = JSC::evaluate(rootObject->globalObject()->globalExec(), rootObject->globalObject()->globalScopeChain(), makeSource(scriptString), JSC::JSValue());
+        globalData->timeoutChecker.stop();
         ComplType type = completion.complType();
         
         JSValue result;
@@ -474,7 +474,7 @@ bool _NPN_Enumerate(NPP, NPObject* o, NPIdentifier** identifier, uint32_t* count
         NPIdentifier* identifiers = static_cast<NPIdentifier*>(malloc(sizeof(NPIdentifier) * size));
         
         for (unsigned i = 0; i < size; ++i)
-            identifiers[i] = _NPN_GetStringIdentifier(propertyNames[i].ustring().UTF8String().data());
+            identifiers[i] = _NPN_GetStringIdentifier(propertyNames[i].ustring().utf8().data());
 
         *identifier = identifiers;
         *count = size;
@@ -507,16 +507,16 @@ bool _NPN_Construct(NPP, NPObject* o, const NPVariant* args, uint32_t argCount, 
         // Call the constructor object.
         JSValue constructor = obj->imp;
         ConstructData constructData;
-        ConstructType constructType = constructor.getConstructData(constructData);
+        ConstructType constructType = getConstructData(constructor, constructData);
         if (constructType == ConstructTypeNone)
             return false;
         
         MarkedArgumentBuffer argList;
         getListFromVariantArgs(exec, args, argCount, rootObject, argList);
-        ProtectedPtr<JSGlobalObject> globalObject = rootObject->globalObject();
-        globalObject->globalData()->timeoutChecker.start();
+        RefPtr<JSGlobalData> globalData(&exec->globalData());
+        globalData->timeoutChecker.start();
         JSValue resultV = JSC::construct(exec, constructor, constructType, constructData, argList);
-        globalObject->globalData()->timeoutChecker.stop();
+        globalData->timeoutChecker.stop();
         
         // Convert and return the result.
         convertValueToNPVariant(exec, resultV, result);

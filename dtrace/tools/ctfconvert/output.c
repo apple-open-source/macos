@@ -51,18 +51,6 @@
 #include <mach-o/nlist.h>
 #include <sys/mman.h>
 
-/* Prototype taken from <libiberty/demangle.h> (which won't #include cleanly) */
-extern char *cplus_demangle(const char *, int);
-
-static char 
-*demangleSymbolCString(const char *mangled)
- {
-     if(mangled[0]!='_') return NULL;
-     if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-     if(mangled[1]!='Z') return NULL;
-     return cplus_demangle(mangled, 0);
- }
-
 static GElf_Sym *
 gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const char *base) 
 {
@@ -72,9 +60,6 @@ gelf_getsym_macho(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const char
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
@@ -120,9 +105,6 @@ gelf_getsym_macho_64(Elf_Data * data, int ndx, int nent, GElf_Sym * dst, const c
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
@@ -1258,15 +1240,29 @@ write_ctf(tdata_t *td, const char *curname, const char *newname, int flags)
 		if ((flags & CTF_BYTESWAP) && (MH_CIGAM != mh->magic))
 			flags &= ~CTF_BYTESWAP;
 
-	data = make_ctf_data(td, elf, curname, &len, flags);
-	write_file(elf, curname, telf, newname, data, len, flags);
+		data = make_ctf_data(td, elf, curname, &len, flags);
+		if (flags & CTF_RAW_OUTPUT) {
+			if (write(tfd, data, len) != len) {
+				perror("Attempt to write raw CTF data failed");
+				terminate("Attempt to write raw CTF data failed");
+			}
+		} else {
+			write_file(elf, curname, telf, newname, data, len, flags);
+		}
 	} else if (ELFCLASS64 == elf->ed_class) {
 		struct mach_header_64 *mh_64 = (struct mach_header_64 *)elf->ed_image;
 		if ((flags & CTF_BYTESWAP) && (MH_CIGAM_64 != mh_64->magic))
 			flags &= ~CTF_BYTESWAP;
 
 		data = make_ctf_data(td, elf, curname, &len, flags);
-		write_file_64(elf, curname, telf, newname, data, len, flags);
+		if (flags & CTF_RAW_OUTPUT) {
+			if (write(tfd, data, len) != len) {
+				perror("Attempt to write raw CTF data failed");
+				terminate("Attempt to write raw CTF data failed");
+			}
+		} else {		
+			write_file_64(elf, curname, telf, newname, data, len, flags);
+		}
 	} else
 		terminate("%s: Unknown ed_class", curname);
 #else

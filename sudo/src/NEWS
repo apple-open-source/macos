@@ -1,0 +1,343 @@
+What's new in Sudo 1.7.4p6?
+
+ * A bug has been fixed in the I/O logging support that could cause
+   visual artifacts in full-screen programs such as text editors.
+
+What's new in Sudo 1.7.4p5?
+
+ * A bug has been fixed that would allow a command to be run without the
+   user entering a password when sudo's -g flag is used without the -u flag.
+
+ * If user has no supplementary groups, sudo will now fall back on checking
+   the group file explicitly, which restores historic sudo behavior.
+
+ * A crash has been fixed when sudo's -g flag is used without the -u flag
+   and the sudoers file contains an entry with no runas user or group listed.
+
+ * A crash has been fixed when the Solaris project support is enabled
+   and sudo's -g flag is used without the -u flag.
+
+ * Sudo no longer exits with an error when support for auditing is
+   compiled in but auditing is not enabled.
+
+ * Fixed a bug introduced in sudo 1.7.3 where the ticket file was not
+   being honored when the "targetpw" sudoers Defaults option was enabled.
+
+ * The LOG_INPUT and LOG_OUTPUT tags in sudoers are now parsed correctly.
+
+ * A crash has been fixed in "sudo -l" when sudo is built with auditing
+   support and the user is not allowed to run any commands on the host.
+
+What's new in Sudo 1.7.4p4?
+
+ * A potential security issue has been fixed with respect to the handling
+   of sudo's -g command line option when -u is also specified.  The flaw
+   may allow an attacker to run commands as a user that is not authorized
+   by the sudoers file.
+
+ * A bug has been fixed where "sudo -l" output was incomplete if multiple
+   sudoers sources were defined in nsswitch.conf and there was an error
+   querying one of the sources.
+
+ * The log_input, log_output, and use_pty sudoers options now work correctly
+   on AIX.  Previously, sudo would hang if they were enabled.
+
+ * The "make install" target now works correctly when sudo is built in a
+   directory other than the source directory.
+
+ * The "runas_default" sudoers setting now works properly in a per-command
+   Defaults line.
+
+ * Suspending and resuming the bash shell when PAM is in use now works
+   correctly.  The SIGCONT signal was not propagated to the child process.
+
+What's new in Sudo 1.7.4p3?
+
+ * A bug has been fixed where duplicate HOME environment variables could be
+   present when the env_reset setting was disabled and the always_set_home
+   setting was enabled in sudoers.
+
+ * The value of sysconfdir is now substituted into the path to the sudoers.d
+   directory in the installed sudoers file.
+
+ * Compilation problems on IRIX and other platforms have been fixed.
+
+ * If multiple PAM "auth" actions are specified and the user enters ^C at
+   the password prompt, sudo will no longer prompt for a password for any
+   subsequent "auth" actions.  Previously it was necessary to enter ^C for
+   each "auth" action.
+
+What's new in Sudo 1.7.4p2?
+
+ * A bug where sudo could spin in a busy loop waiting for the child process
+   has been fixed.
+
+What's new in Sudo 1.7.4p1?
+
+ * A bug introduced in sudo 1.7.3 that prevented the -k and -K options from
+   functioning when the tty_tickets sudoers option is enabled has been fixed.
+
+ * Sudo no longer prints a warning when the -k or -K options are specified
+   and the ticket file does not exist.
+
+ * It is now easier to cross-compile sudo.
+
+What's new in Sudo 1.7.4?
+
+ * Sudoedit will now preserve the file extension in the name of the
+   temporary file being edited.  The extension is used by some
+   editors (such as emacs) to choose the editing mode.
+
+ * Time stamp files have moved from /var/run/sudo to either /var/db/sudo,
+   /var/lib/sudo or /var/adm/sudo.  The directories are checked for
+   existence in that order.  This prevents users from receiving the
+   sudo lecture every time the system reboots.  Time stamp files older
+   than the boot time are ignored on systems where it is possible to
+   determine this.
+
+ * The tty_tickets sudoers option is now enabled by default.
+
+ * Ancillary documentation (README files, LICENSE, etc) is now installed
+   in a sudo documentation directory.
+
+ * Sudo now recognizes "tls_cacert" as an alias for "tls_cacertfile"
+   in ldap.conf.
+
+ * Defaults settings that are tied to a user, host or command may
+   now include the negation operator.  For example:
+	Defaults:!millert lecture
+   will match any user but millert.
+
+ * The default PATH environment variable, used when no PATH variable
+    exists, now includes /usr/sbin and /sbin.
+
+ * Sudo now uses polypkg (http://rc.quest.com/topics/polypkg/)
+   for cross-platform packing.
+
+ * On Linux, sudo will now restore the nproc resource limit before
+   executing a command, unless the limit appears to have been modified
+   by pam_limits.  This avoids a problem with bash scripts that open
+   more than 32 descriptors on SuSE Linux, where sysconf(_SC_CHILD_MAX)
+   will return -1 when RLIMIT_NPROC is set to RLIMIT_UNLIMITED (-1).
+
+ * The HOME and MAIL environment variables are now reset based on the
+   target user's password database entry when the env_reset sudoers option
+   is enabled (which is the case in the default configuration).  Users
+   wishing to preserve the original values should use a sudoers entry like:
+	Defaults env_keep += HOME
+   to preserve the old value of HOME and
+	Defaults env_keep += MAIL
+   to preserve the old value of MAIL.
+
+ * Fixed a problem in the restoration of the AIX authdb registry setting.
+
+ * Sudo will now fork(2) and wait until the command has completed before
+   calling pam_close_session().
+
+ * The default syslog facility is now "authpriv" if the operating system
+   supports it, else "auth".
+
+What's new in Sudo 1.7.3?
+
+ * Support for logging I/O for the command being run.
+   For more information, see the documentation for the "log_input"
+   and "log_output" Defaults options in the sudoers manual.  Also
+   see the sudoreplay manual for how to replay I/O log sessions.
+
+ * The use_pty sudoers option can be used to force a command to be
+   run in a pseudo-pty, even when I/O logging is not enabled.
+
+ * On some systems, sudo can now detect when a user has logged out
+   and back in again when tty-based time stamps are in use.  Supported
+   systems include Solaris systems with the devices file system,
+   Mac OS X, and Linux systems with the devpts filesystem (pseudo-ttys
+   only).
+
+ * On AIX systems, the registry setting in /etc/security/user is
+   now taken into account when looking up users and groups.  Sudo
+   now applies the correct the user and group ids when running a
+   command as a user whose account details come from a different
+   source (e.g. LDAP or DCE vs.  local files).
+
+ * Support for multiple 'sudoers_base' and 'uri' entries in ldap.conf.
+   When multiple entries are listed, sudo will try each one in the
+   order in which they are specified.
+
+ * Sudo's SELinux support should now function correctly when running
+   commands as a non-root user and when one of stdin, stdout or stderr
+   is not a terminal.
+
+ * Sudo will now use the Linux audit system with configure with
+   the --with-linux-audit flag.
+
+ * Sudo now uses mbr_check_membership() on systems that support it
+   to determine group membership.  Currently, only Darwin (Mac OS X)
+   supports this.
+
+ * When the tty_tickets sudoers option is enabled but there is no
+   terminal device, sudo will no longer use or create a tty-based
+   ticket file.  Previously, sudo would use a tty name of "unknown".
+   As a consequence, if a user has no terminal device, sudo will
+   now always prompt for a password.
+
+ * The passwd_timeout and timestamp_timeout options may now be
+   specified as floating point numbers for more granular timeout
+   values.
+
+ * Negating the fqdn option in sudoers now works correctly when sudo
+   is configured with the --with-fqdn option.  In previous versions
+   of sudo the fqdn was set before sudoers was parsed.
+
+What's new in Sudo 1.7.2?
+
+ * A new #includedir directive is available in sudoers.  This can be
+   used to implement an /etc/sudo.d directory.  Files in an includedir
+   are not edited by visudo unless they contain a syntax error.
+
+ * The -g option did not work properly when only setting the group
+   (and not the user).  Also, in -l mode the wrong user was displayed
+   for sudoers entries where only the group was allowed to be set.
+
+ * Fixed a problem with the alias checking in visudo which
+   could prevent visudo from exiting.
+
+ * Sudo will now correctly parse the shell-style /etc/environment
+   file format used by pam_env on Linux.
+
+ * When doing password and group database lookups, sudo will only
+   cache an entry by name or by id, depending on how the entry was
+   looked up.  Previously, sudo would cache by both name and id
+   from a single lookup, but this breaks sites that have multiple
+   password or group database names that map to the same uid or
+   gid.
+
+ * User and group names in sudoers may now be enclosed in double
+   quotes to avoid having to escape special characters.
+
+ * BSM audit fixes when changing to a non-root uid.
+
+ * Experimental non-Unix group support.  Currently only works with
+   Quest Authorization Services and allows Active Directory groups
+   fixes for Minix-3.
+
+ * For Netscape/Mozilla-derived LDAP SDKs the certificate and key
+   paths may be specified as a directory or a file.  However, version
+   5.0 of the SDK only appears to support using a directory (despite
+   documentation to the contrary).  If SSL client initialization
+   fails and the certificate or key paths look like they could be
+   default file name, strip off the last path element and try again.
+
+ * A setenv() compatibility fix for Linux systems, where a NULL
+   value is treated the same as an empty string and the variable
+   name is checked against the NULL pointer.
+
+What's new in Sudo 1.7.1?
+
+ * A new Defaults option "pwfeedback" will cause sudo to provide visual
+   feedback when the user is entering a password.
+
+ * A new Defaults option "fast_glob" will cause sudo to use the fnmatch()
+   function for file name globbing instead of glob().  When this option
+   is enabled, sudo will not check the file system when expanding wildcards.
+   This is faster but a side effect is that relative paths with wildcard
+   will no longer work.
+
+ * New BSM audit support for systems that support it such as FreeBSD
+   and Mac OS X.
+
+ * The file name specified with the #include directive may now include
+   a %h escape which is expanded to the short form of hostname.
+
+ * The -k flag may now be specified along with a command, causing the
+   user's timestamp file to be ignored.
+
+ * New support for Tivoli-based LDAP START_TLS, present in AIX.
+
+ * New support for /etc/netsvc.conf on AIX.
+
+ * The unused alias checks in visudo now handle the case of an alias
+   referring to another alias.
+
+What's new in Sudo 1.7.0?
+
+ * Rewritten parser that converts sudoers into a set of data structures.
+   This eliminates a number of ordering issues and makes it possible to
+   apply sudoers Defaults entries before searching for the command.
+   It also adds support for per-command Defaults specifications.
+
+ * Sudoers now supports a #include facility to allow the inclusion of other
+   sudoers-format files.
+
+ * Sudo's -l (list) flag has been enhanced:
+    o applicable Defaults options are now listed
+    o a command argument can be specified for testing whether a user
+      may run a specific command.
+    o a new -U flag can be used in conjunction with "sudo -l" to allow
+      root (or a user with "sudo ALL") list another user's privileges.
+
+ * A new -g flag has been added to allow the user to specify a
+   primary group to run the command as.  The sudoers syntax has been
+   extended to include a group section in the Runas specification.
+
+ * A uid may now be used anywhere a username is valid.
+
+ * The "secure_path" run-time Defaults option has been restored.
+
+ * Password and group data is now cached for fast lookups.
+
+ * The file descriptor at which sudo starts closing all open files is now
+   configurable via sudoers and, optionally, the command line.
+
+ * Visudo will now warn about aliases that are defined but not used.
+
+ * The -i and -s command line flags now take an optional command
+   to be run via the shell.  Previously, the argument was passed
+   to the shell as a script to run.
+
+ * Improved LDAP support.  SASL authentication may now be used in
+   conjunction when connecting to an LDAP server.  The krb5_ccname
+   parameter in ldap.conf may be used to enable Kerberos.
+
+ * Support for /etc/nsswitch.conf.  LDAP users may now use nsswitch.conf
+   to specify the sudoers order.  E.g.:
+	sudoers: ldap files
+   to check LDAP, then /etc/sudoers.  The default is "files", even
+   when LDAP support is compiled in.  This differs from sudo 1.6
+   where LDAP was always consulted first.
+
+ * Support for /etc/environment on AIX and Linux.  If sudo is run
+   with the -i flag, the contents of /etc/environment are used to
+   populate the new environment that is passed to the command being
+   run.
+
+ * If no terminal is available or if the new -A flag is specified,
+   sudo will use a helper program to read the password if one is
+   configured.  Typically, this is a graphical password prompter
+   such as ssh-askpass.
+
+ * A new Defaults option, "mailfrom" that sets the value of the
+   "From:" field in the warning/error mail.  If unspecified, the
+   login name of the invoking user is used.
+
+ * A new Defaults option, "env_file" that refers to a file containing
+   environment variables to be set in the command being run.
+
+ * A new flag, -n, may be used to indicate that sudo should not
+   prompt the user for a password and, instead, exit with an error
+   if authentication is required.
+
+ * If sudo needs to prompt for a password and it is unable to disable
+   echo (and no askpass program is defined), it will refuse to run
+   unless the "visiblepw" Defaults option has been specified.
+
+ * Prior to version 1.7.0, hitting enter/return at the Password: prompt
+   would exit sudo.  In sudo 1.7.0 and beyond, this is treated as
+   an empty password.  To exit sudo, the user must press ^C or ^D
+   at the prompt.
+
+ * visudo will now check the sudoers file owner and mode in -c (check)
+   mode when the -s (strict) flag is specified.
+
+ * A new Defaults option "umask_override" will cause sudo to set the
+   umask specified in sudoers even if it is more permissive than the
+   invoking user's umask.

@@ -1,15 +1,15 @@
---- fscanf.c.orig	2003-05-20 15:22:42.000000000 -0700
-+++ fscanf.c	2005-02-23 16:23:38.000000000 -0800
-@@ -40,6 +40,8 @@
+--- fscanf.c.bsdnew	2009-11-11 13:33:09.000000000 -0800
++++ fscanf.c	2009-11-11 13:33:09.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)fscanf.c	8.1
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/fscanf.c,v 1.12 2003/01/03 23:27:27 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fscanf.c,v 1.13 2007/01/09 00:28:06 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include "namespace.h"
  #include <stdio.h>
  #include <stdarg.h>
-@@ -55,7 +57,22 @@
+@@ -51,7 +53,22 @@ fscanf(FILE * __restrict fp, char const 
  
  	va_start(ap, fmt);
  	FLOCKFILE(fp);

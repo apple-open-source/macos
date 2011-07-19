@@ -1,6 +1,6 @@
---- _SB/Libc/gen/FreeBSD/siginterrupt.3	2003-05-20 15:21:02.000000000 -0700
-+++ _SB/Libc/gen/FreeBSD/siginterrupt.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -96,8 +96,8 @@
+--- siginterrupt.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ siginterrupt.3	2009-11-07 14:51:40.000000000 -0800
+@@ -92,8 +92,8 @@ the new action to take place on the next
  This library routine uses an extension of the
  .Xr sigaction 2
  system call that is not available in

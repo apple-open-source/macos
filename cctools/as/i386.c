@@ -59,6 +59,8 @@
 #include "dwarf2dbg.h"
 #ifdef ARCH64
 #include <mach-o/x86_64/reloc.h>
+#else
+#include <mach-o/reloc.h>
 #endif
 
 #ifdef NeXT_MOD
@@ -89,6 +91,8 @@
 
 #ifdef ARCH64
 typedef enum reloc_type_x86_64 bfd_reloc_code_real_type;
+#else
+typedef enum reloc_type_generic bfd_reloc_code_real_type;
 #endif
 
 #ifndef DEFAULT_ARCH
@@ -116,7 +120,7 @@ static INLINE int fits_in_unsigned_long PARAMS ((offsetT));
 static INLINE int fits_in_signed_long PARAMS ((offsetT));
 static int smallest_imm_type PARAMS ((offsetT));
 static offsetT offset_in_range PARAMS ((offsetT, int));
-static int add_prefix PARAMS ((unsigned int));
+static int add_prefix PARAMS ((unsigned int, unsigned int));
 static void set_code_flag PARAMS ((uintptr_t));
 static void set_16bit_gcc_code_flag PARAMS ((uintptr_t));
 static void set_intel_syntax PARAMS ((uintptr_t));
@@ -214,6 +218,8 @@ struct _i386_insn
 #ifdef ARCH64
     /* Relocation type for operand */
     enum reloc_type_x86_64 reloc[MAX_OPERANDS];
+#else
+    enum reloc_type_generic reloc[MAX_OPERANDS];
 #endif
 
     /* BASE_REG, INDEX_REG, and LOG2_SCALE_FACTOR are used to encode
@@ -816,8 +822,9 @@ struct symbol *sym)
    class already exists, 1 if non rep/repne added, 2 if rep/repne
    added.  */
 static int
-add_prefix (prefix)
-     unsigned int prefix;
+add_prefix(
+unsigned int prefix,
+unsigned int mandatory)
 {
   int ret = 1;
   int q;
@@ -868,6 +875,11 @@ add_prefix (prefix)
     }
 
   i.prefixes += 1;
+  if (mandatory)
+    {
+      i.prefix[mandatory] = prefix;
+      return 1;
+    }
   i.prefix[q] = prefix;
   return ret;
 }
@@ -1534,17 +1546,13 @@ void
 md_assemble (line)
      char *line;
 {
-#ifdef ARCH64
   int j;
-#endif
   char mnemonic[MAX_MNEM_SIZE];
 
   /* Initialize globals.  */
   memset (&i, '\0', sizeof (i));
-#ifdef ARCH64
   for (j = 0; j < MAX_OPERANDS; j++)
     i.reloc[j] = NO_RELOC;
-#endif
   memset (disp_expressions, '\0', sizeof (disp_expressions));
   memset (im_expressions, '\0', sizeof (im_expressions));
   save_stack_p = save_stack;
@@ -1618,7 +1626,7 @@ md_assemble (line)
     }
 
   if (i.tm.opcode_modifier & FWait)
-    if (!add_prefix (FWAIT_OPCODE))
+    if (!add_prefix (FWAIT_OPCODE, 0))
       return;
 
   /* Check string instruction segment overrides.  */
@@ -1763,7 +1771,7 @@ md_assemble (line)
     }
 
   if (i.rex != 0)
-    add_prefix (REX_OPCODE | i.rex);
+    add_prefix (REX_OPCODE | i.rex, 0);
 
 #ifdef NeXT_MOD	/* generate stabs for debugging assembly code */
   /*
@@ -1783,6 +1791,12 @@ md_assemble (line)
 	  frag_now);
   }
 #endif /* NeXT_MOD */
+  /*
+   * If the --gdwarf2 flag is present generate a .loc for this.
+   */
+  if(debug_type == DEBUG_DWARF2 && frchain_now->frch_nsect == text_nsect){
+	dwarf2_loc(dwarf2_file_number, logical_input_line);
+  }
 
 #ifdef NeXT_MOD	/* mark sections containing instructions */
   /*
@@ -1861,7 +1875,7 @@ parse_insn (line, mnemonic)
 	      return NULL;
 	    }
 	  /* Add prefix, checking for repeated prefixes.  */
-	  switch (add_prefix (current_templates->start->base_opcode))
+	  switch (add_prefix (current_templates->start->base_opcode, 0))
 	    {
 	    case 0:
 	      return NULL;
@@ -1933,13 +1947,13 @@ parse_insn (line, mnemonic)
 	{
 	  if (l[2] == 't')
 	    {
-	      if (!add_prefix (DS_PREFIX_OPCODE))
+	      if (!add_prefix (DS_PREFIX_OPCODE, 0))
 		return NULL;
 	      l += 3;
 	    }
 	  else if (l[2] == 'n')
 	    {
-	      if (!add_prefix (CS_PREFIX_OPCODE))
+	      if (!add_prefix (CS_PREFIX_OPCODE, 0))
 		return NULL;
 	      l += 3;
 	    }
@@ -2699,7 +2713,7 @@ process_suffix (void)
 	  if (i.tm.opcode_modifier & JumpByte) /* jcxz, loop */
 	    prefix = ADDR_PREFIX_OPCODE;
 
-	  if (!add_prefix (prefix))
+	  if (!add_prefix (prefix, 0))
 	    return 0;
 	}
 
@@ -3104,7 +3118,7 @@ process_operands ()
      always be used.  */
   if ((i.seg[0]) && (i.seg[0] != default_seg))
     {
-      if (!add_prefix (i.seg[0]->seg_prefix))
+      if (!add_prefix (i.seg[0]->seg_prefix, 0))
 	return 0;
     }
   return 1;
@@ -3157,7 +3171,7 @@ build_modrm_byte ()
 	  if (!((i.types[0] | i.types[1]) & Control))
 	    abort ();
 	  i.rex &= ~(REX_EXTX | REX_EXTZ);
-	  add_prefix (LOCK_PREFIX_OPCODE);
+	  add_prefix (LOCK_PREFIX_OPCODE, 0);
 	}
     }
   else
@@ -3697,7 +3711,7 @@ output_insn ()
 
 	  if (prefix != REPE_PREFIX_OPCODE
 	      || i.prefix[LOCKREP_PREFIX] != REPE_PREFIX_OPCODE)
-	    add_prefix (prefix);
+	    add_prefix (prefix, MAN_PREFIX);
 	}
       else
 	if ((i.tm.cpu_flags & CpuPadLock) == 0
@@ -3714,10 +3728,10 @@ output_insn ()
 #ifdef NeXT_MOD
       {
 	      prefix_shift = (i.tm.cpu_flags & CpuMNI) ? 24 : 16;
-	      add_prefix ((i.tm.base_opcode >> prefix_shift) & 0xff);
+	      add_prefix ((i.tm.base_opcode >> prefix_shift) & 0xff,MAN_PREFIX);
       }
 #else
-	  add_prefix ((i.tm.base_opcode >> 16) & 0xff);
+	  add_prefix ((i.tm.base_opcode >> 16) & 0xff, MAN_PREFIX);
 #endif
 
       /* The prefix bytes.  */
@@ -3878,7 +3892,7 @@ output_disp (insn_start_frag, insn_start_off)
 #if !ARCH64
 	      fix_new (frag_now, p - frag_now->fr_literal, size,
 		       i.op[n].disps->X_add_symbol, i.op[n].disps->X_subtract_symbol,
-		       i.op[n].disps->X_add_number, 0, 0, 0);
+		       i.op[n].disps->X_add_number, 0, 0, i.reloc[n]);
 #else
 #ifdef NeXT_MOD
 	      /*
@@ -4031,6 +4045,27 @@ output_imm (insn_start_frag, insn_start_off)
 			 i.op[n].imms->X_subtract_symbol,
 			 i.op[n].imms->X_add_number, 0, 0, 0);
 #else
+#ifdef NeXT_MOD
+	      /*
+	       * For the x86_64 architecure on Mac OS X it is possible to
+	       * encode a signed 32-bit expression of the form:
+	       *	"add_symbol - subtract_symbol + number" 
+	       * using two relocation entries pointing at the same 32-bits.
+	       * The first one has to be a X86_64_RELOC_SUBTRACTOR then must
+	       * be followed by a X86_64_RELOC_UNSIGNED.
+	       */
+              if(size == 4 && sign == 1 &&
+		 i.reloc[n] == NO_RELOC &&
+		 i.op[n].imms->X_add_symbol != NULL &&
+		 i.op[n].imms->X_subtract_symbol != NULL){
+		  fix_new (frag_now, p - frag_now->fr_literal, size,
+		           i.op[n].imms->X_add_symbol,
+			   i.op[n].imms->X_subtract_symbol,
+		           i.op[n].imms->X_add_number, 0, 0,
+			   X86_64_RELOC_UNSIGNED);
+		  return;
+	      }
+#endif /* NeXT_MOD */
 	      reloc_type = reloc (size, 0, sign, i.reloc[n]);
 
 #ifndef NeXT_MOD
@@ -4122,7 +4157,7 @@ output_imm (insn_start_frag, insn_start_off)
     }
 }
 
-#if !defined(ARCH64) && ((!defined (OBJ_ELF) && !defined (OBJ_MAYBE_ELF)) || defined (LEX_AT))
+#if (!defined(NeXT_MOD) && !defined(ARCH64)) && ((!defined (OBJ_ELF) && !defined (OBJ_MAYBE_ELF)) || defined (LEX_AT)) 
 # define lex_got(reloc, adjust) NULL
 #else
 #ifdef NeXT_MOD
@@ -4159,7 +4194,12 @@ lex_got (reloc, adjust)
 #endif
   } gotrel[] = {
 #ifdef NeXT_MOD
+#ifdef ARCH64
     { "GOTPCREL", { 0,                        0, X86_64_RELOC_GOT } },
+    { "TLVP",     { 0,                        0, X86_64_RELOC_TLV } },
+#else
+    { "TLVP",     { GENERIC_RELOC_TLV,        0, 0 } },
+#endif
 #else
     { "PLT",      { BFD_RELOC_386_PLT32,      0, BFD_RELOC_X86_64_PLT32    } },
     { "GOTOFF",   { BFD_RELOC_386_GOTOFF,     0, 0                         } },
@@ -4536,12 +4576,12 @@ i386_displacement (disp_start, disp_end)
   END_STRING_AND_SAVE (disp_end);
 
 #ifndef GCC_ASM_O_HACK
-#define GCC_ASM_O_HACK 0
+#define GCC_ASM_O_HACK 1
 #endif
 #if GCC_ASM_O_HACK
   END_STRING_AND_SAVE (disp_end + 1);
   if ((i.types[this_operand] & BaseIndex) != 0
-      && displacement_string_end[-1] == '+')
+      && disp_end[-1] == '+')
     {
       /* This hack is to avoid a warning when using the "o"
 	 constraint within gcc asm statements.
@@ -4576,7 +4616,7 @@ i386_displacement (disp_start, disp_end)
 
 	 So here we provide the missing zero.  */
 
-      *displacement_string_end = '0';
+      *disp_end = '0';
     }
 #endif
 #ifndef LEX_AT
@@ -6810,7 +6850,7 @@ intel_e09_1 ()
 	  else if (!intel_parser.got_a_float)
 	    {
 	      if (flag_code == CODE_16BIT)
-		add_prefix (DATA_PREFIX_OPCODE);
+		add_prefix (DATA_PREFIX_OPCODE, 0);
 	      suffix = LONG_DOUBLE_MNEM_SUFFIX;
 	    }
 	  else

@@ -28,14 +28,18 @@
 
 namespace JSC {
 
-void GetterSetter::markChildren(MarkStack& markStack)
+const ClassInfo GetterSetter::s_info = { "GetterSetter", 0, 0, 0 };
+
+void GetterSetter::visitChildren(SlotVisitor& visitor)
 {
-    JSCell::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    JSCell::visitChildren(visitor);
 
     if (m_getter)
-        markStack.append(m_getter);
+        visitor.append(&m_getter);
     if (m_setter)
-        markStack.append(m_setter);
+        visitor.append(&m_setter);
 }
 
 bool GetterSetter::isGetterSetter() const

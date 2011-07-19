@@ -22,6 +22,7 @@
 
 #define TextStyle MacTextStyle
 #include <Carbon/Carbon.h>
+#include <ApplicationServices/ApplicationServicesPriv.h>
 #undef TextStyle
 
 /*

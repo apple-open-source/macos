@@ -26,36 +26,35 @@
 #ifndef JavaClassV8_h
 #define JavaClassV8_h
 
-#include "JNIBridgeV8.h"
-#include "PlatformString.h"
-#include "StringHash.h"
+#if ENABLE(JAVA_BRIDGE)
+
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
 namespace Bindings {
 
+class JavaField;
+class JavaMethod;
+
 typedef Vector<JavaMethod*> MethodList;
-typedef HashMap<WebCore::String, MethodList*> MethodListMap;
-typedef HashMap<WebCore::String, JavaField*> FieldMap;
+typedef HashMap<WTF::String, JavaField*> FieldMap;
 
 class JavaClass {
 public:
-    JavaClass(jobject anInstance);
-    ~JavaClass();
+    virtual ~JavaClass() {}
 
-    MethodList methodsNamed(const char* name) const;
-    JavaField* fieldNamed(const char* name) const;
-
-private:
-    const char* m_name;
-    MethodListMap m_methods;
-    FieldMap m_fields;
+    virtual MethodList methodsNamed(const char* name) const = 0;
+    virtual JavaField* fieldNamed(const char* name) const = 0;
 };
 
 } // namespace Bindings
 
 } // namespace JSC
+
+#endif // ENABLE(JAVA_BRIDGE)
 
 #endif // JavaClassV8_h

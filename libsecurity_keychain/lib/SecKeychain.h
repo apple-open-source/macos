@@ -604,8 +604,10 @@ OSStatus SecKeychainGetUserInteractionAllowed(Boolean *state);
     @param keychain A keychain reference.
     @param cspHandle On return, a pointer to the CSSM_CSP_HANDLE for the given keychain.
     @result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This API is deprecated for 10.7. It should nho longer be needed.
 */
-OSStatus SecKeychainGetCSPHandle(SecKeychainRef keychain, CSSM_CSP_HANDLE *cspHandle);
+OSStatus SecKeychainGetCSPHandle(SecKeychainRef keychain, CSSM_CSP_HANDLE *cspHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecKeychainGetDLDBHandle
@@ -613,8 +615,10 @@ OSStatus SecKeychainGetCSPHandle(SecKeychainRef keychain, CSSM_CSP_HANDLE *cspHa
     @param keychain A keychain reference.
     @param dldbHandle On return, a pointer to the CSSM_DL_DB_HANDLE for the given keychain.
     @result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This API is deprecated for 10.7. It should nho longer be needed.
 */
-OSStatus SecKeychainGetDLDBHandle(SecKeychainRef keychain, CSSM_DL_DB_HANDLE *dldbHandle);
+OSStatus SecKeychainGetDLDBHandle(SecKeychainRef keychain, CSSM_DL_DB_HANDLE *dldbHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #pragma mark ---- Keychain Access Management ----
 /*!

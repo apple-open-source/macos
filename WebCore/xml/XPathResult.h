@@ -30,6 +30,7 @@
 #if ENABLE(XPATH)
 
 #include "XPathValue.h"
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -38,7 +39,6 @@ namespace WebCore {
 
     class Document;
     class Node;
-    class String;
 
     class XPathResult : public RefCounted<XPathResult> {
     public:
@@ -72,6 +72,8 @@ namespace WebCore {
         Node* iterateNext(ExceptionCode&);
         Node* snapshotItem(unsigned long index, ExceptionCode&);
 
+        const XPath::Value& value() const { return m_value; }
+
     private:
         XPathResult(Document*, const XPath::Value&);
         
@@ -80,7 +82,7 @@ namespace WebCore {
         XPath::NodeSet m_nodeSet; // FIXME: why duplicate the node set stored in m_value?
         unsigned short m_resultType;
         RefPtr<Document> m_document;
-        unsigned m_domTreeVersion;
+        uint64_t m_domTreeVersion;
     };
 
 } // namespace WebCore

@@ -2,7 +2,7 @@
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
 	Version:	1.0
-	Copyright:	© 2002-2008 by Apple Inc., all rights reserved.
+	Copyright:	© 2002-2010 by Apple Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewMouse.mm,v $
+		Revision 1.26  2010/12/01 20:33:18  neerache
+		<rdar://problem/8702812> [Chess] All 11A320 Difficult to get out of full screen mode
+		
+		Revision 1.25  2010/03/20 00:08:27  neerache
+		<rdar://problem/7551190> Chess framerate is only 10 frames per second while rotating board
+		
 		Revision 1.24  2008/10/24 22:07:28  neerache
 		<rdar://problem/5459104> Chess: Rotating the playing board while computer is moving results with the mouse as the chess piece
 		
@@ -298,7 +304,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		fCurMouse 			= l;
 		fRawAzimuth 		= fAzimuth;
 		[NSCursor hide];
-		[NSEvent startPeriodicEventsAfterDelay:0.1f withPeriod:0.1f];
+		[NSEvent startPeriodicEventsAfterDelay: 0.008f withPeriod: 0.008f];
 		break;
 	default:
 		if (!fWantMouse || fInAnimation || pos[1] < 0.1)
@@ -585,6 +591,12 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		}
 	    fKeyBuffer = 0;
 	    break;
+	default:
+		//
+		// Propagate ESC etc.
+		//
+		[super keyDown:event];
+		break;
 	}
 }
 

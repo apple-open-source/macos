@@ -15,12 +15,25 @@
 #ifndef _TKMACPRIV
 #define _TKMACPRIV
 
+#if !__OBJC__
+#error Objective-C compiler required
+#endif
+
+#define TextStyle MacTextStyle
+#import <ApplicationServices/ApplicationServices.h>
+#import <Cocoa/Cocoa.h>
+#ifndef NO_CARBON_H
+#import <Carbon/Carbon.h>
+#endif
+#undef TextStyle
+#import <objc/runtime.h> /* for sel_isEqual() */
+
 #ifndef _TKMACINT
 #include "tkMacOSXInt.h"
 #endif
-#include <objc/runtime.h> /* for sel_isEqual() */
-
+#ifndef _TKMACDEFAULT
 #include "tkMacOSXDefault.h"
+#endif
 
 /* Macros for Mac OS X API availability checking */
 #define TK_IF_MAC_OS_X_API(vers, symbol, ...) \

@@ -2,16 +2,13 @@ package DBIx::Class::Storage::DBI::SQLite;
 
 use strict;
 use warnings;
+
+use base qw/DBIx::Class::Storage::DBI/;
+use mro 'c3';
+
 use POSIX 'strftime';
 use File::Copy;
 use File::Spec;
-
-use base qw/DBIx::Class::Storage::DBI::MultiDistinctEmulation/;
-
-sub _dbh_last_insert_id {
-  my ($self, $dbh, $source, $col) = @_;
-  $dbh->func('last_insert_rowid');
-}
 
 sub backup
 {
@@ -19,7 +16,7 @@ sub backup
   $dir ||= './';
 
   ## Where is the db file?
-  my $dsn = $self->connect_info()->[0];
+  my $dsn = $self->_dbi_connect_info()->[0];
 
   my $dbname = $1 if($dsn =~ /dbname=([^;]+)/);
   if(!$dbname)
@@ -33,7 +30,7 @@ sub backup
 #  my $dbfile = file($dbname);
   my ($vol, $dbdir, $file) = File::Spec->splitpath($dbname);
 #  my $file = $dbfile->basename();
-  $file = strftime("%y%m%d%h%M%s", localtime()) . $file; 
+  $file = strftime("%Y-%m-%d-%H_%M_%S", localtime()) . $file; 
   $file = "B$file" while(-f $file);
 
   mkdir($dir) unless -f $dir;
@@ -45,6 +42,23 @@ sub backup
   return $backupfile;
 }
 
+sub deployment_statements {
+  my $self = shift;;
+  my ($schema, $type, $version, $dir, $sqltargs, @rest) = @_;
+
+  $sqltargs ||= {};
+
+  my $sqlite_version = $self->_get_dbh->{sqlite_version};
+
+  # numify, SQLT does a numeric comparison
+  $sqlite_version =~ s/^(\d+) \. (\d+) (?: \. (\d+))? .*/${1}.${2}/x;
+
+  $sqltargs->{producer_args}{sqlite_version} = $sqlite_version;
+
+  $self->next::method($schema, $type, $version, $dir, $sqltargs, @rest);
+}
+
+sub datetime_parser_type { return "DateTime::Format::SQLite"; } 
 
 1;
 
@@ -55,7 +69,7 @@ DBIx::Class::Storage::DBI::SQLite - Automatic primary key class for SQLite
 =head1 SYNOPSIS
 
   # In your table classes
-  __PACKAGE__->load_components(qw/PK::Auto Core/);
+  use base 'DBIx::Class::Core';
   __PACKAGE__->set_primary_key('id');
 
 =head1 DESCRIPTION

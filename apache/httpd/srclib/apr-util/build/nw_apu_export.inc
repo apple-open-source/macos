@@ -15,6 +15,7 @@
 #include "apr_date.h"
 #include "apr_dbd.h"
 #include "apr_dbm.h"
+#include "apr_dbm_private.h"
 #include "apr_hooks.h"
 #include "apr_ldap.h"
 #include "apr_ldap_init.h"

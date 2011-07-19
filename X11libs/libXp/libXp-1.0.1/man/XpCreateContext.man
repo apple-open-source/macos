@@ -1,0 +1,161 @@
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004, Oracle and/or its affiliates. All rights reserved.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpCreateContext 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpCreateContext \- Creates and initializes a new print context.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B XPContext XpCreateContext
+(
+.I display, 
+.I printer_name
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      char *\fIprinter_name\fP\^;
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I printer_name
+The name of a printer on display. String encoded as COMPOUND_TEXT.
+.SH DESCRIPTION
+.LP
+XpCreateContext creates a new print context that is initialized with the default 
+printer attributes and other information available for 
+.I printer_name 
+on display. A print context maintains the printer name, print 
+attributes, font capabilities, print (rendering) state and results, and is the 
+object upon which the Xp calls act.
+
+If the library fails to generate a new print context-id, a value of None is 
+returned, otherwise a print context-id is always returned. If 
+.I printer_name 
+is invalid, a BadMatch is generated later by the 
+.I X Print Server.
+
+A call to XpGetPrinterList will return a valid list of values for 
+.I printer_name. 
+All printer name values in the X Print Service are encoded as COMPOUND_TEXT (of 
+which the ISO-8859-1 code-set is a proper subset).
+
+As soon as a print context is created, the print attributes in it can be 
+accessed and modified by calling XpGetAttributes and XpSetAttributes, and the 
+event selections in it can be modified by calling XpSelectInput and 
+XpInputSelected. Other Xp calls that explicitly take a print context-id as a 
+parameter will operate directly on that print context. All Xp and X calls 
+without a print context-id parameter (for example, all rendering oriented calls 
+like XpStartJob and XDrawLine) require that a print context be set on the 
+display connection (see XpSetContext). Failure to set a print context prior to 
+calling a print-context-dependent call will result in the generation of an 
+XPBadContext error.
+
+The XPContext returned by XpCreateContext is an XID, and can be used to set the 
+print context on display connections by calling XpSetContext. The XPContext id 
+can be shared between processes and display connections. It is the 
+responsibility of the clients sharing a print context to coordinate their usage 
+of the context; for example they must ensure that in-use print contexts are not 
+prematurely destroyed.
+
+The context_id remains valid for all clients until 1) the client creating the 
+print context closes its display connection, or 2) any client calls 
+XpDestroyContext. The context_id can be kept valid after the creating client's 
+display connection 
+closes if XSetCloseDownMode is called on display with RetainPermanent or 
+RetainTemporary.
+
+After creating a print context, and possibly modifying the XPDocAttr attribute 
+document-format using a value from the list of available formats shown in the 
+XPPrinterAttr attribute document-formats-supported, the application must query 
+the 
+.I X Print Server 
+via XpGetScreenOfContext for the screen that has been 
+associated with the print context, and then create all server resources that 
+will be used in the print job on that screen. Failure to do so will result in 
+undefined behavior.
+
+When XpCreateContext is called, the 
+.I client's 
+locale (see XpSetLocaleHinter) is 
+included in the request as a "hint" to the 
+.I X Print Server. 
+If supported by the 
+implementation, the 
+.I X Print Server 
+will use the hint to initialize the attribute 
+pools with any localized attribute values (for example, the human readable 
+XPPrinterAttr attribute "descriptor" may be available in several different 
+languages, and the hint will be used to select one). If the 
+.I X Print Server 
+cannot understand the hint, the 
+.I X Print Server 
+chooses a default value.
+
+This function can generate a BadMatch error if the specified
+.I printer_name
+does not exist on display, or if the print server could not interpret the code 
+set specified in 
+.I printer_name.
+.SH DIAGNOSTICS
+.TP 15
+.SM BadMatch
+The value specified for doc_fmt is not valid for the current document type or 
+the value specified for drawable is not valid for the print context and print 
+screen.
+.SH "SEE ALSO"
+.BR XpDestroyContext (3Xp),
+.BR XpGetAttributes (3Xp),
+.BR XpGetPrinterList (3Xp),
+.BR XpGetScreenOfContext (3Xp),
+.BR XpInputSelected (3Xp),
+.BR XpSelectInput (3Xp),
+.BR XpSetAttributes (3Xp),
+.BR XpSetContext (3Xp),
+.BR XpSetLocaleHinter (3Xp),
+.BR XpStartJob (3Xp)
+
+
+
+
+
+

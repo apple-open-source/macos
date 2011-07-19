@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -133,6 +133,7 @@ typedef struct {
 	CFStringRef		addressString;
 	Boolean			builtin;
 	CFStringRef		configurationAction;
+	Boolean			hidden;
 	CFStringRef		location;
 	CFStringRef		path;
 	CFMutableDictionaryRef	overrides;
@@ -148,7 +149,6 @@ typedef struct {
 	// misc
 	int			sort_order;		// sort order for this interface
 
-#if	!TARGET_OS_IPHONE
 	// for BOND interfaces
 	Boolean			supportsBond;
 	struct {
@@ -157,6 +157,13 @@ typedef struct {
 		CFNumberRef		mode;
 	} bond;
 
+	// for Bridge interfaces
+	Boolean			supportsBridge;
+	struct {
+		CFArrayRef		interfaces;
+		CFDictionaryRef		options;
+	} bridge;
+
 	// for VLAN interfaces
 	Boolean			supportsVLAN;
 	struct {
@@ -164,7 +171,6 @@ typedef struct {
 		CFNumberRef		tag;		// e.g. 1 <= tag <= 4094
 		CFDictionaryRef		options;
 	} vlan;
-#endif	// !TARGET_OS_IPHONE
 
 } SCNetworkInterfacePrivate, *SCNetworkInterfacePrivateRef;
 
@@ -192,15 +198,17 @@ __SCNetworkInterfaceCreatePrivate		(CFAllocatorRef		allocator,
 						 CFStringRef		serviceID,
 						 io_string_t		path);
 
-#if	!TARGET_OS_IPHONE
 SCNetworkInterfacePrivateRef
 _SCBondInterfaceCreatePrivate			(CFAllocatorRef		allocator,
 						 CFStringRef		bond_if);
 
 SCNetworkInterfacePrivateRef
+_SCBridgeInterfaceCreatePrivate			(CFAllocatorRef		allocator,
+						 CFStringRef		bridge_if);
+
+SCNetworkInterfacePrivateRef
 _SCVLANInterfaceCreatePrivate			(CFAllocatorRef		allocator,
 						 CFStringRef		vlan_if);
-#endif	// !TARGET_OS_IPHONE
 
 CFDictionaryRef
 __SCNetworkInterfaceCopyInterfaceEntity		(SCNetworkInterfaceRef	interface);
@@ -209,17 +217,32 @@ CFArrayRef
 __SCNetworkInterfaceCopyDeepConfiguration       (SCNetworkSetRef	set,
 						 SCNetworkInterfaceRef	interface);
 
+#if	!TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
 CFStringRef
 __SCNetworkInterfaceCopyXLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
 
 CFStringRef
 __SCNetworkInterfaceCopyXNonLocalizedDisplayName(SCNetworkInterfaceRef	interface);
+#endif	// !TARGET_OS_EMBEDDED && !TARGET_IPHONE_SIMULATOR
+
+int
+__SCNetworkInterfaceCreateCapabilities		(SCNetworkInterfaceRef	interface,
+						 int			capability_base,
+						 CFDictionaryRef	capability_options);
+
+int
+__SCNetworkInterfaceCreateMediaOptions		(SCNetworkInterfaceRef	interface,
+						 CFDictionaryRef	media_options);
 
 CFStringRef
 __SCNetworkInterfaceGetDefaultConfigurationType	(SCNetworkInterfaceRef	interface);
 
 CFStringRef
 __SCNetworkInterfaceGetNonLocalizedDisplayName	(SCNetworkInterfaceRef	interface);
+
+Boolean
+__SCNetworkInterfaceIsMember			(SCPreferencesRef	prefs,
+						 SCNetworkInterfaceRef	interface);
 
 Boolean
 __SCNetworkInterfaceIsValidExtendedConfigurationType
@@ -229,7 +252,7 @@ __SCNetworkInterfaceIsValidExtendedConfigurationType
 
 CFDictionaryRef
 __SCNetworkInterfaceGetTemplateOverrides	(SCNetworkInterfaceRef	interface,
-						 CFStringRef		interfaceType);
+						 CFStringRef		overrideType);
 
 int
 __SCNetworkInterfaceOrder			(SCNetworkInterfaceRef	interface);
@@ -245,14 +268,16 @@ __SCNetworkInterfaceSetDeepConfiguration	(SCNetworkSetRef	set,
 						 SCNetworkInterfaceRef	interface,
 						 CFArrayRef		configs);
 
-#if	!TARGET_OS_IPHONE
 Boolean
 __SCNetworkInterfaceSupportsVLAN		(CFStringRef		bsd_if);
 
 void
-__SCBondInterfaceListCopyMembers		(CFArrayRef 		interfaces,
+__SCBondInterfaceListCollectMembers		(CFArrayRef 		interfaces,
 						 CFMutableSetRef 	set);
-#endif	// !TARGET_OS_IPHONE
+
+void
+__SCBridgeInterfaceListCollectMembers		(CFArrayRef 		interfaces,
+						 CFMutableSetRef 	set);
 
 #pragma mark -
 #pragma mark SCNetworkProtocol configuration (internal)
@@ -271,11 +296,21 @@ __SCNetworkProtocolIsValidType			(CFStringRef		protocolType);
 #pragma mark SCNetworkService configuration (internal)
 
 
+CFArrayRef /* of SCNetworkServiceRef's */
+__SCNetworkServiceCopyAllEnabled		(SCPreferencesRef	prefs);
+
 SCNetworkServicePrivateRef
 __SCNetworkServiceCreatePrivate			(CFAllocatorRef		allocator,
 						 SCPreferencesRef	prefs,
 						 CFStringRef		serviceID,
 						 SCNetworkInterfaceRef	interface);
+
+Boolean
+__SCNetworkServiceExistsForInterface		(CFArrayRef		services,
+						 SCNetworkInterfaceRef	interface);
+
+CFStringRef
+__SCNetworkServiceNextName			(SCNetworkServiceRef	service);
 
 
 #pragma mark -

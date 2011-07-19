@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,12 @@
 module css {
 
     // Introduced in DOM Level ?:
-    interface [CustomConstructor] WebKitCSSMatrix {
+    interface [
+        CanBeConstructed,
+        CustomConstructFunction,
+        ConstructorParameters=1,
+        V8CustomConstructor
+    ] WebKitCSSMatrix {
 
         // These attributes are simple aliases for certain elements of the 4x4 matrix
         attribute double a; // alias for m11
@@ -79,7 +84,15 @@ module css {
         // Passing a NaN will use a value of 0. If the axis is (0,0,0) use a value
         // of (0,0,1).
         [Immutable] WebKitCSSMatrix rotateAxisAngle(in double x, in double y, in double z, in double angle);
-        
+
+        // Returns this matrix skewed along the X axis by the passed values.
+        // Passing a NaN will use a value of 0.
+        [Immutable] WebKitCSSMatrix skewX(in double angle);
+
+        // Returns this matrix skewed along the Y axis by the passed values.
+        // Passing a NaN will use a value of 0.
+        [Immutable] WebKitCSSMatrix skewY(in double angle);
+
         [DontEnum] DOMString toString();
     };
 

@@ -30,16 +30,16 @@ METHODS
         Returns: none
 
     Creates a set of read only accessors in a given group. Identical to
-    <L:/mk_group_accessors> but accessors will throw an error if passed a
-    value rather than setting the value.
+    "mk_group_accessors" but accessors will throw an error if passed a value
+    rather than setting the value.
 
   mk_group_wo_accessors
     Arguments: $group, @fieldspec
         Returns: none
 
     Creates a set of write only accessors in a given group. Identical to
-    <L:/mk_group_accessors> but accessors will throw an error if not passed
-    a value rather than getting the value.
+    "mk_group_accessors" but accessors will throw an error if not passed a
+    value rather than getting the value.
 
   make_group_accessor
     Arguments: $group, $field
@@ -105,9 +105,9 @@ METHODS
     Gets the value of the specified component class.
 
         __PACKAGE__->mk_group_accessors('component_class' => 'result_class');
-    
+
         $self->result_class->method();
-    
+
         ## same as
         $self->get_component_class('result_class')->method();
 
@@ -121,7 +121,7 @@ METHODS
 
         __PACKAGE__->mk_group_accessors('component_class' => 'result_class');
         __PACKAGE__->result_class('MyClass');
-    
+
         $self->result_class->method();
 
   get_super_paths
@@ -132,6 +132,13 @@ AUTHORS
     Matt S. Trout <mst@shadowcatsystems.co.uk> Christopher H. Laco
     <claco@chrislaco.com>
 
-LICENSE
-    You may distribute this code under the same terms as Perl itself.
+    With contributions from:
+
+    Guillermo Roditi <groditi@cpan.org>
+
+COPYRIGHT & LICENSE
+    Copyright (c) 2006-2009 Matt S. Trout <mst@shadowcatsystems.co.uk>
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as perl itself.
 

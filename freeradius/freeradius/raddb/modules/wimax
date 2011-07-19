@@ -1,14 +1,19 @@
 #
 #	The WiMAX module currently takes no configuration.
 #
-#	In order to calculate the various WiMAX keys, it SHOULD
+#	It should be listed in the "authorize" and "preacct" sections.
+#	This enables the module to fix the horrible binary version
+#	of Calling-Station-Id to the normal format, as specified in
+#	RFC 3580, Section 3.21.
+#
+#	In order to calculate the various WiMAX keys, the module should
 #	be listed in the "post-auth" section.  If EAP authentication
 #	has been used, AND the EAP method derives MSK and EMSK, then
 #	the various WiMAX keys can be calculated.
 #
 #	Some useful things to remember:
 #
-#	WiMAX-MSK = EAP MSK, but is 32 octets.
+#	WiMAX-MSK = EAP MSK, but is 64 octets.
 #
 #	MIP-RK-1 = HMAC-SHA256(ESMK, "miprk@wimaxforum.org" | 0x00020001)
 #	MIP-RK-2 = HMAC-SHA256(ESMK, MIP-RK-1 | "miprk@wimaxforum.org" | 0x00020002)
@@ -85,4 +90,23 @@
 #		  thing.
 #
 wimax {
+	#
+	#  Some WiMAX equipement requires that the MS-MPPE-*-Key
+	#  attributes are sent in the Access-Accept, in addition to
+	#  the WiMAX-MSK attribute.
+	#
+	#  Other WiMAX equipment request that the MS-MPPE-*-Key
+	#  attributes are NOT sent in the Access-Accept.
+	#
+	#  By default, the EAP modules sends MS-MPPE-*-Key attributes.
+	#  The default virtual server (raddb/sites-available/default)
+	#  contains examples of adding the WiMAX-MSK.
+	#
+	#  This configuration option makes the WiMAX module delete
+	#  the MS-MPPE-*-Key attributes.  The default is to leave
+	#  them in place.
+	#
+	#  If the keys are deleted (by setting this to "yes"), then
+	#  the WiMAX-MSK attribute is automatically added to the reply.
+	delete_mppe_keys = no
 }

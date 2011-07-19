@@ -1,0 +1,360 @@
+%{
+
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+ *     contributors may be used to endorse or promote products derived from
+ *     this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Portions of this software have been released under the following terms:
+ *
+ * (c) Copyright 1989-1993 OPEN SOFTWARE FOUNDATION, INC.
+ * (c) Copyright 1989-1993 HEWLETT-PACKARD COMPANY
+ * (c) Copyright 1989-1993 DIGITAL EQUIPMENT CORPORATION
+ *
+ * To anyone who acknowledges that this file is provided "AS IS"
+ * without any express or implied warranty:
+ * permission to use, copy, modify, and distribute this file for any
+ * purpose is hereby granted without fee, provided that the above
+ * copyright notices and this notice appears in all source code copies,
+ * and that none of the names of Open Software Foundation, Inc., Hewlett-
+ * Packard Company or Digital Equipment Corporation be used
+ * in advertising or publicity pertaining to distribution of the software
+ * without specific, written prior permission.  Neither Open Software
+ * Foundation, Inc., Hewlett-Packard Company nor Digital
+ * Equipment Corporation makes any representations about the suitability
+ * of this software for any purpose.
+ *
+ * Copyright (c) 2007, Novell, Inc. All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Novell Inc. nor the names of its contributors
+ *     may be used to endorse or promote products derived from this
+ *     this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+ /*
+ **
+ **  NAME:
+ **
+ **      acf.l
+ **
+ **  FACILITY:
+ **
+ **      Interface Definition Language (IDL) Compiler
+ **
+ **  ABSTRACT:
+ **
+ ** "lex" source file for Attribute Configuration File (ACF) parser.
+ **
+ **  VERSION: DCE 1.0
+ **
+ */
+
+#define PROCESSING_LEX          /* Define before including nidl.h */
+#define PROCESSING_ACF_LEX      /* Define before including nidl.h */
+#include <nidl.h>               /* IDL common defs */
+#include <acf_y.h>          /* yacc include file */
+#include <nametbl.h>            /* Nametable defs */
+#include <nidlmsg.h>            /* Error message IDs */
+#include <command.h>
+
+/* Tank Trap to stop non-flex lexxers */
+/* The macro FLEX_SCANNER is defined and generated by FLEX */
+
+#ifndef FLEX_SCANNER
+This grammar file needs to be built with GNU Flex V2.4.6 or later.
+  GNU Flex can be be obtained from ftp://prep.ai.mit.edu:/pub/gnu
+#endif
+
+extern void commenteof(         /* Called on EOF within comment */
+    yyscan_t scanner
+);
+
+void acf_yymark(         /* Handles # <lineno> left by cpp */
+    yyscan_t scanner
+);
+
+static int acf_screen(          /* Screens a token to see if it is a keyword */
+    const char *token,
+    YYSTYPE * yy_lval
+);
+
+void read_c_comment(yyscan_t scanner); /* from nidl_l.l */
+
+#if 0 // FLEXIFY
+static int yywrap(yyscan_t scanner)
+{
+
+   /*
+    * Free the Flex buffer, yy_curent_buffer and yy_delete_buffer()
+    * are FLEX interfaces to the internal buffering system.
+    */
+
+#ifdef YY_CURRENT_BUFFER_LVALUE
+   acf_yy_delete_buffer(YY_CURRENT_BUFFER_LVALUE); /* free the FLEX buffer */
+#else
+   acf_yy_delete_buffer(yy_current_buffer); /* free the FLEX buffer */
+#endif
+
+   acf_yylineno = 1;
+   return 1;
+}
+#endif
+
+/*static char *identifier_name;    Ptr to parsed identifier */
+
+typedef struct                  /* Keyword and corresponding value */
+{
+    const char *keyword;
+    int     token_value;
+} keyword_entry;
+
+static keyword_entry acf_keywords[] =   /* Table of keywords and values */
+{
+    {"auto_handle",     AUTO_HANDLE_KW},
+    {"binding_callout", BINDING_CALLOUT_KW},
+    {"code",            CODE_KW},
+    {"comm_status",     COMM_STATUS_KW},
+    {"cs_char",         CS_CHAR_KW},
+    {"cs_tag_rtn",      CS_TAG_RTN_KW},
+    {"enable_allocate", ENABLE_ALLOCATE_KW},
+    {"explicit_handle", EXPLICIT_HANDLE_KW},
+    {"extern_exceptions", EXTERN_EXCEPS_KW},
+    {"fault_status",    FAULT_STATUS_KW},
+    {"handle_t",        HANDLE_T_KW},
+    {"heap",            HEAP_KW},
+    {"implicit_handle", IMPLICIT_HANDLE_KW},
+    {"include",         INCLUDE_KW},
+    {"interface",       INTERFACE_KW},
+    {"in_line",         IN_LINE_KW},
+    {"nocode",          NOCODE_KW},
+    {"out_of_line",     OUT_OF_LINE_KW},
+    {"represent_as",    REPRESENT_AS_KW},
+    {"typedef",         TYPEDEF_KW},
+    {"nocancel",        NOCANCEL_KW},
+    {0,                 0}      /* Sentinel - Do not remove */
+};
+
+%}
+
+delim           [ \t\n\f]
+ws              {delim}+
+letter          [A-Za-z_$]
+digit           [0-9]
+oct_digit       [0-7]
+hex_digit       [0-9A-Fa-f]
+id              {letter}({letter}|{digit})*
+other           .
+
+%option reentrant
+%option prefix="acf_yy"
+%option yylineno
+%option header-file="acf_l.h"
+%option bison-bridge
+%option bison-locations
+%option noyywrap
+
+%%
+
+{ws}        { /* White space: No action, and no return */ }
+'\n'        { /* GNUFLEX doesnt automatically track line #'s */
+                int lineno = acf_yyget_lineno(yyscanner);
+                acf_yyset_lineno(lineno + 1, yyscanner);
+            }
+","         {return(COMMA);}
+"{"         {return(LBRACE);}
+"??<"       {return(LBRACE);}
+"["         {return(LBRACKET);}
+"("         {return(LPAREN);}
+"}"         {return(RBRACE);}
+"??>"       {return(RBRACE);}
+"]"         {return(RBRACKET);}
+")"         {return(RPAREN);}
+";"         {return(SEMI);}
+
+^"#".*\n    {acf_yymark(yyscanner);}
+
+\"[^\"\n]*\" {  /* Quoted string: Strip off quotes, add to string table. */
+                char    stripped_string[max_string_len];
+
+                strlcpy(stripped_string, (char *)&yytext[1], sizeof (stripped_string));
+                stripped_string[strlen((char *)yytext)-2] = '\0';
+                yylval->y_string = STRTAB_add_string(stripped_string);
+                return(STRING);
+            }
+
+"/*"        {   /* Comment: Ignore through closing delimiter. */
+                read_c_comment(yyscanner);
+            }
+
+{id}        {
+                 /* If id is too long, truncate it and issue a warning */
+                 if (yyleng > MAX_ID) {
+                    NAMETABLE_id_t id;
+                    char const *identifier;
+                    id = NAMETABLE_add_id((char *)yytext);
+                    NAMETABLE_id_to_string(id, &identifier);
+                    log_warning(acf_yyget_lineno(yyscanner),
+                            NIDL_IDTOOLONG, identifier, MAX_ID, NULL);
+                    /* Truncate the string */
+                    yytext[MAX_ID] = '\0';
+                    id = NAMETABLE_add_id((char *)yytext);
+                    }
+
+                /* Identifier: See if it is a valid keyword. */
+                return acf_screen(yytext, yylval);
+            }
+
+{other}     {return(UNKNOWN);};
+%%
+
+/*
+**  a c f _ y y m a r k
+**
+**  Processes a "# lineno" line as left by cpp.
+**
+**  Implicit Outputs:
+**      acf_yylineno is updated; If a filename was included in the source
+**      line, set_name_for_errors is called to set up the source filename
+**      for error messages.
+*/
+
+void acf_yymark(yyscan_t scanner)
+{
+    const char *	yy_text = yyget_text(scanner);
+    int			yy_lineno = yyget_lineno(scanner);
+
+    char *	source; /* Source file name in #line directive */
+
+    int prev_lineno = yy_lineno - 1;
+
+    source = NEW_VEC (char, yyget_leng(scanner) + 1);
+    *source = '\0';
+
+    /*
+     * If the format wasn't # line {int} {string}, then reparse
+     * without "line" identifier.
+     */
+    if (sscanf(yy_text, "# line %d %s", &yy_lineno, source) < 1)
+    {
+	if (sscanf(yy_text, "# %d %s", &yy_lineno, source) < 1)
+        {
+            log_warning(prev_lineno, NIDL_CPPCMDOPT,
+                "-cpp_cmd", NULL);
+        }
+    }
+
+    yyset_lineno(yy_lineno, scanner);
+
+    /* If text included a source file name, set name for error reporting. */
+    if (source[0] != '\0')
+    {
+        char    file_name[max_string_len];
+
+        /* Strip the quotes. */
+        strlcpy(file_name, &source[1], sizeof (file_name));
+        file_name[strlen(file_name)-1] = '\0';
+
+        set_name_for_errors(file_name);
+    }
+
+    FREE(source);
+}
+
+/*
+ *  a c f _ s c r e e n
+ *
+ *  Function:   Checks to see if a token is a keyword.
+ *
+ *  Inputs:     token to check
+ *
+ *  Returns:    specific keyword ID if token is a keyword;
+ *              the value IDENTIFIER otherwise
+ */
+
+static int acf_screen(const char *token, YYSTYPE * yy_lval)
+{
+    int i;
+
+    /*
+     * Scan the reserved word table.
+     */
+    for (i = 0; acf_keywords[i].keyword != 0; i++)
+        if (strcmp(token, acf_keywords[i].keyword) == 0)
+            return acf_keywords[i].token_value;     /* Return keyword ID */
+
+    /*
+     * Not a reserved word; therefore, an identifier, return nametable id.
+     */
+    yy_lval->y_id = NAMETABLE_add_id(token);
+    // FLEXIFY acf_yylval.y_id = NAMETABLE_add_id(token);
+    return IDENTIFIER;                  /* Return IDENTIFER */
+}
+
+/*
+ *  a c f _ k e y w o r d _ l o o k u p
+ *
+ *  Looks up a keyword's text string given its numeric token value.
+ */
+
+const char * acf_keyword_lookup
+(
+    int         token_value     /* Numeric value of keyword token */
+)
+{
+    keyword_entry * entry;
+
+    for (entry = acf_keywords ; entry->keyword != NULL ; entry++)
+        if (entry->token_value == token_value)
+            return entry->keyword;
+
+    /* Not found, just return question mark. */
+    return "?";
+}
+
+ /** End of "lex" source file. **/
+/* preserve coding style vim: set tw=78 sw=4 et : */

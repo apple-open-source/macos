@@ -25,7 +25,7 @@
  * It was generated using rpcgen.
  */
 
-#include <rpcsvc/nlm_prot.h>
+#include "nlm_prot.h"
 #ifndef lint
 /*static char sccsid[] = "from: @(#)nlm_prot.x 1.8 87/09/21 Copyr 1987 Sun Micro";*/
 /*static char sccsid[] = "from: * @(#)nlm_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
@@ -251,7 +251,7 @@ xdr_nlm_notify(XDR *xdrs, nlm_notify *objp)
 
 	if (!xdr_string(xdrs, &objp->name, MAXNAMELEN))
 		return (FALSE);
-	if (!xdr_long(xdrs, &objp->state))
+	if (!xdr_int32_t(xdrs, &objp->state))
 		return (FALSE);
 	return (TRUE);
 }

@@ -53,18 +53,17 @@
  * SUCH DAMAGE.
  */
 
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
-#include <ufs/ufs/dinode.h>
-
 #include <ctype.h>
 #include <fstab.h>
 #include <string.h>
-
-#include "fsck.h"
 
 struct part {
 	struct	part *next;		/* forward link of partitions on disk */
@@ -89,6 +88,7 @@ static char *rawname __P((char *name));
 static int startdisk __P((struct disk *dk,
 		int (*checkit)(char *, char *, long, int)));
 static char *unrawname __P((char *name));
+char* blockcheck __P((char *name));
 
 int
 checkfstab(preen, maxrun, docheck, chkit)
@@ -305,9 +305,7 @@ startdisk(dk, checkit)
 }
 
 char *
-blockcheck(origname)
-	char *origname;
-{
+blockcheck(char* origname) {
 	struct stat stslash, stblock, stchar;
 	char *newname, *raw;
 	int retried = 0;

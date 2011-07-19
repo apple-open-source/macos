@@ -1,0 +1,132 @@
+AC_INIT([Pigeonhole], [0.2.3], [dovecot@dovecot.org], [dovecot-2.0-pigeonhole])
+AC_CONFIG_AUX_DIR([.])
+AC_CONFIG_SRCDIR([src])
+AC_CONFIG_MACRO_DIR([m4])
+
+# Autoheader is not needed and does more harm than good for this package. However, it is 
+# tightly integrated in autoconf/automake and therefore it is difficult not to use it. As 
+# a workaround we give autoheader a dummy config header to chew on and we handle the 
+# real config header ourselves.
+AC_CONFIG_HEADERS([dummy-config.h pigeonhole-config.h])
+
+AC_DEFINE_UNQUOTED(PIGEONHOLE_NAME, "$PACKAGE_NAME", 
+	[Define to the full name of Pigeonhole for Dovecot.])
+AC_DEFINE_UNQUOTED(PIGEONHOLE_VERSION, "$PACKAGE_VERSION", 
+	[Define to the version of Pigeonhole for Dovecot.])
+
+AM_INIT_AUTOMAKE([no-define foreign tar-ustar])
+
+AM_MAINTAINER_MODE
+
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_LIBTOOL
+
+# Couple with Dovecot
+#
+
+DC_DOVECOT
+DC_DOVECOT_MODULEDIR
+LIBDOVECOT_INCLUDE="$LIBDOVECOT_INCLUDE $LIBDOVECOT_STORAGE_INCLUDE" 
+CFLAGS="$DOVECOT_CFLAGS"
+LIBS="$DOVECOT_LIBS"
+AC_SUBST(LIBDOVECOT_INCLUDE)
+
+# Define Sieve documentation install dir
+#
+
+sieve_docdir='${dovecot_docdir}/sieve'
+AC_SUBST(sieve_docdir)
+
+# Extensions under development
+#
+
+AC_ARG_WITH(unfinished-features,
+[AC_HELP_STRING([--with-unfinished-features], 
+	[Build unfinished new features/extensions [default=no]])],
+        if test x$withval = xno || test x$withval = xauto; then
+                want_unfinished_features=$withval
+        else
+                want_unfinished_features=yes
+        fi,
+        want_unfinished_features=no)
+AM_CONDITIONAL(BUILD_UNFINISHED, test "$want_unfinished_features" = "yes")
+
+if test "$want_unfinished_features" = "yes"; then
+	AC_DEFINE(HAVE_SIEVE_UNFINISHED,,
+		[Define to build unfinished features/extensions.])
+fi
+
+#
+#
+
+AC_ARG_WITH(docs,
+[  --with-docs             Install documentation (default)],
+    if test x$withval = xno; then
+        want_docs=no
+    else
+        want_docs=yes
+    fi,
+    want_docs=yes)
+AM_CONDITIONAL(BUILD_DOCS, test "$want_docs" = "yes")
+
+AC_ARG_ENABLE(valgrind,
+[AC_HELP_STRING([--enable-valgrind], [Enable Valgrind memory leak checks in testsuite [default=no]])],
+    if test x$enableval = xno || test x$enableval = xauto; then
+        want_valgrind=$enableval
+    else
+        want_valgrind=yes
+    fi,
+    want_valgrind=no)
+AM_CONDITIONAL(TESTSUITE_VALGRIND, test "$want_valgrind" = "yes")
+
+AC_ARG_WITH(managesieve,
+[AC_HELP_STRING([--with-managesieve], 
+	[Build ManageSieve service [default=yes]])],
+        if test x$withval = xno || test x$withval = xauto; then
+                want_managesieve=$withval
+        else
+                want_managesieve=yes
+        fi,
+        want_managesieve=yes)
+AM_CONDITIONAL(BUILD_MANAGESIEVE, test "$want_managesieve" = "yes")
+
+AC_CONFIG_FILES([
+Makefile
+doc/Makefile
+doc/man/Makefile
+doc/example-config/Makefile
+doc/example-config/conf.d/Makefile
+src/Makefile
+src/lib-sieve/Makefile
+src/lib-sieve/plugins/Makefile
+src/lib-sieve/plugins/vacation/Makefile
+src/lib-sieve/plugins/subaddress/Makefile
+src/lib-sieve/plugins/comparator-i-ascii-numeric/Makefile
+src/lib-sieve/plugins/relational/Makefile
+src/lib-sieve/plugins/regex/Makefile
+src/lib-sieve/plugins/imap4flags/Makefile
+src/lib-sieve/plugins/copy/Makefile
+src/lib-sieve/plugins/include/Makefile
+src/lib-sieve/plugins/body/Makefile
+src/lib-sieve/plugins/variables/Makefile
+src/lib-sieve/plugins/enotify/Makefile
+src/lib-sieve/plugins/enotify/mailto/Makefile
+src/lib-sieve/plugins/notify/Makefile
+src/lib-sieve/plugins/environment/Makefile
+src/lib-sieve/plugins/mailbox/Makefile
+src/lib-sieve/plugins/date/Makefile
+src/lib-sieve/plugins/spamvirustest/Makefile
+src/lib-sieve-tool/Makefile
+src/lib-sievestorage/Makefile
+src/lib-managesieve/Makefile
+src/plugins/Makefile
+src/plugins/lda-sieve/Makefile
+src/sieve-tools/Makefile
+src/sieve-tools/debug/Makefile
+src/managesieve/Makefile
+src/managesieve-login/Makefile
+src/testsuite/Makefile
+stamp.h])
+
+AC_OUTPUT

@@ -1,0 +1,30 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin canvas::mvg n 1.0.1]
+[copyright {2010 Wolf-Dieter Busch (http://wiki.tcl.tk/15505)}]
+[copyright {2010 Documentation, Andreas Kupries}]
+[moddesc   {Variations on a canvas}]
+[titledesc {Canvas to ImageMagick MVG vector format}]
+[require Tcl 8.5]
+[require Tk 8.5]
+[require canvas::mvg [opt 1]]
+[description]
+
+This package provides a command to convert a canvas' contents to
+ImageMagick's MVG vector format.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::canvas::mvg] [arg pathName]]
+
+Dump the contents of the canvas [arg pathName]. The result is a string
+in ImageMagick's MVG vector format.
+
+[list_end]
+
+[keywords canvas mvg imagemagick {print screen}]
+[keywords {vector graphics} graphics serialization]
+[keywords {magick vector graphics}]
+[manpage_end]
+

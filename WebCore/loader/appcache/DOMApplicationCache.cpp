@@ -29,11 +29,13 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCacheHost.h"
+#include "Document.h"
 #include "DocumentLoader.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 

@@ -10,6 +10,8 @@
 /*
 /*	void	mail_conf_suck()
 /*
+/*	void	mail_conf_flush()
+/*
 /*	void	mail_conf_update(name, value)
 /*	const char *name;
 /*	const char *value;
@@ -20,6 +22,9 @@
 /*	const char *mail_conf_eval(string)
 /*	const char *string;
 /*
+/*	const char *mail_conf_eval_once(string)
+/*	const char *string;
+/*
 /*	const char *mail_conf_lookup_eval(name)
 /*	const char *name;
 /* DESCRIPTION
@@ -28,6 +33,10 @@
 /*
 /*	mail_conf_read() invokes mail_conf_suck() and assigns the values
 /*	to global variables by calling mail_params_init().
+/*
+/*	mail_conf_flush() discards the global configuration dictionary.
+/*	This is needed in programs that read main.cf multiple times, to
+/*	ensure that deleted parameter settings are handled properly.
 /*
 /*	The following routines are wrappers around the generic dictionary
 /*	access routines.
@@ -44,6 +53,11 @@
 /*	mail_conf_eval() recursively expands any $parameters in the
 /*	string argument. The result is volatile and should be copied
 /*	if it is to be used for any appreciable amount of time.
+/*
+/*	mail_conf_eval_once() non-recursively expands any $parameters
+/*	in the string argument. The result is volatile and should
+/*	be copied if it is to be used for any appreciable amount
+/*	of time.
 /*
 /*	mail_conf_lookup_eval() looks up the named parameter, and expands any
 /*	$parameters in the result. The result is volatile and should be
@@ -117,7 +131,8 @@ static void mail_conf_checkdir(const char *config_dir)
     buf = vstring_alloc(1);
     while (found == 0 && readlline(buf, fp, (int *) 0)) {
 	if (split_nameval(vstring_str(buf), &name, &value) == 0
-	    && strcmp(name, VAR_CONFIG_DIRS) == 0) {
+	    && (strcmp(name, VAR_CONFIG_DIRS) == 0
+		|| strcmp(name, VAR_MULTI_CONF_DIRS) == 0)) {
 	    while (found == 0 && (cp = mystrtok(&value, ", \t\r\n")) != 0)
 		if (strcmp(cp, config_dir) == 0)
 		    found = 1;
@@ -177,6 +192,14 @@ void    mail_conf_suck(void)
     myfree(path);
 }
 
+/* mail_conf_flush - discard configuration dictionary */
+
+void mail_conf_flush(void)
+{
+    if (dict_handle(CONFIG_DICT) != 0)
+        dict_unregister(CONFIG_DICT);
+}
+
 /* mail_conf_eval - expand macros in string */
 
 const char *mail_conf_eval(const char *string)
@@ -184,6 +207,15 @@ const char *mail_conf_eval(const char *string)
 #define RECURSIVE	1
 
     return (dict_eval(CONFIG_DICT, string, RECURSIVE));
+}
+
+/* mail_conf_eval_once - expand one level of macros in string */
+
+const char *mail_conf_eval_once(const char *string)
+{
+#define NONRECURSIVE	0
+
+    return (dict_eval(CONFIG_DICT, string, NONRECURSIVE));
 }
 
 /* mail_conf_lookup - lookup named variable */

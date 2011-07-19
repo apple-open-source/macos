@@ -1,33 +1,33 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGGradientElement.h"
 
+#include "Attribute.h"
 #include "CSSStyleSelector.h"
-#include "MappedAttribute.h"
-#include "RenderPath.h"
 #include "RenderSVGHiddenContainer.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResourceLinearGradient.h"
 #include "RenderSVGResourceRadialGradient.h"
 #include "SVGNames.h"
@@ -38,20 +38,20 @@
 
 namespace WebCore {
 
-SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
-    , SVGURIReference()
-    , SVGExternalResourcesRequired()
+// Animated property definitions
+DEFINE_ANIMATED_ENUMERATION(SVGGradientElement, SVGNames::spreadMethodAttr, SpreadMethod, spreadMethod)
+DEFINE_ANIMATED_ENUMERATION(SVGGradientElement, SVGNames::gradientUnitsAttr, GradientUnits, gradientUnits)
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGGradientElement, SVGNames::gradientTransformAttr, GradientTransform, gradientTransform)
+DEFINE_ANIMATED_STRING(SVGGradientElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGGradientElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
     , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
-    , m_gradientTransform(SVGTransformList::create(SVGNames::gradientTransformAttr))
 {
 }
 
-SVGGradientElement::~SVGGradientElement()
-{
-}
-
-void SVGGradientElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGGradientElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::gradientUnitsAttr) {
         if (attr->value() == "userSpaceOnUse")
@@ -59,11 +59,12 @@ void SVGGradientElement::parseMappedAttribute(MappedAttribute* attr)
         else if (attr->value() == "objectBoundingBox")
             setGradientUnitsBaseValue(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
     } else if (attr->name() == SVGNames::gradientTransformAttr) {
-        SVGTransformList* gradientTransforms = gradientTransformBaseValue();
-        if (!SVGTransformable::parseTransformAttribute(gradientTransforms, attr->value())) {
-            ExceptionCode ec = 0;
-            gradientTransforms->clear(ec);
-        }
+        SVGTransformList newList;
+        if (!SVGTransformable::parseTransformAttribute(newList, attr->value()))
+            newList.clear();
+
+        detachAnimatedGradientTransformListWrappers(newList.size());
+        setGradientTransformBaseValue(newList);
     } else if (attr->name() == SVGNames::spreadMethodAttr) {
         if (attr->value() == "reflect")
             setSpreadMethodBaseValue(SpreadMethodReflect);
@@ -85,13 +86,17 @@ void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledElement::svgAttributeChanged(attrName);
 
+    RenderObject* object = renderer();
+    if (!object)
+        return;
+
     if (attrName == SVGNames::gradientUnitsAttr
         || attrName == SVGNames::gradientTransformAttr
         || attrName == SVGNames::spreadMethodAttr
         || SVGURIReference::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName)
         || SVGStyledElement::isKnownAttribute(attrName))
-        invalidateResourceClients();
+        object->setNeedsLayout(true);
 }
 
 void SVGGradientElement::synchronizeProperty(const QualifiedName& attrName)
@@ -119,12 +124,25 @@ void SVGGradientElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeHref();
 }
 
+void SVGGradientElement::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+
+    attributeToPropertyTypeMap.set(SVGNames::spreadMethodAttr, AnimatedEnumeration);
+    attributeToPropertyTypeMap.set(SVGNames::gradientUnitsAttr, AnimatedEnumeration);
+    attributeToPropertyTypeMap.set(SVGNames::gradientTransformAttr, AnimatedTransformList);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+}
+    
 void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
-    if (!changedByParser)
-        invalidateResourceClients();
+    if (changedByParser)
+        return;
+
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 Vector<Gradient::ColorStop> SVGGradientElement::buildStops()

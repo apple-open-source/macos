@@ -47,8 +47,7 @@ import <securityd_client/ucsp_types.h>;
 // Management and administrative functions
 //
 routine setup(UCSP_PORTS; in tport: mach_port_t; in info: SetupInfo; in FilePath: FilePath);
-routine setupNew(UCSP_PORTS; in tport: mach_port_t; in info: SetupInfo; in FilePath: FilePath;
-	out newServicePort: mach_port_make_send_t);
+skip;		// was setupNew - no longer needed
 routine setupThread(UCSP_PORTS; in tport: mach_port_t);
 
 
@@ -236,14 +235,10 @@ routine authorizationInternalize(UCSP_PORTS; in form: AuthorizationExternalForm;
 //
 // Session management subsystem
 //
-routine getSessionInfo(UCSP_PORTS; inout sessionId: SecuritySessionId;
-    out attrs: SessionAttributeBits);
-
-routine setupSession(UCSP_PORTS; in flags: SessionCreationFlags; in attrs: SessionAttributeBits);
-
-routine setSessionDistinguishedUid(UCSP_PORTS; in sessionId: SecuritySessionId; in user: uid_t);
-routine getSessionDistinguishedUid(UCSP_PORTS; in sessionId: SecuritySessionId; out user: uid_t);
-
+skip;	// was getSessionInfo -- now kept by the kernel
+skip;	// was setupSession -- now kept by the kernel
+skip;	// was setSessionDistinguishedUid -- now kept by the kernel
+skip;	// was getSessionDistinguishedUid -- now kept by the kernel
 routine setSessionUserPrefs(UCSP_PORTS; in sessionId: SecuritySessionId; in userPrefs: Data);
 
 //

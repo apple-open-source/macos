@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -33,22 +30,30 @@
 
 namespace WebKit {
 
+class WebIDBCursor;
+class WebIDBDatabase;
 class WebIDBDatabaseError;
+class WebIDBKey;
+class WebIDBIndex;
+class WebIDBObjectStore;
+class WebIDBTransaction;
+class WebSerializedScriptValue;
 
-// Every IndexedDB method takes in a pair of callbacks for error/success which
-// implement this class.  Either 0 or 1 of these methods will be called and the
-// callback class may be deleted any time after the callback is called.
-template <typename ResultType>
 class WebIDBCallbacks {
 public:
     virtual ~WebIDBCallbacks() { }
 
-    // If the method was a success, this method is called with the result.  The
-    // result is a pointer that the callback takes ownership of.
-    virtual void onSuccess(ResultType*) = 0;
-
-    // Called in the event of an error.
-    virtual void onError(const WebIDBDatabaseError&) = 0;
+    // For classes that follow the PImpl pattern, pass a const reference.
+    // For the rest, pass ownership to the callee via a pointer.
+    virtual void onError(const WebIDBDatabaseError&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(WebIDBCursor*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(WebIDBDatabase*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(const WebIDBKey&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    // FIXME: remove after Webkit roll.
+    virtual void onSuccess(WebIDBIndex*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(WebIDBTransaction*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(const WebSerializedScriptValue&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onBlocked() { WEBKIT_ASSERT_NOT_REACHED(); }
 };
 
 } // namespace WebKit

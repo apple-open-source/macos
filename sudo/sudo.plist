@@ -4,28 +4,28 @@
         <key>OpenSourceProject</key>
         <string>sudo</string>
         <key>OpenSourceVersion</key>
-        <string>1.7.0</string>
+        <string>1.7.4p6</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.sudo.ws/</string>
         <key>OpenSourceURL</key>
-        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.0.tar.gz</string>
+        <string>http://www.sudo.ws/sudo/dist/sudo-1.7.4p6.tar.gz</string>
         <key>OpenSourceSHA1</key>
-        <string>77bb230148b305e8608a3e552f1747507a84a55c</string>
+        <string>a306863b8bde9bfe2430ac1daaa6f45ccb842ed4</string>
         <key>OpenSourceImportDate</key>
-        <string>2009-06-02</string>
+        <string>2011-01-20</string>
         <key>OpenSourceModifications</key>
         <array>
         	<string>Add BSM auditing support.</string>
         	<string>Disable sudoedit.</string>
+        	<string>Disable sudoreplay.</string>
+		<string>Disable tty_tickets by default.</string>
         	<string>Remove login_cap reference from man page.</string>
         	<string>Allow admin group by default.</string>
-        	<string>Fix memberd group resolution.</string>
-        	<string>Reset timer password on reboot.</string>
         	<string>Friendlier warning on first usage.</string>
         	<string>Clean the environment.</string>
         </array>
         <key>OpenSourceLicense</key>
-        <string>Other</string>
+        <string>other|bsd</string>
         <key>OpenSourceLicenseFile</key>
         <string>sudo.txt</string>
 </dict>

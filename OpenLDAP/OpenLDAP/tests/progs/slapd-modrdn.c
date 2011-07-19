@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modrdn.c,v 1.22.2.5 2008/02/11 23:26:50 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-modrdn.c,v 1.22.2.9 2010/04/13 20:23:58 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -183,7 +183,7 @@ do_modrdn( char *uri, char *manager,
 	int delay, int friendly, int chaserefs )
 {
 	LDAP	*ld = NULL;
-	int  	i = 0, do_retry = maxretries;
+	int  	i, do_retry = maxretries;
 	char	*DNs[2];
 	char	*rdns[2];
 	int	rc = LDAP_SUCCESS;
@@ -207,6 +207,8 @@ do_modrdn( char *uri, char *manager,
 	DNs[1][i] = '\0';
 	rdns[0] = strdup( DNs[1] );
 	DNs[1][i] = ',';
+
+	i = 0;
 
 retry:;
 	ldap_initialize( &ld, uri );
@@ -298,7 +300,7 @@ retry:;
 	}
 
 done:;
-	fprintf( stderr, " PID=%ld - Modrdn done (%d).\n", (long) pid, rc );
+	fprintf( stderr, "  PID=%ld - Modrdn done (%d).\n", (long) pid, rc );
 
 	ldap_unbind_ext( ld, NULL, NULL );
 }

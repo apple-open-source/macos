@@ -34,6 +34,7 @@
 #include "FormData.h"
 #include "HistoryItem.h"
 #include "KURL.h"
+#include "SerializedScriptValue.h"
 
 #include "WebHTTPBody.h"
 #include "WebPoint.h"
@@ -199,6 +200,17 @@ void WebHistoryItem::setDocumentState(const WebVector<WebString>& state)
     for (size_t i = 0; i < state.size(); ++i)
         ds.append(state[i]);
     m_private->setDocumentState(ds);
+}
+
+long long WebHistoryItem::itemSequenceNumber() const
+{
+    return m_private->itemSequenceNumber();
+}
+
+void WebHistoryItem::setItemSequenceNumber(long long itemSequenceNumber)
+{
+    ensureMutable();
+    m_private->setItemSequenceNumber(itemSequenceNumber);
 }
 
 long long WebHistoryItem::documentSequenceNumber() const

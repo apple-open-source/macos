@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -29,7 +29,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dst_internal.h,v 1.11 2008/04/01 23:47:10 tbox Exp $ */
+/* $Id: dst_internal.h,v 1.23.32.2 2010-12-09 04:31:30 tbox Exp $ */
 
 #ifndef DST_DST_INTERNAL_H
 #define DST_DST_INTERNAL_H 1
@@ -41,9 +41,14 @@
 #include <isc/region.h>
 #include <isc/types.h>
 #include <isc/md5.h>
+#include <isc/refcount.h>
 #include <isc/sha1.h>
+#include <isc/sha2.h>
+#include <isc/stdtime.h>
 #include <isc/hmacmd5.h>
 #include <isc/hmacsha.h>
+
+#include <dns/time.h>
 
 #include <dst/dst.h>
 
@@ -58,8 +63,8 @@
 
 ISC_LANG_BEGINDECLS
 
-#define KEY_MAGIC       ISC_MAGIC('D','S','T','K')
-#define CTX_MAGIC       ISC_MAGIC('D','S','T','C')
+#define KEY_MAGIC	ISC_MAGIC('D','S','T','K')
+#define CTX_MAGIC	ISC_MAGIC('D','S','T','C')
 
 #define VALID_KEY(x) ISC_MAGIC_VALID(x, KEY_MAGIC)
 #define VALID_CTX(x) ISC_MAGIC_VALID(x, CTX_MAGIC)
@@ -72,7 +77,7 @@ extern isc_mem_t *dst__memory_pool;
 
 typedef struct dst_func dst_func_t;
 
-typedef struct dst_hmacmd5_key    dst_hmacmd5_key_t;
+typedef struct dst_hmacmd5_key	  dst_hmacmd5_key_t;
 typedef struct dst_hmacsha1_key   dst_hmacsha1_key_t;
 typedef struct dst_hmacsha224_key dst_hmacsha224_key_t;
 typedef struct dst_hmacsha256_key dst_hmacsha256_key_t;
@@ -82,6 +87,7 @@ typedef struct dst_hmacsha512_key dst_hmacsha512_key_t;
 /*% DST Key Structure */
 struct dst_key {
 	unsigned int	magic;
+	isc_refcount_t	refs;
 	dns_name_t *	key_name;	/*%< name of the key */
 	unsigned int	key_size;	/*%< size of the key in bits */
 	unsigned int	key_proto;	/*%< protocols this key is used for */
@@ -97,7 +103,7 @@ struct dst_key {
 		void *generic;
 		gss_ctx_id_t gssctx;
 #ifdef OPENSSL
-#if USE_EVP_RSA
+#if !defined(USE_EVP) || !USE_EVP
 		RSA *rsa;
 #endif
 		DSA *dsa;
@@ -112,7 +118,16 @@ struct dst_key {
 		dst_hmacsha512_key_t *hmacsha512;
 
 	} keydata;			/*%< pointer to key in crypto pkg fmt */
-	dst_func_t *	func;		/*%< crypto package specific functions */
+
+	isc_stdtime_t	times[DST_MAX_TIMES + 1];    /*%< timing metadata */
+	isc_boolean_t	timeset[DST_MAX_TIMES + 1];  /*%< data set? */
+	isc_stdtime_t	nums[DST_MAX_NUMERIC + 1];   /*%< numeric metadata */
+	isc_boolean_t	numset[DST_MAX_NUMERIC + 1]; /*%< data set? */
+
+	int		fmt_major;     /*%< private key format, major version */
+	int		fmt_minor;     /*%< private key format, minor version */
+
+	dst_func_t *    func;	       /*%< crypto package specific functions */
 };
 
 struct dst_context {
@@ -124,6 +139,8 @@ struct dst_context {
 		dst_gssapi_signverifyctx_t *gssctx;
 		isc_md5_t *md5ctx;
 		isc_sha1_t *sha1ctx;
+		isc_sha256_t *sha256ctx;
+		isc_sha512_t *sha512ctx;
 		isc_hmacmd5_t *hmacmd5ctx;
 		isc_hmacsha1_t *hmacsha1ctx;
 		isc_hmacsha224_t *hmacsha224ctx;
@@ -155,7 +172,8 @@ struct dst_func {
 	isc_boolean_t (*compare)(const dst_key_t *key1, const dst_key_t *key2);
 	isc_boolean_t (*paramcompare)(const dst_key_t *key1,
 				      const dst_key_t *key2);
-	isc_result_t (*generate)(dst_key_t *key, int parms);
+	isc_result_t (*generate)(dst_key_t *key, int parms,
+				 void (*callback)(int));
 	isc_boolean_t (*isprivate)(const dst_key_t *key);
 	void (*destroy)(dst_key_t *key);
 
@@ -163,7 +181,9 @@ struct dst_func {
 	isc_result_t (*todns)(const dst_key_t *key, isc_buffer_t *data);
 	isc_result_t (*fromdns)(dst_key_t *key, isc_buffer_t *data);
 	isc_result_t (*tofile)(const dst_key_t *key, const char *directory);
-	isc_result_t (*parse)(dst_key_t *key, isc_lex_t *lexer);
+	isc_result_t (*parse)(dst_key_t *key,
+			      isc_lex_t *lexer,
+			      dst_key_t *pub);
 
 	/* cleanup */
 	void (*cleanup)(void);
@@ -175,7 +195,7 @@ struct dst_func {
 /*%
  * Initializers
  */
-isc_result_t dst__openssl_init(void);
+isc_result_t dst__openssl_init(const char *engine);
 
 isc_result_t dst__hmacmd5_init(struct dst_func **funcp);
 isc_result_t dst__hmacsha1_init(struct dst_func **funcp);
@@ -183,7 +203,8 @@ isc_result_t dst__hmacsha224_init(struct dst_func **funcp);
 isc_result_t dst__hmacsha256_init(struct dst_func **funcp);
 isc_result_t dst__hmacsha384_init(struct dst_func **funcp);
 isc_result_t dst__hmacsha512_init(struct dst_func **funcp);
-isc_result_t dst__opensslrsa_init(struct dst_func **funcp);
+isc_result_t dst__opensslrsa_init(struct dst_func **funcp,
+				  unsigned char algorithm);
 isc_result_t dst__openssldsa_init(struct dst_func **funcp);
 isc_result_t dst__openssldh_init(struct dst_func **funcp);
 isc_result_t dst__gssapi_init(struct dst_func **funcp);

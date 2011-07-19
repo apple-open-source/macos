@@ -6,7 +6,7 @@
 # element name is the name of a command and the value is
 # a script that loads the command.
 
-set auto_index(::vfs::template::mount) [list package require vfs::template 1.5.2]
+set auto_index(::vfs::template::mount) [list package require vfs::template 1.5.3]
 set auto_index(::vfs::template::collate::mount) [list source [file join $dir collatevfs.tcl]]
 set auto_index(::vfs::template::quota::mount) [list source [file join $dir quotavfs.tcl]]
 set auto_index(::vfs::template::version::mount) [list source [file join $dir versionvfs.tcl]]

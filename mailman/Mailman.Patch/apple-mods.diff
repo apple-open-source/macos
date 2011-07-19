@@ -1,3 +1,32 @@
+--- a/configure	2009-12-22 11:00:43.000000000 -0700
++++ b/configure	2010-08-12 16:01:09.000000000 -0600
+@@ -3118,13 +3118,13 @@
+   CFLAGS=$ac_save_CFLAGS
+ elif test $ac_cv_prog_cc_g = yes; then
+   if test "$GCC" = yes; then
+-    CFLAGS="-g -O2"
++    CFLAGS="-g -Os"
+   else
+     CFLAGS="-g"
+   fi
+ else
+   if test "$GCC" = yes; then
+-    CFLAGS="-O2"
++    CFLAGS="-Os"
+   else
+     CFLAGS=
+   fi
+@@ -3260,8 +3260,8 @@
+         case $GCC in
+         yes)
+                 case $ac_cv_prog_cc_g in
+-                yes)    OPT="-g -O2";;
+-                *)      OPT="-O2";;
++                yes)    OPT="-g -Os";;
++                *)      OPT="-Os";;
+                 esac
+                 ;;
+         *)      OPT="-O";;
 --- a/Mailman/Archiver/Archiver.py	2009-01-11 10:49:38.000000000 -0700
 +++ b/Mailman/Archiver/Archiver.py	2010-01-14 11:59:33.000000000 -0700
 @@ -93,7 +93,7 @@

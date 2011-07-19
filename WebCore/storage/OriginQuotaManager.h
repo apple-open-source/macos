@@ -31,17 +31,18 @@
 
 #if ENABLE(DATABASE)
 
-#include "StringHash.h"
 #include "SecurityOriginHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/Threading.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class Database;
+class AbstractDatabase;
 class OriginUsageRecord;
 
-class OriginQuotaManager : public Noncopyable {
+class OriginQuotaManager {
+    WTF_MAKE_NONCOPYABLE(OriginQuotaManager); WTF_MAKE_FAST_ALLOCATED;
 public:
     OriginQuotaManager();
 
@@ -55,7 +56,7 @@ public:
     void removeDatabase(SecurityOrigin*, const String& databaseIdentifier);
     void removeOrigin(SecurityOrigin*);
 
-    void markDatabase(Database*); // Mark dirtiness of a specific database.
+    void markDatabase(AbstractDatabase*); // Mark dirtiness of a specific database.
     unsigned long long diskUsage(SecurityOrigin*) const;
 
 private:

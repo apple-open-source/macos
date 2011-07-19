@@ -28,7 +28,10 @@ class CachedImage;
 
 class ClipboardEfl : public Clipboard {
 public:
-    ClipboardEfl(ClipboardAccessPolicy, bool);
+    static PassRefPtr<ClipboardEfl> create(ClipboardAccessPolicy policy, ClipboardType clipboardType = CopyAndPaste)
+    {
+        return adoptRef(new ClipboardEfl(policy, clipboardType));
+    }
     ~ClipboardEfl();
 
     void clearData(const String&);
@@ -52,7 +55,10 @@ public:
 
     virtual bool hasData();
 
-    virtual void writePlainText(const WebCore::String&);
+    virtual void writePlainText(const WTF::String&);
+
+private:
+    ClipboardEfl(ClipboardAccessPolicy, ClipboardType);
 };
 }
 

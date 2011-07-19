@@ -48,6 +48,7 @@
 #include <libkern/OSByteOrder.h>
 #include "IOHIDKeyboardDevice.h"
 #include "IOHIDevicePrivateKeys.h"
+#include "IOHIDFamilyPrivate.h"
 
 // Define expansion data here
 #define _f12Eject_State				_reserved->f12Eject_State
@@ -175,19 +176,19 @@ IOHIKeyboardMapper * IOHIKeyboardMapper::keyboardMapper(
  * Common KeyMap initialization
  */
 bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
-								const UInt8 *mapping,
-								UInt32 mappingLength,
+								const UInt8 *map,
+								UInt32 mappingLen,
 								bool mappingShouldBeFreed )
 {
 	if (!super::init())	 return false;
 	
 	_delegate				  = delegate;
 	
-	if (!parseKeyMapping(mapping, mappingLength, &_parsedMapping))	return false;
+	if (!parseKeyMapping(map, mappingLen, &_parsedMapping))	return false;
 	
 	_mappingShouldBeFreed		= mappingShouldBeFreed;
-	_parsedMapping.mapping		= mapping;
-	_parsedMapping.mappingLen	= mappingLength;
+	_parsedMapping.mapping		= map;
+	_parsedMapping.mappingLen	= mappingLen;
 	
 	_hidSystem					= NULL;
 	_stateDirty					= false;
@@ -198,7 +199,7 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 	
 	_f12Eject_State			= 0;
 	
-	_eject_Delay_MS			= 250;	// Default HI setting.
+	_eject_Delay_MS			= kEjectF12DelayMS;
 	
 	_slowKeys_State			= 0;
 	
@@ -534,18 +535,24 @@ static inline unsigned int NextNum(NewMappingData *nmd)
 {
 	if (nmd->bp >= nmd->endPtr)
 		return(0);
-	if (nmd->shorts)
-		return OSSwapBigToHostInt16(*((unsigned short *)nmd->bp)++);
-	else
-		return (*((unsigned char *)nmd->bp)++);
+	if (nmd->shorts) {
+        unsigned short tmp = *((unsigned short *)nmd->bp);
+        nmd->bp += 2;
+		return OSSwapBigToHostInt16(tmp);
+}
+	else {
+        unsigned char tmp = *(nmd->bp);
+        nmd->bp++;
+        return tmp;
+    }
 }
 
 //
 // Perform the actual parsing operation on a keymap.  Returns false on failure.
 //
 
-bool IOHIKeyboardMapper::parseKeyMapping(const UInt8 *		  mapping,
-										 UInt32				  mappingLength,
+bool IOHIKeyboardMapper::parseKeyMapping(const UInt8 *		  map,
+										 UInt32				  mappingLen,
 									 NXParsedKeyMapping * parsedMapping) const
 {
 	NewMappingData nmd;
@@ -562,16 +569,16 @@ bool IOHIKeyboardMapper::parseKeyMapping(const UInt8 *		  mapping,
 	parsedMapping->numDefs = -1;
 	parsedMapping->numSeqs = -1;
 
-		if (!mapping || !mappingLength)
+		if (!map || !mappingLen)
 			return false;
 			
-	nmd.endPtr = mapping + mappingLength;
-	nmd.bp = mapping;
+	nmd.endPtr = map + mappingLen;
+	nmd.bp = map;
 	nmd.shorts = 1;		// First value, the size, is always a short
 
 	/* Start filling it in with the new data */
-	parsedMapping->mapping = (unsigned char *)mapping;
-	parsedMapping->mappingLen = mappingLength;
+	parsedMapping->mapping = (unsigned char *)map;
+	parsedMapping->mappingLen = mappingLen;
 	parsedMapping->shorts = nmd.shorts = NextNum(&nmd);
 
 	/* Walk through the modifier definitions */
@@ -783,7 +790,7 @@ bool IOHIKeyboardMapper::modifierSwapFilterKey(UInt8 * key)
 	unsigned char	thisBits = _parsedMapping.keyBits[*key];
 	SInt16			modBit = (thisBits & NX_WHICHMODMASK);
 	SInt16			swapBit;
-	unsigned char	*mapping;
+	unsigned char	*map;
 	
 	if (!(thisBits & NX_MODMASK))
 	{
@@ -829,9 +836,9 @@ bool IOHIKeyboardMapper::modifierSwapFilterKey(UInt8 * key)
 		_parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK] = 0;  
 	}
 		
-	if (((mapping = _parsedMapping.modDefs[swapBit]) != 0 ) &&
-		( NEXTNUM(&mapping, _parsedMapping.shorts) ))
-		*key = NEXTNUM(&mapping, _parsedMapping.shorts);
+	if (((map = _parsedMapping.modDefs[swapBit]) != 0 ) &&
+		( NEXTNUM(&map, _parsedMapping.shorts) ))
+		*key = NEXTNUM(&map, _parsedMapping.shorts);
 
 	else if (swapBit == NX_MODIFIERKEY_ALPHALOCK)
 		*key = getParsedSpecialKey(NX_KEYTYPE_CAPS_LOCK);
@@ -958,7 +965,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 	short shorts;
 	unsigned charSet, origCharSet;
 	unsigned charCode, origCharCode;
-	unsigned char *mapping;
+    unsigned char *map;
 	unsigned eventFlags, origflags;
 
 	_delegate->setCharKeyActive(true);	// a character generating key is active
@@ -973,69 +980,58 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 
 	/* Get this key's key mapping */
 	shorts = _parsedMapping.shorts;
-	mapping = _parsedMapping.keyDefs[keyCode];
+    map = _parsedMapping.keyDefs[keyCode];
 	modifiers = saveModifiers;
-	if ( mapping )
-	{
+    if ( map ) {
 
 
 	/* Build offset for this key */
-	thisMask = NEXTNUM(&mapping, shorts);
-	if (thisMask && modifiers)
-	{
+        thisMask = NEXTNUM(&map, shorts);
+        if (thisMask && modifiers) {
 		adjust = (shorts ? sizeof(short) : sizeof(char))*2;
-		for( i = 0; i <= _parsedMapping.maxMod; ++i)
-		{
-		if (thisMask & 0x01)
-		{
+            for ( i = 0; i <= _parsedMapping.maxMod; ++i) {
+                if (thisMask & 0x01) {
 			if (modifiers & 0x01)
-			mapping += adjust;
+                        map += adjust;
 			adjust *= 2;
 		}
 		thisMask >>= 1;
 		modifiers >>= 1;
 		}
 	}
-	charSet = NEXTNUM(&mapping, shorts);
-	charCode = NEXTNUM(&mapping, shorts);
+        charSet = NEXTNUM(&map, shorts);
+        charCode = NEXTNUM(&map, shorts);
 
 	/* construct "unmodified" character */
-	mapping = _parsedMapping.keyDefs[keyCode];
+        map = _parsedMapping.keyDefs[keyCode];
 		modifiers = saveModifiers & ((NX_ALPHASHIFTMASK | NX_SHIFTMASK) >> 16);
 
-	thisMask = NEXTNUM(&mapping, shorts);
-	if (thisMask && modifiers)
-	{
+        thisMask = NEXTNUM(&map, shorts);
+        if (thisMask && modifiers) {
 		adjust = (shorts ? sizeof(short) : sizeof(char)) * 2;
-		for ( i = 0; i <= _parsedMapping.maxMod; ++i)
-		{
-		if (thisMask & 0x01)
-		{
+            for ( i = 0; i <= _parsedMapping.maxMod; ++i) {
+                if (thisMask & 0x01) {
 			if (modifiers & 0x01)
-			mapping += adjust;
+                        map += adjust;
 			adjust *= 2;
 		}
 		thisMask >>= 1;
 		modifiers >>= 1;
 		}
 	}
-	origCharSet = NEXTNUM(&mapping, shorts);
-	origCharCode = NEXTNUM(&mapping, shorts);
+        origCharSet = NEXTNUM(&map, shorts);
+        origCharCode = NEXTNUM(&map, shorts);
 	
-	if (charSet == (unsigned)(shorts ? 0xFFFF : 0x00FF))
-	{
+        if (charSet == (unsigned)(shorts ? 0xFFFF : 0x00FF)) {
 		// Process as a character sequence
 		// charCode holds the sequence number
-		mapping = _parsedMapping.seqDefs[charCode];
+            map = _parsedMapping.seqDefs[charCode];
 		
 		origflags = eventFlags;
-		for(i=0,n=NEXTNUM(&mapping, shorts);i<n;i++)
-		{
-		if ( (charSet = NEXTNUM(&mapping, shorts)) == 0xFF ) /* metakey */
-		{
-			if ( down == true ) /* down or repeat */
-			{
-			eventFlags |= (1 << (NEXTNUM(&mapping, shorts) + 16));
+            for (i=0,n=NEXTNUM(&map, shorts);i<n;i++) {
+                if ( (charSet = NEXTNUM(&map, shorts)) == 0xFF ) { /* metakey */
+                    if ( down == true ) { /* down or repeat */
+                        eventFlags |= (1 << (NEXTNUM(&map, shorts) + 16));
 			_delegate->keyboardEvent(NX_FLAGSCHANGED,
 			 /* flags */			_delegate->deviceFlags(),
 			 /* keyCode */			keyCode,
@@ -1045,11 +1041,10 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 			 /* originalCharSet */	0);
 			}
 			else
-			NEXTNUM(&mapping, shorts);	/* Skip over value */
+                        NEXTNUM(&map, shorts); /* Skip over value */
 		}
-		else
-		{
-			charCode = NEXTNUM(&mapping, shorts);
+                else {
+                    charCode = NEXTNUM(&map, shorts);
 			_delegate->keyboardEvent(eventType,
 			 /* flags */			eventFlags,
 			 /* keyCode */			keyCode,
@@ -1060,8 +1055,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		}
 		}
 		/* Done with macro.	 Restore the flags if needed. */
-		if ( eventFlags != origflags )
-		{
+            if ( eventFlags != origflags ) {
 		_delegate->keyboardEvent(NX_FLAGSCHANGED,
 		 /* flags */			_delegate->deviceFlags(),
 		 /* keyCode */			keyCode,
@@ -1072,8 +1066,7 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		eventFlags = origflags;
 		}
 	}
-	else	/* A simple character generating key */
-	{
+        else { /* A simple character generating key */
 		_delegate->keyboardEvent(eventType,
 		 /* flags */			eventFlags,
 		 /* keyCode */			keyCode,
@@ -1082,18 +1075,15 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		 /* originalCharCode */ origCharCode,
 		 /* originalCharSet */	origCharSet);
 	}
-	} /* if (mapping) */
+    } /* if (map) */
 	
 	/*
 	 * Check for a device control key: note that they always have CHARGEN
 	 * bit set
 	 */
-	if (_parsedMapping.keyBits[keyCode] & NX_SPECIALKEYMASK)
-	{
-	for(i=0; i<NX_NUM_SCANNED_SPECIALKEYS; i++)
-	{
-		if ( keyCode == _parsedMapping.specialKeys[i] )
-		{
+    if (_parsedMapping.keyBits[keyCode] & NX_SPECIALKEYMASK) {
+        for (i=0; i<NX_NUM_SCANNED_SPECIALKEYS; i++) {
+            if ( keyCode == _parsedMapping.specialKeys[i] ) {
 		_delegate->keyboardSpecialEvent(eventType,
 					/* flags */		eventFlags,
 					/* keyCode */	keyCode,
@@ -1107,21 +1097,18 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		 */
 		if (i == NX_KEYTYPE_CAPS_LOCK
 			&& down == true
-			&& !_parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK] )
-		{
+                        && !_parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK] ) {
 			unsigned myFlags = _delegate->deviceFlags();
 			bool alphaLock = (_delegate->alphaLock() == false);
 
 			// Set delegate's alphaLock state
 			_delegate->setAlphaLock(alphaLock);
 			// Update the delegate's flags
-			if ( alphaLock )
-					{
+                    if ( alphaLock ) {
 				myFlags |= NX_ALPHASHIFTMASK;
 						_specialKeyModifierFlags |= NX_ALPHASHIFTMASK;
 					}
-			else
-					{
+                    else {
 				myFlags &= ~NX_ALPHASHIFTMASK;
 						_specialKeyModifierFlags &= ~NX_ALPHASHIFTMASK;
 					}
@@ -1149,20 +1136,17 @@ void IOHIKeyboardMapper::doCharGen(int keyCode, bool down)
 		else	if (i == NX_KEYTYPE_NUM_LOCK
 			&& down == true
 					&& (_delegate->doesKeyLock(NX_KEYTYPE_NUM_LOCK) || _delegate->metaCast("AppleADBButtons"))
-			&& !_parsedMapping.modDefs[NX_MODIFIERKEY_NUMLOCK] )
-		{
+                         && !_parsedMapping.modDefs[NX_MODIFIERKEY_NUMLOCK] ) {
 			unsigned myFlags = _delegate->deviceFlags();
 			bool numLock = (_delegate->numLock() == false);
 
 			// Set delegate's numLock state
 					_delegate->setNumLock(numLock);
-			if ( numLock )
-					{
+                    if ( numLock ) {
 				myFlags |= NX_NUMERICPADMASK;
 						_specialKeyModifierFlags |= NX_NUMERICPADMASK;
 					}
-			else
-					{
+                    else {
 				myFlags &= ~NX_NUMERICPADMASK;
 						_specialKeyModifierFlags &= ~NX_NUMERICPADMASK;
 					}
@@ -1487,11 +1471,11 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
 		}
 					
 		UInt8			keyCode;
-		unsigned char	*mapping;
+		unsigned char	*map;
 
-		if (((mapping = _parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK]) != 0 ) &&
-			( NEXTNUM(&mapping, _parsedMapping.shorts) ))
-			keyCode = NEXTNUM(&mapping, _parsedMapping.shorts);
+		if (((map = _parsedMapping.modDefs[NX_MODIFIERKEY_ALPHALOCK]) != 0 ) &&
+			( NEXTNUM(&map, _parsedMapping.shorts) ))
+			keyCode = NEXTNUM(&map, _parsedMapping.shorts);
 		else
 			keyCode = getParsedSpecialKey(NX_KEYTYPE_CAPS_LOCK);
 

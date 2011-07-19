@@ -61,9 +61,10 @@ static unsigned char to_b64[] =
 
 #define UNSIG_CHAR_PTR(x) ((unsigned char *)(x))
 
-/* base64_encode - raw data to encoded */
+/* APPLE - RFC 3030
+   base64_encode_append - raw data to encoded */
 
-VSTRING *base64_encode(VSTRING *result, const char *in, ssize_t len)
+VSTRING *base64_encode_append(VSTRING *result, const char *in, ssize_t len)
 {
     const unsigned char *cp;
     ssize_t count;
@@ -71,7 +72,6 @@ VSTRING *base64_encode(VSTRING *result, const char *in, ssize_t len)
     /*
      * Encode 3 -> 4.
      */
-    VSTRING_RESET(result);
     for (cp = UNSIG_CHAR_PTR(in), count = len; count > 0; count -= 3, cp += 3) {
 	VSTRING_ADDCH(result, to_b64[cp[0] >> 2]);
 	if (count > 1) {
@@ -93,6 +93,13 @@ VSTRING *base64_encode(VSTRING *result, const char *in, ssize_t len)
     }
     VSTRING_TERMINATE(result);
     return (result);
+}
+
+/* APPLE - RFC 3030 */
+VSTRING *base64_encode(VSTRING *result, const char *in, ssize_t len)
+{
+    VSTRING_RESET(result);
+    return base64_encode_append(result, in, len);
 }
 
 /* base64_decode - encoded data to raw */

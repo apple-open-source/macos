@@ -29,23 +29,28 @@
 #include "config.h"
 #include "PluginView.h"
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
+#include "FocusController.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
 #include "FrameTree.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "GRefPtrGtk.h"
 #include "GraphicsContext.h"
+#include "GtkVersioning.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
 #include "HostWindow.h"
 #include "Image.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "NotImplemented.h"
 #include "Page.h"
+#include "PlatformContextCairo.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PluginDebug.h"
@@ -53,17 +58,20 @@
 #include "PluginPackage.h"
 #include "RenderLayer.h"
 #include "Settings.h"
+#include "SpatialNavigation.h"
 #include "JSDOMBinding.h"
-#include "ScriptController.h"
 #include "npruntime_impl.h"
 #include "runtime_root.h"
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
 
+#ifdef GTK_API_VERSION_2
 #include <gdkconfig.h>
+#endif
 #include <gtk/gtk.h>
 
 #if defined(XP_UNIX)
+#include "RefPtrCairo.h"
 #include "gtk2xtbin.h"
 #define Bool int // this got undefined somewhere
 #define Status int // ditto
@@ -135,13 +143,14 @@ void PluginView::updatePluginWidget()
 
 #if defined(XP_UNIX)
     if (!m_isWindowed) {
+        Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         if (m_drawable)
-            XFreePixmap(GDK_DISPLAY(), m_drawable);
+            XFreePixmap(display, m_drawable);
             
-        m_drawable = XCreatePixmap(GDK_DISPLAY(), getRootWindow(m_parentFrame.get()),
+        m_drawable = XCreatePixmap(display, getRootWindow(m_parentFrame.get()),
                                    m_windowRect.width(), m_windowRect.height(),
                                    ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
-        XSync(GDK_DISPLAY(), False); // make sure that the server knows about the Drawable
+        XSync(display, false); // make sure that the server knows about the Drawable
     }
 #endif
 
@@ -185,75 +194,48 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     if (!m_drawable)
         return;
 
-    const bool syncX = m_pluginDisplay && m_pluginDisplay != GDK_DISPLAY();
+    Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+    const bool syncX = m_pluginDisplay && m_pluginDisplay != display;
 
     IntRect exposedRect(rect);
     exposedRect.intersect(frameRect());
     exposedRect.move(-frameRect().x(), -frameRect().y());
 
-    Window dummyW;
-    int dummyI;
-    unsigned int dummyUI, actualDepth = 0;
-    XGetGeometry(GDK_DISPLAY(), m_drawable, &dummyW, &dummyI, &dummyI,
-                 &dummyUI, &dummyUI, &dummyUI, &actualDepth);
+    RefPtr<cairo_surface_t> drawableSurface = adoptRef(cairo_xlib_surface_create(display,
+                                                       m_drawable,
+                                                       m_visual,
+                                                       m_windowRect.width(),
+                                                       m_windowRect.height()));
 
-    const unsigned int drawableDepth = ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth;
-    ASSERT(drawableDepth == actualDepth);
-
-    cairo_surface_t* drawableSurface = cairo_xlib_surface_create(GDK_DISPLAY(),
-                                                                 m_drawable,
-                                                                 m_visual,
-                                                                 m_windowRect.width(),
-                                                                 m_windowRect.height());
-
-    if (m_isTransparent && drawableDepth != 32) {
-        // Attempt to fake it when we don't have an alpha channel on our
-        // pixmap.  If that's not possible, at least clear the window to
-        // avoid drawing artifacts.
-        GtkWidget* widget = m_parentFrame->view()->hostWindow()->platformPageClient();
-        GdkDrawable* gdkBackingStore = 0;
-        gint xoff = 0, yoff = 0;
-
-        gdk_window_get_internal_paint_info(widget->window, &gdkBackingStore, &xoff, &yoff);
-
-        GC gc = XDefaultGC(GDK_DISPLAY(), gdk_screen_get_number(gdk_screen_get_default()));
-        if (gdkBackingStore) {
-            XCopyArea(GDK_DISPLAY(), GDK_DRAWABLE_XID(gdkBackingStore), m_drawable, gc,
-                      m_windowRect.x() + exposedRect.x() - xoff,
-                      m_windowRect.y() + exposedRect.y() - yoff,
-                      exposedRect.width(), exposedRect.height(),
-                      exposedRect.x(), exposedRect.y());
-        } else {
-            // no valid backing store; clear to the background color
-            XFillRectangle(GDK_DISPLAY(), m_drawable, gc,
-                           exposedRect.x(), exposedRect.y(),
-                           exposedRect.width(), exposedRect.height());
-        }
-    } else if (m_isTransparent) {
+    if (m_isTransparent) {
         // If we have a 32 bit drawable and the plugin wants transparency,
         // we'll clear the exposed area to transparent first.  Otherwise,
         // we'd end up with junk in there from the last paint, or, worse,
         // uninitialized data.
-        cairo_t* crFill = cairo_create(drawableSurface);
+        RefPtr<cairo_t> cr = adoptRef(cairo_create(drawableSurface.get()));
 
-        cairo_set_operator(crFill, CAIRO_OPERATOR_SOURCE);
-        cairo_pattern_t* fill = cairo_pattern_create_rgba(0., 0., 0., 0.);
-        cairo_set_source(crFill, fill);
+        if (!(cairo_surface_get_content(drawableSurface.get()) & CAIRO_CONTENT_ALPHA)) {
+            // Attempt to fake it when we don't have an alpha channel on our
+            // pixmap.  If that's not possible, at least clear the window to
+            // avoid drawing artifacts.
 
-        cairo_rectangle(crFill, exposedRect.x(), exposedRect.y(),
+            // This Would not work without double buffering, but we always use it.
+            cairo_set_source_surface(cr.get(), cairo_get_group_target(context->platformContext()->cr()),
+                                     -m_windowRect.x(), -m_windowRect.y());
+            cairo_set_operator(cr.get(), CAIRO_OPERATOR_SOURCE);
+        } else
+            cairo_set_operator(cr.get(), CAIRO_OPERATOR_CLEAR);
+
+        cairo_rectangle(cr.get(), exposedRect.x(), exposedRect.y(),
                         exposedRect.width(), exposedRect.height());
-        cairo_clip(crFill);
-        cairo_paint(crFill);
-
-        cairo_destroy(crFill);
-        cairo_pattern_destroy(fill);
+        cairo_fill(cr.get());
     }
 
     XEvent xevent;
     memset(&xevent, 0, sizeof(XEvent));
     XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
     exposeEvent.type = GraphicsExpose;
-    exposeEvent.display = GDK_DISPLAY();
+    exposeEvent.display = display;
     exposeEvent.drawable = m_drawable;
     exposeEvent.x = exposedRect.x();
     exposeEvent.y = exposedRect.y();
@@ -263,12 +245,12 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     dispatchNPEvent(xevent);
 
     if (syncX)
-        XSync(m_pluginDisplay, False); // sync changes by plugin
+        XSync(m_pluginDisplay, false); // sync changes by plugin
 
-    cairo_t* cr = context->platformContext();
+    cairo_t* cr = context->platformContext()->cr();
     cairo_save(cr);
 
-    cairo_set_source_surface(cr, drawableSurface, frameRect().x(), frameRect().y());
+    cairo_set_source_surface(cr, drawableSurface.get(), frameRect().x(), frameRect().y());
 
     cairo_rectangle(cr,
                     frameRect().x() + exposedRect.x(), frameRect().y() + exposedRect.y(),
@@ -282,7 +264,6 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     cairo_paint(cr);
 
     cairo_restore(cr);
-    cairo_surface_destroy(drawableSurface);
 #endif // defined(XP_UNIX)
 }
 
@@ -298,6 +279,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 
     NPEvent xEvent;
 #if defined(XP_UNIX)
+    initXEvent(&xEvent);
     GdkEventKey* gdkEvent = event->keyEvent()->gdkEventKey();
 
     xEvent.type = (event->type() == eventNames().keydownEvent) ? 2 : 3; // KeyPress/Release get unset somewhere
@@ -343,12 +325,14 @@ void PluginView::initXEvent(XEvent* xEvent)
 
     xEvent->xany.serial = 0; // we are unaware of the last request processed by X Server
     xEvent->xany.send_event = false;
-    xEvent->xany.display = GDK_DISPLAY();
-    // NOTE: event->xany.window doesn't always correspond to the .window property of other XEvent's
-    // but does in the case of KeyPress, KeyRelease, ButtonPress, ButtonRelease, and MotionNotify
-    // events; thus, this is right:
     GtkWidget* widget = m_parentFrame->view()->hostWindow()->platformPageClient();
-    xEvent->xany.window = widget ? GDK_WINDOW_XWINDOW(widget->window) : 0;
+    xEvent->xany.display = GDK_DISPLAY_XDISPLAY(gtk_widget_get_display(widget));
+
+    // Mozilla also sends None here for windowless plugins. See nsObjectFrame.cpp in the Mozilla sources.
+    // This method also sets up FocusIn and FocusOut events for windows plugins, but Mozilla doesn't
+    // even send these types of events to windowed plugins. In the future, it may be good to only
+    // send them to windowless plugins.
+    xEvent->xany.window = None;
 }
 
 static void setXButtonEventSpecificFields(XEvent* xEvent, MouseEvent* event, const IntPoint& postZoomPos, Frame* parentFrame)
@@ -420,6 +404,12 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     if (m_isWindowed)
         return;
 
+    if (event->type() == eventNames().mousedownEvent) {
+        if (Page* page = m_parentFrame->page())
+            page->focusController()->setActive(true);
+        focusPluginElement();
+    }
+
     NPEvent xEvent;
 #if defined(XP_UNIX)
     initXEvent(&xEvent);
@@ -430,8 +420,14 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         setXButtonEventSpecificFields(&xEvent, event, postZoomPos, m_parentFrame.get());
     else if (event->type() == eventNames().mousemoveEvent)
         setXMotionEventSpecificFields(&xEvent, event, postZoomPos, m_parentFrame.get());
-    else if (event->type() == eventNames().mouseoutEvent || event->type() == eventNames().mouseoverEvent)
+    else if (event->type() == eventNames().mouseoutEvent || event->type() == eventNames().mouseoverEvent) {
         setXCrossingEventSpecificFields(&xEvent, event, postZoomPos, m_parentFrame.get());
+
+        // This is a work-around for plugins which change the cursor. When that happens we
+        // get out of sync with GDK somehow. Resetting the cursor here seems to fix the issue.
+        if (event->type() == eventNames().mouseoutEvent)
+            gdk_window_set_cursor(gtk_widget_get_window(m_parentFrame->view()->hostWindow()->platformPageClient()), 0);
+    }
     else
         return;
 #endif
@@ -499,38 +495,25 @@ void PluginView::setNPWindowIfNeeded()
     if (m_isWindowed && !platformPluginWidget())
         return;
 
-    if (m_isWindowed) {
-        m_npWindow.x = m_windowRect.x();
-        m_npWindow.y = m_windowRect.y();
-        m_npWindow.width = m_windowRect.width();
-        m_npWindow.height = m_windowRect.height();
-
-        m_npWindow.clipRect.left = m_clipRect.x();
-        m_npWindow.clipRect.top = m_clipRect.y();
-        m_npWindow.clipRect.right = m_clipRect.width();
-        m_npWindow.clipRect.bottom = m_clipRect.height();
-
-        GtkAllocation allocation = { m_windowRect.x(), m_windowRect.y(), m_windowRect.width(), m_windowRect.height() };
-        gtk_widget_size_allocate(platformPluginWidget(), &allocation);
-#if defined(XP_UNIX)
-        if (!m_needsXEmbed) {
-            gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
-            gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
-        }
-#endif
-    } else {
-        m_npWindow.x = 0;
-        m_npWindow.y = 0;
-
+    // If width or height are null, set the clipRect to null, indicating that
+    // the plugin is not visible/scrolled out.
+    if (!m_clipRect.isEmpty()) {
         m_npWindow.clipRect.left = 0;
-        m_npWindow.clipRect.top = 0;
         m_npWindow.clipRect.right = 0;
+        m_npWindow.clipRect.top = 0;
         m_npWindow.clipRect.bottom = 0;
+    } else {
+        // Clipping rectangle of the plug-in; the origin is the top left corner of the drawable or window. 
+        m_npWindow.clipRect.left = m_npWindow.x + m_clipRect.x();
+        m_npWindow.clipRect.top = m_npWindow.y + m_clipRect.y();
+        m_npWindow.clipRect.right = m_npWindow.x + m_clipRect.x() + m_clipRect.width();
+        m_npWindow.clipRect.bottom = m_npWindow.y + m_clipRect.y() + m_clipRect.height();
     }
 
     // FLASH WORKAROUND: Only set initially. Multiple calls to
     // setNPWindow() cause the plugin to crash in windowed mode.
-    if (!m_isWindowed || m_npWindow.width == (unsigned int)-1 || m_npWindow.height == (unsigned int)-1) {
+    if (!m_plugin->quirks().contains(PluginQuirkDontCallSetWindowMoreThanOnce) || !m_isWindowed
+        || m_npWindow.width == static_cast<uint32_t>(-1) || m_npWindow.height == static_cast<uint32_t>(-1)) {
         m_npWindow.width = m_windowRect.width();
         m_npWindow.height = m_windowRect.height();
     }
@@ -541,6 +524,47 @@ void PluginView::setNPWindowIfNeeded()
     m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
     setCallingPlugin(false);
     PluginView::setCurrentPluginView(0);
+
+    if (!m_isWindowed)
+        return;
+
+#if defined(XP_UNIX)
+    // GtkXtBin will call gtk_widget_size_allocate, so we don't need to do it here.
+    if (!m_needsXEmbed) {
+        gtk_xtbin_set_position(GTK_XTBIN(platformPluginWidget()), m_windowRect.x(), m_windowRect.y());
+        gtk_xtbin_resize(platformPluginWidget(), m_windowRect.width(), m_windowRect.height());
+        return;
+    }
+#endif
+
+    m_delayedAllocation = m_windowRect;
+    updateWidgetAllocationAndClip();
+}
+
+void PluginView::updateWidgetAllocationAndClip()
+{
+    // If the window has not been embedded yet (the plug added), we delay setting its allocation until 
+    // that point. This fixes issues with some Java plugin instances not rendering immediately.
+    if (!m_plugAdded || m_delayedAllocation.isEmpty())
+        return;
+
+    GtkWidget* widget = platformPluginWidget();
+    if (gtk_widget_get_realized(widget)) {
+        GdkRectangle clipRect = m_clipRect;
+#ifdef GTK_API_VERSION_2
+        GdkRegion* clipRegion = gdk_region_rectangle(&clipRect);
+        gdk_window_shape_combine_region(gtk_widget_get_window(widget), clipRegion, 0, 0);
+        gdk_region_destroy(clipRegion);
+#else
+        cairo_region_t* clipRegion = cairo_region_create_rectangle(&clipRect);
+        gdk_window_shape_combine_region(gtk_widget_get_window(widget), clipRegion, 0, 0);
+        cairo_region_destroy(clipRegion);
+#endif
+    }
+
+    GtkAllocation allocation(m_delayedAllocation);
+    gtk_widget_size_allocate(widget, &allocation);
+    m_delayedAllocation = IntRect();
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -558,30 +582,32 @@ void PluginView::setParentVisible(bool visible)
     }
 }
 
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& outputBuffer, uint32_t filenameLength, const char* filenameBuffer)
 {
-    String filename(buf, len);
+    // There doesn't seem to be any documentation about what encoding the filename
+    // is in, but most ports seem to assume UTF-8 here and the test plugin is definitely
+    // sending the path in UTF-8 encoding.
+    CString filename(filenameBuffer, filenameLength);
 
-    if (filename.startsWith("file:///"))
-        filename = filename.substring(8);
-
-    // Get file info
-    if (!g_file_test ((filename.utf8()).data(), (GFileTest)(G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)))
+    GRefPtr<GFile> file = adoptGRef(g_file_new_for_commandline_arg(filename.data()));
+    if (g_file_query_file_type(file.get(), G_FILE_QUERY_INFO_NONE, 0) != G_FILE_TYPE_REGULAR)
         return NPERR_FILE_NOT_FOUND;
 
-    //FIXME - read the file data into buffer
-    FILE* fileHandle = fopen((filename.utf8()).data(), "r");
-    
-    if (fileHandle == 0)
+    GRefPtr<GFileInfo> fileInfo = adoptGRef(g_file_query_info(file.get(),
+                                                              G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                                                              G_FILE_QUERY_INFO_NONE,
+                                                              0, 0));
+    if (!fileInfo)
         return NPERR_FILE_NOT_FOUND;
 
-    //buffer.resize();
+    GRefPtr<GFileInputStream> inputStream = adoptGRef(g_file_read(file.get(), 0, 0));
+    if (!inputStream)
+        return NPERR_FILE_NOT_FOUND;
 
-    int bytesRead = fread(buffer.data(), 1, 0, fileHandle);
-
-    fclose(fileHandle);
-
-    if (bytesRead <= 0)
+    outputBuffer.resize(g_file_info_get_size(fileInfo.get()));
+    gsize bytesRead = 0;
+    if (!g_input_stream_read_all(G_INPUT_STREAM(inputStream.get()),
+                                 outputBuffer.data(), outputBuffer.size(), &bytesRead, 0, 0))
         return NPERR_FILE_NOT_FOUND;
 
     return NPERR_NO_ERROR;
@@ -633,7 +659,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
     case NPNVxDisplay:
 #if defined(XP_UNIX)
         if (m_needsXEmbed)
-            *(void **)value = (void *)GDK_DISPLAY();
+            *(void **)value = (void *)GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         else
             *(void **)value = (void *)GTK_XTBIN(platformPluginWidget())->xtclient.xtdisplay;
         *result = NPERR_NO_ERROR;
@@ -654,13 +680,11 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 #endif
 
         case NPNVnetscapeWindow: {
+            GdkWindow* gdkWindow = gtk_widget_get_window(m_parentFrame->view()->hostWindow()->platformPageClient());
 #if defined(XP_UNIX)
-            void* w = reinterpret_cast<void*>(value);
-            *((XID *)w) = GDK_WINDOW_XWINDOW(m_parentFrame->view()->hostWindow()->platformPageClient()->window);
-#endif
-#ifdef GDK_WINDOWING_WIN32
-            HGDIOBJ* w = reinterpret_cast<HGDIOBJ*>(value);
-            *w = GDK_WINDOW_HWND(m_parentFrame->view()->hostWindow()->platformPageClient()->window);
+            *static_cast<Window*>(value) = GDK_WINDOW_XWINDOW(gdk_window_get_toplevel(gdkWindow));
+#elif defined(GDK_WINDOWING_WIN32)
+            *static_cast<HGDIOBJ*>(value) = GDK_WINDOW_HWND(gdkWindow);
 #endif
             *result = NPERR_NO_ERROR;
             return true;
@@ -706,6 +730,7 @@ void PluginView::forceRedraw()
         gtk_widget_queue_draw(m_parentFrame->view()->hostWindow()->platformPageClient());
 }
 
+#ifndef GDK_WINDOWING_WIN32
 static Display* getPluginDisplay()
 {
     // The plugin toolkit might have a different X connection open.  Since we're
@@ -719,6 +744,7 @@ static Display* getPluginDisplay()
     return 0;
 #endif
 }
+#endif
 
 #if defined(XP_UNIX)
 static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
@@ -726,8 +752,9 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     *visual = 0;
     *colormap = 0;
 
+    Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
     int rmaj, rmin;
-    if (depth == 32 && (!XRenderQueryVersion(GDK_DISPLAY(), &rmaj, &rmin) || (rmaj == 0 && rmin < 5)))
+    if (depth == 32 && (!XRenderQueryVersion(display, &rmaj, &rmin) || (rmaj == 0 && rmin < 5)))
         return;
 
     XVisualInfo templ;
@@ -735,14 +762,14 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     templ.depth   = depth;
     templ.c_class = TrueColor;
     int nVisuals;
-    XVisualInfo* visualInfo = XGetVisualInfo(GDK_DISPLAY(), VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nVisuals);
+    XVisualInfo* visualInfo = XGetVisualInfo(display, VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nVisuals);
 
     if (!nVisuals)
         return;
 
     if (depth == 32) {
         for (int idx = 0; idx < nVisuals; ++idx) {
-            XRenderPictFormat* format = XRenderFindVisualFormat(GDK_DISPLAY(), visualInfo[idx].visual);
+            XRenderPictFormat* format = XRenderFindVisualFormat(display, visualInfo[idx].visual);
             if (format->type == PictTypeDirect && format->direct.alphaMask) {
                  *visual = visualInfo[idx].visual;
                  break;
@@ -754,29 +781,22 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     XFree(visualInfo);
 
     if (*visual)
-        *colormap = XCreateColormap(GDK_DISPLAY(), GDK_ROOT_WINDOW(), *visual, AllocNone);
+        *colormap = XCreateColormap(display, GDK_ROOT_WINDOW(), *visual, AllocNone);
 }
 #endif
 
-static gboolean plugRemovedCallback(GtkSocket* socket, gpointer)
+gboolean PluginView::plugRemovedCallback(GtkSocket* socket, PluginView* view)
 {
+    view->m_plugAdded = false;
     return TRUE;
 }
 
-static void plugAddedCallback(GtkSocket* socket, PluginView* view)
+void PluginView::plugAddedCallback(GtkSocket* socket, PluginView* view)
 {
-    if (!socket || !view)
-        return;
-
-    // FIXME: Java Plugins do not seem to draw themselves properly the
-    // first time unless we do a size-allocate after they have done
-    // the plug operation on their side, which in general does not
-    // happen since we do size-allocates before setting the
-    // NPWindow. Apply this workaround until we figure out a better
-    // solution, if any.
-    IntRect rect = view->frameRect();
-    GtkAllocation allocation = { rect.x(), rect.y(), rect.width(), rect.height() };
-    gtk_widget_size_allocate(GTK_WIDGET(socket), &allocation);
+    ASSERT(socket);
+    ASSERT(view);
+    view->m_plugAdded = true;
+    view->updateWidgetAllocationAndClip();
 }
 
 bool PluginView::platformStart()
@@ -784,6 +804,7 @@ bool PluginView::platformStart()
     ASSERT(m_isStarted);
     ASSERT(m_status == PluginStatusLoadedSuccessfully);
 
+#if defined(XP_UNIX)
     if (m_plugin->pluginFuncs()->getvalue) {
         PluginView::setCurrentPluginView(this);
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
@@ -792,11 +813,11 @@ bool PluginView::platformStart()
         setCallingPlugin(false);
         PluginView::setCurrentPluginView(0);
     }
+#endif
 
     if (m_isWindowed) {
-#if defined(XP_UNIX)
         GtkWidget* pageClient = m_parentFrame->view()->hostWindow()->platformPageClient();
-
+#if defined(XP_UNIX)
         if (m_needsXEmbed) {
             // If our parent is not anchored the startup process will
             // fail miserably for XEmbed plugins a bit later on when
@@ -805,19 +826,22 @@ bool PluginView::platformStart()
             if (!gtk_widget_get_parent(pageClient))
                 return false;
 
+            m_plugAdded = false;
             setPlatformWidget(gtk_socket_new());
             gtk_container_add(GTK_CONTAINER(pageClient), platformPluginWidget());
-            g_signal_connect(platformPluginWidget(), "plug-added", G_CALLBACK(plugAddedCallback), this);
-            g_signal_connect(platformPluginWidget(), "plug-removed", G_CALLBACK(plugRemovedCallback), NULL);
+            g_signal_connect(platformPluginWidget(), "plug-added", G_CALLBACK(PluginView::plugAddedCallback), this);
+            g_signal_connect(platformPluginWidget(), "plug-removed", G_CALLBACK(PluginView::plugRemovedCallback), this);
         } else
-            setPlatformWidget(gtk_xtbin_new(pageClient->window, 0));
+            setPlatformWidget(gtk_xtbin_new(pageClient, 0));
 #else
         setPlatformWidget(gtk_socket_new());
         gtk_container_add(GTK_CONTAINER(pageClient), platformPluginWidget());
 #endif
     } else {
         setPlatformWidget(0);
+#if defined(XP_UNIX)
         m_pluginDisplay = getPluginDisplay();
+#endif
     }
 
     show();
@@ -831,12 +855,14 @@ bool PluginView::platformStart()
         m_npWindow.type = NPWindowTypeWindow;
 #if defined(XP_UNIX)
         if (m_needsXEmbed) {
-            gtk_widget_realize(platformPluginWidget());
+            GtkWidget* widget = platformPluginWidget();
+            gtk_widget_realize(widget);
             m_npWindow.window = (void*)gtk_socket_get_id(GTK_SOCKET(platformPluginWidget()));
-            ws->display = GDK_WINDOW_XDISPLAY(platformPluginWidget()->window);
-            ws->visual = GDK_VISUAL_XVISUAL(gdk_drawable_get_visual(GDK_DRAWABLE(platformPluginWidget()->window)));
-            ws->depth = gdk_drawable_get_visual(GDK_DRAWABLE(platformPluginWidget()->window))->depth;
-            ws->colormap = GDK_COLORMAP_XCOLORMAP(gdk_drawable_get_colormap(GDK_DRAWABLE(platformPluginWidget()->window)));
+            GdkWindow* window = gtk_widget_get_window(widget);
+            ws->display = GDK_WINDOW_XDISPLAY(window);
+            ws->visual = GDK_VISUAL_XVISUAL(gdk_window_get_visual(window));
+            ws->depth = gdk_visual_get_depth(gdk_window_get_visual(window));
+            ws->colormap = XCreateColormap(ws->display, GDK_ROOT_WINDOW(), ws->visual, AllocNone);
         } else {
             m_npWindow.window = (void*)GTK_XTBIN(platformPluginWidget())->xtwindow;
             ws->display = GTK_XTBIN(platformPluginWidget())->xtdisplay;
@@ -846,7 +872,7 @@ bool PluginView::platformStart()
         }
         XFlush (ws->display);
 #elif defined(GDK_WINDOWING_WIN32)
-        m_npWindow.window = (void*)GDK_WINDOW_HWND(platformPluginWidget()->window);
+        m_npWindow.window = (void*)GDK_WINDOW_HWND(gtk_widget_get_window(platformPluginWidget()));
 #endif
     } else {
         m_npWindow.type = NPWindowTypeDrawable;
@@ -856,17 +882,17 @@ bool PluginView::platformStart()
         GdkScreen* gscreen = gdk_screen_get_default();
         GdkVisual* gvisual = gdk_screen_get_system_visual(gscreen);
 
-        if (gvisual->depth == 32 || !m_plugin->quirks().contains(PluginQuirkRequiresDefaultScreenDepth)) {
+        if (gdk_visual_get_depth(gvisual) == 32 || !m_plugin->quirks().contains(PluginQuirkRequiresDefaultScreenDepth)) {
             getVisualAndColormap(32, &m_visual, &m_colormap);
             ws->depth = 32;
         }
 
         if (!m_visual) {
-            getVisualAndColormap(gvisual->depth, &m_visual, &m_colormap);
-            ws->depth = gvisual->depth;
+            getVisualAndColormap(gdk_visual_get_depth(gvisual), &m_visual, &m_colormap);
+            ws->depth = gdk_visual_get_depth(gvisual);
         }
 
-        ws->display = GDK_DISPLAY();
+        ws->display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         ws->visual = m_visual;
         ws->colormap = m_colormap;
 
@@ -896,7 +922,7 @@ void PluginView::platformDestroy()
 {
 #if defined(XP_UNIX)
     if (m_drawable) {
-        XFreePixmap(GDK_DISPLAY(), m_drawable);
+        XFreePixmap(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), m_drawable);
         m_drawable = 0;
     }
 #endif
@@ -911,4 +937,3 @@ void PluginView::restart()
 }
 
 } // namespace WebCore
-

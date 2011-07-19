@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -39,7 +35,7 @@
 static char sccsid[] = "@(#)none.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/none.c,v 1.12 2004/07/21 10:54:57 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/none.c,v 1.15 2007/10/13 16:28:22 ache Exp $");
 
 #include "xlocale_private.h"
 
@@ -53,16 +49,10 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/none.c,v 1.12 2004/07/21 10:54:57 tjr Ex
 #include <wchar.h>
 #include "mblocal.h"
 
-__private_extern__ int	_none_init(struct __xlocale_st_runelocale *);
-__private_extern__ size_t	_none_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict, locale_t);
-__private_extern__ int	_none_mbsinit(const mbstate_t *, locale_t);
-__private_extern__ size_t	_none_mbsnrtowcs(wchar_t * __restrict dst,
-	    const char ** __restrict src, size_t nms, size_t len,
-	    mbstate_t * __restrict ps __unused, locale_t);
-__private_extern__ size_t	_none_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
-__private_extern__ size_t	_none_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
-	    size_t, size_t, mbstate_t * __restrict, locale_t);
+/* setup defaults */
+
+int __mb_cur_max = 1;
+int __mb_sb_limit = 256; /* Expected to be <= _CACHED_RUNES */
 
 __private_extern__ int
 _none_init(struct __xlocale_st_runelocale *xrl)
@@ -74,11 +64,12 @@ _none_init(struct __xlocale_st_runelocale *xrl)
 	xrl->__wcrtomb = _none_wcrtomb;
 	xrl->__wcsnrtombs = _none_wcsnrtombs;
 	xrl->__mb_cur_max = 1;
+	xrl->__mb_sb_limit = 256;
 	return(0);
 }
 
 __private_extern__ int
-_none_mbsinit(const mbstate_t *ps __unused, locale_t loc)
+_none_mbsinit(const mbstate_t *ps __unused, locale_t loc __unused)
 {
 
 	/*
@@ -90,7 +81,7 @@ _none_mbsinit(const mbstate_t *ps __unused, locale_t loc)
 
 __private_extern__ size_t
 _none_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
-    mbstate_t * __restrict ps __unused, locale_t loc)
+    mbstate_t * __restrict ps __unused, locale_t loc __unused)
 {
 
 	if (s == NULL)
@@ -106,7 +97,7 @@ _none_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 
 __private_extern__ size_t
 _none_wcrtomb(char * __restrict s, wchar_t wc,
-    mbstate_t * __restrict ps __unused, locale_t loc)
+    mbstate_t * __restrict ps __unused, locale_t loc __unused)
 {
 
 	if (s == NULL)
@@ -122,7 +113,7 @@ _none_wcrtomb(char * __restrict s, wchar_t wc,
 
 __private_extern__ size_t
 _none_mbsnrtowcs(wchar_t * __restrict dst, const char ** __restrict src,
-    size_t nms, size_t len, mbstate_t * __restrict ps __unused, locale_t loc)
+    size_t nms, size_t len, mbstate_t * __restrict ps __unused, locale_t loc __unused)
 {
 	const char *s;
 	size_t nchr;
@@ -147,7 +138,7 @@ _none_mbsnrtowcs(wchar_t * __restrict dst, const char ** __restrict src,
 
 __private_extern__ size_t
 _none_wcsnrtombs(char * __restrict dst, const wchar_t ** __restrict src,
-    size_t nwc, size_t len, mbstate_t * __restrict ps __unused, locale_t loc)
+    size_t nwc, size_t len, mbstate_t * __restrict ps __unused, locale_t loc __unused)
 {
 	const wchar_t *s;
 	size_t nchr;

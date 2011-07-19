@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "kerneldiskrep.h"
+#include <sys/utsname.h>
 
 namespace Security {
 namespace CodeSigning {
@@ -58,9 +59,11 @@ CFURLRef KernelDiskRep::canonicalPath()
 	return makeCFURL("/mach_kernel");
 }
 
-string KernelDiskRep::recommendedIdentifier()
+string KernelDiskRep::recommendedIdentifier(const SigningContext &)
 {
-	return "@@kernel@@";	//@@@ use $(uname -whatever)?
+	utsname names;
+	UnixError::check(::uname(&names));
+	return string("kernel.") + names.sysname;
 }
 
 size_t KernelDiskRep::signingLimit()

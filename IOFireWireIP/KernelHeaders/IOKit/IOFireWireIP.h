@@ -41,7 +41,7 @@ extern "C"{
 #include <net/if_types.h>
 #include <firewire.h>
 #include <if_firewire.h>
-#include <netinet/in.h>	/* For M_LOOP */
+#include <sys/kpi_mbuf.h>	/* For MBUF_LOOP */
 #include <netinet/in_var.h>
 #include <netinet/icmp6.h>
 #include <netinet/ip6.h>

@@ -27,10 +27,10 @@
  */
  
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <IOKit/IOReturn.h>
 #include "IOPMLibPrivate.h"
+#include "IOSystemConfiguration.h"
 
 #include <notify.h>
 
@@ -38,7 +38,7 @@
 #define kMySCIdentity           CFSTR("IOKit Power")
 
 
-static CFStringRef scKeyForIOKitString(CFStringRef str)
+static CFStringRef createSCKeyForIOKitString(CFStringRef str)
 {
     CFStringRef     keyForString = NULL;
 
@@ -54,22 +54,11 @@ static CFStringRef scKeyForIOKitString(CFStringRef str)
 
     return SCDynamicStoreKeyCreate(kCFAllocatorDefault, 
                         CFSTR("%@%@/%@"),
-                        kSCDynamicStoreDomainState, 
+                        _io_kSCDynamicStoreDomainState, 
                         CFSTR("/IOKit/Power"),
                         keyForString);
 }
 
-static const char * notifyKeyForIOKitString(CFStringRef str)
-{
-    if (CFEqual(str, CFSTR(kIOPMThermalLevelWarningKey))) 
-    {
-        return kIOPMThermalWarningNotificationKey;
-    } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) 
-    {
-        return kIOPMCPUPowerNotificationKey;
-    }
-    return NULL;
-}
 
 IOReturn IOPMCopyCPUPowerStatus(CFDictionaryRef *cpuPowerStatus)
 {
@@ -89,7 +78,7 @@ IOReturn IOPMCopyCPUPowerStatus(CFDictionaryRef *cpuPowerStatus)
         goto exit;
      }
 
-    cpu_power_key = scKeyForIOKitString(CFSTR(kIOPMCPUPowerLimitsKey));
+    cpu_power_key = createSCKeyForIOKitString(CFSTR(kIOPMCPUPowerLimitsKey));
     if (!cpu_power_key) {
         ret = kIOReturnInternalError;
         goto exit;
@@ -136,7 +125,7 @@ IOReturn IOPMGetThermalWarningLevel(uint32_t *thermalLevel)
         goto exit;
      }
 
-    thermal_key = scKeyForIOKitString(CFSTR(kIOPMThermalLevelWarningKey));
+    thermal_key = createSCKeyForIOKitString(CFSTR(kIOPMThermalLevelWarningKey));
     if (!thermal_key) {
         ret = kIOReturnInternalError;
         goto exit;
@@ -164,62 +153,3 @@ exit:
 
 
 
-IOReturn IOPMSystemPowerEventOccurred(
-    CFStringRef typeString, 
-    CFTypeRef eventValue)
-{
-    IOReturn            ret = kIOReturnError;
-    SCDynamicStoreRef   store = NULL;
-    CFStringRef         writeToKey = NULL;
-    CFDictionaryRef         cpu_data = NULL;
-    CFMutableDictionaryRef  adjusted_cpu_data = NULL;
-    
-    const char  *notify3Key = NULL;
-    
-    if( !typeString 
-        || !eventValue)
-    {
-        ret = kIOReturnBadArgument;
-        goto exit;
-    }
-    
-    store = SCDynamicStoreCreate(kCFAllocatorDefault, 
-                kMySCIdentity, NULL, NULL);
-    if(!store) {
-        goto exit;
-     }
-
-    // Find appropriate key into SCDynamicStore
-    writeToKey = scKeyForIOKitString(typeString);
-
-    // Write value into SCDynamicStore
-    if(!SCDynamicStoreSetValue(store, writeToKey, eventValue)) 
-    {
-        if(kSCStatusAccessError == SCError())
-            ret = kIOReturnNotPrivileged;
-        else
-            ret = kIOReturnInternalError;
-        goto exit;
-    }
-    
-    // Find appropriate BSD notify(3) key
-    notify3Key = notifyKeyForIOKitString(typeString);
-
-    ret = kIOReturnSuccess;
-        
-exit:
-    if (store)
-        CFRelease(store);
-    if (writeToKey)
-        CFRelease(writeToKey);
-    if (cpu_data)
-        CFRelease(cpu_data);
-    if (adjusted_cpu_data)
-        CFRelease(adjusted_cpu_data);
-    
-    // And generate the BSD notify(3) notification!
-    if (notify3Key) 
-        notify_post(notify3Key);
-    
-    return ret;
-}

@@ -1,0 +1,111 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+require "subaddress";
+
+test_set "message" text:
+From: stephan+sieve@example.org
+To: test+failed@example.com
+Subject: subaddress test
+
+Test!
+.
+;
+
+test_set "envelope.to" "friep+frop@dovecot.example.net";
+test_set "envelope.from" "list+request@lists.dovecot.example.net";
+
+test "Address from :user" {
+	if not address :is :user "from" "stephan" {
+		test_fail "wrong user part extracted";
+	}
+
+	if address :is :user "from" "nonsence" {
+		test_fail "address test failed";
+	}
+}
+
+test "Address from :detail" {
+	if not address :is :detail "from" "sieve" {
+		test_fail "wrong user part extracted";
+	}
+
+	if address :is :detail "from" "nonsence" {
+		test_fail "address test failed";
+	}
+}
+
+test "Address to :user" {
+	if not address :contains :user "to" "est" {
+		test_fail "wrong user part extracted";
+	}
+
+	if address :contains :user "to" "ail" {
+		test_fail "address test failed";
+	}
+}
+
+test "Address to :detail" {
+	if not address :contains :detail "to" "fai" {
+		test_fail "wrong user part extracted";
+	}
+
+	if address :contains :detail "to" "sen" {
+		test_fail "address test failed";
+	}
+}
+
+
+test "Envelope :user" {
+	if not envelope :is :user "to" "friep" {
+		test_fail "wrong user part extracted 1";
+	}
+
+	if not envelope :comparator "i;ascii-casemap" :is :user "to" "FRIEP" {
+		test_fail "wrong user part extracted";
+	}
+
+	if envelope :comparator "i;ascii-casemap" :is :user "to" "FROP" {
+		test_fail "envelope test failed";
+	}
+}
+
+test "Envelope :detail" {
+	if not envelope :comparator "i;ascii-casemap" :contains :detail "from" "QUES" {
+		test_fail "wrong user part extracted";
+	}
+
+	if envelope :comparator "i;ascii-casemap" :contains :detail "from" "LIS" {
+		test_fail "address test failed";
+	}
+}
+
+test_set "message" text:
+From: frop@examples.com
+To: undisclosed-recipients:;
+Subject: subaddress test
+
+Test!
+.
+;
+
+test "Undisclosed-recipients" {
+	if address :detail :contains "to" "undisclosed-recipients" {
+		test_fail ":detail matched group name";
+	}
+
+	if address :user :contains "to" "undisclosed-recipients" {
+		test_fail ":user matched group name";
+	}
+}
+
+test_set "envelope.to" "frop@sieve.example.net";
+
+test "No detail" {
+	if envelope :detail "to" "virus" {
+		test_fail ":detail matched non-existent detail element in envelope (separator is missing)";
+	}
+
+	if address :detail "from" "virus" {
+		test_fail ":detail matched non-existent detail element in from header (separator is missing)";		
+	}
+}

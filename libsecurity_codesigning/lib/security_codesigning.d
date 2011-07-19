@@ -29,7 +29,7 @@ provider codesign {
 
 	probe eval__dynamic__start(void *me, const char *path);
 	probe eval__dynamic__end(void *me);
-	probe eval__dynamic__root();
+	probe eval__dynamic__root(void *me);
 	
 	probe eval__static__start(void *me, const char *path);
 	probe eval__static__end(void *me);
@@ -52,10 +52,12 @@ provider codesign {
 	probe eval__static__signature__end(void *me);
 
 	probe eval__reqint__start(const void *reqdata, uint32_t reqlength);
-	probe eval__reqint__end(uint32_t result);
+	probe eval__reqint__end(const void *reqdata, uint32_t result);
 	probe eval__reqint__op(uint32_t opcode, uint32_t offset);
 	probe eval__reqint__unknown_false(uint32_t opcode);
 	probe eval__reqint__unknown_skipped(uint32_t opcode);
+probe eval__reqint__fragment__load(const char *type, const char *name, const void *req);
+probe eval__reqint__fragment__hit(const char *type, const char *name);
 	
 	probe guest__hostingport(void *host, mach_port_t hostingPort);
 	probe guest__locate__generic(void *host, uint32_t *guestPath, uint32_t guestPathLength, mach_port_t subport);
@@ -68,6 +70,9 @@ provider codesign {
 	probe allocate__arch(const char *arch, uint32_t size);
 	probe allocate__archn(uint32_t cputype, uint32_t cpusubtype, uint32_t size);
 	probe allocate__write(const char *arch, off_t offset, uint32_t length, uint32_t available);
+	
+	probe sign__dep__macho(void *me, const char *name, const void *requirement);
+	probe sign__dep__interp(void *me, const char *name, const void *requirement);
 
 	probe load__antlr();
 };

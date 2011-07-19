@@ -1,17 +1,16 @@
---- mktemp.3.orig	2008-02-29 10:45:39.000000000 -0800
-+++ mktemp.3	2008-02-29 11:21:10.000000000 -0800
-@@ -36,20 +36,33 @@
+--- mktemp.3.orig	2010-04-28 23:38:47.000000000 -0700
++++ mktemp.3	2010-04-29 11:05:28.000000000 -0700
+@@ -32,6 +32,9 @@
  .Dt MKTEMP 3
  .Os
  .Sh NAME
--.Nm mktemp
 +.Nm mkdtemp ,
 +.Nm mkstemp ,
-+.Nm mktemp ,
-+.Nm mktemps
++.Nm mkstemps ,
+ .Nm mktemp
  .Nd make temporary file name (unique)
  .Sh LIBRARY
- .Lb libc
+@@ -39,13 +42,23 @@
  .Sh SYNOPSIS
  .In unistd.h
  .Ft char *
@@ -39,7 +38,7 @@
  .Sh DESCRIPTION
  The
  .Fn mktemp
-@@ -137,7 +150,7 @@
+@@ -133,7 +146,7 @@ The pathname portion of the template is 
  .Pp
  The
  .Fn mkstemp ,
@@ -48,7 +47,7 @@
  and
  .Fn mkdtemp
  functions
-@@ -171,7 +184,7 @@
+@@ -167,7 +180,7 @@ A common problem that results in a core 
  passes in a read-only string to
  .Fn mktemp ,
  .Fn mkstemp ,
@@ -57,19 +56,13 @@
  or
  .Fn mkdtemp .
  This is common with programs that were developed before
-@@ -219,19 +232,19 @@
- This will ensure that the program does not continue blindly
- in the event that an attacker has already created the file
- with the intention of manipulating or reading its contents.
+@@ -186,12 +199,19 @@ so that it will store string constants i
+ See
+ .Xr gcc 1
+ for more information.
 +.Sh LEGACY SYNOPSIS
 +.Fd #include <unistd.h>
- .Pp
--The implementation of these functions calls
--.Xr arc4random 3 ,
--which is not reentrant.
--You must provide your own locking around this and other consumers of the
--.Xr arc4random 3
--API.
++.Pp
 +The include file
 +.In unistd.h
 +is necessary and sufficient for all functions.
@@ -84,3 +77,14 @@
  .Sh HISTORY
  A
  .Fn mktemp
+@@ -242,10 +262,3 @@ and the return status of the call should
+ This will ensure that the program does not continue blindly
+ in the event that an attacker has already created the file
+ with the intention of manipulating or reading its contents.
+-.Pp
+-The implementation of these functions calls
+-.Xr arc4random 3 ,
+-which is not reentrant.
+-You must provide your own locking around this and other consumers of the
+-.Xr arc4random 3
+-API.

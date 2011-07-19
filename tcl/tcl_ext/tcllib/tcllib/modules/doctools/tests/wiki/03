@@ -1,40 +1,35 @@
-TEST 3.14.15.926 '''.MODULE.''' ''''
+'''TEST 3.14.15.926''' '''.MODULE.'''
 
 
 
 
-----
-'''DESCRIPTION'''
+**DESCRIPTION**
 
 
 
-----
-'''AaA'''
+**AaA**
 
 1
 
-----
-'''BbB'''
+**BbB**
 
 22
 
-''BbB.cCc''
+***BbB.cCc***
 
 333
 
-''BbB.dDd''
+***BbB.dDd***
 
 4444
 
-----
-'''EeE'''
+**EeE**
 
 5555
 At '''AaA'''.
 At '''__undefined__'''.
 
-----
-'''COPYRIGHT'''
+**COPYRIGHT**
 
  Copyright (c) .COPYRIGHT.
 

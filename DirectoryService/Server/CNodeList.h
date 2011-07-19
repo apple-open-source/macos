@@ -119,7 +119,6 @@ public:
 	void			WaitForLocalNode		( void );
 	void			WaitForCacheNode		( void );
 	void			WaitForConfigureNode	( void );
-	void			WaitForDHCPLDAPv3Init	( void );
 	void			WaitForBSDNode			( void );
 	void			WaitForAuthenticationSearchNode	( void );
 	void			Lock					( void) { fMutex.WaitLock(); }
@@ -149,7 +148,6 @@ private:
 	SInt32	   	AddNetworkSearchNode			( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, UInt32 inToken );
 	SInt32	   	AddConfigureNode				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, UInt32 inToken );
 	SInt32		AddBSDNode						( const char *inNodeName, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, UInt32	inToken );
-	SInt32	   	AddDHCPLDAPv3Node				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, UInt32 inToken );
 
 	bool	 	GetLocalNode					( CServerPlugin **outPlugInPtr );
 	bool	 	GetLocalNode					( tDataList **outListPtr );
@@ -182,7 +180,6 @@ private:
 	sTreeNode		   *fBSDNode;
 	UInt32				fCount;
 	UInt32				fNodeChangeToken;
-    bool				bDHCPLDAPv3InitComplete;
 
 	DSMutexSemaphore		fMutex;
 	DSEventSemaphore		fWaitForAuthenticationSN;
@@ -191,7 +188,6 @@ private:
 	DSEventSemaphore		fWaitForLN;
 	DSEventSemaphore		fWaitForCacheN;
 	DSEventSemaphore		fWaitForConfigureN;
-	DSEventSemaphore		fWaitForDHCPLDAPv3InitFlag;
 	DSEventSemaphore		fWaitForBSDN;
 };
 

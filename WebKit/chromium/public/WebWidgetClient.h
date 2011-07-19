@@ -50,6 +50,15 @@ public:
     // scrolled by the specified dx and dy amounts.
     virtual void didScrollRect(int dx, int dy, const WebRect& clipRect) { }
 
+    // Called when the compositor enables or disables.
+    virtual void didActivateAcceleratedCompositing(bool active) { }
+
+    // Called when a call to WebWidget::composite is required
+    virtual void scheduleComposite() { }
+
+    // Called when a call to WebWidget::animate is required
+    virtual void scheduleAnimation() { }
+
     // Called when the widget acquires or loses focus, respectively.
     virtual void didFocus() { }
     virtual void didBlur() { }
@@ -82,6 +91,10 @@ public:
     // Called to query information about the screen where this widget is
     // displayed.
     virtual WebScreenInfo screenInfo() { return WebScreenInfo(); }
+
+    // When this method gets called, WebWidgetClient implementation should
+    // reset the input method by cancelling any ongoing composition.
+    virtual void resetInputMethod() { }
 
 protected:
     ~WebWidgetClient() { }

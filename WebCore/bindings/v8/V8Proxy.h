@@ -32,8 +32,6 @@
 #define V8Proxy_h
 
 #include "PlatformBridge.h"
-#include "ScriptSourceCode.h" // for WebCore::ScriptSourceCode
-#include "SecurityOrigin.h" // for WebCore::SecurityOrigin
 #include "SharedPersistent.h"
 #include "V8AbstractEventListener.h"
 #include "V8DOMWindowShell.h"
@@ -42,8 +40,10 @@
 #include "V8Utilities.h"
 #include "WrapperTypeInfo.h"
 #include <v8.h>
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h> // so generated bindings don't have to
 #include <wtf/Vector.h>
+#include <wtf/text/TextPosition.h>
 
 #if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
 #define INC_STATS(name) PlatformBridge::incrementStatsCounter(name)
@@ -53,12 +53,12 @@
 
 namespace WebCore {
 
+    class CachedScript;
     class DOMWindow;
     class Frame;
     class Node;
-    class SVGElement;
     class ScriptExecutionContext;
-    class String;
+    class ScriptSourceCode;
     class V8EventListener;
     class V8IsolatedContext;
     class WorldContextHandle;
@@ -116,19 +116,10 @@ namespace WebCore {
                                  const BatchedCallback*, 
                                  size_t callbackCount);
 
-    const int kMaxRecursionDepth = 20;
+    const int kMaxRecursionDepth = 22;
 
-    // Information about an extension that is registered for use with V8. If
-    // scheme is non-empty, it contains the URL scheme the extension should be
-    // used with. If group is non-zero, the extension will only be loaded into
-    // script contexts that belong to that group. Otherwise, the extension is
-    // used with all schemes and contexts.
-    struct V8ExtensionInfo {
-        String scheme;
-        int group;
-        v8::Extension* extension;
-    };
-    typedef WTF::Vector<V8ExtensionInfo> V8Extensions;
+    // The list of extensions that are registered for use with V8.
+    typedef WTF::Vector<v8::Extension*> V8Extensions;
 
     class V8Proxy {
     public:
@@ -139,12 +130,6 @@ namespace WebCore {
             SyntaxError,
             TypeError,
             GeneralError
-        };
-
-        // When to report errors.
-        enum DelayReporting {
-            ReportLater,
-            ReportNow
         };
 
         explicit V8Proxy(Frame*);
@@ -167,41 +152,6 @@ namespace WebCore {
         // and clears all timeouts on the DOM window.
         void disconnectFrame();
 
-#if ENABLE(SVG)
-        static void setSVGContext(void*, SVGElement*);
-        static SVGElement* svgContext(void*);
-
-        // These helper functions are required in case we are given a PassRefPtr
-        // to a (possibly) newly created object and must prevent its reference
-        // count from dropping to zero as would happen in code like
-        //
-        //   V8Proxy::setSVGContext(imp->getNewlyCreatedObject().get(), context);
-        //   foo(imp->getNewlyCreatedObject().get());
-        //
-        // In the above two lines each time getNewlyCreatedObject() is called it
-        // creates a new object because we don't ref() it. (So our attemts to
-        // associate a context with it fail.) Such code should be rewritten to
-        //
-        //   foo(V8Proxy::withSVGContext(imp->getNewlyCreatedObject(), context).get());
-        //
-        // where PassRefPtr::~PassRefPtr() is invoked only after foo() is
-        // called.
-        template <typename T>
-        static PassRefPtr<T> withSVGContext(PassRefPtr<T> object, SVGElement* context)
-        {
-            setSVGContext(object.get(), context);
-            return object;
-        }
-
-        template <typename T>
-        static T* withSVGContext(T* object, SVGElement* context)
-        {
-            setSVGContext(object, context);
-            return object;
-        }
-#endif
-
-        void setEventHandlerLineNumber(int lineNumber) { m_handlerLineNumber = lineNumber; }
         void finishedWithEvent(Event*) { }
 
         // Evaluate JavaScript in a new isolated world. The script gets its own
@@ -209,6 +159,9 @@ namespace WebCore {
         // Array, and so-on), and its own wrappers for all DOM nodes and DOM
         // constructors.
         void evaluateInIsolatedWorld(int worldId, const Vector<ScriptSourceCode>& sources, int extensionGroup);
+
+        // Returns true if the proxy is currently executing a script in V8.
+        bool executingScript() const;
 
         // Evaluate a script file in the current execution environment.
         // The caller must hold an execution context.
@@ -285,7 +238,7 @@ namespace WebCore {
 
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
-        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* = 0);
 
         // If the exception code is different from zero, a DOM exception is
         // schedule to be thrown.
@@ -294,14 +247,15 @@ namespace WebCore {
         // Schedule an error object to be thrown.
         static v8::Handle<v8::Value> throwError(ErrorType, const char* message);
 
+        // Helpers for throwing syntax and type errors with predefined messages.
+        static v8::Handle<v8::Value> throwTypeError();
+        static v8::Handle<v8::Value> throwSyntaxError();
+
         template <typename T>
         static v8::Handle<v8::Value> constructDOMObject(const v8::Arguments&, WrapperTypeInfo*);
 
         template <typename T>
         static v8::Handle<v8::Value> constructDOMObjectWithScriptExecutionContext(const v8::Arguments&, WrapperTypeInfo*);
-
-        // Process any pending JavaScript console messages.
-        static void processConsoleMessages();
 
         v8::Local<v8::Context> context();
         v8::Local<v8::Context> mainWorldContext();
@@ -312,15 +266,10 @@ namespace WebCore {
         bool setContextDebugId(int id);
         static int contextDebugId(v8::Handle<v8::Context>);
 
-        // Registers a v8 extension to be available on webpages. The two forms
-        // offer various restrictions on what types of contexts the extension is
-        // loaded into. If a scheme is provided, only pages whose URL has the given
-        // scheme will match. If extensionGroup is provided, the extension will
-        // only be loaded into scripts run via evaluateInNewWorld with the
-        // matching group.  Will only affect v8 contexts initialized after this
-        // call. Takes ownership of the v8::Extension object passed.
-        static void registerExtension(v8::Extension*, const String& schemeRestriction);
-        static void registerExtension(v8::Extension*, int extensionGroup);
+        // Registers a v8 extension to be available on webpages. Will only
+        // affect v8 contexts initialized after this call. Takes ownership of
+        // the v8::Extension object passed.
+        static void registerExtension(v8::Extension*);
 
         static void registerExtensionWithV8(v8::Extension*);
         static bool registeredExtensionWithV8(v8::Extension*);
@@ -328,14 +277,14 @@ namespace WebCore {
         static const V8Extensions& extensions() { return m_extensions; }
 
         // Report an unsafe attempt to access the given frame on the console.
-        static void reportUnsafeAccessTo(Frame* target, DelayReporting delay);
+        static void reportUnsafeAccessTo(Frame* target);
 
     private:
-        // If m_recursionCount is 0, let LocalStorage know so we can release
-        // the storage mutex.
-        void releaseStorageMutex();
+        void didLeaveScriptContext();
 
         void resetIsolatedWorlds();
+
+        PassOwnPtr<v8::ScriptData> precompileScript(v8::Handle<v8::String>, CachedScript*);
 
         // Returns false when we're out of memory in V8.
         bool setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext);
@@ -353,12 +302,14 @@ namespace WebCore {
         static const char* svgExceptionName(int exceptionCode);
 #endif
 
+#if ENABLE(DATABASE)
+        static const char* sqlExceptionName(int exceptionCode);
+#endif
+
         Frame* m_frame;
 
         // For the moment, we have one of these.  Soon we will have one per DOMWrapperWorld.
         RefPtr<V8DOMWindowShell> m_windowShell;
-
-        int m_handlerLineNumber;
 
         // True for <a href="javascript:foo()"> and false for <script>foo()</script>.
         // Only valid during execution.

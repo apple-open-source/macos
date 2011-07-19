@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,12 +31,11 @@
 static char sccsid[] = "@(#)mktemp.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/mktemp.c,v 1.28 2003/02/16 17:29:10 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/mktemp.c,v 1.32 2010/02/28 13:31:29 jh Exp $");
 
 #include "namespace.h"
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/stat.h>
-#include <sys/syslimits.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <stdio.h>
@@ -112,7 +107,7 @@ _gettemp(path, doopen, domkdir, slen)
 	struct stat sbuf;
 	int rval;
 	uint32_t rand;
-	char carrybuf[NAME_MAX];
+	char carrybuf[MAXPATHLEN];
 
 	if ((doopen != NULL && domkdir) || slen < 0) {
 		errno = EINVAL;
@@ -121,6 +116,10 @@ _gettemp(path, doopen, domkdir, slen)
 
 	for (trv = path; *trv != '\0'; ++trv)
 		;
+	if (trv - path >= MAXPATHLEN) {
+		errno = ENAMETOOLONG;
+		return (0);
+	}
 	trv -= slen;
 	suffp = trv;
 	--trv;

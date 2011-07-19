@@ -1,6 +1,6 @@
---- bsearch.c.orig	2009-05-12 11:21:33.000000000 -0700
-+++ bsearch.c	2009-05-20 13:11:05.000000000 -0700
-@@ -81,3 +81,31 @@ bsearch(key, base0, nmemb, size, compar)
+--- bsearch.c.bsdnew	2009-11-13 14:11:48.000000000 -0800
++++ bsearch.c	2009-11-13 14:11:48.000000000 -0800
+@@ -77,3 +77,31 @@ bsearch(key, base0, nmemb, size, compar)
  	}
  	return (NULL);
  }

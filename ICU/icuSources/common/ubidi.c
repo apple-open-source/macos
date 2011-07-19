@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2008, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -145,11 +145,7 @@ ubidi_openSized(int32_t maxLength, int32_t maxRunCount, UErrorCode *pErrorCode) 
     uprv_memset(pBiDi, 0, sizeof(UBiDi));
 
     /* get BiDi properties */
-    pBiDi->bdp=ubidi_getSingleton(pErrorCode);
-    if(U_FAILURE(*pErrorCode)) {
-        uprv_free(pBiDi);
-        return NULL;
-    }
+    pBiDi->bdp=ubidi_getSingleton();
 
     /* allocate memory for arrays as requested */
     if(maxLength>0) {
@@ -329,6 +325,34 @@ ubidi_getReorderingOptions(UBiDi *pBiDi) {
     }
 }
 
+U_CAPI UBiDiDirection U_EXPORT2
+ubidi_getBaseDirection(const UChar *text,
+int32_t length){
+
+    int32_t i;
+    UChar32 uchar;
+    UCharDirection dir;
+    
+    if( text==NULL || length<-1 ){
+        return UBIDI_NEUTRAL;
+    }
+
+    if(length==-1) {
+        length=u_strlen(text);
+    }
+
+    for( i = 0 ; i < length; ) {
+        /* i is incremented by U16_NEXT */
+        U16_NEXT(text, i, length, uchar);
+        dir = u_charDirection(uchar);
+        if( dir == U_LEFT_TO_RIGHT )
+                return UBIDI_LTR;
+        if( dir == U_RIGHT_TO_LEFT || dir ==U_RIGHT_TO_LEFT_ARABIC )
+                return UBIDI_RTL;
+    }
+    return UBIDI_NEUTRAL;
+}
+
 /* perform (P2)..(P3) ------------------------------------------------------- */
 
 /*
@@ -341,7 +365,7 @@ getDirProps(UBiDi *pBiDi) {
     const UChar *text=pBiDi->text;
     DirProp *dirProps=pBiDi->dirPropsMemory;    /* pBiDi->dirProps is const */
 
-    int32_t i=0, i0, i1, length=pBiDi->originalLength;
+    int32_t i=0, i1, length=pBiDi->originalLength;
     Flags flags=0;      /* collect all directionalities in the text */
     UChar32 uchar;
     DirProp dirProp=0, paraDirDefault=0;/* initialize to avoid compiler warnings */
@@ -388,17 +412,13 @@ getDirProps(UBiDi *pBiDi) {
      * their bit 0 alone yields the intended default
      */
     for( /* i=0 above */ ; i<length; ) {
-        /* i is incremented by UTF_NEXT_CHAR */
-        i0=i;           /* index of first code unit */
-        UTF_NEXT_CHAR(text, i, length, uchar);
-        i1=i-1;         /* index of last code unit, gets the directional property */
+        /* i is incremented by U16_NEXT */
+        U16_NEXT(text, i, length, uchar);
         flags|=DIRPROP_FLAG(dirProp=(DirProp)ubidi_getCustomizedClass(pBiDi, uchar));
-        dirProps[i1]=dirProp|paraDir;
-        if(i1>i0) {     /* set previous code units' properties to BN */
+        dirProps[i-1]=dirProp|paraDir;
+        if(uchar>0xffff) {  /* set the lead surrogate's property to BN */
             flags|=DIRPROP_FLAG(BN);
-            do {
-                dirProps[--i1]=(DirProp)(BN|paraDir);
-            } while(i1>i0);
+            dirProps[i-2]=(DirProp)(BN|paraDir);
         }
         if(state==LOOKING_FOR_STRONG) {
             if(dirProp==L) {
@@ -1399,6 +1419,8 @@ resolveImplicitLevels(UBiDi *pBiDi,
     DirProp nextStrongProp=R;
     int32_t nextStrongPos=-1;
 
+    levState.startON = -1;  /* silence gcc flow analysis */
+
     /* check for RTL inverse BiDi mode */
     /* FOOD FOR THOUGHT: in case of RTL inverse BiDi, it would make sense to
      * loop on the text characters from end to start.
@@ -1419,7 +1441,7 @@ resolveImplicitLevels(UBiDi *pBiDi,
     levState.pImpAct=(const ImpAct*)((pBiDi->pImpTabPair)->pImpAct)[levState.runLevel&1];
     processPropertySeq(pBiDi, &levState, sor, start, start);
     /* initialize for property state table */
-    if(dirProps[start]==NSM) {
+    if(NO_CONTEXT_RTL(dirProps[start])==NSM) {
         stateImp = 1 + sor;
     } else {
         stateImp=0;
@@ -1561,7 +1583,7 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
     int32_t visualLength, i, j, visualStart, logicalStart,
             runCount, runLength, addedRuns, insertRemove,
             start, limit, step, indexOddBit, logicalPos,
-            index, index1;
+            index0, index1;
     uint32_t saveOptions;
 
     pBiDi->reorderingMode=UBIDI_REORDER_DEFAULT;
@@ -1640,9 +1662,9 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
         }
         logicalStart=GET_INDEX(runs[i].logicalStart);
         for(j=logicalStart+1; j<logicalStart+runLength; j++) {
-            index=visualMap[j];
+            index0=visualMap[j];
             index1=visualMap[j-1];
-            if((BIDI_ABS(index-index1)!=1) || (saveLevels[index]!=saveLevels[index1])) {
+            if((BIDI_ABS(index0-index1)!=1) || (saveLevels[index0]!=saveLevels[index1])) {
                 addedRuns++;
             }
         }
@@ -1685,10 +1707,10 @@ setParaRunsOnly(UBiDi *pBiDi, const UChar *text, int32_t length,
             step=-1;
         }
         for(j=start; j!=limit; j+=step) {
-            index=visualMap[j];
+            index0=visualMap[j];
             index1=visualMap[j+step];
-            if((BIDI_ABS(index-index1)!=1) || (saveLevels[index]!=saveLevels[index1])) {
-                logicalPos=BIDI_MIN(visualMap[start], index);
+            if((BIDI_ABS(index0-index1)!=1) || (saveLevels[index0]!=saveLevels[index1])) {
+                logicalPos=BIDI_MIN(visualMap[start], index0);
                 runs[i+addedRuns].logicalStart=MAKE_INDEX_ODD_PAIR(logicalPos,
                                             saveLevels[logicalPos]^indexOddBit);
                 runs[i+addedRuns].visualLimit=runs[i].visualLimit;

@@ -7,6 +7,11 @@ _BLOCKS != ${MYCC} -arch ${CCARCH} -E -dD -x c /dev/null | fgrep -q __BLOCKS__ |
 FEATURE_BLOCKS = YES
 .endif # _BLOCKS
 .endif # CCARCH
+_LIBCRASHREPORTERCLIENT_A = ${SDKROOT}/usr/local/lib/libCrashReporterClient.a
+_LIBCRASHREPORTERCLIENT != test -f ${_LIBCRASHREPORTERCLIENT_A} || echo NO
+.if ${_LIBCRASHREPORTERCLIENT} == NO
+FEATURE_NO_LIBCRASHREPORTERCLIENT = YES
+.endif # !_LIBCRASHREPORTERCLIENT
 
 ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
 	${MKDIR} ${.TARGET:H}
@@ -15,14 +20,19 @@ ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
 	@echo '#define _LIBC_FEATURES_H_' >> ${.TARGET}
 	@echo >> ${.TARGET}
 .ifdef FEATURE_LEGACY_RUNE_APIS
-	@echo '#define LEGACY_RUNE_APIS 1' >> ${.TARGET}
+	@echo '#define UNIFDEF_LEGACY_RUNE_APIS 1' >> ${.TARGET}
 .else
-	@echo '/* #undef LEGACY_RUNE_APIS */' >> ${.TARGET}
+	@echo '/* #undef UNIFDEF_LEGACY_RUNE_APIS */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_LEGACY_CRT1_ENVIRON
+	@echo '#define LEGACY_CRT1_ENVIRON 1' >> ${.TARGET}
+.else
+	@echo '/* #undef LEGACY_CRT1_ENVIRON */' >> ${.TARGET}
 .endif
 .ifdef FEATURE_LEGACY_UTMP_APIS
-	@echo '#define LEGACY_UTMP_APIS 1' >> ${.TARGET}
+	@echo '#define UNIFDEF_LEGACY_UTMP_APIS 1' >> ${.TARGET}
 .else
-	@echo '/* #undef LEGACY_UTMP_APIS */' >> ${.TARGET}
+	@echo '/* #undef UNIFDEF_LEGACY_UTMP_APIS */' >> ${.TARGET}
 .endif
 .ifdef FEATURE_MOVE_LOCALTIME
 	@echo '#define UNIFDEF_MOVE_LOCALTIME 1' >> ${.TARGET}
@@ -70,11 +80,6 @@ ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
 	@echo '#  error Feature mismatch: __DARWIN_ONLY_64_BIT_INO_T == 1' >> ${.TARGET}
 	@echo '#endif /* __DARWIN_ONLY_64_BIT_INO_T */' >> ${.TARGET}
 .endif
-.ifdef FEATURE_PATCH_3375657
-	@echo '#define __APPLE_PR3375657_HACK__ 1' >> ${.TARGET}
-.else
-	@echo '/* #undef __APPLE_PR3375657_HACK__ */' >> ${.TARGET}
-.endif
 .ifdef FEATURE_PATCH_3417676
 	@echo '#define __APPLE_PR3417676_HACK__ 1' >> ${.TARGET}
 .else
@@ -94,6 +99,11 @@ ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h:
 	@echo '#define NOTIFY_TZ 1' >> ${.TARGET}
 .else
 	@echo '/* #undef NOTIFY_TZ */' >> ${.TARGET}
+.endif
+.ifdef FEATURE_NO_LIBCRASHREPORTERCLIENT
+	@echo '#define LIBC_NO_LIBCRASHREPORTERCLIENT 1' >> ${.TARGET}
+.else
+	@echo '/* #undef LIBC_NO_LIBCRASHREPORTERCLIENT */' >> ${.TARGET}
 .endif
 	@echo >> ${.TARGET}
 	@echo '#endif /* _LIBC_FEATURES_H_ */' >> ${.TARGET}

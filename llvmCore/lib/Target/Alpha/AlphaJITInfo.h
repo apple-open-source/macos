@@ -15,6 +15,7 @@
 #define ALPHA_JITINFO_H
 
 #include "llvm/Target/TargetJITInfo.h"
+#include <map>
 
 namespace llvm {
   class TargetMachine;
@@ -22,12 +23,17 @@ namespace llvm {
   class AlphaJITInfo : public TargetJITInfo {
   protected:
     TargetMachine &TM;
+    
+    //because gpdist are paired and relative to the pc of the first inst,
+    //we need to have some state
+    std::map<std::pair<void*, int>, void*> gpdistmap;
   public:
     explicit AlphaJITInfo(TargetMachine &tm) : TM(tm)
     { useGOT = true; }
 
+    virtual StubLayout getStubLayout();
     virtual void *emitFunctionStub(const Function* F, void *Fn,
-                                   MachineCodeEmitter &MCE);
+                                   JITCodeEmitter &JCE);
     virtual LazyResolverFn getLazyResolverFunction(JITCompilerFn);
     virtual void relocate(void *Function, MachineRelocation *MR,
                           unsigned NumRelocs, unsigned char* GOTBase);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,29 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+static void
+removeKey(CFMutableArrayRef keys, CFStringRef key)
+{
+	CFIndex	i;
+	CFIndex	n;
+
+	if (keys == NULL) {
+		/* if no keys */
+		return;
+	}
+
+	n = CFArrayGetCount(keys);
+	i = CFArrayGetFirstIndexOfValue(keys, CFRangeMake(0, n), key);
+	if (i == kCFNotFound) {
+		/* if key not in list */
+	}
+
+	/* remove key from list */
+	CFArrayRemoveValueAtIndex(keys, i);
+	return;
+}
+
+
 Boolean
 SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex)
 {
@@ -67,6 +90,8 @@ SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean
 		return FALSE;
 	}
 
+    retry :
+
 	/* send the key to the server */
 	status = notifyremove(storePrivate->server,
 			      myKeyRef,
@@ -74,11 +99,8 @@ SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean
 			      isRegex,
 			      (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfKey);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -86,14 +108,26 @@ SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreRemoveWatchedKey notifyremove(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
+
+	/* clean up */
+	CFRelease(utfKey);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 		return FALSE;
 	}
 
+	if (isRegex) {
+		removeKey(storePrivate->patterns, key);
+	} else {
+		removeKey(storePrivate->keys, key);
+	}
 	return TRUE;
 }

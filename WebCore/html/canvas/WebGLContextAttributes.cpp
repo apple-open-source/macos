@@ -26,7 +26,7 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLContextAttributes.h"
 
@@ -107,6 +107,16 @@ void WebGLContextAttributes::setPremultipliedAlpha(bool premultipliedAlpha)
     m_attrs.premultipliedAlpha = premultipliedAlpha;
 }
 
+bool WebGLContextAttributes::preserveDrawingBuffer() const
+{
+    return m_attrs.preserveDrawingBuffer;
+}
+
+void WebGLContextAttributes::setPreserveDrawingBuffer(bool preserveDrawingBuffer)
+{
+    m_attrs.preserveDrawingBuffer = preserveDrawingBuffer;
+}
+
 GraphicsContext3D::Attributes WebGLContextAttributes::attributes() const
 {
     return m_attrs;
@@ -114,4 +124,4 @@ GraphicsContext3D::Attributes WebGLContextAttributes::attributes() const
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

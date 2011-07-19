@@ -52,4 +52,10 @@ _PROTOTYPE(extern void process_psem,(int pid, int32_t fd));
 _PROTOTYPE(extern void process_pshm,(int pid, int32_t fd));
 _PROTOTYPE(extern void process_socket,(int pid, int32_t fd));
 _PROTOTYPE(extern void process_vnode,(int pid, int32_t fd));
+#ifdef	PROC_PIDLISTFILEPORTS
+_PROTOTYPE(extern void process_fileport_pipe,(int pid, uint32_t fileport));
+_PROTOTYPE(extern void process_fileport_pshm,(int pid, uint32_t fileport));
+_PROTOTYPE(extern void process_fileport_socket,(int pid, uint32_t fileport));
+_PROTOTYPE(extern void process_fileport_vnode,(int pid, uint32_t fileport));
+#endif	/* PROC_PIDLISTFILEPORTS */
 

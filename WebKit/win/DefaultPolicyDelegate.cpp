@@ -27,11 +27,8 @@
 #include "WebKitDLL.h"
 #include "DefaultPolicyDelegate.h"
 
-#include "WebKit.h"
-
-#pragma warning(push, 0)
+#include <WebCore/COMPtr.h>
 #include <WebCore/PlatformString.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 

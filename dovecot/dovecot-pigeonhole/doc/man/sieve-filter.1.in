@@ -1,0 +1,224 @@
+.\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
+.TH "SIEVE\-FILTER" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.SH NAME
+sieve\-filter \- Pigeonhole\(aqs Sieve mailbox filter tool
+
+.PP
+\fBWARNING: \fRThis tool is not finished and should \fB*NOT*\fR be used, unless
+you feel like testing newly developed features! The behavior described in this
+manual page represents the design and not necessarily what the tool currently
+implements.
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B sieve\-filter
+.RI [ options ]
+.I script\-file
+.I source\-mailbox
+.RI [ source\-action ]
+.SH DESCRIPTION
+.PP
+The \fBsieve\-filter\fP command is part of the Pigeonhole Project
+(\fBpigeonhole\fR(7)), which adds Sieve (RFC 5228) support to the Dovecot
+secure IMAP and POP3 server (\fBdovecot\fR(1)).
+.PP
+The Sieve language was originally meant for filtering messages upon delivery. 
+However, there are occasions when it is desirable to filter messages that are
+already stored in a mailbox, for instance when a bug in a Sieve script caused
+many messages to be delivered incorrectly. Using the sieve\-filter tool it is
+possible to apply a Sieve script on all messages in a particular mailbox, making
+it possible to delete messages, to store them in a different mailbox and to
+change the assigned IMAP flags and keywords. Attempts to send messages to the
+outside world are ignored by default for obvious reasons, but, using the proper
+command line options, it is possible to capture outgoing mail as well. 
+.PP
+If no options are specified, the sieve\-filter command runs in a simulation mode
+in which it only prints what would be performed, without actually doing
+anything. Use the \fB\-e\fP option to activate true script execution. Also, the
+source mailbox is opened read\-only by default, so that the source mailbox 
+remains unchanged. Use the \fB\-W\fP option to allow changes in the source mailbox.
+And even with the \fB\-W\fP option enabled, messages in the source mailbox are
+only potentially modified and not (re)moved, unless a \fIsource\-action\fP
+argument other than \fBkeep\fP is specified.
+.SS CAUTION
+Although this is a very useful tool, it can also be very destructive when used
+improperly. A small bug in your Sieve script in combination with the wrong
+command line options could cause it to discard the wrong e\-mails. And, even if
+the source mailbox is opened in read\-only mode to prevent such mishaps, it can
+still litter other mailboxes with spurious copies of your e\-mails if your Sieve
+script decides to do so. Therefore, users are advised to read this manual
+carefully and to use the simulation mode first to check what the script will do.
+And, of course:
+.PP
+\fBMAKING A BACKUP IS IMPERATIVE FOR ANY IMPORTANT MAIL!\fP
+
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.BI \-c\  config\-file
+Alternative Dovecot configuration file path.
+.TP
+.B \-C
+Force compilation. By default, the compiled binary is stored on disk. When this
+binary is found during the next execution of \fBsieve\-filter\fP and its
+modification time is more recent than the script file, it is used and the script
+is not compiled again. This option forces the script to be compiled, thus
+ignoring any present binary. Refer to \fBsievec\fP(1) for more information about
+Sieve compilation.
+.TP
+.B \-D
+Enable Sieve debugging.
+.TP
+.B \-e
+Turns on execution mode. By default, the sieve\-filter command runs in
+simulation mode in which it changes nothing, meaning that no mailbox is altered
+in any way and no actions are performed. It only prints what would be done.
+Using this option the sieve\-filter command becomes active and performs the 
+requested actions.
+.TP
+.BI \-m\  default\-mailbox
+The mailbox where the (implicit) \fBkeep\fP Sieve action stores messages. This is
+equal to the source mailbox by default. 
+.TP
+.B \-M
+Enable move mode. This will cause all messages that were succesfully stored
+somewhere else to be expunged from the source mailbox, regardless of what the 
+\fIsource\-action\fP is (refer to Arguments section below). However, if the
+Sieve filter decides to keep the message in the source mailbox, it is left
+there and not affected by this option. 
+.IP
+Note that some Sieve actions, such as \fBredirect\fP, don't store the message
+anywhere and are thus \- with respect to the fate of the message in the source
+mailbox \- treated as if a \fBdiscard\fP action were executed. 
+.TP
+.BI \-q\  output\-mailbox\  \fR[not\ implemented\ yet]\fP
+Store outgoing e\-mail into the indicated \fIoutput\-mailbox\fP. By default,
+the sieve\-filter command ignores Sieve actions such as redirect, reject,
+vacation and notify, but using this option outgoing messages can be appended to
+the indicated mailbox. This option has no effect in simulation mode. Flags of
+redirected messages are not preserved. 
+.TP
+.BI \-Q\  mail\-command\  \fR[not\ implemented\ yet]\fP
+Send outgoing e\-mail (e.g. as produced by redirect, reject and vacation)
+through the specified program. By default, the sieve\-filter command ignores
+Sieve actions such as redirect, reject, vacation and notify, but using this
+option outgoing messages can be fed to the \fBstdin\fP of an external shell
+command. This option has no effect in simulation mode. Unless you really know
+what you are doing, \fBDO NOT USE THIS TO FEED MAIL TO SENDMAIL!\fP.
+.TP
+.BI \-s\  script\-file\  \fR[not\ implemented\ yet]\fP
+Specify additional scripts to be executed before the main script. Multiple
+\fB\-s\fP arguments are allowed and the specified scripts are executed
+sequentially in the order specified at the command
+line.
+.TP
+.BI \-u\  user
+Run the Sieve script for the given \fIuser\fP.
+.TP
+.B \-W
+Enables write access to the source mailbox. This allows deleting the messages
+from the source mailbox and changing the assigned IMAP flags and keywords. 
+.TP
+.BI \-x\  extensions
+Set the available extensions. The parameter is a space\-separated list of the
+active extensions. By prepending the extension identifiers with \fB+\fP or
+\fB\-\fP, extensions can be included or excluded relative to the default set of
+extensions. If no extensions have a \fB+\fP or \fB\-\fP prefix, only those
+extensions that are explicitly listed will be enabled. Unknown extensions are
+ignored and a warning is produced. By default, all supported extensions are
+available, except for deprecated extensions or those that are still under
+development.
+
+For example \fB\-x\fP \(dq+imapflags \-enotify\(dq will enable the deprecated
+imapflags extension along with all extensions that are available by default,
+except for the enotify extension.
+
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I script\-file
+Specifies the script to (compile and) execute.
+
+Note that this tool looks for a pre\-compiled binary file with a \fI.svbin\fP
+extension and with basename and path identical to the specified script. Use the
+\fB\-C\fP option to disable this behavior by forcing the script to be compiled
+into a new binary.
+.TP
+.I source\-mailbox
+The name of the source mailbox.
+.TP 
+.I source\-action
+Specifies what is done with messages in the source mailbox once processed by the
+Sieve script. The \fIsource\-action\fP parameter accepts one of the following values:
+.RS 7
+.TP 
+.BR keep\  (default)
+Keep processed messages in source mailbox. When the filter decides to store the message
+in the source mailbox, it is never duplicated there. However, in that case, the
+IMAP flags of the original message can be modified by the Sieve interpreter. 
+.TP 
+.BI move\  mailbox
+Move processed messages to the indicated \fImailbox\fP. This is for instance useful
+to move messages to a Trash mailbox. 
+.TP 
+.B delete
+Flag processed messages as \\DELETED.
+.TP 
+.B expunge
+Expunge processed messages, meaning that these are removed irreversibly when the
+tool finishes filtering.
+.RE
+.IP
+The \fBsource\-action\fP is normally applied to all messages in the source mailbox,
+but there are a few exceptions:
+.RS 7
+.IP \(bu
+When the \fB\-W\fP option is not specified, the source mailbox is immutable and
+the specified \fIsource\-action\fP has no effect.
+.IP \(bu
+When the \fB\-M\fR option (move mode) is active, all messages that were
+successfully moved to another mailbox are expunged irrespective of the specified 
+\fIsource\-action\fP. 
+.IP \(bu
+If the filter decides to keep the message in the source mailbox, it is left there
+and not affected by the \fIsource\-action\fP.
+.RE
+
+.\"------------------------------------------------------------------------
+
+.SH EXAMPLES
+
+.TP
+[...]
+
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B sieve\-filter
+will exit with one of the following values:
+.TP 4
+.B 0
+Sieve filter applied successfully. (EX_OK, EXIT_SUCCES)
+.TP
+.B 1
+Operation failed. This is returned for almost all failures.
+(EXIT_FAILURE)
+.TP
+.B 64
+Invalid parameter given. (EX_USAGE)
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @pkgsysconfdir@/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @pkgsysconfdir@/conf.d/90\-sieve.conf
+Sieve interpreter settings (included from Dovecot\(aqs main configuration file)
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH "SEE ALSO"
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR sieve\-dump (1),
+.BR sieve\-test (1),
+.BR sievec (1),
+.BR pigeonhole (7)

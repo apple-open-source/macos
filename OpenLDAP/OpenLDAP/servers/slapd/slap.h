@@ -1,8 +1,8 @@
 /* slap.h - stand alone ldap server include file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/slap.h,v 1.764.2.29 2008/07/08 19:25:39 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slap.h,v 1.764.2.68 2010/04/16 20:03:05 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -62,9 +62,12 @@ LDAP_BEGIN_DECL
 #define LDAP_COLLECTIVE_ATTRIBUTES
 #define LDAP_COMP_MATCH
 #define LDAP_SYNC_TIMESTAMP
-#define SLAP_CONTROL_X_SORTEDRESULTS
 #define SLAP_CONTROL_X_SESSION_TRACKING
+#define SLAP_CONTROL_X_WHATFAILED
 #define SLAP_CONFIG_DELETE
+#ifndef SLAP_SCHEMA_EXPOSE
+#define SLAP_SCHEMA_EXPOSE
+#endif
 #endif
 
 #define LDAP_DYNAMIC_OBJECTS
@@ -116,7 +119,7 @@ LDAP_BEGIN_DECL
 
 #define MAXREMATCHES (100)
 
-#define SLAP_MAX_WORKER_THREADS		(16)
+#define SLAP_MAX_WORKER_THREADS		(20)
 
 #define SLAP_SB_MAX_INCOMING_DEFAULT ((1<<18) - 1)
 #define SLAP_SB_MAX_INCOMING_AUTH ((1<<24) - 1)
@@ -300,6 +303,8 @@ enum {
 	SLAP_SCHERR_SYN_NOT_FOUND,
 	SLAP_SCHERR_SYN_DUP,
 	SLAP_SCHERR_SYN_SUP_NOT_FOUND,
+	SLAP_SCHERR_SYN_SUBST_NOT_SPECIFIED,
+	SLAP_SCHERR_SYN_SUBST_NOT_FOUND,
 	SLAP_SCHERR_NO_NAME,
 	SLAP_SCHERR_NOT_SUPPORTED,
 	SLAP_SCHERR_BAD_DESCR,
@@ -410,11 +415,12 @@ struct Syntax {
 #define SLAP_SYNTAX_BLOB	0x0001U /* syntax treated as blob (audio) */
 #define SLAP_SYNTAX_BINARY	0x0002U /* binary transfer required (certificate) */
 #define SLAP_SYNTAX_BER		0x0004U /* stored in BER encoding (certificate) */
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_SYNTAX_HIDE	0x0000U /* publish everything */
 #else
 #define SLAP_SYNTAX_HIDE	0x8000U /* hide (do not publish) */
 #endif
+#define	SLAP_SYNTAX_HARDCODE	0x10000U	/* This is hardcoded schema */
 
 	Syntax				**ssyn_sups;
 
@@ -431,7 +437,7 @@ struct Syntax {
 	struct ComponentDesc* ssync_comp_syntax;
 #endif
 
-	LDAP_SLIST_ENTRY(Syntax)	ssyn_next;
+	LDAP_STAILQ_ENTRY(Syntax)	ssyn_next;
 };
 
 #define slap_syntax_is_flag(s,flag) ((int)((s)->ssyn_flags & (flag)) ? 1 : 0)
@@ -516,7 +522,7 @@ struct MatchingRule {
 
 	slap_mask_t			smr_usage;
 
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_MR_HIDE			0x0000U
 #else
 #define SLAP_MR_HIDE			0x8000U
@@ -687,7 +693,7 @@ struct AttributeType {
 #define SLAP_AT_NONE			0x0000U
 #define SLAP_AT_ABSTRACT		0x0100U /* cannot be instantiated */
 #define SLAP_AT_FINAL			0x0200U /* cannot be subtyped */
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_AT_HIDE			0x0000U /* publish everything */
 #else
 #define SLAP_AT_HIDE			0x8000U /* hide attribute */
@@ -785,7 +791,7 @@ struct ObjectClass {
 #define	SLAP_OC__MASK		0x00FF
 #define	SLAP_OC__END		0x0100
 #define SLAP_OC_OPERATIONAL	0x4000
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_OC_HIDE		0x0000
 #else
 #define SLAP_OC_HIDE		0x8000
@@ -839,10 +845,13 @@ struct AttributeDescription {
 #define SLAP_AD_PROXIED		0x01U
 #define	SLAP_AD_NOINSERT	0x02U
 
+#define	SLAP_AN_OCEXCLUDE	0x01
+#define	SLAP_AN_OCINITED	0x02
+
 struct AttributeName {
 	struct berval		an_name;
 	AttributeDescription	*an_desc;
-	int			an_oc_exclude;
+	int			an_flags;
 	ObjectClass		*an_oc;
 };
 
@@ -974,6 +983,8 @@ struct slap_internal_schema {
 	MatchingRule	*si_mr_integerMatch;
 	MatchingRule    *si_mr_integerFirstComponentMatch;
 	MatchingRule    *si_mr_objectIdentifierFirstComponentMatch;
+	MatchingRule    *si_mr_caseIgnoreMatch;
+	MatchingRule    *si_mr_caseIgnoreListMatch;
 
 	/* Syntaxes */
 	Syntax		*si_syn_directoryString;
@@ -1279,7 +1290,9 @@ typedef enum slap_style_e {
 	ACL_STYLE_SELF,
 	ACL_STYLE_IP,
 	ACL_STYLE_IPV6,
-	ACL_STYLE_PATH
+	ACL_STYLE_PATH,
+
+	ACL_STYLE_NONE
 } slap_style_t;
 
 typedef struct AuthorizationInformation {
@@ -1530,26 +1543,34 @@ typedef struct AccessControl {
 	struct AccessControl	*acl_next;
 } AccessControl;
 
-typedef enum {
-	ACL_STATE_NOT_RECORDED			= 0x0,
-	ACL_STATE_RECORDED_VD			= 0x1,
-	ACL_STATE_RECORDED_NV			= 0x2,
-	ACL_STATE_RECORDED			= ( ACL_STATE_RECORDED_VD | ACL_STATE_RECORDED_NV )
-} slap_acl_state_t;
-
 typedef struct AccessControlState {
 	/* Access state */
-	AccessControl *as_vi_acl;
-	AccessControl *as_vd_acl;
-	AttributeDescription *as_vd_ad;
 
+	/* The stored state is valid when requesting as_access access
+	 * to the as_desc attributes.	 */
+	AttributeDescription *as_desc;
+	slap_access_t	as_access;
 
-	slap_acl_state_t as_recorded;
+	/* Value dependent acl where processing can restart */
+	AccessControl  *as_vd_acl;
 	int as_vd_acl_count;
+	slap_mask_t		as_vd_mask;
+
+	/* The cached result after evaluating a value independent attr.
+	 * Only valid when != -1 and as_vd_acl == NULL */
 	int as_result;
+
+	/* True if started to process frontend ACLs */
+	int as_fe_done;
 } AccessControlState;
-#define ACL_STATE_INIT { NULL, NULL, NULL, \
-	ACL_STATE_NOT_RECORDED, 0, 0 }
+#define ACL_STATE_INIT { NULL, ACL_NONE, NULL, 0, ACL_PRIV_NONE, -1, 0 }
+
+typedef struct AclRegexMatches {        
+	int dn_count;
+        regmatch_t dn_data[MAXREMATCHES];
+	int val_count;
+        regmatch_t val_data[MAXREMATCHES];
+} AclRegexMatches;
 
 /*
  * Backend-info
@@ -1565,11 +1586,11 @@ LDAP_SLAPD_V (slap_bi_head) backendInfo;
 LDAP_SLAPD_V (slap_be_head) backendDB;
 LDAP_SLAPD_V (BackendDB *) frontendDB;
 
-LDAP_SLAPD_V (int) slapMode;	
+LDAP_SLAPD_V (int) slapMode;
 #if defined(__APPLE__)
-LDAP_SLAPD_V (int) slapAddMode;	
-#endif 
-
+LDAP_SLAPD_V (int) slapAddMode;        
+#endif
+	
 #define SLAP_UNDEFINED_MODE	0x0000
 #define SLAP_SERVER_MODE	0x0001
 #define SLAP_TOOL_MODE		0x0002
@@ -1586,6 +1607,12 @@ LDAP_SLAPD_V (int) slapAddMode;
 #define SB_TLS_ON		1
 #define SB_TLS_CRITICAL		2
 
+typedef struct slap_keepalive {
+	int sk_idle;
+	int sk_probes;
+	int sk_interval;
+} slap_keepalive;
+
 typedef struct slap_bindconf {
 	struct berval sb_uri;
 	int sb_version;
@@ -1600,6 +1627,7 @@ typedef struct slap_bindconf {
 	struct berval sb_realm;
 	struct berval sb_authcId;
 	struct berval sb_authzId;
+	slap_keepalive sb_keepalive;
 #ifdef HAVE_TLS
 	void *sb_tls_ctx;
 	char *sb_tls_cert;
@@ -1608,6 +1636,7 @@ typedef struct slap_bindconf {
 	char *sb_tls_cacertdir;
 	char *sb_tls_reqcert;
 	char *sb_tls_cipher_suite;
+	char *sb_tls_protocol_min;
 #ifdef HAVE_OPENSSL_CRL
 	char *sb_tls_crlcheck;
 #endif
@@ -1627,6 +1656,14 @@ typedef struct slap_cf_aux_table {
 	char quote;
 	void *aux;
 } slap_cf_aux_table;
+
+typedef int 
+slap_cf_aux_table_parse_x LDAP_P((
+	struct berval *val,
+	void *bc,
+	slap_cf_aux_table *tab0,
+	const char *tabmsg,
+	int unparse ));
 
 #define SLAP_LIMIT_TIME	1
 #define SLAP_LIMIT_SIZE	2
@@ -1651,6 +1688,7 @@ struct slap_limits_set {
 
 struct slap_limits {
 	unsigned		lm_flags;	/* type of pattern */
+	/* Values must match lmpats[] in limits.c */
 #define SLAP_LIMITS_UNDEFINED		0x0000U
 #define SLAP_LIMITS_EXACT		0x0001U
 #define SLAP_LIMITS_BASE		SLAP_LIMITS_EXACT
@@ -1663,8 +1701,10 @@ struct slap_limits {
 #define SLAP_LIMITS_ANY			0x0008U
 #define SLAP_LIMITS_MASK		0x000FU
 
-#define SLAP_LIMITS_TYPE_DN		0x0000U
+#define SLAP_LIMITS_TYPE_SELF		0x0000U
+#define SLAP_LIMITS_TYPE_DN		SLAP_LIMITS_TYPE_SELF
 #define SLAP_LIMITS_TYPE_GROUP		0x0010U
+#define SLAP_LIMITS_TYPE_THIS		0x0020U
 #define SLAP_LIMITS_TYPE_MASK		0x00F0U
 
 	regex_t			lm_regex;	/* regex data for REGEX */
@@ -1698,9 +1738,14 @@ struct syncinfo_s;
 
 #define SLAP_SYNC_RID_MAX	999
 #define SLAP_SYNC_SID_MAX	4095	/* based on liblutil/csn.c field width */
-#define SLAP_SYNCUUID_SET_SIZE 256
 
-#define	SLAP_SYNC_UPDATE_MSGID	1
+/* fake conn connid constructed as rid; real connids start
+ * at SLAPD_SYNC_CONN_OFFSET */
+#define SLAPD_SYNC_SYNCCONN_OFFSET (SLAP_SYNC_RID_MAX + 1)
+#define SLAPD_SYNC_IS_SYNCCONN(connid) ((connid) < SLAPD_SYNC_SYNCCONN_OFFSET)
+#define SLAPD_SYNC_RID2SYNCCONN(rid) (rid)
+
+#define SLAP_SYNCUUID_SET_SIZE 256
 
 struct sync_cookie {
 	struct berval *ctxcsn;
@@ -1767,6 +1812,7 @@ struct BackendDB {
 #define		be_entry_open bd_info->bi_tool_entry_open
 #define		be_entry_close bd_info->bi_tool_entry_close
 #define		be_entry_first bd_info->bi_tool_entry_first
+#define		be_entry_first_x bd_info->bi_tool_entry_first_x
 #define		be_entry_next bd_info->bi_tool_entry_next
 #define		be_entry_reindex bd_info->bi_tool_entry_reindex
 #define		be_entry_get bd_info->bi_tool_entry_get
@@ -1798,6 +1844,10 @@ struct BackendDB {
 #define SLAP_DBFLAG_SINGLE_SHADOW	0x4000U	/* a single-master shadow */
 #define SLAP_DBFLAG_SYNC_SHADOW		0x1000U /* a sync shadow */
 #define SLAP_DBFLAG_SLURP_SHADOW	0x2000U /* a slurp shadow */
+#define SLAP_DBFLAG_SHADOW_MASK		(SLAP_DBFLAG_SHADOW|SLAP_DBFLAG_SINGLE_SHADOW|SLAP_DBFLAG_SYNC_SHADOW|SLAP_DBFLAG_SLURP_SHADOW)
+#define SLAP_DBFLAG_CLEAN		0x10000U /* was cleanly shutdown */
+#define SLAP_DBFLAG_ACL_ADD		0x20000U /* check attr ACLs on adds */
+#define SLAP_DBFLAG_SYNC_SUBENTRY	0x40000U /* use subentry for context */
 	slap_mask_t	be_flags;
 #define SLAP_DBFLAGS(be)			((be)->be_flags)
 #define SLAP_NOLASTMOD(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_NOLASTMOD)
@@ -1822,6 +1872,9 @@ struct BackendDB {
 #define SLAP_SLURP_SHADOW(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_SLURP_SHADOW)
 #define SLAP_SINGLE_SHADOW(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_SINGLE_SHADOW)
 #define SLAP_MULTIMASTER(be)			(!SLAP_SINGLE_SHADOW(be))
+#define SLAP_DBCLEAN(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_CLEAN)
+#define SLAP_DBACL_ADD(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_ACL_ADD)
+#define SLAP_SYNC_SUBENTRY(be)			(SLAP_DBFLAGS(be) & SLAP_DBFLAG_SYNC_SUBENTRY)
 
 	slap_mask_t	be_restrictops;		/* restriction operations */
 #define SLAP_RESTRICT_OP_ADD		0x0001U
@@ -1869,6 +1922,9 @@ struct BackendDB {
 #define SLAP_DISALLOW_TLS_2_ANON	0x0010U /* StartTLS -> Anonymous */
 #define SLAP_DISALLOW_TLS_AUTHC		0x0020U	/* TLS while authenticated */
 
+#define SLAP_DISALLOW_PROXY_AUTHZ_N_CRIT	0x0100U
+#define SLAP_DISALLOW_DONTUSECOPY_N_CRIT	0x0200U
+
 #define SLAP_DISALLOW_AUX_WO_CR		0x4000U
 
 	slap_mask_t	be_requires;	/* pre-operation requirements */
@@ -1901,7 +1957,6 @@ struct BackendDB {
 	BerVarray	be_update_refs;	/* where to refer modifying clients to */
 	struct		be_pcl	*be_pending_csn_list;
 	ldap_pvt_thread_mutex_t					be_pcl_mutex;
-	ldap_pvt_thread_mutex_t					*be_pcl_mutexp;
 	struct syncinfo_s						*be_syncinfo; /* For syncrepl */
 
 	void    *be_pb;         /* Netscape plugin */
@@ -1984,7 +2039,7 @@ typedef struct req_abandon_s {
 	ber_int_t rs_msgid;
 } req_abandon_s;
 
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_EXOP_HIDE 0x0000
 #else
 #define SLAP_EXOP_HIDE 0x8000
@@ -2054,21 +2109,25 @@ struct SlapReply {
 	BerVarray sr_ref;
 	LDAPControl **sr_ctrls;
 	union sr_u {
+		rep_search_s sru_search;
 		rep_sasl_s sru_sasl;
 		rep_extended_s sru_extended;
-		rep_search_s sru_search;
 	} sr_un;
 	slap_mask_t sr_flags;
 #define REP_ENTRY_MODIFIABLE	0x0001U
 #define REP_ENTRY_MUSTBEFREED	0x0002U
 #define REP_ENTRY_MUSTRELEASE	0x0004U
 #define	REP_ENTRY_MASK		(REP_ENTRY_MODIFIABLE|REP_ENTRY_MUSTBEFREED|REP_ENTRY_MUSTRELEASE)
+#define	REP_ENTRY_MUSTFLUSH	(REP_ENTRY_MUSTBEFREED|REP_ENTRY_MUSTRELEASE)
 
 #define REP_MATCHED_MUSTBEFREED	0x0010U
 #define	REP_MATCHED_MASK	(REP_MATCHED_MUSTBEFREED)
 
 #define REP_REF_MUSTBEFREED	0x0020U
 #define REP_REF_MASK		(REP_REF_MUSTBEFREED)
+
+#define REP_CTRLS_MUSTBEFREED	0x0040U
+#define REP_CTRLS_MASK		(REP_CTRLS_MUSTBEFREED)
 
 #define	REP_NO_ENTRYDN		0x1000U
 #define	REP_NO_SUBSCHEMA	0x2000U
@@ -2124,6 +2183,7 @@ typedef BI_conn_func BI_connection_destroy;
 typedef int (BI_tool_entry_open) LDAP_P(( BackendDB *be, int mode ));
 typedef int (BI_tool_entry_close) LDAP_P(( BackendDB *be ));
 typedef ID (BI_tool_entry_first) LDAP_P(( BackendDB *be ));
+typedef ID (BI_tool_entry_first_x) LDAP_P(( BackendDB *be, struct berval *base, int scope, Filter *f ));
 typedef ID (BI_tool_entry_next) LDAP_P(( BackendDB *be ));
 typedef Entry* (BI_tool_entry_get) LDAP_P(( BackendDB *be, ID id ));
 typedef ID (BI_tool_entry_put) LDAP_P(( BackendDB *be, Entry *e, 
@@ -2223,7 +2283,8 @@ struct BackendInfo {
 	/* hooks for slap tools */
 	BI_tool_entry_open	*bi_tool_entry_open;
 	BI_tool_entry_close	*bi_tool_entry_close;
-	BI_tool_entry_first	*bi_tool_entry_first;
+	BI_tool_entry_first	*bi_tool_entry_first;	/* deprecated */
+	BI_tool_entry_first_x	*bi_tool_entry_first_x;
 	BI_tool_entry_next	*bi_tool_entry_next;
 	BI_tool_entry_get	*bi_tool_entry_get;
 	BI_tool_entry_put	*bi_tool_entry_put;
@@ -2342,7 +2403,6 @@ typedef struct slap_overinfo {
 } slap_overinfo;
 
 /* Should successive callbacks in a chain be processed? */
-#define	SLAP_CB_FREEME		0x04000
 #define	SLAP_CB_BYPASS		0x08800
 #define	SLAP_CB_CONTINUE	0x08000
 
@@ -2360,6 +2420,7 @@ typedef struct PagedResultsState {
 
 struct slap_csn_entry {
 	struct berval ce_csn;
+	int ce_sid;
 	unsigned long ce_opid;
 	unsigned long ce_connid;
 #define SLAP_CSN_PENDING	1
@@ -2410,6 +2471,9 @@ struct slap_control_ids {
 	int sc_sessionTracking;
 #endif
 	int sc_valuesReturnFilter;
+#ifdef SLAP_CONTROL_X_WHATFAILED
+	int sc_whatFailed;
+#endif
 };
 
 /*
@@ -2590,6 +2654,7 @@ struct Operation {
 	GroupAssertion *o_groups;
 	char o_do_not_cache;	/* don't cache groups from this op */
 	char o_is_auth_check;	/* authorization in progress */
+	char o_dont_replicate;
 	slap_access_t o_acl_priv;
 
 	char o_nocaching;
@@ -2679,6 +2744,11 @@ struct Operation {
 #define get_sessionTracking(op)			((int)(op)->o_session_tracking)
 #endif
 
+#ifdef SLAP_CONTROL_X_WHATFAILED
+#define o_whatFailed o_ctrlflag[slap_cids.sc_whatFailed]
+#define get_whatFailed(op)				_SCM((op)->o_whatFailed)
+#endif
+
 #define o_sync			o_ctrlflag[slap_cids.sc_LDAPsync]
 
 	AuthorizationInformation o_authz;
@@ -2733,14 +2803,31 @@ typedef void (SEND_LDAP_INTERMEDIATE)(
 #define send_ldap_intermediate( op, rs ) \
 	((op)->o_conn->c_send_ldap_intermediate)( op, rs )
 
-typedef struct slap_listener Listener;
+typedef struct Listener Listener;
 
 /*
  * represents a connection from an ldap client
  */
+/* structure state (protected by connections_mutex) */
+enum sc_struct_state {
+	SLAP_C_UNINITIALIZED = 0,	/* MUST BE ZERO (0) */
+	SLAP_C_UNUSED,
+	SLAP_C_USED,
+	SLAP_C_PENDING
+};
+
+/* connection state (protected by c_mutex ) */
+enum sc_conn_state {
+	SLAP_C_INVALID = 0,		/* MUST BE ZERO (0) */
+	SLAP_C_INACTIVE,		/* zero threads */
+	SLAP_C_CLOSING,			/* closing */
+	SLAP_C_ACTIVE,			/* one or more threads */
+	SLAP_C_BINDING,			/* binding */
+	SLAP_C_CLIENT			/* outbound client conn */
+};
 struct Connection {
-	int			c_struct_state; /* structure management state */
-	int			c_conn_state;	/* connection state */
+	enum sc_struct_state	c_struct_state; /* structure management state */
+	enum sc_conn_state	c_conn_state;	/* connection state */
 	int			c_conn_idx;		/* slot in connections array */
 	ber_socket_t	c_sd;
 	const char	*c_close_reason; /* why connection is closing */
@@ -2782,14 +2869,18 @@ struct Connection {
 	LDAP_STAILQ_HEAD(c_o, Operation) c_ops;	/* list of operations being processed */
 	LDAP_STAILQ_HEAD(c_po, Operation) c_pending_ops;	/* list of pending operations */
 
-	ldap_pvt_thread_mutex_t	c_write_mutex;	/* only one pdu written at a time */
-	ldap_pvt_thread_cond_t	c_write_cv;		/* used to wait for sd write-ready*/
+	ldap_pvt_thread_mutex_t	c_write1_mutex;	/* only one pdu written at a time */
+	ldap_pvt_thread_cond_t	c_write1_cv;	/* only one pdu written at a time */
+	ldap_pvt_thread_mutex_t	c_write2_mutex;	/* used to wait for sd write-ready */
+	ldap_pvt_thread_cond_t	c_write2_cv;	/* used to wait for sd write-ready*/
 
 	BerElement	*c_currentber;	/* ber we're attempting to read */
+	int			c_writers;		/* number of writers waiting */
+	char		c_writing;		/* someone is writing */
 
 	char		c_sasl_bind_in_progress;	/* multi-op bind in progress */
+	char		c_writewaiter;	/* true if blocked on write */
 
-	char		c_writewaiter;	/* true if writer is waiting */
 
 #define	CONN_IS_TLS	1
 #define	CONN_IS_UDP	2
@@ -2864,7 +2955,7 @@ struct Connection {
 #define Statslog( level, fmt, connid, opid, arg1, arg2, arg3 )	\
 	do { \
 		if ( ldap_debug & (level) ) \
-			fprintf( stderr, (fmt), (connid), (opid), (arg1), (arg2), (arg3) );\
+			lutil_debug( ldap_debug, (level), (fmt), (connid), (opid), (arg1), (arg2), (arg3) );\
 	} while (0)
 #define StatslogTest( level ) (ldap_debug & (level))
 #endif /* !LDAP_SYSLOG */
@@ -2876,7 +2967,7 @@ struct Connection {
 /*
  * listener; need to access it from monitor backend
  */
-struct slap_listener {
+struct Listener {
 	struct berval sl_url;
 	struct berval sl_name;
 	mode_t	sl_perms;
@@ -2891,6 +2982,13 @@ struct slap_listener {
 	ber_socket_t sl_sd;
 	Sockaddr sl_sa;
 #define sl_addr	sl_sa.sa_in_addr
+#ifdef LDAP_DEVEL
+#define LDAP_TCP_BUFFER
+#endif
+#ifdef LDAP_TCP_BUFFER
+	int	sl_tcp_rmem;	/* custom TCP read buffer size */
+	int	sl_tcp_wmem;	/* custom TCP write buffer size */
+#endif
 };
 
 /*
@@ -2902,7 +3000,7 @@ struct slap_listener {
 /* number of response controls supported */
 #define SLAP_MAX_RESPONSE_CONTROLS   6
 
-#ifdef LDAP_DEVEL
+#ifdef SLAP_SCHEMA_EXPOSE
 #define SLAP_CTRL_HIDE				0x00000000U
 #else
 #define SLAP_CTRL_HIDE				0x80000000U

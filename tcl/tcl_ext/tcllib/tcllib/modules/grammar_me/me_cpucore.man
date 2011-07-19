@@ -3,6 +3,7 @@
 [copyright {2005-2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Grammar operations and usage}]
 [titledesc {ME virtual machine state manipulation}]
+[category  {Grammars and finite automata}]
 [require Tcl 8.4]
 [require grammar::me::cpu::core [opt 0.2]]
 [description]

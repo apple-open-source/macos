@@ -1,0 +1,48 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc ndblock {} {
+    variable boxwidth
+    variable boxheight
+    box wid [expr {$boxwidth/2.}] ht [expr {$boxheight/2.}]
+    down;
+    box same with t at [last box bottom];
+    box wid [expr {$boxwidth/2.}] ht [expr {$boxheight/2.}]
+}
+
+set boxheight    [5 mm]
+set boxwidth     [7.5 mm]
+set dx           [1 mm]
+
+down; box; box; box; box ht [expr {3*$boxheight}] "." "." "."
+
+set L [box]; box; text wid [expr {2*$boxwidth}] "hashtab:" with e at [1st box w]
+
+move right
+
+set Start [box wid [13 mm] with sw at [[1st box ne] + [[1 cm] [-5 mm]]] "..."]
+
+set N1 [box wid [5 mm] "n1"]; set D1 [box wid [7.5 mm] "d1"]
+set N3 [box wid [1 cm] "n3"]; set D3 [box wid [7.5 mm] "d3"]
+
+box wid [1 cm] "..."
+
+set N2 [box wid [13 mm] "n2"]; set D2 [box wid [5 mm] "d2"]
+
+arrow right from [2nd box]
+ndblock
+spline -> right [5 mm] from [3rd last box] then [[$N1 sw] + [$dx 0]]
+spline -> right [7.5 mm] from [2nd last box] then [[$D1 sw] + [$dx 0]]
+
+arrow right [expr {1.6*$movelength}] from [last box]
+ndblock
+spline -> right [5 mm] from [3rd last box] to [[$N2 sw] - [$dx [5 mm]]] to [[$N2 sw] + [$dx 0]]
+spline -> right [7.5 mm] from [2nd last box] to [[$D2 sw] - [$dx [5 mm]]] to [[$D2 sw] + [$dx 0]]
+
+arrow right [expr {1.3*$movelength}] from $L
+ndblock
+spline -> right [5 mm] from [3rd last box] to [[$N3 sw] + [$dx 0]]
+spline -> right [7.5 mm] from [2nd last box] to [[$D3 sw] + [$dx 0]]
+
+text "ndblock" at [[last box e] + [[3 cm] [5 mm]]]
+arrow dashed from [last text w] to [last box] chop 0 chop [7.5 mm]
+text wid [expr {2*$boxwidth}] "ndtable:" with e at [$Start w]

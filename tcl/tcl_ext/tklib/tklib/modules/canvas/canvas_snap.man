@@ -1,0 +1,36 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin canvas::snap n 1.0.1]
+[copyright {2004 George Petasis (http://wiki.tcl.tk/1404)}]
+[copyright {2010 Documentation, Andreas Kupries}]
+[moddesc   {Variations on a canvas}]
+[titledesc {Canvas snapshot to Tk photo image}]
+[require Tcl 8.5]
+[require Tk 8.5]
+[require canvas::snap [opt 1.0.1]]
+[require img::window]
+[description]
+
+This package provides a command to take snapshots of arbitrary
+canvases.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::canvas::snap] [arg pathName]]
+
+Takes a snapshot of the canvas [arg pathName]. The result is the name
+of a new Tk photo image containing the snapshot.
+
+[para]
+
+[emph Note] that this command has a side-effect. To avoid having white
+rectangles where other windows may overlap the canvas this command
+forces the toplevel window the canvas is in to the top of the stacking
+order.
+
+[list_end]
+
+[keywords canvas photo image snapshot {print screen}]
+[manpage_end]
+

@@ -95,4 +95,5 @@ pam_setenv(pam_handle_t *pamh,
  * >pam_getenv
  * >pam_getenvlist
  * >pam_putenv
+ * >pam_unsetenv
  */

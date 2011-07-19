@@ -1,0 +1,19 @@
+Changes
+lib/Sub/Install.pm
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+README
+t/00-load.t
+t/auto_as.t
+t/export.t
+t/inst-blessed.t
+t/install.t
+t/misc_errors.t
+t/perl-critic.t
+t/pod-coverage.t
+t/pod.t
+t/reinstall.t
+t/SI_install.t
+t/SI_reinstall.t
+META.yml                                 Module meta-data (added by MakeMaker)

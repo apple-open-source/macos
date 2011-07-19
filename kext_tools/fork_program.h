@@ -16,4 +16,4 @@ int fork_program(
     char * const argv[],
     Boolean      wait);
 
-#endif /* _FORK_PROGRAM */
+#endif

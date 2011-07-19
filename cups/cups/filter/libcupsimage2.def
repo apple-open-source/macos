@@ -1,10 +1,11 @@
 LIBRARY libcupsimage2
-VERSION 2.2
+VERSION 2.3
 EXPORTS
 cupsRasterClose
 cupsRasterErrorString
 cupsRasterInterpretPPD
 cupsRasterOpen
+cupsRasterOpenIO
 cupsRasterReadHeader
 cupsRasterReadHeader2
 cupsRasterReadPixels

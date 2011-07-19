@@ -7,7 +7,7 @@
 	<key>CFBundleName</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleShortVersionString</key>
-	<string>10.1.2</string>
+	<string>11.0.0</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>Requires</key>
@@ -16,5 +16,91 @@
 		<string>com.apple.SystemConfiguration.KernelEventMonitor</string>
 		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
 	</array>
+	<key>IPConfiguration</key>
+	<dict>
+		<key>UseMaintenanceWake</key>
+		<true/>
+		<key>ManualConflictRetryIntervalSeconds</key>
+		<integer>300</integer>
+		<key>ARPConflictRetryCount</key>
+		<integer>2</integer>
+		<key>ARPConflictRetryDelaySeconds</key>
+		<real>0.75</real>
+		<key>ARPDetectCount</key>
+		<integer>3</integer>
+		<key>ARPDetectRetryTimeSeconds</key>
+		<real>0.015</real>
+		<key>ARPResolveRetryTimeSeconds</key>
+		<real>0.32</real>
+		<key>ARPGratuitousCount</key>
+		<integer>2</integer>
+		<key>ARPProbeCount</key>
+		<integer>3</integer>
+		<key>ARPRetryTimeSeconds</key>
+		<real>0.32</real>
+		<key>DHCPAcceptsBOOTP</key>
+		<false/>
+		<key>DHCPAllocateLinkLocalAtRetryCount</key>
+		<integer>4</integer>
+		<key>DHCPDefendIPAddressCount</key>
+		<integer>3</integer>
+		<key>DHCPDefendIPAddressIntervalSeconds</key>
+		<integer>10</integer>
+		<key>DHCPLeaseWriteT1ThresholdSeconds</key>
+		<integer>3600</integer>
+		<key>DHCPFailureConfiguresLinkLocal</key>
+		<true/>
+		<key>DHCPInitRebootRetryCount</key>
+		<integer>2</integer>
+		<key>DHCPLocalHostNameLengthMax</key>
+		<integer>15</integer>
+		<key>DHCPRequestedParameterList</key>
+		<array>
+			<integer>1</integer>
+			<integer>3</integer>
+			<integer>6</integer>
+			<integer>15</integer>
+			<integer>119</integer>
+			<integer>95</integer>
+			<integer>252</integer>
+			<integer>44</integer>
+			<integer>46</integer>
+		</array>
+		<key>DHCPRouterARPAtRetryCount</key>
+		<integer>7</integer>
+		<key>DHCPSelectRetryCount</key>
+		<integer>3</integer>
+		<key>DHCPSuccessDeconfiguresLinkLocal</key>
+		<true/>
+		<key>DiscoverAndPublishRouterMACAddress</key>
+		<true/>
+		<key>DiscoverRouterMACAddressTimeSeconds</key>
+		<integer>60</integer>
+		<key>GatherTimeSeconds</key>
+		<integer>1</integer>
+		<key>InitialRetryTimeSeconds</key>
+		<integer>1</integer>
+		<key>LinkInactiveWaitTimeSeconds</key>
+		<integer>1</integer>
+		<key>MaximumRetryTimeSeconds</key>
+		<integer>8</integer>
+		<key>MustBroadcast</key>
+		<false/>
+		<key>RetryCount</key>
+		<integer>9</integer>
+		<key>RouterARPEnabled</key>
+		<true/>
+		<key>ConfigureIPv6</key>
+		<true/>
+		<key>DHCPv6Enabled</key>
+		<true/>
+		<key>DHCPv6RequestedOptions</key>
+		<array>
+			<integer>23</integer>
+			<integer>24</integer>
+		</array>
+		<key>Verbose</key>
+		<false/>
+	</dict>
 </dict>
 </plist>

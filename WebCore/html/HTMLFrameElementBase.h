@@ -36,46 +36,43 @@ public:
 
     virtual ScrollbarMode scrollingMode() const { return m_scrolling; }
     
-    int getMarginWidth() const { return m_marginWidth; }
-    int getMarginHeight() const { return m_marginHeight; }
+    int marginWidth() const { return m_marginWidth; }
+    int marginHeight() const { return m_marginHeight; }
 
     int width() const;
     int height() const;
 
     void setRemainsAliveOnRemovalFromTree(bool);
+#if ENABLE(FULLSCREEN_API)
+    virtual bool allowFullScreen() const;
+#endif
+
+    virtual bool canContainRangeEndPoint() const { return false; }
 
 protected:
     HTMLFrameElementBase(const QualifiedName&, Document*);
 
     bool isURLAllowed() const;
 
-    virtual void parseMappedAttribute(MappedAttribute*);
-
+    virtual void parseMappedAttribute(Attribute*);
     virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
-
     virtual void attach();
 
 private:
-    virtual bool canLazyAttach() { return false; }
-
     virtual bool supportsFocus() const;
     virtual void setFocus(bool);
     
     virtual bool isURLAttribute(Attribute*) const;
-
-    virtual void setName();
+    virtual bool isFrameElementBase() const { return true; }
 
     virtual void willRemove();
-    void checkAttachedTimerFired(Timer<HTMLFrameElementBase>*);
+    void checkInDocumentTimerFired(Timer<HTMLFrameElementBase>*);
     void updateOnReparenting();
 
     bool viewSourceMode() const { return m_viewSource; }
 
     void setNameAndOpenURL();
     void openURL(bool lockHistory = true, bool lockBackForwardList = true);
-
-    static void setNameAndOpenURLCallback(Node*);
 
     AtomicString m_URL;
     AtomicString m_frameName;
@@ -85,12 +82,19 @@ private:
     int m_marginWidth;
     int m_marginHeight;
 
-    Timer<HTMLFrameElementBase> m_checkAttachedTimer;
+    // This is a performance optimization some call "magic iframe" which avoids
+    // tearing down the frame hierarchy when a web page calls adoptNode on a
+    // frame owning element but does not immediately insert it into the new
+    // document before JavaScript yields to WebCore.  If the element is not yet
+    // in a document by the time this timer fires, the frame hierarchy teardown
+    // will continue.  This can also be seen as implementation of:
+    // "Removing an iframe from a Document does not cause its browsing context
+    // to be discarded. Indeed, an iframe's browsing context can survive its
+    // original parent Document if its iframe is moved to another Document."
+    // From HTML5: http://www.whatwg.org/specs/web-apps/current-work/multipage/the-iframe-element.html#the-iframe-element
+    Timer<HTMLFrameElementBase> m_checkInDocumentTimer;
 
     bool m_viewSource;
-
-    bool m_shouldOpenURLAfterAttach;
-
     bool m_remainsAliveOnRemovalFromTree;
 };
 

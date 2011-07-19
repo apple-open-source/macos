@@ -66,6 +66,7 @@ typedef struct MASTER_SERV {
 #define MASTER_FLAG_LOCAL_ONLY	(1<<4)	/* no remote clients */
 
 #define MASTER_THROTTLED(f)	((f)->flags & MASTER_FLAG_THROTTLE)
+#define MASTER_MARKED_FOR_DELETION(f) ((f)->flags & MASTER_FLAG_MARK)
 
 #define MASTER_LIMIT_OK(limit, count) ((limit) == 0 || ((count) < (limit)))
 
@@ -129,7 +130,7 @@ extern void master_refresh(void);
 extern void master_vars_init(void);
 
  /*
-  * master_tab.c
+  * master_service.c
   */
 extern MASTER_SERV *master_head;
 extern void master_start_service(MASTER_SERV *);
@@ -184,12 +185,41 @@ extern void master_delete_children(MASTER_SERV *);
 extern void master_flow_init(void);
 extern int master_flow_pipe[2];
 
+ /*
+  * master_watch.c
+  * 
+  * Support to warn about main.cf parameters that can only be initialized but
+  * not updated, and to initialize or update data structures that derive
+  * values from main.cf parameters.
+  */
+typedef struct {
+    const char *name;			/* parameter name */
+    char  **value;			/* current main.cf value */
+    char  **backup;			/* actual value that is being used */
+    int     flags;			/* see below */
+    void    (*notify) (void);		/* init or update data structure */
+} MASTER_STR_WATCH;
+
+typedef struct {
+    const char *name;			/* parameter name */
+    int    *value;			/* current main.cf value */
+    int     backup;			/* actual value that is being used */
+    int     flags;			/* see below */
+    void    (*notify) (void);		/* init or update data structure */
+} MASTER_INT_WATCH;
+
+#define MASTER_WATCH_FLAG_UPDATABLE (1<<0)	/* support update after init */
+#define MASTER_WATCH_FLAG_ISSET    (1<<1)	/* backup is initialized */
+
+extern void master_str_watch(const MASTER_STR_WATCH *);
+extern void master_int_watch(MASTER_INT_WATCH *);
+
 #ifdef __APPLE_OS_X_SERVER__
 
 extern int smtp_count;
 extern int smtpd_count;
 
-#define	SRVR_MGR_COM_FILE	"/var/spool/postfix/pid/.smd.smtp.com"
+#define	SRVR_MGR_COM_FILE	"/Library/Server/Mail/Data/spool/pid/.smd.smtp.com"
 #define SRVR_MGR_DATA		\
 "<dict> \
 \n\t<key>SMTP</key> \

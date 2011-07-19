@@ -1,0 +1,92 @@
+/*
+ File:		Spoken.strings
+ Contains:	Localizable strings spoken by chess
+ Version:	2.0
+ Copyright:	© 2011 by Apple Inc., all rights reserved.
+ */
+
+/* Written rather repetitively, because I'm not sure what gender agreements 
+   are going to be necessary in what languages.
+ 
+   NOTE TO LOCALIZERS
+
+   All of these strings are meant to be spoken, they will never be used visually, so
+   don't worry about left-to-right codes etc.
+ 
+   These translations are NOT triggered by the system locale, but by the language 
+   of the VOICE selected in Chess preferences. On an English system, if Yannick is
+   selected as a Chess voice, Chess will speak German!
+ */
+
+/* Piece names */
+"king"		= "king";
+"queen"		= "queen";
+"bishop"    = "bishop";
+"knight"    = "knight";
+"rook"      = "rook";
+"pawn"		= "pawn";
+
+/* Pawn Promotions ([[emph -]] is a speech synthesis directive to deemphasize a word)*/
+"queen_p"   = "[[emph -]] promoting to queen";
+"bishop_p"  = "[[emph -]] promoting to bishop";
+"knight_p"  = "[[emph -]] promoting to knight";
+"rook_p"    = "[[emph -]] promoting to rook";
+
+/* Piece drops for crazyhouse ("drop" means to take a piece an insert it somewhere on the board) */
+"queen_d"   = "drop queen at";
+"bishop_d"  = "drop bishop at";
+"knight_d"  = "drop knight at";
+"rook_d"    = "drop rook at";
+"pawn_d"    = "drop pawn at";
+
+/* Move formats ([[emph +]] is a speech synthesis directive to emphasize a word)
+ * move_fmt     -> "knight b 1 to c 3"
+ * cmove_fmt    -> "knight c 3 takes e 5"
+ * promo_fmt    -> "pawn b 7 to b 8, promoting to queen"
+ * cpromo_fmt   -> "pawn b 7 takes a 8, promoting to knight"
+ * drop_fmt     -> "drop queen at f 7"
+ * kcastle_fmt  -> "castle king side"
+ * qcastle_fmt  -> "castle queen side"
+ */
+"move_fmt"      = "%@ %@ %@ to %@ %@";
+"cmove_fmt"     = "%@ %@ %@ takes %@ %@";
+"promo_fmt"     = "%@ %@ %@ to %@ %@, %@";
+"cpromo_fmt"    = "%@ %@ %@ takes %@ %@, %@";
+"drop_fmt"      = "%@ %@ %@";
+"kcastle_fmt"   = "castle [[emph +]]king side.";
+"qcastle_fmt"   = "castle [[emph +]]queen side.";
+
+/* Outcomes */
+"white_win"     = "white wins!";
+"black_win"     = "black wins!";
+"draw"          = "the game is a draw!";
+"check_mate"    = "[[emph +]] check mate!";
+
+/* Suggestions 
+ * suggest_fmt   -> I would suggest "pawn e 2 to e 4"
+ * last_move_fmt -> The last move was "knight g 8 to f 6"
+ */
+"suggest_fmt"   = "I would suggest \"%@\"";
+"last_move_fmt" = "The last move was \"%@\"";
+
+/* <rdar://problem/9220767> Rank/File, used to form squares like d 5 
+ * This probably does not need to be localized for languages
+ * using the latin alphabet.
+ */
+"rank_1"	     = "1";
+"rank_2"	     = "2";
+"rank_3"	     = "3";
+"rank_4"	     = "4";
+"rank_5"	     = "5";
+"rank_6"	     = "6";
+"rank_7"	     = "7";
+"rank_8"	     = "8";
+"file_a"	     = "A";
+"file_b"	     = "B";
+"file_c"	     = "C";
+"file_d"	     = "D";
+"file_e"	     = "E";
+"file_f"	     = "F";
+"file_g"	     = "G";
+"file_h"	     = "H";
+

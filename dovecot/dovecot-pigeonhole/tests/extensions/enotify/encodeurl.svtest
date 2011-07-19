@@ -1,0 +1,11 @@
+require "vnd.dovecot.testsuite";
+require "variables";
+require "enotify";
+
+test "Encode Simple" {
+	set :encodeurl "url_data" "\\frop\\&fruts/^@";
+
+	if not string :is :comparator "i;octet" "${url_data}" "%5Cfrop%5C%26fruts%2F%5E%40" {
+		test_fail "url data encoded incorrectly '${url_data}'";
+	}
+}

@@ -1,7 +1,7 @@
 INSTALL Instructions for fetchmail
 ==================================
 
-Building from subversion (SVN) repository: see README.svn
+Building from Git repository: see README.git
 
 Packagers and port/emerge maintainers: see README.packaging.
 

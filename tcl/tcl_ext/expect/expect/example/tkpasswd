@@ -1,4 +1,11 @@
-#!/depot/path/expectk -f
+#!/bin/sh
+# -*- tcl -*-
+# The next line is executed by /bin/sh, but not tcl \
+exec tclsh "$0" ${1+"$@"}
+
+package require Expect
+package require Tk
+
 # tkpasswd - Change passwords using Expectk
 # Author: Don Libes, NIST, October 1, 1993
 # Version: 1.8 - Added support for Tk 4.1
@@ -8,14 +15,7 @@
 # O'Reilly book "Exploring Expect".
 
 proc prog_exists {prog} {
-    global env
-
-    foreach dir [split $env(PATH) :] {
-	if {[file executable $dir/$prog]} {
-	    return 1
-	}
-    }
-    return 0
+    return [llength [auto_execok $prog]]
 }
 
 frame .type -relief raised -bd 1
@@ -36,7 +36,7 @@ if {[prog_exists nispasswd]} {
     radiobutton .nispasswd -text nispasswd -variable passwd_cmd \
 	    -value {nispasswd {niscat passwd}} \
 	    -anchor w -command get_users -relief flat
-    pack .nispasswd -in .type -fill x 
+    pack .nispasswd -in .type -fill x
 }
 pack .type -fill x
 
@@ -53,7 +53,7 @@ pack .sort -fill x
 frame .users -relief raised -bd 1
 # has to be wide enough for 8+1+5=14
 text .names -yscrollcommand ".scroll set" -width 14 -height 1 \
-	-font "*-bold-o-normal-*-120-*-m-*" -setgrid 1
+    -font {Courier 12 bold} -setgrid 1
 .names tag configure nopassword -relief raised
 .names tag configure selection -relief raised
 
@@ -366,7 +366,7 @@ proc password_generate {} {
 	}
 	if {[llength $rpass]} {
 	    append password $rpass
-	}		
+	}
     } else {
 	regexp "(\[^ ]*) *(.*)" "$rpass" x password rpass
 	while {[llength $rpass]} {
@@ -375,7 +375,7 @@ proc password_generate {} {
 	}
 	if {[llength $lpass]} {
 	    append password $lpass
-	}		
+	}
     }
 }
 
@@ -460,7 +460,7 @@ Press <return> or click the <ok> button when you are done."
     focus $w.length.entry
     tkwait window $w
     focus $oldfocus
-    save_parameters	
+    save_parameters
 }
 
 proc isnumber {n} {
@@ -550,9 +550,8 @@ proc make_selection {} {
 }
 
 proc select_next_nopassword {direction} {
-    global selection_line last_line
-    global nopasswords
-    
+    global selection_line last_line nopasswords
+
     if {0==[llength $nopasswords]} {
 	feedback "no null passwords"
 	return

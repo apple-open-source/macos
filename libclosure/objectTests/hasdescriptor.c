@@ -1,23 +1,26 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
-
-// CONFIG C
+// TEST_CONFIG
 
 #include <stdio.h>
 #include <Block_private.h>
+#include "test.h"
 
-
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[] __unused) {
     void (^inner)(void) = ^ { printf("argc was %d\n", argc); };
     void (^outer)(void) = ^{
-          inner();
-          inner();
-     };
-     //printf("size of inner is %ld\n", Block_size(inner));
-     //printf("size of outer is %ld\n", Block_size(outer));
-     if (Block_size(inner) != Block_size(outer)) {
-        printf("not the same size, using old compiler??\n");
-        return 1;
+        inner();
+        inner();
+    };
+    //printf("size of inner is %ld\n", Block_size(inner));
+    //printf("size of outer is %ld\n", Block_size(outer));
+    if (Block_size(inner) != Block_size(outer)) {
+        fail("not the same size, using old compiler??");
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

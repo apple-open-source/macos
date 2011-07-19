@@ -1,5 +1,5 @@
---- pyobjc-core/Modules/objc/parsexml.m.orig	2009-06-23 15:35:44.000000000 -0700
-+++ pyobjc-core/Modules/objc/parsexml.m	2009-06-24 00:56:23.000000000 -0700
+--- pyobjc-core/Modules/objc/parsexml.m.orig	2010-07-24 07:41:14.000000000 -0700
++++ pyobjc-core/Modules/objc/parsexml.m	2010-07-28 11:17:05.000000000 -0700
 @@ -70,9 +70,12 @@
   * be used to represent 'bool' which has a different size on
   * PPC. Therefore swap usage of _C_BOOL and _C_NSBOOL in data
@@ -79,7 +79,7 @@
  }
  
  int
-@@ -779,13 +792,21 @@
+@@ -811,13 +824,21 @@
  	int retval = -1;
  	PyObject* v;
  
@@ -102,18 +102,18 @@
  	if (tollfree != NULL) {
  		Class cls = objc_lookUpClass(tollfree);
  		if (cls == NULL) {
-@@ -1474,7 +1495,10 @@
- {
+@@ -1525,7 +1546,10 @@
  	char* name = attribute_string(cur_node, "name", NULL);
  	char* type = attribute_string(cur_node, "type", "type64");
+ 	char* alias = attribute_string(cur_node, "alias", NULL);
 -	typestr2typestr(type);
 +	if (!typestr2typestr(type)) {
-+	    PyErr_Format(PyExc_SyntaxError, "Syntax error for struct %s\n", name);
-+	    return -1;
++		PyErr_Format(PyExc_SyntaxError, "Syntax error for struct %s\n", name);
++		return -1;
 +	}
  
+ 
  	if (name != NULL && type != NULL && *type != '\0') {
- 		PyObject* v = PyObjC_RegisterStructType(
 --- pyobjc-framework-Quartz/Exceptions/CoreVideo.bridgesupport.orig	2009-06-23 15:35:35.000000000 -0700
 +++ pyobjc-framework-Quartz/Exceptions/CoreVideo.bridgesupport	2009-06-24 00:43:22.000000000 -0700
 @@ -8,7 +8,7 @@

@@ -1,0 +1,20 @@
+//
+//  CommonCrypto_deployment.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+//
+
+// This XCCONFIG file defines the deployment settings for all targets
+
+#include "CommonCrypto_base.xcconfig"
+
+// Debug build set optimization level to s
+GCC_OPTIMIZATION_LEVEL = s
+
+GCC_PREPROCESSOR_DEFINITIONS_PROJECT = NDEBUG
+
+COPY_PHASE_STRIP = YES
+
+WARNING_CFLAGS = -Wall

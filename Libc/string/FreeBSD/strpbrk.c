@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)strpbrk.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strpbrk.c,v 1.4 2002/03/21 18:44:54 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strpbrk.c,v 1.6 2009/02/03 17:58:20 danger Exp $");
 
 #include <string.h>
 
@@ -43,14 +39,13 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strpbrk.c,v 1.4 2002/03/21 18:44:54 obri
  * Find the first occurrence in s1 of a character in s2 (excluding NUL).
  */
 char *
-strpbrk(s1, s2)
-	const char *s1, *s2;
+strpbrk(const char *s1, const char *s2)
 {
 	const char *scanp;
 	int c, sc;
 
 	while ((c = *s1++) != 0) {
-		for (scanp = s2; (sc = *scanp++) != 0;)
+		for (scanp = s2; (sc = *scanp++) != '\0';)
 			if (sc == c)
 				return ((char *)(s1 - 1));
 	}

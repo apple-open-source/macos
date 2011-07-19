@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/fmtmsg.c,v 1.5 2003/05/01 19:03:13 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/fmtmsg.c,v 1.6 2009/11/08 14:02:54 brueffer Exp $");
 
 #include <fmtmsg.h>
 #include <stdio.h>
@@ -128,7 +128,7 @@ printfmt(char *msgverb, long class, const char *label, int sev,
 		size += strlen(sevname);
 	if (text != MM_NULLTXT)
 		size += strlen(text);
-	if (text != MM_NULLACT)
+	if (act != MM_NULLACT)
 		size += strlen(act);
 	if (tag != MM_NULLTAG)
 		size += strlen(tag);

@@ -21,6 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+/*!
+    @header
+        Converts HeaderDoc-generated XML output into a
+	form suitable for use with <code>xml2man</code>.
+    @indexgroup HeaderDoc Tools
+ */
+
 #include <inttypes.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -220,7 +227,6 @@ int hdxml2man(xmlDocPtr dp,xmlNode *root, char *output_filename)
     char datebuf[22];
     char *docdate = NULL;
     char *doctitle = "UNKNOWN MANPAGE";
-    char *os = "";
     char *temp;
     char *sectionstring = NULL;
     FILE *fp;
@@ -249,8 +255,7 @@ int hdxml2man(xmlDocPtr dp,xmlNode *root, char *output_filename)
     temp = textmatching(dp, "name", root->children, 0, 0);
     if (temp) doctitle = temp;
 
-    temp = textmatching(dp, "os", root->children, 1, 0);
-    if (temp) os = temp;
+    // temp = textmatching(dp, "os", root->children, 1, 0);
 
     // printf("section %d\n", section);
     // printf("nodes: names = 0x%x, usage = 0x%x, retvals = 0x%x, env = 0x%x,\nfiles = 0x%x, examples = 0x%x, diags = 0x%x, errs = 0x%x,\nseeAlso = 0x%x, conformingTo = 0x%x, history = 0x%x, bugs = 0x%x\n", names, usage, retvals, env, files, examples, diags, errs, seeAlso, conformingTo, history, bugs);
@@ -526,8 +531,9 @@ char *xs(int count)
     if (buffer) {
 	int i;
 	for (i=0; i<count; i++) buffer[i] = 'X';
+
+	buffer[count] = '\0';
     }
-    buffer[count] = '\0';
 
     return buffer;
 }

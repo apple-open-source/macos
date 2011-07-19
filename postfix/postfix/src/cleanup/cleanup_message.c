@@ -326,6 +326,10 @@ static const char *cleanup_act(CLEANUP_STATE *state, char *context,
 	cleanup_act_log(state, "warning", context, buf, optional_text);
 	return (buf);
     }
+    if (STREQUAL(value, "INFO", command_len)) {
+	cleanup_act_log(state, "info", context, buf, optional_text);
+	return (buf);
+    }
     if (STREQUAL(value, "FILTER", command_len)) {
 	if (*optional_text == 0) {
 	    msg_warn("missing FILTER command argument in %s map", map_class);
@@ -624,8 +628,13 @@ static void cleanup_header_done_callback(void *context)
      * ID uniqueness only within a second, we must ensure that the time in
      * the message ID matches the queue ID creation time, as long as we use
      * the queue ID in the message ID.
+     * 
+     * XXX We log a dummy name=value record so that we (hopefully) don't break
+     * compatibility with existing logfile analyzers, and so that we don't
+     * complicate future code that wants to log more name=value attributes.
      */
-    if ((state->headers_seen & (1 << (state->resent[0] ?
+    if ((state->hdr_rewrite_context || var_always_add_hdrs)
+	&& (state->headers_seen & (1 << (state->resent[0] ?
 			   HDR_RESENT_MESSAGE_ID : HDR_MESSAGE_ID))) == 0) {
 	tv = state->handle->ctime.tv_sec;
 	tp = gmtime(&tv);
@@ -635,14 +644,19 @@ static void cleanup_header_done_callback(void *context)
 	msg_info("%s: %smessage-id=<%s.%s@%s>",
 		 state->queue_id, *state->resent ? "resent-" : "",
 		 time_stamp, state->queue_id, var_myhostname);
+	state->headers_seen |= (1 << (state->resent[0] ?
+				   HDR_RESENT_MESSAGE_ID : HDR_MESSAGE_ID));
     }
+    if ((state->headers_seen & (1 << HDR_MESSAGE_ID)) == 0)
+	msg_info("%s: message-id=<>", state->queue_id);
 
     /*
      * Add a missing (Resent-)Date: header. The date is in local time units,
      * with the GMT offset at the end.
      */
-    if ((state->headers_seen & (1 << (state->resent[0] ?
-				      HDR_RESENT_DATE : HDR_DATE))) == 0) {
+    if ((state->hdr_rewrite_context || var_always_add_hdrs)
+	&& (state->headers_seen & (1 << (state->resent[0] ?
+				       HDR_RESENT_DATE : HDR_DATE))) == 0) {
 	cleanup_out_format(state, REC_TYPE_NORM, "%sDate: %s",
 		      state->resent, mail_date(state->arrival_time.tv_sec));
     }
@@ -650,8 +664,9 @@ static void cleanup_header_done_callback(void *context)
     /*
      * Add a missing (Resent-)From: header.
      */
-    if ((state->headers_seen & (1 << (state->resent[0] ?
-				      HDR_RESENT_FROM : HDR_FROM))) == 0) {
+    if ((state->hdr_rewrite_context || var_always_add_hdrs)
+	&& (state->headers_seen & (1 << (state->resent[0] ?
+				       HDR_RESENT_FROM : HDR_FROM))) == 0) {
 	quote_822_local(state->temp1, *state->sender ?
 			state->sender : MAIL_ADDR_MAIL_DAEMON);
 	vstring_sprintf(state->temp2, "%sFrom: %s",
@@ -695,8 +710,16 @@ static void cleanup_header_done_callback(void *context)
 #define VISIBLE_RCPT	((1 << HDR_TO) | (1 << HDR_RESENT_TO) \
 			| (1 << HDR_CC) | (1 << HDR_RESENT_CC))
 
-    if ((state->headers_seen & VISIBLE_RCPT) == 0 && *var_rcpt_witheld)
-	cleanup_out_format(state, REC_TYPE_NORM, "%s", var_rcpt_witheld);
+    if ((state->hdr_rewrite_context || var_always_add_hdrs)
+	&& (state->headers_seen & VISIBLE_RCPT) == 0 && *var_rcpt_witheld) {
+	if (!is_header(var_rcpt_witheld)) {
+	    msg_warn("bad %s header text \"%s\" -- "
+		     "need \"headername: headervalue\"",
+		     VAR_RCPT_WITHELD, var_rcpt_witheld);
+	} else {
+	    cleanup_out_format(state, REC_TYPE_NORM, "%s", var_rcpt_witheld);
+	}
+    }
 
     /*
      * Place a dummy PTR record right after the last header so that we can
@@ -920,7 +943,7 @@ void    cleanup_message(CLEANUP_STATE *state, int type, const char *buf, ssize_t
 
     /*
      * XXX Workaround: truncate a long message header so that we don't exceed
-     * the Milter request size limit of 65535.
+     * the default Sendmail libmilter request size limit of 65535.
      */
 #define KLUDGE_HEADER_LIMIT	60000
     if ((cleanup_milters || state->milters)

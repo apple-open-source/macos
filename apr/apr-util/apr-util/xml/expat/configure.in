@@ -10,23 +10,16 @@ dnl   under the terms of the License (based on the MIT/X license) contained
 dnl   in the file COPYING that comes with this distribution.
 dnl
 
-AC_INIT(Makefile.in)
+dnl Ensure that Expat is configured with autoconf 2.52 or newer
+AC_PREREQ(2.52)
+
+
+dnl ### apr-util hack: just hard-code the version here, as is done in expat.h.
+AC_INIT(expat, 1.95.7, expat-bugs@mail.libexpat.org)
+
+AC_CONFIG_SRCDIR(Makefile.in)
 AC_CONFIG_AUX_DIR(conftools)
-
-dnl
-dnl Follow the GNU/Linux convention of odd number minor version for
-dnl beta/development releases and even number minor version for stable
-dnl releases. Edit is bumped with each release and set to 0 with
-dnl change to major or minor version.
-dnl
-
-EXPAT_MAJOR_VERSION=1
-EXPAT_MINOR_VERSION=95
-EXPAT_EDIT=2
-
-EXPAT_VERSION=$EXPAT_MAJOR_VERSION.$EXPAT_MINOR_VERSION.$EXPAT_EDIT
-VERSION=$EXPAT_VERSION
-PACKAGE=expat
+AC_CONFIG_MACRO_DIR(conftools)
 
 dnl
 dnl Increment LIBREVISION if source code has changed at all
@@ -39,13 +32,16 @@ dnl
 dnl If the API changes incompatibly set LIBAGE back to 0
 dnl
 
-LIBCURRENT=1
+LIBCURRENT=5
 LIBREVISION=0
-LIBAGE=1
+LIBAGE=5
 
-AC_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(expat_config.h)
+
+sinclude(conftools/ac_c_bigendian_cross.m4)
 
 AC_CANONICAL_SYSTEM
+
 case "$host_os" in
 *os2*)
     # Use a custom made libtool replacement
@@ -53,19 +49,10 @@ case "$host_os" in
     LIBTOOL="$srcdir/../../../apr/build/aplibtool"
     ;;
 *)
-    AC_LIBTOOL_WIN32_DLL
+AC_LIBTOOL_WIN32_DLL
 AC_PROG_LIBTOOL
     ;;
 esac
-
-blddir=`pwd`
-AC_SUBST(blddir)
-
-AC_SUBST(PACKAGE)
-AC_SUBST(VERSION)
-AC_SUBST(EXPAT_MAJOR_VERSION)
-AC_SUBST(EXPAT_MINOR_VERSION)
-AC_SUBST(EXPAT_EDIT)
 
 AC_SUBST(LIBCURRENT)
 AC_SUBST(LIBREVISION)
@@ -75,11 +62,8 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 
-dnl Checks for libraries.
-
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(fcntl.h unistd.h string.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 dnl check for endianness
@@ -90,20 +74,26 @@ else
                 [byte order is unknown due to cross-compilation])
 fi
 AC_C_CONST
-AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
-
-dnl Checks for library functions.
-
-AC_FUNC_MEMCMP
-AC_FUNC_MMAP
-AC_SUBST(FILEMAP_OBJ)
-if test -z "$HAVE_MMAP"; then
-FILEMAP_OBJ=unixfilemap.o
-else
-FILEMAP_OBJ=readfilemap.o
-fi
-
 AC_CHECK_FUNCS(memmove bcopy)
 
-AC_OUTPUT(Makefile lib/Makefile lib/expat.h)
+dnl Only needed for regression tests:
+AC_CHECK_HEADERS(check.h)
+
+dnl Some basic configuration:
+AC_DEFINE([XML_NS], 1,
+          [Define to make XML Namespaces functionality available.])
+AC_DEFINE([XML_DTD], 1,
+          [Define to make parameter entity parsing functionality available.])
+AC_DEFINE([XML_CONTEXT_BYTES], 1024,
+          [Define to specify how much context to retain around the current parse point.])
+
+AC_CONFIG_FILES(Makefile)
+AC_OUTPUT
+
+abs_srcdir="`cd $srcdir && pwd`"
+abs_builddir="`pwd`"
+if test "$abs_srcdir" != "$abs_builddir"; then
+  mkdir lib
+fi
+

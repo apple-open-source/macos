@@ -1,3 +1,314 @@
+2010-08-20  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistWidget.tcl: Made deleting the whole content of a
+	  tablelist widget significantly faster.
+
+2010-08-07  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistBind.tcl: Fixed a tooltip-related bug.
+
+2010-07-03  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistUtil.tcl: Fixed a bug related to the -selecttype cell
+	  setting, (re)introduced in Tablelist version 5.0.
+
+2010-06-26  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:                          Bumped the version number to 5.1.
+	* *.txt:
+	* ../../examples/tablelist/*.tcl:
+
+	* scripts/tablelistBind.tcl:   Fixed a few bugs and typos.
+	* scripts/tablelistSort.tcl:
+	* scripts/tablelistUtil.tcl:
+	* scripts/tablelistWidget.tcl:
+
+	* doc/tablelist.html:       Updated the documentation.
+	* doc/tablelistWidget.html:
+
+2010-06-05  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* README.txt:         Small corrections.
+	* doc/tablelist.html:
+
+2010-06-05  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* README.txt:         Slightly extended.
+	* doc/tablelist.html:
+
+2010-06-05  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* doc/tablelist.html: Corrected a typo.
+
+2010-06-02  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* CHANGES.txt:               Fixed a bug related to embedded windows.
+	* scripts/tablelistUtil.tcl:
+
+2010-05-22  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* CHANGES.txt:              Slightly extended.
+	* doc/tablelistWidget.html:
+
+	* scripts/tablelistWidget.tcl: Fixed a bug in the insertlist subcommand.
+
+2010-05-15  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistImages.tcl: Removed tree style "plastik";
+	* scripts/tablelistThemes.tcl: added tree style "klearlooks".
+	* scripts/tablelistWidget.tcl:
+
+	* scripts/tclIndex: Newly generated.
+
+	* doc/tablelistWidget.html: Updated to reflect the changes.
+
+	* doc/plastik.png: Removed screenshot.
+
+	* doc/klearlooks.png: Added screenshot.
+
+2010-05-09  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* doc/tablelistWidget.html: Added two performance-related remarks.
+
+2010-05-08  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl: Bumped the version number to 5.0.
+	* *.txt:
+
+	* scripts/*.tcl: Renamed tablelistBitmaps.tcl to tablelistImages.tcl;
+	  lots of new features (see CHANGES.txt: What is new in Tablelist 5.0?).
+
+	* scripts/tclIndex: Newly generated.
+
+	* doc/tablelist.html:       Updated to reflect the new features.
+	* doc/tablelistThemes.html:
+	* doc/tablelistWidget.html:
+
+	* doc/browse.png:               Updated the screenshots.
+	* doc/bwidget.png:
+	* doc/bwidget_tile.png:
+	* doc/config.png:
+	* doc/embeddedWindows.png:
+	* doc/embeddedWindows_tile.png:
+	* doc/styles.png:
+	* doc/tileWidgets.png:
+
+	* doc/aqua.png:         Added new screenshots.
+	* doc/baghira.png:
+	* doc/browseTree.png:
+	* doc/dirViewer.png:
+	* doc/gtk.png:
+	* doc/oxygen1.png:
+	* doc/oxygen2.png:
+	* doc/phase.png:
+	* doc/plastik.png:
+	* doc/plastique.png:
+	* doc/vistaAero.png:
+	* doc/vistaClassic.png:
+	* doc/win7Aero.png:
+	* doc/win7Classic.png:
+	* doc/winnative.png:
+	* doc/winxpBlue.png:
+	* doc/winxpOlive.png:
+	* doc/winxpSilver.png:
+
+	* ../../examples/tablelist/*.tcl: Updated the version number and
+	  copyright information.
+
+	* ../../examples/tablelist/browseTree.tcl:      Added new demo scripts.
+	* ../../examples/tablelist/browseTree_tile.tcl:
+	* ../../examples/tablelist/dirViewer.tcl:
+	* ../../examples/tablelist/dirViewer_tile.tcl:
+
+	* ../../examples/tablelist/comp.xbm: Updated the bitmaps.
+	* ../../examples/tablelist/leaf.xbm:
+
+	* ../../examples/tablelist/clsdFolder.gif: Added new images.
+	* ../../examples/tablelist/file.gif:
+	* ../../examples/tablelist/openFolder.gif:
+
+2010-01-30  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistConfig.tcl: Fixed a bug related to the -text column
+	  configuration option.
+
+2009-10-24  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistConfig.tcl: Minor improvements related to hidden
+	  columns.
+
+2009-10-11  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:         Bumped the version number to 4.12.1.
+	* COPYRIGHT.txt:
+
+	* scripts/tablelistConfig.tcl: Fixed a bug related to the -labelfont
+	  option.
+
+2009-09-12  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* doc/tablelist.html: Corrected the version number.
+
+2009-09-08  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* tablelistPublic.tcl:       Added support for mentry widgets of type
+	* CHANGES.txt:               "IPv6Addr" as edit windows.
+	* scripts/tablelistEdit.tcl:
+	* doc/tablelistMentry.html:
+	* doc/tablelistWidget.html:
+
+	* scripts/tablelistBind.tcl: Minor correction.
+
+	* scripts/tclIndex: Newly generated.
+
+2009-08-30  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistEdit.tcl: Extended the list of supported Wcb
+	  options for text widgets used for interactive cell editing.
+
+2009-08-29  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl: Bumped the version number to 4.12.
+	* *.txt:
+
+	* scripts/tablelistEdit.tcl:   Added support for interactive cell
+	* scripts/tablelistThemes.tcl: editing with the aid of the ttk::spinbox
+	* scripts/tablelistUtil.tcl:   widget; added support for the themes
+	  "keramik_alt" and "vista"; improved the support for a few themes.
+
+	* scripts/tclIndex: Newly generated.
+
+	* doc/tablelistBWidget.html:  Updated the documentation.
+	* doc/tablelistCombobox.html:
+	* doc/tablelist.html:
+	* doc/tablelistIwidgets.html:
+	* doc/tablelistMentry.html:
+	* doc/tablelistTile.html:
+	* doc/tablelistWidget.html:
+	* doc/*.png:
+
+	* ../../examples/tablelist/*.tcl: Appended the version number to
+	  "package require tablelist(_tile)".
+
+2009-08-15  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistWidget.tcl: Removed two update-invocations for Mac
+	  OS X Aqua that were present to work around a scrolling-related bug in
+	  old Mac-Tk versions but turned out to cause problems in newer ones.
+
+2009-07-16  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistBind.tcl:   Added support for the native "Aqua-blue"
+	* scripts/tablelistThemes.tcl: background, set for the header label of
+	* scripts/tablelistUtil.tcl:   the sort column (for Mac-Tk with Cocoa).
+	* scripts/tablelistWidget.tcl:
+
+	* scripts/tclIndex: Newly generated.
+
+2009-06-07  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistBind.tcl: Corrected a typo.
+
+2009-05-29  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistWidget.tcl: Fixed a bug related to the -listvariable
+	  option in disabled state.
+
+2009-05-05  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistEdit.tcl: Small correction.
+
+2009-05-03  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistBind.tcl: Improvements in the binding scripts
+	* scripts/tablelistEdit.tcl: related to interactive cell editing.
+
+2009-05-02  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:         Bumped the version number to 4.11.2.
+	* COPYRIGHT.txt:
+
+	* scripts/tablelistBind.tcl: Improvements in the binding scripts
+	* scripts/tablelistEdit.tcl: related to interactive cell editing.
+
+2009-04-11  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* scripts/tablelistEdit.tcl: Fixed a small bug related to interactive
+	  cell editing with the aid of a text widget.
+
+	* doc/tablelistWidget.html: Minor correction.
+
+2009-03-28  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* tablelistPublic.tcl:         Added the labeltag subcommand and the
+	* scripts/mwutil.tcl:          helper command
+	* scripts/tablelistBind.tcl    tablelist::getTablelistColumn.
+	* scripts/tablelistConfig.tcl:
+	* scripts/tablelistUtil.tcl:
+	* scripts/tablelistWidget.tcl:
+
+	* scripts/tclIndex: Newly generated.
+
+	* doc/tablelistBinding.html:   Updated to reflect the new features.
+	* doc/tablelistWidget.html:
+
+2009-03-14  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:         Bumped the version number to 4.11.1.
+	* COPYRIGHT.txt:
+
+	* scripts/tablelistBind.tcl: Made sure that <Double-Button-1> works as
+	  expected for large lists, too.
+
+	* scripts/tablelistEdit.tcl: Eliminated a small regression introduced
+	  in tablelist 4.11.
+
+2009-02-24  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* README.txt:                               Minor improvements.
+	* ../../examples/tablelist/styles.tcl:
+	* ../../examples/tablelist/styles_tile.tcl:
+
+2009-02-23  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:              Bumped the version number to 4.11.
+	* *.txt:
+	* doc/tablelist.html:
+
+	* scripts/*.tcl:            Added the -columntitles option; added two
+	  virtual events related to hidden columns and rows; extended the
+	  bindings; added support for Windows Vista; bug-fixes related to the
+	  -tooltipdelcommand and -listvariable options and to the item deletion
+	  when using Tcl/Tk 8.5.
+
+	* scripts/tclIndex: Newly generated.
+
+	* doc/tablelistWidget.html: Updated to reflect the new features.
+
+	* ../../examples/tablelist/styles.tcl:      Using the new -columntitles
+	* ../../examples/tablelist/styles_tile.tcl: option.
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2009-01-11  Csaba Nemethi <csaba.nemethi@t-online.de>
+
+	* *.tcl:         Bumped the version number to 4.10.1.
+	* COPYRIGHT.txt:
+
+	* scripts/tablelistConfig.tcl: Fixed a bug related to the
+	* scripts/tablelistUtil.tcl:   -windowdestroy cell configuration
+	  option.
+
+	* scripts/tablelistWidget.tcl: Fixed a nasty bug related to the yview
+	  subcommand.
+
+	* doc/tablelist.html:             Changed the recommended package name
+	* ../../examples/tablelist/*.tcl: from "Tablelist" to "tablelist".
+
 2008-09-15   Nemethi <csaba.nemethi@t-online.de>
 
 	* *.tcl:              Bumped the version number to 4.10.

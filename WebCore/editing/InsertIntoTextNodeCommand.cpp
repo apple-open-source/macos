@@ -26,6 +26,8 @@
 #include "config.h"
 #include "InsertIntoTextNodeCommand.h"
 
+#include "AXObjectCache.h"
+#include "Document.h"
 #include "Text.h"
 
 namespace WebCore {
@@ -43,18 +45,25 @@ InsertIntoTextNodeCommand::InsertIntoTextNodeCommand(PassRefPtr<Text> node, unsi
 
 void InsertIntoTextNodeCommand::doApply()
 {
-    if (!m_node->isContentEditable())
+    if (!m_node->rendererIsEditable())
         return;
     
     ExceptionCode ec;
     m_node->insertData(m_offset, m_text, ec);
+
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->nodeTextChangeNotification(m_node->renderer(), AXObjectCache::AXTextInserted, m_offset, m_text.length());
 }
 
 void InsertIntoTextNodeCommand::doUnapply()
 {
-    if (!m_node->isContentEditable())
+    if (!m_node->rendererIsEditable())
         return;
         
+    // Need to notify this before actually deleting the text
+    if (AXObjectCache::accessibilityEnabled())
+        document()->axObjectCache()->nodeTextChangeNotification(m_node->renderer(), AXObjectCache::AXTextDeleted, m_offset, m_text.length());
+
     ExceptionCode ec;
     m_node->deleteData(m_offset, m_text.length(), ec);
 }

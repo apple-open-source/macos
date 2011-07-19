@@ -22,8 +22,8 @@
 package require Tcl 8.2
 
 namespace eval ::aes {
-    variable version 1.0.1
-    variable rcsid {$Id: aes.tcl,v 1.6 2008/05/12 23:16:09 andreas_kupries Exp $}
+    variable version 1.0.2
+    variable rcsid {$Id: aes.tcl,v 1.7 2010/07/06 19:39:00 andreas_kupries Exp $}
     variable uid ; if {![info exists uid]} { set uid 0 }
 
     namespace export {aes}
@@ -156,6 +156,15 @@ proc ::aes::EncryptBlock {Key block} {
         set data [AddRoundKey $Key $n [MixColumns [ShiftRows [SubBytes $data]]]]
     }
     set data [AddRoundKey $Key $n [ShiftRows [SubBytes $data]]]
+
+    # Bug 2993029:
+    # Force all elements of data into the 32bit range.
+    set res {}
+    foreach d $data {
+        lappend res [expr {$d & 0xffffffff}]
+    }
+    set data $res
+    
     return [set state(I) [binary format I4 $data]]
 }
 
@@ -181,8 +190,17 @@ proc ::aes::DecryptBlock {Key block} {
             lappend data2 [expr {0xffffffff & ([lindex $data $n] ^ [lindex $iv $n])}]
         }
         set data $data2
+    } else {
+        # Bug 2993029:
+        # Force all elements of data into the 32bit range.
+        # The trimming we see above only happens for CBC mode.
+        set res {}
+        foreach d $data {
+            lappend res [expr {$d & 0xffffffff}]
+        }
+        set data $res
     }
-    
+
     set state(I) $block
     return [binary format I4 $data]
 }

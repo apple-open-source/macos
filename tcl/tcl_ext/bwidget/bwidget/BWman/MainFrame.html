@@ -247,6 +247,13 @@ Returns the pathname of the <I>index</I>th added indicator.
 
 Returns the pathname of the menu whose id is <I>menuid</I>.
 </DD></DL>
+<DL><DT><A NAME="getmenustate"><I>pathName</I> <B>getmenustate</B></A>
+ <I>tag</I>
+ <I>state</I>
+</DT><DD>
+
+Returns the state of the given menu <I>tag</I>.
+</DD></DL>
 <DL><DT><A NAME="gettoolbar"><I>pathName</I> <B>gettoolbar</B></A>
  <I>index</I>
 </DT><DD>
@@ -260,6 +267,7 @@ Returns the pathname of the <I>index</I>th added toolbar.
 
 Set the <B>-state</B> option value of all the menu entries that have the tag <I>tag</I>
 to <I>state</I>.
+A menu entry is disabled, if one of its associated tags have state <B>disabled</B>.
 
 </DD></DL>
 <DL><DT><A NAME="showstatusbar"><I>pathName</I> <B>showstatusbar</B></A>

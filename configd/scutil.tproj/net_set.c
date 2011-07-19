@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -485,6 +485,12 @@ set_set(int argc, char **argv)
 
 				CFAllocatorDeallocate(NULL, setID);
 			}
+		} else if (strcmp(command, "current") == 0) {
+			ok = SCNetworkSetSetCurrent(net_set);
+			if (!ok) {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+				return;
+			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("set what?\n"));
 		}
@@ -542,7 +548,7 @@ show_set(int argc, char **argv)
 			sorted = CFArrayCreateMutableCopy(NULL, 0, services);
 			CFArraySortValues(sorted,
 					  CFRangeMake(0, CFArrayGetCount(sorted)),
-					  _compare_services,
+					  _SCNetworkServiceCompare,
 					  (void *)order);
 			CFRelease(services);
 			services = sorted;

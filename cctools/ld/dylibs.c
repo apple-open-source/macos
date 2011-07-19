@@ -91,7 +91,7 @@ void)
 	    name = outputfile;
 
 	cmdsize = sizeof(struct dylib_command) +
-		  round(strlen(name) + 1, sizeof(long));
+		  rnd(strlen(name) + 1, sizeof(long));
 	dl = allocate(cmdsize);
 	memset(dl, '\0', cmdsize);
 	dl->cmd = LC_ID_DYLIB;
@@ -271,7 +271,7 @@ void)
 	    name = outputfile;
 
 	cmdsize = sizeof(struct dylinker_command) +
-		  round(strlen(name) + 1, sizeof(long));
+		  rnd(strlen(name) + 1, sizeof(long));
 	dyld = allocate(cmdsize);
 	memset(dyld, '\0', cmdsize);
 	dyld->cmd = LC_ID_DYLINKER;
@@ -304,7 +304,7 @@ void)
 	name = umbrella_framework_name;
 
 	cmdsize = sizeof(struct sub_framework_command) +
-		  round(strlen(name) + 1, sizeof(long));
+		  rnd(strlen(name) + 1, sizeof(long));
 	sub = allocate(cmdsize);
 	memset(sub, '\0', cmdsize);
 	sub->cmd = LC_SUB_FRAMEWORK;
@@ -362,7 +362,7 @@ void)
 		      "name is linked in", name);
 
 	    cmdsize = sizeof(struct sub_umbrella_command) +
-		      round(strlen(name) + 1, sizeof(long));
+		      rnd(strlen(name) + 1, sizeof(long));
 	    sub = allocate(cmdsize);
 	    memset(sub, '\0', cmdsize);
 	    sub->cmd = LC_SUB_UMBRELLA;
@@ -419,7 +419,7 @@ void)
 		      "name is linked in", name);
 
 	    cmdsize = sizeof(struct sub_library_command) +
-		      round(strlen(name) + 1, sizeof(long));
+		      rnd(strlen(name) + 1, sizeof(long));
 	    sub = allocate(cmdsize);
 	    memset(sub, '\0', cmdsize);
 	    sub->cmd = LC_SUB_LIBRARY;
@@ -455,7 +455,7 @@ void)
 	for(i = 0; i < nallowable_clients ; i++){
 	    name = allowable_clients[i];
 	    cmdsize = sizeof(struct sub_client_command) +
-		      round(strlen(name) + 1, sizeof(long));
+		      rnd(strlen(name) + 1, sizeof(long));
 	    sub = allocate(cmdsize);
 	    memset(sub, '\0', cmdsize);
 	    sub->cmd = LC_SUB_CLIENT;

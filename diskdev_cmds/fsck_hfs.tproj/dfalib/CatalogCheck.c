@@ -25,6 +25,8 @@
 #include "DecompDataEnums.h"
 #include "DecompData.h"
 
+#include <sys/stat.h>
+
 extern int RcdFCntErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID);
 extern int RcdHsFldCntErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID);
 
@@ -514,6 +516,36 @@ CheckCatalogBTree( SGlobPtr GPtr )
 		dirhardlink_init(gScavGlobals);
 	}
 
+	GPtr->journal_file_id = GPtr->jib_file_id = 0;
+
+	if (CheckIfJournaled(GPtr, true)) {
+		CatalogName fname;
+		CatalogKey key;
+		CatalogRecord rec;
+		UInt16 recSize;
+		int i;
+		
+#define	HFS_JOURNAL_FILE	".journal"
+#define	HFS_JOURNAL_INFO	".journal_info_block"
+
+		fname.ustr.length = strlen(HFS_JOURNAL_FILE);
+		for (i = 0; i < fname.ustr.length; i++)
+			fname.ustr.unicode[i] = HFS_JOURNAL_FILE[i];
+		BuildCatalogKey(kHFSRootFolderID, &fname, true, &key);
+		if (SearchBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint, NULL, &rec, &recSize, NULL) == noErr &&
+			rec.recordType == kHFSPlusFileRecord) {
+			GPtr->journal_file_id = rec.hfsPlusFile.fileID;
+		}
+		fname.ustr.length = strlen(HFS_JOURNAL_INFO);
+		for (i = 0; i < fname.ustr.length; i++)
+			fname.ustr.unicode[i] = HFS_JOURNAL_INFO[i];
+		BuildCatalogKey(kHFSRootFolderID, &fname, true, &key);
+		if (SearchBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint, NULL, &rec, &recSize, NULL) == noErr &&
+			rec.recordType == kHFSPlusFileRecord) {
+			GPtr->jib_file_id = rec.hfsPlusFile.fileID;
+		}
+	}
+		
 	/* for compatibility, init these globals */
 	gScavGlobals->TarID = kHFSCatalogFileID;
 	GetVolumeObjectBlockNum( &gScavGlobals->TarBlock );
@@ -819,6 +851,8 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	UInt32 blocks;
 	UInt64 bytes;
 	int result = 0;
+	int islink = 0;
+	int isjrnl = 0;
 	size_t	len;
 	unsigned char filename[256 * 3];
 
@@ -888,16 +922,75 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 
 	/* Collect indirect link info for later */
 	if (file->userInfo.fdType == kHardLinkFileType  &&
-            file->userInfo.fdCreator == kHFSPlusCreator)
+            file->userInfo.fdCreator == kHFSPlusCreator) {
+		islink = 1;
 		CaptureHardLink(gCIS.hardLinkRef, file);
+	}
 
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
 
 	/* Keep track of the directory hard links found */
 	if ((file->flags & kHFSHasLinkChainMask) && 
 	    ((file->userInfo.fdType == kHFSAliasType) ||
-	    (file->userInfo.fdCreator == kHFSAliasCreator))) {
+	    (file->userInfo.fdCreator == kHFSAliasCreator)) &&
+		(key->parentID != gScavGlobals->filelink_priv_dir_id &&
+		key->parentID != gScavGlobals->dirlink_priv_dir_id)) {
 	    	gScavGlobals->calculated_dirlinks++;
+		islink = 1;
+	}
+
+	/* For non-journaled filesystems, the cached journal file IDs will be 0 */
+	if (file->fileID &&
+		(file->fileID == gScavGlobals->journal_file_id ||
+		file->fileID == gScavGlobals->jib_file_id)) {
+		isjrnl = 1;
+	}
+
+	if (islink == 0) {
+		if (file->flags & kHFSHasLinkChainMask &&
+			(gScavGlobals->filelink_priv_dir_id != key->parentID &&
+			 gScavGlobals->dirlink_priv_dir_id != key->parentID)) {
+			RepairOrderPtr p;
+			fsckPrint(gScavGlobals->context, E_LinkChainNonLink, file->fileID);
+			p = AllocMinorRepairOrder(gScavGlobals, 0);
+			if (p) {
+				p->type = E_LinkChainNonLink;
+				p->correct = 0;
+				p->incorrect = 0;
+				p->parid = file->fileID;
+				p->hint = 0;
+			} else {
+				result = memFullErr;
+			}
+			gScavGlobals->CatStat |= S_LinkErrRepair;
+		}
+
+		if (((file->bsdInfo.fileMode & S_IFMT) == S_IFREG) &&
+			gScavGlobals->filelink_priv_dir_id != key->parentID &&
+			file->bsdInfo.special.linkCount > 1 &&
+			isjrnl == 0) {
+			RepairOrderPtr p;
+			char badstr[16];
+			fsckPrint(gScavGlobals->context, E_FileLinkCountError, file->fileID);
+			snprintf(badstr, sizeof(badstr), "%u", file->bsdInfo.special.linkCount);
+			fsckPrint(gScavGlobals->context, E_BadValue, "1", badstr);
+
+			p = AllocMinorRepairOrder(gScavGlobals, 0);
+			if (p) {
+				p->type = E_FileLinkCountError;
+				p->correct = 1;
+				p->incorrect = file->bsdInfo.special.linkCount;
+				p->parid = file->fileID;
+				p->hint = 0;
+			} else {
+				result = memFullErr;
+			}
+			gScavGlobals->CatStat |= S_LinkErrRepair;
+		}
+	}
+	if (islink == 1 && file->dataFork.totalBlocks != 0) {
+		fsckPrint(gScavGlobals->context, E_LinkHasData, file->fileID);
+		gScavGlobals->CatStat |= S_LinkErrNoRepair;
 	}
 
 	return (result);

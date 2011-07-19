@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,15 +70,19 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
-#include <rpcsvc/sm_inter.h>
-#include <rpcsvc/nlm_prot.h>
+#include "sm_inter.h"
+#include "nlm_prot.h"
+
+#include <nfs/rpcv2.h>
+#include <nfs/nfs_lock.h>
+#include <nfs/nfs.h>
 
 #include "lockd.h"
 #include "lockd_lock.h"
@@ -146,7 +150,7 @@ struct host {
 	TAILQ_ENTRY(host) hostlst;
 	int refcnt;
 	time_t lastuse;
-	struct sockaddr addr;
+	struct sockaddr_storage addr;
 	char *name;	/* host name provided by client via caller_name */
 	char *revname;	/* host name mapped from addr */
 };
@@ -413,16 +417,6 @@ copy_nlm4_lock_to_nlm4_holder(src, exclusive, dest)
 }
 
 
-static size_t
-strnlen(const char *s, size_t len)
-{
-    size_t n;
-
-    for (n = 0;  s[n] != 0 && n < len; n++)
-        ;
-    return n;
-}
-
 /*
  * allocate_file_lock: Create a lock with the given parameters
  */
@@ -569,7 +563,7 @@ region_compare(starte, lene, startu, lenu,
 			lflags = LEDGE_INSIDE;
 		}
 
-		rflags = REDGE_RBOUNDARY; /* Both are infiinite */
+		// rflags = REDGE_RBOUNDARY; /* Both are infiinite */
 
 		if (lflags == LEDGE_INSIDE) {
 			*start1 = starte;
@@ -595,11 +589,11 @@ region_compare(starte, lene, startu, lenu,
 		/* Examine right edge of unlocker */
 		if (startu + lenu < starte) {
 			/* Right edge of unlocker left of established lock */
-			rflags = REDGE_LEFT;
+			// rflags = REDGE_LEFT;
 			return SPL_DISJOINT;
 		} else if (startu + lenu == starte) {
 			/* Right edge of unlocker on start of established lock */
-			rflags = REDGE_LBOUNDARY;
+			// rflags = REDGE_LBOUNDARY;
 			return SPL_DISJOINT;
 		} else { /* Infinifty is right of finity */
 			/* Right edge of unlocker inside established lock */
@@ -622,11 +616,11 @@ region_compare(starte, lene, startu, lenu,
 		/* Unlocker is infinite */
 		/* Examine left edge of unlocker */
 		if (startu < starte) {
-			lflags = LEDGE_LEFT;
+			// lflags = LEDGE_LEFT;
 			retval = SPL_CONTAINED;
 			return retval;
 		} else if (startu == starte) {
-			lflags = LEDGE_LBOUNDARY;
+			// lflags = LEDGE_LBOUNDARY;
 			retval = SPL_CONTAINED;
 			return retval;
 		} else if ((startu > starte) && (startu < starte + lene - 1)) {
@@ -634,11 +628,11 @@ region_compare(starte, lene, startu, lenu,
 		} else if (startu == starte + lene - 1) {
 			lflags = LEDGE_RBOUNDARY;
 		} else { /* startu > starte + lene -1 */
-			lflags = LEDGE_RIGHT;
+			// lflags = LEDGE_RIGHT;
 			return SPL_DISJOINT;
 		}
 
-		rflags = REDGE_RIGHT; /* Infinity is right of finity */
+		// rflags = REDGE_RIGHT; /* Infinity is right of finity */
 
 		if (lflags == LEDGE_INSIDE || lflags == LEDGE_RBOUNDARY) {
 			*start1 = starte;
@@ -660,18 +654,18 @@ region_compare(starte, lene, startu, lenu,
 		} else if (startu == starte + lene - 1) {
 			lflags = LEDGE_RBOUNDARY;
 		} else { /* startu > starte + lene -1 */
-			lflags = LEDGE_RIGHT;
+			// lflags = LEDGE_RIGHT;
 			return SPL_DISJOINT;
 		}
 
 		/* Examine right edge of unlocker */
 		if (startu + lenu < starte) {
 			/* Right edge of unlocker left of established lock */
-			rflags = REDGE_LEFT;
+			// rflags = REDGE_LEFT;
 			return SPL_DISJOINT;
 		} else if (startu + lenu == starte) {
 			/* Right edge of unlocker on start of established lock */
-			rflags = REDGE_LBOUNDARY;
+			// rflags = REDGE_LBOUNDARY;
 			return SPL_DISJOINT;
 		} else if (startu + lenu < starte + lene) {
 			/* Right edge of unlocker inside established lock */
@@ -736,8 +730,6 @@ same_filelock_identity(fl0, fl1)
 	const struct file_lock *fl0, *fl1;
 {
 	int retval;
-
-	retval = 0;
 
 	debuglog("Checking filelock identity\n");
 
@@ -1593,6 +1585,7 @@ lock_partialfilelock(struct file_lock *fl)
 		break;
 	case NFS_RESERR:
 		retval = PFL_NFSRESERR;
+		break;
 	default:
 		debuglog("Unmatched lnlstatus %d\n");
 		retval = PFL_NFSDENIED_NOLOCK;
@@ -1658,7 +1651,6 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 	lfl = NULL;
 	rfl = NULL;
 	releasedfl = NULL;
-	retval = PFL_DENIED;
 
 	/*
 	 * There are significant overlap and atomicity issues
@@ -1885,8 +1877,6 @@ test_partialfilelock(const struct file_lock *fl,
 
 	debuglog("Entering testpartialfilelock...\n");
 
-	retval = PFL_DENIED;
-
 	teststatus = test_nfslock(fl, conflicting_fl);
 	debuglog("test_partialfilelock: teststatus %d\n",teststatus);
 
@@ -2103,6 +2093,69 @@ do_clear(const char *hostname)
 }
 
 /*
+ * do_notify_mounts()
+ *
+ * Notify any NFS mounts to recover the locks they held on the given server.
+ */
+void
+do_notify_mounts(const char *hostname)
+{
+	struct addrinfo *ailist = NULL, *ai, aihints;
+	struct lockd_notify ln, *lnp = NULL;
+	int addrcount, addrmax;
+
+	/* Get the list of addresses for this hostname. */
+	/* Send a lockd-notify with the addresses into the kernel. */
+	debuglog("do_notify_mounts for %s", hostname);
+	bzero(&aihints, sizeof(aihints));
+	aihints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo(hostname, NULL, &aihints, &ailist))
+		return;
+	for (addrcount=0, ai = ailist; ai; ai = ai->ai_next) {
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+			continue;
+		addrcount++;
+	}
+	debuglog("do_notify_mounts for %s, addrcount %d", hostname, addrcount);
+	if (addrcount > 1)
+		lnp = malloc(sizeof(*lnp) + ((addrcount-1) * sizeof(struct sockaddr_storage)));
+	if (lnp) { /* send all the addresses in one notification */
+		addrmax = addrcount;
+	} else { /* just send single-address notification(s) */
+		lnp = &ln;
+		addrmax = 1;
+	}
+
+	ai = ailist;
+	while (ai && (addrcount > 0)) {
+		lnp->ln_version = LOCKD_NOTIFY_VERSION;
+		lnp->ln_flags = 0;
+		lnp->ln_addrcount = 0;
+		for (; ai && (lnp->ln_addrcount < addrmax); ai = ai->ai_next) {
+			if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+				continue;
+			if (config.verbose > 1) {
+				char addrbuf[NI_MAXHOST], *addr = NULL;
+				void *sinaddr = (ai->ai_family == AF_INET) ?
+					(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
+					(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+					addr = addrbuf;
+				debuglog("do_notify_mounts for %s, addr %d ai fam %d len %d %s",
+					hostname, lnp->ln_addrcount, ai->ai_family, ai->ai_addrlen,
+					addr ? addr : "???");
+			}
+			bcopy(ai->ai_addr, &lnp->ln_addr[lnp->ln_addrcount],
+				MIN(sizeof(lnp->ln_addr[lnp->ln_addrcount]), ai->ai_addr->sa_len));
+			lnp->ln_addrcount++;
+			addrcount--;
+		}
+		nfsclnt(NFSCLNT_LOCKDNOTIFY, lnp);
+	}
+	freeaddrinfo(ailist);
+}
+
+/*
  * The following routines are all called from the code which the
  * RPC layer invokes
  */
@@ -2174,7 +2227,7 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 
 	/* allocate new file_lock for this request */
 	newfl = allocate_file_lock(&lckarg->alock.oh, &lckarg->alock.fh,
-				   (struct sockaddr *)svc_getcaller(rqstp->rq_xprt),
+				   svc_getcaller_sa(rqstp->rq_xprt),
 				   lckarg->alock.caller_name);
 	if (newfl == NULL) {
 		syslog(LOG_NOTICE, "lock allocate failed: %s", strerror(errno));
@@ -2352,7 +2405,7 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
 	TAILQ_FOREACH(ihp, hd, hostlst) {
 		if (hostname && (strncmp(hostname, ihp->name, SM_MAXSTRLEN) != 0))
 			continue;
-		if (saddr && addrcmp(saddr, &ihp->addr))
+		if (saddr && addrcmp(saddr, (struct sockaddr*)&ihp->addr))
 			continue;
 		TAILQ_REMOVE(hd, ihp, hostlst);
 		/*
@@ -2364,7 +2417,7 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
 		 * take one refcount.  Otherwise, repeated calls
 		 * could cause the refcount to wrap.
 		 */
-		if (!saddr || !ihp->addr.sa_len)
+		if (!saddr || !ihp->addr.ss_len)
 			++ihp->refcnt;
 		ihp->lastuse = currsec;
 		/* Host should only be in the monitor list once */
@@ -2405,9 +2458,8 @@ void
 monitor_lock_host_by_addr(const struct sockaddr *saddr)
 {
 	struct host *ihp;
-	struct hostent *hp;
-	char hostaddr[SM_MAXSTRLEN];
-	struct sockaddr_in *sin = (struct sockaddr_in *)saddr;
+	char hostaddr[NI_MAXHOST];
+	char hostname[NI_MAXHOST];
 
 	if (getnameinfo(saddr, saddr->sa_len, hostaddr, sizeof(hostaddr),
 			NULL, 0, NI_NUMERICHOST)) {
@@ -2423,28 +2475,22 @@ monitor_lock_host_by_addr(const struct sockaddr *saddr)
 		return;
 	}
 
-	hp = gethostbyaddr((char*)&sin->sin_addr, sizeof(sin->sin_addr), AF_INET);
-	if (hp) {
-		monitor_lock_host(hp->h_name, saddr);
-	} else {
-		// herror(hostaddr);
+	if (!getnameinfo(saddr, saddr->sa_len, hostname, sizeof(hostname), NULL, 0, 0))
+		monitor_lock_host(hostname, saddr);
+	else
 		monitor_lock_host(hostaddr, saddr);
-	}
 }
 
 static void
 monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 {
 	struct host *nhp;
-	struct hostent *hp = NULL;
 	struct mon smon;
 	struct sm_stat_res sres;
 	int rpcret;
 	int retrying = 0;
 	size_t n;
-	struct sockaddr_in *sin = (struct sockaddr_in *) saddr;
-
-	rpcret = 0;
+	char hostbuf[NI_MAXHOST];
 
 	/* Host is not yet monitored, add it */
 	debuglog("Monitor_lock_host: %s (creating)\n", hostname);
@@ -2472,7 +2518,7 @@ monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 	if (saddr) {
 		bcopy(saddr, &nhp->addr, saddr->sa_len);
 	} else {
-		nhp->addr.sa_len = 0;
+		nhp->addr.ss_len = 0;
 	}
 	debuglog("Locally Monitoring host '%s'\n", hostname);
 
@@ -2503,13 +2549,12 @@ retry:
 			 * with this name later when we ask statd to
 			 * unmonitor it.
 			 */
-			if (saddr)
-				hp = gethostbyaddr((char *) &sin->sin_addr,
-					sizeof(sin->sin_addr), AF_INET);
-			if (hp != NULL && strcmp(nhp->name, hp->h_name) != 0) {
-				debuglog("Statd retry with '%s'\n", hp->h_name);
-				smon.mon_id.mon_name = hp->h_name;
-				nhp->revname = strdup(hp->h_name);
+			if (saddr &&
+			    !getnameinfo(saddr, saddr->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0) &&
+			    strcmp(nhp->name, hostbuf)) {
+				debuglog("Statd retry with '%s'\n", hostbuf);
+				smon.mon_id.mon_name = hostbuf;
+				nhp->revname = strdup(hostbuf);
 				if (nhp->revname == NULL) {
 					debuglog("No memory for revname\n");
 					free(nhp->name);
@@ -2656,6 +2701,7 @@ notify(const char *hostname, const int state)
 	
 	siglock();
 	do_clear(hostname);
+	do_notify_mounts(hostname);
 	sigunlock();
 
 	debuglog("Leaving notify\n");
@@ -2675,7 +2721,7 @@ send_granted(fl, opcode)
 
 	debuglog("About to send granted on blocked lock\n");
 
-	cli = get_client(fl->addr, (fl->flags & LOCK_V4) ? NLM_VERS4 : NLM_VERS, 0);
+	cli = get_client(fl->addr, (fl->flags & LOCK_V4) ? NLM_VERS4 : NLM_VERS, 0, 0);
 	if (cli == NULL) {
 		syslog(LOG_NOTICE, "failed to get CLIENT for %s",
 		    fl->client_name);

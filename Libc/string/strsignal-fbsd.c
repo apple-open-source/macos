@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,40 +31,118 @@
 static char sccsid[] = "@(#)strerror.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strsignal.c,v 1.4 2002/03/21 18:44:54 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strsignal.c,v 1.9 2010/01/24 10:35:26 ume Exp $");
 
-#include <stdio.h>
+#include "namespace.h"
+#if defined(NLS)
+#include <nl_types.h>
+#endif
+#include <limits.h>
+#include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include "reentrant.h"
+#include "un-namespace.h"
 
-char *
-strsignal(num)
-	int num;
+#define	UPREFIX		"Unknown signal"
+
+static once_t		sig_init_once = ONCE_INITIALIZER;
+static thread_key_t	sig_key;
+static int		sig_keycreated = 0;
+
+static void
+sig_keycreate(void)
 {
-#define	UPREFIX	"Unknown signal: "
-	static char ebuf[40] = UPREFIX;		/* 64-bit number + slop */
-	unsigned int signum;
-	char *p, *t;
-	char tmp[40];
+	sig_keycreated = (thr_keycreate(&sig_key, free) == 0);
+}
 
-	signum = num;				/* convert to unsigned */
-	if (signum < NSIG)
-		return ((char *)sys_siglist[signum]);
+static char *
+sig_tlsalloc(void)
+{
+	char *ebuf = NULL;
 
-	/* Do this by hand, so we don't link to stdio(3). */
-	t = tmp;
+	if (thr_once(&sig_init_once, sig_keycreate) != 0 ||
+	    !sig_keycreated)
+		goto thr_err;
+	if ((ebuf = thr_getspecific(sig_key)) == NULL) {
+		if ((ebuf = malloc(NL_TEXTMAX * sizeof(char))) == NULL)
+			goto thr_err;
+		if (thr_setspecific(sig_key, ebuf) != 0) {
+			free(ebuf);
+			ebuf = NULL;
+			goto thr_err;
+		}
+	}
+thr_err:
+	return (ebuf);
+}
+
+/* XXX: negative 'num' ? (REGR) */
+char *
+strsignal(int num)
+{
+	char *ebuf;
+	char tmp[20];
+	size_t n;
+	int signum;
+	char *t, *p;
+
+#if defined(NLS)
+	int saved_errno = errno;
+	nl_catd catd;
+	catd = catopen("libc", NL_CAT_LOCALE);
+#endif
+
+	ebuf = sig_tlsalloc();
+	if(ebuf == NULL) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (num > 0 && num < NSIG) {
+		n = strlcpy(ebuf,
+#if defined(NLS)
+			catgets(catd, 2, num, sys_siglist[num]),
+#else
+			sys_siglist[num],
+#endif
+			NL_TEXTMAX * sizeof(char));
+	} else {
+		n = strlcpy(ebuf,
+#if defined(NLS)
+			catgets(catd, 2, 0xffff, UPREFIX),
+#else
+			UPREFIX,
+#endif
+			NL_TEXTMAX * sizeof(char));
+	}
+
+	signum = num;
 	if (num < 0)
 		signum = -signum;
+
+	t = tmp;
 	do {
 		*t++ = "0123456789"[signum % 10];
 	} while (signum /= 10);
 	if (num < 0)
 		*t++ = '-';
-	for (p = ebuf + sizeof(UPREFIX) - 1;;) {
+
+	p = (ebuf + n);
+	*p++ = ':';
+	*p++ = ' ';
+
+	for (;;) {
 		*p++ = *--t;
 		if (t <= tmp)
 			break;
 	}
 	*p = '\0';
+
+#if defined(NLS)
+	catclose(catd);
+	errno = saved_errno;
+#endif
 	return (ebuf);
 }

@@ -43,7 +43,7 @@ struct sContinueEntry
 //	* CContinue
 //------------------------------------------------------------------------------------
 
-CContinue::CContinue ( DeallocateProc *inProcPtr ) : fMutex("CContinue::fMutex")
+CContinue::CContinue ( DeallocateProc inProcPtr ) : fMutex("CContinue::fMutex")
 {
 	fDeallocProcPtr = inProcPtr;
 	fNextContextID = 1;

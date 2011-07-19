@@ -1,9 +1,9 @@
 //
-// "$Id: ppdc-source.cxx 2318 2010-07-08 23:29:48Z msweet $"
+// "$Id: ppdc-source.cxx 3324 2011-06-15 00:49:54Z msweet $"
 //
 //   Source class for the CUPS PPD Compiler.
 //
-//   Copyright 2007-2010 by Apple Inc.
+//   Copyright 2007-2011 by Apple Inc.
 //   Copyright 2002-2007 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -61,7 +61,6 @@
 //
 
 #include "ppdc-private.h"
-#include <cups/globals.h>
 #include <limits.h>
 #include <math.h>
 #include <unistd.h>
@@ -190,7 +189,7 @@ ppdcSource::find_driver(const char *f)	// I - Driver file name
 
 
   for (d = (ppdcDriver *)drivers->first(); d; d = (ppdcDriver *)drivers->next())
-    if (!strcasecmp(f, d->pc_file_name->value))
+    if (!_cups_strcasecmp(f, d->pc_file_name->value))
       return (d);
 
   return (NULL);
@@ -227,7 +226,7 @@ ppdcSource::find_include(
     if (*ptr != '>')
     {
       _cupsLangPrintf(stderr,
-                      _("ppdc: Invalid #include/#po filename \"%s\"!\n"), n);
+                      _("ppdc: Invalid #include/#po filename \"%s\"."), n);
       return (0);
     }
 
@@ -290,7 +289,7 @@ ppdcSource::find_po(const char *l)	// I - Locale name
   for (cat = (ppdcCatalog *)po_files->first();
        cat;
        cat = (ppdcCatalog *)po_files->next())
-    if (!strcasecmp(l, cat->locale->value))
+    if (!_cups_strcasecmp(l, cat->locale->value))
       return (cat);
 
   return (NULL);
@@ -308,7 +307,7 @@ ppdcSource::find_size(const char *s)	// I - Size name
 
 
   for (m = (ppdcMediaSize *)sizes->first(); m; m = (ppdcMediaSize *)sizes->next())
-    if (!strcasecmp(s, m->name->value))
+    if (!_cups_strcasecmp(s, m->name->value))
       return (m);
 
   return (NULL);
@@ -326,7 +325,7 @@ ppdcSource::find_variable(const char *n)// I - Variable name
 
 
   for (v = (ppdcVariable *)vars->first(); v; v = (ppdcVariable *)vars->next())
-    if (!strcasecmp(n, v->name->value))
+    if (!_cups_strcasecmp(n, v->name->value))
       return (v);
 
   return (NULL);
@@ -353,7 +352,7 @@ ppdcSource::get_attr(ppdcFile *fp, 	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected name after %s on line %d of %s!\n"),
+                    _("ppdc: Expected name after %s on line %d of %s."),
 		    loc ? "LocAttribute" : "Attribute", fp->line, fp->filename);
     return (0);
   }
@@ -361,7 +360,7 @@ ppdcSource::get_attr(ppdcFile *fp, 	// I - File to read
   if (!get_token(fp, selector, sizeof(selector)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected selector after %s on line %d of %s!\n"),
+                    _("ppdc: Expected selector after %s on line %d of %s."),
 		    loc ? "LocAttribute" : "Attribute", fp->line, fp->filename);
     return (0);
   }
@@ -372,7 +371,7 @@ ppdcSource::get_attr(ppdcFile *fp, 	// I - File to read
   if (!get_token(fp, value, sizeof(value)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected value after %s on line %d of %s!\n"),
+                    _("ppdc: Expected value after %s on line %d of %s."),
 		    loc ? "LocAttribute" : "Attribute", fp->line, fp->filename);
     return (0);
   }
@@ -394,23 +393,23 @@ ppdcSource::get_boolean(ppdcFile *fp)	// I - File to read
   if (!get_token(fp, buffer, sizeof(buffer)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected boolean value on line %d of %s.\n"),
+                    _("ppdc: Expected boolean value on line %d of %s."),
 		    fp->line, fp->filename);
     return (-1);
   }
 
-  if (!strcasecmp(buffer, "on") ||
-      !strcasecmp(buffer, "yes") ||
-      !strcasecmp(buffer, "true"))
+  if (!_cups_strcasecmp(buffer, "on") ||
+      !_cups_strcasecmp(buffer, "yes") ||
+      !_cups_strcasecmp(buffer, "true"))
     return (1);
-  else if (!strcasecmp(buffer, "off") ||
-	   !strcasecmp(buffer, "no") ||
-	   !strcasecmp(buffer, "false"))
+  else if (!_cups_strcasecmp(buffer, "off") ||
+	   !_cups_strcasecmp(buffer, "no") ||
+	   !_cups_strcasecmp(buffer, "false"))
     return (0);
   else
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Bad boolean value (%s) on line %d of %s.\n"),
+                    _("ppdc: Bad boolean value (%s) on line %d of %s."),
 		    buffer, fp->line, fp->filename);
     return (-1);
   }
@@ -435,7 +434,7 @@ ppdcSource::get_choice(ppdcFile *fp)	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected choice name/text on line %d of %s.\n"),
+                    _("ppdc: Expected choice name/text on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -447,7 +446,7 @@ ppdcSource::get_choice(ppdcFile *fp)	// I - File to read
 
   if (!get_token(fp, code, sizeof(code)))
   {
-    _cupsLangPrintf(stderr, _("ppdc: Expected choice code on line %d of %s.\n"),
+    _cupsLangPrintf(stderr, _("ppdc: Expected choice code on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -480,7 +479,7 @@ ppdcSource::get_color_model(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected name/text combination for ColorModel on "
-		      "line %d of %s!\n"), fp->line, fp->filename);
+		      "line %d of %s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -493,7 +492,7 @@ ppdcSource::get_color_model(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected colorspace for ColorModel on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -504,7 +503,7 @@ ppdcSource::get_color_model(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected color order for ColorModel on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -515,7 +514,7 @@ ppdcSource::get_color_model(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected compression for ColorModel on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -538,12 +537,12 @@ int					// O - Color order value
 ppdcSource::get_color_order(
     const char *co)			// I - Color order string
 {
-  if (!strcasecmp(co, "chunked") ||
-      !strcasecmp(co, "chunky"))
+  if (!_cups_strcasecmp(co, "chunked") ||
+      !_cups_strcasecmp(co, "chunky"))
     return (CUPS_ORDER_CHUNKED);
-  else if (!strcasecmp(co, "banded"))
+  else if (!_cups_strcasecmp(co, "banded"))
     return (CUPS_ORDER_BANDED);
-  else if (!strcasecmp(co, "planar"))
+  else if (!_cups_strcasecmp(co, "planar"))
     return (CUPS_ORDER_PLANAR);
   else
     return (-1);
@@ -573,7 +572,7 @@ ppdcSource::get_color_profile(
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected resolution/mediatype following "
-		      "ColorProfile on line %d of %s!\n"),
+		      "ColorProfile on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -600,71 +599,71 @@ int					// O - Colorspace value
 ppdcSource::get_color_space(
     const char *cs)			// I - Colorspace string
 {
-  if (!strcasecmp(cs, "w"))
+  if (!_cups_strcasecmp(cs, "w"))
     return (CUPS_CSPACE_W);
-  else if (!strcasecmp(cs, "rgb"))
+  else if (!_cups_strcasecmp(cs, "rgb"))
     return (CUPS_CSPACE_RGB);
-  else if (!strcasecmp(cs, "rgba"))
+  else if (!_cups_strcasecmp(cs, "rgba"))
     return (CUPS_CSPACE_RGBA);
-  else if (!strcasecmp(cs, "k"))
+  else if (!_cups_strcasecmp(cs, "k"))
     return (CUPS_CSPACE_K);
-  else if (!strcasecmp(cs, "cmy"))
+  else if (!_cups_strcasecmp(cs, "cmy"))
     return (CUPS_CSPACE_CMY);
-  else if (!strcasecmp(cs, "ymc"))
+  else if (!_cups_strcasecmp(cs, "ymc"))
     return (CUPS_CSPACE_YMC);
-  else if (!strcasecmp(cs, "cmyk"))
+  else if (!_cups_strcasecmp(cs, "cmyk"))
     return (CUPS_CSPACE_CMYK);
-  else if (!strcasecmp(cs, "ymck"))
+  else if (!_cups_strcasecmp(cs, "ymck"))
     return (CUPS_CSPACE_YMCK);
-  else if (!strcasecmp(cs, "kcmy"))
+  else if (!_cups_strcasecmp(cs, "kcmy"))
     return (CUPS_CSPACE_KCMY);
-  else if (!strcasecmp(cs, "kcmycm"))
+  else if (!_cups_strcasecmp(cs, "kcmycm"))
     return (CUPS_CSPACE_KCMYcm);
-  else if (!strcasecmp(cs, "gmck"))
+  else if (!_cups_strcasecmp(cs, "gmck"))
     return (CUPS_CSPACE_GMCK);
-  else if (!strcasecmp(cs, "gmcs"))
+  else if (!_cups_strcasecmp(cs, "gmcs"))
     return (CUPS_CSPACE_GMCS);
-  else if (!strcasecmp(cs, "white"))
+  else if (!_cups_strcasecmp(cs, "white"))
     return (CUPS_CSPACE_WHITE);
-  else if (!strcasecmp(cs, "gold"))
+  else if (!_cups_strcasecmp(cs, "gold"))
     return (CUPS_CSPACE_GOLD);
-  else if (!strcasecmp(cs, "silver"))
+  else if (!_cups_strcasecmp(cs, "silver"))
     return (CUPS_CSPACE_SILVER);
-  else if (!strcasecmp(cs, "CIEXYZ"))
+  else if (!_cups_strcasecmp(cs, "CIEXYZ"))
     return (CUPS_CSPACE_CIEXYZ);
-  else if (!strcasecmp(cs, "CIELab"))
+  else if (!_cups_strcasecmp(cs, "CIELab"))
     return (CUPS_CSPACE_CIELab);
-  else if (!strcasecmp(cs, "RGBW"))
+  else if (!_cups_strcasecmp(cs, "RGBW"))
     return (CUPS_CSPACE_RGBW);
-  else if (!strcasecmp(cs, "ICC1"))
+  else if (!_cups_strcasecmp(cs, "ICC1"))
     return (CUPS_CSPACE_ICC1);
-  else if (!strcasecmp(cs, "ICC2"))
+  else if (!_cups_strcasecmp(cs, "ICC2"))
     return (CUPS_CSPACE_ICC2);
-  else if (!strcasecmp(cs, "ICC3"))
+  else if (!_cups_strcasecmp(cs, "ICC3"))
     return (CUPS_CSPACE_ICC3);
-  else if (!strcasecmp(cs, "ICC4"))
+  else if (!_cups_strcasecmp(cs, "ICC4"))
     return (CUPS_CSPACE_ICC4);
-  else if (!strcasecmp(cs, "ICC5"))
+  else if (!_cups_strcasecmp(cs, "ICC5"))
     return (CUPS_CSPACE_ICC5);
-  else if (!strcasecmp(cs, "ICC6"))
+  else if (!_cups_strcasecmp(cs, "ICC6"))
     return (CUPS_CSPACE_ICC6);
-  else if (!strcasecmp(cs, "ICC7"))
+  else if (!_cups_strcasecmp(cs, "ICC7"))
     return (CUPS_CSPACE_ICC7);
-  else if (!strcasecmp(cs, "ICC8"))
+  else if (!_cups_strcasecmp(cs, "ICC8"))
     return (CUPS_CSPACE_ICC8);
-  else if (!strcasecmp(cs, "ICC9"))
+  else if (!_cups_strcasecmp(cs, "ICC9"))
     return (CUPS_CSPACE_ICC9);
-  else if (!strcasecmp(cs, "ICCA"))
+  else if (!_cups_strcasecmp(cs, "ICCA"))
     return (CUPS_CSPACE_ICCA);
-  else if (!strcasecmp(cs, "ICCB"))
+  else if (!_cups_strcasecmp(cs, "ICCB"))
     return (CUPS_CSPACE_ICCB);
-  else if (!strcasecmp(cs, "ICCC"))
+  else if (!_cups_strcasecmp(cs, "ICCC"))
     return (CUPS_CSPACE_ICCC);
-  else if (!strcasecmp(cs, "ICCD"))
+  else if (!_cups_strcasecmp(cs, "ICCD"))
     return (CUPS_CSPACE_ICCD);
-  else if (!strcasecmp(cs, "ICCE"))
+  else if (!_cups_strcasecmp(cs, "ICCE"))
     return (CUPS_CSPACE_ICCE);
-  else if (!strcasecmp(cs, "ICCF"))
+  else if (!_cups_strcasecmp(cs, "ICCF"))
     return (CUPS_CSPACE_ICCF);
   else
     return (-1);
@@ -696,7 +695,7 @@ ppdcSource::get_constraint(ppdcFile *fp)// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected constraints string for UIConstraints on "
-		      "line %d of %s!\n"), fp->line, fp->filename);
+		      "line %d of %s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -705,7 +704,7 @@ ppdcSource::get_constraint(ppdcFile *fp)// I - File to read
   if (*ptr != '*')
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Option constraint must *name on line %d of %s!\n"),
+                    _("ppdc: Option constraint must *name on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -728,7 +727,7 @@ ppdcSource::get_constraint(ppdcFile *fp)// I - File to read
   if (*ptr != '*')
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected two option names on line %d of %s!\n"),
+                    _("ppdc: Expected two option names on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -827,15 +826,15 @@ ppdcSource::get_duplex(ppdcFile   *fp,	// I - File to read from
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected duplex type after Duplex on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return;
   }
 
   if (cond_state)
     return;
 
-  if (!strcasecmp(temp, "none") || !strcasecmp(temp, "false") ||
-      !strcasecmp(temp, "no") || !strcasecmp(temp, "off"))
+  if (!_cups_strcasecmp(temp, "none") || !_cups_strcasecmp(temp, "false") ||
+      !_cups_strcasecmp(temp, "no") || !_cups_strcasecmp(temp, "off"))
   {
     g = d->find_group("General");
     if ((o = g->find_option("Duplex")) != NULL)
@@ -850,10 +849,10 @@ ppdcSource::get_duplex(ppdcFile   *fp,	// I - File to read from
 	break;
       }
   }
-  else if (!strcasecmp(temp, "normal") || !strcasecmp(temp, "true") ||
-	   !strcasecmp(temp, "yes") || !strcasecmp(temp, "on") ||
-	   !strcasecmp(temp, "flip") || !strcasecmp(temp, "rotated") ||
-	   !strcasecmp(temp, "manualtumble"))
+  else if (!_cups_strcasecmp(temp, "normal") || !_cups_strcasecmp(temp, "true") ||
+	   !_cups_strcasecmp(temp, "yes") || !_cups_strcasecmp(temp, "on") ||
+	   !_cups_strcasecmp(temp, "flip") || !_cups_strcasecmp(temp, "rotated") ||
+	   !_cups_strcasecmp(temp, "manualtumble"))
   {
     g = d->find_group("General");
     o = g->find_option("Duplex");
@@ -861,7 +860,7 @@ ppdcSource::get_duplex(ppdcFile   *fp,	// I - File to read from
     if (!o)
     {
       o = new ppdcOption(PPDC_PICKONE, "Duplex", "2-Sided Printing",
-                	 !strcasecmp(temp, "flip") ? PPDC_SECTION_PAGE :
+                	 !_cups_strcasecmp(temp, "flip") ? PPDC_SECTION_PAGE :
 			                             PPDC_SECTION_ANY, 10.0f);
       o->add_choice(new ppdcChoice("None", "Off (1-Sided)",
                         	   "<</Duplex false>>setpagedevice"));
@@ -878,12 +877,12 @@ ppdcSource::get_duplex(ppdcFile   *fp,	// I - File to read from
 	 attr = (ppdcAttr *)d->attrs->next())
       if (!strcmp(attr->name->value, "cupsFlipDuplex"))
       {
-        if (strcasecmp(temp, "flip"))
+        if (_cups_strcasecmp(temp, "flip"))
           d->attrs->remove(attr);
 	break;
       }
 
-    if (!strcasecmp(temp, "flip") && !attr)
+    if (!_cups_strcasecmp(temp, "flip") && !attr)
       d->add_attr(new ppdcAttr("cupsFlipDuplex", NULL, NULL, "true"));
 
     for (attr = (ppdcAttr *)d->attrs->first();
@@ -895,18 +894,18 @@ ppdcSource::get_duplex(ppdcFile   *fp,	// I - File to read from
 	break;
       }
 
-    if (!strcasecmp(temp, "flip"))
+    if (!_cups_strcasecmp(temp, "flip"))
       d->add_attr(new ppdcAttr("cupsBackSide", NULL, NULL, "Flipped"));
-    else if (!strcasecmp(temp, "rotated"))
+    else if (!_cups_strcasecmp(temp, "rotated"))
       d->add_attr(new ppdcAttr("cupsBackSide", NULL, NULL, "Rotated"));
-    else if (!strcasecmp(temp, "manualtumble"))
+    else if (!_cups_strcasecmp(temp, "manualtumble"))
       d->add_attr(new ppdcAttr("cupsBackSide", NULL, NULL, "ManualTumble"));
     else
       d->add_attr(new ppdcAttr("cupsBackSide", NULL, NULL, "Normal"));
   }
   else
     _cupsLangPrintf(stderr,
-                    _("ppdc: Unknown duplex type \"%s\" on line %d of %s!\n"),
+                    _("ppdc: Unknown duplex type \"%s\" on line %d of %s."),
 		    temp, fp->line, fp->filename);
 }
 
@@ -932,7 +931,7 @@ ppdcSource::get_filter(ppdcFile *fp)	// I - File to read
   if (!get_token(fp, type, sizeof(type)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected a filter definition on line %d of %s!\n"),
+                    _("ppdc: Expected a filter definition on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -955,7 +954,7 @@ ppdcSource::get_filter(ppdcFile *fp)	// I - File to read
     if (!get_token(fp, program, sizeof(program)))
     {
       _cupsLangPrintf(stderr,
-                      _("ppdc: Expected a program name on line %d of %s!\n"),
+                      _("ppdc: Expected a program name on line %d of %s."),
 		      fp->line, fp->filename);
       return (NULL);
     }
@@ -965,14 +964,14 @@ ppdcSource::get_filter(ppdcFile *fp)	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Invalid empty MIME type for filter on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return (NULL);
   }
 
   if (cost < 0 || cost > 200)
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Invalid cost for filter on line %d of %s!\n"),
+                    _("ppdc: Invalid cost for filter on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -981,7 +980,7 @@ ppdcSource::get_filter(ppdcFile *fp)	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Invalid empty program name for filter on line %d "
-		      "of %s!\n"), fp->line, fp->filename);
+		      "of %s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1004,7 +1003,7 @@ ppdcSource::get_float(ppdcFile *fp)	// I - File to read
   // Get the number from the file and range-check...
   if (!get_token(fp, temp, sizeof(temp)))
   {
-    _cupsLangPrintf(stderr, _("ppdc: Expected real number on line %d of %s!\n"),
+    _cupsLangPrintf(stderr, _("ppdc: Expected real number on line %d of %s."),
 		    fp->line, fp->filename);
     return (-1.0f);
   }
@@ -1015,7 +1014,7 @@ ppdcSource::get_float(ppdcFile *fp)	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Unknown trailing characters in real number \"%s\" "
-		      "on line %d of %s!\n"), temp, fp->line, fp->filename);
+		      "on line %d of %s."), temp, fp->line, fp->filename);
     return (-1.0f);
   }
   else
@@ -1058,7 +1057,7 @@ ppdcSource::get_font(ppdcFile *fp)	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected name after Font on line %d of %s!\n"),
+                    _("ppdc: Expected name after Font on line %d of %s."),
 		    fp->line, fp->filename);
     return (0);
   }
@@ -1078,7 +1077,7 @@ ppdcSource::get_font(ppdcFile *fp)	// I - File to read
     {
       _cupsLangPrintf(stderr,
                       _("ppdc: Expected encoding after Font on line %d of "
-		        "%s!\n"), fp->line, fp->filename);
+		        "%s."), fp->line, fp->filename);
       return (0);
     }
 
@@ -1086,7 +1085,7 @@ ppdcSource::get_font(ppdcFile *fp)	// I - File to read
     {
       _cupsLangPrintf(stderr,
                       _("ppdc: Expected version after Font on line %d of "
-		        "%s!\n"), fp->line, fp->filename);
+		        "%s."), fp->line, fp->filename);
       return (0);
     }
 
@@ -1094,26 +1093,26 @@ ppdcSource::get_font(ppdcFile *fp)	// I - File to read
     {
       _cupsLangPrintf(stderr,
                       _("ppdc: Expected charset after Font on line %d of "
-		        "%s!\n"), fp->line, fp->filename);
+		        "%s."), fp->line, fp->filename);
       return (0);
     }
 
     if (!get_token(fp, temp, sizeof(temp)))
     {
       _cupsLangPrintf(stderr,
-                      _("ppdc: Expected status after Font on line %d of %s!\n"),
+                      _("ppdc: Expected status after Font on line %d of %s."),
 		      fp->line, fp->filename);
       return (0);
     }
 
-    if (!strcasecmp(temp, "ROM"))
+    if (!_cups_strcasecmp(temp, "ROM"))
       status = PPDC_FONT_ROM;
-    else if (!strcasecmp(temp, "Disk"))
+    else if (!_cups_strcasecmp(temp, "Disk"))
       status = PPDC_FONT_DISK;
     else
     {
       _cupsLangPrintf(stderr,
-                      _("ppdc: Bad status keyword %s on line %d of %s!\n"),
+                      _("ppdc: Bad status keyword %s on line %d of %s."),
 		      temp, fp->line, fp->filename);
       return (0);
     }
@@ -1156,7 +1155,7 @@ ppdcSource::get_generic(ppdcFile   *fp,	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected name/text after %s on line %d of %s!\n"),
+                    _("ppdc: Expected name/text after %s on line %d of %s."),
 		    keyword, fp->line, fp->filename);
     return (NULL);
   }
@@ -1205,7 +1204,7 @@ ppdcSource::get_group(ppdcFile   *fp,	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected group name/text on line %d of %s!\n"),
+                    _("ppdc: Expected group name/text on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -1246,7 +1245,7 @@ ppdcSource::get_installable(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected name/text after Installable on line %d "
-		      "of %s!\n"), fp->line, fp->filename);
+		      "of %s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1501,7 +1500,7 @@ ppdcSource::get_integer(ppdcFile *fp)	// I - File to read
 
   if (!get_token(fp, temp, sizeof(temp)))
   {
-    _cupsLangPrintf(stderr, _("ppdc: Expected integer on line %d of %s!\n"),
+    _cupsLangPrintf(stderr, _("ppdc: Expected integer on line %d of %s."),
 		    fp->line, fp->filename);
     return (-1);
   }
@@ -1531,17 +1530,17 @@ ppdcSource::get_measurement(ppdcFile *fp)
   val = (float)strtod(buffer, &ptr);
 
   // Check for a trailing unit specifier...
-  if (!strcasecmp(ptr, "mm"))
+  if (!_cups_strcasecmp(ptr, "mm"))
     val *= 72.0f / 25.4f;
-  else if (!strcasecmp(ptr, "cm"))
+  else if (!_cups_strcasecmp(ptr, "cm"))
     val *= 72.0f / 2.54f;
-  else if (!strcasecmp(ptr, "m"))
+  else if (!_cups_strcasecmp(ptr, "m"))
     val *= 72.0f / 0.0254f;
-  else if (!strcasecmp(ptr, "in"))
+  else if (!_cups_strcasecmp(ptr, "in"))
     val *= 72.0f;
-  else if (!strcasecmp(ptr, "ft"))
+  else if (!_cups_strcasecmp(ptr, "ft"))
     val *= 72.0f * 12.0f;
-  else if (strcasecmp(ptr, "pt") && *ptr)
+  else if (_cups_strcasecmp(ptr, "pt") && *ptr)
     return (-1.0f);
 
   return (val);
@@ -1573,7 +1572,7 @@ ppdcSource::get_option(ppdcFile   *fp,	// I - File to read
   if (!get_token(fp, name, sizeof(name)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected option name/text on line %d of %s!\n"),
+                    _("ppdc: Expected option name/text on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -1585,21 +1584,21 @@ ppdcSource::get_option(ppdcFile   *fp,	// I - File to read
 
   if (!get_token(fp, type, sizeof(type)))
   {
-    _cupsLangPrintf(stderr, _("ppdc: Expected option type on line %d of %s!\n"),
+    _cupsLangPrintf(stderr, _("ppdc: Expected option type on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
 
-  if (!strcasecmp(type, "boolean"))
+  if (!_cups_strcasecmp(type, "boolean"))
     ot = PPDC_BOOLEAN;
-  else if (!strcasecmp(type, "pickone"))
+  else if (!_cups_strcasecmp(type, "pickone"))
     ot = PPDC_PICKONE;
-  else if (!strcasecmp(type, "pickmany"))
+  else if (!_cups_strcasecmp(type, "pickmany"))
     ot = PPDC_PICKMANY;
   else
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Invalid option type \"%s\" on line %d of %s!\n"),
+                    _("ppdc: Invalid option type \"%s\" on line %d of %s."),
 		    type, fp->line, fp->filename);
     return (NULL);
   }
@@ -1607,28 +1606,28 @@ ppdcSource::get_option(ppdcFile   *fp,	// I - File to read
   if (!get_token(fp, type, sizeof(type)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected option section on line %d of %s!\n"),
+                    _("ppdc: Expected option section on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
 
-  if (!strcasecmp(type, "AnySetup"))
+  if (!_cups_strcasecmp(type, "AnySetup"))
     section = PPDC_SECTION_ANY;
-  else if (!strcasecmp(type, "DocumentSetup"))
+  else if (!_cups_strcasecmp(type, "DocumentSetup"))
     section = PPDC_SECTION_DOCUMENT;
-  else if (!strcasecmp(type, "ExitServer"))
+  else if (!_cups_strcasecmp(type, "ExitServer"))
     section = PPDC_SECTION_EXIT;
-  else if (!strcasecmp(type, "JCLSetup"))
+  else if (!_cups_strcasecmp(type, "JCLSetup"))
     section = PPDC_SECTION_JCL;
-  else if (!strcasecmp(type, "PageSetup"))
+  else if (!_cups_strcasecmp(type, "PageSetup"))
     section = PPDC_SECTION_PAGE;
-  else if (!strcasecmp(type, "Prolog"))
+  else if (!_cups_strcasecmp(type, "Prolog"))
     section = PPDC_SECTION_PROLOG;
   else
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Invalid option section \"%s\" on line %d of "
-		      "%s!\n"), type, fp->line, fp->filename);
+		      "%s."), type, fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1644,14 +1643,14 @@ ppdcSource::get_option(ppdcFile   *fp,	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Option %s redefined with a different type on line "
-		      "%d of %s!\n"), name, fp->line, fp->filename);
+		      "%d of %s."), name, fp->line, fp->filename);
     return (NULL);
   }
   else if (g != mg)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Option %s defined in two different groups on line "
-		      "%d of %s!\n"), name, fp->line, fp->filename);
+		      "%d of %s."), name, fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1680,7 +1679,7 @@ ppdcSource::get_po(ppdcFile *fp)	// I - File to read
   if (!get_token(fp, locale, sizeof(locale)))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Expected locale after #po on line %d of %s!\n"),
+                    _("ppdc: Expected locale after #po on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -1689,7 +1688,7 @@ ppdcSource::get_po(ppdcFile *fp)	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected filename after #po %s on line %d of "
-		      "%s!\n"), locale, fp->line, fp->filename);
+		      "%s."), locale, fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1697,7 +1696,7 @@ ppdcSource::get_po(ppdcFile *fp)	// I - File to read
   if (find_po(locale))
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Duplicate #po for locale %s on line %d of %s!\n"),
+                    _("ppdc: Duplicate #po for locale %s on line %d of %s."),
 		    locale, fp->line, fp->filename);
     return (NULL);
   }
@@ -1729,7 +1728,7 @@ ppdcSource::get_po(ppdcFile *fp)	// I - File to read
   else
   {
     _cupsLangPrintf(stderr,
-                    _("ppdc: Unable to find #po file %s on line %d of %s!\n"),
+                    _("ppdc: Unable to find #po file %s on line %d of %s."),
 		    poname, fp->line, fp->filename);
     return (NULL);
   }
@@ -1765,7 +1764,7 @@ ppdcSource::get_resolution(ppdcFile *fp)// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected override field after Resolution on line "
-		      "%d of %s!\n"), fp->line, fp->filename);
+		      "%d of %s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1782,7 +1781,7 @@ ppdcSource::get_resolution(ppdcFile *fp)// I - File to read
   {
     _cupsLangPrintf(stderr,
 		    _("ppdc: Expected name/text after Resolution on line %d of "
-		      "%s!\n"), fp->line, fp->filename);
+		      "%s."), fp->line, fp->filename);
     return (NULL);
   }
 
@@ -1796,7 +1795,7 @@ ppdcSource::get_resolution(ppdcFile *fp)// I - File to read
     case 0 :
         _cupsLangPrintf(stderr,
 	                _("ppdc: Bad resolution name \"%s\" on line %d of "
-			  "%s!\n"), name, fp->line, fp->filename);
+			  "%s."), name, fp->line, fp->filename);
         break;
     case 1 :
         ydpi = xdpi;
@@ -1863,7 +1862,7 @@ ppdcSource::get_simple_profile(ppdcFile *fp)
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Expected resolution/mediatype following "
-		      "SimpleColorProfile on line %d of %s!\n"),
+		      "SimpleColorProfile on line %d of %s."),
 		    fp->line, fp->filename);
     return (NULL);
   }
@@ -2033,7 +2032,7 @@ ppdcSource::get_token(ppdcFile *fp,	// I - File to read
 	  // $ch = $ch
           _cupsLangPrintf(stderr,
 	                  _("ppdc: Bad variable substitution ($%c) on line %d "
-			    "of %s.\n"), ch, fp->line, fp->filename);
+			    "of %s."), ch, fp->line, fp->filename);
 
 	  if (bufptr < bufend)
 	    *bufptr++ = '$';
@@ -2054,7 +2053,7 @@ ppdcSource::get_token(ppdcFile *fp,	// I - File to read
 	  if (!(cond_state & PPDC_COND_SKIP))
 	    _cupsLangPrintf(stderr,
 			    _("ppdc: Undefined variable (%s) on line %d of "
-			      "%s.\n"), name, fp->line, fp->filename);
+			      "%s."), name, fp->line, fp->filename);
 
 	  snprintf(bufptr, bufend - bufptr + 1, "$%s", name);
 	  bufptr += strlen(bufptr);
@@ -2164,7 +2163,7 @@ ppdcSource::get_token(ppdcFile *fp,	// I - File to read
   {
     _cupsLangPrintf(stderr,
                     _("ppdc: Unterminated string starting with %c on line %d "
-		      "of %s!\n"), quote, startline, fp->filename);
+		      "of %s."), quote, startline, fp->filename);
     return (NULL);
   }
 
@@ -2314,7 +2313,7 @@ ppdcSource::quotef(cups_file_t *fp,	// I - File to write to
 
 	    bytes += cupsFilePrintf(fp, tformat, va_arg(ap, int));
 	    break;
-	    
+
 	case 'p' : // Pointer value
 	    if ((format - bufformat + 1) > (int)sizeof(tformat))
 	      break;
@@ -2401,7 +2400,7 @@ ppdcSource::read_file(const char  *f,	// I - File to read
   delete fp;
 
   if (cond_current != cond_stack)
-    _cupsLangPrintf(stderr, _("ppdc: Missing #endif at end of \"%s\"!\n"), f);
+    _cupsLangPrintf(stderr, _("ppdc: Missing #endif at end of \"%s\"."), f);
 }
 
 
@@ -2469,22 +2468,22 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       isdefault = 0;
     }
 
-    if (!strcasecmp(temp, "}"))
+    if (!_cups_strcasecmp(temp, "}"))
     {
       // Close this one out...
       break;
     }
-    else if (!strcasecmp(temp, "{"))
+    else if (!_cups_strcasecmp(temp, "{"))
     {
       // Open a new child...
       scan_file(fp, d);
     }
-    else if (!strcasecmp(temp, "#if"))
+    else if (!_cups_strcasecmp(temp, "#if"))
     {
       if ((cond_current - cond_stack) >= 100)
       {
         _cupsLangPrintf(stderr,
-	                _("ppdc: Too many nested #if's on line %d of %s!\n"),
+	                _("ppdc: Too many nested #if's on line %d of %s."),
 			fp->line, fp->filename);
 	break;
       }
@@ -2498,11 +2497,11 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	cond_state    |= PPDC_COND_SKIP;
       }
     }
-    else if (!strcasecmp(temp, "#elif"))
+    else if (!_cups_strcasecmp(temp, "#elif"))
     {
       if (cond_current == cond_stack)
       {
-        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s!\n"),
+        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s."),
 	                fp->line, fp->filename);
         break;
       }
@@ -2533,11 +2532,11 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	else
 	  cond_temp --;
     }
-    else if (!strcasecmp(temp, "#else"))
+    else if (!_cups_strcasecmp(temp, "#else"))
     {
       if (cond_current == cond_stack)
       {
-        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s!\n"),
+        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s."),
 		        fp->line, fp->filename);
         break;
       }
@@ -2563,11 +2562,11 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	else
 	  cond_temp --;
     }
-    else if (!strcasecmp(temp, "#endif"))
+    else if (!_cups_strcasecmp(temp, "#endif"))
     {
       if (cond_current == cond_stack)
       {
-        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s!\n"),
+        _cupsLangPrintf(stderr, _("ppdc: Missing #if on line %d of %s."),
 	                fp->line, fp->filename);
         break;
       }
@@ -2587,12 +2586,12 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	else
 	  cond_temp --;
     }
-    else if (!strcasecmp(temp, "#define"))
+    else if (!_cups_strcasecmp(temp, "#define"))
     {
       // Get the variable...
       get_variable(fp);
     }
-    else if (!strcasecmp(temp, "#include"))
+    else if (!_cups_strcasecmp(temp, "#include"))
     {
       // #include filename
       char	basedir[1024],		// Base directory
@@ -2609,7 +2608,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected include filename on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
         break;
       }
 
@@ -2633,7 +2632,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	delete incfile;
 
 	if (cond_current != old_current)
-	  _cupsLangPrintf(stderr, _("ppdc: Missing #endif at end of \"%s\"!\n"),
+	  _cupsLangPrintf(stderr, _("ppdc: Missing #endif at end of \"%s\"."),
 	                  incname);
       }
       else
@@ -2641,11 +2640,11 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	// Can't find it!
 	_cupsLangPrintf(stderr,
 		        _("ppdc: Unable to find include file \"%s\" on line %d "
-			  "of %s!\n"), inctemp, fp->line, fp->filename);
+			  "of %s."), inctemp, fp->line, fp->filename);
 	break;
       }
     }
-    else if (!strcasecmp(temp, "#media"))
+    else if (!_cups_strcasecmp(temp, "#media"))
     {
       ppdcMediaSize	*m;		// Media size
 
@@ -2660,7 +2659,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
           sizes->add(m);
       }
     }
-    else if (!strcasecmp(temp, "#po"))
+    else if (!_cups_strcasecmp(temp, "#po"))
     {
       ppdcCatalog	*cat;		// Message catalog
 
@@ -2675,14 +2674,14 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	  po_files->add(cat);
       }
     }
-    else if (!strcasecmp(temp, "Attribute") ||
-             !strcasecmp(temp, "LocAttribute"))
+    else if (!_cups_strcasecmp(temp, "Attribute") ||
+             !_cups_strcasecmp(temp, "LocAttribute"))
     {
       ppdcAttr	*a;			// Attribute
 
 
       // Get an attribute...
-      a = get_attr(fp, !strcasecmp(temp, "LocAttribute"));
+      a = get_attr(fp, !_cups_strcasecmp(temp, "LocAttribute"));
       if (a)
       {
         if (cond_state)
@@ -2691,7 +2690,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
           d->add_attr(a);
       }
     }
-    else if (!strcasecmp(temp, "Choice"))
+    else if (!_cups_strcasecmp(temp, "Choice"))
     {
       // Get a choice...
       c = get_choice(fp);
@@ -2709,7 +2708,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Choice found on line %d of %s with no "
-			  "Option!\n"), fp->line, fp->filename);
+			  "Option."), fp->line, fp->filename);
         break;
       }
 
@@ -2718,7 +2717,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       if (isdefault)
         o->set_defchoice(c);
     }
-    else if (!strcasecmp(temp, "ColorDevice"))
+    else if (!_cups_strcasecmp(temp, "ColorDevice"))
     {
       // ColorDevice boolean
       if (cond_state)
@@ -2726,7 +2725,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       else
         d->color_device = get_boolean(fp);
     }
-    else if (!strcasecmp(temp, "ColorModel"))
+    else if (!_cups_strcasecmp(temp, "ColorModel"))
     {
       // Get the color model
       c = get_color_model(fp);
@@ -2755,7 +2754,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "ColorProfile"))
+    else if (!_cups_strcasecmp(temp, "ColorProfile"))
     {
       ppdcProfile	*p;		// Color profile
 
@@ -2771,7 +2770,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
           d->profiles->add(p);
       }
     }
-    else if (!strcasecmp(temp, "Copyright"))
+    else if (!_cups_strcasecmp(temp, "Copyright"))
     {
       // Copyright string
       char	copytemp[8192],		// Copyright string
@@ -2784,7 +2783,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected string after Copyright on line %d "
-			  "of %s!\n"), fp->line, fp->filename);
+			  "of %s."), fp->line, fp->filename);
 	break;
       }
 
@@ -2800,7 +2799,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
         d->copyright->add(new ppdcString(copyptr));
       }
     }
-    else if (!strcasecmp(temp, "CustomMedia"))
+    else if (!_cups_strcasecmp(temp, "CustomMedia"))
     {
       ppdcMediaSize	*m;		// Media size
 
@@ -2820,7 +2819,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       if (isdefault)
         d->set_default_size(m);
     }
-    else if (!strcasecmp(temp, "Cutter"))
+    else if (!_cups_strcasecmp(temp, "Cutter"))
     {
       // Cutter boolean
       int	have_cutter;		// Have a paper cutter?
@@ -2847,7 +2846,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "Darkness"))
+    else if (!_cups_strcasecmp(temp, "Darkness"))
     {
       // Get the darkness choice...
       c = get_generic(fp, "Darkness", NULL, "cupsCompression");
@@ -2872,7 +2871,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
 	_cupsLangPrintf(stderr,
 			_("ppdc: Option %s defined in two different groups on "
-			  "line %d of %s!\n"), "cupsDarkness", fp->line,
+			  "line %d of %s."), "cupsDarkness", fp->line,
 		        fp->filename);
 	c->release();
 	continue;
@@ -2885,7 +2884,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "DriverType"))
+    else if (!_cups_strcasecmp(temp, "DriverType"))
     {
       int	i;			// Looping var
 
@@ -2895,7 +2894,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected driver type keyword following "
-			  "DriverType on line %d of %s!\n"),
+			  "DriverType on line %d of %s."),
 			fp->line, fp->filename);
         continue;
       }
@@ -2904,21 +2903,21 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
         continue;
 
       for (i = 0; i < (int)(sizeof(driver_types) / sizeof(driver_types[0])); i ++)
-        if (!strcasecmp(temp, driver_types[i]))
+        if (!_cups_strcasecmp(temp, driver_types[i]))
 	  break;
 
       if (i < (int)(sizeof(driver_types) / sizeof(driver_types[0])))
         d->type = (ppdcDrvType)i;
-      else if (!strcasecmp(temp, "dymo"))
+      else if (!_cups_strcasecmp(temp, "dymo"))
         d->type = PPDC_DRIVER_LABEL;
       else
         _cupsLangPrintf(stderr,
-	                _("ppdc: Unknown driver type %s on line %d of %s!\n"),
+	                _("ppdc: Unknown driver type %s on line %d of %s."),
 			temp, fp->line, fp->filename);
     }
-    else if (!strcasecmp(temp, "Duplex"))
+    else if (!_cups_strcasecmp(temp, "Duplex"))
       get_duplex(fp, d);
-    else if (!strcasecmp(temp, "Filter"))
+    else if (!_cups_strcasecmp(temp, "Filter"))
     {
       ppdcFilter	*f;		// Filter
 
@@ -2933,7 +2932,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
           d->filters->add(f);
       }
     }
-    else if (!strcasecmp(temp, "Finishing"))
+    else if (!_cups_strcasecmp(temp, "Finishing"))
     {
       // Get the finishing choice...
       c = get_generic(fp, "Finishing", "OutputType", NULL);
@@ -2958,7 +2957,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
 	_cupsLangPrintf(stderr,
 			_("ppdc: Option %s defined in two different groups on "
-			  "line %d of %s!\n"), "cupsFinishing", fp->line,
+			  "line %d of %s."), "cupsFinishing", fp->line,
 		        fp->filename);
 	c->release();
 	continue;
@@ -2971,8 +2970,8 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "Font") ||
-             !strcasecmp(temp, "#font"))
+    else if (!_cups_strcasecmp(temp, "Font") ||
+             !_cups_strcasecmp(temp, "#font"))
     {
       ppdcFont	*f;			// Font
 
@@ -2985,7 +2984,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	  f->release();
 	else
 	{
-	  if (!strcasecmp(temp, "#font"))
+	  if (!_cups_strcasecmp(temp, "#font"))
 	    base_fonts->add(f);
 	  else
 	    d->add_font(f);
@@ -2995,7 +2994,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	}
       }
     }
-    else if (!strcasecmp(temp, "Group"))
+    else if (!_cups_strcasecmp(temp, "Group"))
     {
       // Get a group...
       ppdcGroup *tempg = get_group(fp, d);
@@ -3016,7 +3015,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
         g = tempg;
       }
     }
-    else if (!strcasecmp(temp, "HWMargins"))
+    else if (!_cups_strcasecmp(temp, "HWMargins"))
     {
       // HWMargins left bottom right top
       d->left_margin   = get_measurement(fp);
@@ -3024,7 +3023,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       d->right_margin  = get_measurement(fp);
       d->top_margin    = get_measurement(fp);
     }
-    else if (!strcasecmp(temp, "InputSlot"))
+    else if (!_cups_strcasecmp(temp, "InputSlot"))
     {
       // Get the input slot choice...
       c = get_generic(fp, "InputSlot", NULL, "MediaPosition");
@@ -3038,7 +3037,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       }
 
       // Add the choice to the InputSlot option...
-      
+
       if ((o = d->find_option_group("InputSlot", &mg)) == NULL)
       {
 	// Create the InputSlot option...
@@ -3051,7 +3050,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
 	_cupsLangPrintf(stderr,
 			_("ppdc: Option %s defined in two different groups on "
-			  "line %d of %s!\n"), "InputSlot", fp->line,
+			  "line %d of %s."), "InputSlot", fp->line,
 		        fp->filename);
 	c->release();
 	continue;
@@ -3064,7 +3063,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "Installable"))
+    else if (!_cups_strcasecmp(temp, "Installable"))
     {
       // Get the installable option...
       o = get_installable(fp);
@@ -3080,7 +3079,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
         o = NULL;
       }
     }
-    else if (!strcasecmp(temp, "ManualCopies"))
+    else if (!_cups_strcasecmp(temp, "ManualCopies"))
     {
       // ManualCopies boolean
       if (cond_state)
@@ -3088,7 +3087,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       else
         d->manual_copies = get_boolean(fp);
     }
-    else if (!strcasecmp(temp, "Manufacturer"))
+    else if (!_cups_strcasecmp(temp, "Manufacturer"))
     {
       // Manufacturer name
       char	name[256];		// Model name string
@@ -3098,14 +3097,14 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 			_("ppdc: Expected name after Manufacturer on line %d "
-			  "of %s!\n"), fp->line, fp->filename);
+			  "of %s."), fp->line, fp->filename);
 	break;
       }
 
       if (!cond_state)
         d->set_manufacturer(name);
     }
-    else if (!strcasecmp(temp, "MaxSize"))
+    else if (!_cups_strcasecmp(temp, "MaxSize"))
     {
       // MaxSize width length
       if (cond_state)
@@ -3119,7 +3118,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	d->max_length = get_measurement(fp);
       }
     }
-    else if (!strcasecmp(temp, "MediaSize"))
+    else if (!_cups_strcasecmp(temp, "MediaSize"))
     {
       // MediaSize keyword
       char		name[41];	// Media size name
@@ -3131,7 +3130,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected name after MediaSize on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
 	break;
       }
 
@@ -3144,7 +3143,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Unknown media size \"%s\" on line %d of "
-			  "%s!\n"), name, fp->line, fp->filename);
+			  "%s."), name, fp->line, fp->filename);
 	break;
       }
 
@@ -3158,7 +3157,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       if (isdefault)
         d->set_default_size(dm);
     }
-    else if (!strcasecmp(temp, "MediaType"))
+    else if (!_cups_strcasecmp(temp, "MediaType"))
     {
       // Get the media type choice...
       c = get_generic(fp, "MediaType", "MediaType", "cupsMediaType");
@@ -3184,7 +3183,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
 	_cupsLangPrintf(stderr,
 			_("ppdc: Option %s defined in two different groups on "
-			  "line %d of %s!\n"), "MediaType", fp->line,
+			  "line %d of %s."), "MediaType", fp->line,
 		        fp->filename);
 	c->release();
 	continue;
@@ -3197,7 +3196,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "MinSize"))
+    else if (!_cups_strcasecmp(temp, "MinSize"))
     {
       // MinSize width length
       if (cond_state)
@@ -3211,7 +3210,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	d->min_length = get_measurement(fp);
       }
     }
-    else if (!strcasecmp(temp, "ModelName"))
+    else if (!_cups_strcasecmp(temp, "ModelName"))
     {
       // ModelName name
       char	name[256];		// Model name string
@@ -3221,14 +3220,14 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected name after ModelName on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
 	break;
       }
 
       if (!cond_state)
         d->set_model_name(name);
     }
-    else if (!strcasecmp(temp, "ModelNumber"))
+    else if (!_cups_strcasecmp(temp, "ModelNumber"))
     {
       // ModelNumber number
       if (cond_state)
@@ -3236,7 +3235,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       else
         d->model_number = get_integer(fp);
     }
-    else if (!strcasecmp(temp, "Option"))
+    else if (!_cups_strcasecmp(temp, "Option"))
     {
       // Get an option...
       ppdcOption *tempo = get_option(fp, d, g);
@@ -3257,7 +3256,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
         o = tempo;
       }
     }
-    else if (!strcasecmp(temp, "FileName"))
+    else if (!_cups_strcasecmp(temp, "FileName"))
     {
       // FileName name
       char	name[256];		// Filename string
@@ -3267,14 +3266,14 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected name after FileName on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
 	break;
       }
 
       if (!cond_state)
         d->set_file_name(name);
     }
-    else if (!strcasecmp(temp, "PCFileName"))
+    else if (!_cups_strcasecmp(temp, "PCFileName"))
     {
       // PCFileName name
       char	name[256];		// PC filename string
@@ -3284,14 +3283,14 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected name after PCFileName on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
 	break;
       }
 
       if (!cond_state)
         d->set_pc_file_name(name);
     }
-    else if (!strcasecmp(temp, "Resolution"))
+    else if (!_cups_strcasecmp(temp, "Resolution"))
     {
       // Get the resolution choice...
       c = get_resolution(fp);
@@ -3317,7 +3316,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
 	_cupsLangPrintf(stderr,
 			_("ppdc: Option %s defined in two different groups on "
-			  "line %d of %s!\n"), "Resolution", fp->line,
+			  "line %d of %s."), "Resolution", fp->line,
 		        fp->filename);
 	c->release();
 	continue;
@@ -3330,7 +3329,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 
       o = NULL;
     }
-    else if (!strcasecmp(temp, "SimpleColorProfile"))
+    else if (!_cups_strcasecmp(temp, "SimpleColorProfile"))
     {
       ppdcProfile	*p;		// Color profile
 
@@ -3346,7 +3345,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
           d->profiles->add(p);
       }
     }
-    else if (!strcasecmp(temp, "Throughput"))
+    else if (!_cups_strcasecmp(temp, "Throughput"))
     {
       // Throughput number
       if (cond_state)
@@ -3354,7 +3353,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       else
         d->throughput = get_integer(fp);
     }
-    else if (!strcasecmp(temp, "UIConstraints"))
+    else if (!_cups_strcasecmp(temp, "UIConstraints"))
     {
       ppdcConstraint	*con;		// Constraint
 
@@ -3369,7 +3368,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
 	  d->constraints->add(con);
       }
     }
-    else if (!strcasecmp(temp, "VariablePaperSize"))
+    else if (!_cups_strcasecmp(temp, "VariablePaperSize"))
     {
       // VariablePaperSize boolean
       if (cond_state)
@@ -3377,7 +3376,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       else
 	d->variable_paper_size = get_boolean(fp);
     }
-    else if (!strcasecmp(temp, "Version"))
+    else if (!_cups_strcasecmp(temp, "Version"))
     {
       // Version string
       char	name[256];		// Model name string
@@ -3387,7 +3386,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
       {
         _cupsLangPrintf(stderr,
 	                _("ppdc: Expected string after Version on line %d of "
-			  "%s!\n"), fp->line, fp->filename);
+			  "%s."), fp->line, fp->filename);
 	break;
       }
 
@@ -3397,7 +3396,7 @@ ppdcSource::scan_file(ppdcFile   *fp,	// I - File to read
     else
     {
       _cupsLangPrintf(stderr,
-                      _("ppdc: Unknown token \"%s\" seen on line %d of %s!\n"),
+                      _("ppdc: Unknown token \"%s\" seen on line %d of %s."),
 		      temp, fp->line, fp->filename);
       break;
     }
@@ -3897,5 +3896,5 @@ ppdcSource::write_file(const char *f)	// I - File to write
 
 
 //
-// End of "$Id: ppdc-source.cxx 2318 2010-07-08 23:29:48Z msweet $".
+// End of "$Id: ppdc-source.cxx 3324 2011-06-15 00:49:54Z msweet $".
 //

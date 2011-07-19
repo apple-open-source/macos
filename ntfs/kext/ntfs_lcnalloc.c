@@ -1,8 +1,8 @@
 /*
  * ntfs_lcnalloc.c - NTFS kernel cluster (de)allocation code.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -188,7 +188,7 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 	}
 	/* Take the lcnbmp lock for writing. */
 	lck_rw_lock_exclusive(&vol->lcnbmp_lock);
-	err = vnode_getwithref(lcnbmp_ni->vn);
+	err = vnode_get(lcnbmp_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $Bitmap.");
 		lck_rw_unlock_exclusive(&vol->lcnbmp_lock);
@@ -1041,7 +1041,7 @@ errno_t ntfs_cluster_free_from_rl(ntfs_volume *vol, ntfs_rl_element *rl,
 	lcnbmp_ni = vol->lcnbmp_ni;
 	lcnbmp_vn = lcnbmp_ni->vn;
 	lck_rw_lock_exclusive(&vol->lcnbmp_lock);
-	err = vnode_getwithref(lcnbmp_vn);
+	err = vnode_get(lcnbmp_vn);
 	if (!err) {
 		lck_rw_lock_shared(&lcnbmp_ni->lock);
 		err = ntfs_cluster_free_from_rl_nolock(vol, rl, start_vcn,
@@ -1379,7 +1379,7 @@ errno_t ntfs_cluster_free(ntfs_inode *ni, const VCN start_vcn, s64 count,
 	lcnbmp_ni = vol->lcnbmp_ni;
 	lcnbmp_vn = lcnbmp_ni->vn;
 	lck_rw_lock_exclusive(&vol->lcnbmp_lock);
-	err = vnode_getwithref(lcnbmp_vn);
+	err = vnode_get(lcnbmp_vn);
 	if (!err) {
 		lck_rw_lock_shared(&lcnbmp_ni->lock);
 		err = ntfs_cluster_free_nolock(ni, start_vcn, count, ctx,

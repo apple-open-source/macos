@@ -29,6 +29,7 @@
 #define _H_PROCESS
 
 #include "structure.h"
+#include "session.h"
 #include <security_agent_client/agentclient.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/ccaudit.h>
@@ -71,14 +72,10 @@ class Process : public PerProcess,
 				public ClientIdentification,
 				private VProc::Transaction {
 public:
-	Process(Port servicePort, TaskPort tPort,
-		const ClientSetupInfo *info, const char *identity,
-		const CommonCriteria::AuditToken &audit);
+	Process(TaskPort tPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
 	virtual ~Process();
 	
-	void reset(Port servicePort, TaskPort tPort,
-		const ClientSetupInfo *info, const char *identity,
-		const CommonCriteria::AuditToken &audit);
+	void reset(TaskPort tPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit);
     
     uid_t uid() const			{ return mUid; }
     gid_t gid() const			{ return mGid; }
@@ -93,9 +90,10 @@ public:
 	using PerProcess::kill;
 	void kill();
 	
-	void changeSession(Port servicePort);	// very special indeed
+	void changeSession(Session::SessionId sessionId);
     
 	Session& session() const;
+	void checkSession(const audit_token_t &auditToken);
 	
 	LocalDatabase &localStore();
 	Key *makeTemporaryKey(const CssmKey &key, CSSM_KEYATTR_FLAGS moreAttributes,

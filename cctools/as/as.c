@@ -80,10 +80,11 @@ struct directory_stack include_defaults[] = {
 struct directory_stack *include = NULL;	/* First dir to search */
 static struct directory_stack *include_tail = NULL;	/* Last in chain */
 
-/* apple_version is in apple_version.c which is created by the Makefile */
-extern char apple_version[];
-/* this is only used here, thus defined here (was in version.c in GAS) */
-static char version_string[] = "GNU assembler version 1.38\n";
+/* this is only used here, and in dwarf2dbg.c as the producer */
+char version_string[] = "GNU assembler version 1.38";
+
+/* this is set here, and used in dwarf2dbg.c as the apple_flags */
+char *apple_flags = NULL;
 
 /*
  * The list of signals to catch if not ignored.
@@ -113,7 +114,7 @@ char **envp)
     char *arg;		/* an arg to program */
     char a;		/* an arg flag (after -) */
     char *out_file_name;/* name of object file, argument to -o if specified */
-    int i;
+    int i, apple_flags_size;
     struct directory_stack *dirtmp;
 
 	progname = argv[0];
@@ -132,6 +133,20 @@ char **envp)
 
 	/* This is the -dynamic flag, which is now the default */
 	flagseen[(int)'k'] = TRUE;
+
+	if(getenv("RC_DEBUG_OPTIONS") != NULL){
+	    apple_flags_size = 1;
+	    for(i = 0; i < argc; i++)
+		apple_flags_size += strlen(argv[i]) + 2;
+	    apple_flags = xmalloc(apple_flags_size);
+	    apple_flags_size = 0;
+	    for(i = 0; i < argc; i++){
+		strcpy(apple_flags + apple_flags_size, argv[i]);
+		apple_flags_size += strlen(argv[i]);
+		apple_flags[apple_flags_size++] = ' ';
+	    }
+	    apple_flags[apple_flags_size] = '\0';
+	}
 
 	/*
 	 * Parse arguments, but we are only interested in flags.
@@ -185,7 +200,7 @@ char **envp)
 		   (a != 'd') && (a != 's') && (a != 'k'))
 			as_warn("%s: Flag option -%c has already been seen!",
 				progname, a);
-		if(a != 'f' && a != 'n')
+		if(a != 'f' && a != 'n' && a != 'g')
 		    flagseen[(int)a] = TRUE;
 		switch(a){
 		case 'f':
@@ -223,8 +238,8 @@ char **envp)
 		    break;
 
 		case 'v':
-		    fprintf(stderr,"Apple Inc version %s, ", apple_version);
-		    fprintf(stderr, "%s", version_string);
+		    fprintf(stderr, APPLE_INC_VERSION " %s, ", apple_version);
+		    fprintf(stderr, "%s\n", version_string);
 		    if(*arg && strcmp(arg,"ersion"))
 			as_fatal("Unknown -v option ignored");
 		    while(*arg)
@@ -263,7 +278,10 @@ char **envp)
 		    break;
 
 		case 'g':
-		    /* generate stabs for debugging assembly code */
+		    /* -g no longer means generate stabs for debugging
+		       assembly code but to generate dwarf2 for assembly code.
+		       If stabs if really wanted then --gstabs can be used. */
+		    debug_type = DEBUG_DWARF2;
 		    break;
 
 		case 'n':
@@ -687,6 +705,17 @@ char **envp)
 				specific_archflag = *work_argv;
 				archflag_cpusubtype =
 				    CPU_SUBTYPE_ARM_V6;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv7") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V7)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V7;
 			    }
 			    else
 				as_fatal("I expected 'arm' after "

@@ -1,0 +1,40 @@
+(version 1)
+
+; clamav.sb - ClamAV clamd(8) Sandbox Policy
+; Used when clamd(8) is run by launchd (the default).
+; Mac OS X Server only
+(debug deny)
+(deny default)
+
+; When the sandbox takes root, we're in the sandbox-exec(1) helper.  The helper needs to be able to
+; actually start clamd.
+(allow process-fork)
+(allow process-exec (regex #"^/usr/sbin/clamd$"))
+
+; Allow read access to several files...
+(allow file-read* 
+	(regex #"^/(etc|var)$")
+	(regex #"^/dev/(null|random)$")
+	(regex #"^/dev/(null|urandom)$")
+	(regex #"^/private/etc/(clamd.conf|localtime)$")
+	(regex #"^/private/var/log/clamav.log$")
+	(regex #"^/usr/(lib|share)/")
+	(regex #"^/private/var/clamav/")
+	(regex #"^/private/var/clamav$")
+)
+
+; Allow write access to a few files...
+(allow file*
+	(regex #"^/private/var/amavis/tmp")
+	(regex #"^/private/var/log/clamav.log$")
+)
+
+; Allow (or silently deny) dtracing clamav within the sandbox...
+;(allow file* (regex #"^/dev/dtracehelper$"))
+(deny file* (regex #"^/dev/dtracehelper$") (with no-log))
+
+; Allow access to the Unix socket...
+(allow file-write* network-bind (regex #"^/private/var/amavis/clamd"))
+
+; Allow sysctl reads...
+(allow sysctl-read)

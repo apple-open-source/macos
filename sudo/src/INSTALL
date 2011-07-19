@@ -15,23 +15,17 @@ For most systems and configurations it is possible simply to:
     0) If you are upgrading from a previous version of sudo
        please read the info in the UPGRADE file before proceeding.
 
-    1) If you previously ran `configure' on a different host
-       you will probably want to do a `make distclean' to remove
-       the old `config.cache' file.  Otherwise, `configure'
-       will complain and refuse to run.  Alternately, one can
-       simply `rm config.cache'.
-
-    2) Read the `OS dependent notes' section for any particular
+    1) Read the `OS dependent notes' section for any particular
        "gotchas" relating to your operating system.
 
-    3) `cd' to the source or build directory and type `./configure'
+    2) `cd' to the source or build directory and type `./configure'
        to generate a Makefile and config.h file suitable for
        building sudo.  Before you actually run configure you
        should read the `Available configure options' section
        to see if there are any special options you may want
        or need.
 
-    4) Edit the configure-generated Makefile if you wish to
+    3) Edit the configure-generated Makefile if you wish to
        change any of the default paths (alternatively, you could
        have changed the paths via options to `configure'.
 
@@ -48,7 +42,7 @@ For most systems and configurations it is possible simply to:
        man pages, and a skeleton sudoers file.  Note that the install
        will not overwrite an existing sudoers file.  You can also
        install various pieces the package via the install-binaries,
-       install-man, and install-sudoers make targets.
+       install-doc, and install-sudoers make targets.
 
     7) Edit the sudoers file with `visudo' as necessary for your
        site.  You will probably want to refer the sample.sudoers
@@ -140,6 +134,17 @@ Special features/options:
 	`-l' will be prepended to it.  Multiple libraries may be
 	specified as long as they are space separated.
 
+  --with-efence
+	Link with the "electric fence" debugging malloc.
+
+  --with-bsm-audit
+	Enable support for sudo BSM audit logs on systems that support
+	it.  Currently only supported under FreeBSD and Mac OS X.
+
+  --with-linux-audit
+	Enable audit support for Linux systems.  Audits attempts
+	to run a command as well as SELinux role changes.
+
   --with-csops
 	Add CSOps standard options.  You probably aren't interested in this.
 
@@ -180,20 +185,25 @@ Special features/options:
 	containing the LDAP include and lib directories.  Please see
 	README.LDAP for more information.
 
-  --with-ldap-conf-file=filename
+  --with-ldap-conf-file=PATH
 	Path to LDAP configuration file.  If specified, sudo reads
 	this file instead of /etc/ldap.conf to locate the LDAP server.
 
-  --with-ldap-secret-file=filename
+  --with-ldap-secret-file=PATH
 	Path to LDAP secret password file.  If specified, sudo uses
 	this file instead of /etc/ldap.secret to read the secret password
 	when rootbinddn is specified in the ldap config file.
 
-  --with-nsswitch[=filename]
+  --with-nsswitch[=PATH]
 	Path to nsswitch.conf or "no" to disable nsswitch support.
 	If specified, sudo uses this file instead of /etc/nsswitch.conf.
 	If nsswitch is disabled but LDAP is enabled, sudo will check
 	LDAP first, then the sudoers file.
+
+  --with-netsvc[=PATH]
+        Path to netsvc.conf or "no" to disable netsvc.conf support.
+        If specified, sudo uses this file instead of /etc/netsvc.conf
+        on AIX systems.
 
   --with-aixauth
 	Enable support for the AIX 4.x general authentication function.
@@ -214,6 +224,12 @@ Special features/options:
 	information and consider using the "debug" option, if available,
 	with your PAM libraries in /etc/pam.conf to obtain syslog output
 	for debugging purposes.
+
+  --with-pam-login
+        Enable a specific PAM session when sudo is given the -i option.
+	This changes the PAM service name when sudo is run with the -i
+	option from "sudo" to "sudo-i", allowing for a separate pam
+	configuration for sudo's initial login mode.
 
   --with-AFS
 	Enable AFS support with Kerberos authentication.  Should work under
@@ -253,7 +269,7 @@ Special features/options:
 	another program (think shell escapes).  Please see the
 	"PREVENTING SHELL ESCAPES" section in the sudoers man page
 	for details.  If specified, PATH should be a fully qualified
-	pathname, e.g. /usr/local/libexec/sudo_noexec.so.  If PATH
+	path name, e.g. /usr/local/libexec/sudo_noexec.so.  If PATH
 	is "no", noexec support will not be compiled in.  The default
 	is to compile noexec support if libtool supports building
 	shared objects on your OS.
@@ -329,6 +345,16 @@ Special features/options:
   --with-selinux 
 	Enable support for role based access control (RBAC) on
 	systems that support SELinux.
+
+  --with-libvas=[NAME]
+        Enable non-Unix group support using Quest Authentication
+        Services.  If NAME is specified, it should be the name of
+	the shared library providing QAS support (libvas.so by default).
+
+  --with-libvas-rpath=[PATH]
+	The path to search when loading libvas.so (or an alternate
+	name as specified by --with-libvas).  This option only has
+	an effect when --with-libvas is specified.
 
 The following options are also configurable at runtime:
 
@@ -459,17 +485,18 @@ The following options are also configurable at runtime:
 	Number of minutes before the sudo password prompt times out.
 	The default is 5, set this to 0 for no password timeout.
 
-  --with-tty-tickets
-	This makes sudo use a different ticket file for each user/tty combo.
-	Ie: instead of the ticket path being "username" it is "username/tty".
-	This is useful for "shared" accounts like "operator".  Note that this
-	means that there will be more files in the timestamp dir.  This is not
-	a problem if your system has a cron job to remove of files from /tmp
-	(or wherever you specified the timestamp dir to be).
+  --without-tty-tickets
+	By default, sudo uses a different ticket file for each user/tty combo.
+	With this option disabled, a single ticket will be used for all
+	of a user's login sessions.
 
   --with-insults
 	Define this if you want to be insulted for typing an incorrect password
 	just like the original sudo(8).  This is off by default.
+
+  --with-insults=disabled
+        Include support for insults but disable them unless explicitly
+        enabled in sudoers.
 
   --with-all-insults
 	Include all the insult sets listed below.  You must either specify
@@ -514,7 +541,7 @@ The following options are also configurable at runtime:
 
   --with-editor=PATH
 	Specify the default editor path for use by visudo.  This may be a
-	single pathname or a colon-separated list of editors.  In the latter
+	single path name or a colon-separated list of editors.  In the latter
 	case, visudo will choose the editor that matches the user's VISUAL
 	or EDITOR environment variables or the first editor in the list that
 	exists.  The default is the path to vi on your system.
@@ -576,6 +603,34 @@ The following options are also configurable at runtime:
 	if the executable is simply not in the user's path, sudo will tell
 	the user that they are not allowed to run it, which can be confusing.
 
+  --disable-iologdir
+	Disable sudo's I/O logging support.  This can be used to allow sudo
+	to be compiled on systems without pseudo-tty support.
+
+  --enable-iologdir[=DIR]
+	By default, sudo stores I/O log files in either /var/log/sudo-io,
+	/var/adm/sudo-sudo-io or /usr/log/sudo-io.  If DIR is
+	specified, I/O logs will be stored in the indicated directory
+	instead.
+
+  --enable-zlib[=DIR]
+	Enable the use of the zlib compress library when storing
+	I/O log files.  If specified, DIR is the base directory
+	containing the zlib include and lib directories.  By default
+	zlib is used if it is found on the system and I/O logging
+	support is not disabled.
+
+  --disable-zlib
+        Disable the use of the zlib compress library when storing
+        I/O log files.
+
+  --enable-warnings
+	Enable compiler warnings when building sudo with gcc.
+
+  --enable-admin-flag
+	Enable the creation of an Ubuntu-style admin flag file
+	the first time sudo is run.
+
 Shadow password and C2 support
 ==============================
 
@@ -596,31 +651,44 @@ Shadow passwords are known to work on the following platforms:
     Digital UNIX
     IRIX >= 5.x
     AIX >= 3.2.x
-    ConvexOS with C2 security (not tested recently)
     Linux
     SCO >= 3.2.2
     Pyramid DC/OSx
     UnixWare
     SVR4 (and variants using standard SVR4 shadow passwords)
-    4.4BSD based systems (including OpenBSD, NetBSD, FreeBSD, and BSD/OS)
-    OS's using SecureWare's C2 security.
+    4.4BSD based systems (including OpenBSD, NetBSD, FreeBSD, and Mac OS X)
+    Systems using SecureWare's C2 security.
 
 OS dependent notes
 ==================
 
-OpenBSD < 2.2 and NetBSD < 1.2.1:
-    The fdesc file system has a bug wrt /dev/tty handling that
-    causes sudo to hang at the password prompt.  The workaround
-    is to run configure with --with-password-timeout=0
+Linux:
+    PAM and LDAP headers are not installed by default on most Linux
+    systems.  You will need to install the "pam-dev" package if
+    /usr/include/security/pam_appl.h is not present on your system.
+    If you wish to build with LDAP support you will also need the
+    openldap-devel package.
+
+    Versions of glibc 2.x previous to 2.0.7 have a broken lsearch().
+    You will need to either upgrade to glibc-2.0.7 or use sudo's
+    version of lsearch().  To use sudo's lsearch(), comment out
+    the "#define HAVE_LSEARCH 1" line in config.h and add lsearch.o
+    to the LIBOBJS line in the Makefile.
+
+    If you are using a Linux kernel older than 2.4 it is not possible
+    to access the sudoers file via NFS.  This is due to a bug in
+    the Linux client-side NFS implementation that has since been
+    fixed.  There is a workaround on the sudo ftp site, linux_nfs.patch,
+    if you need to NFS-mount sudoers on older Linux kernels.
 
 Solaris 2.x:
-    You need to have a C compiler in order to build sudo.
-    Since Solaris 2.x does not come with one by default this
-    means that you either need to have purchased the unbundled Sun
-    C compiler or have a copy of the GNU C compiler (gcc).
-    The SunSoft Catalyst CD should contain gcc binaries for
-    Solaris.  You can also get them from various places on the
-    net, including http://www.sunfreeware.com/
+    You need to have a C compiler in order to build sudo.  Since
+    Solaris 2.x does not come with one by default this means that
+    you either need to install the Sun Studio compiler suite,
+    available for free from www.sun.com, or have a copy of the GNU
+    C compiler (gcc) which is distributed on the Solaris Companion
+    CD.  You can also get them from various places on the net,
+    including http://www.sunfreeware.com/
     NOTE: sudo will *not* build with the sun C compiler in BSD
 	  compatibility mode (/usr/ucb/cc).  Sudo is designed to
 	  compile with the standard C compiler (or gcc) and will
@@ -628,36 +696,32 @@ Solaris 2.x:
 	  `--with-CC' option to point `configure' to the non-ucb
 	  compiler if it is not the first cc in your path.  Some
 	  sites link /usr/ucb/cc to gcc; configure will not notice
-	  this an still refuse to use /usr/ucb/cc, so make sure gcc
+	  this and still refuse to use /usr/ucb/cc, so make sure gcc
 	  is also in your path if your site is setup this way.
-    Also: Many versions of Solaris come with a broken syslogd.
+    Also: Older versions of Solaris come with a broken syslogd.
 	  If you have having problems with sudo logging you should
 	  make sure you have the latest syslogd patch installed.
 	  This is a problem for Solaris 2.4 and 2.5 at least.
 
-AIX 3.2.x:
-    I've had various problems with the AIX C compiler producing
-    incorrect code when the -O flag was used.  When optimization
-    is not used, the problems go away.  Gcc does not appear
-    to have this problem.
+Mac OS X:
+    The pseudo-tty support in the Mac OS X kernel has bugs related
+    to its handling of the SIGTSTP, SIGTTIN and SIGTTOU signals.
+    It does not restart reads and writes when those signals are
+    delivered.  This may cause problems for some commands when I/O
+    logging is enabled.  The issue has been reported to Apple and
+    is bug id #7952709.
 
-    Also, the AIX 3.2.x lex will not work with sudo's parse.lex.
-    This should not be a problem as sudo comes shipped with
-    a pre-generated lex.yy.c (created by flex).  If you want
-    to modify the lex tokenizer, make sure you grab a copy of
-    flex from ftp.ee.lbl.gov (also available on most GNU mirrors)
-    and sudo will use that instead.
+HP-UX:
+    The default C compiler shipped with HP-UX does not support
+    creating position independent code and so is unable to support
+    sudo's "noexec" functionality.  You must use either the HP ANSI
+    C compiler or gcc for noexec to work.  Binary packages of gcc
+    are available http://hpux.connect.org.uk/.
 
-Ultrix 4.x:
-    Ultrix still ships with the 4.2BSD syslog(3) which does not
-    allow things like logging different facilities to different
-    files, redirecting logs to a single loghost and other niceties.
-    You may want to just grab and install:
-	ftp://gatekeeper.dec.com/pub/DEC/jtkohl-syslog-complete.tar.Z
-    (available via anonymous ftp) which is a port if the 4.3BSD
-    syslog/syslogd that is backwards compatible with the Ultrix version.
-    I recommend it highly.  If you do not do this you probably want
-    to run configure with --with-logging=file
+    To prevent PAM from overriding the value of umask on HP-UX 11,
+    you will need to add a line like the following to /etc/pam.conf:
+
+    sudo	session	required	libpam_hpsec.so.1 bypass_umask
 
 Digital UNIX:
     By default, sudo will use SIA (Security Integration Architecture)
@@ -676,59 +740,35 @@ Digital UNIX:
     you can just make a copy in gcc's private include tree and
     edit that.
 
-Linux:
-    PAM and LDAP headers are not installed by default on most Linux
-    systems.  You will need to install the "pav-dev" package if
-    /usr/include/security/pam_appl.h is not present on your system.
-    If you wish to build with LDAP support you will also need the
-    openldap-devel package.
-
-    Versions of glibc 2.x previous to 2.0.7 have a broken lsearch().
-    You will need to either upgrade to glibc-2.0.7 or use sudo's
-    version of lsearch().  To use sudo's lsearch(), comment out
-    the "#define HAVE_LSEARCH 1" line in config.h and add lsearch.o
-    to the LIBOBJS line in the Makefile.
-
-    If you are using a Linux kernel older than 2.4 it is not possible
-    to access the sudoers file via NFS.  This is due to a bug in
-    the Linux client-side NFS implementation that has since been
-    fixed.  There is a workaround on the sudo ftp site, linux_nfs.patch,
-    if you need to NFS-mount sudoers on older Linux kernels.
-
-Mac OS X:
-    It has been reported that for sudo to work on Mac OS X it must
-    either be built with the --with-password-timeout=0 option or the
-    password timeout must be disabled in the Defaults line in the
-    sudoers file.  If sudo just hangs when you try to enter a password,
-    you need to disable the password timeout (Note: this is not a bug
-    in sudo).
+AIX 3.2.x:
+    I've had various problems with the AIX C compiler producing
+    incorrect code when the -O flag was used.  When optimization
+    is not used, the problems go away.  Gcc does not appear
+    to have this problem.
 
 SCO ODT:
     You'll probably need libcrypt_i.a available via anonymous ftp
     from sosco.sco.com.  The necessary files are /SLS/lng225b.Z
     and /SLS/lng225b.ltr.Z.
 
-Dynix:
-    Some people have experienced problems building sudo with gcc
-    on Dynix.  If you experience problems compiling sudo using gcc
-    on Dynix, try using the native compiler (cc).  You can do so
-    by removing the config.cache file and then re-running configure
-    with the --with-CC=cc option.
-
-HP-UX:
-    The default C compiler shipped with HP-UX does not support creating
-    position independent code and so is unable to support sudo's "noexec"
-    functionality.  You must use either the HP ANSI C compiler or gcc for
-    noexec to work.  Binary packages of gcc are available from
-    http://hpux.connect.org.uk/ and http://hpux.cs.utah.edu/.
-
-    To prevent PAM from overriding the value of umask on HP-UX 11,
-    you will need to add a line like the following to /etc/pam.conf:
-
-    sudo	session	required	libpam_hpsec.so.1 bypass_umask
-
 SunOS 4.x:
     The /bin/sh shipped with SunOS blows up while running configure.
-    You can work around this by installalling bash or zsh.  If you
+    You can work around this by installing bash or zsh.  If you
     have bash or zsh in your path, configure will use it instead
     automatically.
+
+ULTRIX 4.x:
+    The /bin/sh shipped with ULTRIX blows up while running configure.
+    You can work around this by installing bash or zsh.  If you
+    have bash or zsh in your path, configure will use it instead
+    automatically.
+
+    ULTRIX ships with the 4.2BSD syslog(3) which does not
+    allow things like logging different facilities to different
+    files, redirecting logs to a single loghost and other niceties.
+    You may want to just grab and install:
+	ftp://www.sudo.ws/pub/sudo/misc/jtkohl-syslog-complete.tar.gz
+    (available via anonymous ftp) which is a port if the 4.3BSD
+    syslog/syslogd that is backwards compatible with the Ultrix version.
+    I recommend it highly.  If you do not do this you probably want
+    to run configure with --with-logging=file

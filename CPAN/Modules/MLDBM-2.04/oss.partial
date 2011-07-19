@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>MLDBM</string>
+        <key>OpenSourceVersion</key>
+        <string>2.04</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/C/CH/CHORNY/MLDBM-2.04.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-03-15</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

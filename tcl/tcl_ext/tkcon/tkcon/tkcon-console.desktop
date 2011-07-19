@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=tkcon
+GenericName=Tk console
+Comment=Tk console
+Exec=tkcon
+Icon=tkcon-icon
+Terminal=false
+Type=Application
+Categories=Development;Utility;

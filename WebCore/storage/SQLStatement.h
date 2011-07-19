@@ -31,33 +31,29 @@
 #if ENABLE(DATABASE)
 
 #include "PlatformString.h"
-
-#include "SQLError.h"
+#include "SQLCallbackWrapper.h"
 #include "SQLResultSet.h"
-#include "SQLStatementCallback.h"
-#include "SQLStatementErrorCallback.h"
 #include "SQLValue.h"
-
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefPtr.h>
-#include <wtf/Threading.h>
+#include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class Database;
+class SQLError;
+class SQLStatementCallback;
+class SQLStatementErrorCallback;
 class SQLTransaction;
-class String;
 
-class SQLStatement : public ThreadSafeShared<SQLStatement> {
+class SQLStatement : public ThreadSafeRefCounted<SQLStatement> {
 public:
-    static PassRefPtr<SQLStatement> create(const String&, const Vector<SQLValue>&, PassRefPtr<SQLStatementCallback>, PassRefPtr<SQLStatementErrorCallback>, bool readOnly);
+    static PassRefPtr<SQLStatement> create(Database*, const String&, const Vector<SQLValue>&, PassRefPtr<SQLStatementCallback>, PassRefPtr<SQLStatementErrorCallback>, int permissions);
 
     bool execute(Database*);
     bool lastExecutionFailedDueToQuota() const;
 
-    bool hasStatementCallback() const { return m_statementCallback; }
-    bool hasStatementErrorCallback() const { return m_statementErrorCallback; }
+    bool hasStatementCallback() const { return m_statementCallbackWrapper.hasCallback(); }
+    bool hasStatementErrorCallback() const { return m_statementErrorCallbackWrapper.hasCallback(); }
 
     void setDatabaseDeletedError();
     void setVersionMismatchedError();
@@ -66,20 +62,20 @@ public:
 
     SQLError* sqlError() const { return m_error.get(); }
 private:
-    SQLStatement(const String& statement, const Vector<SQLValue>& arguments, PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> errorCallback, bool readOnly);
+    SQLStatement(Database*, const String& statement, const Vector<SQLValue>& arguments, PassRefPtr<SQLStatementCallback>, PassRefPtr<SQLStatementErrorCallback>, int permissions);
 
     void setFailureDueToQuota();
     void clearFailureDueToQuota();
 
     String m_statement;
     Vector<SQLValue> m_arguments;
-    RefPtr<SQLStatementCallback> m_statementCallback;
-    RefPtr<SQLStatementErrorCallback> m_statementErrorCallback;
+    SQLCallbackWrapper<SQLStatementCallback> m_statementCallbackWrapper;
+    SQLCallbackWrapper<SQLStatementErrorCallback> m_statementErrorCallbackWrapper;
 
     RefPtr<SQLError> m_error;
     RefPtr<SQLResultSet> m_resultSet;
 
-    bool m_readOnly;
+    int m_permissions;
 };
 
 } // namespace WebCore

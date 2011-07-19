@@ -1,5 +1,4 @@
 # ---------------------------------------------------------------
-# $Header: /cvsroot/swig/SWIG/Lib/python/Makefile.in,v 1.3 2002/11/30 22:10:08 beazley Exp $
 # SWIG Python Makefile
 # 
 # This file can be used to build various Python extensions with SWIG.

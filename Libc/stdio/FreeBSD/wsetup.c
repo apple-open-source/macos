@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)wsetup.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.9 2004/06/08 05:44:52 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/wsetup.c,v 1.11 2009/01/08 06:38:06 das Exp $");
 
 #include <errno.h>
 #include <stdio.h>
@@ -64,6 +60,7 @@ __swsetup(fp)
 	if ((fp->_flags & __SWR) == 0) {
 		if ((fp->_flags & __SRW) == 0) {
 			errno = EBADF;
+			fp->_flags |= __SERR;
 			return (EOF);
 		}
 		if (fp->_flags & __SRD) {

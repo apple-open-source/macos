@@ -33,52 +33,45 @@
 
 #if ENABLE(INSPECTOR)
 
-#include "Document.h"
-#include "ScriptExecutionContext.h"
+#include "InspectorFrontend.h"
+#include "InspectorValues.h"
 #include "ScriptGCEvent.h"
 #include "ScriptGCEventListener.h"
-#include "ScriptObject.h"
-#include "ScriptArray.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 class Event;
 class InspectorFrontend;
+class InspectorState;
+class InstrumentingAgents;
 class IntRect;
 class ResourceRequest;
 class ResourceResponse;
 
-// Must be kept in sync with TimelineAgent.js
-enum TimelineRecordType {
-    EventDispatchTimelineRecordType = 0,
-    LayoutTimelineRecordType = 1,
-    RecalculateStylesTimelineRecordType = 2,
-    PaintTimelineRecordType = 3,
-    ParseHTMLTimelineRecordType = 4,
-    TimerInstallTimelineRecordType = 5,
-    TimerRemoveTimelineRecordType = 6,
-    TimerFireTimelineRecordType = 7,
-    XHRReadyStateChangeRecordType = 8,
-    XHRLoadRecordType = 9,
-    EvaluateScriptTimelineRecordType = 10,
-    MarkTimelineRecordType = 11,
-    ResourceSendRequestTimelineRecordType = 12,
-    ResourceReceiveResponseTimelineRecordType = 13,
-    ResourceFinishTimelineRecordType = 14,
-    FunctionCallTimelineRecordType = 15,
-    ReceiveResourceDataTimelineRecordType = 16,
-    GCEventTimelineRecordType = 17,
-    MarkDOMContentEventType = 18,
-    MarkLoadEventType = 19
-};
+typedef String ErrorString;
 
-class InspectorTimelineAgent : ScriptGCEventListener, public Noncopyable {
+class InspectorTimelineAgent : ScriptGCEventListener {
+    WTF_MAKE_NONCOPYABLE(InspectorTimelineAgent);
 public:
-    InspectorTimelineAgent(InspectorFrontend* frontend);
+    static PassOwnPtr<InspectorTimelineAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state)
+    {
+        return adoptPtr(new InspectorTimelineAgent(instrumentingAgents, state));
+    }
+
     ~InspectorTimelineAgent();
 
-    void reset();
-    void resetFrontendProxyObject(InspectorFrontend*);
+    void setFrontend(InspectorFrontend*);
+    void clearFrontend();
+    void restore();
+
+    void start(ErrorString* error);
+    void stop(ErrorString* error);
+    bool started() const;
+
+    int id() const { return m_id; }
+
+    void didCommitLoad();
 
     // Methods called from WebCore.
     void willCallFunction(const String& scriptName, int scriptLine);
@@ -96,9 +89,11 @@ public:
     void willPaint(const IntRect&);
     void didPaint();
 
+    // FIXME: |length| should be passed in didWrite instead willWrite
+    // as the parser can not know how much it will process until it tries.
     void willWriteHTML(unsigned int length, unsigned int startLine);
     void didWriteHTML(unsigned int endLine);
-        
+
     void didInstallTimer(int timerId, int timeout, bool singleShot);
     void didRemoveTimer(int timerId);
     void willFireTimer(int timerId);
@@ -116,43 +111,47 @@ public:
     void didMarkDOMContentEvent();
     void didMarkLoadEvent();
 
-    void willSendResourceRequest(unsigned long, bool isMainResource, const ResourceRequest&);
+    void didScheduleResourceRequest(const String& url);
+    void willSendResourceRequest(unsigned long, const ResourceRequest&);
     void willReceiveResourceResponse(unsigned long, const ResourceResponse&);
     void didReceiveResourceResponse();
-    void didFinishLoadingResource(unsigned long, bool didFail);
+    void didFinishLoadingResource(unsigned long, bool didFail, double finishTime);
     void willReceiveResourceData(unsigned long identifier);
     void didReceiveResourceData();
         
     virtual void didGC(double, double, size_t);
 
-    static int instanceCount() { return s_instanceCount; }
-    static InspectorTimelineAgent* retrieve(ScriptExecutionContext*);
-
 private:
     struct TimelineRecordEntry {
-        TimelineRecordEntry(ScriptObject record, ScriptObject data, ScriptArray children, TimelineRecordType type)
+        TimelineRecordEntry(PassRefPtr<InspectorObject> record, PassRefPtr<InspectorObject> data, PassRefPtr<InspectorArray> children, const String& type)
             : record(record), data(data), children(children), type(type)
         {
         }
-        ScriptObject record;
-        ScriptObject data;
-        ScriptArray children;
-        TimelineRecordType type;
+        RefPtr<InspectorObject> record;
+        RefPtr<InspectorObject> data;
+        RefPtr<InspectorArray> children;
+        String type;
     };
         
-    void pushCurrentRecord(ScriptObject, TimelineRecordType);
-    void setHeapSizeStatistic(ScriptObject record);
-        
-    void didCompleteCurrentRecord(TimelineRecordType);
+    InspectorTimelineAgent(InstrumentingAgents*, InspectorState*);
 
-    void addRecordToTimeline(ScriptObject, TimelineRecordType);
+    void pushCurrentRecord(PassRefPtr<InspectorObject>, const String& type);
+    void setHeapSizeStatistic(InspectorObject* record);
+        
+    void didCompleteCurrentRecord(const String& type);
+
+    void addRecordToTimeline(PassRefPtr<InspectorObject>, const String& type);
 
     void pushGCEventRecords();
+    void clearRecordStack();
 
-    InspectorFrontend* m_frontend;
+    InstrumentingAgents* m_instrumentingAgents;
+    InspectorState* m_state;
+    InspectorFrontend::Timeline* m_frontend;
 
     Vector<TimelineRecordEntry> m_recordStack;
-    static int s_instanceCount;
+
+    int m_id;
     struct GCEvent {
         GCEvent(double startTime, double endTime, size_t collectedBytes)
             : startTime(startTime), endTime(endTime), collectedBytes(collectedBytes)
@@ -165,13 +164,6 @@ private:
     typedef Vector<GCEvent> GCEvents;
     GCEvents m_gcEvents;
 };
-
-inline InspectorTimelineAgent* InspectorTimelineAgent::retrieve(ScriptExecutionContext* context)
-{
-    if (context && context->isDocument())
-        return static_cast<Document*>(context)->inspectorTimelineAgent();
-    return 0;
-}
 
 } // namespace WebCore
 

@@ -472,7 +472,7 @@ record_device(io_registry_entry_t drive, struct drivestats* drivestat, int ndriv
 	  CFSTR(kIOBSDNameKey));
 	if (name) {
 	    CFStringGetCString(name, BSDName,
-	      MAXDRIVENAME, CFStringGetSystemEncoding());
+	      MAXDRIVENAME, kCFStringEncodingUTF8);
 	    retval++;
 	}
 

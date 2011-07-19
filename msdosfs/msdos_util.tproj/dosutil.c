@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2005,2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005,2008,2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -321,11 +319,16 @@ static int fs_probe(char *devpath, int removable, int writable)
      * The first three bytes are an Intel x86 jump instruction.  It should be one
      * of the following forms:
      *    0xE9 0x?? 0x??
-     *    0xEC 0x?? 0x90
+     *    0xEB 0x?? 0x90
      * where 0x?? means any byte value is OK.
+     *
+     * [5016947]
+     *
+     * Windows doesn't actually check the third byte if the first byte is 0xEB,
+     * so we don't either
      */
     if (bsp->bs50.bsJump[0] != 0xE9
-        && (bsp->bs50.bsJump[0] != 0xEB || bsp->bs50.bsJump[2] != 0x90))
+        && bsp->bs50.bsJump[0] != 0xEB)
     {
         return FSUR_UNRECOGNIZED;
     }
@@ -600,7 +603,7 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 	CFStringEncoding encoding;
     struct passwd *passwdp;
 	int fd;
-	size_t size;
+	ssize_t size;
 	char buffer[MAXPATHLEN + 1];
 
 	/*
@@ -713,7 +716,15 @@ static void fs_set_label_file(char *labelPtr)
 	if (cfstr == NULL)
 		labelUTF8[0] = 0;
 	else {
-		(void) CFStringGetCString(cfstr, labelUTF8, sizeof(labelUTF8), kCFStringEncodingUTF8);
+		CFMutableStringRef mutable;
+		
+		mutable = CFStringCreateMutableCopy(NULL, 0, cfstr);
+		if (mutable != NULL) {
+			CFStringNormalize(mutable, kCFStringNormalizationFormD);
+			CFStringGetCString(mutable, labelUTF8, sizeof(labelUTF8), kCFStringEncodingUTF8);
+			CFRelease(mutable);
+		}
+		
 		CFRelease(cfstr);
 	}
 

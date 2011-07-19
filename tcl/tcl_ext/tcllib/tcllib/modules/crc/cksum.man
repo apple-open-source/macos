@@ -1,9 +1,10 @@
-[manpage_begin cksum n 1.1.2]
+[manpage_begin cksum n 1.1.3]
 [copyright {2002, Pat Thoyts}]
 [moddesc   {Cyclic Redundancy Checks}]
 [titledesc {Calculate a cksum(1) compatible checksum}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
-[require cksum [opt 1.1.2]]
+[require cksum [opt 1.1.3]]
 [description]
 [para]
 

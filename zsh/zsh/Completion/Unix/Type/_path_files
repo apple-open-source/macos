@@ -1,5 +1,29 @@
 #autoload
 
+local -a match mbegin mend
+
+# Look for glob qualifiers.  Do this first:  if we're really
+# in a glob qualifier, we don't actually want to expand
+# the earlier part of the path.  We can't expand inside
+# parentheses otherwise, so as we test that successfully
+# we should be able to commit to glob qualifiers here.
+#
+# Extra nastiness to be careful about a quoted parenthesis.
+# The initial tests look for parentheses with zero or an
+# even number of backslashes in front.  We also require that
+# there was at least one character before the parenthesis for
+# a bare glob qualifier.
+# The later test looks for an outstanding quote.
+if _have_glob_qual $PREFIX; then
+   compset -p ${#match[1]}
+   if [[ -o extendedglob ]] && compset -P '\#'; then
+     _globflags
+   else
+     _globquals
+   fi
+   return
+fi
+
 # Utility function for in-path completion. This allows `/u/l/b<TAB>'
 # to complete to `/usr/local/bin'.
 
@@ -8,8 +32,9 @@ local tmp1 tmp2 tmp3 tmp4 i orig eorig pre suf tpre tsuf opre osuf cpre
 local pats haspats ignore pfx pfxsfx sopt gopt opt sdirs ignpar cfopt listsfx
 local nm=$compstate[nmatches] menu matcher mopts sort mid accex fake
 local listfiles listopts tmpdisp origtmp1 Uopt
+local accept_exact_dirs path_completion
 integer npathcheck
-local -a match mbegin mend Mopts
+local -a Mopts
 
 typeset -U prepaths exppaths
 
@@ -59,7 +84,7 @@ if (( $#ignore )); then
   else
     ignore=( ${(P)ignore[2]} )
   fi
-fi  
+fi
 
 # If we were given no file selection option, we behave as if we were given
 # a `-f'.
@@ -133,14 +158,12 @@ if zstyle -s ":completion:${curcontext}:" file-sort tmp1; then
 
     tmp2=()
     for tmp1 in "$pats[@]"; do
-      if [[ "$tmp1" = (#b)(*[^\$])"(#q"(*)")" ]]; then
-	tmp2=( "$tmp2[@]" "${match[1]}(#q${sort}${match[2]})" )
-      elif [[ "$tmp1" = (#b)(*[^\$])(\(\([^\|~]##\)\)) ]]; then
-        tmp2=( "$tmp2[@]" "${match[1]}((${sort}${match[2][3,-1]}" )
-      elif [[ "$tmp1" = (#b)(*[^\$])(\([^\|~]##\)) ]]; then
-        tmp2=( "$tmp2[@]" "${match[1]}(${sort}${match[2][2,-1]}" )
+      if _have_glob_qual "$tmp1" complete; then
+	# unbalanced parenthesis is correct: match[1] contains the start,
+	# match[5] doesn't contain the end.
+	tmp2+=( "${match[1]}#q${sort})(${match[5]})" )
       else
-        tmp2=( "$tmp2[@]" "${tmp1}(${sort})" )
+        tmp2+=( "${tmp1}(${sort})" )
       fi
     done
     pats=( "$tmp2[@]" )
@@ -169,31 +192,34 @@ zstyle -a ":completion:${curcontext}:" fake-files fake
 
 zstyle -s ":completion:${curcontext}:" ignore-parents ignpar
 
-if [[ -n "$compstate[pattern_match]" &&
-      ( ( -z "$SUFFIX" && "$PREFIX" = (|*[^\$])\([^\|\~]##\) ) ||
-        "$SUFFIX" =  (|*[^\$])\([^\|\~]##\) ) ]]; then
-  # Copy all glob qualifiers from the line to
-  # the patterns used when generating matches
-  if [[ "$SUFFIX" = *\([^\|\~]##\) ]]; then
-    tmp3="${${(M)SUFFIX%\([^\|\~]##\)}[2,-2]}"
-    SUFFIX="${SUFFIX%\($tmp3\)}"
-  else
-    tmp3="${${(M)PREFIX%\([^\|\~]##\)}[2,-2]}"
-    PREFIX="${PREFIX%\($tmp3\)}"
-  fi
-  tmp2=()
-  for tmp1 in "$pats[@]"; do
-    if [[ "$tmp1" = (#b)(*[^\$])"(#q"(*)")" ]]; then
-      tmp2=( "$tmp2[@]" "${match[1]}(#q${tmp3}${match[2]})" )
-    elif [[ "$tmp1" = (#b)(*[^\$])(\(\([^\|~]##\)\)) ]]; then
-      tmp2=( "$tmp2[@]" "${match[1]}((${tmp3}${match[2][3,-1]}" )
-    elif [[ "$tmp1" = (#b)(*[^\$])(\([^\|~]##\)) ]]; then
-      tmp2=( "$tmp2[@]" "${match[1]}(${tmp3}${match[2][2,-1]}" )
+zstyle -t ":completion:${curcontext}:paths" accept-exact-dirs &&
+  accept_exact_dirs=1
+zstyle -T ":completion:${curcontext}:paths" path-completion &&
+  path_completion=1
+
+if [[ -n "$compstate[pattern_match]" ]]; then
+  if { [[ -z "$SUFFIX" ]] && _have_glob_qual "$PREFIX" complete } ||
+    _have_glob_qual "$SUFFIX" complete; then
+    # Copy all glob qualifiers from the line to
+    # the patterns used when generating matches
+    tmp3=${match[5]}
+    if [[ -n "$SUFFIX" ]]; then
+      SUFFIX=${match[2]}
     else
-      tmp2=( "$tmp2[@]" "${tmp1}(${tmp3})" )
+      PREFIX=${match[2]}
     fi
-  done
-  pats=( "$tmp2[@]" )
+    tmp2=()
+    for tmp1 in "$pats[@]"; do
+      if _have_glob_qual "$tmp1" complete; then
+	# unbalanced parenthesis is correct: match[1] contains the start,
+	# match[5] doesn't contain the end.
+	tmp2+=( "${match[1]}${tmp3}${match[5]})")
+      else
+	tmp2+=( "${tmp1}(${tmp3})" )
+      fi
+    done
+    pats=( "$tmp2[@]" )
+  fi
 fi
 
 # We get the prefix and the suffix from the line and save the whole
@@ -227,7 +253,11 @@ if [[ "$pre" = [^][*?#^\|\<\>\\]#(\`[^\`]#\`|\$)*/* && "$compstate[quote]" != \'
   # meant as a partial path.
 
   linepath="${(M)pre##*\$[^/]##/}"
-  eval 'realpath=${(e)~linepath}' 2>/dev/null
+  function {
+    # do not treat an unset parameter expansion as the empty string
+    setopt localoptions nounset
+    eval 'realpath=${(e)~linepath}' 2>/dev/null
+  }
   [[ -z "$realpath" || "$realpath" = "$linepath" ]] && return 1
   pre="${pre#${linepath}}"
   i='[^/]'
@@ -326,17 +356,35 @@ for prepath in "$prepaths[@]"; do
   skipped=
   cpre=
 
-  if zstyle -t ":completion:${curcontext}:paths" accept-exact-dirs &&
-    [[ $pre = (#b)(*)/([^/]#) ]]; then
-    # We've been told that we can accept an exact directory
-    # prefix immediately.  Try this with the longest path prefix
-    # first:  this saves stats in the simple case and may get around
-    # automount behaviour if early components don't yet exist.
-    tmp1=$match[1]
-    tpre=$match[2]
+  if [[ ( -n $accept_exact_dirs || -z $path_completion ) && \
+        ${pre} = (#b)(*)/([^/]#) ]]; then
+    # We've been told either that we can accept an exact directory prefix
+    # immediately, or that path expansion is inhibited.  Try the longest
+    # path prefix first: in the first case, this saves stats in the simple
+    # case and may get around automount behaviour if early components don't
+    # yet exist, and in the second case this is the prefix we want to keep.
+    #
+    # Explanation of substitution: For tmp1 and tpre, which are used further
+    # on, we need to remove quotes from everything that's not a pattern
+    # character, because the code that does the file generation only
+    # strips quotes from pattern characters (you know better than
+    # to ask why).  Because we need to test for a real directory,
+    # however, for tmp2 we unquote everything.
+    tmp1=${match[1]}
+    tpre=${match[2]}
+    tmp2=${(Q)tmp1}
+    tmp1=${tmp1//(#b)\\(?)/$match[1]}
+    tpre=${tpre//(#b)\\([^\\\]\[\^\~\(\)\#\*\?])/$match[1]}
+    # Theory: donepath needs the quoting of special characters
+    # still in it.  However, we need it without at this point.
+    # (I think.)  Note this is different from the above where we're
+    # doing something a bit different.
+    tmp3=${donepath//(#b)\\(?)/$match[1]}
     while true; do
-      if [[ -d $donepath$tmp1 ]]; then
-	donepath=$donepath$tmp1/
+      if [[ -z $path_completion || -d $prepath$realpath$tmp3$tmp2 ]]; then
+	tmp3=$tmp3$tmp1/
+	# Now put donepath back the way it should be.  (I think.)
+	donepath=${tmp3//(#b)([\\\]\[\^\~\(\)\#\*\?])/\\$match[1]}
 	pre=$tpre
 	break
       elif [[ $tmp1 = (#b)(*)/([^/]#) ]]; then
@@ -350,7 +398,14 @@ for prepath in "$prepaths[@]"; do
 
   tpre="$pre"
   tsuf="$suf"
-  testpath="$donepath"
+  # Now we strip quoting from pattern characters, too, because
+  # testpath is used as a literal string.  I suppose we could
+  # alternatively use ${~testpath} later.
+  #
+  # I'm not sure if donepath itself should be entirely unquoted at
+  # some point but probably not here, since we need the quoted pattern
+  # characters in tmp1 below (I think).
+  testpath="${donepath//(#b)\\([\\\]\[\^\~\(\)\#\*\?])/$match[1]}"
 
   tmp2="${(M)tpre##${~skips}}"
   tpre="${tpre#$tmp2}"
@@ -383,19 +438,7 @@ for prepath in "$prepaths[@]"; do
 
     tmp2=( "$tmp1[@]" )
 
-    # Look for glob qualifiers.
-    # Extra nastiness to be careful about a quoted parenthesis.
-    # The initial tests look for parentheses with zero or an
-    # even number of backslashes in front.
-    # The later test looks for an outstanding quote.
-    if [[ ( -o bareglobqual && \
-	      "$tpre/$tsuf" = (#b)((*[^\\]|)(\\\\)#\()([^\)]#) || \
-            -o extendedglob && \
-		"$tpre/$tsuf" = (#b)((*[^\\]|)(\\\\)#"(#q")([^\)]#) \
-	  ) && -z $compstate[quote] ]]; then
-       compset -p ${#match[1]}
-       _globquals
-    elif [[ "$tpre$tsuf" = */* ]]; then
+    if [[ "$tpre$tsuf" = */* ]]; then
       compfiles -P$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake
     elif [[ "$sopt" = *[/f]* ]]; then
       compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake "$pats[@]"
@@ -561,11 +604,11 @@ for prepath in "$prepaths[@]"; do
 
     if [[ "$tpre" = */* ]]; then
       tmp2="${cpre}${tpre%%/*}"
-      PREFIX="${donepath}${linepath}${tmp2}"
+      PREFIX="${linepath}${donepath}${tmp2}"
       SUFFIX="/${tpre#*/}${tsuf#*/}"
     else
       tmp2="${cpre}${tpre}"
-      PREFIX="${donepath}${linepath}${tmp2}"
+      PREFIX="${linepath}${donepath}${tmp2}"
       SUFFIX="${tsuf}"
     fi
 
@@ -649,14 +692,13 @@ for prepath in "$prepaths[@]"; do
 	# We are inserting the match into the command line.
         if [[ "$tmp3" = */* ]]; then
 	  tmp4=( $Uopt -Qf "$mopts[@]" -p "${Uopt:+$IPREFIX}$linepath$tmp2"
-	         -s "${Uopt:+$ISUFFIX}"
 	         -W "$prepath$realpath$testpath"
 	         "$pfxsfx[@]" $Mopts )
 	  if [[ -z "$listsfx" ]]; then
             for i in "$tmp1[@]"; do
-	      tmpdisp=("${i%%/*}")
+	      tmpdisp=("$i")
 	      _list_files tmpdisp "$prepath$realpath$testpath"
-	      compadd "$tmp4[@]" -s "/${i#*/}" $listopts - "$tmpdisp"
+	      compadd "$tmp4[@]" -s "${Uopt:+$ISUFFIX}" $listopts - "$tmpdisp"
 	    done
           else
             [[ -n "$compstate[pattern_match]" ]] && SUFFIX="${SUFFIX:s./.*/}*"

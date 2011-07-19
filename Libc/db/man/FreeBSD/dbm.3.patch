@@ -1,6 +1,6 @@
---- dbm.3	2005-07-28 16:23:28.000000000 -0700
-+++ dbm.3.edit	2006-07-12 11:16:35.000000000 -0700
-@@ -33,28 +33,54 @@
+--- dbm.3.orig	2009-11-06 12:44:50.000000000 -0800
++++ dbm.3	2009-11-06 12:49:59.000000000 -0800
+@@ -31,28 +31,54 @@
  .Nm dbm_store
  .Nd database access functions
  .Sh SYNOPSIS
@@ -70,7 +70,7 @@
  .Sh DESCRIPTION
  Database access functions.
  These functions are implemented using
-@@ -74,38 +100,38 @@
+@@ -72,38 +98,38 @@ typedef struct {
  .Ed
  .Pp
  The
@@ -112,14 +112,14 @@
 -.Fa mode .
 +.Fa file_mode .
  .Dv O_WRONLY
- is treated as O_RDWR in
+ is not allowed in
 -.Fa flags .
 +.Fa open_flags .
  The pointer returned by
  .Fn dbm_open
  identifies the database and is the
-@@ -130,18 +156,18 @@
- normally returns zero.
+@@ -124,18 +150,18 @@ function
+ closes the database.
  .Pp
  The
 -.Fn dbm_store db key data flags
@@ -140,7 +140,7 @@
  is
  .Dv DBM_INSERT
  and the database already contains an entry for
-@@ -153,7 +179,7 @@
+@@ -147,7 +173,7 @@ The
  function
  normally returns zero but returns 1 if the entry could not be
  inserted (because
@@ -149,7 +149,7 @@
  is
  .Dv DBM_INSERT ,
  and an entry with
-@@ -168,7 +194,7 @@
+@@ -162,7 +188,7 @@ function
  returns
  .Dv NULL
  or the
@@ -158,7 +158,7 @@
  corresponding to
  .Fa key .
  .Pp
-@@ -223,10 +249,30 @@
+@@ -217,10 +243,30 @@ The
  .Fn dbm_dirfno db
  function
  returns the file descriptor to the database.

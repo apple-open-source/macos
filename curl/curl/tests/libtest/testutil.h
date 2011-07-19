@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: testutil.h,v 1.4 2007-02-20 12:12:27 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"

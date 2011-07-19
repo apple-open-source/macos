@@ -1,0 +1,236 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		61124C340F69979B00439BA5 /* cvt_mail_data.8 in Copy Man Page */ = {isa = PBXBuildFile; fileRef = 61124C320F69978400439BA5 /* cvt_mail_data.8 */; };
+		61505594132AA372005F0C9C /* set_user_mail_opts.8 in Copy Man Page */ = {isa = PBXBuildFile; fileRef = 61505593132AA36D005F0C9C /* set_user_mail_opts.8 */; };
+		618609120F6995E100619E24 /* cvt_mail.m in Sources */ = {isa = PBXBuildFile; fileRef = 618609110F6995E100619E24 /* cvt_mail.m */; };
+		61A325EC0F69A140006FF61B /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61A325EB0F69A140006FF61B /* OpenDirectory.framework */; };
+		61CAF8100A0A5F0E00B7CD82 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */; };
+		61CAF8170A0A5F2B00B7CD82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		613B007D0A558E2300056B7F /* Copy Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				61505594132AA372005F0C9C /* set_user_mail_opts.8 in Copy Man Page */,
+				61124C340F69979B00439BA5 /* cvt_mail_data.8 in Copy Man Page */,
+			);
+			name = "Copy Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		61124C320F69978400439BA5 /* cvt_mail_data.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cvt_mail_data.8; sourceTree = "<group>"; };
+		61505593132AA36D005F0C9C /* set_user_mail_opts.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = set_user_mail_opts.8; sourceTree = "<group>"; };
+		618609110F6995E100619E24 /* cvt_mail.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = cvt_mail.m; sourceTree = "<group>"; };
+		618609130F6995F500619E24 /* cvt_mail.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cvt_mail.h; sourceTree = "<group>"; };
+		61A325EB0F69A140006FF61B /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
+		61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		61FD409D0A0A4FCA0098F485 /* cvt_mail_data */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cvt_mail_data; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		613AC90C0A0A4DCB00100B43 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				61CAF8100A0A5F0E00B7CD82 /* CoreFoundation.framework in Frameworks */,
+				61CAF8170A0A5F2B00B7CD82 /* Foundation.framework in Frameworks */,
+				61A325EC0F69A140006FF61B /* OpenDirectory.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* cvt_mail_data */ = {
+			isa = PBXGroup;
+			children = (
+				61505593132AA36D005F0C9C /* set_user_mail_opts.8 */,
+				613AC9330A0A4E7C00100B43 /* Source */,
+				08FB7795FE84155DC02AAC07 /* Common */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				61CAF8070A0A5EB800B7CD82 /* External Frameworks and Libraries */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = cvt_mail_data;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				61FD409D0A0A4FCA0098F485 /* cvt_mail_data */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		613AC9330A0A4E7C00100B43 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				618609130F6995F500619E24 /* cvt_mail.h */,
+				618609110F6995E100619E24 /* cvt_mail.m */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		61CAF8070A0A5EB800B7CD82 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				61A325EB0F69A140006FF61B /* OpenDirectory.framework */,
+				61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */,
+				61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				61124C320F69978400439BA5 /* cvt_mail_data.8 */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		613AC90D0A0A4DCB00100B43 /* cyrus_to_dovecot */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 61E39F030A50A796006A171E /* Build configuration list for PBXNativeTarget "cyrus_to_dovecot" */;
+			buildPhases = (
+				613AC90B0A0A4DCB00100B43 /* Sources */,
+				613AC90C0A0A4DCB00100B43 /* Frameworks */,
+				613B007D0A558E2300056B7F /* Copy Man Page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = cyrus_to_dovecot;
+			productName = cvt_mail_data;
+			productReference = 61FD409D0A0A4FCA0098F485 /* cvt_mail_data */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 61E39EFB0A50A796006A171E /* Build configuration list for PBXProject "cyrus_to_dovecot" */;
+			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* cvt_mail_data */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				613AC90D0A0A4DCB00100B43 /* cyrus_to_dovecot */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		613AC90B0A0A4DCB00100B43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				618609120F6995E100619E24 /* cvt_mail.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		61E39EFC0A50A796006A171E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		61E39EFE0A50A796006A171E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		61E39F040A50A796006A171E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = cvt_mail_data;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		61E39F060A50A796006A171E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = cvt_mail_data;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		61E39EFB0A50A796006A171E /* Build configuration list for PBXProject "cyrus_to_dovecot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				61E39EFC0A50A796006A171E /* Development */,
+				61E39EFE0A50A796006A171E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		61E39F030A50A796006A171E /* Build configuration list for PBXNativeTarget "cyrus_to_dovecot" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				61E39F040A50A796006A171E /* Development */,
+				61E39F060A50A796006A171E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

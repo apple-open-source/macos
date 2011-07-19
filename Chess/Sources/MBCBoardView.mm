@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.mm,v $
+		Revision 1.37  2011/03/14 21:10:27  neerache
+		<rdar://problem/9129384> HiDPI adoption for Chess.app
+		
+		Revision 1.36  2010/08/10 20:28:10  neerache
+		<rdar://problem/7335693> CrashTracer: 54 crashes in Chess at com.apple. -[MBCBoardView initWithFrame:]
+		
 		Revision 1.35  2008/10/24 21:39:06  neerache
 		Insist on acceleration for fancy graphics
 		
@@ -203,7 +209,8 @@ void MBCColor::SetColor(NSColor * newColor)
 	//
 	// Determine some of our graphics limit
 	//
-	if (strstr((const char *)glGetString(GL_EXTENSIONS), "GL_EXT_texture_filter_anisotropic")) {
+	const char * const kGlExt = (const char *)glGetString(GL_EXTENSIONS);
+	if (kGlExt && strstr(kGlExt, "GL_EXT_texture_filter_anisotropic")) {
 		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fAnisotropy);
 		fAnisotropy = std::min(fAnisotropy, 4.0f);
 	} else
@@ -241,7 +248,9 @@ void MBCColor::SetColor(NSColor * newColor)
 							  initWithImage:[NSImage imageNamed:@"handCursor"]
 							  hotSpot:NSMakePoint(0.5f, 0.75f)];
 	fArrowCursor		= [[NSCursor arrowCursor] retain];
-	
+
+    [self setWantsBestResolutionOpenGLSurface:YES];
+
     return self;
 }
 
@@ -263,7 +272,7 @@ void MBCColor::SetColor(NSColor * newColor)
 	fBoard			= [fController board];
 	fInteractive	= [fController interactive];
 	
-	const float	kUserSpaceScale = 1.0f / [[self window] userSpaceScaleFactor];
+	const float	kUserSpaceScale = 1.0f / [self convertSizeToBacking:NSMakeSize(1, 1)].width;
 		
 	[self scaleUnitSquareToSize:NSMakeSize(kUserSpaceScale, kUserSpaceScale)];
 }

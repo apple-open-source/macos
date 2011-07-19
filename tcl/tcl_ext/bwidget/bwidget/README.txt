@@ -1,4 +1,4 @@
-BWidget ToolKit 1.8.0				October 2006
+BWidget ToolKit 1.9.0				July 2009
 Copyright (c) 1998-1999 UNIFIX.
 Copyright (c) 2001-2002 ActiveState Corp. 
 
@@ -24,7 +24,7 @@ community developers.  See the ChangeLog file for details.
 
 --------------------------------------------------------------------------
 
-WIDGET LIST (1.8)
+WIDGET LIST (1.9)
 
 Simple Widgets 
       Label           Extended Label widget

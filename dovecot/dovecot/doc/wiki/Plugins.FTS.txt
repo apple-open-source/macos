@@ -1,0 +1,46 @@
+Full text search indexing
+=========================
+
+The following FTS indexers are supported:
+
+ * <Squat> [Plugins.FTS.Squat.txt] is Dovecot's own search index.
+ * <Lucene> [Plugins.FTS.Lucene.txt] uses Lucene's C++ library.
+ * <Solr> [Plugins.FTS.Solr.txt] communicates with Lucene's Solr server
+   [http://lucene.apache.org/solr/]. Use this instead of fts-lucene if
+   possible.
+
+The main difference between Squat indexes and the others is that Squat provides
+support for substring searches. This is required for IMAP protocol compliance,
+so TEXT and BODY searches are looked up only from Squat indices. Dovecot's
+non-standard X-TEXT-FAST and X-BODY-FAST SEARCH parameters can be used to look
+up from non-Squat indexes.
+
+Currently the indices are updated *only* while searching, so neither the
+<LDA.txt> nor an IMAP APPEND command updates the indices immediately. This
+means that if user has received a lot of mail since the last indexing (==
+search operation), it may take a while to index all the mails before replying
+to the search command. Dovecot sends periodic "* OK Indexed n% of the mailbox"
+updates which can be caught by webmail implementations to implement a progress
+bar. You could also build a cronjob to index users' mailboxes every once in a
+while (by selecting each mailbox and issuing a 'SEARCH TEXT xyzzyx' command).
+
+Using both Squat and non-Squat
+------------------------------
+
+It's possible to use both Squat and non-Squat indices at the same time, so that
+TEXT/BODY are looked up from Squat indexes and X-TEXT-FAST/X-BODY-FAST are
+looked up from the non-Squat index. This of course means that indices will have
+to be built and updated for both, so it might not be that good idea.
+
+---%<-------------------------------------------------------------------------
+protocol imap {
+..
+  mail_plugins = fts fts_squat fts_solr
+}
+...
+plugin {
+  fts = squat solr
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

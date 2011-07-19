@@ -1,4 +1,4 @@
-#include <Kerberos/Kerberos.h>
+#include <Heimdal/krb5.h>
 #include <DiskArbitration/DiskArbitration.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <dispatch/dispatch.h>

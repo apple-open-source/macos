@@ -26,7 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebCore/WebCoreViewFactory.h>
+#import <WebCore/PluginData.h>
+#import <wtf/RetainPtr.h>
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
 #import <WebKit/npfunctions.h>
@@ -52,21 +53,15 @@ typedef void (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
 #define WebPluginTypeDescriptionKey     @"WebPluginTypeDescription"
 #define WebPluginTypeEnabledKey         @"WebPluginTypeEnabled"
 
-@interface WebBasePluginPackage : NSObject <WebCorePluginInfo>
+@interface WebBasePluginPackage : NSObject
 {
     NSMutableSet *pluginDatabases;
     
-    NSString *name;
-    NSString *path;
-    NSString *pluginDescription;
+    WTF::String path;
+    WebCore::PluginInfo pluginInfo;
 
-    NSBundle *bundle;
-    CFBundleRef cfBundle;
+    RetainPtr<CFBundleRef> cfBundle;
 
-    NSDictionary *MIMEToDescription;
-    NSDictionary *MIMEToExtensions;
-    NSMutableDictionary *extensionToMIME;
-    
     BP_CreatePluginMIMETypesPreferencesFuncPtr BP_CreatePluginMIMETypesPreferences;
 }
 
@@ -78,23 +73,16 @@ typedef void (*BP_CreatePluginMIMETypesPreferencesFuncPtr)(void);
 - (BOOL)load;
 - (void)unload;
 
-- (NSString *)name;
-- (NSString *)path;
-- (NSString *)filename;
-- (NSString *)pluginDescription;
-- (NSBundle *)bundle;
+- (const WTF::String&)path;
 
-- (NSEnumerator *)extensionEnumerator;
-- (NSEnumerator *)MIMETypeEnumerator;
-- (NSString *)descriptionForMIMEType:(NSString *)MIMEType;
-- (NSString *)MIMETypeForExtension:(NSString *)extension;
-- (NSArray *)extensionsForMIMEType:(NSString *)MIMEType;
+- (const WebCore::PluginInfo&)pluginInfo;
 
-- (void)setName:(NSString *)theName;
-- (void)setPath:(NSString *)thePath;
-- (void)setPluginDescription:(NSString *)description;
-- (void)setMIMEToDescriptionDictionary:(NSDictionary *)MIMEToDescriptionDictionary;
-- (void)setMIMEToExtensionsDictionary:(NSDictionary *)MIMEToExtensionsDictionary;
+- (WTF::String)bundleIdentifier;
+
+- (BOOL)supportsExtension:(const WTF::String&)extension;
+- (BOOL)supportsMIMEType:(const WTF::String&)MIMEType;
+
+- (NSString *)MIMETypeForExtension:(const WTF::String&)extension;
 
 - (BOOL)isQuickTimePlugIn;
 - (BOOL)isJavaPlugIn;

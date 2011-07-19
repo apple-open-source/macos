@@ -34,7 +34,8 @@
 .Sh SYNOPSIS
 .Nm nc
 .Bk -words
-.Op Fl 46DdhklnrtUuvz
+.Op Fl 46DCdhklnrtUuvz
+.Op Fl b Ar boundif
 .Op Fl i Ar interval
 .Op Fl p Ar source_port
 .Op Fl s Ar source_ip_address
@@ -91,8 +92,14 @@ to use IPv4 addresses only.
 Forces
 .Nm
 to use IPv6 addresses only.
+.It Fl b Ar boundif
+Specifies the interface to bind the socket to.
 .It Fl D
 Enable debugging on the socket.
+.It Fl C
+Forces
+.Nm
+not to use cellular data context.
 .It Fl d
 Do not attempt to read from stdin.
 .It Fl h

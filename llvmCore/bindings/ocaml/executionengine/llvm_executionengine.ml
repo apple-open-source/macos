@@ -20,7 +20,7 @@ module GenericValue = struct
   external of_float: Llvm.lltype -> float -> t
     = "llvm_genericvalue_of_float"
   external of_pointer: 'a -> t
-    = "llvm_genericvalue_of_value"
+    = "llvm_genericvalue_of_pointer"
   external of_int32: Llvm.lltype -> int32 -> t
     = "llvm_genericvalue_of_int32"
   external of_int: Llvm.lltype -> int -> t
@@ -33,7 +33,7 @@ module GenericValue = struct
   external as_float: Llvm.lltype -> t -> float
     = "llvm_genericvalue_as_float"
   external as_pointer: t -> 'a
-    = "llvm_genericvalue_as_value"
+    = "llvm_genericvalue_as_pointer"
   external as_int32: t -> int32
     = "llvm_genericvalue_as_int32"
   external as_int: t -> int
@@ -56,20 +56,18 @@ module ExecutionEngine = struct
             call into LLVM. *)
   let _ = register_exns (Error "")
   
-  external create: Llvm.llmoduleprovider -> t
+  external create: Llvm.llmodule -> t
     = "llvm_ee_create"
-  external create_interpreter: Llvm.llmoduleprovider -> t
+  external create_interpreter: Llvm.llmodule -> t
     = "llvm_ee_create_interpreter"
-  external create_jit: Llvm.llmoduleprovider -> t
+  external create_jit: Llvm.llmodule -> int -> t
     = "llvm_ee_create_jit"
-  external create_fast_jit: Llvm.llmoduleprovider -> t
-    = "llvm_ee_create_fast_jit"
   external dispose: t -> unit
     = "llvm_ee_dispose"
-  external add_module_provider: Llvm.llmoduleprovider -> t -> unit
-    = "llvm_ee_add_mp"
-  external remove_module_provider: Llvm.llmoduleprovider -> t -> Llvm.llmodule
-    = "llvm_ee_remove_mp"
+  external add_module: Llvm.llmodule -> t -> unit
+    = "llvm_ee_add_module"
+  external remove_module: Llvm.llmodule -> t -> Llvm.llmodule
+    = "llvm_ee_remove_module"
   external find_function: string -> t -> Llvm.llvalue option
     = "llvm_ee_find_function"
   external run_function: Llvm.llvalue -> GenericValue.t array -> t ->
@@ -109,3 +107,6 @@ module ExecutionEngine = struct
   
    *)
 end
+
+external initialize_native_target : unit -> bool
+                                  = "llvm_initialize_native_target"

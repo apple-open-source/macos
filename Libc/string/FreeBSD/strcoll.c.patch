@@ -1,8 +1,8 @@
---- strcoll.c.orig	2003-05-20 15:23:54.000000000 -0700
-+++ strcoll.c	2005-03-30 15:16:28.000000000 -0800
-@@ -28,59 +28,44 @@
+--- strcoll.c.bsdnew	2009-11-18 18:24:34.000000000 -0800
++++ strcoll.c	2009-11-18 18:26:43.000000000 -0800
+@@ -28,58 +28,41 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.13 2001/11/07 19:55:16 obrien Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.14 2009/02/03 17:58:20 danger Exp $");
  
 +#include "xlocale_private.h"
 +
@@ -13,10 +13,8 @@
  #include "collate.h"
  
  int
--strcoll(s, s2)
-+strcoll_l(s, s2, loc)
- 	const char *s, *s2;
-+	locale_t loc;
+-strcoll(const char *s, const char *s2)
++strcoll_l(const char *s, const char *s2, locale_t loc)
  {
 -	int len, len2, prim, prim2, sec, sec2, ret, ret2;
 -	const char *t, *t2;
@@ -83,8 +81,7 @@
  }
 +
 +int
-+strcoll(s, s2)
-+	const char *s, *s2;
++strcoll(const char *s, const char *s2)
 +{
 +	return strcoll_l(s, s2, __current_locale());
 +}

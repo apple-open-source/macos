@@ -29,26 +29,21 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ErrorConstructor);
 
-ErrorConstructor::ErrorConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, ErrorPrototype* errorPrototype)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, errorPrototype->classInfo()->className))
+ErrorConstructor::ErrorConstructor(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, ErrorPrototype* errorPrototype)
+    : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, errorPrototype->classInfo()->className))
 {
     // ECMA 15.11.3.1 Error.prototype
-    putDirectWithoutTransition(exec->propertyNames().prototype, errorPrototype, DontEnum | DontDelete | ReadOnly);
-    putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 1), DontDelete | ReadOnly | DontEnum);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().prototype, errorPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(1), DontDelete | ReadOnly | DontEnum);
 }
 
 // ECMA 15.9.3
-ErrorInstance* constructError(ExecState* exec, const ArgList& args)
-{
-    ErrorInstance* obj = new (exec) ErrorInstance(exec->lexicalGlobalObject()->errorStructure());
-    if (!args.at(0).isUndefined())
-        obj->putDirect(exec->propertyNames().message, jsString(exec, args.at(0).toString(exec)));
-    return obj;
-}
 
-static JSObject* constructWithErrorConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState* exec)
 {
-    return constructError(exec, args);
+    JSValue message = exec->argumentCount() ? exec->argument(0) : jsUndefined();
+    Structure* errorStructure = asInternalFunction(exec->callee())->globalObject()->errorStructure();
+    return JSValue::encode(ErrorInstance::create(exec, errorStructure, message));
 }
 
 ConstructType ErrorConstructor::getConstructData(ConstructData& constructData)
@@ -57,11 +52,11 @@ ConstructType ErrorConstructor::getConstructData(ConstructData& constructData)
     return ConstructTypeHost;
 }
 
-// ECMA 15.9.2
-static JSValue JSC_HOST_CALL callErrorConstructor(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callErrorConstructor(ExecState* exec)
 {
-    // "Error()" gives the sames result as "new Error()"
-    return constructError(exec, args);
+    JSValue message = exec->argumentCount() ? exec->argument(0) : jsUndefined();
+    Structure* errorStructure = asInternalFunction(exec->callee())->globalObject()->errorStructure();
+    return JSValue::encode(ErrorInstance::create(exec, errorStructure, message));
 }
 
 CallType ErrorConstructor::getCallData(CallData& callData)

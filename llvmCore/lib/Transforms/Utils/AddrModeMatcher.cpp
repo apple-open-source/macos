@@ -17,19 +17,21 @@
 #include "llvm/Instruction.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/GetElementPtrTypeIterator.h"
 #include "llvm/Support/PatternMatch.h"
+#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
 
-void ExtAddrMode::print(OStream &OS) const {
+void ExtAddrMode::print(raw_ostream &OS) const {
   bool NeedPlus = false;
   OS << "[";
   if (BaseGV) {
     OS << (NeedPlus ? " + " : "")
        << "GV:";
-    WriteAsOperand(*OS.stream(), BaseGV, /*PrintType=*/false);
+    WriteAsOperand(OS, BaseGV, /*PrintType=*/false);
     NeedPlus = true;
   }
 
@@ -39,13 +41,13 @@ void ExtAddrMode::print(OStream &OS) const {
   if (BaseReg) {
     OS << (NeedPlus ? " + " : "")
        << "Base:";
-    WriteAsOperand(*OS.stream(), BaseReg, /*PrintType=*/false);
+    WriteAsOperand(OS, BaseReg, /*PrintType=*/false);
     NeedPlus = true;
   }
   if (Scale) {
     OS << (NeedPlus ? " + " : "")
        << Scale << "*";
-    WriteAsOperand(*OS.stream(), ScaledReg, /*PrintType=*/false);
+    WriteAsOperand(OS, ScaledReg, /*PrintType=*/false);
     NeedPlus = true;
   }
 
@@ -53,8 +55,8 @@ void ExtAddrMode::print(OStream &OS) const {
 }
 
 void ExtAddrMode::dump() const {
-  print(cerr);
-  cerr << '\n';
+  print(dbgs());
+  dbgs() << '\n';
 }
 
 
@@ -123,7 +125,7 @@ static bool MightBeFoldableInst(Instruction *I) {
     // Don't touch identity bitcasts.
     if (I->getType() == I->getOperand(0)->getType())
       return false;
-    return isa<PointerType>(I->getType()) || isa<IntegerType>(I->getType());
+    return I->getType()->isPointerTy() || I->getType()->isIntegerTy();
   case Instruction::PtrToInt:
     // PtrToInt is always a noop, as we know that the int type is pointer sized.
     return true;
@@ -165,8 +167,8 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
   case Instruction::BitCast:
     // BitCast is always a noop, and we can handle it as long as it is
     // int->int or pointer->pointer (we don't want int<->fp or something).
-    if ((isa<PointerType>(AddrInst->getOperand(0)->getType()) ||
-         isa<IntegerType>(AddrInst->getOperand(0)->getType())) &&
+    if ((AddrInst->getOperand(0)->getType()->isPointerTy() ||
+         AddrInst->getOperand(0)->getType()->isIntegerTy()) &&
         // Don't touch identity bitcasts.  These were probably put here by LSR,
         // and we don't want to mess around with them.  Assume it knows what it
         // is doing.
@@ -205,7 +207,7 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
     if (!RHS) return false;
     int64_t Scale = RHS->getSExtValue();
     if (Opcode == Instruction::Shl)
-      Scale = 1 << Scale;
+      Scale = 1LL << Scale;
     
     return MatchScaledValue(AddrInst->getOperand(0), Scale, Depth);
   }
@@ -225,7 +227,7 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
           cast<ConstantInt>(AddrInst->getOperand(i))->getZExtValue();
         ConstantOffset += SL->getElementOffset(Idx);
       } else {
-        uint64_t TypeSize = TD->getTypePaddedSize(GTI.getIndexedType());
+        uint64_t TypeSize = TD->getTypeAllocSize(GTI.getIndexedType());
         if (ConstantInt *CI = dyn_cast<ConstantInt>(AddrInst->getOperand(i))) {
           ConstantOffset += CI->getSExtValue()*TypeSize;
         } else if (TypeSize) {  // Scales of zero don't do anything.
@@ -255,43 +257,44 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
 
     // Save the valid addressing mode in case we can't match.
     ExtAddrMode BackupAddrMode = AddrMode;
-    
-    // Check that this has no base reg yet.  If so, we won't have a place to
-    // put the base of the GEP (assuming it is not a null ptr).
-    bool SetBaseReg = true;
-    if (isa<ConstantPointerNull>(AddrInst->getOperand(0)))
-      SetBaseReg = false;   // null pointer base doesn't need representation.
-    else if (AddrMode.HasBaseReg)
-      return false;  // Base register already specified, can't match GEP.
-    else {
-      // Otherwise, we'll use the GEP base as the BaseReg.
+    unsigned OldSize = AddrModeInsts.size();
+
+    // See if the scale and offset amount is valid for this target.
+    AddrMode.BaseOffs += ConstantOffset;
+
+    // Match the base operand of the GEP.
+    if (!MatchAddr(AddrInst->getOperand(0), Depth+1)) {
+      // If it couldn't be matched, just stuff the value in a register.
+      if (AddrMode.HasBaseReg) {
+        AddrMode = BackupAddrMode;
+        AddrModeInsts.resize(OldSize);
+        return false;
+      }
       AddrMode.HasBaseReg = true;
       AddrMode.BaseReg = AddrInst->getOperand(0);
     }
-    
-    // See if the scale and offset amount is valid for this target.
-    AddrMode.BaseOffs += ConstantOffset;
-    
+
+    // Match the remaining variable portion of the GEP.
     if (!MatchScaledValue(AddrInst->getOperand(VariableOperand), VariableScale,
                           Depth)) {
+      // If it couldn't be matched, try stuffing the base into a register
+      // instead of matching it, and retrying the match of the scale.
       AddrMode = BackupAddrMode;
-      return false;
+      AddrModeInsts.resize(OldSize);
+      if (AddrMode.HasBaseReg)
+        return false;
+      AddrMode.HasBaseReg = true;
+      AddrMode.BaseReg = AddrInst->getOperand(0);
+      AddrMode.BaseOffs += ConstantOffset;
+      if (!MatchScaledValue(AddrInst->getOperand(VariableOperand),
+                            VariableScale, Depth)) {
+        // If even that didn't work, bail.
+        AddrMode = BackupAddrMode;
+        AddrModeInsts.resize(OldSize);
+        return false;
+      }
     }
-    
-    // If we have a null as the base of the GEP, folding in the constant offset
-    // plus variable scale is all we can do.
-    if (!SetBaseReg) return true;
-      
-    // If this match succeeded, we know that we can form an address with the
-    // GepBase as the basereg.  Match the base pointer of the GEP more
-    // aggressively by zeroing out BaseReg and rematching.  If the base is
-    // (for example) another GEP, this allows merging in that other GEP into
-    // the addressing mode we're forming.
-    AddrMode.HasBaseReg = false;
-    AddrMode.BaseReg = 0;
-    bool Success = MatchAddr(AddrInst->getOperand(0), Depth+1);
-    assert(Success && "MatchAddr should be able to fill in BaseReg!");
-    Success=Success;
+
     return true;
   }
   }
@@ -431,18 +434,21 @@ static bool FindAllMemoryUses(Instruction *I,
   // Loop over all the uses, recursively processing them.
   for (Value::use_iterator UI = I->use_begin(), E = I->use_end();
        UI != E; ++UI) {
-    if (LoadInst *LI = dyn_cast<LoadInst>(*UI)) {
+    User *U = *UI;
+
+    if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
       MemoryUses.push_back(std::make_pair(LI, UI.getOperandNo()));
       continue;
     }
     
-    if (StoreInst *SI = dyn_cast<StoreInst>(*UI)) {
-      if (UI.getOperandNo() == 0) return true; // Storing addr, not into addr.
-      MemoryUses.push_back(std::make_pair(SI, UI.getOperandNo()));
+    if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
+      unsigned opNo = UI.getOperandNo();
+      if (opNo == 0) return true; // Storing addr, not into addr.
+      MemoryUses.push_back(std::make_pair(SI, opNo));
       continue;
     }
     
-    if (CallInst *CI = dyn_cast<CallInst>(*UI)) {
+    if (CallInst *CI = dyn_cast<CallInst>(U)) {
       InlineAsm *IA = dyn_cast<InlineAsm>(CI->getCalledValue());
       if (IA == 0) return true;
       
@@ -452,7 +458,7 @@ static bool FindAllMemoryUses(Instruction *I,
       continue;
     }
     
-    if (FindAllMemoryUses(cast<Instruction>(*UI), MemoryUses, ConsideredInsts,
+    if (FindAllMemoryUses(cast<Instruction>(U), MemoryUses, ConsideredInsts,
                           TLI))
       return true;
   }
@@ -566,7 +572,7 @@ IsProfitableToFoldIntoAddressingMode(Instruction *I, ExtAddrMode &AMBefore,
     // Get the access type of this use.  If the use isn't a pointer, we don't
     // know what it accesses.
     Value *Address = User->getOperand(OpNo);
-    if (!isa<PointerType>(Address->getType()))
+    if (!Address->getType()->isPointerTy())
       return false;
     const Type *AddressAccessTy =
       cast<PointerType>(Address->getType())->getElementType();

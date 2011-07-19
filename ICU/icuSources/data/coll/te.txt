@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/collation/te.xml
@@ -10,11 +10,11 @@
  *  ICU <specials> source: <path>/xml/collation/te.xml
  */
 te{
-    Version{"1.25"}
+    Version{"2.0.50.32"}
     collations{
         standard{
-            Sequence{" [normalization on ]&హ<ఁ<ం<ః<్"}
-            Version{"1.6"}
+            Sequence{" [normalization on ]&ఔ<ఁ<ం<ః"}
+            Version{"1.9"}
         }
     }
 }

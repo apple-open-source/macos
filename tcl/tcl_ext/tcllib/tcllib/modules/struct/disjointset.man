@@ -1,6 +1,7 @@
 [manpage_begin struct::disjointset n 1.0]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Disjoint set data structure}]
+[category  {Data structures}]
 [require Tcl 8.4]
 [require struct::disjointset [opt 1.0]]
 [description]

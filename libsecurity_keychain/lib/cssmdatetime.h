@@ -29,6 +29,7 @@
 #define _SECURITY_CSSMDATETIME_H_
 
 #include <Security/cssm.h>
+#include <CoreFoundation/CFDate.h>
 
 namespace Security
 {
@@ -47,6 +48,17 @@ extern void TimeStringToMacLongDateTime(const CSSM_DATA &inUTCTime, sint64 &outM
 extern void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData);
 extern void MacLongDateTimeToTimeString(const sint64 &inMacDate,
                                         uint32 inLength, void *outData);
+
+// outCssmDate must be a pointer to a 16 byte buffer.
+extern void CFDateToCssmDate(CFDateRef date, char *outCssmDate);
+
+// cssmDate must be a pointer to a 16 byte buffer formatted as follows: "YYYYMMDDhhmmssZ\0".
+extern void CssmDateToCFDate(const char *cssmDate, CFDateRef *outCFDate);
+
+// cssmDate must be a pointer to a string buffer formatted as follows: "[YY]YYMMDDhhmmssZ[\0]".
+// handles UTC (2-digit year) or generalized (4-digit year) date strings; terminated or not.
+// also handles localized time formats: "[YY]MMDDhhmmssThhmm" (where T=[+,-]).
+extern int CssmDateStringToCFDate(const char *cssmDate, unsigned int len, CFDateRef *outCFDate);
 
 } // end namespace CSSMDateTimeUtils
 

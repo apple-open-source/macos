@@ -29,9 +29,6 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 #import "WebBasePluginPackage.h"
 
-#ifdef BUILDING_ON_TIGER
-typedef short ResFileRefNum;
-#endif
 
 #if defined(__ppc__) && !defined(__LP64__)
 #define SUPPORT_CFM
@@ -76,6 +73,8 @@ typedef enum {
 
 - (WebExecutableType)executableType;
 - (NPPluginFuncs *)pluginFuncs;
+
+- (BOOL)supportsSnapshotting;
 
 #if USE(PLUGIN_HOST_PROCESS)
 - (cpu_type_t)pluginHostArchitecture;

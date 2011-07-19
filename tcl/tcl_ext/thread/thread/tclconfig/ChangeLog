@@ -1,6 +1,136 @@
-2008-11-04  Daniel Steffen  <das@users.sourceforge.net>
+2010-08-16  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	*** Bump to TEA_VERSION 3.9 ***
+	If upgrading from TEA_VERSION 3.8, copy over tcl.m4, change
+	TEA_INIT to use 3.9 and reconfigure (ac-2.59+).
+	BUILD_${PACKAGE_NAME} will be auto-defined on Windows for
+	correct setting of TCL_STORAGE_CLASS.
+	TEA_LOAD_CONFIG users should remove the SHLIB_LD_LIBS setting done
+	in configure.in (LIBS will be automagically populated by
+	TEA_LOAD_CONFIG).
+	TEA_EXPORT_CONFIG has been added for ${pkg}Config.sh creators
+	SHLIB_LD_FLAGS was deprecated a while ago, remove it if it is
+	still in your Makefile.in.
+
+	* tcl.m4: add /usr/lib64 to set of auto-search dirs. [Bug 1230554]
+	Auto-define BUILD_$PACKAGE_NAME so users don't need to.  This
+	needs to correspond with $pkg.h define magic for TCL_STORAGE_CLASS.
+	Auto-define CLEANFILES.  Users can expand it.
+	(SHLIB_LD_LIBS): define to '${LIBS}' default and change it only if
+	necessary.  Platforms not using this may simply not work or have
+	very funky linkers.
+	(TEA_LOAD_CONFIG): When loading config for another extension,
+	auto-add stub libraries found with TEA_ADD_LIBS.  Eases
+	configure.in for modules like itk and img::*.
+	(TEA_EXPORT_CONFIG): Add standardized function for exporting a
+	${pkg}Config.sh.  See use by img::* and itcl.
+
+2010-08-12  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	*** Bump to TEA_VERSION 3.8 ***
+	If upgrading from TEA_VERSION 3.7, copy over tcl.m4, change
+	TEA_INIT to use 3.8 and reconfigure (ac-2.59+).
+	No other changes should be necessary.
+
+	* tcl.m4: remove more vestigial bits from removed platforms.
+	Add back SCO_SV-3.2*.
+	Remove use of DL_LIBS and DL_OBJS and related baggage - these are
+	only needed by the core to support 'load'.
+	Allow for macosx in TEA_ADD_SOURCES.
+	Correct check for found_xincludes=no in TEA_PATH_UNIX_X.
+
+2010-08-11  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4: remove the following old platform configurations:
+	UNIX_SV*|UnixWare-5*, SunOS-4.*, SINIX*5.4*, SCO_SV-3.2*<readded>,
+	OSF1-1.*, NEXTSTEP-*, NetBSD-1.*|FreeBSD-[[1-2]].*, MP-RAS-*,
+	IRIX-5.*, HP-UX-*.08.*|HP-UX-*.09.*|HP-UX-*.10.*, dgux*,
+	BSD/OS-2.1*|BSD/OS-3*
+	(AIX): drop AIX-pre4 support and use of ldAix, use -bexpall/-brtl
+
+2010-07-05  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tcl.m4: [Patch #1055668] removal of exported internals from
+	tclInt.h (EXTERN macro)
+
+2010-04-14  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tcl.m4    - Backport a lot of quoting fixes from tcl8.6/unix/tcl.m4
+	            - Fix determination of CYGPATH for CYGWIN
+	  With those fixes, itcl and tdbc compile fine with CYGWIN
+
+2010-04-06  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* install-sh         [Bug 2982540] configure and install* script files
+	                     should always have LF
+
+2010-02-19  Stuart Cassoff  <stwo@users.sourceforge.net>
+
+	* tcl.m4: Correct compiler/linker flags for threaded builds on
+	OpenBSD.
+
+2010-01-19  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tcl.m4: Detect CYGWIN variant: win32 or unix
+
+2010-01-03  Donal K. Fellows  <dkf@users.sf.net>
+
+	* unix/tcl.m4 (TEA_CONFIG_CFLAGS): [Tcl Bug 1636685]: Use the
+	configuration for modern FreeBSD suggested by the FreeBSD porter.
+
+2009-10-22  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tcl.m4: [Tcl Patch #2883533] tcl.m4 support for Haiku OS
+
+2009-04-27  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tcl.m4 (TEA_CONFIG_CFLAGS): harden the check to add _r to CC on
+	AIX with threads.
+
+2009-04-10  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4 (Darwin): check for 64-bit TkAqua.
+
+2009-03-26  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tclconfig/tcl.m4: Adapt LDFLAGS and LD_SEARCH_FLAGS
+	together with SHLIB_LD definition to unbreak building on HPUX.
+
+2009-03-20  Andreas Kupries  <andreask@activestate.com>
+
+	* tclconfig/tcl.m4: Changed SHLIB_LD definition to unbreak
+	building on HPUX.
+
+2009-03-16  Joe English  <jenglish@users.sourceforge.net>
+
+	* tcl.m4(TEA_PUBLIC_TK_HEADERS): Look at ${TK_INCLUDE_SPEC}
+	(found in tkConfig.sh) when trying to guess where tk.h might be
+	[Patch 1960628].
+
+2009-03-11  Joe English  <jenglish@users.sourceforge.net>
+
+	* tcl.m4: Allow ${SHLIB_SUFFIX} to be overridden at
+	configure-time [Patch 1960628].  Also fix some comment typos,
+	and an uninitialized variable bug-waiting-to-happen.
+
+2008-12-21  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* tcl.m4: [Bug 2073255] Tcl_GetString(NULL) doesn't crash on HP-UX
+	          (this bug report was for Tcl, but holds for TEA as well.)
+
+2008-12-20  Daniel Steffen  <das@users.sourceforge.net>
+
+	* tcl.m4: sync with tdbc tcl.m4 changes
+	(SunOS-5.11): Sun cc SHLIB_LD: use LDFLAGS_DEFAULT instead of LDFLAGS
+
+2008-12-02  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	*** Bump to TEA_VERSION 3.7 ***
+
+	* tcl.m4: in private header check, check for <plat>Port.h instead
+	of Int.h to ensure all private headers are available.
+
+2008-11-04  Daniel Steffen  <das@users.sourceforge.net>
 
 	* tcl.m4 (Darwin): sync TEA_PRIVATE_TK_HEADERS handling of
 	Tk.framework PrivateHeaders with TEA_PRIVATE_TCL_HEADERS.
@@ -42,7 +172,7 @@
 
 2007-09-17  Joe English  <jenglish@users.sourceforge.net>
 
-	* tcl.m4: use '${CC} -shared' instead of 'ld -Bshareable' 
+	* tcl.m4: use '${CC} -shared' instead of 'ld -Bshareable'
 	to build shared libraries on current NetBSDs [Bug 1749251].
 
 2007-09-15  Daniel Steffen  <das@users.sourceforge.net>
@@ -67,7 +197,7 @@
 
 2007-06-06  Daniel Steffen  <das@users.sourceforge.net>
 
-	* tcl.m4 (Darwin): fix 64bit arch removal in fat 32&64bit builds. 
+	* tcl.m4 (Darwin): fix 64bit arch removal in fat 32&64bit builds.
 
 2007-05-18  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
 
@@ -88,7 +218,7 @@
 
 	* tcl.m4: correct -d to -f
 	(TEA_CONFIG_CFLAGS): SHLIB_SUFFIX is .so on HP ia64 [Bug 1615058]
-	
+
 2007-02-08  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* tcl.m4 (TEA_PRIVATE_TCL_HEADERS, TEA_PRIVATE_TK_HEADERS): check
@@ -100,7 +230,7 @@
 
 2007-01-25  Daniel Steffen  <das@users.sourceforge.net>
 
-	* tcl.m4: integrate CPPFLAGS into CFLAGS as late as possible and 
+	* tcl.m4: integrate CPPFLAGS into CFLAGS as late as possible and
 	move (rather than duplicate) -isysroot flags from CFLAGS to CPPFLAGS to
 	avoid errors about multiple -isysroot flags from some older gcc builds.
 
@@ -198,7 +328,7 @@
 
 2005-12-19  Joe English  <jenglish@users.sourceforge.net>
 
-	* tcl.m4 (TEA_PATH_TCLCONFIG &c): Look for tclConfig.sh &c 
+	* tcl.m4 (TEA_PATH_TCLCONFIG &c): Look for tclConfig.sh &c
 	in ${libdir}, where they are installed by default [Patch #1377407].
 
 2005-12-05  Don Porter  <dgp@users.sf.net>
@@ -384,8 +514,8 @@
 	* tcl.m4 (Darwin): fixed bug with static build linking to dynamic
 	library in /usr/lib etc instead of linking to static library earlier
 	in search path. [Tcl Bug 956908]
-	Removed obsolete references to Rhapsody. 
-	
+	Removed obsolete references to Rhapsody.
+
 2004-12-29  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* tcl.m4: Updates for VC7 compatibility, fixing CFLAGS and LDFLAGS
@@ -565,7 +695,7 @@
 	* tcl.m4: move the CFLAGS definition from TEA_ENABLE_SHARED to
 	TEA_MAKE_LIB because setting too early confuses other AC_* macros.
 	Correct the HP-11 SHLIB_LD_LIBS setting.
-	
+
 	* tcl.m4: add the CFLAGS definition into TEA_ENABLE_SHARED and
 	make it pick up the env CFLAGS at configure time.
 
@@ -655,7 +785,7 @@
 
 	* tcl.m4: corrected forgotten (UN)SHARED_LIB_SUFFIX and
 	SHLIB_SUFFIX defines for Win.
-	(SC_PATH_X): made this only do the check on unix platforms. 
+	(SC_PATH_X): made this only do the check on unix platforms.
 
 2002-03-12  Jeff Hobbs  <jeffh@ActiveState.com>
 
@@ -694,7 +824,7 @@
 
 2001-03-08    Karl Lehenbauer <karl@procplace.com>
 
-	* installFile.tcl: Added support for converting new-style (1.1+) 
+	* installFile.tcl: Added support for converting new-style (1.1+)
 	  Cygnus drive paths to Tcl-style.
 
 2001-01-15    <brent.welch@interwoven.com>

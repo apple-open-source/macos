@@ -1,11 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin Plotchart n 1.5]
-[copyright {2007 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
+[manpage_begin Plotchart n 1.9.0]
+[copyright {2010 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   Plotchart]
 [titledesc {Simple plotting and charting package}]
 [require Tcl [opt 8.4]]
 [require Tk [opt 8.4]]
-[require Plotchart [opt 1.5]]
+[require Plotchart [opt 1.9.0]]
 
 [description]
 [para]
@@ -47,53 +47,56 @@ whole plot must be redrawn.
 The advantage, though, is that it offers a number of plot and chart
 types:
 
-[list_begin bullet]
+[list_begin itemized]
 
-[bullet]
+[item]
 XY-plots like the one shown above with any number of data series.
 
-[bullet]
+[item]
 Stripcharts, a kind of XY-plots where the horizontal axis is adjusted
 automatically. The result is a kind of sliding window on the data
 series.
 
-[bullet]
+[item]
 Polar plots, where the coordinates are polar instead of cartesian.
 
-[bullet]
+[item]
 Histograms, for plotting statistical information.
 
-[bullet]
+[item]
 
 Isometric plots, where the scale of the coordinates in the two
 directions is always the same, i.e. a circle in world coordinates
 appears as a circle on the screen.
 
-[nl]
+[para]
 
 You can zoom in and out, as well as pan with these plots ([emph Note:]
 this works best if no axes are drawn, the zooming and panning routines
 do not distinguish the axes), using the mouse buttons with the control
 key and the arrow keys with the control key.
 
-[bullet]
+[item]
 Piecharts, with automatic scaling to indicate the proportions.
 
-[bullet]
+[item]
 Barcharts, with either vertical or horizontal bars, stacked bars or
 bars side by side.
 
-[bullet]
+[item]
 Timecharts, where bars indicate a time period and milestones or other
 important moments in time are represented by triangles.
 
-[bullet]
+[item]
 3D plots (both for displaying surfaces and 3D bars)
 [list_end]
 
 With version 1.5 a new command has been introduced: plotconfig, which
 can be used to configure the plot options for particular types of plots
 and charts (cf. [sectref "CONFIGURATION OPTIONS"])
+
+With version 1.8.3 several new features were introduced, which allow more interactivity
+(cf. [sectref "INTERACTIVE USE"])
 
 [section "PLOT CREATION COMMANDS"]
 
@@ -106,7 +109,7 @@ plot with data:
 
 Create a new xy-plot (configuration type: xyplot).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -121,7 +124,7 @@ For an inverted axis, where the maximum appears at the bottom,
 use: maximum, minimum and a [emph negative] stepsize.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createStripchart] [arg w] [arg xaxis] [arg yaxis]]
@@ -131,7 +134,7 @@ only difference to a regular XY plot is
 that the x-axis will be automatically adjusted when the x-coordinate
 of a new point exceeds the maximum.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -145,7 +148,7 @@ For an inverted axis, where the maximum appears at the bottom,
 use: maximum, minimum and a [emph negative] stepsize.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createTXPlot] [arg w] [arg timeaxis] [arg xaxis]]
@@ -153,7 +156,7 @@ use: maximum, minimum and a [emph negative] stepsize.
 Create a new time-x-plot (configuration type: txplot). The horizontal axis represents the date/time
 of the data and the vertical axis the values themselves.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -169,17 +172,17 @@ For an inverted axis, where the maximum appears at the bottom,
 use: maximum, minimum and a [emph negative] stepsize.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createXLogYPlot] [arg w] [arg xaxis] [arg yaxis]]
 
 Create a new xy-plot where the y-axis has a logarithmic scale (configuration type: xlogyplot).
-[nl]
+[para]
 The data should be given as for a linear scale, as the logarithmic transformation
 is taken of internally.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -193,14 +196,61 @@ A 2-element list containing minimum and maximum for the y-axis, in this order.
 Note that an inverted logarithmic axis is [emph not] supported.
 
 [list_end]
-[nl]
+[para]
 
 
-[call [cmd ::Plotchart::createPolarPlot] [arg w] [arg radius_data]]
+[call [cmd ::Plotchart::createLogXYPlot] [arg w] [arg xaxis] [arg yaxis]]
+
+Create a new xy-plot where the x-axis has a logarithmic scale (configuration type: logxyplot).
+[para]
+The data should be given as for a linear scale, as the logarithmic transformation
+is taken of internally.
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list xaxis in]
+A 2-element list containing minimum and maximum for the x-axis, in this order.
+Note that an inverted logarithmic axis is [emph not] supported.
+
+[arg_def list yaxis in]
+A 3-element list containing minimum, maximum and stepsize for the y-axis, in this order.
+For an inverted axis, where the maximum appears on the left-hand side,
+use: maximum, minimum and a [emph negative] stepsize.
+
+[list_end]
+[para]
+
+
+[call [cmd ::Plotchart::createLogXLogYPlot] [arg w] [arg xaxis] [arg yaxis]]
+
+Create a new xy-plot where both the x-axis and the y-axis have a logarithmic scale
+(configuration type: logxlogyplot).
+[para]
+The data should be given as for a linear scale, as the logarithmic transformation
+is taken of internally.
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list xaxis in]
+A 2-element list containing minimum and maximum for the x-axis, in this order.
+Note that an inverted logarithmic axis is [emph not] supported.
+
+[arg_def list yaxis in]
+A 2-element list containing minimum and maximum for the y-axis, in this order.
+Note that an inverted logarithmic axis is [emph not] supported.
+
+[list_end]
+[para]
+
+[call [cmd ::Plotchart::createPolarplot] [arg w] [arg radius_data]]
 
 Create a new polar plot (configuration type: polarplot).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -209,7 +259,30 @@ A 2-element list containing maximum radius and stepsize for the radial
 axis, in this order.
 
 [list_end]
-[nl]
+[para]
+
+
+[call [cmd ::Plotchart::createWindrose] [arg w] [arg radius_data] [arg sectors]]
+
+Create a new windrose diagram. The diagram will consist of concentric
+circles as defined by the [term radius_data] argument and a number of
+sectors (given by the [term sectors] argument). The sectors are drawn in
+the "nautical" convention, that is: the first is located at the positive
+y-axis, the second is to the right and so on in a clockwise direction.
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the diagram
+
+[arg_def list radius_data in]
+A 2-element list, the first element is the maximum radius, the second is
+the step to be used for the circles.
+
+[arg_def int sectors]
+Number of sectors to use (defaults to 16).
+
+[list_end]
+[para]
 
 
 [call [cmd ::Plotchart::createIsometricPlot] [arg w] [arg xaxis] [arg yaxis] [arg stepsize]]
@@ -217,7 +290,7 @@ axis, in this order.
 Create a new isometric plot, where the vertical and the horizontal
 coordinates are scaled so that a circle will truly appear as a circle (configuration type: isometric).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -234,14 +307,14 @@ signal the plot that it should use the full area of the widget, to not
 draw any of the axes.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createHistogram] [arg w] [arg xaxis] [arg yaxis]]
 
 Create a new histogram (configuration type: histogram).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -252,14 +325,14 @@ A 3-element list containing minimum, maximum and stepsize for the x-axis, in thi
 A 3-element list containing minimum, maximum and stepsize for the y-axis, in this order.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::create3DPlot] [arg w] [arg xaxis] [arg yaxis] [arg zaxis]]
 
 Create a new 3D plot.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -273,19 +346,38 @@ A 3-element list containing minimum, maximum and stepsize for the y-axis, in thi
 A 3-element list containing minimum, maximum and stepsize for the z-axis, in this order.
 
 [list_end]
-[nl]
+[para]
+
+
+[call [cmd ::Plotchart::create3DRibbonPlot] [arg w] [arg yaxis] [arg zaxis]]
+
+Create a new 3D ribbon plot. It is a simplification of the full 3D plot and allows for
+the drawing of a ribbon only (the x-axis is dropped).
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list yaxis in]
+A 3-element list containing minimum, maximum and stepsize for the y-axis, in this order.
+
+[arg_def list zaxis in]
+A 3-element list containing minimum, maximum and stepsize for the z-axis, in this order.
+
+[list_end]
+[para]
 
 
 [call [cmd ::Plotchart::createPiechart] [arg w]]
 
 Create a new piechart (configuration type: piechart).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createRadialchart] [arg w] [arg names] [arg scale] [arg style]]
@@ -293,7 +385,7 @@ Name of the [emph existing] canvas widget to hold the plot.
 Create a new radial chart (the data are drawn as a line connecting the
 spokes of the diagram) (configuration type: radialchart).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -305,19 +397,19 @@ Scale value to determine the position of the data along the spokes.
 
 [arg_def float style in]
 Style of the chart (optional). One of:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 [emph lines] - the default: draw the data as independent polylines.
-[bullet]
+[item]
 [emph cumulative] - draw the data as polylines where the data are
 accumulated.
-[bullet]
+[item]
 [emph filled] - draw the data as filled polygons where the data are
 accumulated
 [list_end]
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::createBarchart] [arg w] [arg xlabels] [arg yaxis] [arg noseries]]
@@ -327,20 +419,20 @@ display the labels contained in the argument [arg xlabels]. The number
 of series given by [arg noseries] determines both the width of the
 bars, and the way the series will be drawn.
 
-[nl]
+[para]
 
 If the keyword [const stacked] was specified the series will be drawn
 stacked on top of each other. Otherwise each series that is drawn will
 be drawn shifted to the right.
 
-[nl]
+[para]
 
 The number of series determines the width of the bars, so that there is
 space of that number of bars. If you use a floating-point number, like
 2.2, instead of an integer, like 2, a small gap between the sets of bars
 will be drawn - the width depends on the fractional part.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -356,39 +448,39 @@ The number of data series that will be plotted. This has to be an
 integer number greater than zero (if [const stacked] is not used).
 
 [list_end]
-[nl]
+[para]
 
 
-[call [cmd ::Plotchart::createHorizontalBarchart] [arg w] [arg xlabels] [arg yaxis] [arg noseries]]
+[call [cmd ::Plotchart::createHorizontalBarchart] [arg w] [arg xaxis] [arg ylabel] [arg noseries]]
 
 Create a new barchart with horizontal bars (configuration type: horizbars). The vertical axis will
 display the labels contained in the argument [arg ylabels]. The number
 of series given by [arg noseries] determines both the width of the
 bars, and the way the series will be drawn.
 
-[nl]
+[para]
 
 If the keyword [const stacked] was specified the series will be drawn
 stacked from left to right. Otherwise each series that is drawn will
 be drawn shifted upward.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list xaxis in]
+A 3-element list containing minimum, maximum and stepsize for the x-axis, in this order.
 
 [arg_def list ylabels in]
 List of labels for the y-axis. Its length also determines the number of
 bars that will be plotted per series.
-
-[arg_def list yaxis in]
-A 3-element list containing minimum, maximum and stepsize for the x-axis, in this order.
 
 [arg_def int|[const stacked] noseries in]
 The number of data series that will be plotted. This has to be an
 integer number greater than zero (if [const stacked] is not used).
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::create3DBarchart] [arg w] [arg yaxis] [arg nobars]]
@@ -399,7 +491,7 @@ determines the position and the width of the bars. The colours can be
 varied per bar. (This type of chart was inspired by the Wiki page on 3D
 bars by Richard Suchenwirth.)
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -410,7 +502,7 @@ A 3-element list containing minimum, maximum and stepsize for the y-axis, in thi
 The number of bars that will be plotted.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::create3DRibbonChart] [arg w] [arg names] [arg yaxis] [arg zaxis]]
@@ -422,7 +514,7 @@ x-axis (which is "into" the screen) the names are plotted, each
 representing a single series. The first plot command draws the furthest
 series, the second draws the series in front of that and so on.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -441,17 +533,39 @@ A 3-element list containing minimum, maximum and stepsize for the z-axis
 The number of bars that will be plotted.
 
 [list_end]
-[nl]
+[para]
 
 
-[call [cmd ::Plotchart::createTimechart] [arg w] [arg time_begin] [arg time_end] [arg noitems]]
+[call [cmd ::Plotchart::createBoxplot] [arg w] [arg xaxis] [arg ylabels]]
+
+Create a new boxplot with horizontal boxes (box-and-whiskers). The
+y-axis is drawn with labels. The boxes are drawn based on the raw data
+(see the plot subcommand for this type of plot).
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list xaxis in]
+A 3-element list containing minimum, maximum and stepsize for the y-axis, in this order.
+
+[arg_def list ylabels in]
+List of labels for the y-axis. Its length also determines the number of
+boxes that can be plotted. The labels are also used in the plot
+subcommand.
+
+[list_end]
+[para]
+
+
+[call [cmd ::Plotchart::createTimechart] [arg w] [arg time_begin] [arg time_end] [arg args]]
 
 Create a new timechart (configuration type: timechart).
 
 The time axis (= x-axis) goes from [arg time_begin] to [arg time_end],
 and the vertical spacing is determined by the number of items to plot.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -463,14 +577,24 @@ command (e.g. "1 january 2004").
 The end time given in a form that is recognised by the [cmd "clock scan"]
 command (e.g. "1 january 2004").
 
-[arg_def int noitems in]
-Expected/maximum number of items. This determines the vertical
-spacing.
+[arg_def arguments args in]
+The remaining arguments can be:
+[list_begin itemized]
+[item]
+The expected/maximum number of items. This determines the vertical
+spacing. (If given, it must be the first argument after "time_end"
+[item]
+The keyword -barheight and the number of pixels per bar. This is an
+alternative method to determine the vertical spacing.
+[item]
+The keyword -ylabelwidth and the number of pixels to reserve for the
+labels at the y-axis.
+[list_end]
 
 [list_end]
 
 
-[call [cmd ::Plotchart::createGanttchart] [arg w] [arg time_begin] [arg time_end] [arg noitems] [opt text_width ]]
+[call [cmd ::Plotchart::createGanttchart] [arg w] [arg time_begin] [arg time_end] [arg args]]
 
 Create a new Gantt chart (configuration type: ganttchart).
 
@@ -479,7 +603,7 @@ and the vertical spacing is determined by the number of items to plot.
 Via the specific commands you can then add tasks and connections between
 the tasks.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -491,14 +615,24 @@ command (e.g. "1 january 2004").
 The end time given in a form that is recognised by the [cmd "clock scan"]
 command (e.g. "1 january 2004").
 
-[arg_def int noitems in]
-Expected/maximum number of items. This determines the vertical
-spacing.
-
-[arg_def int text_width]
-Expected/maximum width of the descriptive text (roughly in characters,
+[arg_def arguments args in]
+The remaining arguments can be:
+[list_begin itemized]
+[item]
+The expected/maximum number of items. This determines the vertical
+spacing. (If given this way, it must be the first argument after "time_end")
+[item]
+The expected/maximum width of the descriptive text (roughly in characters,
 for the actual space reserved for the text, it is assumed that a
-character is about ten pixels wide). Defaults to 20.
+character is about ten pixels wide). Defaults to 20. (If given this way,
+it must be the second argument after "time_end").
+[item]
+The keyword -barheight and the number of pixels per bar. This is an
+alternative method to determine the vertical spacing.
+[item]
+The keyword -ylabelwidth and the number of pixels to reserve for the
+labels at the y-axis.
+[list_end]
 
 [list_end]
 
@@ -511,7 +645,7 @@ horizontal axis and other properties are reused. To plot data using the
 right axis, use this new command, to plot data using the [emph left]
 axis, use the original plot command.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the [emph existing] canvas widget to hold the plot.
 
@@ -519,7 +653,7 @@ Name of the [emph existing] canvas widget to hold the plot.
 A 3-element list containing minimum, maximum and stepsize for the y-axis, in this order.
 
 [list_end]
-[nl]
+[para]
 
 [list_end]
 
@@ -540,19 +674,19 @@ returned by the creation command:
 
 Specify the title of the whole chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text of the title to be drawn.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] saveplot [arg filename] [arg args]]
 
 Draws the plot into a file, using PostScript.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string filename in]
 Contain the path name of the file to write the plot to.
 
@@ -560,20 +694,20 @@ Contain the path name of the file to write the plot to.
 Optionally you can specify the option -format "some picture format" to
 store the plot in a different file than a PostScript file. This,
 however, relies on the Img package to do the actual job.
-[nl]
+[para]
 [emph Note:]
 Because the window holding the plot must be fully visible before Img can
 successfully grab it, it is raised first.
 On some systems, for instance Linux with KDE, raising
 a window is not done automatically, but instead you need to click on the
 window in the task bar. Similar things happen on Windows XP.
-[nl]
+[para]
 There seems to be something wrong under some circumstances, so instead
 of waiting for the visibility of the window, the procedure simply waits
 two seconds. It is not ideal, but it seems to work better.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] xtext [arg text]]
@@ -581,12 +715,12 @@ two seconds. It is not ideal, but it seems to work better.
 Specify the title of the (horizontal) x-axis, for those plots that have
 a straight x-axis.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text of the x-axis label to be drawn.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] ytext [arg text]]
@@ -594,12 +728,23 @@ The text of the x-axis label to be drawn.
 Specify the title of the (horizontal) y-axis, for those plots that have
 a straight y-axis.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text of the y-axis label to be drawn.
 
 [list_end]
-[nl]
+
+[call [cmd \$anyplot] vtext [arg text]]
+Draw a [emph vertical] label to the y-axis. Note: this requires Tk 8.6
+or later, for older versions it does nothing.
+
+[list_begin arguments]
+[arg_def string text in]
+Text to drawn to the y-axis
+
+[list_end]
+
+[para]
 
 
 [call [cmd \$anyplot] xconfig [option -option] [arg value] ...]
@@ -608,7 +753,7 @@ Set one or more configuration parameters for the x-axis.
 
 The following options are supported:
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def format fmt]
 The format for the numbers along the axis.
@@ -623,11 +768,11 @@ Whether to draw ticklines ([const true]) or not ([const false]).
 New scale data for the axis, i.e. a 3-element list containing minimum,
 maximum and stepsize for the axis, in this order.
 
-[nl]
+[para]
 [emph Beware:] Setting this option will clear all data from the plot.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] yconfig [option -option] [arg value] ...]
@@ -636,21 +781,21 @@ Set one or more configuration parameters for the y-axis. This method
 accepts the same options and values as the method [method xconfig].
 
 
-[call [cmd \$anyplot] background [arg part] [arg colour_or_image] [arg dir]]
+[call [cmd \$anyplot] background [arg part] [arg colour_or_image] [arg dir] [opt brightness]]
 
 Set the background of a part of the plot
 
-[list_begin arg]
+[list_begin arguments]
 
 [arg_def string part]
 Which part of the plot: "axes" for the axes area and "plot" for the
 inner part. The interpretation depends on the type of plot. Two further
 possibilities are:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 [emph image], in which case a predefined image is loaded
 into the background of the plot.
-[bullet]
+[item]
 [emph gradient], in which case the background is coloured in different
 shades of the given colour. The "dir" argument specifies the direction
 in which the colour gets whiter.
@@ -663,36 +808,57 @@ Colour for that part or the name of the image if "part" is "image"
 The direction of the gradient. One of: top-down, bottom-up, left-right
 or right-left.
 
+[arg_def string brightness]
+Indicates whether the colour should become brighter (bright) or darker (dark). Defaults to bright
+
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] xticklines [arg colour]]
 
 Draw vertical ticklines at each tick location
 
-[list_begin arg]
+[list_begin arguments]
 
 [arg_def string colour]
 Colour of the lines. Specifying an empty colour ("") removes them again.
 Defaults to "black"
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] yticklines [arg colour]]
 
 Draw horizontal ticklines at each tick location
 
-[list_begin arg]
+[list_begin arguments]
 
 [arg_def string colour]
 Colour of the lines. Specifying an empty colour ("") removes them again
 Defaults to "black"
 
 [list_end]
-[nl]
+[para]
+
+
+[call [cmd \$anyplot] legend [arg series] [arg text]]
+
+Add an entry to the legend. The series determines which graphical
+symbol is to be used. (As a side effect the legend is actually drawn.)
+
+[list_begin arguments]
+
+[arg_def string series]
+Name of the data series. This determines the colour of the line and the
+symbol (if any) that will be drawn.
+
+[arg_def string text]
+Text to be drawn next to the line/symbol.
+
+[list_end]
+[para]
 
 
 [call [cmd \$anyplot] legendconfig [option -option] [arg value] ...]
@@ -700,7 +866,7 @@ Defaults to "black"
 Set one or more options for the legend. The legend is drawn as a
 rectangle with text and graphics inside.
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def background colour]
 Set the colour of the background (the default colour is white).
@@ -719,25 +885,7 @@ Set the position of the legend. May be one of: top-left, top-right,
 bottom-left or bottom-right. (Default value is top-right.)
 
 [list_end]
-[nl]
-
-
-[call [cmd \$anyplot] legend [arg series] [arg text]]
-
-Add an entry to the legend. The series determines which graphical
-symbol is to be used. (As a side effect the legend is actually drawn.)
-
-[list_begin arg]
-
-[arg_def string series]
-Name of the data series. This determines the colour of the line and the
-symbol (if any) that will be drawn.
-
-[arg_def string text]
-Text to be drawn next to the line/symbol.
-
-[list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] balloon [arg x] [arg y] [arg text] [arg dir]]
@@ -748,7 +896,7 @@ coordinates are directly related to the axes; for vertical barcharts the
 x-coordinate is measured as the number of bars minus 1 and similar for
 horizontal barcharts.
 
-[list_begin arg]
+[list_begin arguments]
 
 [arg_def float x]
 X-coordinate of the point that the arrow of the balloon will point to.
@@ -764,7 +912,7 @@ Direction of the arrow, one of: north, north-east, east, south-east,
 south, south-west, west or north-west.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$anyplot] balloonconfig [arg args]]
@@ -772,7 +920,7 @@ south, south-west, west or north-west.
 Configure the balloon text for the plot. The new settings will be used
 for the next balloon text.
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def font fontname]
 Font to be used for the text
@@ -799,7 +947,52 @@ Width of the outline of the balloon (in pixels)
 Length factor for the arrow (in pixels)
 
 [list_end]
-[nl]
+
+
+[call [cmd \$anyplot] plaintext [arg x] [arg y] [arg text] [arg dir]]
+
+Add plain text to the plot (except for 3D plots). The text is positioned at
+the given x- and y-coordinates. For xy-graphs and such, the
+coordinates are directly related to the axes; for vertical barcharts the
+x-coordinate is measured as the number of bars minus 1 and similar for
+horizontal barcharts.
+
+[list_begin arguments]
+
+[arg_def float x]
+X-coordinate of the text position
+
+[arg_def float y]
+Y-coordinate of the text position
+
+[arg_def string text]
+Text to be drawn.
+
+[arg_def string dir]
+Anchor for the text, one of: north, north-east, east, south-east,
+south, south-west, west or north-west.
+
+[list_end]
+[para]
+
+
+[call [cmd \$anyplot] plaintextconfig [arg args]]
+
+Configure the plain text annotation for the plot. The new settings will be used
+for the next plain text.
+
+[list_begin options]
+
+[opt_def font fontname]
+Font to be used for the text
+
+[opt_def justify left|center|right]
+Way to justify multiline text
+
+[opt_def textcolour colour]
+Colour for the text (synonym: textcolor)
+
+[list_end]
 
 
 [list_end]
@@ -819,7 +1012,7 @@ For [emph {xy plots}], [emph stripcharts], [emph histograms] and
 
 Add a data point to the plot.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series the new point belongs to.
 
@@ -849,7 +1042,7 @@ For [emph {xy plots}]:
 
 Draw or update a trend line using the data given sofar.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series the trend line belongs to.
 
@@ -865,7 +1058,7 @@ Y-coordinate of the new data point
 Draw data in the same way as the plot method, but with two lines added
 that indicate the expected range (+/- 3*standard deviation) of the data.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series the data point belongs to.
 
@@ -883,7 +1076,7 @@ Add a vertical error interval to the plot. The interval is drawn from
 ymin to ymax. If the ycentr argument is given, a symbol is drawn at that
 position.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series the interval belongs to.
 
@@ -902,6 +1095,36 @@ Y-coordinate to draw the symbol at (optional)
 [list_end]
 
 
+[call [cmd \$xyplot] box-and-whiskers [arg series] [arg xcrd] [arg ycrd]]
+
+Draw a box and whiskers in the plot. If the argument [term xcrd] is a
+list of
+several values and the argument [term ycrd] is a single value, a
+horizontal
+box is drawn with the quartiles determined from the list of values
+contained in [term xcrd].
+[para]
+If, instead, the argument [term ycrd] contains a list of several values
+and the argument [term xcrd] a single value, then a vertical box is
+drawn and the quartiles are determined from [term ycrd]. (There must be
+exactly one list of several values. Otherwise an error is reported.)
+[para]
+The option -boxwidth (default: 10 pixels) determines the width (or
+height) of the box.
+
+[list_begin arguments]
+[arg_def string series in]
+Name of the data series the box-and-whiskers belongs to.
+
+[arg_def float xcrd in]
+X-coordinate of the box or a list of values.
+
+[arg_def float ymin in]
+Y-coordinate of the box or a list of values.
+
+[list_end]
+
+
 [call [cmd \$xyplot] vector [arg series] [arg xcrd] [arg ycrd] [arg ucmp] [arg vcmp]]
 
 Draw a vector in the plot. The vector can be given as either cartesian
@@ -909,7 +1132,7 @@ coordinates or as length/angle, where the angle is in degrees and is
 interpreted according to the mathematical convention or the nautical.
 (See the vectorconfig subcommand)
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the vector belongs to. Determines the appearance and
 interpretation.
@@ -933,13 +1156,13 @@ Y-component or the angle of the vector
 
 Set the vector drawing options for a particular series
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the vector belongs to.
 [list_end]
 
 The options can be one of the following:
-[list_begin opt]
+[list_begin options]
 [opt_def colour]
 The colour of the arrow (default: black; synonym: color)
 [opt_def scale value]
@@ -955,7 +1178,7 @@ Interpretation of the vector components. Can be "cartesian"
 (the angle 0 coincides with the positive x-axis, 90 coincides with the
 positive y-axis) or "nautical" (0 is "north" and 90 is "east").
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$xyplot] dot [arg series] [arg xcrd] [arg ycrd] [arg value]]
@@ -964,7 +1187,7 @@ Draw a dot in the plot. The size and colour is determined by the value
 and by the options set for the series it belongs to.
 (See the dotconfig subcommand)
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the dot belongs to. Determines size and colour
 
@@ -984,13 +1207,13 @@ Value determining size and colour
 
 Set the dot drawing options for a particular series
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the dot belongs to.
 [list_end]
 
 The options can be one of the following:
-[list_begin opt]
+[list_begin options]
 [opt_def colour]
 The colour of the dot if no scaling is used or the value exceeds the
 last limit of the classes.
@@ -1013,26 +1236,31 @@ Set the limits and the corresponding colours. For instance:
 will cause a blue dot to be drawn for values smaller than 0, a green dot
 for values larger/equal 0 but lower than 1 and a red dot for values
 larger/equal 1.
-[nl]
+[para]
 If there is no list of classes for the particular series, the dots are
 scaled by the value.
-[nl]
+[para]
 You can combine the colouring by value and the scaling by value by
 setting a list of classes and setting the [emph scalebyvalue] option on.
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$xyplot] contourlines [arg xcrd] [arg ycrd] [arg values] [opt classes]]
 
 Draw contour lines for the values given on the grid. The grid is defined
-by the xcrd and ycrd arguments (they give the x- and y-coordinates of
-the grid cell corners). The values are given at these corners. The
-classes determine which contour lines are drawn. If a value on one of
+by the xcrd and ycrd arguments. The xcrd argument (resp. ycrd)
+is expected to be a matrix, implemented as a list of lists which gives the
+x-coordinates (resp. y-coordinates) of the grid cell corners.
+The function values are given at these corners.
+The number of rows in xvec (resp. yvec) is ny and each row contains nx values
+so that the total number of values in xvec (resp. yvec) is nx * ny.
+The classes determine which contour lines are drawn. If a value on one of
 the corners is missing, the contour lines in that cell will not be
 drawn.
 
-[list_begin arg]
+
+[list_begin arguments]
 [arg_def list xcrd in]
 List of lists, each value is an x-coordinate for a grid cell corner
 
@@ -1046,11 +1274,46 @@ List of lists, each value is the value at a grid cell corner
 List of class values or a list of lists of two elements (each inner list
 the class value and the colour to be used). If empty or missing, the
 classes are determined automatically.
-[nl]
+[para]
 [emph Note:] The class values must enclose the whole range of values.
-[nl]
+[emph Note:] The xcrd argument is generally made of nypoints identical rows, while
+each row of ycrd is made with one single value.
+[para]
 
 [list_end]
+
+[call [cmd \$xyplot] contourlinesfunctionvalues [arg xvec] [arg yvec] [arg valuesmat] [opt classes]]
+
+Draw contour lines for the values given on the grid. The grid is defined
+by the xvec and yvec arguments. Here, xvec (resp. yvec) is a list of x-coordinates
+(resp. y-coordinates). The number of values in xvec (resp. yvec) is the number of points in
+the x-coordinate (resp. y-coordinate).
+The function values are given at these corners. The
+classes determine which contour lines are drawn. If a value on one of
+the corners is missing, the contour lines in that cell will not be
+drawn.
+
+[list_begin arguments]
+[arg_def list xcrd in]
+List of x-coordinates in increasing order.
+
+[arg_def list ycrd in]
+List y-coordinates in increasing order.
+
+[arg_def list valuesmat in]
+List of lists, each value is the value at a grid cell corner.
+The total number of values is valuesmat is nx * ny.
+
+[arg_def list classes in]
+List of class values or a list of lists of two elements (each inner list
+the class value and the colour to be used). If empty or missing, the
+classes are determined automatically.
+[para]
+[emph Note:] The class values must enclose the whole range of values.
+[para]
+
+[list_end]
+
 
 [call [cmd \$xyplot] contourfill [arg xcrd] [arg ycrd] [arg values] [opt classes]]
 
@@ -1069,17 +1332,17 @@ either a predefined colourmap (grey/gray, jet, hot or cool)
 or a list of colours. When selecting the colours for actually drawing the
 contours, the given colours will be interpolated (based on the HLS scheme).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list colours in]
 List of colour names or colour values or one of the predefined maps:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 grey or gray: gray colours from dark to light
-[bullet]
+[item]
 jet: rainbow colours
-[bullet]
+[item]
 hot: colours from yellow via red to darkred
-[bullet]
+[item]
 cool: colours from cyan via blue to magenta
 [list_end]
 
@@ -1089,7 +1352,7 @@ cool: colours from cyan via blue to magenta
 
 Draw the grid cells as lines connecting the (valid) grid points.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list xcrd in]
 List of lists, each value is an x-coordinate for a grid cell corner
 
@@ -1097,19 +1360,74 @@ List of lists, each value is an x-coordinate for a grid cell corner
 List of lists, each value is an y-coordinate for a grid cell corner
 
 [list_end]
+[para]
 
+[call [cmd \$xyplot] xband [arg ymin] [arg ymax]]
+Draw a light grey band in the plot, ranging over the full x-axis. This
+can be used to indicate a "typical" range for the data.
+
+[list_begin arguments]
+[arg_def float ymin in]
+Lower bound for the band
+
+[arg_def float ymax in]
+Upper bound for the band
 
 [list_end]
 [para]
+
+[call [cmd \$xyplot] yband [arg xmin] [arg xmax]]
+Draw a light grey band in the plot, ranging over the full y-axis. This
+can be used to indicate a "typical" range for the data.
+
+[list_begin arguments]
+[arg_def float xmin in]
+Lower bound for the band
+
+[arg_def float xmax in]
+Upper bound for the band
+
+[list_end]
+[nl]
+
+
+[call [cmd \$xyplot] labeldot [arg x] [arg y] [arg text] [arg orient]]
+Draw a label and a symbol in the plot. The label will appear near the
+symbol. The label will be drawn in grey, so as not to be too
+conspicuous.
+[nl]
+You can configure the appearance of the symbol by using the data series
+name "labeldot":
+[term "\$w dataconfig labeldot -colour red -type symbol -symbol dot"]
+
+[list_begin arguments]
+[arg_def float x in]
+X-coordinate of the symbol to be drawn
+
+[arg_def float y in]
+Y-coordinate of the symbol to be drawn
+
+[arg_def string text in]
+Text for the label
+
+[arg_def string orient in]
+Optional orientation (one of w, e, n, s) defining the position of the
+label with respect to the symbol. It defaults to w (so the label
+appears left of the symbol).
+
+[list_end]
+
+[list_end]
+[para]
+
 
 For [emph {polar plots}]:
 
 [list_begin definitions]
 [call [cmd \$polarplot] plot [arg series] [arg radius] [arg angle]]
-
 Add a data point to the polar plot.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series the new point belongs to.
 
@@ -1119,6 +1437,23 @@ Radial coordinate of the new point.
 [arg_def float angle in]
 Angular coordinate of the new point (in degrees).
 
+[list_end]
+[list_end]
+[para]
+
+For [emph {wind rose diagrams}]:
+
+[list_begin definitions]
+[call [cmd \$windrose] plot [arg data] [arg colour]]
+Draw the data contained in the [term data] argument. The data are added to
+the existing spokes towards the outer circle.
+
+[list_begin arguments]
+[arg_def list data in]
+List of data (the length should correspond to the number of sectors)
+
+[arg_def string colour]
+Colour in which the new segments will be drawn
 [list_end]
 [list_end]
 [para]
@@ -1133,14 +1468,14 @@ Plot a function defined over two variables [var x] and [var y].
 The resolution is determined by the set grid sizes (see the method
 [method gridsize] for more information).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string function in]
 Name of the procedure that calculates the z-value for the given x and
 y coordinates. The procedure has to accept two float arguments (x is
 first argument, y is second) and return a floating-point value.
 
 [list_end]
-[nl]
+[para]
 
 [call [cmd \$plot3d] plotfuncont [arg function] [arg contours]]
 
@@ -1150,7 +1485,7 @@ the contour levels in [var contours] to colour the surface.
 The resolution is determined by the set grid sizes (see the method
 [method gridsize] for more information).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string function in]
 Name of the procedure that calculates the z-value for the given x and
 y coordinates. The procedure has to accept two float arguments (x is
@@ -1161,7 +1496,7 @@ List of values in ascending order that represent the contour levels
 (the boundaries between the colours in the contour map).
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$plot3d] gridsize [arg nxcells] [arg nycells]]
@@ -1169,7 +1504,7 @@ List of values in ascending order that represent the contour levels
 Set the grid size in the two directions. Together they determine how
 many polygons will be drawn for a function plot.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def int nxcells in]
 Number of grid cells in x direction. Has to be an integer number
 greater than zero.
@@ -1179,21 +1514,21 @@ Number of grid cells in y direction. Has to be an integer number
 greater than zero.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$plot3d] plotdata [arg data]]
 
 Plot a matrix of data.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list data in]
 The data to be plotted. The data has to be provided as a nested list
 with 2 levels. The outer list contains rows, drawn in y-direction, and
 each row is a list whose elements are drawn in x-direction, for the
 columns. Example:
 
-[nl]
+[para]
 [example {
     set data {
     {1.0 2.0 3.0}
@@ -1202,20 +1537,50 @@ columns. Example:
 }]
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$plot3d] colours [arg fill] [arg border]]
 
 Configure the colours to use for polygon borders and inner area.
 
-[list_begin arg]
+[list_begin arguments]
 
 [arg_def color fill in]
 The colour to use for filling the polygons.
 
 [arg_def color border in]
 The colour to use for the border of the polygons.
+
+[list_end]
+
+
+[call [cmd \$plot3d] ribbon [arg yzpairs]]
+
+Plot a ribbon based on the pairs of yz-coordinates. The colours for
+the ribbon itself and the edge are taken from the colours option.
+
+[list_begin arguments]
+
+[arg_def list yzpairs in]
+List of pairs of yz-coordinates
+
+[list_end]
+[list_end]
+[para]
+
+For 3D ribbon plots:
+
+[list_begin definitions]
+[call [cmd \$plot3d] plot [arg yzpairs]]
+
+Plot a ribbon based on the pairs of yz-coordinates. The colours for
+the ribbon itself and the edge are taken from the colours option.
+
+[list_begin arguments]
+
+[arg_def list yzpairs in]
+List of pairs of yz-coordinates
 
 [list_end]
 [list_end]
@@ -1229,16 +1594,16 @@ For [emph {xy plots}], [emph stripcharts] and [emph {polar plots}]:
 Set the value for one or more options regarding the drawing of data of
 a specific series.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the data series whose configuration we are changing.
 
 [list_end]
-[nl]
+[para]
 
 The following options are allowed:
 
-[list_begin opt]
+[list_begin options]
 [opt_def colour c]
 [opt_def color c]
 The colour to be used when drawing the data series.
@@ -1277,7 +1642,7 @@ For [emph piecharts]:
 
 Fill a piechart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list data in]
 A list of pairs (labels and values). The values determine the relative
 size of the circle segments. The labels are drawn beside the circle.
@@ -1288,7 +1653,7 @@ size of the circle segments. The labels are drawn beside the circle.
 
 Set the colours to be used.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def color colour1 in]
 The first colour.
 
@@ -1296,6 +1661,19 @@ The first colour.
 The second colour, and so on.
 
 [list_end]
+
+[call [cmd \$pie] explode [arg segment]]
+
+Explode a segment (that is: move one segment out of the circle). If the segment is
+indicated as "auto", then you can click on a segment. This will be exploded instead of
+any previously exploded segment.
+
+[list_begin arguments]
+[arg_def int segment]
+The segment to be exploded or "auto" if you want to do this interactively.
+
+[list_end]
+
 [list_end]
 [para]
 
@@ -1306,7 +1684,7 @@ For [emph "radial charts"]:
 
 Draw a new line in the radial chart
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list data in]
 A list of data (one for each spoke). The values determine the distance
 from the centre of the line connecting the spokes.
@@ -1323,7 +1701,7 @@ An optional argument for the thickness of the line.
 
 Set the colours to be used.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def color colour1 in]
 The first colour.
 
@@ -1337,11 +1715,11 @@ The second colour, and so on.
 For [emph {vertical barcharts}]:
 
 [list_begin definitions]
-[call [cmd \$barchart] plot [arg series] [arg ydata] [arg colour]]
+[call [cmd \$barchart] plot [arg series] [arg ydata] [arg colour] [opt dir] [opt brightness]]
 
 Add a data series to a barchart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the values belong to.
 
@@ -1351,6 +1729,35 @@ A list of values, one for each x-axis label.
 [arg_def color colour in]
 The colour of the bars.
 
+[arg_def string dir in]
+If given, "top-down" or "bottom-up", to indicate the direction in which the colour changes.
+(If not given, a uniform colour is used).
+
+[arg_def string brightness in]
+If given, "bright" or "dark" (defaulting to "bright"). The colour will change to respectively
+white or black, depending on the direction.
+
+
+[list_end]
+
+[call [cmd \$barchart] config [option -option] [arg value] ...]
+
+Set options for drawing the bars.
+
+[list_begin options]
+
+[opt_def showvalues boolean]
+Whether to show the values or not (above the bars)
+
+[opt_def valuefont newfont]
+Name of the font to use for the values
+
+[opt_def valuecolour colour]
+Colour for the values
+
+[opt_def valueformat format]
+Format string to use for formatting the values
+
 [list_end]
 [list_end]
 [para]
@@ -1358,11 +1765,11 @@ The colour of the bars.
 For [emph {horizontal barcharts}]:
 
 [list_begin definitions]
-[call [cmd \$barchart] plot [arg series] [arg xdata] [arg colour]]
+[call [cmd \$barchart] plot [arg series] [arg xdata] [arg colour] [opt dir] [opt brightness]]
 
 Add a data series to a barchart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string series in]
 Name of the series the values belong to.
 
@@ -1371,6 +1778,34 @@ A list of values, one for each y-axis label.
 
 [arg_def color colour in]
 The colour of the bars.
+
+[arg_def string dir in]
+If given, "left-right" or "right-left", to indicate the direction in which the colour changes.
+(If not given, a uniform colour is used).
+
+[arg_def string brightness in]
+If given, "bright" or "dark" (defaulting to "bright"). The colour will change to respectively
+white or black, depending on the direction.
+
+[list_end]
+
+[call [cmd \$barchart] config [option -option] [arg value] ...]
+
+Set options for drawing the bars.
+
+[list_begin options]
+
+[opt_def showvalues boolean]
+Whether to show the values or not (to the right of the bars)
+
+[opt_def valuefont newfont]
+Name of the font to use for the values
+
+[opt_def valuecolour colour]
+Colour for the values
+
+[opt_def valueformat format]
+Format string to use for formatting the values
 
 [list_end]
 [list_end]
@@ -1383,7 +1818,7 @@ For [emph {3D barcharts}]:
 
 Add the next bar to the barchart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string label in]
 The label to be shown below the column.
 
@@ -1400,7 +1835,7 @@ The colour of the column.
 Set one or more configuration parameters. The following options are
 supported:
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def usebackground boolean]
 Whether to draw walls to the left and to the back of the columns or not
@@ -1435,7 +1870,7 @@ For [emph {3D ribbon charts}]:
 
 Plot the given xy-pairs as a ribbon in the chart
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list xypairs in]
 The pairs of x/y values to be drawn (the series is drawn as a whole)
 
@@ -1449,7 +1884,7 @@ The colour of the ribbon.
 Plot the given xy-pairs as a ribbon with a filled area in front. The
 effect is that of a box with the data as its upper surface.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list xypairs in]
 The pairs of x/y values to be drawn (the series is drawn as a whole)
 
@@ -1459,6 +1894,26 @@ The colour of the ribbon/area.
 [list_end]
 [list_end]
 
+
+For [emph boxplots]:
+
+[list_begin definitions]
+[call [cmd \$boxplot] plot [arg label] [arg values]]
+
+Add a box-and-whisker to the plot.
+
+[list_begin arguments]
+[arg_def string label in]
+The label along the y-axis to which the data belong
+
+[arg_def list values in]
+List of raw values, the extent of the box and the whiskers will be
+determined from this list.
+
+[list_end]
+[list_end]
+
+
 For [emph timecharts]:
 
 [list_begin definitions]
@@ -1466,7 +1921,7 @@ For [emph timecharts]:
 
 Add a time period to the chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text describing the period.
 
@@ -1480,7 +1935,7 @@ Stop time of the period.
 The colour of the bar (defaults to black).
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$timechart] milestone [arg text] [arg time] [arg colour]]
@@ -1488,7 +1943,7 @@ The colour of the bar (defaults to black).
 Add a [term milestone] (represented as an point-down triangle) to the
 chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text describing the milestone.
 
@@ -1499,7 +1954,7 @@ Time at which the milestone must be positioned.
 The colour of the triangle (defaults to black).
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$timechart] vertline [arg text] [arg time]]
@@ -1507,7 +1962,7 @@ The colour of the triangle (defaults to black).
 Add a vertical line (to indicate the start of the month for instance)
 to the chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text appearing at the top (an abbreviation of the
 date/time for instance).
@@ -1516,6 +1971,31 @@ date/time for instance).
 Time at which the line must be positioned.
 
 [list_end]
+
+
+[call [cmd \$timechart] hscroll [arg scrollbar]]
+
+Connect a horizontal scrollbar to the chart. See also the section on
+scrolling.
+
+[list_begin arguments]
+[arg_def widget scrollbar in]
+The horizontal scrollbar that is to be connected to the chart
+
+[list_end]
+
+
+[call [cmd \$timechart] vscroll [arg scrollbar]]
+
+Connect a vertical scrollbar to the chart. See also the section on
+scrolling.
+
+[list_begin arguments]
+[arg_def widget scrollbar in]
+The vertical scrollbar that is to be connected to the chart
+
+[list_end]
+
 [list_end]
 [para]
 
@@ -1528,7 +2008,7 @@ Add a task with its period and level of completion to the chart. Returns
 a list of canvas items that can be used for further manipulations, like
 connecting two tasks.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text describing the task.
 
@@ -1542,7 +2022,7 @@ Stop time of the task.
 The percentage of the task that is completed.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] milestone [arg text] [arg time] [arg colour]]
@@ -1550,7 +2030,7 @@ The percentage of the task that is completed.
 Add a [term milestone] (represented as an point-down triangle) to the
 chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text describing the milestone.
 
@@ -1561,7 +2041,7 @@ Time at which the milestone must be positioned.
 The colour of the triangle (defaults to black).
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] vertline [arg text] [arg time]]
@@ -1569,7 +2049,7 @@ The colour of the triangle (defaults to black).
 Add a vertical line (to indicate the start of the month for instance)
 to the chart.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text appearing at the top (an abbreviation of the
 date/time for instance).
@@ -1578,14 +2058,14 @@ date/time for instance).
 Time at which the line must be positioned.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] connect [arg from] [arg to]]
 
 Add an arrow that connects the [emph from] task with the [emph to] task.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def list from in]
 The list of items returned by the "task" command that represents the
 task from which the arrow starts.
@@ -1601,7 +2081,7 @@ The list of items returned by the "task" command that represents the
 task at which the arrow ends.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] summary [arg text] [arg args]]
@@ -1609,11 +2089,11 @@ task at which the arrow ends.
 Add a summary item that spans all the tasks listed. The graphical
 representation is a thick bar running from the leftmost task to the
 rightmost.
-[nl]
+[para]
 Use this command before connecting the tasks, as the arrow would not be
 shifted down!
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string text in]
 The text summarising the tasks
 
@@ -1622,7 +2102,7 @@ One or more tasks (the lists returned by the "task" command). They are
 shifted down to make room for the summary.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] color [arg keyword] [arg newcolor]]
@@ -1630,24 +2110,24 @@ shifted down to make room for the summary.
 Set the colour of a part of the Gantt chart. These colours hold for all
 items of that type.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string keyword in]
 The keyword indicates which part of the Gantt chart to change:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 description - the colour of the descriptive text
-[bullet]
+[item]
 completed - the colour of the filled bar representing the completed part
 of a task
-[bullet]
+[item]
 left - the colour for the part that is not yet completed
-[bullet]
+[item]
 odd - the background colour for the odd entries
-[bullet]
+[item]
 even - the background colour for the even entries
-[bullet]
+[item]
 summary - the colour for the summary text
-[bullet]
+[item]
 summarybar - the colour for the bar for a summary
 [list_end]
 
@@ -1655,7 +2135,7 @@ summarybar - the colour for the bar for a summary
 The new colour for the chosen items.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$ganttchart] font [arg keyword] [arg newfont]]
@@ -1663,20 +2143,44 @@ The new colour for the chosen items.
 Set the font of a part of the Gantt chart. These fonts hold for all
 items of that type.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string keyword in]
 The keyword indicates which part of the Gantt chart to change:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 description - the font used for descriptive text
-[bullet]
+[item]
 summary - the font used for summaries
-[bullet]
+[item]
 scale - the font used for the time scale
 [list_end]
 
 [arg_def string newfont in]
 The new font for the chosen items.
+
+[list_end]
+
+
+[call [cmd \$ganttchart] hscroll [arg scrollbar]]
+
+Connect a horizontal scrollbar to the chart. See also the section on
+scrolling.
+
+[list_begin arguments]
+[arg_def widget scrollbar in]
+The horizontal scrollbar that is to be connected to the chart
+
+[list_end]
+
+
+[call [cmd \$ganttchart] vscroll [arg scrollbar]]
+
+Connect a vertical scrollbar to the chart. See also the section on
+scrolling.
+
+[list_begin arguments]
+[arg_def widget scrollbar in]
+The vertical scrollbar that is to be connected to the chart
 
 [list_end]
 [list_end]
@@ -1689,7 +2193,7 @@ For [emph {isometric plots}] (to be extended):
 
 Plot the outlines of a rectangle.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def float x1 in]
 Minimum x coordinate of the rectangle to be drawn.
 
@@ -1706,14 +2210,14 @@ Maximum y coordinate of the rectangle.
 The colour of the rectangle.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$isoplot] plot filled-rectangle [arg x1] [arg y1] [arg x2] [arg y2] [arg colour]]
 
 Plot a rectangle filled with the given colour.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def float x1 in]
 Minimum x coordinate of the rectangle to be drawn.
 
@@ -1730,14 +2234,14 @@ Maximum y coordinate of the rectangle.
 The colour of the rectangle.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$isoplot] plot circle [arg xc] [arg yc] [arg radius] [arg colour]]
 
 Plot the outline of a circle.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def float xc in]
 X coordinate of the circle's centre.
 
@@ -1748,14 +2252,14 @@ Y coordinate of the circle's centre.
 The colour of the circle.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd \$isoplot] plot filled-circle [arg xc] [arg yc] [arg radius] [arg colour]]
 
 Plot a circle filled with the given colour.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def float xc in]
 X coordinate of the circle's centre.
 
@@ -1788,7 +2292,7 @@ These include:
 Set the viewport for window [arg w]. Should be used in cooperation
 with [cmd ::Plotchart::worldCoordinates].
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1806,7 +2310,7 @@ Right-most pixel coordinate.
 Bottom-most pixel coordinate.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::worldCoordinates] [arg w] [arg xmin] [arg ymin] [arg xmax] [arg ymax]]
@@ -1815,7 +2319,7 @@ Set the extreme world coordinates for window [arg w]. The world
 coordinates need not be in ascending order (i.e. xmin can be larger
 than xmax, so that a reversal of the x-axis is achieved).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1832,7 +2336,7 @@ X-coordinate to be mapped to right side of viewport.
 Y-coordinate to be mapped to top side of viewport.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::world3DCoordinates] [arg w] [arg xmin] [arg ymin] [arg zmin] [arg xmax] [arg ymax] [arg zmax]]
@@ -1842,7 +2346,7 @@ Set the extreme three-dimensional world coordinates for window
 can be larger than xmax, so that a reversal of the x-axis is
 achieved).
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1865,14 +2369,14 @@ Y-coordinate to be mapped to right side of viewport.
 Z-coordinate to be mapped to top side of viewport.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::coordsToPixel] [arg w] [arg x] [arg y]]
 
 Return a list of pixel coordinates valid for the given window.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1883,14 +2387,14 @@ X-coordinate to be mapped.
 Y-coordinate to be mapped.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::coords3DToPixel] [arg w] [arg x] [arg y] [arg z]]
 
 Return a list of pixel coordinates valid for the given window.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1904,7 +2408,7 @@ Y-coordinate to be mapped.
 Z-coordinate to be mapped.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::polarCoordinates] [arg w] [arg radmax]]
@@ -1917,7 +2421,7 @@ need to give the maximum radius.
 adjust the extremes, so that would result in an elliptical plot. The
 creation routine for a polar plot always determines a square viewport.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1925,7 +2429,7 @@ Name of the window (canvas widget) in question.
 Maximum radius.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::polarToPixel] [arg w] [arg rad] [arg phi]]
@@ -1938,7 +2442,7 @@ polar coordinates to pixel coordinates.
 [cmd ::Plotchart::worldCoordinates] procedure. This is automatically
 taken care of in the creation routine for polar plots.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1949,14 +2453,14 @@ Radius of the point.
 Angle to the positive x-axis.
 
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::Plotchart::pixelToCoords] [arg w] [arg x] [arg y]]
 
 Return a list of world coordinates valid for the given window.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question.
 
@@ -1973,7 +2477,7 @@ Y-pixel to be mapped.
 Return the index of the pie segment containing the pixel coordinates
 (x,y)
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 Name of the window (canvas widget) in question, holding a piechart.
 
@@ -1997,12 +2501,28 @@ Determine "pretty" numbers from the given range and return a list
 containing the minimum, maximum and stepsize that can be used for a
 (linear) axis.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def float xmin in]
 Rough minimum value for the scaling
 
 [arg_def float xmax in]
 Rough maximum value for the scaling.
+
+[arg_def boolean inverted in]
+Optional argument: if 1, then the returned list produces an
+inverted axis. Defaults to 0 (the axis will be from minimum to maximum)
+
+[list_end]
+
+[call [cmd ::Plotchart::determineScaleFromList] [arg values] [arg inverted]]
+
+Determine "pretty" numbers from the given list of values and return a list
+containing the minimum, maximum and stepsize that can be used for a
+(linear) axis.
+
+[list_begin arguments]
+[arg_def float values in]
+List of values that will be examined. May contain missing values (empty strings)
 
 [arg_def boolean inverted in]
 Optional argument: if 1, then the returned list produces an
@@ -2032,14 +2552,14 @@ coordinates of such data points are an empty string:
 
 The effect varies according to the type of plot:
 
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 For xy-plots, radial plots and strip charts the missing data point
 causes a gap in the line through the points.
-[bullet]
+[item]
 For barchats, missing values are treated as if a value of zero was
 given.
-[bullet]
+[item]
 For time charts and Gantt charts missing values cause errors - there is
 no use for them there.
 [list_end]
@@ -2079,21 +2599,21 @@ width suffice for the axis' labels. No "hook" is provided to customise
 this.
 [para]
 In summary:
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Emulate the [emph create] subcommand to create all the items in the
 correct format
 
-[bullet]
+[item]
 Emulate the [emph cget] subcommand for the options -width and -height to
 allow the correct calculation of the rectangle's position and size
 
-[bullet]
+[item]
 Solve the problem of [emph raising] and [emph lowering] the items so
 that they are properly clipped, for instance by redefining the
 routine DrawMask.
 
-[bullet]
+[item]
 Take care of the currently fixed text size properties
 
 [list_end]
@@ -2135,16 +2655,16 @@ the height of the line.
 In this version there are a lot of things that still need to
 be implemented:
 
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 More robust handling of incorrect calls (right now the procedures may
 fail when called incorrectly):
 
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 The axis drawing routines can not handle inverse axes right now.
 
-[bullet]
+[item]
 If the user provides an invalid date/time string, the routines simply
 throw an error.
 
@@ -2205,7 +2725,78 @@ The code above will work fine for barcharts and many other types of
 plots, but as [package Plotchart] keeps some private information for
 xy plots, more is needed in these cases. This actually requires a
 command "destroyPlot" to take care of such details. A next version
-of [package Plotchart] will have that.
+of [package Plotchart] may have that.
+
+[para]
+Alternatively, you can use the [package xyplot] package which is built
+on top of Plotchart. This package supports zooming in and zooming out,
+as well as resizing the plot as a whole. Here is a small demonstration
+program:
+
+[example {
+# xyplot_demo.tcl --
+#     Demonstration of the xyplot package
+#
+
+package require xyplot
+
+set xydata1 {}
+set xydata2 {}
+set xydata3 {}
+set xydata4 {}
+for { set i 0 } { $i < 1024 } { incr i } {
+    lappend xydata1 [expr {$i-1000}] [expr {$i * sin($i/4096.0*3.1415*2) * (sin($i/256.0*3.1415*2))}]
+    lappend xydata2 [expr {$i-1000}] [expr {$i * sin($i/4096.0*3.1415*2) * (sin($i/256.0*3.1415*2) + 0.25 * sin($i/256.0*3.1415*6))}]
+    lappend xydata3 [expr {$i-1000}] [expr {$i * sin($i/4096.0*3.1415*2) * (sin($i/256.0*3.1415*2) + 0.25 * sin($i/256.0*3.1415*6) + 0.0625 * sin($i/256.0*3.1415*10))}]
+    lappend xydata4 [expr {$i-1000}] [expr {$i * sin($i/4096.0*3.1415*2) * (sin($i/256.0*3.1415*2) + 0.25 * sin($i/256.0*3.1415*6) + 0.0625 * sin($i/256.0*3.1415*10) + 0.015625 * sin($i/256.0*3.1415*14))}]
+}
+
+set xyp [xyplot .xyp -xformat "%5.0f" -yformat "%5.0f" -title "XY plot testing" -background gray90]
+pack $xyp -fill both -expand true
+
+set s1 [$xyp add_data sf1 $xydata1 -legend "Serie 1 data" -color red]
+set s2 [$xyp add_data sf2 $xydata2 -legend "Serie 2 data" -color green]
+set s3 [$xyp add_data sf3 $xydata3 -legend "Serie 3 data" -color blue]
+set s4 [$xyp add_data sf4 $xydata4 -legend "Serie 4 data" -color orange]
+
+set xyp2 [xyplot .xyp2 -xticks 8 -yticks 4 -yformat %.2f -xformat %.0f]
+pack $xyp2 -fill both -expand true
+
+set s1 [$xyp2 add_data sf1 $xydata1]
+set s2 [$xyp2 add_data sf2 $xydata2]
+set s3 [$xyp2 add_data sf3 $xydata3]
+set s4 [$xyp2 add_data sf4 $xydata4]
+}]
+
+Zooming in is done by selecting a rectangle with the left mouse button
+pressed. Zooming out is done by pressing the right mouse button. If you
+resize the window, the canvases inside are resized too. If you zoom in,
+you can scroll the plot via the scrollbars that are automatically
+attached.
+
+
+[section "ZOOMING IN"]
+
+As the Plotchart package does not keep track of the data itself,
+rescaling an existing plot - for instance when zooming in - would have
+to be done by redefining the plot and redrawing the data. However, the
+canvas widget offers a way out by scaling and moving items, so that
+zooming in becomes a bit simpler.
+
+[para]
+Whether zooming is indeed useful, depends on the type of plot. Currently
+it is defined for XY-plots only. The method is called "rescale" and
+simply redraws the axes and scales and moves the data items so that they
+conform to the new axes. The drawback is that any symbols are scaled by
+the same amount. The rescale method works best for plots that only have
+lines, not symbols.
+
+[para]
+The method works very simply:
+
+[example {
+   $p rescale {newxmin newxmax newxstep} {newymin newymax newystep}
+}]
 
 
 [section "CONFIGURATION OPTIONS"]
@@ -2220,7 +2811,7 @@ syntax is:
 Set a new value for the property of a component in a particular chart or
 plot type or query its current value. Each argument is optional.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def string charttype in]
 The type of chart or plot (see the configuration type that is mentioned
 for each create command). If not given or empty, a list of chart types
@@ -2242,7 +2833,7 @@ will be set for that particular type of chart.
 [arg_def string value in]
 The new value for the property. If empty, the current value is returned.
 If the value is "default", the default value will be restored.
-[nl]
+[para]
 Note, that in some cases an empty value is useful. Use "none" in this
 case - it can be useful for colours and for formats.
 
@@ -2251,64 +2842,286 @@ case - it can be useful for colours and for formats.
 
 Below is a more detailed list of the components and properties:
 
-[list_begin bullet]
+[list_begin itemized]
 
-[bullet]
+[item]
 Axes come in a wide variety:
 
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 leftaxis, rightaxis, topaxis, bottomaxis for the plots with a
 rectangular shape.
-[bullet]
+[item]
 xaxis, yaxis and zaxis are used for the 3D plots
-[bullet]
+[item]
 axis, this represents the radial and tangential axes of a polar plot
 [list_end]
 
 All axes have the following properties:
 
-[list_begin bullet]
+[list_begin itemized]
 
-[bullet]
+[item]
 color - the colour of the line and the tickmarks
-[bullet]
+[item]
 thickness - the width of the line of the axis itself, not the tickmarks
-[bullet]
+[item]
 ticklength - the length of the tickmarks in pixels. A positive value is
 outward, a negative value is inward.
-[bullet]
+[item]
 font - the font for the labels and the text at the axis
-[bullet]
+[item]
 format - the format for rendering the (numerical) labels. For the time
 axis it is the format for a date and time.
-[bullet]
+[item]
 textcolor - the colour for the labels and the text.
 
 [list_end]
 
-[bullet]
+[item]
 The [emph margin] is important for the layout. Currently only the
 rectangular plots allow the margins to be set: left, right, top and bottom.
 The values are in pixels.
 
-[bullet]
+[item]
 The [emph text] component is meant for any text appearing via the
 plaintext subcommand. The properties are: textcolor, font and anchor
 (positioning of the text relative to the given coordinates).
 
-[bullet]
+[item]
 The [emph background] has two properties: outercolor, the colour outside
 of the actual plot, and innercolor, the colour inside the plot. (Note:
 only "outercolor" has now been implemented).
 
-[bullet]
+[item]
 The [emph legend] has three properties: background, border and position.
 See the legend subcommand for the meaning.
 
 [list_end]
 
 See the examples in plotdemos7.tcl for it use.
+
+
+[section "SCROLLING FOR TIMECHARTS AND GANTT CHARTS"]
+
+For two types of plots automatic scrolling management has been
+implemented: timecharts and Gantt charts. The subcommands [term hscroll]
+and [term vscroll] associate (existing) scrollbars to the plot, in much
+the same way as for text and canvas widgets.
+
+[para]
+Once the association is made, the scrollbars are automatically
+updated if:
+[list_begin itemized]
+[item]
+You add an item with a period wider than the current one.
+[item]
+You add a vertical line for a time beyond the current bounds.
+[item]
+You add an extra item beyond the number that was used to create the
+chart.
+[list_end]
+
+For instance:
+
+[example {
+package require Plotchart
+
+canvas .c -width 400 -height 200
+scrollbar .y -orient vertical
+scrollbar .x -orient horizontal
+
+grid .c .y -sticky news
+grid .x    -sticky news
+
+source plotchart.tcl
+
+set s [::Plotchart::createTimechart .c "1 january 2004" \
+                                       "31 december 2004" 4]
+
+$s period "Spring" "1 march 2004" "1 june 2004" green
+$s period "Summer" "1 june 2004" "1 september 2004" yellow
+$s vertline "1 jan" "1 january 2004"
+$s vertline "1 apr" "1 april 2004"
+$s vertline "1 jul" "1 july 2004"
+$s vertline "1 oct" "1 october 2004"
+$s vertline "1 jan" "1 january 2005"
+$s vertline "1 apr" "1 april 2005"
+$s vertline "1 jul" "1 july 2005"
+$s milestone "Longest day" "21 july 2004"
+$s milestone "Longest day 2" "21 july 2004"
+$s milestone "Longest day 3" "21 july 2004"
+$s milestone "Longest day 4" "21 july 2004"
+$s milestone "Longest day 5" "21 july 2004"
+$s milestone "Longest day 6" "21 july 2004"
+$s title "Seasons (northern hemisphere)"
+
+$s vscroll .y
+$s hscroll .x
+}]
+
+The original extent of the chart is from 1 january 2004 to 31 december
+2004. But because of the addition of vertical lines in 2005 and
+more items than was specified at the creation of the chart, both the
+horizontal and the vertical scrollbar will be enabled.
+
+
+[section "SPECIALISED PLOTS"]
+
+Most of the plot and chart types described above have a fairly general use
+and you simply prepares the data to be plotted yourself. This section describes
+several plot types that are more specialised, in the sense that they have specific
+purposes and you pass raw data that are then processed in the plotting routines.
+
+[para]
+Currently there are the following types:
+[list_begin itemized]
+
+[item]
+Target diagrams are used to assess the capacity of numerical models to reproduce measurement
+data. They are described in detail in:
+[example {
+Jason K. Joliff et al.
+    Summary diagrams for coupled hydrodynamic-ecosystem model skill assessment
+    Journal of Marine Systems 76 (2009) 64-82
+    DOI: 10.1016/j.jmarsys.2008.05.014
+}]
+
+[item]
+Performance profiles are used for comparing the performance of numerical methods or
+implementations thereof with each other. For more information:
+[example {
+Desmond Higham and Nicholas Higham
+    Matlab Guide
+    SIAM, 2005, Philadephia
+}]
+
+[list_end]
+
+Most of the general methods for XY-plots work for these plots as well, but their
+creation and the methods to plot the data are very specific.
+
+[list_begin definitions]
+
+[call [cmd ::Plotchart::createTargetDiagram] [arg w] [arg limits] [arg scale]]
+
+Create a new target diagram with circles indicating specific limits. The x-axis represents the
+unbiased "root-mean-square difference" (typically varying between -1 and 1) and the y-axis
+represents the normalised bias.
+[nl]
+Data points closer to the origin represent better results than data points further away.
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def list limits in]
+List of radii for the circles that represent the limits (for instance: 0.5 and 0.7)
+
+[arg_def double scale in]
+Scale for the axes - defaults to 1, but if the model results are a poor fit, then
+that may be too small a value. Both axes are scaled in the same way.
+
+[list_end]
+[para]
+
+[call [cmd \$target] plot [arg series] [arg xvalues] [arg yvalues]]
+The plot method takes two series of data of the same length, the first one
+representing the model results, the second one represent the measurements
+or, more general, the data that need to be reproduced.
+
+[list_begin arguments]
+[arg_def string series in]
+Name of the series (it will be plotted as a symbol that is configured via the
+[emph {$target dataconfig}] command (see the XY-plot equivalent for an explanation)
+
+[arg_def list xvalues in]
+List of model results (missing values are represented as empty strings)
+
+[arg_def list yvalues in]
+List of measured values (missing values are represented as empty strings; only if
+both the x and the y values are given, is the pair used in the computations)
+[list_end]
+
+
+[call [cmd ::Plotchart::createPerformanceProfile] [arg w] [arg max]]
+
+Create a diagram to show the performance of various numerical methods (or solvers). The idea is
+to first run these methods on a set of problems and measure their performance. The smaller the
+number the better. Then these methods are compared via a so-called performance profile:
+the data are scaled and ordered, such that the best method ends up highest.
+[nl]
+Because of the nature of the plot all data must be given at once.
+
+[list_begin arguments]
+[arg_def widget w in]
+Name of the [emph existing] canvas widget to hold the plot.
+
+[arg_def float max in]
+Maximum value for the x-axis (the x-axis is the scaled performance of the series).
+[list_end]
+
+[call [cmd \$performance] plot [arg series_and_data_pairs]]
+Plot the data for each given method. The data are identified by the series name and the
+appearance is controlled via prior dataconfig subcommand.
+
+[list_begin arguments]
+[arg_def list series_and_data_pairs in]
+List of series names and data. All data must be given at once.
+[list_end]
+
+[list_end]
+
+The command [term plotmethod] can be used to add new methods for a particular
+plot or chart type. It is intended to help you develop specialised graphical displays.
+
+[list_begin definitions]
+
+[call [cmd ::Plotchart::plotmethod] [arg charttype] [arg methodname] [arg plotproc]]
+
+Adds a new method for the given plot or chart type. The method is implemented by the
+command or procedure given in the plotproc argument. The procedure will be called with
+two extra arguments, the name of the created plot and the canvas widget that contains
+(see the example below).
+
+[list_begin arguments]
+[arg_def string charttype in]
+The type of plot or chart that the new method should be added to.
+
+[arg_def string methodname in]
+Name of the method to be used.
+
+[arg_def string plotproc in]
+Name of the command or procedure that implements the method.
+
+[list_end]
+[list_end]
+[para]
+
+Here is a trivial example of how to use this:
+
+[example {
+#
+# The custom method "doodle" always adds the text "DOODLE"
+# to the plot
+#
+proc doodle {p w x y} {
+    $p plaintext $x $y "DOODLE"
+}
+::Plotchart::plotmethod xyplot doodle doodle
+
+#
+# Use it
+pack [canvas .c]
+
+set p [::Plotchart::createXYPlot .c {0 100 10} {0 20 5}]
+
+$p doodle 40 10
+}]
+
+
+[section "CONTROL DISPLAYS"]
+TODO
 
 [section "ARRANGING MULTIPLE PLOTS IN A CANVAS"]
 
@@ -2326,7 +3139,7 @@ are at that moment.
 Copy the contents of the plots/charts into another widget, in a manner
 similar to the [term pack] geometry manager.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def widget w in]
 The name of the canvas widget to copy the plots/charts into
 
@@ -2355,19 +3168,244 @@ For example:
     plotpack .t.c2 top $p1 $p2
 }]
 
+[section {INTERACTIVE USE}]
+[emph Plotchart] has several features for interactive use (cf. [sectref {NOTES ON TAGS}]):
+
+[list_begin itemized]
+
+[item]
+The legend can be moved around by pressing mouse button 1 in the legend's box and
+keeping it down.
+
+[item]
+You can use the [emph bindplot] and [emph bindlast] commands to
+define actions that are to be taken when the user clicks on an element of the plot or chart.
+(see below, see also the sample code in plotdemos12.tcl)
+
+[item]
+[emph Piecharts] can show an "exploded" segment that you can select with mouse button 1.
+
+[list_end]
+
+If you require different forms of interaction, not covered by [emph Plotchart] itself,
+you can use the tags on the various canvas elements to define other bindings.
+
+[para]
+The [emph bindplot] and [emph bindlast] are defined as follows:
+[list_begin definitions]
+
+[call [cmd \$anyplot] bindplot [arg event] [arg command] [arg args]]
+Register a command that will be run whenever the given event occurs in the plot.
+
+[list_begin arguments]
+[arg_def string event]
+The event that you want to bind the command to
+
+[arg_def string command]
+Name of the command/procedure that you want to run. The following arguments
+are prefixed: the x- and y-coordinates of the point in the plot (the world coordinates!),
+so that the procedure has the signature:
+[example {
+    cmd $xworld $yworld $string1 $string2 $string3
+}]
+assuming the argument "command" is: {cmd A B C}
+
+[list_end]
+
+[call [cmd \$anyplot] bindlast [arg series] [arg event] [arg command]]
+Register a command that will be run when the event occurs within the neighbourhood of
+the last point added to the given series. (You can use directly after inserting
+a data point. All such commands will remain active).
+
+[list_begin arguments]
+[arg_def string event]
+The event that you want to bind the command to
+
+[arg_def list command]
+Name of the command/procedure that you want to run. The following arguments
+are prefixed: the x- and y-coordinates of the point in the plot (the world coordinates!),
+so that the procedure has the signature:
+[example {
+    cmd $xworld $yworld $string1 $string2 $string3
+}]
+assuming the argument "command" is: {cmd A B C}
+
+[list_end]
+[list_end]
+
+Here is an example - show the values of the data points in an annotation
+(from the sample code in plotdemos12.tcl):
+[example {
+#
+# Procedure for showing an annotation
+#
+proc showAnnotation {xcoord ycoord plot w} {
+
+    $plot balloon $xcoord $ycoord "Data point: [format "%.3f, %.3f" $xcoord $ycoord]" north
+
+    after 2000 [list removeAnnotation $w]
+}
+
+#
+# Procedure for erase an annotation
+#
+proc removeAnnotation {w} {
+
+    # Use the tags to remove all annotations
+    $w delete BalloonText
+    $w delete BalloonFrame
+}
+
+#
+# Create a simple plot and a label
+#
+pack [canvas .c -bg white] [label .l -textvariable coords]
+
+set p [::Plotchart::createXYPlot .c {0 1000 200} {0 10 1}]
+
+$p dataconfig series1 -type both -symbol cross
+
+foreach x {1 2 5 10 20 50 100 200 500 1000} {
+    $p plot series1 $x [expr {log($x)}]
+
+    #
+    # Show the annotation for each data point
+    #
+    $p bindlast series1 <Enter> [list showAnnotation $p %W]
+}
+}]
+
+
+[section {NOTES ON TAGS}]
+
+The implementation of [emph Plotchart] relies heavily on the canvas's
+ability to identify graphical objects by tags and to change the drawing order of
+the objects. This section documents the tags that are used.
+
+[para]
+([emph Note:] the tags are not always used consistently - see the notes appearing with
+the various tags. This section describes the current state.)
+
+[para]
+[emph "General graphical objects:"]
+[list_begin itemized]
+[item]
+[emph mask] - Used to manipulate the opaque rectangles that ensure data outside
+the viewport are not shown.
+[item]
+[emph "topmask, horizmask, vertmask"] - specialised tags, used for scrollable plots.
+[item]
+[emph title] - Used for title strings.
+[emph "BalloonText, BalloonFrame"] - Used to manipulate balloon text.
+[emph PlainText] - Used to manipulate ordinary text without any decoration.
+[emph background] - Tag used for gradient and image backgrounds (and for gradient-filled bars).
+[emph "xaxis, yaxis"] - Tags used for all objects related to horizontal or vertical axes.
+(also: both for numerical axes and axes with labels as in barcharts).
+Note, however, that the [emph text] along the axes has no particular tag.
+[emph raxis] - Tag used for all objects related to a [emph right] axis.
+[emph taxis] - Tag used for all objects related to a [emph time] axis.
+[emph axis3d] - Tag used for 3D axes
+[emph "xtickline, ytickline"] - Tags used for ticklines.
+[emph "legend, legengb, legendobj"] - Tags used for the legend. The latter is used to manipulate
+the legend as a whole.
+[emph "legend_series"] - Tag used to control the appearance of the legend entry ("series" should
+be replaced by the series name).
+
+[list_end]
+
+[emph "XY-plots (all types of axes):"]
+[list_begin itemized]
+[item]
+[emph data] - The general tag to identify graphical objects associated with data.
+[emph data_seriesname] - The tag specific to a data series ("seriesname" should be replaced).
+[emph band] - The horizontal or vertical band drawn with the xband otr yband subcommands have this tag
+by the actual name).
+[list_end]
+Items such as labelled dots only have the "data" tag.
+
+[para]
+[emph "Piecharts:"]
+[list_begin itemized]
+[item]
+[emph segment_segmentnumber] - The tag identifying the segment, the string "segmentnumber" should
+be replaced by the actual number. This tag is used to explode the segments.
+[list_end]
+
+[emph "Barcharts:"]
+[para]
+Barcharts use the same tags as xy-plots (but for gradient-filled bars the data_seriesname is not used).
+
+[para]
+[emph "Histograms and isometric plots:"]
+[para]
+Currently the only tag used is "data".
+
+[para]
+[emph "Time-charts:"]
+[para]
+As these plots are scrollable, several tags are used specific to the scrolling:
+vertscroll, horizscroll, below, lowest, above, timeline, tline.
+Each item also has a tag of the form "item_number",
+where "number" is to be replaced by the actual sequence number of the item.
+
+[para]
+[emph "Gantt charts:"]
+[para]
+In addition to the tags described for the time-charts, the following tags are used:
+description, completed, summary and summarybar.
+
+[para]
+[emph "Radial charts and polar plots:"]
+[para]
+Currently the radial lines indicating the grid have no tags. The graphical objects associated with
+data only have the "data" tag.
+
+[para]
+[emph "Windroses:"]
+[para]
+Only the tag [emph data_number] is currently used ("number" should be replaced by the
+sequence number of the data, starting at 0.
+
+[para]
+[emph "Contour and isoline plots:"]
+[para]
+No tags are used.
+
+[para]
+[emph "3D plots and 3D ribbon plots:"]
+[para]
+No tags are used for the data objects, only for the axes.
+
+[para]
+[emph "Charts decorated with 3D effects:"]
+[para]
+The following tags are used to identify various types of graphical objects: platform, background, d, u,
+ticklines.
+[para]
+The text associated with the bars has no tags. The ribbon lines and areas have no tags either.
+
+
 [section {TODO - SOME PRIVATE NOTES}]
 
 I have the following wishlist:
 
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Isometric plots - allow new items to be implemented easily.
 
-[bullet]
-Add support for histograms where the independent axis is numerical.
-
-[bullet]
+[item]
 A general 3D viewer - emphasis on geometry, not a ray-tracer.
+
+[item]
+Several improvements for boxplots:
+[list_begin itemized]
+[item]
+Height of the box scales with the logarithm of the number of points
+[item]
+Marker line to indicate a "current" value
+[item]
+Box drawn from quantiles
+[list_end]
 
 [list_end]
 

@@ -25,16 +25,16 @@
 
 #ifndef ExecutableAllocator_h
 #define ExecutableAllocator_h
-
 #include <stddef.h> // for ptrdiff_t
 #include <limits>
 #include <wtf/Assertions.h>
+#include <wtf/PageAllocation.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
-#if OS(IPHONE_OS)
+#if OS(IOS)
 #include <libkern/OSCacheControl.h>
 #include <sys/mman.h>
 #endif
@@ -47,10 +47,23 @@
 #include <sys/cachectl.h>
 #endif
 
+#if CPU(SH4) && OS(LINUX)
+#include <asm/cachectl.h>
+#include <asm/unistd.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+
 #if OS(WINCE)
 // From pkfuncs.h (private header file from the Platform Builder)
 #define CACHE_SYNC_ALL 0x07F
 extern "C" __declspec(dllimport) void CacheRangeFlush(LPVOID pAddr, DWORD dwLength, DWORD dwFlags);
+#endif
+
+#if PLATFORM(BREWMP)
+#include <AEEIMemCache1.h>
+#include <AEEMemCache1.bid>
+#include <wtf/brew/RefPtrBrew.h>
 #endif
 
 #define JIT_ALLOCATOR_PAGE_SIZE (ExecutableAllocator::pageSize)
@@ -59,9 +72,9 @@ extern "C" __declspec(dllimport) void CacheRangeFlush(LPVOID pAddr, DWORD dwLeng
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
 #define PROTECTION_FLAGS_RW (PROT_READ | PROT_WRITE)
 #define PROTECTION_FLAGS_RX (PROT_READ | PROT_EXEC)
-#define INITIAL_PROTECTION_FLAGS PROTECTION_FLAGS_RX
+#define EXECUTABLE_POOL_WRITABLE false
 #else
-#define INITIAL_PROTECTION_FLAGS (PROT_READ | PROT_WRITE | PROT_EXEC)
+#define EXECUTABLE_POOL_WRITABLE true
 #endif
 
 namespace JSC {
@@ -80,22 +93,33 @@ inline size_t roundUpAllocationSize(size_t request, size_t granularity)
 
 }
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT) && ENABLE(ASSEMBLER)
 
 namespace JSC {
 
 class ExecutablePool : public RefCounted<ExecutablePool> {
-private:
-    struct Allocation {
-        char* pages;
-        size_t size;
-#if OS(SYMBIAN)
-        RChunk* chunk;
-#endif
+public:
+#if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
+    typedef PageAllocation Allocation;
+#else
+    class Allocation {
+    public:
+        Allocation(void* base, size_t size)
+            : m_base(base)
+            , m_size(size)
+        {
+        }
+        void* base() { return m_base; }
+        size_t size() { return m_size; }
+        bool operator!() const { return !m_base; }
+
+    private:
+        void* m_base;
+        size_t m_size;
     };
+#endif
     typedef Vector<Allocation, 2> AllocationList;
 
-public:
     static PassRefPtr<ExecutablePool> create(size_t n)
     {
         return adoptRef(new ExecutablePool(n));
@@ -120,10 +144,17 @@ public:
         return poolAllocate(n);
     }
     
+    void tryShrink(void* allocation, size_t oldSize, size_t newSize)
+    {
+        if (static_cast<char*>(allocation) + oldSize != m_freePtr)
+            return;
+        m_freePtr = static_cast<char*>(allocation) + roundUpAllocationSize(newSize, sizeof(void*));
+    }
+
     ~ExecutablePool()
     {
-        AllocationList::const_iterator end = m_pools.end();
-        for (AllocationList::const_iterator ptr = m_pools.begin(); ptr != end; ++ptr)
+        AllocationList::iterator end = m_pools.end();
+        for (AllocationList::iterator ptr = m_pools.begin(); ptr != end; ++ptr)
             ExecutablePool::systemRelease(*ptr);
     }
 
@@ -131,7 +162,7 @@ public:
 
 private:
     static Allocation systemAlloc(size_t n);
-    static void systemRelease(const Allocation& alloc);
+    static void systemRelease(Allocation& alloc);
 
     ExecutablePool(size_t n);
 
@@ -143,7 +174,7 @@ private:
 };
 
 class ExecutableAllocator {
-    enum ProtectionSeting { Writable, Executable };
+    enum ProtectionSetting { Writable, Executable };
 
 public:
     static size_t pageSize;
@@ -151,12 +182,22 @@ public:
     {
         if (!pageSize)
             intializePageSize();
-        m_smallAllocationPool = ExecutablePool::create(JIT_ALLOCATOR_LARGE_ALLOC_SIZE);
+        if (isValid())
+            m_smallAllocationPool = ExecutablePool::create(JIT_ALLOCATOR_LARGE_ALLOC_SIZE);
+#if !ENABLE(INTERPRETER)
+        else
+            CRASH();
+#endif
     }
+
+    bool isValid() const;
+
+    static bool underMemoryPressure();
 
     PassRefPtr<ExecutablePool> poolForSize(size_t n)
     {
         // Try to fit in the existing small allocator
+        ASSERT(m_smallAllocationPool);
         if (n < m_smallAllocationPool->available())
             return m_smallAllocationPool;
 
@@ -197,8 +238,8 @@ public:
 #elif CPU(MIPS)
     static void cacheFlush(void* code, size_t size)
     {
-#if COMPILER(GCC) && (GCC_VERSION >= 40300)
-#if WTF_MIPS_ISA_REV(2) && (GCC_VERSION < 40403)
+#if GCC_VERSION_AT_LEAST(4, 3, 0)
+#if WTF_MIPS_ISA_REV(2) && !GCC_VERSION_AT_LEAST(4, 4, 3)
         int lineSize;
         asm("rdhwr %0, $1" : "=r" (lineSize));
         //
@@ -220,11 +261,10 @@ public:
         _flush_cache(reinterpret_cast<char*>(code), size, BCACHE);
 #endif
     }
-#elif CPU(ARM_THUMB2) && OS(IPHONE_OS)
+#elif CPU(ARM_THUMB2) && OS(IOS)
     static void cacheFlush(void* code, size_t size)
     {
-        sys_dcache_flush(code, size);
-        sys_icache_invalidate(code, size);
+        sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
     }
 #elif CPU(ARM_THUMB2) && OS(LINUX)
     static void cacheFlush(void* code, size_t size)
@@ -270,14 +310,31 @@ public:
     {
         CacheRangeFlush(code, size, CACHE_SYNC_ALL);
     }
+#elif PLATFORM(BREWMP)
+    static void cacheFlush(void* code, size_t size)
+    {
+        RefPtr<IMemCache1> memCache = createRefPtrInstance<IMemCache1>(AEECLSID_MemCache1);
+        IMemCache1_ClearCache(memCache.get(), reinterpret_cast<uint32>(code), size, MEMSPACE_CACHE_FLUSH, MEMSPACE_DATACACHE);
+        IMemCache1_ClearCache(memCache.get(), reinterpret_cast<uint32>(code), size, MEMSPACE_CACHE_INVALIDATE, MEMSPACE_INSTCACHE);
+    }
+#elif CPU(SH4) && OS(LINUX)
+    static void cacheFlush(void* code, size_t size)
+    {
+#ifdef CACHEFLUSH_D_L2
+        syscall(__NR_cacheflush, reinterpret_cast<unsigned>(code), size, CACHEFLUSH_D_WB | CACHEFLUSH_I | CACHEFLUSH_D_L2);
+#else
+        syscall(__NR_cacheflush, reinterpret_cast<unsigned>(code), size, CACHEFLUSH_D_WB | CACHEFLUSH_I);
+#endif
+    }
 #else
     #error "The cacheFlush support is missing on this platform."
 #endif
+    static size_t committedByteCount();
 
 private:
 
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
-    static void reprotectRegion(void*, size_t, ProtectionSeting);
+    static void reprotectRegion(void*, size_t, ProtectionSetting);
 #endif
 
     RefPtr<ExecutablePool> m_smallAllocationPool;
@@ -289,7 +346,7 @@ inline ExecutablePool::ExecutablePool(size_t n)
     size_t allocSize = roundUpAllocationSize(n, JIT_ALLOCATOR_PAGE_SIZE);
     Allocation mem = systemAlloc(allocSize);
     m_pools.append(mem);
-    m_freePtr = mem.pages;
+    m_freePtr = static_cast<char*>(mem.base());
     if (!m_freePtr)
         CRASH(); // Failed to allocate
     m_end = m_freePtr + allocSize;
@@ -300,22 +357,22 @@ inline void* ExecutablePool::poolAllocate(size_t n)
     size_t allocSize = roundUpAllocationSize(n, JIT_ALLOCATOR_PAGE_SIZE);
     
     Allocation result = systemAlloc(allocSize);
-    if (!result.pages)
+    if (!result.base())
         CRASH(); // Failed to allocate
     
     ASSERT(m_end >= m_freePtr);
     if ((allocSize - n) > static_cast<size_t>(m_end - m_freePtr)) {
         // Replace allocation pool
-        m_freePtr = result.pages + n;
-        m_end = result.pages + allocSize;
+        m_freePtr = static_cast<char*>(result.base()) + n;
+        m_end = static_cast<char*>(result.base()) + allocSize;
     }
 
     m_pools.append(result);
-    return result.pages;
+    return result.base();
 }
 
 }
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT) && ENABLE(ASSEMBLER)
 
 #endif // !defined(ExecutableAllocator)

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2009 Apple Inc.
+# Copyright (c) 2004-2011 Apple Inc.
 #
 # get-mobility-info
 #
@@ -54,7 +54,10 @@ ps axlww						> ps			2>&1
 #
 # network interface configuration
 #
-ifconfig -a -b						> ifconfig		2>&1
+ifconfig -a -L -b -m -r -v				> ifconfig		2>&1
+if [ $? -ne 0 ]; then
+	ifconfig -a					> ifconfig		2>&1
+fi
 
 #
 # network route configuration
@@ -142,6 +145,7 @@ for f in										\
 	/Library/Preferences/SystemConfiguration/preferences.plist			\
 	/Library/Preferences/com.apple.alf.plist					\
 	/Library/Preferences/com.apple.sharing.firewall.plist				\
+	/Library/Preferences/com.apple.wwand.plist					\
 
 do
 	if [ -e "${f}" ]; then
@@ -151,6 +155,17 @@ do
 done
 
 #
+# InternetSharing
+#
+if   [ -e /etc/bootpd.plist ]; then
+	cat /etc/bootpd.plist							> bootpd.plist			2>&1
+	cat /etc/com.apple.named.proxy.conf					> com.apple.named.proxy.conf	2>&1
+elif [ -e /Library/Preferences/SystemConfiguration/bootpd.plist ]; then
+	cat /Library/Preferences/SystemConfiguration/bootpd.plist		> bootpd.plist			2>&1
+	cat /Library/Preferences/SystemConfiguration/com.apple.named.proxy.conf	> com.apple.named.proxy.conf	2>&1
+fi
+
+#
 # configd's cache
 #
 ${PRIV} scutil -p <<_END_OF_INPUT
@@ -158,17 +173,32 @@ open
 snapshot
 quit
 _END_OF_INPUT
-if [ -f /var/tmp/configd-store.xml ]; then
-	cat /var/tmp/configd-store.xml			> configd-store.xml	2>&1
+if [ -f /var/tmp/configd-store.plist ]; then
+	cat /var/tmp/configd-store.plist		> configd-store.plist	2>&1
 fi
-if [ -f /var/tmp/configd-pattern.xml ]; then
-	cat /var/tmp/configd-pattern.xml		> configd-pattern.xml	2>&1
+if [ -f /var/tmp/configd-pattern.plist ]; then
+	cat /var/tmp/configd-pattern.plist		> configd-pattern.plist	2>&1
 fi
-if [ -f /var/tmp/configd-session.xml ]; then
-	cat /var/tmp/configd-session.xml		> configd-session.xml	2>&1
+if [ -f /var/tmp/configd-session.plist ]; then
+	cat /var/tmp/configd-session.plist		> configd-session.plist	2>&1
 fi
 if [ -f /var/tmp/configd-state ]; then
 	cat /var/tmp/configd-state			> configd-state		2>&1
+fi
+
+#
+# check configd's executable
+#
+if [ -x /usr/bin/codesign ]; then
+	echo  "#"									>> configd-state
+	echo  "# codesign --verbose --display --entitlements - /usr/libexec/configd"	>> configd-state
+	echo  "#"									>> configd-state
+	/usr/bin/codesign --verbose --display --entitlements - /usr/libexec/configd	>> configd-state 2>&1
+
+	echo  "#"									>> configd-state
+	echo  "# codesign --verbose --verify /usr/libexec/configd"			>> configd-state
+	echo  "#"									>> configd-state
+	/usr/bin/codesign --verbose --verify /usr/libexec/configd			>> configd-state 2>&1
 fi
 
 #
@@ -187,16 +217,39 @@ mount							> mounted-filesystems	2>&1
 #
 # mDNSResponder info
 #
-if [ -f /var/run/mDNSResponder.pid ]; then
-	${PRIV} kill -INFO `cat /var/run/mDNSResponder.pid`
+if [ -x /usr/bin/killall ]; then
+	${PRIV} killall -INFO mDNSResponder
+
+	# and wait a short amount of time for mDNSResponder
+	# to actually log the requested information
+	sleep 15
+fi
+
+#
+# awacsd info
+#
+if [ -x /usr/sbin/awacsd -a -x /usr/bin/killall ]; then
+	${PRIV} killall -INFO awacsd					2>/dev/null
+
+	# and wait a short amount of time for awacsd
+	# to actually log the requested information
+	sleep 1
 fi
 
 #
 # system log, kernel.log, early boot log messages
 #
 if [ -x /usr/bin/syslog ]; then
+	# save the recent activity
 	${PRIV} syslog | tail -n 25000					> syslog
+
+	# save just the "kernel" activity (in case some of the
+	# interesting/relevant message are before the messages
+	# captured above.
+	${PRIV} syslog -k Facility kern | tail -n 25000			> kernel
+
 	if [ -d /var/log/DiagnosticMessages ]; then
+		# save any MessageTracer activity
 		${PRIV} syslog	-d /var/log/DiagnosticMessages	\
 				-F raw				\
 				-T local			\
@@ -276,13 +329,6 @@ echo "# netstat -n -a -A"				>> network-statistics
 echo "#"						>> network-statistics
 netstat -n -a -A					>> network-statistics	2>&1
 
-if [ -x /usr/sbin/lsof ]; then
-	echo "#"					>> network-statistics
-	echo "# lsof -i -n -P"				>> network-statistics
-	echo "#"					>> network-statistics
-	${PRIV} lsof -i -n -P				>> network-statistics	2>&1
-fi
-
 echo "#"						>> network-statistics
 echo "# netstat -s"					>> network-statistics
 echo "#"						>> network-statistics
@@ -298,50 +344,66 @@ echo "# netstat -i -n -d"				>> network-statistics
 echo "#"						>> network-statistics
 netstat -i -n -d					>> network-statistics	2>&1
 
+if [ -x /usr/sbin/ndp ]; then
+	echo "#"					>> network-statistics
+	echo "# ndp -n -a"				>> network-statistics
+	echo "#"					>> network-statistics
+	ndp -n -a					>> network-statistics	2>&1
+
+	echo "#"					>> network-statistics
+	echo "# ndp -n -p"				>> network-statistics
+	echo "#"					>> network-statistics
+	ndp -n -p					>> network-statistics	2>&1
+
+	echo "#"					>> network-statistics
+	echo "# ndp -n -r"				>> network-statistics
+	echo "#"					>> network-statistics
+	ndp -n -r					>> network-statistics	2>&1
+fi
+
 if [ -x /sbin/ipfw ]; then
 	echo "#"					>> network-statistics
 	echo "# ipfw -at show"				>> network-statistics
 	echo "#"					>> network-statistics
-	ipfw -at show					>> network-statistics	2>&1
+	${PRIV} ipfw -at show				>> network-statistics	2>&1
 fi
 
-if [ -x /usr/sbin/appletalk ]; then
-	echo "#"					>> network-statistics
-	echo "# appletalk -s"				>> network-statistics
-	echo "#"					>> network-statistics
-	appletalk -s					>> network-statistics	2>&1
+if [ -x /sbin/pfctl ]; then
+	echo "#"					>  pf
+	echo "# pfctl -s all"				>> pf
+	echo "#"					>> pf
+	${PRIV} pfctl -s all				>> pf			2>&1
+	echo "=============================="		>> pf
+	echo "#"					>> pf
+	echo "# pfctl -s References"			>> pf
+	echo "#"					>> pf
+	${PRIV} pfctl -s References			>> pf			2>&1
+	for ANCHOR in `pfctl -s Anchors 2>/dev/null`
+	do
+		echo "=============================="	>> pf
+		echo "#"				>> pf
+		echo "# pfctl -a ${ANCHOR} -s all"	>> pf
+		echo "#"				>> pf
+		${PRIV} pfctl -a ${ANCHOR} -s all	>> pf			2>&1
+	done
 fi
 
-#
-# system usage statistics
-#
-echo "#"						>  system-statistics
-echo "# uptime"						>> system-statistics
-echo "#"						>> system-statistics
-uptime							>> system-statistics	2>&1
-
-echo "#"						>> system-statistics
-echo "# sysctl -a"					>> system-statistics
-echo "#"						>> system-statistics
-sysctl -a						>> system-statistics	2>&1
-
-echo "#"						>> system-statistics
-echo "# zprint"						>> system-statistics
-echo "#"						>> system-statistics
-zprint							>> system-statistics	2>&1
-
-echo "#"						>> system-statistics
-echo "# top -l5 -s2"					>> system-statistics
-echo "#"						>> system-statistics
-echo ""
-echo "Please wait, collecting statistics"
-echo ""
-top -s 2 -l 5						>> system-statistics	2>&1
+if [ -x /usr/sbin/lsof ]; then
+	echo "#"					>> network-statistics
+	echo "# lsof -i -U -n -P"			>> network-statistics
+	echo "#"					>> network-statistics
+	${PRIV} lsof -i -U -n -P			>> network-statistics	2>&1
+fi
 
 #
 # DirectoryService info
 #
-if [ -x /usr/bin/dscacheutil ]; then
+if [ -x /usr/bin/odutil ]; then
+	echo "#"					>  od-info
+	echo "# odutil show all"			>> od-info
+	echo "#"					>> od-info
+	${PRIV} odutil show all				>> od-info		2>&1
+elif [ -x /usr/bin/dscacheutil ]; then
 	echo "#"					>  ds-info
 	echo "# dscacheutil -configuration"		>> ds-info
 	echo "#"					>> ds-info
@@ -419,44 +481,155 @@ fi
 #
 # BTMM configuration
 #
-DIG()
+
+BTMM_CLEANUP()
 {
-	/usr/bin/dig @pm-members.mac.com -y "${DOMAIN}:${TSIG}" +short "${1}" "${2}" 2>/dev/null
+	rm -f .btmmfifo .btmminfo .digsync
 }
 
-scutil <<_END_OF_INPUT					\
-| sed -n 's@.* : *\(.*\.members\.mac\.com\)$@\1@p'	\
-| sort							\
-| while read DOMAIN
-open
-show Setup:/Network/BackToMyMac
-quit
-_END_OF_INPUT
-do
-	echo ""							>> btmm
+BTMM_SETUP()
+{
+	BTMM_CLEANUP
+	mkfifo .btmmfifo
+
+	BTMMPORT=40000
+	while nc -6z ::1 "${PORT}"			> /dev/null	2>&1
+	do
+		BTMMPORT=$((PORT + 1))
+	done
+}
+
+BTMM_CHECKMACDOTCOM()
+{
+	TAIL=`echo "${1}" | cut -d. -f2-`
+	if [ "${TAIL}" = "members.mac.com" ]; then
+		return 0
+	fi
+
+	return 1
+}
+
+# get DNS info
+# params: QUERYNAME QUERYTYPE
+BTMM_DIG()
+{
+	rm -f .digsync
+	
+	nc -6 -l "${BTMMPORT}" < .btmmfifo			\
+	| openssl s_client	-connect "${HOSTPORT}" -quiet	> .btmmfifo	2>.digsync &
+	
+	N_RETRY=0
+	while [ $N_RETRY -lt 50 -a ! -s .digsync ]
+	do
+		N_RETRY=$((N_RETRY + 1))
+		sleep 0.1
+	done
+	
+	dig @::1	-p "${BTMMPORT}"		\
+			-y "${TSIG}"			\
+			+short				\
+			+tcp				\
+			"${1}" "${2}"			2>/dev/null
+	
+	wait %1
+}
+
+# get the unique identifier used to lookup the keychain item for a zone
+# params: ZONE
+BTMM_UNIQUEIDFROMZONE()
+{
+	BTMM_CHECKMACDOTCOM "${1}"
+	if [ $? -eq 0 ]; then
+		echo "dns:${1}"
+	else
+		echo "btmmdns:${1}"
+	fi
+}
+
+# get hostname, port, TSIG name and TSIG data from keychain 
+# params: UNIQUEID
+BTMM_GETINFO()
+{
+	${PRIV} security find-generic-password		\
+		-s "${1}"				\
+		-g /Library/Keychains/System.keychain	> .btmminfo	2>/dev/null
+	${PRIV} security find-generic-password		\
+		-s "${1}"				\
+		-g /Library/Keychains/System.keychain	\
+		2>&1					\
+	| sed -n 's/^password: \"\(.*\)\"$/\1/p'
+}
+
+# params: ZONE
+BTMM_URLISH()
+{
+	BTMM_CHECKMACDOTCOM "${1}"
+	if [ $? -eq 0 ]; then
+		echo "pm-members.mac.com.:443"
+	else
+		cat .btmminfo | sed -n 's/.*0x00000007 <blob>=\"\(.*\)\"/\1/p'
+	fi
+}
+
+BTMM_RELAYINFO()
+{
+	BTMM_CHECKMACDOTCOM "${1}"
+	if [ $? -eq 0 ]; then
+		return
+	fi
+	
+	SECRET=`BTMM_GETINFO "btmmrelay:${1}"`
+	
+	if [ -z "${SECRET}" ]; then
+		echo "  No Relay keychain item."		>> btmm
+		return
+	fi
+	
+	if [ `echo "${SECRET}" | wc -l` -ne 1 ]; then
+		echo "  More than one Relay keychain item."	>> btmm
+		return
+	fi
+	
+	URLISH=`BTMM_URLISH "${DOMAIN}"`
+	ACCOUNT=`cat .btmminfo | sed -n 's/.*\"acct\"<blob>=\"\(.*\)\"/\1/p'`
+	KEYHASH="[SHA-1:`echo ${SECRET} | openssl sha1`]"
+	echo "  RHP: ${URLISH}"					>> btmm
+	echo "  RAC: ${ACCOUNT}"				>> btmm
+	echo "  RKY: ${KEYHASH}"				>> btmm
+}
+
+BTMM_REPORTZONE()
+{
+	DOMAIN="${1}"
+	
+	echo							>> btmm
 	echo "${DOMAIN}"					>> btmm
+	
+	DNSID=`BTMM_UNIQUEIDFROMZONE "${DOMAIN}"`
+	SECRET=`BTMM_GETINFO "${DNSID}"`
 
-	# lookup TSIG in base64 format
-	TSIG=`								\
-		${PRIV} security find-generic-password			\
-			-s dns:${DOMAIN}				\
-			-g /Library/Keychains/System.keychain 2>&1	\
-		| grep "^password: "					\
-		| cut -d '"' -f 2					\
-		| cut -d '\' -f 1					\
-	     `
-	if [ -z "$TSIG" ]; then
-		echo "  No TSIG in system keychain."		>> btmm
-		continue
+	if [ -z "${SECRET}" ]; then
+		echo "  No DNS keychain item."			>> btmm
+		return
 	fi
-	if [ `echo "$TSIG" | wc -l` -ne 1 ] ; then
-		echo "  More than one TSIG in system keychain."	>> btmm
-		continue
+	
+	if [ `echo "${SECRET}" | wc -l` -ne 1 ]; then
+		echo "  More than one DNS keychain item."	>> btmm
+		return
 	fi
+	
+	URLISH=`BTMM_URLISH "${DOMAIN}"`
+	HOSTPORT=`echo "${URLISH}" | cut -d@ -f2`
+	ACCOUNT=`cat .btmminfo | sed -n 's/.*\"acct\"<blob>=\"\(.*\)\"/\1/p'`
+	TSIG="${ACCOUNT}:${SECRET}"
 
-	KEYHASH="[SHA-1:`echo ${TSIG} | openssl sha1`]"
+	KEYHASH="[SHA-1:`echo ${SECRET} | openssl sha1`]"
 	echo ""							>> btmm
-	echo "  KEY: ${KEYHASH}"				>> btmm
+	echo "  DHP: ${URLISH}"					>> btmm
+	echo "  DAC: ${ACCOUNT}"				>> btmm
+	echo "  DKY: ${KEYHASH}"				>> btmm
+	
+	BTMM_RELAYINFO "${DOMAIN}"
 
 	for TYPE in			\
 		_afpovertcp._tcp	\
@@ -467,7 +640,7 @@ do
 		_smb._tcp		\
 		_ssh._tcp
 	do
-		DIG "${TYPE}.${DOMAIN}" ptr	\
+		BTMM_DIG "${TYPE}.${DOMAIN}" ptr	\
 		| while read -r REG
 		do
 			echo ""					>> btmm
@@ -475,10 +648,10 @@ do
 			echo ""					>> btmm
 
 			INF_Q=`/bin/echo "${REG}" | sed -e "s/${TYPE}/_device-info._tcp/"`
-			INF=`DIG "${INF_Q}" txt`
+			INF=`BTMM_DIG "${INF_Q}" txt`
 			echo "    INF: ${INF}"			>> btmm
 
-			SRV=`DIG ${REG} srv`
+			SRV=`BTMM_DIG ${REG} srv`
 			SRV1=`/bin/echo "${SRV}" | head -1`
 			echo "    SRV: ${SRV1}"			>> btmm
 			SRV2=`/bin/echo "${SRV}" | tail +2`
@@ -488,7 +661,7 @@ do
 				| sed -e 's/^/  *****: /'	>> btmm
 			fi
 
-			TXT=`DIG ${REG} txt`
+			TXT=`BTMM_DIG ${REG} txt`
 			TXT1=`/bin/echo "${TXT}" | head -1`
 			echo "    TXT: ${TXT1}"			>> btmm
 			TXT2=`/bin/echo "${TXT}" | tail +2`
@@ -499,11 +672,11 @@ do
 
 			HOST=`/bin/echo "${SRV}" | cut -d ' ' -f 4-`
 			if [ -n "${HOST}" ]; then
-				V4=`DIG ${HOST} a`
-				V6=`DIG ${HOST} aaaa`
-				KRB=`DIG _kerberos.${HOST} txt`
-				TUN=`DIG _autotunnel._udp.${HOST} srv`
-				AT6=`DIG _autotunnel6.${HOST} aaaa`
+				V4=`BTMM_DIG ${HOST} a`
+				V6=`BTMM_DIG ${HOST} aaaa`
+				KRB=`BTMM_DIG _kerberos.${HOST} txt`
+				TUN=`BTMM_DIG _autotunnel._udp.${HOST} srv`
+				AT6=`BTMM_DIG _autotunnel6.${HOST} aaaa`
 			else
 				V4=""
 				V6=""
@@ -525,8 +698,8 @@ do
 
 				HOST=`/bin/echo "${TUN}" | cut -d ' ' -f 4-`
 				if [ -n "${HOST}" ]; then
-					V4=`DIG ${HOST} a`
-					V6=`DIG ${HOST} aaaa`
+					V4=`BTMM_DIG ${HOST} a`
+					V6=`BTMM_DIG ${HOST} aaaa`
 				fi
 				if [ -n "${V4}" ]; then
 					echo "     v4: ${V4}"	>> btmm
@@ -540,7 +713,23 @@ do
 			fi
 		done
 	done
+}
+
+BTMM_SETUP
+
+scutil <<_END_OF_INPUT \
+| sed -n 's@.* : *\(.*\)$@\1@p' \
+| sort \
+| while read DOMAIN
+open
+show Setup:/Network/BackToMyMac
+quit
+_END_OF_INPUT
+do
+	BTMM_REPORTZONE "$DOMAIN"
 done
+
+BTMM_CLEANUP
 
 #
 # collect crash reports
@@ -551,6 +740,7 @@ for daemon in				\
 		eapolclient		\
 		mDNSResponder		\
 		mDNSResponderHelper	\
+		awacsd			\
 		pppd			\
 		racoon			\
 		socketfilterfw		\
@@ -558,21 +748,53 @@ for daemon in				\
 		SCMonitor		\
 
 do
-	/bin/ls -1	/Library/Logs/CrashReporter/${daemon}_*.crash		\
-			/Library/Logs/DiagnosticReports/${daemon}/*.crash	\
+	/bin/ls -1	/Library/Logs/DiagnosticReports/${daemon}_*.crash	\
+			/Library/Logs/CrashReporter/${daemon}_*.crash		\
 			2>/dev/null						\
 	| while read log
 	do
-		b="`basename ${log}`"
-		${PRIV} cat "${log}"			> "${b}"		2>&1
+		if [ -f "${log}" ]; then
+			b="`basename ${log}`"
+			${PRIV} cat "${log}"		> "${b}"		2>&1
+		fi
 	done
 done
+
+#
+# system usage statistics
+#
+echo "#"						>  system-statistics
+echo "# uptime"						>> system-statistics
+echo "#"						>> system-statistics
+uptime							>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# sysctl -a"					>> system-statistics
+echo "#"						>> system-statistics
+sysctl -a						>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# zprint"						>> system-statistics
+echo "#"						>> system-statistics
+zprint							>> system-statistics	2>&1
+
+echo "#"						>> system-statistics
+echo "# top -l5 -s2"					>> system-statistics
+echo "#"						>> system-statistics
+echo ""
+echo "Please wait, collecting statistics"
+echo ""
+top -s 2 -l 5						>> system-statistics	2>&1
 
 #
 # collect everything into a single archive
 #
 cd "${WORKDIR}/.."
-pax -w ${GZ_OPT} -f "${ARCHIVE}" "${OUT}"
+if [ -x /usr/bin/tar ]; then
+	tar -c ${GZ_OPT} -f "${ARCHIVE}" "${OUT}"
+else
+	pax -w ${GZ_OPT} -f "${ARCHIVE}" "${OUT}"
+fi
 rm -rf "${WORKDIR}"
 
 if [ ${UID} -eq 0 ]; then

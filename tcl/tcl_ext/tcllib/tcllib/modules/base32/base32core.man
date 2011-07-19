@@ -3,6 +3,7 @@
 [copyright {Public domain}]
 [moddesc   {Base32 encoding}]
 [titledesc {Expanding basic base32 maps}]
+[category  {Text processing}]
 [require Tcl 8.4]
 [require base32::core [opt 0.1]]
 [description]

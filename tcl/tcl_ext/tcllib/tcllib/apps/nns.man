@@ -3,6 +3,7 @@
 [copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Name service facility}]
 [titledesc {Name service facility, Commandline Client Application}]
+[category  Networking]
 [description]
 [para]
 

@@ -63,13 +63,15 @@ namespace std {
 	template <>  struct traits<std::multiset<_Key, _Compare, _Alloc > > {
 	  typedef pointer_category category;
 	  static const char* type_name() {
-	    return "std::multiset<" #_Key "," #_Alloc " >";
+	    return "std::multiset<" #_Key "," #_Compare "," #_Alloc " >";
 	  }
 	};
       }
     }
 
     %typemap_traits_ptr(SWIG_TYPECHECK_MULTISET, std::multiset<_Key, _Compare, _Alloc >);
+
+    multiset( const _Compare& );
 
 #ifdef %swig_multiset_methods
     // Add swig/language extra methods

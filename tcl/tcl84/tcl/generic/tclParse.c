@@ -1019,7 +1019,15 @@ TclExpandTokenArray(parsePtr)
     int newCount;
     Tcl_Token *newPtr;
 
+#define MAX_TOKENS (int)(UINT_MAX / sizeof(Tcl_Token))
+
+    if (parsePtr->tokensAvailable == MAX_TOKENS) {
+	Tcl_Panic("max # of tokens for a Tcl parse (%d) exceeded", MAX_TOKENS);
+    }
     newCount = parsePtr->tokensAvailable*2;
+    if (newCount > MAX_TOKENS) {
+	newCount = MAX_TOKENS;
+    }
     newPtr = (Tcl_Token *) ckalloc((unsigned) (newCount * sizeof(Tcl_Token)));
     memcpy((VOID *) newPtr, (VOID *) parsePtr->tokenPtr,
 	    (size_t) (parsePtr->tokensAvailable * sizeof(Tcl_Token)));

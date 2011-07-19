@@ -32,7 +32,6 @@
 
 #include "less.h"
 #include "cmd.h"
-#include "lesskey.h"
 #ifdef __APPLE__
 #include "get_compat.h"
 #else

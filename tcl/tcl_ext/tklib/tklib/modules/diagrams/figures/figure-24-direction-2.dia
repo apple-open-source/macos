@@ -1,0 +1,14 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+right
+block {
+    down
+    text  {down ; box ; arrow ; circle ; arrow ; ellipse}
+    block {down ; box ; arrow ; circle ; arrow ; ellipse}
+}
+move
+block {
+    down
+    text  {up ; box ; arrow ; circle ; arrow ; ellipse}
+    block {up ; box ; arrow ; circle ; arrow ; ellipse}
+}

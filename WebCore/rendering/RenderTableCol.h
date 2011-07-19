@@ -34,12 +34,12 @@ class RenderTable;
 
 class RenderTableCol : public RenderBox {
 public:
-    RenderTableCol(Node*);
+    explicit RenderTableCol(Node*);
 
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     int span() const { return m_span; }
     void setSpan(int span) { m_span = span; }
@@ -50,7 +50,6 @@ private:
 
     virtual const char* renderName() const { return "RenderTableCol"; }
     virtual bool isTableCol() const { return true; }
-    virtual int lineHeight(bool) const { return 0; }
     virtual void updateFromElement();
 
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;

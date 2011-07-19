@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier <kevino@theolliviers.com>
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * All rights reserved.
  *
@@ -49,12 +50,12 @@
 #include "ResourceError.h"
 #include "ResourceResponse.h"
 #include "ScriptController.h"
-#include "ScriptString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 #include <stdio.h>
 
+#include "FrameNetworkingContextWx.h"
 #include "WebFrame.h"
 #include "WebFramePrivate.h"
 #include "WebView.h"
@@ -294,12 +295,13 @@ void FrameLoaderClientWx::dispatchDidStartProvisionalLoad()
 }
 
 
-void FrameLoaderClientWx::dispatchDidReceiveTitle(const String& title)
+void FrameLoaderClientWx::dispatchDidReceiveTitle(const StringWithDirection& title)
 {
     if (m_webView) {
-        m_webView->SetPageTitle(title);
+        // FIXME: use direction of title.
+        m_webView->SetPageTitle(title.string());
         wxWebViewReceivedTitleEvent wkEvent(m_webView);
-        wkEvent.SetTitle(title);
+        wkEvent.SetTitle(title.string());
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
@@ -320,12 +322,12 @@ void FrameLoaderClientWx::dispatchDidFinishDocumentLoad()
     if (m_webView) {
         wxWebViewLoadEvent wkEvent(m_webView);
         wkEvent.SetState(wxWEBVIEW_LOAD_DOC_COMPLETED);
-        wkEvent.SetURL(m_frame->loader()->url().string());
+        wkEvent.SetURL(m_frame->document()->url().string());
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
 
-void FrameLoaderClientWx::dispatchDidChangeIcons()
+void FrameLoaderClientWx::dispatchDidChangeIcons(WebCore::IconType)
 {
     notImplemented();
 }
@@ -394,7 +396,7 @@ void FrameLoaderClientWx::postProgressFinishedNotification()
     if (m_webView) {
         wxWebViewLoadEvent wkEvent(m_webView);
         wkEvent.SetState(wxWEBVIEW_LOAD_DL_COMPLETED);
-        wkEvent.SetURL(m_frame->loader()->url().string());
+        wkEvent.SetURL(m_frame->document()->url().string());
         m_webView->GetEventHandler()->ProcessEvent(wkEvent);
     }
 }
@@ -430,16 +432,27 @@ void FrameLoaderClientWx::didChangeTitle(DocumentLoader *l)
 }
 
 
-void FrameLoaderClientWx::finishedLoading(DocumentLoader*)
+void FrameLoaderClientWx::finishedLoading(DocumentLoader* loader)
 {
-    if (m_pluginView) {
+    if (!m_pluginView) {
+        if (m_firstData) {
+            loader->writer()->setEncoding(m_response.textEncodingName(), false);
+            m_firstData = false;
+        }
+    } else {
         m_pluginView->didFinishLoading();
         m_pluginView = 0;
         m_hasSentResponseToPlugin = false;
     }
 }
 
+bool FrameLoaderClientWx::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return true;
+}
 
+    
 bool FrameLoaderClientWx::canShowMIMEType(const String& MIMEType) const
 {
     notImplemented();
@@ -513,7 +526,7 @@ void FrameLoaderClientWx::prepareForDataSourceReplacement()
 }
 
 
-void FrameLoaderClientWx::setTitle(const String& title, const KURL&)
+void FrameLoaderClientWx::setTitle(const StringWithDirection& title, const KURL&)
 {
     notImplemented();
 }
@@ -522,7 +535,7 @@ void FrameLoaderClientWx::setTitle(const String& title, const KURL&)
 String FrameLoaderClientWx::userAgent(const KURL&)
 {
     // FIXME: Use the new APIs introduced by the GTK port to fill in these values.
-    return String("Mozilla/5.0 (Macintosh; U; Intel Mac OS X; en) AppleWebKit/418.9.1 (KHTML, like Gecko) Safari/419.3");
+    return String("Mozilla/5.0 (Macintosh; Intel Mac OS X) AppleWebKit/418.9.1 (KHTML, like Gecko) Safari/419.3");
 }
 
 void FrameLoaderClientWx::dispatchDidReceiveIcon()
@@ -566,6 +579,11 @@ bool FrameLoaderClientWx::shouldGoToHistoryItem(WebCore::HistoryItem*) const
     return true;
 }
 
+bool FrameLoaderClientWx::shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const
+{
+    return true;
+}
+
 void FrameLoaderClientWx::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
 {
 }
@@ -583,7 +601,7 @@ void FrameLoaderClientWx::didDisplayInsecureContent()
     notImplemented();
 }
 
-void FrameLoaderClientWx::didRunInsecureContent(WebCore::SecurityOrigin*)
+void FrameLoaderClientWx::didRunInsecureContent(WebCore::SecurityOrigin*, const KURL&)
 {
     notImplemented();
 }
@@ -598,21 +616,22 @@ bool FrameLoaderClientWx::canCachePage() const
     return false;
 }
 
-void FrameLoaderClientWx::setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&)
+void FrameLoaderClientWx::setMainDocumentError(WebCore::DocumentLoader* loader, const WebCore::ResourceError&)
 {
-    notImplemented();
+    if (m_firstData) {
+        loader->writer()->setEncoding(m_response.textEncodingName(), false);
+        m_firstData = false;
+    }
 }
 
+// FIXME: This function should be moved into WebCore.
 void FrameLoaderClientWx::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
     if (!m_webFrame)
         return;
-    if (!m_pluginView) {
-        FrameLoader* fl = loader->frameLoader();
-        fl->writer()->setEncoding(m_response.textEncodingName(), false);
-        fl->addData(data, length);
-    }
-    
+    if (!m_pluginView)
+        loader->commitData(data, length);
+
     // We re-check here as the plugin can have been created
     if (m_pluginView) {
         if (!m_hasSentResponseToPlugin) {
@@ -722,8 +741,12 @@ void FrameLoaderClientWx::dispatchDidFinishLoading(DocumentLoader*, unsigned lon
     notImplemented();
 }
 
-void FrameLoaderClientWx::dispatchDidFailLoading(DocumentLoader*, unsigned long, const ResourceError&)
+void FrameLoaderClientWx::dispatchDidFailLoading(DocumentLoader* loader, unsigned long, const ResourceError&)
 {
+    if (m_firstData) {
+        loader->writer()->setEncoding(m_response.textEncodingName(), false);
+        m_firstData = false;
+    }
     if (m_webView) {
         wxWebViewLoadEvent wkEvent(m_webView);
         wkEvent.SetState(wxWEBVIEW_LOAD_FAILED);
@@ -748,13 +771,13 @@ void FrameLoaderClientWx::dispatchDidFailLoad(const ResourceError&)
     notImplemented();
 }
 
-Frame* FrameLoaderClientWx::dispatchCreatePage()
+Frame* FrameLoaderClientWx::dispatchCreatePage(const NavigationAction&)
 {
     notImplemented();
     return false;
 }
 
-void FrameLoaderClientWx::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimetype, const ResourceRequest& request)
+void FrameLoaderClientWx::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest& request)
 {
     if (!m_webFrame)
         return;
@@ -832,7 +855,7 @@ PassRefPtr<Frame> FrameLoaderClientWx::createFrame(const KURL& url, const String
     if (!childFrame->page())
         return 0;
 
-    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    m_frame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
     
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -841,11 +864,15 @@ PassRefPtr<Frame> FrameLoaderClientWx::createFrame(const KURL& url, const String
     return childFrame.release();
 }
 
-void FrameLoaderClientWx::didTransferChildFrameToNewDocument()
+void FrameLoaderClientWx::didTransferChildFrameToNewDocument(Page*)
 {
 }
 
-ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const String& mimeType)
+void FrameLoaderClientWx::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+}
+
+ObjectContentType FrameLoaderClientWx::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
 {
     notImplemented();
     return ObjectContentType();
@@ -944,11 +971,28 @@ void FrameLoaderClientWx::transitionToCommittedForNewPage()
         m_frame->createView(size, backgroundColor, transparent, IntSize(), false); 
 }
 
+void FrameLoaderClientWx::didSaveToPageCache()
+{
+}
+
+void FrameLoaderClientWx::didRestoreFromPageCache()
+{
+}
+
+void FrameLoaderClientWx::dispatchDidBecomeFrameset(bool)
+{
+}
+
 bool FrameLoaderClientWx::shouldUsePluginDocument(const String &mimeType) const
 {
     // NOTE: Plugin Documents are used for viewing PDFs, etc. inline, and should
     // not be used for pages with plugins in them.
     return false;
+}
+
+PassRefPtr<FrameNetworkingContext> FrameLoaderClientWx::createNetworkingContext()
+{
+    return FrameNetworkingContextWx::create(m_frame);
 }
 
 }

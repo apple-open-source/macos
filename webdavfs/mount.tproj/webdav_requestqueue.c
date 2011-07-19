@@ -32,10 +32,15 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <sys/sysctl.h>
 #include "webdav_requestqueue.h"
 #include "webdav_network.h"
 
 /*****************************************************************************/
+
+extern fsid_t	g_fsid;		/* file system id */
+extern int g_vfc_typenum;
+extern char g_mountPoint[MAXPATHLEN];	/* path to our mount point */
 
 /* structure */
 
@@ -129,6 +134,53 @@ pthread_mutex_lock:
 	return ( result );
 }
 
+static void notify_reconnected(void)
+{
+	int mib[5];
+	struct statfs *buf;
+	int i, count;
+	size_t len;
+	
+	// lazily fetch our g_fsid
+	if ( g_fsid.val[0] == -1 && g_fsid.val[1] == -1) {
+		// Fetch mounted filesystem stats. Specify the MNT_NOWAIT flag to directly return the information
+		// retained in the kernel to avoid delays caused by waiting 
+		// for updated information from a file system.
+		count = getmntinfo(&buf, MNT_NOWAIT);
+		if (!count) {
+			syslog(LOG_DEBUG, "%s: errno %d fetching mnt info", __FUNCTION__, errno);
+			return;
+		}
+		
+		len = (unsigned int)strlen(g_mountPoint);
+		for (i = 0; i < count; i++)
+		{		
+			if ( (strcmp("webdav", buf[i].f_fstypename) == 0) &&
+				(strlen(buf[i].f_mntonname) == len) &&
+				(strncasecmp(buf[i].f_mntonname, g_mountPoint, len) == 0) ) {
+				// found our fs
+				g_fsid = buf[i].f_fsid;
+				break;
+			}
+		}
+	}
+	
+	if ( g_fsid.val[0] != -1 && g_fsid.val[1] != -1 ) {	
+		/* setup mib for the request */
+		mib[0] = CTL_VFS;
+		mib[1] = g_vfc_typenum;
+		mib[2] = WEBDAV_NOTIFY_RECONNECTED_SYSCTL;
+		mib[3] = g_fsid.val[0];	// fsid byte 0 of reconnected file system
+		mib[4] = g_fsid.val[1];	// fsid byte 1 of reconnected file system
+	
+		if (sysctl(mib, 5, NULL, NULL, NULL, 0) != 0)
+			syslog(LOG_ERR, "%s: sysctl errno %d", __FUNCTION__, errno );
+	}
+	else {
+		syslog(LOG_DEBUG, "%s: fsid not found for %s\n", __FUNCTION__, g_mountPoint);
+	}		
+}
+
 /*****************************************************************************/
 
 /* set the connectionstate */
@@ -155,6 +207,7 @@ void set_connectionstate(int state)
 		case WEBDAV_CONNECTION_UP:
 			if (connectionstate == WEBDAV_CONNECTION_DOWN) {
 				syslog(LOG_ERR, "WebDAV server is now responding normally");
+				notify_reconnected();	// let the kext know the server is online
 				connectionstate = WEBDAV_CONNECTION_UP;
 			}
 		break;

@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2006 Allan Sandfeld Jensen (kde@carewolf.com) 
  *           (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,10 +25,12 @@
 #ifndef RenderImage_h
 #define RenderImage_h
 
+#include "RenderImageResource.h"
 #include "RenderReplaced.h"
 
 namespace WebCore {
 
+class HTMLAreaElement;
 class HTMLMapElement;
 
 class RenderImage : public RenderReplaced {
@@ -36,91 +38,78 @@ public:
     RenderImage(Node*);
     virtual ~RenderImage();
 
+    void setImageResource(PassOwnPtr<RenderImageResource>);
+
+    RenderImageResource* imageResource() { return m_imageResource.get(); }
+    const RenderImageResource* imageResource() const { return m_imageResource.get(); }
+    CachedImage* cachedImage() const { return m_imageResource ? m_imageResource->cachedImage() : 0; }
+
     bool setImageSizeForAltText(CachedImage* newImage = 0);
 
     void updateAltText();
 
-    void setCachedImage(CachedImage*);
-    CachedImage* cachedImage() const { return m_cachedImage.get(); }
-
     HTMLMapElement* imageMap() const;
-
-    void resetAnimation();
-
-    virtual bool hasImage() const { return m_cachedImage; }
+    void areaElementFocusChanged(HTMLAreaElement*);
 
     void highQualityRepaintTimerFired(Timer<RenderImage>*);
 
 protected:
-    virtual Image* image(int /* width */ = 0, int /* height */ = 0) { return m_cachedImage ? m_cachedImage->image() : nullImage(); }
-    virtual bool errorOccurred() const { return m_cachedImage && m_cachedImage->errorOccurred(); }
-
     virtual void styleDidChange(StyleDifference, const RenderStyle*);
 
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     virtual void paintIntoRect(GraphicsContext*, const IntRect&);
-    void paintFocusRings(PaintInfo&, const RenderStyle*);
     virtual void paint(PaintInfo&, int tx, int ty);
 
-    bool isWidthSpecified() const;
-    bool isHeightSpecified() const;
+    bool isLogicalWidthSpecified() const;
+    bool isLogicalHeightSpecified() const;
 
-    virtual void intrinsicSizeChanged() { imageChanged(imagePtr()); }
+    virtual void intrinsicSizeChanged()
+    {
+        if (m_imageResource)
+            imageChanged(m_imageResource->imagePtr());
+    }
 
 private:
     virtual const char* renderName() const { return "RenderImage"; }
 
     virtual bool isImage() const { return true; }
     virtual bool isRenderImage() const { return true; }
-    
+
     virtual void paintReplaced(PaintInfo&, int tx, int ty);
 
     virtual int minimumReplacedHeight() const;
 
     virtual void notifyFinished(CachedResource*);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
-    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int calcReplacedHeight() const;
-
-    virtual void calcPrefWidths();
-
-    virtual bool usesImageContainerSize() const { return m_cachedImage ? m_cachedImage->usesImageContainerSize() : false; }
-    virtual void setImageContainerSize(const IntSize& size) const { if (m_cachedImage) m_cachedImage->setImageContainerSize(size); }
-    virtual bool imageHasRelativeWidth() const { return m_cachedImage ? m_cachedImage->imageHasRelativeWidth() : false; }
-    virtual bool imageHasRelativeHeight() const { return m_cachedImage ? m_cachedImage->imageHasRelativeHeight() : false; }
-    virtual IntSize imageSize(float multiplier) const { return m_cachedImage ? m_cachedImage->imageSize(multiplier) : IntSize(); }
-    virtual WrappedImagePtr imagePtr() const { return m_cachedImage.get(); }
+    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedLogicalHeight() const;
 
     IntSize imageSizeForError(CachedImage*) const;
     void imageDimensionsChanged(bool imageSizeChanged, const IntRect* = 0);
 
-    int calcAspectRatioWidth() const;
-    int calcAspectRatioHeight() const;
+    int calcAspectRatioLogicalWidth() const;
+    int calcAspectRatioLogicalHeight() const;
 
-protected:
-    // The image we are rendering.
-    CachedResourceHandle<CachedImage> m_cachedImage;
+    void paintAreaElementFocusRing(PaintInfo&);
 
-private:
     // Text to display as long as the image isn't available.
     String m_altText;
+    OwnPtr<RenderImageResource> m_imageResource;
     bool m_needsToSetSizeForAltText;
 
-    static Image* nullImage();
-    
     friend class RenderImageScaleObserver;
 };
 
 inline RenderImage* toRenderImage(RenderObject* object)
-{ 
+{
     ASSERT(!object || object->isRenderImage());
     return static_cast<RenderImage*>(object);
 }
 
 inline const RenderImage* toRenderImage(const RenderObject* object)
-{ 
+{
     ASSERT(!object || object->isRenderImage());
     return static_cast<const RenderImage*>(object);
 }

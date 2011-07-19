@@ -7,9 +7,9 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: tar.tcl,v 1.11 2007/02/09 06:03:56 afaupell Exp $
+# RCS: @(#) $Id: tar.tcl,v 1.15 2009/12/03 19:59:32 andreas_kupries Exp $
 
-package provide tar 0.4
+package provide tar 0.6
 
 namespace eval ::tar {}
 
@@ -45,13 +45,42 @@ proc ::tar::readHeader {data} {
     binary scan $data a100a8a8a8a12a12a8a1a100a6a2a32a32a8a8a155 \
                       name mode uid gid size mtime cksum type \
                       linkname magic version uname gname devmajor devminor prefix
-                               
-    foreach x {name mode type linkname magic uname gname prefix mode uid gid size mtime cksum version devmajor devminor} {
+
+    foreach x {name type linkname} {
         set $x [string trim [set $x] "\x00"]
     }
-    set mode [string trim $mode " \x00"]
-    foreach x {uid gid size mtime cksum version devmajor devminor} {
+    foreach x {uid gid size mtime cksum} {
         set $x [format %d 0[string trim [set $x] " \x00"]]
+    }
+    set mode [string trim $mode " \x00"]
+
+    if {$magic == "ustar "} {
+        # gnu tar
+        # not fully supported
+        foreach x {uname gname prefix} {
+            set $x [string trim [set $x] "\x00"]
+        }
+        foreach x {devmajor devminor} {
+            set $x [format %d 0[string trim [set $x] " \x00"]]
+        }
+    } elseif {$magic == "ustar\x00"} {
+        # posix tar
+        foreach x {uname gname prefix} {
+            set $x [string trim [set $x] "\x00"]
+        }
+        foreach x {devmajor devminor} {
+            set $x [format %d 0[string trim [set $x] " \x00"]]
+        }
+    } else {
+        # old style tar
+        foreach x {uname gname devmajor devminor prefix} { set $x {} }
+        if {$type == ""} {
+            if {[string match */ $name]} {
+                set type 5
+            } else {
+                set type 0
+            }
+        }
     }
 
     return [list name $name mode $mode uid $uid gid $gid size $size mtime $mtime \
@@ -62,6 +91,7 @@ proc ::tar::readHeader {data} {
 
 proc ::tar::contents {file} {
     set fh [::open $file]
+    set ret {}
     while {![eof $fh]} {
         array set header [readHeader [read $fh 512]]
         if {$header(name) == ""} break
@@ -74,6 +104,7 @@ proc ::tar::contents {file} {
 
 proc ::tar::stat {tar {file {}}} {
     set fh [::open $tar]
+    set ret {}
     while {![eof $fh]} {
         array set header [readHeader [read $fh 512]]
         if {$header(name) == ""} break
@@ -139,7 +170,11 @@ proc ::tar::untar {tar args} {
             lappend ret [file dirname $name] {}
         }
         if {[string match {[0346]} $header(type)]} {
-            set new [::open $name w+]
+            if {[catch {::open $name w+} new]} {
+                # sometimes if we dont have write permission we can still delete
+                catch {file delete -force $name}
+                set new [::open $name w+]
+            }
             fconfigure $new -encoding binary -translation lf -eofchar {}
             fcopy $fh $new -size $header(size)
             close $new
@@ -158,7 +193,7 @@ proc ::tar::untar {tar args} {
 
         if {$::tcl_platform(platform) == "unix"} {
             if {!$noperms} {
-                catch {file attributes $name -permissions [string range $header(mode) 2 end]}
+                catch {file attributes $name -permissions 0[string range $header(mode) 2 end]}
             }
             catch {file attributes $name -owner $header(uid) -group $header(gid)}
             catch {file attributes $name -owner $header(uname) -group $header(gname)}
@@ -171,34 +206,90 @@ proc ::tar::untar {tar args} {
     return $ret
 }
 
-proc ::tar::createHeader {name followlinks} {
-    foreach x {linkname uname gname prefix devmajor devminor} {set $x ""}
-    
+## 
+ # ::tar::statFile
+ # 
+ # Returns stat info about a filesystem object, in the form of an info 
+ # dictionary like that returned by ::tar::readHeader.
+ # 
+ # The mode, uid, gid, mtime, and type entries are always present. 
+ # The size and linkname entries are present if relevant for this type 
+ # of object. The uname and gname entries are present if the OS supports 
+ # them. No devmajor or devminor entry is present.
+ ##
+
+proc ::tar::statFile {name followlinks} {
     if {$followlinks} {
         file stat $name stat
     } else {
         file lstat $name stat
     }
     
-    set type [string map {file 0 directory 5 characterSpecial 3 blockSpecial 4 fifo 6 link 2 socket A} $stat(type)]
-    set gid [format %o $stat(gid)]
-    set uid [format %o $stat(uid)]
-    set mtime [format %o $stat(mtime)]
+    set ret {}
     
     if {$::tcl_platform(platform) == "unix"} {
-        set uname [file attributes $name -owner]
-        set gname [file attributes $name -group]
-        set mode 1[file attributes $name -permissions]
-        if {$stat(type) == "link"} {set linkname [file link $name]}
+        lappend ret mode 1[file attributes $name -permissions]
+        lappend ret uname [file attributes $name -owner]
+        lappend ret gname [file attributes $name -group]
+        if {$stat(type) == "link"} {
+            lappend ret linkname [file link $name]
+        }
     } else {
-        set mode 100644
-        if {$stat(type) == "directory"} {set mode 100755}
+        lappend ret mode [lindex {100644 100755} [expr {$stat(type) == "directory"}]]
     }
     
-    set size 0
-    if {$stat(type) == "file"} {
-        set size [format %o $stat(size)]
+    lappend ret  uid $stat(uid)  gid $stat(gid)  mtime $stat(mtime) \
+      type $stat(type)
+    
+    if {$stat(type) == "file"} {lappend ret size $stat(size)}
+    
+    return $ret
+}
+
+## 
+ # ::tar::formatHeader
+ # 
+ # Opposite operation to ::tar::readHeader; takes a file name and info 
+ # dictionary as arguments, returns a corresponding (POSIX-tar) header.
+ # 
+ # The following dictionary entries must be present:
+ #   mode
+ #   type
+ # 
+ # The following dictionary entries are used if present, otherwise 
+ # the indicated default is used:
+ #   uid       0
+ #   gid       0
+ #   size      0
+ #   mtime     [clock seconds]
+ #   linkname  {}
+ #   uname     {}
+ #   gname     {}
+ #   
+ # All other dictionary entries, including devmajor and devminor, are 
+ # presently ignored.
+ ##
+
+proc ::tar::formatHeader {name info} {
+    array set A {
+        linkname ""
+        uname ""
+        gname ""
+        size 0
+        gid  0
+        uid  0
     }
+    set A(mtime) [clock seconds]
+    array set A $info
+    array set A {devmajor "" devminor ""}
+
+    set type [string map {file 0 directory 5 characterSpecial 3 \
+      blockSpecial 4 fifo 6 link 2 socket A} $A(type)]
+    
+    set osize  [format %o $A(size)]
+    set ogid   [format %o $A(gid)]
+    set ouid   [format %o $A(uid)]
+    set omtime [format %o $A(mtime)]
     
     set name [string trimleft $name /]
     if {[string length $name] > 255} {
@@ -206,11 +297,15 @@ proc ::tar::createHeader {name followlinks} {
     } elseif {[string length $name] > 100} {
         set prefix [string range $name 0 end-100]
         set name [string range $name end-99 end]
+    } else {
+        set prefix ""
     }
 
     set header [binary format a100A8A8A8A12A12A8a1a100A6a2a32a32a8a8a155a12 \
-                              $name $mode\x00 $uid\x00 $gid\x00 $size\x00 $mtime\x00 {} $type \
-                              $linkname ustar\x00 00 $uname $gname $devmajor $devminor $prefix {}]
+                              $name $A(mode)\x00 $ouid\x00 $ogid\x00\
+                              $osize\x00 $omtime\x00 {} $type \
+                              $A(linkname) ustar\x00 00 $A(uname) $A(gname)\
+                              $A(devmajor) $A(devminor) $prefix {}]
 
     binary scan $header c* tmp
     set cksum 0
@@ -218,6 +313,7 @@ proc ::tar::createHeader {name followlinks} {
 
     return [string replace $header 148 155 [binary format A8 [format %o $cksum]\x00]]
 }
+
 
 proc ::tar::recurseDirs {files followlinks} {
     foreach x $files {
@@ -232,8 +328,8 @@ proc ::tar::recurseDirs {files followlinks} {
     return $files
 }
 
-proc ::tar::writefile {in out followlinks} {
-     puts -nonewline $out [createHeader $in $followlinks]
+proc ::tar::writefile {in out followlinks name} {
+     puts -nonewline $out [formatHeader $name [statFile $in $followlinks]]
      set size 0
      if {[file type $in] == "file" || ($followlinks && [file type $in] == "link")} {
          set in [::open $in]
@@ -251,7 +347,7 @@ proc ::tar::create {tar files args} {
     set fh [::open $tar w+]
     fconfigure $fh -encoding binary -translation lf -eofchar {}
     foreach x [recurseDirs $files $dereference] {
-        writefile $x $fh $dereference
+        writefile $x $fh $dereference $x
     }
     puts -nonewline $fh [string repeat \x00 1024]
 
@@ -261,14 +357,27 @@ proc ::tar::create {tar files args} {
 
 proc ::tar::add {tar files args} {
     set dereference 0
-    parseOpts {dereference 0} $args
+    set prefix ""
+    set quick 0
+    parseOpts {dereference 0 prefix 1 quick 0} $args
     
     set fh [::open $tar r+]
     fconfigure $fh -encoding binary -translation lf -eofchar {}
-    seek $fh -1024 end
+    
+    if {$quick} then {
+        seek $fh -1024 end
+    } else {
+        set data [read $fh 512]
+        while {[regexp {[^\0]} $data]} {
+            array set header [readHeader $data]
+            seek $fh [expr {$header(size) + [pad $header(size)]}] current
+            set data [read $fh 512]
+        }
+        seek $fh -512 current
+    }
 
     foreach x [recurseDirs $files $dereference] {
-        writefile $x $fh $dereference
+        writefile $x $fh $dereference $prefix$x
     }
     puts -nonewline $fh [string repeat \x00 1024]
 

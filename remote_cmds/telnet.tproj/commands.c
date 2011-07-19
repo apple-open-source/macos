@@ -39,6 +39,9 @@ static const char sccsid[] = "@(#)commands.c	8.4 (Berkeley) 5/30/95";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/contrib/telnet/telnet/commands.c,v 1.35 2005/02/28 12:46:52 tobez Exp $");
 
+/* Use RFC 2292 constants in <netinet6/in6.h> */
+#define __APPLE_USE_RFC_2292
+
 #include <sys/param.h>
 #include <sys/un.h>
 #include <sys/file.h>

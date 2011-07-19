@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>NetAddr-IP</string>
+        <key>OpenSourceVersion</key>
+        <string>4.037</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/M/MI/MIKER/NetAddr-IP-4.037.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl Artistic</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-12-06</string>
+</dict>

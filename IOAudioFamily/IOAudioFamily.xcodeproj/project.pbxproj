@@ -531,7 +531,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
-				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
 				INFOPLIST_PREPROCESS = YES;
 				INFOPLIST_PREPROCESSOR_DEFINITIONS = DEBUG;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -540,7 +540,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Development\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.3fc2;
+				MODULE_VERSION = 1.8.3fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -575,7 +575,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
-				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -586,7 +586,7 @@
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/build/Default\"";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.3fc2;
+				MODULE_VERSION = 1.8.3fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -618,7 +618,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOAudioFamily.plist";
-				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-traditional-cpp -I.";
+				INFOPLIST_OTHER_PREPROCESSOR_FLAGS = "-I.";
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -627,7 +627,7 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOAudioFamily;
-				MODULE_VERSION = 1.8.3fc2;
+				MODULE_VERSION = 1.8.3fc11;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
 					"-DIOAUDIOFAMILY_SELF_BUILD",
@@ -675,6 +675,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
 				);
+				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
@@ -697,6 +698,7 @@
 				REZ_EXECUTABLE = YES;
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				UNSTRIPPED_PRODUCT = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
@@ -733,6 +735,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
 				);
+				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
@@ -755,6 +758,7 @@
 				REZ_EXECUTABLE = YES;
 				SDKROOT = "$(DEVELOPER_SDK_DIR)/MacOSX10.6.sdk";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -788,6 +792,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd",
 				);
+				INSTALL_PATH = /usr/local/lib;
 				LIBRARY_STYLE = STATIC;
 				OTHER_CFLAGS = (
 					"$(DEBUG_CFLAGS)",
@@ -810,6 +815,7 @@
 				REZ_EXECUTABLE = YES;
 				SDKROOT = "";
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
 				VALID_ARCHS = "x86_64 ppc i386";
 				WARNING_CFLAGS = (
 					"-Wmost",

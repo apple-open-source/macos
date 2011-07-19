@@ -3,6 +3,7 @@
 [copyright {2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Grammar operations and usage}]
 [titledesc {AST utilities}]
+[category  {Grammars and finite automata}]
 [require Tcl 8.4]
 [require grammar::me::util [opt 0.1]]
 [description]

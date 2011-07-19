@@ -60,12 +60,14 @@ or more names.  If all of a keymap's names are deleted, it disappears.
 findex(bindkey, use of)
 tt(bindkey) can be used to manipulate keymap names.
 
-Initially, there are four keymaps:
+Initially, there are six keymaps:
 
 startsitem()
 sitem(tt(emacs))(EMACS emulation)
 sitem(tt(viins))(vi emulation - insert mode)
 sitem(tt(vicmd))(vi emulation - command mode)
+sitem(tt(isearch))(incremental search mode)
+sitem(tt(command))(read a command name)
 sitem(tt(.safe))(fallback keymap)
 endsitem()
 
@@ -76,7 +78,7 @@ avoid using names beginning with `tt(.)' for their own keymaps.
 
 vindex(VISUAL)
 vindex(EDITOR)
-In addition to these four names, either `tt(emacs)' or `tt(viins)' is
+In addition to these names, either `tt(emacs)' or `tt(viins)' is
 also linked to the name `tt(main)'.  If one of the tt(VISUAL) or
 tt(EDITOR) environment variables contain the string `tt(vi)' when the shell
 starts up then it will be `tt(viins)', otherwise it will be `tt(emacs)'.
@@ -137,7 +139,7 @@ cindex(rebinding keys)
 cindex(keys, binding)
 cindex(binding keys)
 cindex(keymaps)
-xitem(tt(bindkey) [ var(options) ] tt(-l))
+xitem(tt(bindkey) [ var(options) ] tt(-l) [ tt(-L) ] [ var(keymap) ... ])
 xitem(tt(bindkey) [ var(options) ] tt(-d))
 xitem(tt(bindkey) [ var(options) ] tt(-D) var(keymap) ...)
 xitem(tt(bindkey) [ var(options) ] tt(-A) var(old-keymap new-keymap))
@@ -147,21 +149,27 @@ xitem(tt(bindkey) [ var(options) ] tt(-r) var(in-string) ...)
 xitem(tt(bindkey) [ var(options) ] tt(-s) var(in-string out-string) ...)
 xitem(tt(bindkey) [ var(options) ] var(in-string command) ...)
 item(tt(bindkey) [ var(options) ] [ var(in-string) ])(
-tt(bindkey)'s options can be divided into three categories: keymap selection,
-operation selection, and others.  The keymap selection options are:
+tt(bindkey)'s options can be divided into three categories: keymap
+selection for the current command, operation selection, and others.  The
+keymap selection options are:
 
 startitem()
 item(tt(-e))(
-Selects keymap `tt(emacs)', and also links it to `tt(main)'.
+Selects keymap `tt(emacs)' for any operations by the current command,
+and also links `tt(emacs)' to `tt(main)' so that it is selected by
+default the next time the editor starts.
 )
 item(tt(-v))(
-Selects keymap `tt(viins)', and also links it to `tt(main)'.
+Selects keymap `tt(viins)' for any operations by the current command,
+and also links `tt(viins)' to `tt(main)' so that it is selected by default
+the next time the editor starts.
 )
 item(tt(-a))(
-Selects keymap `tt(vicmd)'.
+Selects keymap `tt(vicmd)' for any operations by the current command.
 )
 item(tt(-M) var(keymap))(
-The var(keymap) specifies a keymap name.
+The var(keymap) specifies a keymap name that is selected for any
+operations by the current command.
 )
 enditem()
 
@@ -171,9 +179,16 @@ selected, namely:
 
 startitem()
 item(tt(-l))(
-List all existing keymap names.  If the tt(-L)
-option is also used, list in the form of tt(bindkey)
-commands to create the keymaps.
+List all existing keymap names; if any arguments are given, list just
+those keymaps.
+
+If the tt(-L) option is also used, list in the form of tt(bindkey)
+commands to create or link the keymaps.  `tt(bindkey -lL
+main)' shows which keymap is linked to `tt(main)', if any, and hence if
+the standard emacs or vi emulation is in effect.  This option does
+not show the tt(.safe) keymap because it cannot be created in that
+fashion; however, neither is `tt(bindkey -lL .safe)' reported as an
+error, it simply outputs nothing.
 )
 item(tt(-d))(
 Delete all existing keymaps and reset to the default state.
@@ -292,7 +307,8 @@ findex(vared)
 cindex(parameters, editing)
 cindex(editing parameters)
 xitem(tt(vared) [ tt(-Aache) ] [ tt(-p) var(prompt) ] [ tt(-r) var(rprompt) ])
-item(  [ -M var(main-keymap) ] [ -m var(vicmd-keymap) ] var(name))(
+xitem(  [ tt(-M) var(main-keymap) ] [ tt(-m) var(vicmd-keymap) ])
+item(  [ tt(-t) var(tty) ] var(name))(
 The value of the parameter var(name) is loaded into the edit
 buffer, and the line editor is invoked.  When the editor exits,
 var(name) is set to the string value returned by the editor.
@@ -326,6 +342,10 @@ keymap during editing.  For vi-style editing, this allows a pair of keymaps
 to override tt(viins) and tt(vicmd).  For emacs-style editing, only tt(-M)
 is normally needed but the tt(-m) option may still be used.  On exit, the
 previous keymaps will be restored.
+
+If `tt(-t) var(tty)' is given, var(tty) is the name of a terminal device
+to be used instead of the default tt(/dev/tty).  If var(tty) does not
+refer to a terminal an error is reported.
 )
 findex(zle)
 cindex(widgets, rebinding)
@@ -598,7 +618,7 @@ simply to perform some small action.  The ZLE commands that key sequences
 in keymaps are bound to are in fact widgets.  Widgets can be user-defined
 or built in.
 
-The standard widgets built in to ZLE are listed in Standard Widgets below.
+The standard widgets built into ZLE are listed in Standard Widgets below.
 Other built-in widgets can be defined by other modules (see
 ifzman(zmanref(zshmodules))\
 ifnzman(noderef(Zsh Modules))\
@@ -675,8 +695,8 @@ cursor being moved to the appropriate end of the buffer.
 )
 vindex(CUTBUFFER)
 item(tt(CUTBUFFER) (scalar))(
-The last item to be cut using one of the `tt(kill-)' commands; the
-string which the next yank would insert in the line.  Later entries in
+The last item cut using one of the `tt(kill-)' commands; the string
+which the next yank would insert in the line.  Later entries in
 the kill ring are in the array tt(killring).  Note that the
 command `tt(zle copy-region-as-kill) var(string)' can be used to
 set the text of the cut buffer from a shell function and cycle the kill
@@ -714,10 +734,16 @@ effectively sets the maximum length of the kill ring, while the number of
 non-zero strings gives the current length, both as seen by the user at the
 command line.
 )
-
+vindex(LASTABORTEDSEARCH)
+item(tt(LASTABORTEDSEARCH) (scalar))(
+The last search string used by an interactive search that was
+aborted by the user (status 3 returned by the search widget).
+)
 vindex(LASTSEARCH)
 item(tt(LASTSEARCH) (scalar))(
-The last search string used by an interactive search ; read-only.
+The last search string used by an interactive search; read-only.
+This is set even if the search failed (status 0, 1 or 2 returned
+by the search widget), but not if it was aborted by the user.
 )
 vindex(LASTWIDGET)
 item(tt(LASTWIDGET) (scalar))(
@@ -758,7 +784,7 @@ vindex(PREDISPLAY)
 item(tt(PREDISPLAY) (scalar))(
 Text to be displayed before the start of the editable text buffer.  This
 does not have to be a complete line; to display a complete line, a newline
-must be appended explicitly.    The text is reset on each new invocation
+must be appended explicitly.  The text is reset on each new invocation
 (but not recursive invocation) of zle.
 )
 vindex(POSTDISPLAY)
@@ -802,12 +828,10 @@ whitespace.)
 list(An end offset in the same units as tt(CURSOR), terminated by
 whitespace.)
 list(A highlight specification in the same format as
-used for the contexts tt(region) or tt(special)
-in the parameter tt(zle_highlight),
+used for contexts in the parameter tt(zle_highlight),
 ifnzman(noderef(Character Highlighting))\
-ifzman(see Character Highlighting below).
-Hence this should be a comma-separated list of any of the
-words tt(bold), tt(standout) or tt(underline).
+ifzman(see Character Highlighting below);
+for example, tt(standout) or tt(fg=red,bold)).
 endlist()
 
 For example, 
@@ -822,7 +846,6 @@ as soon as the line is accepted.  The line editor makes no attempt to
 keep the highlighting effect synchronised with the line as it is edited;
 hence region highlighting is best limited to static effects within
 user widgets.
-)
 )
 vindex(WIDGET)
 item(tt(WIDGET) (scalar))(
@@ -844,6 +867,17 @@ executed; the second argument that followed tt(zle -C) when the widget was
 defined.  This is the name of a builtin completion widget.  For widgets
 defined with tt(zle -N) this is set to the empty string.  Read-only.
 )
+vindex(ZLE_STATE)
+item(tt(ZLE_STATE) (scalar))(
+Contains a set of space-separated words that describe the current tt(zle)
+state.
+
+Currently, the only state shown is the insert mode as set by the
+tt(overwrite-mode) or tt(vi-replace) widgets.  The string contains
+`tt(insert)' if characters to be inserted on the command line move existing
+characters to the right, `tt(overwrite)' if characters to be inserted
+overwrite existing characters.
+)
 enditem()
 
 subsect(Special Widgets)
@@ -853,6 +887,28 @@ If they do not exist, no special action is taken.  The environment
 provided is identical to that for any other editing widget.
 
 startitem()
+tindex(zle-isearch-exit)
+item(tt(zle-isearch-exit))(
+Executed at the end of incremental search at the point where the isearch
+prompt is removed from the display.  See tt(zle-isearch-update) for
+an example.
+)
+tindex(zle-isearch-update)
+item(tt(zle-isearch-update))(
+Executed within incremental search when the display is about to be
+redrawn.  Additional output below the incremental search prompt can be
+generated by using `tt(zle -M)' within the widget.  For example,
+
+example(zle-isearch-update+LPAR()RPAR() { zle -M "Line $HISTNO"; }
+zle -N zle-isearch-update)
+
+Note the line output by `tt(zle -M)' is not deleted on exit from
+incremental search.  This can be done from a tt(zle-isearch-exit)
+widget:
+
+example(zle-isearch-exit+LPAR()RPAR() { zle -M ""; }
+zle -N zle-isearch-exit)
+)
 tindex(zle-line-init)
 item(tt(zle-line-init))(
 Executed every time the line editor is started to read a new line
@@ -865,6 +921,11 @@ zle -N zle-line-init)
 (The command inside the function sets the keymap directly; it is
 equivalent to tt(zle vi-cmd-mode).)
 )
+tindex(zle-line-finish)
+item(tt(zle-line-finish))(
+This is similar to tt(zle-line-init) but is executed every time the
+line editor has finished reading a line of input.
+)
 tindex(zle-keymap-select)
 item(tt(zle-keymap-select))(
 Executed every time the keymap changes, i.e. the special parameter
@@ -875,7 +936,7 @@ widget to be called.
 The value tt($KEYMAP) within the function reflects the new keymap.  The
 old keymap is passed as the sole argument.
 
-This can been used for detecting switches between the vi command
+This can be used for detecting switches between the vi command
 (tt(vicmd)) and insert (usually tt(main)) keymaps.
 )
 enditem()
@@ -1107,12 +1168,21 @@ item(tt(history-incremental-search-backward) (^R ^Xr) (unbound) (unbound))(
 Search backward incrementally for a specified string.  The search is
 case-insensitive if the search string does not have uppercase letters and no
 numeric argument was given.  The string may begin with `tt(^)' to anchor the
-search to the beginning of the line.
+search to the beginning of the line.  When called from a user-defined
+function returns the following statuses: 0, if the search succeeded;
+1, if the search failed; 2, if the search term was a bad pattern;
+3, if the search was aborted by the tt(send-break) command.
 
 A restricted set of editing functions
-is available in the mini-buffer.  An interrupt signal, as defined by the stty
+is available in the mini-buffer.  Keys are looked up in the special
+tt(isearch) keymap, and if not found there in the main keymap (note
+that by default the tt(isearch) keymap is empty).
+An interrupt signal, as defined by the stty
 setting, will stop the search and go back to the original line.  An undefined
-key will have the same effect. The supported functions are:
+key will have the same effect.  Note that the following always
+perform the same task within incremental searches and cannot be
+replaced by user defined widgets, nor can the set of functions
+be extended.  The supported functions are:
 
 startitem()
 xitem(tt(accept-and-hold))
@@ -1127,6 +1197,11 @@ item(tt(vi-backward-delete-char))(
 Back up one place in the search history.  If the search has been
 repeated this does not immediately erase a character in the
 minibuffer.
+)
+item(tt(accept-search))(
+Exit incremental search, retaining the command line but performing no
+further action.  Note that this function is not bound by default
+and has no effect outside incremental search.
 )
 xitem(tt(backward-delete-word))
 xitem(tt(backward-kill-word))
@@ -1167,11 +1242,10 @@ mini-buffer.
 )
 enditem()
 
-Any multi-character string that is not bound to one of the above functions
-will beep and interrupt the search, leaving the last found line in the
-buffer. Any single character that is not bound to one of the above
-functions, or tt(self-insert) or tt(self-insert-unmeta), will have the same
-effect but the function will be executed.
+Any character that is not bound to one of the above functions, or
+tt(self-insert) or tt(self-insert-unmeta), will cause the mode to be
+exited.  The character is then looked up and executed in the keymap in
+effect at that point.
 
 When called from a widget function by the tt(zle) command, the incremental
 search commands can take a string argument.  This will be treated as a
@@ -1288,11 +1362,11 @@ the same way to pick a word from that event.
 
 When called from a shell function invoked from a user-defined widget, the
 command can take one to three arguments.  The first argument specifies a
-history offset which applies to successive calls to this widget: if is -1,
+history offset which applies to successive calls to this widget: if it is -1,
 the default behaviour is used, while if it is 1, successive calls will move
 forwards through the history.  The value 0 can be used to indicate that the
 history line examined by the previous execution of the command will be
-reexamined.  Note that negative numbers should be preceded with a
+reexamined.  Note that negative numbers should be preceded by a
 `tt(-)tt(-)' argument to avoid confusing them with options.
 
 If two arguments are given, the second specifies the word on the command
@@ -1843,11 +1917,16 @@ If a zero prefix argument is given, the region is activated but
 point and mark are not swapped.
 )
 tindex(execute-named-cmd)
-item(tt(execute-named-cmd) (ESC-x) (unbound) (unbound))(
+item(tt(execute-named-cmd) (ESC-x) (:) (unbound))(
 Read the name of an editor command and
 execute it.  A restricted set of editing functions is available in the
-mini-buffer.  An interrupt signal, as defined by the stty setting, will
-abort the function. The allowed functions are:
+mini-buffer.  Keys are looked up in the special
+tt(command) keymap, and if not found there in the main keymap.
+An interrupt signal, as defined by the stty setting, will
+abort the function.  Note that the following always
+perform the same task within the tt(executed-named-cmd) environment and
+cannot be replaced by user defined widgets, nor can the set of functions
+be extended.  The allowed functions are:
 tt(backward-delete-char),
 tt(vi-backward-delete-char),
 tt(clear-screen),
@@ -2003,7 +2082,8 @@ tindex(send-break)
 item(tt(send-break) (^G ESC-^G) (unbound) (unbound))(
 Abort the current editor function, e.g. tt(execute-named-command), or the
 editor itself, e.g. if you are in tt(vared). Otherwise abort the parsing of
-the current line.
+the current line; in this case the aborted line is available in the shell
+variable tt(ZLE_LINE_ABORTED).
 )
 tindex(run-help)
 item(tt(run-help) (ESC-H ESC-h) (unbound) (unbound))(
@@ -2071,6 +2151,9 @@ tindex(where-is)
 item(tt(where-is))(
 Read the name of an editor command and and print the listing of key
 sequences that invoke the specified command.
+A restricted set of editing functions is available in the
+mini-buffer.  Keys are looked up in the special
+tt(command) keymap, and if not found there in the main keymap.
 )
 tindex(which-command)
 item(tt(which-command) (ESC-?) (unbound) (unbound))(
@@ -2129,6 +2212,17 @@ item(tt(special))(
 Individual characters that have no direct printable
 representation but are shown in a special manner by the line editor.
 These characters are described below.
+)
+cindex(completion removable suffix, highlighting)
+cindex(suffix, highlighting removable, in completion)
+cindex(removable suffix, highlighting in completino)
+item(tt(suffix))(
+This context is used in completion for characters that are
+marked as suffixes that will be removed if the completion ends
+at that point, the most obvious example being a slash (tt(/)) after
+a directory name.  Note that suffix removal is configurable; the
+circumstances under which the suffix will be removed may differ
+for different completions.
 )
 enditem()
 
@@ -2202,6 +2296,7 @@ not usually affected by the bold attribute.
 )
 item(tt(bold))(
 The characters in the given context are shown in a bold font.
+Not all terminals distinguish bold fonts.
 )
 item(tt(standout))(
 The characters in the given context are shown in the terminal's standout
@@ -2241,13 +2336,27 @@ angle brackets.  The number is the code point of the character in the wide
 character set; this may or may not be Unicode, depending on the operating
 system.
 )
+item(Invalid multibyte characters)(
+If the tt(MULTIBYTE) option is in effect, any sequence of one or more
+bytes that does not form a valid character in the current character
+set is treated as a series of bytes each shown as a special character.
+This case can be distinguished from other unprintable characters
+as the bytes are represented as two hexadecimal digits between angle
+brackets, as distinct from the four or eight digits that are used for
+unprintable characters that are nonetheless valid in the current
+character set.
+
+Not all systems support this: for it to work, the system's representation of
+wide characters must be code values from the Universal Character Set,
+as defined by IS0 10646 (also known as Unicode).
+)
 enditem()
 
 If tt(zle_highlight) is not set or no value applies to a particular
 context, the defaults applied are equivalent to
 
 example(zle_highlight=LPAR()region:standout special:standout
-isearch:underline+RPAR())
+suffix:bold isearch:underline+RPAR())
 
 i.e. both the region and special characters are shown in standout mode.
 

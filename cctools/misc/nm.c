@@ -111,6 +111,7 @@ struct cmd_flags {
     enum bool p;	/* don't sort; print in symbol table order */
     enum bool r;	/* sort in reverse direction */
     enum bool u;	/* print only undefined symbols */
+    enum bool U;	/* only undefined symbols */
     enum bool m;	/* print symbol in Mach-O symbol format */
     enum bool x;	/* print the symbol table entry in hex and the name */
     enum bool j;	/* just print the symbol name (no value or type) */
@@ -252,6 +253,7 @@ char **envp)
 	cmd_flags.p = FALSE;
 	cmd_flags.r = FALSE;
 	cmd_flags.u = FALSE;
+	cmd_flags.U = FALSE;
 	cmd_flags.m = FALSE;
 	cmd_flags.x = FALSE;
 	cmd_flags.j = FALSE;
@@ -346,7 +348,18 @@ char **envp)
 			    cmd_flags.r = TRUE;
 			    break;
 			case 'u':
+			    if(cmd_flags.U == TRUE){
+				error("can't specifiy both -u and -U");
+				usage();
+			    }
 			    cmd_flags.u = TRUE;
+			    break;
+			case 'U':
+			    if(cmd_flags.u == TRUE){
+				error("can't specifiy both -U and -u");
+				usage();
+			    }
+			    cmd_flags.U = TRUE;
 			    break;
 			case 'm':
 			    cmd_flags.m = TRUE;
@@ -446,7 +459,7 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-agnoprumxjlfAP[s segname sectname] [-] "
+	fprintf(stderr, "Usage: %s [-agnopruUmxjlfAP[s segname sectname] [-] "
 		"[-t format] [[-arch <arch_flag>] ...] [file ...]\n", progname);
 	exit(EXIT_FAILURE);
 }
@@ -533,7 +546,8 @@ void *cookie)
 		    (lc->cmd == LC_LOAD_DYLIB ||
 		     lc->cmd == LC_LOAD_WEAK_DYLIB ||
 		     lc->cmd == LC_LAZY_LOAD_DYLIB ||
-		     lc->cmd == LC_REEXPORT_DYLIB)){
+		     lc->cmd == LC_REEXPORT_DYLIB ||
+		     lc->cmd == LC_LOAD_UPWARD_DYLIB)){
 		process_flags.nlibs++;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -626,7 +640,8 @@ void *cookie)
 		if(lc->cmd == LC_LOAD_DYLIB ||
 		   lc->cmd == LC_LOAD_WEAK_DYLIB ||
 		   lc->cmd == LC_LAZY_LOAD_DYLIB ||
-		   lc->cmd == LC_REEXPORT_DYLIB){
+		   lc->cmd == LC_REEXPORT_DYLIB ||
+		   lc->cmd == LC_LOAD_UPWARD_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
 			(char *)dl + dl->dylib.name.offset;
@@ -1082,6 +1097,14 @@ struct process_flags *process_flags)
 	    else
 		return(FALSE);
 	}
+	if(cmd_flags->U == TRUE){
+	    if((symbol->nl.n_type == (N_UNDF | N_EXT) &&
+		symbol->nl.n_value == 0) ||
+	       symbol->nl.n_type == (N_PBUD | N_EXT))
+		return(FALSE);
+	    else
+		return(TRUE);
+	}
 	if(cmd_flags->g == TRUE && (symbol->nl.n_type & N_EXT) == 0)
 	    return(FALSE);
 	if(cmd_flags->s == TRUE){
@@ -1312,8 +1335,13 @@ char *arch_name)
 		}
 		else{
 		    if((symbols[i].nl.n_desc & N_WEAK_REF) == N_WEAK_REF ||
-		       (symbols[i].nl.n_desc & N_WEAK_DEF) == N_WEAK_DEF)
-			printf("weak external ");
+		       (symbols[i].nl.n_desc & N_WEAK_DEF) == N_WEAK_DEF){
+			if((symbols[i].nl.n_desc & (N_WEAK_REF | N_WEAK_DEF)) ==
+			   (N_WEAK_REF | N_WEAK_DEF))
+			    printf("weak external automatically hidden ");
+			else
+			    printf("weak external ");
+		    }
 		    else
 			printf("external ");
 		}
@@ -1328,6 +1356,11 @@ char *arch_name)
 	    if(ofile->mh_filetype == MH_OBJECT &&
 	       (symbols[i].nl.n_desc & N_NO_DEAD_STRIP) == N_NO_DEAD_STRIP)
 		    printf("[no dead strip] ");
+
+	    if(ofile->mh_filetype == MH_OBJECT &&
+	       ((symbols[i].nl.n_type & N_TYPE) != N_UNDF) &&
+	       (symbols[i].nl.n_desc & N_SYMBOL_RESOLVER) == N_SYMBOL_RESOLVER)
+		    printf("[symbol resolver] ");
 
 	    if((symbols[i].nl.n_desc & N_ARM_THUMB_DEF) == N_ARM_THUMB_DEF)
 		    printf("[Thumb] ");

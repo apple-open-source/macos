@@ -40,8 +40,9 @@
 #include <err.h>
 #include <sysexits.h>
 
-#include <netsmb/smb_lib.h>
-#include <netsmb/smb_conn.h>
+#include <smbclient/smbclient.h>
+#include <smbclient/ntstatus.h>
+
 
 #include "common.h"
 
@@ -51,24 +52,24 @@ static void help(void);
 static void help_usage(void);
 static int  cmd_help(int argc, char *argv[]);
 
-int verbose;
+int verbose = 0;
 
 typedef int cmd_fn_t (int argc, char *argv[]);
 typedef void cmd_usage_t (void);
 
-#define	CMDFL_NO_KMOD	0x0001
 
 static struct commands {
 	const char *	name;
 	cmd_fn_t*	fn;
 	cmd_usage_t *	usage;
-	int 		flags;
 } commands[] = {
-	{"help",	cmd_help,	help_usage, CMDFL_NO_KMOD},
-	{"lookup",	cmd_lookup,	lookup_usage, CMDFL_NO_KMOD},
-	{"status",	cmd_status,	status_usage, 0},
-	{"view",	cmd_view,	view_usage, 0},
-	{NULL, NULL, NULL, 0}
+	{"help",		cmd_help,		help_usage},
+	{"lookup",		cmd_lookup,		lookup_usage},
+	{"status",		cmd_status,		status_usage},
+	{"view",		cmd_view,		view_usage},
+	{"dfs",			cmd_dfs,		dfs_usage},
+	{"identity",	cmd_identity,	identity_usage},
+	{NULL, NULL, NULL}
 };
 
 static struct commands *
@@ -81,6 +82,43 @@ lookupcmd(const char *name)
 			return cmd;
 	}
 	return NULL;
+}
+
+void 
+ntstatus_to_err(NTSTATUS status)
+{
+	switch (status) {
+		case STATUS_NO_SUCH_DEVICE:
+			err(EX_UNAVAILABLE, "failed to intitialize the smb library");
+			break;
+		case STATUS_LOGON_FAILURE:
+			err(EX_NOPERM, "server rejected the authentication");
+			break;
+		case STATUS_CONNECTION_REFUSED:
+			err(EX_NOHOST, "server connection failed");
+			break;
+		case STATUS_NO_SUCH_USER:
+			err(EX_NOUSER, "no such network user");
+			break;
+		case STATUS_INVALID_HANDLE:
+			err(EX_UNAVAILABLE, "invalid handle, internal error");
+			break;
+		case STATUS_NO_MEMORY:
+			err(EX_UNAVAILABLE, "no memory, internal error");
+			break;
+		case STATUS_INVALID_PARAMETER:
+			err(EX_USAGE, "Invalid parameter. Please correct the URL and try again");
+			break;
+		case STATUS_BAD_NETWORK_NAME:
+			err(EX_NOHOST, "share name doesn't exist");
+			break;
+		case STATUS_NOT_SUPPORTED:
+			err(EX_NOHOST, "operation not supported by server");
+			break;
+		default:
+			err(EX_OSERR, "unknown status %d", status);
+			break;
+	}
 }
 
 int
@@ -133,12 +171,6 @@ main(int argc, char *argv[])
 	if (cmd == NULL)
 		errx(EX_DATAERR, "unknown command %s", cp);
 
-	/* If the CMDFL_NO_KMOD is set then do not load the kext */
-	if (cmd->flags & CMDFL_NO_KMOD)
-		setlocale(LC_CTYPE, "");
-	else  if ((errno = smb_load_library()) != 0)
-		errx(EX_UNAVAILABLE, "couldn't load the library");
-
 	argc -= optind;
 	argv += optind;
 	optind = optreset = 1;
@@ -154,6 +186,8 @@ help(void) {
 	" lookup 	resolve NetBIOS name to IP address\n"
 	" status 	resolve IP address or DNS name to NetBIOS names\n"
 	" view		list resources on specified host\n"
+	" dfs		list DFS referrals\n"
+	" identity	identity of the user as known by the specified host\n"
 	"\n");
 	exit(1);
 }

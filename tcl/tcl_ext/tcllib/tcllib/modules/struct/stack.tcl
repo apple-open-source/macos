@@ -8,11 +8,11 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: stack.tcl,v 1.15 2008/06/19 23:03:35 andreas_kupries Exp $
+# RCS: @(#) $Id: stack.tcl,v 1.19 2010/03/24 06:13:00 andreas_kupries Exp $
 
 # @mdgen EXCLUDE: stack_c.tcl
 
-package require Tcl 8.2
+package require Tcl 8.4
 namespace eval ::struct::stack {}
 
 # ### ### ### ######### ######### #########
@@ -41,7 +41,14 @@ proc ::struct::stack::LoadAccelerator {key} {
 	}
 	tcl {
 	    variable selfdir
-	    source [file join $selfdir stack_tcl.tcl]
+	    if {
+		[package vsatisfies [package provide Tcl] 8.5] &&
+		![catch {package require TclOO}]
+	    } {
+		source [file join $selfdir stack_oo.tcl]
+	    } else {
+		source [file join $selfdir stack_tcl.tcl]
+	    }
 	    set r 1
 	}
         default {
@@ -177,4 +184,4 @@ namespace eval ::struct {
     namespace export stack
 }
 
-package provide struct::stack 1.3.3
+package provide struct::stack 1.5.1

@@ -30,21 +30,31 @@
 
 namespace WebCore {
 
+class CSSMutableStyleDeclaration;
 class DocumentFragment;
+class EditingStyle;
+class Node;
 class ReplacementFragment;
 
 class ReplaceSelectionCommand : public CompositeEditCommand {
 public:
-    static PassRefPtr<ReplaceSelectionCommand> create(Document* document, PassRefPtr<DocumentFragment> fragment,
-        bool selectReplacement = true, bool smartReplace = false, bool matchStyle = false, bool preventNesting = true, bool movingParagraph = false,
-        EditAction action = EditActionPaste)
+    enum CommandOption {
+        SelectReplacement = 1 << 0,
+        SmartReplace = 1 << 1,
+        MatchStyle = 1 << 2,
+        PreventNesting = 1 << 3,
+        MovingParagraph = 1 << 4
+    };
+
+    typedef unsigned CommandOptions;
+
+    static PassRefPtr<ReplaceSelectionCommand> create(Document* document, PassRefPtr<DocumentFragment> fragment, CommandOptions options, EditAction action = EditActionPaste)
     {
-        return adoptRef(new ReplaceSelectionCommand(document, fragment, selectReplacement, smartReplace, matchStyle, preventNesting, movingParagraph, action));
+        return adoptRef(new ReplaceSelectionCommand(document, fragment, options, action));
     }
 
 private:
-    ReplaceSelectionCommand(Document*, PassRefPtr<DocumentFragment>,
-        bool selectReplacement, bool smartReplace, bool matchStyle, bool preventNesting, bool movingParagraph, EditAction);
+    ReplaceSelectionCommand(Document*, PassRefPtr<DocumentFragment>, CommandOptions, EditAction);
 
     virtual void doApply();
     virtual EditAction editingAction() const;
@@ -82,7 +92,7 @@ private:
 
     RefPtr<Node> m_firstNodeInserted;
     RefPtr<Node> m_lastLeafInserted;
-    RefPtr<CSSMutableStyleDeclaration> m_insertionStyle;
+    RefPtr<EditingStyle> m_insertionStyle;
     bool m_selectReplacement;
     bool m_smartReplace;
     bool m_matchStyle;

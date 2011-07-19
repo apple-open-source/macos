@@ -141,6 +141,7 @@
   		#include "sha1edp.h"
 	#endif
 #endif
+
 __private_extern__ void sha1_block_host_order (SHA_CTX *c, const void *p,int num);
 __private_extern__ void sha1_block_data_order (SHA_CTX *c, const void *p,int num);
 

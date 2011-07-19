@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple, Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,20 +21,20 @@
 #ifndef ChromeClient_h
 #define ChromeClient_h
 
-#include "Console.h"
+#include "AXObjectCache.h"
+#include "ConsoleTypes.h"
 #include "Cursor.h"
 #include "FocusDirection.h"
 #include "GraphicsContext.h"
-#include "HTMLParserQuirks.h"
 #include "HostWindow.h"
+#include "PopupMenu.h"
+#include "PopupMenuClient.h"
 #include "ScrollTypes.h"
+#include "SearchPopupMenu.h"
+#include "WebCoreKeyboardUIMode.h"
 #include <wtf/Forward.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
-
-#if PLATFORM(MAC)
-#include "WebCoreKeyboardUIMode.h"
-#endif
 
 #ifndef __OBJC__
 class NSMenu;
@@ -42,18 +43,21 @@ class NSResponder;
 
 namespace WebCore {
 
-    class AtomicString;
+    class AccessibilityObject;
     class Element;
     class FileChooser;
     class FloatRect;
     class Frame;
     class Geolocation;
-    class HTMLParserQuirks;
+    class GraphicsLayer;
     class HitTestResult;
     class IntRect;
+    class NavigationAction;
     class Node;
     class Page;
-    class String;
+    class PopupMenuClient;
+    class SecurityOrigin;
+    class SharedGraphicsContext3D;
     class Widget;
 
     struct FrameLoadRequest;
@@ -86,12 +90,15 @@ namespace WebCore {
         virtual void takeFocus(FocusDirection) = 0;
 
         virtual void focusedNodeChanged(Node*) = 0;
+        virtual void focusedFrameChanged(Frame*) = 0;
 
         // The Frame pointer provides the ChromeClient with context about which
         // Frame wants to create the new Page.  Also, the newly created window
         // should not be shown to the user until the ChromeClient of the newly
         // created Page has its show method called.
-        virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) = 0;
+        // The FrameLoadRequest parameter is only for ChromeClient to check if the
+        // request could be fulfilled.  The ChromeClient should not load the request.
+        virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) = 0;
         virtual void show() = 0;
 
         virtual bool canRunModal() = 0;
@@ -123,10 +130,13 @@ namespace WebCore {
         virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result) = 0;
         virtual void setStatusbarText(const String&) = 0;
         virtual bool shouldInterruptJavaScript() = 0;
-        virtual bool tabsToLinks() const = 0;
+        virtual KeyboardUIMode keyboardUIMode() = 0;
 
-        virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
-        virtual void registerContentHandler(const String&, const String&, const String&, const String&) { }
+        virtual void* webView() const = 0;
+
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+        virtual void registerProtocolHandler(const String& scheme, const String& baseURL, const String& url, const String& title) = 0;
+#endif
 
         virtual IntRect windowResizerRect() const = 0;
 
@@ -135,23 +145,32 @@ namespace WebCore {
         virtual void invalidateContentsAndWindow(const IntRect&, bool) = 0;
         virtual void invalidateContentsForSlowScroll(const IntRect&, bool) = 0;
         virtual void scroll(const IntSize&, const IntRect&, const IntRect&) = 0;
+#if ENABLE(TILED_BACKING_STORE)
+        virtual void delegatedScrollRequested(const IntPoint&) = 0;
+#endif
         virtual IntPoint screenToWindow(const IntPoint&) const = 0;
         virtual IntRect windowToScreen(const IntRect&) const = 0;
         virtual PlatformPageClient platformPageClient() const = 0;
-        virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
-        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const = 0; // Currently only Mac has a non empty implementation.
+        virtual void scrollbarsModeDidChange() const = 0;
+        virtual void setCursor(const Cursor&) = 0;
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+        virtual void scheduleAnimation() = 0;
+#endif
         // End methods used by HostWindow.
 
-        virtual void scrollbarsModeDidChange() const = 0;
+        virtual void dispatchViewportDataDidChange(const ViewportArguments&) const { }
+
+        virtual void contentsSizeChanged(Frame*, const IntSize&) const = 0;
+        virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const = 0; // Currently only Mac has a non empty implementation.
+       
         virtual bool shouldMissingPluginMessageBeButton() const { return false; }
         virtual void missingPluginButtonClicked(Element*) const { }
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 
         virtual void setToolTip(const String&, TextDirection) = 0;
 
-        virtual void didReceiveViewportArguments(Frame*, const ViewportArguments&) const { }
-
         virtual void print(Frame*) = 0;
+        virtual bool shouldRubberBandInDirection(ScrollDirection) const = 0;
 
 #if ENABLE(DATABASE)
         virtual void exceededDatabaseQuota(Frame*, const String& databaseName) = 0;
@@ -164,6 +183,13 @@ namespace WebCore {
         // The chrome client would need to take some action such as evicting some
         // old caches.
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) = 0;
+
+        // Callback invoked when the application cache origin quota is reached. This
+        // means that the resources attempting to be cached via the manifest are
+        // more than allowed on this origin. This callback allows the chrome client
+        // to take action, such as prompting the user to ask to increase the quota
+        // for this origin.
+        virtual void reachedApplicationCacheOriginQuota(SecurityOrigin* origin) = 0;
 #endif
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -188,16 +214,23 @@ namespace WebCore {
                                           float value, float proportion, ScrollbarControlPartMask);
         virtual bool paintCustomScrollCorner(GraphicsContext*, const FloatRect&);
 
+        virtual bool paintCustomOverhangArea(GraphicsContext*, const IntRect&, const IntRect&, const IntRect&);
+
+        // FIXME: Remove once all ports are using client-based geolocation. https://bugs.webkit.org/show_bug.cgi?id=40373
+        // For client-based geolocation, these two methods have moved to GeolocationClient. https://bugs.webkit.org/show_bug.cgi?id=50061
         // This can be either a synchronous or asynchronous call. The ChromeClient can display UI asking the user for permission
         // to use Geolocation.
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) = 0;
         virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) = 0;
-            
+
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) = 0;
         // Asynchronous request to load an icon for specified filenames.
         virtual void chooseIconForFiles(const Vector<String>&, FileChooser*) = 0;
 
-        virtual bool setCursor(PlatformCursorHandle) = 0;
+#if ENABLE(DIRECTORY_UPLOAD)
+        // Asychronous request to enumerate all files in a directory chosen by the user.
+        virtual void enumerateChosenDirectory(const String&, FileChooser*) = 0;
+#endif
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.
@@ -205,8 +238,6 @@ namespace WebCore {
         
         virtual void formDidFocus(const Node*) { };
         virtual void formDidBlur(const Node*) { };
-
-        virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
         // Pass 0 as the GraphicsLayer to detatch the root layer.
@@ -220,33 +251,85 @@ namespace WebCore {
         // Returns whether or not the client can render the composited layer,
         // regardless of the settings.
         virtual bool allowsAcceleratedCompositing() const { return true; }
+
+        enum CompositingTrigger {
+            ThreeDTransformTrigger = 1 << 0,
+            VideoTrigger = 1 << 1,
+            PluginTrigger = 1 << 2,
+            CanvasTrigger = 1 << 3,
+            AnimationTrigger = 1 << 4,
+            AllTriggers = 0xFFFFFFFF
+        };
+        typedef unsigned CompositingTriggerFlags;
+
+        // Returns a bitfield indicating conditions that can trigger the compositor.
+        virtual CompositingTriggerFlags allowedCompositingTriggers() const { return static_cast<CompositingTriggerFlags>(AllTriggers); }
 #endif
 
         virtual bool supportsFullscreenForNode(const Node*) { return false; }
         virtual void enterFullscreenForNode(Node*) { }
         virtual void exitFullscreenForNode(Node*) { }
-        
-#if PLATFORM(MAC)
-        virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
+        virtual bool requiresFullscreenForVideoPlayback() { return false; } 
 
+#if ENABLE(FULLSCREEN_API)
+        virtual bool supportsFullScreenForElement(const Element*, bool) { return false; }
+        virtual void enterFullScreenForElement(Element*) { }
+        virtual void exitFullScreenForElement(Element*) { }
+        virtual void fullScreenRendererChanged(RenderBox*) { }
+        virtual void setRootFullScreenLayer(GraphicsLayer*) { }
+#endif
+        
+#if ENABLE(TILED_BACKING_STORE)
+        virtual IntRect visibleRectForTiledBackingStore() const { return IntRect(); }
+#endif
+
+#if PLATFORM(MAC)
         virtual NSResponder *firstResponder() { return 0; }
         virtual void makeFirstResponder(NSResponder *) { }
-
+        // Focuses on the containing view associated with this page.
+        virtual void makeFirstResponder() { }
         virtual void willPopUpMenu(NSMenu *) { }
+#endif
+
+#if PLATFORM(WIN)
+        virtual void setLastSetCursorToCurrentCursor() = 0;
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
         virtual void needTouchEvents(bool) = 0;
 #endif
 
-#if ENABLE(WIDGETS_10_SUPPORT)
-        virtual bool isWindowed() { return false; }
-        virtual bool isFloating() { return false; }
-        virtual bool isFullscreen() { return false; }
-        virtual bool isMaximized() { return false; }
-        virtual bool isMinimized() { return false; }
+        virtual bool selectItemWritingDirectionIsNatural() = 0;
+        virtual bool selectItemAlignmentFollowsMenuWritingDirection() = 0;
+        virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
+        virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
+
+#if ENABLE(CONTEXT_MENUS)
+        virtual void showContextMenu() = 0;
 #endif
 
+        virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
+
+        virtual void didStartRubberBandForFrame(Frame*, const IntSize&) const { }
+        virtual void didCompleteRubberBandForFrame(Frame*, const IntSize&) const { }
+        virtual void didStartAnimatedScroll() const { }
+        virtual void didCompleteAnimatedScroll() const { }
+        
+        virtual void notifyScrollerThumbIsVisibleInRect(const IntRect&) { }
+
+        enum DialogType {
+            AlertDialog = 0,
+            ConfirmDialog = 1,
+            PromptDialog = 2,
+            HTMLDialog = 3,
+            NumDialogTypes = 4
+        };
+        virtual void willRunModalDialogDuringPageDismissal(const DialogType&) const { }
+
+        virtual void numWheelEventHandlersChanged(unsigned) = 0;
+
+        virtual void setRenderTreeSize(size_t) { }
+        
     protected:
         virtual ~ChromeClient() { }
     };

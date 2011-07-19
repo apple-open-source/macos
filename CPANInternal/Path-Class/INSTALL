@@ -1,0 +1,14 @@
+           Installation instructions for Path::Class
+
+To install this module, follow the standard steps for installing most
+Perl modules:
+
+  perl Makefile.PL
+  make
+  make test
+  make install
+
+Or you may use the CPAN.pm module, which will automatically execute
+these steps for you.
+
+ -Ken

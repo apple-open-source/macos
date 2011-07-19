@@ -1,0 +1,396 @@
+require "vnd.dovecot.testsuite";
+
+/* 
+ * ## RFC 5228, Section 5.1. Test address (page 26) ##
+ */
+
+/*
+ * TEST: Basic functionionality
+ */
+
+/* "The "address" test matches Internet addresses in structured headers
+ *  that contain addresses.  It returns true if any header contains any
+ *  key in the specified part of the address, as modified by the
+ *  comparator and the match keyword.  Whether there are other addresses
+ *  present in the header doesn't affect this test; this test does not
+ *  provide any way to determine whether an address is the only address
+ *  in a header.
+ *
+ *  Like envelope and header, this test returns true if any combination
+ *  of the header-list and key-list arguments match and returns false
+ *  otherwise.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.com
+To: nico@nl.example.com, harry@de.example.com
+cc: Timo <tss(no spam)@fi.iki>
+Subject: Frobnitzm
+
+Test.
+.
+;
+
+test "Basic functionality" {
+	/* Must match */
+	if not address :contains ["to", "from"] "harry" {
+		test_fail "failed to match address (1)";
+	}
+
+	if not address :contains ["to", "from"] "de.example" {
+		test_fail "failed to match address (2)";
+	}
+
+	if not address :matches "to" "*@*.example.com" {
+		test_fail "failed to match address (3)";
+	}
+
+	if not address :is "to" "harry@de.example.com" {
+		test_fail "failed to match address (4)";
+	}
+
+	/* Must not match */
+	if address :is ["to", "from"] "nonsense@example.com" {
+		test_fail "matches erroneous address";
+	}
+
+	/* Match first key */
+	if not address :contains ["to"] ["nico", "fred", "henk"] {
+		test_fail "failed to match first key";
+	}
+
+	/* Match second key */
+	if not address :contains ["to"] ["fred", "nico", "henk"] {
+		test_fail "failed to match second key";
+	}
+
+	/* Match last key */
+	if not address :contains ["to"] ["fred", "henk", "nico"] {
+		test_fail "failed to match last key";
+	}
+
+	/* First header */
+	if not address :contains ["to", "from"] ["fred", "nico", "henk"] {
+		test_fail "failed to match first header";
+	}	
+
+	/* Second header */
+	if not address :contains ["from", "to"] ["fred", "nico", "henk"] {
+		test_fail "failed to match second header";
+	}	
+
+	/* Comment */
+	if not address :is "cc" "tss@fi.iki" {
+		test_fail "failed to ignore comment in address";
+	}
+}
+
+/*
+ * TEST: Case-sensitivity
+ */
+
+/* "Internet email addresses [RFC 2822] have the somewhat awkward characteristic
+ *  that the local-part to the left of the at-sign is considered case sensitive,
+ *  and the domain-part to the right of the at-sign is case insensitive. The 
+ *  "address" command does not deal with this itself, but provides the
+ *  ADDRESS-PART argument for allowing users to deal with it.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.com
+To: Nico@nl.example.com, harry@DE.EXAMPLE.COM
+Subject: Case-sensitivity
+
+Test.
+.
+;
+
+
+test "Case-sensitivity" {
+	/* Default: i;ascii-casemap */
+
+	if not address :is ["to", "from"] "nico@nl.example.com" {
+		test_fail "address comparator is i;octet by default (1)";
+	}
+
+	if not address :is ["to", "from"] "harry@de.example.com" {
+		test_fail "address comparator is i;octet by default (2)";
+	}
+
+	if not address :is ["to", "from"] "STEPHAN@example.com" {
+		test_fail "address comparator is i;octet by default (3)";
+	}
+
+	if not address :is :localpart ["to"] "nico" {
+		test_fail "address comparator is i;octet by default (4)";
+	}
+
+	/* Match case-sensitively */
+
+	if not address :is :comparator "i;octet" ["to"] "Nico@nl.example.com" {
+		test_fail "failed to match case-sensitive address (1)";
+	}
+
+	if not address :is :comparator "i;octet" ["to"] "harry@DE.EXAMPLE.COM" {
+		test_fail "failed to match case-sensitive address (2)";
+	}
+
+	if address :is :comparator "i;octet" ["to"] "harry@de.example.com" {
+		test_fail "failed to notice case difference in address with i;octet (1)";
+	}
+
+	if address :is :comparator "i;octet" ["from"] "STEPHAN@example.com" {
+		test_fail "failed to notice case difference in address with i;octet (2)";
+	}
+
+	if not address :is :localpart :comparator "i;octet" ["to"] "Nico" {
+		test_fail "failed to match case-sensitive localpart";
+	}
+
+	if address :is :localpart :comparator "i;octet" ["to"] "nico" {
+		test_fail "failed to notice case difference in local_part with i;octet";
+	}
+
+	if not address :is :domain :comparator "i;octet" ["to"] "DE.EXAMPLE.COM" {
+		test_fail "failed to match case-sensitive localpart";
+	}
+
+	if address :is :domain :comparator "i;octet" ["to"] "de.example.com" {
+		test_fail "failed to notice case difference in domain with i;octet";
+	}
+}
+
+/*
+ * TEST: Phrase part, comments and group names
+ */
+
+/* "The address primitive never acts on the phrase part of an email
+ *  address or on comments within that address.  It also never acts on
+ *  group names, ...
+ * "
+ */
+
+test_set "message" text:
+From: Stephan Bosch <stephan(the author)@example.com>
+To: Nico Thalens <nico@nl.example.com>, Harry Becker <harry@de.example.com>
+cc: tukkers: henk@tukkerland.ex, theo@tukkerland.ex, frits@tukkerland.ex;
+Subject: Frobnitzm
+
+Test.
+.
+;
+
+test "Phrase part, comments and group names" {
+	if address :contains :all :comparator "i;ascii-casemap"
+		["to","from"] ["Bosch", "Thalens", "Becker"] {
+		test_fail "matched phrase part";
+	}
+
+	if address :contains :all :comparator "i;ascii-casemap" "from" "author" {
+		test_fail "matched comment";
+	}
+
+
+	if address :contains :all :comparator "i;ascii-casemap" ["cc"] ["tukkers"] {
+		test_fail "matched group name";
+	}
+}
+
+
+/*
+ * TEST: Group addresses
+ */
+
+/* "... although it does act on the addresses within the group
+ *  construct.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@friep.frop
+To: undisclosed-recipients:;
+cc: tukkers: henk@tukkerland.ex, theo@tukkerland.ex, frits@tukkerland.ex;
+Subject: Invalid addresses
+
+Test.
+.
+;
+
+test "Group addresses" {
+	if not address :is :domain ["cc"] ["tukkerland.ex"] {
+		test_fail "failed to match group address (1)";
+	}
+
+	if not address :is :localpart ["cc"] ["henk"] {
+		test_fail "failed to match group address (2)";
+	}
+
+	if not address :is :localpart ["cc"] ["theo"] {
+		test_fail "failed to match group address (3)";
+	}
+
+	if not address :is :localpart ["cc"] ["frits"] {
+		test_fail "failed to match group address (4)";
+	}
+}
+
+/*
+ * TEST: Address headers
+ */
+
+/* "Implementations MUST restrict the address test to headers that
+ *  contain addresses, but MUST include at least From, To, Cc, Bcc,
+ *  Sender, Resent-From, and Resent-To, and it SHOULD include any other
+ *  header that utilizes an "address-list" structured header body.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@friep.frop
+To: henk@tukkerland.ex
+CC: ivo@boer.ex
+Bcc: joop@hooibaal.ex
+Sender: s.bosch@friep.frop
+Resent-From: ivo@boer.ex
+Resent-To: idioot@dombo.ex
+Subject: Berichtje
+
+Test.
+.
+;
+
+
+test "Address headers" {
+	if not address "from" "stephan@friep.frop" {
+		test_fail "from header not recognized";
+	}
+
+	if not address "to" "henk@tukkerland.ex" {
+		test_fail "to header not recognized";
+	}
+
+	if not address "cc" "ivo@boer.ex" {
+		test_fail "cc header not recognized";
+	}
+
+	if not address "bcc" "joop@hooibaal.ex" {
+		test_fail "bcc header not recognized";
+	}
+
+	if not address "sender" "s.bosch@friep.frop" {
+		test_fail "sender header not recognized";
+	}
+
+	if not address "resent-from" "ivo@boer.ex" {
+		test_fail "resent-from header not recognized";
+	}	
+
+	if not address "resent-to" "idioot@dombo.ex" {
+		test_fail "resent-to header not recognized";
+	}	
+}	
+
+/* ## RFC 5228, Section 2.7.4. Comparisons against Addresses (page 16) ## */
+
+/*
+ * TEST: Invalid addresses
+ */ 
+
+/* 
+ * "If an address is not syntactically valid, then it will not be matched
+ *  by tests specifying ":localpart" or ":domain".
+ * "
+ */
+
+test_set "message" text:
+From: stephan@
+To: @example.org
+Cc: nonsense
+Resent-To:
+Bcc: nico@frop.example.com, @example.org
+Subject: Invalid addresses
+
+Test.
+.
+;
+
+test "Invalid addresses" {
+	if address :localpart "from" "stephan" {
+		test_fail ":localpart matched invalid address";
+	}	
+
+	if address :domain "to" "example.org" {
+		test_fail ":domain matched invalid address";
+	}	
+
+	if not address :is :all "resent-to" "" {
+		test_fail ":all failed to match empty address";
+	}	
+
+	if not address :is :all "cc" "nonsense" {
+		test_fail ":all failed to match invalid address";
+	}
+
+	if address :is :localpart "bcc" "" {
+		test_fail ":localpart matched invalid address";
+	}
+
+	if address :is :domain "cc" "example.org" {
+		test_fail ":domain matched invalid address";
+	}	
+}
+
+/*
+ * TEST: Default address part
+ */
+
+/* "If an optional address-part is omitted, the default is ":all".
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.com
+To: nico@nl.example.com, harry@de.example.com
+Subject: Frobnitzm
+
+Test.
+.
+;
+
+test "Default address part" {
+	if not address :is :comparator "i;ascii-casemap" "from" "stephan@example.com"
+		{
+		test_fail "invalid default address part (1)";
+	}
+ 	
+	if not address :is :comparator "i;ascii-casemap" "to"
+		["harry@de.example.com"] {
+		test_fail "invalid default address part (2)";
+	}
+}
+
+/*
+ * TEST: Erroneous mime encoding
+ */
+
+test_set "message" text:
+From: "William Wallace <william@scotsmen.ex>"
+To: "=?UTF-8?B?IkR1bWIgTWFpbGVyIg==?="
+	<horde@lists.scotsmen.ex>
+Subject: Test
+
+Frop!
+.
+;
+
+
+test "Erroneous mime encoding" {
+        # Relevant sieve rule:
+
+        if not address :is ["To","CC"] ["horde@lists.scotsmen.ex","archers@lists.scotsmen.ex"] {
+                test_fail "Failed to match improperly encoded address headers";
+        }
+}
+

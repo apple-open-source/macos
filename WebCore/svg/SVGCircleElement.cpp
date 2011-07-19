@@ -1,52 +1,58 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGCircleElement.h"
 
+#include "Attribute.h"
 #include "FloatPoint.h"
-#include "MappedAttribute.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
+#include "RenderSVGResource.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 
 namespace WebCore {
 
-SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGCircleElement, SVGNames::cxAttr, Cx, cx)
+DEFINE_ANIMATED_LENGTH(SVGCircleElement, SVGNames::cyAttr, Cy, cy)
+DEFINE_ANIMATED_LENGTH(SVGCircleElement, SVGNames::rAttr, R, r)
+DEFINE_ANIMATED_BOOLEAN(SVGCircleElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+inline SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_cx(LengthModeWidth)
     , m_cy(LengthModeHeight)
     , m_r(LengthModeOther)
 {
+    ASSERT(hasTagName(SVGNames::circleTag));
 }
 
-SVGCircleElement::~SVGCircleElement()
+PassRefPtr<SVGCircleElement> SVGCircleElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGCircleElement(tagName, document));
 }
 
-void SVGCircleElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGCircleElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::cxAttr)
         setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));       
@@ -71,28 +77,29 @@ void SVGCircleElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    bool isLengthAttribute = attrName == SVGNames::cxAttr
+                          || attrName == SVGNames::cyAttr
+                          || attrName == SVGNames::rAttr;
+
+    if (isLengthAttribute)
+        updateRelativeLengthsInformation();
+
+    if (SVGTests::handleAttributeChange(this, attrName))
+        return;
+
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
-    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
-        renderer->setNeedsTransformUpdate();
-        renderer->setNeedsLayout(true);
-        return;
-    }
-
-    if (attrName == SVGNames::cxAttr
-        || attrName == SVGNames::cyAttr
-        || attrName == SVGNames::rAttr) {
+    if (isLengthAttribute) {
         renderer->setNeedsPathUpdate();
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
-    if (SVGTests::isKnownAttribute(attrName)
-        || SVGLangSpace::isKnownAttribute(attrName)
+    if (SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
 void SVGCircleElement::synchronizeProperty(const QualifiedName& attrName)
@@ -104,6 +111,7 @@ void SVGCircleElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeCy();
         synchronizeR();
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -115,16 +123,43 @@ void SVGCircleElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeR();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
-Path SVGCircleElement::toPathData() const
+AttributeToPropertyTypeMap& SVGCircleElement::attributeToPropertyTypeMap()
 {
-    return Path::createCircle(FloatPoint(cx().value(this), cy().value(this)), r().value(this));
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
 }
 
-bool SVGCircleElement::hasRelativeValues() const
+void SVGCircleElement::fillAttributeToPropertyTypeMap()
 {
-    return (cx().isRelative() || cy().isRelative() || r().isRelative());
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::cxAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::cyAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::rAttr, AnimatedLength);
+}
+
+void SVGCircleElement::toPathData(Path& path) const
+{
+    ASSERT(path.isEmpty());
+
+    float radius = r().value(this);
+
+    if (radius <= 0)
+        return;
+
+    path.addEllipse(FloatRect(cx().value(this) - radius, cy().value(this) - radius, radius * 2, radius * 2));
+}
+
+bool SVGCircleElement::selfHasRelativeLengths() const
+{
+    return cx().isRelative()
+        || cy().isRelative()
+        || r().isRelative();
 }
  
 }

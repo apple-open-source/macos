@@ -1,9 +1,9 @@
 dnl
 dnl "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $"
 dnl
-dnl   Compiler stuff for the Common UNIX Printing System (CUPS).
+dnl   Compiler stuff for CUPS.
 dnl
-dnl   Copyright 2007-2009 by Apple Inc.
+dnl   Copyright 2007-2011 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -100,21 +100,6 @@ AC_SUBST(PIEFLAGS)
 RELROFLAGS=""
 AC_SUBST(RELROFLAGS)
 
-LIBCUPSORDER="libcups.order"
-AC_ARG_WITH(libcupsorder, [  --with-libcupsorder     set libcups secorder file, default=libcups.order],
-	if test -f "$withval"; then
-		LIBCUPSORDER="$withval"
-	fi)
-AC_SUBST(LIBCUPSORDER)
-
-LIBCUPSIMAGEORDER="libcupsimage.order"
-AC_ARG_WITH(libcupsimageorder, [  --with-libcupsimagesorder
-                          set libcupsimage secorder file, default=libcupsimage.order],
-	if test -f "$withval"; then
-		LIBCUPSIMAGEORDER="$withval"
-	fi)
-AC_SUBST(LIBCUPSIMAGEORDER)
-
 PHPOPTIONS=""
 AC_SUBST(PHPOPTIONS)
 
@@ -146,26 +131,43 @@ if test -n "$GCC"; then
 		AC_MSG_RESULT(no))
 	CFLAGS="$OLDCFLAGS"
 
-	# The -pie option is available with some versions of GCC and adds
+	# The -fPIE option is available with some versions of GCC and adds
 	# randomization of addresses, which avoids another class of exploits
 	# that depend on a fixed address for common functions.
-	AC_MSG_CHECKING(if GCC supports -pie)
+	AC_MSG_CHECKING(if GCC supports -fPIE)
 	OLDCFLAGS="$CFLAGS"
-	CFLAGS="$CFLAGS -pie -fPIE"
+	CFLAGS="$CFLAGS -fPIE"
 	AC_TRY_COMPILE(,,
-		PIEFLAGS="-pie -fPIE"
-		AC_MSG_RESULT(yes),
+		[case "$CC" in
+			*clang)
+				PIEFLAGS="-fPIE -Wl,-pie"
+				;;
+			*)
+				PIEFLAGS="-fPIE -pie"
+				;;
+		esac
+		AC_MSG_RESULT(yes)],
 		AC_MSG_RESULT(no))
 	CFLAGS="$OLDCFLAGS"
 
 	if test "x$with_optim" = x; then
 		# Add useful warning options for tracking down problems...
-		OPTIM="-Wall -Wno-format-y2k $OPTIM"
+		OPTIM="-Wall -Wno-format-y2k -Wunused $OPTIM"
+
 		# Additional warning options for development testing...
 		if test -d .svn; then
-			OPTIM="-Wshadow -Wunused $OPTIM"
+			OPTIM="-Wshadow $OPTIM"
 			CFLAGS="-Werror-implicit-function-declaration $CFLAGS"
 			PHPOPTIONS="-Wno-shadow"
+		else
+			AC_MSG_CHECKING(if GCC supports -Wno-tautological-compare)
+			OLDCFLAGS="$CFLAGS"
+			CFLAGS="$CFLAGS -Werror -Wno-tautological-compare"
+			AC_TRY_COMPILE(,,
+				[OPTIM="$OPTIM -Wno-tautological-compare"
+				AC_MSG_RESULT(yes)],
+				AC_MSG_RESULT(no))
+			CFLAGS="$OLDCFLAGS"
 		fi
 	fi
 
@@ -175,13 +177,8 @@ if test -n "$GCC"; then
 			# checking, basically wrapping all string functions
 			# with buffer-limited ones.  Not strictly needed for
 			# CUPS since we already use buffer-limited calls, but
-			# this will catch any additions that are broken.		
+			# this will catch any additions that are broken.
 			CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
-
-			if test x$enable_pie = xyes; then
-				# GCC 4 on Mac OS X needs -Wl,-pie as well
-				LDFLAGS="$LDFLAGS -Wl,-pie"
-			fi
 			;;
 
 		HP-UX*)

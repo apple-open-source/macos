@@ -24,6 +24,10 @@
 %typemap(cin) signed long ":long";
 %typemap(cin) unsigned long ":unsigned-long";
 
+%typemap(cin) long long ":long-long";
+%typemap(cin) signed long long ":long-long";
+%typemap(cin) unsigned long long ":unsigned-long-long";
+
 %typemap(cin) float ":float";
 %typemap(cin) double ":double";
 %typemap(cin) SWIGTYPE ":pointer";
@@ -46,6 +50,10 @@
 %typemap(cout) long ":long";
 %typemap(cout) signed long ":long";
 %typemap(cout) unsigned long ":unsigned-long";
+
+%typemap(cout) long long ":long-long";
+%typemap(cout) signed long long ":long-long";
+%typemap(cout) unsigned long long ":unsigned-long-long";
 
 %typemap(cout) float ":float";
 %typemap(cout) double ":double";
@@ -72,12 +80,13 @@
              SWIGTYPE[ANY], SWIGTYPE &     "$1 = $input;";
 %typemap(in) SWIGTYPE                      "$1 = *$input;";
 
+%typemap(out) void                         "";
 %typemap(out) bool                          "$result = (int)$1;";
 %typemap(out) char, unsigned char, signed char,
               short, signed short, unsigned short,
               int, signed int, unsigned int,
               long, signed long, unsigned long,
-              float, double, long double, char *, void *, void,
+              float, double, long double, char *, void *,
               enum SWIGTYPE, SWIGTYPE *,
               SWIGTYPE[ANY], SWIGTYPE &    "$result = $1;";
 #ifdef __cplusplus
@@ -116,8 +125,9 @@
                     int, signed int, unsigned int,
                     long, signed long, unsigned long,
                     enum SWIGTYPE       "cl:integer";
-%typemap(lispclass) float "cl:single-float";
-%typemap(lispclass) double "cl:double-float";
+/* CLOS methods can't be specialized on single-float or double-float */
+%typemap(lispclass) float "cl:number";
+%typemap(lispclass) double "cl:number";
 %typemap(lispclass) char * "cl:string";
 
 

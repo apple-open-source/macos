@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,11 +38,11 @@
  * are implemented as an EnvelopedData containing a SignedData. 
  */
  
-#ifndef	_CMS_ENCODER_H_
+#ifndef _CMS_ENCODER_H_
 #define _CMS_ENCODER_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/Security.h>
+#include <Security/cssmtype.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -56,14 +56,16 @@ extern "C" {
  */
 typedef struct _CMSEncoder *CMSEncoderRef;
 
-CFTypeID CMSEncoderGetTypeID(void);
+CFTypeID CMSEncoderGetTypeID(void)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Create a CMSEncoder. Result must eventually be freed via CFRelease().
  */
 OSStatus CMSEncoderCreate(
-	CMSEncoderRef		*cmsEncoderOut);	/* RETURNED */
-	
+	CMSEncoderRef		*cmsEncoderOut)	/* RETURNED */
+	__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /* 
  * Specify signers of the CMS message; implies that the message will be signed. 
  *
@@ -76,7 +78,8 @@ OSStatus CMSEncoderCreate(
  */
 OSStatus CMSEncoderAddSigners(
 	CMSEncoderRef		cmsEncoder,
-	CFTypeRef			signerOrArray);
+	CFTypeRef			signerOrArray)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain an array of signers as specified in CMSEncoderSetSigners(). 
@@ -85,7 +88,8 @@ OSStatus CMSEncoderAddSigners(
  */
 OSStatus CMSEncoderCopySigners(
 	CMSEncoderRef		cmsEncoder,
-	CFArrayRef			*signersOut);		/* RETURNED */
+	CFArrayRef			*signersOut)		/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Specify recipients of the message. Implies that the message will 
@@ -100,7 +104,8 @@ OSStatus CMSEncoderCopySigners(
  */
 OSStatus CMSEncoderAddRecipients(
 	CMSEncoderRef		cmsEncoder,
-	CFTypeRef			recipientOrArray);
+	CFTypeRef			recipientOrArray)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain an array of recipients as specified in CMSEncoderSetRecipients(). 
@@ -110,7 +115,8 @@ OSStatus CMSEncoderAddRecipients(
  */
 OSStatus CMSEncoderCopyRecipients(
 	CMSEncoderRef		cmsEncoder,
-	CFArrayRef			*recipientsOut);	/* RETURNED */
+	CFArrayRef			*recipientsOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /* 
  * A signed message optionally includes the data to be signed. If the message
@@ -125,7 +131,8 @@ OSStatus CMSEncoderCopyRecipients(
  */ 
 OSStatus CMSEncoderSetHasDetachedContent(
 	CMSEncoderRef		cmsEncoder,
-	Boolean				detachedContent);
+	Boolean			detachedContent)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /* 
  * Obtain a Boolean indicating whether the current message will have detached 
@@ -135,7 +142,8 @@ OSStatus CMSEncoderSetHasDetachedContent(
  */
 OSStatus CMSEncoderGetHasDetachedContent(
 	CMSEncoderRef		cmsEncoder,
-	Boolean				*detachedContentOut);	/* RETURNED */
+	Boolean			*detachedContentOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Optionally specify an eContentType OID for the inner EncapsulatedData for
@@ -145,10 +153,32 @@ OSStatus CMSEncoderGetHasDetachedContent(
  *
  * If this is called, it must be called before the first call to 
  * CMSEncoderUpdateContent().
+ *
+ * NOTE: This function is deprecated in Mac OS X 10.7 and later;
+ * please use CMSEncoderSetEncapsulatedContentTypeOID() instead.
  */
 OSStatus CMSEncoderSetEncapsulatedContentType(
 	CMSEncoderRef		cmsEncoder,
-	const CSSM_OID		*eContentType);
+	const CSSM_OID	*eContentType)
+	/* DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER; */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
+/*
+ * Optionally specify an eContentType OID for the inner EncapsulatedData for
+ * a signed message. The default eContentTypeOID, used if this function is not
+ * called, is id-data (which is the normal eContentType for applications such
+ * as SMIME).
+ *
+ * The eContentTypeOID parameter may be specified as a CF string, e.g.:
+ * CFSTR("1.2.840.113549.1.7.1")
+ *
+ * If this is called, it must be called before the first call to 
+ * CMSEncoderUpdateContent().
+ */
+OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
+	CMSEncoderRef		cmsEncoder,
+	CFTypeRef			eContentTypeOID)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 /*
  * Obtain the eContentType OID specified in CMSEncoderSetEncapsulatedContentType().
@@ -160,7 +190,8 @@ OSStatus CMSEncoderSetEncapsulatedContentType(
  */
 OSStatus CMSEncoderCopyEncapsulatedContentType(
 	CMSEncoderRef		cmsEncoder,
-	CFDataRef			*eContentTypeOut);	/* RETURNED */
+	CFDataRef			*eContentTypeOut)		/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Signed CMS messages can contain arbitrary sets of certificates beyond those
@@ -184,8 +215,9 @@ OSStatus CMSEncoderCopyEncapsulatedContentType(
  */
 OSStatus CMSEncoderAddSupportingCerts(
 	CMSEncoderRef		cmsEncoder,
-	CFTypeRef			certOrArray);
-	
+	CFTypeRef			certOrArray)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Obtain the SecCertificates provided in CMSEncoderAddSupportingCerts(). 
  * If CMSEncoderAddSupportingCerts() has not been called this will return a
@@ -194,7 +226,8 @@ OSStatus CMSEncoderAddSupportingCerts(
  */
 OSStatus CMSEncoderCopySupportingCerts(
 	CMSEncoderRef		cmsEncoder,
-	CFArrayRef			*certsOut);			/* RETURNED */
+	CFArrayRef			*certsOut)			/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Standard signed attributes, optionally specified in 
@@ -230,7 +263,8 @@ typedef uint32_t CMSSignedAttributes;
  */
 OSStatus CMSEncoderAddSignedAttributes(
 	CMSEncoderRef		cmsEncoder,
-	CMSSignedAttributes	signedAttributes);
+	CMSSignedAttributes	signedAttributes)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Specification of what certificates to include in a signed message.
@@ -255,7 +289,8 @@ typedef uint32_t CMSCertificateChainMode;
  */
 OSStatus CMSEncoderSetCertificateChainMode(
 	CMSEncoderRef			cmsEncoder,
-	CMSCertificateChainMode	chainMode);
+	CMSCertificateChainMode	chainMode)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /* 
  * Obtain indication of which signer certs are to be included
@@ -263,7 +298,8 @@ OSStatus CMSEncoderSetCertificateChainMode(
  */
 OSStatus CMSEncoderGetCertificateChainMode(
 	CMSEncoderRef			cmsEncoder,
-	CMSCertificateChainMode	*chainModeOut);
+	CMSCertificateChainMode	*chainModeOut)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Feed content bytes into the encoder. 
@@ -273,16 +309,18 @@ OSStatus CMSEncoderGetCertificateChainMode(
 OSStatus CMSEncoderUpdateContent(
 	CMSEncoderRef		cmsEncoder,
 	const void			*content,
-	size_t				contentLen);
-	
+	size_t				contentLen)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Finish encoding the message and obtain the encoded result.
  * Caller must CFRelease the result. 
  */
 OSStatus CMSEncoderCopyEncodedContent(
 	CMSEncoderRef		cmsEncoder,
-	CFDataRef			*encodedContentOut);	/* RETURNED */
-	
+	CFDataRef			*encodedContentOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * High-level, one-shot encoder function.
  *
@@ -290,18 +328,21 @@ OSStatus CMSEncoderCopyEncodedContent(
  *         of {signers, recipients} must be non-NULL)
  * ------------------------------------------------------------
  * signers          : signer identities. Either a SecIdentityRef, or a 
- *					  CFArray of them.
+ *                    CFArray of them.
  * recipients       : recipient certificates. Either a SecCertificateRef, 
- *					  or a CFArray of them.
+ *                    or a CFArray of them.
  * eContentType     : contentType for inner EncapsulatedData.
  * detachedContent  : when true, do not include the signed data in the message.
  * signedAttributes : Specifies which standard signed attributes are to be 
- *					  included in the message. 
+ *                    included in the message. 
  * content          : raw content to be signed and/or encrypted.
  *
  * Output
  * ------
  * encodedContent   : the result of the encoding.
+ *
+ * NOTE: This function is deprecated in Mac OS X 10.7 and later;
+ * please use CMSEncodeContent() instead.
  */
 OSStatus CMSEncode(
 	CFTypeRef			signers,
@@ -311,8 +352,44 @@ OSStatus CMSEncode(
 	CMSSignedAttributes	signedAttributes,
 	const void			*content,
 	size_t				contentLen,
-	CFDataRef			*encodedContentOut);	/* RETURNED */
-	
+	CFDataRef			*encodedContentOut)	/* RETURNED */
+	/* DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER; */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
+
+/*
+ * High-level, one-shot encoder function.
+ *
+ * Inputs (all except for content optional, though at least one 
+ *         of {signers, recipients} must be non-NULL)
+ * ------------------------------------------------------------
+ * signers          : signer identities. Either a SecIdentityRef, or a 
+ *                    CFArray of them.
+ * recipients       : recipient certificates. Either a SecCertificateRef, 
+ *                    or a CFArray of them.
+ * eContentTypeOID  : contentType OID for inner EncapsulatedData, e.g.:
+ *                    CFSTR("1.2.840.113549.1.7.1")
+ * detachedContent  : when true, do not include the signed data in the message.
+ * signedAttributes : Specifies which standard signed attributes are to be 
+ *                    included in the message. 
+ * content          : raw content to be signed and/or encrypted.
+ *
+ * Output
+ * ------
+ * encodedContent   : the result of the encoding.
+ */
+OSStatus CMSEncodeContent(
+	CFTypeRef			signers,
+	CFTypeRef			recipients,
+	CFTypeRef			eContentTypeOID,
+	Boolean				detachedContent,
+	CMSSignedAttributes	signedAttributes,
+	const void			*content,
+	size_t				contentLen,
+	CFDataRef			*encodedContentOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+
+
 #ifdef __cplusplus
 }
 #endif

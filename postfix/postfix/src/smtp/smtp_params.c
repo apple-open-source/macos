@@ -8,9 +8,7 @@
 	VAR_SMTP_SASL_PATH, DEF_SMTP_SASL_PATH, &var_smtp_sasl_path, 0, 0,
 #ifdef USE_TLS
 	VAR_SMTP_SASL_TLS_OPTS, DEF_SMTP_SASL_TLS_OPTS, &var_smtp_sasl_tls_opts, 0, 0,
-#ifdef SNAPSHOT				/* XXX: Not yet */
 	VAR_SMTP_SASL_TLSV_OPTS, DEF_SMTP_SASL_TLSV_OPTS, &var_smtp_sasl_tlsv_opts, 0, 0,
-#endif
 	VAR_SMTP_TLS_CERT_FILE, DEF_SMTP_TLS_CERT_FILE, &var_smtp_tls_cert_file, 0, 0,
 	VAR_SMTP_TLS_KEY_FILE, DEF_SMTP_TLS_KEY_FILE, &var_smtp_tls_key_file, 0, 0,
 	VAR_SMTP_TLS_DCERT_FILE, DEF_SMTP_TLS_DCERT_FILE, &var_smtp_tls_dcert_file, 0, 0,
@@ -25,6 +23,10 @@
 	VAR_SMTP_TLS_SEC_CMATCH, DEF_SMTP_TLS_SEC_CMATCH, &var_smtp_tls_sec_cmatch, 1, 0,
 	VAR_SMTP_TLS_FPT_CMATCH, DEF_SMTP_TLS_FPT_CMATCH, &var_smtp_tls_fpt_cmatch, 0, 0,
 	VAR_SMTP_TLS_FPT_DGST, DEF_SMTP_TLS_FPT_DGST, &var_smtp_tls_fpt_dgst, 1, 0,
+	VAR_SMTP_TLS_PROTO, DEF_SMTP_TLS_PROTO, &var_smtp_tls_proto, 0, 0,
+	VAR_SMTP_TLS_CIPH, DEF_SMTP_TLS_CIPH, &var_smtp_tls_ciph, 1, 0,
+	VAR_SMTP_TLS_ECCERT_FILE, DEF_SMTP_TLS_ECCERT_FILE, &var_smtp_tls_eccert_file, 0, 0,
+	VAR_SMTP_TLS_ECKEY_FILE, DEF_SMTP_TLS_ECKEY_FILE, &var_smtp_tls_eckey_file, 0, 0,
 #endif
 	VAR_SMTP_SASL_MECHS, DEF_SMTP_SASL_MECHS, &var_smtp_sasl_mechs, 0, 0,
 	VAR_SMTP_SASL_TYPE, DEF_SMTP_SASL_TYPE, &var_smtp_sasl_type, 1, 0,
@@ -50,6 +52,9 @@
 	VAR_SMTP_MIME_CHKS, DEF_SMTP_MIME_CHKS, &var_smtp_mime_chks, 0, 0,
 	VAR_SMTP_NEST_CHKS, DEF_SMTP_NEST_CHKS, &var_smtp_nest_chks, 0, 0,
 	VAR_SMTP_BODY_CHKS, DEF_SMTP_BODY_CHKS, &var_smtp_body_chks, 0, 0,
+	VAR_SMTP_RESP_FILTER, DEF_SMTP_RESP_FILTER, &var_smtp_resp_filter, 0, 0,
+	VAR_SMTP_ADDR_PREF, DEF_SMTP_ADDR_PREF, &var_smtp_addr_pref, 1, 0,
+	VAR_SMTP_DNS_RES_OPT, DEF_SMTP_DNS_RES_OPT, &var_smtp_dns_res_opt, 0, 0,
 	0,
     };
     static const CONFIG_TIME_TABLE smtp_time_table[] = {
@@ -87,7 +92,7 @@
     static const CONFIG_BOOL_TABLE smtp_bool_table[] = {
 	VAR_SMTP_SKIP_5XX, DEF_SMTP_SKIP_5XX, &var_smtp_skip_5xx_greeting,
 	VAR_IGN_MX_LOOKUP_ERR, DEF_IGN_MX_LOOKUP_ERR, &var_ign_mx_lookup_err,
-	VAR_SKIP_QUIT_RESP, DEF_SKIP_QUIT_RESP, &var_skip_quit_resp,
+	VAR_SMTP_SKIP_QUIT_RESP, DEF_SMTP_SKIP_QUIT_RESP, &var_skip_quit_resp,
 	VAR_SMTP_ALWAYS_EHLO, DEF_SMTP_ALWAYS_EHLO, &var_smtp_always_ehlo,
 	VAR_SMTP_NEVER_EHLO, DEF_SMTP_NEVER_EHLO, &var_smtp_never_ehlo,
 	VAR_SMTP_SASL_ENABLE, DEF_SMTP_SASL_ENABLE, &var_smtp_sasl_enable,
@@ -101,9 +106,11 @@
 #ifdef USE_TLS
 	VAR_SMTP_TLS_ENFORCE_PN, DEF_SMTP_TLS_ENFORCE_PN, &var_smtp_tls_enforce_peername,
 	VAR_SMTP_TLS_NOTEOFFER, DEF_SMTP_TLS_NOTEOFFER, &var_smtp_tls_note_starttls_offer,
+	VAR_SMTP_TLS_BLK_EARLY_MAIL_REPLY, DEF_SMTP_TLS_BLK_EARLY_MAIL_REPLY, &var_smtp_tls_blk_early_mail_reply,
 #endif
 	VAR_SMTP_SENDER_AUTH, DEF_SMTP_SENDER_AUTH, &var_smtp_sender_auth,
 	VAR_SMTP_CNAME_OVERR, DEF_SMTP_CNAME_OVERR, &var_smtp_cname_overr,
 	VAR_SMTP_SASL_AUTH_SOFT_BOUNCE, DEF_SMTP_SASL_AUTH_SOFT_BOUNCE, &var_smtp_sasl_auth_soft_bounce,
+	VAR_LMTP_ASSUME_FINAL, DEF_LMTP_ASSUME_FINAL, &var_lmtp_assume_final,
 	0,
     };

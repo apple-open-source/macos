@@ -31,6 +31,7 @@
 
 #include "CRuntimeObject.h"
 #include "IdentifierRep.h"
+#include "JSDOMBinding.h"
 #include "c_class.h"
 #include "c_runtime.h"
 #include "c_utility.h"
@@ -40,8 +41,8 @@
 #include <interpreter/CallFrame.h>
 #include <runtime/ArgList.h>
 #include <runtime/Error.h>
+#include <runtime/FunctionPrototype.h>
 #include <runtime/JSLock.h>
-#include <runtime/JSNumberCell.h>
 #include <runtime/PropertyNameArray.h>
 #include <wtf/Assertions.h>
 #include <wtf/StdLibExtras.h>
@@ -73,7 +74,7 @@ void CInstance::moveGlobalExceptionToExecState(ExecState* exec)
 
     {
         JSLock lock(SilenceAssertionsOnly);
-        throwError(exec, GeneralError, globalExceptionString());
+        throwError(exec, createError(exec, globalExceptionString()));
     }
 
     globalExceptionString() = UString();
@@ -93,7 +94,7 @@ CInstance::~CInstance()
 
 RuntimeObject* CInstance::newRuntimeObject(ExecState* exec)
 {
-    return new (exec) CRuntimeObject(exec, this);
+    return new (exec) CRuntimeObject(exec, exec->lexicalGlobalObject(), this);
 }
 
 Class *CInstance::getClass() const
@@ -110,12 +111,18 @@ bool CInstance::supportsInvokeDefaultMethod() const
 
 class CRuntimeMethod : public RuntimeMethod {
 public:
-    CRuntimeMethod(ExecState* exec, const Identifier& name, Bindings::MethodList& list)
-        : RuntimeMethod(exec, name, list)
+    CRuntimeMethod(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, Bindings::MethodList& list)
+        // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+        // We need to pass in the right global object for "i".
+        : RuntimeMethod(exec, globalObject, WebCore::deprecatedGetDOMStructure<CRuntimeMethod>(exec), name, list)
     {
+        ASSERT(inherits(&s_info));
     }
 
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    {
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
 
     static const ClassInfo s_info;
 };
@@ -125,13 +132,13 @@ const ClassInfo CRuntimeMethod::s_info = { "CRuntimeMethod", &RuntimeMethod::s_i
 JSValue CInstance::getMethod(ExecState* exec, const Identifier& propertyName)
 {
     MethodList methodList = getClass()->methodsNamed(propertyName, this);
-    return new (exec) CRuntimeMethod(exec, propertyName, methodList);
+    return new (exec) CRuntimeMethod(exec, exec->lexicalGlobalObject(), propertyName, methodList);
 }
 
-JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, const ArgList& args)
+JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 {
     if (!asObject(runtimeMethod)->inherits(&CRuntimeMethod::s_info))
-        return throwError(exec, TypeError, "Attempt to invoke non-plug-in method on plug-in object.");
+        return throwError(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
 
     const MethodList& methodList = *runtimeMethod->methods();
 
@@ -145,12 +152,12 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, c
     if (!_object->_class->hasMethod(_object, ident))
         return jsUndefined();
 
-    unsigned count = args.size();
+    unsigned count = exec->argumentCount();
     Vector<NPVariant, 8> cArgs(count);
 
     unsigned i;
     for (i = 0; i < count; i++)
-        convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
+        convertValueToNPVariant(exec, exec->argument(i), &cArgs[i]);
 
     // Invoke the 'C' method.
     bool retval = true;
@@ -165,7 +172,7 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, c
     }
     
     if (!retval)
-        throwError(exec, GeneralError, "Error calling method on NPObject!");
+        throwError(exec, createError(exec, "Error calling method on NPObject."));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -176,17 +183,17 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, c
 }
 
 
-JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
+JSValue CInstance::invokeDefaultMethod(ExecState* exec)
 {
     if (!_object->_class->invokeDefault)
         return jsUndefined();
 
-    unsigned count = args.size();
+    unsigned count = exec->argumentCount();
     Vector<NPVariant, 8> cArgs(count);
 
     unsigned i;
     for (i = 0; i < count; i++)
-        convertValueToNPVariant(exec, args.at(i), &cArgs[i]);
+        convertValueToNPVariant(exec, exec->argument(i), &cArgs[i]);
 
     // Invoke the 'C' method.
     bool retval = true;
@@ -200,7 +207,7 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec, const ArgList& args)
     }
     
     if (!retval)
-        throwError(exec, GeneralError, "Error calling method on NPObject!");
+        throwError(exec, createError(exec, "Error calling method on NPObject."));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -239,7 +246,7 @@ JSValue CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
     }
     
     if (!retval)
-        throwError(exec, GeneralError, "Error calling method on NPObject!");
+        throwError(exec, createError(exec, "Error calling method on NPObject."));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -265,10 +272,10 @@ JSValue CInstance::stringValue(ExecState* exec) const
     return jsString(exec, buf);
 }
 
-JSValue CInstance::numberValue(ExecState* exec) const
+JSValue CInstance::numberValue(ExecState*) const
 {
     // FIXME: Implement something sensible.
-    return jsNumber(exec, 0);
+    return jsNumber(0);
 }
 
 JSValue CInstance::booleanValue() const

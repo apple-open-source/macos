@@ -1,7 +1,7 @@
-# $Id: /local/CPAN/Class-Accessor-Grouped/Makefile.PL 1165 2008-01-10T00:37:13.965078Z claco  $
+# $Id: Makefile.PL 7804 2009-10-20 23:19:14Z caelum $
 use strict;
 use warnings;
-use inc::Module::Install 0.65;
+use inc::Module::Install 0.91;
 
 name 'Class-Accessor-Grouped';
 license 'perl';
@@ -12,13 +12,23 @@ requires 'Carp';
 requires 'Scalar::Util';
 requires 'MRO::Compat';
 requires 'Class::Inspector';
+requires 'Sub::Name' => '0.04';
+
+# removed due to segfaults, see _hasXS()
+#requires 'Class::XSAccessor';
+
+test_requires 'Sub::Identify';
 
 clean_files "Class-Accessor-Grouped-* t/var";
 
+if (-e 'MANIFEST.SKIP') {
+    system('pod2text lib/Class/Accessor/Grouped.pm > README');
+}
+
+auto_provides;
 auto_install;
 
-WriteMakefile(
-  dist => {
-    PREOP => 'pod2text lib/Class/Accessor/Grouped.pm > README'
-  }
-);
+resources repository =>
+'http://dev.catalyst.perl.org/repos/bast/trunk/Class-Accessor-Grouped/';
+
+WriteAll;

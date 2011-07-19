@@ -1,4 +1,4 @@
-[comment {# RCS: @(#) $Id: ctext.man,v 1.6 2008/08/20 03:45:58 georgeps Exp $}]
+[comment {# RCS: @(#) $Id: ctext.man,v 1.7 2009/02/07 05:41:06 andreas_kupries Exp $}]
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin ctext n 3.2]
 [copyright {George Peter Staplin <GeorgePS@XMission.com>}]
@@ -144,7 +144,7 @@ the new value.
 
 [section {WIDGET OPTIONS}]
 
-[list_begin tkoption]
+[list_begin tkoptions]
 
 [tkoption_def -linemap "" ""]
 

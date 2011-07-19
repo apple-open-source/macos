@@ -1,5 +1,5 @@
---- _SB/Libc/gen/FreeBSD/signbit.3	2003-11-12 00:44:46.000000000 -0800
-+++ _SB/Libc/gen/FreeBSD/signbit.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- signbit.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ signbit.3	2009-11-07 14:51:39.000000000 -0800
 @@ -40,8 +40,9 @@
  The
  .Fn signbit
@@ -12,7 +12,7 @@
  .Sh SEE ALSO
  .Xr fpclassify 3 ,
  .Xr math 3
-@@ -50,8 +51,3 @@
+@@ -50,8 +51,3 @@ The
  .Fn signbit
  macro conforms to
  .St -isoC-99 .

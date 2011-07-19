@@ -1,0 +1,92 @@
+Finding files.
+..
+Checking for cross-references
+..
+Writing xref file
+Writing cross-references to file headerdoc_temptestdir/seed1.xref
+
+Resolving links (multithreaded)
+..
+Done
+=====================================================================
+  Statistics:
+
+         files:   2
+     processed:   2
+    total reqs:   1
+      resolved:   1
+    unresolved:   0 (0 machine-generated, 0 explicit)
+        broken:   0
+         plain:   2
+    duplicates:   0
+         total:   3
+Set global base path to /private/tmp/headerdoc_temptestdir/seed_tests/seed2/
+Finding files.
+..
+Checking for cross-references
+.
+Writing xref file
+Writing cross-references to file headerdoc_temptestdir/seed2.xref
+
+Resolving links (multithreaded)
+.
+Done
+=====================================================================
+  Statistics:
+
+         files:   1
+     processed:   1
+    total reqs:   0
+      resolved:   0
+    unresolved:   0 (0 machine-generated, 0 explicit)
+        broken:   0
+         plain:   1
+    duplicates:   0
+         total:   1
+Loading seed files.
+Finding files.
+..
+Checking for cross-references
+..
+Writing xref file
+Writing cross-references to file /tmp/xref_out
+
+Resolving links (multithreaded)
+..
+Done
+=====================================================================
+  Statistics:
+
+         files:   2
+     processed:   2
+    total reqs:   5
+      resolved:   5
+    unresolved:   0 (0 machine-generated, 0 explicit)
+        broken:   0
+         plain:   1
+    duplicates:   0
+         total:   6
+Set global base path to /
+Loading seed files.
+Finding files.
+..
+Checking for cross-references
+..
+Writing xref file
+Writing cross-references to file /tmp/xref_out
+
+Resolving links (multithreaded)
+..
+Done
+=====================================================================
+  Statistics:
+
+         files:   2
+     processed:   2
+    total reqs:   1
+      resolved:   1
+    unresolved:   0 (0 machine-generated, 0 explicit)
+        broken:   0
+         plain:   2
+    duplicates:   0
+         total:   3

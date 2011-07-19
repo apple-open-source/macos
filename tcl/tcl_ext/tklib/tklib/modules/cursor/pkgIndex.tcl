@@ -1,1 +1,1 @@
-package ifneeded cursor 0.2 [list source [file join $dir cursor.tcl]]
+package ifneeded cursor 0.3 [list source [file join $dir cursor.tcl]]

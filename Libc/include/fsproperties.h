@@ -49,5 +49,8 @@
 #define kFSVerificationArgumentsKey  "FSVerificationArguments"
 #define kFSVerificationExecutableKey "FSVerificationExecutable"
 #define kFSSubTypeKey                "FSSubType"
+#define kFSXMLOutputArgumentKey      "FSXMLOutputArgument"
+
+#define	kFSCoreStorageEncryptNameKey "FSCoreStorageEncryptionName"
 
 #endif /* _FSPROPERTIES_H_ */

@@ -1,0 +1,137 @@
+Contents
+
+
+ 1. Check that it's running
+
+ 2. Check that it's listening
+
+ 3. Check that it's allowing logins
+
+ 4. Check that it's allowing remote logins
+
+ 5. Check that it finds the mails
+
+ 6. Check that real mail clients work
+
+Check that it's running
+-----------------------
+
+First check with 'ps' that 'dovecot' process is actually running. If it's not,
+you had an error in 'dovecot.conf' and the error message was written to log. Go
+back to <RunningDovecot.txt> and <Logging.txt> if you can't find it.
+
+Check that it's listening
+-------------------------
+
+Next check that Dovecot is listening for connections:
+
+---%<-------------------------------------------------------------------------
+# telnet localhost 110
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
++OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+If you got "connection refused", check that 'pop3' is included in 'protocols'
+setting in 'dovecot.conf'. Also check that 'listen' setting is '*'.
+
+Next check that it also works from remote host:
+
+---%<-------------------------------------------------------------------------
+# telnet imap.example.com 110
+Trying 1.2.3.4...
+Connected to imap.example.com.
+Escape character is '^]'.
++OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+If that didn't work, check all possible firewalls in between, and check that
+'listen' setting is '*' in 'dovecot.conf'.
+
+Check that it's allowing logins
+-------------------------------
+
+---%<-------------------------------------------------------------------------
+# telnet localhost 110
+user username
+pass password
+---%<-------------------------------------------------------------------------
+
+Replace the username and password with the ones you added to 'passwd.dovecot'
+in <BasicConfiguration.txt>.
+
+You should get an "+OK Logged in." reply. If you get "Authentication failed"
+error, set 'auth_verbose = yes' and 'auth_debug = yes' in 'dovecot.conf',
+restart Dovecot and try again. The log file should now show enough information
+to help you fix the problem.
+
+Check that it's allowing remote logins
+--------------------------------------
+
+You'll need to try this from another computer, since all local IPs are treated
+as secure:
+
+---%<-------------------------------------------------------------------------
+# telnet imap.example.com 110
+user username
+pass password
+---%<-------------------------------------------------------------------------
+
+If the connection is hanging instead of giving '+OK Dovecot ready', you have a
+firewall that's preventing the connections.
+
+Otherwise, the only difference here compared to step above is that you might
+get:
+
+---%<-------------------------------------------------------------------------
+-ERR Plaintext authentication disabled.
+---%<-------------------------------------------------------------------------
+
+If this is the case, you didn't set 'disable_plaintext_auth = no'. You could
+alternatively use OpenSSL to test that the server works with SSL (assuming
+you've already set it up):
+
+---%<-------------------------------------------------------------------------
+# openssl s_client -connect imap.example.com:995
++OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+Check that it finds the mails
+-----------------------------
+
+After logging in, check that it sees mails:
+
+---%<-------------------------------------------------------------------------
+stat
++OK 1 1532
+retr 1
++OK 1532 octets
+<the mail's contents>
+.
+---%<-------------------------------------------------------------------------
+
+It should contain the mail that you sent to yourself in <FindMailLocation.txt>
+step.
+
+If anything goes wrong, set 'mail_debug = yes' and try again. The log file
+should now contain debugging information of where Dovecot is trying to find the
+mails. Fix 'mail_location' setting and try again.
+
+Check that real mail clients work
+---------------------------------
+
+Since mail clients can be configured in various ways, please check first if the
+problem is with Dovecot configuration or with the client's configuration. You
+can rule out it being Dovecot's problem with the "telnet" methods described
+above.
+
+If you can't log in,
+
+ * Make sure SSL/TLS settings are correct.
+ * Make sure the client uses plaintext authentication method, unless you've
+   specifically configured Dovecot to accept others.
+
+Many POP3 clients have been tested with Dovecot and they work.
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -34,22 +34,27 @@
 #if ENABLE(NOTIFICATIONS)
 
 #include "Notification.h"
-#include "NotificationContents.h"
 
 #include "Document.h"
 #include "EventNames.h"
+#include "NotificationCenter.h"
+#include "NotificationContents.h"
+#include "NotificationPresenter.h"
+#include "ResourceRequest.h"
+#include "ResourceResponse.h"
+#include "ThreadableLoader.h"
 #include "WorkerContext.h"
 
 namespace WebCore {
 
-Notification::Notification(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider)
+Notification::Notification(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider)
     : ActiveDOMObject(context, this)
     , m_isHTML(true)
-    , m_isShowing(false)
-    , m_presenter(provider)
+    , m_state(Idle)
+    , m_notificationCenter(provider)
 {
-    ASSERT(m_presenter);
-    if (m_presenter->checkPermission(context->url()) != NotificationPresenter::PermissionAllowed) {
+    ASSERT(m_notificationCenter->presenter());
+    if (m_notificationCenter->presenter()->checkPermission(context) != NotificationPresenter::PermissionAllowed) {
         ec = SECURITY_ERR;
         return;
     }
@@ -62,15 +67,15 @@ Notification::Notification(const KURL& url, ScriptExecutionContext* context, Exc
     m_notificationURL = url;
 }
 
-Notification::Notification(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider)
+Notification::Notification(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider)
     : ActiveDOMObject(context, this)
     , m_isHTML(false)
     , m_contents(contents)
-    , m_isShowing(false)
-    , m_presenter(provider)
+    , m_state(Idle)
+    , m_notificationCenter(provider)
 {
-    ASSERT(m_presenter);
-    if (m_presenter->checkPermission(context->url()) != NotificationPresenter::PermissionAllowed) {
+    ASSERT(m_notificationCenter->presenter());
+    if (m_notificationCenter->presenter()->checkPermission(context) != NotificationPresenter::PermissionAllowed) {
         ec = SECURITY_ERR;
         return;
     }
@@ -83,20 +88,58 @@ Notification::Notification(const NotificationContents& contents, ScriptExecution
 
 Notification::~Notification() 
 {
-    m_presenter->notificationObjectDestroyed(this);
+    if (m_state == Loading) {
+        ASSERT_NOT_REACHED();
+        cancel();
+    }
+}
+
+PassRefPtr<Notification> Notification::create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider) 
+{ 
+    return adoptRef(new Notification(url, context, ec, provider));
+}
+
+PassRefPtr<Notification> Notification::create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider) 
+{ 
+    return adoptRef(new Notification(contents, context, ec, provider));
 }
 
 void Notification::show() 
 {
+#if PLATFORM(QT)
+    if (iconURL().isEmpty()) {
+        // Set the state before actually showing, because
+        // handling of ondisplay may rely on that.
+        if (m_state == Idle) {
+            m_state = Showing;
+            if (m_notificationCenter->presenter())
+                m_notificationCenter->presenter()->show(this);
+        }
+    } else
+        startLoading();
+#else
     // prevent double-showing
-    if (!m_isShowing)
-        m_isShowing = m_presenter->show(this);
+    if (m_state == Idle && m_notificationCenter->presenter() && m_notificationCenter->presenter()->show(this))
+        m_state = Showing;
+#endif
 }
 
 void Notification::cancel() 
 {
-    if (m_isShowing)
-        m_presenter->cancel(this);
+    switch (m_state) {
+    case Idle:
+        break;
+    case Loading:
+        m_state = Cancelled;
+        stopLoading();
+        break;
+    case Showing:
+        if (m_notificationCenter->presenter())
+            m_notificationCenter->presenter()->cancel(this);
+        break;
+    case Cancelled:
+        break;
+    }
 }
 
 EventTargetData* Notification::eventTargetData()
@@ -107,6 +150,79 @@ EventTargetData* Notification::eventTargetData()
 EventTargetData* Notification::ensureEventTargetData()
 {
     return &m_eventTargetData;
+}
+
+void Notification::contextDestroyed()
+{
+    ActiveDOMObject::contextDestroyed();
+    if (m_notificationCenter->presenter())
+        m_notificationCenter->presenter()->notificationObjectDestroyed(this);
+}
+
+void Notification::startLoading()
+{
+    if (m_state != Idle)
+        return;
+    setPendingActivity(this);
+    m_state = Loading;
+    ThreadableLoaderOptions options;
+    options.sendLoadCallbacks = false;
+    options.sniffContent = false;
+    options.forcePreflight = false;
+    options.allowCredentials = AllowStoredCredentials;
+    options.crossOriginRequestPolicy = AllowCrossOriginRequests;
+    m_loader = ThreadableLoader::create(scriptExecutionContext(), this, ResourceRequest(iconURL()), options);
+}
+
+void Notification::stopLoading()
+{
+    m_iconData = 0;
+    RefPtr<ThreadableLoader> protect(m_loader);
+    m_loader->cancel();
+}
+
+void Notification::didReceiveResponse(const ResourceResponse& response)
+{
+    int status = response.httpStatusCode();
+    if (status && (status < 200 || status > 299)) {
+        stopLoading();
+        return;
+    }
+    m_iconData = SharedBuffer::create();
+}
+
+void Notification::didReceiveData(const char* data, int dataLength)
+{
+    m_iconData->append(data, dataLength);
+}
+
+void Notification::didFinishLoading(unsigned long, double)
+{
+    finishLoading();
+}
+
+void Notification::didFail(const ResourceError&)
+{
+    finishLoading();
+}
+
+void Notification::didFailRedirectCheck()
+{
+    finishLoading();
+}
+
+void Notification::didReceiveAuthenticationCancellation(const ResourceResponse&)
+{
+    finishLoading();
+}
+
+void Notification::finishLoading()
+{
+    if (m_state == Loading) {
+        if (m_notificationCenter->presenter() && m_notificationCenter->presenter()->show(this))
+            m_state = Showing;
+    }
+    unsetPendingActivity(this);
 }
 
 } // namespace WebCore

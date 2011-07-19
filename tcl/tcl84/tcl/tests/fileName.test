@@ -1873,6 +1873,21 @@ test filename-14.30 {Bug 2710920} {unixOrPc} {
     file rootname [lindex [lsort [glob globTest/*/]] 0]
 } globTest/a1/
 
+test filename-14.31 {Bug 2918610} -setup {
+    set d [makeDirectory foo]
+    makeFile {} bar.soom $d
+} -body {
+    foreach fn [glob $d/bar.soom] {
+        set root [file rootname $fn]
+        close [open $root {WRONLY CREAT}]
+    }
+    llength [glob -directory $d *]
+} -cleanup {
+    file delete -force $d/bar
+    removeFile bar.soom $d
+    removeDirectory foo
+} -result 2
+
 unset globname
 
 # The following tests are only valid for Unix systems.
@@ -2064,6 +2079,89 @@ test fileName-20.4 {Bug 1750300} -setup {
     removeDirectory foo
 } -result 0
 
+test fileName-20.5 {Bug 2837800} -setup {
+    set dd [makeDirectory isolate]
+    set d [makeDirectory ./~foo $dd]
+    makeFile {} test $d
+    set savewd [pwd]
+    cd $dd
+} -body {
+    glob -nocomplain */test
+} -cleanup {
+    cd $savewd
+    removeFile test $d
+    removeDirectory ./~foo $dd
+    removeDirectory isolate
+} -result ~foo/test
+
+test fileName-20.6 {Bug 2837800} -setup {
+    # Recall that we have $env(HOME) set so that references
+    # to ~ point to [temporaryDirectory]
+    makeFile {} test ~
+    set dd [makeDirectory isolate]
+    set d [makeDirectory ./~ $dd]
+    set savewd [pwd]
+    cd $dd
+} -body {
+    glob -nocomplain */test
+} -cleanup {
+    cd $savewd
+    removeDirectory ./~ $dd
+    removeDirectory isolate
+    removeFile test ~
+} -result {}
+
+test fileName-20.7 {Bug 2806250} -setup {
+    set d [makeDirectory isolate]
+    makeFile {} ./~test $d
+} -body {
+    file exists [lindex [glob -nocomplain isolate/*] 0]
+} -cleanup {
+    removeFile ./~test $d
+    removeDirectory isolate
+} -result 1
+
+test fileName-20.8 {Bug 2806250} -setup {
+    set d [makeDirectory isolate]
+    makeFile {} ./~test $d
+} -body {
+    file tail [lindex [glob -nocomplain isolate/*] 0]
+} -cleanup {
+    removeFile ./~test $d
+    removeDirectory isolate
+} -result ./~test
+
+test fileName-20.9 {} -setup {
+    makeFile {} test ~
+    set d [makeDirectory isolate]
+    set savewd [pwd]
+    cd $d
+} -body {
+   glob -nocomplain -directory ~ test
+} -cleanup {
+    cd $savewd
+    removeDirectory isolate
+    removeFile test ~
+} -result [file normalize ~/test]
+# The normalized result here is arguably buggy, but consistent
+# with (some?) 8.4.* releases.
+
+test fileName-20.10 {} -setup {
+    set s [makeDirectory sub ~]
+    makeFile {} fileName-20.10 $s
+    set d [makeDirectory isolate]
+    set savewd [pwd]
+    cd $d
+} -body {
+   glob -nocomplain -directory ~ -join * fileName-20.10
+} -cleanup {
+    cd $savewd
+    removeDirectory isolate
+    removeFile fileName-20.10 $s
+    removeDirectory sub ~
+} -result [file normalize ~/sub/fileName-20.10]
+# The normalized result here is arguably buggy, but consistent
+# with (some?) 8.4.* releases.
 
 # cleanup
 catch {file delete -force C:/globTest}

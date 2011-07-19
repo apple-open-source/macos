@@ -18,6 +18,7 @@
 
 /* for raw pointers */
 #define SWIG_ConvertPtr(obj, pp, type, flags)           SWIG_Perl_ConvertPtr(SWIG_PERL_OBJECT_CALL obj, pp, type, flags)
+#define SWIG_ConvertPtrAndOwn(obj, pp, type, flags,own) SWIG_Perl_ConvertPtrAndOwn(SWIG_PERL_OBJECT_CALL obj, pp, type, flags, own)
 #define SWIG_NewPointerObj(p, type, flags)              SWIG_Perl_NewPointerObj(SWIG_PERL_OBJECT_CALL p, type, flags)
 
 /* for raw packed data */
@@ -79,6 +80,11 @@ extern "C" {
 
 /* SWIG Perl macros */
 
+/* Macro to declare an XS function */
+#ifndef XSPROTO
+#   define XSPROTO(name) void name(pTHX_ CV* cv)
+#endif
+
 /* Macro to call an XS function */
 #ifdef PERL_OBJECT 
 #  define SWIG_CALLXS(_name) _name(cv,pPerl) 
@@ -90,51 +96,50 @@ extern "C" {
 #  endif 
 #endif 
 
-/* Note: SwigMagicFuncHack is a typedef used to get the C++ compiler to just shut up already */
-
 #ifdef PERL_OBJECT
 #define MAGIC_PPERL  CPerlObj *pPerl = (CPerlObj *) this;
-typedef int (CPerlObj::*SwigMagicFunc)(SV *, MAGIC *);
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef int (CPerlObj::*SwigMagicFuncHack)(SV *, MAGIC *);
+typedef int (CPerlObj::*SwigMagicFunc)(SV *, MAGIC *);
 #ifdef __cplusplus
 }
 #endif
 
 #define SWIG_MAGIC(a,b) (SV *a, MAGIC *b)
 #define SWIGCLASS_STATIC
-#else
+
+#else /* PERL_OBJECT */
+
 #define MAGIC_PPERL
 #define SWIGCLASS_STATIC static SWIGUNUSED
+
 #ifndef MULTIPLICITY
 #define SWIG_MAGIC(a,b) (SV *a, MAGIC *b)
-typedef int (*SwigMagicFunc)(SV *, MAGIC *);
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-typedef int (*SwigMagicFuncHack)(SV *, MAGIC *);
+typedef int (*SwigMagicFunc)(SV *, MAGIC *);
 #ifdef __cplusplus
 }
 #endif
 
+#else /* MULTIPLICITY */
 
-#else
 #define SWIG_MAGIC(a,b) (struct interpreter *interp, SV *a, MAGIC *b)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 typedef int (*SwigMagicFunc)(struct interpreter *, SV *, MAGIC *);
 #ifdef __cplusplus
-extern "C" {
-#endif
-typedef int (*SwigMagicFuncHack)(struct interpreter *, SV *, MAGIC *);
-#ifdef __cplusplus
 }
 #endif
 
-#endif
-#endif
+#endif /* MULTIPLICITY */
+#endif /* PERL_OBJECT */
 
 /* Workaround for bug in perl 5.6.x croak and earlier */
 #if (PERL_VERSION < 8)
@@ -201,20 +206,43 @@ SWIG_Perl_TypeProxyName(const swig_type_info *type) {
   }
 }
 
+/* Identical to SWIG_TypeCheck, except for strcmp comparison */
 SWIGRUNTIME swig_cast_info *
 SWIG_TypeProxyCheck(const char *c, swig_type_info *ty) {
-  SWIG_TypeCheck_Template(( (!iter->type->clientdata && (strcmp((char*)iter->type->name, c) == 0)) 
-			    || (iter->type->clientdata && (strcmp((char*)iter->type->clientdata, c) == 0))), ty);
+  if (ty) {
+    swig_cast_info *iter = ty->cast;
+    while (iter) {
+      if ( (!iter->type->clientdata && (strcmp(iter->type->name, c) == 0)) ||
+            (iter->type->clientdata && (strcmp((char*)iter->type->clientdata, c) == 0)) ) {
+        if (iter == ty->cast)
+          return iter;
+        /* Move iter to the top of the linked list */
+        iter->prev->next = iter->next;
+        if (iter->next)
+          iter->next->prev = iter->prev;
+        iter->next = ty->cast;
+        iter->prev = 0;
+        if (ty->cast) ty->cast->prev = iter;
+        ty->cast = iter;
+        return iter;
+      }
+      iter = iter->next;
+    }
+  }
+  return 0;
 }
-
 
 /* Function for getting a pointer value */
 
 SWIGRUNTIME int
-SWIG_Perl_ConvertPtr(SWIG_MAYBE_PERL_OBJECT SV *sv, void **ptr, swig_type_info *_t, int flags) {
+SWIG_Perl_ConvertPtrAndOwn(SWIG_MAYBE_PERL_OBJECT SV *sv, void **ptr, swig_type_info *_t, int flags, int *own) {
   swig_cast_info *tc;
   void *voidptr = (void *)0;
   SV *tsv = 0;
+
+  if (own)
+    *own = 0;
+
   /* If magical, apply more magic */
   if (SvGMAGICAL(sv))
     mg_get(sv);
@@ -261,7 +289,15 @@ SWIG_Perl_ConvertPtr(SWIG_MAYBE_PERL_OBJECT SV *sv, void **ptr, swig_type_info *
     if (!tc) {
       return SWIG_ERROR;
     }
-    *ptr = SWIG_TypeCast(tc,voidptr);
+    {
+      int newmemory = 0;
+      *ptr = SWIG_TypeCast(tc,voidptr,&newmemory);
+      if (newmemory == SWIG_CAST_NEW_MEMORY) {
+        assert(own);
+        if (own)
+          *own = *own | SWIG_CAST_NEW_MEMORY;
+      }
+    }
   } else {
     *ptr = voidptr;
   }
@@ -290,9 +326,14 @@ SWIG_Perl_ConvertPtr(SWIG_MAYBE_PERL_OBJECT SV *sv, void **ptr, swig_type_info *
   return SWIG_OK;
 }
 
+SWIGRUNTIME int
+SWIG_Perl_ConvertPtr(SWIG_MAYBE_PERL_OBJECT SV *sv, void **ptr, swig_type_info *_t, int flags) {
+  return SWIG_Perl_ConvertPtrAndOwn(sv, ptr, _t, flags, 0);
+}
+
 SWIGRUNTIME void
 SWIG_Perl_MakePtr(SWIG_MAYBE_PERL_OBJECT SV *sv, void *ptr, swig_type_info *t, int flags) {
-  if (ptr && (flags & SWIG_SHADOW)) {
+  if (ptr && (flags & (SWIG_SHADOW | SWIG_POINTER_OWN))) {
     SV *self;
     SV *obj=newSV(0);
     HV *hash=newHV();
@@ -351,7 +392,7 @@ SWIG_Perl_ConvertPacked(SWIG_MAYBE_PERL_OBJECT SV *obj, void *ptr, int sz, swig_
   const char  *c = 0;
 
   if ((!obj) || (!SvOK(obj))) return SWIG_ERROR;
-  c = SvPV(obj, PL_na);
+  c = SvPV_nolen(obj);
   /* Pointer values must start with leading underscore */
   if (*c != '_') return SWIG_ERROR;
   c++;
@@ -368,7 +409,7 @@ SWIG_Perl_ConvertPacked(SWIG_MAYBE_PERL_OBJECT SV *obj, void *ptr, int sz, swig_
 #define SWIG_croak(x)    { SWIG_Error(SWIG_RuntimeError, x); SWIG_fail; }
 
 
-typedef XS(SwigPerlWrapper);
+typedef XSPROTO(SwigPerlWrapper);
 typedef SwigPerlWrapper *SwigPerlWrapperPtr;
 
 /* Structure for command table */
@@ -421,8 +462,8 @@ SWIGRUNTIME void _swig_create_magic(CPerlObj *pPerl, SV *sv, const char *name, i
   sv_magic(sv,sv,'U',(char *) name,strlen(name));
   mg = mg_find(sv,'U');
   mg->mg_virtual = (MGVTBL *) malloc(sizeof(MGVTBL));
-  mg->mg_virtual->svt_get = (SwigMagicFuncHack) get;
-  mg->mg_virtual->svt_set = (SwigMagicFuncHack) set;
+  mg->mg_virtual->svt_get = (SwigMagicFunc) get;
+  mg->mg_virtual->svt_set = (SwigMagicFunc) set;
   mg->mg_virtual->svt_len = 0;
   mg->mg_virtual->svt_clear = 0;
   mg->mg_virtual->svt_free = 0;
@@ -436,7 +477,7 @@ SWIG_Perl_GetModule(void) {
 
   /* first check if pointer already created */
   if (!type_pointer) {
-    pointer = get_sv("swig_runtime_data::type_pointer" SWIG_RUNTIME_VERSION SWIG_TYPE_TABLE_NAME, FALSE);
+    pointer = get_sv("swig_runtime_data::type_pointer" SWIG_RUNTIME_VERSION SWIG_TYPE_TABLE_NAME, FALSE | GV_ADDMULTI);
     if (pointer && SvOK(pointer)) {
       type_pointer = INT2PTR(swig_type_info **, SvIV(pointer));
     }
@@ -450,7 +491,7 @@ SWIG_Perl_SetModule(swig_module_info *module) {
   SV *pointer;
 
   /* create a new pointer */
-  pointer = get_sv("swig_runtime_data::type_pointer" SWIG_RUNTIME_VERSION SWIG_TYPE_TABLE_NAME, TRUE);
+  pointer = get_sv("swig_runtime_data::type_pointer" SWIG_RUNTIME_VERSION SWIG_TYPE_TABLE_NAME, TRUE | GV_ADDMULTI);
   sv_setiv(pointer, PTR2IV(module));
 }
 

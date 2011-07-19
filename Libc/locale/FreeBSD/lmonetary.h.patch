@@ -1,5 +1,5 @@
---- lmonetary.h.orig	2003-05-20 15:21:44.000000000 -0700
-+++ lmonetary.h	2005-02-19 14:41:58.000000000 -0800
+--- lmonetary.h.orig	2009-11-09 15:05:25.000000000 -0800
++++ lmonetary.h	2009-11-09 15:05:25.000000000 -0800
 @@ -29,6 +29,8 @@
  #ifndef _LMONETARY_H_
  #define	_LMONETARY_H_
@@ -9,7 +9,7 @@
  struct lc_monetary_T {
  	const char	*int_curr_symbol;
  	const char	*currency_symbol;
-@@ -53,7 +55,7 @@
+@@ -53,7 +55,7 @@ struct lc_monetary_T {
  	const char	*int_n_sign_posn;
  };
  

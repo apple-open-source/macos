@@ -21,7 +21,7 @@ Architecture Overview </h1>
 <h2> Introduction </h2>
 
 <p> This document presents an overview of the Postfix architecture,
-and is the place where you find a pointer to every Postfix command
+and provides pointers to descriptions of every Postfix command
 or server program.  The text gives the general context in which
 each command or server program is used, and provides pointers to
 documents with specific usage examples and background information.
@@ -173,7 +173,8 @@ notifications about problems with Postfix.  </p>
 
 <li> <p> The <a href="cleanup.8.html">cleanup(8)</a> server implements the final processing
 stage before mail is queued. It adds missing From: and other message
-headers, transforms addresses as described in the <a href="ADDRESS_REWRITING_README.html">ADDRESS_REWRITING_README</a>
+headers, and transforms addresses as described in the
+<a href="ADDRESS_REWRITING_README.html">ADDRESS_REWRITING_README</a>
 document. Optionally, the <a href="cleanup.8.html">cleanup(8)</a> server can be configured to
 do light-weight content inspection with regular expressions as
 described in the <a href="BUILTIN_FILTER_README.html">BUILTIN_FILTER_README</a> document.  The  <a href="cleanup.8.html">cleanup(8)</a>
@@ -650,30 +651,128 @@ align="center" bgcolor="#f0f0ff"> smtp<br> session<br> cache </td>
 
 <li> <p> The <a href="verify.8.html">verify(8)</a> server verifies that a sender or recipient
 address is deliverable before the <a href="smtpd.8.html">smtpd(8)</a> server accepts it.  The
-<a href="verify.8.html">verify(8)</a> server injects probe messages into the Postfix queue and
-processes status updates from delivery agents and/or queue manager.
+<a href="verify.8.html">verify(8)</a> server queries a cache with address verification results.
+If a result is not found, the <a href="verify.8.html">verify(8)</a> server injects a probe
+message into the Postfix queue and processes the status update from
+a delivery agent or queue manager.
 This process is described in the <a href="ADDRESS_VERIFICATION_README.html">ADDRESS_VERIFICATION_README</a>
 document.  The <a href="verify.8.html">verify(8)</a> service is available with Postfix version
 2.1 and later. </p>
 
 <table>
 
-<tr> <td> Network </td> <td> <tt> -&gt; </tt> </td> <td align="center"
-bgcolor="#f0f0ff"> <a href="smtpd.8.html">smtpd(8)</a> </td> <td> <tt> &lt;-&gt; </tt> </td>
-<td align="center" bgcolor="#f0f0ff"> <a href="verify.8.html">verify(8)</a> </td> <td> <tt>
--&gt; </tt> </td> <td align="center" bgcolor="#f0f0ff"> <a href="cleanup.8.html">cleanup(8)</a>
-</td> <td> <tt> -&gt; </tt> </td> <td align="center" bgcolor="#f0f0ff">
-<a href="qmgr.8.html">qmgr(8)</a><br> Postfix <br>queue </td> <td> <tt> -&gt; </tt> </td>
-<td align="center" bgcolor="#f0f0ff"> Delivery<br> agents</td>
+<tr>
+
+    <td rowspan="2" colspan="5" align="center" valign="middle">
+    &nbsp; </td> <td rowspan="3" align="center" valign="bottom">
+    <tt> -&gt; </tt> </td> <td rowspan="3" align="center"
+    valign="middle"> probe<br> message </td> <td rowspan="3"
+    align="center" valign="middle"> <tt> -&gt; </tt> </td> <td
+    rowspan="3" bgcolor="#f0f0ff" align="center" valign="middle">
+    Postfix<br> mail<br> queue </td>
+
 </tr>
 
-<tr> <td colspan="5"> </td> <td align="right"> <table> <tr> <td>
-\ </td> <td> </td> </tr> <tr> <td> </td> <td> \ </td> </tr> </table>
-</td> <td align="center" valign="bottom"> <tt> &lt;- </tt> </td>
-<td valign="bottom"> <tt> &lt;- </tt> </td> <td align="center">
-<tt> |<br> v </tt> </td> <td align="center"> <table> <tr> <td>
-</td> <td> / </td> </tr> <tr> <td> / </td> <td> </td> </tr> </table>
+<tr> <td> </td> </tr>
+
+<tr>
+
+    <td rowspan="3" align="center" valign="middle"> Network </td>
+    <td rowspan="3" align="center" valign="middle"> <tt> -&gt; </tt>
+    </td> <td rowspan="3" bgcolor="#f0f0ff" align="center"
+    valign="middle"> <a href="smtpd.8.html">smtpd(8)</a> </td> <td rowspan="3" align="center"
+    valign="middle"> <tt> &lt;-&gt; </tt> </td> <td rowspan="3"
+    bgcolor="#f0f0ff" align="center" valign="middle"> <a href="verify.8.html">verify(8)</a>
+    </td>
+
+</tr>
+
+<tr>
+
+    <td rowspan="1" colspan="3"> </td> <td rowspan="1" align="center"
+    valign="middle"> <tt> |</tt><br> <tt> v</tt> </td>
+
+</tr>
+
+<tr>
+
+    <td rowspan="3" align="center" valign="top"> <tt> &lt;- </tt>
+    </td> <td rowspan="3" align="center" valign="middle"> probe<br>
+    status </td> <td rowspan="3" align="center" valign="middle">
+    <tt> &lt;- </tt> </td> <td rowspan="3" bgcolor="#f0f0ff"
+    align="center" valign="middle"> Postfix<br> delivery<br> agents
+    </td> <td rowspan="3" align="left" valign="middle"> <tt>-&gt;</tt>
+    Local<br> <tt>-&gt;</tt> Network</td>
+
+</tr>
+
+<tr>
+
+    <td rowspan="3" colspan="4" align="center" valign="middle">
+    &nbsp; </td> <td rowspan="3" align="center" valign="middle">
+    <tt> ^</tt><br> <tt> |</tt><br> <tt> v</tt> </td>
+
+</tr>
+
+<tr> <td> </td> </tr>
+
+<tr> <td colspan="4"> &nbsp; </td> </tr>
+
+<tr>
+
+    <td colspan="4" align="center" valign="middle"> &nbsp; </td>
+    <td bgcolor="#f0f0ff" align="center" valign="middle"> Address<br>
+    verification<br> cache </td>
+
+</tr>
+
+</table>
+
+<li> <p> The <a href="postscreen.8.html">postscreen(8)</a> server can be put "in front" of Postfix
+<a href="smtpd.8.html">smtpd(8)</a> processes. Its purpose is to accept connections from the
+network and to decide what SMTP clients are allowed to talk to
+Postfix.  According to the 2008 MessageLabs annual report, 81% of
+all email was spam, and 90% of that was sent by botnets; by 2010,
+those numbers were 92% and 95%, respectively.  While <a href="postscreen.8.html">postscreen(8)</a>
+keeps the zombies away, more <a href="smtpd.8.html">smtpd(8)</a> processes remain available
+for legitimate clients.  </p>
+
+<p> The <a href="postscreen.8.html">postscreen(8)</a> server is available with Postfix 2.8 and
+later. To keep the implementation simple, <a href="postscreen.8.html">postscreen(8)</a> delegates
+DNS white/backlist lookups to <a href="dnsblog.8.html">dnsblog(8)</a> server processes, and
+delegates TLS encryption/decryption to <a href="tlsproxy.8.html">tlsproxy(8)</a> server processes.
+This delegation is invisible to the remote SMTP client, and is not
+shown in the diagram below.  </p>
+
+<table>
+
+<tr> <td> zombie </td> </tr>
+
+<tr> <td>  </td> <td align="left"> <tt> \ </tt> </td> </tr>
+
+<tr> <td> zombie </td> <td align="left"> <tt> - </tt> </td> <td>
+</td> <td>  </td> <td>  </td> <td align="right"> <tt> - </tt> </td>
+<td bgcolor="#f0f0ff" align="center"> <a href="smtpd.8.html">smtpd(8)</a> </td> </tr>
+
+<tr> <td>  </td> <td align="right"> <tt> \ </tt> </td> <td> </td>
+<td align="left"> <tt> / </tt> </td> </tr>
+
+<tr> <td bgcolor="#f0f0ff" align="center"> other </td> <td> <tt>
+--- </tt> </td> <td bgcolor="#f0f0ff" align="center" valign="middle">
+<a href="postscreen.8.html">postscreen(8)</a> </td> </tr>
+
+<tr> <td>  </td> <td align="right"> <tt> / </tt> </td> <td> </td>
+<td align="right"> <tt> \ </tt> </td> </tr>
+
+<tr> <td bgcolor="#f0f0ff" align="center"> other </td> <td align="left">
+<tt> - </tt> </td> <td> </td> <td>  </td> <td>  </td> <td align="right">
+<tt> - </tt> </td> <td bgcolor="#f0f0ff" align="center"> <a href="smtpd.8.html">smtpd(8)</a>
 </td> </tr>
+
+<tr> <td>  </td> <td align="left"> <tt> / </tt> </td> </tr>
+
+<tr> <td> zombie </td> </tr>
+
 
 </table>
 
@@ -726,6 +825,11 @@ for shell scripts. </p>
 <li> <p> The <a href="postmap.1.html">postmap(1)</a> command maintains Postfix lookup tables
 such as <a href="canonical.5.html">canonical(5)</a>, <a href="virtual.5.html">virtual(5)</a> and others. It is a cousin of the
 UNIX makemap command. </p>
+
+<li> <p> The <a href="postmulti.1.html">postmulti(1)</a> command repeats the "postfix start" etc.
+command for each Postfix instance, and supports creation, deletion
+etc. of Postfix instances. For a tutorial, see <a href="MULTI_INSTANCE_README.html">MULTI_INSTANCE_README</a>.
+</p>
 
 <li> <p> The <a href="postqueue.1.html">postqueue(1)</a> command is the privileged command that
 is run by Postfix <a href="sendmail.1.html">sendmail(1)</a> and <a href="mailq.1.html">mailq(1)</a> in order to flush or

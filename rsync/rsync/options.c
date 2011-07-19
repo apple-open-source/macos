@@ -308,7 +308,7 @@ void usage(enum logcode F)
   rprintf(F," -K, --keep-dirlinks         treat symlinked dir on receiver as dir\n");
   rprintf(F," -H, --hard-links            preserve hard links\n");
   rprintf(F," -p, --perms                 preserve permissions\n");
-  rprintf(F," -E, --executability         preserve the file's executability\n");
+  rprintf(F,"     --executability         preserve the file's executability\n");
   rprintf(F,"     --chmod=CHMOD           affect file and/or directory permissions\n");
   rprintf(F," -o, --owner                 preserve owner (super-user only)\n");
   rprintf(F," -g, --group                 preserve group\n");

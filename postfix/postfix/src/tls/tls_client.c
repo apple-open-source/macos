@@ -139,6 +139,7 @@
 #include <vstream.h>
 #include <stringops.h>
 #include <msg.h>
+#include <iostuff.h>			/* non-blocking */
 
 /* Global library. */
 
@@ -415,18 +416,22 @@ TLS_APPL_STATE *tls_client_init(const TLS_CLIENT_INIT_PROPS *props)
      * 
      * Load the client public key certificate and private key from file and
      * check whether the cert matches the key. We can use RSA certificates
-     * ("cert") and DSA certificates ("dcert"), both can be made available at
-     * the same time. The CA certificates for both are handled in the same
-     * setup already finished. Which one is used depends on the cipher
-     * negotiated (that is: the first cipher listed by the client which does
-     * match the server). A client with RSA only (e.g. Netscape) will use the
-     * RSA certificate only. A client with openssl-library will use RSA first
-     * if not especially changed in the cipher setup.
+     * ("cert") DSA certificates ("dcert") or ECDSA certificates ("eccert").
+     * All three can be made available at the same time. The CA certificates
+     * for all three are handled in the same setup already finished. Which
+     * one is used depends on the cipher negotiated (that is: the first
+     * cipher listed by the client which does match the server). The client
+     * certificate is presented after the server chooses the session cipher,
+     * so we will just present the right cert for the chosen cipher (if it
+     * uses certificates).
      */
-    if ((*props->cert_file != 0 || *props->dcert_file != 0)
-	&& tls_set_my_certificate_key_info(client_ctx, props->cert_file,
-					 props->key_file, props->dcert_file,
-					   props->dkey_file) < 0) {
+    if (tls_set_my_certificate_key_info(client_ctx,
+					props->cert_file,
+					props->key_file,
+					props->dcert_file,
+					props->dkey_file,
+					props->eccert_file,
+					props->eckey_file) < 0) {
 	/* tls_set_my_certificate_key_info() already logs a warning. */
 	SSL_CTX_free(client_ctx);		/* 200411 */
 	return (0);
@@ -721,7 +726,7 @@ TLS_SESS_STATE *tls_client_start(const TLS_CLIENT_START_PROPS *props)
     int     protomask;
     const char *cipher_list;
     SSL_SESSION *session;
-    SSL_CIPHER *cipher;
+    const SSL_CIPHER *cipher;
     X509   *peercert;
     TLS_SESS_STATE *TLScontext;
     TLS_APPL_STATE *app_ctx = props->ctx;
@@ -814,21 +819,6 @@ TLS_SESS_STATE *tls_client_start(const TLS_CLIENT_START_PROPS *props)
 	       | ((protomask & TLS_PROTOCOL_SSLv2) ? SSL_OP_NO_SSLv2 : 0L));
 
     /*
-     * The TLS connection is realized by a BIO_pair, so obtain the pair.
-     * 
-     * XXX There is no need to make internal_bio a member of the TLScontext
-     * structure. It will be attached to TLScontext->con, and destroyed along
-     * with it. The network_bio, however, needs to be freed explicitly.
-     */
-    if (!BIO_new_bio_pair(&TLScontext->internal_bio, TLS_BIO_BUFSIZE,
-			  &TLScontext->network_bio, TLS_BIO_BUFSIZE)) {
-	msg_warn("Could not obtain BIO_pair");
-	tls_print_errors();
-	tls_free_context(TLScontext);
-	return (0);
-    }
-
-    /*
      * XXX To avoid memory leaks we must always call SSL_SESSION_free() after
      * calling SSL_set_session(), regardless of whether or not the session
      * will be reused.
@@ -872,11 +862,21 @@ TLS_SESS_STATE *tls_client_start(const TLS_CLIENT_START_PROPS *props)
     SSL_set_connect_state(TLScontext->con);
 
     /*
-     * Connect the SSL connection with the Postfix side of the BIO-pair for
-     * reading and writing.
+     * Connect the SSL connection with the network socket.
      */
-    SSL_set_bio(TLScontext->con, TLScontext->internal_bio,
-		TLScontext->internal_bio);
+    if (SSL_set_fd(TLScontext->con, vstream_fileno(props->stream)) != 1) {
+	msg_info("SSL_set_fd error to %s", props->namaddr);
+	tls_print_errors();
+	uncache_session(app_ctx->ssl_ctx, TLScontext);
+	tls_free_context(TLScontext);
+	return (0);
+    }
+
+    /*
+     * Turn on non-blocking I/O so that we can enforce timeouts on network
+     * I/O.
+     */
+    non_blocking(vstream_fileno(props->stream), NON_BLOCKING);
 
     /*
      * If the debug level selected is high enough, all of the data is dumped:

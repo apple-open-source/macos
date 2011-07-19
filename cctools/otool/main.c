@@ -1,23 +1,31 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * 1.  Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission. 
  * 
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdio.h>
@@ -67,7 +75,7 @@ enum bool Rflag = FALSE; /* print the dylib reference table */
 enum bool Iflag = FALSE; /* print the indirect symbol table entries */
 enum bool Hflag = FALSE; /* print the two-level hints table */
 enum bool Sflag = FALSE; /* print the contents of the __.SYMDEF file */
-enum bool vflag = FALSE; /* print verbosely (symbolicly) when possible */
+enum bool vflag = FALSE; /* print verbosely (symbolically) when possible */
 enum bool Vflag = FALSE; /* print dissassembled operands verbosely */
 enum bool cflag = FALSE; /* print the argument and environ strings of a core */
 enum bool iflag = FALSE; /* print the shared library initialization table */
@@ -78,6 +86,7 @@ enum bool Bflag = FALSE; /* force Thumb disassembly (ARM objects only) */
 char *pflag = NULL; 	 /* procedure name to start disassembling from */
 char *segname = NULL;	 /* name of the section to print the contents of */
 char *sectname = NULL;
+enum bool llvm_mc = FALSE; /* disassemble as llvm-mc will assemble */
 
 /* this is set when any of the flags that process object files is set */
 enum bool object_processing = FALSE;
@@ -243,6 +252,7 @@ char **envp)
 	narch_flags = 0;
 	all_archs = FALSE;
 	use_member_syntax = TRUE;
+	llvm_mc = FALSE;
 
 	if(argc <= 1)
 	    usage();
@@ -283,6 +293,10 @@ char **envp)
 		    narch_flags++;
 		}
 		i++;
+		continue;
+	    }
+	    if(strcmp(argv[i], "-llvm-mc") == 0){
+		llvm_mc = TRUE;
 		continue;
 	    }
 	    if(argv[i][1] == 'p'){
@@ -490,8 +504,8 @@ void)
 		"library\n");
 	fprintf(stderr, "\t-I print the indirect symbol table\n");
 	fprintf(stderr, "\t-H print the two-level hints table\n");
-	fprintf(stderr, "\t-v print verbosely (symbolicly) when possible\n");
-	fprintf(stderr, "\t-V print disassembled operands symbolicly\n");
+	fprintf(stderr, "\t-v print verbosely (symbolically) when possible\n");
+	fprintf(stderr, "\t-V print disassembled operands symbolically\n");
 	fprintf(stderr, "\t-c print argument strings of a core file\n");
 	fprintf(stderr, "\t-X print no leading addresses or headers\n");
 	fprintf(stderr, "\t-m don't use archive(member) syntax\n");
@@ -1343,10 +1357,53 @@ void *cookie) /* cookie is not used */
 			    loc_relocs, nloc_relocs, vflag);
 	    }
 	    else{
-		 print_objc_segment(ofile->load_commands,mh_ncmds,mh_sizeofcmds,
-				    ofile->object_byte_sex, ofile->object_addr,
-				    ofile->object_size, sorted_symbols,
-				    nsorted_symbols, vflag);
+		 /*
+		  * This is the 32-bit non-arm cputype case.  Which is normally
+		  * the first Objective-C ABI.  But it may be the case of a
+		  * binary for the iOS simulator which is the second Objective-C
+		  * ABI.  In that case print_objc_segment() will determine that
+		  * and return FALSE.
+		  */
+		 if(print_objc_segment(mh_cputype, ofile->load_commands,
+			mh_ncmds, mh_sizeofcmds, ofile->object_byte_sex,
+			ofile->object_addr, ofile->object_size, sorted_symbols,
+			nsorted_symbols, vflag) == FALSE){
+		    get_linked_reloc_info(ofile->load_commands, mh_ncmds,
+			    mh_sizeofcmds, ofile->object_byte_sex,
+			    ofile->object_addr, ofile->object_size, &ext_relocs,
+			    &next_relocs, &loc_relocs, &nloc_relocs);
+		    /* create aligned relocations entries as needed */
+		    relocs = NULL;
+		    nrelocs = 0;
+		    if((intptr_t)ext_relocs % sizeof(int32_t) != 0 ||
+		       ofile->object_byte_sex != get_host_byte_sex()){
+			relocs = allocate(next_relocs *
+					  sizeof(struct relocation_info));
+			memcpy(relocs, ext_relocs, next_relocs *
+			       sizeof(struct relocation_info));
+			ext_relocs = relocs;
+		    }
+		    if((intptr_t)loc_relocs % sizeof(int32_t) != 0 ||
+		       ofile->object_byte_sex != get_host_byte_sex()){
+			relocs = allocate(nloc_relocs *
+					  sizeof(struct relocation_info));
+			memcpy(relocs, loc_relocs, nloc_relocs *
+			       sizeof(struct relocation_info));
+			loc_relocs = relocs;
+		    }
+		    if(ofile->object_byte_sex != get_host_byte_sex()){
+			swap_relocation_info(ext_relocs, next_relocs,
+					     get_host_byte_sex());
+			swap_relocation_info(loc_relocs, nloc_relocs,
+					     get_host_byte_sex());
+		    }
+		    print_objc2_32bit(mh_cputype, ofile->load_commands,
+			    mh_ncmds, mh_sizeofcmds, ofile->object_byte_sex,
+			    ofile->object_addr, ofile->object_size, symbols,
+			    nsymbols, strings, strings_size, sorted_symbols,
+			    nsorted_symbols, ext_relocs, next_relocs,
+			    loc_relocs, nloc_relocs, vflag);
+		}
 	    }
 	}
 
@@ -2339,7 +2396,8 @@ cpu_subtype_t cpusubtype)
 				symbols64, nsymbols, sorted_symbols,
 				nsorted_symbols, strings, strings_size,
 				indirect_symbols, nindirect_symbols, cputype,
-				load_commands, ncmds, sizeofcmds, verbose);
+				load_commands, ncmds, sizeofcmds, verbose,
+				llvm_mc);
 	 	else if(cputype == CPU_TYPE_MC680x0)
 		    j = m68k_disassemble(sect, size - i, cur_addr, addr,
 				object_byte_sex, relocs, nrelocs, symbols,
@@ -2358,7 +2416,7 @@ cpu_subtype_t cpusubtype)
 				nsymbols, sorted_symbols, nsorted_symbols,
 				strings, strings_size, indirect_symbols,
 				nindirect_symbols, cputype, load_commands, 
-				ncmds, sizeofcmds, verbose);
+				ncmds, sizeofcmds, verbose, llvm_mc);
 		else if(cputype == CPU_TYPE_MC88000)
 		    j = m88k_disassemble(sect, size - i, cur_addr, addr,
 				object_byte_sex, relocs, nrelocs, symbols,
@@ -2403,7 +2461,10 @@ cpu_subtype_t cpusubtype)
 	else{
 	    if(cputype == CPU_TYPE_I386 || cputype == CPU_TYPE_X86_64){
 		for(i = 0 ; i < size ; i += j , addr += j){
-		    printf("%08x ", (unsigned int)addr);
+		    if(cputype & CPU_ARCH_ABI64)
+			printf("%016llx ", addr);
+		    else
+			printf("%08x ", (uint32_t)addr);
 		    for(j = 0;
 			j < 16 * sizeof(char) && i + j < size;
 			j += sizeof(char)){

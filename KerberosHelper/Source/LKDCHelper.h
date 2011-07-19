@@ -46,7 +46,8 @@ typedef enum kLKDCHelperErrors LKDCHelperErrorType;
 
 extern volatile int	LKDCLogLevel;
 
-extern	void LKDCLogFunc (const char *func, ...);
+extern	void LKDCLogFunc (const char *func, const char *fmt, ...)
+    __attribute__ ((format (printf, 2, 3)));
 
 #define LKDCLog(...)		LKDCLogFunc (__func__, __VA_ARGS__)
 #define LKDCLogEnter()		asl_log(NULL, NULL, LKDCLogLevel, "[[[ %s", __func__)

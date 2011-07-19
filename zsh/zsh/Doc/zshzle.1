@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHZLE" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -43,7 +43,7 @@ There can be any number of keymaps at any time, and each keymap has one
 or more names\&.  If all of a keymap\&'s names are deleted, it disappears\&.
 \fBbindkey\fP can be used to manipulate keymap names\&.
 .PP
-Initially, there are four keymaps:
+Initially, there are six keymaps:
 .PP
 .PD 0
 .TP
@@ -56,6 +56,12 @@ vi emulation \- insert mode
 \fBvicmd\fP
 vi emulation \- command mode
 .TP
+\fBisearch\fP
+incremental search mode
+.TP
+\fBcommand\fP
+read a command name
+.TP
 \fB\&.safe\fP
 fallback keymap
 .PD
@@ -65,7 +71,7 @@ can never be removed\&.  However, it can be linked to other names, which can
 be removed\&.  In the future other special keymaps may be added; users should
 avoid using names beginning with `\fB\&.\fP\&' for their own keymaps\&.
 .PP
-In addition to these four names, either `\fBemacs\fP\&' or `\fBviins\fP' is
+In addition to these names, either `\fBemacs\fP\&' or `\fBviins\fP' is
 also linked to the name `\fBmain\fP\&'\&.  If one of the \fBVISUAL\fP or
 \fBEDITOR\fP environment variables contain the string `\fBvi\fP\&' when the shell
 starts up then it will be `\fBviins\fP\&', otherwise it will be `\fBemacs\fP'\&.
@@ -118,7 +124,7 @@ shell functions\&.
 .PD 0
 .TP
 .PD 0
-\fBbindkey\fP [ \fIoptions\fP ] \fB\-l\fP
+\fBbindkey\fP [ \fIoptions\fP ] \fB\-l\fP [ \fB\-L\fP ] [ \fIkeymap\fP \&.\&.\&. ]
 .TP
 .PD 0
 \fBbindkey\fP [ \fIoptions\fP ] \fB\-d\fP
@@ -146,24 +152,30 @@ shell functions\&.
 .TP
 .PD
 \fBbindkey\fP [ \fIoptions\fP ] [ \fIin\-string\fP ]
-\fBbindkey\fP\&'s options can be divided into three categories: keymap selection,
-operation selection, and others\&.  The keymap selection options are:
+\fBbindkey\fP\&'s options can be divided into three categories: keymap
+selection for the current command, operation selection, and others\&.  The
+keymap selection options are:
 .RS
 .PP
 .PD 0
 .TP
 .PD
 \fB\-e\fP
-Selects keymap `\fBemacs\fP\&', and also links it to `\fBmain\fP'\&.
+Selects keymap `\fBemacs\fP\&' for any operations by the current command,
+and also links `\fBemacs\fP\&' to `\fBmain\fP' so that it is selected by
+default the next time the editor starts\&.
 .TP
 \fB\-v\fP
-Selects keymap `\fBviins\fP\&', and also links it to `\fBmain\fP'\&.
+Selects keymap `\fBviins\fP\&' for any operations by the current command,
+and also links `\fBviins\fP\&' to `\fBmain\fP' so that it is selected by default
+the next time the editor starts\&.
 .TP
 \fB\-a\fP
-Selects keymap `\fBvicmd\fP\&'\&.
+Selects keymap `\fBvicmd\fP\&' for any operations by the current command\&.
 .TP
 \fB\-M\fP \fIkeymap\fP
-The \fIkeymap\fP specifies a keymap name\&.
+The \fIkeymap\fP specifies a keymap name that is selected for any
+operations by the current command\&.
 .PP
 If a keymap selection is required and none of the options above are used, the
 `\fBmain\fP\&' keymap is used\&.  Some operations do not permit a keymap to be
@@ -173,9 +185,18 @@ selected, namely:
 .TP
 .PD
 \fB\-l\fP
-List all existing keymap names\&.  If the \fB\-L\fP
-option is also used, list in the form of \fBbindkey\fP
-commands to create the keymaps\&.
+List all existing keymap names; if any arguments are given, list just
+those keymaps\&.
+.RS
+.PP
+If the \fB\-L\fP option is also used, list in the form of \fBbindkey\fP
+commands to create or link the keymaps\&.  `\fBbindkey \-lL
+main\fP\&' shows which keymap is linked to `\fBmain\fP', if any, and hence if
+the standard emacs or vi emulation is in effect\&.  This option does
+not show the \fB\&.safe\fP keymap because it cannot be created in that
+fashion; however, neither is `\fBbindkey \-lL \&.safe\fP\&' reported as an
+error, it simply outputs nothing\&.
+.RE
 .TP
 \fB\-d\fP
 Delete all existing keymaps and reset to the default state\&.
@@ -331,8 +352,11 @@ by `\fBbindkey \-m\fP\&'\&.
 .PD 0
 \fBvared\fP [ \fB\-Aache\fP ] [ \fB\-p\fP \fIprompt\fP ] [ \fB\-r\fP \fIrprompt\fP ]
 .TP
+.PD 0
+  [ \fB\-M\fP \fImain\-keymap\fP ] [ \fB\-m\fP \fIvicmd\-keymap\fP ]
+.TP
 .PD
-  [ \-M \fImain\-keymap\fP ] [ \-m \fIvicmd\-keymap\fP ] \fIname\fP
+  [ \fB\-t\fP \fItty\fP ] \fIname\fP
 The value of the parameter \fIname\fP is loaded into the edit
 buffer, and the line editor is invoked\&.  When the editor exits,
 \fIname\fP is set to the string value returned by the editor\&.
@@ -367,6 +391,10 @@ keymap during editing\&.  For vi\-style editing, this allows a pair of keymaps
 to override \fBviins\fP and \fBvicmd\fP\&.  For emacs\-style editing, only \fB\-M\fP
 is normally needed but the \fB\-m\fP option may still be used\&.  On exit, the
 previous keymaps will be restored\&.
+.PP
+If `\fB\-t\fP \fItty\fP\&' is given, \fItty\fP is the name of a terminal device
+to be used instead of the default \fB/dev/tty\fP\&.  If \fItty\fP does not
+refer to a terminal an error is reported\&.
 .RE
 .TP
 .PD 0
@@ -670,7 +698,7 @@ simply to perform some small action\&.  The ZLE commands that key sequences
 in keymaps are bound to are in fact widgets\&.  Widgets can be user\-defined
 or built in\&.
 .PP
-The standard widgets built in to ZLE are listed in Standard Widgets below\&.
+The standard widgets built into ZLE are listed in Standard Widgets below\&.
 Other built\-in widgets can be defined by other modules (see
 \fIzshmodules\fP(1))\&.  Each built\-in widget has two names: its normal canonical name, and the
 same name preceded by a `\fB\&.\fP\&'\&.  The `\fB\&.\fP' name is special: it can't be
@@ -740,8 +768,8 @@ Attempts to move the cursor outside the buffer will result in the
 cursor being moved to the appropriate end of the buffer\&.
 .TP
 \fBCUTBUFFER\fP (scalar)
-The last item to be cut using one of the `\fBkill\-\fP\&' commands; the
-string which the next yank would insert in the line\&.  Later entries in
+The last item cut using one of the `\fBkill\-\fP\&' commands; the string
+which the next yank would insert in the line\&.  Later entries in
 the kill ring are in the array \fBkillring\fP\&.  Note that the
 command `\fBzle copy\-region\-as\-kill\fP \fIstring\fP\&' can be used to
 set the text of the cut buffer from a shell function and cycle the kill
@@ -776,10 +804,15 @@ effectively sets the maximum length of the kill ring, while the number of
 non\-zero strings gives the current length, both as seen by the user at the
 command line\&.
 .RE
-.PP
+.TP
+\fBLASTABORTEDSEARCH\fP (scalar)
+The last search string used by an interactive search that was
+aborted by the user (status 3 returned by the search widget)\&.
 .TP
 \fBLASTSEARCH\fP (scalar)
-The last search string used by an interactive search ; read\-only\&.
+The last search string used by an interactive search; read\-only\&.
+This is set even if the search failed (status 0, 1 or 2 returned
+by the search widget), but not if it was aborted by the user\&.
 .TP
 \fBLASTWIDGET\fP (scalar)
 The name of the last widget that was executed; read\-only\&.
@@ -813,7 +846,7 @@ currently in\&.
 \fBPREDISPLAY\fP (scalar)
 Text to be displayed before the start of the editable text buffer\&.  This
 does not have to be a complete line; to display a complete line, a newline
-must be appended explicitly\&.    The text is reset on each new invocation
+must be appended explicitly\&.  The text is reset on each new invocation
 (but not recursive invocation) of zle\&.
 .TP
 \fBPOSTDISPLAY\fP (scalar)
@@ -857,11 +890,9 @@ An end offset in the same units as \fBCURSOR\fP, terminated by
 whitespace\&.
 .TP
 A highlight specification in the same format as
-used for the contexts \fBregion\fP or \fBspecial\fP
-in the parameter \fBzle_highlight\fP,
-see Character Highlighting below\&.
-Hence this should be a comma\-separated list of any of the
-words \fBbold\fP, \fBstandout\fP or \fBunderline\fP\&.
+used for contexts in the parameter \fBzle_highlight\fP,
+see Character Highlighting below;
+for example, \fBstandout\fP or \fBfg=red,bold\fP\&.
 .PD
 .PP
 For example, 
@@ -880,7 +911,6 @@ as soon as the line is accepted\&.  The line editor makes no attempt to
 keep the highlighting effect synchronised with the line as it is edited;
 hence region highlighting is best limited to static effects within
 user widgets\&.
-.PP
 .RE
 .TP
 \fBWIDGET\fP (scalar)
@@ -899,6 +929,19 @@ Describes the implementation behind the completion widget currently being
 executed; the second argument that followed \fBzle \-C\fP when the widget was
 defined\&.  This is the name of a builtin completion widget\&.  For widgets
 defined with \fBzle \-N\fP this is set to the empty string\&.  Read\-only\&.
+.TP
+\fBZLE_STATE\fP (scalar)
+Contains a set of space\-separated words that describe the current \fBzle\fP
+state\&.
+.RS
+.PP
+Currently, the only state shown is the insert mode as set by the
+\fBoverwrite\-mode\fP or \fBvi\-replace\fP widgets\&.  The string contains
+`\fBinsert\fP\&' if characters to be inserted on the command line move existing
+characters to the right, `\fBoverwrite\fP\&' if characters to be inserted
+overwrite existing characters\&.
+.RE
+.RE
 .PP
 .SS "Special Widgets"
 .PP
@@ -909,6 +952,36 @@ provided is identical to that for any other editing widget\&.
 .PD 0
 .TP
 .PD
+\fBzle\-isearch\-exit\fP
+Executed at the end of incremental search at the point where the isearch
+prompt is removed from the display\&.  See \fBzle\-isearch\-update\fP for
+an example\&.
+.TP
+\fBzle\-isearch\-update\fP
+Executed within incremental search when the display is about to be
+redrawn\&.  Additional output below the incremental search prompt can be
+generated by using `\fBzle \-M\fP\&' within the widget\&.  For example,
+.RS
+.PP
+.RS
+.nf
+\fBzle\-isearch\-update() { zle \-M "Line $HISTNO"; }
+zle \-N zle\-isearch\-update\fP
+.fi
+.RE
+.PP
+Note the line output by `\fBzle \-M\fP\&' is not deleted on exit from
+incremental search\&.  This can be done from a \fBzle\-isearch\-exit\fP
+widget:
+.PP
+.RS
+.nf
+\fBzle\-isearch\-exit() { zle \-M ""; }
+zle \-N zle\-isearch\-exit\fP
+.fi
+.RE
+.RE
+.TP
 \fBzle\-line\-init\fP
 Executed every time the line editor is started to read a new line
 of input\&.  The following example puts the line editor into vi command
@@ -926,6 +999,10 @@ zle \-N zle\-line\-init\fP
 equivalent to \fBzle vi\-cmd\-mode\fP\&.)
 .RE
 .TP
+\fBzle\-line\-finish\fP
+This is similar to \fBzle\-line\-init\fP but is executed every time the
+line editor has finished reading a line of input\&.
+.TP
 \fBzle\-keymap\-select\fP
 Executed every time the keymap changes, i\&.e\&. the special parameter
 \fBKEYMAP\fP is set to a different value, while the line editor is active\&.
@@ -936,7 +1013,7 @@ widget to be called\&.
 The value \fB$KEYMAP\fP within the function reflects the new keymap\&.  The
 old keymap is passed as the sole argument\&.
 .PP
-This can been used for detecting switches between the vi command
+This can be used for detecting switches between the vi command
 (\fBvicmd\fP) and insert (usually \fBmain\fP) keymaps\&.
 .RE
 .RE
@@ -1119,13 +1196,22 @@ This defaults to the current history line
 Search backward incrementally for a specified string\&.  The search is
 case\-insensitive if the search string does not have uppercase letters and no
 numeric argument was given\&.  The string may begin with `\fB^\fP\&' to anchor the
-search to the beginning of the line\&.
+search to the beginning of the line\&.  When called from a user\-defined
+function returns the following statuses: 0, if the search succeeded;
+1, if the search failed; 2, if the search term was a bad pattern;
+3, if the search was aborted by the \fBsend\-break\fP command\&.
 .RS
 .PP
 A restricted set of editing functions
-is available in the mini\-buffer\&.  An interrupt signal, as defined by the stty
+is available in the mini\-buffer\&.  Keys are looked up in the special
+\fBisearch\fP keymap, and if not found there in the main keymap (note
+that by default the \fBisearch\fP keymap is empty)\&.
+An interrupt signal, as defined by the stty
 setting, will stop the search and go back to the original line\&.  An undefined
-key will have the same effect\&. The supported functions are:
+key will have the same effect\&.  Note that the following always
+perform the same task within incremental searches and cannot be
+replaced by user defined widgets, nor can the set of functions
+be extended\&.  The supported functions are:
 .PP
 .PD 0
 .TP
@@ -1151,6 +1237,11 @@ The command line displayed is executed\&.
 Back up one place in the search history\&.  If the search has been
 repeated this does not immediately erase a character in the
 minibuffer\&.
+.TP
+\fBaccept\-search\fP
+Exit incremental search, retaining the command line but performing no
+further action\&.  Note that this function is not bound by default
+and has no effect outside incremental search\&.
 .TP
 .PD 0
 \fBbackward\-delete\-word\fP
@@ -1200,11 +1291,10 @@ the `\fBmain\fP\&' keymap (insert mode) will be selected initially\&.
 Repeat the search\&.  The direction of the search is indicated in the
 mini\-buffer\&.
 .PP
-Any multi\-character string that is not bound to one of the above functions
-will beep and interrupt the search, leaving the last found line in the
-buffer\&. Any single character that is not bound to one of the above
-functions, or \fBself\-insert\fP or \fBself\-insert\-unmeta\fP, will have the same
-effect but the function will be executed\&.
+Any character that is not bound to one of the above functions, or
+\fBself\-insert\fP or \fBself\-insert\-unmeta\fP, will cause the mode to be
+exited\&.  The character is then looked up and executed in the keymap in
+effect at that point\&.
 .PP
 When called from a widget function by the \fBzle\fP command, the incremental
 search commands can take a string argument\&.  This will be treated as a
@@ -1328,11 +1418,11 @@ the same way to pick a word from that event\&.
 .PP
 When called from a shell function invoked from a user\-defined widget, the
 command can take one to three arguments\&.  The first argument specifies a
-history offset which applies to successive calls to this widget: if is \-1,
+history offset which applies to successive calls to this widget: if it is \-1,
 the default behaviour is used, while if it is 1, successive calls will move
 forwards through the history\&.  The value 0 can be used to indicate that the
 history line examined by the previous execution of the command will be
-reexamined\&.  Note that negative numbers should be preceded with a
+reexamined\&.  Note that negative numbers should be preceded by a
 `\fB\-\fP\fB\-\fP\&' argument to avoid confusing them with options\&.
 .PP
 If two arguments are given, the second specifies the word on the command
@@ -1808,11 +1898,16 @@ point and mark is activated so that it can be highlighted\&.
 If a zero prefix argument is given, the region is activated but
 point and mark are not swapped\&.
 .TP
-\fBexecute\-named\-cmd\fP (ESC\-x) (unbound) (unbound)
+\fBexecute\-named\-cmd\fP (ESC\-x) (:) (unbound)
 Read the name of an editor command and
 execute it\&.  A restricted set of editing functions is available in the
-mini\-buffer\&.  An interrupt signal, as defined by the stty setting, will
-abort the function\&. The allowed functions are:
+mini\-buffer\&.  Keys are looked up in the special
+\fBcommand\fP keymap, and if not found there in the main keymap\&.
+An interrupt signal, as defined by the stty setting, will
+abort the function\&.  Note that the following always
+perform the same task within the \fBexecuted\-named\-cmd\fP environment and
+cannot be replaced by user defined widgets, nor can the set of functions
+be extended\&.  The allowed functions are:
 \fBbackward\-delete\-char\fP,
 \fBvi\-backward\-delete\-char\fP,
 \fBclear\-screen\fP,
@@ -1967,7 +2062,8 @@ reprinted\&.
 \fBsend\-break\fP (^G ESC\-^G) (unbound) (unbound)
 Abort the current editor function, e\&.g\&. \fBexecute\-named\-command\fP, or the
 editor itself, e\&.g\&. if you are in \fBvared\fP\&. Otherwise abort the parsing of
-the current line\&.
+the current line; in this case the aborted line is available in the shell
+variable \fBZLE_LINE_ABORTED\fP\&.
 .TP
 \fBrun\-help\fP (ESC\-H ESC\-h) (unbound) (unbound)
 Push the buffer onto the buffer stack, and execute the
@@ -2026,6 +2122,9 @@ column of the cursor in the current line\&.
 \fBwhere\-is\fP
 Read the name of an editor command and and print the listing of key
 sequences that invoke the specified command\&.
+A restricted set of editing functions is available in the
+mini\-buffer\&.  Keys are looked up in the special
+\fBcommand\fP keymap, and if not found there in the main keymap\&.
 .TP
 \fBwhich\-command\fP (ESC\-?) (unbound) (unbound)
 Push the buffer onto the buffer stack, and execute the
@@ -2077,6 +2176,14 @@ use within widgets, it simply determines whether it is highlighted\&.
 Individual characters that have no direct printable
 representation but are shown in a special manner by the line editor\&.
 These characters are described below\&.
+.TP
+\fBsuffix\fP
+This context is used in completion for characters that are
+marked as suffixes that will be removed if the completion ends
+at that point, the most obvious example being a slash (\fB/\fP) after
+a directory name\&.  Note that suffix removal is configurable; the
+circumstances under which the suffix will be removed may differ
+for different completions\&.
 .PP
 \fBzle_highlight\fP may contain additional fields for controlling how
 terminal sequences to change colours are output\&.  Each of the following is
@@ -2150,6 +2257,7 @@ not usually affected by the bold attribute\&.
 .TP
 \fBbold\fP
 The characters in the given context are shown in a bold font\&.
+Not all terminals distinguish bold fonts\&.
 .TP
 \fBstandout\fP
 The characters in the given context are shown in the terminal\&'s standout
@@ -2190,6 +2298,22 @@ angle brackets\&.  The number is the code point of the character in the wide
 character set; this may or may not be Unicode, depending on the operating
 system\&.
 .RE
+.TP
+Invalid multibyte characters
+If the \fBMULTIBYTE\fP option is in effect, any sequence of one or more
+bytes that does not form a valid character in the current character
+set is treated as a series of bytes each shown as a special character\&.
+This case can be distinguished from other unprintable characters
+as the bytes are represented as two hexadecimal digits between angle
+brackets, as distinct from the four or eight digits that are used for
+unprintable characters that are nonetheless valid in the current
+character set\&.
+.RS
+.PP
+Not all systems support this: for it to work, the system\&'s representation of
+wide characters must be code values from the Universal Character Set,
+as defined by IS0 10646 (also known as Unicode)\&.
+.RE
 .RE
 .PP
 If \fBzle_highlight\fP is not set or no value applies to a particular
@@ -2198,7 +2322,7 @@ context, the defaults applied are equivalent to
 .RS
 .nf
 \fBzle_highlight=(region:standout special:standout
-isearch:underline)\fP
+suffix:bold isearch:underline)\fP
 .fi
 .RE
 .PP

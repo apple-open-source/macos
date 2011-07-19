@@ -1,0 +1,228 @@
+commit 1381087f99b786c3bd0b3c461b6df8f444525455
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Tue Nov 16 00:18:29 2010 +0100
+
+    font-sun-misc 1.0.3
+
+commit 0b5535c539d1d96a3ac37f0b8a9b7313edbffc10
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:56 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 250d1b00d9b242311861411b976baf81532081e1
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Oct 5 00:29:59 2010 -0700
+
+    font-sun-misc 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit ad7c415b0c9846078174fc71eaaad8259b9ed22e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Oct 4 21:53:29 2010 -0700
+
+    Sun's copyrights now belong to Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 171510d0d4831827bc34d1c940249c91cffbd72f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 21:55:49 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit bae8890a9ce94708c42795217bc6ba7abbddc69f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:52 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit d5d19624979a85aa85350a2cfcb9ae946b7f87b2
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit e135b189c37a4ea53a80cfad595fefc3f775f7ac
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 4bfed58203078b12d272f433da613bf61ff9fb6b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit f482e497e9b65a1c2e913c3ed69b1460e5f92bdc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:51:16 2009 -0700
+
+    font-sun-misc 1.0.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ed92e73073b7bc73d384f03fbee5102e5aaee3c2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 20:04:59 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 19ea2388dbb79584a7f90b938ca76e4b05b91461
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:30 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 85abbc64c528f92fd7318f7a66fa4073900bc995
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Jul 8 10:46:21 2009 -0400
+
+    sun-misc: use XORG_CHANGELOG macro to create ChangeLog. #22611
+    
+    Build break: Makefile.am: command not found: git-log
+    Adding the macro in configure.ac and use it in Makefile.am
+    Refer to: https://bugs.freedesktop.org/show_bug.cgi?id=22611
+    Tested: running autogen.sh, make and 'make dist'
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 25e53a28bdb918f3f7bcb065ddd37e2257dcb996
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 340ebc5fc343762ed6d41a24e29d9d83136e753b
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:07 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 8c8a72a83311a2cbfb1933edb8982be3502ad30f
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:23 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 3be5dfb3858f2d887f9e0de8488481ca0091b5d4
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:49 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit d5e653f960b1880383f7e91faa091646ebccc51a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:26 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 245e01e8aee5780bd17d2d4a510c9403858f49dc
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:54 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit 5df57f4fb0f1095f181e8c4a84aebe660f7f08f5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:41 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit c71cdbd9145ff22dba57f2c2e108e582a9339495
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Nov 24 05:21:16 2005 +0000
+
+    Bug #5122: Use $< instead of $^ to be portable to FreeBSD's make.
+
+commit baedbc8948a434d530c6c7bbbde8935bd004d2e3
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:22 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit 8a7ab14ca6417da7ba58ba8c06f3d84d8984500d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:29:20 2005 +0000
+
+    Add configure option to change the installed font dir.
+
+commit e2e6565eebd69f9cf2f178db1313dfa639a5d627
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:49 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 323fd5b9d931a22296ceb35d0f6c3c736a033d5f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 19 02:40:06 2005 +0000
+
+    Convert $(foreach...) to more portable suffix substitution rules
+
+commit e62c4a519ea35394def1371a5d8d3362211e7e4a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jun 30 22:28:08 2005 +0000
+
+    Initial build system files for font module
+
+commit 8f4d515d749012fe92af62003b4c0a1d43baf981
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 48fae96105ba1557e7c1749c0078bb4d5254a45a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:35 2003 +0000
+
+    R6.6 is the Xorg base-line

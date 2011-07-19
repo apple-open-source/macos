@@ -63,7 +63,7 @@ Tcl_ErrnoId()
 #ifdef EALIGN
 	case EALIGN: return "EALIGN";
 #endif
-#if defined(EALREADY) && (!defined(EBUSY) || (EALREADY != EBUSY ))
+#if defined(EALREADY) && (!defined(EBUSY) || (EALREADY != EBUSY))
 	case EALREADY: return "EALREADY";
 #endif
 #ifdef EBADE
@@ -273,7 +273,7 @@ Tcl_ErrnoId()
 #ifdef ENOLCK
 	case ENOLCK: return "ENOLCK";
 #endif
-#ifdef ENOLINK
+#if defined(ENOLINK) && (!defined(ESOCKTNOSUPPORT) || (ESOCKTNOSUPPORT != ENOLINK))
 	case ENOLINK: return "ENOLINK";
 #endif
 #ifdef ENOMEM
@@ -288,7 +288,7 @@ Tcl_ErrnoId()
 #ifdef ENOPKG
 	case ENOPKG: return "ENOPKG";
 #endif
-#ifdef ENOPROTOOPT
+#if defined(ENOPROTOOPT) && (!defined(EPFNOSUPPORT) || (EPFNOSUPPORT != ENOPROTOOPT))
 	case ENOPROTOOPT: return "ENOPROTOOPT";
 #endif
 #ifdef ENOSPC
@@ -339,7 +339,7 @@ Tcl_ErrnoId()
 #if defined(EOPNOTSUPP) &&  (!defined(ENOTSUP) || (ENOTSUP != EOPNOTSUPP))
 	case EOPNOTSUPP: return "EOPNOTSUPP";
 #endif
-#if defined(EOVERFLOW) && ( !defined(EFBIG) || (EOVERFLOW != EFBIG) ) && ( !defined(EINVAL) || (EOVERFLOW != EINVAL) )
+#if defined(EOVERFLOW) && (!defined(EFBIG) || (EOVERFLOW != EFBIG)) && (!defined(EINVAL) || (EOVERFLOW != EINVAL))
         case EOVERFLOW: return "EOVERFLOW";
 #endif
 #ifdef EPERM
@@ -512,7 +512,7 @@ Tcl_ErrnoMsg(err)
 #ifdef EALIGN
 	case EALIGN: return "EALIGN";
 #endif
-#if defined(EALREADY) && (!defined(EBUSY) || (EALREADY != EBUSY ))
+#if defined(EALREADY) && (!defined(EBUSY) || (EALREADY != EBUSY))
 	case EALREADY: return "operation already in progress";
 #endif
 #ifdef EBADE
@@ -723,8 +723,8 @@ Tcl_ErrnoMsg(err)
 #ifdef ENOLCK
 	case ENOLCK: return "no locks available";
 #endif
-#ifdef ENOLINK
-	case ENOLINK: return "link has be severed";
+#if defined(ENOLINK) && (!defined(ESOCKTNOSUPPORT) || (ESOCKTNOSUPPORT != ENOLINK))
+	case ENOLINK: return "link has been severed";
 #endif
 #ifdef ENOMEM
 	case ENOMEM: return "not enough memory";
@@ -738,7 +738,7 @@ Tcl_ErrnoMsg(err)
 #ifdef ENOPKG
 	case ENOPKG: return "package not installed";
 #endif
-#ifdef ENOPROTOOPT
+#if defined(ENOPROTOOPT) && (!defined(EPFNOSUPPORT) || (EPFNOSUPPORT != ENOPROTOOPT))
 	case ENOPROTOOPT: return "bad protocol option";
 #endif
 #ifdef ENOSPC
@@ -789,7 +789,7 @@ Tcl_ErrnoMsg(err)
 #if defined(EOPNOTSUPP) &&  (!defined(ENOTSUP) || (ENOTSUP != EOPNOTSUPP))
 	case EOPNOTSUPP: return "operation not supported on socket";
 #endif
-#if defined(EOVERFLOW) && ( !defined(EFBIG) || (EOVERFLOW != EFBIG) ) && ( !defined(EINVAL) || (EOVERFLOW != EINVAL) )
+#if defined(EOVERFLOW) && (!defined(EFBIG) || (EOVERFLOW != EFBIG)) && (!defined(EINVAL) || (EOVERFLOW != EINVAL))
         case EOVERFLOW: return "file too big";
 #endif
 #ifdef EPERM
@@ -817,7 +817,7 @@ Tcl_ErrnoMsg(err)
 	case EPROTO: return "protocol error";
 #endif
 #ifdef EPROTONOSUPPORT
-	case EPROTONOSUPPORT: return "protocol not suppored";
+	case EPROTONOSUPPORT: return "protocol not supported";
 #endif
 #ifdef EPROTOTYPE
 	case EPROTOTYPE: return "protocol wrong type for socket";
@@ -853,7 +853,7 @@ Tcl_ErrnoMsg(err)
 	case ERREMOTE: return "object is remote";
 #endif
 #ifdef ESHUTDOWN
-	case ESHUTDOWN: return "can't send afer socket shutdown";
+	case ESHUTDOWN: return "can't send after socket shutdown";
 #endif
 #ifdef ESOCKTNOSUPPORT
 	case ESOCKTNOSUPPORT: return "socket type not supported";
@@ -910,7 +910,7 @@ Tcl_ErrnoMsg(err)
 #ifdef NO_STRERROR
 	    return "unknown POSIX error";
 #else
-	    return strerror(errno);
+	    return strerror(err);
 #endif
     }
 }
@@ -998,7 +998,7 @@ Tcl_SignalId(sig)
 #ifdef SIGQUIT
 	case SIGQUIT: return "SIGQUIT";
 #endif
-#ifdef SIGSEGV
+#if defined(SIGSEGV) && (!defined(SIGBUS) || (SIGSEGV != SIGBUS))
 	case SIGSEGV: return "SIGSEGV";
 #endif
 #ifdef SIGSTOP
@@ -1130,7 +1130,7 @@ Tcl_SignalMsg(sig)
 #ifdef SIGQUIT
 	case SIGQUIT: return "quit signal";
 #endif
-#ifdef SIGSEGV
+#if defined(SIGSEGV) && (!defined(SIGBUS) || (SIGSEGV != SIGBUS))
 	case SIGSEGV: return "segmentation violation";
 #endif
 #ifdef SIGSTOP

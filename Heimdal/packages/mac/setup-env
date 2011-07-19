@@ -1,0 +1,58 @@
+#!/bin/sh
+
+hh="/System/Library/PrivateFrameworks/Heimdal.framework/Helpers"
+tt="/usr/local/libexec/heimdal/bin"
+testbase="/usr/local/libexec/heimdal/tests"
+EGREP="/usr/bin/grep -E"
+
+# Meant to be sourced (source or .) by the tester application, offers
+# most commands in heimdal as variables
+
+
+# regular apps
+hxtool="${TESTS_ENVIRONMENT} ${hh}/hxtool"
+iprop_log="${TESTS_ENVIRONMENT} ${hh}/iprop-log"
+ipropd_master="${TESTS_ENVIRONMENT} ${hh}/ipropd-master"
+ipropd_slave="${TESTS_ENVIRONMENT} ${hh}/ipropd-slave"
+kadmin="${TESTS_ENVIRONMENT} /usr/sbin/kadmin"
+kadmind="${TESTS_ENVIRONMENT} ${hh}/kadmind"
+kdc="${TESTS_ENVIRONMENT} ${hh}/kdc --no-sandbox"
+kdestroy="${TESTS_ENVIRONMENT} /usr/bin/kdestroy"
+kdigest="${TESTS_ENVIRONMENT} ${hh}/kdigest"
+kgetcred="${TESTS_ENVIRONMENT} /usr/bin/kgetcred"
+kimpersonate="${TESTS_ENVIRONMENT} ${hh}/kimpersonate"
+kinit="${TESTS_ENVIRONMENT} /usr/bin/kinit"
+klist="${TESTS_ENVIRONMENT} /usr/bin/klist"
+kpasswd="${TESTS_ENVIRONMENT} /usr/bin/kpasswd"
+kpasswdd="${TESTS_ENVIRONMENT} ${hh}/kpasswdd"
+kswitch="${TESTS_ENVIRONMENT} /usr/bin/kswitch"
+ktutil="${TESTS_ENVIRONMENT} /usr/sbin/ktutil"
+hodadmin="${TESTS_ENVIRONMENT} ${hh}/hod-admin"
+gsstool="${TESTS_ENVIRONMENT} ${hh}/gsstool"
+
+# regression test tools
+test_ap_req="${TESTS_ENVIRONMENT} ${tt}/test_ap-req"
+test_gic="${TESTS_ENVIRONMENT} ${tt}/test_gic"
+test_renew="${TESTS_ENVIRONMENT} ${tt}/test_renew"
+test_ntlm="${TESTS_ENVIRONMENT} ${tt}/test_ntlm"
+test_gssntlm="${TESTS_ENVIRONMENT} ${tt}/test_gssntlm"
+test_gssscram="${TESTS_ENVIRONMENT} ${tt}/test_gssscram"
+test_context="${TESTS_ENVIRONMENT} ${tt}/test_context"
+test_acquire_cred="${TESTS_ENVIRONMENT} ${tt}/test_acquire_cred"
+test_kcred="${TESTS_ENVIRONMENT} ${tt}/test_kcred"
+rkpty="${TESTS_ENVIRONMENT} ${tt}/rkpty"
+test_commonauth="${TESTS_ENVIRONMENT} ${tt}/test_commonauth"
+test_scram="${TESTS_ENVIRONMENT} ${tt}/test_scram"
+test_sendto="${TESTS_ENVIRONMENT} ${tt}/test_sendto"
+winmount="${TESTS_ENVIRONMENT} ${tt}/heimdal-win-mount.py"
+
+# misc apps
+have_db="${testbase}/db/have-db"
+leaks_kill="${tt}/leaks-kill.sh"
+wait_kdc="${testbase}/kdc/wait-kdc.sh"
+
+# data
+hx509_data="/usr/local/libexec/heimdal/certs"
+
+# malloc debug
+HEIM_MALLOC_DEBUG="MallocStackLoggingNoCompact=1 MallocErrorAbort=1 MallocLogFile=/tmp/heim-malloc-log"

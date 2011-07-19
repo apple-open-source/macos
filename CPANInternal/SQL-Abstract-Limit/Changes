@@ -4,8 +4,18 @@ CHANGES
 
 ** indicates API changes
 
+0.141 22nd December 2008, 22:13
+    - fixed pod syntax
+
+0.14 22nd December 2008, 14:48
+    - added support for Informix, provided by Paul Falbe.
+
+0.13 21st December 2008, 23:20
+    - updated test suite to play with the latest release of SQL::Abstract. 
+        Patches supplied by the SQL::Abstract dev team.
+
 0.12  19th December 2005, 23:20
-    - removed hidden dependency on Class::DBI ?the test suite.
+    - removed hidden dependency on Class::DBI in the test suite.
 
 0.11  11th October 2005, 12:40
     - re-arranged order of tests in _find_syntax() to avoid the eval 

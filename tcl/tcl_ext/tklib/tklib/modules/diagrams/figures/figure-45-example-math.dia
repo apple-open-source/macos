@@ -1,0 +1,66 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+# fraction
+proc \frac {denom numer args} {
+    return [block {
+	# denominator above (north), numerator below (south) and the
+	# fraction line in the middle, using the larger width of both.
+	set dot [here]
+	east ; line with center at $dot \
+	    right [tcl::mathfunc::max \
+		       [[block $denom with south at $dot] width] \
+		       [[block $numer with north at $dot] width]]
+
+	# At last shift the horizontal axis of the block to the
+	# fraction line, not the arithmetic middle of the whole
+	# box. This works because variables defined in the block have
+	# precedence over the computed compass corners, allowing us to
+	# overide the lattter.
+
+	set west [last line start]
+	set east [last line end]
+    } {*}$args]
+}
+
+# indeterminate integral
+proc \int {eqn args} {
+    return [block {
+	set dot [here]
+	line with center at [$dot - [5 0]] up [[block $eqn with west at $dot] height]
+	circle fillcolor black radius 3 with west at [last line end]
+	circle fillcolor black radius 3 with east at [last line start]
+    } {*}$args]
+}
+
+# Commands for operator symbols, based on unicode points.
+# http://www.fileformat.info/info/unicode/block/mathematical_operators/list.htm
+proc (+) {} { text text \u2295 }
+proc (-) {} { text text \u2296 }
+proc (x) {} { text text \u2297 }
+
+# Chain division (Ketten-bruch)
+
+block {
+    55; +; \frac 1 {1; +; \frac 1 {1; +; \frac 1 {1; +; \frac 1 2}}}
+}
+move
+block {
+    \frac ALPHA BETA
+}
+move
+block {
+    \int {
+	\frac X Y;
+	+;
+	\frac U {K; (+); V};
+	(-);
+	\frac K L;
+	(x);
+	\u2298
+	\frac AAAAAA {B; +; C; +; \frac DDDDDD EEEEEEEEE}
+    }
+}
+
+return
+
+

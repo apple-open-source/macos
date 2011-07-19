@@ -1,0 +1,93 @@
+(version 1)
+(deny default)
+
+(define (contained-regex . args)
+  (require-all (container)
+               (apply regex args)))
+
+; Sandbox violations get logged to syslog via kernel logging.
+(debug deny)
+
+(allow sysctl-read)
+
+; Mount / umount commands
+(deny file-write-mount file-write-umount)
+
+; System is read only
+(allow file-read*)
+(deny  file-write*)
+
+; <rdar://problem/9260760> vpn plugin sandbox file needs to be updated to support file write and socket PF_ROUTE and PF_SYSTEM
+(if (param "VPNHome")
+    (allow file-read* file-write* (subpath (string-append (param "VPNHome") "/Library" ))))
+
+
+; Plug-in code signature checking
+(allow file-write* (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds(/|$)"))
+
+;;
+(deny file-read* file-write* (regex "^/dev/.*$"))
+
+; CoreTelephony
+;;;; (allow file-read* file-write* (regex "^/dev/tty\\.(debug|baseband)$"))
+
+; BlueTooth
+;;;; (allow file-read* file-write* (regex "^/dev/tty\\.bluetooth$"))
+
+; IAP
+;;;; (allow file-read* file-write* (regex "^/dev/tty\\.iap$"))
+
+; Standard UNIX null & zero
+(allow file-read* file-write* (regex "^/dev/null$"))
+(allow file-read* file-write* (regex "^/dev/zero$"))
+
+; Crypto devices
+(allow file-read* file-write* (regex "^/dev/(random|urandom)$"))
+(allow file-read* file-write* (regex "^/dev/(sha1_0|aes_0)$"))
+
+; Legacy, statically allocated PTYs
+(allow file-read* file-write* (regex "^/dev/(ttyp[0-9a-f]|ptyp[0-9a-f])$"))
+
+; Dynamically allocated PTYs using openpty()
+(allow file-read* file-write* (regex "^/dev/(ptmx|ttys[0-9][0-9][0-9])$"))
+
+; /dev/dtracehelper
+(allow file-read* file-write* (regex "^/dev/dtracehelper$"))
+
+; <rdar://problem/5961882> Seatbelt prevents HW SHA-1 and AES usage
+(allow file-ioctl)
+
+; NOTE: Later rules override earlier rules.
+
+(allow file-read*
+    (literal "/Library/Preferences/.GlobalPreferences.plist"))
+
+; Deny all access to acessories.
+
+; Mach lookups. This should be refined when enforcement is testable.
+(allow mach-lookup)
+;;       (global-name "com.apple.CARenderServer")
+;;       (global-name "com.apple.eventpump")
+;;       (global-name "com.apple.system.notification_center"))
+
+(deny process-fork)
+
+; For ASL logs - /var/run/asl_input (XXX: socket can now be named)
+; (allow network-outbound)
+;	(to unix-socket "/private/var/run/asl_input"))
+
+(allow network*)
+
+
+; <rdar://problem/8723438> ssl vpn sandbox spew when starting or stoping vpn
+; <rdar://problem/9260760> vpn plugin sandbox file needs to be updated to support file write and socket PF_ROUTE and PF_SYSTEM
+(allow system-socket (socket-domain AF_ROUTE))
+(allow system-socket (require-all (socket-domain AF_SYSTEM) (socket-protocol 2))) ; SYSPROTO_CONTROL
+(allow network-outbound (control-name "com.apple.network.statistics"))
+(allow network-outbound (control-name "com.apple.netsrc"))
+
+; To allow crash reporter / exceptions to kill the process
+(allow signal (target self))
+
+(allow ipc-posix-shm)
+(allow ipc-posix-sem)

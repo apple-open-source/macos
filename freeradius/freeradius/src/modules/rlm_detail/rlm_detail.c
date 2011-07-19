@@ -26,28 +26,13 @@ RCSID("$Id$")
 #include	<freeradius-devel/radiusd.h>
 #include	<freeradius-devel/modules.h>
 #include	<freeradius-devel/rad_assert.h>
+#include	<freeradius-devel/detail.h>
 
 #include	<sys/stat.h>
 #include	<ctype.h>
 #include	<fcntl.h>
 
 #define 	DIRLEN	8192
-
-static const char *packet_codes[] = {
-  "",
-  "Access-Request",
-  "Access-Accept",
-  "Access-Reject",
-  "Accounting-Request",
-  "Accounting-Response",
-  "Accounting-Status",
-  "Password-Request",
-  "Password-Accept",
-  "Password-Reject",
-  "Accounting-Message",
-  "Access-Challenge"
-};
-
 
 struct detail_instance {
 	/* detail file */
@@ -202,6 +187,8 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 	VALUE_PAIR	*pair;
 
 	struct detail_instance *inst = instance;
+
+	rad_assert(request != NULL);
 
 	/*
 	 *	Nothing to log: don't do anything.
@@ -358,9 +345,9 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
 		 *	Numbers, if not.
 		 */
 		if ((packet->code > 0) &&
-		    (packet->code <= PW_ACCESS_CHALLENGE)) {
+		    (packet->code < FR_MAX_PACKET_CODE)) {
 			fprintf(outfp, "\tPacket-Type = %s\n",
-				packet_codes[packet->code]);
+				fr_packet_codes[packet->code]);
 		} else {
 			fprintf(outfp, "\tPacket-Type = %d\n", packet->code);
 		}
@@ -489,7 +476,9 @@ static int do_detail(void *instance, REQUEST *request, RADIUS_PACKET *packet,
  */
 static int detail_accounting(void *instance, REQUEST *request)
 {
-	if (request->listener->type == RAD_LISTEN_DETAIL) {
+	if (request->listener->type == RAD_LISTEN_DETAIL &&
+	    strcmp(((struct detail_instance *)instance)->detailfile,
+	           ((listen_detail_t *)request->listener->data)->filename) == 0) {
 		RDEBUG("Suppressing writes to detail file as the request was just read from a detail file.");
 		return RLM_MODULE_NOOP;
 	}
@@ -513,6 +502,23 @@ static int detail_postauth(void *instance, REQUEST *request)
 	return do_detail(instance,request,request->reply, FALSE);
 }
 
+#ifdef WITH_COA
+/*
+ *	Incoming CoA - write the detail files.
+ */
+static int detail_recv_coa(void *instance, REQUEST *request)
+{
+	return do_detail(instance,request,request->packet, FALSE);
+}
+
+/*
+ *	Outgoing CoA - write the detail files.
+ */
+static int detail_send_coa(void *instance, REQUEST *request)
+{
+	return do_detail(instance,request,request->reply, FALSE);
+}
+#endif
 
 /*
  *	Outgoing Access-Request to home server - write the detail files.
@@ -546,7 +552,13 @@ static int detail_post_proxy(void *instance, REQUEST *request)
 	 *	it's doing normal accounting.
 	 */
 	if (!request->proxy_reply) {
-		return detail_accounting(instance, request);
+		int rcode;
+
+		rcode = detail_accounting(instance, request);
+		if (rcode == RLM_MODULE_OK) {
+			request->reply->code = PW_ACCOUNTING_RESPONSE;
+		}
+		return rcode;
 	}
 
 	return RLM_MODULE_NOOP;
@@ -569,6 +581,10 @@ module_t rlm_detail = {
 		detail_pre_proxy,      	/* pre-proxy */
 		detail_post_proxy,	/* post-proxy */
 		detail_postauth		/* post-auth */
+#ifdef WITH_COA
+		, detail_recv_coa,
+		detail_send_coa
+#endif
 	},
 };
 

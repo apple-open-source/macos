@@ -1,0 +1,223 @@
+require "vnd.dovecot.testsuite";
+require "variables";
+
+test_set "message" text:
+From: stephan@example.org
+To: test@example.com
+Subject: Variables test
+
+Testing variables...
+.
+;
+
+/*
+ * Substitution syntax
+ */
+
+test "Unknown variables" {
+	set "q" "a";
+	set "qw" "bb";
+	set "qwe" "ccc";
+	set "qwer" "dddd";
+	set "qwert" "ccc";
+
+	if anyof (
+		not string "[${qwerty}]" "[]",
+		not string "[${20}]" "[]"
+	) {
+		test_fail "unknown variable not substituted with empty string";
+	}
+}
+
+test "One pass" {
+	set "something" "value";
+	set "s" "$";
+	
+	if string "${s}{something}" "value" {
+		test_fail "somehow variable string is scanned multiple times";
+	}
+
+	if not string :matches "${s}{something}" "?{something}" {
+		test_fail "unexpected result";
+	}
+}
+
+test "Syntax errors" {
+	set "s" "$";
+	set "variable" "nonsense";
+
+	if anyof ( 
+		not string "$" "${s}",
+		not string "${" "${s}{",
+		not string "${a" "${s}{a",
+		not string "${$}" "${s}{$}",
+		not string "${%%%%}" "${s}{%%%%}",
+		not string "${0.s}" "${s}{0.s}",
+		not string "&%${}!" "&%${s}{}!",
+		not string "${doh!}" "${s}{doh!}" )
+	{
+		test_fail "variables substitution changed substring not matching variable-ref";
+	}	
+}
+
+test "RFC syntax examples" {
+	# The variable "company" holds the value "ACME".  No other variables
+    # are set. 
+	set "company" "ACME";
+
+	# "${full}"         => the empty string
+	if not string :is "${full}" "" {
+		test_fail "unknown variable did not yield empty string";
+	}
+
+	# "${company}"      => "ACME"
+	if not string :is "${company}" "ACME" {
+		test_fail "assigned variable did not get substituted";
+	}
+
+	# "${BAD${Company}" => "${BADACME"
+	if not string :is "${BAD${Company}" "${BADACME" {
+		test_fail "'BADACME' test did not yield expected result";
+	}
+
+	#"${President, ${Company} Inc.}" 
+	#                        => "${President, ACME Inc.}"
+	if not string "${President, ${Company} Inc.}"
+		"${President, ACME Inc.}" {
+		test_fail "'Company president' test did not yield expected result";
+	}
+}
+
+/*
+ * Variable assignments
+ */
+
+test "Basic assignment" {
+	set "test" "Value";
+
+	if not string :is "${test}" "Value" {
+		test_fail "variable assignment failed";
+	}
+
+	if string :is "${test}" "value" {
+		test_fail "string test failed";
+	}
+}
+
+test "Assignment overwritten" {
+	set "test" "Value";
+	set "test" "More";
+
+	if not string :is "${test}" "More" {
+		test_fail "variable assignment failed";
+	}
+
+	if string :is "${test}" "Value" {
+		test_fail "value not overwritten";
+	}
+
+	if string :is "${test}" "nonsense" {
+		test_fail "string test failed";
+	}
+}
+
+test "Two assignments" {
+	set "test" "Value";
+	set "test2" "More";
+
+	if not string :is "${test}" "Value" {
+		test_fail "variable assignment failed";
+	}
+
+	if string :is "${test}" "More" {
+		test_fail "assignments to different variables overlap";
+	}
+
+	if string :is "${test}" "nonsense" {
+		test_fail "string test failed";
+	}
+}
+
+test "Variables case-insensitive" {
+	set "VeRyElAboRATeVaRIABLeName" "interesting value";
+
+	if not string "${veryelaboratevariablename}" "interesting value" {
+		test_fail "variable names are case sensitive (lower case try)";
+	}
+
+	if not string "${VERYELABORATEVARIABLENAME}" "interesting value" {
+		test_fail "variable names are case sensitive (upper case try)";
+	}
+}
+
+test "RFC set command example" {
+	set "honorific"  "Mr";
+	set "first_name" "Wile";
+	set "last_name"  "Coyote";
+	set "vacation" text:
+Dear ${HONORIFIC} ${last_name},
+I'm out, please leave a message after the meep.
+.
+;
+	if not string :is :comparator "i;octet" "${VAcaTION}" text:
+Dear Mr Coyote,
+I'm out, please leave a message after the meep.
+.
+	{
+		test_fail "failed to set variable correctly: ${VAcaTION}";
+	}
+}
+
+/*
+ * Variable substitution
+ */
+
+test "Multi-line string substitution" {
+	set "name" "Stephan Bosch";
+	set "address" "stephan@example.org";
+	set "subject" "Test message";
+	
+	set "message" text: # Message with substitutions
+From: ${name} <${address}>
+To: Bertus van Asseldonk <b.vanasseldonk@nl.example.com>
+Subject: ${subject}
+
+This is a test message.
+.
+;
+	if not string :is "${message}" text:
+From: Stephan Bosch <stephan@example.org>
+To: Bertus van Asseldonk <b.vanasseldonk@nl.example.com>
+Subject: Test message
+
+This is a test message.
+.
+	{
+		test_fail "variable substitution failed";
+	}
+}
+
+test "Multiple substitutions" {
+	set "a" "the monkey";
+	set "b" "a nut";
+	set "c" "the fish";
+	set "d" "on fire";
+	set "e" "eats";
+	set "f" "is";
+
+	if not string :is "${a} ${e} ${b}" "the monkey eats a nut" {
+		test_fail "variable substitution failed (1)";
+	}
+
+	if not string :is "${c} ${f} ${d}" "the fish is on fire" {
+		test_fail "variable substitution failed (2)";
+	}
+
+	set :upperfirst "sentence" "${a} ${e} ${b}";
+
+	if not string :is "${sentence}" "The monkey eats a nut" {
+		test_fail "modified variable substitution failed";
+	}	
+}
+
+

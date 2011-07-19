@@ -56,5 +56,7 @@ void ppp_log_in(struct service *serv);
 void ppp_log_switch(struct service *serv);
 void ppp_ipv4_state_changed(struct service *serv);
 void ppp_user_notification_callback(struct service *serv, CFUserNotificationRef userNotification, CFOptionFlags responseFlags);
+int ppp_ondemand_add_service_data(struct service *serv, CFMutableDictionaryRef ondemand_dict);
+int ppp_is_pid(struct service *serv, int pid);
 
 #endif

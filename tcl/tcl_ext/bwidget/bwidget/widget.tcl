@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  widget.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: widget.tcl,v 1.31 2007/05/11 17:55:09 hobbs Exp $
+#  $Id: widget.tcl,v 1.37 2009/11/01 20:20:16 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - Widget::tkinclude
@@ -16,6 +16,8 @@
 #     - Widget::subcget
 #     - Widget::hasChanged
 #     - Widget::options
+#     - Widget::getArgument
+#     - Widget::getallwidgets
 #     - Widget::_get_tkwidget_options
 #     - Widget::_test_tkresource
 #     - Widget::_test_bwresource
@@ -175,7 +177,7 @@ proc Widget::tkinclude { class tkwidget subpath args } {
 			[list TkResource $value $ro [list $tkwidget $realopt]]
 
 		# Add an option database entry for this option
-		set optionDbName ".[lindex [_configure_option $option ""] 0]"
+		set optionDbName ".[lindex [_configure_option $realopt ""] 0]"
 		if { ![string equal $subpath ":cmd"] } {
 		    set optionDbName "$subpath$optionDbName"
 		}
@@ -395,6 +397,12 @@ proc Widget::declare { class optlist } {
             continue
         }
 
+        if {[string equal $type "Color"]} {
+            if {[info exists ::BWidget::colors($value)]} {
+                set value $::BWidget::colors($value)
+            }
+        }
+
 	set optionDbName ".[lindex [_configure_option $option ""] 0]"
 	option add *${class}${optionDbName} $value widgetDefault
 	set exports($option) $optionDbName
@@ -548,7 +556,17 @@ proc Widget::init { class path options } {
             set optdesc $classopt($option)
             set type    [lindex $optdesc 0]
         }
-        set pathopt($option) [$_optiontype($type) $option $value [lindex $optdesc 3]]
+        # this may fail if a wrong enum element was used
+        if {[catch {
+             $_optiontype($type) $option $value [lindex $optdesc 3]
+        } msg]} {
+            if {[info exists pathopt]} {
+                unset pathopt
+            }
+            unset pathmod
+            return -code error $msg
+        }
+        set pathopt($option) $msg
 	set pathinit($option) $pathopt($option)
     }
 }
@@ -806,11 +824,23 @@ proc Widget::configure { path options } {
             if { [info exists classmap($option)] } {
 		set window [_get_window $class $window]
                 foreach {subpath subclass realopt} $classmap($option) {
-                    if { [string length $subclass] } {
-			set curval [${subclass}::cget $window$subpath $realopt]
+                    # Interpretation of special pointers:
+                    # | subclass | subpath | widget           | path           | class   |
+                    # +----------+---------+------------------+----------------+-context-+
+                    # | :cmd     | :cmd    | herited widget   | window:cmd     |window   |
+                    # | :cmd     | *       | subwidget        | window.subpath | window  |
+                    # | ""       | :cmd    | herited widget   | window:cmd     | window  |
+                    # | ""       | *       | own              | window         | window  |
+                    # | *        | :cmd    | own              | window         | current |
+                    # | *        | *       | subwidget        | window.subpath | current |
+                    if { [string length $subclass] && ! [string equal $subclass ":cmd"] } {
+                        if { [string equal $subpath ":cmd"] } {
+                            set subpath ""
+                        }
+                        set curval [${subclass}::cget $window$subpath $realopt]
                         ${subclass}::configure $window$subpath $realopt $newval
                     } else {
-			set curval [$window$subpath cget $realopt]
+                        set curval [$window$subpath cget $realopt]
                         $window$subpath configure $realopt $newval
                     }
                 }
@@ -849,7 +879,21 @@ proc Widget::cget { path option } {
     if { [info exists ${class}::map($option)] } {
 	foreach {subpath subclass realopt} [set ${class}::map($option)] {break}
 	set path "[_get_window $class $path]$subpath"
-	return [$path cget $realopt]
+	
+	set optval ""
+        if { [BWidget::using ttk] } {
+	    # ttk
+            foreach {opt val} [::ttk::style configure .] {
+              if {$realopt eq $opt} {
+                set optval $val
+		break
+	      }
+	    }
+        }
+	# if ttk option doesn't exists, take tk option instead
+	if { [string length $optval] != 0 } {
+                 return $optval
+	} else { return [$path cget $realopt] } 
     }
     upvar 0 ${class}::$path:opt pathopt
     set pathopt($option)
@@ -1570,19 +1614,43 @@ proc Widget::exists { path } {
     return [info exists _class($path)]
 }
 
+# deprecated, use "BWidget::use" instead!
 proc Widget::theme {{bool {}}} {
     # Private, *experimental* API that may change at any time - JH
     variable _theme
     if {[llength [info level 0]] == 2} {
 	# set theme-ability
-	if {[catch {package require Tk 8.5a6}]
-	    && [catch {package require tile 0.6}]
-	    && [catch {package require tile 1}]} {
-	    return -code error "BWidget's theming requires tile 0.6+"
-	} else {
-	    catch {style default BWSlim.Toolbutton -padding 0}
+	if {   [catch {package require Tk 8.4.7}]
+	    && [catch {package require tile 0.8}] } {
+	    return -code error "BWidget's theming requires tile 0.8+"
 	}
 	set _theme [string is true -strict $bool]
     }
     return $_theme
+}
+
+
+#------------------------------------------------------------------------------
+# remove {keystr value} sub list from args
+# arg contains the associated value of keystr, or an empty string
+# while loop ensures to remove all matches of keystr 
+#------------------------------------------------------------------------------
+proc Widget::getArgument {args keystr arg} {
+  upvar $arg cvalue
+  set cvalue ""
+  while {[set i [lsearch -exact $args $keystr]] >= 0} {
+     set j [expr $i + 1]
+     set cvalue [lindex $args $j]
+     set args [lreplace $args $i $j]
+  }
+  return $args
+}
+
+
+proc Widget::getallwidgets {{w .}} {
+    set rlist [list $w]
+    foreach c [winfo children $w] {
+        set rlist [concat $rlist [getallwidgets $c]]
+    }
+    return $rlist
 }

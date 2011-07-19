@@ -27,20 +27,34 @@
 #define JSNodeCustom_h
 
 #include "JSDOMBinding.h"
+#include "StyleBase.h"
 #include <wtf/AlwaysInline.h>
 
 namespace WebCore {
 
-inline JSNode* getCachedDOMNodeWrapper(JSC::ExecState* exec, Document* document, Node* node)
+inline JSDOMWrapper* getInlineCachedWrapper(DOMWrapperWorld* world, Node* node)
 {
-    if (currentWorld(exec)->isNormal()) {
-        ASSERT(node->wrapper() == (document ? document->getWrapperCache(currentWorld(exec))->get(node) : domObjectWrapperMapFor(exec).get(node)));
-        return static_cast<JSNode*>(node->wrapper());
-    }
+    if (!world->isNormal())
+        return 0;
+    return node->wrapper();
+}
 
-    if (document)
-        return document->getWrapperCache(currentWorld(exec))->get(node);
-    return static_cast<JSNode*>(domObjectWrapperMapFor(exec).get(node));
+inline bool setInlineCachedWrapper(DOMWrapperWorld* world, Node* node, JSDOMWrapper* wrapper)
+{
+    if (!world->isNormal())
+        return false;
+    ASSERT(!node->wrapper());
+    node->setWrapper(*world->globalData(), wrapper, wrapperOwner(world, node), wrapperContext(world, node));
+    return true;
+}
+
+inline bool clearInlineCachedWrapper(DOMWrapperWorld* world, Node* node, JSDOMWrapper* wrapper)
+{
+    if (!world->isNormal())
+        return false;
+    ASSERT_UNUSED(wrapper, node->wrapper() == wrapper);
+    node->clearWrapper();
+    return true;
 }
 
 JSC::JSValue createWrapper(JSC::ExecState*, JSDOMGlobalObject*, Node*);
@@ -50,7 +64,7 @@ inline JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, 
     if (!node)
         return JSC::jsNull();
 
-    JSNode* wrapper = getCachedDOMNodeWrapper(exec, node->document(), node);
+    JSNode* wrapper = static_cast<JSNode*>(getCachedWrapper(currentWorld(exec), node));
     if (wrapper)
         return wrapper;
 

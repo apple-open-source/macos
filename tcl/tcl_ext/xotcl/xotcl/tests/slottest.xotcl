@@ -1,7 +1,7 @@
 # $Id: slottest.xotcl,v 1.5 2007/08/14 16:38:27 neumann Exp $
-package require XOTcl
+package require XOTcl 1
 namespace import -force xotcl::*
-package require xotcl::test
+package require xotcl::test 1
 
 proc ? {cmd expected} {
   set t [Test new -cmd $cmd -count 100]
@@ -362,6 +362,8 @@ Person p1 -name "Gustaf"
 Class Project -slots {
   Attribute name 
   Attribute description
+  Attribute manager
+  Attribute member -multivalued 1
 }
   
 Project project1 -name XOTcl -description "A highly flexible OO scripting language"
@@ -490,22 +492,154 @@ set x [Object new -set x 1 -contains {
 ? {llength [[lindex [lsort [$x info children]] 1] info children]} 3
 ? {llength [[lindex [lsort [$x info children]] 2] info children]} 0
 
-exit
+# / / / / / / / / / / / / / / / / / / / / / / /
+# Tests specific to per-object attribute slots
+#
+
+Class create C -slots {
+  Attribute foo \
+      -per-object true \
+      -default 1
+}
+
+C create c
+
+? {C procsearch foo} "::C parametercmd foo"
+? {c procsearch foo} ""
+? {C slot foo procsearch assign} "::xotcl::Slot instcmd assign"
+? {C exists foo} 1
+? {C set foo} 1
+t {C foo} 1 "retrieves default value"
+C foo 123
+t {C foo} 123 "custom defined value"
+
+C destroy
+
+#
+# basics (without default)
+#
+
+Class create C -slots {
+  Attribute bar \
+      -per-object true
+}
+
+C create c
+
+? {C procsearch bar} "::C parametercmd bar"
+? {c procsearch bar} ""
+? {C slot bar procsearch assign} "::xotcl::Slot instcmd assign"
+? {C exists bar} 0
+? {C bar 1} 1
+? {C bar} 1
+? {c exists bar} 0
+
+C destroy; c destroy
+
+#
+# basics (with default)
+#
+
+Class create C -slots {
+  Attribute foo \
+      -per-object true \
+      -default 1
+}
+
+C create c
+
+? {C procsearch foo} "::C parametercmd foo"
+? {c procsearch foo} ""
+? {C slot foo procsearch assign} "::xotcl::Slot instcmd assign"
+? {C exists foo} 1
+? {C set foo} 1
+t {C foo} 1 "retrieves default value"
+C foo 123
+t {C foo} 123 "custom defined value"
+
+# default is to be skipped when variable is already
+# initialised
+
+C set bar x
+C slots {
+  Attribute bar \
+      -per-object true \
+      -default y
+}
+
+? {C exists bar} 1
+? {C bar} x
+
+C destroy; c destroy
+
+#
+# trace-based hooks for per-object attributes
+#
+
+# a. initcmd
+set ::__verify 0
+Class C -slots {
+  Attribute bar \
+      -per-object true \
+      -initcmd {incr ::__verify; set _ 101}
+}
+
+C create c
+
+? {C exists bar} 1
+? {set ::__verify} 1
+? {C bar} 101
+? {C exists bar} 1
+? {set ::__verify} 1
+
+# b. valuecmd
+
+C slots {
+  Attribute bar2 \
+      -per-object true \
+      -valuecmd {
+	set ::__verify 2; set _ 101
+      }
+}
+
+? {C exists bar2} 1
+? {set ::__verify} 2
+? {C bar2} 101
+? {set ::__verify} 2
+? {C bar2 202} 202
+
+# c. valuechangedcmd
+C slots {
+  Attribute bar3 \
+      -per-object true \
+      -valuechangedcmd {
+	set ::__verify 3; $obj set $var 909
+      }
+}
+
+? {C exists bar3} 0
+? {set ::__verify} 2
+? {C bar3 101} 909
+? {set ::__verify} 3
+? {C bar3 102} 909
+
+C destroy; c destroy
+
+#exit
 
 #puts [Person array get __defaults]
 #puts [Person serialize]
-puts [Serializer all]
-eval [Serializer all]
+#puts [Serializer all]
+#eval [Serializer all]
 
 ? {p2 salary} 1009
 ? {catch {p2 append salary b}} 1
 ? {p2 salary} 1009
 #p2 projects add ::o1
-exit
-p1 set x 0
-t {p1 set x} "get instvar value via set"
-t {p1 set x 1} "set instvar value via set"
 
+p1 set x 0
+t {p1 set x} 0 "get instvar value via set"
+t {p1 set x 1} 1 "set instvar value via set"
 
 
 Object o1
@@ -527,8 +661,8 @@ o1 set x 42
 o1 forward x -earlybinding ::xotcl::setinstvar %self %proc
 ? [list o1 x] 42
 ? [list o1 x 41] 41
-t {o1 x} "get parametercmd via forward (earlybinding)"
-t {o1 x 41} "set parametercmd via forward (earlybinding)"
+t {o1 x} 41 "get parametercmd via forward (earlybinding)"
+t {o1 x 41} 41 "set parametercmd via forward (earlybinding)"
 
 #obj forward Mixin -default {getter setter} mixin %1  %self
 o1 forward z -default {getter setter} %self
@@ -537,46 +671,45 @@ o1 forward myfset -objscope set
 o1 myfset y 102
 ? {o1 myfset y} 102
 
-t {o1 myfset y} "get instvar value via forward"
-t {o1 myfset y 122} "set instvar value via forward"
+t {o1 myfset y} 102 "get instvar value via forward"
+t {o1 myfset y 122} 122 "set instvar value via forward"
 
 o1 forward myfdset -earlybinding -objscope set
 o1 myfdset y 103
 ? {o1 myfdset y} 103
 
-t {o1 myfdset y} "get instvar value via forward -earlybinding"
-t {o1 myfdset y 123} "set instvar value via forward -earlybinding"
+t {o1 myfdset y} 103 "get instvar value via forward -earlybinding"
+t {o1 myfdset y 123} 123 "set instvar value via forward -earlybinding"
 
 ::xotcl::alias o1 myset -objscope ::set
 o1 myset x 101
 ? {o1 myset x} 101
 
-t {o1 myset x} "get instvar value via set alias"
-t {o1 myset x 123} "set instvar value via set alias"
+t {o1 myset x} 101 "get instvar value via set alias"
+t {o1 myset x 123} 123 "set instvar value via set alias"
+
+exit
+
+# t {p1 age} 0 "slot read"
+# Class P -parameter {age {s -setter sets}}
+# P instproc sets {var value} {
+#   my set $var $value
+# }
+# P create p2 -age 345 -s 567
+
+# t {p2 age} "parametercmd read"
+# t {::xotcl::setinstvar p2 age} "via setinstvar"
+# t {p2 s} "parameter read with setter"
 
 
-t {p1 age} "slot read"
-Class P -parameter {age {s -setter sets}}
-P instproc sets {var value} {
-  my set $var $value
-}
-P create p2 -age 345 -s 567
-
-t {p2 age} "parametercmd read"
-t {::xotcl::setinstvar p2 age} "via setinstvar"
-t {p2 s} "parameter read with setter"
-
-
-
-
-Slot create Project::fullbudget \
-    -initcmd {$obj set __x 100} \
+::xotcl::Attribute create Project::slot::fullbudget \
+    -initcmd {puts stderr init-on-[self];my set __x 100} \
     -valuechangedcmd {
-      puts "budget is now [$obj set fullbudget]" 
-      $obj set __x [$obj set fullbudget] 
+      puts "budget is now [my set fullbudget]" 
+      my set __x [my set fullbudget] 
     }
 
-Slot create Project::currentbudget -valuecmd {$obj incr __x -1}
+::xotcl::Attribute create Project::slot::currentbudget -valuecmd {puts stderr change-on-[self];my incr __x -1}
 
 Person p2 -name gustaf
 Person p3 -name frido

@@ -26,25 +26,22 @@
 #ifndef JSONObject_h
 #define JSONObject_h
 
-#include "JSObject.h"
+#include "JSObjectWithGlobalObject.h"
 
 namespace JSC {
 
     class Stringifier;
 
-    class JSONObject : public JSObject {
+    class JSONObject : public JSObjectWithGlobalObject {
     public:
-        JSONObject(NonNullPassRefPtr<Structure> structure)
-            : JSObject(structure)
-        {
-        }
+        JSONObject(JSGlobalObject*, Structure*);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
-
-        static void markStringifiers(MarkStack&, Stringifier*);
+        
+        static const ClassInfo s_info;
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
@@ -53,8 +50,6 @@ namespace JSC {
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
     };
 
     UString JSONStringify(ExecState* exec, JSValue value, unsigned indent);

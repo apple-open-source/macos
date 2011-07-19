@@ -1,0 +1,117 @@
+Rootless Installation
+=====================
+
+It's possible to make Dovecot run under a single system user without requiring
+root privileges at any point. This shouldn't be thought of as a security
+feature, but instead simply as a way for non-admins to run Dovecot in their
+favorite mail server. It's also useful if you just wish to test Dovecot without
+messing up your system.
+
+If you think of this as a good way to achieve security, ask yourself which is
+worse:
+
+a)
+
+ * A very small possibility to get root privileges through Dovecot.
+ * A small possibility without logging in to get into system as a
+   non-privileged *dovecot* user, chrooted into an empty directory.
+ * A small possibility to get user's privileges after logging in, but no
+   possibility to read others' mails since they're saved with different UIDs
+   (plus you might also be chrooted to your own mailbox).
+
+b)
+
+ * Absolutely zero possibility to get root privileges through Dovecot.
+ * A small possibility to get into system as a mail user, possibly even without
+   logging in, and being able to read everyone's mail (and finally gaining
+   roots by exploiting some just discovered local vulnerability, unless you
+   bothered to set up a special chrooted environment).
+
+Installation
+------------
+
+Install somewhere under home directory:
+
+---%<-------------------------------------------------------------------------
+./configure --prefix=$HOME/dovecot
+make
+make install
+---%<-------------------------------------------------------------------------
+
+Dovecot is then started by running '~/dovecot/sbin/dovecot'. The example
+configuration file exists in '~/dovecot/share/doc/dovecot/example-config/' and
+needs to be copied to '~/dovecot/etc/dovecot/'.
+
+Configuration
+-------------
+
+The important settings to change for rootless installation are:
+
+ * Remove default usernames. By setting them empty, Dovecot uses the same user
+   as what master is running as:
+
+   ---%<----------------------------------------------------------------------
+   default_internal_user =
+   default_login_user =
+   ---%<----------------------------------------------------------------------
+
+ * Remove default chrooting from all services:
+
+   ---%<----------------------------------------------------------------------
+   service anvil {
+     chroot =
+   }
+   service imap-login {
+     chroot =
+   }
+   service pop3-login {
+     chroot =
+   }
+   ---%<----------------------------------------------------------------------
+
+ * Change listener ports:
+
+   ---%<----------------------------------------------------------------------
+   service imap-login {
+     inet_listener imap {
+       port = 10143
+     }
+     inet_listener imaps {
+       port = 10993
+     }
+   }
+   service pop3-login {
+     inet_listener pop3 {
+       port = 10110
+     }
+     inet_listener pop3s {
+       port = 10995
+     }
+   }
+   ---%<----------------------------------------------------------------------
+
+ * Change logging destination:
+
+   ---%<----------------------------------------------------------------------
+   log_path = /home/user/dovecot.log
+   ---%<----------------------------------------------------------------------
+
+ * Instead of <passdb PAM> [PasswordDatabase.PAM.txt] use for example
+   <passwd-file> [AuthDatabase.PasswdFile.txt]:
+
+   ---%<----------------------------------------------------------------------
+   passdb passwd-file {
+     args = /home/user/dovecot/etc/passwd
+   }
+   userdb passwd {
+   }
+   ---%<----------------------------------------------------------------------
+
+   Where the 'passwd' file contains the username and password for your login
+   user:
+
+   ---%<----------------------------------------------------------------------
+   user:{PLAIN}pass
+   ---%<----------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

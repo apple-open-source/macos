@@ -38,9 +38,10 @@ namespace JSC {
     public:
         enum Type { Uncachable, ExistingProperty, NewProperty };
 
-        PutPropertySlot()
+        PutPropertySlot(bool isStrictMode = false)
             : m_type(Uncachable)
             , m_base(0)
+            , m_isStrictMode(isStrictMode)
         {
         }
 
@@ -61,15 +62,18 @@ namespace JSC {
         Type type() const { return m_type; }
         JSObject* base() const { return m_base; }
 
+        bool isStrictMode() const { return m_isStrictMode; }
         bool isCacheable() const { return m_type != Uncachable; }
         size_t cachedOffset() const {
             ASSERT(isCacheable());
             return m_offset;
         }
+
     private:
         Type m_type;
         JSObject* m_base;
         size_t m_offset;
+        bool m_isStrictMode;
     };
 
 } // namespace JSC

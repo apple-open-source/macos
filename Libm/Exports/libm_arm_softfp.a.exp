@@ -145,6 +145,9 @@ _hypotl
 _ilogb
 _ilogbf
 _ilogbl
+_j0
+_j1
+_jn
 _ldexp
 _ldexpf
 _ldexpl
@@ -241,6 +244,9 @@ _tgammal
 _trunc
 _truncf
 _truncl
+_y0
+_y1
+_yn
 
 ___fpclassifyf
 ___fpclassify

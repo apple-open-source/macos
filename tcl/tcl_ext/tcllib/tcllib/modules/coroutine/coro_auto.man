@@ -1,0 +1,43 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin coroutine::auto n 1]
+[copyright {2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Coroutine utilities}]
+[category  Coroutine]
+[titledesc {}]
+[require Tcl 8.6]
+[require coroutine::auto 1]
+[require coroutine 1]
+[description]
+[keywords coroutine global exit after vwait update gets read]
+
+The [package coroutine::auto] package provides no commands or other
+directly visible functionality.
+
+Built on top of the package [package coroutine], it intercepts various
+builtin commands of the Tcl core to make any code using them
+coroutine-oblivious, i.e. able to run inside and outside of a
+coroutine without changes.
+
+[para] The commands so affected by this package are
+[list_begin definitions]
+[def [cmd after]]
+[def [cmd exit]]
+[def [cmd gets]]
+[def [cmd global]]
+[def [cmd read]]
+[def [cmd update]]
+[def [cmd vwait]]
+[list_end]
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph coroutine] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+[manpage_end]

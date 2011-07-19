@@ -1,0 +1,7 @@
+g/matches = \[]/s//hash = {}/
+g/matches\.append(\(.*\))$/s//hash[\1] = 1/
+g/return matches/i\
+        matches = hash.keys()\
+        matches.sort()\
+.
+w

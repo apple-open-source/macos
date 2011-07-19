@@ -105,6 +105,7 @@ static const struct {
 	{ EDT_BADSETOPT, "Invalid setopt() library action" },
 	{ EDT_BADSTACKPC, "Invalid stack program counter size" },
 	{ EDT_BADAGGVAR, "Invalid aggregation variable identifier" },
+	{ EDT_ENABLING_ERR, "Failed to enable probe" },
 	{ EDT_OVERSION,	"Client requested deprecated version of library" },
 #if defined(__APPLE__)
 	{ EDT_BADPID, "Unable to get symbols for pid" }

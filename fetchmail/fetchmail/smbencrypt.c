@@ -46,7 +46,7 @@ typedef int BOOL;
  The variable n should always be one less than the available size.
 ****************************************************************************/
 
-char *StrnCpy(char *dest,const char *src, size_t n)
+static char *StrnCpy(char *dest,const char *src, size_t n)
 {
   char *d = dest;
   if (!dest) return(NULL);
@@ -59,7 +59,7 @@ char *StrnCpy(char *dest,const char *src, size_t n)
   return(dest);
 }
 
-size_t skip_multibyte_char(char c)
+static size_t skip_multibyte_char(char c)
 {
     (void)c;
     return 0;
@@ -71,35 +71,7 @@ safe string copy into a known length string. maxlength does not
 include the terminating zero.
 ********************************************************************/
 
-char *safe_strcpy(char *dest,const char *src, size_t maxlength)
-{
-    size_t len;
-
-    if (!dest) {
-        DEBUG(0,("ERROR: NULL dest in safe_strcpy\n"));
-        return NULL;
-    }
-
-    if (!src) {
-        *dest = 0;
-        return dest;
-    }  
-
-    len = strlen(src);
-
-    if (len > maxlength) {
-            DEBUG(0,("ERROR: string overflow by %d in safe_strcpy [%.50s]\n",
-                     (int)(len-maxlength), src));
-            len = maxlength;
-    }
-      
-    memcpy(dest, src, len);
-    dest[len] = 0;
-    return dest;
-}  
-
-
-void strupper(char *s)
+static void strupper(char *s)
 {
 while (*s)
   {
@@ -182,7 +154,7 @@ static int _my_mbstowcs(int16 *dst, uchar *src, int len)
  * Creates the MD4 Hash of the users password in NT UNICODE.
  */
  
-void E_md4hash(uchar *passwd, uchar *p16)
+static void E_md4hash(uchar *passwd, uchar *p16)
 {
 	int len;
 	int16 wpwd[129];
@@ -200,42 +172,6 @@ void E_md4hash(uchar *passwd, uchar *p16)
 	mdfour(p16, (unsigned char *)wpwd, len);
 }
 
-/* Does both the NT and LM owfs of a user's password */
-void nt_lm_owf_gen(char *pwd, uchar nt_p16[16], uchar p16[16])
-{
-	char passwd[130];
-
-	memset(passwd,'\0',130);
-	safe_strcpy( passwd, pwd, sizeof(passwd)-1);
-
-	/* Calculate the MD4 hash (NT compatible) of the password */
-	memset(nt_p16, '\0', 16);
-	E_md4hash((uchar *)passwd, nt_p16);
-
-#ifdef DEBUG_PASSWORD
-	DEBUG(100,("nt_lm_owf_gen: pwd, nt#\n"));
-	dump_data(120, passwd, strlen(passwd));
-	dump_data(100, (char *)nt_p16, 16);
-#endif
-
-	/* Mangle the passwords into Lanman format */
-	passwd[14] = '\0';
-	strupper(passwd);
-
-	/* Calculate the SMB (lanman) hash functions of the password */
-
-	memset(p16, '\0', 16);
-	E_P16((uchar *) passwd, (uchar *)p16);
-
-#ifdef DEBUG_PASSWORD
-	DEBUG(100,("nt_lm_owf_gen: pwd, lm#\n"));
-	dump_data(120, passwd, strlen(passwd));
-	dump_data(100, (char *)p16, 16);
-#endif
-	/* clear out local copy of user's password (just being paranoid). */
-	memset(passwd, '\0', sizeof(passwd));
-}
-
 /* Does the des encryption from the NT or LM MD4 hash. */
 void SMBOWFencrypt(uchar passwd[16], uchar *c8, uchar p24[24])
 {
@@ -246,25 +182,6 @@ void SMBOWFencrypt(uchar passwd[16], uchar *c8, uchar p24[24])
 	memcpy(p21, passwd, 16);    
 	E_P24(p21, c8, p24);
 }
-
-/* Does the des encryption from the FIRST 8 BYTES of the NT or LM MD4 hash. */
-void NTLMSSPOWFencrypt(uchar passwd[8], uchar *ntlmchalresp, uchar p24[24])
-{
-	uchar p21[21];
- 
-	memset(p21,'\0',21);
-	memcpy(p21, passwd, 8);    
-	memset(p21 + 8, 0xbd, 8);    
-
-	E_P24(p21, ntlmchalresp, p24);
-#ifdef DEBUG_PASSWORD
-	DEBUG(100,("NTLMSSPOWFencrypt: p21, c8, p24\n"));
-	dump_data(100, (char *)p21, 21);
-	dump_data(100, (char *)ntlmchalresp, 8);
-	dump_data(100, (char *)p24, 24);
-#endif
-}
-
 
 /* Does the NT MD4 hash then des encryption. */
  

@@ -1,0 +1,31 @@
+xkbutils is a collection of small utilities utilizing the XKeyboard (XKB)
+extension to the X11 protocol.
+
+It includes:
+ xkbbell  - generate XKB bell events
+ xkbvleds - display the state of LEDs on an XKB keyboard in a window
+ xkbwatch - reports changes in the XKB keyboard state
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xkbutils
+
+        http://cgit.freedesktop.org/xorg/app/xkbutils
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

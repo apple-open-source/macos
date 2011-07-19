@@ -127,10 +127,10 @@
 #endif
 
 /*
- * Message history is fixed at 100 message, 20 for the tiny version.
+ * Message history is fixed at 200 message, 20 for the tiny version.
  */
 #ifdef FEAT_SMALL
-# define MAX_MSG_HIST_LEN 100
+# define MAX_MSG_HIST_LEN 200
 #else
 # define MAX_MSG_HIST_LEN 20
 #endif
@@ -300,16 +300,20 @@
 
 /*
  * +rightleft		Right-to-left editing/typing support.
+ *
+ * Disabled for EBCDIC as it requires multibyte.
  */
-#ifdef FEAT_BIG
+#if defined(FEAT_BIG) && !defined(EBCDIC)
 # define FEAT_RIGHTLEFT
 #endif
 
 /*
  * +farsi		Farsi (Persian language) Keymap support.
  *			Requires FEAT_RIGHTLEFT.
+ *
+ * Disabled for EBCDIC as it requires multibyte.
  */
-#ifdef FEAT_BIG
+#if defined(FEAT_BIG) && !defined(EBCDIC)
 # define FEAT_FKMAP
 #endif
 #ifdef FEAT_FKMAP
@@ -321,6 +325,8 @@
 /*
  * +arabic		Arabic keymap and shaping support.
  *			Requires FEAT_RIGHTLEFT and FEAT_MBYTE.
+ *
+ * Disabled for EBCDIC as it requires multibyte.
  */
 #if defined(FEAT_BIG) && !defined(WIN16) && SIZEOF_INT >= 4 && !defined(EBCDIC)
 # define FEAT_ARABIC
@@ -343,7 +349,7 @@
  * +tag_binary		Can use a binary search for the tags file.
  *
  * Disabled for EBCDIC:
- * On OS/390 Unix we have the problem that /bin/sort sorts ASCII instead of
+ * On z/OS Unix we have the problem that /bin/sort sorts ASCII instead of
  * EBCDIC.  With this binary search doesn't work, as VIM expects a tag file
  * sorted by character values.  I'm not sure how to fix this. Should we really
  * do a EBCDIC to ASCII conversion for this??
@@ -529,9 +535,19 @@
 #endif
 
 /*
- * +spell		spell checking
+ * +conceal		'conceal' option.  Needs syntax highlighting
+ *			as this is how the concealed text is defined.
  */
-#if defined(FEAT_NORMAL) || defined(PROTO)
+#if defined(FEAT_BIG) && defined(FEAT_SYN_HL)
+# define FEAT_CONCEAL
+#endif
+
+/*
+ * +spell		spell checking
+ *
+ * Disabled for EBCDIC: * Doesn't work (SIGSEGV).
+ */
+#if (defined(FEAT_NORMAL) || defined(PROTO)) && !defined(EBCDIC)
 # define FEAT_SPELL
 #endif
 
@@ -592,7 +608,7 @@
 /*
  * +cryptv		Encryption (by Mohsin Ahmed <mosh@sasi.com>).
  */
-#if defined(FEAT_NORMAL) || defined(PROTO)
+#if defined(FEAT_NORMAL) && !defined(FEAT_CRYPT) || defined(PROTO)
 # define FEAT_CRYPT
 #endif
 
@@ -622,9 +638,9 @@
  *			with 16 bit ints.  Required for GTK+ 2.
  *
  * Disabled for EBCDIC:
- * Multibyte support doesn't work on OS390 Unix currently.
+ * Multibyte support doesn't work on z/OS Unix currently.
  */
-#if (defined(FEAT_BIG) || defined(HAVE_GTK2) || defined(FEAT_ARABIC)) \
+#if (defined(FEAT_BIG) || defined(FEAT_GUI_GTK) || defined(FEAT_ARABIC)) \
 	&& !defined(FEAT_MBYTE) && !defined(WIN16) \
 	&& SIZEOF_INT >= 4 && !defined(EBCDIC)
 # define FEAT_MBYTE
@@ -677,7 +693,7 @@
 # define ESC_CHG_TO_ENG_MODE		/* if defined, when ESC pressed,
 					 * turn to english mode
 					 */
-# if !defined(FEAT_XFONTSET) && defined(HAVE_X11) && !defined(HAVE_GTK2)
+# if !defined(FEAT_XFONTSET) && defined(HAVE_X11) && !defined(FEAT_GUI_GTK)
 #  define FEAT_XFONTSET			/* Hangul input requires xfontset */
 # endif
 # if defined(FEAT_XIM) && !defined(LINT)
@@ -694,7 +710,7 @@
  * +xfontset		X fontset support.  For outputting wide characters.
  */
 #ifndef FEAT_XFONTSET
-# if defined(FEAT_MBYTE) && defined(HAVE_X11) && !defined(HAVE_GTK2)
+# if defined(FEAT_MBYTE) && defined(HAVE_X11) && !defined(FEAT_GUI_GTK)
 #  define FEAT_XFONTSET
 # else
 /* #  define FEAT_XFONTSET */
@@ -718,6 +734,13 @@
  */
 #if defined(FEAT_NORMAL) && defined(FEAT_WINDOWS)
 # define FEAT_SCROLLBIND
+#endif
+
+/*
+ * +cursorbind		synchronization of split windows
+ */
+#if defined(FEAT_NORMAL) && defined(FEAT_WINDOWS)
+# define FEAT_CURSORBIND
 #endif
 
 /*
@@ -761,7 +784,8 @@
     && (defined(FEAT_GUI_GTK) \
 	|| (defined(FEAT_GUI_MOTIF) && defined(HAVE_XM_NOTEBOOK_H)) \
 	|| defined(FEAT_GUI_MAC) \
-	|| (defined(FEAT_GUI_MSWIN) && (!defined(_MSC_VER) || _MSC_VER > 1020)))
+	|| (defined(FEAT_GUI_MSWIN) && !defined(WIN16) \
+	    && (!defined(_MSC_VER) || _MSC_VER > 1020)))
 # define FEAT_GUI_TABLINE
 #endif
 
@@ -795,7 +819,8 @@
 # endif
 #endif
 #if !defined(FEAT_GUI_DIALOG) && (defined(FEAT_GUI_MOTIF) \
-	|| defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_GTK))
+	|| defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_GTK) \
+	|| defined(FEAT_GUI_W32))
 /* need a dialog to show error messages when starting from the desktop */
 # define FEAT_GUI_DIALOG
 #endif
@@ -844,10 +869,14 @@
 /* #define DEBUG */
 
 /*
- * STARTUPTIME		Time the startup process.  Writes a "vimstartup" file
- *			with timestamps.
+ * STARTUPTIME		Time the startup process.  Writes a file with
+ *			timestamps.
  */
-/* #define STARTUPTIME "vimstartup" */
+#if defined(FEAT_NORMAL) \
+	&& ((defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)) \
+		|| defined(WIN3264))
+# define STARTUPTIME 1
+#endif
 
 /*
  * MEM_PROFILE		Debugging of memory allocation and freeing.
@@ -1135,8 +1164,11 @@
 #endif
 
 /* GUI and some consoles can change the shape of the cursor.  The code is also
- * needed for the 'mouseshape' option. */
-#if defined(FEAT_GUI) || defined(MCH_CURSOR_SHAPE) || defined(FEAT_MOUSESHAPE) \
+ * needed for the 'mouseshape' and 'concealcursor' options. */
+#if defined(FEAT_GUI) \
+	    || defined(MCH_CURSOR_SHAPE) \
+	    || defined(FEAT_MOUSESHAPE) \
+	    || defined(FEAT_CONCEAL) \
 	    || (defined(UNIX) && defined(FEAT_NORMAL))
 # define CURSOR_SHAPE
 #endif
@@ -1166,6 +1198,7 @@
 /*
  * These features can only be included by using a configure argument.  See the
  * Makefile for a line to uncomment.
+ * +lua			Lua interface: "--enable-luainterp"
  * +mzscheme		MzScheme interface: "--enable-mzscheme"
  * +perl		Perl interface: "--enable-perlinterp"
  * +python		Python interface: "--enable-pythoninterp"
@@ -1189,11 +1222,9 @@
 #endif
 
 /*
- * The Netbeans features currently only work with Motif and GTK and Win32.
- * It also requires +listcmds and +eval.
+ * The Netbeans feature requires +listcmds and +eval.
  */
-#if ((!defined(FEAT_GUI_MOTIF) && !defined(FEAT_GUI_GTK) && !defined(FEAT_GUI_W32)) \
-		|| !defined(FEAT_LISTCMDS) || !defined(FEAT_EVAL)) \
+#if (!defined(FEAT_LISTCMDS) || !defined(FEAT_EVAL)) \
 	&& defined(FEAT_NETBEANS_INTG)
 # undef FEAT_NETBEANS_INTG
 #endif
@@ -1272,4 +1303,12 @@
 #if defined(FEAT_SUN_WORKSHOP) || defined(FEAT_NETBEANS_INTG) \
 	    || defined(FEAT_BIG)
 # define FEAT_AUTOCHDIR
+#endif
+
+/*
+ * +persistent_undo	'undofile', 'undodir' options, :wundo and :rundo, and
+ * implementation.
+ */
+#ifdef FEAT_NORMAL
+# define FEAT_PERSISTENT_UNDO
 #endif

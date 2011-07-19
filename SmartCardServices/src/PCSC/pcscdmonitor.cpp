@@ -1101,8 +1101,8 @@ void PCSCDMonitor::displayPropertiesOfDevice(io_service_t service)
 	{
 		std::string vendorName, productName, serialNumber, name;
 
-		uint32_t vendorID, productID;
-		bool isPCCard;
+		uint32_t vendorID = 0, productID = 0;
+		bool isPCCard = false;
 		
 		CFRef<CFStringRef> ioName = static_cast<CFStringRef>(::IORegistryEntryCreateCFProperty(
 			service, CFSTR(kzIOPCCardIONameKey), kCFAllocatorDefault, 0));

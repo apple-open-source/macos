@@ -2,19 +2,19 @@
 # Graph ops tests - Minimum spanning tree/forest per Prim
 # Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
-# RCS: @(#) $Id: prim.test,v 1.2 2008/11/20 07:26:43 andreas_kupries Exp $
+# RCS: @(#) $Id: prim.test,v 1.3 2009/09/15 19:24:12 andreas_kupries Exp $
 
 # Syntax: struct::graph::op::prim G
 
 # -------------------------------------------------------------------------
 # Wrong # args: Missing, Too many
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-1.0 {prim, wrong args, missing} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-1.0 {prim, wrong args, missing} {
     catch {struct::graph::op::prim} msg
     set msg
 } [tcltest::wrongNumArgs struct::graph::op::prim {g} 0]
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-1.1 {prim, wrong args, too many} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-1.1 {prim, wrong args, too many} {
     catch {struct::graph::op::prim g x} msg
     set msg
 } [tcltest::tooManyArgs struct::graph::op::prim {g}]
@@ -22,7 +22,7 @@ test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-1.1 {prim, wrong
 # -------------------------------------------------------------------------
 # Logical arguments checks and failures
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-2.0 {prim, arcs without weights} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-2.0 {prim, arcs without weights} {
     SETUP
     mygraph node insert 0 1
     mygraph arc  insert 0 1 a
@@ -33,14 +33,14 @@ test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-2.0 {prim, arcs 
 # -------------------------------------------------------------------------
 # Ok arguments.
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.0 {prim, empty graph} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.0 {prim, empty graph} {
     SETUP
     set result [struct::graph::op::prim mygraph]
     mygraph destroy
     set result
 } {}
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.1 {prim, nodes, no arcs} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.1 {prim, nodes, no arcs} {
     SETUP
     mygraph node insert 0 1 2 3 4 5
     set result [struct::graph::op::prim mygraph]
@@ -48,14 +48,14 @@ test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.1 {prim, nodes
     set result
 } {}
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.2 {prim, nodes, arcs} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.2 {prim, nodes, arcs} {
     SETUP_A
     set result [lsort -dict [struct::graph::op::prim mygraph]]
     mygraph destroy
     set result
 } {'arc0_1' 'arc0_3' 'arc3_2' 'arc3_4' 'arc3_6' 'arc6_5'}
 
-test graphop-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.3 {prim, nodes, arcs} {
+test graphop-t${treeimpl}-g${impl}-s${setimpl}-st${stkimpl}-q${queimpl}-prim-3.3 {prim, nodes, arcs} {
     SETUP_B
     set result [lsort -dict [struct::graph::op::prim mygraph]]
     mygraph destroy

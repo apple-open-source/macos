@@ -221,7 +221,12 @@ mDNSlocal mStatus StartQuery(DNSQuestion *q, char *qname, mDNSu16 qtype, const m
 	q->ForceMCast       = mDNStrue;		// Query via multicast, even for apparently uDNS names like 1.1.1.17.in-addr.arpa.
 	q->ReturnIntermed   = mDNStrue;
 	q->SuppressUnusable = mDNSfalse;
-	q->WakeOnResolve    = mDNSfalse;
+	q->SearchListIndex  = 0;
+	q->AppendSearchDomains = 0;
+	q->RetryWithSearchDomains = mDNSfalse;
+	q->TimeoutQuestion  = 0;
+	q->WakeOnResolve    = 0;
+	q->qnameOrig        = mDNSNULL;
 	q->QuestionCallback = callback;
 	q->QuestionContext  = NULL;
 

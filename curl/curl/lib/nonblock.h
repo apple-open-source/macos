@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: nonblock.h,v 1.1 2009-07-09 21:55:26 bagder Exp $
  ***************************************************************************/
 
 #include <curl/curl.h> /* for curl_socket_t */

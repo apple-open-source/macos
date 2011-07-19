@@ -35,7 +35,8 @@
 #include "FramelessScrollView.h"
 #include "FrameView.h"
 #include "IntRect.h"
-#include "PlatformContextSkia.h"
+#include "NotImplemented.h"
+#include "painting/GraphicsContextBuilder.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
@@ -43,6 +44,7 @@
 
 #include "WebInputEvent.h"
 #include "WebInputEventConversion.h"
+#include "WebRange.h"
 #include "WebRect.h"
 #include "WebWidgetClient.h"
 
@@ -56,7 +58,8 @@ namespace WebKit {
 
 WebPopupMenu* WebPopupMenu::create(WebWidgetClient* client)
 {
-    return new WebPopupMenuImpl(client);
+    // Pass the WebPopupMenuImpl's self-reference to the caller.
+    return adoptRef(new WebPopupMenuImpl(client)).leakRef();
 }
 
 // WebWidget ------------------------------------------------------------------
@@ -140,14 +143,18 @@ void WebPopupMenuImpl::resize(const WebSize& newSize)
     m_size = newSize;
 
     if (m_widget) {
-      IntRect newGeometry(0, 0, m_size.width, m_size.height);
-      m_widget->setFrameRect(newGeometry);
+        IntRect newGeometry(0, 0, m_size.width, m_size.height);
+        m_widget->setFrameRect(newGeometry);
     }
 
     if (m_client) {
-      WebRect damagedRect(0, 0, m_size.width, m_size.height);
-      m_client->didInvalidateRect(damagedRect);
+        WebRect damagedRect(0, 0, m_size.width, m_size.height);
+        m_client->didInvalidateRect(damagedRect);
     }
+}
+
+void WebPopupMenuImpl::animate()
+{
 }
 
 void WebPopupMenuImpl::layout()
@@ -159,18 +166,18 @@ void WebPopupMenuImpl::paint(WebCanvas* canvas, const WebRect& rect)
     if (!m_widget)
         return;
 
-    if (!rect.isEmpty()) {
-#if WEBKIT_USING_CG
-        GraphicsContext gc(canvas);
-#elif WEBKIT_USING_SKIA
-        PlatformContextSkia context(canvas);
-        // PlatformGraphicsContext is actually a pointer to PlatformContextSkia.
-        GraphicsContext gc(reinterpret_cast<PlatformGraphicsContext*>(&context));
-#else
-        notImplemented();
-#endif
-        m_widget->paint(&gc, rect);
-    }
+    if (!rect.isEmpty())
+        m_widget->paint(&GraphicsContextBuilder(canvas).context(), rect);
+}
+
+void WebPopupMenuImpl::themeChanged()
+{
+    notImplemented();
+}
+
+void WebPopupMenuImpl::composite(bool finish)
+{
+    notImplemented();
 }
 
 bool WebPopupMenuImpl::handleInputEvent(const WebInputEvent& inputEvent)
@@ -230,15 +237,44 @@ void WebPopupMenuImpl::setFocus(bool enable)
 {
 }
 
-bool WebPopupMenuImpl::handleCompositionEvent(
-    WebCompositionCommand command, int cursorPosition, int targetStart,
-    int targetEnd, const WebString& imeString)
+bool WebPopupMenuImpl::setComposition(
+    const WebString& text, const WebVector<WebCompositionUnderline>& underlines,
+    int selectionStart, int selectionEnd)
 {
     return false;
 }
 
-bool WebPopupMenuImpl::queryCompositionStatus(bool* enabled, WebRect* caretRect)
+bool WebPopupMenuImpl::confirmComposition()
 {
+    return false;
+}
+
+bool WebPopupMenuImpl::confirmComposition(const WebString& text)
+{
+    return false;
+}
+
+bool WebPopupMenuImpl::compositionRange(size_t* location, size_t* length)
+{
+    *location = 0;
+    *length = 0;
+    return false;
+}
+
+WebTextInputType WebPopupMenuImpl::textInputType()
+{
+    return WebTextInputTypeNone;
+}
+
+WebRect WebPopupMenuImpl::caretOrSelectionBounds()
+{
+    return WebRect();
+}
+
+bool WebPopupMenuImpl::caretOrSelectionRange(size_t* location, size_t* length)
+{
+    *location = 0;
+    *length = 0;
     return false;
 }
 
@@ -273,6 +309,10 @@ void WebPopupMenuImpl::invalidateContentsForSlowScroll(const IntRect& updateRect
     invalidateContentsAndWindow(updateRect, immediate);
 }
 
+void WebPopupMenuImpl::scheduleAnimation()
+{
+}
+
 void WebPopupMenuImpl::scroll(const IntSize& scrollDelta,
                               const IntRect& scrollRect,
                               const IntRect& clipRect)
@@ -305,6 +345,10 @@ void WebPopupMenuImpl::scrollRectIntoView(const IntRect&, const ScrollView*) con
 void WebPopupMenuImpl::scrollbarsModeDidChange() const
 {
     // Nothing to be done since we have no concept of different scrollbar modes.
+}
+
+void WebPopupMenuImpl::setCursor(const WebCore::Cursor&)
+{
 }
 
 //-----------------------------------------------------------------------------

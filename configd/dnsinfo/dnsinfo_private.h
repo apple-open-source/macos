@@ -56,23 +56,30 @@
  * +-------------------------------------------------------------------+
  * | struct _dns_config_buf_t                                          |
  * +-+-------------+---------------------------------------------------+
- * | | config      | struct dns_config_t			       |
- * | |		   +-+--------------+----------------------------------+
- * | |             | | n_resolver   | int32_t                          | <- # of name resolvers
- * | |		   | +--------------+----------------------------------+
- * | |             | | resolver     | dns_resolver_t **                | <- not used during creation, filled
- * | |             | |              |                                  |    in with pointer to a list of
- * | |		   | |		    |                                  |    resolver configurations which be
- * | |		   | |		    |                                  |    established in the "padding"
- * | |		   | +--------------+----------------------------------+
- * | |		   | | ...          | ...                              |
- * | +-------------+-+--------------+----------------------------------+
+ * | | config      | struct dns_config_t                               |
+ * | |             +-+-------------------+-----------------------------+
+ * | |             | | n_resolver        | int32_t                     | <- # of name resolvers
+ * | |             | +-------------------+-----------------------------+
+ * | |             | | resolver          | dns_resolver_t **           | <- not used during creation, filled
+ * | |             | |                   |                             |    in with pointer to a list of
+ * | |             | |                   |                             |    resolver configurations that will
+ * | |             | |                   |                             |    be established in the "padding"
+ * | |             | +-------------------+-----------------------------+
+ * | |             | | n_scoped_resolver | int32_t                     | <- # of name scoped resolvers
+ * | |             | +-------------------+-----------------------------+
+ * | |             | | scoped_resolver   | dns_resolver_t **           | <- not used during creation, filled
+ * | |             | |                   |                             |    in with pointer to a list of scoped
+ * | |             | |                   |                             |    resolver configurations  that will
+ * | |             | |                   |                             |    be established in the "padding"
+ * | |             | +-------------------+-----------------------------+
+ * | |             | | ...               | ...                         |
+ * | +-------------+-+-------------------+-----------------------------+
  * | | n_attribute | uint32_t                                          | <- how many bytes of "attribute"
- * | |		   |                                                   |    data is associated with the
- * | |		   |                                                   |    configuration
+ * | |             |                                                   |    data is associated with the
+ * | |             |                                                   |    configuration
  * |-+-------------+---------------------------------------------------+
  * | | n_padding   | uint32_t                                          | <- how many additional bytes
- * | |		   |                                                   |    for arrays (of pointers), ...
+ * | |             |                                                   |    for arrays (of pointers), ...
  * +-+-------------+---------------------------------------------------+
  * | struct dns_attribute_t                                            |
  * |-+-------------+---------------------------------------------------+
@@ -83,54 +90,54 @@
  * | | attribute   | struct _dns_resolver_buf_t                        | <- the attribute data (resolver configuration #1)
  * | |             +-+-------------+-----------------------------------+
  * | |             | | resolver    | struct dns_resolver_t             |
- * | |             | |		   +--------------+--------------------+
- * | |             | |		   | domain       | char *             | <- not used during creation,
- * | |             | |		   |              |                    |    filled in with pointer to
- * | |             | |		   |              |                    |    domain name in the "padding"
- * | |             | |		   +--------------+--------------------+
- * | |             | |		   | n_nameserver | int32_t            | <- # of name server addresses
- * | |             | |		   +--------------+--------------------+
- * | |             | |		   | nameserver   | struct sockaddr ** | <- not used during creation,
- * | |             | |		   |              |                    |    filled in with pointer to
- * | |             | |		   |              |                    |    a list of addresses which
- * | |             | |		   |              |                    |    will be established in the
- * | |             | |		   |              |                    |    "padding"
- * | |             | |		   +--------------+--------------------+
- * | |             | |		   | ...	                       |
+ * | |             | |             +--------------+--------------------+
+ * | |             | |             | domain       | char *             | <- not used during creation,
+ * | |             | |             |              |                    |    filled in with pointer to
+ * | |             | |             |              |                    |    domain name in the "padding"
+ * | |             | |             +--------------+--------------------+
+ * | |             | |             | n_nameserver | int32_t            | <- # of name server addresses
+ * | |             | |             +--------------+--------------------+
+ * | |             | |             | nameserver   | struct sockaddr ** | <- not used during creation,
+ * | |             | |             |              |                    |    filled in with pointer to
+ * | |             | |             |              |                    |    a list of addresses which
+ * | |             | |             |              |                    |    will be established in the
+ * | |             | |             |              |                    |    "padding"
+ * | |             | |             +--------------+--------------------+
+ * | |             | |             | ...                               |
  * | |             +-+-------------+--------------+--------------------+
  * | |             | | n_attribute | uint32_t                          |
  * | |             +-+-------------+-----------------------------------+
  * | |             | | attribute   | struct dns_attribute_t            |
- * | |             | |		   +-+-----------+---------------------+
- * | |             | |		   | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_DOMAIN)
- * | |             | |		   | +-----------+---------------------+
+ * | |             | |             +-+-----------+---------------------+
+ * | |             | |             | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_DOMAIN)
+ * | |             | |             | +-----------+---------------------+
  * | |             | |             | | length    | uint32_t            | <- length of the attribute
- * | |             | |		   | +-----------+---------------------+
- * | |             | |		   | | attribute |		       | <- the attribute data ("apple.com")
+ * | |             | |             | +-----------+---------------------+
+ * | |             | |             | | attribute |                     | <- the attribute data ("apple.com")
  * | |             +-+-------------+-------------+---------------------+
  * | |             | | attribute   | struct dns_attribute_t            |
- * | |             | |		   +-+-----------+---------------------+
- * | |             | |		   | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_ADDRESS)
- * | |             | |		   | +-----------+---------------------+
+ * | |             | |             +-+-----------+---------------------+
+ * | |             | |             | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_ADDRESS)
+ * | |             | |             | +-----------+---------------------+
  * | |             | |             | | length    | uint32_t            | <- length of the attribute
- * | |             | |		   | +-----------+---------------------+
- * | |             | |		   | | attribute |		       | <- the attribute data ("struct sockaddr_in" #1)
+ * | |             | |             | +-----------+---------------------+
+ * | |             | |             | | attribute |                     | <- the attribute data ("struct sockaddr_in" #1)
  * | |             +---------------+-----------------------------------+
  * | |             | | attribute   | struct dns_attribute_t            |
- * | |             | |		   +-+-----------+---------------------+
- * | |             | |		   | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_ADDRESS)
- * | |             | |		   | +-----------+---------------------+
+ * | |             | |             +-+-----------+---------------------+
+ * | |             | |             | | type      | uint32_t            | <- type of attribute (e.g. RESOLVER_ATTRIBUTE_ADDRESS)
+ * | |             | |             | +-----------+---------------------+
  * | |             | |             | | length    | uint32_t            | <- length of the attribute
- * | |             | |		   | +-----------+---------------------+
- * | |             | |		   | | attribute |		       | <- the attribute data ("struct sockaddr_in" #2)
+ * | |             | |             | +-----------+---------------------+
+ * | |             | |             | | attribute |                     | <- the attribute data ("struct sockaddr_in" #2)
  * | |             +---------------+-----------------------------------+
- * | |             | ...					       |
+ * | |             | ...                                               |
  * +-+-------------+---------------------------------------------------+
- * | | attribute   | struct _dns_resolver_buf_t		               | <- the attribute data (resolver configuration #2)
+ * | | attribute   | struct _dns_resolver_buf_t                        | <- the attribute data (resolver configuration #2)
  * | |             +---------------+-----------------------------------+
- * | |             | ...	    				       |
+ * | |             | ...                                               |
  * +---------------+---------------------------------------------------+
- * | | ...          						       |
+ * | | ...                                                             |
  * +---------------+---------------------------------------------------+
  *
  * When the data is unpacked the "n_padding" additional bytes
@@ -143,7 +150,8 @@
 
 // configuration buffer attributes
 enum {
-	CONFIG_ATTRIBUTE_RESOLVER	= 1
+	CONFIG_ATTRIBUTE_RESOLVER	= 1,
+	CONFIG_ATTRIBUTE_SCOPED_RESOLVER,
 };
 
 
@@ -153,7 +161,9 @@ enum {
 	RESOLVER_ATTRIBUTE_ADDRESS,
 	RESOLVER_ATTRIBUTE_SEARCH,
 	RESOLVER_ATTRIBUTE_SORTADDR,
-	RESOLVER_ATTRIBUTE_OPTIONS
+	RESOLVER_ATTRIBUTE_IF_INDEX,
+	RESOLVER_ATTRIBUTE_FLAGS,
+	RESOLVER_ATTRIBUTE_OPTIONS,
 };
 
 

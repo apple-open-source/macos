@@ -1,5 +1,5 @@
---- gdtoa-strtopx.c.orig	2008-10-28 12:54:18.000000000 -0700
-+++ gdtoa-strtopx.c	2008-10-28 12:57:26.000000000 -0700
+--- gdtoa-strtopx.c.orig	2010-01-12 10:59:42.000000000 -0800
++++ gdtoa-strtopx.c	2010-01-12 12:11:48.000000000 -0800
 @@ -29,6 +29,8 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
@@ -35,13 +35,3 @@
  	  case STRTOG_Zero:
  		L[0] = L[1] = L[2] = L[3] = L[4] = 0;
  		break;
-@@ -92,7 +97,8 @@ strtopx(CONST char *s, char **sp, void *
- 
- 	  case STRTOG_Infinite:
- 		L[_0] = 0x7fff;
--		L[_1] = L[_2] = L[_3] = L[_4] = 0;
-+		L[_1] = 0x8000; /* 4306392: to match gcc */
-+		L[_2] = L[_3] = L[_4] = 0;
- 		break;
- 
- 	  case STRTOG_NaN:

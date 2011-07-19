@@ -3,7 +3,7 @@
 #   Tcl implementation of a general logging facility.
 #
 # Copyright (c) 2003      by David N. Welton <davidw@dedasys.com>
-# Copyright (c) 2004-2007 by Michael Schlenker <mic42@users.sourceforge.net>
+# Copyright (c) 2004-2008 by Michael Schlenker <mic42@users.sourceforge.net>
 # Copyright (c) 2006      by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 #
 # See the file license.terms.
@@ -14,7 +14,7 @@
 
 
 package require Tcl 8.2
-package provide logger 0.8
+package provide logger 0.9
 
 namespace eval ::logger {
     namespace eval tree {}
@@ -31,6 +31,15 @@ namespace eval ::logger {
 
     # Tcl return codes (in numeric order)
     variable RETURN_CODES   [list "ok" "error" "return" "break" "continue"]
+}
+
+# Try to load msgcat and fall back to format if it fails
+if {[catch {package require msgcat}]} {
+  interp alias {} ::logger::mc {} ::format
+} else {
+  namespace eval ::logger {
+    namespace import ::msgcat::mc
+  }
 }
 
 # ::logger::_nsExists --
@@ -213,7 +222,9 @@ proc ::logger::init {service} {
         variable levels
         set lvnum [lsearch -exact $levels $lv]
         if { $lvnum == -1 } {
-        return -code error "Invalid level '$lv' - levels are $levels"
+        return -code error \
+               -errorcode [list LOGGER INVALID_LEVEL] \
+               [::logger::mc "Invalid level '%s' - levels are %s" $lv $levels]
         }
 
         variable enabled
@@ -258,7 +269,9 @@ proc ::logger::init {service} {
         variable levels
         set lvnum [lsearch -exact $levels $lv]
         if { $lvnum == -1 } {
-        return -code error "Invalid level '$lv' - levels are $levels"
+            return -code error \
+                   -errorcode [list LOGGER INVALID_LEVEL] \
+                   [::logger::mc "Invalid level '%s' - levels are %s" $lv $levels]
         }
 
         variable enabled
@@ -328,11 +341,15 @@ proc ::logger::init {service} {
                      if {[::logger::_cmdPrefixExists [lindex $args 0]]} {
                         set levelchangecallback [lindex $args 0]
                      } else {
-                        return -code error "Invalid cmd '[lindex $args 0]' - does not exist"
+                        return -code error \
+                               -errorcode [list LOGGER INVALID_CMD] \
+                               [::logger::mc "Invalid cmd '%s' - does not exist" [lindex $args 0]]
                      }    
                     }
                 default {
-                    return -code error "Wrong # of arguments. Usage: \${log}::lvlchangeproc ?cmd?"
+                    return -code error \
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                           [::logger::mc "Wrong # of arguments. Usage: \${log}::lvlchangeproc ?cmd?"]
                 }
         }
     }
@@ -386,7 +403,9 @@ proc ::logger::init {service} {
         
         set lvnum [lsearch -exact $levels $lv]
         if { ($lvnum == -1) && ($lv != "trace") } {
-        return -code error "Invalid level '$lv' - levels are $levels"
+        return -code error \
+               -errorcode [list LOGGER INVALID_LEVEL] \
+               [::logger::mc "Invalid level '%s' - levels are %s" $lv $levels]
         }
         switch -exact -- [llength $args] {
         0  {
@@ -396,22 +415,31 @@ proc ::logger::init {service} {
             set cmd [lindex $args 0]
             if {[string equal "[namespace current]::${lv}cmd" $cmd]} {return} 
             if {[llength [::info commands $cmd]]} {
-                proc ${lv}cmd {args} "uplevel 1 \[list $cmd \[lindex \$args end\]\]"
+                proc ${lv}cmd args [format {\
+                  uplevel 1 [list %s [expr {[llength $args]==1 ? [lindex $args end] : $args}]]
+                } $cmd]
             } else {
-                return -code error "Invalid cmd '$cmd' - does not exist"
+                return -code error \
+                       -errorcode [list LOGGER INVALID_CMD] \
+                       [::logger::mc "Invalid cmd '%s' - does not exist" $cmd]
             }
             set lvlcmds($lv) $cmd
         }
         2  {
             foreach {arg body} $args {break}
-            proc ${lv}cmd {args} "_setservicename \$args; 
-                                      set val \[${lv}customcmd \[lindex \$args end\]\] ; 
-                                      _restoreservice; set val"
+            proc ${lv}cmd args [format {\
+              _setservicename args
+              set val [%s [expr {[llength $args]==1 ? [lindex $args end] : $args}]]
+              _restoreservice
+              set val} ${lv}customcmd]
             proc ${lv}customcmd $arg $body
             set lvlcmds($lv) [namespace current]::${lv}customcmd
         }
         default {
-            return -code error "Usage: \${log}::logproc level ?cmd?\nor \${log}::logproc level argname body"
+            return -code error \
+                   -errorcode [list LOGGER WRONG_USAGE] \
+                   [::logger::mc \
+                   "Usage: \${log}::logproc level ?cmd?\nor \${log}::logproc level argname body" ]
         }
         }
     }
@@ -440,11 +468,15 @@ proc ::logger::init {service} {
                 2   { if {[::logger::_cmdPrefixExists [lindex $args 0]]} {
                             set delcallback [lindex $args 0]
                       } else {
-                        return -code error "Invalid cmd '[lindex $args 0]' - does not exist"                      
+                        return -code error \
+                               -errorcode [list LOGGER INVALID_CMD] \
+                               [::logger::mc "Invalid cmd '%s' - does not exist" [lindex $args 0]]                      
                       }
                     }
                 default {
-                    return -code error "Wrong # of arguments. Usage: \${log}::delproc ?cmd?"
+                    return -code error \
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                           [::logger::mc "Wrong # of arguments. Usage: \${log}::delproc ?cmd?"]
                 }
         }
     }
@@ -497,15 +529,27 @@ proc ::logger::init {service} {
         return $service
     }
     
-    proc _setservicename {arg} {
+    proc _setservicename {argname} {
         variable service
         variable oldname
+        upvar 1 $argname arg
         if {[llength $arg] <= 1} {
             return
-        } else {
-            set oldname $service
-            set service [lindex $arg end-1]
         }
+        
+        set count -1
+        set newname ""
+        while {[string equal [lindex $arg [expr {$count+1}]] "-_logger::service"]} {
+            incr count 2
+            set newname [lindex $arg $count]
+        }
+        if {[string equal $newname ""]} {
+            return
+        }
+        set oldname $service
+        set service $newname
+        # Pop off "-_logger::service <service>" from argument list
+        set arg [lreplace $arg 0 $count]
     }
         
     proc _restoreservice {} {
@@ -536,35 +580,42 @@ proc ::logger::init {service} {
             }
             "on" {
                 if {[llength $args]} {
-                    return -code error "wrong # args: should be \"trace on\""
+                    return -code error \
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                            [::logger::mc "wrong # args: should be \"trace on\""]
                 }
                 return [logger::_trace_on $service]
             }
             "off" {
                 if {[llength $args]} {
-                    return -code error "wrong # args: should be \"trace off\""
+                    return -code error \
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                            [::logger::mc "wrong # args: should be \"trace off\""]
                 }
                 return [logger::_trace_off $service]
             }
             "add" {
                 if {![llength $args]} {
                     return -code error \
-                        "wrong # args: should be \"trace add ?-ns? <proc> ...\""
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                           [::logger::mc "wrong # args: should be \"trace add ?-ns? <proc> ...\""]
                 }
                 return [uplevel 1 [list ::logger::_trace_add $service $args]]
             }
             "remove" {
                 if {![llength $args]} {
                     return -code error \
-                        "wrong # args: should be \"trace remove ?-ns? <proc> ...\""
+                           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+                            [::logger::mc "wrong # args: should be \"trace remove ?-ns? <proc> ...\""]
                 }
                 return [uplevel 1 [list ::logger::_trace_remove $service $args]]
             }
 
             default {
 	        return -code error \
-                    "Invalid action \"$action\": must be status, add, remove,\
-                    on, or off"
+                       -errorcode [list LOGGER INVALID_ARG] \
+                    [::logger::mc "Invalid action \"%s\": must be status, add, remove,\
+                    on, or off" $action]
             }
         }
     }
@@ -603,16 +654,20 @@ proc ::logger::init {service} {
             # OPTIMIZE: do not allow multiple aliases in the hierarchy
             #           they can always be replaced by more efficient
             #           direct aliases to the target procs.
-            interp alias {} [namespace current]::${lvl}cmd {} ${parent}::${lvl}cmd $service
+            interp alias {} [namespace current]::${lvl}cmd \
+                         {} ${parent}::${lvl}cmd -_logger::service $service
         }
         # inherit the starting loglevel of the parent service
         setlevel [${parent}::currentloglevel]
 
     } else {
         foreach lvl [concat [::logger::levels] "trace"] {
-            proc ${lvl}cmd {args} "_setservicename \$args ; 
-                                   set val \[stdoutcmd $lvl \[lindex \$args end\]\] ; 
-                                   _restoreservice; set val"
+            proc ${lvl}cmd args [format {\
+              _setservicename args
+              set val [stdoutcmd %s [expr {[llength $args]==1 ? [lindex $args end] : $args}]]
+              _restoreservice
+              set val } $lvl]
+
             set lvlcmds($lvl) [namespace current]::${lvl}cmd
         }
     }
@@ -683,7 +738,9 @@ proc ::logger::setlevel {lv} {
     variable enabled
     variable levels
     if {[lsearch -exact $levels $lv] == -1} {
-        return -code error "Invalid level '$lv' - levels are $levels"
+        return -code error \
+               -errorcode [list LOGGER INVALID_LEVEL] \
+               [::logger::mc "Invalid level '%s' - levels are %s" $lv $levels]
     } 
     set enabled $lv    
     if {[catch {
@@ -731,7 +788,9 @@ proc ::logger::levels {} {
 proc ::logger::servicecmd {service} {
     variable services
     if {[lsearch -exact $services $service] == -1} {
-        return -code error "Service \"$service\" does not exist."
+        return -code error \
+               -errorcode [list LOGGER NO_SUCH_SERVICE] \
+               [::logger::mc "Service \"%s\" does not exist." $service]
     }
     return "::logger::tree::${service}"
 }
@@ -753,9 +812,12 @@ proc ::logger::import {args} {
     variable services
     
     if {[llength $args] == 0 || [llength $args] > 7} {
-    return -code error "Wrong # of arguments: \"logger::import ?-all?\
+    return -code error \
+           -errorcode [list LOGGER WRONG_NUM_ARGS] \
+           [::logger::mc \
+                       "Wrong # of arguments: \"logger::import ?-all?\
                         ?-force?\
-                        ?-prefix prefix? ?-namespace namespace? service\""
+                        ?-prefix prefix? ?-namespace namespace? service\""]
     }
     
     # process options
@@ -780,9 +842,12 @@ proc ::logger::import {args} {
                      set force 1
             }
             default {
-                return -code error "Unknown argument: \"$opt\" :\nUsage:\
-                \"logger::import ?-all? ?-force?\
-                        ?-prefix prefix? ?-namespace namespace? service\""
+                return -code error \
+                       -errorcode [list LOGGER UNKNOWN_ARG] \
+                       [::logger::mc \
+                       "Unknown argument: \"%s\" :\nUsage:\
+                      \"logger::import ?-all? ?-force?\
+                        ?-prefix prefix? ?-namespace namespace? service\"" $opt]
             }
         }
     }
@@ -804,7 +869,9 @@ proc ::logger::import {args} {
     
     set service [lindex $args 0]
     if {[lsearch -exact $services $service] == -1} {
-            return -code error "Service \"$service\" does not exist."
+            return -code error \
+                   -errorcode [list LOGGER NO_SUCH_SERVICE] \
+                   [::logger::mc "Service \"%s\" does not exist." $service]
     }
 
     #
@@ -835,7 +902,9 @@ proc ::logger::import {args} {
         set cmdname ${importns}::${prefix}$cmd
         set collision [llength [info commands $cmdname]]
         if {$collision && !$force} {
-            return -code error "can't import command \"$cmdname\": already exists"
+            return -code error \
+                   -errorcode [list LOGGER IMPORT_NAME_EXISTS] \
+                   [::logger::mc "can't import command \"%s\": already exists" $cmdname]
         }
         lappend imports ${importns}::${prefix}$cmd ${sourcens}::${cmd}
     }
@@ -921,7 +990,8 @@ proc ::logger::_trace_on { service } {
 
     if {[package vcompare $tcl_version "8.4"] < 0} {
         return -code error \
-            "execution tracing is not available in Tcl $tcl_version"
+               -errorcode [list LOGGER TRACE_NOT_AVAILABLE] \
+              [::logger::mc "execution tracing is not available in Tcl %s" $tcl_version]
     }
 
     namespace eval ::logger::tree::${service} {
@@ -968,7 +1038,9 @@ proc ::logger::_trace_get_proclist { inputList } {
 
 	set inputList [lrange $inputList 1 end]
 	if {![llength $inputList]} {
-	    return -code error "Must specify at least one namespace target"
+	    return -code error \
+                   -errorcode [list LOGGER TARGET_MISSING] \
+                   [::logger::mc "Must specify at least one namespace target"]
 	}
 
 	# Rebuild the argument list to contain namespace procedures

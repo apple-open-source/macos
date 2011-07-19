@@ -58,6 +58,7 @@
 #define WebKitAllowAnimatedImagesPreferenceKey "WebKitAllowAnimatedImagesPreferenceKey"
 #define WebKitAllowAnimatedImageLoopingPreferenceKey "WebKitAllowAnimatedImageLoopingPreferenceKey"
 #define WebKitDisplayImagesKey "WebKitDisplayImagesKey"
+#define WebKitLoadSiteIconsKey "WebKitLoadSiteIconsKey"
 #define WebKitBackForwardCacheExpirationIntervalKey "WebKitBackForwardCacheExpirationIntervalKey"
 #define WebKitTabToLinksPreferenceKey "WebKitTabToLinksPreferenceKey"
 #define WebKitPrivateBrowsingEnabledPreferenceKey "WebKitPrivateBrowsingEnabled"
@@ -66,6 +67,8 @@
 #define WebKitUsesPageCachePreferenceKey "WebKitUsesPageCachePreferenceKey"
 #define WebKitCacheModelPreferenceKey "WebKitCacheModelPreferenceKey"
 #define WebKitLocalStorageDatabasePathPreferenceKey "WebKitLocalStorageDatabasePath"
+#define WebKitHyperlinkAuditingEnabledPreferenceKey "WebKitHyperlinkAuditingEnabled"
+#define WebKitWebAudioEnabledPreferenceKey "WebKitWebAudioEnabled"
 
 // These are private both because callers should be using the cover methods and because the
 // cover methods themselves are private.
@@ -74,6 +77,7 @@
 #define WebKitPDFDisplayModePreferenceKey "WebKitPDFDisplayMode"
 #define WebKitPDFScaleFactorPreferenceKey "WebKitPDFScaleFactor"
 #define WebKitEditableLinkBehaviorPreferenceKey "WebKitEditableLinkBehavior"
+#define WebKitEditingBehaviorPreferenceKey "WebKitEditingBehavior"
 
 // Window display is throttled to 60 frames per second if WebKitThrottleWindowDisplayPreferenceKey
 // is set to YES.  The window display throttle is OFF by default for compatibility with Mac OS X
@@ -144,3 +148,7 @@
 #define WebKitCustomDragCursorsEnabledPreferenceKey "WebKitCustomDragCursorsEnabled"
 
 #define WebKitDNSPrefetchingEnabledPreferenceKey "WebKitDNSPrefetchingEnabled"
+
+#define WebKitMemoryInfoEnabledPreferenceKey "WebKitMemoryInfoEnabled"
+
+#define WebKitFullScreenEnabledPreferenceKey "WebKitFullScreenEnabled"

@@ -29,22 +29,23 @@ namespace JSC {
 
     class DatePrototype : public DateInstance {
     public:
-        DatePrototype(ExecState*, NonNullPassRefPtr<Structure>);
+        DatePrototype(ExecState*, JSGlobalObject*, Structure*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | DateInstance::StructureFlags;
 
+        COMPILE_ASSERT(!DateInstance::AnonymousSlotCount, DatePrototype_stomps_on_your_anonymous_slot);
+        static const unsigned AnonymousSlotCount = 1;
     };
 
 } // namespace JSC

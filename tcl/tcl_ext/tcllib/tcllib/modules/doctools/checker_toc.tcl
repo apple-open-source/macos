@@ -4,7 +4,7 @@
 # Code used inside of a checker interpreter to ensure correct usage of
 # doctoc formatting commands.
 #
-# Copyright (c) 2003 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Copyright (c) 2003-2009 Andreas Kupries <andreas_kupries@sourceforge.net>
 
 # L10N
 
@@ -43,23 +43,17 @@ global state
 # ==============+=======================+======================
 # toc_begin	| toc_begin		| -> contents
 # --------------+-----------------------+----------------------
-# contents	| item			| -> item_series
+# contents	| item			| -> contents //
 #		+-----------------------+-----------
 #		| division_start	| -> end, PUSH division
-# --------------+-----------------------+----------------------
-# item_series	| item			| -> item_series
 #		+-----------------------+-----------
 #		| toc_end		| -> done
 # --------------+-----------------------+----------------------
-# division	| item			| -> div_items
+# division	| item			| -> division //
 #		+-----------------------+-----------
-#		| division_start	| -> div_series, PUSH division
-# --------------+-----------------------+----------------------
-# div_series	| division_start	| -> div_series, PUSH division
-# --------------+-----------------------+----------------------
-# div_items	| item			| -> div_items
+#		| division_start	| -> division, PUSH division
 #		+-----------------------+-----------
-#		| division_end		| POP (-> div_series / -> end)
+#		| division_end		| POP (-> division / -> end)
 # --------------+-----------------------+----------------------
 # end		| toc_end		| -> done
 #		+-----------------------+-----------
@@ -74,19 +68,16 @@ global state
 # ==============+=======================+======================
 # toc_begin	| toc_begin		| -> contents
 # --------------+-----------------------+----------------------
-# contents	| item			| -> item_series
-# item_series	|			| -> item_series
-# div_items	|			| -> div_items
-# division      |                       | -> div_items
+# contents	| item			| -> contents
+# division	|			| -> division
 # --------------+-----------------------+----------------------
 # contents	| division_start	| -> end, PUSH division
-# div_series	|			| -> div_series, PUSH division
+# division	|			| -> divison, PUSH division
 # end		|			| PUSH division
-# division      |                       | PUSH division
 # --------------+-----------------------+----------------------
-# div_items	| division_end		| POP (-> div_series / -> end)
+# division	| division_end		| POP (-> division / -> end)
 # --------------+-----------------------+----------------------
-# item_series	| toc_end		| -> done
+# contents	| toc_end		| -> done
 # end		|			| -> done
 # --------------+-----------------------+----------------------
 
@@ -191,33 +182,28 @@ proc toc_begin {label title} {
 }
 proc toc_end {} {
     Enter toc_end
-    if {[IsNot end] && [IsNot item_series]} {Error toc/endcmd}
+    if {[IsNot end] && [IsNot contents]} {Error toc/endcmd}
     Go done
     fmt_toc_end
 }
 proc division_start {title {symfile {}}} {
     Enter division_start
     if {
-	[IsNot contents] && [IsNot div_series] && [IsNot end] && [IsNot division]
+	[IsNot contents] && [IsNot end] && [IsNot division]
     } {Error toc/sectcmd}
-    if {[Is contents] || [Is end]} {Go end} else {Go div_series}
-    Push div_series
+    if {[Is contents] || [Is end]} {Go end} else {Go division}
+    Push division
     fmt_division_start $title $symfile
 }
 proc division_end {} {
     Enter division_end
-    if {[IsNot div_items] && [IsNot div_series]} {Error toc/sectecmd [State]}
+    if {[IsNot division]} {Error toc/sectecmd [State]}
     Pop
     fmt_division_end
 }
 proc item {file label desc} {
     Enter item
-    if {
-	[IsNot div_series] && [IsNot contents] && [IsNot item_series] && [IsNot div_items]
-    } {
-	Error toc/itemcmd
-    }
-    if {[Is div_items] || [Is div_series]} {Go div_items} else {Go item_series}
+    if {[IsNot contents] && [IsNot division]} { Error toc/itemcmd }
     fmt_item $file $label $desc
 }
 proc comment {text} {

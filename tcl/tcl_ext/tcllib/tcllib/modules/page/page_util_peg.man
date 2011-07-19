@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Parser generator tools}]
 [titledesc {page PEG transformation utilities}]
+[category  {Page Parser Generator}]
 [require page::util::peg [opt 0.1]]
 [require snit]
 [keywords page {parsing expression grammar} {parser generator} {text processing}]

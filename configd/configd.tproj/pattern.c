@@ -126,9 +126,14 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 	Boolean		append		= FALSE;
 	Boolean		insert		= FALSE;
 	CFIndex		len		= 0;
+	CFIndex		len_c;
 	Boolean		ok;
 	char		str_q[256];
 	char *		str		= str_q;
+
+	if (CFStringGetLength(pattern) == 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("patternCompile(): empty string"));
+	}
 
 	if (!CFStringHasPrefix(pattern, CFSTR("^"))) {
 		insert = TRUE;
@@ -149,14 +154,18 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 						 append ? "$" : "");
 	}
 
-	(void)CFStringGetBytes(pattern,
-			       CFRangeMake(0, CFStringGetLength(pattern)),
-			       kCFStringEncodingASCII,
-			       0,
-			       FALSE,
-			       NULL,
-			       0,
-			       &len);
+	len_c = CFStringGetBytes(pattern,
+				 CFRangeMake(0, CFStringGetLength(pattern)),
+				 kCFStringEncodingASCII,
+				 0,
+				 FALSE,
+				 NULL,
+				 0,
+				 &len);
+	if (len_c <= 0) {
+		SCLog(TRUE, LOG_ERR, CFSTR("patternCompile(): could not get buffer length for \"%@\""), pattern);
+		len = sizeof(str_q) - 1;
+	}
 	if (++len > (CFIndex)sizeof(str_q)) {
 		str = CFAllocatorAllocate(NULL, len, 0);
 	}

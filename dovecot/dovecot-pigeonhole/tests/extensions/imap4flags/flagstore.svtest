@@ -1,0 +1,146 @@
+require "vnd.dovecot.testsuite";
+require "fileinto";
+require "imap4flags";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "mailbox";
+
+test_set "message" text:
+From: Henry von Flockenstoffen <henry@example.com>
+To: Dieter von Ausburg <dieter@example.com>
+Subject: Test message.
+
+Test message.
+.
+;
+
+test "Basic" {
+	if hasflag :comparator "i;ascii-numeric" :count "ge" "1" {
+		test_fail "some flags or keywords are already set";
+	}
+
+	setflag "$label1 \\answered";
+
+	fileinto :create "Uninteresting";
+
+	if not test_result_execute {
+		test_fail "failed to execute first result";
+	}
+
+	test_result_reset;
+
+	setflag "\\draft \\seen Junk";
+
+	fileinto "Uninteresting";
+
+	if not test_result_execute {
+		test_fail "failed to execute second result";
+	}
+
+	test_result_reset;
+
+	fileinto :flags "\\flagged" "Uninteresting";
+
+	if not test_result_execute {
+		test_fail "failed to execute third result";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Uninteresting" 0;
+
+	if not hasflag "$label1 \\answered" {
+		test_fail "flags not stored for first message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "2" {
+		test_fail "invalid number of flags set for first message";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Uninteresting" 1;
+
+	if not hasflag "\\draft \\seen Junk" {
+		test_fail "flags not stored for second message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "3" {
+		test_fail "invalid number of flags set for second message";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Uninteresting" 2;
+
+	if not hasflag "\\flagged" {
+		test_fail "flags not stored for third message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "1" {
+		test_fail "invalid number of flags set for third message";
+	}
+}
+
+test_result_reset;
+test_set "message" text:
+From: Henry von Flockenstoffen <henry@example.com>
+To: Dieter von Ausburg <dieter@example.com>
+Subject: Test message.
+
+Test message.
+.
+;
+
+test "Flag changes between stores" {
+	if hasflag :comparator "i;ascii-numeric" :count "ge" "1" {
+		test_fail "some flags or keywords are already set";
+	}
+
+	setflag "$label1 \\answered";
+	fileinto :create "FolderA";
+
+	setflag "$label2";
+	fileinto :create "FolderB";
+
+	fileinto :create :flags "\\seen \\draft \\flagged" "FolderC";
+
+	if not test_result_execute {
+		test_fail "failed to execute first result";
+	}
+
+	test_result_reset;
+	test_message :folder "FolderA" 0;
+
+	if not hasflag "\\answered $label1" {
+		test_fail "flags not stored for first message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "2" {
+		test_fail "invalid number of flags set for first message";
+	}
+
+	test_result_reset;
+	test_message :folder "FolderB" 0;
+
+	if not hasflag "$label2" {
+		test_fail "flag not stored for second message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "1" {
+		test_fail "invalid number of flags set for second message";
+	}
+
+	test_result_reset;
+	test_message :folder "FolderC" 0;
+
+	if not hasflag "\\seen \\flagged \\draft" {
+		test_fail "flags not stored for third message";
+	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "3" {
+		test_fail "invalid number of flags set for third message";
+	}
+}
+
+

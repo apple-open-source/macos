@@ -1,0 +1,251 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+fetchmail-SA-2010-02: Denial of service in debug mode w/ multichar locales
+
+Topics:		Denial of service in debug output
+
+Author:		Matthias Andree
+Version:	1.0
+Announced:	2010-05-06
+Type:		Unbounded allocation of memory until exhaustion
+Impact:		Denial of service
+Danger:		low
+
+CVE Name:	CVE-2010-1167
+CVSSv2:		(AV:N/AC:M/Au:N/C:N/I:N/A:P/E:U/RL:O/RC:C)
+CVSS scores:	3.2, Base 4.3 (Impact 2.9, Exploitability 8.6), Temporal 3.2
+		This is calculated without Environmental Score.
+URL:		http://www.fetchmail.info/fetchmail-SA-2010-02.txt
+Project URL:	http://www.fetchmail.info/
+
+Affects:	fetchmail releases 4.6.3 up to and including 6.3.16
+
+Not affected:	fetchmail release 6.3.17 and newer
+
+Corrected:	2010-04-24 Git, required commits:
+		167fa2093e82f891eb2fcb6eaa0b1eb3685f44e3
+		ec06293134b85876f9201d8a52b844c41581b2b3
+
+		2010-04-30 fetchmail 6.3.17-pre1 tarball
+
+		2010-05-06 fetchmail 6.3.17 release tarball
+
+
+0. Release history
+==================
+
+2010-04-18 0.1	first draft (visible in SVN and through oss-security)
+2010-04-19 0.2	add note announcements may appear before releases
+2010-04-20 0.3	add CVE name, fix Type:
+2010-04-24 0.4	revise patch
+2010-04-29 0.5	add info on contributing/mitigating factors
+2010-05-06 1.0	complete
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents. It supports SSL and TLS security layers through
+the OpenSSL library, if enabled at compile time and if also enabled at
+run time.
+
+
+2. Problem description and Impact
+=================================
+
+In debug mode (-v -v), fetchmail prints information that was obtained from the
+upstream server (POP3 UIDL lists) or from message headers retrieved from it.
+  If printing such information fails, for instance because there are invalid
+multibyte character sequences in this information (message headers), fetchmail
+will misinterpret this condition, and believe that the buffer was too small,
+and reallocate a bigger one (with linearly increasing buffer size), and repeat,
+until the allocation fails. At that point, fetchmail will abort.
+
+The exact combination of contributing and mitigating factors is not
+fully understood; GNU glibc 2.7 and 2.10.1 on i586 report EILSEQ when
+printing invalid sequences through a %.*s format string in multibyte
+locales such as de_DE.UTF-8; NetBSD 5, FreeBSD 8 and Solaris 10 do not.
+However, the issue is a genuine fetchmail bug that deserves a fix.
+
+Note that the "Affects:" line above may be inaccurate, and it may be that
+versions before 5.6.6 are actually unaffected.  The author was unable to
+compile such old fetchmail versions to verify the existence of the bug.
+  Given that other security issues are present in such versions, those should
+not be used, and the wider version range was listed as vulnerable to err
+towards the safe.
+
+
+3. Solution
+===========
+
+There are two alternatives, either of them by itself is sufficient:
+
+a. Apply the patch found in section B of this announcement to
+   fetchmail 6.3.14 or newer, recompile and reinstall it.
+
+b. Install fetchmail 6.3.17 or newer after it will have become available.
+   (Note that the announcements may be publicly visible quite some time
+   before the release is made, particularly for minor bugs.)
+   The fetchmail source code is always available from
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+4. Workaround
+=============
+
+Run fetchmail with at most one -v (--verbose) option.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2010 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-Noncommercial-No Derivative Works 3.0 Germany License.
+To view a copy of this license, visit
+http://creativecommons.org/licenses/by-nc-nd/3.0/de/ or send a letter to
+
+Creative Commons
+171 Second Street
+Suite 300
+SAN FRANCISCO, CALIFORNIA 94105
+USA
+
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+
+B. Patch to remedy the problem
+==============================
+
+Note that when taking this from a GnuPG clearsigned file, the lines
+starting with a "-" character are prefixed by another "- " (dash +
+blank) combination. Either feed this file through GnuPG to strip them,
+or strip them manually. You may want to use the "-p1" flag to patch.
+
+Whitespace differences can usually be ignored by invoking "patch -l",
+so try this if the patch does not apply.
+
+diff --git a/rfc822.c b/rfc822.c
+index 6f2dbf3..dbcda32 100644
+- --- a/rfc822.c
++++ b/rfc822.c
+@@ -25,6 +25,7 @@ MIT license.  Compile with -DMAIN to build the demonstrator.
+ #include  <stdlib.h>
+ 
+ #include "fetchmail.h"
++#include "sdump.h"
+ 
+ #ifndef MAIN
+ #include "i18n.h"
+@@ -74,9 +75,10 @@ char *reply_hack(
+     }
+ 
+ #ifndef MAIN
+- -    if (outlevel >= O_DEBUG)
+- -	report_build(stdout, GT_("About to rewrite %.*s...\n"),
+- -			(int)BEFORE_EOL(buf), buf);
++    if (outlevel >= O_DEBUG) {
++	report_build(stdout, GT_("About to rewrite %s...\n"), (cp = sdump(buf, BEFORE_EOL(buf))));
++	xfree(cp);
++    }
+ 
+     /* make room to hack the address; buf must be malloced */
+     for (cp = buf; *cp; cp++)
+@@ -211,9 +213,12 @@ char *reply_hack(
+     }
+ 
+ #ifndef MAIN
+- -    if (outlevel >= O_DEBUG)
+- -	report_complete(stdout, GT_("...rewritten version is %.*s.\n"),
+- -			(int)BEFORE_EOL(buf), buf);
++    if (outlevel >= O_DEBUG) {
++	report_complete(stdout, GT_("...rewritten version is %s.\n"),
++			(cp = sdump(buf, BEFORE_EOL(buf))));
++	xfree(cp)
++    }
++
+ #endif /* MAIN */
+     *length = strlen(buf);
+     return(buf);
+diff --git a/uid.c b/uid.c
+index fdc6f5d..9a62ee2 100644
+- --- a/uid.c
++++ b/uid.c
+@@ -20,6 +20,7 @@
+ 
+ #include "fetchmail.h"
+ #include "i18n.h"
++#include "sdump.h"
+ 
+ /*
+  * Machinery for handling UID lists live here.  This is mainly to support
+@@ -249,8 +250,11 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
+ 	    {
+ 		report_build(stdout, GT_("Old UID list from %s:"), 
+ 			     ctl->server.pollname);
+- -		for (idp = ctl->oldsaved; idp; idp = idp->next)
+- -		    report_build(stdout, " %s", idp->id);
++		for (idp = ctl->oldsaved; idp; idp = idp->next) {
++		    char *t = sdump(idp->id, strlen(idp->id));
++		    report_build(stdout, " %s", t);
++		    free(t);
++		}
+ 		if (!idp)
+ 		    report_build(stdout, GT_(" <empty>"));
+ 		report_complete(stdout, "\n");
+@@ -260,8 +264,11 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
+ 	if (uidlcount)
+ 	{
+ 	    report_build(stdout, GT_("Scratch list of UIDs:"));
+- -	    for (idp = scratchlist; idp; idp = idp->next)
+- -		report_build(stdout, " %s", idp->id);
++	    for (idp = scratchlist; idp; idp = idp->next) {
++		char *t = sdump(idp->id, strlen(idp->id));
++		report_build(stdout, " %s", t);
++		free(t);
++	    }
+ 	    if (!idp)
+ 		report_build(stdout, GT_(" <empty>"));
+ 	    report_complete(stdout, "\n");
+@@ -517,8 +524,11 @@ void uid_swap_lists(struct query *ctl)
+ 	    report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
+ 	else
+ 	    report_build(stdout, GT_("New UID list from %s:"), ctl->server.pollname);
+- -	for (idp = dofastuidl ? ctl->oldsaved : ctl->newsaved; idp; idp = idp->next)
+- -	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
++	for (idp = dofastuidl ? ctl->oldsaved : ctl->newsaved; idp; idp = idp->next) {
++	    char *t = sdump(idp->id, strlen(idp->id));
++	    report_build(stdout, " %s = %d", t, idp->val.status.mark);
++	    free(t);
++        }
+ 	if (!idp)
+ 	    report_build(stdout, GT_(" <empty>"));
+ 	report_complete(stdout, "\n");
+@@ -567,8 +577,11 @@ void uid_discard_new_list(struct query *ctl)
+ 	/* this is now a merged list! the mails which were seen in this
+ 	 * poll are marked here. */
+ 	report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
+- -	for (idp = ctl->oldsaved; idp; idp = idp->next)
+- -	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
++	for (idp = ctl->oldsaved; idp; idp = idp->next) {
++	    char *t = sdump(idp->id, strlen(idp->id));
++	    report_build(stdout, " %s = %d", t, idp->val.status.mark);
++	    free(t);
++	}
+ 	if (!idp)
+ 	    report_build(stdout, GT_(" <empty>"));
+ 	report_complete(stdout, "\n");
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.12 (GNU/Linux)
+
+iEYEARECAAYFAkviiHoACgkQvmGDOQUufZUfiQCeIl/RlnUEciNLxY3ykQSgFzDF
+/BMAoKMiJoD4cjGcaN/5CvdIgktKExYB
+=dC/g
+-----END PGP SIGNATURE-----

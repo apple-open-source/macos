@@ -102,7 +102,7 @@ typedef	__darwin_nl_item	nl_item;
 #define	YESEXPR		52	/* affirmative response expression */
 #define	NOEXPR		53	/* negative response expression */
 
-#if !defined(_ANSI_SOURCE)
+#if (__DARWIN_C_LEVEL > __DARWIN_C_ANSI && __DARWIN_C_LEVEL < 200112L) || __DARWIN_C_LEVEL == __DARWIN_C_FULL
 #define	YESSTR		54	/* affirmative response for yes/no queries */
 #define	NOSTR		55	/* negative response for yes/no queries */
 #endif

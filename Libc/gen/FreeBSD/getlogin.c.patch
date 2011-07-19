@@ -1,14 +1,6 @@
---- getlogin.c.orig	2007-08-19 17:24:10.000000000 -0700
-+++ getlogin.c	2007-08-19 20:51:27.000000000 -0700
-@@ -40,7 +40,6 @@
- #include <sys/param.h>
- #include <errno.h>
- #include <pwd.h>
--#include <utmp.h>
- #include <stdio.h>
- #include <string.h>
- #include <unistd.h>
-@@ -53,7 +52,7 @@
+--- getlogin.c.bsdnew	2009-12-08 00:37:57.000000000 -0800
++++ getlogin.c	2009-12-08 00:44:06.000000000 -0800
+@@ -48,7 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/get
  #define	THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&logname_mutex)
  #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&logname_mutex)
  
@@ -17,7 +9,7 @@
  
  int			_logname_valid;		/* known to setlogin() */
  static pthread_mutex_t	logname_mutex = PTHREAD_MUTEX_INITIALIZER;
-@@ -64,7 +63,7 @@
+@@ -59,7 +59,7 @@ getlogin_basic(int *status)
  	static char logname[MAXLOGNAME];
  
  	if (_logname_valid == 0) {
@@ -26,7 +18,7 @@
  			*status = errno;
  			return (NULL);
  		}
-@@ -87,7 +86,7 @@
+@@ -82,7 +82,7 @@ getlogin(void)
  }
  
  int

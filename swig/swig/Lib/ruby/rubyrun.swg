@@ -57,6 +57,7 @@
 #define SWIG_MangleStr(value)                        	SWIG_Ruby_MangleStr(value)		  
 #define SWIG_CheckConvert(value, ty)                 	SWIG_Ruby_CheckConvert(value, ty)	  
 
+#include "assert.h"
 
 /* -----------------------------------------------------------------------------
  * pointers/data manipulation
@@ -64,9 +65,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-#if 0
-} /* cc-mode */
-#endif
 #endif
 
 typedef struct {
@@ -78,9 +76,43 @@ typedef struct {
 } swig_class;
 
 
-static VALUE _mSWIG = Qnil;
+/* Global pointer used to keep some internal SWIG stuff */
 static VALUE _cSWIG_Pointer = Qnil;
 static VALUE swig_runtime_data_type_pointer = Qnil;
+
+/* Global IDs used to keep some internal SWIG stuff */
+static ID swig_arity_id = 0;
+static ID swig_call_id  = 0;
+
+/*
+  If your swig extension is to be run within an embedded ruby and has
+  director callbacks, you should set -DRUBY_EMBEDDED during compilation.  
+  This will reset ruby's stack frame on each entry point from the main 
+  program the first time a virtual director function is invoked (in a 
+  non-recursive way).
+  If this is not done, you run the risk of Ruby trashing the stack.
+*/
+
+#ifdef RUBY_EMBEDDED
+
+#  define SWIG_INIT_STACK                            \
+      if ( !swig_virtual_calls ) { RUBY_INIT_STACK } \
+      ++swig_virtual_calls;
+#  define SWIG_RELEASE_STACK --swig_virtual_calls;
+#  define Ruby_DirectorTypeMismatchException(x) \
+          rb_raise( rb_eTypeError, x ); return c_result;
+
+      static unsigned int swig_virtual_calls = 0;
+
+#else  /* normal non-embedded extension */
+
+#  define SWIG_INIT_STACK
+#  define SWIG_RELEASE_STACK
+#  define Ruby_DirectorTypeMismatchException(x) \
+          throw Swig::DirectorTypeMismatchException( x );
+
+#endif  /* RUBY_EMBEDDED */
+
 
 SWIGRUNTIME VALUE 
 getExceptionClass(void) {
@@ -113,6 +145,8 @@ SWIG_Ruby_InitRuntime(void)
 {
   if (_mSWIG == Qnil) {
     _mSWIG = rb_define_module("SWIG");
+    swig_call_id  = rb_intern("call");
+    swig_arity_id = rb_intern("arity");
   }
 }
 
@@ -136,7 +170,7 @@ SWIGRUNTIME VALUE
 SWIG_Ruby_NewPointerObj(void *ptr, swig_type_info *type, int flags)
 {
   int own =  flags & SWIG_POINTER_OWN; 
-  
+  int track;
   char *klass_name;
   swig_class *sklass;
   VALUE klass;
@@ -149,14 +183,15 @@ SWIG_Ruby_NewPointerObj(void *ptr, swig_type_info *type, int flags)
     sklass = (swig_class *) type->clientdata;
 		
     /* Are we tracking this class and have we already returned this Ruby object? */
-    if (sklass->trackObjects) {
+    track = sklass->trackObjects;
+    if (track) {
       obj = SWIG_RubyInstanceFor(ptr);
       
       /* Check the object's type and make sure it has the correct type.
         It might not in cases where methods do things like 
         downcast methods. */
       if (obj != Qnil) {
-        VALUE value = rb_iv_get(obj, "__swigtype__");
+        VALUE value = rb_iv_get(obj, "@__swigtype__");
         char* type_name = RSTRING_PTR(value);
 				
         if (strcmp(type->name, type_name) == 0) {
@@ -166,10 +201,13 @@ SWIG_Ruby_NewPointerObj(void *ptr, swig_type_info *type, int flags)
     }
 
     /* Create a new Ruby object */
-    obj = Data_Wrap_Struct(sklass->klass, VOIDFUNC(sklass->mark), (own ? VOIDFUNC(sklass->destroy) : 0), ptr);
+    obj = Data_Wrap_Struct(sklass->klass, VOIDFUNC(sklass->mark), 
+			   ( own ? VOIDFUNC(sklass->destroy) : 
+			     (track ? VOIDFUNC(SWIG_RubyRemoveTracking) : 0 )
+			     ), ptr);
 
     /* If tracking is on for this class then track this object. */
-    if (sklass->trackObjects) {
+    if (track) {
       SWIG_RubyAddTracking(ptr, obj);
     }
   } else {
@@ -179,7 +217,7 @@ SWIG_Ruby_NewPointerObj(void *ptr, swig_type_info *type, int flags)
     free((void *) klass_name);
     obj = Data_Wrap_Struct(klass, 0, 0, ptr);
   }
-  rb_iv_set(obj, "__swigtype__", rb_str_new2(type->name));
+  rb_iv_set(obj, "@__swigtype__", rb_str_new2(type->name));
   
   return obj;
 }
@@ -191,7 +229,7 @@ SWIG_Ruby_NewClassInstance(VALUE klass, swig_type_info *type)
   VALUE obj;
   swig_class *sklass = (swig_class *) type->clientdata;
   obj = Data_Wrap_Struct(klass, VOIDFUNC(sklass->mark), VOIDFUNC(sklass->destroy), 0);
-  rb_iv_set(obj, "__swigtype__", rb_str_new2(type->name));
+  rb_iv_set(obj, "@__swigtype__", rb_str_new2(type->name));
   return obj;
 }
 
@@ -199,7 +237,7 @@ SWIG_Ruby_NewClassInstance(VALUE klass, swig_type_info *type)
 SWIGRUNTIMEINLINE char *
 SWIG_Ruby_MangleStr(VALUE obj)
 {
-  VALUE stype = rb_iv_get(obj, "__swigtype__");
+  VALUE stype = rb_iv_get(obj, "@__swigtype__");
   return StringValuePtr(stype);
 }
 
@@ -281,8 +319,11 @@ SWIG_Ruby_ConvertPtrAndOwn(VALUE obj, void **ptr, swig_type_info *ty, int flags,
     tc = SWIG_TypeCheck(c, ty);
     if (!tc) {
       return SWIG_ERROR;
+    } else {
+      int newmemory = 0;
+      *ptr = SWIG_TypeCast(tc, vptr, &newmemory);
+      assert(!newmemory); /* newmemory handling not yet implemented */
     }
-    *ptr = SWIG_TypeCast(tc, vptr);
   } else {
     *ptr = vptr;
   }
@@ -363,9 +404,41 @@ SWIG_Ruby_SetModule(swig_module_info *pointer)
   rb_define_readonly_variable("$swig_runtime_data_type_pointer" SWIG_RUNTIME_VERSION SWIG_TYPE_TABLE_NAME, &swig_runtime_data_type_pointer);
 }
 
+/* This function can be used to check whether a proc or method or similarly
+   callable function has been passed.  Usually used in a %typecheck, like:
+
+   %typecheck(c_callback_t, precedence=SWIG_TYPECHECK_POINTER) {
+        $result = SWIG_Ruby_isCallable( $input );
+   }
+ */
+SWIGINTERN
+int SWIG_Ruby_isCallable( VALUE proc )
+{
+  if ( rb_respond_to( proc, swig_call_id ) == Qtrue )
+    return 1;
+  return 0;
+}
+
+/* This function can be used to check the arity (number of arguments)
+   a proc or method can take.  Usually used in a %typecheck.
+   Valid arities will be that equal to minimal or those < 0
+   which indicate a variable number of parameters at the end.
+ */
+SWIGINTERN
+int SWIG_Ruby_arity( VALUE proc, int minimal )
+{
+  if ( rb_respond_to( proc, swig_arity_id ) == Qtrue )
+    {
+      VALUE num = rb_funcall( proc, swig_arity_id, 0 );
+      int arity = NUM2INT(num);
+      if ( arity < 0 && (arity+1) < -minimal ) return 1;
+      if ( arity == minimal ) return 1;
+      return 1;
+    }
+  return 0;
+}
+
+
 #ifdef __cplusplus
-#if 0
-{ /* cc-mode */
-#endif
 }
 #endif

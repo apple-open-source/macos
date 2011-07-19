@@ -1,0 +1,95 @@
+Postfix and Dovecot SASL
+------------------------
+
+Since version 2.3, Postfix supports SMTP AUTH through <Dovecot SASL> [Sasl.txt]
+as introduced in the Dovecot 1.0 series. If using Postfix obtained from a
+binary (such as a .rpm or .deb file), you can check if Postfix was compiled
+with support for Dovecot SASL by running the command:
+
+---%<-------------------------------------------------------------------------
+postconf -a
+---%<-------------------------------------------------------------------------
+
+Once you have verified that your installation of Postfix supports Dovecot SASL,
+it's very simple to configure:
+
+Example conf.d/10-master.conf excerpt
+-------------------------------------
+
+---%<-------------------------------------------------------------------------
+service auth {
+...
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0660
+    # Assuming the default Postfix user and group
+    user = postfix
+    group = postfix
+  }
+  ...
+}
+---%<-------------------------------------------------------------------------
+
+Example Postfix main.cf excerpt
+-------------------------------
+
+---%<-------------------------------------------------------------------------
+smtpd_sasl_type = dovecot
+
+# Can be an absolute path, or relative to $queue_directory
+# Debian/Ubuntu users: Postfix is setup by default to run chrooted, so it is
+best to leave it as-is below
+smtpd_sasl_path = private/auth
+
+# and the common settings to enable SASL:
+smtpd_sasl_auth_enable = yes
+smtpd_recipient_restrictions = permit_mynetworks, permit_sasl_authenticated,
+reject_unauth_destination
+---%<-------------------------------------------------------------------------
+
+Using SASL with Postfix submission port
+---------------------------------------
+
+When Dovecot is used as the authentication backend for Postfix it is good
+practice to use a dedicated submission port for the MUAs (TCP 587). Not only
+can you specify individual parameters in *master.cf* overriding the global ones
+but you will not run into internet mail rejection while the Dovecot Auth
+Mechanism is unavailable. In this example Postfix is configured to accept TLS
+encrypted sessions only, along with several other sanity checks:
+
+ * Verification of alias ownership via Login Maps
+ * Domainname and recipient plausibility
+
+'master.cf'
+
+---%<-------------------------------------------------------------------------
+submission inet n - - - - smtpd
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_sasl_type=dovecot
+  -o smtpd_sasl_path=private/auth
+  -o smtpd_sasl_security_options=noanonymous
+  -o smtpd_sasl_local_domain=$myhostname
+  -o smtpd_client_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_sender_login_maps=hash:/etc/postfix/virtual
+  -o smtpd_sender_restrictions=reject_sender_login_mismatch
+  -o
+smtpd_recipient_restrictions=reject_unknown_recipient_domain,reject_non_fqdn_recipient,permit_sasl_authenticated,reject
+---%<-------------------------------------------------------------------------
+
+See also:
+---------
+
+ * http://www.postfix.org/SASL_README.html#server_dovecot
+
+Remark
+------
+
+If Outlook Express (and/or Windows Mail) doesn't seem to login, even though you
+checked "My server requires authentication" in it's configuration, then verify
+that the "mechanisms" line contains "login" in addition to "plain". "plain" is
+the default, and most clients can work with it, but Outlook Express needs the
+"login" mechanism. Also see:
+
+ * http://archives.neohapsis.com/archives/postfix/2000-11/0881.html
+
+(This file was created from the wiki on 2011-05-11 04:42)

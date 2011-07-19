@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -277,6 +277,7 @@ S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
 				    &error);
 	CFRelease(attributes);
 	if (record == NULL) {
+	    CFRelease(gidStr);
 	    my_log(LOG_INFO,
 		   "bsdpd: S_create_netboot_group:"
 		   " ODNodeCreateRecord() failed");
@@ -284,6 +285,7 @@ S_create_netboot_group(gid_t preferred_gid, gid_t * actual_gid)
 	}
 
 	if (!ODRecordSynchronize(record, &error)) {
+	    CFRelease(gidStr);
 	    my_log(LOG_INFO,
 		   "bsdpd: S_create_netboot_group:"
 		   " ODRecordSynchronize() failed");
@@ -528,9 +530,10 @@ S_insert_image_list(const char * arch, const char * sysid,
 		    int n_attr_filter_list, dhcpoa_t * options, 
 		    dhcpoa_t * bsdp_options)
 {
-    char			buf[DHCP_OPTION_SIZE_MAX - 2 * OPTION_OFFSET];
+    char			buf[DHCP_OPTION_SIZE_MAX];
     int				freespace;
     int 			i;
+    int				image_count;
     char *			offset;
 
     if (G_image_list == NULL) {
@@ -540,7 +543,7 @@ S_insert_image_list(const char * arch, const char * sysid,
     /* space available for options minus size of tag/len (2) */
     freespace = dhcpoa_freespace(bsdp_options) - OPTION_OFFSET;
     offset = buf;
-
+    image_count = 0;
     for (i = 0; i < NBImageList_count(G_image_list); i++) {
 	char				descr_buf[255];
 	bsdp_image_description_t *	descr_p = (void *)descr_buf;
@@ -596,12 +599,16 @@ S_insert_image_list(const char * arch, const char * sysid,
 	    freespace = space - OPTION_OFFSET; /* leave room for tag/len */
 	    if (descr_len > freespace) {
 		/* the packet is full */
+		my_log(LOG_NOTICE,
+		       "NetBoot: image list truncated to first %d images",
+		       image_count);
 		return (TRUE);
 	    }
 	    dhcpoa_init_no_end(bsdp_options, dhcpoa_buffer(bsdp_options), 
 			       space);
 	    offset = buf;
 	}
+	image_count++;
 	bcopy(descr_p, offset, descr_len);
 	offset += descr_len;
 	freespace -= descr_len;
@@ -1303,7 +1310,8 @@ is_bsdp_packet(dhcpol_t * rq_options, char * arch, char * sysid,
     if (dhcpol_parse_vendor(rq_vsopt, rq_options, &err) == FALSE) {
 	if (verbose) {
 	    my_log(LOG_INFO, 
-		   "NetBoot: parse vendor specific options failed, %s", err);
+		   "NetBoot: parse vendor specific options failed, %s", 
+		   err.str);
 	}
 	goto failed;
     }
@@ -1431,6 +1439,32 @@ bsdp_dhcp_request(request_t * request, dhcp_msgtype_t dhcpmsg)
     return;
 }
 
+int
+bsdp_max_message_size(dhcpol_t * bsdp_options, dhcpol_t * dhcp_options) 
+{
+    u_char * 	opt;
+    int 	opt_len;
+    int		val = DHCP_PACKET_MIN;
+
+    /* first look for the max message size option in the BSDP options */
+    opt = dhcpol_find(bsdp_options, bsdptag_max_message_size_e,
+		      &opt_len, NULL);
+    if (opt == NULL || opt_len != 2) {
+	/* if not there, look in the DHCP options */
+	opt = dhcpol_find(dhcp_options, dhcptag_max_dhcp_message_size_e,
+			  &opt_len, NULL);
+    }
+    if (opt != NULL && opt_len == 2) {
+	u_int16_t 	sval;
+
+	sval = ntohs(*((u_int16_t *)opt));
+	if (sval > DHCP_PACKET_MIN) {
+	    val = sval;
+	}
+    }
+    return (val);
+}
+
 #define N_SCRATCH_ATTRS		4
 
 void
@@ -1451,18 +1485,26 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
     struct dhcp *	rq = request->pkt;
     u_int16_t		scratch_attrs[N_SCRATCH_ATTRS];
     char		scratch_idstr[3 * sizeof(rq->dp_chaddr)];
-    char		txbuf[2048];
+    uint32_t		txbuf[8 * 1024 / sizeof(uint32_t)];
 
     if (rq->dp_htype != ARPHRD_ETHER || rq->dp_hlen != ETHER_ADDR_LEN) {
 	return;
     }
-    max_packet = dhcp_max_message_size(request->options_p);
-    if (max_packet > sizeof(txbuf)) {
-	max_packet = sizeof(txbuf);
-    }
     switch (dhcpmsg) {
     case dhcp_msgtype_discover_e:
+	/* we send using bpf which must fit into a single packet */
+	max_packet = dhcp_max_message_size(request->options_p);
+	if (max_packet > ETHERMTU) {
+	    max_packet = ETHERMTU;
+	}
+	break;
     case dhcp_msgtype_inform_e:
+	/* we send using a socket so can send larger packets */
+	max_packet = bsdp_max_message_size(rq_vsopt, 
+					   request->options_p);
+	if (max_packet > sizeof(txbuf)) {
+	    max_packet = sizeof(txbuf);
+	}
 	break;
     case dhcp_msgtype_request_e:
 	bsdp_dhcp_request(request, dhcpmsg);
@@ -1470,6 +1512,9 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
     default:
 	return;
     }
+
+    /* maximum message size includes IP/UDP header, subtract that */
+    max_packet -= DHCP_PACKET_OVERHEAD;
 
     idstr = identifierToStringWithBuffer(rq->dp_htype, rq->dp_chaddr, 
 					 rq->dp_hlen, scratch_idstr,
@@ -1841,6 +1886,7 @@ bsdp_request(request_t * request, dhcp_msgtype_t dhcpmsg,
 						      (const struct ether_addr *)
 						      rq->dp_chaddr,
 						      NULL, 0);
+		    image_id = image_entry->image_id;
 		    if (image_entry == NULL) {
 			/* no longer a default image */
 			goto send_failed;

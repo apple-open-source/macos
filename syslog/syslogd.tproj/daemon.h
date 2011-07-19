@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,10 +29,11 @@
 #include <sys/queue.h>
 #include <time.h>
 #include <asl.h>
+#include <asl_msg.h>
 #include <asl_private.h>
 #include <asl_store.h>
-#include <asl_memory.h>
-#include <asl_mini_memory.h>
+#include "asl_memory.h"
+#include "asl_mini_memory.h"
 #include <notify.h>
 #include <launch.h>
 #include <libkern/OSAtomic.h>
@@ -41,15 +42,6 @@
 
 #define ASL_DB_NOTIFICATION "com.apple.system.logger.message"
 #define SELF_DB_NOTIFICATION "self.logger.message"
-
-#define ASL_KEY_READ_UID "ReadUID"
-#define ASL_KEY_READ_GID "ReadGID"
-#define ASL_KEY_EXPIRE_TIME "ASLExpireTime"
-#define ASL_KEY_TIME_NSEC "TimeNanoSec"
-#define ASL_KEY_REF_PID "RefPID"
-#define ASL_KEY_REF_PROC "RefProc"
-#define ASL_KEY_SESSION "Session"
-#define ASL_KEY_OPTION "ASLOption"
 
 #define ASL_OPT_IGNORE "ignore"
 #define ASL_OPT_STORE "store"
@@ -96,6 +88,8 @@ struct global_s
 	launch_data_t launch_dict;
 	uint32_t store_flags;
 	time_t start_time;
+	int lockdown_session_fd;
+	int watchers_active;
 	int kfd;
 	int reset;
 	uint64_t bsd_flush_time;
@@ -126,10 +120,10 @@ struct global_s
 
 extern struct global_s global;
 
-typedef asl_msg_t *(*aslreadfn)(int);
+typedef aslmsg (*aslreadfn)(int);
 typedef char *(*aslwritefn)(const char *, int);
 typedef char *(*aslexceptfn)(int);
-typedef int (*aslsendmsgfn)(asl_msg_t *msg, const char *outid);
+typedef int (*aslsendmsgfn)(aslmsg msg, const char *outid);
 
 struct aslevent
 {
@@ -169,6 +163,7 @@ int aslevent_fdsets(fd_set *, fd_set *, fd_set *);
 void aslevent_handleevent(fd_set *, fd_set *, fd_set *);
 void asl_mark(void);
 void asl_archive(void);
+void aslevent_check(void);
 
 void asl_client_count_increment();
 void asl_client_count_decrement();
@@ -178,7 +173,6 @@ char *get_line_from_file(FILE *f);
 int asldebug(const char *, ...);
 int asl_log_string(const char *str);
 
-char *asl_msg_to_string(asl_msg_t *msg, uint32_t *len);
 asl_msg_t *asl_msg_from_string(const char *buf);
 int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
 time_t asl_parse_time(const char *str);
@@ -187,24 +181,20 @@ int aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwrit
 int aslevent_removefd(int fd);
 int aslevent_addmatch(asl_msg_t *query, char *outid);
 
-int asl_check_option(asl_msg_t *msg, const char *opt);
+int asl_check_option(aslmsg msg, const char *opt);
 
 int aslevent_addoutput(aslsendmsgfn, const char *outid);
 
-void asl_enqueue_message(uint32_t source, struct aslevent *e, asl_msg_t *msg);
-asl_msg_t **asl_work_dequeue(uint32_t *count);
-void asl_message_match_and_log(asl_msg_t *msg);
+void asl_enqueue_message(uint32_t source, struct aslevent *e, aslmsg msg);
+aslmsg *work_dequeue(uint32_t *count);
+void asl_message_match_and_log(aslmsg msg);
+void send_to_direct_watchers(asl_msg_t *msg);
 
 int asl_syslog_faciliy_name_to_num(const char *fac);
 const char *asl_syslog_faciliy_num_to_name(int num);
-asl_msg_t *asl_input_parse(const char *in, int len, char *rhost, int flag);
+aslmsg asl_input_parse(const char *in, int len, char *rhost, uint32_t source);
 
 void db_ping_store(void);
-
-/* message refcount utilities */
-uint32_t asl_msg_type(asl_msg_t *m);
-asl_msg_t *asl_msg_retain(asl_msg_t *m);
-void asl_msg_release(asl_msg_t *m);
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);

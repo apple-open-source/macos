@@ -35,6 +35,8 @@
 /*
 /*	void	event_drain(time_limit)
 /*	int	time_limit;
+/*
+/*	void	event_fork(void)
 /* DESCRIPTION
 /*	This module delivers I/O and timer events.
 /*	Multiple I/O streams and timers can be monitored simultaneously.
@@ -59,7 +61,8 @@
 /*	event_request_timer() causes the specified callback function to
 /*	be called with the specified context argument after \fIdelay\fR
 /*	seconds, or as soon as possible thereafter. The delay should
-/*	not be negative.
+/*	not be negative (the manifest EVENT_NULL_DELAY provides for
+/*	convenient zero-delay notification).
 /*	The event argument is equal to EVENT_TIME.
 /*	Only one timer request can be active per (callback, context) pair.
 /*	Calling event_request_timer() with an existing (callback, context)
@@ -108,8 +111,11 @@
 /*	event_drain() repeatedly calls event_loop() until no more timer
 /*	events or I/O events are pending or until the time limit is reached.
 /*	This routine must not be called from an event_whatever() callback
-/*	routine. Note: this function ignores pending timer events, and
-/*	assumes that no new I/O events will be registered.
+/*	routine. Note: this function assumes that no new I/O events
+/*	will be registered.
+/*
+/*	event_fork() must be called by a child process after it is
+/*	created with fork(), to re-initialize event processing.
 /* DIAGNOSTICS
 /*	Panics: interface violations. Fatal errors: out of memory,
 /*	system call failure. Warnings: the number of available
@@ -205,7 +211,8 @@ typedef struct {
 	size_t _byte_len = EVENT_MASK_BYTES_NEEDED(bit_len); \
 	size_t _old_len = (mask)->data_len; \
 	(mask)->data = myrealloc((mask)->data, _byte_len); \
-	memset((mask)->data + _old_len, 0, _byte_len - _old_len); \
+	if (_byte_len > _old_len) \
+	    memset((mask)->data + _old_len, 0, _byte_len - _old_len); \
 	(mask)->data_len = _byte_len; \
     } while (0)
 #define EVENT_MASK_FREE(mask)	myfree((mask)->data)
@@ -227,7 +234,7 @@ typedef struct {
 typedef struct EVENT_FDTABLE EVENT_FDTABLE;
 
 struct EVENT_FDTABLE {
-    EVENT_NOTIFY_RDWR callback;
+    EVENT_NOTIFY_RDWR_FN callback;
     char   *context;
 };
 static EVENT_MASK event_rmask;		/* enabled read events */
@@ -280,6 +287,11 @@ static int event_kq;			/* handle to event filter */
 	er = event_kq = kqueue(); \
     } while (0)
 #define EVENT_REG_INIT_TEXT	"kqueue"
+
+#define EVENT_REG_FORK_HANDLE(er, n) do { \
+	(void) close(event_kq); \
+	EVENT_REG_INIT_HANDLE(er, (n)); \
+    } while (0)
 
  /*
   * Macros to update the kernel-based filter; see event_enable_read(),
@@ -358,6 +370,11 @@ static int event_pollfd;		/* handle to file descriptor set */
     } while (0)
 #define EVENT_REG_INIT_TEXT	"open /dev/poll"
 
+#define EVENT_REG_FORK_HANDLE(er, n) do { \
+	(void) close(event_pollfd); \
+	EVENT_REG_INIT_HANDLE(er, (n)); \
+    } while (0)
+
  /*
   * Macros to update the kernel-based filter; see event_enable_read(),
   * event_enable_write() and event_disable_readwrite().
@@ -415,6 +432,7 @@ typedef struct pollfd EVENT_BUFFER;
   * descriptor is closed, so our information could get out of sync with the
   * kernel. But that will never happen, because we have to meticulously
   * unregister a file descriptor before it is closed, to avoid errors on
+  * systems that are built with EVENTS_STYLE == EVENTS_STYLE_SELECT.
   */
 #if (EVENTS_STYLE == EVENTS_STYLE_EPOLL)
 #include <sys/epoll.h>
@@ -429,6 +447,11 @@ static int event_epollfd;		/* epoll handle */
 	if (event_epollfd >= 0) close_on_exec(event_epollfd, CLOSE_ON_EXEC); \
     } while (0)
 #define EVENT_REG_INIT_TEXT	"epoll_create"
+
+#define EVENT_REG_FORK_HANDLE(er, n) do { \
+	(void) close(event_epollfd); \
+	EVENT_REG_INIT_HANDLE(er, (n)); \
+    } while (0)
 
  /*
   * Macros to update the kernel-based filter; see event_enable_read(),
@@ -475,17 +498,24 @@ typedef struct epoll_event EVENT_BUFFER;
  /*
   * Timer events. Timer requests are kept sorted, in a circular list. We use
   * the RING abstraction, so we get to use a couple ugly macros.
+  * 
+  * When a call-back function adds a timer request, we label the request with
+  * the event_loop() call instance that invoked the call-back. We use this to
+  * prevent zero-delay timer requests from running in a tight loop and
+  * starving I/O events.
   */
 typedef struct EVENT_TIMER EVENT_TIMER;
 
 struct EVENT_TIMER {
     time_t  when;			/* when event is wanted */
-    EVENT_NOTIFY_TIME callback;		/* callback function */
+    EVENT_NOTIFY_TIME_FN callback;		/* callback function */
     char   *context;			/* callback context */
+    long    loop_instance;		/* event_loop() call instance */
     RING    ring;			/* linkage */
 };
 
 static RING event_timer_head;		/* timer queue head */
+static long event_loop_instance;	/* event_loop() call instance */
 
 #define RING_TO_TIMER(r) \
 	((EVENT_TIMER *) ((char *) (r) - offsetof(EVENT_TIMER, ring)))
@@ -642,16 +672,62 @@ void    event_drain(int time_limit)
     while (event_present < max_time
 	   && (event_timer_head.pred != &event_timer_head
 	       || memcmp(&zero_mask, &event_xmask,
-			 EVENT_MASK_BYTE_COUNT(&zero_mask)) != 0))
+			 EVENT_MASK_BYTE_COUNT(&zero_mask)) != 0)) {
 	event_loop(1);
+#if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+	if (EVENT_MASK_BYTE_COUNT(&zero_mask)
+	    != EVENT_MASK_BYTES_NEEDED(event_fdslots))
+	    EVENT_MASK_REALLOC(&zero_mask, event_fdslots);
+#endif
+    }
 #if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
     EVENT_MASK_FREE(&zero_mask);
 #endif
 }
 
+/* event_fork - resume event processing after fork() */
+
+void    event_fork(void)
+{
+#if (EVENTS_STYLE != EVENTS_STYLE_SELECT)
+    EVENT_FDTABLE *fdp;
+    int     err;
+    int     fd;
+
+    /*
+     * No event was ever registered, so there's nothing to be done.
+     */
+    if (EVENT_INIT_NEEDED())
+	return;
+
+    /*
+     * Close the existing filter handle and open a new kernel-based filter.
+     */
+    EVENT_REG_FORK_HANDLE(err, event_fdslots);
+    if (err < 0)
+	msg_fatal("%s: %m", EVENT_REG_INIT_TEXT);
+
+    /*
+     * Populate the new kernel-based filter with events that were registered
+     * in the parent process.
+     */
+    for (fd = 0; fd <= event_max_fd; fd++) {
+	if (EVENT_MASK_ISSET(fd, &event_wmask)) {
+	    EVENT_MASK_CLR(fd, &event_wmask);
+	    fdp = event_fdtable + fd;
+	    event_enable_write(fd, fdp->callback, fdp->context);
+	} else if (EVENT_MASK_ISSET(fd, &event_rmask)) {
+	    EVENT_MASK_CLR(fd, &event_rmask);
+	    fdp = event_fdtable + fd;
+	    event_enable_read(fd, fdp->callback, fdp->context);
+	}
+    }
+#endif
+}
+
 /* event_enable_read - enable read events */
 
-void    event_enable_read(int fd, EVENT_NOTIFY_RDWR callback, char *context)
+void    event_enable_read(int fd, EVENT_NOTIFY_RDWR_FN callback, char *context)
 {
     const char *myname = "event_enable_read";
     EVENT_FDTABLE *fdp;
@@ -706,7 +782,7 @@ void    event_enable_read(int fd, EVENT_NOTIFY_RDWR callback, char *context)
 
 /* event_enable_write - enable write events */
 
-void    event_enable_write(int fd, EVENT_NOTIFY_RDWR callback, char *context)
+void    event_enable_write(int fd, EVENT_NOTIFY_RDWR_FN callback, char *context)
 {
     const char *myname = "event_enable_write";
     EVENT_FDTABLE *fdp;
@@ -816,7 +892,7 @@ void    event_disable_readwrite(int fd)
 
 /* event_request_timer - (re)set timer */
 
-time_t  event_request_timer(EVENT_NOTIFY_TIME callback, char *context, int delay)
+time_t  event_request_timer(EVENT_NOTIFY_TIME_FN callback, char *context, int delay)
 {
     const char *myname = "event_request_timer";
     RING   *ring;
@@ -845,6 +921,7 @@ time_t  event_request_timer(EVENT_NOTIFY_TIME callback, char *context, int delay
 	timer = RING_TO_TIMER(ring);
 	if (timer->callback == callback && timer->context == context) {
 	    timer->when = event_present + delay;
+	    timer->loop_instance = event_loop_instance;
 	    ring_detach(ring);
 	    if (msg_verbose > 2)
 		msg_info("%s: reset 0x%lx 0x%lx %d", myname,
@@ -861,18 +938,24 @@ time_t  event_request_timer(EVENT_NOTIFY_TIME callback, char *context, int delay
 	timer->when = event_present + delay;
 	timer->callback = callback;
 	timer->context = context;
+	timer->loop_instance = event_loop_instance;
 	if (msg_verbose > 2)
 	    msg_info("%s: set 0x%lx 0x%lx %d", myname,
 		     (long) callback, (long) context, delay);
     }
 
     /*
-     * Insert the request at the right place. Timer requests are kept sorted
-     * to reduce lookup overhead in the event loop.
+     * Timer requests are kept sorted to reduce lookup overhead in the event
+     * loop.
+     * 
+     * XXX Append the new request after existing requests for the same time
+     * slot. The event_loop() routine depends on this to avoid starving I/O
+     * events when a call-back function schedules a zero-delay timer request.
      */
-    FOREACH_QUEUE_ENTRY(ring, &event_timer_head)
+    FOREACH_QUEUE_ENTRY(ring, &event_timer_head) {
 	if (timer->when < RING_TO_TIMER(ring)->when)
-	break;
+	    break;
+    }
     ring_prepend(ring, &timer->ring);
 
     return (timer->when);
@@ -880,7 +963,7 @@ time_t  event_request_timer(EVENT_NOTIFY_TIME callback, char *context, int delay
 
 /* event_cancel_timer - cancel timer */
 
-int     event_cancel_timer(EVENT_NOTIFY_TIME callback, char *context)
+int     event_cancel_timer(EVENT_NOTIFY_TIME_FN callback, char *context)
 {
     const char *myname = "event_cancel_timer";
     RING   *ring;
@@ -1019,16 +1102,34 @@ void    event_loop(int delay)
 	msg_panic("event_loop: recursive call");
 
     /*
-     * Deliver timer events. Requests are sorted: we can stop when we reach
-     * the future or the list end. Allow the application to update the timer
-     * queue while it is being called back. To this end, we repeatedly pop
-     * the first request off the timer queue before delivering the event to
-     * the application.
+     * Deliver timer events. Allow the application to add/delete timer queue
+     * requests while it is being called back. Requests are sorted: we keep
+     * running over the timer request queue from the start, and stop when we
+     * reach the future or the list end. We also stop when we reach a timer
+     * request that was added by a call-back that was invoked from this
+     * event_loop() call instance, for reasons that are explained below.
+     * 
+     * To avoid dangling pointer problems 1) we must remove a request from the
+     * timer queue before delivering its event to the application and 2) we
+     * must look up the next timer request *after* calling the application.
+     * The latter complicates the handling of zero-delay timer requests that
+     * are added by event_loop() call-back functions.
+     * 
+     * XXX When a timer event call-back function adds a new timer request,
+     * event_request_timer() labels the request with the event_loop() call
+     * instance that invoked the timer event call-back. We use this instance
+     * label here to prevent zero-delay timer requests from running in a
+     * tight loop and starving I/O events. To make this solution work,
+     * event_request_timer() appends a new request after existing requests
+     * for the same time slot.
      */
     event_present = time((time_t *) 0);
+    event_loop_instance += 1;
 
     while ((timer = FIRST_TIMER(&event_timer_head)) != 0) {
 	if (timer->when > event_present)
+	    break;
+	if (timer->loop_instance == event_loop_instance)
 	    break;
 	ring_detach(&timer->ring);		/* first this */
 	if (msg_verbose > 2)
@@ -1132,19 +1233,30 @@ static void echo(int unused_event, char *unused_context)
     printf("Result: %s", buf);
 }
 
-int     main(int argc, char **argv)
+/* request - request a bunch of timer events */
+
+static void request(int unused_event, char *unused_context)
 {
-    if (argv[1])
-	msg_verbose = atoi(argv[1]);
     event_request_timer(timer_event, "3 first", 3);
     event_request_timer(timer_event, "3 second", 3);
     event_request_timer(timer_event, "4 first", 4);
     event_request_timer(timer_event, "4 second", 4);
     event_request_timer(timer_event, "2 first", 2);
     event_request_timer(timer_event, "2 second", 2);
+    event_request_timer(timer_event, "1 first", 1);
+    event_request_timer(timer_event, "1 second", 1);
+    event_request_timer(timer_event, "0 first", 0);
+    event_request_timer(timer_event, "0 second", 0);
+}
+
+int     main(int argc, char **argv)
+{
+    if (argv[1])
+	msg_verbose = atoi(argv[1]);
+    event_request_timer(request, (char *) 0, 0);
     event_enable_read(fileno(stdin), echo, (char *) 0);
-    for (;;)
-	event_loop(-1);
+    event_drain(10);
+    exit(0);
 }
 
 #endif

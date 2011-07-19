@@ -29,16 +29,17 @@
 #ifndef StringTruncator_h
 #define StringTruncator_h
 
+#include <wtf/Forward.h>
+
 namespace WebCore {
     
     class Font;
-    class String;
     
     class StringTruncator {
     public:
-        static String centerTruncate(const String&, float maxWidth, const Font&, bool disableRoundingHacks = true);
-        static String rightTruncate(const String&, float maxWidth, const Font&, bool disableRoundingHacks = true);
-        static float width(const String&, const Font&, bool disableRoundingHacks = true);
+        static String centerTruncate(const String&, float maxWidth, const Font&);
+        static String rightTruncate(const String&, float maxWidth, const Font&);
+        static float width(const String&, const Font&);
     };
     
 } // namespace WebCore

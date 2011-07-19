@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 
 static int sock = -1;
 
-asl_msg_t *
+aslmsg
 bsd_in_acceptmsg(int fd)
 {
 	uint32_t len;
@@ -55,7 +55,7 @@ bsd_in_acceptmsg(int fd)
 
 	line[n] = '\0';
 
-	return asl_input_parse(line, n, NULL, 0);
+	return asl_input_parse(line, n, NULL, SOURCE_BSD_SOCKET);
 }
 
 int
@@ -132,17 +132,19 @@ bsd_in_init(void)
 }
 
 int
-bsd_in_reset(void)
-{
-	return 0;
-}
-
-int
 bsd_in_close(void)
 {
 	if (sock < 0) return 1;
 
+	aslevent_removefd(sock);
 	close(sock);
-	unlink(_PATH_SYSLOG_IN);
+	sock = -1;
+
+	return 0;
+}
+
+int
+bsd_in_reset(void)
+{
 	return 0;
 }

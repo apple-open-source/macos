@@ -31,7 +31,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
 {
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode)
 {
     return FontPlatformData(size, bold, italic);
 }
@@ -40,6 +40,11 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
 {
     // FIXME: We need support in Haiku to read fonts from memory to implement this.
     return 0;
+}
+
+bool FontCustomPlatformData::supportsFormat(const String& /* format */)
+{
+    return false;
 }
 
 }

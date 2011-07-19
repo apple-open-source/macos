@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -144,6 +144,12 @@ _notifyviafd(mach_port_t		server,
 			SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd permissions error"));
 			return KERN_SUCCESS;
 		}
+	}
+
+	if (!hasPathAccess(mySession, un.sun_path)) {
+		*sc_status = kSCStatusAccessError;
+		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviafd permissions error"));
+		return KERN_SUCCESS;
 	}
 
 	/* do common sanity checks, get socket */

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,14 +25,15 @@
 
 #include "PopupMenuClient.h"
 #include "RenderTextControl.h"
+#include "SearchPopupMenu.h"
 #include "Timer.h"
 
 namespace WebCore {
 
-class InputElement;
+class HTMLInputElement;
+class InputFieldSpeechButtonElement;
 class SearchFieldCancelButtonElement;
 class SearchFieldResultsButtonElement;
-class SearchPopupMenu;
 class SpinButtonElement;
 class TextControlInnerElement;
 
@@ -59,7 +61,7 @@ public:
 
 private:
     int preferredDecorationWidthRight() const;
-    virtual bool hasControlClip() const { return m_cancelButton; }
+    virtual bool hasControlClip() const;
     virtual IntRect controlClipRect(int tx, int ty) const;
     virtual bool isTextField() const { return true; }
 
@@ -69,7 +71,7 @@ private:
     virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
     virtual void layout();
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
     virtual void autoscroll();
 
@@ -80,7 +82,8 @@ private:
     virtual int scrollHeight() const;
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
-    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f, Node** stopNode = 0);
+    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
+    virtual bool logicalScroll(ScrollLogicalDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
 
     int textBlockWidth() const;
     virtual float getAvgCharWidth(AtomicString family);
@@ -97,7 +100,11 @@ private:
     PassRefPtr<RenderStyle> createInnerBlockStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createResultsButtonStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createCancelButtonStyle(const RenderStyle* startStyle) const;
+    PassRefPtr<RenderStyle> createInnerSpinButtonStyle() const;
     PassRefPtr<RenderStyle> createOuterSpinButtonStyle() const;
+#if ENABLE(INPUT_SPEECH)
+    PassRefPtr<RenderStyle> createSpeechButtonStyle() const;
+#endif
 
     void updateCancelButtonVisibility() const;
     EVisibility visibilityForCancelButton() const;
@@ -108,7 +115,11 @@ private:
 
     // PopupMenuClient methods
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true);
+    virtual void selectionChanged(unsigned, bool) {}
+    virtual void selectionCleared() {}
     virtual String itemText(unsigned listIndex) const;
+    virtual String itemLabel(unsigned listIndex) const;
+    virtual String itemIcon(unsigned listIndex) const;
     virtual String itemToolTip(unsigned) const { return String(); }
     virtual String itemAccessibilityText(unsigned) const { return String(); }
     virtual bool itemIsEnabled(unsigned listIndex) const;
@@ -129,9 +140,13 @@ private:
     virtual void setTextFromItem(unsigned listIndex);
     virtual FontSelector* fontSelector() const;
     virtual HostWindow* hostWindow() const;
-    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize);
 
-    InputElement* inputElement() const;
+    HTMLInputElement* inputElement() const;
+
+    virtual int textBlockInsetLeft() const;
+    virtual int textBlockInsetRight() const;
+    virtual int textBlockInsetTop() const;
 
     bool m_searchPopupIsVisible;
     bool m_shouldDrawCapsLockIndicator;
@@ -139,7 +154,11 @@ private:
     RefPtr<TextControlInnerElement> m_innerBlock;
     RefPtr<SearchFieldResultsButtonElement> m_resultsButton;
     RefPtr<SearchFieldCancelButtonElement> m_cancelButton;
+    RefPtr<TextControlInnerElement> m_innerSpinButton;
     RefPtr<TextControlInnerElement> m_outerSpinButton;
+#if ENABLE(INPUT_SPEECH)
+    RefPtr<InputFieldSpeechButtonElement> m_speechButton;
+#endif
 
     Timer<RenderTextControlSingleLine> m_searchEventTimer;
     RefPtr<SearchPopupMenu> m_searchPopup;
@@ -147,13 +166,26 @@ private:
 };
 
 inline RenderTextControlSingleLine* toRenderTextControlSingleLine(RenderObject* object)
-{ 
+{
     ASSERT(!object || object->isTextField());
     return static_cast<RenderTextControlSingleLine*>(object);
 }
 
 // This will catch anyone doing an unnecessary cast.
 void toRenderTextControlSingleLine(const RenderTextControlSingleLine*);
+
+// ----------------------------
+
+class RenderTextControlInnerBlock : public RenderBlock {
+public:
+    RenderTextControlInnerBlock(Node* node, bool isMultiLine) : RenderBlock(node), m_multiLine(isMultiLine) { }
+
+private:
+    virtual bool hasLineIfEmpty() const { return true; }
+    virtual VisiblePosition positionForPoint(const IntPoint&);
+
+    bool m_multiLine;
+};
 
 }
 

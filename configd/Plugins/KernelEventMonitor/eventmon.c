@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,9 +60,8 @@
 #include "ev_ipv6.h"
 #include <notify.h>
 
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-#include "ev_appletalk.h"
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
+// from ip_fw2.c
+#define KEV_LOG_SUBCLASS	10
 
 static const char *inetEventName[] = {
 	"",
@@ -73,6 +72,7 @@ static const char *inetEventName[] = {
 	"INET broadcast address changed",
 	"INET netmask changed",
 	"INET ARP collision",
+	"INET port in use",
 };
 
 static const char *dlEventName[] = {
@@ -92,20 +92,12 @@ static const char *dlEventName[] = {
 	"KEV_DL_LINK_ON",
 	"KEV_DL_PROTO_ATTACHED",
 	"KEV_DL_PROTO_DETACHED",
+	"KEV_DL_LINK_ADDRESS_CHANGED",
+	"KEV_DL_WAKEFLAGS_CHANGED",
+#ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
+	"KEV_DL_IF_IDLE_ROUTE_REFCNT",
+#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
 };
-
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-static const char *atalkEventName[] = {
-	"",
-	"KEV_ATALK_ENABLED",
-	"KEV_ATALK_DISABLED",
-	"KEV_ATALK_ZONEUPDATED",
-	"KEV_ATALK_ROUTERUP",
-	"KEV_ATALK_ROUTERUP_INVALID",
-	"KEV_ATALK_ROUTERDOWN",
-	"KEV_ATALK_ZONELISTCHANGED"
-};
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 static const char *inet6EventName[] = {
 	"",
@@ -135,7 +127,7 @@ ifflags_set(int s, char * name, short flags)
     int 		ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
     if (ret == -1) {
 		return (ret);
@@ -151,7 +143,7 @@ ifflags_clear(int s, char * name, short flags)
     int 		ret;
 
     bzero(&ifr, sizeof(ifr));
-    strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+    strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
     if (ret == -1) {
 		return (ret);
@@ -203,8 +195,12 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 	int	i;
 	int	j;
 
-	SCLog(_verbose, LOG_DEBUG, CFSTR("%@ event:"), evStr);
-	SCLog(_verbose, LOG_DEBUG,
+	if (!_verbose) {
+		return;
+	}
+
+	SCLog(TRUE, LOG_DEBUG, CFSTR("%@ event:"), evStr);
+	SCLog(TRUE, LOG_DEBUG,
 	      CFSTR("  Event size=%d, id=%d, vendor=%d, class=%d, subclass=%d, code=%d"),
 	      ev_msg->total_size,
 	      ev_msg->id,
@@ -213,14 +209,14 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 	      ev_msg->kev_subclass,
 	      ev_msg->event_code);
 	for (i = 0, j = KEV_MSG_HEADER_SIZE; j < ev_msg->total_size; i++, j+=4) {
-		SCLog(_verbose, LOG_DEBUG, CFSTR("  Event data[%2d] = %08lx"), i, ev_msg->event_data[i]);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  Event data[%2d] = %08lx"), i, ev_msg->event_data[i]);
 	}
 }
 
 static const char *
 inetEventNameString(uint32_t event_code)
 {
-	if (event_code <= KEV_INET_ARPCOLLISION) {
+	if (event_code < sizeof(inetEventName) / sizeof(inetEventName[0])) {
 		return (inetEventName[event_code]);
 	}
 	return ("New Apple network INET subcode");
@@ -229,7 +225,7 @@ inetEventNameString(uint32_t event_code)
 static const char *
 inet6EventNameString(uint32_t event_code)
 {
-	if (event_code <= KEV_INET6_DEFROUTER) {
+	if (event_code < sizeof(inet6EventName) / sizeof(inet6EventName[0])) {
 		return (inet6EventName[event_code]);
 	}
 	return ("New Apple network INET6 subcode");
@@ -238,22 +234,11 @@ inet6EventNameString(uint32_t event_code)
 static const char *
 dlEventNameString(uint32_t event_code)
 {
-	if (event_code <= KEV_DL_PROTO_DETACHED) {
+	if (event_code < sizeof(dlEventName) / sizeof(dlEventName[0])) {
 		return (dlEventName[event_code]);
 	}
 	return ("New Apple network DL subcode");
 }
-
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-static const char *
-atalkEventNameString(uint32_t event_code)
-{
-	if (event_code <= KEV_ATALK_ZONELISTCHANGED) {
-		return (atalkEventName[event_code]);
-	}
-	return ("New Apple network AppleTalk subcode");
-}
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 static void
 copy_if_name(struct net_event_data * ev, char * ifr_name, int ifr_len)
@@ -269,7 +254,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	int				dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
 	void *				event_data = &ev_msg->event_data[0];
 	Boolean				handled = TRUE;
-	char				ifr_name[IFNAMSIZ + 1];
+	char				ifr_name[IFNAMSIZ];
 
 	switch (ev_msg->kev_subclass) {
 		case KEV_INET_SUBCLASS : {
@@ -394,17 +379,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					interface_detaching(ifr_name);
 					break;
 
-				case KEV_DL_SIFFLAGS :
-				case KEV_DL_SIFMETRICS :
-				case KEV_DL_SIFMTU :
-				case KEV_DL_SIFPHYS :
-				case KEV_DL_SIFMEDIA :
-				case KEV_DL_SIFGENERIC :
-				case KEV_DL_ADDMULTI :
-				case KEV_DL_DELMULTI :
-					handled = FALSE;
-					break;
-
 				case KEV_DL_PROTO_ATTACHED :
 				case KEV_DL_PROTO_DETACHED : {
 					struct kev_dl_proto_data * protoEvent;
@@ -437,43 +411,19 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					link_update_status(ifr_name, FALSE);
 					break;
 
-				default :
-					handled = FALSE;
-					break;
-			}
-			break;
-		}
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-		case KEV_ATALK_SUBCLASS: {
-			struct kev_atalk_data * ev;
-
-			eventName = atalkEventNameString(ev_msg->event_code);
-			ev = (struct kev_atalk_data *)event_data;
-			if (dataLen < sizeof(*ev)) {
-				handled = FALSE;
-				break;
-			}
-			copy_if_name(&ev->link_data, ifr_name, sizeof(ifr_name));
-			switch (ev_msg->event_code) {
-				case KEV_ATALK_ENABLED:
-					interface_update_atalk_address(ev, ifr_name);
-					break;
-
-				case KEV_ATALK_DISABLED:
-					interface_update_shutdown_atalk();
-					break;
-
-				case KEV_ATALK_ZONEUPDATED:
-					interface_update_atalk_zone(ev, ifr_name);
-					break;
-
-				case KEV_ATALK_ROUTERUP:
-				case KEV_ATALK_ROUTERUP_INVALID:
-				case KEV_ATALK_ROUTERDOWN:
-					interface_update_appletalk(NULL, ifr_name);
-					break;
-
-				case KEV_ATALK_ZONELISTCHANGED:
+				case KEV_DL_SIFFLAGS :
+				case KEV_DL_SIFMETRICS :
+				case KEV_DL_SIFMTU :
+				case KEV_DL_SIFPHYS :
+				case KEV_DL_SIFMEDIA :
+				case KEV_DL_SIFGENERIC :
+				case KEV_DL_ADDMULTI :
+				case KEV_DL_DELMULTI :
+				case KEV_DL_LINK_ADDRESS_CHANGED :
+				case KEV_DL_WAKEFLAGS_CHANGED :
+#ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
+				case KEV_DL_IF_IDLE_ROUTE_REFCNT :
+#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
 					break;
 
 				default :
@@ -482,7 +432,9 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 			}
 			break;
 		}
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
+		case KEV_LOG_SUBCLASS : {
+			break;
+		}
 		default :
 			handled = FALSE;
 			break;
@@ -497,30 +449,6 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 		logEvent(evStr, ev_msg);
 		CFRelease(evStr);
 	}
-	return;
-}
-
-static void
-processEvent_Apple_IOKit(struct kern_event_msg *ev_msg)
-{
-	switch (ev_msg->kev_subclass) {
-		default :
-			logEvent(CFSTR("New Apple IOKit subclass"), ev_msg);
-			break;
-	}
-
-	return;
-}
-
-static void
-processEvent_Apple_System(struct kern_event_msg *ev_msg)
-{
-	switch (ev_msg->kev_subclass) {
-		default :
-			logEvent(CFSTR("New Apple System subclass"), ev_msg);
-			break;
-	}
-
 	return;
 }
 
@@ -554,10 +482,10 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 						processEvent_Apple_Network(ev_msg);
 						break;
 					case KEV_IOKIT_CLASS :
-						processEvent_Apple_IOKit(ev_msg);
-						break;
 					case KEV_SYSTEM_CLASS :
-						processEvent_Apple_System(ev_msg);
+					case KEV_APPLESHARE_CLASS :
+					case KEV_FIREWALL_CLASS :
+					case KEV_IEEE80211_CLASS :
 						break;
 					default :
 						/* unrecognized (Apple) event class */
@@ -636,14 +564,6 @@ prime_KernelEventMonitor()
 	 */
 	interface_update_ipv6(ifap, NULL);
 
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-	/*
-	 * update AppleTalk network addresses already assigned
-	 * to the interfaces.
-	 */
-	interface_update_appletalk(ifap, NULL);
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
-
 	freeifaddrs(ifap);
 
  done:
@@ -702,10 +622,10 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	/* Open an event socket */
 	so = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
 	if (so != -1) {
-		/* establish filter to return all events */
-		kev_req.vendor_code  = 0;
-		kev_req.kev_class    = 0;	/* Not used if vendor_code is 0 */
-		kev_req.kev_subclass = 0;	/* Not used if either kev_class OR vendor_code are 0 */
+		/* establish filter to return events of interest */
+		kev_req.vendor_code  = KEV_VENDOR_APPLE;
+		kev_req.kev_class    = KEV_NETWORK_CLASS;
+		kev_req.kev_subclass = KEV_ANY_SUBCLASS;
 		status = ioctl(so, SIOCSKEVFILT, &kev_req);
 		if (status) {
 			SCLog(TRUE, LOG_ERR, CFSTR("could not establish event filter, ioctl() failed: %s"), strerror(errno));
@@ -768,14 +688,6 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 #undef appendAddress
 #undef getIF
 #undef updateStore
-
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-#define getIF		getIF_at
-#define updateStore	updateStore_at
-#include "ev_appletalk.c"
-#undef getIF
-#undef updateStore
-#endif	/* !TARGET_OS_IPHONE && INCLUDE_APPLETALK */
 
 int
 main(int argc, char **argv)

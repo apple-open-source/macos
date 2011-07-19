@@ -82,14 +82,15 @@ private:
     KeyframeAnimation(const Animation* animation, RenderObject*, int index, CompositeAnimation*, RenderStyle* unanimatedStyle);
     virtual ~KeyframeAnimation();
     
-    // Get the styles surrounding the current animation time and the progress between them
-    void getKeyframeAnimationInterval(const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& progress) const;
+    // Get the styles for the given property surrounding the current animation time and the progress between them.
+    void fetchIntervalEndpointsForProperty(int property, const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& progress) const;
 
     // The keyframes that we are blending.
     KeyframeList m_keyframes;
 
     // The order in which this animation appears in the animation-name style.
     int m_index;
+    bool m_startEventDispatched;
 
     // The style just before we started animation
     RefPtr<RenderStyle> m_unanimatedStyle;

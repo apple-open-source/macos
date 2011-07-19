@@ -8,13 +8,16 @@
  */
 
 /*
- * Updated to capture arguments in OS X. Unfortunately this isn't straight forward...
+ * Updated to capture arguments in OS X. Unfortunately this isn't straight forward... nor inexpensive ...
+ * Bound the size of copyinstr()'s and printf incrementally to prevent "out of scratch space errors"
+ * print "(...)" if the length of an argument exceeds COPYINSTRLIMIT.
+ * print "<...>" if argc exceeds 5.
  */
 
 #pragma D option quiet
 
 this unsigned long long argv_ptr; /* Wide enough for 64 bit user procs */
-this char *psargs;
+inline int COPYINSTRLIMIT = 128;
 
 proc:::exec-success
 {
@@ -28,14 +31,13 @@ proc:::exec-success
 syscall::mmap:return
 {
 	this->argc = 0; /* Disable argument collection until we notice an exec-success */
-	this->psargs = 0; 
+	this->need_newline = 0;
 }
 
 syscall::mmap:return
 / print_pid[pid] /
 {
 	print_pid[pid] = 0;
-
 	this->is64Bit = curpsinfo->pr_dmodel == PR_MODEL_ILP32 ? 0 : 1;
 	this->wordsize = this->is64Bit ? 8 : 4;
 
@@ -44,8 +46,8 @@ syscall::mmap:return
 
 	this->argv_ptr = curpsinfo->pr_argv;
 
-	this->psargs = "";
 	printf("%d %s ", pid, this->is64Bit ? "64b" : "32b");
+	this->need_newline = 1;
 }
 
 syscall::mmap:return
@@ -53,8 +55,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -65,8 +67,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -77,8 +79,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -89,8 +91,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -101,8 +103,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -113,8 +115,8 @@ syscall::mmap:return
 {
 	this->here_argv = copyin(this->argv_ptr, this->wordsize);
 	this->arg = this->is64Bit ? *(unsigned long long*)(this->here_argv) : *(unsigned long*)(this->here_argv);
-	this->here_arg = copyinstr(this->arg);
-	this->psargs = strjoin(strjoin(this->psargs," "), this->here_arg);
+	this->here_arg = copyinstr(this->arg, COPYINSTRLIMIT);
+	printf(" %s%s", this->here_arg, COPYINSTRLIMIT - 1 < strlen(this->here_arg) ? " (...)" : "");
 
 	this->argv_ptr += this->wordsize;
 	this->argc--;
@@ -122,10 +124,25 @@ syscall::mmap:return
 
 
 syscall::mmap:return
-/ this->psargs /
+/ this->argc /
 {
-	printf("%s%s\n",stringof(this->psargs), this->argc > 0 ? " (...)" : " ");
-	this->psargs = 0;
+	printf(" <...>\n");
 	this->argc = 0;
 }
+
+syscall::mmap:return
+/ this->need_newline /
+{
+	printf("\n");
+	this->need_newline = 0;
+}
+
+ERROR
+/ arg4 == DTRACEFLT_NOSCRATCH /
+{
+	printf(" <...>\n");
+	this->argc = 0;
+	this->need_newline = 0;
+}
+
 

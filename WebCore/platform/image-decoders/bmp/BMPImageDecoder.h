@@ -39,13 +39,17 @@ namespace WebCore {
     // This class decodes the BMP image format.
     class BMPImageDecoder : public ImageDecoder {
     public:
-        BMPImageDecoder();
+        BMPImageDecoder(ImageSource::AlphaOption, ImageSource::GammaAndColorProfileOption);
 
         // ImageDecoder
         virtual String filenameExtension() const { return "bmp"; }
         virtual void setData(SharedBuffer*, bool allDataReceived);
         virtual bool isSizeAvailable();
-        virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
+        virtual ImageFrame* frameBufferAtIndex(size_t index);
+        // CAUTION: setFailed() deletes |m_reader|.  Be careful to avoid
+        // accessing deleted memory, especially when calling this from inside
+        // BMPImageReader!
+        virtual bool setFailed();
 
     private:
         inline uint32_t readUint32(int offset) const

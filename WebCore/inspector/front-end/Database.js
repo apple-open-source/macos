@@ -77,27 +77,70 @@ WebInspector.Database.prototype = {
 
     getTableNames: function(callback)
     {
-        function sortingCallback(names)
+        function sortingCallback(error, names)
         {
-            callback(names.sort());
+            if (!error)
+                callback(names.sort());
         }
-        var callId = WebInspector.Callback.wrap(sortingCallback);
-        InspectorBackend.getDatabaseTableNames(callId, this._id);
+        DatabaseAgent.getDatabaseTableNames(this._id, sortingCallback);
     },
     
     executeSql: function(query, onSuccess, onError)
     {
-        function callback(result)
+        function callback(error, success, transactionId)
         {
-            if (!(result instanceof Array)) {
-                onError(result);
+            if (error) {
+                onError(error);
                 return;
             }
-            onSuccess(result);
+            if (!success) {
+                onError(WebInspector.UIString("Database not found."));
+                return;
+            }
+            WebInspector.DatabaseDispatcher._callbacks[transactionId] = {"onSuccess": onSuccess, "onError": onError};
         }
-        // FIXME: execute the query in the frame the DB comes from.
-        InjectedScriptAccess.getDefault().executeSql(this._id, query, callback);
+        DatabaseAgent.executeSQL(this._id, query, callback);
     }
 }
 
-WebInspector.didGetDatabaseTableNames = WebInspector.Callback.processCallback;
+WebInspector.DatabaseDispatcher = function()
+{
+}
+
+WebInspector.DatabaseDispatcher._callbacks = {};
+
+WebInspector.DatabaseDispatcher.prototype = {
+    addDatabase: function(payload)
+    {
+        var database = new WebInspector.Database(
+            payload.id,
+            payload.domain,
+            payload.name,
+            payload.version);
+        WebInspector.panels.resources.addDatabase(database);
+    },
+
+    sqlTransactionSucceeded: function(transactionId, columnNames, values)
+    {
+        if (!WebInspector.DatabaseDispatcher._callbacks[transactionId])
+            return;
+    
+        var callback = WebInspector.DatabaseDispatcher._callbacks[transactionId].onSuccess;
+        delete WebInspector.DatabaseDispatcher._callbacks[transactionId];
+        if (callback)
+            callback(columnNames, values);
+    },
+
+    sqlTransactionFailed: function(transactionId, errorObj)
+    {
+        if (!WebInspector.DatabaseDispatcher._callbacks[transactionId])
+            return;
+
+        var callback = WebInspector.DatabaseDispatcher._callbacks[transactionId].onError;
+        delete WebInspector.DatabaseDispatcher._callbacks[transactionId];
+        if (callback)
+             callback(errorObj);
+    }
+}
+
+InspectorBackend.registerDomainDispatcher("Database", new WebInspector.DatabaseDispatcher());

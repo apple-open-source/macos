@@ -156,7 +156,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
                     strlcat(name, L2TP_NKE, sizeof(name));
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
                     if (!load_kext(name, 0))
 #else
                     if (!load_kext(L2TP_NKE_ID, 1))
@@ -173,7 +173,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         }
     }
     
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
 	/* increase the number of threads for l2tp to nb cpus - 1 */
     len = sizeof(int); 
 	sysctlbyname("hw.ncpu", &nb_cpu, &len, NULL, 0);
@@ -191,7 +191,8 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     CFRetain(bundle);
     
     pppbundle = pppref;
-    CFRetain(pppbundle);
+    if (pppbundle)
+        CFRetain(pppbundle);
             
     // hookup our socket handlers
     bzero(the_vpn_channel, sizeof(struct vpn_channel));
@@ -258,7 +259,8 @@ int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload)
         if (noipsec != opt_noipsec ||
             !CFEqual(dict, ipsec_settings)) {
 				vpnlog(LOG_ERR, "reload prefs - IPSec shared secret cannot be changed\n");
-				CFRelease(dict);
+				if (dict)
+					CFRelease(dict);
 				return -1;
 		}
     }
@@ -576,7 +578,7 @@ int l2tpvpn_listen(void)
 		CFStringRef				auth_method;
 		CFStringRef				string;
 		CFDataRef				data;
-		int						natt_multiple_users;
+		uint32_t						natt_multiple_users;
 
 		/* get authentication method from the IPSec dict */
 		auth_method = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecAuthenticationMethod);

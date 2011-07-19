@@ -56,7 +56,6 @@ enum
 enum
 {
     errSecInvalidCertificate     = priv_errSecDecode, // -26265,  /* This certificate could not be decoded. */
-    errSecNotSigner              = -26267,  /* A certificate was not signed by its proposed parent. */
     errSecPolicyDenied			 = -26270,  /* The certificate chain was not trusted due to a policy not accepting it. */
     errSecInvalidKey             = priv_errSecDecode, // -26274,  /* The provided key material was not valid. */
     errSecInternal               = -26276,  /* An internal error occured in the Security framework. */

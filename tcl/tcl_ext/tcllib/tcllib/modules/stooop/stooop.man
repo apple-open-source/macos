@@ -2,6 +2,7 @@
 [manpage_begin stooop n 4.4.1]
 [moddesc   {Simple Tcl Only Object Oriented Programming}]
 [titledesc {Object oriented extension.}]
+[category  {Programming tools}]
 [require Tcl 8.3]
 [require stooop [opt 4.4.1]]
 [description]

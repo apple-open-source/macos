@@ -39,7 +39,7 @@ Completion checkSyntax(ExecState* exec, const SourceCode& source)
     JSLock lock(exec);
     ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
-    RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
+    ProgramExecutable* program = ProgramExecutable::create(exec, source);
     JSObject* error = program->checkSyntax(exec);
     if (error)
         return Completion(Throw, error);
@@ -47,22 +47,26 @@ Completion checkSyntax(ExecState* exec, const SourceCode& source)
     return Completion(Normal);
 }
 
-Completion evaluate(ExecState* exec, ScopeChain& scopeChain, const SourceCode& source, JSValue thisValue)
+Completion evaluate(ExecState* exec, ScopeChainNode* scopeChain, const SourceCode& source, JSValue thisValue)
 {
     JSLock lock(exec);
     ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
 
-    RefPtr<ProgramExecutable> program = ProgramExecutable::create(exec, source);
-    JSObject* error = program->compile(exec, scopeChain.node());
-    if (error)
-        return Completion(Throw, error);
+    ProgramExecutable* program = ProgramExecutable::create(exec, source);
+    if (!program) {
+        JSValue exception = exec->globalData().exception;
+        exec->globalData().exception = JSValue();
+        return Completion(Throw, exception);
+    }
 
     JSObject* thisObj = (!thisValue || thisValue.isUndefinedOrNull()) ? exec->dynamicGlobalObject() : thisValue.toObject(exec);
 
-    JSValue exception;
-    JSValue result = exec->interpreter()->execute(program.get(), exec, scopeChain.node(), thisObj, &exception);
+    JSValue result = exec->interpreter()->execute(program, exec, scopeChain, thisObj);
 
-    if (exception) {
+    if (exec->hadException()) {
+        JSValue exception = exec->exception();
+        exec->clearException();
+
         ComplType exceptionType = Throw;
         if (exception.isObject())
             exceptionType = asObject(exception)->exceptionType();

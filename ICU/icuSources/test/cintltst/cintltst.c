@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -32,7 +32,10 @@
 #include "unicode/uclean.h"
 #include "unicode/ucal.h"
 #include "uoptions.h"
-#include "putilimp.h" /* for uprv_getUTCtime() */
+#include "putilimp.h" /* for uprv_getRawUTCtime() */
+#ifdef URES_DEBUG
+#include "uresimp.h" /* for ures_dumpCacheContents() */
+#endif
 
 #ifdef XP_MAC_CONSOLE
 #   include <console.h>
@@ -79,7 +82,7 @@ int main(int argc, const char* const argv[])
 
     U_MAIN_INIT_ARGS(argc, argv);
 
-    startTime = uprv_getUTCtime();
+    startTime = uprv_getRawUTCtime();
 
     gOrigArgc = argc;
     gOrigArgv = argv;
@@ -104,8 +107,11 @@ int main(int argc, const char* const argv[])
         defaultDataFound = FALSE;
     }
     u_cleanup();
+#ifdef URES_DEBUG
+    fprintf(stderr, "After initial u_cleanup: RB cache %s empty.\n", ures_dumpCacheContents()?"WAS NOT":"was");
+#endif
 
-    while (REPEAT_TESTS > 0) {   /* Loop runs once per complete execution of the tests 
+    while (getTestOption(REPEAT_TESTS_OPTION) > 0) {   /* Loop runs once per complete execution of the tests
                                   *   used for -r  (repeat) test option.                */
         if (!initArgs(argc, argv, NULL, NULL)) {
             /* Error already displayed. */
@@ -123,7 +129,7 @@ int main(int argc, const char* const argv[])
                 "#### ERROR! %s: u_init() failed with status = \"%s\".\n" 
                 "*** Check the ICU_DATA environment variable and \n"
                 "*** check that the data files are present.\n", argv[0], u_errorName(errorCode));
-                if(!WARN_ON_MISSING_DATA) {
+                if(!getTestOption(WARN_ON_MISSING_DATA_OPTION)) {
                     fprintf(stderr, "*** Exiting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
                     u_cleanup();
                     return 1;
@@ -142,7 +148,7 @@ int main(int argc, const char* const argv[])
                     "*** %s! The converter for " TRY_CNV_2 " cannot be opened.\n"
                     "*** Check the ICU_DATA environment variable and \n"
                     "*** check that the data files are present.\n", warnOrErr);
-            if(!WARN_ON_MISSING_DATA) {
+            if(!getTestOption(WARN_ON_MISSING_DATA_OPTION)) {
                 fprintf(stderr, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
                 u_cleanup();
                 return 1;
@@ -158,7 +164,7 @@ int main(int argc, const char* const argv[])
                     "*** %s! The \"en\" locale resource bundle cannot be opened.\n"
                     "*** Check the ICU_DATA environment variable and \n"
                     "*** check that the data files are present.\n", warnOrErr);
-            if(!WARN_ON_MISSING_DATA) {
+            if(!getTestOption(WARN_ON_MISSING_DATA_OPTION)) {
                 fprintf(stderr, "*** Exitting.  Use the '-w' option if data files were\n*** purposely removed, to continue test anyway.\n");
                 u_cleanup();
                 return 1;
@@ -177,7 +183,7 @@ int main(int argc, const char* const argv[])
         } else {
             fprintf(stderr,
                     "*** %s! Can not open a resource bundle for the default locale %s\n", warnOrErr, uloc_getDefault());
-            if(!WARN_ON_MISSING_DATA) {
+            if(!getTestOption(WARN_ON_MISSING_DATA_OPTION)) {
                 fprintf(stderr, "*** Exitting.  Use the '-w' option if data files were\n"
                     "*** purposely removed, to continue test anyway.\n");
                 u_cleanup();
@@ -194,8 +200,9 @@ int main(int argc, const char* const argv[])
         /*  Tests acutally run HERE.   TODO:  separate command line option parsing & setting from test execution!! */
         nerrors = runTestRequest(root, argc, argv);
 
-        if (--REPEAT_TESTS > 0) {
-            printf("Repeating tests %d more time(s)\n", REPEAT_TESTS);
+        setTestOption(REPEAT_TESTS_OPTION, DECREMENT_OPTION_VALUE);
+        if (getTestOption(REPEAT_TESTS_OPTION) > 0) {
+            printf("Repeating tests %d more time(s)\n", getTestOption(REPEAT_TESTS_OPTION));
         }
         cleanUpTestTree(root);
 
@@ -203,6 +210,14 @@ int main(int argc, const char* const argv[])
         ctst_freeAll();
         /* To check for leaks */
         u_cleanup(); /* nuke the hashtable.. so that any still-open cnvs are leaked */
+#ifdef URES_DEBUG
+        if(ures_dumpCacheContents()) {
+          fprintf(stderr, "Error: After final u_cleanup, RB cache was not empty.\n");
+          nerrors++;
+        } else {
+          fprintf(stderr,"OK: After final u_cleanup, RB cache was empty.\n");
+        }
+#endif
 #endif
 
     }  /* End of loop that repeats the entire test, if requested.  (Normally doesn't loop)  */
@@ -211,7 +226,7 @@ int main(int argc, const char* const argv[])
         fprintf(stderr, "There were %d blocks leaked!\n", ALLOCATION_COUNT);
         nerrors++;
     }
-    endTime = uprv_getUTCtime();
+    endTime = uprv_getRawUTCtime();
     diffTime = (int32_t)(endTime - startTime);
     printf("Elapsed Time: %02d:%02d:%02d.%03d\n",
         (int)((diffTime%U_MILLIS_PER_DAY)/U_MILLIS_PER_HOUR),
@@ -318,7 +333,7 @@ const char *  ctest_dataSrcDir()
                 dataSrcDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
             }
             else {
-                dataSrcDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
+                dataSrcDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
             }
         }
     }
@@ -385,7 +400,7 @@ const char *ctest_dataOutDir()
                 dataOutDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
             }
             else {
-                dataOutDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
+                dataOutDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING "out" U_FILE_SEP_STRING;
             }
         }
     }
@@ -441,7 +456,7 @@ UBool ctest_resetICU() {
     free(dataDir);
     u_init(&status);
     if (U_FAILURE(status)) {
-        log_err("u_init failed with %s\n", u_errorName(status));
+        log_err_status(status, "u_init failed with %s\n", u_errorName(status));
         return FALSE;
     }
     return TRUE;
@@ -494,7 +509,7 @@ char *aescstrdup(const UChar* unichars,int32_t length){
     newString = (char*)ctst_malloc ( sizeof(char) * 8 * (length +1));
     target = newString;
     targetLimit = newString+sizeof(char) * 8 * (length +1);
-    ucnv_setFromUCallBack(conv, UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_JAVA, &cb, &p, &errorCode);
+    ucnv_setFromUCallBack(conv, UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_C, &cb, &p, &errorCode);
     ucnv_fromUnicode(conv,&target,targetLimit, &unichars, (UChar*)(unichars+length),NULL,TRUE,&errorCode);
     ucnv_close(conv);
     *target = '\0';
@@ -560,7 +575,7 @@ U_CFUNC void ctest_setTimeZone(const char *optionalTimeZone, UErrorCode *status)
         optionalTimeZone = "America/Los_Angeles";
     }
     if (gOriginalTimeZone[0]) {
-        log_err("*** Error: time zone saved twice. New value will be %s\n",
+        log_data_err("*** Error: time zone saved twice. New value will be %s (Are you missing data?)\n",
                optionalTimeZone);
     }
     ucal_getDefaultTimeZone(gOriginalTimeZone, CTEST_MAX_TIMEZONE_SIZE, status);
@@ -637,7 +652,7 @@ void ctst_freeAll() {
 U_CFUNC UBool assertSuccess(const char* msg, UErrorCode* ec) {
     U_ASSERT(ec!=NULL);
     if (U_FAILURE(*ec)) {
-        log_err("FAIL: %s (%s)\n", msg, u_errorName(*ec));
+        log_err_status(*ec, "FAIL: %s (%s)\n", msg, u_errorName(*ec));
         return FALSE;
     }
     return TRUE;

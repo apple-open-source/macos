@@ -13,6 +13,8 @@
 # RCS: @(#) $Id$
 
 library tk
+
+##############################################################################
 
 # Define the unsupported generic interfaces.
 
@@ -129,8 +131,9 @@ declare 29 generic {
     void TkpFreeCursor(TkCursor *cursorPtr)
 }
 declare 30 generic {
-    char *TkGetBitmapData(Tcl_Interp *interp, char *string, char *fileName,
-	    int *widthPtr, int *heightPtr, int *hotXPtr, int *hotYPtr)
+    char *TkGetBitmapData(Tcl_Interp *interp, char *string,
+	    char *fileName, int *widthPtr, int *heightPtr,
+	    int *hotXPtr, int *hotYPtr)
 }
 declare 31 generic {
     void TkGetButtPoints(double p1[], double p2[],
@@ -518,6 +521,57 @@ declare 157 generic {
 	    CONST char **argv)
 }
 
+# Next group of functions exposed due to [Bug 2768945]. Numbers are chosen so
+# as to match 8.6 branch/HEAD.
+declare 169 generic {
+    int TkStateParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 170 generic {
+    char *TkStatePrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+declare 171 generic {
+    int TkCanvasDashParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 172 generic {
+    char *TkCanvasDashPrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+declare 173 generic {
+    int TkOffsetParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 174 generic {
+    char *TkOffsetPrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+declare 175 generic {
+    int TkPixelParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 176 generic {
+    char *TkPixelPrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+declare 177 generic {
+    int TkOrientParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 178 generic {
+    char *TkOrientPrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+declare 179 generic {
+    int TkSmoothParseProc(ClientData clientData, Tcl_Interp *interp,
+	    Tk_Window tkwin, CONST char *value, char *widgRec, int offset)
+}
+declare 180 generic {
+    char *TkSmoothPrintProc(ClientData clientData, Tk_Window tkwin,
+	    char *widgRec, int offset, Tcl_FreeProc **freeProcPtr)
+}
+
 ##############################################################################
 
 # Define the platform specific internal Tcl interface. These functions are
@@ -692,6 +746,13 @@ declare 35 win {
     int TkWinGetPlatformTheme(void)
 }
 
+# Exported through stub table since Tk 8.5.9
+
+declare 36 win {
+    LRESULT CALLBACK TkWinChildProc(HWND hwnd,
+	    UINT message, WPARAM wParam, LPARAM lParam)
+}
+
 ################################
 # Aqua specific functions
 
@@ -745,7 +806,7 @@ declare 12 aqua {
 #}
 
 declare 14 aqua {
-    int TkMacOSXDoHLEvent(EventRecord *theEvent)
+    int TkMacOSXDoHLEvent(void *theEvent)
 }
 
 # removed duplicate from tkPlat table(tk.decls)
@@ -757,7 +818,7 @@ declare 16 aqua {
     Window TkMacOSXGetXWindow(void *macWinPtr)
 }
 declare 17 aqua {
-    int TkMacOSXGrowToplevel(void *whichWindow, Point start)
+    int TkMacOSXGrowToplevel(void *whichWindow, XPoint start)
 }
 declare 18 aqua {
     void TkMacOSXHandleMenuSelect(short theMenu, unsigned short theItem,
@@ -783,7 +844,7 @@ declare 23 aqua {
     void TkMacOSXMakeRealWindowExist(TkWindow *winPtr)
 }
 declare 24 aqua {
-    BitMapPtr TkMacOSXMakeStippleMap(Drawable d1, Drawable d2)
+    void *TkMacOSXMakeStippleMap(Drawable d1, Drawable d2)
 }
 declare 25 aqua {
     void TkMacOSXMenuClick(void)
@@ -819,13 +880,13 @@ declare 35 aqua {
     TkRegion TkMacOSXVisableClipRgn(TkWindow *winPtr)
 }
 declare 36 aqua {
-    void TkMacOSXWinBounds(TkWindow *winPtr, Rect *geometry)
+    void TkMacOSXWinBounds(TkWindow *winPtr, void *geometry)
 }
 declare 37 aqua {
     void TkMacOSXWindowOffset(void *wRef, int *xOffset, int *yOffset)
 }
 declare 38 aqua {
-    int TkSetMacColor(unsigned long pixel, CGColorRef *macColor)
+    int TkSetMacColor(unsigned long pixel, void *macColor)
 }
 declare 39 aqua {
     void TkSetWMName(TkWindow *winPtr, Tk_Uid titleUid)
@@ -1579,3 +1640,7 @@ declare 90 aqua {
 declare 91 aqua {
     int XSync(Display *display, Bool flag)
 }
+
+# Local Variables:
+# mode: tcl
+# End:

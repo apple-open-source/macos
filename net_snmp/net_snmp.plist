@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2007-07-16</string>
+	<string>2011-01-05</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -15,16 +15,15 @@
 		<string>Mac OS X support for hrDevice.hrPartitionTable and hrDevice.hrDiskStorageTable</string>
 		<string>Mac OS X support for hrSWInstalledTable</string>
 		<string>Mac OS X support for hrSWRunPerfCPU</string>
-		<string>Mac OS X support for LM-SENSORS MIB</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>net-snmp</string>
 	<key>OpenSourceSHA1</key>
-	<string>ac5ba033c10d53d3057415121f8c4936c643c208</string>
+	<string></string>
 	<key>OpenSourceURL</key>
-	<string>http://easynews.dl.sourceforge.net/sourceforge/net-snmp/net-snmp-5.4.1.tar.gz</string>
+	<string>http://easynews.dl.sourceforge.net/sourceforge/net-snmp/net-snmp-5.6.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>5.4.1</string>
+	<string>5.6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.net-snmp.org/</string>
 </dict>

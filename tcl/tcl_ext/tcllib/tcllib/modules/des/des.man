@@ -3,6 +3,7 @@
 [copyright {2005, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [moddesc {Data Encryption Standard (DES)}]
 [titledesc {Implementation of the DES and triple-DES ciphers}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require des 1.1]
 [description]

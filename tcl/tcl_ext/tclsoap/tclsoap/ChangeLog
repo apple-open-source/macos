@@ -1,0 +1,107 @@
+2009-02-26  Andreas Kupries  <andreask@activestate.com>
+
+	* SOAP-CGI.tcl (::SOAP::CGI::soap_call): Fix bug in the extraction
+	  of argument and handle the possibility of the methodname tag
+	  having an XML namespace associated with it, reported by Giovanni
+	  Varasano <giovanni.varasano@fastwebnet.it>.
+
+2008-07-09  Andreas Kupries  <andreask@activestate.com>
+
+	* Merged branch 'soap1_6_7_as_tdom' back into the main trunk, up
+	  to and including tag 'soap1_6_7_as_tdom_complete'.
+
+	= TAG = soap_as_tdom_on_trunk
+
+2008-03-04  Andreas Kupries  <andreask@activestate.com>
+
+	* = TAG = soap1_6_7_as_tdom_complete
+
+	* utils.tcl: Converted all places using TclDOM commands over to
+	  tDOM. Additionally rewrote the 'getDocumentElement' accessor to
+	  be iterative instead of recursive.
+
+	* SOAP.tcl: More conversions. tDOM's XPath handling is strict,
+	* SOAP-CGI.tcl: standard compliant, i.e. expects us to properly
+	* SOAP-service.tcl: declare and use XML namespaces for the SOAP
+	  elements. Rewrote all SOAP-specific selectNode calls. The XMLRPC
+	  selectNode calls are left unchanged, as XMLRPC doesn't use
+	  namespaced elements.
+
+	* test/all.tcl: Disabled xpath.tcl and switched TclDOM over to
+	  tDOM.
+	
+	* tests/xmlrpc.test: Rewrote the expected XML results, tDOM
+	  generates a different textual layout than TlDOM when serializing
+	  a DOM tree.
+	
+	* tests/soap.test: Fixed regexp based tests to handle the changed
+	  serialized XML (different layout), and fixed one test not using
+	  proper XML namespaces for the SOAP elements.
+
+2008-03-04  Andreas Kupries  <andreask@activestate.com>
+
+	* = TAG = soap1_6_7_as_tdom_centralized_dom_access
+
+	* utils.tcl: Made require SOAP::xpath global to force load of the
+	  dom packages.
+
+	* tests/all.tcl: Rewritten to ensure loading of the current
+	  sources for testing, instead of some TclSOAP installation.
+
+	* tests/validator.test: Fixed direct dom access, now using
+	  SOAP::Utils commands instead.
+
+	* tests/xmlrpc.test: Fixed quotation differences in the current
+	  vs. expected output.
+
+	* SOAP-service.tcl (SOAP::Service::base64_service): Resolved the
+	  remaining problemzone by rewriting the xpath invokation to a
+	  selectNode node call followed by use of the new accessor
+	  'getSimpleElementValue' to perform the parts of xpath call the
+	  selectNode doesn't do on its own, to make the whole sequence
+	  equivalent. The SOAP::xpath dependency is no more.
+
+	* SOAP.tcl (::SOAP::insert_headers): Resolved the remaining
+	  problem zone through use of the new 'documentElement' accessor
+	  command.
+
+	* utils.tcl: Created two additional accessors (documentElement,
+	  getSimpleElementValue), and fixed typos in the new internal
+	  'IsElement' and 'Parent' acessors.
+
+2008-03-03  Andreas Kupries  <andreask@activestate.com>
+
+	* SOAP-domain.tcl: Removed dependency on TclDOM and changed all
+	* pkgIndex.tcl: TclDOM accesses over to SOAP::Utils
+	  commands. Moved the package to version 1.4.1. No problemzones.
+
+	* SOAP-CGI.tcl: Removed dependency on TclDOM and changed all
+	* pkgIndex.tcl: TclDOM accesses over to SOAP::Utils
+	  commands. Moved the package to version 1.0.1. No problemzones.
+
+	* XMLRPC.tcl: Removed dependency on TclDOM and changed all TclDOM
+	* pkgIndex.tcl: accesses over to SOAP::Utils commands. Moved the
+	  package to version 1.0.1. No problemzones.
+
+	* SOAP.tcl: Removed dependency on TclDOM and changed all TclDOM
+	* pkgIndex.tcl: accesses over to SOAP::Utils commands. Moved the
+	  package to version 1.6.7.1. One problemzone remains right now:
+	  The access to -documentElement in 'insert_headers', this code
+	  has not been not converted yet due to not fully understanding
+	  what it does.
+
+	* SOAP-service.tcl: Removed dependency on TclDOM and changed all
+	* pkgIndex.tcl: TclDOM accesses over to SOAP::Utils commands. Only
+	  one problem- zone remains right now: The use of 'SOAP::xpath' in
+	  'base64_service'. Moved the package to version 0.5.
+	
+2008-03-03  Andreas Kupries  <andreask@activestate.com>
+
+	* utils.tcl: Added a number of DOM accessors missing from the
+	* pkgIndex.tcl: package (document construction, destruction,
+	  conversion from and to XML, node/attribute creation). Light
+	  internal cleanup, i.e. a number of procedures could and now do
+	  use abstract dom accessors instead of using direct DOM
+	  commands. Moved the package to version 1.1.
+
+	= BRANCH = soap1_6_7_as_tdom

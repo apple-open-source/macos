@@ -1,0 +1,155 @@
+Dictionary quota
+================
+
+The /dictionary/ quota backend supports both *storage* and *messages* quota
+limits. The current quota is kept in a dictionary. The available dictionaries
+are:
+
+ * MySQL
+ * PostgreSQL
+ * Flat file
+
+The quota root format is:
+
+---%<-------------------------------------------------------------------------
+quota = dict:<quota root name>:<username>[:<option>[...]]:<dictionary URI>
+---%<-------------------------------------------------------------------------
+
+If /username/ is left empty, the logged in username is used (this is typically
+what you want). Another useful username is '%d' for supporting domain-wide
+quotas.
+
+The supported options are:
+
+ * noenforcing: Don't enforce quota limits, only track them.
+ * ignoreunlimited: If user has unlimited quota, don't track it.
+ * ns=<prefix>: This quota root is tracked only for the given namespace.
+
+Examples
+--------
+
+---%<-------------------------------------------------------------------------
+plugin {
+  # SQL backend:
+  quota = dict:User quota::proxy::quota
+  # file backend:
+  quota = dict:User quota::file:%h/Maildir/dovecot-quota
+
+  quota_rule = *:storage=10M:messages=1000
+}
+dict {
+  quota = mysql:/etc/dovecot/dovecot-dict-sql.conf.ext
+}
+---%<-------------------------------------------------------------------------
+
+The above SQL example uses dictionary proxy process (see below), because SQL
+libraries aren't linked to all Dovecot binaries. The file example accesses the
+file directly.
+
+Example 'dovecot-dict-sql.conf.ext':
+
+---%<-------------------------------------------------------------------------
+connect = host=localhost dbname=mails user=sqluser password=sqlpass
+map {
+  pattern = priv/quota/storage
+  table = quota
+  username_field = username
+  value_field = bytes
+}
+map {
+  pattern = priv/quota/messages
+  table = quota
+  username_field = username
+  value_field = messages
+}
+---%<-------------------------------------------------------------------------
+
+Create the table like this:
+
+---%<-------------------------------------------------------------------------
+CREATE TABLE quota (
+  username varchar(100) not null,
+  bytes bigint not null default 0,
+  messages integer not null default 0,
+  primary key (username)
+);
+---%<-------------------------------------------------------------------------
+
+MySQL uses the following queries to update the quota. You need suitable
+privileges.
+
+---%<-------------------------------------------------------------------------
+INSERT INTO table (bytes,username) VALUES ('112497180','foo@spam.dom') ON
+DUPLICATE KEY UPDATE bytes='112497180';
+INSERT INTO table (messages,username) VALUES ('1743','foo@spam.dom') ON
+DUPLICATE KEY UPDATE messages='1743';
+UPDATE table SET bytes=bytes-14433,messages=messages-2 WHERE username =
+'foo@spam.dom';
+---%<-------------------------------------------------------------------------
+
+If you're using PostgreSQL, you'll need a trigger:
+
+---%<-------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION merge_quota() RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.messages < 0 OR NEW.messages IS NULL THEN
+    -- ugly kludge: we came here from this function, really do try to insert
+    IF NEW.messages IS NULL THEN
+      NEW.messages = 0;
+    ELSE
+      NEW.messages = -NEW.messages;
+    END IF;
+    return NEW;
+  END IF;
+
+  LOOP
+    UPDATE quota SET bytes = bytes + NEW.bytes,
+      messages = messages + NEW.messages
+      WHERE username = NEW.username;
+    IF found THEN
+      RETURN NULL;
+    END IF;
+
+    BEGIN
+      IF NEW.messages = 0 THEN
+        INSERT INTO quota (bytes, messages, username)
+          VALUES (NEW.bytes, NULL, NEW.username);
+      ELSE
+        INSERT INTO quota (bytes, messages, username)
+          VALUES (NEW.bytes, -NEW.messages, NEW.username);
+      END IF;
+      return NULL;
+    EXCEPTION WHEN unique_violation THEN
+      -- someone just inserted the record, update it
+    END;
+  END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER mergequota BEFORE INSERT ON quota
+   FOR EACH ROW EXECUTE PROCEDURE merge_quota();
+---%<-------------------------------------------------------------------------
+
+Dictionary proxy server
+-----------------------
+
+To avoid each process making a new SQL connection, you can make all dictionary
+communications go through a dictionary server process which keeps the
+connections permanently open.
+
+The dictionary server is referenced with URI 'proxy:<dictionary server socket
+path>:<dictionary name>'. The socket path may be left empty if you haven't
+changed 'base_dir' setting in 'dovecot.conf'. Otherwise set it to
+'<base_dir>/dict-server'. The dictionary names are configured in
+'dovecot.conf'. For example:
+
+---%<-------------------------------------------------------------------------
+dict {
+  quota = mysql:/etc/dovecot/dovecot-dict-sql.conf.ext
+  expire = mysql:/etc/dovecot/dovecot-dict-sql.conf.ext
+}
+---%<-------------------------------------------------------------------------
+
+See <Dict.txt> for more information, especially about permission issues.
+
+(This file was created from the wiki on 2011-05-11 04:42)

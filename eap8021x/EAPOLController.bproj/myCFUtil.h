@@ -33,4 +33,4 @@
 
 void my_CFRelease(void * t);
 
-#endif _S_MYCFUTIL_H
+#endif /* _S_MYCFUTIL_H */

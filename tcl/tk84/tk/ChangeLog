@@ -1,3 +1,89 @@
+2010-03-12  Jan Nijtmans  <nijtmans@users.sf.net>
+
+    * generic/tkButton.h       [Bug 2956548] TkpButtonSetDefaults only
+    * generic/tkButton.c       initializes one button type
+    * win/tkWinButton.c
+    * win/tkWinTest.c          Fix 2 minor gcc warnings
+    * win/.cvsignore
+    * doc/.cvsignore           Ignore man.macros
+
+2010-02-17  Joe English  <jenglish@users.sourceforge.net>
+
+	* generic/tkMenu.c: Defer TkMenuOptionTables cleanup
+	to CallWhenDeleted() time, to ensure that the record
+	doesn't get freed until after all widget instance commands
+	have been deleted (Fixes [Bug#2952745]).
+
+2010-01-23  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* library/bgerror.tcl: [TIP #359]: Extended Window Manager Hints
+	* library/clrpick.tcl: backported from 8.5 for use on X11.
+	* library/dialog.tcl:
+	* library/msgbox.tcl:
+	* library/tkfbox.tcl:
+	* tests/unixWm.test:
+	* unix/tkUnixWm.c:
+
+2009-12-11  Donal K. Fellows  <dkf@users.sf.net>
+
+	* library/tk.tcl (::tk::ScreenChanged): [Bug 2912473]: Stop problems
+	caused by display names with a double colon in.
+
+2009-11-01  Joe Mistachkin  <joe@mistachkin.com>
+
+	* win/tkWinButton.c: [Bug 1739613]: The default width being stored
+	in TSD cannot be put into the process-wide options table.  This fix
+	allocates storage for the default width from the heap and frees it
+	using an exit handler.
+
+2009-10-25  Donal K. Fellows  <dkf@users.sf.net>
+
+	* unix/tkUnixColor.c (TkpGetColor): [Bug 2809525]: Impose a maximum
+	X11 color name length so that it becomes impossible to blow things up
+	that way.
+
+2009-10-22  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/tkText.c (Tk_TextCmd, TextEditUndo, TextEditRedo)
+	(TextEditCmd, updateDirtyFlag):
+	* generic/tkText.h: [Patch 1469210]: Corrected handling of marking as
+	dirty when inserting after an undo from a non-dirty state.
+
+2009-10-07  Donal K. Fellows  <dkf@users.sf.net>
+
+	* unix/tkUnixScrlbr.c (TkpComputeScrollbarGeometry): [Patch 2088597]:
+	Stop scrollbars from getting too small at the end.
+
+2009-09-14  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tkMenuDraw.c (TkPostSubmenu): [Bug 873613]: Fix reposting of
+	* win/tkWinMenu.c (TkWinHandleMenuEvent): submenu in torn off Windows
+	menu.
+	(DrawMenuEntryArrow): [Bug 873608]: Draw Win menu arrow after being
+	torn off.
+
+2009-08-24  Daniel Steffen  <das@users.sourceforge.net>
+
+	* macosx/tkMacOSXHLEvents.c (ScriptHandler): fix "do script" apple
+	event handler issues on recent Mac OS X releases by using AE coercion
+	to 'utf8' for text data and to 'fsrf' for alias data. (reported by
+	Youness Alaoui on tcl-mac)
+
+2009-07-22  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/tkFocus.c (TkFocusDeadWindow): [Bug 2496114]: Ensure that
+	focus desynchronization doesn't cause a crash.
+
+2009-04-30  Don Porter  <dgp@users.sourceforge.net>
+
+	* win/tkWinPixmap.c (Tk_GetPixmap): [Bug 2080533]: Added patch that
+	allows Tk to keep working even when the graphics card is stressed.
+
+2009-04-28  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* unix/tcl.m4, unix/configure (SC_CONFIG_CFLAGS): harden the check
+	to add _r to CC on AIX with threads.
+
 2009-04-14  Stuart Cassoff  <stwo@users.sourceforge.net>
 
 	* unix/tcl.m4:	Removed -Wno-implicit-int from CFLAGS_WARNING.

@@ -25,19 +25,25 @@
 #include "ScriptElement.h"
 
 #include "CachedScript.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
+#include "ContentSecurityPolicy.h"
 #include "Document.h"
+#include "DocumentParser.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
 #include "HTMLScriptElement.h"
+#include "IgnoreDestructiveWriteCountIncrementer.h"
 #include "MIMETypeRegistry.h"
-#include "ScriptController.h"
+#include "Page.h"
+#include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
-#include "StringHash.h"
+#include "Settings.h"
 #include "Text.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringHash.h>
 
 #if ENABLE(SVG)
 #include "SVGNames.h"
@@ -46,61 +52,68 @@
 
 namespace WebCore {
 
-void ScriptElement::insertedIntoDocument(ScriptElementData& data, const String& sourceUrl)
+ScriptElement::ScriptElement(Element* element, bool parserInserted, bool alreadyStarted)
+    : m_element(element)
+    , m_cachedScript(0)
+    , m_parserInserted(parserInserted)
+    , m_isExternalScript(false)
+    , m_alreadyStarted(alreadyStarted)
+    , m_haveFiredLoad(false)
+    , m_willBeParserExecuted(false)
+    , m_readyToBeParserExecuted(false)
+    , m_willExecuteWhenDocumentFinishedParsing(false)
+    , m_forceAsync(!parserInserted)
+    , m_willExecuteInOrder(false)
 {
-    if (data.createdByParser())
-        return;
-
-    if (!sourceUrl.isEmpty()) {
-        data.requestScript(sourceUrl);
-        return;
-    }
-
-    // If there's an empty script node, we shouldn't evaluate the script
-    // because if a script is inserted afterwards (by setting text or innerText)
-    // it should be evaluated, and evaluateScript only evaluates a script once.
-    data.evaluateScript(ScriptSourceCode(data.scriptContent(), data.element()->document()->url())); // FIXME: Provide a real starting line number here.
+    ASSERT(m_element);
 }
 
-void ScriptElement::removedFromDocument(ScriptElementData& data)
+ScriptElement::~ScriptElement()
+{
+    stopLoadRequest();
+}
+
+void ScriptElement::insertedIntoDocument()
+{
+    if (!m_parserInserted)
+        prepareScript(); // FIXME: Provide a real starting line number here.
+}
+
+void ScriptElement::removedFromDocument()
 {
     // Eventually stop loading any not-yet-finished content
-    data.stopLoadRequest();
+    stopLoadRequest();
 }
 
-void ScriptElement::childrenChanged(ScriptElementData& data)
+void ScriptElement::childrenChanged()
 {
-    if (data.createdByParser())
+    if (!m_parserInserted && m_element->inDocument())
+        prepareScript(); // FIXME: Provide a real starting line number here.
+}
+
+void ScriptElement::handleSourceAttribute(const String& sourceUrl)
+{
+    if (ignoresLoadRequest() || sourceUrl.isEmpty())
         return;
 
-    Element* element = data.element();
-
-    // If a node is inserted as a child of the script element
-    // and the script element has been inserted in the document
-    // we evaluate the script.
-    if (element->inDocument() && element->firstChild())
-        data.evaluateScript(ScriptSourceCode(data.scriptContent(), element->document()->url())); // FIXME: Provide a real starting line number here
+    prepareScript(); // FIXME: Provide a real starting line number here.
 }
 
-void ScriptElement::finishParsingChildren(ScriptElementData& data, const String& sourceUrl)
+void ScriptElement::handleAsyncAttribute()
 {
-    // The parser just reached </script>. If we have no src and no text,
-    // allow dynamic loading later.
-    if (sourceUrl.isEmpty() && data.scriptContent().isEmpty())
-        data.setCreatedByParser(false);
-}
-
-void ScriptElement::handleSourceAttribute(ScriptElementData& data, const String& sourceUrl)
-{
-    if (data.ignoresLoadRequest() || sourceUrl.isEmpty())
-        return;
-
-    data.requestScript(sourceUrl);
+    m_forceAsync = false;
 }
 
 // Helper function
-static bool isSupportedJavaScriptLanguage(const String& language)
+static bool isLegacySupportedJavaScriptLanguage(const String& language)
 {
+    // Mozilla 1.8 accepts javascript1.0 - javascript1.7, but WinIE 7 accepts only javascript1.1 - javascript1.3.
+    // Mozilla 1.8 and WinIE 7 both accept javascript and livescript.
+    // WinIE 7 accepts ecmascript and jscript, but Mozilla 1.8 doesn't.
+    // Neither Mozilla 1.8 nor WinIE 7 accept leading or trailing whitespace.
+    // We want to accept all the values that either of these browsers accept, but not other values.
+
+    // FIXME: This function is not HTML5 compliant. These belong in the MIME registry as "text/javascript<version>" entries.
     typedef HashSet<String, CaseFoldingHash> LanguageSet;
     DEFINE_STATIC_LOCAL(LanguageSet, languages, ());
     if (languages.isEmpty()) {
@@ -116,162 +129,214 @@ static bool isSupportedJavaScriptLanguage(const String& language)
         languages.add("javascript1.7");
         languages.add("livescript");
         languages.add("ecmascript");
-        languages.add("jscript");                
+        languages.add("jscript");
     }
 
     return languages.contains(language);
 }
 
-// ScriptElementData
-ScriptElementData::ScriptElementData(ScriptElement* scriptElement, Element* element)
-    : m_scriptElement(scriptElement)
-    , m_element(element)
-    , m_cachedScript(0)
-    , m_createdByParser(false)
-    , m_requested(false)
-    , m_evaluated(false)
-    , m_firedLoad(false)
+void ScriptElement::dispatchErrorEvent()
 {
-    ASSERT(m_scriptElement);
-    ASSERT(m_element);
+    m_element->dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
-ScriptElementData::~ScriptElementData()
+bool ScriptElement::isScriptTypeSupported(LegacyTypeSupport supportLegacyTypes) const
 {
-    stopLoadRequest();
+    // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
+    // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
+    // - Allowing a different set of languages for language= and type=. language= supports Javascript 1.1 and 1.4-1.6, but type= does not.
+
+    String type = typeAttributeValue();
+    String language = languageAttributeValue();
+    if (type.isEmpty() && language.isEmpty())
+        return true; // Assume text/javascript.
+    if (type.isEmpty()) {
+        type = "text/" + language.lower();
+        if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type) || isLegacySupportedJavaScriptLanguage(language))
+            return true;
+    } else if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace().lower()) || (supportLegacyTypes == AllowLegacyTypeInTypeAttribute && isLegacySupportedJavaScriptLanguage(type)))
+        return true;
+    return false;
 }
 
-void ScriptElementData::requestScript(const String& sourceUrl)
+// http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
+bool ScriptElement::prepareScript(const TextPosition1& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
 {
-    Document* document = m_element->document();
+    if (m_alreadyStarted)
+        return false;
 
-    // FIXME: Eventually we'd like to evaluate scripts which are inserted into a 
-    // viewless document but this'll do for now.
-    // See http://bugs.webkit.org/show_bug.cgi?id=5727
-    if (!document->frame())
-        return;
+    bool wasParserInserted;
+    if (m_parserInserted) {
+        wasParserInserted = true;
+        m_parserInserted = false;
+    } else
+        wasParserInserted = false;
 
-    if (!m_element->dispatchBeforeLoadEvent(sourceUrl))
-        return;
+    if (wasParserInserted && !asyncAttributeValue())
+        m_forceAsync = true;
 
-    ASSERT(!m_cachedScript);
-    m_cachedScript = document->docLoader()->requestScript(sourceUrl, scriptCharset());
-    m_requested = true;
+    // FIXME: HTML5 spec says we should check that all children are either comments or empty text nodes.
+    if (!hasSourceAttribute() && !m_element->firstChild())
+        return false;
 
-    // m_createdByParser is never reset - always resied at the initial value set while parsing.
-    // m_evaluated is left untouched as well to avoid script reexecution, if a <script> element
-    // is removed and reappended to the document.
-    m_firedLoad = false;
+    if (!m_element->inDocument())
+        return false;
 
-    if (m_cachedScript) {
-        m_cachedScript->addClient(this);
-        return;
+    if (!isScriptTypeSupported(supportLegacyTypes))
+        return false;
+
+    if (wasParserInserted) {
+        m_parserInserted = true;
+        m_forceAsync = false;
     }
 
-    m_scriptElement->dispatchErrorEvent();
+    m_alreadyStarted = true;
+
+    // FIXME: If script is parser inserted, verify it's still in the original document.
+
+    // FIXME: Eventually we'd like to evaluate scripts which are inserted into a
+    // viewless document but this'll do for now.
+    // See http://bugs.webkit.org/show_bug.cgi?id=5727
+    if (!m_element->document()->frame())
+        return false;
+
+    if (!m_element->document()->frame()->script()->canExecuteScripts(AboutToExecuteScript))
+        return false;
+
+    if (!isScriptForEventSupported())
+        return false;
+
+    if (!charsetAttributeValue().isEmpty())
+        m_characterEncoding = charsetAttributeValue();
+    else
+        m_characterEncoding = m_element->document()->charset();
+
+    if (hasSourceAttribute())
+        if (!requestScript(sourceAttributeValue()))
+            return false;
+
+    if (hasSourceAttribute() && deferAttributeValue() && m_parserInserted && !asyncAttributeValue()) {
+        m_willExecuteWhenDocumentFinishedParsing = true;
+        m_willBeParserExecuted = true;
+    } else if (hasSourceAttribute() && m_parserInserted && !asyncAttributeValue())
+        m_willBeParserExecuted = true;
+    else if (!hasSourceAttribute() && m_parserInserted && !m_element->document()->haveStylesheetsLoaded()) {
+        m_willBeParserExecuted = true;
+        m_readyToBeParserExecuted = true;
+    } else if (hasSourceAttribute() && !asyncAttributeValue() && !m_forceAsync) {
+        m_willExecuteInOrder = true;
+        m_element->document()->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::IN_ORDER_EXECUTION);
+        m_cachedScript->addClient(this);
+    } else if (hasSourceAttribute())
+        m_cachedScript->addClient(this);
+    else
+        executeScript(ScriptSourceCode(scriptContent(), m_element->document()->url(), scriptStartPosition));
+
+    return true;
 }
 
-void ScriptElementData::evaluateScript(const ScriptSourceCode& sourceCode)
+bool ScriptElement::requestScript(const String& sourceUrl)
 {
-    if (m_evaluated || sourceCode.isEmpty() || !shouldExecuteAsJavaScript())
+    RefPtr<Document> originalDocument = m_element->document();
+    if (!m_element->dispatchBeforeLoadEvent(sourceUrl))
+        return false;
+    if (!m_element->inDocument() || m_element->document() != originalDocument)
+        return false;
+
+    ASSERT(!m_cachedScript);
+    // FIXME: If sourceUrl is empty, we should dispatchErrorEvent().
+    m_cachedScript = m_element->document()->cachedResourceLoader()->requestScript(sourceUrl, scriptCharset());
+    m_isExternalScript = true;
+
+    if (m_cachedScript)
+        return true;
+
+    dispatchErrorEvent();
+    return false;
+}
+
+void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
+{
+    ASSERT(m_alreadyStarted);
+
+    if (sourceCode.isEmpty())
         return;
 
-    if (Frame* frame = m_element->document()->frame()) {
-        if (!frame->script()->canExecuteScripts(AboutToExecuteScript))
-            return;
+    if (!m_isExternalScript && !m_element->document()->contentSecurityPolicy()->allowInlineScript())
+        return;
 
-        m_evaluated = true;
+    RefPtr<Document> document = m_element->document();
+    ASSERT(document);
+    if (Frame* frame = document->frame()) {
+        {
+            IgnoreDestructiveWriteCountIncrementer ignoreDesctructiveWriteCountIncrementer(m_isExternalScript ? document.get() : 0);
+            // Create a script from the script element node, using the script
+            // block's source and the script block's type.
+            // Note: This is where the script is compiled and actually executed.
+            frame->script()->evaluate(sourceCode);
+        }
 
-        frame->script()->evaluate(sourceCode);
         Document::updateStyleForAllDocuments();
     }
 }
 
-void ScriptElementData::stopLoadRequest()
+void ScriptElement::stopLoadRequest()
 {
     if (m_cachedScript) {
-        m_cachedScript->removeClient(this);
+        if (!m_willBeParserExecuted)
+            m_cachedScript->removeClient(this);
         m_cachedScript = 0;
     }
 }
 
-void ScriptElementData::execute(CachedScript* cachedScript)
+void ScriptElement::execute(CachedScript* cachedScript)
 {
+    ASSERT(!m_willBeParserExecuted);
     ASSERT(cachedScript);
     if (cachedScript->errorOccurred())
-        m_scriptElement->dispatchErrorEvent();
-    else {
-        evaluateScript(ScriptSourceCode(cachedScript));
-        m_scriptElement->dispatchLoadEvent();
+        dispatchErrorEvent();
+    else if (!cachedScript->wasCanceled()) {
+        executeScript(ScriptSourceCode(cachedScript));
+        dispatchLoadEvent();
     }
     cachedScript->removeClient(this);
 }
 
-void ScriptElementData::notifyFinished(CachedResource* o)
+void ScriptElement::notifyFinished(CachedResource* o)
 {
+    ASSERT(!m_willBeParserExecuted);
     ASSERT_UNUSED(o, o == m_cachedScript);
-    m_element->document()->executeScriptSoon(this, m_cachedScript);
+    if (m_willExecuteInOrder)
+        m_element->document()->scriptRunner()->notifyInOrderScriptReady();
+    else
+        m_element->document()->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::ASYNC_EXECUTION);
     m_cachedScript = 0;
 }
 
-bool ScriptElementData::ignoresLoadRequest() const
+bool ScriptElement::ignoresLoadRequest() const
 {
-    return m_evaluated || m_requested || m_createdByParser || !m_element->inDocument();
+    return m_alreadyStarted || m_isExternalScript || m_parserInserted || !m_element->inDocument();
 }
 
-bool ScriptElementData::shouldExecuteAsJavaScript() const
+bool ScriptElement::isScriptForEventSupported() const
 {
-    /*
-         Mozilla 1.8 accepts javascript1.0 - javascript1.7, but WinIE 7 accepts only javascript1.1 - javascript1.3.
-         Mozilla 1.8 and WinIE 7 both accept javascript and livescript.
-         WinIE 7 accepts ecmascript and jscript, but Mozilla 1.8 doesn't.
-         Neither Mozilla 1.8 nor WinIE 7 accept leading or trailing whitespace.
-         We want to accept all the values that either of these browsers accept, but not other values.
-     */
-    String type = m_scriptElement->typeAttributeValue();
-    if (!type.isEmpty()) {
-        if (!MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace().lower()))
+    String eventAttribute = eventAttributeValue();
+    String forAttribute = forAttributeValue();
+    if (!eventAttribute.isEmpty() && !forAttribute.isEmpty()) {
+        forAttribute = forAttribute.stripWhiteSpace();
+        if (!equalIgnoringCase(forAttribute, "window"))
             return false;
-    } else {
-        String language = m_scriptElement->languageAttributeValue();
-        if (!language.isEmpty() && !isSupportedJavaScriptLanguage(language))
+
+        eventAttribute = eventAttribute.stripWhiteSpace();
+        if (!equalIgnoringCase(eventAttribute, "onload") && !equalIgnoringCase(eventAttribute, "onload()"))
             return false;
-    }    
-
-    // No type or language is specified, so we assume the script to be JavaScript.
-    // We don't yet support setting event listeners via the 'for' attribute for scripts.
-    // If there is such an attribute it's likely better to not execute the script than to do so
-    // immediately and unconditionally.
-    // FIXME: After <rdar://problem/4471751> / https://bugs.webkit.org/show_bug.cgi?id=16915 are resolved 
-    // and we support the for syntax in script tags, this check can be removed and we should just
-    // return 'true' here.
-    String forAttribute = m_scriptElement->forAttributeValue();
-    String eventAttribute = m_scriptElement->eventAttributeValue();
-    if (forAttribute.isEmpty() || eventAttribute.isEmpty())
-        return true;
-    
-    forAttribute = forAttribute.stripWhiteSpace();
-    eventAttribute = eventAttribute.stripWhiteSpace();
-    return equalIgnoringCase(forAttribute, "window") && (equalIgnoringCase(eventAttribute, "onload") || equalIgnoringCase(eventAttribute, "onload()"));
-}
-
-String ScriptElementData::scriptCharset() const
-{
-    // First we try to get encoding from charset attribute.
-    String charset = m_scriptElement->charsetAttributeValue().stripWhiteSpace();
-
-    // If charset has not been declared in script tag, fall back to frame encoding.
-    if (charset.isEmpty()) {
-        if (Frame* frame = m_element->document()->frame())
-            charset = frame->loader()->writer()->encoding();
     }
-
-    return charset;
+    return true;
 }
 
-String ScriptElementData::scriptContent() const
+String ScriptElement::scriptContent() const
 {
-    Vector<UChar> val;
+    StringBuilder content;
     Text* firstTextNode = 0;
     bool foundMultipleTextNodes = false;
 
@@ -281,10 +346,10 @@ String ScriptElementData::scriptContent() const
 
         Text* t = static_cast<Text*>(n);
         if (foundMultipleTextNodes)
-            append(val, t->data());
+            content.append(t->data());
         else if (firstTextNode) {
-            append(val, firstTextNode->data());
-            append(val, t->data());
+            content.append(firstTextNode->data());
+            content.append(t->data());
             foundMultipleTextNodes = true;
         } else
             firstTextNode = t;
@@ -293,7 +358,7 @@ String ScriptElementData::scriptContent() const
     if (firstTextNode && !foundMultipleTextNodes)
         return firstTextNode->data();
 
-    return String::adopt(val);
+    return content.toString();
 }
 
 ScriptElement* toScriptElement(Element* element)

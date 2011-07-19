@@ -1,15 +1,15 @@
---- fgetws.c.orig	2004-11-25 11:38:34.000000000 -0800
-+++ fgetws.c	2005-02-24 16:20:29.000000000 -0800
+--- fgetws.c.bsdnew	2009-11-30 16:15:32.000000000 -0800
++++ fgetws.c	2009-11-30 16:15:32.000000000 -0800
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetws.c,v 1.6 2004/10/03 15:48:32 stefanf Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetws.c,v 1.8 2009/11/25 04:45:45 wollman Exp $");
  
 +#include "xlocale_private.h"
 +
  #include "namespace.h"
  #include <errno.h>
  #include <stdio.h>
-@@ -38,13 +40,18 @@
+@@ -38,13 +40,18 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
  #include "mblocal.h"
  
  wchar_t *
@@ -29,7 +29,7 @@
  	FLOCKFILE(fp);
  	ORIENT(fp, 1);
  
-@@ -58,11 +65,11 @@
+@@ -58,11 +65,11 @@ fgetws(wchar_t * __restrict ws, int n, F
  		goto error;
  	wsp = ws;
  	do {
@@ -38,21 +38,21 @@
  		nl = memchr(fp->_p, '\n', fp->_r);
  		nconv = __mbsnrtowcs(wsp, &src,
  		    nl != NULL ? (nl - fp->_p + 1) : fp->_r,
--		    n - 1, &fp->_extra->mbstate);
-+		    n - 1, &fp->_extra->mbstate, loc);
+-		    n - 1, &fp->_mbstate);
++		    n - 1, &fp->_mbstate, loc);
  		if (nconv == (size_t)-1)
  			/* Conversion error */
  			goto error;
-@@ -86,7 +93,7 @@
+@@ -86,7 +93,7 @@ fgetws(wchar_t * __restrict ws, int n, F
  	if (wsp == ws)
  		/* EOF */
  		goto error;
--	if (!__mbsinit(&fp->_extra->mbstate))
-+	if (!rl->__mbsinit(&fp->_extra->mbstate, loc))
+-	if (!__mbsinit(&fp->_mbstate))
++	if (!rl->__mbsinit(&fp->_mbstate, loc))
  		/* Incomplete character */
  		goto error;
- 	*wsp++ = L'\0';
-@@ -98,3 +105,9 @@
+ 	*wsp = L'\0';
+@@ -98,3 +105,9 @@ error:
  	FUNLOCKFILE(fp);
  	return (NULL);
  }

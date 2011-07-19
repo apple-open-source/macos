@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: socks.c,v 1.33 2009-08-29 03:57:28 gknauf Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -72,13 +71,13 @@ int Curl_blockread_all(struct connectdata *conn, /* connection data */
   struct timeval tvnow;
   long conntime;
   *n = 0;
-  do {
+  for(;;) {
     tvnow = Curl_tvnow();
     /* calculating how long connection is establishing */
     conntime = Curl_tvdiff(tvnow, conn->created);
     if(conntime > conn_timeout) {
       /* we already got the timeout */
-      result = ~CURLE_OK;
+      result = CURLE_OPERATION_TIMEDOUT;
       break;
     }
     if(Curl_socket_ready(sockfd, CURL_SOCKET_BAD,
@@ -87,7 +86,9 @@ int Curl_blockread_all(struct connectdata *conn, /* connection data */
       break;
     }
     result = Curl_read_plain(sockfd, buf, buffersize, &nread);
-    if(result)
+    if(CURLE_AGAIN == result)
+      continue;
+    else if(result)
       break;
 
     if(buffersize == nread) {
@@ -104,7 +105,7 @@ int Curl_blockread_all(struct connectdata *conn, /* connection data */
     buffersize -= nread;
     buf += nread;
     allread += nread;
-  } while(1);
+  }
   return result;
 }
 
@@ -136,7 +137,7 @@ CURLcode Curl_SOCKS4(const char *proxy_name,
   struct SessionHandle *data = conn->data;
 
   /* get timeout */
-  timeout = Curl_timeleft(conn, NULL, TRUE);
+  timeout = Curl_timeleft(data, NULL, TRUE);
 
   if(timeout < 0) {
     /* time-out, bail out, go home */
@@ -173,8 +174,8 @@ CURLcode Curl_SOCKS4(const char *proxy_name,
       return CURLE_COULDNT_RESOLVE_PROXY;
 
     if(rc == CURLRESOLV_PENDING)
-      /* this requires that we're in "wait for resolve" state */
-      rc = Curl_wait_for_resolv(conn, &dns);
+      /* ignores the return code, but 'dns' remains NULL on failure */
+      (void)Curl_wait_for_resolv(conn, &dns);
 
     /*
      * We cannot use 'hostent' as a struct that Curl_resolv() returns.  It
@@ -393,12 +394,12 @@ CURLcode Curl_SOCKS5(const char *proxy_name,
   if(!socks5_resolve_local && hostname_len > 255)
   {
     infof(conn->data,"SOCKS5: server resolving disabled for hostnames of "
-          "length > 255 [actual len=%d]\n", hostname_len);
+          "length > 255 [actual len=%zu]\n", hostname_len);
     socks5_resolve_local = TRUE;
   }
 
   /* get timeout */
-  timeout = Curl_timeleft(conn, NULL, TRUE);
+  timeout = Curl_timeleft(data, NULL, TRUE);
 
   if(timeout < 0) {
     /* time-out, bail out, go home */
@@ -512,11 +513,13 @@ CURLcode Curl_SOCKS5(const char *proxy_name,
      */
     len = 0;
     socksreq[len++] = 1;    /* username/pw subnegotiation version */
-    socksreq[len++] = (char) userlen;
-    memcpy(socksreq + len, proxy_name, userlen);
+    socksreq[len++] = (unsigned char) userlen;
+    if(proxy_name && userlen)
+      memcpy(socksreq + len, proxy_name, userlen);
     len += (int)userlen;
-    socksreq[len++] = (char) pwlen;
-    memcpy(socksreq + len, proxy_password, pwlen);
+    socksreq[len++] = (unsigned char) pwlen;
+    if(proxy_password && pwlen)
+      memcpy(socksreq + len, proxy_password, pwlen);
     len += (int)pwlen;
 
     code = Curl_write_plain(conn, sock, (char *)socksreq, len, &written);
@@ -598,9 +601,12 @@ CURLcode Curl_SOCKS5(const char *proxy_name,
     if(rc == CURLRESOLV_ERROR)
       return CURLE_COULDNT_RESOLVE_HOST;
 
-    if(rc == CURLRESOLV_PENDING)
+    if(rc == CURLRESOLV_PENDING) {
       /* this requires that we're in "wait for resolve" state */
-      rc = Curl_wait_for_resolv(conn, &dns);
+      code = Curl_wait_for_resolv(conn, &dns);
+      if(code != CURLE_OK)
+        return code;
+    }
 
     /*
      * We cannot use 'hostent' as a struct that Curl_resolv() returns.  It

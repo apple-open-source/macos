@@ -28,6 +28,7 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineLocation.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/Target/TargetFrameInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
@@ -35,7 +36,9 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include <cstdlib>
@@ -176,8 +179,7 @@ unsigned SPURegisterInfo::getRegisterNumbering(unsigned RegEnum) {
   case SPU::R126: return 126;
   case SPU::R127: return 127;
   default:
-    cerr << "Unhandled reg in SPURegisterInfo::getRegisterNumbering!\n";
-    abort();
+    report_fatal_error("Unhandled reg in SPURegisterInfo::getRegisterNumbering");
   }
 }
 
@@ -218,8 +220,8 @@ SPURegisterInfo::getNumArgRegs()
 
 /// getPointerRegClass - Return the register class to use to hold pointers.
 /// This is used for addressing modes.
-const TargetRegisterClass * SPURegisterInfo::getPointerRegClass() const
-{
+const TargetRegisterClass *
+SPURegisterInfo::getPointerRegClass(unsigned Kind) const {
   return &SPU::R32CRegClass;
 }
 
@@ -301,7 +303,7 @@ BitVector SPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 //
 static bool needsFP(const MachineFunction &MF) {
   const MachineFrameInfo *MFI = MF.getFrameInfo();
-  return NoFramePointerElim || MFI->hasVarSizedObjects();
+  return DisableFramePointerElim(MF) || MFI->hasVarSizedObjects();
 }
 
 //--------------------------------------------------------------------------
@@ -325,8 +327,9 @@ SPURegisterInfo::eliminateCallFramePseudoInstr(MachineFunction &MF,
   MBB.erase(I);
 }
 
-void
+unsigned
 SPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
+                                     FrameIndexValue *Value,
                                      RegScavenger *RS) const
 {
   unsigned i = 0;
@@ -334,6 +337,7 @@ SPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
   MachineBasicBlock &MBB = *MI.getParent();
   MachineFunction &MF = *MBB.getParent();
   MachineFrameInfo *MFI = MF.getFrameInfo();
+  DebugLoc dl = II->getDebugLoc();
 
   while (!MI.getOperand(i).isFI()) {
     ++i;
@@ -362,14 +366,26 @@ SPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II, int SPAdj,
 
   // Replace the FrameIndex with base register with $sp (aka $r1)
   SPOp.ChangeToRegister(SPU::R1, false);
-  if (Offset > SPUFrameInfo::maxFrameOffset()
-      || Offset < SPUFrameInfo::minFrameOffset()) {
-    cerr << "Large stack adjustment ("
-         << Offset
-         << ") in SPURegisterInfo::eliminateFrameIndex.";
+
+  // if 'Offset' doesn't fit to the D-form instruction's
+  // immediate, convert the instruction to X-form
+  // if the instruction is not an AI (which takes a s10 immediate), assume
+  // it is a load/store that can take a s14 immediate
+  if ((MI.getOpcode() == SPU::AIr32 && !isInt<10>(Offset))
+      || !isInt<14>(Offset)) {
+    int newOpcode = convertDFormToXForm(MI.getOpcode());
+    unsigned tmpReg = findScratchRegister(II, RS, &SPU::R32CRegClass, SPAdj);
+    BuildMI(MBB, II, dl, TII.get(SPU::ILr32), tmpReg )
+        .addImm(Offset);
+    BuildMI(MBB, II, dl, TII.get(newOpcode), MI.getOperand(0).getReg())
+        .addReg(tmpReg, RegState::Kill)
+        .addReg(SPU::R1);
+    // remove the replaced D-form instruction
+    MBB.erase(II);
   } else {
     MO.ChangeToImmediate(Offset);
   }
+  return 0;
 }
 
 /// determineFrameLayout - Determine the size of the frame and maximum call
@@ -420,6 +436,14 @@ void SPURegisterInfo::processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
   MF.getRegInfo().setPhysRegUnused(SPU::R0);
   MF.getRegInfo().setPhysRegUnused(SPU::R1);
   MF.getRegInfo().setPhysRegUnused(SPU::R2);
+
+  MachineFrameInfo *MFI = MF.getFrameInfo(); 
+  const TargetRegisterClass *RC = &SPU::R32CRegClass;
+  RS->setScavengingFrameIndex(MFI->CreateStackObject(RC->getSize(),
+                                                     RC->getAlignment(),
+                                                     false));
+  
+  
 }
 
 void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
@@ -427,13 +451,12 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
   MachineBasicBlock &MBB = MF.front();   // Prolog goes in entry BB
   MachineBasicBlock::iterator MBBI = MBB.begin();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  MachineModuleInfo *MMI = MFI->getMachineModuleInfo();
-  DebugLoc dl = (MBBI != MBB.end() ?
-                 MBBI->getDebugLoc() : DebugLoc::getUnknownLoc());
+  MachineModuleInfo &MMI = MF.getMMI();
+  DebugLoc dl = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
   // Prepare for debug frame info.
-  bool hasDebugInfo = MMI && MMI->hasDebugInfo();
-  unsigned FrameLabelId = 0;
+  bool hasDebugInfo = MMI.hasDebugInfo();
+  MCSymbol *FrameLabel = 0;
 
   // Move MBBI back to the beginning of the function.
   MBBI = MBB.begin();
@@ -445,26 +468,27 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
   assert((FrameSize & 0xf) == 0
          && "SPURegisterInfo::emitPrologue: FrameSize not aligned");
 
-  if (FrameSize > 0 || MFI->hasCalls()) {
+  // the "empty" frame size is 16 - just the register scavenger spill slot
+  if (FrameSize > 16 || MFI->adjustsStack()) {
     FrameSize = -(FrameSize + SPUFrameInfo::minStackSize());
     if (hasDebugInfo) {
       // Mark effective beginning of when frame pointer becomes valid.
-      FrameLabelId = MMI->NextLabelID();
-      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL)).addImm(FrameLabelId);
+      FrameLabel = MMI.getContext().CreateTempSymbol();
+      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL)).addSym(FrameLabel);
     }
 
     // Adjust stack pointer, spilling $lr -> 16($sp) and $sp -> -FrameSize($sp)
     // for the ABI
     BuildMI(MBB, MBBI, dl, TII.get(SPU::STQDr32), SPU::R0).addImm(16)
       .addReg(SPU::R1);
-    if (isS10Constant(FrameSize)) {
+    if (isInt<10>(FrameSize)) {
       // Spill $sp to adjusted $sp
       BuildMI(MBB, MBBI, dl, TII.get(SPU::STQDr32), SPU::R1).addImm(FrameSize)
         .addReg(SPU::R1);
       // Adjust $sp by required amout
       BuildMI(MBB, MBBI, dl, TII.get(SPU::AIr32), SPU::R1).addReg(SPU::R1)
         .addImm(FrameSize);
-    } else if (FrameSize <= (1 << 16) - 1 && FrameSize >= -(1 << 16)) {
+    } else if (isInt<16>(FrameSize)) {
       // Frame size can be loaded into ILr32n, so temporarily spill $r2 and use
       // $r2 to adjust $sp:
       BuildMI(MBB, MBBI, dl, TII.get(SPU::STQDr128), SPU::R2)
@@ -472,7 +496,7 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
         .addReg(SPU::R1);
       BuildMI(MBB, MBBI, dl, TII.get(SPU::ILr32), SPU::R2)
         .addImm(FrameSize);
-      BuildMI(MBB, MBBI, dl, TII.get(SPU::STQDr32), SPU::R1)
+      BuildMI(MBB, MBBI, dl, TII.get(SPU::STQXr32), SPU::R1)
         .addReg(SPU::R2)
         .addReg(SPU::R1);
       BuildMI(MBB, MBBI, dl, TII.get(SPU::Ar32), SPU::R1)
@@ -485,17 +509,16 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
         .addReg(SPU::R2)
         .addReg(SPU::R1);
     } else {
-      cerr << "Unhandled frame size: " << FrameSize << "\n";
-      abort();
+      report_fatal_error("Unhandled frame size: " + Twine(FrameSize));
     }
 
     if (hasDebugInfo) {
-      std::vector<MachineMove> &Moves = MMI->getFrameMoves();
+      std::vector<MachineMove> &Moves = MMI.getFrameMoves();
 
       // Show update of SP.
       MachineLocation SPDst(MachineLocation::VirtualFP);
       MachineLocation SPSrc(MachineLocation::VirtualFP, -FrameSize);
-      Moves.push_back(MachineMove(FrameLabelId, SPDst, SPSrc));
+      Moves.push_back(MachineMove(FrameLabel, SPDst, SPSrc));
 
       // Add callee saved registers to move list.
       const std::vector<CalleeSavedInfo> &CSI = MFI->getCalleeSavedInfo();
@@ -505,16 +528,16 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
         if (Reg == SPU::R0) continue;
         MachineLocation CSDst(MachineLocation::VirtualFP, Offset);
         MachineLocation CSSrc(Reg);
-        Moves.push_back(MachineMove(FrameLabelId, CSDst, CSSrc));
+        Moves.push_back(MachineMove(FrameLabel, CSDst, CSSrc));
       }
 
       // Mark effective beginning of when frame pointer is ready.
-      unsigned ReadyLabelId = MMI->NextLabelID();
-      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL)).addImm(ReadyLabelId);
+      MCSymbol *ReadyLabel = MMI.getContext().CreateTempSymbol();
+      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL)).addSym(ReadyLabel);
 
       MachineLocation FPDst(SPU::R1);
       MachineLocation FPSrc(MachineLocation::VirtualFP);
-      Moves.push_back(MachineMove(ReadyLabelId, FPDst, FPSrc));
+      Moves.push_back(MachineMove(ReadyLabel, FPDst, FPSrc));
     }
   } else {
     // This is a leaf function -- insert a branch hint iff there are
@@ -525,8 +548,8 @@ void SPURegisterInfo::emitPrologue(MachineFunction &MF) const
       dl = MBBI->getDebugLoc();
 
       // Insert terminator label
-      unsigned BranchLabelId = MMI->NextLabelID();
-      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL)).addImm(BranchLabelId);
+      BuildMI(MBB, MBBI, dl, TII.get(SPU::DBG_LABEL))
+        .addSym(MMI.getContext().CreateTempSymbol());
     }
   }
 }
@@ -544,9 +567,11 @@ SPURegisterInfo::emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const
          "Can only insert epilog into returning blocks");
   assert((FrameSize & 0xf) == 0
          && "SPURegisterInfo::emitEpilogue: FrameSize not aligned");
-  if (FrameSize > 0 || MFI->hasCalls()) {
+
+  // the "empty" frame size is 16 - just the register scavenger spill slot
+  if (FrameSize > 16 || MFI->adjustsStack()) {
     FrameSize = FrameSize + SPUFrameInfo::minStackSize();
-    if (isS10Constant(FrameSize + LinkSlotOffset)) {
+    if (isInt<10>(FrameSize + LinkSlotOffset)) {
       // Reload $lr, adjust $sp by required amount
       // Note: We do this to slightly improve dual issue -- not by much, but it
       // is an opportunity for dual issue.
@@ -569,7 +594,7 @@ SPURegisterInfo::emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const
         .addReg(SPU::R2);
       BuildMI(MBB, MBBI, dl, TII.get(SPU::LQDr128), SPU::R0)
         .addImm(16)
-        .addReg(SPU::R2);
+        .addReg(SPU::R1);
       BuildMI(MBB, MBBI, dl, TII.get(SPU::SFIr32), SPU::R2).
         addReg(SPU::R2)
         .addImm(16);
@@ -577,8 +602,7 @@ SPURegisterInfo::emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const
         .addReg(SPU::R2)
         .addReg(SPU::R1);
     } else {
-      cerr << "Unhandled frame size: " << FrameSize << "\n";
-      abort();
+      report_fatal_error("Unhandled frame size: " + Twine(FrameSize));
     }
    }
 }
@@ -590,7 +614,7 @@ SPURegisterInfo::getRARegister() const
 }
 
 unsigned
-SPURegisterInfo::getFrameRegister(MachineFunction &MF) const
+SPURegisterInfo::getFrameRegister(const MachineFunction &MF) const
 {
   return SPU::R1;
 }
@@ -609,6 +633,45 @@ int
 SPURegisterInfo::getDwarfRegNum(unsigned RegNum, bool isEH) const {
   // FIXME: Most probably dwarf numbers differs for Linux and Darwin
   return SPUGenRegisterInfo::getDwarfRegNumFull(RegNum, 0);
+}
+
+int 
+SPURegisterInfo::convertDFormToXForm(int dFormOpcode) const
+{
+  switch(dFormOpcode) 
+  {
+    case SPU::AIr32:     return SPU::Ar32;
+    case SPU::LQDr32:    return SPU::LQXr32;
+    case SPU::LQDr128:   return SPU::LQXr128;
+    case SPU::LQDv16i8:  return SPU::LQXv16i8;
+    case SPU::LQDv4f32:  return SPU::LQXv4f32;
+    case SPU::STQDr32:   return SPU::STQXr32;
+    case SPU::STQDr128:  return SPU::STQXr128;
+    case SPU::STQDv16i8: return SPU::STQXv16i8;
+    case SPU::STQDv4i32: return SPU::STQXv4i32;
+    case SPU::STQDv4f32: return SPU::STQXv4f32;
+
+    default: assert( false && "Unhandled D to X-form conversion");
+  }
+  // default will assert, but need to return something to keep the
+  // compiler happy.
+  return dFormOpcode;
+}
+
+// TODO this is already copied from PPC. Could this convenience function
+// be moved to the RegScavenger class?
+unsigned  
+SPURegisterInfo::findScratchRegister(MachineBasicBlock::iterator II, 
+                                     RegScavenger *RS,
+                                     const TargetRegisterClass *RC, 
+                                     int SPAdj) const
+{
+  assert(RS && "Register scavenging must be on");
+  unsigned Reg = RS->FindUnusedReg(RC);
+  if (Reg == 0)
+    Reg = RS->scavengeRegister(RC, II, SPAdj);
+  assert( Reg && "Register scavenger failed");
+  return Reg;
 }
 
 #include "SPUGenRegisterInfo.inc"

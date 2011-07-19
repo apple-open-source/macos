@@ -20,58 +20,29 @@
 #include "config.h"
 #include "Pasteboard.h"
 
+#include "DataObjectGtk.h"
 #include "DocumentFragment.h"
 #include "Frame.h"
+#include "GOwnPtrGtk.h"
+#include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
+#include "KURL.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
 #include "TextResourceDecoder.h"
 #include "Image.h"
 #include "RenderImage.h"
-#include "KURL.h"
 #include "markup.h"
+#include <gtk/gtk.h>
+#include <wtf/gobject/GRefPtr.h>
 #include <wtf/text/CString.h>
 
-#include <gtk/gtk.h>
+#if ENABLE(SVG)
+#include "SVGNames.h"
+#include "XLinkNames.h"
+#endif
 
 namespace WebCore {
-
-class PasteboardSelectionData {
-public:
-    PasteboardSelectionData(gchar* text, gchar* markup)
-        : m_text(text)
-        , m_markup(markup) { }
-
-    ~PasteboardSelectionData() {
-        g_free(m_text);
-        g_free(m_markup);
-    }
-
-    const gchar* text() const { return m_text; }
-    const gchar* markup() const { return m_markup; }
-
-private:
-    gchar* m_text;
-    gchar* m_markup;
-};
-
-static void clipboard_get_contents_cb(GtkClipboard *clipboard, GtkSelectionData *selection_data,
-                                      guint info, gpointer data) {
-    PasteboardSelectionData* clipboardData = reinterpret_cast<PasteboardSelectionData*>(data);
-    ASSERT(clipboardData);
-    if (info == Pasteboard::generalPasteboard()->helper()->getIdForTargetType(PasteboardHelper::TargetTypeMarkup))
-        gtk_selection_data_set(selection_data, selection_data->target, 8,
-                               reinterpret_cast<const guchar*>(clipboardData->markup()),
-                               strlen(clipboardData->markup()));
-    else
-        gtk_selection_data_set_text(selection_data, clipboardData->text(), -1);
-}
-
-static void clipboard_clear_contents_cb(GtkClipboard *clipboard, gpointer data) {
-    PasteboardSelectionData* clipboardData = reinterpret_cast<PasteboardSelectionData*>(data);
-    ASSERT(clipboardData);
-    delete clipboardData;
-}
-
 
 Pasteboard* Pasteboard::generalPasteboard()
 {
@@ -102,41 +73,52 @@ void Pasteboard::setHelper(PasteboardHelper* helper)
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     GtkClipboard* clipboard = m_helper->getClipboard(frame);
-    gchar* text = g_strdup(frame->selectedText().utf8().data());
-    gchar* markup = g_strdup(createMarkup(selectedRange, 0, AnnotateForInterchange).utf8().data());
-    PasteboardSelectionData* data = new PasteboardSelectionData(text, markup);
-
-    gint n_targets;
-    GtkTargetEntry* targets = gtk_target_table_new_from_list(m_helper->targetList(), &n_targets);
-    gtk_clipboard_set_with_data(clipboard, targets, n_targets,
-                                clipboard_get_contents_cb, clipboard_clear_contents_cb, data);
-    gtk_target_table_free(targets, n_targets);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    dataObject->setText(frame->editor()->selectedText());
+    dataObject->setMarkup(createMarkup(selectedRange, 0, AnnotateForInterchange, false, AbsoluteURLs));
+    m_helper->writeClipboardContents(clipboard);
 }
 
 void Pasteboard::writePlainText(const String& text)
 {
-    CString utf8 = text.utf8();
     GtkClipboard* clipboard = gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD);
-    gtk_clipboard_set_text(clipboard, utf8.data(), utf8.length());
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    dataObject->setText(text);
+    m_helper->writeClipboardContents(clipboard);
 }
 
-void Pasteboard::writeURL(const KURL& url, const String&, Frame* frame)
+void Pasteboard::writeURL(const KURL& url, const String& label, Frame* frame)
 {
     if (url.isEmpty())
         return;
 
     GtkClipboard* clipboard = m_helper->getClipboard(frame);
-    GtkClipboard* primary = m_helper->getPrimarySelectionClipboard(frame);
-    CString utf8 = url.string().utf8();
-    gtk_clipboard_set_text(clipboard, utf8.data(), utf8.length());
-    gtk_clipboard_set_text(primary, utf8.data(), utf8.length());
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    dataObject->setURL(url, label);
+    m_helper->writeClipboardContents(clipboard);
 }
 
-void Pasteboard::writeImage(Node* node, const KURL&, const String&)
+static KURL getURLForImageNode(Node* node)
 {
-    GtkClipboard* clipboard = gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD);
+    // FIXME: Later this code should be shared with Chromium somehow. Chances are all platforms want it.
+    AtomicString urlString;
+    if (node->hasTagName(HTMLNames::imgTag) || node->hasTagName(HTMLNames::inputTag))
+        urlString = static_cast<Element*>(node)->getAttribute(HTMLNames::srcAttr);
+#if ENABLE(SVG)
+    else if (node->hasTagName(SVGNames::imageTag))
+        urlString = static_cast<Element*>(node)->getAttribute(XLinkNames::hrefAttr);
+#endif
+    else if (node->hasTagName(HTMLNames::embedTag) || node->hasTagName(HTMLNames::objectTag)) {
+        Element* element = static_cast<Element*>(node);
+        urlString = element->getAttribute(element->imageSourceAttributeName());
+    }
+    return urlString.isEmpty() ? KURL() : node->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
+}
 
-    ASSERT(node && node->renderer() && node->renderer()->isImage());
+void Pasteboard::writeImage(Node* node, const KURL&, const String& title)
+{
+    ASSERT(node);
+    ASSERT(node->renderer());
     RenderImage* renderer = toRenderImage(node->renderer());
     CachedImage* cachedImage = renderer->cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
@@ -144,16 +126,29 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
     Image* image = cachedImage->image();
     ASSERT(image);
 
-    GdkPixbuf* pixbuf = image->getGdkPixbuf();
-    gtk_clipboard_set_image(clipboard, pixbuf);
-    g_object_unref(pixbuf);
+    GtkClipboard* clipboard = gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+
+    KURL url = getURLForImageNode(node);
+    if (!url.isEmpty()) {
+        dataObject->setURL(url, title);
+
+        // This image may be an SVG, embed, or object tag, so do not write the image
+        // tag markup in those cases. Eventually we may want to support passing markup
+        // for these tag types.
+        if (node->hasTagName(HTMLNames::imgTag))
+            dataObject->setMarkup(imageToMarkup(url, static_cast<Element*>(node)));
+    }
+
+    GRefPtr<GdkPixbuf> pixbuf = adoptGRef(image->getGdkPixbuf());
+    dataObject->setImage(pixbuf.get());
+
+    m_helper->writeClipboardContents(clipboard);
 }
 
 void Pasteboard::clear()
 {
-    GtkClipboard* clipboard = gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD);
-
-    gtk_clipboard_clear(clipboard);
+    gtk_clipboard_clear(gtk_clipboard_get_for_display(gdk_display_get_default(), GDK_SELECTION_CLIPBOARD));
 }
 
 bool Pasteboard::canSmartReplace()
@@ -165,33 +160,24 @@ bool Pasteboard::canSmartReplace()
 PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefPtr<Range> context,
                                                           bool allowPlainText, bool& chosePlainText)
 {
-    GdkAtom textHtml = gdk_atom_intern_static_string("text/html");
     GtkClipboard* clipboard = m_helper->getCurrentClipboard(frame);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    m_helper->getClipboardContents(clipboard);
+
     chosePlainText = false;
 
-    if (GtkSelectionData* data = gtk_clipboard_wait_for_contents(clipboard, textHtml)) {
-        ASSERT(data->data);
-        RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create("text/plain", "UTF-8", true);
-        String html = decoder->decode(reinterpret_cast<char*>(data->data), data->length);
-        html += decoder->flush();
-        gtk_selection_data_free(data);
-
-        if (!html.isEmpty()) {
-            RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(frame->document(), html, "", FragmentScriptingNotAllowed);
-            if (fragment)
-                return fragment.release();
-        }
+    if (dataObject->hasMarkup()) {
+        RefPtr<DocumentFragment> fragment = createFragmentFromMarkup(frame->document(), dataObject->markup(), "", FragmentScriptingNotAllowed);
+        if (fragment)
+            return fragment.release();
     }
 
     if (!allowPlainText)
         return 0;
 
-    if (gchar* utf8 = gtk_clipboard_wait_for_text(clipboard)) {
-        String text = String::fromUTF8(utf8);
-        g_free(utf8);
-
+    if (dataObject->hasText()) {
         chosePlainText = true;
-        RefPtr<DocumentFragment> fragment = createFragmentFromText(context.get(), text);
+        RefPtr<DocumentFragment> fragment = createFragmentFromText(context.get(), dataObject->text());
         if (fragment)
             return fragment.release();
     }
@@ -202,16 +188,10 @@ PassRefPtr<DocumentFragment> Pasteboard::documentFragment(Frame* frame, PassRefP
 String Pasteboard::plainText(Frame* frame)
 {
     GtkClipboard* clipboard = m_helper->getCurrentClipboard(frame);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
 
-    gchar* utf8 = gtk_clipboard_wait_for_text(clipboard);
-
-    if (!utf8)
-        return String();
-
-    String text = String::fromUTF8(utf8);
-    g_free(utf8);
-
-    return text;
+    m_helper->getClipboardContents(clipboard);
+    return dataObject->text();
 }
 
 }

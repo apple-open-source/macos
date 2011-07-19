@@ -44,22 +44,32 @@ namespace SQLite = SQLite3;
 class SignatureDatabase : public SQLite::Database {
 public:
 	SignatureDatabase(const char *path = defaultPath,
-		int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE);
+		int flags = SQLITE_OPEN_READONLY);
 	virtual ~SignatureDatabase();
 	
 	FilterRep *findCode(DiskRep *rep);
-	void storeCode(const BlobCore *sig, const char *location);
-	
-private:
-	SQLite::int64 insertGlobal(const char *location, const BlobCore *blob);
-	void insertCode(SQLite::int64 globid, int arch, const EmbeddedSignatureBlob *sig);
 
 public:
 	static const char defaultPath[];
 };
 
 
+class SignatureDatabaseWriter : public SignatureDatabase {
+public:
+	SignatureDatabaseWriter(const char *path = defaultPath,
+		int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE)
+		: SignatureDatabase(path, flags) { }
+
+	void storeCode(const BlobCore *sig, const char *location);
+	
+private:
+	SQLite::int64 insertGlobal(const char *location, const BlobCore *blob);
+	void insertCode(SQLite::int64 globid, int arch, const EmbeddedSignatureBlob *sig);
+};
+
+
 extern ModuleNexus<SignatureDatabase> signatureDatabase;
+extern ModuleNexus<SignatureDatabaseWriter> signatureDatabaseWriter;
 
 
 } // end namespace CodeSigning

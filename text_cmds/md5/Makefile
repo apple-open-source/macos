@@ -4,7 +4,7 @@ Install_Dir = /sbin
 CFILES = md5.c
 MANPAGES = md5.1
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Wall \
 	-D__FBSDID=__RCSID
 Extra_LD_Flags = -dead_strip \
 	-lmd -lcrypto

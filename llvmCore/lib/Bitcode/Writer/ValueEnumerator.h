@@ -22,12 +22,16 @@ namespace llvm {
 
 class Type;
 class Value;
+class Instruction;
 class BasicBlock;
 class Function;
 class Module;
+class MetadataBase;
+class NamedMDNode;
 class AttrListPtr;
 class TypeSymbolTable;
 class ValueSymbolTable;
+class MDSymbolTable;
 
 class ValueEnumerator {
 public:
@@ -44,11 +48,21 @@ private:
   typedef DenseMap<const Value*, unsigned> ValueMapType;
   ValueMapType ValueMap;
   ValueList Values;
+  ValueList MDValues;
+  ValueMapType MDValueMap;
   
   typedef DenseMap<void*, unsigned> AttributeMapType;
   AttributeMapType AttributeMap;
   std::vector<AttrListPtr> Attributes;
   
+  /// GlobalBasicBlockIDs - This map memoizes the basic block ID's referenced by
+  /// the "getGlobalBasicBlockID" method.
+  mutable DenseMap<const BasicBlock*, unsigned> GlobalBasicBlockIDs;
+  
+  typedef DenseMap<const Instruction*, unsigned> InstructionMapType;
+  InstructionMapType InstructionMap;
+  unsigned InstructionCount;
+
   /// BasicBlocks - This contains all the basic blocks for the currently
   /// incorporated function.  Their reverse mapping is stored in ValueMap.
   std::vector<const BasicBlock*> BasicBlocks;
@@ -64,18 +78,17 @@ private:
 public:
   ValueEnumerator(const Module *M);
 
-  unsigned getValueID(const Value *V) const {
-    ValueMapType::const_iterator I = ValueMap.find(V);
-    assert(I != ValueMap.end() && "Value not in slotcalculator!");
-    return I->second-1;
-  }
-  
+  unsigned getValueID(const Value *V) const;
+
   unsigned getTypeID(const Type *T) const {
     TypeMapType::const_iterator I = TypeMap.find(T);
     assert(I != TypeMap.end() && "Type not in ValueEnumerator!");
     return I->second-1;
   }
-  
+
+  unsigned getInstructionID(const Instruction *I) const;
+  void setInstructionID(const Instruction *I);
+
   unsigned getAttributeID(const AttrListPtr &PAL) const {
     if (PAL.isEmpty()) return 0;  // Null maps to zero.
     AttributeMapType::const_iterator I = AttributeMap.find(PAL.getRawPointer());
@@ -91,6 +104,7 @@ public:
   }
   
   const ValueList &getValues() const { return Values; }
+  const ValueList &getMDValues() const { return MDValues; }
   const TypeList &getTypes() const { return Types; }
   const std::vector<const BasicBlock*> &getBasicBlocks() const {
     return BasicBlocks; 
@@ -98,12 +112,12 @@ public:
   const std::vector<AttrListPtr> &getAttributes() const {
     return Attributes;
   }
-
-  /// PurgeAggregateValues - If there are any aggregate values at the end of the
-  /// value list, remove them and return the count of the remaining values.  If
-  /// there are none, return -1.
-  int PurgeAggregateValues();
   
+  /// getGlobalBasicBlockID - This returns the function-specific ID for the
+  /// specified basic block.  This is relatively expensive information, so it
+  /// should only be used by rare constructs such as address-of-label.
+  unsigned getGlobalBasicBlockID(const BasicBlock *BB) const;
+
   /// incorporateFunction/purgeFunction - If you'd like to deal with a function,
   /// use these two methods to get its data into the ValueEnumerator!
   ///
@@ -113,6 +127,8 @@ public:
 private:
   void OptimizeConstants(unsigned CstStart, unsigned CstEnd);
     
+  void EnumerateMetadata(const Value *MD);
+  void EnumerateNamedMDNode(const NamedMDNode *NMD);
   void EnumerateValue(const Value *V);
   void EnumerateType(const Type *T);
   void EnumerateOperandType(const Value *V);
@@ -120,6 +136,7 @@ private:
   
   void EnumerateTypeSymbolTable(const TypeSymbolTable &ST);
   void EnumerateValueSymbolTable(const ValueSymbolTable &ST);
+  void EnumerateMDSymbolTable(const MDSymbolTable &ST);
 };
 
 } // End llvm namespace

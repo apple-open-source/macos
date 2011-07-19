@@ -27,7 +27,9 @@
 #include "MIMETypeRegistry.h"
 
 #include <shlwapi.h>
+#include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
+#include <wtf/MainThread.h>
 
 namespace WebCore 
 {
@@ -64,6 +66,8 @@ String MIMETypeRegistry::getPreferredExtensionForMIMEType(const String& type)
 
 String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
 {
+    ASSERT(isMainThread());
+
     if (ext.isEmpty())
         return String();
 
@@ -93,6 +97,7 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String &ext)
         mimetypeMap.add("bmp", "image/bmp");
         mimetypeMap.add("wml", "text/vnd.wap.wml");
         mimetypeMap.add("wmlc", "application/vnd.wap.wmlc");
+        mimetypeMap.add("m4a", "audio/x-m4a");
     }
     String result = mimetypeMap.get(ext);
     if (result.isEmpty()) {

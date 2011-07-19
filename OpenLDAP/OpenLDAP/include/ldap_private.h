@@ -44,6 +44,28 @@ typedef void (LDAP_NOTIFYDESC_PROC) LDAP_P((
 	LDAP *ld, int desc, int opening,
 	void *params ));
 
+
+#ifdef __APPLE__
+/* Callback type for asynchronous search results. */
+typedef void
+(*LDAPSearchResultsCallback) LDAP_P((
+	LDAP *ld,
+	LDAPMessage *result,
+	int rc,
+	void *context ));
+
+/* Setting a callback on ld will make *all* searches on that ld asynchronous.
+ * Calling ldap_result() after the callback has been set will result in
+ * in error.
+ */
+LDAP_F( void )
+ldap_set_search_results_callback LDAP_P((
+	LDAP *ld,
+	LDAPSearchResultsCallback cb,
+	void *context ));
+#endif
+
+
 LDAP_END_DECL
 
 #endif /* _LDAP_PRIVATE_H */

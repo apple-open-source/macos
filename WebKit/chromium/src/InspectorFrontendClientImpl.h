@@ -44,8 +44,8 @@ namespace WebKit {
 class WebDevToolsFrontendClient;
 class WebDevToolsFrontendImpl;
 
-class InspectorFrontendClientImpl : public WebCore::InspectorFrontendClient
-                                  , public Noncopyable  {
+class InspectorFrontendClientImpl : public WebCore::InspectorFrontendClient {
+    WTF_MAKE_NONCOPYABLE(InspectorFrontendClientImpl);
 public:
     InspectorFrontendClientImpl(WebCore::Page*, WebDevToolsFrontendClient*, WebDevToolsFrontendImpl*);
     virtual ~InspectorFrontendClientImpl();
@@ -56,18 +56,21 @@ public:
 
     virtual void moveWindowBy(float x, float y);
 
-    virtual WebCore::String localizedStringsURL();
-    virtual WebCore::String hiddenPanels();
+    virtual WTF::String localizedStringsURL();
+    virtual WTF::String hiddenPanels();
 
     virtual void bringToFront();
     virtual void closeWindow();
+    virtual void disconnectFromBackend();
 
     virtual void requestAttachWindow();
     virtual void requestDetachWindow();
     virtual void changeAttachedWindowHeight(unsigned);
+    virtual void saveAs(const WTF::String& fileName, const WTF::String& content);
 
-    virtual void inspectedURLChanged(const WebCore::String&);
+    virtual void inspectedURLChanged(const WTF::String&);
 
+    virtual void sendMessageToBackend(const WTF::String&);
 private:
     WebCore::Page* m_frontendPage;
     WebDevToolsFrontendClient* m_client;

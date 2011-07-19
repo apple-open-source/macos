@@ -23,21 +23,25 @@
 #include "RenderTextControl.h"
 
 #include "AXObjectCache.h"
-#include "CharacterNames.h"
 #include "Editor.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "HTMLBRElement.h"
+#include "HTMLFormControlElement.h"
+#include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "Position.h"
 #include "RenderLayer.h"
 #include "RenderText.h"
 #include "ScrollbarTheme.h"
-#include "SelectionController.h"
 #include "Text.h"
 #include "TextControlInnerElements.h"
 #include "TextIterator.h"
+#include "TextRun.h"
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -70,7 +74,6 @@ static Color disabledTextColor(const Color& textColor, const Color& backgroundCo
 RenderTextControl::RenderTextControl(Node* node, bool placeholderVisible)
     : RenderBlock(node)
     , m_placeholderVisible(placeholderVisible)
-    , m_wasChangedSinceLastChangeEvent(false)
     , m_lastChangeWasUserEdit(false)
 {
 }
@@ -95,8 +98,6 @@ void RenderTextControl::styleDidChange(StyleDifference diff, const RenderStyle* 
         textBlockRenderer->style()->setWidth(Length());
         setInnerTextStyle(textBlockStyle);
     }
-
-    setReplaced(isInline());
 }
 
 void RenderTextControl::setInnerTextStyle(PassRefPtr<RenderStyle> style)
@@ -144,7 +145,7 @@ void RenderTextControl::createSubtreeIfNeeded(TextControlInnerElement* innerBloc
         // For non-search fields, there is no intermediate innerBlock as the shadow node.
         // m_innerText will be the shadow node in that case.        
         RenderStyle* parentStyle = innerBlock ? innerBlock->renderer()->style() : style();
-        m_innerText = new TextControlInnerTextElement(document(), innerBlock ? 0 : node());
+        m_innerText = TextControlInnerTextElement::create(document(), innerBlock ? 0 : toHTMLElement(node()));
         m_innerText->attachInnerElement(innerBlock ? innerBlock : node(), createInnerTextStyle(parentStyle), renderArena());
     }
 }
@@ -169,7 +170,7 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
     String value = innerTextValue;
     if (value != text() || !m_innerText->hasChildNodes()) {
         if (value != text()) {
-            if (Frame* frame = document()->frame()) {
+            if (Frame* frame = this->frame()) {
                 frame->editor()->clearUndoRedoOperations();
                 
                 if (AXObjectCache::accessibilityEnabled())
@@ -182,7 +183,7 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
         ASSERT(!ec);
 
         if (value.endsWith("\n") || value.endsWith("\r")) {
-            m_innerText->appendChild(new HTMLBRElement(brTag, document()), ec);
+            m_innerText->appendChild(HTMLBRElement::create(document()), ec);
             ASSERT(!ec);
         }
 
@@ -199,76 +200,127 @@ void RenderTextControl::setLastChangeWasUserEdit(bool lastChangeWasUserEdit)
     document()->setIgnoreAutofocus(lastChangeWasUserEdit);
 }
 
-int RenderTextControl::selectionStart()
+int RenderTextControl::selectionStart() const
 {
-    Frame* frame = document()->frame();
+    Frame* frame = this->frame();
     if (!frame)
         return 0;
     return indexForVisiblePosition(frame->selection()->start());
 }
 
-int RenderTextControl::selectionEnd()
+int RenderTextControl::selectionEnd() const
 {
-    Frame* frame = document()->frame();
+    Frame* frame = this->frame();
     if (!frame)
         return 0;
     return indexForVisiblePosition(frame->selection()->end());
 }
 
-void RenderTextControl::setSelectionStart(int start)
+bool RenderTextControl::hasVisibleTextArea() const
 {
-    setSelectionRange(start, max(start, selectionEnd()));
+    return style()->visibility() == HIDDEN || !m_innerText || !m_innerText->renderer() || !m_innerText->renderBox()->height();
 }
 
-void RenderTextControl::setSelectionEnd(int end)
+void setSelectionRange(Node* node, int start, int end)
 {
-    setSelectionRange(min(end, selectionStart()), end);
-}
+    ASSERT(node);
+    node->document()->updateLayoutIgnorePendingStylesheets();
 
-void RenderTextControl::select()
-{
-    setSelectionRange(0, text().length());
-}
+    if (!node->renderer() || !node->renderer()->isTextControl())
+        return;
 
-void RenderTextControl::setSelectionRange(int start, int end)
-{
     end = max(end, 0);
     start = min(max(start, 0), end);
 
-    ASSERT(!document()->childNeedsAndNotInStyleRecalc());
+    RenderTextControl* control = toRenderTextControl(node->renderer());
 
-    if (style()->visibility() == HIDDEN || !m_innerText || !m_innerText->renderer() || !m_innerText->renderBox()->height()) {
-        cacheSelection(start, end);
+    if (control->hasVisibleTextArea()) {
+        control->cacheSelection(start, end);
         return;
     }
-    VisiblePosition startPosition = visiblePositionForIndex(start);
+    VisiblePosition startPosition = control->visiblePositionForIndex(start);
     VisiblePosition endPosition;
     if (start == end)
         endPosition = startPosition;
     else
-        endPosition = visiblePositionForIndex(end);
+        endPosition = control->visiblePositionForIndex(end);
 
     // startPosition and endPosition can be null position for example when
     // "-webkit-user-select: none" style attribute is specified.
     if (startPosition.isNotNull() && endPosition.isNotNull()) {
-        ASSERT(startPosition.deepEquivalent().node()->shadowAncestorNode() == node() && endPosition.deepEquivalent().node()->shadowAncestorNode() == node());
+        ASSERT(startPosition.deepEquivalent().deprecatedNode()->shadowAncestorNode() == node && endPosition.deepEquivalent().deprecatedNode()->shadowAncestorNode() == node);
     }
     VisibleSelection newSelection = VisibleSelection(startPosition, endPosition);
 
-    if (Frame* frame = document()->frame())
+    if (Frame* frame = node->document()->frame())
         frame->selection()->setSelection(newSelection);
 }
 
-VisibleSelection RenderTextControl::selection(int start, int end) const
+bool RenderTextControl::isSelectableElement(Node* node) const
 {
-    return VisibleSelection(VisiblePosition(m_innerText.get(), start, VP_DEFAULT_AFFINITY),
-                            VisiblePosition(m_innerText.get(), end, VP_DEFAULT_AFFINITY));
+    if (!node || !m_innerText)
+        return false;
+    
+    if (node->rootEditableElement() == m_innerText)
+        return true;
+    
+    if (!m_innerText->contains(node))
+        return false;
+    
+    Node* shadowAncestor = node->shadowAncestorNode();
+    return shadowAncestor && (shadowAncestor->hasTagName(textareaTag)
+        || (shadowAncestor->hasTagName(inputTag) && static_cast<HTMLInputElement*>(shadowAncestor)->isTextField()));
 }
 
-VisiblePosition RenderTextControl::visiblePositionForIndex(int index)
+static inline void setContainerAndOffsetForRange(Node* node, int offset, Node*& containerNode, int& offsetInContainer)
+{
+    if (node->isTextNode()) {
+        containerNode = node;
+        offsetInContainer = offset;
+    } else {
+        containerNode = node->parentNode();
+        offsetInContainer = node->nodeIndex() + offset;
+    }
+}
+
+PassRefPtr<Range> RenderTextControl::selection(int start, int end) const
+{
+    ASSERT(start <= end);
+    if (!m_innerText)
+        return 0;
+
+    if (!m_innerText->firstChild())
+        return Range::create(document(), m_innerText, 0, m_innerText, 0);
+
+    int offset = 0;
+    Node* startNode = 0;
+    Node* endNode = 0;
+    for (Node* node = m_innerText->firstChild(); node; node = node->traverseNextNode(m_innerText.get())) {
+        ASSERT(!node->firstChild());
+        ASSERT(node->isTextNode() || node->hasTagName(brTag));
+        int length = node->isTextNode() ? lastOffsetInNode(node) : 1;
+    
+        if (offset <= start && start <= offset + length)
+            setContainerAndOffsetForRange(node, start - offset, startNode, start);
+
+        if (offset <= end && end <= offset + length) {
+            setContainerAndOffsetForRange(node, end - offset, endNode, end);
+            break;
+        }
+
+        offset += length;
+    }
+    
+    if (!startNode || !endNode)
+        return 0;
+
+    return Range::create(document(), startNode, start, endNode, end);
+}
+
+VisiblePosition RenderTextControl::visiblePositionForIndex(int index) const
 {
     if (index <= 0)
-        return VisiblePosition(m_innerText.get(), 0, DOWNSTREAM);
+        return VisiblePosition(Position(m_innerText.get(), 0, Position::PositionIsOffsetInAnchor), DOWNSTREAM);
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(document());
     range->selectNodeContents(m_innerText.get(), ec);
@@ -279,26 +331,25 @@ VisiblePosition RenderTextControl::visiblePositionForIndex(int index)
     ASSERT(!ec);
     int endOffset = it.range()->endOffset(ec);
     ASSERT(!ec);
-    return VisiblePosition(endContainer, endOffset, UPSTREAM);
+    return VisiblePosition(Position(endContainer, endOffset, Position::PositionIsOffsetInAnchor), UPSTREAM);
 }
 
-int RenderTextControl::indexForVisiblePosition(const VisiblePosition& pos)
+int RenderTextControl::indexForVisiblePosition(const VisiblePosition& pos) const
 {
     Position indexPosition = pos.deepEquivalent();
-    if (!indexPosition.node() || indexPosition.node()->rootEditableElement() != m_innerText)
+    if (!isSelectableElement(indexPosition.deprecatedNode()))
         return 0;
     ExceptionCode ec = 0;
     RefPtr<Range> range = Range::create(document());
     range->setStart(m_innerText.get(), 0, ec);
     ASSERT(!ec);
-    range->setEnd(indexPosition.node(), indexPosition.deprecatedEditingOffset(), ec);
+    range->setEnd(indexPosition.deprecatedNode(), indexPosition.deprecatedEditingOffset(), ec);
     ASSERT(!ec);
     return TextIterator::rangeLength(range.get());
 }
 
 void RenderTextControl::subtreeHasChanged()
 {
-    m_wasChangedSinceLastChangeEvent = true;
     m_lastChangeWasUserEdit = true;
 }
 
@@ -352,26 +403,22 @@ String RenderTextControl::textWithHardLineBreaks()
 {
     if (!m_innerText)
         return "";
-    Node* firstChild = m_innerText->firstChild();
-    if (!firstChild)
-        return "";
 
-    RenderObject* renderer = firstChild->renderer();
+    RenderBlock* renderer = toRenderBlock(m_innerText->renderer());
     if (!renderer)
-        return "";
-
-    InlineBox* box = renderer->isText() ? toRenderText(renderer)->firstTextBox() : toRenderBox(renderer)->inlineBoxWrapper();
-    if (!box)
         return "";
 
     Node* breakNode;
     unsigned breakOffset;
-    RootInlineBox* line = box->root();
+    RootInlineBox* line = renderer->firstRootBox();
+    if (!line)
+        return "";
+
     getNextSoftBreak(line, breakNode, breakOffset);
 
     Vector<UChar> result;
 
-    for (Node* n = firstChild; n; n = n->traverseNextNode(m_innerText.get())) {
+    for (Node* n = m_innerText->firstChild(); n; n = n->traverseNextNode(m_innerText.get())) {
         if (n->hasTagName(brTag))
             result.append(&newlineCharacter, 1);
         else if (n->isTextNode()) {
@@ -402,20 +449,20 @@ int RenderTextControl::scrollbarThickness() const
     return ScrollbarTheme::nativeTheme()->scrollbarThickness();
 }
 
-void RenderTextControl::calcHeight()
+void RenderTextControl::computeLogicalHeight()
 {
     setHeight(m_innerText->renderBox()->borderTop() + m_innerText->renderBox()->borderBottom() +
               m_innerText->renderBox()->paddingTop() + m_innerText->renderBox()->paddingBottom() +
               m_innerText->renderBox()->marginTop() + m_innerText->renderBox()->marginBottom());
 
-    adjustControlHeightBasedOnLineHeight(m_innerText->renderer()->lineHeight(true, true));
+    adjustControlHeightBasedOnLineHeight(m_innerText->renderBox()->lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes));
     setHeight(height() + borderAndPaddingHeight());
 
     // We are able to have a horizontal scrollbar if the overflow style is scroll, or if its auto and there's no word wrap.
     if (style()->overflowX() == OSCROLL ||  (style()->overflowX() == OAUTO && m_innerText->renderer()->style()->wordWrap() == NormalWordWrap))
         setHeight(height() + scrollbarThickness());
 
-    RenderBlock::calcHeight();
+    RenderBlock::computeLogicalHeight();
 }
 
 void RenderTextControl::hitInnerTextElement(HitTestResult& result, int xPos, int yPos, int tx, int ty)
@@ -478,11 +525,11 @@ static const char* fontFamiliesWithInvalidCharWidth[] = {
 bool RenderTextControl::hasValidAvgCharWidth(AtomicString family)
 {
     static HashSet<AtomicString>* fontFamiliesWithInvalidCharWidthMap = 0;
-    
+
     if (!fontFamiliesWithInvalidCharWidthMap) {
         fontFamiliesWithInvalidCharWidthMap = new HashSet<AtomicString>;
-        
-        for (unsigned i = 0; i < sizeof(fontFamiliesWithInvalidCharWidth) / sizeof(fontFamiliesWithInvalidCharWidth[0]); i++)
+
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(fontFamiliesWithInvalidCharWidth); ++i)
             fontFamiliesWithInvalidCharWidthMap->add(AtomicString(fontFamiliesWithInvalidCharWidth[i]));
     }
 
@@ -494,8 +541,8 @@ float RenderTextControl::getAvgCharWidth(AtomicString family)
     if (hasValidAvgCharWidth(family))
         return roundf(style()->font().primaryFont()->avgCharWidth());
 
-    const UChar ch = '0'; 
-    return style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, false, false, false));
+    const UChar ch = '0';
+    return style()->font().width(TextRun(&ch, 1, false, 0, 0, TextRun::AllowTrailingExpansion));
 }
 
 float RenderTextControl::scaleEmToUnits(int x) const
@@ -505,47 +552,47 @@ float RenderTextControl::scaleEmToUnits(int x) const
     return roundf(style()->font().size() * x / unitsPerEm);
 }
 
-void RenderTextControl::calcPrefWidths()
+void RenderTextControl::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
 
-    m_minPrefWidth = 0;
-    m_maxPrefWidth = 0;
+    m_minPreferredLogicalWidth = 0;
+    m_maxPreferredLogicalWidth = 0;
 
     if (style()->width().isFixed() && style()->width().value() > 0)
-        m_minPrefWidth = m_maxPrefWidth = calcContentBoxWidth(style()->width().value());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeContentBoxLogicalWidth(style()->width().value());
     else {
         // Use average character width. Matches IE.
         AtomicString family = style()->font().family().family();
-        m_maxPrefWidth = preferredContentWidth(getAvgCharWidth(family)) + m_innerText->renderBox()->paddingLeft() + m_innerText->renderBox()->paddingRight();
+        m_maxPreferredLogicalWidth = preferredContentWidth(getAvgCharWidth(family)) + m_innerText->renderBox()->paddingLeft() + m_innerText->renderBox()->paddingRight();
     }
 
     if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
-        m_maxPrefWidth = max(m_maxPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
-        m_minPrefWidth = max(m_minPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
+        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
     } else if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent()))
-        m_minPrefWidth = 0;
+        m_minPreferredLogicalWidth = 0;
     else
-        m_minPrefWidth = m_maxPrefWidth;
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
 
     if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength) {
-        m_maxPrefWidth = min(m_maxPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
-        m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
+        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
+        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
     }
 
     int toAdd = borderAndPaddingWidth();
 
-    m_minPrefWidth += toAdd;
-    m_maxPrefWidth += toAdd;
+    m_minPreferredLogicalWidth += toAdd;
+    m_maxPreferredLogicalWidth += toAdd;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
 }
 
 void RenderTextControl::selectionChanged(bool userTriggered)
 {
     cacheSelection(selectionStart(), selectionEnd());
 
-    if (Frame* frame = document()->frame()) {
+    if (Frame* frame = this->frame()) {
         if (frame->selection()->isRange() && userTriggered)
             node()->dispatchEvent(Event::create(eventNames().selectEvent, true, false));
     }
@@ -566,14 +613,51 @@ void RenderTextControl::updatePlaceholderVisibility(bool placeholderShouldBeVisi
 {
     bool oldPlaceholderVisible = m_placeholderVisible;
     m_placeholderVisible = placeholderShouldBeVisible;
-    if (oldPlaceholderVisible != m_placeholderVisible || placeholderValueChanged) {
-        // Sets the inner text style to the normal style or :placeholder style.
-        setInnerTextStyle(createInnerTextStyle(textBaseStyle()));
+    if (oldPlaceholderVisible != m_placeholderVisible || placeholderValueChanged)
+        repaint();
+}
 
-        // updateFromElement() of the subclasses updates the text content
-        // to the element's value(), placeholder(), or the empty string.
-        updateFromElement();
+void RenderTextControl::paintPlaceholder(PaintInfo& paintInfo, int tx, int ty)
+{
+    if (style()->visibility() != VISIBLE)
+        return;
+    
+    IntRect clipRect(tx + borderLeft(), ty + borderTop(), width() - borderLeft() - borderRight(), height() - borderBottom() - borderTop());
+    if (clipRect.isEmpty())
+        return;
+    
+    GraphicsContextStateSaver stateSaver(*paintInfo.context);
+    paintInfo.context->clip(clipRect);
+    
+    RefPtr<RenderStyle> placeholderStyle = getCachedPseudoStyle(INPUT_PLACEHOLDER);
+    if (!placeholderStyle)
+        placeholderStyle = style();
+    
+    paintInfo.context->setFillColor(placeholderStyle->visitedDependentColor(CSSPropertyColor), placeholderStyle->colorSpace());
+    
+    String placeholderText = static_cast<HTMLTextFormControlElement*>(node())->strippedPlaceholder();
+    TextRun textRun(placeholderText.characters(), placeholderText.length(), false, 0, 0, TextRun::AllowTrailingExpansion, placeholderStyle->direction(), placeholderStyle->unicodeBidi() == Override);
+    
+    RenderBox* textRenderer = innerTextElement() ? innerTextElement()->renderBox() : 0;
+    if (textRenderer) {
+        IntPoint textPoint;
+        textPoint.setY(ty + textBlockInsetTop() + placeholderStyle->fontMetrics().ascent());
+        int styleTextIndent = placeholderStyle->textIndent().isFixed() ? placeholderStyle->textIndent().calcMinValue(0) : 0;
+        if (placeholderStyle->isLeftToRightDirection())
+            textPoint.setX(tx + styleTextIndent + textBlockInsetLeft());
+        else
+            textPoint.setX(tx + width() - textBlockInsetRight() - styleTextIndent - style()->font().width(textRun));
+        
+        paintInfo.context->drawBidiText(placeholderStyle->font(), textRun, textPoint);
     }
+}
+
+void RenderTextControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
+{    
+    if (m_placeholderVisible && paintInfo.phase == PaintPhaseForeground)
+        paintPlaceholder(paintInfo, tx, ty);
+    
+    RenderBlock::paintObject(paintInfo, tx, ty);
 }
 
 } // namespace WebCore

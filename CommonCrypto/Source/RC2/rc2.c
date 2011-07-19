@@ -11,7 +11,7 @@
 #include <string.h> 
 #include <assert.h> 
 
-#include <CommonCrypto/rc2.h>
+#include "rc2.h"
 
 /**********************************************************************\ 
 * Expand a variable-length user key (between 1 and 128 bytes) to a     * 

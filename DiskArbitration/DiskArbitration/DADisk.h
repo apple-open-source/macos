@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -116,6 +116,21 @@ extern DADiskRef DADiskCreateFromBSDName( CFAllocatorRef allocator, DASessionRef
  */
 
 extern DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, DASessionRef session, io_service_t media );
+
+/*!
+ * @function   DADiskCreateFromVolumePath
+ * @abstract   Creates a new disk object.
+ * @param      allocator The allocator object to be used to allocate memory.
+ * @param      session   The DASession in which to contact Disk Arbitration.
+ * @param      path      The BSD mount point.
+ * @result     A reference to a new DADisk.
+ * @discussion
+ * The caller of this function receives a reference to the returned object.  The
+ * caller also implicitly retains the object and is responsible for releasing it
+ * with CFRelease().
+ */
+
+extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
 
 /*!
  * @function   DADiskGetBSDName

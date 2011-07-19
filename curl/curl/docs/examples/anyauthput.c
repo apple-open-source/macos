@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: anyauthput.c,v 1.9 2009-06-10 12:59:59 yangtse Exp $
  */
 
 #include <stdio.h>
@@ -136,7 +135,7 @@ int main(int argc, char **argv)
     /* and give the size of the upload, this supports large file sizes
        on systems that have general support for it */
     curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE,
-    			(curl_off_t)file_info.st_size);
+                     (curl_off_t)file_info.st_size);
 
     /* tell libcurl we can use "any" auth, which lets the lib pick one, but it
        also costs one extra round-trip and possibly sending of all the PUT

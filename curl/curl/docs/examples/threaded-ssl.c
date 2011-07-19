@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: threaded-ssl.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  *
  * A multi-threaded example that uses pthreads and fetches 4 remote files at
  * once over HTTPS. The lock callbacks and stuff assume OpenSSL or GnuTLS
@@ -92,10 +91,10 @@ void init_locks(void)
 
 /* List of URLs to fetch.*/
 const char * const urls[]= {
-  "https://www.sf.net/",
-  "https://www.openssl.org/",
-  "https://www.sf.net/",
-  "https://www.openssl.org/",
+  "https://www.example.com/",
+  "https://www2.example.com/",
+  "https://www3.example.com/",
+  "https://www4.example.com/",
 };
 
 static void *pull_one_url(void *url)

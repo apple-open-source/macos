@@ -29,26 +29,34 @@
 #define IOHID_DEBUG(code, a, b, c, d)   KERNEL_DEBUG_CONSTANT(IOHID_DEBUG_CODE(code), a, b, c, d, 0)
 
 enum kIOHIDDebugCodes {
-    kIOHIDDebugCode_Unexpected,
+    kIOHIDDebugCode_Unexpected,                 // 0  0x5230000
     kIOHIDDebugCode_KeyboardLEDThreadTrigger,
     kIOHIDDebugCode_KeyboardLEDThreadActive,
     kIOHIDDebugCode_KeyboardSetParam,
-    kIOHIDDebugCode_KeyboardCapsThreadTrigger,
+    kIOHIDDebugCode_KeyboardCapsThreadTrigger,  // 4  0x5230010
     kIOHIDDebugCode_KeyboardCapsThreadActive,
     kIOHIDDebugCode_PostEvent,
     kIOHIDDebugCode_NewUserClient,
-    kIOHIDDebugCode_InturruptReport,
+    kIOHIDDebugCode_InturruptReport,            // 8  0x5230020
     kIOHIDDebugCode_DispatchScroll,
     kIOHIDDebugCode_DispatchRelativePointer,
     kIOHIDDebugCode_DispatchAbsolutePointer,
-    kIOHIDDebugCode_DispatchKeyboard,
+    kIOHIDDebugCode_DispatchKeyboard,           // 12 0x5230030
     kIOHIDDebugCode_EjectCallback,
     kIOHIDDebugCode_CapsCallback,
     kIOHIDDebugCode_HandleReport,
-    kIOHIDDebugCode_DispatchTabletPointer,
+    kIOHIDDebugCode_DispatchTabletPointer,      // 16 0x5230040
     kIOHIDDebugCode_DispatchTabletProx,
     kIOHIDDebugCode_DispatchHIDEvent,
     kIOHIDDebugCode_CalculatedCapsDelay,
+    kIOHIDDebugCode_ExtPostEvent,               // 20 0x5230050
+    kIOHIDDebugCode_RelativePointerEventTiming,
+    kIOHIDDebugCode_RelativePointerEventScaling,
+    kIOHIDDebugCode_Profiling,
+    kIOHIDDebugCode_DisplayTickle,              // 24 0x5230060
+    kIOHIDDebugCode_ExtSetLocation,
+    kIOHIDDebugCode_SetCursorPosition,
+    kIOHIDDebugCode_PowerStateChangeEvent,
     kIOHIDDebugCode_Invalid
 };
 

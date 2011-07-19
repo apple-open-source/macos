@@ -22,7 +22,7 @@
 #
 #	See the manual page comm.n for further details on this package.
 #
-# RCS: @(#) $Id: comm.tcl,v 1.31 2008/02/29 20:21:50 andreas_kupries Exp $
+# RCS: @(#) $Id: comm.tcl,v 1.33 2009/11/04 17:51:53 andreas_kupries Exp $
 
 package require Tcl 8.3
 package require snit ; # comm::future objects.
@@ -67,6 +67,7 @@ namespace eval ::comm {
     # comm()
     #	$ch,port		listening port (our id)
     #	$ch,socket		listening socket
+    #	$ch,socketcmd		command to use to create sockets.
     #   $ch,silent      boolean to indicate whether to throw error on
     #                   protocol negotiation failure
     #	$ch,local		boolean to indicate if port is local
@@ -311,6 +312,7 @@ proc ::comm::comm_cmd_destroy {chan} {
     catch {unset comm($chan,interp)}
     catch {unset comm($chan,events)}
     catch {unset comm($chan,socket)}
+    catch {unset comm($chan,socketcmd)}
     catch {unset comm($chan,remoteid)}
     unset comm($chan,serial)
     unset comm($chan,chan)
@@ -411,6 +413,7 @@ proc ::comm::comm_cmd_new {chan ch args} {
     set comm($chan,encoding) $comm(defaultEncoding)
     set comm($chan,interp)   {}
     set comm($chan,events)   {}
+    set comm($chan,socketcmd) ::socket
 
     if {[llength $args] > 0} {
 	if {[catch [linsert $args 0 commConfigure $chan 1] err]} {
@@ -568,6 +571,7 @@ proc ::comm::commConfVars {v t} {
 ::comm::commConfVars local    b
 ::comm::commConfVars listen   b
 ::comm::commConfVars socket   ro
+::comm::commConfVars socketcmd socketcmd
 ::comm::commConfVars chan     ro
 ::comm::commConfVars serial   ro
 ::comm::commConfVars encoding enc
@@ -689,14 +693,25 @@ proc ::comm::commConfigure {chan {force 0} args} {
 		set $var $optval
 		set skip 1
 	    }
-	    ro { return -code error "Readonly configuration option: -$var" }
+	    ro {
+		return -code error "Readonly configuration option: -$var"
+	    }
+	    socketcmd {
+		if {$optval eq {}} {
+		    return -code error \
+			"Non-command to configuration option: -$var"
+		}
+
+		set $var $optval
+		set skip 1
+	    }
 	}
     }
     if {[info exists skip]} {
 	return -code error "Missing value for option: $arg"
     }
 
-    foreach var {port listen local} {
+    foreach var {port listen local socketcmd} {
 	# FRINK: nocheck
 	if {[info exists $var] && [set $var] != $comm($chan,$var)} {
 	    incr force
@@ -758,7 +773,7 @@ proc ::comm::commConfigure {chan {force 0} args} {
 	set nport $comm($chan,port)
     }
     while {1} {
-	set cmd [list socket -server [list ::comm::commIncoming $chan]]
+	set cmd [list $comm($chan,socketcmd) -server [list ::comm::commIncoming $chan]]
 	if {$comm($chan,local)} {
 	    lappend cmd -myaddr $comm(localhost)
 	}
@@ -848,7 +863,7 @@ proc ::comm::commConnect {chan id} {
 	set host $comm(localhost)
     }
     set port [lindex $id 0]
-    set fid [socket $host $port]
+    set fid [$comm($chan,socketcmd) $host $port]
 
     # process connected hook now
     if {[catch {
@@ -1140,15 +1155,107 @@ proc ::comm::commCollect {chan fid} {
     # the whole buffer is a valid list.  This is probably OK, although
     # it could potentially cause a deadlock.
 
-    while {![catch {set cmd [lindex $data 0]}]} {
+    # [AK] Actually no. This breaks down if the sender shoves so much
+    # data at us so fast that the receiver runs into out of memory
+    # before the list is fully well-formed and thus able to be
+    # processed.
+
+    while {![catch {
+	set cmdrange [Word0 data]
+	# word0 is essentially the pre-8.0 'lindex <list> 0', getting
+	# the first word of a list, even if the remainder is not fully
+	# well-formed. Slight API change, we get the char indices the
+	# word is between, and a relative index to the remainder of
+	# the list.
+    }]} {
+	# Unpack the indices, then extract the word.
+	foreach {s e step} $cmdrange break
+	set cmd [string range $data $s $e]
 	commDebug {puts stderr "<$chan> cmd <$data>"}
 	if {[string equal "" $cmd]} break
 	if {[info complete $cmd]} {
-	    set data [lreplace $data 0 0]
+	    # The word is a command, step to the remainder of the
+	    # list, and delete the word we have processed.
+	    incr e $step
+	    set data [string range $data $e end]
 	    after idle \
 		    [list ::comm::commExec $chan $fid $comm($chan,fids,$fid) $cmd]
 	}
     }
+}
+
+proc ::comm::Word0 {dv} {
+    upvar 1 $dv data
+
+    # data
+    #
+    # The string we expect to be either a full well-formed list, or a
+    # well-formed list until the end of the first word in the list,
+    # with non-wellformed data following after, i.e. an incomplete
+    # list with a complete first word.
+
+    if {[regexp -indices "^\\s*(\{)" $data -> bracerange]} {
+	# The word is brace-quoted, starting at index 'lindex
+	# bracerange 0'. We now have to find the closing brace,
+	# counting inner braces, ignoring quoted braces. We fail if
+	# there is no proper closing brace.
+
+	foreach {s e} $bracerange break
+	incr s ; # index of the first char after the brace.
+	incr e ; # same. but this is our running index.
+
+	set level 1
+	set max [string length $data]
+
+	while {$level} {
+	    # We are looking for the first regular or backslash-quoted
+	    # opening or closing brace in the string. If none is found
+	    # then the word is not complete, and we abort our search.
+
+	    if {![regexp -indices -start $e {(([{}])|(\\[{}]))} $data -> any regular quoted]} {
+		#                            ^^      ^
+		#                            |regular \quoted
+		#                            any
+		return -code error "no complete word found/1"
+	    }
+
+	    foreach {qs qe} $quoted break
+	    foreach {rs re} $regular break
+
+	    if {$qs >= 0} {
+		# Skip quoted braces ...
+		set e $qe
+		incr e
+		continue
+	    } elseif {$rs >= 0} {
+		# Step one nesting level in or out.
+		if {[string index $data $rs] eq "\{"} {
+		    incr level
+		} else {
+		    incr level -1
+		}
+		set  e $re
+		incr e
+		#puts @$e
+		continue
+	    } else {
+		return -code error "internal error"
+	    }
+	}
+
+	incr e -2 ; # index of character just before the brace.
+	return [list $s $e 2]
+
+    } elseif {[regexp -indices {^\s*(\S+)\s} $data -> wordrange]} {
+	# The word is a simple literal which ends at the next
+	# whitespace character. Note that there has to be a whitespace
+	# for us to recognize a word, for while there is no whitespace
+	# behind it in the buffer the word itself may be incomplete.
+
+	return [linsert $wordrange end 1]
+    }
+
+    return -code error "no complete word found/2"
 }
 
 # ::comm::commExec --
@@ -1666,4 +1773,4 @@ if {![info exists ::comm::comm(comm,port)]} {
 }
 
 #eof
-package provide comm 4.5.7
+package provide comm 4.6.1

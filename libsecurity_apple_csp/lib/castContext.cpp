@@ -17,22 +17,34 @@
 
 
 /*
- * castContext.cpp - glue between BlockCrytpor and ssleay CAST128 (CAST5)
+ * castContext.cpp - glue between BlockCrytpor and CommonCrypto CAST128 (CAST5)
  *				 implementation
  *
- * Written by Doug Mitchell 4/24/2003
  */
  
 #include "castContext.h"
 
+CastContext::CastContext(AppleCSPSession &session) :
+    BlockCryptor(session),
+    mInitFlag(false),
+    mCastKey(NULL),
+    mRawKeySize(0)
+{
+}
+
+
+
 CastContext::~CastContext()
 {
-	deleteKey();
+ 	deleteKey();
 }
 
 void CastContext::deleteKey()
 {
-	memset(&mCastKey, 0, sizeof(mCastKey));
+    if (mCastKey != NULL) {
+        CCCryptorRelease(mCastKey);
+    }
+    mCastKey = NULL;
 	mInitFlag = false;
 }
 
@@ -56,7 +68,7 @@ void CastContext::init(
 	symmetricKeyBits(context, session(), CSSM_ALGID_CAST, 
 		encrypting ? CSSM_KEYUSE_ENCRYPT : CSSM_KEYUSE_DECRYPT,
 		keyData, keyLen);
-	if((keyLen < CAST_MIN_KEY_LENGTH) || (keyLen > CAST_KEY_LENGTH)) {
+	if((keyLen < kCCKeySizeMinCAST) || (keyLen > kCCKeySizeMaxCAST)) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
@@ -72,7 +84,7 @@ void CastContext::init(
 
 	/* init key only if key size or key bits have changed */
 	if(!sameKeySize || memcmp(mRawKey, keyData, mRawKeySize)) {
-		CAST_set_key(&mCastKey, keyLen, keyData);
+        (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithmCAST, ccDefaultPadding, NULL, keyData, keyLen, NULL, 0, 0, 0, &mCastKey);
 	
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
@@ -80,7 +92,7 @@ void CastContext::init(
 	}
 	
 	/* Finally, have BlockCryptor do its setup */
-	setup(CAST_BLOCK, context);
+	setup(kCCBlockSizeCAST, context);
 	mInitFlag = true;
 }	
 
@@ -94,15 +106,15 @@ void CastContext::encryptBlock(
 	size_t			&cipherTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
 {
-	if(plainTextLen != CAST_BLOCK) {
+	if(plainTextLen != kCCBlockSizeCAST) {
 		CssmError::throwMe(CSSMERR_CSP_INPUT_LENGTH_ERROR);
 	}
-	if(cipherTextLen < CAST_BLOCK) {
+	if(cipherTextLen < kCCBlockSizeCAST) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	CAST_ecb_encrypt((const unsigned char *)plainText, (unsigned char *)cipherText,
-		&mCastKey, CAST_ENCRYPT);
-	cipherTextLen = CAST_BLOCK;
+    (void) CCCryptorEncryptDataBlock(mCastKey, NULL, plainText, kCCBlockSizeCAST, cipherText);
+
+	cipherTextLen = kCCBlockSizeCAST;
 }
 
 void CastContext::decryptBlock(
@@ -112,10 +124,10 @@ void CastContext::decryptBlock(
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
 {
-	if(plainTextLen < CAST_BLOCK) {
+	if(plainTextLen < kCCBlockSizeCAST) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	CAST_ecb_encrypt((const unsigned char *)cipherText, (unsigned char *)plainText,
-		&mCastKey, CAST_DECRYPT);
-	plainTextLen = CAST_BLOCK;
+    (void) CCCryptorDecryptDataBlock(mCastKey, NULL, cipherText, kCCBlockSizeCAST, plainText);
+
+	plainTextLen = kCCBlockSizeCAST;
 }

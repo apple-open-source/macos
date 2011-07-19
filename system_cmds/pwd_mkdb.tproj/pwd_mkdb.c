@@ -385,9 +385,7 @@ fmt:		errno = EFTYPE;	/* XXX */
 }
 
 void                    
-cp(from, to, mode)              
-	char *from, *to;
-	mode_t mode;    
+cp(char *from, char *to, mode_t mode)              
 {               
 	static char buf[MAXBSIZE];
 	int from_fd, rcount, to_fd, wcount;

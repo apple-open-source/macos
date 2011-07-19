@@ -1,8 +1,8 @@
 /* ldapcompare.c -- LDAP compare tool */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapcompare.c,v 1.43.2.4 2008/02/11 23:26:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapcompare.c,v 1.43.2.9 2010/04/15 22:16:49 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * All rights reserved.
@@ -85,6 +85,8 @@ usage( void )
 	fprintf( stderr, _("Compare options:\n"));
 	fprintf( stderr, _("  -E [!]<ext>[=<extparam>] compare extensions (! indicates criticality)\n"));
 	fprintf( stderr, _("             !dontUseCopy                (Don't Use Copy)\n"));
+	fprintf( stderr, _("  -M         enable Manage DSA IT control (-MM to make critical)\n"));
+	fprintf( stderr, _("  -P version protocol version (default: 3)\n"));
 	fprintf( stderr, _("  -z         Quiet mode,"
 		" don't print anything, use return values\n"));
 	tool_common_usage();
@@ -227,16 +229,6 @@ main( int argc, char **argv )
 	}
 
 	ld = tool_conn_setup( 0, 0 );
-
-	if ( pw_file || want_bindpw ) {
-		if ( pw_file ) {
-			rc = lutil_get_filed_password( pw_file, &passwd );
-			if( rc ) return EXIT_FAILURE;
-		} else {
-			passwd.bv_val = getpassphrase( _("Enter LDAP Password: ") );
-			passwd.bv_len = passwd.bv_val ? strlen( passwd.bv_val ) : 0;
-		}
-	}
 
 	tool_bind( ld );
 

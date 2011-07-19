@@ -39,7 +39,7 @@
 extern void checkpasswd(char *, char *);
 
 char *
-getline(FILE *fp)
+_getline(FILE *fp)
 {
 	static char s[BUFSIZE];
 	int len;
@@ -115,7 +115,7 @@ find_user(char *uname, FILE *fp)
 
 	rewind(fp);
 
-	while (NULL != (line = getline(fp)))
+	while (NULL != (line = _getline(fp)))
 	{
 		if (line[0] == '#') continue;
 		pw = parse_user(line);
@@ -172,7 +172,7 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 
 	rewind(fp);
 
-	while (NULL != (line = getline(fp)))
+	while (NULL != (line = _getline(fp)))
 	{
 		if (line[0] == '#')
 		{
@@ -232,7 +232,7 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 		exit(1);
 	}
 
-	while (NULL != (line = getline(tfp)))
+	while (NULL != (line = _getline(tfp)))
 	{
 		fprintf(fp, "%s", line);
 		if (line[0] != '#') fprintf(fp, "\n");

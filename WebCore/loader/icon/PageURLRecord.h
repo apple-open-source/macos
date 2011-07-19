@@ -42,16 +42,21 @@ class PageURLSnapshot {
 public:
     PageURLSnapshot() { }
     
-    PageURLSnapshot(const String& page, const String& icon)
-        : pageURL(page)
-        , iconURL(icon)
+    PageURLSnapshot(const String& pageURL, const String& iconURL)
+        : m_pageURL(pageURL)
+        , m_iconURL(iconURL)
     { }
-    
-    String pageURL;
-    String iconURL;
+
+    const String& pageURL() const { return m_pageURL; }
+    const String& iconURL() const { return m_iconURL; }
+
+private:
+    String m_pageURL;
+    String m_iconURL;
 };
 
-class PageURLRecord : public Noncopyable {
+class PageURLRecord {
+    WTF_MAKE_NONCOPYABLE(PageURLRecord); WTF_MAKE_FAST_ALLOCATED;
 public:
     PageURLRecord(const String& pageURL);
     ~PageURLRecord();

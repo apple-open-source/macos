@@ -135,6 +135,8 @@ static struct {
     {"sysbsd", STATISTIC_SYSBSD},
     {"sysmach", STATISTIC_SYSMACH},
     {"pageins", STATISTIC_PAGEINS},
+    {"kprvt", STATISTIC_KPRVT},
+    {"kshrd", STATISTIC_KSHRD},
     {NULL, 0}
 };
 
@@ -215,6 +217,8 @@ void top_prefs_init(void) {
     SPREF(STATISTIC_SYSMACH);
     SPREF(STATISTIC_CSW);
     SPREF(STATISTIC_PAGEINS);
+    SPREF(STATISTIC_KPRVT);
+    SPREF(STATISTIC_KSHRD);
     SPREF(STATISTIC_USER);
 
 #undef SPREF

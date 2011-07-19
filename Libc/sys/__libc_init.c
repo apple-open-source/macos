@@ -31,27 +31,46 @@
 struct ProgramVars; /* forward reference */
 
 extern void _program_vars_init(const struct ProgramVars *vars);
+extern void _libc_fork_init(void (*prepare)(void), void (*parent)(void), void (*child)(void));
+extern void _init_clock_port();
 extern pthread_lock_t _malloc_lock;
 extern void __xlocale_init(void);
-extern void __guard_setup(void);
+extern void __guard_setup(const char *apple[]);
+extern void __malloc_entropy_setup(const char *apple[]);
+extern int usenew_impl;
 
 #ifdef PR_5243343
 /* 5243343 - temporary hack to detect if we are running the conformance test */
 #include <stdlib.h>
 __private_extern__ int PR_5243343_flag = 0;
 #endif /* PR_5243343 */
+__private_extern__ int __pthread_lock_debug = 0;
+__private_extern__ int __pthread_lock_old = 0;
 
-__private_extern__ void
-__libc_init(const struct ProgramVars *vars)
+void
+__libc_init(const struct ProgramVars *vars, void (*atfork_prepare)(void), void (*atfork_parent)(void), void (*atfork_child)(void), const char *apple[])
 {
 	_program_vars_init(vars);
+	_libc_fork_init(atfork_prepare, atfork_parent, atfork_child);
 	LOCK_INIT(_malloc_lock);
+	_init_clock_port();
 	__xlocale_init();
-	__guard_setup();
+	__guard_setup(apple);
+	__malloc_entropy_setup(apple);
+
 
 #ifdef PR_5243343
 	/* 5243343 - temporary hack to detect if we are running the conformance test */
 	if(getenv("TET_EXECUTE"))
 		PR_5243343_flag = 1;
 #endif /* PR_5243343 */
+#if defined(__i386__) || defined(__x86_64__)
+        if(getenv("__PTHREAD_LOCK_DEBUG__"))
+                __pthread_lock_debug = 1;
+        if(getenv("__PTHREAD_LOCK_OLD__")) {
+                __pthread_lock_old = 1;
+                usenew_impl = 0;
+        }
+#endif
+
 }

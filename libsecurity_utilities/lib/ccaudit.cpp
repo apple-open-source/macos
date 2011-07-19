@@ -41,9 +41,55 @@ TerminalId::TerminalId()
 }
 
 AuditToken::AuditToken(const audit_token_t &token)
+    : mAuditToken(token)
 {
-    audit_token_to_au32(token, &mAuditId, &mEuid, &mEgid, &mRuid, &mRgid, &mPid, &mAuditSessionId, &mTerminalId);
+    ::audit_token_to_au32(token, &mAuditId, &mEuid, &mEgid, &mRuid, &mRgid, &mPid, &mSessionId, &mTerminalId);
 }
+
+
+//
+// AuditInfo
+//
+void AuditInfo::get()
+{
+	this->clearPod();
+	UnixError::check(::getaudit_addr(this, sizeof(*this)));
+}
+
+void AuditInfo::get(au_asid_t session)
+{
+	this->get();
+	if (session != this->ai_asid) {
+		// need to use higher-privileged call to get info about a session that is not our own
+		this->ai_asid = session;
+		UnixError::check(::auditon(A_GETSINFO_ADDR, this, sizeof(*this)));
+	}
+}
+
+void AuditInfo::getPid(pid_t pid)
+{
+	auditpinfo_addr_t pinfo;
+	memset(&pinfo, 0, sizeof(pinfo));
+	pinfo.ap_pid = pid;
+	UnixError::check(::auditon(A_GETPINFO_ADDR, &pinfo, sizeof(pinfo)));
+	get(pinfo.ap_asid);
+}
+
+void AuditInfo::set()
+{
+	UnixError::check(::setaudit_addr(this, sizeof(*this)));
+}
+
+void AuditInfo::create(uint64_t flags, uid_t auid /* = AU_DEFAUDITID */)
+{
+	this->clearPod();
+	ai_auid = auid;
+	ai_asid = AU_ASSIGN_ASID;
+	ai_termid.at_type = AU_IPv4;
+	ai_flags = flags;
+	UnixError::check(::setaudit_addr(this, sizeof(*this)));
+}
+
 
 void AuditSession::registerSession(void)
 {
@@ -85,7 +131,7 @@ void AuditRecord::submit(const short event_code, const int returnCode,
 								  mAuditToken.auditId(), mAuditToken.euid(),
 								  mAuditToken.egid(), mAuditToken.ruid(), 
 								  mAuditToken.rgid(), mAuditToken.pid(), 
-								  mAuditToken.auditSession(),
+								  mAuditToken.sessionId(),
 								  const_cast<au_tid_t *>(&(mAuditToken.terminalId())));
     }
     else
@@ -94,7 +140,7 @@ void AuditRecord::submit(const short event_code, const int returnCode,
 								  returnCode, mAuditToken.auditId(), 
 								  mAuditToken.euid(), mAuditToken.egid(), 
 								  mAuditToken.ruid(), mAuditToken.rgid(), 
-								  mAuditToken.pid(), mAuditToken.auditSession(),
+								  mAuditToken.pid(), mAuditToken.sessionId(),
 								  const_cast<au_tid_t *>(&(mAuditToken.terminalId())));
     }
     if (ret != kAUNoErr)

@@ -23,24 +23,38 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/locale/mblocal.h,v 1.4 2004/10/17 06:51:50 tjr Exp $
+ * $FreeBSD: src/lib/libc/locale/mblocal.h,v 1.7 2008/01/21 23:48:12 ache Exp $
  */
 
 #ifndef _MBLOCAL_H_
 #define	_MBLOCAL_H_
 
+#include <runetype.h>
+
 /*
- * Conversion functions for "NONE"/C/POSIX encoding.
+ * Rune initialization function prototypes.
  */
-extern size_t _none_mbrtowc(wchar_t * __restrict, const char * __restrict,
-    size_t, mbstate_t * __restrict, locale_t);
-extern int _none_mbsinit(const mbstate_t *, locale_t);
-extern size_t _none_mbsnrtowcs(wchar_t * __restrict, const char ** __restrict,
-    size_t, size_t, mbstate_t * __restrict, locale_t);
-extern size_t _none_wcrtomb(char * __restrict, wchar_t,
-    mbstate_t * __restrict, locale_t);
-extern size_t _none_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
-    size_t, size_t, mbstate_t * __restrict, locale_t);
+__private_extern__ int	_none_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_ascii_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_UTF2_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_UTF8_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_EUC_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_GB18030_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_GB2312_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_GBK_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_BIG5_init(struct __xlocale_st_runelocale *);
+__private_extern__ int	_MSKanji_init(struct __xlocale_st_runelocale *);
+
+__private_extern__ size_t       _none_mbrtowc(wchar_t * __restrict, const char * __restrict,
+                    size_t, mbstate_t * __restrict, locale_t);
+__private_extern__ int  _none_mbsinit(const mbstate_t *, locale_t);
+__private_extern__ size_t       _none_mbsnrtowcs(wchar_t * __restrict dst,
+                    const char ** __restrict src, size_t nms, size_t len,
+                    mbstate_t * __restrict ps __unused, locale_t);
+__private_extern__ size_t       _none_wcrtomb(char * __restrict, wchar_t,
+                    mbstate_t * __restrict, locale_t);
+__private_extern__ size_t       _none_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
+                    size_t, size_t, mbstate_t * __restrict, locale_t);
 
 extern size_t __mbsnrtowcs_std(wchar_t * __restrict, const char ** __restrict,
     size_t, size_t, mbstate_t * __restrict, locale_t);

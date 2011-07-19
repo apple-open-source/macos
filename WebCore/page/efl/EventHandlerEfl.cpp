@@ -48,20 +48,7 @@ namespace WebCore {
 
 const double EventHandler::TextDragDelay = 0.0;
 
-static bool isKeyboardOptionTab(KeyboardEvent* event)
-{
-    return event
-        && (event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent)
-        && event->altKey()
-        && event->keyIdentifier() == "U+0009";
-}
-
-bool EventHandler::invertSenseOfTabsToLinks(KeyboardEvent* event) const
-{
-    return isKeyboardOptionTab(event);
-}
-
-bool EventHandler::tabsToAllControls(KeyboardEvent* event) const
+bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 {
     return true;
 }
@@ -74,7 +61,7 @@ void EventHandler::focusDocumentView()
 
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
 {
-    RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
+    RenderObject* target = targetNode(event) ? targetNode(event)->renderer() : 0;
 
     if (!target || !target->isWidget())
         return false;
@@ -110,7 +97,7 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& event, Widget* wid
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    return new ClipboardEfl(ClipboardWritable, true);
+    return ClipboardEfl::create(ClipboardWritable, Clipboard::DragAndDrop);
 }
 
 bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)

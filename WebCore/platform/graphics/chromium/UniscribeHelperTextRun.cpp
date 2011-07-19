@@ -31,9 +31,10 @@
 #include "config.h"
 #include "UniscribeHelperTextRun.h"
 
-#include "ChromiumBridge.h"
 #include "Font.h"
+#include "PlatformBridge.h"
 #include "SimpleFontData.h"
+#include "TextRun.h"
 
 namespace WebCore {
 
@@ -42,7 +43,8 @@ UniscribeHelperTextRun::UniscribeHelperTextRun(const TextRun& run,
     : UniscribeHelper(run.characters(), run.length(), run.rtl(),
                       font.primaryFont()->platformData().hfont(),
                       font.primaryFont()->platformData().scriptCache(),
-                      font.primaryFont()->platformData().scriptFontProperties())
+                      font.primaryFont()->platformData().scriptFontProperties(),
+                      font.primaryFont()->spaceGlyph())
     , m_font(&font)
     , m_fontIndex(0)
 {
@@ -50,14 +52,14 @@ UniscribeHelperTextRun::UniscribeHelperTextRun(const TextRun& run,
     setLetterSpacing(font.letterSpacing());
     setSpaceWidth(font.spaceWidth());
     setWordSpacing(font.wordSpacing());
-    setAscent(font.primaryFont()->ascent());
+    setAscent(font.fontMetrics().ascent());
 
     init();
 
-    // Padding is the amount to add to make justification happen. This
+    // Expansion is the amount to add to make justification happen. This
     // should be done after Init() so all the runs are already measured.
-    if (run.padding() > 0)
-        justify(run.padding());
+    if (run.expansion() > 0)
+        justify(run.expansion());
 }
 
 UniscribeHelperTextRun::UniscribeHelperTextRun(
@@ -68,7 +70,7 @@ UniscribeHelperTextRun::UniscribeHelperTextRun(
     SCRIPT_CACHE* scriptCache,
     SCRIPT_FONTPROPERTIES* fontProperties)
     : UniscribeHelper(input, inputLength, isRtl, hfont,
-                      scriptCache, fontProperties)
+                      scriptCache, fontProperties, 0)
     , m_font(0)
     , m_fontIndex(-1)
 {
@@ -79,7 +81,7 @@ void UniscribeHelperTextRun::tryToPreloadFont(HFONT font)
     // Ask the browser to get the font metrics for this font.
     // That will preload the font and it should now be accessible
     // from the renderer.
-    ChromiumBridge::ensureFontLoaded(font);
+    PlatformBridge::ensureFontLoaded(font);
 }
 
 bool UniscribeHelperTextRun::nextWinFontData(
@@ -120,7 +122,7 @@ bool UniscribeHelperTextRun::nextWinFontData(
         m_hfonts.append(simpleFontData->platformData().hfont());
         m_scriptCaches.append(simpleFontData->platformData().scriptCache());
         m_fontProperties.append(simpleFontData->platformData().scriptFontProperties());
-        m_ascents.append(simpleFontData->ascent());
+        m_ascents.append(simpleFontData->fontMetrics().ascent());
     }
 
     *hfont = m_hfonts[m_fontIndex - 1];

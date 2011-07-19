@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$239|function clickthru(elt)
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$239|function clickthru(elt)
 {       
         var link = lastelt.parentNode;
         // alert('wait a sec.  (DAG:elt is '+lastelt+' link is '+link+')');
@@ -9,7 +9,7 @@ FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT
 $96|/*! Passes clicks through the "Do not save" image to the link of
     the image behind it. 
  */ 
-$0|$7421|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$7397|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -108,10 +108,11 @@ $parserState->{sodname} => clickthru
 $parserState->{sodtype} =>  function
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => javascript
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => function
 $parserState->{value} => 
 $parserState->{valuepending} => 0
+$parserState->{variableNameConcat} => 2
 -=: BLOCKPARSE RETURN VALUES :=-
 newcount: 8
 typelist: function
@@ -191,14 +192,14 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
     OBJECT TYPE: HeaderDoc::Function
     NAME: clickthru
-    APIUID: //test_ref/javascript/func/clickthru
+    APIUID: //test_ref/js/func/clickthru
     ABSTRACT: ""
     DISCUSSION: "<p>Passes clicks through the "Do not save" image to the link of
 the image behind it. 
@@ -227,15 +228,15 @@ the image behind it.
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -243,7 +244,7 @@ the image behind it.
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: 
         TYPE:  elt
-        APIUID: //test_ref/javascript/internal_temporary_object/
+        APIUID: //test_ref/js/internal_temporary_object/
         ABSTRACT: ""
         DISCUSSION: "<p></p>"
         UPDATED: ""
@@ -277,8 +278,8 @@ the image behind it.
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: clickthru (HeaderDoc::Function)
 +---function
@@ -294,301 +295,10 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: clickthru (HeaderDoc::Function)
-	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/javascript/instm/clickthru //test_ref/javascript/clm/clickthru //test_ref/javascript/intfcm/clickthru //test_ref/javascript/intfm/clickthru //test_ref/javascript/func/clickthru //test_ref/javascript/ftmplt/clickthru //test_ref/javascript/defn/clickthru //test_ref/javascript/macro/clickthru" --><span class="function">clickthru</span><!-- /a -->(
+	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/js/instm/clickthru //test_ref/js/clm/clickthru //test_ref/js/intfcm/clickthru //test_ref/js/intfm/clickthru //test_ref/js/func/clickthru //test_ref/js/ftmplt/clickthru //test_ref/js/defn/clickthru //test_ref/js/macro/clickthru //test_ref/doc/anysymbol/clickthru" machineGenerated="true" --><span class="function">clickthru</span><!-- /a -->(
 	    <span class="param">elt</span>) 
 END OF OBJECT
 
 
 
-__$49|testsuite/parser_tests/JavaScript_function_2.test$4|java$21|JavaScript function 2$7421|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/JavaScript_function_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/JavaScript_function_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => clickthru
-$parserState->{functionContents} => {
-        var link = lastelt.parentNode;
-        // alert('wait a sec.  (DAG:elt is '+lastelt+' link is '+link+')');
-        /* commented out line. */
-
-        document.location = link.href;
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 8
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => java
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{leavingComment} => 0
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => function
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => clickthru
-$parserState->{sodtype} =>  function
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => function
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 8
-typelist: function
-namelist: clickthru
-posstypes: function method
-value: 
-returntype:  function
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-        var link = lastelt.parentNode;
-        // alert('wait a sec.  (DAG:elt is '+lastelt+' link is '+link+')');
-        /* commented out line. */
-
-        document.location = link.href;
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => elt
--=: DUMP OF PARSE TREE :=-
-+---function
-+--- 
-+---clickthru
-+---(
-|   +---elt
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: JavaScript function 2
-APIUID: //test_ref/doc/header/JavaScript_function_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: clickthru
-    APIUID: //test_ref/javascript/func/clickthru
-    ABSTRACT: ""
-    DISCUSSION: "<p>Passes clicks through the "Do not save" image to the link of
-the image behind it. 
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " function"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: 
-        TYPE:  elt
-        APIUID: //test_ref/javascript/internal_temporary_object/
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: clickthru (HeaderDoc::Function)
-+---function
-+--- 
-+---clickthru
-+---(
-|   +---elt
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: clickthru (HeaderDoc::Function)
-	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/javascript/instm/clickthru //test_ref/javascript/clm/clickthru //test_ref/javascript/intfcm/clickthru //test_ref/javascript/intfm/clickthru //test_ref/javascript/func/clickthru //test_ref/javascript/ftmplt/clickthru //test_ref/javascript/defn/clickthru //test_ref/javascript/macro/clickthru" --><span class="function">clickthru</span><!-- /a -->(
-	    <span class="param">elt</span>) 
-END OF OBJECT
-
-
-
-_$10|javascript$6|parser
+__$103|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/JavaScript_function_2.test$4|java$21|JavaScript function 2$10|javascript$6|parser

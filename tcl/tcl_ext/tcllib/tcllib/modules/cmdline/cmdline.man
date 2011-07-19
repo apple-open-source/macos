@@ -1,18 +1,39 @@
 [manpage_begin cmdline n 1.3.1]
 [moddesc   {Command line and option processing}]
 [titledesc {Procedures to process command lines and options.}]
+[category  {Programming tools}]
+[keywords  {cmdline processing} {argument processing} argv argv0]
+[keywords  {command line processing}]
 [require Tcl 8.2]
 [require cmdline [opt 1.3.1]]
 [description]
 
 This package provides commands to parse command lines and options.
 
+
+[section {::argv handling}]
+
+One of the most common variables this package will be used with is
+[var ::argv], which holds the command line of the current
+application. This variable has a companion [var ::argc] which is
+initialized to the number of elements in [var ::argv] at the beginning
+of the application.
+
+[para]
+
+The commands in this package will [emph not] modify the [var ::argc]
+companion when called with [var ::argv]. Keeping the value consistent,
+if such is desired or required, is the responsibility of the caller.
+
+
+[section API]
+
 [list_begin definitions]
 
 [call [cmd ::cmdline::getopt] [arg argvVar] [arg optstring] [arg optVar] [arg valVar]]
 
 This command works in a fashion like the standard C based [cmd getopt]
-function.  Given an option string and a pointer to an array or args
+function.  Given an option string and a pointer to an array of args
 this command will process the first argument and return info on how to
 proceed. The command returns 1 if an option was found, 0 if no more
 options were found, and -1 if an error occurred.
@@ -139,6 +160,7 @@ options is created, then the 'args' list is passed to cmdline for
 processing.  Subsequently, different options are checked to see if
 they have been passed to the script, and what their value is.
 
+
 [section {BUGS, IDEAS, FEEDBACK}]
 
 This document, and the package it describes, will undoubtedly contain
@@ -150,8 +172,5 @@ Please report such in the category [emph cmdline] of the
 Please also report any ideas for enhancements you may have for either
 package and/or documentation.
 
-
-[keywords {cmdline processing} {argument processing} argv argv0]
-[keywords {command line processing}]
 [manpage_end]
 

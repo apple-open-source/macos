@@ -1,24 +1,24 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-    Copyright (C) 2009 Google, Inc.  All rights reserved.
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2009 Google, Inc.  All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -26,18 +26,11 @@
 #include "SVGLocatable.h"
 
 #include "RenderObject.h"
-#include "SVGStyledLocatableElement.h"
 #include "SVGException.h"
+#include "SVGNames.h"
+#include "SVGStyledLocatableElement.h"
 
 namespace WebCore {
-
-SVGLocatable::SVGLocatable()
-{
-}
-
-SVGLocatable::~SVGLocatable()
-{
-}
 
 static bool isViewportElement(Node* node)
 {
@@ -52,7 +45,7 @@ static bool isViewportElement(Node* node)
 SVGElement* SVGLocatable::nearestViewportElement(const SVGElement* element)
 {
     ASSERT(element);
-    for (Node* n = element->parentNode(); n && !n->isDocumentNode(); n = n->parentNode()) {
+    for (ContainerNode* n = element->parentNode(); n; n = n->parentNode()) {
         if (isViewportElement(n))
             return static_cast<SVGElement*>(n);
     }
@@ -64,7 +57,7 @@ SVGElement* SVGLocatable::farthestViewportElement(const SVGElement* element)
 {
     ASSERT(element);
     SVGElement* farthest = 0;
-    for (Node* n = element->parentNode(); n && !n->isDocumentNode(); n = n->parentNode()) {
+    for (ContainerNode* n = element->parentNode(); n; n = n->parentNode()) {
         if (isViewportElement(n))
             farthest = static_cast<SVGElement*>(n);
     }
@@ -93,14 +86,19 @@ AffineTransform SVGLocatable::computeCTM(const SVGElement* element, CTMScope mod
     AffineTransform ctm;
 
     SVGElement* stopAtElement = mode == NearestViewportScope ? nearestViewportElement(element) : 0;
-    for (const Node* current = element; current && current->isSVGElement(); current = current->parentNode()) {
-        const SVGElement* currentElement = static_cast<const SVGElement*>(current);
+
+    Node* current = const_cast<SVGElement*>(element);
+    while (current && current->isSVGElement()) {
+        SVGElement* currentElement = static_cast<SVGElement*>(current);
         if (currentElement->isStyled())
-            ctm = static_cast<const SVGStyledElement*>(currentElement)->localCoordinateSpaceTransform(mode).multLeft(ctm);
+            // note that this modifies the AffineTransform returned by localCoordinateSpaceTransform(mode) too.
+            ctm = static_cast<SVGStyledElement*>(currentElement)->localCoordinateSpaceTransform(mode).multiply(ctm);
 
         // For getCTM() computation, stop at the nearest viewport element
         if (currentElement == stopAtElement)
             break;
+
+        current = current->parentOrHostNode();
     }
 
     return ctm;
@@ -116,7 +114,7 @@ AffineTransform SVGLocatable::getTransformToElement(SVGElement* target, Exceptio
             ec = SVGException::SVG_MATRIX_NOT_INVERTABLE;
             return ctm;
         }
-        ctm *= targetCTM.inverse();
+        ctm = targetCTM.inverse() * ctm;
     }
 
     return ctm;

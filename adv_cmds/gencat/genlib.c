@@ -31,7 +31,6 @@ up-to-date.  Many thanks.
 ******************************************************************/
 
 #include <sys/cdefs.h>
-#include "fbsdcompat.h"
 __FBSDID("$FreeBSD: src/usr.bin/gencat/genlib.c,v 1.13 2002/12/24 07:40:10 davidxu Exp $");
 
 #include <ctype.h>
@@ -40,7 +39,6 @@ __FBSDID("$FreeBSD: src/usr.bin/gencat/genlib.c,v 1.13 2002/12/24 07:40:10 david
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <nl_types.h>
 #include "msgcat.h"
 #include "gencat.h"
 #include <machine/endian.h>
@@ -84,7 +82,7 @@ nomem(void) {
 }
 
 static char *
-getline(int fd)
+gencat_getline(int fd)
 {
     static size_t curlen = BUFSIZ;
     static char	buf[BUFSIZ], *bptr = buf, *bend = buf;
@@ -198,7 +196,7 @@ getmsg(int fd, char *cptr, char quote)
 	    ++cptr;
 	    switch (*cptr) {
 	      case '\0':
-		cptr = getline(fd);
+		cptr = gencat_getline(fd);
 		if (!cptr) error(NULL, "premature end of file");
 		msglen += strlen(cptr);
 		i = tptr - msg;
@@ -300,7 +298,7 @@ void
 MCParse(int fd)
 {
     char	*cptr, *str;
-    int		setid = NL_SETD, msgid = 0;
+    int		setid = 1, msgid = 0;
     char	hconst[MAXTOKEN+1];
     char	quote = 0;
 
@@ -312,7 +310,7 @@ MCParse(int fd)
 
     hconst[0] = '\0';
 
-    while ((cptr = getline(fd)) != NULL) {
+    while ((cptr = gencat_getline(fd)) != NULL) {
 	if (*cptr == '$') {
 	    ++cptr;
 	    if (strncmp(cptr, "set", 3) == 0) {

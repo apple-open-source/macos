@@ -648,6 +648,26 @@ void CL_freeCssmGeneralNames(
 	memset(cdsaObj, 0, sizeof(CE_GeneralNames));
 }
 
+void CL_freeCssmDistPointName(
+	CE_DistributionPointName	*cssmDpn,
+	Allocator				&alloc)
+{
+	if(cssmDpn == NULL) {
+		return;
+	}
+	switch(cssmDpn->nameType) {
+		case CE_CDNT_FullName:
+			CL_freeCssmGeneralNames(cssmDpn->dpn.fullName, alloc);
+			alloc.free(cssmDpn->dpn.fullName);
+			break;
+		case CE_CDNT_NameRelativeToCrlIssuer:
+			CL_freeX509Rdn(cssmDpn->dpn.rdn, alloc);
+			alloc.free(cssmDpn->dpn.rdn);
+			break;
+	}
+	memset(cssmDpn, 0, sizeof(*cssmDpn));
+}
+
 void CL_freeCssmDistPoints(
 	CE_CRLDistPointsSyntax	*cssmDps,
 	Allocator			&alloc)
@@ -670,26 +690,6 @@ void CL_freeCssmDistPoints(
 		cssmDps->numDistPoints * sizeof(CE_CRLDistributionPoint));
 	alloc.free(cssmDps->distPoints);
 	memset(cssmDps, 0, sizeof(*cssmDps));
-}
-
-void CL_freeCssmDistPointName(
-	CE_DistributionPointName	*cssmDpn,
-	Allocator				&alloc)
-{
-	if(cssmDpn == NULL) {
-		return;
-	}
-	switch(cssmDpn->nameType) {
-		case CE_CDNT_FullName:
-			CL_freeCssmGeneralNames(cssmDpn->dpn.fullName, alloc);
-			alloc.free(cssmDpn->dpn.fullName);
-			break;
-		case CE_CDNT_NameRelativeToCrlIssuer:
-			CL_freeX509Rdn(cssmDpn->dpn.rdn, alloc);
-			alloc.free(cssmDpn->dpn.rdn);
-			break;
-	}
-	memset(cssmDpn, 0, sizeof(*cssmDpn));
 }
 
 /* free contents of an CSSM_X509_NAME */

@@ -27,34 +27,36 @@
 #include "RenderTreeAsText.h"
 
 #include "CSSMutableStyleDeclaration.h"
-#include "CharacterNames.h"
 #include "Document.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
 #include "PrintContext.h"
 #include "RenderBR.h"
+#include "RenderDetailsMarker.h"
 #include "RenderFileUploadControl.h"
 #include "RenderInline.h"
+#include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderListMarker.h"
 #include "RenderPart.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
-#include "SelectionController.h"
-#include "TextStream.h"
+#include <wtf/HexNumber.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(SVG)
-#include "RenderPath.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGGradientStop.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "SVGRenderTreeAsText.h"
@@ -74,14 +76,55 @@ using namespace HTMLNames;
 
 static void writeLayers(TextStream&, const RenderLayer* rootLayer, RenderLayer*, const IntRect& paintDirtyRect, int indent = 0, RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal);
 
-#if !ENABLE(SVG)
-static TextStream &operator<<(TextStream& ts, const IntRect& r)
+bool hasFractions(double val)
+{
+    static const double s_epsilon = 0.0001;
+    int ival = static_cast<int>(val);
+    double dval = static_cast<double>(ival);
+    return fabs(val - dval) > s_epsilon;
+}
+
+TextStream& operator<<(TextStream& ts, const IntRect& r)
 {
     return ts << "at (" << r.x() << "," << r.y() << ") size " << r.width() << "x" << r.height();
 }
-#endif
 
-static void writeIndent(TextStream& ts, int indent)
+TextStream& operator<<(TextStream& ts, const IntPoint& p)
+{
+    return ts << "(" << p.x() << "," << p.y() << ")";
+}
+
+TextStream& operator<<(TextStream& ts, const FloatPoint& p)
+{
+    ts << "(";    
+    if (hasFractions(p.x()))
+        ts << p.x();
+    else 
+        ts << int(p.x());    
+    ts << ",";
+    if (hasFractions(p.y())) 
+        ts << p.y();
+    else 
+        ts << int(p.y());    
+    return ts << ")";
+}
+
+TextStream& operator<<(TextStream& ts, const FloatSize& s)
+{
+    ts << "width=";
+    if (hasFractions(s.width()))
+        ts << s.width();
+    else
+        ts << int(s.width());
+    ts << " height=";
+    if (hasFractions(s.height())) 
+        ts << s.height();
+    else
+        ts << int(s.height());
+    return ts;
+}
+
+void writeIndent(TextStream& ts, int indent)
 {
     for (int i = 0; i != indent; ++i)
         ts << "  ";
@@ -168,11 +211,11 @@ String quoteAndEscapeNonPrintables(const String& s)
             if (c >= 0x20 && c < 0x7F)
                 result.append(c);
             else {
-                unsigned u = c;
-                String hex = String::format("\\x{%X}", u);
-                unsigned len = hex.length();
-                for (unsigned i = 0; i < len; ++i)
-                    result.append(hex[i]);
+                result.append('\\');
+                result.append('x');
+                result.append('{');
+                appendUnsignedAsHex(c, result); 
+                result.append('}');
             }
         }
     }
@@ -185,7 +228,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
     ts << o.renderName();
 
     if (behavior & RenderAsTextShowAddresses)
-        ts << " " << &o;
+        ts << " " << static_cast<const void*>(&o);
 
     if (o.style() && o.style()->zIndex())
         ts << " zI: " << o.style()->zIndex();
@@ -222,37 +265,37 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         // to clean up the results to dump both the outer box and the intrinsic padding so that both bits of information are
         // captured by the results.
         const RenderTableCell& cell = *toRenderTableCell(&o);
-        r = IntRect(cell.x(), cell.y() + cell.intrinsicPaddingTop(), cell.width(), cell.height() - cell.intrinsicPaddingTop() - cell.intrinsicPaddingBottom());
+        r = IntRect(cell.x(), cell.y() + cell.intrinsicPaddingBefore(), cell.width(), cell.height() - cell.intrinsicPaddingBefore() - cell.intrinsicPaddingAfter());
     } else if (o.isBox())
         r = toRenderBox(&o)->frameRect();
 
     // FIXME: Temporary in order to ensure compatibility with existing layout test results.
     if (adjustForTableCells)
-        r.move(0, -toRenderTableCell(o.containingBlock())->intrinsicPaddingTop());
+        r.move(0, -toRenderTableCell(o.containingBlock())->intrinsicPaddingBefore());
 
     ts << " " << r;
 
     if (!(o.isText() && !o.isBR())) {
-        if (o.isFileUploadControl()) {
+        if (o.isFileUploadControl())
             ts << " " << quoteAndEscapeNonPrintables(toRenderFileUploadControl(&o)->fileTextValue());
-        }
+
         if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
-            ts << " [color=" << o.style()->color().name() << "]";
+            ts << " [color=" << o.style()->color().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->backgroundColor() != o.style()->backgroundColor()) &&
             o.style()->backgroundColor().isValid() && o.style()->backgroundColor().rgb())
             // Do not dump invalid or transparent backgrounds, since that is the default.
-            ts << " [bgcolor=" << o.style()->backgroundColor().name() << "]";
+            ts << " [bgcolor=" << o.style()->backgroundColor().nameForRenderTreeAsText() << "]";
         
         if (o.parent() && (o.parent()->style()->textFillColor() != o.style()->textFillColor()) &&
             o.style()->textFillColor().isValid() && o.style()->textFillColor() != o.style()->color() &&
             o.style()->textFillColor().rgb())
-            ts << " [textFillColor=" << o.style()->textFillColor().name() << "]";
+            ts << " [textFillColor=" << o.style()->textFillColor().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->textStrokeColor() != o.style()->textStrokeColor()) &&
             o.style()->textStrokeColor().isValid() && o.style()->textStrokeColor() != o.style()->color() &&
             o.style()->textStrokeColor().rgb())
-            ts << " [textStrokeColor=" << o.style()->textStrokeColor().name() << "]";
+            ts << " [textStrokeColor=" << o.style()->textStrokeColor().nameForRenderTreeAsText() << "]";
 
         if (o.parent() && (o.parent()->style()->textStrokeWidth() != o.style()->textStrokeWidth()) &&
             o.style()->textStrokeWidth() > 0)
@@ -276,7 +319,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderTopColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -290,7 +333,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderRightColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -304,7 +347,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderBottomColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -318,7 +361,7 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                     Color col = o.style()->borderLeftColor();
                     if (!col.isValid())
                         col = o.style()->color();
-                    ts << col.name() << ")";
+                    ts << col.nameForRenderTreeAsText() << ")";
                 }
             }
 
@@ -330,6 +373,26 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         const RenderTableCell& c = *toRenderTableCell(&o);
         ts << " [r=" << c.row() << " c=" << c.col() << " rs=" << c.rowSpan() << " cs=" << c.colSpan() << "]";
     }
+
+#if ENABLE(DETAILS)
+    if (o.isDetailsMarker()) {
+        ts << ": ";
+        switch (toRenderDetailsMarker(&o)->orientation()) {
+        case RenderDetailsMarker::Left:
+            ts << "left";
+            break;
+        case RenderDetailsMarker::Right:
+            ts << "right";
+            break;
+        case RenderDetailsMarker::Up:
+            ts << "up";
+            break;
+        case RenderDetailsMarker::Down:
+            ts << "down";
+            break;
+        }
+    }
+#endif
 
     if (o.isListMarker()) {
         String text = toRenderListMarker(&o)->text();
@@ -354,6 +417,59 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
             ts << ": " << text;
         }
     }
+    
+    if (behavior & RenderAsTextShowIDAndClass) {
+        if (Node* node = o.node()) {
+            if (node->hasID())
+                ts << " id=\"" + static_cast<Element*>(node)->getIdAttribute() + "\"";
+
+            if (node->hasClass()) {
+                StyledElement* styledElement = static_cast<StyledElement*>(node);
+                String classes;
+                for (size_t i = 0; i < styledElement->classNames().size(); ++i) {
+                    if (i > 0)
+                        classes += " ";
+                    classes += styledElement->classNames()[i];
+                }
+                ts << " class=\"" + classes + "\"";
+            }
+        }
+    }
+    
+    if (behavior & RenderAsTextShowLayoutState) {
+        bool needsLayout = o.selfNeedsLayout() || o.needsPositionedMovementLayout() || o.posChildNeedsLayout() || o.normalChildNeedsLayout();
+        if (needsLayout)
+            ts << " (needs layout:";
+        
+        bool havePrevious = false;
+        if (o.selfNeedsLayout()) {
+            ts << " self";
+            havePrevious = true;
+        }
+
+        if (o.needsPositionedMovementLayout()) {
+            if (havePrevious)
+                ts << ",";
+            havePrevious = true;
+            ts << " positioned movement";
+        }
+
+        if (o.normalChildNeedsLayout()) {
+            if (havePrevious)
+                ts << ",";
+            havePrevious = true;
+            ts << " child";
+        }
+
+        if (o.posChildNeedsLayout()) {
+            if (havePrevious)
+                ts << ",";
+            ts << " positioned child";
+        }
+
+        if (needsLayout)
+            ts << ")";
+    }
 
 #if PLATFORM(QT)
     // Print attributes of embedded QWidgets. E.g. when the WebCore::Widget
@@ -376,26 +492,34 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
 
 static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBox& run)
 {
-    // FIXME: Table cell adjustment is temporary until results can be updated.
+    // FIXME: For now use an "enclosingIntRect" model for x, y and logicalWidth, although this makes it harder
+    // to detect any changes caused by the conversion to floating point. :(
+    int x = run.m_x;
     int y = run.m_y;
+    int logicalWidth = ceilf(run.m_x + run.m_logicalWidth) - x;
+
+    // FIXME: Table cell adjustment is temporary until results can be updated.
     if (o.containingBlock()->isTableCell())
-        y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingTop();
-    ts << "text run at (" << run.m_x << "," << y << ") width " << run.m_width;
-    if (run.direction() == RTL || run.m_dirOverride) {
-        ts << (run.direction() == RTL ? " RTL" : " LTR");
+        y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingBefore();
+        
+    ts << "text run at (" << x << "," << y << ") width " << logicalWidth;
+    if (!run.isLeftToRightDirection() || run.m_dirOverride) {
+        ts << (!run.isLeftToRightDirection() ? " RTL" : " LTR");
         if (run.m_dirOverride)
             ts << " override";
     }
     ts << ": "
-        << quoteAndEscapeNonPrintables(String(o.text()).substring(run.start(), run.len()))
-        << "\n";
+        << quoteAndEscapeNonPrintables(String(o.text()).substring(run.start(), run.len()));
+    if (run.hasHyphen())
+        ts << " + hyphen string " << quoteAndEscapeNonPrintables(o.style()->hyphenString());
+    ts << "\n";
 }
 
 void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavior behavior)
 {
 #if ENABLE(SVG)
-    if (o.isRenderPath()) {
-        write(ts, *toRenderPath(&o), indent);
+    if (o.isSVGPath()) {
+        write(ts, *toRenderSVGPath(&o), indent);
         return;
     }
     if (o.isSVGGradientStop()) {
@@ -415,14 +539,15 @@ void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavi
         return;
     }
     if (o.isSVGText()) {
-        if (!o.isText())
-            writeSVGText(ts, *toRenderBlock(&o), indent);
-        else
-            writeSVGInlineText(ts, *toRenderText(&o), indent);
+        writeSVGText(ts, *toRenderBlock(&o), indent);
+        return;
+    }
+    if (o.isSVGInlineText()) {
+        writeSVGInlineText(ts, *toRenderText(&o), indent);
         return;
     }
     if (o.isSVGImage()) {
-        writeSVGImage(ts, *toRenderImage(&o), indent);
+        writeSVGImage(ts, *toRenderSVGImage(&o), indent);
         return;
     }
 #endif
@@ -476,7 +601,7 @@ static void write(TextStream& ts, RenderLayer& l,
     ts << "layer ";
     
     if (behavior & RenderAsTextShowAddresses)
-        ts << &l << " ";
+        ts << static_cast<const void*>(&l) << " ";
       
     ts << layerBounds;
 
@@ -521,8 +646,17 @@ static void write(TextStream& ts, RenderLayer& l,
 }
 
 static void writeLayers(TextStream& ts, const RenderLayer* rootLayer, RenderLayer* l,
-                        const IntRect& paintDirtyRect, int indent, RenderAsTextBehavior behavior)
+                        const IntRect& paintRect, int indent, RenderAsTextBehavior behavior)
 {
+    // FIXME: Apply overflow to the root layer to not break every test.  Complete hack.  Sigh.
+    IntRect paintDirtyRect(paintRect);
+    if (rootLayer == l) {
+        paintDirtyRect.setWidth(max(paintDirtyRect.width(), rootLayer->renderBox()->maxXLayoutOverflow()));
+        paintDirtyRect.setHeight(max(paintDirtyRect.height(), rootLayer->renderBox()->maxYLayoutOverflow()));
+        l->setWidth(max(l->width(), l->renderBox()->maxXLayoutOverflow()));
+        l->setHeight(max(l->height(), l->renderBox()->maxYLayoutOverflow()));
+    }
+    
     // Calculate the clip rects we should use.
     IntRect layerBounds, damageRect, clipRectToApply, outlineRect;
     l->calculateRects(rootLayer, paintDirtyRect, layerBounds, damageRect, clipRectToApply, outlineRect, true);
@@ -578,16 +712,23 @@ static String nodePosition(Node* node)
 {
     String result;
 
+    Element* body = node->document()->body();
     Node* parent;
     for (Node* n = node; n; n = parent) {
-        parent = n->parentNode();
-        if (!parent)
-            parent = n->shadowParentNode();
+        parent = n->parentOrHostNode();
         if (n != node)
             result += " of ";
-        if (parent)
-            result += "child " + String::number(n->nodeIndex()) + " {" + getTagName(n) + "}";
-        else
+        if (parent) {
+            if (body && n == body) {
+                // We don't care what offset body may be in the document.
+                result += "body";
+                break;
+            }
+            if (n->isShadowBoundary())
+                result += "{" + getTagName(n) + "}";
+            else
+                result += "child " + String::number(n->nodeIndex()) + " {" + getTagName(n) + "}";
+        } else
             result += "document";
     }
 
@@ -607,13 +748,13 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
 
     VisibleSelection selection = frame->selection()->selection();
     if (selection.isCaret()) {
-        ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node());
+        ts << "caret: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().deprecatedNode());
         if (selection.affinity() == UPSTREAM)
             ts << " (upstream affinity)";
         ts << "\n";
     } else if (selection.isRange())
-        ts << "selection start: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().node()) << "\n"
-           << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().node()) << "\n";
+        ts << "selection start: position " << selection.start().deprecatedEditingOffset() << " of " << nodePosition(selection.start().deprecatedNode()) << "\n"
+           << "selection end:   position " << selection.end().deprecatedEditingOffset() << " of " << nodePosition(selection.end().deprecatedNode()) << "\n";
 }
 
 String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
@@ -625,7 +766,8 @@ String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
         printContext.begin(frame->contentRenderer()->width());
     }
 
-    frame->document()->updateLayout();
+    if (!(behavior & RenderAsTextDontUpdateLayout))
+        frame->document()->updateLayout();
 
     RenderObject* o = frame->contentRenderer();
     if (!o)
@@ -660,13 +802,12 @@ String counterValueForElement(Element* element)
     element->document()->updateLayout();
     TextStream stream;
     bool isFirstCounter = true;
-    // The counter renderers should be children of anonymous children
-    // (i.e., :before or :after pseudo-elements).
+    // The counter renderers should be children of :before or :after pseudo-elements.
     if (RenderObject* renderer = element->renderer()) {
-        for (RenderObject* child = renderer->firstChild(); child; child = child->nextSibling()) {
-            if (child->isAnonymous())
-                writeCounterValuesFromChildren(stream, child, isFirstCounter);
-        }
+        if (RenderObject* pseudoElement = renderer->beforePseudoElementRenderer())
+            writeCounterValuesFromChildren(stream, pseudoElement, isFirstCounter);
+        if (RenderObject* pseudoElement = renderer->afterPseudoElementRenderer())
+            writeCounterValuesFromChildren(stream, pseudoElement, isFirstCounter);
     }
     return stream.release();
 }

@@ -20,7 +20,7 @@
 	<key>RunAtLoad</key>
 	<true/>
 	<key>LaunchOnlyOnce</key>
-	<true/>
+	<false/>
 	<key>HopefullyExitsLast</key>
 	<true/>
 	<key>EnableTransactions</key>

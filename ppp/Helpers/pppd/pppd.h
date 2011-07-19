@@ -85,6 +85,10 @@
 #include "patchlevel.h"
 #ifdef __APPLE__
 #include "../../PPP_VERSION.h"
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <dns_sd.h>
+#include "scnc_main.h"
+#include "fsm.h"
 #endif
 
 #if defined(__STDC__)
@@ -341,12 +345,13 @@ extern int 	busycode;	/* busy error code that triggers the redial */
 extern bool hasbusystate;	/* change phase to report busy state */
 extern int 	cancelcode;	/* cancel error code for connectors*/
 extern int (*start_link_hook) __P((void));
-extern int (*change_password_hook) __P((char *msg));
-extern int (*retry_password_hook) __P((char *msg));
+extern int (*change_password_hook) __P((u_char *msg));
+extern int (*retry_password_hook) __P((u_char *msg));
 extern int (*link_up_hook) __P((void));
 extern bool link_up_done;
 extern void (*wait_input_hook) __P((void));
 extern int 	extraconnecttime;	/* give some extra connection time to the connection sequence */
+extern int    retry_pre_start_link_check;
 
 extern int (*terminal_window_hook) __P((char *, int, int));
 
@@ -371,12 +376,14 @@ extern struct notifier *lcp_timeremaining_notify;
 /* struct send with lcp_timeremaining_notify */
 struct lcp_timeremaining_info {
     int	time;	/* time remaining in seconds */
-    char *text;	/* optional text sent by the server */
+    u_char *text;	/* optional text sent by the server */
     int textlen;/* len of the text */
 };
 
 extern struct notifier *ip_up_notify;
 extern struct notifier *ip_down_notify;
+extern struct notifier *network_probe_start_notify;
+extern struct notifier *network_probe_stop_notify;
 
 extern struct notifier *initscript_started_notify;
 extern struct notifier *initscript_finished_notify;
@@ -395,6 +402,16 @@ extern struct notifier *stop_notify;
 extern struct notifier *cont_notify;
 
 extern struct notifier *system_inited_notify;
+
+extern struct notifier *network_probed_notify;
+
+extern int wait_underlying_interface_up;
+extern int lcp_echo_interval;
+extern int lcp_echo_fails;
+extern int lcp_echo_fails_slow;
+extern int lcp_echo_interval_slow;
+extern int lcp_echos_hastened;
+void lcp_echo_restart __P((int));
 
 #endif
 
@@ -639,9 +656,9 @@ extern struct channel *the_channel;
 /* Procedures exported from main.c. */
 void set_ifunit __P((int));	/* set stuff that depends on ifunit */
 void detach __P((void));	/* Detach from controlling tty */
-void die __P((int));		/* Cleanup and exit */
-void quit __P((void));		/* like die(1) */
-void novm __P((char *));	/* Say we ran out of memory, and die */
+void die __P((int)) __attribute__ ((noreturn));		/* Cleanup and exit */
+void quit __P((void)) __attribute__ ((noreturn));		/* like die(1) */
+void novm __P((char *)) __attribute__ ((noreturn));	/* Say we ran out of memory, and die */
 void timeout __P((void (*func)(void *), void *arg, int s, int us));
 				/* Call func(arg) after s.us seconds */
 void untimeout __P((void (*func)(void *), void *arg));
@@ -689,7 +706,7 @@ void info __P((char *, ...));	/* log an informational message */
 void notice __P((char *, ...));	/* log a notice-level message */
 void warning __P((char *, ...));	/* log a warning message */
 void error __P((char *, ...));	/* log an error message */
-void fatal __P((char *, ...));	/* log an error message and die(1) */
+void fatal __P((char *, ...)) __attribute__ ((noreturn));	/* log an error message and die(1) */
 void init_pr_log __P((char *, int));	/* initialize for using pr_log */
 void pr_log __P((void *, char *, ...));	/* printer fn, output to syslog */
 void end_pr_log __P((void));	/* finish up after using pr_log */
@@ -697,22 +714,85 @@ void dump_packet __P((const char *, u_char *, int));
 				/* dump packet to debug log if interesting */
 ssize_t complete_read __P((int, void *, size_t));
 				/* read a complete buffer */
-void log_vpn_interface_address_event (char                  *location,
+#ifdef __APPLE__
+void log_vpn_interface_address_event (const char                  *location,
 									  struct kern_event_msg *ev_msg,
 									  int                    wait_interface_timeout,
-									  char                  *interface,
+									  u_char                  *interface,
 									  struct in_addr        *our_address);
-int check_vpn_interface_or_service_unrecoverable (void                  *dynamicStore,
-						  char                  *location,
-						  struct kern_event_msg *ev_msg,
-						  char                  *interface_buf);
+int check_vpn_interface_or_service_unrecoverable (SCDynamicStoreRef dynamicStoreRef,
+												  const char                  *location,
+												  struct kern_event_msg *ev_msg,
+												  char                  *interface_buf);
 int check_vpn_interface_address_change (int                    transport_down,
                                         struct kern_event_msg *ev_msg,
                                         char                  *interface_buf,
+										int                    interface_media,
                                         struct in_addr        *our_address);
 int check_vpn_interface_alternate (int                    transport_down,
                                    struct kern_event_msg *ev_msg,
                                    char                  *interface_buf);
+int
+check_vpn_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
+										   char              *interface_buf);
+
+
+/* -----------------------------------------------------------------------------
+ NAT Port-Mapping apis and data-structures
+ ----------------------------------------------------------------------------- */
+#define PUBLIC_NAT_PORT_MAPPING_TIMEOUT 20
+#define GOOG_DNS_PROBE_ADDR_A           0x08080808
+#define GOOG_DNS_PROBE                  0
+#define PEER_ADDR_PROBE                 1
+#define ALT_PEER_ADDR_PROBE             2
+#define MAX_PROBE_ADDRS                 3
+
+typedef void (*link_failure_func) __P((void));
+typedef void (*probe_disconnect_func) __P((fsm *));
+
+typedef struct ppp_session {
+	int                 valid;
+	char               *sd_name;
+	char               *interface_name;
+	u_int32_t           interface_name_siz;
+	struct in_addr      interface_address;
+	int                 nat_mapping_timer_blocked;
+	int                 nat_mapping_timer_running;
+	mdns_nat_mapping_t  nat_mapping[MDNS_NAT_MAPPING_MAX];
+	u_int32_t           nat_mapping_cnt;
+	link_failure_func   failure_func;
+	int                 probe_timer_running;
+	struct sockaddr_in  probe_addrs[MAX_PROBE_ADDRS];
+	int                 probe_fds[MAX_PROBE_ADDRS]; 	// descriptors for probing link
+	int                 probe_success;
+	int                 probe_tries;
+	int                 probe_ntransmit;
+	int                 opt_noipsec;
+} ppp_session_t;
+
+extern ppp_session_t *session;
+
+#define PPP_SESSION_INITIALIZER() {0, NULL, NULL, 0, {0}, 0, 0, {{0},{0},{0},{0}}, 0, NULL, 0, {{0},{0},{0}}, {-1,-1, -1}, 0, 0, 0}
+
+void ppp_session_clear __P((ppp_session_t *));
+int ppp_variable_echo_is_off __P((void));
+void ppp_variable_echo_start __P((void));
+void ppp_variable_echo_stop __P((void));
+void ppp_auxiliary_probe_init __P((void));
+void ppp_auxiliary_probe_stop __P((void));
+void ppp_auxiliary_probe_check __P((int, probe_disconnect_func, fsm *));
+void ppp_process_auxiliary_probe_input __P((void));
+
+void l2tp_set_nat_port_mapping __P((void));
+void l2tp_clear_nat_port_mapping __P((void));
+void pptp_set_nat_port_mapping __P((void));
+void pptp_clear_nat_port_mapping __P((void));
+void ppp_process_nat_port_mapping_events __P((void));
+void ppp_start_public_nat_port_mapping_timer __P((void));
+void ppp_stop_public_nat_port_mapping_timer __P((void));
+void ppp_block_public_nat_port_mapping_timer __P((void));
+void ppp_unblock_public_nat_port_mapping_timer __P((void));
+#endif /* __APPLE__ */
 
 /* Procedures exported from auth.c */
 void link_required __P((int));	  /* we are starting to use the link */
@@ -726,7 +806,7 @@ void np_down __P((int, int));	  /* a network protocol has gone down */
 void np_finished __P((int, int)); /* a network protocol no longer needs link */
 void auth_peer_fail __P((int, int));
 				/* peer failed to authenticate itself */
-void auth_peer_success __P((int, int, int, char *, int));
+void auth_peer_success __P((int, int, int, u_char *, int));
 				/* peer successfully authenticated itself */
 void auth_withpeer_fail __P((int, int));
 				/* we failed to authenticate ourselves */
@@ -740,9 +820,9 @@ void auth_withpeer_success __P((int, int, int));
 void auth_check_options __P((void));
 				/* check authentication options supplied */
 void auth_reset __P((int));	/* check what secrets we have */
-int  check_passwd __P((int, char *, int, char *, int, char **));
+int  check_passwd __P((int, u_char *, int, u_char *, int, char **));
 				/* Check peer-supplied username/password */
-int  get_secret __P((int, char *, char *, char *, int *, int));
+int  get_secret __P((int, u_char *, u_char *, u_char *, int *, int));
 				/* get "secret" for chap */
 int  get_srp_secret __P((int unit, char *client, char *server, char *secret,
     int am_server));
@@ -795,6 +875,7 @@ void wait_input __P((struct timeval *));
 void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
+void sys_runloop __P((void));	/* Do system-dependent runloop action */
 int save_new_password(); /* save new password to the keychain */
 void sys_statusnotify(); /* send status notification to the controller */
 void sys_reinit();			/* reinit after pid has changed */
@@ -850,6 +931,8 @@ int  sifnpmode __P((int u, int proto, enum NPmode mode));
 int  sifdown __P((int));	/* Configure i/f down for one protocol */
 int  sifaddr __P((int, u_int32_t, u_int32_t, u_int32_t));
 				/* Configure IPv4 addresses for i/f */
+int  uifaddr __P((int, u_int32_t, u_int32_t, u_int32_t));
+				/* Update IPv4 addresses for i/f */
 int  cifaddr __P((int, u_int32_t, u_int32_t));
 				/* Reset i/f IP addresses */
 #ifdef INET6
@@ -956,7 +1039,7 @@ extern void (*snoop_send_hook) __P((unsigned char *p, int len));
 
 #ifdef __APPLE__
 /* Hook for access control list to verify if user should have access */
-extern int (*acl_hook) __P((char *user, int len));
+extern int (*acl_hook) __P((u_char *user, int len));
 #endif
 
 
@@ -1200,7 +1283,7 @@ extern int (*acl_hook) __P((char *user, int len));
  * if the connection is not currently reachable but will be when needed. i.e. It becomes reachable 
  * automatically via the iphone EDGE (using PPP).
  */
-#ifdef	TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 /* currently works for iphone build only (because kSCNetworkReachabilityFlagsIsWWAN is defined). */
 #define REACHABLE_AUTOMATICALLY_VIA_WWAN ((flags & kSCNetworkReachabilityFlagsReachable) && \
                                             (flags & kSCNetworkReachabilityFlagsTransientConnection) && \
@@ -1209,7 +1292,7 @@ extern int (*acl_hook) __P((char *user, int len));
 #else
 /* currently doesn't work for non-iphone builds (because kSCNetworkReachabilityFlagsIsWWAN is undefined). */
 #define REACHABLE_AUTOMATICALLY_VIA_WWAN 0
-#endif /* TARGET_EMBEDDED_OS */
+#endif /* TARGET_OS_EMBEDDED */
 
 /*
  * if connection is automatic without user intervention. currently two cases (see the macros above); 
@@ -1217,6 +1300,25 @@ extern int (*acl_hook) __P((char *user, int len));
  */
 #define REACHABLE_AUTOMATICALLY_WITHOUT_USER (!(flags & kSCNetworkReachabilityFlagsInterventionRequired) && \
 					      (REACHABLE_AUTOMATICALLY_VIA_SCNC || REACHABLE_AUTOMATICALLY_VIA_WWAN))
+
+#define PPPD_WWAN_INTERFACE_TIMEOUT 40 // give 40 seconds for cell interface to come up <rdar://problem/7941304>
+
+/* try to handle as many types of dns delimiters as possible */
+#define GET_SPLITDNS_DELIM(data, delim) do {	\
+		if (strstr(data, ",")) {				\
+			delim = ",";						\
+		} else if (strstr(data, ";")) {			\
+			delim = ";";						\
+		} else if (strstr(data, "\n")) {		\
+			delim = "\n";						\
+		} else if (strstr(data, "\r")) {		\
+			delim = "\r";						\
+		} else if (strstr(data, " ")) {			\
+			delim = " ";						\
+		} else {								\
+			delim = "\0";						\
+		}										\
+	} while(0)
 
 #endif /* __APPLE__ */
 

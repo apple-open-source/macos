@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2006 Apple Computer, Inc.
+ *  Copyright (C) 2006, 2010 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -21,32 +21,24 @@
 #ifndef WTF_Noncopyable_h
 #define WTF_Noncopyable_h
 
-// We don't want argument-dependent lookup to pull in everything from the WTF
-// namespace when you use Noncopyable, so put it in its own namespace.
+#ifndef __has_feature
+    #define __has_feature(x) 0
+#endif
 
-#include "FastAllocBase.h"
-
-namespace WTFNoncopyable {
-
-    class Noncopyable : public FastAllocBase {
-        Noncopyable(const Noncopyable&);
-        Noncopyable& operator=(const Noncopyable&);
-    protected:
-        Noncopyable() { }
-        ~Noncopyable() { }
-    };
-
-    class NoncopyableCustomAllocated {
-        NoncopyableCustomAllocated(const NoncopyableCustomAllocated&);
-        NoncopyableCustomAllocated& operator=(const NoncopyableCustomAllocated&);
-    protected:
-        NoncopyableCustomAllocated() { }
-        ~NoncopyableCustomAllocated() { }
-    };
-
-} // namespace WTFNoncopyable
-
-using WTFNoncopyable::Noncopyable;
-using WTFNoncopyable::NoncopyableCustomAllocated;
+#if __has_feature(cxx_deleted_functions)
+    #define WTF_MAKE_NONCOPYABLE(ClassName) \
+        _Pragma("clang diagnostic push") \
+        _Pragma("clang diagnostic ignored \"-Wunknown-pragmas\"") \
+        _Pragma("clang diagnostic ignored \"-Wc++0x-extensions\"") \
+        private: \
+            ClassName(const ClassName&) = delete; \
+            ClassName& operator=(const ClassName&) = delete; \
+        _Pragma("clang diagnostic pop")
+#else
+    #define WTF_MAKE_NONCOPYABLE(ClassName) \
+        private: \
+            ClassName(const ClassName&); \
+            ClassName& operator=(const ClassName&)
+#endif
 
 #endif // WTF_Noncopyable_h

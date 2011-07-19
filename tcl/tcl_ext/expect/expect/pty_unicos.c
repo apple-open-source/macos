@@ -89,9 +89,9 @@ char *name;		/* name of pty */
 	RETSIGTYPE (*old)();	/* save old sigalarm handler */
 
 #ifdef STTY_READS_STDOUT
-	sprintf(buf,%s %s > %s",STTY_BIN,s,name);
+	sprintf(buf,"%s %s > %s",STTY_BIN,s,name);
 #else
-	sprintf(buf,%s %s < %s",STTY_BIN,s,name);
+	sprintf(buf,"%s %s < %s",STTY_BIN,s,name);
 #endif
 	old = signal(SIGCHLD, SIG_DFL);
 	system(buf);

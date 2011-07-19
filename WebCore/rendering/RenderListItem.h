@@ -31,7 +31,7 @@ class RenderListMarker;
 
 class RenderListItem : public RenderBlock {
 public:
-    RenderListItem(Node*);
+    explicit RenderListItem(Node*);
 
     int value() const { if (!m_isValueUpToDate) updateValueNow(); return m_value; }
     void updateValue();
@@ -45,6 +45,7 @@ public:
     bool notInList() const { return m_notInList; }
 
     const String& markerText() const;
+    String markerTextWithSuffix() const;
 
     void updateListMarkerNumbers();
 
@@ -59,13 +60,15 @@ private:
     virtual void paint(PaintInfo&, int tx, int ty);
 
     virtual void layout();
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
-    virtual void positionListMarker();
+    void positionListMarker();
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
+
+    virtual void addOverflowFromChildren();
 
     void updateMarkerLocation();
     inline int calcValue() const;

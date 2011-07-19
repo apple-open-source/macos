@@ -234,6 +234,30 @@ OSStatus KRBCredAddReference(CFStringRef clientPrincipal);
 OSStatus KRBCredRemoveReference(CFStringRef clientPrincipal);
 
 
+#define kSPNEGONegTokenInitMechs		CFSTR("SPNEGONegTokenInitMechs")
+#define kSPNEGONegTokenInitHintsHostname	CFSTR("SPNEGONegTokenInitHintsHostname")
+#define KSPNEGOSupportsLKDC			CFSTR("SPNEGOServerSupportsLKDC")
+
+/*
+ * These are the maching the Name version kGSSAPIMech<name>
+ */
+
+#define kGSSAPIMechNTLMOID			CFSTR("1.3.6.1.4.1.311.2.2.10")
+#define kGSSAPIMechKerberosOID			CFSTR("1.2.840.113554.1.2.2")
+#define kGSSAPIMechKerberosU2UOID		CFSTR("1.2.840.113554.1.2.2.3")
+#define kGSSAPIMechKerberosMicrosoftOID		CFSTR("1.2.840.48018.1.2.2")
+#define kGSSAPIMechIAKERB			CFSTR("1.3.6.1.5.2.5")
+#define kGSSAPIMechPKU2UOID			CFSTR("1.3.6.1.5.2.7")
+
+CFDictionaryRef
+KRBDecodeNegTokenInit(CFAllocatorRef, CFDataRef);
+
+CFDictionaryRef
+KRBCreateNegTokenLegacyKerberos(CFAllocatorRef);
+
+CFDictionaryRef
+KRBCreateNegTokenLegacyNTLM(CFAllocatorRef);
+
 #ifdef __cplusplus
 }
 #endif

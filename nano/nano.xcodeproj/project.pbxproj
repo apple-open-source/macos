@@ -1,0 +1,339 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FDF793C70F992EA80016724F /* browser.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793A70F992E100016724F /* browser.c */; };
+		FDF793C80F992EA80016724F /* chars.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793A80F992E100016724F /* chars.c */; };
+		FDF793C90F992EA80016724F /* color.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793A90F992E100016724F /* color.c */; };
+		FDF793CA0F992EA80016724F /* cut.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AA0F992E100016724F /* cut.c */; };
+		FDF793CB0F992EA80016724F /* files.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AB0F992E100016724F /* files.c */; };
+		FDF793CC0F992EA80016724F /* global.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AC0F992E100016724F /* global.c */; };
+		FDF793CD0F992EA80016724F /* help.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AD0F992E100016724F /* help.c */; };
+		FDF793CE0F992EA80016724F /* move.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AE0F992E100016724F /* move.c */; };
+		FDF793CF0F992EA80016724F /* nano.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793AF0F992E100016724F /* nano.c */; };
+		FDF793D00F992EA80016724F /* prompt.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B10F992E110016724F /* prompt.c */; };
+		FDF793D10F992EA80016724F /* rcfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B30F992E110016724F /* rcfile.c */; };
+		FDF793D20F992EA80016724F /* search.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B40F992E110016724F /* search.c */; };
+		FDF793D30F992EA80016724F /* text.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B50F992E110016724F /* text.c */; };
+		FDF793D40F992EA80016724F /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B60F992E110016724F /* utils.c */; };
+		FDF793D50F992EA80016724F /* winio.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF793B70F992E110016724F /* winio.c */; };
+		FDF794260F9931E60016724F /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDF794250F9931E60016724F /* libncurses.dylib */; };
+		FDF794460F9933940016724F /* nano.1 in Install man1 (1) */ = {isa = PBXBuildFile; fileRef = FDF793F60F992FAA0016724F /* nano.1 */; };
+		FDF794480F9933B40016724F /* nanorc.5 in Install man5 (1) */ = {isa = PBXBuildFile; fileRef = FDF793F70F992FAA0016724F /* nanorc.5 */; };
+		FDF7944A0F9933CB0016724F /* nano.info in Install info */ = {isa = PBXBuildFile; fileRef = FDF794410F9933330016724F /* nano.info */; };
+		FDF7944C0F9934000016724F /* nanorc in Install etc */ = {isa = PBXBuildFile; fileRef = FDF793FC0F992FF80016724F /* nanorc */; };
+		FDF7944F0F99343D0016724F /* COPYING in Install OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = FDF793FB0F992FF80016724F /* COPYING */; };
+		FDF794500F9934430016724F /* nano.plist in Install OpenSourceVersions */ = {isa = PBXBuildFile; fileRef = FDF793E40F992F070016724F /* nano.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FDF794610F99344A0016724F /* Install man1 (1) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF794460F9933940016724F /* nano.1 in Install man1 (1) */,
+			);
+			name = "Install man1 (1)";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDF794620F99344A0016724F /* Install man5 (1) */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF794480F9933B40016724F /* nanorc.5 in Install man5 (1) */,
+			);
+			name = "Install man5 (1)";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDF794630F99344A0016724F /* Install info */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/info;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF7944A0F9933CB0016724F /* nano.info in Install info */,
+			);
+			name = "Install info";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDF794640F99344A0016724F /* Install etc */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF7944C0F9934000016724F /* nanorc in Install etc */,
+			);
+			name = "Install etc";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDF794650F99344A0016724F /* Install OpenSourceVersions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF794500F9934430016724F /* nano.plist in Install OpenSourceVersions */,
+			);
+			name = "Install OpenSourceVersions";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDF794660F99344A0016724F /* Install OpenSourceLicenses */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceLicenses;
+			dstSubfolderSpec = 0;
+			files = (
+				FDF7944F0F99343D0016724F /* COPYING in Install OpenSourceLicenses */,
+			);
+			name = "Install OpenSourceLicenses";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FDF793A70F992E100016724F /* browser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = browser.c; path = src/browser.c; sourceTree = "<group>"; };
+		FDF793A80F992E100016724F /* chars.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chars.c; path = src/chars.c; sourceTree = "<group>"; };
+		FDF793A90F992E100016724F /* color.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = color.c; path = src/color.c; sourceTree = "<group>"; };
+		FDF793AA0F992E100016724F /* cut.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cut.c; path = src/cut.c; sourceTree = "<group>"; };
+		FDF793AB0F992E100016724F /* files.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = files.c; path = src/files.c; sourceTree = "<group>"; };
+		FDF793AC0F992E100016724F /* global.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = global.c; path = src/global.c; sourceTree = "<group>"; };
+		FDF793AD0F992E100016724F /* help.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = help.c; path = src/help.c; sourceTree = "<group>"; };
+		FDF793AE0F992E100016724F /* move.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = move.c; path = src/move.c; sourceTree = "<group>"; };
+		FDF793AF0F992E100016724F /* nano.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nano.c; path = src/nano.c; sourceTree = "<group>"; };
+		FDF793B00F992E100016724F /* nano.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nano.h; path = src/nano.h; sourceTree = "<group>"; };
+		FDF793B10F992E110016724F /* prompt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prompt.c; path = src/prompt.c; sourceTree = "<group>"; };
+		FDF793B20F992E110016724F /* proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = proto.h; path = src/proto.h; sourceTree = "<group>"; };
+		FDF793B30F992E110016724F /* rcfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rcfile.c; path = src/rcfile.c; sourceTree = "<group>"; };
+		FDF793B40F992E110016724F /* search.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = search.c; path = src/search.c; sourceTree = "<group>"; };
+		FDF793B50F992E110016724F /* text.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = text.c; path = src/text.c; sourceTree = "<group>"; };
+		FDF793B60F992E110016724F /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = utils.c; path = src/utils.c; sourceTree = "<group>"; };
+		FDF793B70F992E110016724F /* winio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = winio.c; path = src/winio.c; sourceTree = "<group>"; };
+		FDF793C10F992E950016724F /* nano */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nano; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDF793E20F992F070016724F /* config.h */ = {isa = PBXFileReference; comments = "This file was generated by running:\n\n./configure --prefix=/usr --sysconfdir=/etc --enable-all\n\nNote that ENABLE_UTF8 was forced on, as the standard configure script does correctly detect the ncurses in Mac OS X."; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		FDF793E40F992F070016724F /* nano.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = nano.plist; sourceTree = "<group>"; };
+		FDF793F60F992FAA0016724F /* nano.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = nano.1; path = doc/nano.1; sourceTree = "<group>"; };
+		FDF793F70F992FAA0016724F /* nanorc.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nanorc.5; path = doc/nanorc.5; sourceTree = "<group>"; };
+		FDF793F80F992FAA0016724F /* rnano.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = rnano.1; path = doc/rnano.1; sourceTree = "<group>"; };
+		FDF793FB0F992FF80016724F /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = doc/COPYING; sourceTree = "<group>"; };
+		FDF793FC0F992FF80016724F /* nanorc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nanorc; sourceTree = "<group>"; };
+		FDF794250F9931E60016724F /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
+		FDF794410F9933330016724F /* nano.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nano.info; path = doc/nano.info; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FDF793BF0F992E950016724F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDF794260F9931E60016724F /* libncurses.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FDF793970F992DAB0016724F = {
+			isa = PBXGroup;
+			children = (
+				FDF793E20F992F070016724F /* config.h */,
+				FDF793E40F992F070016724F /* nano.plist */,
+				FDF793E60F992F3D0016724F /* doc */,
+				FDF793A40F992DBE0016724F /* src */,
+				FDF793C20F992E950016724F /* Products */,
+				FDF794250F9931E60016724F /* libncurses.dylib */,
+			);
+			sourceTree = "<group>";
+		};
+		FDF793A40F992DBE0016724F /* src */ = {
+			isa = PBXGroup;
+			children = (
+				FDF793B00F992E100016724F /* nano.h */,
+				FDF793B20F992E110016724F /* proto.h */,
+				FDF793A70F992E100016724F /* browser.c */,
+				FDF793A80F992E100016724F /* chars.c */,
+				FDF793A90F992E100016724F /* color.c */,
+				FDF793AA0F992E100016724F /* cut.c */,
+				FDF793AB0F992E100016724F /* files.c */,
+				FDF793AC0F992E100016724F /* global.c */,
+				FDF793AD0F992E100016724F /* help.c */,
+				FDF793AE0F992E100016724F /* move.c */,
+				FDF793AF0F992E100016724F /* nano.c */,
+				FDF793B10F992E110016724F /* prompt.c */,
+				FDF793B30F992E110016724F /* rcfile.c */,
+				FDF793B40F992E110016724F /* search.c */,
+				FDF793B50F992E110016724F /* text.c */,
+				FDF793B60F992E110016724F /* utils.c */,
+				FDF793B70F992E110016724F /* winio.c */,
+			);
+			name = src;
+			sourceTree = "<group>";
+		};
+		FDF793C20F992E950016724F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FDF793C10F992E950016724F /* nano */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FDF793E60F992F3D0016724F /* doc */ = {
+			isa = PBXGroup;
+			children = (
+				FDF793FB0F992FF80016724F /* COPYING */,
+				FDF794410F9933330016724F /* nano.info */,
+				FDF793FC0F992FF80016724F /* nanorc */,
+				FDF793F70F992FAA0016724F /* nanorc.5 */,
+				FDF793F60F992FAA0016724F /* nano.1 */,
+				FDF793F80F992FAA0016724F /* rnano.1 */,
+			);
+			name = doc;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FDF793C00F992E950016724F /* nano */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDF793C60F992E960016724F /* Build configuration list for PBXNativeTarget "nano" */;
+			buildPhases = (
+				FDF793BE0F992E950016724F /* Sources */,
+				FDF793BF0F992E950016724F /* Frameworks */,
+				FDF794610F99344A0016724F /* Install man1 (1) */,
+				FDF794620F99344A0016724F /* Install man5 (1) */,
+				FDF794630F99344A0016724F /* Install info */,
+				FDF794640F99344A0016724F /* Install etc */,
+				FDF794650F99344A0016724F /* Install OpenSourceVersions */,
+				FDF794660F99344A0016724F /* Install OpenSourceLicenses */,
+				FDF794700F9935650016724F /* Rename COPYING, Link pico */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nano;
+			productName = nano;
+			productReference = FDF793C10F992E950016724F /* nano */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FDF793990F992DAB0016724F /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = FDF7939C0F992DAB0016724F /* Build configuration list for PBXProject "nano" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 0;
+			mainGroup = FDF793970F992DAB0016724F;
+			productRefGroup = FDF793C20F992E950016724F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDF793C00F992E950016724F /* nano */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FDF794700F9935650016724F /* Rename COPYING, Link pico */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Rename COPYING, Link pico";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mv ${DSTROOT}/usr/local/OpenSourceLicenses/COPYING ${DSTROOT}/usr/local/OpenSourceLicenses/nano.txt\nln -s nano ${DSTROOT}/usr/bin/pico\nln -s nano.1 ${DSTROOT}/usr/share/man/man1/pico.1";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FDF793BE0F992E950016724F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDF793C70F992EA80016724F /* browser.c in Sources */,
+				FDF793C80F992EA80016724F /* chars.c in Sources */,
+				FDF793C90F992EA80016724F /* color.c in Sources */,
+				FDF793CA0F992EA80016724F /* cut.c in Sources */,
+				FDF793CB0F992EA80016724F /* files.c in Sources */,
+				FDF793CC0F992EA80016724F /* global.c in Sources */,
+				FDF793CD0F992EA80016724F /* help.c in Sources */,
+				FDF793CE0F992EA80016724F /* move.c in Sources */,
+				FDF793CF0F992EA80016724F /* nano.c in Sources */,
+				FDF793D00F992EA80016724F /* prompt.c in Sources */,
+				FDF793D10F992EA80016724F /* rcfile.c in Sources */,
+				FDF793D20F992EA80016724F /* search.c in Sources */,
+				FDF793D30F992EA80016724F /* text.c in Sources */,
+				FDF793D40F992EA80016724F /* utils.c in Sources */,
+				FDF793D50F992EA80016724F /* winio.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FDF7939B0F992DAB0016724F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PREBINDING = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		FDF793C50F992E960016724F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(GCC_PREPROCESSOR_DEFINITIONS_QUOTED_FOR_TARGET_1)",
+					HAVE_CONFIG_H,
+				);
+				GCC_PREPROCESSOR_DEFINITIONS_QUOTED_FOR_TARGET_1 = "SYSCONFDIR=\\\"/etc\\\"";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = nano;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FDF7939C0F992DAB0016724F /* Build configuration list for PBXProject "nano" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDF7939B0F992DAB0016724F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDF793C60F992E960016724F /* Build configuration list for PBXNativeTarget "nano" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDF793C50F992E960016724F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FDF793990F992DAB0016724F /* Project object */;
+}

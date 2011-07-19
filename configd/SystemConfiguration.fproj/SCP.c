@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -137,6 +137,9 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 	CFStringRef	storeKey;
 
 	switch (keyType) {
+		case kSCPreferencesKeyLock :
+			keyStr = CFSTR("lock");
+			break;
 		case kSCPreferencesKeyCommit :
 			keyStr = CFSTR("commit");
 			break;

@@ -1,0 +1,18 @@
+Pigeonhole Sieve Plugins
+========================
+
+The Pigeonhole Sieve interpreter can be dynamically extended with new features
+by means of plugins. Plugins can be configured using the 'sieve_plugins'
+setting in the 'plugin' section of the Dovecot configuration, as explained on
+the <Pigeonhole Sieve Configuration page> [Pigeonhole.Sieve.Configuration.txt].
+
+The following plugins are currently available for the Pigeonhole Sieve
+interpeter:
+
+ * <Extdata> [Pigeonhole.Sieve.Plugins.Extdata.txt] /(custom language
+   extension, experimental)/
+ * This plugin adds support for the Dovecot-specific 'vnd.dovecot.extdata'
+   extension, which allows access to external string data. Any type of Dovecot
+   dict lookup can be specified as data source.
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -1,6 +1,6 @@
---- atexit.h.orig	2004-03-11 13:16:53.000000000 -0800
-+++ atexit.h	2004-09-15 00:15:16.000000000 -0700
-@@ -37,4 +37,4 @@
+--- atexit.h.bsdnew	2009-11-13 14:11:47.000000000 -0800
++++ atexit.h	2009-11-13 14:11:47.000000000 -0800
+@@ -33,4 +33,4 @@
  /* must be at least 32 to guarantee ANSI conformance */
  #define	ATEXIT_SIZE	32
  

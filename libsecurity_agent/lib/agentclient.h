@@ -108,6 +108,7 @@ protected:
 public:
 	void activate(Port serverPort);
 
+    OSStatus contact(mach_port_t jobId, Bootstrap processBootstrap, mach_port_t userPrefs);
 	OSStatus create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
     void setArguments(const Authorization::AuthValueVector& inArguments) { mArguments = inArguments; }
     void setInput(const Authorization::AuthItemSet& inHints, const Authorization::AuthItemSet& inContext) { mInHints = inHints; mInContext = inContext; }

@@ -1,3 +1,41 @@
+2010-01-24  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* icons/*:                Added an SVG icon and .desktop file suitable
+	* tkcon-console.desktop:  for use installing tkcon into the desktop
+	* install-desktop-menu.sh: menus on a unix desktop. Also an install
+	* tkcon.tcl:              script to show how it is done. And for
+	use with 8.6 on X11 - if we can locate the icon, use it as the
+	tkcon iconphoto so it shows up associated with the running app.
+
+2010-01-23  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* tkcon.tcl: Make use of the extended window manager hints from
+	tip 359 on unix for all the dialog windows.
+
+2009-04-24  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tkcon.tcl: override 8.5 [chan puts|gets]. [Bug 1876707]
+
+	* tkcon.tcl: update pre-8.4 private text binding refs
+
+	* tkcon.tcl: clean up cmd global var used [Bug 2441583]
+
+	* tkcon.tcl (::tkcon::Retrieve): support http code redirect for
+	downloading latest version. [Bug 1755500]
+
+	* README.txt, docs/limits.html, docs/nontcl.html: bump to 2.6
+	* pkgIndex.tcl, tkcon.tcl: Use Tcl 8.4 code style.
+
+2009-02-26  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	**** TKCON 2.5 TAGGED FOR RELEASE ****
+
+	* index.html, docs/*.html: update links and references
+
+2009-02-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* docs/tkcon.html, docs/tkcon.n.man: add tkcon resultfilter docs.
+
 2008-02-07  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* tkcon.tcl (::tkcon::Bindings): prevent Expand virtual events

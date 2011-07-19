@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #include <stdio.h>
@@ -78,8 +78,10 @@ static int
 process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 {
 	char *mntops_out;
+	char *mntops_copy;
 	size_t optlen;
-	char *p;
+	char *p, *pp;
+	char *optp;
 
 	/*
 	 * Remove "net", "bg", and "fg" from the mount options;
@@ -103,12 +105,24 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 	strcpy(mntops_out, "");
 
 	/*
-	 * Copy over mount options, except for "net", "bg", "fg", or
-	 * "url=="; extract the URL from "url==" and return it through
-	 * "*url".
+	 * Copy over mount options, except for "net", "bg", "fg",
+	 * "browse", "nobrowse", or "url==".  We discard "net",
+	 * "bg", and "fg"; we map "browse" and "nobrowse" to
+	 * "findervol" and "nofindervol"; we extract the URL from
+	 * "url==" and return it through "*url".
 	 */
 	*url = NULL;	/* haven't seen it yet */
-	while ((p = strsep(&fs->fs_mntops, ",")) != NULL) {
+
+	/*
+	 * Copy option string, since it is about to be torn asunder ...
+	 */
+	if ((mntops_copy = strdup(fs->fs_mntops)) == NULL) {
+		free(mntops_out);
+		return (ENOMEM);
+	}
+	pp = mntops_copy;
+
+	while ((p = strsep(&pp, ",")) != NULL) {
 		if (strcmp(p, "net") == 0 || strcmp(p, "bg") == 0 ||
 		    strcmp(p, "bg") == 0)
 			continue;
@@ -122,11 +136,18 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 			*url = strdup(p + 5);
 			if (*url == NULL) {
 				free(mntops_out);
+				free(mntops_copy);
 				return (ENOMEM);
 			}
 			continue;	/* don't add it to the mount options */
 		}
 
+		if (strcmp(p, "browse") == 0)
+			optp = "findervol";
+		else if (strcmp(p, "nobrowse") == 0)
+			optp = "nofindervol";
+		else
+			optp = p;
 		if (mntops_out[0] != '\0') {
 			/*
 			 * We already have mount options; add
@@ -134,7 +155,7 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 			 */
 			CHECK_STRCAT(mntops_out, ",", optlen);
 		}
-		CHECK_STRCAT(mntops_out, p, optlen);
+		CHECK_STRCAT(mntops_out, optp, optlen);
 	}
 	if (fs->fs_type[0] != '\0') {
 		/*
@@ -152,6 +173,7 @@ process_fstab_mntopts(struct fstab *fs, char **mntops_outp, char **url)
 		CHECK_STRCAT(mntops_out, fs->fs_type, optlen);
 	}
 	*mntops_outp = mntops_out;
+	free(mntops_copy);
 	return (0);
 }
 
@@ -335,6 +357,7 @@ readfstab(void)
 	int err;
 	struct fstab *fs;
 	char *p;
+	int is_local_entry;
 	mntoptparse_t mop;
 	int flags;
 	int altflags;
@@ -389,6 +412,50 @@ readfstab(void)
 		    strcmp(fs->fs_type, FSTAB_RW) != 0 &&
 		    strcmp(fs->fs_type, FSTAB_RO) != 0) {
 			/* None of those - ignore it. */
+			continue;
+		}
+
+		/*
+		 * Does fs_spec begin with /?
+		 */
+		if (fs->fs_spec[0] == '/') {
+			/*
+			 * This is an entry for a local file system;
+			 * ignore it.
+			 */
+			continue;
+		}
+
+		/*
+		 * Does it begin with some form of XXX=, where XXX
+		 * is an identifier (letters, numbers, underscores,
+		 * and, just for fun, hyphens)?
+		 */
+		is_local_entry = 1;
+		for (p = fs->fs_spec; *p != '\0' && *p != '='; p++) {
+			if ((*p & 0x80) != 0) {
+				/*
+				 * Ow - non-ASCII.
+				 * Assume it's not a local entry.
+				 */
+				is_local_entry = 0;
+				break;
+			}
+			if (!isalnum(*p) && *p != '-' && *p != '_') {
+				/*
+				 * Something other than an identifier
+				 * character.  Not a local entry.
+				 */
+				is_local_entry = 0;
+				break;
+			}
+		}
+		if (is_local_entry) {
+			/*
+			 * We assume anything beginning with XXX= is
+			 * a local entry, along the lines of UUID=
+			 * or LABEL=.
+			 */
 			continue;
 		}
 
@@ -732,57 +799,29 @@ fstab_process_host(const char *host, int (*callback)(struct fstabnode *, void *)
  * This assumes that a read or write lock on the fstab cache lock is held.
  */
 static int
-scan_fstab(struct dir_entry **list)
+scan_fstab(struct dir_entry **list, struct dir_entry **lastp)
 {
-	struct dir_entry *last = NULL;
 	int i;
 	struct fstabhost *host_ent;
 	int err;
-	char thishost[MAXHOSTNAMELEN];
-	char *p;
 
+	*lastp = NULL;
 	for (i = 0; i < HASHTABLESIZE; i++) {
 		for (host_ent = fstab_hashtable[i]; host_ent != NULL;
 		    host_ent = host_ent->next) {
 		    	/*
 			 * Add an entry for it if we haven't already
 			 * done so.
+			 *
+			 * A return of -1 means the name isn't valid.
 			 */
-			err = add_dir_entry(host_ent->name, list, &last);
-			if (err)
-				return (err);
-			assert(last != NULL);
-		}
-	}
-
-	/*
-	 * If we're a server, add an entry for this host's FQDN and
-	 * for the first component of its name; it will show up as
-	 * a symbolic link to "/".
-	 *
-	 * We do this, just as the old automounter did, so that, on
-	 * a server, you can refer to network home directories on the
-	 * machine with a /Network/Server/... path even if you haven't
-	 * yet made a mount record for the host, or if you're on an
-	 * Active Directory network and mount records are synthesized
-	 * when the user is looked up.  (See 5479706.)
-	 */
-	if (we_are_a_server()) {
-		/* (presumed) FQDN */
-		gethostname(thishost, MAXHOSTNAMELEN);
-		err = add_dir_entry(thishost, list, &last);
-		if (err)
-			return (err);
-		assert(last != NULL);
-
-		/* First component. */
-		p = strchr(thishost, '.');
-		if (p != NULL) {
-			*p = '\0';
-			err = add_dir_entry(thishost, list, &last);
-			if (err)
-				return (err);
-			assert(last != NULL);
+			err = add_dir_entry(host_ent->name, NULL, NULL, list,
+			    lastp);
+			if (err != -1) {
+				if (err)
+					return (err);
+				assert(*lastp != NULL);
+			}
 		}
 	}
 	return (0);
@@ -799,6 +838,9 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 {
 	int err;
 	time_t timediff;
+	struct dir_entry *last;
+	char thishost[MAXHOSTNAMELEN];
+	char *p;
 
 	/*
 	 * Get a read lock, so the cache doesn't get modified out
@@ -826,39 +868,74 @@ getfstabkeys(struct dir_entry **list, int *error, int *cache_time)
 	/*
 	 * Get what we have cached.
 	 */
-	*error = scan_fstab(list);
-	if (*error != 0)
-		goto done;
-
-	if (*list == NULL) {
-		/*
-		 * We've seen no entries, either because the cache has
-		 * been purged or we didn't find any the last time we
-		 * scanned the fstab entries.
-		 *
-		 * Try re-reading the fstab entries.
-		 */
-		err = readfstab();
-		if (err != 0) {
+	*error = scan_fstab(list, &last);
+	if (*error == 0) {
+		if (*list == NULL) {
 			/*
-			 * That failed; give up.
+			 * We've seen no fstab entries, either because
+			 * the cache has been purged or we didn't find
+			 * any the last time we scanned the fstab entries.
+			 *
+			 * Try re-reading the fstab entries.
 			 */
-			*error = err;
-			return (__NSW_UNAVAIL);
-		}
+			err = readfstab();
+			if (err != 0) {
+				/*
+				 * That failed; give up.
+				 */
+				*error = err;
+				return (__NSW_UNAVAIL);
+			}
 
-		/*
-		 * Get what we now have cached.
-		 */
-		*error = scan_fstab(list);
-		if (*error != 0)
-			goto done;
+			/*
+			 * Get what we now have cached.
+			 */
+			*error = scan_fstab(list, &last);
+		}
 	}
-done:	if (*list != NULL) {
+	if (*list != NULL) {
 		/*
 		 * list of entries found
 		 */
 		*error = 0;
+	}
+
+	if (*error == 0) {
+		/*
+		 * If we're a server, add an entry for this host's FQDN and
+		 * for the first component of its name; it will show up as
+		 * a symbolic link to "/".
+		 *
+		 * We do this, just as the old automounter did, so that, on
+		 * a server, you can refer to network home directories on the
+		 * machine with a /Network/Server/... path even if you haven't
+		 * yet made a mount record for the host, or if you're on an
+		 * Active Directory network and mount records are synthesized
+		 * when the user is looked up.  (See 5479706.)
+		 */
+		if (we_are_a_server()) {
+			/* (presumed) FQDN */
+			gethostname(thishost, MAXHOSTNAMELEN);
+			err = add_dir_entry(thishost, NULL, NULL, list, &last);
+			if (err != -1) {
+				if (err)
+					return (err);
+				assert(last != NULL);
+			}
+
+			/* First component. */
+			p = strchr(thishost, '.');
+			if (p != NULL) {
+				*p = '\0';
+				err = add_dir_entry(thishost, NULL, NULL, list,
+				    &last);
+				if (err != -1) {
+					if (err)
+						return (err);
+					assert(last != NULL);
+				}
+			}
+		}
 	}
 
 	/* We're done processing the list; release the lock. */

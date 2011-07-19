@@ -31,11 +31,11 @@
 WebInspector.WatchExpressionsSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Watch Expressions"));
-    WebInspector.settings.addEventListener("loaded", this._settingsLoaded, this);
+    this.reset();
 }
 
 WebInspector.WatchExpressionsSidebarPane.prototype = {
-    _settingsLoaded: function()
+    reset: function()
     {
         this.bodyElement.removeChildren();
 
@@ -90,24 +90,10 @@ WebInspector.WatchExpressionsSection.NewWatchExpression = "\xA0";
 WebInspector.WatchExpressionsSection.prototype = {
     update: function()
     {
-        function appendResult(expression, watchIndex, result, exception)
+        function appendResult(expression, watchIndex, result)
         {
-            if (exception) {
-                // Exception results are not wrappers, but text messages.
-                result = WebInspector.ObjectProxy.wrapPrimitiveValue(result);
-            } else if (result.type === "string") {
-                // Evaluation result is intentionally not abbreviated. However, we'd like to distinguish between null and "null"
-                result.description = "\"" + result.description + "\"";
-            }
-
-            var property = new WebInspector.ObjectPropertyProxy(expression, result);
+            var property = new WebInspector.RemoteObjectProperty(expression, result);
             property.watchIndex = watchIndex;
-            property.isException = exception;
-
-            // For newly added, empty expressions, set description to "",
-            // since otherwise you get DOMWindow
-            if (property.name === WebInspector.WatchExpressionsSection.NewWatchExpression) 
-                property.value.description = "";
 
             // To clarify what's going on here: 
             // In the outer function, we calculate the number of properties
@@ -117,7 +103,7 @@ WebInspector.WatchExpressionsSection.prototype = {
             // last property, and then call the superclass's updateProperties() 
             // method to get all the properties refreshed at once.
             properties.push(property);
-            
+
             if (properties.length == propertyCount) {
                 this.updateProperties(properties, WebInspector.WatchExpressionTreeElement, WebInspector.WatchExpressionsSection.CompareProperties);
 
@@ -134,7 +120,7 @@ WebInspector.WatchExpressionsSection.prototype = {
         }
 
         // TODO: pass exact injected script id.
-        InspectorBackend.releaseWrapperObjectGroup(0, this._watchObjectGroupId)
+        RuntimeAgent.releaseObjectGroup(this._watchObjectGroupId)
         var properties = [];
 
         // Count the properties, so we known when to call this.updateProperties()
@@ -153,7 +139,7 @@ WebInspector.WatchExpressionsSection.prototype = {
             if (!expression)
                 continue;
 
-            WebInspector.console.evalInInspectedWindow("(" + expression + ")", this._watchObjectGroupId, appendResult.bind(this, expression, i));
+            WebInspector.console.evalInInspectedWindow("(" + expression + ")", this._watchObjectGroupId, false, appendResult.bind(this, expression, i));
         }
 
         // note this is setting the expansion of the tree, not the section;
@@ -222,7 +208,7 @@ WebInspector.WatchExpressionTreeElement.prototype = {
     {
         WebInspector.ObjectPropertyTreeElement.prototype.update.call(this);
 
-        if (this.property.isException)
+        if (this.property.value.isError())
             this.valueElement.addStyleClass("watch-expressions-error-level");
 
         var deleteButton = document.createElement("input");
@@ -254,7 +240,11 @@ WebInspector.WatchExpressionTreeElement.prototype = {
 
         this.listItemElement.addStyleClass("editing-sub-part");
 
-        WebInspector.startEditing(this.nameElement, this.editingCommitted.bind(this), this.editingCancelled.bind(this), context);
+        WebInspector.startEditing(this.nameElement, {
+            context: context,
+            commitHandler: this.editingCommitted.bind(this),
+            cancelHandler: this.editingCancelled.bind(this)
+        });
     },
 
     editingCancelled: function(element, context)

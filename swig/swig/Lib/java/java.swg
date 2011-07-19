@@ -63,9 +63,9 @@
 %typemap(jstype) double,             const double &             "double"
 %typemap(jstype) void                                           "void"
 
-%typemap(jni) char *, char[ANY], char[]               "jstring"
-%typemap(jtype) char *, char[ANY], char[]               "String"
-%typemap(jstype) char *, char[ANY], char[]               "String"
+%typemap(jni) char *, char *&, char[ANY], char[]               "jstring"
+%typemap(jtype) char *, char *&, char[ANY], char[]               "String"
+%typemap(jstype) char *, char *&, char[ANY], char[]               "String"
 
 /* JNI types */
 %typemap(jni) jboolean      "jboolean"
@@ -364,9 +364,21 @@
 }
 
 %typemap(freearg, noblock=1) char * { if ($1) JCALL2(ReleaseStringUTFChars, jenv, $input, (const char *)$1); }
-%typemap(out, noblock=1) char * { if($1) $result = JCALL1(NewStringUTF, jenv, (const char *)$1); }
+%typemap(out, noblock=1) char * { if ($1) $result = JCALL1(NewStringUTF, jenv, (const char *)$1); }
 %typemap(javadirectorin) char * "$jniinput"
 %typemap(javadirectorout) char * "$javacall"
+
+/* char *& - treat as String */
+%typemap(in, noblock=1) char *& ($*1_ltype temp = 0) {
+ $1 = 0;
+  if ($input) {
+    temp = ($*1_ltype)JCALL2(GetStringUTFChars, jenv, $input, 0);
+    if (!temp) return $null;
+  }
+  $1 = &temp;
+}
+%typemap(freearg, noblock=1) char *& { if ($1 && *$1) JCALL2(ReleaseStringUTFChars, jenv, $input, (const char *)*$1); }
+%typemap(out, noblock=1) char *& { if (*$1) $result = JCALL1(NewStringUTF, jenv, (const char *)*$1); }
 
 %typemap(out) void ""
 %typemap(javadirectorin) void "$jniinput"
@@ -567,7 +579,7 @@
 
 %typemap(out) SWIGTYPE 
 #ifdef __cplusplus
-%{ *($&1_ltype*)&$result = new $1_ltype(($1_ltype &)$1); %}
+%{ *($&1_ltype*)&$result = new $1_ltype((const $1_ltype &)$1); %}
 #else
 {
   $&1_ltype $1ptr = ($&1_ltype) malloc(sizeof($1_ltype));
@@ -585,7 +597,7 @@
 /* Generic pointers and references */
 %typemap(in) SWIGTYPE *, SWIGTYPE (CLASS::*) %{ $1 = *($&1_ltype)&$input; %}
 %typemap(in) SWIGTYPE & %{ $1 = *($&1_ltype)&$input;
-  if(!$1) {
+  if (!$1) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "$1_type reference is null");
     return $null;
   } %}
@@ -608,7 +620,8 @@
 %typemap(directorin,descriptor="L$packagepath/$javaclassname;") SWIGTYPE &
 %{ *($&1_ltype)&$input = ($1_ltype) &$1; %}
 
-%typemap(javadirectorin) SWIGTYPE *, SWIGTYPE (CLASS::*), SWIGTYPE & "new $javaclassname($jniinput, false)"
+%typemap(javadirectorin) SWIGTYPE *, SWIGTYPE (CLASS::*) "($jniinput == 0) ? null : new $javaclassname($jniinput, false)"
+%typemap(javadirectorin) SWIGTYPE & "new $javaclassname($jniinput, false)"
 %typemap(javadirectorout) SWIGTYPE *, SWIGTYPE (CLASS::*), SWIGTYPE & "$javaclassname.getCPtr($javacall)"
 
 /* Default array handling */
@@ -643,7 +656,7 @@
 
 %typemap(argout) char[ANY], char[] ""
 %typemap(freearg, noblock=1) char[ANY], char[] { if ($1) JCALL2(ReleaseStringUTFChars, jenv, $input, (const char *)$1); }
-%typemap(out, noblock=1) char[ANY], char[] { if($1) $result = JCALL1(NewStringUTF, jenv, (const char *)$1); }
+%typemap(out, noblock=1) char[ANY], char[] { if ($1) $result = JCALL1(NewStringUTF, jenv, (const char *)$1); }
 %typemap(javadirectorin) char[ANY], char[] "$jniinput"
 %typemap(javadirectorout) char[ANY], char[] "$javacall"
 
@@ -842,6 +855,7 @@
 %typecheck(SWIG_TYPECHECK_STRING) /* Java String */
     jstring,
     char *,
+    char *&,
     char[ANY],
     char []
     ""
@@ -933,7 +947,7 @@
                  float,              const float &,
                  double,             const double &
     "$javainput"
-%typemap(javain) char *, char[ANY], char[] "$javainput"
+%typemap(javain) char *, char *&, char[ANY], char[] "$javainput"
 %typemap(javain) jboolean,
                  jchar,
                  jbyte,
@@ -975,7 +989,7 @@
                   double,             const double & {
     return $jnicall;
   }
-%typemap(javaout) char *, char[ANY], char[] {
+%typemap(javaout) char *, char *&, char[ANY], char[] {
     return $jnicall;
   }
 %typemap(javaout) jboolean,
@@ -1134,19 +1148,23 @@ SWIG_PROXY_CONSTRUCTOR(true, false, TYPENAME)
 SWIG_PROXY_CONSTRUCTOR(true, true, SWIGTYPE)
 
 %typemap(javadestruct, methodname="delete", methodmodifiers="public synchronized") SWIGTYPE {
-    if(swigCPtr != 0 && swigCMemOwn) {
-      swigCMemOwn = false;
-      $jnicall;
+    if (swigCPtr != 0) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        $jnicall;
+      }
+      swigCPtr = 0;
     }
-    swigCPtr = 0;
   }
 
 %typemap(javadestruct_derived, methodname="delete", methodmodifiers="public synchronized") SWIGTYPE {
-    if(swigCPtr != 0 && swigCMemOwn) {
-      swigCMemOwn = false;
-      $jnicall;
+    if (swigCPtr != 0) {
+      if (swigCMemOwn) {
+        swigCMemOwn = false;
+        $jnicall;
+      }
+      swigCPtr = 0;
     }
-    swigCPtr = 0;
     super.delete();
   }
 
@@ -1177,7 +1195,8 @@ SWIG_PROXY_CONSTRUCTOR(true, true, SWIGTYPE)
 #define %javaenum(wrapapproach)     %feature("java:enum","wrapapproach")
 #define %javamethodmodifiers        %feature("java:methodmodifiers")
 #define %javaexception(exceptionclasses) %feature("except",throws=exceptionclasses)
-#define %nojavaexception                 %feature("except","",throws="")
+#define %nojavaexception            %feature("except","0",throws="")
+#define %clearjavaexception         %feature("except","",throws="")
 
 %pragma(java) jniclassclassmodifiers="class"
 %pragma(java) moduleclassmodifiers="public class"

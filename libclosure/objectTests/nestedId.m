@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  nestedBlock.m
 //  testObjects
@@ -6,15 +12,17 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
+// test non-GC -retain and -release
 
+// TEST_CONFIG GC=0
+// TEST_CFLAGS -framework Foundation
 
-#include <stdio.h>
-#include <Block.h>
+#import <stdio.h>
+#import <Block.h>
 #import <Foundation/Foundation.h>
+#import "test.h"
 
 int Retained = 0;
-
-// CONFIG RR
 
 void (^savedBlock)(void);
 void (^savedBlock2)(void);
@@ -68,16 +76,15 @@ void test(id param) {
 }
 
 
-int main(int argc, char *argv[]) {
+int main() {
     TestObject *to = [[TestObject alloc] init];
     
     test(to);
     if (Retained == 0) {
-        printf("*** %s didn't update Retained\n", argv[0]);
-        return 1;
+        fail("didn't update Retained");
     }
     callit();
     callit2();
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

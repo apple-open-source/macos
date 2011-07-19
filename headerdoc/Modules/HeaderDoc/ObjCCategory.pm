@@ -4,7 +4,7 @@
 # Synopsis: Holds comments pertaining to an ObjC category, as parsed by HeaderDoc
 # from an ObjC header
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -33,9 +33,33 @@ BEGIN {
 	    $MOD_AVAIL{$_} = eval "use $_; 1";
     }
 }
+
+# /*! @header
+#     @abstract
+#         <code>ObjCCategory</code> class package file.
+#     @discussion
+#         This file contains the <code>ObjCCategory</code> class, a class for content
+#         relating to an Objective-C category.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+# /*!
+#     @abstract
+#         API object that describes an Objective-C category.
+#     @discussion
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::ObjCContainer ObjCContainer},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found in
+#         those two classes.
+#  */
 package HeaderDoc::ObjCCategory;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash registerUID unregisterUID);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash registerUID unregisterUID);
 use HeaderDoc::ObjCContainer;
 
 # Inheritance
@@ -43,7 +67,15 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::ObjCCategory::VERSION = '$Revision: 1.6 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::ObjCCategory::VERSION = '$Revision: 1298084578 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -68,6 +100,12 @@ my $tocFrameName = "toc.html";
 # my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>ObjCCategory</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
 	$self->SUPER::_initialize();
@@ -75,42 +113,48 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::ObjCCategory";
 }
 
+# /*!
+#     @abstract
+#         Splits the raw name out into separate class and
+#         category fields.  Returns the class name portion.
+#     @param self
+#         This object.
+#  */
 sub className {
     my $self = shift;
     my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->fullpath(), $self->linenum());
     return $className;
 }
 
+# /*!
+#     @abstract
+#         Splits the raw name out into separate class and
+#         category fields.  Returns the category name portion.
+#     @param self
+#         This object.
+#  */
 sub categoryName {
     my $self = shift;
     my ($className, $categoryName) = &getClassAndCategoryName($self->name(), $self->fullpath(), $self->linenum());
     return $categoryName;
 }
 
-sub getMethodType {
-    my $self = shift;
-	my $declaration = shift;
-	my $methodType = "";
-		
-	if ($declaration =~ /^\s*-/o) {
-	    $methodType = "instm";
-	} elsif ($declaration =~ /^\s*\+/o) {
-	    $methodType = "clm";
-	} else {
-		$methodType = HeaderDoc::CPPClass::getMethodType($self, $declaration);
-		## # my $fullpath = $HeaderDoc::headerObject->fullpath();
-		## my $fullpath = $self->fullpath();
-		## my $linenum = $self->linenum();
-		## if (!$HeaderDoc::ignore_apiuid_errors) {
-			## print STDERR "$fullpath:$linenum: warning: Unable to determine whether declaration is for an instance or class method[cat]. '$declaration'\n";
-		## }
-	}
-	return $methodType;
-}
-
 # we add the apple_ref markup to the navigator comment to identify
-# to Project Builder and other applications indexing the documentation
+# to gatherHeaderDoc, Xcode, and other applications indexing the documentation
 # that this is the entry point for documentation for this category
+# /*!
+#     @abstract
+#         Returns a comment marker for
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}.
+#     @discussion
+#         Returns an HTML comment that identifies the index file
+#         (Header vs. Class, name, and so on).  The
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}
+#         tool uses this information to create a master TOC for the
+#         generated doc.
+#     @param self
+#         The APIOwner object.
+# */
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
@@ -135,12 +179,21 @@ sub docNavigatorComment {
 }
 
 ################## Misc Functions ###################################
-sub objName { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->name()) cmp lc($obj2->name()));
-}
 
+# /*!
+#     @abstract
+#         Splits the raw name out into separate class and
+#         category fields.  Returns them in an array.
+#     @param fullName
+#         The full name line for this category (from a call to
+#         <code>$self->name()</code>).
+#     @param fullpath
+#         The full path of this header (from a call to
+#         <code>$self->fullpath()</code>).
+#     @param linenum
+#         The line number of this object (from a call to
+#         <code>$self->linenum()</code>).
+#  */
 sub getClassAndCategoryName {
     my $fullName = shift;
     my $className = '';
@@ -166,6 +219,12 @@ sub getClassAndCategoryName {
 
 ##################### Debugging ####################################
 
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub printObject {
     my $self = shift;
     my $className = $self->className();

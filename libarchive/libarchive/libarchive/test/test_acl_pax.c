@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_acl_pax.c,v 1.6 2008/09/01 05:38:33 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_acl_pax.c 201247 2009-12-30 05:59:21Z kientzle $");
 
 /*
  * Exercise the system-independent portion of the ACL support.
@@ -151,10 +151,10 @@ static unsigned char reference[] = {
 0,0,0,0,0,0,0,0,0,0,'1','1','3',' ','S','C','H','I','L','Y','.','a','c','l',
 '.','a','c','c','e','s','s','=','u','s','e','r',':',':','r','-','x',',','g',
 'r','o','u','p',':',':','r','-','-',',','o','t','h','e','r',':',':','-','w',
-'x',',','g','r','o','u','p',':','g','r','o','u','p','7','8',':','r','w','x',
-':','7','8',',','u','s','e','r',':','u','s','e','r','7','8',':','-','-','-',
-':','7','8',',','u','s','e','r',':','u','s','e','r','7','7',':','r','-','-',
-':','7','7',10,'1','6',' ','S','C','H','I','L','Y','.','d','e','v','=','0',
+'x',',','u','s','e','r',':','u','s','e','r','7','7',':','r','-','-',':','7',
+'7',',','u','s','e','r',':','u','s','e','r','7','8',':','-','-','-',':','7',
+'8',',','g','r','o','u','p',':','g','r','o','u','p','7','8',':','r','w','x',
+':','7','8',10,'1','6',' ','S','C','H','I','L','Y','.','d','e','v','=','0',
 10,'1','6',' ','S','C','H','I','L','Y','.','i','n','o','=','0',10,'1','8',
 ' ','S','C','H','I','L','Y','.','n','l','i','n','k','=','0',10,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -406,7 +406,7 @@ DEFINE_TEST(test_acl_pax)
 	struct archive *a;
 	struct archive_entry *ae;
 	size_t used;
-	int fd;
+	FILE *f;
 
 	/* Write an archive to memory. */
 	assert(NULL != (a = archive_write_new()));
@@ -453,20 +453,20 @@ DEFINE_TEST(test_acl_pax)
 #endif
 
 	/* Write out the data we generated to a file for manual inspection. */
-	assert(-1 < (fd = open("testout", O_WRONLY | O_CREAT | O_TRUNC, 0775)));
-	assert(used == (size_t)write(fd, buff, used));
-	close(fd);
+	assert(NULL != (f = fopen("testout", "wb")));
+	assertEqualInt(used, (size_t)fwrite(buff, 1, (unsigned int)used, f));
+	fclose(f);
 
 	/* Write out the reference data to a file for manual inspection. */
-	assert(-1 < (fd = open("reference", O_WRONLY | O_CREAT | O_TRUNC, 0775)));
-	assert(sizeof(reference) == write(fd, reference, sizeof(reference)));
-	close(fd);
+	assert(NULL != (f = fopen("reference", "wb")));
+	assert(sizeof(reference) == fwrite(reference, 1, sizeof(reference), f));
+	fclose(f);
 
 	/* Assert that the generated data matches the built-in reference data.*/
 	failure("Generated pax archive does not match reference; check 'testout' and 'reference' files.");
-	assert(0 == memcmp(buff, reference, sizeof(reference)));
+	assertEqualMem(buff, reference, sizeof(reference));
 	failure("Generated pax archive does not match reference; check 'testout' and 'reference' files.");
-	assertEqualInt(used, sizeof(reference));
+	assertEqualInt((int)used, sizeof(reference));
 
 	/* Read back each entry and check that the ACL data is right. */
 	assert(NULL != (a = archive_read_new()));

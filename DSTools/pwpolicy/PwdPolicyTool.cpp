@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -325,6 +325,10 @@ tDirStatus PwdPolicyTool::DoGetRecordList (	tDirNodeReference   inNodeRef,
 						fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
 					}
 				} while ( ((error == eDSNoErr) && (context != 0)) || (error == eDSBufferTooSmall) );
+				
+				if (context != 0) {
+					dsReleaseContinueData(inNodeRef, context);
+				}
 
 				error2 = dsDataListDeallocate( fDSRef, pAttrType );
 				if ( error2 != eDSNoErr )
@@ -527,6 +531,7 @@ tDirStatus PwdPolicyTool::FindDirectoryNodes( char			*inNodeName,
 	UInt32			uiCount			= 0;
 	UInt32			uiIndex			= 0;
 	UInt32			outIndex		= 0;
+	tContextData	context			= 0;
 	tDataList	   *pNodeNameList	= nil;
 	tDataList	   *pDataList		= nil;
 	char		   *pNodeName		= nil;
@@ -554,15 +559,19 @@ tDirStatus PwdPolicyTool::FindDirectoryNodes( char			*inNodeName,
 		}
 
 		do {
-			error = dsFindDirNodes( fDSRef, fTDataBuff, pNodeNameList, inMatch, &uiCount, nil );
+			error = dsFindDirNodes( fDSRef, fTDataBuff, pNodeNameList, inMatch, &uiCount, &context );
 			if ( error == eDSBufferTooSmall )
 			{
 				UInt32 buffSize = fTDataBuff->fBufferSize;
 				dsDataBufferDeAllocate( fDSRef, fTDataBuff );
-				fTDataBuff = nil;
 				fTDataBuff = dsDataBufferAllocate( fDSRef, buffSize * 2 );
 			}
-		} while ( error == eDSBufferTooSmall );
+		} while (error == eDSBufferTooSmall);
+		
+		if (context != 0) {
+			dsReleaseContinueData(fDSRef, context);
+		}
+		
 		if ( error == eDSNoErr )
 		{
 			if ( inPrintNames || gVerbose )
@@ -796,14 +805,15 @@ PwdPolicyTool::DoNodePWAuth(
 		if ( inPasswd == NULL )
 			inPasswd = "";
 		
-		if ( strcmp(kDSStdAuthGetEffectivePolicy, inMethod) == 0 )
+		if ( strcmp(kDSStdAuthSetPolicyAsRoot, inMethod) == 0) {
+			error = dsFillAuthBuffer( pAuthBuff, 2,
+									::strlen( inUserName ), inUserName,
+									::strlen( inOther ), inOther );
+		} else if ( strcmp(kDSStdAuthGetEffectivePolicy, inMethod) == 0 )
 		{
 			error = dsFillAuthBuffer( pAuthBuff, 1,
 									 ::strlen( inUserName ), inUserName);
-		}
-		else
-		if ( inOther != NULL )
-		{
+		} else if ( inOther != NULL ) {
 			error = dsFillAuthBuffer( pAuthBuff, 4,
 									::strlen( inName ), inName,
 									::strlen( inPasswd ), inPasswd,
@@ -839,10 +849,11 @@ PwdPolicyTool::DoNodePWAuth(
 				if ( len < pStepBuff->fBufferSize - 4 )
 				{
 					pStepBuff->fBufferData[len+4] = '\0';
-					if ( outResult != NULL )
+					if ( outResult != NULL ) {
 						strcpy( outResult, pStepBuff->fBufferData+4 );
-					else
+					} else if (len > 0) {
 						fprintf( stdout, "%s\n", pStepBuff->fBufferData+4 );
+					}
 				}
 				else
 				{
@@ -1079,13 +1090,6 @@ PwdPolicyTool::GetUserByName(
 		fprintf( stderr, "\n----- Getting user by name: %s -----\n", inUserName );
 
 	status = DoGetRecordList( inNode, inUserName, inRecordType, kDSNAttrAuthenticationAuthority, eDSExact, outAuthAuthority, outNodeName );
-	if ( outAuthAuthority && *outAuthAuthority == NULL )
-	{
-		char *unamePlusDollar = (char *) malloc( strlen(inUserName) + 2 );
-		strcpy( unamePlusDollar, inUserName );
-		strcat( unamePlusDollar, "$" );
-		status = DoGetRecordList( inNode, unamePlusDollar, inRecordType, kDSNAttrAuthenticationAuthority, eDSExact, outAuthAuthority, outNodeName );
-	}
 	
 	if ( status != eDSNoErr )
 	{
@@ -1364,7 +1368,9 @@ PwdPolicyTool::SetUserHashList( tRecordReference inRecordRef, int firstArg, int 
 	{
 	}
 	
-	CFRelease( hashTypeArray );
+	if (hashTypeArray != NULL) {
+        CFRelease( hashTypeArray );
+    }
 	
 	return returnValue;
 }

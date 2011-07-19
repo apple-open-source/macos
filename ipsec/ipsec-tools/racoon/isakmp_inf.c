@@ -37,11 +37,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #include <netinet/in.h>
 #include <sys/queue.h>
 #ifndef HAVE_NETINET6_IPSEC
@@ -208,7 +204,7 @@ isakmp_info_recv(iph1, msg0)
 	struct isakmp_gen *nd;
 	u_int8_t np;
 	int encrypted;
-	int flag;
+	int flag = 0;
 
 	plog(LLV_DEBUG, LOCATION, NULL, "receive Information.\n");
 
@@ -232,7 +228,7 @@ isakmp_info_recv(iph1, msg0)
 		ivm = oakley_newiv2(iph1, ((struct isakmp *)msg0->v)->msgid);
 		if (ivm == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				 "failed to compute IV");
+				 "failed to compute IV\n");
 			IPSECSESSIONTRACEREVENT(iph1->parent_session,
 									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
 									CONSTSTR("Information message"),
@@ -244,7 +240,7 @@ isakmp_info_recv(iph1, msg0)
 		oakley_delivm(ivm);
 		if (msg == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				 "failed to decrypt packet");
+				 "failed to decrypt packet\n");
 			IPSECSESSIONTRACEREVENT(iph1->parent_session,
 									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
 									CONSTSTR("Information message"),
@@ -465,9 +461,10 @@ isakmp_info_recv_n(iph1, notify, msgid, encrypted)
         }
         break;
 	case ISAKMP_NTYPE_INITIAL_CONTACT:
-		if (encrypted)
+		if (encrypted) {
 			info_recv_initialcontact(iph1);
 			return 0;
+		}
 		break;
 #ifdef ENABLE_DPD
 	case ISAKMP_NTYPE_R_U_THERE:
@@ -560,6 +557,64 @@ isakmp_info_recv_n(iph1, notify, msgid, encrypted)
 	return 0;
 }
 
+#ifdef ENABLE_VPNCONTROL_PORT
+static
+void
+isakmp_info_vpncontrol_notify_ike_failed (struct ph1handle *iph1,
+										  int               isakmp_info_initiator,
+										  int               type,
+										  vchar_t          *data)
+{
+	u_int32_t address;
+	u_int32_t fail_reason;
+
+	/* notify the API that we have received the delete */
+	if (iph1->remote->sa_family == AF_INET)
+		address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
+	else
+		address = 0;
+	
+	if (isakmp_info_initiator == FROM_REMOTE) {
+		int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
+		int expired = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_EXPIRED);
+
+		if (premature) {
+			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_PREMATURE;
+		} else if (expired) {
+			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_EXPIRED;
+		} else {
+			fail_reason = type;
+		}
+		vpncontrol_notify_ike_failed(fail_reason, isakmp_info_initiator, address, 0, NULL);
+		return;
+	} else {
+		/* FROM_LOCAL */
+		if (type == ISAKMP_INTERNAL_ERROR ||
+			type <= ISAKMP_NTYPE_UNEQUAL_PAYLOAD_LENGTHS) {
+			int premature = oakley_find_status_in_certchain(iph1->cert_p, CERT_STATUS_PREMATURE);
+			int expired = oakley_find_status_in_certchain(iph1->cert_p, CERT_STATUS_EXPIRED);
+			int subjname = oakley_find_status_in_certchain(iph1->cert_p, CERT_STATUS_INVALID_SUBJNAME);
+			int subjaltname = oakley_find_status_in_certchain(iph1->cert_p, CERT_STATUS_INVALID_SUBJALTNAME);
+
+			if (premature) {
+				fail_reason = VPNCTL_NTYPE_PEER_CERT_PREMATURE;
+			} else if (expired) {
+				fail_reason = VPNCTL_NTYPE_PEER_CERT_EXPIRED;
+			} else if (subjname) {
+				fail_reason = VPNCTL_NTYPE_PEER_CERT_INVALID_SUBJNAME;
+			} else if (subjaltname) {
+				fail_reason = VPNCTL_NTYPE_PEER_CERT_INVALID_SUBJALTNAME;
+			} else {
+				fail_reason = type;
+			}
+			(void)vpncontrol_notify_ike_failed(fail_reason, isakmp_info_initiator, address,
+											   (data ? data->l : 0), (u_int8_t *)(data ? data->v : NULL));
+			return;
+		}
+	}
+}
+#endif /* ENABLE_VPNCONTROL_PORT */
+
 /*
  * handling of Deletion payload
  */
@@ -648,22 +703,11 @@ isakmp_info_recv_d(iph1, delete, msgid, encrypted)
 			 * Just delete the IKE SA.
 			 */
 #ifdef ENABLE_VPNCONTROL_PORT
-
-			if (del_ph1->started_by_api)
+			if (del_ph1->started_by_api || (del_ph1->is_rekey && del_ph1->parent_session && del_ph1->parent_session->is_client)) {
 				if (islast_ph1(del_ph1)) {
-					u_int32_t address;
-					
-					/* notify the API that we have received the delete */
-					if (iph1->remote->sa_family == AF_INET)
-						address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
-					else
-						address = 0;
-					if (iph1->cert && IS_CERT_STATUS_ERROR(iph1->cert->status)) {
-						vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR + iph1->cert->status, FROM_REMOTE, address, 0, NULL);
-					} else {
-						vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE, FROM_REMOTE, address, 0, NULL);
-					}
+					isakmp_info_vpncontrol_notify_ike_failed(del_ph1, FROM_REMOTE, VPNCTL_NTYPE_PH1_DELETE, NULL);
 				}
+			}
 #endif
 			isakmp_ph1expire(del_ph1);
 		}
@@ -919,7 +963,6 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 	isakmp_newcookie((char *)&iph1->index.r_ck, remote, local);
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
-#ifdef __APPLE__
 	if (link_rmconf_to_ph1(rmconf) < 0) {
 		IPSECSESSIONTRACEREVENT(sess,
 								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
@@ -932,7 +975,6 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 		error = -1;
 		goto end;
 	}
-#endif
 	iph1->side = INITIATOR;
 	iph1->version = isakmp->v;
 	iph1->flags = 0;
@@ -989,18 +1031,7 @@ isakmp_info_send_nx(isakmp, remote, local, type, data)
 		memcpy((caddr_t)(n + 1) + spisiz, data->v, data->l);
 
 #ifdef ENABLE_VPNCONTROL_PORT
-	{
-		u_int32_t address;
-		if (type == ISAKMP_INTERNAL_ERROR ||
-			type <= ISAKMP_NTYPE_UNEQUAL_PAYLOAD_LENGTHS) {
-			if (remote->sa_family == AF_INET)
-				address = ((struct sockaddr_in *)remote)->sin_addr.s_addr;
-			else
-				address = 0;
-			(void)vpncontrol_notify_ike_failed(type, FROM_LOCAL, address,
-					(data ? data->l : 0), (data ? data->v : NULL));
-		}
-	}
+	isakmp_info_vpncontrol_notify_ike_failed(iph1, FROM_LOCAL, type, data);
 #endif
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, 0);
@@ -1082,19 +1113,7 @@ isakmp_info_send_n1(iph1, type, data)
 		memcpy((caddr_t)(n + 1) + spisiz, data->v, data->l);
 
 #ifdef ENABLE_VPNCONTROL_PORT	
-	{
-		u_int32_t address;
-		
-		if (type == ISAKMP_INTERNAL_ERROR ||
-			type <= ISAKMP_NTYPE_UNEQUAL_PAYLOAD_LENGTHS) {
-			if (iph1->remote->sa_family == AF_INET)
-				address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
-			else
-				address = 0;
-			(void)vpncontrol_notify_ike_failed(type, FROM_LOCAL, address, 
-					(data ? data->l : 0), (data ? data->v : NULL));
-		}
-	}
+	isakmp_info_vpncontrol_notify_ike_failed(iph1, FROM_LOCAL, type, data);
 #endif
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, iph1->flags);
@@ -1486,6 +1505,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 		 "purge_ipsec_spi:\n");
 	plog(LLV_DEBUG2, LOCATION, NULL, "dst0: %s\n", saddr2str(dst0));
 	plog(LLV_DEBUG2, LOCATION, NULL, "SPI: %08X\n", ntohl(spi[0]));
+	plog(LLV_DEBUG2, LOCATION, NULL, "num SPI: %d\n", n);
 
 	buf = pfkey_dump_sadb(ipsecdoi2pfkey_proto(proto));
 	if (buf == NULL) {
@@ -1543,6 +1563,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 		/* don't delete inbound SAs at the moment */
 		/* XXX should we remove SAs with opposite direction as well? */
 		if (CMPSADDR2(dst0, dst)) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipped dst: %s\n", saddr2str(dst));
 			msg = next;
 			continue;
 		}
@@ -2041,6 +2062,10 @@ isakmp_info_recv_r_u_ack (iph1, ru, msgid)
 	}
 	plog(LLV_DEBUG, LOCATION, NULL, "received an R-U-THERE-ACK\n");
 
+#ifdef ENABLE_VPNCONTROL_PORT
+	vpncontrol_notify_peer_resp_ph1(1, iph1);
+#endif /* ENABLE_VPNCONTROL_PORT */
+
 	return 0;
 }
 
@@ -2201,7 +2226,7 @@ isakmp_info_monitor_r_u_algo_inbound_detect (struct ph1handle *iph1)
 }
 
 /*
- * monitor DPD (ALGORITHM_INBOUND_DETECT) Informational exchange.
+ * monitor DPD (ALGORITHM_BLACKHOLE_DETECT) Informational exchange.
  */
 static void
 isakmp_info_monitor_r_u_algo_blackhole_detect (struct ph1handle *iph1)

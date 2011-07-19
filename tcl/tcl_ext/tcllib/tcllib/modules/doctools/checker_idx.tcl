@@ -4,7 +4,7 @@
 # Code used inside of a checker interpreter to ensure correct usage of
 # docidx formatting commands.
 #
-# Copyright (c) 2003 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Copyright (c) 2003-2009 Andreas Kupries <andreas_kupries@sourceforge.net>
 
 # L10N
 
@@ -177,7 +177,7 @@ proc index_begin {label title} {
 }
 proc index_end {} {
     Enter index_end
-    if {[IsNot refkey_series]} {Error idx/endcmd}
+    if {[IsNot refkey_series] && [IsNot contents]} {Error idx/endcmd}
     Go done
     fmt_index_end
 }

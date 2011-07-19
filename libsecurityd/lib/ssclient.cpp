@@ -42,7 +42,6 @@ namespace SecurityServer {
 //
 UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
-bool ClientSession::mSetupSession;
 const char *ClientSession::mContactName;
 SecGuestRef ClientSession::mDedicatedGuest = kSecNoGuest;
 
@@ -125,8 +124,6 @@ const char *ClientSession::contactName() const
 // Construct the process-global state object.
 // The ModuleNexus construction magic will ensure that this happens uniquely
 // even if the face of multithreaded attack.
-// Do note that the mSetupSession (session creation) case is gated by a global flag,
-// and it's the caller's responsibility not to multithread-race it.
 //
 ClientSession::Global::Global()
 {
@@ -146,16 +143,8 @@ ClientSession::Global::Global()
     // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
     Thread &thread = this->thread();
 	
-	if (mSetupSession) {
-		secdebug("SSclnt", "sending session setup request");
-		mSetupSession = false;	// reset global
-		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &securitydCreds, &rcode,
-			mach_task_self(), info, extForm, &serverPort.port()));
-		secdebug("SSclnt", "new session server port is %d", serverPort.port());
-	} else {
-		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
-			mach_task_self(), info, extForm));
-	}
+	IPCN(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
+		mach_task_self(), info, extForm));
     thread.registered = true;	// as a side-effect of setup call above
 	IFDEBUG(serverPort.requestNotify(thread.replyPort));
 	secdebug("SSclnt", "contact with %s established", mContactName);

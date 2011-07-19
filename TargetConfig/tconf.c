@@ -692,7 +692,7 @@ _export_recorded_features(FILE *f, const char *symroot) {
 	}
 	if((linkfile = lockfilebylink(lock)) == NULL) {
 		// error or timeout
-		warnx("_export_recorded_features: %s: couldn't lock");
+		warnx("_export_recorded_features: couldn't lock");
 		return -1;
 	}
 	if ((plist = read_plist(file, &errstr)) == NULL) {

@@ -3,7 +3,7 @@
 [copyright {2004 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Special mathematical functions}]
-
+[category  Mathematics]
 [require Tcl [opt 8.3]]
 [require math::special [opt 0.2]]
 

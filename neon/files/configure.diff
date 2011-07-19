@@ -1,6 +1,6 @@
---- configure.orig	2010-06-14 15:15:20.000000000 -0700
-+++ configure	2010-06-14 15:15:44.000000000 -0700
-@@ -18716,7 +18716,7 @@
+--- configure.orig	2009-06-25 15:49:19.000000000 -0700
++++ configure	2009-06-25 15:49:32.000000000 -0700
+@@ -18600,7 +18600,7 @@
      output_verbose_link_cmd=echo
      archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
      module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"

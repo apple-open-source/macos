@@ -23,7 +23,7 @@
  */
 
 #ifndef _IOKIT_HID_IOHIDEVENTTYPES_H
-#define _IOKIT_HID_IOHIDEVENTTYPES_H
+#define _IOKIT_HID_IOHIDEVENTTYPES_H /* { */
 
 #include <IOKit/IOTypes.h>
 
@@ -53,31 +53,40 @@
     @constant kIOHIDEventTypeTemperature
     @constant kIOHIDEventTypeMouse
     @constant kIOHIDEventTypeProgress
-    @constant kIOHIDEventTypeSwipe
- 	@constant kIOHIDEventTypeGyro
+    @constant kIOHIDEventTypeNavigationSwipe
+    @constant kIOHIDEventTypeGyro
+    @constant kIOHIDEventTypeCompass
+    @constant kIOHIDEventTypeZoomToggle
+    @constant kIOHIDEventTypeDockSwipe
+
 */
 enum {
-    kIOHIDEventTypeNULL,
+    kIOHIDEventTypeNULL,                    // 0
     kIOHIDEventTypeVendorDefined,
     kIOHIDEventTypeButton,
     kIOHIDEventTypeKeyboard, 
     kIOHIDEventTypeTranslation,
-    kIOHIDEventTypeRotation,
+    kIOHIDEventTypeRotation,                // 5
     kIOHIDEventTypeScroll,
     kIOHIDEventTypeScale,
     kIOHIDEventTypeZoom,
     kIOHIDEventTypeVelocity,
-    kIOHIDEventTypeOrientation,
+    kIOHIDEventTypeOrientation,             // 10
     kIOHIDEventTypeDigitizer,
     kIOHIDEventTypeAmbientLightSensor,
     kIOHIDEventTypeAccelerometer,
     kIOHIDEventTypeProximity,
-    kIOHIDEventTypeTemperature,
-    kIOHIDEventTypeSwipe,
+    kIOHIDEventTypeTemperature,             // 15
+    kIOHIDEventTypeNavigationSwipe,
+    kIOHIDEventTypeSwipe = kIOHIDEventTypeNavigationSwipe,
     kIOHIDEventTypeMouse,
     kIOHIDEventTypeProgress,
     kIOHIDEventTypeCount,
-	kIOHIDEventTypeGyro
+    kIOHIDEventTypeGyro,                    // 20
+    kIOHIDEventTypeCompass,
+    kIOHIDEventTypeZoomToggle,
+    kIOHIDEventTypeDockSwipe, // just like kIOHIDEventTypeNavigationSwipe, but intended for consumption by Dock
+    kIOHIDEventTypeSymbolicHotKey,
 };
 typedef uint32_t IOHIDEventType;
 
@@ -209,6 +218,15 @@ enum {
 	kIOHIDEventFieldGyroQuaternionW
 };
 
+typedef IOHIDMotionType IOHIDCompassType ;
+
+enum {
+    kIOHIDEventFieldCompassX = IOHIDEventFieldBase(kIOHIDEventTypeCompass),
+    kIOHIDEventFieldCompassY,
+    kIOHIDEventFieldCompassZ, 
+	kIOHIDEventFieldCompassType
+};
+
 enum {
     kIOHIDEventFieldAmbientLightSensorLevel = IOHIDEventFieldBase(kIOHIDEventTypeAmbientLightSensor),
     kIOHIDEventFieldAmbientLightSensorRawChannel0,
@@ -270,51 +288,95 @@ enum {
 };
 
 enum {
-    kIOHIDEventFieldSwipeMask = IOHIDEventFieldBase(kIOHIDEventTypeSwipe)
+    kIOHIDEventFieldSwipeMask = IOHIDEventFieldBase(kIOHIDEventTypeSwipe),
+    kIOHIDEventFieldSwipeMotion,
+    kIOHIDEventFieldSwipeProgress,
+    kIOHIDEventFieldSwipePositionX,
+    kIOHIDEventFieldSwipePositionY,
+};
+
+enum {
+    kIOHIDEventFieldNavigationSwipeMask = IOHIDEventFieldBase(kIOHIDEventTypeNavigationSwipe),
+    kIOHIDEventFieldNavigationSwipeMotion,
+    kIOHIDEventFieldNavigationSwipeProgress,
+    kIOHIDEventFieldNavigationSwipePositionX,
+    kIOHIDEventFieldNavigationSwipePositionY,
+};
+
+enum {
+    kIOHIDEventFieldDockSwipeMask = IOHIDEventFieldBase(kIOHIDEventTypeDockSwipe),
+    kIOHIDEventFieldDockSwipeMotion,
+    kIOHIDEventFieldDockSwipeProgress,
+    kIOHIDEventFieldDockSwipePositionX,
+    kIOHIDEventFieldDockSwipePositionY,
 };
 
 enum {
     kIOHIDEventFieldProgressEventType = IOHIDEventFieldBase(kIOHIDEventTypeProgress),
-    kIOHIDEventFieldProgressLevel
+    kIOHIDEventFieldProgressLevel,
+};
+
+enum {
+    kIOHIDEventFieldSymbolicHotKeyValue = IOHIDEventFieldBase(kIOHIDEventTypeSymbolicHotKey),
+    kIOHIDEventFieldSymbolicHotKeyIsCGSEvent,
 };
 
 typedef uint32_t IOHIDEventField;
 
 /*!
-	@typedef IOHIDSwipeMask
-	@abstract Mask detailing the type of swipe detected.
+    @typedef IOHIDSwipeMask
+    @abstract Mask detailing the type of swipe detected.
     @discussion
-	@constant kIOHIDProximityDetectionLargeBodyContact
-	@constant kIOHIDProximityDetectionLargeBodyFarField
-	@constant kIOHIDProximityDetectionIrregularObjects
-	@constant kIOHIDProximityDetectionEdgeStraddling
-	@constant kIOHIDProximityDetectionFlatFingerClasp
-	@constant kIOHIDProximityDetectionFingerTouch
-	@constant kIOHIDProximityDetectionReceiver
-	@constant kIOHIDProximityDetectionSmallObjectsHovering
-    @constant kIOHIDProximityDetectionReceiverCrude
+    @constant kIOHIDSwipeUp
+    @constant kIOHIDSwipeDown
+    @constant kIOHIDSwipeLeft
+    @constant kIOHIDSwipeRight
 */
 enum {
-    kIOHIDSwipeUp                             = 0x00000001,
-    kIOHIDSwipeDown                           = 0x00000002,
-    kIOHIDSwipeLeft                           = 0x00000004,
-    kIOHIDSwipeRight                          = 0x00000008,
+    kIOHIDSwipeUp               = 0x00000001,
+    kIOHIDSwipeDown             = 0x00000002,
+    kIOHIDSwipeLeft             = 0x00000004,
+    kIOHIDSwipeRight            = 0x00000008,
+    kIOHIDScaleExpand           = 0x00000010,
+    kIOHIDScaleContract         = 0x00000020,
+    kIOHIDRotateCW              = 0x00000040,
+    kIOHIDRotateCCW             = 0x00000080,
 };
 typedef uint32_t IOHIDSwipeMask;
 
+/*!
+    @typedef IOHIDGestureMotion
+    @abstract 
+    @constant kIOHIDGestureMotionNone
+    @constant kIOHIDGestureMotionHorizontalX
+    @constant kIOHIDGestureMotionVerticalY
+    @constant kIOHIDGestureMotionScale
+    @constant kIOHIDGestureMotionRotate
+    @constant kIOHIDGestureMotionTap
+*/
+enum {
+    kIOHIDGestureMotionNone,
+    kIOHIDGestureMotionHorizontalX,
+    kIOHIDGestureMotionVerticalY,
+    kIOHIDGestureMotionScale,
+    kIOHIDGestureMotionRotate,
+    kIOHIDGestureMotionTap,
+    kIOHIDGestureMotionDoubleTap,
+};
+typedef uint32_t IOHIDGestureMotion;
 
 /*!
-	@typedef IOHIDProximityDetectionMask
-	@abstract Proximity mask detailing the inputs that were detected.
+    @typedef IOHIDProximityDetectionMask
+    @abstract Proximity mask detailing the inputs that were detected.
     @discussion
-	@constant kIOHIDProximityDetectionLargeBodyContact
-	@constant kIOHIDProximityDetectionLargeBodyFarField
-	@constant kIOHIDProximityDetectionIrregularObjects
-	@constant kIOHIDProximityDetectionEdgeStraddling
-	@constant kIOHIDProximityDetectionFlatFingerClasp
-	@constant kIOHIDProximityDetectionFingerTouch
-	@constant kIOHIDProximityDetectionReceiver
-	@constant kIOHIDProximityDetectionSmallObjectsHovering
+    @constant kIOHIDProximityDetectionLargeBodyContact
+    @constant kIOHIDProximityDetectionLargeBodyFarField
+    @constant kIOHIDProximityDetectionIrregularObjects
+    @constant kIOHIDProximityDetectionEdgeStraddling
+    @constant kIOHIDProximityDetectionFlatFingerClasp
+    @constant kIOHIDProximityDetectionFingerTouch
+    @constant kIOHIDProximityDetectionReceiver
+    @constant kIOHIDProximityDetectionSmallObjectsHovering
     @constant kIOHIDProximityDetectionReceiverCrude
 */
 enum {
@@ -388,11 +450,43 @@ enum {
 typedef uint32_t IOHIDDigitizerEventMask;
 
 enum {
+    kIOHIDEventOptionNone                                   = 0x00000000,
     kIOHIDEventOptionIsAbsolute                             = 0x00000001,
     kIOHIDEventOptionIsCollection                           = 0x00000002,
     kIOHIDEventOptionPixelUnits                             = 0x00000004
 };
 typedef uint32_t IOHIDEventOptionBits;
+
+enum {
+    kIOHIDEventPhaseUndefined                               = 0x0,
+    kIOHIDEventPhaseBegan                                   = 0x1,
+    kIOHIDEventPhaseChanged                                 = 0x2,
+    kIOHIDEventPhaseEnded                                   = 0x4,
+    kIOHIDEventPhaseCancelled                               = 0x8,
+    kIOHIDEventEventPhaseMask                               = 0xF,
+    kIOHIDEventEventOptionPhaseShift                        = 28,
+};
+typedef uint16_t IOHIDEventPhaseBits;
+
+/*!
+ @typedef IOHIDSymbolicHotKey
+ @abstract Enumerted values for sending symbolic hot key events.
+ @constant kIOHIDSymbolicHotKeyDictionaryApp    This will get translated into a kCGSDictionaryAppHotKey by CG.
+ @constant kIOHIDSymbolicHotKeyOptionIsCGSHotKey
+                                                This is an option flag to denote that the SymbolicHotKey value is
+                                                actually from the enumeration in CGSHotKeys.h.
+ */
+enum {
+    kIOHIDSymbolicHotKeyUndefined,
+    kIOHIDSymbolicHotKeyDictionaryApp,
+};
+typedef uint32_t IOHIDSymbolicHotKeyValue;
+
+
+enum {
+    kIOHIDEventSenderIDUndefined                            = 0x0000000000000000LL,
+};
+typedef uint64_t IOHIDEventSenderID; // must be the same size as that returned from IORegistryEntry::getRegistryEntryID
 
 #ifndef KERNEL
 /*!
@@ -413,4 +507,4 @@ typedef struct _IOHID3DPoint {
 } IOHID3DPoint; 
 #endif
 
-#endif /* _IOKIT_HID_IOHIDEVENTTYPES_H */
+#endif /* _IOKIT_HID_IOHIDEVENTTYPES_H } */

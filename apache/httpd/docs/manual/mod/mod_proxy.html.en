@@ -22,6 +22,7 @@
 <div id="preamble"><h1>Apache Module mod_proxy</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_proxy.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_proxy.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>HTTP/1.1 proxy/gateway server</td></tr>
@@ -662,8 +663,8 @@ response</td></tr>
 </table>
     <p>The <code class="directive">ProxyBadHeader</code> directive determines the
     behaviour of <code class="module"><a href="../mod/mod_proxy.html">mod_proxy</a></code> if it receives syntactically invalid
-    header lines (<em>i.e.</em> containing no colon). The following arguments
-    are possible:</p>
+    response header lines (<em>i.e.</em> containing no colon) from the origin 
+    server. The following arguments are possible:</p>
 
     <dl>
     <dt><code>IsError</code></dt>
@@ -915,23 +916,30 @@ through</td></tr>
 
     </div> 
 
-    <p>As of Apache 2.1, the ability to use pooled connections to a backend
-    server is available. Using the <code>key=value</code> parameters it is
-    possible to tune this connection pooling. The default for a <code>Hard
-    Maximum</code> for the number of connections is the number of threads per
-    process in the active MPM. In the Prefork MPM, this is always 1, while with
-    the Worker MPM it is controlled by the
-    <code class="directive">ThreadsPerChild</code>.</p>
+    <p>In Apache HTTP Server 2.1 and later, mod_proxy supports pooled
+    connections to a backend server.  Connections created on demand
+    can be retained in a pool for future use.  Limits on the pool size
+    and other settings can be coded on
+    the <code class="directive">ProxyPass</code> directive
+    using  <code>key=value</code> parameters, described in the table
+    below.</p>
 
-    <p>Setting <code>min</code> will determine how many connections will always 
-    be open to the backend server. Upto the Soft Maximum or <code>smax</code> 
-    number of connections will be created on demand. Any connections above 
-    <code>smax</code> are subject to a time to live or <code>ttl</code>.  Apache
-    will never create more than the Hard Maximum or <code>max</code> connections
-    to the backend server.</p>
+    <p>By default, mod_proxy will allow and retain the maximum number of
+    connections that could be used simultaneously by that web server child
+    process.  Use the <code>max</code> parameter to reduce the number from
+    the default.  Use the <code>ttl</code> parameter to set an optional
+    time to live; connections which have been unused for at least
+    <code>ttl</code> seconds will be closed.  <code>ttl</code> can be used
+    to avoid using a connection which is subject to closing because of the
+    backend server's keep-alive timeout.</p>
 
-    <div class="example"><p><code>
-        ProxyPass /example http://backend.example.com smax=5 max=20 ttl=120 retry=300
+    <p>The pool of connections is maintained per web server child
+    process, and <code>max</code> and other settings are not coordinated 
+    among all child processes, except when only one child process is allowed
+    by configuration or MPM design.</p>
+
+    <div class="example"><h3>Example</h3><p><code>
+        ProxyPass /example http://backend.example.com max=20 ttl=120 retry=300
     </code></p></div>
 
     <table>
@@ -940,23 +948,27 @@ through</td></tr>
         <th>Description</th></tr>
     <tr><td>min</td>
         <td>0</td>
-        <td>Minimum number of connections that will always
-            be open to the backend server.</td></tr>
+        <td>Minimum number of connection pool entries, unrelated to the
+    actual number of connections.  This only needs to be modified from the
+    default for special circumstances where heap memory associated with the
+    backend connections should be preallocated or retained.</td></tr>
     <tr><td>max</td>
         <td>1...n</td>
-        <td>Hard Maximum number of connections that will be
-    allowed to the backend server. The default for a Hard Maximum
-    for the number of connections is the number of threads per process in the 
-    active MPM. In the Prefork MPM, this is always 1, while with the Worker MPM
-    it is controlled by the <code class="directive">ThreadsPerChild</code>.
-    Apache will never create more than the Hard Maximum connections
-    to the backend server.</td></tr>
+        <td>Maximum number of connections that will be allowed to the
+    backend server. The default for this limit is the number of threads
+    per process in the active MPM. In the Prefork MPM, this is always 1,
+    while with other MPMs it is controlled by the
+    <code class="directive">ThreadsPerChild</code> directive.</td></tr>
     <tr><td>smax</td>
         <td>max</td>
-        <td>Upto the Soft Maximum
-    number of connections will be created on demand. Any connections above 
-    <code>smax</code> are subject to a time to live or <code>ttl</code>.
-    </td></tr>
+        <td>Retained connection pool entries above this limit are freed
+    during certain operations if they have been unused for longer than
+    the time to live, controlled by the <code>ttl</code> parameter.  If
+    the connection pool entry has an associated connection, it will be
+    closed.  This only needs to be modified from the default for special
+    circumstances where connection pool entries and any associated
+    connections which have exceeded the time to live need to be freed or
+    closed more aggressively.</td></tr>
     <tr><td>acquire</td>
         <td>-</td>
         <td>If set this will be the maximum time to wait for a free
@@ -998,12 +1010,15 @@ through</td></tr>
     </td></tr>
     <tr><td>keepalive</td>
         <td>Off</td>
-        <td>This parameter should be used when you have a firewall between your
+        <td><p>This parameter should be used when you have a firewall between your
     Apache and the backend server, who tend to drop inactive connections.
     This flag will tell the Operating System to send <code>KEEP_ALIVE</code>
-    messages on inactive connections (interval depends on global OS settings,
-    generally 120ms), and thus prevent the firewall to drop the connection.
-    To enable keepalive set this property value to <code>On</code>. 
+    messages on inactive connections  and thus prevent the firewall to drop the connection.
+    To enable keepalive set this property value to <code>On</code>. </p>
+    <p>The frequency of initial and subsequent TCP keepalive probes 
+    depends on global OS settings, and may be as high as 2 hours. To be useful,
+    the frequency configured in the OS must be smaller than the threshold used 
+    by the firewall.</p>
     </td></tr>
     <tr><td>lbset</td>
         <td>0</td>
@@ -1072,9 +1087,10 @@ through</td></tr>
     </td></tr>
     <tr><td>ttl</td>
         <td>-</td>
-        <td>Time To Live for the inactive connections above the
-        <code>smax</code> connections in seconds. Apache will close all
-        connections that has not been used inside that time period.
+        <td>Time to live for inactive connections and associated connection
+        pool entries, in seconds.  Once reaching this limit, a
+        connection will not be used again; it will be closed at some
+        later time.
     </td></tr>
 
     </table>
@@ -1096,11 +1112,12 @@ through</td></tr>
         <td>Balancer load-balance method. Select the load-balancing scheduler
         method to use. Either <code>byrequests</code>, to perform weighted
         request counting, <code>bytraffic</code>, to perform weighted
-        traffic byte count balancing, or <code>bybusyness</code>, to perform 
-        pending request balancing. Default is <code>byrequests</code>.
+        traffic byte count balancing, or <code>bybusyness</code> 
+        (Apache HTTP Server 2.2.10 and later), to perform pending request 
+        balancing. Default is <code>byrequests</code>.
     </td></tr>
     <tr><td>maxattempts</td>
-        <td>1</td>
+        <td>One less than the number of workers, or 1 with a single worker.</td>
         <td>Maximum number of failover attempts before giving up. 
     </td></tr>
     <tr><td>nofailover</td>
@@ -1144,10 +1161,10 @@ through</td></tr>
       ProxyPass / balancer://mycluster/ stickysession=JSESSIONID|jsessionid nofailover=On<br />
       &lt;Proxy balancer://mycluster&gt;<br />
       <span class="indent">
-        BalancerMember http://1.2.3.4:8009<br />
-        BalancerMember http://1.2.3.5:8009 smax=10<br />
-        # Less powerful server, don't send as many requests there<br />
-        BalancerMember http://1.2.3.6:8009 smax=1 loadfactor=20<br />
+        BalancerMember ajp://1.2.3.4:8009<br />
+        BalancerMember ajp://1.2.3.5:8009 loadfactor=20<br />
+        # Less powerful server, don't send as many requests there,<br />
+        BalancerMember ajp://1.2.3.6:8009 loadfactor=5<br />
       </span>
       &lt;/Proxy&gt;
     </code></p></div>
@@ -1158,10 +1175,10 @@ through</td></tr>
       ProxyPass / balancer://hotcluster/ <br />
       &lt;Proxy balancer://hotcluster&gt;<br />
       <span class="indent">
-        BalancerMember http://1.2.3.4:8009 loadfactor=1<br />
-        BalancerMember http://1.2.3.5:8009 loadfactor=2<br />
+        BalancerMember ajp://1.2.3.4:8009 loadfactor=1<br />
+        BalancerMember ajp://1.2.3.5:8009 loadfactor=2<br />
         # The below is the hot standby<br />
-        BalancerMember http://1.2.3.6:8009 status=+H<br />
+        BalancerMember ajp://1.2.3.6:8009 status=+H<br />
         ProxySet lbmethod=bytraffic
       </span>
       &lt;/Proxy&gt;
@@ -1189,10 +1206,13 @@ through</td></tr>
     <code class="directive"><a href="../mod/core.html#locationmatch">&lt;LocationMatch&gt;</a></code> section,
     however ProxyPass does not interpret the regexp as such, so it is necessary
     to use <code class="directive">ProxyPassMatch</code> in this situation instead.</p>
+  
+    <p>This directive is not supported in <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> or <code class="directive"><a href="../mod/core.html#files">&lt;Files&gt;</a></code> sections.</p>
 
     <p>If you require a more flexible reverse-proxy configuration, see the
     <code class="directive"><a href="../mod/mod_rewrite.html#rewriterule">RewriteRule</a></code> directive with the
     <code>[P]</code> flag.</p>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1343,6 +1363,8 @@ proxied server</td></tr>
     intended, as ProxyPassReverse will interpret the regexp literally as a
     path; if needed in this situation, specify the ProxyPassReverse outside
     the section, or in a separate <code class="directive"><a href="../mod/core.html#location">&lt;Location&gt;</a></code> section.</p>
+
+    <p>This directive is not supported in <code class="directive"><a href="../mod/core.html#directory">&lt;Directory&gt;</a></code> or <code class="directive"><a href="../mod/core.html#files">&lt;Files&gt;</a></code> sections.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1535,8 +1557,8 @@ expressions</td></tr>
     <div class="example"><p><code>
       &lt;Proxy balancer://hotcluster&gt;<br />
       <span class="indent">
-        BalancerMember http://www2.example.com:8009 loadfactor=1<br />
-        BalancerMember http://www3.example.com:8009 loadfactor=2<br />
+        BalancerMember http://www2.example.com:8080 loadfactor=1<br />
+        BalancerMember http://www3.example.com:8080 loadfactor=2<br />
         ProxySet lbmethod=bytraffic<br />
       </span>
       &lt;/Proxy&gt;
@@ -1640,8 +1662,9 @@ header for proxied requests</td></tr>
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_proxy.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_proxy.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_proxy.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

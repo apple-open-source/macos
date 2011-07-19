@@ -29,67 +29,44 @@
 
 namespace WebCore {
 
-class HTMLScriptElement : public HTMLElement
-                        , public ScriptElement {
+class HTMLScriptElement : public HTMLElement, public ScriptElement {
 public:
-    HTMLScriptElement(const QualifiedName&, Document*, bool createdByParser);
-    ~HTMLScriptElement();
+    static PassRefPtr<HTMLScriptElement> create(const QualifiedName&, Document*, bool wasInsertedByParser);
 
-    virtual bool shouldExecuteAsJavaScript() const;
-    virtual String scriptContent() const;
+    String text() const { return scriptContent(); }
+    void setText(const String&);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
-    virtual bool checkDTD(const Node* newChild) { return newChild->isTextNode(); }
+    KURL src() const;
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    void setAsync(bool);
+    bool async() const;
+
+private:
+    HTMLScriptElement(const QualifiedName&, Document*, bool wasInsertedByParser, bool alreadyStarted);
+
+    virtual void parseMappedAttribute(Attribute*);
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
     virtual bool isURLAttribute(Attribute*) const;
-    virtual void finishParsingChildren();
 
-    String text() const;
-    void setText(const String&);
-
-    String htmlFor() const;
-    void setHtmlFor(const String&);
-
-    String event() const;
-    void setEvent(const String&);
-
-    String charset() const;
-    void setCharset(const String&);
-
-    bool defer() const;
-    void setDefer(bool);
-
-    KURL src() const;
-    void setSrc(const String&);
-
-    String type() const;
-    void setType(const String&);
-
-    virtual String scriptCharset() const;
-    
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
-    bool haveFiredLoadEvent() const { return m_data.haveFiredLoadEvent(); }
-
-protected:
     virtual String sourceAttributeValue() const;
     virtual String charsetAttributeValue() const;
     virtual String typeAttributeValue() const;
     virtual String languageAttributeValue() const;
     virtual String forAttributeValue() const;
     virtual String eventAttributeValue() const;
+    virtual bool asyncAttributeValue() const;
+    virtual bool deferAttributeValue() const;
+    virtual bool hasSourceAttribute() const;
 
     virtual void dispatchLoadEvent();
-    virtual void dispatchErrorEvent();
 
-private:
-    ScriptElementData m_data;
+    PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() const;
 };
 
 } //namespace

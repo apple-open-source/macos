@@ -31,18 +31,17 @@
 
 #include "WebPreferences.h"
 
-#pragma warning(push, 0)
-#include <WebCore/CharacterNames.h>
 #include <WebCore/Font.h>
+#include <WebCore/FontCache.h>
 #include <WebCore/FontDescription.h>
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/StringTruncator.h>
 #include <WebCore/WebCoreTextRenderer.h>
+#include <wtf/unicode/CharacterNames.h>
 
 #include <CoreGraphics/CoreGraphics.h>
-#pragma warning(pop)
 
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 
@@ -105,14 +104,14 @@ void WebDrawText(WebTextRenderInfo* info)
         GraphicsContext context(info->cgContext);
         String drawString(info->text, info->length);
         if (info->drawAsPassword)
-            drawString = drawString.impl()->secure(WebCore::bullet);
+            drawString = drawString.impl()->secure(WTF::Unicode::bullet);
 
         context.save();
 
         // Set shadow setting
         if (info->structSize == sizeof(WebTextRenderInfo) &&
             (info->shadowOffset.cx || info->shadowOffset.cy || info->shadowBlur || info->shadowColor))
-            context.setShadow(info->shadowOffset, info->shadowBlur, info->shadowColor, DeviceColorSpace);
+            context.setShadow(FloatSize(info->shadowOffset.cx, info->shadowOffset.cy), info->shadowBlur, info->shadowColor, ColorSpaceDeviceRGB);
 
         WebCoreDrawTextAtPoint(context, drawString, info->pt, makeFont(*(info->description)), info->color, info->underlinedIndex);
         context.restore();
@@ -133,22 +132,25 @@ void FontMetrics(const WebFontDescription& description, int* ascent, int* descen
         return;
 
     Font font(makeFont(description));
+    const WebCore::FontMetrics& fontMetrics(font.fontMetrics());
 
     if (ascent)
-        *ascent = font.ascent();
+        *ascent = fontMetrics.ascent();
 
     if (descent)
-        *descent = font.descent();
+        *descent = fontMetrics.descent();
 
     if (lineSpacing)
-        *lineSpacing = font.lineSpacing();
+        *lineSpacing = fontMetrics.lineSpacing();
 }
 
 unsigned CenterTruncateStringToWidth(LPCTSTR text, int length, const WebFontDescription& description, float width, WCHAR* buffer)
 {
     ASSERT(buffer);
 
-    String result = StringTruncator::centerTruncate(String(text, length), width, makeFont(description), false);
+    FontCachePurgePreventer fontCachePurgePreventer;
+
+    String result = StringTruncator::centerTruncate(String(text, length), width, makeFont(description));
     memcpy(buffer, result.characters(), result.length() * sizeof(UChar));
     buffer[result.length()] = '\0';
     return result.length();
@@ -158,7 +160,9 @@ unsigned RightTruncateStringToWidth(LPCTSTR text, int length, const WebFontDescr
 {
     ASSERT(buffer);
 
-    String result = StringTruncator::rightTruncate(String(text, length), width, makeFont(description), false);
+    FontCachePurgePreventer fontCachePurgePreventer;
+
+    String result = StringTruncator::rightTruncate(String(text, length), width, makeFont(description));
     memcpy(buffer, result.characters(), result.length() * sizeof(UChar));
     buffer[result.length()] = '\0';
     return result.length();

@@ -13,9 +13,8 @@
 
 #define DEBUG_TYPE "pic16-isel"
 
+#include "llvm/Support/ErrorHandling.h"
 #include "PIC16ISelDAGToDAG.h"
-#include "llvm/Support/Debug.h"
-
 using namespace llvm;
 
 /// createPIC16ISelDag - This pass converts a legalized DAG into a
@@ -25,17 +24,9 @@ FunctionPass *llvm::createPIC16ISelDag(PIC16TargetMachine &TM) {
 }
 
 
-/// InstructionSelect - This callback is invoked by
-/// SelectionDAGISel when it has created a SelectionDAG for us to codegen.
-void PIC16DAGToDAGISel::InstructionSelect() {
-  DEBUG(BB->dump());
-  SelectRoot(*CurDAG);
-  CurDAG->RemoveDeadNodes();
-}
-
 /// Select - Select instructions not customized! Used for
 /// expanded, promoted and normal instructions.
-SDNode* PIC16DAGToDAGISel::Select(SDValue N) {
+SDNode* PIC16DAGToDAGISel::Select(SDNode *N) {
 
   // Select the default instruction.
   SDNode *ResNode = SelectCode(N);
@@ -46,7 +37,7 @@ SDNode* PIC16DAGToDAGISel::Select(SDValue N) {
 
 // SelectDirectAddr - Match a direct address for DAG. 
 // A direct address could be a globaladdress or externalsymbol.
-bool PIC16DAGToDAGISel::SelectDirectAddr(SDValue Op, SDValue N, 
+bool PIC16DAGToDAGISel::SelectDirectAddr(SDNode *Op, SDValue N, 
                                       SDValue &Address) {
   // Return true if TGA or ES.
   if (N.getOpcode() == ISD::TargetGlobalAddress

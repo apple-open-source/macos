@@ -3,7 +3,7 @@
 # Class name: Function
 # Synopsis: Holds function info parsed by headerDoc
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/03/04 16:12:05 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,30 +27,65 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         <code>Function</code> class package file.
+#     @discussion
+#         This file contains the <code>Function</code> class, a class for content
+#         relating to a function or non-Objective-C method declaration.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         API object that describes a function declaration.
+#     @discussion
+#         The <code>Function</code> class stores information relating to a function
+#         declaration.  It is also used for methods except in
+#         Objective-C.  Objective-C methods use the
+#         {@link //apple_ref/perl/cl/HeaderDoc::Method Method} class.
+#
+#         The <code>Function</code> class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found there.
+#     @var RESULT
+#         The contents of the <code>\@result</code> or <code>\@return(s)</code>
+#         tags.
+#     @var CONFLICT
+#         Set high (1) if this function conflicts with another function
+#         of the same name.  This causes the method signature to be shown.
+#  */
 package HeaderDoc::Function;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash validTag);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
 
 @ISA = qw( HeaderDoc::HeaderElement );
 use vars qw($VERSION @ISA);
-$HeaderDoc::Function::VERSION = '$Revision: 1.14 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Function::VERSION = '$Revision: 1299283925 $';
 
 use strict;
 
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->_initialize();
-    return($self);
-}
-
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>Function</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
 
@@ -60,13 +95,21 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::Function";
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>Function</code> object into another one.
+#     @param self
+#         The object to clone.
+#     @param clone
+#         The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
 	$clone = shift;
     } else {
-	$clone = HeaderDoc::Function->new();
+	$clone = HeaderDoc::Function->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     }
 
     $self->SUPER::clone($clone);
@@ -79,18 +122,36 @@ sub clone {
     return $clone;
 }
 
-
-sub result {
+# /*!
+#     @abstract
+#         Gets/sets whether this function has a conflict with
+#         another function of the same name.
+#     @param self
+#         The <code>Function</code> object.
+#     @param conflict
+#         The value to set.  (Optional.)
+#  */
+sub conflict {
     my $self = shift;
-    
-    if (@_) {
-        $self->{RESULT} = shift;
+    my $localDebug = 0;
+    if (@_) { 
+        $self->{CONFLICT} = @_;
     }
-    return $self->{RESULT};
+    print STDERR "conflict $self->{CONFLICT}\n" if ($localDebug);
+    return $self->{CONFLICT};
 }
 
-# /*! Some keywords prior to a function name modify the function as a whole, not the return type.
-#     These keywords should never be part of the return type. */
+# /*! 
+#     @abstract
+#         Strips out keywords like <code>static</code> from the return type.
+#     @param self
+#         The <code>Function</code> object from which the return type should
+#         be obtained.
+#     @discussion
+#         Some keywords prior to a function name modify the function as a
+#         whole, not the return type.  These keywords should never be part
+#         of the return type.
+#  */
 sub sanitizedreturntype
 {
     my $self = shift;
@@ -104,7 +165,7 @@ sub sanitizedreturntype
     my @parts = split(/\s+/, $temp);
     foreach my $part (@parts) {
 	print STDERR "PART: $part\n" if ($localDebug);
-	if (length($part) && $part !~ /(virtual|static)/) {
+	if (length($part) && $part !~ /^(virtual|static)$/) {
 		$ret .= $space.$part;
 		$space = " "
 	}
@@ -113,6 +174,12 @@ sub sanitizedreturntype
     return $ret;
 }
 
+# /*!
+#     @abstract
+#         Gets the parameter signature for a function.
+#     @param self
+#         The <code>Function</code> object.
+#  */
 sub getParamSignature
 {
     my $self = shift;
@@ -178,138 +245,14 @@ sub getParamSignature
     return $signature;
 }
 
-
-sub processComment_old {
-    my $self = shift;
-    my $fieldArrayRef = shift;
-    my @fields = @$fieldArrayRef;
-    my $fullpath = $self->fullpath();
-    my $linenum = $self->linenum();
-
-	foreach my $field (@fields) {
-		my $fieldname = "";
-		my $top_level_field = 0;
-		if ($field =~ /^(\w+)(\s|$)/) {
-			$fieldname = $1;
-			# print STDERR "FIELDNAME: $fieldname\n";
-			$top_level_field = validTag($fieldname, 1);
-		}
-		# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
-		SWITCH: {
-            		($field =~ /^\/\*\!/o)&& do {
-                                my $copy = $field;
-                                $copy =~ s/^\/\*\!\s*//s;
-                                $copy =~ s/^s*\*\/\s*$//s; # eliminate a weird edge case for operators --DAG
-                                if (length($copy)) {
-                                        $self->discussion($copy);
-                                }
-                        last SWITCH;
-                        };
-			($field =~ s/^serialData\s+//io) && do {$self->attribute("Serial Data", $field, 1); last SWITCH;};
-			($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
-			($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-			($field =~ s/^throws\s+//io) && do {$self->throws($field); last SWITCH;};
-			($field =~ s/^exception\s+//io) && do {$self->throws($field); last SWITCH;};
-			($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            		($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
-            		($field =~ s/^(function|method)group\s+//io) && do {$self->group($field); last SWITCH;};
-            		($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
-			($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            		($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-			($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 0);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributelist\s+//io) && do {
-		    $field =~ s/^\s*//so;
-		    $field =~ s/\s*$//so;
-		    my ($name, $lines) = split(/\n/, $field, 2);
-		    $name =~ s/^\s*//so;
-		    $name =~ s/\s*$//so;
-		    $lines =~ s/^\s*//so;
-		    $lines =~ s/\s*$//so;
-		    if (length($name) && length($lines)) {
-			my @attlines = split(/\n/, $lines);
-			foreach my $line (@attlines) {
-			    $self->attributelist($name, $line);
-			}
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributeblock\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 1);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
-		    }
-		    last SWITCH;
-		};
-			($field =~ /^see(also|)\s+/io) &&
-				do {
-				    $self->see($field);
-				    last SWITCH;
-				};
-			($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-			($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-			($field =~ s/^templatefield\s+//io) && do {
-					$self->attributelist("Template Field", $field);
-                                        last SWITCH;
-			};
-			($field =~ s/^(param|field)\s+//io) && 
-			do {
-				$field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
-	            # $field =~ /(\w*)\s*(.*)/so;
-		    $field =~ /(\S*)\s*(.*)/so;
-	            my $pName = $1;
-	            my $pDesc = $2;
-	            my $param = HeaderDoc::MinorAPIElement->new();
-	            $param->outputformat($self->outputformat);
-	            $param->name($pName);
-	            $param->discussion($pDesc);
-	            $self->addTaggedParameter($param);
-				last SWITCH;
-			};
-			($field =~ s/^return\s+//io) && do {$self->result($field); last SWITCH;};
-			($field =~ s/^result\s+//io) && do {$self->result($field); last SWITCH;};
-			($top_level_field == 1) && do {
-				my $keepname = 1;
- 				if ($field =~ s/^(method|function)(\s+|$)/$2/io) {
-					$keepname = 1;
-				} else {
-					$field =~ s/(\w+)(\s|$)/$2/io;
-					$keepname = 0;
-				}
-				my ($name, $disc, $namedisc);
-				($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
-				$self->name($name);
-                		if (length($disc)) {
-					if ($namedisc) {
-						$self->nameline_discussion($disc);
-					} else {
-						$self->discussion($disc);
-					}
-				}
-				last SWITCH;
-			};
-			# my $fullpath = $HeaderDoc::headerObject->fullpath();
-			my $fullpath = $self->fullpath();
-			my $linenum = $self->linenum();
-			if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in function comment (".$self->name().")\n"; }
-		}
-	}
-}
-
+# /*!
+#     @abstract
+#         Sets the declaration.
+#     @param self
+#         This object.
+#     @param declaration
+#         The line array.
+#  */
 sub setDeclaration {
     my $self = shift;
     my ($dec) = @_;
@@ -325,16 +268,12 @@ sub setDeclaration {
     return $dec;
 }
 
-sub conflict {
-    my $self = shift;
-    my $localDebug = 0;
-    if (@_) { 
-        $self->{CONFLICT} = @_;
-    }
-    print STDERR "conflict $self->{CONFLICT}\n" if ($localDebug);
-    return $self->{CONFLICT};
-}
-
+# /*!
+#     @abstract
+#         Prints an object for debugging purposes.
+#     @param self
+#         The <code>Function</code> object.
+#  */
 sub printObject {
     my $self = shift;
  

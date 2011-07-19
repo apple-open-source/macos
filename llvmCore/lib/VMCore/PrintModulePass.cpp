@@ -16,28 +16,29 @@
 #include "llvm/Function.h"
 #include "llvm/Module.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 namespace {
 
-  class VISIBILITY_HIDDEN PrintModulePass : public ModulePass {
+  class PrintModulePass : public ModulePass {
+    std::string Banner;
     raw_ostream *Out;       // raw_ostream to print on
     bool DeleteStream;      // Delete the ostream in our dtor?
   public:
     static char ID;
-    PrintModulePass() : ModulePass(&ID), Out(&errs()), 
+    PrintModulePass() : ModulePass(&ID), Out(&dbgs()), 
       DeleteStream(false) {}
-    PrintModulePass(raw_ostream *o, bool DS)
-      : ModulePass(&ID), Out(o), DeleteStream(DS) {}
+    PrintModulePass(const std::string &B, raw_ostream *o, bool DS)
+        : ModulePass(&ID), Banner(B), Out(o), DeleteStream(DS) {}
     
     ~PrintModulePass() {
       if (DeleteStream) delete Out;
     }
     
     bool runOnModule(Module &M) {
-      (*Out) << M;
+      (*Out) << Banner << M;
       return false;
     }
     
@@ -52,7 +53,7 @@ namespace {
     bool DeleteStream;      // Delete the ostream in our dtor?
   public:
     static char ID;
-    PrintFunctionPass() : FunctionPass(&ID), Banner(""), Out(&errs()), 
+    PrintFunctionPass() : FunctionPass(&ID), Banner(""), Out(&dbgs()), 
                           DeleteStream(false) {}
     PrintFunctionPass(const std::string &B, raw_ostream *o, bool DS)
       : FunctionPass(&ID), Banner(B), Out(o), DeleteStream(DS) {}
@@ -85,8 +86,9 @@ Y("print-function","Print function to stderr");
 /// createPrintModulePass - Create and return a pass that writes the
 /// module to the specified raw_ostream.
 ModulePass *llvm::createPrintModulePass(llvm::raw_ostream *OS, 
-                                        bool DeleteStream) {
-  return new PrintModulePass(OS, DeleteStream);
+                                        bool DeleteStream,
+                                        const std::string &Banner) {
+  return new PrintModulePass(Banner, OS, DeleteStream);
 }
 
 /// createPrintFunctionPass - Create and return a pass that prints

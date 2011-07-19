@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)putenv.c	8.2 (Berkeley) 3/27/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/putenv.c,v 1.2 2002/03/22 21:53:10 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/putenv.c,v 1.6 2007/05/01 16:02:41 ache Exp $");
 
 #include <stdlib.h>
 #include <string.h>
@@ -46,8 +42,11 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/putenv.c,v 1.2 2002/03/22 21:53:10 obrie
 #include <errno.h> 
 
 extern malloc_zone_t *__zone0;
-extern void __malloc_check_env_name(const char *);
+#ifdef LEGACY_CRT1_ENVIRON
+extern char **_saved_environ;
+#endif /* LEGACY_CRT1_ENVIRON */
 
+extern void __malloc_check_env_name(const char *);
 __private_extern__ int __setenv(const char *, const char *, int, int, char ***, malloc_zone_t *);
 
 #ifndef BUILDING_VARIANT
@@ -75,6 +74,10 @@ int
 putenv(str)
 	char *str;
 {
+#ifdef LEGACY_CRT1_ENVIRON
+	int ret;
+#endif /* LEGACY_CRT1_ENVIRON */
+
 #if __DARWIN_UNIX03
 	if (str == NULL || *str == 0 || index(str, '=') == NULL) {
 		errno = EINVAL;
@@ -93,11 +96,20 @@ putenv(str)
 	    }
 	}
 	__malloc_check_env_name(str); /* see if we are changing a malloc environment variable */
-	return (__setenv(str, NULL, 1,
+#ifdef LEGACY_CRT1_ENVIRON
+	ret =
+#else /* !LEGACY_CRT1_ENVIRON */
+	return
+#endif /* !LEGACY_CRT1_ENVIRON */
+	    __setenv(str, NULL, 1,
 #if __DARWIN_UNIX03
 		0,
 #else /* !__DARWIN_UNIX03 */
 		-1,
 #endif /* __DARWIN_UNIX03 */
-	_NSGetEnviron(), __zone0));
+		_NSGetEnviron(), __zone0);
+#ifdef LEGACY_CRT1_ENVIRON
+	_saved_environ = *_NSGetEnviron();
+	return ret;
+#endif /* LEGACY_CRT1_ENVIRON */
 }

@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strerror.3	2004-11-25 11:38:47.000000000 -0800
-+++ _SB/Libc/string/FreeBSD/strerror.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -51,18 +51,26 @@
+--- strerror.3.orig	2010-10-07 16:06:39.000000000 -0700
++++ strerror.3	2010-10-07 16:32:34.000000000 -0700
+@@ -47,18 +47,26 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft void
@@ -31,7 +31,7 @@
  and
  .Fn perror
  functions look up the error message string corresponding to an
-@@ -92,7 +100,7 @@
+@@ -88,7 +96,7 @@
  and writes it, followed by a newline, to the
  standard error file descriptor.
  If the argument
@@ -40,3 +40,12 @@
  is
  .Pf non- Dv NULL
  and does not point to the null character,
+@@ -110,7 +118,7 @@
+ .Er EINVAL
+ as a warning.
+ Error numbers recognized by this implementation fall in
+-the range 0 <
++the range 0 <=
+ .Fa errnum
+ <
+ .Fa sys_nerr .

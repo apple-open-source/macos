@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curl_memory.h,v 1.1 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 #include <curl/curl.h> /* for the typedefs */

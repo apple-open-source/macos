@@ -73,7 +73,10 @@ SIMAccess: SIMAccess.c
 verify_server: EAPTLSUtil.c
 	cc -g -DTEST_EAPTLSVerifyServerCertificateChain -o verify_server EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c -framework CoreFoundation -framework Security -F/System/Library/PrivateFrameworks
 
+eapol_socket: eapol_socket.c
+	cc -g -I../EAP8021X.fproj -DTEST_EAPOL_SOCKET -o eapol_socket eapol_socket.c
+
 clean:
 	rm -rf *.dSYM/
 	rm -f *~
-	rm -f simtlv simtlv_p rand_dups sim_crypto sim_crypto_p sim_set_version fips186prf fips186prf_p siminfo SIMAccess verify_server
+	rm -f simtlv simtlv_p rand_dups sim_crypto sim_crypto_p sim_set_version fips186prf fips186prf_p siminfo SIMAccess verify_server keychain eapol_socket certattrs certattrsp

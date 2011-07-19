@@ -30,8 +30,6 @@ namespace WebCore {
 class DocumentFragment;
 class HTMLCollection;
 class HTMLFormElement;
-
-enum HTMLTagStatus { TagStatusOptional, TagStatusRequired, TagStatusForbidden };
                        
 class HTMLElement : public StyledElement {
 public:
@@ -46,7 +44,8 @@ public:
 
     String innerHTML() const;
     String outerHTML() const;
-    PassRefPtr<DocumentFragment> createContextualFragment(const String&, FragmentScriptingPermission = FragmentScriptingAllowed);
+    // deprecatedCreateContextualFragment logic should be moved into Range::createContextualFragment
+    PassRefPtr<DocumentFragment> deprecatedCreateContextualFragment(const String&, FragmentScriptingPermission = FragmentScriptingAllowed);
     void setInnerHTML(const String&, ExceptionCode&);
     void setOuterHTML(const String&, ExceptionCode&);
     void setInnerText(const String&, ExceptionCode&);
@@ -57,62 +56,74 @@ public:
     void insertAdjacentText(const String& where, const String& text, ExceptionCode&);
 
     virtual bool supportsFocus() const;
-    
-    virtual bool isContentEditable() const;
-    virtual bool isContentRichlyEditable() const;
 
     String contentEditable() const;
-    void setContentEditable(const String&);
+    void setContentEditable(const String&, ExceptionCode&);
 
     virtual bool draggable() const;
     void setDraggable(bool);
+
+    bool spellcheck() const;
+    void setSpellcheck(bool);
 
     void click();
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
-    virtual HTMLTagStatus endTagRequirement() const;
-    virtual int tagPriority() const;
+    bool ieForbidsInsertHTML() const;
 
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     HTMLFormElement* form() const { return virtualForm(); }
 
-    static void addHTMLAlignmentToStyledElement(StyledElement*, MappedAttribute*);
-
-protected:
-    HTMLElement(const QualifiedName& tagName, Document*, ConstructionType = CreateHTMLElementZeroRefCount);
-
-    void addHTMLAlignment(MappedAttribute*);
-
-    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
-
-    virtual bool childAllowed(Node* newChild); // Error-checking during parsing that checks the DTD
-
-    // Helper function to check the DTD for a given child node.
-    virtual bool checkDTD(const Node*);
-
-    static bool inEitherTagList(const Node*);
-    static bool inInlineTagList(const Node*);
-    static bool inBlockTagList(const Node*);
-    static bool isRecognizedTagName(const QualifiedName&);
+    static void addHTMLAlignmentToStyledElement(StyledElement*, Attribute*);
 
     HTMLFormElement* findFormAncestor() const;
+
+    TextDirection directionalityIfhasDirAutoAttribute(bool& isAuto) const;
+
+protected:
+    HTMLElement(const QualifiedName& tagName, Document*);
+
+    void addHTMLAlignment(Attribute*);
+
+    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
+    virtual void parseMappedAttribute(Attribute*);
+
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
 private:
     virtual String nodeName() const;
 
-    void setContentEditable(MappedAttribute*);
+    void setContentEditable(Attribute*);
 
     virtual HTMLFormElement* virtualForm() const;
 
     Node* insertAdjacent(const String& where, Node* newChild, ExceptionCode&);
+    PassRefPtr<DocumentFragment> textToFragment(const String&, ExceptionCode&);
+
+    void dirAttributeChanged(Attribute*);
+    void adjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);
+    void calculateAndAdjustDirectionality();
+    void adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeChange, int childCountDelta);
+    TextDirection directionality(Node** strongDirectionalityTextNode= 0) const;
 };
 
-inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document* document, ConstructionType type)
-    : StyledElement(tagName, document, type)
+inline HTMLElement* toHTMLElement(Node* node)
+{
+    ASSERT(!node || node->isHTMLElement());
+    return static_cast<HTMLElement*>(node);
+}
+
+inline const HTMLElement* toHTMLElement(const Node* node)
+{
+    ASSERT(!node || node->isHTMLElement());
+    return static_cast<const HTMLElement*>(node);
+}
+
+inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document* document)
+    : StyledElement(tagName, document, CreateHTMLElement)
 {
     ASSERT(tagName.localName().impl());
 }

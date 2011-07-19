@@ -1,7 +1,7 @@
 /*
     Copyright (C) 2008 Eric Seidel <eric@webkit.org>
     Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2007 Rob Buis <buis@kde.org>
+                  2004, 2005, 2007, 2010 Rob Buis <buis@kde.org>
     Copyright (C) 2005, 2006 Apple Computer, Inc.
 
     This library is free software; you can redistribute it and/or
@@ -31,6 +31,7 @@
 #include "CSSQuirkPrimitiveValue.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
+#include "RenderTheme.h"
 #include "SVGPaint.h"
 
 using namespace std;
@@ -178,15 +179,17 @@ bool CSSParser::parseSVGValue(int propId, bool important)
     case CSSPropertyStroke:               // <paint> | inherit
         {
             if (id == CSSValueNone)
-                parsedValue = SVGPaint::create(SVGPaint::SVG_PAINTTYPE_NONE);
+                parsedValue = SVGPaint::createNone();
             else if (id == CSSValueCurrentcolor)
-                parsedValue = SVGPaint::create(SVGPaint::SVG_PAINTTYPE_CURRENTCOLOR);
+                parsedValue = SVGPaint::createCurrentColor();
+            else if ((id >= CSSValueActiveborder && id <= CSSValueWindowtext) || id == CSSValueMenu)
+                parsedValue = SVGPaint::createColor(RenderTheme::defaultTheme()->systemColor(id));
             else if (value->unit == CSSPrimitiveValue::CSS_URI) {
                 RGBA32 c = Color::transparent;
-                if (m_valueList->next() && parseColorFromValue(m_valueList->current(), c, true)) {
-                    parsedValue = SVGPaint::create(value->string, c);
+                if (m_valueList->next() && parseColorFromValue(m_valueList->current(), c)) {
+                    parsedValue = SVGPaint::createURIAndColor(value->string, c);
                 } else
-                    parsedValue = SVGPaint::create(SVGPaint::SVG_PAINTTYPE_URI, value->string);
+                    parsedValue = SVGPaint::createURI(value->string);
             } else
                 parsedValue = parseSVGPaint();
 
@@ -198,7 +201,7 @@ bool CSSParser::parseSVGValue(int propId, bool important)
     case CSSPropertyColor:                // <color> | inherit
         if ((id >= CSSValueAqua && id <= CSSValueWindowtext) ||
            (id >= CSSValueAliceblue && id <= CSSValueYellowgreen))
-            parsedValue = SVGColor::create(value->string);
+            parsedValue = SVGColor::createFromString(value->string);
         else
             parsedValue = parseSVGColor();
 
@@ -211,7 +214,7 @@ bool CSSParser::parseSVGValue(int propId, bool important)
     case CSSPropertyLightingColor:
         if ((id >= CSSValueAqua && id <= CSSValueWindowtext) ||
            (id >= CSSValueAliceblue && id <= CSSValueYellowgreen))
-            parsedValue = SVGColor::create(value->string);
+            parsedValue = SVGColor::createFromString(value->string);
         else if (id == CSSValueCurrentcolor)
             parsedValue = SVGColor::createCurrentColor();
         else // TODO : svgcolor (iccColor)
@@ -221,10 +224,15 @@ bool CSSParser::parseSVGValue(int propId, bool important)
             m_valueList->next();
 
         break;
+        
+    case CSSPropertyVectorEffect: // none | non-scaling-stroke | inherit
+        if (id == CSSValueNone || id == CSSValueNonScalingStroke)
+            valid_primitive = true;
+        break;
 
     case CSSPropertyWritingMode:
     // lr-tb | rl_tb | tb-rl | lr | rl | tb | inherit
-        if (id >= CSSValueLrTb && id <= CSSValueTb)
+        if (id == CSSValueLrTb || id == CSSValueRlTb || id == CSSValueTbRl || id == CSSValueLr || id == CSSValueRl || id == CSSValueTb)
             valid_primitive = true;
         break;
 
@@ -330,21 +338,19 @@ PassRefPtr<CSSValue> CSSParser::parseSVGStrokeDasharray()
 PassRefPtr<CSSValue> CSSParser::parseSVGPaint()
 {
     RGBA32 c = Color::transparent;
-    if (!parseColorFromValue(m_valueList->current(), c, true))
-        return SVGPaint::create();
-    return SVGPaint::create(Color(c));
+    if (!parseColorFromValue(m_valueList->current(), c))
+        return SVGPaint::createUnknown();
+    return SVGPaint::createColor(Color(c));
 }
 
 PassRefPtr<CSSValue> CSSParser::parseSVGColor()
 {
     RGBA32 c = Color::transparent;
-    if (!parseColorFromValue(m_valueList->current(), c, true))
+    if (!parseColorFromValue(m_valueList->current(), c))
         return 0;
-    return SVGColor::create(Color(c));
+    return SVGColor::createFromColor(Color(c));
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

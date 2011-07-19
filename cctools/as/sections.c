@@ -53,7 +53,7 @@ frchainS *frchain_now = NULL;
  * in here and also used in layout.c.  The variable now_subseg always remains
  * zero.  And is defined to minimize changes to dwarf2dbg.c that uses it.
  * Note, now_seg is never set to a section number of a section with a type of
- * S_ZEROFILL.
+ * S_ZEROFILL or S_THREAD_LOCAL_ZEROFILL.
  */
 int now_seg = 0;
 int now_subseg = 0;
@@ -92,7 +92,7 @@ void)
  *    frchain_root updated if needed (for the first section created).
  *    frag_now is set to the last (possibly new) frag in the section.
  *    now_seg is set to the Mach-O section number (frch_nsect field) except
- *	it is not set for section types of S_ZEROFILL.
+ *     it is not set for section types of S_ZEROFILL or S_THREAD_LOCAL_ZEROFILL.
  */
 frchainS *
 section_new(
@@ -158,8 +158,9 @@ uint32_t sizeof_stub)
 	 * If the current section is the same as for this call there is nothing
 	 * more to do.
 	 */
-	if(frcP != NULL && (frchain_now == frcP || type == S_ZEROFILL)){
-	    if(type != S_ZEROFILL)
+	if(frcP != NULL && (frchain_now == frcP || type == S_ZEROFILL ||
+			    type == S_THREAD_LOCAL_ZEROFILL)){
+	    if(type != S_ZEROFILL && type != S_THREAD_LOCAL_ZEROFILL)
 		now_seg = frcP->frch_nsect;
 	    return(frcP);
 	}
@@ -168,7 +169,7 @@ uint32_t sizeof_stub)
 	 * For non-zerofill sections it will be made the current section so deal
 	 * with the current frag.
 	 */
-	if(type != S_ZEROFILL){
+	if(type != S_ZEROFILL && type != S_THREAD_LOCAL_ZEROFILL){
 	    /*
 	     * If there is any current frag in the old section close it off.
 	     */
@@ -185,7 +186,7 @@ uint32_t sizeof_stub)
 	     * on a address that is aligned correctly for the engine that runs
 	     * the assembler.
 	     */
-	    obstack_finish(&frags);
+	    (void)obstack_finish(&frags);
 	}
 
 	/*
@@ -193,13 +194,15 @@ uint32_t sizeof_stub)
 	 * it by making it the current chain and create a new frag in it.
 	 */
 	if(frcP != NULL){
-	    if(type != S_ZEROFILL)
+	    if(type != S_ZEROFILL && type != S_THREAD_LOCAL_ZEROFILL)
 		now_seg = frcP->frch_nsect;
 	    /*
 	     * For a zerofill section no frags are created here and since it
-	     * exist just return a pointer to the section.
+	     * exists just return a pointer to the section.
 	     */
-	    if((frcP->frch_section.flags & SECTION_TYPE) == S_ZEROFILL){
+	    if((frcP->frch_section.flags & SECTION_TYPE) == S_ZEROFILL ||
+	       (frcP->frch_section.flags & SECTION_TYPE) ==
+						       S_THREAD_LOCAL_ZEROFILL){
 		return(frcP);
 	    }
 	    else{
@@ -207,7 +210,7 @@ uint32_t sizeof_stub)
 		 * Make this section the current section.
 		 */
 		frchain_now = frcP;
-		if(type != S_ZEROFILL)
+		if(type != S_ZEROFILL && type != S_THREAD_LOCAL_ZEROFILL)
 		    now_seg = frchain_now->frch_nsect;
 
 		/*
@@ -238,8 +241,10 @@ uint32_t sizeof_stub)
 	    frcP->frch_section.flags = attributes | type;
 	    frcP->frch_section.reserved2 = sizeof_stub;
 
+	    if(last_nsect + 1 > MAX_SECT)
+		as_fatal("too many sections (maximum %d)\n", MAX_SECT);
 	    frcP->frch_nsect = last_nsect + 1;
-	    if(type != S_ZEROFILL)
+	    if(type != S_ZEROFILL && type != S_THREAD_LOCAL_ZEROFILL)
 		now_seg = frcP->frch_nsect;
 
 	    *lastPP = frcP;
@@ -249,7 +254,7 @@ uint32_t sizeof_stub)
 	     * For non-zerofill section create the sections new frag and
 	     * make the section the current chain.
 	     */
-	    if(type == S_ZEROFILL){
+	    if(type == S_ZEROFILL || type == S_THREAD_LOCAL_ZEROFILL){
 		return(frcP);
 	    }
 	    else{
@@ -422,10 +427,13 @@ uint32_t n_sect,
 addressT addr)
 {
     struct frchain *frchainP;
+    uint32_t section_type;
 
 	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
 	    if(frchainP->frch_nsect == n_sect){
-		if((frchainP->frch_section.flags & SECTION_TYPE) == S_ZEROFILL)
+		section_type = frchainP->frch_section.flags & SECTION_TYPE;
+		if(section_type == S_ZEROFILL ||
+		   section_type == S_THREAD_LOCAL_ZEROFILL)
 		    return(0); /* FALSE */
 		if(frchainP->frch_last->fr_address == addr)
 		    return(1); /* TRUE */

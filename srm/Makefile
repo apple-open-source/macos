@@ -6,8 +6,8 @@
 Project     = srm
 ProjectName = srm
 ToolType    = Commands
-
-GnuAfterInstall = install-plist
+CFLAGS = -g
+GnuAfterInstall = install-plist dsym
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -20,3 +20,9 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(OSV)/$(ProjectName).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(ProjectName).txt
+
+dsym: $(OBJROOT)/src/srm
+	$(MKDIR) -p "$(SYMROOT)"
+	$(CP) "$(OBJROOT)/src/srm" "$(SYMROOT)/srm"
+	dsymutil "$(SYMROOT)/srm" --out="$(SYMROOT)/srm.dSYM"
+

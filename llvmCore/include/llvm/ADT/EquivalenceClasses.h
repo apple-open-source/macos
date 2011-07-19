@@ -15,8 +15,8 @@
 #ifndef LLVM_ADT_EQUIVALENCECLASSES_H
 #define LLVM_ADT_EQUIVALENCECLASSES_H
 
-#include "llvm/ADT/iterator.h"
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
+#include <cassert>
 #include <set>
 
 namespace llvm {
@@ -191,7 +191,7 @@ public:
   /// insert - Insert a new value into the union/find set, ignoring the request
   /// if the value already exists.
   iterator insert(const ElemTy &Data) {
-    return TheMapping.insert(Data).first;
+    return TheMapping.insert(ECValue(Data)).first;
   }
 
   /// findLeader - Given a value in the set, return a member iterator for the
@@ -234,8 +234,10 @@ public:
     return L1;
   }
 
-  class member_iterator : public forward_iterator<ElemTy, ptrdiff_t> {
-    typedef forward_iterator<const ElemTy, ptrdiff_t> super;
+  class member_iterator : public std::iterator<std::forward_iterator_tag,
+                                               const ElemTy, ptrdiff_t> {
+    typedef std::iterator<std::forward_iterator_tag,
+                          const ElemTy, ptrdiff_t> super;
     const ECValue *Node;
     friend class EquivalenceClasses;
   public:

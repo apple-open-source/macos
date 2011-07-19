@@ -248,6 +248,16 @@ public:
      */
     virtual UBool isModulusSubstitution() const;
     
+    /**
+     * @return true if this is a decimal format-only substitution
+     */
+    virtual UBool isDecimalFormatSubstitutionOnly() const;
+
+    /**
+     * @return true if this substitution only points to another ruleSet (no numberFormat)
+     */
+    virtual UBool isRuleSetSubstitutionOnly() const;
+    
 private:
     NFSubstitution(const NFSubstitution &other); // forbid copying of this class
     NFSubstitution &operator=(const NFSubstitution &other); // forbid copying of this class

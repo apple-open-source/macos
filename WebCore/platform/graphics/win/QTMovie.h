@@ -62,12 +62,15 @@ public:
     static bool initializeQuickTime();
     static void taskTimerFired();
 
+    static void disableComponent(uint32_t[5]);
+
     QTMovie(QTMovieClient*);
     ~QTMovie();
 
     void addClient(QTMovieClient*);
     void removeClient(QTMovieClient*);
 
+    void loadPath(const UChar* url, int len, bool preservesPitch);
     void load(const UChar* url, int len, bool preservesPitch);
     void load(CFURLRef, bool preservesPitch);
 
@@ -112,6 +115,10 @@ public:
     void resetTransform();
 
     Movie getMovieHandle() const;
+
+    long timeScale() const;
+
+    void setPrivateBrowsingMode(bool);
 
 private:
     QTMoviePrivate* m_private;

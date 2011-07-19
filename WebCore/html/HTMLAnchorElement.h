@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -82,6 +82,10 @@ public:
     String search() const;
     void setSearch(const String&);
 
+    String origin() const;
+
+    String getParameter(const String&) const;
+
     String text() const;
 
     String toString() const;
@@ -94,11 +98,9 @@ public:
 protected:
     HTMLAnchorElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 
 private:
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
     virtual bool supportsFocus() const;
     virtual bool isMouseFocusable() const;
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
@@ -111,10 +113,27 @@ private:
     virtual short tabIndex() const;
     virtual bool draggable() const;
 
+    void sendPings(const KURL& destinationURL);
+
+    enum EventType {
+        MouseEventWithoutShiftKey,
+        MouseEventWithShiftKey,
+        NonMouseEvent,
+    };
+    static EventType eventType(Event*);
+    bool treatLinkAsLiveForEventType(EventType) const;
+
     RefPtr<Element> m_rootEditableElementForSelectionOnMouseDown;
     bool m_wasShiftKeyDownOnMouseDown;
     uint32_t m_linkRelations;
 };
+
+// Functions shared with the other anchor elements (i.e., SVG).
+
+bool isEnterKeyKeydownEvent(Event*);
+bool isMiddleMouseButtonEvent(Event*);
+bool isLinkClick(Event*);
+void handleLinkClick(Event*, Document*, const String& url, const String& target, bool hideReferrer = false);
 
 } // namespace WebCore
 

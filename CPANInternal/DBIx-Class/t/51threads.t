@@ -8,7 +8,7 @@ use Config;
 
 BEGIN {
     plan skip_all => 'Your perl does not support ithreads'
-        if !$Config{useithreads} || $] < 5.008;
+        if !$Config{useithreads};
 }
 
 use threads;
@@ -44,7 +44,7 @@ eval {
     {
         local $SIG{__WARN__} = sub {};
         eval { $dbh->do("DROP TABLE cd") };
-        $dbh->do("CREATE TABLE cd (cdid serial PRIMARY KEY, artist INTEGER NOT NULL UNIQUE, title VARCHAR(255) NOT NULL UNIQUE, year VARCHAR(255));");
+        $dbh->do("CREATE TABLE cd (cdid serial PRIMARY KEY, artist INTEGER NOT NULL UNIQUE, title VARCHAR(100) NOT NULL UNIQUE, year VARCHAR(100) NOT NULL, genreid INTEGER, single_track INTEGER);");
     }
 
     $schema->resultset('CD')->create({ title => 'vacation in antarctica', artist => 123, year => 1901 });
@@ -60,7 +60,6 @@ while(@children < $num_children) {
 
     my $newthread = async {
         my $tid = threads->tid;
-        my $dbh = $schema->storage->dbh;
 
         my $child_rs = $schema->resultset('CD')->search({ year => 1901 });
         my $row = $parent_rs->next;

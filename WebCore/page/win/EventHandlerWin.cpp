@@ -27,12 +27,12 @@
 #include "config.h"
 #include "EventHandler.h"
 
-#include "ClipboardWin.h"
 #include "Cursor.h"
 #include "FloatPoint.h"
 #include "FocusController.h"
 #include "FrameView.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "MouseEventWithHitTestResults.h"
@@ -40,9 +40,14 @@
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "Scrollbar.h"
-#include "SelectionController.h"
 #include "WCDataObject.h"
 #include "NotImplemented.h"
+
+#if OS(WINCE)
+#include "Clipboard.h"
+#else
+#include "ClipboardWin.h"
+#endif
 
 namespace WebCore {
 
@@ -76,14 +81,14 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& wheelEvent, Widget
     return static_cast<FrameView*>(widget)->frame()->eventHandler()->handleWheelEvent(wheelEvent);
 }
 
-bool EventHandler::tabsToAllControls(KeyboardEvent*) const
+bool EventHandler::tabsToAllFormControls(KeyboardEvent*) const
 {
     return true;
 }
 
 bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 {
-    return event.activatedWebView();
+    return event.didActivateWebView();
 }
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
@@ -93,7 +98,7 @@ PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 #else
     COMPtr<WCDataObject> dataObject;
     WCDataObject::createInstance(&dataObject);
-    return ClipboardWin::create(true, dataObject.get(), ClipboardWritable);
+    return ClipboardWin::create(Clipboard::DragAndDrop, dataObject.get(), ClipboardWritable, m_frame);
 #endif
 }
 

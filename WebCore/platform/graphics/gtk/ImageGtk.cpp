@@ -26,81 +26,61 @@
 #include "config.h"
 
 #include "BitmapImage.h"
-#include "GOwnPtr.h"
+#include "GdkCairoUtilities.h"
+#include "GOwnPtrGtk.h"
 #include "SharedBuffer.h"
 #include <wtf/text/CString.h>
 #include <cairo.h>
 #include <gtk/gtk.h>
 
-#ifdef _WIN32
-#  include <mbstring.h>
-#  include <shlobj.h>
-/* search for data relative to where we are installed */
+#if PLATFORM(WIN)
+#include <mbstring.h>
+#include <shlobj.h>
 
 static HMODULE hmodule;
 
-#ifdef __cplusplus
 extern "C" {
-#endif
-BOOL WINAPI
-DllMain(HINSTANCE hinstDLL,
-    DWORD     fdwReason,
-    LPVOID    lpvReserved)
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
-    switch (fdwReason) {
-    case DLL_PROCESS_ATTACH:
+    if (fdwReason == DLL_PROCESS_ATTACH)
         hmodule = hinstDLL;
-        break;
-    }
-
     return TRUE;
 }
-#ifdef __cplusplus
 }
-#endif
 
-static char *
-get_webkit_datadir(void)
+static const char* getWebKitDataDirectory()
 {
-    static char retval[1000];
-    static int beenhere = 0;
+    static char* dataDirectory = 0;
+    if (dataDirectory)
+        return dataDirectory;
 
-    unsigned char *p;
-
-    if (beenhere)
-        return retval;
-
-    if (!GetModuleFileName (hmodule, (CHAR *) retval, sizeof(retval) - 10))
+    dataDirectory = new char[PATH_MAX];
+    if (!GetModuleFileName(hmodule, static_cast<CHAR*>(dataDirectory), sizeof(dataDirectory) - 10))
         return DATA_DIR;
 
-    p = _mbsrchr((const unsigned char *) retval, '\\');
+    // FIXME: This is pretty ugly. Ideally we should be using Windows API
+    // functions or GLib methods to calculate paths.
+    unsigned char *p;
+    p = _mbsrchr(static_cast<const unsigned char *>(dataDirectory), '\\');
     *p = '\0';
-    p = _mbsrchr((const unsigned char *) retval, '\\');
+    p = _mbsrchr(static_cast<const unsigned char *>(dataDirectory), '\\');
     if (p) {
         if (!stricmp((const char *) (p+1), "bin"))
             *p = '\0';
     }
-    strcat(retval, "\\share");
+    strcat(dataDirectory, "\\share");
 
-    beenhere = 1;
-
-    return retval;
+    return dataDirectory;
 }
 
-#undef DATA_DIR
-#define DATA_DIR get_webkit_datadir ()
-#endif
+#else
 
-
-namespace WTF {
-
-template <> void freeOwnedGPtr<GtkIconInfo>(GtkIconInfo* info)
+static const char* getWebKitDataDirectory()
 {
-    if (info)
-        gtk_icon_info_free(info);
+    return DATA_DIR;
 }
 
-}
+#endif
 
 namespace WebCore {
 
@@ -157,11 +137,9 @@ PassRefPtr<Image> Image::loadPlatformResource(const char* name)
     if (!strcmp("missingImage", name))
         fileName = getThemeIconFileName(GTK_STOCK_MISSING_IMAGE, 16);
     if (fileName.isNull()) {
-        gchar* imagename = g_strdup_printf("%s.png", name);
-        gchar* glibFileName = g_build_filename(DATA_DIR, "webkit-1.0", "images", imagename, 0);
-        fileName = glibFileName;
-        g_free(imagename);
-        g_free(glibFileName);
+        GOwnPtr<gchar> imageName(g_strdup_printf("%s.png", name));
+        GOwnPtr<gchar> glibFileName(g_build_filename(getWebKitDataDirectory(), "webkitgtk-"WEBKITGTK_API_VERSION_STRING, "images", imageName.get(), NULL));
+        fileName = glibFileName.get();
     }
 
     return loadImageFromFile(fileName);
@@ -172,67 +150,12 @@ PassRefPtr<Image> Image::loadPlatformThemeIcon(const char* name, int size)
     return loadImageFromFile(getThemeIconFileName(name, size));
 }
 
-static inline unsigned char* getCairoSurfacePixel(unsigned char* data, unsigned x, unsigned y, unsigned rowStride)
-{
-    return data + (y * rowStride) + x * 4;
-}
-
-static inline guchar* getGdkPixbufPixel(guchar* data, unsigned x, unsigned y, unsigned rowStride)
-{
-    return data + (y * rowStride) + x * 4;
-}
-
 GdkPixbuf* BitmapImage::getGdkPixbuf()
 {
-    int width = cairo_image_surface_get_width(frameAtIndex(currentFrame()));
-    int height = cairo_image_surface_get_height(frameAtIndex(currentFrame()));
-    unsigned char* surfaceData = cairo_image_surface_get_data(frameAtIndex(currentFrame()));
-    int surfaceRowStride = cairo_image_surface_get_stride(frameAtIndex(currentFrame()));
-
-    GdkPixbuf* dest = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, width, height);
-    if (!dest)
+    cairo_surface_t* frame = frameAtIndex(currentFrame());
+    if (!frame)
         return 0;
-
-    guchar* pixbufData = gdk_pixbuf_get_pixels(dest);
-    int pixbufRowStride = gdk_pixbuf_get_rowstride(dest);
-
-    /* From: http://cairographics.org/manual/cairo-image-surface.html#cairo-format-t
-     * "CAIRO_FORMAT_ARGB32: each pixel is a 32-bit quantity, with alpha in
-     * the upper 8 bits, then red, then green, then blue. The 32-bit
-     * quantities are stored native-endian. Pre-multiplied alpha is used.
-     * (That is, 50% transparent red is 0x80800000, not 0x80ff0000.)"
-     *
-     * See http://developer.gimp.org/api/2.0/gdk-pixbuf/gdk-pixbuf-gdk-pixbuf.html#GdkPixbuf
-     * for information on the structure of GdkPixbufs stored with GDK_COLORSPACE_RGB.
-     *
-     * RGB color channels in CAIRO_FORMAT_ARGB32 are stored based on the
-     * endianness of the machine and are also multiplied by the alpha channel.
-     * To properly transfer the data from the Cairo surface we must divide each
-     * of the RGB channels by the alpha channel and then reorder all channels
-     * if this machine is little-endian.
-     */
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            unsigned char* source = getCairoSurfacePixel(surfaceData, x, y, surfaceRowStride);
-            guchar* dest = getGdkPixbufPixel(pixbufData, x, y, pixbufRowStride);
-
-#if G_BYTE_ORDER == G_LITTLE_ENDIAN
-            guchar alpha = source[3];
-            dest[0] = alpha ? ((source[2] * 255) / alpha) : 0;
-            dest[1] = alpha ? ((source[1] * 255) / alpha) : 0;
-            dest[2] = alpha ? ((source[0] * 255) / alpha) : 0;
-            dest[3] = alpha;
-#else
-            guchar alpha = source[0];
-            dest[0] = alpha ? ((source[1] * 255) / alpha) : 0;
-            dest[1] = alpha ? ((source[2] * 255) / alpha) : 0;
-            dest[2] = alpha ? ((source[3] * 255) / alpha) : 0;
-            dest[3] = alpha;
-#endif
-        }
-    }
-
-    return dest;
+    return cairoImageSurfaceToGdkPixbuf(frame);
 }
 
 }

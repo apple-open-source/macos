@@ -1,8 +1,8 @@
 /*
  * ntfs_vnops.c - NTFS kernel vnode operations.
  *
- * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -111,10 +111,6 @@ int ntfs_cluster_iodone(buf_t cbp, void *arg __unused)
 	BOOL is_read = buf_flags(cbp) & B_READ;
 
 	ni = NTFS_I(buf_vnode(cbp));
-	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
-	if (ni == ni->vol->mft_ni || ni == ni->vol->mftmirr_ni)
-		panic("%s(): Called for $MFT/$DATA or $MFTMirr/$DATA.\n",
-				__FUNCTION__);
 	size = buf_count(cbp);
 	if (size & (ni->block_size - 1))
 		panic("%s(): Called with size not a multiple of the inode "
@@ -242,12 +238,8 @@ static void ntfs_buf_iodone(buf_t buf, void *arg __unused)
 	ntfs_debug("Entering for mft_no 0x%llx, lblkno 0x%llx.",
 			(unsigned long long)ni->mft_no,
 			(unsigned long long)buf_lblkno(buf));
-	if (!NInoMstProtected(ni))
-		panic("%s(): !NInoMstProtected(ni)\n", __FUNCTION__);
-	if (ni->mft_no)
-		panic("%s(): ni->mft_no\n", __FUNCTION__);
-	if (NInoAttr(ni))
-		panic("%s(): NInoAttr(ni)\n", __FUNCTION__);
+	if (!NInoMstProtected(ni) || ni->mft_no || NInoAttr(ni))
+		panic("%s(): Called not for $MFT!\n", __FUNCTION__);
 	/* The size and offset in the attribute at which this buffer begins. */
 	size = buf_count(buf);
 	if (size != ni->block_size)
@@ -346,9 +338,10 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 	daddr64_t lblkno;
 	buf_t buf = a->a_bp;
 	vnode_t vn = buf_vnode(buf);
-	ntfs_inode *ni, *mft_ni, *mftmirr_ni;
+	ntfs_inode *ni;
 	ntfs_volume *vol;
-	void *old_iodone, *old_transact;
+	void (*old_iodone)(buf_t, void *);
+	void *old_transact;
 	unsigned b_flags;
 	errno_t err, err2;
 	BOOL do_fixup;
@@ -358,29 +351,18 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 		panic("%s(): !vn || vnode_ischr(vn) || vnode_isblk(vn)\n",
 				__FUNCTION__);
 	ni = NTFS_I(vn);
+	if (!ni) {
+		err = EIO;
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		goto err;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x, "
 			"logical block 0x%llx.", (unsigned long long)ni->mft_no,
 			le32_to_cpu(ni->type), (unsigned)ni->name_len,
 			(unsigned long long)buf_lblkno(buf));
 	if (S_ISDIR(ni->mode))
 		panic("%s(): Called for directory vnode.\n", __FUNCTION__);
-	/*
-	 * We should never be called for i/o that does not involve a page list
-	 * except for $MFT/$DATA for which we should only be called for i/o
-	 * that does not involve a page list.
-	 */
 	vol = ni->vol;
-	mft_ni = vol->mft_ni;
-	mftmirr_ni = vol->mftmirr_ni;
-	if (!buf_upl(buf)) {
-		if (ni != mft_ni && ni != mftmirr_ni)
-			panic("%s(): Buffer does not have a page list "
-					"attached.\n", __FUNCTION__);
-	} else {
-		if (ni == mft_ni || ni == mftmirr_ni)
-			panic("%s(): Buffer for $MFT/$DATA has a page list "
-					"attached.\n", __FUNCTION__);
-	}
 	b_flags = buf_flags(buf);
 	/*
 	 * If we are called from cluster_io() then pass the request down to the
@@ -389,24 +371,20 @@ static int ntfs_vnop_strategy(struct vnop_strategy_args *a)
 	 * that it does not do anything other than associate the physical
 	 * device with the buffer and then pass the buffer down to the device.
 	 */
-	if (b_flags & B_CLUSTER) {
-		if (ni == mft_ni || ni == mftmirr_ni)
-			panic("%s(): Buffer for $MFT/$DATA has B_CLUSTER "
-					"set.\n", __FUNCTION__);
+	if (b_flags & B_CLUSTER)
 		goto done;
-	}
 	/*
 	 * If this i/o is for $MFTMirr/$DATA send it through straight without
 	 * modifications.  This is because we keep the $MFTMirr/$DATA buffers
 	 * in memory with the fixups applied for simplicity.
 	 */
-	if (ni == mftmirr_ni)
+	if (ni->mft_no == FILE_MFTMirr && !NInoAttr(ni))
 		goto done;
 	/*
 	 * Except for $MFT/$DATA we never do i/o via file system buffers thus
 	 * we should never get here.
 	 */
-	if (ni != mft_ni)
+	if (ni->mft_no != FILE_MFT || NInoAttr(ni))
 		panic("%s(): Called for non-cluster i/o buffer.\n",
 				__FUNCTION__);
 	/*
@@ -622,7 +600,7 @@ static int ntfs_vnop_lookup(struct vnop_lookup_args *a)
 	struct componentname *name_cn, *cn;
 	ntfs_inode *ni, *dir_ni = NTFS_I(a->a_dvp);
 	vnode_t vn;
-	ntfs_volume *vol = dir_ni->vol;
+	ntfs_volume *vol;
 	ntfschar *ntfs_name;
 	ntfs_dir_lookup_name *name = NULL;
 	u8 *utf8_name = NULL;
@@ -643,6 +621,11 @@ static int ntfs_vnop_lookup(struct vnop_lookup_args *a)
 	static const char *ops[4] = { "LOOKUP", "CREATE", "DELETE", "RENAME" };
 #endif
 
+	if (!dir_ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = dir_ni->vol;
 	name_cn = cn = a->a_cnp;
 	op = cn->cn_nameiop;
 	ntfs_debug("Looking up %.*s in directory inode 0x%llx for %s, flags "
@@ -1149,7 +1132,7 @@ static errno_t ntfs_create(vnode_t dir_vn, vnode_t *vn,
 		const BOOL lock)
 {
 	ntfs_inode *ni, *dir_ni = NTFS_I(dir_vn);
-	ntfs_volume *vol = dir_ni->vol;
+	ntfs_volume *vol;
 	FILENAME_ATTR *fn;
 	ntfschar *ntfs_name;
 	MFT_RECORD *m;
@@ -1159,6 +1142,11 @@ static errno_t ntfs_create(vnode_t dir_vn, vnode_t *vn,
 	unsigned fn_alloc, fn_size;
 	errno_t err, err2;
 
+	if (!dir_ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = dir_ni->vol;
 	if (!S_ISDIR(dir_ni->mode)) {
 		ntfs_debug("Parent inode is not a directory, returning "
 				"ENOTDIR.");
@@ -1551,10 +1539,15 @@ is_system:
 static int ntfs_vnop_create(struct vnop_create_args *a)
 {
 	errno_t err;
+#ifdef DEBUG
+	ntfs_inode *ni = NTFS_I(a->a_dvp);
 
-	ntfs_debug("Creating a file named %.*s in directory mft_no 0x%llx.",
-			(int)a->a_cnp->cn_namelen, a->a_cnp->cn_nameptr,
-			(unsigned long long)NTFS_I(a->a_dvp)->mft_no);
+	if (ni)
+		ntfs_debug("Creating a file named %.*s in directory mft_no "
+				"0x%llx.", (int)a->a_cnp->cn_namelen,
+				a->a_cnp->cn_nameptr,
+				(unsigned long long)ni->mft_no);
+#endif
 	err = ntfs_create(a->a_dvp, a->a_vpp, a->a_cnp, a->a_vap, FALSE);
 	ntfs_debug("Done (error %d).", (int)err);
 	return err;
@@ -1590,11 +1583,16 @@ static int ntfs_vnop_create(struct vnop_create_args *a)
 static int ntfs_vnop_mknod(struct vnop_mknod_args *a)
 {
 	errno_t err;
+#ifdef DEBUG
+	ntfs_inode *ni = NTFS_I(a->a_dvp);
 
-	ntfs_debug("Creating a special inode of type 0x%x named %.*s in "
-			"directory mft_no 0x%llx.", a->a_vap->va_type,
-			(int)a->a_cnp->cn_namelen, a->a_cnp->cn_nameptr,
-			(unsigned long long)NTFS_I(a->a_dvp)->mft_no);
+	if (ni)
+		ntfs_debug("Creating a special inode of type 0x%x named %.*s "
+				"in directory mft_no 0x%llx.",
+				a->a_vap->va_type, (int)a->a_cnp->cn_namelen,
+				a->a_cnp->cn_nameptr,
+				(unsigned long long)ni->mft_no);
+#endif
 	err = ntfs_create(a->a_dvp, a->a_vpp, a->a_cnp, a->a_vap, FALSE);
 	ntfs_debug("Done (error %d).", (int)err);
 	return err;
@@ -1624,6 +1622,10 @@ static int ntfs_vnop_open(struct vnop_open_args *a)
 	ntfs_inode *base_ni, *ni = NTFS_I(a->a_vp);
 	errno_t err = 0;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx, mode 0x%x.",
 			(unsigned long long)ni->mft_no, (unsigned)a->a_mode);
 	base_ni = ni;
@@ -1688,6 +1690,10 @@ static int ntfs_vnop_close(struct vnop_close_args *a)
 	vnode_t vn = a->a_vp;
 	ntfs_inode *base_ni, *ni = NTFS_I(vn);
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return 0;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx, fflag 0x%x.",
 			(unsigned long long)ni->mft_no, a->a_fflag);
 	base_ni = ni;
@@ -1764,9 +1770,9 @@ static int ntfs_vnop_getattr(struct vnop_getattr_args *a)
 	MFT_REF parent_mref;
 	ino64_t mft_no;
 	s64 on_disk_size;
-	ntfs_inode *base_ni, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
 	struct vnode_attr *va = a->a_vap;
+	ntfs_inode *ni, *base_ni;
+	ntfs_volume *vol;
 	const char *name;
 	FILE_ATTR_FLAGS file_attributes;
 	unsigned flags;
@@ -1774,6 +1780,12 @@ static int ntfs_vnop_getattr(struct vnop_getattr_args *a)
 	lck_rw_type_t lock;
 	BOOL is_root, name_is_done, have_parent;
 
+	ni = NTFS_I(a->a_vp);
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return 0;
+	}
+	vol = ni->vol;
 	mft_no = ni->mft_no;
 	have_parent = name_is_done = is_root = FALSE;
 	ntfs_debug("Entering for mft_no 0x%llx.", (unsigned long long)mft_no);
@@ -2133,11 +2145,16 @@ err:
 static int ntfs_vnop_setattr(struct vnop_setattr_args *a)
 {
 	ntfs_inode *base_ni, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
+	ntfs_volume *vol;
 	struct vnode_attr *va = a->a_vap;
 	errno_t err = 0;
 	BOOL dirty_times = FALSE;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
 	base_ni = ni;
@@ -3011,6 +3028,10 @@ static int ntfs_vnop_read(struct vnop_read_args *a)
 	vnode_t vn = a->a_vp;
 	ntfs_inode *ni = NTFS_I(vn);
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	/*
 	 * We can only read from regular files and named streams.
 	 *
@@ -3780,6 +3801,10 @@ static int ntfs_vnop_write(struct vnop_write_args *a)
 	vnode_t vn = a->a_vp;
 	ntfs_inode *ni = NTFS_I(vn);
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	/*
 	 * We can only write to regular files and named streams.
 	 *
@@ -3889,10 +3914,12 @@ static int ntfs_vnop_mmap(struct vnop_mmap_args *a)
 #ifdef DEBUG
 	ntfs_inode *ni = NTFS_I(a->a_vp);
 
-	ntfs_debug("Mapping mft_no 0x%llx, type 0x%x, name_len 0x%x, mapping "
-			"flags 0x%x.", (unsigned long long)ni->mft_no,
-			le32_to_cpu(ni->type), (unsigned)ni->name_len,
-			a->a_fflags);
+	if (ni)
+		ntfs_debug("Mapping mft_no 0x%llx, type 0x%x, name_len 0x%x, "
+				"mapping flags 0x%x.",
+				(unsigned long long)ni->mft_no,
+				le32_to_cpu(ni->type), (unsigned)ni->name_len,
+				a->a_fflags);
 #endif
 	/* Nothing to do. */
 	return 0;
@@ -3924,9 +3951,10 @@ static int ntfs_vnop_mnomap(struct vnop_mnomap_args *a)
 #ifdef DEBUG
 	ntfs_inode *ni = NTFS_I(a->a_vp);
 
-	ntfs_debug("Unmapping mft_no 0x%llx, type 0x%x, name_len 0x%x.",
-			(unsigned long long)ni->mft_no, le32_to_cpu(ni->type),
-			(unsigned)ni->name_len);
+	if (ni)
+		ntfs_debug("Unmapping mft_no 0x%llx, type 0x%x, name_len "
+				"0x%x.", (unsigned long long)ni->mft_no,
+				le32_to_cpu(ni->type), (unsigned)ni->name_len);
 #endif
 	/* Nothing to do. */
 	return 0;
@@ -3956,6 +3984,10 @@ static int ntfs_vnop_fsync(struct vnop_fsync_args *a)
 	ntfs_inode *ni = NTFS_I(vn);
 	int sync, err;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return 0;
+	}
 	/* If we are mounted read-only, we do not need to sync anything. */
 	if (NVolReadOnly(ni->vol))
 		return 0;
@@ -4179,7 +4211,7 @@ restart_name:
 					object_id, sizeof(object_id));
 			ntfs_attr_search_ctx_put(actx);
 			ntfs_mft_record_unmap(ni);
-			err = vnode_getwithref(objid_o_ni->vn);
+			err = vnode_get(objid_o_ni->vn);
 			if (err) {
 				ntfs_error(vol->mp, "Failed to get index "
 						"vnode for $ObjId/$O.");
@@ -4984,8 +5016,14 @@ err:
  */
 static int ntfs_vnop_remove(struct vnop_remove_args *a)
 {
+	ntfs_inode *dir_ni = NTFS_I(a->a_dvp);
+	ntfs_inode *ni = NTFS_I(a->a_vp);
 	errno_t err;
 
+	if (!dir_ni || !ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering.");
 	err = ntfs_unlink(NTFS_I(a->a_dvp), NTFS_I(a->a_vp), a->a_cnp,
 			a->a_flags, FALSE);
@@ -5382,6 +5420,10 @@ static int ntfs_vnop_link(struct vnop_link_args *a)
 	ni = NTFS_I(a->a_vp);
 	vol = ni->vol;
 	dir_ni = NTFS_I(a->a_tdvp);
+	if (!dir_ni || !ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	cn = a->a_cnp;
 	ntfs_debug("Creating a hard link to mft_no 0x%llx, named %.*s in "
 			"directory mft_no 0x%llx.",
@@ -5648,13 +5690,21 @@ static int ntfs_vnop_rename(struct vnop_rename_args *a)
 
 	dst_name = src_name = NULL;
 	src_dir_ni = NTFS_I(a->a_fdvp);
-	vol = src_dir_ni->vol;
 	src_ni = NTFS_I(a->a_fvp);
 	src_cn = a->a_fcnp;
 	dst_dir_ni = NTFS_I(a->a_tdvp);
+	if (!src_dir_ni || !src_ni || !dst_dir_ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = src_dir_ni->vol;
 	dst_cn = a->a_tcnp;
 	if (a->a_tvp) {
 		dst_ni = NTFS_I(a->a_tvp);
+		if (!dst_ni) {
+			ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+			return EINVAL;
+		}
 		ntfs_debug("Entering for source mft_no 0x%llx, name %.*s, "
 				"parent directory mft_no 0x%llx and "
 				"destination mft_no 0x%llx, name %.*s, parent "
@@ -6450,11 +6500,15 @@ free_err:
 static int ntfs_vnop_mkdir(struct vnop_mkdir_args *a)
 {
 	errno_t err;
+#ifdef DEBUG
+	ntfs_inode *ni = NTFS_I(a->a_dvp);
 
-	ntfs_debug("Creating a directory named %.*s in directory mft_no "
-			"0x%llx.", (int)a->a_cnp->cn_namelen,
-			a->a_cnp->cn_nameptr,
-			(unsigned long long)NTFS_I(a->a_dvp)->mft_no);
+	if (ni)
+		ntfs_debug("Creating a directory named %.*s in directory "
+				"mft_no 0x%llx.", (int)a->a_cnp->cn_namelen,
+				a->a_cnp->cn_nameptr,
+				(unsigned long long)ni->mft_no);
+#endif
 	err = ntfs_create(a->a_dvp, a->a_vpp, a->a_cnp, a->a_vap, FALSE);
 	ntfs_debug("Done (error %d).", (int)err);
 	return err;
@@ -6491,10 +6545,16 @@ static int ntfs_vnop_mkdir(struct vnop_mkdir_args *a)
  */
 static int ntfs_vnop_rmdir(struct vnop_rmdir_args *a)
 {
+	ntfs_inode *dir_ni = NTFS_I(a->a_dvp);
+	ntfs_inode *ni = NTFS_I(a->a_vp);
 	errno_t err;
 
 	ntfs_debug("Entering.");
-	err = ntfs_unlink(NTFS_I(a->a_dvp), NTFS_I(a->a_vp), a->a_cnp, 0, TRUE);
+	if (!dir_ni || !ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	err = ntfs_unlink(dir_ni, ni, a->a_cnp, 0, TRUE);
 	ntfs_debug("Done (error %d).", (int)err);
 	return err;
 }
@@ -6537,6 +6597,10 @@ static int ntfs_vnop_symlink(struct vnop_symlink_args *a)
 	unsigned len;
 
 	dir_ni = NTFS_I(a->a_dvp);
+	if (!dir_ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Creating a symbolic link named %.*s in directory mft_no "
 			"0x%llx and pointing it at path \"%s\".",
 			(int)a->a_cnp->cn_namelen, a->a_cnp->cn_nameptr,
@@ -6722,6 +6786,10 @@ static int ntfs_vnop_readdir(struct vnop_readdir_args *a)
 	ntfs_inode *dir_ni = NTFS_I(a->a_vp);
 	errno_t err;
 
+	if (!dir_ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering for directory inode 0x%llx.",
 			(unsigned long long)dir_ni->mft_no);
 	/*
@@ -6832,6 +6900,10 @@ static int ntfs_vnop_readlink(struct vnop_readlink_args *a)
 	errno_t err;
 
 	ni = NTFS_I(a->a_vp);
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
 	/*
@@ -7144,13 +7216,19 @@ static int ntfs_vnop_inactive(struct vnop_inactive_args *args)
 	leMFT_REF mref;
 	vnode_t vn = args->a_vp;
 	ntfs_inode *base_ni, *mftbmp_ni, *ni = NTFS_I(vn);
-	ntfs_volume *vol = ni->vol;
+	ntfs_volume *vol;
 	MFT_RECORD *m;
 	leMFT_REF *mrefs;
 	unsigned nr_mrefs;
 	errno_t err;
-	const BOOL is_delete = (!ni->link_count);
+	BOOL is_delete;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return 0;
+	}
+	is_delete = !ni->link_count;
+	vol = ni->vol;
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x%s.",
 			(unsigned long long)ni->mft_no,
 			(unsigned)le32_to_cpu(ni->type), (unsigned)ni->name_len,
@@ -7525,7 +7603,7 @@ do_next:
 	 */
 	lck_rw_lock_exclusive(&vol->mftbmp_lock);
 	mftbmp_ni = vol->mftbmp_ni;
-	err = vnode_getwithref(mftbmp_ni->vn);
+	err = vnode_get(mftbmp_ni->vn);
 	if (err)
 		ntfs_warning(vol->mp, "Failed to get vnode for $MFT/$BITMAP "
 				"(error %d) thus cannot release mft "
@@ -7591,9 +7669,15 @@ static int ntfs_vnop_reclaim(struct vnop_reclaim_args *a)
 	ntfs_inode *ni = NTFS_I(vn);
 	errno_t err;
 
-	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x.",
-			(unsigned long long)ni->mft_no, le32_to_cpu(ni->type),
-			(unsigned)ni->name_len);
+	/* Do not dereference @ni if it is NULL. */
+#ifdef DEBUG
+	if (ni)
+		ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len "
+				"0x%x.", (unsigned long long)ni->mft_no,
+				le32_to_cpu(ni->type), (unsigned)ni->name_len);
+	else
+		ntfs_debug("Entering for already reclaimed vnode!");
+#endif
 	vnode_removefsref(vn);
 	err = ntfs_inode_reclaim(ni);
 	ntfs_debug("Done (error %d).", (int)err);
@@ -7620,17 +7704,23 @@ static int ntfs_vnop_reclaim(struct vnop_reclaim_args *a)
 static int ntfs_vnop_pathconf(struct vnop_pathconf_args *a)
 {
 	ntfs_inode *ni = NTFS_I(a->a_vp);
+	ntfs_volume *vol = NTFS_MP(vnode_mount(a->a_vp));
 	errno_t err = 0;
 
 	ntfs_debug("Entering for pathconf variable number %d.", a->a_name);
-	lck_rw_lock_shared(&ni->lock);
-	/* Do not allow messing with the inode once it has been deleted. */
-	if (NInoDeleted(ni)) {
-		/* Remove the inode from the name cache. */
-		cache_purge(ni->vn);
-		lck_rw_unlock_shared(&ni->lock);
-		ntfs_debug("Directory is deleted.");
-		return ENOENT;
+	if (ni) {
+		lck_rw_lock_shared(&ni->lock);
+		/*
+		 * Do not allow messing with the inode once it has been
+		 * deleted.
+		 */
+		if (NInoDeleted(ni)) {
+			/* Remove the inode from the name cache. */
+			cache_purge(ni->vn);
+			lck_rw_unlock_shared(&ni->lock);
+			ntfs_debug("Directory is deleted.");
+			return ENOENT;
+		}
 	}
 	switch (a->a_name) {
 	case _PC_LINK_MAX:
@@ -7641,6 +7731,10 @@ static int ntfs_vnop_pathconf(struct vnop_pathconf_args *a)
 		 * directories however, no hard links are allowed and thus the
 		 * maximum link count is 1.
 		 */
+		if (!ni) {
+			ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+			return EINVAL;
+		}
 		*a->a_retval = NTFS_MAX_HARD_LINKS;
 		if (NInoAttr(ni) || S_ISDIR(ni->mode))
 			*a->a_retval = 1;
@@ -7695,7 +7789,10 @@ static int ntfs_vnop_pathconf(struct vnop_pathconf_args *a)
 		 * Return 1 if case sensitive and 0 if not.  For ntfs, this
 		 * depends on the mount options.
 		 */
-		*a->a_retval = (NVolCaseSensitive(ni->vol) ? 1 : 0);
+		if (vol)
+			*a->a_retval = (NVolCaseSensitive(vol) ? 1 : 0);
+		else
+			err = EINVAL;
 		break;
 	case _PC_CASE_PRESERVING:
 		/*
@@ -7715,7 +7812,8 @@ static int ntfs_vnop_pathconf(struct vnop_pathconf_args *a)
 	default:
 		err = EINVAL;
 	}
-	lck_rw_unlock_shared(&ni->lock);
+	if (ni)
+		lck_rw_unlock_shared(&ni->lock);
 	ntfs_debug("Done (error %d).", (int)err);
 	return err;
 }
@@ -7788,6 +7886,14 @@ static int ntfs_vnop_pagein(struct vnop_pagein_args *a)
 	ntfs_inode *base_ni, *ni = NTFS_I(a->a_vp);
 	int err;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		if (!(a->a_flags & UPL_NOCOMMIT) && a->a_pl)
+			ubc_upl_abort_range(a->a_pl, a->a_pl_offset, a->a_size,
+					UPL_ABORT_FREE_ON_EMPTY |
+					UPL_ABORT_ERROR);
+		return EINVAL;
+	}
 	base_ni = ni;
 	if (NInoAttr(ni))
 		base_ni = ni->base_ni;
@@ -7846,10 +7952,6 @@ static int ntfs_mst_pageout(ntfs_inode *ni, upl_t upl, upl_offset_t upl_ofs,
 	BOOL do_commit;
 
 	do_commit = !(flags & UPL_NOCOMMIT);
-	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
-	if (ni == vol->mft_ni || ni == vol->mftmirr_ni)
-		panic("%s(): Called for $MFT/$DATA or $MFTMirr/$DATA.\n",
-				__FUNCTION__);
 	if (ni->type == AT_INDEX_ALLOCATION)
 		magic = magic_INDX;
 	else
@@ -8064,22 +8166,25 @@ static int ntfs_vnop_pageout(struct vnop_pageout_args *a)
 {
 	s64 attr_ofs, attr_size, alloc_size, bytes;
 	ntfs_inode *base_ni, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
 	upl_t upl = a->a_pl;
+	ntfs_volume *vol;
 	u8 *kaddr;
 	upl_offset_t upl_ofs = a->a_pl_offset;
 	kern_return_t kerr;
-	unsigned size, to_write;
+	unsigned to_write, size = a->a_size;
 	int err, flags = a->a_flags;
 	lck_rw_type_t lock_type = LCK_RW_TYPE_SHARED;
 	BOOL locked = FALSE;
 
-	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
-	if (ni == vol->mft_ni || ni == vol->mftmirr_ni)
-		panic("%s(): Called for $MFT/$DATA or $MFTMirr/$DATA.\n",
-				__FUNCTION__);
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		if (!(flags & UPL_NOCOMMIT) && upl)
+			ubc_upl_abort_range(upl, upl_ofs, size,
+					UPL_ABORT_FREE_ON_EMPTY);
+		return EINVAL;
+	}
+	vol = ni->vol;
 	attr_ofs = a->a_f_offset;
-	size = a->a_size;
 	base_ni = ni;
 	if (NInoAttr(ni))
 		base_ni = ni->base_ni;
@@ -8564,15 +8669,20 @@ static int ntfs_vnop_getxattr(struct vnop_getxattr_args *a)
 	user_ssize_t start_count;
 	off_t start_ofs;
 	ntfs_inode *ani, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
 	const char *name = a->a_name;
 	uio_t uio = a->a_uio;
+	ntfs_volume *vol;
 	ntfschar *ntfs_name;
 	size_t ntfs_name_size;
 	signed ntfs_name_len;
 	errno_t err;
 	ntfschar ntfs_name_buf[NTFS_MAX_ATTR_NAME_LEN];
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
 	/* Check for invalid names. */
 	if (!name || name[0] == '\0')
 		return EINVAL;
@@ -8891,7 +9001,7 @@ static int ntfs_vnop_setxattr(struct vnop_setxattr_args *a)
 	user_ssize_t start_count;
 	off_t start_ofs;
 	ntfs_inode *ani, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
+	ntfs_volume *vol;
 	const char *name = a->a_name;
 	uio_t uio = a->a_uio;
 	ntfschar *ntfs_name;
@@ -8901,6 +9011,11 @@ static int ntfs_vnop_setxattr(struct vnop_setxattr_args *a)
 	errno_t err;
 	ntfschar ntfs_name_buf[NTFS_MAX_ATTR_NAME_LEN];
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
 	/* Check for invalid names. */
 	if (!name || name[0] == '\0')
 		return EINVAL;
@@ -9334,14 +9449,19 @@ err:
 static int ntfs_vnop_removexattr(struct vnop_removexattr_args *a)
 {
 	ntfs_inode *ani, *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
 	const char *name = a->a_name;
+	ntfs_volume *vol;
 	ntfschar *ntfs_name;
 	size_t ntfs_name_size;
 	signed ntfs_name_len;
 	errno_t err;
 	ntfschar ntfs_name_buf[NTFS_MAX_ATTR_NAME_LEN];
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
 	/* Check for invalid names. */
 	if (!name || name[0] == '\0')
 		return EINVAL;
@@ -9610,18 +9730,26 @@ err:
 static int ntfs_vnop_listxattr(struct vnop_listxattr_args *args)
 {
 	ntfs_inode *ni = NTFS_I(args->a_vp);
-	ntfs_volume *vol = ni->vol;
 	uio_t uio = args->a_uio;
+	ntfs_volume *vol;
 	MFT_RECORD *m;
 	ntfs_attr_search_ctx *ctx;
 	u8 *utf8_name;
-	const ntfschar *upcase = vol->upcase;
-	const unsigned upcase_len = vol->upcase_len;
+	ntfschar *upcase;
+	unsigned upcase_len;
 	size_t size, utf8_size;
 	errno_t err;
-	const BOOL case_sensitive = NVolCaseSensitive(vol);
+	BOOL case_sensitive;
 	FINDER_INFO fi;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
+	upcase = vol->upcase;
+	upcase_len = vol->upcase_len;
+	case_sensitive = NVolCaseSensitive(vol);
 	ntfs_debug("Entering.");
 	lck_rw_lock_shared(&ni->lock);
 	/* Do not allow messing with the inode once it has been deleted. */
@@ -9957,6 +10085,10 @@ static int ntfs_vnop_blktooff(struct vnop_blktooff_args *a)
 		return EINVAL;
 	}
 	ni = NTFS_I(a->a_vp);
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	if (S_ISDIR(ni->mode)) {
 		ntfs_error(ni->vol->mp, "Called for directory vnode.");
 		return EINVAL;
@@ -10006,6 +10138,10 @@ static int ntfs_vnop_offtoblk(struct vnop_offtoblk_args *a)
 		return EINVAL;
 	}
 	ni = NTFS_I(a->a_vp);
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	if (S_ISDIR(ni->mode)) {
 		ntfs_error(ni->vol->mp, "Called for directory vnode.");
 		return EINVAL;
@@ -10107,10 +10243,15 @@ static int ntfs_vnop_blockmap(struct vnop_blockmap_args *a)
 	VCN vcn;
 	LCN lcn;
 	ntfs_inode *ni = NTFS_I(a->a_vp);
-	ntfs_volume *vol = ni->vol;
+	ntfs_volume *vol;
 	unsigned vcn_ofs;
 	BOOL is_write = (a->a_flags & VNODE_WRITE);
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
+	vol = ni->vol;
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x, name_len 0x%x, "
 			"offset 0x%llx, size 0x%llx, for %s operation.",
 			(unsigned long long)ni->mft_no,
@@ -10217,13 +10358,6 @@ eof:
 					(unsigned long long)ni->mft_no);
 			return EINVAL;
 		}
-		/*
-		 * For $MFT/$DATA and $MFTMirr/$DATA must be non-resident, not
-		 * compressed, and not encrypted thus we can never get here.
-		 */
-		if (ni == vol->mft_ni || ni == vol->mftmirr_ni)
-			panic("%s(): Called for $MFT/$DATA or "
-					"$MFTMirr/$DATA.\n", __FUNCTION__);
 		*a->a_bpn = byte_offset >> PAGE_SHIFT;
 		bytes = ni->block_size;
 		ntfs_debug("Called for inode 0x%llx which is resident, "
@@ -10415,6 +10549,10 @@ static int ntfs_vnop_getnamedstream(struct vnop_getnamedstream_args *a)
 	const enum nsoperation op = a->a_operation;
 	errno_t err;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx, stream name %s, operation %s "
 			"(0x%x), flags 0x%x.", (unsigned long long)ni->mft_no,
 			name, op == NS_OPEN ? "NS_OPEN" :
@@ -10527,6 +10665,10 @@ static int ntfs_vnop_makenamedstream(struct vnop_makenamedstream_args *a)
 	const char *name = a->a_name;
 	errno_t err;
 
+	if (!ni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	ntfs_debug("Entering for mft_no 0x%llx, stream name %s, flags 0x%x.",
 			(unsigned long long)ni->mft_no, name, a->a_flags);
 	/*
@@ -10631,6 +10773,10 @@ static int ntfs_vnop_removenamedstream(struct vnop_removenamedstream_args *a)
 
 	svn = a->a_svp;
 	sni = NTFS_I(svn);
+	if (!ni || !sni) {
+		ntfs_debug("Entered with NULL ntfs_inode, aborting.");
+		return EINVAL;
+	}
 	vname = vnode_getname(svn);
 	ntfs_debug("Entering for mft_no 0x%llx, stream mft_no 0x%llx, stream "
 			"name %s, flags 0x%x, stream vnode name %s.",

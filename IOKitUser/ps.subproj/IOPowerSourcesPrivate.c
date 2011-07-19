@@ -22,15 +22,17 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#include <IOKit/IOCFSerialize.h>
+#include <mach/mach_port.h>
+#include <mach/vm_map.h>
+#include <servers/bootstrap.h>
+
 #include "IOSystemConfiguration.h"
 #include "IOPowerSources.h"
 #include "IOPowerSourcesPrivate.h"
 #include "IOPSKeys.h"
 #include "powermanagement.h"
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
-#include <mach/mach_port.h>
-#include <mach/vm_map.h>
-#include <servers/bootstrap.h>
 
 /* IOPSCopyInternalBatteriesArray
  *
@@ -350,11 +352,11 @@ static IOReturn _pm_connect(mach_port_t *newConnection)
 {
     kern_return_t       kern_result = KERN_SUCCESS;
     
-    if(!newConnection) return kIOReturnBadArgument;
+    if(!newConnection) {
+        return kIOReturnBadArgument;
+    }
 
-    // open reference to PM configd
-    kern_result = bootstrap_look_up(bootstrap_port, 
-            kIOPMServerBootstrapName, newConnection);
+    kern_result = bootstrap_look_up(bootstrap_port, kIOPMServerBootstrapName, newConnection);
     if(KERN_SUCCESS != kern_result) {
         return kIOReturnError;
     }
@@ -363,8 +365,12 @@ static IOReturn _pm_connect(mach_port_t *newConnection)
 
 static IOReturn _pm_disconnect(mach_port_t connection)
 {
-    if(!connection) return kIOReturnBadArgument;
-    mach_port_destroy(mach_task_self(), connection);
+    if(!connection) {
+        return kIOReturnBadArgument;
+    }
+
+    mach_port_deallocate(mach_task_self(), connection);
+
     return kIOReturnSuccess;
 }
 
@@ -466,25 +472,34 @@ IOReturn IOPSSetPowerSourceDetails(
     CFDictionaryRef details)
 {
     IOReturn                ret = kIOReturnSuccess;
-    SCDynamicStoreRef       temp_store = NULL;
+    char                    dskey_str[kMaxSCDSKeyLength];
+    CFDataRef               flatDetails;
+    mach_port_t             pm_server = MACH_PORT_NULL;
 
     if (!whichPS || !isA_CFString(whichPS->scdsKey) || !isA_CFDictionary(details))
         return kIOReturnBadArgument;
 
-    // TODO: avoid creating a store for every single transaction
-    temp_store = SCDynamicStoreCreate(0, CFSTR("IOKit PM - IOPSSetPowerSourceDetails"), NULL, NULL);
-    if (!temp_store)
-        return kIOReturnNotResponding;
-        
-    if (!SCDynamicStoreSetValue(temp_store, whichPS->scdsKey, details))
-    {
-        if(kSCStatusAccessError == SCError())
-            ret = kIOReturnNotPrivileged;
-        else
-            ret = kIOReturnError;
+    CFStringGetCString(whichPS->scdsKey, dskey_str, sizeof(dskey_str), kCFStringEncodingUTF8);
+
+    flatDetails = IOCFSerialize(whichPS, 0);
+    if (!flatDetails)
+        goto exit;
+
+    ret = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != ret) {
+        ret = kIOReturnNotOpen;
+        goto exit;
     }
     
-    CFRelease(temp_store);
+    // Pass the details off to powerd 
+    io_pm_update_pspowersource(pm_server, dskey_str, 
+                CFDataGetBytePtr(flatDetails), CFDataGetLength(flatDetails), (int *)&ret);
+
+    _pm_disconnect(pm_server);
+
+exit:
+    if (flatDetails)
+        CFRelease(flatDetails);
     return ret;
 }
 
@@ -496,8 +511,6 @@ IOReturn IOPSReleasePowerSource(
 
     if (whichPS->configdConnection)
     {
-//        mach_port_destroy(mach_task_self(), 
-//                          CFMachPortGetPort(whichPS->configdConnection));
         CFRelease(whichPS->configdConnection);
     }
 

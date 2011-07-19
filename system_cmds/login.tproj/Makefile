@@ -8,7 +8,7 @@ MANPAGES = login.1
 
 Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 Extra_CC_Flags += -D__FBSDID=__RCSID
@@ -27,6 +27,5 @@ Install_Program_Mode = 04555
 
 after_install:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)"/private/etc/pam.d
-	$(INSTALL_FILE) login.pam "$(DSTROOT)"/private/etc/pam.d/login
-	sed -e '/pam_launchd.so/d' < login.pam > "$(OBJROOT)"/login.term
-	$(INSTALL_FILE) "$(OBJROOT)"/login.term "$(DSTROOT)"/private/etc/pam.d/login.term
+	$(INSTALL_FILE) pam.d/login "$(DSTROOT)"/private/etc/pam.d/login
+	$(INSTALL_FILE) pam.d/login.term "$(DSTROOT)"/private/etc/pam.d/login.term

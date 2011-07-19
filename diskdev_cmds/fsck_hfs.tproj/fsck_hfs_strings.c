@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -193,7 +193,14 @@ hfs_errors[] = {
     { E_OrphanDirInode,         "Orphaned directory inode (id = %u)",                           fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_OvlExtID,               "Overlapped extent allocation (id = %d)",                       fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
     { E_UnusedNodeNotZeroed,    "Unused node is not erased (node = %u)",                        fsckMsgError,   fsckLevel1,   1, (const int[]){ fsckTypeInt, } },
-    { E_VBMDamagedOverAlloc,    "Volume bitmap needs minor repair for orphaned blocks",        fsckMsgError,   fsckLevel1,   0, },
+    { E_VBMDamagedOverAlloc,    "Volume bitmap needs minor repair for orphaned blocks",         fsckMsgError,   fsckLevel1,   0, },
+
+    /* 610 - 619 */
+    { E_BadHardLinkDate,        "Bad hard link creation date",                                   fsckMsgError, fsckLevel1,    0, },
+    { E_DirtyJournal,           "Journal need to be replayed but volume is read-only",           fsckMsgError, fsckLevel1,    0, },
+    { E_LinkChainNonLink,       "File record has hard link chain flag (id = %u)",                fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
+    { E_LinkHasData,            "Hard link record has data extents (id = %u)",                   fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
+    { E_FileLinkCountError,     "File has incorrect number of links (id = %u)",                  fsckMsgError, fsckLevel1,    1, (const int[]){ fsckTypeInt, } },
 
     /* And all-zeroes to indicate the end */
     { 0, },

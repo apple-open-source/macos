@@ -19,9 +19,9 @@
 
 #include "CodeGenRegisters.h"
 #include "CodeGenInstruction.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/DenseMap.h"
 #include <algorithm>
-#include <iosfwd>
-#include <map>
 
 namespace llvm {
 
@@ -43,11 +43,9 @@ enum SDNP {
   SDNPMayLoad,
   SDNPMayStore,
   SDNPSideEffect,
-  SDNPMemOperand
+  SDNPMemOperand,
+  SDNPVariadic
 };
-
-// ComplexPattern attributes.
-enum CPAttr { CPAttrParentAsRoot };
 
 /// getValueType - Return the MVT::SimpleValueType that the specified TableGen
 /// record corresponds to.
@@ -65,7 +63,7 @@ std::string getQualifiedName(const Record *R);
 class CodeGenTarget {
   Record *TargetRec;
 
-  mutable std::map<std::string, CodeGenInstruction> Instructions;
+  mutable DenseMap<const Record*, CodeGenInstruction*> Instructions;
   mutable std::vector<CodeGenRegister> Registers;
   mutable std::vector<CodeGenRegisterClass> RegisterClasses;
   mutable std::vector<MVT::SimpleValueType> LegalValueTypes;
@@ -73,6 +71,8 @@ class CodeGenTarget {
   void ReadRegisterClasses() const;
   void ReadInstructions() const;
   void ReadLegalValueTypes() const;
+  
+  mutable std::vector<const CodeGenInstruction*> InstrsByEnum;
 public:
   CodeGenTarget();
 
@@ -86,6 +86,10 @@ public:
   /// getInstructionSet - Return the InstructionSet object.
   ///
   Record *getInstructionSet() const;
+
+  /// getAsmParser - Return the AssemblyParser definition for this target.
+  ///
+  Record *getAsmParser() const;
 
   /// getAsmWriter - Return the AssemblyWriter definition for this target.
   ///
@@ -166,7 +170,7 @@ public:
 
   /// getRegisterVTs - Find the union of all possible SimpleValueTypes for the
   /// specified physical register.
-  std::vector<unsigned char> getRegisterVTs(Record *R) const;
+  std::vector<MVT::SimpleValueType> getRegisterVTs(Record *R) const;
   
   const std::vector<MVT::SimpleValueType> &getLegalValueTypes() const {
     if (LegalValueTypes.empty()) ReadLegalValueTypes();
@@ -182,37 +186,40 @@ public:
     return false;    
   }
 
-  /// getInstructions - Return all of the instructions defined for this target.
-  ///
-  const std::map<std::string, CodeGenInstruction> &getInstructions() const {
+private:
+  DenseMap<const Record*, CodeGenInstruction*> &getInstructions() const {
     if (Instructions.empty()) ReadInstructions();
     return Instructions;
   }
-  std::map<std::string, CodeGenInstruction> &getInstructions() {
+public:
+  
+  CodeGenInstruction &getInstruction(const Record *InstRec) const {
     if (Instructions.empty()) ReadInstructions();
-    return Instructions;
+    DenseMap<const Record*, CodeGenInstruction*>::iterator I =
+      Instructions.find(InstRec);
+    assert(I != Instructions.end() && "Not an instruction");
+    return *I->second;
   }
-
-  CodeGenInstruction &getInstruction(const std::string &Name) const {
-    const std::map<std::string, CodeGenInstruction> &Insts = getInstructions();
-    assert(Insts.count(Name) && "Not an instruction!");
-    return const_cast<CodeGenInstruction&>(Insts.find(Name)->second);
-  }
-
-  typedef std::map<std::string,
-                   CodeGenInstruction>::const_iterator inst_iterator;
-  inst_iterator inst_begin() const { return getInstructions().begin(); }
-  inst_iterator inst_end() const { return Instructions.end(); }
 
   /// getInstructionsByEnumValue - Return all of the instructions defined by the
   /// target, ordered by their enum value.
-  void getInstructionsByEnumValue(std::vector<const CodeGenInstruction*>
-                                                &NumberedInstructions);
+  const std::vector<const CodeGenInstruction*> &
+  getInstructionsByEnumValue() const {
+    if (InstrsByEnum.empty()) ComputeInstrsByEnum();
+    return InstrsByEnum;
+  }
 
-
+  typedef std::vector<const CodeGenInstruction*>::const_iterator inst_iterator;
+  inst_iterator inst_begin() const{return getInstructionsByEnumValue().begin();}
+  inst_iterator inst_end() const { return getInstructionsByEnumValue().end(); }
+  
+  
   /// isLittleEndianEncoding - are instruction bit patterns defined as  [0..n]?
   ///
   bool isLittleEndianEncoding() const;
+  
+private:
+  void ComputeInstrsByEnum() const;
 };
 
 /// ComplexPattern - ComplexPattern info, corresponding to the ComplexPattern
@@ -223,9 +230,8 @@ class ComplexPattern {
   std::string SelectFunc;
   std::vector<Record*> RootNodes;
   unsigned Properties; // Node properties
-  unsigned Attributes; // Pattern attributes
 public:
-  ComplexPattern() : NumOperands(0) {};
+  ComplexPattern() : NumOperands(0) {}
   ComplexPattern(Record *R);
 
   MVT::SimpleValueType getValueType() const { return Ty; }
@@ -235,7 +241,6 @@ public:
     return RootNodes;
   }
   bool hasProperty(enum SDNP Prop) const { return Properties & (1 << Prop); }
-  bool hasAttribute(enum CPAttr Attr) const { return Attributes & (1 << Attr); }
 };
 
 } // End llvm namespace

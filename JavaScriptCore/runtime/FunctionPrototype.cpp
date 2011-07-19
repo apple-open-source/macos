@@ -28,34 +28,33 @@
 #include "JSStringBuilder.h"
 #include "Interpreter.h"
 #include "Lexer.h"
-#include "PrototypeFunction.h"
 
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(FunctionPrototype);
 
-static JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL functionProtoFuncApply(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL functionProtoFuncCall(ExecState*, JSObject*, JSValue, const ArgList&);
+static EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionProtoFuncApply(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionProtoFuncCall(ExecState*);
 
-FunctionPrototype::FunctionPrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure)
-    : InternalFunction(&exec->globalData(), structure, exec->propertyNames().nullIdentifier)
+FunctionPrototype::FunctionPrototype(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
+    : InternalFunction(&exec->globalData(), globalObject, structure, exec->propertyNames().nullIdentifier)
 {
-    putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 0), DontDelete | ReadOnly | DontEnum);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(0), DontDelete | ReadOnly | DontEnum);
 }
 
-void FunctionPrototype::addFunctionProperties(ExecState* exec, Structure* prototypeFunctionStructure, NativeFunctionWrapper** callFunction, NativeFunctionWrapper** applyFunction)
+void FunctionPrototype::addFunctionProperties(ExecState* exec, JSGlobalObject* globalObject, Structure* functionStructure, JSFunction** callFunction, JSFunction** applyFunction)
 {
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
-    *applyFunction = new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply);
+    putDirectFunctionWithoutTransition(exec, new (exec) JSFunction(exec, globalObject, functionStructure, 0, exec->propertyNames().toString, functionProtoFuncToString), DontEnum);
+    *applyFunction = new (exec) JSFunction(exec, globalObject, functionStructure, 2, exec->propertyNames().apply, functionProtoFuncApply);
     putDirectFunctionWithoutTransition(exec, *applyFunction, DontEnum);
-    *callFunction = new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().call, functionProtoFuncCall);
+    *callFunction = new (exec) JSFunction(exec, globalObject, functionStructure, 1, exec->propertyNames().call, functionProtoFuncCall);
     putDirectFunctionWithoutTransition(exec, *callFunction, DontEnum);
 }
 
-static JSValue JSC_HOST_CALL callFunctionPrototype(ExecState*, JSObject*, JSValue, const ArgList&)
+static EncodedJSValue JSC_HOST_CALL callFunctionPrototype(ExecState*)
 {
-    return jsUndefined();
+    return JSValue::encode(jsUndefined());
 }
 
 // ECMA 15.3.4
@@ -71,76 +70,80 @@ CallType FunctionPrototype::getCallData(CallData& callData)
 static inline void insertSemicolonIfNeeded(UString& functionBody)
 {
     ASSERT(functionBody[0] == '{');
-    ASSERT(functionBody[functionBody.size() - 1] == '}');
+    ASSERT(functionBody[functionBody.length() - 1] == '}');
 
-    for (size_t i = functionBody.size() - 2; i > 0; --i) {
+    for (size_t i = functionBody.length() - 2; i > 0; --i) {
         UChar ch = functionBody[i];
         if (!Lexer::isWhiteSpace(ch) && !Lexer::isLineTerminator(ch)) {
             if (ch != ';' && ch != '}')
-                functionBody = makeString(functionBody.substr(0, i + 1), ";", functionBody.substr(i + 1, functionBody.size() - (i + 1)));
+                functionBody = makeUString(functionBody.substringSharingImpl(0, i + 1), ";", functionBody.substringSharingImpl(i + 1, functionBody.length() - (i + 1)));
             return;
         }
     }
 }
 
-JSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)
 {
-    if (thisValue.inherits(&JSFunction::info)) {
+    JSValue thisValue = exec->hostThisValue();
+    if (thisValue.inherits(&JSFunction::s_info)) {
         JSFunction* function = asFunction(thisValue);
-        if (!function->isHostFunction()) {
-            FunctionExecutable* executable = function->jsExecutable();
-            UString sourceString = executable->source().toString();
-            insertSemicolonIfNeeded(sourceString);
-            return jsMakeNontrivialString(exec, "function ", function->name(exec), "(", executable->paramString(), ") ", sourceString);
-        }
+        if (function->isHostFunction())
+            return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}"));
+        FunctionExecutable* executable = function->jsExecutable();
+        UString sourceString = executable->source().toString();
+        insertSemicolonIfNeeded(sourceString);
+        return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "(", executable->paramString(), ") ", sourceString));
     }
 
-    if (thisValue.inherits(&InternalFunction::info)) {
+    if (thisValue.inherits(&InternalFunction::s_info)) {
         InternalFunction* function = asInternalFunction(thisValue);
-        return jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}");
+        return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}"));
     }
 
-    return throwError(exec, TypeError);
+    return throwVMTypeError(exec);
 }
 
-JSValue JSC_HOST_CALL functionProtoFuncApply(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL functionProtoFuncApply(ExecState* exec)
 {
+    JSValue thisValue = exec->hostThisValue();
     CallData callData;
-    CallType callType = thisValue.getCallData(callData);
+    CallType callType = getCallData(thisValue, callData);
     if (callType == CallTypeNone)
-        return throwError(exec, TypeError);
+        return throwVMTypeError(exec);
 
-    JSValue array = args.at(1);
+    JSValue array = exec->argument(1);
 
     MarkedArgumentBuffer applyArgs;
     if (!array.isUndefinedOrNull()) {
         if (!array.isObject())
-            return throwError(exec, TypeError);
-        if (asObject(array)->classInfo() == &Arguments::info)
+            return throwVMTypeError(exec);
+        if (asObject(array)->classInfo() == &Arguments::s_info)
             asArguments(array)->fillArgList(exec, applyArgs);
         else if (isJSArray(&exec->globalData(), array))
             asArray(array)->fillArgList(exec, applyArgs);
-        else if (asObject(array)->inherits(&JSArray::info)) {
+        else if (asObject(array)->inherits(&JSArray::s_info)) {
             unsigned length = asArray(array)->get(exec, exec->propertyNames().length).toUInt32(exec);
             for (unsigned i = 0; i < length; ++i)
                 applyArgs.append(asArray(array)->get(exec, i));
         } else
-            return throwError(exec, TypeError);
+            return throwVMTypeError(exec);
     }
 
-    return call(exec, thisValue, callType, callData, args.at(0), applyArgs);
+    return JSValue::encode(call(exec, thisValue, callType, callData, exec->argument(0), applyArgs));
 }
 
-JSValue JSC_HOST_CALL functionProtoFuncCall(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL functionProtoFuncCall(ExecState* exec)
 {
+    JSValue thisValue = exec->hostThisValue();
     CallData callData;
-    CallType callType = thisValue.getCallData(callData);
+    CallType callType = getCallData(thisValue, callData);
     if (callType == CallTypeNone)
-        return throwError(exec, TypeError);
+        return throwVMTypeError(exec);
 
+    ArgList args(exec);
     ArgList callArgs;
     args.getSlice(1, callArgs);
-    return call(exec, thisValue, callType, callData, args.at(0), callArgs);
+    return JSValue::encode(call(exec, thisValue, callType, callData, exec->argument(0), callArgs));
 }
 
 } // namespace JSC

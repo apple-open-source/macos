@@ -1,15 +1,19 @@
-#!/usr/bin/perl
+use warnings;
+use strict;
 
-use Test::More tests => 1;
+use Test::More;
+use Test::Exception;
 
-eval {
-  package BuggyTable;
-  use base 'DBIx::Class';
+throws_ok (
+  sub {
+    package BuggyTable;
+    use base 'DBIx::Class::Core';
 
-  __PACKAGE__->load_components qw/Core/;
-  __PACKAGE__->table('buggy_table');
-  __PACKAGE__->columns qw/this doesnt work as expected/;
-};
+    __PACKAGE__->table('buggy_table');
+    __PACKAGE__->columns qw/this doesnt work as expected/;
+  },
+  qr/\bcolumns\(\) is a read-only/,
+  'columns() error when apparently misused',
+);
 
-like($@,qr/\bcolumns\(\) is a read-only/,
-     "columns() error when apparently misused");
+done_testing;

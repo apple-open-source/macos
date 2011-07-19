@@ -1,6 +1,8 @@
 use strict;
 use lib qw(t/lib);
 use dbixcsl_common_tests;
+use Test::More;
+use Test::Exception;
 
 my $dsn      = $ENV{DBICTEST_ORA_DSN} || '';
 my $user     = $ENV{DBICTEST_ORA_USER} || '';

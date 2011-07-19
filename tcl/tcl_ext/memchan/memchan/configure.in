@@ -5,7 +5,7 @@ AC_REVISION($Id: configure.in,v 1.17 2006/01/24 18:03:57 andreas_kupries Exp $)
 
 AC_INIT([Memchan],[2.2.1])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

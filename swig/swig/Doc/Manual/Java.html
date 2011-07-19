@@ -5,7 +5,7 @@
 <link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body bgcolor="#FFFFFF">
-<H1><a name="Java"></a>20 SWIG and Java</H1>
+<H1><a name="Java"></a>21 SWIG and Java</H1>
 <!-- INDEX -->
 <div class="sectiontoc">
 <ul>
@@ -69,6 +69,7 @@
 <li><a href="#inheritance_mirroring">Inheritance</a>
 <li><a href="#proxy_classes_gc">Proxy classes and garbage collection</a>
 <li><a href="#java_pgcpp">The premature garbage collection prevention parameter for proxy class marshalling</a>
+<li><a href="#java_multithread_libraries">Single threaded applications and thread safety</a>
 </ul>
 <li><a href="#type_wrapper_classes">Type wrapper classes</a>
 <li><a href="#enum_classes">Enum classes</a>
@@ -78,13 +79,15 @@
 <li><a href="#typeunsafe_enums_classes">Type unsafe enum classes</a>
 </ul>
 </ul>
-<li><a href="#java_directors">Cross language polymorphism using directors (experimental)</a>
+<li><a href="#java_directors">Cross language polymorphism using directors</a>
 <ul>
 <li><a href="#java_enabling_directors">Enabling directors</a>
 <li><a href="#java_directors_classes">Director classes</a>
 <li><a href="#java_directors_overhead">Overhead and code bloat</a>
 <li><a href="#java_directors_example">Simple directors example</a>
+<li><a href="#java_directors_threading">Director threading issues</a>
 </ul>
+<li><a href="#java_allprotected">Accessing protected members</a>
 <li><a href="#common_customization">Common customization features</a>
 <ul>
 <li><a href="#helper_functions">C/C++ helper functions</a>
@@ -98,6 +101,7 @@
 <li><a href="#simple_pointers">Simple pointers</a>
 <li><a href="#c_arrays">Wrapping C arrays with Java arrays</a>
 <li><a href="#unbounded_c_arrays">Unbounded C Arrays</a>
+<li><a href="#java_heap_allocations">Overriding new and delete to allocate from Java heap</a>
 </ul>
 <li><a href="#java_typemaps">Java typemaps</a>
 <ul>
@@ -126,6 +130,7 @@
 <li><a href="#struct_pointer_pointer">Struct pointer to pointer</a>
 <li><a href="#java_memory_management_member_variables">Memory management when returning references to member variables</a>
 <li><a href="#java_memory_management_objects">Memory management for objects passed to the C++ layer</a>
+<li><a href="#java_date_marshalling">Date marshalling using the javain typemap and associated attributes</a>
 </ul>
 <li><a href="#java_directors_faq">Living with Java Directors</a>
 <li><a href="#odds_ends">Odds and ends</a>
@@ -134,6 +139,7 @@
 <li><a href="#functional_interface">Functional interface without proxy classes</a>
 <li><a href="#using_own_jni_functions">Using your own JNI functions</a>
 <li><a href="#performance">Performance concerns and hints</a>
+<li><a href="#java_debugging">Debugging</a>
 </ul>
 <li><a href="#java_examples">Examples</a>
 </ul>
@@ -148,7 +154,7 @@ It covers most SWIG features, but certain low-level details are covered in less 
 </p>
 
 
-<H2><a name="java_overview"></a>20.1 Overview</H2>
+<H2><a name="java_overview"></a>21.1 Overview</H2>
 
 
 <p>
@@ -183,7 +189,7 @@ Various customisation tips and techniques using SWIG directives are covered.
 The latter sections cover the advanced techniques of using typemaps for complete control of the wrapping process.
 </p>
 
-<H2><a name="java_preliminaries"></a>20.2 Preliminaries</H2>
+<H2><a name="java_preliminaries"></a>21.2 Preliminaries</H2>
 
 
 <p>
@@ -199,7 +205,7 @@ Run <tt>make -k check</tt> from the SWIG root directory after installing SWIG on
 The Java module requires your system to support shared libraries and dynamic loading. 
 This is the commonly used method to load JNI code so your system will more than likely support this.</p>
 
-<H3><a name="running_swig"></a>20.2.1 Running SWIG</H3>
+<H3><a name="running_swig"></a>21.2.1 Running SWIG</H3>
 
 
 <p>
@@ -248,11 +254,17 @@ It is also possible to change the <a href="SWIG.html#output">output directory </
 </p>
 
 <p>
+The module name, specified with <tt>%module</tt>, determines the name of various generated classes as discussed <a href=#module_packages_classes>later</a>.
+Note that the module name does not define a Java package and by default, the generated Java classes do not have a Java package.
+The <tt>-package</tt> option described below can specify a Java package name to use.
+</p>
+
+<p>
 The following sections have further practical examples and details on how you might go about
 compiling and using the generated files.
 </p>
 
-<H3><a name="java_commandline"></a>20.2.2 Additional Commandline Options</H3>
+<H3><a name="java_commandline"></a>21.2.2 Additional Commandline Options</H3>
 
 
 <p>
@@ -289,7 +301,7 @@ swig -java -help
 Their use will become clearer by the time you have finished reading this section on SWIG and Java.
 </p>
 
-<H3><a name="getting_right_headers"></a>20.2.3 Getting the right header files</H3>
+<H3><a name="getting_right_headers"></a>21.2.3 Getting the right header files</H3>
 
 
 <p>
@@ -304,7 +316,7 @@ They are usually in directories like this:</p>
 <p>
 The exact location may vary on your machine, but the above locations are typical. </p>
 
-<H3><a name="compiling_dynamic"></a>20.2.4 Compiling a dynamic module</H3>
+<H3><a name="compiling_dynamic"></a>21.2.4 Compiling a dynamic module</H3>
 
 
 <p>
@@ -340,16 +352,16 @@ The name of the shared library output file is important.
 If the name of your SWIG module is "<tt>example</tt>", the name of the corresponding shared library file should be "<tt>libexample.so</tt>" (or equivalent depending on your machine, see <a href="#dynamic_linking_problems">Dynamic linking problems</a> for more information). 
 The name of the module is specified using the <tt>%module</tt> directive or<tt> -module</tt> command line option.</p>
 
-<H3><a name="using_module"></a>20.2.5 Using your module</H3>
+<H3><a name="using_module"></a>21.2.5 Using your module</H3>
 
 
 <p>
 To load your shared native library module in Java, simply use Java's <tt>System.loadLibrary</tt> method in a Java class:</p>
 
 <div class="code"><pre>
-// main.java
+// runme.java
 
-public class main {
+public class runme {
   static {
     System.loadLibrary("example");
   }
@@ -366,7 +378,7 @@ Compile all the Java files and run:
 
 <div class="code"><pre>
 $ javac *.java
-$ java main
+$ java runme
 24
 $
 </pre></div>
@@ -375,7 +387,7 @@ $
 If it doesn't work have a look at the following section which discusses problems loading the shared library.
 </p>
 
-<H3><a name="dynamic_linking_problems"></a>20.2.6 Dynamic linking problems</H3>
+<H3><a name="dynamic_linking_problems"></a>21.2.6 Dynamic linking problems</H3>
 
 
 <p>
@@ -388,12 +400,12 @@ You may get an exception similar to this:
 </p>
 
 <div class="code"><pre>
-$ java main
+$ java runme
 Exception in thread "main" java.lang.UnsatisfiedLinkError: no example in java.library.path
         at java.lang.ClassLoader.loadLibrary(ClassLoader.java:1312)
         at java.lang.Runtime.loadLibrary0(Runtime.java:749)
         at java.lang.System.loadLibrary(System.java:820)
-        at main.&lt;clinit&gt;(main.java:5)
+        at runme.&lt;clinit&gt;(runme.java:5)
 </pre></div>
 
 <p>
@@ -420,7 +432,7 @@ The following exception is indicative of this:
 </p>
 
 <div class="code"><pre>
-$ java main
+$ java runme
 Exception in thread "main" java.lang.UnsatisfiedLinkError: libexample.so: undefined
 symbol: fact
         at java.lang.ClassLoader$NativeLibrary.load(Native Method)
@@ -428,13 +440,26 @@ symbol: fact
         at java.lang.ClassLoader.loadLibrary(ClassLoader.java, Compiled Code)
         at java.lang.Runtime.loadLibrary0(Runtime.java, Compiled Code)
         at java.lang.System.loadLibrary(System.java, Compiled Code)
-        at main.&lt;clinit&gt;(main.java:5)
+        at runme.&lt;clinit&gt;(runme.java:5)
 $
 </pre></div>
 
 <p>
 This error usually indicates that you forgot to include some object files or libraries in the linking of the native library file.  
 Make sure you compile both the SWIG wrapper file and the code you are wrapping into the native library file.  
+If you forget to compile and link in the SWIG wrapper file into your native library file, you will get a message similar to the following:
+</p>
+
+<div class="code"><pre>
+$ java runme
+Exception in thread "main" java.lang.UnsatisfiedLinkError: exampleJNI.gcd(II)I
+	at exampleJNI.gcd(Native Method)
+	at example.gcd(example.java:12)
+	at runme.main(runme.java:18)
+</pre></div>
+
+<p>
+where <tt>gcd</tt> is the missing JNI function that SWIG generated into the wrapper file.
 Also make sure you pass all of the required libraries to the linker.  
 The <tt>java -verbose:jni</tt> commandline switch is also a great way to get more information on unresolved symbols.
 One last piece of advice is to beware of the common faux pas of having more than one native library version in your path.
@@ -449,7 +474,7 @@ The following section also contains some C++ specific linking problems and solut
 </p>
 
 
-<H3><a name="compilation_problems_cpp"></a>20.2.7 Compilation problems and compiling with C++</H3>
+<H3><a name="compilation_problems_cpp"></a>21.2.7 Compilation problems and compiling with C++</H3>
 
 
 <p>
@@ -502,7 +527,7 @@ Finally make sure the version of JDK header files matches the version of Java th
 </p>
 
 
-<H3><a name="building_windows"></a>20.2.8 Building on Windows</H3>
+<H3><a name="building_windows"></a>21.2.8 Building on Windows</H3>
 
 
 <p>
@@ -511,12 +536,12 @@ You will want to produce a DLL that can be loaded by the Java Virtual Machine.
 This section covers the process of using SWIG with Microsoft Visual C++ 6 although the procedure may be similar with other compilers.  
 In order for everything to work, you will need to have a JDK installed on your machine in order to read the JNI header files.</p>
 
-<H4><a name="visual_studio"></a>20.2.8.1 Running SWIG from Visual Studio</H4>
+<H4><a name="visual_studio"></a>21.2.8.1 Running SWIG from Visual Studio</H4>
 
 
 <p>
 If you are developing your application within Microsoft Visual studio, SWIG can be invoked as a custom build option. 
-The Examples\java directory has a few <a href="Windows.html#examples">Windows Examples</a> containing Visual Studio project (.dsp) files.
+The Examples\java directory has a few <a href="Windows.html#Windows_examples">Windows Examples</a> containing Visual Studio project (.dsp) files.
 The process to re-create the project files for a C project are roughly:</p>
 
 <ul>
@@ -550,7 +575,7 @@ To run the native code in the DLL (example.dll), make sure that it is in your pa
 If the library fails to load have a look at <a href="#dynamic_linking_problems">Dynamic linking problems</a>.
 </p>
 
-<H4><a name="nmake"></a>20.2.8.2 Using NMAKE</H4>
+<H4><a name="nmake"></a>21.2.8.2 Using NMAKE</H4>
 
 
 <p>
@@ -609,7 +634,7 @@ Of course you may want to make changes for it to work for C++ by adding in the -
 </p>
 
 
-<H2><a name="java_basic_tour"></a>20.3 A tour of basic C/C++ wrapping</H2>
+<H2><a name="java_basic_tour"></a>21.3 A tour of basic C/C++ wrapping</H2>
 
 
 <p>
@@ -619,7 +644,7 @@ variables are wrapped with JavaBean type getters and setters and so forth.
 This section briefly covers the essential aspects of this wrapping.
 </p>
 
-<H3><a name="module_packages_classes"></a>20.3.1 Modules, packages and generated Java classes</H3>
+<H3><a name="module_packages_classes"></a>21.3.1 Modules, packages and generated Java classes</H3>
 
 
 <p>
@@ -653,7 +678,7 @@ swig -java -package com.bloggs.swig -outdir com/bloggs/swig example.i
 
 SWIG won't create the directory, so make sure it exists beforehand.
 
-<H3><a name="functions"></a>20.3.2 Functions</H3>
+<H3><a name="functions"></a>21.3.2 Functions</H3>
 
 
 <p>
@@ -687,7 +712,7 @@ System.out.println(example.fact(4));
 </pre></div>
 
 
-<H3><a name="global_variables"></a>20.3.3 Global variables</H3>
+<H3><a name="global_variables"></a>21.3.3 Global variables</H3>
 
 
 <p>
@@ -755,7 +780,7 @@ extern char *path;
 <p>
 The <tt>%immutable</tt> directive stays in effect until it is explicitly disabled or cleared using
 <tt>%mutable</tt>.
-See the <a href="SWIG.html#SWIG_readonly_variables">Creatng read-only variables</a> section for further details.
+See the <a href="SWIG.html#SWIG_readonly_variables">Creating read-only variables</a> section for further details.
 </p>
 
 <p>
@@ -774,7 +799,7 @@ extern char *path;      // Read-only (due to %immutable)
 </div>
 
 
-<H3><a name="constants"></a>20.3.4 Constants</H3>
+<H3><a name="constants"></a>21.3.4 Constants</H3>
 
 
 <p>
@@ -887,7 +912,15 @@ public interface exampleConstants {
 Note:  declarations declared as <tt>const</tt> are wrapped as read-only variables and
 will be accessed using a getter as described in the previous section.  They
 are not wrapped as constants.
+The exception to this rule are static const integral values defined within a class/struct, where they are wrapped as constants, eg:.
 </p>
+
+<div class="code"><pre>
+struct Maths {
+  static const int FIVE = 5;
+};
+</pre></div>
+
 
 <p>
 <b>Compatibility Note:</b> In SWIG-1.3.19 and earlier releases, the constants were generated into the module class and the constants interface didn't exist.
@@ -906,7 +939,7 @@ Or if you decide this practice isn't so bad and your own class implements <tt>ex
 </p>
 
 
-<H3><a name="enumerations"></a>20.3.5 Enumerations</H3>
+<H3><a name="enumerations"></a>21.3.5 Enumerations</H3>
 
 
 <p>
@@ -920,7 +953,7 @@ The final two approaches use simple integers for each enum item.
 Before looking at the various approaches for wrapping named C/C++ enums, anonymous enums are considered.
 </p>
 
-<H4><a name="anonymous_enums"></a>20.3.5.1 Anonymous enums</H4>
+<H4><a name="anonymous_enums"></a>21.3.5.1 Anonymous enums</H4>
 
 
 <p>
@@ -983,7 +1016,7 @@ As in the case of constants, you can access them through either the module class
 </p>
 
 
-<H4><a name="typesafe_enums"></a>20.3.5.2 Typesafe enums</H4>
+<H4><a name="typesafe_enums"></a>21.3.5.2 Typesafe enums</H4>
 
 
 <p>
@@ -1076,7 +1109,7 @@ When upgrading to JDK 1.5 or later, proper Java enums could be used instead, wit
 The following section details proper Java enum generation.
 </p>
 
-<H4><a name="proper_enums"></a>20.3.5.3 Proper Java enums</H4>
+<H4><a name="proper_enums"></a>21.3.5.3 Proper Java enums</H4>
 
 
 <p>
@@ -1129,7 +1162,7 @@ The additional support methods need not be generated if none of the enum items h
 <a href="#simpler_enum_classes">Simpler Java enums for enums without initializers</a> section.
 </p>
 
-<H4><a name="typeunsafe_enums"></a>20.3.5.4 Type unsafe enums</H4>
+<H4><a name="typeunsafe_enums"></a>21.3.5.4 Type unsafe enums</H4>
 
 
 <p>
@@ -1177,7 +1210,7 @@ Note that unlike typesafe enums, this approach requires users to mostly use diff
 Thus the upgrade path to proper enums provided in JDK 1.5 is more painful.
 </p>
 
-<H4><a name="simple_enums"></a>20.3.5.5 Simple enums</H4>
+<H4><a name="simple_enums"></a>21.3.5.5 Simple enums</H4>
 
 
 <p>
@@ -1196,7 +1229,7 @@ SWIG-1.3.21 and earlier versions wrapped all enums using this approach.
 The type unsafe approach is preferable to this one and this simple approach is only included for backwards compatibility with these earlier versions of SWIG.
 </p>
 
-<H3><a name="pointers"></a>20.3.6 Pointers</H3>
+<H3><a name="pointers"></a>21.3.6 Pointers</H3>
 
 
 <p>
@@ -1284,7 +1317,7 @@ C-style cast may return a bogus result whereas as the C++-style cast will return
 a NULL pointer if the conversion can't be performed.
 </p>
 
-<H3><a name="structures"></a>20.3.7 Structures</H3>
+<H3><a name="structures"></a>21.3.7 Structures</H3>
 
 
 <p>
@@ -1452,7 +1485,7 @@ x.setA(3);          // Modify x.a - this is the same as b.f.a
 </div>
 
 
-<H3><a name="classes"></a>20.3.8 C++ classes</H3>
+<H3><a name="classes"></a>21.3.8 C++ classes</H3>
 
 
 <p>
@@ -1515,7 +1548,7 @@ int bar = Spam.getBar();
 </div>
 
 
-<H3><a name="inheritance"></a>20.3.9 C++ inheritance</H3>
+<H3><a name="inheritance"></a>21.3.9 C++ inheritance</H3>
 
 
 <p>
@@ -1576,7 +1609,7 @@ Note that Java does not support multiple inheritance so any multiple inheritance
 A warning is given when multiple inheritance is detected and only the first base class is used. 
 </p>
 
-<H3><a name="pointers_refs_arrays"></a>20.3.10 Pointers, references, arrays and pass by value</H3>
+<H3><a name="pointers_refs_arrays"></a>21.3.10 Pointers, references, arrays and pass by value</H3>
 
 
 <p>
@@ -1631,7 +1664,7 @@ to hold the result and a pointer is returned (Java will release this memory
 when the returned object's finalizer is run by the garbage collector).
 </p>
 
-<H4><a name="null_pointers"></a>20.3.10.1 Null pointers</H4>
+<H4><a name="null_pointers"></a>21.3.10.1 Null pointers</H4>
 
 
 <p>
@@ -1655,7 +1688,7 @@ For <tt>spam1</tt> and <tt>spam4</tt> above the Java <tt>null</tt> gets translat
 The converse also occurs, that is, NULL pointers are translated into <tt>null</tt> Java objects when returned from a C/C++ function.
 </p>
 
-<H3><a name="overloaded_functions"></a>20.3.11 C++ overloaded functions</H3>
+<H3><a name="overloaded_functions"></a>21.3.11 C++ overloaded functions</H3>
 
 
 <p>
@@ -1745,15 +1778,15 @@ Method spam(int) at example.i:11 used.
 </div>
 
 <p>
-To fix this, you either need to ignore or rename one of the methods.  For example:
+To fix this, you either need to either <a href="SWIG.html#SWIG_rename_ignore">rename or ignore</a> one of the methods.  For example:
 </p>
 
 <div class="code">
 <pre>
-%rename(spam_short) spam(short);
+%rename(spam_ushort) spam(unsigned short);
 ...
 void spam(int);    
-void spam(short);   // Accessed as spam_short
+void spam(unsigned short);   // Now renamed to spam_ushort
 </pre>
 </div>
 
@@ -1763,14 +1796,14 @@ or
 
 <div class="code">
 <pre>
-%ignore spam(short);
+%ignore spam(unsigned short);
 ...
 void spam(int);    
-void spam(short);   // Ignored
+void spam(unsigned short);   // Ignored
 </pre>
 </div>
 
-<H3><a name="java_default_arguments"></a>20.3.12 C++ default arguments</H3>
+<H3><a name="java_default_arguments"></a>21.3.12 C++ default arguments</H3>
 
 
 <p>
@@ -1813,7 +1846,7 @@ Further details on default arguments and how to restore this approach are given 
 </p>
 
 
-<H3><a name="namespaces"></a>20.3.13 C++ namespaces</H3>
+<H3><a name="namespaces"></a>21.3.13 C++ namespaces</H3>
 
 
 <p>
@@ -1873,7 +1906,7 @@ symbols separate, consider wrapping them as separate SWIG modules.
 Each SWIG module can be placed into a separate package.
 </p>
 
-<H3><a name="templates"></a>20.3.14 C++ templates</H3>
+<H3><a name="templates"></a>21.3.14 C++ templates</H3>
 
 
 <p>
@@ -1887,7 +1920,7 @@ For example:
 <pre>
 %module example
 %{
-#include "pair.h"
+#include &lt;utility&gt;
 %}
 
 template&lt;class T1, class T2&gt;
@@ -1922,7 +1955,7 @@ Obviously, there is more to template wrapping than shown in this example.
 More details can be found in the <a href="SWIGPlus.html#SWIGPlus">SWIG and C++</a> chapter.   
 </p>
 
-<H3><a name="smart_pointers"></a>20.3.15 C++ Smart Pointers</H3>
+<H3><a name="smart_pointers"></a>21.3.15 C++ Smart Pointers</H3>
 
 
 <p>
@@ -2006,7 +2039,7 @@ Foo f = p.__deref__();               // Returns underlying Foo *
 </pre>
 </div>
 
-<H2><a name="further_details"></a>20.4 Further details on the generated Java classes</H2>
+<H2><a name="further_details"></a>21.4 Further details on the generated Java classes</H2>
 
 
 <p>
@@ -2021,7 +2054,7 @@ Finally enum classes are covered.
 First, the crucial intermediary JNI class is considered.
 </p>
 
-<H3><a name="imclass"></a>20.4.1 The intermediary JNI class</H3>
+<H3><a name="imclass"></a>21.4.1 The intermediary JNI class</H3>
 
 
 <p>
@@ -2117,7 +2150,7 @@ This approach leads to minimal JNI code which makes for better performance as JN
 SWIG favours generating Java code over JNI code as Java code is compiled into byte code and avoids the costly string operations needed in JNI code.
 This approach has a downside though as the proxy class might get collected before the native method has completed.
 You might notice above that there is an additional parameters with a underscore postfix, eg <tt>jarg1_</tt>.
-These are added in order to prevent <a href="java_pgcpp">premature garbage collection when marshalling proxy classes</a>.
+These are added in order to prevent <a href="#java_pgcpp">premature garbage collection when marshalling proxy classes</a>.
 </p>
 
 <p>
@@ -2141,7 +2174,7 @@ If <tt>name</tt> is the same as <tt>modulename</tt> then the module class name g
 from <tt>modulename</tt> to <tt>modulenameModule</tt>.
 </p>
 
-<H4><a name="imclass_pragmas"></a>20.4.1.1 The intermediary JNI class pragmas</H4>
+<H4><a name="imclass_pragmas"></a>21.4.1.1 The intermediary JNI class pragmas</H4>
 
 
 <p>
@@ -2220,7 +2253,7 @@ For example, let's change the intermediary JNI class access to public.
 All the methods in the intermediary JNI class will then be callable outside of the package as the method modifiers are public by default.
 </p>
 
-<H3><a name="java_module_class"></a>20.4.2 The Java module class</H3>
+<H3><a name="java_module_class"></a>21.4.2 The Java module class</H3>
 
 
 <p>
@@ -2251,7 +2284,7 @@ example.egg(new Foo());
 The primary reason for having the module class wrapping the calls in the intermediary JNI class is to implement static type checking. In this case only a <tt>Foo</tt> can be passed to the <tt>egg</tt> function, whereas any <tt>long</tt> can be passed to the <tt>egg</tt> function in the intermediary JNI class.
 </p>
 
-<H4><a name="module_class_pragmas"></a>20.4.2.1 The Java module class pragmas</H4>
+<H4><a name="module_class_pragmas"></a>21.4.2.1 The Java module class pragmas</H4>
 
 
 <p>
@@ -2302,11 +2335,12 @@ See <a href="#imclass_pragmas">The intermediary JNI class pragmas</a> section fo
 </p>
 
 
-<H3><a name="java_proxy_classes"></a>20.4.3 Java proxy classes</H3>
+<H3><a name="java_proxy_classes"></a>21.4.3 Java proxy classes</H3>
 
 
 <p>
 A Java proxy class is generated for each structure, union or C++ class that is wrapped.
+Proxy classes have also been called <a href="http://java.sun.com/developer/JDCTechTips/2001/tt0612.html#tip2">peer classes</a>.
 The default proxy class for our previous example looks like this:
 </p>
 
@@ -2377,7 +2411,7 @@ int y = f.spam(5, new Foo());
 </pre>
 </div>
 
-<H4><a name="memory_management"></a>20.4.3.1 Memory management</H4>
+<H4><a name="memory_management"></a>21.4.3.1 Memory management</H4>
 
 
 <p>
@@ -2539,7 +2573,7 @@ and
 </p>
 
 
-<H4><a name="inheritance_mirroring"></a>20.4.3.2 Inheritance</H4>
+<H4><a name="inheritance_mirroring"></a>21.4.3.2 Inheritance</H4>
 
 
 <p>
@@ -2655,7 +2689,7 @@ However, true cross language polymorphism can be achieved using the <a href="#ja
 </p>
 
 
-<H4><a name="proxy_classes_gc"></a>20.4.3.3 Proxy classes and garbage collection</H4>
+<H4><a name="proxy_classes_gc"></a>21.4.3.3 Proxy classes and garbage collection</H4>
 
 
 <p>
@@ -2663,8 +2697,8 @@ By default each proxy class has a <tt>delete()</tt> and a <tt>finalize()</tt> me
 The <tt>finalize()</tt> method calls <tt>delete()</tt> which frees any malloc'd memory for wrapped C structs or calls the C++ class destructors. 
 The idea is for <tt>delete()</tt> to be called when you have finished with the C/C++ object. 
 Ideally you need not call <tt>delete()</tt>, but rather leave it to the garbage collector to call it from the finalizer. 
-The unfortunate thing is that Sun, in their wisdom, do not guarantee that the finalizers will be called. 
-When a program exits, the garbage collector does not always call the finalizers. 
+When a program exits, the garbage collector does not guarantee to call all finalizers. 
+An insight into the reasoning behind this can be obtained from <a href="http://www.hpl.hp.com/techreports/2002/HPL-2002-335.html">Hans Boehm's Destructors, Finalizers, and Synchronization</a> paper.
 Depending on what the finalizers do and which operating system you use, this may or may not be a problem. 
 </p>
 
@@ -2738,7 +2772,7 @@ The section on <a href="#java_typemaps">Java typemaps</a> details how to specify
 See the <a href="http://www.devx.com/Java/Article/30192">How to Handle Java Finalization's Memory-Retention Issues</a> article for alternative approaches to managing memory by avoiding finalizers altogether.
 </p>
 
-<H4><a name="java_pgcpp"></a>20.4.3.4 The premature garbage collection prevention parameter for proxy class marshalling</H4>
+<H4><a name="java_pgcpp"></a>21.4.3.4 The premature garbage collection prevention parameter for proxy class marshalling</H4>
 
 
 <p>
@@ -2842,8 +2876,12 @@ and therefore there is no possibility of premature garbage collection. In practi
 
 <p>
 The premature garbage collection prevention parameter for proxy classes is generated by default whenever proxy classes are passed by value, reference or with a pointer.
-The additional parameters do impose a slight performance overhead and the parameter generation can be suppressed globally with the <tt>-nopgcpp</tt> commandline option.
-More selective suppression is possible with the 'nopgcpp' attribute in the "jnitype" <a href="#java_typemaps">Java typemap</a>.
+The implementation for this extra parameter generation requires the "jtype" typemap to contain <tt>long</tt> and the "jstype" typemap to contain the name of a proxy class.
+</p>
+
+<p>
+The additional parameter does impose a slight performance overhead and the parameter generation can be suppressed globally with the <tt>-nopgcpp</tt> commandline option.
+More selective suppression is possible with the 'nopgcpp' attribute in the "jtype" <a href="#java_typemaps">Java typemap</a>.
 The attribute is a flag and so should be set to "1" to enable the suppression, or it can be omitted or set to "0" to disable.
 For example:
 </p>
@@ -2856,7 +2894,95 @@ For example:
 <b>Compatibility note:</b> The generation of this additional parameter did not occur in versions prior to SWIG-1.3.30.
 </p>
 
-<H3><a name="type_wrapper_classes"></a>20.4.4 Type wrapper classes</H3>
+<H4><a name="java_multithread_libraries"></a>21.4.3.5 Single threaded applications and thread safety</H4>
+
+
+<p>
+Single threaded Java applications using JNI need to consider thread safety.
+The same applies for the C# module where the .NET wrappers use PInvoke.
+Consider the C++ class:
+</p>
+
+<div class="code"><pre>
+class Test {
+  string str;
+public:
+  Test() : str("initial") {}
+};
+</pre></div>
+
+<p>
+and the Java proxy class generated by SWIG:
+</p>
+
+<div class="code"><pre>
+public class Test {
+  private long swigCPtr;
+  protected boolean swigCMemOwn;
+
+  protected Test(long cPtr, boolean cMemoryOwn) {
+    swigCMemOwn = cMemoryOwn;
+    swigCPtr = cPtr;
+  }
+
+  protected static long getCPtr(Test obj) {
+    return (obj == null) ? 0 : obj.swigCPtr;
+  }
+
+  protected void finalize() {
+    delete();
+  }
+
+  // Call C++ destructor
+  public synchronized void delete() {
+    if(swigCPtr != 0 &amp;&amp; swigCMemOwn) {
+      swigCMemOwn = false;
+      exampleJNI.delete_Test(swigCPtr);
+    }
+    swigCPtr = 0;
+  }
+
+  // Call C++ constructor
+  public Test() {
+    this(exampleJNI.new_Test(), true);
+  }
+
+}
+</pre></div>
+
+
+<p>
+It has two methods that call JNI methods, namely, <tt>exampleJNI.new_Test()</tt> for the C++ constructor and <tt>exampleJNI.delete_Test()</tt> for the C++ destructor. 
+If the garbage collector collects an instance of this class, ie <tt>delete()</tt> is not explicitly called, then the C++ destructor will be run in a different thread to the main thread. 
+This is because when an object is marked for garbage collection, any objects with finalizers are added to a finalization queue 
+and the objects in the finalization queue have their <tt>finalize()</tt> methods run in a separate finalization thread. 
+Therefore, if the C memory allocator is not thread safe, then the heap will get corrupted sooner or later, when a concurrent C++ delete and new are executed. 
+It is thus essential, even in single threaded usage, to link to the C multi-thread runtime libraries,
+for example, use the /MD option for Visual C++ on Windows.
+Alternatively, lock all access to C++ functions that have heap allocation/deallocation. 
+</p>
+
+<p>
+Note that some of the STL in Visual C++ 6 is not thread safe, so although code might be linked to the multithread runtime libraries, undefined behaviour might still occur in a single threaded Java program.
+Similarly some older versions of Sun Studio have bugs in the multi-threaded implementation of the std::string class and so will lead to undefined behaviour in these supposedly single threaded Java applications.
+</p>
+
+<p>
+The following innocuous Java usage of Test is an example that will crash very quickly on a multiprocessor machine if the JNI compiled code is linked against the single thread C runtime libraries.
+</p>
+ 
+<div class="code"><pre>
+for (int i=0; i&lt;100000; i++) {
+  System.out.println("Iteration " + i);
+  for (int k=0; k&lt;10; k++) {
+    Test test = new Test();
+  }
+  System.gc();
+}
+</pre></div>
+ 
+
+<H3><a name="type_wrapper_classes"></a>21.4.4 Type wrapper classes</H3>
 
 
 <p>
@@ -2943,7 +3069,7 @@ public static void spam(SWIGTYPE_p_int x, SWIGTYPE_p_int y, int z) { ... }
 </div>
 
 
-<H3><a name="enum_classes"></a>20.4.5 Enum classes</H3>
+<H3><a name="enum_classes"></a>21.4.5 Enum classes</H3>
 
 
 <p>
@@ -2952,7 +3078,7 @@ The <a href="#enumerations">Enumerations</a> section discussed these but omitted
 The following sub-sections detail the various types of enum classes that can be generated.
 </p>
 
-<H4><a name="typesafe_enums_classes"></a>20.4.5.1 Typesafe enum classes</H4>
+<H4><a name="typesafe_enums_classes"></a>21.4.5.1 Typesafe enum classes</H4>
 
 
 <p>
@@ -3036,7 +3162,7 @@ The <tt>swigValue</tt> method is used for marshalling in the other direction.
 The <tt>toString</tt> method is overridden so that the enum name is available.
 </p>
 
-<H4><a name="proper_enums_classes"></a>20.4.5.2 Proper Java enum classes</H4>
+<H4><a name="proper_enums_classes"></a>21.4.5.2 Proper Java enum classes</H4>
 
 
 <p>
@@ -3114,7 +3240,7 @@ These needn't be generated if the enum being wrapped does not have any initializ
 <a href="#simpler_enum_classes">Simpler Java enums for enums without initializers</a> section describes how typemaps can be used to achieve this.
 </p>
 
-<H4><a name="typeunsafe_enums_classes"></a>20.4.5.3 Type unsafe enum classes</H4>
+<H4><a name="typeunsafe_enums_classes"></a>21.4.5.3 Type unsafe enum classes</H4>
 
 
 <p>
@@ -3145,7 +3271,7 @@ public final class Beverage {
 </pre>
 </div>
 
-<H2><a name="java_directors"></a>20.5 Cross language polymorphism using directors (experimental)</H2>
+<H2><a name="java_directors"></a>21.5 Cross language polymorphism using directors</H2>
 
 
 <p>
@@ -3167,7 +3293,7 @@ The upshot is that C++ classes can be extended in Java and from C++ these extens
 Neither C++ code nor Java code needs to know where a particular method is implemented: the combination of proxy classes, director classes, and C wrapper functions transparently takes care of all the cross-language method routing.
 </p>
 
-<H3><a name="java_enabling_directors"></a>20.5.1 Enabling directors</H3>
+<H3><a name="java_enabling_directors"></a>21.5.1 Enabling directors</H3>
 
 
 <p>
@@ -3238,7 +3364,7 @@ public:
 </pre>
 </div>
 
-<H3><a name="java_directors_classes"></a>20.5.2 Director classes</H3>
+<H3><a name="java_directors_classes"></a>21.5.2 Director classes</H3>
 
 
 <p>
@@ -3265,7 +3391,7 @@ If the correct implementation is in Java, the Java API is used to call the metho
 </p>
 
 
-<H3><a name="java_directors_overhead"></a>20.5.3 Overhead and code bloat</H3>
+<H3><a name="java_directors_overhead"></a>21.5.3 Overhead and code bloat</H3>
 
 
 <p>
@@ -3283,7 +3409,7 @@ This situation can be optimized by selectively enabling director methods (using 
 </p>
 
 
-<H3><a name="java_directors_example"></a>20.5.4 Simple directors example</H3>
+<H3><a name="java_directors_example"></a>21.5.4 Simple directors example</H3>
 
 
 <p>
@@ -3309,19 +3435,19 @@ void callup(DirectorBase *director) {
 </div>
 
 <p>
-The following <code>directorDerived</code> Java class is derived from the Java proxy class <code>DirectorBase</code> and overrides <code>upcall_method()</code>.
-When C++ code invokes <code>upcall_method()</code>, the SWIG-generated C++ code redirects the call via JNI to the Java <code>directorDerived</code> subclass.
+The following <code>DirectorDerived</code> Java class is derived from the Java proxy class <code>DirectorBase</code> and overrides <code>upcall_method()</code>.
+When C++ code invokes <code>upcall_method()</code>, the SWIG-generated C++ code redirects the call via JNI to the Java <code>DirectorDerived</code> subclass.
 Naturally, the SWIG generated C++ code and the generated Java intermediate class marshal and convert arguments between C++ and Java when needed.
 </p>
 
 <div class="code">
 <pre>
-public class directorDerived extends DirectorBase {
-  public directorDerived() {
+public class DirectorDerived extends DirectorBase {
+  public DirectorDerived() {
   }
 
   public void upcall_method() {
-    System.out.println("directorDerived::upcall_method() invoked.");
+    System.out.println("DirectorDerived::upcall_method() invoked.");
   }
 }
 </pre>
@@ -3333,7 +3459,7 @@ Running the following Java code
 
 <div class="code">
 <pre>
-directorDerived director = new directorDerived();
+DirectorDerived director = new DirectorDerived();
 example.callup(director);
 </pre>
 </div>
@@ -3344,11 +3470,127 @@ will result in the following being output:
 
 <div class="code">
 <pre>
-directorDerived::upcall_method() invoked.
+DirectorDerived::upcall_method() invoked.
 </pre>
 </div>
 
-<H2><a name="common_customization"></a>20.6 Common customization features</H2>
+<H3><a name="java_directors_threading"></a>21.5.5 Director threading issues</H3>
+
+
+<p>
+Depending on your operating system and version of Java and how you are using threads, you might find the JVM hangs on exit.
+There are a couple of solutions to try out. The preferred solution requires jdk-1.4 and later and uses <tt>AttachCurrentThreadAsDaemon</tt> instead of <tt>AttachCurrentThread</tt> whenever a call into the JVM is required. This can be enabled by defining the SWIG_JAVA_ATTACH_CURRENT_THREAD_AS_DAEMON macro when compiling the C++ wrapper code. For older JVMs define SWIG_JAVA_NO_DETACH_CURRENT_THREAD instead, to avoid the <tt>DetachCurrentThread</tt> call but this will result in a memory leak instead. For further details inspect the source code in the java/director.swg library file.
+</p>
+
+<p>
+Macros can be defined on the commandline when compiling your C++ code, or alternatively added to the C++ wrapper file as shown below:
+</p>
+
+<div class="code">
+<pre>
+%insert("runtime") %{
+#define SWIG_JAVA_NO_DETACH_CURRENT_THREAD
+%}
+</pre>
+</div>
+
+<H2><a name="java_allprotected"></a>21.6 Accessing protected members</H2>
+
+
+<p>
+When using directors, the protected virtual methods are also wrapped. 
+These methods are wrapped with a protected Java proxy method, so the only way that Java code can access these is from within a Java class derived from the director class.
+</p>
+
+<p>
+Members which are protected and non-virtual can also be accessed when using the 'allprotected' mode.
+The allprotected mode requires directors and is turned on by setting the <tt>allprotected</tt> option in addition to the <tt>directors</tt> option in the %module directive, like this:
+</p>
+
+<div class="code">
+<pre>
+%module(directors="1", allprotected="1") modulename
+</pre>
+</div>
+
+<p>
+Protected member variables and methods (both static and non-static) will then be wrapped with protected access in the Java proxy class.
+</p>
+
+<p>
+<b>Note:</b> Neither the directors option nor the allprotected mode support types defined with protected scope.
+This includes any enums or typedefs declared in the protected section of the C++ class.
+</p>
+
+<p>
+The following simple example is a class with numerous protected members, including the constructor and destructor:
+</p>
+
+<div class="code">
+<pre>
+%module(directors="1", allprotected="1") example
+
+%feature("director") ProtectedBase;
+
+// Ignore use of unsupported types (those defined in the protected section)
+%ignore ProtectedBase::typedefs;
+
+%inline %{
+
+class ProtectedBase {
+protected:
+  ProtectedBase() {}
+  virtual ~ProtectedBase() {}
+  virtual void virtualMethod() const {}
+  void nonStaticMethod(double d) const {}
+  static void staticMethod(int i) {}
+  int instanceMemberVariable;
+  static int staticMemberVariable;
+
+  // unsupported: types defined with protected access and the methods/variables which use them
+  typedef int IntegerType;
+  IntegerType typedefs(IntegerType it) { return it; }
+};
+int ProtectedBase::staticMemberVariable = 10;
+
+%}
+
+</pre>
+</div>
+
+<p>
+Note that the <tt>IntegerType</tt> has protected scope and the members which use this type must be ignored as they cannot be wrapped.
+</p>
+
+<p>
+The proxy methods are protected, so the only way the protected members can be accessed is within a class that derives from the director class, such as the following:
+</p>
+
+<div class="code">
+<pre>
+class MyProtectedBase extends ProtectedBase
+{
+  public MyProtectedBase() {
+  }
+
+  public void accessProtected() {
+    virtualMethod();
+    nonStaticMethod(1.2);
+    staticMethod(99);
+
+    setInstanceMemberVariable(5);
+    int i = getInstanceMemberVariable();
+
+    setStaticMemberVariable(10);
+    i = getStaticMemberVariable();
+  }
+}
+</pre>
+</div>
+
+
+
+<H2><a name="common_customization"></a>21.7 Common customization features</H2>
 
 
 <p>
@@ -3360,7 +3602,7 @@ be awkward.  This section describes some common SWIG features that are used
 to improve the interface to existing C/C++ code.
 </p>
 
-<H3><a name="helper_functions"></a>20.6.1 C/C++ helper functions</H3>
+<H3><a name="helper_functions"></a>21.7.1 C/C++ helper functions</H3>
 
 
 <p>
@@ -3426,7 +3668,7 @@ hard to implement.  It is possible to improve on this using Java code, typemaps,
 customization features as covered in later sections, but sometimes helper functions are a quick and easy solution to difficult cases.  
 </p>
 
-<H3><a name="class_extension"></a>20.6.2 Class extension with %extend</H3>
+<H3><a name="class_extension"></a>21.7.2 Class extension with %extend</H3>
 
 
 <p>
@@ -3489,7 +3731,7 @@ Vector(2,3,4)
 in any way---the extensions only show up in the Java interface.
 </p>
 
-<H3><a name="exception_handling"></a>20.6.3 Exception handling with %exception and %javaexception</H3>
+<H3><a name="exception_handling"></a>21.7.3 Exception handling with %exception and %javaexception</H3>
 
 
 <p>
@@ -3537,7 +3779,7 @@ will produce a familiar looking Java exception:
 Exception in thread "main" java.lang.OutOfMemoryError: Not enough memory
         at exampleJNI.malloc(Native Method)
         at example.malloc(example.java:16)
-        at main.main(main.java:112)
+        at runme.main(runme.java:112)
 </pre>
 </div>
 
@@ -3561,7 +3803,7 @@ void *malloc(size_t nbytes);
 </div>
 
 <p>
-No declaration name is given to <tt>%exception</tt>, it is applied to all wrapper functions.
+If no declaration name is given to <tt>%exception</tt>, it is applied to all wrapper functions.
 The <tt> $action </tt> is a SWIG special variable and is replaced by the C/C++ function call being wrapped.
 The <tt> return $null; </tt> handles all native method return types, namely those that have a void return and those that do not. 
 This is useful for typemaps that will be used in native method returning all return types. 
@@ -3597,7 +3839,9 @@ public:
 In the example above, <tt>java.lang.Exception</tt> is a checked exception class and so ought to be declared in the throws clause of <tt>getitem</tt>.
 Classes can be specified for adding to the throws clause using <tt>%javaexception(classes)</tt> instead of <tt>%exception</tt>,
 where <tt>classes</tt> is a string containing one or more comma separated Java classes.
-The <tt>%nojavaexception</tt> feature is the equivalent to <tt>%noexception</tt> and clears previously declared exception handlers.
+The <tt>%clearjavaexception</tt> feature is the equivalent to <tt>%clearexception</tt> and clears previously declared exception handlers. 
+The <tt>%nojavaexception</tt> feature is the equivalent to <tt>%noexception</tt> and disables the exception handler.
+See <a href="Customization.html#Customization_clearing_features">Clearing features</a> for the difference on disabling and clearing features.
 </p>
 
 <div class="code">
@@ -3636,7 +3880,7 @@ public class FooClass {
 
 
 <p>
-The examples above first use the C JNI calling syntax then the C++ JNI calling syntax. The C++ calling syntax will not compile as C and also visa versa.
+The examples above first use the C JNI calling syntax then the C++ JNI calling syntax. The C++ calling syntax will not compile as C and also vice versa.
 It is however possible to write JNI calls which will compile under both C and C++ and is covered in the <a href="#typemaps_for_c_and_c++">Typemaps for both C and C++ compilation</a> section. 
 </p>
 
@@ -3646,7 +3890,7 @@ to raise exceptions.  See the <a href="Library.html#Library">SWIG Library</a> ch
 The typemap example <a href="#exception_typemap">Handling C++ exception specifications as Java exceptions</a> provides further exception handling capabilities.
 </p>
 
-<H3><a name="method_access"></a>20.6.4 Method access with %javamethodmodifiers</H3>
+<H3><a name="method_access"></a>21.7.4 Method access with %javamethodmodifiers</H3>
 
 
 <p>
@@ -3672,7 +3916,7 @@ protected static void protect_me() {
 </pre>
 </div>
 
-<H2><a name="tips_techniques"></a>20.7 Tips and techniques</H2>
+<H2><a name="tips_techniques"></a>21.8 Tips and techniques</H2>
 
 
 <p>
@@ -3682,7 +3926,7 @@ strings and arrays.   This chapter discusses the common techniques for
 solving these problems.
 </p>
 
-<H3><a name="input_output_parameters"></a>20.7.1 Input and output parameters using primitive pointers and references</H3>
+<H3><a name="input_output_parameters"></a>21.8.1 Input and output parameters using primitive pointers and references</H3>
 
 
 <p>
@@ -3856,7 +4100,7 @@ void foo(Bar *OUTPUT);
 will not have the intended effect since <tt>typemaps.i</tt> does not define an OUTPUT rule for <tt>Bar</tt>.
 </p>
 
-<H3><a name="simple_pointers"></a>20.7.2 Simple pointers</H3>
+<H3><a name="simple_pointers"></a>21.8.2 Simple pointers</H3>
 
 
 <p>
@@ -3922,7 +4166,7 @@ System.out.println("3 + 4 = " + result);
 See the <a href="Library.html#Library">SWIG Library</a> chapter for further details.
 </p>
 
-<H3><a name="c_arrays"></a>20.7.3 Wrapping C arrays with Java arrays</H3>
+<H3><a name="c_arrays"></a>21.8.3 Wrapping C arrays with Java arrays</H3>
 
 
 <p>
@@ -3936,7 +4180,7 @@ Let's consider an example:
 int array[4];
 void populate(int x[]) {
     int i;
-    for (i=0; i<4; i++)
+    for (i=0; i&lt;4; i++)
         x[i] = 100 + i;
 }
 </pre>
@@ -3989,7 +4233,7 @@ Please be aware that the typemaps in this library are not efficient as all the e
 There is an alternative approach using the SWIG array library and this is covered in the next section.
 </p>
 
-<H3><a name="unbounded_c_arrays"></a>20.7.4 Unbounded C Arrays</H3>
+<H3><a name="unbounded_c_arrays"></a>21.8.4 Unbounded C Arrays</H3>
 
 
 <p>
@@ -4083,7 +4327,7 @@ In Java, you would use the functions like this:
 <div class="code">
 <pre>
 SWIGTYPE_p_int array = example.new_intArray(10000000);  // Array of 10-million integers
-for (int i=0; i<10000; i++) {                           // Set some values
+for (int i=0; i&lt;10000; i++) {                           // Set some values
     example.intArray_setitem(array,i,i);
 }
 int sum = example.sumitems(array,10000);
@@ -4112,7 +4356,7 @@ For instance, you will be able to do this in Java:
 <div class="code">
 <pre>
 intArray array = new intArray(10000000);  // Array of 10-million integers
-for (int i=0; i<10000; i++) {             // Set some values
+for (int i=0; i&lt;10000; i++) {             // Set some values
     array.setitem(i,i);
 }
 int sum = example.sumitems(array.cast(),10000);
@@ -4134,7 +4378,124 @@ well suited for applications in which you need to create buffers,
 package binary data, etc.
 </p>
 
-<H2><a name="java_typemaps"></a>20.8 Java typemaps</H2>
+<H3><a name="java_heap_allocations"></a>21.8.5 Overriding new and delete to allocate from Java heap</H3>
+
+
+<p>
+Unlike some languages supported by SWIG, Java has a true garbage collection
+subsystem.  Other languages will free SWIG wrapped objects when their reference
+count reaches zero.  Java only schedules these objects for finalization, which
+may not occur for some time.  Because SWIG objects are allocated on the C
+heap, Java users may find the JVM memory use 
+quickly exceeds the assigned limits, as memory fills with unfinalized proxy
+objects.  Forcing garbage collection is clearly an undesirable solution.
+</p>
+
+<p>
+An elegant fix for C++ users is to override new and delete using the following
+code (here shown included in a SWIG interface file)
+</p>
+
+<div class="code">
+<pre>
+/* File: java_heap.i */
+%module test
+%{
+#include &lt;stdexcept&gt;
+#include "jni.h"
+
+/**
+ *  A stash area embedded in each allocation to hold java handles
+ */
+struct Jalloc {
+  jbyteArray jba;
+  jobject ref;
+};
+
+static JavaVM *cached_jvm = 0;
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved) {
+  cached_jvm = jvm;
+  return JNI_VERSION_1_2;
+}
+
+static JNIEnv * JNU_GetEnv() {
+  JNIEnv *env;
+  jint rc = cached_jvm-&gt;GetEnv((void **)&amp;env, JNI_VERSION_1_2);
+  if (rc == JNI_EDETACHED)
+    throw std::runtime_error("current thread not attached");
+  if (rc == JNI_EVERSION)
+    throw std::runtime_error("jni version not supported");
+  return env;
+}
+
+void * operator new(size_t t) {
+  if (cached_jvm != 0) {
+    JNIEnv *env = JNU_GetEnv();
+    jbyteArray jba = env-&gt;NewByteArray((int) t + sizeof(Jalloc));
+    if (env-&gt;ExceptionOccurred())
+      throw bad_alloc();
+    void *jbuffer = static_cast&lt;void *&gt;(env-&gt;GetByteArrayElements(jba, 0));
+    if (env-&gt;ExceptionOccurred())
+      throw bad_alloc();
+    Jalloc *pJalloc = static_cast&lt;Jalloc *&gt;(jbuffer);
+    pJalloc-&gt;jba = jba;
+    /* Assign a global reference so byte array will persist until delete'ed */
+    pJalloc-&gt;ref = env-&gt;NewGlobalRef(jba);
+    if (env-&gt;ExceptionOccurred())
+      throw bad_alloc();
+    return static_cast&lt;void *&gt;(static_cast&lt;char *&gt;(jbuffer) + sizeof(Jalloc));
+  }
+  else { /* JNI_OnLoad not called, use malloc and mark as special */
+    Jalloc *pJalloc = static_cast&lt;Jalloc *&gt;(malloc((int) t + sizeof(Jalloc)));
+    if (!pJalloc)
+      throw bad_alloc();
+    pJalloc-&gt;ref = 0;
+    return static_cast&lt;void *&gt;(
+        static_cast&lt;char *&gt;(static_cast&lt;void *&gt;(pJalloc)) + sizeof(Jalloc));
+  }
+}
+
+void operator delete(void *v) {
+  if (v != 0) {
+    void *buffer = static_cast&lt;void *&gt;( static_cast&lt;char *&gt;(v) - sizeof(Jalloc));
+    Jalloc *pJalloc = static_cast&lt;Jalloc *&gt;(buffer);
+    if (pJalloc-&gt;ref) {
+      JNIEnv *env = JNU_GetEnv();
+      env-&gt;DeleteGlobalRef(pJalloc-&gt;ref);
+      env-&gt;ReleaseByteArrayElements(pJalloc-&gt;jba, static_cast&lt;jbyte *&gt;(buffer), 0);
+    }
+    else {
+      free(buffer);
+    }
+  }
+}
+%}
+...
+</pre>
+</div>
+
+<p>
+This code caches the Java environment during initialization,
+and when new is called, a Java ByteArray is allocated to provide the
+SWIG objects with space in the Java heap.  This has the combined
+effect of re-asserting the Java virtual machine's limit on memory allocation,
+and puts additional pressure on the garbage collection system to run more
+frequently.
+This code is made slightly more complicated because allowances must be made
+if new is called before the JNI_OnLoad is executed.  This can happen during
+static class initialization, for example.  
+</p>
+
+<p>
+Unfortunately, because most Java implementations call malloc and free, this
+solution will not work for C wrapped structures.  However, you are free to
+make functions that allocate and free memory from the Java heap using this
+model and use these functions in place of malloc and free in your own
+code.
+</p>
+
+<H2><a name="java_typemaps"></a>21.9 Java typemaps</H2>
 
 
 <p>
@@ -4155,7 +4516,7 @@ Before proceeding, it should be stressed that typemaps are not a required
 part of using SWIG---the default wrapping behavior is enough in most cases.
 Typemaps are only used if you want to change some aspect of the generated code.
 
-<H3><a name="default_primitive_type_mappings"></a>20.8.1 Default primitive type mappings</H3>
+<H3><a name="default_primitive_type_mappings"></a>21.9.1 Default primitive type mappings</H3>
 
 
 <p>
@@ -4307,7 +4668,7 @@ However, the mappings allow the full range of values for each C type from Java.
 </p>
 
 
-<H3><a name="Java_default_non_primitive_typemaps"></a>20.8.2 Default typemaps for non-primitive types</H3>
+<H3><a name="Java_default_non_primitive_typemaps"></a>21.9.2 Default typemaps for non-primitive types</H3>
 
 
 <p>
@@ -4322,7 +4683,7 @@ So in summary, the C/C++ pointer to non-primitive types is cast into the 64 bit 
 The Java type is either the proxy class or type wrapper class.
 </p>
 
-<H3><a name="jvm64"></a>20.8.3 Sixty four bit JVMs</H3>
+<H3><a name="jvm64"></a>21.9.3 Sixty four bit JVMs</H3>
 
 
 <p>
@@ -4335,7 +4696,7 @@ Unfortunately it won't of course hold true for JNI code.
 </p>
 
 
-<H3><a name="what_is_typemap"></a>20.8.4 What is a typemap?</H3>
+<H3><a name="what_is_typemap"></a>21.9.4 What is a typemap?</H3>
 
 
 <p>
@@ -4458,7 +4819,7 @@ int c = example.count('e',"Hello World");
 </pre>
 </div>
 
-<H3><a name="typemaps_c_to_java_types"></a>20.8.5 Typemaps for mapping C/C++ types to Java types</H3>
+<H3><a name="typemaps_c_to_java_types"></a>21.9.5 Typemaps for mapping C/C++ types to Java types</H3>
 
 
 <p>
@@ -4718,12 +5079,15 @@ These are listed below:
 
 </table>
 
-<H3><a name="typemap_attributes"></a>20.8.6 Java typemap attributes</H3>
+<H3><a name="typemap_attributes"></a>21.9.6 Java typemap attributes</H3>
 
 
 <p>
-There is an additional typemap attribute that the Java module supports.
-This is the 'throws' attribute.
+There are a few additional typemap attributes that the Java module supports.
+</p>
+
+<p>
+The first of these is the 'throws' attribute.
 The throws attribute is optional and specified after the typemap name and contains one or more comma separated classes for adding to the throws clause for any methods that use that typemap.
 It is analogous to the <a href="#exception_handling">%javaexception</a> feature's throws attribute.
 </p>
@@ -4749,10 +5113,19 @@ See the <a href="#nan_exception_typemap">NaN exception example</a> for further u
 </p>
 
 <p>
-The "jnitype" typemap has the 'nopgcpp' attribute which can be used to suppress the generation of the <a href="java_pgcpp">premature garbage collection prevention parameter</a>.
+The "jtype" typemap has the optional 'nopgcpp' attribute which can be used to suppress the generation of the <a href="java_pgcpp">premature garbage collection prevention parameter</a>.
 </p>
 
-<H3><a name="special_variables"></a>20.8.7 Java special variables</H3>
+<p>
+The "javain" typemap has the optional 'pre', 'post' and 'pgcppname' attributes. These are used for generating code before and after the JNI call in the proxy class or module class. The 'pre' attribute contains code that is generated before the JNI call and the 'post' attribute contains code generated after the JNI call. The 'pgcppname' attribute is used to change the <a href="java_pgcpp">premature garbage collection prevention parameter</a> name passed to the JNI function. This is sometimes needed when the 'pre' typemap creates a temporary variable which is then passed to the JNI function.
+</p>
+
+<p>
+<a name="java_constructor_helper_function"></a>
+Note that when the 'pre' or 'post' attributes are specified and the associated type is used in a constructor, a constructor helper function is generated. This is necessary as the Java proxy constructor wrapper makes a call to a support constructor using a <i>this</i> call. In Java the <i>this</i> call must be the first statement in the constructor body. The constructor body thus calls the helper function and the helper function instead makes the JNI call, ensuring the 'pre' code is called before the JNI call is made. There is a <a href="#java_date_marshalling">Date marshalling</a> example showing 'pre', 'post' and 'pgcppname' attributes in action.
+</p>
+
+<H3><a name="special_variables"></a>21.9.7 Java special variables</H3>
 
 
 <p>
@@ -4765,11 +5138,14 @@ The Java module uses a few additional special variables:
 
 <p>
 <b><tt>$javaclassname</tt></b><br>
-<tt>$javaclassname</tt> is similar to <tt>$1_type</tt>. It expands to the class name for use in Java. 
-When wrapping a union, struct or class, it expands to the Java proxy class name.
-Otherwise it expands to the type wrapper class name.
-For example, <tt>$javaclassname</tt> is replaced by <tt>Foo</tt> when the wrapping a <tt>struct Foo</tt> or <tt>struct Foo *</tt> and 
-<tt>SWIGTYPE_p_unsigned_short</tt> is used for <tt>unsigned short *</tt>.
+This special variable works like the other <a href="Typemaps.html#Typemaps_special_variables">special variables</a>
+and <tt>$javaclassname</tt> is similar to <tt>$1_type</tt>. It expands to the class name for use in Java given a pointer. 
+SWIG wraps unions, structs and classes using pointers and in this case it expands to the Java proxy class name.
+For example, <tt>$javaclassname</tt> is replaced by the proxy classname <tt>Foo</tt> when wrapping a <tt>Foo *</tt> and 
+<tt>$&amp;javaclassname</tt> expands to the proxy classname when wrapping the C/C++ type <tt>Foo</tt> and <tt>$*javaclassname</tt>
+expands to the proxy classname when wrapping <tt>Foo *&amp;</tt>.
+If the type does not have an associated proxy class, it expands to the type wrapper class name, for example,
+<tt>SWIGTYPE_p_unsigned_short</tt> is generated when wrapping <tt>unsigned short *</tt>.
 </p>
 
 <p>
@@ -4892,7 +5268,7 @@ This special variable expands to the intermediary class name. Usually this is th
 unless the jniclassname attribute is specified in the <a href="Java.html#java_module_directive">%module directive</a>.
 </p>
 
-<H3><a name="typemaps_for_c_and_cpp"></a>20.8.8 Typemaps for both C and C++ compilation</H3>
+<H3><a name="typemaps_for_c_and_cpp"></a>21.9.8 Typemaps for both C and C++ compilation</H3>
 
 
 <p>
@@ -4929,7 +5305,7 @@ If you do not intend your code to be targeting both C and C++ then your typemaps
 </p>
 
 
-<H3><a name="java_code_typemaps"></a>20.8.9 Java code typemaps</H3>
+<H3><a name="java_code_typemaps"></a>21.9.9 Java code typemaps</H3>
 
 
 <p>
@@ -4945,6 +5321,9 @@ base (extends) for Java class: empty default
 Note that this typemap accepts a <tt>replace</tt> attribute as an optional flag. When set to "1", it will replace/override any C++ base classes
 that might have been parsed. If this flag is not specified and there are C++ base classes, then a multiple inheritance warning
 is issued and the code in the typemap is ignored.
+The typemap also accepts a <tt>notderived</tt> attribute as an optional flag. When set to "1", it will not apply to classes that
+are derived from a C++ base. 
+When used with the SWIGTYPE type, it is useful for giving a common base for all proxy classes, that is, providing a base class that sits in between all proxy classes and the Java base class <tt>Object</tt> for example: <tt>%typemap(javabase, notderived="1") SWIGTYPE "CommonBase"</tt>.
 </div>
 
 <p><tt>%typemap(javabody)</tt></p>
@@ -5125,7 +5504,7 @@ For the typemap to be used in all type wrapper classes, all the different types 
 Again this is the same that is in "<tt>java.swg</tt>", barring the method modifier for <tt>getCPtr</tt>.
 </p>
 
-<H3><a name="java_directors_typemaps"></a>20.8.10 Director specific typemaps</H3>
+<H3><a name="java_directors_typemaps"></a>21.9.10 Director specific typemaps</H3>
 
 
 <p>
@@ -5350,7 +5729,7 @@ The basic strategy here is to provide a default package typemap for the majority
 
 </div>
 
-<H2><a name="typemap_examples"></a>20.9 Typemap Examples</H2>
+<H2><a name="typemap_examples"></a>21.10 Typemap Examples</H2>
 
 
 <p>
@@ -5360,7 +5739,7 @@ the SWIG library.
 </p>
 
 
-<H3><a name="simpler_enum_classes"></a>20.9.1 Simpler Java enums for enums without initializers</H3>
+<H3><a name="simpler_enum_classes"></a>21.10.1 Simpler Java enums for enums without initializers</H3>
 
 
 <p>
@@ -5439,7 +5818,7 @@ This would be done by using the original versions of these typemaps in "enums.sw
 </p>
 
 
-<H3><a name="exception_typemap"></a>20.9.2 Handling C++ exception specifications as Java exceptions</H3>
+<H3><a name="exception_typemap"></a>21.10.2 Handling C++ exception specifications as Java exceptions</H3>
 
 
 <p>
@@ -5564,7 +5943,7 @@ We could alternatively have used <tt>%rename</tt> to rename <tt>what()</tt> into
 </p>
 
 
-<H3><a name="nan_exception_typemap"></a>20.9.3 NaN Exception - exception handling for a particular type</H3>
+<H3><a name="nan_exception_typemap"></a>21.10.3 NaN Exception - exception handling for a particular type</H3>
 
 
 <p>
@@ -5631,6 +6010,43 @@ public class example {
 <p>
 Note that the "javain" typemap is used for every occurrence of a <tt>float</tt> being used as an input.
 Of course, we could have targeted the typemap at a particular parameter by using <tt>float first</tt>, say, instead of just <tt>float</tt>.
+</p>
+
+<p>
+The exception checking could alternatively have been placed into the 'pre' attribute that the "javain" typemap supports.
+The "javain" typemap above could be replaced with the following:
+</p>
+
+<div class="code">
+<pre>
+%typemap(javain, pre="    $module.CheckForNaN($javainput);") float "$javainput"
+</pre>
+</div>
+
+<p>
+which would modify the <tt>calculate</tt> function to instead be generated as:
+</p>
+
+<div class="code">
+<pre>
+public class example {
+  ...
+  public static boolean calculate(float first, float second) {
+    example.CheckForNaN(first);
+    example.CheckForNaN(second);
+    {
+      return exampleJNI.calculate(first, second);
+    }
+  }
+}
+</pre>
+</div>
+
+<p>
+See the <a href="#java_date_marshalling">Date marshalling example</a> for an example using further "javain" typemap attributes.
+</p>
+
+<p>
 If we decide that what we actually want is a checked exception instead of a runtime exception, we can change this easily enough.
 The proxy method that uses <tt>float</tt> as an input, must then add the exception class to the throws clause.
 SWIG can handle this as it supports the 'throws' <a href="#typemap_attributes">typemap attribute</a> for specifying classes for the throws clause.
@@ -5682,7 +6098,7 @@ If we were a martyr to the JNI cause, we could replace the succinct code within 
 If we had, we would have put it in the "in" typemap which, like all JNI and Java typemaps, also supports the 'throws' attribute.
 </p>
 
-<H3><a name="converting_java_string_arrays"></a>20.9.4 Converting Java String arrays to char ** </H3>
+<H3><a name="converting_java_string_arrays"></a>21.10.4 Converting Java String arrays to char ** </H3>
 
 
 <p>
@@ -5703,7 +6119,7 @@ The following SWIG interface file allows a Java String array to be used as a <tt
     for (i = 0; i&lt;size; i++) {
         jstring j_string = (jstring)(*jenv)-&gt;GetObjectArrayElement(jenv, $input, i);
         const char * c_string = (*jenv)-&gt;GetStringUTFChars(jenv, j_string, 0);
-        $1[i] = malloc(strlen((c_string)+1)*sizeof(const char *));
+        $1[i] = malloc((strlen(c_string)+1)*sizeof(char));
         strcpy($1[i], c_string);
         (*jenv)-&gt;ReleaseStringUTFChars(jenv, j_string, c_string);
         (*jenv)-&gt;DeleteLocalRef(jenv, j_string);
@@ -5743,7 +6159,7 @@ The following SWIG interface file allows a Java String array to be used as a <tt
 %typemap(jstype) char ** "String[]"
 
 /* These 2 typemaps handle the conversion of the jtype to jstype typemap type
-   and visa versa */
+   and vice versa */
 %typemap(javain) char ** "$javainput"
 %typemap(javaout) char ** {
     return $jnicall;
@@ -5776,9 +6192,9 @@ When this module is compiled, our wrapped C functions can be used by the followi
 </p>
 
 <div class="code"><pre>
-// File main.java
+// File runme.java
 
-public class main {
+public class runme {
 
   static {
     try {
@@ -5804,7 +6220,7 @@ When compiled and run we get:
 </p>
 
 <div class="code"><pre>
-$ java main
+$ java runme
 argv[0] = Cat
 argv[1] = Dog
 argv[2] = Cow
@@ -5826,7 +6242,7 @@ Lastly the "jni", "jtype" and "jstype" typemaps are also required to specify
 what Java types to use.
 </p>
 
-<H3><a name="expanding_java_object"></a>20.9.5 Expanding a Java object to multiple arguments</H3>
+<H3><a name="expanding_java_object"></a>21.10.5 Expanding a Java object to multiple arguments</H3>
 
 
 <p>
@@ -5867,7 +6283,7 @@ previous example's typemaps:
     for (i = 0; i&lt;$1; i++) {
         jstring j_string = (jstring)(*jenv)-&gt;GetObjectArrayElement(jenv, $input, i);
         const char * c_string = (*jenv)-&gt;GetStringUTFChars(jenv, j_string, 0);
-        $2[i] = malloc(strlen((c_string)+1)*sizeof(const char *));
+        $2[i] = malloc((strlen(c_string)+1)*sizeof(char));
         strcpy($2[i], c_string);
         (*jenv)-&gt;ReleaseStringUTFChars(jenv, j_string, c_string);
         (*jenv)-&gt;DeleteLocalRef(jenv, j_string);
@@ -5908,7 +6324,7 @@ example.foo(new String[]{"red", "green", "blue", "white"});
 </div>
 
 
-<H3><a name="using_typemaps_return_arguments"></a>20.9.6 Using typemaps to return arguments</H3>
+<H3><a name="using_typemaps_return_arguments"></a>21.10.6 Using typemaps to return arguments</H3>
 
 
 <p>
@@ -5995,9 +6411,9 @@ The following Java program demonstrates this:
 </p>
 
 <div class="code"><pre>
-// File: main.java
+// File: runme.java
 
-public class main {
+public class runme {
 
   static {
     try {
@@ -6022,11 +6438,11 @@ When compiled and run we get:
 </p>
 
 <div class="code"><pre>
-$ java main
+$ java runme
 1 12.0  340.0
 </pre></div>
 
-<H3><a name="adding_downcasts"></a>20.9.7 Adding Java downcasts to polymorphic return types</H3>
+<H3><a name="adding_downcasts"></a>21.10.7 Adding Java downcasts to polymorphic return types</H3>
 
 
 <p>
@@ -6082,7 +6498,7 @@ We get:
 <div class="code"><pre>
 Ambulance started
 java.lang.ClassCastException
-        at main.main(main.java:16)
+        at runme.main(runme.java:16)
 </pre></div>
 
 <p>
@@ -6232,7 +6648,7 @@ SWIG usually generates code which constructs the proxy classes using Java code a
 Note that the JNI code above uses a number of string lookups to call a constructor, whereas this would not occur using byte compiled Java code.
 </p>
 
-<H3><a name="adding_equals_method"></a>20.9.8 Adding an equals method to the Java classes</H3>
+<H3><a name="adding_equals_method"></a>21.10.8 Adding an equals method to the Java classes</H3>
 
 
 <p>
@@ -6276,7 +6692,7 @@ System.out.println("foo1? " + foo1.equals(foo2));
 </div>
 
 
-<H3><a name="void_pointers"></a>20.9.9 Void pointers and a common Java base class</H3>
+<H3><a name="void_pointers"></a>21.10.9 Void pointers and a common Java base class</H3>
 
 
 <p>
@@ -6335,7 +6751,7 @@ This example contains some useful functionality which you may want in your code.
     <li> It also has a function which effectively implements a cast from the type of the proxy/type wrapper class to a void pointer. This is necessary for passing a proxy class or a type wrapper class to a function that takes a void pointer.
 </ul>
 
-<H3><a name="struct_pointer_pointer"></a>20.9.10 Struct pointer to pointer</H3>
+<H3><a name="struct_pointer_pointer"></a>21.10.10 Struct pointer to pointer</H3>
 
 
 <p>
@@ -6515,7 +6931,7 @@ The C functional interface has been completely morphed into an object-oriented i
 the Butler class would behave much like any pure Java class and feel more natural to Java users.
 </p>
 
-<H3><a name="java_memory_management_member_variables"></a>20.9.11 Memory management when returning references to member variables</H3>
+<H3><a name="java_memory_management_member_variables"></a>21.10.11 Memory management when returning references to member variables</H3>
 
 
 <p>
@@ -6638,7 +7054,7 @@ public class Bike {
 Note the <tt>addReference</tt> call.
 </p>
 
-<H3><a name="java_memory_management_objects"></a>20.9.12 Memory management for objects passed to the C++ layer</H3>
+<H3><a name="java_memory_management_objects"></a>21.10.12 Memory management for objects passed to the C++ layer</H3>
 
 
 <p>
@@ -6672,7 +7088,7 @@ and usage from C++
     Container container;
     Element element(20);
     container.setElement(&amp;element);
-    cout &lt;&lt; "element.value: " &lt;&lt; container.getElement()->value &lt;&lt; endl;
+    cout &lt;&lt; "element.value: " &lt;&lt; container.getElement()-&gt;value &lt;&lt; endl;
 </pre>
 </div>
 
@@ -6754,8 +7170,184 @@ The 'javacode' typemap simply adds in the specified code into the Java proxy cla
 </div>
 
 
+<H3><a name="java_date_marshalling"></a>21.10.13 Date marshalling using the javain typemap and associated attributes</H3>
 
-<H2><a name="java_directors_faq"></a>20.10 Living with Java Directors</H2>
+
+<p>
+The <a href="#nan_exception_typemap">NaN Exception example</a> is a simple example of the "javain" typemap and its 'pre' attribute.
+This example demonstrates how a C++ date class, say <tt>CDate</tt>, can be mapped onto the standard Java date class,
+<tt>java.util.GregorianCalendar</tt> by using the 'pre', 'post' and 'pgcppname' attributes of the "javain" typemap.
+The idea is that the <tt>GregorianCalendar</tt> is used wherever the C++ API uses a <tt>CDate</tt>.
+Let's assume the code being wrapped is as follows:
+</p>
+
+<div class="code">
+<pre>
+class CDate {
+public:
+  CDate(int year, int month, int day);
+  int getYear();
+  int getMonth();
+  int getDay();
+  ...
+};
+struct Action {
+  static int doSomething(const CDate &amp;dateIn, CDate &amp;dateOut);
+  Action(const CDate &amp;date, CDate &amp;dateOut);
+};
+</pre>
+</div>
+
+<p>
+Note that <tt>dateIn</tt> is const and therefore read only and <tt>dateOut</tt> is a non-const output type.
+</p>
+
+<p>
+First let's look at the code that is generated by default, where the Java proxy class <tt>CDate</tt> is used in the proxy interface:
+</p>
+
+<div class="code">
+<pre>
+public class Action {
+  ...
+  public static int doSomething(CDate dateIn, CDate dateOut) {
+    return exampleJNI.Action_doSomething(CDate.getCPtr(dateIn), dateIn, 
+                                         CDate.getCPtr(dateOut), dateOut);
+  }
+
+  public Action(CDate date, CDate dateOut) {
+    this(exampleJNI.new_Action(CDate.getCPtr(date), date, 
+                               CDate.getCPtr(dateOut), dateOut), true);
+  }
+}
+</pre>
+</div>
+
+<p>
+The <tt>CDate &amp;</tt> and <tt>const CDate &amp;</tt> Java code is generated from the following two default typemaps:
+</p>
+
+<div class="code">
+<pre>
+%typemap(jstype) SWIGTYPE &amp; "$javaclassname"
+%typemap(javain) SWIGTYPE &amp; "$javaclassname.getCPtr($javainput)"
+</pre>
+</div>
+
+<p>
+where '$javaclassname' is translated into the proxy class name, <tt>CDate</tt> and '$javainput' is translated into the name of the parameter, eg <tt>dateIn</tt>.
+From Java, the intention is then to call into a modifed API with something like:
+</p>
+
+<div class="code">
+<pre>
+java.util.GregorianCalendar calendarIn = 
+    new java.util.GregorianCalendar(2011, java.util.Calendar.APRIL, 13, 0, 0, 0);
+java.util.GregorianCalendar calendarOut = new java.util.GregorianCalendar();
+
+// Note in calls below, calendarIn remains unchanged and calendarOut 
+// is set to a new value by the C++ call
+Action.doSomething(calendarIn, calendarOut);
+Action action = new Action(calendarIn, calendarOut);
+</pre>
+</div>
+
+<p>
+To achieve this mapping, we need to alter the default code generation slightly so that at the Java layer, 
+a <tt>GregorianCalendar</tt> is converted into a <tt>CDate</tt>. 
+The JNI intermediary layer will still take a pointer to the underlying <tt>CDate</tt> class.
+The typemaps to achieve this are shown below.
+</p>
+
+<div class="code">
+<pre>
+%typemap(jstype) const CDate&amp; "java.util.GregorianCalendar"
+%typemap(javain, 
+         pre="    CDate temp$javainput = new CDate($javainput.get(java.util.Calendar.YEAR), "
+             "$javainput.get(java.util.Calendar.MONTH), $javainput.get(java.util.Calendar.DATE));", 
+         pgcppname="temp$javainput") const CDate &amp;
+         "$javaclassname.getCPtr(temp$javainput)"
+
+%typemap(jstype) CDate&amp; "java.util.Calendar"
+%typemap(javain, 
+         pre="    CDate temp$javainput = new CDate($javainput.get(java.util.Calendar.YEAR), "
+             "$javainput.get(java.util.Calendar.MONTH), $javainput.get(java.util.Calendar.DATE));", 
+         post="      $javainput.set(temp$javainput.getYear(), temp$javainput.getMonth(), "
+              "temp$javainput.getDay(), 0, 0, 0);", 
+         pgcppname="temp$javainput") CDate &amp;
+         "$javaclassname.getCPtr(temp$javainput)"
+</pre>
+</div>
+
+<p>
+The resulting generated proxy code in the <tt>Action</tt> class follows:
+ </p>
+
+<div class="code">
+<pre>
+public class Action {
+  ...
+  public static int doSomething(java.util.GregorianCalendar dateIn, 
+                                java.util.Calendar dateOut) {
+    CDate tempdateIn = new CDate(dateIn.get(java.util.Calendar.YEAR), 
+                                 dateIn.get(java.util.Calendar.MONTH), 
+                                 dateIn.get(java.util.Calendar.DATE));
+    CDate tempdateOut = new CDate(dateOut.get(java.util.Calendar.YEAR), 
+                                  dateOut.get(java.util.Calendar.MONTH), 
+                                  dateOut.get(java.util.Calendar.DATE));
+    try {
+      return exampleJNI.Action_doSomething(CDate.getCPtr(tempdateIn), tempdateIn, 
+                                           CDate.getCPtr(tempdateOut), tempdateOut);
+    } finally {
+      dateOut.set(tempdateOut.getYear(), tempdateOut.getMonth(), tempdateOut.getDay(), 0, 0, 0);
+    }
+  }
+
+  static private long SwigConstructAction(java.util.GregorianCalendar date, 
+                                          java.util.Calendar dateOut) {
+    CDate tempdate = new CDate(date.get(java.util.Calendar.YEAR), 
+                               date.get(java.util.Calendar.MONTH), 
+                               date.get(java.util.Calendar.DATE));
+    CDate tempdateOut = new CDate(dateOut.get(java.util.Calendar.YEAR), 
+                                  dateOut.get(java.util.Calendar.MONTH), 
+                                  dateOut.get(java.util.Calendar.DATE));
+    try {
+      return exampleJNI.new_Action(CDate.getCPtr(tempdate), tempdate, 
+                                   CDate.getCPtr(tempdateOut), tempdateOut);
+    } finally {
+      dateOut.set(tempdateOut.getYear(), tempdateOut.getMonth(), tempdateOut.getDay(), 0, 0, 0);
+    }
+  }
+
+  public Action(java.util.GregorianCalendar date, java.util.Calendar dateOut) {
+    this(Action.SwigConstructAction(date, dateOut), true);
+  }
+}
+</pre>
+</div>
+
+<p>
+A few things to note:
+</p>
+<ul>
+  <li> The "javatype" typemap has changed the parameter type to <tt>java.util.GregorianCalendar</tt> or <tt>java.util.Calendar</tt> instead of the default generated <tt>CDate</tt> proxy.
+  <li> The code in the 'pre' attribute appears before the JNI call (<tt>exampleJNI.new_Action</tt> / <tt>exampleJNI.Action_doSomething</tt>).
+  <li> The code in the 'post' attribute appears after the JNI call.
+  <li> A try .. finally block is generated with the JNI call in the try block and 'post' code in the finally block.
+  The alternative of just using a temporary variable for the return value from the JNI call and the 'post' code being generated before the
+  return statement is not possible given that the JNI call is in one line and comes from the "javaout" typemap.
+  <li> The temporary variables in the "javain" typemaps are called <tt>temp$javain</tt>, where "$javain" is replaced with the parameter name.
+  "$javain" is used to mangle the variable name so that more than one <tt>CDate &amp;</tt> type can be used as a parameter in a method, otherwise two or 
+  more local variables with the same name would be generated.
+  <li> The use of the "javain" typemap causes a constructor helper function (<tt>SwigConstructAction</tt>) to be generated.
+  This allows Java code to be called before the JNI call and is required as the Java compiler won't compile code inserted before the 'this' call.
+  <li> The 'pgcppname' attribute is used to modify the object being passed as the <a href="#java_pgcpp">premature garbage collection prevention parameter</a> (the 2nd and 4th parameters in the JNI calls).
+</ul>
+
+
+
+
+<H2><a name="java_directors_faq"></a>21.11 Living with Java Directors</H2>
 
 
 <p>
@@ -6936,10 +7528,10 @@ public abstract class UserVisibleFoo extends Foo {
   </li>
 </ol>
 
-<H2><a name="odds_ends"></a>20.11 Odds and ends</H2>
+<H2><a name="odds_ends"></a>21.12 Odds and ends</H2>
 
 
-<H3><a name="javadoc_comments"></a>20.11.1 JavaDoc comments</H3>
+<H3><a name="javadoc_comments"></a>21.12.1 JavaDoc comments</H3>
 
 
 <p>
@@ -6995,7 +7587,7 @@ public class Barmy {
 
 
 
-<H3><a name="functional_interface"></a>20.11.2 Functional interface without proxy classes</H3>
+<H3><a name="functional_interface"></a>21.12.2 Functional interface without proxy classes</H3>
 
 
 <p>
@@ -7056,7 +7648,7 @@ All destructors have to be called manually for example the <tt>delete_Foo(foo)</
 </p>
 
 
-<H3><a name="using_own_jni_functions"></a>20.11.3 Using your own JNI functions</H3>
+<H3><a name="using_own_jni_functions"></a>21.12.3 Using your own JNI functions</H3>
 
 
 <p>
@@ -7106,7 +7698,7 @@ This directive is only really useful if you want to mix your own hand crafted JN
 </p>
 
 
-<H3><a name="performance"></a>20.11.4 Performance concerns and hints</H3>
+<H3><a name="performance"></a>21.12.4 Performance concerns and hints</H3>
 
 
 <p>
@@ -7127,8 +7719,29 @@ However, you will have to be careful about memory management and make sure that 
 This method normally calls the C++ destructor or <tt>free()</tt> for C code.
 </p>
 
+<H3><a name="java_debugging"></a>21.12.5 Debugging</H3>
 
-<H2><a name="java_examples"></a>20.12 Examples</H2>
+
+<p>
+The generated code can be debugged using both a Java debugger and a C++ debugger using the usual debugging techniques.
+Breakpoints can be set in either Java or C++ code and so both can be debugged simultaneously.
+Most debuggers do not understand both Java and C++, with one noteable exception of Sun Studio, 
+where it is possible to step from Java code into a JNI method within one environment.
+</p>
+
+<p>
+Alternatively, debugging can involve placing debug printout statements in the JNI layer using the <tt>%exception</tt> directive.
+See the <a href="Customization.html#Customization_exception_special_variables">special variables for %exception</a> section.
+Many of the default typemaps can also be overidden and modified for adding in extra logging/debug display information.
+</p>
+
+<p>
+The <tt>-Xcheck:jni</tt> and <tt>-Xcheck:nabounds</tt> Java executable options are useful for debugging to make sure the JNI code is behaving.
+The -verbose:jni and -verbose:gc are also useful options for monitoring code behaviour.
+</p>
+
+
+<H2><a name="java_examples"></a>21.13 Examples</H2>
 
 
 <p>
@@ -7136,7 +7749,9 @@ The directory Examples/java has a number of further examples.
 Take a look at these if you want to see some of the techniques described in action.
 The Examples/index.html file in the parent directory contains the SWIG Examples Documentation and is a useful starting point. 
 If your SWIG installation went well Unix users should be able to type <tt>make</tt> in each example directory, then <tt>java main</tt> to see them running.
-For the benefit of Windows users, there are also Visual C++ project files in a couple of the <a href="Windows.html#examples">Windows Examples</a>.
+For the benefit of Windows users, there are also Visual C++ project files in a couple of the <a href="Windows.html#Windows_examples">Windows Examples</a>.
+There are also many regression tests in the Examples/test-suite directory.
+Many of these have runtime tests in the java subdirectory.
 </p>
 
 </body>

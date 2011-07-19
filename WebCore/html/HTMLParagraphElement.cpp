@@ -1,7 +1,7 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,25 +23,25 @@
 #include "config.h"
 #include "HTMLParagraphElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLParagraphElement::HTMLParagraphElement(const QualifiedName& tagName, Document *doc)
-    : HTMLElement(tagName, doc)
+inline HTMLParagraphElement::HTMLParagraphElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(pTag));
 }
 
-bool HTMLParagraphElement::checkDTD(const Node* newChild)
+PassRefPtr<HTMLParagraphElement> HTMLParagraphElement::create(const QualifiedName& tagName, Document* document)
 {
-    return inInlineTagList(newChild) || (document()->inCompatMode() && newChild->hasTagName(tableTag));
+    return adoptRef(new HTMLParagraphElement(tagName, document));
 }
 
 bool HTMLParagraphElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -53,7 +53,7 @@ bool HTMLParagraphElement::mapToEntry(const QualifiedName& attrName, MappedAttri
     return HTMLElement::mapToEntry(attrName, result);
 }
 
-void HTMLParagraphElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLParagraphElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == alignAttr) {
         String v = attr->value();
@@ -67,16 +67,6 @@ void HTMLParagraphElement::parseMappedAttribute(MappedAttribute *attr)
             addCSSProperty(attr, CSSPropertyTextAlign, v);
     } else
         HTMLElement::parseMappedAttribute(attr);
-}
-
-String HTMLParagraphElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLParagraphElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
 }
 
 }

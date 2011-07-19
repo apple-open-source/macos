@@ -1,0 +1,4533 @@
+2009-07-28  Ludovic Rousseau
+
+	* [r4347] README, configure.in: release 1.3.11
+	* [r4346] src/ccid.c, src/ccid_usb.c, src/ccid_usb.h,
+	  src/ifdhandler.c: change InterruptRead() to add a timeout
+	  parameter. We need a short timeout in ccid_open_hack_pre()
+	* [r4345] src/ccid_usb.c: InterruptRead(): also log reader_index
+	  (instead of Lun) for debug
+
+2009-07-27  Ludovic Rousseau
+
+	* [r4343] src/ccid_usb.c: OpenUSBByName(): do not modify the device
+	  name. The same pointer is used by pcscd
+	* [r4342] src/ccid_usb.c: InterruptRead(): use usb_strerror() to
+	  display the error message in text instead of just decimal
+
+2009-07-21  Ludovic Rousseau
+
+	* [r4341] examples/scardcontrol.c: send a "secoder info" command if
+	  the reader supports FEATURE_MCT_READERDIRECT
+	* [r4340] examples/scardcontrol.c: parse FEATURE_IFD_PIN_PROPERTIES
+	  and FEATURE_MCT_READERDIRECT tags
+	* [r4339] examples/scardcontrol.c: use a swicth to parse the
+	  CM_IOCTL_GET_FEATURE_REQUEST TLV tag
+	* [r4338] examples/scardcontrol.c: check a card is present only
+	  _after_ SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)
+	* [r4337] examples/scardcontrol.c: update copyright date
+	* [r4336] examples/scardcontrol.c: document how to select a reader
+	  using a command line argument
+	* [r4335] examples/scardcontrol.c: check the error code returned by
+	  SCardControl(CM_IOCTL_GET_FEATURE_REQUEST)
+
+2009-07-20  Ludovic Rousseau
+
+	* [r4325] src/ccid.c: the disable card movements notification
+	  "hack" for GemProx DU is no more needed
+
+2009-07-18  Ludovic Rousseau
+
+	* [r4323] MacOSX/configure: update Copyright date
+	* [r4322] MacOSX/configure: try to use a static link with libusb
+	  even if libusb-config is found
+
+2009-07-17  Ludovic Rousseau
+
+	* [r4318] readers/Panasonic_USB_Smart_Card_Reader_7A-Smart.txt,
+	  readers/supported_readers.txt: add Panasonic USB Smart Card
+	  Reader 7A-Smart
+
+2009-07-07  Ludovic Rousseau
+
+	* [r4313] MacOSX/configure: ifd-ccid-foobar ->
+	  ifd-ccid-foobar.bundle for the bundle name
+	* [r4311] readers/ATMEL_AT91SC192192CT-USB.txt,
+	  readers/supported_readers.txt: add ATMEL_AT91SC192192CT-USB.txt
+
+2009-07-06  Ludovic Rousseau
+
+	* [r4310] configure.in, src/Makefile.am: add --disable-class
+	  argument to build a NON class driver
+	* [r4309] src/create_Info_plist.pl: remove debug line
+	* [r4308] src/Info.plist.src, src/create_Info_plist.pl: add a
+	  --no-class argument so that the Info.plist does not define a
+	  Class driver. Default is class driver.
+	* [r4307] src/Info.plist.src: default value for ifdCapabilities is
+	  now 0x00000000 since pcscd should use libhal instead of udev
+	  hotplug
+	* [r4306] src/Info.plist.src, src/Makefile.am,
+	  src/create_Info_plist.pl: extend create_Info_plist.pl to use
+	  --ifdCapabilities= --target= --version= --bundle= instead of sed
+	  expression in the Makefile
+	* [r4304] readers/Alcor_SCR001.txt, readers/supported_readers.txt:
+	  add Alcor Micro SCR001
+	* [r4303] MacOSX/configure: document the use of --enable-bundle=
+	* [r4302] configure.in: check if strlcat is provided by the system
+	  
+	  strlcpycat.h:20: warning: redundant redeclaration of ‘strlcat’
+
+2009-07-03  Ludovic Rousseau
+
+	* [r4295] src/ccid_usb.c, src/ifdhandler.c: If the driver fails to
+	  open a device (wrong interface number in the libhal scheme for
+	  example) then return IFD_NO_SUCH_DEVICE instead of the generic
+	  error IFD_COMMUNICATION_ERROR
+
+2009-07-01  Ludovic Rousseau
+
+	* [r4292] src/defs.h: use int instead of DWORD for nATRLength in
+	  CCID_DESC structure. Gain 8 bytes on the structure size. Thanks
+	  to pahole(1)
+
+2009-06-29  Ludovic Rousseau
+
+	* [r4284] src/ccid_usb.c: InterruptRead(): use PERIODIC instead of
+	  COMM debug level to not pollute to much the logs for this
+	  _periodic_ call
+
+2009-06-26  Ludovic Rousseau
+
+	* [r4282] src/ifdhandler.c: IFDHControl(): add support of
+	  FEATURE_MCT_READERDIRECT
+	  
+	  Only the Kobil TriB@nk reader supports this feature for now. This
+	  is used for the Secoder functionality in connected mode.
+	* [r4281] src/ccid.c: ccid_open_hack_pre(): do not call
+	  InterruptRead() with a KOBIL_TRIBANK The call do not timeout and
+	  blocs until a card is inserted (on Mac OS X)
+	* [r4280] src/ccid.h: #define KOBIL_TRIBANK
+	* [r4279] src/ccid_ifdhandler.h: #define
+	  IOCTL_FEATURE_MCT_READERDIRECT
+
+2009-06-25  Ludovic Rousseau
+
+	* [r4276] readers/Aktiv_Rutoken_ECP.txt,
+	  readers/supported_readers.txt: add Aktiv Rutoken ECP
+	* [r4274] MacOSX/configure: typo in comment
+
+2009-06-20  Ludovic Rousseau
+
+	* [r4267] readers/supported_readers.txt: add missing ':' separator
+	* [r4266] src/ccid_ifdhandler.h: define
+	  IOCTL_FEATURE_IFD_PIN_PROPERTIES only if
+	  FEATURE_IFD_PIN_PROPERTIES is defined (pcsc-lite version >=
+	  1.5.3)
+
+2009-06-19  Ludovic Rousseau
+
+	* [r4263] readers/Synnix_STD200.txt, readers/supported_readers.txt:
+	  add Synnix STD200
+
+2009-06-16  Ludovic Rousseau
+
+	* [r4260] readers/supported_readers.txt: add 2 Neowave Weneo tokens
+	* [r4257] readers/Neowave_Weneo2.txt: another Neowave token - 512MB
+	  flash storage - OS is "IBM JCOP41 Standard" - 32k internal memory
+
+2009-06-14  Ludovic Rousseau
+
+	* [r4256] src/utils.h: rename variable index in idx
+	  
+	  utils.h:32: warning: declaration of 'index' shadows a global
+	  declaration
+	* [r4255] src/ifdhandler.c: IFDHControl(): use the correct return
+	  size for IOCTL_FEATURE_IFD_PIN_PROPERTIES
+
+2009-06-13  Ludovic Rousseau
+
+	* [r4254] readers/Kobil_EMV_CAP.txt: new firmware
+
+2009-05-29  Ludovic Rousseau
+
+	* [r4235] src/commands.c: CmdXfrBlockAPDU_extended(): Correctly ask
+	  for the next extended response block.
+	  
+	  Thanks to Harm Braams for the bug report
+
+2009-05-27  Ludovic Rousseau
+
+	* [r4229] src/ccid_usb.c: ccid_check_firmware(): reindent a line
+	* [r4228] src/ccid_usb.c: OpenUSBByName(): no need to get a pointer
+	  on the device serial number from the HAL string
+	* [r4227] src/ccid_usb.c: ACS ACR122U-WB-R with firmware < 2.06 are
+	  bogus: APDU with 0x7B (123) bytes expected do not work with a
+	  14443 card. The reader returns SW=63 00 instead.
+	* [r4226] readers/ACR122U_PICC.txt: new firmware
+
+2009-05-25  Ludovic Rousseau
+
+	* [r4224] Makefile.am, configure.in: generate a .bz2 archive only
+
+2009-05-13  Ludovic Rousseau
+
+	* [r4204] readers/Softforum_XecureHSM.txt,
+	  readers/Softforum__XecureHSM.txt: remove a _ in the filename
+	* [r4203] readers/Samsung_XecureHSM.txt,
+	  readers/Softforum__XecureHSM.txt, readers/supported_readers.txt:
+	  rename Samsung XecureHSM in Softforum XecureHSM
+
+2009-05-12  Ludovic Rousseau
+
+	* [r4197] readers/Samsung_XecureHSM.txt,
+	  readers/supported_readers.txt: add Samsung XecureHSM
+
+2009-05-10  Ludovic Rousseau
+
+	* [r4195] src/ccid.c: ccid_open_hack_pre(): call InterruptRead()
+	  for all CCID device Makes the Broadcom 5880 work a bit better
+	  (but the reader is still bogus) ---This line, and those below,
+	  will be ignored--
+	  
+	  M src/ccid.c
+
+2009-05-08  Ludovic Rousseau
+
+	* [r3494] readers/C3PO_LTC32_USBv2_old.txt, readers/Makefile.am:
+	  C3PO_LTC32_USBv2_old.txt is a duplicate of C3PO_TLTC2USB.txt
+
+2009-05-07  Ludovic Rousseau
+
+	* [r3490] readers/LTC32.txt: duplicate of C3PO_LTC32_USBv2.txt
+	* [r3488] src/ccid.h, src/ccid_serial.c, src/ccid_usb.c,
+	  src/commands.c: do not power up a card with a voltage not
+	  supported by the reader
+
+2009-05-02  Ludovic Rousseau
+
+	* [r3485] readers/SCR331-DI-NTTCom.txt: the CCID descriptor was
+	  duplicated
+
+2009-04-21  Ludovic Rousseau
+
+	* [r3462] readers/Feitian_SCR301.txt,
+	  readers/supported_readers.txt: add Feitian SCR301
+
+2009-04-17  Ludovic Rousseau
+
+	* [r3459] src/Info.plist.src: define CFBundleName to
+	  CCIDCLASSDRIVER so that non class drivers have a higher priority.
+	  It should work on Mac OS X.
+	  
+	  Patch from SmartCardServices on macosxforge.org
+	* [r3458] src/Info.plist.src, src/Makefile.am: add
+	  CFBundleExecutable, CFBundleIdentifier and
+	  CFBundleShortVersionString to be inline with the Apple version
+
+2009-04-16  Ludovic Rousseau
+
+	* [r3455] readers/supported_readers.txt: add iDream Vid/Pid but
+	  commented as the reader is bogus
+	* [r3454] README, readers/supported_readers.txt: add Raritan
+	  D2CIM-DVUSB VM/CCID in the should work list
+
+2009-04-10  Ludovic Rousseau
+
+	* [r3425] src/openct/proto-t1.c: t1_transceive(): receiving a WTX
+	  block asking for more time is not a critical error. Use
+	  DEBUG_COMM2 instead of DEBUG_CRITICAL2
+	* [r3424] src/ccid.c: ccid_open_hack_pre(): empty the interrupt end
+	  point (card movements) before trying to talk to the device for
+	  the GemProx DU/SU
+
+2009-04-09  Ludovic Rousseau
+
+	* [r3423] readers/Raritan_D2CIM-DVUSB.txt: add Raritan D2CIM-DVUSB
+	  VM/CCID virtual reader
+	* [r3416] src/ifdhandler.c: IFDHCreateChannelByname() &
+	  IFDHCreateChannel(): do not call ccid_open_hack_post() if the 3
+	  IFDHICCPresence() failed and we closed the reader
+	* [r3414] src/ccid_usb.c: OpenUSBByName(): static_interface
+	  variable is used only with USE_COMPOSITE_AS_MULTISLOT
+
+2009-04-08  Ludovic Rousseau
+
+	* [r3413] readers/SCL010.txt, readers/supported_readers.txt: The
+	  SCM SCL010 Contactless Reader is not supported
+
+2009-04-02  Ludovic Rousseau
+
+	* [r3409] readers/GemProxDU_contact.txt,
+	  readers/GemProxDU_contactless.txt, readers/GemProxSU_contact.txt,
+	  readers/GemProxSU_contactless.txt: regenerate
+	* [r3408] src/parse.c: get the iInterface string instead of just
+	  printing the string number
+
+2009-03-31  Ludovic Rousseau
+
+	* [r3406] src/ccid_usb.c: OpenUSBByName(): only increase the
+	  interface number for the next "slot" if the previous interface
+	  was opened correctly
+	  
+	  It is now posible to use 2 composite readers without libusb and
+	  libhal scheme
+	* [r3405] src/ccid_usb.c: OpenUSBByName(): support more than one
+	  composite or composite-as-multislot readers
+
+2009-03-30  Ludovic Rousseau
+
+	* [r3404] src/ccid.c: move hack code for GemPC Key, GemPC Twin,
+	  GemPC pinpad, GemProx DU GemProx SU and SCM contactless readers
+	  from ccid_open_hack_pre() to ccid_open_hack_post()
+	  
+	  We first need to get a correct communication (sync USB togggle
+	  bit) before sending the control commands
+	* [r3403] src/ccid.c, src/ccid.h, src/ifdhandler.c: split
+	  ccid_open_hack() in ccid_open_hack_pre() and
+	  ccid_open_hack_post() before and after the empirical "warm up"
+	  sequence
+	  
+	  The problem is the USB toggle bit. I could not find a simple way
+	  to reset it. So when the driver is started again the reader and
+	  the host may not be in sync. The few first CCID commands may
+	  fail.
+
+2009-03-29  Ludovic Rousseau
+
+	* [r3401] readers/supported_readers.txt: remove support of
+	  Reiner-SCT cyberJack pinpad(a) on request of Reiner-SCT
+	  
+	  You should user the Reiner-SCT driver instead
+
+2009-03-27  Ludovic Rousseau
+
+	* [r3395] src/ifdhandler.c: IFDHCreateChannel(): use the same
+	  empirical hack as in IFDHCreateChannelByName() to recover the
+	  reader after pcscd is restarted.
+	  
+	  The problem is that USB frames have a toggle bit
+
+2009-03-26  Ludovic Rousseau
+
+	* [r3380] readers/GemProxDU_contact.txt,
+	  readers/GemProxDU_contactless.txt, readers/GemProxSU_contact.txt,
+	  readers/GemProxSU_contactless.txt, readers/supported_readers.txt:
+	  add Gemalto GemProx DU and SU readers
+	* [r3379] MacOSX/configure: use --enable-composite-as-multislot on
+	  Mac OS X since libhal is not available on Mac OS X
+	* [r3378] configure.in, src/ccid.c, src/ccid.h, src/ccid_usb.c,
+	  src/ifdhandler.c: add support of a composite device as
+	  multi-slots device
+
+2009-03-24  Ludovic Rousseau
+
+	* [r3375] src/ccid.h, src/commands.c: SecurePINVerify(): Correct
+	  bNumberMessage for Dell keyboard
+	* [r3374] readers/DellSCRK.txt: update
+	* [r3373] readers/GemPCTwin_serial.txt: add a (faked) USB
+	  descriptor for the GemPC Twin using serial communication
+
+2009-03-21  Ludovic Rousseau
+
+	* [r3356] examples/scardcontrol.c, src/ccid.h,
+	  src/ccid_ifdhandler.h, src/ccid_usb.c, src/commands.c,
+	  src/ifdhandler.c: add support of PIN_PROPERTIES_STRUCTURE
+	  structure and FEATURE_IFD_PIN_PROPERTIES
+	  
+	  Thanks to Martin Paljak for the patch
+
+2009-03-20  Ludovic Rousseau
+
+	* [r3354] src/commands.c: CmdEscape(): set the communication
+	  timeout to 30 seconds for the PC_to_RDR_Escape commands since
+	  some commands may be slow
+	  
+	  Thanks to Adam Laurie (rfidiot.org) for the bug report
+	* [r3353] src/commands.c: SecurePINVerify() and SecurePINModify():
+	  correctly restore the communication timeout if sending the
+	  command fails
+
+2009-03-19  Ludovic Rousseau
+
+	* [r3351] src/commands.c: SecurePINModify(): do not reject the
+	  command if bNumberMessage = 0xFF (default value)
+	  
+	  Thanks to Martin Paljak for the patch
+	* [r3350] src/ccid_usb.c: OpenUSBByName(): support more than one
+	  CCID interface per USB device with the libhal scheme
+
+2009-03-17  Ludovic Rousseau
+
+	* [r3349] MacOSX/configure: Use libusb-config to define LIBUSB_*
+	  variables
+	* [r3348] src/ccid_usb.c, src/ccid_usb.h, src/parse.c: allow to
+	  list more than one CCID interface per USB device
+
+2009-03-13  Ludovic Rousseau
+
+	* [r3344] readers/Alya.txt: remove fingerprint part
+
+2009-03-07  Ludovic Rousseau
+
+	* [r3340] README: use spaces instead of tabs
+	* [r3338] README, configure.in: release 1.3.10
+	* [r3337] src/ifdhandler.c: IFDHSetProtocolParameters(): rename atr
+	  in openpgp_atr
+	  
+	  ifdhandler.c:822: warning: declaration of ‘atr’ shadows a
+	  previous local ifdhandler.c:527: warning: shadowed declaration is
+	  here
+
+2009-03-01  Ludovic Rousseau
+
+	* [r3330] src/ifdhandler.c: IFDHSetProtocolParameters(): add a hack
+	  to support the bogus OpenGPG card. The card declares a BWI=4
+	  (1.4s) but, sometimes, do not send a WTX (time request) in time
+	  and the on board key generation then fails. The patch uses BWI=7
+	  (11s)
+	  
+	  Thanks to Jan Suhr for helping tracking the bug
+
+2009-02-25  Ludovic Rousseau
+
+	* [r3325] readers/ACS_ACR100.txt, readers/ACS_ACR38_plugin.txt: add
+	  ACS ACR100 and ACS ACR38 plugin
+	* [r3324] readers/ACR122U_PICC.txt: update firmware
+
+2009-02-21  Ludovic Rousseau
+
+	* [r3322] src/ifdhandler.c: typo in comment
+
+2009-02-18  Ludovic Rousseau
+
+	* [r3320] README, readers/Precise_200_MC.txt,
+	  readers/supported_readers.txt: add Precise Biometrics 200 MC and
+	  250 MC in the "should work" list
+	* [r3319] src/ifdhandler.c: IFDHSetProtocolParameters(): correct
+	  parameter Protocol documentation
+	  
+	  Thanks to Joachim Breitner for the bug report
+
+2009-02-15  Ludovic Rousseau
+
+	* [r3318] src/commands.c: SecurePINVerify(): also check the value
+	  of bmPINBlockString in case of Case 1 APDU and SPR532
+	  
+	  Thanks to Peter Koch for the patch
+
+2009-02-14  Ludovic Rousseau
+
+	* [r3316] README, readers/Makefile.am, readers/Philips_SmartMX.txt,
+	  readers/SafeNet_IKey4000.txt, readers/supported_readers.txt: use
+	  product name Philips SmartMX instead of commercial name SafeNet
+	  IKey4000.
+	  
+	  SafeNet IKey4000 is also used with different device like:
+	  idVendor: 0x04B9 iManufacturer: SafeNet, Inc. idProduct: 0x1206
+	  iProduct: iKey 4000 Found a CCID/ICCD device idVendor: 0x04B9
+	  iManufacturer: SafeNet, Inc. idProduct: 0x1206 iProduct: iKey
+	  4000 bcdDevice: 1.10 (firmware release?) bLength: 9
+	  bDescriptorType: 4 bInterfaceNumber: 0 bAlternateSetting: 0
+	  bNumEndpoints: 0 Control only bInterfaceClass: 0xFF NOT A CCID
+	  DEVICE Class is 0xFF (proprietary) bInterfaceSubClass: 0
+	  bInterfaceProtocol: 0 bulk transfer, optional interrupt-IN (CCID)
+	  iInterface: 0 USB extra length is too short: 2
+	  
+	  NOT A CCID DEVICE
+
+2009-02-11  Ludovic Rousseau
+
+	* [r3315] README, readers/TianYu_CCID_SmartKey.txt,
+	  readers/supported_readers.txt: add TianYu CCID SmartKey in the
+	  should work list
+
+2009-02-07  Ludovic Rousseau
+
+	* [r3310] src/ccid_usb.c: OpenUSBByName(): device_vendor and
+	  device_product varioables are not used on Mac OS X.
+
+2009-02-04  Ludovic Rousseau
+
+	* [r3301] configure.in: display the values of PCSC_CFLAGS and
+	  PCSC_LIBS
+	* [r3300] configure.in: use [ ] for PKG_CHECK_EXISTS() arguments
+	* [r3299] MacOSX/configure, configure.in: use PKG_CHECK_EXISTS()
+	  before PKG_CHECK_MODULES() so that the *_CFLAGS and *_LIBS are
+	  not erased if pkg-config does not find the searched lib
+
+2009-01-29  Ludovic Rousseau
+
+	* [r3296] readers/supported_readers.txt: use generic "Realtek"
+	  instead of one particular brand "iMONO"
+
+2009-01-26  Ludovic Rousseau
+
+	* [r3293] src/openct/proto-t1.c: reformat to ease diff with
+	  proto-t1.c from OpenCT
+	* [r3292] src/ifdhandler.c, src/openct/proto-t1.c,
+	  src/openct/proto-t1.h: rename t1_negociate_ifsd() in
+	  t1_negotiate_ifsd() to be in sync with OpenCT
+
+2009-01-21  Ludovic Rousseau
+
+	* [r3289] src/Makefile.am: move tokenparser.c from
+	  MAINTAINERCLEANFILES to DISTCLEANFILES so that "make distcheck"
+	  works without error
+
+2009-01-19  Ludovic Rousseau
+
+	* [r3284] src/ifdhandler.c: ICCD devices do not use
+	  usb_interrupt_read() but sleep(). So there is no problem killing
+	  the polling thread and sleep for 10 minutes instead of just 5
+	  seconds
+	* [r3283] readers/GemPCKey.txt: regenerate
+	* [r3282] README, readers/Aktiv_Rutoken_Magistra.txt,
+	  readers/supported_readers.txt: add Aktiv Rutoken Magistra in the
+	  "Should work but untested by me" list
+
+2009-01-15  Ludovic Rousseau
+
+	* [r3281] configure.in: remove an extra AC_MSG_RESULT()
+
+2009-01-13  Ludovic Rousseau
+
+	* [r3280] src/ccid.c, src/ifdhandler.c: disable support of the
+	  contcatless part of SDI010 and SCR331DI
+
+2009-01-07  Ludovic Rousseau
+
+	* [r3272] MacOSX/configure: do not overwrite LIBUSB_CFLAGS and
+	  LIBUSB_LIBS if libusb-config is found
+
+2009-01-05  Ludovic Rousseau
+
+	* [r3271] src/ccid_serial.c: use int instead of long to store a
+	  reader ID (32 bits)
+	* [r3270] src/ccid_serial.c, src/ccid_usb.h, src/commands.c,
+	  src/commands.h, src/towitoko/atr.h, src/towitoko/pps.h: tag
+	  output parameters with /*@out@*/
+	* [r3269] src/ccid.c, src/ccid_serial.c, src/ccid_usb.c: use
+	  snprintf() instead of sprintf() to avoid potential buffer
+	  overflow
+	* [r3268] src/ccid.c, src/ccid_serial.c, src/ccid_usb.c,
+	  src/commands.c, src/debug.c, src/ifdhandler.c, src/parse.c:
+	  explicitly cast result in void when not used (reported by the
+	  splint tool)
+
+2008-12-17  Ludovic Rousseau
+
+	* [r3237] README, readers/supported_readers.txt: add Atmel
+	  AT98SC032CT in the should work list
+
+2008-12-16  Ludovic Rousseau
+
+	* [r3236] readers/ATMEL_AT98SC032CT.txt: add ATMEL AT98SC032CT
+
+2008-12-13  Ludovic Rousseau
+
+	* [r3234] MacOSX/convert_reader_h.pl: update FSF address
+
+2008-12-12  Ludovic Rousseau
+
+	* [r3232] README, readers/supported_readers.txt: add iMONO 43 in 1
+	  + Sim + Smart Card Reader in the "should work" list
+	* [r3231] readers/iMONO.txt: add iMONO USB2.0-CRW reader
+
+2008-12-09  Ludovic Rousseau
+
+	* [r3228] README, readers/supported_readers.txt: add Xiring Xi Sign
+	  PKI in the supported list
+
+2008-11-27  Ludovic Rousseau
+
+	* [r3227] readers/Neowave_Weneo.txt: add Neowave Weneo device
+
+2008-11-26  Ludovic Rousseau
+
+	* [r3226] src/ifdhandler.c: IFDHSetProtocolParameters(): convert
+	  protocol from ATR_PROTOCOL_TYPE_T? to SCARD_PROTOCOL_T? in case
+	  of O2MICRO_OZ776_PATCH
+	  
+	  Thanks to Jim Dawson for the bug report
+
+2008-11-22  Ludovic Rousseau
+
+	* [r3222] readers/Omnikey_noname1.txt,
+	  readers/supported_readers.txt: add a Noname reader (from Omnikey)
+
+2008-11-20  Ludovic Rousseau
+
+	* [r3220] README, readers/supported_readers.txt: add MSI StarReader
+	  SMART in the should work but untested list
+
+2008-11-19  Ludovic Rousseau
+
+	* [r3219] readers/MSI_StarReader_SMART.txt: add MSI StarReader
+	  SMART
+	* [r3218] readers/ACR122U_PICC.txt: new firmware
+
+2008-11-18  Ludovic Rousseau
+
+	* [r3214] bootstrap: add -I m4 to aclocal
+	* [r3208] README, configure.in: release 1.3.9
+	* [r3207] src/ccid.h: cast dw2i() to return an unsigned int
+	* [r3206] README, readers/supported_readers.txt: add VMware Virtual
+	  USB CCID in should work but untested list
+
+2008-11-14  Ludovic Rousseau
+
+	* [r3205] configure.in: check for usb_interrupt_read instead of
+	  usb_get_string_simple and request libusb 0.1.12 instead of 0.1.7
+	* [r3203] README, readers/supported_readers.txt: move Broadcom 5880
+	  in the Unsupported list and comment the entry in
+	  readers/supported_readers.txt
+	  
+	  No communication to the device ("Resource temporarily
+	  unavailable" error)
+
+2008-11-11  Ludovic Rousseau
+
+	* [r3202] src/Makefile.am: add $(LIBUSB_LIBS) to parse_LDADD
+	  
+	  Thanks to Karl Dahlén for the patch Closes: [#311251] Patch for
+	  solving cross-compile build error for the tool parse.
+	* [r3201] readers/SDI010.txt: new firmware
+
+2008-11-10  Ludovic Rousseau
+
+	* [r3199] src/defs.h, src/ifdhandler.c: defs.h: add readerName
+	  field ifdhandler.c: also log reader name instead of just Lun
+	* [r3198] src/debug.h: #define DEBUG_PERIODIC3
+	* [r3196] readers/SCR331-DI.txt: regenerate
+
+2008-11-08  Ludovic Rousseau
+
+	* [r3195] readers/Xiring_XI-SIGN.txt,
+	  readers/Xiring_XI-SIGN_6000.txt: add Xiring Xi Sign PKI et Xiring
+	  Xi Sign 6000
+	* [r3194] examples/scardcontrol.c: typo in comment
+	* [r3193] examples/scardcontrol.c: get the GemPC firmware only if
+	  GET_GEMPC_FIRMWARE is #define
+	* [r3192] README, readers/supported_readers.txt: move the "jNet
+	  Technology jToken s1" in the Unsupported list and remove it
+	  (commented entry) from the supported_readers.txt
+
+2008-11-07  Ludovic Rousseau
+
+	* [r3191] readers/VMware_Virtual_USB_CCID.txt: add VMware Virtual
+	  USB CCID reader (available since VMWare 6.5)
+
+2008-10-31  Ludovic Rousseau
+
+	* [r3189] README, readers/supported_readers.txt: add jNet
+	  Technology jToken s1 in should work but untested list
+	* [r3188] src/parse.c: small code reformat
+	* [r3187] readers/jNet_jToken_s1.txt: add jNet_jToken_s1.txt
+
+2008-10-28  Ludovic Rousseau
+
+	* [r3185] Makefile.am: add --reparagraph to svn2cl arguments
+	* [r3183] src/commands.c: SecurePINVerify(): in case of SPR532 and
+	  Case 1 APDU we need to set bSeq again to avoid a "Duplicate frame
+	  detected" error since the bSeq of CmdEscape is now greater than
+	  bSeq set at the beginning of this function
+	  
+	  Thanks to Peter Koch for the bug report
+
+2008-10-27  Ludovic Rousseau
+
+	* [r3182] README, readers/supported_readers.txt: add Gemalto PDT in
+	  should work list
+	* [r3181] readers/Gemalto_PDT.txt, readers/Makefile.am: add Gemalto
+	  PDT
+
+2008-10-17  Ludovic Rousseau
+
+	* [r3177] Makefile.am: no need to explicitely provide the aux files
+
+2008-10-16  Ludovic Rousseau
+
+	* [r3176] README, readers/supported_readers.txt: add ACS ACR122U
+	  PICC Interface in the Should work but untested by me list
+	* [r3175] readers/ACR122U_PICC.txt, readers/Makefile.am: add
+	  ACR122U_PICC.txt
+	* [r3174] configure.in, reconf: build is now .
+	* [r3173] build: remove build/ It collides with the Debian build
+	  rule when using dh(1)
+	* [r3172] build/ylwrap, ylwrap: move ylwrap out of build/
+
+2008-10-14  Ludovic Rousseau
+
+	* [r3170] src/towitoko/atr.c: ATR_InitFromArray(): use atr_buffer[]
+	  directly (no need to copy it)
+	* [r3169] src/towitoko/defines.h: remove definition of
+	  INVERT_BYTE()
+	* [r3168] src/towitoko/atr.c: ATR_InitFromArray(): do not reverse
+	  the ATR for inverse convention cards since the ATR is already
+	  corrected by the reader
+	  
+	  This never happend since the test was never true (TS == 0x03)
+	* [r3167] src/towitoko/atr.c, src/towitoko/atr.h: make atr_buffer[]
+	  argument const to avoid accidental modifications
+	* [r3166] src/towitoko/atr.c: typo in comment
+
+2008-10-11  Ludovic Rousseau
+
+	* [r3163] README, readers/supported_readers.txt: add HP MFP Smart
+	  Card Reader in the "Should work but untested by me" list
+	* [r3162] readers/HP_MFP_SmartCardReader.txt, readers/Makefile.am:
+	  add HP_MFP_SmartCardReader.txt
+	* [r3161] readers/HPUSBSmartCardReader.txt: reindent
+
+2008-10-07  Ludovic Rousseau
+
+	* [r3154] README: reorder SchlumbergerSema reader
+	* [r3153] README: reorder SpringCard readers
+	* [r3152] README: reorder 2 readers
+	* [r3151] README, readers/supported_readers.txt: add "KONA USB
+	  SmartCard" to the should work list
+
+2008-09-27  Ludovic Rousseau
+
+	* [r3148] README, readers/supported_readers.txt: add Broadcom Corp
+	  5880 (found in Dell E6500 laptop) in the "Should work but
+	  untested by me" list
+	* [r3147] readers/Broadcom_5880.txt, readers/Makefile.am: add
+	  Broadcom_5880.txt
+
+2008-09-23  Ludovic Rousseau
+
+	* [r3144] src/ifdhandler.c: IFDHCreateChannelByName(): call
+	  ClosePort() to release resources if the 3 IFDHICCPresence() fails
+
+2008-09-13  Ludovic Rousseau
+
+	* [r3129] readers/Makefile.am,
+	  readers/Pro-Active_CSB6_Ultimate.txt: Pro-Active CSB6 Ultimate is
+	  renamed SpringCard CSB6 Ultimate
+	* [r3128] README, readers/supported_readers.txt: add SpringCard
+	  CrazyWriter, CSB6 Basic, CSB6 Secure, CSB6 Ultimate, EasyFinger
+	  Standard, EasyFinger Ultimate and Prox'N'Roll in the "Should work
+	  but untested by me" list
+	* [r3127] README, readers/supported_readers.txt: rename Pro-Active
+	  in Springcard
+
+2008-09-12  Ludovic Rousseau
+
+	* [r3126] src/ifdhandler.c: IFDHPowerICC(): use a very long timeout
+	  for PowerUp since the card can be very slow to send the full ATR
+	  (up to 30 seconds at 4 MHz)
+
+2008-09-10  Ludovic Rousseau
+
+	* [r3122] readers/Makefile.am, readers/SpringCard_CSB6_Basic.txt,
+	  readers/SpringCard_CSB6_Secure.txt,
+	  readers/SpringCard_CSB6_Ultimate.txt,
+	  readers/SpringCard_CrazyWriter.txt,
+	  readers/SpringCard_EasyFinger_Standard.txt,
+	  readers/SpringCard_EasyFinger_Ultimate.txt,
+	  readers/SpringCard_Prox_N_Roll.txt: add SpringCard readers
+	  Prox'N'Roll, CSB6 Basic, EasyFinger Ultimate, CSB6 Ultimate,
+	  EasyFinger Standard, CrazyWriter, CSB6 Secure
+
+2008-09-09  Ludovic Rousseau
+
+	* [r3115] readers/Makefile.am, readers/mIDentityXL.txt: add
+	  mIDentityXL.txt
+	* [r3114] readers/supported_readers.txt: differentiate between
+	  KOBIL mIDentity M (pid 0x4000) and XL (pid 0x4001)
+
+2008-09-05  Ludovic Rousseau
+
+	* [r3106] src/ccid_usb.c: InterruptRead(): do not log the error if
+	  errno == ENODEV since that happens in canse of timeout
+
+2008-09-01  Ludovic Rousseau
+
+	* [r3105] src/ccid.c: ccid_open_hack(): GEMPCPINPAD: add a sleep(1)
+	  before sending the load strings command to let the reader
+	  initialise itself
+
+2008-08-19  Ludovic Rousseau
+
+	* [r3097] src/ccid_usb.c: InterruptRead(): do not cache if the
+	  reader has failed previously since this state was stored in a
+	  static variable global to all the readers managed by the driver
+	  and was not per reader.
+	  
+	  Without this mechanism we may have a bit more error messages
+	  logged but the driver will work in a multi-reader configuration.
+
+2008-08-18  Ludovic Rousseau
+
+	* [r3096] src/ifdhandler.c: IFDHSleep(): just sleep for 5 seconds
+	  since the polling thread is NOT killable so pcscd event thread
+	  must loop to exit cleanly
+	  
+	  Once the driver (libusb in fact) will support
+	  TAG_IFD_POLLING_THREAD_KILLABLE then we could use a much longer
+	  delay and be killed before pcscd exits
+
+2008-08-14  Ludovic Rousseau
+
+	* [r3090] README, readers/supported_readers.txt: add Atmel AT91SO
+	  in the "Should work but untested by me" list
+	* [r3089] readers/ATMEL_AT91SO.txt, readers/Makefile.am: add
+	  ATMEL_AT91SO.txt
+
+2008-08-07  Ludovic Rousseau
+
+	* [r3085] README: add Cherry SmartTerminal ST-1200USB in the
+	  "Should work but untested by me"
+	* [r3084] readers/CherrySmartTerminalXX1X.txt,
+	  readers/supported_readers.txt: add Cherry SmartTerminal XX1X
+
+2008-07-30  Ludovic Rousseau
+
+	* [r3066] MacOSX/configure: link statically against libusb by
+	  default
+	* [r3065] MacOSX/configure: do not build a static driver (building
+	  fails when linking statically with libusb)
+	* [r3064] MacOSX/configure: do not overwrite PCSC_CFLAGS,
+	  PCSC_LIBS, LIBUSB_CFLAGS and LIBUSB_LIBS if already defined by
+	  the user
+	  
+	  Closes [#310945] MacOSX/configure - disable forced OpenSC libusb
+	  usage, permit other builds
+	* [r3063] configure.in, src/Makefile.am: no need to use
+	  CoreFoundation and IOKit frameworks since we use libusb that
+	  already includes them
+
+2008-07-29  Ludovic Rousseau
+
+	* [r3061] README: add the Aladdin eToken PRO USB 72K Java in the
+	  "Should work but untested by me" list
+	* [r3060] readers/supported_readers.txt: add the Aladdin eToken PRO
+	  USB 72K Java in the "Should work but untested by me" list
+	* [r3059] readers/Aladdin_eToken_PRO_USB_72K_Java.txt,
+	  readers/Makefile.am: add Aladdin_eToken_PRO_USB_72K_Java.txt
+
+2008-06-27  Ludovic Rousseau
+
+	* [r3033] README, configure.in: release 1.3.8
+
+2008-06-26  Ludovic Rousseau
+
+	* [r3027] src/ccid_usb.c: InterruptRead(): remove a \n in a log
+	* [r3026] src/ccid_usb.c: InterruptRead(): use a 2 seconds timeout
+	  since it is not possible for pcscd to kill the polling thread.
+	  
+	  See thread on libusb-devel
+	  http://sourceforge.net/mailarchive/forum.php?thread_name=baabf6440805290726s228bce20r5073d55d8d56241b%40mail.gmail.com&forum_name=libusb-devel
+	* [r3025] src/ifdhandler.c: IFDHPolling(): log only if
+	  DEBUG_LEVEL_PERIODIC is set
+	* [r3024] src/Info.plist.src, src/Makefile.am, src/ifdhandler.c: do
+	  not include the release number in the Info.plist to avoid a diff
+	  of a configuration file when upgrading the package.
+	  
+	  Thanks to Benoit Gonzalvo for the bug report
+
+2008-06-25  Ludovic Rousseau
+
+	* [r3023] README, readers/supported_readers.txt: add "Oberthur
+	  ID-One Cosmo Card" in the "Should work but untested by me" list
+	* [r3022] readers/Makefile.am, readers/Oberthur-CosmoCard.txt: add
+	  Oberthur-CosmoCard.txt
+
+2008-06-18  Ludovic Rousseau
+
+	* [r3010] readers/KAAN_Advanced.txt: firmware 1.19
+	* [r3009] readers/KAAN_Base.txt: firmware 1.19
+
+2008-06-17  Ludovic Rousseau
+
+	* [r3008] readers/Kobil_EMV_CAP.txt: firmware 0.30
+	* [r3007] readers/KAAN_Advanced.txt: regenerate
+	* [r3006] src/defs.h: typo in comments
+	* [r3005] src/defs.h: Kobil readers does not support APDU chaining
+	  for T=1 so you can't send an extended APDU. The readers supports
+	  a command of up to 512 or 420 bytes.
+
+2008-06-16  Ludovic Rousseau
+
+	* [r3004] src/commands.c: CCID_Receive(): do not crash if the
+	  reader firmware is bogus and does not support chaining for
+	  extended APDU.
+	  
+	  This is the case for Kobil readers
+
+2008-06-14  Ludovic Rousseau
+
+	* [r3002] configure.in: ask to install libusb if usb.h is not found
+	* [r3001] INSTALL: update the "building serial reader driver"
+	  sections
+	* [r3000] contrib/Makefile.am: build Kobil_mIDentity_switch only if
+	  WITH_LIBUSB is true
+	* [r2999] src/Makefile.am: build parse and libccid.la only if
+	  WITH_LIBUSB is true
+	* [r2998] configure.in: define the conditional WITH_LIBUSB if
+	  libusb is used
+	* [r2997] reconf: remove useless copy if m4.m4
+	* [r2996] configure.in: do not AC_MSG_RESULT([no]) if PCSC is not
+	  found since PKG_CHECK_MODULES() will already display the result
+	* [r2995] configure.in: set use_usb_interrupt=no by default
+
+2008-06-09  Ludovic Rousseau
+
+	* [r2988] Makefile.am: rename aclocal to m4
+	* [r2987] Makefile.am, aclocal, configure.in, m4, reconf: rename
+	  aclocal to m4
+
+2008-06-08  Ludovic Rousseau
+
+	* [r2985] README, configure.in: release 1.3.7
+	* [r2984] README, readers/supported_readers.txt: add Pro-Active
+	  CSB6 Ultimate in "should work" list
+	* [r2983] src/ccid_serial.c: ReadSerial(): return the length of
+	  data read in *length
+	  
+	  Thanks to Alexander Georg for the bug report
+
+2008-06-07  Ludovic Rousseau
+
+	* [r2982] aclocal/acx_pthread.m4: add the file as a symlink to
+	  ../../../PCSC/m4/acx_pthread.m4
+	* [r2981] aclocal/acx_pthread.m4: remove file
+	* [r2976] aclocal/acx_pthread.m4: update (correct a problem under
+	  Solaris)
+	  
+	  Thanks to David L. Markowitz for the bug report
+
+2008-05-28  Ludovic Rousseau
+
+	* [r2974] MacOSX/configure, README,
+	  contrib/RSA_SecurID/RSA_SecurID_getpasswd.c,
+	  examples/scardcontrol.c, src/ccid.c, src/ccid.h,
+	  src/ccid_ifdhandler.h, src/ccid_serial.c, src/ccid_serial.h,
+	  src/ccid_usb.c, src/ccid_usb.h, src/commands.c, src/commands.h,
+	  src/convert_version.pl, src/create_Info_plist.pl, src/debug.c,
+	  src/debug.h, src/defs.h, src/ifdhandler.c, src/openct/checksum.h,
+	  src/openct/proto-t1.h, src/parse.c, src/towitoko/COPYING,
+	  src/towitoko/atr.c, src/towitoko/atr.h, src/towitoko/defines.h,
+	  src/towitoko/pps.c, src/towitoko/pps.h, src/utils.c, src/utils.h:
+	  update Free Software Foundation mail address
+	* [r2973] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  change the licence from GPL-v2 to LGPL-v2.1 after request from
+	  Norbert Federa
+	* [r2972] README, readers/supported_readers.txt: add id3
+	  Semiconductors CL1356A HID in the should work list
+	* [r2971] readers/Makefile.am: add id3_CL1356D.txt
+	* [r2970] readers/Makefile.am, readers/id3_CL1356A_HID.txt: add
+	  id3_CL1356A_HID.txt
+
+2008-05-27  Ludovic Rousseau
+
+	* [r2969] readers/CardMan5321.txt: regenerate
+
+2008-05-23  Ludovic Rousseau
+
+	* [r2968] README: update RSA SecureID SID800 web page
+
+2008-05-22  Ludovic Rousseau
+
+	* [r2966] src/parse.c: libusb-compat returns a permission denied
+	  error on usb_open() when not run as root
+	* [r2965] configure.in: check if libusb-0.1 is emulated by
+	  libusb-compat + libusb-1.0 to use or not the USB interrupt
+	  feature
+	  
+	  libusb-0.1 may never solve the performance problem of
+	  usb_interrupt_read()
+	* [r2964] readers/GemCoreSIMPro.txt: update
+
+2008-05-11  Ludovic Rousseau
+
+	* [r2941] Makefile.am: add AUTOMAKE_OPTIONS = dist-bzip2 so that
+	  make dist alsa generates a .tar.bz2 archive
+
+2008-05-09  Ludovic Rousseau
+
+	* [r2937] readers/Makefile.am,
+	  readers/Pro-Active_CSB6_Ultimate.txt: add
+	  Pro-Active_CSB6_Ultimate.txt
+	* [r2936] src/parse.c: do not try to parse devices with
+	  bInterfaceClass=0xFF by default (use command line argument -p for
+	  proprietary class)
+	* [r2935] src/parse.c: remove duplicated code
+
+2008-05-08  Ludovic Rousseau
+
+	* [r2934] README: use a real space character
+	* [r2933] README: use a real space character
+	* [r2932] README: sync with the ccid.html web page
+	* [r2931] README: rename Gemplus in Gemalto
+	* [r2930] README: reorder Eutron CryptoIdentity
+	* [r2929] README: add ActivCard Activkey Sim
+
+2008-04-30  Ludovic Rousseau
+
+	* [r2924] README, configure.in: release 1.3.6
+	* [r2923] README: add URL for Validy USB Token
+	* [r2922] examples/scardcontrol.c: exit if no card is present
+	* [r2921] README, readers/supported_readers.txt: add Covadis Véga
+	  in "Should work but untested by me" list
+	* [r2920] readers/Vega-Alpha.txt: regenerate
+	* [r2919] configure.in, src/convert_version.pl,
+	  src/create_Info_plist.pl: add support for DragonFly BSD
+	  
+	  Thanks to Hasso Tepper for the patch (alioth #310748)
+
+2008-04-29  Ludovic Rousseau
+
+	* [r2916] src/openct/proto-t1.c: t1_transceive(): correctly reply
+	  to S(ABORT request) with a S(ABORT response) instead of a
+	  S(RESYNC request)
+	  
+	  Thanks to Alon Bar-Lev for the bug report
+
+2008-04-25  Ludovic Rousseau
+
+	* [r2912] Makefile.am: add "ACLOCAL_AMFLAGS = -I aclocal" so that
+	  "autoreconf --install --verbose --force" works after a clean svn
+	  checkout
+	  
+	  Thanks to Alon Bar-Lev for the patch
+	* [r2911] src/ifdhandler.c: init_driver(): use the environment
+	  variable LIBCCID_ifdLogLevel to overwrite the value of
+	  ifdLogLevel read from the Info.plist file
+	  
+	  Thanks to Alon Bar-Lev for the idea
+
+2008-04-09  Ludovic Rousseau
+
+	* [r2876] readers/KEBTechnology_KONA_USB_SmartCard.txt,
+	  readers/Makefile.am: add KEBTechnology_KONA_USB_SmartCard.txt
+	* [r2875] README, readers/supported_readers.txt: add the Validy
+	  TokenA sl vt in the should work list
+	* [r2874] readers/Makefile.am, readers/Validy_TokenA.txt: add
+	  Validy_TokenA.txt
+	* [r2873] README, readers/supported_readers.txt: Add Vasco DP905 in
+	  the should work list
+
+2008-04-08  Ludovic Rousseau
+
+	* [r2872] src/parse.c: display the enumerated USB devices and if
+	  they are or not a CCID/ICCD device also add some colors
+	* [r2871] src/ccid.h, src/ccid_serial.c, src/ccid_usb.c,
+	  src/ifdhandler.c: Simulate card absence for the GemCore SIM Pro
+	* [r2870] INSTALL: improve a bit the serial reader section
+	* [r2869] README: add Voltage selection section
+
+2008-03-31  Ludovic Rousseau
+
+	* [r2864] src/Makefile.am: use $(bundle) instead of the hardcoded
+	  ifd-ccid.bundle for CCID_BUNDLE
+
+2008-03-29  Ludovic Rousseau
+
+	* [r2863] readers/Makefile.am, readers/Vasco_DP905.txt: add Vasci
+	  DP905
+	* [r2862] src/parse.c: log error messages on stderr instead of
+	  stdout
+	* [r2861] src/parse.c: use an unsigned char [] buffer only for
+	  multi-bytes conversions. usb_* functions want a char [] buffer.
+	* [r2860] src/utils.c, src/utils.h: use int instead of DWORD for
+	  GetNewReaderIndex() and LunToReaderIndex() Lun parameter
+	  
+	  utils.c:48: warning: comparison between signed and unsigned
+	  utils.c:73: warning: comparison between signed and unsigned
+	* [r2859] src/ccid_usb.c: ccid_check_firmware(): use unsigned int
+	  instead of int
+	  
+	  ccid_usb.c:720: warning: comparison between signed and unsigned
+	* [r2858] src/ccid_serial.c: WriteSerial(): use unsigned int
+	  instead of int
+	  
+	  ccid_serial.c:199: warning: comparison between signed and
+	  unsigned
+	* [r2857] src/ifdhandler.c: use defined(USE_USB_INTERRUPT) instead
+	  of just USE_USB_INTERRUPT
+	  
+	  ifdhandler.c:60:66: warning: "USE_USB_INTERRUPT" is not defined
+	* [r2856] readers/supported_readers.txt: move the Blutronics and
+	  Covadis reader before the Bogus readers
+
+2008-03-25  Ludovic Rousseau
+
+	* [r2855] readers/Makefile.am, readers/Precise_250_MC.txt: add
+	  Precise Biometrics 250 MC
+
+2008-03-24  Ludovic Rousseau
+
+	* [r2854] src/ifdhandler.c: IFDHSetProtocolParameters(): store the
+	  protocol used in ccid_desc->cardProtocol even if the reader has
+	  CCID_CLASS_AUTO_PPS_PROP. Correct a potential bug in
+	  SecurePINVerify()/SecurePINModify().
+	  
+	  Thanks to Jim Dawson for the bug report
+
+2008-03-14  Ludovic Rousseau
+
+	* [r2849] src/ifdhandler.c: IFDHSetProtocolParameters(): O2Micro
+	  OZ776 does not support a protocol change to T=1 for dual protocol
+	  cards
+	  
+	  https://www.opensc-project.org/opensc/ticket/172
+	  https://bugs.launchpad.net/ubuntu/+bug/163072
+
+2008-03-07  Ludovic Rousseau
+
+	* [r2848] README: add Covadis Alya in the supported list
+	* [r2847] readers/supported_readers.txt: add Covadis Alya
+	* [r2846] readers/Alya.txt: update
+
+2008-02-27  Ludovic Rousseau
+
+	* [r2844] readers/Alya.txt, readers/Makefile.am,
+	  readers/Vega-Alpha.txt: add Covadis.ch Alya and Vega-Alpha
+	  readers
+
+2008-02-22  Ludovic Rousseau
+
+	* [r2842] README, configure.in: release 1.3.5
+	* [r2841] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  add "Try to rerun this program as root." if no device is found
+	  and euid != 0
+	* [r2840] README: add Advanced Card Systems ACR122 in "Should work"
+	  list
+
+2008-02-21  Ludovic Rousseau
+
+	* [r2837] readers/ACR122U.txt, readers/Makefile.am: add ACR122U.txt
+
+2008-02-20  Ludovic Rousseau
+
+	* [r2836] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  #include "config.h" to have HAVE_USB_DETACH_KERNEL_DRIVER_NP
+
+2008-02-16  Ludovic Rousseau
+
+	* [r2832] README: update SCM Micro URLs
+	* [r2831] README: rename the duplicate [31] reference as [31b]
+
+2008-02-15  Ludovic Rousseau
+
+	* [r2827] configure.in: typo
+	* [r2826] configure.in: use $PKG_CONFIG instead of pkg-config
+	* [r2825] configure.in, src/ifdhandler.c: use usb_interrupt_read()
+	  only if libusb > 0.1.12 or --enable-usb-interrupt is used
+
+2008-02-14  Ludovic Rousseau
+
+	* [r2824] src/Makefile.am: add MAINTAINERCLEANFILES = tokenparser.c
+	  so that make distcheck works
+	* [r2822] README: add Cherry SmartBoard, G83-6610 in the "Should
+	  work but untested by me" list
+	* [r2821] readers/supported_readers.txt: add Cherry SmartBoard XX1X
+	* [r2820] readers/CherrySmartBoardXX1X.txt, readers/Makefile.am:
+	  add CherrySmartBoardXX1X.txt
+	* [r2819] README: add Gemplus Gem e-Seal Pro in the "Should work
+	  but untested by me" list
+	* [r2818] readers/supported_readers.txt: add Gemplus Gem e-Seal Pro
+	* [r2815] c.sh: linked to ../../PCSC/c.sh
+	* [r2813] readers/Gem_e-SealPro.txt, readers/Makefile.am: add
+	  Gem_e-SealPro.txt
+
+2008-02-08  Ludovic Rousseau
+
+	* [r2810] src/ifdhandler.c: IFDHPolling() and IFDHPolling() are
+	  defined if TWIN_SERIAL is not defined and also if
+	  HAVE_DECL_TAG_IFD_POLLING_THREAD is set to 1
+	* [r2809] README, configure.in: release 1.3.4
+	* [r2808] src/ccid.c: ccid_open_hack(): do not call InterruptRead
+	  when compiling the serial driver since this function is not
+	  defined in that case
+	* [r2807] README: Bluetronics -> Blutronics
+
+2008-02-07  Ludovic Rousseau
+
+	* [r2806] src/ifdhandler.c: do not declare IFDHPolling() and
+	  IFDHSleep() when building for the serial reader
+	* [r2805] src/ccid_serial.h: use #ifndef to avoid multiple include
+	  of the file
+	* [r2804] src/ccid.c: #include "ccid_usb.h" to get the declaration
+	  of InterruptRead()
+	* [r2803] src/pcscd_ccid.rules: remove
+	  WAIT_FOR_SYSFS="bInterfaceProtocol" to do not delay udev
+	  
+	  Thanks to Alon Bar-Lev for the patch
+	* [r2802] src/ccid_usb.c: InterruptRead(): in case of timeout we
+	  can also get EAGAIN (Resource temporarily unavailable)
+	* [r2801] src/ifdhandler.c: IFDHSleep(): add a log call
+
+2008-02-06  Ludovic Rousseau
+
+	* [r2799] configure.in: release 1.3.3
+	* [r2798] build/ylwrap: new version
+	* [r2796] README: release 1.3.3
+	* [r2795] src/pcscd_ccid.rules: remove the sleep since it causes
+	  more problems than solutions the sleep occured for any USB device
+	  connection.
+	* [r2794] README, readers/supported_readers.txt: add Blutronics
+	  Bludrive II CCID in supported list
+	* [r2793] src/ccid.h, src/ccid_usb.c: add support for Bludrive II
+	  CCID
+	* [r2792] readers/BludriveII.txt, readers/Makefile.am: add Bludrive
+	  II CCID
+	* [r2791] src/parse.c: bInterfaceProtocol set to 0 is CCID
+
+2008-02-05  Ludovic Rousseau
+
+	* [r2790] README: add Lexar/Gemalto Smart Enterprise Guardian in
+	  the "Should work but untested by me" list
+
+2008-02-04  Ludovic Rousseau
+
+	* [r2789] src/commands.c: CCID_Receive(): the receive buffer must
+	  be 4 bytes minimum for ICCD-B
+	  
+	  Thanks to Martin Rauch for the bug report
+	* [r2788] src/ifdhandler.c: on an ICCD device the card is always
+	  inserted so no card movement will ever happen: just do nothing in
+	  the TAG_IFD_POLLING_THREAD thread
+	* [r2786] configure.in: improve configuration display
+
+2008-02-02  Ludovic Rousseau
+
+	* [r2783] src/ifdhandler.c: HAVE_DECL_TAG_IFD_POLLING_THREAD is
+	  always defined but is set to 0 or 1
+
+2008-02-01  Ludovic Rousseau
+
+	* [r2782] readers/supported_readers.txt, src/ccid.c, src/ccid.h:
+	  add support of Smart Enterprise Guardian
+	* [r2781] src/ifdhandler.c: add a prototype for IFDHPolling()
+	* [r2777] src/ifdhandler.c: add support of TAG_IFD_POLLING_THREAD
+	  using IFDHPolling() to detect asynchronous card movements
+	* [r2776] src/ccid_usb.c, src/ccid_usb.h: add InterruptRead() to
+	  read the interrupt pipe use by asynchronous card movements
+
+2008-01-29  Ludovic Rousseau
+
+	* [r2774] src/ccid_usb.c: add comments
+	* [r2773] configure.in: check for TAG_IFD_POLLING_THREAD in
+	  ifdhandler.h
+	* [r2772] src/ccid_usb.c: add interrupt end point field in
+	  _usbDevice structure
+	* [r2771] src/ccid.h, src/ccid_usb.c: add bNumEndpoints field in
+	  _ccid_descriptor structure
+
+2008-01-24  Ludovic Rousseau
+
+	* [r2763] src/ccid_usb.c: ReadUSB(): return an error if we get more
+	  than 10 duplicate frames error in one read. Avoids an infinite
+	  loop with some buggy readers.
+	* [r2762] src/commands.c: CCID_Receive(): return an error if we
+	  have read less (or more) data than the CCID frame says to contain
+
+2008-01-22  Ludovic Rousseau
+
+	* [r2757] configure.in: version 1.3.2
+	* [r2755] README: release 1.3.2
+	* [r2754] src/ccid_usb.c, src/ifdhandler.c: add support for Mac OS
+	  X Leopard (10.5.1)
+	* [r2753] Makefile.am: distribute build files for Mac OS X Leopard
+	* [r2752] MacOSX, MacOSX/configure, MacOSX/convert_reader_h.pl,
+	  MacOSX/debuglog.h, MacOSX/ifdhandler.h, MacOSX/pcsclite.h,
+	  MacOSX/reader.h.in, MacOSX/winscard.h, MacOSX/wintypes.h: build
+	  infrastructure for Apple Mac OS X Leopard
+	* [r2751] readers/GemCoreSIMPro.txt: do not duplicate the
+	  description for each slot
+
+2008-01-18  Ludovic Rousseau
+
+	* [r2746] Makefile.am, bootstrap: add and use bootstrap instead of
+	  reconf. reconf does not work on Leopard
+
+2008-01-14  Ludovic Rousseau
+
+	* [r2734] readers/supported_readers.txt: do not use a & (as in
+	  "G&D") since Leopard cannot parse it as valid XML
+
+2008-01-08  Ludovic Rousseau
+
+	* [r2725] src/pcscd_ccid.rules: correct comment on sleep: 1s
+	  instead of 100ms
+	* [r2724] src/commands.c: CCID_Receive(): do not declare a
+	  _ccid_descriptor variable for the twin serial (warning: unused
+	  variable 'ccid_descriptor')
+
+2008-01-07  Ludovic Rousseau
+
+	* [r2723] src/commands.c: do not add support for ICCD A or B for
+	  the serial driver since ControlUSB() is not available with this
+	  reader
+	* [r2722] Makefile.am: put src as the lastd directory to have the
+	  udev message on screen when installing
+
+2007-12-31  Ludovic Rousseau
+
+	* [r2717] src/Makefile.am: force the libccidtwin.so symlink
+	  creation to update a previously existing file
+	* [r2716] src/Makefile.am: do not include the VERSION number in the
+	  created reader.conf file
+	* [r2715] src/Makefile.am: create a symlink from libccidtwin.so to
+	  libccidtwin.so.VERSION so that the /etc/reader.conf configuration
+	  file do not need to edited for each new driver version
+	  
+	  Closes Debian bug #457657
+
+2007-12-11  Ludovic Rousseau
+
+	* [r2713] src/pcscd_ccid.rules: increase sleep delay from 0.1 to 1
+	  second
+
+2007-12-10  Ludovic Rousseau
+
+	* [r2712] src/pcscd_ccid.rules: wait until the field
+	  bInterfaceProtocol is created. Should solve the hotplug problem
+	  on Ubuntu 7.10
+	  
+	  Thanks to OpenCT for the code
+
+2007-11-23  Ludovic Rousseau
+
+	* [r2711] readers/GemaltoSmartEnterpriseGuardian.txt,
+	  readers/Makefile.am: add Gemalto Smart Enterprise Guardian Secure
+	  USB Device
+
+2007-11-16  Ludovic Rousseau
+
+	* [r2699] README: update Reiner-SCT cyberJack pinpad(a) bug
+	  description
+	* [r2698] README: Reiner-SCT cyberJack pinpad(a) bug is "just" a
+	  non-management of time requests
+	* [r2697] src/ccid_usb.c: remove Reiner-SCT cyberJack pinpad(a)
+	  from bogus firmware list since yhe bug is just a missing
+	  management of time requests
+	* [r2693] README: update Reiner-SCT bug: only case 1 APDU do not
+	  work
+	* [r2692] README, configure.in: release 1.3.1
+	* [r2691] src/ccid_usb.c: move the readers without a correct
+	  firmware together at the end of the list of bogus firmwares
+	* [r2690] src/ccid_usb.c: add Reiner-SCT cyberJack pinpad(a) in the
+	  list of bogus firmwares
+	* [r2689] README: use the complete name for "Reiner-SCT cyberJack
+	  pinpad(a)"
+	* [r2688] readers/supported_readers.txt: add Reiner-SCT cyberJack
+	  pinpad(a) in the bogus section
+	* [r2687] readers/supported_readers.txt: create a section "Bogus
+	  readers but partly supported" and move the C3PO LTC31 (old model)
+	  and ActivCard USB Reader 2.0 in this section
+
+2007-11-15  Ludovic Rousseau
+
+	* [r2686] README: add Reiner SCT in the unsupported list. The
+	  reader does not work correctly.
+	* [r2685] src/ccid.h, src/ccid_usb.c: add support for Reiner SCT
+	* [r2684] readers/Makefile.am, readers/ReinerSCT.txt: add
+	  ReinerSCT.txt
+	* [r2683] README, readers/supported_readers.txt: add Charismathics
+	  token in the "Should work but untested by me" list
+	* [r2682] readers/Charismathics.txt, readers/Makefile.am: add
+	  Charismathics.txt
+
+2007-11-01  Ludovic Rousseau
+
+	* [r2679] src/parse.c: do not claim/release the device on Mac OS X
+	* [r2677] src/parse.c: if usb_claim_interface() fails we ask the
+	  user to stop pcscd and retry
+	* [r2676] readers/Kobil_EMV_CAP.txt: new firmware
+	* [r2675] src/parse.c: claim and release the interface
+
+2007-10-24  Ludovic Rousseau
+
+	* [r2674] README, readers/supported_readers.txt: add Eutron
+	  Digipass 860 in the supported list
+	* [r2673] readers/Eutron_Digipass_860.txt, readers/Makefile.am: add
+	  Eutron Digipass 860
+	* [r2672] readers/Eutron_CryptoIdentity.txt: new firmware
+	* [r2671] README, readers/supported_readers.txt: add "Eutron Smart
+	  Pocket" in the supported list
+	* [r2670] readers/Eutron_Smart_Pocket.txt, readers/Makefile.am: add
+	  Eutron_Smart_Pocket.txt
+	* [r2669] README, readers/supported_readers.txt: add "Kobil EMV CAP
+	  - SecOVID Reader III" in the "should work" list
+	* [r2668] readers/Kobil_EMV_CAP.txt, readers/Makefile.am: add
+	  Kobil_EMV_CAP.txt
+
+2007-10-23  Ludovic Rousseau
+
+	* [r2667] readers/SCR3320.txt, readers/SCR333.txt,
+	  readers/SCR3340.txt: firmware update
+
+2007-10-21  Ludovic Rousseau
+
+	* [r2666] readers/SCR331.txt: regenerated on linux
+	* [r2665] readers/SCR331.txt: update firmware
+	* [r2664] src/ccid_usb.c: get_end_points(): check that dev->config
+	  is not NULL before dereferencing dev->config->bNumInterfaces
+	  
+	  Avoid a crash on Mac OS X
+
+2007-10-16  Ludovic Rousseau
+
+	* [r2656] README, readers/supported_readers.txt: add "Lenovo
+	  Integrated Smart Card Reader" in "Should work but untested by me"
+	  list
+	* [r2655] readers/Lenovo.txt, readers/Makefile.am: add Lenovo
+	  Integrated Smart Card Reader
+
+2007-10-15  Ludovic Rousseau
+
+	* [r2653] examples/scardcontrol.c: use SCARD_LEAVE_CARD instead of
+	  SCARD_UNPOWER_CARD for SCardReconnect() since SCardReconnect()
+	  returns SCARD_W_REMOVED_CARD on Mac OS X 10.4
+
+2007-10-14  Ludovic Rousseau
+
+	* [r2652] readers/SCR3310.txt, readers/SCR3311.txt,
+	  readers/SCR335.txt: new firmware version
+
+2007-10-13  Ludovic Rousseau
+
+	* [r2650] src/parse.c: display "Can't find any CCID device. Maybe
+	  you must run parse as root?" if appropriate
+
+2007-10-11  Ludovic Rousseau
+
+	* [r2649] readers/GemPCPinpad.txt, readers/GemPCTwin.txt: update
+	* [r2648] src/ifdhandler.c: typo in log message
+
+2007-09-29  Ludovic Rousseau
+
+	* [r2632] configure.in:
+	  contrib/Kobil_mIDentity_switch/Makefile.am:2: compiling
+	  `Kobil_mIDentity_switch.c' with per-target flags requires
+	  `AM_PROG_CC_C_O' in `configure.in'
+
+2007-09-28  Ludovic Rousseau
+
+	* [r2631] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  call usb_detach_kernel_driver_np() only if libusb provides it
+	  (Linux only)
+	* [r2630] configure.in: check for usb_detach_kernel_driver_np()
+	  since only libusb on Linux provides it
+	* [r2629] examples/Makefile.am: use $(PTHREAD_CFLAGS) and
+	  $(PTHREAD_LIBS) since the thread library must be explicitly used
+	  on *BSD
+	* [r2628] readers/supported_readers.txt: add Eutron CryptoIdentity
+	* [r2627] readers/Eutron_CryptoIdentity.txt, readers/Makefile.am:
+	  add Eutron CryptoIdentity (generated under FreeBSD 6.2-STABLE)
+
+2007-09-21  Ludovic Rousseau
+
+	* [r2626] readers/supported_readers.txt: add Giesecke & Devrient
+	  CardToken 350 and 550. They were listed in the README, the web
+	  site but not in this list.
+
+2007-09-14  Ludovic Rousseau
+
+	* [r2624] configure.in: use PCSC_LIBS instead of LDLIBS in the
+	  error message if SCardEstablishContext() is not found
+
+2007-08-21  Ludovic Rousseau
+
+	* [r2617] README, readers/supported_readers.txt: add SafeNet
+	  IKey4000 in the "Should work but untested by me" list
+	* [r2616] readers/Makefile.am, readers/SafeNet_IKey4000.txt: add
+	  SafeNet IKey4000
+
+2007-08-03  Ludovic Rousseau
+
+	* [r2610] README: add Giesecke & Devrient StarSign Card Token 350
+	  and 550 in the "Should work but untested by me" list
+	* [r2609] src/Makefile.am: DISTCLEANFILES = Info.plist so that make
+	  distcheck works
+	* [r2608] readers/GnD_StarSignCardToken350.txt,
+	  readers/GnD_StarSignCardToken550.txt, readers/Makefile.am: add
+	  Giesecke & Devrient StarSign Card Token 350 and 550
+	* [r2607] README: add OmniKey CardMan 5321 in the "Should work but
+	  untested by me" list
+	* [r2606] readers/CardMan5321.txt, readers/Makefile.am,
+	  readers/supported_readers.txt: add CardMan5321
+
+2007-08-02  Ludovic Rousseau
+
+	* [r2605] .: update svn:ignore
+	* [r2604] README, readers/supported_readers.txt: add O2 Micro Oz776
+	  (ProductID 0x7772) to the "Should work but untested by me" list
+	* [r2603] readers/Makefile.am, readers/Oz776_7772.txt: add new
+	  O2Micro Oz776
+	* [r2602] src/ccid.h, src/ccid_usb.c, src/commands.c: add support
+	  of the O2Micro oz776 (ProductID 0x7772)
+
+2007-07-05  Ludovic Rousseau
+
+	* [r2599] src/pcscd_ccid.rules: replace BUS by SUBSYSTEMS
+	* [r2597] examples/scardcontrol.c: add support for Mac OS X
+
+2007-07-03  Ludovic Rousseau
+
+	* [r2596] src/ccid.c: ccid_error(): increase the size of var_text[]
+	  to avoid a buffer overflow
+	  
+	  Thanks to Anders Storsveen for the bug report
+
+2007-07-02  Ludovic Rousseau
+
+	* [r2593] examples/scardcontrol.c: update version and copyright
+	  date
+	* [r2592] examples/scardcontrol.c: remove compilation warnings
+	* [r2591] examples/scardcontrol.c: do not free() unallocated memory
+	* [r2590] examples/scardcontrol.c: use PCSC_ERROR_EXIT() for
+	  SCardListReaders() call
+	* [r2585] examples/scardcontrol.c: display an explicit message when
+	  no card is present
+	* [r2584] reconf: update versions of autotools used
+	* [r2583] build/ylwrap: regenerated using automake-1.10
+
+2007-06-30  Ludovic Rousseau
+
+	* [r2582] readers/ActivkeySim.txt: update
+
+2007-06-28  Ludovic Rousseau
+
+	* [r2581] src/pcscd_ccid.rules: use DRIVERS== instead of DRIVER==
+
+2007-06-25  Ludovic Rousseau
+
+	* [r2579] README, readers/JCOP41V221.txt,
+	  readers/supported_readers.txt: add "Philips Semiconductors
+	  JCOP41V221" ICCD card in "Should work but untested by me" list
+
+2007-06-18  Ludovic Rousseau
+
+	* [r2566] readers/Sitecom_MD-010.txt: remove trash at end of file
+
+2007-06-13  Ludovic Rousseau
+
+	* [r2557] src/commands.c: SecurePINVerify(): avoid a possible
+	  buffer overflow detected by sparse
+
+2007-05-19  Ludovic Rousseau
+
+	* [r2533] src/Makefile.am: generate a local Info.plist before
+	  trying to install it
+	* [r2532] src/Info.plist, src/Info.plist.src: rename Info.plist as
+	  Info.plist.src since it is just a template
+
+2007-05-10  Ludovic Rousseau
+
+	* [r2526] README: typos
+	* [r2524] contrib/RSA_SecurID/RSA_SecurID_getpasswd.1: manpage
+	  section is 1 instead of 8
+	* [r2522] README, configure.in: release 1.3.0
+	* [r2521] README, readers/Makefile.am, readers/e-gate.txt,
+	  readers/supported_readers.txt: add SchlumbergerSema Cyberflex
+	  Access e-gate in the should work list
+	* [r2520]
+	  contrib/Kobil_mIDentity_switch/README_Kobil_mIDentity_switch.txt:
+	  rename midswitch to Kobil_mIDentity_switch
+	* [r2519] examples, src: update svn:ignore properties
+	* [r2518] contrib/Kobil_mIDentity_switch, contrib/RSA_SecurID:
+	  update snn:ignore properties
+	* [r2517] contrib, contrib/Kobil_mIDentity_switch,
+	  contrib/RSA_SecurID: set svn:ignore properties
+	* [r2516] README, readers/Makefile.am, readers/Sitecom_MD-010.txt,
+	  readers/supported_readers.txt: add Sitecom USB simcard reader
+	  MD-010 in the "Should work but untested by me" list
+	* [r2515] readers/supported_readers.txt: correct KOBIL mIDentity
+	  names
+
+2007-05-09  Ludovic Rousseau
+
+	* [r2514] src/pcscd_ccid.rules: exit if ACTION!="add"
+
+2007-05-07  Ludovic Rousseau
+
+	* [r2511] src/commands.c: #include "ccid_usb.h" to avoid
+	  commands.c:103: warning: implicit declaration of function
+	  'ControlUSB'
+
+2007-05-03  Ludovic Rousseau
+
+	* [r2510] src/ccid_usb.c: get_end_points(): avoid a double free on
+	  close for the O2MICRO_OZ776 special case.
+	  
+	  " In ccid_usb.c you move the extra descriptor from the endpoint 2
+	  descriptor to the interface descriptor. The problem is, when
+	  libusb try to free the descriptors associated to this device on
+	  shutdown or if the device disappears, it tries to free the same
+	  buffer twice. For me it means the pcscd is killed with a glibc
+	  detected "double free". "
+	  
+	  Thanks to Michael Wegner for the patch
+	* [r2509] README, readers/supported_readers.txt: add OmniKey
+	  CardMan 4321 in "Should work but untested by me" list
+	* [r2508] readers/CardMan4321.txt, readers/Makefile.am: add
+	  CardMan4321.txt
+
+2007-03-28  Ludovic Rousseau
+
+	* [r2498] src/commands.c: define
+	  BOGUS_SCM_FIRMWARE_FOR_dwMaxCCIDMessageLength and code to avoid
+	  the bogus limitation of dwMaxCCIDMessageLength on SCM firmwares
+
+2007-03-21  Ludovic Rousseau
+
+	* [r2489] src/ccid.c: ccid_open_hack(): add Dutch(nl) and
+	  Tukish(tr) messages for the GemPC pinpad
+
+2007-03-20  Ludovic Rousseau
+
+	* [r2488] readers/SCR331-DI.txt, readers/SCR331.txt,
+	  readers/SCR3310.txt, readers/SCR3311.txt: firmware updates
+
+2007-03-19  Ludovic Rousseau
+
+	* [r2487] SCARDGETATTRIB.txt: improve documentation of
+	  SCARD_ATTR_MAXINPUT
+
+2007-03-15  Ludovic Rousseau
+
+	* [r2485] src/parse.c: if usb_control_msg() fails because the
+	  device is busy this is because pcscd has claimed the device
+	  already
+	* [r2484] README: add Fujitsu Siemens Computers SmartCard Keyboard
+	  USB 2A and SmartCard USB 2A to the "Should work but untested by
+	  me" list
+	* [r2483] readers/FujitsuSiemens_SmartCard_Keyboard_USB_2A.txt,
+	  readers/FujitsuSiemens_SmartCard_USB_2A.txt, readers/Makefile.am,
+	  readers/supported_readers.txt: add Fujitsu Siemens Computers
+	  SmartCard USB 2A and SmartCard Keyboard USB 2A readers
+
+2007-03-13  Ludovic Rousseau
+
+	* [r2480] src/parse.c: use an unsigned char buffer[] to have
+	  unsigned multi-bytes convertions
+
+2007-03-12  Ludovic Rousseau
+
+	* [r2473] src/ifdhandler.c: move #include of config.h before
+	  pcsclite.h and reader.h
+
+2007-03-08  Ludovic Rousseau
+
+	* [r2472] src/commands.c, src/ifdhandler.c: In case of error set
+	  the received length to 0 in IFDHTransmitToICC() and IFDHControl()
+	  instead of in all the lower level commands
+	* [r2471] src/pcscd_ccid.rules: add SchlumbergerSema Cyberflex
+	  Access e-gate ICCD
+	* [r2470] src/ccid.c, src/ccid.h, src/ccid_usb.c, src/commands.c:
+	  add support of ICCD version A and B
+	* [r2469] src/ccid_usb.c: ControlUSB(): add some debug: request
+	  value and data send/received
+	* [r2468] src/parse.c: bit 0x000800 of dwFeatures is undocumented
+	  but used by ICCD?
+
+2007-02-28  Ludovic Rousseau
+
+	* [r2454] readers/supported_readers.txt: differentiate the two
+	  KOBIL mIDentity devices (Basic and Classic)
+	* [r2453] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  usb_detach_kernel_driver_np() is not available on libusb for Mac
+	  OS X
+	* [r2452] configure.in: require autoconf 2.61
+	* [r2451] configure.in: check for strlcpy
+
+2007-02-27  Ludovic Rousseau
+
+	* [r2450] contrib/RSA_SecurID/RSA_SecurID_getpasswd.c: small
+	  reformat
+
+2007-02-26  Ludovic Rousseau
+
+	* [r2448] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c:
+	  replace a C++ comment by a C comment
+
+2007-02-25  Ludovic Rousseau
+
+	* [r2444] contrib/Kobil_mIDentity_switch/Makefile.am,
+	  contrib/RSA_SecurID/Makefile.am: EXTRA_DIST = $(doc_DATA)
+	  $(man_MANS)
+	* [r2443] contrib/RSA_SecurID/Makefile.in: remove from SVN
+	* [r2442] src/pcscd_ccid.rules: add rule to call
+	  /usr/sbin/Kobil_mIDentity_switch for mIDentity devices
+	* [r2441] README: move the Kobil mIDentity from the "Supported" to
+	  "Unsupported or partly supported" because of a time request
+	  problem
+	* [r2440] readers/supported_readers.txt: add (new) KOBIL mIDentity
+	* [r2439] contrib/Kobil_mIDentity_switch/Makefile.am: use
+	  $(LIBUSB_LIBS) instead of -lusb
+	* [r2438] configure.in, contrib/Makefile.am, contrib/RSA_SecurID,
+	  contrib/RSA_SecurID/Makefile.am, contrib/RSA_SecurID/Makefile.in,
+	  contrib/RSA_SecurID/RSA_SecurID_getpasswd.1,
+	  contrib/RSA_SecurID/RSA_SecurID_getpasswd.c: add
+	  contrib/RSA_SecurID
+	* [r2437] contrib/GPL-2: add GNU GPL v2 licence
+	* [r2436] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.8,
+	  contrib/Kobil_mIDentity_switch/Makefile.am: add manpage
+	  Kobil_mIDentity_switch.8
+	* [r2435] contrib/Kobil_mIDentity_switch/Makefile.am: doc_DATA =
+	  README_Kobil_mIDentity_switch.txt
+	* [r2434] contrib/Kobil_mIDentity_switch/README.txt,
+	  contrib/Kobil_mIDentity_switch/README_Kobil_mIDentity_switch.txt:
+	  rename README.txt in README_Kobil_mIDentity_switch.txt
+	* [r2433] contrib/Kobil_mIDentity_switch/Kobil_mIDentity_switch.c,
+	  contrib/Kobil_mIDentity_switch/Makefile.am,
+	  contrib/Kobil_mIDentity_switch/midswitch.c: rename midswitch{.c,}
+	  in Kobil_mIDentity_switch{.c,}
+	* [r2432] configure.in, contrib/Kobil_mIDentity_switch,
+	  contrib/Makefile.am, contrib/midswitch: rename contrib/midswitch/
+	  in contrib/Kobil_mIDentity_switch/
+
+2007-02-24  Ludovic Rousseau
+
+	* [r2431] Makefile.am, configure.in, contrib, contrib/Makefile.am,
+	  contrib/midswitch, contrib/midswitch/Makefile.am,
+	  contrib/midswitch/README.txt, contrib/midswitch/midswitch.c: add
+	  contrib/midswitch to activate the CCID reader of the Kobil
+	  mIDentity
+
+2007-02-23  Ludovic Rousseau
+
+	* [r2430] src/commands.c: CmdPowerOn() & SecurePINVerify(): rename
+	  6 local variables to avoid: warning: declaration of 'cmd' shadows
+	  a previous local
+	* [r2429] src/parse.c: display the error message if
+	  usb_control_msg() fails
+	* [r2428] src/parse.c: do not declare another buffer variable to
+	  avoid: declaration of ‘buffer’ shadows a previous local
+	* [r2427] src/ccid_usb.h: allow multiple inclusion using #ifndef
+	  __CCID_USB_H__ ...
+	* [r2426] src/ccid_usb.c: get_end_points(): change parameter name
+	  from usb_device to usbdevice to avoid: warning: declaration of
+	  'usb_device' shadows a global declaration /usr/include/usb.h:329:
+	  warning: shadowed declaration is here
+	* [r2425] src/ccid_usb.c: ControlUSB(): explicit cast to avoid
+	  warning: pointer targets in passing argument 6 of
+	  'usb_control_msg' differ in signedness
+	* [r2424] src/ccid_usb.c: get_data_rates(): use ControlUSB()
+	  instead of usb_control_msg()
+	* [r2423] src/ccid_usb.c, src/ccid_usb.h: add ControlUSB()
+	  declaration and implementation
+	* [r2422] examples/scardcontrol.c: remove a redundant declaration
+	  of i scardcontrol.c:486: attention : declaration of ‘i’ shadows a
+	  previous local
+
+2007-02-22  Ludovic Rousseau
+
+	* [r2421] src/commands.c: CmdXfrBlockTPDU_T0(): set *rx_length to 0
+	  in case of command too long
+	* [r2420] src/commands.c: CmdXfrBlockTPDU_T0(): set *rx_length to 0
+	  if CCID_Transmit() fails
+
+2007-02-20  Ludovic Rousseau
+
+	* [r2407] examples/scardcontrol.c: Secure modify PIN: add a
+	  bConfirmPIN and bNumberMessage table
+	* [r2406] src/commands.c: SecurePINModify(): set bNumberMessages in
+	  all cases
+	* [r2405] examples/scardcontrol.c: set max pin size to 8 instead of
+	  4
+	* [r2404] src/commands.c: SecurePINModify(): the GemPC Twin does
+	  support different values of bNumberMessages but all the
+	  bMsgIndex? must be present in the CCID command
+
+2007-02-17  Ludovic Rousseau
+
+	* [r2399] src/ifdhandler.c: IFDHControl(): log the Rx and Rx
+	  buffers
+	* [r2398] src/debug.h: add DEBUG_INFO_XXD()
+
+2007-02-10  Ludovic Rousseau
+
+	* [r2393] src/ccid_usb.c: get_end_points(): correct bug in revision
+	  2392
+	* [r2392] src/ccid_usb.c: get_end_points(): use
+	  usb_interface->altsetting->bNumEndpoints instead of the hardcoded
+	  value 3
+
+2007-02-08  Ludovic Rousseau
+
+	* [r2391] src/pcscd_ccid.rules: use ATTRS{} instead of SYSFS{} for
+	  use with recent udev versions
+	* [r2390] src/parse.c: parse bInterfaceProtocol field
+	* [r2389] src/parse.c: parse bNumEndpoints field
+
+2007-02-05  Ludovic Rousseau
+
+	* [r2387] Makefile.am: ChangeLog: use svn2cl instead of svn2cl.sh
+
+2007-01-30  Ludovic Rousseau
+
+	* [r2366] src/ccid.c: ccid_open_hack(): add the l10n of the 10th
+	  string "PIN blocked"
+	* [r2365] src/ccid.c: ccid_open_hack(): add portugese strings for
+	  the GemPC Pinpad.
+	  
+	  Thanks to Stef Hoeben
+
+2007-01-27  Ludovic Rousseau
+
+	* [r2363] README, configure.in: release 1.2.1
+	* [r2362] README: move the O2Micro Oz7762 from the unsupported to
+	  the supported list since patches to support it are applied by
+	  default (O2MICRO_OZ776_PATCH)
+	* [r2361] src/pcscd_ccid.rules: add non CCID generic
+	  (InterfaceClass: 0xFF) readers
+	* [r2360] readers/Makefile.am, readers/SK-3106.txt: SK-3106.txt is
+	  a duplicate of DellSK-3106.txt
+	* [r2359] src/ccid_usb.c: Bogus_firmwares[]: the driver now
+	  contains patches to circumvent the Oz776 reader. It is then
+	  declared bogus only if O2MICRO_OZ776_PATCH is not defined
+	* [r2358] src/commands.c: T0ProcACK(): use a hack to circumvent the
+	  Oz776 firmware bug with commands of size modulo 64
+
+2007-01-26  Ludovic Rousseau
+
+	* [r2357] src/commands.c: CmdGetSlotStatus(): the O2MICRO OZ 776
+	  reader sends "card absent or mute" errors when no card is
+	  inserted. We do not log this error since it is normal execution
+	  and just fill the syslog files
+	* [r2356] src/ccid.h, src/ccid_usb.c: move #define
+	  O2MICRO_OZ776_PATCH from ccid_usb.c to ccid.h so we can use it in
+	  other .c files
+
+2007-01-24  Ludovic Rousseau
+
+	* [r2355] INSTALL: document how to use --enable-udev on FreeBSD.
+	  
+	  Thanks to Tilman Linneweh
+
+2007-01-20  Ludovic Rousseau
+
+	* [r2351] README: version 1.2.0 was released in 2007 not 2006 :-)
+
+2007-01-19  Ludovic Rousseau
+
+	* [r2345] README, configure.in: release 1.2.0
+	* [r2342] config.h.in: removed since generated from configure.in by
+	  autoheader
+
+2007-01-18  Ludovic Rousseau
+
+	* [r2338] INSTALL: document udev use
+	* [r2337] INSTALL: pcsc-lite versions before 1.3.3 are not
+	  supported so remove notes about CHANNELID
+	* [r2336] INSTALL: add #CCID_compliant URL refenrece when a reader
+	  is not yet supported
+
+2007-01-10  Ludovic Rousseau
+
+	* [r2329] src/Makefile.am: do not install the pcscd_ccid.rules file
+	  but display a message telling so. The exact location of this file
+	  is Linux distribution dependent.
+	  
+	  Thanks to Alon Bar-Lev for the idea.
+	* [r2328] src/parse.c: typo: "busses" -> "buses"
+	  
+	  Thanks to Martin Paljak for the patch
+	* [r2326] src/parse.c: add a missing \n in printf
+
+2007-01-09  Ludovic Rousseau
+
+	* [r2322] src/Makefile.am: use 60-pcscd_ccid.rules instead of
+	  50-pcscd_ccid.rules so udev default > rules will run before are
+	  run before this one.
+	  
+	  Thanks to Alon Bar-Lev.
+
+2007-01-08  Ludovic Rousseau
+
+	* [r2318] src/Makefile.am: add pcscd_ccid.rules in EXTRA_DIST
+	  
+	  Thanks to Kjell M. Myksvoll for the bug report
+
+2007-01-06  Ludovic Rousseau
+
+	* [r2317] Makefile.am: add SCARDGETATTRIB.txt to EXTRA_DIST
+	* [r2316] examples/scardcontrol.c: use LPSTR instead or the
+	  deprecated LPTSTR
+	* [r2315] src/Makefile.am: if --enable-udev is used we define
+	  IFD_GENERATE_HOTPLUG in ifdCapabilities and install the
+	  pcscd_ccid.rules for udev
+	* [r2314] src/create_Info_plist.pl: replace MAGIC_IFDCAPABILITIES
+	  by the 3rd command line argument
+	* [r2313] src/Info.plist: use MAGIC_IFDCAPABILITIES
+	* [r2312] configure.in: add --enable-udev
+	* [r2311] src/pcscd_ccid.rules: udev file for hotplug capability
+
+2007-01-04  Ludovic Rousseau
+
+	* [r2298] README: add "HP USB Smartcard Reader" in the "Should work
+	  but untested by me" list
+	* [r2297] readers/HPUSBSmartCardReader.txt,
+	  readers/supported_readers.txt: add HP USB Smartcard Reader
+
+2007-01-02  Ludovic Rousseau
+
+	* [r2296] src/ccid_usb.c: CloseUSB(): free .dirname and .filename
+	  only for the last slot
+	* [r2295] src/ccid_usb.c: OpenUSBByName(): move the "Checking
+	  device: " log message out of the usbDevice[] loop since we
+	  display info of the new device and not of a device from
+	  usbDevice[]
+	* [r2294] src/ccid_usb.c: struct _usbDevice: replace struct
+	  usb_device *dev; by char *dirname; and char *filename; since the
+	  libusb structure can be modified at any time by libusb (this
+	  structure is reused for another USB device when the USB device is
+	  removed)
+	* [r2293] src/ccid_usb.c: get_data_rates() now has a struct
+	  usb_device *dev parameter to avoid storing it in struct
+	  _usbDevice
+	* [r2292] src/ccid_usb.c, src/ccid_usb.h: remove unused get_desc()
+	  function
+	* [r2291] src/ccid_usb.c: revert revisions 2289 and 2290
+	  
+	  It is not the correct solution to the problem
+	* [r2290] src/ccid_usb.c: WriteUSB()/ReadUSB(): check that the
+	  device entry is still valid before using it
+	* [r2289] src/ccid_usb.c: WriteUSB()/ReadUSB(): call CloseUSB() as
+	  soon as the device disapears (ENODEV) since the libusb structures
+	  pointed by usbDevice[] may be reused by another USB device
+
+2006-12-30  Ludovic Rousseau
+
+	* [r2288] configure.in: do not use two AM_CONDITIONAL() with the
+	  same variable
+	  
+	  Thanks to Alon Bar-Lev for the patch
+	* [r2287] configure.in: --disable-twinserial now works as expected.
+	  
+	  Thanks to Alon Bar-Lev for the patch
+
+2006-12-25  Ludovic Rousseau
+
+	* [r2285] src/commands.c: many commands: make sure we received at
+	  least STATUS_OFFSET+1 bytes before reading the value of
+	  buffer[STATUS_OFFSET]
+	  
+	  usb_bulk_read() may return 0 bytes instead of an error when the
+	  reader is just disconnected
+	* [r2280] src/utils.c: GetNewReaderIndex(): check that Lun is NOT
+	  already used
+	  
+	  Thanks to Martin Preuss for the idea
+
+2006-12-20  Ludovic Rousseau
+
+	* [r2278] README: add the OmniKey CardMan 1021 to the "Should work
+	  but untested by me" list
+	* [r2277] readers/CardMan1021.txt, readers/Makefile.am,
+	  readers/supported_readers.txt: add OmniKey CardMan 1021
+	* [r2276] readers/CardMan3021.txt: a line was wrapped
+
+2006-12-12  Ludovic Rousseau
+
+	* [r2275] SCARDGETATTRIB.txt: new file
+
+2006-12-11  Ludovic Rousseau
+
+	* [r2271] configure.in: add PKG_PROG_PKG_CONFIG
+
+2006-12-10  Ludovic Rousseau
+
+	* [r2270] INSTALL: add --enable-twinserial to build the serial
+	  reader driver
+
+2006-12-05  Ludovic Rousseau
+
+	* [r2269] readers/KAAN_Advanced.txt: upgrade firmware to 1.02
+	* [r2268] readers/KAAN_Base.txt: upgrade firmware to 1.02
+
+2006-12-02  Ludovic Rousseau
+
+	* [r2260] src/openct/checksum.c: #include "checksum.h"
+	* [r2258] src/ifdhandler.c: warning: initialization discards
+	  qualifiers from pointer target type
+	* [r2257] src/commands.c: warning: initialization discards
+	  qualifiers from pointer target type
+	* [r2256] src/parse.c: remove unused argc and argv arguments
+	* [r2255] src/ccid.c, src/ccid.h: ccid_error(): "char *file"
+	  argument -> "const char *file"
+	* [r2254] src/ccid.c: warning: assignment discards qualifiers from
+	  pointer target type
+	* [r2253] src/ccid_ifdhandler.h: warning: redundant redeclaration
+	  of 'LogLevel'
+
+2006-11-30  Ludovic Rousseau
+
+	* [r2252] src/Makefile.am: use $(srcdir)/convert_version.pl
+	* [r2251] readers/Makefile.am: change C3PO_LTC32_USBv_old.txt in
+	  C3PO_LTC32_USBv2_old.txt
+
+2006-11-29  Ludovic Rousseau
+
+	* [r2240] configure.in: test if IFD_NO_SUCH_DEVICE is defined in
+	  ifdhandler.h
+	* [r2239] configure.in: use AC_TRY_LINK_FUNC() instead of
+	  AC_CHECK_LIB() to not hard code the use of -lpcsclite
+	* [r2238] src/Makefile.am: distribute convert_version.pl
+
+2006-11-23  Ludovic Rousseau
+
+	* [r2237] readers/C3PO_KBR36.txt, readers/C3PO_LTC32_USBv2.txt,
+	  readers/C3PO_LTC32_USBv2_old.txt, readers/C3PO_TLTC2USB.txt,
+	  readers/Makefile.am: add C3PO_* files
+
+2006-11-22  Ludovic Rousseau
+
+	* [r2234] src/parse.c: exit if the command is not run as root and
+	  getting iManufacturer fails
+
+2006-11-18  Ludovic Rousseau
+
+	* [r2224] README, readers/supported_readers.txt: add C3PO TLTC2USB,
+	  LTC32 USBv2 with keyboard support and KBR36 in the "Should work
+	  but untested by me" list
+
+2006-11-17  Ludovic Rousseau
+
+	* [r2223] src/ifdhandler.c: set IFSC in the SetParameters argument
+	  for T=1 if TAi (i>2) is present: IFSC
+	  
+	  Thanks to Stefan Neis for the bug report and patch
+	* [r2222] README, readers/Teo.txt, readers/supported_readers.txt:
+	  add Teo by Xiring in the supported list
+	* [r2221] readers/LTC32.txt, readers/supported_readers.txt: add
+	  C3PO LTC32
+
+2006-11-15  Ludovic Rousseau
+
+	* [r2210] configure.in: we need pcsc-lite 1.3.3 since we now use
+	  IFD_NO_SUCH_DEVICE
+	* [r2208] src/ifdhandler.c: IFDHICCPresence(): return the error
+	  code returned by CmdGetSlotStatus() instead of using
+	  IFD_COMMUNICATION_ERROR
+	* [r2207] src/commands.c: CmdGetSlotStatus(), CCID_Transmit() and
+	  CCID_Receive(): return IFD_NO_SUCH_DEVICE if the lower
+	  communication layer returns STATUS_NO_SUCH_DEVICE
+	* [r2206] src/ccid_usb.c: WriteUSB() & ReadUSB(): return
+	  STATUS_NO_SUCH_DEVICE if read() or write() fails with ENODEV
+	* [r2205] src/defs.h: add STATUS_NO_SUCH_DEVICE
+	* [r2197] src/ifdhandler.c: IFDHGetCapabilities(): add support of
+	  SCARD_ATTR_MAXINPUT to get the maximal APDU size
+	  (dwMaxCCIDMessageLength -10)
+
+2006-11-06  Ludovic Rousseau
+
+	* [r2195] src/commands.c: SecurePINVerify(): the GemPC Pinpad does
+	  not support a bEntryValidationCondition different of 0x02
+	  (validation key pressed)
+
+2006-10-13  Ludovic Rousseau
+
+	* [r2186] configure.in, src/Makefile.am: remove unneeded dependency
+	  on dl library
+
+2006-09-26  Ludovic Rousseau
+
+	* [r2176] src/ifdhandler.c: IFDHICCPresence(): the patch in
+	  revision 2150 was not correct. SCardReconnect(...,
+	  SCARD_UNPOWER_CARD, ...) failed since the card was reported as
+	  non present after the power off
+	* [r2175] src/ifdhandler.c: IFDHPowerICC(): log the action
+	  performed (PowerUp, PowerDown, Reset)
+
+2006-09-22  Ludovic Rousseau
+
+	* [r2174] README, readers/CardMan5125.txt,
+	  readers/supported_readers.txt: add OmniKey CardMan 5125 in the
+	  should work but unsupported list
+	* [r2173] README: update OmniKey URLs
+	* [r2172] README, readers/supported_readers.txt: move the RSA
+	  SID800 in the supported list now that I have a working model
+	* [r2171] readers/sid800.txt: update using a new SID800 model.
+	  Unfortunately the firmware version has not changed so it is not
+	  possible to detect a non working model
+	* [r2170] README: add O2Micro Oz7762 in the unsupported list
+
+2006-09-20  Ludovic Rousseau
+
+	* [r2168] src/ifdhandler.c: IFDHGetCapabilities(): add support of
+	  SCARD_ATTR_VENDOR_NAME
+	* [r2166] src/Makefile.am, src/ifdhandler.c: add support for
+	  SCARD_ATTR_VENDOR_IFD_VERSION tag used by SCardGetAttrib()
+	* [r2165] src/convert_version.pl: Perl script to convert a version
+	  format from "1.2.3-svn-xyz" to "0x01020003"
+
+2006-09-14  Ludovic Rousseau
+
+	* [r2163] README: update OmniKey URLs
+	* [r2162] README: the OmniKey 5125 was a 5121
+	* [r2161] readers/CardMan5121.txt, readers/CardMan5125.txt,
+	  readers/supported_readers.txt: The reader was a 5121 in fact
+
+2006-09-11  Ludovic Rousseau
+
+	* [r2156] configure.in: do not #include the tested .h file since it
+	  is already included by the macro. A double inclusion fails with
+	  SuSE gcc 4.1.0 with fdopen: Bad file descriptor
+	  
+	  Thanks to Byron Johnson for the bug report see
+	  http://www.mail-archive.com/muscle@lists.musclecard.com/msg05632.html
+
+2006-09-10  Ludovic Rousseau
+
+	* [r2155] README: add a note about Alcor Micro AU9520 firmware 1.01
+	  bug (time request not forwarded)
+	* [r2154] src/ccid_usb.c: Bogus_firm[]: firmware 1.01 for Alcor
+	  AU9520 is bogus. The time request of the card is not forwarded to
+	  the host by the reader.
+	* [r2153] readers/AU9520.txt: new firmware (1.02)
+
+2006-09-06  Ludovic Rousseau
+
+	* [r2152] src/ccid.c, src/ccid.h, src/ccid_serial.c,
+	  src/ccid_usb.c, src/commands.c, src/debug.h, src/defs.h,
+	  src/ifdhandler.c, src/openct/proto-t1.c, src/parse.c,
+	  src/towitoko/atr.c, src/towitoko/pps.c: remove trailing spaces at
+	  end of lines
+	* [r2150] src/ifdhandler.c: IFDHICCPresence(): correctly support
+	  the removal and insertion between two consecutive
+	  IFDHICCPresence() calls
+
+2006-08-11  Ludovic Rousseau
+
+	* [r2135] README, configure.in: release 1.1.0
+	* [r2134] configure.in, src/Makefile.am: use ./configure
+	  --enable-twinserial to compile and install the the driver for the
+	  GemPC Twin serial
+	  
+	  Thanks to Wolfgang Glas for the idea
+	* [r2133] README, readers/CL1356T.txt, readers/Makefile.am: add id3
+	  Semiconductors CL1356T in the "should work but unsuported" list
+	* [r2132] config.h.in: Regenerate
+
+2006-08-10  Ludovic Rousseau
+
+	* [r2131] README, readers/Makefile.am, readers/iDream.txt: Add
+	  iDream (or THRC2002-2) to the "Unsupported or partly supported
+	  CCID readers" list.
+	  
+	  Thanks to Dr Jean-Pierre Szikora for the report
+
+2006-08-09  Ludovic Rousseau
+
+	* [r2130] src/ifdhandler.c: IFDHCreateChannelByName(): add a "warm
+	  up" sequence. This sequence is sometimes needed when pcscd is
+	  restarted with the reader already connected. We get some
+	  "usb_bulk_read: Resource temporarily unavailable" on the first
+	  few tries. It is an empirical hack
+
+2006-08-07  Ludovic Rousseau
+
+	* [r2123] src/defs.h: CMD_BUF_SIZE should not include a byte for
+	  the cmd. This definition was reused as-is from the ifd-gempc
+	  source code.
+	  
+	  Thanks to Wolfgang Glas for the bug report
+
+2006-08-03  Ludovic Rousseau
+
+	* [r2122] src/ifdhandler.c: IFDHICCPresence(): check the value
+	  returned by CmdEscape() in the SCR331-DI contactless reader
+	  familly code.
+	  
+	  Byg detected by using __attribute__((warn_unused_result)) also
+	  used as __must_check by the Linux kernel
+	* [r2121] src/utils.c, src/utils.h: change the prototype of
+	  ReleaseReaderIndex() to return void since he function always
+	  returned 0 and the returned value was never checked
+	* [r2120] src/commands.c: SecurePINVerify()/SecurePINModify(): the
+	  USB timeout shall be greater than the reader timeout so we get
+	  the reader answer. I use a margin of 10 seconds.
+	  
+	  Thanks to Gerald Richter for the bug report
+
+2006-08-01  Ludovic Rousseau
+
+	* [r2119] src/ccid_usb.c: ReadUSB(): check that
+	  usbDevice[reader_index].dev->bus is still non-NULL (as we do in
+	  WriteUSB()) before dereferencing it in the debug message.
+	  
+	  Thanks to Michael Wegner for the patch
+	* [r2118] configure.in: Exit the ./configure script if some include
+	  files are not found
+	  
+	  Use AC_MSG_ERROR() instead of AC_MSG_WARN()
+
+2006-07-31  Ludovic Rousseau
+
+	* [r2117] config.h.in: regenerate
+	* [r2116] configure.in, examples/scardcontrol.c, src/ifdhandler.c:
+	  use ntohl/htonl from arpa/inet.h since the tag value for
+	  IOCTL_FEATURE_VERIFY_PIN_DIRECT and
+	  IOCTL_FEATURE_MODIFY_PIN_DIRECT _shall_ be encoded in big endian
+	  as documented in PCSC v2 part 10 ch 2.2 page 2.
+	  
+	  The applications using this feature shall be updated (to respect
+	  the PCSC specification)
+	  
+	  Thanks to Ulrich Vogl for the bug report
+
+2006-07-12  Ludovic Rousseau
+
+	* [r2110] src/commands.c: CCID_Receive(): check that we received at
+	  least enough bytes to test cmd[STATUS_OFFSET].
+	  
+	  usb_bulk_read() will return 0 bytes without error in case of
+	  timeout
+	* [r2109] src/ifdhandler.c: use LPSTR instead of LPTSTR
+	  (deprecated)
+	* [r2108] src/commands.c: SetParameters(): do not fail if the
+	  command fails to set a parameter that is not changeable by the
+	  CCID
+
+2006-07-11  Ludovic Rousseau
+
+	* [r2107] src/ccid_usb.c: correct a typo in a comment
+
+2006-07-09  Ludovic Rousseau
+
+	* [r2101] README, readers/AU9520.txt,
+	  readers/supported_readers.txt: add Alcor Micro AU9520
+	* [r2100] README, readers/id3_CL1356D.txt,
+	  readers/supported_readers.txt: add id3 Semiconductors CL1356D
+
+2006-07-04  Ludovic Rousseau
+
+	* [r2099] config.h.in: update comment for size_t
+	* [r2098] src/commands.c: make pcscd detect a buffer overflow when
+	  the receiving buffer is too small instead of silently ignoring
+	  the detected problem. This problem only occured with readers
+	  supporting Extended APDU.
+	* [r2097] src/ccid_usb.c: ReadUSB(): be sure we have read enough
+	  bytes before checking for frame detectation
+
+2006-07-03  Ludovic Rousseau
+
+	* [r2096] src/commands.c: CmdXfrBlock(): remove the unused
+	  clean_up_and_return goto label
+	* [r2095] src/commands.c: CmdXfrBlock(): call
+	  CmdXfrBlockAPDU_extended() if the reader supports Extended APDU
+	* [r2094] src/commands.c: add CmdXfrBlockAPDU_extended() to support
+	  Extended APDU readers
+	* [r2093] src/commands.c: CCID_Receive(): return the value of
+	  bChainParameter in *chain_parameter
+	* [r2092] src/commands.c: CmdXfrBlockTPDU_T1(): also log the length
+	  of the reception buffer
+	* [r2091] src/commands.c, src/openct/proto-t1.c,
+	  src/towitoko/pps.c: use CCID_Receive() with the new API (use NULL
+	  as chain_parameter)
+	* [r2090] src/commands.c, src/commands.h: CCID_Receive() has a new
+	  parameter: chain_parameter
+	* [r2089] src/commands.h: add #define CHAIN_PARAMETER_OFFSET
+	* [r2088] src/commands.c: move the "command length too big" checks
+	  from CmdXfrBlock() to CmdXfrBlockTPDU_T0()
+	* [r2087] src/commands.c: CCID_Transmit(): log if the transmit
+	  buffer is too big
+	* [r2086] src/commands.c: CCID_Receive(): use <= instead of < to
+	  detect a reception buffer overrun and log an error if it occurs
+	* [r2085] src/ccid.c: ccid_open_hack(): the CL1356D firmware needs
+	  some time to initialize. Wait 1 second here
+	* [r2084] src/ccid.h: add #define CL1356D
+	* [r2083] src/ccid_usb.c: ReadUSB(): detect and ignore duplicated
+	  CCID frames
+
+2006-06-30  Ludovic Rousseau
+
+	* [r2082] src/ccid.c: ccid_error(): display the value of the
+	  Unknown CCID error code
+
+2006-06-08  Ludovic Rousseau
+
+	* [r2078] configure.in: add support of FreeBSD
+
+2006-05-25  Ludovic Rousseau
+
+	* [r2055] src/Info.plist: update the licence from GPL to LGPL
+
+2006-05-19  Ludovic Rousseau
+
+	* [r2048] src/ccid_usb.c: SCM SPR 532 with firmware < 5.10 has
+	  problems
+	* [r2047] readers/SPR532.txt: update with firmware 5.10
+	* [r2046] src/openct/proto-t1.c: t1_transceive(): add a overrun
+	  debug message if we received more bytes than we can store.
+	* [r2045] src/openct/proto-t1.c: t1_transceive(): add a debug
+	  message if we are in state DEAD. The card must be reset first.
+
+2006-05-16  Ludovic Rousseau
+
+	* [r2044] readers/ActivkeySim.txt, readers/supported_readers.txt:
+	  add Actividentity (ActiveCard) Activkey Sim
+
+2006-05-10  Ludovic Rousseau
+
+	* [r2041] src/ccid.h: correct a typo in a comment
+
+2006-05-04  Ludovic Rousseau
+
+	* [r2039] examples/scardcontrol.c: Use a timeout of 0.1 second
+	  instead of 0 for waiting characters from the keyboard
+	* [r2038] README, readers/supported_readers.txt: add C3PO LTC31
+	  (new model, USB product id 0x0006) in the supported list
+	* [r2037] README, readers/supported_readers.txt: add "HP USB Smart
+	  Card Keyboard" in the "Should work but untested by me:" list
+	* [r2036] readers/HPUSBSmartCardKeyboard.txt, readers/Makefile.am:
+	  add HPUSBSmartCardKeyboard.txt
+
+2006-05-03  Ludovic Rousseau
+
+	* [r2035] src/ccid.c: ccid_open_hack(): add SCM SCR331-DI-NTTCOM in
+	  the list of dual slots contactless readers hack
+	* [r2034] README, readers/CardMan3021.txt, readers/Makefile.am: add
+	  OmniKey CardMan 3021 in the "Should work but untested by me" list
+	* [r2033] readers/LTC31v2.txt, readers/Makefile.am: add LTC31 (new
+	  version)
+	* [r2032] src/parse.c: I used the MSB instead of LSB in parsing
+	  dwSynchProtocols
+
+2006-04-23  Ludovic Rousseau
+
+	* [r2026] COPYING: update the Free Software Foundation postal
+	  address
+
+2006-04-22  Ludovic Rousseau
+
+	* [r2022] src/Makefile.am: add $(PROVIDED_BY_PCSC) to
+	  libccidtwin_la_SOURCES so that libccidtwin uses its own
+	  log_xxd/log_msg when configured with --disable-pcsclite
+	* [r2021] src/Makefile.am: add $(TOKEN_PARSER) to
+	  libccidtwin_la_SOURCES
+	* [r2020] README, configure.in: release 1.0.1
+
+2006-04-20  Ludovic Rousseau
+
+	* [r2019] src/ifdhandler.c: declare the functions to export as
+	  EXTERNAL
+	* [r2017] readers/ACR38U-CCID.txt, readers/CardMan3121.txt,
+	  readers/CryptoIdentity.txt, readers/GemPCKey.txt,
+	  readers/GemPCTwin.txt, readers/KAAN_Advanced.txt,
+	  readers/KAAN_Base.txt, readers/KAAN_SIM_III.txt,
+	  readers/LTC31.txt, readers/MySmartPad.txt, readers/Oz776S.txt,
+	  readers/SCR331-DI.txt, readers/SCR331.txt, readers/SCR3310.txt,
+	  readers/SCR335.txt, readers/SCR355.txt,
+	  readers/SIM_Pocket_Combo.txt, readers/SPR532.txt,
+	  readers/Verisign_secure_storage_token.txt, readers/mIDentity.txt,
+	  readers/sid800.txt: regenerate using the latest version of parse
+	* [r2016] README, readers/CardMan3621.txt, readers/Makefile.am,
+	  readers/supported_readers.txt: add OmniKey CardMan 3621 in the
+	  "Should work but untested by me" list Thanks to Bruce Stephens.
+
+2006-04-18  Ludovic Rousseau
+
+	* [r2014] src/ccid_usb.c: declare get_ccid_usb_interface() as
+	  EXTERNAL since this function is used by src/parse
+	* [r2013] src/ifdhandler.c: #include "misc.h" so that ifdhandler.h
+	  functions are declared EXTERNAL
+	* [r2012] src/Makefile.am: add $(SYMBOL_VISIBILITY) to
+	  libccid_la_CFLAGS and libccidtwin_la_CFLAGS
+	* [r2011] configure.in: add code to detect the support of
+	  -fvisibility=hidden
+	* [r2007] src/Makefile.am, src/misc.h, src/parser.h, src/strlcpy.c,
+	  src/strlcpycat.h, src/tokenparser.l: use tokenparser.l and
+	  parser.h from pcsc-lite (using a symlink in subversion). So we
+	  also need strlcpy.c, strlcpycat.h and misc.h
+	* [r2006] src/parser.h, src/tokenparser.l: remove
+	* [r2005] configure.in, src/Makefile.am: always use our own
+	  tokenparser.l even when pcsc-lite is used (do not use
+	  LTPBundleFindValueWithKey from pcscd)
+
+2006-04-14  Ludovic Rousseau
+
+	* [r2004] readers/Makefile.am: add SCR3311.txt, SCR355.txt and
+	  SDI010.txt
+	* [r2003] readers/SDI010.txt, readers/SSI010.txt: rename SSI010.txt
+	  in SDI010.txt
+	* [r2002] src/ccid_usb.c: firmwares for Athena ASE IIIe USBv2 and
+	  ASE IIIe KB USB were bogus.
+	* [r2001] readers/Makefile.am: add ASE_IIIe.txt and
+	  ASEDrive_IIIe_KB.txt
+	* [r2000] README, readers/ASEDrive_IIIe_KB.txt,
+	  readers/supported_readers.txt: add Athena ASE IIIe KB USB
+	* [r1999] readers/ASE_IIIe.txt: update firmware version
+
+2006-03-28  Ludovic Rousseau
+
+	* [r1986] src/commands.c: SecurePINVerify() and SecurePINModify():
+	  Make sure bEntryValidationCondition is valid
+	  
+	  The Cherry XX44 keyboard smart card reader crashes when a wrong
+	  value is used
+
+2006-03-27  Ludovic Rousseau
+
+	* [r1985] examples/scardcontrol.c: Modify PIN: use a for() loop
+	  instead of 3 fgets() since we will not read every "PIN" if the
+	  command is aborted
+	* [r1984] src/commands.c: SecurePINVerify(): debug a debug message.
+	  use dw2i(TxBuffer, 15) instead of just the first byte
+	  TxBuffer[15]
+	* [r1983] src/commands.c: SecurePINModify(): separate the
+	  validation test in three different tests and add a debug message
+	  for each test
+	* [r1982] src/commands.c: SecurePINVerify(): debug a debug message
+	  :-)
+	* [r1981] src/ccid.h, src/commands.c: SecurePINModify(): circumvent
+	  a bug in Cherry XX44 keyboard firmware
+
+2006-03-21  Ludovic Rousseau
+
+	* [r1969] README: add Gemplus GemPC Card in the "supported" list
+	* [r1968] README, readers/Makefile.am, readers/Winbond.txt,
+	  readers/supported_readers.txt: add Winbond Electronics W81E381
+	  chipset
+	* [r1951] README: add SCM Micro SDI 010 in the "Should work" list
+	* [r1950] readers/SSI010.txt, readers/supported_readers.txt,
+	  src/ccid.c, src/ccid.h, src/ifdhandler.c: add support for SCM SDI
+	  010 contactless reader
+	  
+	  thanks to Oleg Makarenko for the patch
+	* [r1949] readers/AxaltoV3.txt, readers/Makefile.am: add Axalto
+	  Reflex USB V3
+
+2006-03-20  Ludovic Rousseau
+
+	* [r1945] README, readers/supported_readers.txt: add Axalto Reflex
+	  USB v3 in the "should work" list
+	* [r1944] configure.in: document --disable-multi-thread instead of
+	  --enable-multi-thread since safe threading is used by default
+	* [r1943] configure.in: document --disable-pcsclite instead of
+	  --enable-pcsclite since pcsc-lite is used by default
+	* [r1942] configure.in: display the status "use libusb : yes/no"
+	  
+	  document --disable-libusb instead of --enable-libusb since libusb
+	  is used by default.
+
+2006-03-06  Ludovic Rousseau
+
+	* [r1927] src/ccid_usb.h: use #if defined (__USB_H__) || defined
+	  (_SYS_USB_LIBUSB_USB_H) instead of #ifdef __USB_H__ to support
+	  the Solaris libusb
+	  
+	  thanks to Iain MacDonnell for the patch
+	* [r1926] configure.in: remove CFLAGS="$CFLAGS -Wall" since it is
+	  GCC specific
+	* [r1925] configure.in: add support of Solaris
+
+2006-03-03  Ludovic Rousseau
+
+	* [r1911] README: release 1.0.0
+	* [r1910] configure.in: version 1.0.0
+	* [r1909] README: add OmniKey CardMan 3821 and CardMan 6121 in the
+	  "Should work but untested by me" list
+	* [r1908] readers/CardMan3821.txt, readers/CardMan6121.txt,
+	  readers/Makefile.am, readers/supported_readers.txt: add OmniKey
+	  CardMan 3821 and CardMan 6121
+	* [r1905] README: update the "Debug informations:" chapter. The two
+	  options comm and periodic have been swaped
+	* [r1904] readers/CherrySmartTerminalST2XXX.txt: new firmware
+	  (5.08)
+
+2006-02-28  Ludovic Rousseau
+
+	* [r1903] readers/Makefile.am, readers/SCR333.txt: add SCR333.txt
+	* [r1886] src/ifdhandler.c: IFDHSetProtocolParameters(): if the
+	  card is in specific mode and request a speed not supported by the
+	  reader we return IFD_COMMUNICATION_ERROR instead of
+	  IFD_PROTOCOL_NOT_SUPPORTED so that pcsc-lite do not try to talk
+	  to the card
+
+2006-02-24  Ludovic Rousseau
+
+	* [r1883] README: add URL for the Cherry SmartTerminal ST2000U
+
+2006-02-21  Ludovic Rousseau
+
+	* [r1876] README: - move the ActivCard USB reader 2.0 from "Should
+	  work but untested by me" to "Unsupported or partly supported CCID
+	  readers" - add the ActivCard USB reader 3.0 in the "Supported
+	  CCID readers" list
+	* [r1875] src/ccid_usb.c: the ActivCard V2 is bogus (problem with
+	  wMaxPacketSize size frames)
+	* [r1874] readers/Makefile.am: distribute ActivCardV2.txt and
+	  ActivCardV3.txt
+	* [r1873] readers/supported_readers.txt: add ActivCard USB Reader
+	  3.0
+	* [r1872] readers/ActivCardV2.txt, readers/ActivCardV3.txt: add
+	  ActivCard v2 and v3 descriptions
+	* [r1870] Makefile.am: correct the Perl regexp in ChangeLog rule
+	* [r1869] Makefile.am: add subversion revision in ChangeLog.svn
+
+2006-02-20  Ludovic Rousseau
+
+	* [r1867] readers/Makefile.am: add SCM SCR3320.txt and SCR3340.txt
+	* [r1866] readers/SCR3320.txt: add SCM SCR3320 - Smart Card Reader
+	* [r1865] readers/SCR3340.txt: add SCR3340 - ExpressCard54 Smart
+	  Card Reader
+
+2006-02-07  Ludovic Rousseau
+
+	* [r1864] README, readers/supported_readers.txt: add "SCM SCR 3340
+	  ExpressCard54" in the "Should work but untested by me" list
+	* [r1863] README: add Gemplus GemPC Express in the "Should work but
+	  untested by me" list
+	* [r1862] readers/GemPC_Express.txt, readers/Makefile.am,
+	  readers/supported_readers.txt: add Gemplus GemPC Express
+
+2006-02-06  Ludovic Rousseau
+
+	* [r1861] readers/supported_readers.txt: rename POS Pro & SIM Pro
+	  to a more real name "Gemplus GemCore xxx"
+	* [r1860] src/commands.c: SecurePINVerify/SecurePINModify: get the
+	  data from a T=1 TPDU block only if the exchange was successful
+	  (with special treatment for timeout and cancel cases)
+	* [r1859] src/commands.c: SecurePINVerify(): move the prologue
+	  filing part to be homogenous with SecurePINModify()
+	* [r1858] src/commands.c: SecurePINModify(): add support of T=1
+	  cards with TPDU readers
+	* [r1857] src/commands.c: SecurePINVerify(): add support of T=1
+	  cards with TPDU readers
+	* [r1856] src/openct/proto-t1.c, src/openct/proto-t1.h: export
+	  t1_build() and some constants
+	* [r1855] src/ifdhandler.c: IFDHSetProtocolParameters(): store the
+	  card protocol in ccid_desc->cardProtocol
+	* [r1854] src/ccid.h: add a cardProtocol field to store the card
+	  protocol in use
+
+2006-01-30  Ludovic Rousseau
+
+	* [r1846] configure.in: add support for OpenBSD
+	* [r1845] examples/Makefile.am, src/Makefile.am: use $(foo) instead
+	  of @foo@ to do not replace the values but the variables
+	* [r1842] configure.in: when checking for PCSC exit with en error
+	  only if /usr/local/lib/pkgconfig/libpcsclite.pc exists _and_
+	  pkg-config is installed
+
+2006-01-25  Ludovic Rousseau
+
+	* [r1841] readers/Makefile.am: add CardMan5125.txt
+	* [r1840] README: add OmniKey CardMan 5125 in the "Should work but
+	  untested by me" list
+	* [r1839] readers/CardMan5125.txt, readers/supported_readers.txt:
+	  add OmniKey CardMan 5125
+
+2006-01-24  Ludovic Rousseau
+
+	* [r1834] readers/supported_readers.txt: add SmartEpad
+	* [r1833] README: add SmartEpad (v 2.0) in the supported list
+	* [r1832] src/ccid.c, src/ccid.h: add support for the SmartEpad (v
+	  2.0) reader (MYSMARTPAD)
+	* [r1831] readers/Makefile.am: add MySmartPad.txt
+
+2006-01-20  Ludovic Rousseau
+
+	* [r1820] README, readers/SCR3311.txt: move the SCM Micro SCR 3311
+	  from the "should work" list to the "supported" list
+	* [r1819] src/parse.c: rewrite to scan the devices ourself instead
+	  of calling IFDHCreateChannel(). No need to have an updated
+	  Info.plist anymore.
+	* [r1818] src/ccid_usb.c: get_ccid_usb_interface(): use the same
+	  code for a device with 1 or >1 interfaces
+
+2006-01-18  Ludovic Rousseau
+
+	* [r1815] README: add Gemplus GemPC PinPad, Gemplus GemCore POS Pro
+	  & Gemplus GemCore SIM Pro
+	* [r1814] INSTALL: document the configuration of /etc/reader.conf
+	  for a GemPC PinPad, a GemCore POS Pro or a GemCore SIM Pro
+	* [r1810] readers/GemCoreSIMPro.txt, readers/Makefile.am: add
+	  GemCore SIM Pro
+	* [r1809] readers/supported_readers.txt: add GemCore POS Pro &
+	  Gemplus SIM Pro --Cette ligne, et les suivantes ci-dessous,
+	  seront ignorées--
+	  
+	  M readers/supported_readers.txt
+	* [r1808] src/ccid.h, src/ccid_serial.c, src/ccid_usb.c,
+	  src/defs.h, src/reader.conf.in: add support of GemCore SIM Pro
+	  and GemCore POS Pro (serial and USB).
+	* [r1807] src/ccid_usb.c: CloseUSB(): free the allocated
+	  arrayOfSupportedDataRates only for the pimary slot. The other
+	  slots of the same reader either point to the same array or point
+	  to a statically allocated array.
+	* [r1806] src/ifdhandler.c: IFDHSetProtocolParameters(): exit the
+	  while if you find a correct speed in the case of a card too fast
+	* [r1805] src/ccid.c: ccid_open_hack(): update the spanish PIN Pad
+	  string since the number of remaining tries in always displayed at
+	  the first character
+
+2006-01-17  Ludovic Rousseau
+
+	* [r1804] src/ccid_usb.c: OpenUSBByName(): check that
+	  usbDevice[previous_reader_index].dev is still valid before
+	  dereferencing it
+	  
+	  Thanks to Martin Paljak for the bug report
+	* [r1803] src/Makefile.am: use @PTHREAD_CFLAGS@ and @PTHREAD_LIBS@
+	* [r1802] configure.in: use LIBS instead of LDLIBS when checking if
+	  pcsc-lite is installed
+	* [r1801] src/ccid_serial.c: OpenSerialByName(): call CloseSerial()
+	  if the "Get firmware" or "Change card movement notification"
+	  command failed
+
+2006-01-16  Ludovic Rousseau
+
+	* [r1800] src/commands.c, src/commands.h: SecurePINVerify(): bug
+	  circumvention for the GemPC Pinpad (bNumberMessage)
+
+2006-01-12  Ludovic Rousseau
+
+	* [r1799] src/ccid.c: ccid_open_hack(): use { } around DEBUG_COMM()
+	  in an if-else since DEBUG_COMM() is not a function but an
+	  multi-instruction macro
+
+2006-01-11  Ludovic Rousseau
+
+	* [r1798] readers/GemPCPinpad.txt, readers/supported_readers.txt:
+	  add Gemplus GemPC Pinpad
+	* [r1797] src/ifdhandler.c: IFDHSetProtocolParameters(): if the
+	  card is faster than the reader (TA1=97 for example) we try to use
+	  a no so bad speed (corresponding to TA1=96, 95 or 94) instead of
+	  the default speed of TA1=11
+	* [r1796] src/ccid.c: ccid_open_hack(): load the localisation
+	  strings according to LANG environment variable. Languages
+	  supported: de, en, es, fr, it
+	* [r1795] src/Info.plist, src/ccid.c: move the comment about APDU
+	  mode from ccid_open_hack() to Info.plist since it is configured
+	  there
+	* [r1794] src/ccid.h, src/commands.c: SecurePINModify(): bug
+	  circumvention for the GemPC Pinpad
+	* [r1793] src/commands.c, src/commands.h: SecurePINModify(): modify
+	  the user command to make the SPR 532 and Cherry ST 2000C firmware
+	  happy
+	* [r1792] src/ccid_usb.c: OpenUSBByName(): use log level INFO
+	  instead of CRITICAL to display copyright information
+	* [r1791] src/ccid_usb.c: release the allocated ressources only
+	  when the last slot of a multi-slot reader is closed
+	* [r1790] src/Info.plist, src/ccid.h, src/commands.c,
+	  src/commands.h, src/ifdhandler.c: allow to select the power on
+	  voltage using Info.plist instead of recompiling the source code
+
+2006-01-03  Ludovic Rousseau
+
+	* [r1789] README, readers/supported_readers.txt: add SCM Micro SCR
+	  3311 and 3320 in the "Should work but untested by me" list
+	* [r1788] README: add URL for SCM Micro SCR 3310
+	* [r1787] README, readers/SCR355.txt,
+	  readers/supported_readers.txt: add support for SCM Micro SCR 355
+
+2006-01-02  Ludovic Rousseau
+
+	* [r1785] readers/Makefile.am: use ACR38U-CCID.txt instead of
+	  ACR38.txt
+	* [r1784] configure.in: use pkg-config for libusb if available
+
+2005-12-14  Ludovic Rousseau
+
+	* [r1782] readers/Verisign_secure_storage_token.txt: update with
+	  new ./parse version
+
+2005-12-08  Ludovic Rousseau
+
+	* [r1780] src/ifdhandler.c: typo in a comment
+	* [r1779] INSTALL: The GemPC Twin is not the only serial CCID
+	  reader
+
+2005-12-07  Ludovic Rousseau
+
+	* [r1778] README, readers/ACR38.txt, readers/ACR38U-CCID.txt,
+	  readers/supported_readers.txt: replace ACR 38 by ACR 38U-CCID
+	  since they are two different readers
+
+2005-12-01  Ludovic Rousseau
+
+	* [r1776] README, readers/ASE_IIIe.txt,
+	  readers/supported_readers.txt: add Athena ASE IIIe USB V2 in
+	  "Supported CCID readers" list
+
+2005-11-29  Ludovic Rousseau
+
+	* [r1775] src/ccid_usb.c: OpenUSBByName(): do not (re)set the
+	  usbDevice[].ccid.pbSeq field since we just copied the complete
+	  structure just before
+	* [r1774] src/ifdhandler.c: Avoid a possible division by 0 if f or
+	  d parameter is null. This could happen only with non-ISO cards
+	  with TA1=0x00 or other undefined values
+	* [r1773] src/towitoko/atr.c: add support of non-ISO TA1=0x97 (Di=7
+	  is/was RFU)
+	* [r1771] examples/scardcontrol.c, src/ccid.c, src/ccid_serial.c,
+	  src/commands.c, src/defs.h, src/ifdhandler.c,
+	  src/openct/proto-t1.c, src/towitoko/defines.h,
+	  src/towitoko/pps.c, src/utils.c: remove PCSC/ from the pcsc-lite
+	  #include header files since the PCSC/ part is already given by
+	  `pkg-config --cflags libpcsclite`
+	* [r1770] configure.in: rewrite the libusb detection code to: - use
+	  libusb-config if available - --enable-libusb do not give a path
+	  anymore but just a yes/no status. paths/arguments/etc must be
+	  given using LIBUSB_CFLAGS and LIBUSB_LIBS - use
+	  AC_TRY_LINK_FUNC() instead of AC_CHECK_LIB() so we do not
+	  explicitely give the library name. This name should come from
+	  LIBUSB_LIBS
+	* [r1769] configure.in: in libusb detection code: restore CPPFLAGS
+	  to $saved_CPPFLAGS instead of $saved_LIBS
+	* [r1768] configure.in: recommand the use of PCSC_CFLAGS=...
+	  instead of CFLAGS=... to find the pcsc-lite headers
+	* [r1767] configure.in: use $CPPFLAGS instead of $CFLAGS since we
+	  only need to set the C preprocessor to find the .h files
+
+2005-11-27  Ludovic Rousseau
+
+	* [r1761] README: release 0.9.4
+	* [r1760] readers/MySmartPad.txt: new file for MySMART PAD V2.0
+	* [r1759] README: add Cherry SmartTerminal ST2XXX
+	* [r1758] readers/Makefile.am: add 3 missing reader descriptions
+
+2005-11-24  Ludovic Rousseau
+
+	* [r1754] configure.in: we need pcsc-lite 1.2.9-beta9 or greater
+	* [r1752] src/ifdhandler.c: IFDHGetCapabilities(): use info instead
+	  of comm debug level to print the number of slots supported by the
+	  reader
+	* [r1751] examples/scardcontrol.c: update copyright date
+	* [r1750] examples/scardcontrol.c: in Modify PIN command we need to
+	  read 3 lines from the keyboard (old, new and confirm PINs)
+	* [r1749] examples/scardcontrol.c: use a buffer of 40 instead of 10
+	  to reader the keyboard since the PIN may be longer than 8 digits
+	* [r1747] src/commands.c: SecurePINVerify()/SecurePINModify(): set
+	  the response length to 0 in case of (write) communication error
+	* [r1746] src/commands.c: SecurePINModify(): set the response
+	  length to 0 in case of error in the command format
+	* [r1745] src/ifdhandler.c: IFDHControl(): use
+	  sizeof(PCSC_TLV_STRUCTURE) instead of 6
+	* [r1743] examples/scardcontrol.c: my check if the applet is
+	  present was wrong
+	* [r1742] examples/scardcontrol.c: exit if the test applet is not
+	  found
+	* [r1740] configure.in: do not duplicate the definition of
+	  PCSCLITE_HP_DROPDIR in --enable-ccidtwindir since it is already
+	  defined in --enable-usbdropdir
+	  
+	  This prevented the successful execution of ./configure when
+	  -pedantic-errors is used
+	* [r1739] src/openct/proto-t1.c: t1_xcv(): correct the comment
+	  about &rmax
+	* [r1738] src/openct/proto-t1.c: t1_xcv(): the second argument of
+	  CCID_Receive() is (unsigned int *) so we can't use &rmax since
+	  &rmax is a (size_t *) and may not be the same on 64-bits
+	  architectures for example (iMac G5) */
+	* [r1737] configure.in, src/Makefile.am: tokenparser.l is only
+	  needed when pcscd is not used (Solaris). It is not needed on Mac
+	  OS X since LTPBundleFindValueWithKey() is provided by pcscd
+	* [r1735] configure.in: use libusb-config(1) to get, if possible,
+	  correct values for LIBUSB_CFLAGS and LIBUSB_LIBS
+	* [r1734] configure.in: replace dnl by #
+	* [r1733] configure.in, src/Makefile.am: use
+	  LIBUSB_CFLAGS/LIBUSB_LIBS instead of LDFLAGS/CPPFLAGS for libusb
+	  configuration
+
+2005-11-22  Ludovic Rousseau
+
+	* [r1730] README: add the "SCM Micro SCR 3310-NTTCOM" in the
+	  "Should work but untested by me" list. See
+	  http://archives.neohapsis.com/archives/dev/muscle/2005-q4/0217.html
+	* [r1729] readers/supported_readers.txt: add SCM SCR 3310 NTTCom.
+	  See
+	  http://archives.neohapsis.com/archives/dev/muscle/2005-q4/0217.html
+
+2005-11-16  Ludovic Rousseau
+
+	* [r1717] examples/scardcontrol.c: Modify PIN: use a 4 digit PIN so
+	  we can test it using the test Java Card applet
+	* [r1716] examples/scardcontrol.c: Modify PIN: bInsertionOffsetOld
+	  and bInsertionOffsetNew starts from the APDU data (5th byte) and
+	  not the APDU start (first byte)
+	* [r1715] examples/scardcontrol.c: add a modify PIN dump command
+	* [r1714] examples/scardcontrol.c: Modify PIN: add a comment for
+	  bNumberMessage
+	* [r1713] examples/scardcontrol.c: Modify PIN: use 0x03 for
+	  bNumberMessage since the GemPC Pinpad rejects any other valu. The
+	  SPR 532 needs 0 here
+	* [r1712] examples/scardcontrol.c: verify PIN: use 0x01 for
+	  bNumberMessage for the GemPC Pinpad
+	* [r1711] examples/scardcontrol.c: verify PIN: use 0x02 (validation
+	  key pressed) for bEntryValidationCondition as the GemPC Pinpad
+	  rejects any other values
+
+2005-11-15  Ludovic Rousseau
+
+	* [r1705] Makefile.am: use svn2cl.sh instead of rcs2log since we
+	  migrated to subversion
+	* [r1704] src/commands.c: SecurePINModify(): set the readTimeout to
+	  at least 30 seconds since we are not waiting after an APDU but
+	  after a human (after the reader in fact).
+
+2005-11-07  Ludovic Rousseau
+
+	* [r1703] src/ccid_serial.c, src/ccid_usb.c: remove #ifdef
+	  DEBUG_LEVEL_COMM since DEBUG_LEVEL_COMM is a numeric value and
+	  not a compilation flag anymore. Debug is always active and
+	  filtered by pcscd.
+	* [r1702] src/Info.plist, src/debug.h: exchange COMM and PERIODIC
+	  debug values so that all except PERIODIC value is 7
+
+2005-10-30  Ludovic Rousseau
+
+	* [r1701] src/commands.c: SecurePINModify(): correct management of
+	  bMsgIndex2 and bMsgIndex3
+	* [r1700] src/commands.c: SecurePINModify(): do not copy the
+	  ulDataLength field to the CCID frame
+	* [r1699] src/ccid.h: #define CHERRYST2000
+
+2005-10-19  Ludovic Rousseau
+
+	* [r1692] readers/SPR532.txt: firmware 5.07
+	* [r1691] examples/scardcontrol.c: declare offset, pin_verify and
+	  pin_modify variable only if needed
+
+2005-09-27  Ludovic Rousseau
+
+	* [r1677] src/commands.c: CCID_Transmit(): cmd[8-9] is the expected
+	  length in character mode only. It shall be 0x0000 for TPDU and
+	  short APDU modes.
+
+2005-09-26  Ludovic Rousseau
+
+	* [r1676] examples/scardcontrol.c: use the new HandlerTest applet
+	  commands
+	* [r1675] src/commands.c: SecurePINVerify(): set the readTimeout to
+	  at least 30 seconds since we are not waiting after an APDU but
+	  after a human.
+	* [r1674] src/ccid.h: _ccid_descriptor.readTimeout is in seconds
+	  even for USB. The comment was wrong
+
+2005-09-20  Ludovic Rousseau
+
+	* [r1670] src/commands.c: SecurePINVerify(): update the size of
+	  ulDataLength field as defined in PCSCv2 part 10, revision
+	  2.01.04, september 2005
+	* [r1669] examples/scardcontrol.c: use
+	  HOST_TO_CCID_16/HOST_TO_CCID_32
+
+2005-09-05  Ludovic Rousseau
+
+	* [r1641] src/ccid_usb.c: get_data_rates(): check the response size
+	  only if bNumDataRatesSupported is non zero
+	* [r1640] src/parse.c: if bNumDataRatesSupported is 0 we get the
+	  list size from what GET DATA RATES command returns
+	  
+	  idem for bNumClockSupported
+	* [r1639] src/parse.c: do not request data rates if the reader
+	  reports it support a 0 length list. Idem for clocks.
+	* [r1638] src/parse.c: print bNumClockSupported: as %d and not
+	  0x%02X
+
+2005-09-01  Ludovic Rousseau
+
+	* [r1635] examples/scardcontrol.c: also work with T=1 cards
+	* [r1634] examples/scardcontrol.c: debug modify PIN test code
+	* [r1633] readers/supported_readers.txt: add Cherry ST1044U
+	* [r1632] readers/CherrySmartTerminalST2XXX.txt,
+	  readers/supported_readers.txt: add Cherry SmartTerminal ST-2XXX
+	* [r1631] examples/scardcontrol.c: add sample code to perform
+	  FEATURE_VERIFY_PIN_DIRECT and FEATURE_MODIFY_PIN_DIRECT if the
+	  reader supports it
+	* [r1630] src/ccid_ifdhandler.h, src/commands.c, src/commands.h,
+	  src/ifdhandler.c: add support of PC/SC v2 part 10
+	  CM_IOCTL_GET_FEATURE_REQUEST add support of
+	  FEATURE_VERIFY_PIN_DIRECT and FEATURE_MODIFY_PIN_DIRECT
+	  
+	  remove support of IOCTL_SMARTCARD_VENDOR_VERIFY_PIN (now
+	  obsoleted)
+
+2005-08-25  Ludovic Rousseau
+
+	* [r1626] README: add Cherry ST-1044U in the supported list
+	* [r1625] readers/CherryST1044U.txt: new file
+
+2005-08-21  Ludovic Rousseau
+
+	* [r1622] README: move the "Cherry XX44 keyboard" from "should
+	  work" to "supported" list
+
+2005-08-16  Ludovic Rousseau
+
+	* [r1619] .cvsignore, aclocal/.cvsignore, build/.cvsignore,
+	  examples/.cvsignore, readers/.cvsignore, src/.cvsignore,
+	  src/towitoko/.cvsignore: removed since we use SVN and not CVS
+	  anymore
+	  
+	  Thanks to Martin Paljak for the idea
+
+2005-08-13  Ludovic Rousseau
+
+	* [r1614] src/Info.plist: document DRIVER_OPTION_RESET_ON_CLOSE
+	* [r1613] src/ccid_usb.c: CloseUSB(): call usb_reset() only if
+	  DRIVER_OPTION_RESET_ON_CLOSE is set.
+	  
+	  The problem was that a device reset also disconnects the keyboard
+	  on a keyboard + reader device.
+	* [r1612] src/ccid_ifdhandler.h: #define
+	  DRIVER_OPTION_RESET_ON_CLOSE
+
+2005-08-11  Ludovic Rousseau
+
+	* [r1610] readers/CherryXX44.txt: update adding clock frequencies
+	  and data rates
+	* [r1609] src/parse.c: check that we do not receive more data rates
+	  anc clock frequencies than the reader supports
+	* [r1608] src/ccid_usb.c: get_data_rates(): check that we do not
+	  get more data rates than the reader supports
+
+2005-08-03  Ludovic Rousseau
+
+	* [r1600] src/commands.c: CCID_Receive(): log time extension
+	  messages at priority COMM instead of CRITICAL.
+	  
+	  Thanks to Martin Paljak for the patch.
+
+2005-08-02  Ludovic Rousseau
+
+	* [r1585] src/ccid_usb.c: OpenUSBByName(): call usb_close() if the
+	  device can't be used
+
+2005-07-04  Ludovic Rousseau
+
+	* [r1570] src/ifdhandler.c: IFDHControl(): having a NULL RxBuffer
+	  is not an error since it is enough to send the code in
+	  dwControlCode
+	  
+	  Thanks to Martin Paljak for the patch
+	* [r1569] src/ccid_usb.c: OpenUSBByName(): vendorID, productID are
+	  unsigned avoids a "comparison between signed and unsigned"
+	  warning
+	* [r1568] src/ccid.h: struct _ccid_descriptor: dwMaxDataRate is
+	  unsigned avoids a "comparison between signed and unsigned"
+	  warning
+	* [r1567] src/ccid.h: struct _ccid_descriptor:
+	  dwMaxCCIDMessageLength is unsigned avoids a "comparison between
+	  signed and unsigned" warning
+	* [r1566] src/commands.c: CmdPowerOn(): atr_len is unsigned avoids
+	  a "comparison between signed and unsigned" warning
+
+2005-06-16  Ludovic Rousseau
+
+	* [r1563] src/parse.c: parse wLcdLayout
+	* [r1562] src/parse.c: parse bClassEnveloppe
+	* [r1561] src/parse.c: pares bClassGetResponse
+	* [r1560] src/parse.c: parse dwSynchProtocols
+
+2005-06-15  Ludovic Rousseau
+
+	* [r1559] src/ifdhandler.c: #include <PCSC/reader.h>
+	* [r1558] examples/scardcontrol.c: remove definition of
+	  SCARD_CTL_CODE and #include <PCSC/reader.h>
+	* [r1557] src/ccid_ifdhandler.h: remove definition of
+	  SCARD_CTL_CODE
+	* [r1556] configure.in: check the availability of reader.h
+	  (provided by pcsc-lite 1.2.9-beta8)
+	* [r1555] configure.in: check against pcsc-lite 1.2.9-beta8 instead
+	  of beta7
+
+2005-06-04  Ludovic Rousseau
+
+	* [r1547] src/ccid_usb.c: WriteUSB(): do not parse
+	  usbDevice[reader_index].dev->bus if it is a NULL pointer (the
+	  device has been removed for example)
+
+2005-05-27  Ludovic Rousseau
+
+	* [r1546] README: Add Eutron SIM Pocket Combo and Eutron
+	  CryptoIdentity in the supported list
+	* [r1545] readers/CryptoIdentity.txt,
+	  readers/supported_readers.txt: add Eutron CryptoIdentity
+
+2005-05-20  Ludovic Rousseau
+
+	* [r1523] README: add Verisign Secure Token in the supported list
+	* [r1522] README: add RSA SecureID SID800 in the UNsupported list
+	* [r1521] README: add Verisign Secure Storage Token in the
+	  supported list
+	* [r1520] readers/sid800.txt: regenerate using new ./parse
+
+2005-05-05  Ludovic Rousseau
+
+	* [r1514] readers/Makefile.am, readers/SCR331-DI-NTTCom.txt: add
+	  SCR331-DI-NTTCom.txt
+	* [r1513] readers/Makefile.am: rename KAAN_mIDentity.txt in
+	  mIDentity.txt
+	* [r1512] readers/ACR38.txt, readers/CardMan3121.txt,
+	  readers/GemPCKey.txt, readers/KAAN_Advanced.txt,
+	  readers/KAAN_Base.txt, readers/LTC31.txt, readers/Oz776S.txt,
+	  readers/SCR331-DI.txt, readers/SCR331.txt, readers/SCR3310.txt,
+	  readers/SCR335.txt, readers/SIM_Pocket_Combo.txt,
+	  readers/SPR532.txt, readers/mIDentity.txt: regenerate using the
+	  latest src/parse program
+	* [r1511] src/ifdhandler.c: do not #include <math.h> since we now
+	  use +1 instead of ceil() to round the calculated timeouts to the
+	  upper integer - we do not need an mathematical exact value. the
+	  {usb,serial}read must just not timeout before the reader firmware
+	  timeouts - we avoid a dependency/link on the math library
+	* [r1510] src/ifdhandler.c: T0_card_timeout(): use intermediate
+	  variables EGT, BWT, CWT, etu to improve code readability
+	* [r1509] src/ifdhandler.c: T0_card_timeout(): declare EGT, WWT as
+	  double instead of int to have some precision We also calculate
+	  EGT and WWT in milliseconds instead of seconds
+
+2005-05-04  Ludovic Rousseau
+
+	* [r1508] README, readers/supported_readers.txt: add SCM Micro SCR
+	  331-DI NTTCom in the "Should work but untested by me" list
+	* [r1507] src/ifdhandler.c: IFDHCreateChannelByName(),
+	  T0_card_timeout(), T1_card_timeout(): also include other card
+	  parameters (TC1 for T=0, TC1 and CWI for T=1) in the timeout
+	  formula
+	* [r1506] README, readers/supported_readers.txt: rename "Kobil KAAN
+	  mIDentity" in "Kobil mIDentity"
+	* [r1505] src/ifdhandler.c: IFDHICCPresence(): add support of
+	  SCR331-DI NTTCom
+	  
+	  Thanks to Takuto Matsuu fro the patch
+	* [r1504] src/ccid.h: #define SCR331DINTTCOM 0x04E65120
+	* [r1503] readers/supported_readers.txt: add the manufacturer name
+	  in the reader name
+
+2005-05-02  Ludovic Rousseau
+
+	* [r1496] src/ccid_serial.c: typo in the data rates list
+	* [r1495] src/ifdhandler.c: T0_card_timeout()/T1_card_timeout():
+	  use ceil() to round the timeout
+	* [r1494] src/ccid.c, src/ccid.h: ccid_error(): function is (const
+	  char *) instead of (char *) to avoid a "warning: passing arg 4 of
+	  `ccid_error' discards qualifiers from pointer target type" using
+	  gcc 3.4
+	* [r1493] readers/CherryXX33.txt, readers/DellSCRK.txt,
+	  readers/GemPC433_SL.txt, readers/GemPCTwin.txt,
+	  readers/KAAN_SIM_III.txt: regenerate using the new parse command
+	* [r1492] src/commands.c: CmdEscape(): replay the command if we
+	  receive STATUS_COMM_NAK
+	* [r1491] src/ccid_serial.c: ReadSerial(): if we get a NAK we
+	  return STATUS_COMM_NAK to the above layer to replay the command
+	  instead of just restarting the read
+	* [r1490] src/defs.h: add STATUS_COMM_NAK
+	* [r1489] src/parse.c: display the clock frequencies supported by
+	  the reader
+	* [r1488] src/parse.c: move the display of supported data rates
+	  after printing bNumDataRatesSupported info
+	* [r1487] src/ifdhandler.c: IFDHSetProtocolParameters(): check if
+	  the baud rate is present in the baud rates list only if the list
+	  is present. Otherwise we use the old behavior.
+	* [r1486] src/ccid_usb.c: get_data_rates(): if the reader do not
+	  support GET DATA RATES we return NULL instead of a manually
+	  constructed/fake list
+	* [r1485] src/ccid_serial.c, src/ccid_usb.c: Open*ByName():
+	  initialise dwMaxDataRate field
+	* [r1484] src/ccid.h: add dwMaxDataRate field (again)
+	* [r1483] src/ccid_usb.c: get_data_rates(): check that the reader
+	  sends a DATA RATES list size multiple of 4 othewise it is an
+	  error
+	* [r1482] src/parse.c: display the bit value of dwFeatures in the
+	  text message
+	* [r1481] src/parse.c: test all the 4 bytes of dwFeatures against 0
+	  and not just the first one
+	* [r1480] src/parse.c: do not display the list returned by GET DATA
+	  RATES if the list size is not a multiple of 4 (n % 4 != 0)
+
+2005-04-27  Ludovic Rousseau
+
+	* [r1479] src/ccid_serial.c, src/ccid_usb.c: Open*ByName: do not
+	  initialise the now disappeared .dwMaxDataRate field
+	* [r1478] src/ccid.h: _ccid_descriptor: remove the now useless
+	  dwMaxDataRate field
+	* [r1477] src/ifdhandler.c: IFDHSetProtocolParameters(): we do not
+	  check if (card_baudrate <= ccid_desc->dwMaxDataRate) since
+	  find_baud_rate() will tell us if the speed is supported or not by
+	  the reader
+	* [r1476] src/ccid_usb.c: get_data_rates(): if the CCID command GET
+	  DATA RATES is nto supported the array of supported rates contains
+	  only the default and max data rates
+	* [r1475] src/ccid_usb.c: get_data_rates(): test if int_array is
+	  NULL (and not buffer)
+	* [r1474] readers/Makefile.am: add the new or missing readers
+	* [r1473] configure.in: version 0.9.4
+	* [r1472] src/ccid_serial.c: OpenSerialByName(): inhibit the
+	  Plug-n-Play string by setting the RTS signal to low. Mainly
+	  useful for the GemPC Card (PCMCIA)
+	* [r1471] readers/Verisign_secure_storage_token.txt: Verisign
+	  Secure Storage Token
+	* [r1470] readers/Verisign_secure_token.txt: Verisign Secure Token
+	  (without mass memory)
+	* [r1469] readers/supported_readers.txt: add Verisign Secure Token
+	  and VeriSign Secure Storage Token
+	* [r1468] src/parse.c: display the supported data rates using the
+	  CCID command GET DATA RATES
+	* [r1467] src/ccid_usb.c: get_data_rates(): use the real interface
+	  number instead of 0
+	* [r1460] src/ccid_usb.c: get_data_rates(): buffer argument of
+	  usb_control_msg is (char *) and not (unsigned char *)
+	* [r1459] src/ccid_usb.c: get_data_rates() returns an unsigned int
+	  [] (not just int [])
+	* [r1458] src/ccid_serial.c: SerialDataRates[] is unsigned
+
+2005-04-26  Ludovic Rousseau
+
+	* [r1454] src/openct/proto-t1.c: t1_xcv(): increase the read
+	  timeout if the card sends and WTX request
+	* [r1453] src/ccid_serial.c, src/ccid_usb.c: use the calculated
+	  read timeout instead of a fixed value
+	* [r1452] src/ifdhandler.c: calculate and store the read timeout
+	  according to the card ATR instead of using a fixed value of 60
+	  seconds
+	* [r1451] src/ifdhandler.c: add T0_card_timeout() and
+	  T1_card_timeout()
+	* [r1450] src/defs.h: /* Default communication read timeout in
+	  seconds */ #define DEFAULT_COM_READ_TIMEOUT 2
+	* [r1449] src/ccid.h: struct _ccid_descriptor: add unsigned int
+	  readTimeout field
+	* [r1448] src/ifdhandler.c: IFDHSetProtocolParameters(): only use a
+	  data rate supported by the reader in the PPS negociation,
+	  otherwise we stay at the default speed.
+	* [r1447] src/ccid_serial.c: OpenSerialByName(): the reader does
+	  not support the Get Data Rates CCID function so the list of
+	  supported data rates is hard coded.
+	* [r1446] src/ccid_usb.c: OpenUSBByName(): get the list of data
+	  rates the reader supports
+	  
+	  See 3.7.3 Get Data Rates (page 25) from CCID spec 1.00
+	* [r1445] src/ccid.h: struct _ccid_descriptor: add unsigned int
+	  *arrayOfSupportedDataRates field
+	* [r1444] src/ccid_serial.c: OpenSerialByName(): set card movement
+	  notification in synchronous mde
+	* [r1443] configure.in: we need pcsc-lite 1.2.9-beta7 and not just
+	  beta5 since we use the new log API
+	* [r1442] src/ifdhandler.c: extra_egt(): rewrite the function
+	  comment
+	* [r1441] src/ifdhandler.c: extra_egt(): reuse the same baud rate
+	  calculation formula
+	* [r1440] src/ifdhandler.c: extra_egt(): change two if() in one
+	* [r1439] src/ifdhandler.c: change comments: TBi (i>2) is BWI/CWI
+	  not BWI/BCI
+
+2005-04-25  Ludovic Rousseau
+
+	* [r1438] src/ifdhandler.c: extra_egt(): some (bogus) cards require
+	  an extra EGT but the ATR does not say so. We try to detect the
+	  bogus cards and set TC1=2
+	* [r1437] src/ifdhandler.c: light code reformating
+
+2005-04-22  Ludovic Rousseau
+
+	* [r1436] readers/supported_readers.txt: add Eutron SIM Pocket
+	  Combo
+
+2005-04-21  Ludovic Rousseau
+
+	* [r1427] src/openct/checksum.c, src/openct/checksum.h,
+	  src/openct/proto-t1.h: #include <stdint.h> only if HAVE_STDINT_H
+	  is defined. Some old FreeBSD do not have stdint.h.
+	  
+	  Thanks to Tilman Linneweh for the patch
+
+2005-04-13  Ludovic Rousseau
+
+	* [r1426] readers/SIM_Pocket_Combo.txt: Eutron SIM Pocket Combo
+	  (the reader is dual slot and is seen as two readers)
+	* [r1425] readers/sid800.txt: RSA SecurID SID800 Hardware
+	  Authenticator
+
+2005-04-12  Ludovic Rousseau
+
+	* [r1422] src/Info.plist: "Generic CCID reader" -> "Generic CCID
+	  driver"
+
+2005-03-17  Ludovic Rousseau
+
+	* [r1411] src/ccid.c: ccid_error(): use log_msg() instead of
+	  debug_msg()
+	* [r1410] src/debug.c: change debug_msg() in log_msg() and add the
+	  priority argument same for debug_xxd() changed in log_xxd()
+	  
+	  These functions are only used by the parse command and if the
+	  driver is not used with pcsclite
+	* [r1409] src/debug.h: use pcsclite debuglog.h header file and use
+	  its Log?() macro instead of debug_msg().
+	  
+	  This adds color to the log messages because Log?() macros use
+	  log_msg() instead of the deprecated debug_msg() function.
+	* [r1408] src/ifdhandler.c: init_driver(): use DEBUG_INFO2()
+	  instead of debug_msg()
+	* [r1407] src/tokenparser.l: add "%option nounput" to avoid the
+	  compilation warning "`yyunput' defined but not used"
+	* [r1406] src/towitoko/atr.c: ATR_GetDefaultProtocol(): the message
+	  "no default protocol found in ATR. Using T=0" is not CRITICAL but
+	  INFO only
+	* [r1405] configure.in: store & restore the value of LIBS around
+	  the macro AC_CHECK_LIB(pcsclite,...) to avoid adding an automatic
+	  -lpcsclite to LIBS
+	* [r1404] configure.in: do not check for SCardEstablishContext is
+	  the user does NOT want to use pcsc-lite (with --disable-pcsclite)
+
+2005-03-14  Ludovic Rousseau
+
+	* [r1400] README: release 0.9.3
+	* [r1399] COPYING, README, src/ccid.c, src/ccid.h,
+	  src/ccid_ifdhandler.h, src/ccid_serial.c, src/ccid_serial.h,
+	  src/ccid_usb.c, src/ccid_usb.h, src/commands.c, src/commands.h,
+	  src/debug.c, src/debug.h, src/defs.h, src/ifdhandler.c,
+	  src/openct/checksum.h, src/openct/proto-t1.h, src/utils.c,
+	  src/utils.h: change licence from GNU GPL to GNU LGPL
+	* [r1398] configure.in: version 0.9.3
+
+2005-03-04  Ludovic Rousseau
+
+	* [r1397] readers/KAAN_SIM_III.txt, readers/mIDentity.txt: Add KAAN
+	  SIM III and KAAN mIDentity
+	* [r1396] config.h.in: add HAVE_LIBPCSCLITE
+	* [r1395] configure.in: use $PCSC_LIBS instead of $PCSCLITE_LIBS
+	  since we used PKG_CHECK_MODULES(PCSC, ...)
+	* [r1394] README, readers/supported_readers.txt: add Kobil KAAN
+	  mIDentity in supported reader list
+	* [r1393] README, readers/supported_readers.txt: add Kobil KAAN SIM
+	  III in supported readers list
+	* [r1392] README, readers/supported_readers.txt: add SCR 3310
+	* [r1391] readers/SCR3310.txt: SCR3310
+
+2005-02-28  Ludovic Rousseau
+
+	* [r1368] src/ifdhandler.c, src/towitoko/atr.c: use ATR_t instead
+	  of ATR
+	* [r1367] src/towitoko/atr.h: rename ATR struct to ATR_t do not
+	  conflict with ATR field defined by PCSC/ifdhandler.h. This allows
+	  compilation using tcc (Tiny C Compiler)
+
+2005-02-27  Ludovic Rousseau
+
+	* [r1361] configure.in: check that we can link with libpcsclite
+	  needed by examples/scardcontrol.c
+	* [r1360] configure.in: exits with an error if usbdropdir is not
+	  defined
+	* [r1359] configure.in: if /usr/local/lib/pkgconfig/libpcsclite.pc
+	  exists (default pcsc-lite configuration) we exit telling the user
+	  to use PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure
+	* [r1358] configure.in: do not check for pkg-config since we can do
+	  without it
+
+2005-02-25  Ludovic Rousseau
+
+	* [r1356] readers/CardMan3121.txt, readers/CherryXX33.txt,
+	  readers/CherryXX44.txt, readers/GemPC433_SL.txt,
+	  readers/KAAN_Advanced.txt, readers/KAAN_Base.txt,
+	  readers/SCR331-DI.txt, readers/SCR331.txt, readers/SCR335.txt,
+	  readers/SPR532.txt: typo: correct ICC by CCID where needed
+	* [r1355] src/parse.c: typo: used "ICC" instead of "CCID"
+	* [r1354] src/ifdhandler.c: IFDHSetProtocolParameters(): return
+	  immediately if the reader has the bit CCID_CLASS_AUTO_PPS_PROP
+	  set since he will perform PPS and SetParameters himself
+	* [r1353] src/ccid.h: #define CCID_CLASS_AUTO_PPS_PROP 0x00000040
+	* [r1352] src/ifdhandler.c: IFDHSetProtocolParameters(): calculate
+	  the value of pps[2] (TA1) even if CCID_CLASS_AUTO_PPS_CUR bit is
+	  set and no PPS will be generated by the driver since this value
+	  is also used later by the SetParameters()
+	* [r1351] src/ifdhandler.c: IFDHSetProtocolParameters(): use
+	  "card_baudrate <= ccid_desc->dwMaxDataRate" instead of
+	  "card_baudrate < ccid_desc->dwMaxDataRate" to not miss the
+	  maximum speed value
+	* [r1350] Makefile.am: we do not need to distribute mkinstalldirs
+	* [r1349] configure.in: define WITHOUT_PCSC=false when pcsclite
+	  _is_ used
+
+2005-02-23  Ludovic Rousseau
+
+	* [r1346] examples/scardcontrol.c: #include <sys/time.h> instead of
+	  <time.h> to get correct definition of struct timeval under Mac OS
+	  X
+	* [r1343] src/debug.c: if you use --disable-pcsclite and do _not_
+	  want to see the logs sent to stderr just #undef LOG_TO_STDERR
+	* [r1342] configure.in, src/Makefile.am: if --disable-pcsclite is
+	  used we must link the library with debug.c to provide debug_msg()
+	* [r1341] examples/Makefile.am: use @PCSC_CFLAGS@ and @PCSC_LIBS@
+
+2005-02-21  Ludovic Rousseau
+
+	* [r1330] src/ccid_serial.c: OpenSerialByName(): use tx_buffer[] =
+	  { 0x02 } insead of "\x02" since we want 1 byte only and not a
+	  null-terminated string
+	* [r1329] src/Makefile.am: use @PCSC_CFLAGS@
+	* [r1328] configure.in: use pkg-config(1) to find everything
+	  related to pcsc-lite
+	  
+	  if you installed pcsc-lite in /usr/local you may use $
+	  PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure
+	  
+	  if you do not have pkg-config installed you may use $
+	  CFLAGS=-I/usr/local/include/PCSC ./configure
+
+2005-02-20  Ludovic Rousseau
+
+	* [r1327] src/ccid_usb.c: add an "interface field" in _usbDevice.
+	  This value is set in OpenUSB() and used in CloseUSB().
+	  
+	  The struct usb_device structure is half "corrupted" after the USB
+	  device is removed and we wanted to use it when when closing the
+	  driver after a reader removal. This caused a crash with libusb
+	  0.1.10.
+	* [r1326] README: add Kobil KAAN Base & KAAN Advanced readers in
+	  the supported list
+	* [r1325] src/ccid_usb.c: Bogus_firmwares[]: add Kobil KAAN Base &
+	  KAAN Advanced readers
+	* [r1324] readers/supported_readers.txt: add Kobil KAAN Base & KAAN
+	  Advanced readers
+	* [r1323] readers/KAAN_Advanced.txt, readers/KAAN_Base.txt:
+	  firmware 0.37
+
+2005-02-04  Ludovic Rousseau
+
+	* [r1322] readers/ACR38.txt: new firmware (but still with version
+	  1.0) with the wMaxPacketSize bug removed
+
+2005-02-02  Ludovic Rousseau
+
+	* [r1321] README: move the ACR 38 from Unsupported to Supported
+	  list
+
+2005-01-26  Ludovic Rousseau
+
+	* [r1319] readers/Makefile.am: add the new or missing readers
+	* [r1318] readers/CherryXX44.txt, readers/KAAN_Advanced.txt,
+	  readers/KAAN_Base.txt: new readers descriptions
+
+2005-01-20  Ludovic Rousseau
+
+	* [r1317] README: add Cherry XX44 keyboard (SmartBoard G83-6744)
+	* [r1316] readers/supported_readers.txt: add Cherry XX44
+	  (SmartBoard G83-6744)
+
+2005-01-13  Ludovic Rousseau
+
+	* [r1314] README: move the SCM Micro readers from unsupported to
+	  supported list and document how to upgrade the firmwares
+	  
+	  Thanks to Torsten Maykranz for his support
+	* [r1313] readers/SCR335.txt: New model with firmware 5.14 (instead
+	  of 4.16)
+	* [r1312] src/ccid_usb.c: Bogus_firmwares[]: the 3 SMC readers had
+	  the same (cut-n-paste) USB identification
+	* [r1311] src/commands.c: CmdXfrBlockCHAR_T0(): move a variable
+	  declaration at the beginning of the function since ISO C89
+	  forbids mixed declarations and code
+	* [r1310] src/commands.c: SecurePIN(): proprietary command to add
+	  the PIN code in the APDU without any padding (this is not
+	  possible with the CCID specs).
+	  
+	  Thanks to Martin Paljak for the patch.
+	* [r1309] src/ccid.h: define SPR532 USB identification
+
+2005-01-11  Ludovic Rousseau
+
+	* [r1302] configure.in: typo: shat -> what
+
+2005-01-09  Ludovic Rousseau
+
+	* [r1301] src/commands.c: SecurePIN(), CCID_Transmit(),
+	  SetParameters(): check that the user provided command is not too
+	  large (avoid a possible buffer overflow)
+	* [r1300] examples/scardcontrol.c: The APDU now comes _after_ the
+	  CCID structure as described the CCID specifications.
+	* [r1299] src/commands.c: SecurePIN(): directly use the user buffer
+	  passed instead of reversing the APDU/CCID structure. It is now as
+	  described in the CCID specifications.
+	  
+	  Thanks to Martin Paljak. I was wrong.
+
+2004-12-19  Ludovic Rousseau
+
+	* [r1298] src/ccid_usb.c: SPR 532 firmware previous to 5.04 is
+	  bogus regarding min/max pin lengths
+	* [r1297] readers/SPR532.txt: update with firmware 5.04
+
+2004-10-27  Ludovic Rousseau
+
+	* [r1292] src/ccid_serial.c: OpenSerialByName(): use %s instead of
+	  %d for dev_name
+
+2004-10-20  Ludovic Rousseau
+
+	* [r1290] examples/scardcontrol.c: set wPINMaxExtraDigit: set max
+	  to 8 (instead of 4) to differentiate it from min (set to 4)
+	* [r1289] examples/scardcontrol.c: in wPINMaxExtraDigit the bytes
+	  order is max,min and not min,max. The comments were wrong
+
+2004-10-19  Ludovic Rousseau
+
+	* [r1288] readers/supported_readers.txt: add Oz776
+	* [r1287] src/Info.plist, src/ccid_ifdhandler.h, src/ccid_usb.c:
+	  check firmware version to avoid firmwares with bugs. You can
+	  still use a bigus firmware by setting
+	  DRIVER_OPTION_USE_BOGUS_FIRMWARE in Info.plist
+	* [r1286] src/commands.c, src/commands.h, src/openct/proto-t1.c,
+	  src/towitoko/pps.c: Add support of character level communication
+	  (CCID_CLASS_CHARACTER).
+	  
+	  Thanks to Jeffrey Dai
+
+2004-10-14  Ludovic Rousseau
+
+	* [r1285] readers/DellSCRK.txt: add idVendor & idProduct using the
+	  new parse command
+
+2004-10-07  Ludovic Rousseau
+
+	* [r1284] readers/Makefile.am: reorganize the list and add
+	  Oz776S.txt
+	* [r1283] readers/Oz776S.txt: O2Micro Oz776S USB Hub smartcard
+	  reader
+	* [r1282] readers/SCR331-DI.txt, readers/SCR335.txt,
+	  readers/SPR532.txt: add idVendor & idProduct using the new parse
+	  command
+	* [r1281] src/ccid_usb.c, src/ccid_usb.h: the first argument of
+	  get_desc() is lun instead of channel and the function uses
+	  LunToReaderIndex() to get the reader index
+	* [r1280] src/parse.c: use lun instead of channel as first argument
+	  to get_desc() and use the returned value to detect an error
+	* [r1279] readers/SCR331.txt: add idVendor & idProduct using the
+	  new parse command
+
+2004-10-06  Ludovic Rousseau
+
+	* [r1278] readers/ACR38.txt, readers/CardMan3121.txt,
+	  readers/CherryXX33.txt, readers/DellSK-3106.txt,
+	  readers/GemPC433_SL.txt, readers/GemPCKey.txt,
+	  readers/GemPCTwin.txt, readers/LTC31.txt: add idVendor &
+	  idProduct using the new parse command
+	* [r1277] src/parse.c: display idVendor and idProduct
+	* [r1276] src/parse.c: display USB bcdDevice field. Is it the
+	  device firmware release?
+	* [r1275] src/parse.c: add support of "Character level exchange"
+
+2004-10-04  Ludovic Rousseau
+
+	* [r1265] configure.in: do not redefine PKG_CONFIG_PATH when
+	  checking the pcsc-lite version since the variable is already
+	  defined a few lines above
+
+2004-10-03  Ludovic Rousseau
+
+	* [r1263] examples/scardcontrol.c: add "THIS PROGRAM IS NOT
+	  DESIGNED AS A TESTING TOOL!
+
+2004-09-30  Ludovic Rousseau
+
+	* [r1261] src/ifdhandler.c: mask bStatus to get the ICC state since
+	  bSatus may also indicate an error in b6-b7
+	* [r1260] src/ccid.h: #define CCID_CLASS_CHARACTER
+	* [r1259] src/ccid.h: define OZ776 USB identification
+	* [r1258] src/ccid.h: define CCID_ICC_STATUS_MASK and status states
+	* [r1257] src/commands.c: CmdGetSlotStatus(): card absent or mute
+	  is not an communication error (even if the CCID command result
+	  indicates a command failure)
+	* [r1256] src/ccid_usb.c: get_ccid_usb_interface(): the O2Micro
+	  OZ776S reader has a wrong USB descriptor. The extra[] field is
+	  associated with the last endpoint instead of the main USB
+	  descriptor.
+
+2004-09-29  Ludovic Rousseau
+
+	* [r1254] examples/Makefile.am, src/Makefile.am: use @AM_CPPFLAGS@
+	  (defined by configure.in) instead of `pkg-config libpcsclite
+	  --cflags` since PKG_CONFIG_PATH may not be correct here
+	* [r1253] configure.in: define AM_CPPFLAGS=`pkg-config libpcsclite
+	  --cflags` here since we also defined/exported a "valid"
+	  PKG_CONFIG_PATH
+	* [r1252] src/Makefile.am: do not define parse_CFLAGS since
+	  AM_CPPFLAGS is already defined with the same value
+	* [r1251] configure.in: try to find pkg-config files in
+	  /usr/local/lib/pkgconfig since pcsc-lite installs them in this
+	  directory by default
+
+2004-09-08  Ludovic Rousseau
+
+	* [r1228] src/ccid.c: ccid_open_hack(): do not use a null
+	  terminated C string for the TPDU->APDU switch command since the
+	  command is NOT a C string
+	* [r1227] src/commands.c: CmdPowerOn(): do not use a null
+	  terminated C string for the EMV->ISO switch command since the
+	  command is NOT a C string
+	* [r1226] src/commands.c: switch the Cherry xx33 reader in ISO mode
+	  if power up in EMV mode fails. Thanks to St�phane Durand for the
+	  bug report.
+	* [r1225] src/ccid.h: #define CHERRYXX33 0x046A0005
+
+2004-09-03  Ludovic Rousseau
+
+	* [r1213] src/ifdhandler.c: IFDHSetProtocolParameters(): return the
+	  result value of SetParameters() in case of error instead of
+	  always IFD_COMMUNICATION_ERROR.
+	  
+	  This will allow to return IFD_NOT_SUPPORTED in some cases and
+	  avoid a PTS negociation failure (and card ignored) in pcscd.
+	* [r1212] src/commands.c: SetParameters(): returns
+	  IFD_NOT_SUPPORTED if the CCID error is "command not supported".
+
+2004-08-24  Ludovic Rousseau
+
+	* [r1196] src/ifdhandler.c: IFDHSetProtocolParameters(): the
+	  bmTCCKST bits shall be _set_ not cleared
+	* [r1195] src/ifdhandler.c: IFDHSetProtocolParameters(): we shall
+	  indicate the T=1 checksum used (LRC/CRC) in the SetParameters()
+	  command
+	* [r1194] src/openct/proto-t1.c: t1_negociate_ifsd: the frame size
+	  is 5 only for LRC checksum. The correct size is (4 +
+	  t1->rc_bytes)
+	* [r1193] src/utils.c: ReleaseReaderIndex: return 0 since the
+	  function is not void ()
+
+2004-08-17  Ludovic Rousseau
+
+	* [r1189] src/Info.plist: use the official doctype, public and
+	  system ids. Thanks to Ville Skytt� and OpenCT
+
+2004-08-15  Ludovic Rousseau
+
+	* [r1186] README: release 0.9.2
+	* [r1185] examples/Makefile.am, src/Makefile.am: use AM_CPPFLAGS =
+	  `pkg-config libpcsclite --cflags`
+	* [r1184] config.h.in: no need to define HAVE_PCSC_IFDHANDLER_H
+	  (the check section changed in configure.in)
+	* [r1183] configure.in: use `pkg-config libpcsclite --cflags` to
+	  locate ifdhandler.h and do not use PCSC/ifdhandler.h but just
+	  ifdhandler.h
+
+2004-08-10  Ludovic Rousseau
+
+	* [r1165] README: place the "Known problems" near the affected
+	  reader and not in a independent section for clarification
+
+2004-08-06  Ludovic Rousseau
+
+	* [r1160] src/parse.c: try to IFDHCloseChannel() only if we opened
+	  at least one reader
+	* [r1157] src/ccid.c: ccid_open_hack(): update the hack for the
+	  SCR331-DI contactless now we use multi-slots
+	* [r1156] src/ifdhandler.c: IFDHICCPresence(): periodic debug
+	  message indicating the card presence/absence
+	* [r1155] src/ifdhandler.c: use a much cleaner way to check
+	  presence of a contactless card with a multislot SCR331-DI reader
+	* [r1154] src/ifdhandler.c: IFDHICCPresence(): call
+	  get_ccid_descriptor() on reader_index instead of Lun
+	* [r1153] src/ifdhandler.c: FDHGetCapabilities() tag
+	  TAG_IFD_SLOT_THREAD_SAFE: Can NOT talk to multiple slots at the
+	  same time (at least until it is fully validated)
+	* [r1152] src/ifdhandler.c:
+	  IFDHCreateChannel()/IFDHCreateChannelByName(): if the OpenPort()
+	  call fails we ReleaseReaderIndex() and do not call
+	  ccid_open_hack()
+	* [r1151] src/ccid_usb.c: for multi-slots readers
+	  IFDHCreateChannel*()/OpenUSB is called for each slot. If we are
+	  opening a new slot of an already opened reader we reuse the same
+	  data (same libusb structures) and share the same pbSeq.
+	* [r1150] src/commands.c: use (*ccid_descriptor->pbSeq)++ instead
+	  of ccid_descriptor->bSeq++
+	* [r1149] src/ccid_serial.c, src/ccid_usb.c: use pbSeq instead of
+	  bSeq
+	* [r1148] src/ccid.h: replace "unsigned char bSeq" by "unsigned
+	  char *pbSeq" so that two slots of a same reader can share the
+	  same sequence number
+	* [r1147] src/ccid_serial.c: use a dynamic timeout when reading the
+	  serial port.
+	  
+	  The first timeout use when detecting the reader is 2 seconds to
+	  not wait too long if no reader is connected. Later timeouts are
+	  set to 1 minute to allow long time APDU.
+
+2004-08-04  Ludovic Rousseau
+
+	* [r1146] src/ccid.h, src/ccid_serial.c, src/ccid_usb.c,
+	  src/ifdhandler.c: remove defaultFeatures management (was used for
+	  SCR331-DI hack)
+	* [r1145] src/Makefile.am: add "parse_CFLAGS = `pkg-config
+	  libpcsclite --cflags`" so that parse.c can find and use
+	  <ifdhandler.h>
+	* [r1144] src/parse.c: do not use OpenUSB/CloseUSB but
+	  IFDHCreateChannel/IFDHCloseChannel to use the ReaderIndex[]
+	  mechanism
+	* [r1143] src/utils.c: update copyright date (add 2004)
+	* [r1142] src/utils.c: LunToReaderIndex(): debug message when Lun
+	  is not found
+	* [r1141] src/utils.c: GetNewReaderIndex(): debug message when
+	  ReaderIndex[] is full
+	* [r1140] src/utils.c: GetNewReaderIndex(): store Lun in the first
+	  free ReaderIndex[] entry
+	* [r1139] src/towitoko/pps.c: typo: Receivig -> Receiving
+	* [r1138] src/towitoko/pps.c: PPS_Exchange(): do not recalculate
+	  the PPS length from the received PPS but take it from the number
+	  of bytes actually received (it may not be a PPS)
+
+2004-07-28  Ludovic Rousseau
+
+	* [r1107] src/ifdhandler.c: use reader_index instead of lun as
+	  reader identification allocate (in IFDHCreateChannel*) and
+	  release (in IFDHCloseChannel)
+	* [r1106] src/ccid.c, src/ccid.h, src/ccid_ifdhandler.h,
+	  src/ccid_serial.c, src/ccid_serial.h, src/ccid_usb.c,
+	  src/ccid_usb.h, src/commands.c, src/commands.h: use reader_index
+	  instead of lun as reader identification
+	* [r1105] src/utils.c, src/utils.h: use a more complex Lun ->
+	  reader transformation (Lun>>16) is not usable for multi-slots
+	  readers
+
+2004-07-27  Ludovic Rousseau
+
+	* [r1103] src/openct/proto-t1.c: this code fails EMV test 1771-4
+	  (should be a residue)
+
+2004-07-26  Ludovic Rousseau
+
+	* [r1102] src/openct/proto-t1.c: - debug some cases - add ISO
+	  7816-3 rule number in comments
+	* [r1101] src/ccid_serial.c, src/ccid_usb.c: initialise
+	  ccid.defaultFeatures field
+
+2004-07-22  Ludovic Rousseau
+
+	* [r1096] configure.in: use pkg-config to test the release version
+	  of pcsc-lite
+
+2004-07-21  Ludovic Rousseau
+
+	* [r1095] configure.in: version 0.9.2
+	* [r1094] src/ifdhandler.c: hack to support the SCR331-DI
+	  contactless interface
+	* [r1093] src/ccid.c: ccid_open_hack(): detect and activate the
+	  contactless interface of the SCR331-DI
+	* [r1092] src/commands.c: use bCurrentSlotIndex as the slot number
+	  in the CCID commands (instead of 0)
+	* [r1091] src/ccid_serial.c, src/ccid_usb.c: initialise
+	  bMaxSlotIndex and ccid.bCurrentSlotIndex fields
+	* [r1090] src/ccid.h: add defaultFeatures field for multislot
+	  readers with different dwFeatures for each slot.
+	* [r1089] src/ccid.h: add SCR331DI identification
+	* [r1088] src/ccid.h: add bMaxSlotIndex and bCurrentSlotIndex
+	  fields to support multislot readers (one USB device with two or
+	  more card readers)
+
+2004-07-20  Ludovic Rousseau
+
+	* [r1087] src/openct/proto-t1.c: remove "|| sent_length" in "if
+	  (retries == 0 || sent_length)" since it is an OpenCT code that
+	  should not be needed with the new automata.
+	* [r1086] src/openct/proto-t1.c: update the copyright, add my name
+	  to reflect the same change in OpenCT
+
+2004-07-19  Ludovic Rousseau
+
+	* [r1085] src/ifdhandler.c: update IFDHControl() prototype to
+	  replace LPVOID by PUCHAR (prototype changed in
+	  pcsc-lite-1.2.9-beta5)
+	* [r1084] src/ifdhandler.c, src/openct/proto-t1.c,
+	  src/openct/proto-t1.h: BUG: I forgot to initialise the t1.lun
+	  field. It failed to work with more than one readers and a T=1
+	  card in a TPDU reader.
+	* [r1083] src/openct/proto-t1.c: in resync: we set retries = 1
+	  since when we return in the loop we have retries--; Without this
+	  retries goes negative and the test 'if (retries == 0)' will not
+	  become true again before a looooong time.
+
+2004-07-16  Ludovic Rousseau
+
+	* [r1079] src/ccid_usb.c: OpenUSBByName(): use base 0 instead of 16
+	  in strtoul() so that you can express the decimal value 15 as: 15
+	  (decimal), 0xF (hex) or 017 (octal).
+	  
+	  It is not really needed since the reader descriptions in
+	  Info.plist are all in hex.
+	* [r1078] src/ifdhandler.c: init_driver(): use base 0 instead of 16
+	  in strtoul() so that you can express the decimal value 15 as: 15
+	  (decimal), 0xF (hex) or 017 (octal)
+	* [r1077] src/ccid_ifdhandler.h, src/ccid_serial.c, src/ccid_usb.c,
+	  src/ifdhandler.c, src/parse.c, src/utils.c: rename
+	  PCSCLITE_MAX_READERS in CCID_DRIVER_MAX_READERS
+	  
+	  This value is not defined by pcsc-lite but is internal to the
+	  CCID driver. By default pcsc-lite supports the same number of
+	  readers (16).
+	* [r1076] src/commands.c: BUG: CmdPowerOn(): use memmove() instead
+	  of memcpy() to copy the ATR bytes since the source end
+	  destination buffers (with a more than 10 bytes long ATR)
+	  overlaps.
+	  
+	  Bug spotted by splint http://www.splint.org/
+
+2004-07-15  Ludovic Rousseau
+
+	* [r1075] src/openct/proto-t1.h: use "uint8_t *" instead of
+	  "unsigned char *" in the prototype of t1_state_t.checksum field.
+	* [r1074] src/tokenparser.l: initialise pcDesiredKey to NULL
+	  instead of 0
+	* [r1073] src/commands.c: BUG in CmdXfrBlockTPDU_T1(): the
+	  t1_transceive() returned value was stored in an unsigned int and
+	  tested if < 0 (error case). Of course the test was never true.
+	* [r1071] src/openct/proto-t1.c: remove a useless break; after a
+	  goto;
+	* [r1070] src/openct/proto-t1.c, src/openct/proto-t1.h: in
+	  t1_transceive() and t1_negociate_ifsd() dad argument is unsigned.
+	* [r1069] src/openct/checksum.h: replace "unsigned char *" by
+	  "uint8_t *" to use the exact same prototype as in the functions
+	  definition
+	* [r1068] src/commands.c, src/commands.h: i2dw() is not used
+	  outside commands.c so declare it static
+	* [r1067] examples/scardcontrol.c: allow splint to continue parsing
+	  after use of type fd_set
+	* [r1066] src/commands.c, src/commands.h: CmdXfrBlockTPDU_T0() and
+	  CmdXfrBlockTPDU_T1() are internal functions so declare them
+	  static
+	* [r1065] src/towitoko/atr.c: atr tables are internal only so
+	  declare them static
+	* [r1064] src/openct/proto-t1.c: define internal functions as
+	  static
+	* [r1063] src/openct/buffer.c, src/openct/buffer.h: remove unused
+	  functions
+
+2004-07-10  Ludovic Rousseau
+
+	* [r1062] src/openct/proto-t1.c: change "previous_block[1]" in
+	  "previous_block[PCB]"
+	* [r1061] src/openct/proto-t1.c: remove unused struct
+	  ifd_protocol_ops
+	* [r1060] src/openct/proto-t1.c, src/openct/proto-t1.h:
+	  IFD_PROTOCOL_MORE -> IFD_PROTOCOL_T1_MORE IFD_PROTOCOL_STATE ->
+	  IFD_PROTOCOL_T1_STATE renamed to be in line with OpenCT
+
+2004-07-09  Ludovic Rousseau
+
+	* [r1059] examples/scardcontrol.c, src/ifdhandler.c, src/parse.c:
+	  explicitely cast the returned value as (void) if we don't use it
+	* [r1058] src/ifdhandler.c: IFDHSetProtocolParameters(): test the
+	  return value of SetParameters()
+	* [r1057] src/parse.c: ccid_parse_interface_descriptor() is now
+	  static
+	* [r1056] src/parse.c: make channel variable (unsigned int) instead
+	  of (int)
+	* [r1055] src/parse.c: include <sys/types.h> so splint can parse
+	  the file
+	* [r1054] src/ccid_serial.c, src/ccid_usb.c, src/ccid_usb.h: mark
+	  potentially null values as /*@null@*/ for splint
+	* [r1053] src/ccid_serial.c, src/ccid_usb.c, src/ifdhandler.c,
+	  src/openct/proto-t1.c, src/parse.c: mark unused arguments as
+	  /*@unused@*/ for splint
+	* [r1052] src/ccid_usb.c: include <sys/types.h> so splint can parse
+	  the file
+	* [r1051] src/ccid.c: the buffer var_text[] was, in fact, used
+	  outside its declaration
+	* [r1050] src/ccid_serial.c, src/ccid_serial.h: ReadChunk() and
+	  get_bytes() are internal use in ccid_serial.c so declare them
+	  static
+	* [r1049] src/ccid_serial.c, src/ccid_usb.c: lun is (unsigned int)
+	  so reader = LunToReaderIndex(lun) is also (unsigned int)
+	* [r1048] src/ccid_serial.c: OpenSerialByName(): arguments of
+	  CmdEscape() are unsigned
+	* [r1047] src/ccid_serial.c: replace "121234" by "123456" to make
+	  it more clear it is a memory reservation for 6 characters
+	* [r1046] src/ccid_serial.c: remove a unneeded cast in (int)lun
+	* [r1045] src/ccid_serial.c: allow splint to continue parsing after
+	  use of type fd_set
+	* [r1044] src/ccid_serial.c: ReadSerial(): the unknown card
+	  movement byte is in "c" not "buffer[3]"
+	* [r1043] src/ccid.c, src/ccid.h, src/ccid_ifdhandler.h,
+	  src/ccid_serial.c, src/ccid_serial.h, src/ccid_usb.c,
+	  src/ccid_usb.h, src/commands.c, src/commands.h, src/ifdhandler.c:
+	  lun is (unsigned int) instead of (int)
+	  
+	  Avoid a warning by splint in #define LunToReaderIndex(Lun)
+	  (Lun>>16) Left operand of >> may be negative (int): lun >> 16
+
+2004-07-02  Ludovic Rousseau
+
+	* [r1023] src/Info.plist, src/create_Info_plist.pl: replace VENDOR
+	  pattern by MAGIC_VENDOR since we also have a VENDOR in
+	  IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE and then a collision.
+	  
+	  same change for PRODUCT and FRIENDLYNAME to be homogenous.
+	* [r1022] src/ccid_serial.c: OpenSerialByName(): perform a command
+	  (get the reader firmware) to be sure a GemPC Twin (serial or
+	  pcmcia) reader is connected
+	* [r1021] src/openct/README: present where the files come from and
+	  what I did
+
+2004-07-01  Ludovic Rousseau
+
+	* [r1019] configure.in: version 0.9.1
+	* [r1018] README: release 0.9.1
+	* [r1017] src/openct/proto-t1.h: #define IFD_PARITY_ERROR
+	* [r1015] README: release 0.9.0
+
+2004-06-30  Ludovic Rousseau
+
+	* [r1014] examples/scardcontrol.c: correct a signedness issue
+	* [r1013] src, src/.cvsignore: rename tokenparser_macosx.? in
+	  tokenparser_fake.?
+	* [r1012] ., .cvsignore: add build-stamp and configure-stamp
+	* [r1011] examples, examples/.cvsignore: ignore temporary files
+	* [r1010] src/towitoko/COPYING: LGPL licence
+	* [r1009] configure.in: version 0.9.0
+	* [r1008] src/towitoko/pps.c: PPS_Match() was wrong when the
+	  confirmation is shorter than the request
+	* [r1007] src/towitoko/pps.c, src/towitoko/pps.h: PPS_Exchange()
+	  has a new argument (unsigned char *pps1) which is the PPS1
+	  returned by the card (TA1 the card wants to use)
+	* [r1006] src/towitoko/pps.c: CCID_Transmit() now uses a 4th
+	  argument (unsigned char bBWI)
+	* [r1005] src/towitoko/pps.c, src/towitoko/pps.h: move macros
+	  PPS_HAS_PPS?() from pps.c to pps.h
+	* [r1004] src/towitoko/atr.c, src/towitoko/atr.h: add
+	  ATR_GetDefaultProtocol() function
+	* [r1003] src/towitoko/atr.c, src/towitoko/atr.h: remove unused
+	  functions
+	* [r1002] src/towitoko/atr.c: the atr_f_table[] and atr_d_table[]
+	  tables were partly wrong
+	* [r1001] src/towitoko/README: - update the text - the function
+	  ATR_GetDefaultProtocol() is mine (Ludovic Rousseau)
+	* [r1000] src/towitoko/defines.h: remove MIN() and MAX()
+	  definitions
+	* [r999] src/ifdhandler.c: if DEBUG_LEVEL_PERIODIC is not set we
+	  temporaily remove DEBUG_LEVEL_COMM in IFDHICCPresence() to avoid
+	  having the low level debug every time pcscd test the card
+	  presence
+	* [r998] src/ifdhandler.c: - removed CardUp() and CardDown() - all
+	  the reader initialisation/negotiation is now done in
+	  IFDHSetProtocolParameters() (that's why you need
+	  pcsc-lite-1.2.9beta3)
+	* [r997] src/utils.c: pcsclite.h moved in PCSC/
+	* [r996] src/defs.h: the t1 field in struct CCID_DESC changed from
+	  Protocol_T1 (towitiko) to t1_state_t (openct)
+	* [r995] src/debug.h: we do not need to have PACKAGE defined (I do
+	  not remember what it was used for)
+	* [r994] src/commands.c: CmdXfrBlockTPDU_T1(): use the T=1 TPDU
+	  layer from opensc/ instead of towitoko/
+	* [r993] src/commands.c: CCID_Receive() returns IFD_PARITY_ERROR if
+	  the error returned by the reader is 0xFD (parity error) and
+	  IFD_COMMUNICATION_ERROR otherwise (so that the T=1 TPDU layer can
+	  recover the error)
+	* [r992] src/commands.c, src/commands.h: CCID_Transmit() now has a
+	  new "unsigned char bBWI" argument
+	* [r991] src/commands.c: CmdPowerOn(): add a mechanism to allow
+	  power on at 1.8V, 3V and then 5V as specified by ISO 7816. We
+	  still use 5V for now to avoid problems with non ISO compliant
+	  cards
+	* [r990] src/commands.c: add __FUNCTION__ as argument to
+	  ccid_error()
+	* [r989] src/ccid.c, src/ccid.h: ccid_error() now also has a "char
+	  *function" argument to log the name of the function in which the
+	  error occured
+	* [r988] src/Makefile.am: - rename protocol_t1/ in towitoko/ to
+	  reflect the project the code comes from - remove the now useless
+	  files from towitoko/ and add the files from openct/
+	* [r987] src/towitoko/apdu.h, src/towitoko/protocol_t1.c,
+	  src/towitoko/protocol_t1.h, src/towitoko/t1_block.c,
+	  src/towitoko/t1_block.h: remove these files since I now use the
+	  T=1 TPDU code from OpenCT
+	* [r986] src/openct, src/openct/LICENSE, src/openct/buffer.c,
+	  src/openct/buffer.h, src/openct/checksum.c,
+	  src/openct/checksum.h, src/openct/proto-t1.c,
+	  src/openct/proto-t1.h: use T=1 TPDU code from the OpenCT project
+	  <http://www.opensc.org/>
+	  
+	  The state automata was greatly improved to manage "all" the
+	  possible errors cases.
+	* [r985] src/Info.plist: document the possible values for
+	  ifdLogLevel and ifdDriverOptions
+
+2004-06-23  Ludovic Rousseau
+
+	* [r972] examples/scardcontrol.c: - send Select DF and Select EF
+	  APDU before Verify PIN - read stdin (consume the "*" fake keys)
+	  if the pinpad is on a keyboard
+	* [r971] configure.in: check for the presence of PCSC/ifdhandler.h
+	  instead of ifdhandler.h
+	* [r970] config.h.in: HAVE_IFDHANDLER_H is renamed
+	  HAVE_PCSC_IFDHANDLER_H
+	* [r969] README: add info for: - Cherry XX33 keyboard - Dell
+	  keyboard SK-3106 - Dell smart card reader keyboard
+	  
+	  Move some readers in "Unsupported or partly supported CCID
+	  readers:" - C3PO LTC31 - SCM Micro SCR 331 - SCM Micro SCR 335 -
+	  SCM Micro SPR 532
+
+2004-06-22  Ludovic Rousseau
+
+	* [r966] Makefile.am: ChangeLog is not a .PHONY target but a real
+	  file
+
+2004-06-13  Ludovic Rousseau
+
+	* [r940] examples/scardcontrol.c: use SCARD_PROTOCOL_T0 |
+	  SCARD_PROTOCOL_T1 instead of SCARD_PROTOCOL_ANY since it is not
+	  defined in Micosoft PC/SC
+
+2004-05-30  Ludovic Rousseau
+
+	* [r910] configure.in: use 'pkg-config libpcsclite
+	  --variable=usbdropdir' even if --prefix= is used. You should use
+	  --enable-usbdropdir= and --enable-ccidtwindir= to set to
+	  different values.
+
+2004-05-26  Ludovic Rousseau
+
+	* [r906] readers/DellSK-3106.txt: Dell keyboard SK-3106
+	* [r905] src/commands.c: set *rx_length to 0 when a ReadPort()
+	  error is returned. The problem was not solved by ccid_usb.c 1.25.
+	* [r904] src/commands.c: bPINOperation is not passed in the user
+	  command since the command is "PIN Verification" and nothing else
+	* [r903] examples/scardcontrol.c: remove useless bPINOperation
+
+2004-05-25  Ludovic Rousseau
+
+	* [r900] examples/scardcontrol.c, src/ccid.h, src/ccid_serial.c,
+	  src/ccid_usb.c, src/ifdhandler.c: add support for
+	  SCardGetAttrib(.., IOCTL_SMARTCARD_VENDOR_VERIFY_PIN, ..) to know
+	  if the reader supports SCardControl(..,
+	  IOCTL_SMARTCARD_VENDOR_VERIFY_PIN, ..)
+	* [r896] configure.in: add a --enable-pcsclite option (default yes)
+	  so that the driver can be compiled for a different framework (one
+	  needing tokenparser.l)
+	* [r895] src/ccid_usb.c: set length to 0 when a usb_bulk_read()
+	  error is returned
+	* [r894] src/Makefile.am: install Info.plist before the lib. This
+	  is for my convenience only because of my debug setup.
+	* [r893] src/Makefile.am: rename tokenparser_macosx.l into
+	  tokenparser_fake.l since it is not MacOSX specific.
+
+2004-05-24  Ludovic Rousseau
+
+	* [r892] examples/scardcontrol.c, src/ccid.c, src/ccid_serial.c,
+	  src/ccid_serial.h, src/ccid_usb.c, src/ccid_usb.h,
+	  src/commands.c, src/commands.h, src/debug.c, src/ifdhandler.c,
+	  src/towitoko/atr.h, src/towitoko/protocol_t1.c: recompile using
+	  gcc -pedantic and correct: - some C++ syntax comments - many
+	  signedness "problems"
+	* [r891] src/ccid_ifdhandler.h, src/commands.c, src/commands.h,
+	  src/ifdhandler.c: add support for Secure PIN through
+	  SCardControl() (see sample code in examples/)
+	* [r890] src/ccid.c: - add some missing error codes - low error
+	  values indicate the byte in error in the CCID frame
+	* [r889] examples, examples/Makefile.am, examples/scardcontrol.c:
+	  add examples for SCardControl IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE
+	  and IOCTL_SMARTCARD_VENDOR_VERIFY_PIN
+	* [r888] Makefile.am: add examples in SUBDIRS
+	* [r887] configure.in: remove -fno-common from CFLAGS since it
+	  is(?) gcc specific
+	* [r886] readers/ACR38.txt, readers/supported_readers.txt: add
+	  Advanced Card Systems ACR 38
+	* [r885] readers/CherryXX33.txt, readers/supported_readers.txt: add
+	  Cherry XX33
+
+2004-05-18  Ludovic Rousseau
+
+	* [r882] src/ifdhandler.c: in CardUp():SetParameters() the default
+	  TA1 is 0x11
+
+2004-05-17  Ludovic Rousseau
+
+	* [r881] src/Info.plist: add default ifdDriverOptions set to 0x0000
+	* [r880] src/ifdhandler.c: - add support of
+	  IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE in IFDHControl() - read
+	  ifdDriverOptions from Info.plist to limit the use of
+	  IOCTL_SMARTCARD_VENDOR_IFD_EXCHANGE (idea from Peter Williams)
+	* [r879] src/ccid.c, src/commands.c: redefined CmdEscape() to pass
+	  the CCID message instead of just a tag
+	* [r878] src/ccid_usb.c, src/ccid_usb.h: do not export
+	  get_end_points() declaration and make the function static
+	* [r877] src/Makefile.am, src/ccid_ifdhandler.h, src/ccid_serial.c,
+	  src/commands.h, src/defs.h, src/parse.c, src/towitoko/atr.c,
+	  src/towitoko/defines.h, src/towitoko/protocol_t1.c, src/utils.c:
+	  reorganize header files
+	* [r876] config.h.in, configure.in: check for pcsclite.h and
+	  ifdhandler.h installed by recent pcsc-lite
+	* [r875] src/pcscdefines.h: types and definitions are now in
+	  <pcsclite.h>, "defs.h" and "ccid_ifdhandler.h"
+	* [r874] src/winsmcrd.h: removed since pcsclite.h now defines
+	  SCARD_ATTR_*
+	* [r873] src/ccid_ifdhandler.h: use the ifdhandler.h provided by
+	  pcsc-lite so remove a lot of lines
+
+2004-05-14  Ludovic Rousseau
+
+	* [r872] configure.in: check that pkg-config command is present
+	  before using it
+	* [r871] INSTALL, configure.in: use `pkg-config libpcsclite
+	  --variable=usbdropdir` so you do not have to use
+	  --enable-usbdropdir=DIR or --enable-ccidtwindir=DIR even if pcscd
+	  does not use the default /usr/local/pcsc/drivers
+
+2004-05-12  Ludovic Rousseau
+
+	* [r863] README: document the libusb bug on MacOS X with
+	  unplug/replug in a different USB socket
+	* [r862] INSTALL, README: move debug configuration from INSTALL to
+	  README since it is dynamic now
+	* [r861] README: remove the "readers enumeration" part since this
+	  problem is now solved by pcsc-lite-1.2.9
+	* [r860] INSTALL: document the use of 'pkg-config libpcsclite
+	  --variable=usbdropdir'
+
+2004-05-10  Ludovic Rousseau
+
+	* [r840] src/ifdhandler.c: in IFDHPowerICC() IFD_POWER_DOWN is just
+	  power down without a power up. Changed to be compliant with IFD
+	  Handler specifications.
+
+2004-05-07  Ludovic Rousseau
+
+	* [r837] src/towitoko/protocol_t1.c: in
+	  Protocol_T1_Negociate_IFSD() rename sblock in block since the
+	  same variable is used for sent and received block. This was not
+	  clear and was the source of reported bug [ #300707 ] "Delete
+	  block before using it in t1_protocol.c" which is not a bug in
+	  fact.
+
+2004-05-06  Ludovic Rousseau
+
+	* [r836] INSTALL: add a "configuring the driver for the serial
+	  reader (GemPC Twin)" part
+
+2004-05-04  Ludovic Rousseau
+
+	* [r825] readers/Makefile.am: add DellSCRK.txt
+	* [r824] readers/DellSCRK.txt, readers/supported_readers.txt: add
+	  Dell smart card reader keyboard
+
+2004-04-19  Ludovic Rousseau
+
+	* [r808] src/Makefile.am: add winsmcrd.h in COMMON
+	* [r807] src/ifdhandler.c: reset ATR string (length = 0) when the
+	  card is powered down or not present
+	* [r806] src/defs.h: typo in a comment
+	* [r805] src/winsmcrd.h: list of tags for SCardGetAttrib() like
+	  SCARD_ATTR_ATR_STRING
+	* [r804] src/ifdhandler.c: add SCARD_ATTR_ATR_STRING in addition to
+	  TAG_IFD_ATR in IFDHGetCapabilities()
+
+2004-04-16  Ludovic Rousseau
+
+	* [r795] src/ifdhandler.c: new IFDHControl() API
+	* [r794] src/ccid_ifdhandler.h: use a new version from pcsc-lite
+	  with support of the new IFDHControl() API
+
+2004-04-08  Ludovic Rousseau
+
+	* [r781] src/ccid_usb.c: add support for the libusb naming scheme:
+	  usb:%04x/%04x:libusb:%s
+	* [r780] readers/SK-3106.txt, readers/SPR532.txt: parse bPINSupport
+	  field
+	* [r779] src/parse.c: parse bPINSupport field
+
+2004-04-07  Ludovic Rousseau
+
+	* [r778] readers/Makefile.am: also distribute SK-3106.txt
+
+2004-04-06  Ludovic Rousseau
+
+	* [r777] config.h.in, configure.in: remove --enable-debugcritical,
+	  --enable-debuginfo, --enable-debugperiodic and --enable-debugcomm
+	  options since the log level is now dynamically managed by
+	  ifdLogLevel in Info.plist
+	* [r776] src/Info.plist: define default ifdLogLevel at 3
+	  (DEBUG_LEVEL_CRITICAL | DEBUG_LEVEL_INFO)
+	* [r775] src/debug.c: remove now useless #ifdef DEBUG
+	* [r774] src/ccid_serial.c, src/ccid_usb.c: add { } to avoid
+	  ambiguities now that DEBUG_* are "if (x) y" constructions
+	* [r773] src/ifdhandler.c: during the first IFDHCreateChannel*()
+	  init_debug() is called to read the value of ifdLogLevel from the
+	  Info.plist
+	* [r772] src/debug.h: change the DEBUG_* macros from static
+	  (compilation conditional) to dynamic (if ())
+	* [r771] src/Makefile.am: debug.c is only needed by parse_SOURCES
+	  not COMMON
+	* [r770] src/ifdhandler.c: do not return before
+	  pthread_mutex_unlock() in IFDHCreateChannelByName()
+	* [r769] src/ifdhandler.c: also call ccid_open_hack() in
+	  IFDHCreateChannelByName()
+	* [r768] src/ifdhandler.c: T=1 context is initialized in CardUp(),
+	  not in IFDHCreateChannel()
+	* [r766] src/ifdhandler.c: revert to nearly previous version. -
+	  IFD_POWER_DOWN is power down and power up (cold reset) -
+	  IFD_RESET is power up (warm reset) - IFD_POWER_UP is power up
+
+2004-04-05  Ludovic Rousseau
+
+	* [r764] configure.in: version 0.4.2
+	* [r763] readers/SK-3106.txt, readers/supported_readers.txt: add
+	  support for the Dell keyboard SK-3106
+	* [r762] src/ccid_usb.c: define ALLOW_PROPRIETARY_CLASS by default
+	  
+	  Proprietary USB Class (0xFF) are (or are not) accepted A
+	  proprietary class is used for devices released before the final
+	  CCID specifications were ready. We should not have problems with
+	  non CCID devices becasue the Manufacturer and Product ID are also
+	  used to identify the device */
+
+2004-03-31  Ludovic Rousseau
+
+	* [r755] src/Makefile.am: use $(srcdir) instead of ".". Thanks to
+	  Dr Russel Winder for the patch.
+
+2004-03-30  Ludovic Rousseau
+
+	* [r738] src/ccid_usb.c: allow proprietary CCID Class byte but only
+	  if ALLOW_PROPRIETARY_CLASS is defined. You should know what you
+	  do. Only useful for pre-CCID devices.
+	* [r737] src/parse.c: - use get_ccid_usb_interface() to also manage
+	  USB composite devices (keyboards) - continue parsing even if
+	  bDescriptorType == 0xFF (proprietary)
+	* [r736] src/ccid_usb.h: define get_ccid_usb_interface() only if
+	  __USB_H__ is defined (usb.h included)
+
+2004-03-23  Ludovic Rousseau
+
+	* [r723] reconf: move the "cp aclocal.m4 build/" after autoreconf
+
+2004-03-22  Ludovic Rousseau
+
+	* [r722] reconf: cp aclocal.m4 build/
+
+2004-03-18  Ludovic Rousseau
+
+	* [r716] src/ifdhandler.c: Reset action is power off and power on,
+	  not just power on
+
+2004-02-27  Ludovic Rousseau
+
+	* [r709] README: add C3PO LTC32, SCM Micro SCR 333 and C3PO
+	  TLTC2USB in the list of "Should work but untested by me" readers
+	* [r708] README: alphabetical reordering of readers
+	* [r707] readers/supported_readers.txt: add SCR 333
+
+2004-02-24  Ludovic Rousseau
+
+	* [r706] Makefile.am: use a shorter Perl script to convert
+	  generate/convert ChangeLog
+
+2004-02-14  Ludovic Rousseau
+
+	* [r703] README: release 0.4.1
+	* [r702] configure.in: version 0.4.1
+	* [r701] readers/Makefile.am: distribute SCR331-DI.txt and
+	  supported_readers.txt
+	* [r700] src/Makefile.am: disribute create_Info_plist.pl
+
+2004-02-13  Ludovic Rousseau
+
+	* [r698] configure.in: version 0.4.0
+	* [r697] README: release 0.4.0
+
+2004-02-12  Ludovic Rousseau
+
+	* [r696] src/ifdhandler.c: huge rework of CardUp()
+	* [r695] src/towitoko/protocol_t1.c: return with a error if the
+	  received bloc in less than 4 bytes (T=0 error response for
+	  example)
+	* [r694] src/ccid_serial.c, src/ccid_usb.c: fill dwDefaultClock and
+	  dwMaxDataRate according to the reader descriptor
+	* [r693] src/ccid.h: add dwDefaultClock and dwMaxDataRate fields
+
+2004-02-11  Ludovic Rousseau
+
+	* [r692] src/ifdhandler.c: Perform PPS and IFSD only if the reader
+	  does not do it automatically
+	* [r691] src/ccid.h: add CCID_CLASS_AUTO_BAUD and
+	  CCID_CLASS_AUTO_IFSD
+	* [r690] src/towitoko/protocol_t1.c: add return code tests in
+	  Protocol_T1_Negociate_IFSD()
+	* [r689] src/towitoko/pps.c, src/towitoko/pps.h: PPS_Exchange() now
+	  uses 'int lun' instead of 'Protocol_T1 * t1'
+	* [r688] src/towitoko/protocol_t1.c: remove debug message
+	* [r687] src/ifdhandler.c: use Protocol_T1_Negociate_IFSD() in
+	  CardUp()
+	* [r686] src/towitoko/protocol_t1.c, src/towitoko/protocol_t1.h:
+	  add Protocol_T1_Negociate_IFSD()
+	* [r685] src/ccid.h: add CCID_CLASS_AUTO_CONF_ATR
+
+2004-02-09  Ludovic Rousseau
+
+	* [r683] src/ccid_usb.c: first bSeq is 0 (even if 1 works ok)
+	* [r682] src/ccid_usb.c: usb_reset() the device before usb_close()
+
+2004-02-05  Ludovic Rousseau
+
+	* [r677] README: add Silitek SK-3105 keyboard URL
+
+2004-02-04  Ludovic Rousseau
+
+	* [r676] src/debug.h: DEBUG_COMM4 was named DEBUG_COMM3 due to
+	  cut-n-paste
+
+2004-02-03  Ludovic Rousseau
+
+	* [r673] src/ccid_ifdhandler.h, src/ifdhandler.c: add CardUp() and
+	  CardDown() for PowerOn and PowerOff actions
+	* [r672] src/ccid.h, src/ccid_serial.c, src/ccid_usb.c: add
+	  dwMaxIFSD field
+	* [r671] src/debug.h: add DEBUG_COMM3()
+	* [r670] src/towitoko/pps.c, src/towitoko/protocol_t1.c,
+	  src/towitoko/t1_block.c: use my own debug routines
+	* [r669] readers/SCR331-DI.txt: new file
+
+2004-02-02  Ludovic Rousseau
+
+	* [r668] src/towitoko/protocol_t1.c: do not restrict ifsc to
+	  Towitoko
+	* [r667] src/towitoko/protocol_t1.c: remove PPS hack
+	* [r666] README: add SCR 331-DI in the "should work" list
+	* [r665] readers/supported_readers.txt, src/Info.plist,
+	  src/Makefile.am, src/create_Info_plist.pl: use
+	  create_Info_plist.pl to generate the installed Info.plist from an
+	  Info.plist template and a list of supported readers.
+
+2004-01-29  Ludovic Rousseau
+
+	* [r663] src/ifdhandler.c: removed useless function name in debug
+	  messages since we use __FUNCTION__
+	* [r662] src/ccid_usb.c: - remove device_name[] from struct
+	  _usbDevice - use naming scheme usb:vendor/product - simplify (a
+	  bit) the code
+	* [r661] src/ccid_usb.h, src/parse.c: remore *device_name[]
+	  argument from get_desc()
+	* [r660] src/debug.h: add DEBUG_CRITICAL4
+
+2004-01-27  Ludovic Rousseau
+
+	* [r659] src/commands.c: set received size to 0 in case of error in
+	  CmdXfrBlockTPDU_T1
+	* [r658] src/commands.c: in case of error exits CCID_Receive()
+	  without copying an nonexistent anwser
+	* [r655] src/ccid_usb.c: use DEBUG_CRITICAL2() instead of
+	  DEBUG_CRITICAL()
+	* [r654] README: add the "Silitek SK-3105 keyboard" in the "Should
+	  work but untested by me" list
+	* [r653] ., .cvsignore, aclocal, aclocal/.cvsignore, build,
+	  build/.cvsignore, readers, readers/.cvsignore: ignore some build
+	  files
+	* [r652] src, src/.cvsignore, src/towitoko,
+	  src/towitoko/.cvsignore: ignore some build files
+	* [r651] src/Info.plist: add Silitek SK-3105 keyboard
+	* [r650] src/ccid_usb.c, src/ccid_usb.h: add support of USB devices
+	  with multiple interfaces (like the Silitek SK-3105 keyboard)
+	* [r649] src/ccid_serial.c, src/ccid_serial.h, src/ccid_usb.c,
+	  src/ccid_usb.h, src/defs.h, src/ifdhandler.c: add support of
+	  IFDHCreateChannelByName
+
+2004-01-22  Ludovic Rousseau
+
+	* [r641] src/Makefile.am: move rules for src/protocol_t1/ files in
+	  src/Makefile.am to avoid building a (problematic) static library
+	* [r640] src/towitoko/Makefile.am: removed since rules for
+	  src/protocol_t1/ files are in src/Makefile.am
+
+2004-01-15  Ludovic Rousseau
+
+	* [r620] src/towitoko/apdu.h: define APDU_Cmd and APDU_Rsp
+	* [r619] src/towitoko, src/towitoko/Makefile.am,
+	  src/towitoko/README, src/towitoko/atr.c, src/towitoko/atr.h,
+	  src/towitoko/defines.h, src/towitoko/pps.c, src/towitoko/pps.h,
+	  src/towitoko/protocol_t1.c, src/towitoko/protocol_t1.h,
+	  src/towitoko/t1_block.c, src/towitoko/t1_block.h: new files from
+	  Carlos Prados towitoko-2.0.7 driver (with a bit of hacking)
+	* [r618] src/Makefile.am: build protocol_t1 library
+	* [r617] src/commands.c: add SetParameters() CCID command
+	* [r616] src/ifdhandler.c: add support of T=1 in TPDU mode
+	* [r615] src/defs.h: add CcidDesc.t1 field
+	* [r614] src/commands.c, src/commands.h: replace CmdXfrBlockTPDU()
+	  by CmdXfrBlockTPDU_T0() and CmdXfrBlockTPDU_T1()
+	* [r613] src/commands.c: split CmdXfrBlockShortAPDU() in
+	  CCID_Transmit() and CCID_Receive()
+	* [r612] src/ccid_serial.c, src/ccid_usb.c, src/ifdhandler.c: call
+	  ccid_open_hack() in IFDHCreateChannel() instead of in each
+	  OpenPort()
+	* [r611] src/ccid.c, src/commands.c, src/commands.h,
+	  src/ifdhandler.c: use an (int *) instead of a PDWORD for
+	  rx_length argument
+	* [r610] aclocal, aclocal/Makefile.am, aclocal/acx_pthread.m4: new
+	  files. add definition of ACX_PTHREAD macro
+	* [r609] src/ccid_ifdhandler.h, src/ifdhandler.c: add
+	  get_ccid_slot() function
+	* [r608] src/ccid_serial.c, src/ccid_usb.c, src/ifdhandler.c:
+	  remove function name from debug message since __FUNCTION__ is now
+	  used in DEBUG_* macro definition
+	* [r607] src/Info.plist: add ActivCard
+	* [r606] README: created an "Should work but untested by me"
+	  section and add SCM Micro SPR 532 and ActivCard USB reader 2.0
+
+2004-01-08  Ludovic Rousseau
+
+	* [r584] README: The crashes under MacOS X were not because of a
+	  bug in libusb but because of a bug in pcscd MacOS X hotplug.
+
+2004-01-06  Ludovic Rousseau
+
+	* [r581] src/ccid_usb.c: the USB extra field length shall be
+	  exactly 54 bytes to be CCID.
+
+2004-01-05  Ludovic Rousseau
+
+	* [r580] src/debug.h: also print the function name (__FUNCTION__)
+	  in the debug messages
+	* [r579] src/ccid_usb.c, src/parse.c: add a test on the USB extra
+	  field length to avoid a crash and print an error message. This
+	  occurs when the reader is _not_ CCID and the CCID driver is used
+	  (wrong Info.plist for example).
+
+2003-12-19  Ludovic Rousseau
+
+	* [r578] INSTALL, src/Makefile.am: build but do not install the
+	  serial ccidtwin driver by default since it is useless on
+	  computers without a serial port or without this reader for
+	  example.
+
+2003-12-16  Ludovic Rousseau
+
+	* [r570] src/ccid_usb.c: read and write timeouts are not symmetric.
+	  write timout can be shorter since the reader and card is not
+	  supposed to do anything before receiving (write) a command.
+
+2003-12-12  Ludovic Rousseau
+
+	* [r569] src/ifdhandler.c: return IFD_NOT_SUPPORTED instead of
+	  IFD_SUCCESS in functions doing nothing (yet)
+	  (IFDHSetCapabilities, IFDHSetProtocolParameters, IFDHControl);
+
+2003-12-11  Ludovic Rousseau
+
+	* [r568] src/ifdhandler.c: set the result buffer length to 0 in
+	  IFDHControl()
+
+2003-11-25  Ludovic Rousseau
+
+	* [r565] configure.in: do not try to find usb.h and other libusb
+	  files if --disable-libusb is used. Needed if you only want to
+	  build the serial driver. Thanks to Niki Waibel for the patch.
+	* [r564] INSTALL, configure.in, src/Makefile.am: add a
+	  --enable-ccidtwindir argument to ./configure to specify the
+	  serial GemPC Twin installation directory
+	* [r563] Makefile.am, config.h.in, configure.in, reconf,
+	  src/ifdhandler.c: use a updated version of acx_pthread.m4 needed
+	  for FreeBSD
+
+2003-11-06  Ludovic Rousseau
+
+	* [r556] configure.in: check that the installed libusb implements
+	  usb_get_string_simple()
+
+2003-11-04  Ludovic Rousseau
+
+	* [r553] README: add SPR 532 in "Supported CCID readers" list
+	* [r552] README: release 0.3.2
+	* [r551] configure.in: version 0.3.2
+	* [r550] src/commands.c: comment out the automatic GET RESPONSE
+	  part. I don't think it should be in the driver. Maybe in pcscd
+	  instead?
+
+2003-11-03  Ludovic Rousseau
+
+	* [r547] readers/Makefile.am: also distribute SPR532.txt
+
+2003-11-01  Ludovic Rousseau
+
+	* [r545] Makefile.am: bootstrap is no more distributed (it is no
+	  more in CVS either)
+	* [r544] src/Makefile.am: $(CCID_BUNDLE) is a directory so use 'rm
+	  -r' in uninstall_ccid: target
+
+2003-10-31  Ludovic Rousseau
+
+	* [r543] src/Makefile.am: modify the hack to compile under MacOSX.
+	* [r542] reconf: config.guess, config.sub, depcomp and ltmain.sh
+	  are in build/ so removed them there.
+	* [r541] create_distrib.sh: useless since we have a 'make dist'
+	  rule
+
+2003-10-29  Ludovic Rousseau
+
+	* [r531] src/Info.plist: add USB identification for SPR 532
+	* [r530] readers/SPR532.txt: add SPR 532 description even if it is
+	  not a "real" CCID reader.
+	* [r529] src/parse.c: continue parsing even if bInterfaceSubClass
+	  and bInterfaceProtocol are unsupported. This may be the case with
+	  non "real" CCID readers.
+	* [r528] src/parse.c: do not exit if the InterfaceClass is 0xFF
+	  (proprietary). It is the case with old readers manufactured
+	  before the final release of the CCID specs.
+
+2003-10-28  Ludovic Rousseau
+
+	* [r525] src/ccid_usb.c: correctly use the device name in a debug
+	  message instead of a not yet initialised field.
+	* [r524] bootstrap: removed since ./reconf is doing a correct job
+	* [r523] README: move LTC31 reader from unsupported to supported
+	  reader list. It was my fault since in used odd INS byte in my
+	  test applet and odd INS bytes are forbidden by ISO 7816-4 ch.
+	  5.4.2 Instruction byte. Thanks to Josep Mon�s Teixidor for
+	  pointing the problem.
+	* [r522] src/commands.c: correct a stupid bug that occurs with an
+	  APDU with 2 bytes response.
+
+2003-09-23  Ludovic Rousseau
+
+	* [r467] README: release 0.3.1
+	* [r466] MANIFEST: update file list
+	* [r465] README: add a note about T=1 cards and readers in TPDU
+	  mode
+
+2003-09-22  Ludovic Rousseau
+
+	* [r464] src/ccid_ifdhandler.h: define TAG_IFD_THREAD_SAFE
+	  introduced in pcsclite-1.2.0-rc3
+	* [r463] src/ifdhandler.c: add support of thread safe (APDU
+	  multiplexing on different readers)
+	* [r462] src/ccid_serial.c: ReadChunk() realy reads up to
+	  min_length bytes. Add some debug messages in the state automata.
+	* [r461] src/Makefile.am: modify install rules so that root can use
+	  them even over NFS where root is nobody
+	* [r460] config.h.in, configure.in: add --enable-multi-thread for
+	  thread safe support
+	* [r459] Makefile.am, reconf: add reconf file
+
+2003-09-19  Ludovic Rousseau
+
+	* [r453] src/ccid_serial.c, src/ccid_serial.h: complete
+	  reimplementation of the Twin serial protocol using a finite state
+	  automata (code much simpler)
+
+2003-09-16  Ludovic Rousseau
+
+	* [r448] configure.in: Put back AC_PROG_CPP, it has nothing to do
+	  with C++ but with C preprocessor
+	* [r445] src/ccid.c: Do not switch to APDU mode since it also
+	  swicth in EMV mode and may not work with non EMV cards
+	* [r444] src/Makefile.am: honor DESTDIR in install rules (closes [
+	  #300110 ])
+	* [r443] configure.in: remove useless AC_PROG_CPP (no C++ code in
+	  ccid driver)
+	* [r438] configure.in: version 0.3.1
+	* [r437] INSTALL: document the use of --enable-libusb=PATH
+	* [r436] configure.in: add --enable-libusb=PATH option
+
+2003-09-10  Ludovic Rousseau
+
+	* [r425] README: I forgot to add "support of "time request" from
+	  the card."
+	* [r423] README: release 0.3.0
+	* [r422] INSTALL: document the use of ./configure script
+	* [r421] Makefile.am: use ChangeLog instead of ChangeLog.cvs since
+	  the dist Makefile target is looking at this file name.
+	* [r420] src/config.h: config.h is now generated by ./configure
+	* [r418] Makefile.am, configure.in, readers/Makefile.am: add
+	  readers/ in generated .tar.gz archive
+	* [r417] readers/CardMan3121.txt, readers/GemPC433_SL.txt,
+	  readers/GemPCKey.txt, readers/GemPCTwin.txt, readers/LTC31.txt,
+	  readers/SCR331.txt, readers/SCR335.txt: use new parse indentation
+	  for more readability of supported features
+	* [r415] config.h.in: new build process using autoconf/automake
+	* [r414] src/ccid_serial.c, src/ccid_serial.h: manage serial
+	  protocol used by the GemPC Twin. Thanks to Niki W. Waibel for a
+	  working prototype.
+	* [r413] src/ccid.c, src/ccid.h: contains common CCID feature for
+	  USB and serial (was in ccid_usb before)
+	* [r412] src/reader.conf.in: used to generate a correct reader.conf
+	  with the real library name
+	* [r411] src/ccid_ifdhandler.h: remove IFDSetEmv() definition. It
+	  is now useless.
+	* [r410] src/ifdhandler.c: use OpenPort instead of OpenUSB. move
+	  the complex TPDU management in commands.c (and use it only if
+	  reader does not support APDU mode)
+	* [r409] src/defs.h: transport abstraction: define OpenPort,
+	  ClosePort, etc. to OpenSerial or OpenUSB depending on TWIN_SERIAL
+	  compilation option
+	* [r408] src/debug.h: test for PACKAGE and not __CONFIG_H__ since
+	  the config.h file is not generated by ./configure
+	* [r407] src/commands.c, src/commands.h: - support auto voltage at
+	  power on if reader support it - support Gemplus proprietary
+	  command to switch reader from TPDU to APDU mode - use APDU mode
+	  if reader support it. make it easy to support extended APDU but I
+	  have no reader to test this.
+	* [r406] src/ccid_usb.c, src/ccid_usb.h: redesign to separate
+	  communication media and CCID protocol. call ccid_open_hack() upon
+	  open to do some reader dependent magic.
+	* [r405] src/parse.c: indent the output with one feature per line
+	  (and not on the same line separated by ,)
+	* [r404] Makefile, src/Makefile, src/check, src/ylwrap: new build
+	  process using autoconf/automake
+	* [r403] src/pcscdefines.h, src/utils.c: use PCSCLITE_MAX_READERS
+	  instead of PCSCLITE_MAX_CHANNELS
+	* [r402] Makefile.am, NEWS, bootstrap, build, build/ylwrap,
+	  configure.in, src/Makefile.am: new build process using
+	  autoconf/automake
+
+2003-08-27  Ludovic Rousseau
+
+	* [r343] MANIFEST, src/Makefile, src/capabilities.c: remove unused
+	  capabilities.c file
+
+2003-08-26  Ludovic Rousseau
+
+	* [r342] README: release 0.2.0
+	* [r341] create_distrib.sh: script to create the .tar.gz
+	* [r340] README: add a note about libusb problem under *BSD
+	* [r339] src/check: require pcsc-lite 1.2.0 instead of 1.1.2
+	* [r326] README: the reader enumeration problem also exist under
+	  GNU/Linux (is not MacOS specific)
+
+2003-08-24  Ludovic Rousseau
+
+	* [r322] MANIFEST: remove src/dep_stamp
+	* [r321] README: add not about bugs/limitations under MacOS X
+
+2003-08-21  Ludovic Rousseau
+
+	* [r314] src/parse.c: do not print garbage if we can't get the
+	  iManufacturer or iProduct fields
+
+2003-08-20  Ludovic Rousseau
+
+	* [r309] src/config.h: comment low level debug messages
+	* [r308] src/Makefile: use ./ylwrap instead of ylwrap
+	* [r306] src/check: do not define LDFLAGS since we get it from
+	  outside
+	* [r305] src/Makefile: add needed MacOS X frameworks to LDFLAGS
+	  (for parse and check)
+	* [r304] MANIFEST: add src/ylwrap
+	* [r303] src/ylwrap: wrapper to call (f)lex
+	* [r302] MANIFEST: src/parse shall not be distributed
+	* [r301] src/ccid_usb.c: do not duplicate the Info.plist filename
+	  but "calculate" it once
+	* [r300] src/Makefile: Add support of MacOS X
+	* [r299] src/Info.plist: use an <array></array> for the alias
+	  enumeration
+
+2003-08-14  Ludovic Rousseau
+
+	* [r279] src/ccid_usb.c: use a 1 minute USB timeout instead of the
+	  1 second used for debug
+	* [r278] MANIFEST: include in CVS
+	* [r277] src/Makefile: remove parse binary in clean target
+
+2003-08-13  Ludovic Rousseau
+
+	* [r276] src/Makefile: do not exit with failure if makedepend(1)
+	  does not exist
+	* [r275] INSTALL: Installation and check guide
+
+2003-08-12  Ludovic Rousseau
+
+	* [r273] README: release 0.1.0
+	* [r269] ., AUTHORS, COPYING, Makefile, README, readers,
+	  readers/CardMan3121.txt, readers/GemPC433_SL.txt,
+	  readers/GemPCKey.txt, readers/GemPCTwin.txt, readers/LTC31.txt,
+	  readers/SCR331.txt, readers/SCR335.txt, src, src/.dependencies,
+	  src/Info.plist, src/Makefile, src/capabilities.c,
+	  src/ccid_ifdhandler.h, src/ccid_usb.c, src/ccid_usb.h, src/check,
+	  src/commands.c, src/commands.h, src/config.h, src/debug.c,
+	  src/debug.h, src/defs.h, src/ifdhandler.c, src/parse.c,
+	  src/parser.h, src/pcscdefines.h, src/tokenparser.l, src/utils.c,
+	  src/utils.h: Initial revision
+

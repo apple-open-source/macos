@@ -233,7 +233,7 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 				output_buffer[2] = output_buffer_len >> 8;
 				output_buffer[3] = output_buffer_len & 0xFF;
 				output_buffer[4] = EAP_TYPE_IDENTITY;
-				strlcpy(&output_buffer[5], eap_in->identity, sizeof(output_buffer) - (EAP_HEADERLEN + 1));
+				strlcpy((char*)&output_buffer[5], eap_in->identity, sizeof(output_buffer) - (EAP_HEADERLEN + 1));
 				rad_put_attr(rad_handle, RAD_EAP_MESSAGE, output_buffer, output_buffer_len);
 			}
 			else {
@@ -280,11 +280,11 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 										
 										if(len != -1)
 										{
-											radius_decryptmppekey(eap_mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth, len);
+											radius_decryptmppekey((char*)eap_mppe_send_key, attr_value, attr_len, (char*)rad_server_secret(rad_handle), auth, len);
 											eap_mppe_keys_set = 1;
 										}
 										else
-											error("Radius: rad-eap-mppe-send-key:  could not get authenticator!\n");
+											(*log_error)("Radius: rad-eap-mppe-send-key:  could not get authenticator!\n");
 										break;
 										
 									case RAD_MICROSOFT_MS_MPPE_RECV_KEY:
@@ -292,11 +292,11 @@ radius_eap_process (void *context, struct EAP_Input *eap_in, struct EAP_Output *
 										
 										if(len != -1)
 										{										
-											radius_decryptmppekey(eap_mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(rad_handle), auth, len);
+											radius_decryptmppekey((char*)eap_mppe_recv_key, attr_value, attr_len, (char*)rad_server_secret(rad_handle), auth, len);
 											eap_mppe_keys_set = 1;
 										}
 										else
-											error("Radius: rad-eap-mppe-recv-key:  could not get authenticator!\n");											
+											(*log_error)("Radius: rad-eap-mppe-recv-key:  could not get authenticator!\n");											
 										break;
 								}
 								break;

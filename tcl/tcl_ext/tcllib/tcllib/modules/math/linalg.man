@@ -5,7 +5,7 @@
 [copyright {2008 Michael Buadin <relaxkmike@users.sourceforge.net>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Linear Algebra}]
-
+[category  Mathematics]
 [require Tcl [opt 8.4]]
 [require math::linearalgebra [opt 1.1]]
 
@@ -784,11 +784,11 @@ For convenience the new matrix is also returned as the result.
 [arg_def list scope] If not provided, the operation is performed on all rows/columns of A
 if provided, it is expected to be the list {imin imax jmin jmax}
 where:
-[list_begin bullet]
-[bullet] [term imin] Minimum row index
-[bullet] [term imax] Maximum row index
-[bullet] [term jmin] Minimum column index
-[bullet] [term jmax] Maximum column index
+[list_begin itemized]
+[item] [term imin] Minimum row index
+[item] [term imax] Maximum row index
+[item] [term jmin] Minimum column index
+[item] [term jmax] Maximum column index
 [list_end]
 [list_end]
 
@@ -797,13 +797,21 @@ where:
 
 Computes an LU factorization of a general matrix, using partial,
 pivoting with row interchanges. Returns the permutation vector.
-[nl]
+[para]
 The factorization has the form
 [example {
    P * A = L * U
 }]
 where P is a permutation matrix, L is lower triangular with unit
 diagonal elements, and U is upper triangular.
+Returns the permutation vector, as a list of length n-1.
+The last entry of the permutation is not stored, since it is
+implicitely known, with value n (the last row is not swapped
+with any other row).
+At index #i of the permutation is stored the index of the row #j
+which is swapped with row #i at step #i. That means that each
+index of the permutation gives the permutation at each step, not the
+cumulated permutation matrix, which is the product of permutations.
 
 [list_begin arguments]
 [arg_def list matrix] On entry, the matrix to be factored.
@@ -811,10 +819,45 @@ On exit, the factors L and U from the factorization
 P*A = L*U; the unit diagonal elements of L are not stored.
 [list_end]
 
+[para]
+[call [cmd ::math::linearalgebra::det] [arg matrix]]
+
+Returns the determinant of the given matrix, based on PA=LU
+decomposition, i.e. Gauss partial pivotal.
+
+[list_begin arguments]
+[arg_def list matrix] Square matrix (matrix A)
+[arg_def list ipiv] The pivots (optionnal).
+If the pivots are not provided, a PA=LU decomposition
+is performed.
+If the pivots are provided, we assume that it
+contains the pivots and that the matrix A contains the
+L and U factors, as provided by dgterf.
+b-vectors
 [list_end]
 
 [para]
+[call [cmd ::math::linearalgebra::largesteigen] [arg matrix] [arg tolerance] [arg maxiter]]
+
+Returns a list made of the largest eigenvalue (in magnitude)
+and associated eigenvector.
+Uses iterative Power Method as provided as algorithm #7.3.3 of Golub & Van Loan.
+This algorithm is used here for a dense matrix (but is usually
+used for sparse matrices).
+
+[list_begin arguments]
+[arg_def list matrix] Square matrix (matrix A)
+[arg_def double tolerance] The relative tolerance of the eigenvalue (default:1.e-8).
+[arg_def integer maxiter] The maximum number of iterations (default:10).
+[list_end]
+
+[list_end]
+
+
+[para]
 [emph "Compability with the LA package"]
+
+Two procedures are provided for compatibility with Hume's LA package:
 
 [list_begin definitions]
 
@@ -836,7 +879,10 @@ package into the format used by the present implementation.
 [arg_def list mv] Matrix or vector as used by the LA package
 [list_end]
 
+
 [list_end]
+
+[para]
 
 
 [section "STORAGE"]
@@ -938,4 +984,3 @@ package and/or documentation.
 
 [keywords math "linear algebra" vectors matrices "least squares" "linear equations"]
 [manpage_end]
-

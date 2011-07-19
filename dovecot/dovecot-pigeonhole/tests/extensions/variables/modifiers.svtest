@@ -1,0 +1,152 @@
+require "vnd.dovecot.testsuite";
+require "variables";
+require "encoded-character";
+
+/*
+ * Modifiers
+ */
+
+test "Modifier :lower" {
+	set :lower "test" "VaLuE";
+
+	if not string :is "${test}" "value" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifiers :lower :upperfirst" {
+	set :lower :upperfirst "test" "vAlUe";
+
+	if string :is "${test}" "value" {
+		test_fail "modifiers applied with wrong precedence";
+	}
+
+	if not string :is "${test}" "Value" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifiers :upperfirst :lower" {
+	set :upperfirst :lower "test" "vAlUe";
+
+	if string :is "${test}" "value" {
+		test_fail "modifiers applied with wrong precedence";
+	}
+
+	if not string :is "${test}" "Value" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifier :upper" {
+	set :upper "test" "vAlUe";
+
+	if not string :is "${test}" "VALUE" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifiers :upper :lowerfirst" {
+	set :upper :lowerfirst "test" "VaLuE";
+
+	if string :is "${test}" "VALUE" {
+		test_fail "modifiers applied with wrong precedence";
+	}
+
+	if not string :is "${test}" "vALUE" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifiers :lowerfirst :upper" {
+	set :lowerfirst :upper "test" "VaLuE";
+
+	if string :is "${test}" "VALUE" {
+		test_fail "modifiers applied with wrong precedence";
+	}
+
+	if not string :is "${test}" "vALUE" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifier :length" {
+	set :length "test" "VaLuE";
+
+	if not string :is "${test}" "5" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifier :length (elaborate)" {
+	set "a" "abcdefghijklmnopqrstuvwxyz";
+	set "b" "1234567890";
+	set :length "test" " ${a}:${b}  ";
+
+	if not string :is "${test}" "40" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifier :quotewildcard" {
+	set :quotewildcard "test" "^^***??**^^";
+
+	if not string :is "${test}" "^^\\*\\*\\*\\?\\?\\*\\*^^" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "Modifier :length :quotewildcard" {
+	set :length :quotewildcard "test" "^^***??**^^";
+
+	if string :is "${test}" "11" {
+		test_fail "modifiers applied with wrong precedence";
+	}
+
+	if not string :is "${test}" "18" {
+		test_fail "modified variable assignment failed";
+	}
+}
+
+test "RFC examples" {
+	set "a" "juMBlEd lETteRS";             # => "juMBlEd lETteRS"
+	if not string "${a}" "juMBlEd lETteRS" {
+		test_fail "modified assignment failed (1): ${a}";
+	}
+	
+	set :length "b" "${a}";                # => "15"
+	if not string "${b}" "15" {
+		test_fail "modified assignment failed (2): ${a}";
+	}
+	
+	set :lower "b" "${a}";                 #  => "jumbled letters"
+	if not string "${b}" "jumbled letters" {
+		test_fail "modified assignment failed (3): ${a}";
+	}
+	
+    set :upperfirst "b" "${a}";            # => "JuMBlEd lETteRS"
+	if not string "${b}" "JuMBlEd lETteRS" {
+		test_fail "modified assignment failed (4): ${a}";
+	}
+	
+	set :upperfirst :lower "b" "${a}";     # => "Jumbled letters"
+	if not string "${b}" "Jumbled letters" {
+		test_fail "modified assignment failed (5): ${a}";
+	}
+	
+	set :quotewildcard "b" "Rock*";        # => "Rock\*"
+	if not string "${b}" "Rock\\*" {
+		test_fail "modified assignment failed (6): ${a}";
+	}	
+}
+
+/* RFC mentions `characters' and not octets */
+
+test "Modifier :length utf8" {
+	set "a" "Das ist ${unicode: 00fc}berhaupt nicht m${unicode: 00f6}glich.";
+
+	set :length "b" "${a}";
+    if not string "${b}" "32" {
+        test_fail "incorrect number of unicode characters reported: ${b}/32";
+    }
+}

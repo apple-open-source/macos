@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,9 +28,12 @@
 #include <Availability.h>
 
 uint32_t notify_suspend_pid(pid_t pid)
-__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
 uint32_t notify_resume_pid(pid_t pid)
-__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
+
+uint32_t notify_simple_post(const char *name)
+__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
 
 #endif /* __NOTIFY_PRIVATE_H__ */

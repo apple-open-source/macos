@@ -13,7 +13,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# $Id: sum.tcl,v 1.7 2004/01/15 06:36:12 andreas_kupries Exp $
+# $Id: sum.tcl,v 1.8 2009/05/07 00:39:49 patthoyts Exp $
 
 package require Tcl 8.2;                # tcl minimum version
 
@@ -87,7 +87,7 @@ if {[package provide critcl] != {}} {
                     t += data[cn];
             }
 
-            Tcl_SetIntObj(Tcl_GetObjResult(interp), t & 0xFFFF);
+            Tcl_SetObjResult(interp, Tcl_NewIntObj(t & 0xFFFF));
             return r;
         }
 
@@ -114,7 +114,7 @@ if {[package provide critcl] != {}} {
                 }
             }
 
-            Tcl_SetIntObj(Tcl_GetObjResult(interp), t & 0xFFFF);
+            Tcl_SetObjResult(interp, Tcl_NewIntObj(t & 0xFFFF));
             return r;
         }
     }

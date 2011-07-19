@@ -2,6 +2,7 @@
 [copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Name service facility}]
 [titledesc {Name service facility, client/server protocol}]
+[category  Networking]
 [keywords comm {name service} protocol]
 [see_also nameserv::server(n)]
 [see_also nameserv(n)]

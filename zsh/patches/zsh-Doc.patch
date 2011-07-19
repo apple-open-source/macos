@@ -48,7 +48,7 @@
  \fIzshtcpsys\fP    Zsh built\-in TCP functions
  .TP
  \fIzshzftpsys\fP   Zsh built\-in FTP client
-@@ -493,7 +491,6 @@
+@@ -500,7 +498,6 @@
  .so man1/zshcompsys.1
  .so man1/zshcompctl.1
  .so man1/zshmodules.1

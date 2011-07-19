@@ -1,0 +1,56 @@
+Why doesn't Dovecot work?
+=========================
+
+ * *Dovecot always logs an error message* if anything goes wrong, so make sure
+   you're looking at the correct log files. Debug messages may be written to a
+   different log file than error messages. See <Logging.txt>.
+ * Make sure you're modifying the correct config file! Ubuntu creates two of
+   them. Other distributions may also have older config files lying around. For
+   example add "garbage=blah" to the config file and verify that Dovecot now
+   fails to start up.
+ * Try logging in manually by sending IMAP commands. If you're trying with an
+   IMAP client you can't be sure if the problem is with the client's
+   configuration or Dovecot's configuration. Many IMAP clients handle all
+   errors simply by showing you the login password dialog, even if the problem
+   has nothing to do with authentication. See <TestInstallation.txt> (or
+   <TestPop3Installation.txt>).
+ * Are you using an older version than v1.0? RHEL 5.0 and Debian Etch
+   distribute v1.0.rc15, and there have been a LOT of fixes since then. If you
+   have a problem, see if NEWS [http://dovecot.org/doc/NEWS] file mentions
+   anything related to it. There are also <binary packages>
+   [PrebuiltBinaries.txt] available for newer versions.
+
+It says "Authentication failed"
+-------------------------------
+
+First of all enable 'auth_debug_passwords=yes' and see if the logs show what
+the problem is. For non-PAM setups it should contain all the information needed
+to solve the problem. If it's trying to use a wrong password scheme, you can
+change that. See <Authentication.PasswordSchemes.txt>.
+
+If the client isn't even attempting to log in, you most likely have
+'disable_plaintext_auth=yes' (default) and the client isn't configured to use
+SSL/TLS (or you've also set 'ssl=no').
+
+If you're using <PAM> [PasswordDatabase.PAM.txt]:
+
+ * Make sure that dovecot-auth is running as root (assuming it's using
+   '/etc/shadow').
+ * PAM errors aren't written to Dovecot's own logs. Usually they go to
+   '/var/log/auth.log' or something similar.
+    * Unfortunately PAM's error messages aren't always all that helpful in
+      figuring out what exactly the problem is.
+       * You could (temporarily) try to use <passdb shadow>
+         [PasswordDatabase.Shadow.txt] instead to see if it logs something more
+         understandable.
+ * Usually the problem is that you don't have a correctly named file in
+   '/etc/pam.d/'. See <PasswordDatabase.PAM.txt>.
+
+It's not finding my emails
+--------------------------
+
+'mail_debug=yes' makes Dovecot log where it's really looking for mails. Also
+'auth_debug=yes' may be helpful in debugging. See <MailLocation.txt> for how to
+configure where the mails are looked up from.
+
+(This file was created from the wiki on 2011-05-11 04:42)

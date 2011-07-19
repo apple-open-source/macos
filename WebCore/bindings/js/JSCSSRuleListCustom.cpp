@@ -26,22 +26,25 @@
 #include "config.h"
 #include "JSCSSRuleList.h"
 
+#include "CSSRule.h"
 #include "CSSRuleList.h"
+#include "JSNode.h"
+#include "StyleList.h"
 
 using namespace JSC;
 
 namespace WebCore {
 
-void JSCSSRuleList::markChildren(MarkStack& markStack)
+bool JSCSSRuleListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, MarkStack& markStack)
 {
-    Base::markChildren(markStack);
-
-    CSSRuleList* list = impl();
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
-
-    unsigned length = list->length();
-    for (unsigned i = 0; i < length; ++i)
-        markDOMObjectWrapper(markStack, globalData, list->item(i));
+    JSCSSRuleList* jsCSSRuleList = static_cast<JSCSSRuleList*>(handle.get().asCell());
+    if (!jsCSSRuleList->hasCustomProperties())
+        return false;
+    if (StyleList* styleList = jsCSSRuleList->impl()->styleList())
+        return markStack.containsOpaqueRoot(root(styleList));
+    if (CSSRule* cssRule = jsCSSRuleList->impl()->item(0))
+        return markStack.containsOpaqueRoot(root(cssRule));
+    return false;
 }
 
 }

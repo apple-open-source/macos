@@ -4,12 +4,12 @@ import objc
 from Foundation import *
 from PyObjCTest.testhelper import PyObjC_TestClass4
 
-class TestNSCoderUsage(TestCase):
-    if not hasattr(TestCase, 'assertAlmostEquals'):
-        # XXX Move to a PyObjC unittest module?
-        def assertAlmostEquals(self, val1, val2):
-            self.assert_ (abs(val1 - val2) <  0.000001)
+try:
+    memoryview
+except NameError:
+    memoryview = None
 
+class TestNSCoderUsage(TestCase):
     def testUsage(self):
         class CoderClass1 (NSObject):
             def encodeWithCoder_(self, coder):
@@ -19,17 +19,17 @@ class TestNSCoderUsage(TestCase):
                 coder.encodeValueOfObjCType_at_(objc._C_INT, 2)
                 coder.encodeValueOfObjCType_at_(objc._C_DBL, 2.0)
                 coder.encodeArrayOfObjCType_count_at_(objc._C_DBL, 4, (1.0, 2.0, 3.0, 4.0))
-                coder.encodeBytes_length_("hello world!", 5)
+                coder.encodeBytes_length_(b"hello world!", 5)
 
             def initWithCoder_(self, coder):
                 # NSObject does not implement NSCoding, no need to
                 # call superclass implementation:
                 #    self = super(CodeClass1, self).initWithCoder_(coder)
                 self = self.init()
-                self.intVal = coder.decodeValueOfObjCType_at_(objc._C_INT)
-                self.dblVal = coder.decodeValueOfObjCType_at_(objc._C_DBL)
-                self.dblArray = coder.decodeArrayOfObjCType_count_at_(objc._C_DBL, 4)
-                self.decodedBytes = coder.decodeBytesWithReturnedLength_()
+                self.intVal = coder.decodeValueOfObjCType_at_(objc._C_INT, None)
+                self.dblVal = coder.decodeValueOfObjCType_at_(objc._C_DBL, None)
+                self.dblArray = coder.decodeArrayOfObjCType_count_at_(objc._C_DBL, 4, None)
+                self.decodedBytes = coder.decodeBytesWithReturnedLength_(None)
                 return self
 
         origObj = CoderClass1.alloc().init()
@@ -40,15 +40,15 @@ class TestNSCoderUsage(TestCase):
         archiver = NSUnarchiver.alloc().initForReadingWithData_(data)
         newObj = archiver.decodeObject()
 
-        self.assertEquals(newObj.intVal, 2)
+        self.assertEqual(newObj.intVal, 2)
         self.assertAlmostEquals(newObj.dblVal, 2.0)
-        self.assertEquals(len(newObj.dblArray), 4)
+        self.assertEqual(len(newObj.dblArray), 4)
         self.assertAlmostEquals(newObj.dblArray[0], 1.0)
         self.assertAlmostEquals(newObj.dblArray[1], 2.0)
         self.assertAlmostEquals(newObj.dblArray[2], 3.0)
         self.assertAlmostEquals(newObj.dblArray[3], 4.0)
-        self.assertEquals(newObj.decodedBytes[0], "hello")
-        self.assertEquals(newObj.decodedBytes[1], 5)
+        self.assertEqual(newObj.decodedBytes[0], b"hello")
+        self.assertEqual(newObj.decodedBytes[1], 5)
 
 
 class MyCoder (NSCoder):
@@ -68,16 +68,16 @@ class MyCoder (NSCoder):
         self.coded.append( ("bytes", bytes, length) )
 
     def decodeValueOfObjCType_at_(self, tp):
-        if tp == 'i':
+        if tp == b'i':
             return 42
-        elif tp == 'd':
+        elif tp == b'd':
             return 1.5
 
     def decodeArrayOfObjCType_count_at_(self, tp, cnt):
         return range(cnt)
 
     def decodeBytesWithReturnedLength_(self):
-        return ("ABCDEabcde", 10)
+        return (b"ABCDEabcde", 10)
 
 class TestPythonCoder(TestCase):
     #
@@ -89,36 +89,41 @@ class TestPythonCoder(TestCase):
         coder = MyCoder.alloc().init()
         o = PyObjC_TestClass4.alloc().init()
         o.encodeWithCoder_(coder)
-        self.assertEquals(coder.coded,
+        self.assertEqual(coder.coded,
                 [
-                    ("value", "d", 1.5),
-                    ("array", "i", 4, (3,4,5,6)),
-                    ("bytes", "hello world", 11),
+                    ("value", b"d", 1.5),
+                    ("array", b"i", 4, (3,4,5,6)),
+                    ("bytes", b"hello world", 11),
                 ])
 
     def testDecoding(self):
         coder = MyCoder.alloc().init()
         o = PyObjC_TestClass4
 
-        self.assertEquals(o.fetchInt_(coder), 42)
-        self.assertEquals(o.fetchDouble_(coder), 1.5)
+        self.assertEqual(o.fetchInt_(coder), 42)
+        self.assertEqual(o.fetchDouble_(coder), 1.5)
 
         d = o.fetchData_(coder)
-        self.assertEquals(d.length(), 10)
-        self.assertEquals(str(d.bytes()), "ABCDEabcde")
+        self.assertEqual(d.length(), 10)
+
+        b = d.bytes()
+        if isinstance(b, memoryview):
+            self.assertEqual(b.tobytes(), b"ABCDEabcde")
+        else:
+            self.assertEqual(bytes(b), b"ABCDEabcde")
 
         d = o.fetchArray_(coder)
-        self.assertEquals(tuple(range(10)), tuple(d))
+        self.assertEqual(tuple(range(10)), tuple(d))
 
     def testMethods(self):
-        self.failUnlessResultIsBOOL(NSCoder.allowsKeyedCoding)
-        self.failUnlessArgIsBOOL(NSCoder.encodeBool_forKey_, 0)
-        self.failUnlessResultIsBOOL(NSCoder.containsValueForKey_)
-        self.failUnlessResultIsBOOL(NSCoder.decodeBoolForKey_)
+        self.assertResultIsBOOL(NSCoder.allowsKeyedCoding)
+        self.assertArgIsBOOL(NSCoder.encodeBool_forKey_, 0)
+        self.assertResultIsBOOL(NSCoder.containsValueForKey_)
+        self.assertResultIsBOOL(NSCoder.decodeBoolForKey_)
 
-        self.failUnlessResultHasType(NSCoder.decodeBytesForKey_returnedLength_, '^v')
-        self.failUnlessResultSizeInArg(NSCoder.decodeBytesForKey_returnedLength_, 1)
-        self.failUnlessArgIsOut(NSCoder.decodeBytesForKey_returnedLength_, 1)
+        self.assertResultHasType(NSCoder.decodeBytesForKey_returnedLength_, b'^v')
+        self.assertResultSizeInArg(NSCoder.decodeBytesForKey_returnedLength_, 1)
+        self.assertArgIsOut(NSCoder.decodeBytesForKey_returnedLength_, 1)
 
 
 if __name__ == '__main__':

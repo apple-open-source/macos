@@ -37,13 +37,14 @@ namespace WebCore {
 class AuthenticationChallenge;
 class DocumentLoader;
 class Frame;
+class Page;
 class ResourceError;
 class ResourceLoader;
 class ResourceResponse;
-class ScriptString;
 class ResourceRequest;
 
-class ResourceLoadNotifier : public Noncopyable {
+class ResourceLoadNotifier {
+    WTF_MAKE_NONCOPYABLE(ResourceLoadNotifier);
 public:
     ResourceLoadNotifier(Frame*);
 
@@ -52,17 +53,18 @@ public:
 
     void willSendRequest(ResourceLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     void didReceiveResponse(ResourceLoader*, const ResourceResponse&);
-    void didReceiveData(ResourceLoader*, const char*, int, int lengthReceived);
-    void didFinishLoad(ResourceLoader*);
+    void didReceiveData(ResourceLoader*, const char*, int dataLength, int encodedDataLength);
+    void didFinishLoad(ResourceLoader*, double finishTime);
     void didFailToLoad(ResourceLoader*, const ResourceError&);
 
     void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
     void dispatchWillSendRequest(DocumentLoader*, unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
     void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&);
-    void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int length);
-    void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
+    void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int dataLength, int encodedDataLength);
+    void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier, double finishTime);
+    void dispatchTransferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*);
 
-    void sendRemainingDelegateMessages(DocumentLoader*, unsigned long identifier, const ResourceResponse&, int length, const ResourceError&);
+    void sendRemainingDelegateMessages(DocumentLoader*, unsigned long identifier, const ResourceResponse&, int dataLength, int encodedDataLength, const ResourceError&);
 
 private:
     Frame* m_frame;

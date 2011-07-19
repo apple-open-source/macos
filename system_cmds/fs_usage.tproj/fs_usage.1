@@ -57,10 +57,16 @@ By default no output filtering occurs.
 The supported modes are:
 .Pp
 .Pa  network	
-Only network related output is displayed.
+Only network related events are displayed.
 .Pp
 .Pa filesys	
-Only file system related output is displayed.
+Only file system related events are displayed.
+.Pp
+.Pa exec		
+Only exec and spawn events are displayed.
+.Pp
+.Pa pathname	
+Only pathname related events are displayed.
 .Pp
 .Pa cachehit	
 In addition, display CACHE_HIT output.
@@ -70,6 +76,25 @@ Specifying the
 .Fl w
 option forces a wider, more detailed output,
 regardless of the window size.
+.\" ==========
+.It Fl R Ar raw_file
+Specifies a raw trace file to process.
+.\" ==========
+.It Fl S Ar start_time
+If 
+.Fl R
+is selected, specifies the start time in microseconds to
+begin processing entries from the raw trace file. Entries
+with timestamps before the specified start time will be
+skipped.
+.\" ==========
+.It Fl E Ar end_time
+If 
+.Fl R
+is selected, specifies the ending time in microseconds to
+stop processing entries from the raw trace file.  Entries
+with timestamps beyond the specified ending time will be
+skipped.
 .\" ==========
 .It  pid | cmd
 The sampled data can be limited to a list of process ids or commands.
@@ -98,7 +123,7 @@ The data columns displayed are as follows:
 .Pp
 .It TIMESTAMP
 TOD when call occurred.
-Wide mode will have millisecond granularity.
+Wide mode will have microsecond granularity.
 .It CALL
 The name of the network or filesystem related call, page-in, page-out,
 or physical disk access.
@@ -133,7 +158,8 @@ after the elapsed time indicates the process was scheduled out
 during this file activity.
 In this case, the elapsed time includes the wait time.
 .It PROCESS NAME
-The process that made the system call.
+The process that made the system call.  Wide mode will append the
+thread id to the process name (i.e Mail.nnn).
 .El
 .Pp
 .Sh SAMPLE USAGE

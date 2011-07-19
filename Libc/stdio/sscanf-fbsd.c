@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)sscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/sscanf.c,v 1.11 2002/10/12 16:13:41 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/sscanf.c,v 1.13 2008/04/17 22:17:54 jhb Exp $");
 
 #include "xlocale_private.h"
 
@@ -47,38 +43,14 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/sscanf.c,v 1.11 2002/10/12 16:13:41 mike 
 #include <stdarg.h>
 #include "local.h"
 
-static int eofread(void *, char *, int);
-
-/* ARGSUSED */
-static int
-eofread(cookie, buf, len)
-	void *cookie;
-	char *buf;
-	int len;
-{
-
-	return (0);
-}
-
 int
 sscanf(const char * __restrict str, char const * __restrict fmt, ...)
 {
 	int ret;
 	va_list ap;
-	struct __sFILEX extra;
-	FILE f;
 
-	f._file = -1;
-	f._flags = __SRD;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._r = strlen(str);
-	f._read = eofread;
-	f._ub._base = NULL;
-	f._lb._base = NULL;
-	f._extra = &extra;
-	INITEXTRA(&f);
 	va_start(ap, fmt);
-	ret = __svfscanf_l(&f, __current_locale(), fmt, ap);
+	ret = vsscanf_l(str, __current_locale(), fmt, ap);
 	va_end(ap);
 	return (ret);
 }
@@ -88,21 +60,9 @@ sscanf_l(const char * __restrict str, locale_t loc, char const * __restrict fmt,
 {
 	int ret;
 	va_list ap;
-	struct __sFILEX extra;
-	FILE f;
 
-	NORMALIZE_LOCALE(loc);
-	f._file = -1;
-	f._flags = __SRD;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._r = strlen(str);
-	f._read = eofread;
-	f._ub._base = NULL;
-	f._lb._base = NULL;
-	f._extra = &extra;
-	INITEXTRA(&f);
 	va_start(ap, fmt);
-	ret = __svfscanf_l(&f, loc, fmt, ap);
+	ret = vsscanf_l(str, loc, fmt, ap);
 	va_end(ap);
 	return (ret);
 }

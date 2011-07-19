@@ -1,0 +1,139 @@
+Poprelay is a service that allows your Dovecot pop users to also send e-mails
+through your sendmail SMTP server on the same machine.When they check their
+e-mails, their IP address is logged in a database. Once the same user wants to
+send an e-mail using your SMTP port, then sendmail checks this database and if
+the IP is present, then the relay is allowed. This makes it completely
+transparent to the user and the server will still be very secure and blocking
+all other IP addresses for relaying.The IP address is kept in the database for
+about 15 minutes only, so there is no chance for anyone else to use the same IP
+address and server.
+
+Dated 2005-08-19 you can now use this poprelay service with Dovecot.
+
+The main page of poprelayd is the following:
+http://sourceforge.net/projects/poprelay
+
+Download the latest source there. You have an install script that does almost
+everything for you. You still need some manual intervention to add some
+required lines in your sendmail.mc file. This is described in the install
+documentation.Once this is done, you will have to replace your
+/etc/mail/poprelay.conf file by the lines below.Once this is done restart the
+poprelay service and it should be working.
+
+Please report any problem on the poprelay forum. You will need to leave the
+v6-mapped ip4 address in the /etc/mail/maillog for the moment (e.g. you should
+see '[::ffff:IP_ADDRESS]' in the pop user's login logs).
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+You might have to adapt the first configuration lines if you are using
+something else than CentOS 4.
+
+OpenBSD (using ip4 addresses) produces syslog lines such as:
+
+Jun 7 09:54:53 mail dovecot: pop3-login: Login: user=<user>, method=PLAIN,
+rip=[IP Address], lip=[IP Address]
+
+To fix the extra word in the split use this line:
+
+($crap, $info, $string)=split(/\: /,$line);
+
+To accommodate ip4 address in the form rip=w.x.y.z, use this line:
+
+($ip) = $line=~/\, rip\=(\d+\.\d+\.\d+\.\d+)/;
+
+---%<-------------------------------------------------------------------------
+#This file is interpreted by perl
+#you can do a quick syntax check by doing "perl poprelay.conf"
+
+#=======================Standard configuration options=====================
+
+# where POP3/IMAP daemon connections get logged
+$logfile = "/var/log/maillog";
+
+# Where we put our PID. (dieing output
+# will be dumped here too)
+$pidfile = "/var/run/poprelayd.pid";
+
+# Sendmail map to update.
+$dbfile = "/etc/mail/popip.db";
+
+#Change this to match the type of db file sendmail needs
+#Your perl must support that type of file as well
+$dbtype = "DB_HASH";
+
+# Minutes an entry lasts. (3000 = ~ 2 days)
+# IMAP connections can last a very long time so I like to keep this long.
+# The odds that someone will hop onto one of your valid user's old IP's and
+# spam from it are so small I wouldn't worry about it. I recommend making
+# this long to avoid complications.
+$timeout_minutes = 15;
+
+# Number of seconds to sleep between checks
+$log_wait_interval = 5;
+
+#=======================Advanced configuration options=====================
+
+#Alternate log line parsers:
+
+#There can be only one log parser.
+#the standard one should work for most systems. The other
+#ones may be slightly out of date. I don't have any systems
+#that run these servers so I can't update or test the routines.
+#If you fix anything with them please let me know and I will
+#roll the changes into the main version.
+#
+#$log_parser = \&log_parse_standard;
+#$log_parser = \&log_parse_berkeley;
+#$log_parser = \&log_parse_qpopper;
+#$log_parser = \&log_parse_qpopper_old;
+#$log_parser = \&log_parse_cucipop;
+$log_parser = \&log_parse_custom;
+
+#Custom log line parsing scripts:
+
+#If you want to create your own log parsing routine, do it here in
+#the config file so you can update the poprelayd without losing your
+#custom parsing routine. The routine below does the same thing as
+#log_parse_standard. It should be a good starting point for any
+#customization. It parses lines in many stages so it can be easily
+#customized. It will even do dns lookups of hostnames using
+#gethostbyname if the program logs the hostname instead of the ip.
+#
+#If you get something working post it to the forums at
+#http://sourceforge.net/projects/poprelay so the next guy doesn't have
+#to go through the same headache. I'll try and roll new routines into
+#the main program so that poprelayd can work out of the box for all
+#the log formats.
+
+# Dovecot maillog parser:
+sub log_parse_custom ($) {
+  my $s = $_[0];
+  my @paddrs; # Packed IP addresses.
+  my @addrs; # ASCII addresses.
+  my ($junk,$info,$string,$service,$ip,$host);
+  ($info, $string)=split(/\: /,$line);
+  ($service) = $info=~/(\S+)$/;
+  $service=~s/\[\d+\]//;
+  return () unless $service=~/^(pop2|pop3|imap)-login$/;
+  return () unless $string=~/^(Login|Authenticated)/;
+  ($ip) = $line=~/.*\:\:ffff\:(\d+\.\d+\.\d+\.\d+)\]/;
+  if ($ip) {
+    print "$service: $ip\n";
+    return ($ip);
+  } else {
+    ($host) = $string=~/^(\S+)/;
+    print "$service: $host\n";
+    ($junk, $junk, $junk, $junk, @paddrs) = gethostbyname($host);
+    while (@paddrs) {
+      push(@addrs, join('.', unpack('C4', shift(@paddrs))));
+    }
+    return (@addrs);
+  }
+}
+
+#leave this alone:
+1;
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

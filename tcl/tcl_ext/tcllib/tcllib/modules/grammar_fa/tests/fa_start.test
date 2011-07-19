@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2004-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 #
-# RCS: @(#) $Id: fa_start.test,v 1.5 2007/04/12 03:43:15 andreas_kupries Exp $
+# RCS: @(#) $Id: fa_start.test,v 1.6 2009/10/27 21:17:23 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -80,7 +80,8 @@ test fa-start-${setimpl}-2.0 {start, error} {
     catch {a start} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstart {type selfns win self cmd args} 5]
+} {wrong number args: should be "::a start method args"}
+# [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstart {type selfns win self cmd args} 5]
 
 
 test fa-start-${setimpl}-2.1 {start, error} {
@@ -88,7 +89,7 @@ test fa-start-${setimpl}-2.1 {start, error} {
     catch {a start foo} res
     a destroy
     set res
-} {Expected add, clear, remove, or set, got "foo"}
+} {"::a start foo" is not defined}
 
 
 test fa-start-${setimpl}-2.2 {start, error} {
@@ -96,8 +97,7 @@ test fa-start-${setimpl}-2.2 {start, error} {
     catch {a start add} res
     a destroy
     set res
-} {wrong#args: start add state ...}
-
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstart_add {type selfns win self state args} 5]
 
 test fa-start-${setimpl}-2.3 {start, error} {
     grammar::fa a
@@ -120,7 +120,7 @@ test fa-start-${setimpl}-2.5 {start states} {
     catch {a start remove} res
     a destroy
     set res
-} {wrong#args: start remove state ...}
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstart_remove {type selfns win self state args} 5]
 
 
 test fa-start-${setimpl}-2.6 {start states} {
@@ -144,7 +144,7 @@ test fa-start-${setimpl}-2.8 {start states} {
     catch {a start set} res
     a destroy
     set res
-} {wrong#args: start set states}
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstart_set {type selfns win self states} 4]
 
 
 test fa-start-${setimpl}-2.9 {start states} {

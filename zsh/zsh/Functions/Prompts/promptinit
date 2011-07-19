@@ -6,9 +6,10 @@
 ## Type `prompt -h' for help.
 ##
 
+typeset -gaU prompt_themes
+typeset -ga prompt_theme
+typeset -g prompt_newline
 prompt_themes=()
-typeset -gU prompt_themes
-typeset -g prompt_theme >/dev/null
 
 promptinit () {
   emulate -L zsh
@@ -21,7 +22,7 @@ promptinit () {
       name="$match[1]"
       if [[ -r "$theme" ]]; then
         prompt_themes=($prompt_themes $name)
-        autoload -U prompt_${name}_setup
+        autoload -Uz prompt_${name}_setup
       else
         print "Couldn't read file $theme containing theme $name."
       fi
@@ -31,7 +32,7 @@ promptinit () {
   done
 
   # To manipulate precmd and preexec hooks...
-  autoload -U add-zsh-hook
+  autoload -Uz add-zsh-hook
 
   # Variables common to all prompt styles
   prompt_newline=$'\n%{\r%}'
@@ -133,7 +134,7 @@ Use prompt -h <theme> for help on specific themes.'
        ;;
     s) print "Set and save not yet implemented.  Please ensure your ~/.zshrc"
        print "contains something similar to the following:\n"
-       print "  autoload -U promptinit"
+       print "  autoload -Uz promptinit"
        print "  promptinit"
        print "  prompt $*[2,-1]"
        shift
@@ -168,7 +169,7 @@ prompt () {
   local prompt_opts
 
   set_prompt "$@"
- 
+
   (( $#prompt_opts )) &&
       setopt noprompt{bang,cr,percent,subst} "prompt${^prompt_opts[@]}"
 

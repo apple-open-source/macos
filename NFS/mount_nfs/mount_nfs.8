@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -53,7 +53,7 @@
 .\"
 .\"	@(#)mount_nfs.8	8.3 (Berkeley) 3/29/95
 .\"
-.Dd February 28, 2009
+.Dd February 28, 2010
 .Dt MOUNT_NFS 8
 .Os 
 .Sh NAME
@@ -120,8 +120,7 @@ The following NFS-specific options are also available:
 .It Cm bg
 Retry mount in background.
 If an initial attempt to contact the server fails, fork off a child to keep
-trying the mount in the background.  Useful for
-.Xr fstab 5 ,
+trying the mount in the background.  Useful for startup scripts
 where the file system mount is not critical to multiuser operation.
 .Pp
 .It Cm retrycnt Ns = Ns Aq Ar num
@@ -135,11 +134,30 @@ Use UDP transport protocol.
 Use the TCP transport protocol instead of UDP.  The default is to try TCP first,
 then fall back to UDP if the server doesn't support TCP.
 .Pp
-.It Cm proto Ns = Ns Aq Ar protocol
-Use the given transport protocol.  Valid values are
+.It Cm inet
+Use only IPv4 addresses.
+.Pp
+.It Cm inet6
+Use only IPv6 addresses.
+.Pp
+.It Cm proto Ns = Ns Aq Ar netid
+Use the transport protocol and address family as specified by the given ONC RPC Netid (RFC 5665).
+Valid netid values are:
+.Cm tcp
+(TCP over IPv4),
+.Cm udp
+(UDP over IPv4),
+.Cm tcp6
+(TCP over IPv6),
+and
+.Cm udp6
+(UDP over IPv6).
+Note that this option differs from the separate
 .Cm tcp
 and
-.Cm udp .
+.Cm udp
+options described above in that each netid value specifies both a
+transport protocol and address family (IP version).
 .Pp
 .It Cm mntudp
 Force the mount protocol to use UDP transport, even for TCP NFS mounts.
@@ -322,6 +340,13 @@ locking operations on this mount will return the error
 .Er ENOTSUP
 regardless of whether or not the NFS server supports NFS file locking.
 .Pp
+.It Cm noquota
+Do not support file system quota operations that would normally be
+serviced by using the RQUOTA protocol.  Any attempt to perform quota
+operations on this mount will return the error
+.Er ENOTSUP
+regardless of whether or not the NFS server supports the RQUOTA service.
+.Pp
 .It Cm maxgroups Ns = Ns Aq Ar num
 Set the maximum size of the group list for the credentials to the specified
 value.  This should be used for mounts on old servers that cannot handle
@@ -386,6 +411,38 @@ The operation will not return until a response is received from the
 server.  (The default,
 .Cm nosync ,
 behavior is to return once the I/O has been queued up.)
+.Pp
+.It Cm nocallback
+For NFSv4 mounts, don't support callback requests from the server.
+This should effectively disable features that require callback requests
+such as delegations.
+.Pp
+.It Cm nonamedattr
+For NFSv4 mounts, don't support named attributes even if the server does.
+By default, if the server appears to support named attributes, they
+will be used to store extended attributes and named streams (e.g. FinderInfo
+and resource forks).
+.Pp
+.It Cm noacl
+For NFSv4 mounts, don't support ACLs even if the server does.
+ACLs are currently disabled by default to avoid issues with the way
+ACLs and modes are handled differently on other operating systems.
+This may be overriden by specifying the
+.Cm acl
+option.
+.Pp
+.It Cm aclonly
+For NFSv4 mounts, only support ACLs; do not support the mode attribute.
+(Any mode attribute values returned will have all permission bits set -
+regardless of the value of any ACL or access mode stored in the file
+system.)  This option overrides the
+.Cm noacl
+option.
+.Pp
+.It Cm nfc
+Convert name strings to Unicode Normalization Form C (NFC) when sending
+them to the NFS server.  This option may be used to improve interoperability
+with NFS clients and servers that typically use names in the NFC form.
 .El
 .Pp
 .Xr nfs.conf 5
@@ -463,12 +520,6 @@ is with a command like:
 or:
 .Pp
 .D1 Ic mount -t nfs remotehost:/filesystem /localmountpoint
-.Pp
-It is also possible to automatically mount file systems at boot from your
-.Pa /etc/fstab
-by using a line like:
-.Pp
-.Dl "remotehost:/home /home nfs rw 0 0
 .Sh PERFORMANCE
 As can be derived from the comments accompanying the options, performance
 tuning of
@@ -562,10 +613,12 @@ The following error:
 .Dl "NFS Portmap: RPC: Program not registered
 .Pp
 means that the remote host is not running
+.Xr nfsd 8 .
+or
 .Xr mountd 8 .
 The program
 .Xr rpcinfo 8
-can be used to determine if the remote host is running nfsd, and mountd by issuing
+can be used to determine if the remote host is running nfsd and mountd by issuing
 the command:
 .Pp
 .Dl rpcinfo -p remotehostname
@@ -597,15 +650,14 @@ and rpc.lockd it would display:
 .Pp
 The error:
 .Pp
-.Dl "mount_nfs: can't get net id for host
+.Dl "mount_nfs: can't resolve host
 .Pp
 indicates that
 .Nm
-cannot resolve the name of the remote host.
+could not resolve the name of the remote host.
 .Sh SEE ALSO
 .Xr mount 2 ,
 .Xr unmount 2 ,
-.Xr fstab 5 ,
 .Xr mount 8 ,
 .Xr umount 8 ,
 .Xr nfsstat 1 ,
@@ -617,16 +669,3 @@ cannot resolve the name of the remote host.
 .Sh CAVEATS
 An NFS server shouldn't loopback-mount its own exported file systems because
 it's fundamentally prone to deadlock.
-.Pp
-The current NFSv4 functionality is "alpha quality" software.  Some
-basic functionality is not yet implemented.  Use at your own risk.
-Currently, the only way to enable NFSv4 is to specify the mount option:
-.Pp
-.D1 Fl o Cm vers Ns = Ns 4.0alpha
-.Pp
-This special option value is only temporary and will no longer be
-necessary (or supported) once the NFSv4 functionality is ready for
-general use (
-.Fl o
-.Cm vers Ns = Ns 4
-will be sufficient ).

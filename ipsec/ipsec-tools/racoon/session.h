@@ -35,7 +35,7 @@
 #include "handler.h"
 
 extern int session __P((void));
-extern RETSIGTYPE signal_handler __P((int));
+extern RETSIGTYPE signal_handler __P((int, siginfo_t *, void *));
 extern void check_auto_exit __P((void));
 
 #endif /* _SESSION_H */

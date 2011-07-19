@@ -26,13 +26,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
-#ifndef FontPlatformData_H
-#define FontPlatformData_H
+#ifndef FontPlatformData_h
+#define FontPlatformData_h
 
 #include "FontDescription.h"
-#include "AtomicString.h"
+#include "FontWidthVariant.h"
+#include "FontOrientation.h"
 #include "StringImpl.h"
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
 #include <wx/defs.h>
@@ -48,15 +51,11 @@
 class NSFont;
 #endif
 
-#ifndef BUILDING_ON_TIGER
 inline CTFontRef toCTFontRef(NSFont *nsFont) { return reinterpret_cast<CTFontRef>(nsFont); }
-#endif
 
 #endif
 
 namespace WebCore {
-
-class String;
 
 class FontHolder: public WTF::RefCounted<FontHolder>
 {
@@ -148,6 +147,12 @@ public:
     
     bool allowsLigatures() const { return false; }
     
+    FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
+    void setOrientation(FontOrientation) { } // FIXME: Implement.
+
+    // We don't support this yet, so just return the default value for now.
+    FontWidthVariant widthVariant() const { return RegularWidth; }
+
 #if OS(WINDOWS)
     bool useGDI() const;
     HFONT hfont() const;
@@ -156,9 +161,9 @@ public:
 #if OS(DARWIN)
     ATSUFontID m_atsuFontID;
     CGFontRef cgFont() const;
-    NSFont* nsFont() const;
+    NSFont* nsFont() const { return m_nsFont; }
+    CTFontRef ctFont() const { return reinterpret_cast<CTFontRef>(m_nsFont); }
     void cacheNSFont();
-    
 #endif
 
     float m_size;

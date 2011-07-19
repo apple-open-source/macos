@@ -4,7 +4,7 @@
 #	A PanelFrame is a boxed frame that allows you to place items
 #	in the label area (liked combined frame+toolbar).  It uses the
 #	highlight colors the default frame color.
-#  $Id: panelframe.tcl,v 1.1 2004/09/09 22:17:51 hobbs Exp $
+#  $Id: panelframe.tcl,v 1.12 2009/09/06 21:36:41 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - PanelFrame::create
@@ -17,23 +17,25 @@
 # ----------------------------------------------------------------------------
 
 namespace eval PanelFrame {
+
     Widget::define PanelFrame panelframe
 
     Widget::declare PanelFrame {
-	{-background	   TkResource "" 0 frame}
+	{-background	   Color "SystemWindowFrame" 0}
 	{-borderwidth	   TkResource 1	 0 frame}
 	{-relief	   TkResource flat 0 frame}
-	{-panelbackground  TkResource "" 0 {entry -selectbackground}}
-	{-panelforeground  TkResource "" 0 {entry -selectforeground}}
+	{-panelbackground  Color "SystemHighlight" 0}
+	{-panelforeground  Color "SystemHighlightText" 0}
 	{-width		   Int	      0	 0}
 	{-height	   Int	      0	 0}
-	{-font		   TkResource "" 0 label}
+	{-font		   String     "TkTextFont" 0}
 	{-text		   String     "" 0}
 	{-textvariable	   String     "" 0}
 	{-ipad		   String      1 0}
 	{-bg		   Synonym    -background}
 	{-bd		   Synonym    -borderwidth}
     }
+
     # Should we have automatic state handling?
     #{-state            TkResource "" 0 label}
 
@@ -41,14 +43,17 @@ namespace eval PanelFrame {
 	-panelbackground -background
 	-width {} -height {} -borderwidth {} -relief {}
     }
+
     Widget::addmap PanelFrame "" .title	  {
 	-panelbackground -background
     }
+
     Widget::addmap PanelFrame "" .title.text   {
 	-panelbackground -background
 	-panelforeground -foreground
 	-text {} -textvariable {} -font {}
     }
+
     Widget::addmap PanelFrame "" .frame {
 	-background {}
     }
@@ -60,6 +65,7 @@ namespace eval PanelFrame {
 	    -panelbackground -background
 	    -panelforeground -foreground
 	}
+
 	variable HaveMarlett \
 	    [expr {[lsearch -exact [font families] "Marlett"] != -1}]
 
@@ -76,6 +82,7 @@ namespace eval PanelFrame {
 		0x10, 0x08, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00};
 	}
+
 	# We use the same -foreground as the default -panelbackground
 	image create bitmap ::PanelFrame::X -data $imgdata \
 	    -foreground [lindex $Widget::PanelFrame::opt(-panelbackground) 1]

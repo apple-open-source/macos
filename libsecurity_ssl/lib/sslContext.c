@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2000-2009 Apple, Inc. All Rights Reserved.
+ * Copyright (c) 1999-2001,2005-2010 Apple Inc. All Rights Reserved.
  * 
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please obtain
- * a copy of the License at http://www.apple.com/publicsource and read it before
- * using this file.
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
- * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the
- * specific language governing rights and limitations under the License.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
-
 /*
-	File:		sslContext.c
-
-	Contains:	SSLContext accessors
-
-	Written by:	Doug Mitchell
-
-	Copyright: (c) 1999-2009 Apple Inc. All Rights Reserved.
-
-*/
+ * sslContext.c - SSLContext accessors
+ */
 
 #include "ssl.h"
 #include "sslContext.h"
@@ -144,8 +142,11 @@ SSLNewContext				(Boolean 			isServer,
 	/* Default for RSA blinding is ENABLED */
 	ctx->rsaBlindingEnable = true;
 	
-	/* default for anonymous ciphers is ENABLED */
-	ctx->anonCipherEnable = true;
+	/* default for anonymous ciphers is DISABLED */
+	ctx->anonCipherEnable = false;
+
+	/* default for weak ciphers is DISABLED */
+	ctx->weakCipherEnable = false;
 
 	/* default for additional SSL handshake results is DISABLED */
 	ctx->breakOnServerAuth = false;
@@ -173,75 +174,74 @@ errOut:
 }
 
 
-/*
- * Dispose of an SSLContext.
- */
 OSStatus
-SSLDisposeContext				(SSLContext			*ctx)
+SSLDisposeContext				(SSLContext			*context)
 {   
 	WaitingRecord   *wait, *next;
-    
-    if(ctx == NULL) {
-    	return paramErr;
-    }
-    sslDeleteCertificateChain(ctx->localCert, ctx);
-    sslDeleteCertificateChain(ctx->encryptCert, ctx);
-    sslDeleteCertificateChain(ctx->peerCert, ctx);
-    ctx->localCert = ctx->encryptCert = ctx->peerCert = NULL;
-    SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
+	SSLContext		*ctx = (SSLContext *)context;
+
+	if(ctx == NULL) {
+		return paramErr;
+	}
+
+	sslDeleteCertificateChain(ctx->localCert, ctx);
+	sslDeleteCertificateChain(ctx->encryptCert, ctx);
+	sslDeleteCertificateChain(ctx->peerCert, ctx);
+	ctx->localCert = ctx->encryptCert = ctx->peerCert = NULL;
+	SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
 	if(ctx->peerSecTrust) {
 		CFRelease(ctx->peerSecTrust);
 		ctx->peerSecTrust = NULL;
 	}
-    wait = ctx->recordWriteQueue;
-    while (wait)
-    {   next = wait->next;
+	wait = ctx->recordWriteQueue;
+	while (wait)
+	{	next = wait->next;
 		sslFree(wait);
-        wait = next;
-    }
-    SSLFreeBuffer(&ctx->sessionTicket, ctx);
-    
+		wait = next;
+	}
+	SSLFreeBuffer(&ctx->sessionTicket, ctx);
+
 	#if APPLE_DH
-    SSLFreeBuffer(&ctx->dhParamsPrime, ctx);
-    SSLFreeBuffer(&ctx->dhParamsGenerator, ctx);
-    SSLFreeBuffer(&ctx->dhParamsEncoded, ctx);
-    SSLFreeBuffer(&ctx->dhPeerPublic, ctx);
-    SSLFreeBuffer(&ctx->dhExchangePublic, ctx);
+	SSLFreeBuffer(&ctx->dhParamsPrime, ctx);
+	SSLFreeBuffer(&ctx->dhParamsGenerator, ctx);
+	SSLFreeBuffer(&ctx->dhParamsEncoded, ctx);
+	SSLFreeBuffer(&ctx->dhPeerPublic, ctx);
+	SSLFreeBuffer(&ctx->dhExchangePublic, ctx);
 	sslFreeKey(ctx->cspHand, &ctx->dhPrivate, NULL);
-    #endif	/* APPLE_DH */
-	
-    SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
-    SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
+	#endif	/* APPLE_DH */
+
+	SSLFreeBuffer(&ctx->ecdhPeerPublic, ctx);
+	SSLFreeBuffer(&ctx->ecdhExchangePublic, ctx);
 	if(ctx->ecdhPrivCspHand == ctx->cspHand) {
 		sslFreeKey(ctx->ecdhPrivCspHand, &ctx->ecdhPrivate, NULL);
 	}
 	/* else we got this key from a SecKeyRef, no free needed */
-	
+
 	CloseHash(&SSLHashSHA1, &ctx->shaState, ctx);
 	CloseHash(&SSLHashMD5,  &ctx->md5State, ctx);
-    
-    SSLFreeBuffer(&ctx->sessionID, ctx);
-    SSLFreeBuffer(&ctx->peerID, ctx);
-    SSLFreeBuffer(&ctx->resumableSession, ctx);
-    SSLFreeBuffer(&ctx->preMasterSecret, ctx);
-    SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
-    SSLFreeBuffer(&ctx->fragmentedMessageCache, ctx);
-    SSLFreeBuffer(&ctx->receivedDataBuffer, ctx);
+
+	SSLFreeBuffer(&ctx->sessionID, ctx);
+	SSLFreeBuffer(&ctx->peerID, ctx);
+	SSLFreeBuffer(&ctx->resumableSession, ctx);
+	SSLFreeBuffer(&ctx->preMasterSecret, ctx);
+	SSLFreeBuffer(&ctx->partialReadBuffer, ctx);
+	SSLFreeBuffer(&ctx->fragmentedMessageCache, ctx);
+	SSLFreeBuffer(&ctx->receivedDataBuffer, ctx);
 
 	if(ctx->peerDomainName) {
 		sslFree(ctx->peerDomainName);
 		ctx->peerDomainName = NULL;
 		ctx->peerDomainNameLen = 0;
 	}
-    SSLDisposeCipherSuite(&ctx->readCipher, ctx);
-    SSLDisposeCipherSuite(&ctx->writeCipher, ctx);
-    SSLDisposeCipherSuite(&ctx->readPending, ctx);
-    SSLDisposeCipherSuite(&ctx->writePending, ctx);
+	SSLDisposeCipherSuite(&ctx->readCipher, ctx);
+	SSLDisposeCipherSuite(&ctx->writeCipher, ctx);
+	SSLDisposeCipherSuite(&ctx->readPending, ctx);
+	SSLDisposeCipherSuite(&ctx->writePending, ctx);
 
 	sslFree(ctx->validCipherSpecs);
 	ctx->validCipherSpecs = NULL;
 	ctx->numValidCipherSpecs = 0;
-	
+
 	/*
 	 * NOTE: currently, all public keys come from the CL via CSSM_CL_CertGetKeyInfo.
 	 * We really don't know what CSP the CL used to generate a public key (in fact,
@@ -254,7 +254,7 @@ SSLDisposeContext				(SSLContext			*ctx)
 	sslFreeKey(ctx->cspHand, &ctx->signingPubKey, NULL);
 	sslFreeKey(ctx->cspHand, &ctx->encryptPubKey, NULL);
 	sslFreeKey(ctx->peerPubKeyCsp, &ctx->peerPubKey, NULL);
-	
+
 	if(ctx->signingPrivKeyRef) {
 		CFRelease(ctx->signingPrivKeyRef);
 	}
@@ -271,9 +271,9 @@ SSLDisposeContext				(SSLContext			*ctx)
 	if(ctx->acceptableCAs) {
 		CFRelease(ctx->acceptableCAs);
 	}
-	
+
 	detachFromAll(ctx);
-	    
+		
 	if(ctx->localCertArray) {
 		CFRelease(ctx->localCertArray);
 	}
@@ -283,9 +283,9 @@ SSLDisposeContext				(SSLContext			*ctx)
 	if(ctx->clientAuthTypes) {
 		sslFree(ctx->clientAuthTypes);
 	}
-	
-    memset(ctx, 0, sizeof(SSLContext));
-    sslFree(ctx);
+
+	memset(ctx, 0, sizeof(SSLContext));
+	sslFree(ctx);
 	sslCleanupSession();
 	return noErr;
 }

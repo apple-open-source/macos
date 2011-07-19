@@ -1,23 +1,22 @@
-/*
- * Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
+ /*
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,10 +32,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -157,7 +152,7 @@ struct list secondlevel[] = {
 	{ username, USER_MAXID },	/* CTL_USER_NAMES */
 };
 
-static int	Aflag, aflag, bflag, nflag, wflag, Xflag;
+static int	Aflag, aflag, bflag, hflag, nflag, wflag, Xflag;
 static int	foundSome = 0;
 static int	invalid_name_used = 0;
 
@@ -195,6 +190,7 @@ main(argc, argv)
 			case 'A': Aflag = 1; break;
 			case 'a': aflag = 1; break;
 			case 'b': bflag = 1; break;
+			case 'h': hflag = 1; break;
 			case 'n': nflag = 1; break;
 			case 'w': wflag = 1; break;
 			case 'X': Xflag = Aflag = 1; break;
@@ -745,8 +741,13 @@ parse(char *string, int flags)
 		return;
 	}
 
+	/*
+	 * An non-zero return here is an OID space containing parameters which
+	 * needs to be ignored in the interests of backward compatibility with
+	 * pre-newsysctl sysctls.
+	 */
 	if (oidfmt(mib, len, fmt, &kind))
-		err(1, "couldn't find format of oid '%s'", bufp);
+		return;
 
 	if (!wflag) {
 		if ((kind & CTLTYPE) == CTLTYPE_NODE) {
@@ -772,7 +773,7 @@ parse(char *string, int flags)
 					if ((uintval == 0) &&
 					    (errno == EINVAL)) {
 						errx(1, "invalid argument: %s",
-							newval);
+							(char *)newval);
 						return;
 					}
 					newval = &uintval;
@@ -782,7 +783,7 @@ parse(char *string, int flags)
 					if ((intval == 0) &&
 					    (errno == EINVAL)) {
 						errx(1, "invalid argument: %s",
-							newval);
+							(char *)newval);
 						return;
 					}
 					newval = &intval;
@@ -794,11 +795,11 @@ parse(char *string, int flags)
 			case CTLTYPE_QUAD:
 				quadval = strtoq(newval, NULL, 0);
 				if ((quadval == 0) && (errno == EINVAL)) {
-					errx(1, "invalid argument %s", newval);
+					errx(1, "invalid argument %s", (char *)newval);
 					return;
 				}
 				newval = &quadval;
-				newsize = sizeof quadval;
+				newsize = sizeof(quadval);
 				break;
 			default:
 				errx(1, "oid '%s' is type %d,"
@@ -842,9 +843,13 @@ static int
 S_clockinfo(int l2, void *p)
 {
 	struct clockinfo *ci = (struct clockinfo*)p;
-	if (l2 != sizeof *ci)
-		err(1, "S_clockinfo %d != %d", l2, sizeof *ci);
-	printf("{ hz = %d, tick = %d, tickadj = %d, profhz = %d, stathz = %d }",
+
+	if (l2 != sizeof(*ci)) {
+		warnx("S_clockinfo %d != %ld", l2, sizeof(*ci));
+		return (1);
+	}
+	printf(hflag ? "{ hz = %'d, tick = %'d, tickadj = %'d, profhz = %'d, stathz = %'d }" :
+		"{ hz = %d, tick = %d, tickadj = %d, profhz = %d, stathz = %d }",
 		ci->hz, ci->tick, ci->tickadj, ci->profhz, ci->stathz);
 	return (0);
 }
@@ -854,10 +859,11 @@ S_loadavg(int l2, void *p)
 {
 	struct loadavg *tv = (struct loadavg*)p;
 
-	if (l2 != sizeof *tv)
-		err(1, "S_loadavg %d != %d", l2, sizeof *tv);
-
-	printf("{ %.2f %.2f %.2f }",
+	if (l2 != sizeof(*tv)) {
+		warnx("S_loadavg %d != %ld", l2, sizeof(*tv));
+		return (1);
+	}
+	printf(hflag ? "{ %'.2f %'.2f %'.2f }" : "{ %.2f %.2f %.2f }",
 		(double)tv->ldavg[0]/(double)tv->fscale,
 		(double)tv->ldavg[1]/(double)tv->fscale,
 		(double)tv->ldavg[2]/(double)tv->fscale);
@@ -871,42 +877,50 @@ S_timeval(int l2, void *p)
 	time_t tv_sec;
 	char *p1, *p2;
 
-	if (l2 != sizeof *tv)
-		err(1, "S_timeval %d != %d", l2, sizeof *tv);
-	printf("{ sec = %ld, usec = %ld } ",
-		(long) tv->tv_sec, (long) tv->tv_usec);
+	if (l2 != sizeof(*tv)) {
+		warnx("S_timeval %d != %ld", l2, sizeof(*tv));
+		return (1);
+	}
+	printf(hflag ? "{ sec = %'jd, usec = %'ld } " :
+		"{ sec = %jd, usec = %ld } ",
+		(intmax_t)tv->tv_sec, (long)tv->tv_usec);
 	tv_sec = tv->tv_sec;
 	p1 = strdup(ctime(&tv_sec));
 	for (p2=p1; *p2 ; p2++)
 		if (*p2 == '\n')
 			*p2 = '\0';
 	fputs(p1, stdout);
+	free(p1);
 	return (0);
 }
 
 static int
 S_xswusage(int l2, void *p)
 {
-        struct xsw_usage	*xsu = (struct xsw_usage *)p;
+        struct xsw_usage *xsu = (struct xsw_usage *)p;
   
-	if(l2 != sizeof (*xsu))
-	    err(1, "S_xswusage %d != %d", l2, sizeof *xsu);
-
+	if (l2 != sizeof(*xsu)) {
+		warnx("S_xswusage %d != %ld", l2, sizeof(*xsu));
+		return (1);
+	}
 	fprintf(stdout,
 		"total = %.2fM  used = %.2fM  free = %.2fM  %s",
-		((double) xsu->xsu_total) / (1024.0 * 1024.0),
-		((double) xsu->xsu_used) / (1024.0 * 1024.0),
-		((double) xsu->xsu_avail) / (1024.0 * 1024.0),
+		((double)xsu->xsu_total) / (1024.0 * 1024.0),
+		((double)xsu->xsu_used) / (1024.0 * 1024.0),
+		((double)xsu->xsu_avail) / (1024.0 * 1024.0),
 		xsu->xsu_encrypted ? "(encrypted)" : "");
-	return 0;
+	return (0);
 }
 
 static int
 T_dev_t(int l2, void *p)
 {
 	dev_t *d = (dev_t *)p;
-	if (l2 != sizeof *d)
-		err(1, "T_dev_T %d != %d", l2, sizeof *d);
+
+	if (l2 != sizeof(*d)) {
+		warnx("T_dev_T %d != %ld", l2, sizeof(*d));
+		return (1);
+	}
 	if ((int)(*d) != -1) {
 		if (minor(*d) > 255 || minor(*d) < 0)
 			printf("{ major = %d, minor = 0x%x }",
@@ -957,17 +971,27 @@ oidfmt(int *oid, int len, char *fmt, u_int *kind)
 	qoid[1] = 4;
 	memcpy(qoid + 2, oid, len * sizeof(int));
 
-	j = sizeof buf;
+	j = sizeof(buf);
 	i = sysctl(qoid, len + 2, buf, &j, 0, 0);
-	if (i)
-		err(1, "sysctl fmt %d %d %d", i, j, errno);
+	if (i) {
+		/*
+		 * An ENOENT error return indicates that the OID in question
+		 * is a node OID followed not by additional OID elements, but
+		 * by integer parameters.  We really do not want to support
+		 * this type of thing going forward, but we alow it here for
+		 * historical compatibility.  Eventually, this will go away.
+		 */
+		if (errno == ENOENT)
+			return ENOENT;
+		err(1, "sysctl fmt %d %ld %d", i, j, errno);
+	}
 
 	if (kind)
 		*kind = *(u_int *)buf;
 
 	if (fmt)
 		strcpy(fmt, (char *)(buf + sizeof(u_int)));
-	return 0;
+	return (0);
 }
 
 /*
@@ -997,7 +1021,7 @@ show_var(int *oid, int nlen, int show_masked)
 	j = sizeof name;
 	i = sysctl(qoid, nlen + 2, name, &j, 0, 0);
 	if (i || !j)
-		err(1, "sysctl name %d %d %d", i, j, errno);
+		err(1, "sysctl name %d %ld %d", i, j, errno);
 
 	/* find an estimate of how much we need for this var */
 	j = 0;
@@ -1021,8 +1045,20 @@ show_var(int *oid, int nlen, int show_masked)
 	qoid[1] = 4;
 	j = sizeof buf;
 	i = sysctl(qoid, nlen + 2, buf, &j, 0, 0);
+	/*
+	 * An ENOENT error return indicates that the OID in question
+	 * is a node OID followed not by additional OID elements, but
+	 * by integer parameters.  We really do not want to support
+	 * this type of thing going forward, but we alow it here for
+	 * historical compatibility.  Eventially, this will go away.
+	 */
+	if (i && errno == ENOENT) {
+		retval = 1;
+		goto RETURN;
+	}
+		
 	if (i || !j)
-		err(1, "sysctl fmt %d %d %d", i, j, errno);
+		err(1, "sysctl fmt %d %ld %d", i, j, errno);
 
 	kind = *(u_int *)buf;
 	if (!show_masked && (kind & CTLFLAG_MASKED)) {
@@ -1170,7 +1206,7 @@ sysctl_all (int *oid, int len)
 			if (errno == ENOENT)
 				return 0;
 			else
-				err(1, "sysctl(getnext) %d %d", j, l2);
+				err(1, "sysctl(getnext) %d %ld", j, l2);
 		}
 
 		l2 /= sizeof (int);

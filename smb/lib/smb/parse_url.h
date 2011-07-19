@@ -25,10 +25,17 @@
 
 #define SMB_SCHEME_STRING  "smb"
 
+int isUrlStringEqual(CFURLRef url1, CFURLRef url2);
+char *CStringCreateWithCFString(CFStringRef inStr);
 void CreateSMBFromName(struct smb_ctx *ctx, char *fromname, int maxlen);
-int ParseSMBURL(struct smb_ctx *ctx, int sharetype);
+int isBTMMAddress(CFStringRef serverNameRef);
+int ParseSMBURL(struct smb_ctx *ctx);
+CFURLRef CreateURLFromReferral(CFStringRef inStr);
 CFURLRef CreateSMBURL(const char *url);
 int smb_url_to_dictionary(CFURLRef url, CFDictionaryRef *dict);
 int smb_dictionary_to_url(CFDictionaryRef dict, CFURLRef *url);
+CFStringRef CreateURLCFString(CFStringRef Domain, CFStringRef Username, 
+							  CFStringRef Password, CFStringRef ServerName, 
+							  CFStringRef Path, CFStringRef PortNumber);
 
 #endif /* _PARSE_URL_H_ */

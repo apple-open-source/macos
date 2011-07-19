@@ -1,3 +1,29 @@
+2010-03-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* testutilities.tcl: Added constraint for 8.4-.
+
+2009-09-24  Andreas Kupries  <andreask@activestate.com>
+
+	* testutilities.tcl: Added constraint for 8.6+.
+
+2009-04-13  Andreas Kupries  <andreask@activestate.com>
+
+	* dialog.tcl: Extended to allow dialog over a socket secured by
+	  SSL (via package tls).
+
+2009-04-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ca.crt: New files, SSL/TLS certificates for use in testsuites.
+	* ca.key: ca.* = Tcllib Certification Authority
+	* ca.key.password: Receiver, Transmitter = Certificates for two
+	* receiver.crt: sides of a communication channel.
+	* receiver.key:
+	* transmitter.crt:
+	* transmitter.key:
+
+	* README: Acknowledgement added for the SimpleCA software used to
+	  create the certificates.
+
 2008-09-20  Michael Schlenker <mic42@users.sourceforge.net>
 
 	* testutitlites.tcl: Added wrong num args error messages for

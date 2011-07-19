@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2008, International Business Machines
+ *   Copyright (C) 2005-2009, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -120,7 +120,12 @@ void CharsetDetector::setRecognizers(UErrorCode &status)
 
             new CharsetRecog_2022JP(),
             new CharsetRecog_2022KR(),
-            new CharsetRecog_2022CN()
+            new CharsetRecog_2022CN(),
+            
+            new CharsetRecog_IBM424_he_rtl(),
+            new CharsetRecog_IBM424_he_ltr(),
+            new CharsetRecog_IBM420_ar_rtl(),
+            new CharsetRecog_IBM420_ar_ltr()
         };
         int32_t rCount = ARRAY_SIZE(tempArray);
         int32_t r;
@@ -144,8 +149,8 @@ void CharsetDetector::setRecognizers(UErrorCode &status)
         if (U_SUCCESS(status)) {
             umtx_lock(NULL);
             if (fCSRecognizers == NULL) {
-                fCSRecognizers = recognizers;
                 fCSRecognizers_size = rCount;
+                fCSRecognizers = recognizers;
             }
             umtx_unlock(NULL);
         }
@@ -284,16 +289,32 @@ const CharsetMatch * const *CharsetDetector::detectAll(int32_t &maxMatchesFound,
         }
 
         uprv_sortArray(resultArray, resultCount, sizeof resultArray[0], charsetMatchComparator, NULL, TRUE, &status);
-        ////Bubble sort
-        //for(int32_t i = resultCount; i > 1; i -= 1) {
-        //    for(int32_t j = 0; j < i-1; j += 1) {
-        //        if(resultArray[j]->getConfidence() < resultArray[j+1]->getConfidence()) {
-        //            CharsetMatch *temp = resultArray[j];
-        //            resultArray[j] = resultArray[j+1];
-        //            resultArray[j+1] = temp;
-        //        }
-        //    }
-        //}
+
+        // Remove duplicate charsets from the results.
+        // Simple minded, brute force approach - check each entry against all that follow.
+        // The first entry of any duplicated set is the one that should be kept because it will
+        // be the one with the highest confidence rating.
+        //   (Duplicate matches have different languages, only the charset is the same)
+        // Because the resultArray contains preallocated CharsetMatch objects, they aren't actually
+        // deleted, just reordered, with the unwanted duplicates placed after the good results.
+        int32_t j, k;
+        for (i=0; i<resultCount; i++) {
+            const char *charSetName = resultArray[i]->getName();
+            for (j=i+1; j<resultCount; ) {
+                if (uprv_strcmp(charSetName, resultArray[j]->getName()) != 0) {
+                    // Not a duplicate.
+                    j++;
+                } else {
+                    // Duplicate entry at index j.  
+                    CharsetMatch *duplicate = resultArray[j];
+                    for (k=j; k<resultCount-1; k++) {
+                        resultArray[k] = resultArray[k+1];
+                    }
+                    resultCount--;
+                    resultArray[resultCount] = duplicate;
+                }
+            }
+        }
 
         fFreshTextSet = FALSE;
     }
@@ -370,7 +391,7 @@ static const UEnumeration gCSDetEnumeration = {
 };
 
 U_CAPI  UEnumeration * U_EXPORT2
-ucsdet_getAllDetectableCharsets(const UCharsetDetector *ucsd, UErrorCode *status)
+ucsdet_getAllDetectableCharsets(const UCharsetDetector * /*ucsd*/, UErrorCode *status)
 {
     U_NAMESPACE_USE
 

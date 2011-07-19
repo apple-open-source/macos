@@ -38,4 +38,4 @@ if {[package vsatisfies [package provide Tcl] 8.4]} {
 
 source [file join $::snit::library validate.tcl]
 
-package provide snit 1.3.1
+package provide snit 1.4.2

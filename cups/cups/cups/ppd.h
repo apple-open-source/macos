@@ -3,7 +3,7 @@
  *
  *   PostScript Printer Description definitions for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -32,6 +32,7 @@
  */
 
 #  include <stdio.h>
+#  include "cups.h"
 #  include "array.h"
 #  include "file.h"
 
@@ -117,6 +118,7 @@ typedef enum ppd_status_e		/**** Status Codes @since CUPS 1.1.19/Mac OS X 10.3@ 
   PPD_BAD_CUSTOM_PARAM,			/* Bad custom parameter */
   PPD_MISSING_OPTION_KEYWORD,		/* Missing option keyword */
   PPD_BAD_VALUE,			/* Bad value string */
+  PPD_MISSING_CLOSE_GROUP,		/* Missing CloseGroup */
   PPD_MAX_STATUS			/* @private@ */
 } ppd_status_t;
 
@@ -271,6 +273,9 @@ typedef struct ppd_coption_s		/**** Custom Option @since CUPS 1.2/Mac OS X 10.5@
   cups_array_t	*params;		/* Parameters */
 } ppd_coption_t;
 
+typedef struct _ppd_cache_s _ppd_cache_t;
+					/**** PPD cache and mapping data @since CUPS 1.5/Mac OS X 10.7@ @private@ ****/
+
 typedef struct ppd_file_s		/**** PPD File ****/
 {
   int		language_level;		/* Language level of device */
@@ -335,7 +340,7 @@ typedef struct ppd_file_s		/**** PPD File ****/
   cups_array_t	*cups_uiconstraints;	/* cupsUIConstraints @since CUPS 1.4/Mac OS X 10.6@ @private@ */
 
   /**** New in CUPS 1.5 ****/
-  void		*pwg;			/* PWG to/from PPD mappings */
+  _ppd_cache_t	*cache;			/* PPD cache and mapping data @since CUPS 1.5/Mac OS X 10.7@ @private@ */
 } ppd_file_t;
 
 
@@ -343,6 +348,8 @@ typedef struct ppd_file_s		/**** PPD File ****/
  * Prototypes...
  */
 
+extern int		cupsMarkOptions(ppd_file_t *ppd, int num_options,
+			                cups_option_t *options);
 extern void		ppdClose(ppd_file_t *ppd);
 extern int		ppdCollect(ppd_file_t *ppd, ppd_section_t section,
 			           ppd_choice_t  ***choices);
@@ -407,6 +414,15 @@ extern const char	*ppdLocalizeIPPReason(ppd_file_t *ppd,
 					      size_t bufsize) _CUPS_API_1_3;
 
 /**** New in CUPS 1.4/Mac OS X 10.6 ****/
+extern int		cupsGetConflicts(ppd_file_t *ppd, const char *option,
+					 const char *choice,
+					 cups_option_t **options)
+					     _CUPS_API_1_4;
+extern int		cupsResolveConflicts(ppd_file_t *ppd, const char *option,
+			                     const char *choice,
+					     int *num_options,
+					     cups_option_t **options)
+					     _CUPS_API_1_4;
 extern int		ppdInstallableConflict(ppd_file_t *ppd,
 			                       const char *option,
 					       const char *choice)

@@ -1564,14 +1564,34 @@ SSLInitPendingCiphers(SSLContext *ctx)
     {   keyPtr = keyDataProgress;
         keyDataProgress += ctx->selectedCipherSpec->cipher->secretKeySize;
         /* Skip server write key to get to IV */
-        ivPtr = keyDataProgress + ctx->selectedCipherSpec->cipher->secretKeySize;
+		
+		UInt8 ivSize = ctx->selectedCipherSpec->cipher->ivSize;
+		
+		if (ivSize == 0)
+		{
+			ivPtr = NULL;
+		}
+		else
+		{
+			ivPtr = keyDataProgress + ctx->selectedCipherSpec->cipher->secretKeySize;
+		}
+		
         if ((err = ctx->selectedCipherSpec->cipher->initialize(keyPtr, ivPtr,
                                     clientPending, ctx)) != 0)
             goto fail;
         keyPtr = keyDataProgress;
         keyDataProgress += ctx->selectedCipherSpec->cipher->secretKeySize;
+		
         /* Skip client write IV to get to server write IV */
-        ivPtr = keyDataProgress + ctx->selectedCipherSpec->cipher->ivSize;
+		if (ivSize == 0)
+		{
+			ivPtr = NULL;
+		}
+		else
+		{
+			ivPtr = keyDataProgress + ctx->selectedCipherSpec->cipher->ivSize;
+		}
+		
         if ((err = ctx->selectedCipherSpec->cipher->initialize(keyPtr, ivPtr,
                                     serverPending, ctx)) != 0)
             goto fail;

@@ -23,10 +23,8 @@
  */
 
 /*
-cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o fs_usage fs_usage.c
+cc -I/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -arch x86_64 -arch i386 -O -o fs_usage fs_usage.c
 */
-
-#define	Default_DELAY	1	/* default delay interval */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,16 +35,20 @@ cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o fs_usage fs_usage.c
 #include <aio.h>
 #include <string.h>
 #include <dirent.h>
+#include <libc.h>
+#include <termios.h>
+#include <errno.h>
+#include <err.h>
+#include <libutil.h>
 
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/time.h>
-
-#include <libc.h>
-#include <termios.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
+#include <sys/sysctl.h>
+#include <sys/disk.h>
 
 #ifndef KERNEL_PRIVATE
 #define KERNEL_PRIVATE
@@ -56,17 +58,27 @@ cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o fs_usage fs_usage.c
 #include <sys/kdebug.h>
 #endif /*KERNEL_PRIVATE*/
 
-#include <sys/sysctl.h>
-#include <sys/disk.h>
-#include <errno.h>
 #import <mach/clock_types.h>
 #import <mach/mach_time.h>
-#include <err.h>
-#include <libutil.h>
+
+
 
 #define F_OPENFROM      56              /* SPI: open a file relative to fd (must be a dir) */
 #define F_UNLINKFROM    57              /* SPI: open a file relative to fd (must be a dir) */
 #define F_CHECK_OPENEVT 58              /* SPI: if a process is marked OPENEVT, or in O_EVTONLY on opens of this vnode */
+
+
+#ifndef	RAW_VERSION1
+typedef struct {
+        int             version_no;
+        int             thread_count;
+        uint64_t        TOD_secs;
+	uint32_t        TOD_usecs;
+} RAW_header;
+
+#define RAW_VERSION0    0x55aa0000
+#define RAW_VERSION1    0x55aa0101
+#endif
 
 
 #define MAXINDEX 2048
@@ -110,25 +122,29 @@ typedef struct LibraryInfo {
 LibraryInfo frameworkInfo[MAXINDEX];
 int numFrameworks = 0;
 
-void lookup_name(uint64_t user_addr, char **type, char **name);
-
 
 /* 
-   MAXCOLS controls when extra data kicks in.
-   MAX_WIDE_MODE_COLS controls -w mode to get even wider data in path.
-   If NUMPARMS changes to match the kernel, it will automatically
-   get reflected in the -w mode output.
-*/
+ * MAXCOLS controls when extra data kicks in.
+ * MAX_WIDE_MODE_COLS controls -w mode to get even wider data in path.
+ * If NUMPARMS changes to match the kernel, it will automatically
+ * get reflected in the -w mode output.
+ */
 #define NUMPARMS 23
 #define PATHLENGTH (NUMPARMS*sizeof(uintptr_t))
+
 #define MAXCOLS 132
 #define MAX_WIDE_MODE_COLS (PATHLENGTH + 80)
 #define MAXWIDTH MAX_WIDE_MODE_COLS + 64
 
+
+typedef struct th_info *th_info_t;
+
 struct th_info {
-        int  my_index;
-        int  in_filemgr;
+	th_info_t  next;
         uintptr_t  thread;
+        uintptr_t  child_thread;
+
+        int  in_filemgr;
         int  pid;
         int  type;
         int  arg1;
@@ -139,33 +155,46 @@ struct th_info {
         int  arg6;
         int  arg7;
         int  arg8;
-        uintptr_t  child_thread;
         int  waited;
         double stime;
         uintptr_t *pathptr;
-        uintptr_t pathname[NUMPARMS + 1];   /* add room for null terminator */
+        uintptr_t pathname[NUMPARMS + 1];	/* add room for null terminator */
+        uintptr_t pathname2[NUMPARMS + 1];	/* add room for null terminator */
 };
 
-#define MAX_THREADS 1024
-struct th_info th_state[MAX_THREADS];
 
-kd_threadmap *last_map = NULL;
-int	last_thread = 0;
-int	map_is_the_same = 0;
+typedef struct threadmap * threadmap_t;
+
+struct threadmap {
+	threadmap_t	tm_next;
+
+	uintptr_t	tm_thread;
+	unsigned int	tm_setsize;	/* this is a bit count */
+	unsigned long  *tm_setptr;	/* file descripter bitmap */
+	char		tm_command[MAXCOMLEN + 1];
+};
+
+
+#define HASH_SIZE       1024
+#define HASH_MASK       1023
+
+th_info_t	th_info_hash[HASH_SIZE];
+th_info_t	th_info_freelist;
+
+threadmap_t	threadmap_hash[HASH_SIZE];
+threadmap_t	threadmap_freelist;
+
 
 int  filemgr_in_progress = 0;
-int  execs_in_progress = 0;
-int  cur_start = 0;
-int  cur_max = 0;
 int  need_new_map = 1;
 int  bias_secs = 0;
 long last_time;
 int  wideflag = 0;
 int  columns = 0;
-int  select_pid_mode = 0;  /* Flag set indicates that output is restricted
-			      to selected pids or commands */
 
 int  one_good_pid = 0;    /* Used to fail gracefully when bad pids given */
+int  select_pid_mode = 0;  /* Flag set indicates that output is restricted
+			      to selected pids or commands */
 
 char	*arguments = 0;
 int     argmax = 0;
@@ -190,6 +219,7 @@ int	usleep_ms = USLEEP_MIN;
 int filter_mode = CACHEHIT_FILTER;
 
 #define NFS_DEV -1
+#define CS_DEV	-2
 
 struct diskrec {
         struct diskrec *next;
@@ -218,30 +248,53 @@ struct diskio *free_diskios = NULL;
 struct diskio *busy_diskios = NULL;
 
 
-
 struct diskio *insert_diskio();
 struct diskio *complete_diskio();
 void    	free_diskio();
 void		print_diskio();
+
+int		check_filter_mode(struct th_info *, int, int, int, char *);
 void            format_print(struct th_info *, char *, uintptr_t, int, int, int, int, int, int, double, double, int, char *, struct diskio *);
-void			enter_syscall_now(uintptr_t, int, kd_buf *, char *, double);
-void			enter_syscall(uintptr_t, int, kd_buf *, char *, double);
-void            exit_syscall(char *, uintptr_t, int, int, int, int, int, int, double);
-void			extend_syscall(uintptr_t, int, kd_buf *);
-char           *find_disk_name();
+void		enter_event_now(uintptr_t, int, kd_buf *, char *, double);
+void		enter_event(uintptr_t, int, kd_buf *, char *, double);
+void            exit_event(char *, uintptr_t, int, int, int, int, int, int, double);
+void		extend_syscall(uintptr_t, int, kd_buf *);
+
+char           *generate_cs_disk_name(int, char *s);
+char           *find_disk_name(int);
 void		cache_disk_names();
 void		recache_disk_names();
+
+void		lookup_name(uint64_t user_addr, char **type, char **name);
 int 		ReadSharedCacheMap(const char *, LibraryRange *, char *);
 void 		SortFrameworkAddresses();
-void		mark_thread_waited(uintptr_t);
-int		check_filter_mode(struct th_info *, int, int, int, char *);
-void		fs_usage_fd_set(unsigned int, unsigned int);
-int		fs_usage_fd_isset(unsigned int, unsigned int);
-void		fs_usage_fd_clear(unsigned int, unsigned int);
+
+void		fs_usage_fd_set(uintptr_t, unsigned int);
+int		fs_usage_fd_isset(uintptr_t, unsigned int);
+void		fs_usage_fd_clear(uintptr_t, unsigned int);
+
 void		init_arguments_buffer();
 int	        get_real_command_name(int, char *, int);
+
+void		delete_all_events();
+void	 	delete_event(th_info_t);
+th_info_t 	add_event(uintptr_t, int);
+th_info_t	find_event(uintptr_t, int);
+void		mark_thread_waited(uintptr_t);
+
+void		read_command_map();
+void		delete_all_map_entries();
 void            create_map_entry(uintptr_t, int, char *);
-void		kill_thread_map(uintptr_t);
+void		delete_map_entry(uintptr_t);
+threadmap_t 	find_map_entry(uintptr_t);
+
+void		getdivisor();
+void		argtopid();
+void		set_remove();
+void		set_pidcheck();
+void		set_pidexclude();
+int		quit();
+
 
 #define CLASS_MASK	0xff000000
 #define CSC_MASK	0xffff0000
@@ -259,13 +312,24 @@ void		kill_thread_map(uintptr_t);
 #define MACH_stkhandoff 0x01400008
 #define MACH_idle	0x01400024
 #define VFS_LOOKUP      0x03010090
-#define BSC_exit        0x040C0004
 
+#define BSC_thread_terminate    0x040c05a4
+
+#define Throttled	0x3010184
 #define SPEC_ioctl	0x3060000
+#define proc_exit	0x4010004
 
 #define P_DISKIO	0x03020000
 #define P_DISKIO_DONE	0x03020004
+#define P_DISKIO_TYPE	0x03020068
 #define P_DISKIO_MASK	(CSC_MASK | 0x4)
+
+#define P_DISKIO_READ	  0x00000008
+#define P_DISKIO_ASYNC	  0x00000010
+#define P_DISKIO_META	  0x00000020
+#define P_DISKIO_PAGING   0x00000040
+#define P_DISKIO_THROTTLE 0x00000080
+#define P_DISKIO_PASSIVE  0x00000100
 
 #define P_WrData	0x03020000
 #define P_RdData	0x03020008
@@ -273,25 +337,21 @@ void		kill_thread_map(uintptr_t);
 #define P_RdMeta	0x03020028
 #define P_PgOut		0x03020040
 #define P_PgIn		0x03020048
-#define P_WrDataAsync	0x03020010
-#define P_RdDataAsync	0x03020018
-#define P_WrMetaAsync	0x03020030
-#define P_RdMetaAsync	0x03020038
-#define P_PgOutAsync	0x03020050
-#define P_PgInAsync	0x03020058
 
-#define P_WrDataDone		0x03020004
-#define P_RdDataDone		0x0302000C
-#define P_WrMetaDone		0x03020024
-#define P_RdMetaDone		0x0302002C
-#define P_PgOutDone		0x03020044
-#define P_PgInDone		0x0302004C
-#define P_WrDataAsyncDone	0x03020014
-#define P_RdDataAsyncDone	0x0302001C
-#define P_WrMetaAsyncDone	0x03020034
-#define P_RdMetaAsyncDone	0x0302003C
-#define P_PgOutAsyncDone	0x03020054
-#define P_PgInAsyncDone		0x0302005C
+#define P_CS_ReadChunk		0x0a000200
+#define P_CS_ReadChunkDone	0x0a000280
+#define P_CS_WriteChunk		0x0a000210
+#define P_CS_WriteChunkDone	0x0a000290
+
+#define P_CS_Originated_Read	0x0a000500
+#define P_CS_Originated_ReadDone   0x0a000580
+#define P_CS_Originated_Write	0x0a000510
+#define P_CS_Originated_WriteDone  0x0a000590
+#define P_CS_MetaRead		0x0a000900
+#define P_CS_MetaReadDone	0x0a000980
+#define P_CS_MetaWrite		0x0a000910
+#define P_CS_MetaWriteDone	0x0a000990
+#define P_CS_SYNC_DISK		0x0a008000
 
 
 #define MSC_map_fd   0x010c00ac
@@ -312,6 +372,7 @@ void		kill_thread_map(uintptr_t);
 #define	BSC_sendto		0x040C0214
 #define BSC_socketpair		0x040C021C
 
+#define BSC_exit		0x040C0004
 #define BSC_read		0x040C000C
 #define BSC_write		0x040C0010
 #define BSC_open		0x040C0014
@@ -353,7 +414,9 @@ void		kill_thread_map(uintptr_t);
 #define BSC_pread		0x040C0264
 #define BSC_pwrite		0x040C0268
 #define BSC_statfs		0x040C0274	
-#define BSC_fstatfs		0x040C0278	
+#define BSC_fstatfs		0x040C0278
+#define BSC_unmount	        0x040C027C
+#define BSC_mount	        0x040C029C
 #define BSC_stat		0x040C02F0	
 #define BSC_fstat		0x040C02F4	
 #define BSC_lstat		0x040C02F8	
@@ -386,6 +449,7 @@ void		kill_thread_map(uintptr_t);
 #define BSC_listxattr		0x040C03C0
 #define BSC_flistxattr		0x040C03C4
 #define BSC_fsctl       	0x040C03C8
+#define BSC_posix_spawn       	0x040C03D0
 #define BSC_open_extended	0x040C0454
 #define BSC_stat_extended	0x040C045C
 #define BSC_lstat_extended	0x040C0460
@@ -553,6 +617,10 @@ void		kill_thread_map(uintptr_t);
 #define FMT_UMASK	32
 #define FMT_SENDFILE	33
 #define FMT_SPEC_IOCTL	34
+#define FMT_MOUNT	35
+#define FMT_UNMOUNT	36
+#define FMT_DISKIO_CS	37
+#define FMT_SYNC_DISK_CS	38
 
 #define MAX_BSD_SYSCALL	512
 
@@ -604,7 +672,9 @@ int bsd_syscall_types[] = {
 	BSC_revoke,
 	BSC_symlink,
 	BSC_readlink,
+	BSC_exit,
 	BSC_execve,
+	BSC_posix_spawn,
 	BSC_umask,
 	BSC_chroot,
 	BSC_dup2,
@@ -631,6 +701,8 @@ int bsd_syscall_types[] = {
 	BSC_stat,
 	BSC_fstat,
 	BSC_lstat,
+	BSC_mount,
+	BSC_unmount,
 	BSC_pathconf,
 	BSC_fpathconf,
 	BSC_getdirentries,
@@ -794,8 +866,6 @@ int    exclude_default_pids = 1;
 struct kinfo_proc *kp_buffer = 0;
 int kp_nentries = 0;
 
-int num_cpus;
-
 #define EVENT_BASE 60000
 
 int num_events = EVENT_BASE;
@@ -812,8 +882,6 @@ char  *my_buffer;
 
 kbufinfo_t bufinfo = {0, 0, 0, 0, 0};
 
-int total_threads = 0;
-kd_threadmap *mapptr = 0;	/* pointer to list of threads */
 
 /* defines for tracking file descriptor state */
 #define FS_USAGE_FD_SETSIZE 256		/* Initial number of file descriptors per
@@ -822,24 +890,19 @@ kd_threadmap *mapptr = 0;	/* pointer to list of threads */
 #define FS_USAGE_NFDBITS      (sizeof (unsigned long) * 8)
 #define FS_USAGE_NFDBYTES(n)  (((n) / FS_USAGE_NFDBITS) * sizeof (unsigned long))
 
-typedef struct {
-    unsigned int   fd_valid;       /* set if this is a valid entry */
-    uintptr_t      fd_thread;
-    unsigned int   fd_setsize;     /* this is a bit count */
-    unsigned long  *fd_setptr;     /* file descripter bitmap */
-} fd_threadmap;
-
-fd_threadmap *fdmapptr = 0;	/* pointer to list of threads for fd tracking */
-
 int trace_enabled = 0;
 int set_remove_flag = 1;
 
 char *RAW_file = (char *)0;
 int   RAW_flag = 0;
 int   RAW_fd = 0;
+
+uint64_t sample_TOD_secs;
+uint32_t sample_TOD_usecs;
+
 double	bias_now = 0.0;
 double start_time = 0.0;
-double end_time = 99999999999.9;
+double end_time = 999999999999.9;
 
 
 void set_numbufs();
@@ -877,6 +940,28 @@ void leave()			/* exit under normal conditions -- INT handler */
 }
 
 
+int
+quit(s)
+char *s;
+{
+        if (trace_enabled)
+	       set_enable(0);
+
+	/* 
+	 * This flag is turned off when calling
+	 * quit() due to a set_remove() failure.
+	 */
+	if (set_remove_flag)
+	        set_remove();
+
+        fprintf(stderr, "fs_usage: ");
+	if (s)
+		fprintf(stderr, "%s", s);
+
+	exit(1);
+}
+
+
 void get_screenwidth()
 {
         struct winsize size;
@@ -900,10 +985,21 @@ void sigwinch()
 	        get_screenwidth();
 }
 
+
+void getdivisor()
+{
+	struct mach_timebase_info mti;
+
+	mach_timebase_info(&mti);
+
+	divisor = ((double)mti.denom / (double)mti.numer) * 1000;
+}
+
+
 int
 exit_usage(char *myname) {
 
-	fprintf(stderr, "Usage: %s [-e] [-w] [-f mode] [pid | cmd [pid | cmd]....]\n", myname);
+	fprintf(stderr, "Usage: %s [-e] [-w] [-f mode] [-R rawfile [-S start_time] [-E end_time]] [pid | cmd [pid | cmd]....]\n", myname);
 	fprintf(stderr, "  -e    exclude the specified list of pids from the sample\n");
 	fprintf(stderr, "        and exclude fs_usage by default\n");
 	fprintf(stderr, "  -w    force wider, detailed, output\n");
@@ -913,6 +1009,9 @@ exit_usage(char *myname) {
 	fprintf(stderr, "          mode = \"pathname\" Show only pathname related output\n");
 	fprintf(stderr, "          mode = \"exec\"     Show only execs\n");
 	fprintf(stderr, "          mode = \"cachehit\" In addition, show cachehits\n");
+	fprintf(stderr, "  -R    specifies a raw trace file to process\n");
+	fprintf(stderr, "  -S    if -R is specified, selects a start point in microseconds\n");
+	fprintf(stderr, "  -E    if -R is specified, selects an end point in microseconds\n");
 	fprintf(stderr, "  pid   selects process(s) to sample\n");
 	fprintf(stderr, "  cmd   selects process(s) matching command string to sample\n");
 	fprintf(stderr, "\n%s will handle a maximum list of %d pids.\n\n", myname, MAX_PIDS);
@@ -937,8 +1036,6 @@ void init_tables(void)
         int type; 
         int code; 
 
-	for (i = 0; i < MAX_THREADS; i++)
-	        th_state[i].my_index = i;
 
 	for (i = 0; i < MAX_BSD_SYSCALL; i++) {
 	        bsd_syscalls[i].sc_name = NULL;
@@ -1061,9 +1158,27 @@ void init_tables(void)
 		    case BSC_stat64_extended:
 		      bsd_syscalls[code].sc_name = "stat_extended64";
 		      break;
-                    
+
+		    case BSC_mount:
+		      bsd_syscalls[code].sc_name = "mount";
+		      bsd_syscalls[code].sc_format = FMT_MOUNT;
+		      break;
+
+		    case BSC_unmount:
+		      bsd_syscalls[code].sc_name = "unmount";
+		      bsd_syscalls[code].sc_format = FMT_UNMOUNT;
+		      break;
+
+		    case BSC_exit:
+		      bsd_syscalls[code].sc_name = "exit";
+		      break;
+
 		    case BSC_execve:
 		      bsd_syscalls[code].sc_name = "execve";
+		      break;
+                    
+		    case BSC_posix_spawn:
+		      bsd_syscalls[code].sc_name = "posix_spawn";
 		      break;
                     
 		    case BSC_load_shared_file:
@@ -1806,29 +1921,21 @@ main(argc, argv)
 	char	*myname = "fs_usage";
 	int     i;
 	char    ch;
-	struct sigaction osa;
-	void getdivisor();
-	void argtopid();
-	void set_remove();
-	void set_pidcheck();
-	void set_pidexclude();
-	int quit();
 
 	if (0 != reexec_to_match_kernel()) {
-	  fprintf(stderr, "Could not re-execute: %d\n", errno);
-	  exit(1);
+		fprintf(stderr, "Could not re-execute: %d\n", errno);
+		exit(1);
 	}
- 
 	get_screenwidth();
 
-	/* get our name */
+	/*
+	 * get our name
+	 */
 	if (argc > 0) {
-		if ((myname = rindex(argv[0], '/')) == 0) {
+		if ((myname = rindex(argv[0], '/')) == 0)
 			myname = argv[0];
-		}
-		else {
+		else
 			myname++;
-		}
 	}
 	
 	while ((ch = getopt(argc, argv, "ewf:R:S:E:")) != EOF) {
@@ -1892,47 +1999,49 @@ main(argc, argv)
 	 * case below where exclude_pids is later set and the fs_usage PID
 	 * needs to make it into pids[] 
 	 */
-	if (exclude_pids || (!exclude_pids && argc == 0))
-	  {
-	    if (num_of_pids < (MAX_PIDS - 1))
-	        pids[num_of_pids++] = getpid();
-	  }
-
-	/* If we process any list of pids/cmds, then turn off the defaults */
-	if (argc > 0)
-	  exclude_default_pids = 0;
-
-	while (argc > 0 && num_of_pids < (MAX_PIDS - 1)) {
-	  select_pid_mode++;
-	  argtopid(argv[0]);
-	  argc--;
-	  argv++;
+	if (exclude_pids || (!exclude_pids && argc == 0)) {
+		if (num_of_pids < (MAX_PIDS - 1))
+			pids[num_of_pids++] = getpid();
 	}
 
-	/* Exclude a set of default pids */
-	if (exclude_default_pids)
-	  {
-	    argtopid("Terminal");
-	    argtopid("telnetd");
-	    argtopid("telnet");
-	    argtopid("sshd");
-	    argtopid("rlogind");
-	    argtopid("tcsh");
-	    argtopid("csh");
-	    argtopid("sh");
-	    exclude_pids = 1;
-	  }
+	/*
+	 * If we process any list of pids/cmds, then turn off the defaults
+	 */
+	if (argc > 0)
+		exclude_default_pids = 0;
 
+	while (argc > 0 && num_of_pids < (MAX_PIDS - 1)) {
+		select_pid_mode++;
+		argtopid(argv[0]);
+		argc--;
+		argv++;
+	}
+	/*
+	 * Exclude a set of default pids
+	 */
+	if (exclude_default_pids) {
+		argtopid("Terminal");
+		argtopid("telnetd");
+		argtopid("telnet");
+		argtopid("sshd");
+		argtopid("rlogind");
+		argtopid("tcsh");
+		argtopid("csh");
+		argtopid("sh");
+		exclude_pids = 1;
+	}
 #if 0
-	for (i = 0; i < num_of_pids; i++)
-	  {
-	    if (exclude_pids)
-	      fprintf(stderr, "exclude pid %d\n", pids[i]);
-	    else
-	      fprintf(stderr, "pid %d\n", pids[i]);
-	  }
+	for (i = 0; i < num_of_pids; i++) {
+		if (exclude_pids)
+			fprintf(stderr, "exclude pid %d\n", pids[i]);
+		else
+			fprintf(stderr, "pid %d\n", pids[i]);
+	}
 #endif
 	if (!RAW_flag) {
+		struct sigaction osa;
+		int	num_cpus;
+		size_t	len;
 
 		/* set up signal handlers */
 		signal(SIGINT, leave);
@@ -1943,13 +2052,14 @@ main(argc, argv)
 		if (osa.sa_handler == SIG_DFL)
 			signal(SIGHUP, leave);
 		signal(SIGTERM, leave);
-
-		/* grab the number of cpus */
-		size_t len;
+		/*
+		 * grab the number of cpus
+		 */
 		mib[0] = CTL_HW;
 		mib[1] = HW_NCPU;
 		mib[2] = 0;
 		len = sizeof(num_cpus);
+
 		sysctl(mib, 2, &num_cpus, &len, NULL, 0);
 		num_events = EVENT_BASE * num_cpus;
 	}
@@ -1981,26 +2091,25 @@ main(argc, argv)
 			for (i = 0; i < num_of_pids; i++)
 				set_pidexclude(pids[i], 1);
 		}
-
-		if (select_pid_mode && !one_good_pid)
-		{
+		if (select_pid_mode && !one_good_pid) {
 			/* 
-			   An attempt to restrict output to a given
-			   pid or command has failed. Exit gracefully
-			*/
+			 *  An attempt to restrict output to a given
+			 *  pid or command has failed. Exit gracefully
+			 */
 			set_remove();
 			exit_usage(myname);
 		}
-
 		set_enable(1);
+
 		init_arguments_buffer();
 	}
 	getdivisor();
 
 	init_tables();
 
-	/* main loop */
-
+	/*
+	 * main loop
+	 */
 	while (1) {
 		if (!RAW_flag)		
 			usleep(1000 * usleep_ms);
@@ -2011,12 +2120,12 @@ main(argc, argv)
 	}
 }
 
+
 void
 find_proc_names()
 {
         size_t			bufSize = 0;
-	struct kinfo_proc       *kp;
-	int quit();
+	struct kinfo_proc	*kp;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_PROC;
@@ -2026,83 +2135,14 @@ find_proc_names()
 	if (sysctl(mib, 4, NULL, &bufSize, NULL, 0) < 0)
 		quit("trace facility failure, KERN_PROC_ALL\n");
 
-	if((kp = (struct kinfo_proc *)malloc(bufSize)) == (struct kinfo_proc *)0)
-	    quit("can't allocate memory for proc buffer\n");
+	if ((kp = (struct kinfo_proc *)malloc(bufSize)) == (struct kinfo_proc *)0)
+		quit("can't allocate memory for proc buffer\n");
 	
 	if (sysctl(mib, 4, kp, &bufSize, NULL, 0) < 0)
 		quit("trace facility failure, KERN_PROC_ALL\n");
 
         kp_nentries = bufSize/ sizeof(struct kinfo_proc);
 	kp_buffer = kp;
-}
-
-
-void destroy_thread(struct th_info *ti) {
-
-	ti->child_thread = 0;
-	ti->thread = 0;
-	ti->pid = 0;
-
-	if (ti->my_index < cur_start)
-	        cur_start = ti->my_index;
-
-        if (ti->my_index == cur_max) {
-	        while (ti >= &th_state[0]) {
-		        if (ti->thread)
-			        break;
-			ti--;
-		}
-		cur_max = ti->my_index;
-	}
-}
-
-
-struct th_info *find_empty(void) {
-	struct th_info *ti;
-
-	for (ti = &th_state[cur_start]; ti < &th_state[MAX_THREADS]; ti++, cur_start++) {
-	        if (ti->thread == 0) {
-		        if (cur_start > cur_max)
-			        cur_max = cur_start;
-			cur_start++;
-
-			return (ti);
-		}
-	}
-	return ((struct th_info *)0);
-
-}
-
-
-struct th_info *find_thread(uintptr_t thread, int type) {
-        struct th_info *ti;
-
-	for (ti = &th_state[0]; ti <= &th_state[cur_max]; ti++) {
-	        if (ti->thread == thread) {
-		        if (type == ti->type)
-			        return(ti);
-			if (ti->in_filemgr) {
-			        if (type == -1)
-				        return(ti);
-				continue;
-			}
-			if (type == 0)
-			        return(ti);
-		}
-	}
-	return ((struct th_info *)0);
-}
-
-
-void
-mark_thread_waited(uintptr_t thread) {
-       struct th_info *ti;
-
-       for (ti = th_state; ti <= &th_state[cur_max]; ti++) {
-	       if (ti->thread == thread) {
-		       ti->waited = 1;
-	       }
-       }
 }
 
 
@@ -2115,13 +2155,14 @@ set_enable(int val)
 	mib[3] = val;
 	mib[4] = 0;
 	mib[5] = 0;		        /* no flags */
+
 	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
 		quit("trace facility failure, KERN_KDENABLE\n");
 
 	if (val)
-	  trace_enabled = 1;
+		trace_enabled = 1;
 	else
-	  trace_enabled = 0;
+		trace_enabled = 0;
 }
 
 void
@@ -2133,6 +2174,7 @@ set_numbufs(int nbufs)
 	mib[3] = nbufs;
 	mib[4] = 0;
 	mib[5] = 0;		        /* no flags */
+
 	if (sysctl(mib, 4, NULL, &needed, NULL, 0) < 0)
 		quit("trace facility failure, KERN_KDSETBUF\n");
 
@@ -2142,6 +2184,7 @@ set_numbufs(int nbufs)
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		        /* no flags */
+
 	if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
 		quit("trace facility failure, KERN_KDSETUP\n");
 }
@@ -2165,16 +2208,14 @@ set_pidcheck(int pid, int on_off)
 	if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0) {
 	        if (on_off == 1)
 		        fprintf(stderr, "pid %d does not exist\n", pid);
-	}
-	else {
-	  one_good_pid++;
-	}
+	} else
+		one_good_pid++;
 }
 
 /* 
-   on_off == 0 turns off pid exclusion
-   on_off == 1 turns on pid exclusion
-*/
+ * on_off == 0 turns off pid exclusion
+ * on_off == 1 turns on pid exclusion
+ */
 void
 set_pidexclude(int pid, int on_off) 
 {
@@ -2226,15 +2267,15 @@ set_remove()
 	mib[3] = 0;
 	mib[4] = 0;
 	mib[5] = 0;		/* no flags */
-	if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0)
-	  {
-	    set_remove_flag = 0;
 
-	    if (errno == EBUSY)
-		quit("the trace facility is currently in use...\n          fs_usage, sc_usage, and latency use this feature.\n\n");
-	    else
-		quit("trace facility failure, KERN_KDREMOVE\n");
-	  }
+	if (sysctl(mib, 3, NULL, &needed, NULL, 0) < 0) {
+		set_remove_flag = 0;
+
+		if (errno == EBUSY)
+			quit("the trace facility is currently in use...\n          fs_usage, sc_usage, and latency use this feature.\n\n");
+		else
+			quit("trace facility failure, KERN_KDREMOVE\n");
+	}
 }
 
 void
@@ -2245,6 +2286,7 @@ set_init()
 	kr.value1 = 0;
 	kr.value2 = -1;
 	needed = sizeof(kd_regtype);
+
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_KDEBUG;
 	mib[2] = KERN_KDSETREG;		
@@ -2273,21 +2315,19 @@ sample_sc()
 	int i, count;
 	size_t needed;
 	uint32_t my_buffer_size = 0;
-	void read_command_map();
-	void create_map_entry();
 
-	if (!RAW_flag) {
-		/* Get kernel buffer information */
+	if (!RAW_flag)
 		get_bufinfo(&bufinfo);
-	} else {
+	else
 		my_buffer_size = num_events * sizeof(kd_buf);
-	}
+
 	if (need_new_map) {
 	        read_command_map();
 	        need_new_map = 0;
 	}
 	if (!RAW_flag) {
 		needed = bufinfo.nkdbufs * sizeof(kd_buf);
+
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_KDEBUG;
 		mib[2] = KERN_KDREADTR;		
@@ -2313,16 +2353,9 @@ sample_sc()
 		if (bufinfo.flags & KDBG_WRAPPED) {
 			fprintf(stderr, "fs_usage: buffer overrun, events generated too quickly: %d\n", count);
 
-			for (i = 0; i <= cur_max; i++) {
-				th_state[i].thread = 0;
-				th_state[i].pid = 0;
-				th_state[i].pathptr = (uintptr_t *)NULL;
-				th_state[i].pathname[0] = 0;
-			}
-			cur_max = 0;
-			cur_start = 0;
+			delete_all_events();
+
 			need_new_map = 1;
-			map_is_the_same = 0;
 		
 			set_enable(0);
 			set_enable(1);
@@ -2348,7 +2381,7 @@ sample_sc()
 		long long l_usecs;
 		int secs;
 		long curr_time;
-		struct th_info *ti;
+		th_info_t	ti;
                 struct diskio  *dio;
 
 
@@ -2358,19 +2391,19 @@ sample_sc()
 
 		now = kdbg_get_timestamp(&kd[i]);
 
-		if (i == 0 && !RAW_flag)
-		{
-		    curr_time = time((long *)0);
-		    /*
-		     * Compute bias seconds after each trace buffer read.
-		     * This helps resync timestamps with the system clock
-		     * in the event of a system sleep.
-		     */
-		    if (bias_secs == 0 || curr_time < last_time || curr_time > (last_time + 2)) {
-		            l_usecs = (long long)(now / divisor);
-			    secs = l_usecs / 1000000;
-			    bias_secs = curr_time - secs;
-		    }
+		if (i == 0 && !RAW_flag) {
+
+			curr_time = time((long *)0);
+			/*
+			 * Compute bias seconds after each trace buffer read.
+			 * This helps resync timestamps with the system clock
+			 * in the event of a system sleep.
+			 */
+			if (bias_secs == 0 || curr_time < last_time || curr_time > (last_time + 2)) {
+				l_usecs = (long long)(now / divisor);
+				secs = l_usecs / 1000000;
+				bias_secs = curr_time - secs;
+			}
 		}
 		if (RAW_flag && bias_now == 0.0)
 			bias_now = now;
@@ -2386,60 +2419,89 @@ sample_sc()
 			}
 			continue;
 		}
-
 		switch (type) {
 
-		case TRACE_DATA_NEWTHREAD:
-		    
-		    if ((ti = find_empty()) == NULL)
-		            continue;
+		case P_CS_ReadChunk:
+		case P_CS_WriteChunk:
+		case P_CS_MetaRead:
+		case P_CS_MetaWrite:
+		    insert_diskio(type, kd[i].arg2, kd[i].arg1, kd[i].arg3, kd[i].arg4, thread, (double)now);
+		    continue;
 
-		    ti->thread = thread;
-		    ti->child_thread = kd[i].arg1;
-		    ti->pid = kd[i].arg2;
+		case P_CS_Originated_Read:
+		case P_CS_Originated_Write:
+		    insert_diskio(type, kd[i].arg2, CS_DEV, kd[i].arg3, kd[i].arg4, thread, (double)now);
+		    continue;
+
+		case P_CS_ReadChunkDone:
+		case P_CS_WriteChunkDone:
+		case P_CS_Originated_ReadDone:
+		case P_CS_Originated_WriteDone:
+		case P_CS_MetaReadDone:
+		case P_CS_MetaWriteDone:
+		    if ((dio = complete_diskio(kd[i].arg2, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
+			    print_diskio(dio);
+			    free_diskio(dio);
+		    }
+		    continue;
+
+		case TRACE_DATA_NEWTHREAD:
+		    if (kd[i].arg1) {
+			    if ((ti = add_event(thread, TRACE_DATA_NEWTHREAD)) == NULL)
+				    continue;
+			    ti->child_thread = kd[i].arg1;
+			    ti->pid = kd[i].arg2;
+		    }
 		    continue;
 
 		case TRACE_STRING_NEWTHREAD:
-		    if ((ti = find_thread(thread, 0)) == (struct th_info *)0)
+		    if ((ti = find_event(thread, TRACE_DATA_NEWTHREAD)) == (struct th_info *)0)
 		            continue;
-		    if (ti->child_thread == 0)
-		            continue;
+
 		    create_map_entry(ti->child_thread, ti->pid, (char *)&kd[i].arg1);
 
-		    destroy_thread(ti);
-
+		    delete_event(ti);
 		    continue;
 	
 		case TRACE_DATA_EXEC:
-
-		    if ((ti = find_empty()) == NULL)
+		    if ((ti = add_event(thread, TRACE_DATA_EXEC)) == NULL)
 		            continue;
 
-		    ti->thread = thread;
 		    ti->pid = kd[i].arg1;
 		    continue;	    
 
 		case TRACE_STRING_EXEC:
-		    if ((ti = find_thread(thread, 0)) == (struct th_info *)0)
-		    {
-			/* this is for backwards compatibility */
-			create_map_entry(thread, 0, (char *)&kd[i].arg1);
-		    }
-		    else
-		    {
-			create_map_entry(thread, ti->pid, (char *)&kd[i].arg1);
+		    if ((ti = find_event(thread, BSC_execve))) {
+			    if (ti->pathname[0])
+				    exit_event("execve", thread, BSC_execve, 0, 0, 0, 0, FMT_DEFAULT, (double)now);
 
-			destroy_thread(ti);
+		    } else if ((ti = find_event(thread, BSC_posix_spawn))) {
+			    if (ti->pathname[0])
+				    exit_event("posix_spawn", thread, BSC_posix_spawn, 0, 0, 0, 0, FMT_DEFAULT, (double)now);
 		    }
+		    if ((ti = find_event(thread, TRACE_DATA_EXEC)) == (struct th_info *)0)
+			    continue;
+
+		    create_map_entry(thread, ti->pid, (char *)&kd[i].arg1);
+
+		    delete_event(ti);
+		    continue;
+
+		case BSC_thread_terminate:
+		    delete_map_entry(thread);
 		    continue;
 
 		case BSC_exit:
-		    kill_thread_map(thread);
 		    continue;
+
+		case proc_exit:
+		    kd[i].arg1 = kd[i].arg2 >> 8;
+		    type = BSC_exit;
+		    break;
 
 		case BSC_mmap:
 		    if (kd[i].arg4 & MAP_ANON)
-		        continue;
+			    continue;
 		    break;
 
 		case MACH_idle:
@@ -2449,11 +2511,16 @@ sample_sc()
 		    continue;
 
 		case VFS_LOOKUP:
-		    if ((ti = find_thread(thread, 0)) == (struct th_info *)0)
+		    if ((ti = find_event(thread, 0)) == (struct th_info *)0)
 		            continue;
 
-		    if (ti->pathptr == NULL) {
-			    sargptr = ti->pathname;
+		    if (debugid & DBG_FUNC_START) {
+			    if (ti->pathname2[0])
+				    continue;
+			    if (ti->pathname[0] == 0)
+				    sargptr = ti->pathname;
+			    else
+				    sargptr = ti->pathname2;
 			    *sargptr++ = kd[i].arg2;
 			    *sargptr++ = kd[i].arg3;
 			    *sargptr++ = kd[i].arg4;
@@ -2461,6 +2528,7 @@ sample_sc()
 			     * NULL terminate the 'string'
 			     */
 			    *sargptr = 0;
+
 			    ti->pathptr = sargptr;
 		    } else {
 		            sargptr = ti->pathptr;
@@ -2468,21 +2536,17 @@ sample_sc()
 			    /* 
 			     * We don't want to overrun our pathname buffer if the
 			     * kernel sends us more VFS_LOOKUP entries than we can
-			     *  handle.
+			     * handle and we only handle 2 pathname lookups for
+			     * a given system call
 			     */
-				if ((uintptr_t)sargptr >= (uintptr_t)&ti->pathname[NUMPARMS]) {
-					continue;
-			    }
-
-                            /*
-			     * We need to detect consecutive vfslookup entries.
-			     * So, if we get here and find a START entry,
-			     * fake the pathptr so we can bypass all further
-			     * vfslookup entries.
-			     */
-			    if (debugid & DBG_FUNC_START) {
-				ti->pathptr = &ti->pathname[NUMPARMS];
-				continue;
+			    if (sargptr == 0)
+				    continue;
+			    if (ti->pathname2[0]) {
+				    if ((uintptr_t)sargptr >= (uintptr_t)&ti->pathname2[NUMPARMS])
+					    continue;
+			    } else {
+				    if ((uintptr_t)sargptr >= (uintptr_t)&ti->pathname[NUMPARMS])
+					    continue;
 			    }
 			    *sargptr++ = kd[i].arg1;
 			    *sargptr++ = kd[i].arg2;
@@ -2492,7 +2556,14 @@ sample_sc()
 			     * NULL terminate the 'string'
 			     */
 			    *sargptr = 0;
-			    ti->pathptr = sargptr;
+
+			    if (debugid & DBG_FUNC_END) {
+				    if (ti->pathname2[0])
+					    ti->pathptr = 0;
+				    else
+					    ti->pathptr = ti->pathname2;
+			    } else
+				    ti->pathptr = sargptr;
 		    }
 		    continue;
 		}
@@ -2512,237 +2583,210 @@ sample_sc()
 			} else
 			        p = NULL;
 
-			enter_syscall(thread, type, &kd[i], p, (double)now);
+			enter_event(thread, type, &kd[i], p, (double)now);
 			continue;
 		}
 
 		switch (type) {
 
-		    case SPEC_ioctl:
-		      if (kd[i].arg2 == DKIOCSYNCHRONIZECACHE)
-			    exit_syscall("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_SPEC_IOCTL, (double)now);
-		      else {
-			      if ((ti = find_thread(thread, type))) {
-				      destroy_thread(ti);
-			      }
-		      }
-		      continue;
+		case Throttled:
+		     exit_event("  THROTTLED", thread, type, 0, 0, 0, 0, FMT_DEFAULT, (double)now);
+		     continue;
 
-		    case MACH_pageout:
-		      if (kd[i].arg2) 
-			      exit_syscall("PAGE_OUT_ANON", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
-		      else
-			      exit_syscall("PAGE_OUT_FILE", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
-		      continue;
+		case P_CS_SYNC_DISK:
+		     exit_event("  SyncCacheCS", thread, type, kd[i].arg1, 0, 0, 0, FMT_SYNC_DISK_CS, (double)now);
+		     continue;
 
-		    case MACH_vmfault:
-		      if (kd[i].arg4 == DBG_PAGEIN_FAULT)
-			      exit_syscall("PAGE_IN", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
-		      else if (kd[i].arg4 == DBG_PAGEINV_FAULT)
-			      exit_syscall("PAGE_IN_FILE", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
-		      else if (kd[i].arg4 == DBG_PAGEIND_FAULT)
-			      exit_syscall("PAGE_IN_ANON", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
-		      else if (kd[i].arg4 == DBG_CACHE_HIT_FAULT)
-			      exit_syscall("CACHE_HIT", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_CACHEHIT, (double)now);
-		      else {
-			      if ((ti = find_thread(thread, type))) {
-				      destroy_thread(ti);
-			      }
-		      }
-		      continue;
+		case SPEC_ioctl:
+		     if (kd[i].arg2 == DKIOCSYNCHRONIZECACHE)
+			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_SPEC_IOCTL, (double)now);
+		     else {
+			     if ((ti = find_event(thread, type)))
+				     delete_event(ti);
+		     }
+		     continue;
 
-		    case MSC_map_fd:
-		      exit_syscall("map_fd", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_FD, (double)now);
-		      continue;
+		case MACH_pageout:
+		     if (kd[i].arg2) 
+			     exit_event("PAGE_OUT_ANON", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
+		     else
+			     exit_event("PAGE_OUT_FILE", thread, type, 0, kd[i].arg1, 0, 0, FMT_PGOUT, (double)now);
+		     continue;
+
+		case MACH_vmfault:
+		     if (kd[i].arg4 == DBG_PAGEIN_FAULT)
+			     exit_event("PAGE_IN", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
+		     else if (kd[i].arg4 == DBG_PAGEINV_FAULT)
+			     exit_event("PAGE_IN_FILE", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
+		     else if (kd[i].arg4 == DBG_PAGEIND_FAULT)
+			     exit_event("PAGE_IN_ANON", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_PGIN, (double)now);
+		     else if (kd[i].arg4 == DBG_CACHE_HIT_FAULT)
+			     exit_event("CACHE_HIT", thread, type, 0, kd[i].arg1, kd[i].arg2, 0, FMT_CACHEHIT, (double)now);
+		     else {
+			     if ((ti = find_event(thread, type)))
+				     delete_event(ti);
+		     }
+		     continue;
+
+		case MSC_map_fd:
+		     exit_event("map_fd", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_FD, (double)now);
+		     continue;
 		      
-		    case BSC_mmap_extended:
-		    case BSC_mmap_extended2:
-		    case BSC_msync_extended:
-		    case BSC_pread_extended:
-		    case BSC_pwrite_extended:
-		      extend_syscall(thread, type, &kd[i]);
-		      continue;
+		case BSC_mmap_extended:
+		case BSC_mmap_extended2:
+		case BSC_msync_extended:
+		case BSC_pread_extended:
+		case BSC_pwrite_extended:
+		     extend_syscall(thread, type, &kd[i]);
+		     continue;
 		}
 
 		if ((type & CSC_MASK) == BSC_BASE) {
 
-		        index = BSC_INDEX(type);
-
-			if (index >= MAX_BSD_SYSCALL)
+		        if ((index = BSC_INDEX(type)) >= MAX_BSD_SYSCALL)
 			        continue;
 
-			if (bsd_syscalls[index].sc_name == NULL)
-			        continue;
+			if (bsd_syscalls[index].sc_name) {
+				exit_event(bsd_syscalls[index].sc_name, thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4,
+					   bsd_syscalls[index].sc_format, (double)now);
 
-			if (type == BSC_execve)
-			        execs_in_progress--;
-
-			exit_syscall(bsd_syscalls[index].sc_name, thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4,
-				     bsd_syscalls[index].sc_format, (double)now);
-
-			continue;
-		}
-
-		if ((type & CLASS_MASK) == FILEMGR_BASE) {
+				if (type == BSC_exit)
+					delete_map_entry(thread);
+			}
+		} else if ((type & CLASS_MASK) == FILEMGR_BASE) {
 		
-			index = filemgr_index(type);
-
-			if (index >= MAX_FILEMGR)
+			if ((index = filemgr_index(type)) >= MAX_FILEMGR)
 			        continue;
 
-			if (filemgr_calls[index].fm_name == NULL)
-			        continue;
-
-			exit_syscall(filemgr_calls[index].fm_name, thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4,
-				     FMT_DEFAULT, (double)now);
+			if (filemgr_calls[index].fm_name) {
+				exit_event(filemgr_calls[index].fm_name, thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4,
+					   FMT_DEFAULT, (double)now);
+			}
 		}
 	}
 	fflush(0);
 }
 
 
-
-
 void
-enter_syscall_now(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
+enter_event_now(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
 {
-       struct th_info *ti;
-       int    secs;
-       int    usecs;
-       long long l_usecs;
-       long curr_time;
-       kd_threadmap *map;
-       kd_threadmap *find_thread_map();
-       int clen = 0;
-       int tsclen = 0;
-       int nmclen = 0;
-       int argsclen = 0;
-       char buf[MAXWIDTH];
+	th_info_t	ti;
+	threadmap_t	tme;
+	int secs;
+	int usecs;
+	long long l_usecs;
+	long curr_time;
+	int clen = 0;
+	int tsclen = 0;
+	int nmclen = 0;
+	int argsclen = 0;
+	char buf[MAXWIDTH];
 
-       if (execs_in_progress) {
-	       if ((ti = find_thread(thread, BSC_execve))) {
-		       if (ti->pathptr) {
-			       exit_syscall("execve", thread, BSC_execve, 0, 0, 0, 0, FMT_DEFAULT, (double)now);
-			       execs_in_progress--;
-		       }
-	       }
-       }
-       if ((ti = find_empty()) == NULL)
-	       return;
-                   
-       if ((type & CLASS_MASK) == FILEMGR_BASE &&
-	   (!RAW_flag || (now >= start_time && now <= end_time))) {
+	if ((ti = add_event(thread, type)) == NULL)
+		return;
 
-	       filemgr_in_progress++;
-	       ti->in_filemgr = 1;
+	ti->stime  = now;
+	ti->arg1   = kd->arg1;
+	ti->arg2   = kd->arg2;
+	ti->arg3   = kd->arg3;
+	ti->arg4   = kd->arg4;
 
-	       if (RAW_flag) {
-		       l_usecs = (long long)((now - bias_now) / divisor);
-		       l_usecs += ((long long)8 * (long long)3600 * (long long)1000000);
-	       } else
-		       l_usecs = (long long)(now / divisor);
-	       secs = l_usecs / 1000000;
-	       curr_time = bias_secs + secs;
+	if ((type & CLASS_MASK) == FILEMGR_BASE &&
+	    (!RAW_flag || (now >= start_time && now <= end_time))) {
+
+		filemgr_in_progress++;
+		ti->in_filemgr = 1;
+
+		if (RAW_flag) {
+			l_usecs = (long long)((now - bias_now) / divisor);
+			l_usecs += (sample_TOD_secs * 1000000) + sample_TOD_usecs;
+		} else
+			l_usecs = (long long)(now / divisor);
+		secs = l_usecs / 1000000;
+		curr_time = bias_secs + secs;
 		   
-	       sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
-	       tsclen = strlen(buf);
+		sprintf(buf, "%-8.8s", &(ctime(&curr_time)[11]));
+		tsclen = strlen(buf);
 
-	       if (columns > MAXCOLS || wideflag) {
-		       usecs = l_usecs - (long long)((long long)secs * 1000000);
-		       sprintf(&buf[tsclen], ".%03ld", (long)usecs / 1000);
-		       tsclen = strlen(buf);
-	       }
+		if (columns > MAXCOLS || wideflag) {
+			usecs = l_usecs - (long long)((long long)secs * 1000000);
+			sprintf(&buf[tsclen], ".%06ld", (long)usecs);
+			tsclen = strlen(buf);
+		}
 
-	       /*
-		* Print timestamp column
-		*/
-	       printf("%s", buf);
+		/*
+		 * Print timestamp column
+		 */
+		printf("%s", buf);
 
-	       map = find_thread_map(thread);
-	       if (map) {
-		       sprintf(buf, "  %-25.25s ", name);
-		       nmclen = strlen(buf);
-		       printf("%s", buf);
+		tme = find_map_entry(thread);
+		if (tme) {
+			sprintf(buf, "  %-25.25s ", name);
+			nmclen = strlen(buf);
+			printf("%s", buf);
 
-		       sprintf(buf, "(%d, 0x%lx, 0x%lx, 0x%lx)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
-		       argsclen = strlen(buf);
+			sprintf(buf, "(%d, 0x%lx, 0x%lx, 0x%lx)", (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
+			argsclen = strlen(buf);
 		       
-		       /*
-			* Calculate white space out to command
-			*/
-		       if (columns > MAXCOLS || wideflag) {
-			       clen = columns - (tsclen + nmclen + argsclen + 20);
-		       } else
-			       clen = columns - (tsclen + nmclen + argsclen + 12);
+			/*
+			 * Calculate white space out to command
+			 */
+			if (columns > MAXCOLS || wideflag) {
+				clen = columns - (tsclen + nmclen + argsclen + 20 + 11);
+			} else
+				clen = columns - (tsclen + nmclen + argsclen + 12);
 
-		       if (clen > 0) {
-			       printf("%s", buf);   /* print the kdargs */
-			       memset(buf, ' ', clen);
-			       buf[clen] = '\0';
-			       printf("%s", buf);
-		       }
-		       else if ((argsclen + clen) > 0) {
-			       /*
-				* no room so wipe out the kdargs
-				*/
-			       memset(buf, ' ', (argsclen + clen));
-			       buf[argsclen + clen] = '\0';
-			       printf("%s", buf);
-		       }
-		       if (columns > MAXCOLS || wideflag)
-			       printf("%-20.20s\n", map->command); 
-		       else
-			       printf("%-12.12s\n", map->command); 
-	       } else
-		       printf("  %-24.24s (%5d, %#lx, 0x%lx, 0x%lx)\n",         name, (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
-       }
-       ti->thread = thread;
-       ti->waited = 0;
-       ti->type   = type;
-       ti->stime  = now;
-       ti->arg1   = kd->arg1;
-       ti->arg2   = kd->arg2;
-       ti->arg3   = kd->arg3;
-       ti->arg4   = kd->arg4;
-       ti->pathptr = (uintptr_t *)NULL;
-       ti->pathname[0] = 0;
+			if (clen > 0) {
+				printf("%s", buf);   /* print the kdargs */
+				memset(buf, ' ', clen);
+				buf[clen] = '\0';
+				printf("%s", buf);
+			}
+			else if ((argsclen + clen) > 0) {
+				/*
+				 * no room so wipe out the kdargs
+				 */
+				memset(buf, ' ', (argsclen + clen));
+				buf[argsclen + clen] = '\0';
+				printf("%s", buf);
+			}
+			if (columns > MAXCOLS || wideflag)
+				printf("%s.%d\n", tme->tm_command, (int)thread); 
+			else
+				printf("%-12.12s\n", tme->tm_command); 
+		} else
+			printf("  %-24.24s (%5d, %#lx, 0x%lx, 0x%lx)\n",         name, (short)kd->arg1, kd->arg2, kd->arg3, kd->arg4);
+	}
 }
 
 
 void
-enter_syscall(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
+enter_event(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
 {
-       int index;
+	int index;
 
-       if (type == MACH_pageout || type == MACH_vmfault || type == MSC_map_fd || type == SPEC_ioctl) {
-	       enter_syscall_now(thread, type, kd, name, now);
-	       return;
-       }
-       if ((type & CSC_MASK) == BSC_BASE) {
+	if (type == MACH_pageout || type == MACH_vmfault || type == MSC_map_fd || type == SPEC_ioctl || type == Throttled || type == P_CS_SYNC_DISK) {
+		enter_event_now(thread, type, kd, name, now);
+		return;
+	}
+	if ((type & CSC_MASK) == BSC_BASE) {
 
-	       index = BSC_INDEX(type);
+		if ((index = BSC_INDEX(type)) >= MAX_BSD_SYSCALL)
+			return;
 
-	       if (index >= MAX_BSD_SYSCALL)
-		       return;
+		if (bsd_syscalls[index].sc_name)
+			enter_event_now(thread, type, kd, name, now);
+		return;
+	}
+	if ((type & CLASS_MASK) == FILEMGR_BASE) {
 
-	       if (type == BSC_execve)
-		       execs_in_progress++;
-
-	       if (bsd_syscalls[index].sc_name)
-		       enter_syscall_now(thread, type, kd, name, now);
-
-	       return;
-       }
-       if ((type & CLASS_MASK) == FILEMGR_BASE) {
-
-	       index = filemgr_index(type);
-
-	       if (index >= MAX_FILEMGR)
-		       return;
+		if ((index = filemgr_index(type)) >= MAX_FILEMGR)
+			return;
 	       
-	       if (filemgr_calls[index].fm_name)
-		       enter_syscall_now(thread, type, kd, name, now);
-       }
+		if (filemgr_calls[index].fm_name)
+			enter_event_now(thread, type, kd, name, now);
+	}
 }
 
 /*
@@ -2756,66 +2800,66 @@ enter_syscall(uintptr_t thread, int type, kd_buf *kd, char *name, double now)
 void
 extend_syscall(uintptr_t thread, int type, kd_buf *kd)
 {
-       struct th_info *ti;
+	th_info_t	ti;
 
-       switch (type) {
-       case BSC_mmap_extended:
-	   if ((ti = find_thread(thread, BSC_mmap)) == (struct th_info *)0)
-		   return;
-	   ti->arg8   = ti->arg3;  /* save protection */
-	   ti->arg1   = kd->arg1;  /* the fd */
-	   ti->arg3   = kd->arg2;  /* bottom half address */
-	   ti->arg5   = kd->arg3;  /* bottom half size */	   
-	   break;
-       case BSC_mmap_extended2:
-	   if ((ti = find_thread(thread, BSC_mmap)) == (struct th_info *)0)
-		   return;
-	   ti->arg2   = kd->arg1;  /* top half address */
-	   ti->arg4   = kd->arg2;  /* top half size */
-	   ti->arg6   = kd->arg3;  /* top half file offset */
-	   ti->arg7   = kd->arg4;  /* bottom half file offset */
-	   break;
-       case BSC_msync_extended:
-	   if ((ti = find_thread(thread, BSC_msync)) == (struct th_info *)0) {
-	       if ((ti = find_thread(thread, BSC_msync_nocancel)) == (struct th_info *)0)
-		   return;
-	   }
-	   ti->arg4   = kd->arg1;  /* top half address */
-	   ti->arg5   = kd->arg2;  /* top half size */
-	   break;
-       case BSC_pread_extended:
-	   if ((ti = find_thread(thread, BSC_pread)) == (struct th_info *)0) {
-	       if ((ti = find_thread(thread, BSC_pread_nocancel)) == (struct th_info *)0)
-		   return;
-	   }
-	   ti->arg1   = kd->arg1;  /* the fd */
-	   ti->arg2   = kd->arg2;  /* nbytes */
-	   ti->arg3   = kd->arg3;  /* top half offset */
-	   ti->arg4   = kd->arg4;  /* bottom half offset */	   
-	   break;
-       case BSC_pwrite_extended:
-	   if ((ti = find_thread(thread, BSC_pwrite)) == (struct th_info *)0) {
-	       if ((ti = find_thread(thread, BSC_pwrite_nocancel)) == (struct th_info *)0)
-		   return;
-	   }
-	   ti->arg1   = kd->arg1;  /* the fd */
-	   ti->arg2   = kd->arg2;  /* nbytes */
-	   ti->arg3   = kd->arg3;  /* top half offset */
-	   ti->arg4   = kd->arg4;  /* bottom half offset */
-	   break;
-       default:
-	   return;
+	switch (type) {
+	case BSC_mmap_extended:
+	    if ((ti = find_event(thread, BSC_mmap)) == (struct th_info *)0)
+		    return;
+	    ti->arg8   = ti->arg3;  /* save protection */
+	    ti->arg1   = kd->arg1;  /* the fd */
+	    ti->arg3   = kd->arg2;  /* bottom half address */
+	    ti->arg5   = kd->arg3;  /* bottom half size */	   
+	    break;
+	case BSC_mmap_extended2:
+	    if ((ti = find_event(thread, BSC_mmap)) == (struct th_info *)0)
+		    return;
+	    ti->arg2   = kd->arg1;  /* top half address */
+	    ti->arg4   = kd->arg2;  /* top half size */
+	    ti->arg6   = kd->arg3;  /* top half file offset */
+	    ti->arg7   = kd->arg4;  /* bottom half file offset */
+	    break;
+	case BSC_msync_extended:
+	    if ((ti = find_event(thread, BSC_msync)) == (struct th_info *)0) {
+		    if ((ti = find_event(thread, BSC_msync_nocancel)) == (struct th_info *)0)
+			    return;
+	    }
+	    ti->arg4   = kd->arg1;  /* top half address */
+	    ti->arg5   = kd->arg2;  /* top half size */
+	    break;
+	case BSC_pread_extended:
+	    if ((ti = find_event(thread, BSC_pread)) == (struct th_info *)0) {
+		    if ((ti = find_event(thread, BSC_pread_nocancel)) == (struct th_info *)0)
+			    return;
+	    }
+	    ti->arg1   = kd->arg1;  /* the fd */
+	    ti->arg2   = kd->arg2;  /* nbytes */
+	    ti->arg3   = kd->arg3;  /* top half offset */
+	    ti->arg4   = kd->arg4;  /* bottom half offset */	   
+	    break;
+	case BSC_pwrite_extended:
+	    if ((ti = find_event(thread, BSC_pwrite)) == (struct th_info *)0) {
+		    if ((ti = find_event(thread, BSC_pwrite_nocancel)) == (struct th_info *)0)
+			    return;
+	    }
+	    ti->arg1   = kd->arg1;  /* the fd */
+	    ti->arg2   = kd->arg2;  /* nbytes */
+	    ti->arg3   = kd->arg3;  /* top half offset */
+	    ti->arg4   = kd->arg4;  /* bottom half offset */
+	    break;
+	default:
+	    return;
        }
 }
 
 
 void
-exit_syscall(char *sc_name, uintptr_t thread, int type, int arg1, int arg2, int arg3, int arg4,
-	                    int format, double now)
+exit_event(char *sc_name, uintptr_t thread, int type, int arg1, int arg2, int arg3, int arg4,
+	   int format, double now)
 {
-        struct th_info *ti;
+        th_info_t	ti;
       
-	if ((ti = find_thread(thread, type)) == (struct th_info *)0)
+	if ((ti = find_event(thread, type)) == (struct th_info *)0)
 	        return;
 
 	if (check_filter_mode(ti, type, arg1, arg2, sc_name))
@@ -2827,7 +2871,7 @@ exit_syscall(char *sc_name, uintptr_t thread, int type, int arg1, int arg2, int 
 		if (filemgr_in_progress > 0)
 		        filemgr_in_progress--;
 	}
-	destroy_thread(ti);
+	delete_event(ti);
 }
 
 
@@ -2891,8 +2935,6 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 	long long l_usecs;
 	long curr_time;
 	char *command_name;
-	kd_threadmap *map;
-	kd_threadmap *find_thread_map();
 	int in_filemgr = 0;
 	int len = 0;
 	int clen = 0;
@@ -2905,21 +2947,21 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 	char *p1;
 	char *p2;
 	char buf[MAXWIDTH];
+	char cs_diskname[32];
 	command_name = "";
-	int	need_msec_update = 0;
 	static char timestamp[32];
 	static int  last_timestamp = -1;
 	static int  timestamp_len = 0;
-	static int  last_msec = 0;
-
 
 	if (RAW_flag) {
 		l_usecs = (long long)((now - bias_now) / divisor);
 
 		if ((double)l_usecs < start_time || (double)l_usecs > end_time)
 			return;
-		l_usecs += ((long long)8 * (long long)3600 * (long long)1000000);
-	} else
+
+		l_usecs += (sample_TOD_secs * 1000000) + sample_TOD_usecs;
+	}
+	else
 		l_usecs = (long long)(now / divisor);
 	secs = l_usecs / 1000000;
 	curr_time = bias_secs + secs;
@@ -2929,43 +2971,31 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 	if (dio)
 	        command_name = dio->issuing_command;
 	else {
-	        if (map_is_the_same && thread == last_thread)
-		        map = last_map;
-		else {
-		        if ((map = find_thread_map(thread))) {
-				last_map = map;
-				last_thread = thread;
-				map_is_the_same = 1;
-			}
-		}
-		if (map)
-		        command_name = map->command;
+		threadmap_t	tme;
+
+		if ((tme = find_map_entry(thread)))
+		        command_name = tme->tm_command;
 	}
 	if (last_timestamp != curr_time) {
 	        timestamp_len = sprintf(timestamp, "%-8.8s", &(ctime(&curr_time)[11]));
 		last_timestamp = curr_time;
-		need_msec_update = 1;
 	}
 	if (columns > MAXCOLS || wideflag) {
-	        int msec;
+	        int usec;
 
 		tlen = timestamp_len;
 		nopadding = 0;
-		msec = (l_usecs - (long long)((long long)secs * 1000000)) / 1000;
+		usec = (l_usecs - (long long)((long long)secs * 1000000));
 
-		if (msec != last_msec || need_msec_update) {
-		        sprintf(&timestamp[tlen], ".%03ld", (long)msec);
-			last_msec = msec;
-		}
-		tlen += 4;
+		sprintf(&timestamp[tlen], ".%06ld", (long)usec);
+		tlen += 7;
 
 		timestamp[tlen] = '\0';
 
 		if (filemgr_in_progress) {
 		        if (class != FILEMGR_CLASS) {
-			        if (find_thread(thread, -1)) {
+			        if (find_event(thread, -1))
 				        in_filemgr = 1;
-				}
 			}
 		}
 	} else
@@ -3063,6 +3093,24 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 			        clen += printf(" D=0x%8.8x  [%3d]", dio->blkno, dio->io_errno);
 			else
 			        clen += printf(" D=0x%8.8x  B=0x%-6x   /dev/%s", dio->blkno, dio->iosize, find_disk_name(dio->dev));
+			break;
+
+		      case FMT_DISKIO_CS:
+		        /*
+			 * physical disk I/O
+			 */
+		        if (dio->io_errno)
+			        clen += printf(" D=0x%8.8x  [%3d]", dio->blkno, dio->io_errno);
+			else
+			        clen += printf(" D=0x%8.8x  B=0x%-6x   /dev/%s", dio->blkno, dio->iosize, generate_cs_disk_name(dio->dev, &cs_diskname[0]));
+			break;
+
+		      case FMT_SYNC_DISK_CS:
+		        /*
+			 * physical disk sync cache
+			 */
+			clen += printf("                            /dev/%s", generate_cs_disk_name(arg1, &cs_diskname[0]));
+
 			break;
 
 		      case FMT_MSYNC:
@@ -3408,9 +3456,9 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 			buf[mlen++] = '>';
 			buf[mlen] = '\0';
 
-			if (mlen < 21) {
-			        memset(&buf[mlen], ' ', 21 - mlen);
-				mlen = 21;
+			if (mlen < 19) {
+			        memset(&buf[mlen], ' ', 19 - mlen);
+				mlen = 19;
 			}
 			clen += printf("%s", buf);
 
@@ -3482,6 +3530,35 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 
 			nopadding = 1;
 			break;
+		      }
+
+		      case FMT_MOUNT:
+		      {
+			      if (arg1)
+				      clen += printf("      [%3d] <FLGS=0x%x> ", arg1, ti->arg3);
+			      else
+				      clen += printf("     <FLGS=0x%x> ", ti->arg3);
+
+			      nopadding = 1;
+			      break;
+		      }
+
+		      case FMT_UNMOUNT:
+		      {
+			      char *mountflag;
+			      
+			      if (ti->arg2 & MNT_FORCE)
+				      mountflag = "<FORCE>";
+			      else
+				      mountflag = "";
+
+			      if (arg1)
+				      clen += printf("      [%3d] %s  ", arg1, mountflag);
+			      else
+				      clen += printf("     %s         ", mountflag);
+
+			      nopadding = 1;
+			      break;
 		      }
 
 		      case FMT_OPEN:
@@ -3691,7 +3768,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 	 * Calculate space available to print pathname
 	 */
 	if (columns > MAXCOLS || wideflag)
-	        clen =  columns - (clen + 14 + 20);
+	        clen =  columns - (clen + 14 + 20 + 11);
 	else
 	        clen =  columns - (clen + 14 + 12);
 
@@ -3700,9 +3777,18 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 
 	if (framework_name)
 	        len = sprintf(&buf[0], " %s %s ", framework_type, framework_name);
-	else if (*pathname != '\0')
+	else if (*pathname != '\0') {
 	        len = sprintf(&buf[0], " %s ", pathname);
-	else
+
+		if (format == FMT_MOUNT && ti->pathname2[0]) {
+			int	len2;
+
+			memset(&buf[len], ' ', 2);
+
+			len2 = sprintf(&buf[len+2], " %s ", (char *)ti->pathname2);
+			len = len + 2 + len2;
+		}
+	} else
 	        len = 0;
 
 	if (clen > len) {
@@ -3751,349 +3837,412 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 	        p2 = "  ";
 
 	if (columns > MAXCOLS || wideflag)
-	        printf("%s%s %3ld.%06ld%s %-20.20s\n", p1, pathname, (unsigned long)secs, (unsigned long)usecs, p2, command_name);
+	        printf("%s%s %3ld.%06ld%s %s.%d\n", p1, pathname, (unsigned long)secs, (unsigned long)usecs, p2, command_name, (int)thread);
 	else
 	        printf("%s%s %3ld.%06ld%s %-12.12s\n", p1, pathname, (unsigned long)secs, (unsigned long)usecs, p2, command_name);
 }
 
-int
-quit(s)
-char *s;
-{
-        if (trace_enabled)
-	       set_enable(0);
 
-	/* 
-	 * This flag is turned off when calling
-	 * quit() due to a set_remove() failure.
-	 */
-	if (set_remove_flag)
-	        set_remove();
+void
+delete_event(th_info_t ti_to_delete) {
+	th_info_t	ti;
+	th_info_t	ti_prev;
+	int		hashid;
 
-        fprintf(stderr, "fs_usage: ");
-	if (s)
-		fprintf(stderr, "%s", s);
+	hashid = ti_to_delete->thread & HASH_MASK;
 
-	exit(1);
+	if ((ti = th_info_hash[hashid])) {
+		if (ti == ti_to_delete)
+			th_info_hash[hashid] = ti->next;
+                else {
+                        ti_prev = ti;
+
+			for (ti = ti->next; ti; ti = ti->next) {
+                                if (ti == ti_to_delete) {
+					ti_prev->next = ti->next;
+                                        break;
+                                }
+                                ti_prev = ti;
+			}
+                }
+                if (ti) {
+                        ti->next = th_info_freelist;
+                        th_info_freelist = ti;
+                }
+        }
+}
+
+th_info_t
+add_event(uintptr_t thread, int type) {
+	th_info_t	ti;
+	int		hashid;
+
+	if ((ti = th_info_freelist))
+		th_info_freelist = ti->next;
+	else
+		ti = (th_info_t)malloc(sizeof(struct th_info));
+
+	hashid = thread & HASH_MASK;
+
+	ti->next = th_info_hash[hashid];
+	th_info_hash[hashid] = ti;
+
+	ti->thread = thread;
+	ti->type = type;
+
+	ti->waited = 0;
+	ti->in_filemgr = 0;
+	ti->pathptr = ti->pathname;
+	ti->pathname[0] = 0;
+	ti->pathname2[0] = 0;
+
+	return (ti);
+}
+
+th_info_t
+find_event(uintptr_t thread, int type) {
+        th_info_t	ti;
+	int		hashid;
+
+	hashid = thread & HASH_MASK;
+
+	for (ti = th_info_hash[hashid]; ti; ti = ti->next) {
+		if (ti->thread == thread) {
+		        if (type == ti->type)
+			        return (ti);
+			if (ti->in_filemgr) {
+			        if (type == -1)
+				        return (ti);
+				continue;
+			}
+			if (type == 0)
+			        return (ti);
+		}
+	}
+	return ((th_info_t) 0);
+}
+
+void
+delete_all_events() {
+        th_info_t	ti = 0;
+        th_info_t	ti_next = 0;
+        int             i;
+
+        for (i = 0; i < HASH_SIZE; i++) {
+
+                for (ti = th_info_hash[i]; ti; ti = ti_next) {
+                        ti_next = ti->next;
+                        ti->next = th_info_freelist;
+                        th_info_freelist = ti;
+                }
+                th_info_hash[i] = 0;
+        }
 }
 
 
-void getdivisor()
-{
-    struct mach_timebase_info mti;
+void
+mark_thread_waited(uintptr_t thread) {
+        th_info_t	ti;
+	int		hashid;
 
-    mach_timebase_info(&mti);
+	hashid = thread & HASH_MASK;
 
-    divisor = ((double)mti.denom / (double)mti.numer) * 1000;
+	for (ti = th_info_hash[hashid]; ti; ti = ti->next) {
+		if (ti->thread == thread)
+			ti->waited = 1;
+	}
 }
 
 
 void read_command_map()
 {
-    size_t size;
-    int i;
-    int prev_total_threads;
-    int mib[6];
-  
-    if (mapptr) {
-	free(mapptr);
-	mapptr = 0;
-    }
+	size_t	size;
+	int	i;
+	int total_threads = 0;
+	kd_threadmap *mapptr = 0;
 
-    prev_total_threads = total_threads;
+	delete_all_map_entries();
 
-    if (!RAW_flag) {
+	if (!RAW_flag) {
 
-	    total_threads = bufinfo.nkdthreads;
-	    size = bufinfo.nkdthreads * sizeof(kd_threadmap);
+		total_threads = bufinfo.nkdthreads;
+		size = bufinfo.nkdthreads * sizeof(kd_threadmap);
 
-	    if (size)
-	    {
-		    if ((mapptr = (kd_threadmap *) malloc(size)))
-		    {
-			    bzero (mapptr, size);
- 
-			    /* Now read the threadmap */
-			    mib[0] = CTL_KERN;
-			    mib[1] = KERN_KDEBUG;
-			    mib[2] = KERN_KDTHRMAP;
-			    mib[3] = 0;
-			    mib[4] = 0;
-			    mib[5] = 0;		/* no flags */
-			    if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0)
-			    {
-				    /* This is not fatal -- just means I cant map command strings */
-				    free(mapptr);
-				    mapptr = 0;
-			    }
-		    }
-	    }
-    } else {
-	    uint32_t count_of_names;
+		if (size) {
+			if ((mapptr = (kd_threadmap *) malloc(size))) {
+				int mib[6];
 
-	    RAW_fd = open(RAW_file, O_RDONLY);
+				bzero (mapptr, size);
+				/*
+				 * Now read the threadmap
+				 */
+				mib[0] = CTL_KERN;
+				mib[1] = KERN_KDEBUG;
+				mib[2] = KERN_KDTHRMAP;
+				mib[3] = 0;
+				mib[4] = 0;
+				mib[5] = 0;		/* no flags */
 
-	    if (RAW_fd < 0) {
-		    perror("Can't open RAW file");
-		    exit(1);
-	    }
-	    if (read(RAW_fd, &count_of_names, sizeof(uint32_t)) != sizeof(uint32_t)) {
-		    perror("read of RAW file failed");
-		    exit(2);
-	    }
-	    total_threads = count_of_names;
-	    size = count_of_names * sizeof(kd_threadmap);
-	    
-	    if (size)
-	    {
-		    if ((mapptr = (kd_threadmap *) malloc(size)))
-		    {
-			    bzero (mapptr, size);
+				if (sysctl(mib, 3, mapptr, &size, NULL, 0) < 0) {
+					/*
+					 * This is not fatal -- just means I cant map command strings
+					 */
+					free(mapptr);
+					return;
+				}
+			}
+		}
+	} else {
+		RAW_header	header;
+		off_t	offset;
 
-			    if (read(RAW_fd, mapptr, size) != size) {
+		RAW_fd = open(RAW_file, O_RDONLY);
 
-				    free(mapptr);
-				    mapptr = 0;
-			    }
-		    }
-	    }
-    }
-    if (mapptr && (filter_mode & (NETWORK_FILTER | FILESYS_FILTER)))
-    {
-	if (fdmapptr)
-	{
-	    /* We accept the fact that we lose file descriptor state if the
-	       kd_buffer wraps */
-	    for (i = 0; i < prev_total_threads; i++)
-	    {
-		if (fdmapptr[i].fd_setptr)
-		    free (fdmapptr[i].fd_setptr);
-	    }
-	    free(fdmapptr);
-	    fdmapptr = 0;
+		if (RAW_fd < 0) {
+			perror("Can't open RAW file");
+			exit(1);
+		}
+		if (read(RAW_fd, &header, sizeof(RAW_header)) != sizeof(RAW_header)) {
+			perror("read failed");
+			exit(2);
+		}
+		if (header.version_no != RAW_VERSION1) {
+			header.version_no = RAW_VERSION0;
+			header.TOD_secs = time((long *)0);
+			header.TOD_usecs = 0;
+
+			lseek(RAW_fd, (off_t)0, SEEK_SET);
+
+			if (read(RAW_fd, &header.thread_count, sizeof(int)) != sizeof(int)) {
+				perror("read failed");
+				exit(2);
+			}
+		}
+		sample_TOD_secs = header.TOD_secs;
+		sample_TOD_usecs = header.TOD_usecs;
+
+		total_threads = header.thread_count;
+		size = total_threads * sizeof(kd_threadmap);
+
+		if (size) {
+			if ((mapptr = (kd_threadmap *) malloc(size))) {
+				bzero (mapptr, size);
+
+				if (read(RAW_fd, mapptr, size) != size) {
+					free(mapptr);
+					return;
+				}
+			}
+		}
+		if (header.version_no != RAW_VERSION0) {
+			offset = lseek(RAW_fd, (off_t)0, SEEK_CUR);
+			offset = (offset + (4095)) & ~4095;
+
+			lseek(RAW_fd, offset, SEEK_SET);
+		}
 	}
+	for (i = 0; i < total_threads; i++)
+		create_map_entry(mapptr[i].thread, mapptr[i].valid, &mapptr[i].command[0]);
 
-	size = total_threads * sizeof(fd_threadmap);
-	if ((fdmapptr = (fd_threadmap *) malloc(size)))
-	{
-	    bzero (fdmapptr, size);
-	    /* reinitialize file descriptor state map */
-	    for (i = 0; i < total_threads; i++)
-	    {
-		fdmapptr[i].fd_thread = mapptr[i].thread;
-		fdmapptr[i].fd_valid = mapptr[i].valid;
-		fdmapptr[i].fd_setsize = 0;
-		fdmapptr[i].fd_setptr = 0;
-	    }
+        free(mapptr);
+}
+
+
+void delete_all_map_entries()
+{
+	threadmap_t     tme = 0;
+        threadmap_t     tme_next = 0;
+	int             i;
+
+	for (i = 0; i < HASH_SIZE; i++) {
+
+		for (tme = threadmap_hash[i]; tme; tme = tme_next) {
+                        if (tme->tm_setptr)
+				free(tme->tm_setptr);
+			tme_next = tme->tm_next;
+                        tme->tm_next = threadmap_freelist;
+			threadmap_freelist = tme;
+                }
+                threadmap_hash[i] = 0;
 	}
-    }
-
-    /* Resolve any LaunchCFMApp command names */
-    if (mapptr && arguments)
-    {
-	for (i=0; i < total_threads; i++)
-	{
-	    int pid;
-
-	    pid = mapptr[i].valid;
-	    
-	    if (pid == 0 || pid == 1)
-		continue;
-	    else if (!strncmp(mapptr[i].command,"LaunchCFMA", 10))
-	    {
-		(void)get_real_command_name(pid, mapptr[i].command, sizeof(mapptr[i].command));
-	    }
-	}
-    }
 }
 
 
 void create_map_entry(uintptr_t thread, int pid, char *command)
 {
-    int i, n;
-    kd_threadmap *map;
-    fd_threadmap *fdmap = 0;
+        threadmap_t     tme;
+        int             hashid;
 
-    if (!mapptr)
-        return;
+        if ((tme = threadmap_freelist))
+                threadmap_freelist = tme->tm_next;
+        else
+                tme = (threadmap_t)malloc(sizeof(struct threadmap));
 
-    for (i = 0, map = 0; !map && i < total_threads; i++)
-    {
-        if (mapptr[i].thread == thread )
-	{
-	    map = &mapptr[i];   /* Reuse this entry, the thread has been
-				 * reassigned */
-	    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
-	    {
-		fdmap = &fdmapptr[i];
-		if (fdmap->fd_thread != thread)    /* This shouldn't happen */
-		    fdmap = (fd_threadmap *)0;
-	    }
+        tme->tm_thread  = thread;
+	tme->tm_setsize = 0;
+	tme->tm_setptr  = 0;
+
+        (void)strncpy (tme->tm_command, command, MAXCOMLEN);
+        tme->tm_command[MAXCOMLEN] = '\0';
+
+        hashid = thread & HASH_MASK;
+
+        tme->tm_next = threadmap_hash[hashid];
+        threadmap_hash[hashid] = tme;
+
+	if (pid != 0 && pid != 1) {
+		if (!strncmp(command, "LaunchCFMA", 10))
+			(void)get_real_command_name(pid, tme->tm_command, MAXCOMLEN);
 	}
-    }
+}
 
-    if (!map)   /* look for invalid entries that I can reuse*/
-    {
-        for (i = 0, map = 0; !map && i < total_threads; i++)
-	{
-	    if (mapptr[i].valid == 0 )	
-	        map = &mapptr[i];   /* Reuse this invalid entry */
-	    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
-	    {
-		fdmap = &fdmapptr[i];
-	    }
+
+threadmap_t
+find_map_entry(uintptr_t thread)
+{
+        threadmap_t     tme;
+        int     hashid;
+
+	hashid = thread & HASH_MASK;
+
+        for (tme = threadmap_hash[hashid]; tme; tme = tme->tm_next) {
+		if (tme->tm_thread == thread)
+			return (tme);
 	}
-    }
-  
-    if (!map)
-    {
-        /*
-	 * If reach here, then this is a new thread and 
-	 * there are no invalid entries to reuse
-	 * Double the size of the thread map table.
+        return (0);
+}
+
+
+void
+delete_map_entry(uintptr_t thread)
+{
+        threadmap_t     tme = 0;
+        threadmap_t     tme_prev;
+        int             hashid;
+
+        hashid = thread & HASH_MASK;
+
+        if ((tme = threadmap_hash[hashid])) {
+                if (tme->tm_thread == thread)
+			threadmap_hash[hashid] = tme->tm_next;
+                else {
+                        tme_prev = tme;
+
+			for (tme = tme->tm_next; tme; tme = tme->tm_next) {
+                                if (tme->tm_thread == thread) {
+                                        tme_prev->tm_next = tme->tm_next;
+                                        break;
+				}
+                                tme_prev = tme;
+			}
+		}
+                if (tme) {
+			if (tme->tm_setptr)
+				free(tme->tm_setptr);
+
+                        tme->tm_next = threadmap_freelist;
+			threadmap_freelist = tme;
+		}
+	}
+}
+
+
+void
+fs_usage_fd_set(uintptr_t thread, unsigned int fd)
+{
+	threadmap_t	tme;
+
+	if ((tme = find_map_entry(thread)) == 0)
+		return;
+	/*
+	 * If the map is not allocated, then now is the time
 	 */
-        n = total_threads * 2;
-	mapptr = (kd_threadmap *) realloc(mapptr, n * sizeof(kd_threadmap));
-	bzero(&mapptr[total_threads], total_threads*sizeof(kd_threadmap));
-	map = &mapptr[total_threads];
+	if (tme->tm_setptr == (unsigned long *)0) {
+		if ((tme->tm_setptr = (unsigned long *)malloc(FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE))) == 0)
+			return;
 
-	if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
-	{
-	    fdmapptr = (fd_threadmap *)realloc(fdmapptr, n * sizeof(fd_threadmap));
-	    bzero(&fdmapptr[total_threads], total_threads*sizeof(fd_threadmap));
-	    fdmap = &fdmapptr[total_threads];	    
+		tme->tm_setsize = FS_USAGE_FD_SETSIZE;
+		bzero(tme->tm_setptr, (FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE)));
 	}
-	
-	total_threads = n;
-    }
+	/*
+	 * If the map is not big enough, then reallocate it
+	 */
+	while (tme->tm_setsize <= fd) {
+		int	n;
 
-    map->valid = 1;
-    map->thread = thread;
-    /*
-     * The trace entry that returns the command name will hold
-     * at most, MAXCOMLEN chars, and in that case, is not
-     * guaranteed to be null terminated.
-     */
-    (void)strncpy (map->command, command, MAXCOMLEN);
-    map->command[MAXCOMLEN] = '\0';
+		n = tme->tm_setsize * 2;
+		tme->tm_setptr = (unsigned long *)realloc(tme->tm_setptr, (FS_USAGE_NFDBYTES(n)));
 
-    if (fdmap)
-    {
-	fdmap->fd_valid = 1;
-	fdmap->fd_thread = thread;
-	if (fdmap->fd_setptr)
-	{
-	    free(fdmap->fd_setptr);
-	    fdmap->fd_setptr = (unsigned long *)0;
+		bzero(&tme->tm_setptr[(tme->tm_setsize/FS_USAGE_NFDBITS)], (FS_USAGE_NFDBYTES(tme->tm_setsize)));
+		tme->tm_setsize = n;
 	}
-	fdmap->fd_setsize = 0;
-    }
-
-    if (pid == 0 || pid == 1)
-	return;
-    else if (!strncmp(map->command, "LaunchCFMA", 10))
-	(void)get_real_command_name(pid, map->command, sizeof(map->command));
+	/*
+	 * set the bit
+	 */
+	tme->tm_setptr[fd/FS_USAGE_NFDBITS] |= (1 << ((fd) % FS_USAGE_NFDBITS));
 }
 
 
-kd_threadmap *find_thread_map(uintptr_t thread)
+/*
+ * Return values:
+ *  0 : File Descriptor bit is not set
+ *  1 : File Descriptor bit is set
+ */
+int
+fs_usage_fd_isset(uintptr_t thread, unsigned int fd)
 {
-    int i;
-    kd_threadmap *map;
+	threadmap_t	tme;
+	int		ret = 0;
 
-    if (!mapptr)
-        return((kd_threadmap *)0);
-
-    for (i = 0; i < total_threads; i++)
-    {
-        map = &mapptr[i];
-	if (map->valid && (map->thread == thread))
-	{
-	    return(map);
+	if ((tme = find_map_entry(thread))) {
+		if (tme->tm_setptr && fd < tme->tm_setsize)
+			ret = tme->tm_setptr[fd/FS_USAGE_NFDBITS] & (1 << (fd % FS_USAGE_NFDBITS));
 	}
-    }
-    return ((kd_threadmap *)0);
+	return (ret);
 }
+    
 
-fd_threadmap *find_fd_thread_map(uintptr_t thread)
+void
+fs_usage_fd_clear(uintptr_t thread, unsigned int fd)
 {
-    int i;
-    fd_threadmap *fdmap = 0;
+	threadmap_t	tme;
 
-    if (!fdmapptr)
-        return((fd_threadmap *)0);
-
-    for (i = 0; i < total_threads; i++)
-    {
-        fdmap = &fdmapptr[i];
-	if (fdmap->fd_valid && (fdmap->fd_thread == thread))
-	{
-	    return(fdmap);
+	if ((tme = find_map_entry(thread))) {
+		if (tme->tm_setptr && fd < tme->tm_setsize)
+			tme->tm_setptr[fd/FS_USAGE_NFDBITS] &= ~(1 << (fd % FS_USAGE_NFDBITS));
 	}
-    }
-    return ((fd_threadmap *)0);
 }
+
 
 
 void
-kill_thread_map(uintptr_t thread)
-{
-    kd_threadmap *map;
-    fd_threadmap *fdmap;
-
-    if (thread == last_thread)
-        map_is_the_same = 0;
-
-    if ((map = find_thread_map(thread))) {
-        map->valid = 0;
-	map->thread = 0;
-	map->command[0] = '\0';
-    }
-
-    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)))
-    {
-	if ((fdmap = find_fd_thread_map(thread)))
-	{
-	    fdmap->fd_valid = 0;
-	    fdmap->fd_thread = 0;
-	    if (fdmap->fd_setptr)
-	    {
-		free (fdmap->fd_setptr);
-		fdmap->fd_setptr = (unsigned long *)0;
-	    }
-	    fdmap->fd_setsize = 0;
-	}	
-    }
-}
-
-void
-argtopid(str)
-        char *str;
+argtopid(char *str)
 {
         char *cp;
         int ret;
 	int i;
 
         ret = (int)strtol(str, &cp, 10);
+
         if (cp == str || *cp) {
-	  /* Assume this is a command string and find matching pids */
+		/*
+		 * Assume this is a command string and find matching pids
+		 */
 	        if (!kp_buffer)
 		        find_proc_names();
 
-	        for (i=0; i < kp_nentries && num_of_pids < (MAX_PIDS - 1); i++) {
-		      if(kp_buffer[i].kp_proc.p_stat == 0)
-		          continue;
-		      else {
-			  if(!strncmp(str, kp_buffer[i].kp_proc.p_comm,
-			      sizeof(kp_buffer[i].kp_proc.p_comm) -1))
-			    pids[num_of_pids++] = kp_buffer[i].kp_proc.p_pid;
-		      }
+	        for (i = 0; i < kp_nentries && num_of_pids < (MAX_PIDS - 1); i++) {
+			if (kp_buffer[i].kp_proc.p_stat == 0)
+				continue;
+			else {
+				if (!strncmp(str, kp_buffer[i].kp_proc.p_comm,
+					     sizeof(kp_buffer[i].kp_proc.p_comm) -1))
+					pids[num_of_pids++] = kp_buffer[i].kp_proc.p_pid;
+			}
 		}
 	}
 	else if (num_of_pids < (MAX_PIDS - 1))
 	        pids[num_of_pids++] = ret;
-
-        return;
 }
 
 
@@ -4116,11 +4265,10 @@ lookup_name(uint64_t user_addr, char **type, char **name)
 			last  = numFrameworks;
 
 			for (i = numFrameworks / 2; start < last; i = start + ((last - start) / 2)) {
-				if (user_addr > frameworkInfo[i].e_address) {
+				if (user_addr > frameworkInfo[i].e_address)
 					start = i+1;
-				} else {
+				else
 					last = i;
-				}
 			}
 			if (start < numFrameworks &&
 			    user_addr >= frameworkInfo[start].b_address && user_addr < frameworkInfo[start].e_address) {
@@ -4137,28 +4285,30 @@ lookup_name(uint64_t user_addr, char **type, char **name)
  */
 static int compareFrameworkAddress(const void  *aa, const void *bb)
 {
-    LibraryInfo *a = (LibraryInfo *)aa;
-    LibraryInfo *b = (LibraryInfo *)bb;
+	LibraryInfo *a = (LibraryInfo *)aa;
+	LibraryInfo *b = (LibraryInfo *)bb;
 
-    if (a->b_address < b->b_address) return -1;
-    if (a->b_address == b->b_address) return 0;
-    return 1;
+	if (a->b_address < b->b_address) return -1;
+	if (a->b_address == b->b_address) return 0;
+	return 1;
 }
 
 
 int scanline(char *inputstring, char **argv, int maxtokens)
 {
-     int n = 0;
-     char **ap = argv, *p, *val;
+	int n = 0;
+	char **ap = argv, *p, *val;
 
-     for (p = inputstring; n < maxtokens && p != NULL; ) 
-     {
-        while ((val = strsep(&p, " \t")) != NULL && *val == '\0');
-        *ap++ = val;
-        n++;
-     }
-     *ap = 0;
-     return n;
+	for (p = inputstring; n < maxtokens && p != NULL; ) {
+
+		while ((val = strsep(&p, " \t")) != NULL && *val == '\0');
+
+		*ap++ = val;
+		n++;
+	}
+	*ap = 0;
+
+	return n;
 }
 
 
@@ -4182,9 +4332,8 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr, char *linkedit_name)
 	lr->e_address = 0;
 
 	if ((fd = fopen(path, "r")) == 0)
-	{
 		return 0;
-	}
+
 	while (fgets(buf, 1023, fd)) {
 		if (strncmp(buf, "mapping", 7))
 			break;
@@ -4202,10 +4351,10 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr, char *linkedit_name)
 			/*
 			 * There is a ".": name is whatever is between the "/" around the "." 
 			 */
-			while ( *substring != '/') {		    /* find "/" before "." */
+			while ( *substring != '/')		    /* find "/" before "." */
 				substring--;
-			}
 			substring++;
+
 			strncpy(frameworkName, substring, 256);           /* copy path from "/" */
 			frameworkName[255] = 0;
 			substring = frameworkName;
@@ -4222,8 +4371,7 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr, char *linkedit_name)
 			ptr = buf;
 			substring = ptr;
 
-			while (*ptr) 
-			{
+			while (*ptr)  {
 				if (*ptr == '/')
 					substring = ptr + 1;
 				ptr++;
@@ -4234,8 +4382,7 @@ int ReadSharedCacheMap(const char *path, LibraryRange *lr, char *linkedit_name)
 		fnp = (char *)malloc(strlen(frameworkName) + 1);
 		strcpy(fnp, frameworkName);
 
-		while (fgets(buf, 1023, fd) && numFrameworks < (MAXINDEX - 2))
-		{
+		while (fgets(buf, 1023, fd) && numFrameworks < (MAXINDEX - 2)) {
 			/*
 			 * Get rid of EOL
 			 */
@@ -4321,163 +4468,214 @@ SortFrameworkAddresses()
 
 struct diskio *insert_diskio(int type, int bp, int dev, int blkno, int io_size, uintptr_t thread, double curtime)
 {
-    register struct diskio *dio;
-    register kd_threadmap  *map;
+	struct diskio	*dio;
+	threadmap_t	tme;
     
-    if ((dio = free_diskios))
-        free_diskios = dio->next;
-    else {
-        if ((dio = (struct diskio *)malloc(sizeof(struct diskio))) == NULL)
-            return (NULL);
-    }
-    dio->prev = NULL;
+	if ((dio = free_diskios))
+		free_diskios = dio->next;
+	else {
+		if ((dio = (struct diskio *)malloc(sizeof(struct diskio))) == NULL)
+			return (NULL);
+	}
+	dio->prev = NULL;
     
-    dio->type = type;
-    dio->bp = bp;
-    dio->dev = dev;
-    dio->blkno = blkno;
-    dio->iosize = io_size;
-    dio->issued_time = curtime;
-    dio->issuing_thread = thread;
+	dio->type = type;
+	dio->bp = bp;
+	dio->dev = dev;
+	dio->blkno = blkno;
+	dio->iosize = io_size;
+	dio->issued_time = curtime;
+	dio->issuing_thread = thread;
+	
+	if ((tme = find_map_entry(thread))) {
+		strncpy(dio->issuing_command, tme->tm_command, MAXCOMLEN);
+		dio->issuing_command[MAXCOMLEN-1] = '\0';
+	} else
+		strcpy(dio->issuing_command, "");
     
-    if ((map = find_thread_map(thread)))
-    {
-        strncpy(dio->issuing_command, map->command, MAXCOMLEN);
-	dio->issuing_command[MAXCOMLEN-1] = '\0';
-    }
-    else
-        strcpy(dio->issuing_command, "");
-    
-    dio->next = busy_diskios;
-    if (dio->next)
-        dio->next->prev = dio;
-    busy_diskios = dio;
+	dio->next = busy_diskios;
+	if (dio->next)
+		dio->next->prev = dio;
+	busy_diskios = dio;
 
-    return (dio);
+	return (dio);
 }
 
 
 struct diskio *complete_diskio(int bp, int io_errno, int resid, uintptr_t thread, double curtime)
 {
-    register struct diskio *dio;
+	struct diskio *dio;
     
-    for (dio = busy_diskios; dio; dio = dio->next) {
-        if (dio->bp == bp) {
-        
-            if (dio == busy_diskios) {
-                if ((busy_diskios = dio->next))
-                    dio->next->prev = NULL;
-            } else {
-                if (dio->next)
-                    dio->next->prev = dio->prev;
-                dio->prev->next = dio->next;
-            }
-            dio->iosize -= resid;
-            dio->io_errno = io_errno;
-            dio->completed_time = curtime;
-            dio->completion_thread = thread;
+	for (dio = busy_diskios; dio; dio = dio->next) {
+
+		if (dio->bp == bp) {
+			if (dio == busy_diskios) {
+				if ((busy_diskios = dio->next))
+					dio->next->prev = NULL;
+			} else {
+				if (dio->next)
+					dio->next->prev = dio->prev;
+				dio->prev->next = dio->next;
+			}
+			dio->iosize -= resid;
+			dio->io_errno = io_errno;
+			dio->completed_time = curtime;
+			dio->completion_thread = thread;
             
-	    return (dio);
-        }    
-    }
-    return ((struct diskio *)0);
+			return (dio);
+		}    
+	}
+	return ((struct diskio *)0);
 }
 
 
 void free_diskio(struct diskio *dio)
 {
-    dio->next = free_diskios;
-    free_diskios = dio;
+	dio->next = free_diskios;
+	free_diskios = dio;
 }
 
 
 void print_diskio(struct diskio *dio)
 {
-    register char  *p;
+	char  *p = NULL;
+	int   len = 0;
+	int   type;
+	int   format = FMT_DISKIO;
+	char  buf[64];
 
-    switch (dio->type) {
+	type = dio->type;
+	
 
-        case P_RdMeta:
-            p = "  RdMeta";
-            break;
-        case P_WrMeta:
-            p = "  WrMeta";
-            break;
-        case P_RdData:
-            p = "  RdData";
-            break;
-        case P_WrData:
-            p = "  WrData";
-            break;        
-        case P_PgIn:
-            p = "  PgIn";
-            break;
-        case P_PgOut:
-            p = "  PgOut";
-            break;
-        case P_RdMetaAsync:
-            p = "  RdMeta[async]";
-            break;
-        case P_WrMetaAsync:
-            p = "  WrMeta[async]";
-            break;
-        case P_RdDataAsync:
-            p = "  RdData[async]";
-            break;
-        case P_WrDataAsync:
-            p = "  WrData[async]";
-            break;        
-        case P_PgInAsync:
-            p = "  PgIn[async]";
-            break;
-        case P_PgOutAsync:
-            p = "  PgOut[async]";
-            break;
-        default:
-            p = "  ";
-	    break;
-    }
-    if (check_filter_mode(NULL, dio->type, 0, 0, p))
-	format_print(NULL, p, dio->issuing_thread, dio->type, 0, 0, 0, 0, FMT_DISKIO, dio->completed_time, dio->issued_time, 1, "", dio);
+	if (type == P_CS_ReadChunk || type == P_CS_WriteChunk || type == P_CS_Originated_Read ||
+	    type == P_CS_Originated_Write || type == P_CS_MetaRead || type == P_CS_MetaWrite) {
+
+		switch (type) {
+
+		case P_CS_ReadChunk:
+			p = "    RdChunkCS";
+			len = 13;
+			format = FMT_DISKIO_CS;
+			break;
+		case P_CS_WriteChunk:
+			p = "    WrChunkCS";
+			len = 13;
+			format = FMT_DISKIO_CS;
+			break;
+		case P_CS_MetaRead:
+			p = "  RdMetaCS";
+			len = 10;
+			format = FMT_DISKIO_CS;
+			break;
+		case P_CS_MetaWrite:
+			p = "  WrMetaCS";
+			len = 10;
+			format = FMT_DISKIO_CS;
+			break;
+		case P_CS_Originated_Read:
+			p = "  RdDataCS";
+			len = 10;
+			break;
+		case P_CS_Originated_Write:
+			p = "  WrDataCS";
+			len = 10;
+			break;
+		}
+		strncpy(buf, p, len);
+	} else {
+
+		switch (type & P_DISKIO_TYPE) {
+
+		case P_RdMeta:
+			p = "  RdMeta";
+			len = 8;
+			break;
+		case P_WrMeta:
+			p = "  WrMeta";
+			len = 8;
+			break;
+		case P_RdData:
+			p = "  RdData";
+			len = 8;
+			break;
+		case P_WrData:
+			p = "  WrData";
+			len = 8;
+			break;        
+		case P_PgIn:
+			p = "  PgIn";
+			len = 6;
+			break;
+		case P_PgOut:
+			p = "  PgOut";
+			len = 7;
+			break;
+		default:
+			p = "  ";
+			len = 2;
+			break;
+		}
+		strncpy(buf, p, len);
+
+		if (type & (P_DISKIO_ASYNC | P_DISKIO_THROTTLE | P_DISKIO_PASSIVE)) {
+			buf[len++] = '[';
+		
+			if (type & P_DISKIO_ASYNC) {
+				memcpy(&buf[len], "async", 5);
+				len += 5;
+			}
+			if (type & P_DISKIO_THROTTLE)
+				buf[len++] = 'T';
+			else if (type & P_DISKIO_PASSIVE)
+				buf[len++] = 'P';
+
+			buf[len++] = ']';
+		}
+	}
+	buf[len] = 0;
+
+	if (check_filter_mode(NULL, type, 0, 0, buf))
+		format_print(NULL, buf, dio->issuing_thread, type, 0, 0, 0, 0, format, dio->completed_time, dio->issued_time, 1, "", dio);
 }
 
 
 void cache_disk_names()
 {
-    struct stat    st;
-    DIR            *dirp = NULL;
-    struct dirent  *dir;
-    struct diskrec *dnp;
+	struct stat    st;
+	DIR            *dirp = NULL;
+	struct dirent  *dir;
+	struct diskrec *dnp;
 
 
-    if ((dirp = opendir("/dev")) == NULL)
-        return;
+	if ((dirp = opendir("/dev")) == NULL)
+		return;
         
-    while ((dir = readdir(dirp)) != NULL) {
-        char nbuf[MAXPATHLEN];
+	while ((dir = readdir(dirp)) != NULL) {
+		char nbuf[MAXPATHLEN];
         
-        if (dir->d_namlen < 5 || strncmp("disk", dir->d_name, 4))
-            continue;
-        snprintf(nbuf, MAXPATHLEN, "%s/%s", "/dev", dir->d_name);
-        
-	if (stat(nbuf, &st) < 0)
-            continue;
+		if (dir->d_namlen < 5 || strncmp("disk", dir->d_name, 4))
+			continue;
 
-        if ((dnp = (struct diskrec *)malloc(sizeof(struct diskrec))) == NULL)
-            continue;
+		snprintf(nbuf, MAXPATHLEN, "%s/%s", "/dev", dir->d_name);
+        
+		if (stat(nbuf, &st) < 0)
+			continue;
+
+		if ((dnp = (struct diskrec *)malloc(sizeof(struct diskrec))) == NULL)
+			continue;
             
-        if ((dnp->diskname = (char *)malloc(dir->d_namlen + 1)) == NULL) {
-            free(dnp);
-            continue;
-        }
-        strncpy(dnp->diskname, dir->d_name, dir->d_namlen);
-        dnp->diskname[dir->d_namlen] = 0;
-        dnp->dev = st.st_rdev;
+		if ((dnp->diskname = (char *)malloc(dir->d_namlen + 1)) == NULL) {
+			free(dnp);
+			continue;
+		}
+		strncpy(dnp->diskname, dir->d_name, dir->d_namlen);
+		dnp->diskname[dir->d_namlen] = 0;
+		dnp->dev = st.st_rdev;
         
-        dnp->next = disk_list;
-        disk_list = dnp;
-    }
-    (void) closedir(dirp);
+		dnp->next = disk_list;
+		disk_list = dnp;
+	}
+	(void) closedir(dirp);
 }
 
 
@@ -4499,108 +4697,36 @@ void recache_disk_names()
 
 char *find_disk_name(int dev)
 {
-    struct diskrec *dnp;
-    int	i;
+	struct diskrec *dnp;
+	int	i;
     
-    if (dev == NFS_DEV)
-        return ("NFS");
+	if (dev == NFS_DEV)
+		return ("NFS");
         
-    for (i = 0; i < 2; i++) {
-	    for (dnp = disk_list; dnp; dnp = dnp->next) {
-		    if (dnp->dev == dev)
-			    return (dnp->diskname);
-	    }
-	    recache_disk_names();
-    }
-    return ("NOTFOUND");
-}
-
-void
-fs_usage_fd_set(thread, fd)
-    unsigned int thread;
-    unsigned int fd;
-{
-    int n;
-    fd_threadmap *fdmap;
-
-    if(!(fdmap = find_fd_thread_map(thread)))
-	return;
-
-    /* If the map is not allocated, then now is the time */
-    if (fdmap->fd_setptr == (unsigned long *)0)
-    {
-	fdmap->fd_setptr = (unsigned long *)malloc(FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE));
-	if (fdmap->fd_setptr)
-	{
-	    fdmap->fd_setsize = FS_USAGE_FD_SETSIZE;
-	    bzero(fdmap->fd_setptr,(FS_USAGE_NFDBYTES(FS_USAGE_FD_SETSIZE)));
+	if (dev == CS_DEV)
+		return ("CS");
+        
+	for (i = 0; i < 2; i++) {
+		for (dnp = disk_list; dnp; dnp = dnp->next) {
+			if (dnp->dev == dev)
+				return (dnp->diskname);
+		}
+		recache_disk_names();
 	}
-	else
-	    return;
-    }
-
-    /* If the map is not big enough, then reallocate it */
-    while (fdmap->fd_setsize <= fd)
-    {
-	fprintf(stderr, "reallocating bitmap for threadid %d, fd = %d, setsize = %d\n",
-	  thread, fd, fdmap->fd_setsize);
-	n = fdmap->fd_setsize * 2;
-	fdmap->fd_setptr = (unsigned long *)realloc(fdmap->fd_setptr, (FS_USAGE_NFDBYTES(n)));
-	bzero(&fdmap->fd_setptr[(fdmap->fd_setsize/FS_USAGE_NFDBITS)], (FS_USAGE_NFDBYTES(fdmap->fd_setsize)));
-	fdmap->fd_setsize = n;
-    }
-
-    /* set the bit */
-    fdmap->fd_setptr[fd/FS_USAGE_NFDBITS] |= (1 << ((fd) % FS_USAGE_NFDBITS));
-
-    return;
+	return ("NOTFOUND");
 }
 
-/*
-  Return values:
-  0 : File Descriptor bit is not set
-  1 : File Descriptor bit is set
-*/
-    
-int
-fs_usage_fd_isset(thread, fd)
-    unsigned int thread;
-    unsigned int fd;
+
+char *generate_cs_disk_name(int dev, char *s)
 {
-    int ret = 0;
-    fd_threadmap *fdmap;
+	if (dev == -1)
+		return ("UNKNOWN");
+	
+	sprintf(s, "disk%ds%d", (dev >> 16) & 0xffff, dev & 0xffff);
 
-    if(!(fdmap = find_fd_thread_map(thread)))
-	return(ret);
-
-    if (fdmap->fd_setptr == (unsigned long *)0)
-	return (ret);
-
-    if (fd < fdmap->fd_setsize)
-	ret = fdmap->fd_setptr[fd/FS_USAGE_NFDBITS] & (1 << (fd % FS_USAGE_NFDBITS));
-    
-    return (ret);
+	return (s);
 }
-    
-void
-fs_usage_fd_clear(thread, fd)
-    unsigned int thread;
-    unsigned int fd;
-{
-    fd_threadmap *map;
 
-    if (!(map = find_fd_thread_map(thread)))
-	return;
-
-    if (map->fd_setptr == (unsigned long *)0)
-	return;
-
-    /* clear the bit */
-    if (fd < map->fd_setsize)
-	map->fd_setptr[fd/FS_USAGE_NFDBITS] &= ~(1 << (fd % FS_USAGE_NFDBITS));
-    
-    return;
-}
 
 
 /*
@@ -4610,136 +4736,142 @@ fs_usage_fd_clear(thread, fd)
 int
 check_filter_mode(struct th_info * ti, int type, int error, int retval, char *sc_name)
 {
-    int ret = 0;
-    int network_fd_isset = 0;
-    unsigned int fd;
+	int ret = 0;
+	int network_fd_isset = 0;
+	unsigned int fd;
 
-    if (filter_mode == DEFAULT_DO_NOT_FILTER)
-            return(1);
+	if (filter_mode == DEFAULT_DO_NOT_FILTER)
+		return(1);
 
-    if (sc_name[0] == 'C' && !strcmp (sc_name, "CACHE_HIT")) {
-            if (filter_mode & CACHEHIT_FILTER)
-	            /* Do not print if cachehit filter is set */
-	            return(0);
-	    return(1);
-    }
+	if (sc_name[0] == 'C' && !strcmp (sc_name, "CACHE_HIT")) {
+		if (filter_mode & CACHEHIT_FILTER)
+			/* Do not print if cachehit filter is set */
+			return(0);
+		return(1);
+	}
 	
-    if (filter_mode & EXEC_FILTER)
-    {
-            if (type == BSC_execve)
-	            return(1);
-	    return(0);
-    }
+	if (filter_mode & EXEC_FILTER) {
+		if (type == BSC_execve || type == BSC_posix_spawn)
+			return(1);
+		return(0);
+	}
 
-    if (filter_mode & PATHNAME_FILTER)
-    {
+	if (filter_mode & PATHNAME_FILTER) {
             if (ti && ti->pathname[0])
 	            return(1);
 	    if (type == BSC_close || type == BSC_close_nocancel)
 	            return(1);
 	    return(0);
-    }
+	}
 
-    if ( !(filter_mode & (FILESYS_FILTER | NETWORK_FILTER)))
-	return(1);
+	if ( !(filter_mode & (FILESYS_FILTER | NETWORK_FILTER)))
+		return(1);
 
-	
-    if (ti == (struct th_info *)0)
-    {
-	if (filter_mode & FILESYS_FILTER)
-	    ret = 1;
-	else
-	    ret = 0;
+	if (ti == (struct th_info *)0) {
+		if (filter_mode & FILESYS_FILTER)
+			return(1);
+		return(0);
+	}
+
+	switch (type) {
+
+	case BSC_close:
+	case BSC_close_nocancel:
+	    fd = ti->arg1;
+	    network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+
+	    if (error == 0)
+		    fs_usage_fd_clear(ti->thread,fd);
+	    
+	    if (network_fd_isset) {
+		    if (filter_mode & NETWORK_FILTER)
+			    ret = 1;
+	    } else if (filter_mode & FILESYS_FILTER)
+		    ret = 1;
+	    break;
+
+	case BSC_read:
+	case BSC_write:
+	case BSC_read_nocancel:
+	case BSC_write_nocancel:
+	    /*
+	     * we don't care about error in these cases
+	     */
+	    fd = ti->arg1;
+	    network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+
+	    if (network_fd_isset) {
+		    if (filter_mode & NETWORK_FILTER)
+			    ret = 1;
+	    } else if (filter_mode & FILESYS_FILTER)
+		    ret = 1;	
+	    break;
+
+	case BSC_accept:
+	case BSC_accept_nocancel:
+	case BSC_socket:
+	    fd = retval;
+
+	    if (error == 0)
+		    fs_usage_fd_set(ti->thread, fd);
+	    if (filter_mode & NETWORK_FILTER)
+		    ret = 1;
+	    break;
+
+	case BSC_recvfrom:
+	case BSC_sendto:
+	case BSC_recvmsg:
+	case BSC_sendmsg:
+	case BSC_connect:
+	case BSC_bind:
+	case BSC_listen:	    
+	case BSC_sendto_nocancel:
+	case BSC_recvfrom_nocancel:
+	case BSC_recvmsg_nocancel:
+	case BSC_sendmsg_nocancel:
+	case BSC_connect_nocancel:
+	    fd = ti->arg1;
+
+	    if (error == 0)
+		    fs_usage_fd_set(ti->thread, fd);
+	    if (filter_mode & NETWORK_FILTER)
+		    ret = 1;
+	    break;
+
+	case BSC_select:
+	case BSC_select_nocancel:
+	case BSC_socketpair:
+	    /*
+	     * Cannot determine info about file descriptors
+	     */
+	    if (filter_mode & NETWORK_FILTER)
+		    ret = 1;
+	    break;
+
+	case BSC_dup:
+	case BSC_dup2:
+	    /*
+	     * We track these cases for fd state only
+	     */
+	    fd = ti->arg1;
+	    network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
+
+	    if (error == 0 && network_fd_isset) {
+		    /*
+		     * then we are duping a socket descriptor
+		     */
+		    fd = retval;  /* the new fd */
+		    fs_usage_fd_set(ti->thread, fd);
+	    }
+	    break;
+
+	default:
+	    if (filter_mode & FILESYS_FILTER)
+		    ret = 1;
+	    break;
+	}
+
 	return(ret);
-    }
-
-    switch (type) {
-    case BSC_close:
-    case BSC_close_nocancel:
-	fd = ti->arg1;
-	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
-	if (error == 0)
-	{
-	    fs_usage_fd_clear(ti->thread,fd);
-	}
-	
-	if (network_fd_isset)
-	{
-	    if (filter_mode & NETWORK_FILTER)
-		ret = 1;
-	}
-	else if (filter_mode & FILESYS_FILTER)
-	    ret = 1;
-	break;
-    case BSC_read:
-    case BSC_write:
-    case BSC_read_nocancel:
-    case BSC_write_nocancel:
-	/* we don't care about error in this case */
-	fd = ti->arg1;
-	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
-	if (network_fd_isset)
-	{
-	    if (filter_mode & NETWORK_FILTER)
-		ret = 1;
-	}
-	else if (filter_mode & FILESYS_FILTER)
-	    ret = 1;	
-	break;
-    case BSC_accept:
-    case BSC_accept_nocancel:
-    case BSC_socket:
-	fd = retval;
-	if (error == 0)
-	    fs_usage_fd_set(ti->thread, fd);
-	if (filter_mode & NETWORK_FILTER)
-	    ret = 1;
-	break;
-    case BSC_recvfrom:
-    case BSC_sendto:
-    case BSC_recvmsg:
-    case BSC_sendmsg:
-    case BSC_connect:
-    case BSC_bind:
-    case BSC_listen:	    
-    case BSC_sendto_nocancel:
-    case BSC_recvfrom_nocancel:
-    case BSC_recvmsg_nocancel:
-    case BSC_sendmsg_nocancel:
-    case BSC_connect_nocancel:
-	fd = ti->arg1;
-	if (error == 0)
-	    fs_usage_fd_set(ti->thread, fd);
-	if (filter_mode & NETWORK_FILTER)
-	    ret = 1;
-	break;
-    case BSC_select:
-    case BSC_select_nocancel:
-    case BSC_socketpair:
-	/* Cannot determine info about file descriptors */
-	if (filter_mode & NETWORK_FILTER)
-	    ret = 1;
-	break;
-    case BSC_dup:
-    case BSC_dup2:
-	ret=0;   /* We track these cases for fd state only */
-	fd = ti->arg1;  /* oldd */
-	network_fd_isset = fs_usage_fd_isset(ti->thread, fd);
-	if (error == 0 && network_fd_isset)
-	{
-	    /* then we are duping a socket descriptor */
-	    fd = retval;  /* the new fd */
-	    fs_usage_fd_set(ti->thread, fd);
-	}
-	break;
-
-    default:
-	if (filter_mode & FILESYS_FILTER)
-	    ret = 1;
-	break;
-    }
-
-    return(ret);
 }
 
 /*
@@ -4752,110 +4884,113 @@ check_filter_mode(struct th_info * ti, int type, int error, int retval, char *sc
 void
 init_arguments_buffer()
 {
+	int     mib[2];
+	size_t  size;
 
-    int     mib[2];
-    size_t  size;
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_ARGMAX;
+	size = sizeof(argmax);
 
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_ARGMAX;
-    size = sizeof(argmax);
-    if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1)
-	return;
-
+	if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1)
+		return;
 #if 1
-    /* Hack to avoid kernel bug. */
-    if (argmax > 8192) {
-	argmax = 8192;
-    }
+	/* Hack to avoid kernel bug. */
+	if (argmax > 8192) {
+		argmax = 8192;
+	}
 #endif
-
-    arguments = (char *)malloc(argmax);
-    
-    return;
+	arguments = (char *)malloc(argmax);
 }
 
 
 int
 get_real_command_name(int pid, char *cbuf, int csize)
 {
-    /*
-     *      Get command and arguments.
-     */
-    char  *cp;
-    int             mib[4];
-    char    *command_beg, *command, *command_end;
+	/*
+	 * Get command and arguments.
+	 */
+	char	*cp;
+	int	mib[4];
+	char    *command_beg, *command, *command_end;
 
-    if (cbuf == NULL) {
-	return(0);
-    }
+	if (cbuf == NULL)
+		return(0);
 
-    if (arguments)
-	bzero(arguments, argmax);
-    else
-	return(0);
+	if (arguments)
+		bzero(arguments, argmax);
+	else
+		return(0);
 
-    /*
-     * A sysctl() is made to find out the full path that the command
-     * was called with.
-     */
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROCARGS2;
-    mib[2] = pid;
-    mib[3] = 0;
+	/*
+	 * A sysctl() is made to find out the full path that the command
+	 * was called with.
+	 */
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROCARGS2;
+	mib[2] = pid;
+	mib[3] = 0;
 
-    if (sysctl(mib, 3, arguments, (size_t *)&argmax, NULL, 0) < 0) {
-	return(0);
-    }
+	if (sysctl(mib, 3, arguments, (size_t *)&argmax, NULL, 0) < 0)
+		return(0);
 
-    /* Skip the saved exec_path. */
-    for (cp = arguments; cp < &arguments[argmax]; cp++) {
-	if (*cp == '\0') {
-	    /* End of exec_path reached. */
-	    break;
+	/*
+	 * Skip the saved exec_path
+	 */
+	for (cp = arguments; cp < &arguments[argmax]; cp++) {
+		if (*cp == '\0') {
+			/*
+			 * End of exec_path reached
+			 */
+			break;
+		}
 	}
-    }
-    if (cp == &arguments[argmax]) {
-	return(0);
-    }
+	if (cp == &arguments[argmax])
+		return(0);
 
-    /* Skip trailing '\0' characters. */
-    for (; cp < &arguments[argmax]; cp++) {
-	if (*cp != '\0') {
-	    /* Beginning of first argument reached. */
-	    break;
+	/*
+	 * Skip trailing '\0' characters
+	 */
+	for (; cp < &arguments[argmax]; cp++) {
+		if (*cp != '\0') {
+			/*
+			 * Beginning of first argument reached
+			 */
+			break;
+		}
 	}
-    }
-    if (cp == &arguments[argmax]) {
-	return(0);
-    }
-    command_beg = cp;
+	if (cp == &arguments[argmax])
+		return(0);
 
-    /*
-     * Make sure that the command is '\0'-terminated.  This protects
-     * against malicious programs; under normal operation this never
-     * ends up being a problem..
-     */
-    for (; cp < &arguments[argmax]; cp++) {
-	if (*cp == '\0') {
-	    /* End of first argument reached. */
-	    break;
+	command_beg = cp;
+	/*
+	 * Make sure that the command is '\0'-terminated.  This protects
+	 * against malicious programs; under normal operation this never
+	 * ends up being a problem..
+	 */
+	for (; cp < &arguments[argmax]; cp++) {
+		if (*cp == '\0') {
+			/*
+			 * End of first argument reached
+			 */
+			break;
+		}
 	}
-    }
-    if (cp == &arguments[argmax]) {
-	return(0);
-    }
-    command_end = command = cp;
+	if (cp == &arguments[argmax])
+		return(0);
 
-    /* Get the basename of command. */
-    for (command--; command >= command_beg; command--) {
-	if (*command == '/') {
-	    command++;
-	    break;
+	command_end = command = cp;
+
+	/*
+	 * Get the basename of command
+	 */
+	for (command--; command >= command_beg; command--) {
+		if (*command == '/') {
+			command++;
+			break;
+		}
 	}
-    }
+	(void) strncpy(cbuf, (char *)command, csize);
+	cbuf[csize-1] = '\0';
 
-    (void) strncpy(cbuf, (char *)command, csize);
-    cbuf[csize-1] = '\0';
-
-    return(1);
+	return(1);
 }

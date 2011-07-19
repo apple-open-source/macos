@@ -14,6 +14,9 @@
   Change History (most recent first):
   
   $Log: MBCBoardViewAccessibility.mm,v $
+  Revision 1.6  2011/02/21 19:53:02  neerache
+  <rdar://problem/9012066> Chess.app should be 10.7 only
+
   Revision 1.5  2008/11/20 23:59:10  neerache
   <rdar://problem/6153077> Chess.app accessibility bug using AXUIElementGetAttributeValueCount
 
@@ -61,7 +64,7 @@
 		&& fSquare == other->fSquare;
 }
 
-- (unsigned)hash {
+- (NSUInteger)hash {
     // Equal objects must hash the same.
     return [fView hash] + fSquare;
 }

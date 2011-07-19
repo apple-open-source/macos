@@ -14,87 +14,31 @@
 #ifndef ARMREGISTERINFO_H
 #define ARMREGISTERINFO_H
 
+#include "ARM.h"
 #include "llvm/Target/TargetRegisterInfo.h"
-#include "ARMGenRegisterInfo.h.inc"
+#include "ARMBaseRegisterInfo.h"
 
 namespace llvm {
   class ARMSubtarget;
-  class TargetInstrInfo;
+  class ARMBaseInstrInfo;
   class Type;
 
-struct ARMRegisterInfo : public ARMGenRegisterInfo {
-  const TargetInstrInfo &TII;
-  const ARMSubtarget &STI;
-private:
-  /// FramePtr - ARM physical register used as frame ptr.
-  unsigned FramePtr;
+namespace ARM {
+  /// SubregIndex - The index of various subregister classes. Note that 
+  /// these indices must be kept in sync with the class indices in the 
+  /// ARMRegisterInfo.td file.
+  enum SubregIndex {
+    SSUBREG_0 = 1,  SSUBREG_1 = 2,  SSUBREG_2 = 3,  SSUBREG_3 = 4,
+    DSUBREG_0 = 5,  DSUBREG_1 = 6,  DSUBREG_2 = 7,  DSUBREG_3 = 8,
+    DSUBREG_4 = 9,  DSUBREG_5 = 10, DSUBREG_6 = 11, DSUBREG_7 = 12,
+    QSUBREG_0 = 13, QSUBREG_1 = 14, QSUBREG_2 = 15, QSUBREG_3 = 16,
+    QQSUBREG_0= 17, QQSUBREG_1= 18
+  };
+}
 
+struct ARMRegisterInfo : public ARMBaseRegisterInfo {
 public:
-  ARMRegisterInfo(const TargetInstrInfo &tii, const ARMSubtarget &STI);
-
-  /// emitLoadConstPool - Emits a load from constpool to materialize the
-  /// specified immediate.
-  void emitLoadConstPool(MachineBasicBlock &MBB,
-                         MachineBasicBlock::iterator &MBBI,
-                         unsigned DestReg, int Val,
-                         unsigned Pred, unsigned PredReg,
-                         const TargetInstrInfo *TII, bool isThumb,
-                         DebugLoc dl) const;
-
-  /// getRegisterNumbering - Given the enum value for some register, e.g.
-  /// ARM::LR, return the number that it corresponds to (e.g. 14).
-  static unsigned getRegisterNumbering(unsigned RegEnum);
-
-  /// Same as previous getRegisterNumbering except it returns true in isSPVFP
-  /// if the register is a single precision VFP register.
-  static unsigned getRegisterNumbering(unsigned RegEnum, bool &isSPVFP);
-
-  /// getPointerRegClass - Return the register class to use to hold pointers.
-  /// This is used for addressing modes.
-  const TargetRegisterClass *getPointerRegClass() const;
-
-  /// Code Generation virtual methods...
-  const TargetRegisterClass *
-    getPhysicalRegisterRegClass(unsigned Reg, MVT VT = MVT::Other) const;
-  const unsigned *getCalleeSavedRegs(const MachineFunction *MF = 0) const;
-
-  const TargetRegisterClass* const*
-  getCalleeSavedRegClasses(const MachineFunction *MF = 0) const;
-
-  BitVector getReservedRegs(const MachineFunction &MF) const;
-
-  bool isReservedReg(const MachineFunction &MF, unsigned Reg) const;
-
-  bool requiresRegisterScavenging(const MachineFunction &MF) const;
-
-  bool hasFP(const MachineFunction &MF) const;
-
-  bool hasReservedCallFrame(MachineFunction &MF) const;
-
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                     MachineBasicBlock &MBB,
-                                     MachineBasicBlock::iterator I) const;
-
-  void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, RegScavenger *RS = NULL) const;
-
-  void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
-                                            RegScavenger *RS = NULL) const;
-
-  void emitPrologue(MachineFunction &MF) const;
-  void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
-
-  // Debug information queries.
-  unsigned getRARegister() const;
-  unsigned getFrameRegister(MachineFunction &MF) const;
-
-  // Exception handling queries.
-  unsigned getEHExceptionRegister() const;
-  unsigned getEHHandlerRegister() const;
-
-  int getDwarfRegNum(unsigned RegNum, bool isEH) const;
-  
-  bool isLowRegister(unsigned Reg) const;
+  ARMRegisterInfo(const ARMBaseInstrInfo &tii, const ARMSubtarget &STI);
 };
 
 } // end namespace llvm

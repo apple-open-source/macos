@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,10 +17,7 @@
 
 
 /*
- * CLCertExtensions.cpp - extensions support. A major component of  DecodedCert.
- *
- * Created 9/8/2000 by Doug Mitchell. 
- * Copyright (c) 2000 by Apple Computer. 
+ * CLCertExtensions.cpp - extensions support. A major component of DecodedCert.
  *
  */
  
@@ -1011,5 +1008,258 @@ void freeFieldQualCertStatements(
 		(CE_QC_Statements *)cssmExt->value.parsedValue;
 	CL_freeQualCertStatements(*cdsaObj, alloc);
 	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+
+/***
+ *** Name Constraints
+ *** CDSA Format:	CE_NameConstraints
+ *** NSS format:	NSS_NameConstraints
+ *** OID: 			CSSMOID_NameConstraints
+ ***/
+void setFieldNameConstraints(		
+	DecodedItem	&cert, 
+	const CssmData &fieldValue)  
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = 
+		verifySetFreeExtension(fieldValue, false);
+	CE_NameConstraints *cdsaObj = 
+		(CE_NameConstraints *)cssmExt->value.parsedValue;
+	SecNssCoder &coder = cert.coder();
+	NSS_NameConstraints *nssObj = 
+		(NSS_NameConstraints *)coder.malloc(
+				sizeof(NSS_NameConstraints));
+	CL_cssmNameConstraintsToNss(*cdsaObj, *nssObj, coder);
+	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
+		kSecAsn1NameConstraintsTemplate); 
+}
+
+bool getFieldNameConstraints( 
+	DecodedItem 		&cert,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue) 
+{
+	const DecodedExten *decodedExt;
+	NSS_NameConstraints *nssObj;
+	CE_NameConstraints *cdsaObj;
+	bool brtn;
+	Allocator &alloc = fieldValue.allocator;
+
+	brtn = cert.GetExtenTop<NSS_NameConstraints, 
+			CE_NameConstraints>(
+		index,
+		numFields,
+		alloc,
+		CSSMOID_NameConstraints,
+		nssObj,
+		cdsaObj,
+		decodedExt);
+	if(!brtn) {
+		return false;
+	}
+	assert(nssObj != NULL);
+	CL_nssNameConstraintsToCssm(*nssObj, *cdsaObj, cert.coder(), alloc);
+	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
+	return true;
+}
+
+void freeFieldNameConstraints (
+	CssmOwnedData		&fieldValue)
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, false);
+	Allocator &alloc = fieldValue.allocator;
+	CE_NameConstraints *cdsaObj = 
+		(CE_NameConstraints *)cssmExt->value.parsedValue;
+	CL_freeCssmNameConstraints(cdsaObj, alloc);
+	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+
+/***
+ *** Policy Mappings
+ *** CDSA Format:	CE_PolicyMappings
+ *** NSS format:	NSS_PolicyMappings
+ *** OID: 			CSSMOID_PolicyMappings
+ ***/
+void setFieldPolicyMappings(		
+	DecodedItem	&cert, 
+	const CssmData &fieldValue)  
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = 
+		verifySetFreeExtension(fieldValue, false);
+	CE_PolicyMappings *cdsaObj = 
+		(CE_PolicyMappings *)cssmExt->value.parsedValue;
+	SecNssCoder &coder = cert.coder();
+	NSS_PolicyMappings *nssObj = 
+		(NSS_PolicyMappings *)coder.malloc(
+				sizeof(NSS_PolicyMappings));
+	CL_cssmPolicyMappingsToNss(*cdsaObj, *nssObj, coder);
+	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
+		kSecAsn1PolicyMappingsTemplate); 
+}
+
+bool getFieldPolicyMappings( 
+	DecodedItem 		&cert,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue) 
+{
+	const DecodedExten *decodedExt;
+	NSS_PolicyMappings *nssObj;
+	CE_PolicyMappings *cdsaObj;
+	bool brtn;
+	Allocator &alloc = fieldValue.allocator;
+
+	brtn = cert.GetExtenTop<NSS_PolicyMappings, 
+			CE_PolicyMappings>(
+		index,
+		numFields,
+		alloc,
+		CSSMOID_PolicyMappings,
+		nssObj,
+		cdsaObj,
+		decodedExt);
+	if(!brtn) {
+		return false;
+	}
+	assert(nssObj != NULL);
+	CL_nssPolicyMappingsToCssm(*nssObj, *cdsaObj, cert.coder(), alloc);
+	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
+	return true;
+}
+
+void freeFieldPolicyMappings (
+	CssmOwnedData		&fieldValue)
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, false);
+	Allocator &alloc = fieldValue.allocator;
+	CE_PolicyMappings *cdsaObj = 
+		(CE_PolicyMappings *)cssmExt->value.parsedValue;
+	CL_freeCssmPolicyMappings(cdsaObj, alloc);
+	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+
+/***
+ *** Policy Constraints
+ *** CDSA Format:	CE_PolicyConstraints
+ *** NSS format:	NSS_PolicyConstraints
+ *** OID: 			CSSMOID_PolicyConstraints
+ ***/
+void setFieldPolicyConstraints(		
+	DecodedItem	&cert, 
+	const CssmData &fieldValue)  
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = 
+		verifySetFreeExtension(fieldValue, false);
+	CE_PolicyConstraints *cdsaObj = 
+		(CE_PolicyConstraints *)cssmExt->value.parsedValue;
+	SecNssCoder &coder = cert.coder();
+	NSS_PolicyConstraints *nssObj = 
+		(NSS_PolicyConstraints *)coder.malloc(
+				sizeof(NSS_PolicyConstraints));
+	CL_cssmPolicyConstraintsToNss(cdsaObj, nssObj, coder);
+	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
+		kSecAsn1PolicyConstraintsTemplate); 
+}
+
+bool getFieldPolicyConstraints( 
+	DecodedItem 		&cert,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue) 
+{
+	const DecodedExten *decodedExt;
+	NSS_PolicyConstraints *nssObj;
+	CE_PolicyConstraints *cdsaObj;
+	bool brtn;
+	Allocator &alloc = fieldValue.allocator;
+
+	brtn = cert.GetExtenTop<NSS_PolicyConstraints, 
+			CE_PolicyConstraints>(
+		index,
+		numFields,
+		alloc,
+		CSSMOID_PolicyConstraints,
+		nssObj,
+		cdsaObj,
+		decodedExt);
+	if(!brtn) {
+		return false;
+	}
+	assert(nssObj != NULL);
+	CL_nssPolicyConstraintsToCssm(nssObj, cdsaObj, cert.coder(), alloc);
+	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
+	return true;
+}
+
+void freeFieldPolicyConstraints (
+	CssmOwnedData		&fieldValue)
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, false);
+	Allocator &alloc = fieldValue.allocator;
+	CE_PolicyConstraints *cdsaObj = 
+		(CE_PolicyConstraints *)cssmExt->value.parsedValue;
+	CL_freeCssmPolicyConstraints(cdsaObj, alloc);
+	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+
+/***
+ *** Inhibit Any Policy
+ *** CDSA Format:	CE_InhibitAnyPolicy (an integer)
+ *** NSS format:	CSSM_DATA, sizeof(uint32)
+ *** OID: 			CSSMOID_InhibitAnyPolicy
+ ***/
+void setFieldInhibitAnyPolicy(		
+	DecodedItem	&cert, 
+	const CssmData &fieldValue) 
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, 
+		false);
+	CE_InhibitAnyPolicy *cdsaObj = 
+		(CE_InhibitAnyPolicy *)cssmExt->value.parsedValue;
+	
+	/* Alloc in cert.coder's memory */
+	SecNssCoder &coder = cert.coder();
+	CSSM_DATA *nssObj = (CSSM_DATA *)coder.malloc(sizeof(CSSM_DATA));
+	coder.allocItem(*nssObj, sizeof(uint32));
+	
+	/* cdsaObj --> nssObj */
+	nssObj->Data[0] = (*cdsaObj) >> 24;
+	nssObj->Data[1] = (*cdsaObj) >> 16;
+	nssObj->Data[2] = (*cdsaObj) >> 8;
+	nssObj->Data[3] = *cdsaObj;
+	
+	/* add to mExtensions */
+	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
+		kSecAsn1IntegerTemplate); 
+}
+
+bool getFieldInhibitAnyPolicy(
+	DecodedItem 		&cert,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue) 
+{
+	const DecodedExten *decodedExt;
+	CSSM_DATA *nssObj;
+	CE_InhibitAnyPolicy *cdsaObj;
+	bool brtn;
+	
+	brtn = cert.GetExtenTop<CSSM_DATA, CE_InhibitAnyPolicy>(
+		index,
+		numFields,
+		fieldValue.allocator,
+		CSSMOID_InhibitAnyPolicy,
+		nssObj,
+		cdsaObj,
+		decodedExt);
+	if(!brtn) {
+		return false;
+	}
+	
+	*cdsaObj = *(nssObj->Data); //%%%FIXME check this
+	
+	/* pass back to caller */
+	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
+	return true;
 }
 

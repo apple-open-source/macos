@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -41,7 +37,7 @@ static char sccsid[] = "@(#)strcmp.c	8.1 (Berkeley) 6/4/93";
 __RCSID("$NetBSD: wcscmp.c,v 1.3 2001/01/05 12:13:12 itojun Exp $");
 #endif
 #endif /* LIBC_SCCS and not lint */
-__FBSDID("$FreeBSD: src/lib/libc/string/wcscmp.c,v 1.7 2002/10/23 11:08:40 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcscmp.c,v 1.9 2009/02/03 17:58:20 danger Exp $");
 
 #include <wchar.h>
 
@@ -49,12 +45,11 @@ __FBSDID("$FreeBSD: src/lib/libc/string/wcscmp.c,v 1.7 2002/10/23 11:08:40 tjr E
  * Compare strings.
  */
 int
-wcscmp(s1, s2)
-	const wchar_t *s1, *s2;
+wcscmp(const wchar_t *s1, const wchar_t *s2)
 {
 
 	while (*s1 == *s2++)
-		if (*s1++ == 0)
+		if (*s1++ == '\0')
 			return (0);
 	/* XXX assumes wchar_t = int */
 	return (*(const unsigned int *)s1 - *(const unsigned int *)--s2);

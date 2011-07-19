@@ -2,12 +2,12 @@
 #
 #	Implementation of docidx objects for Tcl.
 #
-# Copyright (c) 2003-2008 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Copyright (c) 2003-2010 Andreas Kupries <andreas_kupries@sourceforge.net>
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: docidx.tcl,v 1.17 2008/07/08 23:03:58 andreas_kupries Exp $
+# RCS: @(#) $Id: docidx.tcl,v 1.22 2010/06/08 19:13:53 andreas_kupries Exp $
 
 package require Tcl 8.2
 package require textutil::expander
@@ -17,6 +17,7 @@ package require textutil::expander
 # @mdgen OWNER: mpformats/*.tcl
 # @mdgen OWNER: mpformats/*.msg
 # @mdgen OWNER: mpformats/idx.*
+# @mdgen OWNER: mpformats/man.macros
 
 namespace eval ::doctools {}
 namespace eval ::doctools::idx {
@@ -560,9 +561,10 @@ proc ::doctools::idx::SetupFormatter {name format} {
 
     $mpip invokehidden source [file join $here api_idx.tcl]
     #$mpip eval [list source [file join $here api_idx.tcl]]
-    interp alias $mpip dt_source   {} ::doctools::idx::Source $mpip [file dirname $format]
-    interp alias $mpip dt_package  {} ::doctools::Package $mpip
-    interp alias $mpip file        {} ::doctools::FileOp  $mpip
+    interp alias $mpip dt_source   {} ::doctools::idx::Source  $mpip [file dirname $format]
+    interp alias $mpip dt_read     {} ::doctools::idx::Read    $mpip [file dirname $format]
+    interp alias $mpip dt_package  {} ::doctools::idx::Package $mpip
+    interp alias $mpip file        {} ::doctools::idx::FileOp  $mpip
     interp alias $mpip puts_stderr {} ::puts stderr
     $mpip invokehidden source $format
     #$mpip eval [list source $format]
@@ -782,6 +784,7 @@ proc ::doctools::idx::Eval {name macro} {
 
     # Handle the [include] command directly
     if {[string match include* $macro]} {
+	set macro [$chk_ip eval [list subst $macro]]
 	foreach {cmd filename} $macro break
 	return [ExpandInclude $name $filename]
     }
@@ -803,7 +806,7 @@ proc ::doctools::idx::Eval {name macro} {
 proc ::doctools::idx::ExpandInclude {name path} {
     upvar #0 ::doctools::idx::docidx${name}::file file
 
-    set ipath [file join [file dirname $file] $path]
+    set ipath [file normalize [file join [file dirname $file] $path]]
     if {![file exists $ipath]} {
 	set ipath $path
 	if {![file exists $ipath]} {
@@ -817,7 +820,12 @@ proc ::doctools::idx::ExpandInclude {name path} {
 
     upvar #0 ::doctools::idx::docidx${name}::expander  expander
 
-    return [$expander expand $text]
+    set saved $file
+    set file $ipath
+    set res [$expander expand $text]
+    set file $saved
+
+    return $res
 }
 
 # ::doctools::idx::GetUser --
@@ -888,6 +896,53 @@ proc ::doctools::idx::Source {ip path file} {
     return
 }
 
+proc ::doctools::idx::Read {ip path file} {
+    #puts stderr "$ip (read $path $file)"
+
+    return [read [set f [open [file join $path [file tail $file]]]]][close $f]
+}
+
+proc ::doctools::idx::FileOp {ip args} {
+    #puts stderr "$ip (file $args)"
+    # -- FUTURE -- disallow unsafe operations --
+
+    return [eval [linsert $args 0 file]]
+}
+
+proc ::doctools::idx::Package {ip pkg} {
+    #puts stderr "$ip package require $pkg"
+
+    set indexScript [Locate $pkg]
+
+    $ip expose source
+    $ip expose load
+    $ip eval		$indexScript
+    $ip hide   source
+    $ip hide   load
+    #$ip eval [list source [file join $path [file tail $file]]]
+    return
+}
+
+proc ::doctools::idx::Locate {p} {
+    # @mdgen NODEP: doctools::__undefined__
+    catch {package require doctools::__undefined__}
+
+    #puts stderr "auto_path = [join $::auto_path \n]"
+
+    # Check if requested package is in the list of loadable packages.
+    # Then get the highest possible version, and then the index script
+
+    if {[lsearch -exact [package names] $p] < 0} {
+	return -code error "Unknown package $p"
+    }
+
+    set v  [lindex [lsort -increasing [package versions $p]] end]
+
+    #puts stderr "Package $p = $v"
+
+    return [package ifneeded $p $v]
+}
+
 #------------------------------------
 # Module initialization
 
@@ -902,4 +957,4 @@ namespace eval ::doctools::idx {
     catch {search [file join $here                             mpformats]}
 }
 
-package provide doctools::idx 1
+package provide doctools::idx 1.0.4

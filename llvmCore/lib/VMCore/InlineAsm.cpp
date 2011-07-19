@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/InlineAsm.h"
+#include "ConstantsContext.h"
+#include "LLVMContextImpl.h"
 #include "llvm/DerivedTypes.h"
 #include <algorithm>
 #include <cctype>
@@ -23,24 +25,29 @@ InlineAsm::~InlineAsm() {
 }
 
 
-// NOTE: when memoizing the function type, we have to be careful to handle the
-// case when the type gets refined.
-
-InlineAsm *InlineAsm::get(const FunctionType *Ty, const std::string &AsmString,
-                          const std::string &Constraints, bool hasSideEffects) {
-  // FIXME: memoize!
-  return new InlineAsm(Ty, AsmString, Constraints, hasSideEffects);  
+InlineAsm *InlineAsm::get(const FunctionType *Ty, StringRef AsmString,
+                          StringRef Constraints, bool hasSideEffects,
+                          bool isAlignStack) {
+  InlineAsmKeyType Key(AsmString, Constraints, hasSideEffects, isAlignStack);
+  LLVMContextImpl *pImpl = Ty->getContext().pImpl;
+  return pImpl->InlineAsms.getOrCreate(PointerType::getUnqual(Ty), Key);
 }
 
-InlineAsm::InlineAsm(const FunctionType *Ty, const std::string &asmString,
-                     const std::string &constraints, bool hasSideEffects)
-  : Value(PointerType::getUnqual(Ty), 
-          Value::InlineAsmVal), 
+InlineAsm::InlineAsm(const PointerType *Ty, const std::string &asmString,
+                     const std::string &constraints, bool hasSideEffects,
+                     bool isAlignStack)
+  : Value(Ty, Value::InlineAsmVal),
     AsmString(asmString), 
-    Constraints(constraints), HasSideEffects(hasSideEffects) {
+    Constraints(constraints), HasSideEffects(hasSideEffects), 
+    IsAlignStack(isAlignStack) {
 
   // Do various checks on the constraint string and type.
-  assert(Verify(Ty, constraints) && "Function type not legal for constraints!");
+  assert(Verify(getFunctionType(), constraints) &&
+         "Function type not legal for constraints!");
+}
+
+void InlineAsm::destroyConstant() {
+  delete this;
 }
 
 const FunctionType *InlineAsm::getFunctionType() const {
@@ -50,9 +57,9 @@ const FunctionType *InlineAsm::getFunctionType() const {
 /// Parse - Analyze the specified string (e.g. "==&{eax}") and fill in the
 /// fields in this structure.  If the constraint string is not understood,
 /// return true, otherwise return false.
-bool InlineAsm::ConstraintInfo::Parse(const std::string &Str,
+bool InlineAsm::ConstraintInfo::Parse(StringRef Str,
                      std::vector<InlineAsm::ConstraintInfo> &ConstraintsSoFar) {
-  std::string::const_iterator I = Str.begin(), E = Str.end();
+  StringRef::iterator I = Str.begin(), E = Str.end();
   
   // Initialize
   Type = isInput;
@@ -111,13 +118,13 @@ bool InlineAsm::ConstraintInfo::Parse(const std::string &Str,
   while (I != E) {
     if (*I == '{') {   // Physical register reference.
       // Find the end of the register name.
-      std::string::const_iterator ConstraintEnd = std::find(I+1, E, '}');
+      StringRef::iterator ConstraintEnd = std::find(I+1, E, '}');
       if (ConstraintEnd == E) return true;  // "{foo"
       Codes.push_back(std::string(I, ConstraintEnd+1));
       I = ConstraintEnd+1;
     } else if (isdigit(*I)) {     // Matching Constraint
       // Maximal munch numbers.
-      std::string::const_iterator NumStart = I;
+      StringRef::iterator NumStart = I;
       while (I != E && isdigit(*I))
         ++I;
       Codes.push_back(std::string(NumStart, I));
@@ -145,16 +152,16 @@ bool InlineAsm::ConstraintInfo::Parse(const std::string &Str,
 }
 
 std::vector<InlineAsm::ConstraintInfo>
-InlineAsm::ParseConstraints(const std::string &Constraints) {
+InlineAsm::ParseConstraints(StringRef Constraints) {
   std::vector<ConstraintInfo> Result;
   
   // Scan the constraints string.
-  for (std::string::const_iterator I = Constraints.begin(), 
-       E = Constraints.end(); I != E; ) {
+  for (StringRef::iterator I = Constraints.begin(),
+         E = Constraints.end(); I != E; ) {
     ConstraintInfo Info;
 
     // Find the end of this constraint.
-    std::string::const_iterator ConstraintEnd = std::find(I, E, ',');
+    StringRef::iterator ConstraintEnd = std::find(I, E, ',');
 
     if (ConstraintEnd == I ||  // Empty constraint like ",,"
         Info.Parse(std::string(I, ConstraintEnd), Result)) {
@@ -179,7 +186,7 @@ InlineAsm::ParseConstraints(const std::string &Constraints) {
 
 /// Verify - Verify that the specified constraint string is reasonable for the
 /// specified function type, and otherwise validate the constraint string.
-bool InlineAsm::Verify(const FunctionType *Ty, const std::string &ConstStr) {
+bool InlineAsm::Verify(const FunctionType *Ty, StringRef ConstStr) {
   if (Ty->isVarArg()) return false;
   
   std::vector<ConstraintInfo> Constraints = ParseConstraints(ConstStr);
@@ -213,10 +220,10 @@ bool InlineAsm::Verify(const FunctionType *Ty, const std::string &ConstStr) {
   
   switch (NumOutputs) {
   case 0:
-    if (Ty->getReturnType() != Type::VoidTy) return false;
+    if (!Ty->getReturnType()->isVoidTy()) return false;
     break;
   case 1:
-    if (isa<StructType>(Ty->getReturnType())) return false;
+    if (Ty->getReturnType()->isStructTy()) return false;
     break;
   default:
     const StructType *STy = dyn_cast<StructType>(Ty->getReturnType());

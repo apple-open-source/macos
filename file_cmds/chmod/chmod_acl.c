@@ -362,9 +362,16 @@ compare_acl_entries(acl_entry_t a, acl_entry_t b)
 	acl_permset_t aperms, bperms;
 	acl_flagset_t aflags, bflags;
 	int pcmp = 0, fcmp = 0;
+	void *aqual, *bqual;
 
-	if (0 != compare_acl_qualifiers(acl_get_qualifier(a), 
-					acl_get_qualifier(b)))
+	aqual = acl_get_qualifier(a);
+	bqual = acl_get_qualifier(b);
+
+	int compare = compare_acl_qualifiers(aqual, bqual);
+	acl_free(aqual);
+	acl_free(bqual);
+
+	if (compare != 0)
 		return MATCH_NONE;
 
 	if (0 != acl_get_tag_type(a, &atag))

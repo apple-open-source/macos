@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 5.45 2008/10/03 17:05:14 andreas_kupries Exp $
+# RCS: @(#) $Id: Makefile.in,v 5.47 2010/09/01 21:32:32 andreas_kupries Exp $
 
 #========================================================================
 #========================================================================
@@ -103,7 +103,7 @@ PKG_LIB_FILE	= @PKG_LIB_FILE@
 PKG_STUB_LIB_FILE = @PKG_STUB_LIB_FILE@
 
 lib_BINARIES	= $(PKG_LIB_FILE)
-bin_BINARIES	= expect expectk
+bin_BINARIES	= expect
 BINARIES	= $(lib_BINARIES) $(bin_BINARIES)
 
 SHELL		= @SHELL@
@@ -154,8 +154,6 @@ STLIB_LD	= @STLIB_LD@
 TCL_DEFS	= @TCL_DEFS@
 TCL_BIN_DIR	= @TCL_BIN_DIR@
 TCL_SRC_DIR	= @TCL_SRC_DIR@
-# This is necessary for packages that use private Tcl headers
-TCL_TOP_DIR_NATIVE	= @TCL_TOP_DIR_NATIVE@
 # Not used, but retained for reference of what libs Tcl required
 TCL_LIBS	= @TCL_LIBS@
 
@@ -175,7 +173,7 @@ TCLSH_PROG	= @TCLSH_PROG@
 TCLSH		= $(TCLSH_ENV) $(TCLSH_PROG)
 SHARED_BUILD	= @SHARED_BUILD@
 
-INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@ @TK_INCLUDES@
+INCLUDES	= @PKG_INCLUDES@ @TCL_INCLUDES@
 
 PKG_CFLAGS	= @PKG_CFLAGS@
 
@@ -255,11 +253,9 @@ install-doc: doc
 	@mkdir -p $(DESTDIR)$(mandir)/man1
 	@mkdir -p $(DESTDIR)$(mandir)/man3
 	@echo "Installing documentation in $(DESTDIR)$(mandir)"
-# install Expectk man page if present
-	$(INSTALL_DATA) $(srcdir)/expectk.man $(DESTDIR)$(mandir)/man1/expectk.1 ; \
 # install Expect man page
 	$(INSTALL_DATA) $(srcdir)/expect.man $(DESTDIR)$(mandir)/man1/expect.1
-# install man page for Expect and Expectk libraries
+# install man page for Expect library
 	$(INSTALL_DATA) $(srcdir)/libexpect.man $(DESTDIR)$(mandir)/man3/libexpect.3
 	-for i in $(SCRIPT_MANPAGE_LIST) ; do \
 	  if [ -f $(srcdir)/example/$$i.man ] ; then \
@@ -272,6 +268,9 @@ test: binaries libraries
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)
+
+expectshell: binaries libraries
+	@$(TCLSH_ENV) expect $(SCRIPT)
 
 gdb:
 	$(TCLSH_ENV) gdb $(TCLSH_PROG) $(SCRIPT)
@@ -330,7 +329,8 @@ pkgIndex.tcl:
 	( echo pkg_mkIndex . $(PKG_LIB_FILE) \; exit; ) | $(TCLSH)
 
 pkgIndex.tcl-hand:
-	(echo 'package ifneeded Expect $(PACKAGE_VERSION) \
+	(echo 'if {![package vsatisfies [package provide Tcl] @TCL_VERSION@]} {return}' ; \
+	 echo 'package ifneeded Expect $(PACKAGE_VERSION) \
 	    [list load [file join $$dir $(PKG_LIB_FILE)]]'\
 	) > pkgIndex.tcl
 
@@ -397,39 +397,26 @@ dist_orig:
 $(SCRIPTS):
 	$(TCLSH) $(srcdir)/fixline1 $(SHORT_BINDIR) < $(srcdir)/example/$@ > $@
 
-## We cannot use @TCL_LIBS@ below (after TCL_LIB_SPEC) because its
-## expansion references the contents of @LIBS@, which contains linker
+## We cannot use TCL_LIBS below (after TCL_LIB_SPEC) because its
+## expansion references the contents of LIBS, which contains linker
 ## options we cannot use here (and which is what we are replacing in
 ## the first place).
 
 expect:	exp_main_exp.o $(PKG_LIB_FILE)
 	$(CC) \
 		@CFLAGS@ \
-		@EXP_CFLAGS@ \
-		@EXP_SHLIB_CFLAGS@ \
 		@TCL_LD_FLAGS@ \
 		-o expect exp_main_exp.o \
 		@EXP_BUILD_LIB_SPEC@ \
 		@TCL_LIB_SPEC@ \
-		@DL_LIBS@ @PKG_LIBS@ @MATH_LIBS@ \
+		@TCL_DL_LIBS@ @PKG_LIBS@ @MATH_LIBS@ \
 		@TCL_CC_SEARCH_FLAGS@ \
 		@EXP_CC_SEARCH_FLAGS@
 	$(SETUID) expect
 
-expectk: exp_main_tk.o $(PKG_LIB_FILE)
-	$(CC) \
-		@CFLAGS@ \
-		@EXP_CFLAGS@ \
-		@EXP_SHLIB_CFLAGS@ \
-		@TCL_LD_FLAGS@ \
-		-o expectk exp_main_tk.o \
-		@EXP_BUILD_LIB_SPEC@ \
-		@TK_LIB_SPEC@ \
-		@TCL_LIB_SPEC@ \
-		@TK_LIBS@ \
-		@TCL_CC_SEARCH_FLAGS@ \
-		@EXP_CC_SEARCH_FLAGS@
-	$(SETUID) expectk
+expectk:
+	@echo "expectk remove from distribution"
+	@echo "use tclsh with package require Tk and Expect"
 
 #========================================================================
 # Produce FAQ and homepage

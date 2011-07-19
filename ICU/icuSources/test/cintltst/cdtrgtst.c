@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -63,7 +63,7 @@ void Test4029195()
     df = udat_open(UDAT_DEFAULT,UDAT_DEFAULT ,"en_US", NULL, 0, NULL, 0, &status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using default date and time style : %s\n", myErrorName(status));
+        log_data_err("FAIL: error in creating the dateformat using default date and time style : %s (Are you missing data?)\n", myErrorName(status));
         return;
     }
     resultlength=0;
@@ -143,7 +143,8 @@ void Test4056591()
     log_verbose("Testing s[get] 2 digit year start regressively\n");
     cal=ucal_open(NULL, 0, "en_US", UCAL_GREGORIAN, &status);
     if(U_FAILURE(status)){
-        log_err("error in ucal_open caldef : %s\n", myErrorName(status));
+        log_data_err("error in ucal_open caldef : %s - (Are you missing data?)\n", myErrorName(status));
+        return;
     }
     ucal_setDateTime(cal, 1809, UCAL_DECEMBER, 25, 17, 40, 30, &status);
     d[0]=ucal_getMillis(cal, &status);
@@ -162,7 +163,7 @@ void Test4056591()
     def = udat_open(UDAT_IGNORE,UDAT_IGNORE,NULL, NULL, 0, pat, u_strlen(pat), &status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using u_openPattern(): %s\n", myErrorName(status));
+        log_err_status(status, "FAIL: error in creating the dateformat using u_openPattern(): %s\n", myErrorName(status));
         return;
     }
     start = 1800;
@@ -213,7 +214,7 @@ void Test4059917()
     def = udat_open(UDAT_IGNORE,UDAT_IGNORE,NULL,tzID,-1,pattern, u_strlen(pattern),&status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using openPattern: %s\n", myErrorName(status));
+        log_data_err("FAIL: error in creating the dateformat using openPattern: %s - (Are you missing data?)\n", myErrorName(status));
         return;
     }
     myDate=(UChar*)malloc(sizeof(UChar) * 11);
@@ -292,7 +293,7 @@ void Test4060212()
     fmt = udat_open(UDAT_FULL,UDAT_LONG ,NULL, tzID, -1, NULL, 0, &status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using default date and time style: %s\n", 
+        log_data_err("FAIL: error in creating the dateformat using default date and time style: %s - (Are you missing data?)\n", 
                         myErrorName(status) );
         return;
     }
@@ -330,7 +331,7 @@ void Test4061287()
     log_verbose("Testing parsing by changing the attribute lenient\n");
     df = udat_open(UDAT_IGNORE,UDAT_IGNORE,NULL,NULL,0,pattern, u_strlen(pattern),&status);
     if(U_FAILURE(status)){
-        log_err("ERROR: failure in open pattern of test4061287: %s\n", myErrorName(status));
+        log_data_err("ERROR: failure in open pattern of test4061287: %s - (Are you missing data?)\n", myErrorName(status));
         return;
     }
 
@@ -385,7 +386,7 @@ void Test4073003()
     fmt= udat_open(UDAT_SHORT,UDAT_SHORT ,NULL, NULL, 0, NULL, 0, &status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using short date and time style: %s\n", 
+        log_data_err("FAIL: error in creating the dateformat using short date and time style: %s (Are you missing data?)\n", 
             myErrorName(status));
         return;
     }
@@ -478,7 +479,7 @@ void Test714(void)
     fmt= udat_open(UDAT_MEDIUM,UDAT_NONE ,"en_US_CA", NULL, -1, NULL, 0, &status);
     if(U_FAILURE(status))
     {
-        log_err("FAIL: error in creating the dateformat using medium time style and NO date style: %s\n", 
+        log_data_err("FAIL: error in creating the dateformat using medium time style and NO date style: %s (Are you missing data?)\n", 
             myErrorName(status));
         return;
     }
@@ -502,7 +503,7 @@ void Test714(void)
 
 enum { DATE_TEXT_MAX_CHARS = 64 };
 static const UChar zonePST[] = { 0x50,0x53,0x54,0 }; /* "PST" */
-static const UDate july022008 = 1.215e+12; /* 02 July 2008 5:00 AM PDT (approx ICU 4.0 release date :-) */
+static const UDate july022008 = 1215000001979.0; /* 02 July 2008 5:00:01.979 AM PDT (near ICU 4.0 release date :-) */
 static const double dayMillisec = 8.64e+07;
 
 static const UChar dMyGGGPattern[]   = { 0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0x20,0x47,0x47,0x47,0 };           /* "dd MMM yyyy GGG" */
@@ -513,8 +514,8 @@ static const UChar edMyPattern[]     = { 0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D
 static const UChar eedMyPattern[]    = { 0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "ee dd MMM yyyy" */
 static const UChar cdMyPattern[]     = { 0x63,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                     /* "c dd MMM yyyy" */
 static const UChar ccdMyPattern[]    = { 0x63,0x63,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "cc dd MMM yyyy" */
-static const UChar edMyText[]        = { 0x33,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                     /* "3 02 Jul 2008" */
-static const UChar eedMyText[]       = { 0x30,0x33,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                /* "03 02 Jul 2008" */
+static const UChar edMyText[]        = { 0x34,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                     /* "4 02 Jul 2008" */
+static const UChar eedMyText[]       = { 0x30,0x34,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                /* "04 02 Jul 2008" */
 static const UChar eeedMyPattern[]   = { 0x65,0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };           /* "eee dd MMM yyyy" */
 static const UChar EEEdMyPattern[]   = { 0x45,0x45,0x45,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };           /* "EEE dd MMM yyyy" */
 static const UChar EEdMyPattern[]    = { 0x45,0x45,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 };                /* "EE dd MMM yyyy" */
@@ -523,9 +524,15 @@ static const UChar eeeedMyPattern[]  = { 0x65,0x65,0x65,0x65,0x20,0x64,0x64,0x20
 static const UChar eeeedMyText[]     = { 0x57,0x65,0x64,0x6E,0x65,0x73,0x64,0x61,0x79,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 }; /* "Wednesday 02 Jul 2008" */
 static const UChar eeeeedMyPattern[] = { 0x65,0x65,0x65,0x65,0x65,0x20,0x64,0x64,0x20,0x4D,0x4D,0x4D,0x20,0x79,0x79,0x79,0x79,0 }; /* "eeeee dd MMM yyyy" */
 static const UChar eeeeedMyText[]    = { 0x57,0x20,0x30,0x32,0x20,0x4A,0x75,0x6C,0x20,0x32,0x30,0x30,0x38,0 };                     /* "W 02 Jul 2008" */
-static const UChar ewYPattern[]      = { 0x65,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                					       /* "e ww YYYY" */
-static const UChar cwYPattern[]      = { 0x63,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                					       /* "c ww YYYY" */
-static const UChar ewYText[]         = { 0x33,0x20,0x32,0x37,0x20,0x32,0x30,0x30,0x38,0 };                					       /* "3 27 2008" */
+static const UChar ewYPattern[]      = { 0x65,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                                         /* "e ww YYYY" */
+static const UChar cwYPattern[]      = { 0x63,0x20,0x77,0x77,0x20,0x59,0x59,0x59,0x59,0 };                                         /* "c ww YYYY" */
+static const UChar ewYText[]         = { 0x34,0x20,0x32,0x37,0x20,0x32,0x30,0x30,0x38,0 };                                         /* "4 27 2008" */
+static const UChar HHmmssPattern[]   = { 0x48,0x48,0x3A,0x6D,0x6D,0x3A,0x73,0x73,0 };                                              /* "HH:mm:ss" */
+static const UChar HHmmssText[]      = { 0x30,0x35,0x3A,0x30,0x30,0x3A,0x30,0x31,0 };                                              /* "05:00:01" */
+static const UChar ssSPattern[]      = { 0x73,0x73,0x2E,0x53,0 };                                                                  /* "ss.S" */
+static const UChar ssSText[]         = { 0x30,0x31,0x2E,0x39,0 };                                                                  /* "01.9" */
+static const UChar ssSSPattern[]     = { 0x73,0x73,0x2E,0x53,0x53,0 };                                                             /* "ss.SS" */
+static const UChar ssSSText[]        = { 0x30,0x31,0x2E,0x39,0x37,0 };                                                             /* "01.97" */
 
 typedef struct {
     const UChar * pattern;
@@ -546,6 +553,9 @@ static const DatePatternAndText datePatternsAndText[] = {
     { eeeeedMyPattern, eeeeedMyText, "eeeee dd MMM yyyy" },
     { ewYPattern,      ewYText,      "e ww YYYY"         },
     { cwYPattern,      ewYText,      "c ww YYYY"         },
+    { HHmmssPattern,   HHmmssText,   "* HH:mm:ss"        }, /* '*' at start means don't check value from parse (won't be july022008) */
+    { ssSPattern,      ssSText,      "* ss.S"            },
+    { ssSSPattern,     ssSSText,     "* ss.SS"           },
     { NULL,            NULL,         NULL                }
 };
 void Test_GEec(void)
@@ -556,6 +566,7 @@ void Test_GEec(void)
         const DatePatternAndText *patTextPtr;
         for (patTextPtr = datePatternsAndText; patTextPtr->pattern != NULL; ++patTextPtr) {
             UChar   dmyGnText[DATE_TEXT_MAX_CHARS];
+            char    byteText[3*DATE_TEXT_MAX_CHARS];
             int32_t dmyGnTextLen;
             UDate   dateResult;
 
@@ -565,20 +576,20 @@ void Test_GEec(void)
                 log_err("FAIL: udat_format with %s: %s\n", patTextPtr->label, myErrorName(status) );
                 status = U_ZERO_ERROR;
             } else if ( u_strcmp(dmyGnText, patTextPtr->text) != 0 ) {
-                log_err("FAIL: udat_format with %s: wrong UChar[] result\n", patTextPtr->label );
+                log_err("FAIL: udat_format with %s: wrong UChar[] result %s\n", patTextPtr->label, u_austrcpy(byteText,dmyGnText) );
             }
 
             dateResult = udat_parse(dtfmt, patTextPtr->text, -1, NULL, &status); /* no time, dateResult != july022008 by some hours */
             if ( U_FAILURE(status) ) {
                 log_err("FAIL: udat_parse with %s: %s\n", patTextPtr->label, myErrorName(status) );
                 status = U_ZERO_ERROR;
-            } else if ( july022008 - dateResult > dayMillisec ) {
+            } else if ( patTextPtr->label[0] != '*' && july022008 - dateResult > dayMillisec ) {
                 log_err("FAIL: udat_parse with %s: wrong UDate result\n", patTextPtr->label );
             }
         }
         udat_close(dtfmt);
     } else {
-        log_err("FAIL: udat_open fails: %s\n", myErrorName(status));
+        log_data_err("FAIL: udat_open fails: %s (Are you missing data?)\n", myErrorName(status));
     }
 }
 

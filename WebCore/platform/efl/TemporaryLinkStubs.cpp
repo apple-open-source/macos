@@ -30,6 +30,7 @@
 #include "config.h"
 
 #include "AXObjectCache.h"
+#include "CookieStorage.h"
 #include "Editor.h"
 #include "FTPDirectoryDocument.h"
 #include "FrameView.h"
@@ -55,10 +56,19 @@ String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String &ch
     return String();
 }
 
-float userIdleTime()
+void setCookieStoragePrivateBrowsingEnabled(bool)
 {
     notImplemented();
-    return FLT_MAX;
+}
+
+void startObservingCookieChanges()
+{
+    notImplemented();
+}
+
+void stopObservingCookieChanges()
+{
+    notImplemented();
 }
 
 }

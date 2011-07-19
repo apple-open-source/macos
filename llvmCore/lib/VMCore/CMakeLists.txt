@@ -6,17 +6,21 @@ add_llvm_library(LLVMCore
   ConstantFold.cpp
   Constants.cpp
   Core.cpp
+  DebugLoc.cpp
   Dominators.cpp
   Function.cpp
+  GVMaterializer.cpp
   Globals.cpp
+  IRBuilder.cpp
   InlineAsm.cpp
   Instruction.cpp
   Instructions.cpp
   IntrinsicInst.cpp
+  LLVMContext.cpp
+  LLVMContextImpl.cpp
   LeakDetector.cpp
-  Mangler.cpp
+  Metadata.cpp
   Module.cpp
-  ModuleProvider.cpp
   Pass.cpp
   PassManager.cpp
   PrintModulePass.cpp

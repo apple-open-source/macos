@@ -191,7 +191,7 @@ static CSSM_RETURN tpIssuerCertViaNet(
 	if(crtn) {
 		tpErrorLog("tpIssuerCertViaNet: net fetch failed\n");
 		return CSSMERR_APPLETP_CERT_NOT_FOUND_FROM_ISSUER;
-	}
+	}	
 	try {
 		issuer = new TPCertInfo(clHand,
 			cspHand,

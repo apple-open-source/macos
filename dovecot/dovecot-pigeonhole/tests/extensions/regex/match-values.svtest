@@ -1,0 +1,72 @@
+require "vnd.dovecot.testsuite";
+
+require "regex";
+require "variables";
+
+test_set "message" text:
+From: Andy Howell <AndyHowell@example.com>
+Sender: antlr-interest-bounces@ant.example.com
+To: Stephan Bosch <stephan@example.org>
+Subject: [Dovecot] Sieve regex match problem
+
+Hi,
+
+I is broken.
+.
+;
+
+test "Basic match values 1" {
+	if header :regex ["Sender"] ["([^-@]*)-([^-@]*)(-bounces)?@ant.example.com"] {
+
+		if not string :is "${1}" "antlr" {
+			test_fail "first match value is not correct";
+		}	
+
+		if not string :is "${2}" "interest" {
+			test_fail "second match value is not correct";
+		}	
+
+		if not string :is "${3}" "-bounces" {
+			test_fail "third match value is not correct";
+		}	
+
+		if string :is "${4}" "-bounces" {
+			test_fail "fourth match contains third value";
+		}
+	} else {
+		test_fail "failed to match";
+	}
+}
+
+test "Basic match values 2" {
+	if header :regex ["Sender"] ["(.*>[ \\t]*,?[ \\t]*)?([^-@]*)-([^-@]*)(-bounces)?@ant.example.com"] {
+
+		if not string :is "${1}" "" {
+			test_fail "first match value is not correct: ${1}";
+		}
+
+		if not string :is "${2}" "antlr" {
+			test_fail "second match value is not correct: ${2}";
+		}	
+
+		if not string :is "${3}" "interest" {
+			test_fail "third match value is not correct: ${3}";
+		}	
+
+		if not string :is "${4}" "-bounces" {
+			test_fail "fourth match value is not correct: ${4}";
+		}	
+
+		if string :is "${5}" "-bounces" {
+			test_fail "fifth match contains fourth value: ${5}";
+		}
+	} else {
+		test_fail "failed to match";
+	}
+}
+
+
+
+
+
+

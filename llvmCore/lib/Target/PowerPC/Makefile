@@ -6,6 +6,7 @@
 # License. See LICENSE.TXT for details.
 #
 ##===----------------------------------------------------------------------===##
+
 LEVEL = ../../..
 LIBRARYNAME = LLVMPowerPCCodeGen
 TARGET = PPC
@@ -17,6 +18,6 @@ BUILT_SOURCES = PPCGenInstrNames.inc PPCGenRegisterNames.inc \
                 PPCGenInstrInfo.inc PPCGenDAGISel.inc \
                 PPCGenSubtarget.inc PPCGenCallingConv.inc
 
-DIRS = AsmPrinter
+DIRS = AsmPrinter TargetInfo
 
 include $(LEVEL)/Makefile.common

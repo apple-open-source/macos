@@ -1,0 +1,721 @@
+/* config.h.in.  Generated from configure.in by autoheader.  */
+
+/* Define if building universal (internal helper macro) */
+#undef AC_APPLE_UNIVERSAL_BUILD
+
+/* APPLE */
+#undef APPLE_OS_X_SERVER
+
+/* Define if you have buggy CMSG macros */
+#undef BUGGY_CMSG_MACROS
+
+/* Build with Berkeley DB support */
+#undef BUILD_DB
+
+/* Built-in MySQL support */
+#undef BUILD_MYSQL
+
+/* Built-in PostgreSQL support */
+#undef BUILD_PGSQL
+
+/* Built-in SQLite support */
+#undef BUILD_SQLITE
+
+/* GSSAPI support is built in */
+#undef BUILTIN_GSSAPI
+
+/* LDAP support is built in */
+#undef BUILTIN_LDAP
+
+/* IMAP capabilities advertised in banner */
+#undef CAPABILITY_BANNER_STRING
+
+/* IMAP capabilities */
+#undef CAPABILITY_STRING
+
+/* Define if _XPG6 macro is needed for crypt() */
+#undef CRYPT_USE_XPG6
+
+/* Build with extra debugging checks */
+#undef DEBUG
+
+/* Define if your dev_t is a structure instead of integer type */
+#undef DEV_T_STRUCT
+
+/* Path to /dev/urandom */
+#undef DEV_URANDOM_PATH
+
+/* Disable asserts */
+#undef DISABLE_ASSERTS
+
+/* Dovecot name */
+#undef DOVECOT_NAME
+
+/* Dovecot string */
+#undef DOVECOT_STRING
+
+/* Dovecot version */
+#undef DOVECOT_VERSION
+
+/* How to define flexible array members in structs */
+#undef FLEXIBLE_ARRAY_MEMBER
+
+/* Define to 1 if you have the `backtrace_symbols' function. */
+#undef HAVE_BACKTRACE_SYMBOLS
+
+/* Define if you have bzlib library */
+#undef HAVE_BZLIB
+
+/* Define to 1 if you have the `clearenv' function. */
+#undef HAVE_CLEARENV
+
+/* Define to 1 if you have the `clock_gettime' function. */
+#undef HAVE_CLOCK_GETTIME
+
+/* Define if you have struct dirent->d_type */
+#undef HAVE_DIRENT_D_TYPE
+
+/* Define to 1 if you have the <dirent.h> header file. */
+#undef HAVE_DIRENT_H
+
+/* Define to 1 if you have the `dirfd' function. */
+#undef HAVE_DIRFD
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the <execinfo.h> header file. */
+#undef HAVE_EXECINFO_H
+
+/* Define to 1 if you have the `fallocate' function. */
+#undef HAVE_FALLOCATE
+
+/* Define to 1 if you have the `fcntl' function. */
+#undef HAVE_FCNTL
+
+/* Define if you have fdatasync() */
+#undef HAVE_FDATASYNC
+
+/* Define to 1 if you have the `flock' function. */
+#undef HAVE_FLOCK
+
+/* Define if you have FreeBSD-compatible sendfile() */
+#undef HAVE_FREEBSD_SENDFILE
+
+/* Define to 1 if you have the <gc/gc.h> header file. */
+#undef HAVE_GC_GC_H
+
+/* Define to 1 if you have the <gc.h> header file. */
+#undef HAVE_GC_H
+
+/* Define to 1 if you have the `getmntent' function. */
+#undef HAVE_GETMNTENT
+
+/* Define to 1 if you have the `getpagesize' function. */
+#undef HAVE_GETPAGESIZE
+
+/* Define to 1 if you have the `glob' function. */
+#undef HAVE_GLOB
+
+/* Define to 1 if you have the <glob.h> header file. */
+#undef HAVE_GLOB_H
+
+/* Build with GNUTLS support */
+#undef HAVE_GNUTLS
+
+/* Build with GSSAPI support */
+#undef HAVE_GSSAPI
+
+/* Define to 1 if you have the <gssapi/gssapi_ext.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_EXT_H
+
+/* GSSAPI headers in gssapi/gssapi.h */
+#undef HAVE_GSSAPI_GSSAPI_H
+
+/* Define to 1 if you have the <gssapi/gssapi_krb5.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_KRB5_H
+
+/* GSSAPI headers in gssapi.h */
+#undef HAVE_GSSAPI_H
+
+/* Define to 1 if you have the <gssapi_krb5.h> header file. */
+#undef HAVE_GSSAPI_KRB5_H
+
+/* GSSAPI supports SPNEGO */
+#undef HAVE_GSSAPI_SPNEGO
+
+/* Define to 1 if you have the `gsskrb5_register_acceptor_identity' function.
+   */
+#undef HAVE_GSSKRB5_REGISTER_ACCEPTOR_IDENTITY
+
+/* Define if you have the iconv() function and it works. */
+#undef HAVE_ICONV
+
+/* Define to 1 if you have the `inet_aton' function. */
+#undef HAVE_INET_ATON
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Build with IPv6 support */
+#undef HAVE_IPV6
+
+/* Define to 1 if you have the <jfs/quota.h> header file. */
+#undef HAVE_JFS_QUOTA_H
+
+/* Define to 1 if you have the `kevent' function. */
+#undef HAVE_KEVENT
+
+/* Define to 1 if you have the `kqueue' function. */
+#undef HAVE_KQUEUE
+
+/* Define to 1 if you have the `krb5_gss_register_acceptor_identity' function.
+   */
+#undef HAVE_KRB5_GSS_REGISTER_ACCEPTOR_IDENTITY
+
+/* libcap is installed for cap_init() */
+#undef HAVE_LIBCAP
+
+/* Define to 1 if you have the <libgen.h> header file. */
+#undef HAVE_LIBGEN_H
+
+/* Define if you have libwrap */
+#undef HAVE_LIBWRAP
+
+/* Define to 1 if you have the <linux/dqblk_xfs.h> header file. */
+#undef HAVE_LINUX_DQBLK_XFS_H
+
+/* Define to 1 if you have the <linux/falloc.h> header file. */
+#undef HAVE_LINUX_FALLOC_H
+
+/* Define if you have Linux-compatible mremap() */
+#undef HAVE_LINUX_MREMAP
+
+/* Define if you have Linux-compatible sendfile() */
+#undef HAVE_LINUX_SENDFILE
+
+/* Define to 1 if you have the `lockf' function. */
+#undef HAVE_LOCKF
+
+/* Define to 1 if you have the `madvise' function. */
+#undef HAVE_MADVISE
+
+/* Define to 1 if you have the <malloc.h> header file. */
+#undef HAVE_MALLOC_H
+
+/* Define to 1 if you have the <malloc_np.h> header file. */
+#undef HAVE_MALLOC_NP_H
+
+/* Define to 1 if you have the `malloc_usable_size' function. */
+#undef HAVE_MALLOC_USABLE_SIZE
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <mntent.h> header file. */
+#undef HAVE_MNTENT_H
+
+/* Define if you have dynamic module support */
+#undef HAVE_MODULES
+
+/* Build with MySQL support */
+#undef HAVE_MYSQL
+
+/* Define if your MySQL library has SSL functions */
+#undef HAVE_MYSQL_SSL
+
+/* Define if your MySQL library supports setting cipher */
+#undef HAVE_MYSQL_SSL_CIPHER
+
+/* Define if you don't have C99 compatible vsnprintf() call */
+#undef HAVE_OLD_VSNPRINTF
+
+/* Build with OpenSSL support */
+#undef HAVE_OPENSSL
+
+/* Define to 1 if you have the <openssl/err.h> header file. */
+#undef HAVE_OPENSSL_ERR_H
+
+/* Define if you have openssl/rand.h */
+#undef HAVE_OPENSSL_RAND_H
+
+/* Define to 1 if you have the <openssl/ssl.h> header file. */
+#undef HAVE_OPENSSL_SSL_H
+
+/* Define if you have pam/pam_appl.h */
+#undef HAVE_PAM_PAM_APPL_H
+
+/* Define if you have pam_setcred() */
+#undef HAVE_PAM_SETCRED
+
+/* Build with PostgreSQL support */
+#undef HAVE_PGSQL
+
+/* Define if you have a working posix_fallocate() */
+#undef HAVE_POSIX_FALLOCATE
+
+/* Define if libpq has PQescapeStringConn function */
+#undef HAVE_PQESCAPE_STRING_CONN
+
+/* Define to 1 if you have the `pread' function. */
+#undef HAVE_PREAD
+
+/* Define if you have prctl(PR_SET_DUMPABLE) */
+#undef HAVE_PR_SET_DUMPABLE
+
+/* Define to 1 if you have the `quotactl' function. */
+#undef HAVE_QUOTACTL
+
+/* Define if Q_QUOTACTL exists */
+#undef HAVE_Q_QUOTACTL
+
+/* Define if you have RLIMIT_AS for setrlimit() */
+#undef HAVE_RLIMIT_AS
+
+/* Define if you have RLIMIT_CORE for getrlimit() */
+#undef HAVE_RLIMIT_CORE
+
+/* Define if you have RLIMIT_NPROC for setrlimit() */
+#undef HAVE_RLIMIT_NPROC
+
+/* Define if you wish to retrieve quota of NFS mounted mailboxes */
+#undef HAVE_RQUOTA
+
+/* Define to 1 if you have the <sasl.h> header file. */
+#undef HAVE_SASL_H
+
+/* Define to 1 if you have the <sasl/sasl.h> header file. */
+#undef HAVE_SASL_SASL_H
+
+/* Define if you have security/pam_appl.h */
+#undef HAVE_SECURITY_PAM_APPL_H
+
+/* Define to 1 if you have the `setegid' function. */
+#undef HAVE_SETEGID
+
+/* Define to 1 if you have the `seteuid' function. */
+#undef HAVE_SETEUID
+
+/* Define to 1 if you have the `setpriority' function. */
+#undef HAVE_SETPRIORITY
+
+/* Define to 1 if you have the `setproctitle' function. */
+#undef HAVE_SETPROCTITLE
+
+/* Define to 1 if you have the `setresgid' function. */
+#undef HAVE_SETRESGID
+
+/* Define to 1 if you have the `setreuid' function. */
+#undef HAVE_SETREUID
+
+/* Define to 1 if you have the `setrlimit' function. */
+#undef HAVE_SETRLIMIT
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 'int' if you don't have socklen_t */
+#undef HAVE_SOCKLEN_T
+
+/* Define if you have Solaris-compatible sendfile() */
+#undef HAVE_SOLARIS_SENDFILE
+
+/* Build with SQLite3 support */
+#undef HAVE_SQLITE
+
+/* Build with SSL/TLS support */
+#undef HAVE_SSL
+
+/* Build with OpenSSL compression */
+#undef HAVE_SSL_COMPRESSION
+
+/* Build with TLS hostname support */
+#undef HAVE_SSL_GET_SERVERNAME
+
+/* Define if you have statfs.f_mntfromname */
+#undef HAVE_STATFS_MNTFROMNAME
+
+/* Define if you have statvfs.f_mntfromname */
+#undef HAVE_STATVFS_MNTFROMNAME
+
+/* Define if you have st_?tim timespec fields in struct stat */
+#undef HAVE_STAT_XTIM
+
+/* Define if you have st_?timespec fields in struct stat */
+#undef HAVE_STAT_XTIMESPEC
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strcasecmp' function. */
+#undef HAVE_STRCASECMP
+
+/* Define to 1 if you have the `stricmp' function. */
+#undef HAVE_STRICMP
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define if you have strtoimax function */
+#undef HAVE_STRTOIMAX
+
+/* Define to 1 if you have the `strtoll' function. */
+#undef HAVE_STRTOLL
+
+/* Define to 1 if you have the `strtoq' function. */
+#undef HAVE_STRTOQ
+
+/* Define to 1 if you have the `strtoull' function. */
+#undef HAVE_STRTOULL
+
+/* Define if you have strtoumax function */
+#undef HAVE_STRTOUMAX
+
+/* Define to 1 if you have the `strtouq' function. */
+#undef HAVE_STRTOUQ
+
+/* Define if struct sqblk.dqb_curblocks exists */
+#undef HAVE_STRUCT_DQBLK_CURBLOCKS
+
+/* Define if struct sqblk.dqb_curspace exists */
+#undef HAVE_STRUCT_DQBLK_CURSPACE
+
+/* Define if you have struct iovec */
+#undef HAVE_STRUCT_IOVEC
+
+/* Define if you want to use systemd socket activation */
+#undef HAVE_SYSTEMD
+
+/* Define to 1 if you have the <sys/event.h> header file. */
+#undef HAVE_SYS_EVENT_H
+
+/* Define to 1 if you have the <sys/fs/quota_common.h> header file. */
+#undef HAVE_SYS_FS_QUOTA_COMMON_H
+
+/* Define to 1 if you have the <sys/fs/ufs_quota.h> header file. */
+#undef HAVE_SYS_FS_UFS_QUOTA_H
+
+/* Define to 1 if you have the <sys/mkdev.h> header file. */
+#undef HAVE_SYS_MKDEV_H
+
+/* Define to 1 if you have the <sys/mnttab.h> header file. */
+#undef HAVE_SYS_MNTTAB_H
+
+/* Define to 1 if you have the <sys/quota.h> header file. */
+#undef HAVE_SYS_QUOTA_H
+
+/* Define to 1 if you have the <sys/resource.h> header file. */
+#undef HAVE_SYS_RESOURCE_H
+
+/* Define to 1 if you have the <sys/select.h> header file. */
+#undef HAVE_SYS_SELECT_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/sysmacros.h> header file. */
+#undef HAVE_SYS_SYSMACROS_H
+
+/* Define to 1 if you have the <sys/time.h> header file. */
+#undef HAVE_SYS_TIME_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/uio.h> header file. */
+#undef HAVE_SYS_UIO_H
+
+/* Define to 1 if you have the <sys/utsname.h> header file. */
+#undef HAVE_SYS_UTSNAME_H
+
+/* Define to 1 if you have the <sys/vmount.h> header file. */
+#undef HAVE_SYS_VMOUNT_H
+
+/* Define if you have struct tm->tm_gmtoff */
+#undef HAVE_TM_GMTOFF
+
+/* Define to 1 if you have the <ucontext.h> header file. */
+#undef HAVE_UCONTEXT_H
+
+/* Define to 1 if you have the <ufs/ufs/quota.h> header file. */
+#undef HAVE_UFS_UFS_QUOTA_H
+
+/* Define if you have uintmax_t (C99 type) */
+#undef HAVE_UINTMAX_T
+
+/* Define if you have uint_fast32_t (C99 type) */
+#undef HAVE_UINT_FAST32_T
+
+/* Define to 1 if you have the `uname' function. */
+#undef HAVE_UNAME
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `unsetenv' function. */
+#undef HAVE_UNSETENV
+
+/* Define if you have a native uoff_t type */
+#undef HAVE_UOFF_T
+
+/* Define to 1 if you have the `vsyslog' function. */
+#undef HAVE_VSYSLOG
+
+/* Define to 1 if you have the `walkcontext' function. */
+#undef HAVE_WALKCONTEXT
+
+/* Define to 1 if you have the `writev' function. */
+#undef HAVE_WRITEV
+
+/* Define to 1 if you have the <xfs/xqm.h> header file. */
+#undef HAVE_XFS_XQM_H
+
+/* Define if you have zlib library */
+#undef HAVE_ZLIB
+
+/* Define to 1 if the system has the type `_Bool'. */
+#undef HAVE__BOOL
+
+/* Define if you have __gss_userok() */
+#undef HAVE___GSS_USEROK
+
+/* Define as const if the declaration of iconv() needs const. */
+#undef ICONV_CONST
+
+/* Implement I/O loop with Linux 2.6 epoll() */
+#undef IOLOOP_EPOLL
+
+/* Implement I/O loop with BSD kqueue() */
+#undef IOLOOP_KQUEUE
+
+/* Use Linux dnotify */
+#undef IOLOOP_NOTIFY_DNOTIFY
+
+/* Use Linux inotify */
+#undef IOLOOP_NOTIFY_INOTIFY
+
+/* Use BSD kqueue directory changes notificaton */
+#undef IOLOOP_NOTIFY_KQUEUE
+
+/* No special notify support */
+#undef IOLOOP_NOTIFY_NONE
+
+/* Implement I/O loop with poll() */
+#undef IOLOOP_POLL
+
+/* Implement I/O loop with select() */
+#undef IOLOOP_SELECT
+
+/* Define if you have ldap_initialize */
+#undef LDAP_HAVE_INITIALIZE
+
+/* Define if you have ldap_start_tls_s */
+#undef LDAP_HAVE_START_TLS_S
+
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
+/* APPLE */
+#undef MAC_OS_X
+
+/* List of compiled in mail storages */
+#undef MAIL_STORAGES
+
+/* Required memory alignment */
+#undef MEM_ALIGN_SIZE
+
+/* Define if shared mmaps don't get updated by write()s */
+#undef MMAP_CONFLICTS_WRITE
+
+/* Dynamic module suffix */
+#undef MODULE_SUFFIX
+
+/* Maximum value of off_t */
+#undef OFF_T_MAX
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Support URL */
+#undef PACKAGE_WEBPAGE
+
+/* Build with BSD authentication support */
+#undef PASSDB_BSDAUTH
+
+/* Build with checkpassword passdb support */
+#undef PASSDB_CHECKPASSWORD
+
+/* Build with LDAP support */
+#undef PASSDB_LDAP
+
+/* Build with Open Directory support */
+#undef PASSDB_OD
+
+/* Build with PAM support */
+#undef PASSDB_PAM
+
+/* Build with passwd support */
+#undef PASSDB_PASSWD
+
+/* Build with passwd-file support */
+#undef PASSDB_PASSWD_FILE
+
+/* Build with shadow support */
+#undef PASSDB_SHADOW
+
+/* Build with Tru64 SIA support */
+#undef PASSDB_SIA
+
+/* Build with SQL support */
+#undef PASSDB_SQL
+
+/* Build with vpopmail support */
+#undef PASSDB_VPOPMAIL
+
+/* Defint if pread/pwrite implementation is broken */
+#undef PREAD_BROKEN
+
+/* Define if pread/pwrite needs _XOPEN_SOURCE 500 */
+#undef PREAD_WRAPPERS
+
+/* printf() format for size_t */
+#undef PRIuSIZE_T
+
+/* printf() format for uoff_t */
+#undef PRIuUOFF_T
+
+/* Define if process title can be changed by modifying argv */
+#undef PROCTITLE_HACK
+
+/* The size of `int', as computed by sizeof. */
+#undef SIZEOF_INT
+
+/* The size of `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
+/* The size of `long long', as computed by sizeof. */
+#undef SIZEOF_LONG_LONG
+
+/* The size of `void *', as computed by sizeof. */
+#undef SIZEOF_VOID_P
+
+/* Build SQL drivers as plugins */
+#undef SQL_DRIVER_PLUGINS
+
+/* Maximum value of ssize_t */
+#undef SSIZE_T_MAX
+
+/* reasonable mntctl buffer size */
+#undef STATIC_MTAB_SIZE
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* APPLE made TIME_T_MAX_BITS and TIME_T_SIGNED into functions */
+
+
+/* Define if unsetenv() returns int */
+#undef UNSETENV_RET_INT
+
+/* Define if off_t is int */
+#undef UOFF_T_INT
+
+/* Define if off_t is long */
+#undef UOFF_T_LONG
+
+/* Define if off_t is long long */
+#undef UOFF_T_LONG_LONG
+
+/* Build with checkpassword userdb support */
+#undef USERDB_CHECKPASSWORD
+
+/* Build with LDAP support */
+#undef USERDB_LDAP
+
+/* Build with NSS module support */
+#undef USERDB_NSS
+
+/* Build with Open Directory support */
+#undef USERDB_OD
+
+/* Build with passwd support */
+#undef USERDB_PASSWD
+
+/* Build with passwd-file support */
+#undef USERDB_PASSWD_FILE
+
+/* Build with prefetch userdb support */
+#undef USERDB_PREFETCH
+
+/* Build with SQL support */
+#undef USERDB_SQL
+
+/* Build with vpopmail support */
+#undef USERDB_VPOPMAIL
+
+/* Define if you want to use Boehm GC */
+#undef USE_GC
+
+/* A 'va_copy' style function */
+#undef VA_COPY
+
+/* 'va_lists' cannot be copies as values */
+#undef VA_COPY_AS_ARRAY
+
+/* Version number of package */
+#undef VERSION
+
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define for large files, on AIX-style hosts. */
+#undef _LARGE_FILES
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to 'unsigned int' if you don't have it */
+#undef size_t
+
+/* Define to 'int' if you don't have it */
+#undef ssize_t

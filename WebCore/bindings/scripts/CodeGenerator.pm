@@ -3,8 +3,9 @@
 #
 # Copyright (C) 2005 Nikolas Zimmermann <wildfox@kde.org>
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
-# Copyright (C) 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
+# Copyright (C) Research In Motion Limited 2010. All rights reserved.
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
@@ -24,11 +25,14 @@
 
 package CodeGenerator;
 
+use strict;
+
 use File::Find;
 
 my $useDocument = "";
 my $useGenerator = "";
 my $useOutputDir = "";
+my $useOutputHeadersDir = "";
 my $useDirectories = "";
 my $useLayerOnTop = 0;
 my $preprocessor;
@@ -39,18 +43,16 @@ my $codeGenerator = 0;
 
 my $verbose = 0;
 
-my %primitiveTypeHash = ("int" => 1, "short" => 1, "long" => 1, "long long" => 1,
-                         "unsigned int" => 1, "unsigned short" => 1,
-                         "unsigned long" => 1, "unsigned long long" => 1,
-                         "float" => 1, "double" => 1,
-                         "boolean" => 1, "void" => 1,
-                         "Date" => 1);
+my %numericTypeHash = ("int" => 1, "short" => 1, "long" => 1, "long long" => 1,
+                       "unsigned int" => 1, "unsigned short" => 1,
+                       "unsigned long" => 1, "unsigned long long" => 1,
+                       "float" => 1, "double" => 1);
 
-my %podTypeHash = ("SVGNumber" => 1, "SVGTransform" => 1);
-my %podTypesWithWritablePropertiesHash = ("SVGAngle" => 1, "SVGLength" => 1, "SVGMatrix" => 1, "SVGPoint" => 1, "SVGPreserveAspectRatio" => 1, "SVGRect" => 1);
+my %primitiveTypeHash = ( "boolean" => 1, "void" => 1, "Date" => 1);
+
 my %stringTypeHash = ("DOMString" => 1, "AtomicString" => 1);
 
-my %nonPointerTypeHash = ("DOMTimeStamp" => 1, "CompareHow" => 1, "SVGPaintType" => 1);
+my %nonPointerTypeHash = ("DOMTimeStamp" => 1, "CompareHow" => 1);
 
 my %svgAnimatedTypeHash = ("SVGAnimatedAngle" => 1, "SVGAnimatedBoolean" => 1,
                            "SVGAnimatedEnumeration" => 1, "SVGAnimatedInteger" => 1,
@@ -66,6 +68,28 @@ my %svgAttributesInHTMLHash = ("class" => 1, "id" => 1, "onabort" => 1, "onclick
                                "onmouseup" => 1, "onresize" => 1, "onscroll" => 1,
                                "onunload" => 1);
 
+my %svgTypeNeedingTearOff = (
+    "SVGAngle" => "SVGPropertyTearOff<SVGAngle>",
+    "SVGLength" => "SVGPropertyTearOff<SVGLength>",
+    "SVGLengthList" => "SVGListPropertyTearOff<SVGLengthList>",
+    "SVGMatrix" => "SVGPropertyTearOff<SVGMatrix>",
+    "SVGNumber" => "SVGPropertyTearOff<float>",
+    "SVGNumberList" => "SVGListPropertyTearOff<SVGNumberList>",
+    "SVGPathSegList" => "SVGPathSegListPropertyTearOff",
+    "SVGPoint" => "SVGPropertyTearOff<FloatPoint>",
+    "SVGPointList" => "SVGListPropertyTearOff<SVGPointList>",
+    "SVGPreserveAspectRatio" => "SVGPropertyTearOff<SVGPreserveAspectRatio>",
+    "SVGRect" => "SVGPropertyTearOff<FloatRect>",
+    "SVGStringList" => "SVGStaticListPropertyTearOff<SVGStringList>",
+    "SVGTransform" => "SVGPropertyTearOff<SVGTransform>",
+    "SVGTransformList" => "SVGTransformListPropertyTearOff"
+);
+
+my %svgTypeWithWritablePropertiesNeedingTearOff = (
+    "SVGPoint" => 1,
+    "SVGMatrix" => 1
+);
+
 # Cache of IDL file pathnames.
 my $idlFiles;
 
@@ -78,9 +102,11 @@ sub new
     $useDirectories = shift;
     $useGenerator = shift;
     $useOutputDir = shift;
+    $useOutputHeadersDir = shift;
     $useLayerOnTop = shift;
     $preprocessor = shift;
     $writeDependencies = shift;
+    $verbose = shift;
 
     bless($reference, $object);
     return $reference;
@@ -101,10 +127,10 @@ sub ProcessDocument
     $defines = shift;
 
     my $ifaceName = "CodeGenerator" . $useGenerator;
+    require $ifaceName . ".pm";
 
     # Dynamically load external code generation perl module
-    require $ifaceName . ".pm";
-    $codeGenerator = $ifaceName->new($object, $useOutputDir, $useLayerOnTop, $preprocessor, $writeDependencies);
+    $codeGenerator = $ifaceName->new($object, $useOutputDir, $useOutputHeadersDir, $useLayerOnTop, $preprocessor, $writeDependencies, $verbose);
     unless (defined($codeGenerator)) {
         my $classes = $useDocument->classes;
         foreach my $class (@$classes) {
@@ -272,26 +298,27 @@ sub ParseInterface
         return $interface if $interface->name eq $interfaceName;
     }
 
-    die("Could NOT find interface definition for $interface in $filename");
+    die("Could NOT find interface definition for $interfaceName in $filename");
 }
 
 # Helpers for all CodeGenerator***.pm modules
-sub IsPodType
+
+sub AvoidInclusionOfType
 {
     my $object = shift;
     my $type = shift;
 
-    return 1 if $podTypeHash{$type};
-    return 1 if $podTypesWithWritablePropertiesHash{$type};
+    # Special case: SVGPoint.h / SVGNumber.h do not exist.
+    return 1 if $type eq "SVGPoint" or $type eq "SVGNumber";
     return 0;
 }
 
-sub IsPodTypeWithWriteableProperties
+sub IsNumericType
 {
     my $object = shift;
     my $type = shift;
 
-    return 1 if $podTypesWithWritablePropertiesHash{$type};
+    return 1 if $numericTypeHash{$type};
     return 0;
 }
 
@@ -301,6 +328,7 @@ sub IsPrimitiveType
     my $type = shift;
 
     return 1 if $primitiveTypeHash{$type};
+    return 1 if $numericTypeHash{$type};
     return 0;
 }
 
@@ -318,8 +346,57 @@ sub IsNonPointerType
     my $object = shift;
     my $type = shift;
 
-    return 1 if $nonPointerTypeHash{$type} or $primitiveTypeHash{$type};
+    return 1 if $nonPointerTypeHash{$type} or $primitiveTypeHash{$type} or $numericTypeHash{$type};
     return 0;
+}
+
+sub IsSVGTypeNeedingTearOff
+{
+    my $object = shift;
+    my $type = shift;
+
+    return 1 if exists $svgTypeNeedingTearOff{$type};
+    return 0;
+}
+
+sub IsSVGTypeWithWritablePropertiesNeedingTearOff
+{
+    my $object = shift;
+    my $type = shift;
+
+    return 1 if $svgTypeWithWritablePropertiesNeedingTearOff{$type};
+    return 0;
+}
+
+sub GetSVGTypeNeedingTearOff
+{
+    my $object = shift;
+    my $type = shift;
+
+    return $svgTypeNeedingTearOff{$type} if exists $svgTypeNeedingTearOff{$type};
+    return undef;
+}
+
+sub GetSVGWrappedTypeNeedingTearOff
+{
+    my $object = shift;
+    my $type = shift;
+
+    my $svgTypeNeedingTearOff = $object->GetSVGTypeNeedingTearOff($type);
+    return $svgTypeNeedingTearOff if not $svgTypeNeedingTearOff;
+
+    if ($svgTypeNeedingTearOff =~ /SVGPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGPropertyTearOff<//;
+    } elsif ($svgTypeNeedingTearOff =~ /SVGListPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGListPropertyTearOff<//;
+    } elsif ($svgTypeNeedingTearOff =~ /SVGStaticListPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGStaticListPropertyTearOff<//;
+    }  elsif ($svgTypeNeedingTearOff =~ /SVGTransformListPropertyTearOff/) {
+        $svgTypeNeedingTearOff =~ s/SVGTransformListPropertyTearOff<//;
+    } 
+
+    $svgTypeNeedingTearOff =~ s/>//;
+    return $svgTypeNeedingTearOff;
 }
 
 sub IsSVGAnimatedType
@@ -338,6 +415,7 @@ sub WK_ucfirst
     my ($object, $param) = @_;
     my $ret = ucfirst($param);
     $ret =~ s/Xml/XML/ if $ret =~ /^Xml[^a-z]/;
+
     return $ret;
 }
 
@@ -352,6 +430,12 @@ sub WK_lcfirst
     $ret =~ s/jS/js/ if $ret =~ /^jS/;
     $ret =~ s/xML/xml/ if $ret =~ /^xML/;
     $ret =~ s/xSLT/xslt/ if $ret =~ /^xSLT/;
+
+    # For HTML5 FileSystem API Flags attributes.
+    # (create is widely used to instantiate an object and must be avoided.)
+    $ret =~ s/^create/isCreate/ if $ret =~ /^create$/;
+    $ret =~ s/^exclusive/isExclusive/ if $ret =~ /^exclusive$/;
+
     return $ret;
 }
 
@@ -361,6 +445,136 @@ sub NamespaceForAttributeName
     my ($object, $interfaceName, $attributeName) = @_;
     return "SVGNames" if $interfaceName =~ /^SVG/ && !$svgAttributesInHTMLHash{$attributeName};
     return "HTMLNames";
+}
+
+# Identifies overloaded functions and for each function adds an array with
+# links to its respective overloads (including itself).
+sub LinkOverloadedFunctions
+{
+    my ($object, $dataNode) = @_;
+
+    my %nameToFunctionsMap = ();
+    foreach my $function (@{$dataNode->functions}) {
+        my $name = $function->signature->name;
+        $nameToFunctionsMap{$name} = [] if !exists $nameToFunctionsMap{$name};
+        push(@{$nameToFunctionsMap{$name}}, $function);
+        $function->{overloads} = $nameToFunctionsMap{$name};
+        $function->{overloadIndex} = @{$nameToFunctionsMap{$name}};
+    }
+}
+
+sub AttributeNameForGetterAndSetter
+{
+    my ($generator, $attribute) = @_;
+
+    my $attributeName = $attribute->signature->name;
+    my $attributeType = $generator->StripModule($attribute->signature->type);
+
+    # Avoid clash with C++ keyword.
+    $attributeName = "_operator" if $attributeName eq "operator";
+
+    # SVGAElement defines a non-virtual "String& target() const" method which clashes with "virtual String target() const" in Element.
+    # To solve this issue the SVGAElement method was renamed to "svgTarget", take care of that when calling this method.
+    $attributeName = "svgTarget" if $attributeName eq "target" and $attributeType eq "SVGAnimatedString";
+
+    # SVG animated types need to use a special attribute name.
+    # The rest of the special casing for SVG animated types is handled in the language-specific code generators.
+    $attributeName .= "Animated" if $generator->IsSVGAnimatedType($attributeType);
+
+    return $attributeName;
+}
+
+sub ContentAttributeName
+{
+    my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
+
+    my $contentAttributeName = $attribute->signature->extendedAttributes->{"Reflect"};
+    return undef if !$contentAttributeName;
+
+    $contentAttributeName = lc $generator->AttributeNameForGetterAndSetter($attribute) if $contentAttributeName eq "1";
+
+    my $namespace = $generator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
+
+    $implIncludes->{"${namespace}.h"} = 1;
+    return "WebCore::${namespace}::${contentAttributeName}Attr";
+}
+
+sub GetterExpressionPrefix
+{
+    my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
+
+    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute);
+
+    if (!$contentAttributeName) {
+        return $generator->WK_lcfirst($generator->AttributeNameForGetterAndSetter($attribute)) . "(";
+    }
+
+    my $functionName;
+    if ($attribute->signature->extendedAttributes->{"URL"}) {
+        if ($attribute->signature->extendedAttributes->{"NonEmpty"}) {
+            $functionName = "getNonEmptyURLAttribute";
+        } else {
+            $functionName = "getURLAttribute";
+        }
+    } elsif ($attribute->signature->type eq "boolean") {
+        $functionName = "hasAttribute";
+    } elsif ($attribute->signature->type eq "long") {
+        $functionName = "getIntegralAttribute";
+    } elsif ($attribute->signature->type eq "unsigned long") {
+        $functionName = "getUnsignedIntegralAttribute";
+    } else {
+        $functionName = "getAttribute";
+    }
+
+    return "$functionName($contentAttributeName"
+}
+
+sub SetterExpressionPrefix
+{
+    my ($generator, $implIncludes, $interfaceName, $attribute) = @_;
+
+    my $contentAttributeName = $generator->ContentAttributeName($implIncludes, $interfaceName, $attribute);
+
+    if (!$contentAttributeName) {
+        return "set" . $generator->WK_ucfirst($generator->AttributeNameForGetterAndSetter($attribute)) . "(";
+    }
+
+    my $functionName;
+    if ($attribute->signature->type eq "boolean") {
+        $functionName = "setBooleanAttribute";
+    } elsif ($attribute->signature->type eq "long") {
+        $functionName = "setIntegralAttribute";
+    } elsif ($attribute->signature->type eq "unsigned long") {
+        $functionName = "setUnsignedIntegralAttribute";
+    } else {
+        $functionName = "setAttribute";
+    }
+
+    return "$functionName($contentAttributeName, "
+}
+
+sub ShouldCheckEnums
+{
+    my $dataNode = shift;
+    return not $dataNode->extendedAttributes->{"DontCheckEnums"};
+}
+
+sub GenerateCompileTimeCheckForEnumsIfNeeded
+{
+    my ($object, $dataNode) = @_;
+    my $interfaceName = $dataNode->name;
+    my @checks = ();
+    # If necessary, check that all constants are available as enums with the same value.
+    if (ShouldCheckEnums($dataNode) && @{$dataNode->constants}) {
+        push(@checks, "\n");
+        foreach my $constant (@{$dataNode->constants}) {
+            my $name = $constant->name;
+            my $value = $constant->value;
+            push(@checks, "COMPILE_ASSERT($value == ${interfaceName}::$name, ${interfaceName}Enum${name}IsWrongUseDontCheckEnums);\n");
+        }
+        push(@checks, "\n");
+    }
+    return @checks;
 }
 
 1;

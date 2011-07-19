@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)findfp.c	8.2 (Berkeley) 1/4/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.29 2004/05/22 15:19:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.34 2009/12/05 19:31:38 ed Exp $");
 
 #include <sys/param.h>
 #include <machine/atomic.h>
@@ -57,37 +53,25 @@ int	__sdidinit;
 
 #define	NDYNAMIC 10		/* add ten more whenever necessary */
 
-#define	std(flags, file) \
-  	{0,0,0,flags,file,{0},0,__sF+file,__sclose,__sread,__sseek,__swrite, \
-	 {0}, __sFX + file}
-  /*	 p r w flags file _bf z  cookie      close    read    seek    write */
-  /*     _ub _extra */
+#define	std(flags, file) {		\
+	._flags = (flags),		\
+	._file = (file),		\
+	._cookie = __sF + (file),	\
+	._close = __sclose,		\
+	._read = __sread,		\
+	._seek = __sseek,		\
+	._write = __swrite,		\
+}
 				/* the usual - (stdin + stdout + stderr) */
 static FILE usual[FOPEN_MAX - 3];
-static struct __sFILEX usual_extra[FOPEN_MAX - 3];
 static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
 
-static struct __sFILEX __sFX[3];
-
-/*
- * We can't make this 'static' until 6.0-current due to binary
- * compatibility concerns.  This also means we cannot change the
- * sizeof(FILE) until that time either and must continue to use the
- * __sFILEX stuff to add to FILE.
- */
-FILE __sF[3] = {
+static FILE __sF[3] = {
 	std(__SRD, STDIN_FILENO),
 	std(__SWR, STDOUT_FILENO),
 	std(__SWR|__SNBF, STDERR_FILENO)
 };
 
-/*
- * The following kludge is done to ensure enough binary compatibility
- * with future versions of libc.  Or rather it allows us to work with
- * libraries that have been built with a newer libc that defines these
- * symbols and expects libc to provide them.  We only have need to support
- * i386 and alpha because they are the only "old" systems we have deployed.
- */
 FILE *__stdinp = &__sF[0];
 FILE *__stdoutp = &__sF[1];
 FILE *__stderrp = &__sF[2];
@@ -113,25 +97,17 @@ moreglue(n)
 {
 	struct glue *g;
 	static FILE empty;
-	static struct __sFILEX emptyx;
 	FILE *p;
-	struct __sFILEX *fx;
 
-	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE) +
-	    n * sizeof(struct __sFILEX));
+	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE));
 	if (g == NULL)
 		return (NULL);
 	p = (FILE *)ALIGN(g + 1);
-	fx = (struct __sFILEX *)&p[n];
 	g->next = NULL;
 	g->niobs = n;
 	g->iobs = p;
-	while (--n >= 0) {
-		*p = empty;
-		p->_extra = fx;
-		*p->_extra = emptyx;
-		p++, fx++;
-	}
+	while (--n >= 0)
+		*p++ = empty;
 	return (g);
 }
 
@@ -179,8 +155,8 @@ found:
 	fp->_lb._base = NULL;	/* no line buffer */
 	fp->_lb._size = 0;
 /*	fp->_lock = NULL; */	/* once set always set (reused) */
-	fp->_extra->orientation = 0;
-	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
+	fp->_orientation = 0;
+	memset(&fp->_mbstate, 0, sizeof(mbstate_t));
 	return (fp);
 }
 
@@ -192,7 +168,7 @@ __warn_references(f_prealloc,
 	"warning: this program uses f_prealloc(), which is not recommended.");
 
 void
-f_prealloc()
+f_prealloc(void)
 {
 	struct glue *g;
 	int n;
@@ -233,17 +209,8 @@ _cleanup()
 void
 __sinit()
 {
-	int	i;
 
-	THREAD_LOCK();
-	if (__sdidinit == 0) {
-		/* Set _extra for the usual suspects. */
-		for (i = 0; i < FOPEN_MAX - 3; i++)
-			usual[i]._extra = &usual_extra[i];
-
-		/* Make sure we clean up on exit. */
-		__cleanup = _cleanup;		/* conservative */
-		__sdidinit = 1;
-	}
-	THREAD_UNLOCK();
+	/* Make sure we clean up on exit. */
+	__cleanup = _cleanup;		/* conservative */
+	__sdidinit = 1;
 }

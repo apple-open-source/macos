@@ -10,6 +10,8 @@
 package require pcx
 pcx::register tar
 pcx::tcldep   0.4 needs tcl 8.2
+pcx::tcldep   0.5 needs tcl 8.2
+pcx::tcldep   0.6 needs tcl 8.2
 
 namespace eval ::tar {}
 
@@ -22,6 +24,16 @@ pcx::check 0.4 std ::tar::add \
 	{checkListValues 1 -1 checkFileName}
 	{checkSwitches 1 {
 	    {-dereference checkBoolean}
+	} {}}
+    }}
+pcx::check 0.6 std ::tar::add \
+    {checkSimpleArgs 2 -1 {
+	checkFileName
+	{checkListValues 1 -1 checkFileName}
+	{checkSwitches 1 {
+	    {-dereference checkBoolean}
+	    {-quick checkBoolean}
+	    {-prefix checkWord}
 	} {}}
     }}
 pcx::check 0.4 std ::tar::contents \

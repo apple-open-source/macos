@@ -759,7 +759,8 @@ char *op)
 	    else{
 		if(retry == 0){
 		    if(error_param_message != NULL)
-			as_bad(error_param_message, error_param_count + 1);
+			as_bad("%s (parameter %u)", error_param_message,
+			       error_param_count + 1);
 		    else
 			as_bad("Parameter syntax error (parameter %u)",
 				error_param_count + 1);
@@ -1313,13 +1314,13 @@ int parcnt)
 	    val = insn->exp.X_add_number;
 	    if(seg != SEG_ABSOLUTE){
 		error_param_message = "Parameter error: expression must be "
-				      "absolute (parameter %lu)";
+				      "absolute";
 		return(NULL);
 	    }
 	    if(val & 0x8000){
 		if((val & 0xffff0000) != 0xffff0000){
 		    error_param_message = "Parameter error: expression out of "
-					  "range (parameter %lu)";
+					  "range";
 		    return(NULL);
 		}
 		val = val & 0xffff;
@@ -1327,14 +1328,14 @@ int parcnt)
 	    else{
 		if((val & 0xffff0000) != 0){
 		    error_param_message = "Parameter error: expression out of "
-					  "range (parameter %lu)";
+					  "range";
 		    return(NULL);
 		}
 	    }
 	    if(format->ops[parcnt].type == DS){
 		if((val & 0x3) != 0){
 		    error_param_message = "Parameter error: expression must be "
-					  "a multiple of 4 (parameter %lu)";
+					  "a multiple of 4";
 		    return(NULL);
 		}
 		val >>= 2;
@@ -1410,14 +1411,14 @@ int parcnt)
 	    val = insn->exp.X_add_number;
 	    if(seg != SEG_ABSOLUTE){
 		error_param_message = "Parameter error: expression must be "
-				      "absolute (parameter %lu)";
+				      "absolute";
 		return(NULL);
 	    }
 	    if(format->ops[parcnt].type == SI){
 		if(val & 0x8000){
 		    if((val & 0xffff0000) != 0xffff0000){
 			error_param_message = "Parameter error: expression out "
-					      "of range (parameter %lu)";
+					      "of range";
 			return(NULL);
 		    }
 		    val = val & 0xffff;
@@ -1425,7 +1426,7 @@ int parcnt)
 		else{
 		    if((val & 0xffff0000) != 0){
 			error_param_message = "Parameter error: expression out "
-					      "of range (parameter %lu)";
+					      "of range";
 			return(NULL);
 		    }
 		}
@@ -1433,7 +1434,7 @@ int parcnt)
 	    else if(format->ops[parcnt].type == UI){
 		if((val & 0xffff0000) != 0){
 		    error_param_message = "Parameter error: expression out "
-					  "of range (parameter %lu)";
+					  "of range";
 		    return(NULL);
 		}
 	    }
@@ -1441,7 +1442,7 @@ int parcnt)
 		if((val & 0xffff0000) != 0 &&
 		   (val & 0xffff0000) != 0xffff0000){
 		    error_param_message = "Parameter error: expression out "
-					  "of range (parameter %lu)";
+					  "of range";
 		    return(NULL);
 		}
 		val = val & 0xffff;
@@ -1683,12 +1684,12 @@ uint32_t parcnt)
 
 	if(seg != SEG_ABSOLUTE){
 	    error_param_message = "Parameter error: expression must be "
-				  "absolute (parameter %lu)";
+				  "absolute";
 	    return(NULL);
 	}
 	if(val > 1024 || val < 0){
 	    error_param_message = "Parameter error: expression out "
-				  "of range (parameter %lu)";
+				  "of range";
 	    return(NULL);
 	}
 
@@ -1770,14 +1771,14 @@ uint32_t parcnt)
 	    val = exp.X_add_number;
 	    if(seg != SEG_ABSOLUTE){
 		error_param_message = "Parameter error: expression must be "
-				      "absolute (parameter %lu)";
+				      "absolute";
 		*param = save_c;
 		input_line_pointer = saveptr;
 		return(NULL);
 	    }
 	    if(val >= (1 << format->ops[parcnt].width) || val < 0){
 		error_param_message = "Parameter error: expression out "
-				      "of range (parameter %lu)";
+				      "of range";
 		*param = save_c;
 		input_line_pointer = saveptr;
 		return(NULL);
@@ -1847,14 +1848,14 @@ uint32_t parcnt)
 	    val = exp.X_add_number;
 	    if(seg != SEG_ABSOLUTE){
 		error_param_message = "Parameter error: expression must be "
-				      "absolute (parameter %lu)";
+				      "absolute";
 		*param = save_c;
 		input_line_pointer = saveptr;
 		return(NULL);
 	    }
 	    if(val >= (1 << format->ops[parcnt].width) || val < 0){
 		error_param_message = "Parameter error: expression out "
-				      "of range (parameter %lu)";
+				      "of range";
 		*param = save_c;
 		input_line_pointer = saveptr;
 		return(NULL);
@@ -1915,7 +1916,7 @@ int32_t bit_mask_with_1_bit_set)
 	val = exp.X_add_number;
 	if(seg != SEG_ABSOLUTE){
 	    error_param_message = "Parameter error: expression must be "
-				  "absolute (parameter %lu)";
+				  "absolute";
 	    return(NULL);
 	}
 	if(max_width_zero){
@@ -1928,7 +1929,7 @@ int32_t bit_mask_with_1_bit_set)
 	    temp = val;
 	    if(temp > max || temp < min){
 		error_param_message = "Parameter error: expression out "
-				      "of range (parameter %lu)";
+				      "of range";
 		return(NULL);
 	    }
 	}
@@ -1936,7 +1937,7 @@ int32_t bit_mask_with_1_bit_set)
 	    max = (1 << (format->ops[parcnt].width)) - 1;
 	    if(val > max){
 		error_param_message = "Parameter error: expression out "
-				      "of range (parameter %lu)";
+				      "of range";
 		return(NULL);
 	    }
 	}
@@ -1964,14 +1965,14 @@ int32_t bit_mask_with_1_bit_set)
 		 */
 		if(val == 0 || val != mask){
 		    error_param_message = "Parameter error: expression must "
-				  "have exactly one bit set (parameter %lu)";
+				  "have exactly one bit set";
 		    return(NULL);
 		}
 	    }
 	}
 	if(zero_only == 1 && val != 0){
 	    error_param_message = "Parameter error: expression must have a "
-				  "value of zero (parameter %lu)";
+				  "value of zero";
 	    return(NULL);
 	}
 	if(*param == '\0'){
@@ -2026,7 +2027,7 @@ uint32_t parcnt)
 	val = exp.X_add_number;
 	if(seg != SEG_ABSOLUTE){
 	    error_param_message = "Parameter error: expression must be "
-				  "absolute (parameter %lu)";
+				  "absolute";
 	    return(NULL);
 	}
 	/* Note that we need to allow all 32-bit values for val. */
@@ -2121,14 +2122,14 @@ uint32_t parcnt)
 	val = exp.X_add_number;
 	if(seg != SEG_ABSOLUTE){
 	    error_param_message = "Parameter error: expression must be "
-				  "absolute (parameter %lu)";
+				  "absolute";
 	    return(NULL);
 	}
 	if(val == 64)
 	    val = 0;
 	if(val >= 64 || val < 0){
 	    error_param_message = "Parameter error: expression out "
-				  "of range (parameter %lu)";
+				  "of range";
 	    return(NULL);
 	}
 
@@ -2182,12 +2183,12 @@ uint32_t parcnt)
 	val = exp.X_add_number;
 	if(seg != SEG_ABSOLUTE){
 	    error_param_message = "Parameter error: expression must be "
-				  "absolute (parameter %lu)";
+				  "absolute";
 	    return(NULL);
 	}
 	if(val > 64 || val < 0){
 	    error_param_message = "Parameter error: expression out "
-				  "of range (parameter %lu)";
+				  "of range";
 	    return(NULL);
 	}
 

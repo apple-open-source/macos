@@ -1,6 +1,6 @@
---- getprogname.c.orig	Mon Apr 28 15:05:02 2003
-+++ getprogname.c	Sat May  3 14:04:57 2003
-@@ -3,6 +3,8 @@
+--- getprogname.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ getprogname.c	2009-11-07 14:51:39.000000000 -0800
+@@ -3,6 +3,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/get
  
  #include "namespace.h"
  #include <stdlib.h>

@@ -1,7 +1,0 @@
-#!/bin/sh
-# Reassign ownership of the console to root, this should disallow
-# assignment of console output to any random users's xterm
-# $Xorg: TakeConsole,v 1.3 2000/08/17 19:54:17 cpqbld Exp $
-#
-chmod 622 /dev/console
-chown root /dev/console

@@ -1,0 +1,148 @@
+#!/bin/sh
+#
+# Copyright (c) 2010 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Portions Copyright (c) 2010 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+
+env_setup="@env_setup@"
+testdir="@testdir@"
+
+R=ADS.APPLE.COM
+
+. ${env_setup}
+
+cache="FILE:${testdir}/cache.krb5"
+
+kinit="${kinit} -c $cache"
+kdestroy="${kdestroy} -c $cache"
+
+test -d ${testdir} || mkdir -p ${testdir}
+
+echo "checking for ADS"
+odutil show nodenames | grep '/Active Directory/ADS' > /dev/null || \
+      { echo "no ADS, skipping tests" ; exit 0; }
+
+
+echo "checking ktestuser in ADS"
+${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
+    { echo "test failed";  exit 1; }
+
+sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
+    { echo "test failed";  exit 1; }
+
+sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
+    { echo "test failed";  exit 1; }
+
+echo foobar > ${testdir}/foopassword
+
+cat ${testdir}/foopassword
+
+${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
+
+env KRB5CCNAME=${cache} \
+ldapsearch -h dc02.ads.apple.com -b "DC=ads,DC=apple,DC=com" -s base \+ || \
+    { echo "ldap test failed"; exit 1; }
+
+${kdestroy}
+
+echo "test change password"
+echo admin > ${testdir}/foopassword
+
+${kinit} --password-file=${testdir}/foopassword da3admin@ADS.APPLE.COM || exit 1
+
+pw=ak4unandsop39NuJ
+
+echo "Changing password using admin"
+cat > cpw.tmp <<EOF
+expect New password
+send ${pw}\n
+expect New password
+send ${pw}\n
+expect Success
+EOF
+
+${rkpty} cpw.tmp env ${kpasswd} -c ${cache} --admin-principal=da3admin@${R} ktestuser2@${R} || 
+	exit 1
+
+echo "test with regular user too"
+
+oldpw="$pw"
+pw="39NuJnNjkiHNkhU"
+
+echo "Changing password using regular account"
+cat > cpw.tmp <<EOF
+expect Password
+password ${oldpw}\n
+expect New password
+send ${pw}\n
+expect New password
+send ${pw}\n
+expect Success
+EOF
+
+${rkpty} cpw.tmp env ${kpasswd} ktestuser2@${R} || \
+	exit 1
+
+pw=foobar
+
+echo "Changing password back using admin"
+cat > cpw.tmp <<EOF
+expect New password
+send ${pw}\n
+expect New password
+send ${pw}\n
+expect Success
+EOF
+
+${rkpty} cpw.tmp env ${kpasswd} -c ${cache} --admin-principal=da3admin@${R} ktestuser2@${R} || \
+	exit 1
+
+${kdestroy}
+
+echo "checking mounting with NTLM"
+host=$(hostname)
+if expr "$host" : '.*\.apple\.com' > /dev/null ; then
+    launchctl load -F /System/Library/LaunchDaemons/com.apple.smbd.plist
+    killall smbd
+    sleep 3
+    ${winmount} ${testbase}/apple/coswin7-ads.plist ${host} || exit 1
+    ${winmount} ${testbase}/apple/coswin7-ads-specific.plist ${host} || exit 1
+else
+    echo "not running windows mount test since you are no on apple network"
+fi
+
+
+exit 0
+

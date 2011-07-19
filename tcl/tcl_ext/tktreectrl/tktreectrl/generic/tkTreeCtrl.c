@@ -3,11 +3,11 @@
  *
  *	This module implements treectrl widgets for the Tk toolkit.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  * Copyright (c) 2002-2003 Christian Krone
  * Copyright (c) 2003-2005 ActiveState, a division of Sophos
  *
- * RCS: @(#) $Id: tkTreeCtrl.c,v 1.108 2008/07/21 18:49:32 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeCtrl.c,v 1.117 2010/03/08 17:02:58 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -15,8 +15,11 @@
 #ifdef WIN32
 #include <windows.h>
 #endif
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_TK_CARBON)
 #include <Carbon/Carbon.h>
+#endif
+#if defined(MAC_TK_COCOA)
+#import <Cocoa/Cocoa.h>
 #endif
 
 /*
@@ -61,7 +64,6 @@ static CONST char *lineStyleST[] = {
 static CONST char *orientStringTable[] = {
     "horizontal", "vertical", (char *) NULL
 };
-extern Tk_ObjCustomOption TreeCtrlCO_column_NOT_TAIL;
 
 static Tk_OptionSpec optionSpecs[] = {
     {TK_OPTION_BORDER, "-background", "background", "Background",
@@ -125,11 +127,11 @@ static Tk_OptionSpec optionSpecs[] = {
     {TK_OPTION_STRING, "-defaultstyle", "defaultStyle", "DefaultStyle",
      (char *) NULL, Tk_Offset(TreeCtrl, defaultStyle.stylesObj), -1,
      TK_OPTION_NULL_OK, (ClientData) NULL, TREE_CONF_DEFSTYLE},
-#endif /* DEPRECATED */
     {TK_OPTION_STRING_TABLE, "-doublebuffer",
      "doubleBuffer", "DoubleBuffer",
      "item", -1, Tk_Offset(TreeCtrl, doubleBuffer),
      0, (ClientData) doubleBufferST, TREE_CONF_REDISPLAY},
+#endif /* DEPRECATED */
     {TK_OPTION_SYNONYM, "-fg", (char *) NULL, (char *) NULL,
      (char *) NULL, 0, -1, 0, (ClientData) "-foreground"},
     {TK_OPTION_FONT, "-font", "font", "Font",
@@ -317,6 +319,7 @@ static void TreeDestroy(char *memPtr);
 static void TreeCmdDeletedProc(ClientData clientData);
 static void TreeWorldChanged(ClientData instanceData);
 static void TreeComputeGeometry(TreeCtrl *tree);
+static int TreeSeeCmd(TreeCtrl *tree, int objc, Tcl_Obj *CONST objv[]);
 static int TreeStateCmd(TreeCtrl *tree, int objc, Tcl_Obj *CONST objv[]);
 static int TreeSelectionCmd(Tcl_Interp *interp, TreeCtrl *tree, int objc,
     Tcl_Obj *CONST objv[]);
@@ -1113,65 +1116,7 @@ static int TreeWidgetCmd(
 	}
 
 	case COMMAND_SEE: {
-	    TreeItem item;
-	    int x, y, w, h;
-	    int visWidth = Tree_ContentWidth(tree);
-	    int visHeight = Tree_ContentHeight(tree);
-	    int xOrigin = tree->xOrigin;
-	    int yOrigin = tree->yOrigin;
-	    int minX = Tree_ContentLeft(tree);
-	    int minY = Tree_ContentTop(tree);
-	    int maxX = Tree_ContentRight(tree);
-	    int maxY = Tree_ContentBottom(tree);
-	    int index, offset;
-
-	    if (objc != 3) {
-		Tcl_WrongNumArgs(interp, 2, objv, "item");
-		goto error;
-	    }
-	    if (TreeItem_FromObj(tree, objv[2], &item, IFO_NOT_NULL) != TCL_OK)
-		goto error;
-
-	    /* Canvas coords */
-	    if (Tree_ItemBbox(tree, item, COLUMN_LOCK_NONE, &x, &y, &w, &h) < 0)
-		break;
-
-	    if ((C2Wx(x) > maxX) || (C2Wx(x + w) <= minX) || (w <= visWidth)) {
-		if ((C2Wx(x) < minX) || (w > visWidth)) {
-		    index = Increment_FindX(tree, x);
-		    offset = Increment_ToOffsetX(tree, index);
-		    xOrigin = C2Ox(offset);
-		}
-		else if (C2Wx(x + w) > maxX) {
-		    index = Increment_FindX(tree, x + w - visWidth);
-		    offset = Increment_ToOffsetX(tree, index);
-		    if (offset < x + w - visWidth) {
-			index++;
-			offset = Increment_ToOffsetX(tree, index);
-		    }
-		    xOrigin = C2Ox(offset);
-		}
-	    }
-
-	    if ((C2Wy(y) > maxY) || (C2Wy(y + h) <= minY) || (h <= visHeight)) {
-		if ((C2Wy(y) < minY) || (h > visHeight)) {
-		    index = Increment_FindY(tree, y);
-		    offset = Increment_ToOffsetY(tree, index);
-		    yOrigin = C2Oy(offset);
-		}
-		else if (C2Wy(y + h) > maxY) {
-		    index = Increment_FindY(tree, y + h - visHeight);
-		    offset = Increment_ToOffsetY(tree, index);
-		    if (offset < y + h - visHeight) {
-			index++;
-			offset = Increment_ToOffsetY(tree, index);
-		    }
-		    yOrigin = C2Oy(offset);
-		}
-	    }
-
-	    Tree_SetOriginX(tree, xOrigin);
-	    Tree_SetOriginY(tree, yOrigin);
+	    result = TreeSeeCmd(tree, objc, objv);
 	    break;
 	}
 
@@ -1248,6 +1193,15 @@ TreeConfigure(
     int mask, maskFree = 0;
     XGCValues gcValues;
     unsigned long gcMask;
+
+    /* Init these to prevent compiler warnings */
+    saved.backgroundImage = NULL;
+#ifdef DEPRECATED
+    saved.defaultStyle.styles = NULL;
+    saved.defaultStyle.numStyles = 0;
+#endif
+    saved.wrapMode = TREE_WRAP_NONE;
+    saved.wrapArg = 0;
 
     for (error = 0; error <= 1; error++) {
 	if (error == 0) {
@@ -2164,6 +2118,178 @@ Tree_FreeImage(
 	    ckfree((char *) ref);
 	}
     }
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * TreeSeeCmd --
+ *
+ *	This procedure is invoked to process the [see] widget
+ *	command.  See the user documentation for details on what
+ *	it does.
+ *
+ * Results:
+ *	A standard Tcl result.
+ *
+ * Side effects:
+ *	See the user documentation.
+ *
+ *--------------------------------------------------------------
+ */
+
+static int
+TreeSeeCmd(
+    TreeCtrl *tree,		/* Widget info. */
+    int objc,			/* Number of arguments. */
+    Tcl_Obj *CONST objv[]	/* Argument values. */
+    )
+{
+    Tcl_Interp *interp = tree->interp;
+    TreeItem item;
+    TreeColumn treeColumn = NULL;
+    int x, y, w, h;
+    int visWidth = Tree_ContentWidth(tree);
+    int visHeight = Tree_ContentHeight(tree);
+    int xOrigin = Tree_GetOriginX(tree);
+    int yOrigin = Tree_GetOriginY(tree);
+    int minX = Tree_ContentLeft(tree);
+    int minY = Tree_ContentTop(tree);
+    int maxX = Tree_ContentRight(tree);
+    int maxY = Tree_ContentBottom(tree);
+    int index, offset;
+    int centerX = 0, centerY = 0;
+
+    if (objc < 3) {
+	Tcl_WrongNumArgs(interp, 2, objv, "item ?column? ?option value ...?");
+	return TCL_ERROR;
+    }
+    if (TreeItem_FromObj(tree, objv[2], &item, IFO_NOT_NULL) != TCL_OK)
+	return TCL_ERROR;
+
+    if (objc > 3) {
+	int i, k, len, firstOption = 3;
+	char *s = Tcl_GetStringFromObj(objv[3], &len);
+	if (s[0] != '-') {
+	    if (TreeColumn_FromObj(tree, objv[3], &treeColumn,
+		    CFO_NOT_NULL | CFO_NOT_TAIL) != TCL_OK)
+		return TCL_ERROR;
+	    firstOption = 4;
+	}
+
+	for (i = firstOption; i < objc; i += 2)
+	{
+	    static CONST char *optionNames[] = {
+		"-center", (char *) NULL
+	    };
+	    if (Tcl_GetIndexFromObj(interp, objv[i], optionNames,
+		    "option", 0, &index) != TCL_OK) {
+		return TCL_ERROR;
+	    }
+	    if (i + 1 == objc) {
+		FormatResult(interp, "missing value for \"%s\" option",
+			optionNames[index]);
+		return TCL_ERROR;
+	    }
+	    switch (index)
+	    {
+		case 0: { /* -center */
+		    char *s = Tcl_GetStringFromObj(objv[i+1], &len);
+		    for (k = 0; k < len; k++) {
+			switch (s[k]) {
+			    case 'x': case 'X': centerX = 1; break;
+			    case 'y': case 'Y': centerY = 1; break;
+			    default: {
+				Tcl_ResetResult(tree->interp);
+				Tcl_AppendResult(tree->interp,
+				    "bad -center value \"",
+				    s, "\": must be a string ",
+				    "containing zero or more of x and y",
+				    (char *) NULL);
+				return TCL_ERROR;
+			    }
+			}
+		    }
+		    break;
+		}
+	    }
+	}
+    }
+
+    /* Get the item bounds in canvas coords. */
+    if (Tree_ItemBbox(tree, item, COLUMN_LOCK_NONE, &x, &y, &w, &h) < 0)
+	return TCL_OK;
+
+    if (treeColumn != NULL) {
+	x += TreeColumn_Offset(treeColumn);
+	w = TreeColumn_UseWidth(treeColumn);
+    }
+
+    /* No horizontal scrolling for locked columns. */
+    if ((treeColumn != NULL) &&
+	    (TreeColumn_Lock(treeColumn) != COLUMN_LOCK_NONE)) {
+	/* nothing */
+
+    /* Center the item or column horizontally. */
+    } else if (centerX) {
+	index = Increment_FindX(tree, x + w/2 - visWidth/2);
+	offset = Increment_ToOffsetX(tree, index);
+	if (offset < x + w/2 - visWidth/2) {
+	    index++;
+	    offset = Increment_ToOffsetX(tree, index);
+	}
+	xOrigin = C2Ox(offset);
+
+    /* Scroll horizontally a minimal amount. */
+    } else if ((C2Wx(x) > maxX) || (C2Wx(x + w) <= minX) || (w <= visWidth)) {
+	if ((C2Wx(x) < minX) || (w > visWidth)) {
+	    index = Increment_FindX(tree, x);
+	    offset = Increment_ToOffsetX(tree, index);
+	    xOrigin = C2Ox(offset);
+	}
+	else if (C2Wx(x + w) > maxX) {
+	    index = Increment_FindX(tree, x + w - visWidth);
+	    offset = Increment_ToOffsetX(tree, index);
+	    if (offset < x + w - visWidth) {
+		index++;
+		offset = Increment_ToOffsetX(tree, index);
+	    }
+	    xOrigin = C2Ox(offset);
+	}
+    }
+
+    /* Center the item or column vertically. */
+    if (centerY) {
+	index = Increment_FindY(tree, y + h/2 - visHeight/2);
+	offset = Increment_ToOffsetY(tree, index);
+	if (offset < y + h/2 - visHeight/2) {
+	    index++;
+	    offset = Increment_ToOffsetY(tree, index);
+	}
+	yOrigin = C2Oy(offset);
+
+    /* Scroll vertically a minimal amount. */
+    } else if ((C2Wy(y) > maxY) || (C2Wy(y + h) <= minY) || (h <= visHeight)) {
+	if ((C2Wy(y) < minY) || (h > visHeight)) {
+	    index = Increment_FindY(tree, y);
+	    offset = Increment_ToOffsetY(tree, index);
+	    yOrigin = C2Oy(offset);
+	}
+	else if (C2Wy(y + h) > maxY) {
+	    index = Increment_FindY(tree, y + h - visHeight);
+	    offset = Increment_ToOffsetY(tree, index);
+	    if (offset < y + h - visHeight) {
+		index++;
+		offset = Increment_ToOffsetY(tree, index);
+	    }
+	    yOrigin = C2Oy(offset);
+	}
+    }
+
+    Tree_SetOriginX(tree, xOrigin);
+    Tree_SetOriginY(tree, yOrigin);
+
+    return TCL_OK;
 }
 
 /*
@@ -3443,7 +3569,6 @@ TreeDebugCmd(
 	}
 
 	case COMMAND_DINFO: {
-	    extern int Tree_DumpDInfo(TreeCtrl *tree, int objc, Tcl_Obj *CONST objv[]);
 	    return Tree_DumpDInfo(tree, objc, objv);
 	}
 
@@ -3821,7 +3946,12 @@ LoupeCmd(
     int xx, yy;
     HWND hwnd;
     HDC hdc;
-#elif defined(MAC_TCL) || defined(MAC_OSX_TK)
+#define WIN7
+#ifdef WIN7
+    HDC hdcCopy;
+    HBITMAP hBitmap, hBitmapSave;
+#endif /* WIN7 */
+#elif defined(MAC_OSX_TK)
 #else
     Visual *visual = Tk_Visual(tkwin);
     Window rootWindow = RootWindow(display, screenNum);
@@ -3882,7 +4012,7 @@ LoupeCmd(
     miny = GetSystemMetrics(SM_YVIRTUALSCREEN);
     displayW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
     displayH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-#elif defined(MAC_TCL) || defined(MAC_OSX_TK)
+#elif defined(MAC_OSX_TK)
     /*
      * OS X multiple monitors can have negative coords
      * FIX: must be implemented
@@ -3913,6 +4043,17 @@ LoupeCmd(
     hwnd = GetDesktopWindow();
     hdc = GetWindowDC(hwnd);
 
+#ifdef WIN7
+    /* Doing GetPixel() on the desktop DC under Windows 7 (Aero) is buggy
+     * and *very* slow.  So BitBlt() from the desktop DC to an in-memory
+     * bitmap and run GetPixel() on that. */
+    hdcCopy = CreateCompatibleDC(hdc);
+    hBitmap = CreateCompatibleBitmap(hdc, grabW, grabH);
+    hBitmapSave = SelectObject(hdcCopy, hBitmap);
+    BitBlt(hdcCopy, 0, 0, grabW, grabH, hdc, grabX, grabY,
+	SRCCOPY | CAPTUREBLT);
+#endif /* WIN7 */
+
     /* XImage -> Tk_Image */
     pixelPtr = (unsigned char *) Tcl_Alloc(grabW * grabH * 4);
     memset(pixelPtr, 0, (grabW * grabH * 4));
@@ -3934,7 +4075,11 @@ LoupeCmd(
 	COLORREF pixel;
 	unsigned long stepDest = yy * photoBlock.pitch;
 	for (xx = 0; xx < grabW; xx++) {
+#ifdef WIN7
+	    pixel = GetPixel(hdcCopy, xx, yy);
+#else /* WIN7 */
 	    pixel = GetPixel(hdc, grabX + xx, grabY + yy);
+#endif /* WIN7 */
 	    if (pixel == CLR_INVALID) {
 		/*
 		 * Skip just this pixel, as others will be valid depending on
@@ -3948,8 +4093,13 @@ LoupeCmd(
 	    pixelPtr[stepDest + xx * 4 + 3] = 255;
 	}
     }
+#ifdef WIN7
+    SelectObject(hdcCopy, hBitmapSave);
+    DeleteObject(hBitmap);
+    DeleteDC(hdcCopy);
+#endif /* WIN7 */
     ReleaseDC(hwnd, hdc);
-#elif defined(MAC_TCL) || defined(MAC_OSX_TK)
+#elif defined(MAC_OSX_TK)
     /*
      * Adapted from John Anon's ScreenController demo code.
      */
@@ -3958,7 +4108,7 @@ LoupeCmd(
     unsigned char *screenBytes;
     int bPerPixel, byPerRow, byPerPixel;
 
-    // Gets all the screen info:
+    /* Gets all the screen info: */
     CGDisplayHideCursor(kCGDirectMainDisplay);
     bPerPixel  = CGDisplayBitsPerPixel(kCGDirectMainDisplay);
     byPerRow   = CGDisplayBytesPerRow(kCGDirectMainDisplay);
@@ -4056,6 +4206,7 @@ LoupeCmd(
     } else {
 	for (i = 0; i < ncolors; i++)
 	    xcolors[i].pixel = i;
+    	red_shift = green_shift = blue_shift = 0; /* compiler warning */
     }
 
     XQueryColors(display, Tk_Colormap(tkwin), xcolors, ncolors);
@@ -4102,7 +4253,7 @@ LoupeCmd(
 	    zoom, zoom, 1, 1, TK_PHOTO_COMPOSITE_SET);
 
     Tcl_Free((char *) pixelPtr);
-#if !defined(WIN32) && !defined(MAC_TCL) && !defined(MAC_OSX_TK)
+#if !defined(WIN32) && !defined(MAC_OSX_TK)
     ckfree((char *) xcolors);
     XDestroyImage(ximage);
 #endif

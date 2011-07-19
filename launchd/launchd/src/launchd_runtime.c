@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 24003 $";
+static const char *const __rcs_file_version__ = "$Revision: 24912 $";
 
 #include "config.h"
 #include "launchd_runtime.h"
@@ -73,7 +73,13 @@ static const char *const __rcs_file_version__ = "$Revision: 24003 $";
 #include "vproc.h"
 #include "vproc_priv.h"
 #include "vproc_internal.h"
+#include "protocol_vprocServer.h"
 #include "protocol_job_reply.h"
+
+#if !TARGET_OS_EMBEDDED
+#include "domainServer.h"
+#endif
+#include "eventsServer.h"
 
 static mach_port_t ipc_port_set;
 static mach_port_t demand_port_set;
@@ -127,9 +133,9 @@ static FILE *ourlogfile;
 bool pid1_magic;
 bool do_apple_internal_logging;
 bool low_level_debug;
-bool g_force_old_kill_path = false;
 bool g_flat_mach_namespace = true;
 bool g_simulate_pid1_crash = false;
+bool g_malloc_log_stacks = false;
 bool g_use_gmalloc = false;
 bool g_log_per_user_shutdown = false;
 #if !TARGET_OS_EMBEDDED
@@ -138,6 +144,7 @@ bool g_log_pid1_shutdown = true;
 bool g_log_pid1_shutdown = false;
 #endif
 bool g_log_strict_usage = false;
+bool g_trap_sigkill_bugs = false;
 pid_t g_wsp = 0;
 size_t runtime_busy_cnt;
 
@@ -178,7 +185,7 @@ launchd_runtime_init(void)
 	launchd_assert(pthread_create(&kqueue_demand_thread, NULL, kqueue_demand_loop, NULL) == 0);
 	launchd_assert(pthread_detach(kqueue_demand_thread) == 0);
 
-	launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
+	(void)launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
 }
 
 void
@@ -188,74 +195,11 @@ launchd_runtime_init2(void)
 
 	for (i = 0; i < (sizeof(sigigns) / sizeof(int)); i++) {
 		sigaddset(&sigign_set, sigigns[i]);
-		launchd_assumes(signal(sigigns[i], SIG_IGN) != SIG_ERR);
+		(void)launchd_assumes(signal(sigigns[i], SIG_IGN) != SIG_ERR);
 	}
 }
-
-const char *
-proc_flags_to_C_names(unsigned int flags)
-{
-#define MAX_PFLAG_STR "P_ADVLOCK|P_CONTROLT|P_LP64|P_NOCLDSTOP|P_PPWAIT|P_PROFIL|P_SELECT|P_CONTINUED|P_SUGID|P_SYSTEM|P_TIMEOUT|P_TRACED|P_RESV3|P_WEXIT|P_EXEC|P_OWEUPC|P_AFFINITY|P_TRANSLATED|P_RESV5|P_CHECKOPENEVT|P_DEPENDENCY_CAPABLE|P_REBOOT|P_TBE|P_RESV7|P_THCWD|P_RESV9|P_RESV10|P_RESV11|P_NOSHLIB|P_FORCEQUOTA|P_NOCLDWAIT|P_NOREMOTEHANG|0xdeadbeeffeedface"
-
-	static char flags_buf[sizeof(MAX_PFLAG_STR)];
-	char *flags_off = NULL;
-
-	if (!flags) {
-		return "";
-	}
-
-	while (flags) {
-		if (flags_off) {
-			*flags_off = '|';
-			flags_off++;
-			*flags_off = '\0';
-		} else {
-			flags_off = flags_buf;
-		}
 
 #define FLAGIF(f) if (flags & f) { flags_off += sprintf(flags_off, #f); flags &= ~f; }
-
-		FLAGIF(P_ADVLOCK)
-		else FLAGIF(P_CONTROLT)
-		else FLAGIF(P_LP64)
-		else FLAGIF(P_NOCLDSTOP)
-		else FLAGIF(P_PPWAIT)
-		else FLAGIF(P_PROFIL)
-		else FLAGIF(P_SELECT)
-		else FLAGIF(P_CONTINUED)
-		else FLAGIF(P_SUGID)
-		else FLAGIF(P_SYSTEM)
-		else FLAGIF(P_TIMEOUT)
-		else FLAGIF(P_TRACED)
-		else FLAGIF(P_RESV3)
-		else FLAGIF(P_WEXIT)
-		else FLAGIF(P_EXEC)
-		else FLAGIF(P_OWEUPC)
-		else FLAGIF(P_AFFINITY)
-		else FLAGIF(P_TRANSLATED)
-		else FLAGIF(P_RESV5)
-		else FLAGIF(P_CHECKOPENEVT)
-		else FLAGIF(P_DEPENDENCY_CAPABLE)
-		else FLAGIF(P_REBOOT)
-		else FLAGIF(P_TBE)
-		else FLAGIF(P_RESV7)
-		else FLAGIF(P_THCWD)
-		else FLAGIF(P_RESV9)
-		else FLAGIF(P_RESV10)
-		else FLAGIF(P_RESV11)
-		else FLAGIF(P_NOSHLIB)
-		else FLAGIF(P_FORCEQUOTA)
-		else FLAGIF(P_NOCLDWAIT)
-		else FLAGIF(P_NOREMOTEHANG)
-		else {
-			flags_off += sprintf(flags_off, "0x%x", flags);
-			flags = 0;
-		}
-	}
-
-	return flags_buf;
-}
-
 const char *
 reboot_flags_to_C_names(unsigned int flags)
 {
@@ -549,7 +493,7 @@ mportset_callback(void)
 		}
 	}
 
-	launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)members,
+	(void)launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)members,
 				(vm_size_t) membersCnt * sizeof(mach_port_name_t)) == KERN_SUCCESS);
 }
 
@@ -570,7 +514,7 @@ kqueue_demand_loop(void *arg __attribute__((unused)))
 		FD_ZERO(&rfds);
 		FD_SET(mainkq, &rfds);
 		if (launchd_assumes(select(mainkq + 1, &rfds, NULL, NULL, NULL) == 1)) {
-			launchd_assumes(handle_kqueue(launchd_internal_port, mainkq) == 0);
+			(void)launchd_assumes(handle_kqueue(launchd_internal_port, mainkq) == 0);
 		}
 	}
 
@@ -587,11 +531,11 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 	bulk_kev = kev;
 
 	if (launchd_assumes((bulk_kev_cnt = kevent(fd, NULL, 0, kev, BULK_KEV_MAX, &ts)) != -1)) {
-	#if 0	
+#if 0	
 		for (i = 0; i < bulk_kev_cnt; i++) {
 			log_kevent_struct(LOG_DEBUG, &kev[0], i);
 		}
-	#endif
+#endif
 		for (i = 0; i < bulk_kev_cnt; i++) {
 			bulk_kev_i = i;
 			kevi = &kev[i];
@@ -599,7 +543,7 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 			if (kevi->filter) {
 				runtime_syslog(LOG_DEBUG, "Dispatching kevent...");
 				log_kevent_struct(LOG_DEBUG, kev, i);
-			#if 0
+#if 0
 				/* Check if kevi->udata was either malloc(3)ed or is a valid function pointer. 
 				 * If neither, it's probably an invalid pointer and we should log it. 
 				 */
@@ -612,11 +556,11 @@ x_handle_kqueue(mach_port_t junk __attribute__((unused)), integer_t fd)
 					runtime_syslog(LOG_ERR, "The following kevent had invalid context data.");
 					log_kevent_struct(LOG_EMERG, &kev[0], i);
 				}
-			#else
+#else
 				runtime_ktrace(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_START, kevi->ident, kevi->filter, kevi->fflags);
 				(*((kq_callback *)kevi->udata))(kevi->udata, kevi);
 				runtime_ktrace0(RTKT_LAUNCHD_BSD_KEVENT|DBG_FUNC_END);
-			#endif
+#endif
 			}
 		}
 	}
@@ -635,11 +579,11 @@ launchd_runtime(void)
 
 	for (;;) {
 		if (likely(req)) {
-			launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)req, mz) == KERN_SUCCESS);
+			(void)launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)req, mz) == KERN_SUCCESS);
 			req = NULL;
 		}
 		if (likely(resp)) {
-			launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)resp, mz) == KERN_SUCCESS);
+			(void)launchd_assumes(vm_deallocate(mach_task_self(), (vm_address_t)resp, mz) == KERN_SUCCESS);
 			resp = NULL;
 		}
 
@@ -688,7 +632,7 @@ launchd_mport_notify_req(mach_port_t name, mach_msg_id_t which)
 			MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
 
 	if (likely(errno == 0) && previous != MACH_PORT_NULL) {
-		launchd_assumes(launchd_mport_deallocate(previous) == KERN_SUCCESS);
+		(void)launchd_assumes(launchd_mport_deallocate(previous) == KERN_SUCCESS);
 	}
 
 	return errno;
@@ -704,13 +648,13 @@ runtime_fork(mach_port_t bsport)
 
 	sigemptyset(&emptyset);
 
-	launchd_assumes(launchd_mport_make_send(bsport) == KERN_SUCCESS);
-	launchd_assumes(launchd_set_bport(bsport) == KERN_SUCCESS);
-	launchd_assumes(launchd_mport_deallocate(bsport) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_make_send(bsport) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_set_bport(bsport) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(bsport) == KERN_SUCCESS);
 
-	launchd_assumes(sigprocmask(SIG_BLOCK, &sigign_set, &oset) != -1);
+	(void)launchd_assumes(sigprocmask(SIG_BLOCK, &sigign_set, &oset) != -1);
 	for (i = 0; i < (sizeof(sigigns) / sizeof(int)); i++) {
-		launchd_assumes(signal(sigigns[i], SIG_DFL) != SIG_ERR);
+		(void)launchd_assumes(signal(sigigns[i], SIG_DFL) != SIG_ERR);
 	}
 
 	r = fork();
@@ -718,15 +662,15 @@ runtime_fork(mach_port_t bsport)
 
 	if (r != 0) {
 		for (i = 0; i < (sizeof(sigigns) / sizeof(int)); i++) {
-			launchd_assumes(signal(sigigns[i], SIG_IGN) != SIG_ERR);
+			(void)launchd_assumes(signal(sigigns[i], SIG_IGN) != SIG_ERR);
 		}
-		launchd_assumes(sigprocmask(SIG_SETMASK, &oset, NULL) != -1);
-		launchd_assumes(launchd_set_bport(MACH_PORT_NULL) == KERN_SUCCESS);
+		(void)launchd_assumes(sigprocmask(SIG_SETMASK, &oset, NULL) != -1);
+		(void)launchd_assumes(launchd_set_bport(MACH_PORT_NULL) == KERN_SUCCESS);
 	} else {
 		pid_t p = -getpid();
-		launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
+		(void)launchd_assumes(sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &p, sizeof(p)) != -1);
 
-		launchd_assumes(sigprocmask(SIG_SETMASK, &emptyset, NULL) != -1);
+		(void)launchd_assumes(sigprocmask(SIG_SETMASK, &emptyset, NULL) != -1);
 	}
 
 	errno = saved_errno;
@@ -802,6 +746,13 @@ launchd_mport_copy_send(mach_port_t name)
 }
 
 kern_return_t
+launchd_mport_make_send_once(mach_port_t name, mach_port_t *so)
+{
+	mach_msg_type_name_t right = 0;
+	return errno = mach_port_extract_right(mach_task_self(), name, MACH_MSG_TYPE_MAKE_SEND_ONCE, so, &right);
+}
+
+kern_return_t
 launchd_mport_close_recv(mach_port_t name)
 {
 	return errno = mach_port_mod_refs(mach_task_self(), name, MACH_PORT_RIGHT_RECEIVE, -1);
@@ -857,10 +808,10 @@ kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t 
 	if (flags & EV_ADD && !launchd_assumes(udata != NULL)) {
 		errno = EINVAL;
 		return -1;
-	} else if( (flags & EV_DELETE) && bulk_kev ) {
+	} else if ((flags & EV_DELETE) && bulk_kev) {
 		int i = 0;
-		for( i = bulk_kev_i + 1; i < bulk_kev_cnt; i++ ) {
-			if( bulk_kev[i].filter == filter && bulk_kev[i].ident == ident ) {
+		for (i = bulk_kev_i + 1; i < bulk_kev_cnt; i++) {
+			if (bulk_kev[i].filter == filter && bulk_kev[i].ident == ident) {
 				runtime_syslog(LOG_DEBUG, "Pruning the following kevent:");
 				log_kevent_struct(LOG_DEBUG, &bulk_kev[0], i);
 				bulk_kev[i].filter = (short)0;
@@ -906,7 +857,7 @@ do_mach_notify_port_destroyed(mach_port_t notify __attribute__((unused)), mach_p
 	/* This message is sent to us when a receive right is returned to us. */
 
 	if (!launchd_assumes(job_ack_port_destruction(rights))) {
-		launchd_assumes(launchd_mport_close_recv(rights) == KERN_SUCCESS);
+		(void)launchd_assumes(launchd_mport_close_recv(rights) == KERN_SUCCESS);
 	}
 
 	return KERN_SUCCESS;
@@ -960,7 +911,7 @@ do_mach_notify_dead_name(mach_port_t notify __attribute__((unused)), mach_port_n
 	 */
 
 	if (name == drain_reply_port) {
-		launchd_assumes(launchd_mport_deallocate(name) == KERN_SUCCESS);
+		(void)launchd_assumes(launchd_mport_deallocate(name) == KERN_SUCCESS);
 		drain_reply_port = MACH_PORT_NULL;
 	}
 
@@ -972,7 +923,7 @@ do_mach_notify_dead_name(mach_port_t notify __attribute__((unused)), mach_port_n
 	 * rights on said port. Let's deallocate it so that we don't leak
 	 * dead-name ports.
 	 */
-	launchd_assumes(launchd_mport_deallocate(name) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(name) == KERN_SUCCESS);
 
 	return KERN_SUCCESS;
 }
@@ -990,7 +941,7 @@ record_caller_creds(mach_msg_header_t *mh)
 	if (launchd_assumes(trailer_size >= (mach_msg_size_t)sizeof(audit_token_t))) {
 		audit_token_to_au32(tp->msgh_audit, /* audit UID */ NULL, &ldc.euid,
 				&ldc.egid, &ldc.uid, &ldc.gid, &ldc.pid,
-				/* au_asid_t */ NULL, /* au_tid_t */ NULL);
+				&ldc.asid, /* au_tid_t */ NULL);
 	}
 
 }
@@ -1012,7 +963,7 @@ launchd_exc_runtime_once(mach_port_t port, mach_msg_size_t rcv_msg_size, mach_ms
 				
 	do {
 		mr = mach_msg(&bufRequest->Head, rcv_options, 0, rcv_msg_size, port, to, MACH_PORT_NULL);
-		switch( mr ) {
+		switch (mr) {
 			case MACH_RCV_TIMED_OUT	:
 				runtime_syslog(LOG_DEBUG, "Message queue is empty.");
 				break;
@@ -1020,11 +971,11 @@ launchd_exc_runtime_once(mach_port_t port, mach_msg_size_t rcv_msg_size, mach_ms
 				runtime_syslog(LOG_INFO, "Message is larger than %u bytes.", rcv_msg_size);
 				break;
 			default					:
-				launchd_assumes(mr == MACH_MSG_SUCCESS);
+				(void)launchd_assumes(mr == MACH_MSG_SUCCESS);
 		}
 		
-		if( mr == MACH_MSG_SUCCESS ) {
-			if( !launchd_assumes(mach_exc_server(&bufRequest->Head, &bufReply->Head) == TRUE) ) {
+		if (mr == MACH_MSG_SUCCESS) {
+			if (!launchd_assumes(mach_exc_server(&bufRequest->Head, &bufReply->Head) == TRUE)) {
 				runtime_syslog(LOG_WARNING, "Exception server routine failed.");
 				break;
 			}
@@ -1033,9 +984,9 @@ launchd_exc_runtime_once(mach_port_t port, mach_msg_size_t rcv_msg_size, mach_ms
 			mach_msg_option_t send_options =	MACH_SEND_MSG		|
 												MACH_SEND_TIMEOUT	;
 			
-			launchd_assumes(bufReply->Head.msgh_size <= send_msg_size);
+			(void)launchd_assumes(bufReply->Head.msgh_size <= send_msg_size);
 			smr = mach_msg(&bufReply->Head, send_options, bufReply->Head.msgh_size, 0, MACH_PORT_NULL, to + 100, MACH_PORT_NULL);
-			switch( smr ) {
+			switch (smr) {
 				case MACH_SEND_TIMED_OUT	:
 					runtime_syslog(LOG_WARNING, "Timed out while trying to send reply to exception message.");
 					break;
@@ -1043,13 +994,13 @@ launchd_exc_runtime_once(mach_port_t port, mach_msg_size_t rcv_msg_size, mach_ms
 					runtime_syslog(LOG_WARNING, "Tried sending a message to a port that we don't possess a send right to.");
 					break;
 				default						:
-					if( !launchd_assumes(smr == MACH_MSG_SUCCESS) ) {
+					if (!launchd_assumes(smr == MACH_MSG_SUCCESS)) {
 						runtime_syslog(LOG_WARNING, "Couldn't deliver exception reply: 0x%x", smr);
 					}
 					break;
 			}
 		}
-	} while( 0 );
+	} while (0);
 	
 	return mr;
 }
@@ -1086,11 +1037,11 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 			tmp_options |= MACH_RCV_TIMEOUT;
 
 			if (!(tmp_options & MACH_SEND_TIMEOUT)) {
-			#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_EMBEDDED
 				to = busy_cnt ? runtime_idle_timeout : (_vproc_standby_timeout() * 1000);
-			#else
+#else
 				to = runtime_idle_timeout;
-			#endif
+#endif
 			}
 		}
 
@@ -1123,7 +1074,7 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 			}
 			continue;
 		default:
-			if( !launchd_assumes(mr == MACH_MSG_SUCCESS) ) {
+			if (!launchd_assumes(mr == MACH_MSG_SUCCESS)) {
 				runtime_syslog(LOG_ERR, "mach_msg(): %u: %s", mr, mach_error_string(mr));
 			}
 			continue;
@@ -1159,6 +1110,16 @@ launchd_runtime2(mach_msg_size_t msg_size, mig_reply_error_t *bufRequest, mig_re
 			/* XXX - also gross */
 			if (likely(bufRequest->Head.msgh_id == MACH_NOTIFY_NO_SENDERS)) {
 				notify_server(&bufRequest->Head, &bufReply->Head);
+			} else if (the_demux == protocol_vproc_server) {
+				
+#if !TARGET_OS_EMBEDDED
+				/* Similarly gross. */
+				if (xpc_domain_server(&bufRequest->Head, &bufReply->Head) == FALSE) {
+					(void)xpc_events_server(&bufRequest->Head, &bufReply->Head);
+				}
+#else
+				(void)xpc_events_server(&bufRequest->Head, &bufReply->Head);
+#endif
 			}
 		}
 
@@ -1215,8 +1176,8 @@ runtime_closelog(void)
 	runtime_log_push();
 
 	if (ourlogfile) {
-		launchd_assumes(fflush(ourlogfile) == 0);
-		launchd_assumes(runtime_fsync(fileno(ourlogfile)) != -1);
+		(void)launchd_assumes(fflush(ourlogfile) == 0);
+		(void)launchd_assumes(runtime_fsync(fileno(ourlogfile)) != -1);
 	}
 }
 
@@ -1275,11 +1236,11 @@ runtime_vsyslog(struct runtime_syslog_attr *attr, const char *message, va_list a
 		} else {
 			return;
 		}
-	} else if( attr->priority == LOG_SCOLDING ) {
+	} else if (attr->priority == LOG_SCOLDING) {
 		attr->priority = g_log_strict_usage ? LOG_NOTICE : LOG_DEBUG;
 	}
 
-	if( attr->priority & LOG_CONSOLE ) {
+	if (attr->priority & LOG_CONSOLE) {
 		echo_to_console = true;
 		attr->priority &= ~LOG_CONSOLE;
 	}
@@ -1290,7 +1251,7 @@ runtime_vsyslog(struct runtime_syslog_attr *attr, const char *message, va_list a
 
 	vsnprintf(newmsg, sizeof(newmsg), message, args);
 
-	if( g_console && (unlikely(low_level_debug) || echo_to_console) ) {
+	if (g_console && (unlikely(low_level_debug) || echo_to_console)) {
 		fprintf(g_console, "%s %u\t%s %u\t%s\n", attr->from_name, attr->from_pid, attr->about_name, attr->about_pid, newmsg);
 	}
 
@@ -1363,7 +1324,7 @@ runtime_log_pack(vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 
 	offset = (void *)*outval;
 
-	if( g_log_per_user_shutdown && !ourlogfile && !pid1_magic && shutdown_in_progress ) {
+	if (g_log_per_user_shutdown && !ourlogfile && !pid1_magic && shutdown_in_progress) {
 		char logfile[NAME_MAX];
 		snprintf(logfile, sizeof(logfile), "/var/tmp/launchd-%s.shutdown.log", g_username);
 		
@@ -1375,15 +1336,16 @@ runtime_log_pack(vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 	}
 
 	static int64_t shutdown_start = 0;
-	if( shutdown_start == 0 ) {
+	if (shutdown_start == 0) {
 		shutdown_start = runtime_get_wall_time();
 	}
 
 	while ((lm = STAILQ_FIRST(&logmsg_queue))) {
 		int64_t log_delta = lm->when - shutdown_start;
-		if( !pid1_magic && ourlogfile ) {
+		if (!pid1_magic && ourlogfile) {
 			fprintf(ourlogfile, "%8lld%6u %-40s%6u %-40s %s\n", log_delta,
 					lm->from_pid, lm->from_name, lm->about_pid, lm->about_name, lm->msg);
+			fflush(ourlogfile);
 		}
 
 		lm->from_name_offset = lm->from_name - (char *)lm;
@@ -1398,7 +1360,7 @@ runtime_log_pack(vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 		logmsg_remove(lm);
 	}
 	
-	if( ourlogfile ) {
+	if (ourlogfile) {
 		fflush(ourlogfile);
 	}
 
@@ -1428,8 +1390,8 @@ runtime_log_uncork_pending_drain(void)
 	drain_reply_port = MACH_PORT_NULL;
 
 	if (unlikely(errno = job_mig_log_drain_reply(tmp_port, 0, outval, outvalCnt))) {
-		launchd_assumes(errno == MACH_SEND_INVALID_DEST);
-		launchd_assumes(launchd_mport_deallocate(tmp_port) == KERN_SUCCESS);
+		(void)launchd_assumes(errno == MACH_SEND_INVALID_DEST);
+		(void)launchd_assumes(launchd_mport_deallocate(tmp_port) == KERN_SUCCESS);
 	}
 
 	mig_deallocate(outval, outvalCnt);
@@ -1445,11 +1407,11 @@ runtime_log_push(void)
 	vm_offset_t outval;
 
 	if (logmsg_queue_cnt == 0) {
-		launchd_assumes(STAILQ_EMPTY(&logmsg_queue));
+		(void)launchd_assumes(STAILQ_EMPTY(&logmsg_queue));
 		return;
 	} else if (!pid1_magic) {
 		if (runtime_log_pack(&outval, &outvalCnt) == 0) {
-			launchd_assumes(_vprocmgr_log_forward(inherited_bootstrap_port, (void *)outval, outvalCnt) == NULL);
+			(void)launchd_assumes(_vprocmgr_log_forward(inherited_bootstrap_port, (void *)outval, outvalCnt) == NULL);
 			mig_deallocate(outval, outvalCnt);
 		}
 		return;
@@ -1467,7 +1429,7 @@ runtime_log_push(void)
 
 	pthread_mutex_lock(&ourlock);
 
-	if( unlikely(ourlogfile == NULL) && g_log_pid1_shutdown ) {
+	if (unlikely(ourlogfile == NULL) && g_log_pid1_shutdown) {
 		rename("/var/log/launchd-shutdown.log", "/var/log/launchd-shutdown.log.1");
 		ourlogfile = fopen("/var/log/launchd-shutdown.log", "a");
 	}
@@ -1511,7 +1473,7 @@ runtime_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 		 * can't safely increment our counter because something obviously got screwed
 		 * up along the way, since this should always be at least sizeof(struct logmsg_s).
 		 */
-		if( !launchd_assumes(lm_walk->obj_sz > 0) ) {
+		if (!launchd_assumes(lm_walk->obj_sz > 0)) {
 			runtime_syslog(LOG_WARNING, "Encountered a log message of size 0 with %u bytes left in forwarded data. Ignoring remaining messages.", data_left);
 			break;
 		}
@@ -1549,11 +1511,11 @@ runtime_log_forward(uid_t forward_uid, gid_t forward_gid, vm_offset_t inval, mac
 kern_return_t
 runtime_log_drain(mach_port_t srp, vm_offset_t *outval, mach_msg_type_number_t *outvalCnt)
 {
-	launchd_assumes(drain_reply_port == 0);
+	(void)launchd_assumes(drain_reply_port == 0);
 
 	if ((logmsg_queue_cnt == 0) || shutdown_in_progress || fake_shutdown_in_progress) {
 		drain_reply_port = srp;
-		launchd_assumes(launchd_mport_notify_req(drain_reply_port, MACH_NOTIFY_DEAD_NAME) == KERN_SUCCESS);
+		(void)launchd_assumes(launchd_mport_notify_req(drain_reply_port, MACH_NOTIFY_DEAD_NAME) == KERN_SUCCESS);
 
 		return MIG_NO_REPLY;
 	}
@@ -1588,7 +1550,7 @@ runtime_del_ref(void)
 {
 	if (!pid1_magic) {
 	#if !TARGET_OS_EMBEDDED
-		if( _vproc_transaction_count() == 0 ) {
+		if (_vproc_transaction_count() == 0) {
 			runtime_syslog(LOG_INFO, "Exiting cleanly.");
 		}
 		
@@ -1626,16 +1588,16 @@ runtime_del_weak_ref(void)
 void
 runtime_install_timer(void)
 {
-	if( !pid1_magic && runtime_busy_cnt == 0 ) {
-		launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, 30, root_jobmgr) != -1);
+	if (!pid1_magic && runtime_busy_cnt == 0) {
+		(void)launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_ADD, NOTE_SECONDS, 30, root_jobmgr) != -1);
 	}
 }
 
 void
 runtime_remove_timer(void)
 {
-	if( !pid1_magic && runtime_busy_cnt > 0 ) {
-		launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_DELETE, 0, 0, NULL) != -1);
+	if (!pid1_magic && runtime_busy_cnt > 0) {
+		(void)launchd_assumes(kevent_mod((uintptr_t)&g_runtime_busy_time, EVFILT_TIMER, EV_DELETE, 0, 0, NULL) != -1);
 	}
 }
 
@@ -1645,13 +1607,13 @@ catch_mach_exception_raise(mach_port_t exception_port __attribute__((unused)), m
 {
 	pid_t p4t = -1;
 
-	launchd_assumes(pid_for_task(task, &p4t) == 0);
+	(void)launchd_assumes(pid_for_task(task, &p4t) == 0);
 	
 	runtime_syslog(LOG_NOTICE, "%s(): PID: %u thread: 0x%x type: 0x%x code: %p codeCnt: 0x%x",
 			__func__, p4t, thread, exception, code, codeCnt);
 	
-	launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
-	launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
 
 	return KERN_SUCCESS;
 }
@@ -1679,7 +1641,7 @@ catch_mach_exception_raise_state_identity(mach_port_t exception_port __attribute
 {
 	pid_t p4t = -1;
 
-	launchd_assumes(pid_for_task(task, &p4t) == 0);
+	(void)launchd_assumes(pid_for_task(task, &p4t) == 0);
 
 	runtime_syslog(LOG_NOTICE, "%s(): PID: %u thread: 0x%x type: 0x%x code: %p codeCnt: 0x%x flavor: %p old_state: %p old_stateCnt: 0x%x new_state: %p new_stateCnt: %p",
 			__func__, p4t, thread, exception, code, codeCnt, flavor, old_state, old_stateCnt, new_state, new_stateCnt);
@@ -1687,8 +1649,8 @@ catch_mach_exception_raise_state_identity(mach_port_t exception_port __attribute
 	memcpy(new_state, old_state, old_stateCnt * sizeof(old_state[0]));
 	*new_stateCnt = old_stateCnt;
 
-	launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
-	launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(thread) == KERN_SUCCESS);
+	(void)launchd_assumes(launchd_mport_deallocate(task) == KERN_SUCCESS);
 
 	return KERN_SUCCESS;
 }
@@ -1708,7 +1670,7 @@ launchd_log_vm_stats(void)
 		return;
 	}
 
-	launchd_assumes(count == HOST_VM_INFO_COUNT);
+	(void)launchd_assumes(count == HOST_VM_INFO_COUNT);
 
 	if (did_first_pass) {
 		runtime_syslog(LOG_DEBUG, "VM statistics (now - orig): Free: %d Active: %d Inactive: %d Reactivations: %d PageIns: %d PageOuts: %d Faults: %d COW-Faults: %d Purgeable: %d Purges: %d",
@@ -1747,7 +1709,7 @@ runtime_get_wall_time(void)
 	struct timeval tv;
 	int64_t r;
 
-	launchd_assumes(gettimeofday(&tv, NULL) != -1);
+	(void)launchd_assumes(gettimeofday(&tv, NULL) != -1);
 
 	r = tv.tv_sec;
 	r *= USEC_PER_SEC;
@@ -1827,42 +1789,40 @@ do_file_init(void)
 		low_level_debug = true;
 	}
 	
-	if( stat("/var/db/.launchd_disable_sudden_termination", &sb) == 0 ) {
-		g_force_old_kill_path = true;
-	}
-	
-	if( stat("/var/db/.launchd_log_per_user_shutdown", &sb) == 0 ) {
+	if (stat("/var/db/.launchd_log_per_user_shutdown", &sb) == 0) {
 		g_log_per_user_shutdown = true;
 	}
 	
-	if( !pid1_magic && stat("/var/db/.launchd_no_flat_per_user_namespace", &sb) == 0 ) {
-		g_flat_mach_namespace = false;
-	}
-	
-	if( pid1_magic && stat("/var/db/.launchd_simulate_pid1_crash", &sb) == 0 ) {
-		g_simulate_pid1_crash = true;
-	}
-	
-	if( pid1_magic && stat("/var/db/.launchd_use_gmalloc", &sb) == 0 ) {
+	if (stat("/var/db/.launchd_use_gmalloc", &sb) == 0) {
 		g_use_gmalloc = true;
 	}
+
+	if (stat("/var/db/.launchd_malloc_log_stacks", &sb) == 0) {
+		g_malloc_log_stacks = true;
+		g_use_gmalloc = false;
+	}
 	
-	if( pid1_magic && stat("/var/db/.launchd_log_pid1_shutdown", &sb) == 0 ) {
+	if (pid1_magic && stat("/var/db/.launchd_log_pid1_shutdown", &sb) == 0) {
 		g_log_pid1_shutdown = true;
 	}
 	
 	char bootargs[128];
 	size_t len = sizeof(bootargs) - 1;
 	int r = pid1_magic ? sysctlbyname("kern.bootargs", bootargs, &len, NULL, 0) : -1;
-	if( r == 0 && strnstr(bootargs, "-v", len) != NULL ) {
-		g_verbose_boot = true;
+	if (r == 0) {
+		if (strnstr(bootargs, "-v", len)) {
+			g_verbose_boot = true;
+		}
+		if (strnstr(bootargs, "launchd_trap_sigkill_bugs", len)) {
+			g_trap_sigkill_bugs = true;
+		}
 	}
 	
-	if( pid1_magic && g_verbose_boot && stat("/var/db/.launchd_shutdown_debugging", &sb) == 0 ) {
+	if (pid1_magic && g_verbose_boot && stat("/var/db/.launchd_shutdown_debugging", &sb) == 0) {
 		g_shutdown_debugging = true;
 	}
 	
-	if( stat("/var/db/.launchd_log_strict_usage", &sb) == 0 ) {
+	if (stat("/var/db/.launchd_log_strict_usage", &sb) == 0) {
 		g_log_strict_usage = true;
 	}
 }

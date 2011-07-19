@@ -31,11 +31,11 @@ namespace JSC {
 
 #ifndef NDEBUG
 
-void ScopeChainNode::print() const
+void ScopeChainNode::print()
 {
     ScopeChainIterator scopeEnd = end();
     for (ScopeChainIterator scopeIter = begin(); scopeIter != scopeEnd; ++scopeIter) {
-        JSObject* o = *scopeIter;
+        JSObject* o = scopeIter->get();
         PropertyNameArray propertyNames(globalObject->globalExec());
         o->getPropertyNames(globalObject->globalExec(), propertyNames);
         PropertyNameArray::const_iterator propEnd = propertyNames.end();
@@ -43,7 +43,7 @@ void ScopeChainNode::print() const
         fprintf(stderr, "----- [scope %p] -----\n", o);
         for (PropertyNameArray::const_iterator propIter = propertyNames.begin(); propIter != propEnd; propIter++) {
             Identifier name = *propIter;
-            fprintf(stderr, "%s, ", name.ascii());
+            fprintf(stderr, "%s, ", name.ustring().utf8().data());
         }
         fprintf(stderr, "\n");
     }
@@ -51,18 +51,32 @@ void ScopeChainNode::print() const
 
 #endif
 
-int ScopeChain::localDepth() const
+const ClassInfo ScopeChainNode::s_info = { "ScopeChainNode", 0, 0, 0 };
+
+int ScopeChainNode::localDepth()
 {
     int scopeDepth = 0;
     ScopeChainIterator iter = this->begin();
     ScopeChainIterator end = this->end();
-    while (!(*iter)->inherits(&JSActivation::info)) {
+    while (!(*iter)->inherits(&JSActivation::s_info)) {
         ++iter;
         if (iter == end)
             break;
         ++scopeDepth;
     }
     return scopeDepth;
+}
+
+void ScopeChainNode::visitChildren(SlotVisitor& visitor)
+{
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    if (next)
+        visitor.append(&next);
+    visitor.append(&object);
+    visitor.append(&globalObject);
+    visitor.append(&globalThis);
 }
 
 } // namespace JSC

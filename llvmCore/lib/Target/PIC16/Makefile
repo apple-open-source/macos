@@ -6,8 +6,9 @@
 # License. See LICENSE.TXT for details.
 # 
 ##===----------------------------------------------------------------------===##
+
 LEVEL = ../../..
-LIBRARYNAME = LLVMPIC16
+LIBRARYNAME = LLVMPIC16CodeGen
 TARGET = PIC16
 
 # Make sure that tblgen is run, first thing.
@@ -16,6 +17,8 @@ BUILT_SOURCES = PIC16GenRegisterInfo.h.inc PIC16GenRegisterNames.inc \
 		PIC16GenInstrInfo.inc PIC16GenAsmWriter.inc \
 		PIC16GenDAGISel.inc PIC16GenCallingConv.inc \
 		PIC16GenSubtarget.inc
+
+DIRS = AsmPrinter TargetInfo PIC16Passes
 
 include $(LEVEL)/Makefile.common
 

@@ -1356,20 +1356,18 @@ AppleUSBHub::CheckPortPowerRequirements(void)
                 USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements - Hub @ 0x%x attached - Self/Bus powered, power supply good", this, (uint32_t)_locationID);
 				if (!_isRootHub && !_dontAllowSleepPower)
 				{
-					OSObject *	anObj = _device->copyProperty(kAppleCurrentInSleep);
+					OSObject *	anObj = _device->copyProperty(kAppleStandardPortCurrentInSleep);
 					if ( anObj == NULL )
 					{
-						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  setting Extra Power in sleep to %d , per port %d", 
-							   this, (uint32_t)_locationID, (int)(_hubDescriptor.numPorts * kUSB500mAAvailable * 2), (uint32_t) kUSB2MaxPowerPerPort);
-						// self powered hubs can provide extra power in sleep - 500 ma per port
-						_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
-						_device->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+						USBLog(5,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  setting kAppleStandardPortCurrentInSleep to %d", this, (uint32_t)_locationID, (uint32_t) kUSB2MaxPowerPerPort);
 						
+						// self powered hubs can provide extra power in sleep - 500 ma per port
+						_device->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
 					}
 					else
 					{
 						anObj->release();
-						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  device already had a kAppleCurrentInSleep property", this, (uint32_t)_locationID);
+						USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  device already had a kAppleStandardPortCurrentInSleep property", this, (uint32_t)_locationID);
 					}
 				}
 			}
@@ -1389,18 +1387,17 @@ AppleUSBHub::CheckPortPowerRequirements(void)
 					
 					if (!_isRootHub && !_dontAllowSleepPower)
 					{
-						OSObject *	anObj = _device->copyProperty(kAppleCurrentInSleep);
+						OSObject *	anObj = _device->copyProperty(kAppleStandardPortCurrentInSleep);
 						if ( anObj == NULL )
 						{
-							USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  setting Extra Power in sleep to %d", this, (uint32_t)_locationID, (int)_hubDescriptor.numPorts * kUSB500mAAvailable * 2);
+							USBLog(5,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  setting kAppleStandardPortCurrentInSleep to %d", this, (uint32_t)_locationID, (uint32_t) kUSB2MaxPowerPerPort);
 							// self powered hubs can provide extra power in sleep - 500 ma per port
-							_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
-							_device->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+							_device->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
 						}
 						else
 						{
 							anObj->release();
-							USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  device already had a kAppleCurrentInSleep property", this, (uint32_t)_locationID);
+							USBLog(3,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  device already had a kAppleStandardPortCurrentInSleep property", this, (uint32_t)_locationID);
 						}
 					}
 				}
@@ -1419,11 +1416,11 @@ AppleUSBHub::CheckPortPowerRequirements(void)
 		if (_isRootHub && (_device->GetHubCharacteristics() & kIOUSBHubDeviceCanSleep))
 		{
 			// Only do it if the property is not there
-			OSObject *	anObj = _device->copyProperty(kAppleCurrentInSleep);
+			OSObject *	anObj = _device->copyProperty(kAppleStandardPortCurrentInSleep);
 			if ( anObj == NULL )
 			{
-				_device->setProperty(kAppleCurrentInSleep, _hubDescriptor.numPorts * kUSB500mAAvailable * 2, 32);
-				_device->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+				USBLog(5,"AppleUSBHub[%p]::CheckPowerPowerRequirements(hub @ 0x%x) -  setting kAppleStandardPortCurrentInSleep for root hub to %d", this, (uint32_t)_locationID, (uint32_t) kUSB2MaxPowerPerPort);
+				_device->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
 			}
 			else
 			{
@@ -2519,7 +2516,7 @@ AppleUSBHub::GetHubDescriptor(IOUSBHubDescriptor *desc)
     if (err)
     {
         USBLog(3, "AppleUSBHub [%p] GetHubDescriptor error = 0x%x", this, err);
-    }        
+    }
 
     return err;
 }

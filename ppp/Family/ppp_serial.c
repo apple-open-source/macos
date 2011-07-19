@@ -96,7 +96,6 @@ Includes
 #include <sys/syslog.h>
 #include <sys/sockio.h>
 #include <sys/kauth.h>
-#include <machine/spl.h>
 
 #include <kern/thread.h>
 #include <kern/task.h>
@@ -405,7 +404,7 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     lk = (struct ppp_link *) ld;
 
     // it's time now to register our brand new link
-    lk->lk_name 	= APPLE_PPP_NAME_SERIAL;
+    lk->lk_name 	= (u_char*)APPLE_PPP_NAME_SERIAL;
     lk->lk_mtu 		= PPP_MTU;
     lk->lk_mru 		= PPP_MTU; //PPP_MAXMRU;
     lk->lk_type 	= PPP_TYPE_SERIAL;
@@ -657,7 +656,7 @@ int pppserial_input(int c, struct tty *tp)
 {
     struct pppserial 	*ld = (struct pppserial *) tp->t_sc;
     mbuf_t		m;
-    int 		ilen;
+    int 		ilen, err;
 
     //IOLog("pppserial_input, %s c = 0x%x '%c'\n", c == 0x7e ? "----------------" : "", c, ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))? c : '.');
 
@@ -852,8 +851,12 @@ int pppserial_input(int c, struct tty *tp)
             }
         }
         m = ld->inm;
-        mbuf_setdata(m, mbuf_datastart(ld->inm), 0);
-		mbuf_setflags(m, mbuf_flags(m) & ~M_ERRMARK);
+        if ((err = mbuf_setdata(m, mbuf_datastart(ld->inm), 0))) {
+            LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) mbuf_setdata failed!\n", 
+                          LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
+            goto flush;
+        }
+        mbuf_setflags(m, mbuf_flags(m) & ~M_ERRMARK);
         ld->inmc = m;
         ld->inmp = mbuf_data(m);
         ld->infcs = PPP_INITFCS;
@@ -906,7 +909,11 @@ int pppserial_input(int c, struct tty *tp)
             }
         }
         ld->inmc = m = mbuf_next(m);
-        mbuf_setdata(m, mbuf_datastart(m), 0);
+        if ((err = mbuf_setdata(m, mbuf_datastart(m), 0))) {
+            LOGLKDBG(ld, ("pppserial_input: (ifnet = %s%d) (link = %s%d) mbuf_setdata!\n", 
+                     LKIFNAME(ld), LKIFUNIT(ld), LKNAME(ld), LKUNIT(ld)));
+            goto flush;
+        }
         ld->inmp = mbuf_data(m);
     }
 

@@ -39,8 +39,12 @@ namespace WebKit {
 // This interface is used by the embedder to call into webkit.
 class WebApplicationCacheHostClient {
 public:
-    // Called to fire the event in the scriptable interface.
+    // Called when a different cache, including possibly no cache, is associated with the host.
+    virtual void didChangeCacheAssociation() = 0;
+
+    // Called to fire events in the scriptable interface.
     virtual void notifyEventListener(WebApplicationCacheHost::EventID) = 0;
+    virtual void notifyProgressEventListener(const WebURL&, int num_total, int num_complete) = 0;
 
 protected:
     // Should not be deleted by the embedder.

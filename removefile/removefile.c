@@ -104,7 +104,7 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 	state->cancelled = 0;
 	state->unlink_flags = flags;
 
-	if (flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS)) {
+	if (flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_1_PASS | REMOVEFILE_SECURE_3_PASS)) {
 		__removefile_init_random(getpid(), state);
 	}
 

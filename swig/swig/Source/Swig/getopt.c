@@ -16,7 +16,7 @@
  *       Should have cleaner error handling in general.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_getopt_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/getopt.c,v 1.12 2006/11/01 23:54:53 wsfulton Exp $";
+char cvsroot_getopt_c[] = "$Id: getopt.c 10926 2008-11-11 22:17:40Z wsfulton $";
 
 #include "swig.h"
 
@@ -100,7 +100,7 @@ void Swig_check_options(int check_input) {
  * Generates a generic error message and exits.
  * ----------------------------------------------------------------------------- */
 
-void Swig_arg_error() {
+void Swig_arg_error(void) {
   Printf(stderr, "SWIG : Unable to parse command line options.\n");
   Printf(stderr, "Use 'swig -help' for available options.\n");
   exit(1);

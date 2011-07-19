@@ -1,0 +1,253 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+set pad [5 mm]
+
+# XXX - put function call boxes into a procedure
+# XXX - put call/references styling into procedure, or variables ...
+#       - procedure would use internal block to set everything up.
+
+proc labelframe {label script args} {
+    variable pad
+    return [block {
+	text text $label
+	down
+	set X [block { east ; eval $script } with nw at [[last text sw] by $pad s]]
+	box at [last block c] \
+	    width [expr {$pad + [last block width]}] \
+	    height [expr {$pad + [last block height]}] \
+	    color red stroke 2
+	# fillcolor lightyellow - don't fill, order of drawing means that the inside elements are painted over, becoming invisible.
+	# XXX need commands to control order -> raise/lower
+
+	# Export the corners of the inner block as our corners.
+	foreach v [$X names] { set $v [$X $v] }
+	unset X
+    } {*}$args]
+}
+
+proc connector {name corner {shape {}} {off {}}} {
+    if {$shape eq {}} {set shape box}
+    group {
+	if {$off eq {}} {
+	    set connector [circle at [last $shape $corner] fillcolor gray radius 5]
+	} else {
+	    switch -exact -- $corner {
+		n { set l nw ; set r ne }
+		s { set r sw ; set l se }
+		w { set l nw ; set r sw }
+		e { set r ne ; set l se }
+	    }
+	    set connector [circle \
+			       at [$off between [last $shape $l] [last $shape $r]] \
+			       fillcolor gray radius 5]
+	}
+    }
+    # XXX should track through the upvar for proper look&feel.
+    set $name [$connector $corner]
+    return
+}
+
+proc S {from dir to args} {
+    group {
+	move from $from then $dir
+	set P [last move end]
+	set A [arrow from $from then $P then [$P | $to] to $to {*}$args]
+    }
+    return $A
+}
+
+proc SX {from dir to f args} {
+    variable pad
+    group {
+	move from $from then $dir then $dir [expr {$f * $pad}]
+	set P [last move end]
+	set A [arrow from $from then $P then [$P | $to] to $to {*}$args]
+    }
+    return $A
+}
+
+proc Lx {from to args} {
+    group {
+	set A [arrow from $from then [$from | $to] to $to {*}$args]
+    }
+    return $A
+}
+
+proc Ly {from to args} {
+    group {
+	set A [arrow from $from then [$to | $from] to $to {*}$args]
+    }
+    return $A
+}
+
+
+proc GC {args} {
+    return [labelframe "Generic Channelsystem" {
+	text "\[\]"
+	arrow <-
+	text "call ChannelHandlers," "EventScripts"
+	group {
+	    arrow <- "call" above
+	    box "Tcl_NotifyChannel" width [4 cm]
+	    connector TNC1 e {} 0.75
+	    connector TNC2 e {} 0.25
+	    down
+	    arrow <- "call" anchor nw down down down down down down color blue
+	    box "ChannelTimerProc" width [4 cm]
+	    connector CTP1 e {} 0.75
+	    connector CTP2 e {} 0.5
+	    connector CTP3 e {} 0.25
+	    move
+	    move
+	    move
+	    box "UpdateInterest" width [4 cm]
+	    connector UI1 e {} 0.75
+	    connector UI2 e {} 0.25
+
+	    arrow from [0.5 between [1st last box nw] [1st last box n]] up   up   up   "call" anchor ne color blue
+	    arrow from [0.5 between [2nd last box se] [2nd last box s]] down down down "call" anchor sw color blue
+	} ; down
+	arrow <- "setup" ljust
+	text "\[fileevent\]"
+	arrow from [last text s] then [[last text s] | [last box w]] to [last box w] color blue
+	text "call" with nw at [[last arrow start] by $pad se]
+    } {*}$args]
+}
+
+proc NFES {args} {
+    return [labelframe "Notifier (Unix, File EventSource)" {
+	box "Tcl_CreateFileHandler" width [5 cm]
+	connector TCFH w ; up
+	arrow "create" ljust
+	ellipse "FileHandler" width [3 cm] fillcolor lightblue
+	connector FH w ellipse
+	arrow <- "query" ljust
+	box "FileHandlerEventProc" width [5 cm]
+	connector FHEP0 w
+	connector FHEP1 n
+	connector FHEP2 e
+	right
+	move
+	box "Tcl_WaitForEvent" width [4 cm]
+	connector TWFE0 e
+	connector TWFE1 n
+	down
+	arrow "call" rjust color blue
+	circle "select"
+	arrow <- "timeout" rjust
+	box "Tcl_SetMaxBlockTime" width [5 cm]
+	connector TSMBT s
+    } {*}$args]
+}
+
+proc CD {args} {
+    return [labelframe "Channel Driver" {
+	box "(WatchProc)" width [4 cm]
+	connector WPinA w {} 0.25
+	connector WPinB w {} 0.75
+	connector WPout e
+    } {*}$args]
+}
+
+proc TES {args} {
+    return [labelframe "EventSource \"Timer\"" {
+	box "Tcl_CreateTimerHandler" width [5 cm]
+	connector TCTH1 w {} 0.75
+	connector TCTH2 w {} 0.5
+	connector TCTH3 w {} 0.25
+	up
+	arrow "create" ljust
+	ellipse "TimerHandler" width [3 cm] fillcolor lightblue
+	connector TH w ellipse
+	right
+	arrow <- "query" above
+	box "TimerSetupProc" width [4 cm] 
+	connector TSP0 e
+	connector TSP1 n
+	up ; move up right up right
+	box "TimerCheckProc" width [4 cm] 
+	connector TCP0  e ; left
+	connector TCP1 n ; left
+	arrow <- "query" from [last ellipse nw] rjust up
+	box "TimerHandlerEventProc" width [5 cm]
+	down
+	connector THEP1 w
+	connector THEP2 e {} 0.75
+	connector THEP3 e {} 0.25
+	arrow "query" to [last ellipse ne] from [2nd last box sw] anchor se
+    } {*}$args]
+}
+
+proc NGEQ {args} {
+    return [labelframe "Notifier (Generic, EventQueue)" {
+	box "Tcl_(Thread)QueueEvent" width [6 cm] 
+	connector TTQE0 w {} 0.15
+	connector TTQE1 w {} 0.35
+	connector TTQE2 w {} 0.55
+	connector TTQE3 w {} 0.75
+	down
+	arrow "queue" ljust
+	ellipse width [6 cm] height [4 cm] fillcolor lightblue
+	right ; arrow <- "dequeue" above right
+	box "Tcl_ServiceEvent" width [4 cm] ; down
+	arrow <- "call" rjust color blue
+	box "Tcl_DoOneEvent" width [4 cm] 
+	connector TDOE0 w
+	connector TDOE1 s {} 0.9
+	connector TDOE2 s {} 0.8
+	text "EventQueue" with nw at [last ellipse nw]
+	group { ellipse "File/Timer\nEvent" width [3 cm] with nw at [last ellipse center] }
+	arrow "dispatch" anchor nw from [2nd last box w] to [last ellipse e]
+	set D [last ellipse e]
+    } {*}$args]
+}
+
+# ====================================================================================================
+## skeleton, the big blocks, and their placement
+
+set GC [GC]
+arrow <- from [$GC TNC1] then right [12 cm] "call" above color blue
+set NFES [NFES with FHEP0]
+
+arrow <- from [$NFES TCFH] then left "call" above color blue
+set CD [CD with WPout]
+
+arrow <- from [$GC CTP1] then right [12 cm] "call" above color blue
+set TES [TES with THEP1]
+
+arrow <- from [$NFES TWFE0] right [14 cm] "call" above color blue
+set NGEQ [NGEQ with TDOE0]
+
+# ====================================================================================================
+## All the additional interconnections
+
+#return
+
+set CDGC [S [$CD WPinA] left [$GC TNC2] color orange]
+arrow from [$NFES FH] "references" above \
+    to [intersect \
+	    [move from [$NFES FH] to [by 100 west]] \
+	    [move from [$CDGC 2]  to [$CDGC 3]]] \
+    color orange
+
+set GCTES [SX [$GC CTP2] right [$TES TCTH3] 1 <- color orange]
+arrow from [$TES TH] "references" above \
+    to [intersect \
+	    [move from [$TES TH]  to [by 100 west]] \
+	    [move from [$GCTES 2] to [$GCTES 3]]] \
+    color orange
+
+
+arrow    from [$TES TSP1] to [$NFES TSMBT] "call" ljust color blue
+arrow <- from [$TES THEP2] up right up right right right color orange
+text "references" with se at [[Lx [last end] [$NGEQ TTQE2] - color orange] end]
+
+text "call"       with nw at [[arrow from [$NGEQ D] then down down down  down down to [$TES THEP3] color blue] end]
+text "call"       with sw at [[arrow from [$NGEQ D] then down then left down left down left then left left left left left then [$NFES FHEP2] color blue] end]
+text "call"       with nw at [[S  [$GC CTP3] right [$TES TCTH2]   color blue] start]
+text "call"       with nw at [[SX [$GC UI2]  right [$TES TCTH1] 4 color blue] start]
+text "call"       with nw at [[SX [$GC UI1]  right [$CD  WPinB] 3 color blue] start]
+text "call"       with sw at [[Lx [$TES  TCP1]  [$NGEQ TTQE3]     color blue] start]
+text "call"       with sw at [[Lx [$NFES TWFE1] [$NGEQ TTQE1]     color blue] start]
+text "references" with se at [[Lx [$NFES FHEP1] [$NGEQ TTQE0] <-  color orange] end]
+text "dispatch"   with ne at [[Lx [$NGEQ TDOE1] [$TES TCP0]] start]
+text "dispatch"   with nw at [[Lx [$NGEQ TDOE2] [$TES TSP0]] start]

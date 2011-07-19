@@ -135,7 +135,6 @@ int     bounce_notify_verp(int flags, char *service, char *queue_name,
 	bounce_mail_free(bounce_info);
 	return (bounce_status);
     }
-
 #define NULL_SENDER		MAIL_ADDR_EMPTY	/* special address */
 #define NULL_TRACE_FLAGS	0
 
@@ -151,14 +150,17 @@ int     bounce_notify_verp(int flags, char *service, char *queue_name,
 
 	/*
 	 * Notify the originator, subject to DSN NOTIFY restrictions.
+	 * 
+	 * Fix 20090114: Use the Postfix original recipient, because that is
+	 * what the VERP consumer expects.
 	 */
 	if (rcpt->dsn_notify != 0		/* compat */
 	    && (rcpt->dsn_notify & DSN_NOTIFY_FAILURE) == 0) {
 	    bounce_status = 0;
 	} else {
-	    verp_sender(verp_buf, verp_delims, recipient, rcpt->address);
+	    verp_sender(verp_buf, verp_delims, recipient, rcpt);
 	    if ((bounce = post_mail_fopen_nowait(NULL_SENDER, STR(verp_buf),
-						 INT_FILT_BOUNCE,
+						 INT_FILT_MASK_BOUNCE,
 						 NULL_TRACE_FLAGS,
 						 new_id)) != 0) {
 
@@ -217,7 +219,7 @@ int     bounce_notify_verp(int flags, char *service, char *queue_name,
 	    postmaster = var_bounce_rcpt;
 	    if ((bounce = post_mail_fopen_nowait(mail_addr_double_bounce(),
 						 postmaster,
-						 INT_FILT_BOUNCE,
+						 INT_FILT_MASK_BOUNCE,
 						 NULL_TRACE_FLAGS,
 						 new_id)) != 0) {
 		if (bounce_header(bounce, bounce_info, postmaster,

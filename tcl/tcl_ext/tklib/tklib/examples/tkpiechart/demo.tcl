@@ -2,6 +2,8 @@
 # the next line restarts using the interpreter \
 exec wish "$0" "$@"
 
+package require Tk
+
 # copyright (C) 1995-2004 Jean-Luc Fontaine (mailto:jfontain@free.fr)
 
 

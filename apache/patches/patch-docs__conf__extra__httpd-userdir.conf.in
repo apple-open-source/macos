@@ -1,6 +1,6 @@
 --- docs/conf/extra/httpd-userdir.conf.in.orig	2007-09-13 14:43:37.000000000 -0700
 +++ docs/conf/extra/httpd-userdir.conf.in	2007-09-13 14:44:24.000000000 -0700
-@@ -7,22 +7,10 @@
+@@ -7,22 +7,13 @@
  # directory if a ~user request is received.  Note that you must also set
  # the default access control for these directories, as in the example below.
  #
@@ -25,4 +25,6 @@
 -    </LimitExcept>
 -</Directory>
 +Include @rel_sysconfdir@/users/*.conf
- 
++<IfModule bonjour_module>
++       RegisterUserSite customized-users
++</IfModule>

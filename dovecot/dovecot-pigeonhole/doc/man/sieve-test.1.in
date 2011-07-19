@@ -1,0 +1,221 @@
+.\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
+.TH "SIEVE\-TEST" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.SH NAME
+sieve\-test \- Pigeonhole\(aqs Sieve script tester
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B sieve\-test
+.RI [ options ]
+.I script\-file
+.I mail\-file
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.PP
+The \fBsieve\-test\fP command is part of the Pigeonhole Project
+(\fBpigeonhole\fR(7)), which adds Sieve (RFC 5228) support to the Dovecot
+secure IMAP and POP3 server (\fBdovecot\fR(1)).
+.PP
+Using the \fBsieve\-test\fP command, the execution of Sieve scripts can be
+tested. This evaluates the script for the provided message, yielding a set of
+Sieve actions. Unless the \fB\-e\fP option is specified, it does not actually
+execute these actions, meaning that it does not store or forward the message
+anywere. In stead, it prints a detailed list of what actions would normally take
+place. Note that, even when \fB\-e\fP is specified, no messages are ever
+transmitted to remote SMTP recipients. The outgoing messages are always printed
+to \fBstdout\fP in stead.
+.PP
+This is a very useful tool to debug the execution of Sieve scripts. It can be
+used to verify newly installed scripts for the intended behaviour and it can
+provide more detailed information about script execution problems that are
+reported by the Sieve plugin, for example by tracing the execution and
+evaluation of commands and tests respectively.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.BI \-c\  config\-file
+Alternative Dovecot configuration file path.
+.TP
+.B \-C
+Force compilation. By default, the compiled binary is stored on disk. When this
+binary is found during the next execution of \fBsieve\-test\fP and its
+modification time is more recent than the script file, it is used and the script
+is not compiled again. This option forces the script to be compiled, thus
+ignoring any present binary. Refer to \fBsievec\fP(1) for more information about
+Sieve compilation.
+.TP
+.B \-D
+Enable Sieve debugging.
+.TP
+.BI \-d\  dump\-file
+Causes a dump of the generated code to be written to the specified file. This is
+identical to the dump produced by \fBsieve\-dump\fR(1). Using \(aq\-\(aq as
+filename causes the dump to be written to \fBstdout\fP.
+.TP
+.BI \-e
+Enables true execution of the set of actions that results from running the
+script. In combination with the \fB\-l\fP parameter, the actual delivery of
+messages can be tested. Note that this will not transmit any messages to remote
+SMTP recipients. Such actions only print the outgoing message to \fBstdout\fP.
+.TP
+.BI \-f\  envelope\-sender
+The envelope sender or return path. This is what Sieve\(aqs envelope test will
+compare to when the \(dqfrom\(dq envelope part is requested. Also, this is
+where response messages are sent to.
+.TP
+.BI \-l\  mail\-location
+The location of the user\(aqs mail store. The syntax of this option\(aqs
+\fImail\-location\fP parameter is identical to what is used for the
+mail_location setting in the Dovecot config file. This parameter is typically
+used in combination with \fB\-e\fP to test the actual delivery of messages. If
+\fB\-l\fP is omitted when \fB\-e\fP is specified, mail store actions like
+fileinto and keep are skipped.
+.TP
+.BI \-m\  default\-mailbox
+The mailbox where the keep action stores the message. This is \(dqINBOX\(dq
+by default.
+.TP
+.BI \-r\  recipient\-address
+The envelope recipient address. This is what Sieve\(aqs envelope test will compare
+to when the \(dqto\(dq envelope part is requested. Some tests and actions will also
+use this as the owner\(aqs e\-mail address.
+.TP
+.BI \-s\  script\-file
+Specify additional scripts to be executed before the main script. Multiple
+\fB\-s\fP arguments are allowed and the specified scripts are executed
+sequentially in the order specified at the command
+line.
+.TP
+.BI \-t\  trace\-file
+Enables runtime trace debugging. Trace debugging provides detailed insight in
+the operations performed by the Sieve script. Refer to the runtime trace
+debugging section below. The trace information is written to the specified file.
+Using '\-' as filename causes the trace data to be written to \fBstdout\fP.
+.TP
+.BI \-T\  trace\-option
+Configures runtime trace debugging, which is enabled with the \fP\-t\fP option.
+Refer to the runtime trace debugging section below.
+.TP
+.BI \-x\  extensions
+Set the available extensions. The parameter is a space\-separated list of the
+active extensions. By prepending the extension identifiers with \fB+\fP or
+\fB\-\fP, extensions can be included or excluded relative to the default set of
+extensions. If no extensions have a \fB+\fP or \fB\-\fP prefix, only those
+extensions that are explicitly listed will be enabled. Unknown extensions are
+ignored and a warning is produced. By default, all supported extensions are
+available, except for deprecated extensions or those that are still under
+development.
+
+For example \fB\-x\fP \(dq+imapflags \-enotify\(dq will enable the deprecated
+imapflags extension along with all extensions that are available by default,
+except for the enotify extension.
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I script\-file
+Specifies the script to (compile and) execute.
+
+Note that this tool looks for a pre\-compiled binary file with a \fI.svbin\fP
+extension and with basename and path identical to the specified script. Use the
+\fB\-C\fP option to disable this behavior by forcing the script to be compiled
+into a new binary.
+.TP
+.I mail\-file
+Specifies the file containing the e\-mail message to test with.
+.\"------------------------------------------------------------------------
+.SH USAGE
+.SS RUNTIME TRACE DEBUGGING
+.PP
+Using the \fB\-t\fP option, the \fBsieve\-test\fP tool can be configured to print
+detailed trace information on the Sieve script execution to a file or standard
+output. For example, the encountered commands, the performed tests and the
+matched values can be printed.
+.PP
+The runtime trace can be configured using the \fB\-T\fP option, which can be
+specified multiple times. It can be used as follows:
+
+.TP 2
+\fB\-Tlevel=...\fP
+Set the detail level of the trace debugging. One of the following values can
+be supplied:
+.RS 2
+.TP 3
+\fIactions\fP (default)
+Only print executed action commands, like keep, fileinto, reject and redirect.
+.TP
+\fIcommands\fP
+Print any executed command, excluding test commands.
+.TP
+\fItests\fP
+Print all executed commands and performed tests.
+.TP
+\fImatching\fP
+Print all executed commands, performed tests and the values matched in those
+tests.
+.RE
+.TP 2
+\fB\-Tdebug\fP
+Print debug messages as well. This is usually only useful for developers and
+is likely to produce messy output.
+.TP
+\fB\-Taddresses\fP
+Print byte code addresses for the current trace output. Normally, only the
+current Sieve source code position (line number) is printed. The byte code
+addresses are equal to those listed in a binary dump produced using the
+\fB\-d\fP option or by the \fBsieve\-dump(1)\fP command.
+.\"------------------------------------------------------------------------
+.SS DEBUG SIEVE EXTENSION
+.PP
+To improve script debugging, the Sieve command line tools such as
+\fBsieve\-test\fP support a custom Sieve language extension called
+\(aqvnd.dovecot.debug\(aq. It adds the \fBdebug_print\fP command that allows
+printing debug messages to \fBstdout\fP.
+.PP
+Example:
+.PP
+require \(dqvnd.dovecot.debug\(dq;
+.PP
+if header :contains \(dqsubject\(dq \(dqhello\(dq {
+.PP
+  debug_print \(dqSubject header contains hello!\(dq;
+.PP
+}
+.PP
+Other tools like \fBsievec\fP and \fBsieve\-dump\fP also recognize the
+vnd.dovecot.debug extension. In contrast, the actual Sieve plugin for the
+Dovecot LDA (\fBdovecot\-lda\fR(1)) does not allow the use of the debug
+extension. So, keep in mind that scripts and compiled binaries that refer to de
+debug extension will fail to be run by the Sieve plugin itself.
+.PP
+Note that it is not necessary to enable nor possible to disable the availability
+of the debug extension with the \fB\-x\fP option.
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B sieve\-test
+will exit with one of the following values:
+.TP 4
+.B 0
+Delivery was successful. (EX_OK, EXIT_SUCCES)
+.TP
+.B 1
+Operation failed. This is returned for almost all failures.
+(EXIT_FAILURE)
+.TP
+.B 64
+Invalid parameter given. (EX_USAGE)
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @pkgsysconfdir@/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @pkgsysconfdir@/conf.d/90\-sieve.conf
+Sieve interpreter settings (included from Dovecot\(aqs main configuration file)
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH "SEE ALSO"
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR sieve\-dump (1),
+.BR sievec (1),
+.BR pigeonhole (7)

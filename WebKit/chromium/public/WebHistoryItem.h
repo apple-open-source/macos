@@ -102,6 +102,9 @@ public:
     WEBKIT_API WebVector<WebString> documentState() const;
     WEBKIT_API void setDocumentState(const WebVector<WebString>&);
 
+    WEBKIT_API long long itemSequenceNumber() const;
+    WEBKIT_API void setItemSequenceNumber(long long);
+
     WEBKIT_API long long documentSequenceNumber() const;
     WEBKIT_API void setDocumentSequenceNumber(long long);
 

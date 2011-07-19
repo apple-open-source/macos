@@ -1,8 +1,13 @@
-This collective work is Copyright (C) 2002, 2003 by Eric S. Raymond
-and Copyright (C) 2004 by Matthias Andree, Eric S. Raymond,
-                          Robert M. Funk and Graham Wilson
-and Copyright (C) 2005 by Matthias Andree and Sunil Shetye
-and Copyright (C) 2006 - 2008 by Matthias Andree.
+This collective work is
+Copyright (C) 2002, 2003 Eric S. Raymond
+Copyright (C) 2004 Matthias Andree, Eric S. Raymond,
+                   Robert M. Funk, Graham Wilson
+Copyright (C) 2005 - 2006, 2010 Sunil Shetye
+Copyright (C) 2005 - 2010 Matthias Andree
+
+If enabled at configure/compile time, the following clause applies:
+| This product includes software developed by the OpenSSL Project
+| for use in the OpenSSL Toolkit. (http://www.openssl.org/)
 
 Some older portions not explicitly mentioned above are copyrighted by
 Carl E. Harris, George M. Sipe, Graham Wilson, Matthias Andree and Sunil Shetye.

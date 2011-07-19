@@ -30,8 +30,9 @@
 #define AccessibilityTable_h
 
 #include "AccessibilityRenderObject.h"
+#include <wtf/Forward.h>
 
-#if PLATFORM(MAC) && (defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD))
+#if PLATFORM(MAC) && defined(BUILDING_ON_LEOPARD)
 #define ACCESSIBILITY_TABLES 0
 #else
 #define ACCESSIBILITY_TABLES 1
@@ -39,7 +40,6 @@
 
 namespace WebCore {
 
-class String;
 class AccessibilityTableCell;
 class AccessibilityTableHeaderContainer;
     
@@ -50,8 +50,10 @@ protected:
 public:
     static PassRefPtr<AccessibilityTable> create(RenderObject*);
     virtual ~AccessibilityTable();
-    
+
+    virtual bool isAccessibilityTable() const;
     virtual bool isDataTable() const;
+
     virtual AccessibilityRole roleValue() const;
     virtual bool isAriaTable() const { return false; }
     
@@ -78,17 +80,18 @@ public:
 
     // an object that contains, as children, all the objects that act as headers
     AccessibilityObject* headerContainer();
-    
-protected:    
+
+protected:
     AccessibilityChildrenVector m_rows;
     AccessibilityChildrenVector m_columns;
-    
+
     AccessibilityTableHeaderContainer* m_headerContainer;
     mutable bool m_isAccessibilityTable;
-    
-    bool isTableExposableThroughAccessibility();
+
+    bool hasARIARole() const;
+    bool isTableExposableThroughAccessibility() const;
 };
-    
+
 } // namespace WebCore 
 
 #endif // AccessibilityTable_h

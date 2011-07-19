@@ -25,13 +25,13 @@
  * It was generated using rpcgen.
  */
 
-#include <rpcsvc/sm_inter.h>
+#include "sm_inter.h"
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <rpc/pmap_clnt.h>
+#include <oncrpc/pmap_clnt.h>
 #include <string.h>
 #include <netdb.h>
 #include <signal.h>

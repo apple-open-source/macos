@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  byrefgc.m
 //  testObjects
@@ -5,12 +11,16 @@
 //  Created by Blaine Garst on 5/16/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-//  CONFIG GC -C99
+
+// TEST_CONFIG SDK=macosx
+// TEST_CFLAGS -framework Foundation
 
 
+#import <objc/objc-auto.h>
 #import <Foundation/Foundation.h>
-#include <stdio.h>
-#include <Block.h>
+#import <stdio.h>
+#import <Block.h>
+#import "test.h"
 
 int DidFinalize = 0;
 int GotHi = 0;
@@ -47,7 +57,7 @@ void (^get_block(void))(void) {
     return [^{ [to hi]; to = [[TestObject alloc] init]; } copy];
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     
     void (^voidvoid)(void) = get_block();
     voidvoid();
@@ -60,11 +70,12 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < 8000; ++i) {
         [NSObject new];
     }
-    [[NSGarbageCollector defaultCollector] collectIfNeeded];
-    if ((DidFinalize + 2) < VersionCounter) {
-        printf("*** %s didn't recover all objects %d/%d\n", argv[0], DidFinalize, VersionCounter);
-        return 1;
+    if (objc_collectingEnabled()) {
+        objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
+        if ((DidFinalize + 2) < VersionCounter) {
+            fail("didn't recover all objects %d/%d", DidFinalize, VersionCounter);
+        }
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

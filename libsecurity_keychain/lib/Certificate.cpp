@@ -349,6 +349,35 @@ Certificate::publicKeyHash()
 	return mPublicKeyHash;
 }
 
+const CssmData &
+Certificate::subjectKeyIdentifier()
+{
+	StLock<Mutex>_(mMutex);
+	if (mSubjectKeyID.Length)
+		return mSubjectKeyID;
+
+	CSSM_DATA_PTR fieldValue = copyFirstFieldValue(CSSMOID_SubjectKeyIdentifier);
+	if (fieldValue && fieldValue->Data && fieldValue->Length == sizeof(CSSM_X509_EXTENSION))
+	{
+		const CSSM_X509_EXTENSION *extension = reinterpret_cast<const CSSM_X509_EXTENSION *>(fieldValue->Data);
+		const CE_SubjectKeyID *skid = reinterpret_cast<CE_SubjectKeyID *>(extension->value.parsedValue);	// CSSM_DATA
+
+		if (skid->Length <= sizeof(mSubjectKeyIDBytes))
+		{
+			mSubjectKeyID.Data = mSubjectKeyIDBytes;
+			mSubjectKeyID.Length = skid->Length;
+			memcpy(mSubjectKeyID.Data, skid->Data, skid->Length);
+		}
+		else
+			mSubjectKeyID.Length = 0;
+	}
+	
+	releaseFieldValue(CSSMOID_SubjectKeyIdentifier, fieldValue);
+
+	return mSubjectKeyID;
+}
+
+
 /*
  * Given an CSSM_X509_NAME, Find the first name/value pair with 
  * a printable value which matches the specified OID (e.g., CSSMOID_CommonName). 
@@ -379,10 +408,16 @@ findPrintableField(
 			switch(tvpPtr->valueType) {
 				case BER_TAG_PRINTABLE_STRING:
 				case BER_TAG_IA5_STRING:
+					*encoding = kCFStringEncodingASCII;
+					return &tvpPtr->value;
 				case BER_TAG_PKIX_UTF8_STRING:
+				case BER_TAG_GENERAL_STRING:
+				case BER_TAG_PKIX_UNIVERSAL_STRING:
 					*encoding = kCFStringEncodingUTF8;
 					return &tvpPtr->value;
 				case BER_TAG_T61_STRING:
+				case BER_TAG_VIDEOTEX_STRING:
+				case BER_TAG_ISO646_STRING:
 					*encoding = kCFStringEncodingISOLatin1;
 					return &tvpPtr->value;
 				case BER_TAG_PKIX_BMP_STRING:
@@ -573,8 +608,18 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 
 	if (rtnString)
 	{
+		CFStringBuiltInEncodings testEncoding = printEncoding;
+		if(testEncoding == kCFStringEncodingISOLatin1) {
+			// try UTF-8 first
+			testEncoding = kCFStringEncodingUTF8;
+		}
 		*rtnString = CFStringCreateWithBytes(NULL, printName->Data,
-			(CFIndex)printName->Length, printEncoding, true);
+			(CFIndex)printName->Length, testEncoding, true);
+		if(*rtnString == NULL && printEncoding == kCFStringEncodingISOLatin1) {
+			// string cannot be represented in UTF-8, fall back to ISO Latin 1
+			*rtnString = CFStringCreateWithBytes(NULL, printName->Data,
+				(CFIndex)printName->Length, printEncoding, true);
+		}
 	}
 
 	// Clean up
@@ -951,7 +996,7 @@ extern "C" bool getField_normRDN_NSS (
 	CssmOwnedData		&fieldValue);	// RETURNED
 
 KCCursor
-Certificate::cursorForIssuerAndSN(const StorageManager::KeychainList &keychains, const CssmData &issuer                                                                                                                            , const CssmData &serialNumber)
+Certificate::cursorForIssuerAndSN(const StorageManager::KeychainList &keychains, const CssmData &issuer, const CssmData &serialNumber)
 {
 	CssmAutoData fieldValue(Allocator::standard(Allocator::normal));
 	uint32 numFields;
@@ -965,6 +1010,27 @@ Certificate::cursorForIssuerAndSN(const StorageManager::KeychainList &keychains,
 	cursor->conjunctive(CSSM_DB_AND);
 	cursor->add(CSSM_DB_EQUAL, Schema::kX509CertificateIssuer, fieldValue.get());
 	cursor->add(CSSM_DB_EQUAL, Schema::kX509CertificateSerialNumber, serialNumber);
+	
+	return cursor;
+}
+
+KCCursor
+Certificate::cursorForIssuerAndSN_CF(const StorageManager::KeychainList &keychains, CFDataRef issuer, CFDataRef serialNumber)
+{
+	// This assumes a normalized issuer
+	CSSM_DATA issuerCSSM, serialNumberCSSM;
+	
+	issuerCSSM.Length = CFDataGetLength(issuer);
+	issuerCSSM.Data = const_cast<uint8 *>(CFDataGetBytePtr(issuer));
+	
+	serialNumberCSSM.Length = CFDataGetLength(serialNumber);
+	serialNumberCSSM.Data = const_cast<uint8 *>(CFDataGetBytePtr(serialNumber));
+
+	// Code basically copied from SecKeychainSearchCreateFromAttributes and SecKeychainSearchCopyNext:
+	KCCursor cursor(keychains, kSecCertificateItemClass, NULL);
+	cursor->conjunctive(CSSM_DB_AND);
+	cursor->add(CSSM_DB_EQUAL, Schema::kX509CertificateIssuer, issuerCSSM);
+	cursor->add(CSSM_DB_EQUAL, Schema::kX509CertificateSerialNumber, serialNumberCSSM);
 	
 	return cursor;
 }

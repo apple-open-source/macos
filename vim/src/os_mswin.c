@@ -653,6 +653,12 @@ mch_chdir(char *path)
     if (path[0] == NUL)		/* just checking... */
 	return -1;
 
+    if (p_verbose >= 5)
+    {
+	verbose_enter();
+	smsg((char_u *)"chdir(%s)", path);
+	verbose_leave();
+    }
     if (isalpha(path[0]) && path[1] == ':')	/* has a drive name */
     {
 	/* If we can change to the drive, skip that part of the path.  If we
@@ -781,7 +787,7 @@ check_str_len(char_u *str)
 	/* get length from str to end of page */
 	long_u pageLength = si.dwPageSize - (dwStr - strPage);
 
-	for (p = str; !IsBadReadPtr(p, pageLength);
+	for (p = str; !IsBadReadPtr(p, (UINT)pageLength);
 				  p += pageLength, pageLength = si.dwPageSize)
 	    for (i = 0; i < pageLength; ++i, ++length)
 		if (p[i] == NUL)
@@ -1227,17 +1233,17 @@ utf16_to_enc(short_u *str, int *lenp)
  * Wait for another process to Close the Clipboard.
  * Returns TRUE for success.
  */
-    int
-vim_open_clipboard()
+    static int
+vim_open_clipboard(void)
 {
     int delay = 10;
 
     while (!OpenClipboard(NULL))
     {
-        if (delay > 500)
-            return FALSE;  /* waited too long, give up */
-        Sleep(delay);
-        delay *= 2;	/* wait for 10, 20, 40, 80, etc. msec */
+	if (delay > 500)
+	    return FALSE;  /* waited too long, give up */
+	Sleep(delay);
+	delay *= 2;	/* wait for 10, 20, 40, 80, etc. msec */
     }
     return TRUE;
 }
@@ -1773,7 +1779,7 @@ swap_me(COLORREF colorref)
 }
 
 /* Attempt to make this work for old and new compilers */
-#if _MSC_VER < 1300
+#if !defined(_MSC_VER) || (_MSC_VER < 1300) || !defined(INT_PTR)
 # define PDP_RETVAL BOOL
 #else
 # define PDP_RETVAL INT_PTR
@@ -2071,7 +2077,7 @@ mch_print_init(prt_settings_T *psettings, char_u *jobname, int forceit)
     int			i;
 
     bUserAbort = &(psettings->user_abort);
-    memset(&prt_dlg, 0, sizeof(PRINTDLG));
+    vim_memset(&prt_dlg, 0, sizeof(PRINTDLG));
     prt_dlg.lStructSize = sizeof(PRINTDLG);
 #ifndef FEAT_GUI
     GetConsoleHwnd();	    /* get value of s_hwnd */
@@ -2186,7 +2192,7 @@ mch_print_init(prt_settings_T *psettings, char_u *jobname, int forceit)
     /*
      * Initialise the font according to 'printfont'
      */
-    memset(&fLogFont, 0, sizeof(fLogFont));
+    vim_memset(&fLogFont, 0, sizeof(fLogFont));
     if (get_logfont(&fLogFont, p_pfn, prt_dlg.hDC, TRUE) == FAIL)
     {
 	EMSG2(_("E613: Unknown printer font: %s"), p_pfn);
@@ -2279,7 +2285,7 @@ mch_print_begin(prt_settings_T *psettings)
     wsprintf(szBuffer, _("Printing '%s'"), gettail(psettings->jobname));
     SetDlgItemText(hDlgPrint, IDC_PRINTTEXT1, (LPSTR)szBuffer);
 
-    memset(&di, 0, sizeof(DOCINFO));
+    vim_memset(&di, 0, sizeof(DOCINFO));
     di.cbSize = sizeof(DOCINFO);
     di.lpszDocName = psettings->jobname;
     ret = StartDoc(prt_dlg.hDC, &di);
@@ -2542,7 +2548,7 @@ serverSendEnc(HWND target)
     data.cbData = (DWORD)STRLEN(p_enc) + 1;
     data.lpData = p_enc;
 #else
-    data.cbData = STRLEN("latin1") + 1;
+    data.cbData = (DWORD)STRLEN("latin1") + 1;
     data.lpData = "latin1";
 #endif
     (void)SendMessage(target, WM_COPYDATA, (WPARAM)message_window,
@@ -3356,7 +3362,7 @@ get_logfont(
 #if defined(FEAT_GUI_W32)
 	CHOOSEFONT	cf;
 	/* if name is "*", bring up std font dialog: */
-	memset(&cf, 0, sizeof(cf));
+	vim_memset(&cf, 0, sizeof(cf));
 	cf.lStructSize = sizeof(cf);
 	cf.hwndOwner = s_hwnd;
 	cf.Flags = CF_SCREENFONTS | CF_FIXEDPITCHONLY | CF_INITTOLOGFONTSTRUCT;

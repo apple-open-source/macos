@@ -1,6 +1,6 @@
---- /tmp/jabberd-2.1.24.1/sx/ssl.c	2008-04-27 02:57:25.000000000 -0700
-+++ ./jabberd2/sx/ssl.c	2009-06-09 12:16:14.000000000 -0700
-@@ -155,6 +155,8 @@ static int _sx_ssl_process(sx_t s, sx_pl
+--- /tmp/jabberd-2.2.13/sx/ssl.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/sx/ssl.c	2011-02-24 17:30:46.000000000 -0800
+@@ -176,6 +176,8 @@ static int _sx_ssl_process(sx_t s, sx_pl
              if(s->plugin_data[p->index] != NULL) {
                  if( ((_sx_ssl_conn_t)s->plugin_data[p->index])->pemfile != NULL )
                      free(((_sx_ssl_conn_t)s->plugin_data[p->index])->pemfile);
@@ -9,17 +9,16 @@
                  free(s->plugin_data[p->index]);
                  s->plugin_data[p->index] = NULL;
              }
-@@ -484,7 +486,9 @@ static int _sx_ssl_rio(sx_t s, sx_plugin
- static void _sx_ssl_client(sx_t s, sx_plugin_t p) {
-     _sx_ssl_conn_t sc;
+@@ -622,6 +624,8 @@ static void _sx_ssl_client(sx_t s, sx_pl
+     SSL_CTX *ctx;
      char *pemfile = NULL;
+     int ret, i;
 +    char *pemfile_password = NULL;
-     int ret;
 +    ssl_userdata_t ssl_userdata;
  
      /* only bothering if they asked for wrappermode */
      if(!(s->flags & SX_SSL_WRAPPER) || s->ssf > 0)
-@@ -514,6 +518,7 @@ static void _sx_ssl_client(sx_t s, sx_pl
+@@ -663,6 +667,7 @@ static void _sx_ssl_client(sx_t s, sx_pl
       *     help the admin at all to figure out what happened */
      if(s->plugin_data[p->index] != NULL) {
          pemfile = ((_sx_ssl_conn_t)s->plugin_data[p->index])->pemfile;
@@ -27,63 +26,60 @@
          free(s->plugin_data[p->index]);
          s->plugin_data[p->index] = NULL;
      }
-@@ -528,6 +533,31 @@ static void _sx_ssl_client(sx_t s, sx_pl
+@@ -677,6 +682,31 @@ static void _sx_ssl_client(sx_t s, sx_pl
              return;
          }
  
-+    // Add apple password callback
++        // Add apple password callback
 +#ifdef __APPLE__
-+    _sx_debug(ZONE, "Adding Apple-custom SSL password callback");
-+    {
-+        if(strlen(pemfile))
++        _sx_debug(ZONE, "Adding Apple-custom SSL password callback");
 +        {
-+            ssl_userdata = (ssl_userdata_t)malloc(sizeof(struct ssl_userdata_st));
-+            ssl_userdata->pemfile = pemfile;
-+            ssl_userdata->password = NULL;
-+            
-+            // See if a password has been saved
-+            if(pemfile_password != NULL) {
-+                ssl_userdata->password = pemfile_password;
++            if(strlen(pemfile))
++            {
++                ssl_userdata = (ssl_userdata_t)malloc(sizeof(struct ssl_userdata_st));
++                ssl_userdata->pemfile = pemfile;
++                ssl_userdata->password = NULL;
++
++                // See if a password has been saved
++                if(pemfile_password != NULL) {
++                    ssl_userdata->password = pemfile_password;
++                }
++
++                SSL_CTX_set_default_passwd_cb_userdata(sc->ssl->ctx, (void *)ssl_userdata);
++                SSL_CTX_set_default_passwd_cb(sc->ssl->ctx, &sx_apple_password_callback);
++
++                _sx_debug(ZONE, "Apple-custom SSL password callback enabled for %s", pemfile);
 +            }
-+
-+            SSL_CTX_set_default_passwd_cb_userdata(sc->ssl->ctx, (void *)ssl_userdata);
-+            SSL_CTX_set_default_passwd_cb(sc->ssl->ctx, &sx_apple_password_callback);
-+
-+            _sx_debug(ZONE, "Apple-custom SSL password callback enabled for %s", pemfile);
++            else
++		        _sx_debug(ZONE, "Could not set custom callback for %s", pemfile);
 +        }
-+        else
-+            _sx_debug(ZONE, "Could not set custom callback for %s", pemfile);
-+    }
 +#endif /* __APPLE__ */
 +
          /* load the private key */
          ret = SSL_use_PrivateKey_file(sc->ssl, pemfile, SSL_FILETYPE_PEM);
          if(ret != 1) {
-@@ -611,6 +641,7 @@ static void _sx_ssl_free(sx_t s, sx_plug
+@@ -780,6 +810,8 @@ static void _sx_ssl_free(sx_t s, sx_plug
  
-     if(sc->external_id != NULL) free(sc->external_id);
      if(sc->pemfile != NULL) free(sc->pemfile);
-+    if(sc->private_key_password != NULL) free(sc->private_key_password);
  
++    if(sc->private_key_password != NULL) free(sc->private_key_password);
++
      if(sc->ssl != NULL) SSL_free(sc->ssl);      /* frees wbio and rbio too */
  
-@@ -632,12 +663,13 @@ static void _sx_ssl_unload(sx_plugin_t p
+     if(sc->wq != NULL) {
+@@ -809,9 +841,9 @@ static void _sx_ssl_unload(sx_plugin_t p
  
  int sx_openssl_initialized = 0;
  
--/** args: pemfile, cachain, mode */
-+/** args: pemfile, cachain, mode, password (opt) */
+-/** args: name, pemfile, cachain, mode */
++/** args: name, pemfile, cachain, mode, password */
  int sx_ssl_init(sx_env_t env, sx_plugin_t p, va_list args) {
--    char *pemfile, *cachain;
-+    char *pemfile, *cachain, *password;
-     SSL_CTX *ctx;
+-    char *name, *pemfile, *cachain;
++    char *name, *pemfile, *cachain, *password;
      int ret;
      int mode;
-+    ssl_userdata_t ssl_userdata;
  
-     _sx_debug(ZONE, "initialising ssl plugin");
- 
-@@ -650,6 +682,7 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
+@@ -827,6 +859,7 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
  
      cachain = va_arg(args, char *);
      mode = va_arg(args, int);
@@ -91,7 +87,48 @@
  
      /* !!! output openssl error messages to the debug log */
  
-@@ -682,6 +715,30 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
+@@ -837,7 +870,7 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
+     }
+     sx_openssl_initialized = 1;
+ 
+-    ret = sx_ssl_server_addcert(p, name, pemfile, cachain, mode);
++    ret = sx_ssl_server_addcert(p, name, pemfile, cachain, mode, password);
+     if(ret)
+         return 1;
+ 
+@@ -856,14 +889,15 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
+     return 0;
+ }
+ 
+-/** args: name, pemfile, cachain, mode */
+-int sx_ssl_server_addcert(sx_plugin_t p, char *name, char *pemfile, char *cachain, int mode) {
++/** args: name, pemfile, cachain, mode, password */
++int sx_ssl_server_addcert(sx_plugin_t p, char *name, char *pemfile, char *cachain, int mode, char *password) {
+     xht contexts = (xht) p->private;
+     SSL_CTX *ctx;
+     SSL_CTX *tmp;
+     STACK_OF(X509_NAME) *cert_names;
+     X509_STORE * store;
+     int ret;
++    ssl_userdata_t ssl_userdata;
+ 
+     if(!sx_openssl_initialized) {
+         _sx_debug(ZONE, "ssl plugin not initialised");
+@@ -886,6 +920,13 @@ int sx_ssl_server_addcert(sx_plugin_t p,
+         return 1;
+     }
+ 
++    // Set allowed ciphers
++	if (SSL_CTX_set_cipher_list(ctx, "ALL:!LOW:!SSLv2:!EXP:!aNULL") != 1) {
++        _sx_debug(ZONE, "Can't set cipher list for SSL context: %s", ERR_error_string(ERR_get_error(), NULL));
++        SSL_CTX_free(ctx);
++        return 1;
++    }
++
+     /* Load the CA chain, if configured */
+     if (cachain != NULL) {
+         ret = SSL_CTX_load_verify_locations (ctx, cachain, NULL);
+@@ -924,6 +965,30 @@ int sx_ssl_server_addcert(sx_plugin_t p,
          return 1;
      }
  
@@ -122,7 +159,16 @@
      /* load the private key */
      ret = SSL_CTX_use_PrivateKey_file(ctx, pemfile, SSL_FILETYPE_PEM);
      if(ret != 1) {
-@@ -721,7 +778,7 @@ int sx_ssl_init(sx_env_t env, sx_plugin_
+@@ -950,7 +1015,7 @@ int sx_ssl_server_addcert(sx_plugin_t p,
+ 
+         /* this is the first context, if it's not the default then make a copy of it as the default */
+         if(!(name[0] == '*' && name[1] == 0)) {
+-            int ret = sx_ssl_server_addcert(p, "*", pemfile, cachain, mode);
++            int ret = sx_ssl_server_addcert(p, "*", pemfile, cachain, mode, password);
+ 
+             if(ret) {
+                 /* uh-oh */
+@@ -973,7 +1038,7 @@ int sx_ssl_server_addcert(sx_plugin_t p,
      return 0;
  }
  
@@ -131,7 +177,7 @@
      assert((int) (p != NULL));
      assert((int) (s != NULL));
  
-@@ -743,6 +800,10 @@ int sx_ssl_client_starttls(sx_plugin_t p
+@@ -995,6 +1060,10 @@ int sx_ssl_client_starttls(sx_plugin_t p
      if(pemfile != NULL) {
          s->plugin_data[p->index] = (_sx_ssl_conn_t) calloc(1, sizeof(struct _sx_ssl_conn_st));
          ((_sx_ssl_conn_t)s->plugin_data[p->index])->pemfile = strdup(pemfile);
@@ -142,7 +188,7 @@
      }
  
      /* go */
-@@ -752,3 +813,33 @@ int sx_ssl_client_starttls(sx_plugin_t p
+@@ -1004,3 +1073,33 @@ int sx_ssl_client_starttls(sx_plugin_t p
  
      return 0;
  }

@@ -3,6 +3,10 @@
 _man() {
   local dirs expl mrd awk
 
+  if (( $words[(I)-M] == (( $CURRENT - 1 )) )); then
+    _directories && return 0
+  fi
+
   if [[ $service == man ]] && (( $words[(I)-l] + $words[(I)--local-file] )); then
     _files || return 0
   fi
@@ -20,6 +24,13 @@ _man() {
 
   (( $#_manpath )) ||
       _manpath=( /usr/man(-/) /(opt|usr)/(pkg|dt|share|X11R6|local)/(cat|)man(-/) )
+
+  integer index=$words[(I)-M]
+  if (( index )); then
+    local opt
+    opt=$words[index+1]
+    _manpath=($_manpath $opt)
+  fi
 
   # `sman' is the SGML manual directory for Solaris 7.
   # 1M is system administrator commands on SVR4
@@ -75,6 +86,18 @@ _man() {
 _man_pages() {
   local matcher pages dummy sopt
 
+  # What files corresponding to manual pages can end in.
+  local suf='.((?|<->*)(|.gz|.bz2|.Z|.lzma))'
+
+  if [[ $PREFIX$SUFFIX = */* ]]; then
+    # Easy way to test for versions of man that allow file names.
+    # This can't be a normal man page reference.
+    # Try to complete by glob first.
+    _path_files -g "*$suf" && return
+    _path_files
+    return
+  fi
+
   zparseopts -E M+:=matcher
 
   if (( $#matcher )); then
@@ -98,9 +121,9 @@ _man_pages() {
   if ((CURRENT > 2)) ||
       ! zstyle -t ":completion:${curcontext}:manuals.$sect" insert-sections
   then
-    compadd "$@" - ${pages%.(?|<->*(|.gz|.bz2|.Z))}
+    compadd "$@" - ${pages%$~suf}
   else
-    compadd "$@" -P "$sopt$sect " - ${pages%.(?|<->*(|.gz|.bz2|.Z))}
+    compadd "$@" -P "$sopt$sect " - ${pages%$~suf}
   fi
 }
 

@@ -1,4 +1,4 @@
-package_version 1.11.1
+package_version 1.12.cvs-20100330
 package_name    tcllib
 
 dist_exclude    config
@@ -25,4 +25,5 @@ critcl      struct_queuec struct/queue_c.tcl
 critcl      base32c       base32/base32_c.tcl
 critcl      base32hexc    base32/base32hex_c.tcl
 critcl      ipMorec       dns/ipMoreC.tcl
+critcl      ptc           {pt/pt_rdengine_c.tcl pt/pt_parse_peg_c.tcl}
 critcl_notes {Note: you can ignore warnings for tcllibc.tcl, base64c.tcl and crcc.tcl.}

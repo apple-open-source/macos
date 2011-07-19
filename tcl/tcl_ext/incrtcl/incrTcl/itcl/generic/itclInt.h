@@ -39,7 +39,7 @@
  *           mmclennan@lucent.com
  *           http://www.tcltk.com/itcl
  *
- *     RCS:  $Id: itclInt.h,v 1.18 2007/11/03 15:26:08 davygrvy Exp $
+ *     RCS:  $Id: itclInt.h,v 1.19 2008/12/15 20:02:58 andreas_kupries Exp $
  * ========================================================================
  *           Copyright (c) 1993-1998  Lucent Technologies, Inc.
  * ------------------------------------------------------------------------
@@ -55,6 +55,15 @@
 #ifdef BUILD_itcl
 # undef TCL_STORAGE_CLASS
 # define TCL_STORAGE_CLASS DLLEXPORT
+#endif
+
+/*
+ * Handle hiding of errorLine in 8.6
+ */
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+#define ERRORLINE(interp) ((interp)->errorLine)
+#else
+#define ERRORLINE(interp) (Tcl_GetErrorLine(interp))
 #endif
 
 #define ITCL_TCL_PRE_8_5 (TCL_MAJOR_VERSION == 8 && TCL_MINOR_VERSION < 5)

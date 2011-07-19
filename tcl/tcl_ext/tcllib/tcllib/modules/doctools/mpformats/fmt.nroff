@@ -40,7 +40,7 @@ c_pass 2 fmt_manpage_begin {title section version} {
 	c_hold hdr $text
     }
 
-    c_hold hdr [nr_include man.macros]
+    c_hold hdr [nr_read man.macros]
     c_hold hdr [nr_title "\"[string trimleft $title :]\" $section $version $module \"$shortdesc\""]
     c_hold hdr [nr_bolds]
     c_hold hdr [fmt_section NAME]
@@ -236,7 +236,27 @@ proc fmt_uri     {text {label {}}} {
 	return "[underline $label] \[$text\]"
     }
 }
+proc fmt_image {text {label {}}} {
+    # text = symbolic name of the image.
+
+    set img [dt_imgdata $text {pic}]
+    if {$img ne {}} {
+	return \n.PS\n$img\n.PE\n
+    }
+    set img [dt_imgdata $text {txt}]
+    if {$img ne {}} {
+	return \n.PS\n.nf\n$img\n.fi\n.PE\n
+    }
+    if {$label eq {}} {
+	return "IMAGE: $text"
+    } else {
+	return "IMAGE: $text $label"
+    }
+}
 proc fmt_term    {text} {underline $text}
 proc fmt_const   {text} {bold $text}
+
+proc fmt_mdash {} { return " \1\\(em\n" }
+proc fmt_ndash {} { return " \1\\(en\n" }
 
 ################################################################

@@ -29,11 +29,11 @@
 #if ENABLE(JAVA_BRIDGE)
 
 #include "Frame.h"
-#include "JavaRuntimeObject.h"
-#include "JNIBridge.h"
 #include "JNIUtility.h"
 #include "JNIUtilityPrivate.h"
 #include "JSDOMBinding.h"
+#include "JavaRuntimeObject.h"
+#include "JavaString.h"
 #include "Logging.h"
 #include "ScriptController.h"
 #include "StringSourceProvider.h"
@@ -276,7 +276,7 @@ RootObject* JavaJSObject::rootObject() const
 
 jobject JavaJSObject::call(jstring methodName, jobjectArray args) const
 {
-    LOG(LiveConnect, "JavaJSObject::call methodName = %s", JavaString(methodName).UTF8String());
+    LOG(LiveConnect, "JavaJSObject::call methodName = %s", JavaString(methodName).utf8());
 
     RootObject* rootObject = this->rootObject();
     if (!rootObject)
@@ -286,26 +286,26 @@ jobject JavaJSObject::call(jstring methodName, jobjectArray args) const
     ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock(SilenceAssertionsOnly);
     
-    Identifier identifier(exec, JavaString(methodName));
+    Identifier identifier(exec, JavaString(methodName).impl());
     JSValue function = _imp->get(exec, identifier);
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone)
         return 0;
 
     // Call the function object.
     MarkedArgumentBuffer argList;
     getListFromJArray(exec, args, argList);
-    rootObject->globalObject()->globalData()->timeoutChecker.start();
+    rootObject->globalObject()->globalData().timeoutChecker.start();
     JSValue result = JSC::call(exec, function, callType, callData, _imp, argList);
-    rootObject->globalObject()->globalData()->timeoutChecker.stop();
+    rootObject->globalObject()->globalData().timeoutChecker.stop();
 
     return convertValueToJObject(result);
 }
 
 jobject JavaJSObject::eval(jstring script) const
 {
-    LOG(LiveConnect, "JavaJSObject::eval script = %s", JavaString(script).UTF8String());
+    LOG(LiveConnect, "JavaJSObject::eval script = %s", JavaString(script).utf8());
     
     JSValue result;
 
@@ -315,9 +315,9 @@ jobject JavaJSObject::eval(jstring script) const
     if (!rootObject)
         return 0;
 
-    rootObject->globalObject()->globalData()->timeoutChecker.start();
-    Completion completion = JSC::evaluate(rootObject->globalObject()->globalExec(), rootObject->globalObject()->globalScopeChain(), makeSource(JavaString(script)), JSC::JSValue());
-    rootObject->globalObject()->globalData()->timeoutChecker.stop();
+    rootObject->globalObject()->globalData().timeoutChecker.start();
+    Completion completion = JSC::evaluate(rootObject->globalObject()->globalExec(), rootObject->globalObject()->globalScopeChain(), makeSource(JavaString(script).impl()), JSC::JSValue());
+    rootObject->globalObject()->globalData().timeoutChecker.stop();
     ComplType type = completion.complType();
     
     if (type == Normal) {
@@ -332,7 +332,7 @@ jobject JavaJSObject::eval(jstring script) const
 
 jobject JavaJSObject::getMember(jstring memberName) const
 {
-    LOG(LiveConnect, "JavaJSObject::getMember (%p) memberName = %s", _imp, JavaString(memberName).UTF8String());
+    LOG(LiveConnect, "JavaJSObject::getMember (%p) memberName = %s", _imp, JavaString(memberName).utf8());
 
     RootObject* rootObject = this->rootObject();
     if (!rootObject)
@@ -341,14 +341,14 @@ jobject JavaJSObject::getMember(jstring memberName) const
     ExecState* exec = rootObject->globalObject()->globalExec();
     
     JSLock lock(SilenceAssertionsOnly);
-    JSValue result = _imp->get(exec, Identifier(exec, JavaString(memberName)));
+    JSValue result = _imp->get(exec, Identifier(exec, JavaString(memberName).impl()));
 
     return convertValueToJObject(result);
 }
 
 void JavaJSObject::setMember(jstring memberName, jobject value) const
 {
-    LOG(LiveConnect, "JavaJSObject::setMember memberName = %s, value = %p", JavaString(memberName).UTF8String(), value);
+    LOG(LiveConnect, "JavaJSObject::setMember memberName = %s, value = %p", JavaString(memberName).utf8(), value);
 
     RootObject* rootObject = this->rootObject();
     if (!rootObject)
@@ -358,13 +358,13 @@ void JavaJSObject::setMember(jstring memberName, jobject value) const
 
     JSLock lock(SilenceAssertionsOnly);
     PutPropertySlot slot;
-    _imp->put(exec, Identifier(exec, JavaString(memberName)), convertJObjectToValue(exec, value), slot);
+    _imp->put(exec, Identifier(exec, JavaString(memberName).impl()), convertJObjectToValue(exec, value), slot);
 }
 
 
 void JavaJSObject::removeMember(jstring memberName) const
 {
-    LOG(LiveConnect, "JavaJSObject::removeMember memberName = %s", JavaString(memberName).UTF8String());
+    LOG(LiveConnect, "JavaJSObject::removeMember memberName = %s", JavaString(memberName).utf8());
 
     RootObject* rootObject = this->rootObject();
     if (!rootObject)
@@ -372,7 +372,7 @@ void JavaJSObject::removeMember(jstring memberName) const
 
     ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock(SilenceAssertionsOnly);
-    _imp->deleteProperty(exec, Identifier(exec, JavaString(memberName)));
+    _imp->deleteProperty(exec, Identifier(exec, JavaString(memberName).impl()));
 }
 
 
@@ -419,7 +419,7 @@ jstring JavaJSObject::toString() const
     JSObject *thisObj = const_cast<JSObject*>(_imp);
     ExecState* exec = rootObject->globalObject()->globalExec();
     
-    return static_cast<jstring>(convertValueToJValue(exec, rootObject, thisObj, object_type, "java.lang.String").l);
+    return static_cast<jstring>(convertValueToJValue(exec, rootObject, thisObj, JavaTypeObject, "java.lang.String").l);
 }
 
 void JavaJSObject::finalize() const
@@ -500,7 +500,7 @@ jobject JavaJSObject::convertValueToJObject(JSValue value) const
     } else if (value.isString()) {
         UString stringValue = value.toString(exec);
         JNIEnv *env = getJNIEnv();
-        result = env->NewString ((const jchar *)stringValue.data(), stringValue.size());
+        result = env->NewString ((const jchar *)stringValue.characters(), stringValue.length());
     } else if (value.isBoolean()) {
         jclass JSObjectClass = env->FindClass ("java/lang/Boolean");
         jmethodID constructorID = env->GetMethodID (JSObjectClass, "<init>", "(Z)V");
@@ -572,7 +572,7 @@ JSValue JavaJSObject::convertJObjectToValue(ExecState* exec, jobject theObject) 
     // created above to wrap internal browser objects. The constructor of this class takes the native
     // pointer and stores it in this object, so that it can be retrieved below.
     jstring className = (jstring)callJNIMethod<jobject>(classOfInstance, "getName", "()Ljava/lang/String;");
-    if (!className || (strcmp(JavaString(className).UTF8String(), "sun.plugin.javascript.webkit.JSObject") != 0)) {
+    if (!className || (strcmp(JavaString(className).utf8(), "sun.plugin.javascript.webkit.JSObject") != 0)) {
         JSLock lock(SilenceAssertionsOnly);
         return JavaInstance::create(theObject, _rootObject)->createRuntimeObject(exec);
     }

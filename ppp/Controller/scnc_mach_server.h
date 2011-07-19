@@ -27,7 +27,7 @@
 #include <servers/bootstrap.h>
 
 int ppp_mach_start_server();
-void mach_client_notify(mach_port_t port, CFStringRef serviceID, u_long event, u_long error);
+
 
 #endif _PPP_MACH_SERVER_H
 

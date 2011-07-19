@@ -32,6 +32,7 @@
 #define WebNotification_h
 
 #include "WebCommon.h"
+#include "WebTextDirection.h"
 
 #if WEBKIT_IMPLEMENTATION
 namespace WebCore { class Notification; }
@@ -63,7 +64,7 @@ public:
 
     // Operators required to put WebNotification in an ordered map.
     bool equals(const WebNotification& other) const { return m_private == other.m_private; }
-    bool lessThan(const WebNotification& other) const;
+    WEBKIT_API bool lessThan(const WebNotification& other) const;
 
     // Is the notification HTML vs. icon-title-text?
     WEBKIT_API bool isHTML() const;
@@ -74,9 +75,12 @@ public:
     WEBKIT_API WebURL iconURL() const;
     WEBKIT_API WebString title() const;
     WEBKIT_API WebString body() const;
+    WEBKIT_API WebTextDirection direction() const;
 
-    WEBKIT_API WebString dir() const;
     WEBKIT_API WebString replaceId() const;
+
+    // Called if the presenter goes out of scope before the notification does.
+    WEBKIT_API void detachPresenter();
 
     // Called to indicate the notification has been displayed.
     WEBKIT_API void dispatchDisplayEvent();
@@ -88,6 +92,9 @@ public:
     // closed by the user (as opposed to automatically by the system),
     // the byUser parameter will be true.
     WEBKIT_API void dispatchCloseEvent(bool byUser);
+
+    // Called to indicate the notification was clicked on.
+    WEBKIT_API void dispatchClickEvent();
 
 #if WEBKIT_IMPLEMENTATION
     WebNotification(const WTF::PassRefPtr<WebCore::Notification>&);

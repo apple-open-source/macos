@@ -1,0 +1,11 @@
+%ifdef PKINIT
+_krb5_parse_moduli
+_krb5_pk_kdf
+_krb5_pk_load_id
+_krb5_pk_mk_ContentInfo
+_krb5_pk_octetstring2key
+_krb5_dh_group_ok
+_krb5_pk_enterprise_cert
+_krb5_pk_match_cert
+_krb5_pk_find_cert
+%endif

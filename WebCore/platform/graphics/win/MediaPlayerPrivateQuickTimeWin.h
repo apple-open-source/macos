@@ -32,6 +32,7 @@
 #include "Timer.h"
 #include <QTMovie.h>
 #include <QTMovieGWorld.h>
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RetainPtr.h>
 
@@ -50,7 +51,6 @@ namespace WebCore {
 class GraphicsContext;
 class IntSize;
 class IntRect;
-class String;
 
 class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieClient, public QTMovieGWorldClient 
 #if USE(ACCELERATED_COMPOSITING)
@@ -137,7 +137,7 @@ private:
     virtual void movieNewImageAvailable(QTMovieGWorld*);
 
     // engine support
-    static MediaPlayerPrivateInterface* create(MediaPlayer*);
+    static PassOwnPtr<MediaPlayerPrivateInterface> create(MediaPlayer*);
     static void getSupportedTypes(HashSet<String>& types);
     static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
     static bool isAvailable();

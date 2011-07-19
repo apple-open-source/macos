@@ -8,7 +8,7 @@ use DateTime;
 
 if ( eval { require Storable; 1 } )
 {
-    plan tests => 16;
+    plan tests => 21;
 }
 else
 {
@@ -28,7 +28,7 @@ else
 
     foreach my $dt (@dt)
     {
-        my $copy = Storable::thaw( Storable::nfreeze($dt) );
+        my $copy   = Storable::thaw( Storable::nfreeze($dt) );
 
         is( $copy->time_zone->name, $dt->time_zone->name,
             'Storable freeze/thaw preserves tz' );
@@ -45,6 +45,24 @@ else
         is( $copy->nanosecond, $dt->nanosecond,
             'Storable freeze/thaw preserves rd values' );
     }
+}
+
+{
+    my $dt1 = DateTime->now( locale => 'en_US' );
+    my $dt2 = Storable::dclone($dt1);
+    my $dt3 = Storable::thaw( Storable::nfreeze($dt2) );
+
+    is( $dt1->iso8601, $dt2->iso8601,
+        'dclone produces date equal to original' );
+    is( $dt2->iso8601, $dt3->iso8601,
+        'explicit freeze and thaw produces date equal to original' );
+
+    is( $dt1->locale->id, 'en_US',
+        'check id of original locale object' );
+    is( $dt2->locale->id, 'en_US',
+        'check locale id after dclone' );
+    is( $dt3->locale->id, 'en_US',
+        'check locale id after explicit freeze/thaw' );
 }
 
 {

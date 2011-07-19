@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  retainproperty.m
 //  bocktest
@@ -5,21 +11,21 @@
 //  Created by Blaine Garst on 3/21/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC RR
 
+// TEST_CFLAGS -framework Foundation
 
 
 #include <stdio.h>
+#include "test.h"
 
 @interface TestObject {
 
 }
-@property(retain, readonly) int (^getInt)(void);
+@property(copy, readonly) int (^getInt)(void);
 @end
 
 
 
-int main(char *argc, char *argv[]) {
-    printf("%s: success\n", argv[0]);
-    return 0;
+int main() {
+    succeed(__FILE__);
 }

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2000-2008, International Business Machines
+*   Copyright (C) 2000-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -13,6 +13,7 @@
 #include "uresdata.h"
 
 #define kRootLocaleName         "root"
+#define kPoolBundleName         "pool"
 
 /*
  The default minor version and the version separator must be exactly one
@@ -43,10 +44,18 @@ typedef enum UResEntryType UResEntryType;
 struct UResourceDataEntry;
 typedef struct UResourceDataEntry UResourceDataEntry;
 
+/*
+ * Note: If we wanted to make this structure smaller, then we could try
+ * to use one UResourceDataEntry pointer for fAlias and fPool, with a separate
+ * flag to distinguish whether this struct is for a real bundle with a pool,
+ * or for an alias entry for which we won't use the pool after loading.
+ */
 struct UResourceDataEntry {
     char *fName; /* name of the locale for bundle - still to decide whether it is original or fallback */
     char *fPath; /* path to bundle - used for distinguishing between resources with the same name */
     UResourceDataEntry *fParent; /*next resource in fallback chain*/
+    UResourceDataEntry *fAlias;
+    UResourceDataEntry *fPool;
     ResourceData fData; /* data for low level access */
     char fNameBuffer[3]; /* A small buffer of free space for fName. The free space is due to struct padding. */
     uint32_t fCountExisting; /* how much is this resource used */
@@ -84,6 +93,11 @@ U_CAPI void U_EXPORT2 ures_initStackObject(UResourceBundle* resB);
 U_CFUNC const char* ures_getName(const UResourceBundle* resB);
 #ifdef URES_DEBUG
 U_CFUNC const char* ures_getPath(const UResourceBundle* resB);
+/**
+ * If anything was in the RB cache, dump it to the screen.
+ * @return TRUE if there was anything into the cache
+ */
+U_CAPI UBool U_EXPORT2 ures_dumpCacheContents(void);
 #endif
 /*U_CFUNC void ures_appendResPath(UResourceBundle *resB, const char* toAdd, int32_t lenToAdd);*/
 /*U_CFUNC void ures_setResPath(UResourceBundle *resB, const char* toAdd);*/
@@ -212,4 +226,49 @@ ures_getStringByKeyWithFallback(const UResourceBundle *resB,
                           const char* inKey,  
                           int32_t* len,
                           UErrorCode *status);
+
+/**
+ * Get a version number by key
+ * @param resB bundle containing version number
+ * @param key the key for the version number
+ * @param ver fillin for the version number
+ * @param status error code
+ * @internal ICU 4.2
+ */
+U_INTERNAL void U_EXPORT2
+ures_getVersionByKey(const UResourceBundle *resB,
+                     const char *key,
+                     UVersionInfo ver,
+                     UErrorCode *status);
+
+
+/**
+ * Internal function.
+ * Return the version number associated with this ResourceBundle as a string.
+ *
+ * @param resourceBundle The resource bundle for which the version is checked.
+ * @return  A version number string as specified in the resource bundle or its parent.
+ *          The caller does not own this string.
+ * @see ures_getVersion
+ * @internal
+ */
+U_INTERNAL const char* U_EXPORT2 
+ures_getVersionNumberInternal(const UResourceBundle *resourceBundle);
+
+/**
+ * Return the name of the Locale associated with this ResourceBundle. This API allows
+ * you to query for the real locale of the resource. For example, if you requested 
+ * "en_US_CALIFORNIA" and only "en_US" bundle exists, "en_US" will be returned. 
+ * For subresources, the locale where this resource comes from will be returned.
+ * If fallback has occured, getLocale will reflect this.
+ *
+ * @param resourceBundle resource bundle in question
+ * @param status just for catching illegal arguments
+ * @return  A Locale name
+ * @deprecated ICU 2.8 Use ures_getLocaleByType instead.
+ */
+U_INTERNAL const char* U_EXPORT2 
+ures_getLocaleInternal(const UResourceBundle* resourceBundle, 
+               UErrorCode* status);
+
 #endif /*URESIMP_H*/

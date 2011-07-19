@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,14 +63,20 @@ extern const char *uniqueIdentifier;	// unique ident hash
 extern const char *identifierPrefix;	// prefix for un-dotted default identifiers
 extern const char *modifiedFiles;		// file to receive list of modified files
 extern const char *extractCerts;		// location for extracting signing chain certificates
-extern SecCSFlags verifyOptions;		// option flags to static verifications
+extern const char *sdkRoot;				// alternate root for looking up sub-components
+extern SecCSFlags staticVerifyOptions;	// option flags to static verifications
+extern SecCSFlags dynamicVerifyOptions;	// option flags to dynamic verifications
+extern uint32_t digestAlgorithm;		// digest algorithm to be used when signing
 extern CFDateRef signingTime;			// explicit signing time option
 extern size_t signatureSize;			// override CMS signature size estimate
 extern uint32_t cdFlags;				// CodeDirectory flags requested
 extern const char *procAction;			// action-on-process(es) requested
+extern Architecture architecture;		// specific binary architecture to process (from a universal file)
+extern const char *bundleVersion;		// specific version string requested (from a versioned bundle)
 extern bool noMachO;					// force non-MachO operation
 extern bool dryrun;						// do not actually change anything
 extern bool preserveMetadata;			// keep metadata from previous signature (if any)
+extern bool allArchitectures;			// process all architectures in a universal (aka fat) code file
 
 
 #endif //_H_CODESIGN

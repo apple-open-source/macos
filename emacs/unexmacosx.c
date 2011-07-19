@@ -580,6 +580,9 @@ print_load_command_name (int lc)
     case LC_CODE_SIGNATURE:
       printf("LC_CODE_SIGNATURE");
       break;
+    case LC_DYLD_INFO_ONLY:
+      printf("LC_DYLD_INFO_ONLY");
+      break;
     default:
       printf ("unknown          ");
     }
@@ -604,8 +607,8 @@ print_load_command (struct load_command *lc)
       sectp = (struct section *) (scp + 1);
       for (j = 0; j < scp->nsects; j++)
 	{
-	  printf ("                           %-16.16s %#10lx %#8lx\n",
-		  sectp->sectname, (long) (sectp->addr), (long) (sectp->size));
+	  printf ("                           %-16.16s %#10lx %#8lx (flags: %#8lx)\n",
+		  sectp->sectname, (long) (sectp->addr), (long) (sectp->size), (long) (sectp->flags));
 	  sectp++;
 	}
     }
@@ -769,61 +772,70 @@ copy_data_segment (struct load_command *lc)
 	 fields require changing (from S_ZEROFILL to S_REGULAR).  The
 	 other three kinds of sections are just copied from the input
 	 file.  */
-      if (strncmp (sectp->sectname, SECT_DATA, 16) == 0)
-	{
-	  if (!unexec_write (sectp->offset, (void *) sectp->addr, sectp->size))
-	    unexec_error ("cannot write section %s", SECT_DATA);
-	  if (!unexec_write (header_offset, sectp, sizeof (struct section)))
-	    unexec_error ("cannot write section %s's header", SECT_DATA);
-	}
-      else if (strncmp (sectp->sectname, SECT_COMMON, 16) == 0)
-	{
-	  sectp->flags = S_REGULAR;
-	  if (!unexec_write (sectp->offset, (void *) sectp->addr, sectp->size))
-	    unexec_error ("cannot write section %s", sectp->sectname);
-	  if (!unexec_write (header_offset, sectp, sizeof (struct section)))
-	    unexec_error ("cannot write section %s's header", sectp->sectname);
-	}
-      else if (strncmp (sectp->sectname, SECT_BSS, 16) == 0)
-	{
-	  extern char *my_endbss_static;
-	  unsigned long my_size;
 
-	  sectp->flags = S_REGULAR;
+      unsigned char sect_type = sectp->flags & SECTION_TYPE;
 
-	  /* Clear uninitialized local variables in statically linked
-	     libraries.  In particular, function pointers stored by
-	     libSystemStub.a, which is introduced in Mac OS X 10.4 for
-	     binary compatibility with respect to long double, are
-	     cleared so that they will be reinitialized when the
-	     dumped binary is executed on other versions of OS.  */
-	  my_size = (unsigned long)my_endbss_static - sectp->addr;
-	  if (!(sectp->addr <= (unsigned long)my_endbss_static
-		&& my_size <= sectp->size))
-	    unexec_error ("my_endbss_static is not in section %s",
-			  sectp->sectname);
-	  if (!unexec_write (sectp->offset, (void *) sectp->addr, my_size))
-	    unexec_error ("cannot write section %s", sectp->sectname);
-	  if (!unexec_write_zero (sectp->offset + my_size,
-				  sectp->size - my_size))
-	    unexec_error ("cannot write section %s", sectp->sectname);
-	  if (!unexec_write (header_offset, sectp, sizeof (struct section)))
-	    unexec_error ("cannot write section %s's header", sectp->sectname);
-	}
-      else if (strncmp (sectp->sectname, "__la_symbol_ptr", 16) == 0
-	       || strncmp (sectp->sectname, "__nl_symbol_ptr", 16) == 0
-	       || strncmp (sectp->sectname, "__la_sym_ptr2", 16) == 0
-	       || strncmp (sectp->sectname, "__dyld", 16) == 0
-	       || strncmp (sectp->sectname, "__const", 16) == 0
-	       || strncmp (sectp->sectname, "__cfstring", 16) == 0)
-	{
+      switch (sect_type) {
+      case S_LAZY_SYMBOL_POINTERS:
+      case S_NON_LAZY_SYMBOL_POINTERS:
+      case S_CSTRING_LITERALS:
 	  if (!unexec_copy (sectp->offset, old_file_offset, sectp->size))
 	    unexec_error ("cannot copy section %s", sectp->sectname);
 	  if (!unexec_write (header_offset, sectp, sizeof (struct section)))
 	    unexec_error ("cannot write section %s's header", sectp->sectname);
+	  break;
+
+      case S_REGULAR:
+	if (strncmp (sectp->sectname, "__const", 16) == 0
+	    || strncmp(sectp->sectname, "__program_vars", 16) == 0) {
+	  if (!unexec_copy (sectp->offset, old_file_offset, sectp->size))
+	    unexec_error ("cannot copy section %s", sectp->sectname);
+	} else {
+	  if (!unexec_write (sectp->offset, (void *)sectp->addr, sectp->size))
+	    unexec_error ("cannot write section %s", sectp->sectname);
 	}
-      else
-	unexec_error ("unrecognized section name in __DATA segment");
+	if (!unexec_write (header_offset, sectp, sizeof (struct section)))
+	  unexec_error ("cannot write section %s's header", sectp->sectname);
+	break;
+
+      case S_ZEROFILL:
+	  sectp->flags = S_REGULAR;
+
+	  if (strncmp (sectp->sectname, SECT_BSS, 16) == 0) {
+	    extern char *my_endbss_static;
+	    unsigned long my_size;
+
+	    /* Clear uninitialized local variables in statically linked
+	       libraries.  In particular, function pointers stored by
+	       libSystemStub.a, which is introduced in Mac OS X 10.4 for
+	       binary compatibility with respect to long double, are
+	       cleared so that they will be reinitialized when the
+	       dumped binary is executed on other versions of OS.  */
+	    my_size = (unsigned long)my_endbss_static - sectp->addr;
+	    if (!(sectp->addr <= (unsigned long)my_endbss_static
+		  && my_size <= sectp->size))
+	      unexec_error ("my_endbss_static is not in section %s",
+			    sectp->sectname);
+	    if (!unexec_write (sectp->offset, (void *) sectp->addr, my_size))
+	      unexec_error ("cannot write section %s", sectp->sectname);
+	    if (!unexec_write_zero (sectp->offset + my_size,
+				    sectp->size - my_size))
+	      unexec_error ("cannot write section %s", sectp->sectname);
+	    if (!unexec_write (header_offset, sectp, sizeof (struct section)))
+	      unexec_error ("cannot write section %s's header", sectp->sectname);
+	    printf("copy SECT_BSS\n");
+	  } else {
+	    if (!unexec_write (sectp->offset, (void *) sectp->addr, sectp->size))
+	      unexec_error ("cannot write section %s", sectp->sectname);
+	    if (!unexec_write (header_offset, sectp, sizeof (struct section)))
+	      unexec_error ("cannot write section %s's header", sectp->sectname);
+	    printf("copy %s\n", sectp->sectname);
+	  }
+	  break;
+
+      default:
+	unexec_error("unrecognized section type '0x%x' '%s' in __DATA segment", sect_type, sectp->sectname);
+      }
 
       printf ("        section %-16.16s at %#8lx - %#8lx (sz: %#8lx)\n",
 	      sectp->sectname, (long) (sectp->offset),
@@ -885,6 +897,32 @@ copy_symtab (struct load_command *lc, long delta)
   stp->stroff += delta;
 
   printf ("Writing LC_SYMTAB command\n");
+
+  if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
+    unexec_error ("cannot write symtab command to header");
+
+  curr_header_offset += lc->cmdsize;
+}
+
+/* Copy a LC_SYMTAB load command from the input file to the output
+   file, adjusting the file offset fields.  */
+static void
+copy_dyld_info_only (struct load_command *lc, long delta)
+{
+  struct dyld_info_command *dyld = (struct dyld_info_command *) lc;
+
+  if (dyld->rebase_size)
+    dyld->rebase_off += delta;
+  if (dyld->bind_size)
+    dyld->bind_off += delta;
+  if (dyld->weak_bind_size)
+    dyld->weak_bind_off += delta;
+  if (dyld->lazy_bind_size)
+    dyld->lazy_bind_off += delta;
+  if (dyld->export_size)
+    dyld->export_off += delta;
+
+  printf ("Writing LC_DYLD_INFO_ONLY command\n");
 
   if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
     unexec_error ("cannot write symtab command to header");
@@ -1066,6 +1104,9 @@ dump_it ()
 	break;
       case LC_TWOLEVEL_HINTS:
 	copy_twolevelhints (lca[i], linkedit_delta);
+	break;
+      case LC_DYLD_INFO_ONLY:
+	copy_dyld_info_only(lca[i], linkedit_delta);
 	break;
       default:
 	copy_other (lca[i]);

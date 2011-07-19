@@ -116,13 +116,13 @@ extern "C" {
 #define MATH_ERREXCEPT	2	/* Exceptions raised by math functions.  */
 
 #define math_errhandling (__math_errhandling())
-extern unsigned int __math_errhandling ( void );
+extern int __math_errhandling ( void );
 
 /********************************************************************************
 *                                                                               *
 *                              Inquiry macros                                   *
 *                                                                               *
-*   fpclassify      Returns one of the FP_Å values.                             *
+*   fpclassify      Returns one of the FP_* values.                             *
 *   isnormal        Non-zero if and only if the argument x is normalized.       *
 *   isfinite        Non-zero if and only if the argument x is finite.           *
 *   isnan           Non-zero if and only if the argument x is a NaN.            *

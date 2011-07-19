@@ -113,7 +113,12 @@ THIS SOFTWARE.
  * #define MALLOC your_malloc, where your_malloc(n) acts like malloc(n)
  *	if memory is available and otherwise does something you deem
  *	appropriate.  If MALLOC is undefined, malloc will be invoked
- *	directly -- and assumed always to succeed.
+ *	directly -- and assumed always to succeed.  Similarly, if you
+ *	want something other than the system's free() to be called to
+ *	recycle memory acquired from MALLOC, #define FREE to be the
+ *	name of the alternate routine.  (FREE or free is only called in
+ *	pathological cases, e.g., in a gdtoa call after a gdtoa return in
+ *	mode 3 with thousands of digits requested.)
  * #define Omit_Private_Memory to omit logic (added Jan. 1998) for making
  *	memory allocations from a private pool of memory when possible.
  *	When used, the private pool is PRIVATE_MEM bytes long:  2304 bytes,
@@ -126,8 +131,10 @@ THIS SOFTWARE.
  *	conversions of IEEE doubles in single-threaded executions with
  *	8-byte pointers, PRIVATE_MEM >= 7400 appears to suffice; with
  *	4-byte pointers, PRIVATE_MEM >= 7112 appears adequate.
- * #define INFNAN_CHECK on IEEE systems to cause strtod to check for
- *	Infinity and NaN (case insensitively).
+ * #define NO_INFNAN_CHECK if you do not wish to have INFNAN_CHECK
+ *	#defined automatically on IEEE systems.  On such systems,
+ *	when INFNAN_CHECK is #defined, strtod checks
+ *	for Infinity and NaN (case insensitively).
  *	When INFNAN_CHECK is #defined and No_Hex_NaN is not #defined,
  *	strtodg also accepts (case insensitively) strings of the form
  *	NaN(x), where x is a string of hexadecimal digits (optionally
@@ -160,11 +167,6 @@ THIS SOFTWARE.
  * #define NO_STRING_H to use private versions of memcpy.
  *	On some K&R systems, it may also be necessary to
  *	#define DECLARE_SIZE_T in this case.
- * #define YES_ALIAS to permit aliasing certain double values with
- *	arrays of ULongs.  This leads to slightly better code with
- *	some compilers and was always used prior to 19990916, but it
- *	is not strictly legal and can cause trouble with aggressively
- *	optimizing compilers (e.g., gcc 2.95.1 under -O2).
  * #define USE_LOCALE to use the current locale's decimal_point value.
  */
 
@@ -360,25 +362,14 @@ Exactly one of IEEE_8087, IEEE_MC68k, VAX, or IBM should be defined.
 
 typedef union { double d; ULong L[2]; } U;
 
-#ifdef YES_ALIAS
-#define dval(x) x
 #ifdef IEEE_8087
-#define word0(x) ((ULong *)&x)[1]
-#define word1(x) ((ULong *)&x)[0]
+#define word0(x) (x)->L[1]
+#define word1(x) (x)->L[0]
 #else
-#define word0(x) ((ULong *)&x)[0]
-#define word1(x) ((ULong *)&x)[1]
+#define word0(x) (x)->L[0]
+#define word1(x) (x)->L[1]
 #endif
-#else /* !YES_ALIAS */
-#ifdef IEEE_8087
-#define word0(x) ((U*)&x)->L[1]
-#define word1(x) ((U*)&x)->L[0]
-#else
-#define word0(x) ((U*)&x)->L[0]
-#define word1(x) ((U*)&x)->L[1]
-#endif
-#define dval(x) ((U*)&x)->d
-#endif /* YES_ALIAS */
+#define dval(x) (x)->d
 
 /* The following definition of Storeinc is appropriate for MIPS processors.
  * An alternative that might be better on some machines is
@@ -556,7 +547,7 @@ extern spinlock_t __gdtoa_locks[2];
 	if (__isthreaded) _SPINUNLOCK(&__gdtoa_locks[n]);	\
 } while(0)
 
-#define Kmax 15
+#define Kmax 9
 
  struct
 Bigint {
@@ -624,7 +615,7 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern double strtod_l ANSI((const char *s00, char **se, locale_t));
  extern Bigint *sum ANSI((Bigint*, Bigint*));
  extern int trailz ANSI((Bigint*));
- extern double ulp ANSI((double));
+ extern double ulp ANSI((U*));
 
 #ifdef __cplusplus
 }
@@ -639,6 +630,10 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  * (On HP Series 700/800 machines, -DNAN_WORD0=0x7ff40000 works.)
  */
 #ifdef IEEE_Arith
+#ifndef NO_INFNAN_CHECK
+#undef INFNAN_CHECK
+#define INFNAN_CHECK
+#endif
 #ifdef IEEE_MC68k
 #define _0 0
 #define _1 1
@@ -668,5 +663,79 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
 #else
 #define SI 0
 #endif
+
+/*
+ * For very large strings, strtod and family might exhaust memory in tight
+ * memory conditions (especially in 32-bits).  Such large strings could also
+ * tie up a CPU for minutes at a time.  Either can be considered a denial-of-
+ * service vunerability.
+ *
+ * To fix, we limit the string size to the maximum we need to calculate the
+ * rounding point correctly.  The longest string corresponding to the exact
+ * value of a floating point number occuring at 1.f...f p^-n, where n is
+ * the (absolute value of the) smallest exponent for a normalize number.
+ *
+ * To calculate this number of decimal digits, we use the formula:
+ *
+ * (n + m) - int(n * log10(2)) + 3
+ *
+ * where m is the number of bits in the f...f fraction.  This is the number
+ * of decimal digits for the least significant bit minus the number of leading
+ * zeros for the most significant bit (the '1'), plus a few to compensate for
+ * an extra digits due to the full 1.f...f value, an extra digit for the
+ * mid-way point for rounding and an extra guard digit.
+ *
+ * Using the approximation log10(2) ~ 1233 / (2^12), converting to the fpi.emin
+ * and fpi.nbits values, we get:
+ *
+ * -fpi.emin -((1233 * (-fpi.nbits - fpi.emin)) >> 12) + 3
+ *
+ * Finally, we add an extra digit, either '1' or '0', to represent whether
+ * to-be-truncated digits contain a non-zero digit, or are all zeros,
+ * respectively.
+ *
+ * The truncated string is allocated on the heap, so code using
+ * TRUNCATE_DIGITS() will need to free that space when no longer needed.
+ * Pass a char * as the second argument, initialized to NULL; if its value
+ * becomes non-NULL, memory was allocated.
+ */
+#define LOG2NUM 1233
+#define LOG2DENOMSHIFT 12
+#define TRUNCATEDIGITS(_nbits, _emin)	(-(_emin) - ((LOG2NUM * (-(_nbits) - (_emin))) >> LOG2DENOMSHIFT) + 3)
+
+#define TRUNCATE_DIGITS(_s0, _temp, _nd, _nd0, _nf, _nbits, _emin, _dplen) \
+{ \
+	int _maxdigits = TRUNCATEDIGITS((_nbits), (_emin)); \
+	if ((_nd) > _maxdigits && \
+	  ((_temp) = MALLOC(_maxdigits + (_dplen) + 2)) != NULL) { \
+		char *_tp = (_temp) + _maxdigits; \
+		if ((_nd0) >= _maxdigits) { \
+			memcpy((_temp), (_s0), _maxdigits); \
+			if ((_nd) > (_nd0)) *_tp++ = '1'; \
+			else { \
+			    const char *_q = (_s0) + _maxdigits; \
+			    int _n = (_nd0) - _maxdigits; \
+			    for(; _n > 0 && *_q == '0'; _n--, _q++) {} \
+			    *_tp++ = _n > 0 ? '1' : '0'; \
+			    } \
+			(_nf) = -((_nd0) - (_maxdigits + 1)); \
+			(_nd0) = _maxdigits + 1; \
+			} \
+		else if ((_nd0) == 0) { \
+			memcpy((_temp), (_s0), _maxdigits); \
+			*_tp++ = '1'; \
+			(_nf) -= ((_nd) - (_maxdigits + 1)); \
+			} \
+		else { \
+			memcpy((_temp), (_s0), _maxdigits + (_dplen)); \
+			_tp += (_dplen); \
+			*_tp++ = '1'; \
+			(_nf) = (_maxdigits + 1) - (_nd0); \
+			} \
+		*_tp = 0; \
+		(_nd) = _maxdigits + 1; \
+		(_s0) = (_temp); \
+		} \
+	}
 
 #endif /* GDTOAIMP_H_INCLUDED */

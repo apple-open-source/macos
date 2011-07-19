@@ -1,8 +1,15 @@
 add_llvm_library(LLVMCodeGen
+  Analysis.cpp
+  AggressiveAntiDepBreaker.cpp
   BranchFolding.cpp
+  CalcSpillWeights.cpp
   CodePlacementOpt.cpp
+  CriticalAntiDepBreaker.cpp
   DeadMachineInstructionElim.cpp
+  DwarfEHPrepare.cpp
+  ELFCodeEmitter.cpp
   ELFWriter.cpp
+  ExactHazardRecognizer.cpp
   GCMetadata.cpp
   GCMetadataPrinter.cpp
   GCStrategy.cpp
@@ -15,30 +22,38 @@ add_llvm_library(LLVMCodeGen
   LiveStackAnalysis.cpp
   LiveVariables.cpp
   LowerSubregs.cpp
-  MachOWriter.cpp
   MachineBasicBlock.cpp
+  MachineCSE.cpp
   MachineDominators.cpp
   MachineFunction.cpp
+  MachineFunctionAnalysis.cpp
+  MachineFunctionPass.cpp
+  MachineFunctionPrinterPass.cpp
   MachineInstr.cpp
   MachineLICM.cpp
   MachineLoopInfo.cpp
   MachineModuleInfo.cpp
+  MachineModuleInfoImpls.cpp
   MachinePassRegistry.cpp
   MachineRegisterInfo.cpp
+  MachineSSAUpdater.cpp
   MachineSink.cpp
+  MachineVerifier.cpp
+  ObjectCodeEmitter.cpp
   OcamlGC.cpp
-  PBQP.cpp
+  OptimizeExts.cpp
+  OptimizePHIs.cpp
   PHIElimination.cpp
   Passes.cpp
   PostRASchedulerList.cpp
   PreAllocSplitting.cpp
+  ProcessImplicitDefs.cpp
   PrologEpilogInserter.cpp
   PseudoSourceValue.cpp
-  RegAllocBigBlock.cpp
+  RegAllocFast.cpp
   RegAllocLinearScan.cpp
   RegAllocLocal.cpp
   RegAllocPBQP.cpp
-  RegAllocSimple.cpp
   RegisterCoalescer.cpp
   RegisterScavenging.cpp
   ScheduleDAG.cpp
@@ -46,13 +61,21 @@ add_llvm_library(LLVMCodeGen
   ScheduleDAGInstrs.cpp
   ScheduleDAGPrinter.cpp
   ShadowStackGC.cpp
+  ShrinkWrapping.cpp
   SimpleRegisterCoalescing.cpp
+  SjLjEHPrepare.cpp
+  SlotIndexes.cpp
   Spiller.cpp
   StackProtector.cpp
   StackSlotColoring.cpp
   StrongPHIElimination.cpp
+  TailDuplication.cpp
   TargetInstrInfoImpl.cpp
+  TargetLoweringObjectFileImpl.cpp
   TwoAddressInstructionPass.cpp
   UnreachableBlockElim.cpp
   VirtRegMap.cpp
+  VirtRegRewriter.cpp
   )
+
+target_link_libraries (LLVMCodeGen LLVMCore LLVMScalarOpts)

@@ -36,7 +36,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/tail/tail.c,v 1.21 2005/06/01 20:34:06 eivind Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char copyright[] =
@@ -60,7 +60,7 @@ static const char sccsid[] = "@(#)tail.c	8.1 (Berkeley) 6/6/93";
 
 #include "extern.h"
 
-int Fflag, fflag, rflag, rval, no_files;
+int Fflag, fflag, qflag, rflag, rval, no_files;
 const char *fname;
 
 file_info_t *files;
@@ -114,7 +114,7 @@ main(int argc, char *argv[])
 
 	obsolete(argv);
 	style = NOTSET;
-	while ((ch = getopt(argc, argv, "Fb:c:fn:r")) != -1)
+	while ((ch = getopt(argc, argv, "Fb:c:fn:qr")) != -1)
 		switch(ch) {
 		case 'F':	/* -F is superset of (and implies) -f */
 			Fflag = fflag = 1;
@@ -130,6 +130,9 @@ main(int argc, char *argv[])
 			break;
 		case 'n':
 			ARG(1, FLINES, RLINES);
+			break;
+		case 'q':
+			qflag = 1;
 			break;
 		case 'r':
 			rflag = 1;
@@ -170,7 +173,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (!argc && fflag) {
+	if (fflag && !argc) {
 		/*
 		 * Determine if input is a pipe.  4.4BSD will set the SOCKET
 		 * bit in the st_mode field for pipes.  Fix this then.
@@ -187,12 +190,13 @@ main(int argc, char *argv[])
 		if (! files)
 			err(1, "Couldn't malloc space for file descriptors.");
 
-		for (file = files; (fname = (argc ? *argv++ : "stdin")); file++) {
+		for (file = files; (fname = argc ? *argv++ : "stdin"); file++) {
 			file->file_name = malloc(strlen(fname)+1);
 			if (! file->file_name)
 				errx(1, "Couldn't malloc space for file name.");
 			strncpy(file->file_name, fname, strlen(fname)+1);
-			if ((file->fp = (argc ? fopen(file->file_name, "r") : stdin)) == NULL ||
+			file->fp = argc ? fopen(file->file_name, "r") : stdin;
+			if (file->fp == NULL ||
 			    fstat(fileno(file->fp), &file->st)) {
 				file->fp = NULL;
 				ierr();
@@ -213,7 +217,7 @@ main(int argc, char *argv[])
 				ierr();
 				continue;
 			}
-			if (argc > 1) {
+			if (argc > 1 && !qflag) {
 				(void)printf("%s==> %s <==\n",
 				    first ? "" : "\n", fname);
 				first = 0;
@@ -224,7 +228,7 @@ main(int argc, char *argv[])
 			/* 3849683: don't read a directory */
 			if (S_IFDIR == (sb.st_mode & S_IFMT))
 				continue;
-#endif /* __APPLE__ */
+#endif
 
 			if (rflag)
 				reverse(fp, style, off, &sb);
@@ -339,6 +343,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-	    "usage: tail [-F | -f | -r] [-b # | -c # | -n #] [file ...]\n");
+	    "usage: tail [-F | -f | -r] [-q] [-b # | -c # | -n #]"
+	    " [file ...]\n");
 	exit(1);
 }

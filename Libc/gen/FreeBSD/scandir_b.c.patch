@@ -1,6 +1,6 @@
---- scandir_b.c.orig	2008-07-29 12:03:05.000000000 -0700
-+++ scandir_b.c	2008-07-29 12:03:31.000000000 -0700
-@@ -53,22 +53,18 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sca
+--- scandir_b.c	2009-11-07 14:51:38.000000000 -0800
++++ scandir_b.c	2009-11-07 18:46:38.000000000 -0800
+@@ -47,22 +47,18 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sca
  #include "un-namespace.h"
  
  /*
@@ -27,7 +27,7 @@
  {
  	struct dirent *d, *p, **names = NULL;
  	size_t nitems = 0;
-@@ -91,12 +87,12 @@ scandir(dirname, namelist, select, dcomp
+@@ -78,12 +74,12 @@ scandir(dirname, namelist, select, dcomp
  		goto fail;
  
  	while ((d = readdir(dirp)) != NULL) {
@@ -42,7 +42,7 @@
  		if (p == NULL)
  			goto fail;
  		p->d_fileno = d->d_fileno;
-@@ -125,7 +121,7 @@ scandir(dirname, namelist, select, dcomp
+@@ -111,7 +107,7 @@ scandir(dirname, namelist, select, dcomp
  	}
  	closedir(dirp);
  	if (nitems && dcomp != NULL)
@@ -51,7 +51,7 @@
  	*namelist = names;
  	return(nitems);
  
-@@ -136,15 +132,3 @@ fail:
+@@ -122,15 +118,3 @@ fail:
  	closedir(dirp);
  	return -1;
  }

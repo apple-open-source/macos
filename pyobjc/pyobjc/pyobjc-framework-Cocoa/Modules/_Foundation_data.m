@@ -1,14 +1,3 @@
-/*
- * These NSData methods don't "fit" the metadata model.
- * -bytes
- * -mutableBytes
- */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#include <Foundation/Foundation.h>
-
-
 static PyObject* call_NSData_bytes(
 	PyObject* method, PyObject* self, PyObject* arguments)
 {
@@ -26,9 +15,9 @@ static PyObject* call_NSData_bytes(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		bytes = objc_msgSendSuper(&super, 
+		bytes = ((void*(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super, 
 				PyObjCSelector_GetSelector(method));
-		bytes_len = (NSUInteger) objc_msgSendSuper(&super, @selector(length));
+		bytes_len = ((NSUInteger(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super, @selector(length));
 
 
 	PyObjC_HANDLER
@@ -40,7 +29,16 @@ static PyObject* call_NSData_bytes(
 
 	if (bytes == NULL && PyErr_Occurred()) return NULL;
 
-	result = PyBuffer_FromMemory((void*)bytes, bytes_len);
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION <= 6
+	result = PyBuffer_FromMemory((char*)bytes, bytes_len);
+#else
+	/* 2.7 or later: use a memory view */
+	Py_buffer info;
+	if (PyBuffer_FillInfo(&info, self, (void*)bytes, bytes_len, 1, PyBUF_FULL_RO) < 0) {
+		return NULL;
+	}
+	result = PyMemoryView_FromBuffer(&info);
+#endif
 
 	return result;
 }
@@ -83,6 +81,7 @@ imp_NSData_bytes(
 		return;
 	}
 
+#if PY_MAJOR_VERSION == 2
 	if (PyBuffer_Check(result)) {
 		/* XXX: Is this correct?? */
 		const void *p;
@@ -94,11 +93,13 @@ imp_NSData_bytes(
 		*pretval =  (void *)p;
 		PyGILState_Release(state);
 		return;
-	} else if (PyString_Check(result)) {
+	} else 
+#endif
+	if (PyBytes_Check(result)) {
 		/* XXX: Is this correct */
 		void* p;
 
-		p = PyString_AsString(result);
+		p = PyBytes_AsString(result);
 		*pretval = (void*)p;
 		PyGILState_Release(state);
 		return;
@@ -135,9 +136,9 @@ call_NSMutableData_mutableBytes(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		bytes = objc_msgSendSuper(&super, 
+		bytes = ((void*(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super, 
 				PyObjCSelector_GetSelector(method));
-		bytes_len = (NSUInteger) objc_msgSendSuper(&super, @selector(length));
+		bytes_len = ((NSUInteger(*)(struct objc_super*,SEL))objc_msgSendSuper)(&super, @selector(length));
 
 	PyObjC_HANDLER
 		PyObjCErr_FromObjC(localException);
@@ -148,7 +149,17 @@ call_NSMutableData_mutableBytes(
 
 	if (bytes == NULL && PyErr_Occurred()) return NULL;
 
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION <= 6
 	result = PyBuffer_FromReadWriteMemory((void*)bytes, bytes_len);
+
+#else
+	/* 2.7 or later: use a memory view */
+	Py_buffer info;
+	if (PyBuffer_FillInfo(&info, self, bytes, bytes_len, 0, PyBUF_FULL) < 0) {
+		return NULL;
+	}
+	result = PyMemoryView_FromBuffer(&info);
+#endif
 
 	return result;
 }
@@ -195,20 +206,12 @@ imp_NSMutableData_mutableBytes(
 		return;
 	}
 
-	if (PyBuffer_Check(result)) {
-		/* XXX: Is this correct? */
-		void *p;
-		Py_ssize_t len;
-		if (PyObject_AsWriteBuffer(result, &p, &len) == -1) goto error;
-		Py_DECREF(result);
-		*pretval = (void *)p;
-		PyGILState_Release(state);
-		return;
-	}
-
-	PyErr_SetString(PyExc_ValueError, "No idea what to do with result.");
-	PyObjCErr_ToObjCWithGILState(&state);
-	*pretval = NULL;
+	void *p;
+	Py_ssize_t len;
+	if (PyObject_AsWriteBuffer(result, &p, &len) == -1) goto error;
+	Py_DECREF(result);
+	*pretval = (void *)p;
+	PyGILState_Release(state);
 	return;
 
 error:
@@ -220,17 +223,8 @@ error:
 	PyObjCErr_ToObjCWithGILState(&state);
 }
 
-static PyMethodDef _methods[] = {
-	        { 0, 0, 0, 0 } /* sentinel */
-};
-
-void 
-init_data(void)
+static int setup_nsdata(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_data", _methods, "", NULL, PYTHON_API_VERSION);
-	if (m == NULL) return;
-	if (PyObjC_ImportAPI(m) < 0) return;
-
 	Class classNSData = objc_lookUpClass("NSData");
 	Class classNSMutableData = objc_lookUpClass("NSMutableData");
 
@@ -240,7 +234,7 @@ init_data(void)
 				 @selector(bytes),
 				 call_NSData_bytes,
 				 imp_NSData_bytes) < 0 ) {
-			return;
+			return -1;
 		}
 
 	}
@@ -251,10 +245,9 @@ init_data(void)
 				@selector(mutableBytes),
 				call_NSMutableData_mutableBytes,
 				imp_NSMutableData_mutableBytes) < 0 ) {
-			return;
+			return -1;
 		}
 	}
-
   
-	return;
+	return 0;
 }

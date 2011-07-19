@@ -1,0 +1,70 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin canvas::zoom n 0.2.1]
+[moddesc   {Variations on a canvas}]
+[titledesc {Zoom control for canvas::sqmap}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require snit]
+[require uevent::onidle]
+[require canvas::zoom [opt 0.2.1]]
+[description]
+
+This package provides a widget to enable the user of a map display to
+control the zoom level.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::canvas::zoom] [arg pathName] [opt options]]
+
+Creates the zoom control widget [arg pathName] and configures it. The
+methods and options supported by the new widget are described in the
+following sections.
+
+[para]
+
+The result of the command is [arg pathName].
+
+[list_end]
+
+
+[subsection Options]
+
+[list_begin options]
+[opt_def -orient]
+
+The value for this option is either [const vertical], or
+[const horizontal], specifying the orientation of the major axis of
+the widget. The default is [const vertical].
+
+[opt_def -levels]
+
+The value for this option is a non-negative integer. It specifies the
+number of zoom levels to support.
+
+[opt_def -variable]
+
+The value for this option is the name of a global or namespaced
+variable which is connected with the widget. changes to the zoom level
+made the widget are propagated to this variable, and in turn changes
+to the variable are imported into the widget.
+
+[opt_def -command]
+
+This option specifies a command prefix. This callback will be invoked
+whenever the zoom level is changed. It is called with two additional
+arguments, the zoom control widget, and the new zoom level, in this
+order.
+
+[list_end]
+
+[subsection Methods]
+
+The widget supports no methods beyond the standard ([method configure],
+[method cget], etc.).
+
+
+[keywords zoom]
+[manpage_end]
+

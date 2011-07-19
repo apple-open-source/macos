@@ -1,0 +1,163 @@
+commit 79b075876c6874f1ad6605962973f2865b2a082a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 2 19:30:03 2009 -0700
+
+    fontcacheproto 0.1.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7c8e261c218ff5c0a2806a429725dba437241970
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 2 19:26:08 2009 -0700
+
+    Add pointers to mailing list, git repo, and wiki to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6388965137d61913cbb1b8b3b718e6fd359052cc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 2 19:20:34 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 211eb4c16534f83527df992c4f68936254455e7b
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit a3055497adbbdf626db22176cedb7795e5684567
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:00 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit f4d701aa7c2d2ece96e3701747cedaee0ad57a44
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:03 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 7e722460a355cbf22d554c7cfc69e7ce03454f06
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:13 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit a51ca6a8a428b5be64dc5ad0ad13ff29350768ca
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:37 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit cc6820d803058730369b94f0b62d590d309355cc
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:14 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit edf62f591f28a217b9bc0781e118ce6f762c3fcb
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:38 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 455a177ede4620d9effa1fb167a9e07e747ebd48
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:55 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 83c131b8611f32f9a292a629d13629c6200b5984
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 03:50:53 2005 +0000
+
+    Change version to 0.1.
+
+commit 1bee3aeab31877963efc323700e19aa259520c88
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:39 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 5901343a49c424da552a7ef40b53d01b1b77b291
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:17 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit 6da9cb33ea4b587f47fcb0a4e086943afb5f6039
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Sat May 14 08:39:45 2005 +0000
+
+    Add COPYING file for Fontcache.
+
+commit 32157c7dc40ecf148db657ee8e6c01cf4e23ebb4
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:04 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 4653ec6e4e4f1917eb374c5ca8211993c76e643d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:30 2005 +0000
+
+    Initial build system files for proto module.
+
+commit cc2328e65469115c32617c2c7434e5110e383d4c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit e15f038c34265c2f984be29b4323786362f3724e
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:36 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 47edd8743037411048cf5122eb911b916ccf2fba
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 5f059cd0b8c545917405b434ae570a57a31c0267
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:13 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 0bd7bac3ccb3ef436ff8f306ec03cac6252e210d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:28 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit e9dacf494c059dc3e66a564378679146ff55ed3e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit fd314bc875543d6f017cc1910f97e2e723248770
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit d5552d5100a83653e00cd0f5296dc4557e52754a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    Initial revision

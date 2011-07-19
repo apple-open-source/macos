@@ -74,57 +74,15 @@ show_error(CFErrorRef error) {
 	}
 }
 
-static int
-is_singleuser(void) {
-	uint32_t su = 0;
-	size_t susz = sizeof(su);
-	if (sysctlbyname("kern.singleuser", &su, &susz, NULL, 0) != 0) {
-		return 0;
-	} else {
-		return (int)su;
-	}
-}
-
-static int
-load_DirectoryServicesLocal() {
-	const char* launchctl = "/bin/launchctl";
-	const char* plist = "/System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist";
-
-	pid_t pid = fork();
-	int status, res;
-	switch (pid) {
-		case -1: // ERROR
-			perror("launchctl");
-			return 0;
-		case 0: // CHILD
-			execl(launchctl, launchctl, "load", plist, NULL);
-			/* NOT REACHED */
-			perror("launchctl");
-			exit(1);
-			break;
-		default: // PARENT
-			do {
-				res = waitpid(pid, &status, 0);
-			} while (res == -1 && errno == EINTR);
-			if (res == -1) {
-				perror("launchctl");
-				return 0;
-			}
-			break;
-	}
-	return (WIFEXITED(status) && (WEXITSTATUS(status) == EXIT_SUCCESS));
-}
-
 int
 od_passwd(char* uname, char* locn, char* aname)
 {
-	int			change_pass_on_self;
-	CFErrorRef	error = NULL;
+	int change_pass_on_self;
+	CFErrorRef error = NULL;
 	CFStringRef username = NULL;
 	CFStringRef location = NULL;
 	CFStringRef authname = NULL;
-	ODSessionRef	session = NULL;
-	ODNodeRef	node = NULL;
+	ODNodeRef node = NULL;
 	ODRecordRef rec = NULL;
 	CFStringRef oldpass = NULL;
 	CFStringRef newpass = NULL;
@@ -157,42 +115,13 @@ od_passwd(char* uname, char* locn, char* aname)
 	}
 
 	/*
-	 * Connect to DS server
-	 */
-	session = ODSessionCreate(NULL, NULL, &error);
-	if ( !session && error && CFErrorGetCode(error) == kODErrorSessionDaemonNotRunning ) {
-		/*
-		 * In single-user mode, attempt to load the local DS daemon.
-		 */
-		if (is_singleuser() && load_DirectoryServicesLocal()) {
-			CFTypeRef keys[] = { kODSessionLocalPath };
-			CFTypeRef vals[] = { CFSTR("/var/db/dslocal") };
-			CFDictionaryRef opts = CFDictionaryCreate(NULL, keys, vals, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-			if (opts) {
-				session = ODSessionCreate(NULL, opts, &error);
-				CFRelease(opts);
-			}
-
-			if (!location) {
-				location = CFRetain(CFSTR("/Local/Default"));
-			}
-		} else {
-			show_error(error);
-			return -1;
-		}
-	}
-
-
-	/*
 	 * Copy the record from the specified node, or perform a search.
 	 */
 	if (location) {
-		node = ODNodeCreateWithName(NULL, session, location, &error);
+		node = ODNodeCreateWithName(NULL, kODSessionDefault, location, &error);
 	} else {
-		node = ODNodeCreateWithNodeType(NULL, session, kODNodeTypeAuthentication, &error);
+		node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODNodeTypeAuthentication, &error);
 	}
-
-	if (session) CFRelease(session);
 
 	if (node) {
 		rec = ODNodeCopyRecord(node, kODRecordTypeUsers, username, NULL, &error );
@@ -259,22 +188,7 @@ od_passwd(char* uname, char* locn, char* aname)
 		}
 	}
 
-	if (needs_auth) {
-		CFTypeRef	values[] = { username, newpass, authname, oldpass };
-		CFArrayRef      authItems = CFArrayCreate(NULL, values, 4, &kCFTypeArrayCallBacks);
-
-		ODRecordSetNodeCredentialsExtended(rec,
-			kODRecordTypeUsers,
-			kODAuthenticationTypeSetPassword,
-			authItems,
-			NULL,
-			NULL,
-			&error);
-
-		CFRelease(authItems);
-	} else {
-		ODRecordChangePassword(rec, oldpass, newpass, &error);
-	}
+	ODRecordChangePassword(rec, oldpass, newpass, &error);
 
 	if (error) {
 		show_error(error);

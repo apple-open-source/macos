@@ -23,6 +23,7 @@
  */
 
 #  include "versioning.h"
+#  include "array.h"
 #  include <string.h>
 #  include <time.h>
 #  include <sys/types.h>
@@ -249,11 +250,12 @@ typedef enum http_status_e		/**** HTTP status codes ****/
   HTTP_GATEWAY_TIMEOUT,			/* Gateway connection timed out */
   HTTP_NOT_SUPPORTED,			/* HTTP version not supported */
 
-  HTTP_AUTHORIZATION_CANCELED = 1000	/* User canceled authorization */
-
+  HTTP_AUTHORIZATION_CANCELED = 1000,	/* User canceled authorization @since CUPS 1.4@ */
+  HTTP_PKI_ERROR,			/* Error negotiating a secure connection @since CUPS 1.5/Mac OS X 10.7@ */
+  HTTP_WEBIF_DISABLED			/* Web interface is disabled @private@ */
 } http_status_t;
 
-typedef enum http_uri_status_e		/**** URI separation status @since CUPS1.2@ ****/
+typedef enum http_uri_status_e		/**** URI separation status @since CUPS 1.2@ ****/
 {
   HTTP_URI_OVERFLOW = -8,		/* URI buffer for httpAssembleURI is too small */
   HTTP_URI_BAD_ARGUMENTS = -7,		/* Bad arguments to function (error) */
@@ -315,6 +317,16 @@ typedef struct http_addrlist_s		/**** Socket address list, which is
 } http_addrlist_t;
 
 typedef struct _http_s http_t;		/**** HTTP connection type ****/
+
+typedef struct http_credential_s	/**** HTTP credential data @since CUPS 1.5/Mac OS X 10.7@ ****/
+{
+  void		*data;			/* Pointer to credential data */
+  size_t	datalen;		/* Credential length */
+} http_credential_t;
+
+typedef int (*http_timeout_cb_t)(http_t *http, void *user_data);
+					/**** HTTP timeout callback @since CUPS 1.5/Mac OS X 10.7@ ****/
+
 
 
 /*
@@ -438,6 +450,20 @@ extern ssize_t		httpWrite2(http_t *http, const char *buffer,
 extern char		*httpGetAuthString(http_t *http) _CUPS_API_1_3;
 extern void		httpSetAuthString(http_t *http, const char *scheme,
 			                  const char *data) _CUPS_API_1_3;
+
+/**** New in CUPS 1.5/Mac OS X 10.7 ****/
+extern int		httpAddCredential(cups_array_t *credentials,
+			                  const void *data, size_t datalen)
+					  _CUPS_API_1_5;
+extern int		httpCopyCredentials(http_t *http,
+					    cups_array_t **credentials)
+					    _CUPS_API_1_5;
+extern void		httpFreeCredentials(cups_array_t *certs) _CUPS_API_1_5;
+extern int		httpSetCredentials(http_t *http, cups_array_t *certs)
+					   _CUPS_API_1_5;
+extern void		httpSetTimeout(http_t *http, double timeout,
+			               http_timeout_cb_t cb, void *user_data);
+
 
 /*
  * C++ magic...

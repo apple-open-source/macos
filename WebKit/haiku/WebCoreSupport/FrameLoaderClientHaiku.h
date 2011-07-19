@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Ryan Leavengood <leavengood@gmail.com> All rights reserved.
  *
  *
@@ -33,6 +33,7 @@
 #include "FrameLoaderClient.h"
 #include "KURL.h"
 #include "ResourceResponse.h"
+#include <wtf/Forward.h>
 
 class BMessenger;
 class WebView;
@@ -44,7 +45,6 @@ namespace WebCore {
     class FormState;
     class NavigationAction;
     class ResourceLoader;
-    class String;
 
     struct LoadErrorResetToken;
 
@@ -102,7 +102,7 @@ namespace WebCore {
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
-        virtual void dispatchDidReceiveTitle(const String& title);
+        virtual void dispatchDidReceiveTitle(const StringWithDirection& title);
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFinishDocumentLoad();
         virtual void dispatchDidFinishLoad();
@@ -130,6 +130,7 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*);
 
         virtual bool canShowMIMEType(const String& MIMEType) const;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
 
@@ -142,7 +143,7 @@ namespace WebCore {
         virtual void addHistoryItemForFragmentScroll();
         virtual void didFinishLoad();
         virtual void prepareForDataSourceReplacement();
-        virtual void setTitle(const String& title, const KURL&);
+        virtual void setTitle(const StringWithDirection&, const KURL&);
 
         virtual String userAgent(const KURL&);
 
@@ -150,9 +151,15 @@ namespace WebCore {
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
 
+        virtual void didSaveToPageCache();
+        virtual void didRestoreFromPageCache();
+
+        virtual void dispatchDidBecomeFrameset(bool);
+
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+        virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidChangeBackForwardIndex() const;
@@ -198,9 +205,9 @@ namespace WebCore {
 
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
-        virtual Frame* dispatchCreatePage();
-        virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction,
-                                                     const String&,
+        virtual Frame* dispatchCreatePage(const NavigationAction&);
+        virtual void dispatchDecidePolicyForResponse(FramePolicyFunction,
+                                                     const ResourceResponse&,
                                                      const ResourceRequest&);
         virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction,
                                                             const NavigationAction&,
@@ -220,7 +227,8 @@ namespace WebCore {
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name,
                                               HTMLFrameOwnerElement*, const String& referrer,
                                               bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument();
+        virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const ResourceRequest&, WebCore::Page*);
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&,
                                                 const Vector<String>&, const Vector<String>&, const String&,
                                                 bool loadManually);
@@ -231,7 +239,7 @@ namespace WebCore {
                                                           const KURL& baseURL, const Vector<String>& paramNames,
                                                           const Vector<String>& paramValues);
 
-        virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
+        virtual ObjectContentType objectContentType(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages);
         virtual String overrideMediaType() const;
 
         virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*);
@@ -251,4 +259,3 @@ namespace WebCore {
 } // namespace WebCore
 
 #endif // FrameLoaderClientHaiku_h
-

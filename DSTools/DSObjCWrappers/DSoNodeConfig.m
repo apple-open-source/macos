@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #import "DSoRecordPriv.h"
 
 #include <Security/Authorization.h>
+#include <DirectoryService/DirServicesConstPriv.h>
 
 @implementation DSoNodeConfig
 
@@ -45,9 +46,9 @@
 	[super init];
 	[mTypeList release];
 	mTypeList = [[NSArray alloc] initWithObjects:
-				@"dsConfigType::Plugins",
-				@"dsConfigType::AttributeTypes",
-				@"dsConfigType::RecordTypes",
+				@kDSStdRecordTypePlugins,
+				@kDSStdRecordTypeAttributeTypes,
+				@kDSStdRecordTypeRecordTypes,
 		nil];
 	return self;
 }
@@ -60,13 +61,23 @@
     const char     *cNodeName   = nil;
     UInt32			nodeCount   = 0;
     tDirStatus		nError		= eDSNoErr;
+	tContextData	context		= 0;
 	
     [self init];
 
     dirRef = [inDir verifiedDirRef];
     bufNodeList = [[DSoBuffer alloc] initWithDir:inDir];
-    nError = dsFindDirNodes (dirRef, [bufNodeList dsDataBuffer], NULL,
-                             eDSConfigNodeName, &nodeCount, NULL) ;
+	do {
+		nError = dsFindDirNodes (dirRef, [bufNodeList dsDataBuffer], NULL,
+								 eDSConfigNodeName, &nodeCount, &context) ;
+		if (nError == eDSBufferTooSmall) {
+			[bufNodeList grow: [bufNodeList getBufferSize] * 2];
+		}
+	} while (nError == eDSBufferTooSmall);
+	
+	if (context != 0) {
+		dsReleaseContinueData(dirRef, context);
+	}
 
     nError = dsGetDirNodeName (dirRef, [bufNodeList dsDataBuffer], 1, &dlpNodeName);
 
@@ -91,8 +102,8 @@
 
 - (NSArray*) getPluginList
 {
-    return [self findRecordNames:@"dsConfigType::GetAllRecords"
-					ofType:"dsConfigType::Plugins"
+    return [self findRecordNames:@kDSRecordsAll
+					ofType:kDSStdRecordTypePlugins
 					matchType:eDSExact];
 }
 
@@ -101,34 +112,56 @@
     tContextData 		localcontext		= 0;
     tRecordEntryPtr		pRecEntry			= nil;
     tAttributeListRef	attrListRef			= 0;
-    DSoDataList		   *recName				= [[DSoDataList alloc] initWithDir:mDirectory cString:"dsConfigType::GetAllRecords"];
-    DSoDataList		   *recType				= [[DSoDataList alloc] initWithDir:mDirectory cString:"dsConfigType::Plugins"];
+    DSoDataList		   *recName				= nil;
+    DSoDataList		   *recType				= [[DSoDataList alloc] initWithDir:mDirectory cString:kDSStdRecordTypePlugins];
     DSoDataList		   *attrType			= [[DSoDataList alloc] initWithDir:mDirectory cString:kDSAttributesAll];
     DSoBuffer		   *recordBuf			= [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:4096];
     id					pluginAttributes	= nil;
     tDirStatus 			err					= eDSNoErr;
-    unsigned long		i					= 0;
+    UInt32				i					= 0;
 	UInt32				returnCount			= 0;
-    unsigned short		len					= 0;
+	UInt32				totalCount			= 0;
+	UInt16				len					= 0;
+	
+	id sysVersion = [self getAttribute: kDS1AttrOperatingSystemVersion];
+	if (sysVersion == nil || [sysVersion isEqual: @"10.6"]) {
+		recName = [[DSoDataList alloc] initWithDir:mDirectory cString:kDSRecordsAll];
+	}
+	else {
+		recName = [[DSoDataList alloc] initWithDir:mDirectory cString:[inPluginName UTF8String]];
+	}
 
-    err = dsGetRecordList([self dsNodeReference], [recordBuf dsDataBuffer],
-								[recName dsDataList], eDSExact, [recType dsDataList],
-								[attrType dsDataList], FALSE, &returnCount, &localcontext);
-    for (i = 1; i <= returnCount; i++)
-    {
-        err = dsGetRecordEntry([self dsNodeReference],[recordBuf dsDataBuffer],i,&attrListRef, &pRecEntry );
-        memcpy( &len, &pRecEntry->fRecordNameAndType.fBufferData, 2);
-        if (!strncmp([inPluginName UTF8String], pRecEntry->fRecordNameAndType.fBufferData+2, len))
-        {
-            pluginAttributes = [DSoAttributeUtils getAttributesAndValuesInNode: self
-													fromBuffer: recordBuf
-													listReference: attrListRef
-													count: pRecEntry->fRecordAttributeCount];
-			i = returnCount; // Abort the search loop by forcing the iterator to the max.
-        }
-		dsDeallocRecordEntry([mDirectory dsDirRef], pRecEntry);
-		dsCloseAttributeList(attrListRef);
-    }
+	do {
+		err = dsGetRecordList([self dsNodeReference], [recordBuf dsDataBuffer], [recName dsDataList], eDSExact, [recType dsDataList],
+							  [attrType dsDataList], FALSE, &returnCount, &localcontext);
+		if (err == eDSBufferTooSmall) {
+			[recordBuf grow: [recordBuf getBufferSize] * 2];
+			continue;
+		}
+		
+		for (i = 1; i <= returnCount && pluginAttributes == nil; i++) {
+			err = dsGetRecordEntry([self dsNodeReference], [recordBuf dsDataBuffer], i, &attrListRef, &pRecEntry);
+			if (err == eDSNoErr) {
+				memcpy(&len, &pRecEntry->fRecordNameAndType.fBufferData, 2);
+				if (!strncmp([inPluginName UTF8String], pRecEntry->fRecordNameAndType.fBufferData + 2, len)) {
+					pluginAttributes = [DSoAttributeUtils getAttributesAndValuesInNode: self
+																			fromBuffer: recordBuf
+																		 listReference: attrListRef
+																				 count: pRecEntry->fRecordAttributeCount];
+				}
+				
+				dsDeallocRecordEntry([mDirectory dsDirRef], pRecEntry);
+				dsCloseAttributeList(attrListRef);
+			}
+		}
+		
+		totalCount += returnCount;
+	} while (pluginAttributes == nil && (err == eDSBufferTooSmall || (err == eDSNoErr && localcontext != 0)));
+		
+	if (localcontext != 0) {
+		dsReleaseContinueData([self dsNodeReference], localcontext);
+	}
+	
     [recordBuf release];
     [recName release];
     [attrType release];
@@ -144,7 +177,7 @@
 {
     NSDictionary *pluginAttribs = [self getAttributesAndValuesForPlugin:inPluginName];
 	
-    return [[(NSArray*)[pluginAttribs objectForKey:@"dsConfigAttrType::State"] objectAtIndex:0] isEqualToString:@"Active"];
+    return [[(NSArray*)[pluginAttribs objectForKey:@kDS1AttrFunctionalState] objectAtIndex:0] isEqualToString:@"Active"];
 }
 
 - (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled
@@ -162,8 +195,8 @@
     tAttributeValueListRef	attrValueListRef = 0;
 	char*				nameStr = NULL;
 
-    DSoDataList			*recName = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:"dsConfigType::GetAllRecords"];
-    DSoDataList			*recType = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:"dsConfigType::Plugins"];
+    DSoDataList			*recName = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSRecordsAll];
+    DSoDataList			*recType = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSStdRecordTypePlugins];
     DSoDataList			*attrType = [(DSoDataList*)[DSoDataList alloc] initWithDir:mDirectory cString:kDSAttributesAll];
     DSoBuffer			*recordBuf = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:4096];
 
@@ -196,7 +229,7 @@
 						&attrValueListRef, &pAttrEntry );
 					if (err != eDSNoErr || pAttrEntry == NULL) continue;
 					
-					if (!strcmp(pAttrEntry->fAttributeSignature.fBufferData,"dsConfigAttrType::State"))
+					if (!strcmp(pAttrEntry->fAttributeSignature.fBufferData,kDS1AttrFunctionalState))
 					{
 						// Get only one attribute value even if there are more
 						err = dsGetAttributeValue( [self dsNodeReference], 
@@ -209,7 +242,7 @@
 												"Active") == 0;
 						}
 					}
-					else if (!strcmp(pAttrEntry->fAttributeSignature.fBufferData,"dsConfigAttrType::PlugInIndex"))
+					else if (!strcmp(pAttrEntry->fAttributeSignature.fBufferData,kDS1AttrPluginIndex))
 					{
 						err = dsGetAttributeValue( [self dsNodeReference], 
 							[recordBuf dsDataBuffer], 1, attrValueListRef, 
@@ -247,7 +280,12 @@
 			dsDeallocRecordEntry([mDirectory dsDirRef], pRecEntry);
 			dsCloseAttributeList(attrListRef);
 		}
-	} while (err == eDSBufferTooSmall || localcontext != 0);
+	} while (err == eDSBufferTooSmall || (err == eDSNoErr && localcontext != 0));
+	
+	if (localcontext != 0) {
+		dsReleaseContinueData([self dsNodeReference], localcontext);
+	}
+	
 	if (err == eDSNoErr && wasEnabled != enabled) {
 		// need to toggle the state
 		AuthorizationExternalForm authExtForm;

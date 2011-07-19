@@ -255,11 +255,11 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
             return;
         case ParentAxis:
             if (context->isAttributeNode()) {
-                Node* n = static_cast<Attr*>(context)->ownerElement();
+                Element* n = static_cast<Attr*>(context)->ownerElement();
                 if (nodeMatches(n, ParentAxis, m_nodeTest))
                     nodes.append(n);
             } else {
-                Node* n = context->parentNode();
+                ContainerNode* n = context->parentNode();
                 if (n && nodeMatches(n, ParentAxis, m_nodeTest))
                     nodes.append(n);
             }
@@ -320,7 +320,7 @@ void Step::nodesInAxis(Node* context, NodeSet& nodes) const
                 context = static_cast<Attr*>(context)->ownerElement();
 
             Node* n = context;
-            while (Node* parent = n->parent()) {
+            while (ContainerNode* parent = n->parentNode()) {
                 for (n = n->traversePreviousNode(); n != parent; n = n->traversePreviousNode())
                     if (nodeMatches(n, PrecedingAxis, m_nodeTest))
                         nodes.append(n);

@@ -170,7 +170,6 @@ int main(int argc, char ** argv)
                 break;
             case 'd':
                 options.depth = atoi(optarg);
-                assertion(options.depth >= 0, "invalid depth");
                 if (options.depth == 0)  options.depth = UINT32_MAX; 
                 break;
             case 'f':
@@ -205,7 +204,6 @@ int main(int argc, char ** argv)
                 break;
             case 'w':
                 options.width = atoi(optarg);
-                assertion(options.width >= 0, "invalid width");
                 break;
             case 'x':
                 options.hex = TRUE;
@@ -317,12 +315,12 @@ static Boolean compare( io_registry_entry_t service,
 
         if (strchr(options.name, '@'))
         {
-            strcat(name, "@");
+            strlcat(name, "@", sizeof(name));
 
             // Obtain the location of the service.
 
             status = IORegistryEntryGetLocationInPlane(service, options.plane, location);
-            if (status == KERN_SUCCESS)  strcat(name, location);
+            if (status == KERN_SUCCESS)  strlcat(name, location, sizeof(name));
         }
 
         if (strcmp(options.name, name))
@@ -546,7 +544,7 @@ static void show( io_registry_entry_t service,
 	uint64_t entryID;
 
         status = IORegistryEntryGetRegistryEntryID(service, &entryID);
-        if (status == KERN_SUCCESS);
+        if (status == KERN_SUCCESS)
 	{
 	    print(", id 0x%llx", entryID);
 	}
@@ -576,7 +574,6 @@ static void show( io_registry_entry_t service,
         // Print out the retain count of the service.
 
         integer = IOObjectGetRetainCount(service);
-        assertion(integer >= 0, "can't obtain retain count");
 
         print(", retain %ld", (unsigned long)integer);
     }
@@ -1452,7 +1449,7 @@ static void makepath(io_registry_entry_t target, io_string_t path)
     status = IORegistryEntryGetPath(target, kIODeviceTreePlane, path);
     assertion(status == KERN_SUCCESS, "unable to get path");
 
-    strcpy(path, strchr(path, ':') + 1);
+    strlcpy(path, strchr(path, ':') + 1, sizeof(path));
 }
 
 static Boolean lookupPHandle(UInt32 phandle, io_registry_entry_t * device)
@@ -1623,7 +1620,7 @@ static char ToAscii(UInt32 nibble)
 {
     nibble &= 0x0F;
 
-    if (nibble >= 0 && nibble <= 9)
+    if (nibble <= 9)
         return((char)nibble + '0');
     else
         return((char)nibble - 10 + 'A');

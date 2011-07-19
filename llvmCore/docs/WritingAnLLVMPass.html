@@ -179,7 +179,7 @@ source tree in the <tt>lib/Transforms/Hello</tt> directory.</p>
 <div class="doc_code"><pre>
 # Makefile for hello pass
 
-# Path to top level of LLVM heirarchy
+# Path to top level of LLVM hierarchy
 LEVEL = ../../..
 
 # Name of the library to build
@@ -223,12 +223,14 @@ Start out with:</p>
 <div class="doc_code"><pre>
 <b>#include</b> "<a href="http://llvm.org/doxygen/Pass_8h-source.html">llvm/Pass.h</a>"
 <b>#include</b> "<a href="http://llvm.org/doxygen/Function_8h-source.html">llvm/Function.h</a>"
+<b>#include</b> "<a href="http://llvm.org/doxygen/raw__ostream_8h.html">llvm/Support/raw_ostream.h</a>"
 </pre></div>
 
 <p>Which are needed because we are writing a <tt><a
-href="http://llvm.org/doxygen/classllvm_1_1Pass.html">Pass</a></tt>, and
+href="http://llvm.org/doxygen/classllvm_1_1Pass.html">Pass</a></tt>,
 we are operating on <tt><a
-href="http://llvm.org/doxygen/classllvm_1_1Function.html">Function</a></tt>'s.</p>
+href="http://llvm.org/doxygen/classllvm_1_1Function.html">Function</a></tt>'s,
+and we will be doing some printing.</p>
 
 <p>Next we have:</p>
 <div class="doc_code"><pre>
@@ -273,7 +275,7 @@ avoid using expensive C++ runtime information.</p>
 
 <div class="doc_code"><pre>
     <b>virtual bool</b> <a href="#runOnFunction">runOnFunction</a>(Function &amp;F) {
-      llvm::cerr &lt;&lt; "<i>Hello: </i>" &lt;&lt; F.getName() &lt;&lt; "\n";
+      errs() &lt;&lt; "<i>Hello: </i>" &lt;&lt; F.getName() &lt;&lt; "\n";
       <b>return false</b>;
     }
   };  <i>// end of struct Hello</i>
@@ -312,6 +314,7 @@ is supplied as fourth argument. </p>
 <div class="doc_code"><pre>
 <b>#include</b> "<a href="http://llvm.org/doxygen/Pass_8h-source.html">llvm/Pass.h</a>"
 <b>#include</b> "<a href="http://llvm.org/doxygen/Function_8h-source.html">llvm/Function.h</a>"
+<b>#include</b> "<a href="http://llvm.org/doxygen/raw__ostream_8h.html">llvm/Support/raw_ostream.h</a>"
 
 <b>using namespace llvm;</b>
 
@@ -322,7 +325,7 @@ is supplied as fourth argument. </p>
     Hello() : FunctionPass(&amp;ID) {}
 
     <b>virtual bool</b> <a href="#runOnFunction">runOnFunction</a>(Function &amp;F) {
-      llvm::cerr &lt;&lt; "<i>Hello: </i>" &lt;&lt; F.getName() &lt;&lt; "\n";
+      errs() &lt;&lt; "<i>Hello: </i>" &lt;&lt; F.getName() &lt;&lt; "\n";
       <b>return false</b>;
     }
   };
@@ -374,10 +377,10 @@ interesting way, we just throw away the result of <tt>opt</tt> (sending it to
 <tt>/dev/null</tt>).</p>
 
 <p>To see what happened to the other string you registered, try running
-<tt>opt</tt> with the <tt>--help</tt> option:</p>
+<tt>opt</tt> with the <tt>-help</tt> option:</p>
 
 <div class="doc_code"><pre>
-$ opt -load ../../../Debug/lib/Hello.so --help
+$ opt -load ../../../Debug/lib/Hello.so -help
 OVERVIEW: llvm .bc -&gt; .bc modular optimizer
 
 USAGE: opt [options] &lt;input bitcode&gt;
@@ -450,7 +453,7 @@ available, from the most general to the most specific.</p>
 <p>When choosing a superclass for your Pass, you should choose the <b>most
 specific</b> class possible, while still being able to meet the requirements
 listed.  This gives the LLVM Pass Infrastructure information necessary to
-optimize how passes are run, so that the resultant compiler isn't unneccesarily
+optimize how passes are run, so that the resultant compiler isn't unnecessarily
 slow.</p>
 
 </div>
@@ -489,12 +492,17 @@ invalidated, and are never "run".</p>
 href="http://llvm.org/doxygen/classllvm_1_1ModulePass.html">ModulePass</a></tt>"
 class is the most general of all superclasses that you can use.  Deriving from
 <tt>ModulePass</tt> indicates that your pass uses the entire program as a unit,
-refering to function bodies in no predictable order, or adding and removing
+referring to function bodies in no predictable order, or adding and removing
 functions.  Because nothing is known about the behavior of <tt>ModulePass</tt>
-subclasses, no optimization can be done for their execution. A module pass
-can use function level passes (e.g. dominators) using getAnalysis interface
-<tt> getAnalysis&lt;DominatorTree&gt;(Function)</tt>, if the function pass
-does not require any module passes. </p> 
+subclasses, no optimization can be done for their execution.</p>
+
+<p>A module pass can use function level passes (e.g. dominators) using
+the getAnalysis interface
+<tt>getAnalysis&lt;DominatorTree&gt;(llvm::Function *)</tt> to provide the
+function to retrieve analysis result for, if the function pass does not require
+any module or immutable passes. Note that this can only be done for functions for which the
+analysis ran, e.g. in the case of dominators you should only ask for the
+DominatorTree for function definitions, not declarations.</p>
 
 <p>To write a correct <tt>ModulePass</tt> subclass, derive from
 <tt>ModulePass</tt> and overload the <tt>runOnModule</tt> method with the
@@ -599,7 +607,7 @@ fast).</p>
 <div class="doc_text">
 
 <div class="doc_code"><pre>
-  <b>virtual bool</b> runOnSCC(const std::vector&lt;CallGraphNode *&gt; &amp;SCCM) = 0;
+  <b>virtual bool</b> runOnSCC(CallGraphSCC &amp;SCC) = 0;
 </pre></div>
 
 <p>The <tt>runOnSCC</tt> method performs the interesting work of the pass, and
@@ -901,16 +909,22 @@ finalization.</p>
 
 <p>A <tt>MachineFunctionPass</tt> is a part of the LLVM code generator that
 executes on the machine-dependent representation of each LLVM function in the
-program.  A <tt>MachineFunctionPass</tt> is also a <tt>FunctionPass</tt>, so all
+program.</p>
+
+<p>Code generator passes are registered and initialized specially by
+<tt>TargetMachine::addPassesToEmitFile</tt> and similar routines, so they
+cannot generally be run from the <tt>opt</tt> or <tt>bugpoint</tt>
+commands.</p>
+
+<p>A <tt>MachineFunctionPass</tt> is also a <tt>FunctionPass</tt>, so all
 the restrictions that apply to a <tt>FunctionPass</tt> also apply to it.
 <tt>MachineFunctionPass</tt>es also have additional restrictions. In particular,
 <tt>MachineFunctionPass</tt>es are not allowed to do any of the following:</p>
 
 <ol>
-<li>Modify any LLVM Instructions, BasicBlocks or Functions.</li>
+<li>Modify or create any LLVM IR Instructions, BasicBlocks, Arguments,
+    Functions, GlobalVariables, GlobalAliases, or Modules.</li>
 <li>Modify a MachineFunction other than the one currently being processed.</li>
-<li>Add or remove MachineFunctions from the current Module.</li>
-<li>Add or remove global variables from the current Module.</li>
 <li>Maintain state across invocations of <a
 href="#runOnMachineFunction"><tt>runOnMachineFunction</tt></a> (including global
 data)</li>
@@ -962,7 +976,7 @@ template, which requires you to pass at least two
 parameters.  The first parameter is the name of the pass that is to be used on
 the command line to specify that the pass should be added to a program (for
 example, with <tt>opt</tt> or <tt>bugpoint</tt>).  The second argument is the
-name of the pass, which is to be used for the <tt>--help</tt> output of
+name of the pass, which is to be used for the <tt>-help</tt> output of
 programs, as
 well as for debug output generated by the <tt>--debug-pass</tt> option.</p>
 
@@ -1402,7 +1416,7 @@ allowing any analysis results to live across the execution of your pass.</p>
 options that is useful for debugging pass execution, seeing how things work, and
 diagnosing when you should be preserving more analyses than you currently are
 (To get information about all of the variants of the <tt>--debug-pass</tt>
-option, just type '<tt>opt --help-hidden</tt>').</p>
+option, just type '<tt>opt -help-hidden</tt>').</p>
 
 <p>By using the <tt>--debug-pass=Structure</tt> option, for example, we can see
 how our <a href="#basiccode">Hello World</a> pass interacts with other passes.
@@ -1537,7 +1551,7 @@ need some way to free analysis results when they are no longer useful.  The
 <p>If you are writing an analysis or any other pass that retains a significant
 amount of state (for use by another pass which "requires" your pass and uses the
 <a href="#getAnalysis">getAnalysis</a> method) you should implement
-<tt>releaseMEmory</tt> to, well, release the memory allocated to maintain this
+<tt>releaseMemory</tt> to, well, release the memory allocated to maintain this
 internal state.  This method is called after the <tt>run*</tt> method for the
 class, before the next call of <tt>run*</tt> in your pass.</p>
 
@@ -1617,12 +1631,12 @@ form; </p>
 </pre></div>
 
 <p>Note the two spaces prior to the help string produces a tidy result on the
---help query.</p>
+-help query.</p>
 
 <div class="doc_code"><pre>
-$ llc --help
+$ llc -help
   ...
-  -regalloc                    - Register allocator to use: (default = linearscan)
+  -regalloc                    - Register allocator to use (default=linearscan)
     =linearscan                -   linear scan register allocator
     =local                     -   local register allocator
     =simple                    -   simple register allocator
@@ -1821,7 +1835,7 @@ Despite that, we have kept the LLVM passes SMP ready, and you should too.</p>
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2009-02-17 21:09:16 -0800 (Tue, 17 Feb 2009) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 
 </body>

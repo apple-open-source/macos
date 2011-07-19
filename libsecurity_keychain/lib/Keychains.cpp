@@ -47,12 +47,23 @@
 #include "DLDbListCFPref.h"
 #include <fcntl.h>
 #include <sys/param.h>
+#include <syslog.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
+#include <sys/time.h>
+
+static dispatch_once_t SecKeychainSystemKeychainChecked;
+
+OSStatus SecKeychainSystemKeychainCheckWouldDeadlock()
+{
+    dispatch_once(&SecKeychainSystemKeychainChecked, ^{});
+    return noErr;
+}
 
 using namespace KeychainCore;
 using namespace CssmClient;
-
-
-ModuleNexus<Mutex> gObjectCreationMutex;
 
 
 typedef struct EventItem
@@ -308,12 +319,66 @@ struct Event
 };
 typedef std::list<Event> EventList;
 
+#define SYSTEM_KEYCHAIN_CHECK_UNIX_BASE_NAME "/var/run/systemkeychaincheck"
+#define SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME (SYSTEM_KEYCHAIN_CHECK_UNIX_BASE_NAME ".socket")
+#define SYSTEM_KEYCHAIN_CHECK_COMPLETE_FILE_NAME (SYSTEM_KEYCHAIN_CHECK_UNIX_BASE_NAME ".done")
+
+static void check_system_keychain()
+{
+	// sadly we can't use XPC here, XPC_DOMAIN_TYPE_SYSTEM doesn't exist yet.  Also xpc-helper uses the
+	// keychain API (I assume for checking codesign things).   So we use Unix Domain Sockets.
+	
+	// NOTE: if we hit a system error we attempt to log it, and then just don't check the system keychain.
+	// In theory a system might be able to recover from this state if we let it try to muddle along, and
+	// past behaviour didn't even try this hard to do the keychain check.  In particular we could be in a
+	// sandbox'ed process.   So we just do our best and let another process try again.
+	
+	struct stat keycheck_file_info;
+	if (stat(SYSTEM_KEYCHAIN_CHECK_COMPLETE_FILE_NAME, &keycheck_file_info) < 0) {
+		int server_fd = socket(PF_UNIX, SOCK_STREAM, 0);
+		if (server_fd < 0) {
+			syslog(LOG_ERR, "Can't get socket (%m) system keychain may be unchecked");
+			return;
+		}
+		
+		struct sockaddr_un keychain_check_server_address;
+		keychain_check_server_address.sun_family = AF_UNIX;
+		if (strlcpy(keychain_check_server_address.sun_path, SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME, sizeof(keychain_check_server_address.sun_path)) > sizeof(keychain_check_server_address.sun_path)) {
+			// It would be nice if we could compile time assert this
+			syslog(LOG_ERR, "Socket path too long, max length %d, your length %d", sizeof(keychain_check_server_address.sun_path), strlen(SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME));
+			close(server_fd);
+			return;
+		}
+		keychain_check_server_address.sun_len = SUN_LEN(&keychain_check_server_address);
+		
+		int rc = connect(server_fd, (struct sockaddr *)&keychain_check_server_address, keychain_check_server_address.sun_len);
+		if (rc < 0) {
+			syslog(LOG_ERR, "Can not connect to %s: %m", SYSTEM_KEYCHAIN_CHECK_UNIX_DOMAIN_SOCKET_NAME);
+			close(server_fd);
+			return;
+		}
+		
+		// this read lets us block until the EOF comes, we don't ever get a byte (and if we do, we don't care about it)
+		char byte;
+		ssize_t read_size = read(server_fd, &byte, 1);
+		if (read_size < 0) {
+			syslog(LOG_ERR, "Error reading from system keychain checker: %m");
+		}
+		
+		close(server_fd);
+		return;
+	}
+}
+
 //
 // KeychainImpl
 //
 KeychainImpl::KeychainImpl(const Db &db)
 	: mInCache(false), mDb(db), mCustomUnlockCreds (this), mIsInBatchMode (false), mMutex(Mutex::recursive)
 {
+	dispatch_once(&SecKeychainSystemKeychainChecked, ^{
+		check_system_keychain();
+	});
 	mDb->defaultCredentials(this);	// install activation hook
 	mEventBuffer = new EventBuffer;
 }
@@ -323,17 +388,33 @@ KeychainImpl::~KeychainImpl()
 	try
 	{
 		// Remove ourselves from the cache if we are in it.
-		cleanup();
-		if (inCache())
-		{
-			globals().storageManager.removeKeychain(dlDbIdentifier(), this);
-		}
-		
+        // fprintf(stderr, "Removing %p from storage manager cache.\n", handle(false));
+		globals().storageManager.removeKeychain(dlDbIdentifier(), this);
 		delete mEventBuffer;
 	}
 	catch(...)
 	{
 	}
+}
+
+Mutex*
+KeychainImpl::getMutexForObject()
+{
+	return globals().storageManager.getStorageManagerMutex();
+}
+
+Mutex*
+KeychainImpl::getKeychainMutex()
+{
+	return &mMutex;
+}
+
+void KeychainImpl::aboutToDestruct()
+{
+    // remove me from the global cache, we are done
+    // fprintf(stderr, "Destructing keychain object\n");
+    DLDbIdentifier identifier = dlDbIdentifier();
+    globals().storageManager.removeKeychain(identifier, this);
 }
 
 bool
@@ -547,7 +628,6 @@ void KeychainImpl::markBlobForDotMacSyncUpdate(CssmData& data)
 		CFStringGetCString(path, buffer, sizeof(buffer), kCFStringEncodingUTF8);
 		string fullPath = buffer;
 		fullPath = DLDbListCFPref::ExpandTildesInPath(fullPath);
-		CFRelease(path);
 		path = CFStringCreateWithCString(NULL, fullPath.c_str(), kCFStringEncodingUTF8);
 		
 		if (CFStringCompare(path, currentPath, 0) == kCFCompareEqualTo)
@@ -586,14 +666,23 @@ KeychainImpl::setSettings(uint32 inIdleTimeOut, bool inLockOnSleep)
 {
 	StLock<Mutex>_(mMutex);
 	
+	// The .Mac syncing code only makes sense for the AppleFile CSP/DL,
+	// but other DLs such as the OCSP and LDAP DLs do not expose a way to
+	// change settings or the password. To make a minimal change that only affects
+	// the smartcard case, we only look for that CSP/DL
+	
+	bool isSmartcard = 	(mDb->dl()->guid() == gGuidAppleSdCSPDL);
+	
 	// get the old keychain blob so that we can tell .Mac to resync it
 	CssmAutoData oldBlob(mDb ->allocator());
-	mDb->copyBlob(oldBlob.get());
+	if (!isSmartcard)
+		mDb->copyBlob(oldBlob.get());
 	
 	mDb->setSettings(inIdleTimeOut, inLockOnSleep);
 	
 	// if we got here, nothing threw underneath.  Send the results off to .Mac heaven
-	markBlobForDotMacSyncUpdate(oldBlob.get());
+	if (!isSmartcard)
+		markBlobForDotMacSyncUpdate(oldBlob.get());
 }
 
 void 
@@ -602,6 +691,8 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 {
 	StLock<Mutex>_(mMutex);
 	
+	bool isSmartcard = 	(mDb->dl()->guid() == gGuidAppleSdCSPDL);
+
 	TrackingAllocator allocator(Allocator::standard());
 	AutoCredentials cred = AutoCredentials(allocator);
 	if (oldPassword)
@@ -624,12 +715,14 @@ KeychainImpl::changePassphrase(UInt32 oldPasswordLength, const void *oldPassword
 
 	// get the old keychain blob so that we can tell .Mac to resync it
 	CssmAutoData oldBlob(mDb->allocator());
-	mDb->copyBlob(oldBlob.get());
+	if (!isSmartcard)
+		mDb->copyBlob(oldBlob.get());
 	
 	mDb->changePassphrase(&cred);
 	
 	// if we got here, nothing threw underneath.  Send the results off to .Mac heaven
-	markBlobForDotMacSyncUpdate(oldBlob.get());
+	if (!isSmartcard)
+		markBlobForDotMacSyncUpdate(oldBlob.get());
 }
 
 void
@@ -714,7 +807,7 @@ KeychainImpl::isActive() const
 
 void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 {
-	StLock<Mutex>_(mMutex);
+
 	
 	// The inItem shouldn't be in the cache yet
 	assert(!inItem->inCache());
@@ -722,7 +815,6 @@ void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 	// Insert inItem into mDbItemMap with key primaryKey.  p.second will be
 	// true if it got inserted. If not p.second will be false and p.first
 	// will point to the current entry with key primaryKey.
-	CFRetain(inItem->handle(false));
 	pair<DbItemMap::iterator, bool> p =
 		mDbItemMap.insert(DbItemMap::value_type(primaryKey, inItem.get()));
 	if (!p.second)
@@ -730,7 +822,7 @@ void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 		// There was already an ItemImpl * in mDbItemMap with key
 		// primaryKey.  Get a ref to the pointer to it so we can assign a
 		// new value to it below.
-		ItemImpl *&oldItem = p.first->second;
+		ItemImpl *oldItem = p.first->second;
 
 		// @@@ If this happens we are breaking our API contract of 
 		// uniquifying items.  We really need to insert the item into the
@@ -777,8 +869,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		{
 			// First remove the entry for inItem in mDbItemMap with key oldPK.
 			DbItemMap::iterator it = mDbItemMap.find(oldPK);
-			assert(it != mDbItemMap.end() && it->second == inItem.get());
-			if (it != mDbItemMap.end() && it->second == inItem.get())
+			if (it != mDbItemMap.end() && (ItemImpl*) it->second == inItem.get())
 				mDbItemMap.erase(it);
 
 			// Insert inItem into mDbItemMap with key newPK.  p.second will be
@@ -791,7 +882,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 				// There was already an ItemImpl * in mDbItemMap with key
 				// primaryKey.  Get a ref to the pointer to it so we can assign
 				// a new value to it below.
-				ItemImpl *&oldItem = p.first->second;
+				ItemImpl *oldItem = p.first->second;
 
 				// @@@ If this happens we are breaking our API contract of 
 				// uniquifying items.  We really need to insert the item into
@@ -805,7 +896,7 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 			}
 		}
 	}
-
+	
 	postEvent(kSecUpdateEvent, inItem);
 }
 
@@ -815,6 +906,8 @@ KeychainImpl::deleteItem(Item &inoutItem)
 	{
 		// We don't need to hold the DO mutex through event posting, and, in fact, doing so causes deadlock.
 		// Hold it only as long as needed, instead.
+	
+		
 		// item must be persistent
 		if (!inoutItem->isPersistent())
 			MacOSError::throwMe(errSecInvalidItemRef);
@@ -914,12 +1007,20 @@ void KeychainImpl::gatherPrimaryKeyAttributes(DbAttributes& primaryKeyAttrs)
 ItemImpl *
 KeychainImpl::_lookupItem(const PrimaryKey &primaryKey)
 {
-	StLock<Mutex>_(mMutex);
-	
 	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
 	if (it != mDbItemMap.end())
-		return it->second;
-
+	{
+		if (it->second == NULL)
+		{
+			// we've been weak released...
+			mDbItemMap.erase(it);
+		}
+		else
+		{
+			return it->second;
+		}
+	}
+	
 	return NULL;
 }
 
@@ -937,9 +1038,9 @@ KeychainImpl::item(const PrimaryKey &primaryKey)
 	{
 		// We didn't find it so create a new item with just a keychain and
 		// a primary key.  However since we aren't holding
-		// globals().apiLock anymore some other thread might of beat
+		// globals().apiLock anymore some other thread might have beaten
 		// us to creating this item and adding it to the cache.  If that
-		// happens we retry to lookup.
+		// happens we retry the lookup.
 		return Item(this, primaryKey);
 	}
 	catch (const MacOSError &e)
@@ -957,6 +1058,7 @@ KeychainImpl::item(const PrimaryKey &primaryKey)
 	}
 }
 
+
 Item
 KeychainImpl::item(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniqueId)
 {
@@ -966,15 +1068,18 @@ KeychainImpl::item(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniqueId)
 	{
 		// Lookup the item in the map while holding the apiLock.
 		ItemImpl *itemImpl = _lookupItem(primaryKey);
+		
 		if (itemImpl)
+		{
 			return Item(itemImpl);
+		}
 	}
 
 	try
 	{
 		// We didn't find it so create a new item with a keychain, a primary key
 		// and a DbUniqueRecord. However since we aren't holding
-		// globals().apiLock anymore some other thread might of beat
+		// globals().apiLock anymore some other thread might have beaten
 		// us to creating this item and adding it to the cache.  If that
 		// happens we retry the lookup.
 		return Item(this, primaryKey, uniqueId);
@@ -1010,25 +1115,7 @@ void KeychainImpl::resetSchema()
 }
 
 
-void
-KeychainImpl::cleanup()
-{
-	StLock<Mutex>_(mMutex);
-	DbItemMap::iterator it = mDbItemMap.begin();
-	while (it != mDbItemMap.end())
-	{
-		DbItemMap::iterator current = it++;
-		
-		CFTypeRef ref = current->second->handle(false);
-		if (CFGetRetainCount(ref) == 1)
-		{
-			mDbItemMap.erase(current);
-			CFRelease(ref);
-		}
-	}
-}
-	
-// Called from DbItemImpl's constructor (so it is only paritally constructed),
+// Called from DbItemImpl's constructor (so it is only partially constructed),
 // add it to the map. 
 void
 KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
@@ -1041,11 +1128,9 @@ KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
 	// Insert dbItemImpl into mDbItemMap with key primaryKey.  p.second will
 	// be true if it got inserted. If not p.second will be false and p.first
 	// will point to the current entry with key primaryKey.
-	
-	CFRetain(dbItemImpl->handle(false));
-	
 	pair<DbItemMap::iterator, bool> p =
 		mDbItemMap.insert(DbItemMap::value_type(primaryKey, dbItemImpl));
+	
 	if (!p.second)
 	{
 		// There was already an ItemImpl * in mDbItemMap with key primaryKey.
@@ -1061,27 +1146,27 @@ KeychainImpl::addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl)
 void
 KeychainImpl::didDeleteItem(ItemImpl *inItemImpl)
 {
+	StLock<Mutex>_(mMutex);
+	
 	// Called by CCallbackMgr
     secdebug("kcnotify", "%p notified that item %p was deleted", this, inItemImpl);
 	removeItem(inItemImpl->primaryKey(), inItemImpl);
-	CFRelease(inItemImpl->handle());
 }
 
 void
 KeychainImpl::removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl)
 {
 	StLock<Mutex>_(mMutex);
-	
+
 	// If inItemImpl isn't in the cache to begin with we are done.
 	if (!inItemImpl->inCache())
 		return;
 
 	DbItemMap::iterator it = mDbItemMap.find(primaryKey);
-	if (it != mDbItemMap.end() && it->second == inItemImpl)
+	if (it != mDbItemMap.end() && (ItemImpl*) it->second == inItemImpl)
 		mDbItemMap.erase(it);
 
 	inItemImpl->inCache(false);
-	CFRelease(inItemImpl->handle());
 }
 
 void
@@ -1243,6 +1328,13 @@ KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item)
 	}
 }
 
+Keychain::Keychain()
+{
+	dispatch_once(&SecKeychainSystemKeychainChecked, ^{
+		check_system_keychain();
+	});
+}
+
 Keychain
 Keychain::optional(SecKeychainRef handle)
 {
@@ -1250,6 +1342,13 @@ Keychain::optional(SecKeychainRef handle)
 		return KeychainImpl::required(handle);
 	else
 		return globals().storageManager.defaultKeychain();
+}
+
+
+CFIndex GetKeychainRetainCount(Keychain& kc)
+{
+	CFTypeRef ref = kc->handle(false);
+	return CFGetRetainCount(ref);
 }
 
 

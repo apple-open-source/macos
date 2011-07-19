@@ -3,19 +3,20 @@
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Apple, Inc. All rights reserved.
  * Copyright (C) 2008 Collabora, Ltd. All rights reserved.
+ * Copyright (C) 2010 Sencha, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -33,14 +34,12 @@
 #include "FileSystem.h"
 
 #include "PlatformString.h"
-#include <wtf/text/CString.h>
-
-#include <QDateTime>
-#include <QFile>
-#include <QTemporaryFile>
-#include <QFileInfo>
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QTemporaryFile>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -96,7 +95,7 @@ String pathGetFileName(const String& path)
 
 String directoryName(const String& path)
 {
-    return String(QFileInfo(path).absolutePath());
+    return QFileInfo(path).absolutePath();
 }
 
 Vector<String> listDirectory(const String& path, const String& filter)
@@ -115,17 +114,44 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
-    QTemporaryFile* tempFile = new QTemporaryFile(QLatin1String(prefix));
+#ifndef QT_NO_TEMPORARYFILE
+    QTemporaryFile* tempFile = new QTemporaryFile(QDir::tempPath() + QLatin1Char('/') + QString(prefix));
     tempFile->setAutoRemove(false);
     QFile* temp = tempFile;
     if (temp->open(QIODevice::ReadWrite)) {
         handle = temp;
-        return String(temp->fileName()).utf8();
+        return temp->fileName();
     }
+#endif
     handle = invalidPlatformFileHandle;
-    return CString();
+    return String();
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    QIODevice::OpenMode platformMode;
+
+    if (mode == OpenForRead)
+        platformMode = QIODevice::ReadOnly;
+    else if (mode == OpenForWrite)
+        platformMode = (QIODevice::WriteOnly | QIODevice::Truncate);
+    else
+        return invalidPlatformFileHandle;
+
+    QFile* file = new QFile(path);
+    if (file->open(platformMode))
+        return file;
+
+    return invalidPlatformFileHandle;
+}
+
+int readFromFile(PlatformFileHandle handle, char* data, int length)
+{
+    if (handle && handle->exists() && handle->isReadable())
+        return handle->read(data, length);
+    return 0;
 }
 
 void closeFile(PlatformFileHandle& handle)
@@ -134,6 +160,34 @@ void closeFile(PlatformFileHandle& handle)
         handle->close();
         delete handle;
     }
+}
+
+long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin origin)
+{
+    if (handle) {
+        long long current = 0;
+
+        switch (origin) {
+        case SeekFromBeginning:
+            break;
+        case SeekFromCurrent:
+            current = handle->pos();
+            break;
+        case SeekFromEnd:
+            current = handle->size();
+            break;
+        }
+
+        // Add the offset to the current position and seek to the new position
+        // Return our new position if the seek is successful
+        current += offset;
+        if (handle->seek(current))
+            return current;
+        else
+            return -1;
+    }
+
+    return -1;
 }
 
 int writeToFile(PlatformFileHandle handle, const char* data, int length)

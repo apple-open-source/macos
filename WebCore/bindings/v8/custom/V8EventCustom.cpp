@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,9 +38,14 @@
 #include "V8BeforeLoadEvent.h"
 #include "V8Binding.h"
 #include "V8Clipboard.h"
+#include "V8CloseEvent.h"
 #include "V8CompositionEvent.h"
 #include "V8CustomEvent.h"
+#include "V8DeviceMotionEvent.h"
+#include "V8DeviceOrientationEvent.h"
 #include "V8ErrorEvent.h"
+#include "V8HashChangeEvent.h"
+#include "V8IDBVersionChangeEvent.h"
 #include "V8KeyboardEvent.h"
 #include "V8MessageEvent.h"
 #include "V8MouseEvent.h"
@@ -50,6 +55,7 @@
 #include "V8PopStateEvent.h"
 #include "V8ProgressEvent.h"
 #include "V8Proxy.h"
+#include "V8SpeechInputEvent.h"
 #include "V8StorageEvent.h"
 #include "V8TextEvent.h"
 #include "V8TouchEvent.h"
@@ -61,6 +67,11 @@
 
 #if ENABLE(SVG)
 #include "V8SVGZoomEvent.h"
+#endif
+
+#if ENABLE(WEB_AUDIO)
+#include "V8AudioProcessingEvent.h"
+#include "V8OfflineAudioCompletionEvent.h"
 #endif
 
 namespace WebCore {
@@ -116,6 +127,8 @@ v8::Handle<v8::Value> toV8(Event* impl)
 #endif
         return toV8(static_cast<UIEvent*>(impl));
     }
+    if (impl->isHashChangeEvent())
+        return toV8(static_cast<HashChangeEvent*>(impl));
     if (impl->isMutationEvent())
         return toV8(static_cast<MutationEvent*>(impl));
     if (impl->isOverflowEvent())
@@ -143,10 +156,34 @@ v8::Handle<v8::Value> toV8(Event* impl)
     if (impl->isStorageEvent())
         return toV8(static_cast<StorageEvent*>(impl));
 #endif
+#if ENABLE(INDEXED_DATABASE)
+    if (impl->isIDBVersionChangeEvent())
+        return toV8(static_cast<IDBVersionChangeEvent*>(impl));
+#endif
     if (impl->isBeforeLoadEvent())
         return toV8(static_cast<BeforeLoadEvent*>(impl));
+#if ENABLE(DEVICE_ORIENTATION)
+    if (impl->isDeviceMotionEvent())
+        return toV8(static_cast<DeviceMotionEvent*>(impl));
+    if (impl->isDeviceOrientationEvent())
+        return toV8(static_cast<DeviceOrientationEvent*>(impl));
+#endif
+#if ENABLE(WEB_AUDIO)
+    if (impl->isAudioProcessingEvent())
+        return toV8(static_cast<AudioProcessingEvent*>(impl));
+    if (impl->isOfflineAudioCompletionEvent())
+        return toV8(static_cast<OfflineAudioCompletionEvent*>(impl));
+#endif
+#if ENABLE(INPUT_SPEECH)
+    if (impl->isSpeechInputEvent())
+        return toV8(static_cast<SpeechInputEvent*>(impl));
+#endif
     if (impl->isCustomEvent())
         return toV8(static_cast<CustomEvent*>(impl));
+#if ENABLE(WEB_SOCKETS)
+    if (impl->isCloseEvent())
+        return toV8(static_cast<CloseEvent*>(impl));
+#endif
     return V8Event::wrap(impl);
 }
 } // namespace WebCore

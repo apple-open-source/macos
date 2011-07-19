@@ -38,8 +38,6 @@
 
 #include "ne_alloc.h"
 #include "ne_string.h"
-/* hack for 0.28.x backport of ne_strnqdup, ne_buffer_qappend */
-#include "ne_private.h"
 
 char *ne_token(char **str, char separator)
 {
@@ -319,7 +317,7 @@ static char *quoted_append(char *dest, const unsigned char *s,
     return q;
 }
 
-void ne__buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len)
+void ne_buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len)
 {
     const unsigned char *dend = data + len;
     char *q, *qs;
@@ -336,7 +334,7 @@ void ne__buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len)
     buf->used += q - qs;
 }
 
-char *ne__strnqdup(const unsigned char *data, size_t len)
+char *ne_strnqdup(const unsigned char *data, size_t len)
 {
     const unsigned char *dend = data + len;
     char *dest = malloc(qappend_count(data, dend) + 1);

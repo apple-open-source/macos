@@ -1,3 +1,7 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
 # rdate.tcl - Copyright (C) 2003 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # This is a sample implementation of the rdate(8) utility written using the
@@ -8,7 +12,7 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
 #
-# $Id: rdate.tcl,v 1.3 2004/08/02 08:25:37 patthoyts Exp $
+# $Id: rdate.tcl,v 1.4 2009/01/30 04:18:14 andreas_kupries Exp $
 
 package require time;                   # tcllib 1.4
 

@@ -32,6 +32,7 @@
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
+#include "PaintInfo.h"
 
 namespace WebCore {
 
@@ -63,11 +64,11 @@ static bool hasSource(const HTMLMediaElement* mediaElement)
 static bool paintMediaButton(GraphicsContext* context, const IntRect& rect, Image* image)
 {
     IntRect imageRect = image->rect();
-    context->drawImage(image, DeviceColorSpace, rect);
+    context->drawImage(image, ColorSpaceDeviceRGB, rect);
     return true;
 }
 
-static bool paintMediaMuteButton(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaMuteButton(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
     if (!mediaElement)
@@ -83,7 +84,7 @@ static bool paintMediaMuteButton(RenderObject* object, const RenderObject::Paint
     return paintMediaButton(paintInfo.context, rect, mediaElement->muted() ? soundNone: soundFull);
 }
 
-static bool paintMediaPlayButton(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaPlayButton(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
     if (!mediaElement)
@@ -96,10 +97,16 @@ static bool paintMediaPlayButton(RenderObject* object, const RenderObject::Paint
     if (!hasSource(mediaElement))
         return paintMediaButton(paintInfo.context, rect, mediaPlayDisabled);
 
-    return paintMediaButton(paintInfo.context, rect, mediaElement->paused() ? mediaPlay : mediaPause);
+    return paintMediaButton(paintInfo.context, rect, mediaElement->canPlay() ? mediaPlay : mediaPause);
 }
 
-static bool paintMediaSlider(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static Image* getMediaSliderThumb()
+{
+    static Image* mediaSliderThumb = platformResource("mediaSliderThumb");
+    return mediaSliderThumb;
+}
+
+static bool paintMediaSlider(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
     if (!mediaElement)
@@ -114,9 +121,9 @@ static bool paintMediaSlider(RenderObject* object, const RenderObject::PaintInfo
     context->save();
     context->setShouldAntialias(true);
     context->setStrokeStyle(SolidStroke);
-    context->setStrokeColor(style->visitedDependentColor(CSSPropertyBorderLeftColor), DeviceColorSpace);
+    context->setStrokeColor(style->visitedDependentColor(CSSPropertyBorderLeftColor), ColorSpaceDeviceRGB);
     context->setStrokeThickness(style->borderLeftWidth());
-    context->setFillColor(style->visitedDependentColor(CSSPropertyBackgroundColor), DeviceColorSpace);
+    context->setFillColor(style->visitedDependentColor(CSSPropertyBackgroundColor), ColorSpaceDeviceRGB);
     context->drawRect(rect);
     context->restore();
 
@@ -124,7 +131,18 @@ static bool paintMediaSlider(RenderObject* object, const RenderObject::PaintInfo
     // FIXME: Draw multiple ranges if there are multiple buffered ranges.
     IntRect bufferedRect = rect;
     bufferedRect.inflate(-style->borderLeftWidth());
-    bufferedRect.setWidth((bufferedRect.width() * mediaElement->percentLoaded()));
+
+    double bufferedWidth = 0.0;
+    if (mediaElement->percentLoaded() > 0.0) {
+        // Account for the width of the slider thumb.
+        Image* mediaSliderThumb = getMediaSliderThumb();
+        double thumbWidth = mediaSliderThumb->width() / 2.0 + 1.0;
+        double rectWidth = bufferedRect.width() - thumbWidth;
+        if (rectWidth < 0.0)
+            rectWidth = 0.0;
+        bufferedWidth = rectWidth * mediaElement->percentLoaded() + thumbWidth;
+    }
+    bufferedRect.setWidth(bufferedWidth);
 
     // Don't bother drawing an empty area.
     if (!bufferedRect.isEmpty()) {
@@ -147,7 +165,7 @@ static bool paintMediaSlider(RenderObject* object, const RenderObject::PaintInfo
     return true;
 }
 
-static bool paintMediaSliderThumb(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaSliderThumb(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     if (!object->parent()->isSlider())
         return false;
@@ -159,11 +177,11 @@ static bool paintMediaSliderThumb(RenderObject* object, const RenderObject::Pain
     if (!hasSource(mediaElement))
         return true;
 
-    static Image* mediaSliderThumb = platformResource("mediaSliderThumb");
+    Image* mediaSliderThumb = getMediaSliderThumb();
     return paintMediaButton(paintInfo.context, rect, mediaSliderThumb);
 }
 
-static bool paintMediaVolumeSlider(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaVolumeSlider(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
     if (!mediaElement)
@@ -172,17 +190,17 @@ static bool paintMediaVolumeSlider(RenderObject* object, const RenderObject::Pai
     GraphicsContext* context = paintInfo.context;
     Color originalColor = context->strokeColor();
     if (originalColor != Color::white)
-        context->setStrokeColor(Color::white, DeviceColorSpace);
+        context->setStrokeColor(Color::white, ColorSpaceDeviceRGB);
 
     int x = rect.x() + rect.width() / 2;
     context->drawLine(IntPoint(x, rect.y()),  IntPoint(x, rect.y() + rect.height()));
 
     if (originalColor != Color::white)
-        context->setStrokeColor(originalColor, DeviceColorSpace);
+        context->setStrokeColor(originalColor, ColorSpaceDeviceRGB);
     return true;
 }
 
-static bool paintMediaVolumeSliderThumb(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaVolumeSliderThumb(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     if (!object->parent()->isSlider())
         return false;
@@ -191,7 +209,7 @@ static bool paintMediaVolumeSliderThumb(RenderObject* object, const RenderObject
     return paintMediaButton(paintInfo.context, rect, mediaVolumeSliderThumb);
 }
 
-static bool paintMediaTimelineContainer(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+static bool paintMediaTimelineContainer(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
     if (!mediaElement)
@@ -207,46 +225,24 @@ static bool paintMediaTimelineContainer(RenderObject* object, const RenderObject
 
         // Draw the left border using CSS defined width and color.
         context->setStrokeThickness(object->style()->borderLeftWidth());
-        context->setStrokeColor(object->style()->visitedDependentColor(CSSPropertyBorderLeftColor).rgb(), DeviceColorSpace);
+        context->setStrokeColor(object->style()->visitedDependentColor(CSSPropertyBorderLeftColor).rgb(), ColorSpaceDeviceRGB);
         context->drawLine(IntPoint(rect.x() + 1, rect.y()),
                           IntPoint(rect.x() + 1, rect.y() + rect.height()));
 
         // Draw the right border using CSS defined width and color.
         context->setStrokeThickness(object->style()->borderRightWidth());
-        context->setStrokeColor(object->style()->visitedDependentColor(CSSPropertyBorderRightColor).rgb(), DeviceColorSpace);
+        context->setStrokeColor(object->style()->visitedDependentColor(CSSPropertyBorderRightColor).rgb(), ColorSpaceDeviceRGB);
         context->drawLine(IntPoint(rect.x() + rect.width() - 1, rect.y()),
                           IntPoint(rect.x() + rect.width() - 1, rect.y() + rect.height()));
 
-        context->setStrokeColor(originalColor, DeviceColorSpace);
+        context->setStrokeColor(originalColor, ColorSpaceDeviceRGB);
         context->setStrokeThickness(originalThickness);
         context->setStrokeStyle(originalStyle);
     }
     return true;
 }
 
-bool RenderMediaControlsChromium::shouldRenderMediaControlPart(ControlPart part, Element* e)
-{
-    UNUSED_PARAM(e);
-
-    switch (part) {
-    case MediaMuteButtonPart:
-    case MediaPlayButtonPart:
-    case MediaSliderPart:
-    case MediaSliderThumbPart:
-    case MediaVolumeSliderContainerPart:
-    case MediaVolumeSliderPart:
-    case MediaVolumeSliderThumbPart:
-    case MediaControlsBackgroundPart:
-    case MediaCurrentTimePart:
-    case MediaTimeRemainingPart:
-        return true;
-    default:
-        ;
-    }
-    return false;
-}
-
-bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType part, RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType part, RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     switch (part) {
     case MediaMuteButton:
@@ -265,6 +261,7 @@ bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType
         return paintMediaVolumeSliderThumb(object, paintInfo, rect);
     case MediaTimelineContainer:
         return paintMediaTimelineContainer(object, paintInfo, rect);
+    case MediaVolumeSliderMuteButton:
     case MediaFullscreenButton:
     case MediaSeekBackButton:
     case MediaSeekForwardButton:

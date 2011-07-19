@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2010, 2011 Apple Inc. All rights reserved.
  *           (C) 2007 Graham Dennis (graham.dennis@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,13 +32,16 @@
 
 #include "ApplicationCacheHost.h"
 #include "DocumentLoader.h"
+#include "FileStreamProxy.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "InspectorTimelineAgent.h"
+#include "FrameLoaderClient.h"
+#include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "ProgressTracker.h"
-#include "ResourceHandle.h"
 #include "ResourceError.h"
+#include "ResourceHandle.h"
+#include "ResourceLoadScheduler.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
 
@@ -60,6 +63,7 @@ ResourceLoader::ResourceLoader(Frame* frame, bool sendResourceLoadCallbacks, boo
     , m_documentLoader(frame->loader()->activeDocumentLoader())
     , m_identifier(0)
     , m_reachedTerminalState(false)
+    , m_calledWillCancel(false)
     , m_cancelled(false)
     , m_calledDidFinishLoad(false)
     , m_sendResourceLoadCallbacks(sendResourceLoadCallbacks)
@@ -93,6 +97,8 @@ void ResourceLoader::releaseResources()
 
     m_identifier = 0;
 
+    resourceLoadScheduler()->remove(this);
+
     if (m_handle) {
         // Clear out the ResourceHandle's client so that it doesn't try to call
         // us back after we release it, unless it has been replaced by someone else.
@@ -105,9 +111,10 @@ void ResourceLoader::releaseResources()
     m_deferredRequest = ResourceRequest();
 }
 
-bool ResourceLoader::load(const ResourceRequest& r)
+bool ResourceLoader::init(const ResourceRequest& r)
 {
     ASSERT(!m_handle);
+    ASSERT(m_request.isNull());
     ASSERT(m_deferredRequest.isNull());
     ASSERT(!m_documentLoader->isSubstituteLoadPending(this));
     
@@ -125,26 +132,37 @@ bool ResourceLoader::load(const ResourceRequest& r)
 
     willSendRequest(clientRequest, ResourceResponse());
     if (clientRequest.isNull()) {
-        didFail(frameLoader()->cancelledError(r));
+        didFail(frameLoader()->cancelledError(m_request));
         return false;
     }
-    
-    if (m_documentLoader->scheduleArchiveLoad(this, clientRequest, r.url()))
-        return true;
+
+    m_request = clientRequest;
+    return true;
+}
+
+void ResourceLoader::start()
+{
+    ASSERT(!m_handle);
+    ASSERT(!m_request.isNull());
+    ASSERT(m_deferredRequest.isNull());
+
+#if ENABLE(WEB_ARCHIVE)
+    if (m_documentLoader->scheduleArchiveLoad(this, m_request, m_request.url()))
+        return;
+#endif
     
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    if (m_documentLoader->applicationCacheHost()->maybeLoadResource(this, clientRequest, r.url()))
-        return true;
+    if (m_documentLoader->applicationCacheHost()->maybeLoadResource(this, m_request, m_request.url()))
+        return;
 #endif
 
     if (m_defersLoading) {
-        m_deferredRequest = clientRequest;
-        return true;
+        m_deferredRequest = m_request;
+        return;
     }
-    
-    m_handle = ResourceHandle::create(clientRequest, this, m_frame.get(), m_defersLoading, m_shouldContentSniff);
 
-    return true;
+    if (!m_reachedTerminalState)
+        m_handle = ResourceHandle::create(m_frame->loader()->networkingContext(), m_request, this, m_defersLoading, m_shouldContentSniff);
 }
 
 void ResourceLoader::setDefersLoading(bool defers)
@@ -153,9 +171,9 @@ void ResourceLoader::setDefersLoading(bool defers)
     if (m_handle)
         m_handle->setDefersLoading(defers);
     if (!defers && !m_deferredRequest.isNull()) {
-        ResourceRequest request(m_deferredRequest);
+        m_request = m_deferredRequest;
         m_deferredRequest = ResourceRequest();
-        load(request);
+        start();
     }
 }
 
@@ -221,6 +239,8 @@ void ResourceLoader::willSendRequest(ResourceRequest& request, const ResourceRes
         frameLoader()->notifier()->willSendRequest(this, request, redirectResponse);
     }
 
+    if (!redirectResponse.isNull())
+        resourceLoadScheduler()->crossOriginRedirectReceived(this, request.url());
     m_request = request;
 }
 
@@ -245,7 +265,7 @@ void ResourceLoader::didReceiveResponse(const ResourceResponse& r)
         frameLoader()->notifier()->didReceiveResponse(this, m_response);
 }
 
-void ResourceLoader::didReceiveData(const char* data, int length, long long lengthReceived, bool allAtOnce)
+void ResourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
 {
     // The following assertions are not quite valid here, since a subclass
     // might override didReceiveData in a way that invalidates them. This
@@ -262,7 +282,7 @@ void ResourceLoader::didReceiveData(const char* data, int length, long long leng
     // However, with today's computers and networking speeds, this won't happen in practice.
     // Could be an issue with a giant local file.
     if (m_sendResourceLoadCallbacks && m_frame)
-        frameLoader()->notifier()->didReceiveData(this, data, length, static_cast<int>(lengthReceived));
+        frameLoader()->notifier()->didReceiveData(this, data, length, static_cast<int>(encodedDataLength));
 }
 
 void ResourceLoader::willStopBufferingData(const char* data, int length)
@@ -274,7 +294,7 @@ void ResourceLoader::willStopBufferingData(const char* data, int length)
     m_resourceData = SharedBuffer::create(data, length);
 }
 
-void ResourceLoader::didFinishLoading()
+void ResourceLoader::didFinishLoading(double finishTime)
 {
     // If load has been cancelled after finishing (which could happen with a 
     // JavaScript that changes the window location), do nothing.
@@ -282,11 +302,11 @@ void ResourceLoader::didFinishLoading()
         return;
     ASSERT(!m_reachedTerminalState);
 
-    didFinishLoadingOnePart();
+    didFinishLoadingOnePart(finishTime);
     releaseResources();
 }
 
-void ResourceLoader::didFinishLoadingOnePart()
+void ResourceLoader::didFinishLoadingOnePart(double finishTime)
 {
     if (m_cancelled)
         return;
@@ -296,7 +316,7 @@ void ResourceLoader::didFinishLoadingOnePart()
         return;
     m_calledDidFinishLoad = true;
     if (m_sendResourceLoadCallbacks)
-        frameLoader()->notifier()->didFinishLoad(this);
+        frameLoader()->notifier()->didFinishLoad(this, finishTime);
 }
 
 void ResourceLoader::didFail(const ResourceError& error)
@@ -318,35 +338,6 @@ void ResourceLoader::didFail(const ResourceError& error)
     releaseResources();
 }
 
-void ResourceLoader::didCancel(const ResourceError& error)
-{
-    ASSERT(!m_cancelled);
-    ASSERT(!m_reachedTerminalState);
-
-    if (FormData* data = m_request.httpBody())
-        data->removeGeneratedFilesIfNeeded();
-
-    // This flag prevents bad behavior when loads that finish cause the
-    // load itself to be cancelled (which could happen with a javascript that 
-    // changes the window location). This is used to prevent both the body
-    // of this method and the body of connectionDidFinishLoading: running
-    // for a single delegate. Canceling wins.
-    m_cancelled = true;
-    
-    if (m_handle)
-        m_handle->clearAuthentication();
-
-    m_documentLoader->cancelPendingSubstituteLoad(this);
-    if (m_handle) {
-        m_handle->cancel();
-        m_handle = 0;
-    }
-    if (m_sendResourceLoadCallbacks && !m_calledDidFinishLoad)
-        frameLoader()->notifier()->didFailToLoad(this, error);
-
-    releaseResources();
-}
-
 void ResourceLoader::cancel()
 {
     cancel(ResourceError());
@@ -354,12 +345,53 @@ void ResourceLoader::cancel()
 
 void ResourceLoader::cancel(const ResourceError& error)
 {
+    // If the load has already completed - succeeded, failed, or previously cancelled - do nothing.
     if (m_reachedTerminalState)
         return;
-    if (!error.isNull())
-        didCancel(error);
-    else
-        didCancel(cancelledError());
+       
+    ResourceError nonNullError = error.isNull() ? cancelledError() : error;
+    
+    // willCancel() and didFailToLoad() both call out to clients that might do 
+    // something causing the last reference to this object to go away.
+    RefPtr<ResourceLoader> protector(this);
+    
+    // If we re-enter cancel() from inside willCancel(), we want to pick up from where we left 
+    // off without re-running willCancel()
+    if (!m_calledWillCancel) {
+        m_calledWillCancel = true;
+        
+        willCancel(nonNullError);
+    }
+
+    // If we re-enter cancel() from inside didFailToLoad(), we want to pick up from where we 
+    // left off without redoing any of this work.
+    if (!m_cancelled) {
+        m_cancelled = true;
+        
+        if (FormData* data = m_request.httpBody())
+            data->removeGeneratedFilesIfNeeded();
+
+        if (m_handle)
+            m_handle->clearAuthentication();
+
+        m_documentLoader->cancelPendingSubstituteLoad(this);
+        if (m_handle) {
+            m_handle->cancel();
+            m_handle = 0;
+        }
+
+        if (m_sendResourceLoadCallbacks && m_identifier && !m_calledDidFinishLoad)
+            frameLoader()->notifier()->didFailToLoad(this, nonNullError);
+    }
+
+    // If cancel() completed from within the call to willCancel() or didFailToLoad(),
+    // we don't want to redo didCancel() or releasesResources().
+    if (m_reachedTerminalState)
+        return;
+
+    didCancel(nonNullError);
+            
+    releaseResources();
 }
 
 const ResourceResponse& ResourceLoader::response() const
@@ -398,49 +430,23 @@ void ResourceLoader::didSendData(ResourceHandle*, unsigned long long bytesSent, 
 
 void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
 {
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->willReceiveResourceResponse(identifier(), response);
-    }
-#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (documentLoader()->applicationCacheHost()->maybeLoadFallbackForResponse(this, response))
         return;
 #endif
     didReceiveResponse(response);
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->didReceiveResourceResponse();
-    }
-#endif
 }
 
-void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int lengthReceived)
+void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int encodedDataLength)
 {
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->willReceiveResourceData(identifier());
-    }
-#endif
-    didReceiveData(data, length, lengthReceived, false);
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->didReceiveResourceData();
-    }
-#endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier());
+    didReceiveData(data, length, encodedDataLength, false);
+    InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
-void ResourceLoader::didFinishLoading(ResourceHandle*)
+void ResourceLoader::didFinishLoading(ResourceHandle*, double finishTime)
 {
-    didFinishLoading();
+    didFinishLoading(finishTime);
 }
 
 void ResourceLoader::didFail(ResourceHandle*, const ResourceError& error)
@@ -510,5 +516,13 @@ void ResourceLoader::willCacheResponse(ResourceHandle*, CacheStoragePolicy& poli
     if (policy == StorageAllowed && m_frame->settings() && m_frame->settings()->privateBrowsingEnabled())
         policy = StorageAllowedInMemoryOnly;    
 }
+
+#if ENABLE(BLOB)
+AsyncFileStream* ResourceLoader::createAsyncFileStream(FileStreamClient* client)
+{
+    // It is OK to simply return a pointer since FileStreamProxy::create adds an extra ref.
+    return FileStreamProxy::create(m_frame->document()->scriptExecutionContext(), client).get();
+}
+#endif
 
 }

@@ -5,10 +5,10 @@ if ARGV.length < 1 then
 end
 file = ARGV[0]
 IO.popen("/usr/bin/otool -hv #{file}", "r").grep(/MAGIC/) do |line|
-  fields = line.split(/\s+/)
-  if 0 == fields[3].casecmp("all")
-    print "#{fields[2].downcase}\n"
+  fields = line.split(/\s+/).delete_if {|f| f.empty?}
+  if 0 == fields[2].casecmp("all")
+    puts fields[1].downcase
   else
-    print "#{fields[3]}\n"
+    puts fields[2]
   end
 end

@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
- * Copyright (C) 2004, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2006, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,21 +30,19 @@ namespace WebCore {
 
 class HTMLHtmlElement : public HTMLElement {
 public:
-    HTMLHtmlElement(const QualifiedName&, Document*);
-    ~HTMLHtmlElement();
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 11; }
-    virtual bool checkDTD(const Node* newChild);
+    static PassRefPtr<HTMLHtmlElement> create(Document*);
+    static PassRefPtr<HTMLHtmlElement> create(const QualifiedName&, Document*);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    virtual void insertedIntoDocument();
+    void insertedByParser();
 #endif
 
-    String version() const;
-    void setVersion(const String&);
+private:
+    HTMLHtmlElement(const QualifiedName&, Document*);
+
+    virtual bool isURLAttribute(Attribute*) const;
 };
 
-} //namespace
+} // namespace
 
 #endif

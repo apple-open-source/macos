@@ -1,6 +1,6 @@
---- fdopen.c.orig	2009-02-15 03:11:22.000000000 -0800
-+++ fdopen.c	2009-02-15 17:52:46.000000000 -0800
-@@ -34,6 +34,15 @@
+--- fdopen.c.bsdnew	2009-11-11 13:33:03.000000000 -0800
++++ fdopen.c	2009-11-11 13:33:04.000000000 -0800
+@@ -30,6 +30,15 @@
   * SUCH DAMAGE.
   */
  
@@ -16,7 +16,7 @@
  #if defined(LIBC_SCCS) && !defined(lint)
  static char sccsid[] = "@(#)fdopen.c	8.1 (Berkeley) 6/4/93";
  #endif /* LIBC_SCCS and not lint */
-@@ -73,7 +82,7 @@ fdopen(fd, mode)
+@@ -78,7 +87,7 @@ fdopen(fd, mode)
  		return (NULL);
  	}
  

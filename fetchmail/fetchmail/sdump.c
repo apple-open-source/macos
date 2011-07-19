@@ -36,7 +36,7 @@ char *sdump(const char *in, size_t len)
 	if (isprint((unsigned char)in[i])) {
 	    *(oi++) = in[i];
 	} else {
-	    oi += sprintf(oi, "\\x%02X", in[i]);
+	    oi += sprintf(oi, "\\x%02X", (unsigned char)in[i]);
 	}
     }
     *oi = '\0';

@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JSDOMWrapper.h"
 
-#include "JSDebugWrapperSet.h"
 #include <runtime/Error.h>
 
 using namespace JSC;
@@ -35,17 +34,10 @@ namespace WebCore {
 
 #ifndef NDEBUG
 
-DOMObject::~DOMObject()
+JSDOMWrapper::~JSDOMWrapper()
 {
-    ASSERT(!JSDebugWrapperSet::shared().contains(this));
 }
 
 #endif
-
-bool DOMObject::defineOwnProperty(ExecState* exec, const Identifier&, PropertyDescriptor&, bool)
-{
-    throwError(exec, TypeError, "defineProperty is not supported on DOM Objects");
-    return false;
-}
 
 } // namespace WebCore

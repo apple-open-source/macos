@@ -29,93 +29,68 @@
 #ifndef Console_h
 #define Console_h
 
-#include "PlatformString.h"
-
+#include "ConsoleTypes.h"
 #include "ScriptProfile.h"
-
+#include "ScriptState.h"
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
+class Frame;
+class MemoryInfo;
+class Page;
+class ScriptArguments;
+class ScriptCallStack;
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 typedef Vector<RefPtr<ScriptProfile> > ProfilesArray;
 #endif
 
-class Frame;
-class Page;
-class String;
-class ScriptCallStack;
-
-// Keep in sync with inspector/front-end/Console.js
-enum MessageSource {
-    HTMLMessageSource,
-    WMLMessageSource,
-    XMLMessageSource,
-    JSMessageSource,
-    CSSMessageSource,
-    OtherMessageSource
-};
-
-enum MessageType {
-    LogMessageType,
-    ObjectMessageType,
-    TraceMessageType,
-    StartGroupMessageType,
-    EndGroupMessageType,
-    AssertMessageType
-};
-
-enum MessageLevel {
-    TipMessageLevel,
-    LogMessageLevel,
-    WarningMessageLevel,
-    ErrorMessageLevel,
-    DebugMessageLevel
-};
-
 class Console : public RefCounted<Console> {
 public:
     static PassRefPtr<Console> create(Frame* frame) { return adoptRef(new Console(frame)); }
+    virtual ~Console();
 
     Frame* frame() const;
     void disconnectFrame();
 
     void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+    void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack> callStack);
 
-    void debug(ScriptCallStack*);
-    void error(ScriptCallStack*);
-    void info(ScriptCallStack*);
-    void log(ScriptCallStack*);
-    void warn(ScriptCallStack*);
-    void dir(ScriptCallStack*);
-    void dirxml(ScriptCallStack*);
-    void trace(ScriptCallStack*);
-    void assertCondition(bool condition, ScriptCallStack*);
-    void count(ScriptCallStack*);
-    void markTimeline(ScriptCallStack*);
-#if ENABLE(WML)
-    String lastWMLErrorMessage() const;
-#endif
+    void debug(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void error(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void info(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void log(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void warn(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void dir(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void dirxml(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void trace(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void assertCondition(bool condition, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void count(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void markTimeline(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    void profile(const String&, ScriptCallStack*);
-    void profileEnd(const String&, ScriptCallStack*);
+    const ProfilesArray& profiles() const { return m_profiles; }
+    void profile(const String&, ScriptState*, PassRefPtr<ScriptCallStack>);
+    void profileEnd(const String&, ScriptState*, PassRefPtr<ScriptCallStack>);
 #endif
     void time(const String&);
-    void timeEnd(const String&, ScriptCallStack*);
-    void group(ScriptCallStack*);
+    void timeEnd(const String&, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void group(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    void groupCollapsed(PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
     void groupEnd();
+
+    bool shouldCaptureFullStackTrace() const;
 
     static bool shouldPrintExceptions();
     static void setShouldPrintExceptions(bool);
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    const ProfilesArray& profiles() const { return m_profiles; }
-#endif
+    MemoryInfo* memory() const;
 
 private:
     inline Page* page() const;
-    void addMessage(MessageType, MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
+    void addMessage(MessageType, MessageLevel, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>, bool acceptNoArguments = false);
 
     Console(Frame*);
 
@@ -123,6 +98,7 @@ private:
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     ProfilesArray m_profiles;
 #endif
+    mutable RefPtr<MemoryInfo> m_memory;
 };
 
 } // namespace WebCore

@@ -30,6 +30,7 @@
 #import "WebEditorClient.h"
 
 #import "DOMCSSStyleDeclarationInternal.h"
+#import "DOMDocumentFragmentInternal.h"
 #import "DOMHTMLElementInternal.h"
 #import "DOMHTMLInputElementInternal.h"
 #import "DOMHTMLTextAreaElementInternal.h"
@@ -46,10 +47,13 @@
 #import "WebHTMLViewInternal.h"
 #import "WebKitLogging.h"
 #import "WebKitVersionChecks.h"
-#import "WebLocalizableStrings.h"
+#import "WebLocalizableStringsInternal.h"
 #import "WebNSURLExtras.h"
+#import "WebResourceInternal.h"
 #import "WebViewInternal.h"
+#import <WebCore/ArchiveResource.h>
 #import <WebCore/Document.h>
+#import <WebCore/DocumentFragment.h>
 #import <WebCore/EditAction.h>
 #import <WebCore/EditCommand.h>
 #import <WebCore/HTMLInputElement.h>
@@ -59,6 +63,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PlatformString.h>
+#import <WebCore/SpellChecker.h>
 #import <WebCore/UserTypingGestureIndicator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
@@ -66,20 +71,27 @@
 #import <wtf/Threading.h>
 
 using namespace WebCore;
-using namespace WTF;
 
 using namespace HTMLNames;
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+@interface NSSpellChecker (WebNSSpellCheckerDetails)
+- (NSString *)languageForWordRange:(NSRange)range inString:(NSString *)string orthography:(NSOrthography *)orthography;
+@end
+#endif
+
+@interface NSAttributedString (WebNSAttributedStringDetails)
+- (id)_initWithDOMRange:(DOMRange*)range;
+- (DOMDocumentFragment*)_documentFromRange:(NSRange)range document:(DOMDocument*)document documentAttributes:(NSDictionary *)dict subresources:(NSArray **)subresources;
+@end
 
 static WebViewInsertAction kit(EditorInsertAction coreAction)
 {
     return static_cast<WebViewInsertAction>(coreAction);
 }
 
-#ifdef BUILDING_ON_TIGER
-@interface NSSpellChecker (NotYetPublicMethods)
-- (void)learnWord:(NSString *)word;
-@end
-#endif
+static const int InvalidCorrectionPanelTag = 0;
+
 
 @interface WebEditCommand : NSObject
 {
@@ -97,15 +109,15 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 - (id)initWithEditCommand:(PassRefPtr<EditCommand>)command
 {
     ASSERT(command);
-    [super init];
+    self = [super init];
+    if (!self)
+        return nil;
     m_command = command;
     return self;
 }
@@ -174,6 +186,13 @@ WebEditorClient::WebEditorClient(WebView *webView)
 {
 }
 
+WebEditorClient::~WebEditorClient()
+{
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    dismissCorrectionPanel(ReasonForDismissingCorrectionPanelIgnored);
+#endif
+}
+
 bool WebEditorClient::isContinuousSpellCheckingEnabled()
 {
     return [m_webView isContinuousSpellCheckingEnabled];
@@ -186,28 +205,17 @@ void WebEditorClient::toggleContinuousSpellChecking()
 
 bool WebEditorClient::isGrammarCheckingEnabled()
 {
-#ifdef BUILDING_ON_TIGER
-    return false;
-#else
     return [m_webView isGrammarCheckingEnabled];
-#endif
 }
 
 void WebEditorClient::toggleGrammarChecking()
 {
-#ifndef BUILDING_ON_TIGER
     [m_webView toggleGrammarChecking:nil];
-#endif
 }
 
 int WebEditorClient::spellCheckerDocumentTag()
 {
     return [m_webView spellCheckerDocumentTag];
-}
-
-bool WebEditorClient::isEditable()
-{
-    return [m_webView isEditable];
 }
 
 bool WebEditorClient::shouldDeleteRange(Range* range)
@@ -308,20 +316,67 @@ void WebEditorClient::didSetSelectionTypesForPasteboard()
     [[m_webView _editingDelegateForwarder] webView:m_webView didSetSelectionTypesForPasteboard:[NSPasteboard generalPasteboard]];
 }
 
-NSString* WebEditorClient::userVisibleString(NSURL *URL)
+NSString *WebEditorClient::userVisibleString(NSURL *URL)
 {
     return [URL _web_userVisibleString];
 }
 
-#ifdef BUILDING_ON_TIGER
-NSArray* WebEditorClient::pasteboardTypesForSelection(Frame* selectedFrame)
+NSURL *WebEditorClient::canonicalizeURL(NSURL *URL)
 {
-    WebFrame* frame = kit(selectedFrame);
-    return [[[frame frameView] documentView] pasteboardTypesForSelection];
+    return [URL _webkit_canonicalize];
 }
-#endif
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+NSURL *WebEditorClient::canonicalizeURLString(NSString *URLString)
+{
+    NSURL *URL = nil;
+    if ([URLString _webkit_looksLikeAbsoluteURL])
+        URL = [[NSURL _web_URLWithUserTypedString:URLString] _webkit_canonicalize];
+    return URL;
+}
+
+static NSArray *createExcludedElementsForAttributedStringConversion()
+{
+    NSArray *elements = [[NSArray alloc] initWithObjects: 
+        // Omit style since we want style to be inline so the fragment can be easily inserted.
+        @"style", 
+        // Omit xml so the result is not XHTML.
+        @"xml", 
+        // Omit tags that will get stripped when converted to a fragment anyway.
+        @"doctype", @"html", @"head", @"body", 
+        // Omit deprecated tags.
+        @"applet", @"basefont", @"center", @"dir", @"font", @"isindex", @"menu", @"s", @"strike", @"u", 
+        // Omit object so no file attachments are part of the fragment.
+        @"object", nil];
+    CFRetain(elements);
+    return elements;
+}
+
+DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttributedString *string, Vector<RefPtr<ArchiveResource> >& resources)
+{
+    static NSArray *excludedElements = createExcludedElementsForAttributedStringConversion();
+    
+    NSDictionary *dictionary = [[NSDictionary alloc] initWithObjectsAndKeys: excludedElements, NSExcludedElementsDocumentAttribute, 
+        nil, @"WebResourceHandler", nil];
+    
+    NSArray *subResources;
+    DOMDocumentFragment* fragment = [string _documentFromRange:NSMakeRange(0, [string length])
+                                                      document:[[m_webView mainFrame] DOMDocument]
+                                            documentAttributes:dictionary
+                                                  subresources:&subResources];
+    for (WebResource* resource in subResources)
+        resources.append([resource _coreResource]);
+    
+    [dictionary release];
+    return core(fragment);
+}
+
+void WebEditorClient::setInsertionPasteboard(NSPasteboard *pasteboard)
+{
+    [m_webView _setInsertionPasteboard:pasteboard];
+}
+
+
+#ifndef BUILDING_ON_LEOPARD
 void WebEditorClient::uppercaseWord()
 {
     [m_webView uppercaseWord:nil];
@@ -416,42 +471,42 @@ static NSString* undoNameForEditAction(EditAction editAction)
 {
     switch (editAction) {
         case EditActionUnspecified: return nil;
-        case EditActionSetColor: return UI_STRING_KEY("Set Color", "Set Color (Undo action name)", "Undo action name");
-        case EditActionSetBackgroundColor: return UI_STRING_KEY("Set Background Color", "Set Background Color (Undo action name)", "Undo action name");
-        case EditActionTurnOffKerning: return UI_STRING_KEY("Turn Off Kerning", "Turn Off Kerning (Undo action name)", "Undo action name");
-        case EditActionTightenKerning: return UI_STRING_KEY("Tighten Kerning", "Tighten Kerning (Undo action name)", "Undo action name");
-        case EditActionLoosenKerning: return UI_STRING_KEY("Loosen Kerning", "Loosen Kerning (Undo action name)", "Undo action name");
-        case EditActionUseStandardKerning: return UI_STRING_KEY("Use Standard Kerning", "Use Standard Kerning (Undo action name)", "Undo action name");
-        case EditActionTurnOffLigatures: return UI_STRING_KEY("Turn Off Ligatures", "Turn Off Ligatures (Undo action name)", "Undo action name");
-        case EditActionUseStandardLigatures: return UI_STRING_KEY("Use Standard Ligatures", "Use Standard Ligatures (Undo action name)", "Undo action name");
-        case EditActionUseAllLigatures: return UI_STRING_KEY("Use All Ligatures", "Use All Ligatures (Undo action name)", "Undo action name");
-        case EditActionRaiseBaseline: return UI_STRING_KEY("Raise Baseline", "Raise Baseline (Undo action name)", "Undo action name");
-        case EditActionLowerBaseline: return UI_STRING_KEY("Lower Baseline", "Lower Baseline (Undo action name)", "Undo action name");
-        case EditActionSetTraditionalCharacterShape: return UI_STRING_KEY("Set Traditional Character Shape", "Set Traditional Character Shape (Undo action name)", "Undo action name");
-        case EditActionSetFont: return UI_STRING_KEY("Set Font", "Set Font (Undo action name)", "Undo action name");
-        case EditActionChangeAttributes: return UI_STRING_KEY("Change Attributes", "Change Attributes (Undo action name)", "Undo action name");
-        case EditActionAlignLeft: return UI_STRING_KEY("Align Left", "Align Left (Undo action name)", "Undo action name");
-        case EditActionAlignRight: return UI_STRING_KEY("Align Right", "Align Right (Undo action name)", "Undo action name");
-        case EditActionCenter: return UI_STRING_KEY("Center", "Center (Undo action name)", "Undo action name");
-        case EditActionJustify: return UI_STRING_KEY("Justify", "Justify (Undo action name)", "Undo action name");
-        case EditActionSetWritingDirection: return UI_STRING_KEY("Set Writing Direction", "Set Writing Direction (Undo action name)", "Undo action name");
-        case EditActionSubscript: return UI_STRING_KEY("Subscript", "Subscript (Undo action name)", "Undo action name");
-        case EditActionSuperscript: return UI_STRING_KEY("Superscript", "Superscript (Undo action name)", "Undo action name");
-        case EditActionUnderline: return UI_STRING_KEY("Underline", "Underline (Undo action name)", "Undo action name");
-        case EditActionOutline: return UI_STRING_KEY("Outline", "Outline (Undo action name)", "Undo action name");
-        case EditActionUnscript: return UI_STRING_KEY("Unscript", "Unscript (Undo action name)", "Undo action name");
-        case EditActionDrag: return UI_STRING_KEY("Drag", "Drag (Undo action name)", "Undo action name");
-        case EditActionCut: return UI_STRING_KEY("Cut", "Cut (Undo action name)", "Undo action name");
-        case EditActionPaste: return UI_STRING_KEY("Paste", "Paste (Undo action name)", "Undo action name");
-        case EditActionPasteFont: return UI_STRING_KEY("Paste Font", "Paste Font (Undo action name)", "Undo action name");
-        case EditActionPasteRuler: return UI_STRING_KEY("Paste Ruler", "Paste Ruler (Undo action name)", "Undo action name");
-        case EditActionTyping: return UI_STRING_KEY("Typing", "Typing (Undo action name)", "Undo action name");
-        case EditActionCreateLink: return UI_STRING_KEY("Create Link", "Create Link (Undo action name)", "Undo action name");
-        case EditActionUnlink: return UI_STRING_KEY("Unlink", "Unlink (Undo action name)", "Undo action name");
-        case EditActionInsertList: return UI_STRING_KEY("Insert List", "Insert List (Undo action name)", "Undo action name");
-        case EditActionFormatBlock: return UI_STRING_KEY("Formatting", "Format Block (Undo action name)", "Undo action name");
-        case EditActionIndent: return UI_STRING_KEY("Indent", "Indent (Undo action name)", "Undo action name");
-        case EditActionOutdent: return UI_STRING_KEY("Outdent", "Outdent (Undo action name)", "Undo action name");
+        case EditActionSetColor: return UI_STRING_KEY_INTERNAL("Set Color", "Set Color (Undo action name)", "Undo action name");
+        case EditActionSetBackgroundColor: return UI_STRING_KEY_INTERNAL("Set Background Color", "Set Background Color (Undo action name)", "Undo action name");
+        case EditActionTurnOffKerning: return UI_STRING_KEY_INTERNAL("Turn Off Kerning", "Turn Off Kerning (Undo action name)", "Undo action name");
+        case EditActionTightenKerning: return UI_STRING_KEY_INTERNAL("Tighten Kerning", "Tighten Kerning (Undo action name)", "Undo action name");
+        case EditActionLoosenKerning: return UI_STRING_KEY_INTERNAL("Loosen Kerning", "Loosen Kerning (Undo action name)", "Undo action name");
+        case EditActionUseStandardKerning: return UI_STRING_KEY_INTERNAL("Use Standard Kerning", "Use Standard Kerning (Undo action name)", "Undo action name");
+        case EditActionTurnOffLigatures: return UI_STRING_KEY_INTERNAL("Turn Off Ligatures", "Turn Off Ligatures (Undo action name)", "Undo action name");
+        case EditActionUseStandardLigatures: return UI_STRING_KEY_INTERNAL("Use Standard Ligatures", "Use Standard Ligatures (Undo action name)", "Undo action name");
+        case EditActionUseAllLigatures: return UI_STRING_KEY_INTERNAL("Use All Ligatures", "Use All Ligatures (Undo action name)", "Undo action name");
+        case EditActionRaiseBaseline: return UI_STRING_KEY_INTERNAL("Raise Baseline", "Raise Baseline (Undo action name)", "Undo action name");
+        case EditActionLowerBaseline: return UI_STRING_KEY_INTERNAL("Lower Baseline", "Lower Baseline (Undo action name)", "Undo action name");
+        case EditActionSetTraditionalCharacterShape: return UI_STRING_KEY_INTERNAL("Set Traditional Character Shape", "Set Traditional Character Shape (Undo action name)", "Undo action name");
+        case EditActionSetFont: return UI_STRING_KEY_INTERNAL("Set Font", "Set Font (Undo action name)", "Undo action name");
+        case EditActionChangeAttributes: return UI_STRING_KEY_INTERNAL("Change Attributes", "Change Attributes (Undo action name)", "Undo action name");
+        case EditActionAlignLeft: return UI_STRING_KEY_INTERNAL("Align Left", "Align Left (Undo action name)", "Undo action name");
+        case EditActionAlignRight: return UI_STRING_KEY_INTERNAL("Align Right", "Align Right (Undo action name)", "Undo action name");
+        case EditActionCenter: return UI_STRING_KEY_INTERNAL("Center", "Center (Undo action name)", "Undo action name");
+        case EditActionJustify: return UI_STRING_KEY_INTERNAL("Justify", "Justify (Undo action name)", "Undo action name");
+        case EditActionSetWritingDirection: return UI_STRING_KEY_INTERNAL("Set Writing Direction", "Set Writing Direction (Undo action name)", "Undo action name");
+        case EditActionSubscript: return UI_STRING_KEY_INTERNAL("Subscript", "Subscript (Undo action name)", "Undo action name");
+        case EditActionSuperscript: return UI_STRING_KEY_INTERNAL("Superscript", "Superscript (Undo action name)", "Undo action name");
+        case EditActionUnderline: return UI_STRING_KEY_INTERNAL("Underline", "Underline (Undo action name)", "Undo action name");
+        case EditActionOutline: return UI_STRING_KEY_INTERNAL("Outline", "Outline (Undo action name)", "Undo action name");
+        case EditActionUnscript: return UI_STRING_KEY_INTERNAL("Unscript", "Unscript (Undo action name)", "Undo action name");
+        case EditActionDrag: return UI_STRING_KEY_INTERNAL("Drag", "Drag (Undo action name)", "Undo action name");
+        case EditActionCut: return UI_STRING_KEY_INTERNAL("Cut", "Cut (Undo action name)", "Undo action name");
+        case EditActionPaste: return UI_STRING_KEY_INTERNAL("Paste", "Paste (Undo action name)", "Undo action name");
+        case EditActionPasteFont: return UI_STRING_KEY_INTERNAL("Paste Font", "Paste Font (Undo action name)", "Undo action name");
+        case EditActionPasteRuler: return UI_STRING_KEY_INTERNAL("Paste Ruler", "Paste Ruler (Undo action name)", "Undo action name");
+        case EditActionTyping: return UI_STRING_KEY_INTERNAL("Typing", "Typing (Undo action name)", "Undo action name");
+        case EditActionCreateLink: return UI_STRING_KEY_INTERNAL("Create Link", "Create Link (Undo action name)", "Undo action name");
+        case EditActionUnlink: return UI_STRING_KEY_INTERNAL("Unlink", "Unlink (Undo action name)", "Undo action name");
+        case EditActionInsertList: return UI_STRING_KEY_INTERNAL("Insert List", "Insert List (Undo action name)", "Undo action name");
+        case EditActionFormatBlock: return UI_STRING_KEY_INTERNAL("Formatting", "Format Block (Undo action name)", "Undo action name");
+        case EditActionIndent: return UI_STRING_KEY_INTERNAL("Indent", "Indent (Undo action name)", "Undo action name");
+        case EditActionOutdent: return UI_STRING_KEY_INTERNAL("Outdent", "Outdent (Undo action name)", "Undo action name");
     }
     return nil;
 }
@@ -499,6 +554,16 @@ void WebEditorClient::clearUndoRedoOperations()
     }    
 }
 
+bool WebEditorClient::canCopyCut(Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool WebEditorClient::canPaste(Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
 bool WebEditorClient::canUndo() const
 {
     return [[m_webView undoManager] canUndo];
@@ -525,7 +590,7 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
     Frame* frame = event->target()->toNode()->document()->frame();
     WebHTMLView *webHTMLView = [[kit(frame) frameView] documentView];
-    if ([webHTMLView _interceptEditingKeyEvent:event shouldSaveCommand:NO])
+    if ([webHTMLView _interpretKeyEvent:event savingCommands:NO])
         event->setDefaultHandled();
 }
 
@@ -533,7 +598,7 @@ void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
     Frame* frame = event->target()->toNode()->document()->frame();
     WebHTMLView *webHTMLView = [[kit(frame) frameView] documentView];
-    if ([webHTMLView _interceptEditingKeyEvent:event shouldSaveCommand:YES])
+    if ([webHTMLView _interpretKeyEvent:event savingCommands:YES])
         event->setDefaultHandled();
 }
 
@@ -578,7 +643,7 @@ static SEL selectorForKeyEvent(KeyboardEvent* event)
     // Eventually, we should move all of the auto-fill code down to WebKit and remove the need for this function by
     // not relying on the selector in the new implementation.
     // The key identifiers are from <http://www.w3.org/TR/DOM-Level-3-Events/keyset.html#KeySet-Set>
-    String key = event->keyIdentifier();
+    const String& key = event->keyIdentifier();
     if (key == "Up")
         return @selector(moveUp:);
     if (key == "Down")
@@ -665,14 +730,13 @@ String WebEditorClient::getAutoCorrectSuggestionForMisspelledWord(const String& 
 
 void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector<GrammarDetail>& details, int* badGrammarLocation, int* badGrammarLength)
 {
-#ifndef BUILDING_ON_TIGER
     NSArray *grammarDetails;
     NSString* textString = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO];
     NSRange range = [[NSSpellChecker sharedSpellChecker] checkGrammarOfString:textString startingAt:0 language:nil wrap:NO inSpellDocumentWithTag:spellCheckerDocumentTag() details:&grammarDetails];
     [textString release];
     if (badGrammarLocation)
         // WebCore expects -1 to represent "not found"
-        *badGrammarLocation = (range.location == NSNotFound) ? -1 : range.location;
+        *badGrammarLocation = (range.location == NSNotFound) ? -1 : static_cast<int>(range.location);
     if (badGrammarLength)
         *badGrammarLength = range.length;
     for (NSDictionary *detail in grammarDetails) {
@@ -691,15 +755,13 @@ void WebEditorClient::checkGrammarOfString(const UChar* text, int length, Vector
             grammarDetail.guesses.append(String(guess));
         details.append(grammarDetail);
     }
-#endif
 }
 
-void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, uint64_t checkingTypes, Vector<TextCheckingResult>& results)
+#ifndef BUILDING_ON_LEOPARD
+static Vector<TextCheckingResult> core(NSArray *incomingResults, TextCheckingTypeMask checkingTypes)
 {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    NSString *textString = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO];
-    NSArray *incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString range:NSMakeRange(0, [textString length]) types:(checkingTypes|NSTextCheckingTypeOrthography) options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL];
-    [textString release];
+    Vector<TextCheckingResult> results;
+
     for (NSTextCheckingResult *incomingResult in incomingResults) {
         NSRange resultRange = [incomingResult range];
         NSTextCheckingType resultType = [incomingResult resultType];
@@ -771,12 +833,23 @@ void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, uint64
             results.append(result);
         }
     }
+
+    return results;
+}
+#endif
+
+void WebEditorClient::checkTextOfParagraph(const UChar* text, int length, TextCheckingTypeMask checkingTypes, Vector<TextCheckingResult>& results)
+{
+#ifndef BUILDING_ON_LEOPARD
+    NSString *textString = [[NSString alloc] initWithCharactersNoCopy:const_cast<UChar*>(text) length:length freeWhenDone:NO];
+    NSArray *incomingResults = [[NSSpellChecker sharedSpellChecker] checkString:textString range:NSMakeRange(0, [textString length]) types:(checkingTypes|NSTextCheckingTypeOrthography) options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:NULL wordCount:NULL];
+    [textString release];
+    results = core(incomingResults, checkingTypes);
 #endif
 }
 
 void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
 {
-#ifndef BUILDING_ON_TIGER
     NSMutableArray* corrections = [NSMutableArray array];
     for (unsigned i = 0; i < grammarDetail.guesses.size(); i++) {
         NSString* guess = grammarDetail.guesses[i];
@@ -787,8 +860,30 @@ void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammar
     NSMutableDictionary* grammarDetailDict = [NSDictionary dictionaryWithObjectsAndKeys:[NSValue valueWithRange:grammarRange], NSGrammarRange, grammarUserDescription, NSGrammarUserDescription, corrections, NSGrammarCorrections, nil];
     
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:grammarDetailDict];
-#endif
 }
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+void WebEditorClient::showCorrectionPanel(CorrectionPanelInfo::PanelType panelType, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
+{
+    m_correctionPanel.show(m_webView, panelType, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings);
+}
+
+void WebEditorClient::dismissCorrectionPanel(ReasonForDismissingCorrectionPanel reasonForDismissing)
+{
+    m_correctionPanel.dismiss(reasonForDismissing);
+}
+
+String WebEditorClient::dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel reasonForDismissing)
+{
+    return m_correctionPanel.dismiss(reasonForDismissing);
+}
+
+void WebEditorClient::recordAutocorrectionResponse(EditorClient::AutocorrectionResponseType responseType, const String& replacedString, const String& replacementString)
+{
+    NSCorrectionResponse response = responseType == EditorClient::AutocorrectionReverted ? NSCorrectionResponseReverted : NSCorrectionResponseEdited;
+    CorrectionPanel::recordAutocorrectionResponse(m_webView, response, replacedString, replacementString);
+}
+#endif
 
 void WebEditorClient::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
 {
@@ -809,11 +904,22 @@ bool WebEditorClient::spellingUIIsShowing()
     return [[[NSSpellChecker sharedSpellChecker] spellingPanel] isVisible];
 }
 
-void WebEditorClient::getGuessesForWord(const String& word, WTF::Vector<String>& guesses)
-{
-    NSArray* stringsArray = [[NSSpellChecker sharedSpellChecker] guessesForWord:word];
-    unsigned count = [stringsArray count];
+void WebEditorClient::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses) {
     guesses.clear();
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    NSString* language = nil;
+    NSOrthography* orthography = nil;
+    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    if (context.length()) {
+        [checker checkString:context range:NSMakeRange(0, context.length()) types:NSTextCheckingTypeOrthography options:0 inSpellDocumentWithTag:spellCheckerDocumentTag() orthography:&orthography wordCount:0];
+        language = [checker languageForWordRange:NSMakeRange(0, context.length()) inString:context orthography:orthography];
+    }
+    NSArray* stringsArray = [checker guessesForWordRange:NSMakeRange(0, word.length()) inString:word language:language inSpellDocumentWithTag:spellCheckerDocumentTag()];
+#else
+    NSArray* stringsArray = [[NSSpellChecker sharedSpellChecker] guessesForWord:word];
+#endif
+    unsigned count = [stringsArray count];
+
     if (count > 0) {
         NSEnumerator* enumerator = [stringsArray objectEnumerator];
         NSString* string;
@@ -822,6 +928,57 @@ void WebEditorClient::getGuessesForWord(const String& word, WTF::Vector<String>&
     }
 }
 
+void WebEditorClient::willSetInputMethodState()
+{
+}
+
 void WebEditorClient::setInputMethodState(bool)
 {
+}
+
+#ifndef BUILDING_ON_LEOPARD
+@interface WebEditorSpellCheckResponder : NSObject
+{
+    WebCore::SpellChecker* _sender;
+    int _sequence;
+    TextCheckingTypeMask _types;
+    RetainPtr<NSArray> _results;
+}
+- (id)initWithSender:(WebCore::SpellChecker*)sender sequence:(int)sequence types:(WebCore::TextCheckingTypeMask)types results:(NSArray*)results;
+- (void)perform;
+@end
+
+@implementation WebEditorSpellCheckResponder
+- (id)initWithSender:(WebCore::SpellChecker*)sender sequence:(int)sequence types:(WebCore::TextCheckingTypeMask)types results:(NSArray*)results
+{
+    self = [super init];
+    if (!self)
+        return nil;
+    _sender = sender;
+    _sequence = sequence;
+    _types = types;
+    _results = results;
+    return self;
+}
+
+- (void)perform
+{
+    _sender->didCheck(_sequence, core(_results.get(), _types));
+}
+
+@end
+#endif
+
+void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker* sender, int sequence, WebCore::TextCheckingTypeMask checkingTypes, const String& text)
+{
+#ifndef BUILDING_ON_LEOPARD
+    NSRange range = NSMakeRange(0, text.length());
+    NSRunLoop* currentLoop = [NSRunLoop currentRunLoop];
+    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:text range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0 
+                                         completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
+            [currentLoop performSelector:@selector(perform) 
+                                  target:[[[WebEditorSpellCheckResponder alloc] initWithSender:sender sequence:sequence types:checkingTypes results:results] autorelease]
+                                argument:nil order:0 modes:[NSArray arrayWithObject:NSDefaultRunLoopMode]];
+        }];
+#endif
 }

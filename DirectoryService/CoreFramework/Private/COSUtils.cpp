@@ -37,17 +37,16 @@
 
 static const char	*appStrList [] =
 {
-	/* 01 */	"Frameworks/DirectoryService.framework/Resources/Plugins",
-	/* 02 */	"DirectoryService",
-	/* 03 */	"Plugins",
-	/* 04 */	"Logs",
-	/* 05 */	"server.log",
-	/* 06 */	"error.log",
-	/* 07 */	"debug.log",
-	/* 08 */	"info.log",
-	/* 09 */	"dsplug",
-	/* 10 */	"DirectoryServices/PlugIns",
-	/* 11 */	"DirectoryService/Local"
+	/* 01 */	"DirectoryService",
+	/* 02 */	"Plugins",
+	/* 03 */	"Logs",
+	/* 04 */	"server.log",
+	/* 05 */	"error.log",
+	/* 06 */	"debug.log",
+	/* 07 */	"info.log",
+	/* 08 */	"dsplug",
+	/* 09 */	"DirectoryServices/PlugIns",
+	/* 10 */	"DirectoryService/Local"
 };
 
 // ---------------------------------------------------------------------------

@@ -32,15 +32,16 @@
 #include "WebNode.h"
 
 #include "Document.h"
+#include "Element.h"
 #include "Frame.h"
 #include "FrameLoaderClientImpl.h"
 #include "Node.h"
 #include "NodeList.h"
 
 #include "EventListenerWrapper.h"
+#include "WebDOMEvent.h"
+#include "WebDOMEventListener.h"
 #include "WebDocument.h"
-#include "WebEvent.h"
-#include "WebEventListener.h"
 #include "WebFrameImpl.h"
 #include "WebNodeList.h"
 #include "WebString.h"
@@ -67,6 +68,11 @@ bool WebNode::equals(const WebNode& n) const
     return (m_private.get() == n.m_private.get());
 }
 
+bool WebNode::lessThan(const WebNode& n) const
+{
+    return (m_private.get() < n.m_private.get());
+}
+
 WebNode::NodeType WebNode::nodeType() const
 {
     return static_cast<NodeType>(m_private->nodeType());
@@ -74,7 +80,7 @@ WebNode::NodeType WebNode::nodeType() const
 
 WebNode WebNode::parentNode() const
 {
-    return WebNode(const_cast<Node*>(m_private->parentNode()));
+    return WebNode(const_cast<ContainerNode*>(m_private->parentNode()));
 }
 
 WebString WebNode::nodeName() const
@@ -92,11 +98,6 @@ bool WebNode::setNodeValue(const WebString& value)
     ExceptionCode exceptionCode = 0;
     m_private->setNodeValue(value, exceptionCode);
     return !exceptionCode;
-}
-
-WebFrame* WebNode::frame() const
-{
-    return WebFrameImpl::fromFrame(m_private->document()->frame());
 }
 
 WebDocument WebNode::document() const
@@ -144,12 +145,22 @@ bool WebNode::isTextNode() const
     return m_private->isTextNode();
 }
 
+bool WebNode::isFocusable() const
+{
+    return m_private->isFocusable();
+}
+
+bool WebNode::isContentEditable() const
+{
+    return m_private->isContentEditable();
+}
+
 bool WebNode::isElementNode() const
 {
     return m_private->isElementNode();
 }
 
-void WebNode::addEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture)
+void WebNode::addEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
 {
     EventListenerWrapper* listenerWrapper =
         listener->createEventListenerWrapper(eventType, useCapture, m_private.get());
@@ -159,7 +170,7 @@ void WebNode::addEventListener(const WebString& eventType, WebEventListener* lis
     m_private->addEventListener(eventType, adoptRef(listenerWrapper), useCapture);
 }
 
-void WebNode::removeEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture)
+void WebNode::removeEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
 {
     EventListenerWrapper* listenerWrapper =
         listener->getEventListenerWrapper(eventType, useCapture, m_private.get());

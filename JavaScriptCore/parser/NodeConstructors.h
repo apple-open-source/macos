@@ -43,7 +43,7 @@ namespace JSC {
     }
 
     inline Node::Node(JSGlobalData* globalData)
-        : m_line(globalData->lexer->lineNumber())
+        : m_line(globalData->lexer->lastLineNumber())
     {
     }
 

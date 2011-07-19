@@ -1,5 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<array>
 <dict>
 	<key>OpenSourceProject</key>
 	<string>awk</string>
@@ -17,11 +18,11 @@
 	<array>
 		<string>3668527</string>
 		<string>Fix build warnings.</string>
+		<string>Rename getline to awk_getline (7556911).</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>awk.txt</string>
 </dict>
-</array>
 </plist>

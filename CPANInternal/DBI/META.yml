@@ -1,8 +1,8 @@
 --- #YAML:1.0
 name:                DBI
-version:             1.604
+version:             1.609
 abstract:            Database independent interface for Perl
-license:             ~
+license:             perl
 author:              
     - Tim Bunce (dbi-users@perl.org)
 generated_by:        ExtUtils::MakeMaker version 6.42

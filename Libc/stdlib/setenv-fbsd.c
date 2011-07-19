@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)setenv.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/setenv.c,v 1.9 2002/03/22 21:53:10 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/setenv.c,v 1.14 2007/05/01 16:02:41 ache Exp $");
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -54,8 +50,44 @@ extern void __malloc_check_env_name(const char *);
 __private_extern__ char *__findenv(const char *, int *, char **);
 __private_extern__ int __setenv(const char *, const char *, int, int, char ***, malloc_zone_t *);
 __private_extern__ void __unsetenv(const char *, char **, malloc_zone_t *);
+__private_extern__ int init__zone0(int);
 
-#ifndef BUILDING_VARIANT
+/*
+ * _cthread_init_routine used to be called from crt1.o to initialize threads.
+ * This is no longer needed, as initialization happens in dylib initializers,
+ * but is provided to maintain backwards compatibility.  Normally, for 10.5
+ * or greater, _cthread_init_routine does nothing.
+ *
+ * Before 10.5, the _start routine in crt1.o clobbers environ with the original
+ * stack value, which effectively undoes any environment changes made in
+ * initializers.  When LEGACY_CRT1_ENVIRON is defined, we replace the
+ * do-nothing routine with one that attempts to restore the environ value.
+ * But this only works if the setenv (and family) routines were used
+ * exclusively, (no direct manipulation of environ).  Note that according to
+ * SUSv3, direct manipulation of environ may result in undefined behavior in
+ * setenv and family, so we don't support that (on less than 10.5).
+ */
+#ifdef BUILDING_VARIANT
+#  ifdef LEGACY_CRT1_ENVIRON
+extern char **_saved_environ;
+#  endif /* LEGACY_CRT1_ENVIRON */
+#else /* !BUILDING_VARIANT */
+#  ifdef LEGACY_CRT1_ENVIRON
+__private_extern__ char **_saved_environ = NULL;
+
+static int
+_legacy_crt1_environ(void)
+{
+	if (_saved_environ) *_NSGetEnviron() = _saved_environ;
+	return 0;
+}
+int (*_cthread_init_routine)(void) = _legacy_crt1_environ;
+
+#  else /* !LEGACY_CRT1_ENVIRON */
+static int _do_nothing(void) { return 0; }
+int (*_cthread_init_routine)(void) = _do_nothing;
+#  endif /* !LEGACY_CRT1_ENVIRON */
+
 /*
  * Create the environment malloc zone and give it a recognizable name.
  */
@@ -281,6 +313,10 @@ setenv(name, value, rewrite)
 	const char *value;
 	int rewrite;
 {
+#ifdef LEGACY_CRT1_ENVIRON
+	int ret;
+#endif /* LEGACY_CRT1_ENVIRON */
+
 	/* no null ptr or empty str */
 	if(name == NULL || *name == 0) {
 		errno = EINVAL;
@@ -300,7 +336,13 @@ setenv(name, value, rewrite)
 	/* insure __zone0 is set up before calling __malloc_check_env_name */
 	if (init__zone0(1)) return (-1);
 	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
+#ifdef LEGACY_CRT1_ENVIRON
+	ret = __setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0);
+	_saved_environ = *_NSGetEnviron();
+	return ret;
+#else /* !LEGACY_CRT1_ENVIRON */
 	return (__setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0));
+#endif /* !LEGACY_CRT1_ENVIRON */
 }
 
 /*

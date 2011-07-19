@@ -1,0 +1,142 @@
+#!/bin/sh
+#
+# Copyright (c) 2006 - 2007 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Portions Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+
+env_setup="@env_setup@"
+confdir="@confdir@"
+testdir="@testdir@"
+
+. ${env_setup}
+
+KRB5_CONFIG="${1-${confdir}/krb5.conf}"
+export KRB5_CONFIG
+
+logfile=${testdir}/messages.log
+
+testfailed="echo test failed; cat ${logfile}; exit 1"
+
+# If there is no useful db support compile in, disable test
+${have_db} || exit 77
+
+mkdir -p "${testdir}"
+rm -rf "${testdir}/"*
+
+R=TEST.H5L.SE
+
+port=@port@
+
+kadmin="${kadmin} -l -r $R"
+kdc="${kdc} --addresses=localhost -P $port"
+
+server=host/datan.test.h5l.se
+cache="FILE:${testdir}/cache.krb5"
+keytabfile=${testdir}/server.keytab
+keytab="FILE:${keytabfile}"
+
+kinit="${kinit} -c $cache"
+klist="${klist} -c $cache"
+kgetcred="${kgetcred} -c $cache"
+kgetcred_imp="${kgetcred} --out-cache=${ocache}"
+kdestroy="${kdestroy} -c $cache"
+
+rm -f ${testdir}/${keytabfile}
+rm -f ${testdir}/current-db*
+rm -f ${testdir}/out-*
+rm -f ${testdir}/mkey.file*
+
+> ${logfile}
+
+echo Creating database
+${kadmin} \
+    init \
+    --realm-max-ticket-life=1day \
+    --realm-max-renewable-life=1month \
+    ${R} || exit 1
+
+${kadmin} add -p foo --use-defaults fooFOOfooFOOfoo@${R} || exit 1
+${kadmin} add -p kaka --use-defaults ${server}@${R} || exit 1
+${kadmin} ext -k ${keytab} ${server}@${R} || exit 1
+
+echo "Doing database check"
+${kadmin} check ${R} || exit 1
+
+echo foo > ${testdir}/foopassword
+
+echo Starting kdc
+env MallocStackLogging=1 MallocStackLoggingNoCompact=1 MallocErrorAbort=1 MallocLogFile=${testdir}/malloc-log \
+${kdc} &
+kdcpid=$!
+
+sh ${wait_kdc} KDC ${logfile}
+if [ "$?" != 0 ] ; then
+    kill -9 ${kdcpid}
+    exit 1
+fi
+
+trap "kill -9 ${kdcpid}; echo signal killing kdc; exit 1;" EXIT
+
+ec=0
+
+echo "Getting client initial tickets"; > ${logfile}
+${kinit} --password-file=${testdir}/foopassword fooFOOfooFOOfoo@$R || \
+	{ ec=1 ; eval "${testfailed}"; }
+echo "Getting tickets"; > ${logfile}
+${kgetcred} ${server}@${R} || { ec=1 ; eval "${testfailed}"; }
+echo "Listing tickets"; > ${logfile}
+${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
+${test_ap_req} ${server}@${R} ${keytab} ${cache} || \
+	{ ec=1 ; eval "${testfailed}"; }
+${kdestroy}
+
+echo "fuzzer tests"
+
+#${test_gic} --fuzzer=linear-size \
+#	--client=foo@$R --password=foo --debug || \
+#	{ echo "fuzzer failed"; exit 1; }
+
+${test_gic} --fuzzer=linear \
+	--client=fooFOOfooFOOfoo@$R --password=foo --debug || \
+	{ echo "fuzzer failed"; exit 1; }
+
+${test_gic} --fuzzer=random \
+	--client=fooFOOfooFOOfoo@$R --password=foo --debug || \
+	{ echo "fuzzer failed"; exit 1; }
+
+
+echo "killing kdc (${kdcpid})"
+sh ${leaks_kill} kdc $kdcpid || exit 1
+
+trap "" EXIT
+
+exit $ec

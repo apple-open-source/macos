@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,11 +51,10 @@
 #define ACTION_STORE_DIR 6
 #define ACTION_FORWARD   7
 
-#define IndexNull ((uint32_t)-1)
 #define forever for(;;)
 
-#define ACT_STORE_FLAG_STAY_OPEN     0x00000001
-#define ACT_STORE_FLAG_EXCLUDE_ASLDB 0x00000002
+#define ACT_STORE_FLAG_STAY_OPEN 0x00000001
+#define ACT_STORE_FLAG_CONTINUE  0x00000002
 
 static asl_msg_t *query = NULL;
 static int reset = RESET_NONE;
@@ -92,7 +91,7 @@ static int filter_token = -1;
 
 int asl_action_close();
 static int _parse_config_file(const char *);
-extern void db_save_message(asl_msg_t *m);
+extern void db_save_message(aslmsg m);
 
 static char *
 _next_word(char **s)
@@ -161,8 +160,12 @@ _do_reset(void)
 {
 	pthread_mutex_lock(&reset_lock);
 
-	asl_action_close();
-	_parse_config_file(_PATH_ASL_CONF);
+	if (reset == RESET_CONFIG)
+	{
+		asl_action_close();
+		_parse_config_file(_PATH_ASL_CONF);
+	}
+
 	reset = RESET_NONE;
 
 	pthread_mutex_unlock(&reset_lock);
@@ -257,7 +260,7 @@ _parse_query_action(char *s)
 
 	*p = '\0';
 
-	if (s[0] == '*') out->query = asl_new(ASL_TYPE_QUERY);
+	if (s[0] == '*') out->query = asl_msg_new(ASL_TYPE_QUERY);
 	else
 	{
 		s[0] = 'Q';
@@ -267,7 +270,7 @@ _parse_query_action(char *s)
 	if (out->query == NULL)
 	{
 		asldebug("out->query is NULL (ERROR)\n");
-		if (out->options != NULL) free(out->options);
+		free(out->options);
 		free(out);
 		return -1;
 	}
@@ -500,7 +503,7 @@ _parse_line(char *s)
 				 ASL_KEY_UID, ASL_KEY_GID);
 
 		asl_log_string(str);
-		if (str != NULL) free(str);
+		free(str);
 	}
 
 	return status;
@@ -516,8 +519,9 @@ _act_notify(action_rule_t *r)
 }
 
 static void
-_act_broadcast(action_rule_t *r, asl_msg_t *msg)
+_act_broadcast(action_rule_t *r, aslmsg msg)
 {
+#ifndef CONFIG_IPHONE
 	FILE *pw;
 	const char *val;
 
@@ -537,10 +541,11 @@ _act_broadcast(action_rule_t *r, asl_msg_t *msg)
 
 	fprintf(pw, "%s", val);
 	pclose(pw);
+#endif
 }
 
 static void
-_act_access_control(action_rule_t *r, asl_msg_t *msg)
+_act_access_control(action_rule_t *r, aslmsg msg)
 {
 	int32_t ruid, rgid;
 	char *p;
@@ -556,10 +561,10 @@ _act_access_control(action_rule_t *r, asl_msg_t *msg)
 		rgid = atoi(p);
 	}
 
-	if (ruid != -1) asl_set((aslmsg)msg, ASL_KEY_READ_UID, r->options);
+	if (ruid != -1) asl_set(msg, ASL_KEY_READ_UID, r->options);
 	if (p != NULL)
 	{
-		if (rgid != -1) asl_set((aslmsg)msg, ASL_KEY_READ_GID, p);
+		if (rgid != -1) asl_set(msg, ASL_KEY_READ_GID, p);
 		p--;
 		*p = ' ';
 	}
@@ -591,6 +596,7 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 	struct stat sb;
 	uint64_t xid;
 	int status;
+	mode_t mask;
 
 	if (sd == NULL) return ASL_STATUS_INVALID_STORE;
 	if (sd->dir == NULL) return ASL_STATUS_INVALID_STORE;
@@ -600,6 +606,33 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 
 	if (sd->storedata == NULL)
 	{
+		memset(&sb, 0, sizeof(struct stat));
+		status = stat(sd->dir, &sb);
+		if (status == 0)
+		{
+			/* must be a directory */
+			if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
+		}
+		else if (errno == ENOENT)
+		{
+			/* doesn't exist - create it */
+			mask = umask(0);
+			status = mkdir(sd->dir, sd->mode);
+			umask(mask);
+			
+			if (status != 0) return ASL_STATUS_WRITE_FAILED;
+			
+			if ((sd->uid != 0) || (sd->gid != 0))
+			{
+				if (chown(sd->dir, sd->uid, sd->gid) != 0) return ASL_STATUS_WRITE_FAILED;
+			}
+		}
+		else
+		{
+			/* Unexpected stat error */
+			return ASL_STATUS_FAILED;
+		}
+		
 		path = NULL;
 		asprintf(&path, "%s/%s", sd->dir, FILE_ASL_STORE_DATA);
 		if (path == NULL) return ASL_STATUS_NO_MEMORY;
@@ -624,13 +657,7 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 				return ASL_STATUS_READ_FAILED;
 			}
 		}
-		else if (errno != ENOENT)
-		{
-			/* Unexpected stat error */
-			free(path);
-			return ASL_STATUS_FAILED;
-		}
-		else
+		else if (errno == ENOENT)
 		{
 			/* StoreData does not exist: create it */
 			sd->storedata = fopen(path, "w");
@@ -639,6 +666,21 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 				free(path);
 				return ASL_STATUS_FAILED;
 			}
+
+			if ((sd->uid != 0) || (sd->gid != 0))
+			{
+				if (chown(path, sd->uid, sd->gid) != 0)
+				{
+					free(path);
+					return ASL_STATUS_WRITE_FAILED;
+				}
+			}
+		}
+		else
+		{
+			/* Unexpected stat error */
+			free(path);
+			return ASL_STATUS_FAILED;
 		}
 
 		free(path);
@@ -685,7 +727,7 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 	sd->p_month = 0;
 	sd->p_day = 0;
 
-	if (sd->path != NULL) free(sd->path);
+	free(sd->path);
 	sd->path = NULL;
 
 	asprintf(&(sd->path), "%s/%d.%02d.%02d.asl", sd->dir, ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
@@ -699,14 +741,14 @@ _act_store_dir_setup(struct store_data *sd, time_t tick)
 }
 
 static void
-_act_store(action_rule_t *r, asl_msg_t *msg)
+_act_store(action_rule_t *r, aslmsg msg)
 {
 	struct store_data *sd;
 	asl_file_t *s;
 	uint8_t x;
 	uint32_t status;
 	uint64_t mid;
-	mode_t tmp_mode;
+	mode_t tmp_mode, mask;
 	char *str, *opts, *p;
 	const char *val;
 	time_t tick;
@@ -728,8 +770,17 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 		if (r->action == ACTION_STORE)
 		{
 			sd->path = _next_word(&opts);
-			if (sd->path == NULL)
+			if ((sd->path == NULL) || (sd->path[0] != '/'))
 			{
+				str = NULL;
+				asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Invalid path for \"store\" action: %s]",
+						 ASL_KEY_SENDER,
+						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
+						 ASL_KEY_PID, getpid(),
+						 ASL_KEY_MSG, (sd->path == NULL) ? "no path specified" : sd->path);
+
+				asl_log_string(str);
+				free(str);
 				free(sd);
 				r->action = ACTION_NONE;
 				return;
@@ -738,15 +789,24 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 		else if (r->action == ACTION_STORE_DIR)
 		{
 			sd->dir = _next_word(&opts);
-			if (sd->dir == NULL)
+			if ((sd->dir == NULL) || (sd->dir[0] != '/'))
 			{
+				str = NULL;
+				asprintf(&str, "[%s syslogd] [%s %u] [%s %u] [Facility syslog] [%s Invalid path for \"store_directory\" action: %s]",
+						 ASL_KEY_SENDER,
+						 ASL_KEY_LEVEL, ASL_LEVEL_ERR,
+						 ASL_KEY_PID, getpid(),
+						 ASL_KEY_MSG, (sd->dir == NULL) ? "no path specified" : sd->dir);
+
+				asl_log_string(str);
+				free(str);
 				free(sd);
 				r->action = ACTION_NONE;
 				return;
 			}
 		}
 
-		sd->mode = 0644;
+		sd->mode = 0755;
 		sd->next_id = 0;
 		sd->uid = 0;
 		sd->gid = 0;
@@ -754,8 +814,14 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 
 		while (NULL != (p = _next_word(&opts)))
 		{
-			if (!strcmp(p, "stayopen")) sd->flags |= ACT_STORE_FLAG_STAY_OPEN;
-			else if (!strcmp(p, "exclude_asldb")) sd->flags |= ACT_STORE_FLAG_EXCLUDE_ASLDB;
+			if (!strcmp(p, "stayopen"))
+			{
+				sd->flags |= ACT_STORE_FLAG_STAY_OPEN;
+			}
+			else if (!strcmp(p, "continue"))
+			{
+				sd->flags |= ACT_STORE_FLAG_CONTINUE;
+			}
 			else if (!strncmp(p, "mode=0", 6))
 			{
 				sd->mode = 0;
@@ -763,8 +829,8 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 				if ((x < '0') || (x > '7'))
 				{
 					free(p);
-					if (sd->path != NULL) free(sd->path);
-					if (sd->dir != NULL) free(sd->dir);
+					free(sd->path);
+					free(sd->dir);
 					free(sd);
 					r->action = ACTION_NONE;
 					return;
@@ -777,8 +843,8 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 				if ((x < '0') || (x > '7'))
 				{
 					free(p);
-					if (sd->path != NULL) free(sd->path);
-					if (sd->dir != NULL) free(sd->dir);
+					free(sd->path);
+					free(sd->dir);
 					free(sd);
 					r->action = ACTION_NONE;
 					return;
@@ -791,8 +857,8 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 				if ((x < '0') || (x > '7'))
 				{
 					free(p);
-					if (sd->path != NULL) free(sd->path);
-					if (sd->dir != NULL) free(sd->dir);
+					free(sd->path);
+					free(sd->dir);
 					free(sd);
 					r->action = ACTION_NONE;
 					return;
@@ -838,7 +904,11 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 	if (sd->store == NULL)
 	{
 		s = NULL;
-		status = asl_file_open_write(sd->path, sd->mode, sd->uid, sd->gid, &s);
+
+		mask = umask(0);
+		status = asl_file_open_write(sd->path, (sd->mode & 0666), sd->uid, sd->gid, &s);
+		umask(mask);
+
 		if ((status != ASL_STATUS_OK) || (s == NULL))
 		{
 			asldebug("asl_file_open_write %s failed: %s\n", sd->path, asl_core_error(status));
@@ -888,7 +958,7 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 		sd->store = NULL;
 	}
 
-	if (sd->flags & ACT_STORE_FLAG_EXCLUDE_ASLDB)
+	if ((sd->flags & ACT_STORE_FLAG_CONTINUE) == 0)
 	{
 		opts = (char *)asl_get(msg, ASL_KEY_OPTION);
 		if (opts == NULL)
@@ -909,22 +979,19 @@ _act_store(action_rule_t *r, asl_msg_t *msg)
 }
 
 static void
-_act_forward(action_rule_t *r, asl_msg_t *msg)
+_act_forward(action_rule_t *r, aslmsg msg)
 {
 	/* To do: <rdar://problem/6130747> Add a "forward" action to asl.conf */
 }
 
 static void
-send_to_asl_store(asl_msg_t *msg)
+send_to_asl_store(aslmsg msg)
 {
 	const char *vlevel, *val;
 	uint64_t v64;
 	uint32_t status, level, lmask;
 	int x, log_me;
 	action_rule_t *r;
-
-	/* ASLOption "ignore" keeps a message out of the ASL datastore */
-	if (asl_check_option(msg, ASL_OPT_IGNORE) != 0) return;
 
 	if (filter_token == -1)
 	{
@@ -994,7 +1061,7 @@ send_to_asl_store(asl_msg_t *msg)
 
 	for (r = asl_datastore_rule; r != NULL; r = r->next)
 	{
-		if (asl_msg_cmp(r->query, msg) == 1)
+		if (asl_msg_cmp(r->query, (asl_msg_t *)msg) == 1)
 		{
 			/* if any rule matches, save the message (once!) */
 			db_save_message(msg);
@@ -1004,28 +1071,34 @@ send_to_asl_store(asl_msg_t *msg)
 }
 
 int
-asl_action_sendmsg(asl_msg_t *msg, const char *outid)
+asl_action_sendmsg(aslmsg msg, const char *outid)
 {
 	action_rule_t *r;
 
-	if (reset == RESET_CONFIG) _do_reset();
+	if (reset != RESET_NONE) _do_reset();
 
 	if (msg == NULL) return -1;
 
 	for (r = asl_action_rule; r != NULL; r = r->next)
 	{
-		if (asl_msg_cmp(r->query, msg) == 1)
+		if (asl_msg_cmp(r->query, (asl_msg_t *)msg) == 1)
 		{
+			if ((r->action == ACTION_STORE) || (r->action == ACTION_STORE_DIR))
+			{
+				_act_store(r, msg);
+				if (asl_check_option(msg, ASL_OPT_IGNORE) != 0) return -1;
+			}
+
 			if (r->action == ACTION_NONE) continue;
-			else if (r->action == ACTION_IGNORE) return 0;
+			else if (r->action == ACTION_IGNORE) return -1;
 			else if (r->action == ACTION_ACCESS) _act_access_control(r, msg);
 			else if (r->action == ACTION_NOTIFY) _act_notify(r);
-			else if (r->action == ACTION_STORE) _act_store(r, msg);
-			else if (r->action == ACTION_STORE_DIR) _act_store(r, msg);
 			else if (r->action == ACTION_BROADCAST) _act_broadcast(r, msg);
 			else if (r->action == ACTION_FORWARD) _act_forward(r, msg);
 		}
 	}
+
+	if (asl_check_option(msg, ASL_OPT_IGNORE) != 0) return -1;
 
 	send_to_asl_store(msg);
 
@@ -1057,7 +1130,7 @@ asl_action_init(void)
 {
 	asldebug("%s: init\n", MY_ID);
 
-	query = asl_new(ASL_TYPE_QUERY);
+	query = asl_msg_new(ASL_TYPE_QUERY);
 	aslevent_addmatch(query, MY_ID);
 	aslevent_addoutput(asl_action_sendmsg, MY_ID);
 
@@ -1087,14 +1160,14 @@ asl_action_close(void)
 			sd = (struct store_data *)r->data;
 			if (sd->store != NULL) asl_file_close(sd->store);
 			if (sd->storedata != NULL) fclose(sd->storedata);
-			if (sd->path != NULL) free(sd->path);
-			if (sd->dir != NULL) free(sd->dir);
+			free(sd->path);
+			free(sd->dir);
 			sd->store = NULL;
 			free(sd);
 		}
 
-		if (r->query != NULL) asl_free(r->query);
-		if (r->options != NULL) free(r->options);
+		if (r->query != NULL) asl_msg_release(r->query);
+		free(r->options);
 
 		free(r);
 	}
@@ -1106,8 +1179,8 @@ asl_action_close(void)
 	{
 		n = r->next;
 
-		if (r->query != NULL) asl_free(r->query);
-		if (r->options != NULL) free(r->options);
+		if (r->query != NULL) asl_msg_release(r->query);
+		free(r->options);
 
 		free(r);
 	}

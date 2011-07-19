@@ -4,7 +4,7 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.5.4
+VERSION = 2.5.5
 
 PWD := $(shell pwd)
 ifndef DSTROOT
@@ -120,6 +120,7 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Lib/site.py < $(FIX)/site.py.ed && \
 	ed - $(PROJECT)/Lib/test/test__locale.py < $(FIX)/Lib_test_test__locale.py.ed && \
 	ed - $(PROJECT)/Mac/Makefile.in  < $(FIX)/Mac_Makefile.in.ed && \
+	patch $(PROJECT)/Mac/Modules/cf/_CFmodule.c $(FIX)/_CFmodule.c.patch && \
 	ed - $(PROJECT)/Mac/Modules/cg/_CGmodule.c  < $(FIX)/_CGmodule.c.ed && \
 	ed - $(PROJECT)/Mac/Modules/launch/_Launchmodule.c < $(FIX)/_Launchmodule.c.ed && \
 	ed - $(PROJECT)/Mac/Tools/pythonw.c < $(FIX)/pythonw.c.ed && \

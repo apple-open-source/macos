@@ -477,6 +477,7 @@ struct dtrace_hdl {
 #define DT_ACT_APPLEUSTACK  DT_ACT(104)  /* apple_ustack() action */
 #define DT_ACT_APPLEFLAG    DT_ACT(105)  /* apple_flag() action */
 #define DT_ACT_APPLEGEN     DT_ACT(106)  /* apple_general() action */
+#define DT_ACT_PIDRESUME    DT_ACT(107)  /* pidresume() action */
 #endif
 /*
  * Sentinel to tell freopen() to restore the saved stdout.  This must not
@@ -561,6 +562,7 @@ enum {
 	EDT_BADSETOPT,		/* invalid setopt library action */
 	EDT_BADSTACKPC,		/* invalid stack program counter size */
 	EDT_BADAGGVAR,		/* invalid aggregation variable identifier */
+	EDT_ENABLING_ERR,	/* failed to enable probe */
 	EDT_OVERSION,		/* client is requesting deprecated version */
 #if defined(__APPLE__)
     EDT_BADPID,			/* invalid pid in pid or objc probe */

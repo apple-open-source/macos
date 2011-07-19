@@ -57,6 +57,7 @@ __FBSDID("$FreeBSD: src/usr.bin/nohup/nohup.c,v 1.10 2003/05/03 19:44:46 obrien 
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <TargetConditionals.h>
 #include <vproc.h>
 #include <vproc_priv.h>
 #endif
@@ -94,7 +95,7 @@ main(int argc, char *argv[])
 
 	(void)signal(SIGHUP, SIG_IGN);
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 	if (_vprocmgr_detach_from_console(0) != NULL)
 		err(EXIT_MISC, "can't detach from console");
 #endif

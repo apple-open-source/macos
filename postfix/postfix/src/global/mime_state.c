@@ -49,7 +49,7 @@
 /*
 /*	In order to fend off denial of service attacks, message headers
 /*	are truncated at or above var_header_limit bytes, message boundary
-/*	strings are truncated at var_boundary_len bytes, and the multipart
+/*	strings are truncated at var_mime_bound_len bytes, and the multipart
 /*	nesting level is limited to var_mime_maxdepth levels.
 /*
 /*	mime_state_alloc() creates a MIME state machine. The machine
@@ -269,6 +269,7 @@
 #include <mail_params.h>
 #include <header_token.h>
 #include <lex_822.h>
+#include <base64_code.h>				/* APPLE - RFC 3030 */
 #include <mime_state.h>
 
 /* Application-specific. */
@@ -308,6 +309,11 @@ struct MIME_STATE {
     int     err_flags;			/* processing errors */
     off_t   head_offset;		/* offset in header block */
     off_t   body_offset;		/* offset in body block */
+    /* APPLE - RFC 3030 */
+    char    base64_align_buf[2];	/* base64 converts 3 chars at a time */
+    char    base64_align_count;		/* chars in base64_align_buf */
+    char    base64_flags;		/* conversion flags */
+    int	    base64_crlf_pending;	/* count of pending CRLFs */
 
     /*
      * Static members.
@@ -335,6 +341,9 @@ struct MIME_STATE {
 #define MIME_STYPE_RFC822	2
 #define MIME_STYPE_PARTIAL	3
 #define MIME_STYPE_EXTERN_BODY	4
+
+/* APPLE - RFC 3030 */
+#define MIME_BASE64_STARTED	(1<<0)	/* started converting body to base64 */
 
  /*
   * MIME parser states. We steal from the public interface.
@@ -511,6 +520,9 @@ MIME_STATE *mime_state_alloc(int flags,
     state->prev_rec_type = 0;
     state->stack = 0;
     state->token_buffer = vstring_alloc(1);
+    state->base64_align_count = 0;			/* APPLE - RFC 3030 */
+    state->base64_flags = 0;				/* APPLE - RFC 3030 */
+    state->base64_crlf_pending = 0;			/* APPLE - RFC 3030 */
 
     /* Static members. */
     state->static_flags = flags;
@@ -746,6 +758,120 @@ static void mime_state_downgrade(MIME_STATE *state, int rec_type,
     }
 }
 
+/* APPLE - RFC 3030
+   mime_state_downgrade_base64 - convert 8-bit data to base64 */
+
+static void mime_state_downgrade_base64_real(MIME_STATE *state, int rec_type,
+					     const char *text, ssize_t len)
+{
+    char b64_align[3], *b64_data;
+    ssize_t b64_len, trim;
+    enum { BASE64_LINE_LENGTH = 76 };
+    int flush;
+
+    flush = (len == 0 && state->curr_state != MIME_STATE_BODY) ||
+	    rec_type == REC_TYPE_EOF;
+
+    /* base64 needs (len % 3) == 0 for all but the last chunk */
+    if (len > 0) {
+	if (state->base64_align_count == 1) {
+	    if (len == 1) {
+		state->base64_align_buf[1] = text[0];
+		state->base64_align_count = 2;
+		len = 0;
+	    } else {
+		b64_align[0] = state->base64_align_buf[0];
+		state->base64_align_count = 0;
+		b64_align[1] = text[0];
+		b64_align[2] = text[1];
+		text += 2;
+		len -= 2;
+		base64_encode_append(state->output_buffer, b64_align, 3);
+	    }
+	} else if (state->base64_align_count == 2) {
+	    b64_align[0] = state->base64_align_buf[0];
+	    b64_align[1] = state->base64_align_buf[1];
+	    state->base64_align_count = 0;
+	    b64_align[2] = text[0];
+	    text += 1;
+	    len -= 1;
+	    base64_encode_append(state->output_buffer, b64_align, 3);
+	}
+
+	if (len > 0) {
+	    trim = len % 3;
+	    if (trim > 0)
+		state->base64_align_buf[0] = text[len - trim];
+	    if (trim > 1)
+		state->base64_align_buf[1] = text[len - 1];
+	    state->base64_align_count = trim;
+	    len -= trim;
+	    base64_encode_append(state->output_buffer, text, len);
+	}
+    }
+
+    if (flush) {
+	if (state->base64_align_count > 0) {
+	    base64_encode_append(state->output_buffer, state->base64_align_buf,
+				 state->base64_align_count);
+	    state->base64_align_count = 0;
+	}
+    }
+	
+    b64_data = STR(state->output_buffer);
+    b64_len = LEN(state->output_buffer);
+    while (b64_len > BASE64_LINE_LENGTH) {
+	/* XXX sending non-null-terminated data to body_out is OK right? */
+	BODY_OUT(state, REC_TYPE_NORM, b64_data, BASE64_LINE_LENGTH);
+	b64_data += BASE64_LINE_LENGTH;
+	b64_len -= BASE64_LINE_LENGTH;
+    }
+    if (flush) {
+	BODY_OUT(state, REC_TYPE_NORM, b64_data, b64_len);
+	VSTRING_RESET(state->output_buffer);
+    } else if (b64_data != STR(state->output_buffer)) {
+	memmove(STR(state->output_buffer), b64_data, b64_len);
+	VSTRING_AT_OFFSET(state->output_buffer, b64_len);
+    }
+    VSTRING_TERMINATE(state->output_buffer);
+}
+
+/* APPLE - RFC 3030 */
+
+static void mime_state_downgrade_base64(MIME_STATE *state, int rec_type,
+					const char *text, ssize_t len)
+{
+    if (rec_type == REC_TYPE_NORM && len == 0) {
+	if (state->base64_flags == 0) {
+	    /* This is the separator between a header specifying
+	       Content-Transfer-Encoding: binary and its body.  Don't start
+	       the base64 conversion with "\r\n". */
+	    state->base64_flags |= MIME_BASE64_STARTED;
+	    BODY_OUT(state, rec_type, text, len);
+	} else
+	    ++state->base64_crlf_pending;
+    } else {
+	while (state->base64_crlf_pending > 0) {
+	    mime_state_downgrade_base64_real(state, REC_TYPE_NORM, "\r\n", 2);
+	    --state->base64_crlf_pending;
+	}
+	mime_state_downgrade_base64_real(state, rec_type, text, len);
+	if (rec_type == REC_TYPE_NORM)
+	    ++state->base64_crlf_pending;
+    }
+}
+
+/* APPLE - RFC 3030 */
+static void mime_state_undo_crlf(MIME_STATE *state)
+{
+    /* XXX implement for 8bit -> qp conversion too? */
+    if ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64) &&
+	state->curr_domain == MIME_ENC_BINARY) {
+	if (state->base64_crlf_pending > 0)
+	    --state->base64_crlf_pending;
+    }
+}
+
 /* mime_state_update - update MIME state machine */
 
 int     mime_state_update(MIME_STATE *state, int rec_type,
@@ -845,8 +971,13 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 		/* Output routine is explicitly allowed to change the data. */
 		if (header_info == 0
 		    || header_info->type != HDR_CONTENT_TRANSFER_ENCODING
-		    || (state->static_flags & MIME_OPT_DOWNGRADE) == 0
-		    || state->curr_domain == MIME_ENC_7BIT)
+		/* APPLE - RFC 3030 */
+		    || (state->static_flags & (MIME_OPT_DOWNGRADE |
+					       MIME_OPT_DOWNGRADE_BASE64)) == 0
+		    || ((state->static_flags & MIME_OPT_DOWNGRADE) &&
+			state->curr_domain == MIME_ENC_7BIT)
+		    || ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64) &&
+			state->curr_domain != MIME_ENC_BINARY))
 		    HEAD_OUT(state, header_info, len);
 		state->prev_rec_type = 0;
 		VSTRING_RESET(state->output_buffer);
@@ -889,15 +1020,22 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 	 * arbitrary binary data as 8-bit text, then the data is already
 	 * broken beyond recovery, because the Postfix SMTP server sanitizes
 	 * record boundaries, treating broken record boundaries as CRLF.
+	 * APPLE - RFC 3030 - base64 is OK with BINARYMIME
 	 * 
 	 * Clear the output buffer, we will need it for storage of the
 	 * conversion result.
 	 */
-	if ((state->static_flags & MIME_OPT_DOWNGRADE)
-	    && state->curr_domain != MIME_ENC_7BIT) {
+	/* APPLE - RFC 3030 */
+	if (((state->static_flags & MIME_OPT_DOWNGRADE) &&
+	     state->curr_domain != MIME_ENC_7BIT) ||
+	    ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64) &&
+	     state->curr_domain == MIME_ENC_BINARY)) {
 	    if (state->curr_ctype == MIME_CTYPE_MESSAGE
 		|| state->curr_ctype == MIME_CTYPE_MULTIPART)
 		cp = CU_CHAR_PTR("7bit");
+	    /* APPLE - RFC 3030 */
+	    else if (state->static_flags & MIME_OPT_DOWNGRADE_BASE64)
+		cp = CU_CHAR_PTR("base64");
 	    else
 		cp = CU_CHAR_PTR("quoted-printable");
 	    vstring_sprintf(state->output_buffer,
@@ -1074,6 +1212,12 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 		for (sp = state->stack; sp != 0; sp = sp->next) {
 		    if (len >= 2 + sp->bound_len &&
 		      strncmp(text + 2, sp->boundary, sp->bound_len) == 0) {
+			/* APPLE - RFC 3030 - The CRLF preceding a
+			   boundary belongs to the boundary not the body
+			   it ends (RFC 2046 section 5.1.1). */
+			mime_state_undo_crlf(state);
+			(void) mime_state_flush(state);
+
 			while (sp != state->stack)
 			    mime_state_pop(state);
 			if (len >= 4 + sp->bound_len &&
@@ -1092,6 +1236,11 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 		}
 	    }
 	    /* Put last for consistency with header output routine. */
+	    /* APPLE - RFC 3030 */
+	    if ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64)
+		&& state->curr_domain == MIME_ENC_BINARY)
+		mime_state_downgrade_base64(state, rec_type, text, len);
+	    else    /* reduce code deltas */
 	    if ((state->static_flags & MIME_OPT_DOWNGRADE)
 		&& state->curr_domain != MIME_ENC_7BIT)
 		mime_state_downgrade(state, rec_type, text, len);
@@ -1104,6 +1253,11 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 	 * is the last opportunity to send any pending output.
 	 */
 	else {
+	    /* APPLE - RFC 3030 */
+	    if ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64)
+		&& state->curr_domain == MIME_ENC_BINARY)
+		mime_state_downgrade_base64(state, rec_type, "", 0);
+
 	    if (state->body_end)
 		state->body_end(state->app_context);
 	}
@@ -1115,6 +1269,19 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
     default:
 	msg_panic("mime_state_update: unknown state: %d", state->curr_state);
     }
+}
+
+/* APPLE - RFC 3030 */
+int mime_state_flush(MIME_STATE *state)
+{
+    if ((state->static_flags & MIME_OPT_DOWNGRADE_BASE64) &&
+	state->curr_domain == MIME_ENC_BINARY) {
+	mime_state_downgrade_base64(state, REC_TYPE_EOF, "", 0);
+	state->base64_flags &= ~MIME_BASE64_STARTED;
+	if (state->base64_crlf_pending != 0)
+	    msg_panic("mime_state_flush: base64_crlf_pending = %d", state->base64_crlf_pending);
+    }
+    return state->err_flags;
 }
 
  /*

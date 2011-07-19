@@ -46,7 +46,7 @@ pid$1:a.out::
 {}
 #else
 /* every instruction in waitpid */
-pid$1:libSystem.B.dylib:w*:
+pid$1:libsystem_c.dylib:w*:
 {}
 #endif
 

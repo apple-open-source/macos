@@ -32,11 +32,11 @@ namespace JSC {
 
     class JSActivation;
 
-    class DebuggerActivation : public JSObject {
+    class DebuggerActivation : public JSNonFinalObject {
     public:
-        DebuggerActivation(JSObject*);
+        DebuggerActivation(JSGlobalData&, JSObject*);
 
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
         virtual UString className() const;
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
@@ -49,16 +49,16 @@ namespace JSC {
         virtual JSValue lookupGetter(ExecState*, const Identifier& propertyName);
         virtual JSValue lookupSetter(ExecState*, const Identifier& propertyName);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype) 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype) 
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | JSObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesVisitChildren | JSObject::StructureFlags;
 
     private:
-        JSActivation* m_activation;
+        WriteBarrier<JSActivation> m_activation;
     };
 
 } // namespace JSC

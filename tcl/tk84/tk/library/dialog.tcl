@@ -75,6 +75,8 @@ proc ::tk_dialog {w title text bitmap default args} {
 
     if {$tcl_platform(platform) eq "macintosh" || $windowingsystem eq "aqua"} {
 	::tk::unsupported::MacWindowStyle style $w moveableModal {}
+    } elseif {$windowingsystem eq "x11"} {
+	wm attributes $w -type dialog
     }
 
     frame $w.bot

@@ -101,16 +101,20 @@
 #define	NV_PRESERVES_UV_BITS	32
 #endif /* __LP64__ */
 .
-/define[ 	]HAS_STDIO_STREAM_ARRAY/a
+/define[ 	]GMTIME_MAX/a
 .
-.,.+1c
-#if __DARWIN_UNIX03
-/*#define	HAS_STDIO_STREAM_ARRAY	/ **/
-#define STDIO_STREAM_ARRAY	
-#else /* !__DARWIN_UNIX03 */
-#define	HAS_STDIO_STREAM_ARRAY	/**/
-#define STDIO_STREAM_ARRAY	__sF
-#endif /* __DARWIN_UNIX03 */
+.,/^$/-1c
+#ifdef __LP64__
+#define GMTIME_MAX	67768036191676799	/**/
+#define GMTIME_MIN	-62167132800		/**/
+#define LOCALTIME_MAX	67768036191705599	/**/
+#define LOCALTIME_MIN	-62167104000		/**/
+#else
+#define GMTIME_MAX	2147483647	/**/
+#define GMTIME_MIN	-2147483648	/**/
+#define LOCALTIME_MAX	2147483647	/**/
+#define LOCALTIME_MIN	-2147483648	/**/
+#endif
 .
 /define[ 	]USE_64_BIT_INT/c
 #ifdef __LP64__
@@ -171,7 +175,7 @@ $i
  *	This is the path to the Updates directory (which comes before
  *	the system perl directory in @INC.
  */
-#define APPLLIB_EXP		"@ENV_UPDATESLIB@"
+#define APPLLIB_EXP		"@UPDATESLIB@"
 
 .
 w

@@ -10,12 +10,12 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: pop3.tcl,v 1.33 2005/09/30 05:36:39 andreas_kupries Exp $
+# RCS: @(#) $Id: pop3.tcl,v 1.35 2009/04/13 22:33:51 andreas_kupries Exp $
 
 package require Tcl 8.2
 package require cmdline
 package require log
-package provide pop3 1.6.3
+package provide pop3 1.7
 
 namespace eval ::pop3 {
 
@@ -226,11 +226,15 @@ proc ::pop3::list {chan {msg ""}} {
 
 proc ::pop3::open {args} {
     variable state
-    array set cstate {msex 0 retr_mode retr limit {}}
+    array set cstate {socketcmd ::socket msex 0 retr_mode retr limit {}}
 
     log::log debug "pop3::open | [join $args]"
 
-    while {[set err [cmdline::getopt args {msex.arg retr-mode.arg} opt arg]]} {
+    while {[set err [cmdline::getopt args {
+	msex.arg
+	retr-mode.arg
+	socketcmd.arg
+    } opt arg]]} {
 	if {$err < 0} {
 	    return -code error "::pop3::open : $arg"
 	}
@@ -253,7 +257,12 @@ proc ::pop3::open {args} {
 		    }
 		}
 	    }
-	    default {# Can't happen}
+	    socketcmd {
+		set cstate(socketcmd) $arg
+	    }
+	    default {
+		# Can't happen
+	    }
 	}
     }
 
@@ -265,14 +274,20 @@ proc ::pop3::open {args} {
     }
     foreach {host user password port} $args break
     if {$port == {}} {
-	set port 110
+	if {($cstate(socketcmd) eq "tls::socket") || ($cstate(socketcmd) eq "::tls::socket")} {
+	    # Standard port for SSL-based pop3 connections.
+	    set port 995
+	} else {
+	    # Standard port for any other type of connection.
+	    set port 110
+	}
     }
 
     log::log debug "pop3::open | protocol, connect to $host $port"
 
     # Argument processing is finally complete, now open the channel
 
-    set chan [socket $host $port]
+    set chan [$cstate(socketcmd) $host $port]
     fconfigure $chan -buffering none
 
     log::log debug "pop3::open | connect on $chan"

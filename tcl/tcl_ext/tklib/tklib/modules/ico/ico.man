@@ -1,9 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin ico n 1.0]
+[manpage_begin ico n 1.0.5]
 [moddesc   {Windows ICO handling}]
 [titledesc {Reading and writing windows icons}]
 [require Tcl 8.4]
-[require ico [opt 1.0]]
+[require ico [opt 1.0.5]]
 [description]
 
 This package provides functions for reading and writing Windows icons
@@ -25,10 +25,10 @@ identifier to specify which icon or image to operate on.
 Returns a list of icons found in [arg file] where each element is the
 name or numeric ID. Recognizes the following options:
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::ico::iconMembers] [arg file] [arg name] [opt "[arg option] [arg value]..."]]
@@ -36,10 +36,10 @@ name or numeric ID. Recognizes the following options:
 Returns a list of images that make up the icon with ID [arg name]. Each element is itself a
 sublist in the format {name width height bpp}. Recognizes the following options:
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [list_end]
-[nl]
+[para]
 
 [call [cmd ::ico::getIcon] [arg file] [arg name] [opt "[arg option] [arg value]..."]]
 
@@ -61,7 +61,7 @@ This is useful for calling writeIcon or getIconByName.
 
 Recognizes the following [arg option]s.
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [opt_def -format value]
 [opt_def -image value]
@@ -69,7 +69,7 @@ Recognizes the following [arg option]s.
 [opt_def -bpp value]
 [opt_def -exact value]
 [list_end]
-[nl]
+[para]
 
 [call [cmd ::ico::getIconByName] [arg file] [arg name] [opt "[arg option] [arg value]..."]]
 
@@ -78,11 +78,11 @@ specific image as returned by [cmd ::ico::iconMembers], not an icon name returne
 [cmd ::ico::icons]. If there is no matching resource ID
 in [arg file] an error is thrown. Recognizes the following options:
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [opt_def -format value]
 [list_end]
-[nl]
+[para]
 
 [call [cmd ::ico::getFileIcon] [arg file] [opt "[arg option] [arg value]..."]]
 
@@ -93,14 +93,14 @@ extension with a leading dot. If [arg file] is a directory or you specify the
 special name [const Folder] then the icon representing a folder is returned. This
 command takes the same arguments and usage as [cmd getIcon]:
 
-[list_begin opt]
+[list_begin options]
 [opt_def -format value]
 [opt_def -image value]
 [opt_def -res value]
 [opt_def -bpp value]
 [opt_def -exact value]
 [list_end]
-[nl]
+[para]
 
 [call [cmd ::ico::writeIcon] [arg file] [arg name] [arg depth] [arg data] [opt "[arg option] [arg value]..."]]
 
@@ -108,10 +108,10 @@ Writes an image to [arg file]. [arg name] is the resource identifier of the
 image in [arg file] to write.
 When writing to an EXE, DLL, or ICL file you may only overwrite existing icons with an
 icon of the same dimensions and color depth. No icons may be added to these file types.
-[nl]
+[para]
 When writing to BMP the name is ignored as this type can contain only one image. This means
 if the file already existed it is completely overwritten.
-[nl]
+[para]
 When writing to an ICO or ICODATA file if the name
 specified does not exist then an image is appended and will be named the next in sequence
 (the specified name is ignored). Images in ICO and ICODATA files may be overwritten with differing
@@ -120,7 +120,7 @@ dimensions or color depths.
 Note that you will get strange results when displaying icons if you fail to change every image
 which makes up a given icon.
 
-[list_begin arg]
+[list_begin arguments]
 [arg_def integer depth in]
 
 This argument must have a value of [const 1], [const 4], [const 8],
@@ -135,35 +135,35 @@ This argument is either a list of colors in the format returned by
 
 
 [list_end]
-[nl]
+[para]
 
 Recognizes the following [arg option]s.
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::ico::copyIcon] [arg file] [arg index] [arg file2] [arg index2] [opt "[arg option] [arg value]..."]]
 
 Copies the icon at [arg index] in [arg file] to [arg index2] in [arg file2].
 
-[list_begin opt]
+[list_begin options]
 [opt_def -fromtype fileFormat]
 [opt_def -totype fileFormat]
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::ico::EXEtoICO] [arg file] [opt dir]]
 
 Extracts all icons from the executable [arg file] to ICO files placed in [arg dir]. [opt dir] defaults to the directory [arg file] is located in. Icon files will be named in the form [arg file]-ID.ico where ID is the icon resource identifier.
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [list_end]
-[nl]
+[para]
 
 
 [call [cmd ::ico::clearCache] [opt file]]
@@ -186,7 +186,7 @@ is returned.
 Application level command which displays a window showing all the
 icons in [arg file] and their name.
 
-[list_begin opt]
+[list_begin options]
 [opt_def -type fileFormat]
 [opt_def -parent pathName]
 [list_end]

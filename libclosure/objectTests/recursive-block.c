@@ -1,10 +1,16 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG
+
 #include <stdio.h>
 #include <Block.h>
 #include <Block_private.h>
 #include <stdlib.h>
-
-// CONFIG
-
+#include "test.h"
 
 int cumulation = 0;
 
@@ -14,7 +20,7 @@ int doSomething(int i) {
 }
 
 void dirtyStack() {
-    int i = random();
+    int i = (int)random();
     int j = doSomething(i);
     int k = doSomething(j);
     doSomething(i + j + k);
@@ -23,7 +29,7 @@ void dirtyStack() {
 typedef void (^voidVoid)(void);
 
 voidVoid testFunction() {
-    int i = random();
+    int i = (int)random();
     __block voidVoid inner = ^{ doSomething(i); };
     //printf("inner, on stack, is %p\n", (void*)inner);
     /*__block*/ voidVoid outer = ^{
@@ -37,13 +43,11 @@ voidVoid testFunction() {
 }
 
 
-int main(int argc, char **argv) {
+int main() {
     voidVoid block = testFunction();
     dirtyStack();
     block();
     Block_release(block);
 
-    printf("%s: success\n", argv[0]);
-
-    return 0;
+    succeed(__FILE__);
 }

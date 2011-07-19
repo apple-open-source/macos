@@ -1051,6 +1051,12 @@ IOReturn IONDRVFramebuffer::doDriverIO( UInt32 commandID, void * contents,
     {
         if (!ndrv)
         {
+			uint32_t debugFlags;
+			if (PE_parse_boot_argn("iog", &debugFlags, sizeof(debugFlags))
+					&& (kIOGDbgDumbPanic & debugFlags))
+			{
+				panic("dumb FB start");
+			}
             ndrv = IOBootNDRV::fromRegistryEntry( nub );
             if (ndrv)
                 setName( ndrv->driverName());

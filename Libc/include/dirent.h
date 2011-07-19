@@ -124,7 +124,7 @@ int getdirentries(int, char *, int, long *)
  */
 						__asm("_getdirentries_is_not_available_when_64_bit_inodes_are_in_effect")
 #else /* !__DARWIN_64_BIT_INO_T */
-						__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_6,__IPHONE_2_0,__IPHONE_2_0)
+						__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_6, __IPHONE_2_0,__IPHONE_2_0)
 #endif /* __DARWIN_64_BIT_INO_T */
 //Begin-Libc
 #endif /* !__LIBC__ */
@@ -167,7 +167,7 @@ int scandir(const char *, struct dirent ***,
     int (*)(struct dirent *), int (*)(const void *, const void *)) __DARWIN_INODE64(scandir);
 #ifdef __BLOCKS__
 int scandir_b(const char *, struct dirent ***,
-    int (^)(struct dirent *), int (^)(const void *, const void *)) __DARWIN_INODE64(scandir_b);
+    int (^)(struct dirent *), int (^)(const void *, const void *)) __DARWIN_INODE64(scandir_b) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 #endif /* not POSIX */
 //Begin-Libc

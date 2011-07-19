@@ -12,7 +12,7 @@
  * and other information needed for compilation.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_typepass_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/typepass.cxx,v 1.36 2006/11/01 23:54:52 wsfulton Exp $";
+char cvsroot_typepass_cxx[] = "$Id: typepass.cxx 11279 2009-06-16 19:29:08Z wsfulton $";
 
 #include "swigmod.h"
 #include "cparse.h"
@@ -171,10 +171,10 @@ class TypePass:private Dispatcher {
 		}
 		if (Strcmp(nodeType(bcls), "classforward") != 0) {
 		  Swig_error(Getfile(cls), Getline(cls), "'%s' does not have a valid base class.\n", Getattr(cls, "name"));
-		  Swig_error(Getfile(bcls), Getline(bcls), "'%s' is not a valid base class.\n", bname);
+		  Swig_error(Getfile(bcls), Getline(bcls), "'%s' is not a valid base class.\n", SwigType_namestr(bname));
 		} else {
-		  Swig_warning(WARN_TYPE_INCOMPLETE, Getfile(cls), Getline(cls), "Base class '%s' is incomplete.\n", bname);
-		  Swig_warning(WARN_TYPE_INCOMPLETE, Getfile(bcls), Getline(bcls), "Only forward declaration '%s' was found.\n", bname);
+		  Swig_warning(WARN_TYPE_INCOMPLETE, Getfile(cls), Getline(cls), "Base class '%s' is incomplete.\n", SwigType_namestr(bname));
+		  Swig_warning(WARN_TYPE_INCOMPLETE, Getfile(bcls), Getline(bcls), "Only forward declaration '%s' was found.\n", SwigType_namestr(bname));
 		  clsforward = 1;
 		}
 		bcls = 0;
@@ -184,8 +184,8 @@ class TypePass:private Dispatcher {
 		    ilist = alist = NewList();
 		  Append(ilist, bcls);
 		} else {
-		  Swig_warning(WARN_TYPE_UNDEFINED_CLASS, Getfile(cls), Getline(cls), "Base class '%s' undefined.\n", bname);
-		  Swig_warning(WARN_TYPE_UNDEFINED_CLASS, Getfile(bcls), Getline(bcls), "'%s' must be defined before it is used as a base class.\n", bname);
+		  Swig_warning(WARN_TYPE_UNDEFINED_CLASS, Getfile(cls), Getline(cls), "Base class '%s' undefined.\n", SwigType_namestr(bname));
+		  Swig_warning(WARN_TYPE_UNDEFINED_CLASS, Getfile(bcls), Getline(bcls), "'%s' must be defined before it is used as a base class.\n", SwigType_namestr(bname));
 		}
 	      }
 	    }
@@ -205,7 +205,7 @@ class TypePass:private Dispatcher {
 		Setmeta(bname, "already_warned", "1");
 	      }
 	    }
-	    SwigType_inherit(clsname, bname, cast);
+	    SwigType_inherit(clsname, bname, cast, 0);
 	  }
 	}
       }
@@ -225,7 +225,7 @@ class TypePass:private Dispatcher {
       String *bname = Getattr(n, "name");
       Node *bclass = n;		/* Getattr(n,"class"); */
       Hash *scopes = Getattr(bclass, "typescope");
-      SwigType_inherit(clsname, bname, cast);
+      SwigType_inherit(clsname, bname, cast, 0);
       if (!importmode) {
 	String *btype = Copy(bname);
 	SwigType_add_pointer(btype);
@@ -239,7 +239,7 @@ class TypePass:private Dispatcher {
       Symtab *st = Getattr(cls, "symtab");
       Symtab *bst = Getattr(bclass, "symtab");
       if (st == bst) {
-	Swig_warning(WARN_PARSE_REC_INHERITANCE, Getfile(cls), Getline(cls), "Recursive scope inheritance of '%s'.\n", HashGetAttr(cls, k_name));
+	Swig_warning(WARN_PARSE_REC_INHERITANCE, Getfile(cls), Getline(cls), "Recursive scope inheritance of '%s'.\n", Getattr(cls, "name"));
 	continue;
       }
       Symtab *s = Swig_symbol_current();
@@ -520,7 +520,9 @@ class TypePass:private Dispatcher {
     } else {
       if (name) {
 	Node *nn = Swig_symbol_clookup(name, n);
-	Hash *ts = Getattr(nn, "typescope");
+	Hash *ts = 0;
+	if (nn)
+	  ts = Getattr(nn, "typescope");
 	if (!ts) {
 	  SwigType_new_scope(name);
 	  SwigType_attach_symtab(Getattr(n, "symtab"));
@@ -562,7 +564,6 @@ class TypePass:private Dispatcher {
    * ------------------------------------------------------------ */
 
   virtual int cDeclaration(Node *n) {
-
     if (NoExcept) {
       Delattr(n, "throws");
     }
@@ -576,6 +577,14 @@ class TypePass:private Dispatcher {
     }
     normalize_parms(Getattr(n, "parms"));
     normalize_parms(Getattr(n, "throws"));
+    if (GetFlag(n, "conversion_operator")) {
+      /* The call to the operator in the generated wrapper must be fully qualified in order to compile */
+      SwigType *name = Getattr(n, "name");
+      SwigType *qualifiedname = Swig_symbol_string_qualify(name,0);
+      Clear(name);
+      Append(name, qualifiedname);
+      Delete(qualifiedname);
+    }
 
     if (checkAttribute(n, "storage", "typedef")) {
       String *name = Getattr(n, "name");
@@ -721,6 +730,49 @@ class TypePass:private Dispatcher {
     }
     Setattr(n, "enumtype", enumtype);
 
+    // This block of code is for dealing with %ignore on an enum item where the target language
+    // attempts to use the C enum value in the target language itself and expects the previous enum value
+    // to be one more than the previous value... the previous enum item might not exist if it is ignored!
+    // - It sets the first non-ignored enum item with the "firstenumitem" attribute.
+    // - It adds an enumvalue attribute if the previous enum item is ignored
+    {
+      Node *c;
+      int count = 0;
+      String *previous = 0;
+      bool previous_ignored = false;
+      bool firstenumitem = false;
+      for (c = firstChild(n); c; c = nextSibling(c)) {
+	assert(strcmp(Char(nodeType(c)), "enumitem") == 0);
+
+	bool reset;
+	String *enumvalue = Getattr(c, "enumvalue");
+	if (GetFlag(c, "feature:ignore")) {
+	  reset = enumvalue ? true : false;
+	  previous_ignored = true;
+	} else {
+	  if (!enumvalue && previous_ignored) {
+	    if (previous)
+	      Setattr(c, "enumvalue", NewStringf("(%s) + %d", previous, count+1));
+	    else
+	      Setattr(c, "enumvalue", NewStringf("%d", count));
+	    SetFlag(c, "virtenumvalue"); // identify enumvalue as virtual, ie not from the parsed source
+	  }
+	  if (!firstenumitem) {
+	    SetFlag(c, "firstenumitem");
+	    firstenumitem = true;
+	  }
+	  reset = true;
+	  previous_ignored = false;
+	}
+	if (reset) {
+	  previous = enumvalue ? enumvalue : Getattr(c, "name");
+	  count = 0;
+	} else {
+	  count++;
+	}
+      }
+    }
+
     emit_children(n);
     return SWIG_OK;
   }
@@ -744,13 +796,16 @@ class TypePass:private Dispatcher {
       Setattr(n, "value", new_value);
       Delete(new_value);
     }
-    // Make up an enumvalue if one was not specified in the parsed code
-    if (Getattr(n, "_last") && !Getattr(n, "enumvalue")) {	// Only the first enum item has _last set
-      Setattr(n, "enumvalueex", "0");
-    }
     Node *next = nextSibling(n);
-    if (next && !Getattr(next, "enumvalue")) {
-      Setattr(next, "enumvalueex", NewStringf("%s + 1", Getattr(n, "sym:name")));
+
+    // Make up an enumvalue if one was not specified in the parsed code (not designed to be used on enum items and %ignore - enumvalue will be set instead)
+    if (!GetFlag(n, "feature:ignore")) {
+      if (Getattr(n, "_last") && !Getattr(n, "enumvalue")) {	// Only the first enum item has _last set (Note: first non-ignored enum item has firstenumitem set)
+	Setattr(n, "enumvalueex", "0");
+      }
+      if (next && !Getattr(next, "enumvalue")) {
+	Setattr(next, "enumvalueex", NewStringf("%s + 1", Getattr(n, "sym:name")));
+      }
     }
 
     return SWIG_OK;
@@ -766,6 +821,35 @@ class TypePass:private Dispatcher {
     // Note that no children can be emitted in a forward declaration as there aren't any.
     return enumDeclaration(n);
   }
+
+#ifdef DEBUG_OVERLOADED
+  static void show_overloaded(Node *n) {
+    Node *c = Getattr(n, "sym:overloaded");
+    Node *checkoverloaded = c;
+    Printf(stdout, "-------------------- overloaded start %s sym:overloaded():%p -------------------------------\n", Getattr(n, "name"), c);
+    while (c) {
+      if (Getattr(c, "error")) {
+        c = Getattr(c, "sym:nextSibling");
+        continue;
+      }
+      if (Getattr(c, "sym:overloaded") != checkoverloaded) {
+        Printf(stdout, "sym:overloaded error c:%p checkoverloaded:%p\n", c, checkoverloaded);
+        Swig_print_node(c);
+        exit (1);
+      }
+
+      String *decl = Strcmp(nodeType(c), "using") == 0 ? NewString("------") : Getattr(c, "decl");
+      Printf(stdout, "  show_overloaded %s::%s(%s)          [%s] nodeType:%s\n", parentNode(c) ? Getattr(parentNode(c), "name") : "NOPARENT", Getattr(c, "name"), decl, Getattr(c, "sym:overname"), nodeType(c));
+      if (!Getattr(c, "sym:overloaded")) {
+        Printf(stdout, "sym:overloaded error.....%p\n", c);
+        Swig_print_node(c);
+        exit (1);
+      }
+      c = Getattr(c, "sym:nextSibling");
+    }
+    Printf(stdout, "-------------------- overloaded end   %s -------------------------------\n", Getattr(n, "name"));
+  }
+#endif
 
   /* ------------------------------------------------------------
    * usingDeclaration()
@@ -806,10 +890,8 @@ class TypePass:private Dispatcher {
 	  Swig_warning(WARN_PARSE_USING_UNDEF, Getfile(n), Getline(n), "Nothing known about '%s'.\n", SwigType_namestr(Getattr(n, "uname")));
 	}
       } else {
-
 	/* Only a single symbol is being used.  There are only a few symbols that
 	   we actually care about.  These are typedef, class declarations, and enum */
-
 	String *ntype = nodeType(ns);
 	if (Strcmp(ntype, "cdecl") == 0) {
 	  if (checkAttribute(ns, "storage", "typedef")) {
@@ -831,9 +913,15 @@ class TypePass:private Dispatcher {
 			|| (Getattr(c, "feature:extend") && !Getattr(c, "code"))
 			|| GetFlag(c, "feature:ignore"))) {
 
+		    /* Don't generate a method if the method is overridden in this class, 
+		     * for example don't generate another m(bool) should there be a Base::m(bool) :
+		     * struct Derived : Base { 
+		     *   void m(bool);
+		     *   using Base::m;
+		     * };
+		     */
 		    String *csymname = Getattr(c, "sym:name");
 		    if (!csymname || (Strcmp(csymname, symname) == 0)) {
-		      /* Check for existence in overload list already */
 		      {
 			String *decl = Getattr(c, "decl");
 			Node *over = Getattr(n, "sym:overloaded");
@@ -866,12 +954,12 @@ class TypePass:private Dispatcher {
 			  String *ucode = is_void ? NewStringf("{ self->%s(", Getattr(n, "uname")) : NewStringf("{ return self->%s(", Getattr(n, "uname"));
 
 			  for (ParmList *p = parms; p;) {
-			    StringAppend(ucode, HashGetAttr(p, k_name));
+			    Append(ucode, Getattr(p, "name"));
 			    p = nextSibling(p);
 			    if (p)
-			      StringAppend(ucode, ",");
+			      Append(ucode, ",");
 			  }
-			  StringAppend(ucode, "); }");
+			  Append(ucode, "); }");
 			  Setattr(nn, "code", ucode);
 			  Delete(ucode);
 			}
@@ -907,6 +995,75 @@ class TypePass:private Dispatcher {
 		    Setattr(n, "sym:overname", "_SWIG_0");
 		  }
 		}
+	      }
+
+	      /* Hack the parse tree symbol table for overloaded methods. Replace the "using" node with the
+	       * list of overloaded methods we have just added in as child nodes to the "using" node.
+	       * The node will still exist, it is just the symbol table linked list of overloaded methods
+	       * which is hacked. */
+	      if (Getattr(n, "sym:overloaded"))
+	      {
+#ifdef DEBUG_OVERLOADED
+show_overloaded(n);
+#endif
+		int cnt = 0;
+		Node *debugnode = n;
+		if (!firstChild(n)) {
+		  // Remove from overloaded list ('using' node does not actually end up adding in any methods)
+		  Node *ps = Getattr(n, "sym:previousSibling");
+		  Node *ns = Getattr(n, "sym:nextSibling");
+		  if (ps) {
+		    Setattr(ps, "sym:nextSibling", ns);
+		  }
+		  if (ns) {
+		    Setattr(ns, "sym:previousSibling", ps);
+		  }
+		} else {
+		  // The 'using' node results in methods being added in - slot in the these methods here 
+		  Node *ps = Getattr(n, "sym:previousSibling");
+		  Node *ns = Getattr(n, "sym:nextSibling");
+		  Node *fc = firstChild(n);
+		  Node *pp = fc;
+
+		  Node *firstoverloaded = Getattr(n, "sym:overloaded");
+		  if (firstoverloaded == n) {
+		    // This 'using' node we are cutting out was the first node in the overloaded list. 
+		    // Change the first node in the list to its first sibling
+		    Delattr(firstoverloaded, "sym:overloaded");
+		    Node *nnn = Getattr(firstoverloaded, "sym:nextSibling");
+		    firstoverloaded = fc;
+		    while (nnn) {
+		      Setattr(nnn, "sym:overloaded", firstoverloaded);
+		      nnn = Getattr(nnn, "sym:nextSibling");
+		    }
+		  }
+		  while (pp) {
+		    Node *ppn = Getattr(pp, "sym:nextSibling");
+		    Setattr(pp, "sym:overloaded", firstoverloaded);
+		    Setattr(pp, "sym:overname", NewStringf("%s_%d", Getattr(n, "sym:overname"), cnt++));
+		    if (ppn)
+		      pp = ppn;
+		    else
+		      break;
+		  }
+		  if (ps) {
+		    Setattr(ps, "sym:nextSibling", fc);
+		    Setattr(fc, "sym:previousSibling", ps);
+		  }
+		  if (ns) {
+		    Setattr(ns, "sym:previousSibling", pp);
+		    Setattr(pp, "sym:nextSibling", ns);
+		  }
+		  debugnode = firstoverloaded;
+		}
+		Delattr(n, "sym:previousSibling");
+		Delattr(n, "sym:nextSibling");
+		Delattr(n, "sym:overloaded");
+		Delattr(n, "sym:overname");
+#ifdef DEBUG_OVERLOADED
+show_overloaded(debugnode);
+#endif
+		clean_overloaded(n); // Needed?
 	      }
 	    }
 	  }

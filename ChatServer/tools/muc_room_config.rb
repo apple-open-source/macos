@@ -17,6 +17,8 @@
 #     -D, --debug: Enable debug mode
 #     -o, --hostname:  Jabber server hostname (REQUIRED)
 #     -r, --roomname:  Name of Jabber MUC room to create/modify/use (REQUIRED)
+#     -R, --reason:  Reason, a message passed to users during room invitation or room destroy
+#     -e, --resource:  Specify a custom resource for the tool's Jabber ID
 #
 #   Commands:
 #     Choose one command per execution:
@@ -66,7 +68,7 @@
 #       The Room Password:
 #         --roomsecret <string>
 #       Affiliations that May Discover Real JIDs of Occupants:
-#         --whois <true | false>
+#         --whois <anyone | moderators | none>
 #       Enable Logging of Room Conversations:
 #         --enablelogging <true | false>
 #       Logfile format:
@@ -82,7 +84,7 @@
 # Joel Hedden (jhedden@apple.com)
 #
 # == Copyright
-# Copyright 2007 Apple Inc. All rights reserved.
+# Copyright 2007-2009 Apple Inc. All rights reserved.
 #
 # == State
 # Functional, unfinished
@@ -107,10 +109,10 @@ include MUC
 class MucRoomTool
 
   # Define constants
-  TOOL_VERSION = "0.1"
-  RESOURCE = 'RubyXMPP4R'
-  DESTROY_REASON = "Your workgroup has been deleted."
-  INVITE_REASON = "You have been automatically invited to this chatroom for an OD workgroup."
+  TOOL_VERSION = "0.2"
+  DEFAULT_RESOURCE = 'RubyXMPP4R'
+  DEFAULT_REASON_DESTROY = "Your workgroup has been deleted."
+  DEFAULT_REASON_INVITE = "You have been automatically invited to this chatroom for an OD workgroup."
   BOOL = { 'true' => 1, 'false' => 0 }
 
   def initialize
@@ -118,26 +120,26 @@ class MucRoomTool
     @room_config = {
       'FORM_TYPE' => 'http://jabber.org/protocol/muc#roomconfig',
       'form' => 'config',
-      'muc#owner_roomname' => nil,
-      'muc#owner_roomdesc' => nil,
+      'muc#roomconfig_roomname' => nil,
+      'muc#roomconfig_roomdesc' => nil,
       'leave' => 'has left',
       'join' => 'has become available',
       'rename' => 'is now known as',
-      'muc#owner_changesubject' => 0,
-      'muc#owner_maxusers' => 0,
+      'muc#roomconfig_changesubject' => 0,
+      'muc#roomconfig_maxusers' => 0,
       'privacy' => 0,
-      'muc#owner_publicroom' => 1,
-      'muc#owner_persistentroom' => 1,
+      'muc#roomconfig_publicroom' => 1,
+      'muc#roomconfig_persistentroom' => 1,
       'legacy' => 0,
-      'muc#owner_moderatedroom' => 0,
+      'muc#roomconfig_moderatedroom' => 0,
       'defaulttype' => 0,
       'privmsg' => 0,
-      'muc#owner_inviteonly' => 0,
-      'muc#owner_allowinvites' => 0,
-      'muc#owner_passwordprotectedroom' => 0,
-      'muc#owner_roomsecret' => nil,
-      'muc#owner_whois' => 'admins',
-      'muc#owner_enablelogging' => 0,
+      'muc#roomconfig_membersonly' => 0,
+      'muc#roomconfig_allowinvites' => 0,
+      'muc#roomconfig_passwordprotectedroom' => 0,
+      'muc#roomconfig_roomsecret' => nil,
+      'muc#roomconfig_whois' => 'moderators',
+      'muc#roomconfig_enablelogging' => 0,
       'logformat' => 'xml'
     }
 
@@ -158,6 +160,7 @@ class MucRoomTool
     @client_jid = nil
     @client_full_jid = nil
     @client_muc_jid = nil
+    @resource = nil
 
   end
 
@@ -178,6 +181,7 @@ class MucRoomTool
       [ '--hostname', '-o', GetoptLong::REQUIRED_ARGUMENT ],
       [ '--roomname', '-r', GetoptLong::REQUIRED_ARGUMENT ],
       [ '--reason', '-R', GetoptLong::REQUIRED_ARGUMENT ],
+      [ '--resource', '-e', GetoptLong::REQUIRED_ARGUMENT ],
 
       #  Optional args for room configuration:
       [ '--roomdesc', GetoptLong::REQUIRED_ARGUMENT ],
@@ -225,12 +229,15 @@ class MucRoomTool
           @hostname = arg
         when '--roomname'
           @roomname = arg
+          @room_config['muc#roomconfig_roomname'] = arg
         when '--reason'
           @reason = arg
+        when '--resource'
+          @resource = arg
 
         #  Optional args for room configuration:
         when '--roomdesc'
-          @room_config['muc#owner_roomdesc'] = arg
+          @room_config['muc#roomconfig_roomdesc'] = arg
         when '--leave'
           @room_config['leave'] = arg
         when '--join'
@@ -238,35 +245,35 @@ class MucRoomTool
         when '--rename'
           @room_config['rename'] = arg
         when '--changesubject'
-          @room_config['muc#owner_changesubject'] = BOOL[arg]
+          @room_config['muc#roomconfig_changesubject'] = BOOL[arg]
         when '--maxusers'
-          @room_config['muc#owner_maxusers'] = arg
+          @room_config['muc#roomconfig_maxusers'] = arg
         when '--privacy'
           @room_config['privacy'] = BOOL[arg]
         when '--publicroom'
-          @room_config['muc#owner_publicroom'] = BOOL[arg]
+          @room_config['muc#roomconfig_publicroom'] = BOOL[arg]
         when '--persistentroom'
-          @room_config['muc#owner_persistentroom'] = BOOL[arg]
+          @room_config['muc#roomconfig_persistentroom'] = BOOL[arg]
         when '--legacy'
           @room_config['legacy'] = BOOL[arg]
         when '--moderatedroom'
-          @room_config['muc#owner_moderatedroom'] = BOOL[arg]
+          @room_config['muc#roomconfig_moderatedroom'] = BOOL[arg]
         when '--defaulttype'
           @room_config['defaulttype'] = BOOL[arg]
         when '--privmsg'
           @room_config['privmsg'] = BOOL[arg]
         when '--inviteonly'
-          @room_config['muc#owner_inviteonly'] = BOOL[arg]
+          @room_config['muc#roomconfig_membersonly'] = BOOL[arg]
         when '--allowinvites'
-          @room_config['muc#owner_allowinvites'] = BOOL[arg]
+          @room_config['muc#roomconfig_allowinvites'] = BOOL[arg]
         when '--passwordprotectedroom'
-          @room_config['muc#owner_passwordprotectedroom'] = BOOL[arg]
+          @room_config['muc#roomconfig_passwordprotectedroom'] = BOOL[arg]
         when '--roomsecret'
-          @room_config['muc#owner_roomsecret'] = arg
+          @room_config['muc#roomconfig_roomsecret'] = arg
         when '--whois'
-          @room_config['muc#owner_whois'] = arg
+          @room_config['muc#roomconfig_whois'] = arg
         when '--enablelogging'
-          @room_config['muc#owner_enablelogging'] = BOOL[arg]
+          @room_config['muc#roomconfig_enablelogging'] = BOOL[arg]
         when '--logformat'
           @room_config['logformat'] = arg
       end
@@ -274,6 +281,18 @@ class MucRoomTool
 
     # JJJ debugging: @room_config.each {|key, value| puts "#{key} is #{value}"}
 
+    #  Assign defaults where needed
+    if (@resource == nil)
+      @resource = DEFAULT_RESOURCE
+    end
+    if (@reason == nil)
+      if (@invite)
+        @reason = DEFAULT_REASON_INVITE
+      elsif (@destroy)
+        @reason = DEFAULT_REASON_DESTROY
+      end
+    end
+    
     # if --invite was specified, load the remaining args into a JID array
     if (@invite) 
       @invite_list = ARGV
@@ -284,10 +303,10 @@ class MucRoomTool
     @password = ENV['MUC_PASS']
 
     # Configure variables that are based on user input
-    if (@username && @password && @hostname && RESOURCE && @roomname)
+    if (@username && @password && @hostname && @resource && @roomname)
       @room_jid = "#{@roomname}@conference.#{@hostname}"
       @client_jid = "#{@username}@#{@hostname}"
-      @client_full_jid = "#{@client_jid}/#{RESOURCE}"
+      @client_full_jid = "#{@client_jid}/#{@resource}"
       @client_muc_jid = "#{@room_jid}/#{@username}"
       @room_config['muc#owner_roomname'] = @roomname
       if (! @room_config['muc#owner_roomdesc'])
@@ -445,7 +464,7 @@ end
       puts "Joining room #{@roomname}...\n"
       muc = join_room(client, @client_muc_jid, @client_full_jid)
       puts "Sending chat room invitations...\n" 
-      send_invites(client, @client_full_jid, @room_jid, (@reason != nil) ? @reason : INVITE_REASON, @invite_list)
+      send_invites(client, @client_full_jid, @room_jid, @reason, @invite_list)
       puts "Done sending chat room invitations.\n" 
     end
 
@@ -453,9 +472,12 @@ end
     if (@destroy && @roomname)
       puts "Destroying room #{@roomname}...\n"
       join_room(client, @client_muc_jid, @client_full_jid)
-      destroy_room(client, @client_full_jid, @room_jid, (@reason != nil) ? @reason : DESTROY_REASON, @alt_roomname)
+      destroy_room(client, @client_full_jid, @room_jid, @reason, @alt_roomname)
       puts "Done destroying room #{@roomname}...\n"
     end
+
+    # Apparently if we disconnect before c2s has routed our final packet(s), those packets get dropped by c2s.
+    sleep(1)
 
     return true
   end

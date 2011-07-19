@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -137,25 +135,29 @@ SYSCTL_NODE(_vfs_generic, OID_AUTO, msdosfs, CTLFLAG_RW, 0, "msdosfs (FAT) file 
 SYSCTL_INT(_vfs_generic_msdosfs, OID_AUTO, meta_delay, CTLFLAG_RW, &msdosfs_meta_delay, 0, "max delay before flushing metadata (ms)");
 #endif
 
-static int	update_mp __P((struct mount *mp, struct msdosfs_args *argp));
-static int	mountmsdosfs __P((vnode_t devvp, struct mount *mp, vfs_context_t context));
-static int	msdosfs_mount __P((struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t));
-static int	msdosfs_root __P((struct mount *, vnode_t *, vfs_context_t));
-static int	msdosfs_statfs __P((struct mount *, struct vfsstatfs *, vfs_context_t));
-static int	msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context);
-static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context);
-static int	msdosfs_sync __P((struct mount *, int, vfs_context_t));
-static int	msdosfs_unmount __P((struct mount *, int, vfs_context_t));
+int msdosfs_init(struct vfsconf *vfsp);
+int msdosfs_uninit(void);
+int msdosfs_start(struct mount *mp, int flags, vfs_context_t context);
 
-static int	scan_root_dir(struct mount *mp, vfs_context_t context);
+int msdosfs_update_mp(struct mount *mp, struct msdosfs_args *argp);
+int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context);
+int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t);
+int msdosfs_vfs_root(struct mount *, vnode_t *, vfs_context_t);
+int msdosfs_vfs_statfs(struct mount *, struct vfsstatfs *, vfs_context_t);
+int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context);
+int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context);
+int msdosfs_vfs_sync(struct mount *, int, vfs_context_t);
+int msdosfs_vfs_unmount(struct mount *, int, vfs_context_t);
+
+int msdosfs_scan_root_dir(struct mount *mp, vfs_context_t context);
+int msdosfs_sync_callback(vnode_t vp, void *cargs);
 
 /* The routines are exported for the KEXT glue to link against. */
 int msdosfs_module_start(kmod_info_t *ki, void *data);
 int msdosfs_module_stop (kmod_info_t *ki, void *data);
 
 /*ARGSUSED*/
-static int 
-msdosfs_init(struct vfsconf *vfsp)
+int msdosfs_init(struct vfsconf *vfsp)
 {
 #pragma unused (vfsp)
 	msdosfs_lck_grp_attr = lck_grp_attr_alloc_init();
@@ -174,8 +176,7 @@ msdosfs_init(struct vfsconf *vfsp)
  * the KEXT as it is about to be unloaded.
  */
 
-static int
-msdosfs_uninit(void)
+int msdosfs_uninit(void)
 {
 	msdosfs_hash_uninit();
 	
@@ -189,10 +190,7 @@ msdosfs_uninit(void)
 }
 
 
-static int
-update_mp(mp, argp)
-	struct mount *mp;
-	struct msdosfs_args *argp;
+int msdosfs_update_mp(struct mount *mp, struct msdosfs_args *argp)
 {
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
 
@@ -215,12 +213,7 @@ update_mp(mp, argp)
  * data - addr in user space of mount params including the name of the block
  * special file to treat as a filesystem.
  */
-static int
-msdosfs_mount(mp, devvp, data, context)
-	struct mount *mp;
-	vnode_t devvp;
-	user_addr_t data;
-	vfs_context_t context;
+int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t context)
 {
 	struct msdosfs_args args; /* will hold data from mount request */
 	/* msdosfs specific mount control block */
@@ -263,7 +256,7 @@ msdosfs_mount(mp, devvp, data, context)
 			pmp->pm_flags &= ~MSDOSFSMNT_RONLY;
 
 			/* Now that the volume is modifiable, mark it dirty */
-			error = markvoldirty(pmp, 1);
+			error = msdosfs_markvoldirty(pmp, 1);
 			if (error) {
 				pmp->pm_flags |= MSDOSFSMNT_RONLY;
 				goto error_exit;
@@ -272,19 +265,19 @@ msdosfs_mount(mp, devvp, data, context)
 	}
 
 	if ( !vfs_isupdate(mp)) {
-		error = mountmsdosfs(devvp, mp, context);
+		error = msdosfs_mount(devvp, mp, context);
 		if (error)
-			goto error_exit;	/* mountmsdosfs cleaned up already */
+			goto error_exit;	/* msdosfs_mount cleaned up already */
 	}
 
 	if (error == 0)
-		error = update_mp(mp, &args);
+		error = msdosfs_update_mp(mp, &args);
 
 	if (error == 0)
-		(void) msdosfs_statfs(mp, vfs_statfs(mp), context);
+		(void) msdosfs_vfs_statfs(mp, vfs_statfs(mp), context);
 
 	if (error)
-		msdosfs_unmount(mp, MNT_FORCE, context);	/* NOTE: calls OSKextReleaseKextWithLoadTag */
+		msdosfs_vfs_unmount(mp, MNT_FORCE, context);	/* NOTE: calls OSKextReleaseKextWithLoadTag */
 
 	return error;
 
@@ -295,11 +288,7 @@ error_exit:
 	return error;
 }
 
-static int
-mountmsdosfs(devvp, mp, context)
-	vnode_t devvp;
-	struct mount *mp;
-	vfs_context_t context;
+int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 {
 	struct msdosfsmount *pmp;
 	struct buf *bp;
@@ -360,11 +349,16 @@ mountmsdosfs(devvp, mp, context)
 	 * The first three bytes are an Intel x86 jump instruction.  It should be one
 	 * of the following forms:
 	 *    0xE9 0x?? 0x??
-	 *    0xEC 0x?? 0x90
+	 *    0xEB 0x?? 0x90
 	 * where 0x?? means any byte value is OK.
+	 *
+	 * [5016947]
+	 *
+	 * Windows doesn't actually check the third byte if the first byte is 0xEB,
+	 * so we don't either
 	 */
 	if (bsp->bs50.bsJump[0] != 0xE9
-		&& (bsp->bs50.bsJump[0] != 0xEB || bsp->bs50.bsJump[2] != 0x90))
+		&& bsp->bs50.bsJump[0] != 0xEB)
 	{
 		error = EINVAL;
 		goto error_exit;
@@ -417,7 +411,7 @@ mountmsdosfs(devvp, mp, context)
 		    || fat_sectors != 0
 		    || getuint16(b710->bpbFSVers) != 0) {
 			error = EINVAL;
-			printf("mountmsdosfs(): bad FAT32 filesystem\n");
+			printf("msdosfs_mount(): bad FAT32 filesystem\n");
 			goto error_exit;
 		}
 		pmp->pm_fatmask = FAT32_MASK;
@@ -474,7 +468,7 @@ mountmsdosfs(devvp, mp, context)
 	if (FAT32(pmp) && (pmp->pm_rootdirblk < CLUST_FIRST ||
 		pmp->pm_rootdirblk > pmp->pm_maxcluster))
 	{
-		printf("mountmsdosfs: root starting cluster (%u) out of range\n",
+		printf("msdosfs_mount: root starting cluster (%u) out of range\n",
 			pmp->pm_rootdirblk);
 		error = EINVAL;
 		goto error_exit;
@@ -588,7 +582,7 @@ mountmsdosfs(devvp, mp, context)
 			/*
 			 * Copy the label from the boot sector into the mount point.
 			 *
-			 * We don't call dos2unicodefn() because it assumes the last three
+			 * We don't call msdosfs_dos2unicodefn() because it assumes the last three
 			 * characters are an extension, and it will put a period before the
 			 * extension.
 			 */
@@ -654,7 +648,7 @@ mountmsdosfs(devvp, mp, context)
 		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4)) {
 			pmp->pm_nxtfree = getuint32(fp->fsinxtfree);
 		} else {
-			printf("mountmsdosfs: FSInfo has bad signature\n");
+			printf("msdosfs_mount: FSInfo has bad signature\n");
 			pmp->pm_fsinfo_size = 0;
 		}
 		buf_brelse(bp);
@@ -706,31 +700,31 @@ mountmsdosfs(devvp, mp, context)
 	/*
 	 * Look through the root directory for volume name, and Windows hibernation.
 	 */
-	error = scan_root_dir(mp, context);
+	error = msdosfs_scan_root_dir(mp, context);
 	if (error)
 	{
 		if (error == EIO && vfs_isrdwr(mp))
 		{
-			(void) markvoldirty(pmp, 1);	/* Verify/repair the volume next time. */
+			(void) msdosfs_markvoldirty(pmp, 1);	/* Verify/repair the volume next time. */
 		}
 		goto error_exit;
 	}
 
 	/*
 	 * NOTE: we have to call vfs_isrdonly here, not cache the value from earlier.
-	 * It is possible that scan_root_dir made the mount read-only due to a
+	 * It is possible that msdosfs_scan_root_dir made the mount read-only due to a
 	 * Windows hibernation image.
 	 */
 	if (vfs_isrdonly(mp))
 		pmp->pm_flags |= MSDOSFSMNT_RONLY;
 	else {
 		/* [2753891] Mark the volume dirty while it is mounted read/write */
-		if ((error = markvoldirty(pmp, 1)) != 0)
+		if ((error = msdosfs_markvoldirty(pmp, 1)) != 0)
 			goto error_exit;
 	}
 
 	/*
-	 * Fill in the statvfs fields that are constant (not updated by msdosfs_statfs)
+	 * Fill in the statvfs fields that are constant (not updated by msdosfs_vfs_statfs)
 	 */
 	vfsstatfs = vfs_statfs(mp);
 	vfsstatfs->f_bsize = pmp->pm_bpcluster;
@@ -777,8 +771,7 @@ error_exit:
  * Nothing to do at the moment.
  */
 /* ARGSUSED */
-static int
-msdosfs_start(struct mount *mp, int flags, vfs_context_t context)
+int msdosfs_start(struct mount *mp, int flags, vfs_context_t context)
 {
 #pragma unused (mp)
 #pragma unused (flags)
@@ -789,11 +782,7 @@ msdosfs_start(struct mount *mp, int flags, vfs_context_t context)
 /*
  * Unmount the filesystem described by mp.
  */
-static int
-msdosfs_unmount(mp, mntflags, context)
-	struct mount *mp;
-	int mntflags;
-	vfs_context_t context;
+int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 {
 	struct msdosfsmount *pmp;
 	int error, flags;
@@ -833,11 +822,11 @@ msdosfs_unmount(mp, mntflags, context)
 		 */
 		while(pmp->pm_sync_incomplete > 0)
 		{
-			msleep(&pmp->pm_sync_incomplete, NULL, PWAIT, "msdosfs_unmount", &ts);
+			msleep(&pmp->pm_sync_incomplete, NULL, PWAIT, "msdosfs_vfs_unmount", &ts);
 		}
 		
 		if (pmp->pm_sync_incomplete < 0)
-			panic("msdosfs_unmount: pm_sync_incomplete underflow!\n");
+			panic("msdosfs_vfs_unmount: pm_sync_incomplete underflow!\n");
 	}
 	
 	error = vflush(mp, NULLVP, flags);
@@ -849,7 +838,7 @@ msdosfs_unmount(mp, mntflags, context)
 	 * was detected, mark it clean now.
 	 */
 	if ((pmp->pm_flags & (MSDOSFSMNT_RONLY | MSDOSFS_CORRUPT)) == 0) {
-		error = markvoldirty(pmp, 0);
+		error = msdosfs_markvoldirty(pmp, 0);
 		if (error && !force)
 			goto error_exit;
 	}
@@ -880,17 +869,13 @@ error_exit:
 	return (error);
 }
 
-static int
-msdosfs_root(mp, vpp, context)
-	struct mount *mp;
-	vnode_t *vpp;
-	vfs_context_t context;
+int msdosfs_vfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 {
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
 	struct denode *ndep;
 	int error;
 
-	error = deget(pmp, MSDOSFSROOT, MSDOSFSROOT_OFS, NULLVP, NULL, &ndep, context);
+	error = msdosfs_deget(pmp, MSDOSFSROOT, MSDOSFSROOT_OFS, NULLVP, NULL, &ndep, context);
 	if (error)
 		return (error);
 	*vpp = DETOV(ndep);
@@ -898,11 +883,7 @@ msdosfs_root(mp, vpp, context)
 }
 
 
-static int
-msdosfs_statfs(mp, sbp, context)
-	struct mount *mp;
-	struct vfsstatfs *sbp;
-	vfs_context_t context;
+int msdosfs_vfs_statfs(struct mount *mp, struct vfsstatfs *sbp, vfs_context_t context)
 {
 #pragma unused (context)
 	struct msdosfsmount *pmp;
@@ -936,8 +917,7 @@ msdosfs_statfs(mp, sbp, context)
 }
 
 
-static int
-msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
+int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 {
 #pragma unused (context)
 	struct vfsstatfs *stats;
@@ -1164,7 +1144,7 @@ msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 }
 
 
-static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
+int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 {
     int error = 0;
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
@@ -1194,7 +1174,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
 
         /*
          * Convert from UTF-16 to local encoding (like a short name).
-         * We can't call unicode2dosfn here because it assumes a dot
+         * We can't call msdosfs_unicode2dosfn here because it assumes a dot
          * between the first 8 and last 3 characters.
          *
          * The specification doesn't say what syntax limitations exist
@@ -1212,7 +1192,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
             if (c < 0x100)
                 c = l2u[c];			/* Convert to lower case */
             if (c != ' ')			/* Allow space to pass unchanged */
-                c = unicode2dos(c);	/* Convert to local encoding */
+                c = msdosfs_unicode2dos(c);	/* Convert to local encoding */
             if (c < 3)
                 return EINVAL;		/* Illegal char in name */
             label[i] = c;
@@ -1242,7 +1222,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
          * cameras don't understand them).
          */
         if (pmp->pm_label_cluster != CLUST_EOFE) {
-        	error = readep(pmp, pmp->pm_label_cluster, pmp->pm_label_offset, &bp, NULL, context);
+        	error = msdosfs_readep(pmp, pmp->pm_label_cluster, pmp->pm_label_offset, &bp, NULL, context);
             if (!error) {
                 bcopy(label, (char *)buf_dataptr(bp) + pmp->pm_label_offset, SHORT_NAME_LEN);
                 buf_bdwrite(bp);
@@ -1268,8 +1248,7 @@ struct msdosfs_sync_cargs {
 };
 
 
-static int
-msdosfs_sync_callback(vnode_t vp, void *cargs)
+int msdosfs_sync_callback(vnode_t vp, void *cargs)
 {
 	struct msdosfs_sync_cargs *args;
 	struct denode *dep;
@@ -1290,7 +1269,7 @@ msdosfs_sync_callback(vnode_t vp, void *cargs)
 	
 	/*
 	 * If this is a FAT vnode, then don't sync it here.  It will be sync'ed
-	 * separately in msdosfs_sync.
+	 * separately in msdosfs_vfs_sync.
 	 */
 	if (vnode_issystem(vp))
 		return VNODE_RETURNED;
@@ -1307,8 +1286,7 @@ msdosfs_sync_callback(vnode_t vp, void *cargs)
 }
 
 
-static int
-msdosfs_sync(mp, waitfor, context)
+int msdosfs_vfs_sync(mp, waitfor, context)
 	struct mount *mp;
 	int waitfor;
 	vfs_context_t context;
@@ -1360,13 +1338,13 @@ msdosfs_sync(mp, waitfor, context)
 
 
 struct vfsops msdosfs_vfsops = {
-	msdosfs_mount,
+	msdosfs_vfs_mount,
 	msdosfs_start,
-	msdosfs_unmount,
-	msdosfs_root,
+	msdosfs_vfs_unmount,
+	msdosfs_vfs_root,
 	NULL, /* msdosfs_quotactl */
 	msdosfs_vfs_getattr,
-	msdosfs_sync,
+	msdosfs_vfs_sync,
 	NULL, /* msdosfs_vget */
 	NULL, /* msdosfs_fhtovp */
 	NULL, /* msdosfs_vptofh */
@@ -1387,8 +1365,7 @@ static struct vnodeopv_desc *msdosfs_vnodeop_opv_desc_list[2] =
 
 static vfstable_t msdosfs_vfsconf;
 
-__private_extern__ int
-msdosfs_module_start(kmod_info_t *ki, void *data)
+int msdosfs_module_start(kmod_info_t *ki, void *data)
 {
 #pragma unused(ki)
 #pragma unused(data)
@@ -1399,7 +1376,7 @@ msdosfs_module_start(kmod_info_t *ki, void *data)
 	vfe.vfe_vopcnt = 2;		/* We just have vnode operations for regular files and directories, and the FAT */
 	vfe.vfe_opvdescs = msdosfs_vnodeop_opv_desc_list;
 	strlcpy(vfe.vfe_fsname, "msdos", sizeof(vfe.vfe_fsname));
-	vfe.vfe_flags = VFS_TBLTHREADSAFE | VFS_TBLNOTYPENUM | VFS_TBLLOCALVOL | VFS_TBL64BITREADY;
+	vfe.vfe_flags = VFS_TBLTHREADSAFE | VFS_TBLNOTYPENUM | VFS_TBLLOCALVOL | VFS_TBL64BITREADY | VFS_TBLREADDIR_EXTENDED;
 	vfe.vfe_reserv[0] = 0;
 	vfe.vfe_reserv[1] = 0;
 	
@@ -1416,8 +1393,7 @@ msdosfs_module_start(kmod_info_t *ki, void *data)
 	return error ? KERN_FAILURE : KERN_SUCCESS;
 }
 
-__private_extern__ int  
-msdosfs_module_stop(kmod_info_t *ki, void *data)
+int msdosfs_module_stop(kmod_info_t *ki, void *data)
 {
 #pragma unused(ki)
 #pragma unused(data)
@@ -1445,7 +1421,7 @@ msdosfs_module_stop(kmod_info_t *ki, void *data)
  * 4KiB in size, or has non-zero bytes in the first 4KiB, then force the
  * mount to read-only because Windows is hibernated on this volume.
  */
-static int scan_root_dir(struct mount *mp, vfs_context_t context)
+int msdosfs_scan_root_dir(struct mount *mp, vfs_context_t context)
 {
     int error;
     struct msdosfsmount *pmp;
@@ -1468,14 +1444,14 @@ static int scan_root_dir(struct mount *mp, vfs_context_t context)
 
     pmp = VFSTOMSDOSFS(mp);
 
-    error = msdosfs_root(mp, &vp, context);
+    error = msdosfs_vfs_root(mp, &vp, context);
     if (error)
         return error;
     root = VTODE(vp);
     
 	diroff = 0;
     for (frcn=0; ; frcn++) {
-        error = pcbmap(root, frcn, 1, &bn, &cluster, &blsize);
+        error = msdosfs_pcbmap(root, frcn, 1, &bn, &cluster, &blsize);
         if (error) {
             /* It is fine if no volume label entry was found in the root directory */
             if (error == E2BIG)
@@ -1523,7 +1499,7 @@ static int scan_root_dir(struct mount *mp, vfs_context_t context)
                 root->de_MDate = getuint16(dep->deMDate);
 
 				/*
-                 * We don't call dos2unicodefn() because it assumes the last three
+                 * We don't call msdosfs_dos2unicodefn() because it assumes the last three
                  * characters are an extension, and it will put a period before the
                  * extension.
                  */
@@ -1556,12 +1532,12 @@ static int scan_root_dir(struct mount *mp, vfs_context_t context)
 					goto hibernated;
 				}
 				
-				/* Release the current directory block so we can deget() the current entry. */
+				/* Release the current directory block so we can msdosfs_deget() the current entry. */
 				buf_brelse(bp);
 				bp = NULL;
 
 				/* Need to open the file so we can check the first 4KiB */
-				error = deget(pmp, cluster, diroff, NULL, NULL, &hibernate, context);
+				error = msdosfs_deget(pmp, cluster, diroff, NULL, NULL, &hibernate, context);
 				if (error)
 				{
 					printf("msdosfs: error %d trying to open hiberfil.sys\n", error);

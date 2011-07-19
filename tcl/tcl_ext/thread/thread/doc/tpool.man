@@ -30,8 +30,8 @@ Following options are supported:
 
 [list_begin definitions]
 
-[lst_item {-minthreads number}]
-Minimum number of threads needed for this threadpool instance.
+[lst_item {-minworkers number}]
+Minimum number of worker threads needed for this threadpool instance.
 During threadpool creation, the implementation will create somany
 worker threads upfront and will keep at least number of them alive
 during the lifetime of the threadpool instance.
@@ -40,8 +40,8 @@ threadpool will have no worker threads initialy. All worker threads
 will be started on demand by callers running [cmd tpool::post] command
 and posting jobs to the job queue.
 
-[lst_item {-maxthreads number}]
-Maximum number of threads allowed for this threadpool instance.
+[lst_item {-maxworkers number}]
+Maximum number of worker threads allowed for this threadpool instance.
 If a new job is pending and there are no idle worker threads available,
 the implementation will try to create new worker thread. If the number
 of available worker threads is lower than the given number,
@@ -178,6 +178,24 @@ is marked for termination. You should not reference the threadpool
 after the [cmd tpool::release] command returns zero. The [arg tpool]
 handle goes out of scope and should not be used any more. Any following
 reference to the same threadpool handle will result in Tcl error.
+
+[call [cmd tpool::suspend] [arg tpool]]
+
+Suspends processing work on this queue. All pool workers are paused
+but additional work can be added to the pool. Note that adding the
+additional work will not increase the number of workers dynamically
+as the pool processing is suspended. Number of workers is maintained
+to the count that was found prior suspending worker activity.
+If you need to assure certain number of worker threads, use the 
+[option minworkers] option of the [cmd tpool::create] command.
+
+[call [cmd tpool::resume] [arg tpool]]
+
+Resume processing work on this queue. All paused (suspended) 
+workers are free to get work from the pool. Note that resuming pool
+operation will just let already created workers to proceed. 
+It will not create additional worker threads to handle the work 
+posted to the pool's work queue.
 
 [list_end]
 

@@ -1,13 +1,27 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         DateTime-Format-Pg
-version:      0.09
-version_from: lib/DateTime/Format/Pg.pm
-installdirs:  site
-requires:
-    DateTime:                      0.1
-    DateTime::Format::Builder:     0.72
-    DateTime::TimeZone:            0.05
-
+---
+abstract: 'Parse and format PostgreSQL dates and times'
+author:
+  - 'Daisuke Maki <daisuke@endeworks.jp>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+  Test::More: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.30
+generated_by: 'Module::Install version 0.91'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Pg
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  DateTime: 0.10
+  DateTime::Format::Builder: 0.72
+  DateTime::TimeZone: 0.05
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.16004

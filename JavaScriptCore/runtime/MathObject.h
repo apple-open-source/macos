@@ -21,23 +21,22 @@
 #ifndef MathObject_h
 #define MathObject_h
 
-#include "JSObject.h"
+#include "JSObjectWithGlobalObject.h"
 
 namespace JSC {
 
-    class MathObject : public JSObject {
+    class MathObject : public JSObjectWithGlobalObject {
     public:
-        MathObject(ExecState*, NonNullPassRefPtr<Structure>);
+        MathObject(ExecState*, JSGlobalObject*, Structure*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:

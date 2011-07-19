@@ -1,0 +1,56 @@
+diff -ur dovecot-1.1.7/configure.in dovecot-patch/configure.in
+--- dovecot-1.1.7/configure.in	2008-11-23 16:16:26.000000000 -0600
++++ dovecot-patch/configure.in	2008-12-15 09:40:55.000000000 -0600
+@@ -1205,9 +1205,17 @@
+       #include <fcntl.h>
+       #include "fdpass.h"
+       
++      int nopen(void)
++      {
++	      int i, n;
++	      struct stat sb;
++	      for (i = n = 0; i < 256; i++)
++		  if (fstat(i, &sb) == 0) ++n;
++	      return n;
++      }
+       int main(void)
+       {
+-	      int fd[2], send_fd, recv_fd, status;
++	      int fd[2], send_fd, recv_fd, status, n1, n2;
+ 	      struct stat st, st2;
+ 	      char data;
+       
+@@ -1216,6 +1224,7 @@
+ 	      unlink("conftest.fdpass");
+ 	      if (fstat(send_fd, &st) < 0) return 2;
+ 	      if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) return 2;
++	      n1 = nopen();
+       
+ 	      switch (fork()) {
+ 	      case -1:
+@@ -1232,7 +1241,8 @@
+ 			return status;
+ 		      if (fd_read(fd[1], &data, 1, &recv_fd) != 1) return 1;
+ 		      if (fstat(recv_fd, &st2) < 0) return 2;
+-		      return st.st_ino == st2.st_ino ? 0 : 1;
++		      n2 = nopen();
++		      return st.st_ino == st2.st_ino && n2 == n1 + 1 ? 0 : 1;
+ 	      }
+       }
+     ], [
+@@ -1251,6 +1261,15 @@
+   done
+ ]);
+ 
++dnl APPLE
++case "$host_os" in
++darwin[[1-9]].*)
++	if test "$i_cv_fd_passing" = "yes"; then
++		i_cv_fd_passing=buggy_cmsg_macros
++	fi
++	;;
++esac
++
+ if test $i_cv_fd_passing = buggy_cmsg_macros; then
+   AC_DEFINE(BUGGY_CMSG_MACROS,, Define if you have buggy CMSG macros)
+ fi

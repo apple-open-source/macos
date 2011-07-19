@@ -1,8 +1,8 @@
 /* ldapsync.c -- LDAP Content Sync Routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ldapsync.c,v 1.32.2.7 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ldapsync.c,v 1.32.2.13 2010/04/19 16:53:02 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2003-2008 The OpenLDAP Foundation.
+ * Copyright 2003-2010 The OpenLDAP Foundation.
  * Portions Copyright 2003 IBM Corporation.
  * All rights reserved.
  *
@@ -45,7 +45,7 @@ slap_compose_sync_cookie(
 	}
 
 	if ( numcsn == 0 || rid == -1 ) {
-		char cookiestr[ LDAP_LUTIL_CSNSTR_BUFSIZE + 20 ];
+		char cookiestr[ LDAP_PVT_CSNSTR_BUFSIZE + 20 ];
 		if ( rid == -1 ) {
 			cookiestr[0] = '\0';
 			len = 0;
@@ -176,7 +176,7 @@ slap_parse_sync_cookie(
 	char *csn_str;
 	char *cval;
 	char *next, *end;
-	AttributeDescription *ad = slap_schema.si_ad_modifyTimestamp;
+	AttributeDescription *ad = slap_schema.si_ad_entryCSN;
 
 	if ( cookie == NULL )
 		return -1;
@@ -230,13 +230,11 @@ slap_parse_sync_cookie(
 			continue;
 		}
 		if ( !strncmp( next, "csn=", STRLENOF("csn=") )) {
-			slap_syntax_validate_func *validate;
 			struct berval stamp;
 
 			next += STRLENOF("csn=");
 			while ( next < end ) {
 				csn_str = next;
-				/* FIXME use csnValidate when it gets implemented */
 				csn_ptr = strchr( csn_str, '#' );
 				if ( !csn_ptr || csn_ptr > end )
 					break;
@@ -244,14 +242,6 @@ slap_parse_sync_cookie(
 				 * want to parse the rid then. But we still iterate
 				 * through the string to find the end.
 				 */
-				if ( ad ) {
-					stamp.bv_val = csn_str;
-					stamp.bv_len = csn_ptr - csn_str;
-					validate = ad->ad_type->sat_syntax->ssyn_validate;
-					if ( validate( ad->ad_type->sat_syntax, &stamp )
-						!= LDAP_SUCCESS )
-						break;
-				}
 				cval = strchr( csn_ptr, ';' );
 				if ( !cval )
 					cval = strchr(csn_ptr, ',' );
@@ -261,7 +251,16 @@ slap_parse_sync_cookie(
 					stamp.bv_len = end - csn_str;
 				if ( ad ) {
 					struct berval bv;
-					ber_dupbv_x( &bv, &stamp, memctx );
+					stamp.bv_val = csn_str;
+					if ( ad->ad_type->sat_syntax->ssyn_validate(
+						ad->ad_type->sat_syntax, &stamp ) != LDAP_SUCCESS )
+						break;
+					if ( ad->ad_type->sat_equality->smr_normalize(
+						SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+						ad->ad_type->sat_syntax,
+						ad->ad_type->sat_equality,
+						&stamp, &bv, memctx ) != LDAP_SUCCESS )
+						break;
 					ber_bvarray_add_x( &cookie->ctxcsn, &bv, memctx );
 					cookie->numcsns++;
 				}
@@ -290,14 +289,14 @@ slap_init_sync_cookie_ctxcsn(
 	struct sync_cookie *cookie
 )
 {
-	char csnbuf[ LDAP_LUTIL_CSNSTR_BUFSIZE + 4 ];
+	char csnbuf[ LDAP_PVT_CSNSTR_BUFSIZE + 4 ];
 	struct berval octet_str = BER_BVNULL;
 	struct berval ctxcsn = BER_BVNULL;
 
 	if ( cookie == NULL )
 		return -1;
 
-	octet_str.bv_len = snprintf( csnbuf, LDAP_LUTIL_CSNSTR_BUFSIZE + 4,
+	octet_str.bv_len = snprintf( csnbuf, LDAP_PVT_CSNSTR_BUFSIZE + 4,
 					"csn=%4d%02d%02d%02d%02d%02dZ#%06x#%02x#%06x",
 					1900, 1, 1, 0, 0, 0, 0, 0, 0 );
 	octet_str.bv_val = csnbuf;

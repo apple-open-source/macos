@@ -1,0 +1,17 @@
+#!/bin/sh
+
+realm=`/usr/libexec/PlistBuddy -c "Print :realname:[0]" /var/db/dslocal/nodes/Default/config/KerberosKDC.plist`
+
+for x in /usr/local/libexec/kerberoshelper/migration/data/*; do
+	version=`basename $x`
+	for a in configure migrate ; do
+	    dscl . -create /Users/heimdaltestuser
+	    /usr/libexec/${a}LocalKDC --source $x --source-version $version
+	    keys=`/usr/sbin/kadmin -l -r $realm get heimdaltestuser | grep Keytypes | sed s/[\ ]*Keytypes:\ //g`
+	    dscl . -delete /Users/heimdaltestuser
+	    if [ -z "$keys" ]; then
+		    echo "Failure trying to $a from $version!"
+		    exit 1
+	    fi
+	done
+done

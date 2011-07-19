@@ -36,33 +36,25 @@ using namespace WebCore;
 namespace JSC {
 namespace Bindings {
 
-const ClassInfo RuntimeObject::s_info = { "RuntimeObject", 0, 0, 0 };
+const ClassInfo RuntimeObject::s_info = { "RuntimeObject", &JSObjectWithGlobalObject::s_info, 0, 0 };
 
-RuntimeObject::RuntimeObject(ExecState* exec, PassRefPtr<Instance> instance)
-    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
-    // We need to pass in the right global object for "i".
-    : JSObject(deprecatedGetDOMStructure<RuntimeObject>(exec))
+RuntimeObject::RuntimeObject(ExecState*, JSGlobalObject* globalObject, Structure* structure, PassRefPtr<Instance> instance)
+    : JSObjectWithGlobalObject(globalObject, structure)
     , m_instance(instance)
 {
-}
-
-RuntimeObject::RuntimeObject(ExecState*, NonNullPassRefPtr<Structure> structure, PassRefPtr<Instance> instance)
-    : JSObject(structure)
-    , m_instance(instance)
-{
+    ASSERT(inherits(&s_info));
 }
 
 RuntimeObject::~RuntimeObject()
 {
-    if (m_instance)
-        m_instance->willDestroyRuntimeObject(this);
+    ASSERT(!m_instance);
 }
 
 void RuntimeObject::invalidate()
 {
     ASSERT(m_instance);
     if (m_instance)
-        m_instance->willInvalidateRuntimeObject(this);
+        m_instance->willInvalidateRuntimeObject();
     m_instance = 0;
 }
 
@@ -253,14 +245,14 @@ JSValue RuntimeObject::defaultValue(ExecState* exec, PreferredPrimitiveType hint
     return result;
 }
 
-static JSValue JSC_HOST_CALL callRuntimeObject(ExecState* exec, JSObject* function, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callRuntimeObject(ExecState* exec)
 {
-    ASSERT(function->inherits(&RuntimeObject::s_info));
-    RefPtr<Instance> instance(static_cast<RuntimeObject*>(function)->getInternalInstance());
+    ASSERT(exec->callee()->inherits(&RuntimeObject::s_info));
+    RefPtr<Instance> instance(static_cast<RuntimeObject*>(exec->callee())->getInternalInstance());
     instance->begin();
-    JSValue result = instance->invokeDefaultMethod(exec, args);
+    JSValue result = instance->invokeDefaultMethod(exec);
     instance->end();
-    return result;
+    return JSValue::encode(result);
 }
 
 CallType RuntimeObject::getCallData(CallData& callData)
@@ -276,16 +268,18 @@ CallType RuntimeObject::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-static JSObject* callRuntimeConstructor(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callRuntimeConstructor(ExecState* exec)
 {
+    JSObject* constructor = exec->callee();
     ASSERT(constructor->inherits(&RuntimeObject::s_info));
-    RefPtr<Instance> instance(static_cast<RuntimeObject*>(constructor)->getInternalInstance());
+    RefPtr<Instance> instance(static_cast<RuntimeObject*>(exec->callee())->getInternalInstance());
     instance->begin();
+    ArgList args(exec);
     JSValue result = instance->invokeConstruct(exec, args);
     instance->end();
     
     ASSERT(result);
-    return result.isObject() ? static_cast<JSObject*>(result.asCell()) : constructor;
+    return JSValue::encode(result.isObject() ? static_cast<JSObject*>(result.asCell()) : constructor);
 }
 
 ConstructType RuntimeObject::getConstructData(ConstructData& constructData)
@@ -317,7 +311,7 @@ void RuntimeObject::getOwnPropertyNames(ExecState* exec, PropertyNameArray& prop
 
 JSObject* RuntimeObject::throwInvalidAccessError(ExecState* exec)
 {
-    return throwError(exec, ReferenceError, "Trying to access object from destroyed plug-in.");
+    return throwError(exec, createReferenceError(exec, "Trying to access object from destroyed plug-in."));
 }
 
 }

@@ -25,7 +25,14 @@
 			MEMBER integer x-dimension 10160
 			MEMBER integer y-dimension 15240
 		}
+
+		# Borderless
+		MEMBER integer media-left-margin 0
+		MEMBER integer media-right-margin 0
+		MEMBER integer media-top-margin 0
+		MEMBER integer media-bottom-margin 0
 	}
+	ATTR enum print-quality 5
 
 	FILE $filename
 

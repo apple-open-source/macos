@@ -25,12 +25,13 @@
 #ifndef CounterContent_h
 #define CounterContent_h
 
-#include "AtomicString.h"
 #include "RenderStyleConstants.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-class CounterContent : public FastAllocBase {
+class CounterContent {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CounterContent(const AtomicString& identifier, EListStyleType style, const AtomicString& separator)
         : m_identifier(identifier)

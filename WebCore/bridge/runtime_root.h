@@ -29,9 +29,11 @@
 #if PLATFORM(MAC)
 #include "jni_jsobject.h"
 #endif
-#include <runtime/Protect.h>
+#include <heap/Strong.h>
 
+#include <heap/Weak.h>
 #include <wtf/Forward.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
@@ -52,7 +54,7 @@ typedef HashCountedSet<JSObject*> ProtectCountSet;
 extern RootObject* findProtectingRootObject(JSObject*);
 extern RootObject* findRootObject(JSGlobalObject*);
 
-class RootObject : public RefCounted<RootObject> {
+class RootObject : public RefCounted<RootObject>, private JSC::WeakHandleOwner {
     friend class JavaJSObject;
 
 public:
@@ -69,8 +71,9 @@ public:
 
     const void* nativeHandle() const;
     JSGlobalObject* globalObject() const;
+    void updateGlobalObject(JSGlobalObject*);
 
-    void addRuntimeObject(RuntimeObject*);
+    void addRuntimeObject(JSGlobalData&, RuntimeObject*);
     void removeRuntimeObject(RuntimeObject*);
 
     struct InvalidationCallback {
@@ -81,14 +84,17 @@ public:
 
 private:
     RootObject(const void* nativeHandle, JSGlobalObject*);
-    
+
+    // WeakHandleOwner
+    virtual void finalize(JSC::Handle<JSC::Unknown>, void* context);
+
     bool m_isValid;
     
     const void* m_nativeHandle;
-    ProtectedPtr<JSGlobalObject> m_globalObject;
+    Strong<JSGlobalObject> m_globalObject;
 
     ProtectCountSet m_protectCountSet;
-    HashSet<RuntimeObject*> m_runtimeObjects;    
+    HashMap<RuntimeObject*, JSC::Weak<RuntimeObject> > m_runtimeObjects; // Really need a WeakGCSet, but this will do.
 
     HashSet<InvalidationCallback*> m_invalidationCallbacks;
 };

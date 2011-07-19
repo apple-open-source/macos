@@ -28,11 +28,39 @@
 #define ScriptProfile_h
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-#include <profiler/Profile.h>
+#include "ScriptProfileNode.h"
+#include <wtf/Forward.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
+
+namespace JSC {
+class Profile;
+}
 
 namespace WebCore {
 
-typedef JSC::Profile ScriptProfile;
+class InspectorObject;
+
+class ScriptProfile : public RefCounted<ScriptProfile> {
+public:
+    static PassRefPtr<ScriptProfile> create(PassRefPtr<JSC::Profile> profile);
+    virtual ~ScriptProfile();
+
+    String title() const;
+    unsigned int uid() const;
+    ScriptProfileNode* head() const;
+
+#if ENABLE(INSPECTOR)
+    PassRefPtr<InspectorObject> buildInspectorObjectForHead() const;
+#endif
+
+private:
+    ScriptProfile(PassRefPtr<JSC::Profile> profile);
+
+    RefPtr<JSC::Profile> m_profile;
+};
+
 
 } // namespace WebCore
 

@@ -1,5 +1,8 @@
 
 BUILT_SOURCES = vi.h emacs.h common.h fcns.h help.h fcns.c help.c
+if WIDECHAR
+BUILT_SOURCES += tokenizern.c historyn.c
+endif
 
 AHDR= vi.h emacs.h common.h 
 ASRC= $(srcdir)/vi.c $(srcdir)/emacs.c $(srcdir)/common.c
@@ -25,17 +28,25 @@ fcns.c: Makefile $(AHDR)
 help.c: Makefile $(ASRC)
 	sh $(srcdir)/makelist -bc $(ASRC) > $@
 
+tokenizern.c: Makefile $(srcdir)/tokenizer.c
+	sh $(srcdir)/makelist -n $(srcdir)/tokenizer.c > $@
+
+historyn.c: Makefile $(srcdir)/history.c
+	sh $(srcdir)/makelist -n $(srcdir)/history.c > $@
 
 CLEANFILES = $(BUILT_SOURCES)
 
 lib_LTLIBRARIES    = libedit.la
-libedit_la_SOURCES = chared.c common.c el.c emacs.c hist.c key.c map.c parse.c \
+libedit_la_SOURCES = chared.c common.c el.c emacs.c hist.c key.c map.c chartype.c parse.c \
 							prompt.c read.c refresh.c search.c sig.c term.c tty.c vi.c \
-							fgetln.c strlcat.c strlcpy.c unvis.c vis.c tokenizer.c \
+							fgetln.c strlcat.c strlcpy.c unvis.c vis.c wcsdup.c tokenizer.c \
 							history.c filecomplete.c readline.c chared.h el.h hist.h \
-							histedit.h key.h map.h parse.h prompt.h read.h refresh.h \
+							histedit.h key.h map.h chartype.h parse.h prompt.h read.h refresh.h \
 							search.h sig.h sys.h el_term.h tty.h vis.h filecomplete.h \
 							editline/readline.h
+if WIDECHAR
+libedit_la_SOURCES += eln.c
+endif
 
 EXTRA_DIST = makelist shlib_version
 nobase_include_HEADERS = histedit.h editline/readline.h

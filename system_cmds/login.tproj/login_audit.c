@@ -38,11 +38,13 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login_audit.c,v 1.2 2007/05/07 11:01:36 dw
 
 #include <bsm/libbsm.h>
 #include <bsm/audit_uevents.h>
+#include <bsm/audit_session.h>
 
 #include <err.h>
 #include <errno.h>
 #include <pwd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <strings.h>
 #include <unistd.h>
 
@@ -51,49 +53,70 @@ __FBSDID("$FreeBSD: src/usr.bin/login/login_audit.c,v 1.2 2007/05/07 11:01:36 dw
 /*
  * Audit data
  */
-static au_tid_t tid;
+au_tid_addr_t tid;
 
 /*
  * The following tokens are included in the audit record for a successful
  * login: header, subject, return.
  */
 void
-au_login_success(void)
+au_login_success(int fflag)
 {
 	token_t *tok;
 	int aufd;
-	au_mask_t aumask;
-	auditinfo_t auinfo;
+	auditinfo_addr_t auinfo;
 	uid_t uid = pwd->pw_uid;
 	gid_t gid = pwd->pw_gid;
 	pid_t pid = getpid();
 	long au_cond;
 
-	/* If we are not auditing, don't cut an audit record; just return. */
+	/* Determine whether auditing is enabled. */
  	if (auditon(A_GETCOND, &au_cond, sizeof(long)) < 0) {
 		if (errno == ENOSYS)
 			return;
 		errx(1, "login: Could not determine audit condition");
 	}
+
+	/* Initialize with the current audit info. */
+	if (getaudit_addr(&auinfo, sizeof(auinfo)) < 0) {
+		err(1, "getaudit_addr");
+	}
+	auinfo.ai_auid = pwd->pw_uid;
+	memcpy(&auinfo.ai_termid, &tid, sizeof(auinfo.ai_termid));
+
+	/* Do the SessionCreate() equivalent. */
+	if (!fflag) {
+		auinfo.ai_asid = AU_ASSIGN_ASID;
+		auinfo.ai_flags |= AU_SESSION_FLAG_HAS_TTY;
+		auinfo.ai_flags |= AU_SESSION_FLAG_HAS_AUTHENTICATED;
+	}
+
+	if (au_cond != AUC_NOAUDIT) {
+		/* Compute and set the user's preselection mask. */
+		if (au_user_mask(pwd->pw_name, &auinfo.ai_mask) < 0) {
+			errx(1, "login: Could not set audit mask\n");
+		}
+	}
+
+	if (setaudit_addr(&auinfo, sizeof(auinfo)) < 0)
+		err(1, "login: setaudit_addr failed");
+	
+	char *session = NULL;
+	asprintf(&session, "%x", auinfo.ai_asid);
+	if (NULL == session) {
+		errx(1, "asprintf failed");
+	}
+	setenv("SECURITYSESSIONID", session, 1);
+	free(session);
+	
+	/* If we are not auditing, don't cut an audit record; just return. */
 	if (au_cond == AUC_NOAUDIT)
 		return;
-
-	/* Compute and set the user's preselection mask. */
-	if (au_user_mask(pwd->pw_name, &aumask) == -1)
-		errx(1, "login: Could not set audit mask\n");
-
-	/* Set the audit info for the user. */
-	auinfo.ai_auid = uid;
-	auinfo.ai_asid = pid;
-	bcopy(&tid, &auinfo.ai_termid, sizeof(auinfo.ai_termid));
-	bcopy(&aumask, &auinfo.ai_mask, sizeof(auinfo.ai_mask));
-	if (setaudit(&auinfo) != 0)
-		err(1, "login: setaudit failed");
 
 	if ((aufd = au_open()) == -1)
 		errx(1,"login: Audit Error: au_open() failed");
 
-	if ((tok = au_to_subject32(uid, geteuid(), getegid(), uid, gid, pid,
+	if ((tok = au_to_subject32_ex(uid, geteuid(), getegid(), uid, gid, pid,
 	    pid, &tid)) == NULL)
 		errx(1, "login: Audit Error: au_to_subject32() failed");
 	au_write(aufd, tok);
@@ -137,14 +160,14 @@ au_login_fail(const char *errmsg, int na)
 		 * Non attributable event.  Assuming that login is not called
 		 * within a user's session => auid,asid == -1.
 		 */
-		if ((tok = au_to_subject32(-1, geteuid(), getegid(), -1, -1,
+		if ((tok = au_to_subject32_ex(-1, geteuid(), getegid(), -1, -1,
 		    pid, -1, &tid)) == NULL)
 			errx(1, "login: Audit Error: au_to_subject32() failed");
 	} else {
 		/* We know the subject -- so use its value instead. */
 		uid = pwd->pw_uid;
 		gid = pwd->pw_gid;
-		if ((tok = au_to_subject32(uid, geteuid(), getegid(), uid,
+		if ((tok = au_to_subject32_ex(uid, geteuid(), getegid(), uid,
 		    gid, pid, pid, &tid)) == NULL)
 			errx(1, "login: Audit Error: au_to_subject32() failed");
 	}
@@ -190,7 +213,7 @@ audit_logout(void)
 		errx(1, "login: Audit Error: au_open() failed");
 
 	/* The subject that is created (euid, egid of the current process). */
-	if ((tok = au_to_subject32(uid, geteuid(), getegid(), uid, gid, pid,
+	if ((tok = au_to_subject32_ex(uid, geteuid(), getegid(), uid, gid, pid,
 	    pid, &tid)) == NULL)
 		errx(1, "login: Audit Error: au_to_subject32() failed");
 	au_write(aufd, tok);

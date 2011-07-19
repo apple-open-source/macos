@@ -111,7 +111,7 @@ their default settings. </p>
 1 /etc/postfix/main.cf:
 2     myorigin = $mydomain
 3     relayhost = $mydomain
-4     inet_interfaces = 127.0.0.1
+4     inet_interfaces = loopback-only
 5     local_transport = error:local delivery is disabled
 6 
 7 /etc/postfix/master.cf:
@@ -442,6 +442,9 @@ matches $inet_interfaces or $proxy_interfaces. </p>
 
 </ul>
 
+<p> Execute the command "<b>postmap /etc/postfix/virtual</b>" after
+editing the file. </p>
+
 <h2><a name="intranet">Running Postfix behind a firewall</a></h2>
 
 <p> The simplest way to set up Postfix on a host behind a firewalled
@@ -449,8 +452,7 @@ network is to send all mail to a gateway host, and to let that mail
 host take care of internal and external forwarding. Examples of that
 are shown in the <a href="#local_network">local area network</a>
 section above. A more sophisticated approach is to send only external
-mail to the gateway host, and to send intranet mail directly.
-That's what Wietse does at work.  </p>
+mail to the gateway host, and to send intranet mail directly. </p>
 
 <p> Note: this example requires Postfix version 2.0 and later. To find
 out what Postfix version you have, execute the command "<b>postconf

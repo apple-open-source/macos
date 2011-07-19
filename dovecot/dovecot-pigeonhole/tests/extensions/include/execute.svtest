@@ -1,0 +1,42 @@
+require "vnd.dovecot.testsuite";
+
+test_set "message" text:
+From: idiot@example.com
+To: idiot@example.org
+Subject: Frop!
+
+Frop.
+.
+;
+
+test "Actions Fileinto" {
+	test_mailbox_create "aaaa";
+	test_mailbox_create "bbbb";
+	
+	if not test_script_compile "execute/actions-fileinto.sieve" {
+		test_fail "failed to compile sieve script";
+	}
+
+	test_binary_save "actions-fileinto";
+	test_binary_load "actions-fileinto";
+
+	if not test_script_run {
+		test_fail "failed to execute sieve script";
+	}
+
+	if not test_result_execute {
+		test_fail "failed to execute result";
+	}
+
+	test_message :folder "aaaa" 0;
+
+	if not header "subject" "Frop!" {
+		test_fail "fileinto \"aaaa\" not executed.";
+	}	
+
+	test_message :folder "bbbb" 0;
+
+	if not header "subject" "Frop!" {
+		test_fail "fileinto \"bbbb\" not executed.";
+	}	
+}

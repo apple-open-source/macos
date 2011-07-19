@@ -1,6 +1,6 @@
---- uuid_unparse.3.in.orig	2008-09-25 10:43:40.000000000 -0700
-+++ uuid_unparse.3.in	2008-09-25 10:51:45.000000000 -0700
-@@ -36,9 +36,18 @@
+--- uuid_unparse.3.in.orig	2010-04-28 23:38:50.000000000 -0700
++++ uuid_unparse.3.in	2010-04-28 23:53:36.000000000 -0700
+@@ -36,17 +36,26 @@ uuid_unparse \- convert an UUID from bin
  .nf
  .B #include <uuid/uuid.h>
  .sp
@@ -9,24 +9,25 @@
 -.BI "void uuid_unparse_lower(uuid_t " uu ", char *" out );
 +\fIvoid\fP
 +.br
-+\fBuuid_unparse\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++\fBuuid_unparse\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 +.sp
 +\fIvoid\fP
 +.br
-+\fBuuid_unparse_lower\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++\fBuuid_unparse_lower\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 +.sp
 +\fIvoid\fP
 +.br
-+\fBuuid_unparse_upper\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
++\fBuuid_unparse_upper\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 +.sp
  .fi
  .SH DESCRIPTION
  The
-@@ -46,7 +55,7 @@
+ .B uuid_unparse
  function converts the supplied UUID
  .I uu
- from the binary representation into a 36\-byte string (plus tailing '\\0')
+-from the binary representation into a 36\-byte string (plus tailing '\\0')
 -of the form 1b4e28ba\-2fa1\-11d2\-883f\-b9a76 and stores this value in the
++from the binary representation into a uuid_string_t (37\-byte string including tailing '\\0')
 +of the form 1b4e28ba\-2fa1\-11d2\-883f\-b9a761bde3fb and stores this value in the
  character string pointed to by
  .IR out .  

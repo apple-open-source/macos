@@ -58,7 +58,7 @@ public:
 protected:
     KeychainSchemaImpl(const CssmClient::Db &db);
 public:
-    ~KeychainSchemaImpl();
+    virtual ~KeychainSchemaImpl();
 
 	CSSM_DB_ATTRIBUTE_FORMAT attributeFormatFor(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const;
 	const CssmAutoDbRecordAttributeInfo &primaryKeyInfosFor(CSSM_DB_RECORDTYPE recordType) const;
@@ -132,6 +132,10 @@ protected:
 
 public:
     virtual ~KeychainImpl();
+
+	Mutex* getKeychainMutex();
+	Mutex* getMutexForObject();
+	void aboutToDestruct();
 
 	bool operator ==(const KeychainImpl &) const;
 
@@ -209,15 +213,13 @@ public:
 	
 	void addItem(const PrimaryKey &primaryKey, ItemImpl *dbItemImpl);
 
-	void cleanup();
-
 private:
 	void removeItem(const PrimaryKey &primaryKey, ItemImpl *inItemImpl);
 	ItemImpl *_lookupItem(const PrimaryKey &primaryKey);
 
 	const AccessCredentials *makeCredentials();
 
-    typedef map<PrimaryKey, ItemImpl *> DbItemMap;
+    typedef map<PrimaryKey, __weak ItemImpl *> DbItemMap;
 	// Weak reference map of all items we know about that have a primaryKey
     DbItemMap mDbItemMap;
 	// True iff we are in the cache of keychains in StorageManager
@@ -235,10 +237,12 @@ private:
 };
 
 
+CFIndex GetKeychainRetainCount(Keychain& kc);
+
 class Keychain : public SecPointer<KeychainImpl>
 {
 public:
-    Keychain() {}
+    Keychain();
     Keychain(KeychainImpl *impl) : SecPointer<KeychainImpl>(impl) {}
 
 	static Keychain optional(SecKeychainRef handle); 

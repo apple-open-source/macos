@@ -2,42 +2,59 @@
 package Module::Install::WriteAll;
 
 use strict;
-use Module::Install::Base;
+use Module::Install::Base ();
 
-use vars qw{$VERSION $ISCORE @ISA};
+use vars qw{$VERSION @ISA $ISCORE};
 BEGIN {
-	$VERSION = '0.68';
-	$ISCORE  = 1;
+	$VERSION = '0.93';;
 	@ISA     = qw{Module::Install::Base};
+	$ISCORE  = 1;
 }
 
 sub WriteAll {
-    my $self = shift;
-    my %args = (
-        meta        => 1,
-        sign        => 0,
-        inline      => 0,
-        check_nmake => 1,
-        @_
-    );
+	my $self = shift;
+	my %args = (
+		meta        => 1,
+		sign        => 0,
+		inline      => 0,
+		check_nmake => 1,
+		@_,
+	);
 
-    $self->sign(1)                if $args{sign};
-    $self->Meta->write            if $args{meta};
-    $self->admin->WriteAll(%args) if $self->is_admin;
+	$self->sign(1)                if $args{sign};
+	$self->admin->WriteAll(%args) if $self->is_admin;
 
-    if ( $0 =~ /Build.PL$/i ) {
-        $self->Build->write;
-    } else {
-        $self->check_nmake if $args{check_nmake};
-        unless ( $self->makemaker_args->{'PL_FILES'} ) {
-        	$self->makemaker_args( PL_FILES => {} );
-        }
-        if ($args{inline}) {
-            $self->Inline->write;
-        } else {
-            $self->Makefile->write;
-        }
-    }
+	$self->check_nmake if $args{check_nmake};
+	unless ( $self->makemaker_args->{PL_FILES} ) {
+		$self->makemaker_args( PL_FILES => {} );
+	}
+
+	# Until ExtUtils::MakeMaker support MYMETA.yml, make sure
+	# we clean it up properly ourself.
+	$self->realclean_files('MYMETA.yml');
+
+	if ( $args{inline} ) {
+		$self->Inline->write;
+	} else {
+		$self->Makefile->write;
+	}
+
+	# The Makefile write process adds a couple of dependencies,
+	# so write the META.yml files after the Makefile.
+	if ( $args{meta} ) {
+		$self->Meta->write;
+	}
+
+	# Experimental support for MYMETA
+	if ( $ENV{X_MYMETA} ) {
+		if ( $ENV{X_MYMETA} eq 'JSON' ) {
+			$self->Meta->write_mymeta_json;
+		} else {
+			$self->Meta->write_mymeta_yaml;
+		}
+	}
+
+	return 1;
 }
 
 1;

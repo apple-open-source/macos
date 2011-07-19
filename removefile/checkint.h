@@ -221,7 +221,7 @@ __checkint_uint64_sub_signed_signed(int64_t x, int64_t y, int32_t* err) {
         *err = *err | CHECKINT_OVERFLOW_ERROR;
   else if(x < 0 && y > 0)
         *err = *err | CHECKINT_OVERFLOW_ERROR;
-  return x + y;
+  return x - y;
 } 
 
 __CHECKINT_INLINE uint64_t

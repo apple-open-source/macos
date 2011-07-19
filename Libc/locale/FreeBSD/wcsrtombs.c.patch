@@ -1,5 +1,5 @@
---- wcsrtombs.c.orig	2004-11-25 11:38:20.000000000 -0800
-+++ wcsrtombs.c	2005-02-18 18:36:45.000000000 -0800
+--- wcsrtombs.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcsrtombs.c	2009-11-09 15:05:26.000000000 -0800
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/wcsrtombs.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
@@ -9,7 +9,7 @@
  #include <limits.h>
  #include <stdlib.h>
  #include <string.h>
-@@ -34,12 +36,18 @@
+@@ -34,12 +36,18 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include "mblocal.h"
  
  size_t

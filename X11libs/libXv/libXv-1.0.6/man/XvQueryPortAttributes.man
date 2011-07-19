@@ -1,0 +1,55 @@
+.TH XvQueryPortAttributes __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvQueryPortAttributes \- return list of attributes of a video port
+.\"
+.SH SYNOPSIS
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvAttribute* XvQueryPortAttributes(Display *" dpy ","
+.BI "                 XvPortID " port ",  int *" p_num_attributes ");"
+.fi
+.SH ARGUMENTS
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Specifies the port whose adaptor is to be queried for its list of attributes.
+.IP \fIp_num_attributes\fR 8
+A pointer to where the number of attributes returned in the array is written.
+.\"
+.SH DESCRIPTION
+.BR XvQueryPortAttributes (__libmansuffix__) returns the number of attributes
+and an array of XvAttributes valid for the given port.  The array may be
+freed with
+.BR XFree (__libmansuffix__).
+.SH RETURN VALUES
+XvAttribute has the following structure:
+.EX
+
+    typedef struct {
+      int flags;
+      int min_value;
+      int max_value;
+      char *name;
+    } XvAttribute;
+
+.EE
+.IP \fIflags\fR 8
+May be XvGettable or XvSettable or both OR'd together indicating the
+particular attribute is readable, writeable or readable and writeable.
+.IP \fImin_value\fR 8
+The minimum attribute values which are valid for the driver.
+.IP \fI max_value\fR 8
+The maximum attribute values which are valid for the driver.
+.IP \fIname\fR 8
+A string describing the name of the attribute that may be used
+to retrieve the Atom for the particular attribute.
+.\"
+.SH DIAGNOSTICS
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.\"
+.SH SEE ALSO
+.BR XvGetPortAttribute (__libmansuffix__),
+.BR XvSetPortAttribute (__libmansuffix__)

@@ -1,22 +1,22 @@
 # -*- tcl -*- Tcl package index file
 # --- --- --- Handcrafted, final generation by configure.
 #
-# $Id: pkgIndex.tcl.in 65 2005-06-13 18:34:19Z andreas_kupries $
+# $Id: pkgIndex.tcl.in 209 2009-03-03 17:19:05Z nijtmans $
 
 package ifneeded @PACKAGE_TCLNAME@ @PACKAGE_VERSION@ [list load [file join $dir @PKG_LIB_FILE@]]
 
+# Compatibility hack. When asking for the old name of the package
+# then load all format handlers and base libraries provided by tkImg.
+# Actually we ask only for the format handlers, the required base
+# packages will be loaded automatically through the usual package
+# mechanism.
+
+# When reading images without specifying it's format (option -format),
+# the available formats are tried in reversed order as listed here.
+# Therefore file formats with some "magic" identifier, which can be
+# recognized safely, should be added at the end of this list.
+
 package ifneeded Img @PACKAGE_VERSION@ {
-    # Compatibility hack. When asking for the old name of the package
-    # then load all format handlers and base libraries provided by tkImg.
-    # Actually we ask only for the format handlers, the required base
-    # packages will be loaded automatically through the usual package
-    # mechanism.
-
-    # When reading images without specifying it's format (option -format),
-    # the available formats are tried in reversed order as listed here.
-    # Therefore file formats with some "magic" identifier, which can be
-    # recognized safely, should be added at the end of this list.
-
     package require img::window
     package require img::tga
     package require img::ico
@@ -33,6 +33,6 @@ package ifneeded Img @PACKAGE_VERSION@ {
     package require img::ppm
     package require img::gif
     package require img::pixmap
-
     package provide Img @PACKAGE_VERSION@
 }
+

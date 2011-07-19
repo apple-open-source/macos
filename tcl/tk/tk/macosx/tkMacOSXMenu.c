@@ -1313,7 +1313,7 @@ TkpMenuInit(void)
 #define observe(n, s) [nc addObserver:NSApp selector:@selector(s) name:(n) object:nil]
     observe(NSMenuDidBeginTrackingNotification, menuBeginTracking:);
     observe(NSMenuDidEndTrackingNotification, menuEndTracking:);
-#undef observe(n, s)
+#undef observe
 
     [NSMenuItem setUsesUserKeyEquivalents:NO];
     tkColPtr = TkpGetColor(None, DEF_MENU_BG_COLOR);

@@ -1,5 +1,5 @@
---- mbtowc.c.orig	Thu Nov 25 11:38:18 2004
-+++ mbtowc.c	Fri Feb 18 17:12:35 2005
+--- mbtowc.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbtowc.c	2009-11-09 15:05:25.000000000 -0800
 @@ -27,24 +27,33 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/mbtowc.c,v 1.11 2004/07/29 06:18:40 tjr Exp $");
@@ -31,10 +31,10 @@
  	if (rval == (size_t)-1 || rval == (size_t)-2)
  		return (-1);
  	return ((int)rval);
-+}
+ }
 +
 +int
 +mbtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n)
 +{
 +	return mbtowc_l(pwc, s, n, __current_locale());
- }
++}

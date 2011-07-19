@@ -668,8 +668,8 @@ long obj_size)
 	     * any whole pages.
 	     */
 	    if (strip_level == STRIP_ALL)
-		deallocate_size = round(output_size + symbol_size, host_pagesize) -
-				round(output_size, host_pagesize);
+		deallocate_size = rnd(output_size + symbol_size, host_pagesize) -
+				rnd(output_size, host_pagesize);
 	    else {
 		deallocate_size = 0;
 		sets[cur_set].output_size += symbol_size;
@@ -678,14 +678,14 @@ long obj_size)
 	    if(deallocate_size > 0){
 		if((r = vm_deallocate(mach_task_self(),
 				      (vm_address_t)(output_addr +
-				      round(output_size, host_pagesize)),
+				      rnd(output_size, host_pagesize)),
 				      deallocate_size)) != KERN_SUCCESS)
 		    mach_fatal(r, "can't vm_deallocate() buffer for output "
 			       "file's symbol table");
 #ifdef RLD_VM_ALLOC_DEBUG
 		print("rld() vm_deallocate: addr = 0x%0x size = 0x%x\n",
 		      (unsigned int)(output_addr +
-				     round(output_size, host_pagesize)),
+				     rnd(output_size, host_pagesize)),
 		      (unsigned int)deallocate_size);
 #endif /* RLD_VM_ALLOC_DEBUG */
 	    }
@@ -1710,7 +1710,7 @@ deallocate_and_return:
 #ifdef RLD_VM_ALLOC_DEBUG
 	print("rld() vm_deallocate: addr = 0x%0x size = 0x%x\n",
 	      (unsigned int)(output_addr), output_size);
-			     round(output_size, host_pagesize)),
+			     rnd(output_size, host_pagesize)),
 	      (unsigned int)deallocate_size);
 #endif /* RLD_VM_ALLOC_DEBUG */
 	return(return_value);

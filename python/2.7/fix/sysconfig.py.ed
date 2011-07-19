@@ -1,0 +1,27 @@
+/return os\.path\.join(libpython, "site-packages")/c
+            if sys.platform == "darwin" and prefix == sys.prefix:
+                return os.path.join("/Library/Python", get_python_version(), "site-packages")
+            else:
+                return os.path.join(libpython, "site-packages")
+.
+/cc_cmd = cc + ' ' + cflags/i
+        if sys.platform == "darwin":
+            archflags = get_config_var('ARCHFLAGS')
+            if archflags.strip() != '':
+                if cflags.find('-arch') < 0:
+                    cflags = cflags + ' ' + archflags
+                if ldshared.find('-arch') < 0:
+                    ldshared = ldshared + ' ' + archflags
+
+.
+/^def get_config_vars/a
+.
+/arch = os.environ\['ARCHFLAGS']/a
+                else:
+                    arch = '@DEFARCHFLAGS@'
+                _config_vars['ARCHFLAGS'] = arch
+.
+/for key in /i
+.
+.,/_config_vars\[key\] = flags/s/    //
+w

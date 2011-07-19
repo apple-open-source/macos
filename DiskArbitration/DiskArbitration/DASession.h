@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,6 +76,15 @@ extern void DASessionScheduleWithRunLoop( DASessionRef session, CFRunLoopRef run
  */
 
 extern void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode );
+
+/*!
+ * @function   DASessionSetDispatchQueue
+ * @abstract   Schedules the session on a dispatch queue.
+ * @param      session The session which is being scheduled.
+ * @param      queue   The dispatch queue on which the session should be scheduled.  Pass NULL to unschedule.
+ */
+
+extern void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue );
 
 /*!
  * @typedef   DAApprovalSessionRef

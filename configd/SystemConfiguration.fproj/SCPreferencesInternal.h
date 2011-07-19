@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,9 +31,7 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SCPreferences.h>
 #include <SystemConfiguration/SCDynamicStore.h>
-#if	!TARGET_OS_IPHONE
 #include <dispatch/dispatch.h>
-#endif	// !TARGET_OS_IPHONE
 
 
 #define	PREFS_DEFAULT_DIR		CFSTR("/Library/Preferences/SystemConfiguration")
@@ -60,6 +58,9 @@ typedef struct {
 	/* preferences ID */
 	CFStringRef		prefsID;
 
+	/* options */
+	CFDictionaryRef		options;
+
 	/* configuration file */
 	char			*path;
 	char			*newPath;
@@ -77,6 +78,7 @@ typedef struct {
 	SCDynamicStoreRef	session;
 
 	/* configd session keys */
+	CFStringRef		sessionKeyLock;
 	CFStringRef		sessionKeyCommit;
 	CFStringRef		sessionKeyApply;
 
@@ -86,9 +88,7 @@ typedef struct {
 	SCPreferencesCallBack	rlsFunction;
 	SCPreferencesContext	rlsContext;
 	CFMutableArrayRef       rlList;
-#if	!TARGET_OS_IPHONE
 	dispatch_queue_t	dispatchQueue;		// SCPreferencesSetDispatchQueue
-#endif	// !TARGET_OS_IPHONE
 
 	/* preferences */
 	CFMutableDictionaryRef	prefs;
@@ -100,7 +100,7 @@ typedef struct {
 
 	/* authorization, helper */
 	CFDataRef		authorizationData;
-	int			helper;
+	mach_port_t		helper_port;
 
 } SCPreferencesPrivate, *SCPreferencesPrivateRef;
 

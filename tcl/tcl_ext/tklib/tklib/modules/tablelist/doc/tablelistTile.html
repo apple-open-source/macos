@@ -29,6 +29,9 @@
     <li><a href="#entry">Interactive Cell Editing Using the tile entry
     Widget</a></li>
 
+    <li><a href="#spinbox">Interactive Cell Editing Using the tile spinbox
+    Widget</a></li>
+
     <li><a href="#combobox">Interactive Cell Editing Using the tile combobox
     Widget</a></li>
 
@@ -56,13 +59,15 @@
   </blockquote>
 
   <p>Tablelist supports interactive cell editing with the aid of the tile
-  entry, combobox, and checkbutton widgets, accessed as
-  <code><b>ttk::entry</b></code>, <code><b>ttk::combobox</b></code>, and
-  <code><b>ttk::checkbutton</b></code>, respectively.&nbsp; The version of the
-  tile package must be 0.6 or higher.&nbsp; Due to the rapidly growing
-  strategic importance of the tile library, these widgets are automatically
-  registered for cell editing, hence the only action needed for using one of
-  them for editing the cells of a given column is as follows:</p>
+  entry, spinbox, combobox, and checkbutton widgets, accessed as
+  <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+  <code><b>ttk::combobox</b></code>, and <code><b>ttk::checkbutton</b></code>,
+  respectively.&nbsp; The version of the tile package must be 0.6 or higher
+  (the tile spinbox requires even tile 0.8.3 or later, or, alternatively, Tk
+  8.6 or later).&nbsp; Due to the rapidly growing importance of the tile
+  library, these widgets are automatically registered for cell editing, hence
+  the only action needed for using one of them for editing the cells of a given
+  column is as follows:</p>
 
   <p>Use the tablelist widget's <code><b><a href=
   "tablelistWidget.html#columnconfigure">columnconfigure</a></b></code>
@@ -70,9 +75,10 @@
   "tablelistWidget.html#col_editable">-editable</a></b></code> option to true
   and its <code><b><a href=
   "tablelistWidget.html#col_editwindow">-editwindow</a></b></code> option to
-  <code><b>ttk::entry</b></code>, <code><b>ttk::combobox</b></code>, or
-  <code><b>ttk::checkbutton</b></code>, respectively.&nbsp; (These options are
-  supported at cell level, too, with the aid of the <code><b><a href=
+  <code><b>ttk::entry</b></code>, <code><b>ttk::spinbox</b></code>,
+  <code><b>ttk::combobox</b></code>, or <code><b>ttk::checkbutton</b></code>,
+  respectively.&nbsp; (These options are supported at cell level, too, with the
+  aid of the <code><b><a href=
   "tablelistWidget.html#cellconfigure">cellconfigure</a></b></code>
   subcommand.)</p>
 
@@ -119,6 +125,44 @@
     <dt><b>KEYWORDS</b></dt>
 
     <dd>tablelist, editing, tile, entry</dd>
+  </dl>
+
+  <div align="center">
+    <p><a href="#contents">Contents</a>&nbsp;&nbsp;&nbsp;&nbsp; <a href=
+    "index.html">Start page</a></p>
+  </div>
+
+  <hr>
+
+  <h2><a name="spinbox"></a>Interactive Cell Editing Using the tile spinbox
+  Widget</h2>
+
+  <dl>
+    <dt><b>DESCRIPTION</b></dt>
+
+    <dd>
+      The temporary embedded tile spinbox widget used for interactive cell
+      editing will be created with an explicitly set value for its
+      <code><b>-style</b></code> option and with its <code><b>-state</b></code>
+      option set to <code><b>normal</b></code>, which makes the widget
+      editable.&nbsp; You can use the script corresponding to the
+      <code><b><a href=
+      "tablelistWidget.html#editstartcommand">-editstartcommand</a></b></code>
+      tablelist configuration option to set the state of the spinbox to
+      <code><b>readonly</b></code> or define validations for it, as well as for
+      setting its (range of) values and its <code><b>-wrap</b></code>
+      option.&nbsp; Apart from its theme-specific appearance, it behaves just
+      like its Tk core counterpart.
+
+      <p>If an application uses the tile spinbox widget for interactive cell
+      editing and also the Wcb package (even if not for that widget), then the
+      version of Wcb must be 3.2 or higher (because the support for the new
+      tile spinbox widget was added to Wcb in its version 3.2).</p>
+    </dd>
+
+    <dt><b>KEYWORDS</b></dt>
+
+    <dd>tablelist, editing, tile, spinbox</dd>
   </dl>
 
   <div align="center">

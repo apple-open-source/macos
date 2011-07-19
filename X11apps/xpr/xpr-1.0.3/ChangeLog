@@ -1,0 +1,205 @@
+commit ae7e1530f9e60e9a8747a1d4c38579510675f023
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 19:13:21 2009 -0700
+
+    xpr 1.0.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b4d488d7586892cfb8199b82a27f982a1717be66
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 19:12:22 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 304cd93438d75fe8b6964fe5a7bb077f031cac9e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:29 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f53142c6882f08b646ebe6d614bb6f14d5dcdb57
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jan 22 17:34:02 2009 -0200
+
+    Correct make distcheck and most gcc/sparse warnings.
+    
+      Remaining warnings are due to bit/shift operations mixed with
+    addition/multiplication/etc. "1<<2-1" should be read as
+    "1 << (2 - 1)", and not "(1 << 2) - 1". The first 2 warnings
+    appear to be for a confusing case, as a few lines bellow
+    it is adding parenthesis to the shift operation, but should be
+    being parsed correctly (not added parenthesis to avoid the
+    adding them wrong, and "hiding" the warning...)
+
+commit bee786458655a081487f2caff112f85aa0c3c8de
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 15:51:08 2007 -0500
+
+    Add missing PHONY line for automatic ChangeLog generation
+
+commit cceb5d7387f8dcc39000f8e27b82230e9a8f5019
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Jan 27 23:50:00 2007 -0800
+
+    Version bump: 1.0.2
+
+commit b3e250641a02791204a24ee955a41ce9371e35c3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Jan 27 23:47:11 2007 -0800
+
+    Replace static ChangeLog with dist-hook to generate from git
+
+commit 028ed782e7a3e502e54f1343d66b1311cb00a900
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 2 19:03:44 2007 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit 9049071794e0cdf8d72851f52481e053f6d21ca4
+Author: Eric S. Raymond <esr@thyrsus.com>
+Date:   Tue Jan 2 19:03:09 2007 -0800
+
+    Bug 9518: Markup problems on the xdpr.1 page
+    
+    <https://bugs.freedesktop.org/show_bug.cgi?id=9518>
+
+commit c7d48ec1d3206d6eb250072fe5eb1511b43f0af2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:53 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit b5b4935d49c92babb1ff57d25f2e4ecb5491f80f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:46 2005 +0000
+
+    Stub COPYING files
+
+commit d3840fd1c4ee62bb3c556fec71e17fe59740ecc3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:10 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit bd9c0b849104aeb68b297171246cc30bfdb6ddaa
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:24 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 5597c26daba5072fd9a0c6f943a424946af98875
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:27 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 9402168a108ff81c81a8137ed5882b928d9960bc
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:46 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit dfc64376daec039f564b023acc136af34a6f71ad
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:07 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 84f2c29fd400a4d484622ac8b2eb7e7e90fda9b3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 21 03:14:16 2005 +0000
+
+    Change dependency from xmu to xmuu since the full xmu (with all its baggage
+        like Xt) is not needed here.
+
+commit a1e58da278e8ff4105d96c4e8068ac27e62eb13b
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:55 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit e3857fb739d8f4aaa871e64585a48bff0d6537a4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:56 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit fa885773b5b96ec051bbc477da5b0eaff28edb3a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 0cb5e946c3bdfb49101a6f018734a5cfe0db8f48
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 67e02555f85d8c6374bb2618391e200aa5165cea
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:32 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit ab0d5822ee12d003c1797f78dceec00c68c06be5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:37 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 869f3a1bc4ff378d2c0437518b91154c43c16e87
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:03 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit e3928f9b676c1054790b5ef69b8a568e80482189
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 21:10:15 2005 +0000
+
+    symlink.sh: add xplsprinters.sgml xprehashprinterlist.sgml xdpr.script
+    Check in build systems for xpr, xprehashprinterlist, xplsprinters
+
+commit 5e2412e58e798657ae36bfddf643ff7da7b98e15
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Nov 8 21:38:56 2004 +0000
+
+    xc/programs/xpr/x2jet.c
+    //freedesktop.org/bugzilla/show_bug.cgi?id=1795): Fix build bustage caused
+        by bug 1779, patch by Bernhard Rosenkraenzer <bero@arklinux.org>.
+
+commit aa81cc55645093145f346aa8ec490df00299c8fb
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Nov 8 07:22:50 2004 +0000
+
+    xc/programs/xpr/x2jet.c
+    xc/programs/xpr/x2pmp.c
+    xc/programs/xpr/xpr.c
+    Fix various warnings, build problems in "xpr" and convert the whole source
+        from K&R style to ANSI-C.
+
+commit 9a961d11bea6be64c6f51b4f0829ff4fe2999c4a
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Sun Oct 31 02:14:06 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=631 - Uploading
+        "xpr" and "pclcomp" as they are needed for the RASTER and PCL drivers
+        on some platforms.

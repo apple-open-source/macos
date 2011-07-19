@@ -41,15 +41,13 @@
 #include "AppleCSPContext.h"
 #include "BlockCryptor.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
-#include <CommonCrypto/cast.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
 
 class CastContext : public BlockCryptor {
 public:
-	CastContext(AppleCSPSession &session) :
-		BlockCryptor(session),
-		mInitFlag(false),
-		mRawKeySize(0)	{ }
-	~CastContext();
+	CastContext(AppleCSPSession &session);
+	virtual ~CastContext();
 	
 	// called by CSPFullPluginSession
 	void init(const Context &context, bool encoding = true);
@@ -78,14 +76,15 @@ private:
 	void deleteKey();
 
 	/* scheduled key */
-	CAST_KEY			mCastKey;
+    CCCryptorRef	mCastKey;		
+
 	bool				mInitFlag;			// for easy reuse
 
 	/* 
 	 * Raw key bits saved here and checked on re-init to avoid 
 	 * extra key schedule 
 	 */
-	uint8				mRawKey[CAST_KEY_LENGTH];
+	uint8				mRawKey[kCCKeySizeMaxCAST];
 	uint32				mRawKeySize;
 
 	

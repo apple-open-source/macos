@@ -1,0 +1,370 @@
+#!/bin/sh
+#
+# Copyright (c) 2006 - 2007 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Portions Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+
+env_setup="@env_setup@"
+confdir="@confdir@"
+testdir="@testdir@"
+
+if [ "$UID" != 0 ] ; then
+    echo "must run script as root since it create users"
+    exit 1
+fi
+
+mkdir -p $testdir 2> /dev/null
+
+hodadmin="/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/hod-admin"
+
+u=heimdaltestuser
+uid=82367346
+o=heimdalother
+u2=heimdaltestuser2
+s=heimdaltestservice
+mme="heimdaltestuser@me.com"
+mmeq="heimdaltestuser\\@me.com"
+r=WELLKNOWN:COM.APPLE.LKDC
+r2=HEIM-TEST-DOMAIN.APPLE.COM
+pw=foo
+
+. ${env_setup}
+
+KRB5_CONFIG="${1-${confdir}/krb5.conf}"
+export KRB5_CONFIG
+
+logfile=${testdir}/messages.log
+cache="FILE:${testdir}/cache.krb5"
+
+testfailed="echo test failed; cat ${logfile}; exit 1"
+
+kdc="${kdc} --addresses=localhost"
+
+kkinit="${kinit}"
+kklist="${klist}"
+kkdestroy="${kdestroy}"
+
+kinit="${kinit} -c $cache"
+klist="${klist} -c $cache"
+kgetcred="${kgetcred} -c $cache"
+kdestroy="${kdestroy} -c $cache"
+
+mkdir -p ${testdir}
+
+rm -f ${testdir}/out-*
+rm -rf ${testdir}/smb
+
+mkdir "${testdir}/smb"
+> "${testdir}/smb/there-is-a-file-here"
+
+> ${logfile}
+
+toggle_launchd() {
+
+
+    digestservice=com.apple.Kerberos.digest-service
+    kcmservice=com.apple.Kerberos.kcm
+    ds=/System/Library/LaunchDaemons/$digestservice.plist
+    kcm=/System/Library/LaunchDaemons/$kcmservice.plist
+
+    if [ $1 = "malloc-set" ] ; then
+        launchctl setenv MallocStackLoggingNoCompact 1
+        launchctl setenv MallocErrorAbort 1
+    elif [ $1 = "malloc-unset" ] ; then
+        launchctl unsetenv MallocStackLoggingNoCompact
+        launchctl unsetenv MallocErrorAbort
+    fi
+    
+    launchctl unload $ds
+    killall -9 digest-service 2>/dev/null
+    launchctl load $ds
+    launchctl unload $kcm
+    killall -9 kcm 2>/dev/null
+    launchctl load $kcm
+}
+
+
+echo "Creating lkdc user"
+
+dscl . -delete /Users/$u 2>/dev/null >/dev/null
+dscl . -create /Users/$u
+dscl . -append /Users/$u RealName "Heimdal testuser"
+dscl . -append /Users/$u RecordName "${mme}"
+dscl . -append /Users/$u dsAttrTypeStandard:AltSecurityIdentities 'X509:<T>C=SE,CN=hx509 Test Root CA<S>CN=pkinit,C=SE'
+dscl . -delete /Users/$u AuthenticationAuthority
+dscl . -append /Users/$u AuthenticationAuthority ';ShadowHash;HASHLIST:<SALTED-SHA1,SMB-NT>'
+dscl . -append /Users/$u UniqueID $uid
+dscl . -append /Users/$u NFSHomeDirectory "${testdir}/smb"
+dscl . -passwd /Users/$u $pw
+(dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
+    { echo "KerberosKeys missing" ; exit 1; }
+(dscl . -read /Users/$u dsAttrTypeStandard:AltSecurityIdentities | grep pkinit) || { echo "asi missing" ; exit 1; }
+
+chown -R $u "${testdir}/smb"
+
+echo $pw > ${testdir}/foopassword
+
+echo "Server domain"
+
+dscl . -delete /Users/$o 2>/dev/null >/dev/null
+dscl . -create /Users/$o
+dscl . -append /Users/$o dsAttrTypeNative:KerberosUserName krbtgt/$r2@$r2
+
+$hodadmin . principal-setflags $o Server Forwardable
+
+$hodadmin . password  $o domain || exit 1
+$hodadmin . alias-add $o krbtgt/$r2@$r2  || exit 1
+
+echo "Creating server user"
+
+dscl . -delete /Users/$u2 2>/dev/null >/dev/null
+dscl . -create /Users/$u2
+dscl . -passwd /Users/$u2 $pw
+(dscl . -read /Users/$u KerberosKeys | grep KerberosKeys > /dev/null) || \
+    { echo "KerberosKeys missing" ; exit 1; }
+dscl . -append /Users/$u2 dsAttrTypeNative:KerberosUserName $u2@$r2
+
+echo "Creating server service user"
+
+dscl . -delete /Computers/$s 2>/dev/null >/dev/null
+dscl . -create /Computers/$s
+dscl . -passwd /Computers/$s $pw
+dscl . -append /Computers/$s RealName "Heimdal test service"
+dscl . -append /Computers/$s dsAttrTypeNative:KerberosServerName $s@$r2
+
+$hodadmin . principal-setflags /Computers/$s Server
+
+$hodadmin . password          /Computers/$s user-password
+#$hodadmin . password --append /Computers/$s host-pw host/$s.$r2@$r2
+#$hodadmin . password --append /Computers/$s cifs-pw cifs/$s.$r2@$r2
+#$hodadmin . password --append /Computers/$s http-pw HTTP/$s.$r2@$r2
+#$hodadmin . password --append /Computers/$s imap-pw imap/$s.$r2@$r2
+
+for a in host cifs HTTP imap ; do
+    $hodadmin . alias-add /Computers/$s $a/$s.$r2@$r2
+done
+
+foundlines=$(${kadmin} -l dump | wc -l)
+if [ "X${foundlines}" = "X" -o "X${foundlines}" = X0 ] ; then
+    echo "dumpfile contained nothing"
+    exit 1
+fi
+
+echo Starting kdc
+env MallocStackLoggingNoCompact=1 MallocErrorAbort=1 MallocLogFile=${testdir}/malloc-log \
+${kdc} &
+kdcpid=$!
+
+sh ${wait_kdc} KDC ${logfile}
+if [ "$?" != 0 ] ; then
+    kill -9 ${kdcpid}
+    exit 1
+fi
+
+trap "kill -9 ${kdcpid}; echo signal killing kdc; exit 1;" EXIT
+
+ec=0
+
+for a in 1 2 3 4 5 6 7 8 9 10 ; do
+    echo "Getting client initial tickets ${a}"; > ${logfile}
+    ${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+	{ ec=1 ; eval "${testfailed}"; }
+done
+
+echo "Getting client initial tickets";> ${logfile}
+${kkdestroy} -A
+${kkinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+	{ ec=1 ; eval "${testfailed}"; }
+${kkinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u2}@${r2} || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "Checking that credentials are stored"
+(${kklist} -l | grep ${u}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+(${kklist} -l | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+
+echo "checking that u2 is first" > ${logfile}
+(${kklist} | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+echo "checking that u2 still is first (sleep 20)" > ${logfile}
+sleep 20
+(${kklist} | grep ${u2}) >/dev/null || { ec=1 ; eval "${testfailed}"; }
+
+${kkdestroy} -A
+
+
+echo "Gettting client initial tickets"
+${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+    { ec=1; eval "${testfailed}"; }
+echo "Getting tickets"; > ${logfile}
+${kgetcred} host/${r}@${r} || { ec=1 ; eval "${testfailed}"; }
+echo "Listing tickets"; > ${logfile}
+${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
+
+${kinit} --password-file=${testdir}/foopassword ${u2}@${r2} || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "Checking alias principal";
+for a in host cifs HTTP imap ; do 
+    echo "   alias $a"; > ${logfile}
+   ${kgetcred} ${a}/${s}.${r2}@${r2} || { ec=1 ; eval "${testfailed}"; }
+done
+
+${kdestroy}
+
+echo "Getting PKINIT credentials"; > ${logfile}
+${kinit} -C FILE:${hx509_data}/pkinit.crt,${hx509_data}/pkinit.key \
+	-D KEYCHAIN: --canon \
+        --kdc-hostname=localhost \
+	"${mmeq}@${r}" || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "Getting tickets"; > ${logfile}
+${kgetcred} host/${r}@${r} || { ec=1 ; eval "${testfailed}"; }
+echo "Listing tickets"; > ${logfile}
+${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
+${kdestroy}
+
+
+echo "Get kerberos ticket for gss test"; > ${logfile}
+${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+echo "testing Kerberos GSS mech" ; > ${logfile}
+env KRB5CCNAME=FILE:/tmp/heimdal/cache.krb5 ${test_context} \
+    --mech=krb5 --wrap --verbose \
+    service@localhost || { ec=1 ; eval "${testfailed}"; }
+
+
+echo "testing Kerberos GSS mech (no homedir)" ; > ${logfile}
+sandbox-exec -p '(version 1) (allow default) (deny file* (subpath #"/private/var/root") (with send-signal SIGABRT))' \
+env CFFIXED_USER_HOME=/ KRB5CCNAME=/tmp/heimdal/cache.krb5 \
+${test_context} \
+    --no-homedir \
+    --mech=krb5 --wrap --verbose \
+    service@localhost || { ec=1 ; eval "${testfailed}"; }
+
+${kdestroy}
+
+echo "testing IAKERB GSS mech"
+${test_context} \
+    --client-name=heimdaltestuser@WELLKNOWN:COM.APPLE.LKDC \
+    --password="$pw" \
+    --cred-type=iakerb \
+    --mech=iakerb --wrap --verbose \
+    service@localhost || { ec=1 ; eval "${testfailed}"; }
+
+
+echo "test_gssntlm"
+
+toggle_launchd malloc-set
+
+domain=$(/usr/libexec/PlistBuddy -c 'print NetBIOSName' /Library/Preferences/SystemConfiguration/com.apple.smb.server.plist)
+
+${test_gssntlm} --user=$u --domain='' --password=$pw || { ec=1 ; eval "${testfailed}"; }
+${test_gssntlm} --user=$u --domain=FOO --password=$pw || { ec=1 ; eval "${testfailed}"; }
+${test_gssntlm} --user=$u --domain=$domain --password=$pw || { ec=1 ; eval "${testfailed}"; }
+
+echo "NTLM GSS mech"
+${test_context} \
+	--client-name=$u \
+	--password=$pw \
+	--mech-type=ntlm \
+	--mutual \
+        --ret-mech-type=ntlm \
+        host@host.local || \
+        { echo "test failed"; exit 1; }
+
+echo "NTLM GSS mech channel bindings"
+${test_context} \
+	--client-name=$u \
+	--password=$pw \
+	--mech-type=ntlm \
+	--mutual \
+        --channel-binding="0123456789abcdef" \
+        --ret-mech-type=ntlm \
+        host@host.local || \
+        { echo "test failed"; exit 1; }
+
+echo "Getting tickets (leaks check)"; > ${logfile}
+${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+    { ec=1 ; eval "${testfailed}"; }
+
+echo "Getting PKINIT credentials (leaks check)"; > ${logfile}
+${kinit} -C FILE:${hx509_data}/pkinit.crt,${hx509_data}/pkinit.key \
+	-D KEYCHAIN: --canon \
+        --kdc-hostname=localhost \
+	"${mmeq}@${r}" || \
+	{ ec=1 ; eval "${testfailed}"; }
+
+#echo "checking policy"
+#pwpolicy -u $u -setpolicy "usingExpirationDate=1 expirationDateGMT=01/01/01" > /dev/null
+#echo "getting policy"
+#pwpolicy -u $u -getpolicy
+#
+#echo "getting ticket"
+#${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} && \
+#    { echo "expected to fail"; exit 1; }
+#
+#echo "unsetting policy"
+#pwpolicy -u $u -setpolicy "usingExpirationDate=0"
+#
+#echo "getting ticket"
+#${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \
+#    { echo "expected to pass"; exit 1; }
+
+
+echo "checking mounting with NTLM"
+host=$(hostname)
+if expr "$host" : '.*\.apple\.com' > /dev/null ; then
+    #launchctl load -F /System/Library/LaunchDaemons/com.apple.smbd.plist
+    #killall smbd
+    ${winmount} ${testbase}/apple/coswin7-local.plist ${host} || exit 1
+else
+    echo "not running windows mount test since you are no on apple network"
+fi
+
+
+sh ${leaks_kill} --check digest-service digest-service || exit 1
+sh ${leaks_kill} --check kcm kcm || exit 1
+
+echo "killing kdc (${kdcpid})"
+sh ${leaks_kill} kdc $kdcpid || exit 1
+
+toggle_launchd malloc-unset
+
+rm -rf "${testdir}/smb"
+dscl . -delete /Users/$u
+dscl . -delete /Users/$s
+dscl . -delete /Users/$o
+
+trap "" EXIT
+
+exit $ec

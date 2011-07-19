@@ -3,6 +3,7 @@
 [copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Benchmarking/Performance tools}]
 [titledesc {bench - Processing benchmark suites}]
+[category  {Benchmark tools}]
 [require Tcl 8.2]
 [require bench [opt 0.4]]
 [description]

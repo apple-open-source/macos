@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>CDBB7BA4-F613-4C67-BE16-9CA6B4BFAAC8</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>shadowhash</string>
+	</array>
+	<key>optional_hash_list</key>
+	<array>
+		<string>SALTED-SHA1</string>
+	</array>
+</dict>
+</plist>

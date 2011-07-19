@@ -1,15 +1,118 @@
+Revision history for SQL::Abstract
 
-RCS file: /home/nwiger/perlmod/lib/SQL/RCS/Abstract.pm,v
-Working file: /home/nwiger/perlmod/lib/SQL/Abstract.pm
-head: 1.20
-branch:
-locks: strict
-access list:
-symbolic names:
-keyword substitution: kv
-total revisions: 20;	selected revisions: 20
-description:
-SQL::Abstract - Generate SQL from Perl data structures
+revision 1.61  2010-02-05 16:28 (UTC)
+----------------------------
+    - Allow INSERT to take additional attributes
+    - Support for INSERT ... RETURNING
+    - Another iteration of SQL::Abstract::Test fixes and improvements
+
+revision 1.60  2009-09-22 11:03 (UTC)
+----------------------------
+    - fix a well masked error in the sql-test tokenizer
+
+revision 1.59  2009-09-22 08:39 (UTC)
+----------------------------
+    - fixed a couple of untrapped undefined warnings
+    - allow -in/-between to accept literal sql in all logical
+      variants - see POD for details
+    - unroll multiple parenthesis around IN arguments to accomodate
+      crappy databases
+
+revision 1.58  2009-09-04 15:20 (UTC)
+----------------------------
+    - expanded the scope of -bool and -not_bool operators
+    - added proper testing support
+
+revision 1.57  2009-09-03 20:18 (UTC)
+----------------------------
+    - added -bool and -not_bool operators
+
+revision 1.56  2009-05-30 16:31 (UTC)
+----------------------------
+    - support for \[$sql, @bind] in order_by clauses e.g.:
+      { -desc => \['colA LIKE ?', 'somestring'] }
+
+revision 1.55  2009-05-17 22:54 (UTC)
+----------------------------
+    - make sure that sql generation does not mutate the supplied
+      where condition structure
+
+revision 1.54  2009-05-07 17:23 (UTC)
+----------------------------
+    - allow special_operators to take both code refs and method names
+      (makes it possible to properly subclass the builtin ones)
+
+revision 1.53  2009-04-30 14:58 (UTC)
+----------------------------
+    - make sure hash keys are sorted in all search sub-conditions
+    - switch installer from EU::MM to M::I
+
+revision 1.52  2009-04-28 23:14 (UTC)
+----------------------------
+    - allow -between to handle [\"", \""] and \["", @bind] 
+    - allow order_by to handle -asc|desc => [qw/colA colB/] (artifact from DBIx::Class)
+    - more tests and clearing up of some corner cases
+    - t/10test.t does not run by default (developer only, too cpu intensive)
+
+----------------------------
+revision 1.51  2009-03-28 10:00 (UTC)
+    - fixed behavior of [-and => ... ] depending on the current
+      condition scope. This introduces backwards comp with 1.24
+
+----------------------------
+revision 1.50  2009-03-10 12:30 (UTC)
+    - fixed the problem with values() not behaving the same as the rest of the code (RT#43483)
+    - fixed interjecting arrayrefref into a where clause
+    - added value-only insert test with a literal SQL snippet
+    - cleanup and enhancement of t/03values.t
+    - better handling of borked SQL in tests
+    - deal properly with parentheses in is_same_sql_bind()
+    - fixed test subs (is_same_*) in SQL::Abstract::Test to return the correct test value
+    - do not version MANIFEST
+
+    Version 1.50 was a major internal refactoring of SQL::Abstract.
+    Great care has been taken to preserve the published behavior
+    documented in previous versions in the 1.* family; however,
+    some features that were previously undocumented, or behaved.
+    differently from the documentation, had to be changed in order
+    to clarify the semantics. Hence, client code that was relying
+    on some dark areas of SQL::Abstract v1.* might behave differently
+    in v1.50.
+
+----------------------------
+revision 1.49_04  2009-03-03
+    - add support for a [\%column_meta => value] bind value format
+
+----------------------------
+revision 1.49_03  2009-02-17
+    - clarify syntax of \['...', @bind] when used with a bindtype
+      of 'columns'
+
+----------------------------
+revision 1.49_02  2009-02-16
+    - added an AST-aware SQL::Abstract::Test library for sql syntax tests
+    - vastly expanded test coverage
+    - support for the { operator => \'...'|\['...', @bind] } syntax
+      allowing to embed arbitrary operators on the LHS
+    - fixed multiple regressions wrt DBIx::Class
+
+----------------------------
+revision 1.49_01  2009-02-11
+    - support for literal SQL through the [$sql, bind] syntax.
+    - added -nest1, -nest2 or -nest_1, -nest_2, ...
+    - optional support for array datatypes
+    - defensive programming : check arguments to functions/methods
+    - fixed bug with global logic of -and/-or (no side-effects any more)
+    - changed logic for distributing an op over arrayrefs
+    - fixed semantics of  _bindtype on array args
+    - dropped the _anoncopy of the %where tree. No longer necessary.
+    - dropped the _modlogic function
+    - Make col => [] and col => {$op => [] } DTRT or die instead of generating
+      broken SQL. Added tests for this.
+    - Added { -desc => 'column' } order by support
+    - Tiny "$_"-related fix for { -desc => 'columns'} order by support
+      tests + docs
+
 ----------------------------
 revision 1.20
 date: 2005/08/18 18:41:58;  author: nwiger;  state: Exp;  lines: +104 -50
@@ -97,4 +200,3 @@ added scalar ref for SQL verbatim in where, fixed bugs, array ref, docs
 revision 1.1
 date: 2001/10/24 00:26:43;  author: nwiger;  state: Exp;
 Initial revision
-=============================================================================

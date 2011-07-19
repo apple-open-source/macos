@@ -522,7 +522,8 @@ res_soa_minimum(const u_char *msg, int len)
 {
 	ns_msg handle;
 	const u_char *eom;
-	uint32_t i, b;
+	uint32_t i;
+	int32_t b;
 	int min, soa_min;
 
 	eom = msg + len;

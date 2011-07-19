@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 ##
-# Copyright (c) 2007 - 2009 Apple Inc.
+# Copyright (c) 2007 - 2010 Apple Inc.
 #
 # This is the MIT license.  This software may also be distributed under the
 # same terms as Python (the PSF license).
@@ -38,21 +38,24 @@ def usage(e=None):
         print ""
 
     name = os.path.basename(sys.argv[0])
-    print "usage: %s [-l] [-r] [-v] [-x] file [file ...]" % (name,)
-    print "       %s -p [-l] [-r] [-v] [-x] attr_name file [file ...]" % (name,)
-    print "       %s -w [-r] [-v] [-x] attr_name attr_value file [file ...]" % (name,)
-    print "       %s -d [-r] [-v] attr_name file [file ...]" % (name,)
+    print "usage: %s [-l] [-r] [-s] [-v] [-x] file [file ...]" % (name,)
+    print "       %s -p [-l] [-r] [-s] [-v] [-x] attr_name file [file ...]" % (name,)
+    print "       %s -w [-r] [-s] [-x] attr_name attr_value file [file ...]" % (name,)
+    print "       %s -d [-r] [-s] attr_name file [file ...]" % (name,)
+    print "       %s -c [-r] [-s] file [file ...]" % (name,)
     print ""
     print "The first form lists the names of all xattrs on the given file(s)."
     print "The second form (-p) prints the value of the xattr attr_name."
     print "The third form (-w) sets the value of the xattr attr_name to the string attr_value."
     print "The fourth form (-d) deletes the xattr attr_name."
+    print "The fifth form (-c) deletes (clears) all xattrs."
     print ""
     print "options:"
     print "  -h: print this help"
-    print "  -r: act recursively"
     print "  -l: print long format (attr_name: attr_value and hex output has offsets and"
     print "      ascii representation)"
+    print "  -r: act recursively"
+    print "  -s: act on the symbolic link itself rather than what the link points to"
     print "  -v: also print filename (automatic with -r and with multiple files)"
     print "  -x: attr_value is represented as a hex string for input and output"
 
@@ -68,13 +71,13 @@ def _dump(src, length=16, long=0):
     for i in xrange(0, len(src), length):
         s = src[i:i+length]
         hexa = ' '.join(["%02X"%ord(x) for x in s])
-	if long:
-	    printable = s.translate(_FILTER)
-	    result.append("%08X  %-*s |%s|" % (i, length*3, hexa, printable))
-	else:
-	    result.append(hexa)
+        if long:
+            printable = s.translate(_FILTER)
+            result.append("%08X  %-*s |%s|" % (i, length*3, hexa, printable))
+        else:
+            result.append(hexa)
     if long:
-	result.append("%08x" % len(src))
+        result.append("%08x" % len(src))
     return '\n'.join(result)
 
 status = 0
@@ -82,37 +85,56 @@ status = 0
 def main():
     global status
     try:
-        (optargs, args) = getopt.getopt(sys.argv[1:], "hlpwdrvx", ["help"])
+        (optargs, args) = getopt.getopt(sys.argv[1:], "cdhlprsvwx", ["help"])
     except getopt.GetoptError, e:
         usage(e)
 
     attr_name   = None
     attr_value  = None
-    long_format = False
-    read        = False
-    hex         = False
-    write       = False
+    clear       = False
     delete      = False
+    dohex       = False
+    long_format = False
+    main_arg    = None
+    options     = 0     # 0 or XATTR_NOFOLLOW
+    read        = False
     recursive   = False
     verbose     = False
+    write       = False
 
     for opt, arg in optargs:
-        if opt in ("-h", "--help"):
+        if opt == "-c":
+            if main_arg and main_arg != opt:
+                usage("Can't specify %s with %s" % (main_arg, opt))
+            main_arg = opt
+            clear = True
+        elif opt == "-d":
+            if main_arg and main_arg != opt:
+                usage("Can't specify %s with %s" % (main_arg, opt))
+            main_arg = opt
+            delete = True
+        elif opt in ("-h", "--help"):
             usage()
         elif opt == "-l":
             long_format = True
         elif opt == "-p":
+            if main_arg and main_arg != opt:
+                usage("Can't specify %s with %s" % (main_arg, opt))
+            main_arg = opt
             read = True
-        elif opt == "-w":
-            write = True
-        elif opt == "-d":
-            delete = True
         elif opt == "-r":
             recursive = True
+        elif opt == "-s":
+            options = xattr.XATTR_NOFOLLOW
         elif opt == "-v":
             verbose = True
+        elif opt == "-w":
+            if main_arg and main_arg != opt:
+                usage("Can't specify %s with %s" % (main_arg, opt))
+            main_arg = opt
+            write = True
         elif opt == "-x":
-            hex = True
+            dohex = True
 
     if write or delete:
         if long_format:
@@ -143,18 +165,18 @@ def main():
                     sys.stderr.write("xattr: " + str(e) + "\n")
                 status = 1
 
-	    def hasNulls(s):
-		try:
-		    if s.find('\0') >= 0:
-			return True
-		    return False
-		except UnicodeDecodeError:
-		    return True
+            def hasNulls(s):
+                try:
+                    if s.find('\0') >= 0:
+                        return True
+                    return False
+                except UnicodeDecodeError:
+                    return True
 
-	    if verbose or recursive or multiple_files:
-		file_prefix = "%s: " % filename
-	    else:
-		file_prefix = ""
+            if verbose or recursive or multiple_files:
+                file_prefix = "%s: " % filename
+            else:
+                file_prefix = ""
 
             if recursive and os.path.isdir(filename) and not os.path.islink(filename):
                 listdir = os.listdir(filename)
@@ -162,14 +184,14 @@ def main():
                     doSinglePathChange(filename+'/'+subfilename,attr_name,attr_value,read,write,delete,recursive)
 
             try:
-                attrs = xattr.xattr(filename)
+                attrs = xattr.xattr(filename, options)
             except (IOError, OSError), e:
                 onError(e)
                 return
 
             if write:
                 try:
-                    if hex:
+                    if dohex:
                         # strip whitespace and unhexlify
                         attr_value = binascii.unhexlify(attr_value.translate(string.maketrans('', ''), string.whitespace))
                     attrs[attr_name] = attr_value
@@ -188,6 +210,13 @@ def main():
                         onError("%s: No such xattr: %s" % (filename, attr_name,))
                         return
 
+            elif clear:
+                try:
+                    attrs.clear()
+                except (IOError, OSError), e:
+                    onError(e)
+                    return
+
             else:
                 try:
                     if read:
@@ -201,19 +230,19 @@ def main():
                 for attr_name in attr_names:
                     try:
                         if long_format:
-                            if hex or hasNulls(attrs[attr_name]):
-				print "%s%s:" % (file_prefix, attr_name)
-				print _dump(attrs[attr_name], long=1)
-			    else:
-				print "%s%s: %s" % (file_prefix, attr_name, attrs[attr_name])
+                            if dohex or hasNulls(attrs[attr_name]):
+                                print "%s%s:" % (file_prefix, attr_name)
+                                print _dump(attrs[attr_name], long=1)
+                            else:
+                                print "%s%s: %s" % (file_prefix, attr_name, attrs[attr_name])
                         else:
                             if read:
-				if hex or hasNulls(attrs[attr_name]):
-				    if len(file_prefix) > 0:
-					print file_prefix
-				    print _dump(attrs[attr_name])
-				else:
-				    print "%s%s" % (file_prefix, attrs[attr_name])
+                                if dohex or hasNulls(attrs[attr_name]):
+                                    if len(file_prefix) > 0:
+                                        print file_prefix
+                                    print _dump(attrs[attr_name])
+                                else:
+                                    print "%s%s" % (file_prefix, attrs[attr_name])
                             else:
                                 print "%s%s" % (file_prefix, attr_name)
                     except (IOError, OSError), e:

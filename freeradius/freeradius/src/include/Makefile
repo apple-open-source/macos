@@ -4,12 +4,16 @@
 # Version:	$Id$
 #
 
-HEADERS	= hash.h libradius.h md4.h md5.h missing.h packet.h radius.h \
-		radpaths.h sha1.h token.h udpfromto.h vqp.h ident.h 
+HEADERS	= autoconf.h conf.h conffile.h detail.h dhcp.h event.h hash.h heap.h \
+	ident.h libradius.h md4.h md5.h missing.h modcall.h modules.h \
+	packet.h rad_assert.h radius.h radiusd.h radpaths.h \
+	radutmp.h realms.h sha1.h stats.h sysutmp.h token.h \
+	udpfromto.h vmps.h vqp.h
 
 include ../../Make.inc
 .PHONY: all clean distclean install
 
+.PHONY: all clean distclean install reconfig
 all: radpaths.h
 
 radpaths.h: build-radpaths-h
@@ -18,7 +22,7 @@ radpaths.h: build-radpaths-h
 distclean:
 	rm -f radpaths.h
 
-clean:
+reconfig clean:
 
 install:
 	$(INSTALL) -d -m 755 $(R)$(includedir)/freeradius

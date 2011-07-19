@@ -42,7 +42,7 @@ proc readPhotoFile1 { name fmt } {
 	if { $retVal != 0 } {
 	    P "\tERROR: Cannot read image file with format option $fmt" 
 	    P "\tError message: $ph"
-	    return {}
+            return ""
 	}
     }
     set eTime [clock clicks -milliseconds]
@@ -70,7 +70,7 @@ proc readPhotoFile2 { name fmt width height args } {
 	if { $retVal != 0 } {
 	    P "\tERROR: Cannot read image file with format option $fmt" 
 	    P "\tError message: $errMsg"
-	    return {}
+            return ""
 	}
     }
     set eTime [clock clicks -milliseconds]
@@ -87,7 +87,7 @@ proc readPhotoBinary1 { name fmt args } {
     set retVal [catch {open $name r} fp]
     if { $retVal != 0 } {
 	P "\n\tERROR: Cannot open image file $name for binary reading."
-	return {}
+        return ""
     }
     fconfigure $fp -translation binary
     set imgData [read $fp [file size $name]]
@@ -101,7 +101,7 @@ proc readPhotoBinary1 { name fmt args } {
 	if { $retVal != 0 } {
 	    P "\tERROR: Cannot create photo from binary image data." 
 	    P "\tError message: $ph"
-	    return {}
+            return ""
 	}
     }
     set eTime [clock clicks -milliseconds]
@@ -119,7 +119,7 @@ proc readPhotoBinary2 { name fmt width height args } {
     set retVal [catch {open $name r} fp]
     if { $retVal != 0 } {
 	P "\n\tERROR: Cannot open image file $name for binary reading."
-	return {}
+        return ""
     }
     fconfigure $fp -translation binary
     set imgData [read $fp [file size $name]]
@@ -138,7 +138,7 @@ proc readPhotoBinary2 { name fmt width height args } {
 	if { $retVal != 0 } {
 	    P "\tERROR: Cannot create photo from binary image data."
 	    P "\tError message: $errMsg"
-	    return {}
+            return ""
 	}
     }
     set eTime [clock clicks -milliseconds]
@@ -163,7 +163,7 @@ proc readPhotoString { str fmt width height args } {
 	set retVal [catch {eval {$ph put $str -format $fmt} $args}]
 	if { $retVal != 0 } {
 	    P "\tERROR: Cannot read image string with format option: $fmt" 
-	    return {}
+            return ""
 	}
     }
     set eTime [clock clicks -milliseconds]
@@ -175,17 +175,19 @@ proc writePhotoFile { ph name fmt del args } {
     PN "File write: "
 
     set sTime [clock clicks -milliseconds]
-    set retVal [catch {eval {$ph write $name -format $fmt} $args}]
+    set retVal [catch {eval {$ph write $name -format $fmt} $args} str]
     set eTime [clock clicks -milliseconds]
 
     if { $retVal != 0 } {
 	P "\n\tERROR: Cannot write image file $name (Format: $fmt)" 
-	return
+        P "\tError message: $str"
+        return ""
     }
     if { $del } {
 	image delete $ph
     }
     PN "[format "%.2f " [expr ($eTime - $sTime) / 1.0E3]]"
+    return $str
 }
 
 proc writePhotoString { ph fmt del args } {
@@ -230,18 +232,16 @@ proc delayedUpdate {} {
     after 200
 }
 
-proc drawInfo { x y color } {
+proc drawInfo { x y color font } {
     set size 10
     set tx [expr $x + $size * 2]
     .t.c create rectangle $x $y [expr $x + $size] [expr $y + $size] -fill $color
-    .t.c create text $tx $y -anchor nw -fill $color -text "$color box"
+    .t.c create text $tx $y -anchor nw -fill black -text "$color box" -font $font
     delayedUpdate
 }
 
 proc drawTestCanvas { imgVersion} {
-    if { [catch {toplevel .t -visual truecolor}] } {
-	toplevel .t
-    }
+    toplevel .t
     wm title .t "Canvas window"
     wm geometry .t "+0+30"
 
@@ -264,18 +264,20 @@ proc drawTestCanvas { imgVersion} {
     .t.c create rectangle 3 3 237 217 -outline green -width 2
     delayedUpdate
 
-    drawInfo 140  10 black
-    drawInfo 140  30 white
-    drawInfo 140  50 red
-    drawInfo 140  70 green
-    drawInfo 140  90 blue
-    drawInfo 140 110 cyan
-    drawInfo 140 130 magenta
-    drawInfo 140 150 yellow
+    set font {-family {Courier} -size 9}
 
-    .t.c create text 140 170 -anchor nw -fill black -text "Created with:"
-    delayedUpdate ; delayedUpdate
-    .t.c create text 140 185 -anchor nw -fill black -text "Tcl [info patchlevel]"
-    .t.c create text 140 200 -anchor nw -fill black -text "tkImg $imgVersion"
+    drawInfo 140  10 black   $font
+    drawInfo 140  30 white   $font
+    drawInfo 140  50 red     $font
+    drawInfo 140  70 green   $font
+    drawInfo 140  90 blue    $font
+    drawInfo 140 110 cyan    $font
+    drawInfo 140 130 magenta $font
+    drawInfo 140 150 yellow  $font
+
+    .t.c create text 140 170 -anchor nw -fill black -text "Created with:" -font $font
+    delayedUpdate
+    .t.c create text 140 185 -anchor nw -fill black -text "Tcl [info patchlevel]" -font $font
+    .t.c create text 140 200 -anchor nw -fill black -text "Img $imgVersion" -font $font
     update
 }

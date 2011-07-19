@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,8 @@
 
 #include <sysexits.h>
 #include <unistd.h>
+#include <xpc/xpc.h>
+#include <CoreFoundation/CFUserNotificationPriv.h>
 
 static const CFStringRef __kDADialogContextDiskKey   = CFSTR( "DADialogDisk" );
 static const CFStringRef __kDADialogContextSourceKey = CFSTR( "DADialogSource" );
@@ -77,23 +79,36 @@ static void __DADialogShowDeviceUnreadableCallback( CFUserNotificationRef notifi
 
             disk = ( void * ) CFDictionaryGetValue( context, __kDADialogContextDiskKey );
 
-            switch ( response )
+            switch ( ( response & 0x3 ) )
             {
                 case kCFUserNotificationAlternateResponse:
                 {
-                    int status;
+                    xpc_object_t message;
 
-                    status = fork( );
+                    message = xpc_dictionary_create( NULL, NULL, 0 );
 
-                    if ( status == 0 )
+                    if ( message )
                     {
-                        setgid( gDAConsoleUserGID );
-                        ___initgroups( gDAConsoleUserUID, gDAConsoleUserGID );
-                        setuid( gDAConsoleUserUID );
+                        xpc_connection_t connection;
 
-                        execl( "/usr/bin/open", "/usr/bin/open", "/Applications/Utilities/Disk Utility.app", NULL );
+                        connection = xpc_connection_create( _kDAAgentName, NULL );
 
-                        exit( EX_OSERR );
+                        if ( connection )
+                        {                        
+                            xpc_connection_set_event_handler( connection, ^( xpc_object_t object ) { } );
+
+                            xpc_connection_set_legacy( connection );
+
+                            xpc_connection_set_target_uid( connection, gDAConsoleUserUID );
+
+                            xpc_connection_resume( connection );
+
+                            xpc_connection_send_message( connection, message );
+
+                            xpc_release( connection );
+                        }
+
+                        xpc_release( message );
                     }
 
                     break;
@@ -103,7 +118,7 @@ static void __DADialogShowDeviceUnreadableCallback( CFUserNotificationRef notifi
                 {
                     if ( DADiskGetState( disk, kDADiskStateZombie ) == FALSE )
                     {
-                        DADiskEject( disk, NULL );
+                        DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
                     }
 
                     break;
@@ -213,7 +228,7 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
                 }
             }
 
-            notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationStopAlertLevel, NULL, description );
+            notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationCautionAlertLevel, NULL, description );
 
             if ( notification )
             {
@@ -279,6 +294,8 @@ void DADialogShowDeviceUnrepairable( DADiskRef disk )
 
                 CFDictionarySetValue( description, kCFUserNotificationAlertHeaderKey,     header                            );
                 CFDictionarySetValue( description, kCFUserNotificationAlertMessageKey,    __kDADialogTextDeviceUnrepairable );
+                CFDictionarySetValue( description, kCFUserNotificationHelpAnchorKey,      CFSTR( "mh26875" )                );
+                CFDictionarySetValue( description, kCFUserNotificationHelpBookKey,        CFSTR( "com.apple.machelp" )      );
                 CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey, gDABundlePath                     );
 
                 notification = CFUserNotificationCreate( kCFAllocatorDefault, 60, kCFUserNotificationStopAlertLevel, NULL, description );

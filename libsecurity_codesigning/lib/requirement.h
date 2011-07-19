@@ -67,7 +67,8 @@ public:
 	Kind kind() const { return Kind(uint32_t(mKind)); }
 	
 	// validate this requirement against a code context
-	void validate(const Context &ctx, OSStatus failure = errSecCSReqFailed) const;
+	void validate(const Context &ctx, OSStatus failure = errSecCSReqFailed) const;	// throws on all failures
+	bool validates(const Context &ctx, OSStatus failure = errSecCSReqFailed) const;	// returns on clean miss
 	
 	// certificate positions (within a standard certificate chain)
 	static const int leafCert = 0;		// index for leaf (first in chain)
@@ -101,10 +102,10 @@ struct Requirement::Context {
 	Context(CFArrayRef certChain, CFDictionaryRef infoDict, CFDictionaryRef entitlementDict, const CodeDirectory *dir)
 		: certs(certChain), info(infoDict), entitlements(entitlementDict), directory(dir) { }
 	
-	const CFArrayRef certs;
-	const CFDictionaryRef info;
-	const CFDictionaryRef entitlements;
-	const CodeDirectory * const directory;
+	const CFArrayRef certs;						// certificate chain
+	const CFDictionaryRef info;					// Info.plist
+	const CFDictionaryRef entitlements;			// entitlement plist
+	const CodeDirectory * const directory;		// CodeDirectory
 
 	SecCertificateRef cert(int ix) const;		// get a cert from the cert chain
 	unsigned int certCount() const;				// length of cert chain
@@ -150,6 +151,9 @@ enum ExprOp {
 	opCertGeneric,					// Certificate component by OID [cert index; oid; match suffix]
 	opAppleGenericAnchor,			// signed by Apple in any capacity
 	opEntitlementField,				// entitlement dictionary field [string; match suffix]
+	opCertPolicy,					// Certificate policy by OID [cert index; oid; match suffix]
+	opNamedAnchor,					// named anchor type
+	opNamedCode,					// named subroutine
 	exprOpCount						// (total opcode count in use)
 };
 
@@ -188,18 +192,34 @@ private:
 };
 
 
+//
+// Byte order flippers
+//
+inline CodeSigning::ExprOp h2n(CodeSigning::ExprOp op)
+{
+	uint32_t intOp = (uint32_t) op;
+	return (CodeSigning::ExprOp) ::h2n(intOp);
+}
+
+inline CodeSigning::ExprOp n2h(CodeSigning::ExprOp op)
+{
+	uint32_t intOp = (uint32_t) op;
+	return (CodeSigning::ExprOp) ::n2h(intOp);
+}
+
+
+inline CodeSigning::MatchOperation h2n(CodeSigning::MatchOperation op)
+{
+	return CodeSigning::MatchOperation(::h2n((uint32_t) op));
+}
+
+inline CodeSigning::MatchOperation n2h(CodeSigning::MatchOperation op)
+{
+	return CodeSigning::MatchOperation(::n2h((uint32_t) op));
+}
+
+
 }	// CodeSigning
-
-
-//
-// Flipper overloads must go directly into the Security namespace
-//
-inline CodeSigning::ExprOp h2n(CodeSigning::ExprOp op)	{ return CodeSigning::ExprOp(h2n(uint32_t(op))); }
-inline CodeSigning::ExprOp n2h(CodeSigning::ExprOp op)	{ return CodeSigning::ExprOp(n2h(uint32_t(op))); }
-inline CodeSigning::MatchOperation h2n(CodeSigning::MatchOperation op)	{ return CodeSigning::MatchOperation(h2n(uint32_t(op))); }
-inline CodeSigning::MatchOperation n2h(CodeSigning::MatchOperation op)	{ return CodeSigning::MatchOperation(n2h(uint32_t(op))); }
-
-
 }	// Security
 
 #endif //_H_REQUIREMENT

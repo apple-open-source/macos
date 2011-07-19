@@ -2,7 +2,7 @@
  * Copyright (c) 2000, 2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,19 +33,19 @@
  *
  */
 
-
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/errno.h>
-#include <sys/kpi_mbuf.h>
-#include <sys/uio.h>
-
+#include <sys/types.h>
+#include <sys/smb_byte_order.h>
 #include <sys/smb_apple.h>
-#include <sys/mchain.h>
 
+#ifdef KERNEL
+#include <sys/kpi_mbuf.h>
 #include <netsmb/smb_subr.h>
+#else // KERNEL
+#include <netsmb/upi_mbuf.h>
+#include <netsmb/smb_lib.h>
+#endif // KERNEL
 
-#include <netsmb/smb_compat4.h>
+#include <sys/mchain.h>
 
 /*
  * Various helper functions
@@ -60,13 +60,215 @@ size_t m_fixhdr(mbuf_t m0)
 		m = mbuf_next(m);
 	}
 	mbuf_pkthdr_setlen(m0, len);
-	return len;
+	return mbuf_pkthdr_len(m0);
+}
+
+#ifdef KERNEL
+
+/*
+ * There is no KPI call for m_cat. Josh gave me the following
+ * code to replace m_cat.
+ */
+void
+mbuf_cat_internal(mbuf_t md_top, mbuf_t m0)
+{
+	mbuf_t m;
+	
+	for (m = md_top; mbuf_next(m) != NULL; m = mbuf_next(m))
+		;
+	mbuf_setnext(m, m0);
+}
+
+/*
+ * The only way to get min cluster size is to make a 
+ * mbuf_stat call. We really only need to do this once
+ * since minclsize is a compile time option.
+ */
+static uint32_t minclsize = 0;
+
+static uint32_t mbuf_minclsize() 
+{
+	struct mbuf_stat stats;
+	
+	if (! minclsize) {
+		mbuf_stats(&stats);
+		minclsize = stats.minclsize;
+	}
+	return minclsize;
+}
+
+/*
+ * This will allocate len-worth of mbufs and/or mbuf clusters (whatever fits
+ * best) and return a pointer to the top of the allocated chain. If m is
+ * non-null, then we assume that it is a single mbuf or an mbuf chain to
+ * which we want len bytes worth of mbufs and/or clusters attached, and so
+ * if we succeed in allocating it, we will just return a pointer to m.
+ *
+ * If we happen to fail at any point during the allocation, we will free
+ * up everything we have already allocated and return NULL.
+ *
+ */
+static
+mbuf_t smb_mbuf_getm(mbuf_t m, size_t len, int how, int type)
+{
+	size_t mbuf_space;
+	mbuf_t top, tail, mp = NULL, mtail = NULL;
+	
+	KASSERT((ssize_t)len >= 0, ("len is < 0 in smb_mbuf_getm"));
+	
+	if (mbuf_get(how, type, &mp))
+		return (NULL);
+	else if (len > mbuf_minclsize()) {
+		if ((mbuf_mclget(how, type, &mp)) ||
+			((mbuf_flags(mp) & MBUF_EXT) == 0)) {
+			mbuf_free(mp);			
+			return (NULL);
+		}
+	}
+	mbuf_setlen(mp, 0);
+	mbuf_space = mbuf_trailingspace(mp);
+	/* len is a size_t so it can't go negative */
+	if (mbuf_space > len)
+		len = 0;	/* Done */
+	else
+		len -= mbuf_space;	/* Need another mbuf or more */
+	
+	if (m != NULL)
+		for (mtail = m; mbuf_next(mtail) != NULL; mtail = mbuf_next(mtail));
+	else
+		m = mp;
+	
+	top = tail = mp;
+	while (len > 0) {
+		if (mbuf_get(how, type, &mp))
+			goto failed;
+		
+		mbuf_setnext(tail, mp);
+		tail = mp;
+		if (len > mbuf_minclsize()) {
+			if ((mbuf_mclget(how, type, &mp)) ||
+				((mbuf_flags(mp) & MBUF_EXT) == 0))
+				goto failed;
+		}
+		mbuf_setlen(mp, 0);
+		mbuf_space = mbuf_trailingspace(mp);
+		/* len is a size_t so it can't go negative */
+		if (mbuf_space > len)
+			len = 0;	/* Done */
+		else
+			len -= mbuf_space;	/* Need another mbuf or more */
+	}
+	
+	if (mtail != NULL)
+		mbuf_setnext(mtail, top);
+	return (m);
+	
+failed:
+	mbuf_freem(top);
+	return (NULL);
+}
+
+#else // KERNEL
+
+/* 
+ * We handle this routine differently in userland, than the kernel. See the 
+ * above kernel code for more details.
+ */
+static 
+mbuf_t smb_mbuf_getm(mbuf_t mbuf, size_t size, uint32_t how, uint32_t type)
+{
+	mbuf_t nm = NULL, mtail = NULL;
+	
+	if (mbuf_getcluster( how, type, size, &nm))
+		return NULL;
+	if (mbuf != NULL) {
+		for (mtail = mbuf; mbuf_next(mtail) != NULL; mtail = mbuf_next(mtail));
+	} else {
+		mbuf = nm;
+	}
+	
+	if (mtail != NULL)
+		mbuf_setnext(mtail, nm);
+	return mbuf;
+}
+
+int mb_pullup(mbchain_t mbp)
+{
+	mbuf_t nm;
+	size_t size;
+	int error;
+	
+	/* Its all in one mbuf, nothing to do here */
+	if (mbuf_next(mbp->mb_top) == NULL) {
+		return 0;
+	}
+	/* We have a chain, assume that we need to reallocate the buffer */
+	size = mb_fixhdr(mbp);
+	error = mbuf_getcluster(MBUF_WAITOK, MBUF_TYPE_DATA, size, &nm);
+	if (error) {
+		return error;
+	}
+	error =  mbuf_copydata(mbp->mb_top, 0, size, mbuf_data(nm));
+	if (error) {
+		mbuf_freem(nm);
+		return error;
+	}
+	mbuf_pkthdr_setlen(nm, size);
+	mbuf_setlen(nm, size);
+	mbuf_freem(mbp->mb_top);
+	mbp->mb_top = nm;
+	mbp->mb_cur = nm;
+	return 0;
+}
+
+/*
+ * Return a buffer of size from the  mbuf chain, the buffer must be contiguous 
+ * and fit in one mbuf. If not enough room in this mbuf create an mbuf that
+ * has enough room and add it to the chain.
+ */
+void * mb_getbuffer(mbchain_t mbp, size_t size)
+{
+	while (mbp->mb_mleft < size) {
+		mbuf_t nm;
+		
+		if (mbuf_getcluster(MBUF_WAITOK, MBUF_TYPE_DATA, mbp->mb_mleft+size, &nm))
+			return NULL;
+		mbuf_setlen(nm, 0);
+		mbuf_setnext(mbp->mb_cur, nm);
+		mbp->mb_cur = nm;
+		mbp->mb_mleft += mbuf_trailingspace(mbp->mb_cur);
+	}
+	return (void *)((uint8_t *)mbuf_data(mbp->mb_cur) + mbuf_len(mbp->mb_cur));
+}
+
+/*
+ * Consume size number of bytes.
+ */
+void mb_consume(mbchain_t mbp, size_t size)
+{
+	mbp->mb_mleft -= size;
+	mbp->mb_count += size;
+	mbuf_setlen(mbp->mb_cur, mbuf_len(mbp->mb_cur)+size);
+}
+
+#endif // KERNEL
+
+/*
+ * Routines for putting data into an mbuf chain
+ */
+
+static
+void mb_initm(mbchain_t mbp, mbuf_t m)
+{
+	bzero(mbp, sizeof(*mbp));
+	mbp->mb_top = mbp->mb_cur = m;
+	mbp->mb_mleft = mbuf_trailingspace(m);
 }
 
 int
-mb_init(struct mbchain *mbp)
+mb_init(mbchain_t mbp)
 {
-	mbuf_t m;
+	mbuf_t m = NULL;
 	
 	/* mbuf_gethdr now intialize all of the fields */
 	if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m))
@@ -76,15 +278,7 @@ mb_init(struct mbchain *mbp)
 }
 
 void
-mb_initm(struct mbchain *mbp, mbuf_t m)
-{
-	bzero(mbp, sizeof(*mbp));
-	mbp->mb_top = mbp->mb_cur = m;
-	mbp->mb_mleft = mbuf_trailingspace(m);
-}
-
-void
-mb_done(struct mbchain *mbp)
+mb_done(mbchain_t mbp)
 {
 	if (mbp->mb_top) {
 		mbuf_freem(mbp->mb_top);
@@ -92,8 +286,7 @@ mb_done(struct mbchain *mbp)
 	}
 }
 
-mbuf_t 
-mb_detach(struct mbchain *mbp)
+mbuf_t mb_detach(mbchain_t mbp)
 {
 	mbuf_t m;
 
@@ -102,111 +295,116 @@ mb_detach(struct mbchain *mbp)
 	return m;
 }
 
-size_t mb_fixhdr(struct mbchain *mbp)
+size_t mb_fixhdr(mbchain_t mbp)
 {
-	mbuf_pkthdr_setlen(mbp->mb_top, m_fixhdr(mbp->mb_top));
-	
-	return mbuf_pkthdr_len(mbp->mb_top);
+	return m_fixhdr(mbp->mb_top);
 }
 
 /*
  * Check if object of size 'size' fit to the current position and
  * allocate new mbuf if not. Advance pointers and increase length of mbuf(s).
  * Return pointer to the object placeholder or NULL if any error occured.
- * Note: size should be <= MLEN 
+ * Note: size should be <= MLEN if in kernel code
  */
-caddr_t mb_reserve(struct mbchain *mbp, size_t size)
+void * mb_reserve(mbchain_t mbp, size_t size)
 {
-	mbuf_t m, mn;
+	mbuf_t m, nm;
 	caddr_t bpos;
 
 	m = mbp->mb_cur;
 	if (mbp->mb_mleft < size) {
-		if (mbuf_get(MBUF_WAITOK, MBUF_TYPE_DATA, &mn))
+		if (mbuf_get(MBUF_WAITOK, MBUF_TYPE_DATA, &nm))
 			return NULL;
 		/* This check was done up above before KPI code */
-		if (size > mbuf_maxlen(mn))
-			panic("mb_reserve: size = %ld\n", size);
-		mbuf_setnext(m, mn);
-		mbp->mb_cur = mn;
-		m = mn;
+		if (size > mbuf_maxlen(nm)) {
+#ifdef KERNEL
+			SMBERROR("mb_reserve: size = %ld\n", size);
+#else // KERNEL
+			smb_log_info("%s - mb_reserve: size = %ld, syserr = %s",
+						 ASL_LEVEL_ERR, __FUNCTION__, size, strerror(EBADRPC));
+#endif // KERNEL
+			mbuf_freem(nm);
+			return NULL;
+		}
+		mbuf_setnext(m, nm);
+		mbp->mb_cur = nm;
+		m = nm;
 		mbuf_setlen(m, 0);
 		mbp->mb_mleft = mbuf_trailingspace(m);
 	}
 	mbp->mb_mleft -= size;
 	mbp->mb_count += size;
-	bpos = (caddr_t)((u_int8_t *)mbuf_data(m) + mbuf_len(m));
+	bpos = (caddr_t)((uint8_t *)mbuf_data(m) + mbuf_len(m));
 	mbuf_setlen(m, mbuf_len(m)+size);
 	return bpos;
 }
 
-int
-mb_put_padbyte(struct mbchain *mbp)
+/*
+ * Userland starts at word cound not the smb header, lucky for us
+ * word cound starts at an even boundry. We will need to relook at
+ * this when doing SMB2. Hopefully by then we will be using the whole
+ * buffer for both userland and kernel.
+ */
+int mb_put_padbyte(mbchain_t mbp)
 {
-	caddr_t dst;
+	uintptr_t dst;
 	char x = 0;
-
-	dst = (caddr_t)((u_int8_t *)mbuf_data(mbp->mb_cur) + mbuf_len(mbp->mb_cur));
-
+	
+	dst = (uintptr_t)((uint8_t *)mbuf_data(mbp->mb_cur) + mbuf_len(mbp->mb_cur));
 	/* only add padding if address is odd */
-	if ((long)dst & 1)
-		return mb_put_mem(mbp, (caddr_t)&x, 1, MB_MSYSTEM);
-	else
+	if (dst & 1) {
+		return mb_put_mem(mbp, &x, 1, MB_MSYSTEM);
+	} else {
 		return 0;
+	}
 }
 
-int
-mb_put_uint8(struct mbchain *mbp, u_int8_t x)
+int mb_put_uint8(mbchain_t mbp, uint8_t x)
 {
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
-mb_put_uint16be(struct mbchain *mbp, u_int16_t x)
+int mb_put_uint16be(mbchain_t mbp, uint16_t x)
 {
 	x = htobes(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
-mb_put_uint16le(struct mbchain *mbp, u_int16_t x)
+int mb_put_uint16le(mbchain_t mbp, uint16_t x)
 {
 	x = htoles(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
-mb_put_uint32be(struct mbchain *mbp, u_int32_t x)
+int mb_put_uint32be(mbchain_t mbp, uint32_t x)
 {
 	x = htobel(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
-mb_put_uint32le(struct mbchain *mbp, u_int32_t x)
+int mb_put_uint32le(mbchain_t mbp, uint32_t x)
 {
 	x = htolel(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int mb_put_uint64be(struct mbchain *mbp, u_int64_t x)
+int mb_put_uint64be(mbchain_t mbp, uint64_t x)
 {
 	x = htobeq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
-mb_put_uint64le(struct mbchain *mbp, u_int64_t x)
+int mb_put_uint64le(mbchain_t mbp, uint64_t x)
 {
 	x = htoleq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int mb_put_mem(struct mbchain *mbp, c_caddr_t source, size_t size, int type)
+int mb_put_mem(mbchain_t mbp, const char *source, size_t size, int type)
 {
 	mbuf_t m;
 	caddr_t dst;
-	c_caddr_t src;
+	const char * src;
 	size_t mleft, count, cplen;
 
 	m = mbp->mb_cur;
@@ -224,7 +422,7 @@ int mb_put_mem(struct mbchain *mbp, c_caddr_t source, size_t size, int type)
 			continue;
 		}
 		cplen = mleft > size ? size : mleft;
-		dst = (caddr_t)((u_int8_t *)mbuf_data(m) + mbuf_len(m));
+		dst = (caddr_t)((uint8_t *)mbuf_data(m) + mbuf_len(m));
 		switch (type) {
 		case MB_MINLINE:
 			for (src = source, count = cplen; count; count--)
@@ -248,8 +446,7 @@ int mb_put_mem(struct mbchain *mbp, c_caddr_t source, size_t size, int type)
 	return 0;
 }
 
-int
-mb_put_mbuf(struct mbchain *mbp, mbuf_t m)
+int mb_put_mbuf(mbchain_t mbp, mbuf_t m)
 {
 	mbuf_setnext(mbp->mb_cur, m);
 	while (m) {
@@ -263,10 +460,11 @@ mb_put_mbuf(struct mbchain *mbp, mbuf_t m)
 	return 0;
 }
 
+#ifdef KERNEL
 /*
  * copies a uio scatter/gather list to an mbuf chain.
  */
-int mb_put_uio(struct mbchain *mbp, uio_t uiop, size_t size)
+int mb_put_uio(mbchain_t mbp, uio_t uiop, size_t size)
 {
 	int error;
 	size_t mleft, cplen;
@@ -290,7 +488,7 @@ int mb_put_uio(struct mbchain *mbp, uio_t uiop, size_t size)
 		}
 		/* Get the amount of data to copy and a pointer to the mbuf location */
 		cplen = mleft > size ? size : mleft;
-		dst = (u_int8_t *)mbuf_data(m) + mbuf_len(m);
+		dst = (uint8_t *)mbuf_data(m) + mbuf_len(m);
 		/* Copy the data into the mbuf */
 		error = uiomove(dst, (int)cplen, uiop);
 		if (error)
@@ -309,8 +507,7 @@ int mb_put_uio(struct mbchain *mbp, uio_t uiop, size_t size)
 /*
  * Given a user land pointer place the data in a mbuf chain.
  */
-int
-mb_put_user_mem(struct mbchain *mbp, user_addr_t bufp, int size, off_t offset, vfs_context_t context)
+int mb_put_user_mem(mbchain_t mbp, user_addr_t bufp, int size, off_t offset, vfs_context_t context)
 {
 	user_size_t nbyte = size;
 	uio_t auio;
@@ -329,14 +526,21 @@ mb_put_user_mem(struct mbchain *mbp, user_addr_t bufp, int size, off_t offset, v
 	uio_free(auio);
 	return error;
 }
+#endif // KERNEL
 
 /*
  * Routines for fetching data from an mbuf chain
  */
-int
-md_init(struct mdchain *mdp)
+void md_initm(mdchain_t mdp, mbuf_t m)
 {
-	mbuf_t m;
+	bzero(mdp, sizeof(*mdp));
+	mdp->md_top = mdp->md_cur = m;
+	mdp->md_pos = mbuf_data(m);
+}
+
+int md_init(mdchain_t mdp)
+{
+	mbuf_t m = NULL;
 
 	/* mbuf_gethdr now intialize all of the fields */
 	if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m))
@@ -345,16 +549,29 @@ md_init(struct mdchain *mdp)
 	return 0;
 }
 
-void
-md_initm(struct mdchain *mdp, mbuf_t m)
+#ifndef KERNEL
+int md_init_rcvsize(mdchain_t mdp, size_t size)
 {
-	bzero(mdp, sizeof(*mdp));
-	mdp->md_top = mdp->md_cur = m;
-	mdp->md_pos = mbuf_data(m);
+	mbuf_t	m = NULL;
+	
+	if (size <= (size_t)getpagesize()) {
+		if (mbuf_gethdr(MBUF_WAITOK, MBUF_TYPE_DATA, &m))
+			return ENOBUFS;		
+	} else if ((mbuf_getcluster(MBUF_WAITOK, MBUF_TYPE_DATA, size, &m)) != 0)
+		return ENOBUFS;
+	md_initm(mdp, m);
+	return 0;
+}
+#endif // KERNEL
+
+void md_shadow_copy(const mdchain_t mdp, mdchain_t shadow)
+{
+	shadow->md_top = mdp->md_top;		/* head of mbufs chain */
+	shadow->md_cur = mdp->md_cur;		/* current mbuf */
+	shadow->md_pos = mdp->md_pos;		/* offset in the current mbuf */
 }
 
-void
-md_done(struct mdchain *mdp)
+void md_done(mdchain_t mdp)
 {
 	if (mdp->md_top) {
 		mbuf_freem(mdp->md_top);
@@ -362,12 +579,12 @@ md_done(struct mdchain *mdp)
 	}
 }
 
+#ifdef KERNEL
 /*
  * Append a separate mbuf chain. It is caller responsibility to prevent
  * multiple calls to fetch/record routines.
  */
-void
-md_append_record(struct mdchain *mdp, mbuf_t top)
+void md_append_record(mdchain_t mdp, mbuf_t top)
 {
 	mbuf_t m;
 
@@ -386,8 +603,7 @@ md_append_record(struct mdchain *mdp, mbuf_t top)
 /*
  * Put next record in place of existing
  */
-int
-md_next_record(struct mdchain *mdp)
+int md_next_record(mdchain_t mdp)
 {
 	mbuf_t m;
 
@@ -400,23 +616,21 @@ md_next_record(struct mdchain *mdp)
 	md_initm(mdp, m);
 	return 0;
 }
+#endif // KERNEL
 
-int
-md_get_uint8(struct mdchain *mdp, u_int8_t *x)
+int md_get_uint8(mdchain_t mdp, uint8_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 1, MB_MINLINE);
 }
 
-int
-md_get_uint16(struct mdchain *mdp, u_int16_t *x)
+int md_get_uint16(mdchain_t mdp, uint16_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 2, MB_MINLINE);
 }
 
-int
-md_get_uint16le(struct mdchain *mdp, u_int16_t *x)
+int md_get_uint16le(mdchain_t mdp, uint16_t *x)
 {
-	u_int16_t v;
+	uint16_t v;
 	int error = md_get_uint16(mdp, &v);
 
 	if (x && (error == 0))
@@ -424,9 +638,9 @@ md_get_uint16le(struct mdchain *mdp, u_int16_t *x)
 	return error;
 }
 
-int
-md_get_uint16be(struct mdchain *mdp, u_int16_t *x) {
-	u_int16_t v;
+int md_get_uint16be(mdchain_t mdp, uint16_t *x) 
+{
+	uint16_t v;
 	int error = md_get_uint16(mdp, &v);
 
 	if (x && (error == 0))
@@ -434,16 +648,14 @@ md_get_uint16be(struct mdchain *mdp, u_int16_t *x) {
 	return error;
 }
 
-int
-md_get_uint32(struct mdchain *mdp, u_int32_t *x)
+int md_get_uint32(mdchain_t mdp, uint32_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 4, MB_MINLINE);
 }
 
-int
-md_get_uint32be(struct mdchain *mdp, u_int32_t *x)
+int md_get_uint32be(mdchain_t mdp, uint32_t *x)
 {
-	u_int32_t v;
+	uint32_t v;
 	int error;
 
 	error = md_get_uint32(mdp, &v);
@@ -452,10 +664,9 @@ md_get_uint32be(struct mdchain *mdp, u_int32_t *x)
 	return error;
 }
 
-int
-md_get_uint32le(struct mdchain *mdp, u_int32_t *x)
+int md_get_uint32le(mdchain_t mdp, uint32_t *x)
 {
-	u_int32_t v;
+	uint32_t v;
 	int error;
 
 	error = md_get_uint32(mdp, &v);
@@ -464,16 +675,14 @@ md_get_uint32le(struct mdchain *mdp, u_int32_t *x)
 	return error;
 }
 
-int
-md_get_uint64(struct mdchain *mdp, u_int64_t *x)
+int md_get_uint64(mdchain_t mdp, uint64_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 8, MB_MINLINE);
 }
 
-int
-md_get_uint64be(struct mdchain *mdp, u_int64_t *x)
+int md_get_uint64be(mdchain_t mdp, uint64_t *x)
 {
-	u_int64_t v;
+	uint64_t v;
 	int error;
 
 	error = md_get_uint64(mdp, &v);
@@ -482,10 +691,9 @@ md_get_uint64be(struct mdchain *mdp, u_int64_t *x)
 	return error;
 }
 
-int
-md_get_uint64le(struct mdchain *mdp, u_int64_t *x)
+int md_get_uint64le(mdchain_t mdp, uint64_t *x)
 {
-	u_int64_t v;
+	uint64_t v;
 	int error;
 
 	error = md_get_uint64(mdp, &v);
@@ -494,7 +702,71 @@ md_get_uint64le(struct mdchain *mdp, u_int64_t *x)
 	return error;
 }
 
-int md_get_mem(struct mdchain *mdp, caddr_t target, size_t size, int type)
+size_t md_get_size(mdchain_t mdp)
+{
+	mbuf_t m = mdp->md_cur;
+	size_t start_pos = (size_t)mdp->md_pos;
+	size_t len = 0;
+	
+	while (m) {
+		if (start_pos) {
+			len += (size_t)mbuf_data(m) + mbuf_len(m) - start_pos;
+			start_pos = 0; /* only care the first time through */
+		} else {
+			len += mbuf_len(m);
+		}
+		m = mbuf_next(m);
+	}
+	return len;
+}
+
+/*
+ * This routine relies on the fact that we are looking for the length of a UTF16
+ * string that must start on an even boundry.
+ */
+size_t md_get_utf16_strlen(mdchain_t mdp) 
+{
+	mbuf_t m = mdp->md_cur;
+	u_char *s = mdp->md_pos; /* Points to the start of the utf16 string in the mbuf data */
+	size_t size;
+	size_t max_count, count, ii;
+	uint16_t *ustr;
+	
+	size = 0;
+	while (m) {
+		/* Max amount of data we can scan in this mbuf */
+		max_count = count = (size_t)mbuf_data(m) + mbuf_len(m) - (size_t)s;
+		/* Trail byte in this mbuf ignore it for now */ 
+		max_count &= ~1;
+		/* Scan the mbuf counting the bytes */
+		ustr = (uint16_t *)((void *)s);
+		for (ii = 0; ii < max_count; ii += 2) {
+			if (*ustr++ == 0) {
+				/* Found the end we are done */
+				goto done;
+			}
+			size += 2;
+		}
+		/* Get the next mbuf to scan */
+		m = mbuf_next(m);
+		if (m) {
+			s = mbuf_data(m);
+			/* Did the previous mbuf have an odd length */
+			if (count & 1) {
+				/* Check the last byte in that mbuf and the first byte in this one */
+				if ((*((u_char *)ustr) == 0) && (*s == 0)) {
+					/* Found the end we are done */
+					goto done;
+				}
+				s += 1;
+			}
+		}
+	}
+done:
+	return size;
+}
+
+int md_get_mem(mdchain_t mdp, caddr_t target, size_t size, int type)
 {
 	size_t size_request = size;
 	mbuf_t m = mdp->md_cur;
@@ -504,7 +776,12 @@ int md_get_mem(struct mdchain *mdp, caddr_t target, size_t size, int type)
 	while (size > 0) {
 		if (m == NULL) {
 			/* Note some calls expect this to happen, see notify change */
+#ifdef KERNEL
 			SMBWARNING("WARNING: Incomplete copy original size = %ld size = %ld\n", size_request, size);
+#else // KERNEL
+			smb_log_info("%s - WARNING: Incomplete copy original size = %ld size = %ld, syserr = %s",
+						 ASL_LEVEL_DEBUG, __FUNCTION__, size_request, size, strerror(EBADRPC));
+#endif // KERNEL
 			return EBADRPC;
 		}
 		s = mdp->md_pos;
@@ -512,7 +789,7 @@ int md_get_mem(struct mdchain *mdp, caddr_t target, size_t size, int type)
 		if (count == 0) {
 			mdp->md_cur = m = mbuf_next(m);
 			if (m)
-				s = mdp->md_pos = mbuf_data(m);
+				mdp->md_pos = mbuf_data(m);
 			continue;
 		}
 		if (count > size)
@@ -535,7 +812,8 @@ int md_get_mem(struct mdchain *mdp, caddr_t target, size_t size, int type)
 	return 0;
 }
 
-int md_get_mbuf(struct mdchain *mdp, size_t size, mbuf_t *ret)
+#ifdef KERNEL
+int md_get_mbuf(mdchain_t mdp, size_t size, mbuf_t *ret)
 {
 	mbuf_t m = mdp->md_cur, rm;
 	size_t offset = (size_t)mdp->md_pos - (size_t)mbuf_data(m);
@@ -547,13 +825,12 @@ int md_get_mbuf(struct mdchain *mdp, size_t size, mbuf_t *ret)
 	return 0;
 }
 
-int
-md_get_uio(struct mdchain *mdp, uio_t uiop, int32_t size)
+int md_get_uio(mdchain_t mdp, uio_t uiop, int32_t size)
 {
 	int32_t count;
 	int error;
 	mbuf_t m = mdp->md_cur;
-	u_int8_t *src;
+	uint8_t *src;
 	
 	/* Read in the data into the the uio */
 	while ((size > 0) && (uio_resid(uiop))) {
@@ -564,11 +841,11 @@ md_get_uio(struct mdchain *mdp, uio_t uiop, int32_t size)
 		}
 		/* Get a pointer to the mbuf data */
 		src = mdp->md_pos;
-		count = (int)((u_int8_t *)mbuf_data(m) + mbuf_len(m) - src);
+		count = (int)((uint8_t *)mbuf_data(m) + mbuf_len(m) - src);
 		if (count == 0) {
 			mdp->md_cur = m = mbuf_next(m);
 			if (m)
-				src = mdp->md_pos = mbuf_data(m);
+				mdp->md_pos = mbuf_data(m);
 			continue;
 		}
 		if (count > size)
@@ -586,8 +863,8 @@ md_get_uio(struct mdchain *mdp, uio_t uiop, int32_t size)
 /*
  * Given a user land pointer place the data in a mbuf chain.
  */
-int
-md_get_user_mem(struct mdchain *mdp, user_addr_t bufp, int size, off_t offset, vfs_context_t context)
+int md_get_user_mem(mdchain_t mdp, user_addr_t bufp, int size, off_t offset, 
+					vfs_context_t context)
 {
 	user_size_t nbyte = size;
 	uio_t auio;
@@ -606,4 +883,5 @@ md_get_user_mem(struct mdchain *mdp, user_addr_t bufp, int size, off_t offset, v
 	uio_free(auio);
 	return error;
 }
+#endif // KERNEL
 

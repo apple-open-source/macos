@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/uz_Arab.xml
@@ -10,43 +10,35 @@
  *  ICU <specials> source: <path>/xml/main/uz_Arab.xml
  */
 uz_Arab{
+    %%ParentIsRoot:int{1}
     AuxExemplarCharacters{"[\u200C \u200D]"}
-    Countries{
-        AF{"افغانستان"}
-    }
-    Currencies{
-        AFN{
-            "AFN",
-            "افغانی",
-        }
-    }
     ExemplarCharacters{
-        "[ً-ْ ٔ ٰ ء-ؤ ئ-ب پ ة-ث ټ ج چ ح خ ځ څ د ذ ډ ر ز ړ ږ ژ س ش ښ ص-غ ف ق ک ګ گ ل-ن"
-        " ڼ ه و ۇ ۉ ي ی ۍ ې]"
-    }
-    Languages{
-        fa{"دری"}
-        ps{"پشتو"}
-        uz{"اۉزبېک"}
+        "[\u064B \u064C \u064D \u064E \u064F \u0650 \u0651 \u0652 \u0654 \u0670 ء آ أ"
+        " ؤ ئ ا ب پ ة ت ث ټ ج چ ح خ ځ څ د ذ ډ ر ز ړ ږ ژ س ش ښ ص ض ط ظ ع غ ف ق ک ګ گ ل"
+        " م ن ڼ ه و ۇ ۉ ي ی ۍ ې]"
     }
     LocaleScript{
         "Arab",
     }
     NumberElements{
-        "٫",
-        "٬",
-        ";",
-        "٪",
-        "۰",
-        "#",
-        "−",
-        "×۱۰^",
-        "‰",
-        "∞",
-        "NaN",
-        "+",
+        arabext{
+            symbols{
+                decimal{"٫"}
+                exponential{"×۱۰^"}
+                group{"٬"}
+                percentSign{"٪"}
+            }
+        }
+        default{"arabext"}
+        latn{
+            symbols{
+                decimal{","}
+                group{"."}
+                minusSign{"−"}
+            }
+        }
     }
-    Version{"1.28"}
+    Version{"2.0.50.30"}
     layout{
         characters{"right-to-left"}
         lines{"top-to-bottom"}

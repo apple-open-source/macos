@@ -1,25 +1,24 @@
-diff -Naur net-snmp-5.4.2.1.orig/configure net-snmp-5.4.2.1.work/configure
---- net-snmp-5.4.2.1.orig/configure	2009-01-05 18:44:07.000000000 -0800
-+++ net-snmp-5.4.2.1.work/configure	2009-01-05 21:05:21.000000000 -0800
-@@ -32031,7 +32031,7 @@
-       echo "$as_me:$LINENO: checking for Perl cc" >&5
- echo $ECHO_N "checking for Perl cc... $ECHO_C" >&6
+diff -Naur net-snmp-5.6.orig/configure net-snmp-5.6.working/configure
+--- net-snmp-5.6.orig/configure	2010-10-07 15:23:32.000000000 -0700
++++ net-snmp-5.6.working/configure	2010-12-06 17:27:12.000000000 -0800
+@@ -34223,7 +34223,7 @@
+         { $as_echo "$as_me:$LINENO: checking for Perl cc" >&5
+ $as_echo_n "checking for Perl cc... " >&6; }
  
--      PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/]+).;\s*/$1/);'`
-+      PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/\.]+).;\s*/$1/);'`
+-        PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/]+).;\s*/$1/);'`
++        PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/.]+).;\s*/$1/);'`
  
-       if test "x$PERLCC" != "x" ; then
-         echo "$as_me:$LINENO: result: $PERLCC" >&5
-diff -Naur net-snmp-5.4.2.1.orig/configure.in net-snmp-5.4.2.1.work/configure.in
---- net-snmp-5.4.2.1.orig/configure.in	2009-01-05 18:44:07.000000000 -0800
-+++ net-snmp-5.4.2.1.work/configure.in	2009-01-05 19:43:40.000000000 -0800
-@@ -2986,7 +2986,7 @@
+         if test "x$PERLCC" != "x" ; then
+             { $as_echo "$as_me:$LINENO: result: $PERLCC" >&5
+diff -Naur net-snmp-5.6.orig/configure.d/config_project_perl_python net-snmp-5.6.working/configure.d/config_project_perl_python
+--- net-snmp-5.6.orig/configure.d/config_project_perl_python	2010-07-29 08:47:40.000000000 -0700
++++ net-snmp-5.6.working/configure.d/config_project_perl_python	2010-12-06 17:18:22.000000000 -0800
+@@ -87,7 +87,7 @@
      if test "xenable_perl_cc_checks" != "xno" ; then
-       AC_MSG_CHECKING([for Perl cc])
-       changequote(, )
--      PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/]+).;\s*/$1/);'`
-+      PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/\.]+).;\s*/$1/);'`
-       changequote([, ])
-       if test "x$PERLCC" != "x" ; then
-         AC_MSG_RESULT([$PERLCC])
-       else
+         AC_MSG_CHECKING([for Perl cc])
+         changequote(, )
+-        PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/]+).;\s*/$1/);'`
++        PERLCC=`$myperl -V:cc | $myperl -n -e 'print if (s/^\s*cc=.([-=\w\s\/.]+).;\s*/$1/);'`
+         changequote([, ])
+         if test "x$PERLCC" != "x" ; then
+             AC_MSG_RESULT([$PERLCC])

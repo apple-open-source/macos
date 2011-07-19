@@ -1,0 +1,245 @@
+Converting between mailbox formats
+==================================
+
+If you want a transparent migration, the biggest problem is preserving message
+UIDs. See <Migration.txt> for the problems this may cause. If you do the
+conversion with dsync, it preserves the UIDs.
+
+dsync
+-----
+
+With dsync you can convert between any two mailbox formats that Dovecot
+supports. As much of the mailbox state is preserved as possible. Typically it's
+everything. See <Tools.Dsync.txt> for full documentation, here are only a
+couple of examples:
+
+ * mbox -> maildir migration. Set 'mail_location=maildir:~/Maildir' and run
+   'dsync mirror -u username mbox:~/mail:INBOX=/var/mail/username'
+ * maildir -> mdbox migration. Set 'mail_location=mdbox:~/mdbox' and run 'dsync
+   mirror -u username maildir:~/Maildir'
+
+If you can successfully use dsync, you can skip the rest of this page.
+
+Converting from mbox to Maildir
+-------------------------------
+
+ * mb2md.pl with Dovecot modifications [http://dovecot.org/tools/mb2md.pl] can
+   convert mails, preserving UIDs and keywords.
+    * See also [attachment:migrateuser.sh script to drive the full migration
+      for a user].
+       * This script requires patched 'mailutil' that supports Maildir. One
+         working 'mailutil' binary is RHEL4 PINE RPM
+         [http://dag.wieers.com/rpm/packages/pine/pine-4.64-3.el4.rf.i386.rpm]
+         from the DAG RPM Repository [http://dag.wieers.com/rpm/]. You could
+         also patch any version of pine/c-client and patch it with the Maildir
+         patches from
+         http://staff.washington.edu/chappa/pine/info/maildir.html.
+ * mb2md.py [http://dovecot.org/list/dovecot/2008-March/029736.html] can
+   convert also message UIDs.
+ * Yet another way to fix the UIDL migration problem. If you can generate an
+   uildlist ("messagenumber uidl" pairs), use my new -U uidllist option to
+   inject X-UILD: headers in the converted Maildir-file. The modified mb2md
+   script is avalable here:mb2md.xuidl.pl.gz
+   [http://www.chaos.dk/~sch/mb2md.xuidl/mb2md.xuidl.pl.gz]. I used this to
+   convert a cucipop installation to dovecot. pop3_reuse_xuidl=yes will do the
+   rest./-- <SoerenSchroeder.txt> 2009-02-13/
+
+Check also the *User-Contributed Maildir Support* section on the qmail
+community site [http://www.qmail.org/top.html#usersoft] for more choices.
+
+Example (user's mail in '~someuser/mail' and INBOX in '/var/mail/someuser'):
+
+---%<-------------------------------------------------------------------------
+cd ~someuser
+mb2md-3.20.pl -s mail -R
+mb2md-3.20.pl -m -s /var/mail/someuser
+mv mail mail.old
+---%<-------------------------------------------------------------------------
+
+Now the mail will be in '~someuser/Maildir'. Do not forget to migrate the
+subscriptions as well, otherwise the new maildir will seem to have only an
+inbox when viewed through a mail client that supports them. This can be as
+simple as copying the old '~someuser/mail/.subscriptions' file to
+'~someuser/Maildir/subscriptions' (warning: I have not tested this extensively,
+my subscription list and folder hierarchy was very simplistic).
+
+Hierarchy separator change
+--------------------------
+
+The default hierarchy separator with Maildir is '.' instead of '/' which is
+common with mboxes. To keep the migration transparent to users, you can keep
+the '/' separator by using <namespaces> [Namespaces.txt]. In any case you need
+to replace the '/' with '.' in the subscriptions file:
+
+ * ---%<----------------------------------------------------------------------
+   sed 's:/:.:g' subscriptions > subscriptions.new
+   mv subscriptions.new subscriptions
+   ---%<----------------------------------------------------------------------
+
+UW-IMAP's subscriptions file is in '~/.mailboxlist'. Dovecot's mbox
+subscriptions is in '<mbox root dir>/.subscriptions'. Dovecot's Maildir
+subscriptions is in '<maildir root>/subscriptions'.
+
+Also if you're migrating from UW-IMAP, you probably had "mail/" prefixes in the
+mailbox names. You can again use <namespaces> [Namespaces.txt] to let clients
+use the prefix, or you can tell your users to remove the namespace prefix from
+their clients and change the subscriptions file:
+
+---%<-------------------------------------------------------------------------
+sed 's/^mail\.//' subscriptions > subscriptions.new
+mv subscriptions.new subscriptions
+---%<-------------------------------------------------------------------------
+
+Note that because Maildir uses '.' as the hierarchy separator in filesystem,
+it's not possible to have mailbox names containing '.' characters, even if you
+changed the separator in namespaces. If you really want to have dots, the only
+way to do this is by modifying the filesystem separator in 'MAILDIR_FS_SEP' and
+'MAILDIR_FS_SEP_S' defines in 'src/lib-storage/index/maildir/maildir-storage.h'
+file in the sources.  Do not be tempted to change 'MAILDIR_FS_SEP' et al to
+'/'; it won't work.
+
+Converting from Maildir to mbox
+-------------------------------
+
+This is especially helpful if you want to archive your mail to a single file
+for storage on a CD, a PC, etc. But it can also be helpful if you want to use
+<mbox> [MailboxFormat.mbox.txt] with Dovecot.
+
+Use the reformail program that comes with maildrop
+[http://www.courier-mta.org/maildrop/]. You can also use the formail program
+that comes with procmail [http://www.procmail.org/]. Here is a simple script
+showing how this works.
+
+To use it, adjust the script to invoke the right command according to your
+system.
+
+Then 'cd' to the user's home directory (one level above 'Maildir') and run the
+script with two arguments: the mailbox name (You can use "." for the top-level
+folder), and the output mbox filename, for example:
+
+---%<-------------------------------------------------------------------------
+cd ~hans
+perl dw-maildirtombox.pl . >/tmp/hans-inbox
+perl dw-maildirtombox.pl Sent >/tmp/hans-sent
+---%<-------------------------------------------------------------------------
+
+---%<-------------------------------------------------------------------------
+#!/usr/bin/env perl
+# dw-maildirtombox.pl
+# dw = Dovecot Wiki :-)
+# NOTE! The output file must not contain single quotes (')!
+# figure out which program to run
+$cmd="reformail -f1";
+system("$cmd </dev/null >/dev/null 2>/dev/null") == 0 or $cmd="formail";
+system("$cmd </dev/null >/dev/null 2>/dev/null") == 0
+or die "cannot find reformail or formail on your \$PATH!\nAborting";
+$dir=$ARGV[0];
+$outputfile=$ARGV[1];
+if (($outputfile eq '') || ($dir eq ''))
+{ die "Usage: ./archivemail.pl mailbox outputfile\nAborting"; }
+if (!stat("Maildir/$dir/cur") || !stat("Maildir/$dir/new"))
+{ die "Maildir/$dir is not a maildir.\nAborting"; }
+@files = (<Maildir/$dir/cur/*>,<Maildir/$dir/new/*>);
+foreach $file (@files) {
+  next unless -f $file; # skip non-regular files
+  next unless -s $file; # skip empty files
+  next unless -r $file; # skip unreadable files
+  $file =~ s/'/'"'"'/;  # escape ' (single quote)
+  $run = "cat '$file' | $cmd >>'$outputfile'";
+  system($run) == 0 or warn "cannot run \"$run\".";
+}
+---%<-------------------------------------------------------------------------
+
+Converting from MBX to Maildir
+------------------------------
+
+See the uw2dovecot.pl
+[http://wiki.dovecot.org/Migration/UW?action=AttachFile&do=view&target=uw2dovecot.pl]
+as mentioned on the <Migration.UW.txt> page.
+
+Converting from MBX to mbox
+---------------------------
+
+If you are using UW-IMAP and using the <MBX format> [MailboxFormat.mbx.txt],
+you will need to convert it to <mbox> [MailboxFormat.mbox.txt] format. The
+conversion process isn't pretty, but here is a script that works. You will need
+to get and compile the mailutil program from the UW-IMAP web site
+[http://www.washington.edu/imap/].
+
+---%<-------------------------------------------------------------------------
+#! /bin/sh
+# Written by Marc Perkel - public domain
+# overhauled by Matthias Andree, 2006
+# Usage: mbx-convert <filename>
+# This code assumes there a user named "marc" with the primary group "marc".
+# Change to any real user on your system.
+# Yes - it look bizzare - but it gets the job done
+# abort on error
+set -e
+user=marc
+group=marc
+homedir=/home/$user
+if [ $# -ne 1 ] ; then
+  echo >&2 "Usage: $0 <filename>"
+  exit 1
+fi
+# set up automatic cleanup
+trap 'rm -f "${homedir}"/in.$$ "${homedir}"/out.$$' 0
+# First copy to users home dir and make the user the owner
+cp "$1" "${homedir}/in.$$"
+chown "$user":"$group" "${homedir}/in.$$"
+# Run mailutil to convert as the user other than root
+# mailutil requires this
+su "$user" -c "mailutil copy in.$$ \#driver.unix/out.$$"
+# create new file with same permissions/owner as old
+cp -p "$1" "${1}.new"
+# cat instead of copy leaves the original owner and permissions alone
+if cat "${homedir}/out.$$" >"${1}.new" ; then
+  # cat succeeded, rename file into place
+  mv "${1}.new" "$1"
+else
+  # cat failed, remove temp file
+  rm -f "${1}.new"
+  exit 1
+fi
+---%<-------------------------------------------------------------------------
+
+Make a copy of some folders and test it first. Once you are satisfied that it
+works then:
+
+ * Write a script to convert all your files.
+ * Shut down your email system so files can't be modified
+ * Copy all your email to a backup location in case you have to revert
+ * Run the script
+ * Turn on Dovecot and test to verify it is working
+ * Important - make sure that you changed your SMTP configuration to write mbox
+   and not MBX.
+ * Turn on SMTP and verify it is all working
+
+*User comments:*
+
+ * Is this hassle actually necessary? I have run mailutil as root like this
+   (mailutil as provided by the PINE 4.61 package for SUSE Linux
+   10.0):'mailutil copy /tmp/foo.mbx.orig '#driver.unix//tmp/foo.test'' and did
+   not encounter any problems./-- <MatthiasAndree.txt>, 2006-05-18/
+ * I did the same (using 'mailutil') but it doesn't maintain UIDs or
+   UIDVALIDITY. So I hacked[attachment:mbx2mbox.tgz this] together to do the
+   migration./-- <JulianFitzell.txt>, 2008-08-02/
+ * Tried to do 'mailutil -v copy /tmp/foo '#driver.unix'/tmp/foo.unix', but
+   mailutil argues 'Can't open mailbox /tmp/foo: no such mailbox'. (mailutil as
+   from the Debian package uw-mailutils in Debian 5.0 Lenny) strace shows that
+   it searches for /tmp/foo/cur, i.e. a Maildir format mailbox. (WTF?) No idea
+   yet how to get this working. And I'm really glad when I got rid of MBX. --
+   <AxelBeckert.txt>, 2009-06-19
+    * As Mark Crispin always says: Don't use UW-IMAP with buggy (Maildir)
+      patches, compile your own.
+    * Same problem here - just reinstalled uw-imapd, used thunderbird to create
+      a "normal" mailfolder and copied the old folder contents - F.Fernandez
+    * At least with ubuntu mailutil from uw-mailutils it starts search from
+      root *ALWAYS* and if you start with slash it tries to convert from
+      maildir format 'mailutil -v copy /tmp/foo '#driver.unix'/tmp/foo.unix' =
+      convert maildir formated folder /tmp/foo/cur to mbox and 'mailutil -v
+      copy tmp/foo '#driver.unix'/tmp/foo.unix' = convert /tmp/foo file to mbox
+      - Manwe, 2010-03-09
+
+(This file was created from the wiki on 2011-05-11 04:42)

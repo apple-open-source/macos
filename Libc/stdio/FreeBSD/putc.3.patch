@@ -1,6 +1,6 @@
---- _SB/Libc/stdio/FreeBSD/putc.3	2004-11-25 11:38:35.000000000 -0800
-+++ _SB/Libc/stdio/FreeBSD/putc.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -52,17 +52,33 @@
+--- putc.3.bsdnew	2009-11-11 13:33:13.000000000 -0800
++++ putc.3	2009-11-11 13:33:14.000000000 -0800
+@@ -48,17 +48,33 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft int
@@ -45,7 +45,7 @@
  .Sh DESCRIPTION
  The
  .Fn fputc
-@@ -121,7 +137,7 @@
+@@ -117,7 +133,7 @@ The functions,
  .Fn fputc ,
  .Fn putc ,
  .Fn putchar ,

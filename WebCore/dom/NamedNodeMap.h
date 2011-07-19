@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,10 +28,6 @@
 #include "Attribute.h"
 #include "SpaceSplitString.h"
 
-#ifdef __OBJC__
-#define id id_AVOID_KEYWORD
-#endif
-
 namespace WebCore {
 
 class Node;
@@ -40,16 +36,11 @@ typedef int ExceptionCode;
 
 class NamedNodeMap : public RefCounted<NamedNodeMap> {
     friend class Element;
-
-protected:
-    NamedNodeMap(Element* element) 
-        : m_mappedAttributeCount(0)
-        , m_element(element)
-    {
-    }
-
 public:
-    static PassRefPtr<NamedNodeMap> create(Element* element) { return adoptRef(new NamedNodeMap(element)); }
+    static PassRefPtr<NamedNodeMap> create(Element* element = 0)
+    {
+        return adoptRef(new NamedNodeMap(element));
+    }
 
     ~NamedNodeMap();
 
@@ -90,10 +81,12 @@ public:
             addAttribute(newAttribute);
     }
 
-    const AtomicString& id() const { return m_id; }
-    void setID(const AtomicString& newId) { m_id = newId; }
+    const AtomicString& idForStyleResolution() const { return m_idForStyleResolution; }
+    void setIdForStyleResolution(const AtomicString& newId) { m_idForStyleResolution = newId; }
 
+    // FIXME: These two functions should be merged if possible.
     bool mapsEquivalent(const NamedNodeMap* otherMap) const;
+    bool mappedMapsEquivalent(const NamedNodeMap* otherMap) const;
 
     // These functions do no error checking.
     void addAttribute(PassRefPtr<Attribute>);
@@ -101,20 +94,33 @@ public:
 
     Element* element() const { return m_element; }
 
-protected:
-    int m_mappedAttributeCount;
-    SpaceSplitString m_classNames;
+    void clearClass() { m_classNames.clear(); }
+    void setClass(const String&);
+    const SpaceSplitString& classNames() const { return m_classNames; }
+
+    bool hasMappedAttributes() const { return m_mappedAttributeCount > 0; }
+    void declRemoved() { m_mappedAttributeCount--; }
+    void declAdded() { m_mappedAttributeCount++; }
 
 private:
+    NamedNodeMap(Element* element) 
+        : m_mappedAttributeCount(0)
+        , m_element(element)
+    {
+    }
+
     void detachAttributesFromElement();
     void detachFromElement();
     Attribute* getAttributeItem(const String& name, bool shouldIgnoreAttributeCase) const;
     Attribute* getAttributeItemSlowCase(const String& name, bool shouldIgnoreAttributeCase) const;
     void clearAttributes();
-    
+    int declCount() const;
+
+    int m_mappedAttributeCount;
+    SpaceSplitString m_classNames;
     Element* m_element;
     Vector<RefPtr<Attribute> > m_attributes;
-    AtomicString m_id;
+    AtomicString m_idForStyleResolution;
 };
 
 inline Attribute* NamedNodeMap::getAttributeItem(const QualifiedName& name) const
@@ -128,7 +134,7 @@ inline Attribute* NamedNodeMap::getAttributeItem(const QualifiedName& name) cons
 }
 
 // We use a boolean parameter instead of calling shouldIgnoreAttributeCase so that the caller
-// can tune the behaviour (hasAttribute is case sensitive whereas getAttribute is not).
+// can tune the behavior (hasAttribute is case sensitive whereas getAttribute is not).
 inline Attribute* NamedNodeMap::getAttributeItem(const String& name, bool shouldIgnoreAttributeCase) const
 {
     unsigned len = length();
@@ -150,7 +156,5 @@ inline Attribute* NamedNodeMap::getAttributeItem(const String& name, bool should
 }
 
 } // namespace WebCore
-
-#undef id
 
 #endif // NamedNodeMap_h

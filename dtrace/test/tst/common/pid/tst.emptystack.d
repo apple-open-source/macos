@@ -50,7 +50,7 @@ pid$1:::return
 #if !defined(__APPLE__)
 pid$1:a.out::
 #else
-pid$1:libSystem.B.dylib:w*:
+pid$1:libsystem_c.dylib:w*:
 #endif
 {
 	@[stack()] = sum(0);

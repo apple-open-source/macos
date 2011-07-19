@@ -35,7 +35,10 @@
  * - created
  */
 
-extern void my_log(int priority, const char * message, ...);
-extern void timestamp_fprintf(FILE * f, const char * message, ...);
+#include <CoreFoundation/CFString.h>
+#include "mylog.h"
+
+void
+remove_unused_ip(const char * ifname, struct in_addr ip);
 
 #endif _S_IPCONFIGD_GLOBALS_H

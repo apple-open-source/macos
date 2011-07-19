@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2009, 2010, 2011 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,19 +32,22 @@ audio {
 audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
     /* In mediaControls.css */
     -webkit-appearance: media-controls-background;
+    overflow: visible;
     height: 25px;
 }
 
 video:-webkit-full-page-media::-webkit-media-controls-panel {
-    bottom: -25px;
+    bottom: 0px;
 }
 
 audio::-webkit-media-controls-mute-button, video::-webkit-media-controls-mute-button {
     -webkit-box-ordinal-group: 2; /* Before the fullscreen button */
-    width: 15px;
-    height: 14px;
+
+    width: 14px;
+    height: 12px;
     margin-left: 2px;
-    margin-right: 8px;
+    margin-right: 9px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-play-button, video::-webkit-media-controls-play-button {
@@ -52,6 +55,7 @@ audio::-webkit-media-controls-play-button, video::-webkit-media-controls-play-bu
     height: 16px;
     margin-left: 6px;
     margin-right: 1px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-timeline-container, video::-webkit-media-controls-timeline-container {
@@ -120,11 +124,13 @@ audio::-webkit-media-controls-timeline, video::-webkit-media-controls-timeline {
 audio::-webkit-media-controls-seek-back-button, video::-webkit-media-controls-seek-back-button {
     display: none;
     width: 0px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-seek-forward-button, video::-webkit-media-controls-seek-forward-button {
     display: none;
     width: 0px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-fullscreen-button, video::-webkit-media-controls-fullscreen-button {
@@ -133,6 +139,7 @@ audio::-webkit-media-controls-fullscreen-button, video::-webkit-media-controls-f
     margin-left: 7px;
     margin-right: 7px;
     -webkit-box-ordinal-group: 4; /* At the very end */
+    border: none !important;
 }
 
 audio::-webkit-media-controls-rewind-button, video::-webkit-media-controls-rewind-button {
@@ -143,6 +150,7 @@ audio::-webkit-media-controls-rewind-button, video::-webkit-media-controls-rewin
     margin-bottom: 1px;
     margin-left: 6px;
     margin-right: 2px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-return-to-realtime-button, video::-webkit-media-controls-return-to-realtime-button {
@@ -152,6 +160,7 @@ audio::-webkit-media-controls-return-to-realtime-button, video::-webkit-media-co
     height: 11px;
     margin-left: 6px;
     margin-right: 2px;
+    border: none !important;
 }
 
 audio::-webkit-media-controls-status-display, video::-webkit-media-controls-status-display {
@@ -184,4 +193,41 @@ audio::-webkit-media-controls-toggle-closed-captions-button, video::-webkit-medi
     margin-left: 7px;
     margin-right: 7px;
     -webkit-box-ordinal-group: 3; /* between mute and fullscreen */
+    border: none !important;
 }
+
+audio::-webkit-media-controls-volume-slider-container, video::-webkit-media-controls-volume-slider-container {
+    -webkit-appearance: media-volume-slider-container;
+    position: absolute;
+
+    top: 0;
+    left: 0;
+
+    width: 22px;
+    height: 114px;
+}
+
+audio::-webkit-media-controls-volume-slider, video::-webkit-media-controls-volume-slider {
+    -webkit-appearance: media-volume-slider;
+    display: inline;
+    position: absolute;
+
+    top: 7px;
+    left: 6px;
+
+    width: 10px;
+    height: 80px;
+}
+
+audio::-webkit-media-controls-volume-slider-mute-button, video::-webkit-media-controls-volume-slider-mute-button {
+    -webkit-appearance: media-volume-slider-mute-button;
+    display: inline;
+    position: absolute;
+
+    bottom: 5px;
+    left: 4px;
+
+    width: 14px;
+    height: 12px;
+    border: none !important;
+} 

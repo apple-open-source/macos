@@ -1,0 +1,19 @@
+/^#include/a
+#include <stdlib.h>
+.
+/^setup_readline/-1i
+static char *
+_dummy(const char *x, int y)
+{
+    return NULL;
+}
+
+.
+/using_history/i
+	rl_completion_entry_function = (Function *)_dummy;
+.
+/rl_initialize()/a
+	/* remove tab completion binding */
+	rl_parse_and_bind("bind ^I ed-insert");
+.
+w

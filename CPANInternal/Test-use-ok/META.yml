@@ -1,0 +1,14 @@
+abstract: Alternative to Test::More::use_ok
+author: ", 2006 by Audrey Tang <cpan@audreyt.org>."
+distribution_type: module
+generated_by: Module::Install version 0.64
+license: perl
+name: Test-use-ok
+no_index: 
+  directory: 
+    - inc
+    - t
+requires: 
+  Test::More: 0
+  perl: 5.005
+version: 0.02

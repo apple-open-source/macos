@@ -40,6 +40,8 @@
 #include <security/pam_appl.h>
 #include <security/pam_modules.h>
 
+#include "openpam_impl.h"
+
 /*
  * XSSO 4.2.2
  * XSSO 6 page 68

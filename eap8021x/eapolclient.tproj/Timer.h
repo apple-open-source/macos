@@ -52,5 +52,5 @@ int			Timer_set_relative(TimerRef entry,
 					   void * arg3);
 void			Timer_cancel(TimerRef entry);
 
-#endif _S_TIMER_H
+#endif /* _S_TIMER_H */
 

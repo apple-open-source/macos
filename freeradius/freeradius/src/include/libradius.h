@@ -59,7 +59,7 @@ RCSIDH(libradius_h, "$Id$")
 #define CHAP_VALUE_LENGTH       16
 #define MAX_STRING_LEN		254	/* RFC2138: string 0-253 octets */
 
-#  define VENDOR(x)		((x >> 16) & 0x7fff)
+#  define VENDOR(x)		((x >> 16) & 0xffff)
 
 #ifdef _LIBRADIUS
 #  define AUTH_HDR_LEN		20
@@ -115,7 +115,7 @@ typedef struct attr_flags {
 #define FLAG_ENCRYPT_ASCEND_SECRET   (3)
 
 typedef struct dict_attr {
-	int			attr;
+	unsigned int		attr;
 	int			type;
 	int			vendor;
         ATTR_FLAGS              flags;
@@ -123,7 +123,7 @@ typedef struct dict_attr {
 } DICT_ATTR;
 
 typedef struct dict_value {
-	int			attr;
+	unsigned int		attr;
 	int			value;
 	char			name[1];
 } DICT_VALUE;
@@ -194,6 +194,7 @@ typedef struct fr_ipaddr_t {
 		struct in_addr	ip4addr;
 		struct in6_addr ip6addr; /* maybe defined in missing.h */
 	} ipaddr;
+	uint32_t	scope;	/* for IPv6 */
 } fr_ipaddr_t;
 
 /*
@@ -225,6 +226,7 @@ typedef struct radius_packet {
 /*
  *	Printing functions.
  */
+int		fr_utf8_char(const uint8_t *str);
 void		fr_print_string(const char *in, size_t inlen,
 				 char *out, size_t outlen);
 int     	vp_prints_value(char *out, size_t outlen,
@@ -243,10 +245,10 @@ int		dict_addattr(const char *name, int vendor, int type, int value, ATTR_FLAGS 
 int		dict_addvalue(const char *namestr, const char *attrstr, int value);
 int		dict_init(const char *dir, const char *fn);
 void		dict_free(void);
-DICT_ATTR	*dict_attrbyvalue(int attr);
+DICT_ATTR	*dict_attrbyvalue(unsigned int attr);
 DICT_ATTR	*dict_attrbyname(const char *attr);
-DICT_VALUE	*dict_valbyattr(int attr, int val);
-DICT_VALUE	*dict_valbyname(int attr, const char *val);
+DICT_VALUE	*dict_valbyattr(unsigned int attr, int val);
+DICT_VALUE	*dict_valbyname(unsigned int attr, const char *val);
 int		dict_vendorbyname(const char *name);
 DICT_VENDOR	*dict_vendorbyvalue(int vendor);
 
@@ -300,6 +302,7 @@ int		rad_sign(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
 			 const char *secret);
 
 RADIUS_PACKET	*rad_alloc(int newvector);
+RADIUS_PACKET	*rad_alloc_reply(RADIUS_PACKET *);
 void		rad_free(RADIUS_PACKET **);
 int		rad_pwencode(char *encpw, size_t *len, const char *secret,
 			     const uint8_t *vector);
@@ -320,6 +323,7 @@ int		rad_vp2attr(const RADIUS_PACKET *packet,
 
 /* valuepair.c */
 VALUE_PAIR	*pairalloc(DICT_ATTR *da);
+VALUE_PAIR	*paircreate_raw(int attr, int type, VALUE_PAIR *vp);
 VALUE_PAIR	*paircreate(int attr, int type);
 void		pairfree(VALUE_PAIR **);
 void            pairbasicfree(VALUE_PAIR *pair);
@@ -358,6 +362,8 @@ extern const char *fr_strerror(void);
 extern int	fr_dns_lookups;	/* 0 = no dns lookups */
 extern int	fr_debug_flag;	/* 0 = no debugging information */
 extern int	fr_max_attributes; /* per incoming packet */
+#define	FR_MAX_PACKET_CODE (52)
+extern const char *fr_packet_codes[FR_MAX_PACKET_CODE];
 extern FILE	*fr_log_fp;
 void		fr_printf_log(const char *, ...)
 #ifdef __GNUC__

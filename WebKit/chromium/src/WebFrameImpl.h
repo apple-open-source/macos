@@ -31,18 +31,18 @@
 #ifndef WebFrameImpl_h
 #define WebFrameImpl_h
 
-// FIXME: remove this relative path once consumers from glue are removed.
-#include "../public/WebFrame.h"
+#include "WebAnimationControllerImpl.h"
+#include "WebFrame.h"
+
 #include "Frame.h"
 #include "FrameLoaderClientImpl.h"
 #include "PlatformString.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 
-#include "WebAnimationControllerImpl.h"
-
 namespace WebCore {
 class GraphicsContext;
+class HTMLInputElement;
 class HistoryItem;
 class KURL;
 class Node;
@@ -57,6 +57,8 @@ class WebDataSourceImpl;
 class WebInputElement;
 class WebFrameClient;
 class WebPasswordAutocompleteListener;
+class WebPerformance;
+class WebPluginContainerImpl;
 class WebView;
 class WebViewImpl;
 
@@ -65,18 +67,21 @@ class WebFrameImpl : public WebFrame, public RefCounted<WebFrameImpl> {
 public:
     // WebFrame methods:
     virtual WebString name() const;
-    virtual void clearName();
+    virtual void setName(const WebString&);
+    virtual long long identifier() const;
     virtual WebURL url() const;
-    virtual WebURL favIconURL() const;
+    virtual WebVector<WebIconURL> iconURLs(int iconTypes) const;
     virtual WebURL openSearchDescriptionURL() const;
     virtual WebString encoding() const;
     virtual WebSize scrollOffset() const;
+    virtual void setScrollOffset(const WebSize&);
     virtual WebSize contentsSize() const;
     virtual int contentsPreferredWidth() const;
     virtual int documentElementScrollHeight() const;
     virtual bool hasVisibleContent() const;
     virtual WebView* view() const;
     virtual WebFrame* opener() const;
+    virtual void clearOpener();
     virtual WebFrame* parent() const;
     virtual WebFrame* top() const;
     virtual WebFrame* firstChild() const;
@@ -90,6 +95,7 @@ public:
     virtual WebDocument document() const;
     virtual void forms(WebVector<WebFormElement>&) const;
     virtual WebAnimationController* animationController();
+    virtual WebPerformance performance() const;
     virtual WebSecurityOrigin securityOrigin() const;
     virtual void grantUniversalAccess();
     virtual NPObject* windowObject() const;
@@ -104,6 +110,14 @@ public:
     virtual v8::Handle<v8::Value> executeScriptAndReturnValue(
         const WebScriptSource&);
     virtual v8::Local<v8::Context> mainWorldScriptContext() const;
+    virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
+                                                   const WebString& name,
+                                                   const WebString& path);
+    virtual v8::Handle<v8::Value> createFileEntry(WebFileSystem::Type,
+                                                  const WebString& fileSystemName,
+                                                  const WebString& fileSystemPath,
+                                                  const WebString& filePath,
+                                                  bool isDirectory);
 #endif
     virtual bool insertStyleText(const WebString& css, const WebString& id);
     virtual void reload(bool ignoreCache);
@@ -125,6 +139,9 @@ public:
     virtual bool isViewSourceModeEnabled() const;
     virtual void setReferrerForRequest(WebURLRequest&, const WebURL& referrer);
     virtual void dispatchWillSendRequest(WebURLRequest&);
+    // FIXME: Remove this overload when clients have been changed to pass options.
+    virtual WebURLLoader* createAssociatedURLLoader();
+    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&);
     virtual void commitDocumentData(const char* data, size_t length);
     virtual unsigned unloadListenerCount() const;
     virtual bool isProcessingUserGesture() const;
@@ -135,6 +152,8 @@ public:
     virtual void unmarkText();
     virtual bool hasMarkedText() const;
     virtual WebRange markedRange() const;
+    virtual bool firstRectForCharacterRange(unsigned location, unsigned length, WebRect&) const;
+    virtual size_t characterIndexForPoint(const WebPoint&) const;
     virtual bool executeCommand(const WebString&);
     virtual bool executeCommand(const WebString&, const WebString& value);
     virtual bool isCommandEnabled(const WebString&) const;
@@ -145,11 +164,21 @@ public:
     virtual WebString selectionAsText() const;
     virtual WebString selectionAsMarkup() const;
     virtual bool selectWordAroundCaret();
-    virtual int printBegin(const WebSize& pageSize, int printerDPI,
+    virtual void selectRange(const WebPoint& start, const WebPoint& end);
+    virtual int printBegin(const WebSize& pageSize,
+                           const WebNode& constrainToNode,
+                           int printerDPI,
                            bool* useBrowserOverlays);
     virtual float printPage(int pageToPrint, WebCanvas*);
     virtual float getPrintPageShrink(int page);
     virtual void printEnd();
+    virtual bool isPageBoxVisible(int pageIndex);
+    virtual void pageSizeAndMarginsInPixels(int pageIndex,
+                                            WebSize& pageSize,
+                                            int& marginTop,
+                                            int& marginRight,
+                                            int& marginBottom,
+                                            int& marginLeft);
     virtual bool find(
         int identifier, const WebString& searchText, const WebFindOptions&,
         bool wrapWithinFrame, WebRect* selectionRect);
@@ -160,18 +189,26 @@ public:
     virtual void cancelPendingScopingEffort();
     virtual void increaseMatchCount(int count, int identifier);
     virtual void resetMatchCount();
-    virtual void registerPasswordListener(
+    virtual bool registerPasswordListener(
         WebInputElement, WebPasswordAutocompleteListener*);
+    virtual void notifiyPasswordListenerOfAutocomplete(
+        const WebInputElement&);
 
-    virtual WebURL completeURL(const WebString& url) const;
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;
-    virtual WebString renderTreeAsText() const;
+    virtual WebString renderTreeAsText(bool showDebugInfo = false) const;
     virtual WebString counterValueForElementById(const WebString& id) const;
+    virtual WebString markerTextForListItem(const WebElement&) const;
     virtual int pageNumberForElementById(const WebString& id,
                                          float pageWidthInPixels,
                                          float pageHeightInPixels) const;
     virtual WebRect selectionBoundsRect() const;
+
+    virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const;
+    virtual bool pauseSVGAnimation(const WebString& animationId,
+                                   double time,
+                                   const WebString& elementId);
+    virtual WebString layerTreeAsText(bool showDebugInfo = false) const;
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
     ~WebFrameImpl();
@@ -189,6 +226,10 @@ public:
 
     static WebFrameImpl* fromFrame(WebCore::Frame* frame);
     static WebFrameImpl* fromFrameOwnerElement(WebCore::Element* element);
+
+    // If the frame hosts a PluginDocument, this method returns the WebPluginContainerImpl
+    // that hosts the plugin.
+    static WebPluginContainerImpl* pluginContainerFromFrame(WebCore::Frame*);
 
     WebViewImpl* viewImpl() const;
 
@@ -224,7 +265,7 @@ public:
     // user name input element, or 0 if none available.
     // Note that the returned listener is owner by the WebFrameImpl and should not
     // be kept around as it is deleted when the page goes away.
-    WebPasswordAutocompleteListener* getPasswordListener(WebCore::HTMLInputElement*);
+    WebPasswordAutocompleteListener* getPasswordListener(const WebCore::HTMLInputElement*);
 
     WebFrameClient* client() const { return m_client; }
     void setClient(WebFrameClient* client) { m_client = client; }
@@ -273,7 +314,7 @@ private:
     // It is not necessary if the frame is invisible, for example, or if this
     // is a repeat search that already returned nothing last time the same prefix
     // was searched.
-    bool shouldScopeMatches(const WebCore::String& searchText);
+    bool shouldScopeMatches(const WTF::String& searchText);
 
     // Queue up a deferred call to scopeStringMatches.
     void scopeStringMatchesSoon(
@@ -292,6 +333,9 @@ private:
     void clearPasswordListeners();
 
     void loadJavaScriptURL(const WebCore::KURL&);
+
+    // Returns a hit-tested VisiblePosition for the given point
+    WebCore::VisiblePosition visiblePositionForWindowPoint(const WebPoint&);
 
     FrameLoaderClientImpl m_frameLoaderClient;
 
@@ -324,7 +368,7 @@ private:
     // short-circuiting searches in the following scenarios: When a frame has
     // been searched and returned 0 results, we don't need to search that frame
     // again if the user is just adding to the search (making it more specific).
-    WebCore::String m_lastSearchString;
+    WTF::String m_lastSearchString;
 
     // Keeps track of how many matches this frame has found so far, so that we
     // don't loose count between scoping efforts, and is also used (in conjunction
@@ -335,7 +379,7 @@ private:
     // This variable keeps a cumulative total of matches found so far for ALL the
     // frames on the page, and is only incremented by calling IncreaseMatchCount
     // (on the main frame only). It should be -1 for all other frames.
-    size_t m_totalMatchCount;
+    int m_totalMatchCount;
 
     // This variable keeps a cumulative total of how many frames are currently
     // scoping, and is incremented/decremented on the main frame only.
@@ -365,6 +409,13 @@ private:
 
     // Keeps a reference to the frame's WebAnimationController.
     WebAnimationControllerImpl m_animationController;
+
+    // The identifier of this frame.
+    long long m_identifier;
+
+    // Ensure we don't overwrite valid history data during same document loads
+    // from HistoryItems
+    bool m_inSameDocumentHistoryLoad;
 };
 
 } // namespace WebKit

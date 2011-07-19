@@ -77,7 +77,8 @@ __unused static char sccsid[] = "@(#)quotaon.c	8.1 (Berkeley) 6/6/93";
 #ifdef __APPLE__
 #include <sys/stat.h>
 #endif /* __APPLE__ */
-#include <ufs/ufs/quota.h>
+#include <sys/appleapiopts.h>
+#include <sys/quota.h>
 #include <stdio.h>
 #include <fstab.h>
 #include <string.h>
@@ -166,7 +167,6 @@ int main(argc, argv)
 
 	for (i=0; i<nfst; i++) {
 	  if(strcmp(fst[i].f_fstypename, "hfs")) {
-	    if (strcmp(fst[i].f_fstypename, "ufs"))
 	      continue;
 	  }
 	  if(fst[i].f_flags & MNT_RDONLY) {

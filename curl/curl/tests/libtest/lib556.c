@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib556.c,v 1.7 2009-05-08 02:14:50 yangtse Exp $
  */
 
 #include "test.h"
@@ -39,14 +38,14 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  curl_easy_setopt(curl, CURLOPT_URL, URL);
-  curl_easy_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
+  test_setopt(curl, CURLOPT_URL, URL);
+  test_setopt(curl, CURLOPT_CONNECT_ONLY, 1L);
 
   res = curl_easy_perform(curl);
 
   if(!res) {
     /* we are connected, now get a HTTP document the raw way */
-    const char *request = 
+    const char *request =
 #ifdef CURL_DOES_CONVERSIONS
       /* ASCII representation with escape sequences for non-ASCII platforms */
       "\x47\x45\x54\x20\x2f\x35\x35\x36\x20\x48\x54\x54\x50\x2f\x31\x2e"
@@ -82,6 +81,7 @@ int test(char *URL)
     }
   }
 
+test_cleanup:
 
   curl_easy_cleanup(curl);
   curl_global_cleanup();

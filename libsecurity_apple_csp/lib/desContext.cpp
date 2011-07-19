@@ -31,9 +31,17 @@
 /*
  * DES encrypt/decrypt.
  */
+DESContext::DESContext(AppleCSPSession &session) : BlockCryptor(session), DesInst(NULL)
+{
+}
+
 DESContext::~DESContext()
 {
-	memset(&DesInst, 0, sizeof(DES_key_schedule));
+    if (DesInst != NULL) {
+        CCCryptorRelease(DesInst);
+    }
+    
+    DesInst = NULL;
 }
 	
 /* 
@@ -55,7 +63,12 @@ void DESContext::init(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
-	osDesSetkey(&DesInst, (char *)keyData, 0, 0);
+    if (DesInst != NULL)
+    {
+        CCCryptorRelease(DesInst);
+    }
+    
+    (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithmDES, ccDefaultPadding, NULL, keyData, kCCKeySizeDES, NULL, 0, 0, 0, &DesInst);
 
 	/* Finally, have BlockCryptor do its setup */
 	setup(DES_BLOCK_SIZE_BYTES, context);
@@ -78,7 +91,7 @@ void DESContext::encryptBlock(
 	if(cipherTextLen < DES_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	osDesEncrypt(&DesInst, (const_DES_cblock *)plainText, (DES_cblock *)cipherText);
+    (void) CCCryptorEncryptDataBlock(DesInst, NULL, plainText, DES_BLOCK_SIZE_BYTES, cipherText);
 	cipherTextLen = DES_BLOCK_SIZE_BYTES;
 }
 
@@ -96,7 +109,7 @@ void DESContext::decryptBlock(
 		/* little optimization for callers who want to decrypt in place */
 		memmove(plainText, cipherText, DES_BLOCK_SIZE_BYTES);
 	}
-	osDesDecrypt(&DesInst, (const_DES_cblock *)cipherText, (DES_cblock *)plainText);
+    (void) CCCryptorDecryptDataBlock(DesInst, NULL, cipherText, DES_BLOCK_SIZE_BYTES, plainText);
 	plainTextLen = DES_BLOCK_SIZE_BYTES;
 }
 
@@ -104,11 +117,19 @@ void DESContext::decryptBlock(
  *** Triple-DES - EDE, 24-bit key only
  ***/
  
+DES3Context::DES3Context(AppleCSPSession &session) : BlockCryptor(session), DesInst(NULL)
+{
+}
+
+
+
 DES3Context::~DES3Context()
 {
-	for(int i =0; i<3; i++) {
-		memset(&DesInst, 0, sizeof(DES3_Schedule));
-	}
+    if (DesInst != NULL) {
+        CCCryptorRelease(DesInst);
+    }
+    
+    DesInst = NULL;
 }
 
 /* 
@@ -129,8 +150,13 @@ void DES3Context::init(
 	if(keyLen != DES3_KEY_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
-	osDes3Setkey(&DesInst, (char *)keyData, 0, 0);
-	
+
+    if (DesInst != NULL) {
+        CCCryptorRelease(DesInst);
+    }
+    
+    (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithm3DES, ccDefaultPadding, NULL, keyData, kCCKeySize3DES, NULL, 0, 0, 0, &DesInst);
+
 	/* Finally, have BlockCryptor do its setup */
 	setup(DES3_BLOCK_SIZE_BYTES, context);
 }	
@@ -152,7 +178,7 @@ void DES3Context::encryptBlock(
 	if(cipherTextLen < DES3_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	osDes3Encrypt(&DesInst, (const_DES_cblock *)plainText, (DES_cblock *)cipherText);
+    (void) CCCryptorEncryptDataBlock(DesInst, NULL, plainText, DES3_BLOCK_SIZE_BYTES, cipherText);
 	cipherTextLen = DES3_BLOCK_SIZE_BYTES;
 }
 
@@ -166,6 +192,6 @@ void DES3Context::decryptBlock(
 	if(plainTextLen < DES3_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	osDes3Decrypt(&DesInst, (const_DES_cblock *)cipherText, (DES_cblock *)plainText);
+    (void) CCCryptorDecryptDataBlock(DesInst, NULL, cipherText, DES3_BLOCK_SIZE_BYTES, plainText);
 	plainTextLen = DES3_BLOCK_SIZE_BYTES;
 }

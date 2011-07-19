@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 1997-2008, International Business Machines
+ * Copyright (c) 1997-2011, International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  *
@@ -28,8 +28,10 @@
 #include "ccaltst.h"
 #include "cformtst.h"
 #include "cstring.h"
+#include "ulist.h"
 
 void TestGregorianChange(void);
+void TestFieldDifference(void);
 
 void addCalTest(TestNode** root);
 
@@ -44,6 +46,9 @@ void addCalTest(TestNode** root)
     addTest(root, &TestDOWProgression, "tsformat/ccaltst/TestDOWProgression");
     addTest(root, &TestGMTvsLocal, "tsformat/ccaltst/TestGMTvsLocal");
     addTest(root, &TestGregorianChange, "tsformat/ccaltst/TestGregorianChange");
+    addTest(root, &TestGetKeywordValuesForLocale, "tsformat/ccaltst/TestGetKeywordValuesForLocale");
+    addTest(root, &TestWeekend, "tsformat/ccaltst/TestWeekend");
+    addTest(root, &TestFieldDifference, "tsformat/ccaltst/TestFieldDifference");
 }
 
 /* "GMT" */
@@ -68,6 +73,10 @@ static const UCalGetTypeTest ucalGetTypeTests[] = {
     { "ja_JP@calendar=japanese", UCAL_DEFAULT,   "japanese"  },
     { "th_TH",                   UCAL_GREGORIAN, "gregorian" },
     { "th_TH",                   UCAL_DEFAULT,   "buddhist"  },
+    { "th-TH-u-ca-gregory",      UCAL_DEFAULT,   "gregorian" },
+    { "ja_JP@calendar=japanese", UCAL_GREGORIAN, "gregorian" },
+    { "",                        UCAL_GREGORIAN, "gregorian" },
+    { NULL,                      UCAL_GREGORIAN, "gregorian" },
     { NULL, 0, NULL } /* terminator */
 };    
     
@@ -131,7 +140,7 @@ static void TestCalendar()
             count = uenum_count(uenum, &status);
             log_verbose("%s returned %d timezone id's:\n", api, count);
             if (count < 5) { /* Don't hard code an exact == test here! */
-                log_err("FAIL: in %s, got %d, expected at least 5\n", api, count);
+                log_data_err("FAIL: in %s, got %d, expected at least 5 -> %s (Are you missing data?)\n", api, count, u_errorName(status));
             }
             uenum_reset(uenum, &status);    
             if (U_FAILURE(status)){
@@ -164,7 +173,7 @@ static void TestCalendar()
         log_err("FAIL: ucal_getDSTSavings(GMT) => %s\n",
                 u_errorName(status));
     } else if (i != 0) {
-        log_err("FAIL: ucal_getDSTSavings(GMT) => %d, expect 0\n", i);
+        log_data_err("FAIL: ucal_getDSTSavings(GMT) => %d, expect 0 (Are you missing data?)\n", i);
     }
     i = ucal_getDSTSavings(PST, &status);
     if (U_FAILURE(status)) {
@@ -192,7 +201,7 @@ static void TestCalendar()
                         u_errorName(status));
             } else {
                 if (u_strcmp(zone2, EUROPE_PARIS) != 0) {
-                    log_err("FAIL: ucal_getDefaultTimeZone() did not return Europe/Paris\n");
+                    log_data_err("FAIL: ucal_getDefaultTimeZone() did not return Europe/Paris (Are you missing data?)\n");
                 }
             }
         }
@@ -204,7 +213,7 @@ static void TestCalendar()
     status = U_ZERO_ERROR;
     tzver = ucal_getTZDataVersion(&status);
     if (U_FAILURE(status)) {
-        log_err("FAIL: ucal_getTZDataVersion() => %s\n", u_errorName(status));
+        log_err_status(status, "FAIL: ucal_getTZDataVersion() => %s\n", u_errorName(status));
     } else if (uprv_strlen(tzver) != 5 /*4 digits + 1 letter*/) {
         log_err("FAIL: Bad version string was returned by ucal_getTZDataVersion\n");
     } else {
@@ -219,11 +228,11 @@ static void TestCalendar()
         log_err("FAIL: error in ucal_getCanonicalTimeZoneID : %s\n", u_errorName(status));
     } else {
         if (u_strcmp(AMERICA_LOS_ANGELES, canonicalID) != 0) {
-            log_err("FAIL: ucal_getCanonicalTimeZoneID(%s) returned %s : expected - %s\n",
+            log_data_err("FAIL: ucal_getCanonicalTimeZoneID(%s) returned %s : expected - %s (Are you missing data?)\n",
                 PST, canonicalID, AMERICA_LOS_ANGELES);
         }
         if (!isSystemID) {
-            log_err("FAIL: ucal_getCanonicalTimeZoneID(%s) set %d to isSystemID\n",
+            log_data_err("FAIL: ucal_getCanonicalTimeZoneID(%s) set %d to isSystemID (Are you missing data?)\n",
                 PST, isSystemID);
         }
     }
@@ -234,27 +243,27 @@ static void TestCalendar()
     u_uastrcpy(tzID, "PST");
     caldef=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: error in ucal_open caldef : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in ucal_open caldef : %s\n - (Are you missing data?)", u_errorName(status));
     }
     
     caldef2=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: error in ucal_open caldef : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in ucal_open caldef : %s - (Are you missing data?)\n", u_errorName(status));
     }
     u_strcpy(tzID, fgGMTID);
     calfr=ucal_open(tzID, u_strlen(tzID), "fr_FR", UCAL_TRADITIONAL, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: error in ucal_open calfr : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in ucal_open calfr : %s - (Are you missing data?)\n", u_errorName(status));
     }
     calit=ucal_open(tzID, u_strlen(tzID), "it_IT", UCAL_TRADITIONAL, &status);
     if(U_FAILURE(status))    {
-        log_err("FAIL: error in ucal_open calit : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in ucal_open calit : %s - (Are you missing data?)\n", u_errorName(status));
     }
 
     /*Testing the  clone() function*/
     calfrclone = ucal_clone(calfr, &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: error in ucal_clone calfr : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in ucal_clone calfr : %s - (Are you missing data?)\n", u_errorName(status));
     }
     
     /*Testing udat_getAvailable() and udat_countAvailable()*/ 
@@ -278,7 +287,7 @@ static void TestCalendar()
     if(caldef && caldef2 && calfr && calit) { 
       if(ucal_equivalentTo(caldef, caldef2) == FALSE || ucal_equivalentTo(caldef, calfr)== TRUE || 
         ucal_equivalentTo(caldef, calit)== TRUE || ucal_equivalentTo(calfr, calfrclone) == FALSE) {
-          log_err("FAIL: Error. equivalentTo test failed\n");
+          log_data_err("FAIL: Error. equivalentTo test failed (Are you missing data?)\n");
       } else {
           log_verbose("PASS: equivalentTo test passed\n");
       }
@@ -291,7 +300,7 @@ static void TestCalendar()
     /* open the date format and format the date to check the output */
     datdef=udat_open(UDAT_FULL,UDAT_FULL ,NULL, NULL, 0,NULL,0,&status);
     if(U_FAILURE(status)){
-        log_err("FAIL: error in creating the dateformat : %s\n", u_errorName(status));
+        log_data_err("FAIL: error in creating the dateformat : %s (Are you missing data?)\n", u_errorName(status));
         return;
     }
     log_verbose("PASS: The current date and time fetched is %s\n", u_austrcpy(tempMsgBuf, myDateFormat(datdef, now)) );
@@ -400,7 +409,7 @@ static void TestCalendar()
         log_err("Error in ucal_inDaylightTime: %s\n", u_errorName(status));
     }
     if(!ucal_inDaylightTime(caldef, &status))
-        log_verbose("PASS: It is  not in daylight saving's time\n");
+        log_verbose("PASS: It is not in daylight saving's time\n");
     else
         log_err("FAIL: It is not in daylight saving's time\n");
 
@@ -412,22 +421,23 @@ static void TestCalendar()
     ucal_close(calfrclone);
     
     /*testing ucal_getType, and ucal_open with UCAL_GREGORIAN*/
-    for (ucalGetTypeTestPtr = ucalGetTypeTests; ucalGetTypeTestPtr->locale != NULL; ++ucalGetTypeTestPtr) {
+    for (ucalGetTypeTestPtr = ucalGetTypeTests; ucalGetTypeTestPtr->expectedResult != NULL; ++ucalGetTypeTestPtr) {
+        const char * localeToDisplay = (ucalGetTypeTestPtr->locale != NULL)? ucalGetTypeTestPtr->locale: "<NULL>";
         status = U_ZERO_ERROR;
         caldef = ucal_open(NULL, 0, ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType, &status);
         if ( U_SUCCESS(status) ) {
             const char * calType = ucal_getType(caldef, &status);
             if ( U_SUCCESS(status) && calType != NULL ) {
                 if ( strcmp( calType, ucalGetTypeTestPtr->expectedResult ) != 0 ) {
-                    log_err("FAIL: ucal_open %s type %d does not return %s calendar\n", ucalGetTypeTestPtr->locale,
+                    log_err("FAIL: ucal_open %s type %d does not return %s calendar\n", localeToDisplay,
                                                 ucalGetTypeTestPtr->calType, ucalGetTypeTestPtr->expectedResult);
                 }
             } else {
-                log_err("FAIL: ucal_open %s type %d, then ucal_getType fails\n", ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType);
+                log_err("FAIL: ucal_open %s type %d, then ucal_getType fails\n", localeToDisplay, ucalGetTypeTestPtr->calType);
             }
             ucal_close(caldef);
         } else {
-            log_err("FAIL: ucal_open %s type %d fails\n", ucalGetTypeTestPtr->locale, ucalGetTypeTestPtr->calType);
+            log_err("FAIL: ucal_open %s type %d fails\n", localeToDisplay, ucalGetTypeTestPtr->calType);
         }
     }
 
@@ -464,7 +474,7 @@ static void TestGetSetDateAPI()
     datdef=udat_open(UDAT_DEFAULT,UDAT_DEFAULT ,"en_US",fgGMTID,-1,NULL,0, &status);
     if(U_FAILURE(status))
     {
-        log_err("error in creating the dateformat : %s\n", u_errorName(status));
+        log_data_err("error in creating the dateformat : %s (Are you missing data?)\n", u_errorName(status));
         return;
     }
     
@@ -644,26 +654,26 @@ static void TestFieldGetSet()
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);
     if (U_FAILURE(status)) {
-        log_err("ucal_open failed: %s\n", u_errorName(status));
+        log_data_err("ucal_open failed: %s - (Are you missing data?)\n", u_errorName(status));
         return; 
     }
     datdef=udat_open(UDAT_SHORT,UDAT_SHORT ,NULL,fgGMTID,-1,NULL, 0, &status);
     if(U_FAILURE(status))
     {
-        log_err("error in creating the dateformat : %s\n", u_errorName(status));
+        log_data_err("error in creating the dateformat : %s (Are you missing data?)\n", u_errorName(status));
     }
     
     /*Testing ucal_get()*/
     log_verbose("\nTesting the ucal_get() function of Calendar\n");
     ucal_setDateTime(cal, 1999, UCAL_MARCH, 12, 5, 25, 30, &status);
     if(U_FAILURE(status)){
-        log_err("error in the setDateTime() : %s\n", u_errorName(status));
+        log_data_err("error in the setDateTime() : %s (Are you missing data?)\n", u_errorName(status));
     }
     if(ucal_get(cal, UCAL_YEAR, &status)!=1999 || ucal_get(cal, UCAL_MONTH, &status)!=2 || 
         ucal_get(cal, UCAL_DATE, &status)!=12 || ucal_get(cal, UCAL_HOUR, &status)!=5)
-        log_err("error in ucal_get()\n");    
+        log_data_err("error in ucal_get() -> %s (Are you missing data?)\n", u_errorName(status));    
     else if(ucal_get(cal, UCAL_DAY_OF_WEEK_IN_MONTH, &status)!=2 || ucal_get(cal, UCAL_DAY_OF_WEEK, &status)!=6
-        || ucal_get(cal, UCAL_WEEK_OF_MONTH, &status)!=2 || ucal_get(cal, UCAL_WEEK_OF_YEAR, &status)!= 11)
+        || ucal_get(cal, UCAL_WEEK_OF_MONTH, &status)!=2 || ucal_get(cal, UCAL_WEEK_OF_YEAR, &status)!= 10)
         log_err("FAIL: error in ucal_get()\n");
     else
         log_verbose("PASS: ucal_get() works fine\n");
@@ -720,6 +730,7 @@ static void TestFieldGetSet()
     ucal_set(cal, UCAL_DAY_OF_WEEK, UCAL_TUESDAY);
     ucal_set(cal, UCAL_MONTH, UCAL_JUNE);
     ucal_set(cal, UCAL_WEEK_OF_MONTH, 0);
+    ucal_setAttribute(cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,1);
     d1 = ucal_getMillis(cal,&status);
     if (status != U_ILLEGAL_ARGUMENT_ERROR){ 
         log_err("FAIL: U_ILLEGAL_ARGUMENT_ERROR was not returned for : 1997 Tuesday zero-th week in June\n");
@@ -795,13 +806,14 @@ static void TestAddRollExtensive()
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_GREGORIAN, &status);;
     if (U_FAILURE(status)) {
-        log_err("ucal_open() failed : %s\n", u_errorName(status)); 
+        log_data_err("ucal_open() failed : %s - (Are you missing data?)\n", u_errorName(status)); 
         return; 
     }
 
     ucal_set(cal, UCAL_YEAR, y);
     ucal_set(cal, UCAL_MONTH, m);
     ucal_set(cal, UCAL_DATE, d);
+    ucal_setAttribute(cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,1);
 
     /* Confirm that adding to various fields works.*/
     log_verbose("\nTesting to confirm that adding to various fields works with ucal_add()\n");
@@ -896,6 +908,7 @@ static void TestAddRollExtensive()
     ucal_set(cal, UCAL_MINUTE, min);
     ucal_set(cal, UCAL_SECOND,sec);
     ucal_set(cal, UCAL_MILLISECOND, ms);
+    ucal_setAttribute(cal, UCAL_MINIMAL_DAYS_IN_FIRST_WEEK,1);
     status=U_ZERO_ERROR;
 
     log_verbose("\nTesting UCalendar add...\n");
@@ -953,7 +966,7 @@ static void TestGetLimits()
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_GREGORIAN, &status);;
     if (U_FAILURE(status)) {
-        log_err("ucal_open() for gregorian calendar failed in TestGetLimits: %s\n", u_errorName(status));
+        log_data_err("ucal_open() for gregorian calendar failed in TestGetLimits: %s - (Are you missing data?)\n", u_errorName(status));
         return; 
     }
     
@@ -1051,13 +1064,13 @@ static void TestDOWProgression()
     /*open the calendar used */
     cal=ucal_open(tzID, u_strlen(tzID), "en_US", UCAL_TRADITIONAL, &status);;
     if (U_FAILURE(status)) {
-        log_err("ucal_open failed: %s\n", u_errorName(status));
+        log_data_err("ucal_open failed: %s - (Are you missing data?)\n", u_errorName(status));
         return; 
     }
 
     datfor=udat_open(UDAT_MEDIUM,UDAT_MEDIUM ,NULL, fgGMTID,-1,NULL, 0, &status);
     if(U_FAILURE(status)){
-        log_err("error in creating the dateformat : %s\n", u_errorName(status));
+        log_data_err("error in creating the dateformat : %s (Are you missing data?)\n", u_errorName(status));
     }
     
 
@@ -1066,7 +1079,7 @@ static void TestDOWProgression()
     log_verbose("\nTesting the DOW progression\n");
     
     initialDOW = ucal_get(cal, UCAL_DAY_OF_WEEK, &status);
-    if (U_FAILURE(status)) { log_err("ucal_get() failed: %s\n", u_errorName(status) ); return; }
+    if (U_FAILURE(status)) { log_data_err("ucal_get() failed: %s (Are you missing data?)\n", u_errorName(status) ); return; }
     newDOW = initialDOW;
     do {
         DOW = newDOW;
@@ -1124,7 +1137,7 @@ static void testZones(int32_t yr, int32_t mo, int32_t dt, int32_t hr, int32_t mn
     u_strcpy(tzID, fgGMTID);
     gmtcal=ucal_open(tzID, 3, "en_US", UCAL_TRADITIONAL, &status);;
     if (U_FAILURE(status)) {
-        log_err("ucal_open failed: %s\n", u_errorName(status)); 
+        log_data_err("ucal_open failed: %s - (Are you missing data?)\n", u_errorName(status)); 
         return; 
     }
     u_uastrcpy(tzID, "PST");
@@ -1136,12 +1149,12 @@ static void testZones(int32_t yr, int32_t mo, int32_t dt, int32_t hr, int32_t mn
     
     datfor=udat_open(UDAT_MEDIUM,UDAT_MEDIUM ,NULL, fgGMTID,-1,NULL, 0, &status);
     if(U_FAILURE(status)){
-        log_err("error in creating the dateformat : %s\n", u_errorName(status));
+        log_data_err("error in creating the dateformat : %s (Are you missing data?)\n", u_errorName(status));
     }
    
     ucal_setDateTime(gmtcal, yr, mo - 1, dt, hr, mn, sc, &status);
     if (U_FAILURE(status)) {
-        log_err("ucal_setDateTime failed: %s\n", u_errorName(status));
+        log_data_err("ucal_setDateTime failed: %s (Are you missing data?)\n", u_errorName(status));
         return; 
     }
     ucal_set(gmtcal, UCAL_MILLISECOND, 0);
@@ -1349,7 +1362,7 @@ void TestGregorianChange() {
     errorCode = U_ZERO_ERROR;
     cal = ucal_open(utc, -1, "", UCAL_GREGORIAN, &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ucal_open(UTC) failed: %s\n", u_errorName(errorCode));
+        log_data_err("ucal_open(UTC) failed: %s - (Are you missing data?)\n", u_errorName(errorCode));
         return;
     }
     ucal_setGregorianChange(cal, -365 * (dayMillis * (UDate)1), &errorCode);
@@ -1382,6 +1395,324 @@ void TestGregorianChange() {
                 u_errorName(errorCode));
     }
     ucal_close(cal);
+}
+
+static void TestGetKeywordValuesForLocale() {
+#define PREFERRED_SIZE 15
+#define MAX_NUMBER_OF_KEYWORDS 4
+    const char *PREFERRED[PREFERRED_SIZE][MAX_NUMBER_OF_KEYWORDS+1] = {
+            { "root",        "gregorian", NULL, NULL, NULL },
+            { "und",         "gregorian", NULL, NULL, NULL },
+            { "en_US",       "gregorian", NULL, NULL, NULL },
+            { "en_029",      "gregorian", NULL, NULL, NULL },
+            { "th_TH",       "buddhist", "gregorian", NULL, NULL },
+            { "und_TH",      "buddhist", "gregorian", NULL, NULL },
+            { "en_TH",       "buddhist", "gregorian", NULL, NULL },
+            { "he_IL",       "gregorian", "hebrew", "islamic", "islamic-civil" },
+            { "ar_EG",       "gregorian", "coptic", "islamic", "islamic-civil" },
+            { "ja",          "gregorian", "japanese", NULL, NULL },
+            { "ps_Guru_IN",  "gregorian", "indian", NULL, NULL },
+            { "th@calendar=gregorian", "buddhist", "gregorian", NULL, NULL },
+            { "en@calendar=islamic",   "gregorian", NULL, NULL, NULL },
+            { "zh_TW",       "gregorian", "roc", "chinese", NULL },
+            { "ar_IR",       "gregorian", "persian", "islamic", "islamic-civil" },
+    };
+    const int32_t EXPECTED_SIZE[PREFERRED_SIZE] = { 1, 1, 1, 1, 2, 2, 2, 4, 4, 2, 2, 2, 1, 3, 4 };
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t i, size, j;
+    UEnumeration *all, *pref;
+    const char *loc = NULL;
+    UBool matchPref, matchAll;
+    const char *value;
+    int32_t valueLength;
+    UList *ALLList = NULL;
+    
+    UEnumeration *ALL = ucal_getKeywordValuesForLocale("calendar", uloc_getDefault(), FALSE, &status);
+    if (U_SUCCESS(status)) {
+        for (i = 0; i < PREFERRED_SIZE; i++) {
+            pref = NULL;
+            all = NULL;
+            loc = PREFERRED[i][0];
+            pref = ucal_getKeywordValuesForLocale("calendar", loc, TRUE, &status);
+            matchPref = FALSE;
+            matchAll = FALSE;
+            
+            value = NULL;
+            valueLength = 0;
+            
+            if (U_SUCCESS(status) && uenum_count(pref, &status) == EXPECTED_SIZE[i]) {
+                matchPref = TRUE;
+                for (j = 0; j < EXPECTED_SIZE[i]; j++) {
+                    if ((value = uenum_next(pref, &valueLength, &status)) != NULL && U_SUCCESS(status)) {
+                        if (uprv_strcmp(value, PREFERRED[i][j+1]) != 0) {
+                            matchPref = FALSE;
+                            break;
+                        }
+                    } else {
+                        matchPref = FALSE;
+                        log_err("ERROR getting keyword value for locale \"%s\"\n", loc);
+                        break;
+                    }
+                }
+            }
+            
+            if (!matchPref) {
+                log_err("FAIL: Preferred values for locale \"%s\" does not match expected.\n", loc);
+                break;
+            }
+            uenum_close(pref);
+            
+            all = ucal_getKeywordValuesForLocale("calendar", loc, FALSE, &status);
+            
+            size = uenum_count(all, &status);
+            
+            if (U_SUCCESS(status) && size == uenum_count(ALL, &status)) {
+                matchAll = TRUE;
+                ALLList = ulist_getListFromEnum(ALL);
+                for (j = 0; j < size; j++) {
+                    if ((value = uenum_next(all, &valueLength, &status)) != NULL && U_SUCCESS(status)) {
+                        if (!ulist_containsString(ALLList, value, uprv_strlen(value))) {
+                            log_err("Locale %s have %s not in ALL\n", loc, value);
+                            matchAll = FALSE;
+                            break;
+                        }
+                    } else {
+                        matchAll = FALSE;
+                        log_err("ERROR getting \"all\" keyword value for locale \"%s\"\n", loc);
+                        break;
+                    }
+                }
+            }
+            if (!matchAll) {
+                log_err("FAIL: All values for locale \"%s\" does not match expected.\n", loc);
+            }
+            
+            uenum_close(all);
+        }
+    } else {
+        log_err_status(status, "Failed to get ALL keyword values for default locale %s: %s.\n", uloc_getDefault(), u_errorName(status));
+    }
+    uenum_close(ALL);
+}
+
+/*
+ * Weekend tests, ported from
+ * icu4j/trunk/main/tests/core/src/com/ibm/icu/dev/test/calendar/IBMCalendarTest.java
+ * and extended a bit. Notes below from IBMCalendarTest.java ...
+ * This test tests for specific locale data. This is probably okay
+ * as far as US data is concerned, but if the Arabic/Yemen data
+ * changes, this test will have to be updated.
+ */
+
+typedef struct {
+    int32_t year;
+    int32_t month;
+    int32_t day;
+    int32_t hour;
+    int32_t millisecOffset;
+    UBool   isWeekend;
+} TestWeekendDates;
+typedef struct {
+    const char * locale;
+    const        TestWeekendDates * dates;
+    int32_t      numDates;
+} TestWeekendDatesList;
+
+static const TestWeekendDates weekendDates_en_US[] = {
+    { 2000, UCAL_MARCH, 17, 23,  0, 0 }, /* Fri 23:00        */
+    { 2000, UCAL_MARCH, 18,  0, -1, 0 }, /* Fri 23:59:59.999 */
+    { 2000, UCAL_MARCH, 18,  0,  0, 1 }, /* Sat 00:00        */
+    { 2000, UCAL_MARCH, 18, 15,  0, 1 }, /* Sat 15:00        */
+    { 2000, UCAL_MARCH, 19, 23,  0, 1 }, /* Sun 23:00        */
+    { 2000, UCAL_MARCH, 20,  0, -1, 1 }, /* Sun 23:59:59.999 */
+    { 2000, UCAL_MARCH, 20,  0,  0, 0 }, /* Mon 00:00        */
+    { 2000, UCAL_MARCH, 20,  8,  0, 0 }, /* Mon 08:00        */
+};
+static const TestWeekendDates weekendDates_ar_YE[] = {
+    { 2000, UCAL_MARCH, 15, 23,  0, 0 }, /* Wed 23:00        */
+    { 2000, UCAL_MARCH, 16,  0, -1, 0 }, /* Wed 23:59:59.999 */
+    { 2000, UCAL_MARCH, 16,  0,  0, 1 }, /* Thu 00:00        */
+    { 2000, UCAL_MARCH, 16, 15,  0, 1 }, /* Thu 15:00        */
+    { 2000, UCAL_MARCH, 17, 23,  0, 1 }, /* Fri 23:00        */
+    { 2000, UCAL_MARCH, 18,  0, -1, 1 }, /* Fri 23:59:59.999 */
+    { 2000, UCAL_MARCH, 18,  0,  0, 0 }, /* Sat 00:00        */
+    { 2000, UCAL_MARCH, 18,  8,  0, 0 }, /* Sat 08:00        */
+};
+static const TestWeekendDatesList testDates[] = {
+    { "en_US", weekendDates_en_US, sizeof(weekendDates_en_US)/sizeof(weekendDates_en_US[0]) },
+    { "ar_YE", weekendDates_ar_YE, sizeof(weekendDates_ar_YE)/sizeof(weekendDates_ar_YE[0]) },
+};
+
+typedef struct {
+    UCalendarDaysOfWeek  dayOfWeek;
+    UCalendarWeekdayType dayType;
+    int32_t              transition; /* transition time if dayType is UCAL_WEEKEND_ONSET or UCAL_WEEKEND_CEASE; else must be 0 */
+} TestDaysOfWeek;
+typedef struct {
+    const char *           locale;
+    const TestDaysOfWeek * days;
+    int32_t                numDays;
+} TestDaysOfWeekList;
+
+static const TestDaysOfWeek daysOfWeek_en_US[] = {
+    { UCAL_MONDAY,   UCAL_WEEKDAY,       0        },
+    { UCAL_FRIDAY,   UCAL_WEEKDAY,       0        },
+    { UCAL_SATURDAY, UCAL_WEEKEND,       0        },
+    { UCAL_SUNDAY,   UCAL_WEEKEND_CEASE, 86400000 },
+};
+static const TestDaysOfWeek daysOfWeek_ar_YE[] = { /* Thursday:Friday */
+    { UCAL_WEDNESDAY,UCAL_WEEKDAY,       0        },
+    { UCAL_SATURDAY, UCAL_WEEKDAY,       0        },
+    { UCAL_THURSDAY, UCAL_WEEKEND,       0        },
+    { UCAL_FRIDAY,   UCAL_WEEKEND_CEASE, 86400000 },
+};
+static const TestDaysOfWeekList testDays[] = {
+    { "en_US", daysOfWeek_en_US, sizeof(daysOfWeek_en_US)/sizeof(daysOfWeek_en_US[0]) },
+    { "ar_YE", daysOfWeek_ar_YE, sizeof(daysOfWeek_ar_YE)/sizeof(daysOfWeek_ar_YE[0]) },
+};
+
+static const UChar logDateFormat[] = { 0x0045,0x0045,0x0045,0x0020,0x004D,0x004D,0x004D,0x0020,0x0064,0x0064,0x0020,0x0079,
+                                       0x0079,0x0079,0x0079,0x0020,0x0047,0x0020,0x0048,0x0048,0x003A,0x006D,0x006D,0x003A,
+                                       0x0073,0x0073,0x002E,0x0053,0x0053,0x0053,0 }; /* "EEE MMM dd yyyy G HH:mm:ss.SSS" */
+enum { kFormattedDateMax = 2*sizeof(logDateFormat)/sizeof(logDateFormat[0]) };
+
+static void TestWeekend() {
+    const TestWeekendDatesList * testDatesPtr = testDates;
+    const TestDaysOfWeekList *   testDaysPtr = testDays;
+    int32_t count, subCount;
+
+    UErrorCode fmtStatus = U_ZERO_ERROR;
+    UDateFormat * fmt = udat_open(UDAT_NONE, UDAT_NONE, "en", NULL, 0, NULL, 0, &fmtStatus);
+    if (U_SUCCESS(fmtStatus)) {
+        udat_applyPattern(fmt, FALSE, logDateFormat, -1);
+    }
+	for (count = sizeof(testDates)/sizeof(testDates[0]); count-- > 0; ++testDatesPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+		UCalendar * cal = ucal_open(NULL, 0, testDatesPtr->locale, UCAL_GREGORIAN, &status);
+		log_verbose("locale: %s\n", testDatesPtr->locale);
+		if (U_SUCCESS(status)) {
+			const TestWeekendDates * weekendDatesPtr = testDatesPtr->dates;
+			for (subCount = testDatesPtr->numDates; subCount--; ++weekendDatesPtr) {
+				UDate dateToTest;
+				UBool isWeekend;
+				char  fmtDateBytes[kFormattedDateMax] = "<could not format test date>"; /* initialize for failure */
+
+				ucal_clear(cal);
+				ucal_setDateTime(cal, weekendDatesPtr->year, weekendDatesPtr->month, weekendDatesPtr->day,
+								 weekendDatesPtr->hour, 0, 0, &status);
+				dateToTest = ucal_getMillis(cal, &status) + weekendDatesPtr->millisecOffset;
+				isWeekend = ucal_isWeekend(cal, dateToTest, &status);
+				if (U_SUCCESS(fmtStatus)) {
+				    UChar fmtDate[kFormattedDateMax];
+				    (void)udat_format(fmt, dateToTest, fmtDate, kFormattedDateMax, NULL, &fmtStatus);
+				    if (U_SUCCESS(fmtStatus)) {
+						u_austrncpy(fmtDateBytes, fmtDate, kFormattedDateMax);
+						fmtDateBytes[kFormattedDateMax-1] = 0;
+				    } else {
+				    	fmtStatus = U_ZERO_ERROR;
+				    }
+				}
+				if ( U_FAILURE(status) ) {
+					log_err("FAIL: locale %s date %s isWeekend() status %s\n", testDatesPtr->locale, fmtDateBytes, u_errorName(status) );
+					status = U_ZERO_ERROR;
+				} else if ( (isWeekend!=0) != (weekendDatesPtr->isWeekend!=0) ) {
+					log_err("FAIL: locale %s date %s isWeekend %d, expected the opposite\n", testDatesPtr->locale, fmtDateBytes, isWeekend );
+				} else {
+					log_verbose("OK:   locale %s date %s isWeekend %d\n", testDatesPtr->locale, fmtDateBytes, isWeekend );
+				}
+			}
+			ucal_close(cal);
+		} else {
+			log_data_err("FAIL: ucal_open for locale %s failed: %s - (Are you missing data?)\n", testDatesPtr->locale, u_errorName(status) );
+		}
+	}
+    if (U_SUCCESS(fmtStatus)) {
+        udat_close(fmt);
+    }
+
+    for (count = sizeof(testDays)/sizeof(testDays[0]); count-- > 0; ++testDaysPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCalendar * cal = ucal_open(NULL, 0, testDaysPtr->locale, UCAL_GREGORIAN, &status);
+        log_verbose("locale: %s\n", testDaysPtr->locale);
+        if (U_SUCCESS(status)) {
+            const TestDaysOfWeek * daysOfWeekPtr = testDaysPtr->days;
+            for (subCount = testDaysPtr->numDays; subCount--; ++daysOfWeekPtr) {
+                int32_t transition = 0;
+                UCalendarWeekdayType dayType = ucal_getDayOfWeekType(cal, daysOfWeekPtr->dayOfWeek, &status);
+                if ( dayType == UCAL_WEEKEND_ONSET || dayType == UCAL_WEEKEND_CEASE ) {
+                    transition = ucal_getWeekendTransition(cal, daysOfWeekPtr->dayOfWeek, &status); 
+                }
+                if ( U_FAILURE(status) ) {
+					log_err("FAIL: locale %s DOW %d getDayOfWeekType() status %s\n", testDaysPtr->locale, daysOfWeekPtr->dayOfWeek, u_errorName(status) );
+					status = U_ZERO_ERROR;
+                } else if ( dayType != daysOfWeekPtr->dayType || transition != daysOfWeekPtr->transition ) {
+					log_err("FAIL: locale %s DOW %d type %d, expected %d\n", testDaysPtr->locale, daysOfWeekPtr->dayOfWeek, dayType, daysOfWeekPtr->dayType );
+                } else {
+					log_verbose("OK:   locale %s DOW %d type %d\n", testDaysPtr->locale, daysOfWeekPtr->dayOfWeek, dayType );
+                }
+            }
+            ucal_close(cal);
+        } else {
+            log_data_err("FAIL: ucal_open for locale %s failed: %s - (Are you missing data?)\n", testDaysPtr->locale, u_errorName(status) );
+        }
+    }
+}
+
+/**
+ * TestFieldDifference
+ */
+
+typedef struct {
+    const UChar * timezone;
+    const char *  locale;
+    UDate         start;
+    UDate         target;
+    int32_t       yDiff;
+    int32_t       MDiff;
+    int32_t       dDiff;
+    int32_t       HDiff;
+    int32_t       mDiff;
+} TFDItem;
+
+static const UChar tzUSPacific[] = { 0x55,0x53,0x2F,0x50,0x61,0x63,0x69,0x66,0x69,0x63,0 }; /* "US/Pacific" */
+
+static const TFDItem tfdItems[] = {
+    /* timezone    locale   start            target             yDf MDf dDf HDf mDf
+    { tzUSPacific, "en_US", 1267459800000.0, 1277772600000.0,    0,  3, 27,  9, 40 }, /* 2010-Mar-01 08:10 -> 2010-Jun-28 17:50 */
+    { tzUSPacific, "en_US", 1267459800000.0, 1299089280000.0,    1,  0,  1,  1, 58 }, /* 2010-Mar-01 08:10 -> 2011-Mar-02 10:08 */
+    { NULL,        NULL,    0.0,             0.0,                0,  0,  0,  0,  0 }  /* terminator */
+};
+
+void TestFieldDifference() {
+    const TFDItem * tfdItemPtr;
+    for (tfdItemPtr = tfdItems; tfdItemPtr->timezone != NULL; tfdItemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UCalendar* ucal = ucal_open(tfdItemPtr->timezone, -1, tfdItemPtr->locale, UCAL_DEFAULT, &status);
+        if (U_FAILURE(status)) {
+            log_err("FAIL: for locale \"%s\", ucal_open had status %s\n", tfdItemPtr->locale, u_errorName(status) );
+        } else {
+            int32_t yDf, MDf, dDf, HDf, mDf; 
+            ucal_setMillis(ucal, tfdItemPtr->start, &status);
+            yDf = ucal_getFieldDifference(ucal, tfdItemPtr->target, UCAL_YEAR, &status);
+            MDf = ucal_getFieldDifference(ucal, tfdItemPtr->target, UCAL_MONTH, &status);
+            dDf = ucal_getFieldDifference(ucal, tfdItemPtr->target, UCAL_DATE, &status);
+            HDf = ucal_getFieldDifference(ucal, tfdItemPtr->target, UCAL_HOUR, &status);
+            mDf = ucal_getFieldDifference(ucal, tfdItemPtr->target, UCAL_MINUTE, &status);
+            if (U_FAILURE(status)) {
+                log_err("FAIL: for locale \"%s\", start %.1f, target %.1f, ucal_setMillis or ucal_getFieldDifference had status %s\n",
+                        tfdItemPtr->locale, tfdItemPtr->start, tfdItemPtr->target, u_errorName(status) );
+            } else if ( yDf !=  tfdItemPtr->yDiff ||
+                        MDf !=  tfdItemPtr->MDiff ||
+                        dDf !=  tfdItemPtr->dDiff ||
+                        HDf !=  tfdItemPtr->HDiff ||
+                        mDf !=  tfdItemPtr->mDiff ) {
+                log_err("FAIL: for locale \"%s\", start %.1f, target %.1f, expected y-M-d-H-m diffs %d-%d-%d-%d-%d, got %d-%d-%d-%d-%d\n",
+                        tfdItemPtr->locale, tfdItemPtr->start, tfdItemPtr->target,
+                        tfdItemPtr->yDiff, tfdItemPtr->MDiff, tfdItemPtr->dDiff, tfdItemPtr->HDiff, tfdItemPtr->mDiff, yDf, MDf, dDf, HDf, mDf);
+            }
+            ucal_close(ucal);
+        }
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

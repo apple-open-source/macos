@@ -41,22 +41,22 @@
 using namespace JSC;
 
 namespace WebCore {
-    
-JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
+
+JSValue JSSQLTransaction::executeSql(ExecState* exec)
 {
-    if (args.isEmpty()) {
+    if (!exec->argumentCount()) {
         setDOMException(exec, SYNTAX_ERR);
         return jsUndefined();
     }
 
-    String sqlStatement = ustringToString(args.at(0).toString(exec));
+    String sqlStatement = ustringToString(exec->argument(0).toString(exec));
     if (exec->hadException())
         return jsUndefined();
 
     // Now assemble the list of SQL arguments
     Vector<SQLValue> sqlValues;
-    if (!args.at(1).isUndefinedOrNull()) {
-        JSObject* object = args.at(1).getObject();
+    if (!exec->argument(1).isUndefinedOrNull()) {
+        JSObject* object = exec->argument(1).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
@@ -68,13 +68,13 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
         unsigned length = lengthValue.toUInt32(exec);
         if (exec->hadException())
             return jsUndefined();
-        
+
         for (unsigned i = 0 ; i < length; ++i) {
             JSValue value = object->get(exec, i);
             if (exec->hadException())
                 return jsUndefined();
-            
-            if (value.isNull())
+
+            if (value.isUndefinedOrNull())
                 sqlValues.append(SQLValue());
             else if (value.isNumber())
                 sqlValues.append(value.uncheckedGetNumber());
@@ -88,31 +88,31 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec, const ArgList& args)
     }
 
     RefPtr<SQLStatementCallback> callback;
-    if (!args.at(2).isUndefinedOrNull()) {
-        JSObject* object = args.at(2).getObject();
+    if (!exec->argument(2).isUndefinedOrNull()) {
+        JSObject* object = exec->argument(2).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
-        
-        callback = JSSQLStatementCallback::create(object, static_cast<JSDOMGlobalObject*>(exec->dynamicGlobalObject()));
+
+        callback = JSSQLStatementCallback::create(object, static_cast<JSDOMGlobalObject*>(globalObject()));
     }
-    
+
     RefPtr<SQLStatementErrorCallback> errorCallback;
-    if (!args.at(3).isUndefinedOrNull()) {
-        JSObject* object = args.at(3).getObject();
+    if (!exec->argument(3).isUndefinedOrNull()) {
+        JSObject* object = exec->argument(3).getObject();
         if (!object) {
             setDOMException(exec, TYPE_MISMATCH_ERR);
             return jsUndefined();
         }
-        
-        errorCallback = JSSQLStatementErrorCallback::create(object, static_cast<JSDOMGlobalObject*>(exec->dynamicGlobalObject()));
+
+        errorCallback = JSSQLStatementErrorCallback::create(object, static_cast<JSDOMGlobalObject*>(globalObject()));
     }
-    
+
     ExceptionCode ec = 0;
     m_impl->executeSQL(sqlStatement, sqlValues, callback.release(), errorCallback.release(), ec);
     setDOMException(exec, ec);
-    
+
     return jsUndefined();
 }
 

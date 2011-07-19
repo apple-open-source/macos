@@ -1,6 +1,6 @@
---- _SB/Libc/stdlib/FreeBSD/system.3	2003-05-20 15:23:25.000000000 -0700
-+++ _SB/Libc/stdlib/FreeBSD/system.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -47,13 +47,13 @@
+--- system.3.bsdnew	2009-11-13 14:11:52.000000000 -0800
++++ system.3	2009-11-13 14:11:52.000000000 -0800
+@@ -43,13 +43,13 @@
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft int
@@ -16,7 +16,7 @@
  to the command interpreter
  .Xr sh 1 .
  The calling process waits for the shell
-@@ -66,7 +66,7 @@
+@@ -62,7 +62,7 @@ and blocking
  .Dv SIGCHLD .
  .Pp
  If

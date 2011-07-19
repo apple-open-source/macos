@@ -1,9 +1,9 @@
 /*
- * "$Id: dnssd.c 1631 2009-08-07 22:56:39Z msweet $"
+ * "$Id: dnssd.c 3301 2011-06-05 17:05:19Z msweet $"
  *
- *   DNS-SD discovery backend for the Common UNIX Printing System (CUPS).
+ *   DNS-SD discovery backend for CUPS.
  *
- *   Copyright 2008-2009 by Apple Inc.
+ *   Copyright 2008-2011 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -44,6 +44,7 @@ typedef enum
 {
   CUPS_DEVICE_PRINTER = 0,		/* lpd://... */
   CUPS_DEVICE_IPP,			/* ipp://... */
+  CUPS_DEVICE_IPPS,			/* ipps://... */
   CUPS_DEVICE_FAX_IPP,			/* ipp://... */
   CUPS_DEVICE_PDL_DATASTREAM,		/* socket://... */
   CUPS_DEVICE_RIOUSBPRINT		/* riousbprint://... */
@@ -123,9 +124,11 @@ main(int  argc,				/* I - Number of command-line args */
 		fax_ipp_ref,		/* IPP fax service reference */
 		ipp_ref,		/* IPP service reference */
 		ipp_tls_ref,		/* IPP w/TLS service reference */
+		ipps_ref,		/* IPP service reference */
 		local_fax_ipp_ref,	/* Local IPP fax service reference */
 		local_ipp_ref,		/* Local IPP service reference */
 		local_ipp_tls_ref,	/* Local IPP w/TLS service reference */
+		local_ipps_ref,		/* Local IPP service reference */
 		local_printer_ref,	/* Local LPD service reference */
 		pdl_datastream_ref,	/* AppSocket service reference */
 		printer_ref,		/* LPD service reference */
@@ -167,8 +170,9 @@ main(int  argc,				/* I - Number of command-line args */
     exec_backend(argv);
   else if (argc != 1)
   {
-    fprintf(stderr, "Usage: %s job user title copies options [filename(s)]\n",
-            argv[0]);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]"),
+		    argv[0]);
     return (1);
   }
 
@@ -214,6 +218,10 @@ main(int  argc,				/* I - Number of command-line args */
   DNSServiceBrowse(&ipp_tls_ref, kDNSServiceFlagsShareConnection, 0,
                    "_ipp-tls._tcp", NULL, browse_callback, devices);
 
+  ipps_ref = main_ref;
+  DNSServiceBrowse(&ipp_ref, kDNSServiceFlagsShareConnection, 0,
+                   "_ipps._tcp", NULL, browse_callback, devices);
+
   local_fax_ipp_ref = main_ref;
   DNSServiceBrowse(&local_fax_ipp_ref, kDNSServiceFlagsShareConnection,
                    kDNSServiceInterfaceIndexLocalOnly,
@@ -229,12 +237,17 @@ main(int  argc,				/* I - Number of command-line args */
                    kDNSServiceInterfaceIndexLocalOnly,
                    "_ipp-tls._tcp", NULL, browse_local_callback, devices);
 
+  local_ipps_ref = main_ref;
+  DNSServiceBrowse(&local_ipp_ref, kDNSServiceFlagsShareConnection,
+                   kDNSServiceInterfaceIndexLocalOnly,
+		   "_ipps._tcp", NULL, browse_local_callback, devices);
+
   local_printer_ref = main_ref;
   DNSServiceBrowse(&local_printer_ref, kDNSServiceFlagsShareConnection,
                    kDNSServiceInterfaceIndexLocalOnly,
                    "_printer._tcp", NULL, browse_local_callback, devices);
 
-  pdl_datastream_ref = main_ref;  
+  pdl_datastream_ref = main_ref;
   DNSServiceBrowse(&pdl_datastream_ref, kDNSServiceFlagsShareConnection, 0,
                    "_pdl-datastream._tcp", NULL, browse_callback, devices);
 
@@ -255,8 +268,8 @@ main(int  argc,				/* I - Number of command-line args */
     FD_ZERO(&input);
     FD_SET(fd, &input);
 
-    timeout.tv_sec  = 1;
-    timeout.tv_usec = 0;
+    timeout.tv_sec  = 0;
+    timeout.tv_usec = 250000;
 
     if (select(fd + 1, &input, NULL, NULL, &timeout) < 0)
       continue;
@@ -279,19 +292,26 @@ main(int  argc,				/* I - Number of command-line args */
       cups_device_t *best;		/* Best matching device */
       char	device_uri[1024];	/* Device URI */
       int	count;			/* Number of queries */
-
+      int	sent;			/* Number of sent */
 
       for (device = (cups_device_t *)cupsArrayFirst(devices),
-               best = NULL, count = 0;
+               best = NULL, count = 0, sent = 0;
            device;
 	   device = (cups_device_t *)cupsArrayNext(devices))
+      {
+        if (device->sent)
+	  sent ++;
+
+        if (device->ref)
+	  count ++;
+
         if (!device->ref && !device->sent)
 	{
 	 /*
 	  * Found the device, now get the TXT record(s) for it...
 	  */
 
-          if (count < 10)
+          if (count < 20)
 	  {
 	    device->ref = main_ref;
 
@@ -324,8 +344,8 @@ main(int  argc,				/* I - Number of command-line args */
 
           if (!best)
 	    best = device;
-	  else if (strcasecmp(best->name, device->name) ||
-	           strcasecmp(best->domain, device->domain))
+	  else if (_cups_strcasecmp(best->name, device->name) ||
+	           _cups_strcasecmp(best->domain, device->domain))
           {
 	    unquote(uriName, best->fullName, sizeof(uriName));
 
@@ -337,6 +357,8 @@ main(int  argc,				/* I - Number of command-line args */
 	                      best->name, best->device_id, NULL);
 	    best->sent = 1;
 	    best       = device;
+
+	    sent ++;
 	  }
 	  else if (best->priority > device->priority ||
 	           (best->priority == device->priority &&
@@ -344,10 +366,17 @@ main(int  argc,				/* I - Number of command-line args */
           {
 	    best->sent = 1;
 	    best       = device;
+
+	    sent ++;
 	  }
 	  else
+	  {
 	    device->sent = 1;
+
+	    sent ++;
+	  }
         }
+      }
 
       if (best)
       {
@@ -360,7 +389,11 @@ main(int  argc,				/* I - Number of command-line args */
 	cupsBackendReport("network", device_uri, best->make_and_model,
 			  best->name, best->device_id, NULL);
 	best->sent = 1;
+	sent ++;
       }
+
+      if (sent == cupsArrayCount(devices))
+	break;
     }
   }
 
@@ -491,8 +524,14 @@ exec_backend(char **argv)		/* I - Command-line arguments */
 
   job_canceled = -1;
 
-  if ((resolved_uri = cupsBackendDeviceURI(argv)) == NULL)
-    exit(CUPS_BACKEND_FAILED);
+  while ((resolved_uri = cupsBackendDeviceURI(argv)) == NULL)
+  {
+    _cupsLangPrintFilter(stderr, "INFO", _("Unable to locate printer."));
+    sleep(10);
+
+    if (getenv("CLASS") != NULL)
+      exit(CUPS_BACKEND_FAILED);
+  }
 
  /*
   * Extract the scheme from the URI...
@@ -551,9 +590,11 @@ get_device(cups_array_t *devices,	/* I - Device array */
 
   key.name = (char *)serviceName;
 
-  if (!strcmp(regtype, "_ipp._tcp.") ||
-      !strcmp(regtype, "_ipp-tls._tcp."))
+  if (!strcmp(regtype, "_ipp._tcp."))
     key.type = CUPS_DEVICE_IPP;
+  else if (!strcmp(regtype, "_ipps._tcp.") ||
+	   !strcmp(regtype, "_ipp-tls._tcp."))
+    key.type = CUPS_DEVICE_IPPS;
   else if (!strcmp(regtype, "_fax-ipp._tcp."))
     key.type = CUPS_DEVICE_FAX_IPP;
   else if (!strcmp(regtype, "_printer._tcp."))
@@ -566,12 +607,12 @@ get_device(cups_array_t *devices,	/* I - Device array */
   for (device = cupsArrayFind(devices, &key);
        device;
        device = cupsArrayNext(devices))
-    if (strcasecmp(device->name, key.name))
+    if (_cups_strcasecmp(device->name, key.name))
       break;
     else if (device->type == key.type)
     {
-      if (!strcasecmp(device->domain, "local.") &&
-          strcasecmp(device->domain, replyDomain))
+      if (!_cups_strcasecmp(device->domain, "local.") &&
+          _cups_strcasecmp(device->domain, replyDomain))
       {
        /*
         * Update the .local listing to use the "global" domain name instead.
@@ -673,9 +714,11 @@ query_callback(
   if ((ptr = strstr(name, "._")) != NULL)
     *ptr = '\0';
 
-  if (strstr(fullName, "_ipp._tcp.") ||
-      strstr(fullName, "_ipp-tls._tcp."))
+  if (strstr(fullName, "_ipp._tcp."))
     dkey.type = CUPS_DEVICE_IPP;
+  else if (strstr(fullName, "_ipps._tcp.") ||
+           strstr(fullName, "_ipp-tls._tcp."))
+    dkey.type = CUPS_DEVICE_IPPS;
   else if (strstr(fullName, "_fax-ipp._tcp."))
     dkey.type = CUPS_DEVICE_FAX_IPP;
   else if (strstr(fullName, "_printer._tcp."))
@@ -689,8 +732,8 @@ query_callback(
        device;
        device = cupsArrayNext(devices))
   {
-    if (strcasecmp(device->name, dkey.name) ||
-        strcasecmp(device->domain, dkey.domain))
+    if (_cups_strcasecmp(device->name, dkey.name) ||
+        _cups_strcasecmp(device->domain, dkey.domain))
     {
       device = NULL;
       break;
@@ -747,11 +790,18 @@ query_callback(
 	  if (data < datanext)
 	    memcpy(value, data, datanext - data);
 	  value[datanext - data] = '\0';
+
+	  fprintf(stderr, "DEBUG2: query_callback: \"%s=%s\".\n",
+	          key, value);
 	}
 	else
+	{
+	  fprintf(stderr, "DEBUG2: query_callback: \"%s\" with no value.\n",
+	          key);
 	  continue;
+	}
 
-        if (!strncasecmp(key, "usb_", 4))
+        if (!_cups_strncasecmp(key, "usb_", 4))
 	{
 	 /*
 	  * Add USB device ID information...
@@ -762,12 +812,12 @@ query_callback(
 	           key + 4, value);
         }
 
-        if (!strcasecmp(key, "usb_MFG") || !strcasecmp(key, "usb_MANU") ||
-	    !strcasecmp(key, "usb_MANUFACTURER"))
+        if (!_cups_strcasecmp(key, "usb_MFG") || !_cups_strcasecmp(key, "usb_MANU") ||
+	    !_cups_strcasecmp(key, "usb_MANUFACTURER"))
 	  strcpy(make_and_model, value);
-        else if (!strcasecmp(key, "usb_MDL") || !strcasecmp(key, "usb_MODEL"))
+        else if (!_cups_strcasecmp(key, "usb_MDL") || !_cups_strcasecmp(key, "usb_MODEL"))
 	  strcpy(model, value);
-	else if (!strcasecmp(key, "product") && !strstr(value, "Ghostscript"))
+	else if (!_cups_strcasecmp(key, "product") && !strstr(value, "Ghostscript"))
 	{
 	  if (value[0] == '(')
 	  {
@@ -783,18 +833,19 @@ query_callback(
 	  else
 	    strcpy(model, value);
         }
-	else if (!strcasecmp(key, "ty"))
+	else if (!_cups_strcasecmp(key, "ty"))
 	{
           strcpy(model, value);
 
 	  if ((ptr = strchr(model, ',')) != NULL)
 	    *ptr = '\0';
 	}
-	else if (!strcasecmp(key, "priority"))
+	else if (!_cups_strcasecmp(key, "priority"))
 	  device->priority = atoi(value);
 	else if ((device->type == CUPS_DEVICE_IPP ||
+	          device->type == CUPS_DEVICE_IPPS ||
 	          device->type == CUPS_DEVICE_PRINTER) &&
-		 !strcasecmp(key, "printer-type"))
+		 !_cups_strcasecmp(key, "printer-type"))
 	{
 	 /*
 	  * This is a CUPS printer!
@@ -815,9 +866,9 @@ query_callback(
         if (make_and_model[0])
 	  snprintf(device_id, sizeof(device_id), "MFG:%s;MDL:%s;",
 	           make_and_model, model);
-        else if (!strncasecmp(model, "designjet ", 10))
+        else if (!_cups_strncasecmp(model, "designjet ", 10))
 	  snprintf(device_id, sizeof(device_id), "MFG:HP;MDL:%s", model + 10);
-        else if (!strncasecmp(model, "stylus ", 7))
+        else if (!_cups_strncasecmp(model, "stylus ", 7))
 	  snprintf(device_id, sizeof(device_id), "MFG:EPSON;MDL:%s", model + 7);
         else if ((ptr = strchr(model, ' ')) != NULL)
 	{
@@ -866,6 +917,8 @@ query_callback(
 static void
 sigterm_handler(int sig)		/* I - Signal number (unused) */
 {
+  (void)sig;
+
   if (job_canceled)
     exit(CUPS_BACKEND_OK);
   else
@@ -908,5 +961,5 @@ unquote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: dnssd.c 1631 2009-08-07 22:56:39Z msweet $".
+ * End of "$Id: dnssd.c 3301 2011-06-05 17:05:19Z msweet $".
  */

@@ -1,5 +1,5 @@
---- rand48.h.orig	2003-05-20 15:21:02.000000000 -0700
-+++ rand48.h	2005-11-03 14:06:17.000000000 -0800
+--- rand48.h.orig	2009-11-07 14:51:38.000000000 -0800
++++ rand48.h	2009-11-07 14:51:39.000000000 -0800
 @@ -19,8 +19,6 @@
  #include <math.h>
  #include <stdlib.h>
@@ -9,7 +9,7 @@
  #define	RAND48_SEED_0	(0x330e)
  #define	RAND48_SEED_1	(0xabcd)
  #define	RAND48_SEED_2	(0x1234)
-@@ -29,4 +27,55 @@
+@@ -29,4 +27,55 @@ void		_dorand48(unsigned short[3]);
  #define	RAND48_MULT_2	(0x0005)
  #define	RAND48_ADD	(0x000b)
  

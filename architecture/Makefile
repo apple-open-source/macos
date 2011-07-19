@@ -1,115 +1,76 @@
 #
 # makefile for architecture project.
 #
-EXPORT_DSTDIR=/usr/include/architecture
-LOCAL_DSTDIR=/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
+
+# Defaults typically set by build system
+RC_ARCHS ?= i386 arm
+SDKROOT ?= /
+
+# fold all arm subtypes to the family "arm",
+# and map x86_64 -> i386
+SUPPORTED_ARCHS = i386 arm
+CANONICAL_ARCH_x86_64 = i386
+CANONICAL_ARCH_armv5 = arm
+CANONICAL_ARCH_armv6 = arm
+CANONICAL_ARCH_armv7 = arm
+
+ARCHS = $(filter $(SUPPORTED_ARCHS),$(sort $(foreach x,$(RC_ARCHS),$(if $(CANONICAL_ARCH_$(x)),$(CANONICAL_ARCH_$(x)),$(x)))))
+
+# install machine-independent and per-arch headers
+DIRS = . $(ARCHS)
+
+ifeq ($(RC_ProjectName),architecture_Sim)
+	HEADER_INSTALL_PREFIX = $(SDKROOT)
+else
+	HEADER_INSTALL_PREFIX =
+endif
+
+EXPORT_DSTDIR=$(HEADER_INSTALL_PREFIX)/usr/include/architecture
+LOCAL_DSTDIR=$(HEADER_INSTALL_PREFIX)/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
+
+INSTALL = /usr/bin/install
 INSTALL_FLAGS= -p -m 444
-
-ifneq "" "$(wildcard /bin/mkdirs)"
-  MKDIRS = /bin/mkdirs
-else
-  MKDIRS = /bin/mkdir -p
-endif
-
-OBJROOT=.
-
-EXPORT_SOURCE= . i386 ppc arm
-LOCAL_SOURCE=  . i386 ppc arm
-TAGS_ARCH= ppc
-
-ifneq "" "$(wildcard /usr/ucb/unifdef)"
-	UNIFDEF = /usr/ucb/unifdef
-else
-	UNIFDEF = /usr/bin/unifdef
-endif
-	DECOMMENT = /usr/local/bin/decomment
+MKDIRS = /bin/mkdir -p
 
 all:
-
-debug kern :
 
 install:	all installhdrs
 
 installhdrs: all DSTROOT $(DSTROOT)$(LOCAL_DSTDIR) \
 	$(DSTROOT)$(EXPORT_DSTDIR)
-#
-#    First, LOCAL_DSTDIR
-#
-	for i in ${LOCAL_SOURCE};					\
+	for i in ${DIRS};						\
 	do								\
 	    DSTDIR=$(DSTROOT)$(LOCAL_DSTDIR)/$$i;			\
 	    (cd $$i;							\
                 $(MKDIRS) $$DSTDIR;					\
-                install $(INSTALL_FLAGS) *.[hs] $$DSTDIR);		\
+		echo Installing *.h;					\
+                install $(INSTALL_FLAGS) *.h $$DSTDIR);			\
 	done
-#
-#    Now   EXPORT_DSTDIR
-#
-#  10/3/94 jdoenias - changed make sure original version of file
-#  gets installed so that mod times don't change and invalidate the
-#  precomps.  Only really affects m68k/zsreg.h
-#
-	if [ -n "$(OBJROOT)" ]; then					\
-	   EXPORTSDIR=$(OBJROOT);					\
-	else								\
-	   EXPORTSDIR=`pwd`;						\
-	fi;								\
-	CWD=`pwd`;							\
-	cd $$EXPORTSDIR;						\
-	EXPORTSDIR_FULL=`pwd`;						\
-	cd $$CWD;							\
-	for i in ${EXPORT_SOURCE};					\
+	for i in ${DIRS};						\
 	do								\
-	    EXPDIR=$$EXPORTSDIR_FULL/exports;				\
-	    [ -d $$EXPDIR ] || $(MKDIRS) $$EXPDIR;			\
-	    rm -f $$EXPDIR/*;						\
 	    DSTDIR=$(DSTROOT)$(EXPORT_DSTDIR)/$$i;			\
-	    [ -d $$DSTDIR ] || $(MKDIRS) $$DSTDIR;			\
 	    (cd $$i;							\
-	        hdrs=`echo *.[hs]`;					\
-		for j in $$hdrs; 					\
-		do							\
-		    echo garbage > $$EXPDIR/$$j.strip;			\
-		    $(UNIFDEF) -UARCH_PRIVATE $$j > $$EXPDIR/$$j ||	\
-		    $(DECOMMENT) $$EXPDIR/$$j  r > $$EXPDIR/$$j.strip; 	\
-		    if [ -s $$EXPDIR/$$j.strip ]; 			\
-		    then (						\
-			install $(INSTALL_FLAGS) $$j $$DSTDIR;		\
-		    );							\
-		    else 						\
-			echo Header file $$i/$$j not exported;		\
-		    fi;							\
-		    rm -f $$EXPDIR/$$j*;				\
-		done;							\
-	    );								\
-	done;								\
-	rm -r $$EXPDIR
+                $(MKDIRS) $$DSTDIR;					\
+		echo Installing *.h;					\
+                install $(INSTALL_FLAGS) *.h $$DSTDIR);			\
+	done
 
-clean:	ALWAYS
+.PHONY: clean
+
+clean:
 	rm -f *~ */*~ 
 	rm -rf exports
 
 installsrc: SRCROOT $(SRCROOT)
-ifneq "" "$(wildcard /bin/pax)"
 	pax -rw . ${SRCROOT}
-else
-	tar cf - . | (cd $(SRCROOT); tar xfBp -)
-endif
 
-tags:	ALWAYS
-	for arch in `echo $(TAGS_ARCH)`;				\
-	do								\
-		$(RM) -f TAGS.$$arch tags.$$arch;			\
-		echo Making TAGS.$$arch;				\
-		etags -et -f TAGS.$$arch *.h $$arch/*.h;		\
-		echo Making tags.$$arch;				\
-		ctags -w -o tags.$$arch *.h $$arch/*.h;			\
-	done
 
 $(SRCROOT) $(DSTROOT)$(EXPORT_DSTDIR) $(DSTROOT)$(LOCAL_DSTDIR):
 	$(MKDIRS) $@
 
-SRCROOT DSTROOT:	ALWAYS
+.PHONY: SRCROOT DSTROOT
+
+SRCROOT DSTROOT:
 	if [ -n "${$@}" ]; \
 	then \
 		exit 0; \
@@ -117,5 +78,3 @@ SRCROOT DSTROOT:	ALWAYS
 		echo Must define $@; \
 		exit 1; \
 	fi
-
-ALWAYS:

@@ -67,7 +67,7 @@ HTMLCollection::~HTMLCollection()
 
 void HTMLCollection::resetCollectionInfo() const
 {
-    unsigned docversion = static_cast<HTMLDocument*>(m_base->document())->domTreeVersion();
+    uint64_t docversion = static_cast<HTMLDocument*>(m_base->document())->domTreeVersion();
 
     if (!m_info) {
         m_info = new CollectionCache;
@@ -181,11 +181,11 @@ Element* HTMLCollection::itemAfter(Element* previous) const
                     return e;
                 break;
             case DocLinks: // all <a> and <area> elements with a value for href
-                if ((e->hasLocalName(aTag) || e->hasLocalName(areaTag)) && (!e->getAttribute(hrefAttr).isNull()))
+                if ((e->hasLocalName(aTag) || e->hasLocalName(areaTag)) && e->fastHasAttribute(hrefAttr))
                     return e;
                 break;
             case DocAnchors: // all <a> elements with a value for name
-                if (e->hasLocalName(aTag) && !e->getAttribute(nameAttr).isNull())
+                if (e->hasLocalName(aTag) && e->fastHasAttribute(nameAttr))
                     return e;
                 break;
             case DocAll:
@@ -264,9 +264,9 @@ bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const A
     if (!element->isHTMLElement())
         return false;
     
-    HTMLElement* e = static_cast<HTMLElement*>(element);
+    HTMLElement* e = toHTMLElement(element);
     if (!checkName)
-        return e->getAttribute(e->idAttributeName()) == name;
+        return e->getIdAttribute() == name;
 
     // document.all returns only images, forms, applets, objects and embeds
     // by name (though everything by id)
@@ -277,7 +277,7 @@ bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const A
           e->hasLocalName(selectTag)))
         return false;
 
-    return e->getAttribute(nameAttr) == name && e->getAttribute(e->idAttributeName()) != name;
+    return e->getAttribute(nameAttr) == name && e->getIdAttribute() != name;
 }
 
 Node* HTMLCollection::namedItem(const AtomicString& name) const
@@ -318,8 +318,8 @@ void HTMLCollection::updateNameCache() const
     for (Element* element = itemAfter(0); element; element = itemAfter(element)) {
         if (!element->isHTMLElement())
             continue;
-        HTMLElement* e = static_cast<HTMLElement*>(element);
-        const AtomicString& idAttrVal = e->getAttribute(e->idAttributeName());
+        HTMLElement* e = toHTMLElement(element);
+        const AtomicString& idAttrVal = e->getIdAttribute();
         const AtomicString& nameAttrVal = e->getAttribute(nameAttr);
         if (!idAttrVal.isEmpty()) {
             // add to id cache

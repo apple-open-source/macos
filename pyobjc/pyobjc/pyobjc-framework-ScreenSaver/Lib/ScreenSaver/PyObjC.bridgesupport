@@ -20,7 +20,7 @@
   </function>
   <function inline='true' name='SSRandomPointForSizeWithinRect'>
     <retval type='{_NSPoint=ff}' type64='{CGPoint=dd}' />
-    <arg type='{_NSSize=ff}' type64='{CGSize=dd}' />
+    <arg type='{_NSSize=ff}' type64='{CGSize=ff}' />
     <arg type='{_NSRect={_NSPoint=ff}{_NSSize=ff}}' type64='{CGRect={CGPoint=dd}{CGSize=dd}}' />
   </function>
   <class name='ScreenSaverView'>

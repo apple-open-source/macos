@@ -1,7 +1,7 @@
 /* $OpenBSD: gss-serv-krb5.c,v 1.7 2006/08/03 03:34:42 deraadt Exp $ */
 
 /*
- * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,10 +57,7 @@ extern ServerOptions options;
 #endif
 
 #ifdef __APPLE_CROSS_REALM__
-#include <CoreFoundation/CoreFoundation.h>
-#include <OpenDirectory/OpenDirectory.h>
-#include <OpenDirectory/OpenDirectoryPriv.h>
-#include <DirectoryService/DirectoryService.h>
+#include <membership.h>
 #endif
 
 static krb5_context krb_context = NULL;
@@ -89,42 +86,35 @@ ssh_gssapi_krb5_init(void)
 krb5_boolean
 od_kuserok(krb5_context context, krb5_principal principal, const char *luser)
 {
-	char *kuser;
-	krb5_boolean retval = FALSE;
+	char *kprinc = NULL;
+	int ret = 0, retval = FALSE;
+	uuid_t krb_uuid, un_uuid;
 
-	if (!krb5_unparse_name(context, principal, &kuser)) {
-		ODNodeRef cfNodeRef = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, eDSAuthenticationSearchNodeName, NULL);
-		if (cfNodeRef != NULL) {
-			CFStringRef cfUser = CFStringCreateWithCString(NULL, luser, kCFStringEncodingUTF8);
-			CFStringRef cfPrincipal = CFStringCreateWithCString(NULL, kuser, kCFStringEncodingUTF8);
-			if (cfUser != NULL && cfPrincipal != NULL) {
-				ODRecordRef cfRecord = ODNodeCopyRecord(cfNodeRef, CFSTR(kDSStdRecordTypeUsers), cfUser, NULL, NULL);
-				if (cfRecord != NULL) {
-					CFArrayRef vals = ODRecordCopyValues(cfRecord, CFSTR(kDSNAttrRecordName), NULL);
-					if (vals != NULL) {
-						CFIndex count = CFArrayGetCount(vals);
-						CFIndex i;
-						for (i = 0; i < count; ++i) {
-							const void *val = CFArrayGetValueAtIndex(vals, i);
-							if (CFStringCompare(val, cfPrincipal, 0) == kCFCompareEqualTo) {
-								retval = TRUE;
-								break;
-							}
-						}
-						CFRelease(vals);
-					}	
-					CFRelease(cfRecord);				
-				}
-				else {
-					retval = FALSE;
-				}
-				CFRelease(cfUser);
-				CFRelease(cfPrincipal);
-			}
-			CFRelease(cfNodeRef);
-		}
-		free(kuser);
+	ret = krb5_unparse_name(context, principal, &kprinc);
+	if (!ret) {
+		logit("od_kuserok - krb5_unparse_name failed: %d", ret);
+		goto error;
 	}
+
+	ret = mbr_identifier_to_uuid(ID_TYPE_USERNAME, luser, strlen(luser), un_uuid);
+	if (!ret) {
+		logit("od_kuserok - mbr_identifier_to_uuid: %d", ret);
+		goto error;
+	}
+
+	ret = mbr_identifier_to_uuid(ID_TYPE_KERBEROS, kprinc, strlen(kprinc), krb_uuid);
+	if (!ret) {
+		goto error;
+	}
+
+	ret = uuid_compare(krb_uuid, un_uuid);
+	if (0 == ret)  {
+		retval = TRUE;
+	}
+
+error:
+	if (kprinc)
+		free(kprinc);
 
 	return retval;
 }
@@ -249,6 +239,71 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 	return;
 }
 
+int
+ssh_gssapi_krb5_updatecreds(ssh_gssapi_ccache *store, 
+    ssh_gssapi_client *client)
+{
+	krb5_ccache ccache = NULL;
+	krb5_principal principal = NULL;
+	char *name = NULL;
+	krb5_error_code problem;
+	OM_uint32 maj_status, min_status;
+
+   	if ((problem = krb5_cc_resolve(krb_context, store->envval, &ccache))) {
+                logit("krb5_cc_resolve(): %.100s",
+                    krb5_get_err_text(krb_context, problem));
+                return 0;
+       	}
+	
+	/* Find out who the principal in this cache is */
+	if ((problem = krb5_cc_get_principal(krb_context, ccache, 
+	    &principal))) {
+		logit("krb5_cc_get_principal(): %.100s",
+		    krb5_get_err_text(krb_context, problem));
+		krb5_cc_close(krb_context, ccache);
+		return 0;
+	}
+
+	if ((problem = krb5_unparse_name(krb_context, principal, &name))) {
+		logit("krb5_unparse_name(): %.100s",
+		    krb5_get_err_text(krb_context, problem));
+		krb5_free_principal(krb_context, principal);
+		krb5_cc_close(krb_context, ccache);
+		return 0;
+	}
+
+
+	if (strcmp(name,client->exportedname.value)!=0) {
+		debug("Name in local credentials cache differs. Not storing");
+		krb5_free_principal(krb_context, principal);
+		krb5_cc_close(krb_context, ccache);
+		krb5_free_unparsed_name(krb_context, name);
+		return 0;
+	}
+	krb5_free_unparsed_name(krb_context, name);
+
+	/* Name matches, so lets get on with it! */
+
+	if ((problem = krb5_cc_initialize(krb_context, ccache, principal))) {
+		logit("krb5_cc_initialize(): %.100s",
+		    krb5_get_err_text(krb_context, problem));
+		krb5_free_principal(krb_context, principal);
+		krb5_cc_close(krb_context, ccache);
+		return 0;
+	}
+
+	krb5_free_principal(krb_context, principal);
+
+	if ((maj_status = gss_krb5_copy_ccache(&min_status, client->creds,
+	    ccache))) {
+		logit("gss_krb5_copy_ccache() failed. Sorry!");
+		krb5_cc_close(krb_context, ccache);
+		return 0;
+	}
+
+	return 1;
+}
+
 ssh_gssapi_mech gssapi_kerberos_mech = {
 	"toWM5Slw5Ew8Mqkay+al2g==",
 	"Kerberos",
@@ -256,7 +311,8 @@ ssh_gssapi_mech gssapi_kerberos_mech = {
 	NULL,
 	&ssh_gssapi_krb5_userok,
 	NULL,
-	&ssh_gssapi_krb5_storecreds
+	&ssh_gssapi_krb5_storecreds,
+	&ssh_gssapi_krb5_updatecreds
 };
 
 #endif /* KRB5 */

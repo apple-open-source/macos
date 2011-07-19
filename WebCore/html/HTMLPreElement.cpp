@@ -1,7 +1,7 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,18 +23,23 @@
 #include "config.h"
 #include "HTMLPreElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLPreElement::HTMLPreElement(const QualifiedName& tagName, Document* doc)
-    : HTMLElement(tagName, doc)
+inline HTMLPreElement::HTMLPreElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
 {
+}
+
+PassRefPtr<HTMLPreElement> HTMLPreElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLPreElement(tagName, document));
 }
 
 bool HTMLPreElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -46,7 +51,7 @@ bool HTMLPreElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEn
     return HTMLElement::mapToEntry(attrName, result);
 }
 
-void HTMLPreElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLPreElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == widthAttr) {
         // FIXME: Implement this some day.  Width on a <pre> is the # of characters that
@@ -58,26 +63,6 @@ void HTMLPreElement::parseMappedAttribute(MappedAttribute *attr)
             addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValuePreWrap);
     } else
         return HTMLElement::parseMappedAttribute(attr);
-}
-
-int HTMLPreElement::width() const
-{
-    return getAttribute(widthAttr).toInt();
-}
-
-void HTMLPreElement::setWidth(int width)
-{
-    setAttribute(widthAttr, String::number(width));
-}
-
-bool HTMLPreElement::wrap() const
-{
-    return !getAttribute(wrapAttr).isNull();
-}
-
-void HTMLPreElement::setWrap(bool wrap)
-{
-    setAttribute(wrapAttr, wrap ? "" : 0);
 }
 
 }

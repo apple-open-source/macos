@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007 Apple Inc.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -18,34 +19,49 @@
  */
 
 #include "config.h"
-#include "SearchPopupMenu.h"
+#include "SearchPopupMenuWin.h"
 
-#include "AtomicString.h"
+#include <wtf/text/AtomicString.h>
+
+#if USE(CF)
 #include <wtf/RetainPtr.h>
+#endif
 
 namespace WebCore {
 
-SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client)
-    : PopupMenu(client)
+SearchPopupMenuWin::SearchPopupMenuWin(PopupMenuClient* client)
+    : m_popup(adoptRef(new PopupMenuWin(client)))
 {
 }
 
-bool SearchPopupMenu::enabled()
+PopupMenu* SearchPopupMenuWin::popupMenu()
 {
+    return m_popup.get();
+}
+
+bool SearchPopupMenuWin::enabled()
+{
+#if USE(CF)
     return true;
+#else
+    return false;
+#endif
 }
 
+#if USE(CF)
 static RetainPtr<CFStringRef> autosaveKey(const String& name)
 {
     String key = "com.apple.WebKit.searchField:" + name;
     return RetainPtr<CFStringRef>(AdoptCF, key.createCFString());
 }
+#endif
 
-void SearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems)
+void SearchPopupMenuWin::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems)
 {
     if (name.isEmpty())
         return;
 
+#if USE(CF)
     RetainPtr<CFMutableArrayRef> items;
 
     size_t size = searchItems.size();
@@ -59,13 +75,15 @@ void SearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<
 
     CFPreferencesSetAppValue(autosaveKey(name).get(), items.get(), kCFPreferencesCurrentApplication);
     CFPreferencesAppSynchronize(kCFPreferencesCurrentApplication);
+#endif
 }
 
-void SearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems)
+void SearchPopupMenuWin::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems)
 {
     if (name.isEmpty())
         return;
 
+#if USE(CF)
     searchItems.clear();
     RetainPtr<CFArrayRef> items(AdoptCF, reinterpret_cast<CFArrayRef>(CFPreferencesCopyAppValue(autosaveKey(name).get(), kCFPreferencesCurrentApplication)));
 
@@ -78,6 +96,7 @@ void SearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String
         if (CFGetTypeID(item) == CFStringGetTypeID())
             searchItems.append(item);
     }
+#endif
 }
 
 }

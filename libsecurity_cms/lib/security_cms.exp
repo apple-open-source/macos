@@ -1,4 +1,5 @@
 _CMSEncode
+_CMSEncodeContent
 _CMSEncoderAddSupportingCerts
 _CMSEncoderAddRecipients
 _CMSEncoderAddSigners
@@ -14,6 +15,7 @@ _CMSEncoderCopyEncapsulatedContentType
 _CMSEncoderGetEncoder
 _CMSEncoderGetTypeID
 _CMSEncoderSetEncapsulatedContentType
+_CMSEncoderSetEncapsulatedContentTypeOID
 _CMSEncoderSetEncoder
 _CMSEncoderAddSignedAttributes
 _CMSEncoderSetSigningTime

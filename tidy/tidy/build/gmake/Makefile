@@ -2,9 +2,9 @@
 #
 #  CVS Info :
 #
-#     $Author: tduffy $ 
-#     $Date: 2009/08/26 20:33:25 $ 
-#     $Revision: 1.12 $ 
+#     $Author: mrowe $ 
+#     $Date: 2010/07/20 23:59:48 $ 
+#     $Revision: 1.13 $ 
 #
 #  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -206,19 +206,11 @@ $(OBJDIR)/%$(OBJSUF):	$(SRCDIR)/%.c $(HFILES) $(LIBHFILES) Makefile
 
 $(BINDIR)/$(PROJECT):	$(APPDIR)/tidy.c $(HFILES) $(LIBRARY)
 	if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
-ifdef TIDY_APPLE_CHANGES
-	$(CC) $(CFLAGS) $(OTHERCFLAGS) -mdynamic-no-pic -o $@ $(APPDIR)/tidy.c -I$(INCDIR) -L$(LIBDIR) -l$(PROJECT)
-else
 	$(CC) $(CFLAGS) $(OTHERCFLAGS) -o $@ $(APPDIR)/tidy.c -I$(INCDIR) -L$(LIBDIR) -l$(PROJECT)
-endif
 
 $(BINDIR)/tab2space: $(APPDIR)/tab2space.c
 	if [ ! -d $(BINDIR) ]; then mkdir $(BINDIR); fi
-ifdef TIDY_APPLE_CHANGES
-	$(CC) $(CFLAGS) $(OTHERCFLAGS) -mdynamic-no-pic -o $@ $(APPDIR)/tab2space.c $(LIBS)
-else
 	$(CC) $(CFLAGS) $(OTHERCFLAGS) -o $@ $(APPDIR)/tab2space.c $(LIBS)
-endif
 
 $(HELPXML): $(BINDIR)/$(PROJECT)
 	$(BINDIR)/$(PROJECT) -xml-help > $@

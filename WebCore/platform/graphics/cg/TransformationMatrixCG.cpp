@@ -27,12 +27,22 @@
 #include "AffineTransform.h"
 #include "TransformationMatrix.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 
 #include <CoreGraphics/CGAffineTransform.h>
 #include "FloatConversion.h"
 
 namespace WebCore {
+
+TransformationMatrix::TransformationMatrix(const CGAffineTransform& t)
+{
+    setA(t.a);
+    setB(t.b);
+    setC(t.c);
+    setD(t.d);
+    setE(t.tx);
+    setF(t.ty);
+}
 
 TransformationMatrix::operator CGAffineTransform() const
 {
@@ -56,4 +66,4 @@ AffineTransform::operator CGAffineTransform() const
 
 }
 
-#endif // PLATFORM(CG)
+#endif // USE(CG)

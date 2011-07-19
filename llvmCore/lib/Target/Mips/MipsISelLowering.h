@@ -55,6 +55,9 @@ namespace llvm {
       // Floating Point Compare
       FPCmp,
 
+      // Floating Point Rounding
+      FPRound,
+
       // Return 
       Ret
     };
@@ -63,63 +66,91 @@ namespace llvm {
   //===--------------------------------------------------------------------===//
   // TargetLowering Implementation
   //===--------------------------------------------------------------------===//
-  class MipsTargetLowering : public TargetLowering 
-  {
-    // FrameIndex for return slot.
-    int ReturnAddrIndex;
+  
+  class MipsTargetLowering : public TargetLowering  {
   public:
-
     explicit MipsTargetLowering(MipsTargetMachine &TM);
 
     /// LowerOperation - Provide custom lowering hooks for some operations.
-    virtual SDValue LowerOperation(SDValue Op, SelectionDAG &DAG);
+    virtual SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const;
 
     /// getTargetNodeName - This method returns the name of a target specific 
     //  DAG node.
     virtual const char *getTargetNodeName(unsigned Opcode) const;
 
     /// getSetCCResultType - get the ISD::SETCC result ValueType
-    MVT getSetCCResultType(MVT VT) const;
+    MVT::SimpleValueType getSetCCResultType(EVT VT) const;
 
+    /// getFunctionAlignment - Return the Log2 alignment of this function.
+    virtual unsigned getFunctionAlignment(const Function *F) const;
   private:
     // Subtarget Info
     const MipsSubtarget *Subtarget;
 
+
     // Lower Operand helpers
-    SDNode *LowerCallResult(SDValue Chain, SDValue InFlag, CallSDNode *TheCall,
-                            unsigned CallingConv, SelectionDAG &DAG);
-    bool IsGlobalInSmallSection(GlobalValue *GV); 
-    bool IsInSmallSection(unsigned Size); 
+    SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
+                            CallingConv::ID CallConv, bool isVarArg,
+                            const SmallVectorImpl<ISD::InputArg> &Ins,
+                            DebugLoc dl, SelectionDAG &DAG,
+                            SmallVectorImpl<SDValue> &InVals) const;
 
     // Lower Operand specifics
-    SDValue LowerANDOR(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerCALL(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerFORMAL_ARGUMENTS(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerRET(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG);
-    SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG);
+    SDValue LowerANDOR(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerFP_TO_SINT(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerGlobalTLSAddress(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
 
-    virtual MachineBasicBlock *EmitInstrWithCustomInserter(MachineInstr *MI,
-                                                   MachineBasicBlock *MBB) const;
+    virtual SDValue
+      LowerFormalArguments(SDValue Chain,
+                           CallingConv::ID CallConv, bool isVarArg,
+                           const SmallVectorImpl<ISD::InputArg> &Ins,
+                           DebugLoc dl, SelectionDAG &DAG,
+                           SmallVectorImpl<SDValue> &InVals) const;
+
+    virtual SDValue
+      LowerCall(SDValue Chain, SDValue Callee,
+                CallingConv::ID CallConv, bool isVarArg,
+                bool &isTailCall,
+                const SmallVectorImpl<ISD::OutputArg> &Outs,
+                const SmallVectorImpl<ISD::InputArg> &Ins,
+                DebugLoc dl, SelectionDAG &DAG,
+                SmallVectorImpl<SDValue> &InVals) const;
+
+    virtual SDValue
+      LowerReturn(SDValue Chain,
+                  CallingConv::ID CallConv, bool isVarArg,
+                  const SmallVectorImpl<ISD::OutputArg> &Outs,
+                  DebugLoc dl, SelectionDAG &DAG) const;
+
+    virtual MachineBasicBlock *
+      EmitInstrWithCustomInserter(MachineInstr *MI,
+                                  MachineBasicBlock *MBB) const;
 
     // Inline asm support
     ConstraintType getConstraintType(const std::string &Constraint) const;
 
     std::pair<unsigned, const TargetRegisterClass*> 
               getRegForInlineAsmConstraint(const std::string &Constraint,
-              MVT VT) const;
+              EVT VT) const;
 
     std::vector<unsigned>
     getRegClassForInlineAsmConstraint(const std::string &Constraint,
-              MVT VT) const;
+              EVT VT) const;
 
     virtual bool isOffsetFoldingLegal(const GlobalAddressSDNode *GA) const;
+
+    /// isFPImmLegal - Returns true if the target can instruction select the
+    /// specified FP immediate natively. If false, the legalizer will
+    /// materialize the FP immediate as a load from a constant pool.
+    virtual bool isFPImmLegal(const APFloat &Imm, EVT VT) const;
   };
 }
 

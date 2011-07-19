@@ -1,0 +1,55 @@
+ManageSieve Client Issues
+=========================
+
+Although this ManageSieve server should comply with the draft specification of
+theManageSieve protocol, quite a few clients don't. This page lists the known
+client problems.
+
+ * *The TLS problem*:
+ * The core of the TLS problem is that a ManageSieve server is required to send
+   an unsolicited CAPABILITY response right after successful TLS negotiation.
+   Older Cyrus servers did not do this and many clients incorporated this
+   protocol error as the standard, meaning that these do not expect the
+   CAPABILITY response and thus fail with subsequent commands. However, now
+   that Cyrus' Timsieved has changed its behaviour towards protocol compliance,
+   all those clients will follow eventually. The following clients are known to
+   have this TLS issue:
+
+   Thunderbird Sieve add-on:
+     TLS broken for old versions. Starting with version 0.1.5 the Thunderbird
+     Sieve add-on properly supports TLS.
+
+   KMail + kio_sieve:
+     TLS broken for old versions. This issue is fixed at least in kmail 1.9.9 /
+     kde 3.5.9.
+
+   SquirrelMail/AvelSieve:
+     For some users the !Avelsieve client stores scripts but fails to retrieve
+     them later. This problem is directly caused byAvelSieve's TLS support. A
+     quick way to fix this is not to enable TLS forManageSieve. AvelSieve
+     stable (v1.0.1) does not have TLS support at all, so you will see this
+     happen only with the development or SVN versions.  Another issue is that
+     (at least with avelsieve-1.9.7) it is impossible to delete the last rule
+     of a script. For avelsieve-1.9.7 you find a patch that fixes these two
+     issues here
+     [http://www.rename-it.nl/dovecot/client-patches/avelsieve-1.9.7-dovecot.patch].
+
+ * *Smartsieve, Websieve*:
+ * These clients are specifically written for Cyrus timsieved and fail on
+   multiple stages of the protocol when connected to PigeonholeManageSieve.
+    * /(Stephan Bosch)/: I intend to look at these in the future, but currently
+      these are very much unavailable for use with Dovecot. But, feel free to
+      fix these yourself:)
+    * /(Steffen "Stefreak" Neubauer)/: I've fixed the problems for smartsieve.
+      Just replace your lib/Managesieve.php with this
+      here:https://www.commail.org/sieve/lib/Managesieve.phps - HAVE FUN!
+    * /(Mark Titorenko)/: Stephan provides an updated link to Steffen's
+      ManageSieve patch in this Dovecot mailing list post dated 2009-09-01
+      [http://www.mail-archive.com/dovecot@dovecot.org/msg21862.html]
+
+*NOTE*: If you add new issues to this list, notify the author or send an e-mail
+to the Dovecot mailing list [http://dovecot.org/mailinglists.html]. In any
+case, you must make sure that the issue is properly explained and that the
+author can contact you for more information.
+
+(This file was created from the wiki on 2011-05-11 04:42)

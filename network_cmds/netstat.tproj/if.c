@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -76,6 +76,7 @@ static const char rcsid[] =
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <net/if_mib.h>
+#include <net/if_llreach.h>
 #include <net/ethernet.h>
 #include <net/route.h>
 
@@ -90,6 +91,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <stdlib.h>
 #include <err.h>
+#include <errno.h>
 
 #include "netstat.h"
 
@@ -104,6 +106,8 @@ static const char rcsid[] =
 
 static void sidewaysintpr ();
 static void catchalarm (int);
+static char *sec2str(time_t);
+static void llreach_sysctl(uint32_t);
 
 #ifdef INET6
 char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
@@ -120,10 +124,10 @@ show_stat(const char *fmt, int width, u_int64_t value, short showvalue)
 
 	/* Construct the format string */
 	if (showvalue) {
-		sprintf(newfmt, "%%%d%s", width, fmt);
+		snprintf(newfmt, sizeof(newfmt), "%%%d%s", width, fmt);
 		printf(newfmt, value);
 	} else {
-		sprintf(newfmt, "%%%ds", width);
+		snprintf(newfmt, sizeof(newfmt), "%%%ds", width);
 		printf(newfmt, "-");
 	}
 }
@@ -184,6 +188,7 @@ multipr(int family, char *buf, char *lim)
 				memcpy(&sin6, sa, sizeof(struct sockaddr_in6));
 
 				if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr) ||
+					IN6_IS_ADDR_MC_NODELOCAL(&sin6.sin6_addr) ||
 					IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr)) {
 					sin6.sin6_scope_id = ntohs(*(u_int16_t *)&sin6.sin6_addr.s6_addr[2]);
 					sin6.sin6_addr.s6_addr[2] = 0;
@@ -267,14 +272,25 @@ intpr(void (*pfunc)(char *))
 			free(buf);
 		return;
 	}
+
 	if (!pfunc) {
 		printf("%-5.5s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
 		       "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
-		if (bflag)
+		if (prioflag >= 0)
+			printf(" %8.8s", "Itcpkts");
+		if (bflag) {
 			printf(" %10.10s","Ibytes");
+			if (prioflag >= 0)
+				printf(" %10.10s", "Itcbytes");
+		}
 		printf(" %8.8s %5.5s", "Opkts", "Oerrs");
-		if (bflag)
+		if (prioflag >= 0)
+			printf(" %8.8s", "Otcpkts");
+		if (bflag) {
 			printf(" %10.10s","Obytes");
+			if (prioflag >= 0)
+				printf(" %10.10s", "Otcbytes");
+		}
 		printf(" %5s", "Coll");
 		if (tflag)
 			printf(" %s", "Time");
@@ -286,6 +302,13 @@ intpr(void (*pfunc)(char *))
     for (next = buf; next < lim; ) {
 		char *cp;
 		int n, m;
+		struct ifmibdata_supplemental ifmsupp;
+		u_int64_t	ift_itcp = 0;		/* input tc packets */
+		u_int64_t	ift_itcb = 0;		/* input tc bytes */
+		u_int64_t	ift_otcp = 0;		/* output tc packets */
+		u_int64_t	ift_otcb = 0;		/* output tc bytes */
+		
+		bzero(&ifmsupp, sizeof(struct ifmibdata_supplemental));
 		
 		network_layer = 0;
 		link_layer = 0;
@@ -325,6 +348,48 @@ intpr(void (*pfunc)(char *))
 			timer = if2m->ifm_timer;
 			drops = if2m->ifm_snd_drops;
 			mtu = if2m->ifm_data.ifi_mtu;
+
+			if (prioflag >= 0) {
+				int name[6];
+				size_t miblen = sizeof(struct ifmibdata_supplemental);
+	
+				/* Common OID prefix */
+				name[0] = CTL_NET;
+				name[1] = PF_LINK;
+				name[2] = NETLINK_GENERIC;
+				name[3] = IFMIB_IFDATA;
+				name[4] = if2m->ifm_index;
+				name[5] = IFDATA_SUPPLEMENTAL;
+				if (sysctl(name, 6, &ifmsupp, &miblen, (void *)0, 0) == -1)
+					err(1, "sysctl IFDATA_SUPPLEMENTAL");
+
+				switch (prioflag) {
+					case SO_TC_BK:
+						ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibkpackets;
+						ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibkbytes;
+						ift_otcp = ifmsupp.ifmd_traffic_class.ifi_obkpackets;
+						ift_otcb = ifmsupp.ifmd_traffic_class.ifi_obkbytes;
+						break;
+					case SO_TC_VI:
+						ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ivipackets;
+						ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ivibytes;
+						ift_otcp = ifmsupp.ifmd_traffic_class.ifi_ovipackets;
+						ift_otcb = ifmsupp.ifmd_traffic_class.ifi_ovibytes;
+						break;
+					case SO_TC_VO:
+						ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ivopackets;
+						ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ivobytes;
+						ift_otcp = ifmsupp.ifmd_traffic_class.ifi_ovopackets;
+						ift_otcb = ifmsupp.ifmd_traffic_class.ifi_ovobytes;
+						break;
+					default:
+						ift_itcp = 0;
+						ift_itcb = 0;
+						ift_otcp = 0;
+						ift_otcb = 0;
+						break;
+				}
+			}
 
             get_rti_info(if2m->ifm_addrs, (struct sockaddr*)(if2m + 1), rti_info);
 			sa = rti_info[RTAX_IFP];
@@ -392,7 +457,7 @@ intpr(void (*pfunc)(char *))
 				char linknum[10];
 				cp = (char *)LLADDR(sdl);
 				n = sdl->sdl_alen;
-				sprintf(linknum, "<Link#%d>", sdl->sdl_index);
+				snprintf(linknum, sizeof(linknum), "<Link#%d>", sdl->sdl_index);
 				m = printf("%-11.11s ", linknum);
 				goto hexprint;
 			}
@@ -420,17 +485,33 @@ intpr(void (*pfunc)(char *))
 		printf(" ");
 		show_stat("llu", 5, ierrors, link_layer);
 		printf(" ");
+		if (prioflag >= 0) {
+			show_stat("llu", 8, ift_itcp, link_layer|network_layer);
+			printf(" ");
+		}
 		if (bflag) {
 			show_stat("llu", 10, ibytes, link_layer|network_layer);
 			printf(" ");
+			if (prioflag >= 0) {
+				show_stat("llu", 8, ift_itcb, link_layer|network_layer);
+				printf(" ");
+			}
 		}
 		show_stat("llu", 8, opackets, link_layer|network_layer);
 		printf(" ");
 		show_stat("llu", 5, oerrors, link_layer);
 		printf(" ");
+		if (prioflag >= 0) {
+			show_stat("llu", 8, ift_otcp, link_layer|network_layer);
+			printf(" ");
+		}
 		if (bflag) {
 			show_stat("llu", 10, obytes, link_layer|network_layer);
 			printf(" ");
+			if (prioflag >= 0) {
+				show_stat("llu", 8, ift_otcb, link_layer|network_layer);
+				printf(" ");
+			}
 		}
 		show_stat("llu", 5, collisions, link_layer);
 		if (tflag) {
@@ -446,6 +527,7 @@ intpr(void (*pfunc)(char *))
 		if (aflag) 
 			multipr(sa->sa_family, next, lim);
 	}
+	free(buf);
 }
 
 struct	iftot {
@@ -517,7 +599,7 @@ sidewaysintpr()
 		if (interface && strcmp(ifmd->ifmd_name, interface) == 0) {
 			if ((interesting = calloc(ifcount, sizeof(struct iftot))) == NULL)
 				err(1, "malloc failed");
-			interesting_row = i + 1;
+			interesting_row = if_nametoindex(interface);
 			snprintf(interesting->ift_name, 16, "(%s)", ifmd->ifmd_name);;
 		}
 	}
@@ -537,7 +619,7 @@ sidewaysintpr()
 	(void)setitimer(ITIMER_REAL, &timer_interval, NULL);
 	first = 1;
 banner:
-	if (prioflag)
+	if (prioflag >= 0)
 		printf("%37s %14s %16s", "input",
 		    interesting ? interesting->ift_name : "(Total)", "output");
 	else
@@ -546,13 +628,13 @@ banner:
 	putchar('\n');
 	printf("%10s %5s %10s ", 
 	    "packets", "errs", "bytes");
-	if (prioflag)
+	if (prioflag >= 0)
 		printf(" %10s %10s", "tcpkts", "tcbytes");
 	printf("%10s %5s %10s %5s",
 	    "packets", "errs", "bytes", "colls");
 	if (dflag)
 		printf(" %5.5s", "drops");
-	if (prioflag)
+	if (prioflag >= 0)
 		printf(" %10s %10s", "tcpkts", "tcbytes");
 	putchar('\n');
 	fflush(stdout);
@@ -569,7 +651,7 @@ loop:
 		if (sysctl(name, 6, &ifmd, &len, (void *)0, 0) == -1)
 			err(1, "sysctl IFDATA_GENERAL %d", interesting_row);
 
-		if (prioflag) {
+		if (prioflag >= 0) {
 			len = sizeof(struct ifmibdata_supplemental);
 			name[3] = IFMIB_IFDATA;
 			name[4] = interesting_row;
@@ -685,7 +767,7 @@ loop:
 		name[5] = IFDATA_GENERAL;
 		if (sysctl(name, 6, ifmdall, &len, (void *)0, 0) == -1)
 			err(1, "sysctl IFMIB_IFALLDATA");
-		if (prioflag) {
+		if (prioflag >= 0) {
 			len = ifcount * sizeof(struct ifmibdata_supplemental);
 			ifmsuppall = malloc(len);
 			if (ifmsuppall == NULL)
@@ -720,7 +802,7 @@ loop:
 			sum->ift_co += ifmd->ifmd_data.ifi_collisions;
 			sum->ift_dr += ifmd->ifmd_snd_drops;
 			/* private counters */
-			if (prioflag) {
+			if (prioflag >= 0) {
 				struct ifmibdata_supplemental *ifmsupp = ifmsuppall + i;
 				switch (prioflag) {
 					case SO_TC_BK:
@@ -751,7 +833,7 @@ loop:
 				sum->ift_ip - total->ift_ip,
 				sum->ift_ie - total->ift_ie,
 				sum->ift_ib - total->ift_ib);
-			if (prioflag)
+			if (prioflag >= 0)
 				printf(" %10llu %10llu",
 				    sum->ift_itcp - total->ift_itcp,
 				    sum->ift_itcb - total->ift_itcb);
@@ -762,7 +844,7 @@ loop:
 				sum->ift_co - total->ift_co);
 			if (dflag)
 				printf(" %5llu", sum->ift_dr - total->ift_dr);
-			if (prioflag)
+			if (prioflag >= 0)
 				printf(" %10llu %10llu",
 				    sum->ift_otcp - total->ift_otcp,
 				    sum->ift_otcb - total->ift_otcb);
@@ -830,4 +912,166 @@ static void
 catchalarm(int signo )
 {
 	signalled = YES;
+}
+
+static char *
+sec2str(total)
+	time_t total;
+{
+	static char result[256];
+	int days, hours, mins, secs;
+	int first = 1;
+	char *p = result;
+
+	days = total / 3600 / 24;
+	hours = (total / 3600) % 24;
+	mins = (total / 60) % 60;
+	secs = total % 60;
+
+	if (days) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dd", days);
+	}
+	if (!first || hours) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dh", hours);
+	}
+	if (!first || mins) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dm", mins);
+	}
+	snprintf(p, sizeof(result) - (p - result), "%ds", secs);
+
+	return(result);
+}
+
+void
+intpr_ri(void (*pfunc)(char *))
+{
+	int mib[6];
+	char *buf = NULL, *lim, *next;
+	size_t len;
+	unsigned int ifindex = 0;
+	struct if_msghdr2 *if2m;
+
+	if (interface != 0) {
+		ifindex = if_nametoindex(interface);
+		if (ifindex == 0) {
+			printf("interface name is not valid: %s\n", interface);
+			exit(1);
+		}
+	}
+
+	mib[0]	= CTL_NET;		/* networking subsystem */
+	mib[1]	= PF_ROUTE;		/* type of information */
+	mib[2]	= 0;			/* protocol (IPPROTO_xxx) */
+	mib[3]	= 0;			/* address family */
+	mib[4]	= NET_RT_IFLIST2;	/* operation */
+	mib[5]	= 0;
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0)
+		return;
+	if ((buf = malloc(len)) == NULL) {
+		printf("malloc failed\n");
+		exit(1);
+	}
+	if (sysctl(mib, 6, buf, &len, NULL, 0) < 0) {
+		free(buf);
+		return;
+	}
+
+	printf("%-6s %-17s %8.8s %-9.9s %4s %4s\n",
+	       "Proto", "Linklayer Address", "Netif", "Expire", "Refs", "Prbs");
+
+	lim = buf + len;
+	if2m = (struct if_msghdr2 *)buf;
+
+	for (next = buf; next < lim; ) {
+		if2m = (struct if_msghdr2 *)next;
+		next += if2m->ifm_msglen;
+
+		if (if2m->ifm_type != RTM_IFINFO2)
+			continue;
+		else if (interface != 0 && if2m->ifm_index != ifindex)
+			continue;
+
+		llreach_sysctl(if2m->ifm_index);
+	}
+	free(buf);
+}
+
+static void
+llreach_sysctl(uint32_t ifindex)
+{
+#define	MAX_SYSCTL_TRY	5
+	int mib[6], i, ntry = 0;
+	size_t mibsize, len, needed, cnt;
+	struct if_llreach_info *lri;
+	struct timeval time;
+	char *buf;
+	char ifname[IF_NAMESIZE];
+
+	bzero(&mib, sizeof (mib));
+	mibsize = sizeof (mib) / sizeof (mib[0]);
+	if (sysctlnametomib("net.link.generic.system.llreach_info", mib,
+	    &mibsize) == -1) {
+		perror("sysctlnametomib");
+		return;
+	}
+
+	needed = 0;
+	mib[5] = ifindex;
+
+	mibsize = sizeof (mib) / sizeof (mib[0]);
+	do {
+		if (sysctl(mib, mibsize, NULL, &needed, NULL, 0) == -1) {
+			perror("sysctl net.link.generic.system.llreach_info");
+			return;
+		}
+		if ((buf = malloc(needed)) == NULL) {
+			perror("malloc");
+			return;
+		}
+		if (sysctl(mib, mibsize, buf, &needed, NULL, 0) == -1) {
+			if (errno != ENOMEM || ++ntry >= MAX_SYSCTL_TRY) {
+				perror("sysctl");
+				goto out_free;
+			}
+			free(buf);
+			buf = NULL;
+		}
+	} while (buf == NULL);
+
+	len = needed;
+	cnt = len / sizeof (*lri);
+	lri = (struct if_llreach_info *)buf;
+
+	gettimeofday(&time, 0);
+	if (if_indextoname(ifindex, ifname) == NULL)
+		snprintf(ifname, sizeof (ifname), "%s", "?");
+
+	for (i = 0; i < cnt; i++, lri++) {
+		printf("0x%-4x %-17s %8.8s ", lri->lri_proto,
+		    ether_ntoa((struct ether_addr *)lri->lri_addr), ifname);
+
+		if (lri->lri_expire > time.tv_sec)
+			printf("%-9.9s", sec2str(lri->lri_expire - time.tv_sec));
+		else if (lri->lri_expire == 0)
+			printf("%-9.9s", "permanent");
+		else
+			printf("%-9.9s", "expired");
+
+		printf(" %4d", lri->lri_refcnt);
+		if (lri->lri_probes)
+			printf(" %4d", lri->lri_probes);
+		printf("\n");
+		len -= sizeof (*lri);
+	}
+	if (len > 0) {
+		fprintf(stderr, "warning: %u trailing bytes from %s\n",
+		    (unsigned int)len, "net.link.generic.system.llreach_info");
+	}
+
+out_free:
+	free(buf);
+#undef	MAX_SYSCTL_TRY
 }

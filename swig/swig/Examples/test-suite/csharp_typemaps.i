@@ -2,9 +2,9 @@
 
 // Test the C# types customisation by modifying the default char * typemaps to return a single char
 
+%typemap(ctype, out="char /*ctype out override*/") char * "char *"
 %typemap(imtype, out="char /*imtype out override*/") char * "string"
 %typemap(cstype, out="char /*cstype out override*/") char * "string"
-%typemap(ctype, out="char /*ctype out override*/") char * "char *"
 
 %typemap(out) char * %{
   // return the 0th element rather than the whole string
@@ -16,9 +16,9 @@
     return ret;
   }
 
-%typemap(csvarout, excode=SWIGEXCODE2) char *, char[ANY], char[] %{
+%typemap(csvarout, excode=SWIGEXCODE2) char * %{
     get {
-      string ret = new string($imcall, 3);$excode
+      char ret = $imcall;$excode
       return ret;
     } %}
 
@@ -30,11 +30,28 @@ namespace Space {
         static char* stop(char *val) { return val; }
     };
     char* partyon(char *val) { return val; }
-    #define STRINGCONSTANT "xyz string"
-    char *go = "zap";
 }
+%}
+
+
+// Test variables when ref is used in the cstype typemap - the variable name should come from the out attribute if specified
+%typemap(cstype) MKVector, const MKVector& "MKVector"
+%typemap(cstype, out="MKVector") MKVector &, MKVector * "ref MKVector"
+
+%inline %{
+struct MKVector {
+};
+struct MKRenderGameVector {
+  MKVector memberValue;
+  static MKVector staticValue;
+};
+MKVector MKRenderGameVector::staticValue;
+MKVector globalValue;
+%}
+
 
 // Number and Obj are for the eager garbage collector runtime test
+%inline %{
 struct Number {
   Number(double value) : Value(value) {}
   double Value;
@@ -73,3 +90,14 @@ Number times12(const Number* num) {
 };
 %}
 
+// Test $csinput expansion
+%typemap(csvarin, excode=SWIGEXCODE2) int %{
+    set {
+      if ($csinput < 0)
+        throw new ApplicationException("number too small!");
+      $imcall;$excode
+    } %}
+
+%inline %{
+int myInt = 0;
+%}

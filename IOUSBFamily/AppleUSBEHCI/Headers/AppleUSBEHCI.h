@@ -134,19 +134,6 @@ enum{
 };
 
 
-// stuff to manage "extra" USB power on some machines
-typedef struct AppleEHCIExtraPower
-{
-	UInt32			version;				// version of this structure
-	UInt32			perPort;				// the amount availeable per port above and beyond the 500ma in the spec (in milliamps) [AAPL,current-extra]
-	UInt32			aggregate;				// the total amount available on the controller or machine, to be allocated amoung all ports (in milliamps) [AAPL,current-available]
-	UInt32			inSleep;				// total amount of current available on the port when the machine is in sleep (in milliamps) [AAPL,current-extra]
-} AppleEHCIExtraPower;
-
-enum {
-	kAppleEHCIExtraPowerVersion = 0x100
-};
-
 //================================================================================================
 //
 //   AppleUSBEHCI_IOLockClass
@@ -204,9 +191,7 @@ private:
     void							AddIsocFramesToSchedule(AppleEHCIIsochEndpoint*);
     IOReturn						AbortIsochEP(AppleEHCIIsochEndpoint*);
     IOReturn						DeleteIsochEP(AppleEHCIIsochEndpoint*);
-	
-	static AppleEHCIExtraPower		_extraPower;						// this is static as currently it is share by all machines
-    
+
 protected:
     IOMemoryMap *							_deviceBase;
     UInt16									_vendorID;
@@ -707,8 +692,6 @@ public:
 	virtual IOReturn				UIMEnableAddressEndpoints(USBDeviceAddress address, bool enable);
 	virtual IOReturn				UIMEnableAllEndpoints(bool enable);
 	virtual IOReturn				EnableInterruptsFromController(bool enable);
-	virtual	UInt32					AllocateExtraRootHubPortPower(UInt32 extraPowerRequested);
-	virtual	void					ReturnExtraRootHubPortPower(UInt32 extraPowerReturned);
 	
 };
 

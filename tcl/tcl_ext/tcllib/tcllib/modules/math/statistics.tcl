@@ -15,7 +15,7 @@
 # version 0.6:   added pdf and cdf procedures for various distributions
 #                (provided by Eric Kemp-Benedict)
 
-package provide math::statistics 0.6
+package provide math::statistics 0.6.3
 package require math
 
 # ::math::statistics --
@@ -90,6 +90,12 @@ namespace eval ::math::statistics {
 proc ::math::statistics::BasicStats { type values } {
     variable TOOFEWDATA
 
+    if { [lsearch {all mean min max number stdev var pstdev pvar} $type] < 0 } {
+	return -code error \
+		-errorcode ARG -errorinfo [list unknown type of statistic -- $type] \
+		[list unknown type of statistic -- $type]
+    }
+
     set min    {}
     set max    {}
     set mean   {}
@@ -99,6 +105,7 @@ proc ::math::statistics::BasicStats { type values } {
     set sum    0.0
     set sumsq  0.0
     set number 0
+    set first  {}
 
     foreach value $values {
 	if { $value == {} } {
@@ -106,9 +113,13 @@ proc ::math::statistics::BasicStats { type values } {
 	}
 	set value [expr {double($value)}]
 
+	if { $first == {} } {
+	    set first $value
+	}
+
 	incr number
 	set  sum    [expr {$sum+$value}]
-	set  sumsq  [expr {$sumsq+$value*$value}]
+	set  sumsq  [expr {$sumsq+($value-$first)*($value-$first)}]
 
 	if { $min == {} || $value < $min } {
 	    set min $value
@@ -125,7 +136,7 @@ proc ::math::statistics::BasicStats { type values } {
     }
 
     if { $number > 1 } {
-	set var    [expr {($sumsq-$mean*$sum)/double($number-1)}]
+	set var    [expr {($sumsq-($mean-$first)*($sum-$number*$first))/double($number-1)}]
         #
         # Take care of a rare situation: uniform data might
         # cause a tiny negative difference
@@ -135,7 +146,7 @@ proc ::math::statistics::BasicStats { type values } {
         }
 	set stdev  [expr {sqrt($var)}]
     }
-	set pvar [expr {($sumsq-$mean*$sum)/double($number)}]
+	set pvar [expr {($sumsq-($mean-$first)*($sum-$number*$first))/double($number)}]
         #
         # Take care of a rare situation: uniform data might
         # cause a tiny negative difference
@@ -150,14 +161,7 @@ proc ::math::statistics::BasicStats { type values } {
     #
     # Return the appropriate value
     #
-    if { [lsearch {all mean min max number stdev var pstdev pvar} $type] >= 0 } {
-	# FRINK: nocheck
-	return [set $type]
-    } else {
-	return -code error \
-		-errorcode ARG -errorinfo [list unknown type of statistic -- $type] \
-		[list unknown type of statistic -- $type]
-    }
+    set $type
 }
 
 # histogram --
@@ -487,7 +491,6 @@ proc ::math::statistics::t-test-mean { data est_mean est_stdev confidence } {
 #
 proc ::math::statistics::interval-mean-stdev { data confidence } {
     variable TOOFEWDATA
-    variable student_t_table
 
     set allstats [BasicStats all $data]
 
@@ -498,9 +501,7 @@ proc ::math::statistics::interval-mean-stdev { data confidence } {
 
     if { $number > 1 } {
 	set degrees    [expr {$number-1}]
-	set student_t \
-		[::math::interpolation::interpolate2d $student_t_table \
-		$degrees $conf2]
+	set student_t  [expr {sqrt([Inverse-cdf-toms322 1 $degrees $conf2])}]
 	set mean_lower [expr {$mean-$student_t*$stdev/sqrt($number)}]
 	set mean_upper [expr {$mean+$student_t*$stdev/sqrt($number)}]
 	set stdev_lower {}

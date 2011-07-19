@@ -5,7 +5,7 @@
         <string>0.7.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://undefined.org/python/#altgraph</string>
-        <key>OpenSourceSVN</key>
+        <key>OpenSourceSCM</key>
         <string>https://svn.red-bean.com/pyobjc/tags/pyobjc-2.3.1/altgraph</string>
         <key>OpenSourceImportDate</key>
         <string>2010-08-24</string>

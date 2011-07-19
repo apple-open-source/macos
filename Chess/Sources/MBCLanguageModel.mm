@@ -2,7 +2,7 @@
 	File:		MBCLanguageModel.mm
 	Contains:	Build and interpret speech recognition language model
 	Version:	1.0
-	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCLanguageModel.mm,v $
+		Revision 1.5  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.4  2006/06/03 00:56:28  neerache
 		Fix up SRefCon casat for 32 bit mode
 		
@@ -98,7 +101,7 @@ inline SRefCon SR(MBCCompactMove move)
 	SRLanguageModel	destinations;
 	NSString *		pieceDest = [NSString stringWithFormat:@"%s to", move];
 	SRNewLanguageModel(fSystem, &destinations, 
-					   [pieceDest cString], [pieceDest length]);
+					   [pieceDest UTF8String], [pieceDest length]);
 	if (fDumpModels) {
 		const char * seenDest = "";
 		fprintf(stderr, "<%c%dmoves> =", Col(from), Row(from));
@@ -140,7 +143,7 @@ inline SRefCon SR(MBCCompactMove move)
 	NSString *		pieceOrigins = [NSString stringWithFormat:@"%s from",
 											 sPieceName[piece]];
 	SRNewLanguageModel(fSystem, &origins, 
-					   [pieceOrigins cString], [pieceOrigins length]);
+					   [pieceOrigins UTF8String], [pieceOrigins length]);
 
 	MBCPieceMoves *	moves	= fMoves->fMoves+piece;
 	if (fDumpModels) {

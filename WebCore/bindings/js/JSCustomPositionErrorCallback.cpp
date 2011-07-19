@@ -30,7 +30,6 @@
 
 #include "Frame.h"
 #include "JSPositionError.h"
-#include "ScriptController.h"
 #include <runtime/JSLock.h>
 
 namespace WebCore {
@@ -38,12 +37,17 @@ namespace WebCore {
 using namespace JSC;
 
 JSCustomPositionErrorCallback::JSCustomPositionErrorCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
-    : m_data(callback, globalObject)
+    : PositionErrorCallback(globalObject->scriptExecutionContext())
+    , m_data(callback, globalObject)
 {
 }
 
 void JSCustomPositionErrorCallback::handleEvent(PositionError* positionError)
 {
+    // ActiveDOMObject will null our pointer to the ScriptExecutionContext when it goes away.
+    if (!scriptExecutionContext())
+        return;
+
     RefPtr<JSCustomPositionErrorCallback> protect(this);
 
     JSC::JSLock lock(SilenceAssertionsOnly);

@@ -35,9 +35,20 @@
 #include <sys/cdefs.h>
 #include <unistd.h>
 
-#include <SMBClient/smbclient.h>
+#include <smbclient/ntstatus.h>
+#include <smbclient/smbclient.h>
 #include <libkern/OSByteOrder.h>
-#include <netsmb/smb.h>
+
+/*
+ * XXX
+ * The following are also in netsmb/smb.h, but that is not an internal
+ * include file. Should we have a include file that list all the SMB and
+ * SMB command? Not currently for now just include these for nows.
+ */
+#define	SMB_SIGNATURE	"\xFFSMB"
+#define	SMB_COM_ECHO	0x2B
+#define	SMB_HDRLEN		32
+
 
 void nt_error(NTSTATUS status, const char * fmt, ...) __printflike(2, 3);
 
@@ -71,7 +82,7 @@ static void protocol_error(const char * fmt, ...)
 static void usage(void)
 {
     const char * usage_message =
-    "smbcat smb://[domain;][user[:password]@]server/share FILE [FILE ...]\n";
+    "smbcat [-NGAh] [-S name stream] smb://[domain;][user[:password]@]server/share FILE [FILE ...]\n";
 
     printf("%s", usage_message);
 
@@ -86,7 +97,7 @@ static void smbecho(SMBHANDLE handle)
     uint8_t response[128];
 
     NTSTATUS status;
-    off_t nbytes;
+    size_t nbytes;
     uint8_t * ptr;
 
     memset(request, 0, sizeof(request));
@@ -94,7 +105,7 @@ static void smbecho(SMBHANDLE handle)
 
     ptr = request;
 
-    OSWriteLittleInt32(ptr, 0, *((uint32_t *)SMB_SIGNATURE));
+    OSWriteLittleInt32(ptr, 0, *((uint32_t *)(void *)SMB_SIGNATURE));
     ptr += sizeof(uint32_t); /* SMB magic */
 
     *ptr++ = SMB_COM_ECHO;
@@ -125,7 +136,7 @@ static void smbecho(SMBHANDLE handle)
                 request, (ptrdiff_t)ptr - (ptrdiff_t)request,
                 response, sizeof(response), &nbytes);
 
-    if (!NT_SUCCESS(status)) {
+	if (!NT_SUCCESS(status)) {
         nt_error(status, "SMBRawTransaction()");
     }
 
@@ -144,7 +155,7 @@ static void smbecho(SMBHANDLE handle)
     ptr += sizeof(uint8_t); /* SMB command */
 
     status = OSReadLittleInt32(ptr, 0);
-    if (status != NT_STATUS_SUCCESS) {
+    if (!NT_SUCCESS(status)) {
         nt_error(status, "SMBEcho()");
         protocol_error("SMBEcho failed");
     }
@@ -179,7 +190,7 @@ static void smbecho(SMBHANDLE handle)
     }
 }
 
-static void cat_file(SMBHANDLE handle, const char * path)
+static void cat_file(SMBHANDLE handle, const char * path, const char *nameStream)
 {
     SMBFID hFile;
     NTSTATUS status;
@@ -187,24 +198,34 @@ static void cat_file(SMBHANDLE handle, const char * path)
     off_t current = 0;
     void * buffer = malloc(getpagesize());
 
-    status = SMBCreateFile(handle, path,
-        0x0001, /* dwDesiredAccess: FILE_READ_DATA */
-        0x0007, /* dwShareMode: FILE_SHARE_ALL */
-        NULL,   /* lpSecurityAttributes */
-        0x0001, /* dwCreateDisposition: OPEN_EXISTING */
-        0x0000, /* dwFlagsAndAttributes */
-        &hFile);
-    if (!NT_SUCCESS(status)) {
+	if (nameStream) {
+		status = SMBCreateNamedStreamFile(handle, path, nameStream,
+			0x0001, /* dwDesiredAccess: FILE_READ_DATA */
+			0x0007, /* dwShareMode: FILE_SHARE_ALL */
+			NULL,   /* lpSecurityAttributes */
+			0x0001, /* dwCreateDisposition: OPEN_EXISTING */
+			0x0000, /* dwFlagsAndAttributes */
+			&hFile);
+	} else {
+		status = SMBCreateFile(handle, path,
+			0x0001, /* dwDesiredAccess: FILE_READ_DATA */
+			0x0007, /* dwShareMode: FILE_SHARE_ALL */
+			NULL,   /* lpSecurityAttributes */
+			0x0001, /* dwCreateDisposition: OPEN_EXISTING */
+			0x0000, /* dwFlagsAndAttributes */
+			&hFile);
+	}
+	if (!NT_SUCCESS(status)) {
         nt_error(status, "SMBCreateFile(%s)", path);
         goto done;
     }
 
     do {
-        off_t count = 0;
+        size_t count = 0;
 
         status = SMBReadFile(handle, hFile,
                 buffer, current, getpagesize(), &count);
-        if (!NT_SUCCESS(status)) {
+		if (!NT_SUCCESS(status)) {
             break;
         }
 
@@ -220,28 +241,51 @@ static void cat_file(SMBHANDLE handle, const char * path)
 
 done:
     free(buffer);
+	printf("\n");
 }
 
-int main(int argc, const char ** argv)
+int main(int argc, char ** argv)
 {
     SMBHANDLE handle;
     NTSTATUS status;
-
-    if (argc < 3) {
-        usage();
-    }
-
-    status = SMBOpenServer(argv[1], &handle);
-    if (!NT_SUCCESS(status)) {
+	char *nameStream = NULL;
+	int opt;
+	uint64_t    options = 0;
+	
+	while ((opt = getopt(argc, argv, "NGAhS:")) != -1) {
+		switch (opt) {
+		    case 'S':
+				nameStream = optarg;
+				break;
+			case 'N':
+				options |= kSMBOptionNoPrompt;
+				break;
+			case 'G':
+				options |= kSMBOptionUseGuestOnlyAuth;
+				break;
+			case 'A':
+				options |= kSMBOptionUseAnonymousOnlyAuth;
+				break;
+			case '?':
+			case 'h':
+		    default:
+				usage();
+				break;
+		}
+	}
+	if (optind >= argc)
+		usage();
+		
+    status = SMBOpenServerEx(argv[optind++], &handle, options);
+	if (!NT_SUCCESS(status)) {
         nt_error(status, "SMBOpenServer(%s)", argv[1]);
         return EX_PROTOCOL;
     }
 
     smbecho(handle);
-
-    for (int i = 2; i < argc; ++i) {
-        cat_file(handle, argv[i]);
-    }
+	while (optind < argc) {
+        cat_file(handle, argv[optind++], nameStream);
+	}
 
     SMBReleaseServer(handle);
     return EX_OK;

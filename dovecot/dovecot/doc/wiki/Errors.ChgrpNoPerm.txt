@@ -1,0 +1,25 @@
+Operation Not Permitted
+=======================
+
+---%<-------------------------------------------------------------------------
+imap(user): Error: chown(/home/user/mail/.imap/INBOX, group=12(mail)) failed:
+Operation not permitted (egid=1000(user), group based on /var/mail/user - see
+http://wiki2.dovecot.org/Errors/ChgrpNoPerm)
+---%<-------------------------------------------------------------------------
+
+This means that Dovecot tried to copy '/var/mail/user' file's group (mail) to
+the index file directory it was creating ('/home/user/mail/.imap/INBOX'), but
+the process didn't belong to the mail group, so it failed. This is important
+for preserving access permissions with <shared mailboxes>
+[SharedMailboxes.txt]. Group copying is done only when it actually changes the
+access permissions; for example with 0600 or 0666 mode the group doesn't matter
+at all, but with 0660 or 0640 it does.
+
+To solve this problem you can do only one of two things:
+
+ 1. If the group doesn't actually matter, change the permissions so that the
+    group isn't copied (e.g.'chmod 0600 /var/mail/user')
+ 2. Give the mail process access to the group (e.g. via 'mail_access_groups'
+    setting).
+
+(This file was created from the wiki on 2011-05-11 04:42)

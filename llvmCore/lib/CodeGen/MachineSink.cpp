@@ -7,7 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This pass 
+// This pass moves instructions into successor blocks, when possible, so that
+// they aren't executed on paths where their results aren't needed.
+//
+// This pass is not intended to be a replacement or a complete alternative
+// for an LLVM-IR-level sinking pass. It is only designed to sink simple
+// constructs that are not exposed before lowering and instruction selection.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,23 +20,27 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 STATISTIC(NumSunk, "Number of machine instructions sunk");
 
 namespace {
-  class VISIBILITY_HIDDEN MachineSinking : public MachineFunctionPass {
-    const TargetMachine   *TM;
+  class MachineSinking : public MachineFunctionPass {
     const TargetInstrInfo *TII;
-    MachineFunction       *CurMF; // Current MachineFunction
+    const TargetRegisterInfo *TRI;
     MachineRegisterInfo  *RegInfo; // Machine register information
-    MachineDominatorTree *DT;   // Machine dominator tree for the current Loop
+    MachineDominatorTree *DT;   // Machine dominator tree
+    MachineLoopInfo *LI;
+    AliasAnalysis *AA;
+    BitVector AllocatableSet;   // Which physregs are allocatable?
 
   public:
     static char ID; // Pass identification
@@ -40,9 +49,13 @@ namespace {
     virtual bool runOnMachineFunction(MachineFunction &MF);
     
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.setPreservesCFG();
       MachineFunctionPass::getAnalysisUsage(AU);
+      AU.addRequired<AliasAnalysis>();
       AU.addRequired<MachineDominatorTree>();
+      AU.addRequired<MachineLoopInfo>();
       AU.addPreserved<MachineDominatorTree>();
+      AU.addPreserved<MachineLoopInfo>();
     }
   private:
     bool ProcessBlock(MachineBasicBlock &MBB);
@@ -63,14 +76,17 @@ bool MachineSinking::AllUsesDominatedByBlock(unsigned Reg,
                                              MachineBasicBlock *MBB) const {
   assert(TargetRegisterInfo::isVirtualRegister(Reg) &&
          "Only makes sense for vregs");
-  for (MachineRegisterInfo::reg_iterator I = RegInfo->reg_begin(Reg),
-       E = RegInfo->reg_end(); I != E; ++I) {
-    if (I.getOperand().isDef()) continue;  // ignore def.
-    
+  // Ignoring debug uses is necessary so debug info doesn't affect the code.
+  // This may leave a referencing dbg_value in the original block, before
+  // the definition of the vreg.  Dwarf generator handles this although the
+  // user might not get the right info at runtime.
+  for (MachineRegisterInfo::use_nodbg_iterator I = 
+       RegInfo->use_nodbg_begin(Reg),
+       E = RegInfo->use_nodbg_end(); I != E; ++I) {
     // Determine the block of the use.
     MachineInstr *UseInst = &*I;
     MachineBasicBlock *UseBlock = UseInst->getParent();
-    if (UseInst->getOpcode() == TargetInstrInfo::PHI) {
+    if (UseInst->isPHI()) {
       // PHI nodes use the operand in the predecessor block, not the block with
       // the PHI.
       UseBlock = UseInst->getOperand(I.getOperandNo()+1).getMBB();
@@ -82,16 +98,17 @@ bool MachineSinking::AllUsesDominatedByBlock(unsigned Reg,
   return true;
 }
 
-
-
 bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
-  DOUT << "******** Machine Sinking ********\n";
+  DEBUG(dbgs() << "******** Machine Sinking ********\n");
   
-  CurMF = &MF;
-  TM = &CurMF->getTarget();
-  TII = TM->getInstrInfo();
-  RegInfo = &CurMF->getRegInfo();
+  const TargetMachine &TM = MF.getTarget();
+  TII = TM.getInstrInfo();
+  TRI = TM.getRegisterInfo();
+  RegInfo = &MF.getRegInfo();
   DT = &getAnalysis<MachineDominatorTree>();
+  LI = &getAnalysis<MachineLoopInfo>();
+  AA = &getAnalysis<AliasAnalysis>();
+  AllocatableSet = TRI->getAllocatableSet(MF);
 
   bool EverMadeChange = false;
   
@@ -99,7 +116,7 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
     bool MadeChange = false;
 
     // Process all basic blocks.
-    for (MachineFunction::iterator I = CurMF->begin(), E = CurMF->end(); 
+    for (MachineFunction::iterator I = MF.begin(), E = MF.end(); 
          I != E; ++I)
       MadeChange |= ProcessBlock(*I);
     
@@ -113,6 +130,11 @@ bool MachineSinking::runOnMachineFunction(MachineFunction &MF) {
 bool MachineSinking::ProcessBlock(MachineBasicBlock &MBB) {
   // Can't sink anything out of a block that has less than two successors.
   if (MBB.succ_size() <= 1 || MBB.empty()) return false;
+
+  // Don't bother sinking code out of unreachable blocks. In addition to being
+  // unprofitable, it can also lead to infinite looping, because in an unreachable
+  // loop there may be nowhere to stop.
+  if (!DT->isReachableFromEntry(&MBB)) return false;
 
   bool MadeChange = false;
 
@@ -128,7 +150,10 @@ bool MachineSinking::ProcessBlock(MachineBasicBlock &MBB) {
     ProcessedBegin = I == MBB.begin();
     if (!ProcessedBegin)
       --I;
-    
+
+    if (MI->isDebugValue())
+      continue;
+
     if (SinkInstruction(MI, SawStore))
       ++NumSunk, MadeChange = true;
     
@@ -142,7 +167,7 @@ bool MachineSinking::ProcessBlock(MachineBasicBlock &MBB) {
 /// instruction out of its current block into a successor.
 bool MachineSinking::SinkInstruction(MachineInstr *MI, bool &SawStore) {
   // Check if it's safe to move the instruction.
-  if (!MI->isSafeToMove(TII, SawStore))
+  if (!MI->isSafeToMove(TII, AA, SawStore))
     return false;
   
   // FIXME: This should include support for sinking instructions within the
@@ -151,7 +176,7 @@ bool MachineSinking::SinkInstruction(MachineInstr *MI, bool &SawStore) {
   // also sink them down before their first use in the block.  This xform has to
   // be careful not to *increase* register pressure though, e.g. sinking
   // "x = y + z" down if it kills y and z would increase the live ranges of y
-  // and z only the shrink the live range of x.
+  // and z and only shrink the live range of x.
   
   // Loop over all the operands of the specified instruction.  If there is
   // anything we can't handle, bail out.
@@ -169,10 +194,26 @@ bool MachineSinking::SinkInstruction(MachineInstr *MI, bool &SawStore) {
     if (Reg == 0) continue;
     
     if (TargetRegisterInfo::isPhysicalRegister(Reg)) {
-      // If this is a physical register use, we can't move it.  If it is a def,
-      // we can move it, but only if the def is dead.
-      if (MO.isUse() || !MO.isDead())
+      if (MO.isUse()) {
+        // If the physreg has no defs anywhere, it's just an ambient register
+        // and we can freely move its uses. Alternatively, if it's allocatable,
+        // it could get allocated to something with a def during allocation.
+        if (!RegInfo->def_empty(Reg))
+          return false;
+        if (AllocatableSet.test(Reg))
+          return false;
+        // Check for a def among the register's aliases too.
+        for (const unsigned *Alias = TRI->getAliasSet(Reg); *Alias; ++Alias) {
+          unsigned AliasReg = *Alias;
+          if (!RegInfo->def_empty(AliasReg))
+            return false;
+          if (AllocatableSet.test(AliasReg))
+            return false;
+        }
+      } else if (!MO.isDead()) {
+        // A def that isn't dead. We can't move it.
         return false;
+      }
     } else {
       // Virtual register uses are always safe to sink.
       if (MO.isUse()) continue;
@@ -227,31 +268,56 @@ bool MachineSinking::SinkInstruction(MachineInstr *MI, bool &SawStore) {
   if (SuccToSinkTo->isLandingPad())
     return false;
   
-  // If is not possible to sink an instruction into its own block.  This can
+  // It is not possible to sink an instruction into its own block.  This can
   // happen with loops.
   if (MI->getParent() == SuccToSinkTo)
     return false;
   
-  DEBUG(cerr << "Sink instr " << *MI);
-  DEBUG(cerr << "to block " << *SuccToSinkTo);
+  DEBUG(dbgs() << "Sink instr " << *MI);
+  DEBUG(dbgs() << "to block " << *SuccToSinkTo);
   
   // If the block has multiple predecessors, this would introduce computation on
   // a path that it doesn't already exist.  We could split the critical edge,
   // but for now we just punt.
   // FIXME: Split critical edges if not backedges.
   if (SuccToSinkTo->pred_size() > 1) {
-    DEBUG(cerr << " *** PUNTING: Critical edge found\n");
-    return false;
+    // We cannot sink a load across a critical edge - there may be stores in
+    // other code paths.
+    bool store = true;
+    if (!MI->isSafeToMove(TII, AA, store)) {
+      DEBUG(dbgs() << " *** PUNTING: Wont sink load along critical edge.\n");
+      return false;
+    }
+
+    // We don't want to sink across a critical edge if we don't dominate the
+    // successor. We could be introducing calculations to new code paths.
+    if (!DT->dominates(ParentBlock, SuccToSinkTo)) {
+      DEBUG(dbgs() << " *** PUNTING: Critical edge found\n");
+      return false;
+    }
+
+    // Don't sink instructions into a loop.
+    if (LI->isLoopHeader(SuccToSinkTo)) {
+      DEBUG(dbgs() << " *** PUNTING: Loop header found\n");
+      return false;
+    }
+
+    // Otherwise we are OK with sinking along a critical edge.
+    DEBUG(dbgs() << "Sinking along critical edge.\n");
   }
   
   // Determine where to insert into.  Skip phi nodes.
   MachineBasicBlock::iterator InsertPos = SuccToSinkTo->begin();
-  while (InsertPos != SuccToSinkTo->end() && 
-         InsertPos->getOpcode() == TargetInstrInfo::PHI)
+  while (InsertPos != SuccToSinkTo->end() && InsertPos->isPHI())
     ++InsertPos;
   
   // Move the instruction.
   SuccToSinkTo->splice(InsertPos, ParentBlock, MI,
                        ++MachineBasicBlock::iterator(MI));
+
+  // Conservatively, clear any kill flags, since it's possible that
+  // they are no longer correct.
+  MI->clearKillInfo();
+
   return true;
 }

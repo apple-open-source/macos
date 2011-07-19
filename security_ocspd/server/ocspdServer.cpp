@@ -24,7 +24,6 @@
 /*
  * ocspdServer.cpp - Server class for OCSP helper
  */
-
 #if OCSP_DEBUG
 #define OCSP_USE_SYSLOG	1
 #endif
@@ -36,9 +35,10 @@
 #include "ocspdNetwork.h"
 #include "ocspdDb.h"
 #include "crlDb.h"
-#include <Security/Security.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#include <Security/SecTask.h>
 #include <Security/SecAsn1Coder.h>
 #include <Security/ocspTemplates.h>
 #include <Security/cssmapple.h>
@@ -143,6 +143,7 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 
 	return NULL;
 }
+
 
 #pragma mark ----- CRL utilities -----
 
@@ -522,11 +523,45 @@ void passDataToCaller(
 	MachPlusPlus::MachServer::active().releaseWhenDone(alloc, srcData.Data);
 }
 
+/*
+ * Check whether the caller can access the network. Currently, this applies
+ * only to applications running under App Sandbox.
+ */
+bool callerHasNetworkEntitlement(
+	audit_token_t auditToken)
+{
+	bool result = true; /* until proven otherwise */
+	SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
+	if(task != NULL) {
+		CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
+			CFSTR("com.apple.security.app-protection"),
+			NULL);
+		if(appSandboxValue != NULL) {
+			if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
+				CFTypeRef networkClientValue = SecTaskCopyValueForEntitlement(task,
+					CFSTR("com.apple.security.network.client"),
+					NULL);
+				if(networkClientValue != NULL) {
+					result = (!CFEqual(kCFBooleanFalse, networkClientValue));
+					CFRelease(networkClientValue);
+				} else {
+					result = false;
+				}
+			}
+			CFRelease(appSandboxValue);
+		}
+		CFRelease(task);
+	}
+	return result;
+}
+
+
 #pragma mark ----- Mig-referenced routines for cert and CRL maintenance -----
 
 /* 
- * Fetch a cert from the net. Currently we don't do any validation at all - 
- * should we? 
+ * Fetch a cert from the net. Currently we don't do any validation at all of
+ * the returned data; that is handled by the caller. However, we do check
+ * that the caller has a network entitlement if running under App Sandbox.
  *
  * I'm sure someone will ask "why don't we cache these certs?"; the main reason
  * is that the keychain schema does not allow for the storage of an expiration
@@ -536,6 +571,7 @@ void passDataToCaller(
  */
 kern_return_t ocsp_server_certFetch (
 	mach_port_t serverport,
+	audit_token_t auditToken,
 	Data cert_url,
 	mach_msg_type_number_t cert_urlCnt,
 	Data *cert_data,
@@ -549,7 +585,13 @@ kern_return_t ocsp_server_certFetch (
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
 
-	krtn = ocspdNetFetch(OcspdServer::active().alloc(), urlData, LT_Cert, certData);
+	if(!callerHasNetworkEntitlement(auditToken)) {
+		/* client can't access network */
+		krtn = CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+	else {
+		krtn = ocspdNetFetch(OcspdServer::active().alloc(), urlData, LT_Cert, certData);
+	}
 	/* if we got any data, sent it back to client */
 	if(krtn == 0) {
 		if(certData.Length == 0) {
@@ -688,6 +730,7 @@ kern_return_t ocsp_server_crlStatus (
  */
 kern_return_t ocsp_server_crlFetch (
 	mach_port_t serverport,
+	audit_token_t auditToken,
 	Data crl_url,
 	mach_msg_type_number_t crl_urlCnt,
 	Data crl_issuer,					// optional
@@ -746,6 +789,11 @@ kern_return_t ocsp_server_crlFetch (
 
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
+
+	if(!callerHasNetworkEntitlement(auditToken)) {
+		/* client can't access network */
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
 
 	size_t dataLen = (crl_issuerCnt) ? crl_issuerCnt : crl_urlCnt;
 	unsigned char *dataPtr = (unsigned char *)((crl_issuerCnt) ? crl_issuer : crl_url);

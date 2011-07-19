@@ -8,7 +8,7 @@ BUILD_SOURCE_DIR=$(top_builddir)/Source
 
 SWIG_CXX_DEFS = @SWILL@
 
-AM_CFLAGS =	-I$(BUILD_SOURCE_DIR)/Include	\
+AM_CPPFLAGS =	-I$(BUILD_SOURCE_DIR)/Include	\
 		-I$(BUILD_SOURCE_DIR)/CParse	\
 		-I$(SOURCE_DIR)/Include		\
 		-I$(SOURCE_DIR)/DOH		\
@@ -17,8 +17,7 @@ AM_CFLAGS =	-I$(BUILD_SOURCE_DIR)/Include	\
 		-I$(SOURCE_DIR)/Swig		\
 		-I$(SOURCE_DIR)/Modules
 
-AM_CXXFLAGS =	$(AM_CFLAGS)			\
-		$(SWIG_CXX_DEFS)
+AM_CXXFLAGS =	$(SWIG_CXX_DEFS)
 
 AM_YFLAGS = -d
 
@@ -54,9 +53,10 @@ eswig_SOURCES =	CParse/cscanner.c		\
 		Modules/module.cxx		\
 		Modules/mzscheme.cxx		\
 		Modules/ocaml.cxx		\
+		Modules/octave.cxx		\
 		Modules/overload.cxx		\
 		Modules/perl5.cxx		\
-		Modules/php4.cxx		\
+		Modules/php.cxx			\
 		Modules/pike.cxx		\
 		Modules/python.cxx		\
 		Modules/r.cxx			\
@@ -71,6 +71,7 @@ eswig_SOURCES =	CParse/cscanner.c		\
 		Preprocessor/cpp.c		\
 		Preprocessor/expr.c		\
 		Swig/cwrap.c			\
+		Swig/deprecate.c		\
 		Swig/error.c			\
 		Swig/fragment.c			\
 		Swig/getopt.c			\
@@ -86,8 +87,7 @@ eswig_SOURCES =	CParse/cscanner.c		\
 		Swig/typemap.c			\
 		Swig/typesys.c			\
 		Swig/warn.c			\
-		Swig/wrapfunc.c			\
-		Swig/swigkeys.c
+		Swig/wrapfunc.c			
 
 bin_PROGRAMS = eswig
 eswig_LDADD   = @SWIGLIBS@
@@ -99,10 +99,10 @@ CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 # This occurs on each invocation of make and is a step towards providing support for multiple 
 # build directories.
 all-local: eswig@EXEEXT@
-	cp eswig@EXEEXT@ ../swig@EXEEXT@
+	cp -f $(top_builddir)/Source/eswig@EXEEXT@ $(top_builddir)/swig@EXEEXT@
 
 clean-local:
-	rm -f ../swig@EXEEXT@
+	rm -f $(top_builddir)/swig@EXEEXT@
 	rm -f core @EXTRA_CLEAN@
 
 

@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.6 2009/01/15 20:45:59 rdivacky Exp $");
 
 #include "xlocale_private.h"
 
@@ -55,7 +55,9 @@ wcsftime_l(wchar_t * __restrict wcs, size_t maxsize,
 {
 	static const mbstate_t initial;
 	mbstate_t mbs;
-	char *dst, *dstp, *sformat;
+	char *dst, *sformat;
+	const char *dstp;
+	const wchar_t *formatp;
 	size_t n, sflen;
 	int sverrno;
 
@@ -67,13 +69,14 @@ wcsftime_l(wchar_t * __restrict wcs, size_t maxsize,
 	 * for strftime(), which only handles single-byte characters.
 	 */
 	mbs = initial;
-	sflen = wcsrtombs_l(NULL, &format, 0, &mbs, loc);
+	formatp = format;
+	sflen = wcsrtombs_l(NULL, &formatp, 0, &mbs, loc);
 	if (sflen == (size_t)-1)
 		goto error;
 	if ((sformat = malloc(sflen + 1)) == NULL)
 		goto error;
 	mbs = initial;
-	wcsrtombs_l(sformat, &format, sflen + 1, &mbs, loc);
+	wcsrtombs_l(sformat, &formatp, sflen + 1, &mbs, loc);
 
 	/*
 	 * Allocate memory for longest multibyte sequence that will fit
@@ -92,7 +95,7 @@ wcsftime_l(wchar_t * __restrict wcs, size_t maxsize,
 		goto error;
 	dstp = dst;
 	mbs = initial;
-	n = mbsrtowcs_l(wcs, (const char **)&dstp, maxsize, &mbs, loc);
+	n = mbsrtowcs_l(wcs, &dstp, maxsize, &mbs, loc);
 	if (n == (size_t)-2 || n == (size_t)-1 || dstp != NULL)
 		goto error;
 

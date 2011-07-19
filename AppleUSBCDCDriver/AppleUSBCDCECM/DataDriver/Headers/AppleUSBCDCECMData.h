@@ -29,7 +29,7 @@
 #include "AppleUSBCDC.h"
 #include "AppleUSBCDCECMControl.h"
 
-#define TRANSMIT_QUEUE_SIZE     256				// How does this relate to MAX_BLOCK_SIZE?
+#define TRANSMIT_QUEUE_SIZE     PAGE_SIZE
 #define WATCHDOG_TIMER_MS       1000
 
 #define MAX_BLOCK_SIZE		PAGE_SIZE
@@ -93,6 +93,8 @@ private:
     bool			fNetifEnabled;
     bool			fWOL;
     UInt8			fLinkStatus;
+	UInt32			fUpSpeed;
+    UInt32			fDownSpeed;
 	bool			fSleeping;
     
     IOUSBPipe			*fInPipe;
@@ -127,6 +129,8 @@ private:
     IOReturn		USBTransmitPacket(mbuf_t packet);
     IOReturn		clearPipeStall(IOUSBPipe *thePipe);
     void			receivePacket(UInt8 *packet, UInt32 size);
+    void            setLinkStatusUp(void);
+    void            setLinkStatusDown(void);
     static void 	timerFired(OSObject *owner, IOTimerEventSource *sender);
     void			timeoutOccurred(IOTimerEventSource *timer);
 
@@ -145,9 +149,16 @@ public:
 	
 	bool			fReady;
 	UInt8			fResetState;
+    bool            fQueueStarted;
+    bool			fTxStalled;
     
     IONetworkStats		*fpNetStats;
     IOEthernetStats		*fpEtherStats;
+	
+		// CDC Driver instance Methods
+	
+	virtual void		linkStatusChange(UInt8 linkState);
+	virtual void		linkSpeedChange(UInt32 upSpeed, UInt32 downSpeed);
 
         // IOKit methods
         

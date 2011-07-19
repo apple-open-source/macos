@@ -1,0 +1,5 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+line dashed                   right then down [1 cm] left then right 
+spline from [last line start] right then down [1 cm] left then right \
+    "spline" anchor se
+

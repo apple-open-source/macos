@@ -1,1 +1,0 @@
-LDFLAGS="-Xlinker -framework -Xlinker CoreServices -Xlinker -framework -Xlinker ApplicationServices"

@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/mbstowcs.3	2004-11-25 11:38:18.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/mbstowcs.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -41,7 +41,8 @@
+--- mbstowcs.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbstowcs.3	2009-11-09 15:05:26.000000000 -0800
+@@ -37,7 +37,8 @@
  .Dt MBSTOWCS 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert a character string to a wide-character string
  .Sh LIBRARY
  .Lb libc
-@@ -49,21 +50,39 @@
+@@ -45,21 +46,39 @@
  .In stdlib.h
  .Ft size_t
  .Fo mbstowcs
@@ -57,7 +57,7 @@
  .Sh RETURN VALUES
  The
  .Fn mbstowcs
-@@ -83,7 +102,8 @@
+@@ -79,7 +98,8 @@ The conversion state is invalid.
  .Sh SEE ALSO
  .Xr mbsrtowcs 3 ,
  .Xr mbtowc 3 ,

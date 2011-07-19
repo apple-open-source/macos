@@ -10,12 +10,13 @@
    (Makefile.am should have a rule so you can just type "make netrc")
 */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "config.h"
 #include "fetchmail.h"
 #include "netrc.h"
 #include "i18n.h"
@@ -28,7 +29,7 @@
 # define xmalloc malloc
 # define xrealloc realloc
 
-char *program_name = "netrc";
+const char *program_name = "netrc";
 #endif
 
 /* Maybe add NEWENTRY to the account information list, LIST.  NEWENTRY is
@@ -331,7 +332,7 @@ free_netrc(netrc_entry *a) {
 int main (int argc, char **argv)
 {
     struct stat sb;
-    char *program_name, *file, *host, *login;
+    char *file, *host, *login;
     netrc_entry *head, *a;
 
     program_name = argv[0];

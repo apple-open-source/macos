@@ -11,11 +11,12 @@ use Test::More;
 BEGIN {
     eval {
         require LWP::UserAgent;
-        die "Skip tests" if $LWP::UserAgent::VERSION < 2.0;
+        die "Skip tests" if $LWP::UserAgent::VERSION <  2.0;
+        die "Skip tests" if $LWP::UserAgent::VERSION >= 5.822;
     };
 
     if($@) {
-        plan skip_all => "Only with LWP::UserAgent 2.0";
+        plan skip_all => "Only with 2.0 < LWP::UserAgent < 5.822 ";
     } else {
         plan tests => 3;
     }

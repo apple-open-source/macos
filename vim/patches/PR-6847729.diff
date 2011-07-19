@@ -1,0 +1,13 @@
+Index: src/ex_cmds.c
+===================================================================
+--- src/ex_cmds.c	(revision 57778)
++++ src/ex_cmds.c	(working copy)
+@@ -4069,7 +4069,7 @@
+     if (eap->forceit)
+ 	bigness = curwin->w_height;
+     else if (firstwin == lastwin)
+-	bigness = curwin->w_p_scr * 2;
++	bigness = p_window_unix2003 ? p_window_unix2003 : curwin->w_p_scr * 2;
+ #ifdef FEAT_WINDOWS
+     else
+ 	bigness = curwin->w_height - 3;

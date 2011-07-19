@@ -9,7 +9,7 @@ ifeq ($(Embedded),NO)
 USERDEFS = kextmanager.defs
 endif
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

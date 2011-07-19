@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2007 Apple Inc. All rights reserved.
+ *  Copyright (C) 2007, 2011 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -28,13 +28,20 @@ namespace JSC {
 
     class ArrayPrototype : public JSArray {
     public:
-        explicit ArrayPrototype(NonNullPassRefPtr<Structure>);
+        explicit ArrayPrototype(JSGlobalObject*, Structure*);
 
         bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
+
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+    protected:
+        static const unsigned AnonymousSlotCount = JSArray::AnonymousSlotCount + 1;
     };
 
 } // namespace JSC

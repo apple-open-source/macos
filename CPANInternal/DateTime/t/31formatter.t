@@ -12,7 +12,7 @@ BEGIN
         plan skip_all => "DateTime::Format::Strptime 1.0400+ not installed";
     }
 
-    plan tests => 9;
+    plan tests => 11;
 }
 
 use DateTime;
@@ -44,6 +44,13 @@ is( $dt->_stringify(), '20040902 13:23:34', 'Format datetime' );
 
 # check stringification (with formatter)
 is( $dt->_stringify, "$dt", "Stringification (with formatter)" );
+
+# check that set() and truncate() don't lose formatter
+$dt->set( hour => 3 );
+is( $dt->_stringify, '20040902 03:23:34', 'formatter is preserved after set()' );
+
+$dt->truncate( to => 'minute' );
+is( $dt->_stringify, '20040902 03:23:00', 'formatter is preserved after truncate()' );
 
 # check if the default behavior works
 $dt->set_formatter(undef);

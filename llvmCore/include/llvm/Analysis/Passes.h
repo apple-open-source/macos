@@ -18,8 +18,10 @@
 namespace llvm {
   class FunctionPass;
   class ImmutablePass;
+  class LoopPass;
   class ModulePass;
   class Pass;
+  class PassInfo;
   class LibCallInfo;
 
   //===--------------------------------------------------------------------===//
@@ -72,10 +74,10 @@ namespace llvm {
 
   //===--------------------------------------------------------------------===//
   //
-  // createAndersensPass - This pass implements Andersen's interprocedural alias
-  // analysis.
+  // createScalarEvolutionAliasAnalysisPass - This pass implements a simple
+  // alias analysis using ScalarEvolution queries.
   //
-  ModulePass *createAndersensPass();
+  FunctionPass *createScalarEvolutionAliasAnalysisPass();
 
   //===--------------------------------------------------------------------===//
   //
@@ -83,12 +85,27 @@ namespace llvm {
   // file.
   //
   ModulePass *createProfileLoaderPass();
+  extern const PassInfo *ProfileLoaderPassID;
 
   //===--------------------------------------------------------------------===//
   //
   // createNoProfileInfoPass - This pass implements the default "no profile".
   //
   ImmutablePass *createNoProfileInfoPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createProfileEstimatorPass - This pass estimates profiling information
+  // instead of loading it from a previous run.
+  //
+  FunctionPass *createProfileEstimatorPass();
+  extern const PassInfo *ProfileEstimatorPassID;
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createProfileVerifierPass - This pass verifies profiling information.
+  //
+  FunctionPass *createProfileVerifierPass();
 
   //===--------------------------------------------------------------------===//
   //
@@ -117,12 +134,28 @@ namespace llvm {
   //
   FunctionPass *createLiveValuesPass();
   
+  //===--------------------------------------------------------------------===//
+  //
+  /// createLazyValueInfoPass - This creates an instance of the LazyValueInfo
+  /// pass.
+  FunctionPass *createLazyValueInfoPass();
+
+  //===--------------------------------------------------------------------===//
+  //
+  // createLoopDependenceAnalysisPass - This creates an instance of the
+  // LoopDependenceAnalysis pass.
+  //
+  LoopPass *createLoopDependenceAnalysisPass();
+  
   // Minor pass prototypes, allowing us to expose them through bugpoint and
   // analyze.
   FunctionPass *createInstCountPass();
 
   // print debug info intrinsics in human readable form
   FunctionPass *createDbgInfoPrinterPass();
+
+  // Print module-level debug info metadata in human-readable form.
+  ModulePass *createModuleDebugInfoPrinterPass();
 }
 
 #endif

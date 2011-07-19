@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strstr.3	2003-05-20 15:23:55.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strstr.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -41,26 +41,47 @@
+--- strstr.3.bsdnew	2009-11-30 13:52:24.000000000 -0800
++++ strstr.3	2009-11-30 14:58:48.000000000 -0800
+@@ -37,26 +37,47 @@
  .Dt STRSTR 3
  .Os
  .Sh NAME
@@ -54,7 +54,7 @@
  .Pp
  The
  .Fn strcasestr
-@@ -72,11 +93,11 @@
+@@ -68,11 +89,11 @@ The
  .Fn strnstr
  function
  locates the first occurrence of the null-terminated string
@@ -69,7 +69,7 @@
  characters are searched.
  Characters that appear after a
  .Ql \e0
-@@ -86,20 +107,28 @@
+@@ -82,20 +103,28 @@ Since the
  function is a
  .Fx
  specific API, it should only be used when portability is not a concern.
@@ -103,12 +103,20 @@
  is returned.
  .Sh EXAMPLES
  The following sets the pointer
-@@ -138,7 +167,8 @@
- .Xr strrchr 3 ,
+@@ -128,7 +157,6 @@ ptr = strnstr(largestring, smallstring, 
+ .Ed
+ .Sh SEE ALSO
+ .Xr memchr 3 ,
+-.Xr memmem 3 ,
+ .Xr strchr 3 ,
+ .Xr strcspn 3 ,
+ .Xr strpbrk 3 ,
+@@ -136,7 +164,8 @@ ptr = strnstr(largestring, smallstring, 
  .Xr strsep 3 ,
  .Xr strspn 3 ,
--.Xr strtok 3
-+.Xr strtok 3 ,
+ .Xr strtok 3 ,
+-.Xr wcsstr 3
++.Xr wcsstr 3 ,
 +.Xr xlocale 3
  .Sh STANDARDS
  The

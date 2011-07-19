@@ -1,5 +1,9 @@
 Revision history for Perl extension Apache2::SOAP.
 
+0.73 Jun 5, 2008
+  - use 'exit 0' in Makefile.PL/Build.PL if mod_perl isn't installed,
+    to try to silence failed reports from cpantesters
+
 0.72 August 2, 2006
   - fix problem with using mod_perl-2 when both mod_perl-1
     and mod_perl-2 are installed (reported by Georg Grabler;

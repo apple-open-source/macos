@@ -37,6 +37,12 @@
 #include <pwd.h>
 #include <sys/param.h>
 #include <copyfile.h>
+#include <xpc/xpc.h>
+#include <syslog.h>
+#include <sandbox.h>
+
+dispatch_once_t AppSandboxChecked;
+xpc_object_t KeychainHomeFromXPC;
 
 using namespace CssmClient;
 
@@ -141,7 +147,7 @@ bool
 DLDbListCFPref::loadPropertyList(bool force)
 {
     string prefsPath;
-
+	
 	switch (mDomain)
     {
 	case kSecPreferencesDomainUser:
@@ -360,7 +366,9 @@ DLDbListCFPref::testAndFixPropertyList()
 			if(!retval) retval = ::rename(tempfile, prefsPath);
 		}
 		changeIdentity(PRIV);
+		close(fd2);
 	}
+	close(fd1);
 	return retval;
 }
 
@@ -586,10 +594,15 @@ void DLDbListCFPref::clearPWInfo ()
 string DLDbListCFPref::getPwInfo(PwInfoType type)
 {
     const char *value;
+	extern xpc_object_t KeychainHomeFromXPC;
     switch (type)
     {
     case kHomeDir:
-        value = getenv("HOME");
+		if (KeychainHomeFromXPC) {
+			value = xpc_string_get_string_ptr(KeychainHomeFromXPC);
+		} else {
+			value = getenv("HOME");
+		}
         if (value)
             return value;
         break;
@@ -627,9 +640,68 @@ string DLDbListCFPref::getPwInfo(PwInfoType type)
 	return result;
 }
 
+static void check_app_sandbox()
+{
+	if (!_xpc_runtime_is_app_sandboxed()) {
+		// We are not in a sandbox, no work to do here
+		return;
+	}
+	
+	extern xpc_object_t xpc_create_with_format(const char * format, ...);
+	xpc_connection_t con = xpc_connection_create("com.apple.security.XPCKeychainSandboxCheck", NULL);
+    xpc_connection_set_event_handler(con, ^(xpc_object_t event) {
+        xpc_type_t xtype = xpc_get_type(event);
+        if (XPC_TYPE_ERROR == xtype) {
+            syslog(LOG_ERR, "Keychain sandbox connection error: %s\n", xpc_dictionary_get_string(event, XPC_ERROR_KEY_DESCRIPTION));
+        } else {
+            syslog(LOG_ERR, "Keychain sandbox unexpected connection event %p\n", event);
+        }
+    });
+    xpc_connection_resume(con);
+    
+    xpc_object_t message = xpc_create_with_format("{op: GrantKeychainPaths}");
+	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(con, message);
+	xpc_type_t xtype = xpc_get_type(reply);
+	if (XPC_TYPE_DICTIONARY == xtype) {
+#if 0
+		// This is useful for debugging.
+		char *debug = xpc_copy_description(reply);
+		syslog(LOG_ERR, "DEBUG (KCsandbox) %s\n", debug);
+		free(debug);
+#endif
+		
+		xpc_object_t extensions_array = xpc_dictionary_get_value(reply, "extensions");
+		xpc_array_apply(extensions_array, ^(size_t index, xpc_object_t extension) {
+			char pbuf[MAXPATHLEN];
+			char *path = pbuf;
+			int status = sandbox_consume_fs_extension(xpc_string_get_string_ptr(extension), &path);
+			if (status) {
+				syslog(LOG_ERR, "Keychain sandbox consume extension error: s=%d p=%s %m\n", status, path);
+			}
+			return (bool)true;
+		});
+		
+		KeychainHomeFromXPC = xpc_dictionary_get_value(reply, "keychain-home");
+		xpc_retain(KeychainHomeFromXPC);
+		xpc_release(con);
+	} else if (XPC_TYPE_ERROR == xtype) {
+		syslog(LOG_ERR, "Keychain sandbox message error: %s\n", xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
+	} else {
+		syslog(LOG_ERR, "Keychain sandbox unexpected message reply type %p\n", xtype);
+	}
+    xpc_release(message);
+	xpc_release(reply);
+}
+
+
+
 string DLDbListCFPref::ExpandTildesInPath(const string &inPath)
 {
-    if ((short)inPath.find("~/",0,2) == 0)
+	dispatch_once(&AppSandboxChecked, ^{
+		check_app_sandbox();
+	});
+	
+	if ((short)inPath.find("~/",0,2) == 0)
         return getPwInfo(kHomeDir) + inPath.substr(1);
     else
         return inPath;

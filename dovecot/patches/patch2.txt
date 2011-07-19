@@ -1,0 +1,13 @@
+diff -ur dovecot-1.1.7/src/deliver/deliver.c dovecot-patch/src/deliver/deliver.c
+--- dovecot-1.1.7/src/deliver/deliver.c	2008-11-19 11:43:13.000000000 -0600
++++ dovecot-patch/src/deliver/deliver.c	2008-12-15 09:42:21.000000000 -0600
+@@ -791,7 +791,8 @@
+ 	unsigned int i, count;
+ 
+ 	fields = array_get_modifiable(extra_fields, &count);
+-	for (i = 0; i < count; i++) {
++	/* APPLE - was i=0 which put username=1 in env */
++	for (i = 1; i < count; i++) {
+ 		p = strchr(fields[i], '=');
+ 		if (p == NULL)
+ 			env_put(t_strconcat(fields[i], "=1", NULL));

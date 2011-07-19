@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -40,11 +36,12 @@ static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.12 2004/05/02 20:13:29 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.17 2009/01/19 06:19:51 das Exp $");
 
 #include "namespace.h"
 #include <ctype.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -98,13 +95,15 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.12 2004/05/02 20:13:29 obr
 #define	CT_INT		3	/* %[dioupxX] conversion */
 #define	CT_FLOAT	4	/* %[efgEFG] conversion */
 
+#ifndef NO_FLOATING_POINT
 static int parsefloat(FILE *, wchar_t *, wchar_t *);
-
-extern int __scanfdebug;
+#endif
 
 #define	INCCL(_c)	\
 	(cclcompl ? (wmemchr(ccls, (_c), ccle - ccls) == NULL) : \
 	(wmemchr(ccls, (_c), ccle - ccls) != NULL))
+
+static const mbstate_t initial_mbs;
 
 /*
  * MT-safe version.
@@ -145,7 +144,6 @@ __vfwscanf(FILE * __restrict fp, const wchar_t * __restrict fmt, va_list ap)
 	char *mbp;		/* multibyte string pointer for %c %s %[ */
 	size_t nconv;		/* number of bytes in mb. conversion */
 	char mbbuf[MB_LEN_MAX];	/* temporary mb. character buffer */
-	static const mbstate_t initial;
 	mbstate_t mbs;
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
@@ -378,7 +376,7 @@ literal:
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
 				n = 0;
-				mbs = initial;
+				mbs = initial_mbs;
 				while (width != 0 &&
 				    (wi = __fgetwc(fp)) != WEOF) {
 					if (width >= MB_CUR_MAX &&
@@ -443,7 +441,7 @@ literal:
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
 				n = 0;
-				mbs = initial;
+				mbs = initial_mbs;
 				while ((wi = __fgetwc(fp)) != WEOF &&
 				    width != 0 && INCCL(wi)) {
 					if (width >= MB_CUR_MAX &&
@@ -504,7 +502,7 @@ literal:
 			} else {
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
-				mbs = initial;
+				mbs = initial_mbs;
 				while ((wi = __fgetwc(fp)) != WEOF &&
 				    width != 0 &&
 				    !iswspace(wi)) {
@@ -706,8 +704,6 @@ literal:
 					float res = wcstof(buf, &p);
 					*va_arg(ap, float *) = res;
 				}
-				if (__scanfdebug && p - buf != width)
-					abort();
 				nassigned++;
 			}
 			nread += width;
@@ -726,15 +722,22 @@ match_failure:
 static int
 parsefloat(FILE *fp, wchar_t *buf, wchar_t *end)
 {
+	mbstate_t mbs;
+	size_t nconv;
 	wchar_t *commit, *p;
 	int infnanpos = 0;
 	enum {
-		S_START, S_GOTSIGN, S_INF, S_NAN, S_MAYBEHEX,
+		S_START, S_GOTSIGN, S_INF, S_NAN, S_DONE, S_MAYBEHEX,
 		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS
 	} state = S_START;
 	wchar_t c;
-	wchar_t decpt = (wchar_t)(unsigned char)*localeconv()->decimal_point;
+	wchar_t decpt;
 	_Bool gotmantdig = 0, ishex = 0;
+
+	mbs = initial_mbs;
+	nconv = mbrtowc(&decpt, localeconv()->decimal_point, MB_CUR_MAX, &mbs);
+	if (nconv == (size_t)-1 || nconv == (size_t)-2)
+		decpt = '.';	/* failsafe */
 
 	/*
 	 * We set commit = p whenever the string we have read so far
@@ -788,8 +791,6 @@ reswitch:
 			break;
 		case S_NAN:
 			switch (infnanpos) {
-			case -1:	/* XXX kludge to deal with nan(...) */
-				goto parsedone;
 			case 0:
 				if (c != 'A' && c != 'a')
 					goto parsedone;
@@ -807,13 +808,15 @@ reswitch:
 			default:
 				if (c == ')') {
 					commit = p;
-					infnanpos = -2;
+					state = S_DONE;
 				} else if (!iswalnum(c) && c != '_')
 					goto parsedone;
 				break;
 			}
 			infnanpos++;
 			break;
+		case S_DONE:
+			goto parsedone;
 		case S_MAYBEHEX:
 			state = S_DIGITS;
 			if (c == 'X' || c == 'x') {

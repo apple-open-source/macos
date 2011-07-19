@@ -3,6 +3,7 @@
 [copyright {2004 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [titledesc {Lightweight DocTools Markup Processor}]
 [moddesc   {Documentation toolbox}]
+[category  {Documentation tools}]
 [description]
 [para]
 

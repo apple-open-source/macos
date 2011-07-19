@@ -292,7 +292,7 @@ WriteRoutineEntries(FILE *file, statement_t *stats)
       free(rt_name);
     }
   while (current++ < rtNumber)
-    fprintf(file, "\t\t{0, 0, 0, 0, 0},\n");
+    fprintf(file, "\t\t{0, 0, 0, 0, 0, 0},\n");
 
   fprintf(file, "\t}");
 }
@@ -331,14 +331,19 @@ WriteSubsystem(FILE *file, statement_t *stats)
     }
   fprintf(file, "\n");
   if (ServerHeaderFileName == strNULL) {
-    fprintf(file, "extern boolean_t %s(", ServerDemux);
+  	/* 11/30/09 - gab: <rdar://problem/5679615>
+     * MIG-generated code should be consistent in its use of mig_external
+     */
+    WriteMigExternal(file);
+    fprintf(file, "boolean_t %s(", ServerDemux);
     if (BeAnsiC) {
       fprintf(file, "\n\t\tmach_msg_header_t *InHeadP,");
       fprintf(file, "\n\t\tmach_msg_header_t *OutHeadP");
     }
     fprintf(file, ");\n\n");
 
-    fprintf(file, "extern mig_routine_t %s_routine(", ServerDemux);
+    WriteMigExternal(file);
+    fprintf(file, "mig_routine_t %s_routine(", ServerDemux);
     if (BeAnsiC) {
       fprintf(file, "\n\t\tmach_msg_header_t *InHeadP");
     }
@@ -886,8 +891,8 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
   register routine_t *rt = arg->argRoutine;
 
   /* If there aren't any more In args after this, then
-   we can use the msgh_size_delta value directly in
-   the TypeCheck conditional. */
+     we can use the msgh_size_delta value directly in
+     the TypeCheck conditional. */
 
   if (arg->argCount && !arg->argSameCount)
     WriteRequestNDRConvertIntRepOneArgUse(file, arg->argCount);
@@ -900,20 +905,27 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
     fprintf(file, "))\n");
 
     fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
+
+    /* 12/15/08 - gab: <rdar://problem/4900700>
+       emit code to verify that the user-code-provided count does not exceed the maximum count allowed by the type. */
+    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fputs("\t\t" "return MIG_BAD_ARGUMENTS;\n", file);
+    /* ...end... */
+
     fprintf(file, "#endif\t/* __MigTypeCheck */\n");
   }
   else {
     /* If there aren't any more variable-sized arguments after this,
-     then we must check for exact msg-size and we don't need to
-     update msgh_size. */
+       then we must check for exact msg-size and we don't need to
+       update msgh_size. */
 
     boolean_t LastVarArg = arg->argRequestPos+1 == rt->rtNumRequestVar;
 
     /* calculate the actual size in bytes of the data field.  note
-     that this quantity must be a multiple of four.  hence, if
-     the base type size isn't a multiple of four, we have to
-     round up.  note also that btype->itNumber must
-     divide btype->itTypeSize (see itCalculateSizeInfo). */
+       that this quantity must be a multiple of four.  hence, if
+       the base type size isn't a multiple of four, we have to
+       round up.  note also that btype->itNumber must
+       divide btype->itTypeSize (see itCalculateSizeInfo). */
 
     fprintf(file, "\tmsgh_size_delta = ");
     WriteCheckArgSize(file, arg);
@@ -921,7 +933,7 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
     fprintf(file, "#if\t__MigTypeCheck\n");
 
     /* Don't decrement msgh_size until we've checked that
-     it won't underflow. */
+       it won't underflow. */
 
     if (LastVarArg)
       fprintf(file, "\tif (msgh_size != ");
@@ -930,6 +942,12 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
     rtMinRequestSize(file, rt, "__Request");
     fprintf(file, " + msgh_size_delta)\n");
     fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
+
+    /* 12/15/08 - gab: <rdar://problem/4900700>
+       emit code to verify that the user-code-provided count does not exceed the maximum count allowed by the type. */
+    fprintf(file, "\t" "if ( In%dP->%s > %d )\n", arg->argCount->argRequestPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fputs("\t\t" "return MIG_BAD_ARGUMENTS;\n", file);
+    /* ...end... */
 
     if (!LastVarArg)
       fprintf(file, "\tmsgh_size -= msgh_size_delta;\n");
@@ -1924,9 +1942,24 @@ WritePackArgValueVariable(FILE *file, register argument_t *arg)
   /*
    * only itString are treated here so far
    */
-  if (it->itString)
-    /* Need to call strlen to calculate the size of the argument. */
-    fprintf(file, "\tOutP->%s = strlen(OutP->%s) + 1;\n", arg->argCount->argMsgField, arg->argMsgField);
+  if (it->itString) {
+    /* 11/25/09 - gab: <rdar://problem/6237652>
+     * Emit logic to call strlen to calculate the size of the argument, and ensure that it fits within the 32-bit result field
+     * in the Reply, when targeting a 64-bit architecture. If a 32-bit architecture is the target, we emit code to just call
+     * strlen() directly (since it'll return a 32-bit value that is guaranteed to fit).
+     */
+    fputs("#ifdef __LP64__\n", file);
+    fprintf(file, "\t{\n"
+                  "\t\t" "size_t strLength = strlen(OutP->%s) + 1;\n", arg->argMsgField);
+    fputs(        "\t\t" "if (strLength > 0xffffffff)\n"
+                  "\t\t\t"  "MIG_RETURN_ERROR(OutP, MIG_BAD_ARGUMENTS);\n", file);
+    fprintf(file, "\t\t" "OutP->%s = (mach_msg_type_number_t) strLength;\n"
+                  "\t}\n", arg->argCount->argMsgField);
+    fputs("#else\n", file);
+    fprintf(file, "\tOutP->%s = (mach_msg_type_number_t) strlen(OutP->%s) + 1;\n", arg->argCount->argMsgField, arg->argMsgField);
+    fputs("#endif /* __LP64__ */\n", file);
+
+  }
 }
 
 static void
@@ -2258,6 +2291,64 @@ static void WriteStringTerminatorCheck(FILE *file, routine_t *rt)
   return;
 }
 
+static void
+WriteOOLSizeCheck(FILE *file, routine_t *rt)
+{
+  /* 12/23/2008 - gab: <rdar://problem/4634360> */
+  /* Emit code to validate the actual size of ool data vs. the reported size */
+
+  argument_t  *argPtr;
+  boolean_t   openedTypeCheckConditional = FALSE;
+
+  // scan through arguments to see if there are any ool data blocks
+  for (argPtr = rt->rtArgs; argPtr != NULL; argPtr = argPtr->argNext) {
+    if (akCheck(argPtr->argKind, akbSendKPD) && (argPtr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR)) {
+      register ipc_type_t *it = argPtr->argType;
+      char *tab, string[MAX_STR_LEN];
+      boolean_t test;
+      argument_t  *argCountPtr;
+  
+      if ( !openedTypeCheckConditional ) {
+        openedTypeCheckConditional = TRUE;
+        fputs("#if __MigTypeCheck\n", file);
+      }
+
+      if (IS_MULTIPLE_KPD(it)) {
+        WriteKPD_Iterator(file, TRUE, FALSE, argPtr, TRUE);
+        tab = "\t\t\t";
+        sprintf(string, "ptr->");
+        test = !it->itVarArray && !it->itElement->itVarArray;
+        it = it->itElement; // point to element descriptor, so size calculation is correct
+        argCountPtr = argPtr->argSubCount;
+      }
+      else {
+        tab = "";
+        sprintf(string, "In%dP->%s.", argPtr->argRequestPos, argPtr->argMsgField);
+        test = !it->itVarArray;
+        argCountPtr = argPtr->argCount;
+      }
+    
+      if (!test) {
+        int multiplier = (argCountPtr->argMultiplier > 1 || it->itSize > 8) ? argCountPtr->argMultiplier * it->itSize / 8 : 1;
+        fprintf(file, "\t%s" "if (%ssize != In%dP->%s%s",
+          tab, string, argCountPtr->argRequestPos, argCountPtr->argVarName, IS_MULTIPLE_KPD(it) ? "[i]" : "" );
+        if (multiplier > 1)
+          fprintf(file, " * %d", multiplier);
+        fputs(")\n", file);
+
+        fprintf(file, "\t\t%s" "return MIG_TYPE_ERROR;\n", tab);
+      }
+      
+      if (IS_MULTIPLE_KPD(it))
+        fprintf(file, "\t    }\n\t}\n");
+
+    }
+  }
+
+  if ( openedTypeCheckConditional )
+    fputs("#endif" "\t" "/* __MigTypeCheck */" "\n\n", file);
+}
+
 
 void
 WriteCheckRequest(FILE *file, routine_t *rt)
@@ -2319,9 +2410,6 @@ WriteCheckRequest(FILE *file, routine_t *rt)
     }
   }
 
-  // 07/10/08 - gab: <rdar://problem/4636934>
-  WriteStringTerminatorCheck(file, rt);
-
   if (akCheck(rt->rtNdrCode->argKind, akbRequest)) {
     fprintf(file, "#if\t");
     WriteList(file, rt->rtArgs, WriteRequestNDRConvertIntRepArgCond, akbSendNdr, " || \\\n\t", "\n");
@@ -2341,6 +2429,13 @@ WriteCheckRequest(FILE *file, routine_t *rt)
     WriteList(file, rt->rtArgs, WriteRequestNDRConvertFloatRepArgUse, akbSendNdr, "", "");
     fprintf(file, "\t}\n#endif\t/* defined(__NDR_convert__float_rep...) */\n\n");
   }
+
+  // 07/10/08 - gab: <rdar://problem/4636934>
+  WriteStringTerminatorCheck(file, rt);
+  
+  // 12/23/08 - gab: <rdar://problem/4634360>
+  WriteOOLSizeCheck(file, rt);
+  
   fprintf(file, "\treturn MACH_MSG_SUCCESS;\n");
   fprintf(file, "}\n");
   fprintf(file, "#endif /* !defined(__MIG_check__Request__%s_t__defined) */\n", rt->rtName);

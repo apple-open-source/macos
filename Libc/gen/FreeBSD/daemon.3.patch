@@ -1,6 +1,6 @@
---- daemon.3.orig	2007-09-11 10:52:31.000000000 -0700
-+++ daemon.3	2007-09-11 10:49:51.000000000 -0700
-@@ -49,6 +49,8 @@
+--- daemon.3.orig	2009-11-07 14:51:37.000000000 -0800
++++ daemon.3	2009-11-07 14:51:40.000000000 -0800
+@@ -45,6 +45,8 @@ The
  .Fn daemon
  function is for programs wishing to detach themselves from the
  controlling terminal and run in the background as system daemons.

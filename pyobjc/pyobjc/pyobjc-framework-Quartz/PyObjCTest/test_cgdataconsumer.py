@@ -1,31 +1,32 @@
 
 from PyObjCTools.TestSupport import *
-from Quartz.CoreGraphics import *
+from Quartz import *
+import Quartz
 from Foundation import NSMutableData
 import os
 
 class TestCGDataConsumer (TestCase):
     def testTypes(self):
-        self.failUnlessIsCFType(CGDataConsumerRef)
+        self.assertIsCFType(CGDataConsumerRef)
 
     def testFunctions(self):
-        self.failUnlessIsInstance(CGDataConsumerGetTypeID(), (int, long))
+        self.assertIsInstance(CGDataConsumerGetTypeID(), (int, long))
 
         url = CFURLCreateWithFileSystemPath(None,
             "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
-        self.failUnlessIsInstance(url, CFURLRef)
+        self.assertIsInstance(url, CFURLRef)
         try:
             consumer = CGDataConsumerCreateWithURL(url)
-            self.failUnlessIsInstance(consumer, CGDataConsumerRef)
+            self.assertIsInstance(consumer, CGDataConsumerRef)
 
             data = NSMutableData.data()
-            self.failUnlessIsInstance(data, CFMutableDataRef)
+            self.assertIsInstance(data, CFMutableDataRef)
 
             consumer = CGDataConsumerCreateWithCFData(data)
-            self.failUnlessIsInstance(consumer, CGDataConsumerRef)
+            self.assertIsInstance(consumer, CGDataConsumerRef)
 
             v = CGDataConsumerRetain(consumer)
-            self.failUnless(v is consumer)
+            self.assertTrue(v is consumer)
             CGDataConsumerRelease(consumer)
 
         finally:
@@ -34,8 +35,8 @@ class TestCGDataConsumer (TestCase):
                 os.unlink("/tmp/pyobjc.test.pdf")
 
         def putBytes(info, buffer, bufsize):
-            self.failUnlessIsInstance(buffer, str)
-            self.failUnlessEqual(len(buffer), bufsize)
+            self.assertIsInstance(buffer, str)
+            self.assertEqual(len(buffer), bufsize)
             info.append(buffer)
             return bufsize
 
@@ -46,15 +47,15 @@ class TestCGDataConsumer (TestCase):
         output = []
         released = []
         consumer = CGDataConsumerCreate(output, (putBytes, release))
-        self.failUnlessIsInstance(consumer, CGDataConsumerRef)
+        self.assertIsInstance(consumer, CGDataConsumerRef)
 
         ctx = CGPDFContextCreate(consumer, CGRectMake(0, 0, 500, 500), None)
-        self.failUnlessIsInstance(ctx, CGContextRef)
+        self.assertIsInstance(ctx, CGContextRef)
         CGContextBeginPage(ctx, None)
         CGContextFillRect(ctx, ((10, 10), (50, 30)))
         CGContextEndPage(ctx)
         CGContextFlush(ctx)
-        CGPDFContextClose(ctx)
+        if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(ctx)
 
         del ctx
         del consumer

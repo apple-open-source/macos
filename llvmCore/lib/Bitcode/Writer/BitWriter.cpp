@@ -9,50 +9,32 @@
 
 #include "llvm-c/BitWriter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
-#include <fstream>
-
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 
 /*===-- Operations on modules ---------------------------------------------===*/
 
 int LLVMWriteBitcodeToFile(LLVMModuleRef M, const char *Path) {
-  std::ofstream OS(Path, std::ios_base::out|std::ios::trunc|std::ios::binary);
+  std::string ErrorInfo;
+  raw_fd_ostream OS(Path, ErrorInfo,
+                    raw_fd_ostream::F_Binary);
   
-  if (!OS.fail())
-    WriteBitcodeToFile(unwrap(M), OS);
-  
-  if (OS.fail())
+  if (!ErrorInfo.empty())
     return -1;
   
+  WriteBitcodeToFile(unwrap(M), OS);
   return 0;
 }
 
-#if defined(__GNUC__) && (__GNUC__ > 3 || __GNUC__ == 3 && __GNUC_MINOR >= 4)
-#include <ext/stdio_filebuf.h>
-
-// FIXME: Control this with configure? Provide some portable abstraction in
-// libSystem? As is, the user will just get a linker error if they use this on 
-// non-GCC. Some C++ stdlibs even have ofstream::ofstream(int fd).
-int LLVMWriteBitcodeToFileHandle(LLVMModuleRef M, int FileHandle) {
-  __gnu_cxx::stdio_filebuf<char> Buffer(FileHandle, std::ios_base::out |
-                                                    std::ios::trunc |
-                                                    std::ios::binary);
-  std::ostream OS(&Buffer);
+int LLVMWriteBitcodeToFD(LLVMModuleRef M, int FD, int ShouldClose,
+                         int Unbuffered) {
+  raw_fd_ostream OS(FD, ShouldClose, Unbuffered);
   
-  if (!OS.fail())
-    WriteBitcodeToFile(unwrap(M), OS);
-  
-  if (OS.fail())
-    return -1;
-  
+  WriteBitcodeToFile(unwrap(M), OS);
   return 0;
 }
 
-#else
-
 int LLVMWriteBitcodeToFileHandle(LLVMModuleRef M, int FileHandle) {
-  return -1; // Not supported.
+  return LLVMWriteBitcodeToFD(M, FileHandle, true, false);
 }
-
-#endif

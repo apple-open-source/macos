@@ -727,7 +727,7 @@ ignorep(FTSENT *ent)
 	if (S_ISDIR(ent->fts_statp->st_mode) && !strcmp("fd", ent->fts_name)) {
 		struct statfs sfsb;
 		int rc = statfs(ent->fts_accpath, &sfsb);
-		if (rc >= 0 && !strcmp("fdesc", sfsb.f_fstypename)) {
+		if (rc >= 0 && !strcmp("devfs", sfsb.f_fstypename)) {
 			/* Don't cd into /dev/fd/N since one of those is likely to be
 			  the cwd as of the start of du which causes all manner of
 			  unpleasant surprises */

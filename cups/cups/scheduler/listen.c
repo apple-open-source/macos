@@ -1,10 +1,9 @@
 /*
  * "$Id: listen.c 7918 2008-09-08 22:03:01Z mike $"
  *
- *   Server listening routines for the Common UNIX Printing System (CUPS)
- *   scheduler.
+ *   Server listening routines for the CUPS scheduler.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -152,18 +151,7 @@ cupsdStartListening(void)
        lis = (cupsd_listener_t *)cupsArrayNext(Listeners))
   {
     httpAddrString(&(lis->address), s, sizeof(s));
-
-#ifdef AF_INET6
-    if (lis->address.addr.sa_family == AF_INET6)
-      p = ntohs(lis->address.ipv6.sin6_port);
-    else
-#endif /* AF_INET6 */
-#ifdef AF_LOCAL
-    if (lis->address.addr.sa_family == AF_LOCAL)
-      p = 0;
-    else
-#endif /* AF_LOCAL */
-    p = ntohs(lis->address.ipv4.sin_port);
+    p = _httpAddrPort(&(lis->address));
 
    /*
     * If needed, create a socket for listening...

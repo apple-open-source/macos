@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: https.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -18,7 +17,7 @@ int main(void)
 
   curl = curl_easy_init();
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, "https://sourceforge.net/");
+    curl_easy_setopt(curl, CURLOPT_URL, "https://example.com/");
 
 #ifdef SKIP_PEER_VERIFICATION
     /*

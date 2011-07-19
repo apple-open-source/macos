@@ -1,0 +1,20 @@
+Index: src/option.h
+===================================================================
+--- src/option.h	(revision 57762)
++++ src/option.h	(working copy)
+@@ -315,6 +315,7 @@
+ #if defined(FEAT_GUI) && defined(MACOS_X)
+ EXTERN int	*p_antialias;	/* 'antialias' */
+ #endif
++EXTERN int	p_ap;		/* 'autoprint' */
+ EXTERN int	p_ar;		/* 'autoread' */
+ EXTERN int	p_aw;		/* 'autowrite' */
+ EXTERN int	p_awa;		/* 'autowriteall' */
+@@ -346,6 +347,7 @@
+ EXTERN char_u	*p_bexpr;
+ # endif
+ #endif
++EXTERN int	p_bf;		/* 'beautify' */
+ #ifdef FEAT_BROWSE
+ EXTERN char_u	*p_bsdir;	/* 'browsedir' */
+ #endif

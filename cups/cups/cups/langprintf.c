@@ -1,10 +1,9 @@
 /*
  * "$Id: langprintf.c 7802 2008-07-28 18:50:45Z mike $"
  *
- *   Localized printf/puts functions for the Common UNIX Printing
- *   System (CUPS).
+ *   Localized printf/puts functions for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 2002-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,20 +16,19 @@
  *
  * Contents:
  *
- *   _cupsLangPrintError() - Print a message followed by a standard error.
- *   _cupsLangPrintf()     - Print a formatted message string to a file.
- *   _cupsLangPuts()       - Print a static message string to a file.
- *   _cupsSetLocale()      - Set the current locale and transcode the
- *                           command-line.
+ *   _cupsLangPrintError()  - Print a message followed by a standard error.
+ *   _cupsLangPrintFilter() - Print a formatted filter message string to a file.
+ *   _cupsLangPrintf()      - Print a formatted message string to a file.
+ *   _cupsLangPuts()        - Print a static message string to a file.
+ *   _cupsSetLocale()       - Set the current locale and transcode the
+ *                            command-line.
  */
 
 /*
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include "globals.h"
-#include <errno.h>
+#include "cups-private.h"
 
 
 /*
@@ -38,11 +36,13 @@
  */
 
 void
-_cupsLangPrintError(const char *message)/* I - Message */
+_cupsLangPrintError(const char *prefix,	/* I - Non-localized message prefix */
+                    const char *message)/* I - Message */
 {
   int		bytes;			/* Number of bytes formatted */
   int		last_errno;		/* Last error */
   char		buffer[2048],		/* Message buffer */
+		*bufptr,		/* Pointer into buffer */
 		output[8192];		/* Output buffer */
   _cups_globals_t *cg;			/* Global data */
 
@@ -73,8 +73,19 @@ _cupsLangPrintError(const char *message)/* I - Message */
   * Format the message...
   */
 
-  snprintf(buffer, sizeof(buffer), "%s: %s\n",
+  if (prefix)
+  {
+    snprintf(buffer, sizeof(buffer), "%s:", prefix);
+    bufptr = buffer + strlen(buffer);
+  }
+  else
+    bufptr = buffer;
+
+  snprintf(bufptr, sizeof(buffer) - (bufptr - buffer),
+	   /* TRANSLATORS: Message is "subject: error" */
+	   _cupsLangString(cg->lang_default, _("%s: %s")),
 	   _cupsLangString(cg->lang_default, message), strerror(last_errno));
+  strlcat(buffer, "\n", sizeof(buffer));
 
  /*
   * Convert and write to stderr...
@@ -89,12 +100,71 @@ _cupsLangPrintError(const char *message)/* I - Message */
 
 
 /*
+ * '_cupsLangPrintFilter()' - Print a formatted filter message string to a file.
+ */
+
+int					/* O - Number of bytes written */
+_cupsLangPrintFilter(
+    FILE       *fp,			/* I - File to write to */
+    const char *prefix,			/* I - Non-localized message prefix */
+    const char *message,		/* I - Message string to use */
+    ...)				/* I - Additional arguments as needed */
+{
+  int		bytes;			/* Number of bytes formatted */
+  char		temp[2048],		/* Temporary format buffer */
+		buffer[2048],		/* Message buffer */
+		output[8192];		/* Output buffer */
+  va_list 	ap;			/* Pointer to additional arguments */
+  _cups_globals_t *cg;			/* Global data */
+
+
+ /*
+  * Range check...
+  */
+
+  if (!fp || !message)
+    return (-1);
+
+  cg = _cupsGlobals();
+
+  if (!cg->lang_default)
+    cg->lang_default = cupsLangDefault();
+
+ /*
+  * Format the string...
+  */
+
+  va_start(ap, message);
+  snprintf(temp, sizeof(temp), "%s: %s\n", prefix,
+	   _cupsLangString(cg->lang_default, message));
+  vsnprintf(buffer, sizeof(buffer), temp, ap);
+  va_end(ap);
+
+ /*
+  * Transcode to the destination charset...
+  */
+
+  bytes = cupsUTF8ToCharset(output, (cups_utf8_t *)buffer, sizeof(output),
+                            cg->lang_default->encoding);
+
+ /*
+  * Write the string and return the number of bytes written...
+  */
+
+  if (bytes > 0)
+    return ((int)fwrite(output, 1, bytes, fp));
+  else
+    return (bytes);
+}
+
+
+/*
  * '_cupsLangPrintf()' - Print a formatted message string to a file.
  */
 
 int					/* O - Number of bytes written */
-_cupsLangPrintf(FILE        *fp,	/* I - File to write to */
-	        const char  *message,	/* I - Message string to use */
+_cupsLangPrintf(FILE       *fp,		/* I - File to write to */
+		const char *message,	/* I - Message string to use */
 	        ...)			/* I - Additional arguments as needed */
 {
   int		bytes;			/* Number of bytes formatted */
@@ -121,9 +191,11 @@ _cupsLangPrintf(FILE        *fp,	/* I - File to write to */
   */
 
   va_start(ap, message);
-  vsnprintf(buffer, sizeof(buffer),
-            _cupsLangString(cg->lang_default, message), ap);
+  vsnprintf(buffer, sizeof(buffer) - 1,
+	    _cupsLangString(cg->lang_default, message), ap);
   va_end(ap);
+
+  strlcat(buffer, "\n", sizeof(buffer));
 
  /*
   * Transcode to the destination charset...
@@ -148,11 +220,11 @@ _cupsLangPrintf(FILE        *fp,	/* I - File to write to */
  */
 
 int					/* O - Number of bytes written */
-_cupsLangPuts(FILE        *fp,		/* I - File to write to */
-	      const char  *message)	/* I - Message string to use */
+_cupsLangPuts(FILE       *fp,		/* I - File to write to */
+              const char *message)	/* I - Message string to use */
 {
   int		bytes;			/* Number of bytes formatted */
-  char		output[2048];		/* Message buffer */
+  char		output[8192];		/* Message buffer */
   _cups_globals_t *cg;			/* Global data */
 
 
@@ -173,9 +245,12 @@ _cupsLangPuts(FILE        *fp,		/* I - File to write to */
   */
 
   bytes = cupsUTF8ToCharset(output,
-                            (cups_utf8_t *)_cupsLangString(cg->lang_default,
-			                                   message),
-			    sizeof(output), cg->lang_default->encoding);
+			    (cups_utf8_t *)_cupsLangString(cg->lang_default,
+							   message),
+			    sizeof(output) - 4, cg->lang_default->encoding);
+  bytes += cupsUTF8ToCharset(output + bytes, (cups_utf8_t *)"\n",
+                             sizeof(output) - bytes,
+			     cg->lang_default->encoding);
 
  /*
   * Write the string and return the number of bytes written...

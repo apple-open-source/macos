@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,18 +57,22 @@
  */
 
 #include <sys/types.h>
+#include <sys/param.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <netdb.h>
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
-#include <rpc/pmap_prot.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/pmap_clnt.h>
+#include <oncrpc/pmap_prot.h>
 #include <nfs/rpcv2.h>
 
+#include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -81,7 +85,7 @@
 struct mountlist *mntdump;
 TAILQ_HEAD(exportslisthead, exportslist) exports;
 int mounttype = MOUNTSHOWHOSTS;
-int rpcs = 0, mntvers = 1;
+int rpcs = 0, mntvers = 1, ipvers = 0;
 
 void	usage(void);
 int	xdr_mntdump(XDR *, struct mountlist **);
@@ -99,7 +103,7 @@ main(int argc, char *argv[])
 {
 	int ch, rv, do_browse = 0;
 
-	while ((ch = getopt(argc, argv, "Aade3")) != EOF)
+	while ((ch = getopt(argc, argv, "Aade36")) != EOF)
 		switch((char)ch) {
 		case 'A':
 			do_browse = 1;
@@ -122,6 +126,9 @@ main(int argc, char *argv[])
 		case '3':
 			mntvers = 3;
 			break;
+		case '6':
+			ipvers = 6;
+			break;
 		case '?':
 		default:
 			usage();
@@ -138,6 +145,88 @@ main(int argc, char *argv[])
 		rv = do_print((argc > 0) ? argv[0] : "localhost");
 
 	exit(rv);
+}
+
+/*
+ * Compare the addresses in two addrinfo structures.
+ */
+static int
+addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
+{
+	if (a1->ai_family != a2->ai_family)
+		return (a1->ai_family - a2->ai_family);
+	if (a1->ai_addrlen != a2->ai_addrlen)
+		return (a1->ai_addrlen - a2->ai_addrlen);
+	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
+}
+
+/*
+ * Resolve the given host name to a list of usable addresses
+ */
+int
+getaddresslist(const char *name, struct addrinfo **ailistp)
+{
+	struct addrinfo aihints, *ailist = NULL, *ai, *aiprev, *ainext, *aidiscard;
+	char namebuf[NI_MAXHOST];
+	const char *hostname;
+
+	hostname = name;
+	if ((hostname[0] == '[') && (hostname[strlen(hostname)-1] == ']')) {
+		/* Looks like an IPv6 literal in brackets */
+		strlcpy(namebuf, hostname+1, sizeof(namebuf));
+		namebuf[strlen(namebuf)-1] = '\0';
+		hostname = namebuf;
+	}
+
+	bzero(&aihints, sizeof(aihints));
+	aihints.ai_flags = AI_ADDRCONFIG;
+	if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
+		warnx("can't resolve host: %s", hostname);
+		return (ENOENT);
+        }
+
+	/* strip out addresses that don't match the options given */
+	aidiscard = NULL;
+	aiprev = NULL;
+
+	for (ai = ailist; ai; ai = ainext) {
+		ainext = ai->ai_next;
+
+		/* If ipvers is set, eliminate addresses that aren't of that IP version. */
+		if (ipvers) {
+			if ((ipvers == 6) && (ai->ai_family != AF_INET6))
+				goto discard;
+			if ((ipvers == 4) && (ai->ai_family != AF_INET))
+				goto discard;
+		}
+
+		/* eliminate unknown protocol families */
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+			goto discard;
+
+		/* Eliminate duplicate addresses with different socktypes. */
+		if (aiprev && (ai->ai_socktype != aiprev->ai_socktype) &&
+		    !addrinfo_cmp(aiprev, ai))
+			goto discard;
+
+		aiprev = ai;
+		continue;
+discard:
+		/* Add ai to the discard list */
+		if (aiprev)
+			aiprev->ai_next = ai->ai_next;
+		else
+			ailist = ai->ai_next;
+		ai->ai_next = aidiscard;
+		aidiscard = ai;
+	}
+
+	/* free up any discarded addresses */
+	if (aidiscard)
+		freeaddrinfo(aidiscard);
+
+	*ailistp = ailist;
+	return (0);
 }
 
 /*
@@ -169,10 +258,10 @@ xdr_mntdump(XDR *xdrsp, struct mountlist **mlp)
 		 * Build a binary tree on sorted order of either host or dirp.
 		 * Drop any duplications.
 		 */
-		if (*mlp == NULL) {
+		tp = *mlp;
+		if (tp == NULL) {
 			*mlp = mp;
 		} else {
-			tp = *mlp;
 			while (tp) {
 				val = strcmp(mp->ml_host, tp->ml_host);
 				val2 = strcmp(mp->ml_dirp, tp->ml_dirp);
@@ -262,7 +351,7 @@ xdr_exports(XDR *xdrsp, struct exportslisthead *exphead)
 void
 usage(void)
 {
-	fprintf(stderr, "usage: showmount [-Ae3] [-a|-d] host\n");
+	fprintf(stderr, "usage: showmount [-Ae36] [-a|-d] host\n");
 	exit(1);
 }
 
@@ -309,60 +398,83 @@ do_print(const char *host)
 {
 	struct exportslist *exp, *expnext;
 	struct grouplist *grp, *grpnext;
-	int estat;
-
+	int so, estat, success = 0;
 	CLIENT *clp;
-	struct hostent *hp;
-	struct sockaddr_in saddr;
 	struct timeval try;
-	int so = RPC_ANYSOCK;
+	struct addrinfo *ailist = NULL, *ai;
+	char *spcerr = NULL;
+	char *sperr = NULL;
+	char serr[MAXPATHLEN], *s;
+	size_t slen;
 
-	/* get the host address */
-	if ((hp = gethostbyname(host)) != NULL) {
-		memmove(&saddr.sin_addr, hp->h_addr, hp->h_length);
-	} else if (isdigit(*host) && ((saddr.sin_addr.s_addr = inet_addr(host)) != INADDR_NONE)) {
-		; /* it was an address */
-	} else {
-		fprintf(stderr, "can't get net id for host: %s\n", host);
+	/* get the list of addresses for the host */
+	if (getaddresslist(host, &ailist))
+		return (1);
+	if (!ailist) {
+		warnx("no usable addresses for host: %s", host);
 		return (1);
 	}
-	saddr.sin_family = AF_INET;
-	saddr.sin_port = 0;
-	try.tv_sec = 10;
-	try.tv_usec = 0;
 
-	clp = clnttcp_create(&saddr, RPCPROG_MNT, mntvers, &so, 0, 0);
-	if (clp == NULL)
-		clp = clntudp_create(&saddr, RPCPROG_MNT, mntvers, try, &so);
-	if (clp == NULL) {
-		char s[] = "Cannot MNT RPC";
-		clnt_pcreateerror(s);
-		fprintf(stderr, "can't connect socket for RPC\n");
+	/* try each address until we find one that works */
+	for (success=0, ai=ailist; !success && ai; ai=ai->ai_next) {
+
+		try.tv_sec = 10;
+		try.tv_usec = 0;
+		so = RPC_ANYSOCK;
+
+		/* Try to connect to TCP, otherwise fall back to UDP */
+		clp = clnttcp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, &so, 0, 0);
+		if (clp == NULL)
+			clp = clntudp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, try, &so);
+		if (clp == NULL) {
+			if (spcerr)
+				free(spcerr);
+			spcerr = strdup(clnt_spcreateerror(host));
+			continue;
+		}
+		clp->cl_auth = authunix_create_default();
+
+		if (rpcs & DODUMP) {
+			estat = clnt_call(clp, RPCMNT_DUMP, (xdrproc_t)xdr_void, NULL,
+						(xdrproc_t)xdr_mntdump, &mntdump, try);
+			if (estat != 0) {
+				if (sperr)
+					free(sperr);
+				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
+				sperr = strdup(clnt_sperror(clp, serr));
+			} else {
+				success++;
+			}
+		}
+		if (rpcs & DOEXPORTS) {
+			estat = clnt_call(clp, RPCMNT_EXPORT, (xdrproc_t)xdr_void, NULL,
+						(xdrproc_t)xdr_exports, &exports, try);
+			if (estat != 0) {
+				if (sperr)
+					free(sperr);
+				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
+				sperr = strdup(clnt_sperror(clp, serr));
+			} else {
+				success++;
+			}
+		}
+		auth_destroy(clp->cl_auth);
+		clnt_destroy(clp);
+	}
+
+	if (!success) {
+		s = sperr ? sperr : spcerr;
+		if (s) {
+			slen = strlen(s);
+			if ((slen > 0) && (s[slen-1] == '\n'))
+				s[slen-1] = '\0';
+		}
+		warnx("Cannot retrieve info from host: %s", s ? s : host);
+		if (spcerr)
+			free(spcerr);
+		if (sperr)
+			free(sperr);
 		return (1);
-	}
-	clp->cl_auth = authunix_create_default();
-
-	if (rpcs & DODUMP) {
-		estat = clnt_call(clp, RPCMNT_DUMP, (xdrproc_t)xdr_void, NULL,
-					(xdrproc_t)xdr_mntdump, &mntdump, try);
-		if (estat != 0) {
-			clnt_perrno(estat);
-			fprintf(stderr, ": Can't do Mountdump rpc\n");
-			auth_destroy(clp->cl_auth);
-			clnt_destroy(clp);
-			return (1);
-		}
-	}
-	if (rpcs & DOEXPORTS) {
-		estat = clnt_call(clp, RPCMNT_EXPORT, (xdrproc_t)xdr_void, NULL,
-					(xdrproc_t)xdr_exports, &exports, try);
-		if (estat != 0) {
-			clnt_perrno(estat);
-			fprintf(stderr, ": Can't do Exports rpc\n");
-			auth_destroy(clp->cl_auth);
-			clnt_destroy(clp);
-			return (1);
-		}
 	}
 
 	/* Now just print out the results */
@@ -398,7 +510,9 @@ do_print(const char *host)
 		}
 	}
 
-	auth_destroy(clp->cl_auth);
-	clnt_destroy(clp);
+	if (spcerr)
+		free(spcerr);
+	if (sperr)
+		free(sperr);
 	return (0);
 }

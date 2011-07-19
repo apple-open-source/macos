@@ -2,6 +2,7 @@
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *  Copyright (C) 2008, 2009 Torch Mobile, Inc. All rights reserved.
+ *  Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -38,6 +39,7 @@
 #include <limits.h>
 #include <locale.h>
 #include <math.h>
+#include <stdlib.h>
 #include <time.h>
 #include <wtf/Assertions.h>
 #include <wtf/DateMath.h>
@@ -71,52 +73,51 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(DatePrototype);
 
-static JSValue JSC_HOST_CALL dateProtoFuncGetDate(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetDay(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetFullYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetHours(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetMilliSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetMinutes(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetMonth(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetTime(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetTimezoneOffset(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCDate(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCDay(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCFullYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCHours(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCMilliseconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCMinutes(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCMonth(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetUTCSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncGetYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetDate(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetFullYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetHours(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetMilliSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetMinutes(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetMonth(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetTime(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCDate(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCFullYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCHours(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCMilliseconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCMinutes(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCMonth(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetUTCSeconds(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncSetYear(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToDateString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToGMTString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToLocaleDateString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToLocaleString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToLocaleTimeString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState*, JSObject*, JSValue, const ArgList&);
-
-static JSValue JSC_HOST_CALL dateProtoFuncToJSON(ExecState*, JSObject*, JSValue, const ArgList&);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetDate(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetDay(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetFullYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetHours(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMilliSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMinutes(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMonth(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetTime(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetTimezoneOffset(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCDate(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCDay(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCFullYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCHours(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMilliseconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMinutes(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMonth(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncGetYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetDate(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetFullYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetHours(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMilliSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMinutes(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMonth(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetTime(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCDate(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCFullYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCHours(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMilliseconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMinutes(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMonth(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCSeconds(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncSetYear(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToDateString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToGMTString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleDateString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleTimeString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateProtoFuncToJSON(ExecState*);
 
 }
 
@@ -129,7 +130,7 @@ enum LocaleDateTimeFormat { LocaleDateAndTime, LocaleDate, LocaleTime };
 #if PLATFORM(MAC)
 
 // FIXME: Since this is superior to the strftime-based version, why limit this to PLATFORM(MAC)?
-// Instead we should consider using this whenever PLATFORM(CF) is true.
+// Instead we should consider using this whenever USE(CF) is true.
 
 static CFDateFormatterStyle styleFromArgString(const UString& string, CFDateFormatterStyle defaultStyle)
 {
@@ -144,7 +145,7 @@ static CFDateFormatterStyle styleFromArgString(const UString& string, CFDateForm
     return defaultStyle;
 }
 
-static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMilliseconds, LocaleDateTimeFormat format, const ArgList& args)
+static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMilliseconds, LocaleDateTimeFormat format)
 {
     CFDateFormatterStyle dateStyle = (format != LocaleTime ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
     CFDateFormatterStyle timeStyle = (format != LocaleDate ? kCFDateFormatterLongStyle : kCFDateFormatterNoStyle);
@@ -152,16 +153,16 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMil
     bool useCustomFormat = false;
     UString customFormatString;
 
-    UString arg0String = args.at(0).toString(exec);
-    if (arg0String == "custom" && !args.at(1).isUndefined()) {
+    UString arg0String = exec->argument(0).toString(exec);
+    if (arg0String == "custom" && !exec->argument(1).isUndefined()) {
         useCustomFormat = true;
-        customFormatString = args.at(1).toString(exec);
-    } else if (format == LocaleDateAndTime && !args.at(1).isUndefined()) {
+        customFormatString = exec->argument(1).toString(exec);
+    } else if (format == LocaleDateAndTime && !exec->argument(1).isUndefined()) {
         dateStyle = styleFromArgString(arg0String, dateStyle);
-        timeStyle = styleFromArgString(args.at(1).toString(exec), timeStyle);
-    } else if (format != LocaleTime && !args.at(0).isUndefined())
+        timeStyle = styleFromArgString(exec->argument(1).toString(exec), timeStyle);
+    } else if (format != LocaleTime && !exec->argument(0).isUndefined())
         dateStyle = styleFromArgString(arg0String, dateStyle);
-    else if (format != LocaleDate && !args.at(0).isUndefined())
+    else if (format != LocaleDate && !exec->argument(0).isUndefined())
         timeStyle = styleFromArgString(arg0String, timeStyle);
 
     CFLocaleRef locale = CFLocaleCopyCurrent();
@@ -169,7 +170,7 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMil
     CFRelease(locale);
 
     if (useCustomFormat) {
-        CFStringRef customFormatCFString = CFStringCreateWithCharacters(0, customFormatString.data(), customFormatString.size());
+        CFStringRef customFormatCFString = CFStringCreateWithCharacters(0, customFormatString.characters(), customFormatString.length());
         CFDateFormatterSetFormat(formatter, customFormatCFString);
         CFRelease(customFormatCFString);
     }
@@ -181,7 +182,7 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMil
     // We truncate the string returned from CFDateFormatter if it's absurdly long (> 200 characters).
     // That's not great error handling, but it just won't happen so it doesn't matter.
     UChar buffer[200];
-    const size_t bufferLength = sizeof(buffer) / sizeof(buffer[0]);
+    const size_t bufferLength = WTF_ARRAY_LENGTH(buffer);
     size_t length = CFStringGetLength(string);
     ASSERT(length <= bufferLength);
     if (length > bufferLength)
@@ -248,11 +249,31 @@ static JSCell* formatLocaleDate(ExecState* exec, const GregorianDateTime& gdt, L
  
         strncpy(yearLocation, yearString, yearLen - 1);
     }
- 
+
+    // Convert multi-byte result to UNICODE.
+    // If __STDC_ISO_10646__ is defined, wide character represents
+    // UTF-16 (or UTF-32) code point. In most modern Unix like system
+    // (e.g. Linux with glibc 2.2 and above) the macro is defined,
+    // and wide character represents UTF-32 code point.
+    // Here we static_cast potential UTF-32 to UTF-16, it should be
+    // safe because date and (or) time related characters in different languages
+    // should be in UNICODE BMP. If mbstowcs fails, we just fall
+    // back on using multi-byte result as-is.
+#ifdef __STDC_ISO_10646__
+    UChar buffer[bufsize];
+    wchar_t tempbuffer[bufsize];
+    size_t length = mbstowcs(tempbuffer, timebuffer, bufsize - 1);
+    if (length != static_cast<size_t>(-1)) {
+        for (size_t i = 0; i < length; ++i)
+            buffer[i] = static_cast<UChar>(tempbuffer[i]);
+        return jsNontrivialString(exec, UString(buffer, length));
+    }
+#endif
+
     return jsNontrivialString(exec, timebuffer);
 }
 
-static JSCell* formatLocaleDate(ExecState* exec, DateInstance* dateObject, double, LocaleDateTimeFormat format, const ArgList&)
+static JSCell* formatLocaleDate(ExecState* exec, DateInstance* dateObject, double, LocaleDateTimeFormat format)
 {
     const GregorianDateTime* gregorianDateTime = dateObject->gregorianDateTime(exec);
     if (!gregorianDateTime)
@@ -266,12 +287,12 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance* dateObject, doubl
 // ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
 //
 // Format of member function: f([hour,] [min,] [sec,] [ms])
-static bool fillStructuresUsingTimeArgs(ExecState* exec, const ArgList& args, int maxArgs, double* ms, GregorianDateTime* t)
+static bool fillStructuresUsingTimeArgs(ExecState* exec, int maxArgs, double* ms, GregorianDateTime* t)
 {
     double milliseconds = 0;
     bool ok = true;
     int idx = 0;
-    int numArgs = args.size();
+    int numArgs = exec->argumentCount();
     
     // JS allows extra trailing arguments -- ignore them
     if (numArgs > maxArgs)
@@ -280,19 +301,25 @@ static bool fillStructuresUsingTimeArgs(ExecState* exec, const ArgList& args, in
     // hours
     if (maxArgs >= 4 && idx < numArgs) {
         t->hour = 0;
-        milliseconds += args.at(idx++).toInt32(exec, ok) * msPerHour;
+        double hours = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(hours);
+        milliseconds += hours * msPerHour;
     }
 
     // minutes
     if (maxArgs >= 3 && idx < numArgs && ok) {
         t->minute = 0;
-        milliseconds += args.at(idx++).toInt32(exec, ok) * msPerMinute;
+        double minutes = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(minutes);
+        milliseconds += minutes * msPerMinute;
     }
     
     // seconds
     if (maxArgs >= 2 && idx < numArgs && ok) {
         t->second = 0;
-        milliseconds += args.at(idx++).toInt32(exec, ok) * msPerSecond;
+        double seconds = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(seconds);
+        milliseconds += seconds * msPerSecond;
     }
     
     if (!ok)
@@ -300,7 +327,7 @@ static bool fillStructuresUsingTimeArgs(ExecState* exec, const ArgList& args, in
         
     // milliseconds
     if (idx < numArgs) {
-        double millis = args.at(idx).toNumber(exec);
+        double millis = exec->argument(idx).toIntegerPreserveNaN(exec);
         ok = isfinite(millis);
         milliseconds += millis;
     } else
@@ -314,34 +341,40 @@ static bool fillStructuresUsingTimeArgs(ExecState* exec, const ArgList& args, in
 // ms (representing milliseconds) and t (representing the rest of the date structure) appropriately.
 //
 // Format of member function: f([years,] [months,] [days])
-static bool fillStructuresUsingDateArgs(ExecState *exec, const ArgList& args, int maxArgs, double *ms, GregorianDateTime *t)
+static bool fillStructuresUsingDateArgs(ExecState *exec, int maxArgs, double *ms, GregorianDateTime *t)
 {
     int idx = 0;
     bool ok = true;
-    int numArgs = args.size();
+    int numArgs = exec->argumentCount();
   
     // JS allows extra trailing arguments -- ignore them
     if (numArgs > maxArgs)
         numArgs = maxArgs;
   
     // years
-    if (maxArgs >= 3 && idx < numArgs)
-        t->year = args.at(idx++).toInt32(exec, ok) - 1900;
-    
+    if (maxArgs >= 3 && idx < numArgs) {
+        double years = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(years);
+        t->year = toInt32(years - 1900);
+    }
     // months
-    if (maxArgs >= 2 && idx < numArgs && ok)   
-        t->month = args.at(idx++).toInt32(exec, ok);
-    
+    if (maxArgs >= 2 && idx < numArgs && ok) {
+        double months = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(months);
+        t->month = toInt32(months);
+    }
     // days
-    if (idx < numArgs && ok) {   
+    if (idx < numArgs && ok) {
+        double days = exec->argument(idx++).toIntegerPreserveNaN(exec);
+        ok = isfinite(days);
         t->monthDay = 0;
-        *ms += args.at(idx).toInt32(exec, ok) * msPerDay;
+        *ms += days * msPerDay;
     }
     
     return ok;
 }
 
-const ClassInfo DatePrototype::info = {"Date", &DateInstance::info, 0, ExecState::dateTable};
+const ClassInfo DatePrototype::s_info = {"Date", &DateInstance::s_info, 0, ExecState::dateTable};
 
 /* Source for DatePrototype.lut.h
 @begin dateTable
@@ -390,16 +423,19 @@ const ClassInfo DatePrototype::info = {"Date", &DateInstance::info, 0, ExecState
   setUTCFullYear        dateProtoFuncSetUTCFullYear          DontEnum|Function       3
   setYear               dateProtoFuncSetYear                 DontEnum|Function       1
   getYear               dateProtoFuncGetYear                 DontEnum|Function       0
-  toJSON                dateProtoFuncToJSON                  DontEnum|Function       0
+  toJSON                dateProtoFuncToJSON                  DontEnum|Function       1
 @end
 */
 
 // ECMA 15.9.4
 
-DatePrototype::DatePrototype(ExecState* exec, NonNullPassRefPtr<Structure> structure)
+DatePrototype::DatePrototype(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
     : DateInstance(exec, structure)
 {
+    ASSERT(inherits(&s_info));
+
     // The constructor will be added later, after DateConstructor has been built.
+    putAnonymousValue(exec->globalData(), 0, globalObject);
 }
 
 bool DatePrototype::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -415,390 +451,419 @@ bool DatePrototype::getOwnPropertyDescriptor(ExecState* exec, const Identifier& 
 
 // Functions
 
-JSValue JSC_HOST_CALL dateProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     DateConversionBuffer date;
     DateConversionBuffer time;
     formatDate(*gregorianDateTime, date);
     formatTime(*gregorianDateTime, time);
-    return jsMakeNontrivialString(exec, date, " ", time);
+    return JSValue::encode(jsMakeNontrivialString(exec, date, " ", time));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToUTCString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     DateConversionBuffer date;
     DateConversionBuffer time;
     formatDateUTCVariant(*gregorianDateTime, date);
     formatTimeUTC(*gregorianDateTime, time);
-    return jsMakeNontrivialString(exec, date, " ", time);
+    return JSValue::encode(jsMakeNontrivialString(exec, date, " ", time));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
     
     DateInstance* thisDateObj = asDateInstance(thisValue); 
     
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     // Maximum amount of space we need in buffer: 6 (max. digits in year) + 2 * 5 (2 characters each for month, day, hour, minute, second) + 4 (. + 3 digits for milliseconds)
     // 6 for formatting and one for null termination = 27.  We add one extra character to allow us to force null termination.
     char buffer[28];
     snprintf(buffer, sizeof(buffer) - 1, "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", 1900 + gregorianDateTime->year, gregorianDateTime->month + 1, gregorianDateTime->monthDay, gregorianDateTime->hour, gregorianDateTime->minute, gregorianDateTime->second, static_cast<int>(fmod(thisDateObj->internalNumber(), 1000)));
     buffer[sizeof(buffer) - 1] = 0;
-    return jsNontrivialString(exec, buffer);
+    return JSValue::encode(jsNontrivialString(exec, buffer));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToDateString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToDateString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     DateConversionBuffer date;
     formatDate(*gregorianDateTime, date);
-    return jsNontrivialString(exec, date);
+    return JSValue::encode(jsNontrivialString(exec, date));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToTimeString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     DateConversionBuffer time;
     formatTime(*gregorianDateTime, time);
-    return jsNontrivialString(exec, time);
+    return JSValue::encode(jsNontrivialString(exec, time));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToLocaleString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
-    return formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleDateAndTime, args);
+    return JSValue::encode(formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleDateAndTime));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToLocaleDateString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleDateString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
-    return formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleDate, args);
+    return JSValue::encode(formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleDate));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToLocaleTimeString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToLocaleTimeString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
-    return formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleTime, args);
+    return JSValue::encode(formatLocaleDate(exec, thisDateObj, thisDateObj->internalNumber(), LocaleTime));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetTime(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetTime(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
-    return asDateInstance(thisValue)->internalValue(); 
+    return JSValue::encode(asDateInstance(thisValue)->internalValue());
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetFullYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetFullYear(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, 1900 + gregorianDateTime->year);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(1900 + gregorianDateTime->year));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCFullYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCFullYear(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, 1900 + gregorianDateTime->year);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(1900 + gregorianDateTime->year));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToGMTString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToGMTString(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNontrivialString(exec, "Invalid Date");
+        return JSValue::encode(jsNontrivialString(exec, "Invalid Date"));
     DateConversionBuffer date;
     DateConversionBuffer time;
     formatDateUTCVariant(*gregorianDateTime, date);
     formatTimeUTC(*gregorianDateTime, time);
-    return jsMakeNontrivialString(exec, date, " ", time);
+    return JSValue::encode(jsMakeNontrivialString(exec, date, " ", time));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetMonth(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMonth(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->month);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->month));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCMonth(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMonth(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->month);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->month));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetDate(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetDate(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->monthDay);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->monthDay));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCDate(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCDate(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->monthDay);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->monthDay));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetDay(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetDay(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->weekDay);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->weekDay));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCDay(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCDay(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->weekDay);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->weekDay));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetHours(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetHours(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->hour);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->hour));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCHours(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCHours(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->hour);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->hour));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetMinutes(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMinutes(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->minute);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->minute));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCMinutes(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMinutes(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->minute);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->minute));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetSeconds(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->second);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->second));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCSeconds(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTimeUTC(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, gregorianDateTime->second);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(gregorianDateTime->second));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetMilliSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetMilliSeconds(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
     double milli = thisDateObj->internalNumber();
     if (isnan(milli))
-        return jsNaN(exec);
+        return JSValue::encode(jsNaN());
 
     double secs = floor(milli / msPerSecond);
     double ms = milli - secs * msPerSecond;
-    return jsNumber(exec, ms);
+    return JSValue::encode(jsNumber(ms));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetUTCMilliseconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetUTCMilliseconds(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
     double milli = thisDateObj->internalNumber();
     if (isnan(milli))
-        return jsNaN(exec);
+        return JSValue::encode(jsNaN());
 
     double secs = floor(milli / msPerSecond);
     double ms = milli - secs * msPerSecond;
-    return jsNumber(exec, ms);
+    return JSValue::encode(jsNumber(ms));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetTimezoneOffset(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetTimezoneOffset(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
-    return jsNumber(exec, -gregorianDateTime->utcOffset / minutesPerHour);
+        return JSValue::encode(jsNaN());
+    return JSValue::encode(jsNumber(-gregorianDateTime->utcOffset / minutesPerHour));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetTime(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetTime(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
-    double milli = timeClip(args.at(0).toNumber(exec));
-    JSValue result = jsNumber(exec, milli);
-    thisDateObj->setInternalValue(result);
-    return result;
+    double milli = timeClip(exec->argument(0).toNumber(exec));
+    JSValue result = jsNumber(milli);
+    thisDateObj->setInternalValue(exec->globalData(), result);
+    return JSValue::encode(result);
 }
 
-static JSValue setNewValueFromTimeArgs(ExecState* exec, JSValue thisValue, const ArgList& args, int numArgsToUse, bool inputIsUTC)
+static EncodedJSValue setNewValueFromTimeArgs(ExecState* exec, int numArgsToUse, bool inputIsUTC)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue);
     double milli = thisDateObj->internalNumber();
     
-    if (args.isEmpty() || isnan(milli)) {
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    if (!exec->argumentCount() || isnan(milli)) {
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     }
      
     double secs = floor(milli / msPerSecond);
@@ -808,31 +873,32 @@ static JSValue setNewValueFromTimeArgs(ExecState* exec, JSValue thisValue, const
         ? thisDateObj->gregorianDateTimeUTC(exec)
         : thisDateObj->gregorianDateTime(exec);
     if (!other)
-        return jsNaN(exec);
+        return JSValue::encode(jsNaN());
 
     GregorianDateTime gregorianDateTime;
     gregorianDateTime.copyFrom(*other);
-    if (!fillStructuresUsingTimeArgs(exec, args, numArgsToUse, &ms, &gregorianDateTime)) {
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    if (!fillStructuresUsingTimeArgs(exec, numArgsToUse, &ms, &gregorianDateTime)) {
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     } 
     
-    JSValue result = jsNumber(exec, gregorianDateTimeToMS(exec, gregorianDateTime, ms, inputIsUTC));
-    thisDateObj->setInternalValue(result);
-    return result;
+    JSValue result = jsNumber(gregorianDateTimeToMS(exec, gregorianDateTime, ms, inputIsUTC));
+    thisDateObj->setInternalValue(exec->globalData(), result);
+    return JSValue::encode(result);
 }
 
-static JSValue setNewValueFromDateArgs(ExecState* exec, JSValue thisValue, const ArgList& args, int numArgsToUse, bool inputIsUTC)
+static EncodedJSValue setNewValueFromDateArgs(ExecState* exec, int numArgsToUse, bool inputIsUTC)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue);
-    if (args.isEmpty()) {
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    if (!exec->argumentCount()) {
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     }      
     
     double milli = thisDateObj->internalNumber();
@@ -847,115 +913,116 @@ static JSValue setNewValueFromDateArgs(ExecState* exec, JSValue thisValue, const
             ? thisDateObj->gregorianDateTimeUTC(exec)
             : thisDateObj->gregorianDateTime(exec);
         if (!other)
-            return jsNaN(exec);
+            return JSValue::encode(jsNaN());
         gregorianDateTime.copyFrom(*other);
     }
     
-    if (!fillStructuresUsingDateArgs(exec, args, numArgsToUse, &ms, &gregorianDateTime)) {
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    if (!fillStructuresUsingDateArgs(exec, numArgsToUse, &ms, &gregorianDateTime)) {
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     } 
            
-    JSValue result = jsNumber(exec, gregorianDateTimeToMS(exec, gregorianDateTime, ms, inputIsUTC));
-    thisDateObj->setInternalValue(result);
-    return result;
+    JSValue result = jsNumber(gregorianDateTimeToMS(exec, gregorianDateTime, ms, inputIsUTC));
+    thisDateObj->setInternalValue(exec->globalData(), result);
+    return JSValue::encode(result);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetMilliSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMilliSeconds(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 1, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 1, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCMilliseconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMilliseconds(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 1, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 1, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetSeconds(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 2, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 2, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCSeconds(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCSeconds(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 2, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 2, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetMinutes(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMinutes(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 3, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 3, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCMinutes(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMinutes(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 3, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 3, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetHours(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetHours(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 4, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 4, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCHours(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCHours(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromTimeArgs(exec, thisValue, args, 4, inputIsUTC);
+    return setNewValueFromTimeArgs(exec, 4, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetDate(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetDate(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromDateArgs(exec, thisValue, args, 1, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 1, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCDate(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCDate(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromDateArgs(exec, thisValue, args, 1, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 1, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetMonth(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetMonth(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromDateArgs(exec, thisValue, args, 2, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 2, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCMonth(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCMonth(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromDateArgs(exec, thisValue, args, 2, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 2, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetFullYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetFullYear(ExecState* exec)
 {
     const bool inputIsUTC = false;
-    return setNewValueFromDateArgs(exec, thisValue, args, 3, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 3, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetUTCFullYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetUTCFullYear(ExecState* exec)
 {
     const bool inputIsUTC = true;
-    return setNewValueFromDateArgs(exec, thisValue, args, 3, inputIsUTC);
+    return setNewValueFromDateArgs(exec, 3, inputIsUTC);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncSetYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncSetYear(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue);     
-    if (args.isEmpty()) { 
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    if (!exec->argumentCount()) { 
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     }
     
     double milli = thisDateObj->internalNumber();
@@ -973,56 +1040,57 @@ JSValue JSC_HOST_CALL dateProtoFuncSetYear(ExecState* exec, JSObject*, JSValue t
             gregorianDateTime.copyFrom(*other);
     }
     
-    bool ok = true;
-    int32_t year = args.at(0).toInt32(exec, ok);
-    if (!ok) {
-        JSValue result = jsNaN(exec);
-        thisDateObj->setInternalValue(result);
-        return result;
+    double year = exec->argument(0).toIntegerPreserveNaN(exec);
+    if (!isfinite(year)) {
+        JSValue result = jsNaN();
+        thisDateObj->setInternalValue(exec->globalData(), result);
+        return JSValue::encode(result);
     }
             
-    gregorianDateTime.year = (year > 99 || year < 0) ? year - 1900 : year;
-    JSValue result = jsNumber(exec, gregorianDateTimeToMS(exec, gregorianDateTime, ms, false));
-    thisDateObj->setInternalValue(result);
-    return result;
+    gregorianDateTime.year = toInt32((year > 99 || year < 0) ? year - 1900 : year);
+    JSValue result = jsNumber(gregorianDateTimeToMS(exec, gregorianDateTime, ms, false));
+    thisDateObj->setInternalValue(exec->globalData(), result);
+    return JSValue::encode(result);
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncGetYear(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncGetYear(ExecState* exec)
 {
-    if (!thisValue.inherits(&DateInstance::info))
-        return throwError(exec, TypeError);
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&DateInstance::s_info))
+        return throwVMTypeError(exec);
 
     DateInstance* thisDateObj = asDateInstance(thisValue); 
 
     const GregorianDateTime* gregorianDateTime = thisDateObj->gregorianDateTime(exec);
     if (!gregorianDateTime)
-        return jsNaN(exec);
+        return JSValue::encode(jsNaN());
 
     // NOTE: IE returns the full year even in getYear.
-    return jsNumber(exec, gregorianDateTime->year);
+    return JSValue::encode(jsNumber(gregorianDateTime->year));
 }
 
-JSValue JSC_HOST_CALL dateProtoFuncToJSON(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
+EncodedJSValue JSC_HOST_CALL dateProtoFuncToJSON(ExecState* exec)
 {
+    JSValue thisValue = exec->hostThisValue();
     JSObject* object = thisValue.toThisObject(exec);
     if (exec->hadException())
-        return jsNull();
+        return JSValue::encode(jsNull());
     
     JSValue toISOValue = object->get(exec, exec->globalData().propertyNames->toISOString);
     if (exec->hadException())
-        return jsNull();
+        return JSValue::encode(jsNull());
 
     CallData callData;
-    CallType callType = toISOValue.getCallData(callData);
+    CallType callType = getCallData(toISOValue, callData);
     if (callType == CallTypeNone)
-        return throwError(exec, TypeError, "toISOString is not a function");
+        return throwVMError(exec, createTypeError(exec, "toISOString is not a function"));
 
     JSValue result = call(exec, asObject(toISOValue), callType, callData, object, exec->emptyList());
     if (exec->hadException())
-        return jsNull();
+        return JSValue::encode(jsNull());
     if (result.isObject())
-        return throwError(exec, TypeError, "toISOString did not return a primitive value");
-    return result;
+        return throwVMError(exec, createTypeError(exec, "toISOString did not return a primitive value"));
+    return JSValue::encode(result);
 }
 
 } // namespace JSC

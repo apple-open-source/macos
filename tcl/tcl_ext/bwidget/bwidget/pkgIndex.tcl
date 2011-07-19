@@ -1,8 +1,15 @@
+# ----------------------------------------------------------------------------
+#  pkgIndex.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: pkgIndex.tcl,v 1.21 2009/10/25 20:55:36 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+
 if {[catch {package require Tcl}]} return
-package ifneeded BWidget 1.8 "\
+package ifneeded BWidget 1.9.1 "\
     package require Tk 8.1.1;\
-    [list tclPkgSetup $dir BWidget 1.8 {
+    [list tclPkgSetup $dir BWidget 1.9.1 {
 {arrow.tcl source {ArrowButton ArrowButton::create ArrowButton::use}}
+{frame.tcl source {Frame Frame::create Frame::use}}
 {labelframe.tcl source {LabelFrame LabelFrame::create LabelFrame::use}}
 {labelentry.tcl source {LabelEntry LabelEntry::create LabelEntry::use}}
 {bitmap.tcl source {Bitmap::get Bitmap::use}}
@@ -42,6 +49,7 @@ package ifneeded BWidget 1.8 "\
 	[list namespace eval ::BWIDGET {}]; \
 	[list set ::BWIDGET::LIBRARY $dir]; \
     [list source [file join $dir widget.tcl]]; \
-    [list source [file join $dir init.tcl]]; \
     [list source [file join $dir utils.tcl]]; \
+    [list source [file join $dir themeutils.tcl]]; \
+    [list source [file join $dir init.tcl]]; \
 "

@@ -141,13 +141,11 @@ public:
 public:
 	// set up a new connection
 	enum ConnectLevel {
-		connectNewSession,
 		connectNewProcess,
 		connectNewThread
 	};
-	void setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
-        const audit_token_t &auditToken,
-		const ClientSetupInfo *info = NULL, const char *executablePath = NULL);
+	void setupConnection(ConnectLevel type, Port replyPort, Port taskPort, const audit_token_t &auditToken,
+		const ClientSetupInfo *info = NULL);
 		
 	void endConnection(Port replyPort);
 	
@@ -219,9 +217,6 @@ private:
     
 	Authority &mAuthority;
 	CodeSignatures &mCodeSignatures;
-    
-    // Per-process audit initialization
-    CommonCriteria::AuditSession mAudit;
 	
 	// busy state for primary state authority
 	unsigned int mVerbosity;

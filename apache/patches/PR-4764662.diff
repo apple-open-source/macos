@@ -1,6 +1,6 @@
 --- support/apxs.in.orig	2008-04-16 14:11:51.000000000 -0700
 +++ support/apxs.in	2008-04-16 14:12:03.000000000 -0700
-@@ -196,7 +196,7 @@
+@@ -195,7 +195,7 @@
  
  #allow apxs to be run from the source tree, before installation
  if ($0 =~ m:support/apxs$:) {

@@ -1138,7 +1138,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1187,7 +1186,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1233,7 +1231,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1279,7 +1276,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				BUILD_SETTING = "";
@@ -1317,7 +1313,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1340,7 +1335,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.2.6;
+				MODULE_VERSION = 4.4.3;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1374,7 +1369,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1394,7 +1388,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.2.6;
+				MODULE_VERSION = 4.4.3;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=0",
 					"-DIOFIREWIREUSERCLIENTDEBUG=0",
@@ -1428,7 +1422,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1449,7 +1442,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.2.6;
+				MODULE_VERSION = 4.4.3;
 				OTHER_CFLAGS = (
 					"-DIOFIREWIREDEBUG=1",
 					"-DIOFIREWIREUSERCLIENTDEBUG=1",
@@ -1482,7 +1475,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -1501,7 +1493,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireFamily;
-				MODULE_VERSION = 4.2.6;
+				MODULE_VERSION = 4.4.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

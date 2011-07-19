@@ -1,8 +1,8 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$35|typedef struct Bar *SimpleTypeDef;
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$35|typedef struct Bar *SimpleTypeDef;
 $74|/*!     @typedef SimpleTypeDef
     @discussion Test of simple typedef.
 */
-$0|$5858|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$5956|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -41,6 +41,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 2
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -94,6 +95,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
@@ -174,8 +176,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -216,8 +218,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
 +---typedef
@@ -237,12 +239,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/econst/Bar //test_ref/c/struct/Bar //test_ref/c/clconst/Bar //test_ref/c/intf/Bar" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/struct/Bar //test_ref/c/intf/Bar //test_ref/doc/anysymbol/Bar" machineGenerated="true" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef //test_ref/c/clconst/SimpleTypeDef " machineGenerated="true" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
 END OF OBJECT
 
 
 
-$5858|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$5956|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -281,6 +283,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 2
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -334,6 +337,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => typedef
@@ -414,8 +418,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -456,8 +460,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
 +---typedef
@@ -477,489 +481,9 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/econst/Bar //test_ref/c/struct/Bar //test_ref/c/clconst/Bar //test_ref/c/intf/Bar" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/struct/Bar //test_ref/c/intf/Bar //test_ref/doc/anysymbol/Bar" machineGenerated="true" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef //test_ref/c/clconst/SimpleTypeDef " machineGenerated="true" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
 END OF OBJECT
 
 
 
-_$37|testsuite/parser_tests/typedef_1.test$1|C$9|typedef 1$5858|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => struct
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 2
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => SimpleTypeDef;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => Bar
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 4
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef struct
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => typedef struct Bar *
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} =>  struct Bar *SimpleTypeDef;
-
-$parserState->{simpleTypedef} => 1
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: typedef
-namelist: SimpleTypeDef
-posstypes: 
-value: 
-returntype: typedef struct Bar *
-pridec: 
-simpleTDcontents: struct Bar *
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---struct
-+--- 
-+---Bar
-+--- 
-+---*
-+---SimpleTypeDef
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 1
-APIUID: //test_ref/doc/header/typedef_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: SimpleTypeDef
-    APIUID: //test_ref/c/tdef/SimpleTypeDef
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of simple typedef.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---struct
-+--- 
-+---Bar
-+--- 
-+---*
-+---SimpleTypeDef
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/econst/Bar //test_ref/c/struct/Bar //test_ref/c/clconst/Bar //test_ref/c/intf/Bar" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
-END OF OBJECT
-
-
-
-$5858|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => struct
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 1
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 2
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inTypedef} => 1
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => SimpleTypeDef;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => Bar
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 4
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  typedef struct
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => typedef struct Bar *
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} =>  struct Bar *SimpleTypeDef;
-
-$parserState->{simpleTypedef} => 1
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => typedef
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: typedef
-namelist: SimpleTypeDef
-posstypes: 
-value: 
-returntype: typedef struct Bar *
-pridec: 
-simpleTDcontents: struct Bar *
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---typedef
-+--- 
-+---struct
-+--- 
-+---Bar
-+--- 
-+---*
-+---SimpleTypeDef
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 1
-APIUID: //test_ref/doc/header/typedef_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: SimpleTypeDef
-    APIUID: //test_ref/c/tdef/SimpleTypeDef
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of simple typedef.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---struct
-+--- 
-+---Bar
-+--- 
-+---*
-+---SimpleTypeDef
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: SimpleTypeDef (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/Bar //test_ref/c/tdef/Bar //test_ref/c/tag/Bar //test_ref/c/econst/Bar //test_ref/c/struct/Bar //test_ref/c/clconst/Bar //test_ref/c/intf/Bar" --><span class="type">Bar</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/SimpleTypeDef //test_ref/c/data/SimpleTypeDef" --><span class="var">SimpleTypeDef</span><!-- /a -->;  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$91|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/typedef_1.test$1|C$9|typedef 1$1|C$6|parser

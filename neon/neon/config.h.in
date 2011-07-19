@@ -63,6 +63,12 @@
 /* Define if GnuTLS support is enabled */
 #undef HAVE_GNUTLS
 
+/* Define to 1 if you have the `gnutls_certificate_get_x509_cas' function. */
+#undef HAVE_GNUTLS_CERTIFICATE_GET_X509_CAS
+
+/* Define to 1 if you have the `gnutls_certificate_verify_peers2' function. */
+#undef HAVE_GNUTLS_CERTIFICATE_VERIFY_PEERS2
+
 /* Define to 1 if you have the `gnutls_session_get_data2' function. */
 #undef HAVE_GNUTLS_SESSION_GET_DATA2
 
@@ -99,6 +105,9 @@
 /* Define to 1 if you have the `inet_ntop' function. */
 #undef HAVE_INET_NTOP
 
+/* Define to 1 if you have the `inet_pton' function. */
+#undef HAVE_INET_PTON
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
@@ -107,6 +116,9 @@
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
+
+/* Define if libproxy is supported */
+#undef HAVE_LIBPROXY
 
 /* Define if you have libxml */
 #undef HAVE_LIBXML
@@ -137,6 +149,9 @@
 
 /* Define to 1 if you have the <netinet/tcp.h> header file. */
 #undef HAVE_NETINET_TCP_H
+
+/* Define if NTLM is supported */
+#undef HAVE_NTLM
 
 /* Define if OpenSSL support is enabled */
 #undef HAVE_OPENSSL
@@ -186,8 +201,8 @@
 /* Define to 1 if the system has the type `socklen_t'. */
 #undef HAVE_SOCKLEN_T
 
-/* Define to 1 if you have the <socks.h> header file. */
-#undef HAVE_SOCKS_H
+/* Define to 1 if you have the `SSL_SESSION_cmp' function. */
+#undef HAVE_SSL_SESSION_CMP
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #undef HAVE_STDARG_H
@@ -264,9 +279,6 @@
 /* Define to 1 if you have the `vsnprintf' function. */
 #undef HAVE_VSNPRINTF
 
-/* Define to 1 if you have the `\' function. */
-#undef HAVE__
-
 /* Define to be location of localedir */
 #undef LOCALEDIR
 
@@ -316,8 +328,8 @@
 /* Defined if LFS is supported */
 #undef NE_HAVE_LFS
 
-/* Defined if SOCKS is supported */
-#undef NE_HAVE_SOCKS
+/* Defined if LIBPXY is supported */
+#undef NE_HAVE_LIBPXY
 
 /* Defined if SSL is supported */
 #undef NE_HAVE_SSL

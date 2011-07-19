@@ -1,14 +1,15 @@
-package # hide from pause/cpan for now, as there's a permissions
-        # issue and it's screwing the rest of the package
-  DBIx::Class::Schema::Loader::DBI::Oracle;
+package DBIx::Class::Schema::Loader::DBI::Oracle;
 
 use strict;
 use warnings;
-use base 'DBIx::Class::Schema::Loader::DBI';
+use base qw/
+    DBIx::Class::Schema::Loader::DBI::Component::QuotedDefault
+    DBIx::Class::Schema::Loader::DBI
+/;
 use Carp::Clan qw/^DBIx::Class/;
 use Class::C3;
 
-our $VERSION = '0.04005';
+our $VERSION = '0.05003';
 
 =head1 NAME
 
@@ -38,18 +39,20 @@ sub _setup {
     $self->next::method(@_);
 
     my $dbh = $self->schema->storage->dbh;
-    $self->{db_schema} ||= $dbh->selectrow_array('SELECT USER FROM DUAL', {});
+
+    my ($current_schema) = $dbh->selectrow_array('SELECT USER FROM DUAL', {});
+
+    $self->{db_schema} ||= $current_schema;
+
+    if (lc($self->db_schema) ne lc($current_schema)) {
+        $dbh->do('ALTER SESSION SET current_schema=' . $self->db_schema);
+    }
 }
 
-
-sub _table_columns {
+sub _table_as_sql {
     my ($self, $table) = @_;
 
-    my $dbh = $self->schema->storage->dbh;
-
-    my $sth = $dbh->prepare($self->schema->storage->sql_maker->select($table, undef, \'1 = 0'));
-    $sth->execute;
-    return \@{$sth->{NAME_lc}};
+    return $self->_quote_table_name($table);
 }
 
 sub _tables_list { 
@@ -70,7 +73,7 @@ sub _tables_list {
         push @tables, $1
           if $table =~ /\A(\w+)\z/;
     }
-    return @tables;
+    return $self->_filter_tables(@tables);
 }
 
 sub _table_uniq_info {
@@ -80,14 +83,14 @@ sub _table_uniq_info {
 
     my $sth = $dbh->prepare_cached(
         q{
-            SELECT constraint_name, ucc.column_name
-            FROM user_constraints JOIN user_cons_columns ucc USING (constraint_name)
-            WHERE ucc.table_name=? AND constraint_type='U'
-            ORDER BY ucc.position
+            SELECT constraint_name, acc.column_name
+            FROM all_constraints JOIN all_cons_columns acc USING (constraint_name)
+            WHERE acc.table_name=? and acc.owner = ? AND constraint_type='U'
+            ORDER BY acc.position
         },
         {}, 1);
 
-    $sth->execute(uc $table);
+    $sth->execute(uc $table,$self->{db_schema} );
     my %constr_names;
     while(my $constr = $sth->fetchrow_arrayref) {
         my $constr_name = lc $constr->[0];
@@ -123,6 +126,31 @@ sub _columns_info_for {
     return $self->next::method(uc $table);
 }
 
+sub _extra_column_info {
+    my ($self, $info) = @_;
+    my %extra_info;
+
+    my ($table, $column) = @$info{qw/TABLE_NAME COLUMN_NAME/};
+
+    my $dbh = $self->schema->storage->dbh;
+    my $sth = $dbh->prepare_cached(
+        q{
+            SELECT COUNT(*)
+            FROM all_triggers ut JOIN all_trigger_cols atc USING (trigger_name)
+            WHERE atc.table_name = ? AND atc.column_name = ?
+            AND column_usage LIKE '%NEW%' AND column_usage LIKE '%OUT%'
+            AND trigger_type = 'BEFORE EACH ROW' AND triggering_event LIKE '%INSERT%'
+        },
+        {}, 1);
+
+    $sth->execute($table, $column);
+    if ($sth->fetchrow_array) {
+        $extra_info{is_auto_increment} = 1;
+    }
+
+    return \%extra_info;
+}
+
 =head1 SEE ALSO
 
 L<DBIx::Class::Schema::Loader>, L<DBIx::Class::Schema::Loader::Base>,
@@ -130,7 +158,12 @@ L<DBIx::Class::Schema::Loader::DBI>
 
 =head1 AUTHOR
 
-TSUNODA Kazuya C<drk@drk7.jp>
+See L<DBIx::Class::Schema::Loader/AUTHOR> and L<DBIx::Class::Schema::Loader/CONTRIBUTORS>.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut
 

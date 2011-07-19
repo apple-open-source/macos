@@ -255,9 +255,9 @@ int     smtp_fgetc(VSTREAM *stream)
     return (ch);
 }
 
-/* smtp_get - read one line from SMTP peer */
-
-int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound)
+/* APPLE - RFC 3030 */
+static int smtp_get_full(VSTRING *vp, VSTREAM *stream, ssize_t bound,
+			 int binary, int expect_eof)
 {
     int     last_char;
     int     next_char;
@@ -299,6 +299,18 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound)
 	 * if received before CRLF, and leave it alone otherwise.
 	 */
     case '\n':
+	/* APPLE - RFC 3030 */
+	if (binary) {
+	    /* do not strip extra CRs.
+	       strip and return LF if and only if CRLF. */
+	    if (VSTRING_LEN(vp) > 1 && vstring_end(vp)[-2] == '\r')
+		vstring_truncate(vp, VSTRING_LEN(vp) - 2);
+	    else
+		last_char = 0;
+	    VSTRING_TERMINATE(vp);
+	    break;
+	}
+
 	vstring_truncate(vp, VSTRING_LEN(vp) - 1);
 	while (VSTRING_LEN(vp) > 0 && vstring_end(vp)[-1] == '\r')
 	    vstring_truncate(vp, VSTRING_LEN(vp) - 1);
@@ -313,6 +325,10 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound)
     }
     smtp_timeout_detect(stream);
 
+    /* APPLE - RFC 3030 */
+    if (expect_eof && vstream_feof(stream))
+	return last_char;
+
     /*
      * EOF is bad, whether or not it happens in the middle of a record. Don't
      * allow data that was truncated because of EOF.
@@ -323,6 +339,38 @@ int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound)
 	vstream_longjmp(stream, SMTP_ERR_EOF);
     }
     return (last_char);
+}
+
+
+/* smtp_get - read one line from SMTP peer */
+
+int     smtp_get(VSTRING *vp, VSTREAM *stream, ssize_t bound)
+{
+    return smtp_get_full(vp, stream, bound, 0, 0);
+}
+
+/* APPLE - RFC 3030 */
+int smtp_get_to_eof(VSTRING *vp, VSTREAM *stream, ssize_t bound)
+{
+    return smtp_get_full(vp, stream, bound, 0, 1);
+}
+int smtp_get_binary_to_eof(VSTRING *vp, VSTREAM *stream, ssize_t bound)
+{
+    return smtp_get_full(vp, stream, bound, 1, 1);
+}
+
+/* APPLE - RFC 3030 */
+void smtp_discard(VSTREAM *stream, off_t size)
+{
+    if (size <= 0)
+	return;
+
+    smtp_timeout_reset(stream);
+    while (VSTREAM_GETC(stream) != VSTREAM_EOF && --size > 0)
+	;
+    smtp_timeout_detect(stream);
+    if (vstream_feof(stream) || vstream_ferror(stream))
+	vstream_longjmp(stream, SMTP_ERR_EOF);
 }
 
 /* smtp_fputs - write one line to SMTP peer */

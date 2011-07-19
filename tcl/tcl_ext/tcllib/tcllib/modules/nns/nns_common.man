@@ -2,6 +2,7 @@
 [copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Name service facility}]
 [titledesc {Name service facility, shared definitions}]
+[category  Networking]
 [require Tcl 8]
 [require nameserv::common [opt 0.1]]
 [keywords {name service} client server]

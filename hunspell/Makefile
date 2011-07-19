@@ -13,18 +13,19 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target  = install
 
 install-strip:
+	$(CP) $(DSTROOT)/usr/lib/libhunspell-1.2.0.0.0.dylib $(SYMROOT)/libhunspell-1.2.0.0.0.dylib
+	/usr/bin/dsymutil -o $(SYMROOT)/libhunspell-1.2.0.0.0.dSYM $(SYMROOT)/libhunspell-1.2.0.0.0.dylib
 	$(STRIP) -S $(DSTROOT)/usr/lib/libhunspell-1.2.dylib
 
 move-files:
 	$(MKDIR) $(DSTROOT)/usr/local
-	$(MKDIR) $(DSTROOT)/usr/local/lib
 	$(MV) $(DSTROOT)/usr/bin $(DSTROOT)/usr/local/bin
 	$(MV) $(DSTROOT)/usr/include $(DSTROOT)/usr/local/include
-	$(MV) $(DSTROOT)/usr/lib/charset.alias $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libhunspell-1.2.a $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libhunspell-1.2.la $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libparsers.a $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/pkgconfig $(DSTROOT)/usr/local/lib
+	$(RM) $(DSTROOT)/usr/lib/charset.alias
+	$(RM) $(DSTROOT)/usr/lib/libhunspell-1.2.a
+	$(RM) $(DSTROOT)/usr/lib/libhunspell-1.2.la
+	$(RM) $(DSTROOT)/usr/lib/libparsers.a
+	$(RMDIR) $(DSTROOT)/usr/lib/pkgconfig
 	$(MV) $(DSTROOT)/usr/share $(DSTROOT)/usr/local/share
 
 SSD     = $(DSTROOT)/System/Library/Spelling
@@ -43,7 +44,6 @@ OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses
 install-plist:
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	$(INSTALL_FILE) $(SRCROOT)/sjp.pl.plist $(OSV)/sjp.pl.plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/license.hunspell $(OSL)/$(Project).txt
 	$(INSTALL_FILE) $(SRCROOT)/README_pl_PL.txt $(OSL)/sjp.pl.txt

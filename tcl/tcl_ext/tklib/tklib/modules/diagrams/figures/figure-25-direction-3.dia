@@ -1,0 +1,17 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+block {
+    block {
+	box; arrow; circle; down; arrow; ellipse
+    }
+    down ; text {box; arrow; circle; down; arrow; ellipse}
+}
+move from [last block se]
+block {
+    block {
+	box; arrow; circle; down;
+	arrow from [last circle e] ; ellipse
+    }
+    down ; text {Output of (g)pic}
+} with sw
+

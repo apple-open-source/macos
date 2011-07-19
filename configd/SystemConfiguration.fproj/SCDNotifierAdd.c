@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,19 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+
+static void
+addKey(CFMutableArrayRef *keysP, CFStringRef key)
+{
+	if (*keysP == NULL) {
+		*keysP = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+
+	CFArrayAppendValue(*keysP, key);
+	return;
+}
+
+
 Boolean
 SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex)
 {
@@ -67,6 +80,8 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 		return FALSE;
 	}
 
+    retry :
+
 	/* send the key to the server */
 	status = notifyadd(storePrivate->server,
 			   myKeyRef,
@@ -74,11 +89,8 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 			   isRegex,
 			   (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfKey);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -86,14 +98,26 @@ SCDynamicStoreAddWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean is
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreAddWatchedKey notifyadd(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
+
+	/* clean up */
+	CFRelease(utfKey);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 		return FALSE;
 	}
 
+	if (isRegex) {
+		addKey(&storePrivate->patterns, key);
+	} else {
+		addKey(&storePrivate->keys, key);
+	}
 	return TRUE;
 }

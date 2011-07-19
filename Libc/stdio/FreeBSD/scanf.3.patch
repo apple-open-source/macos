@@ -1,6 +1,6 @@
---- scanf.3.orig	2008-07-30 01:54:48.000000000 -0700
-+++ scanf.3	2008-07-30 02:06:07.000000000 -0700
-@@ -40,35 +40,55 @@
+--- scanf.3.bsdnew	2009-11-11 13:33:15.000000000 -0800
++++ scanf.3	2009-11-11 13:33:15.000000000 -0800
+@@ -36,35 +36,55 @@
  .Dt SCANF 3
  .Os
  .Sh NAME
@@ -66,7 +66,7 @@
  as described below.
  This format may contain
  .Em conversion specifiers ;
-@@ -87,7 +107,8 @@
+@@ -83,7 +103,8 @@ reads input from the stream pointer
  and
  .Fn sscanf
  reads its input from the character string pointed to by
@@ -76,7 +76,7 @@
  The
  .Fn vfscanf
  function
-@@ -108,7 +129,8 @@
+@@ -104,7 +125,8 @@ the
  .Fn vprintf
  and
  .Fn vsprintf
@@ -86,7 +86,7 @@
  Each successive
  .Em pointer
  argument must correspond properly with
-@@ -132,10 +154,16 @@
+@@ -128,10 +150,16 @@ Scanning stops
  when an input character does not match such a format character.
  Scanning also stops
  when an input conversion cannot be made (see below).
@@ -104,7 +104,7 @@
  there may be a number of
  .Em flag
  characters, as follows:
-@@ -415,7 +443,8 @@
+@@ -411,7 +439,8 @@ Matches a pointer value (as printed by
  in
  .Xr printf 3 ) ;
  the next pointer must be a pointer to
@@ -114,7 +114,7 @@
  .It Cm n
  Nothing is expected;
  instead, the number of characters consumed thus far from the input
-@@ -440,13 +469,10 @@
+@@ -436,13 +465,10 @@ of
  causes an immediate return of
  .Dv EOF .
  .Sh RETURN VALUES
@@ -132,7 +132,7 @@
  no conversions were assigned;
  typically this is due to an invalid input character,
  such as an alphabetic character for a
-@@ -463,6 +489,7 @@
+@@ -459,6 +485,7 @@ the number of conversions which were suc
  .Xr getc 3 ,
  .Xr mbrtowc 3 ,
  .Xr printf 3 ,
@@ -140,7 +140,7 @@
  .Xr strtod 3 ,
  .Xr strtol 3 ,
  .Xr strtoul 3 ,
-@@ -473,7 +500,7 @@
+@@ -469,7 +496,7 @@ The functions
  .Fn scanf ,
  .Fn sscanf ,
  .Fn vfscanf ,

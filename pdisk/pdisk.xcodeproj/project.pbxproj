@@ -44,31 +44,6 @@
 		60AD6FA907257E3200480F40 /* pdisk.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6039D412054F1DB2001D9351 /* pdisk.8 */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		014CEA520018CE5811CA2923 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		014CEA530018CE5811CA2923 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		60AD6FA807257E3200480F40 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -251,24 +226,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = __unix__;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pdisk;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = pdisk;
@@ -283,16 +240,12 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 602A458008BA5DCB00033723 /* Build configuration list for PBXProject "pdisk" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				014CEA520018CE5811CA2923 /* Development */,
-				014CEA530018CE5811CA2923 /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 08FB7794FE84155DC02AAC07 /* pdisk */;
 			productRefGroup = 607B1ACF05601C6300699115 /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				60AD6F8107257E3200480F40 /* pdisk */,
 			);
@@ -335,99 +288,39 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		602A457D08BA5DCB00033723 /* Development */ = {
+		602A457D08BA5DCB00033723 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = __unix__;
-				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OPTIMIZATION_CFLAGS = "-O0";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pdisk;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		602A457E08BA5DCB00033723 /* Deployment */ = {
+		602A457E08BA5DCB00033723 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = __unix__;
-				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pdisk;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		602A457F08BA5DCB00033723 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = __unix__;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pdisk;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		602A458108BA5DCB00033723 /* Development */ = {
+		602A458108BA5DCB00033723 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		602A458208BA5DCB00033723 /* Deployment */ = {
+		602A458208BA5DCB00033723 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		602A458308BA5DCB00033723 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -435,22 +328,20 @@
 		602A457C08BA5DCB00033723 /* Build configuration list for PBXNativeTarget "pdisk" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				602A457D08BA5DCB00033723 /* Development */,
-				602A457E08BA5DCB00033723 /* Deployment */,
-				602A457F08BA5DCB00033723 /* Default */,
+				602A457D08BA5DCB00033723 /* Debug */,
+				602A457E08BA5DCB00033723 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		602A458008BA5DCB00033723 /* Build configuration list for PBXProject "pdisk" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				602A458108BA5DCB00033723 /* Development */,
-				602A458208BA5DCB00033723 /* Deployment */,
-				602A458308BA5DCB00033723 /* Default */,
+				602A458108BA5DCB00033723 /* Debug */,
+				602A458208BA5DCB00033723 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

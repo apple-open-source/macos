@@ -50,8 +50,6 @@ __private_extern__ void PMSettingsSupportedPrefsListHasChanged(void);
 
 __private_extern__ void PMSettingsPrefsHaveChanged(void);
 
-__private_extern__ void PMSettingsBatteriesHaveChanged(CFArrayRef);
-
 __private_extern__ void PMSettingsPSChange(CFTypeRef);
 
 // For UPS shutdown/restart code in PSLowPower.c
@@ -59,7 +57,7 @@ __private_extern__ CFDictionaryRef  PMSettings_CopyActivePMSettings(void);
 
 __private_extern__ IOReturn _activateForcedSettings(CFDictionaryRef);
 
-// For IOPMAssertions code in SetActive.c
+// For IOPMAssertions code in PMAssertions.c
 __private_extern__ void overrideSetting(int, int);
 __private_extern__ void activateSettingOverrides(void);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1994-1996, 1998-2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1994-1996, 1998-2010 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -40,11 +40,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -57,15 +56,10 @@
 
 #include "sudo.h"
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: logging.c,v 1.203 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
-
 static void do_syslog		__P((int, char *));
 static void do_logfile		__P((char *));
-static void send_mail		__P((char *));
+static void send_mail		__P((const char *fmt, ...));
 static int should_mail		__P((int));
-static char *get_timestr	__P((void));
 static void mysyslog		__P((int, const char *, ...));
 static char *new_logline	__P((const char *, int));
 
@@ -122,6 +116,9 @@ mysyslog(pri, fmt, va_alist)
     closelog();
 }
 
+#define FMT_FIRST "%8s : %s"
+#define FMT_CONTD "%8s : (command continued) %s"
+
 /*
  * Log a message to syslog, pre-pending the username and splitting the
  * message into parts if it is longer than MAXSYSLOGLEN.
@@ -134,14 +131,12 @@ do_syslog(pri, msg)
     size_t len, maxlen;
     char *p, *tmp, save;
     const char *fmt;
-    const char fmt_first[] = "%s : %s";
-    const char fmt_contd[] = "%s : (command continued) %s";
 
     /*
      * Log the full line, breaking into multiple syslog(3) calls if necessary
      */
-    fmt = fmt_first;
-    maxlen = MAXSYSLOGLEN - sizeof(fmt_first) - strlen(user_name);
+    fmt = FMT_FIRST;
+    maxlen = MAXSYSLOGLEN - (sizeof(FMT_FIRST) - 6 + strlen(user_name));
     for (p = msg; *p != '\0'; ) {
 	len = strlen(p);
 	if (len > maxlen) {
@@ -168,8 +163,8 @@ do_syslog(pri, msg)
 	    mysyslog(pri, fmt, user_name, p);
 	    p += len;
 	}
-	fmt = fmt_contd;
-	maxlen = MAXSYSLOGLEN - sizeof(fmt_contd) - strlen(user_name);
+	fmt = FMT_CONTD;
+	maxlen = MAXSYSLOGLEN - (sizeof(FMT_CONTD) - 6 + strlen(user_name));
     }
 }
 
@@ -188,31 +183,28 @@ do_logfile(msg)
     fp = fopen(def_logfile, "a");
     (void) umask(oldmask);
     if (fp == NULL) {
-	easprintf(&full_line, "Can't open log file: %s: %s",
-	    def_logfile, strerror(errno));
-	send_mail(full_line);
-	efree(full_line);
+	send_mail("Can't open log file: %s: %s", def_logfile, strerror(errno));
     } else if (!lock_file(fileno(fp), SUDO_LOCK)) {
-	easprintf(&full_line, "Can't lock log file: %s: %s",
-	    def_logfile, strerror(errno));
-	send_mail(full_line);
-	efree(full_line);
+	send_mail("Can't lock log file: %s: %s", def_logfile, strerror(errno));
     } else {
+	time_t now;
+
+	now = time(NULL);
 	if (def_loglinelen == 0) {
 	    /* Don't pretty-print long log file lines (hard to grep) */
 	    if (def_log_host)
-		(void) fprintf(fp, "%s : %s : HOST=%s : %s\n", get_timestr(),
-		    user_name, user_shost, msg);
+		(void) fprintf(fp, "%s : %s : HOST=%s : %s\n",
+		    get_timestr(now, def_log_year), user_name, user_shost, msg);
 	    else
-		(void) fprintf(fp, "%s : %s : %s\n", get_timestr(),
-		    user_name, msg);
+		(void) fprintf(fp, "%s : %s : %s\n",
+		    get_timestr(now, def_log_year), user_name, msg);
 	} else {
 	    if (def_log_host)
-		easprintf(&full_line, "%s : %s : HOST=%s : %s", get_timestr(),
-		    user_name, user_shost, msg);
+		easprintf(&full_line, "%s : %s : HOST=%s : %s",
+		    get_timestr(now, def_log_year), user_name, user_shost, msg);
 	    else
-		easprintf(&full_line, "%s : %s : %s", get_timestr(),
-		    user_name, msg);
+		easprintf(&full_line, "%s : %s : %s",
+		    get_timestr(now, def_log_year), user_name, msg);
 
 	    /*
 	     * Print out full_line with word wrap
@@ -291,7 +283,7 @@ log_denial(status, inform_user)
     logline = new_logline(message, 0);
 
     if (should_mail(status))
-	send_mail(logline);	/* send mail based on status */
+	send_mail("%s", logline);	/* send mail based on status */
 
     /* Inform the user if they failed to authenticate.  */
     if (inform_user) {
@@ -337,7 +329,7 @@ log_allowed(status)
     logline = new_logline(NULL, 0);
 
     if (should_mail(status))
-	send_mail(logline);	/* send mail based on status */
+	send_mail("%s", logline);	/* send mail based on status */
 
     /*
      * Log via syslog and/or a file.
@@ -371,7 +363,7 @@ log_error(flags, fmt, va_alist)
 #endif
 
     /* Become root if we are not already to avoid user interference */
-    set_perms(PERM_ROOT);
+    set_perms(PERM_ROOT|PERM_NOEXIT);
 
     /* Expand printf-style format + args. */
     evasprintf(&message, fmt, ap);
@@ -391,13 +383,14 @@ log_error(flags, fmt, va_alist)
 	else
 	    warningx("%s", message);
     }
-    efree(message);
+    if (logline != message)
+        efree(message);
 
     /*
      * Send a copy of the error via mail.
      */
     if (!ISSET(flags, NO_MAIL))
-	send_mail(logline);
+	send_mail("%s", logline);
 
     /*
      * Log to syslog and/or a file.
@@ -407,8 +400,7 @@ log_error(flags, fmt, va_alist)
     if (def_logfile)
 	do_logfile(logline);
 
-    if (logline != message)
-	efree(logline);
+    efree(logline);
 
     if (!ISSET(flags, NO_EXIT)) {
 	cleanup(0);
@@ -422,18 +414,24 @@ log_error(flags, fmt, va_alist)
  * Send a message to MAILTO user
  */
 static void
-send_mail(line)
-    char *line;
+#ifdef __STDC__
+send_mail(const char *fmt, ...)
+#else
+send_mail(fmt, va_alist)
+    const char *fmt;
+    va_dcl
+#endif
 {
     FILE *mail;
     char *p;
     int fd, pfd[2], status;
     pid_t pid, rv;
     sigaction_t sa;
+    va_list ap;
 #ifndef NO_ROOT_MAILER
     static char *root_envp[] = {
 	"HOME=/",
-	"PATH=/usr/bin:/bin",
+	"PATH=/usr/bin:/bin:/usr/sbin:/sbin",
 	"LOGNAME=root",
 	"USERNAME=root",
 	"USER=root",
@@ -479,19 +477,9 @@ send_mail(line)
     }
 
     /* Daemonize - disassociate from session/tty. */
-#ifdef HAVE_SETSID
     if (setsid() == -1)
       warning("setsid");
-#else
-    setpgrp(0, 0);
-# ifdef TIOCNOTTY
-    if ((fd = open(_PATH_TTY, O_RDWR, 0644)) != -1) {
-	ioctl(fd, TIOCNOTTY, NULL);
-	close(fd);
-    }
-# endif
-#endif
-    chdir("/");
+    (void) chdir("/");
     if ((fd = open(_PATH_DEVNULL, O_RDWR, 0644)) != -1) {
 	(void) dup2(fd, STDIN_FILENO);
 	(void) dup2(fd, STDOUT_FILENO);
@@ -506,7 +494,7 @@ send_mail(line)
     /* Ignore SIGPIPE in case mailer exits prematurely (or is missing). */
     zero_bytes(&sa, sizeof(sa));
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
+    sa.sa_flags = SA_INTERRUPT;
     sa.sa_handler = SIG_IGN;
     (void) sigaction(SIGPIPE, &sa, NULL);
 
@@ -529,12 +517,15 @@ send_mail(line)
 
 		/* Child, set stdin to output side of the pipe */
 		if (pfd[0] != STDIN_FILENO) {
-		    (void) dup2(pfd[0], STDIN_FILENO);
+		    if (dup2(pfd[0], STDIN_FILENO) == -1) {
+			mysyslog(LOG_ERR, "cannot dup stdin: %m");
+			_exit(127);
+		    }
 		    (void) close(pfd[0]);
 		}
 		(void) close(pfd[1]);
 
-		/* Build up an argv based the mailer path and flags */
+		/* Build up an argv based on the mailer path and flags */
 		mflags = estrdup(def_mailerflags);
 		mpath = estrdup(def_mailerpath);
 		if ((argv[0] = strrchr(mpath, ' ')))
@@ -555,10 +546,10 @@ send_mail(line)
 		 * (so user cannot kill it) or as the user (for the paranoid).
 		 */
 #ifndef NO_ROOT_MAILER
-		set_perms(PERM_ROOT);
+		set_perms(PERM_ROOT|PERM_NOEXIT);
 		execve(mpath, argv, root_envp);
 #else
-		set_perms(PERM_FULL_USER);
+		set_perms(PERM_FULL_USER|PERM_NOEXIT);
 		execv(mpath, argv);
 #endif /* NO_ROOT_MAILER */
 		mysyslog(LOG_ERR, "cannot execute %s: %m", mpath);
@@ -590,8 +581,18 @@ send_mail(line)
 	} else
 	    (void) fputc(*p, mail);
     }
-    (void) fprintf(mail, "\n\n%s : %s : %s : %s\n\n", user_host,
-	get_timestr(), user_name, line);
+
+    (void) fprintf(mail, "\n\n%s : %s : %s : ", user_host,
+	get_timestr(time(NULL), def_log_year), user_name);
+#ifdef __STDC__
+    va_start(ap, fmt);
+#else
+    va_start(ap);
+#endif
+    (void) vfprintf(mail, fmt, ap);
+    va_end(ap);
+    fputs("\n\n", mail);
+
     fclose(mail);
     do {
 #ifdef HAVE_WAITPID
@@ -617,47 +618,13 @@ should_mail(status)
 	(def_mail_no_perms && !ISSET(status, VALIDATE_OK)));
 }
 
-/*
- * Return an ascii string with the current date + time
- * Uses strftime() if available, else falls back to ctime().
- */
-static char *
-get_timestr()
-{
-    char *s;
-    time_t now = time((time_t) 0);
-#ifdef HAVE_STRFTIME
-    static char buf[128];
-    struct tm *timeptr;
-
-    timeptr = localtime(&now);
-    if (def_log_year)
-	s = "%h %e %T %Y";
-    else
-	s = "%h %e %T";
-
-    /* strftime() does not guarantee to NUL-terminate so we must check. */
-    buf[sizeof(buf) - 1] = '\0';
-    if (strftime(buf, sizeof(buf), s, timeptr) && buf[sizeof(buf) - 1] == '\0')
-	return(buf);
-
-#endif /* HAVE_STRFTIME */
-
-    s = ctime(&now) + 4;		/* skip day of the week */
-    if (def_log_year)
-	s[20] = '\0';			/* avoid the newline */
-    else
-	s[15] = '\0';			/* don't care about year */
-
-    return(s);
-}
-
 #define	LL_TTY_STR	"TTY="
 #define	LL_CWD_STR	"PWD="		/* XXX - should be CWD= */
 #define	LL_USER_STR	"USER="
 #define	LL_GROUP_STR	"GROUP="
 #define	LL_ENV_STR	"ENV="
 #define	LL_CMND_STR	"COMMAND="
+#define	LL_TSID_STR	"TSID="
 
 /*
  * Allocate and fill in a new logline.
@@ -687,6 +654,8 @@ new_logline(message, serrno)
 	len += sizeof(LL_USER_STR) + 2 + strlen(runas_pw->pw_name);
     if (runas_gr != NULL)
 	len += sizeof(LL_GROUP_STR) + 2 + strlen(runas_gr->gr_name);
+    if (sudo_user.sessid[0] != '\0')
+	len += sizeof(LL_TSID_STR) + 2 + strlen(sudo_user.sessid);
     if (sudo_user.env_vars != NULL) {
 	size_t evlen = 0;
 	struct list_member *cur;
@@ -737,6 +706,12 @@ new_logline(message, serrno)
     if (runas_gr != NULL) {
 	if (strlcat(line, LL_GROUP_STR, len) >= len ||
 	    strlcat(line, runas_gr->gr_name, len) >= len ||
+	    strlcat(line, " ; ", len) >= len)
+	    goto toobig;
+    }
+    if (sudo_user.sessid[0] != '\0') {
+	if (strlcat(line, LL_TSID_STR, len) >= len ||
+	    strlcat(line, sudo_user.sessid, len) >= len ||
 	    strlcat(line, " ; ", len) >= len)
 	    goto toobig;
     }

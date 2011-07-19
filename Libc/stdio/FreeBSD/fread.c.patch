@@ -1,6 +1,6 @@
---- fread.c.orig	2008-08-29 21:58:50.000000000 -0700
-+++ fread.c	2008-09-02 02:18:06.000000000 -0700
-@@ -55,7 +55,7 @@ fread(buf, size, count, fp)
+--- fread.c.bsdnew	2009-11-11 13:33:09.000000000 -0800
++++ fread.c	2009-11-11 14:14:22.000000000 -0800
+@@ -63,7 +63,7 @@ __fread(void * __restrict buf, size_t si
  {
  	size_t resid;
  	char *p;
@@ -9,7 +9,7 @@
  	size_t total;
  
  	/*
-@@ -71,21 +71,70 @@ fread(buf, size, count, fp)
+@@ -76,19 +76,66 @@ __fread(void * __restrict buf, size_t si
  		fp->_r = 0;
  	total = resid;
  	p = buf;
@@ -25,7 +25,6 @@
 +			break;
 +		else if (ret) {
  			/* no more input: return partial result */
- 			FUNLOCKFILE(fp);
  			return ((total - resid) / size);
  		}
  	}
@@ -52,7 +51,6 @@
 +				fp->_bf = save;
 +				fp->_p = fp->_bf._base;
 +				/* fp->_r = 0;  already set in __srefill1 */
-+				FUNLOCKFILE(fp);
 +				return ((total - resid) / size);
 +			}
 +			fp->_bf._base += fp->_r;
@@ -73,7 +71,6 @@
 +			resid -= r;
 +			if (__srefill1(fp)) {
 +				/* no more input: return partial result */
-+				FUNLOCKFILE(fp);
 +				return ((total - resid) / size);
 +			}
 +		}
@@ -81,6 +78,5 @@
 +		fp->_r -= resid;
 +		fp->_p += resid;
 +	}
- 	FUNLOCKFILE(fp);
  	return (count);
  }

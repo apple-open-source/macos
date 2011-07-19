@@ -28,9 +28,7 @@
 #include "WebKitDLL.h"
 #include "WebURLProtectionSpace.h"
 
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 
@@ -166,8 +164,6 @@ HRESULT STDMETHODCALLTYPE WebURLProtectionSpace::initWithHost(
         serverType = ProtectionSpaceServerFTP;
     else if (BString(protocol) == webURLProtectionSpaceFTPSBString)
         serverType = ProtectionSpaceServerFTPS;
-    else
-        ASSERT_NOT_REACHED();
 
     m_protectionSpace = ProtectionSpace(String(host, SysStringLen(host)), port, serverType, 
         String(realm, SysStringLen(realm)), coreScheme(authenticationMethod));

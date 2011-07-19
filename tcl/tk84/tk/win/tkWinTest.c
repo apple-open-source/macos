@@ -171,7 +171,6 @@ TestclipboardObjCmd(clientData, interp, objc, objv)
     int objc;				/* Number of arguments. */
     Tcl_Obj *CONST objv[];		/* Argument values. */
 {
-    TkWindow *winPtr = (TkWindow *) clientData;
     HGLOBAL handle;
     char *data;
     int code = TCL_OK;
@@ -334,7 +333,7 @@ TestwineventCmd(clientData, interp, argc, argv)
 	    char buf[TCL_INTEGER_SPACE];
 	    
 	    sprintf(buf, "%d", 
-		    SendDlgItemMessage(hwnd, id, message, wParam, lParam));
+		    (int) SendDlgItemMessage(hwnd, id, message, wParam, lParam));
 	    Tcl_SetResult(interp, buf, TCL_VOLATILE);
 	    break;
 	}

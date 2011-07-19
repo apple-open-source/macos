@@ -1,0 +1,61 @@
+VPopMail
+========
+
+Dovecot supports authenticating against external VPopMail
+[http://www.inter7.com/index.php?page=vpopmail] virtual domain manager. Dovecot
+must have been configured with '--with-vpopmail' to enable this. You can check
+this with 'dovecot --build-options'. See also <VMailMgr> [HowTo.VMailMgr.txt]
+for another similar virtual domain manager.
+
+If the vpopmail database contains plaintext passwords, it can be used for
+non-plaintext authentication as well.
+
+passdb parameters:
+
+ * cache_key: If set, you can use 'auth_cache' with VPopMail. See <PAM>
+   [PasswordDatabase.PAM.txt] for more information about it.
+ * webmail=IP: If IP address is specified, connections from it are assumed to
+   come from webmail and VPopMail's webmail usage restrictions apply.
+
+userdb parameters:
+
+ * cache_key: Like in passdb.
+ * quota_template=TEMPLATE: Template to specify quota rule, %q in value expands
+   to Maildir++ quota.
+
+Example
+-------
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = vpopmail
+  args = webmail=127.0.0.1
+}
+userdb {
+  driver = vpopmail
+  args = quota_template=quota_rule=*:backend=%q
+}
+---%<-------------------------------------------------------------------------
+
+VPopMail + MySQL
+================
+
+Alternatively, you can use the SQL backend with the following configuration:
+
+---%<-------------------------------------------------------------------------
+driver = mysql
+connect = host=/var/run/mysqld/mysqld.sock user=vpopmail
+password=YOURPASSWORDHERE dbname=vpopmail
+
+default_pass_scheme = PLAIN
+password_query = SELECT CONCAT(pw_name, '@', pw_domain) AS user, \
+  pw_clear_passwd AS password \
+  FROM vpopmail \
+  WHERE pw_name = '%n' AND pw_domain = '%d'
+user_query = SELECT pw_dir as home, \
+  89 AS uid, 89 AS gid \
+  FROM vpopmail \
+  WHERE pw_name = '%n' AND pw_domain = '%d'
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

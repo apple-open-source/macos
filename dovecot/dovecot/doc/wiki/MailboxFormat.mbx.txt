@@ -1,0 +1,24 @@
+mbx
+===
+
+A high performance mbox-replacement created by Mark Crispin while at University
+of Washington for UW-IMAP. Each message in the file is preceded by a record
+carrying all the metadata that IMAP-protocol needs. This allows changing the
+metadata easily by modifying the fixed-size header, rather than moving data
+around in a file like with mbox.
+
+File locking is handled more intelligently (only appends may need to wait for
+locks), making this format a good choice for shared mailboxes.
+
+Downsides contain:
+
+ * Messages don't get deleted from disk until there's only one client accessing
+   the mailbox, so you may need to add some forced downtime to get it done.
+ * Works only in local filesystem.
+ * Expunging is still as costly and as fragile as with mbox.
+ * At least on 32 bit systems, mailboxes are limited to 2GB size. (A mailbox
+   can't be accessed anymore without manual fixing if it reached 2GB (minus 1B)
+   of size on disk.) This is probably UW-IMAP -specific implementation problem
+   rather than actual mailbox format issue.
+
+(This file was created from the wiki on 2011-05-11 04:42)

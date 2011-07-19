@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)bt_get.c	8.6 (Berkeley) 7/20/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_get.c,v 1.2 2002/03/22 21:52:01 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_get.c,v 1.4 2009/03/02 23:47:18 delphij Exp $");
 
 #include <sys/types.h>
 
@@ -62,11 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_get.c,v 1.2 2002/03/22 21:52:01 obr
  *	RET_ERROR, RET_SUCCESS and RET_SPECIAL if the key not found.
  */
 int
-__bt_get(dbp, key, data, flags)
-	const DB *dbp;
-	const DBT *key;
-	DBT *data;
-	u_int flags;
+__bt_get(const DB *dbp, const DBT *key, DBT *data, u_int flags)
 {
 	BTREE *t;
 	EPG *e;

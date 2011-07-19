@@ -7,6 +7,9 @@ use Class::Trigger;
 
 sub insert {
   my $self = shift;
+
+  return $self->create(@_) unless ref $self;
+
   $self->call_trigger('before_create');
   $self->next::method(@_);
   $self->call_trigger('after_create');

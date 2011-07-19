@@ -3,8 +3,8 @@ WHAT:   Enhanced Tk Console for all Tk platforms
 WHERE:  http://tkcon.sourceforge.net/
 	http://www.purl.org/net/hobbs/tcl/script/
 
-REQUIREMENTS: Tcl/Tk 8.0+
-	Tested through Tcl/Tk 8.5.
+REQUIREMENTS: Tcl/Tk 8.4+
+	Tested through Tcl/Tk 8.6.
         tkcon is all Tcl/Tk code, no compiling required
 
 tkcon is a replacement for the standard console that comes with Tk (on

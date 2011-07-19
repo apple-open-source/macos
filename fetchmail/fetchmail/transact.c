@@ -29,7 +29,7 @@
 #endif
 #include <sys/socket.h>
 #include <netdb.h>
-#include "md5.h"
+#include "fm_md5.h"
 
 #include "i18n.h"
 #include "socket.h"
@@ -43,7 +43,7 @@ int suppress_tags = FALSE;	/* emit tags? */
 char tag[TAGLEN];
 static int tagnum;
 #define GENSYM	(sprintf(tag, "A%04d", ++tagnum % TAGMOD), tag)
-static struct method *protocol;
+static const struct method *protocol;
 char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
 
 /* session variables initialized in do_session() */
@@ -529,8 +529,8 @@ int readheaders(int sock,
 		tcp = line + linelen - 1;
 		*tcp++ = '\r';
 		*tcp++ = '\n';
-		*tcp++ = '\0';
-		n++;
+		*tcp = '\0';
+		/* n++; - not used later on */
 		linelen++;
 	    }
 	    else
@@ -583,13 +583,16 @@ eoh:
 	     * message/rfc822 attachment and forward to postmaster (Rob
 	     * MacGregor)
 	     */
-	    if (!refuse_mail && !isspace((unsigned char)line[0]) && !strchr(line, ':'))
+	    if (!refuse_mail
+		&& !ctl->server.badheader == BHACCEPT
+		&& !isspace((unsigned char)line[0])
+		&& !strchr(line, ':'))
 	    {
 		if (linelen != strlen (line))
 		    has_nuls = TRUE;
 		if (outlevel > O_SILENT)
 		    report(stdout,
-			   GT_("incorrect header line found while scanning headers\n"));
+			   GT_("incorrect header line found - see manpage for bad-header option\n"));
 		if (outlevel >= O_VERBOSE)
 		    report (stdout, GT_("line: %s"), line);
 		refuse_mail = 1;
@@ -746,17 +749,17 @@ eoh:
 	 * turns on the dropstatus flag.
 	 */
 	{
-	    char	*cp;
+	    char	*tcp;
 
 	    if (!strncasecmp(line, "Status:", 7))
-		cp = line + 7;
+		tcp = line + 7;
 	    else if (!strncasecmp(line, "X-Mozilla-Status:", 17))
-		cp = line + 17;
+		tcp = line + 17;
 	    else
-		cp = NULL;
-	    if (cp) {
-		while (*cp && isspace((unsigned char)*cp)) cp++;
-		if (!*cp || ctl->dropstatus)
+		tcp = NULL;
+	    if (tcp) {
+		while (*tcp && isspace((unsigned char)*tcp)) tcp++;
+		if (!*tcp || ctl->dropstatus)
 		{
 		    free(line);
 		    continue;
@@ -796,9 +799,10 @@ eoh:
 	 */
 	if ((already_has_return_path==FALSE) && !strncasecmp("Return-Path:", line, 12) && (cp = nxtaddr(line)))
 	{
+	    char nulladdr[] = "<>";
 	    already_has_return_path = TRUE;
 	    if (cp[0]=='\0')	/* nxtaddr() strips the brackets... */
-		cp="<>";
+		cp=nulladdr;
 	    strncpy(msgblk.return_path, cp, sizeof(msgblk.return_path));
 	    msgblk.return_path[sizeof(msgblk.return_path)-1] = '\0';
 	    if (!ctl->mda) {
@@ -979,7 +983,7 @@ process_headers:
 	MD5_CTX context;
 
 	MD5Init(&context);
-	MD5Update(&context, msgblk.headers, strlen(msgblk.headers));
+	MD5Update(&context, (unsigned char *)msgblk.headers, strlen(msgblk.headers));
 	MD5Final(ctl->digest, &context);
 
 	if (!received_for && env_offs == -1 && !delivered_to)
@@ -1234,8 +1238,9 @@ process_headers:
 		    for (idp = msgblk.recipients; idp; idp = idp->next)
 			if (idp->val.status.mark == XMIT_ACCEPT)
 			    break;	/* only report first address */
-		    snprintf(buf+1, sizeof(buf)-1,
-			    "for <%s>", rcpt_address (ctl, idp->id, 1));
+		    if (idp)
+			snprintf(buf+1, sizeof(buf)-1,
+				"for <%s>", rcpt_address (ctl, idp->id, 1));
 		    snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf)-1,
 			    " (%s); ",
 			    MULTIDROP(ctl) ? "multi-drop" : "single-drop");
@@ -1329,7 +1334,7 @@ process_headers:
     cp = buf;
     *cp++ = '\r';
     *cp++ = '\n';
-    *cp++ = '\0';
+    *cp = '\0';
     n = stuffline(ctl, buf);
 
     if ((size_t)n == strlen(buf))
@@ -1458,7 +1463,7 @@ void init_transact(const struct method *proto)
     suppress_tags = FALSE;
     tagnum = 0;
     tag[0] = '\0';	/* nuke any tag hanging out from previous query */
-    protocol = (struct method *)proto;
+    protocol = proto;
     shroud[0] = '\0';
 }
 

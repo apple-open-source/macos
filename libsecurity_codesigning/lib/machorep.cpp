@@ -86,89 +86,13 @@ bool MachORep::candidate(FileDesc &fd)
 }
 
 
-//
-// The default suggested requirements for Mach-O binaries are as follows:
-// Hosting requirement: Rosetta if it's PPC, none otherwise.
-// Library requirement: Composed from dynamic load commands.
-//
-static const uint8_t ppc_host_ireq[] = {	// anchor apple and identifier com.apple.translate
-	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06,
-	0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x13, 0x63, 0x6f, 0x6d, 0x2e,
-	0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x6c, 0x61, 0x74, 0x65, 0x00,
-};
-
-const Requirements *MachORep::defaultRequirements(const Architecture *arch)
-{
-	assert(arch);		// enforced by signing infrastructure
-	Requirements::Maker maker;
-	
-	// if ppc architecture, add hosting requirement for Rosetta's translate tool
-	if (arch->cpuType() == CPU_TYPE_POWERPC)
-		maker.add(kSecHostRequirementType, ((const Requirement *)ppc_host_ireq)->clone());
-		
-	// add library requirements from DYLIB commands (if any)
-	if (Requirement *libreq = libraryRequirements(arch))
-		maker.add(kSecLibraryRequirementType, libreq);	// takes ownership
-
-	// that's all
-	return maker.make();
-}
-
-Requirement *MachORep::libraryRequirements(const Architecture *arch)
-{
-	auto_ptr<MachO> macho(mainExecutableImage()->architecture(*arch));
-	Requirement::Maker maker;
-	Requirement::Maker::Chain chain(maker, opOr);
-	if (macho.get()) {
-		for (const load_command *command = macho->loadCommands(); command; command = macho->nextCommand(command)) {
-			if (macho->flip(command->cmd) == LC_LOAD_DYLIB) {
-				const dylib_command *dycmd = (const dylib_command *)command;
-				if (const char *name = macho->string(command, dycmd->dylib.name))
-					try {
-						secdebug("machorep", "examining DYLIB %s", name);
-						// find path on disk, get designated requirement (if signed)
-						if (RefPointer<DiskRep> rep = DiskRep::bestFileGuess(name))
-							if (SecPointer<SecStaticCode> code = new SecStaticCode(rep))
-								if (const Requirement *req = code->designatedRequirement()) {
-									secdebug("machorep", "adding library requirement for %s", name);
-									chain.add();
-									chain.maker.copy(req);
-								}
-					} catch (...) {
-						secdebug("machorep", "exception getting library requirement (ignored)");
-					}
-				else
-					secdebug("machorep", "no string for DYLIB command (ignored)");
-			}
-		}
-	}
-	if (chain.empty())
-		return NULL;
-	else
-		return maker.make();
-}
-
-
 
 //
-// Obtain, cache, and return a Universal reference to the main executable,
-// IF the main executable is a Mach-O binary (or fat version thereof).
-// Returns NULL if the main executable can't be opened as such.
+// Nowadays, the main executable object is created upon construction.
 //
 Universal *MachORep::mainExecutableImage()
 {
-	if (!mExecutable)
-		mExecutable = new Universal(fd());
 	return mExecutable;
-}
-
-
-//
-// Default to system page size for segmented (paged) signatures
-//
-size_t MachORep::pageSize()
-{
-	return segmentedPageSize;
 }
 
 
@@ -292,29 +216,6 @@ CFDataRef MachORep::infoPlist()
 
 
 //
-// Return a recommended unique identifier.
-// If our file has an embedded Info.plist, use the CFBundleIdentifier from that.
-// Otherwise, use the default.
-//
-string MachORep::recommendedIdentifier()
-{
-	if (CFDataRef info = infoPlist()) {
-		if (CFDictionaryRef dict = makeCFDictionaryFrom(info)) {
-			CFStringRef code = CFStringRef(CFDictionaryGetValue(dict, kCFBundleIdentifierKey));
-			if (code && CFGetTypeID(code) != CFStringGetTypeID())
-				MacOSError::throwMe(errSecCSBadDictionaryFormat);
-			if (code)
-				return cfString(code);
-		} else
-			MacOSError::throwMe(errSecCSBadDictionaryFormat);
-	}
-	
-	// ah well. Use the default
-	return SingleDiskRep::recommendedIdentifier();
-}
-
-
-//
 // Provide a (vaguely) human readable characterization of this code
 //
 string MachORep::format()
@@ -350,6 +251,104 @@ void MachORep::flush()
 	::free(mSigningData);
 	mSigningData = NULL;
 	SingleDiskRep::flush();
+	mExecutable = new Universal(fd());
+}
+
+
+//
+// Return a recommended unique identifier.
+// If our file has an embedded Info.plist, use the CFBundleIdentifier from that.
+// Otherwise, use the default.
+//
+string MachORep::recommendedIdentifier(const SigningContext &ctx)
+{
+	if (CFDataRef info = infoPlist()) {
+		if (CFDictionaryRef dict = makeCFDictionaryFrom(info)) {
+			CFStringRef code = CFStringRef(CFDictionaryGetValue(dict, kCFBundleIdentifierKey));
+			if (code && CFGetTypeID(code) != CFStringGetTypeID())
+				MacOSError::throwMe(errSecCSBadDictionaryFormat);
+			if (code)
+				return cfString(code);
+		} else
+			MacOSError::throwMe(errSecCSBadDictionaryFormat);
+	}
+	
+	// ah well. Use the default
+	return SingleDiskRep::recommendedIdentifier(ctx);
+}
+
+
+//
+// The default suggested requirements for Mach-O binaries are as follows:
+// Hosting requirement: Rosetta if it's PPC, none otherwise.
+// Library requirement: Composed from dynamic load commands.
+//
+static const uint8_t ppc_host_ireq[] = {	// anchor apple and identifier com.apple.translate
+	0xfa, 0xde, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x06,
+	0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x13, 0x63, 0x6f, 0x6d, 0x2e,
+	0x61, 0x70, 0x70, 0x6c, 0x65, 0x2e, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x6c, 0x61, 0x74, 0x65, 0x00,
+};
+
+const Requirements *MachORep::defaultRequirements(const Architecture *arch, const SigningContext &ctx)
+{
+	assert(arch);		// enforced by signing infrastructure
+	Requirements::Maker maker;
+	
+	// if ppc architecture, add hosting requirement for Rosetta's translate tool
+	if (arch->cpuType() == CPU_TYPE_POWERPC)
+		maker.add(kSecHostRequirementType, ((const Requirement *)ppc_host_ireq)->clone());
+		
+	// add library requirements from DYLIB commands (if any)
+	if (Requirement *libreq = libraryRequirements(arch, ctx))
+		maker.add(kSecLibraryRequirementType, libreq);	// takes ownership
+
+	// that's all
+	return maker.make();
+}
+
+Requirement *MachORep::libraryRequirements(const Architecture *arch, const SigningContext &ctx)
+{
+	auto_ptr<MachO> macho(mainExecutableImage()->architecture(*arch));
+	Requirement::Maker maker;
+	Requirement::Maker::Chain chain(maker, opOr);
+	if (macho.get()) {
+		for (const load_command *command = macho->loadCommands(); command; command = macho->nextCommand(command)) {
+			if (macho->flip(command->cmd) == LC_LOAD_DYLIB) {
+				const dylib_command *dycmd = (const dylib_command *)command;
+				if (const char *name = macho->string(command, dycmd->dylib.name))
+					try {
+						string path = ctx.sdkPath(name);
+						secdebug("machorep", "examining DYLIB %s", path.c_str());
+						// find path on disk, get designated requirement (if signed)
+						if (RefPointer<DiskRep> rep = DiskRep::bestGuess(path))
+							if (SecPointer<SecStaticCode> code = new SecStaticCode(rep))
+								if (const Requirement *req = code->designatedRequirement()) {
+									CODESIGN_SIGN_DEP_MACHO(this, (char*)path.c_str(), (void*)req);
+									chain.add();
+									chain.maker.copy(req);
+								}
+					} catch (...) {
+						CODESIGN_SIGN_DEP_MACHO(this, (char*)name, NULL);
+						secdebug("machorep", "exception getting library requirement (ignored)");
+					}
+				else
+					CODESIGN_SIGN_DEP_MACHO(this, NULL, NULL);
+			}
+		}
+	}
+	if (chain.empty())
+		return NULL;
+	else
+		return maker.make();
+}
+
+
+//
+// Default to system page size for segmented (paged) signatures
+//
+size_t MachORep::pageSize(const SigningContext &)
+{
+	return segmentedPageSize;
 }
 
 

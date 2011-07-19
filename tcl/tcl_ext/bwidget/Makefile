@@ -9,9 +9,11 @@ Project               = bwidget
 License               = LICENSE.txt
 
 # Fetch info
-Release               = 1.8.0
-TEApotVersion         = 0.0.0.2008.10.30.19.39.59
+Release               = 1.9.1
+TEApotVersion         = 0.0.0.2010.08.18.08.49.54
 TEApotProject         = Bwidget
+#UrlFile               = BWidget-$(Release)
+#Url                   = $(UrlBase)/tcllib/BWidget/$(Release)/$(UrlFile)$(UrlExt)
 
 Configure             = :
 

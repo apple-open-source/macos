@@ -1,0 +1,213 @@
+require "vnd.dovecot.testsuite";
+
+test_set "message" text:
+From: stephan+sieve@friep.example.com
+To: sirius@example.org
+To: nico@frop.example.org
+Cc: me@example.com
+Cc: timo@dovecot.example.com
+X-Hufter: TRUE
+Subject: make your money very fast!!!
+X-Spam-Score: **********
+X-Bullshit: 33333???a
+Message-ID: <90a02fe01fc25e131d0e9c4c45975894@example.com>
+Comment:                                            
+X-Subject: Log for successful build of Dovecot.
+
+Het werkt!
+.
+;
+
+/*
+ * General conformance testing
+ */
+
+test "Empty string" {
+	if not header :matches "comment" "" {
+		test_fail "failed to match \"\" against \"\"";
+	}
+
+	if not header :matches "comment" "*" {
+		test_fail "failed to match \"\" against \"*\"";
+	}
+
+	if header :matches "comment" "?" {
+		test_fail "inappropriately matched \"\" against \"?\"";
+	}
+}
+
+test "Multiple '*'" {
+	if not address :matches "from" "*@fri*p*examp*.com" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "*@f*pex*mple.com" {
+		test_fail "should not have matched";
+	}
+}
+
+test "End '*'" {
+	if not address :matches "from" "stephan+sieve@friep.*" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "stepan+sieve@friep.*" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Begin '*'" {
+	if not address :matches "from" "*+sieve@friep.example.com" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "*+sieve@friep.example.om" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Middle '?'" {
+	if not address :matches "from" "stephan+sieve?friep.example.com" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "stephan+sieve?fiep.example.com" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Begin '?'" {
+	if not address :matches "from" "?tephan+sieve@friep.example.com" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "?tephan+sievefriep.example.com" {
+		test_fail "should not have matched";
+	}
+}
+
+test "End '?'" {
+	if not address :matches "from" "stephan+sieve@friep.example.co?" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "sephan+sieve@friep.example.co?" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Multiple '?'" {
+	if not address :matches "from" "?t?phan?sieve?fri?p.exampl?.co?" {
+		test_fail "should have matched";
+	}
+
+	if address :matches "from" "?t?phan?sieve?fiep.exam?le.co?" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Escaped '?'" {
+	if not header :matches "x-bullshit" "33333\\?\\?\\??" {
+		test_fail "should have matched";
+	}
+
+	if header :matches "x-bullshit" "33333\\?\\?\\?" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Escaped '?' following '*'" {
+	if not header :matches "x-bullshit" "33333*\\?\\??" {
+		test_fail "should have matched";
+	}
+
+}
+
+test "Escaped '?' directly following initial '*'" {
+	if not header :matches "X-Bullshit" "*\\?\\?\\?a" {
+		test_fail "should have matched";
+	}
+}
+
+test "Escaped '?' following initial '*'" {
+	if not header :matches "x-bullshit" "*3333\\?\\?\\?a" {
+		test_fail "should have matched";
+	}
+}
+
+test "Escaped '*' with active '*' at the end" {
+	if not header :matches "x-spam-score" "\\*\\*\\*\\*\\**" {
+		test_fail "should have matched";
+	}
+}
+
+test "All escaped '*'" {
+	if not header :matches "x-spam-score" "\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*" {
+		test_fail "should have matched";
+	}
+
+	if header :matches "x-spam-score" "\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*\\*" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Middle not escaped '*'" {
+	if not header :matches "x-spam-score" "\\*\\*\\***\\*\\*" {
+		test_fail "should have matched";
+	}
+}
+
+test "Escaped '*' alternating with '?'" {
+	if not header :matches "x-spam-score" "\\*?\\*?\\*?\\*?\\*?" {
+		test_fail "should have matched";
+	}
+
+	if header :matches "x-spam-score" "\\*?\\*?\\*?\\*?\\*??" {
+		test_fail "should not have matched";
+	}
+}
+
+test "All escaped" {
+	if header :matches "x-bullshit" "\\*3333\\?\\?\\?a" {
+		test_fail "should not have matched";
+	}
+
+
+	if header :matches "x-bullshit" "33333\\?\\?\\?aa" {
+		test_fail "should not have matched";
+	}
+
+	if header :matches "x-bullshit" "\\f3333\\?\\?\\?a" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Put '*' directly before '?'" {
+	if header :matches "x-subject" "Log for *??????????? build of *" {
+		test_fail "should not have matched";
+	}
+
+	if not header :matches "x-subject" "Log for *?????????? build of *" {
+		test_fail "should have matched";
+	}
+
+	if not header :matches "x-subject" "Log for *? build of *" {
+		test_fail "should have matched";
+	}
+}
+
+test "Put '?' directly before '*'" {
+	if header :matches "x-subject" "Log for ???????????* build of *" {
+		test_fail "should not have matched";
+	}
+
+	if not header :matches "x-subject" "Log for ??????????* build of *" {
+		test_fail "should have matched";
+	}
+
+	if not header :matches "x-subject" "Log for ?* build of *" {
+		test_fail "should have matched";
+	}
+}
+
+

@@ -1,3 +1,99 @@
+2010-07-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: bump calendar to 0.95
+	* calendar.tcl (Refresh): use correct last day, as 8.4 doesn't
+	handle going over on days in month for clock scan.
+
+2010-07-09  Andreas Kupries  <andreask@activestate.com>
+
+	* arrowb.tcl: Added arrowbutton widgets using Keith Vetter's
+	* pkgIndex.tcl: bitmaps (see http://wiki.tcl.tk/8554). Bumped
+	  widget::all version to 1.2.2.
+
+2010-06-02  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Meh, typo'd my update. screenruler is unchanged,
+	  scrolledwindow isn't. Fixed.
+
+2010-06-01  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Updated with the actual package versions.
+
+2010-06-01  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* dateentry.tcl: v0.92
+	* dialog.tcl: v1.3.1
+	* mentry.tcl: v1.0.1
+	* statusbar.tcl: v1.2.1
+	* superframe.tcl: v1.0.1
+	* scrollw.tcl: v1.2.1
+	* toolbar.tcl: v1.2.1 rely on widget to provide tile
+	* widget.tcl: v3.1 conditionally require tile (8.4 only)
+
+2009-09-25  Ruediger Haertel <r_haertel@gmx.de>
+
+	* calendar.tcl: handle -textvariable option correctly also
+	                  for variables in namespaces
+	* pkgIndex.tcl: bump calendar to v0.94
+
+2009-09-25  Ruediger Haertel <r_haertel@gmx.de>
+
+	* calendar.tcl: uninstall trace handler whenever a new
+	                  textvariable is assigned
+	     . remove bugfix in key bindings which resulted in an Tcl Error
+	* pkgIndex.tcl: really bump calendar to v0.93
+
+2009-09-25  Ruediger Haertel <r_haertel@gmx.de>
+
+	* calendar.tcl: uninstall trace handler with dtor
+	     . create key bindings to move within the calendar.
+	     . changing the language immediately refreshes the widget.
+	     . for english and german the string "Today is"
+	           is displayed, other languages don't have this.
+
+	* widget_calendar.tcl: added section with key bindings
+	* pkgIndex.tcl: bump calendar to v0.93
+
+2009-09-25  Ruediger Haertel <r_haertel@gmx.de>
+
+	* calendar.tcl: install/uninstall trace handler when
+	                -textvariable is set/unset
+	* pkgIndex.tcl: bump calendar to v0.92
+
+2009-08-17  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* calendar.tcl: correct leading 0-month issues.
+	Make 8.4-friendly by not needing clock scan -format.
+	* pkgIndex.tcl: bump calendar to v0.91
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2008-11-23  Ruediger Haertel <r_haertel@gmx.de>
+
+	* widget_calendar.man: added documentation to widget::calendar
+
+2008-11-23  Ruediger Haertel <r_haertel@gmx.de>
+
+	* widget.man: added widget::calendar and widget::dateentry
+	to the overview of snidgets in this package
+
+2008-11-13  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: widget::calendar 0.9 ; widget::dataentry 0.91
+	* calendar.tcl: new widget::calendar adapted from the dateentry
+	dropbox pieces.  Now can be used as a stand-alone widget.
+	* dateentry.tcl: update to use calendar widget in dropbox.
+
+2008-11-12  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: add widget::dateentry 0.9
+	* dateentry.tcl: first pass at a dateentry dropbox, by Ruediger
+	Haertel with updates from JH.
+
 2008-06-17  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* pkgIndex.tcl: bump panelframe to 1.1.

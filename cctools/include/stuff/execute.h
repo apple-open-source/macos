@@ -36,6 +36,12 @@ __private_extern__ int execute(
 __private_extern__ void add_execute_list(
     char *str);
 
+__private_extern__ void add_execute_list_with_prefix(
+    char *str);
+
+__private_extern__ char * cmd_with_prefix(
+    char *str);
+
 __private_extern__ void reset_execute_list(
     void);
 

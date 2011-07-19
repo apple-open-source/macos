@@ -31,7 +31,7 @@
 .\"
 .\"	@(#)fsck.8	8.4 (Berkeley) 5/9/95
 .\"
-.Dd March 20, 2008
+.Dd May 18, 2010
 .Dt FSCK 8
 .Os BSD 4
 .Sh NAME
@@ -41,16 +41,12 @@
 .Nm fsck
 .Fl p
 .Op Fl f
-.Op Fl m Ar mode
 .Nm fsck
-.Op Fl b Ar block#
 .Op Fl l Ar maxparallel
 .Op Fl q
 .Op Fl y
 .Op Fl n
-.Op Fl m Ar mode
-.Op Ar filesystem
-.Ar ...
+.Op Fl d
 .Sh DESCRIPTION
 The first form of
 .Nm fsck
@@ -79,35 +75,26 @@ when they have been mounted read-only, or when
 .Nm fsck
 runs on them successfully.
 .Pp
-The kernel takes care that only a restricted class of innocuous filesystem
-inconsistencies can happen unless hardware or software failures intervene.
-These are limited to the following:
-.Bl -item -compact -offset indent
-.It
-Unreferenced inodes
-.It
-Link counts in inodes too large
-.It
-Missing blocks in the free map
-.It
-Blocks in the free map also in files
-.It
-Counts in the super-block wrong
-.El
-.Pp
-These are the only inconsistencies that
-.Nm fsck
-with the
-.Fl p
-option will correct; if it encounters other inconsistencies, it exits
+It should be noted that 
+.Nm fsck 
+is now essentially a wrapper that invokes other 
+.Pa fsck_XXX
+utilities as needed.  Currently, 
+.Nm fsck 
+can invoke 
+.Pa fsck_hfs ,
+.Pa fsck_msdos ,
+.Pa fsck_exfat ,
+and 
+.Pa fsck_udf . 
+If this underlying process that 
+.Nm fsck 
+invokes encounters serious inconsistencies or the filesystem type is not one 
+of the above, it exits
 with an abnormal return status and an automatic reboot will then fail.
 For each corrected inconsistency one or more lines will be printed
 identifying the filesystem on which the correction will take place,
-and the nature of the correction.  After successfully correcting a filesystem,
-.Nm fsck
-will print the number of files on that filesystem,
-the number of used and free blocks,
-and the percentage of fragmentation.
+and the nature of the correction.  
 .Pp
 If sent a
 .Dv QUIT
@@ -124,40 +111,22 @@ Without the
 option,
 .Nm fsck
 audits and interactively repairs inconsistent conditions for filesystems. 
-If the filesystem is inconsistent the operator is prompted for concurrence
-before each correction is attempted.
 It should be noted that some of the corrective actions which are not
 correctable under the
 .Fl p
 option will result in some loss of data.
 The amount and severity of data lost may be determined from the diagnostic
 output.
-The default action for each consistency correction
-is to wait for the operator to respond
-.Li yes
-or
-.Li no .
 If the operator does not have write permission on the filesystem
 .Nm fsck
 will default to a 
 .Fl n
 action.
 .Pp
-.Nm Fsck
-has more consistency checks than
-its predecessors
-.Em check , dcheck , fcheck ,
-and
-.Em icheck
-combined.
-.Pp
 The following flags are interpreted by
-.Nm fsck .
+.Nm fsck 
+and passed along to the underlying tool that it spawns.
 .Bl -tag
-.It Fl b
-Use the block specified immediately after the flag as
-the super block for the filesystem.  Block 32 is usually
-an alternate super block.
 .It Fl f
 Force fsck to check `clean' filesystems when preening.
 .It Fl l
@@ -166,14 +135,6 @@ argument.
 By default, the limit is the number of disks, running one process per disk.
 If a smaller limit is given, the disks are checked round-robin, one filesystem
 at a time.
-.It Fl m
-Use the mode specified in octal immediately after the flag as the
-permission bits to use when creating the
-.Pa lost+found
-directory rather than the default 1777.
-In particular, systems that do not wish to have lost files accessible
-by all users on the system should use a more restrictive
-set of permissions such as 700.
 .It Fl p
 "Preen" mode, described above.
 .It Fl q
@@ -197,73 +158,11 @@ If no filesystems are given to
 then a default list of filesystems is read using
 .Xr getfsent 3 .
 .Pp
-.Bl -enum -offset indent -compact
-Inconsistencies checked are as follows:
-.It
-Blocks claimed by more than one inode or the free map.
-.It
-Blocks claimed by an inode outside the range of the filesystem.
-.It
-Incorrect link counts.
-.It
-Size checks:
-.Bl -item -offset indent -compact
-.It 
-Directory size not a multiple of DIRBLKSIZ.
-.It
-Partially truncated file.
-.El
-.It
-Bad inode format.
-.It
-Blocks not accounted for anywhere.
-.It
-Directory checks:
-.Bl -item -offset indent -compact
-.It 
-File pointing to unallocated inode.
-.It
-Inode number out of range.
-.It
-Dot or dot-dot not the first two entries of a directory
-or having the wrong inode number.
-.El
-.It
-Super Block checks:
-.Bl -item -offset indent -compact
-.It 
-More blocks for inodes than there are in the filesystem.
-.It
-Bad free block map format.
-.It
-Total free block and/or free inode count incorrect.
-.El
-.El
-.Pp
-Orphaned files and directories (allocated but unreferenced) are,
-with the operator's concurrence, reconnected by
-placing them in the 
-.Pa lost+found
-directory.
-The name assigned is the inode number.
-If the
-.Pa lost+found
-directory does not exist, it is created.
-If there is insufficient space its size is increased.
-.Pp
 Because of inconsistencies between the block device and the buffer cache,
 the raw device should always be used.
-.Sh DIAGNOSTICS
-The diagnostics produced by 
-.Nm fsck
-are fully enumerated and explained in Appendix A of
-.Rs
-.%T "Fsck \- The UNIX File System Check Program"
-.Re
 .Sh SEE ALSO
 .Xr fs 5 ,
 .Xr fsck_hfs 8 ,
 .Xr fsck_msdos 8 ,
 .Xr getfsent 3 ,
-.Xr newfs 8 ,
 .Xr reboot 8

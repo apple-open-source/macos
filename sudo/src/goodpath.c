@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 1996, 1998-2005 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1996, 1998-2005, 2010
+ *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -26,21 +27,16 @@
 #include <stdio.h>
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
 #include <errno.h>
 
 #include "sudo.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: goodpath.c,v 1.44 2005/02/12 22:56:06 millert Exp $";
-#endif /* lint */
 
 /*
  * Verify that path is a normal file and executable by root.

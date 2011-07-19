@@ -113,7 +113,7 @@ inet6_firewire_input(
     if (eh->fw_dhost[0] & 1) 
 	{
 		int flags = (bcmp((caddr_t)fwbroadcastaddr, (caddr_t)eh->fw_dhost, sizeof(fwbroadcastaddr)) == 0) 
-					? M_BCAST : M_MCAST;
+					? MBUF_BCAST : MBUF_MCAST;
 			
 		mbuf_setflags(m, mbuf_flags(m) | flags);	
     }
@@ -142,7 +142,7 @@ inet6_firewire_pre_output(
 	errno_t	result;
 	struct	sockaddr_dl	sdl;
 	
-    mbuf_setflags(*m0, mbuf_flags(*m0) | M_LOOP);
+    mbuf_setflags(*m0, mbuf_flags(*m0) | MBUF_LOOP);
 	
 	result = nd6_lookup_ipv6(ifp, (const struct sockaddr_in6*)dst_netaddr,
 							 &sdl, sizeof(sdl), (route_t)route, *m0);

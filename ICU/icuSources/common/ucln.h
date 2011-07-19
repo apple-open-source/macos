@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *                                                                            *
-* Copyright (C) 2001-2007, International Business Machines                   *
+* Copyright (C) 2001-2010, International Business Machines                   *
 *                Corporation and others. All Rights Reserved.                *
 *                                                                            *
 ******************************************************************************
@@ -47,10 +47,15 @@
  * Please see common/ucln_cmn.{h,c} and i18n/ucln_in.{h,c} for examples.
  */
 
+/**
+ * Data Type for cleanup function selector. These roughly correspond to libraries.
+ */
 typedef enum ECleanupLibraryType {
     UCLN_START = -1,
+    UCLN_UPLUG,     /* ICU plugins */
     UCLN_CUSTOM,    /* Custom is for anyone else. */
     UCLN_CTESTFW,
+    UCLN_TOOLUTIL,
     UCLN_LAYOUTEX,
     UCLN_LAYOUT,
     UCLN_IO,
@@ -58,11 +63,27 @@ typedef enum ECleanupLibraryType {
     UCLN_COMMON /* This must be the last one to cleanup. */
 } ECleanupLibraryType;
 
+/**
+ * Data type for cleanup function pointer
+ */
 U_CDECL_BEGIN
 typedef UBool U_CALLCONV cleanupFunc(void);
 U_CDECL_END
 
+/**
+ * Register a cleanup function
+ * @param type which library to register for.
+ * @param func the function pointer
+ */
 U_CAPI void U_EXPORT2 ucln_registerCleanup(ECleanupLibraryType type,
                                            cleanupFunc *func);
+
+/**
+ * Request cleanup for one specific library.
+ * Not thread safe.
+ * Calling this with UCLN_COMMON just calls u_cleanup();
+ * @param type which library to cleanup
+ */
+U_CAPI void U_EXPORT2 ucln_cleanupOne(ECleanupLibraryType type);
 
 #endif

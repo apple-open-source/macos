@@ -21,18 +21,21 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
 
+import sys
+
 types = {
     "wordchar": { "UseTable" : True, "data": ['_', ('0','9'), ('A', 'Z'), ('a','z')]},
     "nonwordchar": { "UseTable" : True, "Inverse": "wordchar", "data": ['`', (0, ord('0') - 1), (ord('9') + 1, ord('A') - 1), (ord('Z') + 1, ord('_') - 1), (ord('z') + 1, 0xffff)]},
     "newline": { "UseTable" : False, "data": ['\n', '\r', 0x2028, 0x2029]},
-    "spaces": { "UseTable" : True, "data": [' ', ('\t', '\r'), 0xa0, 0x1680, 0x180e, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, (0x2000, 0x200a)]},
-    "nonspaces": { "UseTable" : True, "Inverse": "spaces", "data": [(0, ord('\t') - 1), (ord('\r') + 1, ord(' ') - 1), (ord(' ') + 1, 0x009f), (0x00a1, 0x167f), (0x1681, 0x180d), (0x180f, 0x1fff), (0x200b, 0x2027), (0x202a, 0x202e), (0x2030, 0x205e), (0x2060, 0x2fff), (0x3001, 0xffff)]},
+    "spaces": { "UseTable" : True, "data": [' ', ('\t', '\r'), 0xa0, 0x1680, 0x180e, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, (0x2000, 0x200a), 0xfeff]},
+    "nonspaces": { "UseTable" : True, "Inverse": "spaces", "data": [(0, ord('\t') - 1), (ord('\r') + 1, ord(' ') - 1), (ord(' ') + 1, 0x009f), (0x00a1, 0x167f), (0x1681, 0x180d), (0x180f, 0x1fff), (0x200b, 0x2027), (0x202a, 0x202e), (0x2030, 0x205e), (0x2060, 0x2fff), (0x3001, 0xfefe), (0xff00, 0xffff)]},
     "digits": { "UseTable" : False, "data": [('0', '9')]},
     "nondigits": { "UseTable" : False, "Inverse": "digits", "data": [(0, ord('0') - 1), (ord('9') + 1, 0xffff)] }
 }
 entriesPerLine = 50
 arrays = "";
 functions = "";
+emitTables = (len(sys.argv) < 2 or sys.argv[1] != "--no-tables")
 
 for name, classes in types.items():
     ranges = [];
@@ -54,7 +57,7 @@ for name, classes in types.items():
             ranges.append((min,max))
     ranges.sort();
     
-    if classes["UseTable"] and (not "Inverse" in classes):
+    if emitTables and classes["UseTable"] and (not "Inverse" in classes):
         array = ("static const char _%sData[65536] = {\n" % name);
         i = 0
         for (min,max) in ranges:
@@ -85,7 +88,7 @@ for name, classes in types.items():
     function = "";
     function += ("CharacterClass* %sCreate()\n" % name)
     function += ("{\n")
-    if classes["UseTable"]:
+    if emitTables and classes["UseTable"]:
         if "Inverse" in classes:
             function += ("    CharacterClass* characterClass = new CharacterClass(CharacterClassTable::create(_%sData, true));\n" % (classes["Inverse"]))
         else:
@@ -107,6 +110,12 @@ for name, classes in types.items():
     function += ("}\n\n")
     functions += function
 
-print(arrays)
-print(functions)
+if (len(sys.argv) > 1):
+    f = open(sys.argv[-1], "w")
+    f.write(arrays)
+    f.write(functions)
+    f.close()
+else:
+    print(arrays)
+    print(functions)
 

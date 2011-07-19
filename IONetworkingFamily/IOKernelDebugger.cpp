@@ -275,9 +275,13 @@ extern "C" {
 //
 typedef void (*kdp_send_t)( void * pkt, UInt pkt_len );
 typedef void (*kdp_receive_t)( void * pkt, UInt * pkt_len, UInt timeout );
+typedef UInt32  (*kdp_link_t)(void);
+typedef boolean_t (*kdp_mode_t)(boolean_t active);
 void kdp_register_send_receive( kdp_send_t send, kdp_receive_t receive );
 void kdp_unregister_send_receive( kdp_send_t send, kdp_receive_t receive );
-void kdp_set_interface(void *);
+void kdp_register_link( kdp_link_t link, kdp_mode_t mode );
+void kdp_unregister_link( kdp_link_t link, kdp_mode_t mode );
+void kdp_set_interface(void *, const void *);
 }
 
 #undef  super
@@ -290,14 +294,16 @@ OSMetaClassDefineReservedUnused( IOKernelDebugger, 3 );
 
 // IOKernelDebugger global variables.
 //
-IOService *          gIODebuggerDevice    = 0;
-IODebuggerTxHandler  gIODebuggerTxHandler = 0;
-IODebuggerRxHandler  gIODebuggerRxHandler = 0;
-UInt32               gIODebuggerTxBytes   = 0;
-UInt32               gIODebuggerRxBytes   = 0;
-SInt32               gIODebuggerSemaphore = 0;
-UInt32               gIODebuggerFlag      = 0;
-UInt8                gIODebuggerSignalled = 0;
+IOService *             gIODebuggerDevice                = 0;
+IODebuggerTxHandler     gIODebuggerTxHandler             = 0;
+IODebuggerRxHandler     gIODebuggerRxHandler             = 0;
+IODebuggerLinkStatusHandler gIODebuggerLinkStatusHandler = 0;
+IODebuggerSetModeHandler gIODebuggerSetModeHandler       = 0;
+UInt32                  gIODebuggerTxBytes               = 0;
+UInt32                  gIODebuggerRxBytes               = 0;
+SInt32                  gIODebuggerSemaphore             = 0;
+UInt32                  gIODebuggerFlag                  = 0;
+UInt8                   gIODebuggerSignalled             = 0;
 
 // Global debugger flags.
 //
@@ -310,7 +316,9 @@ enum {
 //
 #define _state                      _reserved->stateVars[0]
 #define _activationChangeThreadCall _reserved->activationChangeThreadCall
-#define _interfaceNotifier			_reserved->interfaceNotifier
+#define _interfaceNotifier	    _reserved->interfaceNotifier
+#define _linkStatusHandler          _reserved->linkStatusHandler 
+#define _setModeHandler             _reserved->setModeHandler 
 #define EARLY_DEBUG_SUPPORT         (gDebugBootArg != 0)
 
 static void handleActivationChange( IOKernelDebugger * debugger,
@@ -319,7 +327,7 @@ static void handleActivationChange( IOKernelDebugger * debugger,
 bool IOKernelDebugger::interfacePublished( void * target, void *param, IOService * service )
 {
 	IOService *debugger = (IOService *)target;
-        IONetworkInterface *interface = OSDynamicCast(IONetworkInterface, service);
+    IONetworkInterface *interface = OSDynamicCast(IONetworkInterface, service);
 
 	//IOLog("new (or changes on) interface detected\n");
 	//only reregister ourselves if the interface has the same controller (provider) as we do.
@@ -327,8 +335,8 @@ bool IOKernelDebugger::interfacePublished( void * target, void *param, IOService
 	{
 		//IOLog("it's on our controller- reregister\n");
 		debugger->registerService();
-                if (interface)
-                    interface->debuggerRegistered();
+        if (interface)
+            interface->debuggerRegistered();
 	}
 	return true;
 }
@@ -352,7 +360,7 @@ void IOKernelDebugger::kdpReceiveDispatcher( void *   buffer,
 }
 
 //---------------------------------------------------------------------------
-// The KDP transmit dispatch function. Dispatches KDP receive requests to the
+// The KDP transmit dispatch function. Dispatches KDP transmit requests to the
 // registered transmit handler. This function is registered with KDP via 
 // kdp_register_send_receive().
 
@@ -364,6 +372,37 @@ void IOKernelDebugger::kdpTransmitDispatcher( void * buffer, UInt32 length )
 
     gIODebuggerTxBytes += length;
 }
+
+//---------------------------------------------------------------------------
+// The KDP link up dispatch function. Dispatches KDP link up queries to the
+// registered link up handler. This function is registered with KDP via 
+// kdp_register_link().
+
+UInt32 IOKernelDebugger::kdpLinkStatusDispatcher( void )
+{
+    if ( gIODebuggerSemaphore ) 
+        return 0;  // FIXME - Driver is busy!
+
+    return (*gIODebuggerLinkStatusHandler)( gIODebuggerDevice);
+}
+
+
+//---------------------------------------------------------------------------
+// The KDP set mode dispatch function. Dispatches KDP set mode commands to the
+// registered setMode handler. This function is registered with KDP via 
+// kdp_register_link().
+
+boolean_t IOKernelDebugger::kdpSetModeDispatcher(boolean_t active)
+{
+   if ( gIODebuggerSemaphore ) 
+        return FALSE;  // FIXME - Driver is busy!
+
+   if ((*gIODebuggerSetModeHandler)( gIODebuggerDevice, active == TRUE ? true : false) == true)
+        return TRUE;
+
+   return FALSE;
+}
+
 
 //---------------------------------------------------------------------------
 // Null debugger handlers.
@@ -385,6 +424,19 @@ void IOKernelDebugger::nullRxHandler( IOService * target,
         gIODebuggerFlag &= ~kIODebuggerFlagWarnNullHandler;
     }
 }
+
+UInt32 IOKernelDebugger::nullLinkStatusHandler(__unused IOService * target)
+{
+    return kIONetworkLinkValid | kIONetworkLinkActive; /* default is link up. */
+}
+
+bool IOKernelDebugger::nullSetModeHandler(__unused IOService * target,
+                                          __unused bool active)
+{
+    return true; 
+}
+
+
 
 //---------------------------------------------------------------------------
 // Take the debugger lock conditionally.
@@ -432,9 +484,11 @@ void IOKernelDebugger::signalDebugger(void)
 //---------------------------------------------------------------------------
 // Initialize an IOKernelDebugger instance.
 
-bool IOKernelDebugger::init( IOService *          target,
-                             IODebuggerTxHandler  txHandler,
-                             IODebuggerRxHandler  rxHandler )
+bool IOKernelDebugger::init( IOService *                 target,
+                             IODebuggerTxHandler         txHandler,
+                             IODebuggerRxHandler         rxHandler,
+                             IODebuggerLinkStatusHandler linkStatusHandler,
+                             IODebuggerSetModeHandler    setModeHandler)
 {
     if ( ( super::init() == false )                ||
          ( OSDynamicCast(IOService, target) == 0 ) ||
@@ -479,9 +533,11 @@ bool IOKernelDebugger::init( IOService *          target,
 
     // Cache the target and handlers provided.
 
-    _target     = target;
-    _txHandler  = txHandler;
-    _rxHandler  = rxHandler;
+    _target            = target;
+    _txHandler         = txHandler;
+    _rxHandler         = rxHandler;
+    _linkStatusHandler = linkStatusHandler;
+    _setModeHandler    = setModeHandler;
     _state      = 0;
 
     return true;
@@ -491,13 +547,15 @@ bool IOKernelDebugger::init( IOService *          target,
 // Factory method which performs allocation and initialization of an 
 // IOKernelDebugger instance.
 
-IOKernelDebugger * IOKernelDebugger::debugger( IOService *          target,
-                                               IODebuggerTxHandler  txHandler,
-                                               IODebuggerRxHandler  rxHandler )
+IOKernelDebugger * IOKernelDebugger::debugger( IOService *                 target,
+                                               IODebuggerTxHandler         txHandler,
+                                               IODebuggerRxHandler         rxHandler,
+                                               IODebuggerLinkStatusHandler linkStatusHandler,
+                                               IODebuggerSetModeHandler    setModeHandler)
 {
     IOKernelDebugger * debugger = new IOKernelDebugger;
 	
-    if (debugger && (debugger->init( target, txHandler, rxHandler ) == false))
+    if (debugger && (debugger->init( target, txHandler, rxHandler, linkStatusHandler, setModeHandler ) == false))
     {
         debugger->release();
         return 0;
@@ -524,9 +582,11 @@ IOKernelDebugger * IOKernelDebugger::debugger( IOService *          target,
 //---------------------------------------------------------------------------
 // Register the debugger handlers.
 
-void IOKernelDebugger::registerHandler( IOService *          target,
-                                        IODebuggerTxHandler  txHandler,
-                                        IODebuggerRxHandler  rxHandler )
+void IOKernelDebugger::registerHandler( IOService *                 target,
+                                        IODebuggerTxHandler         txHandler,
+                                        IODebuggerRxHandler         rxHandler,
+                                        IODebuggerLinkStatusHandler linkStatusHandler,
+                                        IODebuggerSetModeHandler    setModeHandler)
 {
     bool doRegister;
 
@@ -540,19 +600,24 @@ void IOKernelDebugger::registerHandler( IOService *          target,
     {
         // Unregister the polling functions from KDP.
         kdp_unregister_send_receive( (kdp_send_t) kdpTransmitDispatcher,
-                                     (kdp_receive_t) kdpReceiveDispatcher );
+                                     (kdp_receive_t) kdpReceiveDispatcher);
+        kdp_unregister_link( (kdp_link_t) kdpLinkStatusDispatcher, (kdp_mode_t) kdpSetModeDispatcher);
 
         gIODebuggerFlag &= ~kIODebuggerFlagRegistered;
     }
 
     if ( txHandler == 0 ) txHandler = &IOKernelDebugger::nullTxHandler;
     if ( rxHandler == 0 ) rxHandler = &IOKernelDebugger::nullRxHandler;    
+    if ( linkStatusHandler == 0 ) linkStatusHandler = &IOKernelDebugger::nullLinkStatusHandler;    
+    if ( setModeHandler == 0 ) setModeHandler = &IOKernelDebugger::nullSetModeHandler;    
 
     OSIncrementAtomic( &gIODebuggerSemaphore );
 
-    gIODebuggerDevice    = target;
-    gIODebuggerTxHandler = txHandler;
-    gIODebuggerRxHandler = rxHandler;
+    gIODebuggerDevice            = target;
+    gIODebuggerTxHandler         = txHandler;
+    gIODebuggerRxHandler         = rxHandler;
+    gIODebuggerLinkStatusHandler = linkStatusHandler;
+    gIODebuggerSetModeHandler    = setModeHandler;
     gIODebuggerFlag     |= kIODebuggerFlagWarnNullHandler;
 
     OSDecrementAtomic( &gIODebuggerSemaphore );
@@ -571,19 +636,23 @@ void IOKernelDebugger::registerHandler( IOService *          target,
 				break;
 		}
 		clients->release();
-		kdp_set_interface(interface); 
 		
-                if (interface)
+                if (interface) {
+                    OSData *mac = OSDynamicCast(OSData,
+                                                interface->getController()->getProperty(kIOMACAddress));
+                    
+                    kdp_set_interface(interface, mac ? mac->getBytesNoCopy() : NULL); 
                     interface->debuggerRegistered();
+                }
 
         // Register dispatch function, these in turn will call the
         // handlers when the debugger is active.
         // 
         // Note: The following call may trigger an immediate break
         //       to the debugger.
-
+        kdp_register_link((kdp_link_t) kdpLinkStatusDispatcher, (kdp_mode_t) kdpSetModeDispatcher);
         kdp_register_send_receive( (kdp_send_t) kdpTransmitDispatcher,
-                                   (kdp_receive_t) kdpReceiveDispatcher );
+                                   (kdp_receive_t) kdpReceiveDispatcher);
 
         // Limit ourself to a single real KDP registration.
 
@@ -691,7 +760,7 @@ bool IOKernelDebugger::handleOpen( IOService *    forClient,
         {
             // If the target was enabled, complete the registration.
             IOLog("%s: registering debugger\n", getName());
-            registerHandler( _target, _txHandler, _rxHandler );
+            registerHandler( _target, _txHandler, _rxHandler, _linkStatusHandler, _setModeHandler );
         }
 
         // Remember the client.
@@ -810,7 +879,7 @@ IOKernelDebugger::powerStateDidChangeTo( IOPMPowerFlags  flags,
 
         enableTarget( this, _target, &_state, kEventTargetUsable );
         if ( _state & kTargetWasEnabled )
-            registerHandler( _target, _txHandler, _rxHandler );
+            registerHandler( _target, _txHandler, _rxHandler, _linkStatusHandler, _setModeHandler );
 
         unlockForArbitration();
     }
@@ -871,7 +940,7 @@ IOReturn IOKernelDebugger::message( UInt32 type, IOService * provider,
             {
                 enableTarget( this, _target, &_state, kEventDebuggerActive );
                 if ( _state & kTargetWasEnabled )
-                    registerHandler( _target, _txHandler, _rxHandler );
+                    registerHandler( _target, _txHandler, _rxHandler, _linkStatusHandler, _setModeHandler );
             }
             else
             {

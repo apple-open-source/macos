@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.110.2.7 2008/02/11 23:56:32 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.110.2.13 2010/04/13 20:22:58 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,10 @@
 
 #ifdef LDAP_RESPONSE_RB_TREE
 #include "rb_response.h"
+#endif
+
+#if defined(__APPLE__) && defined(LDAP_R_COMPILE)
+#include <pthread.h>
 #endif
 
 /* Caller should hold the req_mutex if simultaneous accesses are possible */
@@ -91,13 +95,16 @@ ldap_open( LDAP_CONST char *host, int port )
 	return ld;
 }
 
-
-
 int
 ldap_create( LDAP **ldp )
 {
 	LDAP			*ld;
 	struct ldapoptions	*gopts;
+
+#if defined(__APPLE__) && defined(LDAP_R_COMPILE)
+	/* Init the global options in a nice thread-safe manner. */
+	pthread_once(&ldap_global_opts_initialized, ldap_int_init_global_opts);
+#endif
 
 	*ldp = NULL;
 	/* Get pointer to global option structure */
@@ -105,12 +112,19 @@ ldap_create( LDAP **ldp )
 		return LDAP_NO_MEMORY;
 	}
 
+#if defined(__APPLE__) && defined(LDAP_R_COMPILE)
+	/* Global options should have been initialized by pthread_once() */
+	if( gopts->ldo_valid != LDAP_INITIALIZED ) {
+		return LDAP_LOCAL_ERROR;
+	}
+#else
 	/* Initialize the global options, if not already done. */
 	if( gopts->ldo_valid != LDAP_INITIALIZED ) {
 		ldap_int_initialize(gopts, NULL);
 		if ( gopts->ldo_valid != LDAP_INITIALIZED )
 			return LDAP_LOCAL_ERROR;
 	}
+#endif
 
 	Debug( LDAP_DEBUG_TRACE, "ldap_create\n", 0, 0, 0 );
 
@@ -127,11 +141,9 @@ ldap_create( LDAP **ldp )
 	ld->ld_options.ldo_sctrls = NULL;
 	ld->ld_options.ldo_cctrls = NULL;
 	ld->ld_options.ldo_defludp = NULL;
+	ld->ld_options.ldo_conn_cbs = NULL;
 
 	ld->ld_options.ldo_noaddr_option = 0;
-	ld->ld_options.ldo_noreverse_option = 0;
-	ld->ld_options.ldo_notifydesc_proc = NULL;
-	ld->ld_options.ldo_notifydesc_params = NULL;
 	ld->ld_options.ldo_sasl_fqdn = NULL;
 
 #ifdef HAVE_CYRUS_SASL
@@ -287,6 +299,8 @@ ldap_init_fd(
 		ldap_unbind_ext( ld, NULL, NULL );
 		return( LDAP_NO_MEMORY );
 	}
+	if( url )
+		conn->lconn_server = ldap_url_dup( ld->ld_options.ldo_defludp );
 	ber_sockbuf_ctrl( conn->lconn_sb, LBER_SB_OPT_SET_FD, &fd );
 	ld->ld_defconn = conn;
 	++ld->ld_defconn->lconn_refcnt;	/* so it never gets closed/freed */
@@ -353,34 +367,16 @@ ldap_int_open_connection(
 	int async )
 {
 	int rc = -1;
-	char *host;
-	int port, proto;
+	int proto;
 
 	Debug( LDAP_DEBUG_TRACE, "ldap_int_open_connection\n", 0, 0, 0 );
 
 	switch ( proto = ldap_pvt_url_scheme2proto( srv->lud_scheme ) ) {
 		case LDAP_PROTO_TCP:
-			port = srv->lud_port;
-
-			if ( srv->lud_host == NULL || *srv->lud_host == 0 ) {
-				host = NULL;
-			} else {
-				host = srv->lud_host;
-			}
-
-			if( !port ) {
-				if( strcmp(srv->lud_scheme, "ldaps") == 0 ) {
-					port = LDAPS_PORT;
-				} else {
-					port = LDAP_PORT;
-				}
-			}
-
 			rc = ldap_connect_to_host( ld, conn->lconn_sb,
-				proto, host, port, async );
+				proto, srv, async );
 
 			if ( rc == -1 ) return rc;
-
 #ifdef LDAP_DEBUG
 			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_debug,
 				LBER_SBIOD_LEVEL_PROVIDER, (void *)"tcp_" );
@@ -392,19 +388,9 @@ ldap_int_open_connection(
 
 #ifdef LDAP_CONNECTIONLESS
 		case LDAP_PROTO_UDP:
-			port = srv->lud_port;
-
-			if ( srv->lud_host == NULL || *srv->lud_host == 0 ) {
-				host = NULL;
-			} else {
-				host = srv->lud_host;
-			}
-
-			if( !port ) port = LDAP_PORT;
-
 			LDAP_IS_UDP(ld) = 1;
 			rc = ldap_connect_to_host( ld, conn->lconn_sb,
-				proto, host, port, async );
+				proto, srv, async );
 
 			if ( rc == -1 ) return rc;
 #ifdef LDAP_DEBUG
@@ -423,7 +409,7 @@ ldap_int_open_connection(
 #ifdef LDAP_PF_LOCAL
 			/* only IPC mechanism supported is PF_LOCAL (PF_UNIX) */
 			rc = ldap_connect_to_path( ld, conn->lconn_sb,
-				srv->lud_host, async );
+				srv, async );
 			if ( rc == -1 ) return rc;
 #ifdef LDAP_DEBUG
 			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_debug,

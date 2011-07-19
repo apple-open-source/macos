@@ -36,8 +36,8 @@ SYSCTL_DECL(_net_ppp_l2tp);
 /* some default values */
 #define L2TP_DEFAULT_WINDOW_SIZE	4	/* default window size for both sides */
 #define L2TP_DEFAULT_INITIAL_TIMEOUT	1		/* 1 seconds */
-#define L2TP_DEFAULT_TIMEOUT_CAP	8		/* 8 seconds */
-#define L2TP_DEFAULT_RETRY_COUNT	6	
+#define L2TP_DEFAULT_TIMEOUT_CAP	4		/* 4 seconds */
+#define L2TP_DEFAULT_RETRY_COUNT	9	
 #define L2TP_DEFAULT_CONNECT_TIMEOUT		1	/* 1 seconds */
 #define L2TP_DEFAULT_CONNECT_RETRY_COUNT	60	/* 60 tries */
 

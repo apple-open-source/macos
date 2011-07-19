@@ -29,6 +29,7 @@
 #include "CLog.h"
 #include "DirServicesConst.h"
 #include "DSUtils.h"
+#include <DirectoryServiceCore/DSSemaphore.h>
 #include "CInternalDispatch.h"
 
 #include <stdlib.h>
@@ -37,6 +38,7 @@
 #include <sys/sysctl.h>	// for struct kinfo_proc and sysctl()
 #include <syslog.h>		// for syslog()
 #include <arpa/inet.h>
+#include "od_passthru.h"
 
 /*
  * working around some block issues here too
@@ -53,6 +55,7 @@ extern UInt32		gRefCountWarningLimit;
 extern UInt32		gLocalSessionCount;
 extern dsBool		gDSLocalOnlyMode;
 extern pid_t		gDaemonPID;
+extern DSSemaphore	gLocalSessionLock;
 
 sRefEntry::sRefEntry( void )
 {
@@ -183,6 +186,9 @@ CRefTable::CreateReference( UInt32 *outRef, eRefType inType, CServerPlugin *inPl
 	__block tRefToEntryI			refIter;
 	__block tPortToClientEntryI		portIter;
 	__block tMachPortToClientEntryI	machIter;
+	__block size_t					size;
+	__block UInt32					warnLimit;
+	__block char					*clientName;
 	
 	if ( inPID == 0 && inSocket == 0 ) {
 		inPID = gDaemonPID;
@@ -272,13 +278,12 @@ CRefTable::CreateReference( UInt32 *outRef, eRefType inType, CServerPlugin *inPl
 							   client->fSubRefs[newRef] = entry->Retain();	// add to the subrefs
 							   fRefToClientEntry[newRef] = client->Retain();	// link to client
 							   
-							   bool ::bWarn = false;
-							   size_t ::size = client->fSubRefs.size();
-							   UInt32 ::warnLimit = (inPID == gDaemonPID ? 2000 : gRefCountWarningLimit);
+							   size = client->fSubRefs.size();
+							   warnLimit = (inPID == gDaemonPID ? 2000 : gRefCountWarningLimit);
 							   
 							   if ( size > 0 && (size % warnLimit) == 0 ) {
 								   if ( DSexpect_true(inPID != gDaemonPID) ) {
-									   char *::clientName = dsGetNameForProcessID( inPID );
+									   clientName = dsGetNameForProcessID( inPID );
 									   
 									   syslog( LOG_ALERT, "Client: %s - PID: %d, has %d open references, the warning limit is %d.",
 											  clientName, inPID, size, warnLimit );
@@ -464,7 +469,9 @@ CRefTable::RemoveReference( void *inContext )
 		
 		// if we are in localonly mode, we need to decrement our session count here
 		if ( gDSLocalOnlyMode == true && GetRefType(context->refNum) == eRefTypeDir ) {
-			__sync_sub_and_fetch( &gLocalSessionCount, 1 );
+			if (__sync_sub_and_fetch( &gLocalSessionCount, 1) == 0) {
+				od_passthru_localonly_exit();
+			}
 		}
 		
 		DbgLog( kLogInfo, "CRefTable::RemoveReference - Removed reference %d", context->refNum );
@@ -549,21 +556,24 @@ CRefTable::CleanRefsForSocket( int inSocket )
 {
 	if ( inSocket > 0 ) {
 		__block tPortToClientEntryI	portIter;
+		__block sClientEntry		*client;
+		__block char				*clientIP;
 		
 		dispatch_barrier_sync( fQueue,
 					   ^(void) {
 							portIter = fPortToClientEntry.find( inSocket );
 							if ( portIter != fPortToClientEntry.end() ) {
-								sClientEntry * ::client = portIter->second;
+								client = portIter->second;
 								fPortToClientEntry.erase( portIter );
 								
 								if ( LoggingEnabled(kLogNotice) || gLogAPICalls ) {
-									char	::clientIP[ INET6_ADDRSTRLEN ] = { 0, };
+									clientIP = (char *)calloc(1, INET6_ADDRSTRLEN);
 									
-									GetClientIPString( (sockaddr *) &client->clientID.fAddress, clientIP, sizeof(clientIP) );
+									GetClientIPString( (sockaddr *) &client->clientID.fAddress, clientIP, INET6_ADDRSTRLEN );
 
 									DbgLog( kLogNotice, "Remote Address: %s, Socket: %u, had %d open references before cleanup.", 
 										    clientIP, client->portInfo.fSocket, client->fSubRefs.size() );
+									free(clientIP);
 									
 									if (gLogAPICalls) {
 										syslog( LOG_ALERT, "Remote Address: %d, Socket: %u, had %d open references before cleanup.", 
@@ -582,12 +592,13 @@ void
 CRefTable::CleanRefsForMachRefs( mach_port_t inMachPort )
 {
 	__block tMachPortToClientEntryI	machIter;
+	__block sClientEntry			*client;
 	
 	dispatch_barrier_sync( fQueue,
 				   ^(void) {
 					   machIter = fMachPortToClientEntry.find( inMachPort );
 					   if ( machIter != fMachPortToClientEntry.end() ) {
-						   sClientEntry * ::client = machIter->second;
+						   client = machIter->second;
 						   fMachPortToClientEntry.erase( machIter );
 						   
 						   DbgLog( kLogNotice, "Client PID: %d, had %d open references before cleanup.", client->clientID.fPID,

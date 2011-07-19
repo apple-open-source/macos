@@ -118,7 +118,7 @@ bool AppleUSBCDCWCM::start(IOService *provider)
 	fControlLen = 0;
 	fControlMap = NULL;
     
-    XTRACE(this, 0, provider, "start - provider.");
+    XTRACE(this, 0, 0, "start");
     
     if(!super::start(provider))
     {
@@ -329,7 +329,7 @@ bool AppleUSBCDCWCM::getFunctionalDescriptors()
 							fControlLen -= sizeof(UNNFDesc->bMasterInterface);					// Step over master as it's us and we've already checked it
 							fControlMap = (UInt8 *)IOMalloc(fControlLen); 
 							bcopy(&UNNFDesc->bSlaveInterface, fControlMap, fControlLen);		// Just save them for now...
-							XTRACE(this, fControlMap, fControlLen, "getFunctionalDescriptors - Map and length");
+							XTRACEP(this, fControlMap, fControlLen, "getFunctionalDescriptors - Map and length");
 						}
                     } else {
                         XTRACE(this, UNNFDesc->bFunctionLength, 0, "getFunctionalDescriptors - Union descriptor length error");
@@ -490,7 +490,7 @@ IOReturn AppleUSBCDCWCM::message(UInt32 type, IOService *provider, void *argumen
             break;
     }
     
-    return kIOReturnUnsupported;
+    return super::message(type, provider, argument);
     
 }/* end message */
 

@@ -67,6 +67,7 @@
 #include "smtpd.h"
 #include "smtpd_chat.h"
 #include "smtpd_sasl_glue.h"
+#include "smtpd_binary.h"				/* APPLE - RFC 3030 */
 
 /* smtpd_state_init - initialize after connection establishment */
 
@@ -103,6 +104,8 @@ void    smtpd_state_init(SMTPD_STATE *state, VSTREAM *stream,
     state->protocol = mystrdup(MAIL_PROTO_SMTP);
     state->where = SMTPD_AFTER_CONNECT;
     state->recursion = 0;
+    state->chunking = 0;				/* APPLE - RFC 3030 */
+    state->chunking_context = 0;			/* APPLE - RFC 3030 */
     state->msg_size = 0;
     state->act_size = 0;
     state->junk_cmds = 0;
@@ -118,9 +121,7 @@ void    smtpd_state_init(SMTPD_STATE *state, VSTREAM *stream,
     state->expand_buf = 0;
     state->prepend = 0;
     state->proxy = 0;
-    state->proxy_buffer = 0;
     state->proxy_mail = 0;
-    state->proxy_xforward_features = 0;
     state->saved_filter = 0;
     state->saved_redirect = 0;
     state->saved_bcc = 0;
@@ -140,17 +141,16 @@ void    smtpd_state_init(SMTPD_STATE *state, VSTREAM *stream,
     state->dsn_buf = vstring_alloc(100);
     state->dsn_orcpt_buf = vstring_alloc(100);
 #ifdef USE_TLS
-    state->tls_use_tls = 0;
-    state->tls_enforce_tls = 0;
-    state->tls_auth_only = 0;
+#ifdef USE_TLSPROXY
+    state->tlsproxy = 0;
+#endif
     state->tls_context = 0;
 #endif
 
 #ifdef USE_SASL_AUTH
     if (SMTPD_STAND_ALONE(state))
 	var_smtpd_sasl_enable = 0;
-    if (var_smtpd_sasl_enable)
-	smtpd_sasl_connect(state, VAR_SMTPD_SASL_OPTS, var_smtpd_sasl_opts);
+    smtpd_sasl_set_inactive(state);
 #endif
 
     state->milter_argv = 0;
@@ -208,17 +208,14 @@ void    smtpd_state_reset(SMTPD_STATE *state)
 	vstring_free(state->defer_if_reject.reason);
     if (state->expand_buf)
 	vstring_free(state->expand_buf);
-    if (state->proxy_buffer)
-	vstring_free(state->proxy_buffer);
     if (state->instance)
 	vstring_free(state->instance);
     if (state->dsn_buf)
 	vstring_free(state->dsn_buf);
     if (state->dsn_orcpt_buf)
 	vstring_free(state->dsn_orcpt_buf);
-
-#ifdef USE_SASL_AUTH
-    if (var_smtpd_sasl_enable)
-	smtpd_sasl_disconnect(state);
+#if (defined(USE_TLS) && defined(USE_TLSPROXY))
+    if (state->tlsproxy)			/* still open after longjmp */
+	vstream_fclose(state->tlsproxy);
 #endif
 }

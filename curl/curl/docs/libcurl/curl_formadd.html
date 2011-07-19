@@ -105,7 +105,7 @@ p.roffit {
  &nbsp;htmlbuffer[8] = '\0';
  <p class="level0">&nbsp;/* Add simple name/content section */
  &nbsp;curl_formadd(&post, &last, CURLFORM_COPYNAME, "name",
- &nbsp;             CURLFORM_COPYCONTENTS, "content", CURLFORM_END); 
+ &nbsp;             CURLFORM_COPYCONTENTS, "content", CURLFORM_END);
  <p class="level0">&nbsp;/* Add simple name/content/contenttype section */
  &nbsp;curl_formadd(&post, &last, CURLFORM_COPYNAME, "htmlcode",
  &nbsp;             CURLFORM_COPYCONTENTS, "&lt;HTML&gt;&lt;/HTML&gt;",
@@ -115,8 +115,8 @@ p.roffit {
  &nbsp;             CURLFORM_PTRCONTENTS, buffer, CURLFORM_END);
  <p class="level0">&nbsp;/* Add ptrname/ptrcontent section */
  &nbsp;curl_formadd(&post, &last, CURLFORM_PTRNAME, namebuffer,
- 	      CURLFORM_PTRCONTENTS, buffer, CURLFORM_NAMELENGTH,
- 	      namelength, CURLFORM_END);
+ &nbsp;             CURLFORM_PTRCONTENTS, buffer, CURLFORM_NAMELENGTH,
+ &nbsp;             namelength, CURLFORM_END);
  <p class="level0">&nbsp;/* Add name/ptrcontent/contenttype section */
  &nbsp;curl_formadd(&post, &last, CURLFORM_COPYNAME, "html_code_with_hole",
  &nbsp;             CURLFORM_PTRCONTENTS, htmlbuffer,

@@ -488,7 +488,6 @@ static int createDir(
 			
 		case MDS_NotDirectory:
 			/* there's a file or symlink in the way */
-			Syslog::alert("MDS error: %s is not a directory", dirPath);
 			if(unlink(dirPath)) {
 				rtn = errno;
 				MSDebug("createDir(%s): unlink() returned %d", dirPath, rtn);
@@ -501,7 +500,6 @@ static int createDir(
 			 * It's a directory; try to clean it out (which may well fail if we're
 			 * not root).
 			 */
-			Syslog::alert("MDS error: %s with bad owner/mode", dirPath);
 			rtn = cleanDir(dirPath, NULL, 0);
 			if(rtn) {
 				return rtn;
@@ -515,7 +513,6 @@ static int createDir(
 			break;
 			
 		case MDS_Access:		/* hopeless */
-			Syslog::alert("MDS error: %s is inaccessible", dirPath);
 			MSDebug("createDir(%s): access failure, bailing", dirPath);
 			return EACCES;
 	}
@@ -611,14 +608,12 @@ MDSSession::install ()
 		const char *savedFile = MDS_INSTALL_LOCK_NAME;
 		if(cleanDir(MDS_SYSTEM_DB_DIR, &savedFile, 1)) {
 			/* this should never happen - we're root */
-			Syslog::alert("MDS error: unable to clean %s", MDS_SYSTEM_DB_DIR);
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 		}
 		
 		const char *savedFiles[] = {MDS_SYSTEM_DB_COMP, kExceptionDeletePath};
 		if(cleanDir(MDS_BASE_DB_DIR, savedFiles, 2)) {
 			/* this should never happen - we're root */
-			Syslog::alert("MDS error: unable to clean %s", MDS_BASE_DB_DIR);
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 		}
 				
@@ -1082,7 +1077,6 @@ void MDSSession::updateDataBases()
 			 * Radar 3801292. The only problem is that this user won't be able 
 			 * to use per-user bundles. 
 			 */
-			Syslog::alert("MDS Error: unable to create %s", userDBFileDir.c_str());
 			MSDebug("Error creating user DBs; using system DBs");
 			mModule.setDbPath(MDS_SYSTEM_DB_DIR);
 			return;
@@ -1136,14 +1130,12 @@ void MDSSession::updateDataBases()
 				/*
 				 * Bad system DB file detected. Fatal.
 				 */
-				Syslog::alert("MDS Error: bad system DB file");
 				throw;
 			}
 			catch(...) {
 				/* 
 				 * Error on delete or create user DBs; fall back on system DBs. 
 				 */
-				Syslog::alert("MDS Error: unable to create user DBs in %s", userDBFileDir.c_str());
 				MSDebug("doFilesExist(purge) error; using system DBs");
 				mModule.setDbPath(MDS_SYSTEM_DB_DIR);
 				releaseLock(userLockFd);
@@ -1795,7 +1787,6 @@ void MDSSession::DbFilesInfo::updateForBundle(
 		// a corrupt MDS info file invalidates the entire plugin
 		const char *guid = parser.guid();
 		if (guid) {
-			Syslog::alert("Plugin (GUID %s) being unloaded from MDS", guid);
 			mSession.removeRecordsForGuid(guid, objDbHand());
 			mSession.removeRecordsForGuid(guid, directDbHand());
 		}
@@ -1828,13 +1819,8 @@ void MDSSession::installFile(const MDS_InstallDefaults *defaults,
 			parser.parseFile(CFRef<CFURLRef>(makeCFURL(file)), CFTempString(subdir));
 	}
 	catch (const CssmError &err) {
-		if (file != NULL) {
-			Syslog::alert("Error parsing MDS info file %s/%s/%s", 
-						  bundlePath.c_str(), subdir ? subdir : "", file);
-		}
 		const char *guid = parser.guid();
 		if (guid) {
-			Syslog::alert("Plugin (GUID %s) being unloaded from MDS", guid);
 			removeRecordsForGuid(guid, dbFiles.objDbHand());
 			removeRecordsForGuid(guid, dbFiles.directDbHand());
 		}

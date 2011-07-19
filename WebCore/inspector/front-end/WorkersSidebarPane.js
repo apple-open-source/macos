@@ -36,12 +36,12 @@ WebInspector.WorkersSidebarPane = function()
 
     this._enableWorkersCheckbox = new WebInspector.Checkbox(
         WebInspector.UIString("Debug"),
-        this._onTriggerInstrument.bind(this),
-        false,
         "sidebar-pane-subtitle",
         WebInspector.UIString("Allow debugging workers. Enabling this option will replace native workers with the iframe-based JavaScript implementation"));
-
     this.titleElement.insertBefore(this._enableWorkersCheckbox.element, this.titleElement.firstChild);
+
+    this._enableWorkersCheckbox.addEventListener(this._onTriggerInstrument.bind(this));
+    this._enableWorkersCheckbox.checked = false;
 
     this._listElement = document.createElement("ol");
     this._listElement.className = "workers-list";
@@ -59,7 +59,8 @@ WebInspector.WorkersSidebarPane.prototype = {
         this._workers[id] = worker;
 
         var title = WebInspector.linkifyURL(url, WebInspector.displayNameForURL(url), "worker-item", true, url);
-        var treeElement = new TreeElement(title, worker, false);
+        var treeElement = new TreeElement(null, worker, false);
+        treeElement.titleHTML = title;
         this._treeOutline.appendChild(treeElement);
     },
 
@@ -73,22 +74,21 @@ WebInspector.WorkersSidebarPane.prototype = {
 
     setInstrumentation: function(enabled)
     {
-        InspectorBackend.removeAllScriptsToEvaluateOnLoad();
+        PageAgent.removeAllScriptsToEvaluateOnLoad();
         if (enabled)
-            InspectorBackend.addScriptToEvaluateOnLoad("(" + InjectedFakeWorker + ")");
+            PageAgent.addScriptToEvaluateOnLoad("(" + InjectedFakeWorker + ")");
     },
 
     reset: function()
     {
-        InspectorBackend.removeAllScriptsToEvaluateOnLoad();
-        this.setInstrumentation(this._enableWorkersCheckbox.checked());
+        this.setInstrumentation(this._enableWorkersCheckbox.checked);
         this._treeOutline.removeChildren();
         this._workers = {};
     },
 
     _onTriggerInstrument: function(event)
     {
-        this.setInstrumentation(this._enableWorkersCheckbox.checked());
+        this.setInstrumentation(this._enableWorkersCheckbox.checked);
     }
 };
 
@@ -99,18 +99,4 @@ WebInspector.Worker = function(id, url, shared)
     this.id = id;
     this.url = url;
     this.shared = shared;
-}
-
-WebInspector.didCreateWorker = function()
-{
-    var workersPane = WebInspector.panels.scripts.sidebarPanes.workers;
-    if (workersPane)
-        workersPane.addWorker.apply(workersPane, arguments);
-}
-
-WebInspector.didDestroyWorker = function()
-{
-    var workersPane = WebInspector.panels.scripts.sidebarPanes.workers;
-    if (workersPane)
-        workersPane.removeWorker.apply(workersPane, arguments);
 }

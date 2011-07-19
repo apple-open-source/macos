@@ -203,23 +203,11 @@ static void rep_ensuresize(void) {
 	}
 }
 
-void
 #ifdef HAVE_STDARG_H
-report_build (FILE *errfp, const char *message, ...)
-#else
-report_build (FILE *errfp, message, va_alist)
-     const char *message;
-     va_dcl
-#endif
+static void report_vbuild(const char *message, va_list args)
 {
-#ifdef VA_START
-    va_list args;
     int n;
-#endif
 
-    rep_ensuresize();
-
-#if defined(VA_START)
     for ( ; ; )
     {
 	/*
@@ -227,10 +215,11 @@ report_build (FILE *errfp, message, va_alist)
 	 * because vsnprintf() invokes va_arg macro and thus args is 
 	 * undefined after the call.
 	 */
-	VA_START(args, message);
 	n = vsnprintf (partial_message + partial_message_size_used, partial_message_size - partial_message_size_used,
 		       message, args);
-	va_end (args);
+
+	/* output error, f. i. EILSEQ */
+	if (n < 0) break;
 
 	if (n >= 0
 	    && (unsigned)n < partial_message_size - partial_message_size_used)
@@ -242,12 +231,39 @@ report_build (FILE *errfp, message, va_alist)
 	partial_message_size += 2048;
 	partial_message = (char *)REALLOC (partial_message, partial_message_size);
     }
+}
+#endif
+
+void
+#ifdef HAVE_STDARG_H
+report_build (FILE *errfp, const char *message, ...)
+#else
+report_build (FILE *errfp, message, va_alist)
+     const char *message;
+     va_dcl
+#endif
+{
+#ifdef VA_START
+    va_list args;
+#else
+    int n;
+#endif
+
+    rep_ensuresize();
+
+#if defined(VA_START)
+    VA_START(args, message);
+    report_vbuild(message, args);
+    va_end(args);
 #else
     for ( ; ; )
     {
 	n = snprintf (partial_message + partial_message_size_used,
 		      partial_message_size - partial_message_size_used,
 		      message, a1, a2, a3, a4, a5, a6, a7, a8);
+
+	/* output error, f. i. EILSEQ */
+	if (n < 0) break;
 
 	if (n >= 0
 	    && (unsigned)n < partial_message_size - partial_message_size_used)
@@ -294,48 +310,16 @@ report_complete (FILE *errfp, message, va_alist)
 {
 #ifdef VA_START
     va_list args;
-    int n;
 #endif
 
     rep_ensuresize();
 
 #if defined(VA_START)
-    for ( ; ; )
-    {
-	VA_START(args, message);
-	n = vsnprintf (partial_message + partial_message_size_used,
-		       partial_message_size - partial_message_size_used,
-		       message, args);
-	va_end(args);
-
-	/* old glibc versions return -1 for truncation */
-	if (n >= 0
-	    && (unsigned)n < partial_message_size - partial_message_size_used)
-        {
-	    partial_message_size_used += n;
-	    break;
-	}
-
-	partial_message_size += 2048;
-	partial_message = (char *)REALLOC (partial_message, partial_message_size);
-    }
+    VA_START(args, message);
+    report_vbuild(message, args);
+    va_end(args);
 #else
-    for ( ; ; )
-    {
-	n = snprintf (partial_message + partial_message_size_used,
-		      partial_message_size - partial_message_size_used,
-		      message, a1, a2, a3, a4, a5, a6, a7, a8);
-
-	if (n >= 0
-	    && (unsigned)n < partial_message_size - partial_message_size_used)
-        {
-	    partial_message_size_used += n;
-	    break;
-	}
-
-	partial_message_size += 2048;
-	partial_message = REALLOC (partial_message, partial_message_size);
-    }
+    report_build(errfp, message, a1, a2, a3, a4, a5, a6, a7, a8);
 #endif
 
     /* Finally... print it.  */

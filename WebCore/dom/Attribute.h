@@ -46,6 +46,14 @@ public:
     {
         return adoptRef(new Attribute(name, value, false, 0));
     }
+    static PassRefPtr<Attribute> createMapped(const QualifiedName& name, const AtomicString& value)
+    {
+        return adoptRef(new Attribute(name, value, true, 0));
+    }
+    static PassRefPtr<Attribute> createMapped(const AtomicString& name, const AtomicString& value)
+    {
+        return adoptRef(new Attribute(name, value, true, 0));
+    }
 
     const AtomicString& value() const { return m_value; }
     const AtomicString& prefix() const { return m_name.prefix(); }
@@ -70,9 +78,14 @@ public:
     void setValue(const AtomicString& value) { m_value = value; }
     void setPrefix(const AtomicString& prefix) { m_name.setPrefix(prefix); }
 
+    // Note: This API is only for HTMLTreeBuilder.  It is not safe to change the
+    // name of an attribute once parseMappedAttribute has been called as DOM
+    // elements may have placed the Attribute in a hash by name.
+    void parserSetName(const QualifiedName& name) { m_name = name; }
+
     bool isMappedAttribute() { return m_isMappedAttribute; }
 
-protected:
+private:
     Attribute(const QualifiedName& name, const AtomicString& value, bool isMappedAttribute, CSSMappedAttributeDeclaration* styleDecl)
         : m_isMappedAttribute(isMappedAttribute)
         , m_hasAttr(false)
@@ -91,7 +104,6 @@ protected:
     {
     }
 
-private:
     void bindAttr(Attr*);
     void unbindAttr(Attr*);
 

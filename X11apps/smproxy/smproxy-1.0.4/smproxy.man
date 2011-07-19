@@ -1,0 +1,72 @@
+.\" Copyright 1994, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.TH SMPROXY 1 __xorgversion__
+.SH NAME
+smproxy \- Session Manager Proxy
+.SH SYNOPSIS
+.B smproxy
+[-clientId id] [-restore saveFile]
+.SH OPTIONS
+.TP 8
+.B \-clientId \fIid\fP
+Specifies the session ID used by \fIsmproxy\fP in the previous session.
+.TP 8
+.B \-restore \fIsaveFile\fP
+Specifies the file used by \fIsmproxy\fP to save state in the previous session.
+.SH DESCRIPTION
+.PP
+\fIsmproxy\fP allows X applications that do not support X11R6 session
+management to participate in an X11R6 session.  
+.br
+.sp
+In order for \fIsmproxy\fP to act as a proxy for an X application, one of
+the following must be true:
+.br
+.sp
+- The application maps a top level window containing the
+\fBWM_CLIENT_LEADER\fR property.  This property provides a pointer to
+the client leader window which contains the \fBWM_CLASS\fR, \fBWM_NAME\fR,
+\fBWM_COMMAND\fR, and \fBWM_CLIENT_MACHINE\fR properties.
+.br
+.sp
+or ...
+.br
+.sp
+- The application maps a top level window which does not contain the
+\fBWM_CLIENT_LEADER\fR property.  However, this top level window
+contains the \fBWM_CLASS\fR, \fBWM_NAME\fR, \fBWM_COMMAND\fR, and
+\fBWM_CLIENT_MACHINE\fR properties.
+.PP
+An application that support the \fBWM_SAVE_YOURSELF\fR protocol will receive
+a \fBWM_SAVE_YOURSELF\fR client message each time the session manager issues
+a checkpoint or shutdown.  This allows the application to save state.  If
+an application does not support the \fBWM_SAVE_YOURSELF\fR protocol, then
+the proxy will provide enough information to the session manager to restart
+the application (using \fBWM_COMMAND\fR), but no state will be restored.
+.SH SEE ALSO
+xsm(1)
+.SH AUTHOR
+Ralph Mor, X Consortium
+

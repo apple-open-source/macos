@@ -36,15 +36,14 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Solicitud no procesada!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="La solicitud no puede ser procesada!" -->
+<!--#include virtual="include/top.html" -->
 
-	El navegador est&aacute; solicitando una acci&oacute;n 
-	que no puede ser procesada.
-    
+    El servidor no tiene implementada la acci&oacute;n
+    solicitada por el buscador.
+
 <!--#include virtual="include/bottom.html" -->
 ----------es--
 
@@ -56,7 +55,7 @@ Body:----------fr--
 --><!--#include virtual="include/top.html" -->
 
     Le serveur n'est pas en mesure d'effectuer l'action
-    requise par le navigateur. 
+    demand&eacute;e par le navigateur. 
 
 <!--#include virtual="include/bottom.html" -->
 ----------fr--
@@ -148,6 +147,18 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="N&atilde;o posso processar o pedido!"
+--><!--#include virtual="include/top.html" -->
+
+	O servidor n&atilde;o suporta a ac&ccedil;&atilde;o pedida pelo
+	<i>browser</i>.
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

@@ -366,7 +366,58 @@ namespace IOFireWireLib {
 				
 				result = kIOReturnNoMemory ;
 			}
-			
+
+		#if 1
+		
+			if ( kIOReturnSuccess == result )
+			{
+				if( !CFRunLoopSourceIsValid(mRunLoopSource) )
+				{
+					CFRelease(mRunLoopSource);
+					
+					CFMachPortInvalidate( mAsyncCFPort );
+					CFRelease( mAsyncCFPort );
+					
+					{
+						Boolean shouldFreeInfo ;
+						CFMachPortContext cfPortContext	= {1, this, NULL, NULL, NULL} ;
+						mAsyncCFPort = CFMachPortCreateWithPort(
+											kCFAllocatorDefault,
+											mAsyncPort,
+											(CFMachPortCallBack) IODispatchCalloutFromMessage,
+											& cfPortContext,
+											& shouldFreeInfo) ;
+						
+						if (!mAsyncCFPort)
+							result = kIOReturnNoMemory ;
+					}
+					
+					{
+						mRunLoopSource	= CFMachPortCreateRunLoopSource(
+												kCFAllocatorDefault,
+												GetAsyncCFPort(),
+												0) ;
+						if (!mRunLoopSource)
+						{
+							CFRelease( mRunLoop ) ;
+							mRunLoop = 0 ;
+							
+							CFRelease( mRunLoopMode ) ;
+							mRunLoopMode = 0 ;
+							
+							result = kIOReturnNoMemory ;
+						}
+					}
+					
+					if( !CFRunLoopSourceIsValid(mRunLoopSource) )
+					{
+						result = kIOReturnNoResources;
+					}
+				}
+			}
+		
+		#endif
+					
 			if ( kIOReturnSuccess == result )
 				CFRunLoopAddSource(mRunLoop, mRunLoopSource, mRunLoopMode ) ;
 		}
@@ -1382,6 +1433,51 @@ namespace IOFireWireLib {
 				result = kIOReturnNoMemory ;
 			}
 			
+		#if 1
+		
+			if ( kIOReturnSuccess == result )
+			{
+				if( !CFRunLoopSourceIsValid(mIsochRunLoopSource) )
+				{
+					CFRelease( mIsochRunLoopSource );
+					
+					CFMachPortInvalidate( mIsochAsyncCFPort );
+					CFRelease( mIsochAsyncCFPort );
+					
+					{
+						Boolean shouldFreeInfo;
+						CFMachPortContext cfPortContext	= {1, this, NULL, NULL, NULL};
+						mIsochAsyncCFPort = CFMachPortCreateWithPort( kCFAllocatorDefault,
+																	mIsochAsyncPort,
+																	(CFMachPortCallBack) IODispatchCalloutFromMessage,
+																	& cfPortContext,
+																	& shouldFreeInfo);
+						if (!mIsochAsyncCFPort)
+							result = kIOReturnNoMemory ;		
+
+					}
+					
+					{
+						mIsochRunLoopSource	 = CFMachPortCreateRunLoopSource( kCFAllocatorDefault,
+																	GetIsochAsyncCFPort() ,
+																	0) ;
+						if (!mIsochRunLoopSource)
+						{
+							CFRelease( mIsochRunLoop ) ;
+							CFRelease( mIsochRunLoopMode ) ;
+							result = kIOReturnNoMemory ;
+						}
+					}
+					
+					if( !CFRunLoopSourceIsValid(mIsochRunLoopSource) )
+					{
+						result = kIOReturnNoResources;
+					}
+				}
+			}
+		
+		#endif
+				
 			if ( kIOReturnSuccess == result )
 				::CFRunLoopAddSource( mIsochRunLoop, mIsochRunLoopSource, mIsochRunLoopMode ) ;
 		}

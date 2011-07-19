@@ -39,6 +39,11 @@ subject.</p>
 often find more thorough conceptual documentation, sample code,
 and other useful information at these websites.</p>
 
+<p>Manual pages also link to other manual pages.  When they do, these
+links are in the form <b>name(section)</b>.  For example, the manual page
+<b>ls(1)</b> describes the <b>ls</b> command, and appears in section <b>1</b>
+of the manual.  The manual sections are described below.</p>
+
 </topic>
 
 <topic><name>MANUAL PAGE SECTIONS</name>
@@ -64,8 +69,11 @@ sections are:</p>
 Those routines are covered in section 2.</p>
 
 <p>The majority of commonly used commands appear in sections 1
-and 8 of the manual, while most programming information is
-found in sections 2 and 3.</p>
+and 8 of the manual. To learn more about these commands,
+read the individual pages or read Shell Scripting Primer at
+<url>http://developer.apple.com/mac/library/documentation/opensource/conceptual/shellscripting</url>.</p>
+
+<p>Most programming information is found in sections 2 and 3.</p>
 
 <p>These subject areas may be further subdivided.  For example,
 manual section 3 was originally intended to hold documentation

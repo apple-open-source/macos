@@ -1,18 +1,3 @@
-diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/configure fetchmail-6.3.11/configure
---- fetchmail-6.3.11.orig/configure	2009-08-05 16:33:55.000000000 -0700
-+++ fetchmail-6.3.11/configure	2009-09-25 10:36:55.000000000 -0700
-@@ -6389,11 +6389,6 @@
- 
- # Check for OS special cases
- case $host_os in
--darwin*)
--    { $as_echo "$as_me:$LINENO: found Darwin - Adding -DBIND_8_COMPAT to CFLAGS" >&5
--$as_echo "$as_me: found Darwin - Adding -DBIND_8_COMPAT to CFLAGS" >&6;}
--    CPPFLAGS="$CPPFLAGS -DBIND_8_COMPAT"
--    ;;
- # Check for FreeBSD special case: more libs needed
- freebsd*)
-     { $as_echo "$as_me:$LINENO: found FreeBSD - Adding -lmd -lkvm -lcom_err to standard libraries" >&5
 diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/mxget.c fetchmail-6.3.11/mxget.c
 --- fetchmail-6.3.11.orig/mxget.c	2009-05-25 02:54:58.000000000 -0700
 +++ fetchmail-6.3.11/mxget.c	2009-09-25 12:30:02.000000000 -0700

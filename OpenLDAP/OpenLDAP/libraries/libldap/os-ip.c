@@ -1,8 +1,8 @@
 /* os-ip.c -- platform-specific TCP & UDP related code */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/os-ip.c,v 1.118.2.8 2008/05/20 00:05:30 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/os-ip.c,v 1.118.2.20 2010/04/13 20:22:58 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999 Lars Uffmann.
  * All rights reserved.
  *
@@ -122,12 +122,6 @@ ldap_int_socket(LDAP *ld, int family, int type )
 static int
 ldap_pvt_close_socket(LDAP *ld, int s)
 {
-
-	if ( s != -1 && ld->ld_options.ldo_notifydesc_proc != NULL ) {
-		ld->ld_options.ldo_notifydesc_proc(ld, s, 0,
-			ld->ld_options.ldo_notifydesc_params);
-	}
-
 	osip_debug(ld, "ldap_close_socket: %d\n",s,0,0);
 	return tcp_close(s);
 }
@@ -147,6 +141,57 @@ ldap_int_prepare_socket(LDAP *ld, int s, int proto )
 			osip_debug( ld, "ldap_prepare_socket: "
 				"setsockopt(%d, SO_KEEPALIVE) failed (ignored).\n",
 				s, 0, 0 );
+		}
+		if ( ld->ld_options.ldo_keepalive_idle > 0 )
+		{
+#ifdef TCP_KEEPIDLE
+			if ( setsockopt( s, IPPROTO_TCP, TCP_KEEPIDLE,
+					(void*) &ld->ld_options.ldo_keepalive_idle,
+					sizeof(ld->ld_options.ldo_keepalive_idle) ) == AC_SOCKET_ERROR )
+			{
+				osip_debug( ld, "ldap_prepare_socket: "
+					"setsockopt(%d, TCP_KEEPIDLE) failed (ignored).\n",
+					s, 0, 0 );
+			}
+#else
+			osip_debug( ld, "ldap_prepare_socket: "
+					"sockopt TCP_KEEPIDLE not supported on this system.\n", 
+					0, 0, 0 );
+#endif /* TCP_KEEPIDLE */
+		}
+		if ( ld->ld_options.ldo_keepalive_probes > 0 )
+		{
+#ifdef TCP_KEEPCNT
+			if ( setsockopt( s, IPPROTO_TCP, TCP_KEEPCNT,
+					(void*) &ld->ld_options.ldo_keepalive_probes,
+					sizeof(ld->ld_options.ldo_keepalive_probes) ) == AC_SOCKET_ERROR )
+			{
+				osip_debug( ld, "ldap_prepare_socket: "
+					"setsockopt(%d, TCP_KEEPCNT) failed (ignored).\n",
+					s, 0, 0 );
+			}
+#else
+			osip_debug( ld, "ldap_prepare_socket: "
+					"sockopt TCP_KEEPCNT not supported on this system.\n", 
+					0, 0, 0 );
+#endif /* TCP_KEEPCNT */
+		}
+		if ( ld->ld_options.ldo_keepalive_interval > 0 )
+		{
+#ifdef TCP_KEEPINTVL
+			if ( setsockopt( s, IPPROTO_TCP, TCP_KEEPINTVL,
+					(void*) &ld->ld_options.ldo_keepalive_interval,
+					sizeof(ld->ld_options.ldo_keepalive_interval) ) == AC_SOCKET_ERROR )
+			{
+				osip_debug( ld, "ldap_prepare_socket: "
+					"setsockopt(%d, TCP_KEEPINTVL) failed (ignored).\n",
+					s, 0, 0 );
+			} 
+#else
+			osip_debug( ld, "ldap_prepare_socket: "
+					"sockopt TCP_KEEPINTVL not supported on this system.\n", 
+					0, 0, 0 );
+#endif /* TCP_KEEPINTVL */
 		}
 #endif /* SO_KEEPALIVE */
 #ifdef TCP_NODELAY
@@ -170,7 +215,7 @@ ldap_int_prepare_socket(LDAP *ld, int s, int proto )
 				"setsockopt(%d, SO_NOADDRERR) failed (ignored).\n",
 				s, 0, 0);
 		}
-   	}
+	}
 
    return 0;
 }
@@ -224,7 +269,7 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 		== AC_SOCKET_ERROR )
 	{
 		/* XXX: needs to be replace with ber_stream_read() */
-		read(s, &ch, 1);
+		(void)read(s, &ch, 1);
 		TRACE;
 		return -1;
 	}
@@ -441,16 +486,66 @@ ldap_pvt_inet_aton( const char *host, struct in_addr *in)
 }
 #endif
 
+int
+ldap_int_connect_cbs(LDAP *ld, Sockbuf *sb, ber_socket_t *s, LDAPURLDesc *srv, struct sockaddr *addr)
+{
+	struct ldapoptions *lo;
+	ldaplist *ll;
+	ldap_conncb *cb;
+	int rc;
+
+	ber_sockbuf_ctrl( sb, LBER_SB_OPT_SET_FD, s );
+
+	/* Invoke all handle-specific callbacks first */
+	lo = &ld->ld_options;
+	for (ll = lo->ldo_conn_cbs; ll; ll = ll->ll_next) {
+		cb = ll->ll_data;
+		rc = cb->lc_add( ld, sb, srv, addr, cb );
+		/* on any failure, call the teardown functions for anything
+		 * that previously succeeded
+		 */
+		if ( rc ) {
+			ldaplist *l2;
+			for (l2 = lo->ldo_conn_cbs; l2 != ll; l2 = l2->ll_next) {
+				cb = l2->ll_data;
+				cb->lc_del( ld, sb, cb );
+			}
+			/* a failure might have implicitly closed the fd */
+			ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, s );
+			return rc;
+		}
+	}
+	lo = LDAP_INT_GLOBAL_OPT();
+	for (ll = lo->ldo_conn_cbs; ll; ll = ll->ll_next) {
+		cb = ll->ll_data;
+		rc = cb->lc_add( ld, sb, srv, addr, cb );
+		if ( rc ) {
+			ldaplist *l2;
+			for (l2 = lo->ldo_conn_cbs; l2 != ll; l2 = l2->ll_next) {
+				cb = l2->ll_data;
+				cb->lc_del( ld, sb, cb );
+			}
+			lo = &ld->ld_options;
+			for (l2 = lo->ldo_conn_cbs; l2; l2 = l2->ll_next) {
+				cb = l2->ll_data;
+				cb->lc_del( ld, sb, cb );
+			}
+			ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, s );
+			return rc;
+		}
+	}
+	return 0;
+}
 
 int
 ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
-	int proto,
-	const char *host, int port,
+	int proto, LDAPURLDesc *srv,
 	int async )
 {
 	int	rc;
-	int	socktype;
+	int	socktype, port;
 	ber_socket_t		s = AC_SOCKET_INVALID;
+	char *host;
 
 #if defined( HAVE_GETADDRINFO ) && defined( HAVE_INET_NTOP )
 	char serv[7];
@@ -465,8 +560,22 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 	char *ha_buf=NULL;
 #endif
 
-	if( host == NULL ) host = "localhost";
-	
+	if ( srv->lud_host == NULL || *srv->lud_host == 0 ) {
+		host = "localhost";
+	} else {
+		host = srv->lud_host;
+	}
+
+	port = srv->lud_port;
+
+	if( !port ) {
+		if( strcmp(srv->lud_scheme, "ldaps") == 0 ) {
+			port = LDAPS_PORT;
+		} else {
+			port = LDAP_PORT;
+		}
+	}
+
 	switch(proto) {
 	case LDAP_PROTO_TCP: socktype = SOCK_STREAM;
 		osip_debug( ld,
@@ -486,9 +595,9 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 
 #if defined( HAVE_GETADDRINFO ) && defined( HAVE_INET_NTOP )
 	memset( &hints, '\0', sizeof(hints) );
-#ifdef USE_AI_ATTRCONFIG /* FIXME: configure test needed */
-	/* Use AI_ATTRCONFIG only on systems where its known to be needed. */
-	hints.ai_flags = AI_ATTRCONFIG;
+#ifdef USE_AI_ADDRCONFIG /* FIXME: configure test needed */
+	/* Use AI_ADDRCONFIG only on systems where its known to be needed. */
+	hints.ai_flags = AI_ADDRCONFIG;
 #endif
 	hints.ai_family = ldap_int_inet4or6;
 	hints.ai_socktype = socktype;
@@ -553,13 +662,12 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 
 		rc = ldap_pvt_connect( ld, s,
 			sai->ai_addr, sai->ai_addrlen, async );
-		if ( (rc == 0) || (rc == -2) ) {
-			// we've started connectivity, let's notify the client
-			if(ld->ld_options.ldo_notifydesc_proc != NULL) {
-				ld->ld_options.ldo_notifydesc_proc(ld, s, 1, ld->ld_options.ldo_notifydesc_params);
-			}
-			ber_sockbuf_ctrl( sb, LBER_SB_OPT_SET_FD, &s );
-			break;
+		if ( rc == 0 || rc == -2 ) {
+			err = ldap_int_connect_cbs( ld, sb, &s, srv, sai->ai_addr );
+			if ( err )
+				rc = err;
+			else
+				break;
 		}
 		ldap_pvt_close_socket(ld, s);
 	}
@@ -630,8 +738,11 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 			async);
    
 		if ( (rc == 0) || (rc == -2) ) {
-			ber_sockbuf_ctrl( sb, LBER_SB_OPT_SET_FD, &s );
-			break;
+			i = ldap_int_connect_cbs( ld, sb, &s, srv, (struct sockaddr *)&sin );
+			if ( i )
+				rc = i;
+			else
+				break;
 		}
 
 		ldap_pvt_close_socket(ld, s);
@@ -720,7 +831,7 @@ ldap_host_connected_to( Sockbuf *sb, const char *host )
 		char *herr;
 #ifdef NI_MAXHOST
 		char hbuf[NI_MAXHOST];
-#elif defined( MAXHOSTNAMELEN
+#elif defined( MAXHOSTNAMELEN )
 		char hbuf[MAXHOSTNAMELEN];
 #else
 		char hbuf[256];
@@ -742,7 +853,11 @@ ldap_host_connected_to( Sockbuf *sb, const char *host )
 struct selectinfo {
 #ifdef HAVE_POLL
 	/* for UNIX poll(2) */
-	int si_maxfd;
+	int si_maxfd; /* max fds, i.e. how far to search si_fds */
+	int si_nfds;  /* current # fds */
+	int si_update_done; /* cond var predicate */
+	int si_pipe_fds[2];
+	int si_pipe_fd_idx_in_poll;
 	struct pollfd si_fds[FD_SETSIZE];
 #else
 	/* for UNIX select(2) */
@@ -752,6 +867,99 @@ struct selectinfo {
 	fd_set	si_use_writefds;
 #endif
 };
+
+
+struct updatecmd {
+	int type;
+	#define LDAP_SEL_UPDATE_READ  1
+	#define LDAP_SEL_UPDATE_WRITE 2
+	#define LDAP_SEL_UPDATE_CLEAR 3
+
+	ber_socket_t sd;
+};
+
+static int ldap_int_mark_select_read( struct selectinfo *sip, ber_socket_t sd );
+static int ldap_int_mark_select_write( struct selectinfo *sip, ber_socket_t sd );
+static void ldap_int_mark_select_clear( struct selectinfo *sip, ber_socket_t sd );
+
+static void
+ldap_int_queue_select_update( struct selectinfo *sip, ber_socket_t sd, int cmdtype )
+{
+	Debug( LDAP_DEBUG_ASYNC, "ldap_queue_select_update: sip = %p, sd = %d, cmdtype = %d\n", sip, (int)sd, cmdtype );
+
+	/* Send the command to the select/poll thread. */
+	struct updatecmd cmd = {cmdtype, sd};
+	write( sip->si_pipe_fds[1], &cmd, sizeof(cmd) );
+}
+
+static void
+ldap_int_handle_select_updates( struct selectinfo *sip )
+{
+	struct updatecmd cmd;
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_int_handle_select_updates: sip = %p\n", sip, 0, 0 );
+
+	while ( read( sip->si_pipe_fds[0], &cmd, sizeof(cmd) ) == sizeof(cmd) ) {
+
+		Debug( LDAP_DEBUG_ASYNC, "ldap_int_handle_select_updates: sip = %p, cmd.sd = %d, cmd.type = %d\n",
+		       sip, cmd.sd, cmd.type );
+
+		switch ( cmd.type ) {
+			case LDAP_SEL_UPDATE_READ:
+				ldap_int_mark_select_read( sip, cmd.sd );
+				break;
+			case LDAP_SEL_UPDATE_WRITE:
+				ldap_int_mark_select_write( sip, cmd.sd );
+				break;
+			case LDAP_SEL_UPDATE_CLEAR:
+				ldap_int_mark_select_clear( sip, cmd.sd );
+				break;
+			default:
+				break;
+		}
+	}
+}
+
+static int
+ldap_int_mark_select_write( struct selectinfo *sip, ber_socket_t sd )
+{
+#ifdef HAVE_POLL
+	/* for UNIX poll(2) */
+	{
+		Debug( LDAP_DEBUG_ASYNC, "ldap_int_mark_select_write: sip = %p, sd = %d\n", sip, (int)sd, 0 );
+
+		int empty=-1;
+		int i;
+		for(i=0; i < sip->si_maxfd; i++) {
+			if( sip->si_fds[i].fd == sd ) {
+				sip->si_fds[i].events |= POLL_WRITE;
+				return i;
+			}
+			if( empty==-1 && sip->si_fds[i].fd == -1 ) {
+				empty=i;
+			}
+		}
+
+		if( empty == -1 ) {
+			if( sip->si_maxfd >= FD_SETSIZE ) {
+				/* FIXME */
+				return -1;
+			}
+			empty = sip->si_maxfd++;
+		}
+
+		sip->si_fds[empty].fd = sd;
+		sip->si_fds[empty].events = POLL_WRITE;
+		sip->si_nfds++;
+		return empty;
+	}
+#else
+	/* for UNIX select(2) */
+	if ( !FD_ISSET( sd, &sip->si_writefds )) {
+		FD_SET( sd, &sip->si_writefds );
+	}
+#endif
+}
 
 void
 ldap_mark_select_write( LDAP *ld, Sockbuf *sb )
@@ -763,60 +971,31 @@ ldap_mark_select_write( LDAP *ld, Sockbuf *sb )
 	
 	ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, &sd );
 
-#ifdef HAVE_POLL
-	/* for UNIX poll(2) */
-	{
-		int empty=-1;
-		int i;
-		for(i=0; i < sip->si_maxfd; i++) {
-			if( sip->si_fds[i].fd == sd ) {
-				sip->si_fds[i].events |= POLL_WRITE;
-				return;
-			}
-			if( empty==-1 && sip->si_fds[i].fd == -1 ) {
-				empty=i;
-			}
-		}
+	Debug( LDAP_DEBUG_ASYNC, "ldap_mark_select_write: sip = %p, sd = %d\n", sip, (int)sd, 0 );
 
-		if( empty == -1 ) {
-			if( sip->si_maxfd >= FD_SETSIZE ) {
-				/* FIXME */
-				return;
-			}
-			empty = sip->si_maxfd++;
-		}
-
-		sip->si_fds[empty].fd = sd;
-		sip->si_fds[empty].events = POLL_WRITE;
+	if ( LDAP_BOOL_GET( &ld->ld_options, LDAP_BOOL_ASYNC_RESULTS ) ) {
+		ldap_int_queue_select_update( sip, sd, LDAP_SEL_UPDATE_WRITE );
 	}
-#else
-	/* for UNIX select(2) */
-	if ( !FD_ISSET( sd, &sip->si_writefds )) {
-		FD_SET( sd, &sip->si_writefds );
+	else {
+		ldap_int_mark_select_write( sip, sd );
 	}
-#endif
 }
 
 
-void
-ldap_mark_select_read( LDAP *ld, Sockbuf *sb )
+static int
+ldap_int_mark_select_read( struct selectinfo *sip, ber_socket_t sd )
 {
-	struct selectinfo	*sip;
-	ber_socket_t		sd;
-
-	sip = (struct selectinfo *)ld->ld_selectinfo;
-
-	ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, &sd );
-
 #ifdef HAVE_POLL
 	/* for UNIX poll(2) */
 	{
+		Debug( LDAP_DEBUG_ASYNC, "ldap_int_mark_select_read: sip = %p, sd = %d\n", sip, (int)sd, 0 );
+
 		int empty=-1;
 		int i;
 		for(i=0; i < sip->si_maxfd; i++) {
 			if( sip->si_fds[i].fd == sd ) {
 				sip->si_fds[i].events |= POLL_READ;
-				return;
+				return i;
 			}
 			if( empty==-1 && sip->si_fds[i].fd == -1 ) {
 				empty=i;
@@ -826,13 +1005,16 @@ ldap_mark_select_read( LDAP *ld, Sockbuf *sb )
 		if( empty == -1 ) {
 			if( sip->si_maxfd >= FD_SETSIZE ) {
 				/* FIXME */
-				return;
+				return -1;
 			}
 			empty = sip->si_maxfd++;
 		}
 
 		sip->si_fds[empty].fd = sd;
 		sip->si_fds[empty].events = POLL_READ;
+		sip->si_nfds++;
+		return empty;
+
 	}
 #else
 	/* for UNIX select(2) */
@@ -842,24 +1024,40 @@ ldap_mark_select_read( LDAP *ld, Sockbuf *sb )
 #endif
 }
 
-
 void
-ldap_mark_select_clear( LDAP *ld, Sockbuf *sb )
+ldap_mark_select_read( LDAP *ld, Sockbuf *sb )
 {
 	struct selectinfo	*sip;
 	ber_socket_t		sd;
 
 	sip = (struct selectinfo *)ld->ld_selectinfo;
-
+	
 	ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, &sd );
 
+	Debug( LDAP_DEBUG_ASYNC, "ldap_mark_select_read: sip = %p, sd = %d\n", sip, (int)sd, 0 );
+
+	if ( LDAP_BOOL_GET( &ld->ld_options, LDAP_BOOL_ASYNC_RESULTS ) ) {
+		ldap_int_queue_select_update( sip, sd, LDAP_SEL_UPDATE_READ );
+	}
+	else {
+		ldap_int_mark_select_read( sip, sd );
+	}
+}
+
+
+static void
+ldap_int_mark_select_clear( struct selectinfo *sip, ber_socket_t sd )
+{
 #ifdef HAVE_POLL
 	/* for UNIX poll(2) */
 	{
+		Debug( LDAP_DEBUG_ASYNC, "ldap_int_mark_select_clear: sip = %p, sd = %d\n", sip, (int)sd, 0 );
+
 		int i;
 		for(i=0; i < sip->si_maxfd; i++) {
 			if( sip->si_fds[i].fd == sd ) {
 				sip->si_fds[i].fd = -1;
+				sip->si_nfds--;
 			}
 		}
 	}
@@ -868,6 +1066,26 @@ ldap_mark_select_clear( LDAP *ld, Sockbuf *sb )
 	FD_CLR( sd, &sip->si_writefds );
 	FD_CLR( sd, &sip->si_readfds );
 #endif
+}
+
+void
+ldap_mark_select_clear( LDAP *ld, Sockbuf *sb )
+{
+	struct selectinfo	*sip;
+	ber_socket_t		sd;
+
+	sip = (struct selectinfo *)ld->ld_selectinfo;
+	
+	ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, &sd );
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_mark_select_clear: sip = %p, sd = %d\n", sip, (int)sd, 0 );
+
+	if ( LDAP_BOOL_GET( &ld->ld_options, LDAP_BOOL_ASYNC_RESULTS ) ) {
+		ldap_int_queue_select_update( sip, sd, LDAP_SEL_UPDATE_CLEAR );
+	}
+	else {
+		ldap_int_mark_select_clear( sip, sd );
+	}
 }
 
 
@@ -908,6 +1126,9 @@ ldap_is_read_ready( LDAP *ld, Sockbuf *sb )
 
 	sip = (struct selectinfo *)ld->ld_selectinfo;
 
+	if (ber_sockbuf_ctrl( sb, LBER_SB_OPT_DATA_READY, NULL ))
+		return 1;
+
 	ber_sockbuf_ctrl( sb, LBER_SB_OPT_GET_FD, &sd );
 
 #ifdef HAVE_POLL
@@ -929,6 +1150,79 @@ ldap_is_read_ready( LDAP *ld, Sockbuf *sb )
 }
 
 
+#ifdef __APPLE__
+void
+ldap_pvt_open_select_pipe( LDAP* ld )
+{
+	struct selectinfo *sip;
+
+	assert( ld != NULL );
+
+	sip = (struct selectinfo *)ld->ld_selectinfo;
+	assert( sip != NULL );
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_pvt_open_select_pipe: sip = %p\n", sip, 0, 0 );
+
+	int rc = pipe( sip->si_pipe_fds );
+	assert( rc == 0 );
+
+	/* Put the read end of the pipe in non-blocking mode so we can handle
+	 * mutliple updates by reading until we get EWOULDBLOCK.
+	 */
+	int flags = fcntl( sip->si_pipe_fds[0], F_GETFL, 0 );
+	if (flags == -1 ) flags = 0;
+	rc = fcntl( sip->si_pipe_fds[0], F_SETFL, flags | O_NONBLOCK );
+	assert ( rc == 0 );
+
+	/* Add the read end of the pipe to the pollfds */
+	sip->si_pipe_fd_idx_in_poll = ldap_int_mark_select_read(sip, sip->si_pipe_fds[0]);
+	assert( sip->si_pipe_fd_idx_in_poll != -1 );
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_pvt_open_select_pipe: write pipe = %d read pipe = %d, idx in poll = %d\n",
+	       sip->si_pipe_fds[1], sip->si_pipe_fds[0], sip->si_pipe_fd_idx_in_poll );
+}
+
+void
+ldap_pvt_close_select_pipe( LDAP* ld )
+{
+	struct selectinfo *sip;
+
+	assert( ld != NULL );
+
+	sip = (struct selectinfo *)ld->ld_selectinfo;
+	assert( sip != NULL );
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_pvt_close_select_pipe: sip = %p\n", sip, 0, 0 );
+
+	if ( sip->si_pipe_fds[0] != -1 ) {
+		/* Need to queue the update so it's handled by the thread that's
+		 * running ldap_int_select().
+		 */
+		ldap_int_queue_select_update( sip, sip->si_pipe_fds[0], LDAP_SEL_UPDATE_CLEAR );
+	}
+}
+
+void
+ldap_int_close_select_pipe( struct selectinfo* sip )
+{
+	assert( sip != NULL );
+
+	Debug( LDAP_DEBUG_ASYNC, "ldap_int_close_select_pipe: sip = %p, write pipe = %d, read pipe = %d\n",
+	       sip, sip->si_pipe_fds[1], sip->si_pipe_fds[0] );
+
+	if ( sip->si_pipe_fds[0] != -1 ) {
+		close( sip->si_pipe_fds[0] );
+		sip->si_pipe_fds[0] = -1;
+	}
+
+	if ( sip->si_pipe_fds[1] != -1 ) {
+		close( sip->si_pipe_fds[1] );
+		sip->si_pipe_fds[1] = -1;
+	}
+}
+
+#endif /* __APPLE__ */
+
 void *
 ldap_new_select_info( void )
 {
@@ -938,9 +1232,16 @@ ldap_new_select_info( void )
 
 	if ( sip == NULL ) return NULL;
 
+	Debug( LDAP_DEBUG_ASYNC, "ldap_new_select_info: sip = %p\n", sip, 0, 0);
+
 #ifdef HAVE_POLL
 	/* for UNIX poll(2) */
 	/* sip->si_maxfd=0 */
+#ifdef __APPLE__
+	sip->si_pipe_fds[0] = -1;
+	sip->si_pipe_fds[1] = -1;
+	sip->si_pipe_fd_idx_in_poll = -1;
+#endif
 #else
 	/* for UNIX select(2) */
 	FD_ZERO( &sip->si_readfds );
@@ -954,6 +1255,8 @@ ldap_new_select_info( void )
 void
 ldap_free_select_info( void *sip )
 {
+	Debug( LDAP_DEBUG_ASYNC, "ldap_free_select_info: sip = %p\n", sip, 0, 0);
+
 	LDAP_FREE( sip );
 }
 
@@ -1000,8 +1303,78 @@ ldap_int_select( LDAP *ld, struct timeval *timeout )
 
 #ifdef HAVE_POLL
 	{
+#ifdef __APPLE__
+
+	tryagain:
+
+		/* If there are no fds left don't call poll(2).	 No fds and an
+		 * infinite timeout will result in a hang.
+		 * If there are still fds, but we're no longer watching the
+		 * pipe, that's another good reason to bail.
+		 */
+		 if ( LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_ASYNC_RESULTS) &&
+		      ( sip->si_nfds == 0 || sip->si_fds[sip->si_pipe_fd_idx_in_poll].fd == -1 ) )
+		 {
+			 Debug( LDAP_DEBUG_ASYNC, "ldap_int_select: %s\n",
+                                sip->si_nfds == 0 ? "no fds being watched" : "pipe not being watched",
+                                0, 0 );
+
+			 /* If we're not even watching the select pipe, then
+			  * close it.  We're going to return an errno that will
+			  * cause the async thread to exit anyway.
+			  */
+			 ldap_int_close_select_pipe( sip );
+
+			 errno = EPIPE;
+			 return -1;
+		}
+
+		/* There are still fds being watched... */
+#endif
 		int to = timeout ? TV2MILLISEC( timeout ) : INFTIM;
 		rc = poll( sip->si_fds, sip->si_maxfd, to );
+
+#ifdef __APPLE__
+		if ( LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_ASYNC_RESULTS) ) {
+			if (rc > 0)
+			{
+				/* Handle any updates. */
+				if ( sip->si_fds[sip->si_pipe_fd_idx_in_poll].revents & POLLIN ) {
+                                        Debug( LDAP_DEBUG_ASYNC, "ldap_int_select: got update on pipe, rc = %d\n", rc, 0, 0 );
+					ldap_int_handle_select_updates( sip );
+					--rc; /* don't count updates */
+
+					/* If this is the only reason we woke
+					 * go back to poll.
+					 */
+					if ( rc == 0 ) goto tryagain;
+				}
+
+				/* Check if any of the fds were closed while in
+				 * poll.  Updates via the pipe will catch some
+				 * of these, but poll returns POLLNVAL before
+				 * POLLIN.  So we can see closed fds before we
+				 * get a chance to read the update from the pipe
+				 * (happens if we're not in poll when the update
+				 * comes in and the fd is closed).
+				 */
+				int back_to_poll = 0;
+				int i;
+				for ( i = 0; i < sip->si_maxfd; i++ ) {
+					if ( sip->si_fds[i].revents & (POLLHUP|POLLERR|POLLNVAL) ) {
+						Debug( LDAP_DEBUG_ASYNC,
+						       "ldap_int_select: fd %d was closed while in poll()\n",
+						       sip->si_fds[i].fd, 0, 0 );
+
+						// Just remove the fd from pollfds.
+						ldap_int_mark_select_clear( sip, sip->si_fds[i].fd );
+						back_to_poll = 1;
+					}
+				}
+				if (back_to_poll) goto tryagain;
+			}
+		}
+#endif /* __APPLE__ */
 	}
 #else
 	sip->si_use_readfds = sip->si_readfds;

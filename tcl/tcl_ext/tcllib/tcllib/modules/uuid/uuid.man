@@ -2,6 +2,7 @@
 [moddesc {uuid}]
 [copyright {2004, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {UUID generation and comparison}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require uuid [opt 1.0.1]]
 [description]

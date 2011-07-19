@@ -1,0 +1,85 @@
+---
+extension: html
+filter:    erb
+---
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
+<head>
+   <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+   <title>dcerpc.org - <%= @page.title %></title>
+   <meta name="author" content="<%= @page.author %>" />
+
+   <!--- Blueprint CSS Framework -->
+   <link rel="stylesheet" href="/css/blueprint/screen.css" type="text/css" media="screen, projection">
+   <link rel="stylesheet" href="/css/blueprint/print.css" type="text/css" media="print">
+   <!--[if IE]>
+      <link rel="stylesheet" href="/css/blueprint/ie.css" type="text/css" media="screen, projection">
+   <![endif]-->
+
+   <!-- CodeRay syntax highlighting CSS -->
+   <link rel="stylesheet" href="/css/coderay.css" type="text/css" />
+
+   <!-- Homepage CSS -->
+   <link rel="stylesheet" href="/css/site.css" type="text/css" media="screen, projection" />
+
+</head>
+<body>
+
+<div class="container">
+
+   <%
+	sections = @pages.find(:all,
+		:in_directory => "/", :sort_by => "order")
+
+	columns = {
+	    'max' => 20,
+	    'title' => 6,
+	    'sections' => 20 - 6
+	}
+    %>
+
+   <div id="header" class="column prepend-2 append-2 span-<%=columns['max']%> first last">
+     <a style="text-decoration: none;" href="/">
+     <p class="title">dcerpc.org</p>
+     </a>
+   </div>
+
+   <div id="nav" class="column prepend-14 append-2 first last">
+    <% sections.each_with_index { |p, i| %>
+
+	<div class="column">
+	    <a href="<%= p.url %>"><%= p.title %></a>
+	</div>
+
+    <% } %>
+
+   </div>
+
+   <div class="column prepend-2 append-2 span-<%= columns['max'] %> first last"
+    id="content">
+      <hr />
+      <%= @content %>
+   </div>
+
+   <div class="column prepend-2 append-2 small quiet span-<%= columns['max'] %> first last"
+    id="footer">
+     <hr />
+     <em>
+DCE/RPC is an open source software project
+made available primarily under a BSD license
+(<a href="http://dcerpc.org/source.html">full license text</a>).
+Hosting provided by
+<a href="http://macosforge.org">Mac OS Forge</a>.
+Use of this site is subject to the
+<a href="
+http://www.macosforge.org/terms/">Mac OS Forge Terms of Use</a>.
+This website was created with
+<a href="http://webby.rubyforge.org">Webby</a>.
+     </em>
+   </div>
+
+</div>
+</body>
+</html>

@@ -1,13 +1,14 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin doctoc_lang_syntax n 1.0]
-[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2007-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctoc language syntax}]
+[category  {Documentation tools}]
 [description]
 [para]
 
 This document contains the formal specification of the syntax of the
-doctoc markup language, version 1 in Backus-Naur-Form. This document
+doctoc markup language, version 1.1 in Backus-Naur-Form. This document
 is intended to be a reference, complementing the
 [term {doctoc language command reference}].
 
@@ -81,10 +82,9 @@ toc       = defs
             { <WHITE> }
 
 defs      = { INCLUDE | VSET | <WHITE> }
-contents  = defs (items | divisions)
+contents  = { defs entry } [ defs ]
 
-items     = ITEM defs { ITEM defs }
-divisions = division defs { division defs }
+entry     = ITEM | division
 
 division  = DIVISION_START
             contents

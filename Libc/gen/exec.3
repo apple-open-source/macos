@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)exec.3	8.3 (Berkeley) 1/24/94
-.\" $FreeBSD: src/lib/libc/gen/exec.3,v 1.23 2003/09/10 19:24:32 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/exec.3,v 1.28 2008/06/23 05:22:06 ed Exp $
 .\"
 .Dd January 24, 1994
 .Dt EXEC 3
@@ -173,7 +169,7 @@ and
 search path is the path specified in the environment by
 .Dq Ev PATH
 variable.
-If this variable isn't specified,
+If this variable is not specified,
 the default path is set according to the
 .Dv _PATH_DEFPATH
 definition in
@@ -210,7 +206,7 @@ or
 according to whether at least one file with suitable execute permissions
 was found.
 .Pp
-If the header of a file isn't recognized (the attempted
+If the header of a file is not recognized (the attempted
 .Fn execve
 returned
 .Er ENOEXEC ) ,
@@ -229,34 +225,6 @@ will be set to indicate the error.
 .It Pa /bin/sh
 The shell.
 .El
-.Sh ERRORS
-The
-.Fn execl ,
-.Fn execle ,
-.Fn execlp ,
-.Fn execvp ,
-and
-.Fn execvP
-functions
-may fail and set
-.Va errno
-for any of the errors specified for the library functions
-.Xr execve 2
-and
-.Xr malloc 3 .
-.Pp
-The
-.Fn execv
-function may fail and set
-.Va errno
-for any of the errors specified for the library function
-.Xr execve 2 .
-.Sh SEE ALSO
-.Xr sh 1 ,
-.Xr execve 2 ,
-.Xr fork 2 ,
-.Xr ptrace 2 ,
-.Xr environ 7
 .Sh COMPATIBILITY
 Historically, the default path for the
 .Fn execlp
@@ -277,11 +245,11 @@ by the
 .Tn POSIX
 standard.
 .Pp
-Traditionally, the
+Traditionally, the functions
 .Fn execlp
 and
 .Fn execvp
-functions ignored all errors except for the ones described above and
+ignored all errors except for the ones described above and
 .Er ETXTBSY ,
 upon which they retried after sleeping for several seconds, and
 .Er ENOMEM
@@ -313,6 +281,34 @@ and the unusual error
 .Er EIO .
 The behaviour was changed to match the behaviour of
 .Xr sh 1 .
+.Sh ERRORS
+The
+.Fn execl ,
+.Fn execle ,
+.Fn execlp ,
+.Fn execvp ,
+and
+.Fn execvP
+functions
+may fail and set
+.Va errno
+for any of the errors specified for the library functions
+.Xr execve 2
+and
+.Xr malloc 3 .
+.Pp
+The
+.Fn execv
+function may fail and set
+.Va errno
+for any of the errors specified for the library function
+.Xr execve 2 .
+.Sh SEE ALSO
+.Xr sh 1 ,
+.Xr execve 2 ,
+.Xr fork 2 ,
+.Xr ptrace 2 ,
+.Xr environ 7
 .Sh STANDARDS
 The
 .Fn execl ,

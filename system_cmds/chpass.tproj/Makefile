@@ -6,7 +6,7 @@ CFILES = chpass.c edit.c field.c pw_copy.c table.c util.c \
 	 open_directory.c
 MANPAGES = chpass.1
 
-Extra_CC_Flags = -mdynamic-no-pic
+Extra_CC_Flags =
 Extra_CC_Flags += -DOPEN_DIRECTORY -fconstant-cfstrings \
 	-I../pwd_mkdb.tproj -I../vipw.tproj
 Extra_LD_Flags = -dead_strip
@@ -15,7 +15,7 @@ Extra_Frameworks = -framework OpenDirectory -framework CoreFoundation
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-Install_Program_Mode = 04555
+Install_Program_Mode = 00555
 
 after_install:
 	$(LN) -sf chpass.1 $(DSTROOT)/usr/share/man/man1/chfn.1

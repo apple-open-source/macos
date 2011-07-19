@@ -56,6 +56,7 @@ static int eap_detach(void *instance)
 	inst = (rlm_eap_t *)instance;
 
 	rbtree_free(inst->session_tree);
+	if (inst->handler_tree) rbtree_free(inst->handler_tree);
 	inst->session_tree = NULL;
 	eaplist_free(inst);
 
@@ -65,6 +66,7 @@ static int eap_detach(void *instance)
 	}
 
 	pthread_mutex_destroy(&(inst->session_mutex));
+	if (fr_debug_flag) pthread_mutex_destroy(&(inst->handler_mutex));
 
 	free(inst);
 
@@ -84,10 +86,29 @@ static int eap_handler_cmp(const void *a, const void *b)
 	if (one->eap_id < two->eap_id) return -1;
 	if (one->eap_id > two->eap_id) return +1;
 
-	rcode = fr_ipaddr_cmp(&one->src_ipaddr, &two->src_ipaddr);
+	rcode = memcmp(one->state, two->state, sizeof(one->state));
 	if (rcode != 0) return rcode;
 
-	return memcmp(one->state, two->state, sizeof(one->state));
+	/*
+	 *	As of 2.1.8, we don't key off of source IP.  This
+	 *	a NAS to send packets load-balanced (or fail-over)
+	 *	across multiple intermediate proxies, and still have
+	 *	EAP work.
+	 */
+	if (fr_ipaddr_cmp(&one->src_ipaddr, &two->src_ipaddr) != 0) {
+		DEBUG("WARNING: EAP packets are arriving from two different upstream servers.  Has there been a proxy fail-over?");
+	}
+
+	return 0;
+}
+
+
+/*
+ *	Compare two handler pointers
+ */
+static int eap_handler_ptr_cmp(const void *a, const void *b)
+{
+  return (a - b);
 }
 
 
@@ -228,7 +249,26 @@ static int eap_instantiate(CONF_SECTION *cs, void **instance)
 		return -1;
 	}
 
-	pthread_mutex_init(&(inst->session_mutex), NULL);
+	if (fr_debug_flag) {
+		inst->handler_tree = rbtree_create(eap_handler_ptr_cmp, NULL, 0);
+		if (!inst->handler_tree) {
+			radlog(L_ERR|L_CONS, "rlm_eap: Cannot initialize tree");
+			eap_detach(inst);
+			return -1;
+		}
+
+		if (pthread_mutex_init(&(inst->handler_mutex), NULL) < 0) {
+			radlog(L_ERR|L_CONS, "rlm_eap: Failed initializing mutex: %s", strerror(errno));
+			eap_detach(inst);
+			return -1;
+		}
+	}
+
+	if (pthread_mutex_init(&(inst->session_mutex), NULL) < 0) {
+		radlog(L_ERR|L_CONS, "rlm_eap: Failed initializing mutex: %s", strerror(errno));
+		eap_detach(inst);
+		return -1;
+	}
 
 	*instance = inst;
 	return 0;
@@ -246,6 +286,11 @@ static int eap_authenticate(void *instance, REQUEST *request)
 	int		rcode;
 
 	inst = (rlm_eap_t *) instance;
+
+	if (!pairfind(request->packet->vps, PW_EAP_MESSAGE)) {
+		RDEBUG("ERROR: You set 'Auth-Type = EAP' for a request that does not contain an EAP-Message attribute!");
+		return RLM_MODULE_INVALID;
+	}
 
 	/*
 	 *	Get the eap packet  to start with
@@ -278,11 +323,12 @@ static int eap_authenticate(void *instance, REQUEST *request)
 	 */
 	if (rcode == EAP_INVALID) {
 		eap_fail(handler);
-		eap_handler_free(handler);
+		eap_handler_free(inst, handler);
 		RDEBUG2("Failed in EAP select");
 		return RLM_MODULE_INVALID;
 	}
 
+#ifdef WITH_PROXY
 	/*
 	 *	If we're doing horrible tunneling work, remember it.
 	 */
@@ -301,8 +347,9 @@ static int eap_authenticate(void *instance, REQUEST *request)
 
 		return RLM_MODULE_HANDLED;
 	}
+#endif
 
-
+#ifdef WITH_PROXY
 	/*
 	 *	Maybe the request was marked to be proxied.  If so,
 	 *	proxy it.
@@ -348,6 +395,7 @@ static int eap_authenticate(void *instance, REQUEST *request)
 		RDEBUG2("  Tunneled session will be proxied.  Not doing EAP.");
 		return RLM_MODULE_HANDLED;
 	}
+#endif
 
 	/*
 	 *	We are done, wrap the EAP-request in RADIUS to send
@@ -387,14 +435,14 @@ static int eap_authenticate(void *instance, REQUEST *request)
 		 */
 		if (!eaplist_add(inst, handler)) {
 			eap_fail(handler);
-			eap_handler_free(handler);
+			eap_handler_free(inst, handler);
 			return RLM_MODULE_FAIL;
 		}
 
 	} else {
 		RDEBUG2("Freeing handler");
 		/* handler is not required any more, free it now */
-		eap_handler_free(handler);
+		eap_handler_free(inst, handler);
 	}
 
 	/*
@@ -411,8 +459,11 @@ static int eap_authenticate(void *instance, REQUEST *request)
 		 */
 		vp = pairfind(request->reply->vps, PW_USER_NAME);
 		if (!vp) {
-			vp = pairmake("User-Name", request->username->vp_strvalue,
+			vp = pairmake("User-Name", "",
 				      T_OP_EQ);
+			strlcpy(vp->vp_strvalue, request->username->vp_strvalue,
+				sizeof(vp->vp_strvalue));
+			vp->length = request->username->length;
 			rad_assert(vp != NULL);
 			pairadd(&(request->reply->vps), vp);
 		}
@@ -444,12 +495,14 @@ static int eap_authorize(void *instance, REQUEST *request)
 
 	inst = (rlm_eap_t *)instance;
 
+#ifdef WITH_PROXY
 	/*
 	 *	We don't do authorization again, once we've seen the
 	 *	proxy reply (or the proxied packet)
 	 */
 	if (request->proxy != NULL)
                 return RLM_MODULE_NOOP;
+#endif
 
 	/*
 	 *	For EAP_START, send Access-Challenge with EAP Identity
@@ -489,9 +542,13 @@ static int eap_authorize(void *instance, REQUEST *request)
 	    (vp->vp_integer != PW_AUTHTYPE_REJECT)) {
 		vp = pairmake("Auth-Type", inst->xlat_name, T_OP_EQ);
 		if (!vp) {
+			RDEBUG2("Failed to create Auth-Type %s: %s\n",
+				inst->xlat_name, fr_strerror());
 			return RLM_MODULE_FAIL;
 		}
 		pairadd(&request->config_items, vp);
+	} else {
+		RDEBUG2("WARNING: Auth-Type already set.  Not setting to EAP");
 	}
 
 	if (status == EAP_OK) return RLM_MODULE_OK;
@@ -499,6 +556,8 @@ static int eap_authorize(void *instance, REQUEST *request)
 	return RLM_MODULE_UPDATED;
 }
 
+
+#ifdef WITH_PROXY
 /*
  *	If we're proxying EAP, then there may be magic we need
  *	to do.
@@ -509,6 +568,11 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 	size_t		len;
 	VALUE_PAIR	*vp;
 	EAP_HANDLER	*handler;
+
+	/*
+	 *	Just in case the admin lists EAP in post-proxy-type Fail.
+	 */
+	if (!request->proxy_reply) return RLM_MODULE_NOOP;
 
 	/*
 	 *	If there was a handler associated with this request,
@@ -527,7 +591,7 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 							      REQUEST_DATA_EAP_TUNNEL_CALLBACK);
 		if (!data) {
 			radlog_request(L_ERR, 0, request, "Failed to retrieve callback for tunneled session!");
-			eap_handler_free(handler);
+			eap_handler_free(inst, handler);
 			return RLM_MODULE_FAIL;
 		}
 
@@ -540,7 +604,7 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 		if (rcode == 0) {
 			RDEBUG2("Failed in post-proxy callback");
 			eap_fail(handler);
-			eap_handler_free(handler);
+			eap_handler_free(inst, handler);
 			return RLM_MODULE_REJECT;
 		}
 
@@ -548,7 +612,7 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 		 *	We are done, wrap the EAP-request in RADIUS to send
 		 *	with all other required radius attributes
 		 */
-		rcode = eap_compose(handler);
+		eap_compose(handler);
 
 		/*
 		 *	Add to the list only if it is EAP-Request, OR if
@@ -558,14 +622,14 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 		    (handler->eap_ds->request->type.type >= PW_EAP_MD5)) {
 			if (!eaplist_add(inst, handler)) {
 				eap_fail(handler);
-				eap_handler_free(handler);
+				eap_handler_free(inst, handler);
 				return RLM_MODULE_FAIL;
 			}
 			
 		} else {	/* couldn't have been LEAP, there's no tunnel */
 			RDEBUG2("Freeing handler");
 			/* handler is not required any more, free it now */
-			eap_handler_free(handler);
+			eap_handler_free(inst, handler);
 		}
 
 		/*
@@ -591,7 +655,6 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 	} else {
 		RDEBUG2("No pre-existing handler found");
 	}
-
 
 	/*
 	 *	There may be more than one Cisco-AVPair.
@@ -656,7 +719,7 @@ static int eap_post_proxy(void *inst, REQUEST *request)
 
 	return RLM_MODULE_UPDATED;
 }
-
+#endif
 
 /*
  *	The module name should be the only globally exported symbol.
@@ -675,7 +738,11 @@ module_t rlm_eap = {
 		NULL,			/* accounting */
 		NULL,			/* checksimul */
 		NULL,			/* pre-proxy */
+#ifdef WITH_PROXY
 		eap_post_proxy,		/* post-proxy */
+#else
+		NULL,
+#endif
 		NULL			/* post-auth */
 	},
 };

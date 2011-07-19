@@ -6,13 +6,16 @@ use HTTP::Proxy::BodyFilter;
 use vars qw( @ISA );
 @ISA = qw( HTTP::Proxy::BodyFilter );
 
-my $methods = join '|', qw( begin filter end );
+my $methods = join '|', qw( begin filter end will_modify );
 $methods = qr/^(?:$methods)$/;
 
 sub init {
     my $self = shift;
 
     croak "Constructor called without argument" unless @_;
+
+    $self->{_will_modify} = 1;
+
     if ( @_ == 1 ) {
         croak "Single parameter must be a CODE reference"
           unless ref $_[0] eq 'CODE';
@@ -25,7 +28,7 @@ sub init {
 
             # basic error checking
             croak "Parameter to $name must be a CODE reference"
-              unless ref $code eq 'CODE';
+              if $name ne 'will_modify' && ref $code ne 'CODE';
             croak "Unkown method $name"
               unless $name =~ $methods;
 
@@ -38,6 +41,8 @@ sub init {
 sub begin       { goto &{ $_[0]{_begin} }; }
 sub filter      { goto &{ $_[0]{_filter} }; }
 sub end         { goto &{ $_[0]{_end} }; }
+
+sub will_modify { return $_[0]{_will_modify} }
 
 sub can {
     my ( $self, $method ) = @_;
@@ -133,6 +138,27 @@ C<filter>, calls UNIVERSAL::can() instead.
 
 =back
 
+There is also a method that returns a boolean value:
+
+=over 4
+
+=item will_modify()
+
+The C<will_modify()> method returns a scalar value (boolean) indicating
+if the filter may modify the body data. The default method returns a
+true value, so you only need to set this value when you are I<absolutely
+certain> that the filter will not modify data (or at least not modify
+its final length).
+
+Here's a simple example:
+
+    $filter = HTTP::Proxy::BodyFilter::simple->new(
+        filter => sub { ${ $_[1] } =~ s/foo/bar/g; },
+        will_modify => 0,    # "foo" is the same length as "bar"
+    );
+
+=back
+
 =head1 SEE ALSO
 
 L<HTTP::Proxy>, L<HTTP::Proxy::BodyFilter>.
@@ -143,7 +169,7 @@ Philippe "BooK" Bruhat, E<lt>book@cpan.orgE<gt>.
 
 =head1 COPYRIGHT
 
-Copyright 2003-2005, Philippe Bruhat.
+Copyright 2003-2006, Philippe Bruhat.
 
 =head1 LICENSE
 

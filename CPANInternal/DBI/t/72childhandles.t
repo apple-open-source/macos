@@ -23,7 +23,7 @@ if (!$HAS_WEAKEN) {
     exit 0;
 }
 
-plan tests => 14;
+plan tests => 16;
 
 my $using_dbd_gofer = ($ENV{DBI_AUTOPROXY}||'') =~ /^dbi:Gofer.*transport=/i;
 
@@ -100,6 +100,38 @@ is_deeply $empty, [], "ChildHandles should be an array-ref if wekref is availabl
 my $handles = $dbh->{ChildHandles};
 my @live = grep { defined $_ } @$handles;
 is scalar @live, 0, "handles should be gone now";
+
+# test visit_child_handles
+{
+    my $info;
+    my $visitor = sub {
+        my ($h, $info) = @_;
+        my $type = $h->{Type};
+        ++$info->{ $type }{ ($type eq 'st') ? $h->{Statement} : $h->{Name} };
+        return $info;
+    };
+    DBI->visit_handles($visitor, $info = {});
+    is_deeply $info, {
+        'dr' => {
+            'ExampleP' => 1,
+            ($using_dbd_gofer) ? (Gofer => 1) : ()
+        },
+        'db' => { '' => 1 },
+    };
+
+    my $sth1 = $dbh->prepare('SELECT name FROM t');
+    my $sth2 = $dbh->prepare('SELECT name FROM t');
+    DBI->visit_handles($visitor, $info = {});
+    is_deeply $info, {
+        'dr' => {
+            'ExampleP' => 1,
+            ($using_dbd_gofer) ? (Gofer => 1) : ()
+        },
+        'db' => { '' => 1 },
+        'st' => { 'SELECT name FROM t' => 2 }
+    };
+
+}
 
 # test that the childhandle array does not grow uncontrollably
 SKIP: {

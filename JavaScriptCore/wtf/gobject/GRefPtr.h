@@ -23,13 +23,15 @@
 #ifndef WTF_GRefPtr_h
 #define WTF_GRefPtr_h
 
+#if ENABLE(GLIB_SUPPORT)
+
 #include "AlwaysInline.h"
+#include "GRefPtr.h"
+#include "RefPtr.h"
 #include <algorithm>
 
-typedef struct _GHashTable GHashTable;
-typedef void* gpointer;
-extern "C" void g_object_unref(gpointer object);
-extern "C" gpointer  g_object_ref_sink(gpointer object);
+extern "C" void g_object_unref(gpointer);
+extern "C" gpointer g_object_ref_sink(gpointer);
 
 namespace WTF {
 
@@ -38,24 +40,56 @@ template <typename T> inline T* refGPtr(T*);
 template <typename T> inline void derefGPtr(T*);
 template <typename T> class GRefPtr;
 template <typename T> GRefPtr<T> adoptGRef(T*);
-template <> GHashTable* refGPtr(GHashTable* ptr);
-template <> void derefGPtr(GHashTable* ptr);
 
 template <typename T> class GRefPtr {
 public:
     GRefPtr() : m_ptr(0) { }
-    GRefPtr(T* ptr) : m_ptr(ptr) { if (ptr) refGPtr(ptr); }
-    GRefPtr(const GRefPtr& o) : m_ptr(o.m_ptr) { if (T* ptr = m_ptr) refGPtr(ptr); }
-    template <typename U> GRefPtr(const GRefPtr<U>& o) : m_ptr(o.get()) { if (T* ptr = m_ptr) refGPtr(ptr); }
 
-    ~GRefPtr() { if (T* ptr = m_ptr) derefGPtr(ptr); }
+    GRefPtr(T* ptr)
+        : m_ptr(ptr)
+    {
+        if (ptr)
+            refGPtr(ptr);
+    }
 
-    void clear()
+    GRefPtr(const GRefPtr& o)
+        : m_ptr(o.m_ptr)
+    {
+        if (T* ptr = m_ptr)
+            refGPtr(ptr);
+    }
+
+    template <typename U> GRefPtr(const GRefPtr<U>& o)
+        : m_ptr(o.get())
+    {
+        if (T* ptr = m_ptr)
+            refGPtr(ptr);
+    }
+
+    ~GRefPtr()
     {
         if (T* ptr = m_ptr)
             derefGPtr(ptr);
-        m_ptr = 0;
     }
+
+    void clear()
+    {
+        T* ptr = m_ptr;
+        m_ptr = 0;
+        if (ptr)
+            derefGPtr(ptr);
+    }
+
+    T* leakRef() WARN_UNUSED_RETURN
+    {
+        T* ptr = m_ptr;
+        m_ptr = 0;
+        return ptr;
+    }
+
+    // Hash table deleted values, which are only constructed and never copied or destroyed.
+    GRefPtr(HashTableDeletedValueType) : m_ptr(hashTableDeletedValue()) { }
+    bool isHashTableDeletedValue() const { return m_ptr == hashTableDeletedValue(); }
 
     T* get() const { return m_ptr; }
     T& operator*() const { return *m_ptr; }
@@ -165,6 +199,13 @@ template <typename T> GRefPtr<T> adoptGRef(T* p)
     return GRefPtr<T>(p, GRefPtrAdopt);
 }
 
+template <> GHashTable* refGPtr(GHashTable* ptr);
+template <> void derefGPtr(GHashTable* ptr);
+template <> GVariant* refGPtr(GVariant* ptr);
+template <> void derefGPtr(GVariant* ptr);
+template <> GSource* refGPtr(GSource* ptr);
+template <> void derefGPtr(GSource* ptr);
+
 template <typename T> inline T* refGPtr(T* ptr)
 {
     if (ptr)
@@ -181,10 +222,8 @@ template <typename T> inline void derefGPtr(T* ptr)
 } // namespace WTF
 
 using WTF::GRefPtr;
-using WTF::refGPtr;
-using WTF::derefGPtr;
 using WTF::adoptGRef;
-using WTF::static_pointer_cast;
-using WTF::const_pointer_cast;
+
+#endif // ENABLE(GLIB_SUPPORT)
 
 #endif // WTF_GRefPtr_h

@@ -10,7 +10,7 @@
  * See the file LICENSE for information on usage and redistribution.	
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_file_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/file.c,v 1.7 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_file_c[] = "$Id: file.c 10898 2008-11-03 12:51:45Z wsfulton $";
 
 #include "dohint.h"
 
@@ -139,7 +139,7 @@ static int File_getc(DOH *fo) {
     return fgetc(f->filep);
   } else if (f->fd) {
 #ifdef DOH_INTFILE
-    char c;
+    unsigned char c;
     if (read(f->fd, &c, 1) < 0)
       return EOF;
     return c;
@@ -228,15 +228,16 @@ static DohObjInfo DohFileType = {
  * NewFile()
  *
  * Create a new file from a given filename and mode.
+ * If newfiles is non-zero, the filename is added to the list of new files.
  * ----------------------------------------------------------------------------- */
 
-DOH *DohNewFile(DOH *fn, const char *mode) {
+DOH *DohNewFile(DOH *filename, const char *mode, DOHList *newfiles) {
   DohFile *f;
   FILE *file;
-  char *filename;
+  char *filen;
 
-  filename = Char(fn);
-  file = fopen(filename, mode);
+  filen = Char(filename);
+  file = fopen(filen, mode);
   if (!file)
     return 0;
 
@@ -245,6 +246,8 @@ DOH *DohNewFile(DOH *fn, const char *mode) {
     fclose(file);
     return 0;
   }
+  if (newfiles)
+    Append(newfiles, filename);
   f->filep = file;
   f->fd = 0;
   f->closeondel = 1;

@@ -1,0 +1,45 @@
+require "vnd.dovecot.testsuite";
+require "comparator-i;ascii-numeric";
+require "relational";
+
+require "enotify";
+
+test "Invalid URI (FIXME: count only)" {
+	if test_script_compile "errors/uri.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "2" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Invalid mailto URI (FIXME: count only)" {
+	if test_script_compile "errors/uri-mailto.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "7" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Invalid mailto :from address (FIXME: count only)" {
+	if test_script_compile "errors/from-mailto.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Invalid :options argument (FIXME: count only)" {
+	if test_script_compile "errors/options.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "6" {
+		test_fail "wrong number of errors reported";
+	}
+}

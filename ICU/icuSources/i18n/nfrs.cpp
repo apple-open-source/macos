@@ -378,6 +378,14 @@ NFRuleSet::findDoubleRule(double number) const
         return fractionRules[2];
     }
 
+    // always use the last rule for infinity.  It is likely that rule
+    // will had a DecimalFormat that will do the right thing with infinity even
+    // if the rule's base value is strange, i.e. something larger than what 
+    // util64_fromDouble produces below.
+    if (uprv_isInfinite(number) && (rules.size() > 0)) {
+        return rules[rules.size() - 1];
+    }
+
     // and if we haven't yet returned a rule, use findNormalRule()
     // to find the applicable rule
     int64_t r = util64_fromDouble(number + 0.5);
@@ -582,7 +590,7 @@ static void dumpUS(FILE* f, const UnicodeString& us) {
 #endif
 
 UBool
-NFRuleSet::parse(const UnicodeString& text, ParsePosition& pos, double upperBound, Formattable& result) const
+NFRuleSet::parse(const UnicodeString& text, ParsePosition& pos, double upperBound, Formattable& result, UBool lenient) const
 {
     // try matching each rule in the rule set against the text being
     // parsed.  Whichever one matches the most characters is the one
@@ -633,7 +641,7 @@ NFRuleSet::parse(const UnicodeString& text, ParsePosition& pos, double upperBoun
         for (int i = 0; i < 3; i++) {
             if (fractionRules[i]) {
                 Formattable tempResult;
-                UBool success = fractionRules[i]->doParse(text, workingPos, 0, upperBound, tempResult);
+                UBool success = fractionRules[i]->doParse(text, workingPos, 0, upperBound, tempResult, lenient || isDecimalFormatRuleParseable() );
                 if (success && (workingPos.getIndex() > highWaterMark.getIndex())) {
                     result = tempResult;
                     highWaterMark = workingPos;

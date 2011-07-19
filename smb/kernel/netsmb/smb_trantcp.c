@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,7 +39,6 @@
 #include <sys/malloc.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/proc.h>
-#include <sys/protosw.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 #include <sys/sysctl.h>
@@ -67,14 +66,14 @@
 
 #define M_NBDATA	M_PCB
 
-static u_int32_t smb_tcpsndbuf = 1024 * 128;
-static u_int32_t smb_tcprcvbuf = 1024 * 128;
+static uint32_t smb_tcpsndbuf = 1024 * 255;
+static uint32_t smb_tcprcvbuf = 1024 * 255;
 
 SYSCTL_DECL(_net_smb_fs);
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, tcprcvbuf, CTLFLAG_RW, &smb_tcprcvbuf, 0, "");
 
-static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, u_int8_t *rpcodep, 
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep, 
 					  struct timespec *wait_time);
 static int  smb_nbst_disconnect(struct smb_vc *vcp);
 
@@ -94,7 +93,7 @@ nb_upcall(socket_t so, void *arg, int waitflag)
 	if ((so == NULL) || (nbp == NULL) || (nbp->nbp_tso == NULL) || (nbp->nbp_tso != so)) {
 #ifdef SMB_DEBUG
 		/* Don't log if nbp_tso is null we could be getting called after a disconnect */
-		if (nbp->nbp_tso) {
+		if (nbp && nbp->nbp_tso) {
 			SMBDEBUG("UPCALLED: so = %p nbp = %p nbp->nbp_tso = %p\n", so, nbp, (nbp) ? nbp->nbp_tso : NULL);
 		}
 #endif // SMB_DEBUG
@@ -117,11 +116,18 @@ nb_upcall(socket_t so, void *arg, int waitflag)
 }
 
 static int
-nb_sethdr(mbuf_t m, u_int8_t type, u_int32_t len)
+nb_sethdr(struct nbpcb *nbp, mbuf_t m, uint8_t type, uint32_t len)
 {
-	u_int32_t *p = mbuf_data(m);
+	uint32_t *p = mbuf_data(m);
 
-	*p = htonl((len & 0x1FFFF) | (type << 24));
+	if (nbp->nbp_flags & NBF_NETBIOS) {
+		/* NetBIOS connection the length field is 17 bits */
+		*p = htonl((len & SMB_MAXPKTLEN) | (type << 24));
+	} else {
+		/* NetBIOS-less connection the length field is 24 bits */
+		*p = htonl((len & SMB_LARGE_MAXPKTLEN) | (type << 24));
+	}
+
 	return (0);
 }
 
@@ -137,7 +143,7 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 	NBDEBUG("[%s]\n", cp);
 	for (;;) {
 		seglen = (*cp) + 1;
-		error = mb_put_mem(mbp, (c_caddr_t)cp, seglen, MB_MSYSTEM);
+		error = mb_put_mem(mbp, (const char *)cp, seglen, MB_MSYSTEM);
 		if (error)
 			return (error);
 		if (seglen == 1)
@@ -147,18 +153,15 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 	return (0);
 }
 
-static int
-nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
+static int tcp_connect(struct nbpcb *nbp, struct sockaddr *to)
 {
-	struct sockaddr_in second_port = *to;
-	socket_t second_so = NULL;
 	socket_t so;
 	int error;
 	struct timeval  tv;
-	struct smb_vc *vcp = nbp->nbp_vc;
-	int tryboth = (vcp->connect_flag && (*(vcp->connect_flag) & NSMBFL_TRYBOTH)) ? TRUE : FALSE;
+	int optlen;
+	uint32_t bufsize;
 	
-	error = sock_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nb_upcall, nbp, &so);
+	error = sock_socket(to->sa_family, SOCK_STREAM, IPPROTO_TCP, nb_upcall, nbp, &so);
 	if (error)
 		return (error);
 	nbp->nbp_tso = so;
@@ -170,27 +173,54 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
 	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv, (int)sizeof(tv));
 	if (error)
 		goto bad;
-
-	do {
-		error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf, (int)sizeof(nbp->nbp_sndbuf));
-		if (error) {
-			nbp->nbp_sndbuf /= 2;
-			SMBDEBUG("sock_setsockopt error = %d nbp_sndbuf = %d\n", error, nbp->nbp_sndbuf);
-		}
-	}while ((error) && (nbp->nbp_sndbuf > 1024));
-	if (error)
-		goto bad;
-
-	do {
-		error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf, (int)sizeof(nbp->nbp_rcvbuf));
-		if (error) {
-			nbp->nbp_sndbuf /= 2;
-			SMBDEBUG("sock_setsockopt error = %d nbp_rcvbuf = %d\n", error, nbp->nbp_rcvbuf);
-		}
-	}while ((error) && (nbp->nbp_rcvbuf > 1024));
-	if (error)
-		goto bad;
 	
+	/*
+	 * The default socket buffer size can vary depending on system pressure. Since
+	 * we always send and receive using mbuf this shouldn't be a real issue for
+	 * us. So we now check to see what size socket buffer we have, if its not
+	 * big enough try to make it bigger.
+	 */
+	bufsize = nbp->nbp_sndbuf;
+	optlen = sizeof(bufsize);
+	error = sock_getsockopt(so, SOL_SOCKET, SO_SNDBUF, &bufsize, &optlen);
+	if (error) {
+		/* Not sure what else we can do here, should never happen */
+		goto bad;
+	}
+	if (bufsize < nbp->nbp_sndbuf) {
+		/* Not big enough try to make it bigger */
+		optlen = sizeof(nbp->nbp_sndbuf);
+		error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf, optlen);
+		if (error) {
+			/* 
+			 * Failed! Should never happen since we never ask for more that we
+			 * can set, but just in case use the size they gave us.
+			 */
+			nbp->nbp_sndbuf = bufsize;
+		}
+	}
+	
+	bufsize = nbp->nbp_rcvbuf;
+	optlen = sizeof(bufsize);
+	error = sock_getsockopt(so, SOL_SOCKET, SO_RCVBUF, &bufsize, &optlen);
+	if (error) {
+		goto bad;
+	}
+	if (bufsize < nbp->nbp_rcvbuf) {
+		/* Not big enough try to make it bigger */
+		optlen = sizeof(nbp->nbp_rcvbuf);
+		error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf, optlen);
+		if (error) {
+			/* 
+			 * Failed! Should never happen since we never ask for more that we
+			 * can set, but just in case use the size they gave us.
+			 */
+			nbp->nbp_rcvbuf = bufsize;
+		}
+	}
+	if ((nbp->nbp_rcvbuf < smb_tcprcvbuf) || (nbp->nbp_sndbuf < smb_tcpsndbuf)) {
+		SMBWARNING("nbp_rcvbuf = %d nbp_sndbuf = %d\n", nbp->nbp_rcvbuf, nbp->nbp_sndbuf);
+	}
 	error = nb_setsockopt_int(so, SOL_SOCKET, SO_KEEPALIVE, 1);
 	if (error)
 		goto bad;
@@ -216,37 +246,7 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to)
 	while ((error = sock_connectwait(so, &tv)) == EINPROGRESS) {
 		if ((error = smb_iod_nb_intr(nbp->nbp_vc)))
 			break;
-		/*
-		 * We need to try both ports, we wait 2 seconds and then
-		 * try connecting with port 139. First one to connect wins.
-		 * We always give the first port more time since that is the
-		 * prefered method of connecting.
-		 */
-		if (tryboth) {
-			second_port.sin_port = htons(NBSS_TCP_PORT_139);
-			error = sock_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, &second_so);
-			if (!error) 
-				error = sock_nointerrupt(second_so, 0);
-			if (!error)
-				error = sock_connect(second_so, (struct sockaddr*)&second_port, MSG_DONTWAIT);
-			/* Done with setup we either have a socket or we don't */
-			tryboth = FALSE; 
-			/* We failed clean up and just try the first connect */ 
-			if (error && error != EINPROGRESS) {
-				if (second_so)
-					sock_close(second_so);
-				second_so = NULL;
-			} else
-				tv.tv_sec = 1;
-		} else  if (second_so && (sock_connectwait(second_so, &tv) == 0)) {
-		    	/* We got connect on port 139 tell userland */
-			error = ECONNREFUSED;
-			break;
-		}
 	}
-	/* If we have a second connection close it. */
-	if (second_so)
-		sock_close(second_so);
 	if (!error)
 		return (0);
 bad:
@@ -262,7 +262,7 @@ nbssn_rq_request(struct nbpcb *nbp)
 	mbuf_t m0;
 	struct sockaddr_in sin;
 	u_short port;
-	u_int8_t rpcode;
+	uint8_t rpcode;
 	int error, rplen;
 
 	error = mb_init(mbp);
@@ -271,7 +271,7 @@ nbssn_rq_request(struct nbpcb *nbp)
 	mb_put_uint32le(mbp, 0);
 	nb_put_name(mbp, nbp->nbp_paddr);
 	nb_put_name(mbp, nbp->nbp_laddr);
-	nb_sethdr(mbp->mb_top, NB_SSN_REQUEST, (u_int32_t)(mb_fixhdr(mbp) - 4));
+	nb_sethdr(nbp, mbp->mb_top, NB_SSN_REQUEST, (uint32_t)(mb_fixhdr(mbp) - 4));
 	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)mbp->mb_top, 0, NULL);
 	if (!error)
 		nbp->nbp_state = NBST_RQSENT;
@@ -315,7 +315,7 @@ nbssn_rq_request(struct nbpcb *nbp)
 		sin.sin_port = port;
 		nbp->nbp_state = NBST_RETARGET;
 		smb_nbst_disconnect(nbp->nbp_vc);
-		error = nb_connect_in(nbp, &sin);
+		error = tcp_connect(nbp, (struct sockaddr *)&sin);
 		if (!error)
 			error = nbssn_rq_request(nbp);
 		if (error) {
@@ -328,12 +328,12 @@ nbssn_rq_request(struct nbpcb *nbp)
 	return (error);
 }
 
-static int nbssn_recvhdr(struct nbpcb *nbp, u_int32_t *lenp, u_int8_t *rpcodep, 
+static int nbssn_recvhdr(struct nbpcb *nbp, uint32_t *lenp, uint8_t *rpcodep, 
 						 struct timespec *wait_time)
 {
 	struct iovec aio;
-	u_int32_t len;
-	u_int8_t *bytep;
+	uint32_t len;
+	uint8_t *bytep;
 	int error;
 	size_t resid, recvdlen;
 	struct msghdr msg;
@@ -341,7 +341,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, u_int32_t *lenp, u_int8_t *rpcodep,
 	int flags = MSG_DONTWAIT;
 
 	resid = sizeof(len);
-	bytep = (u_int8_t *)&len;
+	bytep = (uint8_t *)&len;
 	while (resid != 0) {
 		aio.iov_base = bytep;
 		aio.iov_len = resid;
@@ -378,6 +378,7 @@ static int nbssn_recvhdr(struct nbpcb *nbp, u_int32_t *lenp, u_int8_t *rpcodep,
 		 */
 		if ((error == 0) && (recvdlen == 0) && resid) {
 			SMBWARNING("Server closed their side of the connection.\n");
+			nbp->nbp_state = NBST_CLOSED;
 			error = EPIPE;
 		}
 		/* This should never happen, someday should we make it just a debug assert. */
@@ -405,41 +406,54 @@ static int nbssn_recvhdr(struct nbpcb *nbp, u_int32_t *lenp, u_int8_t *rpcodep,
 		resid -= recvdlen;
 		bytep += recvdlen;
 	}
+	/*
+	 * From http://support.microsoft.com/kb/204279
+	 *
+	 * Direct hosted "NetBIOS-less" SMB traffic uses port 445 (TCP and UDP). In 
+	 * this situation, a four-byte header precedes the SMB traffic. The first 
+	 * byte of this header is always 0x00, and the next three bytes are the 
+	 * length of the remaining data.
+	 */
 	len = ntohl(len);
-	if ((len >> 16) & 0xFE) {
-		SMBERROR("bad nb header received 0x%x (MBZ flag set)\n", len);
-		return (EPIPE);
+	*rpcodep = (len >> 24) & 0xFF; /* For port 445 this should be zero, NB_SSN_MESSAGE */
+	if (nbp->nbp_flags & NBF_NETBIOS) {
+		/* Port 139, we can only use the frist 17 bits for the length */
+		if ((len >> 16) & 0xFE) {
+			SMBERROR("bad nb header received 0x%x (MBZ flag set)\n", len);
+			return (EPIPE);
+		}
+		len &= SMB_MAXPKTLEN;
+	} else {
+		/* "NetBIOS-less", we can only use the frist 24 bits for the length */
+		len &= SMB_LARGE_MAXPKTLEN;
 	}
-	*rpcodep = (len >> 24) & 0xFF;
 	switch (*rpcodep) {
 	    case NB_SSN_MESSAGE:
+	    case NB_SSN_KEEPALIVE:	/* Can "NetBIOS-less" have a keep alive, does hurt anything */
+			break;
 	    case NB_SSN_REQUEST:
 	    case NB_SSN_POSRESP:
 	    case NB_SSN_NEGRESP:
 	    case NB_SSN_RTGRESP:
-	    case NB_SSN_KEEPALIVE:
-		break;
+			if (nbp->nbp_flags & NBF_NETBIOS) {
+				break;
+			}
 	    default:
 		SMBERROR("bad nb header received 0x%x (bogus type)\n", len);
 		return (EPIPE);
-	}
-	len &= 0x1ffff;
-	if (len > SMB_MAXPKTLEN) {
-		SMBERROR("packet too long (%d)\n", len);
-		return (EFBIG);
 	}
 	*lenp = len;
 	return (0);
 }
 
-static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, u_int8_t *rpcodep, 
+static int nbssn_recv(struct nbpcb *nbp, mbuf_t *mpp, int *lenp, uint8_t *rpcodep, 
 					  struct timespec *wait_time)
 {
 	socket_t so = nbp->nbp_tso;
 	mbuf_t m;
 	mbuf_t tm;
-	u_int8_t rpcode;
-	u_int32_t len;
+	uint8_t rpcode;
+	uint32_t len;
 	int32_t error;
 	size_t recvdlen, resid;
 
@@ -688,8 +702,7 @@ static int
 smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 {
 	struct nbpcb *nbp = vcp->vc_tdata;
-	struct sockaddr_in sin;
-	struct sockaddr_nb *snb;
+	struct sockaddr *so;
 	struct timespec ts1, ts2;
 	int error, slen;
 
@@ -698,20 +711,23 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 		return (EINVAL);
 	if (nbp->nbp_tso != NULL)
 		return (EISCONN);
-	if (nbp->nbp_laddr == NULL)
-		return (EINVAL);
-	slen = sap->sa_len;
-	if (slen < (int)NB_MINSALEN)
-		return (EINVAL);
-	if (nbp->nbp_paddr) {
-		free(nbp->nbp_paddr, M_SONAME);
-		nbp->nbp_paddr = NULL;
+	if (sap->sa_family == AF_NETBIOS) {
+		if (nbp->nbp_laddr == NULL)
+			return (EINVAL);
+		slen = sap->sa_len;
+		if (slen < (int)NB_MINSALEN)
+			return (EINVAL);
+		if (nbp->nbp_paddr) {
+			free(nbp->nbp_paddr, M_SONAME);
+			nbp->nbp_paddr = NULL;
+		}
+		nbp->nbp_paddr = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
+		if (nbp->nbp_paddr == NULL)
+			return (ENOMEM);
+		so = (struct sockaddr*)&(nbp->nbp_paddr)->snb_addrin;
+	} else {
+		so = sap;
 	}
-	snb = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
-	if (snb == NULL)
-		return (ENOMEM);
-	nbp->nbp_paddr = snb;
-	sin = snb->snb_addrin;
 	/*
 	 * For our general timeout we use the greater of
 	 * the default (15 sec) and 4 times the time it
@@ -721,7 +737,7 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 	 * timeouts are simply too short.
 	 */
 	nanouptime(&ts1);
-	error = nb_connect_in(nbp, &sin);
+	error = tcp_connect(nbp, so);
 	if (error)
 		return (error);
 	nanouptime(&ts2);
@@ -730,10 +746,11 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 	timespecadd(&ts2, &ts2);	/*  * 4 */
 	if (timespeccmp(&ts2, &nbp->nbp_timo, >))
 		nbp->nbp_timo = ts2;
-	/* If its not port 139, then we don't need to do a NetBIOS session connect */
-	if (betohs(((struct sockaddr_in*)(&sap->sa_data[2]))->sin_port) != NBSS_TCP_PORT_139)
+	/* If its not a NetBIOS connection, then we don't need to do a NetBIOS session connect */
+	if (sap->sa_family != AF_NETBIOS)
 		nbp->nbp_state = NBST_SESSION;
 	else {
+		nbp->nbp_flags |= NBF_NETBIOS;
 		error = nbssn_rq_request(nbp);
 		if (error)
 			smb_nbst_disconnect(vcp);
@@ -777,7 +794,7 @@ smb_nbst_send(struct smb_vc *vcp, mbuf_t m0)
 	}
 	if (mbuf_prepend(&m0, 4, MBUF_WAITOK))
 		return (ENOBUFS);
-	nb_sethdr(m0, NB_SSN_MESSAGE, (u_int32_t)(m_fixhdr(m0) - 4));
+	nb_sethdr(nbp, m0, NB_SSN_MESSAGE, (uint32_t)(m_fixhdr(m0) - 4));
 	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)m0, 0, NULL);
 	return (error);
 abort:
@@ -791,7 +808,7 @@ static int
 smb_nbst_recv(struct smb_vc *vcp, mbuf_t *mpp)
 {
 	struct nbpcb *nbp = vcp->vc_tdata;
-	u_int8_t rpcode;
+	uint8_t rpcode;
 	int error, rplen;
 
 	/* Should never happen, but just in case */
@@ -834,10 +851,10 @@ smb_nbst_getparam(struct smb_vc *vcp, int param, void *data)
 		return (EINVAL);		
 	switch (param) {
 	    case SMBTP_SNDSZ:
-		*(u_int32_t*)data = nbp->nbp_sndbuf;
+		*(uint32_t*)data = nbp->nbp_sndbuf;
 		break;
 	    case SMBTP_RCVSZ:
-		*(u_int32_t*)data = nbp->nbp_rcvbuf;
+		*(uint32_t*)data = nbp->nbp_rcvbuf;
 		break;
 	    case SMBTP_TIMEOUT:
 		*(struct timespec*)data = nbp->nbp_timo;
@@ -885,6 +902,8 @@ smb_nbst_fatal(struct smb_vc *vcp, int error)
 	struct nbpcb *nbp;
 
 	switch (error) {
+	    case EHOSTDOWN:
+	    case ENETUNREACH:
 	    case ENOTCONN:
 	    case ENETRESET:
 	    case ECONNABORTED:

@@ -32,18 +32,36 @@
 #include "JSDOMFormData.h"
 
 #include "DOMFormData.h"
+#include "HTMLFormElement.h"
 #include "JSBlob.h"
+#include "JSHTMLFormElement.h"
 #include <runtime/Error.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue JSDOMFormData::append(ExecState* exec, const ArgList& args)
+static HTMLFormElement* toHTMLFormElement(JSC::JSValue value)
 {
-    if (args.size() >= 2) {
-        String name = ustringToString(args.at(0).toString(exec));
-        JSValue value = args.at(1);
+    return value.inherits(&JSHTMLFormElement::s_info) ? static_cast<HTMLFormElement*>(static_cast<JSHTMLFormElement*>(asObject(value))->impl()) : 0;
+}
+
+EncodedJSValue JSC_HOST_CALL JSDOMFormDataConstructor::constructJSDOMFormData(ExecState* exec)
+{
+    JSDOMFormDataConstructor* jsConstructor = static_cast<JSDOMFormDataConstructor*>(exec->callee());
+
+    HTMLFormElement* form = 0;
+    if (exec->argumentCount() > 0)
+        form = toHTMLFormElement(exec->argument(0));
+    RefPtr<DOMFormData> domFormData = DOMFormData::create(form);
+    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), domFormData.get())));
+}
+
+JSValue JSDOMFormData::append(ExecState* exec)
+{
+    if (exec->argumentCount() >= 2) {
+        String name = ustringToString(exec->argument(0).toString(exec));
+        JSValue value = exec->argument(1);
         if (value.inherits(&JSBlob::s_info))
             impl()->append(name, toBlob(value));
         else

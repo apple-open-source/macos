@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,4 +55,12 @@ my_CFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
 CFPropertyListRef
 my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len);
 
-#endif _S_MYCFUTIL_H
+CFStringRef
+my_CFUUIDStringCreate(CFAllocatorRef alloc);
+
+CFStringRef
+my_CFStringCreateWithData(CFDataRef data);
+
+CFDataRef
+my_CFDataCreateWithString(CFStringRef str);
+#endif /* _S_MYCFUTIL_H */

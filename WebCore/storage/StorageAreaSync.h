@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,11 +28,10 @@
 
 #if ENABLE(DOM_STORAGE)
 
-#include "PlatformString.h"
 #include "SQLiteDatabase.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -42,7 +41,7 @@ namespace WebCore {
 
     class StorageAreaSync : public RefCounted<StorageAreaSync> {
     public:
-        static PassRefPtr<StorageAreaSync> create(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier);
+        static PassRefPtr<StorageAreaSync> create(PassRefPtr<StorageSyncManager>, PassRefPtr<StorageAreaImpl>, const String& databaseIdentifier);
         ~StorageAreaSync();
 
         void scheduleFinalSync();
@@ -50,9 +49,12 @@ namespace WebCore {
 
         void scheduleItemForSync(const String& key, const String& value);
         void scheduleClear();
+        void scheduleCloseDatabase();
+
+        void scheduleSync();
 
     private:
-        StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier);
+        StorageAreaSync(PassRefPtr<StorageSyncManager>, PassRefPtr<StorageAreaImpl>, const String& databaseIdentifier);
 
         void dispatchStorageEvent(const String& key, const String& oldValue, const String& newValue, Frame* sourceFrame);
 
@@ -73,9 +75,16 @@ namespace WebCore {
         // Called from the background thread
         void performImport();
         void performSync();
+        void deleteEmptyDatabase();
 
     private:
+        enum OpenDatabaseParamType {
+          CreateIfNonExistent,
+          SkipIfNonExistent
+        };
+
         void syncTimerFired(Timer<StorageAreaSync>*);
+        void openDatabase(OpenDatabaseParamType openingStrategy);
         void sync(bool clearItems, const HashMap<String, String>& items);
 
         const String m_databaseIdentifier;
@@ -85,6 +94,9 @@ namespace WebCore {
         bool m_clearItemsWhileSyncing;
         bool m_syncScheduled;
         bool m_syncInProgress;
+        bool m_databaseOpenFailed;
+        
+        bool m_syncCloseDatabase;
 
         mutable Mutex m_importLock;
         mutable ThreadCondition m_importCondition;

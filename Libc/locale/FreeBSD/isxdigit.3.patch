@@ -1,19 +1,10 @@
---- isxdigit.3	2004-11-25 11:38:17.000000000 -0800
-+++ isxdigit.3.edit	2006-08-09 13:29:19.000000000 -0700
-@@ -74,7 +74,7 @@
- For single C
- .Va char Ns s
- locales (see
--.Xr multibyte 3 )
-+.Xr multibyte 3 ) ,
- the value of the argument is
- representable as an
- .Li unsigned char
-@@ -97,6 +97,7 @@
+--- isxdigit.3.bsdnew	2009-11-10 13:13:11.000000000 -0800
++++ isxdigit.3	2009-11-10 13:48:37.000000000 -0800
+@@ -88,6 +88,7 @@ The
  function should be used instead.
  .Sh SEE ALSO
  .Xr ctype 3 ,
 +.Xr isalnum_l 3 ,
  .Xr iswxdigit 3 ,
- .Xr multibyte 3 ,
  .Xr ascii 7
+ .Sh STANDARDS

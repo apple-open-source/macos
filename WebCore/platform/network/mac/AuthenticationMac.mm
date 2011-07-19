@@ -25,6 +25,7 @@
 #import "config.h"
 #import "AuthenticationMac.h"
 
+#import "AuthenticationCF.h"
 #import "AuthenticationChallenge.h"
 #import "AuthenticationClient.h"
 #import "Credential.h"
@@ -34,6 +35,25 @@
 #import <Foundation/NSURLCredential.h>
 #import <Foundation/NSURLProtectionSpace.h>
 
+#if USE(CFNETWORK)
+
+@interface NSURLProtectionSpace (Details)
+- (CFURLProtectionSpaceRef) _cfurlprotectionspace;
+- (id)_initWithCFURLProtectionSpace:(CFURLProtectionSpaceRef)cfProtSpace;
+@end
+
+@interface NSURLAuthenticationChallenge (Details)
+-(CFURLAuthChallengeRef)_createCFAuthChallenge;
++(NSURLAuthenticationChallenge *)_authenticationChallengeForCFAuthChallenge:(CFURLAuthChallengeRef)cfChallenge sender:(id <NSURLAuthenticationChallengeSender>)sender;
+@end
+
+@interface NSURLCredential (Details)
+- (id) _initWithCFURLCredential:(CFURLCredentialRef)credential;
+- (CFURLCredentialRef) _cfurlcredential;
+@end
+
+#endif
+
 using namespace WebCore;
 
 @interface WebCoreAuthenticationClientAsChallengeSender : NSObject <NSURLAuthenticationChallengeSender>
@@ -41,6 +61,7 @@ using namespace WebCore;
     AuthenticationClient* m_client;
 }
 - (id)initWithAuthenticationClient:(AuthenticationClient*)client;
+- (AuthenticationClient*)client;
 - (void)detachClient;
 @end
 
@@ -53,6 +74,11 @@ using namespace WebCore;
         return nil;
     m_client = client;
     return self;
+}
+
+- (AuthenticationClient*)client
+{
+    return m_client;
 }
 
 - (void)detachClient
@@ -82,7 +108,48 @@ using namespace WebCore;
 
 namespace WebCore {
 
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#if USE(CFNETWORK)
+
+AuthenticationChallenge core(NSURLAuthenticationChallenge *macChallenge)
+{
+    WebCoreAuthenticationClientAsChallengeSender *challengeSender = (WebCoreAuthenticationClientAsChallengeSender*) [macChallenge sender];
+    AuthenticationClient* authClient = [challengeSender client];
+    return AuthenticationChallenge([macChallenge _createCFAuthChallenge], authClient);
+}
+
+Credential core(NSURLCredential *macCredential)
+{
+    return core([macCredential _cfurlcredential]);
+}
+
+ProtectionSpace core(NSURLProtectionSpace *macSpace)
+{
+    return core([macSpace _cfurlprotectionspace]);
+}
+
+NSURLProtectionSpace *mac(const ProtectionSpace& coreSpace)
+{
+    RetainPtr<CFURLProtectionSpaceRef> protectionSpace(AdoptCF, createCF(coreSpace));
+    return [[[NSURLProtectionSpace alloc] _initWithCFURLProtectionSpace:protectionSpace.get()] autorelease];
+}
+
+NSURLAuthenticationChallenge *mac(const AuthenticationChallenge& coreChallenge)
+{
+    AuthenticationClient* authClient = coreChallenge.authenticationClient();
+    RetainPtr<WebCoreAuthenticationClientAsChallengeSender> challengeSender(AdoptNS, [[WebCoreAuthenticationClientAsChallengeSender alloc] initWithAuthenticationClient:authClient]);
+    RetainPtr<CFURLAuthChallengeRef> authChallenge(AdoptCF, createCF(coreChallenge));
+    return [[NSURLAuthenticationChallenge _authenticationChallengeForCFAuthChallenge:authChallenge.get() sender:challengeSender.get()] autorelease];
+}
+
+NSURLCredential *mac(const Credential& coreCredential)
+{
+    RetainPtr<CFURLCredentialRef> credential(AdoptCF, createCF(coreCredential));
+    return [[[NSURLCredential alloc] _initWithCFURLCredential:credential.get()] autorelease];
+}
+
+#else
+
+#ifdef BUILDING_ON_LEOPARD
 // There is no constant in headers, but NTLM is supported.
 NSString * const NSURLAuthenticationMethodNTLM = @"NSURLAuthenticationMethodNTLM";
 #endif
@@ -121,6 +188,14 @@ void AuthenticationChallenge::setAuthenticationClient(AuthenticationClient* clie
         if ([m_sender.get() isMemberOfClass:[WebCoreAuthenticationClientAsChallengeSender class]])
             [(WebCoreAuthenticationClientAsChallengeSender *)m_sender.get() detachClient];
     }
+}
+
+AuthenticationClient* AuthenticationChallenge::authenticationClient() const
+{
+    if ([m_sender.get() isMemberOfClass:[WebCoreAuthenticationClientAsChallengeSender class]])
+        return [static_cast<WebCoreAuthenticationClientAsChallengeSender*>(m_sender.get()) client];
+    
+    return 0;
 }
 
 bool AuthenticationChallenge::platformCompare(const AuthenticationChallenge& a, const AuthenticationChallenge& b)
@@ -343,4 +418,6 @@ Credential core(NSURLCredential *macCredential)
     return Credential([macCredential user], [macCredential password], persistence);
 }
 
-};
+#endif // USE(CFNETWORK)
+
+} // namespace WebCore

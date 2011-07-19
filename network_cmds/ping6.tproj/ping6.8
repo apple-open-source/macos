@@ -40,7 +40,7 @@ packets to network hosts
 .Sh SYNOPSIS
 .Nm
 .\" without ipsec, or new ipsec
-.Op Fl dfHmnNoqtvwW
+.Op Fl CdfHmnNoqtvwW
 .\" old ipsec
 .\" .Op Fl AdEfmnNqRtvwW
 .Bk -words
@@ -48,6 +48,9 @@ packets to network hosts
 .Ek
 .Bk -words
 .Op Fl b Ar bufsiz
+.Ek
+.Bk -words
+.Op Fl B Ar boundif
 .Ek
 .Bk -words
 .Op Fl c Ar count
@@ -138,6 +141,12 @@ This is an experimental option.
 .El
 .It Fl b Ar bufsiz
 Set socket buffer size.
+.It Fl B Ar boundif
+Bind the socket to interface
+.Ar boundif
+for sending.
+.It Fl C
+Prohibit the socket from using the cellular network interface.
 .It Fl c Ar count
 Stop after sending
 (and receiving)
@@ -247,6 +256,22 @@ specifies IPsec policy to be used for the probe.
 Quiet output.
 Nothing is displayed except the summary lines at startup time and
 when finished.
+.It Fl r
+Audible.
+Include a bell
+.Tn ( ASCII
+0x07)
+character in the output when any packet is received.
+.It Fl R
+Audible.
+Output a bell
+.Tn ( ASCII
+0x07)
+character when no packet is received before the next packet
+is transmitted.
+To cater for round-trip times that are longer than the interval
+between transmissions, further missing packets cause a bell only
+if the maximum number of unreceived packets has increased.
 .It Fl S Ar sourceaddr
 Specifies the source address of request packets.
 The source address must be one of the unicast addresses of the sending node,
@@ -414,7 +439,9 @@ option of
 The
 .Nm
 utility returns 0 on success (the host is alive),
-and non-zero if the arguments are incorrect or the host is not responding.
+2 if the transmission was successful but no responses were received,
+any other non-zero value if the arguments are incorrect or                                                            
+another error has occured.                                                                                            
 .Sh EXAMPLES
 Normally,
 .Nm

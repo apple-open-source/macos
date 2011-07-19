@@ -32,10 +32,10 @@
 	Revision 1.12  2009/10/16 23:59:06  calderon
 	<rdar://problem/7046489> 10A402 AsyncTester results in Error-Server verified Incorrect number of bytes
 	<rdar://problem/7111060> PanicTracer: 3 panics at IOFireWireFamily : IOFWUserPseudoAddressSpace::doPacket
-	
+
 	And some help for:
 	<rdar://problem/7116134> PanicTracer: 3 panics at com.apple.iokit.IOFireWireFamily
-	
+
 	Revision 1.11  2008/09/12 23:44:05  calderon
 	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
 	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info

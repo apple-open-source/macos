@@ -3,7 +3,7 @@
 [copyright {2008 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   {Tcl Simulation Tools}]
 [titledesc {Simulated annealing}]
-
+[category  Mathematics]
 [require Tcl [opt 8.4]]
 [require simulation::annealing 0.2]
 

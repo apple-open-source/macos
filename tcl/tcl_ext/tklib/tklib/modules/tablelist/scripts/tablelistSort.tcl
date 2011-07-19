@@ -5,9 +5,9 @@
 #
 # Structure of the module:
 #   - Public procedures related to sorting
-#   - Private procedure implementing the sorting
+#   - Private procedures implementing the sorting
 #
-# Copyright (c) 2000-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2000-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 #
@@ -124,8 +124,8 @@ proc tablelist::addToSortColumns {win col} {
 }
 
 #
-# Private procedure implementing the sorting
-# ==========================================
+# Private procedures implementing the sorting
+# ===========================================
 #
 
 #------------------------------------------------------------------------------
@@ -133,10 +133,19 @@ proc tablelist::addToSortColumns {win col} {
 #
 # Processes the tablelist sort, sortbycolumn, and sortbycolumnlist subcommands.
 #------------------------------------------------------------------------------
-proc tablelist::sortItems {win sortColList sortOrderList} {
+proc tablelist::sortItems {win parentKey sortColList sortOrderList} {
     variable canElide
     variable snipSides
     upvar ::tablelist::ns${win}::data data
+
+    set sortAllItems [expr {[string compare $parentKey "root"] == 0}]
+    if {[winfo viewable $win] && $sortAllItems} {
+	purgeWidgets $win
+	update idletasks
+	if {![winfo exists $win]} {		;# because of update idletasks
+	    return ""
+	}
+    }
 
     #
     # Make sure sortOrderList has the same length as sortColList
@@ -156,7 +165,7 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     # as well as the indices of the selected cells
     #
     foreach type {anchor active} {
-	set ${type}Key [lindex [lindex $data(itemList) $data(${type}Row)] end]
+	set ${type}Key [lindex $data(keyList) $data(${type}Row)]
     }
     set selCells [curCellSelection $win 1]
 
@@ -171,28 +180,32 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     #
     # Update the sort info and sort the item list
     #
+    set descItemList {}
     if {[llength $sortColList] == 1 && [lindex $sortColList 0] == -1} {
 	if {[string compare $data(-sortcommand) ""] == 0} {
 	    return -code error "value of the -sortcommand option is empty"
 	}
 
-	#
-	# Update the sort info
-	#
-	for {set col 0} {$col < $data(colCount)} {incr col} {
-	    set data($col-sortRank) 0
-	    set data($col-sortOrder) ""
-	}
-	set data(sortColList) {}
-	set data(arrowColList) {}
 	set order [lindex $sortOrderList 0]
-	set data(sortOrder) $order
+
+	if {$sortAllItems} {
+	    #
+	    # Update the sort info
+	    #
+	    for {set col 0} {$col < $data(colCount)} {incr col} {
+		set data($col-sortRank) 0
+		set data($col-sortOrder) ""
+	    }
+	    set data(sortColList) {}
+	    set data(arrowColList) {}
+	    set data(sortOrder) $order
+	}
 
 	#
-	# Sort the item list
+	# Sort the child item list
 	#
-	set data(itemList) \
-	    [lsort -$order -command $data(-sortcommand) $data(itemList)]
+	sortChildren $win $parentKey [list lsort -$order -command \
+	    $data(-sortcommand)] descItemList
     } else {					;# sorting by a column (list)
 	#
 	# Check the specified column indices
@@ -207,27 +220,29 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
 	    return ""
 	}
 
-	#
-	# Update the sort info
-	#
-	for {set col 0} {$col < $data(colCount)} {incr col} {
-	    set data($col-sortRank) 0
-	    set data($col-sortOrder) ""
-	}
-	set rank 1
-	foreach col $sortColList order $sortOrderList {
-	    if {$data($col-showlinenumbers)} {
-		continue
+	if {$sortAllItems} {
+	    #
+	    # Update the sort info
+	    #
+	    for {set col 0} {$col < $data(colCount)} {incr col} {
+		set data($col-sortRank) 0
+		set data($col-sortOrder) ""
 	    }
+	    set rank 1
+	    foreach col $sortColList order $sortOrderList {
+		if {$data($col-showlinenumbers)} {
+		    continue
+		}
 
-	    set data($col-sortRank) $rank
-	    set data($col-sortOrder) $order
-	    incr rank
+		set data($col-sortRank) $rank
+		set data($col-sortOrder) $order
+		incr rank
+	    }
+	    makeSortAndArrowColLists $win
 	}
-	makeSortAndArrowColLists $win
 
 	#
-	# Sort the item list based on the specified columns
+	# Sort the child item list based on the specified columns
 	#
 	for {set idx [expr {$sortColCount - 1}]} {$idx >= 0} {incr idx -1} {
 	    set col [lindex $sortColList $idx]
@@ -235,21 +250,83 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
 		continue
 	    }
 
-	    set order $data($col-sortOrder)
+	    set descItemList {}
+	    set order [lindex $sortOrderList $idx]
 	    if {[string compare $data($col-sortmode) "command"] == 0} {
 		if {![info exists data($col-sortcommand)]} {
 		    return -code error "value of the -sortcommand option for\
 					column $col is missing or empty"
 		}
 
-		set data(itemList) [lsort -$order -index $col \
-		    -command $data($col-sortcommand) $data(itemList)]
+		sortChildren $win $parentKey [list lsort -$order -index $col \
+		    -command $data($col-sortcommand)] descItemList
+	    } elseif {[string compare $data($col-sortmode) "asciinocase"]
+		== 0} {
+		if {$::tk_version < 8.5} {
+		    sortChildren $win $parentKey [list lsort -$order \
+			-index $col -command compareNoCase] descItemList
+		} else {
+		    sortChildren $win $parentKey [list lsort -$order \
+			-index $col -ascii -nocase] descItemList
+		}
 	    } else {
-		set data(itemList) [lsort -$order -index $col \
-		    -$data($col-sortmode) $data(itemList)]
+		sortChildren $win $parentKey [list lsort -$order -index $col \
+		    -$data($col-sortmode)] descItemList
 	    }
 	}
     }
+
+    if {$sortAllItems} {
+	#
+	# Cancel the execution of all delayed
+	# redisplay and redisplayCol commands
+	#
+	foreach name [array names data *redispId] {
+	    after cancel $data($name)
+	    unset data($name)
+	}
+
+	set canvasWidth $data(arrowWidth)
+	if {[llength $data(arrowColList)] > 1} {
+	    incr canvasWidth 6
+	}
+	foreach col $data(arrowColList) {
+	    #
+	    # Make sure the arrow will fit into the column
+	    #
+	    set idx [expr {2*$col}]
+	    set pixels [lindex $data(colList) $idx]
+	    if {$pixels == 0 && $data($col-maxPixels) > 0 &&
+		$data($col-reqPixels) > $data($col-maxPixels) &&
+		$data($col-maxPixels) < $canvasWidth} {
+		set data($col-maxPixels) $canvasWidth
+		set data($col-maxwidth) -$canvasWidth
+	    }
+	    if {$pixels != 0 && $pixels < $canvasWidth} {
+		set data(colList) \
+		    [lreplace $data(colList) $idx $idx $canvasWidth]
+		set idx [expr {3*$col}]
+		set data(-columns) \
+		    [lreplace $data(-columns) $idx $idx -$canvasWidth]
+	    }
+	}
+
+	#
+	# Adjust the columns; this will also place the
+	# canvas widgets into the corresponding labels
+	#
+	adjustColumns $win allLabels 1
+    }
+
+    if {[llength $descItemList] == 0} {
+	return ""
+    }
+
+    set parentRow [keyToRow $win $parentKey]
+    set firstDescRow [expr {$parentRow + 1}]
+    set lastDescRow [expr {$parentRow + [descCount $win $parentKey]}]
+    set firstDescLine [expr {$firstDescRow + 1}]
+    set lastDescLine [expr {$lastDescRow + 1}]
 
     #
     # Update the line numbers (if any)
@@ -259,18 +336,21 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
 	    continue
 	}
 
-	set newItemList {}
-	set line 1
-	foreach item $data(itemList) {
+	set newDescItemList {}
+	set line $firstDescLine
+	foreach item $descItemList {
 	    set item [lreplace $item $col $col $line]
-	    lappend newItemList $item
+	    lappend newDescItemList $item
 	    set key [lindex $item end]
 	    if {![info exists data($key-hide)]} {
 		incr line
 	    }
 	}
-	set data(itemList) $newItemList
+	set descItemList $newDescItemList
     }
+
+    set data(itemList) [eval [list lreplace $data(itemList) \
+	$firstDescRow $lastDescRow] $descItemList]
 
     #
     # Replace the contents of the list variable if present
@@ -278,72 +358,28 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     condUpdateListVar $win
 
     #
-    # Update anchorRow and activeRow
-    #
-    foreach type {anchor active} {
-	upvar 0 ${type}Key key2
-	if {[string compare $key2 ""] != 0} {
-	    set data(${type}Row) [lsearch $data(itemList) "* $key2"]
-	}
-    }
-
-    #
-    # Cancel the execution of all delayed redisplay and redisplayCol commands
-    #
-    foreach name [array names data *redispId] {
-	after cancel $data($name)
-	unset data($name)
-    }
-
-    set canvasWidth $data(arrowWidth)
-    if {[llength $data(arrowColList)] > 1} {
-	incr canvasWidth 6
-    }
-    foreach col $data(arrowColList) {
-	#
-	# Make sure the arrow will fit into the column
-	#
-	set idx [expr {2*$col}]
-	set pixels [lindex $data(colList) $idx]
-	if {$pixels == 0 && $data($col-maxPixels) > 0 &&
-	    $data($col-reqPixels) > $data($col-maxPixels) &&
-	    $data($col-maxPixels) < $canvasWidth} {
-	    set data($col-maxPixels) $canvasWidth
-	    set data($col-maxwidth) -$canvasWidth
-	}
-	if {$pixels != 0 && $pixels < $canvasWidth} {
-	    set data(colList) [lreplace $data(colList) $idx $idx $canvasWidth]
-	    set idx [expr {3*$col}]
-	    set data(-columns) \
-		[lreplace $data(-columns) $idx $idx -$canvasWidth]
-	}
-    }
-
-    #
-    # Adjust the columns; this will also place the
-    # canvas widgets into the corresponding labels
-    #
-    adjustColumns $win allLabels 1
-
-    #
     # Delete the items from the body text widget and insert the sorted ones.
     # Interestingly, for a large number of items it is much more efficient
     # to empty each line individually than to invoke a global delete command.
     #
     set w $data(body)
-    $w tag remove hiddenRow 1.0 end
-    for {set line 1} {$line <= $data(itemCount)} {incr line} {
+    $w tag remove hiddenRow $firstDescLine.0 $lastDescLine.end
+    for {set line $firstDescLine} {$line <= $lastDescLine} {incr line} {
 	$w delete $line.0 $line.end
     }
     set snipStr $data(-snipstring)
     set rowTagRefCount $data(rowTagRefCount)
     set cellTagRefCount $data(cellTagRefCount)
-    set isSimple [expr {$data(imgCount) == 0 && $data(winCount) == 0}]
+    set isSimple [expr {$data(imgCount) == 0 && $data(winCount) == 0 &&
+			$data(indentCount) == 0}]
     set padY [expr {[$w cget -spacing1] == 0}]
-    set row 0
-    set line 1
-    foreach item $data(itemList) {
+    set descKeyList {}
+    for {set row $firstDescRow; set line $firstDescLine} \
+	{$row <= $lastDescRow} {set row $line; incr line} {
+	set item [lindex $data(itemList) $row]
 	set key [lindex $item end]
+	lappend descKeyList $key
+	set data($key-row) $row
 	set dispItem [lrange $item 0 $data(lastCol)]
 	if {$data(hasFmtCmds)} {
 	    set dispItem [formatItem $win $key $row $dispItem]
@@ -508,13 +544,24 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
 	if {[info exists data($key-hide)]} {
 	    $w tag add hiddenRow $line.0 $line.end+1c
 	}
+    }
 
-	set row $line
-	incr line
+    set data(keyList) [eval [list lreplace $data(keyList) \
+	$firstDescRow $lastDescRow] $descKeyList]
+
+    if {$sortAllItems} {
+	#
+	# Validate the key -> row mapping
+	#
+	set data(keyToRowMapValid) 1
+	if {[info exists data(mapId)]} {
+	    after cancel $data(mapId)
+	    unset data(mapId)
+	}
     }
 
     #
-    # Invalidate the list of the row indices indicating the non-hidden rows
+    # Invalidate the list of row indices indicating the non-hidden rows
     #
     set data(nonHiddenRowList) {-1}
 
@@ -522,7 +569,7 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     # Select the cells that were selected before
     #
     foreach {key col} $selCells {
-	set row [lsearch $data(itemList) "* $key"]
+	set row [keyToRow $win $key]
 	cellSelection $win set $row $col $row $col
     }
 
@@ -535,17 +582,35 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     }
 
     #
-    # Bring the "most important" row into view
+    # Update anchorRow and activeRow
+    #
+    foreach type {anchor active} {
+	upvar 0 ${type}Key key2
+	if {[string compare $key2 ""] != 0} {
+	    set data(${type}Row) [keyToRow $win $key2]
+	}
+    }
+
+    #
+    # Bring the "most important" row into view if appropriate
     #
     if {$editCol >= 0} {
-	set editRow [lsearch $data(itemList) "* $editKey"]
-	seeRow $win $editRow
+	set editRow [keyToRow $win $editKey]
+	if {$editRow >= $firstDescRow && $editRow <= $lastDescRow} {
+	    doEditCell $win $editRow $editCol 1
+	}
     } else {
 	set selRows [curSelection $win]
 	if {[llength $selRows] == 1} {
-	    seeRow $win $selRows
+	    set selRow [lindex $selRows 0]
+	    if {$selRow >= $firstDescRow && $selRow <= $lastDescRow} {
+		seeRow $win $selRow
+	    }
 	} elseif {[string compare [focus -lastfor $w] $w] == 0} {
-	    seeRow $win $data(activeRow)
+	    if {$data(activeRow) >= $firstDescRow &&
+		$data(activeRow) <= $lastDescRow} {
+		seeRow $win $data(activeRow)
+	    }
 	}
     }
 
@@ -554,13 +619,9 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     #
     adjustElidedText $win
     makeStripes $win
-
-    #
-    # Restore the edit window if it was present before
-    #
-    if {$editCol >= 0} {
-	doEditCell $win $editRow $editCol 1
-    }
+    updateColorsWhenIdle $win
+    adjustSepsWhenIdle $win
+    updateVScrlbarWhenIdle $win
 
     #
     # Work around a Tk bug on Mac OS X Aqua
@@ -574,4 +635,107 @@ proc tablelist::sortItems {win sortColList sortOrderList} {
     }
 
     return ""
+}
+
+#------------------------------------------------------------------------------
+# tablelist::sortChildren
+#
+# Sorts the children of a given parent within the tablelist widget win,
+# recursively.
+#------------------------------------------------------------------------------
+proc tablelist::sortChildren {win parentKey sortProc itemListName} {
+    upvar $itemListName itemList ::tablelist::ns${win}::data data
+
+    set childKeyList $data($parentKey-children)
+    if {[llength $childKeyList] == 0} {
+	return ""
+    }
+
+    #
+    # Build and sort the list of child items
+    #
+    set childItemList {}
+    foreach childKey $childKeyList {
+	lappend childItemList [lindex $data(itemList) [keyToRow $win $childKey]]
+    }
+    set childItemList [eval $sortProc [list $childItemList]]
+
+    #
+    # Update the lists and invoke the procedure recursively for the children
+    #
+    set data($parentKey-children) {}
+    foreach item $childItemList {
+	lappend itemList $item
+	set childKey [lindex $item end]
+	lappend data($parentKey-children) $childKey
+
+	sortChildren $win $childKey $sortProc itemList
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::sortList
+#
+# Sorts the specified list by the current sort columns of the tablelist widget
+# win, using their current sort orders.
+#------------------------------------------------------------------------------
+proc tablelist::sortList {win list} {
+    upvar ::tablelist::ns${win}::data data
+    set sortColList $data(sortColList)
+    set sortOrderList {}
+    foreach col $sortColList {
+	lappend sortOrderList $data($col-sortOrder)
+    }
+
+    if {[llength $sortColList] == 1 && [lindex $sortColList 0] == -1} {
+	if {[string compare $data(-sortcommand) ""] == 0} {
+	    return -code error "value of the -sortcommand option is empty"
+	}
+
+	#
+	# Sort the list
+	#
+	set order [lindex $sortOrderList 0]
+	return [lsort -$order -command $data(-sortcommand) $list]
+    } else {
+	#
+	# Sort the list based on the specified columns
+	#
+	set sortColCount [llength $sortColList]
+	for {set idx [expr {$sortColCount - 1}]} {$idx >= 0} {incr idx -1} {
+	    set col [lindex $sortColList $idx]
+	    set order [lindex $sortOrderList $idx]
+
+	    if {[string compare $data($col-sortmode) "command"] == 0} {
+		if {![info exists data($col-sortcommand)]} {
+		    return -code error "value of the -sortcommand option for\
+					column $col is missing or empty"
+		}
+
+		set list [lsort -$order -index $col -command \
+			  $data($col-sortcommand) $list]
+	    } elseif {[string compare $data($col-sortmode) "asciinocase"]
+		== 0} {
+		if {$::tk_version < 8.5} {
+		    set list [lsort -$order -index $col -command \
+			      compareNoCase $list]
+		} else {
+		    set list [lsort -$order -index $col -ascii -nocase $list]
+		}
+	    } else {
+		set list [lsort -$order -index $col -$data($col-sortmode) $list]
+	    }
+	}
+
+	return $list
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::compareNoCase
+#
+# Compares the given strings in a case-insensitive manner.
+#------------------------------------------------------------------------------
+proc tablelist::compareNoCase {str1 str2} {
+    return [string compare [string tolower $str1] [string tolower $str2]]
 }

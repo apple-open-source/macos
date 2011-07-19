@@ -32,14 +32,7 @@ namespace WebCore {
 
 class HTMLTableSectionElement : public HTMLTablePartElement {
 public:
-    HTMLTableSectionElement(const QualifiedName& tagName, Document*);
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual int tagPriority() const { return 8; }
-    virtual bool checkDTD(const Node*);
-    virtual ContainerNode* addChild(PassRefPtr<Node>);
-    virtual bool canHaveAdditionalAttributeStyleDecls() const { return true; }
-    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&);
+    static PassRefPtr<HTMLTableSectionElement> create(const QualifiedName&, Document*);
 
     PassRefPtr<HTMLElement> insertRow(int index, ExceptionCode&);
     void deleteRow(int index, ExceptionCode&);
@@ -59,6 +52,12 @@ public:
     void setVAlign(const String&);
 
     PassRefPtr<HTMLCollection> rows();
+
+private:
+    HTMLTableSectionElement(const QualifiedName& tagName, Document*);
+
+    virtual bool canHaveAdditionalAttributeStyleDecls() const { return true; }
+    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&);
 };
 
 } //namespace

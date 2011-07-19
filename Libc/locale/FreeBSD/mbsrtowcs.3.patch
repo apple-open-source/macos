@@ -1,5 +1,5 @@
---- _SB/Libc/locale/FreeBSD/mbsrtowcs.3	2004-11-25 11:38:18.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/mbsrtowcs.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- mbsrtowcs.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbsrtowcs.3	2009-11-09 15:05:26.000000000 -0800
 @@ -27,29 +27,55 @@
  .Dt MBSRTOWCS 3
  .Os
@@ -65,9 +65,9 @@
  .Fa len
  of them in the
  .Vt wchar_t
-@@ -97,6 +123,18 @@
+@@ -97,6 +123,18 @@ except that conversion stops after readi
  .Fa nms
- bytes from the buffer pointed to by 
+ bytes from the buffer pointed to by
  .Fa src .
 +.Pp
 +While the
@@ -84,7 +84,7 @@
  .Sh RETURN VALUES
  The
  .Fn mbsrtowcs
-@@ -123,7 +161,8 @@
+@@ -123,7 +161,8 @@ The conversion state is invalid.
  .Xr mbrtowc 3 ,
  .Xr mbstowcs 3 ,
  .Xr multibyte 3 ,

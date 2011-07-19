@@ -115,7 +115,8 @@ proc vfs::ns::matchindirectory {ns path actualpath pattern type} {
 
     set ns ::[string trim $ns :]
     set nspath ${ns}::${path}
-    set slash 1
+    if {![namespace exists $nspath]} {return {}}
+     set slash 1
     if {[::vfs::matchDirectories $type]} {
 	# add matching directories to $res
 	if {[string length $pattern]} {

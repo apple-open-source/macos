@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier <kevino@theolliviers.com>
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
  *
@@ -36,8 +37,12 @@
 #include "Frame.h"
 #include "FrameLoadRequest.h"
 #include "Icon.h"
+#include "NavigationAction.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include "SecurityOrigin.h"
+#include "PopupMenuWx.h"
+#include "SearchPopupMenuWx.h"
 #include "WindowFeatures.h"
 
 #include <stdio.h>
@@ -104,7 +109,7 @@ FloatRect ChromeClientWx::pageRect()
 float ChromeClientWx::scaleFactor()
 {
     notImplemented();
-    return 0.0;
+    return 1.0;
 }
 
 void ChromeClientWx::focus()
@@ -132,11 +137,14 @@ void ChromeClientWx::focusedNodeChanged(Node*)
 {
 }
 
-Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features)
+void ChromeClientWx::focusedFrameChanged(Frame*)
+{
+}
+
+Page* ChromeClientWx::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction&)
 {
     Page* myPage = 0;
     wxWebViewNewWindowEvent wkEvent(m_webView);
-    wkEvent.SetURL(request.resourceRequest().url().string());
     
     wxWebKitWindowFeatures wkFeatures = wkFeaturesforWindowFeatures(features);
     wkEvent.SetWindowFeatures(wkFeatures);
@@ -325,10 +333,10 @@ bool ChromeClientWx::shouldInterruptJavaScript()
     return false;
 }
 
-bool ChromeClientWx::tabsToLinks() const
+KeyboardUIMode ChromeClientWx::keyboardUIMode()
 {
     notImplemented();
-    return false;
+    return KeyboardAccessDefault;
 }
 
 IntRect ChromeClientWx::windowResizerRect() const
@@ -429,6 +437,11 @@ void ChromeClientWx::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     notImplemented();
 }
+
+void ChromeClientWx::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+{
+    notImplemented();
+}
 #endif
 
 void ChromeClientWx::scroll(const IntSize&, const IntRect&, const IntRect&)
@@ -447,16 +460,36 @@ void ChromeClientWx::chooseIconForFiles(const Vector<String>& filenames, FileCho
     chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
-bool ChromeClientWx::setCursor(PlatformCursorHandle)
+void ChromeClientWx::setCursor(const Cursor& cursor)
 {
-    notImplemented();
-    return false;
+    if (m_webView && cursor.impl())
+        m_webView->SetCursor(*cursor.impl());
 }
 
 void ChromeClientWx::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     // See the comment in WebCore/page/ChromeClient.h
     notImplemented();
+}
+
+bool ChromeClientWx::selectItemWritingDirectionIsNatural()
+{
+    return false;
+}
+
+bool ChromeClientWx::selectItemAlignmentFollowsMenuWritingDirection()
+{
+    return false;
+}
+
+PassRefPtr<PopupMenu> ChromeClientWx::createPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new PopupMenuWx(client));
+}
+
+PassRefPtr<SearchPopupMenu> ChromeClientWx::createSearchPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new SearchPopupMenuWx(client));
 }
 
 }

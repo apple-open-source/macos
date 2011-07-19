@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2009, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,13 +22,15 @@
 #include "config.h"
 #include "HTMLAreaElement.h"
 
+#include "AffineTransform.h"
+#include "Attribute.h"
+#include "Frame.h"
 #include "HTMLImageElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
-#include "MappedAttribute.h"
 #include "Path.h"
-#include "RenderObject.h"
+#include "RenderImage.h"
 
 using namespace std;
 
@@ -50,7 +52,7 @@ PassRefPtr<HTMLAreaElement> HTMLAreaElement::create(const QualifiedName& tagName
     return adoptRef(new HTMLAreaElement(tagName, document));
 }
 
-void HTMLAreaElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLAreaElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == shapeAttr) {
         if (equalIgnoringCase(attr->value(), "default"))
@@ -61,18 +63,25 @@ void HTMLAreaElement::parseMappedAttribute(MappedAttribute* attr)
             m_shape = Poly;
         else if (equalIgnoringCase(attr->value(), "rect"))
             m_shape = Rect;
+        invalidateCachedRegion();
     } else if (attr->name() == coordsAttr) {
-        m_coords.set(newCoordsArray(attr->value().string(), m_coordsLen));
+        m_coords = newCoordsArray(attr->value().string(), m_coordsLen);
+        invalidateCachedRegion();
     } else if (attr->name() == altAttr || attr->name() == accesskeyAttr) {
         // Do nothing.
     } else
         HTMLAnchorElement::parseMappedAttribute(attr);
 }
 
+void HTMLAreaElement::invalidateCachedRegion()
+{
+    m_lastSize = IntSize(-1, -1);
+}
+
 bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestResult& result)
 {
     if (m_lastSize != size) {
-        m_region.set(new Path(getRegion(size)));
+        m_region = adoptPtr(new Path(getRegion(size)));
         m_lastSize = size;
     }
 
@@ -84,7 +93,7 @@ bool HTMLAreaElement::mapMouseEvent(int x, int y, const IntSize& size, HitTestRe
     return true;
 }
 
-Path HTMLAreaElement::getPath(RenderObject* obj) const
+Path HTMLAreaElement::computePath(RenderObject* obj) const
 {
     if (!obj)
         return Path();
@@ -98,13 +107,20 @@ Path HTMLAreaElement::getPath(RenderObject* obj) const
         size = obj->absoluteOutlineBounds().size();
     
     Path p = getRegion(size);
+    float zoomFactor = document()->frame()->pageZoomFactor();
+    if (zoomFactor != 1.0f) {
+        AffineTransform zoomTransform;
+        zoomTransform.scale(zoomFactor);
+        p.transform(zoomTransform);
+    }
+
     p.translate(absPos - FloatPoint());
     return p;
 }
     
-IntRect HTMLAreaElement::getRect(RenderObject* obj) const
+IntRect HTMLAreaElement::computeRect(RenderObject* obj) const
 {
-    return enclosingIntRect(getPath(obj).boundingRect());
+    return enclosingIntRect(computePath(obj).boundingRect());
 }
 
 Path HTMLAreaElement::getRegion(const IntSize& size) const
@@ -163,25 +179,10 @@ Path HTMLAreaElement::getRegion(const IntSize& size) const
     return path;
 }
 
-KURL HTMLAreaElement::href() const
-{
-    return document()->completeURL(getAttribute(hrefAttr));
-}
-
-bool HTMLAreaElement::noHref() const
-{
-    return !getAttribute(nohrefAttr).isNull();
-}
-
-void HTMLAreaElement::setNoHref(bool noHref)
-{
-    setAttribute(nohrefAttr, noHref ? "" : 0);
-}
-    
 HTMLImageElement* HTMLAreaElement::imageElement() const
 {
-    Node* mapElement = parent();
-    if (!mapElement->hasTagName(mapTag))
+    Node* mapElement = parentNode();
+    if (!mapElement || !mapElement->hasTagName(mapTag))
         return 0;
     
     return static_cast<HTMLMapElement*>(mapElement)->imageElement();
@@ -189,38 +190,47 @@ HTMLImageElement* HTMLAreaElement::imageElement() const
 
 bool HTMLAreaElement::isKeyboardFocusable(KeyboardEvent*) const
 {
-    return supportsFocus();
+    return isFocusable();
+}
+    
+bool HTMLAreaElement::isMouseFocusable() const
+{
+    return isFocusable();
 }
 
 bool HTMLAreaElement::isFocusable() const
 {
-    return supportsFocus();
+    return supportsFocus() && Element::tabIndex() >= 0;
 }
     
-void HTMLAreaElement::dispatchBlurEvent()
+void HTMLAreaElement::setFocus(bool shouldBeFocused)
 {
-    HTMLAnchorElement::dispatchBlurEvent();
-    
-    // On a blur, we might need to remove our focus rings by repainting.
-    updateFocusAppearance(false);
+    if (focused() == shouldBeFocused)
+        return;
+
+    HTMLAnchorElement::setFocus(shouldBeFocused);
+
+    HTMLImageElement* imageElement = this->imageElement();
+    if (!imageElement)
+        return;
+
+    RenderObject* renderer = imageElement->renderer();
+    if (!renderer || !renderer->isImage())
+        return;
+
+    toRenderImage(renderer)->areaElementFocusChanged(this);
 }
     
 void HTMLAreaElement::updateFocusAppearance(bool restorePreviousSelection)
 {
-    Node* parent = parentNode();
-    if (!parent || !parent->hasTagName(mapTag))
+    if (!isFocusable())
         return;
-    
-    HTMLImageElement* imageElement = static_cast<HTMLMapElement*>(parent)->imageElement();
+
+    HTMLImageElement* imageElement = this->imageElement();
     if (!imageElement)
         return;
-    
-    // This will handle scrolling to the image if necessary.
+
     imageElement->updateFocusAppearance(restorePreviousSelection);
-    
-    RenderObject* imageRenderer = imageElement->renderer();
-    if (imageRenderer)
-        imageRenderer->setNeedsLayout(true);
 }
     
 bool HTMLAreaElement::supportsFocus() const

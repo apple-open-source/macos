@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,28 +21,40 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <mach/mach.h>
+
+kern_return_t
+libinfoDSmig_do_Response_async(mach_port_t server, char *reply, mach_msg_type_number_t replyCnt, vm_offset_t ooreply, mach_msg_type_number_t ooreplyCnt, mach_vm_address_t callbackAddr, security_token_t servertoken)
+{
+	return KERN_SUCCESS;
+}
+
+#ifdef DS_AVAILABLE
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-#include <mach/mach.h>
 #include <ils.h>
-#include <kvbuf.h>
+#include "kvbuf.h"
 #include <pwd.h>
 #include <grp.h>
 #include <fstab.h>
 #include <netdb.h>
 #include <notify.h>
+#include <notify_keys.h>
 #include <si_data.h>
 #include <si_module.h>
 #include <netdb_async.h>
 #include <net/if.h>
 #include <servers/bootstrap.h>
-#include <DSlibinfoMIG.h>
-#include <DSmemberdMIG.h>
+#include <bootstrap_priv.h>
+#include "DSlibinfoMIG.h"
+#include "DSmemberdMIG.h"
 #ifdef DEBUG
 #include <asl.h>
 #endif
@@ -62,22 +74,68 @@
 /* ONLY TO BE USED BY getipv6nodebyaddr */
 #define WANT_A6_OR_MAPPED_A4_IF_NO_A6 5
 
-#define DS_NOTIFICATION_KEY_GLOBAL  "com.apple.system.DirectoryService.InvalidateCache"
-#define DS_NOTIFICATION_KEY_USER    "com.apple.system.DirectoryService.InvalidateCache.user"
-#define DS_NOTIFICATION_KEY_GROUP   "com.apple.system.DirectoryService.InvalidateCache.group"
-#define DS_NOTIFICATION_KEY_HOST    "com.apple.system.DirectoryService.InvalidateCache.host"
-#define DS_NOTIFICATION_KEY_SERVICE "com.apple.system.DirectoryService.InvalidateCache.service"
-
 #define MAX_LOOKUP_ATTEMPTS 10
 
 #define INET_NTOP_AF_INET_OFFSET 4
 #define INET_NTOP_AF_INET6_OFFSET 8
 
-extern mach_port_t _ds_port;
-extern int _ds_running();
+mach_port_t _ds_port;
+mach_port_t _mbr_port;
+
 extern uint32_t gL1CacheEnabled;
 
 static pthread_key_t _ds_serv_cache_key = 0;
+
+static void
+_ds_child(void)
+{
+	_ds_port = MACH_PORT_NULL;
+	_mbr_port = MACH_PORT_NULL;
+}
+
+static int _si_opendirectory_disabled;
+
+void
+_si_disable_opendirectory(void)
+{
+	_si_opendirectory_disabled = 1;
+	_ds_port = MACH_PORT_NULL;
+	_mbr_port = MACH_PORT_NULL;
+}
+
+int
+_ds_running(void)
+{
+	kern_return_t status;
+	char *od_debug_mode = NULL;
+	
+	if (_ds_port != MACH_PORT_NULL) return 1;
+	
+	if (_si_opendirectory_disabled) return 0;
+	pthread_atfork(NULL, NULL, _ds_child);
+	
+	if (!issetugid()) {
+		od_debug_mode = getenv("OD_DEBUG_MODE");
+	}
+	
+	if (od_debug_mode) {
+		status = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName "_debug", &_ds_port);
+	} else {
+		status = bootstrap_look_up2(bootstrap_port, kDSStdMachDSLookupPortName, 
+									&_ds_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+	}
+	if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _ds_port = MACH_PORT_NULL;
+	
+	if (od_debug_mode) {
+		status = bootstrap_look_up(bootstrap_port, kDSStdMachDSMembershipPortName "_debug", &_mbr_port);
+	} else {
+		status = bootstrap_look_up2(bootstrap_port, kDSStdMachDSMembershipPortName, 
+									&_mbr_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+	}
+	if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _mbr_port = MACH_PORT_NULL;
+	
+	return (_ds_port != MACH_PORT_NULL);
+}
 
 static void
 _ds_serv_cache_free(void *x)
@@ -85,13 +143,7 @@ _ds_serv_cache_free(void *x)
 	if (x != NULL) si_item_release(x);
 }
 
-__private_extern__ kern_return_t
-libinfoDSmig_do_Response_async(mach_port_t server, char *reply, mach_msg_type_number_t replyCnt, vm_offset_t ooreply, mach_msg_type_number_t ooreplyCnt, mach_vm_address_t callbackAddr, security_token_t servertoken)
-{
-	return KERN_SUCCESS;
-}
-
-__private_extern__ kern_return_t
+static kern_return_t
 LI_DSLookupGetProcedureNumber(const char *name, int32_t *procno)
 {
 	kern_return_t status;
@@ -117,7 +169,7 @@ LI_DSLookupGetProcedureNumber(const char *name, int32_t *procno)
 		if (status == MACH_SEND_INVALID_DEST)
 		{
 			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
-			status = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port);
+			status = bootstrap_look_up2(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 			if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _ds_port = MACH_PORT_NULL;
 			status = MIG_SERVER_DIED;
 		}
@@ -145,7 +197,7 @@ LI_DSLookupGetProcedureNumber(const char *name, int32_t *procno)
 	return status;
 }
 
-__private_extern__ kern_return_t
+static kern_return_t
 LI_DSLookupQuery(int32_t procno, kvbuf_t *request, kvarray_t **reply)
 {
 	kern_return_t status;
@@ -185,7 +237,7 @@ LI_DSLookupQuery(int32_t procno, kvbuf_t *request, kvarray_t **reply)
 		if (status == MACH_SEND_INVALID_DEST)
 		{
 			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
-			status = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port);
+			status = bootstrap_look_up2(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 			if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _ds_port = MACH_PORT_NULL;
 			status = MIG_SERVER_DIED;
 		}
@@ -204,18 +256,18 @@ LI_DSLookupQuery(int32_t procno, kvbuf_t *request, kvarray_t **reply)
 #ifdef DEBUG
 		asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "_DSLookupQuery %d auth failure uid=%d", procno, token.val[0]);
 #endif
-		if (oolen > 0) vm_deallocate(mach_task_self(), (vm_address_t)oobuf, oolen);
+		if ((oolen > 0) && (oobuf != 0)) vm_deallocate(mach_task_self(), (vm_address_t)oobuf, oolen);
 		return KERN_FAILURE;
 	}
 
 	out = (kvbuf_t *)calloc(1, sizeof(kvbuf_t));
 	if (out == NULL)
 	{
-		if (oolen > 0) vm_deallocate(mach_task_self(), (vm_address_t)oobuf, oolen);
+		if ((oolen > 0) && (oobuf != 0)) vm_deallocate(mach_task_self(), (vm_address_t)oobuf, oolen);
 		return KERN_FAILURE;
 	}
 
-	if (oolen > 0)
+	if ((oolen > 0) && (oobuf != 0))
 	{
 		out->datalen = oolen;
 		out->databuf = malloc(oolen);
@@ -1195,7 +1247,7 @@ extract_mac_mac(si_mod_t *si, kvarray_t *in, void *extra, uint64_t valid_global,
 		if ((cmac == NULL) && (string_equal(in->dict[d].key[k], "mac")))
 		{
 			if (in->dict[d].vcount[k] == 0) continue;
-			cmac = si_canonical_mac_address(in->dict[d].val[k][0]);
+			cmac = si_standardize_mac_address(in->dict[d].val[k][0]);
 			if (cmac == NULL) return NULL;
 		}
 	}
@@ -1241,7 +1293,7 @@ extract_mac_name(si_mod_t *si, kvarray_t *in, void *extra, uint64_t valid_global
 	return out;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_user_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1257,7 +1309,7 @@ ds_user_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_user_byuid(si_mod_t *si, uid_t uid)
 {
 	static int proc = -1;
@@ -1275,7 +1327,7 @@ ds_user_byuid(si_mod_t *si, uid_t uid)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_user_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1283,7 +1335,7 @@ ds_user_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_USER, "getpwent", &proc, NULL, extract_user, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_group_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1299,7 +1351,7 @@ ds_group_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_group_bygid(si_mod_t *si, gid_t gid)
 {
 	static int proc = -1;
@@ -1317,7 +1369,7 @@ ds_group_bygid(si_mod_t *si, gid_t gid)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_group_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1325,11 +1377,11 @@ ds_group_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_GROUP, "getgrent", &proc, NULL, extract_group, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_grouplist(si_mod_t *si, const char *name)
 {
 	struct passwd *pw;
-	kern_return_t kstatus;
+	kern_return_t kstatus, ks2;
 	uint32_t i, j, count, uid, basegid, gidptrCnt;
 	int32_t *gidp;
 	gid_t *gidptr;
@@ -1338,6 +1390,7 @@ ds_grouplist(si_mod_t *si, const char *name)
 	char **gidlist;
 	uint64_t va, vb;
 	size_t gidptrsz;
+	int n;
 
 	if (name == NULL) return NULL;
 
@@ -1356,10 +1409,32 @@ ds_grouplist(si_mod_t *si, const char *name)
 	gidptrsz = 0;
 	memset(&token, 0, sizeof(audit_token_t));
 
-	kstatus = memberdDSmig_GetAllGroups(_ds_port, uid, &count, &gidptr, &gidptrCnt, &token);
-	if (kstatus != KERN_SUCCESS) return NULL;
+	if (_mbr_port == MACH_PORT_NULL)
+	{
+		kstatus = bootstrap_look_up2(bootstrap_port, kDSStdMachDSMembershipPortName, &_mbr_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+	}
 
-	gidptrsz = gidptrCnt * sizeof(gid_t);
+	for (n = 0; n < MAX_LOOKUP_ATTEMPTS; n++)
+	{
+		kstatus = memberdDSmig_GetAllGroups(_mbr_port, uid, &count, &gidptr, &gidptrCnt, &token);
+		if (kstatus != MACH_SEND_INVALID_DEST) break;
+
+		mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+
+		ks2 = bootstrap_look_up2(bootstrap_port, kDSStdMachDSMembershipPortName, &_mbr_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+		if ((ks2 != BOOTSTRAP_SUCCESS) && (ks2 != BOOTSTRAP_UNKNOWN_SERVICE))
+		{
+			_mbr_port = MACH_PORT_NULL;
+			break;
+		}
+	}
+
+	if (kstatus != KERN_SUCCESS) return NULL;
+	if (gidptr == NULL) return NULL;
+
+	/* gidptrCnt is the size, but it was set to number of groups (by DS) in 10.6 and earlier */
+	gidptrsz = gidptrCnt;
+	if (count == gidptrCnt) gidptrsz = gidptrCnt * sizeof(gid_t);
 
 	if ((audit_token_uid(token) != 0) || (count == 0))
 	{
@@ -1409,7 +1484,7 @@ ds_grouplist(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_netgroup_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1450,7 +1525,7 @@ check_innetgr(kvarray_t *in)
 	return 0;
 }
 
-__private_extern__ int
+static int
 ds_in_netgroup(si_mod_t *si, const char *group, const char *host, const char *user, const char *domain)
 {
 	int is_innetgr;
@@ -1487,7 +1562,7 @@ ds_in_netgroup(si_mod_t *si, const char *group, const char *host, const char *us
 	return is_innetgr;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_alias_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1503,7 +1578,7 @@ ds_alias_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_alias_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1511,7 +1586,7 @@ ds_alias_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_ALIAS, "alias_getent", &proc, NULL, extract_alias, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	static int proc = -1;
@@ -1563,7 +1638,7 @@ ds_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	static int proc = -1;
@@ -1626,7 +1701,7 @@ ds_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_host_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1634,7 +1709,7 @@ ds_host_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_HOST_IPV4, "gethostent", &proc, NULL, extract_host, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_network_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1650,7 +1725,7 @@ ds_network_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_network_byaddr(si_mod_t *si, uint32_t addr)
 {
 	static int proc = -1;
@@ -1678,7 +1753,7 @@ ds_network_byaddr(si_mod_t *si, uint32_t addr)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_network_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1686,7 +1761,7 @@ ds_network_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_NETWORK, "getnetent", &proc, NULL, extract_network, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_service_byname(si_mod_t *si, const char *name, const char *proto)
 {
 	static int proc = -1;
@@ -1714,7 +1789,7 @@ ds_service_byname(si_mod_t *si, const char *name, const char *proto)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_service_byport(si_mod_t *si, int port, const char *proto)
 {
 	static int proc = -1;
@@ -1737,7 +1812,7 @@ ds_service_byport(si_mod_t *si, int port, const char *proto)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_service_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1745,7 +1820,7 @@ ds_service_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_SERVICE, "getservent", &proc, NULL, extract_service, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_protocol_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1761,7 +1836,7 @@ ds_protocol_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_protocol_bynumber(si_mod_t *si, int number)
 {
 	static int proc = -1;
@@ -1779,7 +1854,7 @@ ds_protocol_bynumber(si_mod_t *si, int number)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_protocol_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1787,7 +1862,7 @@ ds_protocol_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_PROTOCOL, "getprotoent", &proc, NULL, extract_protocol, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_rpc_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1803,7 +1878,7 @@ ds_rpc_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_rpc_bynumber(si_mod_t *si, int number)
 {
 	static int proc = -1;
@@ -1821,7 +1896,7 @@ ds_rpc_bynumber(si_mod_t *si, int number)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_rpc_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1829,7 +1904,7 @@ ds_rpc_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_RPC, "getrpcent", &proc, NULL, extract_rpc, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_fs_byspec(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1845,7 +1920,7 @@ ds_fs_byspec(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 ds_fs_all(si_mod_t *si)
 {
 	static int proc = -1;
@@ -1853,7 +1928,7 @@ ds_fs_all(si_mod_t *si)
 	return ds_list(si, CATEGORY_FS, "getfsent", &proc, NULL, extract_fstab, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_fs_byfile(si_mod_t *si, const char *name)
 {
 	si_item_t *item;
@@ -1877,7 +1952,7 @@ ds_fs_byfile(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_mac_byname(si_mod_t *si, const char *name)
 {
 	static int proc = -1;
@@ -1893,7 +1968,7 @@ ds_mac_byname(si_mod_t *si, const char *name)
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 ds_mac_bymac(si_mod_t *si, const char *mac)
 {
 	static int proc = -1;
@@ -1901,7 +1976,7 @@ ds_mac_bymac(si_mod_t *si, const char *mac)
 	si_item_t *item;
 	char *cmac;
 
-	cmac = si_canonical_mac_address(mac);
+	cmac = si_standardize_mac_address(mac);
 	if (cmac == NULL) return NULL;
 
 	request = kvbuf_query_key_val("mac", cmac);
@@ -1953,7 +2028,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 
 	if (node != NULL)
 	{
-		wantv4 = (family != AF_INET6);
+		wantv4 = ((family != AF_INET6) || (flags & AI_V4MAPPED));
 		wantv6 = (family != AF_INET);
 	}
 
@@ -2050,7 +2125,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 				h_aliases_cnt = dict->vcount[k];
 				h_aliases = (const char **)calloc(h_aliases_cnt, sizeof(char *));
 				if (h_aliases == NULL) h_aliases_cnt = 0;
-				
+
 				for (i = 0; i < h_aliases_cnt; ++i)
 				{
 					h_aliases[i] = dict->val[k][i];
@@ -2073,7 +2148,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 				a6_cnt = dict->vcount[k];
 				a6 = calloc(a6_cnt, sizeof(struct in6_addr));
 				if (a6 == NULL) a6_cnt = 0;
-				
+
 				for (i = 0; i < a6_cnt; ++i)
 				{
 					memset(&a6[i], 0, sizeof(struct in6_addr));
@@ -2095,7 +2170,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 				s_aliases_cnt = dict->vcount[k];
 				s_aliases = (const char **)calloc(s_aliases_cnt+1, sizeof(char *));
 				if (s_aliases == NULL) s_aliases_cnt = 0;
-				
+
 				for (i = 0; i < s_aliases_cnt; ++i)
 				{
 					s_aliases[i] = dict->val[k][i];
@@ -2115,7 +2190,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 	if (((wantv4 || wantv6) && (a4_cnt == 0) && (a6_cnt == 0)) || ((serv != NULL) && (s_port == 0)))
 	{
 		if (err != NULL) *err = SI_STATUS_EAI_NONAME;
-	
+
 		free(h_name);
 		free(h_aliases);
 		free(s_aliases);
@@ -2157,14 +2232,14 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 	out = NULL;
 	for (i = 0; i < a6_cnt; i++)
 	{
-		list = si_addrinfo_list(si, socktype, proto, NULL, &a6[i], s_port, scope, NULL, h_name);
+		list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6[i], s_port, scope, NULL, h_name);
 		out = si_list_concat(out, list);
 		si_list_release(list);
 	}
 
 	for (i = 0; i < a4_cnt; i++)
 	{
-		list = si_addrinfo_list(si, socktype, proto, &a4[i], NULL, s_port, 0, h_name, NULL);
+		list = si_addrinfo_list(si, flags, socktype, proto, &a4[i], NULL, s_port, 0, h_name, NULL);
 		out = si_list_concat(out, list);
 		si_list_release(list);
 	}
@@ -2178,7 +2253,7 @@ ds_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family, u
 	return out;
 }
 
-__private_extern__ int
+static int
 ds_is_valid(si_mod_t *si, si_item_t *item)
 {
 	si_mod_t *src;
@@ -2225,108 +2300,110 @@ ds_is_valid(si_mod_t *si, si_item_t *item)
 	return 1;
 }
 
-__private_extern__ si_mod_t *
-si_module_static_ds()
+si_mod_t *
+si_module_static_ds(void)
 {
-	si_mod_t *out;
-	char *outname;
-	ds_si_private_t *pp;
-	int status;
-
-	out = (si_mod_t *)calloc(1, sizeof(si_mod_t));
-	outname = strdup("ds");
-	pp = (ds_si_private_t *)calloc(1, sizeof(ds_si_private_t));
-
-	if ((out == NULL) || (outname == NULL) || (pp == NULL))
+	static const struct si_mod_vtable_s ds_vtable =
 	{
-		if (out != NULL) free(out);
-		if (outname != NULL) free(outname);
-		if (pp != NULL) free(pp);
+		.sim_is_valid = &ds_is_valid,
 
-		errno = ENOMEM;
-		return NULL;
-	}
+		.sim_user_byname = &ds_user_byname,
+		.sim_user_byuid = &ds_user_byuid,
+		.sim_user_all = &ds_user_all,
 
-	pthread_key_create(&_ds_serv_cache_key, _ds_serv_cache_free);
+		.sim_group_byname = &ds_group_byname,
+		.sim_group_bygid = &ds_group_bygid,
+		.sim_group_all = &ds_group_all,
 
-	pp->notify_token_global = -1;
-	pp->notify_token_user = -1;
-	pp->notify_token_group = -1;
-	pp->notify_token_host = -1;
-	pp->notify_token_service = -1;
+		.sim_grouplist = &ds_grouplist,
 
-	/*
-	 * Don't register for notifications if the cache is disabled.
-	 * notifyd (notably) disables the cache to prevent deadlocks.
-	 */
-	if (gL1CacheEnabled != 0)
+		.sim_netgroup_byname = &ds_netgroup_byname,
+		.sim_in_netgroup = &ds_in_netgroup,
+
+		.sim_alias_byname = &ds_alias_byname,
+		.sim_alias_all = &ds_alias_all,
+
+		.sim_host_byname = &ds_host_byname,
+		.sim_host_byaddr = &ds_host_byaddr,
+		.sim_host_all = &ds_host_all,
+
+		.sim_network_byname = &ds_network_byname,
+		.sim_network_byaddr = &ds_network_byaddr,
+		.sim_network_all = &ds_network_all,
+
+		.sim_service_byname = &ds_service_byname,
+		.sim_service_byport = &ds_service_byport,
+		.sim_service_all = &ds_service_all,
+
+		.sim_protocol_byname = &ds_protocol_byname,
+		.sim_protocol_bynumber = &ds_protocol_bynumber,
+		.sim_protocol_all = &ds_protocol_all,
+
+		.sim_rpc_byname = &ds_rpc_byname,
+		.sim_rpc_bynumber = &ds_rpc_bynumber,
+		.sim_rpc_all = &ds_rpc_all,
+
+		.sim_fs_byspec = &ds_fs_byspec,
+		.sim_fs_byfile = &ds_fs_byfile,
+		.sim_fs_all = &ds_fs_all,
+
+		.sim_mac_byname = &ds_mac_byname,
+		.sim_mac_bymac = &ds_mac_bymac,
+
+		/* si_mac_all not supported */
+		.sim_mac_all = NULL,
+
+		.sim_addrinfo = &ds_addrinfo,
+	};
+
+	static si_mod_t si =
 	{
+		.vers = 1,
+		.refcount = 1,
+		.flags = SI_MOD_FLAG_STATIC,
+
+		.private = NULL,
+		.vtable = &ds_vtable,
+	};
+
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		pthread_key_create(&_ds_serv_cache_key, _ds_serv_cache_free);
+
+		si.name = strdup("ds");
+		ds_si_private_t *pp = calloc(1, sizeof(ds_si_private_t));
+
+		if (pp != NULL)
+		{
+			pp->notify_token_global = -1;
+			pp->notify_token_user = -1;
+			pp->notify_token_group = -1;
+			pp->notify_token_host = -1;
+			pp->notify_token_service = -1;
+		}
+
 		/*
-		 * Errors in registering for cache invalidation notifications are ignored.
-		 * If there are failures, the tokens remain set to -1 which just causes 
-		 * cached items to be invalidated. 
+		 * Don't register for notifications if the cache is disabled.
+		 * notifyd (notably) disables the cache to prevent deadlocks.
 		 */
-		status = notify_register_check(DS_NOTIFICATION_KEY_GLOBAL, &(pp->notify_token_global));
-		status = notify_register_check(DS_NOTIFICATION_KEY_GLOBAL, &(pp->notify_token_user));
-		status = notify_register_check(DS_NOTIFICATION_KEY_GLOBAL, &(pp->notify_token_group));
-		status = notify_register_check(DS_NOTIFICATION_KEY_GLOBAL, &(pp->notify_token_host));
-		status = notify_register_check(DS_NOTIFICATION_KEY_GLOBAL, &(pp->notify_token_service));
-	}
+		if (gL1CacheEnabled != 0)
+		{
+			/*
+			 * Errors in registering for cache invalidation notifications are ignored.
+			 * If there are failures, the tokens remain set to -1 which just causes 
+			 * cached items to be invalidated.
+			 */
+			notify_register_check(kNotifyDSCacheInvalidation, &(pp->notify_token_global));
+			notify_register_check(kNotifyDSCacheInvalidationUser, &(pp->notify_token_user));
+			notify_register_check(kNotifyDSCacheInvalidationGroup, &(pp->notify_token_group));
+			notify_register_check(kNotifyDSCacheInvalidationHost, &(pp->notify_token_host));
+			notify_register_check(kNotifyDSCacheInvalidationService, &(pp->notify_token_service));
+		}
 
-	out->name = outname;
-	out->vers = 1;
-	out->refcount = 1;
-	out->private = pp;
+		si.private = pp;
+	});
 
-	out->sim_is_valid = ds_is_valid;
-
-	out->sim_user_byname = ds_user_byname;
-	out->sim_user_byuid = ds_user_byuid;
-	out->sim_user_all = ds_user_all;
-
-	out->sim_group_byname = ds_group_byname;
-	out->sim_group_bygid = ds_group_bygid;
-	out->sim_group_all = ds_group_all;
-
-	out->sim_grouplist = ds_grouplist;
-
-	out->sim_netgroup_byname = ds_netgroup_byname;
-	out->sim_in_netgroup = ds_in_netgroup;
-
-	out->sim_alias_byname = ds_alias_byname;
-	out->sim_alias_all = ds_alias_all;
-
-	out->sim_host_byname = ds_host_byname;
-	out->sim_host_byaddr = ds_host_byaddr;
-	out->sim_host_all = ds_host_all;
-
-	out->sim_network_byname = ds_network_byname;
-	out->sim_network_byaddr = ds_network_byaddr;
-	out->sim_network_all = ds_network_all;
-
-	out->sim_service_byname = ds_service_byname;
-	out->sim_service_byport = ds_service_byport;
-	out->sim_service_all = ds_service_all;
-
-	out->sim_protocol_byname = ds_protocol_byname;
-	out->sim_protocol_bynumber = ds_protocol_bynumber;
-	out->sim_protocol_all = ds_protocol_all;
-
-	out->sim_rpc_byname = ds_rpc_byname;
-	out->sim_rpc_bynumber = ds_rpc_bynumber;
-	out->sim_rpc_all = ds_rpc_all;
-
-	out->sim_fs_byspec = ds_fs_byspec;
-	out->sim_fs_byfile = ds_fs_byfile;
-	out->sim_fs_all = ds_fs_all;
-
-	out->sim_mac_byname = ds_mac_byname;
-	out->sim_mac_bymac = ds_mac_bymac;
-
-	/* si_mac_all not supported */
-	out->sim_mac_all = NULL;
-
-	out->sim_addrinfo = ds_addrinfo;
-
-	return out;
+	return &si;
 }
+
+#endif /* DS_AVAILABLE */

@@ -3,7 +3,7 @@
   numeric.c -
 
   $Author: shyouhei $
-  $Date: 2009-02-22 21:43:42 +0900 (Sun, 22 Feb 2009) $
+  $Date: 2009-11-17 15:31:41 +0900 (Tue, 17 Nov 2009) $
   created at: Fri Aug 13 18:33:09 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -62,6 +62,8 @@
 #ifndef DBL_EPSILON
 #define DBL_EPSILON 2.2204460492503131e-16
 #endif
+
+extern double round _((double));
 
 #ifndef HAVE_ROUND
 double

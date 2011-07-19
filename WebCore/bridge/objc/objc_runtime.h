@@ -26,9 +26,10 @@
 #ifndef KJS_BINDINGS_OBJC_RUNTIME_H
 #define KJS_BINDINGS_OBJC_RUNTIME_H
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "objc_header.h"
 #include <runtime/JSGlobalObject.h>
+#include <runtime/JSObjectWithGlobalObject.h>
 #include <wtf/RetainPtr.h>
 
 namespace JSC {
@@ -89,9 +90,9 @@ private:
     RetainPtr<ObjectStructPtr> _array;
 };
 
-class ObjcFallbackObjectImp : public JSObject {
+class ObjcFallbackObjectImp : public JSObjectWithGlobalObject {
 public:
-    ObjcFallbackObjectImp(ExecState*, ObjcInstance*, const Identifier& propertyName);
+    ObjcFallbackObjectImp(ExecState*, JSGlobalObject*, ObjcInstance*, const Identifier& propertyName);
 
     static const ClassInfo s_info;
 
@@ -102,9 +103,9 @@ public:
         return globalObject->objectPrototype();
     }
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 private:
@@ -117,8 +118,6 @@ private:
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
 
     virtual bool toBoolean(ExecState*) const;
-
-    virtual const ClassInfo* classInfo() const { return &s_info; }
 
     RefPtr<ObjcInstance> _instance;
     Identifier _item;

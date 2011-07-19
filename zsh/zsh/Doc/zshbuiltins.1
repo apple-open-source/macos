@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHBUILTINS" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -25,7 +25,9 @@ then commands are read from that file instead of \fIfile\fP\&.
 If any arguments \fIarg\fP are given,
 they become the positional parameters; the old positional
 parameters are restored when the \fIfile\fP is done executing\&.
-The exit status is the exit status of the last command executed\&.
+If \fIfile\fP was not found the return status is 127; if \fIfile\fP was found
+but contained a syntax error the return status is 126; else the return
+status is the exit status of the last command executed\&.
 .RE
 .TP
 \fB:\fP [ \fIarg\fP \&.\&.\&. ]
@@ -107,6 +109,11 @@ ksh autoloading behaviour on the first call to the function\&.
 With the \fB\-w\fP flag, the \fIname\fPs are taken as names of files compiled
 with the \fBzcompile\fP builtin, and all functions defined in them are
 marked for autoloading\&.
+.PP
+The flags \fB\-z\fP and \fB\-k\fP mark the function to be autoloaded in
+native or ksh emulation, as if the option \fBKSH_AUTOLOAD\fP were
+unset or were set, respectively\&.  The flags override the setting of
+the option at the time the function is loaded\&.
 .RE
 .TP
 .PD 0
@@ -145,7 +152,7 @@ See the section `The zsh/cap Module\&' in \fIzshmodules\fP(1)\&.
 Change the current directory\&.  In the first form, change the
 current directory to \fIarg\fP, or to the value of \fB$HOME\fP if
 \fIarg\fP is not specified\&.  If \fIarg\fP is `\fB\-\fP\&', change to the
-value of \fB$OLDPWD\fP, the previous directory\&.
+previous directory\&.
 .RS
 .PP
 Otherwise, if \fIarg\fP begins with a slash, attempt to change to the
@@ -159,6 +166,9 @@ but \fBcdpath\fP is set and contains at least one element attempt to change
 to the directory \fIarg\fP under each component of \fBcdpath\fP in turn until
 successful\&.  If `\fB\&.\fP\&' occurs in \fBcdpath\fP, then \fBcdpath\fP is searched
 strictly in order so that `\fB\&.\fP\&' is only tried at the appropriate point\&.
+.PP
+The order of testing \fBcdpath\fP is modified if the option \fBPOSIX_CD\fP
+is set, as described in the documentation for the option\&.
 .PP
 If no directory is found, the option \fBCDABLE_VARS\fP is set, and a
 parameter named \fIarg\fP exists whose value begins with a slash, treat its
@@ -377,24 +387,99 @@ See the section `The zsh/termcap Module\&' in \fIzshmodules\fP(1)\&.
 \fBechoti\fP
 See the section `The zsh/terminfo Module\&' in \fIzshmodules\fP(1)\&.
 .TP
-\fBemulate\fP [ \fB\-LR\fP ] {\fBzsh\fP|\fBsh\fP|\fBksh\fP|\fBcsh\fP}
-Set up zsh options to emulate the specified shell as much as possible\&.
+\fBemulate\fP [ \fB\-LR\fP ] [ {\fBzsh\fP|\fBsh\fP|\fBksh\fP|\fBcsh\fP} [ \fB\-c\fP \fBarg\fP ] ]
+Without any argument print current emulation mode\&.
+.RS
+.PP
+With single argument set up zsh options to emulate the specified shell
+as much as possible\&.
 \fBcsh\fP will never be fully emulated\&.
 If the argument is not one of the shells listed above, \fBzsh\fP
 will be used as a default; more precisely, the tests performed on the
 argument are the same as those used to determine the emulation at startup
 based on the shell name, see
 the section `Compatibility\&' in \fIzshmisc\fP(1)
-\&.  If the \fB\-R\fP option is given, all options
+\&.
+.PP
+If the \fB\-R\fP option is given, all options
 are reset to their default value corresponding to the specified emulation
 mode, except for certain options describing the interactive
 environment; otherwise, only those options likely to cause portability
-problems in scripts and functions are altered\&.  If the \fB\-L\fP option
-is given, the options \fBLOCAL_OPTIONS\fP and \fBLOCAL_TRAPS\fP will be set as
+problems in scripts and functions are altered\&.  If the \fB\-L\fP option is given,
+the options \fBLOCAL_OPTIONS\fP and \fBLOCAL_TRAPS\fP will be set as
 well, causing the effects of the \fBemulate\fP command and any \fBsetopt\fP and
 \fBtrap\fP commands to be local to the immediately surrounding shell
 function, if any; normally these options are turned off in all emulation
-modes except \fBksh\fP\&.
+modes except \fBksh\fP\&. The \fB\-L\fP and \fB\-c\fP are mutually exclusive\&.
+.PP
+If \fB\-c\fP \fBarg\fP is given, evaluate \fBarg\fP while the requested
+emulation is temporarily in effect\&.  The emulation and all options will
+be restored to their original values before \fBemulate\fP returns\&.  The
+\fB\-R\fP flag may be used\&.
+.PP
+Use of \fB\-c\fP enables `sticky\&' emulation mode for functions defined
+within the evaluated expression:  the emulation mode is associated
+thereafter with the function so that whenever the function is executed
+the emulation (respecting the \fB\-R\fP flag, if present) and all
+options are set before entry to the function, and restored after exit\&.
+If the function is called when the sticky emulation is already in
+effect, either within an `\fBemulate\fP \fIshell\fP \fB\-c\fP\&' expression or
+within another function with the same sticky emulation, entry and exit
+from the function do not cause options to be altered (except due to
+standard processing such as the \fBLOCAL_OPTIONS\fP option)\&.
+.PP
+For example:
+.PP
+.RS
+.nf
+\fBemulate sh \-c \&'fni() { setopt cshnullglob; }
+fno() { fni; }\&'
+fno
+\fP
+.fi
+.RE
+.PP
+The two functions \fBfni\fP and \fBfno\fP are defined with sticky \fBsh\fP
+emulation\&.  \fBfno\fP is then executed, causing options associated
+with emulations to be set to their values in \fBsh\fP\&.  \fBfni\fP then
+calls \fBfno\fP; because \fBfno\fP is also marked for sticky \fBsh\fP
+emulation, no option changes take place on entry to or exit from it\&.
+Hence the option \fBcshnullglob\fP, turned off by \fBsh\fP emulation, will
+be turned on within \fBfni\fP and remain on on return to \fBfno\fP\&.  On exit
+from \fBfno\fP, the emulation mode and all options will be restored to the
+state they were in before entry to the temporary emulation\&.
+.PP
+The documentation above is typically sufficient for the intended
+purpose of executing code designed for other shells in a suitable
+environment\&.  More detailed rules follow\&.
+.PD 0
+.TP
+1\&.
+The sticky emulation environment provided by `\fBemulate\fP
+\fIshell\fP \fB\-c\fP\&' is identical to that provided by entry to
+a function marked for sticky emulation as a consequence of being
+defined in such an environment\&.  Hence, for example, the sticky
+emulation is inherited by subfunctions defined within functions
+with sticky emulation\&.
+.TP
+2\&.
+No change of options takes place on entry to or exit from
+functions that are not marked for sticky emulation, other than those
+that would normally take place, even if those functions are called
+within sticky emulation\&.
+.TP
+3\&.
+No special handling is provided for functions marked for
+\fBautoload\fP nor for functions present in wordcode created by
+the \fBzcompile\fP command\&.
+.TP
+4\&.
+The presence or absence of the \fB\-R\fP flag to \fBemulate\fP
+corresponds to different sticky emulation modes, so for example
+`\fBemulate sh \-c\fP\&', `\fBemulate \-R sh \-c\fP' and `\fBemulate csh \-c\fP'
+are treated as three distinct sticky emulations\&.
+.PD
+.RE
 .TP
 \fBenable\fP [ \fB\-afmrs\fP ] \fIname\fP \&.\&.\&.
 Enable the \fIname\fPd hash table elements, presumably disabled
@@ -440,7 +525,13 @@ already exist, it is created in the global scope\&.
 Do nothing and return an exit status of 1\&.
 .TP
 .PD 0
-\fBfc\fP [ \fB\-e\fP \fIename\fP ] [ \fB\-nlrdDfEim\fP ] [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
+\fBfc\fP [ \fB\-e\fP \fIename\fP ] [ \fB\-m\fP \fImatch\fP ] [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
+.TP
+.PD 0
+\fBfc\fP \fB\-l\fP [ \fB\-nrdfEiD\fP ] [ \fB\-t\fP \fItimefmt\fP ] [ \fB\-m\fP \fImatch\fP ]
+.TP
+.PD 0
+      [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
 .TP
 .PD 0
 \fBfc\fP \fB\-p\fP [ \fB\-a\fP ] [ \fIfilename\fP [ \fIhistsize\fP [ \fIsavehistsize\fP ] ] ]
@@ -480,13 +571,37 @@ or to \-1 if the \fB\-l\fP flag is given\&.
 .PP
 The flag \fB\-r\fP reverses the order of the commands and the
 flag \fB\-n\fP suppresses command numbers when listing\&.
-Also when listing, \fB\-d\fP prints timestamps for each command, and
-\fB\-f\fP prints full time\-date stamps\&.  Adding the \fB\-E\fP flag
-causes the dates to be printed as `\fIdd\fP\fB\&.\fP\fImm\fP\fB\&.\fP\fIyyyy\fP\&',
-instead of the default `\fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyyyy\fP\&'\&.
-Adding the \fB\-i\fP flag causes the dates to be printed in ISO8601
-`\fIyyyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP\&' format\&.
-With the \fB\-D\fP flag, \fBfc\fP prints elapsed times\&.
+.PP
+Also when listing,
+.PD 0
+.TP
+\fB\-d\fP
+prints timestamps for each command
+.TP
+\fB\-f\fP
+prints full time\-date stamps in the US
+`\fIMM\fP\fB/\fP\fIDD\fP\fB/\fP\fIYY\fP \fIhh\fP:\fImm\fP\&' format
+.TP
+\fB\-E\fP
+prints full time\-date stamps in the European
+`\fIdd\fP\fB\&.\fP\fImm\fP\fB\&.\fP\fIyyyy\fP \fIhh\fP:\fImm\fP\&' format
+.TP
+\fB\-i\fP
+prints full time\-date stamps in ISO8601
+`\fIyyyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP \fIhh\fP:\fImm\fP\&' format
+.TP
+\fB\-t\fP \fIfmt\fP
+prints time and date stamps in the given format;
+\fIfmt\fP is formatted with the strftime function with the zsh extensions
+described for the \fB%D{\fP\fIstring\fP\fB}\fP prompt format in
+the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.  The resulting formatted string must be
+no more than 256 characters or will not be printed\&.
+.PP
+.TP
+\fB\-D\fP
+prints elapsed times; may be combined with one of the
+options above\&.
+.PD
 .PP
 .PP
 `\fBfc \-p\fP\&' pushes the current history list onto a stack and switches to a
@@ -616,7 +731,7 @@ a `\fB+\fP\&' or a `\fB\-\fP', or the argument `\fB\-\fP\fB\-\fP', ends the opti
 Note that a single `\fB\-\fP\&' is not considered a valid option argument\&.
 \fIoptstring\fP contains the letters that \fBgetopts\fP
 recognizes\&.  If a letter is followed by a `\fB:\fP\&', that option
-is expected to have an argument\&.  The options can be
+requires an argument\&.  The options can be
 separated from the argument by blanks\&.
 .RS
 .PP
@@ -636,7 +751,7 @@ stored\&.  The option itself is still stored in \fIname\fP in this case\&.
 .PP
 A leading `\fB:\fP\&' in \fIoptstring\fP causes \fBgetopts\fP to store the
 letter of any invalid option in \fBOPTARG\fP, and to set \fIname\fP to
-`\fB?\fP\&' for an unknown option and to `\fB:\fP' when a required option is
+`\fB?\fP\&' for an unknown option and to `\fB:\fP' when a required argument is
 missing\&.  Otherwise, \fBgetopts\fP sets \fIname\fP to `\fB?\fP\&' and prints
 an error message when an option is invalid\&.  The exit status is
 nonzero when there are no more options\&.
@@ -865,6 +980,10 @@ megabytes or minutes
 [\fImm\fP\fB:\fP]\fIss\fP
 minutes and seconds
 .PD
+.PP
+The \fBlimit\fP command is not made available by default when the
+shell starts in a mode emulating another shell\&.  It can be made available
+with the command `\fBzmodload \-F zsh/rlimits b:limit\fP\&'\&.
 .RE
 .TP
 \fBlocal\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHUahlprtux\fP ] [ \fB\-LRZi\fP [ \fIn\fP ]] [ \fIname\fP[\fB=\fP\fIvalue\fP] ] \&.\&.\&.
@@ -967,7 +1086,7 @@ Print the arguments to the input of the coprocess\&.
 .TP
 \fB\-P\fP
 Perform prompt expansion (see
-\fIzshmisc\fP(1))\&.
+EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1))\&.
 .TP
 \fB\-r\fP
 Ignore the escape conventions of \fBecho\fP\&.
@@ -1105,9 +1224,10 @@ not work with the \fB\-q\fP option\&.
 Read only one character from the terminal and set \fIname\fP to
 `\fBy\fP\&' if this character was `\fBy\fP' or `\fBY\fP' and to `\fBn\fP' otherwise\&.
 With this flag set the return status is zero only if the character was
-`\fBy\fP\&' or `\fBY\fP'\&.  Note that this always reads from the terminal, even
-if used with the \fB\-p\fP or \fB\-u\fP or \fB\-z\fP flags or with redirected input\&.
-This option may also be used within zle widgets\&.
+`\fBy\fP\&' or `\fBY\fP'\&.  This option may be used with a timeout; if
+the read times out, or encounters end of file, status 2 is returned\&.
+Input is read from the terminal unless one of \fB\-u\fP
+or \fB\-p\fP is present\&.  This option may also be used within zle widgets\&.
 .TP
 \fB\-k\fP [ \fInum\fP ]
 Read only one (or \fInum\fP) characters\&.  All are assigned to the first
@@ -1190,6 +1310,7 @@ input is processed one key at a time; in this case, only availability of
 the first character is tested, so that e\&.g\&. `\fBread \-t \-k 2\fP\&' can still
 block on the second character\&.  Use two instances of `\fBread \-t \-k\fP\&' if
 this is not what is wanted\&.
+.PP
 If the first argument contains a `\fB?\fP\&', the remainder of this
 word is used as a \fIprompt\fP on standard error when the shell
 is interactive\&.
@@ -1214,7 +1335,7 @@ Same as \fBtypeset \-r\fP\&.
 Same as \fBhash \-r\fP\&.
 .TP
 \fBreturn\fP [ \fIn\fP ]
-Causes a shell function or \fB\&.\fP script to return to
+Causes a shell function or `\fB\&.\fP\&' script to return to
 the invoking script with the return status specified by \fIn\fP\&.  If \fIn\fP
 is omitted, the return status is that of the last command
 executed\&.
@@ -1283,6 +1404,10 @@ all parameters are printed on the standard output\&.  If the only argument is
 For historical reasons, `\fBset \-\fP\&' is treated as `\fBset +xv\fP'
 and `\fBset \-\fP \fIargs\fP\&' as `\fBset +xv \-\-\fP \fIargs\fP' when in
 any other emulation mode than zsh\&'s native mode\&.
+.PP
+The \fBsched\fP builtin is not made available by default when the shell
+starts in a mode emulating another shell\&.  It can be made available
+with the command `\fBzmodload \-F zsh/sched b:sched\fP\&'\&.
 .RE
 .TP
 \fBsetcap\fP
@@ -1320,7 +1445,7 @@ If any \fIname\fPs are given then the arrays with these names are
 shifted instead of the positional parameters\&.
 .TP
 \fBsource\fP \fIfile\fP [ \fIarg\fP \&.\&.\&. ]
-Same as \fB\&.\fP, except that the current directory is always searched and
+Same as `\fB\&.\fP\&', except that the current directory is always searched and
 is always searched first, before directories in \fB$path\fP\&.
 .TP
 \fBstat\fP
@@ -1407,7 +1532,8 @@ The value of \fB$?\fP at the start of execution is the exit status of the
 shell or the return status of the function exiting\&.
 If \fIsig\fP is \fB0\fP or \fBEXIT\fP
 and the \fBtrap\fP statement is not executed inside the body of a function,
-then the command \fIarg\fP is executed when the shell terminates\&.
+then the command \fIarg\fP is executed when the shell terminates; the
+trap runs before any \fBzshexit\fP hook functions\&.
 .PP
 \fBZERR\fP, \fBDEBUG\fP, and \fBEXIT\fP traps are not executed inside other
 traps\&.  \fBZERR\fP and \fBDEBUG\fP traps are kept within subshells, while
@@ -1696,15 +1822,20 @@ compatibility with previous versions of zsh\&.
 \fBulimit\fP [ [ \fB\-SHacdfilmnpqstvx\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
 Set or display resource limits of the shell and the processes started by
 the shell\&.  The value of \fIlimit\fP can be a number in the unit specified
-below or the value `\fBunlimited\fP\&'\&.  By default, only soft limits are
-manipulated\&. If the \fB\-H\fP flag is given use
-hard limits instead of soft limits\&.  If the \fB\-S\fP flag is given
-together with the \fB\-H\fP flag set both hard and soft limits\&.  If no
-options are used, the file size limit (\fB\-f\fP) is assumed\&.  If
-\fIlimit\fP is omitted the current value of the specified resources are
-printed\&.  When more than one resource values are printed the limit name and
-unit is printed before each value\&.
+below or one of the values `\fBunlimited\fP\&', which removes the limit on the
+resource, or `\fBhard\fP\&', which uses the current value of the hard limit on
+the resource\&.
 .RS
+.PP
+By default, only soft limits are manipulated\&. If the \fB\-H\fP flag
+is given use hard limits instead of soft limits\&.  If the \fB\-S\fP flag is given
+together with the \fB\-H\fP flag set both hard and soft limits\&.
+.PP
+If no options are used, the file size limit (\fB\-f\fP) is assumed\&.
+.PP
+If \fIlimit\fP is omitted the current value of the specified resources are
+printed\&.  When more than one resource value is printed, the limit name and
+unit is printed before each value\&.
 .PP
 When looping over multiple resources, the shell will abort immediately if
 it detects a badly formed argument\&.  However, if it fails to set a limit
@@ -1801,6 +1932,12 @@ If the \fB\-h\fP flag is given and the shell has appropriate privileges,
 the hard resource limit for each \fIresource\fP is removed\&.
 The resources of the shell process are only changed if the \fB\-s\fP
 flag is given\&.
+.RS
+.PP
+The \fBunlimit\fP command is not made available by default when the
+shell starts in a mode emulating another shell\&.  It can be made available
+with the command `\fBzmodload \-F zsh/rlimits b:unlimit\fP\&'\&.
+.RE
 .TP
 \fBunset\fP [ \fB\-fmv\fP ] \fIname\fP \&.\&.\&.
 Each named parameter is unset\&.
@@ -1915,7 +2052,7 @@ output file has the name `\fIfile\fP\fB\&.zwc\fP\&' and will be placed in
 the same directory as the \fIfile\fP\&.  The shell will load the compiled
 file instead of the normal function file when the function
 is autoloaded; see
-the section `Autoloading Functions\&' in \fIzshfunc\fP(1)
+the section `Autoloading Functions\&' in \fIzshmisc\fP(1)
 for a description of how autoloaded functions are searched\&.  The
 extension \fB\&.zwc\fP stands for `zsh word code\&'\&.
 .PP
@@ -2088,7 +2225,7 @@ loaded but not all features could be enabled, \fBzmodload\fP returns status 2\&.
 .PP
 With \fB\-u\fP, \fBzmodload\fP unloads modules\&.  The same \fIname\fP
 must be given that was given when the module was loaded, but it is not
-necessary for the module to exist in the filesystem\&.
+necessary for the module to exist in the file system\&.
 The \fB\-i\fP option suppresses the error if the module is already
 unloaded (or was never loaded)\&.
 .PP

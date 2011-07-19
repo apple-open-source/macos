@@ -5,11 +5,11 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 4.3.9 of the shell.  This is a development release,
+This is version 4.3.11 of the shell.  This is a development release,
 but is believed to be reasonably stable.  Sites where the users need to
 edit command lines with multibyte characters (in particular UTF-8)
 will probably want to upgrade.  The previous widely released version
-of the shell was 4.3.6.
+of the shell was 4.3.10.
 
 Installing Zsh
 --------------
@@ -33,8 +33,16 @@ details, see the documentation.
 Possible incompatibilities
 ---------------------------
 
-This section documents incompatibilities in the shell since the 4.2
-series of releases.
+In some 4.3.X releases of zsh, the completion system added a ".."  as a
+trial completion whenever completing directories.  This was a bug: as
+documented in the zshcompsys manual, this feature needs to be turned on by
+a style:
+
+  zstyle ':completion:*' special-dirs true
+
+
+The rest of this section documents incompatibilities in the shell since the
+4.2 series of releases.
 
 In previous releases of the shell, builtin commands and precommand
 modifiers that did not accept options also did not recognize the
@@ -68,6 +76,15 @@ before the command to which they refer instead of after.  This is almost
 always the right behaviour for the intended purpose of debugging and is
 consistent with recent versions of other shells.  The option
 DEBUG_BEFORE_CMD can be unset to revert to the previous behaviour.
+
+Previously, process substitutions of the form =(...), <(...) and >(...)
+were only handled if they appeared as separate command arguments.
+(However, the latter two forms caused the current argument to be
+terminated and a new one started even if they occurred in the middle of
+a string.)  Now all three may be followed by other strings, and the
+latter two may also be preceded by other strings.  Remaining
+limitations on their use (to reduce incompatibilities to a minimum)
+are documented in the zshexpn.1 manual.
 
 In previous versions of the shell it was possible to use index 0 in an
 array or string subscript to refer to the same element as index 1 if the
@@ -119,6 +136,17 @@ The variable HOME is no longer set by the shell if zsh is emulating any
 other shell at startup; it must be present in the environment or set
 subsequently by the user.  It is valid for the variable to be unset.
 
+If the shell starts in a mode where it is emulating another shell
+(typically because the base name of the shell was "sh" or another known
+shell), the "repeat" syntax is not available by default, to avoid clashes
+with external commands, but the "ulimit" command is available by default.
+"limit", "sched" and "unlimit" are not available by default in such modes:
+this has been the case for many versions but is now documented for the
+first time.  (Users should note that emulation modes are not designed for
+backwards compatibility with previous versions of zsh, but to maximise
+compatibility with other shells, hence it is not safe to assume emulation
+modes will behave consistently between zsh versions.)
+
 Parameter substitutions in the form ${param//#%search/replace} match
 against "search" anchored at both ends of the parameter value.  Previously
 this syntax would have matched against "%search", anchored only at the head
@@ -126,23 +154,33 @@ of the value.  The form ${param//#$search/replace} where the value
 $search starts with "%" considers the "%" to be part of the search
 string as before.
 
-The MULTIBYTE option is on by default where it is available; this
-causes many operations to recognise characters as in the current locale.
-Older versions of the shell always assumed a character was one byte.
-In some places the width of the character will be used; this is transparent
-when used for calculations of screen position, but also occurs, for
-example, in calculations of padding width.  Note that MULTIBYTE is
-not automatically set when emulating Bourne- and POSIX-style shells;
-for interative use of these emulations it may be necessary to set
-it by hand.
+Configure attempts to decide if multibyte characters are supported by the
+system and if so sets the effect of --enable-multibyte, unless
+--disable-multibyte was passed on the command line.  When
+--enable-multibyte is in effect, the MULTIBYTE shell option is on by
+default; this causes many operations to recognise characters in the current
+locale.  (Most typically this is used for a UTF-8 character set but the
+shell will work with any character set provided by the system where
+individual octets are either US ASCII characters or have the top bit set.)
+Older versions of the shell always assumed a character was one byte; this
+remains the case if --disable-multibyte is in effect or if the MULTIBYTE
+option is unset.  In some places the width of characters will be taken into
+account where previously a raw string length was used; this is transparent
+in calculations of screen position, but also occurs, for example, in
+calculations of padding width.  Note that MULTIBYTE is not automatically
+set when emulating Bourne- and POSIX-style shells; for interactive use of
+these emulations it may be necessary to set it by hand.  Note also that the
+option COMBINING_CHARS is not set by default due to difficulties detecting
+the ability of the terminal to display combining characters correctly; MAC
+users in particular will probably wish to set this option.
 
 Zsh has previously been lax about whether it allows octets with the
 top bit set to be part of a shell identifier.  Older versions of the shell
 assumed all such octets were allowed in identifiers, however the POSIX
 standard does not allow such characters in identifiers.  The older
 behaviour is still obtained with --disable-multibyte in effect.
-With --enable-multibyte in effect (this is now the default anywhere
-it is supported) there are three possible cases:
+With --enable-multibyte in effect (see previous paragraph) there are three
+possible cases:
   MULTIBYTE option unset:  only ASCII characters are allowed; the
     shell does not attempt to identify non-ASCII characters at all.
   MULTIBYTE option set, POSIX_IDENTIFIERS option unset: in addition
@@ -197,9 +235,9 @@ There are a number of documents about zsh in this distribution:
 
 Doc/Zsh/*.yo	The master source for the zsh documentation is written in
 		yodl.  Yodl is a document language written by Karel Kubat.
-		It is not required by zsh but but it is a nice program so
-		you might want to get it anyway, especially if you are a
-		zsh developer.  It can be downloaded from
+		It is not required by zsh but it is a nice program so you
+		might want to get it anyway, especially if you are a zsh
+		developer.  It can be downloaded from
 		ftp://yodl.sourceforge.net/
 
 Doc/zsh*.1	Man pages in nroff format.  These will be installed
@@ -217,7 +255,7 @@ Doc/zsh.texi	Everything the man pages have, but in texinfo format.  These
 		top level Makefile.  Version 4.0 or above of the
 		Texinfo tools are recommended for processing this file.
 
-Also include in the distribution are:
+Also included in the distribution are:
 
 Doc/intro.ms	An introduction to zsh in troff format using the ms
 		macros.  This document explains many of the features
@@ -273,7 +311,7 @@ Zsh Maintenance and Bug Reports
 
 Zsh is currently maintained by the members of the zsh-workers mailing list
 and coordinated by Peter Stephenson <coordinator@zsh.org>.  Please send
-any feedback and bugs reports to <zsh-workers@sunsite.dk>.
+any feedback and bugs reports to <zsh-workers@zsh.org>.
 
 Reports are most helpful if you can reproduce the bug starting zsh with
 the -f option.  This skips the execution of local startup files except

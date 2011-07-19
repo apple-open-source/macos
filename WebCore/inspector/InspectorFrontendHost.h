@@ -29,10 +29,9 @@
 #ifndef InspectorFrontendHost_h
 #define InspectorFrontendHost_h
 
-#include "Console.h"
+#include "ConsoleTypes.h"
 #include "ContextMenu.h"
 #include "ContextMenuProvider.h"
-#include "InspectorController.h"
 #include "PlatformString.h"
 
 #include <wtf/RefCounted.h>
@@ -46,9 +45,9 @@ class FrontendMenuProvider;
 class InspectorClient;
 class InspectorFrontendClient;
 class Node;
+class Page;
 
-class InspectorFrontendHost : public RefCounted<InspectorFrontendHost>
-{
+class InspectorFrontendHost : public RefCounted<InspectorFrontendHost> {
 public:
     static PassRefPtr<InspectorFrontendHost> create(InspectorFrontendClient* client, Page* frontendPage)
     {
@@ -62,19 +61,26 @@ public:
     void requestAttachWindow();
     void requestDetachWindow();
     void closeWindow();
+    void disconnectFromBackend();
     void bringToFront();
     void inspectedURLChanged(const String&);
 
     void setAttachedWindowHeight(unsigned height);
     void moveWindowBy(float x, float y) const;
+    void setExtensionAPI(const String& script);
 
     String localizedStringsURL();
     String hiddenPanels();
 
     void copyText(const String& text);
+    void saveAs(const String& fileName, const String& content);
+
+    void saveSessionSetting(const String& key, const String& value);
+    String loadSessionSetting(const String& key);
 
     // Called from [Custom] implementations.
     void showContextMenu(Event*, const Vector<ContextMenuItem*>& items);
+    void sendMessageToBackend(const String& message);
 
 private:
 #if ENABLE(CONTEXT_MENUS)

@@ -1,10 +1,9 @@
 dnl
-dnl "$Id: cups-defaults.m4 7959 2008-09-17 19:30:58Z mike $"
+dnl "$Id: cups-defaults.m4 9613 2011-03-18 02:49:14Z mike $"
 dnl
-dnl   Default cupsd configuration settings for the Common UNIX Printing System
-dnl   (CUPS).
+dnl   Default cupsd configuration settings for CUPS.
 dnl
-dnl   Copyright 2007-2009 by Apple Inc.
+dnl   Copyright 2007-2011 by Apple Inc.
 dnl   Copyright 2006-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -24,6 +23,21 @@ AC_ARG_WITH(languages, [  --with-languages        set installed languages, defau
 		*) LANGUAGES="$withval" ;;
 	esac])
 AC_SUBST(LANGUAGES)
+
+dnl Mac OS X bundle-based localization support
+AC_ARG_WITH(bundledir, [  --with-bundledir     set Mac OS X localization bundle directory ],
+	CUPS_BUNDLEDIR="$withval",
+	if test "x$uname" = xDarwin -a $uversion -ge 100; then
+		CUPS_BUNDLEDIR="/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A"
+		LANGUAGES=""
+	else
+		CUPS_BUNDLEDIR=""
+	fi)
+
+AC_SUBST(CUPS_BUNDLEDIR)
+if test "x$CUPS_BUNDLEDIR" != x; then
+	AC_DEFINE_UNQUOTED(CUPS_BUNDLEDIR, "$CUPS_BUNDLEDIR")
+fi
 
 dnl Default ConfigFilePerm
 AC_ARG_WITH(config_file_perm, [  --with-config-file-perm set default ConfigFilePerm value, default=0640],
@@ -426,27 +440,71 @@ AC_ARG_ENABLE(texttops, [  --enable-texttops       always build the text filter 
 
 if test "x$enable_bannertops" = xno; then
 	BANNERTOPS=""
+	DEFAULT_BANNERTOPS="#"
 elif test "x$enable_bannertops" = xyes; then
 	BANNERTOPS="bannertops"
+	DEFAULT_BANNERTOPS=""
 elif test $uname = Darwin; then
 	BANNERTOPS=""
+	DEFAULT_BANNERTOPS="#"
 else
 	BANNERTOPS="bannertops"
+	DEFAULT_BANNERTOPS=""
 fi
 
 if test "x$enable_texttops" = xno; then
 	TEXTTOPS=""
+	DEFAULT_TEXTTOPS="#"
 elif test "x$enable_texttops" = xyes; then
 	TEXTTOPS="texttops"
+	DEFAULT_TEXTTOPS=""
 elif test $uname = Darwin; then
 	TEXTTOPS=""
+	DEFAULT_TEXTTOPS="#"
 else
 	TEXTTOPS="texttops"
+	DEFAULT_TEXTTOPS=""
 fi
 
 AC_SUBST(BANNERTOPS)
+AC_SUBST(DEFAULT_BANNERTOPS)
+AC_SUBST(DEFAULT_TEXTTOPS)
 AC_SUBST(TEXTTOPS)
 
+dnl Fonts
+if test "x$BANNERTOPS" = x -a "x$TEXTTOPS" = x; then
+	FONTS=""
+else
+	FONTS="fonts"
+fi
+
+AC_SUBST(FONTS)
+
+dnl Web interface...
+AC_ARG_ENABLE(webif, [  --enable-webif          enable the web interface by default, default=no for Mac OS X])
+case "x$enable_webif" in
+	xno)
+		CUPS_WEBIF=No
+		CUPS_DEFAULT_WEBIF=0
+		;;
+	xyes)
+		CUPS_WEBIF=Yes
+		CUPS_DEFAULT_WEBIF=1
+		;;
+	*)
+		if test $uname = Darwin; then
+			CUPS_WEBIF=No
+			CUPS_DEFAULT_WEBIF=0
+		else
+			CUPS_WEBIF=Yes
+			CUPS_DEFAULT_WEBIF=1
+		fi
+		;;
+esac
+
+AC_SUBST(CUPS_WEBIF)
+AC_DEFINE_UNQUOTED(CUPS_DEFAULT_WEBIF, $CUPS_DEFAULT_WEBIF)
+
 dnl
-dnl End of "$Id: cups-defaults.m4 7959 2008-09-17 19:30:58Z mike $".
+dnl End of "$Id: cups-defaults.m4 9613 2011-03-18 02:49:14Z mike $".
 dnl

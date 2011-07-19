@@ -1,0 +1,18 @@
+ChangeLog
+MANIFEST
+Makefile.PL
+README
+lib/Bundle/PlRPC.pm
+lib/RPC/PlClient.pm
+lib/RPC/PlClient/Comm.pm
+lib/RPC/PlServer.pm
+lib/RPC/PlServer/Comm.pm
+lib/RPC/PlServer/Test.pm
+t/base.t
+t/client.t
+t/compress.t
+t/crypt.t
+t/methods.t
+t/lib.pl
+t/server
+META.yml                                 Module meta-data (added by MakeMaker)

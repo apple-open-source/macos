@@ -52,6 +52,7 @@
 #define kIOHIDKindKey					"HIDKind"
 #define kIOHIDInterfaceIDKey			"HIDInterfaceID"
 #define kIOHIDSubinterfaceIDKey			"HIDSubinterfaceID"
+#define kIOHIDOriginalSubinterfaceIDKey "HIDOriginalSubinterfaceID"
 
 #define kIOHIDParametersKey				"HIDParameters"
 
@@ -153,6 +154,21 @@
 #define kIOHIDMouseKeysEnablesVirtualNumPadKey	"HIDMouseKeysEnablesVirtualNumPad"
 
 #define kIOHIDResetLEDsKey          "HIDResetLEDs"
+
+// Parametric Acceleration Keys
+#define kHIDAccelParametricCurvesKey            "HIDAccelCurves"
+#define kHIDTrackingAccelParametricCurvesKey    "HIDTrackingAccelCurves"
+#define kHIDScrollAccelParametricCurvesKey      "HIDScrollAccelCurves"
+#define kHIDAccelParametricCurvesDebugKey       "HIDAccelCurvesDebug"
+#define kHIDAccelGainLinearKey                  "HIDAccelGainLinear"
+#define kHIDAccelGainParabolicKey               "HIDAccelGainParabolic"
+#define kHIDAccelGainCubicKey                   "HIDAccelGainCubic"
+#define kHIDAccelGainQuarticKey              "HIDAccelGainQuartic"
+#define kHIDAccelTangentSpeedLinearKey          "HIDAccelTangentSpeedLinear"
+#define kHIDAccelTangentSpeedParabolicRootKey   "HIDAccelTangentSpeedParabolicRoot"
+#define kHIDAccelTangentSpeedCubicRootKey       "HIDAccelTangentSpeedCubicRoot"
+#define kHIDAccelTangentSpeedQuarticRootKey  "HIDAccelTangentSpeedQuarticRoot"
+#define kHIDAccelIndexKey                       "HIDAccelIndex"
 
 
 #ifdef __ppc__

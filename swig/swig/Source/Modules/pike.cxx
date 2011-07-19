@@ -25,7 +25,7 @@
  *
  */
 
-char cvsroot_pike_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/pike.cxx,v 1.19 2006/11/01 23:54:52 wsfulton Exp $";
+char cvsroot_pike_cxx[] = "$Id: pike.cxx 11133 2009-02-20 07:52:24Z wsfulton $";
 
 #include "swigmod.h"
 
@@ -39,6 +39,7 @@ Pike Options (available with -pike)\n\
 class PIKE:public Language {
 private:
 
+  File *f_begin;
   File *f_runtime;
   File *f_header;
   File *f_wrappers;
@@ -69,6 +70,7 @@ public:
    * --------------------------------------------------------------------- */
 
    PIKE() {
+    f_begin = 0;
     f_runtime = 0;
     f_header = 0;
     f_wrappers = 0;
@@ -123,11 +125,12 @@ public:
     String *outfile = Getattr(n, "outfile");
 
     /* Open the output file */
-    f_runtime = NewFile(outfile, "w");
-    if (!f_runtime) {
+    f_begin = NewFile(outfile, "w", SWIG_output_files());
+    if (!f_begin) {
       FileErrorDisplay(outfile);
       SWIG_exit(EXIT_FAILURE);
     }
+    f_runtime = NewString("");
     f_init = NewString("");
     f_classInit = NewString("");
     f_header = NewString("");
@@ -136,12 +139,17 @@ public:
     /* Register file targets with the SWIG file handler */
     Swig_register_filebyname("header", f_header);
     Swig_register_filebyname("wrapper", f_wrappers);
+    Swig_register_filebyname("begin", f_begin);
     Swig_register_filebyname("runtime", f_runtime);
     Swig_register_filebyname("init", f_init);
     Swig_register_filebyname("classInit", f_classInit);
 
     /* Standard stuff for the SWIG runtime section */
-    Swig_banner(f_runtime);
+    Swig_banner(f_begin);
+
+    Printf(f_runtime, "\n");
+    Printf(f_runtime, "#define SWIGPIKE\n");
+    Printf(f_runtime, "\n");
 
     Printf(f_header, "#define SWIG_init    pike_module_init\n");
     Printf(f_header, "#define SWIG_name    \"%s\"\n\n", module);
@@ -161,17 +169,19 @@ public:
     SwigType_emit_type_table(f_runtime, f_wrappers);
 
     /* Close all of the files */
-    Dump(f_header, f_runtime);
-    Dump(f_wrappers, f_runtime);
-    Wrapper_pretty_print(f_init, f_runtime);
+    Dump(f_runtime, f_begin);
+    Dump(f_header, f_begin);
+    Dump(f_wrappers, f_begin);
+    Wrapper_pretty_print(f_init, f_begin);
 
     Delete(f_header);
     Delete(f_wrappers);
     Delete(f_init);
     Delete(f_classInit);
 
-    Close(f_runtime);
+    Close(f_begin);
     Delete(f_runtime);
+    Delete(f_begin);
 
     /* Done */
     return SWIG_OK;
@@ -221,7 +231,7 @@ public:
    * name (i.e. "enum_test").
    * ------------------------------------------------------------ */
 
-  String *strip(const DOHString_or_char *name) {
+  String *strip(const DOHconst_String_or_char_ptr name) {
     String *s = Copy(name);
     if (Strncmp(name, PrefixPlusUnderscore, Len(PrefixPlusUnderscore)) != 0) {
       return s;
@@ -234,7 +244,7 @@ public:
    * add_method()
    * ------------------------------------------------------------ */
 
-  void add_method(const DOHString_or_char *name, const DOHString_or_char *function, const DOHString_or_char *description) {
+  void add_method(const DOHconst_String_or_char_ptr name, const DOHconst_String_or_char_ptr function, const DOHconst_String_or_char_ptr description) {
     String *rename = NULL;
     switch (current) {
     case NO_CPP:
@@ -288,8 +298,8 @@ public:
 
     Wrapper *f = NewWrapper();
 
-    /* Write code to extract function parameters. */
-    emit_args(d, l, f);
+    // Emit all of the local variables for holding arguments.
+    emit_parameter_variables(l, f);
 
     /* Attach the standard typemaps */
     emit_attach_parmmaps(l, f);
@@ -310,6 +320,7 @@ public:
     if (overname) {
       Append(wname, overname);
     }
+    Setattr(n, "wrap:name", wname);
 
     Printv(f->def, "static void ", wname, "(INT32 args) {", NIL);
 
@@ -399,21 +410,21 @@ public:
     }
 
     /* Emit the function call */
-    emit_action(n, f);
+    String *actioncode = emit_action(n);
 
     /* Clear the return stack */
-    Printf(f->code, "pop_n_elems(args);\n");
+    Printf(actioncode, "pop_n_elems(args);\n");
 
     /* Return the function value */
     if (current == CONSTRUCTOR) {
-      Printv(f->code, "THIS = (void *) result;\n", NIL);
+      Printv(actioncode, "THIS = (void *) result;\n", NIL);
       Printv(description, ", tVoid", NIL);
     } else if (current == DESTRUCTOR) {
       Printv(description, ", tVoid", NIL);
     } else {
-      // Wrapper_add_local(f, "resultobj", "struct object *resultobj");
       Printv(description, ", ", NIL);
-      if ((tm = Swig_typemap_lookup_new("out", n, "result", 0))) {
+      if ((tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode))) {
+        actioncode = 0;
 	Replaceall(tm, "$source", "result");
 	Replaceall(tm, "$target", "resultobj");
 	Replaceall(tm, "$result", "resultobj");
@@ -431,6 +442,11 @@ public:
 	Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s in function %s.\n", SwigType_str(d, 0), name);
       }
     }
+    if (actioncode) {
+      Append(f->code, actioncode);
+      Delete(actioncode);
+    }
+    emit_return_variable(n, d, f);
 
     /* Output argument output code */
     Printv(f->code, outarg, NIL);
@@ -440,14 +456,14 @@ public:
 
     /* Look to see if there is any newfree cleanup code */
     if (GetFlag(n, "feature:new")) {
-      if ((tm = Swig_typemap_lookup_new("newfree", n, "result", 0))) {
+      if ((tm = Swig_typemap_lookup("newfree", n, "result", 0))) {
 	Replaceall(tm, "$source", "result");
 	Printf(f->code, "%s\n", tm);
       }
     }
 
     /* See if there is any return cleanup code */
-    if ((tm = Swig_typemap_lookup_new("ret", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup("ret", n, "result", 0))) {
       Replaceall(tm, "$source", "result");
       Printf(f->code, "%s\n", tm);
     }
@@ -469,7 +485,6 @@ public:
     if (!Getattr(n, "sym:overloaded")) {
       add_method(iname, wname, description);
     } else {
-      Setattr(n, "wrap:name", wname);
       if (!Getattr(n, "sym:nextSibling")) {
 	dispatchFunction(n);
       }
@@ -568,7 +583,7 @@ public:
     }
 
     /* Perform constant typemap substitution */
-    String *tm = Swig_typemap_lookup_new("constant", n, value, 0);
+    String *tm = Swig_typemap_lookup("constant", n, value, 0);
     if (tm) {
       Replaceall(tm, "$source", value);
       Replaceall(tm, "$target", symname);

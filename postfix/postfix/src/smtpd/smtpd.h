@@ -60,11 +60,11 @@ typedef struct {
     char   *rfc_addr;			/* address for RFC 2821 */
     char   *protocol;			/* email protocol */
     char   *helo_name;			/* helo/ehlo parameter */
-    char   *ident;			/* message identifier */
+    char   *ident;			/* local message identifier */
     char   *domain;			/* rewrite context */
 } SMTPD_XFORWARD_ATTR;
 
-typedef struct SMTPD_STATE {
+typedef struct {
     int     flags;			/* see below */
     int     err;			/* cleanup server/queue file errors */
     VSTREAM *client;			/* SMTP client handle */
@@ -103,6 +103,8 @@ typedef struct SMTPD_STATE {
     char   *protocol;			/* SMTP or ESMTP */
     char   *where;			/* protocol stage */
     int     recursion;			/* Kellerspeicherpegelanzeiger */
+    int	    chunking;			/* APPLE - RFC 3030 */
+    void   *chunking_context;		/* APPLE - RFC 3030 */
     off_t   msg_size;			/* MAIL FROM message size */
     off_t   act_size;			/* END-OF-DATA message size */
     int     junk_cmds;			/* counter */
@@ -153,10 +155,8 @@ typedef struct SMTPD_STATE {
     /*
      * Pass-through proxy client.
      */
-    VSTREAM *proxy;			/* proxy handle */
-    VSTRING *proxy_buffer;		/* proxy query/reply buffer */
+    struct SMTPD_PROXY *proxy;
     char   *proxy_mail;			/* owned by mail_cmd() */
-    int     proxy_xforward_features;	/* XFORWARD proxy state */
 
     /*
      * XFORWARD server state.
@@ -167,20 +167,24 @@ typedef struct SMTPD_STATE {
      * TLS related state.
      */
 #ifdef USE_TLS
-    int     tls_use_tls;		/* can use TLS */
-    int     tls_enforce_tls;		/* must use TLS */
-    int     tls_auth_only;		/* use SASL over TLS only */
+#ifdef USE_TLSPROXY
+    VSTREAM *tlsproxy;			/* tlsproxy(8) temp. handle */
+#endif
     TLS_SESS_STATE *tls_context;	/* TLS session state */
 #endif
 
     /*
      * Milter support.
      */
-    const char **milter_argv;
-    ssize_t milter_argc;
+    const char **milter_argv;		/* SMTP command vector */
+    ssize_t milter_argc;		/* SMTP command vector */
+    const char *milter_reject_text;	/* input to call-back from Milter */
 } SMTPD_STATE;
 
-#define SMTPD_FLAG_HANGUP	(1<<0)	/* disconnect */
+#define SMTPD_FLAG_HANGUP	   (1<<0)	/* 421/521 disconnect */
+#define SMTPD_FLAG_ILL_PIPELINING  (1<<1)	/* inappropriate pipelining */
+
+#define SMTPD_MASK_MAIL_KEEP		~0	/* keep all after MAIL reset */
 
 #define SMTPD_STATE_XFORWARD_INIT  (1<<0)	/* xforward preset done */
 #define SMTPD_STATE_XFORWARD_NAME  (1<<1)	/* client name received */
@@ -188,13 +192,20 @@ typedef struct SMTPD_STATE {
 #define SMTPD_STATE_XFORWARD_PROTO (1<<3)	/* protocol received */
 #define SMTPD_STATE_XFORWARD_HELO  (1<<4)	/* client helo received */
 #define SMTPD_STATE_XFORWARD_IDENT (1<<5)	/* message identifier */
-#define SMTPD_STATE_XFORWARD_DOMAIN (1<<6)	/* message identifier */
+#define SMTPD_STATE_XFORWARD_DOMAIN (1<<6)	/* address context */
 #define SMTPD_STATE_XFORWARD_PORT  (1<<7)	/* client port received */
 
 #define SMTPD_STATE_XFORWARD_CLIENT_MASK \
 	(SMTPD_STATE_XFORWARD_NAME | SMTPD_STATE_XFORWARD_ADDR \
 	| SMTPD_STATE_XFORWARD_PROTO | SMTPD_STATE_XFORWARD_HELO \
 	| SMTPD_STATE_XFORWARD_PORT)
+
+/* APPLE - RFC 3030 */
+#define SMTPD_CHUNKING		    (1 << 0)	/* BURL or BDAT used */
+#define SMTPD_CHUNKING_CONT	    (1 << 1)	/* non-LAST used */
+#define SMTPD_CHUNKING_LAST	    (1 << 2)	/* LAST */
+#define SMTPD_CHUNKING_BINARYMIME   (1 << 3)	/* BODY=BINARYMIME */
+#define SMTPD_CHUNKING_NONZERO	    (1 << 4)	/* read >= 1 byte */
 
 extern void smtpd_state_init(SMTPD_STATE *, VSTREAM *, const char *);
 extern void smtpd_state_reset(SMTPD_STATE *);
@@ -204,6 +215,7 @@ extern void smtpd_state_reset(SMTPD_STATE *);
   * diagnostics.
   */
 #define SMTPD_AFTER_CONNECT	"CONNECT"
+#define SMTPD_AFTER_DATA	"DATA content"
 #define SMTPD_AFTER_DOT		"END-OF-MESSAGE"
 
  /*
@@ -217,6 +229,8 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 #define SMTPD_CMD_MAIL		"MAIL"
 #define SMTPD_CMD_RCPT		"RCPT"
 #define SMTPD_CMD_DATA		"DATA"
+#define SMTPD_CMD_BURL		"BURL"			/* APPLE - burl */
+#define SMTPD_CMD_BDAT		"BDAT"			/* APPLE - RFC 3030 */
 #define SMTPD_CMD_EOD		SMTPD_AFTER_DOT	/* XXX Was: END-OF-DATA */
 #define SMTPD_CMD_RSET		"RSET"
 #define SMTPD_CMD_NOOP		"NOOP"
@@ -228,9 +242,29 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 #define SMTPD_CMD_UNKNOWN	"UNKNOWN"
 
  /*
-  * Representation of unknown client information within smtpd processes. This
-  * is not the representation that Postfix uses in queue files, in queue
-  * manager delivery requests, or in XCLIENT/XFORWARD commands!
+  * Representation of unknown and non-existent client information. Throughout
+  * Postfix, we use the "unknown" string value for unknown client information
+  * (e.g., unknown remote client hostname), and we use the empty string, null
+  * pointer or "no queue file record" for non-existent client information
+  * (e.g., no HELO command, or local submission).
+  * 
+  * Inside the SMTP server, unknown real client attributes are represented by
+  * the string "unknown", and non-existent HELO is represented as a null
+  * pointer. The SMTP server uses this same representation internally for
+  * forwarded client attributes; the XFORWARD syntax makes no distinction
+  * between unknown (remote submission) and non-existent (local submission).
+  * 
+  * The SMTP client sends forwarded client attributes only when upstream client
+  * attributes exist (i.e. remote submission). Thus, local submissions will
+  * appear to come from an SMTP-based content filter, which is acceptable.
+  * 
+  * Known/unknown client attribute values use the SMTP server's internal
+  * representation in queue files, in queue manager delivery requests, and in
+  * delivery agent $name expansions.
+  * 
+  * Non-existent attribute values are never present in queue files. Non-existent
+  * information is represented as empty strings in queue manager delivery
+  * requests and in delivery agent $name expansions.
   */
 #define CLIENT_ATTR_UNKNOWN	"unknown"
 
@@ -288,24 +322,14 @@ extern void smtpd_peer_reset(SMTPD_STATE *state);
 		    (port), (char *) 0)
 
  /*
-  * Choose between normal or forwarded attributes.
-  * 
-  * Note 1: inside the SMTP server, forwarded attributes must have the exact
-  * same representation as normal attributes: unknown string values are
-  * "unknown", except for HELO which defaults to null. This is better than
-  * having to change every piece of code that accesses a possibly forwarded
-  * attribute.
-  * 
-  * Note 2: outside the SMTP server, the representation of unknown/known
-  * attribute values is different in queue files, in queue manager delivery
-  * requests, and in over-the-network XFORWARD commands.
-  * 
-  * Note 3: if forwarding client information, don't mix information from the
-  * current SMTP session with forwarded information from an up-stream
-  * session.
+  * Don't mix information from the current SMTP session with forwarded
+  * information from an up-stream session.
   */
+#define HAVE_FORWARDED_CLIENT_ATTR(s) \
+	((s)->xforward.flags & SMTPD_STATE_XFORWARD_CLIENT_MASK)
+
 #define FORWARD_CLIENT_ATTR(s, a) \
-	(((s)->xforward.flags & SMTPD_STATE_XFORWARD_CLIENT_MASK) ? \
+	(HAVE_FORWARDED_CLIENT_ATTR(s) ? \
 	    (s)->xforward.a : (s)->a)
 
 #define FORWARD_ADDR(s)		FORWARD_CLIENT_ATTR((s), rfc_addr)
@@ -315,10 +339,19 @@ extern void smtpd_peer_reset(SMTPD_STATE *state);
 #define FORWARD_HELO(s)		FORWARD_CLIENT_ATTR((s), helo_name)
 #define FORWARD_PORT(s)		FORWARD_CLIENT_ATTR((s), port)
 
-#define FORWARD_IDENT(s) \
-	(((s)->xforward.flags & SMTPD_STATE_XFORWARD_IDENT) ? \
-	    (s)->queue_id : (s)->ident)
+ /*
+  * Mixing is not a problem with forwarded local message identifiers.
+  */
+#define HAVE_FORWARDED_IDENT(s) \
+	((s)->xforward.ident != 0)
 
+#define FORWARD_IDENT(s) \
+	(HAVE_FORWARDED_IDENT(s) ? \
+	    (s)->xforward.ident : (s)->queue_id)
+
+ /*
+  * Mixing is not a problem with forwarded address rewriting contexts.
+  */
 #define FORWARD_DOMAIN(s) \
 	(((s)->xforward.flags & SMTPD_STATE_XFORWARD_DOMAIN) ? \
 	    (s)->xforward.domain : (s)->rewrite_context)
@@ -337,6 +370,11 @@ extern int smtpd_input_transp_mask;
   * More Milter support.
   */
 extern MILTERS *smtpd_milters;
+
+ /*
+  * Message size multiplication factor for free space check.
+  */
+extern double smtpd_space_multf;
 
 #ifdef __APPLE_OS_X_SERVER__
 #define PW_SERVER_NONE			0x0000

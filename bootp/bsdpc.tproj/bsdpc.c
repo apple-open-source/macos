@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -212,12 +212,11 @@ static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 {
     CFIndex		l;
-    CFIndex		n;
     CFRange		range;
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
-    n = CFStringGetBytes(cfstr, range, kCFStringEncodingUTF8,
-			 '?', TRUE, (UInt8 *)str, len, &l);
+    (void)CFStringGetBytes(cfstr, range, kCFStringEncodingUTF8,
+			   '?', TRUE, (UInt8 *)str, len, &l);
     str[l] = '\0';
     return (l);
 }

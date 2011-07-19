@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,15 +26,16 @@
 #ifndef PurgeableBuffer_h
 #define PurgeableBuffer_h
 
-#include <wtf/Noncopyable.h>
+#include "PurgePriority.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
     
-    class PurgeableBuffer : public Noncopyable {
+    class PurgeableBuffer {
+        WTF_MAKE_NONCOPYABLE(PurgeableBuffer);
     public:
-        static PurgeableBuffer* create(const char* data, size_t);
-        static PurgeableBuffer* create(const Vector<char>& v) { return create(v.data(), v.size()); }
+        static PassOwnPtr<PurgeableBuffer> create(const char* data, size_t);
         
         ~PurgeableBuffer();
 
@@ -42,9 +43,8 @@ namespace WebCore {
         const char* data() const;
         size_t size() const { return m_size; }
         
-        enum PurgePriority { PurgeLast, PurgeMiddle, PurgeFirst, PurgeDefault = PurgeMiddle };
         PurgePriority purgePriority() const { return m_purgePriority; }
-        void setPurgePriority(PurgePriority);
+        void setPurgePriority(PurgePriority priority) { m_purgePriority = priority; }
         
         bool isPurgeable() const { return m_state != NonVolatile; }
         bool wasPurged() const;
@@ -62,11 +62,10 @@ namespace WebCore {
         mutable State m_state;
     };
 
-#if !OS(DARWIN) || defined(BUILDING_ON_TIGER) || PLATFORM(QT) || PLATFORM(GTK)
-    inline PurgeableBuffer* PurgeableBuffer::create(const char*, size_t) { return 0; }
+#if !ENABLE(PURGEABLE_MEMORY)
+    inline PassOwnPtr<PurgeableBuffer> PurgeableBuffer::create(const char*, size_t) { return nullptr; }
     inline PurgeableBuffer::~PurgeableBuffer() { }
     inline const char* PurgeableBuffer::data() const { return 0; }
-    inline void PurgeableBuffer::setPurgePriority(PurgePriority) { }
     inline bool PurgeableBuffer::wasPurged() const { return false; }
     inline bool PurgeableBuffer::makePurgeable(bool) { return false; }
 #endif

@@ -1,5 +1,162 @@
-What is new in Tablelist 4.10?
+What is new in Tablelist 5.1?
+-----------------------------
+
+This is a bugfix-only release.  The corrected files in the "scripts"
+directory are "tablelistBind.tcl", "tablelistSort.tcl",
+"tablelistUtil.tcl", and "tablelistWidget.tcl".
+
+1. Fixed a bug related to item deletion, introduced in the previous
+   Tablelist version (thanks to Aric Bills and Roger Niva for their bug
+   reports).
+
+2. Fixed a bug related to multi-column sorting, introduced in the
+   previous Tablelist version (thanks to Albrecht Mucha for his bug
+   report).
+
+3. Fixed a long-standing bug related to column deletion (thanks to
+   Liang Sian Yin for his bug report).
+
+4. Fixed a few further minor bugs and typos, introduced in the previous
+   Tablelist version (thanks to Patrick Fradin, Roger Niva, Harald
+   Oehlmann, and Peter Spjuth for their bug reports).
+
+What was new in Tablelist 5.0?
 ------------------------------
+
+1.  A tablelist widget is now not only a multi-column listbox, but also
+    a multi-column tree widget (thanks to Sebastien Barre, Tillmann
+    Basien, Jos Decoster, Dr. Detlef Groth, Kai Morich, Georgios
+    Petasis, and Kevin Walzer for their proposals, as well as to Paul
+    Obermeier for testing the preliminary version).  This is achieved
+    with the aid of the new configuration options "-collapsecommand",
+    "-expandcommand", "-treecolumn", and "-treestyle", along with the
+    new subcommands "childcount", "childindex", "childkeys", "collapse",
+    "collapseall", "depth", "descendantcount", "expand", "expandall",
+    "expandedkeys", "insertchild(ren)", "insertchildlist", "noderow",
+    "parentkey", and "toplevelkey".
+
+2.  Added the "-editselectedonly" configuration option, related to
+    starting the interactive cell editing with mouse button 1 (thanks to
+    Julian H J Loaring for discussions on this topic).
+
+3.  New values "flat6x4", "flat9x7", and "flat10x6" for the
+    "-arrowstyle" configuration option.
+
+4.  New value "asciinocase" for the "-sortmode" column configuration
+    option.
+
+5.  New subcommands "applysorting", "getfullkeys", and "refreshsorting".
+
+6.  Two new demo scripts (and their tile-based counterparts)
+    illustrating the use of a tablelist as multi-column tree widget.
+
+7.  The subcommands "insert", "insertlist", "insertchild(ren)", and
+    "insertchildlist" now return the list of full keys corresponding to
+    the items just inserted.
+
+8.  Fixed a long-standing bug related to the "-labelfont" option (thanks
+    to Jacek Jendrysik for his bug report).
+
+9.  Fixed a bug related to the "-text" column configuration option
+    (thanks to Paul Obermeier for his bug report).
+
+10. Fixed a long-standing bug related to embedded windows in right-
+    aligned columns (thanks to Jerzy Witkowski for his bug report).
+
+11. Numerous further improvements in the code and documentation.
+
+What was new in Tablelist 4.12?
+-------------------------------
+
+1.  Added the "labeltag" subcommand and the helper command "tablelist::
+    getTablelistColumn", designed to be used in non-default binding
+    scripts for the header labels.
+
+2.  Support for interactive cell editing with the aid of the tile
+    spinbox widget.  The demo script "tileWidgets.tcl" now uses this
+    widget when available.
+
+3.  Support for interactive cell editing with the aid of the new mentry
+    widget for IPv6 addresses.
+
+4.  Improved the support for Windows Vista and added explicit support
+    for the "vista" theme.
+
+5.  Updated the support for the themes "plastik" and "keramik"; added
+    support for the "keramik_alt" theme.
+
+6.  Support for the native "Aqua-blue" background, set for the header
+    label of the sort column (thanks to Kewin Walzer for his proposal
+    and valuable contribution).  For technical reasons, this feature is
+    only supported for Mac-Tk versions using Cocoa.
+
+7.  Further improvements in the support for Mac OS X Aqua (thanks to
+    Daniel Steffen and Kewin Walzer for their valuable feedback).
+
+8.  Improvements in the binding scripts related to interactive cell
+    editing (thanks to Hadas Porat for discussions on this subject).
+
+9.  The binding for the <Double-Button-1> event in the resize area of a
+    column header now works as expected for large lists, too.
+
+10. Eliminated a minor regression related to interactive cell editing,
+    introduced in the previous Tablelist version (thanks to Kai Morich
+    for his valuable input).
+
+11. Fixed a small bug related to interactive cell editing with the aid
+    of a text widget (thanks to Bryan Oakley for his bug report and
+    valuable suggestion).
+
+12. Fixed a long-standing bug related to the "-listvariable" option in
+    disabled state (thanks to Ralf Fassel for his bug report).
+
+13. Added a version-related hint to the "How to use it?" section of the
+    Tablelist Programmer's Guide.
+
+What was new in Tablelist 4.11?
+-------------------------------
+
+1.  Added the "-columntitles" configuration option, which is mainly a
+    simplified form of the "-columns" option (thanks to Roy Terry for
+    his proposal).
+
+2.  Added the virtual events <<TablelistColHiddenStateChanged>> and
+    <<TablelistRowHiddenStateChanged>>, generated after toggling the
+    hidden state of a column or row, respectively (thanks to Jeff 
+    Godfrey for his proposal).
+
+3.  Besides with <Button-3>, the optimal column width can now be set
+    with <Double-Button-1> in the resize area of the column's header.
+    Similarly, the effect of <Shift-Button-3> can also be achieved with
+    <Shuft-Double-Button-1> in the column label's resize area.
+
+4.  Support for Windows Vista (thanks to Jeremy Cowgar for his input).
+
+5.  The recommended package name is now "tablelist" rather than
+    "Tablelist", for compatibility with the ActiveTcl distribution; the
+    demo scripts have been changed accordingly.
+
+6.  Made sure that the "-tooltipdelcommand" configuration option won't
+    affect other widgets (thanks to Jeff Godfrey for drawing my
+    attention to this issue).
+
+7.  Fixed a long-standing nasty bug related to the "yview" subcommand
+    (thanks to Nestor Patino for his bug report and very helpful example
+    script).
+
+8.  Fixed two bugs related to the "-listvariable" configuration option
+    (again, thanks to Nestor Patino for his valuable input).
+
+9.  Fixed a bug related to the item deletion when using Tcl/Tk 8.5
+    (thanks to Jos Decoster and Sven Wuytack for their valuable
+    contribution to finding and fixing this bug).
+
+10. Fixed a bug related to the "-windowdestroy" cell configuration
+    option, introduced in Tablelist 4.9 (thanks to Sebastien Barre for
+    his bug report).
+
+What was new in Tablelist 4.10?
+-------------------------------
 
 1.  Support for individual binding scripts controlling the interactive
     cell editing, with the aid of the new "editwintag" subcommand

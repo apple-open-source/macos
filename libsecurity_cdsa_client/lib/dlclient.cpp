@@ -108,7 +108,7 @@ DbImpl::open()
 	{
 		assert(mDbInfo == nil);
 		mHandle.DLHandle = dl()->handle();
-		check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.dbName(), dbLocation(),
+		check(CSSM_DL_DbOpen(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
 								mAccessRequest, mAccessCredentials,
 								mOpenParameters, &mHandle.DBHandle));
 		mActive = true;
@@ -136,7 +136,7 @@ DbImpl::createWithBlob(CssmData &blob)
 	// create a parameter block for our call to the passthrough
 	CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS params;
 	
-	params.dbName = mDbName.dbName ();
+	params.dbName = mDbName.canonicalName ();
 	params.dbLocation = dbLocation ();
 	params.dbInfo = mDbInfo;
 	params.accessRequest = mAccessRequest;
@@ -162,11 +162,11 @@ DbImpl::create()
 	
 	if (!mResourceControlContext && mAccessCredentials) {
 		AclFactory::AnyResourceContext ctx(mAccessCredentials);
-		check(CSSM_DL_DbCreate(mHandle.DLHandle, mDbName.dbName(), dbLocation(),
+		check(CSSM_DL_DbCreate(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
 							mDbInfo, mAccessRequest, &ctx,
 							mOpenParameters, &mHandle.DBHandle));
 	} else {
-		check(CSSM_DL_DbCreate(mHandle.DLHandle, mDbName.dbName(), dbLocation(),
+		check(CSSM_DL_DbCreate(mHandle.DLHandle, mDbName.canonicalName(), dbLocation(),
 							mDbInfo, mAccessRequest, mResourceControlContext,
 							mOpenParameters, &mHandle.DBHandle));
 	}
@@ -211,7 +211,7 @@ DbImpl::deleteDb()
 	// Deactivate so the db gets closed if it was open.
 	deactivate();
 	// This call does not require the receiver to be active.
-	check(CSSM_DL_DbDelete(dl()->handle(), mDbName.dbName(), dbLocation(),
+	check(CSSM_DL_DbDelete(dl()->handle(), mDbName.canonicalName(), dbLocation(),
 						   mAccessCredentials));
 }
 
@@ -220,7 +220,7 @@ DbImpl::rename(const char *newName)
 {
 	// Deactivate so the db gets closed if it was open.
 	deactivate();
-    if (::rename(mDbName.dbName(), newName))
+    if (::rename(mDbName.canonicalName(), newName))
 		UnixError::throwMe(errno);
 
 	// Change our DbName to reflect this rename.
@@ -270,7 +270,7 @@ DbImpl::name()
 		mUseNameFromHandle = false;
 	}
 
-	return mDbName.dbName();
+	return mDbName.canonicalName();
 }
 
 void
@@ -581,7 +581,7 @@ DbImpl::dlDbIdentifier()
 {
 	// Always use the same dbName and dbLocation that were passed in during
 	// construction
-	return DLDbIdentifier(dl()->subserviceUid(), mDbName.dbName(), dbLocation());
+	return DLDbIdentifier(dl()->subserviceUid(), mDbName.canonicalName(), dbLocation());
 }
 
 
@@ -659,6 +659,11 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 		}
 	}
 
+	if (result != CSSM_OK && attributes != NULL)
+	{
+		attributes->invalidate();
+	}
+	
 	if (result == CSSMERR_DL_ENDOFDATA)
 	{
 		mActive = false;
@@ -790,9 +795,14 @@ DbUniqueRecordImpl::get(DbAttributes *attributes,
 											attributes,
 											data);
 											
-	if (result != CSSM_OK && data != NULL) // the data returned is no longer valid
+	if (result != CSSM_OK)
 	{
-		data->invalidate ();
+        if (attributes)
+            attributes->invalidate();
+		if (data != NULL) // the data returned is no longer valid
+		{
+			data->invalidate ();
+		}
 	}
 	
 	check(result);

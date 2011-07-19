@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,6 +78,8 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 		return FALSE;
 	}
 
+    retry :
+
 	/* send the key & data to the server */
 	status = configadd_s(storePrivate->server,
 			     myKeyRef,
@@ -87,12 +89,8 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 			     &newInstance,
 			     (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfKey);
-	CFRelease(xmlData);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -100,9 +98,17 @@ SCDynamicStoreAddTemporaryValue(SCDynamicStoreRef store, CFStringRef key, CFProp
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreAddTemporaryValue configadd_s(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
+
+	/* clean up */
+	CFRelease(utfKey);
+	CFRelease(xmlData);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
@@ -151,6 +157,8 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 		return FALSE;
 	}
 
+    retry :
+
 	/* send the key & data to the server */
 	status = configadd(storePrivate->server,
 			   myKeyRef,
@@ -160,12 +168,8 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 			   &newInstance,
 			   (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfKey);
-	CFRelease(xmlData);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -173,9 +177,17 @@ SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreAddValue configadd(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
+
+	/* clean up */
+	CFRelease(utfKey);
+	CFRelease(xmlData);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

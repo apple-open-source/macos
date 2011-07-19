@@ -1,5 +1,5 @@
-#ifndef __LIB_CURL_SETUP_H
-#define __LIB_CURL_SETUP_H
+#ifndef HEADER_CURL_LIB_SETUP_H
+#define HEADER_CURL_LIB_SETUP_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: setup.h,v 1.171 2009-10-27 16:38:42 yangtse Exp $
  ***************************************************************************/
 
 /*
@@ -84,6 +83,17 @@
 /* before this point. As a result of all this we frown inclusion of */
 /* system header files in our config files, avoid this at any cost. */
 /* ================================================================ */
+
+/*
+ * AIX 4.3 and newer needs _THREAD_SAFE defined to build
+ * proper reentrant code. Others may also need it.
+ */
+
+#ifdef NEED_THREAD_SAFE
+#  ifndef _THREAD_SAFE
+#    define _THREAD_SAFE
+#  endif
+#endif
 
 /*
  * Tru64 needs _REENTRANT set for a few function prototypes and
@@ -152,12 +162,35 @@
  */
 
 #ifdef HTTP_ONLY
-#  define CURL_DISABLE_TFTP
-#  define CURL_DISABLE_FTP
-#  define CURL_DISABLE_LDAP
-#  define CURL_DISABLE_TELNET
-#  define CURL_DISABLE_DICT
-#  define CURL_DISABLE_FILE
+#  ifndef CURL_DISABLE_TFTP
+#    define CURL_DISABLE_TFTP
+#  endif
+#  ifndef CURL_DISABLE_FTP
+#    define CURL_DISABLE_FTP
+#  endif
+#  ifndef CURL_DISABLE_LDAP
+#    define CURL_DISABLE_LDAP
+#  endif
+#  ifndef CURL_DISABLE_TELNET
+#    define CURL_DISABLE_TELNET
+#  endif
+#  ifndef CURL_DISABLE_DICT
+#    define CURL_DISABLE_DICT
+#  endif
+#  ifndef CURL_DISABLE_FILE
+#    define CURL_DISABLE_FILE
+#  endif
+#  ifndef CURL_DISABLE_RTSP
+#    define CURL_DISABLE_RTSP
+#  endif
+#endif
+
+/*
+ * When http is disabled rtsp is not supported.
+ */
+
+#if defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_RTSP)
+#  define CURL_DISABLE_RTSP
 #endif
 
 /* ================================================================ */
@@ -315,7 +348,7 @@
  */
 
 #ifndef SIZEOF_OFF_T
-#  if defined(__VMS) && (defined(__alpha) || defined(__ia64))
+#  if defined(__VMS) && !defined(__VAX)
 #    if defined(_LARGEFILE)
 #      define SIZEOF_OFF_T 8
 #    endif
@@ -334,6 +367,18 @@
 #  endif
 #  ifndef SIZEOF_OFF_T
 #    define SIZEOF_OFF_T 4
+#  endif
+#endif
+
+/*
+ * Arg 2 type for gethostname in case it hasn't been defined in config file.
+ */
+
+#ifndef GETHOSTNAME_TYPE_ARG2
+#  ifdef USE_WINSOCK
+#    define GETHOSTNAME_TYPE_ARG2 int
+#  else
+#    define GETHOSTNAME_TYPE_ARG2 size_t
 #  endif
 #endif
 
@@ -387,22 +432,67 @@
 
 #endif /* WIN32 */
 
-#if defined(WIN32) && !defined(__CYGWIN__) && !defined(USE_ARES) && \
-    !defined(__LCC__)  /* lcc-win32 doesn't have _beginthreadex() */
-#ifdef ENABLE_IPV6
-#define USE_THREADING_GETADDRINFO
-#else
-#define USE_THREADING_GETHOSTBYNAME  /* Cygwin uses alarm() function */
-#endif
+/*
+ * msvc 6.0 requires PSDK in order to have INET6_ADDRSTRLEN
+ * defined in ws2tcpip.h as well as to provide IPv6 support.
+ */
+
+#if defined(_MSC_VER) && !defined(__POCC__)
+#  if !defined(HAVE_WS2TCPIP_H) || \
+     ((_MSC_VER < 1300) && !defined(INET6_ADDRSTRLEN))
+#    undef HAVE_GETADDRINFO_THREADSAFE
+#    undef HAVE_FREEADDRINFO
+#    undef HAVE_GETADDRINFO
+#    undef HAVE_GETNAMEINFO
+#    undef ENABLE_IPV6
+#  endif
 #endif
 
-/* "cl -ML" or "cl -MLd" implies a single-threaded runtime library where
-   _beginthreadex() is not available */
-#if (defined(_MSC_VER) && !defined(__POCC__)) && !defined(_MT) && !defined(USE_ARES)
-#undef USE_THREADING_GETADDRINFO
-#undef USE_THREADING_GETHOSTBYNAME
-#define CURL_NO__BEGINTHREADEX
+/* ---------------------------------------------------------------- */
+/*             resolver specialty compile-time defines              */
+/*         CURLRES_* defines to use in the host*.c sources          */
+/* ---------------------------------------------------------------- */
+
+/*
+ * lcc-win32 doesn't have _beginthreadex(), lacks threads support.
+ */
+
+#if defined(__LCC__) && defined(WIN32)
+#  undef USE_THREADS_POSIX
+#  undef USE_THREADS_WIN32
 #endif
+
+/*
+ * MSVC threads support requires a multi-threaded runtime library.
+ * _beginthreadex() is not available in single-threaded ones.
+ */
+
+#if defined(_MSC_VER) && !defined(__POCC__) && !defined(_MT)
+#  undef USE_THREADS_POSIX
+#  undef USE_THREADS_WIN32
+#endif
+
+/*
+ * Mutually exclusive CURLRES_* definitions.
+ */
+
+#ifdef USE_ARES
+#  define CURLRES_ASYNCH
+#  define CURLRES_ARES
+#elif defined(USE_THREADS_POSIX) || defined(USE_THREADS_WIN32)
+#  define CURLRES_ASYNCH
+#  define CURLRES_THREADED
+#else
+#  define CURLRES_SYNCH
+#endif
+
+#ifdef ENABLE_IPV6
+#  define CURLRES_IPV6
+#else
+#  define CURLRES_IPV4
+#endif
+
+/* ---------------------------------------------------------------- */
 
 /*
  * When using WINSOCK, TELNET protocol requires WINSOCK2 API.
@@ -425,20 +515,6 @@
 #endif
 
 /*
- * msvc 6.0 requires PSDK in order to have INET6_ADDRSTRLEN
- * defined in ws2tcpip.h as well as to provide IPv6 support.
- */
-
-#if defined(_MSC_VER) && !defined(__POCC__)
-#  if !defined(HAVE_WS2TCPIP_H) || ((_MSC_VER < 1300) && !defined(INET6_ADDRSTRLEN))
-#    undef HAVE_FREEADDRINFO
-#    undef HAVE_GETADDRINFO
-#    undef HAVE_GETNAMEINFO
-#    undef ENABLE_IPV6
-#  endif
-#endif
-
-/*
  * Intentionally fail to build when using msvc 6.0 without PSDK installed.
  * The brave of heart can circumvent this, defining ALLOW_MSVC6_WITHOUT_PSDK
  * in lib/config-win32.h although absolutely discouraged and unsupported.
@@ -447,7 +523,7 @@
 #if defined(_MSC_VER) && !defined(__POCC__)
 #  if !defined(HAVE_WINDOWS_H) || ((_MSC_VER < 1300) && !defined(_FILETIME_))
 #    if !defined(ALLOW_MSVC6_WITHOUT_PSDK)
-#      error MSVC 6.0 requires 'February 2003 Platform SDK' a.k.a. 'Windows Server 2003 PSDK'
+#      error MSVC 6.0 requires "February 2003 Platform SDK" a.k.a. "Windows Server 2003 PSDK"
 #    else
 #      define CURL_DISABLE_LDAP 1
 #    endif
@@ -475,12 +551,16 @@ int netware_init(void);
 
 #define LIBIDN_REQUIRED_VERSION "0.4.1"
 
-#if defined(USE_GNUTLS) || defined(USE_SSLEAY) || defined(USE_NSS) || defined(USE_QSOSSL)
+#if defined(USE_GNUTLS) || defined(USE_SSLEAY) || defined(USE_NSS) || defined(USE_QSOSSL) || defined(USE_POLARSSL) || defined(USE_AXTLS)
 #define USE_SSL    /* SSL support has been enabled */
 #endif
 
+#if defined(HAVE_GSSAPI) || defined(USE_WINDOWS_SSPI)
+#define USE_HTTP_NEGOTIATE
+#endif
+
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_NTLM)
-#if defined(USE_SSLEAY) || defined(USE_WINDOWS_SSPI) || defined(USE_GNUTLS)
+#if defined(USE_SSLEAY) || defined(USE_WINDOWS_SSPI) || defined(USE_GNUTLS) || defined(USE_NSS)
 #define USE_NTLM
 #endif
 #endif
@@ -488,6 +568,11 @@ int netware_init(void);
 /* non-configure builds may define CURL_WANTS_CA_BUNDLE_ENV */
 #if defined(CURL_WANTS_CA_BUNDLE_ENV) && !defined(CURL_CA_BUNDLE)
 #define CURL_CA_BUNDLE getenv("CURL_CA_BUNDLE")
+#endif
+
+/* Define S_ISREG if not defined by system headers, f.e. MSVC */
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
 #endif
 
 /*
@@ -498,4 +583,4 @@ int netware_init(void);
 #include "setup_once.h"
 #endif
 
-#endif /* __LIB_CURL_SETUP_H */
+#endif /* HEADER_CURL_LIB_SETUP_H */

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2004-2008, International Business Machines
+*   Copyright (C) 2004-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -563,7 +563,7 @@ UnicodeString
 UXMLParser::scanContent(UErrorCode &status) {
     UnicodeString  result;
     if (mXMLCharData.lookingAt(fPos, status)) {
-        result = mXMLCharData.group(0, status);
+        result = mXMLCharData.group((int32_t)0, status);
         // Normalize the new-lines.  (Before char ref substitution)
         mNewLineNormalizer.reset(result);
         result = mNewLineNormalizer.replaceAll(fOneLF, status);
@@ -622,7 +622,7 @@ UXMLParser::replaceCharRefs(UnicodeString &s, UErrorCode &status) {
             // An unrecognized &entity;  Leave it alone.
             //  TODO:  check that it really looks like an entity, and is not some
             //         random & in the text.
-            replacement = mAmps.group(0, status);
+            replacement = mAmps.group((int32_t)0, status);
         }
         mAmps.appendReplacement(result, replacement, status);
     }
@@ -715,8 +715,9 @@ UXMLElement::appendText(UnicodeString &text, UBool recurse) const {
     int32_t i, count=fChildren.size();
     for(i=0; i<count; ++i) {
         node=(const UObject *)fChildren.elementAt(i);
-        if(node->getDynamicClassID()==UnicodeString::getStaticClassID()) {
-            text.append(*(const UnicodeString *)node);
+        const UnicodeString *s=dynamic_cast<const UnicodeString *>(node);
+        if(s!=NULL) {
+            text.append(*s);
         } else if(recurse) /* must be a UXMLElement */ {
             ((const UXMLElement *)node)->appendText(text, recurse);
         }
@@ -766,7 +767,7 @@ const UObject *
 UXMLElement::getChild(int32_t i, UXMLNodeType &type) const {
     if(0<=i && i<fChildren.size()) {
         const UObject *node=(const UObject *)fChildren.elementAt(i);
-        if(node->getDynamicClassID()==UXMLElement::getStaticClassID()) {
+        if(dynamic_cast<const UXMLElement *>(node)!=NULL) {
             type=UXML_NODE_TYPE_ELEMENT;
         } else {
             type=UXML_NODE_TYPE_STRING;
@@ -787,10 +788,9 @@ UXMLElement::nextChildElement(int32_t &i) const {
     int32_t count=fChildren.size();
     while(i<count) {
         node=(const UObject *)fChildren.elementAt(i++);
-        // TODO: see if ICU can use C++ instanceof instead of its own poor man's RTTI
-        // if(node instanceof UXMLElement) {
-        if(node->getDynamicClassID()==UXMLElement::getStaticClassID()) {
-            return (const UXMLElement *)node;
+        const UXMLElement *elem=dynamic_cast<const UXMLElement *>(node);
+        if(elem!=NULL) {
+            return elem;
         }
     }
     return NULL;
@@ -809,8 +809,8 @@ UXMLElement::getChildElement(const UnicodeString &name) const {
     int32_t i, count=fChildren.size();
     for(i=0; i<count; ++i) {
         node=(const UObject *)fChildren.elementAt(i);
-        if(node->getDynamicClassID()==UXMLElement::getStaticClassID()) {
-            const UXMLElement *elem=(const UXMLElement *)node;
+        const UXMLElement *elem=dynamic_cast<const UXMLElement *>(node);
+        if(elem!=NULL) {
             if(p==elem->fName) {
                 return elem;
             }

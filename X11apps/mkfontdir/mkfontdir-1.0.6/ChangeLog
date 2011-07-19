@@ -1,0 +1,353 @@
+commit 3122bbfac0a6ef937b0d3058bf65a901f420ec7d
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Nov 7 11:14:14 2010 -0800
+
+    Drop CVS version tag from mkfontdir.cpp too
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 5a57ccd8ee6f7b5692b2b3f9b3135c05282dae4b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Nov 7 11:12:11 2010 -0800
+
+    config: Add missing AC_CONFIG_SRCDIR
+    
+    Regroup AC statements under the Autoconf initialization section.
+    Regroup AM sttaements under the Automake initialization section.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8ee1e27b63c5f90bcf8a9b55b947f3b0a00eaf91
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Nov 7 11:10:09 2010 -0800
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_SED & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b03b1b175d551a4990d1c3ee2cf710592112095e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Nov 7 11:09:27 2010 -0800
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Enables use of platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 103f1b40357aee8099fd6071e11b710c516f6053
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 7 11:06:20 2010 -0800
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e252249722a5eda00bf6b10601d4dbdae9de1d00
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Tue Sep 28 13:29:49 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+
+commit 8fd1d5d18a567c46982e5c9f3918e24a38e7329e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:52 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit c6975a3be5cb34a3d1fd5bbf65816923bd5b2394
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:07 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 47b4daf16e246c1fc23073a5cc692da702dcc2d8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:38 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit c258f52cfb477d7bd48dca503b8a8842e6b17513
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:14 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit e8be20c2cd3ba3ac94b3a9d9b5a22b31aa2686a8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 22:47:34 2009 -0700
+
+    mkfontdir 1.0.5
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 006fa08ebb08b03b2c390c708e96d005f3613538
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 22:47:09 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ca2834cb13734a4a3fa7b44f00ae1d69f7b8d364
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:18 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 5cff04431124e447f3499850924601ae28d4fceb
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Fri Jan 16 20:11:47 2009 -0200
+
+    Use XORG_CHANGELOG to correct "make distcheck"
+
+commit ae3643d936ae4eed9d0b1dfa60fe83718a9987e8
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Thu Mar 6 16:47:38 2008 -0500
+
+    mkfontdir 1.0.4
+
+commit 24c0bbb24d2bc5aa37f4ef0bc79882d9ed48b94d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 11 12:40:52 2008 -0800
+
+    Fix formatting of man page so ellipsis are shown with Solaris nroff
+
+commit e5c6ba63b4848d6d747ef0af51f641d864ab75ea
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 11 12:39:00 2008 -0800
+
+    Fill in COPYING file with copyright/license notices
+
+commit 4b24431325f37f8c2b1489bf16790fdb2db4872b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Jan 7 14:16:07 2008 -0800
+
+    Add references to mkfontscale to man page
+    
+    Also convert (1) to (__appmansuffix__)
+
+commit b88571e67d65f0d6b98b49b955cd6750a1ff7c82
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:03 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 1c77c767024e60aac427c6c70a891f01ba2bcceb
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:05 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit fbe9cd99f9d96df07b0a499fefe5129ae8e1f715
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:28 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 980d8223e76c39bce7765cef5a15457b29a1176a
+Author: Jeremy C. Reed <reed@glacier.reedmedia.net>
+Date:   Wed Mar 21 16:06:59 2007 -0500
+
+    Bump version number. (No changes, but source tarball will
+    use recent util macros.)
+
+commit 8a0dcc73228a7efc59dbcc59401c68deb632c4a0
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Apr 2 00:38:25 2006 +0000
+
+    Bump to 1.0.2.
+
+commit 6c8aba9e4c5211eec5829f2fe4c60103439355dd
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Mar 5 19:52:51 2006 +0000
+
+    Let BSD make find mkfontdir.cpp when building in a separate obj dir
+
+commit 97ea84ce9da0e5aa8f98c008def6fcc20fd0f211
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:43 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 907ed17423b86fc13753540e9dcaa59c699163b0
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:41 2005 +0000
+
+    Stub COPYING files
+
+commit 3897b3a8ccd63807f813571175270f977e7de051
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:03 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit bc722dc4035ad4504c78ce80066827021f40724e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:17 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit bbba337b8317ea3ca7bae517b4fd84d77335e0a4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:16 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit d3ae95c6b1d87c5842ba011b353da4cadb9fb066
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:37 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 60da31432b2994b24a15d4bad6b99a49134e2fa1
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:56 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit b9eb4c859cc3b40a1b3500a759e3a9b4c0c5adf0
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:49 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit fa50ea85ba0e0fb5cea23f9b9965da091acdf3d0
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:49 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 8c7d262a193403bccdebc95abcdca44651d23ce7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:19 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 8595ad93606fd05002cdc61638002882b273438d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:41 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 16391b048755896eec71059f5b410e666f3199fb
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Tue Aug 2 01:58:09 2005 +0000
+
+    Find mkfontscale through @bindir@ rather than AC_PATH_PROG, since the one
+        in the path could be from an old install that doesn't support all the
+        needed flags.
+
+commit 77232fd7d2789345182dc8604c3f361d51283fb9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:29 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit ec144c204d5a94f13e472af21e3970e68171beae
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Thu Jul 14 20:59:48 2005 +0000
+
+    build fix for non-GNU make
+
+commit c234aba48a96ff7b63841227ba62abb821306231
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Jul 2 21:42:05 2005 +0000
+
+    Add build system for bdftopcf, mkfontdir and mkfontscale
+
+commit a6969b729206fd626562609348e0bff7c71939e2
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:36 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 572109412f1b8c3c835348e995c0de9283fc4d18
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:54 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit ed58ece79a71af17459bf70954e3902a7e4c624a
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:53 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit e5ec1a9dc8d2b70d5411ec7bcaeb4faa498515b0
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:15 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 8ce96bf2557fdf043e22efef53a882dd8d6a11e6
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:56 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 2a85fa572521b9ec3fb846f20d0fa192f23ba7ec
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 38106b47a4d9ae68758540e278f094712742467c
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:02 2003 +0000
+
+    Initial revision
+
+commit 4b54ae25437aaaa8ff02175d23835421bff22030
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:57 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 0d023fcb40ca4eea0a466dcb170fc3258dbdcf3c
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:53 2003 +0000
+
+    R6.6 is the Xorg base-line

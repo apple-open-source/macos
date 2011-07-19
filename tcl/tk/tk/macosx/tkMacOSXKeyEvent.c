@@ -107,6 +107,7 @@ static NSModalSession modalSession = NULL;
     }
 
     XEvent xEvent;
+    memset(&xEvent, 0, sizeof(XEvent));
     xEvent.xany.serial = LastKnownRequestProcessed(Tk_Display(tkwin));
     xEvent.xany.send_event = false;
     xEvent.xany.display = Tk_Display(tkwin);

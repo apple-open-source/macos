@@ -27,7 +27,195 @@
 #include "SecBridge.h"
 #include <sys/param.h>
 
+/* No restrictions. Permission to perform all operations on
+   the resource or available to an ACL owner.  */
+
+
+CFTypeRef kSecACLAuthorizationAny = (CFTypeRef)(CFSTR("ACLAuthorizationAny"));
+
+CFTypeRef kSecACLAuthorizationLogin = (CFTypeRef)(CFSTR("ACLAuthorizationLogin"));
+CFTypeRef kSecACLAuthorizationGenKey = (CFTypeRef)(CFSTR("ACLAuthorizationGenKey"));
+CFTypeRef kSecACLAuthorizationDelete = (CFTypeRef)(CFSTR("ACLAuthorizationDelete"));
+CFTypeRef kSecACLAuthorizationExportWrapped = (CFTypeRef)(CFSTR("ACLAuthorizationExportWrapped"));
+CFTypeRef kSecACLAuthorizationExportClear = (CFTypeRef)(CFSTR("ACLAuthorizationExportClear"));
+CFTypeRef kSecACLAuthorizationImportWrapped = (CFTypeRef)(CFSTR("ACLAuthorizationImportWrapped"));
+CFTypeRef kSecACLAuthorizationImportClear = (CFTypeRef)(CFSTR("ACLAuthorizationImportClear"));
+CFTypeRef kSecACLAuthorizationSign = (CFTypeRef)(CFSTR("ACLAuthorizationSign"));
+CFTypeRef kSecACLAuthorizationEncrypt = (CFTypeRef)(CFSTR("ACLAuthorizationEncrypt"));
+CFTypeRef kSecACLAuthorizationDecrypt = (CFTypeRef)(CFSTR("ACLAuthorizationDecrypt"));
+CFTypeRef kSecACLAuthorizationMAC = (CFTypeRef)(CFSTR("ACLAuthorizationMAC"));
+CFTypeRef kSecACLAuthorizationDerive = (CFTypeRef)(CFSTR("ACLAuthorizationDerive"));
+
+/* Defined authorization tag values for Keychain */
+
+
+	
+CFTypeRef kSecACLAuthorizationKeychainCreate = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainCreate"));
+CFTypeRef kSecACLAuthorizationKeychainDelete = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainDelete"));
+CFTypeRef kSecACLAuthorizationKeychainItemRead = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainItemRead"));
+CFTypeRef kSecACLAuthorizationKeychainItemInsert = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainItemInsert"));
+CFTypeRef kSecACLAuthorizationKeychainItemModify = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainItemModify"));
+CFTypeRef kSecACLAuthorizationKeychainItemDelete = (CFTypeRef)(CFSTR("ACLAuthorizationKeychainItemDelete"));
+
+CFTypeRef kSecACLAuthorizationChangeACL = (CFTypeRef)(CFSTR("ACLAuthorizationChangeACL"));
+CFTypeRef kSecACLAuthorizationChangeOwner = (CFTypeRef)(CFSTR("ACLAuthorizationChangeOwner"));
+
+
 static CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trustedAppListFileName);
+
+static CFStringRef gKeys[] = 
+{
+	(CFStringRef)kSecACLAuthorizationAny,
+	(CFStringRef)kSecACLAuthorizationLogin,
+	(CFStringRef)kSecACLAuthorizationGenKey,
+	(CFStringRef)kSecACLAuthorizationDelete,
+	(CFStringRef)kSecACLAuthorizationExportWrapped,
+	(CFStringRef)kSecACLAuthorizationExportClear,
+	(CFStringRef)kSecACLAuthorizationImportWrapped,
+	(CFStringRef)kSecACLAuthorizationImportClear,
+	(CFStringRef)kSecACLAuthorizationSign,
+	(CFStringRef)kSecACLAuthorizationEncrypt,
+	(CFStringRef)kSecACLAuthorizationDecrypt,
+	(CFStringRef)kSecACLAuthorizationMAC,
+	(CFStringRef)kSecACLAuthorizationDerive,
+
+	/* Defined authorization tag values for Keychain */
+	(CFStringRef)kSecACLAuthorizationKeychainCreate,
+	(CFStringRef)kSecACLAuthorizationKeychainDelete,
+	(CFStringRef)kSecACLAuthorizationKeychainItemRead,
+	(CFStringRef)kSecACLAuthorizationKeychainItemInsert,
+	(CFStringRef)kSecACLAuthorizationKeychainItemModify,
+	(CFStringRef)kSecACLAuthorizationKeychainItemDelete,
+	
+	(CFStringRef)kSecACLAuthorizationChangeACL,
+	(CFStringRef)kSecACLAuthorizationChangeOwner
+	
+};
+
+static sint32 gValues[] =
+{
+	CSSM_ACL_AUTHORIZATION_ANY,
+	CSSM_ACL_AUTHORIZATION_LOGIN,
+	CSSM_ACL_AUTHORIZATION_GENKEY,
+	CSSM_ACL_AUTHORIZATION_DELETE,
+	CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED,
+	CSSM_ACL_AUTHORIZATION_EXPORT_CLEAR,
+	CSSM_ACL_AUTHORIZATION_IMPORT_WRAPPED,
+	CSSM_ACL_AUTHORIZATION_IMPORT_CLEAR,
+	CSSM_ACL_AUTHORIZATION_SIGN,
+	CSSM_ACL_AUTHORIZATION_ENCRYPT,
+	CSSM_ACL_AUTHORIZATION_DECRYPT,
+	CSSM_ACL_AUTHORIZATION_MAC,
+	CSSM_ACL_AUTHORIZATION_DERIVE,
+	CSSM_ACL_AUTHORIZATION_DBS_CREATE,
+	CSSM_ACL_AUTHORIZATION_DBS_DELETE,
+	CSSM_ACL_AUTHORIZATION_DB_READ,
+	CSSM_ACL_AUTHORIZATION_DB_INSERT,
+	CSSM_ACL_AUTHORIZATION_DB_MODIFY,
+	CSSM_ACL_AUTHORIZATION_DB_DELETE,
+	CSSM_ACL_AUTHORIZATION_CHANGE_ACL,
+	CSSM_ACL_AUTHORIZATION_CHANGE_OWNER
+};
+
+CFDictionaryRef CreateStringToNumDictionary()
+{
+	int numItems = (sizeof(gValues) / sizeof(sint32));
+	CFMutableDictionaryRef tempDict = CFDictionaryCreateMutable(kCFAllocatorDefault, numItems, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);	
+	
+	for (int iCnt = 0; iCnt < numItems; iCnt++)
+	{
+		sint32 aNumber = gValues[iCnt];
+		CFNumberRef aNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &aNumber);
+				
+		CFStringRef aString = gKeys[iCnt];
+		CFDictionaryAddValue(tempDict, aString, aNum);
+		CFRelease(aNum);		
+	}
+	
+	CFDictionaryRef result = CFDictionaryCreateCopy(kCFAllocatorDefault, tempDict);
+	CFRelease(tempDict);
+	return result;
+	
+}
+
+CFDictionaryRef CreateNumToStringDictionary()
+{
+	int numItems = (sizeof(gValues) / sizeof(sint32));
+	
+	CFMutableDictionaryRef tempDict = CFDictionaryCreateMutable(kCFAllocatorDefault, numItems, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);	
+	
+	for (int iCnt = 0; iCnt < numItems; iCnt++)
+	{
+		sint32 aNumber = gValues[iCnt];
+		CFNumberRef aNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &aNumber);		
+		
+		CFStringRef aString = gKeys[iCnt];
+		CFDictionaryAddValue(tempDict, aNum, aString);
+		CFRelease(aNum);
+	
+	}
+	
+	CFDictionaryRef result = CFDictionaryCreateCopy(kCFAllocatorDefault, tempDict);
+	CFRelease(tempDict);
+	return result;
+}
+
+
+
+sint32 GetACLAuthorizationTagFromString(CFStringRef aclStr)
+{
+	if (NULL == aclStr)
+	{
+#ifndef NDEBUG
+		CFShow(CFSTR("GetACLAuthorizationTagFromString aclStr is NULL"));
+#endif
+		return 0;
+	}
+	
+	static CFDictionaryRef gACLMapping = NULL;
+	
+	if (NULL == gACLMapping)
+	{
+		gACLMapping = CreateStringToNumDictionary();
+	}
+			   
+	sint32 result = 0;
+	CFNumberRef valueResult = (CFNumberRef)CFDictionaryGetValue(gACLMapping, aclStr);
+	if (NULL != valueResult)
+	{
+		if (!CFNumberGetValue(valueResult, kCFNumberSInt32Type, &result))
+		{
+			return 0;
+		}
+	   
+	}
+	else
+	{
+		return 0;
+	}
+	
+	return result;
+		
+}
+
+CFStringRef GetAuthStringFromACLAuthorizationTag(sint32 tag)
+{
+	static CFDictionaryRef gTagMapping = NULL;
+	CFNumberRef aNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &tag);
+			
+	if (NULL == gTagMapping)
+	{
+		gTagMapping = CreateNumToStringDictionary();
+	}
+	
+	CFStringRef result = (CFStringRef)kSecACLAuthorizationAny;
+	
+	if (NULL != gTagMapping && CFDictionaryContainsKey(gTagMapping, aNum))
+	{
+		result = (CFStringRef)CFDictionaryGetValue(gTagMapping, aNum);
+	}
+	return result;
+}
 
 //
 // CF boilerplate
@@ -35,9 +223,7 @@ static CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringR
 CFTypeID SecAccessGetTypeID(void)
 {
 	BEGIN_SECAPI
-	
 	return gTypes().Access.typeID;
-	
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
 
@@ -82,6 +268,121 @@ OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner,
 	END_SECAPI
 }
 
+SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAccessOwnerType ownerType, CFArrayRef acls, CFErrorRef *error)
+{
+	SecAccessRef result = NULL;
+		
+	CSSM_ACL_PROCESS_SUBJECT_SELECTOR selector = 
+	{
+		CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,	// selector version
+		ownerType,	
+		userId,				
+		groupId					
+	};
+	
+	CSSM_LIST_ELEMENT subject2 = { NULL, 0 };
+	subject2.Element.Word.Data = (UInt8 *)&selector;
+	subject2.Element.Word.Length = sizeof(selector);
+	CSSM_LIST_ELEMENT subject1 = 
+	{
+		&subject2, CSSM_ACL_SUBJECT_TYPE_PROCESS, CSSM_LIST_ELEMENT_WORDID
+	};
+	
+	CFIndex numAcls = 0;
+	
+	if (NULL != acls)
+	{
+		numAcls = CFArrayGetCount(acls);
+	}	
+	
+#ifndef NDEBUG
+	CFStringRef debugStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, 
+		CFSTR("SecAccessCreateWithOwnerAndACL: processing %d acls"), numAcls);
+	CFShow(debugStr);
+	CFRelease(debugStr);
+#endif
+	
+	CSSM_ACL_AUTHORIZATION_TAG rights[numAcls];
+	memset(rights, 0, sizeof(rights));
+	
+	for (CFIndex iCnt = 0; iCnt < numAcls; iCnt++)
+	{
+		CFStringRef aclStr = (CFStringRef)CFArrayGetValueAtIndex(acls, iCnt);
+		
+#ifndef NDEBUG
+		debugStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, 
+			CFSTR("SecAccessCreateWithOwnerAndACL: acls[%d] = %@"), iCnt, aclStr);
+			
+		CFShow(debugStr);
+		CFRelease(debugStr);
+#endif
+		
+		CSSM_ACL_AUTHORIZATION_TAG aTag = GetACLAuthorizationTagFromString(aclStr);
+		
+#ifndef NDEBUG
+		debugStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, 
+			CFSTR("SecAccessCreateWithOwnerAndACL: rights[%d] = %d"), iCnt, aTag);
+			
+		CFShow(debugStr);
+		CFRelease(debugStr);
+#endif
+		
+		rights[iCnt] = aTag;
+	}
+	
+	
+	for (CFIndex iCnt = 0; iCnt < numAcls; iCnt++)
+	{
+#ifndef NDEBUG
+		debugStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, 
+			CFSTR("SecAccessCreateWithOwnerAndACL: rights[%d]  = %d"), iCnt, rights[iCnt]);
+			
+		CFShow(debugStr);
+		CFRelease(debugStr);
+#endif
+		
+
+	}
+	
+	CSSM_ACL_OWNER_PROTOTYPE owner = 
+	{
+		// TypedSubject
+		{ CSSM_LIST_TYPE_UNKNOWN, &subject1, &subject2 },
+		// Delegate
+		false
+	};
+	
+	
+	// ACL entries (any number, just one here)
+	CSSM_ACL_ENTRY_INFO acl_rights[] = 
+	{
+		{
+			// prototype
+			{
+				// TypedSubject
+				{ CSSM_LIST_TYPE_UNKNOWN, &subject1, &subject2 },
+				false,	// Delegate
+				// rights for this entry
+				{ sizeof(rights) / sizeof(rights[0]), rights },
+				// rest is defaulted
+			}
+		}
+	};
+	
+	OSStatus err = SecAccessCreateFromOwnerAndACL(&owner, 
+		sizeof(acl_rights) / sizeof(acl_rights[0]), acl_rights, &result);
+		
+	if (noErr != err)
+	{
+		result = NULL;
+		if (NULL != error)
+		{
+			*error  = CFErrorCreate(kCFAllocatorDefault, CFSTR("FIX ME"), err, NULL);
+   		}
+	}
+	return result;		
+}
+
 
 /*!
  */
@@ -95,6 +396,99 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef,
 	END_SECAPI
 }
 
+OSStatus SecAccessCopyOwnerAndACL(SecAccessRef accessRef, uid_t* userId, gid_t* groupId, SecAccessOwnerType* ownerType, CFArrayRef* aclList)
+{
+	CSSM_ACL_OWNER_PROTOTYPE_PTR owner = NULL;
+	CSSM_ACL_ENTRY_INFO_PTR acls = NULL;
+	uint32 aclCount = 0;
+	OSStatus result = SecAccessGetOwnerAndACL(accessRef, &owner, &aclCount, &acls);
+	if (noErr != result )
+	{
+		return result;
+	}
+	
+	if (NULL != owner)
+	{
+		CSSM_LIST_ELEMENT_PTR listHead = owner->TypedSubject.Head;
+		if (listHead != NULL && listHead->ElementType == CSSM_LIST_ELEMENT_WORDID)
+		{
+			CSSM_LIST_ELEMENT_PTR nextElement = listHead->NextElement;
+			if (listHead->WordID == CSSM_ACL_SUBJECT_TYPE_PROCESS && listHead->ElementType == CSSM_LIST_ELEMENT_WORDID)
+			{
+				// nextElement contains the required data
+				CSSM_ACL_PROCESS_SUBJECT_SELECTOR* selectorPtr = (CSSM_ACL_PROCESS_SUBJECT_SELECTOR*)nextElement->Element.Word.Data;
+				if (NULL != selectorPtr)
+				{
+					if (NULL != userId)
+					{
+						*userId = (uid_t)selectorPtr->uid;
+					}
+					
+					if (NULL != groupId)
+					{
+						*groupId = (gid_t)selectorPtr->gid;
+					}
+					
+					if (NULL != ownerType)
+					{
+						*ownerType = (SecAccessOwnerType)selectorPtr->mask;
+					}
+				}
+			}
+			
+		}
+		
+	}
+	
+	if (NULL != aclList)
+	{
+#ifndef NDEBUG
+		CFShow(CFSTR("SecAccessCopyOwnerAndACL: processing the ACL list"));
+#endif
+
+		CFMutableArrayRef stringArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+		CSSM_ACL_OWNER_PROTOTYPE_PTR protoPtr = NULL;
+		uint32 numAcls = 0L;
+		CSSM_ACL_ENTRY_INFO_PTR aclEntry = NULL;
+			
+		result = SecAccessGetOwnerAndACL(accessRef, &protoPtr, &numAcls, &aclEntry);
+		if (noErr == result)
+		{
+#ifndef NDEBUG
+			CFStringRef tempStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("SecAccessCopyOwnerAndACL: numAcls = %d"), numAcls);
+			CFShow(tempStr);
+			CFRelease(tempStr);
+#endif
+
+			for (uint32 iCnt = 0; iCnt < numAcls; iCnt++)
+			{
+				CSSM_ACL_ENTRY_PROTOTYPE prototype = aclEntry[iCnt].EntryPublicInfo;
+				CSSM_AUTHORIZATIONGROUP authGroup = prototype.Authorization;
+				int numAuthTags = (int)authGroup.NumberOfAuthTags;
+				
+				for (int jCnt = 0; jCnt < numAuthTags; jCnt++)
+				{
+					
+					sint32 aTag = authGroup.AuthTags[jCnt];
+					CFStringRef aString = GetAuthStringFromACLAuthorizationTag(aTag);
+										
+					CFArrayAppendValue(stringArray, aString);
+				}
+			}
+		}
+		
+		if (NULL != stringArray)
+		{
+			if (0 < CFArrayGetCount(stringArray))
+			{
+				*aclList = CFArrayCreateCopy(kCFAllocatorDefault, stringArray);
+			}
+			CFRelease(stringArray);
+		}
+	}
+	
+	return result;	
+}
 
 /*!
  */
@@ -116,6 +510,18 @@ OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef,
 	BEGIN_SECAPI
 	Required(aclList) = Access::required(accessRef)->copySecACLs(action);
 	END_SECAPI
+}
+
+CFArrayRef SecAccessCopyMatchingACLList(SecAccessRef accessRef, CFTypeRef authorizationTag)
+{
+	CFArrayRef result = NULL;
+	CSSM_ACL_AUTHORIZATION_TAG tag = GetACLAuthorizationTagFromString((CFStringRef)authorizationTag);
+	OSStatus err = SecAccessCopySelectedACLList(accessRef, tag, &result);
+	if (noErr != err)
+	{
+		result = NULL;
+	}
+	return result;
 }
 
 CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trustedAppListFileName)

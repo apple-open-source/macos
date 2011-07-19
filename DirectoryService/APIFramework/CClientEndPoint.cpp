@@ -42,7 +42,9 @@
 #include "DirServicesPriv.h"
 #include "PrivateTypes.h"
 #include "DSCThread.h"
+#ifndef DISABLE_SEARCH_PLUGIN
 #include "DirectoryServiceMIG.h"
+#endif
 
 #define kMsgSize	sizeof( sComData )
 #define kIPCMsgSize	sizeof( sIPCMsg )
@@ -93,6 +95,7 @@ CClientEndPoint::~CClientEndPoint ( void )
 
 SInt32 CClientEndPoint::Connect( void )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	SInt32			siResult	= eDSNoErr;
 	kern_return_t	kr			= KERN_FAILURE;
 	
@@ -138,6 +141,9 @@ tryAgain:
 	}
 	
 	return siResult;
+#else
+	return eServerSendError;
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -147,12 +153,14 @@ tryAgain:
 
 void CClientEndPoint::Disconnect( void )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	if ( fSessionPort != MACH_PORT_NULL )
 	{
 		dsmig_close_api_session( fSessionPort );
 		mach_port_deallocate( mach_task_self(), fSessionPort );
 		fSessionPort = MACH_PORT_NULL;
 	}
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -165,6 +173,7 @@ SInt32 CClientEndPoint::SendMessage( sComData *inMsg )
 	SInt32		result		= eServerSendError;
 	bool		bTryAgain	= false;
 	
+#ifndef DISABLE_SEARCH_PLUGIN
 	do
 	{
 		kern_return_t			kr			= MACH_SEND_INVALID_DEST;
@@ -247,6 +256,7 @@ SInt32 CClientEndPoint::SendMessage( sComData *inMsg )
 		}
 		
 	} while( bTryAgain );
+#endif
 		
 	return result;
 } // SendServerMessage

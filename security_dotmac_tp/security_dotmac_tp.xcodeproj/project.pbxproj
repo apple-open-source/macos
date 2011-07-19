@@ -336,12 +336,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 38498;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "dotmac_tp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
 				PRODUCT_NAME = dotmac_tp;
@@ -357,11 +358,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 38498;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "dotmac_tp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
 				OTHER_CFLAGS = "-DNDEBUG";
@@ -377,11 +379,12 @@
 		C27AD4680987FCE9001272E0 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 38498;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "dotmac_tp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
 				OTHER_CFLAGS = "-DNDEBUG";
@@ -399,7 +402,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 38498;
+				DYLIB_CURRENT_VERSION = 55000;
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
@@ -417,7 +420,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 38498;
+				DYLIB_CURRENT_VERSION = 55000;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				OTHER_CFLAGS = "-DNDEBUG";
@@ -434,7 +437,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 38498;
+				DYLIB_CURRENT_VERSION = 55000;
 				FRAMEWORK_VERSION = A;
 				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
 				PRODUCT_NAME = security_dotmac_tp;

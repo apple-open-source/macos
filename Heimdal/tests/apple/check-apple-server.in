@@ -1,0 +1,136 @@
+#!/bin/sh
+#
+# Copyright (c) 2006 - 2007 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Portions Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+
+env_setup="@env_setup@"
+confdir="@confdir@"
+testdir="@testdir@"
+
+if [ "$UID" != 0 ] ; then
+    echo "must run script as root since it create users"
+    exit 1
+fi
+
+mkdir -p $testdir 2> /dev/null
+
+R="HEIMDAL-SERVERNAME-TEST.APPLE.COM"
+
+. ${env_setup}
+
+KRB5_CONFIG="${1-${confdir}/krb5.conf}"
+export KRB5_CONFIG
+
+logfile=${testdir}/messages.log
+cache="FILE:${testdir}/cache.krb5"
+
+testfailed="echo test failed; cat ${logfile}; exit 1"
+
+kinit="${kinit} -c $cache"
+slapconfig="/usr/sbin/slapconfig"
+
+launchctl setenv MallocStackLoggingNoCompact 1
+launchctl setenv MallocErrorAbort 1
+
+
+rm -f ${testdir}/out-*
+
+> ${logfile}
+
+
+echo admin > ${testdir}/foopassword
+
+
+echo "Removing existing domain"
+${slapconfig} -destroyldapserver || exit 1
+
+pw=admin
+
+echo "Creating domain"
+cat > ${testdir}/setup.txt <<EOF
+expect Password
+password ${pw}\n
+EOF
+
+${rkpty} ${testdir}/setup.txt ${slapconfig} -createldapmasterandadmin diradmin ${pw} 1000 dc=heimdal-servername-test,dc=apple,dc=com ${R} || exit 1
+
+ec=0
+
+killall -9 kdc
+sleep 5
+
+for a in 1 2 3 4 5 6 7 8 9 10 ; do
+echo "Getting client initial tickets ${a}"; > ${logfile}
+    ${kinit} --password-file=${testdir}/foopassword diradmin@${R} ||
+	{ ec=1 ; eval "${testfailed}"; }
+done
+
+oldpw="${pw}"
+pw=ak4unandsop39NuJ
+
+echo "Changing password"
+cat > cpw.tmp <<EOF
+expect Password
+password ${oldpw}\n
+expect New password
+send ${pw}\n
+expect New password
+send ${pw}\n
+expect Success
+EOF
+
+${rkpty} cpw.tmp env ${kpasswd} diradmin@${R} || \
+{ ec=$? ; eval "${testfailed}"; }
+
+rm cpw.tmp
+
+echo ${pw} > ${testdir}/foopassword
+
+echo "Getting client initial tickets"; > ${logfile}
+${kinit} --password-file=${testdir}/foopassword diradmin@${R} ||  \
+   { ec=1 ; eval "${testfailed}"; }
+
+
+kdcpid=$(ps -ax -o pid,comm  | grep kdc | awk '{print $1}')
+echo "killing kdc (${kdcpid})"
+#kill $kdcpid
+#sleep 3
+#kill -9 $kdcpid
+sh ${leaks_kill} kdc $kdcpid || exit 1
+
+launchctl unsetenv MallocStackLoggingNoCompact
+launchctl unsetenv MallocErrorAbort
+
+trap "" EXIT
+
+exit $ec

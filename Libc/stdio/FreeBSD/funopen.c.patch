@@ -1,6 +1,6 @@
---- funopen.c.orig	2009-02-15 03:11:22.000000000 -0800
-+++ funopen.c	2009-02-15 14:02:06.000000000 -0800
-@@ -67,7 +67,8 @@ funopen(cookie, readfn, writefn, seekfn,
+--- funopen.c.bsdnew	2009-11-11 13:33:10.000000000 -0800
++++ funopen.c	2009-11-11 13:33:10.000000000 -0800
+@@ -63,7 +63,8 @@ funopen(cookie, readfn, writefn, seekfn,
  		else
  			flags = __SRW;		/* read-write */
  	}

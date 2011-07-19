@@ -1,15 +1,15 @@
---- _SB/Libc/stdio/FreeBSD/getc.3	2004-11-25 11:38:34.000000000 -0800
-+++ _SB/Libc/stdio/FreeBSD/getc.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -58,7 +58,7 @@
+--- getc.3.bsdnew	2009-11-11 13:33:11.000000000 -0800
++++ getc.3	2009-11-11 14:52:54.000000000 -0800
+@@ -54,7 +54,7 @@
  .Ft int
  .Fn getc_unlocked "FILE *stream"
  .Ft int
--.Fn getchar
+-.Fn getchar void
 +.Fn getchar "void"
  .Ft int
  .Fn getchar_unlocked "void"
  .Ft int
-@@ -145,7 +145,7 @@
+@@ -141,7 +141,7 @@ until the condition is cleared with
  .Sh STANDARDS
  The
  .Fn fgetc ,

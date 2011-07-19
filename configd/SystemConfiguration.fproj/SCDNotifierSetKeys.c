@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,7 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	xmlData_t			myPatternsRef	= NULL;	/* patterns (serialized) */
 	CFIndex				myPatternsLen	= 0;
 	int				sc_status;
+	CFMutableArrayRef		tmp;
 
 	if (store == NULL) {
 		/* sorry, you must provide a session */
@@ -64,7 +65,7 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	}
 
 	/* serialize the keys */
-	if (keys) {
+	if (keys != NULL) {
 		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
@@ -72,13 +73,15 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 	}
 
 	/* serialize the patterns */
-	if (patterns) {
+	if (patterns != NULL) {
 		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
-			CFRelease(xmlKeys);
+			if (xmlKeys != NULL) CFRelease(xmlKeys);
 			_SCErrorSet(kSCStatusFailed);
 			return FALSE;
 		}
 	}
+
+    retry :
 
 	/* send the keys and patterns, fetch the associated result from the server */
 	status = notifyset(storePrivate->server,
@@ -88,12 +91,8 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 			   myPatternsLen,
 			   (int *)&sc_status);
 
-	/* clean up */
-	if (xmlKeys)		CFRelease(xmlKeys);
-	if (xmlPatterns)	CFRelease(xmlPatterns);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -101,14 +100,31 @@ SCDynamicStoreSetNotificationKeys(SCDynamicStoreRef	store,
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreSetNotificationKeys notifyset(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
+
+	/* clean up */
+	if (xmlKeys != NULL)		CFRelease(xmlKeys);
+	if (xmlPatterns != NULL)	CFRelease(xmlPatterns);
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);
 		return FALSE;
 	}
+
+	/* in case we need to re-connect, save the keys/patterns */
+	tmp = (keys != NULL) ? CFArrayCreateMutableCopy(NULL, 0, keys) : NULL;
+	if (storePrivate->keys != NULL) CFRelease(storePrivate->keys);
+	storePrivate->keys = tmp;
+
+	tmp = (patterns != NULL) ? CFArrayCreateMutableCopy(NULL, 0, patterns) : NULL;
+	if (storePrivate->patterns != NULL) CFRelease(storePrivate->patterns);
+	storePrivate->patterns = tmp;
 
 	return TRUE;
 }

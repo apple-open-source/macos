@@ -1,8 +1,8 @@
 /*
  * node.c
  *
- * $Author: kojima1 $
- * $Date: 2007/03/09 23:41:58 $
+ * $Author: why $
+ * $Date: 2005-09-17 02:59:53 +0800 (六, 17  9 2005) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -99,13 +99,13 @@ syck_alloc_str()
 }
 
 SyckNode *
-syck_new_str( char *str, enum scalar_style style )
+syck_new_str( const char *str, enum scalar_style style )
 {
     return syck_new_str2( str, strlen( str ), style );
 }
 
 SyckNode *
-syck_new_str2( char *str, long len, enum scalar_style style )
+syck_new_str2( const char *str, long len, enum scalar_style style )
 {
     SyckNode *n;
 

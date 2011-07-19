@@ -98,7 +98,7 @@ Here is a quick example:
 
 =head2 64-bit Support
 
-In 10.5 "Leopard", Mac OS X provided both 32 and 64-bit support for libraries
+Since 10.5 "Leopard", Mac OS X provided both 32 and 64-bit support for libraries
 and frameworks, allowing both 32 and 64-bit applications to be written.
 While running perl (and all other command-line programs) remained 32-bit, the
 'libperl.dylib' library is 32/64 bits.
@@ -129,38 +129,36 @@ will build only 2-way universal.
 
 =head2 Multiple Version Support
 
-In 10.6 "SnowLeopard", multiple versions of perl are supported.
-This means that out of the box, the default version of perl is @VERSION5_10@.
+Since 10.6 "SnowLeopard", more than one version of perl are supported.
+So out of the box, the default version of perl is @VERSION_DEFAULT@.
 However, to provide backwards compatibility with previous versions of perl,
-especially for systems that have installed (version-specific) perl modules,
-'/usr/bin/perl' can be switched to use an older version, on a per-user or
+especially for systems that have installed (version-specific) perl modules, or
+to provide newer versions of perl that we aren't ready to make the default,
+'/usr/bin/perl' can be switched to use an alternate version, on a per-user or
 system-wide basis.
-The previous version of perl that is provided is @VERSION5_8@.
+The alternate version of perl that is provided is @VERSION_ALT@.
 
-Users can select the older version
+Users can select the alternate version
 by simply running the following command:
 
-    % defaults write com.apple.versioner.perl Version @VERSION5_8@
+    % defaults write com.apple.versioner.perl Version @VERSION_ALT@
 
-Subsequent invocations of '/usr/bin/perl' will then use the @VERSION5_8@ version.
+Subsequent invocations of '/usr/bin/perl' will then use the @VERSION_ALT@ version.
 
-In addition, perl @VERSION5_10@ will ship as a universal binary containing
+In addition, both perl versions will ship as a universal binary containing
 64-bit support, which will be on by default.
 For those cases where 32-bit perl is desired, the following command can
 be used:
 
     % defaults write com.apple.versioner.perl Prefer-32-Bit -bool yes
 
-(Since perl @VERSION5_8@ will only ship as a 32-bit universal binary, the
-"Prefer-32-Bit" setting makes no difference when Version is set to @VERSION5_8@.)
-
 To set defaults systemwide, use the above commands, but replace the third
 argument with '/Library/Preferences/com.apple.versioner.perl' (admin privileges
 will be required).
 
-The environment variables VERSIONER_PERL_VERSION and
+The environment variables VERSIONER_PERL_VERSION (set to one of the supported versions) and
 VERSIONER_PERL_PREFER_32_BIT (set to 'true', 'false', 'yes', 'no', '1' or '0')
-can also be set, and they have priority over the preference files.
+can also be set, and they override the settings in any preference files.
 
 Note: this may changes in future versions of Mac OS X, which may use
 an improved scheme for making such settings.
@@ -174,5 +172,5 @@ an improved scheme for making such settings.
 =head1 Other Mac OS X Specific Modules
 
 .
-/^Last modified /s/ [^ ]*$/ 2009-02-24./
+/^Last modified /s/ [^ ]*$/ 2010-04-17./
 w

@@ -37,14 +37,3 @@
      end
  
      def node_type
---- lib/rexml/text.rb.old	2007-11-17 00:08:29.000000000 +0100
-+++ lib/rexml/text.rb	2007-11-17 00:08:49.000000000 +0100
-@@ -286,7 +286,7 @@
-     EREFERENCE = /&(?!#{Entity::NAME};)/
-     # Escapes all possible entities
-     def Text::normalize( input, doctype=nil, entity_filter=nil )
--      copy = input
-+      copy = input.to_s
-       # Doing it like this rather than in a loop improves the speed
-       #copy = copy.gsub( EREFERENCE, '&amp;' )
-       copy = copy.gsub( "&", "&amp;" )

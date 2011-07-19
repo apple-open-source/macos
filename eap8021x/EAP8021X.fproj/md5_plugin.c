@@ -62,12 +62,12 @@ md5_request(EAPClientPluginDataRef plugin, const EAPPacketRef in_pkt_p)
     int				size;
 
     if (in_length < sizeof(*in_md5_p)) {
-	syslog(LOG_NOTICE, "md5_request: header too short (length %d < %d)",
+	syslog(LOG_NOTICE, "md5_request: header too short (length %d < %ld)",
 	       in_length, sizeof(*in_md5_p));
 	goto failed;
     }
     if (in_length < (sizeof(*in_md5_p) + in_md5_p->value_size)) {
-	syslog(LOG_NOTICE, "md5_request: value too short (length %d < %d)",
+	syslog(LOG_NOTICE, "md5_request: value too short (length %d < %ld)",
 	       in_length, sizeof(*in_md5_p) + in_md5_p->value_size);
 	goto failed;
     }

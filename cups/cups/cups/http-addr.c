@@ -19,6 +19,7 @@
  *   httpAddrLocalhost() - Check for the local loopback address.
  *   httpAddrLookup()    - Lookup the hostname associated with the address.
  *   _httpAddrPort()     - Get the port number associated with an address.
+ *   _httpAddrSetPort()  - Set the port number associated with an address.
  *   httpAddrString()    - Convert an IP address to a dotted string.
  *   httpGetHostByName() - Lookup a hostname or IP address, and return
  *                         address records for the specified name.
@@ -29,14 +30,16 @@
  * Include necessary headers...
  */
 
-#include "http-private.h"
-#include "globals.h"
-#include "debug.h"
-#include <stdlib.h>
-#include <stddef.h>
+#include "cups-private.h"
 #ifdef HAVE_RESOLV_H
 #  include <resolv.h>
 #endif /* HAVE_RESOLV_H */
+#ifdef HAVE_COREFOUNDATION
+#  include <CoreFoundation/CoreFoundation.h>
+#endif /* HAVE_COREFOUNDATION */
+#ifdef HAVE_SYSTEMCONFIGURATION
+#  include <SystemConfiguration/SystemConfiguration.h>
+#endif /* HAVE_SYSTEMCONFIGURATION */
 
 
 /*
@@ -312,6 +315,27 @@ _httpAddrPort(http_addr_t *addr)	/* I - Address */
     return (ntohs(addr->ipv4.sin_port));
   else
     return (ippPort());
+}
+
+
+/*
+ * '_httpAddrSetPort()' - Set the port number associated with an address.
+ */
+
+void
+_httpAddrSetPort(http_addr_t *addr,	/* I - Address */
+                 int         port)	/* I - Port */
+{
+  if (!addr || port <= 0)
+    return;
+
+#ifdef AF_INET6
+  if (addr->addr.sa_family == AF_INET6)
+    addr->ipv6.sin6_port = htons(port);
+  else
+#endif /* AF_INET6 */
+  if (addr->addr.sa_family == AF_INET)
+    addr->ipv4.sin_port = htons(port);
 }
 
 
@@ -595,9 +619,6 @@ httpGetHostname(http_t *http,		/* I - HTTP connection or NULL */
                 char   *s,		/* I - String buffer for name */
                 int    slen)		/* I - Size of buffer */
 {
-  struct hostent	*host;		/* Host entry to get FQDN */
-
-
   if (!s || slen <= 1)
     return (NULL);
 
@@ -619,12 +640,50 @@ httpGetHostname(http_t *http,		/* I - HTTP connection or NULL */
 
     if (!strchr(s, '.'))
     {
+#ifdef HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME
+     /*
+      * The hostname is not a FQDN, so use the local hostname from the
+      * SystemConfiguration framework...
+      */
+
+      SCDynamicStoreRef	sc = SCDynamicStoreCreate(kCFAllocatorDefault,
+                                                  CFSTR("libcups"), NULL, NULL);
+					/* System configuration data */
+      CFStringRef	local = sc ? SCDynamicStoreCopyLocalHostName(sc) : NULL;
+					/* Local host name */
+      char		localStr[1024];	/* Local host name C string */
+
+      if (local && CFStringGetCString(local, localStr, sizeof(localStr),
+                                      kCFStringEncodingUTF8))
+      {
+       /*
+        * Append ".local." to the hostname we get...
+	*/
+
+        snprintf(s, slen, "%s.local.", localStr);
+      }
+
+      if (local)
+        CFRelease(local);
+      if (sc)
+        CFRelease(sc);
+
+#else
      /*
       * The hostname is not a FQDN, so look it up...
       */
 
+      struct hostent	*host;		/* Host entry to get FQDN */
+
       if ((host = gethostbyname(s)) != NULL && host->h_name)
+      {
+       /*
+        * Use the resolved hostname...
+	*/
+
 	strlcpy(s, host->h_name, slen);
+      }
+#endif /* HAVE_SCDYNAMICSTORECOPYCOMPUTERNAME */
     }
   }
 

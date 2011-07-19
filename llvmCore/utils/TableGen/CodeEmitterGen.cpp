@@ -29,12 +29,14 @@ void CodeEmitterGen::reverseBits(std::vector<Record*> &Insts) {
         R->getName() == "DBG_LABEL" ||
         R->getName() == "EH_LABEL" ||
         R->getName() == "GC_LABEL" ||
-        R->getName() == "DECLARE" ||
+        R->getName() == "KILL" ||
         R->getName() == "EXTRACT_SUBREG" ||
         R->getName() == "INSERT_SUBREG" ||
         R->getName() == "IMPLICIT_DEF" ||
         R->getName() == "SUBREG_TO_REG" ||
-        R->getName() == "COPY_TO_REGCLASS") continue;
+        R->getName() == "COPY_TO_REGCLASS" ||
+        R->getName() == "DBG_VALUE" ||
+        R->getName() == "REG_SEQUENCE") continue;
 
     BitsInit *BI = R->getValueAsBitsInit("Inst");
 
@@ -75,7 +77,7 @@ int CodeEmitterGen::getVariableBit(const std::string &VarName,
 } 
 
 
-void CodeEmitterGen::run(std::ostream &o) {
+void CodeEmitterGen::run(raw_ostream &o) {
   CodeGenTarget Target;
   std::vector<Record*> Insts = Records.getAllDerivedDefinitions("Instruction");
   
@@ -85,8 +87,8 @@ void CodeEmitterGen::run(std::ostream &o) {
   EmitSourceFileHeader("Machine Code Emitter", o);
   std::string Namespace = Insts[0]->getValueAsString("Namespace") + "::";
   
-  std::vector<const CodeGenInstruction*> NumberedInstructions;
-  Target.getInstructionsByEnumValue(NumberedInstructions);
+  const std::vector<const CodeGenInstruction*> &NumberedInstructions =
+    Target.getInstructionsByEnumValue();
 
   // Emit function declaration
   o << "unsigned " << Target.getName() << "CodeEmitter::"
@@ -94,7 +96,7 @@ void CodeEmitterGen::run(std::ostream &o) {
 
   // Emit instruction base values
   o << "  static const unsigned InstBits[] = {\n";
-  for (std::vector<const CodeGenInstruction*>::iterator
+  for (std::vector<const CodeGenInstruction*>::const_iterator
           IN = NumberedInstructions.begin(),
           EN = NumberedInstructions.end();
        IN != EN; ++IN) {
@@ -106,12 +108,14 @@ void CodeEmitterGen::run(std::ostream &o) {
         R->getName() == "DBG_LABEL" ||
         R->getName() == "EH_LABEL" ||
         R->getName() == "GC_LABEL" ||
-        R->getName() == "DECLARE" ||
+        R->getName() == "KILL" ||
         R->getName() == "EXTRACT_SUBREG" ||
         R->getName() == "INSERT_SUBREG" ||
         R->getName() == "IMPLICIT_DEF" ||
         R->getName() == "SUBREG_TO_REG" ||
-        R->getName() == "COPY_TO_REGCLASS") {
+        R->getName() == "COPY_TO_REGCLASS" ||
+        R->getName() == "DBG_VALUE" ||
+        R->getName() == "REG_SEQUENCE") {
       o << "    0U,\n";
       continue;
     }
@@ -144,16 +148,18 @@ void CodeEmitterGen::run(std::ostream &o) {
         InstName == "DBG_LABEL"||
         InstName == "EH_LABEL"||
         InstName == "GC_LABEL"||
-        InstName == "DECLARE"||
+        InstName == "KILL"||
         InstName == "EXTRACT_SUBREG" ||
         InstName == "INSERT_SUBREG" ||
         InstName == "IMPLICIT_DEF" ||
         InstName == "SUBREG_TO_REG" ||
-        InstName == "COPY_TO_REGCLASS") continue;
+        InstName == "COPY_TO_REGCLASS" ||
+        InstName == "DBG_VALUE" ||
+        InstName == "REG_SEQUENCE") continue;
 
     BitsInit *BI = R->getValueAsBitsInit("Inst");
     const std::vector<RecordVal> &Vals = R->getValues();
-    CodeGenInstruction &CGI = Target.getInstruction(InstName);
+    CodeGenInstruction &CGI = Target.getInstruction(R);
     
     // Loop over all of the fields in the instruction, determining which are the
     // operands to the instruction.
@@ -243,8 +249,10 @@ void CodeEmitterGen::run(std::ostream &o) {
 
   // Default case: unhandled opcode
   o << "  default:\n"
-    << "    cerr << \"Not supported instr: \" << MI << \"\\n\";\n"
-    << "    abort();\n"
+    << "    std::string msg;\n"
+    << "    raw_string_ostream Msg(msg);\n"
+    << "    Msg << \"Not supported instr: \" << MI;\n"
+    << "    report_fatal_error(Msg.str());\n"
     << "  }\n"
     << "  return Value;\n"
     << "}\n\n";

@@ -1,0 +1,183 @@
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "XCOMPOSITE" "__libmansuffix__" "23 April 2007" "__vendorversion__" "X Composite Extension Library"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+Xcomposite \- X Composite Extension library
+.SH "SYNOPSIS"
+.PP
+\fB#include <X11/extensions/Xcomposite.h>\fR
+.HP 30
+\fBBool\ \fBXCompositeQueryExtension\fR\fR\fB(\fR\fB\fBDisplay\ *\fR\fR\fB\fIdpy\fR\fR\fB, \fR\fBint\ *\fR\fB\fIevent_base_return\fR\fR\fB, \fR\fBint\ *\fR\fB\fIerror_base_return\fR\fR\fB);\fR
+.HP 30
+\fBStatus\ \fBXCompositeQueryVersion\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBint\ *\fR\fB\fImajor_version_return\fR\fR\fB, \fR\fBint\ *\fR\fB\fIminor_version_return\fR\fR\fB);\fR
+.HP 22
+\fBint\ \fBXCompositeVersion\fR\fR\fB(\fR\fBvoid);\fR
+.HP 30
+\fBvoid\ \fBXCompositeRedirectWindow\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB, \fR\fBint\ \fR\fB\fIupdate\fR\fR\fB);\fR
+.HP 34
+\fBvoid\ \fBXCompositeRedirectSubwindows\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB, \fR\fBint\ \fR\fB\fIupdate\fR\fR\fB);\fR
+.HP 32
+\fBvoid\ \fBXCompositeUnredirectWindow\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB, \fR\fBint\ \fR\fB\fIupdate\fR\fR\fB);\fR
+.HP 36
+\fBvoid\ \fBXCompositeUnredirectSubwindows\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB, \fR\fBint\ \fR\fB\fIupdate\fR\fR\fB);\fR
+.HP 51
+\fBXserverRegion\ \fBXCompositeCreateRegionFromBorderClip\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB);\fR
+.HP 34
+\fBPixmap\ \fBXCompositeNameWindowPixmap\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB);\fR
+.HP 34
+\fBWindow\ \fBXCompositeGetOverlayWindow\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB);\fR
+.HP 36
+\fBvoid\ \fBXCompositeReleaseOverlayWindow\fR\fR\fB(\fR\fBDisplay\ *\fR\fB\fIdpy\fR\fR\fB, \fR\fBWindow\ \fR\fB\fIwindow\fR\fR\fB);\fR
+.SH "DESCRIPTION"
+.PP
+The composite extension provides several related mechanisms:
+.TP
+Per\-hierarchy storage
+The rendering of an entire hierarchy of windows is redirected to off\-screen storage. The pixels of that hierarchy are available whenever it is viewable. Storage is automatically reallocated when the top level window changes size. Contents beyond the geometry of the top window are not preserved.
+.TP
+Automatic shadow update
+When a hierarchy is rendered off\-screen, the X server provides an automatic mechanism for presenting those contents within the parent window. The implementation is free to make this update lag behind actual rendering operations by an unspecified amount of time. This automatic update mechanism may be disabled so that the parent window contents can be completely determined by an external application.
+.TP
+Composite Overlay Window
+Version 0.3 of the protocol adds the Composite Overlay Window, which provides compositing managers with a surface on which to draw without interference. This window is always above normal windows and is always below the screen saver window. It is an InputOutput window whose width and height are the screen dimensions. Its visual is the root visual and its border width is zero. Attempts to redirect it using the composite extension are ignored. This window does not appear in the reply of the QueryTree request. It is also an override redirect window. These last two features make it invisible to window managers and other X11 clients. The only way to access the XID of this window is via the CompositeGetOverlayWindow request. Initially, the Composite Overlay Window is unmapped.
+.TP
+Parent window clipping
+Version 0.4 of the protocol modifies the semantics of parent window clipping in the presence of manual redirected children. With this version, the area in the parent covered by manual redirected children is left in the parent clip list instead of being removed as in older versions.
+.PP
+Per\-hierarchy storage may be created for individual windows or for all children of a window. Manual shadow update may be selected by only a single application for each window; manual update may also be selected on a per\-window basis or for each child of a window. Detecting when to update may be done with the Damage extension.
+.PP
+The off\-screen storage includes the window contents, its borders and the contents of all descendants.
+.SH "ARGUMENTS"
+.PP
+.TP
+\fIdisplay\fR
+Pointer to the
+\fBDisplay\fR
+structure returned from
+\fBXOpenDisplay\fR
+for the connection to the X server.
+.TP
+\fIevent_base_return\fR
+Pointer to integer where the base value for Composite Extension events will be stored.
+.TP
+\fIerror_base_return\fR
+Pointer to integer where the base value for Composite Extension errors will be stored.
+.TP
+\fImajor_version_return\fR
+Pointer to integer where the major version of the Composite Extension supported by the X server will be stored.
+.TP
+\fIminor_version_return\fR
+Pointer to integer where the minor version of the Composite Extension supported by the X server will be stored.
+.TP
+\fIwindow\fR
+Specifies the window ID to operate on.
+.TP
+\fIupdate\fR
+Specifies the mode for updating the window contents. Must be either
+\fBCompositeRedirectAutomatic\fR
+or
+\fBCompositeRedirectManual\fR.
+.SH "FUNCTIONS"
+.PP
+.TP
+\fBXCompositeQueryExtension\fR
+\fBXCompositeQueryExtension\fR
+determines if the Composite Extension is available on the given display. It returns
+\fBTrue\fR
+if the extension is supported, otherwise
+\fBFalse\fR. If the extension is present, the base values for events and errors are returned, and can be used to decode incoming event and error values.
+.TP
+\fBXCompositeQueryVersion\fR
+\fBXCompositeQueryVersion\fR
+determines if the X Server supports a version of the X Composite Extension which is compatible with the client library. A non\-zero Status is returned if a compatible version of the extension is supported, otherwise a zero Status is returned. If the extension is supported, the major and minor version numbers are returned to indicate the level of Composite Extension support. No other XComposite functions (except XCompositeQueryExtension) may be called before this function. If a client violates this rule, the effects of all subsequent XComposite calls that it makes are undefined.
+.TP
+\fBXCompositeVersion\fR
+\fBXCompositeVersion\fR
+returns the version of the X Composite library. The version number is encoded as:
+(major * 10000) + (minor * 100) + revision
+.sp
+For example, version 1.4.6 would be encoded as the integer 10406.
+.TP
+\fBXCompositeRedirectWindow\fR
+\fBXCompositeRedirectWindow\fR
+requests the X server to direct the hierarchy starting at
+\fIwindow\fR
+to off\-screen storage. The
+\fIupdate\fR
+argument specifies whether the contents are mirrored to the parent window automatically or not. Only one client at a time may specify an update type of
+\fBCompositeRedirectManual\fR, another attempt will result in a
+BadAccess
+error. When all clients enabling redirection terminate, the redirection will automatically be disabled.
+.sp
+The root window may not be redirected. Doing so results in a
+BadMatch
+error. Specifying an invalid window id will result in a
+BadWindow
+error.
+.TP
+\fBXCompositeRedirectSubwindows\fR
+\fBXCompositeRedirectSubwindows\fR
+requests the X server to redirect hierarchies starting at all current and future children of
+\fIwindow\fR
+as in
+\fBXCompositeRedirectWindow\fR. If
+\fIupdate\fR
+is
+\fBCompositeRedirectManual\fR, then painting of the window background during window manipulation and ClearArea requests is inhibited.
+.TP
+\fBXCompositeUnredirectWindow\fR
+\fBXCompositeUnredirectWindow\fR
+requests the X server to terminate redirection of
+\fIwindow\fR. If the specified window was not selected for redirection by the current client, a
+BadValue
+error results.
+.TP
+\fBXCompositeUnredirectSubwindows\fR
+\fBXCompositeUnredirectWindow\fR
+requests the X server to terminate redirection of all children of
+\fIwindow\fR. If the specified window was not selected for sub\-redirection by the current client, a
+BadValue
+error results.
+.TP
+\fBXCompositeCreateRegionFromBorderClip\fR
+\fBXCompositeCreateRegionFromBorderClip\fR
+creates a region containing the "usual" border clip value; that is the area of the window clipped against siblings and the parent. This region can be used to restrict rendering to suitable areas while updating only a single window. The region is copied at the moment the request is executed; future changes to the window hierarchy will not be reflected in this region.
+.TP
+\fBXCompositeNameWindowPixmap\fR
+\fBXCompositeNameWindowPixmap\fR
+creates and returns a pixmap id that serves as a reference to the off\-screen storage for
+\fIwindow\fR. This pixmap will remain allocated until freed, even if the window is unmapped, reconfigured or destroyed. However, the window will get a new pixmap allocated each time it is mapped or resized, so this function will need to be reinvoked for the client to continue to refer to the storage holding the current window contents. Generates a
+BadMatch
+error if
+\fIwindow\fR
+is not redirected or is not visible.
+.sp
+The X server must support at least version 0.2 of the Composite Extension for
+\fBXCompositeNameWindowPixmap\fR.
+.TP
+\fBXCompositeGetOverlayWindow\fR
+\fBXCompositeGetOverlayWindow\fR
+returns the window ID of the Composite Overlay Window for the screen specified by the argument
+\fIwindow\fR. This function notifies the X server that the client wishes to use the Composite Overlay Window of this screen. If this Composite Overlay Window has not yet been mapped, it is mapped by this request.
+.sp
+The Composite Overlay Window for a particular screen will be unmapped when all clients who have called this function have either called
+\fBXCompositeReleaseOverlayWindow\fR
+for that screen, or terminated their connection to the X server.
+.sp
+The X server must support at least version 0.3 of the Composite Extension for
+\fBXCompositeGetOverlayWindow\fR.
+.TP
+\fBXCompositeReleaseOverlayWindow\fR
+This request specifies that the client is no longer using the Composite Overlay Window on the screen specified by the argument
+\fIwindow\fR. A screen's Composite Overlay Window is unmapped when there are no longer any clients using it.
+.sp
+The X server must support at least version 0.3 of the Composite Extension for
+\fBXCompositeReleaseOverlayWindow\fR.
+.SH "AUTHOR"
+Keith Packard <keithp@keithp.com>, Deron Johnson <deron.johnson@sun.com>. 

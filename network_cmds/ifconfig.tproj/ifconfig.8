@@ -120,7 +120,7 @@ slash notation) to include the netmask.
 That is, one can specify an address like
 .Li 192.168.0.1/16 .
 .Pp
-For
+For the
 .Dq inet6
 family, it is also possible to specify the prefix length using the slash
 notation, like
@@ -266,7 +266,6 @@ When an interface is marked
 the system will not attempt to
 transmit messages through that interface.
 If possible, the interface will be reset to disable reception as well.
-This action does not automatically disable routes using the interface.
 .It Cm ether
 Another name for the
 .Cm lladdr
@@ -298,15 +297,15 @@ of the interface to
 .Ar type .
 Some interfaces support the mutually exclusive use of one of several
 different physical media connectors.
-For example, a 10Mb/s Ethernet
+For example, a 10Mbit/s Ethernet
 interface might support the use of either
 .Tn AUI
 or twisted pair connectors.
 Setting the media type to
-.Dq 10base5/AUI
+.Cm 10base5/AUI
 would change the currently active connector to the AUI port.
 Setting it to
-.Dq 10baseT/UTP
+.Cm 10baseT/UTP
 would activate twisted pair.
 Refer to the interfaces' driver
 specific documentation or man page for a complete list of the
@@ -323,6 +322,59 @@ list of available options.
 .It Fl mediaopt Ar opts
 If the driver supports the media selection system, disable the
 specified media options on the interface.
+.It Cm rxcsum , txcsum
+If the driver supports user-configurable checksum offloading,
+enable receive (or transmit) checksum offloading on the interface.
+Some drivers may not be able to enable these flags independently
+of each other, so setting one may also set the other.
+The driver will offload as much checksum work as it can reliably
+support, the exact level of offloading varies between drivers.
+.It Fl rxcsum , txcsum
+If the driver supports user-configurable checksum offloading,
+disable receive (or transmit) checksum offloading on the interface.
+These settings may not always be independent of each other.
+.It Cm tso
+If the driver supports
+.Xr tcp 4
+segmentation offloading, enable TSO on the interface.
+Some drivers may not be able to support TSO for
+.Xr ip 4
+and
+.Xr ip6 4
+packets, so they may enable only one of them.
+.It Fl tso
+If the driver supports
+.Xr tcp 4
+segmentation offloading, disable TSO on the interface.
+It will always disable TSO for
+.Xr ip 4
+and
+.Xr ip6 4 .
+.It Cm lro
+If the driver supports
+.Xr tcp 4
+large receive offloading, enable LRO on the interface.
+.It Fl lro
+If the driver supports
+.Xr tcp 4
+large receive offloading, disable LRO on the interface.
+.It Cm av
+If supported by the driver, enable 802.1 AVB on the interface.
+.It Fl av
+If supported by the driver, disable 802.1 AVB on the interface.
+.It Cm vlanmtu , vlanhwtag
+If the driver offers user-configurable VLAN support, enable
+reception of extended frames or tag processing in hardware,
+respectively.
+Note that this must be issued on a physical interface associated with
+.Xr vlan 4 ,
+not on a
+.Xr vlan 4
+interface itself.
+.It Fl vlanmtu , vlanhwtag
+If the driver offers user-configurable VLAN support, disable
+reception of extended frames or tag processing in hardware,
+respectively.
 .It Cm create
 Create the specified network pseudo-device.
 If the interface is given without a unit number, try to create a new

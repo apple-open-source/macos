@@ -1,0 +1,36 @@
+/*!
+    @framework HeaderDoc Source Code Documentation
+    @discussion
+	This page documents the internals of the HeaderDoc family
+        of tools.  For general user documentation, read the
+	{@linkdoc //apple_ref/doc/uid/TP40001215 HeaderDoc User Guide}.
+
+	The HeaderDoc suite consists of several tools:
+
+	<dl>
+	    <dt><code>headerDoc2HTML.pl</code></dt>
+		<dd>The main HeaderDoc tool.  Converts headers or source
+		    code files to HTML or XML.</dd>
+	    <dt><code>gatherHeaderDoc.pl</code></dt>
+	        <dd>Gathers up HeaderDoc-generated HTML and generates
+		    a master table of contents.</dd>
+	    <dt><code>resolveLinks</code></dt>
+	        <dd>Links the HeaderDoc-generated HTML pages together.
+		    (Called by <code>gatherHeaderDoc.pl</code>.)</dd>
+	    <dt><code>xml2man</code></dt>
+	        <dd>Converts a dialect of XML into manual pages.</dd>
+	    <dt><code>hdxml2manxml</code></dt>
+	        <dd>Converts HeaderDoc XML output into a form suitable
+		    for use with <code>xml2man</code>.</dd>
+	    <dt><code>filtermacros.pl</code></dt>
+	        <dd>Tool for filtering incoming content based on
+		    C preprocessor directives.</dd>
+	    <dt><code>headerwalk.pl</code></dt>
+	        <dd>Sample code demonstrating reuse of the HeaderDoc
+		    parser.</dd>
+	</dl>
+
+	Some of these tools also use a number of Perl modules.  These
+        modules are divided up into groups based on the role they serve.
+     @frameworkuid TP40009579
+ */

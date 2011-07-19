@@ -341,13 +341,16 @@ void *cookie)
 		size = ofile->file_size;
 		offset = 0;
 	    }
-	    if(ofile->member_ar_hdr != NULL)
-		ofile_find(addr + ofile->member_offset,
-			   strtoul(ofile->member_ar_hdr->ar_size, NULL, 10),
-			   offset + ofile->member_offset,
-			   flags);
-	    else
-		ofile_find(addr, size, offset, flags);
+	    if(ofile->member_ar_hdr != NULL) {
+		addr = addr + ofile->member_offset;
+		size = strtoul(ofile->member_ar_hdr->ar_size, NULL, 10);
+		offset = offset + ofile->member_offset;
+	    }
+	    if(offset >= ofile->file_size)
+		size = 0;
+	    else if(offset + size > ofile->file_size)
+		size = ofile->file_size - offset;
+	    ofile_find(addr, size, offset, flags);
 	    return;
 	}
 
@@ -366,17 +369,33 @@ void *cookie)
 			sizeof(struct segment_command));
 		for(j = 0; j < sg->nsects; j++){
 		    if(flags->all_sections){
-			if((s->flags & S_ZEROFILL) != S_ZEROFILL){
-			    ofile_find(ofile->object_addr + s->offset,
-				       s->size, s->offset, flags);
+			if((s->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s->flags & S_THREAD_LOCAL_ZEROFILL) !=
+				       S_THREAD_LOCAL_ZEROFILL){
+			    addr = ofile->object_addr + s->offset;
+			    offset = s->offset;
+			    size = s->size;
+			    if(offset >= ofile->file_size)
+				size = 0;
+			    else if(offset + size > ofile->file_size)
+				size = ofile->file_size - offset;
+			    ofile_find(addr, size, offset, flags);
 			}
 		    }
 		    else{
 			if((s->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s->flags & S_THREAD_LOCAL_ZEROFILL) !=
+				       S_THREAD_LOCAL_ZEROFILL &&
 			   (strcmp(s->sectname, SECT_TEXT) != 0 ||
 			    strcmp(s->segname, SEG_TEXT) != 0)){
-			    ofile_find(ofile->object_addr + s->offset,
-				       s->size, s->offset, flags);
+			    addr = ofile->object_addr + s->offset;
+			    offset = s->offset;
+			    size = s->size;
+			    if(offset >= ofile->file_size)
+				size = 0;
+			    else if(offset + size > ofile->file_size)
+				size = ofile->file_size - offset;
+			    ofile_find(addr, size, offset, flags);
 			}
 		    }
 		    s++;
@@ -388,17 +407,33 @@ void *cookie)
 			sizeof(struct segment_command_64));
 		for(j = 0; j < sg64->nsects; j++){
 		    if(flags->all_sections){
-			if((s64->flags & S_ZEROFILL) != S_ZEROFILL){
-			    ofile_find(ofile->object_addr + s64->offset,
-				       s64->size, s64->offset, flags);
+			if((s64->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s64->flags & S_THREAD_LOCAL_ZEROFILL) != 
+				         S_THREAD_LOCAL_ZEROFILL){
+			    addr = ofile->object_addr + s64->offset;
+			    offset = s64->offset;
+			    size = s64->size;
+			    if(offset >= ofile->file_size)
+				size = 0;
+			    else if(offset + size > ofile->file_size)
+				size = ofile->file_size - offset;
+			    ofile_find(addr, size, offset, flags);
 			}
 		    }
 		    else{
 			if((s64->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s64->flags & S_THREAD_LOCAL_ZEROFILL) !=
+					 S_THREAD_LOCAL_ZEROFILL &&
 			   (strcmp(s64->sectname, SECT_TEXT) != 0 ||
 			    strcmp(s64->segname, SEG_TEXT) != 0)){
-			    ofile_find(ofile->object_addr + s64->offset,
-				       s64->size, s64->offset, flags);
+			    addr = ofile->object_addr + s64->offset;
+			    offset = s64->offset;
+			    size = s64->size;
+			    if(offset >= ofile->file_size)
+				size = 0;
+			    else if(offset + size > ofile->file_size)
+				size = ofile->file_size - offset;
+			    ofile_find(addr, size, offset, flags);
 			}
 		    }
 		    s64++;

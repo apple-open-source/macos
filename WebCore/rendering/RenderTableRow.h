@@ -31,13 +31,15 @@ namespace WebCore {
 
 class RenderTableRow : public RenderBox {
 public:
-    RenderTableRow(Node*);
+    explicit RenderTableRow(Node*);
 
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
     RenderTableSection* section() const { return toRenderTableSection(parent()); }
     RenderTable* table() const { return toRenderTable(parent()->parent()); }
+
+    void updateBeforeAndAfterContent();
 
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
@@ -50,10 +52,9 @@ private:
     virtual void destroy();
 
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-    virtual int lineHeight(bool, bool) const { return 0; }
     virtual void layout();
     virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
     // The only time rows get a layer is when they have transparency.
     virtual bool requiresLayer() const { return isTransparent() || hasOverflowClip() || hasTransform() || hasMask(); }
@@ -63,6 +64,7 @@ private:
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     RenderObjectChildList m_children;
 };

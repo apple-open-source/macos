@@ -1,0 +1,22 @@
+# ------------------------------------------------------------
+# Mon Jan  4 16:30:50 USMST 2010 (tomk)
+
+This checkin includes several major changes to the menubar class.
+
+- The -sync option and functionality were removed.
+- The separator type was enhanced to include an optional label.
+- A new scope modifier was added to the check and radio button types.
+- Four (4) new notebook tab methods were added. These methods are part of
+the new scope control code for check and radio buttons.
+- The man page was updated to reflect the code changes.
+- The demo code was modified to include a notebook with tabs.
+- The demo code was modified to demonstrate the use of the new scope control code
+- The demo code was modified so the debugging menu items are now on their
+own menu and the menu isn't loaded unless a line is uncommented in the
+demo code.
+- The debug file was updated to include a dump of the notebookVals dict.
+
+# ------------------------------------------------------------
+# 12/17/2009 (tomk)
+
+Module created and initial version committed.

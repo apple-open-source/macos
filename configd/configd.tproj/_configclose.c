@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,22 +69,16 @@ static void
 removeAllKeys(SCDynamicStoreRef store, Boolean isRegex)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
-	CFSetRef			keys;
+	CFArrayRef			keys;
 	CFIndex				n;
 
 	keys = isRegex ? storePrivate->patterns : storePrivate->keys;
-	n = CFSetGetCount(keys);
+	n = (keys != NULL) ? CFArrayGetCount(keys) : 0;
 	if (n > 0) {
 		CFIndex		i;
 		CFArrayRef	keysToRemove;
-		const void *	watchedKeys_q[N_QUICK];
-		const void **	watchedKeys	= watchedKeys_q;
 
-		if (n > (CFIndex)(sizeof(watchedKeys_q) / sizeof(CFStringRef)))
-			watchedKeys = CFAllocatorAllocate(NULL, n * sizeof(CFStringRef), 0);
-		CFSetGetValues(keys, watchedKeys);
-		keysToRemove = CFArrayCreate(NULL, watchedKeys, n, &kCFTypeArrayCallBacks);
-		if (watchedKeys != watchedKeys_q) CFAllocatorDeallocate(NULL, watchedKeys);
+		keysToRemove = CFArrayCreateCopy(NULL, keys);
 		for (i = 0; i < n; i++) {
 			(void) __SCDynamicStoreRemoveWatchedKey(store,
 								CFArrayGetValueAtIndex(keysToRemove, i),

@@ -170,7 +170,7 @@ void GenericCode::changeGuestStatus(SecCode *iguest, SecCodeStatusOperation oper
 			MacOSError::throwMe(errSecCSUnimplemented);
 			break;
 		default:
-			MacOSError::throwMe(errSecCSInvalidOperation);
+			MacOSError::throwMe(errSecCSUnimplemented);
 		}
 	else
 		MacOSError::throwMe(errSecCSNoSuchCode);

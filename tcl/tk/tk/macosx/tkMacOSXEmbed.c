@@ -17,7 +17,7 @@
  *  RCS: @(#) $Id$
  */
 
-#include "tkMacOSXInt.h"
+#include "tkMacOSXPrivate.h"
 
 /*
  * One of the following structures exists for each container in this

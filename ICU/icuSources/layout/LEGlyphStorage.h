@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1998-2007, International Business Machines
+ *   Copyright (C) 1998-2010, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -321,14 +321,50 @@ public:
      *
      * @param atIndex the index of the glyph to be replaced
      * @param insertCount the number of glyphs to replace it with
+     * @param success set to an error code if the auxillary data cannot be retrieved.
      *
      * @return the address at which to store the replacement glyphs.
      *
-     * @see LEInsetionList.h
+     * @see LEInsertionList.h
+     *
+     * @stable ICU 4.2
+     */
+    LEGlyphID *insertGlyphs(le_int32 atIndex, le_int32 insertCount, LEErrorCode& success);
+
+    /**
+     * Call this method to replace a single glyph in the glyph array
+     * with multiple glyphs. This method uses the <code>LEInsertionList</code>
+     * to do the insertion. It returns the address of storage where the new
+     * glyph IDs can be stored. They will not actually be inserted into the
+     * glyph array until <code>applyInsertions</code> is called.
+     *
+     * Note: Don't use this version, use the other version of this function which has an error code.
+     *
+     * @param atIndex the index of the glyph to be replaced
+     * @param insertCount the number of glyphs to replace it with
+     *
+     * @return the address at which to store the replacement glyphs.
+     *
+     * @see LEInsertionList.h
      *
      * @stable ICU 3.0
      */
     LEGlyphID *insertGlyphs(le_int32 atIndex, le_int32 insertCount);
+
+    /**
+     * This method is used to reposition glyphs during Indic v2 processing.  It moves 
+     * all of the relevant glyph information ( glyph, indices, positions, and auxData ), 
+     * from the source position to the target position, and also allows for a marker bit
+     * to be set in the target glyph's auxData so that it won't be reprocessed later in the
+     * cycle.
+     *
+     * @param fromPosition - position of the glyph to be moved
+     * @param toPosition - target position of the glyph
+     * @param marker marker bit
+     *
+     * @stable ICU 4.2
+     */
+    void moveGlyph(le_int32 fromPosition, le_int32 toPosition, le_uint32 marker);
 
     /**
      * This method causes all of the glyph insertions recorded by

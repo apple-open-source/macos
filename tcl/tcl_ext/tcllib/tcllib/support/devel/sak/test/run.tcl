@@ -11,6 +11,7 @@ package require  sak::color
 
 getpackage textutil::repeat textutil/repeat.tcl
 getpackage fileutil         fileutil/fileutil.tcl
+getpackage struct::matrix   struct/matrix.tcl
 
 namespace eval ::sak::test::run {
     namespace import ::textutil::repeat::blank
@@ -83,11 +84,14 @@ proc ::sak::test::run::Do {cv modules} {
     }
 
     if {$alog} {
-	variable logext [open $config(stem).log      w]
-	variable logsum [open $config(stem).summary  w]
-	variable logfai [open $config(stem).failures w]
-	variable logski [open $config(stem).skipped  w]
-	variable lognon [open $config(stem).none     w]
+	variable logext [open $config(stem).log         w]
+	variable logsum [open $config(stem).summary     w]
+	variable logfai [open $config(stem).failures    w]
+	variable logski [open $config(stem).skipped     w]
+	variable lognon [open $config(stem).none        w]
+	variable logerd [open $config(stem).errdetails  w]
+	variable logfad [open $config(stem).faildetails w]
+	variable logtim [open $config(stem).timings     w]
     } else {
 	variable logext stdout
     }
@@ -152,6 +156,27 @@ proc ::sak::test::run::Do {cv modules} {
 	puts $logext "#Errors [mag][format %6d $err][rst]"
     } else {
 	puts $logext "#Errors [format %6d $err]"
+    }
+
+    if {$alog} {
+	variable xtimes
+	array set times $xtimes
+
+	struct::matrix M
+	M add columns 6
+	foreach k [lsort -dict [array names times]] {
+	    #foreach {shell module testfile} $k break
+	    foreach {testnum delta score} $times($k) break
+	    M add row [linsert $k end $testnum $delta $score]
+	}
+	M sort rows -decreasing 5
+
+	M insert row 0 {Shell Module Testsuite Tests Seconds uSec/Test}
+	M insert row 1 {===== ====== ========= ===== ======= =========}
+	M add    row   {===== ====== ========= ===== ======= =========}
+
+	puts $logsum \nTimings...
+	puts $logsum [M format 2string]
     }
 
     exit [expr {($err || $fail) ? 1 : 0}]
@@ -247,32 +272,35 @@ proc ::sak::test::run::Process {pipe} {
 	if {[eof  $pipe]} break
 	if {[gets $pipe line] < 0} break
 	if {$alog || $araw} {puts $logext $line ; flush $logext}
+	set rline $line
 	set line [string trim $line]
 	if {[string equal $line ""]} continue
 	Host;	Platform
 	Cwd;	Shell
-	Tcl;	Match||Skip||Sourced
-	Start;	End
+	Tcl
+	Start;	End ; StartFile ; EndFile
 	Module;	Testsuite
 	NoTestsuite
 	Support;Testing;Other
 	Summary
+	CaptureFailureSync            ; # xcollect 1 => 2
+	CaptureFailureCollectBody     ; # xcollect 2 => 3 => 5
+	CaptureFailureCollectActual   ; # xcollect 3 => 4
+	CaptureFailureCollectExpected ; # xcollect 4 => 0
+	CaptureFailureCollectError    ; # xcollect 5 => 0
+	CaptureStackStart
+	CaptureStack
 
 	TestStart
 	TestSkipped
 	TestPassed
-	TestFailed
-	CaptureFailureSync
-	CaptureFailureCollectBody
-	CaptureFailureCollectActual
-	CaptureFailureCollectExpected
-	CaptureStackStart
-	CaptureStack
+	TestFailed                    ; # xcollect => 1
 
 	SetupError
 	Aborted
 	AbortCause
 
+	Match||Skip||Sourced
 	# Unknown lines are printed
 	if {!$araw} {puts !$line}
     }
@@ -358,6 +386,47 @@ proc ::sak::test::run::End {} {
     upvar 1 line line
     if {![regexp "^@@ End (.*)$" $line -> end]} return
     variable xshell
+    #sak::registry::local set $xshell End $end
+    return -code continue
+}
+
+proc ::sak::test::run::StartFile {} {
+    upvar 1 line line
+    if {![regexp "^@@ StartFile (.*)$" $line -> start]} return
+    variable xstartfile $start
+    variable xtestnum 0
+    #sak::registry::local set $xshell Start $start
+    return -code continue
+}
+
+proc ::sak::test::run::EndFile {} {
+    upvar 1 line line
+    if {![regexp "^@@ EndFile (.*)$" $line -> end]} return
+    variable xfile
+    variable xstartfile
+    variable xtimes
+    variable xtestnum
+
+    set k [lreplace $xfile 0 3]
+    set k [lreplace $k 2 2 [file tail [lindex $k 2]]]
+    set delta [expr {$end - $xstartfile}]
+
+    if {$xtestnum == 0} {
+	set score $delta
+    } else {
+	# average number of microseconds per test.
+	set score [expr {int(($delta/double($xtestnum))*1000000)}]
+	#set score [expr {$delta/double($xtestnum)}]
+    }
+
+    lappend xtimes $k [list $xtestnum $delta $score]
+
+    variable alog
+    if {$alog} {
+	variable logtim
+	puts $logtim [linsert [linsert $k end $xtestnum $delta $score] 0 TIME]
+    }
+
     #sak::registry::local set $xshell End $end
     return -code continue
 }
@@ -477,6 +546,8 @@ proc ::sak::test::run::TestStart {} {
     = "---- $testname"
     variable xfile
     variable xtest [linsert $xfile end $testname]
+    variable xtestnum
+    incr     xtestnum
     return -code continue
 }
 
@@ -548,21 +619,25 @@ proc ::sak::test::run::CaptureFailureSync {} {
 proc ::sak::test::run::CaptureFailureCollectBody {} {
     variable xcollect
     if {$xcollect != 2} return
-    upvar 1 line line
+    upvar 1 rline line
     variable xbody
-    if {![string match {---- Result was*} $line]} {
-	variable xbody
-	append   xbody $line \n
-    } else {
+    if {[string match {---- Result was*} $line]} {
 	set xcollect 3
+	return -code continue
+    } elseif {[string match {---- Test generated error*} $line]} {
+	set xcollect 5
+	return -code continue
     }
+
+    variable xbody
+    append   xbody $line \n
     return -code continue
 }
 
 proc ::sak::test::run::CaptureFailureCollectActual {} {
     variable xcollect
     if {$xcollect != 3} return
-    upvar 1 line line
+    upvar 1 rline line
     if {![string match {---- Result should*} $line]} {
 	variable xactual
 	append   xactual $line \n
@@ -575,17 +650,53 @@ proc ::sak::test::run::CaptureFailureCollectActual {} {
 proc ::sak::test::run::CaptureFailureCollectExpected {} {
     variable xcollect
     if {$xcollect != 4} return
-    upvar 1 line line
+    upvar 1 rline line
     if {![string match {==== *} $line]} {
 	variable xexpected
 	append   xexpected $line \n
     } else {
+	variable alog
+	if {$alog} {
+	    variable logfad
+	    variable xtest
+	    variable xbody
+	    variable xactual
+	    variable xexpected
+
+	    puts  $logfad "==== [lrange $xtest end-1 end] FAILED ========="
+	    puts  $logfad "==== Contents of test case:\n"
+	    puts  $logfad $xbody
+
+	    puts  $logfad "---- Result was:"
+	    puts  $logfad [string range $xactual 0 end-1]
+
+	    puts  $logfad "---- Result should have been:"
+	    puts  $logfad [string range $xexpected 0 end-1]
+
+	    puts  $logfad "==== [lrange $xtest end-1 end] ====\n\n"
+	    flush $logfad
+	}
 	set xcollect 0
 	#sak::registry::local set $xtest Body     $xbody
 	#sak::registry::local set $xtest Actual   $xactual
 	#sak::registry::local set $xtest Expected $xexpected
 	set xtest {}
     }
+    return -code continue
+}
+
+proc ::sak::test::run::CaptureFailureCollectError {} {
+    variable xcollect
+    if {$xcollect != 5} return
+    upvar 1 rline line
+    variable xbody
+    if {[string match {---- errorCode*} $line]} {
+	set xcollect 4
+	return -code continue
+    }
+
+    variable xactual
+    append   xactual $line \n
     return -code continue
 }
 
@@ -634,7 +745,16 @@ proc ::sak::test::run::CaptureStack {} {
     } else {
 	set xstackcollect 0
 	variable xfile
+	variable alog
 	#sak::registry::local set $xfile Stacktrace $xstack
+	if {$alog} {
+	    variable logerd
+	    puts  $logerd "[lindex $xfile end] StackTrace"
+	    puts  $logerd "========================================"
+	    puts  $logerd $xstack
+	    puts  $logerd "========================================\n\n"
+	    flush $logerd
+	}
     }
     return -code continue
 }
@@ -711,6 +831,8 @@ namespace eval ::sak::test::run {
     variable xmodule   {}
     variable xfile     {}
     variable xtest     {}
+    variable xstartfile {}
+    variable xtimes     {}
 
     variable xstatus ok
 

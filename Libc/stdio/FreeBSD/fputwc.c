@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fputwc.c,v 1.10 2004/07/20 08:27:27 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fputwc.c,v 1.11 2008/04/17 22:17:53 jhb Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -56,8 +56,7 @@ __fputwc(wchar_t wc, FILE *fp)
 		*buf = (unsigned char)wc;
 		len = 1;
 	} else {
-		if ((len = __wcrtomb(buf, wc, &fp->_extra->mbstate)) ==
-		    (size_t)-1) {
+		if ((len = __wcrtomb(buf, wc, &fp->_mbstate)) == (size_t)-1) {
 			fp->_flags |= __SERR;
 			return (WEOF);
 		}

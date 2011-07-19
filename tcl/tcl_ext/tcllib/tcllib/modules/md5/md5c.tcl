@@ -4,11 +4,11 @@
 #
 # Written by Jean-Claude Wippler <jcw@equi4.com>
 #
-# $Id: md5c.tcl,v 1.4 2008/03/25 07:15:34 andreas_kupries Exp $
+# $Id: md5c.tcl,v 1.5 2009/05/06 22:46:10 patthoyts Exp $
 
 package require critcl;                 # needs critcl
 # @sak notprovided md5c
-package provide md5c 0.11;              # 
+package provide md5c 0.12;              # 
 
 critcl::cheaders md5.h;                 # The RSA header file
 critcl::csources md5.c;                 # The RSA MD5 implementation.
@@ -17,36 +17,34 @@ namespace eval ::md5 {
 
     critcl::ccode {
         #include "md5.h"
-        #include <malloc.h>
-        #include <memory.h>
         #include <assert.h>
-        
+
         static
         Tcl_ObjType md5_type; /* fast internal access representation */
         
         static void 
-        md5_free_rep(Tcl_Obj* obj)
+        md5_free_rep(Tcl_Obj *obj)
         {
-            MD5_CTX* mp = (MD5_CTX*) obj->internalRep.otherValuePtr;
-            free(mp);
+            MD5_CTX *mp = (MD5_CTX *) obj->internalRep.otherValuePtr;
+            Tcl_Free(mp);
         }
         
         static void
-        md5_dup_rep(Tcl_Obj* obj, Tcl_Obj* dup)
+        md5_dup_rep(Tcl_Obj *obj, Tcl_Obj *dup)
         {
-            MD5_CTX* mp = (MD5_CTX*) obj->internalRep.otherValuePtr;
-            dup->internalRep.otherValuePtr = malloc(sizeof *mp);
+            MD5_CTX *mp = (MD5_CTX *) obj->internalRep.otherValuePtr;
+            dup->internalRep.otherValuePtr = Tcl_Alloc(sizeof *mp);
             memcpy(dup->internalRep.otherValuePtr, mp, sizeof *mp);
             dup->typePtr = &md5_type;
         }
         
         static void
-        md5_string_rep(Tcl_Obj* obj)
+        md5_string_rep(Tcl_Obj *obj)
         {
             unsigned char buf[16];
-            Tcl_Obj* temp;
-            char* str;
-            MD5_CTX dup = *(MD5_CTX*) obj->internalRep.otherValuePtr;
+            Tcl_Obj *temp;
+            char *str;
+            MD5_CTX dup = *(MD5_CTX *) obj->internalRep.otherValuePtr;
             
             MD5Final(buf, &dup);
             
@@ -75,12 +73,10 @@ namespace eval ::md5 {
     }
     
     critcl::ccommand md5c {dummy ip objc objv} {
-        MD5_CTX* mp;
-        unsigned char* data;
+        MD5_CTX *mp;
+        unsigned char *data;
         int size;
-        Tcl_Obj* obj;
-        
-        //Tcl_RegisterObjType(&md5_type);
+        Tcl_Obj *obj;
         
         if (objc < 2 || objc > 3) {
             Tcl_WrongNumArgs(ip, 1, objv, "data ?context?");
@@ -88,31 +84,26 @@ namespace eval ::md5 {
         }
         
         if (objc == 3) {
-            if (objv[2]->typePtr != &md5_type && md5_from_any(ip, objv[2]) != TCL_OK)
-            return TCL_ERROR;
+            if (objv[2]->typePtr != &md5_type && md5_from_any(ip, objv[2]) != TCL_OK) {
+                return TCL_ERROR;
+            }
             obj = objv[2];
-            if (Tcl_IsShared(obj))
-            obj = Tcl_DuplicateObj(obj);
+            if (Tcl_IsShared(obj)) {
+                obj = Tcl_DuplicateObj(obj);
+            }
         } else {
-            obj = Tcl_NewObj();
-            mp = (MD5_CTX*) malloc(sizeof *mp);
+            mp = (MD5_CTX *)Tcl_Alloc(sizeof *mp);
             MD5Init(mp);
-            
-            if (obj->typePtr != NULL && obj->typePtr->freeIntRepProc != NULL)
-            obj->typePtr->freeIntRepProc(obj);
-            
+            obj = Tcl_NewObj();
+            Tcl_InvalidateStringRep(obj);
             obj->internalRep.otherValuePtr = mp;
             obj->typePtr = &md5_type;
         }
         
-        Tcl_SetObjResult(ip, obj);
-        Tcl_IncrRefCount(obj); //!! huh?
-        
-        Tcl_InvalidateStringRep(obj);
-        mp = (MD5_CTX*) obj->internalRep.otherValuePtr;
-        
+        mp = (MD5_CTX *) obj->internalRep.otherValuePtr;
         data = Tcl_GetByteArrayFromObj(objv[1], &size);
         MD5Update(mp, data, size);
+        Tcl_SetObjResult(ip, obj);
         
         return TCL_OK;
     }

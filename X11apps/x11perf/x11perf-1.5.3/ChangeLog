@@ -1,0 +1,581 @@
+commit c39d831d409537fce2f36c8672f908a7cc810519
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 16:33:36 2011 -0800
+
+    x11perf 1.5.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e7917bbec06e5c8e17f07b0eb833602b33111f08
+Merge: 5072fb4 cc84118
+Author: Peter Harris <pharris@opentext.com>
+Date:   Tue Nov 23 14:41:33 2010 -0500
+
+    Merge fixes from git://anongit.freedesktop.org/~peterh/x11perf
+
+commit cc84118bd700745f02c65b2d6900e512e4c333af
+Author: Peter Harris <peter.harris@hummingbird.com>
+Date:   Mon Oct 29 11:35:22 2007 -0400
+
+    Avoid "rep" calculation overflow.
+    
+    On today's fast machines, "treps" can easily overflow a 32-bit number.
+    Use "long long" to calculate reps.
+    
+    Signed-off-by: Peter Harris <pharris@opentext.com>
+    Reviewed-by: Adam Jackson <ajax@redhat.com>
+
+commit 17a30e7c65c0b03b71b5b1ac54ae3ba33ae3b42a
+Author: Peter Harris <peter.harris@hummingbird.com>
+Date:   Mon Oct 29 11:29:32 2007 -0400
+
+    Clamp test time to positive values.
+    
+    If there is some jitter in the sync time, operations can complete in a
+    negative amount of time (confusing both humans and x11perfcomp).
+    
+    Signed-off-by: Peter Harris <pharris@opentext.com>
+    Reviewed-by: Adam Jackson <ajax@redhat.com>
+
+commit 5072fb464ffebcd97ec3a33cbff7095c3ec16225
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Nov 19 22:34:02 2010 -0800
+
+    Remove unneccessary AC_SUBST of CFLAGS & LIBS vars from PKG_CHECK_MODULES
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2f6fa453f485739575296da9317243ddda25c4f6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Nov 19 22:32:12 2010 -0800
+
+    config: replace deprecated AM_CONFIG_HEADER with AC_CONFIG_HEADERS
+    
+    Regroup AC statements under the Autoconf initialization section.
+    Regroup AM statements under the Automake initialization section.
+    Add missing AC_CONFIG_SRCDIR
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d970d9de1c98bc828365f15fb08aaa8dda214dd6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Nov 19 22:28:22 2010 -0800
+
+    Bug 31640 - x11perf: Doesn't build without libXft
+    
+    https://bugs.freedesktop.org/show_bug.cgi?id=31640
+    
+    Fix trapezoid checks to look for both render & xft
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 3147d783925bb42c7af78c9f5508c0dc245b942b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 21 20:48:33 2010 -0700
+
+    x11perf 1.5.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 172260eee2180448594def3fcf719ce501528e56
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 21 20:46:39 2010 -0700
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit c4b59fd280aa0f647f7f889122adf8b92b9e5cf8
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 21 20:43:58 2010 -0700
+
+    config: use AC_PROG_CC & AC_PROG_INSTALL now supplied by XORG_DEFAULT_OPTIONS
+    
+    The existing statements can now be removed from the configuration file.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 4ed4ff8d692293995910da29e4d05ad9191105ea
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 21 20:42:54 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    The existing statement can now be removed from the configuration file.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 1f990bc605d520f58e0c321a1338da76d76529fa
+Author: Timo Myyra <Timo.Myyra@gmail.com>
+Date:   Sun Sep 19 10:54:40 2010 -0700
+
+    Remove reference to xbench in x11perf.man (#29830)
+    
+    xbench isn't supported by fd.o, and searching for it shows the latest version released in 1995.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 05759c8550bf994f4ae4e87a658aa7ffdd9dd517
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 6 08:34:31 2010 -0700
+
+    Add HP notice to COPYING for Xmark script
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 3b427a6c4cc1551ce445abd975f5a128ea53d9be
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Jan 7 21:25:09 2010 -0500
+
+    COPYING: replace stub with actual copyright notice
+    
+    Refer to x11perf.c
+    Copyright 1988, 1989 by Digital Equipment Corporation
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 374bee27ef4d45044f7562ffed162a5b6f095e40
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sat Jan 2 17:36:17 2010 -0500
+
+    Add -falseprecision flag for ludicrously precise stats
+    
+    The normal round-to-three-significant-figures behaviour, while morally
+    correct from a benchmarking perspective, makes it impossible to measure
+    variances between runs of less than 1%.  Occasionally you really do need
+    to measure that finely - for example, if tweaking the server's main
+    dispatch loop.
+    
+    Signed-off-by: Adam Jackson <ajax@redhat.com>
+
+commit af29c01b5d41f08053263dfe251d0a2a26c7eb1f
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sat Jan 2 17:23:50 2010 -0500
+
+    Death to RCS tags.
+    
+    Signed-off-by: Adam Jackson <ajax@redhat.com>
+
+commit f8193c3f472fb0b7357552d10a6033e8ac08b9fa
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:52 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit e6d0de5d8f13ca73753cb70b12b2f9b98f82b39f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 5d3fb3c68c681cce10d3625bab85bb39c18e5e3b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:38 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 6b8182c54689c67fa35ac471fcfc4e7ee73b7b91
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:15 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 1b811f2bf9c3cdef966b18ea802f1f79b5f34ef2
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Oct 21 12:47:20 2009 -0700
+
+    This is not a GNU project, so declare it foreign.
+    
+    On Wed, 2009-10-21 at 13:36 +1000, Peter Hutterer wrote:
+    > On Tue, Oct 20, 2009 at 08:23:55PM -0700, Jeremy Huddleston wrote:
+    > > I noticed an INSTALL file in xlsclients and libXvMC today, and it
+    > > was quite annoying to work around since 'autoreconf -fvi' replaces
+    > > it and git wants to commit it.  Should these files even be in git?
+    > > Can I nuke them for the betterment of humanity and since they get
+    > > created by autoreconf anyways?
+    >
+    > See https://bugs.freedesktop.org/show_bug.cgi?id=24206
+    
+    As an interim measure, replace AM_INIT_AUTOMAKE([dist-bzip2]) with
+    AM_INIT_AUTOMAKE([foreign dist-bzip2]). This will prevent the generation
+    of the INSTALL file. It is also part of the 24206 solution.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit 98ca2c35b05a2d248063047c50770a018e35e810
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 17:19:36 2009 -0700
+
+    x11perf 1.5.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 266da0b9c176cf0dc615005bb0ad4aa585892bd8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 17:17:41 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 9851abff574fe041f4e3f45b39c61d943e3a7f86
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:20 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c7f3c6652e9507e4303fd9ed913c593afb7447f0
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 13 18:55:51 2009 -0200
+
+    Ansification and compile warning fixes.
+    
+      This also uses XORG_CHANGELOG and XORG_CWARNFLAGS, and corrects
+    make distcheck.
+
+commit 828c0323450eadaf040749c010918679f5e4fe53
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Fri Mar 7 16:51:53 2008 -0500
+
+    x11perf-1.5
+
+commit 1540dc21e1ef7bb473af7616294e5730e38f66ec
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:08 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit b1c5b72bb4bb5f3e116255f9d04b368137ff25f7
+Author: Michel Dänzer <michel@tungstengraphics.com>
+Date:   Thu Nov 1 09:13:43 2007 +0100
+
+    Fix typos in descriptions of -compwinwin{1,5}00.
+
+commit 569a5eaaef9a5c8bf50f1323fe39e81347976875
+Merge: 55aa9c2 e906fe5
+Author: Keith Packard <keithp@koto.keithp.com>
+Date:   Mon Sep 10 16:56:06 2007 +0100
+
+    Merge branch 'origin'
+
+commit 55aa9c238c5d81c9dc0f679dfd2fea00f356247b
+Author: Keith Packard <keithp@koto.keithp.com>
+Date:   Mon Sep 10 16:12:29 2007 +0100
+
+    Add Compositing tests.
+    
+    -compwinwinXX, -comppixwinXX where XX is 10, 100 or 500.
+    
+    -pop <POP> <POP> ... where <POP> is one of Clear, Src, Dst, Over,
+    OverReverse, In, InReverse, Out, OutReverse, Atop, AtopReverse, Xor, Add or
+    Saturate.
+    
+    -format <FORMAT> <FORMAT> ... where <FORMAT> is one of RGB24, ARGB32, A8,
+    A4, A1 or NATIVE
+
+commit 8b3b9d1d1d3a255000fb43bd09c62ef1e0798023
+Author: Keith Packard <keithp@koto.keithp.com>
+Date:   Mon Sep 10 16:08:51 2007 +0100
+
+    Rename .cvsignore to .gitignore
+
+commit e906fe589a852e9b4af4aac6c72580494139a0b7
+Author: Eric S. Raymond <esr@thyrsus.com>
+Date:   Tue Jan 2 10:07:00 2007 -0800
+
+    Bug 9520: Markup problems in Xmark.1x
+    
+    X.Org Bugzilla #9520 <https://bugs.freedesktop.org/show_bug.cgi?id=9520>
+
+commit d36c3c0e7db2254dc1385fe7ffc187797e109e0e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:45:48 2007 -0700
+
+    Another man page typo fix: s/aprox./approx./
+
+commit e9bb1f2d13cad8240cc95f1aae19316fe7568cbd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:41:27 2007 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit ad4686b388da891ca07fba41a748ea90a3bb15cb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:39:23 2007 -0700
+
+    Bug #10616: Man page typo: s/peform/perform/
+    
+    X.Org Bugzilla #10616 <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian Bug #395445 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=395445>
+
+commit fabb885e8db6dd54d31b7223e9bb4f5d9e835d8c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Mar 2 23:36:27 2006 +0000
+
+    Bump to 1.4.1 (was 1.0.1 because we screwed up during modularising).
+
+commit 21ce0f2bab1743ed15474ba1468286d6782bf781
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Feb 14 16:33:38 2006 +0000
+
+    Split detection of Xrender and Xft. Add detection of MIT-SHM. Clean up
+        CFLAGS in Makefile.am
+
+commit 32393ee83c8ad63dbb54aab709cdd4dc5802a74c
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Feb 14 02:48:22 2006 +0000
+
+    Detect when Render is available and turn those tests on.
+
+commit d121367a04832aafb27800283bac5ce35365d84e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:48 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 883de694b5dac055f0d7fd33cb84ee10c080ba8c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:42 2005 +0000
+
+    Stub COPYING files
+
+commit 2c3643dc1503b7e9136f678e0af238d507acf262
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:04 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 8e9f6aa0f81fa57e8b08684a1110e945f6f0dacd
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:19 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit e09f755a36b9848a7c76013d324713b1ee5cf0e3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:18 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 9a94217191edf8e719ff9d4fbf485b5c33d0bde3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:39 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 95895b619909e2b9f2e144e972b83aee6595d5f3
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:34:58 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 67eaa3cc45db8ab1a9aedb4675a09d5a3db31a7f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 21 03:14:15 2005 +0000
+
+    Change dependency from xmu to xmuu since the full xmu (with all its baggage
+        like Xt) is not needed here.
+
+commit 583d5d1c988ab24c61e2bbb21a5e5847328e86ec
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:50 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 2350482506abae44fcf656a3383c354ac2910d34
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:50 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit a489b54c63515aa2be297ef340501b1b7ef09423
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:21 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 4ac6e7bffbd29ae179fbc053a8317db4fa2f3f75
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:42 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 64a324c6ffd7ba8a9bce52d41db3e63d77b69eca
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 6 20:04:20 2005 +0000
+
+    Strip .sh from filenames of scripts to match the way they are installed by
+        the monolith
+
+commit eb51653deaa7a8cac0bac02f4a1fe4cd8291590b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 6 03:47:12 2005 +0000
+
+    Fix file names of beforelight, x11perfcomp, and xlsclients man pages
+
+commit eb44ab57c5e989429f94bb67d01abaef70b9174d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:28 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit a1e27c9edcb4b99a0550e674dea66bd1d3111747
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:30 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 9dc00b804b6283a6371cae136f0c4abc743e3462
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jul 28 15:57:12 2005 +0000
+
+    Fix distcheck for remaining apps
+
+commit 8b5dc957345bbee8349340e345a6a06ec42a16e8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 18:58:15 2005 +0000
+
+    Use AC_TYPE_SIGNAL and AC_FUNC_VFORK to replace Imake's SIGNAL_DEFINES and
+    -DHAS_VFORK
+
+commit 74c819bed573af85aabd92f023c885e53fb0cf77
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 26 18:55:42 2005 +0000
+
+    Add config.h includes for modularization Use RETSIGTYPE if defined by
+        autoconf in addition to Imake's SIGNALRETURNSINT. Use
+        HAVE_WORKING_VFORK if defined by autoconf in addition to Imake's
+        HAS_VFORK
+
+commit 81a51fb38778c54442657142cf5d57fae4ac3e0e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:51 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 2975cf615c2e0b79c3392d6d95b393ce4b0fd312
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 23:29:38 2005 +0000
+
+    x11perf/Makefile.am: xinit/Makefile.am: xvidtune/Makefile.am:
+    - Replace $< with portable macro xinit/Makefile.am: xinit/configure.ac:
+        xvidtune/Makefile.am: xvidtune/configure.ac:
+    - Use more portable cpp invocations for pre-processing files
+        xfs/configure.ac:
+    - Add XTRANS_CONNECTION_FLAGS so xtrans transport type defines are set
+        correctly
+
+commit 68ebb5b755791822c2f1d9f9659c2ee94bb63f1c
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jun 29 20:41:01 2005 +0000
+
+    Add x11perf build system Add some x11perf shell script to symlink.sh
+
+commit 21b7ff0b54fcf28e933738aaaedf5aef46880717
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Wed Aug 11 08:05:31 2004 +0000
+
+    - Fix the build with old libXrender headers installed by including
+        TOP_INCLUDES first in the INCLUDES line.
+    - Drive-by fix of unused variables warnings in do_traps.c.
+
+commit 9f86498395945e52accedc6bf3d938c2d21abd5d
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Aug 6 23:42:11 2004 +0000
+
+    Add RenderAddTraps. Rewrite trapezoid rendering code.
+
+commit cc61a0dd9da513e24a0c39793e4e70237a8d35b5
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:38 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 3208453773436841fd97a5a841f75aea2a84ea07
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:34:59 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit c090b9c09ddb3f21983506a90418d6e5387cbd94
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit c501072fc6aae9867785226575d87b6a3d89ecaa
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:16 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 767875979a99fba9d7c00fd9eb7da316d88596dc
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:58 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit c3ee38aec0f064a3916ecef9a29ecf6538a794a1
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:03 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit ee11b04c48b57b74beacd0a905fbc96a86c75931
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:58 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 76312369bde4267f6405a4e1d26697258cc06b32
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:58 2003 +0000
+
+    Initial revision
+
+commit d7d99c8433b3bd35c8bad352ebd1fc49cff45264
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:53 2003 +0000
+
+    R6.6 is the Xorg base-line

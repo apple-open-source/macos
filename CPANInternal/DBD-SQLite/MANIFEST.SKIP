@@ -1,3 +1,4 @@
+^.gitignore$
 CVS/.*
 \.bak$
 \.sw[a-z]$
@@ -5,16 +6,20 @@ CVS/.*
 \.tgz$
 \.tar\.gz$
 \.o$
+\.obj$
+\.def$
+\.pdb$
 \.xsi$
 \.bs$
-output/.*
 ^.#
 ^mess/
 ^sqlite/
-^output/
 ^tmp/
 ^blib/
 ^Makefile$
 ^Makefile\.[a-z]+$
 ^pm_to_blib$
 ~$
+^sqlite\-
+\.svn
+^bugs/

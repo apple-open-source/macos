@@ -885,15 +885,13 @@ acscp_printpkt(p, plen, printer, arg)
 	    switch (code) {
 	    case CI_ROUTES:
 	        p += 2;
-		GETLONG(cilong, p);
-		printer(arg, "ms-dns%d %I", code - CI_ROUTES + 1,
-			htonl(cilong));
+		GETLONG(cilong, p); // version
+		printer(arg, "route vers %d", htonl(cilong));
 		break;
 	    case CI_DOMAINS:
 	        p += 2;
 		GETLONG(cilong, p);
-		printer(arg, "ms-dns%d %I", code - CI_DOMAINS + 1,
-			htonl(cilong));
+		printer(arg, "domain vers %d", htonl(cilong));
 		break;
 	    }
 	    while (p < optend) {

@@ -2,28 +2,30 @@
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * modification, are permitted provided that the following conditions are
+ * met:
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -31,82 +33,167 @@
 
 #if ENABLE(DATABASE)
 #include "DatabaseCallback.h"
-#include "ExceptionCode.h"
+#include "DatabaseTracker.h"
+#include "Logging.h"
+#include "SQLException.h"
+#include "SQLTransactionSync.h"
 #include "SQLTransactionSyncCallback.h"
 #include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
-#include <wtf/StdLibExtras.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
-const String& DatabaseSync::databaseInfoTableName()
+PassRefPtr<DatabaseSync> DatabaseSync::openDatabaseSync(ScriptExecutionContext* context, const String& name, const String& expectedVersion, const String& displayName,
+                                                        unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode& ec)
 {
-    DEFINE_STATIC_LOCAL(String, name, ("__WebKitDatabaseInfoTable__"));
-    return name;
-}
+    ASSERT(context->isContextThread());
 
-static bool isSyncDatabaseAvailable = true;
+    if (!DatabaseTracker::tracker().canEstablishDatabase(context, name, displayName, estimatedSize)) {
+        LOG(StorageAPI, "Database %s for origin %s not allowed to be established", name.ascii().data(), context->securityOrigin()->toString().ascii().data());
+        return 0;
+    }
 
-void DatabaseSync::setIsAvailable(bool available)
-{
-    isSyncDatabaseAvailable = available;
-}
+    RefPtr<DatabaseSync> database = adoptRef(new DatabaseSync(context, name, expectedVersion, displayName, estimatedSize));
 
-bool DatabaseSync::isAvailable()
-{
-    return isSyncDatabaseAvailable;
-}
+    if (!database->performOpenAndVerify(!creationCallback, ec)) {
+        LOG(StorageAPI, "Failed to open and verify version (expected %s) of database %s", expectedVersion.ascii().data(), database->databaseDebugName().ascii().data());
+        DatabaseTracker::tracker().removeOpenDatabase(database.get());
+        return 0;
+    }
 
-PassRefPtr<DatabaseSync> DatabaseSync::openDatabaseSync(ScriptExecutionContext*, const String&, const String&, const String&,
-                                                        unsigned long, PassRefPtr<DatabaseCallback>, ExceptionCode& ec)
-{
-    // FIXME: uncomment the assert once we use the ScriptExecutionContext* parameter
-    //ASSERT(context->isContextThread());
+    DatabaseTracker::tracker().setDatabaseDetails(context->securityOrigin(), name, displayName, estimatedSize);
 
-    ec = SECURITY_ERR;
-    return 0;
+    if (database->isNew() && creationCallback.get()) {
+        database->m_expectedVersion = "";
+        LOG(StorageAPI, "Invoking the creation callback for database %p\n", database.get());
+        creationCallback->handleEvent(database.get());
+    }
+
+    return database;
 }
 
 DatabaseSync::DatabaseSync(ScriptExecutionContext* context, const String& name, const String& expectedVersion,
-                           const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback)
-    : m_scriptExecutionContext(context)
-    , m_name(name.crossThreadString())
-    , m_expectedVersion(expectedVersion.crossThreadString())
-    , m_displayName(displayName.crossThreadString())
-    , m_estimatedSize(estimatedSize)
-    , m_creationCallback(creationCallback)
+                           const String& displayName, unsigned long estimatedSize)
+    : AbstractDatabase(context, name, expectedVersion, displayName, estimatedSize)
 {
-    ASSERT(context->isContextThread());
 }
 
 DatabaseSync::~DatabaseSync()
 {
     ASSERT(m_scriptExecutionContext->isContextThread());
+
+    if (opened()) {
+        DatabaseTracker::tracker().removeOpenDatabase(this);
+        closeDatabase();
+    }
 }
 
-String DatabaseSync::version() const
+void DatabaseSync::changeVersion(const String& oldVersion, const String& newVersion, PassRefPtr<SQLTransactionSyncCallback> changeVersionCallback, ExceptionCode& ec)
 {
     ASSERT(m_scriptExecutionContext->isContextThread());
-    return String();
+
+    if (sqliteDatabase().transactionInProgress()) {
+        ec = SQLException::DATABASE_ERR;
+        return;
+    }
+
+    RefPtr<SQLTransactionSync> transaction = SQLTransactionSync::create(this, changeVersionCallback, false);
+    if ((ec = transaction->begin()))
+        return;
+
+    String actualVersion;
+    if (!getVersionFromDatabase(actualVersion)) {
+        ec = SQLException::UNKNOWN_ERR;
+        return;
+    }
+
+    if (actualVersion != oldVersion) {
+        ec = SQLException::VERSION_ERR;
+        return;
+    }
+
+    if ((ec = transaction->execute()))
+        return;
+
+    if (!setVersionInDatabase(newVersion)) {
+        ec = SQLException::UNKNOWN_ERR;
+        return;
+    }
+
+    if ((ec = transaction->commit()))
+        return;
+
+    setExpectedVersion(newVersion);
 }
 
-void DatabaseSync::changeVersion(const String&, const String&, PassRefPtr<SQLTransactionSyncCallback>)
+void DatabaseSync::transaction(PassRefPtr<SQLTransactionSyncCallback> callback, ExceptionCode& ec)
+{
+    runTransaction(callback, false, ec);
+}
+
+void DatabaseSync::readTransaction(PassRefPtr<SQLTransactionSyncCallback> callback, ExceptionCode& ec)
+{
+    runTransaction(callback, true, ec);
+}
+
+void DatabaseSync::runTransaction(PassRefPtr<SQLTransactionSyncCallback> callback, bool readOnly, ExceptionCode& ec)
 {
     ASSERT(m_scriptExecutionContext->isContextThread());
+
+    if (sqliteDatabase().transactionInProgress()) {
+        ec = SQLException::DATABASE_ERR;
+        return;
+    }
+
+    RefPtr<SQLTransactionSync> transaction = SQLTransactionSync::create(this, callback, readOnly);
+    if ((ec = transaction->begin()) || (ec = transaction->execute()) || (ec = transaction->commit()))
+        transaction->rollback();
 }
 
-void DatabaseSync::transaction(PassRefPtr<SQLTransactionSyncCallback>, bool)
+void DatabaseSync::markAsDeletedAndClose()
 {
-    ASSERT(m_scriptExecutionContext->isContextThread());
+    // FIXME: need to do something similar to closeImmediately(), but in a sync way
 }
 
-ScriptExecutionContext* DatabaseSync::scriptExecutionContext() const
+class CloseSyncDatabaseOnContextThreadTask : public ScriptExecutionContext::Task {
+public:
+    static PassOwnPtr<CloseSyncDatabaseOnContextThreadTask> create(PassRefPtr<DatabaseSync> database)
+    {
+        return adoptPtr(new CloseSyncDatabaseOnContextThreadTask(database));
+    }
+
+    virtual void performTask(ScriptExecutionContext*)
+    {
+        m_database->closeImmediately();
+    }
+
+private:
+    CloseSyncDatabaseOnContextThreadTask(PassRefPtr<DatabaseSync> database)
+        : m_database(database)
+    {
+    }
+
+    RefPtr<DatabaseSync> m_database;
+};
+
+void DatabaseSync::closeImmediately()
 {
-    ASSERT(m_scriptExecutionContext->isContextThread());
-    return m_scriptExecutionContext.get();
-}
+    if (!m_scriptExecutionContext->isContextThread()) {
+        m_scriptExecutionContext->postTask(CloseSyncDatabaseOnContextThreadTask::create(this));
+        return;
+    }
 
-#endif // ENABLE(DATABASE)
+    if (!opened())
+        return;
+
+    DatabaseTracker::tracker().removeOpenDatabase(this);
+
+    closeDatabase();
+}
 
 } // namespace WebCore
+
+#endif // ENABLE(DATABASE)

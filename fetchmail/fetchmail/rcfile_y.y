@@ -70,15 +70,20 @@ extern char * yytext;
 %token BATCHLIMIT FETCHLIMIT FETCHSIZELIMIT FASTUIDL EXPUNGE PROPERTIES
 %token SET LOGFILE DAEMON SYSLOG IDFILE PIDFILE INVISIBLE POSTMASTER BOUNCEMAIL
 %token SPAMBOUNCE SOFTBOUNCE SHOWDOTS
+%token BADHEADER ACCEPT REJECT_
 %token <proto> PROTO AUTHTYPE
 %token <sval>  STRING
 %token <number> NUMBER
 %token NO KEEP FLUSH LIMITFLUSH FETCHALL REWRITE FORCECR STRIPCR PASS8BITS 
 %token DROPSTATUS DROPDELIVERED
 %token DNS SERVICE PORT UIDL INTERVAL MIMEDECODE IDLE CHECKALIAS 
-%token SSL SSLKEY SSLCERT SSLPROTO SSLCERTCK SSLCERTPATH SSLCOMMONNAME SSLFINGERPRINT
+%token SSL SSLKEY SSLCERT SSLPROTO SSLCERTCK SSLCERTFILE SSLCERTPATH SSLCOMMONNAME SSLFINGERPRINT
 %token PRINCIPAL ESMTPNAME ESMTPPASSWORD
 %token TRACEPOLLS
+
+%expect 2
+
+%destructor { free ($$); } STRING
 
 %%
 
@@ -93,18 +98,18 @@ statement_list	: statement
 optmap		: MAP | /* EMPTY */;
 
 /* future global options should also have the form SET <name> optmap <value> */
-statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir);}
-		| SET IDFILE optmap STRING	{run.idfile = prependdir ($4, rcfiledir);}
-		| SET PIDFILE optmap STRING	{run.pidfile = prependdir ($4, rcfiledir);}
+statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir); free($4);}
+		| SET IDFILE optmap STRING	{run.idfile = prependdir ($4, rcfiledir); free($4);}
+		| SET PIDFILE optmap STRING	{run.pidfile = prependdir ($4, rcfiledir); free($4);}
 		| SET DAEMON optmap NUMBER	{run.poll_interval = $4;}
-		| SET POSTMASTER optmap STRING	{run.postmaster = xstrdup($4);}
+		| SET POSTMASTER optmap STRING	{run.postmaster = $4;}
 		| SET BOUNCEMAIL		{run.bouncemail = TRUE;}
 		| SET NO BOUNCEMAIL		{run.bouncemail = FALSE;}
 		| SET SPAMBOUNCE		{run.spambounce = TRUE;}
 		| SET NO SPAMBOUNCE		{run.spambounce = FALSE;}
 		| SET SOFTBOUNCE		{run.softbounce = TRUE;}
 		| SET NO SOFTBOUNCE		{run.softbounce = FALSE;}
-		| SET PROPERTIES optmap STRING	{run.properties =xstrdup($4);}
+		| SET PROPERTIES optmap STRING	{run.properties = $4;}
 		| SET SYSLOG			{run.use_syslog = TRUE;}
 		| SET NO SYSLOG			{run.use_syslog = FALSE;}
 		| SET INVISIBLE			{run.invisible = TRUE;}
@@ -126,8 +131,8 @@ statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir);
 			{yyerror(GT_("server option after user options"));}
 		;
 
-define_server	: POLL STRING		{reset_server($2, FALSE);}
-		| SKIP STRING		{reset_server($2, TRUE);}
+define_server	: POLL STRING		{reset_server($2, FALSE); free($2);}
+		| SKIP STRING		{reset_server($2, TRUE);  free($2);}
 		| DEFAULTS		{reset_server("defaults", FALSE);}
   		;
 
@@ -135,16 +140,16 @@ serverspecs	: /* EMPTY */
 		| serverspecs serv_option
 		;
 
-alias_list	: STRING		{save_str(&current.server.akalist,$1,0);}
-		| alias_list STRING	{save_str(&current.server.akalist,$2,0);}
+alias_list	: STRING		{save_str(&current.server.akalist,$1,0); free($1);}
+		| alias_list STRING	{save_str(&current.server.akalist,$2,0); free($2);}
 		;
 
-domain_list	: STRING		{save_str(&current.server.localdomains,$1,0);}
-		| domain_list STRING	{save_str(&current.server.localdomains,$2,0);}
+domain_list	: STRING		{save_str(&current.server.localdomains,$1,0); free($1);}
+		| domain_list STRING	{save_str(&current.server.localdomains,$2,0); free($2);}
 		;
 
 serv_option	: AKA alias_list
-		| VIA STRING		{current.server.via = xstrdup($2);}
+		| VIA STRING		{current.server.via = $2;}
 		| LOCALDOMAINS domain_list
 		| PROTOCOL PROTO	{current.server.protocol = $2;}
 		| PROTOCOL KPOP		{
@@ -158,9 +163,9 @@ serv_option	: AKA alias_list
 #endif /* KERBEROS_V5 */
 					    current.server.service = KPOP_PORT;
 					}
-		| PRINCIPAL STRING	{current.server.principal = xstrdup($2);}
-		| ESMTPNAME STRING	{current.server.esmtp_name = xstrdup($2);}
-		| ESMTPPASSWORD STRING	{current.server.esmtp_password = xstrdup($2);}
+		| PRINCIPAL STRING	{current.server.principal = $2;}
+		| ESMTPNAME STRING	{current.server.esmtp_name = $2;}
+		| ESMTPPASSWORD STRING	{current.server.esmtp_password = $2;}
 		| PROTOCOL SDPS		{
 #ifdef SDPS_ENABLE
 					    current.server.protocol = P_POP3;
@@ -194,41 +199,43 @@ serv_option	: AKA alias_list
 			{current.server.authenticate = $2;}
 		| TIMEOUT NUMBER
 			{current.server.timeout = $2;}
-		| ENVELOPE NUMBER STRING 
+		| ENVELOPE NUMBER STRING
 					{
-					    current.server.envelope = 
-						xstrdup($3);
+					    current.server.envelope = $3;
 					    current.server.envskip = $2;
 					}
 		| ENVELOPE STRING
 					{
-					    current.server.envelope = 
-						xstrdup($2);
+					    current.server.envelope = $2;
 					    current.server.envskip = 0;
 					}
 
-		| QVIRTUAL STRING	{current.server.qvirtual=xstrdup($2);}
+		| QVIRTUAL STRING	{current.server.qvirtual = $2;}
 		| INTERFACE STRING	{
 #ifdef CAN_MONITOR
 					interface_parse($2, &current.server);
 #else
 					fprintf(stderr, GT_("fetchmail: interface option is only supported under Linux (without IPv6) and FreeBSD\n"));
 #endif
+					free($2);
 					}
 		| MONITOR STRING	{
 #ifdef CAN_MONITOR
-					current.server.monitor = xstrdup($2);
+					current.server.monitor = $2;
 #else
 					fprintf(stderr, GT_("fetchmail: monitor option is only supported under Linux (without IPv6) and FreeBSD\n"));
+					free($2);
 #endif
 					}
-		| PLUGIN STRING		{ current.server.plugin = xstrdup($2); }
-		| PLUGOUT STRING	{ current.server.plugout = xstrdup($2); }
+		| PLUGIN STRING		{ current.server.plugin = $2; }
+		| PLUGOUT STRING	{ current.server.plugout = $2; }
 		| DNS			{current.server.dns = FLAG_TRUE;}
 		| NO DNS		{current.server.dns = FLAG_FALSE;}
 		| NO ENVELOPE		{current.server.envelope = STRING_DISABLED;}
 		| TRACEPOLLS		{current.server.tracepolls = FLAG_TRUE;}
 		| NO TRACEPOLLS		{current.server.tracepolls = FLAG_FALSE;}
+		| BADHEADER ACCEPT	{current.server.badheader = BHACCEPT;}
+		| BADHEADER REJECT_	{current.server.badheader = BHREJECT;}
 		;
 
 userspecs	: user1opts		{record_current(); user_reset();}
@@ -242,9 +249,9 @@ explicits	: explicitdef		{record_current(); user_reset();}
 explicitdef	: userdef user0opts
 		;
 
-userdef		: USERNAME STRING	{current.remotename = xstrdup($2);}
+userdef		: USERNAME STRING	{current.remotename = $2;}
 		| USERNAME mapping_list HERE
-		| USERNAME STRING THERE	{current.remotename = xstrdup($2);}
+		| USERNAME STRING THERE	{current.remotename = $2;}
 		;
 
 user0opts	: /* EMPTY */
@@ -264,34 +271,32 @@ mapping_list	: mapping
 		| mapping_list mapping
 		;
 
-mapping		: STRING	
-				{save_str_pair(&current.localnames, $1, NULL);}
-		| STRING MAP STRING
-				{save_str_pair(&current.localnames, $1, $3);}
+mapping		: STRING		{save_str_pair(&current.localnames, $1, NULL); free($1);}
+		| STRING MAP STRING	{save_str_pair(&current.localnames, $1, $3); free($1); free($3);}
 		;
 
-folder_list	: STRING		{save_str(&current.mailboxes,$1,0);}
-		| folder_list STRING	{save_str(&current.mailboxes,$2,0);}
+folder_list	: STRING		{save_str(&current.mailboxes,$1,0); free($1);}
+		| folder_list STRING	{save_str(&current.mailboxes,$2,0); free($2);}
 		;
 
-smtp_list	: STRING		{save_str(&current.smtphunt, $1,TRUE);}
-		| smtp_list STRING	{save_str(&current.smtphunt, $2,TRUE);}
+smtp_list	: STRING		{save_str(&current.smtphunt, $1,TRUE); free($1);}
+		| smtp_list STRING	{save_str(&current.smtphunt, $2,TRUE); free($2);}
 		;
 
-fetch_list	: STRING		{save_str(&current.domainlist, $1,TRUE);}
-		| fetch_list STRING	{save_str(&current.domainlist, $2,TRUE);}
+fetch_list	: STRING		{save_str(&current.domainlist, $1,TRUE); free($1);}
+		| fetch_list STRING	{save_str(&current.domainlist, $2,TRUE); free($2);}
 		;
 
 num_list	: NUMBER
 			{
 			    struct idlist *id;
-			    id=save_str(&current.antispam,STRING_DUMMY,0);
+			    id = save_str(&current.antispam,STRING_DUMMY,0);
 			    id->val.status.num = $1;
 			}
 		| num_list NUMBER
 			{
 			    struct idlist *id;
-			    id=save_str(&current.antispam,STRING_DUMMY,0);
+			    id = save_str(&current.antispam,STRING_DUMMY,0);
 			    id->val.status.num = $2;
 			}
 		;
@@ -301,19 +306,19 @@ user_option	: TO localnames HERE
 		| IS localnames HERE
 		| IS localnames
 
-		| IS STRING THERE	{current.remotename  = xstrdup($2);}
-		| PASSWORD STRING	{current.password    = xstrdup($2);}
+		| IS STRING THERE	{current.remotename  = $2;}
+		| PASSWORD STRING	{current.password    = $2;}
 		| FOLDER folder_list
 		| SMTPHOST smtp_list
 		| FETCHDOMAINS fetch_list
-		| SMTPADDRESS STRING	{current.smtpaddress = xstrdup($2);}
-		| SMTPNAME STRING	{current.smtpname = xstrdup($2);}
+		| SMTPADDRESS STRING	{current.smtpaddress = $2;}
+		| SMTPNAME STRING	{current.smtpname =    $2;}
 		| SPAMRESPONSE num_list
-		| MDA STRING		{current.mda         = xstrdup($2);}
-		| BSMTP STRING		{current.bsmtp       = prependdir ($2, rcfiledir);}
+		| MDA STRING		{current.mda         = $2;}
+		| BSMTP STRING		{current.bsmtp       = prependdir ($2, rcfiledir); free($2);}
 		| LMTP			{current.listener    = LMTP_MODE;}
-		| PRECONNECT STRING	{current.preconnect  = xstrdup($2);}
-		| POSTCONNECT STRING	{current.postconnect = xstrdup($2);}
+		| PRECONNECT STRING	{current.preconnect  = $2;}
+		| POSTCONNECT STRING	{current.postconnect = $2;}
 
 		| KEEP			{current.keep        = FLAG_TRUE;}
 		| FLUSH			{current.flush       = FLAG_TRUE;}
@@ -335,13 +340,14 @@ user_option	: TO localnames HERE
 		    yyerror(GT_("SSL is not enabled"));
 #endif 
 		}
-		| SSLKEY STRING		{current.sslkey = prependdir ($2, rcfiledir);}
-		| SSLCERT STRING	{current.sslcert = prependdir ($2, rcfiledir);}
-		| SSLPROTO STRING	{current.sslproto = xstrdup($2);}
+		| SSLKEY STRING		{current.sslkey = prependdir ($2, rcfiledir); free($2);}
+		| SSLCERT STRING	{current.sslcert = prependdir ($2, rcfiledir); free($2);}
+		| SSLPROTO STRING	{current.sslproto = $2;}
 		| SSLCERTCK             {current.sslcertck = FLAG_TRUE;}
-		| SSLCERTPATH STRING    {current.sslcertpath = prependdir($2, rcfiledir);}
-		| SSLCOMMONNAME STRING  {current.sslcommonname = xstrdup($2);}
-		| SSLFINGERPRINT STRING {current.sslfingerprint = xstrdup($2);}
+		| SSLCERTFILE STRING    {current.sslcertfile = prependdir($2, rcfiledir); free($2);}
+		| SSLCERTPATH STRING    {current.sslcertpath = prependdir($2, rcfiledir); free($2);}
+		| SSLCOMMONNAME STRING  {current.sslcommonname = $2;}
+		| SSLFINGERPRINT STRING {current.sslfingerprint = $2;}
 
 		| NO KEEP		{current.keep        = FLAG_FALSE;}
 		| NO FLUSH		{current.flush       = FLAG_FALSE;}
@@ -366,7 +372,7 @@ user_option	: TO localnames HERE
 		| BATCHLIMIT NUMBER	{current.batchlimit  = NUM_VALUE_IN($2);}
 		| EXPUNGE NUMBER	{current.expunge     = NUM_VALUE_IN($2);}
 
-		| PROPERTIES STRING	{current.properties  = xstrdup($2);}
+		| PROPERTIES STRING	{current.properties  = $2;}
 		;
 %%
 

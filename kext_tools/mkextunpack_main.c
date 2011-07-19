@@ -105,7 +105,7 @@ For each arch:
         - Else add kext to assembled list
         
     - Need to save infoDict, executable, resources
-#endif /* 0 */
+#endif
 
 /*******************************************************************************
 *******************************************************************************/
@@ -215,7 +215,7 @@ int main (int argc, const char * argv[]) {
             goto finish;
         }
 
-        if ( !(stat_buf.st_mode & S_IFDIR) ) {
+        if ((stat_buf.st_mode & S_IFMT) != S_IFDIR) {
             fprintf(stderr, "%s is not a directory\n",
                 outputDirectory);
             exit_code = 1;
@@ -522,7 +522,7 @@ Boolean writeMkext2ToDirectory(
     CFDataRef       executable             = NULL;  // must release
     CFURLRef        kextURL                = NULL;  // do not release
     CFStringRef     kextName               = NULL;  // must release
-    CFStringRef     executableName         = NULL;  // must release
+    CFStringRef     executableName         = NULL;  // do not release
     uint32_t        pathLength;
     char            kextPath[PATH_MAX];      // gets trashed during use
     char          * kextNameCString        = NULL;  // do not free
@@ -673,6 +673,7 @@ finish:
     SAFE_RELEASE(infoDictData);
     SAFE_RELEASE(error);
     SAFE_RELEASE(executable);
+    SAFE_RELEASE(kextName);
     SAFE_FREE(kextNameCStringAlloced);
     SAFE_FREE(executableNameCStringAlloced);
     return result;
@@ -978,6 +979,7 @@ Boolean writeMkext1EntriesToDirectory(CFDictionaryRef entryDict,
     if (!kextNames || !entries) {
         fprintf(stderr, "malloc failure\n");
         result = false;
+        goto finish;
     }
 
     CFDictionaryGetKeysAndValues(entryDict, (const void **)kextNames,
@@ -1112,7 +1114,7 @@ CFStringRef createKextNameFromPlist(
             length = CFArrayGetCount(idParts);
             bundleName = (CFStringRef)CFArrayGetValueAtIndex(idParts, length - 1);
 
-           /* Last compoonent of identifer null? Sigh, back to square one.
+           /* Identifier ends with a period? We got no name, then.
             */
             if (!CFStringGetLength(bundleName)) {
                 bundleName = NULL;
@@ -1121,7 +1123,7 @@ CFStringRef createKextNameFromPlist(
 
        /* If we didn't find a name to use, conjure one up.
         */
-        if (!bundleID) {
+        if (!bundleName) {
             result = CFStringCreateWithFormat(kCFAllocatorDefault,
                 NULL, CFSTR("NameUnknown-%d"), nameUnknownIndex);
             nameUnknownIndex++;
@@ -1129,9 +1131,10 @@ CFStringRef createKextNameFromPlist(
         }
     }
 
-   /* See if we already have the name found; if so, add numbers until we get
-    * a unique.
+   /* See if we already have the name we found based on executable/bundle ID
+    * (as opposed to making up with NameUnknown); if so, add numbers until we get a unique.
     */
+    if (bundleName) {
     if (CFDictionaryGetValue(entries, bundleName)) {
         for ( ; ; dupIndex++) {
             result = CFStringCreateWithFormat(kCFAllocatorDefault,
@@ -1145,6 +1148,7 @@ CFStringRef createKextNameFromPlist(
     } else {
         result = CFRetain(bundleName);
         goto finish;
+    }
     }
 finish:
     if (idParts) CFRelease(idParts);

@@ -1,0 +1,1098 @@
+(Format of this file shamelessly stolen from the Linux kernel.)
+
+Maintainer guidelines:
+  1) Please test your changes and the changes you receive prior to
+     checkin.  The more varied the testing, the better.
+  2) It's nice to release alpha versions to the appropriate list for
+     testing.
+  3) Make sure your changes compile!
+
+Rules:
+  1) The first person to complain about an unresponsive maintainer
+     automatically assumes maintainership of the code in question.
+
+Unlike the kernel maintainers file, this goes more or less alphabetically
+by component within each subsystem, rather than alphabetically on maintainer
+name.
+
+P: Person
+M: Mail patches to
+L: Mailing list that is relevant to this area
+W: Web-page with status/info
+S: Status, one of the following:
+
+	Supported:	Someone is actually paid to look after this.
+	Maintained:     Someone actually looks after it.
+	Odd Fixes:	It has a maintainer but they don't have time to do
+			much other than throw the odd patch in. See below..
+	Unmaintained:	No current maintainer [but maybe you could take the
+			role as you write your new code].
+	Deactivated:	Package is about to be obsoleted. A deactivated
+			package will not receive general fixes unless a user
+			requires this package to be reactivated first.
+	Obsolete:	Old code. Something tagged obsolete generally means
+			it has been replaced by a better system and you
+			should be using that.
+
+For patch submission instructions, see:
+        http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+Send all patches for modules without a specific maintainer address listed
+to xorg-devel@lists.x.org
+
+Misc. core code
+---------------
+DRM library
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+PCI Access Library
+P:	Ian Romanick
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.freedesktop.org/wiki/PciRework
+S:	Supported
+
+X.Org apps
+---------------
+
+beforelight
+S:	Obsolete
+
+lbxproxy
+S:	Obsolete - use ssh X forwarding + compression instead
+
+makepsres
+S:	Obsolete - DPS support has been dropped
+
+mkcfm
+S:	Obsolete - CID font support has been dropped
+
+pclcomp
+S:	Obsolete - only used by Xprint
+
+rstart
+S:	Obsolete - use ssh instead
+
+xbiff
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xcalc 
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xclock
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xconsole
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xdm
+P:	Alan Coopersmith
+M:	alan.coopersmith@sun.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xedit
+P:	Paulo César Pereira de Andrade
+M:	pcpa@mandriva.com.br
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xinput
+P:	Peter Hutterer
+M:	peter.hutterer@who-t.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xkbcomp
+P:	Daniel Stone
+M:	daniel@fooishbar.org
+L:	xorg-devel@lists.x.org
+W:	htp://wiki.x.org
+S:	Maintained
+S:	XKB being overhauled
+S:	Please contact Daniel if you're planning to work on this
+
+xload
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xman 
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xmessage
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xmh
+S:	Obsolete - use exmh instead
+
+xsetroot
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+all others
+P:	?
+M:	xorg-devel@lists.x.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+X.Org libraries
+---------------
+
+AppleWM
+FS
+ICE
+SM
+WindowsWM
+XRes
+XScrnSaver
+Xau
+Xaw
+
+X11, Xcomposite, Xcursor, Xdamage, Xfixes, Xrandr, Xrender
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Xdmcp
+Xevie
+Xext
+Xfont
+Xfontcache
+Xft
+Xinerama
+
+Xi, xkbfile, xkbui
+P:	Daniel Stone
+M:	daniel@fooishbar.org
+L:	xorg-devel@lists.x.org
+W:	htp://wiki.x.org
+S:	Maintained
+S:	XKB being overhauled
+S:	Please contact Daniel if you're planning to work on this
+
+Xmu
+Xp
+Xpm
+XprintAppUtil
+XprintUtil
+Xt
+Xtst
+Xv
+XvMC
+Xxf86dga
+Xxf86misc
+
+Xxf86rush
+S:	Obsolete
+
+Xxf86vm
+dmx
+fontenc
+
+lbxutil
+S:	Obsolete
+
+oldX
+S:	Obsolete - use libX11 instead
+
+XTrap
+S:	Obsolete - use libXtst instead
+
+xtrans
+P:      Bill Crawford
+M:      billcrawford1970@gmail.com
+L:      xorg-devel@lists.x.org
+W:      http://wiki.x.org
+S:      Maintained
+
+X.Org core
+----------
+Composite extension
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Configuration subsystem
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Damage extension
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Device Independent X (DIX)
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+DRI subsystem
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+EXA subsystem
+P:	Eric Anholt
+M:	anholt@freebsd.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+GL subsystem
+P:	Ian Romanick
+M:	idr@us.ibm.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+KDrive
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Loader subsystem
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Randr extension
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Render extension
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+XAA subsystem
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Despised
+
+XACE subsystem (security policy extensions framework)
+P:	Eamon Walsh
+M:	ewalsh@tycho.nsa.gov
+L:	xorg-devel@lists.x.org
+W:	http://people.freedesktop.org/~ewalsh/xace_proposal.html
+S:	Maintained
+
+Xfixes extension
+P:	Keith Packard
+M:	keith.packard@intel.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+XKB
+P:	Daniel Stone
+M:	daniel@fooishbar.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained, being seriously overhauled
+S:	Please contact Daniel if you're planning to work on this
+
+Input subsystem
+P:	Daniel Stone
+M:	daniel@fooishbar.org
+P:	Peter Hutterer
+M:	peter.hutterer@who-t.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained, being overhauled
+S:	Please contact Daniel or Peter if you're planning to work on this
+
+Xprint
+P:	Drew Parsons
+P:	Felix Schulte
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+X.Org OS ports
+--------------
+FreeBSD
+P:	Eric Anholt
+M:	anholt@freebsd.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Linux/i386
+P:	Egbert Eich
+M:	eich@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Linux/x86_64
+P:	Egbert Eich
+M:	eich@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Linux/ia64
+P:	Jesse Barnes
+M:	jbarnes@virtuousgeek.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Linux/ppc
+P:	Benjamin Herrenschmidt
+M:	benh@kernel.crashing.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Linux/sparc
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+LynxOS
+S:	Obsolete / Removed
+
+Mac OS X (Xquartz)
+P:	Ben Byer
+M:	bbyer@apple.com
+P:	Jeremy Huddleston
+M:	jeremyhu@apple.com
+L:	xquartz-dev@lists.macosforge.org
+W:	http://xquartz.macosforge.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+NetBSD
+P:	?
+M:	xorg-devel@lists.x.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+OpenBSD
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+SCO (OpenServer 5)
+P:	Kean Johnston
+M:	jkj@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+System V (other than Solaris & SCO)
+P:	?
+M:	xorg-devel@lists.x.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained (libraries/apps) ; Obsolete/Removed (Xorg server)
+
+Solaris (x86 & sparc)
+P:	Alan Coopersmith
+M:	alan.coopersmith@sun.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org & http://opensolaris.org/os/community/x_win/
+S:	Maintained
+
+USL (UnixWare 7.1.x, OpenServer 6)
+P:	Kean Johnston
+M:	jkj@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Cygwin
+P:	Jon TURNEY
+M:	jon.turney@dronecode.org.uk
+P:	Yaakov Selkowitz
+M:	yselkowitz@users.sourceforge.net
+L:	cygwin-xfree@cygwin.com
+W:	http://x.cygwin.com/
+S:	Maintained
+
+MinGW
+P:	Colin Harrison
+M:	colin.harrison@virgin.net
+W:	http://www.straightrunning.com/XmingNotes/
+S:	Maintained
+
+GNU/Hurd
+P:	Samuel Thibault
+M:	samuel.thibault@ens-lyon.org
+W:	http://wiki.x.org
+L:	bug-hurd@gnu.org
+S:	Maintained
+
+Drivers
+-------
+xf86-input-acecad
+P:	Giuseppe Bilotta
+M:	giuseppe.bilotta@gmail.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-aiptek
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-calcomp
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-citron
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-digitaledge
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-dmc
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-dynapro
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-elo2300
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-elographics
+P:	Marc Balmer
+M:	marc.balmer@arcapos.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-evdev
+P:	Peter Hutterer
+M:	peter.hutterer@who-t.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-fpit
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-hyperpen
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-jamstudio
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-joystick
+P:	Sascha Hlusiak
+M:	saschahlusiak@arcor.de
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-keyboard
+P:	Alan Coopersmith
+M:	alan.coopersmith@sun.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-magellan
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-magictouch
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-microtouch
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-mouse
+P:	Alan Coopersmith
+M:	alan.coopersmith@sun.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-mutouch
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-palmax
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-penmount
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-input-sample
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Obsolete
+
+xf86-input-spaceorb
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-summa
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-synaptics
+P:	Christoph Brill
+M:	egore911@egore911.de
+P:	Peter Hutterer
+M:	peter.hutterer@who-t.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-tek4957
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-ur98
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Deactivated
+
+xf86-input-vmmouse
+P:	Thomas Hellstrom
+M:	thellstrom@vmware.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-input-void
+P:	Peter Hutterer
+M:	peter.hutterer@who-t.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-apm
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-ark
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-ast
+P:	Y.C. Chen
+M:	yc_chen@aspeedtech.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-ati
+P:	Alex Deucher
+P:      Ben Herrenschmidt
+P:      et al
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-chips
+P:	Egbert Eich
+M:	eich@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-cirrus
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-cyrix
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-dummy
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-fbdev
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-glide
+P:	Guillem Jover
+M:	guillem@hadrons.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Obsolete, yet still somehow maintained
+
+xf86-video-glint
+P:	Alan Hourihane
+M:	alanh@fairlite.demon.co.uk
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-i128
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-i740
+P:	Egbert Eich
+P:	??
+M:	eich@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-intel
+P:	Eric Anholt
+M:	eric@anholt.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-mach64
+P:      Luc Verhaegen
+M:      libv@skynet.be
+L:      xorg-devel@lists.x.org
+W:      http://wiki.x.org
+S:	Maintained
+
+xf86-video-imstt
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-mga
+P:	Ian Romanick
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-neomagic
+P:	Egbert Eich
+M:	eich@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-newport
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-nsc
+P:	Alan Hourihane
+M:	alanh@fairlite.demon.co.uk
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-nv
+P:	Aaron Plattner
+M:	aplattner@freedesktop.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-rendition
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Odd fixes.
+
+xf86-video-r128
+P:	Alex Deucher
+P:      Ben Herrenschmidt
+P:      et al
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-radeon
+P:	Alex Deucher
+P:      Ben Herrenschmidt
+P:      et al
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-s3
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-s3virge
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-savage
+P:	Alex Deucher
+M:	agd5f@yahoo.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-siliconmotion
+P:	Alex Deucher
+M:	agd5f@yahoo.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-sis
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-sisusb
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-sunbw2
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-suncg14
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-suncg3
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-suncg6
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-sunffb
+P:	David S. Miller
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Odd fixes
+
+xf86-video-sunleo
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-suntcx
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-tdfx
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-tga
+P:	Alan Hourihane
+M:	alanh@fairlite.demon.co.uk
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-trident
+P:	Alan Hourihane
+M:	alanh@fairlite.demon.co.uk
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-tseng
+P:	Luc Verhaegen
+M:	libv@skynet.be
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-v4l
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xf86-video-vesa
+P:	Adam Jackson
+M:	ajax@nwnk.net
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-vga
+P:	?
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Obsolete - use xf86-video-vesa instead
+
+xf86-video-via
+P:	Luc Verhaegen
+P:      Thomas Hellström
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+W:      http://unichrome.sf.net
+S:	Unmaintained
+
+xf86-video-vmware
+P:	Thomas Hellstrom
+M:	thellstrom@vmware.com
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-voodoo
+P:	Alan Cox
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Odd fixes
+
+xf86-video-wsfb
+P:	Matthieu Herrb
+M:	matthieu.herrb@laas.fr
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+xf86-video-xgi
+P:	Ian Romanick
+M:	?
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Maintained
+
+Other modules
+-------------
+
+data/bitmaps, data/cursors, doc/*, fonts/*, util/*
+P:	?
+M:	xorg-devel@lists.x.org
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Unmaintained
+
+xkbdata
+S:	Obsolete - use xkeyboard-config instead
+
+Developer relations & services
+------------------------------
+
+Mailing lists (lists.x.org)
+P:	?
+M:	mailman@lists.x.org
+L:	mailman@lists.x.org
+W:	http://lists.x.org/mailman/listinfo/
+S:	Maintained
+
+Website (www.x.org)
+P:	Stuart Anderson
+M:	anderson@netsweng.com
+L:	xorg-devel@lists.x.org
+W:	http://www.x.org/
+S:	Maintained
+
+Supply of pastries, other food, beverages
+P:	Luc Verhaegen
+M:	libv@skynet.be
+L:	xorg-devel@lists.x.org
+W:	http://wiki.x.org
+S:	Disrepair
+S:	'Other food' may induce illness.  Beware.

@@ -1,3 +1,24 @@
+2010-08-05  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tkTable.h (CONSTRAIN): handle constraints where max<min.
+	[Bug 2672726] (becroft)
+
+	* win/makefile.vc (LIBS): add ""s where needed [Bug 2305395] (oehhar)
+	(VERSION): add VERSION var [Bug 2305448] (oehhar)
+
+	* library/tktable.py (Table.width): handle empty colum
+	(Table._tabsubst): improve substitutions [Bug 2293127] (ggpolo)
+	(ArrayVar): improve py integration [Bug 2333824] (ggpolo)
+	(Table.__init__): support TKTABLE_LIBRARY env var [Bug 2334490) (ggpolo)
+
+	* generic/tkTable.c (TableFetchSelection): significant performance
+	improvement in large table selection retrieval. [Bug 2901813] (cerney)
+
+2010-04-15  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* license.txt: update wording and clause reference in government
+	use clause to clarify license allowances.
+
 2008-11-14  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	**** 2.10 TAGGED FOR RELEASE ****

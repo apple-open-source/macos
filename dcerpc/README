@@ -1,0 +1,44 @@
+DCE/RPC
+-------
+
+This project is a fork of the Likewise DCE/RPC renovation.
+
+The Likewise git repository is available here:
+    git://git.likewisesoftware.com/likewise-open.git
+
+Build notes.
+------------
+
+The build system for DCE/RPC is relatively complex, partly due to
+the use of automake and libtool and partly because it does a lot
+of code generation.
+
+Xcode does not support this sort of thing particularly well, so we
+make heavy use of shell script build phases and "workarounds".
+
+Our basic approach to cross-compilation is to separate the build
+into two phases. We have a dceidl project that builds the IDL
+compiler and installs it into the SDK. Then we have the dcerpc
+project that builds the DCERPC framework using the previously
+installed IDL compiler.
+
+The dcerpc and dceidl projects should typically by run with different
+build architectures, since dceidl is expected to run on the uild
+host, and dcerpc is expected to run on the target host. Inside
+Apple, the build group has all this preconfigured.
+
+We assume that the IDL compiler is actually an IDL cross-compiler.
+This assumption is valid because the autotools build system uses
+the "generic" architecture, and everything that depends on the
+target architecture is determined at compilation time without the
+use of autoconf tests.
+
+We do use autoconf tests to select available features when we are
+building the DCERPC framework, and this relies on the fact that
+features vary between target SDKs, but not between target architectures.
+You can only target a single SDK, and within that SDK, the feature
+set is constant, and indepednent of the suported architecture.
+Therefore it is valid to do a single configure pass followed by a
+multi-architecture build.
+
+James Peach, Tue May  4 10:46:53 PDT 2010

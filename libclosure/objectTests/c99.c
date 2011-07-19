@@ -1,14 +1,24 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG LANGUAGE=c,objc
+// TEST_CFLAGS -std=c99 -fblocks
+
 //
 //  c99.m
 //
-// CONFIG C99 rdar://problem/6399225
+// rdar://problem/6399225
 
 #import <stdio.h>
 #import <stdlib.h>
+#import "test.h"
 
-int main(char *argc, char *argv[]) {
+int main() {
     void (^blockA)(void) = ^ { ; };
     blockA();
-    printf("%s: success\n", argv[0]);
-    exit(0);
+
+    succeed(__FILE__);
 }

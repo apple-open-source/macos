@@ -1,6 +1,7 @@
+# buildit may need "-project removefile-123" (any number should do)
 Project = removefile
-ProductType = staticlib
-Install_Dir = /usr/local/lib/system
+ProductType = dylib
+Install_Dir = /usr/lib/system
 BuildDebug = YES
 BuildProfile = YES
 
@@ -17,6 +18,8 @@ Install_Headers = removefile.h checkint.h
 
 Extra_CC_Flags = -Wall -Werror \
 	-D__DARWIN_NON_CANCELABLE=1
+
+Extra_LD_Flags = -Wl,-umbrella -Wl,System
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 

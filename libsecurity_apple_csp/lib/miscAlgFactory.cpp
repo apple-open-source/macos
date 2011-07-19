@@ -271,8 +271,8 @@ bool MiscAlgFactory::setup(
 				case CSSM_ALGID_RC4:
 					if(cspCtx == NULL) {
 						cspCtx = new AppleSymmKeyGenerator(session,
-							RC4_MIN_KEY_SIZE_BYTES * 8,
-							RC4_MAX_KEY_SIZE_BYTES * 8,
+							kCCKeySizeMinRC4 * 8,
+							kCCKeySizeMaxRC4 * 8,
 							true);				// must be byte size
 					}
 					return true;
@@ -302,8 +302,8 @@ bool MiscAlgFactory::setup(
 				case CSSM_ALGID_CAST:
 					if(cspCtx == NULL) {
 						cspCtx = new AppleSymmKeyGenerator(session,
-							CAST_MIN_KEY_LENGTH * 8,
-							CAST_KEY_LENGTH * 8,
+							kCCKeySizeMinCAST * 8,
+							kCCKeySizeMaxCAST * 8,
 							true);				// must be byte size
 					}
 					return true;

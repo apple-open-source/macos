@@ -1,8 +1,8 @@
 /* sent.c - deal with data sent subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/sent.c,v 1.42.2.4 2008/02/11 23:26:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/sent.c,v 1.42.2.7 2010/04/13 20:23:34 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2008 The OpenLDAP Foundation.
+ * Copyright 2001-2010 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -110,7 +110,7 @@ monitor_subsys_sent_init(
 		ber_dupbv( &monitor_sent[ i ].nrdn, &nrdn );
 	
 		BER_BVSTR( &bv, "0" );
-		attr_merge_normalize_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
+		attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 		mp = monitor_entrypriv_create();
 		if ( mp == NULL ) {

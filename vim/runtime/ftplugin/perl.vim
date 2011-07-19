@@ -1,8 +1,8 @@
 " Vim filetype plugin file
-" Language:	Perl
-" Maintainer:	Dan Sharp <dwsharp at hotmail dot com>
-" Last Change:  17 Jul 2008
-" URL:		http://mywebpage.netscape.com/sharppeople/vim/ftplugin
+" Language:     Perl
+" Maintainer:   Andy Lester <andy@petdance.com>
+" URL:          http://github.com/petdance/vim-perl
+" Last Change:  2009-08-14
 
 if exists("b:did_ftplugin") | finish | endif
 let b:did_ftplugin = 1

@@ -1,5 +1,4 @@
 # ---------------------------------------------------------------
-# $Header: /cvsroot/swig/SWIG/Lib/perl5/Makefile.in,v 1.3 2002/11/30 22:10:08 beazley Exp $
 # SWIG Perl5 Makefile
 # 
 # This file can be used to build various Perl5 extensions with SWIG.

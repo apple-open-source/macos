@@ -113,10 +113,14 @@ struct _eventMsg {
 ******************************************************************************/
 
 typedef volatile struct _evScreen {
-    IOGraphicsDevice * instance;/* Driver instance owning this screen. */
-//  void *shmemPtr;		/* Ptr to private shmem (if non-zero size) */
-//  int shmemSize;		/* Size of private shmem */
-    IOGBounds * bounds; /* Screen's bounds in device coordinates */
+    IOGraphicsDevice    *instance;      /* Driver instance owning this screen. */
+    IOGBounds           *displayBounds; /* Screen's bounds in the coordinate system of the display space */
+    IOGBounds           *desktopBounds; /* Screen's bounds in the coordinate system of the desktop space */
+    /*  Display space and desktop space are the same unless using a feature that causes them not to be them, like 
+        zooming or HiDPI. Both spaces should be contiguous (no disconnected pieces) and the mapping between them
+        should be functional (uniquely bidirectional), but the mapping is likely not continuous (if as x->a, 
+        f(x)->f(a), then the mapping is continuous) in cases where display space isn't the same as desktop space.
+    */
 } EvScreen;
 
 /*
@@ -137,6 +141,9 @@ typedef struct {
 // No-op XPR stuff
 #define xpr_ev_cursor(x, a, b, c, d, e)
 #define xpr_ev_post(x, a, b, c, d, e)
+
+// This shares the same bitspace as NX_ALPHASHIFTMASK and NX_DEVICELCTLKEYMASK
+#define NX_HIGHCODE_ENCODING_MASK 0x80000000
 
 #endif /* !_DEV_EV_PRIVATE_H */
 

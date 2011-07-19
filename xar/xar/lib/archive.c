@@ -472,6 +472,8 @@ int xar_close(xar_t x) {
 		rbuf = malloc(rsize);
 		if( !rbuf ) {
 			retval = -1;
+			close(fd);
+			close(tocfd);
 			goto CLOSE_BAIL;
 		}
 		zs.zalloc = Z_NULL;
@@ -601,12 +603,16 @@ int xar_close(xar_t x) {
 				if( 0 != sig->signer_callback( sig, sig->callback_context, chkstr, data_len, &signed_data, &signed_len ) ){
 					fprintf(stderr, "Error signing data.\n");
 					retval = -1;
+					close(fd);
+					close(tocfd);
 					goto CLOSE_BAIL;					
 				}
 				
 				if( signed_len != XAR_SIGNATURE(sig)->len ){
 					fprintf(stderr, "Signed data not the proper length.  %i should be %i.\n",signed_len,XAR_SIGNATURE(sig)->len);
 					retval = -1;
+					close(fd);
+					close(tocfd);
 					goto CLOSE_BAIL;										
 				}
 				
@@ -645,6 +651,8 @@ int xar_close(xar_t x) {
 					continue;
 				if( r < 0 ) {
 					retval = -1;
+					close(fd);
+					close(tocfd);
 					goto CLOSEEND;
 				}
 				off += r;
@@ -654,6 +662,8 @@ int xar_close(xar_t x) {
 				break;
 		}
 CLOSEEND:
+		close(fd);
+		close(tocfd);
 		free(rbuf);
 		free(wbuf);
 		deflateEnd(&XAR(x)->zs);

@@ -25,13 +25,14 @@
  * @header CDSLocalAuthHelper
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
+
 #ifndef _CDSLocalAuthHelper_
 #define _CDSLocalAuthHelper_	1
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <PasswordServer/AuthFile.h>
 #include <PasswordServer/SASLCode.h>
-#include "CDSLocalPlugin.h"
 #include "CDSAuthDefs.h"
 #include "CAuthAuthority.h"
 #include "CDSLocalAuthParams.h"
@@ -291,3 +292,5 @@ class CDSLocalAuthHelper
 };
 
 #endif
+
+#endif // DISABLE_LOCAL_PLUGIN

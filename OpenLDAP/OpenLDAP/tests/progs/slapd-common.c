@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-common.c,v 1.4.2.6 2008/02/11 23:26:50 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-common.c,v 1.4.2.10 2010/04/13 20:23:58 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,13 +38,17 @@ pid_t pid;
 static char progname[ BUFSIZ ];
 tester_t progtype;
 
-#define	TESTER_SERVER_LAST	(LDAP_OTHER + 1)
-#define TESTER_CLIENT_LAST	(- LDAP_REFERRAL_LIMIT_EXCEEDED + 1)
-static unsigned ignore_server[ TESTER_SERVER_LAST ];
-static unsigned ignore_client[ TESTER_CLIENT_LAST ];
+/*
+ * ignore_count[] is indexed by result code:
+ * negative for OpenLDAP client-side errors, positive for protocol codes.
+ */
+#define	TESTER_CLIENT_FIRST	LDAP_REFERRAL_LIMIT_EXCEEDED /* negative */
+#define	TESTER_SERVER_LAST	LDAP_OTHER
+static int ignore_base	[ -TESTER_CLIENT_FIRST + TESTER_SERVER_LAST + 1 ];
+#define    ignore_count	(ignore_base - TESTER_CLIENT_FIRST)
 
-static struct {
-	char	*name;
+static const struct {
+	const char *name;
 	int	err;
 } ignore_str2err[] = {
 	{ "OPERATIONS_ERROR",		LDAP_OPERATIONS_ERROR },
@@ -126,20 +130,13 @@ static struct {
 static int
 tester_ignore_str2err( const char *err )
 {
-	int		i;
-	unsigned	ignore = 1;
+	int		i, ignore = 1;
 
 	if ( strcmp( err, "ALL" ) == 0 ) {
 		for ( i = 0; ignore_str2err[ i ].name != NULL; i++ ) {
-			int	err = ignore_str2err[ i ].err;
-
-			if ( err > 0 ) {
-				ignore_server[ err ] = 1;
-
-			} else if ( err < 0 ) {
-				ignore_client[ -err ] = 1;
-			}
+			ignore_count[ ignore_str2err[ i ].err ] = 1;
 		}
+		ignore_count[ LDAP_SUCCESS ] = 0;
 
 		return 0;
 	}
@@ -147,17 +144,18 @@ tester_ignore_str2err( const char *err )
 	if ( err[ 0 ] == '!' ) {
 		ignore = 0;
 		err++;
+
+	} else if ( err[ 0 ] == '*' ) {
+		ignore = -1;
+		err++;
 	}
 
 	for ( i = 0; ignore_str2err[ i ].name != NULL; i++ ) {
 		if ( strcmp( err, ignore_str2err[ i ].name ) == 0 ) {
 			int	err = ignore_str2err[ i ].err;
 
-			if ( err > 0 ) {
-				ignore_server[ err ] = ignore;
-
-			} else if ( err < 0 ) {
-				ignore_client[ -err ] = ignore;
+			if ( err != LDAP_SUCCESS ) {
+				ignore_count[ err ] = ignore;
 			}
 
 			return err;
@@ -183,25 +181,15 @@ tester_ignore_str2errlist( const char *err )
 	return 0;
 }
 
-unsigned
+int
 tester_ignore_err( int err )
 {
-	unsigned	rc = 1;
+	int rc = 1;
 
-	if ( err > 0 ) {
-		if ( err < TESTER_SERVER_LAST ) {
-			rc = ignore_server[ err ];
-			if ( rc ) {
-				ignore_server[ err ]++;
-			}
-		}
-
-	} else if ( err < 0 ) {
-		if ( -err < TESTER_CLIENT_LAST ) {
-			rc = ignore_client[ -err ];
-			if ( rc ) {
-				ignore_client[ -err ]++;
-			}
+	if ( err && TESTER_CLIENT_FIRST <= err && err <= TESTER_SERVER_LAST ) {
+		rc = ignore_count[ err ];
+		if ( rc != 0 ) {
+			ignore_count[ err ] = rc + (rc > 0 ? 1 : -1);
 		}
 	}
 
@@ -310,4 +298,3 @@ tester_error( const char *msg )
 {
 	fprintf( stderr, "%s: %s\n", progname, msg );
 }
-

@@ -369,7 +369,14 @@ boot_(Module m)
 {
 #ifdef HAVE_TGETENT
 # ifdef HAVE_SETUPTERM
-    setupterm((char *)0, 1, (int *)0);
+    int errret;
+
+    /*
+     * Just because we can't set up the terminal doesn't
+     * mean the modules hasn't booted---TERM may change,
+     * and it should be handled dynamically---so ignore errors here.
+     */
+    (void)setupterm((char *)0, 1, &errret);
 # endif
 #endif
     return  0;

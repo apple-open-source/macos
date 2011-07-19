@@ -17,8 +17,6 @@ DBIx::Class::AccessorGroup - See Class::Accessor::Grouped
 
 This class now exists in its own right on CPAN as Class::Accessor::Grouped
 
-1;
-
 =head1 AUTHORS
 
 Matt S. Trout <mst@shadowcatsystems.co.uk>

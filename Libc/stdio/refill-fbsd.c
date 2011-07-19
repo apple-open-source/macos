@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)refill.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/refill.c,v 1.18 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/refill.c,v 1.20 2008/04/17 22:17:54 jhb Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -110,7 +106,7 @@ __srefill0(FILE *fp)
 		if (HASUB(fp)) {
 			FREEUB(fp);
 			if ((fp->_r = fp->_ur) != 0) {
-				fp->_p = fp->_extra->_up;
+				fp->_p = fp->_up;
 				return (0);
 			}
 		}

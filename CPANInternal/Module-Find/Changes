@@ -18,11 +18,13 @@ HISTORY
             from ...errm... inspired by brian d foy.
 
     0.04, 2005-05-20
-
             Added POD tests.
 
     0.05, 2005-11-30
-
             Fixed issue with bugfix in PathTools-3.14.
+
+    0.06, 2008-01-26
+            Module::Find now won't report duplicate modules several times 
+            anymore (thanks to Uwe Všlker for the report and the patch)
 
 

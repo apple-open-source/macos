@@ -1,6 +1,6 @@
 package DBD::Gofer::Transport::Base;
 
-#   $Id: Base.pm 10377 2007-12-06 10:33:18Z timbo $
+#   $Id: Base.pm 12536 2009-02-24 22:37:09Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -12,7 +12,7 @@ use warnings;
 
 use base qw(DBI::Gofer::Transport::Base);
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10377 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 12536 $ =~ /(\d+)/o);
 
 __PACKAGE__->mk_accessors(qw(
     trace
@@ -52,6 +52,7 @@ sub new_response {
 
 sub transmit_request {
     my ($self, $request) = @_;
+    my $trace = $self->trace;
     my $response;
 
     my ($go_cache, $request_cache_key);
@@ -62,7 +63,6 @@ sub transmit_request {
         if ($request_cache_key) {
             my $frozen_response = eval { $go_cache->get($request_cache_key) };
             if ($frozen_response) {
-                my $trace = $self->trace;
                 $self->_dump("cached response found for ".ref($request), $request)
                     if $trace;
                 $response = $self->thaw_response($frozen_response);
@@ -73,12 +73,14 @@ sub transmit_request {
             }
             warn $@ if $@;
             ++$self->{cache_miss};
+            $self->trace_msg("transmit_request cache miss\n")
+                if $trace;
         }
     }
 
     my $to = $self->go_timeout;
     my $transmit_sub = sub {
-        $self->trace_msg("transmit_request\n");
+        $self->trace_msg("transmit_request\n") if $trace;
         local $SIG{ALRM} = sub { die "TIMEOUT\n" } if $to;
 
         my $response = eval {
@@ -108,7 +110,8 @@ sub transmit_request {
             if $request_cache_key;
     }
 
-    $self->trace_msg("transmit_request is returing a response itself\n") if $response;
+    $self->trace_msg("transmit_request is returning a response itself\n")
+        if $trace && $response;
 
     return $response unless wantarray;
     return ($response, $transmit_sub);
@@ -167,50 +170,76 @@ sub receive_response {
 }
 
 
+sub response_retry_preference {
+    my ($self, $request, $response) = @_;
+
+    # give the user a chance to express a preference (or undef for default)
+    if (my $go_retry_hook = $self->go_retry_hook) {
+        my $retry = $go_retry_hook->($request, $response, $self);
+        $self->trace_msg(sprintf "go_retry_hook returned %s\n",
+            (defined $retry) ? $retry : 'undef');
+        return $retry if defined $retry;
+    }
+
+    # This is the main decision point.  We don't retry requests that got
+    # as far as executing because the error is probably from the database
+    # (not transport) so retrying is unlikely to help. But note that any
+    # severe transport error occuring after execute is likely to return
+    # a new response object that doesn't have the execute flag set. Beware!
+    return 0 if $response->executed_flag_set;
+
+    return 1 if ($response->errstr || '') =~ m/induced by DBI_GOFER_RANDOM/;
+
+    return 1 if $request->is_idempotent; # i.e. is SELECT or ReadOnly was set
+
+    return undef; # we couldn't make up our mind
+}
+
+
 sub response_needs_retransmit {
     my ($self, $request, $response) = @_;
 
     my $err = $response->err
         or return 0; # nothing went wrong
 
-    my $retry;
-
-    # give the user a chance to express a preference (or undef for default)
-    if (my $go_retry_hook = $self->go_retry_hook) {
-        $retry = $go_retry_hook->($request, $response, $self);
-        $self->trace_msg(sprintf "response_needs_retransmit: go_retry_hook returned %s\n",
-            (defined $retry) ? $retry : 'undef');
-    }
-
-    if (not defined $retry) {
-        my $errstr = $response->errstr || '';
-        $retry = 1 if $errstr =~ m/induced by DBI_GOFER_RANDOM/;
-    }
-
-    if (not defined $retry) {
-        my $idempotent = $request->is_idempotent; # i.e. is SELECT or ReadOnly was set
-        $retry = 1 if $idempotent;
-    }
+    my $retry = $self->response_retry_preference($request, $response);
 
     if (!$retry) {  # false or undef
         $self->trace_msg("response_needs_retransmit: response not suitable for retry\n");
         return 0;
     }
 
+    # we'd like to retry but have we retried too much already?
+
     my $retry_limit = $self->go_retry_limit;
-    # $retry_limit = 2 unless defined $retry_limit; # not safe enough to do this
     if (!$retry_limit) {
         $self->trace_msg("response_needs_retransmit: retries disabled (retry_limit not set)\n");
         return 0;
     }
-    my $meta = $request->meta;
-    if (($meta->{retry_count}||=0) >= $retry_limit) {
-        $self->trace_msg("response_needs_retransmit: $meta->{retry_count} is too many retries\n");
+
+    my $request_meta = $request->meta;
+    my $retry_count = $request_meta->{retry_count} || 0;
+    if ($retry_count >= $retry_limit) {
+        $self->trace_msg("response_needs_retransmit: $retry_count is too many retries\n");
+        # XXX should be possible to disable altering the err
+        $response->errstr(sprintf "%s (after %d retries by gofer)", $response->errstr, $retry_count);
         return 0;
     }
-    ++$meta->{retry_count};                 # count for this request
-    ++$self->meta->{request_retry_count};   # cumulative transport stats
-    $self->trace_msg("response_needs_retransmit: retry $meta->{retry_count}\n");
+
+    # will retry now, do the admin
+    ++$retry_count;
+    $self->trace_msg("response_needs_retransmit: retry $retry_count\n");
+
+    # hook so response_retry_preference can defer some code execution
+    # until we've checked retry_count and retry_limit.
+    if (ref $retry eq 'CODE') {
+        $retry->($retry_count, $retry_limit)
+            and warn "should return false"; # protect future use
+    }
+
+    ++$request_meta->{retry_count};         # update count for this request object
+    ++$self->meta->{request_retry_count};   # update cumulative transport stats
+
     return 1;
 }
 
@@ -258,6 +287,8 @@ sub _store_response_in_cache {
 }
 
 1;
+
+__END__
 
 =head1 NAME
 
@@ -335,13 +366,31 @@ detailed, and voluminous, dump.
 The trace is written using DBI->trace_msg() and so is written to the default
 DBI trace output, which is usually STDERR.
 
+=head1 METHODS
+
+I<This section is currently far from complete.>
+
+=head2 response_retry_preference
+
+  $retry = $transport->response_retry_preference($request, $response);
+
+The response_retry_preference is called by DBD::Gofer when considering if a
+request should be retried after an error.
+
+Returns true (would like to retry), false (must not retry), undef (no preference).
+
+If a true value is returned in the form of a CODE ref then, if DBD::Gofer does
+decide to retry the request, it calls the code ref passing $retry_count, $retry_limit.
+Can be used for logging and/or to implement exponential backoff behaviour.
+Currently the called code must return using C<return;> to allow for future extensions.
+
 =head1 AUTHOR
 
 Tim Bunce, L<http://www.tim.bunce.name>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2007, Tim Bunce, Ireland. All rights reserved.
+Copyright (c) 2007-2008, Tim Bunce, Ireland. All rights reserved.
 
 This module is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself. See L<perlartistic>.

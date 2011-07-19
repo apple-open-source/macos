@@ -210,6 +210,7 @@ ALL : .\$(VIM).exe vimrun.exe install.exe uninstal.exe xxd/xxd.exe GvimExt/gvime
 
 LINK32_OBJS= \
 	$(EXTRAS) \
+	"$(INTDIR)/blowfish.obj" \
 	"$(INTDIR)/buffer.obj" \
 	"$(INTDIR)/charset.obj" \
 	"$(INTDIR)/diff.obj" \
@@ -246,6 +247,7 @@ LINK32_OBJS= \
 	"$(INTDIR)/regexp.obj" \
 	"$(INTDIR)/screen.obj" \
 	"$(INTDIR)/search.obj" \
+	"$(INTDIR)/sha256.obj" \
 	"$(INTDIR)/spell.obj" \
 	"$(INTDIR)/syntax.obj" \
 	"$(INTDIR)/tag.obj" \
@@ -286,7 +288,7 @@ CLEAN :
 
 
 install.exe: dosinst.c
-	$(CPP) /Fe$@ /nologo /W3 -DNDEBUG -DWIN32 dosinst.c kernel32.lib shell32.lib ole32.lib advapi32.lib uuid.lib
+	$(CPP) /Fe$@ /nologo /W3 -DNDEBUG -DWIN32 dosinst.c kernel32.lib shell32.lib user32.lib ole32.lib advapi32.lib uuid.lib
 
 uninstal.exe: uninstal.c
 	$(CPP) /nologo /W3 -DNDEBUG -DWIN32 uninstal.c shell32.lib advapi32.lib
@@ -322,6 +324,10 @@ GvimExt/gvimext.dll: GvimExt/gvimext.cpp GvimExt/gvimext.rc GvimExt/gvimext.h
 # Name "Vim - Win32 Release vim"
 # Name "Vim - Win32 Debug vim"
 
+# Begin Source File
+
+SOURCE=.\blowfish.c
+# End Source File
 # Begin Source File
 
 SOURCE=.\buffer.c
@@ -615,6 +621,10 @@ SOURCE=.\screen.c
 # Begin Source File
 
 SOURCE=.\search.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\sha256.c
 # End Source File
 # Begin Source File
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: attr.c 626 2008-02-16 00:30:16Z msweet $"
+ * "$Id: attr.c 1995 2010-03-24 16:25:12Z msweet $"
  *
  *   PPD attribute lookup routine for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,7 +23,7 @@
  */
 
 #include "driver.h"
-#include <cups/string.h>
+#include <cups/string-private.h>
 
 
 /*
@@ -105,5 +105,5 @@ cupsFindAttr(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: attr.c 626 2008-02-16 00:30:16Z msweet $".
+ * End of "$Id: attr.c 1995 2010-03-24 16:25:12Z msweet $".
  */

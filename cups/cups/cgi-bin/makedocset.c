@@ -1,9 +1,9 @@
 /*
- * "$Id: makedocset.c 1588 2009-07-01 17:09:17Z msweet $"
+ * "$Id: makedocset.c 3277 2011-05-20 07:30:39Z msweet $"
  *
  *   Xcode documentation set generator.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -171,7 +171,7 @@ static int				/* O - Result of comparison */
 compare_html(_cups_html_t *a,		/* I - First file */
              _cups_html_t *b)		/* I - Second file */
 {
-  return (strcasecmp(a->title, b->title));
+  return (_cups_strcasecmp(a->title, b->title));
 }
 
 
@@ -183,7 +183,7 @@ static int				/* O - Result of comparison */
 compare_sections(_cups_section_t *a,	/* I - First section */
                  _cups_section_t *b)	/* I - Second section */
 {
-  return (strcasecmp(a->name, b->name));
+  return (_cups_strcasecmp(a->name, b->name));
 }
 
 
@@ -201,7 +201,7 @@ compare_sections_files(
   if (ret)
     return (ret);
   else
-    return (strcasecmp(a->name, b->name));
+    return (_cups_strcasecmp(a->name, b->name));
 }
 
 
@@ -442,7 +442,7 @@ write_nodes(const char   *path,		/* I - File to write */
         cupsFilePuts(fp, "<Subnodes>\n");
 	subnodes = 1;
       }
-	
+
       cupsFilePrintf(fp, "<Node id=\"%d\">\n"
                          "<Path>Documentation/%s</Path>\n"
 			 "<Anchor>%s</Anchor>\n"
@@ -482,5 +482,5 @@ write_nodes(const char   *path,		/* I - File to write */
 
 
 /*
- * End of "$Id: makedocset.c 1588 2009-07-01 17:09:17Z msweet $".
+ * End of "$Id: makedocset.c 3277 2011-05-20 07:30:39Z msweet $".
  */

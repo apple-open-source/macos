@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 /*
  * CMSEncoder.cpp - encode, sign, and/or encrypt CMS messages. 
- * Created 1/12/06 by Doug Mitchell.
  */
  
 #include "CMSEncoder.h"
@@ -38,6 +37,9 @@
 #include <Security/SecCmsSignerInfo.h>
 #include <Security/SecCmsContentInfo.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecIdentity.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
 #include <Security/SecSMIME.h>
 #include <Security/oidsattr.h>
 #include <Security/SecAsn1Coder.h>
@@ -108,6 +110,186 @@ static CFRuntimeClass cmsEncoderRuntimeClass =
 };
 
 #pragma mark --- Private routines ---
+
+/*
+ * Decode a CFStringRef representation of an integer
+ */
+static int cfStringToNumber(
+	CFStringRef inStr)
+{
+	int max = 32;
+	char buf[max];
+	if (!inStr || !CFStringGetCString(inStr, buf, max-1, kCFStringEncodingASCII))
+		return -1;
+	return atoi(buf);
+}
+	
+/*
+ * Encode an integer component of an OID, return resulting number of bytes;
+ * actual bytes are mallocd and returned in *encodeArray.
+ */
+static unsigned encodeNumber(
+	int num,
+	unsigned char **encodeArray)		// mallocd and RETURNED 
+{
+	unsigned char *result;
+	unsigned dex;
+	unsigned numDigits = 0;
+	unsigned scratch;
+	
+	/* trival case - 0 maps to 0 */
+	if(num == 0) {
+		*encodeArray = (unsigned char *)malloc(1);
+		**encodeArray = 0;
+		return 1;
+	}
+	
+	/* first calculate the number of digits in num, base 128 */
+	scratch = (unsigned)num;
+	while(scratch != 0) {
+		numDigits++;
+		scratch >>= 7;
+	}
+	
+	result = (unsigned char *)malloc(numDigits);
+	scratch = (unsigned)num;
+	for(dex=0; dex<numDigits; dex++) { 
+		result[numDigits - dex - 1] = scratch & 0x7f;
+		scratch >>= 7;
+	}
+	
+	/* all digits except the last one have m.s. bit set */
+	for(dex=0; dex<(numDigits - 1); dex++) {
+		result[dex] |= 0x80;
+	}
+	
+	*encodeArray = result;
+	return numDigits;
+}
+
+/*
+ * Given an OID in dotted-decimal string representation, convert to binary
+ * DER format. Returns a pointer in outOid which the caller must free(),
+ * as well as the length of the data in outLen.
+ * Function returns 0 if successful, non-zero otherwise.
+ */
+static int encodeOid(
+	const unsigned char *inStr,
+	unsigned char **outOid,
+	unsigned int *outLen)
+{
+	unsigned char **digits = NULL;		/* array of char * from encodeNumber */
+	unsigned *numDigits = NULL;			/* array of unsigned from encodeNumber */
+	unsigned digit;
+	unsigned numDigitBytes;				/* total #of output chars */
+	unsigned char firstByte;
+	unsigned char *outP;
+	unsigned numsToProcess;
+	CFStringRef oidStr = NULL;
+	CFArrayRef argvRef = NULL;
+	int num, argc, result = 1;
+	
+	/* parse input string into array of substrings */
+	if (!inStr || !outOid || !outLen) goto cleanExit;
+	oidStr = CFStringCreateWithCString(NULL, (const char *)inStr, kCFStringEncodingASCII);
+	if (!oidStr) goto cleanExit;
+	argvRef = CFStringCreateArrayBySeparatingStrings(NULL, oidStr, CFSTR("."));
+	if (!argvRef) goto cleanExit;
+	argc = CFArrayGetCount(argvRef);
+	if (argc < 3) goto cleanExit;
+	
+	/* first two numbers in OID munge together */
+	num = cfStringToNumber((CFStringRef)CFArrayGetValueAtIndex(argvRef, 0));
+	if (num < 0) goto cleanExit;
+	firstByte = (40 * num);
+	num = cfStringToNumber((CFStringRef)CFArrayGetValueAtIndex(argvRef, 1));
+	if (num < 0) goto cleanExit;
+	firstByte += num;
+	numDigitBytes = 1;
+
+	numsToProcess = argc - 2;
+	if(numsToProcess > 0) {
+		/* skip this loop in the unlikely event that input is only two numbers */
+		digits = (unsigned char **) malloc(numsToProcess * sizeof(unsigned char *));
+		numDigits = (unsigned *) malloc(numsToProcess * sizeof(unsigned));
+		for(digit=0; digit<numsToProcess; digit++) {
+			num = cfStringToNumber((CFStringRef)CFArrayGetValueAtIndex(argvRef, digit+2));
+			if (num < 0) goto cleanExit;
+			numDigits[digit] = encodeNumber(num, &digits[digit]);
+			numDigitBytes += numDigits[digit];
+		}
+	}
+	*outLen = (2 + numDigitBytes);
+	*outOid = outP = (unsigned char *) malloc(*outLen);
+	*outP++ = 0x06;
+	*outP++ = numDigitBytes;
+	*outP++ = firstByte;
+	for(digit=0; digit<numsToProcess; digit++) {
+		unsigned int byteDex;
+		for(byteDex=0; byteDex<numDigits[digit]; byteDex++) {
+			*outP++ = digits[digit][byteDex];
+		}
+	}	
+	if(digits) {
+		for(digit=0; digit<numsToProcess; digit++) {
+			free(digits[digit]);
+		}
+		free(digits);
+		free(numDigits);
+	}
+	result = 0;
+
+cleanExit:
+	if (oidStr) CFRelease(oidStr);
+	if (argvRef) CFRelease(argvRef);
+
+	return result;
+}
+
+/*
+ * Given a CF object reference describing an OID, convert to binary DER format
+ * and fill out the CSSM_OID structure provided by the caller. Caller is
+ * responsible for freeing the data pointer in outOid->Data.
+ *
+ * Function returns 0 if successful, non-zero otherwise.
+ */
+
+static int convertOid(
+	CFTypeRef inRef,
+	CSSM_OID *outOid)
+{
+	if (!inRef || !outOid)
+		return paramErr;
+	
+	unsigned char *oidData = NULL;
+	unsigned int oidLen = 0;
+
+	if (CFGetTypeID(inRef) == CFStringGetTypeID()) {
+		// CFStringRef: OID representation is a dotted-decimal string
+		CFStringRef inStr = (CFStringRef)inRef;
+		CFIndex max = CFStringGetLength(inStr) * 3;
+		char buf[max];
+		if (!CFStringGetCString(inStr, buf, max-1, kCFStringEncodingASCII))
+			return paramErr;
+
+		if(encodeOid((unsigned char *)buf, &oidData, &oidLen) != 0)
+			return paramErr;
+	}
+	else if (CFGetTypeID(inRef) == CFDataGetTypeID()) {
+		// CFDataRef: OID representation is in binary DER format
+		CFDataRef inData = (CFDataRef)inRef;
+		oidLen = (unsigned int) CFDataGetLength(inData);
+		oidData = (unsigned char *) malloc(oidLen);
+		memcpy(oidData, CFDataGetBytePtr(inData), oidLen);
+	}
+	else {
+		// Not in a format we understand
+		return paramErr;
+	}
+	outOid->Length = oidLen;
+	outOid->Data = (uint8 *)oidData;
+	return 0;
+}
 
 static CFTypeID cmsEncoderTypeID = _kCFRuntimeNotATypeID;
 
@@ -704,7 +886,7 @@ OSStatus CMSEncoderGetHasDetachedContent(
  */
 OSStatus CMSEncoderSetEncapsulatedContentType(
 	CMSEncoderRef		cmsEncoder,
-	const CSSM_OID		*eContentType)
+	const CSSM_OID	*eContentType)
 {
 	if((cmsEncoder == NULL) || (eContentType == NULL)) {
 		return paramErr;
@@ -719,6 +901,20 @@ OSStatus CMSEncoderSetEncapsulatedContentType(
 	}
 	cmsCopyCmsData(eContentType, ecOid);
 	return noErr;
+}
+
+OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
+	CMSEncoderRef		cmsEncoder,
+	CFTypeRef			eContentTypeOID)
+{
+	// convert eContentTypeOID to a CSSM_OID
+	CSSM_OID contentType = { 0, NULL };
+	if (!eContentTypeOID || convertOid(eContentTypeOID, &contentType) != 0)
+		return paramErr;
+	OSStatus result = CMSEncoderSetEncapsulatedContentType(cmsEncoder, &contentType);
+	if (contentType.Data)
+		free(contentType.Data);
+	return result;
 }
 
 /*
@@ -1064,6 +1260,29 @@ OSStatus CMSEncode(
 errOut:
 	CFRelease(cmsEncoder);
 	return ortn;
+}
+
+OSStatus CMSEncodeContent(
+	CFTypeRef			signers,
+	CFTypeRef			recipients,
+	CFTypeRef			eContentTypeOID,
+	Boolean				detachedContent,
+	CMSSignedAttributes	signedAttributes,
+	const void			*content,
+	size_t				contentLen,
+	CFDataRef			*encodedContentOut)	/* RETURNED */
+{
+	// convert eContentTypeOID to a CSSM_OID
+	CSSM_OID contentType = { 0, NULL };
+	if (eContentTypeOID && convertOid(eContentTypeOID, &contentType) != 0)
+		return paramErr;
+	const CSSM_OID *contentTypePtr = (eContentTypeOID) ? &contentType : NULL;
+	OSStatus result = CMSEncode(signers, recipients, contentTypePtr,
+									detachedContent, signedAttributes,
+									content, contentLen, encodedContentOut);
+	if (contentType.Data)
+		free(contentType.Data);
+	return result;
 }
 
 #pragma mark --- SPI routines declared in CMSPrivate.h ---

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
  *               1999 Waldo Bastian (bastian@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,35 +22,42 @@
 #ifndef CSSSelector_h
 #define CSSSelector_h
 
-#include "RenderStyleConstants.h"
 #include "QualifiedName.h"
+#include "RenderStyleConstants.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+    class CSSSelectorList;
 
     // this class represents a selector for a StyleRule
-    class CSSSelector : public Noncopyable {
+    class CSSSelector {
+        WTF_MAKE_NONCOPYABLE(CSSSelector); WTF_MAKE_FAST_ALLOCATED;
     public:
         CSSSelector()
-            : m_tag(anyQName())
-            , m_relation(Descendant)
+            : m_relation(Descendant)
             , m_match(None)
             , m_pseudoType(PseudoNotParsed)
             , m_parsedNth(false)
             , m_isLastInSelectorList(false)
+            , m_isLastInTagHistory(true)
             , m_hasRareData(false)
+            , m_isForPage(false)
+            , m_tag(anyQName())
         {
         }
 
         CSSSelector(const QualifiedName& qName)
-            : m_tag(qName)
-            , m_relation(Descendant)
+            : m_relation(Descendant)
             , m_match(None)
             , m_pseudoType(PseudoNotParsed)
             , m_parsedNth(false)
             , m_isLastInSelectorList(false)
+            , m_isLastInTagHistory(true)
             , m_hasRareData(false)
+            , m_isForPage(false)
+            , m_tag(qName)
         {
         }
 
@@ -58,8 +65,8 @@ namespace WebCore {
         {
             if (m_hasRareData)
                 delete m_data.m_rareData;
-            else
-                delete m_data.m_tagHistory;
+            else if (m_data.m_value)
+                m_data.m_value->deref();
         }
 
         /**
@@ -72,7 +79,7 @@ namespace WebCore {
 
         // tag == -1 means apply to all elements (Selector = *)
 
-        unsigned specificity();
+        unsigned specificity() const;
 
         /* how the attribute value has to match.... Default is Exact */
         enum Match {
@@ -85,9 +92,10 @@ namespace WebCore {
             Hyphen,
             PseudoClass,
             PseudoElement,
-            Contain,   // css3: E[foo*="bar"]
-            Begin,     // css3: E[foo^="bar"]
-            End        // css3: E[foo$="bar"]
+            Contain, // css3: E[foo*="bar"]
+            Begin, // css3: E[foo^="bar"]
+            End, // css3: E[foo$="bar"]
+            PagePseudoClass
         };
 
         enum Relation {
@@ -95,7 +103,8 @@ namespace WebCore {
             Child,
             DirectAdjacent,
             IndirectAdjacent,
-            SubSelector
+            SubSelector,
+            ShadowDescendant
         };
 
         enum PseudoType {
@@ -116,6 +125,7 @@ namespace WebCore {
             PseudoNthLastOfType,
             PseudoLink,
             PseudoVisited,
+            PseudoAny,
             PseudoAnyLink,
             PseudoAutofill,
             PseudoHover,
@@ -163,34 +173,27 @@ namespace WebCore {
             PseudoNoButton,
             PseudoSelection,
             PseudoFileUploadButton,
-            PseudoSliderThumb,
             PseudoSearchCancelButton,
             PseudoSearchDecoration,
             PseudoSearchResultsDecoration,
             PseudoSearchResultsButton,
-            PseudoMediaControlsPanel,
-            PseudoMediaControlsMuteButton,
-            PseudoMediaControlsPlayButton,
-            PseudoMediaControlsTimelineContainer,
-            PseudoMediaControlsVolumeSliderContainer,
-            PseudoMediaControlsCurrentTimeDisplay,
-            PseudoMediaControlsTimeRemainingDisplay,
-            PseudoMediaControlsToggleClosedCaptions,
-            PseudoMediaControlsTimeline,
-            PseudoMediaControlsVolumeSlider,
-            PseudoMediaControlsSeekBackButton,
-            PseudoMediaControlsSeekForwardButton,
-            PseudoMediaControlsRewindButton,
-            PseudoMediaControlsReturnToRealtimeButton,
-            PseudoMediaControlsStatusDisplay,
-            PseudoMediaControlsFullscreenButton,
             PseudoInputListButton,
+#if ENABLE(INPUT_SPEECH)
+            PseudoInputSpeechButton,
+#endif
             PseudoInnerSpinButton,
             PseudoOuterSpinButton,
-            PseudoProgressBarValue,
             PseudoLeftPage,
             PseudoRightPage,
             PseudoFirstPage,
+#if ENABLE(FULLSCREEN_API)
+            PseudoFullScreen,
+            PseudoFullScreenDocument,
+            PseudoFullScreenAncestor,
+            PseudoAnimatingFullScreenTransition,
+#endif
+            PseudoInRange,
+            PseudoOutOfRange,
         };
 
         enum MarginBoxType {
@@ -222,38 +225,45 @@ namespace WebCore {
         static PseudoType parsePseudoType(const AtomicString&);
         static PseudoId pseudoId(PseudoType);
 
-        CSSSelector* tagHistory() const { return m_hasRareData ? m_data.m_rareData->m_tagHistory.get() : m_data.m_tagHistory; }
-        void setTagHistory(CSSSelector* tagHistory);
+        // Selectors are kept in an array by CSSSelectorList. The next component of the selector is 
+        // the next item in the array.
+        CSSSelector* tagHistory() const { return m_isLastInTagHistory ? 0 : const_cast<CSSSelector*>(this + 1); }
 
         bool hasTag() const { return m_tag != anyQName(); }
         bool hasAttribute() const { return m_match == Id || m_match == Class || (m_hasRareData && m_data.m_rareData->m_attribute != anyQName()); }
         
+        const QualifiedName& tag() const { return m_tag; }
+        // AtomicString is really just an AtomicStringImpl* so the cast below is safe.
+        // FIXME: Perhaps call sites could be changed to accept AtomicStringImpl?
+        const AtomicString& value() const { return *reinterpret_cast<const AtomicString*>(m_hasRareData ? &m_data.m_rareData->m_value : &m_data.m_value); }
         const QualifiedName& attribute() const;
         const AtomicString& argument() const { return m_hasRareData ? m_data.m_rareData->m_argument : nullAtom; }
-        CSSSelector* simpleSelector() const { return m_hasRareData ? m_data.m_rareData->m_simpleSelector.get() : 0; }
+        CSSSelectorList* selectorList() const { return m_hasRareData ? m_data.m_rareData->m_selectorList.get() : 0; }
         
-        void setAttribute(const QualifiedName& value);
-        void setArgument(const AtomicString& value);
-        void setSimpleSelector(CSSSelector* value);
+        void setTag(const QualifiedName& value) { m_tag = value; }
+        void setValue(const AtomicString&);
+        void setAttribute(const QualifiedName&);
+        void setArgument(const AtomicString&);
+        void setSelectorList(PassOwnPtr<CSSSelectorList>);
         
         bool parseNth();
         bool matchNth(int count);
 
-        bool matchesPseudoElement() const 
-        { 
-            if (m_pseudoType == PseudoUnknown)
-                extractPseudoType();
-            return m_match == PseudoElement;
-        }
+        bool matchesPseudoElement() const;
+        bool isUnknownPseudoElement() const;
+        bool isSiblingSelector() const;
 
         Relation relation() const { return static_cast<Relation>(m_relation); }
 
         bool isLastInSelectorList() const { return m_isLastInSelectorList; }
         void setLastInSelectorList() { m_isLastInSelectorList = true; }
+        bool isLastInTagHistory() const { return m_isLastInTagHistory; }
+        void setNotLastInTagHistory() { m_isLastInTagHistory = false; }
+
         bool isSimple() const;
 
-        mutable AtomicString m_value;
-        QualifiedName m_tag;
+        bool isForPage() const { return m_isForPage; }
+        void setForPage() { m_isForPage = true; }
 
         unsigned m_relation           : 3; // enum Relation
         mutable unsigned m_match      : 4; // enum Match
@@ -262,46 +272,90 @@ namespace WebCore {
     private:
         bool m_parsedNth              : 1; // Used for :nth-* 
         bool m_isLastInSelectorList   : 1;
+        bool m_isLastInTagHistory     : 1;
         bool m_hasRareData            : 1;
+        bool m_isForPage              : 1;
 
+        unsigned specificityForOneSelector() const;
+        unsigned specificityForPage() const;
         void extractPseudoType() const;
 
-        struct RareData : Noncopyable {
-            RareData(CSSSelector* tagHistory)
-                : m_tagHistory(tagHistory)
-                , m_simpleSelector(0)
-                , m_attribute(anyQName())
-                , m_argument(nullAtom)
-                , m_a(0)
-                , m_b(0)
-            {
-            }
+        struct RareData {
+            WTF_MAKE_NONCOPYABLE(RareData); WTF_MAKE_FAST_ALLOCATED;
+        public:
+            RareData(PassRefPtr<AtomicStringImpl> value);
+            ~RareData();
 
             bool parseNth();
             bool matchNth(int count);
 
-            OwnPtr<CSSSelector> m_tagHistory;
-            OwnPtr<CSSSelector> m_simpleSelector; // Used for :not.
-            QualifiedName m_attribute; // used for attribute selector
-            AtomicString m_argument; // Used for :contains, :lang and :nth-*
+            AtomicStringImpl* m_value; // Plain pointer to keep things uniform with the union.
             int m_a; // Used for :nth-*
             int m_b; // Used for :nth-*
+            QualifiedName m_attribute; // used for attribute selector
+            AtomicString m_argument; // Used for :contains, :lang and :nth-*
+            OwnPtr<CSSSelectorList> m_selectorList; // Used for :-webkit-any and :not
         };
-
-        void createRareData()
-        {
-            if (m_hasRareData) 
-                return;
-            m_data.m_rareData = new RareData(m_data.m_tagHistory); 
-            m_hasRareData = true;
-        }
+        void createRareData();
         
         union DataUnion {
-            DataUnion() : m_tagHistory(0) { }
-            CSSSelector* m_tagHistory;
+            DataUnion() : m_value(0) { }
+            AtomicStringImpl* m_value;
             RareData* m_rareData;
         } m_data;
+        
+        QualifiedName m_tag;
     };
+    
+inline bool CSSSelector::matchesPseudoElement() const 
+{ 
+    if (m_pseudoType == PseudoUnknown)
+        extractPseudoType();
+    return m_match == PseudoElement;
+}
+
+inline bool CSSSelector::isUnknownPseudoElement() const
+{
+    return m_match == PseudoElement && m_pseudoType == PseudoUnknown;
+}
+
+inline bool CSSSelector::isSiblingSelector() const
+{
+    PseudoType type = pseudoType();
+    return m_relation == DirectAdjacent
+        || m_relation == IndirectAdjacent
+        || type == PseudoEmpty
+        || type == PseudoFirstChild
+        || type == PseudoFirstOfType
+        || type == PseudoLastChild
+        || type == PseudoLastOfType
+        || type == PseudoOnlyChild
+        || type == PseudoOnlyOfType
+        || type == PseudoNthChild
+        || type == PseudoNthOfType
+        || type == PseudoNthLastChild
+        || type == PseudoNthLastOfType;
+}
+    
+inline void CSSSelector::setValue(const AtomicString& value)
+{ 
+    // Need to do ref counting manually for the union.
+    if (m_hasRareData) {
+        m_data.m_rareData->m_value = value.impl();
+        m_data.m_rareData->m_value->ref();
+        return;
+    }
+    m_data.m_value = value.impl();
+    m_data.m_value->ref();
+}
+
+inline void move(PassOwnPtr<CSSSelector> from, CSSSelector* to) 
+{
+    memcpy(to, from.get(), sizeof(CSSSelector));
+    // We want to free the memory (which was allocated with fastNew), but we
+    // don't want the destructor to run since it will affect the copy we've just made.
+    fastDeleteSkippingDestructor(from.leakPtr());
+}
 
 } // namespace WebCore
 

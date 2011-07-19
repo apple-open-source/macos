@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEDesc.c"
  *                                    created: 1/20/2000 {10:47:47 PM} 
- *                                last update: 04/12/2006 {07:31:26 PM} 
+ *                                last update: 7/30/10 {11:54:40 PM} 
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
  *    mail: Alpha Cabal
@@ -1982,8 +1982,9 @@ TclaeNewOSTypeObj(OSType theOSType)	/* The desired OSType */
     string[2] = (char) (theOSType >>  8);
     string[3] = (char) (theOSType);
     string[4] = '\0';
+    Tcl_DStringInit(&theOSTypeDS);
     Tcl_ExternalToUtfDString(tclAE_macRoman_encoding, string, 
-			     sizeof(OSType), &theOSTypeDS);
+			     -1, &theOSTypeDS);
     /* Create new string object containing OSType */
     newOSTypeObj = Tcl_NewStringObj(Tcl_DStringValue(&theOSTypeDS), -1);
     Tcl_DStringFree(&theOSTypeDS);
@@ -2279,13 +2280,35 @@ dataFromAEDesc(Tcl_Interp *interp,		/* for error reporting */
 	break;
 	
 	case typeSInt32: {
+#if __LP64__
+            short		theData;
+            
+            TclaeGetDescData(theAEDescPtr, &theData, sizeof(theData));
+            returnStructPtr->object = Tcl_NewIntObj(theData);
+#else
 	    long		theData;
 	    
 	    TclaeGetDescData(theAEDescPtr, &theData, sizeof(theData));
 	    returnStructPtr->object = Tcl_NewLongObj(theData);
+#endif // __LP64__
 	}
 	break;
 	
+        case typeSInt64: {
+#if __LP64__
+            long		theData;
+            
+            TclaeGetDescData(theAEDescPtr, &theData, sizeof(theData));
+            returnStructPtr->object = Tcl_NewLongObj(theData);
+#else
+            long long		theData;
+            
+            TclaeGetDescData(theAEDescPtr, &theData, sizeof(theData));
+            returnStructPtr->object = Tcl_NewWideIntObj(theData);
+#endif // __LP64__
+        }
+        break;
+        
 	case typeIEEE32BitFloatingPoint: {
 	    double	tempDbl;
 	    float	theData;

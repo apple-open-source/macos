@@ -1,0 +1,47 @@
+Index: src/normal.c
+===================================================================
+--- src/normal.c	(revision 57807)
++++ src/normal.c	(working copy)
+@@ -7393,6 +7393,8 @@
+ 	}
+ 	else
+ 	{
++	    if (Unix2003_compat && cap->cmdchar == 'S')
++		beginline(0);
+ 	    if (cap->count0)
+ 		stuffnumReadbuff(cap->count0);
+ 	    stuffReadbuff(ar[(int)(vim_strchr(str, cap->cmdchar) - str)]);
+@@ -8318,6 +8320,8 @@
+ 
+     if (!checkclearopq(cap->oap))
+     {
++	int undo_offset = 0;
++	int save;
+ #ifdef FEAT_FOLDING
+ 	if (cap->cmdchar == 'O')
+ 	    /* Open above the first line of a folded sequence of lines */
+@@ -8328,11 +8332,21 @@
+ 	    (void)hasFolding(curwin->w_cursor.lnum,
+ 						NULL, &curwin->w_cursor.lnum);
+ #endif
+-	if (u_save((linenr_T)(curwin->w_cursor.lnum -
++	if (Unix2003_compat) {
++	    beginline(0);
++	    /* Undo of 'O' leaves cursor above the deleted line */
++	    if (cap->cmdchar == 'O' && curwin->w_cursor.lnum > 1) {
++		    undo_offset = 1;
++		    curwin->w_cursor.lnum--;
++	    }
++	}
++	save = u_save((linenr_T)(curwin->w_cursor.lnum + undo_offset -
+ 					       (cap->cmdchar == 'O' ? 1 : 0)),
+-		   (linenr_T)(curwin->w_cursor.lnum +
++		   (linenr_T)(curwin->w_cursor.lnum + undo_offset +
+ 					       (cap->cmdchar == 'o' ? 1 : 0))
+-		       ) == OK
++		) == OK;
++	curwin->w_cursor.lnum += undo_offset;
++	if (save
+ 		&& open_line(cap->cmdchar == 'O' ? BACKWARD : FORWARD,
+ #ifdef FEAT_COMMENTS
+ 		    has_format_option(FO_OPEN_COMS) ? OPENLINE_DO_COM :

@@ -16,8 +16,11 @@ add_llvm_target(SparcCodeGen
   SparcInstrInfo.cpp
   SparcISelDAGToDAG.cpp
   SparcISelLowering.cpp
+  SparcMCAsmInfo.cpp
   SparcRegisterInfo.cpp
   SparcSubtarget.cpp
-  SparcTargetAsmInfo.cpp
   SparcTargetMachine.cpp
+  SparcSelectionDAGInfo.cpp
   )
+
+target_link_libraries (LLVMSparcCodeGen LLVMSelectionDAG)

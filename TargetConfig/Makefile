@@ -94,4 +94,7 @@ ifeq ($(RC_ProjectName),TargetConfig)
 		$(INSTALL_SCRIPT) $$file $(DSTROOT)/$(FEATURESCRIPTSDIR); \
 	    fi || exit 1; \
 	done
+else
+	-rmdir "$(DSTROOT)/usr/bin"
+	-rmdir "$(DSTROOT)/usr"
 endif

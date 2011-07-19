@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -778,6 +778,7 @@
     id					userAttributes  = nil;
     tDirStatus 			err				= eDSNoErr;
     UInt32              returnCount		= 0;
+    UInt32              foundCount		= 0;
 
     // default to an 8k buffer initially, the inline DS buffer is 16k so plenty of room
     recordBuf = [[DSoBuffer alloc] initWithDir:mDirectory bufferSize:8192];
@@ -787,6 +788,7 @@
         if (!err && returnCount > 0)
         {
             err = dsGetRecordEntry([mParent dsNodeReference],[recordBuf dsDataBuffer],1,&attrListRef, &pRecEntry );
+            foundCount += returnCount;
             if (inIncludeVals)
             {
                 userAttributes = [DSoAttributeUtils getAttributesAndValuesInNode: mParent
@@ -814,7 +816,7 @@
         {
             [recordBuf grow:2 * [recordBuf getBufferSize]];
         }
-    } while (err == eDSBufferTooSmall || (err == eDSNoErr && returnCount == 0 && localcontext != 0));
+    } while (err == eDSBufferTooSmall || (err == eDSNoErr && localcontext != 0));
     
     if (localcontext != 0)
         dsReleaseContinueData([mParent dsNodeReference], localcontext);
@@ -825,7 +827,7 @@
     [recType release];
     if (err)
         [DSoException raiseWithStatus:err];
-    else if (returnCount < 1)
+    else if (foundCount != 1)
         [[DSoException name:@"eDSInvalidRecordName"
                      reason:@"DSoRecord's getAllAttributes failed because more than one matching name was found in the node.  This should never happen."
                      status:eDSInvalidRecordName] raise];

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2008, International Business Machines
+*   Copyright (C) 2008-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -109,7 +109,7 @@ void BreakTransliterator::handleTransliterate(Replaceable& text, UTransPosition&
             if ((U_MASK(type) & (U_GC_L_MASK | U_GC_M_MASK)) == 0) continue;
 
             boundaries->addElement(boundary, status);
-            //System.out.println(boundary);
+            // printf("Boundary at %d\n", boundary);
         }
 
         int delta = 0;
@@ -146,7 +146,7 @@ const UnicodeString &BreakTransliterator::getInsertion() const {
 //
 //  setInsertion()
 //
-void BreakTransliterator::setInsertsion(const UnicodeString &insertion) {
+void BreakTransliterator::setInsertion(const UnicodeString &insertion) {
     this->fInsertion = insertion;
 }
 
@@ -173,11 +173,13 @@ BreakIterator *BreakTransliterator::getBreakIterator() {
 //                         will normally be efficient.
 //
 UnicodeString BreakTransliterator::replaceableAsString(Replaceable &r) {
-    if (r.getDynamicClassID() == UnicodeString::getStaticClassID()) {
-        return (UnicodeString &) r;
-    }
     UnicodeString s;
-    r.extractBetween(0, r.length(), s);
+    UnicodeString *rs = dynamic_cast<UnicodeString *>(&r);
+    if (rs != NULL) {
+        s = *rs;
+    } else {
+        r.extractBetween(0, r.length(), s);
+    }
     return s;
 }
 

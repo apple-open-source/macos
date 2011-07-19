@@ -27,12 +27,15 @@
 #include "config.h"
 #include "ScrollbarThemeChromiumMac.h"
 
+#include "FrameView.h"
 #include "ImageBuffer.h"
+#include "PlatformBridge.h"
 #include "PlatformMouseEvent.h"
 #include "ScrollView.h"
 #include <Carbon/Carbon.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
+
 
 // FIXME: There are repainting problems due to Aqua scroll bar buttons' visual overflow.
 
@@ -46,6 +49,7 @@ using namespace WebCore;
 // The only changes from ScrollbarThemeMac should be:
 // - The classname change from ScrollbarThemeMac to ScrollbarThemeChromiumMac.
 // - In paint() the code to paint the track, tickmarks, and thumb separately.
+// - In paint() the thumb is drawn via ChromeBridge/WebThemeEngine.
 //
 // For all other differences, if it was introduced in this file, then the
 // maintainer forgot to include it in the list; otherwise it is an update that
@@ -366,6 +370,17 @@ static int scrollbarPartToHIPressedState(ScrollbarPart part)
     }
 }
 
+static PlatformBridge::ThemePaintState scrollbarStateToThemeState(Scrollbar* scrollbar) {
+    if (!scrollbar->enabled())
+        return PlatformBridge::StateDisabled;
+    if (!scrollbar->scrollableArea()->isActive())
+        return PlatformBridge::StateInactive;
+    if (scrollbar->pressedPart() == ThumbPart)
+        return PlatformBridge::StatePressed;
+
+    return PlatformBridge::StateActive;
+}
+
 bool ScrollbarThemeChromiumMac::paint(Scrollbar* scrollbar, GraphicsContext* context, const IntRect& damageRect)
 {
     HIThemeTrackDrawInfo trackInfo;
@@ -383,7 +398,7 @@ bool ScrollbarThemeChromiumMac::paint(Scrollbar* scrollbar, GraphicsContext* con
     if (!scrollbar->enabled())
         trackInfo.enableState = kThemeTrackDisabled;
     else
-        trackInfo.enableState = scrollbar->client()->isActive() ? kThemeTrackActive : kThemeTrackInactive;
+        trackInfo.enableState = scrollbar->scrollableArea()->isActive() ? kThemeTrackActive : kThemeTrackInactive;
 
     if (!hasButtons(scrollbar))
         trackInfo.enableState = kThemeTrackNothingToScroll;
@@ -413,12 +428,12 @@ bool ScrollbarThemeChromiumMac::paint(Scrollbar* scrollbar, GraphicsContext* con
     HIThemeDrawTrack(&trackInfo, 0, drawingContext->platformContext(), kHIThemeOrientationNormal);
 
     Vector<IntRect> tickmarks;
-    scrollbar->client()->getTickmarks(tickmarks);
+    scrollbar->scrollableArea()->getTickmarks(tickmarks);
     if (scrollbar->orientation() == VerticalScrollbar && tickmarks.size()) {
         drawingContext->save();
         drawingContext->setShouldAntialias(false);
-        drawingContext->setStrokeColor(Color(0xCC, 0xAA, 0x00, 0xFF), DeviceColorSpace);
-        drawingContext->setFillColor(Color(0xFF, 0xDD, 0x00, 0xFF), DeviceColorSpace);
+        drawingContext->setStrokeColor(Color(0xCC, 0xAA, 0x00, 0xFF), ColorSpaceDeviceRGB);
+        drawingContext->setFillColor(Color(0xFF, 0xDD, 0x00, 0xFF), ColorSpaceDeviceRGB);
 
         IntRect thumbArea = trackRect(scrollbar, false);
         if (!canDrawDirectly) {
@@ -435,11 +450,11 @@ bool ScrollbarThemeChromiumMac::paint(Scrollbar* scrollbar, GraphicsContext* con
               continue;
 
             // Calculate how far down (in pixels) the tick-mark should appear.
-            const int yPos = static_cast<int>((thumbArea.topLeft().y() + (thumbArea.height() * percent))) & ~1;
+            const int yPos = static_cast<int>((thumbArea.y() + (thumbArea.height() * percent))) & ~1;
 
             // Paint.
             const int indent = 2;
-            FloatRect tickRect(thumbArea.topLeft().x() + indent, yPos, thumbArea.width() - 2 * indent - 1, 2);
+            FloatRect tickRect(thumbArea.x() + indent, yPos, thumbArea.width() - 2 * indent - 1, 2);
             drawingContext->fillRect(tickRect);
             drawingContext->strokeRect(tickRect, 1);
         }
@@ -448,13 +463,24 @@ bool ScrollbarThemeChromiumMac::paint(Scrollbar* scrollbar, GraphicsContext* con
     }
 
     if (hasThumb(scrollbar)) {
-        trackInfo.attributes |= (kThemeTrackShowThumb | kThemeTrackHideTrack);
-        HIThemeDrawTrack(&trackInfo, 0, drawingContext->platformContext(), kHIThemeOrientationNormal);
+        PlatformBridge::ThemePaintScrollbarInfo scrollbarInfo;
+        scrollbarInfo.orientation = scrollbar->orientation() == HorizontalScrollbar ? PlatformBridge::ScrollbarOrientationHorizontal : PlatformBridge::ScrollbarOrientationVertical;
+        scrollbarInfo.parent = scrollbar->parent() && scrollbar->parent()->isFrameView() && static_cast<FrameView*>(scrollbar->parent())->isScrollViewScrollbar(scrollbar) ? PlatformBridge::ScrollbarParentScrollView : PlatformBridge::ScrollbarParentRenderLayer;
+        scrollbarInfo.maxValue = scrollbar->maximum();
+        scrollbarInfo.currentValue = scrollbar->currentPos();
+        scrollbarInfo.visibleSize = scrollbar->visibleSize();
+        scrollbarInfo.totalSize = scrollbar->totalSize();
+
+        PlatformBridge::paintScrollbarThumb(
+            drawingContext,
+            scrollbarStateToThemeState(scrollbar),
+            scrollbar->controlSize() == RegularScrollbar ? PlatformBridge::SizeRegular : PlatformBridge::SizeSmall,
+            scrollbar->frameRect(),
+            scrollbarInfo);
     }
 
-    if (!canDrawDirectly) {
-        context->drawImage(imageBuffer->image(), DeviceColorSpace, scrollbar->frameRect().location());
-    }
+    if (!canDrawDirectly)
+        context->drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, scrollbar->frameRect().location());
 
     return true;
 }

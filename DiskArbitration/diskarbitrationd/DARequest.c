@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 
 #include "DABase.h"
 #include "DACallback.h"
+#include "DADialog.h"
 #include "DADissenter.h"
 #include "DAFileSystem.h"
 #include "DALog.h"
@@ -1148,23 +1149,35 @@ static Boolean __DARequestUnmount( DARequestRef request )
         }
         else
         {
-            CFRetain( request );
-
-            DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
-
-            DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
-///w:start
-            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
+            if ( DADiskGetState( disk, kDADiskStateZombie ) )
             {
-                DAThreadExecute( __DARequestUnmountTickle, disk, __DARequestUnmountTickleCallback, request );
+                DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
+                {
+                    DADialogShowDeviceRemoval( );
+                }
+            }
+            else
+            {
+                CFRetain( request );
+
+                DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
+
+                DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
+///w:start
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
+                {
+                    DAThreadExecute( __DARequestUnmountTickle, disk, __DARequestUnmountTickleCallback, request );
+
+                    return FALSE;
+                }
+///w:stop
+
+                DADiskUnmountApprovalCallback( disk, __DARequestUnmountApprovalCallback, request );
 
                 return FALSE;
             }
-///w:stop
-
-            DADiskUnmountApprovalCallback( disk, __DARequestUnmountApprovalCallback, request );
-
-            return FALSE;
         }
     }
 ///w:start
@@ -1280,6 +1293,9 @@ static void __DARequestUnmountCallback( int status, void * context )
 
         DALogDebug( "unable to unmount %@ (status code 0x%08X).", disk, status );
 
+///w:start
+        status = EBUSY;
+///w:stop
         dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
 
         mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
@@ -1301,6 +1317,8 @@ static void __DARequestUnmountCallback( int status, void * context )
         }
 
         DARequestSetDissenter( request, dissenter );
+
+        __DARequestDispatchCallback( request, dissenter );
 
         CFRelease( dissenter );
     }
@@ -1338,9 +1356,9 @@ static void __DARequestUnmountCallback( int status, void * context )
 
             ___CFArrayRemoveValue( gDADiskList, disk );
         }
-    }
 
-    DARequestDispatchCallback( request, status ? unix_err( status ) : status );
+        __DARequestDispatchCallback( request, NULL );
+    }
 
     DAUnitSetState( disk, kDAUnitStateCommandActive, FALSE );
 

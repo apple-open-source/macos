@@ -41,8 +41,8 @@ notes for different frag kinds. See how code pans out.
  */
 struct frag			/* a code fragment */
 {
-    uint32_t fr_address;	/* Object file address. */
-    uint32_t last_fr_address;	/* When relaxing multiple times, remember the */
+    uint64_t fr_address;	/* Object file address. */
+    uint64_t last_fr_address;	/* When relaxing multiple times, remember the */
 				/* address the frag had in the last relax pass*/
     struct frag *fr_next;	/* Chain forward; ascending address order. */
 				/* Rooted in frch_root. */
@@ -125,6 +125,6 @@ extern void frag_align(
 		frag_wane (frag_now);	\
 		frag_new (0);		\
 	}				\
-	obstack_1grow( &frags, datum );	\
+	(void)obstack_1grow( &frags, datum );	\
 }
 #endif /* _FRAGS_H_ */

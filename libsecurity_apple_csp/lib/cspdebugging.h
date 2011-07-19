@@ -112,7 +112,7 @@ extern "C" {
 
 static inline void _panic(const char *str)
 {
-	printf(str);
+	printf("%s\n", str);
 	exit(1);
 }
 

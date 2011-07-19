@@ -75,16 +75,9 @@ public:
 	IOSCSIParallelInterfaceDevice *	GetDevice ( void );
 	
 	// ---- Methods for Accessing data in the client's SCSI Task Object ----	
-	// Method to retrieve the LUN that identifies the Logical Unit whose Task
-	// Set to which this task is to be added.
-
-	// --> Currently this only supports Level 1 Addressing, complete
-	// Hierachal LUN addressing will need to be added to the SCSI Task object
-	// and the Peripheral Device Type objects which will represent Logical Units.
-	// Since that will be completed before this is released, this method will be
-	// changed at that time.
 
 	SCSILogicalUnitNumber		GetLogicalUnitNumber ( void );
+	void						GetLogicalUnitBytes ( SCSILogicalUnitBytes * logicalUnitBytes );
 	SCSITaskAttribute			GetTaskAttribute ( void );
 	SCSITaggedTaskIdentifier	GetTaggedTaskIdentifier ( void );
 	UInt8						GetCommandDescriptorBlockSize ( void );

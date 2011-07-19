@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2009 - All Rights Reserved
  *
  */
 
@@ -134,11 +134,22 @@ static const FeatureMap canonFeatureMap[] =
 
 static const le_int32 canonFeatureMapCount = LE_ARRAY_SIZE(canonFeatureMap);
 
-LayoutEngine::LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags)
+LayoutEngine::LayoutEngine(const LEFontInstance *fontInstance, 
+                           le_int32 scriptCode, 
+                           le_int32 languageCode, 
+                           le_int32 typoFlags,
+                           LEErrorCode &success)
   : fGlyphStorage(NULL), fFontInstance(fontInstance), fScriptCode(scriptCode), fLanguageCode(languageCode),
     fTypoFlags(typoFlags), fFilterZeroWidth(TRUE)
 {
+    if (LE_FAILURE(success)) {
+        return;
+    } 
+
     fGlyphStorage = new LEGlyphStorage();
+    if (fGlyphStorage == NULL) {
+        success = LE_MEMORY_ALLOCATION_ERROR;
+    }
 }
 
 le_int32 LayoutEngine::getGlyphCount() const
@@ -197,6 +208,11 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
 
     if (canonGSUBTable->coversScript(scriptTag)) {
         CharSubstitutionFilter *substitutionFilter = new CharSubstitutionFilter(fFontInstance);
+        if (substitutionFilter == NULL) { 
+            success = LE_MEMORY_ALLOCATION_ERROR;
+            return 0;
+        }
+
 		const LEUnicode *inChars = &chars[offset];
 		LEUnicode *reordered = NULL;
         LEGlyphStorage fakeGlyphStorage;
@@ -204,6 +220,7 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
         fakeGlyphStorage.allocateGlyphArray(count, rightToLeft, success);
 
         if (LE_FAILURE(success)) {
+            delete substitutionFilter;
             return 0;
         }
 
@@ -214,6 +231,7 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
 			reordered = LE_NEW_ARRAY(LEUnicode, count);
 
 			if (reordered == NULL) {
+                delete substitutionFilter;
 				success = LE_MEMORY_ALLOCATION_ERROR;
 				return 0;
 			}
@@ -225,6 +243,7 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
         fakeGlyphStorage.allocateAuxData(success);
 
         if (LE_FAILURE(success)) {
+            delete substitutionFilter;
             return 0;
         }
 
@@ -242,7 +261,12 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
 			LE_DELETE_ARRAY(reordered);
 		}
 
-        outCharCount = canonGSUBTable->process(fakeGlyphStorage, rightToLeft, scriptTag, langSysTag, NULL, substitutionFilter, canonFeatureMap, canonFeatureMapCount, FALSE);
+        outCharCount = canonGSUBTable->process(fakeGlyphStorage, rightToLeft, scriptTag, langSysTag, NULL, substitutionFilter, canonFeatureMap, canonFeatureMapCount, FALSE, success);
+
+        if (LE_FAILURE(success)) {
+            delete substitutionFilter;
+            return 0;
+        }
 
         out = (rightToLeft? outCharCount - 1 : 0);
 
@@ -255,6 +279,13 @@ le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 off
         glyphStorage.adoptCharIndicesArray(fakeGlyphStorage);
 
         outChars = LE_NEW_ARRAY(LEUnicode, outCharCount);
+
+        if (outChars == NULL) {
+            delete substitutionFilter;
+            success = LE_MEMORY_ALLOCATION_ERROR;
+            return 0;
+        }
+
         for (i = 0; i < outCharCount; i += 1, out += dir) {
             outChars[out] = (LEUnicode) LE_GET_GLYPH(fakeGlyphStorage[i]);
         }
@@ -496,8 +527,15 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
     LayoutEngine *result = NULL;
     LETag scriptTag   = 0x00000000;
     LETag languageTag = 0x00000000;
+	LETag v2ScriptTag = OpenTypeLayoutEngine::getV2ScriptTag(scriptCode);
 
-    if (gsubTable != NULL && gsubTable->coversScript(scriptTag = OpenTypeLayoutEngine::getScriptTag(scriptCode))) {
+    // Right now, only invoke V2 processing for Devanagari.  TODO: Allow more V2 scripts as they are
+    // properly tested.
+
+	if ( v2ScriptTag == dev2ScriptTag && gsubTable != NULL && gsubTable->coversScript( v2ScriptTag )) {
+		result = new IndicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, TRUE, gsubTable, success);
+	}
+    else if (gsubTable != NULL && gsubTable->coversScript(scriptTag = OpenTypeLayoutEngine::getScriptTag(scriptCode))) {
         switch (scriptCode) {
         case bengScriptCode:
         case devaScriptCode:
@@ -509,15 +547,15 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
         case tamlScriptCode:
         case teluScriptCode:
         case sinhScriptCode:
-            result = new IndicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new IndicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, FALSE, gsubTable, success);
             break;
 
         case arabScriptCode:
-            result = new ArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new ArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
             break;
 
         case hangScriptCode:
-            result = new HangulOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new HangulOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
             break;
 
         case haniScriptCode:
@@ -529,35 +567,35 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
             case zhtLanguageCode:
             case zhsLanguageCode:
                 if (gsubTable->coversScriptAndLanguage(scriptTag, languageTag, TRUE)) {
-                    result = new HanOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+                    result = new HanOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
                     break;
                 }
 
                 // note: falling through to default case.
             default:
-                result = new OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+                result = new OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
                 break;
             }
 
             break;
 
         case tibtScriptCode:
-            result = new TibetanOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new TibetanOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
             break;
 
         case khmrScriptCode:
-            result = new KhmerOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new KhmerOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
             break;
 
         default:
-            result = new OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable);
+            result = new OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable, success);
             break;
         }
     } else {
         const MorphTableHeader *morphTable = (MorphTableHeader *) fontInstance->getFontTable(mortTableTag);
 
         if (morphTable != NULL) {
-            result = new GXLayoutEngine(fontInstance, scriptCode, languageCode, morphTable);
+            result = new GXLayoutEngine(fontInstance, scriptCode, languageCode, morphTable, success);
         } else {
             switch (scriptCode) {
             case bengScriptCode:
@@ -571,32 +609,37 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
             case teluScriptCode:
             case sinhScriptCode:
             {
-                result = new IndicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                result = new IndicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, success);
                 break;
             }
 
             case arabScriptCode:
             //case hebrScriptCode:
-                result = new UnicodeArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                result = new UnicodeArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, success);
                 break;
 
             //case hebrScriptCode:
             //    return new HebrewOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
 
             case thaiScriptCode:
-                result = new ThaiLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                result = new ThaiLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, success);
                 break;
 
             case hangScriptCode:
-                result = new HangulOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                result = new HangulOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, success);
                 break;
 
             default:
-                result = new LayoutEngine(fontInstance, scriptCode, languageCode, typoFlags);
+                result = new LayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, success);
                 break;
             }
         }
     }
+
+    if (result && LE_FAILURE(success)) {
+		delete result;
+		result = NULL;
+	}
 
     if (result == NULL) {
         success = LE_MEMORY_ALLOCATION_ERROR;

@@ -18,7 +18,7 @@ Returns an option value for the specified pieBoxLabeler object.
 [list_end]
 
 [section OPTIONS]
-[list_begin opt]
+[list_begin options]
 [opt_def -font value]
 Specifies a font for the slice labels. If not specified, the default font is system dependent.
 [opt_def -justify value]
@@ -29,8 +29,8 @@ Specifies the distance between the pie graphics and the closest slice label. Thi
 
 [section TAGS]
 The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
-[list_begin bullet]
-  [bullet]pieBoxLabeler(pieBoxLabelerObject)
+[list_begin itemized]
+  [item]pieBoxLabeler(pieBoxLabelerObject)
 [list_end]
 
 [see_also pie piePeripheralLabeler canvasLabel]

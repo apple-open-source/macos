@@ -44,12 +44,7 @@
 #include <arpa/inet.h>
 
 #ifdef ENABLE_NATT
-# ifdef __linux__
-#  include <linux/udp.h>
-# endif
-# if defined(__NetBSD__) || defined(__FreeBSD__)
-#  include <netinet/udp.h>
-# endif
+#include <netinet/udp.h>
 #endif
 
 #include <sys/types.h>
@@ -59,11 +54,7 @@
 #include <sys/sysctl.h>
 
 #include <net/route.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <netinet/in.h>
 #ifndef HAVE_NETINET6_IPSEC
@@ -108,6 +99,7 @@
 #include "ike_session.h"
 #include "ipsecSessionTracer.h"
 #include "ipsecMessageTracer.h"
+#include "power_mgmt.h"
 
 #if defined(SADB_X_EALG_RIJNDAELCBC) && !defined(SADB_X_EALG_AESCBC)
 #define SADB_X_EALG_AESCBC  SADB_X_EALG_RIJNDAELCBC
@@ -277,6 +269,12 @@ pfkey_handler()
 	struct sadb_msg *msg;
 	int len;
 
+	if (slept_at || woke_at) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "ignoring pfkey port until power-mgmt event is handled.\n");
+		return 0;
+	}
+	
 	/* receive pfkey message. */
 	len = 0;
 	msg = (struct sadb_msg *)pk_recv(lcconf->sock_pfkey, &len);
@@ -299,7 +297,13 @@ pfkey_post_handler()
 {
 	struct saved_msg_elem *elem;
 	struct saved_msg_elem *elem_tmp = NULL;
-	
+
+	if (slept_at || woke_at) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "ignoring (saved) pfkey messages until power-mgmt event is handled.\n");
+		return 0;
+	}
+
 	TAILQ_FOREACH_SAFE(elem, &lcconf->saved_msg_queue, chain, elem_tmp) {
 		pfkey_process((struct sadb_msg *)elem->msg);
 		TAILQ_REMOVE(&lcconf->saved_msg_queue, elem, chain);
@@ -361,9 +365,6 @@ pfkey_dump_sadb(satype)
 				continue;
 		}
 
-		if (msg->sadb_msg_pid != pid)
-			continue;
-		
 		/*
 		 * for multi-processor system this had to be added because the messages can
 		 * be interleaved - they won't all be dump messages
@@ -373,6 +374,10 @@ pfkey_dump_sadb(satype)
 			msg = NULL;
 			continue;
 		}
+
+		// ignore dump messages that aren't racoon's
+		if (msg->sadb_msg_pid != pid)
+			continue;
 
 		ml = msg->sadb_msg_len << 3;
 		bl = buf ? buf->l : 0;
@@ -1149,7 +1154,6 @@ pk_sendupdate(iph2)
 		lifebyte = 0;
 #endif
 
-#ifdef __APPLE__
 #ifdef ENABLE_NATT
 		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_update\n");
 		if (pr->udp_encap) {
@@ -1159,11 +1163,17 @@ pk_sendupdate(iph2)
 			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
 				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
 					flags |= SADB_X_EXT_NATT_KEEPALIVE;
-			}
-			else if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
-				mode == IPSEC_MODE_TRANSPORT &&
-				src->sa_family == AF_INET)
+			} else {
+				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
+					mode == IPSEC_MODE_TRANSPORT &&
+					src->sa_family == AF_INET) {
 					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
+				}
+				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
+					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
+					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
+				}
+			}
 		} else {
 			memset (&natt, 0, sizeof (natt));
 		}
@@ -1207,62 +1217,6 @@ pk_sendupdate(iph2)
 			return -1;
 		}
 #endif /* ENABLE_NATT */
-#else
-#ifdef ENABLE_NATT
-		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_update_nat\n");
-		if (pr->udp_encap) {
-			memset (&natt, 0, sizeof (natt));
-			natt.type = iph2->ph1->natt_options->encaps_type;
-			natt.sport = extract_port (iph2->ph1->remote);
-			natt.dport = extract_port (iph2->ph1->local);
-			natt.oa = NULL;		// FIXME: Here comes OA!!!
-			natt.frag = iph2->ph1->rmconf->esp_frag;
-		} else {
-			memset (&natt, 0, sizeof (natt));
-		}
-
-		if (pfkey_send_update_nat(
-				lcconf->sock_pfkey,
-				satype,
-				mode,
-				dst,
-				src,
-				pr->spi,
-				pr->reqid_in,
-				wsize,	
-				pr->keymat->v,
-				e_type, e_keylen, a_type, a_keylen, flags,
-				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq,
-				natt.type, natt.sport, natt.dport, natt.oa,
-				natt.frag) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"libipsec failed send update_nat (%s)\n",
-				ipsec_strerror());
-			return -1;
-		}
-#else
-		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_update\n");
-		if (pfkey_send_update(
-				lcconf->sock_pfkey,
-				satype,
-				mode,
-				dst,
-				src,
-				pr->spi,
-				pr->reqid_in,
-				wsize,	
-				pr->keymat->v,
-				e_type, e_keylen, a_type, a_keylen, flags,
-				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"libipsec failed send update (%s)\n",
-				ipsec_strerror());
-			return -1;
-		}
-#endif /* ENABLE_NATT */
-#endif /* __APPLE__ */
 
 		if (!lcconf->pathinfo[LC_PATHTYPE_BACKUPSA])
 			continue;
@@ -1420,6 +1374,9 @@ pk_recvupdate(mhp)
 
 	ike_session_ph2_established(iph2);
 
+	IPSECLOGASLMSG("IPSec Phase2 established (Initiated by %s).\n",
+				   (iph2->side == INITIATOR)? "me" : "peer");
+	
 #ifdef ENABLE_STATS
 	gettimeofday(&iph2->end, NULL);
 	syslog(LOG_NOTICE, "%s(%s): %8.6f",
@@ -1523,7 +1480,6 @@ pk_sendadd(iph2)
 		lifebyte = 0;
 #endif
 
-#ifdef __APPLE__
 #ifdef ENABLE_NATT
 		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_add\n");
 
@@ -1534,11 +1490,17 @@ pk_sendadd(iph2)
 			if (iph2->ph1->natt_flags & NAT_DETECTED_ME) {
 				if (iph2->ph1->rmconf->natt_keepalive == TRUE)
 					flags |= SADB_X_EXT_NATT_KEEPALIVE;
-			}
-			else if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
-				mode == IPSEC_MODE_TRANSPORT &&
-				dst->sa_family == AF_INET)
+			} else {
+				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
+					mode == IPSEC_MODE_TRANSPORT &&
+					dst->sa_family == AF_INET) {
 					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
+				}
+				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
+					// is mutually exclusive with SADB_X_EXT_NATT_KEEPALIVE
+					flags |= SADB_X_EXT_NATT_DETECTED_PEER;
+				}
+			}		
 		} else {
 			memset (&natt, 0, sizeof (natt));
 
@@ -1591,73 +1553,6 @@ pk_sendadd(iph2)
 			return -1;
 		}
 #endif /* ENABLE_NATT */
-#else /* __APPLE__ */
-#ifdef ENABLE_NATT
-		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_add_nat\n");
-
-		if (pr->udp_encap) {
-			memset (&natt, 0, sizeof (natt));
-			natt.type = UDP_ENCAP_ESPINUDP;
-			natt.sport = extract_port (iph2->ph1->local);
-			natt.dport = extract_port (iph2->ph1->remote);
-			natt.oa = NULL;		// FIXME: Here comes OA!!!
-			natt.frag = iph2->ph1->rmconf->esp_frag;
-		} else {
-			memset (&natt, 0, sizeof (natt));
-
-			/* Remove port information, that SA doesn't use it */
-			set_port(src, 0);
-			set_port(dst, 0);
-		}
-
-		if (pfkey_send_add_nat(
-				lcconf->sock_pfkey,
-				satype,
-				mode,
-				src,
-				dst,
-				pr->spi_p,
-				pr->reqid_out,
-				wsize,	
-				pr->keymat_p->v,
-				e_type, e_keylen, a_type, a_keylen, flags,
-				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq,
-				natt.type, natt.sport, natt.dport, natt.oa,
-				natt.frag) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"libipsec failed send add_nat (%s)\n",
-				ipsec_strerror());
-			return -1;
-		}
-#else
-		plog(LLV_DEBUG, LOCATION, NULL, "call pfkey_send_add\n");
-
-		/* Remove port information, it is not used without NAT-T */
-		set_port(src, 0);
-		set_port(dst, 0);
-
-		if (pfkey_send_add(
-				lcconf->sock_pfkey,
-				satype,
-				mode,
-				src,
-				dst,
-				pr->spi_p,
-				pr->reqid_out,
-				wsize,
-				pr->keymat_p->v,
-				e_type, e_keylen, a_type, a_keylen, flags,
-				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"libipsec failed send add (%s)\n",
-				ipsec_strerror());
-			return -1;
-		}
-#endif /* ENABLE_NATT */
-#endif /* __APPLE__ */
-
 		if (!lcconf->pathinfo[LC_PATHTYPE_BACKUPSA])
 			continue;
 
@@ -1847,7 +1742,7 @@ pk_recvexpire(mhp)
 	/* allocate buffer for status management of pfkey message */
 	if (iph2->side == INITIATOR &&
 		!ike_session_has_other_established_ph2(iph2->parent_session, iph2) &&
-		!ike_session_drop_rekey(iph2->parent_session)) {
+		!ike_session_drop_rekey(iph2->parent_session, IKE_SESSION_REKEY_TYPE_PH2)) {
 
 		initph2(iph2);
 
@@ -2082,7 +1977,6 @@ pk_recvacquire(mhp)
 		return -1;
 		/* XXX should use the algorithm list from register message */
 	}
-#ifdef __APPLE__
 		if (link_sainfo_to_ph2(iph2[n]->sainfo) != 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				 "failed to link sainfo\n");
@@ -2090,7 +1984,6 @@ pk_recvacquire(mhp)
 			delph2(iph2[n]);
 			return -1;
 		}
-#endif
     }
 
 	if (set_proposal_from_policy(iph2[n], sp_out, sp_in) < 0) {
@@ -3079,14 +2972,6 @@ addnewsp(mhp)
 	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
 	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
 	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
-
-#ifdef __linux__
-	/* bsd skips over per-socket policies because there will be no
-	 * src and dst extensions in spddump messages. On Linux the only
-	 * way to achieve the same is check for policy id.
-	 */
-	if (xpl->sadb_x_policy_id % 8 >= 3) return 0;
-#endif
 
 	new = newsp();
 	if (new == NULL) {

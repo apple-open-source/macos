@@ -8,5 +8,5 @@
 # script is sourced, the variable $dir must contain the
 # full path name of this file's directory.
 
-package ifneeded yaml 0.3.3 [list source [file join $dir yaml.tcl]]
-package ifneeded huddle 0.1.3 [list source [file join $dir huddle.tcl]]
+package ifneeded yaml 0.3.5 [list source [file join $dir yaml.tcl]]
+package ifneeded huddle 0.1.4 [list source [file join $dir huddle.tcl]]

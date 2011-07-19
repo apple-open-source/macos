@@ -34,7 +34,7 @@
 
 #include "WorkerThreadableWebSocketChannel.h"
 
-#include "GenericWorkerTask.h"
+#include "CrossThreadTask.h"
 #include "PlatformString.h"
 #include "ScriptExecutionContext.h"
 #include "ThreadableWebSocketChannelClientWrapper.h"
@@ -246,7 +246,10 @@ void WorkerThreadableWebSocketChannel::Bridge::mainThreadCreateWebSocketChannel(
     ASSERT_UNUSED(context, context->isDocument());
 
     Peer* peer = Peer::create(clientWrapper, thisPtr->m_loaderProxy, context, taskMode, url, protocol);
-    thisPtr->m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&Bridge::setWebSocketChannel, thisPtr, peer, clientWrapper), taskMode);
+    thisPtr->m_loaderProxy.postTaskForModeToWorkerContext(
+        createCallbackTask(&Bridge::setWebSocketChannel,
+                           AllowCrossThreadAccess(thisPtr),
+                           AllowCrossThreadAccess(peer), clientWrapper), taskMode);
 }
 
 WorkerThreadableWebSocketChannel::Bridge::Bridge(PassRefPtr<ThreadableWebSocketChannelClientWrapper> workerClientWrapper, PassRefPtr<WorkerContext> workerContext, const String& taskMode, const KURL& url, const String& protocol)
@@ -258,7 +261,9 @@ WorkerThreadableWebSocketChannel::Bridge::Bridge(PassRefPtr<ThreadableWebSocketC
 {
     ASSERT(m_workerClientWrapper.get());
     setMethodNotCompleted();
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&Bridge::mainThreadCreateWebSocketChannel, this, m_workerClientWrapper, m_taskMode, url, protocol));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&Bridge::mainThreadCreateWebSocketChannel,
+                           AllowCrossThreadAccess(this), m_workerClientWrapper, m_taskMode, url, protocol));
     waitForMethodCompletion();
     ASSERT(m_peer);
 }
@@ -281,7 +286,8 @@ void WorkerThreadableWebSocketChannel::Bridge::connect()
 {
     ASSERT(m_workerClientWrapper);
     ASSERT(m_peer);
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadConnect, m_peer));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadConnect, AllowCrossThreadAccess(m_peer)));
 }
 
 void WorkerThreadableWebSocketChannel::mainThreadSend(ScriptExecutionContext* context, Peer* peer, const String& message)
@@ -299,7 +305,10 @@ bool WorkerThreadableWebSocketChannel::Bridge::send(const String& message)
         return false;
     ASSERT(m_peer);
     setMethodNotCompleted();
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadSend, m_peer, message));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadSend,
+                           AllowCrossThreadAccess(m_peer), message));
+    RefPtr<Bridge> protect(this);
     waitForMethodCompletion();
     ThreadableWebSocketChannelClientWrapper* clientWrapper = m_workerClientWrapper.get();
     return clientWrapper && clientWrapper->sent();
@@ -320,7 +329,9 @@ unsigned long WorkerThreadableWebSocketChannel::Bridge::bufferedAmount()
         return 0;
     ASSERT(m_peer);
     setMethodNotCompleted();
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadBufferedAmount, m_peer));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadBufferedAmount, AllowCrossThreadAccess(m_peer)));
+    RefPtr<Bridge> protect(this);
     waitForMethodCompletion();
     ThreadableWebSocketChannelClientWrapper* clientWrapper = m_workerClientWrapper.get();
     if (clientWrapper)
@@ -340,7 +351,8 @@ void WorkerThreadableWebSocketChannel::mainThreadClose(ScriptExecutionContext* c
 void WorkerThreadableWebSocketChannel::Bridge::close()
 {
     ASSERT(m_peer);
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadClose, m_peer));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadClose, AllowCrossThreadAccess(m_peer)));
 }
 
 void WorkerThreadableWebSocketChannel::mainThreadDestroy(ScriptExecutionContext* context, Peer* peer)
@@ -358,7 +370,8 @@ void WorkerThreadableWebSocketChannel::Bridge::disconnect()
     if (m_peer) {
         Peer* peer = m_peer;
         m_peer = 0;
-        m_loaderProxy.postTaskToLoader(createCallbackTask(&mainThreadDestroy, peer));
+        m_loaderProxy.postTaskToLoader(
+            createCallbackTask(&mainThreadDestroy, AllowCrossThreadAccess(peer)));
     }
     m_workerContext = 0;
 }
@@ -375,7 +388,8 @@ void WorkerThreadableWebSocketChannel::mainThreadSuspend(ScriptExecutionContext*
 void WorkerThreadableWebSocketChannel::Bridge::suspend()
 {
     ASSERT(m_peer);
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadSuspend, m_peer));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadSuspend, AllowCrossThreadAccess(m_peer)));
 }
 
 void WorkerThreadableWebSocketChannel::mainThreadResume(ScriptExecutionContext* context, Peer* peer)
@@ -390,7 +404,8 @@ void WorkerThreadableWebSocketChannel::mainThreadResume(ScriptExecutionContext* 
 void WorkerThreadableWebSocketChannel::Bridge::resume()
 {
     ASSERT(m_peer);
-    m_loaderProxy.postTaskToLoader(createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadResume, m_peer));
+    m_loaderProxy.postTaskToLoader(
+        createCallbackTask(&WorkerThreadableWebSocketChannel::mainThreadResume, AllowCrossThreadAccess(m_peer)));
 }
 
 void WorkerThreadableWebSocketChannel::Bridge::clearClientWrapper()
@@ -404,6 +419,8 @@ void WorkerThreadableWebSocketChannel::Bridge::setMethodNotCompleted()
     m_workerClientWrapper->clearSyncMethodDone();
 }
 
+// Caller of this function should hold a reference to the bridge, because this function may call WebSocket::didClose() in the end,
+// which causes the bridge to get disconnected from the WebSocket and deleted if there is no other reference.
 void WorkerThreadableWebSocketChannel::Bridge::waitForMethodCompletion()
 {
     if (!m_workerContext)
@@ -411,8 +428,8 @@ void WorkerThreadableWebSocketChannel::Bridge::waitForMethodCompletion()
     WorkerRunLoop& runLoop = m_workerContext->thread()->runLoop();
     MessageQueueWaitResult result = MessageQueueMessageReceived;
     ThreadableWebSocketChannelClientWrapper* clientWrapper = m_workerClientWrapper.get();
-    while (clientWrapper && !clientWrapper->syncMethodDone() && result != MessageQueueTerminated) {
-        result = runLoop.runInMode(m_workerContext.get(), m_taskMode);
+    while (m_workerContext && clientWrapper && !clientWrapper->syncMethodDone() && result != MessageQueueTerminated) {
+        result = runLoop.runInMode(m_workerContext.get(), m_taskMode); // May cause this bridge to get disconnected, which makes m_workerContext become null.
         clientWrapper = m_workerClientWrapper.get();
     }
 }

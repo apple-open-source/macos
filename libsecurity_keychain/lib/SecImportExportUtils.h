@@ -205,6 +205,11 @@ OSStatus impExpPassphraseCommon(
 	impExpVerifyPhrase		verifyPhrase,   // for secure passphrase
 	CFTypeRef				*phrase,		// RETURNED, or
 	CSSM_KEY_PTR			*passKey);		// mallocd and RETURNED
+	
+CSSM_KEYATTR_FLAGS ConvertArrayToKeyAttributes(SecKeyRef aKey, CFArrayRef usage);
+
+Boolean ConvertSecKeyImportExportParametersToSecImportExportKeyParameters(SecKeyRef aKey,
+	const SecItemImportExportKeyParameters* newPtr, SecKeyImportExportParameters* oldPtr);
 
 #ifdef	__cplusplus
 }

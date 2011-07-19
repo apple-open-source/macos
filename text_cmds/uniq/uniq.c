@@ -65,7 +65,7 @@ int cflag, dflag, uflag;
 int numchars, numfields, repeats;
 
 FILE	*file(const char *, const char *);
-wchar_t	*getline(wchar_t *, size_t, FILE *);
+wchar_t	*uniq_getline(wchar_t *, size_t, FILE *);
 void	 show(FILE *, wchar_t *);
 wchar_t	*skip(wchar_t *);
 void	 obsolete(char *[]);
@@ -141,7 +141,7 @@ main (int argc, char *argv[])
 	if (prevline == NULL || thisline == NULL)
 		err(1, "malloc");
 
-	if (getline(prevline, MAXLINELEN, ifp) == NULL) {
+	if (uniq_getline(prevline, MAXLINELEN, ifp) == NULL) {
 		if (ferror(ifp))
 			err(1, "%s", ifp == stdin ? "stdin" : argv[0]);
 		exit(0);
@@ -149,7 +149,7 @@ main (int argc, char *argv[])
 	if (!cflag && uflag && dflag)
 		show(ofp, prevline);
 
-	while (getline(thisline, MAXLINELEN, ifp)) {
+	while (uniq_getline(thisline, MAXLINELEN, ifp)) {
 		/* If requested get the chosen fields + character offsets. */
 		if (numfields || numchars) {
 			t1 = skip(thisline);
@@ -185,7 +185,7 @@ main (int argc, char *argv[])
 }
 
 wchar_t *
-getline(wchar_t *buf, size_t buflen, FILE *fp)
+uniq_getline(wchar_t *buf, size_t buflen, FILE *fp)
 {
 	size_t bufpos;
 	wint_t ch;

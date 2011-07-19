@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2008-2010 Todd C. Miller <Todd.Miller@courtesan.com>
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -69,11 +69,10 @@
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -814,7 +813,7 @@ match(name, pat, patend)
 				return(0);
 			if ((negate_range = ((*pat & M_MASK) == M_NOT)) != EOS)
 				++pat;
-			while (((c = *pat++) & M_MASK) != M_END)
+			while (((c = *pat++) & M_MASK) != M_END) {
 				if ((c & M_MASK) == M_CLASS) {
 					int idx = *pat & M_MASK;
 					if (idx < NCCLASSES &&
@@ -828,6 +827,7 @@ match(name, pat, patend)
 					pat += 2;
 				} else if (c == k)
 					ok = 1;
+			}
 			if (ok == negate_range)
 				return(0);
 			break;

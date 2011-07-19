@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,14 +32,19 @@
 #include <servers/bootstrap.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <sys/errno.h>
 #include <sys/queue.h>
 #include <sys/time.h>
+#include <sys/un.h>
 #include <pthread.h>
 #include <dirent.h>
 #include <dlfcn.h>
 #include <libgen.h>
 #include <notify.h>
+#include <utmpx.h>
 #include "daemon.h"
 
 #define SERVICE_NAME "com.apple.system.logger"
@@ -338,9 +343,20 @@ load_modules(const char *mp)
 }
 
 static void
-writepid(void)
+writepid(int *first)
 {
+	struct stat sb;
 	FILE *fp;
+
+	if (first != NULL)
+	{
+		*first = 1;
+		memset(&sb, 0, sizeof(struct stat));
+		if (stat(_PATH_PIDFILE, &sb) == 0)
+		{
+			if (S_ISREG(sb.st_mode)) *first = 0;
+		}
+	}
 
 	fp = fopen(_PATH_PIDFILE, "w");
 	if (fp != NULL)
@@ -596,7 +612,8 @@ config_debug(int enable, const char *path)
 
 	global.debug = enable;
 	if (global.debug_file != NULL) free(global.debug_file);
-	global.debug_file = strdup(path);
+	global.debug_file = NULL;
+	if (path != NULL) global.debug_file = strdup(path);
 
 	OSSpinLockUnlock(&global.lock);
 }
@@ -632,6 +649,71 @@ config_data_store(int type, uint32_t file_max, uint32_t memory_max, uint32_t min
 	pthread_mutex_unlock(global.db_lock);
 }
 
+void
+write_boot_log(int first)
+{
+    int mib[2] = {CTL_KERN, KERN_BOOTTIME};
+	size_t len;
+	aslmsg msg;
+	char buf[256];
+    struct utmpx utx;
+
+	if (first == 0)
+	{
+		/* syslogd restart */
+		msg = asl_new(ASL_TYPE_MSG);
+		if (msg == NULL) return;
+
+		asl_set(msg, ASL_KEY_SENDER, "syslogd");
+		asl_set(msg, ASL_KEY_FACILITY, "daemon");
+		asl_set(msg, ASL_KEY_LEVEL, "Notice");
+		asl_set(msg, ASL_KEY_UID, "0");
+		asl_set(msg, ASL_KEY_GID, "0");
+		snprintf(buf, sizeof(buf), "%u", getpid());
+		asl_set(msg, ASL_KEY_PID, buf);
+		asl_set(msg, ASL_KEY_MSG, "--- syslogd restarted ---");
+		asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
+		return;
+	}
+
+    bzero(&utx, sizeof(utx));
+    utx.ut_type = BOOT_TIME;
+    utx.ut_pid = 1;
+
+	/* get the boot time */
+    len = sizeof(struct timeval);
+    if (sysctl(mib, 2, &utx.ut_tv, &len, NULL, 0) < 0)
+	{
+		gettimeofday(&utx.ut_tv, NULL);
+	}
+
+    pututxline(&utx);
+
+	msg = asl_new(ASL_TYPE_MSG);
+	if (msg == NULL) return;
+
+	asl_set(msg, ASL_KEY_SENDER, "bootlog");
+	asl_set(msg, ASL_KEY_FACILITY, "com.apple.system.utmpx");
+	asl_set(msg, ASL_KEY_LEVEL, "Notice");
+	asl_set(msg, ASL_KEY_UID, "0");
+	asl_set(msg, ASL_KEY_GID, "0");
+	asl_set(msg, ASL_KEY_PID, "0");
+	snprintf(buf, sizeof(buf), "BOOT_TIME %lu %u", (unsigned long)utx.ut_tv.tv_sec, (unsigned int)utx.ut_tv.tv_usec);
+	asl_set(msg, ASL_KEY_MSG, buf);
+	asl_set(msg, "ut_id", "0x00 0x00 0x00 0x00");
+	asl_set(msg, "ut_pid", "1");
+	asl_set(msg, "ut_type", "2");
+	snprintf(buf, sizeof(buf), "%lu", (unsigned long)utx.ut_tv.tv_sec);
+	asl_set(msg, ASL_KEY_TIME, buf);
+	asl_set(msg, "ut_tv.tv_sec", buf);
+	snprintf(buf, sizeof(buf), "%u", (unsigned int)utx.ut_tv.tv_usec);
+	asl_set(msg, "ut_tv.tv_usec", buf);
+	snprintf(buf, sizeof(buf), "%u%s", (unsigned int)utx.ut_tv.tv_usec, (utx.ut_tv.tv_usec == 0) ? "" : "000");
+	asl_set(msg, ASL_KEY_TIME_NSEC, buf);
+
+	asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -645,6 +727,10 @@ main(int argc, const char *argv[])
 	int network_change_token;
 	char tstr[32];
 	time_t now;
+	int first_syslogs_start = 1;
+
+	/* Set I/O policy */
+	setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_PASSIVE);
 
 	memset(&global, 0, sizeof(struct global_s));
 
@@ -667,16 +753,11 @@ main(int argc, const char *argv[])
 	global.fs_ttl = DEFAULT_FS_TTL_SEC;
 	global.mps_limit = DEFAULT_MPS_LIMIT;
 	global.kfd = -1;
+	global.lockdown_session_fd = -1;
 
 #ifdef CONFIG_MAC
 	global.dbtype = DB_TYPE_FILE;
 	global.db_file_max = 25600000;
-	global.asl_store_ping_time = 150;
-#endif
-
-#ifdef CONFIG_APPLETV
-	global.dbtype = DB_TYPE_FILE;
-	global.db_file_max = 10240000;
 	global.asl_store_ping_time = 150;
 #endif
 
@@ -844,7 +925,7 @@ main(int argc, const char *argv[])
 			closeall();
 		}
 
-		writepid();
+		writepid(&first_syslogs_start);
 	}
 
 	init_config();
@@ -883,6 +964,11 @@ main(int argc, const char *argv[])
 	FD_ZERO(&ex);
 
 	/*
+	 * Log UTMPX boot time record
+	 */
+	write_boot_log(first_syslogs_start);
+
+	/*
 	 * drain /dev/klog first
 	 */
 	if (global.kfd >= 0)
@@ -909,9 +995,17 @@ main(int argc, const char *argv[])
 
 	forever
 	{
+		/* aslevent_fdsets clears the fdsets, then sets any non-zero fds from the aslevent list */
 		max = aslevent_fdsets(&rd, &wr, &ex) + 1;
 
 		status = select(max, &rd, &wr, &ex, runloop_timer);
+		if ((status < 0) && (errno == EBADF))
+		{
+			/* Catastrophic error! */
+			aslevent_check();
+			abort();
+		}
+
 		if ((global.kfd >= 0) && FD_ISSET(global.kfd, &rd))
 		{
 			/*  drain /dev/klog */
@@ -925,13 +1019,13 @@ main(int argc, const char *argv[])
 			}
 		}
 
-		if (global.reset != RESET_NONE)
+		if (status > 0) aslevent_handleevent(&rd, &wr, &ex);
+
+		if ((global.reset != RESET_NONE) || (status < 0))
 		{
 			send_reset();
 			global.reset = RESET_NONE;
 		}
-
-		if (status != 0) aslevent_handleevent(&rd, &wr, &ex);
 
 		timed_events(&runloop_timer);
  	}

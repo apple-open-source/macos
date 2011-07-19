@@ -30,6 +30,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/StackBounds.h>
 #include <wtf/text/StringHash.h>
 
 // This was ENABLE(WORKERS) in WebCore, but this is not defined when compiling JSC.
@@ -45,22 +46,14 @@
 #include <wtf/Threading.h>
 #endif
 
-// FIXME: This is a temporary layering violation while we move more string code to WTF.
-namespace WebCore {
-class AtomicStringTable;
-class StringImpl;
-}
-using WebCore::StringImpl;
-
-typedef void (*AtomicStringTableDestructor)(WebCore::AtomicStringTable*);
-
 #if USE(JSC)
 // FIXME: This is a temporary layering violation while we move more string code to WTF.
 namespace JSC {
 
 typedef HashMap<const char*, RefPtr<StringImpl>, PtrHash<const char*> > LiteralIdentifierTable;
 
-class IdentifierTable : public FastAllocBase {
+class IdentifierTable {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     ~IdentifierTable();
 
@@ -68,7 +61,14 @@ public:
     template<typename U, typename V>
     std::pair<HashSet<StringImpl*>::iterator, bool> add(U value);
 
-    void remove(StringImpl* r) { m_table.remove(r); }
+    bool remove(StringImpl* r)
+    {
+        HashSet<StringImpl*>::iterator iter = m_table.find(r);
+        if (iter == m_table.end())
+            return false;
+        m_table.remove(iter);
+        return true;
+    }
 
     LiteralIdentifierTable& literalTable() { return m_literalTable; }
 
@@ -82,23 +82,22 @@ private:
 
 namespace WTF {
 
-class WTFThreadData : public Noncopyable {
+class AtomicStringTable;
+
+typedef void (*AtomicStringTableDestructor)(AtomicStringTable*);
+
+class WTFThreadData {
+    WTF_MAKE_NONCOPYABLE(WTFThreadData);
 public:
     WTFThreadData();
     ~WTFThreadData();
 
-    WebCore::AtomicStringTable* atomicStringTable()
+    AtomicStringTable* atomicStringTable()
     {
         return m_atomicStringTable;
     }
 
 #if USE(JSC)
-    void initializeIdentifierTable(JSC::IdentifierTable* identifierTable)
-    {
-        m_defaultIdentifierTable = identifierTable;
-        m_currentIdentifierTable = identifierTable;
-    }
-
     JSC::IdentifierTable* currentIdentifierTable()
     {
         return m_currentIdentifierTable;
@@ -115,15 +114,21 @@ public:
     {
         m_currentIdentifierTable = m_defaultIdentifierTable;
     }
+
+    const StackBounds& stack() const
+    {
+        return m_stackBounds;
+    }
 #endif
 
 private:
-    WebCore::AtomicStringTable* m_atomicStringTable;
+    AtomicStringTable* m_atomicStringTable;
     AtomicStringTableDestructor m_atomicStringTableDestructor;
 
 #if USE(JSC)
     JSC::IdentifierTable* m_defaultIdentifierTable;
     JSC::IdentifierTable* m_currentIdentifierTable;
+    StackBounds m_stackBounds;
 #endif
 
 #if WTFTHREADDATA_MULTITHREADED
@@ -132,7 +137,7 @@ private:
     static JS_EXPORTDATA WTFThreadData* staticData;
 #endif
     friend WTFThreadData& wtfThreadData();
-    friend class WebCore::AtomicStringTable;
+    friend class AtomicStringTable;
 };
 
 inline WTFThreadData& wtfThreadData()

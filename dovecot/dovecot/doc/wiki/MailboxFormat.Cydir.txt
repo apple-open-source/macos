@@ -1,0 +1,20 @@
+Cydir
+=====
+
+This mailbox format is very similar to Cyrus IMAP's internal mail store:
+
+ * Messages are stored in "<uid>." named files
+ * Cyrus's 'cyrus.index' is equivalent to Dovecot's 'dovecot.index'. Dovecot
+   however also requires 'dovecot.index.log' for its indexing to work.
+ * Cyrus's 'cyrus.cache' is equivalent to Dovecot's 'dovecot.index.cache'.
+
+Cydir is a very simple format internally. It relies on Dovecot's <index files>
+[IndexFiles.txt] completely for its functionality. If the index files are lost,
+all the message flags are lost. Currently the code can't even rebuild index
+files if they're lost.
+
+Cydir is mostly meant to be used for benchmarking and stress testing index
+handling code. Its code is small and simple, so it can also act as an example
+for writing new mail storage backends.
+
+(This file was created from the wiki on 2011-05-11 04:42)

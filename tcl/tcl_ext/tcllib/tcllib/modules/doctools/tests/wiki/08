@@ -1,10 +1,9 @@
-ALL 5 '''.MODULE.''' ''..THE_MODULE..''
+'''ALL 5''' '''.MODULE.''' ''..THE_MODULE..''
 
 ..THE_TITLE..
 
 
-----
-'''SYNOPSIS'''
+**SYNOPSIS**
 
 
 package require '''AAA'''
@@ -22,71 +21,73 @@ package require '''CCC ?VVV?'''
 
 
 
-----
-'''DESCRIPTION'''
+**DESCRIPTION**
 
 
 
-   '''NAME''':   DESCRIPTION ::'''Command'''::
+   '''NAME''':   DESCRIPTION ::'''Command''':: 
 
-   '''NAME''':   DESCRIPTION ::::
+   '''NAME''':   DESCRIPTION :::: 
 
-   '''NAME''':   DESCRIPTION ::'''Constant'''::
+   '''NAME''':   DESCRIPTION ::'''Constant'''::  
 
-----
-'''API'''
-
+**API**
 
 
-   TERM:   DESCRIPTION ::''Emphasis''::
 
-   TERM:   DESCRIPTION ::"''File/Path''"::
+   TERM:    DESCRIPTION ::''Emphasis'':: 
 
-   Command-Line Switch:	'''NAME'''
-   Database Name:	'''DBNAME'''
-   Database Class:	'''CLASS'''
+   TERM:    DESCRIPTION ::"''File/Path''"::  
+
+Command-Line Switch:	'''NAME'''
+Database Name:	'''DBNAME'''
+Database Class:	'''CLASS'''
    *  DESCRIPTION '''NARGLE'''
 
-   Command-Line Switch:	'''NAME'''
-   Database Name:	'''DBNAME'''
-   Database Class:	'''CLASS'''
+Command-Line Switch:	'''NAME'''
+Database Name:	'''DBNAME'''
+Database Class:	'''CLASS'''
    *  DESCRIPTION ::'''Function'''::
 
-   Command-Line Switch:	'''NAME'''
-   Database Name:	'''DBNAME'''
-   Database Class:	'''CLASS'''
+Command-Line Switch:	'''NAME'''
+Database Name:	'''DBNAME'''
+Database Class:	'''CLASS'''
    *  DESCRIPTION ::'''Method'''::
 
-   TERM:   DESCRIPTION
+   TERM:    DESCRIPTION 
 
-   CMDNAME ...:   DESCRIPTION ::'''Namespace'''::
+   CMDNAME ...:    DESCRIPTION ::'''Namespace''':: 
 
-   ''NAME'' TYPE:  DESCRIPTION ::''Argument''::
++++
+''NAME'' TYPE    DESCRIPTION ::''Argument''::
+''NAME'' TYPE    DESCRIPTION ::'''Option'''::
+''NAME'' TYPE (MODE)    DESCRIPTION ::?Optional?::
+======
 
-   ''NAME'' TYPE:  DESCRIPTION ::'''Option'''::
+    THE ARGUMENT IS USED IN THIS
+    AND/OR THAT MANNER
 
-   ''NAME'' TYPE (MODE):  DESCRIPTION ::?Optional?::
+======
 
- |     THE ARGUMENT IS USED IN THIS
- |     AND/OR THAT MANNER
-
-
-
-   CMDNAME ...:   DESCRIPTION ::'''Package'''::
-
-   CMDNAME ...:   DESCRIPTION ::'''SystemCommand'''::
-
-   '''NAME''':   DESCRIPTION ::''Term''::
-
-   '''NAME''':   DESCRIPTION ::'''Type'''::
-
-   '''NAME''' ARGUMENT:   DESCRIPTION ::''Uri''::
-
-''NARGLE''
++++
 
 
 
-   1.  PARAGRAPH ::''UriLabel'' [[Uri]]::
+   CMDNAME ...:    DESCRIPTION ::'''Package''':: 
+
+   CMDNAME ...:    DESCRIPTION ::'''SystemCommand'''::  
+
+   '''NAME''':    DESCRIPTION ::''Term'':: 
+
+   '''NAME''':    DESCRIPTION ::'''Type''':: 
+
+   '''NAME''' ARGUMENT:    DESCRIPTION ::Uri::   
+
+***NARGLE***
+
+
+
+   1.  PARAGRAPH ::Uri%|%UriLabel%|%::
 
    1.  PARAGRAPH ::'''Variable'''::
 
@@ -98,22 +99,19 @@ package require '''CCC ?VVV?'''
 
    *  PARAGRAPH
 
-----
-'''SEE ALSO'''
+**SEE ALSO**
 
 
 ELSE, OTHER
 
 
-----
-'''KEYWORDS'''
+**KEYWORDS**
 
 
 KEYA, KEYZ
 
 
-----
-'''COPYRIGHT'''
+**COPYRIGHT**
 
  Copyright (c) **Copyright**
 

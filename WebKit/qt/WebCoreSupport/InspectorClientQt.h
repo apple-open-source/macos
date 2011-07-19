@@ -35,14 +35,17 @@
 #include "OwnPtr.h"
 #include "PassOwnPtr.h"
 #include <QtCore/QString>
+#include <wtf/Forward.h>
 
 class QWebPage;
 class QWebView;
 
 namespace WebCore {
+class InspectorFrontendClientQt;
+class InspectorServerRequestHandlerQt;
 class Node;
 class Page;
-class String;
+class RemoteFrontendChannel;
 
 class InspectorClientQt : public InspectorClient {
 public:
@@ -55,16 +58,26 @@ public:
     virtual void highlight(Node*);
     virtual void hideHighlight();
 
-    virtual void populateSetting(const String& key, String* value);
-    virtual void storeSetting(const String& key, const String& value);
+    virtual bool sendMessageToFrontend(const String&);
+
+    void releaseFrontendPage();
+
+    void attachAndReplaceRemoteFrontend(RemoteFrontendChannel *channel);
+    void detachRemoteFrontend();
 
 private:
     QWebPage* m_inspectedWebPage;
+    QWebPage* m_frontendWebPage;
+    InspectorFrontendClientQt* m_frontendClient;
+    bool m_remoteInspector;
+
+    friend class InspectorServerRequestHandlerQt;
 };
 
 class InspectorFrontendClientQt : public InspectorFrontendClientLocal {
 public:
-    InspectorFrontendClientQt(QWebPage* inspectedWebPage, PassOwnPtr<QWebView> inspectorView);
+    InspectorFrontendClientQt(QWebPage* inspectedWebPage, PassOwnPtr<QWebView> inspectorView, InspectorClientQt* inspectorClient);
+    virtual ~InspectorFrontendClientQt();
 
     virtual void frontendLoaded();
 
@@ -74,6 +87,7 @@ public:
 
     virtual void bringToFront();
     virtual void closeWindow();
+    virtual void disconnectFromBackend();
 
     virtual void attachWindow();
     virtual void detachWindow();
@@ -82,12 +96,16 @@ public:
 
     virtual void inspectedURLChanged(const String& newURL);
 
+    void inspectorClientDestroyed();
+
 private:
     void updateWindowTitle();
+    void destroyInspectorView(bool notifyInspectorController);
     QWebPage* m_inspectedWebPage;
     OwnPtr<QWebView> m_inspectorView;
     QString m_inspectedURL;
     bool m_destroyingInspectorView;
+    InspectorClientQt* m_inspectorClient;
 };
 }
 

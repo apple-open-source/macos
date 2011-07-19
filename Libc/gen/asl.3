@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2007 Apple Inc.
+.\" Copyright (c) 2005-2010 Apple Inc.
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -26,18 +26,22 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd January 11, 2007
+.Dd March 3, 2010
 .Dt asl 3
 .Os "Mac OS X"
 .Sh NAME
 .Nm asl_add_log_file ,
 .Nm asl_close ,
+.Nm asl_close_auxiliary_file ,
+.Nm asl_create_auxiliary_file ,
 .Nm asl_free ,
 .Nm asl_get ,
 .Nm asl_key ,
 .Nm asl_log ,
+.Nm asl_log_auxiliary_location ,
 .Nm asl_new ,
 .Nm asl_open ,
+.Nm asl_open_from_file ,
 .Nm asl_remove_log_file ,
 .Nm asl_search ,
 .Nm asl_send ,
@@ -62,6 +66,17 @@
 .Fa "aslclient asl"
 .Fc
 .Ft void
+.Fo asl_close_auxiliary_file
+.Fa "int fd"
+.Fc
+.Ft void
+.Fo asl_create_auxiliary_file
+.Fa "aslmsg msg"
+.Fa "const char *title"
+.Fa "const char *uti"
+.Fa "int *out_fd"
+.Fc
+.Ft void
 .Fo asl_free
 .Fa "aslmsg msg"
 .Fc
@@ -83,6 +98,13 @@
 .Fa "const char *format"
 .Fa "..."
 .Fc
+.Ft void
+.Fo asl_log_auxiliary_location
+.Fa "aslmsg msg"
+.Fa "const char *title"
+.Fa "const char *uti"
+.Fa "const char *url"
+.Fc
 .Ft aslmsg
 .Fo asl_new
 .Fa "uint32_t type"
@@ -92,6 +114,12 @@
 .Fa "const char *ident"
 .Fa "const char *facility"
 .Fa "uint32_t opts"
+.Fc
+.Ft aslclient
+.Fo asl_open_from_file
+.Fa "int fd"
+.Fa "const char *ident"
+.Fa "const char *facility"
 .Fc
 .Ft int
 .Fo asl_remove_log_file
@@ -171,9 +199,9 @@ An introduction to the concepts underlying this interface follows the interface 
 creates and returns a client handle, or NULL if an error occurs in the library.
 Messages sent using this handle will default to having the string
 .Ar ident
-as the value assocated with the ASL_KEY_SENDER key, and the value
+as the value associated with the ASL_KEY_SENDER key, and the value
 .Ar facility
-assocated with the ASL_KEY_FACILITY key.
+associated with the ASL_KEY_FACILITY key.
 Several options are available, as described in the
 .Sx CLIENT HANDLES
 section.
@@ -375,6 +403,120 @@ Returns NULL when there are no further messages.
 frees the aslresponse structure
 .Ar r
 and all of its associated resources.
+.Pp
+.Fo asl_create_auxiliary_file
+.Fa msg
+.Fa title
+.Fa uti
+.Fa out_fd
+.Fc
+Creates an auxiliary file that may be used by the client to save arbitrary data.
+When the file is closed using
+.Fo asl_close_auxiliary_file
+.Fc ,
+.Nm syslogd
+will log the specified
+.Fa msg 
+along with the
+.Fa title
+and the Uniform Type Identifier provided by
+.Fa uti .
+If a NULL value is supplied for 
+.Fa uti
+the type
+.Dq public.data
+will be used.
+The
+.Nm Console
+application will display the message with a link to the file.
+.Pp
+Auxiliary files are saved in the ASL data store.
+They are automatically deleted at the same time that the log message expires.
+Messages expire in 7 days by default.
+A value set for the ASLExpireTime key will override the default.
+Read access for the auxiliary file will be the same as read access for
+.Fa msg .
+By default, messages (and auxiliary files) are world-readable.
+Access may be limited by setting values for the ReadUID and ReadGID keys.
+.Pp
+.Fo asl_close_auxiliary_file
+.Fa fd
+.Fc
+closes the file descriptor
+.Ar fd 
+previously returned by a call to
+.Fn asl_create_auxiliary_file .
+.Pp
+.Fo asl_log_auxiliary_location
+.Fa msg
+.Fa title
+.Fa uti
+.Fa url
+.Fc
+will log the specified
+.Fa msg 
+along with the
+.Fa title ,
+the Uniform Type Identifier provided by
+.Fa uti ,
+and the Uniform Resource Locator provided by
+.Fa url .
+The
+.Nm Console
+application will display the message with a link to the file.
+This allows a client to save data in an auxiliary file, but unlike
+.Fo asl_create_auxiliary_file
+.Fc ,
+the life-cycle of this file must be managed by some external system.
+The file will not be removed when the corresponding log message expired from the ASL data store.
+.Pp
+.Fo asl_open_from_file
+.Fa fd
+.Fa facility
+.Fa opts
+.Fc
+creates a client handle for an open file descriptor
+.Fa fd .
+This routine may be used in conjunction with
+.Fo asl_create_auxiliary_file
+.Fc 
+or
+.Fo asl_log_auxiliary_location
+.Fc 
+to save ASL format log messages in an auxiliary file.
+The UTI type
+.Dq com.apple.asl-file
+should be used for ASL format auxiliary files.
+.Pp
+Files with this format may be read from the command line using
+.Nm syslog Fl f Ar file ,
+or from the 
+.Nm Console 
+utility.
+.Pp
+The file must be open for read and write access.
+The file will be truncated and its existing contents will be lost.
+.Fo asl_close
+.Fc
+must be called to close the client handle when logging to this file is complete. 
+The file should be closed using
+.Fo asl_close_auxiliary_file
+.Fc
+if it was returned by
+.Fo asl_create_auxiliary_file
+.Fc ,
+or
+.Fo close
+.Fc
+otherwise.
+.Pp
+The client handle may be used safely by multiple threads.
+The threads will contend for a single internal lock when saving log messages to a file.
+.Pp
+Note that messages with ReadUID or ReadGID values will simply be saved to the file,
+and will not effect read access to either the message or the file itself.
+Similarly, messages with ASLExpireTime values will be saved, but will not effect the 
+life-cycle of either the individual messages or the file.
 .Ss MESSAGES
 At the core of this API is the aslmsg structure.
 Although the structure is opaque and may not be directly manipulated,

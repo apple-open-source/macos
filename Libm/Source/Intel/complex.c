@@ -48,8 +48,6 @@
 **            
 ****************************************************************************/
 
-#pragma STDC FENV_ACCESS ON
-
 #include "math.h"
 #include "complex.h"
 #include "fenv.h"
@@ -215,8 +213,7 @@ long double complex xdivcl( long double x, long double complex y )   /* returns 
    complex argument z, avoiding spurious overflow, underflow, and invalid
    exceptions.  The code is identical to hypot[fl].
    
-   On Intel, the cabs functions reside in w_cabsf.c and w_cabs.c
-   (long double and double are both in w_cabs.c)
+   On Intel, the cabs functions reside in hypot[fl].s
 ****************************************************************************/
 
 // PowerPC implementation of cabs is here in the ppc complex.c file

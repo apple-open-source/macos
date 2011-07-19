@@ -150,38 +150,50 @@ Returns an instance of the result source for this class
 
 =cut
 
+__PACKAGE__->mk_classdata('_result_source_instance' => []);
+
+# Yep. this is horrific. Basically what's happening here is that
+# (with good reason) DBIx::Class::Schema copies the result source for
+# registration. Because we have a retarded setup order forced on us we need
+# to actually make our ->result_source_instance -be- the source used, and we
+# need to get the source name and schema into ourselves. So this makes it
+# happen.
+
+sub _maybe_attach_source_to_schema {
+  my ($class, $source) = @_;
+  if (my $meth = $class->can('schema_instance')) {
+    if (my $schema = $class->$meth) {
+      $schema->register_class($class, $class);
+      my $new_source = $schema->source($class);
+      %$source = %$new_source;
+      $schema->source_registrations->{$class} = $source;
+    }
+  }
+}
+
 sub result_source_instance {
   my $class = shift;
   $class = ref $class || $class;
- 
-  __PACKAGE__->mk_classdata(qw/_result_source_instance/)
-    unless __PACKAGE__->can('_result_source_instance');
 
-  
-  return $class->_result_source_instance(@_) if @_;
+  if (@_) {
+    my $source = $_[0];
+    $class->_result_source_instance([$source, $class]);
+    $class->_maybe_attach_source_to_schema($source);
+    return $source;
+  }
 
-  my $source = $class->_result_source_instance;
-  return {} unless Scalar::Util::blessed($source);
+  my($source, $result_class) = @{$class->_result_source_instance};
+  return unless Scalar::Util::blessed($source);
 
-  if ($source->result_class ne $class) {
-    # Remove old source instance so we dont get deep recursion
-    #$DB::single = 1;
-    # Need to set it to a non-undef value so that it doesn't just fallback to
-    # a parent class's _result_source_instance
-    #$class->_result_source_instance({});
-    #$class->table($class);
-    #$source = $class->_result_source_instance;
-
-    $DB::single = 1;
+  if ($result_class ne $class) {  # new class
+    # Give this new class its own source and register it.
     $source = $source->new({ 
         %$source, 
         source_name  => $class,
         result_class => $class
     } );
-    $class->_result_source_instance($source);
-    if (my $coderef = $class->can('schema_instance')) {
-        $coderef->($class)->register_class($class, $class);
-    }
+    $class->_result_source_instance([$source, $class]);
+    $class->_maybe_attach_source_to_schema($source);
   }
   return $source;
 }

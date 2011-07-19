@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)strcasecmp.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.6 2002/08/30 15:40:01 robert Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.8 2009/02/03 17:58:20 danger Exp $");
 
 #include <strings.h>
 #include <ctype.h>
@@ -43,8 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.6 2002/08/30 15:40:01 r
 typedef unsigned char u_char;
 
 int
-strcasecmp(s1, s2)
-	const char *s1, *s2;
+strcasecmp(const char *s1, const char *s2)
 {
 	const u_char
 			*us1 = (const u_char *)s1,
@@ -57,9 +52,7 @@ strcasecmp(s1, s2)
 }
 
 int
-strncasecmp(s1, s2, n)
-	const char *s1, *s2;
-	size_t n;
+strncasecmp(const char *s1, const char *s2, size_t n)
 {
 	if (n != 0) {
 		const u_char

@@ -27,14 +27,9 @@ extern VALUE rubycocoa_debug;
   do {                                           \
     if (DEBUG_P) {                             \
       NSAutoreleasePool * pool;                  \
-      NSString *          nsfmt;                 \
                                                  \
       pool = [[NSAutoreleasePool alloc] init];   \
-      nsfmt = [NSString stringWithFormat:        \
-        @"%@",                                   \
-        [NSString stringWithFormat:@"%s : %s",   \
-          mod, fmt], ##args];                    \
-      NSLog(@"%@", nsfmt);                       \
+      NSLog(@mod @" : " @fmt, ##args);           \
       [pool release];                            \
     }                                            \
   }                                              \
@@ -71,5 +66,8 @@ extern CFRunLoopRef CFRunLoopGetMain(void);
   } \
   while (0)
 #endif
+
+/* invoke-based undo requires some special handling on 10.6 */
+#define IS_UNDOPROXY(obj) (object_getClass(obj) == objc_getClass("NSUndoManagerProxy"))
 
 #endif	// _INTERNAL_MACROS_H_

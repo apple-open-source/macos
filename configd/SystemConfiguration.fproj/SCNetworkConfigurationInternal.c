@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -187,10 +187,10 @@ static CFDictionaryRef
 __copyTemplates()
 {
 	CFBundleRef     bundle;
+	CFErrorRef	error		= NULL;
 	Boolean		ok;
 	CFDictionaryRef templates;
 	CFURLRef	url;
-	CFStringRef     xmlError	= NULL;
 	CFDataRef       xmlTemplates    = NULL;
 
 	bundle = _SC_CFBundleGet();
@@ -210,12 +210,12 @@ __copyTemplates()
 	}
 
 	// convert the XML data into a property list
-	templates = CFPropertyListCreateFromXMLData(NULL, xmlTemplates, kCFPropertyListImmutable, &xmlError);
+	templates = CFPropertyListCreateWithData(NULL, xmlTemplates, kCFPropertyListImmutable, NULL, &error);
 	CFRelease(xmlTemplates);
 	if (templates == NULL) {
-		if (xmlError != NULL) {
-			SCLog(TRUE, LOG_DEBUG, CFSTR("could not load SCNetworkConfiguration templates: %@"), xmlError);
-			CFRelease(xmlError);
+		if (error != NULL) {
+			SCLog(TRUE, LOG_DEBUG, CFSTR("could not load SCNetworkConfiguration templates: %@"), error);
+			CFRelease(error);
 		}
 		return NULL;
 	}
@@ -252,6 +252,11 @@ __copyInterfaceTemplate(CFStringRef      interfaceType,
 		interface = CFDictionaryGetValue(interfaces, interfaceType);
 	} else {
 		CFStringRef     expandedType;
+
+		if (CFStringFind(childInterfaceType, CFSTR("."), 0).location != kCFNotFound) {
+			// if "vendor" type
+			childInterfaceType = CFSTR("*");
+		}
 
 		expandedType = CFStringCreateWithFormat(NULL,
 							NULL,
@@ -299,6 +304,11 @@ __copyProtocolTemplate(CFStringRef      interfaceType,
 		interface = CFDictionaryGetValue(protocols, interfaceType);
 	} else {
 		CFStringRef     expandedType;
+
+		if (CFStringFind(childInterfaceType, CFSTR("."), 0).location != kCFNotFound) {
+			// if "vendor" type
+			childInterfaceType = CFSTR("*");
+		}
 
 		expandedType = CFStringCreateWithFormat(NULL,
 							NULL,

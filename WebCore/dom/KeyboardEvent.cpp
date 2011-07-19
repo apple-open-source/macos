@@ -25,6 +25,7 @@
 
 #include "Document.h"
 #include "DOMWindow.h"
+#include "EventDispatcher.h"
 #include "EventNames.h"
 #include "EventHandler.h"
 #include "Frame.h"
@@ -51,8 +52,7 @@ static inline const AtomicString& eventTypeForKeyboardEventType(PlatformKeyboard
 }
 
 KeyboardEvent::KeyboardEvent()
-    : m_keyEvent(0)
-    , m_keyLocation(DOM_KEY_LOCATION_STANDARD)
+    : m_keyLocation(DOM_KEY_LOCATION_STANDARD)
     , m_altGraphKey(false)
 {
 }
@@ -60,7 +60,7 @@ KeyboardEvent::KeyboardEvent()
 KeyboardEvent::KeyboardEvent(const PlatformKeyboardEvent& key, AbstractView* view)
     : UIEventWithKeyState(eventTypeForKeyboardEventType(key.type()),
                           true, true, view, 0, key.ctrlKey(), key.altKey(), key.shiftKey(), key.metaKey())
-    , m_keyEvent(new PlatformKeyboardEvent(key))
+    , m_keyEvent(adoptPtr(new PlatformKeyboardEvent(key)))
     , m_keyIdentifier(key.keyIdentifier())
     , m_keyLocation(key.isKeypad() ? DOM_KEY_LOCATION_NUMPAD : DOM_KEY_LOCATION_STANDARD) // FIXME: differentiate right/left, too
     , m_altGraphKey(false)
@@ -71,7 +71,6 @@ KeyboardEvent::KeyboardEvent(const AtomicString& eventType, bool canBubble, bool
                              const String &keyIdentifier,  unsigned keyLocation,
                              bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool altGraphKey)
     : UIEventWithKeyState(eventType, canBubble, cancelable, view, 0, ctrlKey, altKey, shiftKey, metaKey)
-    , m_keyEvent(0)
     , m_keyIdentifier(keyIdentifier)
     , m_keyLocation(keyLocation)
     , m_altGraphKey(altGraphKey)
@@ -158,6 +157,17 @@ KeyboardEvent* findKeyboardEvent(Event* event)
         if (e->isKeyboardEvent())
             return static_cast<KeyboardEvent*>(e);
     return 0;
+}
+
+KeyboardEventDispatchMediator::KeyboardEventDispatchMediator(PassRefPtr<KeyboardEvent> event)
+    : EventDispatchMediator(event)
+{
+}
+
+bool KeyboardEventDispatchMediator::dispatchEvent(EventDispatcher* dispatcher) const
+{
+    // Make sure not to return true if we already took default action while handling the event.
+    return EventDispatchMediator::dispatchEvent(dispatcher) && !event()->defaultHandled();
 }
 
 } // namespace WebCore

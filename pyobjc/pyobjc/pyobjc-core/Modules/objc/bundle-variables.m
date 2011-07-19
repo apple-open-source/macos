@@ -141,27 +141,32 @@ static char* keywords[] = { "bundle", "module_globals", "variableInfo", "skip_un
 		PyObject* item = PySequence_Fast_GET_ITEM(seq, i);
 		void*		value;
 		char*		signature;
+		PyObject* 	py_name;
 		NSString*	name;
 
 		if (!PyTuple_Check(item)) {
 			PyErr_Format(PyExc_TypeError,
 				"item %" PY_FORMAT_SIZE_T 
 				"d has type %s not tuple",
-				i, item->ob_type->tp_name);
+				i, Py_TYPE(item)->tp_name);
 			Py_DECREF(seq);
 			return NULL;
 		}
 
-		if (!PyArg_ParseTuple(item, "O&s:variableInfo", 
-				PyObjCObject_Convert, &name, &signature)) {
+		if (!PyArg_ParseTuple(item, 
+				"O!"Py_ARG_BYTES":variableInfo", 
+#if PY_MAJOR_VERSION == 2
+				&PyBaseString_Type,
+#else
+				&PyUnicode_Type,
+#endif
+				&py_name, &signature)) {
 			Py_DECREF(seq);
 			return NULL;
 		}
 
-		if (![name isKindOfClass:[NSString class]]) {
-			PyErr_SetString(PyExc_TypeError,
-					"variable name not a string");
-			Py_DECREF(seq);
+		name = PyObjC_PythonToId(py_name);
+		if (name == NULL && PyErr_Occurred()) {
 			return NULL;
 		}
 
@@ -252,13 +257,18 @@ static char* keywords[] = { "bundle", "module_globals", "functionInfo", "skip_un
 			PyErr_Format(PyExc_TypeError,
 				"item %" PY_FORMAT_SIZE_T 
 				"d has type %s not tuple",
-				i, item->ob_type->tp_name);
+				i, Py_TYPE(item)->tp_name);
 			Py_DECREF(seq);
 			return NULL;
 		}
 
 		doc = NULL;
-		if (!PyArg_ParseTuple(item, "O&s|SO;functionInfo", 
+		if (!PyArg_ParseTuple(item, 
+#if PY_MAJOR_VERSION == 2
+				"O&s|SO;functionInfo", 
+#else
+				"O&y|UO;functionInfo", 
+#endif
 				PyObjCObject_Convert, &name, &signature, &doc, &meta)){
 			Py_DECREF(seq);
 			return NULL;
@@ -316,10 +326,10 @@ struct functionlist {
 	function func;
 };
 
-static function find_function(struct functionlist* functions, char* name)
+static function find_function(struct functionlist* functions, PyObject* name)
 {
 	while (functions->name != NULL) {
-		if (strcmp(functions->name, name) == 0) {
+		if (PyObjC_is_ascii_string(name, functions->name)) {
 			return functions->func;
 		}
 		functions++;
@@ -346,11 +356,11 @@ static char* keywords[] = { "function_list", "module_globals", "functionInfo", "
 		return NULL;
 	}
 
-	if (!PyCObject_Check(pyFunctionsList)) {
-		PyErr_SetString(PyExc_TypeError, "function_list not a CObject");
+	if (!PyCapsule_CheckExact(pyFunctionsList)) {
+		PyErr_SetString(PyExc_TypeError, "function_list not a PyCapsule");
 		return NULL;
 	}
-	function_list = PyCObject_AsVoidPtr(pyFunctionsList);
+	function_list = PyCapsule_GetPointer(pyFunctionsList, "objc.__functionlist__");
 	if (function_list == NULL) {
 		PyErr_SetString(PyExc_ValueError, "no function list\n");
 		return NULL;
@@ -366,7 +376,7 @@ static char* keywords[] = { "function_list", "module_globals", "functionInfo", "
 		PyObject* item = PySequence_Fast_GET_ITEM(seq, i);
 		void*		value;
 		char*		signature;
-		char*		name;
+		PyObject*	name;
 		PyObject*	doc;
 		PyObject*       meta = NULL;
 
@@ -374,13 +384,19 @@ static char* keywords[] = { "function_list", "module_globals", "functionInfo", "
 			PyErr_Format(PyExc_TypeError,
 				"item %" PY_FORMAT_SIZE_T 
 				"d has type %s not tuple",
-				i, item->ob_type->tp_name);
+				i, Py_TYPE(item)->tp_name);
 			Py_DECREF(seq);
 			return NULL;
 		}
 
 		doc = NULL;
-		if (!PyArg_ParseTuple(item, "ss|SO:functionInfo tuple", 
+		if (!PyArg_ParseTuple(item, 
+#if PY_MAJOR_VERSION == 2
+					"O!s|SO:functionInfo tuple", &PyBaseString_Type, 
+
+#else
+					"Uy|UO:functionInfo tuple", 
+#endif
 				&name, &signature, &doc, &meta)){
 			Py_DECREF(seq);
 			return NULL;
@@ -395,27 +411,23 @@ static char* keywords[] = { "function_list", "module_globals", "functionInfo", "
 				return NULL;
 			}
 		} else {
-			PyObject* py_name = PyString_FromString(name);
 			PyObject* pyVal = PyObjCFunc_New(
-					py_name,
+					name,
 					value,
 					signature,
 					doc,
 					meta);
 			if (pyVal == NULL) {
 				Py_DECREF(seq);
-				Py_DECREF(py_name);
 				return NULL;
 			}
 
 			if (PyDict_SetItem(module_globals, 
-					py_name, pyVal) == -1) {
+					name, pyVal) == -1) {
 				Py_DECREF(seq);
-				Py_DECREF(py_name);
 				Py_DECREF(pyVal);
 				return NULL;
 			}
-			Py_DECREF(py_name);
 			Py_DECREF(pyVal);
 		}
 	}

@@ -5,7 +5,7 @@
  *	Copyright (C) 2002 ActiveState Corporation
  *	Copyright (C) 2004 Starfish Systems 
  *
- * $Header: /cvsroot/tls/tls/tls.c,v 1.30 2008/03/19 22:06:13 hobbs2 Exp $
+ * $Header: /cvsroot/tls/tls/tls.c,v 1.31 2010/08/11 19:50:50 hobbs2 Exp $
  *
  * TLS (aka SSL) Channel - can be layered on any bi-directional
  * Tcl_Channel (Note: Requires Trf Core Patch)
@@ -1149,13 +1149,15 @@ StatusObjCmd(clientData, interp, objc, objv)
 		"\": not a TLS channel", NULL);
 	return TCL_ERROR;
     }
-    statePtr	= (State *) Tcl_GetChannelInstanceData(chan);
-    if (objc == 2)
-	peer	= SSL_get_peer_certificate(statePtr->ssl);
-    else
-	peer	= SSL_get_certificate(statePtr->ssl);
+    statePtr = (State *) Tcl_GetChannelInstanceData(chan);
+    if (objc == 2) {
+	peer = SSL_get_peer_certificate(statePtr->ssl);
+    } else {
+	peer = SSL_get_certificate(statePtr->ssl);
+    }
     if (peer) {
 	objPtr = Tls_NewX509Obj(interp, peer);
+	if (objc == 2) { X509_free(peer); }
     } else {
 	objPtr = Tcl_NewListObj(0, NULL);
     }

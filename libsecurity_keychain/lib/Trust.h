@@ -57,26 +57,35 @@ public:
     Trust(CFTypeRef certificates, CFTypeRef policies);
     virtual ~Trust();
 
+	enum AnchorPolicy {
+		useAnchorsDefault,		// default policy: trust built-in unless passed-in
+		useAnchorsAndBuiltIns,	// SetTrustAnchorCertificatesOnly value = false
+		useAnchorsOnly			// SetTrustAnchorCertificatesOnly value = true
+	};
+
 	// set (or reset) more input parameters
 	void policies(CFTypeRef policies)			{ mPolicies.take(cfArrayize(policies)); }
-    void action(CSSM_TP_ACTION action)			{ mAction = action; }
-    void actionData(CFDataRef data)				{ mActionData = data; }
-    void time(CFDateRef verifyTime)				{ mVerifyTime = verifyTime; }
-    void anchors(CFArrayRef anchorList)			{ mAnchors.take(cfArrayize(anchorList)); }
-    StorageManager::KeychainList &searchLibs()	{ return mSearchLibs; }
-    void searchLibs(StorageManager::KeychainList &libs)	{ mSearchLibs = libs; }
-
+	void action(CSSM_TP_ACTION action)			{ mAction = action; }
+	void actionData(CFDataRef data)				{ mActionData = data; }
+	void time(CFDateRef verifyTime)				{ mVerifyTime = verifyTime; }
+	void anchors(CFArrayRef anchorList)			{ mAnchors.take(cfArrayize(anchorList)); }
+	void anchorPolicy(AnchorPolicy policy)		{ mAnchorPolicy = policy; }
+	StorageManager::KeychainList &searchLibs()	{ return mSearchLibs; }
+	void searchLibs(StorageManager::KeychainList &libs)	{ mSearchLibs = libs; }
+    
 	// perform evaluation
     void evaluate(bool disableEV=false);
-
+    
 	// get at evaluation results
     void buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain);
     CSSM_TP_VERIFY_CONTEXT_RESULT_PTR cssmResult();
 	void extendedResult(CFDictionaryRef &extendedResult);
-
+	CFArrayRef properties();
+    
     SecTrustResultType result() const			{ return mResult; }
 	OSStatus cssmResultCode() const				{ return mTpReturn; }
     TP getTPHandle() const						{ return mTP; }
+	CFArrayRef evidence() const					{ return mEvidenceReturned; }
     CFArrayRef policies() const					{ return mPolicies; }
     CFArrayRef anchors() const					{ return mAnchors; }
 	CFDateRef time() const						{ return mVerifyTime; }
@@ -105,15 +114,17 @@ private:
 	void				freePreferenceRevocationPolicies(CFArrayRef policies,
 							uint32 numAdded, 
 							Allocator &alloc);
+    CFDictionaryRef     defaultRevocationSettings();
+
 	bool				policySpecified(CFArrayRef policies, const CSSM_OID &inOid);
 	bool				revocationPolicySpecified(CFArrayRef policies);
 	CFMutableArrayRef	forceRevocationPolicies(uint32 &numAdded, 
 							Allocator &alloc,
 							bool requirePerCert=false);
-
+	
 private:
     TP mTP;							// our TP
-
+    
     // input arguments: set up before evaluate()
     CSSM_TP_ACTION mAction;			// TP action to verify
     CFRef<CFDataRef> mActionData;	// action data
@@ -138,7 +149,8 @@ private:
 	CFRef<CFArrayRef> mFilteredCerts;		// array of certificates to verify, post-filtering
     CFRef<CFDictionaryRef> mExtendedResult;	// dictionary of extended results
 
-	bool mUsingTrustSettings;
+	bool mUsingTrustSettings;	// true if built-in anchors will be trusted
+	AnchorPolicy mAnchorPolicy;	// policy for trusting passed-in and/or built-in anchors
 
 public:
     static ModuleNexus<TrustStore> gStore;

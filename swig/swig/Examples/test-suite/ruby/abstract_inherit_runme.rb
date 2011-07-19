@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'abstract_inherit'
 
 include Abstract_inherit
@@ -18,7 +29,7 @@ rescue TypeError
   # TypeError: allocator undefined for Abstract_inherit::Foo
 	exceptionRaised = true
 ensure
-  raise RuntimeError unless exceptionRaised
+  swig_assert( "exceptionRaised", binding )
 end
 
 exceptionRaised = false
@@ -31,7 +42,7 @@ rescue TypeError
   # TypeError: allocator undefined for Abstract_inherit::Bar
 	exceptionRaised = true
 ensure
-  raise RuntimeError unless exceptionRaised
+  swig_assert( "exceptionRaised", binding )
 end
 
 exceptionRaised = false
@@ -44,6 +55,7 @@ rescue TypeError
   # TypeError: allocator undefined for Abstract_inherit::Spam
 	exceptionRaised = true
 ensure
-  raise RuntimeError unless exceptionRaised
+  swig_assert( "exceptionRaised", binding )
 end
+
 

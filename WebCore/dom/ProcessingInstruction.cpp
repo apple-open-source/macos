@@ -25,12 +25,12 @@
 #include "CachedCSSStyleSheet.h"
 #include "CachedXSLStyleSheet.h"
 #include "Document.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "XSLStyleSheet.h"
-#include "XMLTokenizer.h" // for parseAttributes()
+#include "XMLDocumentParser.h" // for parseAttributes()
 #include "MediaList.h"
 
 namespace WebCore {
@@ -43,6 +43,7 @@ inline ProcessingInstruction::ProcessingInstruction(Document* document, const St
     , m_loading(false)
     , m_alternate(false)
     , m_createdByParser(false)
+    , m_isCSS(false)
 #if ENABLE(XSLT)
     , m_isXSL(false)
 #endif
@@ -100,7 +101,7 @@ PassRefPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
 }
 
 // DOM Section 1.1.1
-bool ProcessingInstruction::childTypeAllowed(NodeType)
+bool ProcessingInstruction::childTypeAllowed(NodeType) const
 {
     return false;
 }
@@ -120,13 +121,13 @@ void ProcessingInstruction::checkStyleSheet()
         if (i != attrs.end())
             type = i->second;
 
-        bool isCSS = type.isEmpty() || type == "text/css";
+        m_isCSS = type.isEmpty() || type == "text/css";
 #if ENABLE(XSLT)
         m_isXSL = (type == "text/xml" || type == "text/xsl" || type == "application/xml" ||
                    type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom+xml");
-        if (!isCSS && !m_isXSL)
+        if (!m_isCSS && !m_isXSL)
 #else
-        if (!isCSS)
+        if (!m_isCSS)
 #endif
             return;
 
@@ -143,7 +144,7 @@ void ProcessingInstruction::checkStyleSheet()
             // to kick off import/include loads that can hang off some parent sheet.
             if (m_isXSL) {
                 KURL finalURL(ParsedURLString, m_localHref);
-                m_sheet = XSLStyleSheet::createInline(this, finalURL);
+                m_sheet = XSLStyleSheet::createEmbedded(this, finalURL);
                 m_loading = false;
             }
 #endif
@@ -162,15 +163,15 @@ void ProcessingInstruction::checkStyleSheet()
             
 #if ENABLE(XSLT)
             if (m_isXSL)
-                m_cachedSheet = document()->docLoader()->requestXSLStyleSheet(url);
+                m_cachedSheet = document()->cachedResourceLoader()->requestXSLStyleSheet(url);
             else
 #endif
             {
                 String charset = attrs.get("charset");
                 if (charset.isEmpty())
-                    charset = document()->frame()->loader()->writer()->encoding();
+                    charset = document()->charset();
 
-                m_cachedSheet = document()->docLoader()->requestCSSStyleSheet(url, charset);
+                m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(url, charset);
             }
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
@@ -208,9 +209,7 @@ void ProcessingInstruction::setCSSStyleSheet(const String& href, const KURL& bas
         return;
     }
 
-#if ENABLE(XSLT)
-    ASSERT(!m_isXSL);
-#endif
+    ASSERT(m_isCSS);
     RefPtr<CSSStyleSheet> newSheet = CSSStyleSheet::create(this, href, baseURL, charset);
     m_sheet = newSheet;
     // We don't need the cross-origin security check here because we are

@@ -6,10 +6,10 @@
 #
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # Copyright (c) 2001 by ActiveState Tool Corp.
-# Copyright (c) 2005-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2005-2009 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: pathops.test,v 1.1 2007/08/03 23:07:25 andreas_kupries Exp $
+# RCS: @(#) $Id: pathops.test,v 1.2 2009/10/27 19:16:34 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -408,12 +408,21 @@ foreach {n base dst ra rb} {
     0 /base          base/destination absolute relative
     1  base         /destination      relative absolute
 } {
-    test fu-relative-3.$n {fileutil::relative, bad mix} {
+    test fu-relative-3.$n {fileutil::relative, bad mix} unixOnly {
 	catch {fileutil::relative $base $dst} msg
 	set msg
     } "Unable to compute relation for paths of different pathtypes: $ra vs. $rb, ($base vs. $dst)"
 }
 
+foreach {n base dst ra rb} {
+    0 /base          base/destination volumerelative relative
+    1  base         /destination      relative volumerelative
+} {
+    test fu-relative-4.$n {fileutil::relative, bad mix} winOnly {
+	catch {fileutil::relative $base $dst} msg
+	set msg
+    } "Unable to compute relation for paths of different pathtypes: $ra vs. $rb, ($base vs. $dst)"
+}
 
 test fu-relativeurl-1.0 {fileutil::relativeUrl, wrong#args} {
     catch {fileutil::relativeUrl} msg
@@ -460,7 +469,17 @@ foreach {n base dst ra rb} {
     0 /base/file.html          base/destination/xx.html absolute relative
     1  base/file.html         /destination/xx.html      relative absolute
 } {
-    test fu-relativeurl-3.$n {fileutil::relativeUrl, bad mix} {
+    test fu-relativeurl-3.$n {fileutil::relativeUrl, bad mix} unixOnly {
+	catch {fileutil::relativeUrl $base $dst} msg
+	set msg
+    } "Unable to compute relation for paths of different pathtypes: $ra vs. $rb, ($base vs. $dst)"
+}
+
+foreach {n base dst ra rb} {
+    0 /base/file.html          base/destination/xx.html volumerelative relative
+    1  base/file.html         /destination/xx.html      relative volumerelative
+} {
+    test fu-relativeurl-4.$n {fileutil::relativeUrl, bad mix} winOnly {
 	catch {fileutil::relativeUrl $base $dst} msg
 	set msg
     } "Unable to compute relation for paths of different pathtypes: $ra vs. $rb, ($base vs. $dst)"

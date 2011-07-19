@@ -3,7 +3,7 @@
 # Class name: MacroFilter
 # Synopsis: Used for filtering content based on #if/#ifdef directives
 #
-# Last Updated: $Date: 2009/04/13 22:39:09 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 #
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,6 +28,178 @@
 #
 ######################################################################
 
+# /*! @header
+#     @abstract
+#         <code>MacroFilter</code> class package file.
+#     @discussion
+#         This file contains the <code>MacroFilter</code> class, used for
+#         filtering out sections of a header based on C preprocessor
+#         directives.
+#
+#         See the class documentation below for details.
+#     @indexgroup HeaderDoc Parser Pieces
+#  */
+
+# /*! @abstract
+#         Filters content based on C preprocessor directives.
+#     @discussion
+#         This class is basically a data structure for interpreting
+#         if statements, #if statements, and other similar conditional
+#         statements (e.g. switch), depending on the value of
+#         {@link HeaderDoc::interpret_case}.
+#
+#         The way the tree behaves regarding unknown tokens is described
+#         in more detail in the discusion for {@link doit}.
+#
+#     @vargroup Trees and content strings
+#
+#     @var IFDECLARATION
+#         The #if declaration itself.
+#     @var IFGUTS
+#         The contents of an if/#if statement (from the
+#         {@link //apple_ref/perl/data/HeaderDoc::ParserState/ifContents ifContents}
+#         field in the {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState}
+#         class).
+#     @var IFTREE
+#         A constraint tree representing any nested if/#if statements or
+#         similar within the "if" side of this conditional.
+#     @var ELSEGUTS
+#         The contents of an else statement (from the
+#         {@link //apple_ref/perl/data/HeaderDoc::ParserState/elseContents elseContents}
+#         field in the {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState}
+#         class).
+#     @var ELSETREE
+#         A constraint tree representing any nested if/#if statements or
+#         similar within the "else" side of this conditional.
+#     @var SWITCHGUTS
+#         The contents of an switch statement (from the
+#         {@link //apple_ref/perl/data/HeaderDoc::ParserState/functionContents functionContents}
+#         field in the {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState}
+#         class).  Not currently used by HeaderDoc.
+#     @var SWITCHTREE
+#         A constraint tree representing any nested if/#if statements or
+#         similar within the body of a switch statement.  Not currently
+#         used by HeaderDoc.
+#     @var NEXT
+#         The next constraint.  This represents any statement that should
+#         be treated as an alternative to this one.
+#
+#         For example, if you have <code>A || B</code>, then for the
+#         constraint <code>A</code>, the <code>MEXT</code> constraint
+#         is the constraint for <code>B</code>.
+#     @var PREVIOUS
+#         Points to the constraint whose <code>NEXT</code> field points to
+#         this one.
+#     @var FIRSTCHILD
+#         Points to a constraint that should be treated as mandatory in order
+#         for this constraint to succeed.  In other words, an "AND" clause.
+#
+#         For example, if you have <code>A || B</code>, the
+#         <code>FIRSTCHILD</code> chain for <code>A</code> points to
+#         the constraint for <code>B</code>.
+#     @var PARENT
+#         Points to the constraint whose <code>FIRSTCHILD</code> field points
+#         to this one or to a constraint in this constraint's <code>PREV</code>
+#         chain.
+#     @var LASTJOIN
+#         The joining operator that connects this to its immediate predecessor
+#         in the actual code.  For something hanging off the NEXT tree, this
+#         is usually "||".  For something hanging off the "FIRSTCHILD" tree,
+#         this is usually "&&".  In the case of a parenthesis constraint, the
+#         value of <code>LASTJOIN</code> is an open parenthesis.
+#     @var PARENTREE
+#         The tree of constraints for contents within this parenthesis
+#         constraint.
+#
+#         For example, if you have the string <code>(A || B)<code>, the
+#         top constraint represents the open parenthesis.  Its
+#         <code>PARENTREE<code> chain points to the constraint for
+#         <code>A</code> (whose <code>NEXT</code> field, in turn, points
+#         to the constraint for <code>B</code>).
+#     @var PREVPAREN
+#         For a parenthesis token, a reference to the enclosing
+#         parenthesis token.
+#
+#         If <code>HeaderDoc::interpret_case</code> is set, then for
+#         a <code>case</code> statement, this points to the enclosing
+#         switch statement.
+#     @var PARENWRAPPER
+#         The parenthesis token that encloses the current token.
+#         Used as the fast path cache for {@link unrolltoparen}.
+#
+#     @vargroup Temporary storage
+#
+#     @var TOKENCONCAT
+#         Contains a token that might be followed by another token as part
+#         of an operator or might live on its own.  This is a temporary
+#         value used while building the constraint tree.
+#
+#         For example, while building up the tree, when the parser encounters
+#         an exclamation point (<code>!</code>), this could either negate
+#         the token after it or could be part of a not-equals operator
+#         (<code>!=</code>).  Until it knows which, the exclamation point
+#         gets stored in the <code>TOKENCONCAT</code> field.
+#     @var GROUP
+#         Set to true for the <code>defined</code> token and the
+#         <code>case</code> token (<code>switch</code>).  This is
+#         vestigial.  Do not depend on this behavior.
+#
+#     @vargroup Comparison constraint parts
+#
+#     @var LEFTISSYMBOL
+#         If set, the left side of the comparison is nonempty and was
+#         either explicitly defined or undefined by flags on the
+#         command line.
+#     @var LEFTVALUE
+#         The numerical value assigned to the left side of the
+#         comparison.
+#     @var LEFTTOKEN
+#         The actual text token from the left side of the comparison.
+#     @var LEFTDONTCARE
+#         The value on the left side is a symbol that was neither
+#         explicitly defined (-D flag) nor undefined (-U flag).
+#
+#     @var COMPARISON
+#         The comparison operator itself.
+#
+#     @var RIGHTISSYMBOL
+#         If set, the right side of the comparison is nonempty and was
+#         either explicitly defined or undefined by flags on the
+#         command line.
+#     @var RIGHTVALUE
+#         The numerical value assigned to the right side of the
+#         comparison.
+#     @var RIGHTTOKEN
+#         The actual text token from the right side of the comparison.
+#     @var RIGHTDONTCARE
+#         The value on the right side is a symbol that was neither
+#         explicitly defined (-D flag) nor undefined (-U flag).
+#         
+#     @var WAITINGCOMPARISON
+#         A comparison found before any recognized tokens.
+#     @var WAITINGTOKEN
+#         A token found before any comparisons.
+#
+#     @vargroup Miscellaneous attributes
+#
+#     @var DEFINED
+#         True if the token is the word "defined".  Used for interpreting
+#         <code>#if (defined(...))</code> statements.
+#     @var NOT
+#         True if the constraint's token was preceded by an exclamation
+#         point that inverts this constraint's return values.
+#     @var ISPAREN
+#         True if the constraint is for a parenthesis.
+#     @var ALWAYSFALSE
+#         If set, this constraint always returns false.  This is
+#         vestigial; this flag is never set.  Do not depend on this
+#         behavior.
+#     @var DEFINEDSKIPCP
+#         Used to prevent normal parenthesis nesting in contexts
+#         where it makes no sense.
+#     @var HASRETURNORBREAK
+#         Cache for the {@link hasReturnOrBreak} function.
+#  */
 package HeaderDoc::MacroFilter;
 
 BEGIN {
@@ -39,7 +211,6 @@ BEGIN {
 
 #insert start
 use lib "/System/Library/Perl/Extras/5.8.6/";
-use HeaderDoc::Utilities qw(quote linesFromFile);
 use HeaderDoc::BlockParse qw(blockParse);
 use HeaderDoc::ParserState;
 use HeaderDoc::ParseTree;
@@ -49,7 +220,14 @@ use strict;
 use vars qw(@ISA @EXPORT $VERSION);
 # use Carp qw(cluck);
 
-$HeaderDoc::MacroFilter::VERSION = '$Revision: 1.6 $';
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::MacroFilter::VERSION = '$Revision: 1298084578 $';
 @ISA = qw(Exporter);
 @EXPORT = qw(ignoreWithinCPPDirective filterFileString run_macro_filter_tests
 		matchesconstraints doit printconstraint newchild newsibling
@@ -77,12 +255,12 @@ my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
 # $moy++;
 $year += 1900;
-my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year);
+my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year, "UTF-8");
 ######################################################################
 
 #insert end
 
-$/ = undef;
+# $/ = undef;
 
 # Set to 1 for value we want defined to a particular value.
 # Set to -1 for value we want to be explicitly undefined.
@@ -96,11 +274,21 @@ $/ = undef;
 );
 
 
+# /*!
+#     @abstract
+#         Runs a series of tests on the macro filter engine.
+#  */
 sub run_macro_filter_tests
 {
-	my $headerObj = HeaderDoc::APIOwner->new();
-	$headerObj->lang("c");
-	$headerObj->sublang("c");
+	my $lang = "C";
+	my $sublang = "C";
+
+	$HeaderDoc::lang = $lang;
+	$HeaderDoc::sublang = $sublang;
+	my $headerObj = HeaderDoc::APIOwner->new("LANG" => $lang, "SUBLANG" => $sublang);
+
+	$headerObj->lang($lang);
+	$headerObj->sublang($sublang);
 	$HeaderDoc::headerObject = $headerObj;
 
 	%HeaderDoc::filter_macro_definition_state = (
@@ -121,42 +309,70 @@ sub run_macro_filter_tests
 		"LANGUAGE_JAVASCRIPT" => 1
 	);
 
-	my $pass = 1;
+	my $good = 0;
+	my $bad = 0;
 
-	if (!dotest("if ((10 < 3) && 10 < 5 || 10 > 9)", 1)) { $pass = 0; } # (BAT is a "don't care")
-	if (!dotest("if (BAT && (FOO || BAR) && BAZ && BAG)", -3)) { $pass = 0; }
-	if (!dotest("if (BAT && (FOO || BAR) && !BAZ && BAG)", 0)) { $pass = 0; }
-	if (!dotest("if (BAT && (FOO || BAR) && BAZ && !BAG)", -3)) { $pass = 0; } # (BAG is a "don't care")
-	if (!dotest("if (!BAT && (FOO || BAR) && BAZ && !BAG)", -3)) { $pass = 0; } # (BAT is a "don't care")
-	if (!dotest("if (BAT && !(FOO || BAR) && BAZ && !BAG)", 0)) { $pass = 0; }
-	if (!dotest("if (BAT && !(BAG) && BAZ && !BAG)", -3)) { $pass = 0; }
-	if (!dotest("if (BAT && !(FOO) && BAZ && !BAG)", 0)) { $pass = 0; }
-	if (!dotest("if (BAT && (FOO < BAR) && BAZ && BAG)", -3)) { $pass = 0; }
-	if (!dotest("if (BAT && (FOO > BAR) && BAZ && BAG)", 0)) { $pass = 0; }
-	if (!dotest("if (0)", 0)) { $pass = 0; }
-	if (!dotest("if (1)", 1)) { $pass = 0; }
-	if (!dotest("if (defined(FOO))", 1)) { $pass = 0; }
-	if (!dotest("if (defined(BAG))", -3)) { $pass = 0; }
-	if (!dotest("if (defined(NDEF))", 0)) { $pass = 0; }
-	if (!dotest("if (defined(DEFZ))", 1)) { $pass = 0; }
-	if (!dotest("if (!defined(FOO))", 0)) { $pass = 0; }
-	if (!dotest("if (!defined(BAG))", -3)) { $pass = 0; }
-	if (!dotest("if (!defined(NDEF))", 1)) { $pass = 0; }
-	if (!dotest("if (!defined(DEFZ))", 0)) { $pass = 0; }
+        print STDERR "-= Running macro filter tests =-\n\n";
+
+	if (dotest("if ((10 < 3) && 10 < 5 || 10 > 9)", 1, $lang, $sublang)) { $good++; } else { $bad++; } # (BAT is a "don't care")
+	if (dotest("if (BAT && (FOO || BAR) && BAZ && BAG)", -3, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && (FOO || BAR) && !BAZ && BAG)", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && (FOO || BAR) && BAZ && !BAG)", -3, $lang, $sublang)) { $good++; } else { $bad++; } # (BAG is a "don't care")
+	if (dotest("if (!BAT && (FOO || BAR) && BAZ && !BAG)", -3, $lang, $sublang)) { $good++; } else { $bad++; } # (BAT is a "don't care")
+	if (dotest("if (BAT && !(FOO || BAR) && BAZ && !BAG)", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && !(BAG) && BAZ && !BAG)", -3, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && !(FOO) && BAZ && !BAG)", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && (FOO < BAR) && BAZ && BAG)", -3, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (BAT && (FOO > BAR) && BAZ && BAG)", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (0)", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (1)", 1, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (defined(FOO))", 1, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (defined(BAG))", -3, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (defined(NDEF))", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (defined(DEFZ))", 1, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (!defined(FOO))", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (!defined(BAG))", -3, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (!defined(NDEF))", 1, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (!defined(DEFZ))", 0, $lang, $sublang)) { $good++; } else { $bad++; }
+	if (dotest("if (FOO && 1)", 1, $lang, $sublang)) { $good++; } else { $bad++; }
+
+	print STDERR "\n";
+
+	return ($good, $bad);
 }
 
+# /*!
+#     @abstract
+#         Determines whether the contents of a given C preprocessor
+#         directive should be ignored or not.
+#     @param cpp_command
+#         The C preprocessor command (e.g. "#if").
+#     @param text
+#         The entire contents of the #if/#else/#ifdef, including
+#         the enclosed text (but not including the #else for a #if).
+#     @param curshow
+#         Indicates whether the previous block is ignored.  Used to
+#         determine whether #else clauses should return true or false.
+#     @discussion
+#         The primary purpose of this function is to pre-parse the
+#         declaration and scrape out only the actual #if expression
+#         without the contents.
+#
+#         Secondarily, this simplifies "#ifdef" to "#if (defined(...))"
+#         so that the later parsing code is smaller.
+#  */
 sub ignoreWithinCPPDirective($$$)
 {
 	my $cpp_command = shift;
 	my $text = shift;
-	my $curignore = shift;
+	my $curshow = shift;
 
 	my $localDebug = 0;
 
 	my ($expression, $rest) = split(/\n/s, $text, 2);
 
-	if ($curignore && ($cpp_command ne "#elif")) {
-		return 1;
+	if (!$curshow && ($cpp_command ne "#elif")) {
+		return (0, "", "");
 	}
 
 	# Handle run-ons.
@@ -188,11 +404,29 @@ sub ignoreWithinCPPDirective($$$)
 
 	my $matches = matchesconstraints($tree);
 
-	return (!$matches, $rest);
+	print STDERR "MATCHES: $matches\n" if ($localDebug);
+
+	return ($matches, $rest, $tree->{IFDECLARATION});
 }
 
-
-# Propagation of "Don't care":
+# /*!
+#     @abstract
+#         Parses a #if/#ifdef/#else block and builds up a constraint tree.
+#     @param block
+#         The block of code to parse.
+#     @discussion
+#
+# Called by {@link ignoreWithinCPPDirective}, calls itself recursively,
+# and called by {@link dotest}.
+#
+# This is the core of the macro filter engine.  This parses the declaration
+# using {@link blockParse}, calls {@link walkTree} to build up a constraint
+# tree.  The calling function can then call {@link matchesconstraints} to
+# determine whether to include or exclude the content within any portion
+# of the content.
+# 
+#
+# <b>Propagation of "Don't care":</b>
 #
 # If a symbol is marked as an explicit "must be undefined", its value is 0
 # just as it would be with a real C preprocessor.  However, this leaves open
@@ -213,10 +447,12 @@ sub ignoreWithinCPPDirective($$$)
 #     constraint must be true because "true && X" is true for all X.
 # 3.  If we get here, propagate DC up one level.
 # 4.  If top level is DC, assume true.
-
+# */
 sub doit
 {
 	my $block = shift;
+	my $lang = shift;
+	my $sublang = shift;
 	my $return_hrb = 0;
 
 	my $hierDebug = 0;
@@ -236,8 +472,10 @@ sub doit
 	my ($case_sensitive, $keywordhashref) = $HeaderDoc::headerObject->keywords();
 	my @cparray = ();
 
+	# print STDERR "LANG: $lang SUBLANG: $sublang\n";
+
 	while ($inputCounter <= $nlines) {
-		my ($newInputCounter, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $fileoff, $conformsToList, $functionContents, $parserState) = &blockParse("myheader.h", 0, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+		my ($newInputCounter, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $fileoff, $conformsToList, $functionContents, $parserState) = &blockParse("myheader.h", 0, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $lang, $sublang);
 		print STDERR "FC: $functionContents\n" if ($debug);
 		print STDERR "TYPE: $type NAME: $name\n" if ($debug);
 		$inputCounter = $newInputCounter;
@@ -245,7 +483,10 @@ sub doit
 		print STDERR "GOT DEC:\n" if ($debug || $hierDebug);
 		print STDERR $parseTree->textTree() if ($debug || $hierDebug);
 		print STDERR "END DEC.\n\n" if ($debug || $hierDebug);
+
 		$constraint = newsibling($constraint, $constraint);
+		$constraint->{IFDECLARATION} = $parseTree->textTree();
+
 		# $parseTree->dbprint();
 		# print "FUNCTIONCONTENTS:\n".$functionContents."\nENDFUNCTIONCONTENTS\n";
 		my ($junk1, $junk2) = walkTree($parseTree, $constraint, $constraint, $constraint);
@@ -272,7 +513,7 @@ sub doit
 			print STDERR "END IF CONTENTS\n" if ($hierDebug);
 
 			print STDERR "RECURSE IN (IF)\n" if ($hierDebug);
-			my ($tree2, @cparray2) = doit($parserState->{ifContents});
+			my ($tree2, @cparray2) = doit($parserState->{ifContents}, $lang, $sublang);
 			print STDERR "RECURSE OUT (IF)\n" if ($hierDebug);
 			$constraint->{IFGUTS} = $parserState->{ifContents};
 			$constraint->{IFTREE} = $tree2;
@@ -284,7 +525,7 @@ sub doit
 			print STDERR "END ELSE CONTENTS\n" if ($hierDebug);
 
 			print STDERR "RECURSE IN (ELSE)\n" if ($hierDebug);
-			my ($tree2, @cparray2) = doit($parserState->{elseContents});
+			my ($tree2, @cparray2) = doit($parserState->{elseContents}, $lang, $sublang);
 			print STDERR "RECURSE OUT (ELSE)\n" if ($hierDebug);
 			$constraint->{ELSEGUTS} = $parserState->{elseContents};
 			$constraint->{ELSETREE} = $tree2;
@@ -296,7 +537,7 @@ sub doit
 			print STDERR "END SWITCH CONTENTS\n" if ($hierDebug);
 
 			print STDERR "RECURSE IN (SWITCH)\n" if ($hierDebug);
-			my ($tree2, @cparray2) = doit($parserState->{functionContents});
+			my ($tree2, @cparray2) = doit($parserState->{functionContents}, $lang, $sublang);
 			print STDERR "RECURSE OUT (SWITCH)\n" if ($hierDebug);
 			$constraint->{SWITCHGUTS} = $parserState->{functionContents};
 			$constraint->{SWITCHTREE} = $tree2;
@@ -311,6 +552,10 @@ sub doit
 	return ($firstconstraint->{NEXT}, @cparray)
 }
 
+# /*!
+#     @abstract
+#         Creates a new constraint for insertion into the constraint tree.
+#  */
 sub newconstraint
 {
 	my $constraint = ();
@@ -321,6 +566,16 @@ sub newconstraint
 	return $constraint;
 }
 
+# /*!
+#     @abstract
+#         Prints a constraint for debugging purposes.
+#     @param constraint
+#         The constraint node to print.
+#     @param nodeonly
+#         Indicates that children and successors of this
+#         node should not be printed.  (Optional.  Defaults
+#         to 0.)
+#  */
 sub printconstraint
 {
 	my $constraint = shift;
@@ -354,7 +609,7 @@ sub printconstraint
 		return;
 	}
 
-	printconstraint($constraint->{PARENGUTS}, 0, "$prespace     PAREN      ");
+	printconstraint($constraint->{PARENTREE}, 0, "$prespace     PAREN      ");
 	printconstraint($constraint->{IFTREE}, 0, "$prespace     IFGUTS_X   ");
 	printconstraint($constraint->{ELSETREE}, 0, "$prespace     ELSEGUTS_X ");
 	printconstraint($constraint->{SWITCHTREE}, 0, "$prespace   SWITCHGUTS_X ");
@@ -362,6 +617,19 @@ sub printconstraint
 	printconstraint($constraint->{NEXT}, 0, $prespace);
 }
 
+# /*!
+#     @abstract
+#         Walks through a parse tree and builds up the corresponding
+#         constraint tree.
+#     @param parseTree
+#         The parse tree to walk.
+#     @param constraint
+#         The constraint to alter.
+#     @param parenconstraint
+#         The nearest enclosing parenthesis around this constraint.
+#     @param topconstraint
+#         The top node in the constraint tree.
+#  */
 sub walkTree($$$$)
 {
 	my $parseTree = shift;
@@ -560,6 +828,22 @@ sub walkTree($$$$)
 	return ($constraint, $parenconstraint);
 }
 
+# /*!
+#     @abstract
+#         Adds a new variable or operator to an existing constraint.
+#     @param constraint
+#         The constraint to alter.
+#     @param parenconstraint
+#         The nearest enclosing parenthesis around this constraint.
+#     @param topconstraint
+#         The top node in the constraint tree.
+#     @param lefttoken
+#         The token on the left side of the comparison operator.
+#     @param comparison
+#         The comparison operator (==, !=, etc.).
+#     @param righttoken
+#         The token on the right side of the comparison operator.
+#  */
 sub adjconstraint($$$$$$)
 {
 	my $constraint = shift;
@@ -628,6 +912,26 @@ sub adjconstraint($$$$$$)
 	return $constraint;
 }
 
+# /*!
+#     @abstract
+#         Unrolls from current constraint to the nearest enclosing
+#         parenthesis constraint.
+#     @param constraint
+#         The constraint to alter.
+#     @param parenconstraint
+#         An enclosing parenthesis around this constraint.
+#
+#         Depending on the value of <code>including</code>, this is either
+#         an absolute upper bound parenthesis that should never be reached
+#         or this is a parenthesis constraint whose enclosing parenthesis
+#         constraint you want to obtain.
+#     @param including
+#         If this is 1, the functino unrolls to the parenthesis constraint
+#         that encloses <code>parencontraint</code>.
+#
+#         If this is 0, unroll to the parenthesis constraint that encloses
+#         <code>constraint</code>.
+#  */
 sub unrolltoparen
 {
 	my $constraint = shift;
@@ -645,7 +949,7 @@ sub unrolltoparen
 	}
 	if ($constraint->{PARENWRAPPER}) {
 		print STDERR "PRETTY QUICK UNROLL: $constraint (parenconstraint is $parenconstraint)\n" if ($debug);
-		return $constraint->{PARENWRAPPER}->{PARENGUTS};
+		return $constraint->{PARENWRAPPER}->{PARENTREE};
 	}
 	print STDERR "SLOW UNROLL: $constraint (parenconstraint is $parenconstraint)\n" if ($debug);
 	my $lastconstraint = $constraint;
@@ -665,6 +969,16 @@ sub unrolltoparen
 	return ($lastconstraint, $parenconstraint);
 }
 
+# /*!
+#     @abstract
+#         Creates a new parenthesis guts sibling node for a parenthesis
+#         constraint.
+#     @discussion
+#         The constraints representing what comes between this parenthesis
+#         and the matching parenthesis hang off the PARENTREE chain.
+#         This function creates an initial null constraint for those
+#         additional constraints to hang off of.
+#  */
 sub newparenguts
 {
 	my $constraint = shift;
@@ -679,7 +993,7 @@ sub newparenguts
 
 	$nextconstraint->{PARENT} = $constraint->{PARENT};
 	$nextconstraint->{PARENWRAPPER} = $constraint;
-	$constraint->{PARENGUTS} = $nextconstraint;
+	$constraint->{PARENTREE} = $nextconstraint;
 	$constraint->{WAITINGCOMPARISON} = undef;
 	$constraint->{WAITINGTOKEN} = undef;
 	$nextconstraint->{LASTJOIN} = "||";
@@ -688,6 +1002,21 @@ sub newparenguts
 }
 
 
+# /*!
+#     @abstract
+#         Creates a new constraint as a sibling of the current
+#         constraint.
+#     @param constraint
+#         The current constraint.
+#     @param parenconstraint
+#         If specified (see {@link unrolltoparen} for details;
+#         call sets <code>including=0</code>), this represents
+#         an outer bound for unrolling to the nearest enclosing
+#         parenthesis.
+#
+#         If unspecified, the function does not unroll to the
+#         nearest parenthesis constraint.
+#  */
 sub newsibling
 {
 	my $constraint = shift;
@@ -726,6 +1055,11 @@ sub newsibling
 	return $nextconstraint;
 }
 
+# /*!
+#     @abstract
+#         Creates a new constraint as a cild of the
+#         current constraint.
+#  */
 sub newchild 
 {
 	my $constraint = shift;
@@ -753,7 +1087,40 @@ sub newchild
 	return $childconstraint;
 }
 
-# Test the value for this node's content.
+# /*!
+#     @abstract
+#         Checks the value for a given node without recursion.
+#     @result
+#         Returns 0 if the constraint fails explicitly
+#         with either an "<code>if (!defined(X))</code>"
+#         where "<code>X</code>" is defined or with a
+#         comparison failure where both values are defined.
+#
+#         Returns 1 if the constraint succeeds explicitly
+#         with either an "<code>if (defined(X))</code>" 
+#         where "<code>X</code>" is defined or with a
+#         comparison success where both values are defined.
+#
+#         Returns -1 for a null comparison.  Also
+#         returns -1 if the result cannot be determined
+#         because of a constant token without a specified
+#         value and <code>use_default_value<code> is 1.
+#
+#         Returns -3 if the result cannot be determined
+#         because of a constant token without a specified
+#         value and <code>use_default_value<code> is 0.
+#     @param constraint
+#         The constraint to check.
+#     @param use_default_value
+#         Indicates that the macro filter engine should use
+#         a specific default value to use for undefined
+#         parameters.
+#     @param default_value
+#         The default value to use for undefined parameters.
+#     @param printing
+#         Set to disable debug output if you are in the middle
+#         of printing a constraint. (Optional.  Default is 0.)
+#  */
 sub localmatch
 {
 	my $constraint = shift;
@@ -879,6 +1246,16 @@ sub localmatch
 	die("Unknown comparison operator ".$constraint->{COMPARISON}."\n");
 }
 
+# /*!
+#     @abstract
+#         Returns whether the constraints match the
+#         current set of macro definitions.
+#
+#     @param constraint
+#         The constraint to check.
+#     @param default_value
+#         The default value to use for undefined variables.
+#  */
 sub matchesconstraints
 {
 	my $constraint = shift;
@@ -898,6 +1275,18 @@ sub matchesconstraints
 	return $result;
 }
 
+# /*!
+#     @abstract
+#         The recursive portion of {@link matchesconstraints}.
+#     @param constraint
+#         The constraint to check.
+#     @param use_default_value
+#         Indicates that the macro filter engine should use
+#         a specific default value to use for undefined
+#         parameters.
+#     @param default_value
+#         The default value to use for undefined parameters.
+#  */
 sub matchesconstraints_sub
 {
 	my $constraint = shift;
@@ -912,8 +1301,8 @@ sub matchesconstraints_sub
 	print STDERR "INMATCH: $constraint\n" if ($debug || $localDebug);
 	print STDERR "TEST: ".$constraint->{LEFTTOKEN}." (".$constraint->{LEFTVALUE}."/".$constraint->{LEFTDONTCARE}.") ".$constraint->{COMPARISON}." ".$constraint->{RIGHTTOKEN}." (".$constraint->{RIGHTVALUE}."/".$constraint->{RIGHTDONTCARE}.")\n" if ($debug || $localDebug);
 
-	if ($constraint->{ISPAREN} && $constraint->{PARENGUTS}) {
-		($local, $possmatch) = matchesconstraints_sub($constraint->{PARENGUTS}, $use_default_value, $default_value);
+	if ($constraint->{ISPAREN} && $constraint->{PARENTREE}) {
+		($local, $possmatch) = matchesconstraints_sub($constraint->{PARENTREE}, $use_default_value, $default_value);
 		print STDERR "PARENTHESIS: CHECKING NEXT" if ($debug || $localDebug);
 
 		if ($constraint->{NOT}) {
@@ -1063,6 +1452,20 @@ sub matchesconstraints_sub
 	return (0, $possmatch);
 }
 
+# /*!
+#     @abstract
+#         Returns whether this is a null constraint.
+#     @discussion
+#         In the process of building up the tree, it is sometimes necessary
+#         to insert null constraints as placeholders.  (For example, the
+#         first node in any chain is a NULL constraint.)  These constraints
+#         merely propagate the values below/beside them.
+#     @param constraint
+#         The constraint to check.
+#     @param printing
+#         Set to disable debug output if you are in the middle
+#         of printing a constraint. (Optional.  Default is 0.)
+#  */
 sub isnullconstraint
 {
 	my $constraint = shift;
@@ -1085,6 +1488,16 @@ sub isnullconstraint
 	return 0;
 }
 
+# /*!
+#     @abstract
+#         Returns whether there are any non-null constraints
+#         between the current constraint and the top of the
+#         constraint tree.
+#     @param topconstraint
+#         The top node in the constraint tree.
+#     @param constraint
+#         The constraint node to check.
+#  */
 sub attop
 {
 	my $topconstraint = shift;
@@ -1108,72 +1521,125 @@ sub attop
 	return 1;
 }
 
-
+# /*!
+#     @abstract
+#         Runs a single test of the macro filter engine.
+#     @param string
+#         The initial #if or whatever.
+#     @param expected_value
+#         The expected return value from the engine.
+#  */
 sub dotest($$)
 {
 	my $string = shift;
 	my $expected_value = shift;
+	my $lang = shift;
+	my $sublang = shift;
 
 	my $retval = 1;
 
-	my ($tree, @junk) = doit($string);
+	$HeaderDoc::lang = $lang;
+	$HeaderDoc::sublang = $sublang;
+
+	my $temp = $HeaderDoc::parseIfElse;
+	$HeaderDoc::parseIfElse = 1;
+
+	my ($tree, @junk) = doit($string, $lang, $sublang);
 	# printconstraint($tree);
 
 	my $mc = matchesconstraints($tree);
 	# print "MC: $mc\n";
 	if ($mc != $expected_value) {
-		warn("FAILED: $string\nEXPECTED: $expected_value GOT: $mc\n");
+		warn("$string: \e[31mFAILED\e[39m\nEXPECTED: $expected_value GOT: $mc\n");
 		printconstraint($tree);
 		$retval = 0;
 	} else {
-		warn("PASSED: $string\n");
+		warn("$string: \e[32mOK\e[39m\n");
 	}
+	$HeaderDoc::parseIfElse = $temp;
 	return $retval;
 }
 
+# /*!
+#     @abstract
+#         Filters an entire file string based on
+#         the specified macros.
+#     @param data
+#         The entire contents of a file as a string.
+#  */
 sub filterFileString($)
 {
 	my $data = shift;
 	my $output = "";
+	my $localDebug = 0;
 
-	my @parts = split(/(#ifdef|#if|#else|#elif|#endif)/, $data);
+	my @parts = split(/(\n\s*)(#ifdef|#if|#else|#elif|#endif)/, $data);
 
-	my @curignore_stack = ();
-	my @hasignored_stack = ();
-	my $curignore = 0;
-	my $hasignored = 0;
+	my @curshow_stack = ();
+	my $curshow = 1;
 	my $handlenext = undef;
 	foreach my $part (@parts) {
+		print STDERR "PART: $part\n" if ($localDebug);
 		if ($part =~ /#endif/) {
-			$curignore = pop(@curignore_stack);
-			$hasignored = pop(@hasignored_stack);
+			$curshow = pop(@curshow_stack);
+			print STDERR "POPPED $curshow\n" if ($localDebug);
+			if ($curshow) { $output .= $part; };
 		} elsif ($handlenext) {
 			my $rest = "";
 
-			if ($part =~ /(#ifdef|#if)/) {
-				push(@curignore_stack, $curignore);
-				push(@hasignored_stack, $hasignored);
+			if ($handlenext =~ /(#ifdef|#if)/) {
+				print STDERR "PUSHING $curshow\n" if ($localDebug);
+				push(@curshow_stack, $curshow);
 			}
-			($curignore, $rest) = ignoreWithinCPPDirective($handlenext, $part, $curignore);
-			# print STDERR "IGNOREWITHIN RETURNED $curignore.\n";
-			# print STDERR "HANDLENEXT IS $handlenext\n";
-			# print STDERR "PART IS $part\n";
-			# print STDERR "REST IS $rest\n";
-			if ($curignore) { $hasignored = 1; }
+			my $prevcurshow = $curshow;
+			my $ifDeclaration = "";
+			($curshow, $rest, $ifDeclaration) = ignoreWithinCPPDirective($handlenext, $part, $curshow);
+			if ($prevcurshow) { $output .= "#".$ifDeclaration."\n"; };
+			# print STDERR "IGNOREWITHIN RETURNED $curshow.\n" if ($localDebug);
+			# print STDERR "HANDLENEXT IS $handlenext\n" if ($localDebug);
+			# print STDERR "PART IS $part\n" if ($localDebug);
+			# print STDERR "REST IS $rest\n" if ($localDebug);
 			$handlenext = undef;
 
-			if (!$curignore) { $output .= $rest; }
+			if ($curshow) { $output .= $rest; }
 		} elsif ($part =~ /#else/) {
-			$curignore = !$hasignored;
+			my $tempcurshow = $curshow;
+			$curshow = pop(@curshow_stack);
+			if ($curshow) { $output .= $part."\n"; };
+			push(@curshow_stack, $curshow);
+			$curshow = $tempcurshow;
+
+			print STDERR "PREVIOUS SHOW WAS $curshow\n" if ($localDebug);
+			if ($curshow == 1) {
+				$curshow = 0;
+			} else {
+				# if it was 0 or negative (unknown), show else clause.
+				print STDERR "curshow -> 1\n" if ($localDebug);
+				$curshow = 1;
+			}
 		} elsif ($part =~ /(#ifdef|#if|#elif)/) {
+			# if ($curshow) { $output .= $part; };
 			$handlenext = $part;
 		} else {
-			if (!$curignore) { $output .= $part; }
+			if ($curshow) { $output .= $part; }
 		}
 	}
 	return $output;
 }
 
+# /*!
+#     @abstract
+#         Checks for return/break statements in a code tree.
+#     @discussion
+#         This function determines whether a parse tree fragment
+#         contains a return or break statement in every possible
+#         path through a tree of <code>if() {...} else {...}</code>
+#         statements.
+#
+#         This function is not used by HeaderDoc.  It is provided
+#         for use by other tools that take advantage of the
+#         HeaderDoc parser and related modules.
+#   */
 sub hasReturnOrBreak($)
 {
 	my $tree = shift;

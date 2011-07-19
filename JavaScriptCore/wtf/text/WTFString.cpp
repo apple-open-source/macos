@@ -31,12 +31,20 @@
 #include <wtf/unicode/UTF8.h>
 #include <wtf/unicode/Unicode.h>
 
-using namespace WTF;
-using namespace WTF::Unicode;
 using namespace std;
 
-namespace WebCore {
+namespace WTF {
 
+using namespace Unicode;
+using namespace std;
+
+// Construct a string with UTF-16 data.
+String::String(const UChar* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
+{
+}
+
+// Construct a string with UTF-16 data, from a null-terminated source.
 String::String(const UChar* str)
 {
     if (!str)
@@ -50,6 +58,18 @@ String::String(const UChar* str)
         CRASH();
     
     m_impl = StringImpl::create(str, len);
+}
+
+// Construct a string with latin1 data.
+String::String(const char* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
+{
+}
+
+// Construct a string with latin1 data, from a null-terminated source.
+String::String(const char* characters)
+    : m_impl(characters ? StringImpl::create(characters) : 0)
+{
 }
 
 void String::append(const String& str)
@@ -111,25 +131,9 @@ void String::append(UChar c)
         m_impl = StringImpl::create(&c, 1);
 }
 
-String operator+(const String& a, const String& b)
+int codePointCompare(const String& a, const String& b)
 {
-    if (a.isEmpty())
-        return b;
-    if (b.isEmpty())
-        return a;
-    String c = a;
-    c += b;
-    return c;
-}
-
-String operator+(const String& s, const char* cs)
-{
-    return s + String(cs);
-}
-
-String operator+(const char* cs, const String& s)
-{
-    return String(cs) + s;
+    return codePointCompare(a.impl(), b.impl());
 }
 
 void String::insert(const String& str, unsigned pos)
@@ -229,6 +233,19 @@ String String::substring(unsigned pos, unsigned len) const
     return m_impl->substring(pos, len);
 }
 
+String String::substringSharingImpl(unsigned offset, unsigned length) const
+{
+    // FIXME: We used to check against a limit of Heap::minExtraCost / sizeof(UChar).
+
+    unsigned stringLength = this->length();
+    offset = min(offset, stringLength);
+    length = min(length, stringLength - offset);
+
+    if (!offset && length == stringLength)
+        return *this;
+    return String(StringImpl::create(m_impl, offset, length));
+}
+
 String String::lower() const
 {
     if (!m_impl)
@@ -306,7 +323,8 @@ String String::format(const char *format, ...)
 
     va_end(args);
 
-    return buffer;
+    QByteArray ba = buffer.toUtf8();
+    return StringImpl::create(ba.constData(), ba.length());
 
 #elif OS(WINCE)
     va_list args;
@@ -522,24 +540,28 @@ intptr_t String::toIntPtr(bool* ok) const
     return m_impl->toIntPtr(ok);
 }
 
-double String::toDouble(bool* ok) const
+double String::toDouble(bool* ok, bool* didReadNumber) const
 {
     if (!m_impl) {
         if (ok)
             *ok = false;
+        if (didReadNumber)
+            *didReadNumber = false;
         return 0.0;
     }
-    return m_impl->toDouble(ok);
+    return m_impl->toDouble(ok, didReadNumber);
 }
 
-float String::toFloat(bool* ok) const
+float String::toFloat(bool* ok, bool* didReadNumber) const
 {
     if (!m_impl) {
         if (ok)
             *ok = false;
+        if (didReadNumber)
+            *didReadNumber = false;
         return 0.0f;
     }
-    return m_impl->toFloat(ok);
+    return m_impl->toFloat(ok, didReadNumber);
 }
 
 String String::threadsafeCopy() const
@@ -560,54 +582,59 @@ void String::split(const String& separator, bool allowEmptyEntries, Vector<Strin
 {
     result.clear();
 
-    int startPos = 0;
-    int endPos;
-    while ((endPos = find(separator, startPos)) != -1) {
+    unsigned startPos = 0;
+    size_t endPos;
+    while ((endPos = find(separator, startPos)) != notFound) {
         if (allowEmptyEntries || startPos != endPos)
             result.append(substring(startPos, endPos - startPos));
         startPos = endPos + separator.length();
     }
-    if (allowEmptyEntries || startPos != static_cast<int>(length()))
+    if (allowEmptyEntries || startPos != length())
         result.append(substring(startPos));
 }
 
 void String::split(const String& separator, Vector<String>& result) const
 {
-    return split(separator, false, result);
+    split(separator, false, result);
 }
 
 void String::split(UChar separator, bool allowEmptyEntries, Vector<String>& result) const
 {
     result.clear();
 
-    int startPos = 0;
-    int endPos;
-    while ((endPos = find(separator, startPos)) != -1) {
+    unsigned startPos = 0;
+    size_t endPos;
+    while ((endPos = find(separator, startPos)) != notFound) {
         if (allowEmptyEntries || startPos != endPos)
             result.append(substring(startPos, endPos - startPos));
         startPos = endPos + 1;
     }
-    if (allowEmptyEntries || startPos != static_cast<int>(length()))
+    if (allowEmptyEntries || startPos != length())
         result.append(substring(startPos));
 }
 
 void String::split(UChar separator, Vector<String>& result) const
 {
-    return split(String(&separator, 1), false, result);
+    split(String(&separator, 1), false, result);
 }
 
-Vector<char> String::ascii() const
+CString String::ascii() const
 {
-    if (m_impl) 
-        return m_impl->ascii();
-    
-    const char* nullMsg = "(null impl)";
-    Vector<char, 2048> buffer;
-    for (int i = 0; nullMsg[i]; ++i)
-        buffer.append(nullMsg[i]);
-    
-    buffer.append('\0');
-    return buffer;
+    // Printable ASCII characters 32..127 and the null character are
+    // preserved, characters outside of this range are converted to '?'.
+
+    unsigned length = this->length();
+    const UChar* characters = this->characters();
+
+    char* characterBuffer;
+    CString result = CString::newUninitialized(length, characterBuffer);
+
+    for (unsigned i = 0; i < length; ++i) {
+        UChar ch = characters[i];
+        characterBuffer[i] = ch && (ch < 0x20 || ch > 0x7f) ? '?' : ch;
+    }
+
+    return result;
 }
 
 CString String::latin1() const
@@ -623,7 +650,7 @@ CString String::latin1() const
 
     for (unsigned i = 0; i < length; ++i) {
         UChar ch = characters[i];
-        characterBuffer[i] = ch > 255 ? '?' : ch;
+        characterBuffer[i] = ch > 0xff ? '?' : ch;
     }
 
     return result;
@@ -638,7 +665,7 @@ static inline void putUTF8Triple(char*& buffer, UChar ch)
     *buffer++ = static_cast<char>((ch & 0x3F) | 0x80);
 }
 
-CString String::utf8() const
+CString String::utf8(bool strict) const
 {
     unsigned length = this->length();
     const UChar* characters = this->characters();
@@ -658,16 +685,22 @@ CString String::utf8() const
     Vector<char, 1024> bufferVector(length * 3);
 
     char* buffer = bufferVector.data();
-    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), false);
-    ASSERT(result != sourceIllegal); // Only produced from strict conversion.
+    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), strict);
     ASSERT(result != targetExhausted); // (length * 3) should be sufficient for any conversion
 
-    // If a high surrogate is left unconverted, treat it the same was as an unpaired high surrogate
-    // would have been handled in the middle of a string with non-strict conversion - which is to say,
-    // simply encode it to UTF-8.
+    // Only produced from strict conversion.
+    if (result == sourceIllegal)
+        return CString();
+
+    // Check for an unconverted high surrogate.
     if (result == sourceExhausted) {
-        // This should be one unpaired high surrogate.
-        ASSERT((characters + 1) == (characters + length));
+        if (strict)
+            return CString();
+        // This should be one unpaired high surrogate. Treat it the same
+        // was as an unpaired high surrogate would have been handled in
+        // the middle of a string with non-strict conversion - which is
+        // to say, simply encode it to UTF-8.
+        ASSERT((characters + 1) == (this->characters() + length));
         ASSERT((*characters >= 0xD800) && (*characters <= 0xDBFF));
         // There should be room left, since one UChar hasn't been converted.
         ASSERT((buffer + 3) <= (buffer + bufferVector.size()));
@@ -887,11 +920,13 @@ intptr_t charactersToIntPtr(const UChar* data, size_t length, bool* ok)
     return toIntegralType<intptr_t>(data, lengthOfCharactersAsInteger(data, length), ok, 10);
 }
 
-double charactersToDouble(const UChar* data, size_t length, bool* ok)
+double charactersToDouble(const UChar* data, size_t length, bool* ok, bool* didReadNumber)
 {
     if (!length) {
         if (ok)
             *ok = false;
+        if (didReadNumber)
+            *didReadNumber = false;
         return 0.0;
     }
 
@@ -899,27 +934,64 @@ double charactersToDouble(const UChar* data, size_t length, bool* ok)
     for (unsigned i = 0; i < length; ++i)
         bytes[i] = data[i] < 0x7F ? data[i] : '?';
     bytes[length] = '\0';
+    char* start = bytes.data();
     char* end;
-    double val = WTF::strtod(bytes.data(), &end);
+    double val = WTF::strtod(start, &end);
     if (ok)
         *ok = (end == 0 || *end == '\0');
+    if (didReadNumber)
+        *didReadNumber = end - start;
     return val;
 }
 
-float charactersToFloat(const UChar* data, size_t length, bool* ok)
+float charactersToFloat(const UChar* data, size_t length, bool* ok, bool* didReadNumber)
 {
     // FIXME: This will return ok even when the string fits into a double but not a float.
-    return static_cast<float>(charactersToDouble(data, length, ok));
+    return static_cast<float>(charactersToDouble(data, length, ok, didReadNumber));
 }
 
-} // namespace WebCore
+const String& emptyString()
+{
+    DEFINE_STATIC_LOCAL(String, emptyString, (StringImpl::empty()));
+    return emptyString;
+}
+
+} // namespace WTF
 
 #ifndef NDEBUG
-// For use in the debugger - leaks memory
-WebCore::String* string(const char*);
+// For use in the debugger
+String* string(const char*);
+Vector<char> asciiDebug(StringImpl* impl);
+Vector<char> asciiDebug(String& string);
 
-WebCore::String* string(const char* s)
+String* string(const char* s)
 {
-    return new WebCore::String(s);
+    // leaks memory!
+    return new String(s);
 }
+
+Vector<char> asciiDebug(StringImpl* impl)
+{
+    if (!impl)
+        return asciiDebug(String("[null]").impl());
+
+    Vector<char> buffer;
+    unsigned length = impl->length();
+    const UChar* characters = impl->characters();
+
+    buffer.resize(length + 1);
+    for (unsigned i = 0; i < length; ++i) {
+        UChar ch = characters[i];
+        buffer[i] = ch && (ch < 0x20 || ch > 0x7f) ? '?' : ch;
+    }
+    buffer[length] = '\0';
+
+    return buffer;
+}
+
+Vector<char> asciiDebug(String& string)
+{
+    return asciiDebug(string.impl());
+}
+
 #endif

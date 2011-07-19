@@ -39,4 +39,4 @@ server_start(void);
 void
 server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info);
 
-#endif _S_SERVER_H
+#endif /* _S_SERVER_H */

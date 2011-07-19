@@ -1,15 +1,15 @@
---- wcwidth.c.orig	2004-11-25 11:38:21.000000000 -0800
-+++ wcwidth.c	2005-02-24 00:37:25.000000000 -0800
-@@ -42,6 +42,8 @@
+--- wcwidth.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcwidth.c	2009-11-09 15:05:26.000000000 -0800
+@@ -38,6 +38,8 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/wcwidth.c,v 1.7 2004/08/12 12:19:11 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcwidth.c,v 1.8 2007/01/09 00:28:01 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <wchar.h>
  
  #undef wcwidth
-@@ -50,5 +52,13 @@
+@@ -46,5 +48,13 @@ int
  wcwidth(wchar_t wc)
  {
  

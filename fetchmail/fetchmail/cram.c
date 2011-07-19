@@ -15,16 +15,16 @@
 #include  "socket.h"
 
 #include  "i18n.h"
-#include "md5.h"
+#include "fm_md5.h"
 
-void hmac_md5 (char *password,  size_t pass_len,
-               char *challenge, size_t chal_len,
+void hmac_md5 (const unsigned char *password,  size_t pass_len,
+               const unsigned char *challenge, size_t chal_len,
                unsigned char *response,  size_t resp_len)
 {
     int i;
     unsigned char ipad[64];
     unsigned char opad[64];
-    char hash_passwd[16];
+    unsigned char hash_passwd[16];
 
     MD5_CTX ctx;
     
@@ -60,7 +60,7 @@ void hmac_md5 (char *password,  size_t pass_len,
     MD5Final (response, &ctx);
 }
 
-int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
+int do_cram_md5 (int sock, const char *command, struct query *ctl, const char *strip)
 /* authenticate as per RFC2195 */
 {
     int result;
@@ -110,8 +110,8 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
      * (including angle-brackets).
      */
 
-    hmac_md5(ctl->password, strlen(ctl->password),
-              msg_id, strlen (msg_id),
+    hmac_md5((unsigned char *)ctl->password, strlen(ctl->password),
+              (unsigned char *)msg_id, strlen (msg_id),
               response, sizeof (response));
 
     snprintf (reply, sizeof(reply),
@@ -127,7 +127,7 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
     /* ship the authentication back, accept the server's responses */
     /* PMDF5.2 IMAP has a bug that requires this to be a single write */
     suppress_tags = TRUE;
-    result = gen_transact(sock, buf1, sizeof(buf1));
+    result = gen_transact(sock, "%s", buf1);
     suppress_tags = FALSE;
     if (result)
 	return(result);

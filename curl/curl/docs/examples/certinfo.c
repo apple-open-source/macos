@@ -9,9 +9,12 @@
 
 static size_t wrfu(void *ptr,  size_t  size,  size_t  nmemb,  void *stream)
 {
+  (void)stream;
+  (void)ptr;
   return size * nmemb;
 }
-int main(int argc, char **argv)
+
+int main(void)
 {
   CURL *curl;
   CURLcode res;
@@ -20,7 +23,7 @@ int main(int argc, char **argv)
 
   curl = curl_easy_init();
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, "https://www.networking4all.com/");
+    curl_easy_setopt(curl, CURLOPT_URL, "https://www.example.com/");
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, wrfu);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -275,24 +275,36 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 		CFMutableStringRef	nPrefix1;
 		CFMutableStringRef	nPrefix2;
 		CFMutableStringRef	str;
-		const void *		values_q[N_QUICK];
-		const void **		values	= values_q;
 
 		str = CFStringCreateMutable(NULL, 0);
 		CFStringAppendFormat(str, formatOptions, CFSTR("%@<dictionary> {"), prefix1);
 
 		nElements = CFDictionaryGetCount(cf);
 		if (nElements > 0) {
+			CFMutableArrayRef	sortedKeys;
+
 			if (nElements > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
-				keys   = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
-				values = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
+				keys = CFAllocatorAllocate(NULL, nElements * sizeof(CFTypeRef), 0);
 			}
-			CFDictionaryGetKeysAndValues(cf, keys, values);
+			CFDictionaryGetKeysAndValues(cf, keys, NULL);
+
+			sortedKeys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 			for (i = 0; i < nElements; i++) {
+				CFArrayAppendValue(sortedKeys, (CFStringRef)keys[i]);
+			}
+			CFArraySortValues(sortedKeys,
+					  CFRangeMake(0, nElements),
+					  (CFComparatorFunction)CFStringCompare,
+					  NULL);
+
+			for (i = 0; i < nElements; i++) {
+				CFStringRef		key;
 				CFStringRef		kStr;
+				CFTypeRef		val;
 				CFStringRef		vStr;
 
-				kStr = _SCCopyDescription((CFTypeRef)keys[i], NULL);
+				key  = CFArrayGetValueAtIndex(sortedKeys, i);
+				kStr = _SCCopyDescription((CFTypeRef)key, NULL);
 
 				nPrefix1 = CFStringCreateMutable(NULL, 0);
 				CFStringAppendFormat(nPrefix1,
@@ -312,16 +324,19 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 				CFRelease(nPrefix2);
 				CFRelease(kStr);
 
-				vStr = _SCCopyDescription((CFTypeRef)values[i], nFormatOptions);
+				val  = CFDictionaryGetValue(cf, key);
+				vStr = _SCCopyDescription((CFTypeRef)val, nFormatOptions);
 				CFStringAppendFormat(str,
 						     formatOptions,
 						     CFSTR("\n%@"),
 						     vStr);
 				CFRelease(vStr);
 			}
+
+			CFRelease(sortedKeys);
+
 			if (keys != keys_q) {
 				CFAllocatorDeallocate(NULL, keys);
-				CFAllocatorDeallocate(NULL, values);
 			}
 		}
 		CFStringAppendFormat(str, formatOptions, CFSTR("\n%@}"), prefix2);
@@ -459,23 +474,48 @@ void
 SCLog(Boolean condition, int level, CFStringRef formatString, ...)
 {
 	va_list		formatArguments;
+	va_list		formatArguments_print;
+	Boolean		log	= FALSE;
+	Boolean		print	= FALSE;
 
 	if (!condition) {
 		return;
 	}
 
-	va_start(formatArguments, formatString);
+	/*
+	 * Note: The following are the expected values for _sc_log
+	 *
+	 * 0 if SC messages should be written to stdout/stderr
+	 * 1 if SC messages should be logged w/asl(3)
+	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 */
+
 	if (_sc_log > 0) {
-		__SCLog(NULL, NULL, level, formatString, formatArguments);
+		log = TRUE;		// log requested
+		va_start(formatArguments, formatString);
+
+		if (_sc_log > 1) {
+			print = TRUE;	// log AND print requested
+			va_copy(formatArguments_print, formatArguments);
+		}
+	} else {
+		print = TRUE;		// print requested
+		va_start(formatArguments_print, formatString);
 	}
-	if (_sc_log != 1) {
+
+	if (log) {
+		__SCLog(NULL, NULL, level, formatString, formatArguments);
+		va_end(formatArguments);
+	}
+
+	if (print) {
 		__SCPrint((LOG_PRI(level) > LOG_NOTICE) ? stderr : stdout,
 			  formatString,
-			  formatArguments,
+			  formatArguments_print,
 			  (_sc_log > 0),	// trace
 			  TRUE);		// add newline
+		va_end(formatArguments_print);
 	}
-	va_end(formatArguments);
 
 	return;
 }
@@ -485,22 +525,47 @@ void
 SCLOG(aslclient asl, aslmsg msg, int level, CFStringRef formatString, ...)
 {
 	va_list		formatArguments;
+	va_list		formatArguments_print;
+	Boolean		log	= FALSE;
+	Boolean		print	= FALSE;
 
-	va_start(formatArguments, formatString);
+	/*
+	 * Note: The following are the expected values for _sc_log
+	 *
+	 * 0 if SC messages should be written to stdout/stderr
+	 * 1 if SC messages should be logged w/asl(3)
+	 * 2 if SC messages should be written to stdout/stderr AND logged
+	 */
+
 	if (_sc_log > 0) {
-		__SCLog(asl, msg, level, formatString, formatArguments);
+		log = TRUE;		// log requested
+		va_start(formatArguments, formatString);
+
+		if (_sc_log > 1) {
+			print = TRUE;	// log AND print requested
+			va_copy(formatArguments_print, formatArguments);
+		}
+	} else {
+		print = TRUE;		// print requested
+		va_start(formatArguments_print, formatString);
 	}
-	if (_sc_log != 1) {
+
+	if (log) {
+		__SCLog(asl, msg, level, formatString, formatArguments);
+		va_end(formatArguments);
+	}
+
+	if (print) {
 		if (level < 0) {
 			level = ~level;
 		}
 		__SCPrint((level > ASL_LEVEL_NOTICE) ? stderr : stdout,
 			  formatString,
-			  formatArguments,
+			  formatArguments_print,
 			  (_sc_log > 0),	// trace
 			  TRUE);		// add newline
+		va_end(formatArguments_print);
 	}
-	va_end(formatArguments);
 
 	return;
 }

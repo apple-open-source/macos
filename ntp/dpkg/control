@@ -1,7 +1,0 @@
-Package: ntp
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: University of Delaware
-Version: 4.1.1
-URL: http://www.eecis.udel.edu/~ntp/
-Description: Network time syncronizer
-Build-Depends: build-base, libinfo-hdrs

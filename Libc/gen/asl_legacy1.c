@@ -86,51 +86,14 @@
 #define MSG_OFF_KEY_FLAGS 77
 
 extern time_t asl_parse_time(const char *str);
-extern int asl_msg_cmp(asl_msg_t *a, asl_msg_t *b);
+extern int asl_msg_cmp(aslmsg a, aslmsg b);
 
 #define asl_msg_list_t asl_search_result_t
-
-#define PMSG_SEL_TIME		0x0001
-#define PMSG_SEL_HOST		0x0002
-#define PMSG_SEL_SENDER		0x0004
-#define PMSG_SEL_FACILITY	0x0008
-#define PMSG_SEL_MESSAGE	0x0010
-#define PMSG_SEL_LEVEL		0x0020
-#define PMSG_SEL_PID		0x0040
-#define PMSG_SEL_UID		0x0080
-#define PMSG_SEL_GID		0x0100
-#define PMSG_SEL_RUID		0x0200
-#define PMSG_SEL_RGID		0x0400
-
-#define PMSG_FETCH_ALL 0
-#define PMSG_FETCH_STD 1
-#define PMSG_FETCH_KV  2
 
 #define Q_NULL 100001
 #define Q_FAST 100002
 #define Q_SLOW 100003
 #define Q_FAIL 100004
-
-typedef struct
-{
-	uint16_t kselect;
-	uint16_t vselect;
-	uint64_t msgid;
-	uint64_t time;
-	uint64_t host;
-	uint64_t sender;
-	uint64_t facility;
-	uint64_t message;
-	uint32_t level;
-	uint32_t pid;
-	int32_t uid;
-	int32_t gid;
-	int32_t ruid;
-	int32_t rgid;
-	uint32_t next;
-	uint32_t kvcount;
-	uint64_t *kvlist;
-} pmsg_t;
 
 static uint64_t
 _asl_htonq(uint64_t n)
@@ -518,108 +481,115 @@ string_fetch_sid(asl_legacy1_t *s, uint64_t sid, char **out)
 }
 
 static uint32_t
-pmsg_fetch(asl_legacy1_t *s, uint32_t slot, uint32_t action, pmsg_t **pmsg)
+asl_legacy1_fetch_helper_32(asl_legacy1_t *s, char **p, aslmsg m, const char *key, int ignore, uint32_t ignoreval)
+{
+	uint32_t out, doit;
+	char str[256];
+
+	out = _asl_get_32(*p);
+	*p += sizeof(uint32_t);
+
+	if ((m == NULL) || (key == NULL)) return out;
+
+	doit = 1;
+	if ((ignore != 0) && (out == ignoreval)) doit = 0;
+	if (doit != 0)
+	{
+		snprintf(str, sizeof(str), "%u", out);
+		asl_set(m, key, str);
+	}
+
+	return out;
+}
+
+static uint64_t
+asl_legacy1_fetch_helper_64(asl_legacy1_t *s, char **p, aslmsg m, const char *key)
+{
+	uint64_t out;
+	char str[256];
+
+	out = _asl_get_64(*p);
+	*p += sizeof(uint64_t);
+
+	if ((m == NULL) || (key == NULL)) return out;
+
+	snprintf(str, sizeof(str), "%llu", out);
+	asl_set(m, key, str);
+
+	return out;
+}
+
+static uint64_t
+asl_legacy1_fetch_helper_str(asl_legacy1_t *s, char **p, aslmsg m, const char *key, uint32_t *err)
+{
+	uint64_t out;
+	char *val;
+	uint32_t status;
+
+	out = _asl_get_64(*p);
+	*p += sizeof(uint64_t);
+
+	val = NULL;
+	status = ASL_STATUS_OK;
+	if (out != 0) status = string_fetch_sid(s, out, &val);
+
+	if (err != NULL) *err = status;
+	if ((status == ASL_STATUS_OK) && (val != NULL))
+	{
+		asl_set(m, key, val);
+		free(val);
+	}
+
+	return out;
+}
+
+static uint32_t
+msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 {
 	off_t offset;
-	uint32_t status, i, n, v32, next;
-	int32_t msgu, msgg;
-	uint64_t msgid;
+	uint32_t status, i, n, kvcount, next;
 	uint16_t flags;
-	pmsg_t *out;
-	char *p, tmp[DB_RECORD_LEN];
+	uint64_t sid;
+	aslmsg msg;
+	char *p, tmp[DB_RECORD_LEN], *key, *val;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (pmsg == NULL) return ASL_STATUS_INVALID_ARG;
+	if (out == NULL) return ASL_STATUS_INVALID_ARG;
 
-	out = NULL;
+	*out = NULL;
 
-	if ((action == PMSG_FETCH_ALL) || (action == PMSG_FETCH_STD))
-	{
-		*pmsg = NULL;
+	offset = slot * DB_RECORD_LEN;
+	status = fseek(s->db, offset, SEEK_SET);
 
-		offset = slot * DB_RECORD_LEN;
-		status = fseek(s->db, offset, SEEK_SET);
+	if (status < 0) return ASL_STATUS_READ_FAILED;
 
-		if (status < 0) return ASL_STATUS_READ_FAILED;
+	status = fread(tmp, DB_RECORD_LEN, 1, s->db);
+	if (status != 1) return ASL_STATUS_READ_FAILED;
 
-		status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-		if (status != 1) return ASL_STATUS_READ_FAILED;
+	flags = _asl_get_16(tmp + MSG_OFF_KEY_FLAGS);
 
-		msgid = _asl_get_64(tmp + MSG_OFF_KEY_ID);
-		msgu = _asl_get_32(tmp + MSG_OFF_KEY_RUID);
-		msgg = _asl_get_32(tmp + MSG_OFF_KEY_RGID);
-		flags = _asl_get_16(tmp + MSG_OFF_KEY_FLAGS);
+	msg = asl_new(ASL_TYPE_MSG);
+	if (msg == NULL) return ASL_STATUS_NO_MEMORY;
 
-		out = (pmsg_t *)calloc(1, sizeof(pmsg_t));
-		if (out == NULL) return ASL_STATUS_NO_MEMORY;
+	p = tmp + 5;
 
+	asl_legacy1_fetch_helper_64(s, &p, msg, ASL_KEY_MSG_ID);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_READ_UID, 1, (uint32_t)-1);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_READ_GID, 1, (uint32_t)-1);
+	asl_legacy1_fetch_helper_64(s, &p, msg, ASL_KEY_TIME);
+	asl_legacy1_fetch_helper_str(s, &p, msg, ASL_KEY_HOST, &status);
+	asl_legacy1_fetch_helper_str(s, &p, msg, ASL_KEY_SENDER, &status);
+	asl_legacy1_fetch_helper_str(s, &p, msg, ASL_KEY_FACILITY, &status);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_LEVEL, 0, 0);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_PID, 0, 0);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_UID, 0, 0);
+	asl_legacy1_fetch_helper_32(s, &p, msg, ASL_KEY_GID, 0, 0);
+	asl_legacy1_fetch_helper_str(s, &p, msg, ASL_KEY_MSG, &status);
 
-		p = tmp + 21;
+	next = header_get_next(tmp);
 
-		/* ID */
-		out->msgid = msgid;
-
-		/* ReadUID */
-		out->ruid = msgu;
-
-		/* ReadGID */
-		out->rgid = msgg;
-
-		/* Time */
-		out->time = _asl_get_64(p);
-		p += 8;
-
-		/* Host */
-		out->host = _asl_get_64(p);
-		p += 8;
-
-		/* Sender */
-		out->sender = _asl_get_64(p);
-		p += 8;
-
-		/* Facility */
-		out->facility = _asl_get_64(p);
-		p += 8;
-
-		/* Level */
-		out->level = _asl_get_32(p);
-		p += 4;
-
-		/* PID */
-		out->pid = _asl_get_32(p);
-		p += 4;
-
-		/* UID */
-		out->uid = _asl_get_32(p);
-		p += 4;
-
-		/* GID */
-		out->gid = _asl_get_32(p);
-		p += 4;
-
-		/* Message */
-		out->message = _asl_get_64(p);
-		p += 8;
-
-		next = header_get_next(tmp);
-		out->next = next;
-
-		if (action == PMSG_FETCH_STD)
-		{
-			/* caller only wants "standard" keys */
-			*pmsg = out;
-			return ASL_STATUS_OK;
-		}
-
-		*pmsg = out;
-	}
-	else
-	{
-		out = *pmsg;
-	}
-
+	kvcount = 0;
 	n = 0;
-	next = out->next;
 
 	while (next != 0)
 	{
@@ -627,7 +597,6 @@ pmsg_fetch(asl_legacy1_t *s, uint32_t slot, uint32_t action, pmsg_t **pmsg)
 		status = fseek(s->db, offset, SEEK_SET);
 		if (status < 0)
 		{
-			*pmsg = NULL;
 			free(out);
 			return ASL_STATUS_READ_FAILED;
 		}
@@ -635,917 +604,58 @@ pmsg_fetch(asl_legacy1_t *s, uint32_t slot, uint32_t action, pmsg_t **pmsg)
 		status = fread(tmp, DB_RECORD_LEN, 1, s->db);
 		if (status != 1)
 		{
-			*pmsg = NULL;
 			free(out);
 			return ASL_STATUS_READ_FAILED;
 		}
 
-		if (out->kvcount == 0)
-		{
-			v32 = _asl_get_32(tmp + 5);
-			out->kvcount = v32 * 2;
-			out->kvlist = (uint64_t *)calloc(out->kvcount, sizeof(uint64_t));
-			if (out->kvlist == NULL)
-			{
-				*pmsg = NULL;
-				free(out);
-				return ASL_STATUS_NO_MEMORY;
-			}
-		}
+		if (kvcount == 0) kvcount = _asl_get_32(tmp + 5);
 
 		p = tmp + 9;
 
-		for (i = 0; (i < 4) && (n < out->kvcount); i++)
+		for (i = 0; (i < 4) && (n < kvcount); i++)
 		{
-			out->kvlist[n++] = _asl_get_64(p);
+			key = NULL;
+			sid = _asl_get_64(p);
 			p += 8;
+			status = string_fetch_sid(s, sid, &key);
 
-			out->kvlist[n++] = _asl_get_64(p);
+			val = NULL;
+			sid = _asl_get_64(p);
 			p += 8;
+			if (status == ASL_STATUS_OK) status = string_fetch_sid(s, sid, &val);
+
+			if ((status == ASL_STATUS_OK) && (key != NULL)) asl_set(msg, key, val);
+			if (key != NULL) free(key);
+			if (val != NULL) free(val);
+
+			n++;
 		}
 
 		next = header_get_next(tmp);
-	}
-
-	return ASL_STATUS_OK;
-}
-
-static uint32_t
-pmsg_match(asl_legacy1_t *s, pmsg_t *q, pmsg_t *m)
-{
-	uint32_t i, j;
-
-	if (s == NULL) return 0;
-	if (q == NULL) return 1;
-	if (m == NULL) return 0;
-
-	if (q->kselect & PMSG_SEL_TIME)
-	{
-		if (q->time == ASL_REF_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_TIME) && (q->time != m->time)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_HOST)
-	{
-		if (q->host == ASL_REF_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_HOST) && (q->host != m->host)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_SENDER)
-	{
-		if (q->sender == ASL_REF_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_SENDER) && (q->sender != m->sender)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_FACILITY)
-	{
-		if (q->facility == ASL_REF_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_FACILITY) && (q->facility != m->facility)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_MESSAGE)
-	{
-		if (q->message == ASL_REF_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_MESSAGE) && (q->message != m->message)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_LEVEL)
-	{
-		if (q->level == ASL_INDEX_NULL) return 0;
-		if ((q->vselect & PMSG_SEL_LEVEL) && (q->level != m->level)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_PID)
-	{
-		if (q->pid == -1) return 0;
-		if ((q->vselect & PMSG_SEL_PID) && (q->pid != m->pid)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_UID)
-	{
-		if (q->uid == -2) return 0;
-		if ((q->vselect & PMSG_SEL_UID) && (q->uid != m->uid)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_GID)
-	{
-		if (q->gid == -2) return 0;
-		if ((q->vselect & PMSG_SEL_GID) && (q->gid != m->gid)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_RUID)
-	{
-		if (q->ruid == -1) return 0;
-		if ((q->vselect & PMSG_SEL_RUID) && (q->ruid != m->ruid)) return 0;
-	}
-
-	if (q->kselect & PMSG_SEL_RGID)
-	{
-		if (q->rgid == -1) return 0;
-		if ((q->vselect & PMSG_SEL_RGID) && (q->rgid != m->rgid)) return 0;
-	}
-
-	for (i = 0; i < q->kvcount; i += 2)
-	{
-		for (j = 0; j < m->kvcount; j += 2)
-		{
-			if (q->kvlist[i] == m->kvlist[j])
-			{
-				if (q->kvlist[i + 1] == m->kvlist[j + 1]) break;
-				return 0;
-			}
-		}
-
-		if (j >= m->kvcount) return 0;
-	}
-
-	return 1;
-}
-
-static void
-free_pmsg(pmsg_t *p)
-{
-	if (p == NULL) return;
-	if (p->kvlist != NULL) free(p->kvlist);
-	free(p);
-}
-
-static uint32_t
-pmsg_fetch_by_id(asl_legacy1_t *s, uint64_t msgid, pmsg_t **pmsg, uint32_t *slot)
-{
-	uint32_t i, status;
-
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (msgid == ASL_REF_NULL) return ASL_STATUS_INVALID_ARG;
-	if (slot == NULL) return ASL_STATUS_INVALID_ARG;
-
-	*slot = ASL_INDEX_NULL;
-
-	i = slotlist_find(s, msgid, 0);
-	if (i == ASL_INDEX_NULL) return ASL_STATUS_INVALID_ID;
-
-	*slot = s->slotlist[i].slot;
-
-	/* read the message */
-	*pmsg = NULL;
-	status = pmsg_fetch(s, s->slotlist[i].slot, PMSG_FETCH_ALL, pmsg);
-	if (status != ASL_STATUS_OK) return status;
-	if (pmsg == NULL) return ASL_STATUS_FAILED;
-
-	return status;
-}
-
-static uint32_t
-msg_decode(asl_legacy1_t *s, pmsg_t *pmsg, asl_msg_t **out)
-{
-	uint32_t status, i, n;
-	char *key, *val;
-	asl_msg_t *msg;
-
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (out == NULL) return ASL_STATUS_INVALID_ARG;
-	if (pmsg == NULL) return ASL_STATUS_INVALID_ARG;
-
-	*out = NULL;
-
-	msg = (asl_msg_t *)calloc(1, sizeof(asl_msg_t));
-	if (msg == NULL) return ASL_STATUS_NO_MEMORY;
-
-	msg->type = ASL_TYPE_MSG;
-	msg->count = 0;
-	if (pmsg->time != ASL_REF_NULL) msg->count++;
-	if (pmsg->host != ASL_REF_NULL) msg->count++;
-	if (pmsg->sender != ASL_REF_NULL) msg->count++;
-	if (pmsg->facility != ASL_REF_NULL) msg->count++;
-	if (pmsg->message != ASL_REF_NULL) msg->count++;
-	if (pmsg->level != ASL_INDEX_NULL) msg->count++;
-	if (pmsg->pid != -1) msg->count++;
-	if (pmsg->uid != -2) msg->count++;
-	if (pmsg->gid != -2) msg->count++;
-	if (pmsg->ruid != -1) msg->count++;
-	if (pmsg->rgid != -1) msg->count++;
-
-	msg->count += pmsg->kvcount / 2;
-
-	if (msg->count == 0)
-	{
-		free(msg);
-		return ASL_STATUS_INVALID_MESSAGE;
-	}
-
-	/* Message ID */
-	msg->count += 1;
-
-	msg->key = (char **)calloc(msg->count, sizeof(char *));
-	if (msg->key == NULL)
-	{
-		free(msg);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	msg->val = (char **)calloc(msg->count, sizeof(char *));
-	if (msg->val == NULL)
-	{
-		free(msg->key);
-		free(msg);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	n = 0;
-
-	/* Time */
-	if (pmsg->time != ASL_REF_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_TIME);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%llu", pmsg->time);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* Host */
-	if (pmsg->host != ASL_REF_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_HOST);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		status = string_fetch_sid(s, pmsg->host, &(msg->val[n]));
-		n++;
-	}
-
-	/* Sender */
-	if (pmsg->sender != ASL_REF_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_SENDER);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		status = string_fetch_sid(s, pmsg->sender, &(msg->val[n]));
-		n++;
-	}
-
-	/* Facility */
-	if (pmsg->facility != ASL_REF_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_FACILITY);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		status = string_fetch_sid(s, pmsg->facility, &(msg->val[n]));
-		n++;
-	}
-
-	/* Level */
-	if (pmsg->level != ASL_INDEX_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_LEVEL);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%u", pmsg->level);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* PID */
-	if (pmsg->pid != -1)
-	{
-		msg->key[n] = strdup(ASL_KEY_PID);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%d", pmsg->pid);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* UID */
-	if (pmsg->uid != -2)
-	{
-		msg->key[n] = strdup(ASL_KEY_UID);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%d", pmsg->uid);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* GID */
-	if (pmsg->gid != -2)
-	{
-		msg->key[n] = strdup(ASL_KEY_GID);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%d", pmsg->gid);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* Message */
-	if (pmsg->message != ASL_REF_NULL)
-	{
-		msg->key[n] = strdup(ASL_KEY_MSG);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		status = string_fetch_sid(s, pmsg->message, &(msg->val[n]));
-		n++;
-	}
-
-	/* ReadUID */
-	if (pmsg->ruid != -1)
-	{
-		msg->key[n] = strdup(ASL_KEY_READ_UID);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%d", pmsg->ruid);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* ReadGID */
-	if (pmsg->rgid != -1)
-	{
-		msg->key[n] = strdup(ASL_KEY_READ_GID);
-		if (msg->key[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		asprintf(&(msg->val[n]), "%d", pmsg->rgid);
-		if (msg->val[n] == NULL)
-		{
-			asl_free(msg);
-			return ASL_STATUS_NO_MEMORY;
-		}
-		n++;
-	}
-
-	/* Message ID */
-	msg->key[n] = strdup(ASL_KEY_MSG_ID);
-	if (msg->key[n] == NULL)
-	{
-		asl_free(msg);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	asprintf(&(msg->val[n]), "%llu", pmsg->msgid);
-	if (msg->val[n] == NULL)
-	{
-		asl_free(msg);
-		return ASL_STATUS_NO_MEMORY;
-	}
-	n++;
-
-	/* Key - Value List */
-	for (i = 0; i < pmsg->kvcount; i++)
-	{
-		key = NULL;
-		status = string_fetch_sid(s, pmsg->kvlist[i++], &key);
-		if (status != ASL_STATUS_OK)
-		{
-			if (key != NULL) free(key);
-			continue;
-		}
-
-		val = NULL;
-		status = string_fetch_sid(s, pmsg->kvlist[i], &val);
-		if (status != ASL_STATUS_OK)
-		{
-			if (key != NULL) free(key);
-			if (val != NULL) free(val);
-			continue;
-		}
-
-		msg->key[n] = key;
-		msg->val[n] = val;
-		n++;
 	}
 
 	*out = msg;
 	return ASL_STATUS_OK;
 }
 
-/*
- * Finds string either in the string cache or in the database
- */
-static uint32_t
-store_string_find(asl_legacy1_t *s, uint32_t hash, const char *str, uint32_t *index)
+uint32_t
+asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, aslmsg *out)
 {
 	uint32_t i, status;
-	char *tmp;
-
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (str == NULL) return ASL_STATUS_INVALID_ARG;
-	if (index == NULL) return ASL_STATUS_INVALID_ARG;
-	if (s->slotlist == NULL) return ASL_STATUS_FAILED;
-
-	/* check the database */
-	for (i = 0; i < s->slotlist_count; i++)
-	{
-		if ((s->slotlist[i].type != DB_TYPE_STRING) || (s->slotlist[i].hash != hash)) continue;
-
-		/* read the whole string */
-		tmp = NULL;
-		status = string_fetch_slot(s, s->slotlist[i].slot, &tmp);
-		if (status != ASL_STATUS_OK) return status;
-		if (tmp == NULL) return ASL_STATUS_FAILED;
-
-		status = strcmp(tmp, str);
-		free(tmp);
-		if (status != 0) continue;
-
-		/* Bingo! */
-		*index = i;
-		return ASL_STATUS_OK;
-	}
-
-	return ASL_STATUS_FAILED;
-}
-
-/*
- * Looks up a string ID number.
- */
-static uint64_t
-string_lookup(asl_legacy1_t *s, const char *str)
-{
-	uint32_t status, hash, index, slot, len;
-	uint64_t nsid, sid;
-	char *p;
-	uint8_t inls;
-
-	if (s == NULL) return ASL_REF_NULL;
-	if (str == NULL) return ASL_REF_NULL;
-
-	sid = ASL_REF_NULL;
-	index = ASL_INDEX_NULL;
-	slot = ASL_INDEX_NULL;
-
-	len = strlen(str);
-	if (len < 8)
-	{
-		/* inline string */
-		inls = len;
-		inls |= 0x80;
-
-		nsid = 0;
-		p = (char *)&nsid;
-		memcpy(p, &inls, 1);
-		memcpy(p + 1, str, len);
-		sid = _asl_ntohq(nsid);
-		return sid;
-	}
-
-	hash = asl_core_string_hash(str, len);
-
-	/* check the database */
-	status = store_string_find(s, hash, str, &index);
-	if (status == ASL_STATUS_OK)
-	{
-		if (index == ASL_INDEX_NULL) return ASL_REF_NULL;
-		return s->slotlist[index].xid;
-	}
-
-	return ASL_REF_NULL;
-}
-
-uint32_t
-asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, asl_msg_t **msg)
-{
-	uint32_t status, slot;
-	pmsg_t *pmsg;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msgid == ASL_REF_NULL) return ASL_STATUS_INVALID_ARG;
+	if (out == NULL) return ASL_STATUS_INVALID_ARG;
 
-	pmsg = NULL;
-	slot = ASL_INDEX_NULL;
+	i = slotlist_find(s, msgid, 0);
+	if (i == ASL_INDEX_NULL) return ASL_STATUS_INVALID_ID;
 
-	status = pmsg_fetch_by_id(s, msgid, &pmsg, &slot);
+	/* read the message */
+	status = msg_fetch(s, s->slotlist[i].slot, out);
 	if (status != ASL_STATUS_OK) return status;
-	if (pmsg == NULL) return ASL_STATUS_FAILED;
-
-	status = msg_decode(s, pmsg, msg);
-	free_pmsg(pmsg);
+	if (*out == NULL) return ASL_STATUS_FAILED;
 
 	return status;
-}
-
-static uint32_t
-query_to_pmsg(asl_legacy1_t *s, asl_msg_t *q, pmsg_t **p)
-{
-	pmsg_t *out;
-	uint32_t i, j;
-	uint64_t ksid, vsid;
-
-	if (s == NULL) return ASL_STATUS_INVALID_STORE;
-	if (p == NULL) return ASL_STATUS_INVALID_ARG;
-
-	if (q == NULL) return Q_NULL;
-	if (q->count == 0) return Q_NULL;
-
-	*p = NULL;
-
-	if (q->op != NULL)
-	{
-		for (i = 0; i < q->count; i++) if (q->op[i] != ASL_QUERY_OP_EQUAL) return Q_SLOW;
-	}
-
-	out = (pmsg_t *)calloc(1, sizeof(pmsg_t));
-	if (out == NULL) return ASL_STATUS_NO_MEMORY;
-
-	for (i = 0; i < q->count; i++)
-	{
-		if (q->key[i] == NULL) continue;
-
-		else if (!strcmp(q->key[i], ASL_KEY_TIME))
-		{
-			if (out->kselect & PMSG_SEL_TIME)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_TIME;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_TIME;
-				out->time = asl_parse_time(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_HOST))
-		{
-			if (out->kselect & PMSG_SEL_HOST)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_HOST;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_HOST;
-				out->host = string_lookup(s, q->val[i]);
-				if (out->host == ASL_REF_NULL)
-				{
-					free_pmsg(out);
-					return Q_FAIL;
-				}
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_SENDER))
-		{
-			if (out->kselect & PMSG_SEL_SENDER)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_SENDER;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_SENDER;
-				out->sender = string_lookup(s, q->val[i]);
-				if (out->sender == ASL_REF_NULL)
-				{
-					free_pmsg(out);
-					return Q_FAIL;
-				}
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_PID))
-		{
-			if (out->kselect & PMSG_SEL_PID)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_PID;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_PID;
-				out->pid = atoi(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_UID))
-		{
-			if (out->kselect & PMSG_SEL_UID)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_UID;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_UID;
-				out->uid = atoi(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_GID))
-		{
-			if (out->kselect & PMSG_SEL_GID)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_GID;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_GID;
-				out->gid = atoi(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_LEVEL))
-		{
-			if (out->kselect & PMSG_SEL_LEVEL)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_LEVEL;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_LEVEL;
-				out->level = atoi(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_MSG))
-		{
-			if (out->kselect & PMSG_SEL_MESSAGE)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_MESSAGE;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_MESSAGE;
-				out->message = string_lookup(s, q->val[i]);
-				if (out->message == ASL_REF_NULL)
-				{
-					free_pmsg(out);
-					return Q_FAIL;
-				}
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_FACILITY))
-		{
-			if (out->kselect & PMSG_SEL_FACILITY)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_FACILITY;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_FACILITY;
-				out->facility = string_lookup(s, q->val[i]);
-				if (out->facility == ASL_REF_NULL)
-				{
-					free_pmsg(out);
-					return Q_FAIL;
-				}
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_READ_UID))
-		{
-			if (out->kselect & PMSG_SEL_RUID)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_RUID;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_RUID;
-				out->ruid = atoi(q->val[i]);
-			}
-		}
-		else if (!strcmp(q->key[i], ASL_KEY_READ_GID))
-		{
-			if (out->kselect & PMSG_SEL_RGID)
-			{
-				free_pmsg(out);
-				return Q_SLOW;
-			}
-
-			out->kselect |= PMSG_SEL_RGID;
-			if (q->val[i] != NULL)
-			{
-				out->vselect |= PMSG_SEL_RGID;
-				out->rgid = atoi(q->val[i]);
-			}
-		}
-		else
-		{
-			ksid = string_lookup(s, q->key[i]);
-			if (ksid == ASL_REF_NULL)
-			{
-				free_pmsg(out);
-				return Q_FAIL;
-			}
-
-			for (j = 0; j < out->kvcount; j += 2)
-			{
-				if (out->kvlist[j] == ksid)
-				{
-					free_pmsg(out);
-					return Q_SLOW;
-				}
-			}
-
-			vsid = ASL_REF_NULL;
-			if (q->val[i] != NULL)
-			{
-				vsid = string_lookup(s, q->val[i]);
-				if (ksid == ASL_REF_NULL)
-				{
-					free_pmsg(out);
-					return Q_FAIL;
-				}
-			}
-
-			if (out->kvcount == 0)
-			{
-				out->kvlist = (uint64_t *)calloc(2, sizeof(uint64_t));
-			}
-			else
-			{
-				out->kvlist = (uint64_t *)reallocf(out->kvlist, (out->kvcount + 2) * sizeof(uint64_t));
-			}
-
-			if (out->kvlist == NULL)
-			{
-				free_pmsg(out);
-				return ASL_STATUS_NO_MEMORY;
-			}
-
-			out->kvlist[out->kvcount++] = ksid;
-			out->kvlist[out->kvcount++] = vsid;
-		}
-	}
-
-	*p = out;
-	return Q_FAST;
-}
-
-static uint32_t
-msg_match(asl_legacy1_t *s, uint32_t qtype, pmsg_t *qp, asl_msg_t *q, uint32_t slot, pmsg_t **iopm, asl_msg_t **iomsg, asl_msg_list_t **res, uint32_t *didmatch)
-{
-	uint32_t status, what;
-
-	*didmatch = 0;
-
-	if (qtype == Q_FAIL) return ASL_STATUS_OK;
-
-	if (qtype == Q_NULL)
-	{
-		if (*iopm == NULL)
-		{
-			status = pmsg_fetch(s, slot, PMSG_FETCH_ALL, iopm);
-			if (status != ASL_STATUS_OK) return status;
-			if (*iopm == NULL) return ASL_STATUS_FAILED;
-		}
-	}
-	else if (qtype == Q_FAST)
-	{
-		if (qp == NULL) return ASL_STATUS_INVALID_ARG;
-
-		what = PMSG_FETCH_STD;
-		if (qp->kvcount > 0) what = PMSG_FETCH_ALL;
-
-		if (*iopm == NULL)
-		{
-			status = pmsg_fetch(s, slot, what, iopm);
-			if (status != ASL_STATUS_OK) return status;
-			if (*iopm == NULL) return ASL_STATUS_FAILED;
-		}
-
-		status = pmsg_match(s, qp, *iopm);
-		if (status == 1)
-		{
-			if ((what == PMSG_FETCH_STD) && ((*iopm)->next != 0) && ((*iopm)->kvcount == 0))
-			{
-				status = pmsg_fetch(s, slot, PMSG_FETCH_KV, iopm);
-				if (status != ASL_STATUS_OK) return status;
-				if (*iopm == NULL) return ASL_STATUS_FAILED;
-			}
-		}
-		else return ASL_STATUS_OK;
-	}
-	else if (qtype == Q_SLOW)
-	{
-		if (*iomsg == NULL)
-		{
-			if (*iopm == NULL)
-			{
-				status = pmsg_fetch(s, slot, PMSG_FETCH_ALL, iopm);
-				if (status != ASL_STATUS_OK) return status;
-				if (*iopm == NULL) return ASL_STATUS_FAILED;
-			}
-
-			status = msg_decode(s, *iopm, iomsg);
-			if (status == ASL_STATUS_INVALID_MESSAGE) return ASL_STATUS_OK;
-			if (status != ASL_STATUS_OK) return status;
-			if (*iomsg == NULL) return ASL_STATUS_FAILED;
-		}
-
-		status = 0;
-		if (asl_msg_cmp(q, *iomsg) != 0) status = 1;
-		if (status == 0) return ASL_STATUS_OK;
-	}
-
-	*didmatch = 1;
-
-	if (res == NULL) return ASL_STATUS_OK;
-
-	if (*iomsg == NULL)
-	{
-		status = msg_decode(s, *iopm, iomsg);
-		if (status == ASL_STATUS_INVALID_MESSAGE)
-		{
-			*didmatch = 0;
-			return ASL_STATUS_OK;
-		}
-
-		if (status != ASL_STATUS_OK) return status;
-	}
-
-	if ((*res)->count == 0) (*res)->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
-	else (*res)->msg = (asl_msg_t **)reallocf((*res)->msg, (1 + (*res)->count) * sizeof(asl_msg_t *));
-	if ((*res)->msg == NULL) return ASL_STATUS_NO_MEMORY;
-
-	(*res)->msg[(*res)->count++] = *iomsg;
-
-	return ASL_STATUS_OK;
 }
 
 static uint32_t
@@ -1576,73 +686,14 @@ next_search_slot(asl_legacy1_t *s, uint32_t last_si, int32_t direction)
 	return ASL_INDEX_NULL;
 }
 
-static uint32_t
-query_list_to_pmsg_list(asl_legacy1_t *s, asl_msg_list_t *query, uint32_t *match, pmsg_t ***qp, uint32_t **qtype, uint32_t *count)
-{
-	pmsg_t **outp, *pm;
-	uint32_t i, j, *outt;
-	*match = 0;
-	*qp = NULL;
-	*qtype = 0;
-	*count = 0;
-
-	if (query == NULL) return ASL_STATUS_OK;
-	if (match == NULL) return ASL_STATUS_INVALID_ARG;
-	if (qp == NULL) return ASL_STATUS_INVALID_ARG;
-	if (qtype == NULL) return ASL_STATUS_OK;
-	if (query->msg == NULL) return ASL_STATUS_OK;
-	if (query->count == 0) return ASL_STATUS_OK;
-
-	outp = (pmsg_t **)calloc(query->count, sizeof(pmsg_t *));
-	if (outp == NULL) return ASL_STATUS_NO_MEMORY;
-
-	outt = (uint32_t *)calloc(query->count, sizeof(uint32_t));
-	if (outt == NULL)
-	{
-		free(outp);
-		return ASL_STATUS_NO_MEMORY;
-	}
-
-	*match = 1;
-
-	for (i = 0; i < query->count; i++)
-	{
-		pm = NULL;
-		outt[i] = query_to_pmsg(s, query->msg[i], &pm);
-		if (outt[i] <= ASL_STATUS_FAILED)
-		{
-			if (pm != NULL) free_pmsg(pm);
-			for (j = 0; j < i; j++) free_pmsg(outp[j]);
-			free(outp);
-			free(outt);
-			return ASL_STATUS_NO_MEMORY;
-		}
-
-		outp[i] = pm;
-	}
-
-	*count = query->count;
-	*qp = outp;
-	*qtype = outt;
-	return ASL_STATUS_OK;
-}
-
 static void
-match_worker_cleanup(pmsg_t **ql, uint32_t *qt, uint32_t n, asl_msg_list_t **res)
+match_worker_cleanup(asl_msg_list_t **res)
 {
 	uint32_t i;
 
-	if (ql != NULL)
-	{
-		for (i = 0; i < n; i++) free_pmsg(ql[i]);
-		free(ql);
-	}
-
-	if (qt != NULL) free(qt);
-
 	if (res != NULL)
 	{
-		for (i = 0; i < (*res)->count; i++) asl_free((*res)->msg[i]);
+		for (i = 0; i < (*res)->count; i++) asl_free((aslmsg)(*res)->msg[i]);
 		free(*res);
 	}
 }
@@ -1658,11 +709,6 @@ match_worker_cleanup(pmsg_t **ql, uint32_t *qt, uint32_t n, asl_msg_list_t **res
  * If any query is NULL, set match flog off (skips matching below).
  * Else if all queries only check "standard" keys, set std flag to on.
  *
- * If a query only tests equality, convert it to a pmsg_t.  The conversion routine
- * checks for string values that are NOT in the database.  If a string is not found,
- * the conversion fails and the query is markes as "never matches". Otherwise,
- * the query is marked "fast".
- *
  * If all queries are marked as "never matches", return NULL.
  *
  * match loop:
@@ -1671,7 +717,6 @@ match_worker_cleanup(pmsg_t **ql, uint32_t *qt, uint32_t n, asl_msg_list_t **res
  *  else for each query:
  *    if query is NULL (shouldn't happen) decode record and add it to result.  Return to match loop.
  *    else if query never matches, ignore it.
- *    else if query is fast, use pmsg_match.  If it succeeds, decode record and add it to result.  Return to match loop.
  *    else decode record and use asl_cmp.  If it succeeds, add record to result.  Return to match loop.
  *
  * return results.
@@ -1679,10 +724,9 @@ match_worker_cleanup(pmsg_t **ql, uint32_t *qt, uint32_t n, asl_msg_list_t **res
 static uint32_t
 match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint64_t *last_id, uint64_t **idlist, uint32_t *idcount, uint64_t start_id, int32_t count, int32_t direction)
 {
-	uint32_t mx, si, slot, i, qcount, match, didmatch, status, *qtype;
+	uint32_t mx, si, slot, i, qcount, match, didmatch, status;
 	uint64_t xid;
-	pmsg_t **qp, *iopmsg;
-	asl_msg_t *iomsg;
+	aslmsg msg;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if ((res == NULL) && (idlist == NULL)) return ASL_STATUS_INVALID_ARG;
@@ -1707,8 +751,12 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 
 	slot = s->slotlist[si].slot;
 
-	status = query_list_to_pmsg_list(s, query, &match, &qp, &qtype, &qcount);
-	if (status != ASL_STATUS_OK) return status;
+	match = 1;
+	qcount = 0;
+
+	if (query == NULL) match = 0;
+	else if (query->count == 0) match = 0;
+	else qcount = query->count;
 
 	/*
 	 * initialize result list if we've been asked to return messages
@@ -1716,12 +764,10 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 	if (res != NULL)
 	{
 		*res = (asl_msg_list_t *)calloc(1, sizeof(asl_msg_list_t));
-		if (*res == NULL)
-		{
-			match_worker_cleanup(qp, qtype, qcount, NULL);
-			return ASL_STATUS_NO_MEMORY;
-		}
+		if (*res == NULL) return ASL_STATUS_NO_MEMORY;
 	}
+
+	status = ASL_STATUS_OK;
 
 	/*
 	 * loop through records
@@ -1737,79 +783,42 @@ match_worker(asl_legacy1_t *s, asl_msg_list_t *query, asl_msg_list_t **res, uint
 
 		*last_id = xid;
 
-		iopmsg = NULL;
-		iomsg = NULL;
+		status = msg_fetch(s, slot, &msg);
 
 		didmatch = 0;
 		if (match == 0)
 		{
-			status = msg_match(s, Q_NULL, NULL, NULL, slot, &iopmsg, &iomsg, res, &didmatch);
-			free_pmsg(iopmsg);
-			if (didmatch == 0)
-			{
-				asl_free(iomsg);
-				iomsg = NULL;
-			}
-			else
-			{
-				if (idlist != NULL)
-				{
-					if (*idlist == NULL) *idlist = (uint64_t *)calloc(1, sizeof(uint64_t));
-					else *idlist = (uint64_t *)reallocf(*idlist, (*idcount + 1) * sizeof(uint64_t));
-					if (*idlist == NULL) status = ASL_STATUS_NO_MEMORY;
-					else (*idlist)[*idcount] = xid;
-				}
-
-				(*idcount)++;
-			}
-
-			if (status != ASL_STATUS_OK)
-			{
-				match_worker_cleanup(qp, qtype, qcount, res);
-				return status;
-			}
+			didmatch = 1;
 		}
 		else
 		{
 			for (i = 0; i < qcount; i++)
 			{
-				status = msg_match(s, qtype[i], qp[i], query->msg[i], slot, &iopmsg, &iomsg, res, &didmatch);
-				if (status != ASL_STATUS_OK)
-				{
-					free_pmsg(iopmsg);
-					asl_free(iomsg);
-					match_worker_cleanup(qp, qtype, qcount, res);
-					return status;
-				}
+				didmatch = asl_msg_cmp((aslmsg)(query->msg[i]), msg);
+				if (didmatch == 1) break;
+			}
+		}
 
-				if (didmatch == 1)
-				{
-					if (idlist != NULL)
-					{
-						if (*idlist == NULL) *idlist = (uint64_t *)calloc(1, sizeof(uint64_t));
-						else *idlist = (uint64_t *)reallocf(*idlist, (*idcount + 1) * sizeof(uint64_t));
-						if (*idlist == NULL)
-						{
-							match_worker_cleanup(qp, qtype, qcount, res);
-							return ASL_STATUS_NO_MEMORY;
-						}
-
-						(*idlist)[*idcount] = xid;
-					}
-
-					(*idcount)++;
-					break;
-				}
+		if (didmatch == 1)
+		{
+			if ((*res)->count == 0) (*res)->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
+			else (*res)->msg = (asl_msg_t **)reallocf((*res)->msg, (1 + (*res)->count) * sizeof(asl_msg_t *));
+			if ((*res)->msg == NULL)
+			{
+				match_worker_cleanup(res);
+				return ASL_STATUS_NO_MEMORY;
 			}
 
-			free_pmsg(iopmsg);
-			if ((didmatch == 0) || (res == NULL)) asl_free(iomsg);
+			(*res)->msg[(*res)->count++] = (asl_msg_t *)msg;
+		}
+		else
+		{
+			asl_free(msg);
 		}
 
 		si = next_search_slot(s, si, direction);
 	}
 
-	match_worker_cleanup(qp, qtype, qcount, NULL);
 	return status;
 }
 

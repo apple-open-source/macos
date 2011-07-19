@@ -31,7 +31,7 @@
 #    define DYNAMIC_PATH 0
 #endif
 
-VOID *
+void *
 dlopen(path, mode)
     const char *path;
     int mode;
@@ -39,7 +39,7 @@ dlopen(path, mode)
     int flags, length;
 
     if (path == (char *) NULL) {
-	return (VOID *) PROG_HANDLE;
+	return (void *) PROG_HANDLE;
     }
     flags = ((mode & RTLD_NOW) ? BIND_IMMEDIATE : BIND_DEFERRED) |
 	    DYNAMIC_PATH;
@@ -49,14 +49,14 @@ dlopen(path, mode)
 	flags |= BIND_VERBOSE;
     }
 #endif
-    return (VOID *) shl_load(path, flags, 0L);
+    return (void *) shl_load(path, flags, 0L);
 }
 
-VOID *
+void *
 dlsym(handle, symbol)
-    VOID *handle;
+    void *handle;
     const char *symbol;
-{   VOID *address;
+{   void *address;
 
     if (shl_findsym((shl_t *)&handle, symbol,
 	    (short) TYPE_UNDEFINED, &address) != 0) {
@@ -68,12 +68,12 @@ dlsym(handle, symbol)
 char *
 dlerror()
 {
-    return Tcl_ErrnoMsg(errno);
+    return (char *) Tcl_ErrnoMsg(errno);
 }
 
 int
 dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
     return shl_unload((shl_t) handle);
 }

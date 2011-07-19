@@ -1,6 +1,6 @@
 use Module::Build;
 
-use 5.6.0;
+use 5.006;
 
 use strict;
 use warnings;

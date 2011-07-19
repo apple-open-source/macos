@@ -27,7 +27,7 @@
 #include "config.h"
 #include "Path.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 
 #include "AffineTransform.h"
 #include "FloatRect.h"
@@ -166,7 +166,7 @@ FloatRect Path::boundingRect() const
     return CGPathGetBoundingBox(m_path);
 }
 
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
     CGContextRef context = scratchContext();
 
@@ -213,8 +213,7 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 
 void Path::closeSubpath()
 {
-    if (!CGPathIsEmpty(m_path)) // to silence a warning when trying to close an empty path
-        CGPathCloseSubpath(m_path);
+    CGPathCloseSubpath(m_path);
 }
 
 void Path::addArc(const FloatPoint& p, float r, float sa, float ea, bool clockwise)
@@ -249,61 +248,14 @@ bool Path::hasCurrentPoint() const
 {
     return !isEmpty();
 }
-
-static void CGPathToCFStringApplierFunction(void* info, const CGPathElement *element)
+    
+FloatPoint Path::currentPoint() const 
 {
-    CFMutableStringRef string = static_cast<CFMutableStringRef>(info);
-
-    CGPoint* points = element->points;
-    switch (element->type) {
-    case kCGPathElementMoveToPoint:
-        CFStringAppendFormat(string, 0, CFSTR("M%.2f,%.2f "), points[0].x, points[0].y);
-        break;
-    case kCGPathElementAddLineToPoint:
-        CFStringAppendFormat(string, 0, CFSTR("L%.2f,%.2f "), points[0].x, points[0].y);
-        break;
-    case kCGPathElementAddQuadCurveToPoint:
-        CFStringAppendFormat(string, 0, CFSTR("Q%.2f,%.2f,%.2f,%.2f "),
-                points[0].x, points[0].y, points[1].x, points[1].y);
-        break;
-    case kCGPathElementAddCurveToPoint:
-        CFStringAppendFormat(string, 0, CFSTR("C%.2f,%.2f,%.2f,%.2f,%.2f,%.2f "),
-                points[0].x, points[0].y, points[1].x, points[1].y,
-                points[2].x, points[2].y);
-        break;
-    case kCGPathElementCloseSubpath:
-        CFStringAppendFormat(string, 0, CFSTR("Z "));
-        break;
-    }
+    return CGPathGetCurrentPoint(m_path);
 }
 
-static CFStringRef CFStringFromCGPath(CGPathRef path)
-{
-    if (!path)
-        return 0;
-
-    CFMutableStringRef string = CFStringCreateMutable(NULL, 0);
-    CGPathApply(path, string, CGPathToCFStringApplierFunction);
-    CFStringTrimWhitespace(string);
-
-
-    return string;
-}
-
-
-#pragma mark -
-#pragma mark Path Management
-
-String Path::debugString() const
-{
-    String result;
-    if (!isEmpty()) {
-        CFStringRef pathString = CFStringFromCGPath(m_path);
-        result = String(pathString);
-        CFRelease(pathString);
-    }
-    return result;
-}
+// MARK: -
+// MARK: Path Management
 
 struct PathApplierInfo {
     void* info;
@@ -348,6 +300,9 @@ void Path::apply(void* info, PathApplierFunction function) const
 
 void Path::transform(const AffineTransform& transform)
 {
+    if (transform.isIdentity() || isEmpty())
+        return;
+
     CGMutablePathRef path = CGPathCreateMutable();
     CGAffineTransform transformCG = transform;
     CGPathAddPath(path, &transformCG, m_path);
@@ -357,4 +312,4 @@ void Path::transform(const AffineTransform& transform)
 
 }
 
-#endif // PLATFORM(CG)
+#endif // USE(CG)

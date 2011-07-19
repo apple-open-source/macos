@@ -32,6 +32,10 @@
 #include <wtf/Assertions.h>
 #include <wtf/UnusedParam.h>
 
+#if OS(WINDOWS)
+#include <windows.h>
+#endif
+
 #if COMPILER(MSVC)
 
 #include <wtf/MathExtras.h>
@@ -764,8 +768,68 @@ static void makeGlobalNumberValue(JSContextRef context) {
     v = NULL;
 }
 
+static bool assertTrue(bool value, const char* message)
+{
+    if (!value) {
+        if (message)
+            fprintf(stderr, "assertTrue failed: '%s'\n", message);
+        else
+            fprintf(stderr, "assertTrue failed.\n");
+        failed = 1;
+    }
+    return value;
+}
+
+static bool checkForCycleInPrototypeChain()
+{
+    bool result = true;
+    JSGlobalContextRef context = JSGlobalContextCreate(0);
+    JSObjectRef object1 = JSObjectMake(context, /* jsClass */ 0, /* data */ 0);
+    JSObjectRef object2 = JSObjectMake(context, /* jsClass */ 0, /* data */ 0);
+    JSObjectRef object3 = JSObjectMake(context, /* jsClass */ 0, /* data */ 0);
+
+    JSObjectSetPrototype(context, object1, JSValueMakeNull(context));
+    ASSERT(JSValueIsNull(context, JSObjectGetPrototype(context, object1)));
+
+    // object1 -> object1
+    JSObjectSetPrototype(context, object1, object1);
+    result &= assertTrue(JSValueIsNull(context, JSObjectGetPrototype(context, object1)), "It is possible to assign self as a prototype");
+
+    // object1 -> object2 -> object1
+    JSObjectSetPrototype(context, object2, object1);
+    ASSERT(JSValueIsStrictEqual(context, JSObjectGetPrototype(context, object2), object1));
+    JSObjectSetPrototype(context, object1, object2);
+    result &= assertTrue(JSValueIsNull(context, JSObjectGetPrototype(context, object1)), "It is possible to close a prototype chain cycle");
+
+    // object1 -> object2 -> object3 -> object1
+    JSObjectSetPrototype(context, object2, object3);
+    ASSERT(JSValueIsStrictEqual(context, JSObjectGetPrototype(context, object2), object3));
+    JSObjectSetPrototype(context, object1, object2);
+    ASSERT(JSValueIsStrictEqual(context, JSObjectGetPrototype(context, object1), object2));
+    JSObjectSetPrototype(context, object3, object1);
+    result &= assertTrue(!JSValueIsStrictEqual(context, JSObjectGetPrototype(context, object3), object1), "It is possible to close a prototype chain cycle");
+
+    JSValueRef exception;
+    JSStringRef code = JSStringCreateWithUTF8CString("o = { }; p = { }; o.__proto__ = p; p.__proto__ = o");
+    JSStringRef file = JSStringCreateWithUTF8CString("");
+    result &= assertTrue(!JSEvaluateScript(context, code, /* thisObject*/ 0, file, 1, &exception)
+                         , "An exception should be thrown");
+
+    JSStringRelease(code);
+    JSStringRelease(file);
+    JSGlobalContextRelease(context);
+    return result;
+}
+
 int main(int argc, char* argv[])
 {
+#if OS(WINDOWS)
+    // Cygwin calls ::SetErrorMode(SEM_FAILCRITICALERRORS), which we will inherit. This is bad for
+    // testing/debugging, as it causes the post-mortem debugger not to be invoked. We reset the
+    // error mode here to work around Cygwin's behavior. See <http://webkit.org/b/55222>.
+    ::SetErrorMode(0);
+#endif
+
     const char *scriptPath = "testapi.js";
     if (argc > 1) {
         scriptPath = argv[1];
@@ -874,21 +938,21 @@ int main(int argc, char* argv[])
     JSStringRelease(EmptyObjectIString);
     
     JSStringRef lengthStr = JSStringCreateWithUTF8CString("length");
-    aHeapRef = JSObjectMakeArray(context, 0, 0, 0);
+    JSObjectRef aStackRef = JSObjectMakeArray(context, 0, 0, 0);
+    aHeapRef = aStackRef;
     JSObjectSetProperty(context, aHeapRef, lengthStr, JSValueMakeNumber(context, 10), 0, 0);
     JSStringRef privatePropertyName = JSStringCreateWithUTF8CString("privateProperty");
     if (!JSObjectSetPrivateProperty(context, myObject, privatePropertyName, aHeapRef)) {
         printf("FAIL: Could not set private property.\n");
-        failed = 1;        
-    } else {
+        failed = 1;
+    } else
         printf("PASS: Set private property.\n");
-    }
+    aStackRef = 0;
     if (JSObjectSetPrivateProperty(context, aHeapRef, privatePropertyName, aHeapRef)) {
         printf("FAIL: JSObjectSetPrivateProperty should fail on non-API objects.\n");
-        failed = 1;        
-    } else {
+        failed = 1;
+    } else
         printf("PASS: Did not allow JSObjectSetPrivateProperty on a non-API object.\n");
-    }
     if (JSObjectGetPrivateProperty(context, myObject, privatePropertyName) != aHeapRef) {
         printf("FAIL: Could not retrieve private property.\n");
         failed = 1;
@@ -899,25 +963,37 @@ int main(int argc, char* argv[])
         failed = 1;
     } else
         printf("PASS: JSObjectGetPrivateProperty return NULL.\n");
-    
+
     if (JSObjectGetProperty(context, myObject, privatePropertyName, 0) == aHeapRef) {
         printf("FAIL: Accessed private property through ordinary property lookup.\n");
         failed = 1;
     } else
         printf("PASS: Cannot access private property through ordinary property lookup.\n");
-    
+
     JSGarbageCollect(context);
-    
+
     for (int i = 0; i < 10000; i++)
         JSObjectMake(context, 0, 0);
 
+    aHeapRef = JSValueToObject(context, JSObjectGetPrivateProperty(context, myObject, privatePropertyName), 0);
     if (JSValueToNumber(context, JSObjectGetProperty(context, aHeapRef, lengthStr, 0), 0) != 10) {
         printf("FAIL: Private property has been collected.\n");
         failed = 1;
     } else
         printf("PASS: Private property does not appear to have been collected.\n");
     JSStringRelease(lengthStr);
-    
+
+    if (!JSObjectSetPrivateProperty(context, myObject, privatePropertyName, 0)) {
+        printf("FAIL: Could not set private property to NULL.\n");
+        failed = 1;
+    } else
+        printf("PASS: Set private property to NULL.\n");
+    if (JSObjectGetPrivateProperty(context, myObject, privatePropertyName)) {
+        printf("FAIL: Could not retrieve private property.\n");
+        failed = 1;
+    } else
+        printf("PASS: Retrieved private property.\n");
+
     JSStringRef validJSON = JSStringCreateWithUTF8CString("{\"aProperty\":true}");
     JSValueRef jsonObject = JSValueMakeFromJSONString(context, validJSON);
     JSStringRelease(validJSON);
@@ -1345,6 +1421,13 @@ int main(int argc, char* argv[])
     JSClassRelease(prototypeLoopClass);
 
     printf("PASS: Infinite prototype chain does not occur.\n");
+
+    if (checkForCycleInPrototypeChain())
+        printf("PASS: A cycle in a prototype chain can't be created.\n");
+    else {
+        printf("FAIL: A cycle in a prototype chain can be created.\n");
+        failed = true;
+    }
 
     if (failed) {
         printf("FAIL: Some tests failed.\n");

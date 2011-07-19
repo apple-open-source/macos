@@ -16,3 +16,10 @@
 	printf(c, d) \
 	}
 
+
+/*! Normal. */
+
+#define baz_define_001(c, d) { \
+	printf(c, d) \
+	}
+

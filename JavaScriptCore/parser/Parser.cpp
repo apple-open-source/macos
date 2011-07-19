@@ -24,18 +24,14 @@
 #include "Parser.h"
 
 #include "Debugger.h"
+#include "JSParser.h"
 #include "Lexer.h"
-#include <wtf/HashSet.h>
-#include <wtf/Vector.h>
-
-#ifndef yyparse
-extern int jscyyparse(void*);
-#endif
 
 namespace JSC {
 
-void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
+void Parser::parse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode mode, int* errLine, UString* errMsg)
 {
+    ASSERT(globalData);
     m_sourceElements = 0;
 
     int defaultErrLine;
@@ -52,24 +48,25 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
     Lexer& lexer = *globalData->lexer;
     lexer.setCode(*m_source, m_arena);
 
-    int parseError = jscyyparse(globalData);
-    bool lexError = lexer.sawError();
+    const char* parseError = jsParse(globalData, parameters, strictness, mode, m_source);
     int lineNumber = lexer.lineNumber();
+    bool lexError = lexer.sawError();
     lexer.clear();
 
     if (parseError || lexError) {
         *errLine = lineNumber;
-        *errMsg = "Parse error";
+        *errMsg = parseError ? parseError : "Parse error";
         m_sourceElements = 0;
     }
 }
 
 void Parser::didFinishParsing(SourceElements* sourceElements, ParserArenaData<DeclarationStacks::VarStack>* varStack, 
-                              ParserArenaData<DeclarationStacks::FunctionStack>* funcStack, CodeFeatures features, int lastLine, int numConstants)
+                              ParserArenaData<DeclarationStacks::FunctionStack>* funcStack, CodeFeatures features, int lastLine, int numConstants, IdentifierSet& capturedVars)
 {
     m_sourceElements = sourceElements;
     m_varDeclarations = varStack;
     m_funcDeclarations = funcStack;
+    m_capturedVariables.swap(capturedVars);
     m_features = features;
     m_lastLine = lastLine;
     m_numConstants = numConstants;

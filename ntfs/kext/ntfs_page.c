@@ -1,8 +1,8 @@
 /*
  * ntfs_page.c - NTFS kernel page operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -118,9 +118,6 @@ int ntfs_pagein(ntfs_inode *ni, s64 attr_ofs, unsigned size, upl_t upl,
 	int err;
 	BOOL locked = FALSE;
 
-	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
-	if (ni == ni->vol->mft_ni || ni == ni->vol->mftmirr_ni)
-		panic("%s(): Called for $MFT or $MFTMirr.\n", __FUNCTION__);
 	ntfs_debug("Entering for mft_no 0x%llx, offset 0x%llx, size 0x%x, "
 			"pagein flags 0x%x, page list offset 0x%llx.",
 			(unsigned long long)ni->mft_no,
@@ -378,9 +375,6 @@ errno_t ntfs_page_map_ext(ntfs_inode *ni, s64 ofs, upl_t *upl,
 	int abort_flags;
 	errno_t err;
 
-	/* Ensure this is never called for $MFT/$DATA and $MFTMirr/$DATA. */
-	if (ni == ni->vol->mft_ni || ni == ni->vol->mftmirr_ni)
-		panic("%s(): Called for $MFT or $MFTMirr.\n", __FUNCTION__);
 	ntfs_debug("Entering for inode 0x%llx, offset 0x%llx, rw is %s.",
 			(unsigned long long)ni->mft_no,
 			(unsigned long long)ofs,

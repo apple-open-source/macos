@@ -39,7 +39,6 @@ namespace WebCore {
     class Frame;
     class Range;
     class Node;
-    class String;
     class VisibleSelection;
 
     typedef int ExceptionCode;
@@ -75,8 +74,8 @@ namespace WebCore {
         bool isCollapsed() const;
         int rangeCount() const;
         void collapse(Node*, int offset, ExceptionCode&);
-        void collapseToEnd();
-        void collapseToStart();
+        void collapseToEnd(ExceptionCode&);
+        void collapseToStart(ExceptionCode&);
         void extend(Node*, int offset, ExceptionCode&);
         PassRefPtr<Range> getRangeAt(int, ExceptionCode&);
         void removeAllRanges();

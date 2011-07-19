@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
-	Name="WebKit"
+	Name="WebKitLib"
 	ProjectGUID="{0662A8A9-82A3-4638-97D8-EC425D8D87C9}"
 	RootNamespace="WebKit"
 	Keyword="Win32Proj"
@@ -17,13 +17,12 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibDebug.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -39,37 +38,21 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine=""
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib JavaScriptCore$(WebKitDLLConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib WebKitSystemInterface$(WebKitConfigSuffix).lib msimg32.lib QTMovieWin$(WebKitConfigSuffix).lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories="$(DXSDK_DIR)\Lib\x86"
-				ModuleDefinitionFile="WebKit$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;QTMovieWin$(WebKitConfigSuffix).dll;iphlpapi.dll;rpcrt4.dll"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -81,26 +64,17 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibRelease.vsprops"
 			CharacterSet="1"
-			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -116,37 +90,21 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine=""
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib JavaScriptCore$(WebKitDLLConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib WebKitSystemInterface$(WebKitConfigSuffix).lib msimg32.lib QTMovieWin$(WebKitConfigSuffix).lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories="$(DXSDK_DIR)\Lib\x86"
-				ModuleDefinitionFile="WebKit$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;QTMovieWin$(WebKitConfigSuffix).dll;iphlpapi.dll;rpcrt4.dll"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -158,25 +116,17 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_Internal|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops"
+			Name="Debug_Cairo_CFLite|Win32"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibDebugCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -192,38 +142,21 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				Detect64BitPortabilityProblems="false"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine=""
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib JavaScriptCore$(WebKitDLLConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib WebKitSystemInterface$(WebKitConfigSuffix).lib msimg32.lib QTMovieWin$(WebKitConfigSuffix).lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories="$(DXSDK_DIR)\Lib\x86"
-				ModuleDefinitionFile="WebKit$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;QTMovieWin$(WebKitConfigSuffix).dll;iphlpapi.dll;rpcrt4.dll"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -235,25 +168,17 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
-			Name="Debug_Cairo|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_wincairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops"
+			Name="Release_Cairo_CFLite|Win32"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibReleaseCairoCFLite.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -269,38 +194,21 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine=""
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CFLite_Debug.lib JavaScriptCore$(WebKitConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib msimg32.lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="WebKit_Cairo$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;iphlpapi.dll;rpcrt4.dll"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-				VerboseOutput="false"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -312,104 +220,17 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
-			/>
-		</Configuration>
-		<Configuration
-			Name="Release_Cairo|Win32"
-			OutputDirectory="$(WebKitOutputDir)\bin"
-			IntermediateDirectory="$(WebKitOutputDir)\obj\$(ProjectName)\$(ConfigurationName)"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefinesCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\release.vsprops;$(WebKitLibrariesDir)\tools\vsprops\WinCairo.vsprops;$(WebKitLibrariesDir)\tools\vsprops\cURL.vsprops"
-			CharacterSet="1"
-			WholeProgramOptimization="1"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-			/>
-			<Tool
-				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
-			/>
-			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-				CommandLine=""
-			/>
-			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CFLite.lib JavaScriptCore$(WebKitDLLConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib msimg32.lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories=""
-				ModuleDefinitionFile="WebKit_Cairo$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;iphlpapi.dll;rpcrt4.dll"
-			/>
-			<Tool
-				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
-				Name="VCXDCMakeTool"
-			/>
-			<Tool
-				Name="VCBscMakeTool"
-			/>
-			<Tool
-				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug_All|Win32"
-			ConfigurationType="2"
-			InheritedPropertySheets="$(WebKitLibrariesDir)\tools\vsprops\FeatureDefines.vsprops;$(WebKitLibrariesDir)\tools\vsprops\common.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_internal.vsprops;$(WebKitLibrariesDir)\tools\vsprops\debug_all.vsprops"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibDebugAll.vsprops"
 			CharacterSet="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; grep XX$(ProjectName)XX &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;if errorlevel 1 exit 1&#x0D;&#x0A;echo XX$(ProjectName)XX &gt; &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;&#x0D;&#x0A;touch &quot;$(WebKitOutputDir)\tmp.cpp&quot;&#x0D;&#x0A;cl /analyze /nologo /c &quot;$(WebKitOutputDir)\tmp.cpp&quot; /Fo&quot;$(IntDir)\tmp.obj&quot; 2&gt;&amp;1 | findstr D9040&#x0D;&#x0A;if ERRORLEVEL 1 (set EnablePREfast=&quot;true&quot;) else (set EnablePREfast=&quot;false&quot;)&#x0D;&#x0A;if ERRORLEVEL 1 (set AnalyzeWithLargeStack=&quot;/analyze:65536&quot;) else (set AnalyzeWithLargeStack=&quot;&quot;)&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitLibrariesDir)\include\JavaScriptCore\*&quot; &quot;$(WebKitOutputDir)\include\JavaScriptCore&quot;&#x0D;&#x0A;&#x0D;&#x0A;bash &quot;$(WebKitLibrariesDir)\tools\scripts\auto-version.sh&quot; &quot;$(IntDir)&quot;&#x0D;&#x0A;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -425,38 +246,21 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\include\WebKit&quot;;&quot;$(WebKitOutputDir)\Include&quot;;&quot;$(WebKitOutputDir)\Include\private&quot;;&quot;$(WebKitLibrariesDir)\Include&quot;;&quot;$(WebKitLibrariesDir)\Include\private&quot;;&quot;$(WebKitOutputDir)\Include\WebCore&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore&quot;;&quot;$(WebKitOutputDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitLibrariesDir)\Include\WebCore\ForwardingHeaders&quot;;&quot;$(WebKitOutputDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitOutputDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\Include\private\JavaScriptCore&quot;;&quot;$(WebKitLibrariesDir)\include\pthreads&quot;;&quot;$(ProjectDir)\..&quot;;&quot;$(ProjectDir)&quot;;&quot;$(ProjectDir)\..\WebCoreSupport&quot;;&quot;$(IntDir)\include&quot;;&quot;$(WebKitOutputDir)\obj\WebKit\DerivedSources&quot;"
-				PreprocessorDefinitions="_USRDLL;WEBKIT_EXPORTS;FRAMEWORK_NAME=WebKit"
-				UsePrecompiledHeader="2"
-				PrecompiledHeaderThrough="WebKitPrefix.h"
-				Detect64BitPortabilityProblems="false"
-				DisableSpecificWarnings="4819"
-				ForcedIncludeFiles="WebKitPrefix.h"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="$(WebKitOutputDir)\obj\WebKit\"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
-				CommandLine=""
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				AdditionalDependencies="delayimp.lib kernel32.lib user32.lib gdi32.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib usp10.lib comctl32.lib version.lib shlwapi.lib libxml2$(LibraryConfigSuffix).lib libxslt$(LibraryConfigSuffix).lib icuin$(LibraryConfigSuffix).lib icuuc$(LibraryConfigSuffix).lib SQLite3$(LibraryConfigSuffix).lib pthreadVC2$(LibraryConfigSuffix).lib CoreFoundation$(LibraryConfigSuffix).lib JavaScriptCore$(WebKitDLLConfigSuffix).lib CFNetwork$(LibraryConfigSuffix).lib CoreGraphics$(LibraryConfigSuffix).lib WebKitGUID$(WebKitConfigSuffix).lib WebCore$(WebKitConfigSuffix).lib WebKitSystemInterface$(WebKitConfigSuffix).lib msimg32.lib QTMovieWin$(WebKitConfigSuffix).lib crypt32.lib iphlpapi.lib winmm.lib rpcrt4.lib comsuppw.lib"
-				OutputFile="$(OutDir)\$(ProjectName)$(WebKitDLLConfigSuffix).dll"
-				AdditionalLibraryDirectories="$(DXSDK_DIR)\Lib\x86"
-				ModuleDefinitionFile="WebKit$(WebKitDLLConfigSuffix).def"
-				DelayLoadDLLs="comdlg32.dll;usp10.dll;comctl32.dll;version.dll;libxslt$(LibraryConfigSuffix).dll;SQLite3$(LibraryConfigSuffix).dll;msimg32.dll;QTMovieWin$(WebKitConfigSuffix).dll;iphlpapi.dll;rpcrt4.dll"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -468,14 +272,60 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
+				Name="VCPostBuildEventTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Production|Win32"
+			ConfigurationType="4"
+			InheritedPropertySheets=".\WebKitLibProduction.vsprops"
+			CharacterSet="1"
+			WholeProgramOptimization="1"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
+			<Tool
+				Name="VCCLCompilerTool"
+			/>
+			<Tool
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
+			<Tool
+				Name="VCLibrarianTool"
+			/>
+			<Tool
+				Name="VCALinkTool"
+			/>
+			<Tool
+				Name="VCXDCMakeTool"
+			/>
+			<Tool
+				Name="VCBscMakeTool"
+			/>
+			<Tool
+				Name="VCFxCopTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebLocalizableStrings.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitGraphics.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebKitCOMAPI.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\WebPreferenceKeysPrivate.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npapi.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npfunctions.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\npruntime_internal.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\include\WebCore\nptypes.h&quot; &quot;$(WebKitOutputDir)\include\WebKit&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\$(ProjectName).resources\*&quot; &quot;$(OutDir)\$(ProjectName).resources&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(OutDir)\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\..\English.lproj\Localizable.strings&quot; &quot;$(OutDir)\WebKit.resources\en.lproj\&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -489,10 +339,6 @@
 			>
 			<File
 				RelativePath="..\MarshallingHelpers.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\WebCoreLocalizedStrings.cpp"
 				>
 			</File>
 			<File
@@ -690,10 +536,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\WebIconFetcher.h"
-				>
-			</File>
-			<File
 				RelativePath="..\WebInspector.h"
 				>
 			</File>
@@ -713,7 +555,7 @@
 				RelativePath="..\WebKitGraphics.h"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -721,7 +563,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -749,7 +591,7 @@
 				RelativePath="..\WebLocalizableStrings.h"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -757,7 +599,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -857,10 +699,6 @@
 				RelativePath="..\WebWorkersPrivate.h"
 				>
 			</File>
-			<File
-				RelativePath="..\WindowsTouch.h"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Classes"
@@ -941,7 +779,7 @@
 				RelativePath="..\WebCookieManagerCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -949,7 +787,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -977,7 +815,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_Internal|Win32"
+					Name="Debug_All|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -985,7 +823,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_All|Win32"
+					Name="Production|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1017,7 +855,7 @@
 				RelativePath="..\WebDownloadCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1025,7 +863,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1053,7 +891,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_Internal|Win32"
+					Name="Debug_All|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1061,7 +899,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_All|Win32"
+					Name="Production|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1111,10 +949,6 @@
 			</File>
 			<File
 				RelativePath="..\WebIconDatabase.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\WebIconFetcher.cpp"
 				>
 			</File>
 			<File
@@ -1197,7 +1031,7 @@
 				RelativePath="..\WebURLAuthenticationChallengeSenderCFNet.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1205,7 +1039,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1233,7 +1067,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_Internal|Win32"
+					Name="Debug_All|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1241,7 +1075,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug_All|Win32"
+					Name="Production|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1275,132 +1109,8 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Resources"
-			>
-			<File
-				RelativePath=".\fsVideoAudioVolumeHigh.png"
-				>
-			</File>
-			<File
-				RelativePath=".\fsVideoAudioVolumeLow.png"
-				>
-			</File>
-			<File
-				RelativePath=".\fsVideoExitFullscreen.png"
-				>
-			</File>
-			<File
-				RelativePath=".\fsVideoPause.png"
-				>
-			</File>
-			<File
-				RelativePath=".\fsVideoPlay.png"
-				>
-			</File>
-			<File
-				RelativePath=".\missingImage.png"
-				>
-			</File>
-			<File
-				RelativePath=".\nullplugin.png"
-				>
-			</File>
-			<File
-				RelativePath=".\searchCancel.png"
-				>
-			</File>
-			<File
-				RelativePath=".\searchCancelPressed.png"
-				>
-			</File>
-			<File
-				RelativePath=".\searchMagnifier.png"
-				>
-			</File>
-			<File
-				RelativePath=".\searchMagnifierResults.png"
-				>
-			</File>
-			<File
-				RelativePath=".\textAreaResizeCorner.png"
-				>
-			</File>
-			<File
-				RelativePath=".\verticalTextCursor.png"
-				>
-			</File>
-			<File
-				RelativePath=".\WebKit.rc"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories="&quot;$(WebKitOutputDir)\lib&quot;;&quot;$(WebKitOutputDir)\obj\$(ProjectName)\Interfaces&quot;"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath=".\zoomInCursor.png"
-				>
-			</File>
-			<File
-				RelativePath=".\zoomOutCursor.png"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="API"
 			>
-			<File
-				RelativePath=".\WebKit.def"
-				>
-			</File>
-			<File
-				RelativePath=".\WebKit_debug.def"
-				>
-			</File>
 			<File
 				RelativePath="..\WebKitCOMAPI.cpp"
 				>
@@ -1409,7 +1119,7 @@
 				RelativePath="..\WebKitGraphics.cpp"
 				>
 				<FileConfiguration
-					Name="Debug_Cairo|Win32"
+					Name="Debug_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1417,7 +1127,7 @@
 					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release_Cairo|Win32"
+					Name="Release_Cairo_CFLite|Win32"
 					ExcludedFromBuild="true"
 					>
 					<Tool
@@ -1490,11 +1200,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\WebCoreSupport\WebGeolocationControllerClient.cpp"
+				RelativePath="..\WebCoreSupport\WebFrameNetworkingContext.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\WebCoreSupport\WebGeolocationControllerClient.h"
+				RelativePath="..\WebCoreSupport\WebFrameNetworkingContext.h"
+				>
+			</File>
+			<File
+				RelativePath="..\WebCoreSupport\WebGeolocationClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\WebCoreSupport\WebGeolocationClient.h"
 				>
 			</File>
 			<File
@@ -1515,6 +1233,14 @@
 			</File>
 			<File
 				RelativePath="..\WebCoreSupport\WebInspectorDelegate.h"
+				>
+			</File>
+			<File
+				RelativePath="..\WebCoreSupport\WebPlatformStrategies.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\WebCoreSupport\WebPlatformStrategies.h"
 				>
 			</File>
 			<File
@@ -1546,16 +1272,7 @@
 				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Debug_Internal|Win32"
-				>
-				<Tool
-					Name="VCCLCompilerTool"
-					UsePrecompiledHeader="1"
-					PrecompiledHeaderThrough="WebKitPrefix.h"
-				/>
-			</FileConfiguration>
-			<FileConfiguration
-				Name="Debug_Cairo|Win32"
+				Name="Debug_Cairo_CFLite|Win32"
 				>
 				<Tool
 					Name="VCCLCompilerTool"
@@ -1563,7 +1280,7 @@
 				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Release_Cairo|Win32"
+				Name="Release_Cairo_CFLite|Win32"
 				>
 				<Tool
 					Name="VCCLCompilerTool"
@@ -1577,6 +1294,14 @@
 					Name="VCCLCompilerTool"
 					UsePrecompiledHeader="1"
 					PrecompiledHeaderThrough="WebKitPrefix.h"
+				/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Production|Win32"
+				>
+				<Tool
+					Name="VCCLCompilerTool"
+					UsePrecompiledHeader="1"
 				/>
 			</FileConfiguration>
 		</File>

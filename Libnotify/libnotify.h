@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-20010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Portions Copyright (c) 2003-2010 Apple Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,6 +28,7 @@
 
 #include <pthread.h>
 #include <mach/mach.h>
+#include <dispatch/dispatch.h>
 #include "table.h"
 
 #define SHM_ID "apple.shm.notification_center"
@@ -94,7 +96,8 @@ typedef struct
 {
 	uint32_t state;
 	name_info_t *name_info;
-	task_name_t session;
+	dispatch_source_t proc_src;
+	dispatch_source_t port_src;
 	uint32_t suspend_count;
 	uint32_t notify_type;
 	uint32_t lastval;
@@ -130,16 +133,17 @@ void _notify_lib_notify_state_free(notify_state_t *ns);
 
 uint32_t _notify_lib_post(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid);
 uint32_t _notify_lib_post_client(notify_state_t *ns, client_t *c);
+
 uint32_t _notify_lib_check(notify_state_t *ns, uint32_t cid, int *check);
 uint32_t _notify_lib_get_state(notify_state_t *ns, uint32_t cid, uint64_t *state);
 uint32_t _notify_lib_set_state(notify_state_t *ns, uint32_t cid, uint64_t state, uint32_t uid, uint32_t gid);
 uint32_t _notify_lib_get_val(notify_state_t *ns, uint32_t cid, int *val);
 uint32_t _notify_lib_set_val(notify_state_t *ns, uint32_t cid, int val, uint32_t uid, uint32_t gid);
 
-uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t session, uint32_t slot, uint32_t uid, uint32_t gid, uint32_t *out_token);
-uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t session, pid_t pid, uint32_t sig, uint32_t uid, uint32_t gid, uint32_t *out_token);
-uint32_t _notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t session, mach_port_t port, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token);
-uint32_t _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_name_t session, const char *path, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token);
+uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, uint32_t slot, uint32_t uid, uint32_t gid, uint32_t *out_token);
+uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, uint32_t sig, uint32_t uid, uint32_t gid, uint32_t *out_token);
+uint32_t _notify_lib_register_mach_port(notify_state_t *ns, const char *name, mach_port_t port, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token);
+uint32_t _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, int fd, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token);
 
 uint32_t _notify_lib_get_owner(notify_state_t *ns, const char *name, uint32_t *uid, uint32_t *gid);
 uint32_t _notify_lib_get_access(notify_state_t *ns, const char *name, uint32_t *access);
@@ -153,8 +157,8 @@ void _notify_lib_cancel(notify_state_t *ns, uint32_t cid);
 void _notify_lib_suspend(notify_state_t *ns, uint32_t cid);
 void _notify_lib_resume(notify_state_t *ns, uint32_t cid);
 
-void _notify_lib_cancel_session(notify_state_t *ns, task_name_t session);
-void _notify_lib_suspend_session(notify_state_t *ns, task_name_t session);
-void _notify_lib_resume_session(notify_state_t *ns, task_name_t session);
+void _notify_lib_cancel_session(notify_state_t *ns, pid_t pid);
+void _notify_lib_suspend_session(notify_state_t *ns, pid_t pid);
+void _notify_lib_resume_session(notify_state_t *ns, pid_t pid);
 
 #endif /* _LIBNOTIFY_H_ */

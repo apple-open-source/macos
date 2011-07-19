@@ -11,7 +11,7 @@
  * See the file "license.txt" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * Rcsid: @(#)$Id: threadSvKeylistCmd.c,v 1.2 2007/06/30 14:31:36 vasiljevic Exp $
+ * Rcsid: @(#)$Id: threadSvKeylistCmd.c,v 1.3 2009/07/22 11:25:34 nijtmans Exp $
  * ---------------------------------------------------------------------------
  */
 
@@ -102,7 +102,7 @@ SvKeylsetObjCmd(arg, interp, objc, objv)
     ClientData arg;                     /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int i, off, ret, flg;
     char *key;
@@ -161,7 +161,7 @@ SvKeylgetObjCmd(arg, interp, objc, objv)
     ClientData arg;                     /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int ret, flg, off;
     char *key;
@@ -252,7 +252,7 @@ SvKeyldelObjCmd(arg, interp, objc, objv)
     ClientData arg;                     /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int i, off, ret;
     char *key;
@@ -311,7 +311,7 @@ SvKeylkeysObjCmd(arg, interp, objc, objv)
     ClientData arg;                     /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int ret, off;
     char *key = NULL;

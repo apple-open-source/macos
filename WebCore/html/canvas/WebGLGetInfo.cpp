@@ -26,17 +26,19 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLGetInfo.h"
+
+#include "Float32Array.h"
+#include "Int32Array.h"
+#include "Uint8Array.h"
 #include "WebGLBuffer.h"
-#include "WebGLFloatArray.h"
 #include "WebGLFramebuffer.h"
-#include "WebGLIntArray.h"
 #include "WebGLProgram.h"
 #include "WebGLRenderbuffer.h"
 #include "WebGLTexture.h"
-#include "WebGLUnsignedByteArray.h"
+#include "WebGLVertexArrayObjectOES.h"
 
 namespace WebCore {
 
@@ -46,15 +48,25 @@ WebGLGetInfo::WebGLGetInfo(bool value)
 {
 }
 
+WebGLGetInfo::WebGLGetInfo(const bool* value, int size)
+    : m_type(kTypeBoolArray)
+{
+    if (!value || size <=0)
+        return;
+    m_boolArray.resize(size);
+    for (int ii = 0; ii < size; ++ii)
+        m_boolArray[ii] = value[ii];
+}
+
 WebGLGetInfo::WebGLGetInfo(float value)
     : m_type(kTypeFloat)
     , m_float(value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(long value)
-    : m_type(kTypeLong)
-    , m_long(value)
+WebGLGetInfo::WebGLGetInfo(int value)
+    : m_type(kTypeInt)
+    , m_int(value)
 {
 }
 
@@ -69,9 +81,9 @@ WebGLGetInfo::WebGLGetInfo(const String& value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(unsigned long value)
-    : m_type(kTypeUnsignedLong)
-    , m_unsignedLong(value)
+WebGLGetInfo::WebGLGetInfo(unsigned int value)
+    : m_type(kTypeUnsignedInt)
+    , m_unsignedInt(value)
 {
 }
 
@@ -81,7 +93,7 @@ WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLBuffer> value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLFloatArray> value)
+WebGLGetInfo::WebGLGetInfo(PassRefPtr<Float32Array> value)
     : m_type(kTypeWebGLFloatArray)
     , m_webglFloatArray(value)
 {
@@ -93,7 +105,7 @@ WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLFramebuffer> value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLIntArray> value)
+WebGLGetInfo::WebGLGetInfo(PassRefPtr<Int32Array> value)
     : m_type(kTypeWebGLIntArray)
     , m_webglIntArray(value)
 {
@@ -117,9 +129,15 @@ WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLTexture> value)
 {
 }
 
-WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLUnsignedByteArray> value)
+WebGLGetInfo::WebGLGetInfo(PassRefPtr<Uint8Array> value)
     : m_type(kTypeWebGLUnsignedByteArray)
     , m_webglUnsignedByteArray(value)
+{
+}
+
+WebGLGetInfo::WebGLGetInfo(PassRefPtr<WebGLVertexArrayObjectOES> value)
+    : m_type(kTypeWebGLVertexArrayObjectOES)
+    , m_webglVertexArrayObject(value)
 {
 }
 
@@ -138,16 +156,22 @@ bool WebGLGetInfo::getBool() const
     return m_bool;
 }
 
+const Vector<bool>& WebGLGetInfo::getBoolArray() const
+{
+    ASSERT(getType() == kTypeBoolArray);
+    return m_boolArray;
+}
+
 float WebGLGetInfo::getFloat() const
 {
     ASSERT(getType() == kTypeFloat);
     return m_float;
 }
 
-long WebGLGetInfo::getLong() const
+int WebGLGetInfo::getInt() const
 {
-    ASSERT(getType() == kTypeLong);
-    return m_long;
+    ASSERT(getType() == kTypeInt);
+    return m_int;
 }
 
 const String& WebGLGetInfo::getString() const
@@ -156,10 +180,10 @@ const String& WebGLGetInfo::getString() const
     return m_string;
 }
 
-unsigned long WebGLGetInfo::getUnsignedLong() const
+unsigned int WebGLGetInfo::getUnsignedInt() const
 {
-    ASSERT(getType() == kTypeUnsignedLong);
-    return m_unsignedLong;
+    ASSERT(getType() == kTypeUnsignedInt);
+    return m_unsignedInt;
 }
 
 PassRefPtr<WebGLBuffer> WebGLGetInfo::getWebGLBuffer() const
@@ -168,7 +192,7 @@ PassRefPtr<WebGLBuffer> WebGLGetInfo::getWebGLBuffer() const
     return m_webglBuffer;
 }
 
-PassRefPtr<WebGLFloatArray> WebGLGetInfo::getWebGLFloatArray() const
+PassRefPtr<Float32Array> WebGLGetInfo::getWebGLFloatArray() const
 {
     ASSERT(getType() == kTypeWebGLFloatArray);
     return m_webglFloatArray;
@@ -180,7 +204,7 @@ PassRefPtr<WebGLFramebuffer> WebGLGetInfo::getWebGLFramebuffer() const
     return m_webglFramebuffer;
 }
 
-PassRefPtr<WebGLIntArray> WebGLGetInfo::getWebGLIntArray() const
+PassRefPtr<Int32Array> WebGLGetInfo::getWebGLIntArray() const
 {
     ASSERT(getType() == kTypeWebGLIntArray);
     return m_webglIntArray;
@@ -204,12 +228,18 @@ PassRefPtr<WebGLTexture> WebGLGetInfo::getWebGLTexture() const
     return m_webglTexture;
 }
 
-PassRefPtr<WebGLUnsignedByteArray> WebGLGetInfo::getWebGLUnsignedByteArray() const
+PassRefPtr<Uint8Array> WebGLGetInfo::getWebGLUnsignedByteArray() const
 {
     ASSERT(getType() == kTypeWebGLUnsignedByteArray);
     return m_webglUnsignedByteArray;
 }
 
+PassRefPtr<WebGLVertexArrayObjectOES> WebGLGetInfo::getWebGLVertexArrayObjectOES() const
+{
+    ASSERT(getType() == kTypeWebGLVertexArrayObjectOES);
+    return m_webglVertexArrayObject;
+}
+
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

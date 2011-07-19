@@ -46,6 +46,8 @@ private:
     static CFHashCode hashType(CFTypeRef cf) throw();
 	static CFStringRef copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) throw();
 	static CFStringRef copyDebugDescType(CFTypeRef cf) throw();
+    static uint32_t refCountForType(intptr_t op, CFTypeRef cf) throw();
+    static uint32_t cleanupObject(intptr_t op, CFTypeRef cf, bool &zap);
 };
 
 } // end namespace Security

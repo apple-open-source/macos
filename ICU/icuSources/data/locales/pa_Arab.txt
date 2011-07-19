@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/pa_Arab.xml
@@ -10,38 +10,43 @@
  *  ICU <specials> source: <path>/xml/main/pa_Arab.xml
  */
 pa_Arab{
+    %%ParentIsRoot:int{1}
     AuxExemplarCharacters{"[أ ٻ ة ٺ ټ ٽ]"}
-    Countries{
-        PK{"پکستان"}
-    }
-    Currencies{
-        EUR{
-            "€",
-            "يورو",
-        }
-        INR{
-            "ر [INR]",
-            "روپئیہ [INR]",
-        }
-        PKR{
-            "ر",
-            "روپئیہ",
-        }
-    }
-    ExemplarCharacters{"[ُ ء آ ؤ ئ-ب پ ت ث ٹ ج چ ح-ذ ڈ ر ز ڑ ژ س-غ ف ق ک گ ل-ن ں ه ھ ہ و ی ے]"}
-    Languages{
-        pa{"پنجاب"}
+    ExemplarCharacters{
+        "[\u064F ء آ ؤ ئ ا ب پ ت ث ٹ ج چ ح خ د ذ ڈ ر ز ڑ ژ س ش ص ض ط ظ ع غ ف ق ک گ ل "
+        "م ن ں ه ھ ہ و ی ے]"
     }
     LocaleScript{
         "Arab",
     }
-    Scripts{
-        Arab{"العربية"}
-        Guru{"گُرمُکھی"}
+    NumberElements{
+        default{"arab"}
     }
-    Version{"1.20"}
+    Version{"2.0.50.30"}
     calendar{
         gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, dd MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/yyyy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                HHmmss{"HH:mm:ss"}
+                Md{"d/M"}
+                mmss{"mm:ss"}
+                yyMMM{"MMM yy"}
+                yyQ{"Q yy"}
+            }
             dayNames{
                 format{
                     wide{

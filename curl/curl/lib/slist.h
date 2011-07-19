@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: slist.h,v 1.1 2009-03-09 12:21:47 bagder Exp $
  ***************************************************************************/
 
 /*

@@ -29,7 +29,7 @@ It makes use of the Tile/Ttk themed widget set.
 
 [section "WIDGET OPTIONS"]
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def -ipad]
 [opt_def -pad]
@@ -39,7 +39,7 @@ It makes use of the Tile/Ttk themed widget set.
 
 [section "ITEM OPTIONS"]
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def -pad]
 [opt_def -separator]

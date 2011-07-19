@@ -274,7 +274,7 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
 		return kr;
 	}
 	
-    if (entryProperties) 
+    if (entryProperties && (CFGetTypeID(entryProperties) == CFDictionaryGetTypeID())) 
     {
 		// The dictionary contains values that are signed 32 or 64 bit.  To avoid CF sign extensions issues read the values into a temp
 		// SInt64 and then assign to the local ivar
@@ -284,49 +284,49 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
 		SInt64		tempValue;
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceClass));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fClass = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceSubClass));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fSubClass = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceProtocol));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fProtocol = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBVendorID));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fVendor = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBProductID));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
  		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fProduct = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceReleaseNumber));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fDeviceReleaseNumber = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBManufacturerStringIndex));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fManufacturerStringIndex = tempValue;
@@ -335,7 +335,7 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
             fManufacturerStringIndex = 0;
 		
 		val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBProductStringIndex));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fProductStringIndex = tempValue;
@@ -344,7 +344,7 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
             fProductStringIndex = 0;
 		
 		val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBSerialNumberStringIndex));
-		if (val)
+		if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fSerialNumberStringIndex = tempValue;
@@ -353,7 +353,7 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
             fSerialNumberStringIndex = 0;
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceNumConfigs));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fNumConfigurations = tempValue;
@@ -362,28 +362,28 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
             fNumConfigurations = 0;
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDevicePropertySpeed));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fSpeed = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDevicePropertyBusPowerAvailable));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fPowerAvail = tempValue;
 		}
 		
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDevicePropertyAddress));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fAddress = tempValue;
 		}
 		
 		val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDevicePropertyLocationID));
-        if (val)
+        if (val && (CFGetTypeID(val) == CFNumberGetTypeID()))
 		{
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongLongType, &tempValue);
 			fLocationID = tempValue;

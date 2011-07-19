@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetws.c,v 1.6 2004/10/03 15:48:32 stefanf Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetws.c,v 1.8 2009/11/25 04:45:45 wollman Exp $");
 
 #include "xlocale_private.h"
 
@@ -69,7 +69,7 @@ fgetws_l(wchar_t * __restrict ws, int n, FILE * __restrict fp, locale_t loc)
 		nl = memchr(fp->_p, '\n', fp->_r);
 		nconv = __mbsnrtowcs(wsp, &src,
 		    nl != NULL ? (nl - fp->_p + 1) : fp->_r,
-		    n - 1, &fp->_extra->mbstate, loc);
+		    n - 1, &fp->_mbstate, loc);
 		if (nconv == (size_t)-1)
 			/* Conversion error */
 			goto error;
@@ -93,10 +93,10 @@ fgetws_l(wchar_t * __restrict ws, int n, FILE * __restrict fp, locale_t loc)
 	if (wsp == ws)
 		/* EOF */
 		goto error;
-	if (!rl->__mbsinit(&fp->_extra->mbstate, loc))
+	if (!rl->__mbsinit(&fp->_mbstate, loc))
 		/* Incomplete character */
 		goto error;
-	*wsp++ = L'\0';
+	*wsp = L'\0';
 	FUNLOCKFILE(fp);
 
 	return (ws);

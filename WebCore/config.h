@@ -17,13 +17,41 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  *
- */
+ */ 
 
 #if defined(HAVE_CONFIG_H) && HAVE_CONFIG_H
+#ifdef BUILDING_WITH_CMAKE
+#include "cmakeconfig.h"
+#else
 #include "autotoolsconfig.h"
+#endif
 #endif
 
 #include <wtf/Platform.h>
+
+/* See note in wtf/Platform.h for more info on EXPORT_MACROS. */
+#if USE(EXPORT_MACROS)
+
+#include <wtf/ExportMacros.h>
+
+#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
+#define WTF_EXPORT_PRIVATE WTF_EXPORT
+#define JS_EXPORT_PRIVATE WTF_EXPORT
+#else
+#define WTF_EXPORT_PRIVATE WTF_IMPORT
+#define JS_EXPORT_PRIVATE WTF_IMPORT
+#endif
+
+#define JS_EXPORTDATA JS_EXPORT_PRIVATE
+#define JS_EXPORTCLASS JS_EXPORT_PRIVATE
+
+#if defined(BUILDING_WebCore) || defined(BUILDING_WebKit)
+#define WEBKIT_EXPORTDATA WTF_EXPORT
+#else
+#define WEBKIT_EXPORTDATA WTF_IMPORT
+#endif
+
+#else /* !USE(EXPORT_MACROS) */
 
 #if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
 #if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
@@ -36,12 +64,18 @@
 #else
 #define WEBKIT_EXPORTDATA __declspec(dllimport)
 #endif
+#define WTF_EXPORT_PRIVATE
+#define JS_EXPORT_PRIVATE
 #define JS_EXPORTCLASS JS_EXPORTDATA
 #else
 #define JS_EXPORTDATA
 #define JS_EXPORTCLASS
 #define WEBKIT_EXPORTDATA
+#define WTF_EXPORT_PRIVATE
+#define JS_EXPORT_PRIVATE
 #endif
+
+#endif /* USE(EXPORT_MACROS) */
 
 #ifdef __APPLE__
 #define HAVE_FUNC_USLEEP 1
@@ -76,6 +110,12 @@
 #endif /* OS(WINDOWS) */
 
 #if PLATFORM(ANDROID)
+// Android uses a single set of include directories when building WebKit and
+// JavaScriptCore. Since WebCore/ is included before JavaScriptCore/, Android
+// includes JavaScriptCore/config.h explicitly here to make sure it gets picked
+// up.
+#include <JavaScriptCore/config.h>
+
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 // This must be defined before we include FastMalloc.h, below.
 #define USE_SYSTEM_MALLOC 1
@@ -122,8 +162,10 @@
 
 // this breaks compilation of <QFontDatabase>, at least, so turn it off for now
 // Also generates errors on wx on Windows, presumably because these functions
-// are used from wx headers.
-#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM)
+// are used from wx headers. On GTK+ for Mac many GTK+ files include <libintl.h>
+// or <glib/gi18n-lib.h>, which in turn include <xlocale/_ctype.h> which uses
+// isacii(). 
+#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !(OS(DARWIN) && PLATFORM(GTK))
 #include <wtf/DisallowCType.h>
 #endif
 
@@ -135,34 +177,20 @@
 
 #if PLATFORM(WIN)
 #if defined(WIN_CAIRO)
-#undef WTF_PLATFORM_CG
-#define WTF_PLATFORM_CAIRO 1
-#undef WTF_USE_CFNETWORK
+#undef WTF_USE_CG
+#define WTF_USE_CAIRO 1
 #define WTF_USE_CURL 1
 #ifndef _WINSOCKAPI_
 #define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
 #endif
-#else
-#define WTF_PLATFORM_CG 1
-#undef WTF_PLATFORM_CAIRO
-#define WTF_USE_CFNETWORK 1
+#elif !OS(WINCE)
+#define WTF_USE_CG 1
+#undef WTF_USE_CAIRO
 #undef WTF_USE_CURL
 #endif
-#undef WTF_USE_WININET
-#define WTF_PLATFORM_CF 1
-#define WTF_USE_PTHREADS 0
 #endif
 
 #if PLATFORM(MAC)
-// ATSUI vs. CoreText
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-#define WTF_USE_ATSUI 0
-#define WTF_USE_CORE_TEXT 1
-#else
-#define WTF_USE_ATSUI 1
-#define WTF_USE_CORE_TEXT 0
-#endif
-
 // New theme
 #define WTF_USE_NEW_THEME 1
 #endif // PLATFORM(MAC)
@@ -171,12 +199,11 @@
 #define USE_SYSTEM_MALLOC 1
 #endif
 
-#if PLATFORM(CHROMIUM)
+#if OS(UNIX) || OS(WINDOWS)
+#define WTF_USE_OS_RANDOMNESS 1
+#endif
 
-#if !OS(DARWIN)
-// Define SKIA on non-Mac.
-#define WTF_PLATFORM_SKIA 1
-#endif /* !OS(DARWIN) */
+#if PLATFORM(CHROMIUM)
 
 // Chromium uses this file instead of JavaScriptCore/config.h to compile
 // JavaScriptCore/wtf (chromium doesn't compile the rest of JSC). Therefore,
@@ -189,8 +216,6 @@
 #define WTF_USE_V8 1
 #endif
 
-#undef WTF_USE_CFNETWORK
-
 #endif /* PLATFORM(CHROMIUM) */
 
 #if !defined(WTF_USE_V8)
@@ -198,9 +223,11 @@
 #endif /* !defined(WTF_USE_V8) */
 
 /* Using V8 implies not using JSC and vice versa */
+#if !defined(WTF_USE_JSC)
 #define WTF_USE_JSC !WTF_USE_V8
+#endif
 
-#if PLATFORM(CG)
+#if USE(CG)
 #ifndef CGFLOAT_DEFINED
 #ifdef __LP64__
 typedef double CGFloat;
@@ -209,13 +236,20 @@ typedef float CGFloat;
 #endif
 #define CGFLOAT_DEFINED 1
 #endif
-#endif /* PLATFORM(CG) */
+#endif /* USE(CG) */
 
-#ifdef BUILDING_ON_TIGER
-#undef ENABLE_FTPDIR
-#define ENABLE_FTPDIR 0
-#endif
 
-#if PLATFORM(WIN) && PLATFORM(CG)
+#if PLATFORM(WIN) && USE(CG)
 #define WTF_USE_SAFARI_THEME 1
 #endif
+
+// CoreAnimation is available to IOS, Mac and Windows if using CG
+#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WIN) && USE(CG))
+#define WTF_USE_CA 1
+#endif
+
+#if PLATFORM(QT) && USE(V8) && defined(Q_WS_X11)
+/* protect ourselves from evil X11 defines */
+#include <bridge/npruntime_internal.h>
+#endif
+

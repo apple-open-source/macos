@@ -69,7 +69,7 @@ int SYS_ThreadCreate(PCSCLITE_THREAD_T * pthThread, int attributes,
 {
 	pthread_attr_t attr;
 	int rx;
-	
+
 	if (0 != pthread_attr_init(&attr))
 		return 0;
 

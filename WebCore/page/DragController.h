@@ -37,17 +37,19 @@ namespace WebCore {
     class Document;
     class DragClient;
     class DragData;
+    struct DragState;
     class Element;
     class Frame;
+    class FrameSelection;
     class Image;
     class IntRect;
     class Node;
     class Page;
     class PlatformMouseEvent;
     class Range;
-    class SelectionController;
     
-    class DragController : public Noncopyable {
+    class DragController {
+        WTF_MAKE_NONCOPYABLE(DragController); WTF_MAKE_FAST_ALLOCATED;
     public:
         DragController(Page*, DragClient*);
         ~DragController();
@@ -65,7 +67,6 @@ namespace WebCore {
         void setIsHandlingDrag(bool handling) { m_isHandlingDrag = handling; }
         bool isHandlingDrag() const { return m_isHandlingDrag; }
         DragOperation sourceDragOperation() const { return m_sourceDragOperation; }
-        void setDraggingImageURL(const KURL& url) { m_draggingImageURL = url; }
         const KURL& draggingImageURL() const { return m_draggingImageURL; }
         void setDragOffset(const IntPoint& offset) { m_dragOffset = offset; }
         const IntPoint& dragOffset() const { return m_dragOffset; }
@@ -75,12 +76,12 @@ namespace WebCore {
         DragDestinationAction dragDestinationAction() const { return m_dragDestinationAction; }
         DragSourceAction delegateDragSourceAction(const IntPoint& pagePoint);
         
-        bool mayStartDragAtEventLocation(const Frame*, const IntPoint& framePos, Node*);
+        Node* draggableNode(const Frame*, Node*, const IntPoint&, DragState&) const;
         void dragEnded();
         
         void placeDragCaret(const IntPoint&);
         
-        bool startDrag(Frame* src, Clipboard*, DragOperation srcOp, const PlatformMouseEvent& dragEvent, const IntPoint& dragOrigin, bool isDHTMLDrag);
+        bool startDrag(Frame* src, const DragState&, DragOperation srcOp, const PlatformMouseEvent& dragEvent, const IntPoint& dragOrigin);
         static const IntSize& maxDragImageSize();
         
         static const int LinkDragBorderInset;
@@ -90,6 +91,7 @@ namespace WebCore {
         static const float DragImageAlpha;
 
     private:
+        bool dispatchTextInputEventFor(Frame*, DragData*);
         bool canProcessDrag(DragData*);
         bool concludeEditDrag(DragData*);
         DragOperation dragEnteredOrUpdated(DragData*);
@@ -98,8 +100,8 @@ namespace WebCore {
         bool tryDHTMLDrag(DragData*, DragOperation&);
         DragOperation dragOperation(DragData*);
         void cancelDrag();
-        bool dragIsMove(SelectionController*);
-        bool isCopyKeyDown();
+        bool dragIsMove(FrameSelection*, DragData*);
+        bool isCopyKeyDown(DragData*);
 
         void mouseMovedIntoDocument(Document*);
 

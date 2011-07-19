@@ -1,0 +1,63 @@
+Snarf Plugin
+============
+
+Requires v2.0.8+.
+
+This plugin can be used to move mails from a "snarf mailbox" to user's real
+INBOX. For example from '/var/mail/user' mbox file to user's final INBOX (e.g.
+'~/mbox' or '~/Maildir'). Dovecot moves as many messages as it can until it
+runs out of messages or out of quota.
+
+Configuration
+-------------
+
+You need a default and a snarf namespace, for example:
+
+---%<-------------------------------------------------------------------------
+#mail_location = mbox:~/mail/:INBOX=~/mbox
+#mail_location = maildir:~/Maildir
+
+namespace default {
+  prefix =
+  separator = /
+  inbox = yes
+}
+namespace snarf {
+  prefix = /snarf
+  separator = /
+  location = mbox:/var/run/dovecot/empty:INBOX=/var/mail/%u:INDEX=MEMORY
+  list = no
+  hidden = yes
+}
+---%<-------------------------------------------------------------------------
+
+Then tell snarf to get the mails from '.snarf/INBOX':
+
+---%<-------------------------------------------------------------------------
+plugin {
+  snarf = /snarf/INBOX
+}
+---%<-------------------------------------------------------------------------
+
+Use hierarchy separator as the first character in snarf namespace prefix to
+make sure that there won't be any conflicts with user's mailbox names.
+
+UW-IMAP style optional snarfing
+-------------------------------
+
+UW-IMAP does snarfing from '/var/mail/user' to '~/mbox' file, but only if
+'~/mbox' exists. Normally Dovecot does the snarfing always if it's enabled. To
+enable it only optionally, set also:
+
+---%<-------------------------------------------------------------------------
+# keep mail_location etc. settings as above
+
+plugin {
+  mbox_snarf = ~/mbox
+}
+---%<-------------------------------------------------------------------------
+
+Now the snarfing is done only if '~/mbox' file exists. If it's not, the
+'/var/mail/user' is used directly as the INBOX.
+
+(This file was created from the wiki on 2011-05-11 04:42)

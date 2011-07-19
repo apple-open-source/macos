@@ -187,15 +187,16 @@ static Keymap mskeymap, lskeymap;
 #define COL_MA 21
 #define COL_HI 22
 #define COL_DU 23
+#define COL_SA 24
 
-#define NUM_COLS 24
+#define NUM_COLS 25
 
 /* Names of the terminal strings. */
 
 static char *colnames[] = {
     "no", "fi", "di", "ln", "pi", "so", "bd", "cd", "or", "mi",
     "su", "sg", "tw", "ow", "st", "ex",
-    "lc", "rc", "ec", "tc", "sp", "ma", "hi", "du", NULL
+    "lc", "rc", "ec", "tc", "sp", "ma", "hi", "du", "sa", NULL
 };
 
 /* Default values. */
@@ -203,7 +204,7 @@ static char *colnames[] = {
 static char *defcols[] = {
     "0", "0", "1;31", "1;36", "33", "1;35", "1;33", "1;33", NULL, NULL,
     "37;41", "30;43", "30;42", "34;42", "37;44", "1;32", 
-    "\033[", "m", NULL, "0", "0", "7", NULL, NULL
+    "\033[", "m", NULL, "0", "0", "7", NULL, NULL, "0"
 };
 
 /* This describes a terminal string for a file type. */
@@ -872,17 +873,18 @@ putmatchcol(char *group, char *n)
  * file modes. */
 
 static int
-putfilecol(char *group, char *n, mode_t m, int special)
+putfilecol(char *group, char *filename, mode_t m, int special)
 {
     int colour = -1;
     Extcol ec;
     Patcol pc;
+    int len;
 
     nrefs = MAX_POS - 1;
 
     for (pc = mcolors.pats; pc; pc = pc->next)
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
-	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
+	    pattryrefs(pc->pat, filename, -1, -1, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
 		patcols = pc->cols;
 
@@ -928,13 +930,29 @@ putfilecol(char *group, char *n, mode_t m, int special)
     }
 
     for (ec = mcolors.exts; ec; ec = ec->next)
-	if (strsfx(ec->ext, n) &&
+	if (strsfx(ec->ext, filename) &&
 	    (!ec->prog || !group || pattry(ec->prog, group))) {
 	    zlrputs(ec->col);
 
 	    return 0;
 	}
 
+    /* Check for suffix alias */
+    len = strlen(filename);
+    /* shortest valid suffix format is a.b */
+    if (len > 2) {
+	char *suf = filename + len - 1;
+	while (suf > filename+1) {
+	    if (suf[-1] == '.') {
+		if (sufaliastab->getnode(sufaliastab, suf)) {
+		    zcputs(group, COL_SA);
+		    return 0;
+		}
+		break;
+	    }
+	    suf--;
+	}
+    }
     zcputs(group, COL_FI);
 
     return 0;
@@ -974,6 +992,8 @@ asklistscroll(int ml)
 		   !strcmp(cmd->nam, "menu-complete") ||
 	     !strcmp(cmd->nam, "menu-expand-or-complete"))
 	mrestlines = lines - 1;
+    else if (cmd == Th(z_acceptsearch))
+	ret = 1;
     else {
 	ungetkeycmd();
 	ret = 1;
@@ -2421,6 +2441,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     mlines = 999999;
     mlbeg = 0;
     molbeg = -42;
+    mtab_been_reallocated = 0;
     for (;;) {
 	METACHECK();
 
@@ -2571,7 +2592,7 @@ domenuselect(Hookdef dummy, Chdata dat)
                               cmd != Th(z_selfinsertunmeta)))) {
 	    ungetkeycmd();
 	    break;
-	} else if (cmd == Th(z_acceptline)) {
+	} else if (cmd == Th(z_acceptline) || cmd == Th(z_acceptsearch)) {
             if (mode == MM_FSEARCH || mode == MM_BSEARCH) {
                 mode = 0;
                 continue;
@@ -3196,7 +3217,9 @@ domenuselect(Hookdef dummy, Chdata dat)
 		   !strcmp(cmd->nam, "reverse-menu-complete")) {
             mode = 0;
 	    comprecursive = 1;
+	    unmetafy_line();
 	    reversemenucomplete(zlenoargs);
+	    metafy_line();
 	    mselect = (*(minfo.cur))->gnum;
 	    setwish = 1;
 	    mline = -1;
@@ -3315,7 +3338,23 @@ domenuselect(Hookdef dummy, Chdata dat)
 	mlbeg = -1;
 	showinglist = ((validlist && !nolist) ? -2 : 0);
 	onlyexpl = oe;
-	if (!smatches)
+	if (acc && listshown) {
+	    /*
+	     * Clear the list without spending sixteen weeks of
+	     * redrawing it in slightly different states first.
+	     * The following seems to work.  I'm not sure what
+	     * the difference is between listshown and showinglist,
+	     * but listshown looks like the traditional thing to
+	     * check for in this file at least.
+	     *
+	     * showinglist has a normally undocumented value of 1,
+	     * and an extra-specially undocumented value of -2, which
+	     * seems to be a force---it appears we need to kick it out
+	     * of that state, though it worries me that in some places
+	     * the code actually forces it back into that state.
+	     */
+	    clearlist = listshown = showinglist = 1;
+	} else if (!smatches)
 	    clearlist = listshown = 1;
 	zrefresh();
     }

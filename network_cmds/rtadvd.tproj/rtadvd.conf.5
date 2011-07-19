@@ -28,7 +28,7 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.Dd May 17, 1998
+.Dd July 2, 2010
 .Dt RTADVD.CONF 5
 .Os
 .Sh NAME
@@ -159,7 +159,7 @@ for such prefixes.
 The default value is 0.
 .It Cm \&addrs
 (num) Number of prefixes.
-Its default is 0, so it must explicitly be set to positve values
+Its default is 0, so it must explicitly be set to positive values
 if you want to specify any prefix information option.
 If its value is 0,
 .Xr rtadvd 8
@@ -275,7 +275,7 @@ These items are optional.
 .Bl -tag -width indent
 .It Cm \&routes
 (num) Number of routes.
-Its default is 0, so it must explicitly be set to positve values
+Its default is 0, so it must explicitly be set to positive values
 if you want to specify any route information option.
 If its value is 0, no route information is sent.
 If its value is more than 1, you must specify the index of the routes
@@ -320,6 +320,47 @@ capability.
 See
 .Xr termcap 5
 for details on the capability.
+.Pp
+The following items are for the ICMPv6 recursive DNS server (RDNSS) option,
+which will be attached to the router advertisement header.
+.Bl -tag -width indent
+.It Cm \&rdnssaddrs
+(num) Number of recursive DNS server addresses.
+Its default is 0, so it must explicitly be set to positive values
+if you want to specify any DNS server address.
+If its value is 0, no DNS server information is sent.
+If its value is more than 1, you must specify the index of the address
+for the
+.Cm rdnssaddr
+item below.
+Indices vary from 0 to N-1, where N is the
+value of
+.Cm rdnssaddrs .
+Each index shall follow the name of
+.Cm rdnssaddr ,
+e.g.,
+.Dq rdnssaddr0 .
+.It Cm \&rdnssaddr
+(str) The IPv6 address of the recursive DNS server.
+Since
+.Dq \&:
+is used for
+.Xr termcap 5
+file format as well as IPv6 numeric address, the field MUST be quoted by
+doublequote character.
+This field cannot be
+omitted if the value of
+.Cm rdnssaddrs
+is more than 0.
+.It Cm \&rdnsslifetime
+(num) The lifetime field in RDNSS option.
+(unit: seconds).
+The default value is 2 * the value of
+.Cm \&maxinterval ,
+which is also the maximum value that should be set.  The minimum value is
+.Cm \&maxinterval .
+If you specify a value outside of this range, a message is logged.
+.El
 .Sh EXAMPLES
 As presented above, all of the advertised parameters have default values
 defined in specifications, and hence you usually do not have to set them
@@ -376,6 +417,12 @@ Richard Draves,
 Default Router Preferences and More-Specific Routes
 .Dc ,
 draft-ietf-ipngwg-router-selection-01.txt
+.Pp
+Jeong, J., Park, S., Beloeil, L., and S. Madanapalli,
+.Do
+IPv6 Router Advertisement Option for DNS Configuration
+.Dc ,
+RFC 5006
 .Sh HISTORY
 The
 .Xr rtadvd 8

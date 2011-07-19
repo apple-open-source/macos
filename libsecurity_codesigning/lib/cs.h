@@ -117,7 +117,7 @@ OSStatus dbError(const SQLite3::Error &err);
 	
 
 //
-// A version of Required
+// A version of CodeSigning::Required
 //
 template <class T>
 static inline T &Required(T *ptr)

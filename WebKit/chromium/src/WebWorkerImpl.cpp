@@ -31,9 +31,9 @@
 #include "config.h"
 #include "WebWorkerImpl.h"
 
+#include "CrossThreadTask.h"
 #include "DedicatedWorkerContext.h"
 #include "DedicatedWorkerThread.h"
-#include "GenericWorkerTask.h"
 #include "KURL.h"
 #include "MessageEvent.h"
 #include "MessagePort.h"
@@ -86,7 +86,7 @@ void WebWorkerImpl::postMessageToWorkerContextTask(WebCore::ScriptExecutionConte
         static_cast<DedicatedWorkerContext*>(context);
 
     OwnPtr<MessagePortArray> ports =
-        MessagePort::entanglePorts(*context, channels.release());
+        MessagePort::entanglePorts(*context, channels);
     RefPtr<SerializedScriptValue> serializedMessage =
         SerializedScriptValue::createFromWire(message);
     workerContext->dispatchEvent(MessageEvent::create(
@@ -118,7 +118,7 @@ void WebWorkerImpl::postMessageToWorkerContext(const WebString& message,
 {
     OwnPtr<MessagePortChannelArray> channels;
     if (webChannels.size()) {
-        channels = new MessagePortChannelArray(webChannels.size());
+        channels = adoptPtr(new MessagePortChannelArray(webChannels.size()));
         for (size_t i = 0; i < webChannels.size(); ++i) {
             RefPtr<PlatformMessagePortChannel> platform_channel =
                 PlatformMessagePortChannel::create(webChannels[i]);
@@ -129,7 +129,7 @@ void WebWorkerImpl::postMessageToWorkerContext(const WebString& message,
 
     workerThread()->runLoop().postTask(
         createCallbackTask(&postMessageToWorkerContextTask,
-                           this, String(message), channels.release()));
+                           AllowCrossThreadAccess(this), String(message), channels.release()));
 }
 
 void WebWorkerImpl::workerObjectDestroyed()

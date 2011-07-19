@@ -39,6 +39,7 @@
 #include <security_utilities/cfutilities.h>
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
+#include <security_utilities/ccaudit.h>
 #include <securityd_client/ssclient.h>
 #include <CoreFoundation/CFPreferences.h>
 #include <Carbon/../Frameworks/HIToolbox.framework/Headers/TextInputSources.h>
@@ -118,6 +119,24 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
 
 
 //
+// Augment and/or interrogate an authorization asynchronously
+//
+void AuthorizationCopyRightsAsync(AuthorizationRef authorization,
+	const AuthorizationRights *rights,
+	const AuthorizationEnvironment *environment,
+	AuthorizationFlags flags,
+	AuthorizationAsyncCallback callbackBlock)
+{
+	__block AuthorizationRights *blockAuthorizedRights = NULL;
+	
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		OSStatus status = AuthorizationCopyRights(authorization, rights, environment, flags, &blockAuthorizedRights);
+		callbackBlock(status, blockAuthorizedRights);
+	});
+}
+
+
+//
 // Retrieve side-band information from an authorization
 //
 OSStatus AuthorizationCopyInfo(AuthorizationRef authorization, 
@@ -172,60 +191,46 @@ OSStatus AuthorizationFreeItemSet(AuthorizationItemSet *set)
 
 
 //
-// Get session information
+// This no longer talks to securityd; it is a kernel function.
 //
-OSStatus SessionGetInfo(SecuritySessionId session,
+OSStatus SessionGetInfo(SecuritySessionId requestedSession,
     SecuritySessionId *sessionId,
     SessionAttributeBits *attributes)
 {
     BEGIN_API
-    SecuritySessionId sid = session;
-	try {
-		server().getSessionInfo(sid, Required(attributes));
-	} catch (const MachPlusPlus::Error &err) {
-		Syslog::alert("SessionGetInfo(0x%x) -> Mach %d", session, err.error);
-		throw;
-	} catch (const CommonError &err) {
-		Syslog::alert("SessionGetInfo(0x%x) -> %d", session, err.osStatus());
-		throw;
-	} catch (...) {
-		Syslog::alert("SessionGetInfo(0x%x) -> non-OSStatus error", session);
-		throw;
-	}
-    if (sessionId)
-        *sessionId = sid;
+	CommonCriteria::AuditInfo session;
+	if (requestedSession == callerSecuritySession)
+		session.get();
+	else
+		session.get(requestedSession);
+	if (sessionId)
+		*sessionId = session.sessionId();
+	if (attributes)
+        *attributes = session.flags();
     END_API(CSSM)
 }
 
 
 //
-// Create a new session
+// Create a new session.
+// This no longer talks to securityd; it is a kernel function.
+// Securityd will pick up the new session when we next talk to it.
 //
 OSStatus SessionCreate(SessionCreationFlags flags,
     SessionAttributeBits attributes)
 {
     BEGIN_API
-    
-    // unless the (expert) caller has already done so, create a sub-bootstrap and set it
-    // note that this is inherently thread-unfriendly; we can't do anything about that
-    // (caller's responsibility)
-    Bootstrap bootstrap;
-    if (!(flags & sessionKeepCurrentBootstrap)) {
-		TaskPort self;
-		bootstrap = bootstrap.subset(TaskPort());
-		self.bootstrap(bootstrap);
-		::bootstrap_port = bootstrap;		// update libc global
-    }
-    
-    // now call the SecurityServer and tell it to initialize the (new) session
-    server().setupSession(flags, attributes);
-	
+
+	// we don't support the session creation flags anymore
+	if (flags)
+		Syslog::warning("SessionCreate flags=0x%x unsupported (ignored)", flags);
+	CommonCriteria::AuditInfo session;
+	session.create(attributes);
+        
 	// retrieve the (new) session id and set it into the process environment
-	SecuritySessionId id = callerSecuritySession;
-	SessionAttributeBits attrs;
-	server().getSessionInfo(id, attrs);
+	session.get();
 	char idString[80];
-	snprintf(idString, sizeof(idString), "%lx", id);
+	snprintf(idString, sizeof(idString), "%x", session.sessionId());
 	setenv("SECURITYSESSIONID", idString, 1);
 
     END_API(CSSM)
@@ -238,7 +243,10 @@ OSStatus SessionCreate(SessionCreationFlags flags,
 OSStatus SessionSetDistinguishedUser(SecuritySessionId session, uid_t user)
 {
 	BEGIN_API
-	server().setSessionDistinguishedUid(session, user);
+	CommonCriteria::AuditInfo session;
+	session.get();
+	session.ai_auid = user;
+	session.set();
 	END_API(CSSM)
 }
 
@@ -246,7 +254,9 @@ OSStatus SessionSetDistinguishedUser(SecuritySessionId session, uid_t user)
 OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t *user)
 {
     BEGIN_API
-	server().getSessionDistinguishedUid(session, Required(user));
+	CommonCriteria::AuditInfo session;
+	session.get();
+	Required(user) = session.uid();
     END_API(CSSM)
 }
 
@@ -263,8 +273,8 @@ OSStatus _SessionSetUserPreferences(SecuritySessionId session)
 	CFStringRef appleLanguagesStr = CFSTR("AppleLanguages");
 	CFStringRef controlTintStr = CFSTR("AppleAquaColorVariant");
 	CFStringRef keyboardUIModeStr = CFSTR("AppleKeyboardUIMode");
+	CFStringRef textDirectionStr = CFSTR("AppleTextDirection");
 	CFStringRef hitoolboxAppIDStr = CFSTR("com.apple.HIToolbox");
-    CFStringRef displayScaleFactorStr = CFSTR("AppleDisplayScaleFactor");
 	CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
 
 	CFRef<CFMutableDictionaryRef> userPrefsDict(CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
@@ -285,6 +295,10 @@ OSStatus _SessionSetUserPreferences(SecuritySessionId session)
 	if (keyboardUIModeNumber)
 		CFDictionarySetValue(globalPrefsDict, keyboardUIModeStr, keyboardUIModeNumber);
 
+	CFRef<CFNumberRef> textDirectionNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(textDirectionStr, kCFPreferencesCurrentApplication)));
+	if (textDirectionNumber)
+		CFDictionarySetValue(globalPrefsDict, textDirectionStr, textDirectionNumber);
+	
 	if (CFDictionaryGetCount(globalPrefsDict) > 0)
 		CFDictionarySetValue(userPrefsDict, kCFPreferencesAnyApplication, globalPrefsDict);
 
@@ -296,10 +310,6 @@ OSStatus _SessionSetUserPreferences(SecuritySessionId session)
 		CFNotificationCenterPostNotification(center, CFSTR("com.apple.securityagent.InputPrefsChanged"), CFSTR("com.apple.loginwindow"), hitoolboxPrefsDict, true);
 	}
 	
-	CFRef<CFNumberRef> displayScaleFactor(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(displayScaleFactorStr, kCFPreferencesCurrentApplication)));
-	if (displayScaleFactor)
-		CFDictionarySetValue(globalPrefsDict, displayScaleFactorStr, displayScaleFactor);
-
 	CFRef<CFDataRef> userPrefsData(CFPropertyListCreateXMLData(NULL, userPrefsDict));
 	if (!userPrefsData)
 		return errSessionValueNotSet;
@@ -314,8 +324,8 @@ OSStatus SessionSetUserPreferences(SecuritySessionId session)
 	if (noErr == status) {
 		CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
 		// We've succeeded in setting up a static set of prefs, now set up 
-		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
-		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifyEnabledKeyboardInputSourcesChanged"), NULL, CFNotificationSuspensionBehaviorCoalesce);
+		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
+		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifyEnabledKeyboardInputSourcesChanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
 	}
 	return status;
 }

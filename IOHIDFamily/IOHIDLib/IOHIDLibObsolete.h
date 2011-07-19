@@ -336,7 +336,7 @@ typedef struct IOHIDDeviceInterface
 /*! @function setRemovalCallback
     @abstract Sets callback to be used when device is removed.
     @param removalCallback Called when the device is removed. 
-    @param removeTarget Passed to the callback.
+    @param removalTarget Passed to the callback.
     @param removalRefcon Passed to the callback.
     @result Returns an IOReturn code.
 */
@@ -591,7 +591,7 @@ typedef struct IOHIDQueueInterface
                         uint32_t 			flags,
                         uint32_t			depth);
 
-/*! @function create
+/*! @function dispose
     @abstract Disposes of the current queue. 
     @result Returns an IOReturn code. 
 */
@@ -643,9 +643,9 @@ typedef struct IOHIDQueueInterface
     @abstract Reads next event from the queue.
     @param event The event that will be filled.  If a long value is
         present, it is up to the caller to deallocate it.
-    @param maxtime UNSUPPORTED.  If non-zero, limits read events to 
+    @param maxTime UNSUPPORTED.  If non-zero, limits read events to 
         those that occurred on or before maxTime.
-    @param timoutMS UNSUPPORTED.  The timeout in milliseconds, a zero  
+    @param timeoutMS UNSUPPORTED.  The timeout in milliseconds, a zero  
         timeout will cause this call to be non-blocking (returning  
         queue empty) if there is a NULL callback, and blocking forever 
         until the queue is non-empty if there is a valid callback.
@@ -676,10 +676,10 @@ typedef struct IOHIDQueueInterface
     @abstract Gets the event callout.
     @discussion This callback will be called the queue transitions
         to non-empty.
-    @param callback if non-NULL is a callback to be called when data 
+    @param outCallback if non-NULL is a callback to be called when data 
         is  inserted to the queue
-    @param callbackTarget The callback target passed to the callback
-    @param callbackRefcon The callback refcon passed to the callback 
+    @param outCallbackTarget The callback target passed to the callback
+    @param outCallbackRefcon The callback refcon passed to the callback 
     @result Returns an IOReturn code. 
 */
     IOReturn (*getEventCallout)(void * 			self,

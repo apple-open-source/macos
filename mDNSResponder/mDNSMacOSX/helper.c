@@ -57,6 +57,7 @@
 #include "helpermsgServer.h"
 #include "helper-server.h"
 #include "ipsec_options.h"
+#include "P2PPacketFilter.h"
 
 #ifndef RTF_IFSCOPE
 #define RTF_IFSCOPE 0x1000000
@@ -571,9 +572,13 @@ static void update_notification(void)
 		// Note: the "\xEF\xBB\xBF" byte sequence in the CFS_Format string is the UTF-8 encoding of the zero-width non-breaking space character.
 		// By appending this invisible character on the end of literal names, we ensure the these strings cannot inadvertently match any string
 		// in the localization file -- since we know for sure that none of our strings in the localization file contain the ZWNBS character.
-		CFS_OQ               = CFStringCreateWithCString(NULL, "“",  kCFStringEncodingUTF8);
-		CFS_CQ               = CFStringCreateWithCString(NULL, "”",  kCFStringEncodingUTF8);
-		CFS_Format           = CFStringCreateWithCString(NULL, "%@%s\xEF\xBB\xBF", kCFStringEncodingUTF8);
+		//
+		// For languages that are written right to left, when we mix English (host names could be in english with brackets etc. and the
+		// rest in Arabic) we need unicode markups for proper formatting. The Unicode sequence 202C (UTF8 E2 80 AC), 200E (UTF8 E2 80 8E) and
+		// 202B (UTF8 E2 80 AB) helps with the formatting. See <rdar://problem/8629082> for more details.
+		CFS_OQ               = CFStringCreateWithCString(NULL, "“\xE2\x80\xAB",  kCFStringEncodingUTF8);
+		CFS_CQ               = CFStringCreateWithCString(NULL, "\xE2\x80\xAC”",  kCFStringEncodingUTF8);
+		CFS_Format           = CFStringCreateWithCString(NULL, "%@%s\xEF\xBB\xBF\xE2\x80\x8E", kCFStringEncodingUTF8);
 		CFS_ComputerName     = CFStringCreateWithCString(NULL, "The name of your computer ",  kCFStringEncodingUTF8);
 		CFS_ComputerNameMsg  = CFStringCreateWithCString(NULL, "To change the name of your computer, "
 			"open System Preferences and click Sharing, then type the name in the Computer Name field.",  kCFStringEncodingUTF8);
@@ -759,7 +764,7 @@ fin:
 
 enum DNSKeyFormat
 	{
-	formatNotDNSKey, formatDdnsTypeItem, formatDnsPrefixedServiceItem
+	formatNotDNSKey, formatDdnsTypeItem, formatDnsPrefixedServiceItem, formatBtmmPrefixedServiceItem
 	};
 
 // On Mac OS X on Intel, the four-character string seems to be stored backwards, at least sometimes.
@@ -770,14 +775,15 @@ enum DNSKeyFormat
 static const char dnsprefix[] = "dns:";
 static const char ddns[] = "ddns";
 static const char ddnsrev[] = "sndd";
+static const char btmmprefix[] = "btmmdns:";
 
 #ifndef NO_SECURITYFRAMEWORK
 static enum DNSKeyFormat
 getDNSKeyFormat(SecKeychainItemRef item, SecKeychainAttributeList **attributesp)
 	{
-	static UInt32 tags[3] =
+	static UInt32 tags[4] =
 		{
-		kSecTypeItemAttr, kSecServiceItemAttr, kSecAccountItemAttr
+		kSecTypeItemAttr, kSecServiceItemAttr, kSecAccountItemAttr, kSecLabelItemAttr
 		};
 	static SecKeychainAttributeInfo attributeInfo =
 		{
@@ -808,6 +814,7 @@ getDNSKeyFormat(SecKeychainItemRef item, SecKeychainAttributeList **attributesp)
        "malformed result from SecKeychainItemCopyAttributesAndData - skipping");
 		goto skip;
 		}
+		
 	debug("entry (\"%.*s\", \"%.*s\", \"%.*s\")",
 	    (int)attributes->attr[0].length, attributes->attr[0].data,
 	    (int)attributes->attr[1].length, attributes->attr[1].data,
@@ -829,6 +836,9 @@ getDNSKeyFormat(SecKeychainItemRef item, SecKeychainAttributeList **attributesp)
 	    0 == strncasecmp(attributes->attr[1].data, dnsprefix,
 	    sizeof(dnsprefix)-1))
 		format = formatDnsPrefixedServiceItem;
+	else if (attributes->attr[1].length >= sizeof(btmmprefix)-1 &&
+	    0 == strncasecmp(attributes->attr[1].data, btmmprefix, sizeof(btmmprefix)-1))
+		format = formatBtmmPrefixedServiceItem;
 	else if (attributes->attr[0].length == sizeof(ddns)-1 &&
 	    0 == strncasecmp(attributes->attr[0].data, ddns, sizeof(ddns)-1))
 		format = formatDdnsTypeItem;
@@ -849,6 +859,7 @@ skip:
 	return formatNotDNSKey;
 	}
 
+// Insert the attributes as defined by mDNSKeyChainAttributes
 static CFPropertyListRef
 getKeychainItemInfo(SecKeychainItemRef item,
     SecKeychainAttributeList *attributes, enum DNSKeyFormat format)
@@ -865,6 +876,8 @@ getKeychainItemInfo(SecKeychainItemRef item,
 		debug("CFArrayCreateMutable failed");
 		goto error;
 		}
+
+	// Insert the Account attribute (kmDNSKcWhere)
 	switch ((enum DNSKeyFormat)format)
 	{
 	case formatDdnsTypeItem:
@@ -872,9 +885,10 @@ getKeychainItemInfo(SecKeychainItemRef item,
 		    attributes->attr[1].data, attributes->attr[1].length);
 		break;
 	case formatDnsPrefixedServiceItem:
+	case formatBtmmPrefixedServiceItem:
 		data = CFDataCreate(kCFAllocatorDefault,
-		    attributes->attr[1].data + sizeof(dnsprefix)-1,
-		    attributes->attr[1].length - (sizeof(dnsprefix)-1));
+		    attributes->attr[1].data, attributes->attr[1].length);
+		break;
 	default:
 		assert("unknown DNSKeyFormat value");
 		break;
@@ -886,6 +900,8 @@ getKeychainItemInfo(SecKeychainItemRef item,
 		}
 	CFArrayAppendValue(entry, data);
 	CFRelease(data);
+
+	// Insert the Where attribute (kmDNSKcAccount)
 	if (NULL == (data = CFDataCreate(kCFAllocatorDefault,
 	    attributes->attr[2].data, attributes->attr[2].length)))
 		{
@@ -894,6 +910,8 @@ getKeychainItemInfo(SecKeychainItemRef item,
 		}
 	CFArrayAppendValue(entry, data);
 	CFRelease(data);
+
+	// Insert the Key attribute (kmDNSKcKey)
 	if (noErr != (status = SecKeychainItemCopyAttributesAndData(item, NULL,
 	    NULL, NULL, &keylen, &keyp)))
 		{
@@ -907,6 +925,16 @@ getKeychainItemInfo(SecKeychainItemRef item,
 	if (NULL == data)
 		{
 		debug("CFDataCreate for keyp failed");
+		goto error;
+		}
+	CFArrayAppendValue(entry, data);
+	CFRelease(data);
+
+	// Insert the Name attribute (kmDNSKcName)
+	if (NULL == (data = CFDataCreate(kCFAllocatorDefault,
+	    attributes->attr[3].data, attributes->attr[3].length)))
+		{
+		debug("CFDataCreate for attr[3] failed");
 		goto error;
 		}
 	CFArrayAppendValue(entry, data);
@@ -1408,7 +1436,7 @@ createAnonymousRacoonConfiguration(const char *fqdn)
 	  "  situation identity_only;\n"
 	  "  verify_identifier off;\n"
 	  "  generate_policy on;\n"
-	  "  shared_secret keychain_by_id \"dns:";
+	  "  shared_secret keychain_by_id \"";
 	static const char config2[] =
 	  "\";\n"
 	  "  nonce_size 16;\n"
@@ -2146,7 +2174,7 @@ int
 do_mDNSAutoTunnelSetKeys(__unused mach_port_t port, int replacedelete,
     v6addr_t loc_inner, v6addr_t loc_outer6, uint16_t loc_port,
     v6addr_t rmt_inner, v6addr_t rmt_outer6, uint16_t rmt_port,
-    const char *fqdn, int *err, audit_token_t token)
+    const char *id, int *err, audit_token_t token)
 	{
 #ifndef MDNS_NO_IPSEC
 	static const char config[] =
@@ -2158,8 +2186,8 @@ do_mDNSAutoTunnelSetKeys(__unused mach_port_t port, int replacedelete,
 	  "  situation identity_only;\n"
 	  "  verify_identifier off;\n"
 	  "  generate_policy on;\n"
-	  "  my_identifier user_fqdn \"dns:%s\";\n"
-	  "  shared_secret keychain \"dns:%s\";\n"
+	  "  my_identifier user_fqdn \"%s\";\n"
+	  "  shared_secret keychain \"%s\";\n"
 	  "  nonce_size 16;\n"
 	  "  lifetime time 15 min;\n"
 	  "  initial_contact on;\n"
@@ -2294,7 +2322,7 @@ do_mDNSAutoTunnelSetKeys(__unused mach_port_t port, int replacedelete,
 			goto fin;
 			}
 		fd = -1;
-		fprintf(fp, config, configHeader, (!rmt_port ? ro6 : ro), rmt_port, fqdn, fqdn, ri, li, li, ri);
+		fprintf(fp, config, configHeader, (!rmt_port ? ro6 : ro), rmt_port, id, id, ri, li, li, ri);
 		fclose(fp);
 		fp = NULL;
 		if (0 > rename(tmp_path, path))
@@ -2343,7 +2371,7 @@ fin:
 	unlink(tmp_path);
 #else
 	(void)replacedelete; (void)loc_inner; (void)loc_outer6; (void)loc_port; (void)rmt_inner;
-	(void)rmt_outer6; (void)rmt_port; (void)fqdn; (void)token;
+	(void)rmt_outer6; (void)rmt_port; (void)id; (void)token;
 	
 	*err = kmDNSHelperIPsecDisabled;
 #endif /* MDNS_NO_IPSEC */
@@ -2439,3 +2467,44 @@ do_mDNSSendWakeupPacket(__unused mach_port_t port, unsigned ifid, const char *et
 	close(bpf_fd);
 	return KERN_SUCCESS;
 	}
+
+// Open the specified port for protocol in the P2P firewall.
+kern_return_t
+do_mDNSPacketFilterControl(__unused mach_port_t port, uint32_t command, const char * ifname, uint16_t servicePort, uint16_t protocol, audit_token_t token)
+	{
+	(void) token; // unused
+	int	error;
+	kern_return_t result = KERN_SUCCESS;
+
+	helplog(ASL_LEVEL_INFO, "do_mDNSPacketFilterControl: command %d ifname %s, servicePort 0x%x, protocol %d", 
+			command, ifname, servicePort, protocol);
+
+	switch (command)
+		{
+		case PF_SET_RULES:
+			error = P2PPacketFilterAddBonjourRuleSet(ifname, servicePort, protocol);
+			if (error)
+				{
+				helplog(ASL_LEVEL_ERR, "P2PPacketFilterAddBonjourRuleSet failed %s", strerror(error));
+				result = KERN_FAILURE;
+				}
+			break;
+
+		case PF_CLEAR_RULES:
+			error = P2PPacketFilterClearBonjourRules();
+			if (error)
+				{
+				helplog(ASL_LEVEL_ERR, "P2PPacketFilterClearBonjourRules failed %s", strerror(error));
+				result = KERN_FAILURE;
+				}
+			break;
+
+		default:
+			helplog(ASL_LEVEL_ERR, "do_mDNSPacketFilterControl: invalid command %d", command);
+			result = KERN_INVALID_ARGUMENT;
+			break;
+		}
+
+	return result;
+	}
+

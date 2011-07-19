@@ -23,6 +23,39 @@ namespace eval ::Plotchart {
    }
 }
 
+# determineScaleFromList --
+#    Determine nice values for an axis from a list of values
+#
+# Arguments:
+#    values    List of values
+#    inverted  Whether to return values for an inverted axis (1) or not (0)
+#              Defaults to 0.
+# Result:
+#    A list of three values, a nice minimum and maximum
+#    and stepsize
+# Note:
+#    Missing values (empty strings) are allowed in the list of values
+#
+proc ::Plotchart::determineScaleFromList { values {inverted 0} } {
+
+    set xmin {}
+    set xmax {}
+
+    foreach v $values {
+        if { $v == {} } {
+            continue
+        }
+        if { $xmin == {} || $xmin > $v } {
+            set xmin $v
+        }
+        if { $xmax == {} || $xmax < $v } {
+            set xmax $v
+        }
+    }
+
+    return [determineScale $xmin $xmax $inverted]
+}
+
 # determineScale --
 #    Determine nice values for an axis from the given extremes
 #
@@ -51,6 +84,17 @@ proc ::Plotchart::determineScale { xmin xmax {inverted 0} } {
    }
 
    #
+   # Very small ranges (relatively speaking) cause problems
+   # The range must be at least 1.0e-8
+   #
+   if { $dx < 0.5e-8*(abs($xmin)+abs($xmax)) } {
+       set xmean [expr {0.5*($xmin+$xmax)}]
+       set dx    [expr {1.0e-8*$xmean}]
+       set xmin  [expr {$xmean - 0.5*$dx}]
+       set xmax  [expr {$xmean + 0.5*$dx}]
+   }
+
+   #
    # Determine the factor of 10 so that dx falls within the range 1-10
    #
    set expon  [expr {int(log10($dx))}]
@@ -64,8 +108,16 @@ proc ::Plotchart::determineScale { xmin xmax {inverted 0} } {
       }
    }
 
-   set nicemin [expr {$step*$factor*int($xmin/$factor/$step)}]
-   set nicemax [expr {$step*$factor*int($xmax/$factor/$step)}]
+   set fmin    [expr {$xmin/$factor/$step}]
+   set fmax    [expr {$xmax/$factor/$step}]
+#  if { abs($fmin) > 1.0e10 } {
+#      set fmin [expr {$fmin > 0.0 ? 1.0e10 : -1.0e10}]
+#  }
+#  if { abs($fmax) > 1.0e10 } {
+#      set fmax [expr {$fmax > 0.0 ? 1.0e10 : -1.0e10}]
+#  }
+   set nicemin [expr {$step*$factor*wide($fmin)}]
+   set nicemax [expr {$step*$factor*wide($fmax)}]
 
    if { [tlt $nicemax $xmax] } {
       set nicemax [expr {$nicemax+$step*$factor}]

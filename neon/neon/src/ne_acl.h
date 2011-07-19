@@ -19,6 +19,10 @@
 
 */
 
+/*
+ * DEPRECATED ACL Interface.  See ne_acl3744.h for replacement API.
+ */
+
 #ifndef NE_ACL_H
 #define NE_ACL_H
 

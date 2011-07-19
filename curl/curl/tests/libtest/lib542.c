@@ -5,10 +5,8 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib542.c,v 1.4 2008-09-20 04:26:57 yangtse Exp $
  */
 
-#include "setup.h" /* struct_stat etc. */
 #include "test.h"
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -52,19 +50,21 @@ int test(char *URL)
   }
 
   /* enable verbose */
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  test_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   /* enable NOBODY */
-  curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+  test_setopt(curl, CURLOPT_NOBODY, 1L);
 
   /* disable HEADER */
-  curl_easy_setopt(curl, CURLOPT_HEADER, 0L);
+  test_setopt(curl, CURLOPT_HEADER, 0L);
 
   /* specify target */
-  curl_easy_setopt(curl,CURLOPT_URL, URL);
+  test_setopt(curl,CURLOPT_URL, URL);
 
   /* Now run off and do what you've been told! */
   res = curl_easy_perform(curl);
+
+test_cleanup:
 
   curl_easy_cleanup(curl);
   curl_global_cleanup();

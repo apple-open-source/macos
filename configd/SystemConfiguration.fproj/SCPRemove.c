@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,25 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
+
+Boolean
+SCPreferencesRemoveAllValues(SCPreferencesRef prefs)
+{
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
+	}
+
+	__SCPreferencesAccess(prefs);
+
+	CFDictionaryRemoveAllValues(prefsPrivate->prefs);
+	prefsPrivate->changed  = TRUE;
+	return TRUE;
+}
+
 
 Boolean
 SCPreferencesRemoveValue(SCPreferencesRef prefs, CFStringRef key)

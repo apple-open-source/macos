@@ -1,15 +1,22 @@
 Changes
 lib/Data/Dump.pm
-MANIFEST
+lib/Data/Dump/Trace.pm
+lib/Data/Dump/Filtered.pm
+lib/Data/Dump/FilterContext.pm
 Makefile.PL
+MANIFEST
 README
+t/dd.t
 t/dump.t
 t/eval.t
+t/filtered.t
 t/glob.t
-t/quote.t
+t/hash.t
 t/quote-unicode.t
+t/quote.t
 t/ref.t
 t/regexp.t
 t/scalar-obj.t
 t/scalar.t
 t/tied.t
+META.yml                                 Module meta-data (added by MakeMaker)

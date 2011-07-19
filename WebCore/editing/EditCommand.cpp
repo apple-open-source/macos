@@ -27,15 +27,14 @@
 #include "EditCommand.h"
 
 #include "CompositeEditCommand.h"
-#include "CSSComputedStyleDeclaration.h"
-#include "CSSMutableStyleDeclaration.h"
 #include "DeleteButtonController.h"
 #include "Document.h"
 #include "Editor.h"
 #include "Element.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "SelectionController.h"
+#include "FrameSelection.h"
+#include "ScopedEventQueue.h"
 #include "VisiblePosition.h"
 #include "htmlediting.h"
 
@@ -86,10 +85,13 @@ void EditCommand::apply()
     if (isTopLevelCommand())
         updateLayout();
 
-    DeleteButtonController* deleteButtonController = frame->editor()->deleteButtonController();
-    deleteButtonController->disable();
-    doApply();
-    deleteButtonController->enable();
+    {
+        EventQueueScope scope;
+        DeleteButtonController* deleteButtonController = frame->editor()->deleteButtonController();
+        deleteButtonController->disable();
+        doApply();
+        deleteButtonController->enable();
+    }
 
     if (isTopLevelCommand()) {
         // Only need to call appliedEditing for top-level commands, and TypingCommands do it on their
@@ -97,6 +99,8 @@ void EditCommand::apply()
         if (!isTypingCommand())
             frame->editor()->appliedEditing(this);
     }
+
+    setShouldRetainAutocorrectionIndicator(false);
 }
 
 void EditCommand::unapply()
@@ -190,6 +194,19 @@ bool EditCommand::isTypingCommand() const
     return false;
 }
 
+bool EditCommand::isCreateLinkCommand() const
+{
+    return false;
+}
+
+bool EditCommand::shouldRetainAutocorrectionIndicator() const
+{
+    return false;
+}
+
+void EditCommand::setShouldRetainAutocorrectionIndicator(bool)
+{
+}
 
 void EditCommand::updateLayout() const
 {

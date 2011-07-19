@@ -1,4 +1,12 @@
-// CONFIG rdar://6255170
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG
+
+// rdar://6255170
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -6,10 +14,9 @@
 #include <Block.h>
 #include <Block_private.h>
 #include <assert.h>
+#include "test.h"
 
-
-int
-main(int argc, char *argv[])
+int main()
 {
     __block int var = 0;
     int shouldbe = 0;
@@ -31,10 +38,8 @@ main(int argc, char *argv[])
     b(); ++shouldbe;
 
     if (var != shouldbe) {
-        printf("Hmm, var is %d but should be %d\n", var, shouldbe);
-        return 1;
+        fail("var is %d but should be %d", var, shouldbe);
     }
-    printf("%s: Success!!\n", argv[0]);
 
-    return 0;
+    succeed(__FILE__);
 }

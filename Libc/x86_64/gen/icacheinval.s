@@ -31,15 +31,26 @@
 
 /* void sys_icache_invalidate(addr_t start, int length) */
 
-.globl	_sys_icache_invalidate
+	.globl	_sys_icache_invalidate
 _sys_icache_invalidate:
-	movq	$(_COMM_PAGE_FLUSH_ICACHE), %rax
-	jmp	*%rax
+	// This is a NOP on intel processors, since the intent of the API
+	// is to make data executable, and Intel L1Is are coherent with L1D.
+	ret
 
 
 /* void sys_dcache_flush(addr_t start, int length)  */
 
-.globl	_sys_dcache_flush
+	.globl	_sys_dcache_flush
 _sys_dcache_flush:
-	movq	$(_COMM_PAGE_FLUSH_DCACHE), %rax
-	jmp	*%rax
+	testq	%rsi,%rsi		// length 0?
+	jz	2f			// yes
+	mfence				// ensure previous stores make it to memory
+	clflush	-1(%rdi,%rsi)		// make sure last line is flushed
+1:
+	clflush	(%rdi)			// flush a line
+	addq	$64,%rdi
+	subq	$64,%rsi
+	ja	1b
+	mfence				// make sure memory is updated before we return
+2:
+	ret

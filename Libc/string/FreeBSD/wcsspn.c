@@ -32,14 +32,12 @@
 __RCSID("$NetBSD: wcsspn.c,v 1.1 2000/12/23 23:14:37 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wcsspn.c,v 1.7 2002/09/21 00:29:23 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcsspn.c,v 1.8 2009/02/03 17:58:20 danger Exp $");
 
 #include <wchar.h>
 
 size_t
-wcsspn(s, set)
-	const wchar_t *s;
-	const wchar_t *set;
+wcsspn(const wchar_t *s, const wchar_t *set)
 {
 	const wchar_t *p;
 	const wchar_t *q;

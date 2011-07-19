@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "BackForwardList.h"
+
 #include "Document.h"
 #include "Editor.h"
 #include "Element.h"
@@ -59,6 +59,9 @@
     #include "wx/wx.h"
 #endif
 
+#include "WebDOMNode.h"
+
+#include "WebDOMSelection.h"
 #include "WebFrame.h"
 #include "WebView.h"
 #include "WebFramePrivate.h"
@@ -74,7 +77,6 @@
 
 wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameData* data) :
     m_textMagnifier(1.0),
-    m_isEditable(false),
     m_isInitialized(false),
     m_beingDestroyed(false)
 {
@@ -152,7 +154,7 @@ wxString wxWebFrame::GetPageSource()
     return wxEmptyString;
 }
 
-void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
+void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl, const wxString& mimetype)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
         WebCore::KURL url(WebCore::KURL(), baseUrl);
@@ -161,7 +163,7 @@ void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
         const char* contents = charBuffer;
 
         WTF::PassRefPtr<WebCore::SharedBuffer> sharedBuffer = WebCore::SharedBuffer::create(contents, strlen(contents));
-        WebCore::SubstituteData substituteData(sharedBuffer, WebCore::String("text/html"), WebCore::String("UTF-8"), WebCore::blankURL(), url);
+        WebCore::SubstituteData substituteData(sharedBuffer, mimetype, WTF::String("UTF-8"), WebCore::blankURL(), url);
 
         m_impl->frame->loader()->stop();
         m_impl->frame->loader()->load(WebCore::ResourceRequest(url), substituteData, false);
@@ -193,6 +195,30 @@ wxString wxWebFrame::GetExternalRepresentation()
     return externalRepresentation(m_impl->frame);
 }
 
+wxString wxWebFrame::GetSelectionAsHTML()
+{
+    if (m_impl->frame)
+        return m_impl->frame->selection()->toNormalizedRange()->toHTML();
+        
+    return wxEmptyString;
+}
+
+wxString wxWebFrame::GetSelectionAsText()
+{
+    if (m_impl->frame)
+        return m_impl->frame->selection()->toNormalizedRange()->text();
+        
+    return wxEmptyString;
+}
+
+wxWebKitSelection wxWebFrame::GetSelection()
+{
+    if (m_impl->frame)
+        return wxWebKitSelection(m_impl->frame->selection());
+        
+    return 0;
+}
+
 wxString wxWebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
@@ -206,17 +232,47 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
             if (jsEnabled) {
                 JSC::JSValue result = controller->executeScript(javascript, true).jsValue();
                 if (result)
-                    returnValue = wxString(result.toString(m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec()).UTF8String().data(), wxConvUTF8);        
+                    returnValue = wxString(result.toString(m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec()).utf8().data(), wxConvUTF8);        
             }
         }
     }
     return returnValue;
 }
 
+bool wxWebFrame::ExecuteEditCommand(const wxString& command, const wxString& parameter)
+{
+    if (m_impl->frame && IsEditable())
+        return m_impl->frame->editor()->command(command).execute(parameter);
+}
+
+EditState wxWebFrame::GetEditCommandState(const wxString& command) const
+{
+    if (m_impl->frame && IsEditable()) { 
+        WebCore::TriState state = m_impl->frame->editor()->command(command).state();
+        if (state == WebCore::TrueTriState)
+            return EditStateTrue;
+        if (state == WebCore::FalseTriState)
+            return EditStateFalse;
+
+        return EditStateMixed;
+    }
+        
+    return EditStateFalse;
+}
+
+wxString wxWebFrame::GetEditCommandValue(const wxString& command) const
+{
+    if (m_impl->frame && IsEditable())
+        return m_impl->frame->editor()->command(command).value();
+        
+    return wxEmptyString;
+}
+
+
 bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensitive, bool wrapSelection, bool startInSelection)
 {
     if (m_impl->frame)
-        return m_impl->frame->findString(string, forward, caseSensitive, wrapSelection, startInSelection);
+        return m_impl->frame->editor()->findString(string, forward, caseSensitive, wrapSelection, startInSelection);
 
     return false;
 }
@@ -261,16 +317,16 @@ bool wxWebFrame::GoForward()
 
 bool wxWebFrame::CanGoBack()
 {
-    if (m_impl->frame && m_impl->frame->page() && m_impl->frame->page()->backForwardList())
-        return m_impl->frame->page()->backForwardList()->backItem() != NULL;
+    if (m_impl->frame && m_impl->frame->page())
+        return m_impl->frame->page()->canGoBackOrForward(-1);
 
     return false;
 }
 
 bool wxWebFrame::CanGoForward()
 {
-    if (m_impl->frame && m_impl->frame->page() && m_impl->frame->page()->backForwardList())
-        return m_impl->frame->page()->backForwardList()->forwardItem() != NULL;
+    if (m_impl->frame && m_impl->frame->page())
+        return m_impl->frame->page()->canGoBackOrForward(1);
 
     return false;
 }
@@ -305,7 +361,7 @@ bool wxWebFrame::CanRedo()
 
 bool wxWebFrame::CanIncreaseTextSize() const
 {
-    if (m_impl->frame) {
+    if (m_impl->frame && m_impl->frame->view()) {
         if (m_textMagnifier*TextSizeMultiplierRatio <= MaximumTextSizeMultiplier)
             return true;
     }
@@ -316,13 +372,13 @@ void wxWebFrame::IncreaseTextSize()
 {
     if (CanIncreaseTextSize()) {
         m_textMagnifier = m_textMagnifier*TextSizeMultiplierRatio;
-        m_impl->frame->setZoomFactor(m_textMagnifier, WebCore::ZoomTextOnly);
+        m_impl->frame->setTextZoomFactor(m_textMagnifier);
     }
 }
 
 bool wxWebFrame::CanDecreaseTextSize() const
 {
-    if (m_impl->frame) {
+    if (m_impl->frame && m_impl->frame->view()) {
         if (m_textMagnifier/TextSizeMultiplierRatio >= MinimumTextSizeMultiplier)
             return true;
     }
@@ -333,7 +389,7 @@ void wxWebFrame::DecreaseTextSize()
 {        
     if (CanDecreaseTextSize()) {
         m_textMagnifier = m_textMagnifier/TextSizeMultiplierRatio;
-        m_impl->frame->setZoomFactor(m_textMagnifier, WebCore::ZoomTextOnly);
+        m_impl->frame->setTextZoomFactor(m_textMagnifier);
     }
 }
 
@@ -341,15 +397,21 @@ void wxWebFrame::ResetTextSize()
 {
     m_textMagnifier = 1.0;
     if (m_impl->frame)
-        m_impl->frame->setZoomFactor(m_textMagnifier, WebCore::ZoomTextOnly);
+        m_impl->frame->setTextZoomFactor(m_textMagnifier);
 }
 
 void wxWebFrame::MakeEditable(bool enable)
 {
-    m_isEditable = enable;
+    if (enable != IsEditable() && m_impl->frame && m_impl->frame->page())
+        m_impl->frame->page()->setEditable(enable);
 }
 
-
+bool wxWebFrame::IsEditable() const
+{
+    if (m_impl->frame && m_impl->frame->page())
+        return m_impl->frame->page()->isEditable();
+    return false;
+}
 
 bool wxWebFrame::CanCopy()
 {
@@ -414,17 +476,17 @@ wxWebViewDOMElementInfo wxWebFrame::HitTest(const wxPoint& pos) const
 bool wxWebFrame::ShouldClose() const
 {
     if (m_impl->frame)
-        return m_impl->frame->shouldClose();
+        return m_impl->frame->loader()->shouldClose();
 
     return true;
 }
 
-wxWebKitParseMode wxWebFrame::GetParseMode() const
+wxWebKitCompatibilityMode wxWebFrame::GetCompatibilityMode() const
 {
     if (m_impl->frame && m_impl->frame->document())
-        return (wxWebKitParseMode)m_impl->frame->document()->parseMode();
+        return (wxWebKitCompatibilityMode)m_impl->frame->document()->compatibilityMode();
 
-    return NoDocument;
+    return QuirksMode;
 }
 
 void wxWebFrame::GrantUniversalAccess()

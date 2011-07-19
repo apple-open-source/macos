@@ -1,9 +1,10 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin fileutil n 1.13.5]
+[manpage_begin fileutil n 1.14.4]
 [moddesc   {file utilities}]
 [titledesc {Procedures implementing some file utilities}]
+[category  {Programming tools}]
 [require Tcl 8]
-[require fileutil [opt 1.13.5]]
+[require fileutil [opt 1.14.4]]
 [description]
 [keywords {file utilities} touch grep type {temp file} test cat]
 [para]
@@ -11,6 +12,21 @@
 This package provides implementations of standard unix utilities.
 
 [list_begin definitions]
+
+[call [cmd ::fileutil::lexnormalize] [arg path]]
+
+This command performs purely lexical normalization on the [arg path] and returns
+the changed path as its result. Symbolic links in the path are [emph not] resolved.
+
+[para]
+Examples:
+[example {
+    fileutil::lexnormalize /foo/./bar
+    => /foo/bar
+
+    fileutil::lexnormalize /foo/../bar
+    => /bar
+}]
 
 [call [cmd ::fileutil::fullnormalize] [arg path]]
 
@@ -185,12 +201,13 @@ file, from most general (eg, "binary" or "text") to most specific (eg,
 "gif").  For example, the return value for a GIF file would be "binary
 graphic gif".  The command will detect the following types of files:
 directory, empty, binary, text, script (with interpreter), executable
-elf, executable dos, executable ne, executable pe, graphic gif,
-graphic jpeg, graphic png, graphic tiff, graphic bitmap, html,
-xml (with doctype if available), message pgp, binary pdf, text ps,
-text eps, binary gravity_wave_data_frame, compressed bzip,
-compressed gzip, compressed zip, compressed tar, audio wave,
-audio mpeg, and link.
+elf, executable dos, executable ne, executable pe, graphic gif, graphic
+jpeg, graphic png, graphic tiff, graphic bitmap, html, xml (with doctype
+if available), message pgp, binary pdf, text ps, text eps, binary
+gravity_wave_data_frame, compressed bzip, compressed gzip, compressed
+zip, compressed tar, audio wave, audio mpeg, and link. It further
+detects doctools, doctoc, and docidx documentation files, and
+tklib diagrams.
 
 
 [call [cmd ::fileutil::find] [opt "[arg basedir] [opt [arg filtercmd]]"]]

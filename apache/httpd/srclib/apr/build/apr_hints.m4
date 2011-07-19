@@ -118,7 +118,7 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
     *-hp-hpux*)
 	APR_ADDTO(CPPFLAGS, [-DHPUX -D_REENTRANT])
 	;;
-    *-linux-*)
+    *-linux*)
         case `uname -r` in
 	    2.* )  APR_ADDTO(CPPFLAGS, [-DLINUX=2])
 	           ;;
@@ -202,6 +202,9 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
                 # 10.6+ (Darwin 10.x is supposed to fix the KQueue issues
                 APR_SETIFNULL(ac_cv_func_kqueue, [no]) 
                 APR_SETIFNULL(ac_cv_func_poll, [no]) # See issue 34332
+            ;;
+            *-apple-darwin10.*)
+                APR_ADDTO(CPPFLAGS, [-DDARWIN_10])
             ;;
         esac
 	;;
@@ -402,7 +405,7 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
                 APR_ADDTO(LIBS, [-lbind -lsocket])
                 ;;
 	esac
-	APR_ADDTO(CPPFLAGS, [-DSIGPROCMASK_SETS_THREAD_MASK -DAP_AUTH_DBM_USE_APR])
+	APR_ADDTO(CPPFLAGS, [-DSIGPROCMASK_SETS_THREAD_MASK])
         ;;
     4850-*.*)
 	APR_ADDTO(CPPFLAGS, [-DSVR4 -DMPRAS])
@@ -439,24 +442,43 @@ dnl	       # Not a problem in 10.20.  Otherwise, who knows?
 	APR_ADDTO(CPPFLAGS, [-DCYGWIN])
 	;;
     *mingw*)
-	dnl gcc (3.4.2 at least) seems to mis-optimize at levels greater than
-	dnl -O0 producing link-time errors.  The user can override by
-	dnl explicitly passing a CFLAGS value to configure.
-	dnl 
-	dnl Example error messages:
-	dnl undefined reference to 'libmsvcrt_a_iname'
-	dnl undefined reference to '_nm___pctype'
-	if test "$ac_test_CFLAGS" != set; then
-		APR_REMOVEFROM(CFLAGS,-O2)
-		APR_ADDTO(CFLAGS,-O0)
-	fi
-	APR_ADDTO(LDFLAGS, [-Wl,--enable-auto-import,--subsystem,console])
-	APR_SETIFNULL(apr_lock_method, [win32])
-	APR_SETIFNULL(apr_process_lock_is_global, [yes])
-	APR_SETIFNULL(have_unicode_fs, [1])
-	APR_SETIFNULL(have_proc_invoked, [1])
-	APR_SETIFNULL(apr_cv_use_lfs64, [yes])
-	;;
+        APR_ADDTO(CPPFLAGS, [-DWIN32 -D__MSVCRT__])
+        APR_ADDTO(LDFLAGS, [-Wl,--enable-auto-import,--subsystem,console])
+        APR_SETIFNULL(have_unicode_fs, [1])
+        APR_SETIFNULL(have_proc_invoked, [1])
+        APR_SETIFNULL(apr_lock_method, [win32])
+        APR_SETIFNULL(apr_process_lock_is_global, [yes])
+        APR_SETIFNULL(apr_cv_use_lfs64, [yes])
+        APR_SETIFNULL(apr_cv_osuuid, [yes])
+        APR_SETIFNULL(apr_cv_tcp_nodelay_with_cork, [no])
+        APR_SETIFNULL(apr_thread_func, [__stdcall])
+        APR_SETIFNULL(ac_cv_o_nonblock_inherited, [yes])
+        APR_SETIFNULL(ac_cv_tcp_nodelay_inherited, [yes])
+        APR_SETIFNULL(ac_cv_file__dev_zero, [no])
+        APR_SETIFNULL(ac_cv_func_setpgrp_void, [no])
+        APR_SETIFNULL(ac_cv_func_mmap, [yes])
+        APR_SETIFNULL(ac_cv_define_sockaddr_in6, [yes])
+        APR_SETIFNULL(ac_cv_working_getaddrinfo, [yes])
+        APR_SETIFNULL(ac_cv_working_getnameinfo, [yes])
+        APR_SETIFNULL(ac_cv_func_gai_strerror, [yes])
+        case $host in
+            *mingw32*)
+                APR_SETIFNULL(apr_has_xthread_files, [1])
+                APR_SETIFNULL(apr_has_user, [1])
+                APR_SETIFNULL(apr_procattr_user_set_requires_password, [1])
+                dnl The real function is TransmitFile(), not sendfile(), but
+                dnl this bypasses the Linux/Solaris/AIX/etc. test and enables
+                dnl the TransmitFile() implementation.
+                APR_SETIFNULL(ac_cv_func_sendfile, [yes])
+                ;;
+            *mingwce)
+                APR_SETIFNULL(apr_has_xthread_files, [0])
+                APR_SETIFNULL(apr_has_user, [0])
+                APR_SETIFNULL(apr_procattr_user_set_requires_password, [0])
+                APR_SETIFNULL(ac_cv_func_sendfile, [no])
+                ;;
+        esac
+        ;;
   esac
 
 fi

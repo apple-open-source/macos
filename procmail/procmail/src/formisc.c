@@ -115,7 +115,7 @@ void loadchar(c)const int c;		      /* append one character to buf */
   buf[buffilled++]=c;
 }
 
-int getline P((void))			   /* read a newline-terminated line */
+int pm_getline P((void))			   /* read a newline-terminated line */
 { if(buflast==EOF)			 /* at the end of our Latin already? */
    { loadchar('\n');					  /* fake empty line */
      return EOF;					  /* spread the word */

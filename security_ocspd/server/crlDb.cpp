@@ -443,22 +443,25 @@ void CrlDatabase::flush(
 		ocspdCrlDebug("CrlDatabase::flush: no records found");
 		goto done;
 	}
-	ocspdCrlDebug("CrlDatabase::flush: deleting a CRL");
-	CSSM_DL_DataDelete(dlDbHand, record);
-	CSSM_DL_FreeUniqueRecord(dlDbHand, record);
-	
-	/* any more? */
-	do {
-		crtn = CSSM_DL_DataGetNext(dlDbHand, resultHand,	NULL, NULL, &record);
-		if(crtn) {
-			/* done, not found */
-			break;
-		}
+	try {
 		ocspdCrlDebug("CrlDatabase::flush: deleting a CRL");
 		CSSM_DL_DataDelete(dlDbHand, record);
 		CSSM_DL_FreeUniqueRecord(dlDbHand, record);
-	} while(crtn == CSSM_OK);
-	CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
+		
+		/* any more? */
+		do {
+			crtn = CSSM_DL_DataGetNext(dlDbHand, resultHand, NULL, NULL, &record);
+			if(crtn) {
+				/* done, not found */
+				break;
+			}
+			ocspdCrlDebug("CrlDatabase::flush: deleting a CRL");
+			CSSM_DL_DataDelete(dlDbHand, record);
+			CSSM_DL_FreeUniqueRecord(dlDbHand, record);
+		} while(crtn == CSSM_OK);
+		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
+	}
+	catch (...) {}; // <rdar://8833413>
 done:
 	closeDatabase(dbHand);
 	return;

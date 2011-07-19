@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,37 +28,50 @@
 #include <sys/types.h>
 #include <netsmb/smb_lib.h>
 
-/* Perform a SMB_READ or SMB_READX.
- *
- * Return value is -errno if < 0, otherwise the received byte count.
- */
-ssize_t
-smbio_read(
-	void *		smbctx,
-	int		fid,
-	uint8_t *	buf,
-	size_t		buflen);
+struct open_inparms {
+	uint32_t rights;
+	uint32_t shareMode;
+	uint32_t disp;
+	uint32_t attrs;
+	uint64_t allocSize;
+	uint32_t createOptions;
+};
 
-/* Perform a TRANSACT_NAMES_PIPE.
+struct open_outparm {
+	uint64_t createTime;
+	uint64_t accessTime;
+	uint64_t writeTime;
+	uint64_t changeTime;
+	uint32_t attributes;
+	uint64_t allocationSize;
+	uint64_t fileSize;
+	uint8_t volumeGID[16];
+	uint64_t fileInode;
+	uint32_t maxAccessRights;
+	uint32_t maxGuessAccessRights;
+};
+
+/*  Return value is -errno if < 0, otherwise the received byte count. */
+ssize_t smbio_read(void *smbctx, int fid, uint8_t *buf, size_t bufSize);
+
+/* 
+ * Perform a smb transaction call
  *
- * Return value is -errno if < 0, otherwise the received byte count.
+ * Return zero if no error or the appropriate errno.
  */
-ssize_t
-smbio_transact(
-	void *		smbctx,
-	int		fid,	    /* pipe file ID */
-	const uint8_t *	out_buf,    /* data to send */
-	size_t		out_len,
-	uint8_t *	in_buf,	    /* buffer for response */
-	size_t		in_len);
+int smbio_transact(void *smbctx, uint16_t *setup, int setupCnt, const char *name, 
+				   const uint8_t *sndPData, size_t sndPDataLen, 
+				   const uint8_t *sndData, size_t sndDataLen, 
+				   uint8_t *rcvPData, size_t *rcvPDataLen, 
+				   uint8_t *rcvdData, size_t *rcvDataLen);
 
 /* Open a SMB names pipe. Returns 0 on success, otherwise -errno. */
-int
-smbio_open_pipe(
-	void *		smbctx,
-	const char *	pipename, /* without the leading \\ */
-	int *		fid);
-
+int smbio_open_pipe(void * smbctx, const char *	pipename, int *fid);
+int smbio_close_file(void *ctx, int fid);
+int smbio_check_directory(struct smb_ctx *ctx, const void *path, 
+						  uint32_t /* flags2 */, uint32_t */* nt_error */);
+int smbio_ntcreatex(void *smbctx, const char *path, const char *streamName, 
+					struct open_inparms *inparms, struct open_outparm *outparms, 
+					int *fid);
 #endif /* __NETSMB_SMBIO_H_INCLUDED__ */
 
-/* vim: set ts=4 et tw=79 */

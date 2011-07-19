@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)err.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.13 2002/03/29 22:43:41 markm Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.15 2008/04/03 20:36:44 imp Exp $");
 
 #include "namespace.h"
 #include <err.h>
@@ -101,11 +97,7 @@ errc(int eval, int code, const char *fmt, ...)
 }
 
 void
-verrc(eval, code, fmt, ap)
-	int eval;
-	int code;
-	const char *fmt;
-	va_list ap;
+verrc(int eval, int code, const char *fmt, va_list ap)
 {
 	if (err_file == 0)
 		err_set_file((FILE *)0);
@@ -130,10 +122,7 @@ errx(int eval, const char *fmt, ...)
 }
 
 void
-verrx(eval, fmt, ap)
-	int eval;
-	const char *fmt;
-	va_list ap;
+verrx(int eval, const char *fmt, va_list ap)
 {
 	if (err_file == 0)
 		err_set_file((FILE *)0);
@@ -158,9 +147,7 @@ _warn(const char *fmt, ...)
 }
 
 void
-vwarn(fmt, ap)
-	const char *fmt;
-	va_list ap;
+vwarn(const char *fmt, va_list ap)
 {
 	vwarnc(errno, fmt, ap);
 }
@@ -175,10 +162,7 @@ warnc(int code, const char *fmt, ...)
 }
 
 void
-vwarnc(code, fmt, ap)
-	int code;
-	const char *fmt;
-	va_list ap;
+vwarnc(int code, const char *fmt, va_list ap)
 {
 	if (err_file == 0)
 		err_set_file((FILE *)0);
@@ -200,9 +184,7 @@ warnx(const char *fmt, ...)
 }
 
 void
-vwarnx(fmt, ap)
-	const char *fmt;
-	va_list ap;
+vwarnx(const char *fmt, va_list ap)
 {
 	if (err_file == 0)
 		err_set_file((FILE *)0);

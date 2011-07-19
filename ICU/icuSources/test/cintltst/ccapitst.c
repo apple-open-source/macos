@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*****************************************************************************
@@ -110,14 +110,18 @@ static void TestConvertSafeCloneCallback(void);
 static void TestEBCDICSwapLFNL(void);
 static void TestConvertEx(void);
 static void TestConvertExFromUTF8(void);
+static void TestConvertExFromUTF8_C5F0(void);
 static void TestConvertAlgorithmic(void);
        void TestDefaultConverterError(void);    /* defined in cctest.c */
+       void TestDefaultConverterSet(void);    /* defined in cctest.c */
 static void TestToUCountPending(void);
 static void TestFromUCountPending(void);
 static void TestDefaultName(void);
 static void TestCompareNames(void);
 static void TestSubstString(void);
 static void InvalidArguments(void);
+static void TestGetName(void);
+static void TestUTFBOM(void);
 
 void addTestConvert(TestNode** root);
 
@@ -135,18 +139,26 @@ void addTestConvert(TestNode** root)
     addTest(root, &TestCCSID,                   "tsconv/ccapitst/TestCCSID"); 
     addTest(root, &TestJ932,                    "tsconv/ccapitst/TestJ932");
     addTest(root, &TestJ1968,                   "tsconv/ccapitst/TestJ1968");
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
     addTest(root, &TestLMBCSMaxChar,            "tsconv/ccapitst/TestLMBCSMaxChar");
+#endif
     addTest(root, &TestEBCDICSwapLFNL,          "tsconv/ccapitst/TestEBCDICSwapLFNL");
     addTest(root, &TestConvertEx,               "tsconv/ccapitst/TestConvertEx");
     addTest(root, &TestConvertExFromUTF8,       "tsconv/ccapitst/TestConvertExFromUTF8");
+    addTest(root, &TestConvertExFromUTF8_C5F0,  "tsconv/ccapitst/TestConvertExFromUTF8_C5F0");
     addTest(root, &TestConvertAlgorithmic,      "tsconv/ccapitst/TestConvertAlgorithmic");
     addTest(root, &TestDefaultConverterError,   "tsconv/ccapitst/TestDefaultConverterError");
+    addTest(root, &TestDefaultConverterSet,     "tsconv/ccapitst/TestDefaultConverterSet");
+#if !UCONFIG_NO_FILE_IO
     addTest(root, &TestToUCountPending,         "tsconv/ccapitst/TestToUCountPending");
     addTest(root, &TestFromUCountPending,       "tsconv/ccapitst/TestFromUCountPending");
+#endif
     addTest(root, &TestDefaultName,             "tsconv/ccapitst/TestDefaultName");
     addTest(root, &TestCompareNames,            "tsconv/ccapitst/TestCompareNames");
     addTest(root, &TestSubstString,             "tsconv/ccapitst/TestSubstString");
     addTest(root, &InvalidArguments,            "tsconv/ccapitst/InvalidArguments");
+    addTest(root, &TestGetName,                 "tsconv/ccapitst/TestGetName");
+    addTest(root, &TestUTFBOM,                  "tsconv/ccapitst/TestUTFBOM");
 }
 
 static void ListNames(void) {
@@ -160,7 +172,7 @@ static void ListNames(void) {
     log_verbose("Testing ucnv_openAllNames()...");
     allNamesEnum = ucnv_openAllNames(&err);
     if(U_FAILURE(err)) {
-        log_err("FAILURE! ucnv_openAllNames() -> %s\n", myErrorName(err));
+        log_data_err("FAILURE! ucnv_openAllNames() -> %s\n", myErrorName(err));
     }
     else {
         const char *string = NULL;
@@ -210,7 +222,7 @@ static void ListNames(void) {
     /* Test ucnv_countAliases() etc. */
     count = ucnv_countAliases("utf-8", &err);
     if(U_FAILURE(err)) {
-        log_err("FAILURE! ucnv_countAliases(\"utf-8\") -> %s\n", myErrorName(err));
+        log_data_err("FAILURE! ucnv_countAliases(\"utf-8\") -> %s\n", myErrorName(err));
     } else if(count <= 0) {
         log_err("FAILURE! ucnv_countAliases(\"utf-8\") -> %d aliases\n", count);
     } else {
@@ -1341,7 +1353,7 @@ static void TestDuplicateAlias(void) {
     status = U_ZERO_ERROR;
     alias = ucnv_getStandardName("Shift_JIS", "IBM", &status);
     if (alias == NULL || strcmp(alias, "ibm-943") != 0 || status != U_AMBIGUOUS_ALIAS_WARNING) {
-        log_err("FAIL: Didn't get ibm-943 for Shift_JIS {IBM}. Got %s\n", alias);
+        log_data_err("FAIL: Didn't get ibm-943 for Shift_JIS {IBM}. Got %s\n", alias);
     }
     status = U_ZERO_ERROR;
     alias = ucnv_getStandardName("ibm-943", "IANA", &status);
@@ -1516,7 +1528,7 @@ static void TestConvertSafeCloneCallback()
     conv1 = ucnv_open("iso-8859-3", &err);
     
     if(U_FAILURE(err)) {
-        log_data_err("Err opening iso-8859-3, %s", u_errorName(err));
+        log_data_err("Err opening iso-8859-3, %s\n", u_errorName(err));
         return;
     }
 
@@ -2652,7 +2664,7 @@ static void TestConvertExFromUTF8() {
     errorCode=U_ZERO_ERROR;
     utf8Cnv=ucnv_open("UTF-8", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("unable to open UTF-8 converter - %s\n", u_errorName(errorCode));
+        log_data_err("unable to open UTF-8 converter - %s\n", u_errorName(errorCode));
         return;
     }
 
@@ -2660,7 +2672,7 @@ static void TestConvertExFromUTF8() {
         errorCode=U_ZERO_ERROR;
         cnv=ucnv_open(converterNames[i], &errorCode);
         if(U_FAILURE(errorCode)) {
-            log_err("unable to open %s converter - %s\n", converterNames[i], u_errorName(errorCode));
+            log_data_err("unable to open %s converter - %s\n", converterNames[i], u_errorName(errorCode));
             continue;
         }
         if(!getTestChar(cnv, converterNames[i], charUTF8, &charUTF8Length, char0, &char0Length, char1, &char1Length)) {
@@ -2668,6 +2680,91 @@ static void TestConvertExFromUTF8() {
         }
         testFromTruncatedUTF8(utf8Cnv, cnv, converterNames[i], charUTF8, charUTF8Length, char0, char0Length, char1, char1Length);
         testFromBadUTF8(utf8Cnv, cnv, converterNames[i], charUTF8, charUTF8Length, char0, char0Length, char1, char1Length);
+        ucnv_close(cnv);
+    }
+    ucnv_close(utf8Cnv);
+}
+
+static void TestConvertExFromUTF8_C5F0() {
+    static const char *const converterNames[]={
+#if !UCONFIG_NO_LEGACY_CONVERSION
+        "windows-1251",
+        "shift-jis",
+#endif
+        "us-ascii",
+        "iso-8859-1",
+        "utf-8"
+    };
+
+    UConverter *utf8Cnv, *cnv;
+    UErrorCode errorCode;
+    int32_t i;
+
+    static const char bad_utf8[2]={ (char)0xC5, (char)0xF0 };
+    /* Expect "&#65533;&#65533;" (2x U+FFFD as decimal NCRs) */
+    static const char twoNCRs[16]={
+        0x26, 0x23, 0x36, 0x35, 0x35, 0x33, 0x33, 0x3B,
+        0x26, 0x23, 0x36, 0x35, 0x35, 0x33, 0x33, 0x3B
+    };
+    static const char twoFFFD[6]={
+        (char)0xef, (char)0xbf, (char)0xbd,
+        (char)0xef, (char)0xbf, (char)0xbd 
+    };
+    const char *expected;
+    int32_t expectedLength;
+    char dest[20];  /* longer than longest expectedLength */
+
+    const char *src;
+    char *target;
+
+    UChar pivotBuffer[128];
+    UChar *pivotSource, *pivotTarget;
+
+    errorCode=U_ZERO_ERROR;
+    utf8Cnv=ucnv_open("UTF-8", &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_data_err("unable to open UTF-8 converter - %s\n", u_errorName(errorCode));
+        return;
+    }
+
+    for(i=0; i<LENGTHOF(converterNames); ++i) {
+        errorCode=U_ZERO_ERROR;
+        cnv=ucnv_open(converterNames[i], &errorCode);
+        ucnv_setFromUCallBack(cnv, UCNV_FROM_U_CALLBACK_ESCAPE, UCNV_ESCAPE_XML_DEC,
+                              NULL, NULL, &errorCode);
+        if(U_FAILURE(errorCode)) {
+            log_data_err("unable to open %s converter - %s\n",
+                         converterNames[i], u_errorName(errorCode));
+            continue;
+        }
+        src=bad_utf8;
+        target=dest;
+        uprv_memset(dest, 9, sizeof(dest));
+        if(i==LENGTHOF(converterNames)-1) {
+            /* conversion to UTF-8 yields two U+FFFD directly */
+            expected=twoFFFD;
+            expectedLength=6;
+        } else {
+            /* conversion to a non-Unicode charset yields two NCRs */
+            expected=twoNCRs;
+            expectedLength=16;
+        }
+        pivotBuffer[0]=0;
+        pivotBuffer[1]=1;
+        pivotBuffer[2]=2;
+        pivotSource=pivotTarget=pivotBuffer;
+        ucnv_convertEx(
+            cnv, utf8Cnv,
+            &target, dest+expectedLength,
+            &src, bad_utf8+sizeof(bad_utf8),
+            pivotBuffer, &pivotSource, &pivotTarget, pivotBuffer+LENGTHOF(pivotBuffer),
+            TRUE, TRUE, &errorCode);
+        if( errorCode!=U_STRING_NOT_TERMINATED_WARNING || src!=bad_utf8+2 ||
+            target!=dest+expectedLength || 0!=uprv_memcmp(dest, expected, expectedLength) ||
+            dest[expectedLength]!=9
+        ) {
+            log_err("ucnv_convertEx(UTF-8 C5 F0 -> %s/decimal NCRs) failed\n", converterNames[i]);
+        }
         ucnv_close(cnv);
     }
     ucnv_close(utf8Cnv);
@@ -2808,8 +2905,8 @@ static void TestLMBCSMaxChar(void) {
         { 1, "US-ASCII"},
         { 1, "ISO-8859-1"},
 
-        { 4, "UTF-16"},
-        { 4, "UTF-16BE"},
+        { 2, "UTF-16"},
+        { 2, "UTF-16BE"},
         { 3, "UTF-8"},
         { 3, "CESU-8"},
         { 3, "SCSU"},
@@ -3335,11 +3432,11 @@ TestToUCountPending(){
 #endif
 }
 
-static void TestOneDefaultNameChange(const char *name) {
+static void TestOneDefaultNameChange(const char *name, const char *expected) {
     UErrorCode status = U_ZERO_ERROR;
     UConverter *cnv;
     ucnv_setDefaultName(name);
-    if(strcmp(ucnv_getDefaultName(), name)==0)
+    if(strcmp(ucnv_getDefaultName(), expected)==0)
         log_verbose("setDefaultName of %s works.\n", name);
     else
         log_err("setDefaultName of %s failed\n", name);
@@ -3348,7 +3445,7 @@ static void TestOneDefaultNameChange(const char *name) {
         log_err("opening the default converter of %s failed\n", name);
         return;
     }
-    if(strcmp(ucnv_getName(cnv, &status), name)==0)
+    if(strcmp(ucnv_getName(cnv, &status), expected)==0)
         log_verbose("ucnv_getName of %s works.\n", name);
     else
         log_err("ucnv_getName of %s failed\n", name);
@@ -3363,12 +3460,18 @@ static void TestDefaultName(void) {
     log_verbose("getDefaultName returned %s\n", defaultName);
 
     /*change the default name by setting it */
-    TestOneDefaultNameChange("UTF-8");
-#if !UCONFIG_NO_LEGACY_CONVERSION
-    TestOneDefaultNameChange("ISCII,version=1");
-    TestOneDefaultNameChange("ISCII,version=2");
+    TestOneDefaultNameChange("UTF-8", "UTF-8");
+#if U_CHARSET_IS_UTF8
+    TestOneDefaultNameChange("ISCII,version=1", "UTF-8");
+    TestOneDefaultNameChange("ISCII,version=2", "UTF-8");
+    TestOneDefaultNameChange("ISO-8859-1", "UTF-8");
+#else
+# if !UCONFIG_NO_LEGACY_CONVERSION
+    TestOneDefaultNameChange("ISCII,version=1", "ISCII,version=1");
+    TestOneDefaultNameChange("ISCII,version=2", "ISCII,version=2");
+# endif
+    TestOneDefaultNameChange("ISO-8859-1", "ISO-8859-1");
 #endif
-    TestOneDefaultNameChange("ISO-8859-1");
 
     /*set the default name back*/
     ucnv_setDefaultName(defaultName);
@@ -3443,7 +3546,7 @@ TestSubstString() {
     errorCode=U_ZERO_ERROR;
     cnv=ucnv_open("UTF-16", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ucnv_open(UTF-16) failed - %s\n", u_errorName(errorCode));
+        log_data_err("ucnv_open(UTF-16) failed - %s\n", u_errorName(errorCode));
         return;
     }
     length=ucnv_fromUChars(cnv, buffer, (int32_t)sizeof(buffer), surrogate, 1, &errorCode);
@@ -3458,7 +3561,7 @@ TestSubstString() {
     errorCode=U_ZERO_ERROR;
     cnv=ucnv_open("UTF-32", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ucnv_open(UTF-32) failed - %s\n", u_errorName(errorCode));
+        log_data_err("ucnv_open(UTF-32) failed - %s\n", u_errorName(errorCode));
         return;
     }
     length=ucnv_fromUChars(cnv, buffer, (int32_t)sizeof(buffer), surrogate, 1, &errorCode);
@@ -3474,7 +3577,7 @@ TestSubstString() {
     errorCode=U_ZERO_ERROR;
     cnv=ucnv_open("ISO-8859-1", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ucnv_open(ISO-8859-1) failed - %s\n", u_errorName(errorCode));
+        log_data_err("ucnv_open(ISO-8859-1) failed - %s\n", u_errorName(errorCode));
         return;
     }
     ucnv_setSubstString(cnv, sub, LENGTHOF(sub), &errorCode);
@@ -3494,7 +3597,7 @@ TestSubstString() {
     errorCode=U_ZERO_ERROR;
     cnv=ucnv_open("HZ", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("ucnv_open(HZ) failed - %s\n", u_errorName(errorCode));
+        log_data_err("ucnv_open(HZ) failed - %s\n", u_errorName(errorCode));
         return;
     }
     ucnv_setSubstString(cnv, sub, LENGTHOF(sub), &errorCode);
@@ -3572,4 +3675,74 @@ InvalidArguments() {
     ucnv_close(cnv);
 }
 
+static void TestGetName() {
+    static const char *const names[] = {
+        "Unicode",                  "UTF-16",
+        "UnicodeBigUnmarked",       "UTF-16BE",
+        "UnicodeBig",               "UTF-16BE,version=1",
+        "UnicodeLittleUnmarked",    "UTF-16LE",
+        "UnicodeLittle",            "UTF-16LE,version=1",
+        "x-UTF-16LE-BOM",           "UTF-16LE,version=1"
+    };
+    int32_t i;
+    for(i = 0; i < LENGTHOF(names); i += 2) {
+        UErrorCode errorCode = U_ZERO_ERROR;
+        UConverter *cnv = ucnv_open(names[i], &errorCode);
+        if(U_SUCCESS(errorCode)) {
+            const char *name = ucnv_getName(cnv, &errorCode);
+            if(U_FAILURE(errorCode) || 0 != strcmp(name, names[i+1])) {
+                log_err("ucnv_getName(%s) = %s != %s -- %s\n",
+                        names[i], name, names[i+1], u_errorName(errorCode));
+            }
+            ucnv_close(cnv);
+        }
+    }
+}
 
+static void TestUTFBOM() {
+    static const UChar a16[] = { 0x61 };
+    static const char *const names[] = {
+        "UTF-16",
+        "UTF-16,version=1",
+        "UTF-16BE",
+        "UnicodeBig",
+        "UTF-16LE",
+        "UnicodeLittle"
+    };
+    static const uint8_t expected[][5] = {
+#if U_IS_BIG_ENDIAN
+        { 4, 0xfe, 0xff, 0, 0x61 },
+        { 4, 0xfe, 0xff, 0, 0x61 },
+#else
+        { 4, 0xff, 0xfe, 0x61, 0 },
+        { 4, 0xff, 0xfe, 0x61, 0 },
+#endif
+
+        { 2, 0, 0x61 },
+        { 4, 0xfe, 0xff, 0, 0x61 },
+
+        { 2, 0x61, 0 },
+        { 4, 0xff, 0xfe, 0x61, 0 }
+    };
+
+    char bytes[10];
+    int32_t i;
+
+    for(i = 0; i < LENGTHOF(names); ++i) {
+        UErrorCode errorCode = U_ZERO_ERROR;
+        UConverter *cnv = ucnv_open(names[i], &errorCode);
+        int32_t length = 0;
+        const uint8_t *exp = expected[i];
+        if (U_FAILURE(errorCode)) {
+           log_err_status(errorCode, "Unable to open converter: %s got error code: %s\n", names[i], u_errorName(errorCode));
+           continue;
+        }
+        length = ucnv_fromUChars(cnv, bytes, (int32_t)sizeof(bytes), a16, 1, &errorCode);
+        
+        if(U_FAILURE(errorCode) || length != exp[0] || 0 != memcmp(bytes, exp+1, length)) {
+            log_err("unexpected %s BOM writing behavior -- %s\n",
+                    names[i], u_errorName(errorCode));
+        }
+        ucnv_close(cnv);
+    }
+}

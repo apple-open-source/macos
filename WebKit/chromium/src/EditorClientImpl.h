@@ -32,17 +32,19 @@
 #define EditorClientImpl_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "Timer.h"
 #include <wtf/Deque.h>
 
 namespace WebCore {
 class HTMLInputElement;
+class SpellChecker;
 }
 
 namespace WebKit {
 class WebViewImpl;
 
-class EditorClientImpl : public WebCore::EditorClient {
+class EditorClientImpl : public WebCore::EditorClient, public WebCore::TextCheckerClient {
 public:
     EditorClientImpl(WebViewImpl* webView);
 
@@ -57,11 +59,10 @@ public:
     virtual bool isGrammarCheckingEnabled();
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
-    virtual bool isEditable();
     virtual bool shouldBeginEditing(WebCore::Range*);
     virtual bool shouldEndEditing(WebCore::Range*);
     virtual bool shouldInsertNode(WebCore::Node*, WebCore::Range*, WebCore::EditorInsertAction);
-    virtual bool shouldInsertText(const WebCore::String&, WebCore::Range*, WebCore::EditorInsertAction);
+    virtual bool shouldInsertText(const WTF::String&, WebCore::Range*, WebCore::EditorInsertAction);
     virtual bool shouldDeleteRange(WebCore::Range*);
     virtual bool shouldChangeSelectedRange(WebCore::Range* fromRange,
                                            WebCore::Range* toRange,
@@ -78,6 +79,8 @@ public:
     virtual void registerCommandForUndo(PassRefPtr<WebCore::EditCommand>);
     virtual void registerCommandForRedo(PassRefPtr<WebCore::EditCommand>);
     virtual void clearUndoRedoOperations();
+    virtual bool canCopyCut(WebCore::Frame*, bool defaultValue) const;
+    virtual bool canPaste(WebCore::Frame*, bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     virtual void undo();
@@ -92,8 +95,8 @@ public:
     virtual bool doTextFieldCommandFromEvent(WebCore::Element*, WebCore::KeyboardEvent*);
     virtual void textWillBeDeletedInTextField(WebCore::Element*);
     virtual void textDidChangeInTextArea(WebCore::Element*);
-    virtual void ignoreWordInSpellDocument(const WebCore::String&);
-    virtual void learnWord(const WebCore::String&);
+    virtual void ignoreWordInSpellDocument(const WTF::String&);
+    virtual void learnWord(const WTF::String&);
     virtual void checkSpellingOfString(const UChar*, int length,
                                        int* misspellingLocation,
                                        int* misspellingLength);
@@ -101,14 +104,19 @@ public:
                                       WTF::Vector<WebCore::GrammarDetail>&,
                                       int* badGrammarLocation,
                                       int* badGrammarLength);
-    virtual WebCore::String getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&);
-    virtual void updateSpellingUIWithGrammarString(const WebCore::String&, const WebCore::GrammarDetail&);
-    virtual void updateSpellingUIWithMisspelledWord(const WebCore::String&);
+    virtual WTF::String getAutoCorrectSuggestionForMisspelledWord(const WTF::String&);
+    virtual void updateSpellingUIWithGrammarString(const WTF::String&, const WebCore::GrammarDetail&);
+    virtual void updateSpellingUIWithMisspelledWord(const WTF::String&);
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
-    virtual void getGuessesForWord(const WebCore::String& word,
-                                   WTF::Vector<WebCore::String>& guesses);
+    virtual void getGuessesForWord(const WTF::String& word,
+                                   const WTF::String& context,
+                                   WTF::Vector<WTF::String>& guesses);
+    virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
+    virtual void requestCheckingOfString(WebCore::SpellChecker*, int, WebCore::TextCheckingTypeMask, const WTF::String&);
+
+    virtual WebCore::TextCheckerClient* textChecker() { return this; }
 
     // Shows the form autofill popup for |node| if it is an HTMLInputElement and
     // it is empty.  This is called when you press the up or down arrow in a
@@ -116,12 +124,6 @@ public:
     // Returns true if the autofill popup has been scheduled to be shown, false
     // otherwise.
     virtual bool showFormAutofillForNode(WebCore::Node*);
-
-    // Notification that the text changed due to acceptance of a suggestion
-    // provided by an Autocomplete popup.  Having a separate callback in this
-    // case is a simple way to break the cycle that would otherwise occur if
-    // textDidChangeInTextField was called.
-    virtual void onAutocompleteSuggestionAccepted(WebCore::HTMLInputElement*);
 
 private:
     void modifySelection(WebCore::Frame*, WebCore::KeyboardEvent*);

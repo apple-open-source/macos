@@ -67,24 +67,25 @@
  */
 #include <sys/cdefs.h>
 #include <_types.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
-void	err(int, const char *, ...) __DARWIN_LDBL_COMPAT(err) __dead2;
-void	verr(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verr) __dead2;
-void	errc(int, int, const char *, ...) __DARWIN_LDBL_COMPAT(errc) __dead2;
-void	verrc(int, int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrc) __dead2;
-void	errx(int, const char *, ...) __DARWIN_LDBL_COMPAT(errx) __dead2;
-void	verrx(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrx) __dead2;
-void	warn(const char *, ...) __DARWIN_LDBL_COMPAT(warn);
-void	vwarn(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarn);
-void	warnc(int, const char *, ...) __DARWIN_LDBL_COMPAT(warnc);
-void	vwarnc(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnc);
-void	warnx(const char *, ...) __DARWIN_LDBL_COMPAT(warnx);
-void	vwarnx(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnx);
+void	err(int, const char *, ...) __DARWIN_LDBL_COMPAT(err) __dead2 __printflike(2, 3);
+void	verr(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verr) __dead2 __printflike(2, 0);
+void	errc(int, int, const char *, ...) __DARWIN_LDBL_COMPAT(errc) __dead2 __printflike(3, 4);
+void	verrc(int, int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrc) __dead2 __printflike(3, 0);
+void	errx(int, const char *, ...) __DARWIN_LDBL_COMPAT(errx) __dead2 __printflike(2, 3);
+void	verrx(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(verrx) __dead2 __printflike(2, 0);
+void	warn(const char *, ...) __DARWIN_LDBL_COMPAT(warn) __printflike(1, 2);
+void	vwarn(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarn) __printflike(1, 0);
+void	warnc(int, const char *, ...) __DARWIN_LDBL_COMPAT(warnc) __printflike(2, 3);
+void	vwarnc(int, const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnc) __printflike(2, 0);
+void	warnx(const char *, ...) __DARWIN_LDBL_COMPAT(warnx) __printflike(1, 2);
+void	vwarnx(const char *, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwarnx) __printflike(1, 0);
 void	err_set_file(void *);
 void	err_set_exit(void (*)(int));
 #ifdef __BLOCKS__
-void	err_set_exit_b(void (^)(int));
+void	err_set_exit_b(void (^)(int)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 
 __END_DECLS

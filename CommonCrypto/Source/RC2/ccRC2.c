@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <CommonCrypto/rc2.h>
-#include <CommonCrypto/ccRC2.h>
+#include "rc2.h"
+#include "ccRC2.h"
 #include <sys/types.h>
 
 int rc2_cc_set_key(

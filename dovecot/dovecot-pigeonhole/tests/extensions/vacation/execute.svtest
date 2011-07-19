@@ -1,0 +1,73 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test "Action" {
+	if not test_script_compile "execute/action.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_action :count "eq" :comparator "i;ascii-numeric" "2" {
+		test_fail "invalid number of actions in result";
+	}
+
+	if not test_result_action :index 1 "vacation" {
+		test_fail "vacation action is not present as first item in result";
+	}
+	
+	if not test_result_action :index 2 "keep" {
+		test_fail "keep action is missing in result";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+test "No :handle specified" {
+	if not test_script_compile "execute/no-handle.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+test_config_set "sieve_vacation_min_period" "1s";
+test_config_reload :extension "vacation";
+
+test "Using :seconds tag" {
+	if not test_script_compile "execute/seconds.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_action :count "eq" :comparator "i;ascii-numeric" "2" {
+		test_fail "invalid number of actions in result";
+	}
+
+	if not test_result_action :index 1 "vacation" {
+		test_fail "vacation action is not present as first item in result";
+	}
+	
+	if not test_result_action :index 2 "keep" {
+		test_fail "keep action is missing in result";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+

@@ -86,6 +86,16 @@ static bool isKeyPad(WPARAM wparam, LPARAM lparam)
     return keypad;
 }
 
+// Loads the state for toggle keys into the event.
+static void SetToggleKeyState(WebInputEvent* event)
+{
+    // Low bit set from GetKeyState indicates "toggled".
+    if (::GetKeyState(VK_NUMLOCK) & 1)
+        event->modifiers |= WebInputEvent::NumLockOn;
+    if (::GetKeyState(VK_CAPITAL) & 1)
+        event->modifiers |= WebInputEvent::CapsLockOn;
+}
+
 WebKeyboardEvent WebInputEventFactory::keyboardEvent(HWND hwnd, UINT message,
                                                      WPARAM wparam, LPARAM lparam)
 {
@@ -144,6 +154,7 @@ WebKeyboardEvent WebInputEventFactory::keyboardEvent(HWND hwnd, UINT message,
     if (isKeyPad(wparam, lparam))
         result.modifiers |= WebInputEvent::IsKeyPad;
 
+    SetToggleKeyState(&result);
     return result;
 }
 
@@ -289,6 +300,7 @@ WebMouseEvent WebInputEventFactory::mouseEvent(HWND hwnd, UINT message,
     if (wparam & MK_RBUTTON)
         result.modifiers |= WebInputEvent::RightButtonDown;
 
+    SetToggleKeyState(&result);
     return result;
 }
 
@@ -386,6 +398,8 @@ WebMouseWheelEvent WebInputEventFactory::mouseWheelEvent(HWND hwnd, UINT message
     if (keyState & MK_RBUTTON)
         result.modifiers |= WebInputEvent::RightButtonDown;
 
+    SetToggleKeyState(&result);
+
     // Set coordinates by translating event coordinates from screen to client.
     POINT clientPoint = { result.globalX, result.globalY };
     MapWindowPoints(0, hwnd, &clientPoint, 1);
@@ -398,11 +412,14 @@ WebMouseWheelEvent WebInputEventFactory::mouseWheelEvent(HWND hwnd, UINT message
     //
     // How many pixels should we scroll per line?  Gecko uses the height of the
     // current line, which means scroll distance changes as you go through the
-    // page or go to different pages.  IE 7 is ~50 px/line, although the value
-    // seems to vary slightly by page and zoom level.  Since IE 7 has a smoothing
-    // algorithm on scrolling, it can get away with slightly larger scroll values
-    // without feeling jerky.  Here we use 100 px per three lines (the default
-    // scroll amount is three lines per wheel tick).
+    // page or go to different pages.  IE 8 is ~60 px/line, although the value
+    // seems to vary slightly by page and zoom level.  Also, IE defaults to
+    // smooth scrolling while Firefox doesn't, so it can get away with somewhat
+    // larger scroll values without feeling as jerky.  Here we use 100 px per
+    // three lines (the default scroll amount is three lines per wheel tick).
+    // Even though we have smooth scrolling, we don't make this as large as IE
+    // because subjectively IE feels like it scrolls farther than you want while
+    // reading articles.
     static const float scrollbarPixelsPerLine = 100.0f / 3.0f;
     wheelDelta /= WHEEL_DELTA;
     float scrollDelta = wheelDelta;

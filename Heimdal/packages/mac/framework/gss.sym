@@ -1,0 +1,167 @@
+&__gss_c_attr_stream_sizes_oid_desc
+&__gss_c_inq_sspi_session_key_oid_desc
+&__gss_c_inq_win2k_pac_x_oid_desc
+&__gss_c_nt_anonymous_oid_desc
+&__gss_c_nt_dn_oid_desc
+&__gss_c_nt_export_name_oid_desc
+&__gss_c_nt_hostbased_service_oid_desc
+&__gss_c_nt_hostbased_service_x_oid_desc
+&__gss_c_nt_machine_uid_name_oid_desc
+&__gss_c_nt_ntlm_oid_desc
+&__gss_c_nt_string_uid_name_oid_desc
+&__gss_c_nt_user_name_oid_desc
+&__gss_c_ntlm_guest_oid_desc
+&__gss_c_peer_has_updated_spnego_oid_desc
+&__gss_c_nt_uuid_desc
+&__gss_iakerb_mechanism_oid_desc
+&__gss_krb5_ccache_name_x_oid_desc
+&__gss_krb5_compat_des3_mic_x_oid_desc
+&__gss_krb5_copy_ccache_x_oid_desc
+&__gss_krb5_cred_no_ci_flags_x_oid_desc
+&__gss_krb5_export_lucid_context_v1_x_oid_desc
+&__gss_krb5_export_lucid_context_x_oid_desc
+&__gss_krb5_extract_authz_data_from_sec_context_x_oid_desc
+&__gss_krb5_get_acceptor_subkey_x_oid_desc
+&__gss_krb5_get_authtime_x_oid_desc
+&__gss_krb5_get_initiator_subkey_x_oid_desc
+&__gss_krb5_get_service_keyblock_x_oid_desc
+&__gss_krb5_get_subkey_x_oid_desc
+&__gss_krb5_get_time_offset_x_oid_desc
+&__gss_krb5_get_tkt_flags_x_oid_desc
+&__gss_krb5_import_cred_x_oid_desc
+&__gss_krb5_mechanism_oid_desc
+&__gss_krb5_nt_principal_oid_desc
+&__gss_krb5_nt_principal_name_oid_desc
+&__gss_krb5_nt_principal_name_referral_oid_desc
+&__gss_krb5_plugin_register_x_oid_desc
+&__gss_krb5_register_acceptor_identity_x_oid_desc
+&__gss_krb5_send_to_kdc_x_oid_desc
+&__gss_krb5_set_allowable_enctypes_x_oid_desc
+&__gss_krb5_set_default_realm_x_oid_desc
+&__gss_krb5_set_dns_canonicalize_x_oid_desc
+&__gss_krb5_set_time_offset_x_oid_desc
+&__gss_netlogon_mechanism_oid_desc
+&__gss_netlogon_nt_netbios_dns_name_oid_desc
+&__gss_netlogon_set_session_key_x_oid_desc
+&__gss_netlogon_set_sign_algorithm_x_oid_desc
+&__gss_appl_lkdc_supported_desc
+%ifdef ENABLE_NTLM
+&__gss_ntlm_get_session_key_x_oid_desc
+&__gss_ntlm_mechanism_oid_desc
+&__gss_c_ntlm_v1
+&__gss_c_ntlm_force_v1
+&__gss_c_ntlm_v2
+&__gss_c_ntlm_session_key
+&__gss_c_ntlm_support_channelbindings
+&__gss_c_ntlm_support_lm2
+%endif
+%ifdef ENABLE_SCRAM
+&__gss_scram_mechanism_oid_desc
+%endif
+%ifdef PKINIT
+&__gss_pku2u_mechanism_oid_desc
+%endif
+&__gss_sasl_digest_md5_mechanism_oid_desc
+&__gss_spnego_mechanism_oid_desc
+gss_accept_sec_context
+gss_acquire_cred
+gss_acquire_cred_ex				,private
+gss_acquire_cred_ex_f				,private
+gss_aapl_initial_cred
+gss_add_buffer_set_member
+gss_add_cred
+gss_add_oid_set_member
+gss_canonicalize_name
+gss_compare_name
+gss_context_query_attributes			,private
+gss_context_time
+gss_create_empty_buffer_set
+gss_create_empty_oid_set
+gss_decapsulate_token
+gss_delete_sec_context
+gss_destroy_cred
+gss_display_name
+gss_display_status
+gss_duplicate_name
+gss_duplicate_oid
+gss_encapsulate_token
+gss_export_cred
+gss_export_name
+gss_export_sec_context
+gss_get_mic
+gss_import_cred
+gss_import_name
+gss_import_sec_context
+gss_indicate_mechs
+gss_init_sec_context
+gss_inquire_context
+gss_inquire_cred
+gss_inquire_cred_by_mech
+gss_inquire_cred_by_oid
+gss_inquire_mechs_for_name
+gss_inquire_names_for_mech
+gss_inquire_sec_context_by_oid
+gss_inquire_sec_context_by_oid
+gss_iter_creds
+gss_iter_creds_f
+gss_krb5_ccache_name
+gss_krb5_copy_ccache
+gss_krb5_export_lucid_sec_context
+gss_krb5_free_lucid_sec_context
+gss_krb5_get_tkt_flags				,private
+gss_krb5_import_cred				,private
+gss_krb5_set_allowable_enctypes
+gss_cred_hold					,private
+gss_cred_unhold					,private
+gss_oid_equal
+gss_oid_to_str
+gss_process_context_token
+gss_pseudo_random
+gss_release_buffer
+gss_release_buffer_set
+gss_release_cred
+gss_release_iov_buffer				,private
+gss_release_name
+gss_release_oid
+gss_release_oid_set
+gss_seal
+gss_set_cred_option
+gss_set_sec_context_option
+gss_sign
+gss_test_oid_set_member
+gss_mo_set					,private
+gss_mo_get					,private
+gss_mo_name					,private
+gss_mo_list					,private
+gss_unseal
+gss_unwrap
+gss_unwrap_iov					,private
+gss_verify
+gss_verify_mic
+gss_wrap
+gss_wrap_iov					,private
+gss_wrap_iov_length				,private
+gss_wrap_size_limit
+gsskrb5_extract_authtime_from_sec_context	,private
+gsskrb5_extract_authz_data_from_sec_context
+gsskrb5_extract_service_keyblock		,private
+gsskrb5_get_initiator_subkey			,private
+gsskrb5_get_subkey				,private
+gsskrb5_get_time_offset				,private
+gsskrb5_register_acceptor_identity
+gsskrb5_set_default_realm			,private
+gsskrb5_set_dns_canonicalize			,private
+gsskrb5_set_time_offset				,private
+krb5_gss_register_acceptor_identity
+_gsskrb5_init					,private
+gss_oid_to_name					,private
+gss_name_to_oid					,private
+gss_cred_label_get				,private
+gss_cred_label_set				,private
+#
+# Symbols for KerberosHelper
+#
+free_NegotiationToken
+free_NegotiationTokenWin
+decode_NegotiationToken
+decode_NegotiationTokenWin

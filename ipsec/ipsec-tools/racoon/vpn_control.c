@@ -103,6 +103,7 @@
 #include "isakmp_inf.h"
 #include "session.h"
 #include "gcmalloc.h"
+#include "isakmp_cfg.h"
 
 #ifdef ENABLE_VPNCONTROL_PORT
 char *vpncontrolsock_path = VPNCONTROLSOCK_PATH;
@@ -420,7 +421,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
 						/* start the connection */
-						error = vpn_connect(addr);
+						error = vpn_connect(addr, VPN_STARTED_BY_API);
 						break;
 					}
 				}
@@ -488,6 +489,55 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
                     }
                 }
             }
+			break;
+
+		case VPNCTL_CMD_ASSERT:
+			{
+				struct vpnctl_cmd_assert *pkt = (struct vpnctl_cmd_assert *)combuf;
+//				struct bound_addr *addr;
+//				struct bound_addr *t_addr;
+				struct sockaddr_in saddr;
+				struct sockaddr_in daddr;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					 "received assert command on vpn control socket.\n");
+				plogdump(LLV_DEBUG2, pkt, ntohs(hdr->len) + sizeof(struct vpnctl_hdr));
+//				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+//					if (pkt->dst_address == addr->address) {
+						bzero(&saddr, sizeof(saddr));
+						saddr.sin_len = sizeof(saddr);
+						saddr.sin_addr.s_addr = pkt->src_address;
+						saddr.sin_port = 0;
+						saddr.sin_family = AF_INET;
+						bzero(&daddr, sizeof(daddr));
+						daddr.sin_len = sizeof(daddr);
+						daddr.sin_addr.s_addr = pkt->dst_address;
+						daddr.sin_port = 0;
+						daddr.sin_family = AF_INET;
+
+						error = vpn_assert((struct sockaddr *)&saddr, (struct sockaddr *)&daddr);
+						break;
+//					}
+//				}
+			}
+			break;
+
+		case VPNCTL_CMD_RECONNECT:
+			{
+				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct bound_addr *addr;
+				struct bound_addr *t_addr;
+
+				plog(LLV_DEBUG, LOCATION, NULL,
+					 "received reconnect command on vpn control socket.\n");
+				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+					if (pkt->address == addr->address) {
+						/* start the connection */
+						error = vpn_connect(addr, VPN_RESTARTED_BY_API);
+						break;
+					}
+				}
+			}
 			break;
 
 		default:
@@ -645,7 +695,7 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"sending vpn_control phase change status\n");
 
-	if (iph1 && !start && iph1->mode_cfg) {
+	if (iph1 && !start && iph1->mode_cfg && iph1->mode_cfg->xauth.status != XAUTHST_OK) {
 		if (vpn_get_config(iph1, &msg, &msg_size) == 1)
 			return 0;	/* mode config not finished yet */
 	} else {
@@ -700,6 +750,84 @@ end:
 	return 0;
 }
 
+static int
+vpncontrol_notify_peer_resp (u_int16_t notify_code, u_int32_t address)
+{
+	struct vpnctl_status_peer_resp msg; 
+	struct vpnctl_socket_elem *sock_elem;
+	struct bound_addr *bound_addr;
+	size_t tlen;
+	int    rc = -1;
+
+	bzero(&msg, sizeof(msg));
+	msg.hdr.msg_type = htons(VPNCTL_STATUS_PEER_RESP);
+	msg.hdr.cookie = msg.hdr.reserved = msg.hdr.result = 0;
+	msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));
+	msg.address = address;
+	msg.ike_code = notify_code;
+	plog(LLV_DEBUG, LOCATION, NULL,
+		 "sending vpn_control status (peer response) message - code=%d  addr=%x.\n", notify_code, address);
+	
+	LIST_FOREACH(sock_elem, &lcconf->vpnctl_comm_socks, chain) {
+		LIST_FOREACH(bound_addr, &sock_elem->bound_addresses, chain) {
+			if (bound_addr->address == 0xFFFFFFFF ||
+				bound_addr->address == address) {
+				tlen = send(sock_elem->sock, &msg, sizeof(msg), 0);
+				if (tlen < 0) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "unable to send vpn_control status (peer response): %s\n", strerror(errno));
+				} else {
+					rc = 0;
+				}
+				break;
+			}
+		}
+	}
+
+	return rc;
+}
+
+int
+vpncontrol_notify_peer_resp_ph1 (u_int16_t notify_code, struct ph1handle *iph1)
+{
+	u_int32_t address;
+	int       rc;
+
+	if (iph1 && iph1->parent_session && iph1->parent_session->controller_awaiting_peer_resp) {
+		if (iph1->remote->sa_family == AF_INET)
+			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
+		else
+			address = 0;
+	} else {
+		return 0;
+	}
+
+	if ((rc = vpncontrol_notify_peer_resp(notify_code, address)) == 0) {
+		iph1->parent_session->controller_awaiting_peer_resp = 0;
+	}
+	return rc;
+}
+	
+int
+vpncontrol_notify_peer_resp_ph2 (u_int16_t notify_code, struct ph2handle *iph2)
+{
+	u_int32_t address;
+	int       rc;
+
+	if (iph2 && iph2->parent_session && iph2->parent_session->controller_awaiting_peer_resp) {
+		if (iph2->dst->sa_family == AF_INET)
+			address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
+		else
+			address = 0;
+	} else {
+		return 0;
+	}
+
+	if ((rc = vpncontrol_notify_peer_resp(notify_code, address)) == 0) {
+		iph2->parent_session->controller_awaiting_peer_resp = 0;
+	}
+	return rc;
+}
 
 int
 vpncontrol_init()

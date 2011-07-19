@@ -26,6 +26,8 @@
 #include "Element.h"
 #include "Frame.h"
 #include "GraphicsContext.h"
+#include "LocalWindowsContext.h"
+#include "PaintInfo.h"
 #include "RenderSlider.h"
 #include "Settings.h"
 #include "SoftLinking.h"
@@ -91,6 +93,21 @@
 #define PBS_DISABLED    4
 #define PBS_DEFAULTED   5
 
+// Spin button parts
+#define SPNP_UP         1
+#define SPNP_DOWN       2
+
+// Spin button states
+#define DNS_NORMAL      1
+#define DNS_HOT         2
+#define DNS_PRESSED     3
+#define DNS_DISABLED    4
+#define UPS_NORMAL      1
+#define UPS_HOT         2
+#define UPS_PRESSED     3
+#define UPS_DISABLED    4
+
+
 SOFT_LINK_LIBRARY(uxtheme)
 SOFT_LINK(uxtheme, OpenThemeData, HANDLE, WINAPI, (HWND hwnd, LPCWSTR pszClassList), (hwnd, pszClassList))
 SOFT_LINK(uxtheme, CloseThemeData, HRESULT, WINAPI, (HANDLE hTheme), (hTheme))
@@ -153,6 +170,7 @@ RenderThemeWin::RenderThemeWin()
     , m_textFieldTheme(0)
     , m_menuListTheme(0)
     , m_sliderTheme(0)
+    , m_spinButtonTheme(0)
 {
     haveTheme = uxthemeLibrary() && IsThemeActive();
 }
@@ -193,6 +211,13 @@ HANDLE RenderThemeWin::sliderTheme() const
     return m_sliderTheme;
 }
 
+HANDLE RenderThemeWin::spinButtonTheme() const
+{
+    if (haveTheme && !m_spinButtonTheme)
+        m_spinButtonTheme = OpenThemeData(0, L"Spin");
+    return m_spinButtonTheme;
+}
+
 void RenderThemeWin::close()
 {
     // This method will need to be called when the OS theme changes to flush our cached themes.
@@ -204,7 +229,9 @@ void RenderThemeWin::close()
         CloseThemeData(m_menuListTheme);
     if (m_sliderTheme)
         CloseThemeData(m_sliderTheme);
-    m_buttonTheme = m_textFieldTheme = m_menuListTheme = m_sliderTheme = 0;
+    if (m_spinButtonTheme)
+        CloseThemeData(m_spinButtonTheme);
+    m_buttonTheme = m_textFieldTheme = m_menuListTheme = m_sliderTheme = m_spinButtonTheme = 0;
 
     haveTheme = uxthemeLibrary() && IsThemeActive();
 }
@@ -367,7 +394,7 @@ bool RenderThemeWin::supportsFocusRing(const RenderStyle* style) const
     return supportsFocus(style->appearance());
 }
 
-unsigned RenderThemeWin::determineClassicState(RenderObject* o)
+unsigned RenderThemeWin::determineClassicState(RenderObject* o, ControlSubPart subPart)
 {
     unsigned state = 0;
     switch (o->style()->appearance()) {
@@ -396,6 +423,18 @@ unsigned RenderThemeWin::determineClassicState(RenderObject* o)
                 state |= DFCS_INACTIVE;
             else if (isPressed(o))
                 state |= DFCS_PUSHED;
+            break;
+        case InnerSpinButtonPart: {
+            bool isUpButton = subPart == SpinButtonUp;
+            state = isUpButton ? DFCS_SCROLLUP : DFCS_SCROLLDOWN;
+            if (!isEnabled(o) || isReadOnlyControl(o))
+                state |= DFCS_INACTIVE;
+            else if (isPressed(o) && isUpButton == isSpinUpButtonPartPressed(o))
+                state |= DFCS_PUSHED;
+            else if (isHovered(o) && isUpButton == isSpinUpButtonPartHovered(o))
+                state |= DFCS_HOT;
+            break;
+        }
         default:
             break;
     }
@@ -451,7 +490,20 @@ unsigned RenderThemeWin::determineButtonState(RenderObject* o)
     return result;
 }
 
-ThemeData RenderThemeWin::getClassicThemeData(RenderObject* o)
+unsigned RenderThemeWin::determineSpinButtonState(RenderObject* o, ControlSubPart subPart)
+{
+    bool isUpButton = subPart == SpinButtonUp;
+    unsigned result = isUpButton ? UPS_NORMAL : DNS_NORMAL;
+    if (!isEnabled(o) || isReadOnlyControl(o))
+        result = isUpButton ? UPS_DISABLED : DNS_DISABLED;
+    else if (isPressed(o) && isUpButton == isSpinUpButtonPartPressed(o))
+        result = isUpButton ? UPS_PRESSED : DNS_PRESSED;
+    else if (isHovered(o) && isUpButton == isSpinUpButtonPartHovered(o))
+        result = isUpButton ? UPS_HOT : DNS_HOT;
+    return result;
+}
+
+ThemeData RenderThemeWin::getClassicThemeData(RenderObject* o, ControlSubPart subPart)
 {
     ThemeData result;
     switch (o->style()->appearance()) {
@@ -489,16 +541,20 @@ ThemeData RenderThemeWin::getClassicThemeData(RenderObject* o)
             result.m_part = TKP_THUMBRIGHT;
             result.m_state = determineSliderThumbState(o);
             break;
+        case InnerSpinButtonPart:
+            result.m_part = DFC_SCROLL;
+            result.m_state = determineClassicState(o, subPart);
+            break;
         default:
             break;
     }
     return result;
 }
 
-ThemeData RenderThemeWin::getThemeData(RenderObject* o)
+ThemeData RenderThemeWin::getThemeData(RenderObject* o, ControlSubPart subPart)
 {
     if (!haveTheme)
-        return getClassicThemeData(o);
+        return getClassicThemeData(o, subPart);
 
     ThemeData result;
     switch (o->style()->appearance()) {
@@ -513,15 +569,17 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
             result.m_state = determineState(o);
             break;
         case MenulistPart:
-        case MenulistButtonPart:
-            result.m_part = isRunningOnVistaOrLater() ? CP_DROPDOWNBUTTONRIGHT : CP_DROPDOWNBUTTON;
-            if (isRunningOnVistaOrLater() && documentIsInApplicationChromeMode(o->document())) {
+        case MenulistButtonPart: {
+            const bool isVistaOrLater = (windowsVersion() >= WindowsVista);
+            result.m_part = isVistaOrLater ? CP_DROPDOWNBUTTONRIGHT : CP_DROPDOWNBUTTON;
+            if (isVistaOrLater && documentIsInApplicationChromeMode(o->document())) {
                 // The "readonly" look we use in application chrome mode
                 // only uses a "normal" look for the drop down button.
                 result.m_state = TS_NORMAL;
             } else
                 result.m_state = determineState(o);
             break;
+        }
         case RadioPart:
             result.m_part = BP_RADIO;
             result.m_state = determineState(o);
@@ -529,7 +587,7 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
         case SearchFieldPart:
         case TextFieldPart:
         case TextAreaPart:
-            result.m_part = isRunningOnVistaOrLater() ? EP_EDITBORDER_NOSCROLL : TFP_TEXTFIELD;
+            result.m_part = (windowsVersion() >= WindowsVista) ? EP_EDITBORDER_NOSCROLL : TFP_TEXTFIELD;
             result.m_state = determineState(o);
             break;
         case SliderHorizontalPart:
@@ -548,6 +606,10 @@ ThemeData RenderThemeWin::getThemeData(RenderObject* o)
             result.m_part = TKP_THUMBRIGHT;
             result.m_state = determineSliderThumbState(o);
             break;
+        case InnerSpinButtonPart:
+            result.m_part = subPart == SpinButtonUp ? SPNP_UP : SPNP_DOWN;
+            result.m_state = determineSpinButtonState(o, subPart);
+            break;
     }
 
     return result;
@@ -558,11 +620,12 @@ static void drawControl(GraphicsContext* context, RenderObject* o, HANDLE theme,
     bool alphaBlend = false;
     if (theme)
         alphaBlend = IsThemeBackgroundPartiallyTransparent(theme, themeData.m_part, themeData.m_state);
-    HDC hdc = context->getWindowsContext(r, alphaBlend);
+    LocalWindowsContext windowsContext(context, r, alphaBlend);
     RECT widgetRect = r;
     if (theme)
-        DrawThemeBackground(theme, hdc, themeData.m_part, themeData.m_state, &widgetRect, NULL);
+        DrawThemeBackground(theme, windowsContext.hdc(), themeData.m_part, themeData.m_state, &widgetRect, 0);
     else {
+        HDC hdc = windowsContext.hdc();
         if (themeData.m_part == TFP_TEXTFIELD) {
             ::DrawEdge(hdc, &widgetRect, EDGE_SUNKEN, BF_RECT | BF_ADJUST);
             if (themeData.m_state == TS_DISABLED || themeData.m_state ==  TFS_READONLY)
@@ -608,12 +671,36 @@ static void drawControl(GraphicsContext* context, RenderObject* o, HANDLE theme,
             ::DrawFrameControl(hdc, &widgetRect, themeData.m_part, themeData.m_state);
         }
     }
-    context->releaseWindowsContext(hdc, r, alphaBlend);
 }
 
-bool RenderThemeWin::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintButton(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {  
     drawControl(i.context,  o, buttonTheme(), getThemeData(o), r);
+    return false;
+}
+
+void RenderThemeWin::adjustInnerSpinButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const
+{
+    int width = ::GetSystemMetrics(SM_CXVSCROLL);
+    if (width <= 0)
+        width = 17; // Vista's default.
+    style->setWidth(Length(width, Fixed));
+    style->setMinWidth(Length(width, Fixed));
+}
+
+bool RenderThemeWin::paintInnerSpinButton(RenderObject* o, const PaintInfo& i, const IntRect& r)
+{
+    // We split the specified rectangle into two vertically. We can't draw a
+    // spin button of which height is less than 2px.
+    if (r.height() < 2)
+        return false;
+    IntRect upRect(r);
+    upRect.setHeight(r.height() / 2);
+    IntRect downRect(r);
+    downRect.setY(upRect.maxY());
+    downRect.setHeight(r.height() - upRect.height());
+    drawControl(i.context, o, spinButtonTheme(), getThemeData(o, SpinButtonUp), upRect);
+    drawControl(i.context, o, spinButtonTheme(), getThemeData(o, SpinButtonDown), downRect);
     return false;
 }
 
@@ -633,17 +720,17 @@ void RenderThemeWin::setCheckboxSize(RenderStyle* style) const
         style->setHeight(Length(13, Fixed));
 }
 
-bool RenderThemeWin::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintTextField(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     drawControl(i.context,  o, textFieldTheme(), getThemeData(o), r);
     return false;
 }
 
-bool RenderThemeWin::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintMenuList(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     HANDLE theme;
     int part;
-    if (haveTheme && isRunningOnVistaOrLater()) {
+    if (haveTheme && (windowsVersion() >= WindowsVista)) {
         theme = menuListTheme();
         if (documentIsInApplicationChromeMode(o->document()))
             part = CP_READONLY;
@@ -685,7 +772,7 @@ void RenderThemeWin::adjustMenuListButtonStyle(CSSStyleSelector* selector, Rende
     style->setHeight(Length(Auto));
 
     // Calculate our min-height
-    int minHeight = style->font().height();
+    int minHeight = style->fontMetrics().height();
     minHeight = max(minHeight, dropDownBoxMinHeight);
 
     style->setMinHeight(Length(minHeight, Fixed));
@@ -694,7 +781,7 @@ void RenderThemeWin::adjustMenuListButtonStyle(CSSStyleSelector* selector, Rende
     style->setWhiteSpace(PRE);
 }
 
-bool RenderThemeWin::paintMenuListButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintMenuListButton(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     // FIXME: Don't make hardcoded assumptions about the thickness of the textfield border.
     int borderThickness = haveTheme ? 1 : 2;
@@ -704,10 +791,10 @@ bool RenderThemeWin::paintMenuListButton(RenderObject* o, const RenderObject::Pa
     IntRect buttonRect(r);
     buttonRect.inflate(-borderThickness);
     if (o->style()->direction() == LTR)
-        buttonRect.setX(buttonRect.right() - dropDownButtonWidth);
+        buttonRect.setX(buttonRect.maxX() - dropDownButtonWidth);
     buttonRect.setWidth(dropDownButtonWidth);
 
-    if (isRunningOnVistaOrLater()) {
+    if ((windowsVersion() >= WindowsVista)) {
         // Outset the top, right, and bottom borders of the button so that they coincide with the <select>'s border.
         buttonRect.setY(buttonRect.y() - vistaMenuListButtonOutset);
         buttonRect.setHeight(buttonRect.height() + 2 * vistaMenuListButtonOutset);
@@ -721,7 +808,7 @@ bool RenderThemeWin::paintMenuListButton(RenderObject* o, const RenderObject::Pa
 
 const int trackWidth = 4;
 
-bool RenderThemeWin::paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintSliderTrack(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     IntRect bounds = r;
     
@@ -737,7 +824,7 @@ bool RenderThemeWin::paintSliderTrack(RenderObject* o, const RenderObject::Paint
     return false;
 }
 
-bool RenderThemeWin::paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintSliderThumb(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {   
     drawControl(i.context,  o, sliderTheme(), getThemeData(o), r);
     return false;
@@ -748,40 +835,21 @@ const int sliderThumbHeight = 15;
 
 void RenderThemeWin::adjustSliderThumbSize(RenderObject* o) const
 {
-    if (o->style()->appearance() == SliderThumbVerticalPart) {
+    ControlPart part = o->style()->appearance();
+    if (part == SliderThumbVerticalPart) {
         o->style()->setWidth(Length(sliderThumbHeight, Fixed));
         o->style()->setHeight(Length(sliderThumbWidth, Fixed));
-    } else if (o->style()->appearance() == SliderThumbHorizontalPart) {
+    } else if (part == SliderThumbHorizontalPart) {
         o->style()->setWidth(Length(sliderThumbWidth, Fixed));
         o->style()->setHeight(Length(sliderThumbHeight, Fixed));
     }
 #if ENABLE(VIDEO)
-    else if (o->style()->appearance() == MediaSliderThumbPart) 
+    else if (part == MediaSliderThumbPart || part == MediaVolumeSliderThumbPart) 
         RenderMediaControls::adjustMediaSliderThumbSize(o);
 #endif
 }
 
-int RenderThemeWin::buttonInternalPaddingLeft() const
-{
-    return 3;
-}
-
-int RenderThemeWin::buttonInternalPaddingRight() const
-{
-    return 3;
-}
-
-int RenderThemeWin::buttonInternalPaddingTop() const
-{
-    return 1;
-}
-
-int RenderThemeWin::buttonInternalPaddingBottom() const
-{
-    return 1;
-}
-
-bool RenderThemeWin::paintSearchField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeWin::paintSearchField(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     return paintTextField(o, i, r);
 }
@@ -798,7 +866,7 @@ void RenderThemeWin::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderSt
         style->setOutlineOffset(-2);
 }
 
-bool RenderThemeWin::paintSearchFieldCancelButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintSearchFieldCancelButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     IntRect bounds = r;
     ASSERT(o->parent());
@@ -849,7 +917,7 @@ void RenderThemeWin::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* s
     style->setHeight(Length(magnifierSize, Fixed));
 }
 
-bool RenderThemeWin::paintSearchFieldResultsDecoration(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintSearchFieldResultsDecoration(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     IntRect bounds = r;
     ASSERT(o->parent());
@@ -883,7 +951,7 @@ void RenderThemeWin::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* selec
     style->setHeight(Length(magnifierHeight, Fixed));
 }
 
-bool RenderThemeWin::paintSearchFieldResultsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintSearchFieldResultsButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     IntRect bounds = r;
     ASSERT(o->parent());
@@ -956,61 +1024,91 @@ Color RenderThemeWin::systemColor(int cssValueId) const
 
 #if ENABLE(VIDEO)
 
-bool RenderThemeWin::shouldRenderMediaControlPart(ControlPart part, Element* element)
+String RenderThemeWin::extraMediaControlsStyleSheet()
 {
-    if (part == MediaToggleClosedCaptionsButtonPart) {
-        // We rely on QuickTime to render captions so only enable the button for a video element.
-#if SAFARI_THEME_VERSION >= 4
-        if (!element->hasTagName(videoTag))
-            return false;
-#else
-        return false;
-#endif
-    }
-
-    return RenderTheme::shouldRenderMediaControlPart(part, element);
+    return String(mediaControlsQuickTimeUserAgentStyleSheet, sizeof(mediaControlsQuickTimeUserAgentStyleSheet));
 }
 
+bool RenderThemeWin::supportsClosedCaptioning() const
+{
+        // We rely on QuickTime to render captions so only enable the button for a video element.
+#if SAFARI_THEME_VERSION >= 4
+    return true;
+#else
+    return false;
+#endif
+}
 
-bool RenderThemeWin::paintMediaFullscreenButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaFullscreenButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaFullscreenButton, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaMuteButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaMuteButton, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaPlayButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaPlayButton, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaRewindButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaRewindButton, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaSeekBackButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaSeekBackButton, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaSeekForwardButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaSeekForwardButton, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaSliderTrack(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaSlider, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaSliderThumb(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaSliderThumb, o, paintInfo, r);
 }
 
-bool RenderThemeWin::paintMediaToggleClosedCaptionsButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderThemeWin::paintMediaToggleClosedCaptionsButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     return RenderMediaControls::paintMediaControlsPart(MediaShowClosedCaptionsButton, o, paintInfo, r);
 }
+
+bool RenderThemeWin::paintMediaControlsBackground(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaTimelineContainer, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaVolumeSliderContainer(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaVolumeSliderContainer, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaVolumeSliderTrack(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaVolumeSlider, o, paintInfo, r);
+}
+
+bool RenderThemeWin::paintMediaVolumeSliderThumb(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
+{
+    return RenderMediaControls::paintMediaControlsPart(MediaVolumeSliderThumb, o, paintInfo, r);
+}
+
+IntPoint RenderThemeWin::volumeSliderOffsetFromMuteButton(RenderBox* muteButtonBox, const IntSize& size) const
+{
+    return RenderMediaControls::volumeSliderOffsetFromMuteButton(muteButtonBox, size);
+}
+
 
 #endif
 

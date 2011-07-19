@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  *
  * All rights reserved.
@@ -65,7 +65,7 @@ namespace WebKit {
         virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
         virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::AuthenticationChallenge&);
         virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceResponse&);
-        virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
+        virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int dataLength);
         virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long  identifier);
         virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long  identifier, const WebCore::ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
@@ -81,8 +81,8 @@ namespace WebKit {
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
-        virtual void dispatchDidReceiveTitle(const WebCore::String&);
-        virtual void dispatchDidChangeIcons();
+        virtual void dispatchDidReceiveTitle(const WebCore::StringWithDirection&);
+        virtual void dispatchDidChangeIcons(WebCore::IconType);
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
         virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -91,11 +91,11 @@ namespace WebKit {
         virtual void dispatchDidFirstLayout();
         virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-        virtual WebCore::Frame* dispatchCreatePage();
+        virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
         virtual void dispatchShow();
 
-        virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction, const WebCore::String& MIMEType, const WebCore::ResourceRequest&);
-        virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WTF::PassRefPtr<WebCore::FormState>, const WebCore::String& frameName);
+        virtual void dispatchDecidePolicyForResponse(WebCore::FramePolicyFunction, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&);
+        virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WTF::PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
         virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, WTF::PassRefPtr<WebCore::FormState>);
         virtual void cancelPolicyCheck();
 
@@ -112,20 +112,21 @@ namespace WebKit {
         virtual void postProgressEstimateChangedNotification();
         virtual void postProgressFinishedNotification();
 
-        virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
-                                   const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument();
-        virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const WTF::Vector<WebCore::String>&, const WTF::Vector<WebCore::String>&, const WebCore::String&, bool);
+        virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WTF::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
+                                   const WTF::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+        virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
+        virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const WTF::Vector<WTF::String>&, const WTF::Vector<WTF::String>&, const WTF::String&, bool);
         virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
-        virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const WTF::Vector<WebCore::String>& paramNames, const WTF::Vector<WebCore::String>& paramValues);
-        virtual WebCore::String overrideMediaType() const;
+        virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const WTF::Vector<WTF::String>& paramNames, const WTF::Vector<WTF::String>& paramValues);
+        virtual WTF::String overrideMediaType() const;
         virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 
         virtual void registerForIconNotification(bool);
 
-        virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
+        virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL&, const WTF::String& mimeType, bool shouldPreferPlugInsForImages);
 
         virtual void setMainFrameDocumentReady(bool);
 
@@ -140,12 +141,13 @@ namespace WebKit {
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+        virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
         virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
         virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
         virtual void dispatchDidChangeBackForwardIndex() const;
 
         virtual void didDisplayInsecureContent();
-        virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+        virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
 
         virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
         virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -159,9 +161,10 @@ namespace WebKit {
         virtual bool shouldFallBack(const WebCore::ResourceError&);
 
         virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
-        virtual bool canShowMIMEType(const WebCore::String&) const;
-        virtual bool representationExistsForURLScheme(const WebCore::String&) const;
-        virtual WebCore::String generatedMIMETypeForURLScheme(const WebCore::String&) const;
+        virtual bool canShowMIMEType(const WTF::String&) const;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
+        virtual bool representationExistsForURLScheme(const WTF::String&) const;
+        virtual WTF::String generatedMIMETypeForURLScheme(const WTF::String&) const;
 
         virtual void frameLoadCompleted();
         virtual void saveViewStateToItem(WebCore::HistoryItem*);
@@ -171,16 +174,24 @@ namespace WebKit {
         virtual void prepareForDataSourceReplacement();
 
         virtual WTF::PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
-        virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
+        virtual void setTitle(const WebCore::StringWithDirection& title, const WebCore::KURL&);
 
-        virtual WebCore::String userAgent(const WebCore::KURL&);
+        virtual WTF::String userAgent(const WebCore::KURL&);
 
         virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
 
+        virtual void didSaveToPageCache();
+        virtual void didRestoreFromPageCache();
+
+        virtual void dispatchDidBecomeFrameset(bool);
+
         virtual bool canCachePage() const;
         virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+
+        virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
+
     private:
         WebKitWebFrame* m_frame;
         WebCore::ResourceResponse m_response;
@@ -191,6 +202,8 @@ namespace WebKit {
         // Plugin view to redirect data to
         WebCore::PluginView* m_pluginView;
         bool m_hasSentResponseToPlugin;
+
+        bool m_hasRepresentation;
     };
 
 }

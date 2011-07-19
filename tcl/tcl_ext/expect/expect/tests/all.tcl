@@ -7,6 +7,7 @@
 package require tcltest
 # do this in a way that is backward compatible for Tcl 8.3
 namespace import ::tcltest::test ::tcltest::cleanupTests
+package require Expect
 
 set ::tcltest::testSingleFile false
 set ::tcltest::testsDirectory [file dirname [info script]]

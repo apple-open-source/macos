@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  scrollframe.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: scrollframe.tcl,v 1.8 2006/11/10 19:58:49 dev_null42a Exp $
+#  $Id: scrollframe.tcl,v 1.14 2009/10/27 22:15:09 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - ScrollableFrame::create
@@ -12,13 +12,14 @@
 #     - ScrollableFrame::xview
 #     - ScrollableFrame::yview
 #     - ScrollableFrame::_resize
+#     - ScrollableFrame::_themechanged
 # ----------------------------------------------------------------------------
 
 namespace eval ScrollableFrame {
     Widget::define ScrollableFrame scrollframe
 
     Widget::declare ScrollableFrame {
-        {-background        TkResource "" 0 frame}
+        {-background	    Color      "SystemWindowFrame"  0}
         {-width             Int        0  0 {}}
         {-height            Int        0  0 {}}
         {-areawidth         Int        0  0 {}}
@@ -33,16 +34,19 @@ namespace eval ScrollableFrame {
     }
 
     Widget::addmap ScrollableFrame "" :cmd {
-        -background {} -width {} -height {} 
+        -width {} -height {} 
         -xscrollcommand {} -yscrollcommand {}
         -xscrollincrement {} -yscrollincrement {}
     }
-    Widget::addmap ScrollableFrame "" .frame {-background {}}
 
     variable _widget
 
     bind BwScrollableFrame <Configure> [list ScrollableFrame::_resize %W]
     bind BwScrollableFrame <Destroy>   [list Widget::destroy %W]
+
+    if {[lsearch [bindtags .] ScrollableFrameThemeChanged] < 0} {
+        bindtags . [linsert [bindtags .] 1 ScrollableFrameThemeChanged]
+    }
 }
 
 
@@ -52,30 +56,34 @@ namespace eval ScrollableFrame {
 proc ScrollableFrame::create { path args } {
     Widget::init ScrollableFrame $path $args
 
-    set canvas [eval [list canvas $path] [Widget::subcget $path :cmd] \
-                    -highlightthickness 0 -borderwidth 0 -relief flat]
+    set bg [Widget::cget $path -background]
 
-    if {[Widget::theme]} {
-	set frame [eval [list ttk::frame $path.frame] \
-		       [Widget::subcget $path .frame]]
-    } else {
-	set frame [eval [list frame $path.frame] \
-		       [Widget::subcget $path .frame] \
-		       -highlightthickness 0 -borderwidth 0 -relief flat]
-    }
+    set canvas [eval [list canvas $path] [Widget::subcget $path :cmd] \
+                    -highlightthickness 0 -borderwidth 0 -relief flat \
+		    -bg $bg]
+
+    set frame [eval [list frame $path.frame] \
+		       -highlightthickness 0 -borderwidth 0 -relief flat \
+		       -background $bg]
 
     $canvas create window 0 0 -anchor nw -window $frame -tags win \
         -width  [Widget::cget $path -areawidth] \
         -height [Widget::cget $path -areaheight]
 
-    # Koen Danckaert: scollregion must also be reset when canvas size changes!
-    bind $path <Configure> \
-	    [list ScrollableFrame::_frameConfigure $canvas $frame]
     bind $frame <Configure> \
-	    [list ScrollableFrame::_frameConfigure $canvas $frame]
-    bind $frame <Expose> \
- 	    [list ScrollableFrame::_frameConfigure $canvas $frame]
+        [list ScrollableFrame::_frameConfigure $canvas]
+    # add <unmap> binding: <configure> is not called when frame
+    # becomes so small that it suddenly falls outside of currently visible area.
+    # but now we need to add a <map> binding too
+    bind $frame <Map> \
+        [list ScrollableFrame::_frameConfigure $canvas]
+    bind $frame <Unmap> \
+        [list ScrollableFrame::_frameConfigure $canvas 1]
+
     bindtags $path [list $path BwScrollableFrame [winfo toplevel $path] all]
+
+    bind ScrollableFrameThemeChanged <<ThemeChanged>> \
+	   "+ [namespace current]::_themechanged $path"
 
     return [Widget::create ScrollableFrame $path]
 }
@@ -87,6 +95,11 @@ proc ScrollableFrame::create { path args } {
 proc ScrollableFrame::configure { path args } {
     set res [Widget::configure $path $args]
     set upd 0
+
+    if { [Widget::hasChanged $path -background bg] } {
+        $path:cmd configure -background $bg
+	$path.frame configure -background $bg
+    }
 
     set modcw [Widget::hasChanged $path -constrainedwidth cw]
     set modw  [Widget::hasChanged $path -areawidth w]
@@ -212,6 +225,8 @@ proc ScrollableFrame::_resize { path } {
     if { [Widget::getoption $path -constrainedheight] } {
         $path:cmd itemconfigure win -height [winfo height $path]
     }
+    # scollregion must also be reset when canvas size changes
+    _frameConfigure $path
 }
 
 
@@ -219,10 +234,27 @@ proc ScrollableFrame::_resize { path } {
 #  Command ScrollableFrame::_frameConfigure
 # ----------------------------------------------------------------------------
 proc ScrollableFrame::_max {a b} {return [expr {$a <= $b ? $b : $a}]}
-proc ScrollableFrame::_frameConfigure {canvas frame} {
+proc ScrollableFrame::_frameConfigure {canvas {unmap 0}} {
     # This ensures that we don't get funny scrollability in the frame
     # when it is smaller than the canvas space
-    set height [_max [winfo reqheight $frame] [winfo height $canvas]]
-    set width [_max [winfo reqwidth $frame] [winfo width $canvas]]
+    # use [winfo] to get height & width of frame
+
+    # [winfo] doesn't work for unmapped frame
+    set frameh [expr {$unmap ? 0 : [winfo height $canvas.frame]}]
+    set framew [expr {$unmap ? 0 : [winfo width  $canvas.frame]}]
+
+    set height [_max $frameh [winfo height $canvas]]
+    set width  [_max $framew [winfo width  $canvas]]
+
     $canvas:cmd configure -scrollregion [list 0 0 $width $height]
+}
+
+# ----------------------------------------------------------------------------
+#  Command ScrollableFrame::_themechanged
+# ----------------------------------------------------------------------------
+proc ScrollableFrame::_themechanged { path } {
+
+    if { ![winfo exists $path] } { return }
+    BWidget::set_themedefaults
+    $path configure -background $BWidget::colors(SystemWindowFrame)
 }

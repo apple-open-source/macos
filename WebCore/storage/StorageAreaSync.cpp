@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,11 +29,14 @@
 #if ENABLE(DOM_STORAGE)
 
 #include "EventNames.h"
+#include "FileSystem.h"
 #include "HTMLElement.h"
-#include "SecurityOrigin.h"
+#include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
+#include "SecurityOrigin.h"
 #include "StorageAreaImpl.h"
 #include "StorageSyncManager.h"
+#include "StorageTracker.h"
 #include "SuddenTermination.h"
 #include <wtf/text/CString.h>
 
@@ -47,12 +50,7 @@ static const double StorageSyncInterval = 1.0;
 // much harder to starve the rest of LocalStorage and the OS's IO subsystem in general.
 static const int MaxiumItemsToSync = 100;
 
-PassRefPtr<StorageAreaSync> StorageAreaSync::create(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier)
-{
-    return adoptRef(new StorageAreaSync(storageSyncManager, storageArea, databaseIdentifier));
-}
-
-StorageAreaSync::StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, String databaseIdentifier)
+inline StorageAreaSync::StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, const String& databaseIdentifier)
     : m_syncTimer(this, &StorageAreaSync::syncTimerFired)
     , m_itemsCleared(false)
     , m_finalSyncScheduled(false)
@@ -62,16 +60,25 @@ StorageAreaSync::StorageAreaSync(PassRefPtr<StorageSyncManager> storageSyncManag
     , m_clearItemsWhileSyncing(false)
     , m_syncScheduled(false)
     , m_syncInProgress(false)
+    , m_databaseOpenFailed(false)
+    , m_syncCloseDatabase(false)
     , m_importComplete(false)
 {
     ASSERT(isMainThread());
     ASSERT(m_storageArea);
     ASSERT(m_syncManager);
+}
+
+PassRefPtr<StorageAreaSync> StorageAreaSync::create(PassRefPtr<StorageSyncManager> storageSyncManager, PassRefPtr<StorageAreaImpl> storageArea, const String& databaseIdentifier)
+{
+    RefPtr<StorageAreaSync> area = adoptRef(new StorageAreaSync(storageSyncManager, storageArea, databaseIdentifier));
 
     // FIXME: If it can't import, then the default WebKit behavior should be that of private browsing,
-    // not silently ignoring it.  https://bugs.webkit.org/show_bug.cgi?id=25894
-    if (!m_syncManager->scheduleImport(this))
-        m_importComplete = true;
+    // not silently ignoring it. https://bugs.webkit.org/show_bug.cgi?id=25894
+    if (!area->m_syncManager->scheduleImport(area.get()))
+        area->m_importComplete = true;
+
+    return area.release();
 }
 
 StorageAreaSync::~StorageAreaSync()
@@ -99,6 +106,7 @@ void StorageAreaSync::scheduleFinalSync()
     // we should do it safely.
     m_finalSyncScheduled = true;
     syncTimerFired(&m_syncTimer);
+    m_syncManager->scheduleDeleteEmptyDatabase(this);
 }
 
 void StorageAreaSync::scheduleItemForSync(const String& key, const String& value)
@@ -126,6 +134,25 @@ void StorageAreaSync::scheduleClear()
     if (!m_syncTimer.isActive()) {
         m_syncTimer.startOneShot(StorageSyncInterval);
 
+        // The following is balanced by the call to enableSuddenTermination in the
+        // syncTimerFired function.
+        disableSuddenTermination();
+    }
+}
+
+void StorageAreaSync::scheduleCloseDatabase()
+{
+    ASSERT(isMainThread());
+    ASSERT(!m_finalSyncScheduled);
+
+    if (!m_database.isOpen())
+        return;
+
+    m_syncCloseDatabase = true;
+    
+    if (!m_syncTimer.isActive()) {
+        m_syncTimer.startOneShot(StorageSyncInterval);
+        
         // The following is balanced by the call to enableSuddenTermination in the
         // syncTimerFired function.
         disableSuddenTermination();
@@ -198,27 +225,52 @@ void StorageAreaSync::syncTimerFired(Timer<StorageAreaSync>*)
     }
 }
 
-void StorageAreaSync::performImport()
+void StorageAreaSync::openDatabase(OpenDatabaseParamType openingStrategy)
 {
     ASSERT(!isMainThread());
     ASSERT(!m_database.isOpen());
+    ASSERT(!m_databaseOpenFailed);
 
     String databaseFilename = m_syncManager->fullDatabaseFilename(m_databaseIdentifier);
+
+    if (!fileExists(databaseFilename) && openingStrategy == SkipIfNonExistent)
+        return;
 
     if (databaseFilename.isEmpty()) {
         LOG_ERROR("Filename for local storage database is empty - cannot open for persistent storage");
         markImported();
+        m_databaseOpenFailed = true;
         return;
     }
+
+    // A StorageTracker thread may have been scheduled to delete the db we're
+    // reopening, so cancel possible deletion.
+    StorageTracker::tracker().cancelDeletingOrigin(m_databaseIdentifier);
 
     if (!m_database.open(databaseFilename)) {
         LOG_ERROR("Failed to open database file %s for local storage", databaseFilename.utf8().data());
         markImported();
+        m_databaseOpenFailed = true;
         return;
     }
 
     if (!m_database.executeCommand("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value TEXT NOT NULL ON CONFLICT FAIL)")) {
         LOG_ERROR("Failed to create table ItemTable for local storage");
+        markImported();
+        m_databaseOpenFailed = true;
+        return;
+    }
+
+    StorageTracker::tracker().setOriginDetails(m_databaseIdentifier, databaseFilename);
+}
+
+void StorageAreaSync::performImport()
+{
+    ASSERT(!isMainThread());
+    ASSERT(!m_database.isOpen());
+
+    openDatabase(SkipIfNonExistent);
+    if (!m_database.isOpen()) {
         markImported();
         return;
     }
@@ -285,9 +337,24 @@ void StorageAreaSync::sync(bool clearItems, const HashMap<String, String>& items
 {
     ASSERT(!isMainThread());
 
+    if (items.isEmpty() && !clearItems)
+        return;
+    if (m_databaseOpenFailed)
+        return;
+    if (!m_database.isOpen())
+        openDatabase(CreateIfNonExistent);
     if (!m_database.isOpen())
         return;
 
+    // Closing this db because it is about to be deleted by StorageTracker.
+    // The delete will be cancelled if StorageAreaSync needs to reopen the db
+    // to write new items created after the request to delete the db.
+    if (m_syncCloseDatabase) {
+        m_syncCloseDatabase = false;
+        m_database.close();
+        return;
+    }
+    
     // If the clear flag is set, then we clear all items out before we write any new ones in.
     if (clearItems) {
         SQLiteStatement clear(m_database, "DELETE FROM ItemTable");
@@ -368,6 +435,43 @@ void StorageAreaSync::performSync()
     enableSuddenTermination();
 }
 
+void StorageAreaSync::deleteEmptyDatabase()
+{
+    ASSERT(!isMainThread());
+    if (!m_database.isOpen())
+        return;
+
+    SQLiteStatement query(m_database, "SELECT COUNT(*) FROM ItemTable");
+    if (query.prepare() != SQLResultOk) {
+        LOG_ERROR("Unable to count number of rows in ItemTable for local storage");
+        return;
+    }
+
+    int result = query.step();
+    if (result != SQLResultRow) {
+        LOG_ERROR("No results when counting number of rows in ItemTable for local storage");
+        return;
+    }
+
+    int count = query.getColumnInt(0);
+    if (!count) {
+        query.finalize();
+        m_database.close();
+        if (StorageTracker::tracker().isActive())
+            StorageTracker::tracker().deleteOrigin(m_databaseIdentifier);
+        else {
+            String databaseFilename = m_syncManager->fullDatabaseFilename(m_databaseIdentifier);
+            if (!SQLiteFileSystem::deleteDatabaseFile(databaseFilename))
+                LOG_ERROR("Failed to delete database file %s\n", databaseFilename.utf8().data());
+        }
+    }
+}
+
+void StorageAreaSync::scheduleSync()
+{
+    syncTimerFired(&m_syncTimer);
+}
+    
 } // namespace WebCore
 
 #endif // ENABLE(DOM_STORAGE)

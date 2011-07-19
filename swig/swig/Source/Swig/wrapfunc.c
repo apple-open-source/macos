@@ -9,7 +9,7 @@
  * to be created in a piecemeal manner.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_wrapfunc_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/wrapfunc.c,v 1.34 2006/11/01 23:54:54 wsfulton Exp $";
+char cvsroot_wrapfunc_c[] = "$Id: wrapfunc.c 11080 2009-01-24 13:15:51Z bhy $";
 
 #include "swig.h"
 #include <ctype.h>
@@ -23,7 +23,7 @@ static int Max_line_size = 128;
  * Create a new wrapper function object.
  * ----------------------------------------------------------------------------- */
 
-Wrapper *NewWrapper() {
+Wrapper *NewWrapper(void) {
   Wrapper *w;
   w = (Wrapper *) malloc(sizeof(Wrapper));
   w->localh = NewHash();
@@ -406,7 +406,7 @@ void Wrapper_print(Wrapper *w, File *f) {
  * present (which may or may not be okay to the caller).
  * ----------------------------------------------------------------------------- */
 
-int Wrapper_add_local(Wrapper *w, const String_or_char *name, const String_or_char *decl) {
+int Wrapper_add_local(Wrapper *w, const_String_or_char_ptr name, const_String_or_char_ptr decl) {
   /* See if the local has already been declared */
   if (Getattr(w->localh, name)) {
     return -1;
@@ -424,7 +424,7 @@ int Wrapper_add_local(Wrapper *w, const String_or_char *name, const String_or_ch
  * to manually construct the 'decl' string before calling.
  * ----------------------------------------------------------------------------- */
 
-int Wrapper_add_localv(Wrapper *w, const String_or_char *name, ...) {
+int Wrapper_add_localv(Wrapper *w, const_String_or_char_ptr name, ...) {
   va_list ap;
   int ret;
   String *decl;
@@ -451,7 +451,7 @@ int Wrapper_add_localv(Wrapper *w, const String_or_char *name, ...) {
  * Check to see if a local name has already been declared
  * ----------------------------------------------------------------------------- */
 
-int Wrapper_check_local(Wrapper *w, const String_or_char *name) {
+int Wrapper_check_local(Wrapper *w, const_String_or_char_ptr name) {
   if (Getattr(w->localh, name)) {
     return 1;
   }
@@ -465,7 +465,7 @@ int Wrapper_check_local(Wrapper *w, const String_or_char *name) {
  * used.  Returns the name that was actually selected.
  * ----------------------------------------------------------------------------- */
 
-char *Wrapper_new_local(Wrapper *w, const String_or_char *name, const String_or_char *decl) {
+char *Wrapper_new_local(Wrapper *w, const_String_or_char_ptr name, const_String_or_char_ptr decl) {
   int i;
   String *nname = NewString(name);
   String *ndecl = NewString(decl);
@@ -489,14 +489,14 @@ char *Wrapper_new_local(Wrapper *w, const String_or_char *name, const String_or_
 
 
 /* -----------------------------------------------------------------------------
- * Wrapper_add_localv()
+ * Wrapper_new_localv()
  *
  * Same as add_local(), but allows a NULL terminated list of strings to be
  * used as a replacement for decl.   This saves the caller the trouble of having
  * to manually construct the 'decl' string before calling.
  * ----------------------------------------------------------------------------- */
 
-char *Wrapper_new_localv(Wrapper *w, const String_or_char *name, ...) {
+char *Wrapper_new_localv(Wrapper *w, const_String_or_char_ptr name, ...) {
   va_list ap;
   char *ret;
   String *decl;

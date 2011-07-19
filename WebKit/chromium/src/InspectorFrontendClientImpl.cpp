@@ -31,6 +31,8 @@
 #include "config.h"
 #include "InspectorFrontendClientImpl.h"
 
+#include "Document.h"
+#include "Frame.h"
 #include "InspectorFrontendHost.h"
 #include "Page.h"
 #include "PlatformString.h"
@@ -38,6 +40,7 @@
 #include "V8Proxy.h"
 #include "WebDevToolsFrontendClient.h"
 #include "WebDevToolsFrontendImpl.h"
+#include "WebString.h"
 
 using namespace WebCore;
 
@@ -69,9 +72,6 @@ void InspectorFrontendClientImpl::windowObjectCleared()
     v8::Handle<v8::Object> global = frameContext->Global();
 
     global->Set(v8::String::New("InspectorFrontendHost"), frontendHostObj);
-#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
-    global->Set(v8::String::New("v8ScriptDebugServerEnabled"), v8::True());
-#endif
 }
 
 void InspectorFrontendClientImpl::frontendLoaded()
@@ -90,6 +90,8 @@ String InspectorFrontendClientImpl::localizedStringsURL()
 
 String InspectorFrontendClientImpl::hiddenPanels()
 {
+    if (m_client->shouldHideScriptsPanel())
+        return "scripts";
     return "";
 }
 
@@ -99,6 +101,11 @@ void InspectorFrontendClientImpl::bringToFront()
 }
 
 void InspectorFrontendClientImpl::closeWindow()
+{
+    m_client->closeWindow();
+}
+
+void InspectorFrontendClientImpl::disconnectFromBackend()
 {
     m_client->closeWindow();
 }
@@ -118,9 +125,19 @@ void InspectorFrontendClientImpl::changeAttachedWindowHeight(unsigned)
     // Do nothing;
 }
     
-void InspectorFrontendClientImpl::inspectedURLChanged(const String&)
+void InspectorFrontendClientImpl::saveAs(const String& fileName, const String& content)
 {
-    // Do nothing;
+    m_client->saveAs(fileName, content);
+}
+
+void InspectorFrontendClientImpl::inspectedURLChanged(const String& url)
+{
+    m_frontendPage->mainFrame()->document()->setTitle("Developer Tools - " + url);
+}
+
+void InspectorFrontendClientImpl::sendMessageToBackend(const String& message)
+{
+    m_client->sendMessageToBackend(message);
 }
 
 } // namespace WebKit

@@ -1,4 +1,4 @@
-# $Id: Makefile.win32,v 1.11 2006/06/26 04:41:48 amold Exp $
+# $Id: Makefile.win32,v 1.13 2008/08/24 23:29:32 amold Exp $
 #	Makefile.std	4.3	6/11/83
 #
 # C Shell with process control; VM/UNIX VAX Makefile
@@ -160,7 +160,7 @@ OBJS= $(SHOBJS) $(TWOBJS) $(EDOBJS) $(TCOBJS) $(NTOBJS)
 all: $(BUILD)
 
 $(BUILD): $(OBJS)  ntb1.$(SUF) ntb2.$(SUF) win32/$(NTRES).res 
-	link $(LDFLAGS) ntb1.$(SUF) $(OBJS) ntb2.$(SUF) $(LIBES) $(EXTRALIBS) \
+	link $(LDFLAGS) ntb1.$(SUF) $(OBJS)  $(LIBES) ntb2.$(SUF) $(EXTRALIBS) \
 	win32/$(NTRES).res $(LOADABLE_RES) -map:tcsh.map -out:$(BUILD) 
 
 gcompress:$(BUILD)
@@ -177,14 +177,6 @@ win32srctar: $(NTSRCS)
 	gzip -v9 tcshwin32src.tar
 	move tcshwin32src.tar.gz ..
 
-symbols:$(BUILD)
-	@echo finding image base
-	@echo rebase may crash if msdev is holding the symbol file
-	@dumpbin /headers $(BUILD) | findstr /c:"image base"
-	@echo The address given to rebase should match the image base
-	rebase -b 400000 -xa . -a $(BUILD)
-copysym: symbols
-	copy tcsh.dbg %SystemRoot%\symbols\exe
 
 chlog:
 	tcsh -fc "echo \<XMP\> > win32\\Changelog.html"

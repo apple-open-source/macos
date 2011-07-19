@@ -2,6 +2,7 @@
 [manpage_begin ftp::geturl n 0.2.1]
 [moddesc   {ftp client}]
 [titledesc {Uri handler for ftp urls}]
+[category  Networking]
 [require Tcl 8.2]
 [require ftp::geturl [opt 0.2.1]]
 [description]

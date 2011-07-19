@@ -30,8 +30,8 @@
 #include "CSSStyleSelector.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
+#include "CSSValueKeywords.h"
 #include "ExceptionCode.h"
-#include "RenderStyle.h"
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
@@ -52,14 +52,18 @@ WebKitCSSMatrix::~WebKitCSSMatrix()
 
 void WebKitCSSMatrix::setMatrixValue(const String& string, ExceptionCode& ec)
 {
-    CSSParser p(true);
     RefPtr<CSSMutableStyleDeclaration> styleDeclaration = CSSMutableStyleDeclaration::create();
-    if (p.parseValue(styleDeclaration.get(), CSSPropertyWebkitTransform, string, true)) {
+    if (CSSParser::parseValue(styleDeclaration.get(), CSSPropertyWebkitTransform, string, true, true)) {
         // Convert to TransformOperations. This can fail if a property 
         // requires style (i.e., param uses 'ems' or 'exs')
-        PassRefPtr<CSSValue> val =  styleDeclaration->getPropertyCSSValue(CSSPropertyWebkitTransform);
+        RefPtr<CSSValue> value = styleDeclaration->getPropertyCSSValue(CSSPropertyWebkitTransform);
+
+        // Check for a "none" or empty transform. In these cases we can use the default identity matrix.
+        if (!value || (value->isPrimitiveValue() && (static_cast<CSSPrimitiveValue*>(value.get()))->getIdent() == CSSValueNone))
+            return;
+
         TransformOperations operations;
-        if (!CSSStyleSelector::createTransformOperations(val.get(), 0, 0, operations)) {
+        if (!CSSStyleSelector::createTransformOperations(value.get(), 0, 0, operations)) {
             ec = SYNTAX_ERR;
             return;
         }
@@ -86,9 +90,7 @@ PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::multiply(WebKitCSSMatrix* secondMat
     if (!secondMatrix)
         return 0;
 
-    TransformationMatrix tmp(secondMatrix->m_matrix);
-    tmp.multiply(m_matrix);
-    return WebKitCSSMatrix::create(tmp);
+    return WebKitCSSMatrix::create(TransformationMatrix(m_matrix).multiply(secondMatrix->m_matrix));
 }
 
 PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::inverse(ExceptionCode& ec) const
@@ -156,6 +158,19 @@ PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::rotateAxisAngle(double x, double y,
     return WebKitCSSMatrix::create(TransformationMatrix(m_matrix).rotate3d(x, y, z, angle));
 }
 
+PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::skewX(double angle) const
+{
+    if (isnan(angle))
+        angle = 0;
+    return WebKitCSSMatrix::create(TransformationMatrix(m_matrix).skewX(angle));
+}
+
+PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::skewY(double angle) const
+{
+    if (isnan(angle))
+        angle = 0;
+    return WebKitCSSMatrix::create(TransformationMatrix(m_matrix).skewY(angle));
+}
 
 String WebKitCSSMatrix::toString() const
 {

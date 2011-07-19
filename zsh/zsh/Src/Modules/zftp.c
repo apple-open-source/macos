@@ -644,7 +644,7 @@ zfgetline(char *ln, int lnsize, int tmout)
 		cmdbuf[0] = (char)IAC;
 		cmdbuf[1] = (char)DONT;
 		cmdbuf[2] = ch;
-		write(zfsess->control->fd, cmdbuf, 3);
+		write_loop(zfsess->control->fd, cmdbuf, 3);
 		continue;
 
 	    case DO:
@@ -654,7 +654,7 @@ zfgetline(char *ln, int lnsize, int tmout)
 		cmdbuf[0] = (char)IAC;
 		cmdbuf[1] = (char)WONT;
 		cmdbuf[2] = ch;
-		write(zfsess->control->fd, cmdbuf, 3);
+		write_loop(zfsess->control->fd, cmdbuf, 3);
 		continue;
 
 	    case EOF:
@@ -2043,8 +2043,9 @@ zfgetinfo(char *prompt, int noecho)
 	fflush(stderr);
     }
 
-    fgets(instr, 256, stdin);
-    if (instr[len = strlen(instr)-1] == '\n')
+    if (fgets(instr, 256, stdin) == NULL)
+	instr[len = 0] = '\0';
+    else if (instr[len = strlen(instr)-1] == '\n')
 	instr[len] = '\0';
 
     strret = dupstring(instr);
@@ -2196,7 +2197,7 @@ zftp_login(char *name, char **args, UNUSED(int flags))
 	int cnt;
 	for (cnt = 0; *args; args++)
 	    cnt++;
-	zwarnnam(name, "warning: %d comand arguments not used\n", cnt);
+	zwarnnam(name, "warning: %d command arguments not used\n", cnt);
     }
     zfstatusp[zfsessno] |= ZFST_LOGI;
     zfsetparam("ZFTP_USER", ztrdup(user), ZFPM_READONLY);
@@ -2753,7 +2754,7 @@ zfclose(int leaveparams)
 	if (!zfnopen) {
 	    /* Write the final status in case this is a subshell */
 	    lseek(zfstatfd, zfsessno*sizeof(int), 0);
-	    write(zfstatfd, (char *)zfstatusp+zfsessno, sizeof(int));
+	    write_loop(zfstatfd, (char *)zfstatusp+zfsessno, sizeof(int));
 
 	    close(zfstatfd);
 	    zfstatfd = -1;
@@ -3032,7 +3033,7 @@ bin_zftp(char *name, char **args, UNUSED(Options ops), UNUSED(int func))
 	/* Get the status in case it was set by a forked process */
 	int oldstatus = zfstatusp[zfsessno];
 	lseek(zfstatfd, 0, 0);
-	read(zfstatfd, (char *)zfstatusp, sizeof(int)*zfsesscnt);
+	read_loop(zfstatfd, (char *)zfstatusp, sizeof(int)*zfsesscnt);
 	if (zfsess->control && (zfstatusp[zfsessno] & ZFST_CLOS)) {
 	    /* got closed in subshell without us knowing */
 	    zcfinish = 2;
@@ -3123,7 +3124,7 @@ bin_zftp(char *name, char **args, UNUSED(Options ops), UNUSED(int func))
 	 * but only for the active session.
 	 */
 	lseek(zfstatfd, zfsessno*sizeof(int), 0);
-	write(zfstatfd, (char *)zfstatusp+zfsessno, sizeof(int));
+	write_loop(zfstatfd, (char *)zfstatusp+zfsessno, sizeof(int));
     }
     return ret;
 }

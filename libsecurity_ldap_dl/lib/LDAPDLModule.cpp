@@ -213,8 +213,6 @@ void LDAPDLModule::InitializeRelations ()
 LDAPDLModule::LDAPDLModule (pthread_mutex_t *globalLock, CSSM_SPI_ModuleEventHandler CssmNotifyCallback, void* CssmNotifyCallbackCtx) : 
 	DataStorageLibrary (globalLock, CssmNotifyCallback, CssmNotifyCallbackCtx)
 {
-	if (mSchemaRelationRelation == NULL)
-		InitializeRelations ();
 }
 
 
@@ -234,6 +232,8 @@ AttachedInstance* LDAPDLModule::MakeAttachedInstance ()
 
 Relation* LDAPDLModule::LookupRelation (CSSM_DB_RECORDTYPE recordType)
 {
+    if (mSchemaRelationRelation == NULL)
+		InitializeRelations ();
 	RelationMap::iterator r = (*mRelationMap).find (recordType);
 	if (r == (*mRelationMap).end ())
 		CSSMError::ThrowCSSMError (CSSMERR_DL_INVALID_RECORDTYPE);

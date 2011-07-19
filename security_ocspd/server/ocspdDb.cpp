@@ -551,7 +551,7 @@ void OcspdDatabase::addResponse(
 	recordAttrs.AttributeData = attrData;
 	
 	/*
-	 * Now fill in the attributes. CertID is unusual in that it can contain mutliple
+	 * Now fill in the attributes. CertID is unusual in that it can contain multiple
 	 * values, one for each SingleResponse.
 	 */
 	SecAsn1CoderRef coder;			// for tons of mallocs
@@ -639,22 +639,25 @@ void OcspdDatabase::flushCertID(
 		ocspdDbDebug("OcspdDatabase::flushCertID: no such record");
 		return;
 	}
-	ocspdDbDebug("OcspdDatabase::flushCertID: deleting (1)");
-	CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
-	CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-	
-	/* any more? */
-	do {
-		crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
-		if(crtn) {
-			/* done, not found */
-			break;
-		}
-		ocspdDbDebug("OcspdDatabase::flushCertID: deleting (2)");
+	try {
+		ocspdDbDebug("OcspdDatabase::flushCertID: deleting (1)");
 		CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
 		CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-	} while(crtn == CSSM_OK);
-	CSSM_DL_DataAbortQuery(mDlDbHandle, resultHand);
+		
+		/* any more? */
+		do {
+			crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
+			if(crtn) {
+				/* done, not found */
+				break;
+			}
+			ocspdDbDebug("OcspdDatabase::flushCertID: deleting (2)");
+			CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
+			CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
+		} while(crtn == CSSM_OK);
+		CSSM_DL_DataAbortQuery(mDlDbHandle, resultHand);
+	}
+	catch (...) {}; // <rdar://8833413>
 	return;
 }
 
@@ -688,29 +691,31 @@ void OcspdDatabase::flushStale()
 		ocspdDbDebug("OcspdDatabase::flushStale: no records found");
 		return;
 	}
-	
-	CFAbsoluteTime cfExpireTime = genTimeToCFAbsTime(attrData.Value);
-	if(now >= cfExpireTime) {
-		ocspdDbDebug("OcspdDatabase::flushStale: record EXPIRED");
-		CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
-	}
-	CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-	
-	/* any more? */
-	do {
-		crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
-		if(crtn) {
-			/* done, not found */
-			break;
-		}
-		cfExpireTime = genTimeToCFAbsTime(attrData.Value);
+	try {
+		CFAbsoluteTime cfExpireTime = genTimeToCFAbsTime(attrData.Value);
 		if(now >= cfExpireTime) {
 			ocspdDbDebug("OcspdDatabase::flushStale: record EXPIRED");
 			CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
 		}
 		CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
-	} while(crtn == CSSM_OK);
-	CSSM_DL_DataAbortQuery(mDlDbHandle, resultHand);
+		
+		/* any more? */
+		do {
+			crtn = CSSM_DL_DataGetNext(mDlDbHandle, resultHand,	NULL, NULL, &recordPtr);
+			if(crtn) {
+				/* done, not found */
+				break;
+			}
+			cfExpireTime = genTimeToCFAbsTime(attrData.Value);
+			if(now >= cfExpireTime) {
+				ocspdDbDebug("OcspdDatabase::flushStale: record EXPIRED");
+				CSSM_DL_DataDelete(mDlDbHandle, recordPtr);
+			}
+			CSSM_DL_FreeUniqueRecord(mDlDbHandle, recordPtr);
+		} while(crtn == CSSM_OK);
+		CSSM_DL_DataAbortQuery(mDlDbHandle, resultHand);
+	}
+	catch (...) {}; // <rdar://8833413>
 	return;
 }
 

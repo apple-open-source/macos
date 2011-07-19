@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.17 2003/08/03 19:28:23 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.18 2005/02/27 14:54:23 phantom Exp $");
 
 #include <xlocale.h>
 #include <wchar.h>
@@ -36,9 +36,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.17 2003/08/03 19:28:23 ach
  */
 
 __private_extern__ int
-__collate_range_cmp(c1, c2, loc)
-	wchar_t c1, c2;
-	locale_t loc;
+__collate_range_cmp(wchar_t c1, wchar_t c2, locale_t loc)
 {
 	static wchar_t s1[2], s2[2];
 

@@ -43,53 +43,43 @@ namespace WebKit {
     class WebInputElement : public WebFormControlElement {
     public:
         WebInputElement() : WebFormControlElement() { }
-        WebInputElement(const WebInputElement& e) : WebFormControlElement(e) { }
+        WebInputElement(const WebInputElement& element) : WebFormControlElement(element) { }
 
-        WebInputElement& operator=(const WebInputElement& e)
+        WebInputElement& operator=(const WebInputElement& element)
         {
-            WebFormControlElement::assign(e);
+            WebFormControlElement::assign(element);
             return *this;
         }
-        WEBKIT_API void assign(const WebInputElement& e) { WebFormControlElement::assign(e); }
+        void assign(const WebInputElement& element) { WebFormControlElement::assign(element); }
 
-        enum InputType {
-            Text = 0,
-            Password,
-            IsIndex,
-            CheckBox,
-            Radio,
-            Submit,
-            Reset,
-            File,
-            Hidden,
-            Image,
-            Button,
-            Search,
-            Range,
-            Email,
-            Number,
-            Telephone,
-            URL,
-            Color,
-            Date,
-            DateTime,
-            DateTimeLocal,
-            Month,
-            Time,
-            Week
-        };
-
+        // This returns true for all of textfield-looking types such as text,
+        // password, search, email, url, and number.
+        WEBKIT_API bool isTextField() const;
+        // This returns true only for type=text.
+        WEBKIT_API bool isText() const;
+        WEBKIT_API bool isPasswordField() const;
+        WEBKIT_API bool isImageButton() const;
         WEBKIT_API bool autoComplete() const;
-        WEBKIT_API bool isEnabledFormControl() const;
-        WEBKIT_API InputType inputType() const;
         WEBKIT_API int maxLength() const;
         WEBKIT_API bool isActivatedSubmit() const;
         WEBKIT_API void setActivatedSubmit(bool);
-        WEBKIT_API void setValue(const WebString& value);
+        WEBKIT_API int size() const;
+        WEBKIT_API void setValue(const WebString&, bool sendChangeEvent = false);
         WEBKIT_API WebString value() const;
+        WEBKIT_API void setSuggestedValue(const WebString&);
+        WEBKIT_API WebString suggestedValue() const;
+        WEBKIT_API void setPlaceholder(const WebString&);
+        WEBKIT_API WebString placeholder() const;
+        WEBKIT_API bool isAutofilled() const;
         WEBKIT_API void setAutofilled(bool);
-        WEBKIT_API void dispatchFormControlChangeEvent();
         WEBKIT_API void setSelectionRange(int, int);
+        WEBKIT_API int selectionStart() const;
+        WEBKIT_API int selectionEnd() const;
+        WEBKIT_API bool isValidValue(const WebString&) const;
+        WEBKIT_API bool isChecked() const;
+
+        // Exposes the default value of the maxLength attribute.
+        WEBKIT_API static int defaultMaxLength();
 
 #if WEBKIT_IMPLEMENTATION
         WebInputElement(const WTF::PassRefPtr<WebCore::HTMLInputElement>&);
@@ -97,6 +87,13 @@ namespace WebKit {
         operator WTF::PassRefPtr<WebCore::HTMLInputElement>() const;
 #endif
     };
+
+    WEBKIT_API WebInputElement* toWebInputElement(WebElement*);
+
+    inline const WebInputElement* toWebInputElement(const WebElement* element)
+    {
+        return toWebInputElement(const_cast<WebElement*>(element));
+    }
 
 } // namespace WebKit
 

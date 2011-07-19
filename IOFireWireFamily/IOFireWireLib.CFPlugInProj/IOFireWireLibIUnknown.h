@@ -8,7 +8,7 @@
  *	$Log: IOFireWireLibIUnknown.h,v $
  *	Revision 1.2  2003/07/21 06:53:10  niels
  *	merge isoch to TOT
- *	
+ *
  *	Revision 1.1.2.1  2003/07/01 20:54:23  niels
  *	isoch merge
  *	

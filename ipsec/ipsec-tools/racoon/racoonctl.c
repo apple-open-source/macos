@@ -41,11 +41,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -276,13 +272,6 @@ main(ac, av)
 	    (racoonctl_interface < RACOONCTL_INTERFACE))
 		errx(1, "Incompatible racoonctl interface");
 
-#ifdef __linux__
-	/*
-	 * Disable GNU extensions that will prevent racoonct vc -u login
-	 * from working (GNU getopt(3) does not like options after vc)
-	 */
-	setenv("POSIXLY_CORRECT", "1", 0);
-#endif
 	while ((c = getopt(ac, av, "lds:")) != -1) {
 		switch(c) {
 		case 'l':

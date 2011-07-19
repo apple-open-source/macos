@@ -1,16 +1,23 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //  -*- mode:C; c-basic-offset:4; tab-width:4; intent-tabs-mode:nil;  -*-
-// CONFIG
+// TEST_CONFIG
 
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
+#import "test.h"
 
 typedef struct {
     unsigned long ps[30];
     int qs[30];
 } BobTheStruct;
 
-int main (int argc, const char * argv[]) {
+int main () {
     __block BobTheStruct fiddly;
     BobTheStruct copy;
 
@@ -35,17 +42,14 @@ int main (int argc, const char * argv[]) {
     incrementFiddly();
 
     if ( &copy == &fiddly ) {
-        printf("%s: struct wasn't copied.", argv[0]);
-        exit(1);
+        fail("struct wasn't copied");
     }
     for(i=0; i<30; i++) {
         //printf("[%d]: fiddly.ps: %lu, copy.ps: %lu, fiddly.qs: %d, copy.qs: %d\n", i, fiddly.ps[i], copy.ps[i], fiddly.qs[i], copy.qs[i]);
         if ( (fiddly.ps[i] != copy.ps[i] + 1) || (fiddly.qs[i] != copy.qs[i] + 1) ) {
-            printf("%s: struct contents were not incremented.", argv[0]);
-            exit(1);
+            fail("struct contents were not incremented");
         }
     }
     
-    printf("%s: success\n", argv[0]);
-    return 0;
+    succeed(__FILE__);
 }

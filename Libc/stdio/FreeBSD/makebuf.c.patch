@@ -1,8 +1,8 @@
---- makebuf.c.orig	2008-08-28 17:18:09.000000000 -0700
-+++ makebuf.c	2008-09-04 14:20:48.000000000 -0700
-@@ -49,6 +49,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/m
+--- makebuf.c.bsdnew	2009-11-11 13:33:12.000000000 -0800
++++ makebuf.c	2009-11-11 13:33:13.000000000 -0800
+@@ -47,6 +47,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/m
+ #include "libc_private.h"
  #include "local.h"
- #include "un-namespace.h"
  
 +#define MAXBUFSIZE	(1 << 16)
 +#define TTYBUFSIZE	4096
@@ -10,7 +10,7 @@
  /*
   * Allocate a file buffer, or switch to unbuffered I/O.
   * Per the ANSI C standard, ALL tty devices default to line buffered.
-@@ -71,6 +74,12 @@ __smakebuf(fp)
+@@ -69,6 +72,12 @@ __smakebuf(fp)
  		return;
  	}
  	flags = __swhatbuf(fp, &size, &couldbetty);
@@ -23,7 +23,7 @@
  	if ((p = malloc(size)) == NULL) {
  		fp->_flags |= __SNBF;
  		fp->_bf._base = fp->_p = fp->_nbuf;
-@@ -81,8 +90,6 @@ __smakebuf(fp)
+@@ -79,8 +88,6 @@ __smakebuf(fp)
  	flags |= __SMBF;
  	fp->_bf._base = fp->_p = p;
  	fp->_bf._size = size;
@@ -32,7 +32,7 @@
  	fp->_flags |= flags;
  }
  
-@@ -115,8 +122,7 @@ __swhatbuf(fp, bufsize, couldbetty)
+@@ -113,8 +120,7 @@ __swhatbuf(fp, bufsize, couldbetty)
  	 * __sseek is mainly paranoia.)  It is safe to set _blksize
  	 * unconditionally; it will only be used if __SOPT is also set.
  	 */

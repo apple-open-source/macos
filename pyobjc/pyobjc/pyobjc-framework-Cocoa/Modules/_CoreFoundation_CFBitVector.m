@@ -1,12 +1,6 @@
 /*
  * Manual wrappers for CFBitVector
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
-
 static PyObject* 
 mod_CFBitVectorCreate(PyObject* self __attribute__((__unused__)),
 	PyObject* args)
@@ -81,17 +75,17 @@ mod_CFBitVectorGetBits(PyObject* self __attribute__((__unused__)),
 	}
 	if (py_bytes != Py_None) {
 		PyErr_Format(PyExc_ValueError, "argument 3: expecting None, got instance of %s",
-			py_bytes->ob_type->tp_name);
+			Py_TYPE(py_bytes)->tp_name);
 		return NULL;
 	}
 
-	PyObject* buffer = PyString_FromStringAndSize(NULL, (range.length+7)/8);
+	PyObject* buffer = PyBytes_FromStringAndSize(NULL, (range.length+7)/8);
 	if (buffer == NULL) {
 		return NULL;
 	}
-	memset(PyString_AsString(buffer), 0, (range.length+7)/8);
+	memset(PyBytes_AsString(buffer), 0, (range.length+7)/8);
 
-	CFBitVectorGetBits(vector, range, (unsigned char*)PyString_AsString(buffer));
+	CFBitVectorGetBits(vector, range, (unsigned char*)PyBytes_AsString(buffer));
 	return buffer;
 }
 
@@ -99,27 +93,16 @@ mod_CFBitVectorGetBits(PyObject* self __attribute__((__unused__)),
 
 
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFBitVectorCreate",
-		(PyCFunction)mod_CFBitVectorCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_BITVECTOR_METHODS \
+        {	\
+		"CFBitVectorCreate",	\
+		(PyCFunction)mod_CFBitVectorCreate,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFBitVectorGetBits",	\
+		(PyCFunction)mod_CFBitVectorGetBits,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFBitVectorGetBits",
-		(PyCFunction)mod_CFBitVectorGetBits,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFBitVector(void);
-void init_CFBitVector(void)
-{
-	PyObject* m = Py_InitModule4("_CFBitVector", mod_methods, "", NULL,
-		PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

@@ -32,65 +32,11 @@
 
 #include <limits>
 #include <wtf/Assertions.h>
+#include <wtf/HexNumber.h>
 #include <wtf/text/CString.h>
 #include <wtf/RandomNumber.h>
 
 namespace WebCore {
-
-FormDataBuilder::FormDataBuilder()
-    : m_isPostMethod(false)
-    , m_isMultiPartForm(false)
-    , m_encodingType("application/x-www-form-urlencoded")
-{
-}
-
-FormDataBuilder::~FormDataBuilder()
-{
-}
-
-void FormDataBuilder::parseEncodingType(const String& type)
-{
-    if (type.contains("multipart", false) || type.contains("form-data", false)) {
-        m_encodingType = "multipart/form-data";
-        m_isMultiPartForm = true;
-    } else if (type.contains("text", false) || type.contains("plain", false)) {
-        m_encodingType = "text/plain";
-        m_isMultiPartForm = false;
-    } else {
-        m_encodingType = "application/x-www-form-urlencoded";
-        m_isMultiPartForm = false;
-    }
-}
-
-void FormDataBuilder::parseMethodType(const String& type)
-{
-    if (equalIgnoringCase(type, "post"))
-        m_isPostMethod = true;
-    else if (equalIgnoringCase(type, "get"))
-        m_isPostMethod = false;
-}
-
-TextEncoding FormDataBuilder::dataEncoding(Document* document) const
-{
-    String acceptCharset = m_acceptCharset;
-    acceptCharset.replace(',', ' ');
-
-    Vector<String> charsets;
-    acceptCharset.split(' ', charsets);
-
-    TextEncoding encoding;
-
-    Vector<String>::const_iterator end = charsets.end();
-    for (Vector<String>::const_iterator it = charsets.begin(); it != end; ++it) {
-        if ((encoding = TextEncoding(*it)).isValid())
-            return encoding;
-    }
-
-    if (Frame* frame = document->frame())
-        return frame->loader()->writer()->encoding();
-
-    return Latin1Encoding();
-}
 
 // Helper functions
 static inline void append(Vector<char>& buffer, char string)
@@ -133,6 +79,25 @@ static void appendQuotedString(Vector<char>& buffer, const CString& string)
     }
 }
 
+TextEncoding FormDataBuilder::encodingFromAcceptCharset(const String& acceptCharset, Document* document)
+{
+    String normalizedAcceptCharset = acceptCharset;
+    normalizedAcceptCharset.replace(',', ' ');
+
+    Vector<String> charsets;
+    normalizedAcceptCharset.split(' ', charsets);
+
+    TextEncoding encoding;
+
+    Vector<String>::const_iterator end = charsets.end();
+    for (Vector<String>::const_iterator it = charsets.begin(); it != end; ++it) {
+        if ((encoding = TextEncoding(*it)).isValid())
+            return encoding;
+    }
+
+    return document->inputEncoding();
+}
+
 Vector<char> FormDataBuilder::generateUniqueBoundaryString()
 {
     Vector<char> boundary;
@@ -162,7 +127,7 @@ Vector<char> FormDataBuilder::generateUniqueBoundaryString()
     Vector<char> randomBytes;
 
     for (unsigned i = 0; i < 4; ++i) {
-        unsigned randomness = static_cast<unsigned>(WTF::randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0));
+        unsigned randomness = static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0));
         randomBytes.append(alphaNumericEncodingMap[(randomness >> 24) & 0x3F]);
         randomBytes.append(alphaNumericEncodingMap[(randomness >> 16) & 0x3F]);
         randomBytes.append(alphaNumericEncodingMap[(randomness >> 8) & 0x3F]);
@@ -228,8 +193,6 @@ void FormDataBuilder::addKeyValuePairAsFormData(Vector<char>& buffer, const CStr
 
 void FormDataBuilder::encodeStringAsFormData(Vector<char>& buffer, const CString& string)
 {
-    static const char hexDigits[17] = "0123456789ABCDEF";
-
     // Same safe characters as Netscape for compatibility.
     static const char safeCharacters[] = "-._*";
 
@@ -246,8 +209,7 @@ void FormDataBuilder::encodeStringAsFormData(Vector<char>& buffer, const CString
             append(buffer, "%0D%0A");
         else if (c != '\r') {
             append(buffer, '%');
-            append(buffer, hexDigits[c >> 4]);
-            append(buffer, hexDigits[c & 0xF]);
+            appendByteAsHex(c, buffer);
         }
     }
 }

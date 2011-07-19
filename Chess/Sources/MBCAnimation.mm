@@ -2,7 +2,7 @@
 	File:		MBCAnimation.mm
 	Contains:	General animation infrastructure.
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCAnimation.mm,v $
+		Revision 1.5  2010/09/16 22:31:05  neerache
+		Somewhat smoother animation
+		
 		Revision 1.4  2003/07/14 23:21:03  neerache
 		Better termination check for animation
 		
@@ -50,7 +53,7 @@ static id	sCurAnimation = nil;
 
 - (void) scheduleNextStep
 {
-	[self performSelector:@selector(doStep:) withObject:nil afterDelay:0.010];
+	[self performSelector:@selector(doStep:) withObject:nil afterDelay:0.005];
 }
 
 - (void) startState 		

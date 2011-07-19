@@ -30,11 +30,6 @@
 #include "SelectElement.h"
 #include <wtf/Assertions.h>
 
-#if ENABLE(WML)
-#include "WMLOptionElement.h"
-#include "WMLNames.h"
-#endif
-
 namespace WebCore {
 
 void OptionElement::setSelectedState(OptionElementData& data, Element* element, bool selected)
@@ -73,7 +68,7 @@ String OptionElement::collectOptionLabelOrText(const OptionElementData& data, co
     String text;
 
     // WinIE does not use the label attribute, so as a quirk, we ignore it.
-    if (!document->inCompatMode())
+    if (!document->inQuirksMode())
         text = data.label();
     if (text.isEmpty())
         text = collectOptionInnerText(element);
@@ -134,26 +129,20 @@ OptionElementData::OptionElementData()
 {
 }
 
+OptionElementData::~OptionElementData()
+{
+}
+
 OptionElement* toOptionElement(Element* element)
 {
     if (element->isHTMLElement() && element->hasTagName(HTMLNames::optionTag))
         return static_cast<HTMLOptionElement*>(element);
-
-#if ENABLE(WML)
-    if (element->isWMLElement() && element->hasTagName(WMLNames::optionTag))
-        return static_cast<WMLOptionElement*>(element);
-#endif
-
     return 0;
 }
 
 bool isOptionElement(Element* element)
 {
-    return element->hasLocalName(HTMLNames::optionTag)
-#if ENABLE(WML)
-        || element->hasLocalName(WMLNames::optionTag)
-#endif
-        ;
+    return element->hasLocalName(HTMLNames::optionTag);
 }
 
 }

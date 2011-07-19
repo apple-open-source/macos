@@ -1,0 +1,30 @@
+/*
+ * -*- tcl -*-
+ * Parsing Expression Grammar 'TEMPLATE'.
+ * Generated for unknown, from file 'TEST'
+ */
+
+/*
+ * Declaring the parse functions
+ */
+
+
+/*
+ * Precomputed table of strings (symbols, error messages, etc.).
+ */
+
+static char const* <<string-table>> [1] = {
+    /*        0 = */   "str 'abc'"
+};
+
+/*
+ * Grammar Start Expression
+ */
+
+<<attributes>> void <<ns>><<main>> (<<STATE>> <<state>>) { <<prelude>>
+    rde_param_i_next_str (<<state>>, "abc", 0);
+    return;
+}
+
+/*
+ */

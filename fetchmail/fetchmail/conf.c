@@ -312,6 +312,13 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	    if (ctl->server.esmtp_password)
 	        stringdump("esmtppassword",ctl->server.esmtp_password);
 	    booldump("tracepolls", ctl->server.tracepolls);
+	    indent(0);
+	    switch(ctl->server.badheader) {
+		/* this is a hack - we map this to a boolean option for
+		 * fetchmailconf purposes */
+		case BHREJECT: puts("'badheader': FALSE,"); break;
+		case BHACCEPT: puts("'badheader': TRUE,"); break;
+	    }
 
 	    indent(0);
 	    fputs("'users': ", stdout);

@@ -4,7 +4,7 @@
 #
 #	MenuEntry widget
 #
-# RCS: @(#) $Id: mentry.tcl,v 1.6 2007/04/10 18:15:40 hobbs Exp $
+# RCS: @(#) $Id: mentry.tcl,v 1.7 2010/06/01 18:06:52 hobbs Exp $
 #
 
 # Creation and Options - widget::menuentry $path ...
@@ -36,7 +36,6 @@ if 0 {
 ###
 
 package require widget
-package require tile
 
 namespace eval ::widget {
     # PNG version has partial alpha transparency for better look
@@ -295,4 +294,4 @@ proc ttk::menuentry::FindMenuEntry {menu s} {
     return ""
 }
 
-package provide widget::menuentry 1.0
+package provide widget::menuentry 1.0.1

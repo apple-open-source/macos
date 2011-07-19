@@ -34,6 +34,9 @@ static char sccsid[] = "@(#) hosts_access.c 1.21 97/02/12 02:13:22";
 #include <setjmp.h>
 #include <string.h>
 #include <stdint.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <rpcsvc/ypclnt.h>
 
 extern char *fgets();
 extern int errno;

@@ -32,7 +32,7 @@ typedef HashMap<int, CSSPropertyLonghand> ShorthandMap;
 static void initShorthandMap(ShorthandMap& shorthandMap)
 {
     #define SET_SHORTHAND_MAP_ENTRY(map, propID, array) \
-        map.set(propID, CSSPropertyLonghand(array, sizeof(array) / sizeof(array[0])))
+        map.set(propID, CSSPropertyLonghand(array, WTF_ARRAY_LENGTH(array)))
 
     // FIXME: The 'font' property has "shorthand nature" but is not parsed as a shorthand.
 
@@ -98,7 +98,7 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
     };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyMargin, marginProperties);
 
-    static const int marginCollapseProperties[] = { CSSPropertyWebkitMarginTopCollapse, CSSPropertyWebkitMarginBottomCollapse };
+    static const int marginCollapseProperties[] = { CSSPropertyWebkitMarginBeforeCollapse, CSSPropertyWebkitMarginAfterCollapse };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitMarginCollapse, marginCollapseProperties);
 
     static const int marqueeProperties[] = {
@@ -206,6 +206,12 @@ static void initShorthandMap(ShorthandMap& shorthandMap)
         CSSPropertyWebkitTransformOriginY
     };
     SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitTransformOrigin, transformOriginProperties);
+    
+    static const int textEmphasisProperties[] = {
+        CSSPropertyWebkitTextEmphasisColor,
+        CSSPropertyWebkitTextEmphasisStyle
+    };
+    SET_SHORTHAND_MAP_ENTRY(shorthandMap, CSSPropertyWebkitTextEmphasis, textEmphasisProperties);
     
     #undef SET_SHORTHAND_MAP_ENTRY
 }

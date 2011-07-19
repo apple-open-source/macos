@@ -96,31 +96,146 @@ read_dict_from_stdin()
 {
 	int bytes_read = 0;
 	uint8_t buffer[4096];
-	CFMutableDataRef data = CFDataCreateMutable(NULL, sizeof(buffer));
+	CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+	CFErrorRef err = NULL;
 
 	if (!data)
 		return NULL;
 
-	while (bytes_read = read(STDIN_FILENO, &buffer, sizeof(buffer)))
+	while (bytes_read = read(STDIN_FILENO, (void *)buffer, sizeof(buffer)))
 	{
-		if ((bytes_read == -1) && ((errno != EAGAIN) || (errno != EINTR)))
+		if (bytes_read == -1)
 			break;
 		else
 			CFDataAppendBytes(data, buffer, bytes_read);
 	}
 
-	CFDictionaryRef right_dict = (CFDictionaryRef)CFPropertyListCreateFromXMLData(NULL, data, kCFPropertyListImmutable, NULL);
-	if (data)
-		CFRelease(data);
+	CFDictionaryRef right_dict = (CFDictionaryRef)CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListImmutable, NULL, &err);
+	CFRelease(data);
 
-	if (!right_dict)
+	if (NULL == right_dict) {
+		CFShow(err);
 		return NULL;
+	}
+		
 	if (CFGetTypeID(right_dict) != CFDictionaryGetTypeID())
 	{
+		fprintf(stderr, "This is not a dictionary.\n");
 		CFRelease(right_dict);
 		return NULL;
 	}
 	return right_dict;
+}
+
+CFPropertyListRef
+read_plist_from_file(CFStringRef filePath)
+{
+	CFTypeRef         property = NULL;
+	CFPropertyListRef propertyList = NULL;
+	CFURLRef          fileURL = NULL;
+	CFErrorRef       errorString = NULL;
+	CFDataRef         resourceData = NULL;
+	Boolean           status = FALSE;
+	SInt32            errorCode = -1;
+
+	// Convert the path to a URL.
+	fileURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, filePath, kCFURLPOSIXPathStyle, false);
+	if (NULL == fileURL) {
+		goto bail;
+	}
+	property = CFURLCreatePropertyFromResource(kCFAllocatorDefault, fileURL, kCFURLFileExists, NULL);
+	if (NULL == property) {
+		goto bail;
+	}
+	status = CFBooleanGetValue(property);
+	if (!status) {
+		fprintf(stderr, "The file does not exist.\n");
+		goto bail;
+	}
+
+	// Read the XML file.
+	status = CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode);
+	if (!status) {
+		fprintf(stderr, "Error (%d) reading the file.\n", (int)errorCode);
+		goto bail;
+	}
+
+	// Reconstitute the dictionary using the XML data.
+	propertyList = CFPropertyListCreateWithData(kCFAllocatorDefault, resourceData, kCFPropertyListImmutable, NULL, &errorString);
+	if (NULL == propertyList) {
+		CFShow(errorString);
+		goto bail;
+	}
+
+	// Some error checking.
+	if (!CFPropertyListIsValid(propertyList, kCFPropertyListXMLFormat_v1_0) || CFGetTypeID(propertyList) != CFDictionaryGetTypeID()) {
+		fprintf(stderr, "The file is invalid.\n");
+		CFRelease(propertyList);
+		propertyList = NULL;
+		goto bail;
+	}
+
+bail:
+	if (NULL != fileURL)
+		CFRelease(fileURL);
+	if (NULL != property)
+		CFRelease(property);
+	if (NULL != resourceData)
+		CFRelease(resourceData);
+	
+	return propertyList;
+}
+
+Boolean
+write_plist_to_file(CFPropertyListRef propertyList, CFStringRef filePath)
+{
+	CFTypeRef   property = NULL;
+	CFURLRef	fileURL = NULL;
+	CFDataRef	xmlData = NULL;
+	Boolean		status = FALSE;
+	SInt32		errorCode = -1;
+	CFErrorRef	errorRef = NULL;
+
+	// Convert the path to a URL.
+	fileURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, filePath, kCFURLPOSIXPathStyle, false);
+	if (NULL == fileURL) {
+		goto bail;
+	}
+	property = CFURLCreatePropertyFromResource(kCFAllocatorDefault, fileURL, kCFURLFileExists, NULL);
+	if (NULL == property) {
+		goto bail;
+	}
+	if (!CFBooleanGetValue(property)) {
+		fprintf(stderr, "The file does not exist.\n");
+		goto bail;
+	}
+	
+	// Convert the property list into XML data.
+	xmlData = CFPropertyListCreateData(kCFAllocatorDefault, propertyList, kCFPropertyListXMLFormat_v1_0, 0, &errorRef);
+	if (errorRef) {
+		fprintf(stderr, "The file could not be written.\n");
+		goto bail;
+	}	
+	
+	// Write the XML data to the file.
+	if (!CFURLWriteDataAndPropertiesToResource(fileURL, xmlData, NULL, &errorCode)) {
+		fprintf(stderr, "The file could not be written.\n");
+		goto bail;
+	}
+	
+	status = TRUE;
+bail:
+	if (NULL != xmlData)
+		CFRelease(xmlData);
+	if (NULL != fileURL)
+		CFRelease(fileURL);
+
+	return status;
+}
+
+static void merge_dictionaries(const void *key, const void *value, void *mergeDict)
+{
+	CFDictionarySetValue(mergeDict, key, value);
 }
 
 int
@@ -191,6 +306,106 @@ authorizationdb(int argc, char * const * argv)
 		{
 			status = AuthorizationRightRemove(auth_ref, argv[1]);
 		}
+		else if (!strcmp("merge", argv[0])) {
+			status = 1;
+			CFStringRef sourcePath = NULL;
+			CFStringRef destPath = NULL;
+			CFPropertyListRef sourcePlist = NULL;
+			CFPropertyListRef destPlist = NULL;
+			CFDictionaryRef sourceRights = NULL;
+			CFDictionaryRef sourceRules = NULL;
+			CFDictionaryRef destRights = NULL;
+			CFDictionaryRef destRules = NULL;
+			CFIndex rightsCount = 0;
+			CFIndex rulesCount = 0;
+			CFMutableDictionaryRef mergeRights = NULL;
+			CFMutableDictionaryRef mergeRules = NULL;
+			CFMutableDictionaryRef outDict = NULL;
+
+			if (argc < 2 || argc > 3)
+				return 2;
+
+			if (!strcmp("-", argv[1])) {
+				// Merging from <STDIN>.
+				sourcePlist = read_dict_from_stdin();
+			} else {
+				sourcePath = CFStringCreateWithCString(kCFAllocatorDefault, argv[1], kCFStringEncodingUTF8);
+				if (NULL == sourcePath) {
+					goto bail;
+				}
+				sourcePlist = read_plist_from_file(sourcePath);
+			}
+			if (NULL == sourcePlist)
+				goto bail;				
+			if (argc == 2) {
+				// Merging to /etc/authorization.
+				destPath = CFStringCreateWithCString(kCFAllocatorDefault, "/etc/authorization", kCFStringEncodingUTF8);
+			} else {
+				destPath = CFStringCreateWithCString(kCFAllocatorDefault, argv[2], kCFStringEncodingUTF8);
+			}
+			if (NULL == destPath) {
+				goto bail;
+			}
+			destPlist = read_plist_from_file(destPath);
+			if (NULL == destPlist)
+				goto bail;
+
+			sourceRights = CFDictionaryGetValue(sourcePlist, CFSTR("rights"));
+			sourceRules = CFDictionaryGetValue(sourcePlist, CFSTR("rules"));
+			destRights = CFDictionaryGetValue(destPlist, CFSTR("rights"));
+			destRules = CFDictionaryGetValue(destPlist, CFSTR("rules"));
+			if (sourceRights)
+				rightsCount += CFDictionaryGetCount(sourceRights);
+			if (destRights)
+				rightsCount += CFDictionaryGetCount(destRights);
+			mergeRights = CFDictionaryCreateMutable(NULL, rightsCount, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			if (NULL == mergeRights) {
+				goto bail;
+			}
+			if (sourceRules)
+				rulesCount += CFDictionaryGetCount(sourceRules);
+			if (destRules)
+				rulesCount += CFDictionaryGetCount(destRules);
+			mergeRules = CFDictionaryCreateMutable(NULL, rulesCount, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			if (NULL == mergeRules) {
+				goto bail;
+			}
+			
+			if (destRights)
+				CFDictionaryApplyFunction(destRights, merge_dictionaries, mergeRights);
+			if (destRules)
+				CFDictionaryApplyFunction(destRules, merge_dictionaries, mergeRules);
+			if (sourceRights)
+				CFDictionaryApplyFunction(sourceRights, merge_dictionaries, mergeRights);
+			if (sourceRules)
+				CFDictionaryApplyFunction(sourceRules, merge_dictionaries, mergeRules);
+
+			outDict = CFDictionaryCreateMutable(NULL, 3, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			if (NULL == outDict) {
+				goto bail;
+			}
+			if (CFDictionaryContainsKey(sourcePlist, CFSTR("comment")))
+				CFDictionaryAddValue(outDict, CFSTR("comment"), CFDictionaryGetValue(sourcePlist, CFSTR("comment")));
+			else if (CFDictionaryContainsKey(destPlist, CFSTR("comment")))
+				CFDictionaryAddValue(outDict, CFSTR("comment"), CFDictionaryGetValue(destPlist, CFSTR("comment")));
+			CFDictionaryAddValue(outDict, CFSTR("rights"), mergeRights);
+			CFDictionaryAddValue(outDict, CFSTR("rules"), mergeRules);
+			if (!write_plist_to_file(outDict, destPath))
+				goto bail;
+
+			status = noErr;
+bail:
+			if (sourcePath)
+				CFRelease(sourcePath);
+			if (destPath)
+				CFRelease(destPath);
+			if (sourcePlist)
+				CFRelease(sourcePlist);
+			if (destPlist)
+				CFRelease(destPlist);
+			if (outDict)
+				CFRelease(outDict);
+		}		
 		else
 			return 2;
 	}

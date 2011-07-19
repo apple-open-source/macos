@@ -38,6 +38,7 @@
 #include "ScriptExecutionContext.h"
 #include "ScriptState.h"
 #include "V8Binding.h"
+#include "V8BindingState.h"
 #include "V8Proxy.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
@@ -92,37 +93,25 @@ void transferHiddenDependency(v8::Handle<v8::Object> object,
     if (!newValue->IsNull() && !newValue->IsUndefined())
         createHiddenDependency(object, newValue, cacheIndex);
 }
-    
 
 bool processingUserGesture()
 {
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
-    return frame && frame->script()->processingUserGesture();
+    return V8BindingState::Only()->processingUserGesture();
+}
+
+Frame* callingOrEnteredFrame()
+{
+    return V8BindingState::Only()->activeFrame();
 }
 
 bool shouldAllowNavigation(Frame* frame)
 {
-    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
-    return callingFrame && callingFrame->loader()->shouldAllowNavigation(frame);
+    return V8BindingSecurity::shouldAllowNavigation(V8BindingState::Only(), frame);
 }
 
 KURL completeURL(const String& relativeURL)
 {
-    // For histoical reasons, we need to complete the URL using the dynamic frame.
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!frame)
-        return KURL();
-    return frame->loader()->completeURL(relativeURL);
-}
-
-void navigateIfAllowed(Frame* frame, const KURL& url, bool lockHistory, bool lockBackForwardList)
-{
-    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
-    if (!callingFrame)
-        return;
-
-    if (!protocolIsJavaScript(url) || ScriptController::isSafeScript(frame))
-        frame->redirectScheduler()->scheduleLocationChange(url.string(), callingFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, processingUserGesture());
+    return completeURL(V8BindingState::Only(), relativeURL);
 }
 
 ScriptExecutionContext* getScriptExecutionContext()
@@ -136,6 +125,11 @@ ScriptExecutionContext* getScriptExecutionContext()
         return frame->document()->scriptExecutionContext();
 
     return 0;
+}
+
+void throwTypeMismatchException()
+{
+    V8Proxy::throwError(V8Proxy::GeneralError, "TYPE_MISMATCH_ERR: DOM Exception 17");
 }
 
 } // namespace WebCore

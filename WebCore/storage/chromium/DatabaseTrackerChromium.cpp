@@ -31,18 +31,17 @@
 #include "config.h"
 #include "DatabaseTracker.h"
 
-#include "Database.h"
+#if ENABLE(DATABASE)
+
+#include "AbstractDatabase.h"
 #include "DatabaseObserver.h"
-#include "DatabaseThread.h"
 #include "QuotaTracker.h"
+#include "PlatformString.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginHash.h"
 #include "SQLiteFileSystem.h"
-#include <wtf/HashSet.h>
-#include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -72,12 +71,12 @@ String DatabaseTracker::fullPathForDatabase(SecurityOrigin* origin, const String
     return origin->databaseIdentifier() + "/" + name + "#";
 }
 
-void DatabaseTracker::addOpenDatabase(Database* database)
+void DatabaseTracker::addOpenDatabase(AbstractDatabase* database)
 {
     ASSERT(database->scriptExecutionContext()->isContextThread());
     MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
     if (!m_openDatabaseMap)
-        m_openDatabaseMap.set(new DatabaseOriginMap());
+        m_openDatabaseMap = adoptPtr(new DatabaseOriginMap());
 
     DatabaseNameMap* nameMap = m_openDatabaseMap->get(database->securityOrigin());
     if (!nameMap) {
@@ -99,9 +98,9 @@ void DatabaseTracker::addOpenDatabase(Database* database)
 
 class TrackerRemoveOpenDatabaseTask : public ScriptExecutionContext::Task {
 public:
-    static PassOwnPtr<TrackerRemoveOpenDatabaseTask> create(PassRefPtr<Database> database)
+    static PassOwnPtr<TrackerRemoveOpenDatabaseTask> create(PassRefPtr<AbstractDatabase> database)
     {
-        return new TrackerRemoveOpenDatabaseTask(database);
+        return adoptPtr(new TrackerRemoveOpenDatabaseTask(database));
     }
 
     virtual void performTask(ScriptExecutionContext* context)
@@ -110,15 +109,15 @@ public:
     }
 
 private:
-    TrackerRemoveOpenDatabaseTask(PassRefPtr<Database> database)
+    TrackerRemoveOpenDatabaseTask(PassRefPtr<AbstractDatabase> database)
         : m_database(database)
     {
     }
 
-    RefPtr<Database> m_database;
+    RefPtr<AbstractDatabase> m_database;
 };
 
-void DatabaseTracker::removeOpenDatabase(Database* database)
+void DatabaseTracker::removeOpenDatabase(AbstractDatabase* database)
 {
     if (!database->scriptExecutionContext()->isContextThread()) {
         database->scriptExecutionContext()->postTask(TrackerRemoveOpenDatabaseTask::create(database));
@@ -147,7 +146,7 @@ void DatabaseTracker::removeOpenDatabase(Database* database)
 }
 
 
-void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<Database> >* databases)
+void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<AbstractDatabase> >* databases)
 {
     MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
     if (!m_openDatabaseMap)
@@ -165,9 +164,8 @@ void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& nam
         databases->add(*it);
 }
 
-unsigned long long DatabaseTracker::getMaxSizeForDatabase(const Database* database)
+unsigned long long DatabaseTracker::getMaxSizeForDatabase(const AbstractDatabase* database)
 {
-    ASSERT(currentThread() == database->scriptExecutionContext()->databaseThread()->getThreadID());
     unsigned long long spaceAvailable = 0;
     unsigned long long databaseSize = 0;
     QuotaTracker::instance().getDatabaseSizeAndSpaceAvailableToOrigin(
@@ -176,4 +174,35 @@ unsigned long long DatabaseTracker::getMaxSizeForDatabase(const Database* databa
     return databaseSize + spaceAvailable;
 }
 
+void DatabaseTracker::interruptAllDatabasesForContext(const ScriptExecutionContext* context)
+{
+    Vector<RefPtr<AbstractDatabase> > openDatabases;
+    {
+        MutexLocker openDatabaseMapLock(m_openDatabaseMapGuard);
+
+        if (!m_openDatabaseMap)
+            return;
+
+        DatabaseNameMap* nameMap = m_openDatabaseMap->get(context->securityOrigin());
+        if (!nameMap)
+            return;
+
+        DatabaseNameMap::const_iterator dbNameMapEndIt = nameMap->end();
+        for (DatabaseNameMap::const_iterator dbNameMapIt = nameMap->begin(); dbNameMapIt != dbNameMapEndIt; ++dbNameMapIt) {
+            DatabaseSet* databaseSet = dbNameMapIt->second;
+            DatabaseSet::const_iterator dbSetEndIt = databaseSet->end();
+            for (DatabaseSet::const_iterator dbSetIt = databaseSet->begin(); dbSetIt != dbSetEndIt; ++dbSetIt) {
+                if ((*dbSetIt)->scriptExecutionContext() == context)
+                    openDatabases.append(*dbSetIt);
+            }
+        }
+    }
+
+    Vector<RefPtr<AbstractDatabase> >::const_iterator openDatabasesEndIt = openDatabases.end();
+    for (Vector<RefPtr<AbstractDatabase> >::const_iterator openDatabasesIt = openDatabases.begin(); openDatabasesIt != openDatabasesEndIt; ++openDatabasesIt)
+        (*openDatabasesIt)->interrupt();
 }
+
+}
+
+#endif // ENABLE(DATABASE)

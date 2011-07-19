@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1998-2006, International Business Machines Corporation and
+ * Copyright (c) 1998-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -15,6 +15,7 @@
 ***********************************************************************/
 
 #include "unicode/utypes.h"
+#include "unicode/localpointer.h"
 #include "itmajor.h"
 
 #include "itutil.h"
@@ -25,6 +26,7 @@
 #include "itrbnf.h"
 #include "itrbnfp.h"
 #include "itrbnfrt.h"
+#include "itspoof.h"
 #include "normconf.h"
 #include "regextst.h"
 #include "tstnorm.h"
@@ -33,6 +35,8 @@
 #include "testidna.h"
 #include "convtest.h"
 #include "csdetest.h"
+
+extern IntlTest *createBiDiConformanceTest();
 
 #define CASE_SUITE(id, suite) case id:                  \
                           name = #suite;                \
@@ -175,6 +179,28 @@ void MajorTestLevel::runIndexedTest( int32_t index, UBool exec, const char* &nam
                     logln("TestSuite CharsetDetection---"); logln();
                     CharsetDetectionTest test;
                     callTest(test, par);
+                }
+
+                break;
+
+            case 14:
+#if !UCONFIG_NO_REGULAR_EXPRESSIONS && !UCONFIG_NO_NORMALIZATION && !UCONFIG_NO_FILE_IO
+                name = "spoof";
+                if (exec) {
+                    logln("TestSuite SpoofDetection---"); logln();
+                    IntlTestSpoof test;
+                    callTest(test, par);
+                }
+#else
+                name = "skip";
+#endif
+                break;
+
+            case 15: name = "bidi";
+                if (exec) {
+                    logln("TestSuite bidi---"); logln();
+                    LocalPointer<IntlTest> test(createBiDiConformanceTest());
+                    callTest(*test, par);
                 }
 
                 break;

@@ -1,3 +1,14 @@
+2009-02-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tkpiechart.tcl: Added explicit provide command to satisfy 'sak
+	  validate'.
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
 2006-01-27  Andreas Kupries <andreask@activestate.com>
 
 	* pkgIndex.tcl:   Fixed problems with my change, see last entry.

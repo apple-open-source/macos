@@ -20,6 +20,7 @@
 
 #include "fetchmail.h"
 #include "i18n.h"
+#include "sdump.h"
 
 /*
  * Machinery for handling UID lists live here.  This is mainly to support
@@ -102,12 +103,12 @@
 
 int dofastuidl = 0;
 
-/* UIDs associated with un-queried hosts */
+#ifdef POP3_ENABLE
+/** UIDs associated with un-queried hosts */
 static struct idlist *scratchlist;
 
-#ifdef POP3_ENABLE
+/** Read saved IDs from \a idfile and attach to each host in \a hostlist. */
 void initialize_saved_lists(struct query *hostlist, const char *idfile)
-/* read file of saved IDs and attach to each host */
 {
     struct stat statbuf;
     FILE	*tmpfp;
@@ -161,7 +162,7 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	     * the rightmost '@'.  This is not correct, as InterMail puts an 
 	     * '@' in the UIDL.
 	     */
-	  
+
 	    /* first, skip leading spaces */
 	    user = buf + strspn(buf, " \t");
 
@@ -176,7 +177,7 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	     * may contain ' ' in the user part, at least in
 	     * the lotus notes case.
 	     * So we start looking for the '@' after which the
-	     * host will follow with the ' ' seperator finaly id.
+	     * host will follow with the ' ' separator with the id.
 	     *
 	     * XXX FIXME: There is a case this code cannot handle:
 	     * the user name cannot have blanks after a '@'.
@@ -242,261 +243,37 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
     if (outlevel >= O_DEBUG)
     {
 	struct idlist	*idp;
-	int uidlcount = 0;
 
 	for (ctl = hostlist; ctl; ctl = ctl->next)
-	    if (ctl->server.uidl)
 	    {
 		report_build(stdout, GT_("Old UID list from %s:"), 
 			     ctl->server.pollname);
-		for (idp = ctl->oldsaved; idp; idp = idp->next)
-		    report_build(stdout, " %s", idp->id);
+		idp = ctl->oldsaved;
 		if (!idp)
 		    report_build(stdout, GT_(" <empty>"));
+		else for (idp = ctl->oldsaved; idp; idp = idp->next) {
+		    char *t = sdump(idp->id, strlen(idp->id)-1);
+		    report_build(stdout, " %s\n", t);
+		    free(t);
+		}
 		report_complete(stdout, "\n");
-		uidlcount++;
 	    }
 
-	if (uidlcount)
-	{
-	    report_build(stdout, GT_("Scratch list of UIDs:"));
-	    for (idp = scratchlist; idp; idp = idp->next)
-		report_build(stdout, " %s", idp->id);
-	    if (!idp)
+	report_build(stdout, GT_("Scratch list of UIDs:"));
+	if (!scratchlist)
 		report_build(stdout, GT_(" <empty>"));
-	    report_complete(stdout, "\n");
+	else for (idp = scratchlist; idp; idp = idp->next) {
+		char *t = sdump(idp->id, strlen(idp->id)-1);
+		report_build(stdout, " %s\n", t);
+		free(t);
 	}
-    }
-}
-#endif /* POP3_ENABLE */
-
-/* return a pointer to the last element of the list to help the quick,
- * constant-time addition to the list, NOTE: this function does not dup
- * the string, the caller must do that. */
-/*@shared@*/ static struct idlist **save_str_quick(/*@shared@*/ struct idlist **idl,
-			       /*@only@*/ char *str, flag status)
-/* save a number/UID pair on the given UID list */
-{
-    struct idlist **end;
-
-    /* do it nonrecursively so the list is in the right order */
-    for (end = idl; *end; end = &(*end)->next)
-	continue;
-
-    *end = (struct idlist *)xmalloc(sizeof(struct idlist));
-    (*end)->id = str;
-    (*end)->val.status.mark = status;
-    (*end)->val.status.num = 0;
-    (*end)->next = NULL;
-
-    return end;
-}
-
-/* return the end list element for direct modification */
-struct idlist *save_str(struct idlist **idl, const char *str, flag st)
-{
-    return *save_str_quick(idl, str ? xstrdup(str) : NULL, st);
-}
-
-void free_str_list(struct idlist **idl)
-/* free the given UID list */
-{
-    struct idlist *i = *idl;
-
-    while(i) {
-	struct idlist *t = i->next;
-	free(i->id);
-	free(i);
-	i = t;
-    }
-    *idl = 0;
-}
-
-void save_str_pair(struct idlist **idl, const char *str1, const char *str2)
-/* save an ID pair on the given list */
-{
-    struct idlist **end;
-
-    /* do it nonrecursively so the list is in the right order */
-    for (end = idl; *end; end = &(*end)->next)
-	continue;
-
-    *end = (struct idlist *)xmalloc(sizeof(struct idlist));
-    (*end)->id = str1 ? xstrdup(str1) : (char *)NULL;
-    if (str2)
-	(*end)->val.id2 = xstrdup(str2);
-    else
-	(*end)->val.id2 = (char *)NULL;
-    (*end)->next = (struct idlist *)NULL;
-}
-
-#ifdef __UNUSED__
-void free_str_pair_list(struct idlist **idl)
-/* free the given ID pair list */
-{
-    if (*idl == (struct idlist *)NULL)
-	return;
-
-    free_idpair_list(&(*idl)->next);
-    free ((*idl)->id);
-    free ((*idl)->val.id2);
-    free(*idl);
-    *idl = (struct idlist *)NULL;
-}
-#endif
-
-struct idlist *str_in_list(struct idlist **idl, const char *str, const flag caseblind)
-/* is a given ID in the given list? (comparison may be caseblind) */
-{
-    struct idlist *walk;
-    if (caseblind) {
-	for( walk = *idl; walk; walk = walk->next )
-	    if( strcasecmp( str, walk->id) == 0 )
-		return walk;
-    } else {
-	for( walk = *idl; walk; walk = walk->next )
-	    if( strcmp( str, walk->id) == 0 )
-		return walk;
-    }
-    return NULL;
-}
-
-/** return the position of first occurrence of \a str in \a idl */
-int str_nr_in_list(struct idlist **idl, const char *str)
-{
-    int nr;
-    struct idlist *walk;
-
-    if (!str)
-        return -1;
-    for (walk = *idl, nr = 0; walk; nr ++, walk = walk->next)
-        if (strcmp(str, walk->id) == 0)
-	    return nr;
-    return -1;
-}
-
-int str_nr_last_in_list( struct idlist **idl, const char *str)
-/* return the last position of str in idl */
-{
-    int nr, ret = -1;
-    struct idlist *walk;
-    if ( !str )
-        return -1;
-    for( walk = *idl, nr = 0; walk; nr ++, walk = walk->next )
-        if( strcmp( str, walk->id) == 0 )
-	    ret = nr;
-    return ret;
-}
-
-void str_set_mark( struct idlist **idl, const char *str, const flag val)
-/* update the mark on an of an id to given value */
-{
-    int nr;
-    struct idlist *walk;
-    if (!str)
-        return;
-    for(walk = *idl, nr = 0; walk; nr ++, walk = walk->next)
-        if (strcmp(str, walk->id) == 0)
-	    walk->val.status.mark = val;
-}
-
-int count_list( struct idlist **idl)
-/* count the number of elements in the list */
-{
-  if( !*idl )
-    return 0;
-  return 1 + count_list( &(*idl)->next );
-}
-
-/*@null@*/ char *str_from_nr_list(struct idlist **idl, long number)
-/* return the number'th string in idl */
-{
-    if( !*idl  || number < 0)
-        return 0;
-    if( number == 0 )
-        return (*idl)->id;
-    return str_from_nr_list(&(*idl)->next, number-1);
-}
-
-
-char *str_find(struct idlist **idl, long number)
-/* return the id of the given number in the given list. */
-{
-    if (*idl == (struct idlist *) 0)
-	return((char *) 0);
-    else if (number == (*idl)->val.status.num)
-	return((*idl)->id);
-    else
-	return(str_find(&(*idl)->next, number));
-}
-
-struct idlist *id_find(struct idlist **idl, long number)
-/* return the id of the given number in the given list. */
-{
-    struct idlist	*idp;
-    for (idp = *idl; idp; idp = idp->next)
-	if (idp->val.status.num == number)
-	    return(idp);
-    return(0);
-}
-
-char *idpair_find(struct idlist **idl, const char *id)
-/* return the id of the given id in the given list (caseblind comparison) */
-{
-    if (*idl == (struct idlist *) 0)
-	return((char *) 0);
-    else if (strcasecmp(id, (*idl)->id) == 0)
-	return((*idl)->val.id2 ? (*idl)->val.id2 : (*idl)->id);
-    else
-	return(idpair_find(&(*idl)->next, id));
-}
-
-int delete_str(struct idlist **idl, long num)
-/* delete given message from given list */
-{
-    struct idlist	*idp;
-
-    for (idp = *idl; idp; idp = idp->next)
-	if (idp->val.status.num == num)
-	{
-	    idp->val.status.mark = UID_DELETED;
-	    return(1);
-	}
-    return(0);
-}
-
-struct idlist *copy_str_list(struct idlist *idl)
-/* copy the given UID list */
-{
-    struct idlist *newnode ;
-
-    if (idl == (struct idlist *)NULL)
-	return(NULL);
-    else
-    {
-	newnode = (struct idlist *)xmalloc(sizeof(struct idlist));
-	memcpy(newnode, idl, sizeof(struct idlist));
-	newnode->next = copy_str_list(idl->next);
-	return(newnode);
+	report_complete(stdout, "\n");
     }
 }
 
-void append_str_list(struct idlist **idl, struct idlist **nidl)
-/* append nidl to idl (does not copy *) */
-{
-    if ((*nidl) == (struct idlist *)NULL || *nidl == *idl)
-	return;
-    else if ((*idl) == (struct idlist *)NULL)
-	*idl = *nidl;
-    else if ((*idl)->next == (struct idlist *)NULL)
-	(*idl)->next = *nidl;
-    else if ((*idl)->next != *nidl)
-	append_str_list(&(*idl)->next, nidl);
-}
-
-#ifdef POP3_ENABLE
+/** Assert that all UIDs marked deleted in query \a ctl have actually been
+expunged. */
 void expunge_uids(struct query *ctl)
-/* assert that all UIDs marked deleted have actually been expunged */
 {
     struct idlist *idl;
 
@@ -505,22 +282,52 @@ void expunge_uids(struct query *ctl)
 	    idl->val.status.mark = UID_EXPUNGED;
 }
 
-void uid_swap_lists(struct query *ctl) 
+static const char *str_uidmark(int mark)
+{
+	static char buf[20];
+
+	switch(mark) {
+		case UID_UNSEEN:
+			return "UNSEEN";
+		case UID_SEEN:
+			return "SEEN";
+		case UID_EXPUNGED:
+			return "EXPUNGED";
+		case UID_DELETED:
+			return "DELETED";
+		default:
+			if (snprintf(buf, sizeof(buf), "MARK=%d", mark) < 0)
+				return "ERROR";
+			else
+				return buf;
+	}
+}
+
+static void dump_list(const struct idlist *idp)
+{
+	if (!idp) {
+		report_build(stdout, GT_(" <empty>"));
+	} else while (idp) {
+	    char *t = sdump(idp->id, strlen(idp->id));
+	    report_build(stdout, " %s = %s%s", t, str_uidmark(idp->val.status.mark), idp->next ? "," : "");
+	    free(t);
+	    idp = idp->next;
+	}
+}
+
 /* finish a query */
+void uid_swap_lists(struct query *ctl) 
 {
     /* debugging code */
-    if (ctl->server.uidl && outlevel >= O_DEBUG)
+    if (outlevel >= O_DEBUG)
     {
-	struct idlist *idp;
-
-	if (dofastuidl)
+	if (dofastuidl) {
 	    report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
-	else
+	    dump_list(ctl->oldsaved);
+	} else {
 	    report_build(stdout, GT_("New UID list from %s:"), ctl->server.pollname);
-	for (idp = dofastuidl ? ctl->oldsaved : ctl->newsaved; idp; idp = idp->next)
-	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
-	if (!idp)
-	    report_build(stdout, GT_(" <empty>"));
+	    dump_list(ctl->newsaved);
+	}
 	report_complete(stdout, "\n");
     }
 
@@ -556,21 +363,16 @@ void uid_swap_lists(struct query *ctl)
 	report(stdout, GT_("not swapping UID lists, no UIDs seen this query\n"));
 }
 
-void uid_discard_new_list(struct query *ctl)
 /* finish a query which had errors */
+void uid_discard_new_list(struct query *ctl)
 {
     /* debugging code */
-    if (ctl->server.uidl && outlevel >= O_DEBUG)
+    if (outlevel >= O_DEBUG)
     {
-	struct idlist *idp;
-
 	/* this is now a merged list! the mails which were seen in this
 	 * poll are marked here. */
 	report_build(stdout, GT_("Merged UID list from %s:"), ctl->server.pollname);
-	for (idp = ctl->oldsaved; idp; idp = idp->next)
-	    report_build(stdout, " %s = %d", idp->id, idp->val.status.mark);
-	if (!idp)
-	    report_build(stdout, GT_(" <empty>"));
+	dump_list(ctl->oldsaved);
 	report_complete(stdout, "\n");
     }
 
@@ -584,16 +386,16 @@ void uid_discard_new_list(struct query *ctl)
     }
 }
 
+/** Reset the number associated with each id */
 void uid_reset_num(struct query *ctl)
-/* reset the number associated with each id */
 {
     struct idlist *idp;
     for (idp = ctl->oldsaved; idp; idp = idp->next)
 	idp->val.status.num = 0;
 }
 
+/** Write list of seen messages, at end of run. */
 void write_saved_lists(struct query *hostlist, const char *idfile)
-/* perform end-of-run write of seen-messages list */
 {
     long	idcount;
     FILE	*tmpfp;
@@ -626,18 +428,30 @@ void write_saved_lists(struct query *hostlist, const char *idfile)
 	    report(stdout, GT_("Writing fetchids file.\n"));
 	(void)unlink(newnam); /* remove file/link first */
 	if ((tmpfp = fopen(newnam, "w")) != (FILE *)NULL) {
-	    int errflg;
+	    int errflg = 0;
 	    for (ctl = hostlist; ctl; ctl = ctl->next) {
 		for (idp = ctl->oldsaved; idp; idp = idp->next)
 		    if (idp->val.status.mark == UID_SEEN
 				|| idp->val.status.mark == UID_DELETED)
-			fprintf(tmpfp, "%s@%s %s\n", 
-			    ctl->remotename, ctl->server.queryname, idp->id);
+			if (fprintf(tmpfp, "%s@%s %s\n",
+			    ctl->remotename, ctl->server.queryname, idp->id) < 0) {
+			    int e = errno;
+			    report(stderr, GT_("Write error on fetchids file %s: %s\n"), newnam, strerror(e));
+			    errflg = 1;
+			    goto bailout;
+			}
 	    }
 	    for (idp = scratchlist; idp; idp = idp->next)
-		fputs(idp->id, tmpfp);
-	    fflush(tmpfp);
-	    errflg = ferror(tmpfp);
+		if (EOF == fputs(idp->id, tmpfp)) {
+			    int e = errno;
+			    report(stderr, GT_("Write error on fetchids file %s: %s\n"), newnam, strerror(e));
+			    errflg = 1;
+			    goto bailout;
+		}
+
+bailout:
+	    (void)fflush(tmpfp); /* return code ignored, we check ferror instead */
+	    errflg |= ferror(tmpfp);
 	    fclose(tmpfp);
 	    /* if we could write successfully, move into place;
 	     * otherwise, drop */

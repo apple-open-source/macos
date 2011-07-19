@@ -33,6 +33,7 @@
 #include "WorkerContextProxy.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerObjectProxy.h"
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -43,10 +44,10 @@ namespace WebCore {
 
     class DedicatedWorkerThread;
     class ScriptExecutionContext;
-    class String;
     class Worker;
 
-    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, public WorkerLoaderProxy, public Noncopyable {
+    class WorkerMessagingProxy : public WorkerContextProxy, public WorkerObjectProxy, public WorkerLoaderProxy {
+        WTF_MAKE_NONCOPYABLE(WorkerMessagingProxy); WTF_MAKE_FAST_ALLOCATED;
     public:
         WorkerMessagingProxy(Worker*);
 

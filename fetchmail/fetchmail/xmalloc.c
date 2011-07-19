@@ -31,7 +31,7 @@ xmalloc (size_t n)
     if (p == (XMALLOCTYPE *) 0)
     {
 	report(stderr, GT_("malloc failed\n"));
-	exit(PS_UNDEFINED);
+	abort();
     }
     return(p);
 }
@@ -45,7 +45,7 @@ xrealloc (XMALLOCTYPE *p, size_t n)
     if (p == (XMALLOCTYPE *) 0)
     {
 	report(stderr, GT_("realloc failed\n"));
-	exit(PS_UNDEFINED);
+	abort();
     }
     return p;
 }
@@ -68,5 +68,17 @@ char *strdup(const char *s)
     return p;
 }
 #endif /* !HAVE_STRDUP */
+
+char *xstrndup(const char *s, size_t len)
+{
+    char *p;
+    size_t l = strlen(s);
+
+    if (len < l) l = len;
+    p = (char *)xmalloc(l + 1);
+    memcpy(p, s, l);
+    p[l] = '\0';
+    return p;
+}
 
 /* xmalloc.c ends here */

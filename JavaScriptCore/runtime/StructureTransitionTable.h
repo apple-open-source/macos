@@ -27,18 +27,21 @@
 #define StructureTransitionTable_h
 
 #include "UString.h"
+#include "WeakGCMap.h"
 #include <wtf/HashFunctions.h>
-#include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace JSC {
 
-    class Structure;
+class Structure;
 
-    struct StructureTransitionTableHash {
-        typedef std::pair<RefPtr<UString::Rep>, unsigned> Key;
+class StructureTransitionTable {
+    static const intptr_t UsingSingleSlotFlag = 1;
+
+    struct Hash {
+        typedef std::pair<RefPtr<StringImpl>, unsigned> Key;
         static unsigned hash(const Key& p)
         {
             return p.first->existingHash();
@@ -52,8 +55,8 @@ namespace JSC {
         static const bool safeToCompareToEmptyOrDeleted = true;
     };
 
-    struct StructureTransitionTableHashTraits {
-        typedef WTF::HashTraits<RefPtr<UString::Rep> > FirstTraits;
+    struct HashTraits {
+        typedef WTF::HashTraits<RefPtr<StringImpl> > FirstTraits;
         typedef WTF::GenericHashTraits<unsigned> SecondTraits;
         typedef std::pair<FirstTraits::TraitType, SecondTraits::TraitType > TraitType;
 
@@ -65,6 +68,105 @@ namespace JSC {
         static void constructDeletedValue(TraitType& slot) { FirstTraits::constructDeletedValue(slot.first); }
         static bool isDeletedValue(const TraitType& value) { return FirstTraits::isDeletedValue(value.first); }
     };
+
+    struct WeakGCMapFinalizerCallback {
+        static void* finalizerContextFor(Hash::Key)
+        {
+            return 0;
+        }
+
+        static inline Hash::Key keyForFinalizer(void* context, Structure* structure)
+        {
+            return keyForWeakGCMapFinalizer(context, structure);
+        }
+    };
+
+    typedef WeakGCMap<Hash::Key, Structure, WeakGCMapFinalizerCallback, Hash, HashTraits> TransitionMap;
+
+    static Hash::Key keyForWeakGCMapFinalizer(void* context, Structure*);
+
+public:
+    StructureTransitionTable()
+        : m_data(UsingSingleSlotFlag)
+    {
+    }
+
+    ~StructureTransitionTable()
+    {
+        if (!isUsingSingleSlot())
+            delete map();
+        else
+            clearSingleTransition();
+    }
+
+    inline void add(JSGlobalData&, Structure*);
+    inline void remove(Structure*);
+    inline bool contains(StringImpl* rep, unsigned attributes) const;
+    inline Structure* get(StringImpl* rep, unsigned attributes) const;
+
+private:
+    bool isUsingSingleSlot() const
+    {
+        return m_data & UsingSingleSlotFlag;
+    }
+
+    TransitionMap* map() const
+    {
+        ASSERT(!isUsingSingleSlot());
+        return reinterpret_cast<TransitionMap*>(m_data);
+    }
+
+    HandleSlot slot() const
+    {
+        ASSERT(isUsingSingleSlot());
+        return reinterpret_cast<HandleSlot>(m_data & ~UsingSingleSlotFlag);
+    }
+
+    void setMap(TransitionMap* map)
+    {
+        ASSERT(isUsingSingleSlot());
+        
+        if (HandleSlot slot = this->slot())
+            HandleHeap::heapFor(slot)->deallocate(slot);
+
+        // This implicitly clears the flag that indicates we're using a single transition
+        m_data = reinterpret_cast<intptr_t>(map);
+
+        ASSERT(!isUsingSingleSlot());
+    }
+
+    Structure* singleTransition() const
+    {
+        ASSERT(isUsingSingleSlot());
+        if (HandleSlot slot = this->slot()) {
+            if (*slot)
+                return reinterpret_cast<Structure*>(slot->asCell());
+        }
+        return 0;
+    }
+    
+    void clearSingleTransition()
+    {
+        ASSERT(isUsingSingleSlot());
+        if (HandleSlot slot = this->slot())
+            HandleHeap::heapFor(slot)->deallocate(slot);
+    }
+    
+    void setSingleTransition(JSGlobalData& globalData, Structure* structure)
+    {
+        ASSERT(isUsingSingleSlot());
+        HandleSlot slot = this->slot();
+        if (!slot) {
+            slot = globalData.allocateGlobalHandle();
+            HandleHeap::heapFor(slot)->makeWeak(slot, 0, 0);
+            m_data = reinterpret_cast<intptr_t>(slot) | UsingSingleSlotFlag;
+        }
+        HandleHeap::heapFor(slot)->writeBarrier(slot, reinterpret_cast<JSCell*>(structure));
+        *slot = reinterpret_cast<JSCell*>(structure);
+    }
+
+    intptr_t m_data;
+};
 
 } // namespace JSC
 

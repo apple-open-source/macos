@@ -1,6 +1,6 @@
---- strtod.3	2004-11-25 11:38:42.000000000 -0800
-+++ strtod.3.edit	2006-08-09 13:42:36.000000000 -0700
-@@ -49,11 +49,20 @@
+--- strtod.3.orig	2010-04-29 10:40:21.000000000 -0700
++++ strtod.3	2010-04-29 10:40:42.000000000 -0700
+@@ -45,11 +45,20 @@ string to floating point
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft double
@@ -24,7 +24,7 @@
  .Sh DESCRIPTION
  These conversion
  functions convert the initial portion of the string
-@@ -66,16 +75,17 @@
+@@ -62,16 +71,17 @@ and
  .Vt "long double"
  representation, respectively.
  .Pp
@@ -49,7 +49,7 @@
  .El
  .Pp
  In both cases, the significand may be optionally followed by an
-@@ -100,6 +110,12 @@
+@@ -116,6 +126,12 @@ function) are skipped.
  The decimal point
  character is defined in the program's locale (category
  .Dv LC_NUMERIC ) .
@@ -62,11 +62,21 @@
  .Sh RETURN VALUES
  The
  .Fn strtod ,
-@@ -144,6 +160,7 @@
- .Xr atof 3 ,
+@@ -161,6 +177,7 @@ Overflow or underflow occurred.
  .Xr atoi 3 ,
  .Xr atol 3 ,
+ .Xr nan 3 ,
 +.Xr strtod_l 3 ,
  .Xr strtol 3 ,
  .Xr strtoul 3 ,
  .Xr wcstod 3
+@@ -169,8 +186,7 @@ The
+ .Fn strtod
+ function
+ conforms to
+-.St -isoC-99 ,
+-with the exception of the bug noted below.
++.St -isoC-99 .
+ .Sh AUTHORS
+ The author of this software is
+ .An David M. Gay .

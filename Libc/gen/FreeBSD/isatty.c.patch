@@ -1,6 +1,6 @@
---- isatty.c.orig	2008-04-05 00:47:41.000000000 -0700
-+++ isatty.c	2008-04-05 01:05:40.000000000 -0700
-@@ -39,14 +39,22 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/isa
+--- isatty.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ isatty.c	2009-11-07 14:51:40.000000000 -0800
+@@ -35,14 +35,22 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/isa
  
  #include <termios.h>
  #include <unistd.h>

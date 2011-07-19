@@ -27,6 +27,7 @@
 #define GeolocationService_h
 
 #include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -42,9 +43,10 @@ public:
     virtual void geolocationServiceErrorOccurred(GeolocationService*) = 0;
 };
 
-class GeolocationService : public Noncopyable {
+class GeolocationService {
+    WTF_MAKE_NONCOPYABLE(GeolocationService);
 public:
-    static GeolocationService* create(GeolocationServiceClient*);
+    static PassOwnPtr<GeolocationService> create(GeolocationServiceClient*);
     virtual ~GeolocationService() { }
 
     virtual bool startUpdating(PositionOptions*) { return false; }
@@ -60,6 +62,8 @@ public:
     void errorOccurred();
 
     static void useMock();
+    typedef PassOwnPtr<GeolocationService> (FactoryFunction)(GeolocationServiceClient*);
+    static void setCustomMockFactory(FactoryFunction);
 
 protected:
     GeolocationService(GeolocationServiceClient*);
@@ -68,10 +72,11 @@ protected:
 private:
     GeolocationServiceClient* m_geolocationServiceClient;
 
-    typedef GeolocationService* (FactoryFunction)(GeolocationServiceClient*);
     static FactoryFunction* s_factoryFunction;
+    static FactoryFunction* s_mockFactoryFunction;
 };
 
 } // namespace WebCore
 
 #endif // GeolocationService_h
+

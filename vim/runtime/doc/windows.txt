@@ -1,4 +1,4 @@
-*windows.txt*   For Vim version 7.2.  Last change: 2008 Aug 09
+*windows.txt*   For Vim version 7.3.  Last change: 2010 Aug 15
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -34,6 +34,11 @@ disabled at compile time}
 
 ==============================================================================
 1. Introduction					*windows-intro* *window*
+
+Summary:
+   A buffer is the in-memory text of a file.
+   A window is a viewport on a buffer.
+   A tab page is a collection of windows.
 
 A window is a viewport onto a buffer.  You can use multiple windows on one
 buffer, or several windows on different buffers.
@@ -342,13 +347,13 @@ CTRL-W CTRL-W	Without count: move cursor to window below/right of the
 		top-left window.
 		With count: go to Nth window (windows are numbered from
 		top-left to bottom-right).  To obtain the window number see
-		|bufwinnr()| and |winnr()|.
+		|bufwinnr()| and |winnr()|.  When N is larger than the number
+		of windows go to the last window.
 
 						*CTRL-W_W*
 CTRL-W W	Without count: move cursor to window above/left of current
 		one.  If there is no window above or left, go to bottom-right
-		window.  With count: go to Nth window (windows are numbered
-		from top-left to bottom-right).
+		window.  With count: go to Nth window, like with CTRL-W w.
 
 CTRL-W t					*CTRL-W_t* *CTRL-W_CTRL-T*
 CTRL-W CTRL-T	Move cursor to top-left window.
@@ -434,7 +439,7 @@ CTRL-W H	Move the current window to be at the far left, using the
 		current window and then creating another one with
 		":vert topleft split", except that the current window contents
 		is used for the new window.
-		{not available when compiled without the +vertsplit feature}
+		{not available when compiled without the |+vertsplit| feature}
 
 						*CTRL-W_L*
 CTRL-W L	Move the current window to be at the far right, using the full
@@ -442,7 +447,7 @@ CTRL-W L	Move the current window to be at the far right, using the full
 		current window and then creating another one with
 		":vert botright split", except that the current window
 		contents is used for the new window.
-		{not available when compiled without the +vertsplit feature}
+		{not available when compiled without the |+vertsplit| feature}
 
 						*CTRL-W_T*
 CTRL-W T	Move the current window to a new tab page.  This fails if
@@ -462,11 +467,11 @@ CTRL-W =	Make all windows (almost) equally high and wide, but use
 
 :res[ize] -N					*:res* *:resize* *CTRL-W_-*
 CTRL-W -	Decrease current window height by N (default 1).
-		If used after 'vertical': decrease width by N.
+		If used after |:vertical|: decrease width by N.
 
 :res[ize] +N					*CTRL-W_+*
 CTRL-W +	Increase current window height by N (default 1).
-		If used after 'vertical': increase width by N.
+		If used after |:vertical|: increase width by N.
 
 :res[ize] [N]
 CTRL-W CTRL-_					*CTRL-W_CTRL-_* *CTRL-W__*
@@ -640,7 +645,7 @@ can also get to them with the buffer list commands, like ":bnext".
 		When using the |:tab| modifier each argument is opened in a
 		tab page.  The last window is used if it's empty.
 		Also see |++opt| and |+cmd|.
-		{only available when compiled with the +gui feature}
+		{only available when compiled with a GUI}
 
 ==============================================================================
 8. Do a command in all buffers or windows			*list-repeat*
@@ -1175,7 +1180,8 @@ scratch		Contains text that can be discarded at any time.  It is kept
 			:setlocal buftype=nofile
 			:setlocal bufhidden=hide
 			:setlocal noswapfile
-<		The buffer name can be used to identify the buffer.
+<		The buffer name can be used to identify the buffer, if you
+		give it a meaningful name.
 
 						*unlisted-buffer*
 unlisted	The buffer is not in the buffer list.  It is not used for

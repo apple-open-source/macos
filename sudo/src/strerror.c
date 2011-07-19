@@ -24,10 +24,6 @@
 #include <config.h>
 #include <compat.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: strerror.c,v 1.11 2005/02/12 22:56:06 millert Exp $";
-#endif /* lint */
-
 /*
  * Map errno -> error string.
  */

@@ -1,0 +1,531 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$453|class ruby_class_2
+=begin
+    !headerdoc!
+       This is an instance method that
+       takes one parameter.
+=end
+  def initialize(name)
+    @name = name.capitalize
+  end
+ 
+=begin
+    !headerdoc!
+       This is an instance method that
+       doesn't take any parameters.
+=end
+  def salute
+    puts "Hello #{@name}!"
+  end
+end
+
+=begin
+  !headerdoc!
+    This is a function that
+    takes one parameter.
+=end
+def myfunc(name)
+  @name = name.capitalize
+end
+$21|    This is a class.
+$0|$14097|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Ruby_class_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Ruby_class_2.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inRubyClass} => 2
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 19
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => ruby
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{newlineIsSemi} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 3
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class ruby_class_2 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => ruby_class_2
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} =>  class ruby_class_2 
+
+$parserState->{sublang} => ruby
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 19
+typelist: class
+namelist: ruby_class_2
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---ruby_class_2
++---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+       This is an instance method that
+|   |   +---
+       takes one parameter.
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---initialize
+|   +---(
+|   |   +---name
+|   |   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+       This is an instance method that
+|   |   +---
+       doesn't take any parameters.
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---salute
+|   +---[ NEWLINE ]
+|   +---end
++---[ NEWLINE ]
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Ruby class 2
+APIUID: //test_ref/doc/header/Ruby_class_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: ruby_class_2
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a class.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Ruby_class_2.test" target="_top" machineGenerated="true">Ruby class 2</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: initialize
+        APIUID: //test_ref/ruby/instm/ruby_class_2/initialize//(name)
+        ABSTRACT: ""
+        DISCUSSION: "<p>This is an instance method that
+       takes one parameter.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  name
+            APIUID: //test_ref/ruby/internal_temporary_object/ruby_class_2
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: salute
+        APIUID: //test_ref/ruby/instm/ruby_class_2/salute//()
+        ABSTRACT: ""
+        DISCUSSION: "<p>This is an instance method that
+       doesn't take any parameters.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ruby_class_2 (HeaderDoc::CPPClass)
++---class
++--- 
++---ruby_class_2
++---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+       This is an instance method that
+|   |   +---
+       takes one parameter.
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---initialize
+|   +---(
+|   |   +---name
+|   |   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+       This is an instance method that
+|   |   +---
+       doesn't take any parameters.
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---salute
+|   +---[ NEWLINE ]
+|   +---end
++---[ NEWLINE ]
++--- 
+END OF OBJECT
+
+
+OBJECT: initialize (HeaderDoc::Function)
++-*-def (HAS STATE)
++--- 
++---initialize
++---(
+|   +---name
+|   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---=begin
+|   +---[ NEWLINE ]
+|   +---    !headerdoc!
+|   +---
+       This is an instance method that
+|   +---
+       doesn't take any parameters.
+|   +---[ NEWLINE ]
+|   +---=end
++---[ NEWLINE ]
++---  
++-*-def (HAS STATE)
++--- 
++---salute
++---[ NEWLINE ]
++---end
+END OF OBJECT
+
+
+OBJECT: salute (HeaderDoc::Function)
++-*-def (HAS STATE)
++--- 
++---salute
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ruby_class_2 (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/ruby/cl/ruby_class_2 //test_ref/ruby/tdef/ruby_class_2 //test_ref/ruby/tag/ruby_class_2 //test_ref/ruby/struct/ruby_class_2 //test_ref/ruby/intf/ruby_class_2 //test_ref/doc/anysymbol/ruby_class_2" machineGenerated="true" --><span class="type">ruby_class_2</span><!-- /a --> <span class="comment">=begin
+	    !headerdoc!
+	       This is an instance method that
+	       takes one parameter.</span>
+	        <span class="comment">=end</span>
+	    <span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/initialize //test_ref/ruby/clm/initialize //test_ref/ruby/intfcm/initialize //test_ref/ruby/intfm/initialize //test_ref/ruby/func/initialize //test_ref/ruby/ftmplt/initialize //test_ref/ruby/defn/initialize //test_ref/ruby/macro/initialize //test_ref/doc/anysymbol/initialize" machineGenerated="true" --><span class="function">initialize</span><!-- /a -->(
+	        <span class="param">name</span>)  <span class="comment">=begin
+	    !headerdoc!
+	       This is an instance method that
+	       doesn't take any parameters.</span>
+	        <span class="comment">=end</span>
+	    <span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/salute //test_ref/ruby/clm/salute //test_ref/ruby/intfcm/salute //test_ref/ruby/intfm/salute //test_ref/ruby/func/salute //test_ref/ruby/ftmplt/salute //test_ref/ruby/defn/salute //test_ref/ruby/macro/salute //test_ref/doc/anysymbol/salute" machineGenerated="true" --><span class="function">salute</span><!-- /a --> <!-- a logicalPath="//test_ref/ruby/instm/end //test_ref/ruby/clm/end //test_ref/ruby/intfcm/end //test_ref/ruby/intfm/end //test_ref/ruby/func/end //test_ref/ruby/ftmplt/end //test_ref/ruby/defn/end //test_ref/ruby/macro/end //test_ref/doc/anysymbol/end" machineGenerated="true" --><span class="function">end</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: initialize (HeaderDoc::Function)
+	<span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/ruby_class_2/initialize //test_ref/ruby/clm/ruby_class_2/initialize //test_ref/ruby/intfcm/ruby_class_2/initialize //test_ref/ruby/intfm/ruby_class_2/initialize //test_ref/ruby/func/initialize //test_ref/ruby/ftmplt/ruby_class_2/initialize //test_ref/ruby/defn/initialize //test_ref/ruby/macro/initialize //test_ref/doc/anysymbol/initialize" machineGenerated="true" --><span class="function">initialize</span><!-- /a -->(
+	    <span class="param">name</span>)
+END OF OBJECT
+
+
+OBJECT: salute (HeaderDoc::Function)
+	<span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/ruby_class_2/salute //test_ref/ruby/clm/ruby_class_2/salute //test_ref/ruby/intfcm/ruby_class_2/salute //test_ref/ruby/intfm/ruby_class_2/salute //test_ref/ruby/func/salute //test_ref/ruby/ftmplt/ruby_class_2/salute //test_ref/ruby/defn/salute //test_ref/ruby/macro/salute //test_ref/doc/anysymbol/salute" machineGenerated="true" --><span class="function">salute</span><!-- /a -->
+END OF OBJECT
+
+
+
+_$82|The functions initialize and salute are in the class.
+The function myfunc is not.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Ruby_class_2.test$4|ruby$12|Ruby class 2$4|ruby$6|parser

@@ -815,7 +815,7 @@ void CSPFullPluginSession::GenerateKeyPair(CSSM_CC_HANDLE ccHandle,
 	// check the results
 	for (i = 0; i < bytesInKey; ++i)
 	{
-		if (decryptedBuf.Data[i] != i)
+		if (decryptedBuf.Data[i] != (i & 0xFF))
 		{
 			// bad news
 			abort();

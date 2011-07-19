@@ -218,7 +218,7 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
         }
         
     } else if(preboot == kBLPreBootEnvType_EFI) {
-        CFStringRef booterXML = NULL, kernelXML = NULL, mkextXML = NULL;
+        CFStringRef booterXML = NULL, kernelXML = NULL, mkextXML = NULL, kernelcacheXML = NULL;
 		BLNetBootProtocolType protocol = kBLNetBootProtocol_Unknown;
         
 		if (0 == strcmp(scheme, "bsdp") || 0 == strcmp(scheme, "tftp")) {
@@ -299,8 +299,33 @@ int modeNetboot(BLContextPtr context, struct clarg actargs[klast])
             if(ret)
                 return 3;
         }
+
+        if(actargs[kkernelcache].present) {
+            ret = parseURL(context,
+                           actargs[kkernelcache].argument,
+						   scheme,
+                           interface,
+                           host,
+                           path,
+                           true,
+                           "tftp",
+						   false);            
+            if(ret)
+                return 1;
+            
+            ret = BLCreateEFIXMLRepresentationForNetworkPath(context,
+															 protocol,
+                                                             interface,
+                                                             host,
+                                                             path,
+                                                             NULL,
+                                                             &kernelcacheXML);
+            if(ret)
+                return 3;
+        }
         
-        ret = setefinetworkpath(context, booterXML, kernelXML, mkextXML,
+        
+        ret = setefinetworkpath(context, booterXML, kernelXML, mkextXML, kernelcacheXML,
                                 actargs[knextonly].present);
         
 		if(ret) {
@@ -365,11 +390,13 @@ static int parseURL(BLContextPtr context,
         requiredScheme = CFStringCreateWithCString(kCFAllocatorDefault,requiresScheme,kCFStringEncodingUTF8);        
     }
     if(!schemeString || (requiredScheme && !CFEqual(schemeString, requiredScheme))) {
-        if(schemeString) CFRelease(schemeString);
-        if(requiredScheme) CFRelease(requiredScheme);
         
         blesscontextprintf(context, kBLLogLevelError,
                            "Unrecognized scheme %s\n", BLGetCStringDescription(schemeString));
+
+        if(schemeString) CFRelease(schemeString);
+        if(requiredScheme) CFRelease(requiredScheme);
+
         return 2;               
     }
     

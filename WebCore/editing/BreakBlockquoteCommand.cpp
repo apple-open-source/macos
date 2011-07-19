@@ -66,12 +66,8 @@ void BreakBlockquoteCommand::doApply()
     Position pos = endingSelection().start().downstream();
     
     // Find the top-most blockquote from the start.
-    Element* topBlockquote = 0;
-    for (Node *node = pos.node()->parentNode(); node; node = node->parentNode()) {
-        if (isMailBlockquote(node))
-            topBlockquote = static_cast<Element*>(node);
-    }
-    if (!topBlockquote || !topBlockquote->parentNode())
+    Node* topBlockquote = highestEnclosingNodeOfType(pos, isMailBlockquote);
+    if (!topBlockquote || !topBlockquote->parentNode() || !topBlockquote->isElementNode())
         return;
     
     RefPtr<Element> breakNode = createBreakElement(document());
@@ -82,7 +78,7 @@ void BreakBlockquoteCommand::doApply()
     // Instead, insert the break before the blockquote, unless the position is as the end of the the quoted content.
     if (isFirstVisiblePositionInNode(visiblePos, topBlockquote) && !isLastVisPosInNode) {
         insertNodeBefore(breakNode.get(), topBlockquote);
-        setEndingSelection(VisibleSelection(Position(breakNode.get(), 0), DOWNSTREAM));
+        setEndingSelection(VisibleSelection(positionBeforeNode(breakNode.get()), DOWNSTREAM));
         rebalanceWhitespace();   
         return;
     }
@@ -92,7 +88,7 @@ void BreakBlockquoteCommand::doApply()
 
     // If we're inserting the break at the end of the quoted content, we don't need to break the quote.
     if (isLastVisPosInNode) {
-        setEndingSelection(VisibleSelection(Position(breakNode.get(), 0), DOWNSTREAM));
+        setEndingSelection(VisibleSelection(positionBeforeNode(breakNode.get()), DOWNSTREAM));
         rebalanceWhitespace();
         return;
     }
@@ -103,11 +99,11 @@ void BreakBlockquoteCommand::doApply()
         pos = pos.next();
         
     // Adjust the position so we don't split at the beginning of a quote.  
-    while (isFirstVisiblePositionInNode(VisiblePosition(pos), nearestMailBlockquote(pos.node())))
+    while (isFirstVisiblePositionInNode(VisiblePosition(pos), enclosingNodeOfType(pos, isMailBlockquote)))
         pos = pos.previous();
     
     // startNode is the first node that we need to move to the new blockquote.
-    Node* startNode = pos.node();
+    Node* startNode = pos.deprecatedNode();
         
     // Split at pos if in the middle of a text node.
     if (startNode->isTextNode()) {
@@ -125,7 +121,7 @@ void BreakBlockquoteCommand::doApply()
     
     // If there's nothing inside topBlockquote to move, we're finished.
     if (!startNode->isDescendantOf(topBlockquote)) {
-        setEndingSelection(VisibleSelection(VisiblePosition(Position(startNode, 0))));
+        setEndingSelection(VisibleSelection(VisiblePosition(firstPositionInOrBeforeNode(startNode))));
         return;
     }
     
@@ -135,7 +131,7 @@ void BreakBlockquoteCommand::doApply()
         ancestors.append(node);
     
     // Insert a clone of the top blockquote after the break.
-    RefPtr<Element> clonedBlockquote = topBlockquote->cloneElementWithoutChildren();
+    RefPtr<Element> clonedBlockquote = static_cast<Element*>(topBlockquote)->cloneElementWithoutChildren();
     insertNodeAfter(clonedBlockquote.get(), breakNode.get());
     
     // Clone startNode's ancestors into the cloned blockquote.
@@ -152,7 +148,7 @@ void BreakBlockquoteCommand::doApply()
             // find the first one so that we know where to start numbering.
             while (listChildNode && !listChildNode->hasTagName(liTag))
                 listChildNode = listChildNode->nextSibling();
-            if (listChildNode && listChildNode->renderer())
+            if (listChildNode && listChildNode->renderer() && listChildNode->renderer()->isListItem())
                 setNodeAttribute(static_cast<Element*>(clonedChild.get()), startAttr, String::number(toRenderListItem(listChildNode->renderer())->value()));
         }
             
@@ -198,7 +194,7 @@ void BreakBlockquoteCommand::doApply()
     addBlockPlaceholderIfNeeded(clonedBlockquote.get());
     
     // Put the selection right before the break.
-    setEndingSelection(VisibleSelection(Position(breakNode.get(), 0), DOWNSTREAM));
+    setEndingSelection(VisibleSelection(positionBeforeNode(breakNode.get()), DOWNSTREAM));
     rebalanceWhitespace();
 }
 

@@ -11,7 +11,7 @@
 #	\fBpostmap -q - /etc/postfix/transport <\fIinputfile\fR
 # DESCRIPTION
 #	The optional \fBtransport\fR(5) table specifies a mapping from email
-#	addresses to message delivery transports and next-hop destinations. 
+#	addresses to message delivery transports and next-hop destinations.
 #	Message delivery transports such as \fBlocal\fR or \fBsmtp\fR
 #	are defined in the \fBmaster.cf\fR file, and next-hop
 #	destinations are typically hosts or domain names. The
@@ -38,9 +38,9 @@
 # .IP "\fBdefault_transport (default: smtp:)\fR"
 #	This is the default for remote delivery to other destinations.
 #	In order of decreasing precedence, the \fInexthop\fR
-#	destination is taken from \fBdefault_transport\fR,
-#	\fBsender_dependent_relayhost_maps\fR, \fBrelayhost\fR, or from the
-#	recipient domain.
+#	destination is taken from \fBsender_dependent_default_transport_maps,
+#	\fBdefault_transport\fR, \fBsender_dependent_relayhost_maps\fR,
+#	\fBrelayhost\fR, or from the recipient domain.
 # .PP
 #	Normally, the \fBtransport\fR(5) table is specified as a text file
 #	that serves as input to the \fBpostmap\fR(1) command.
@@ -106,15 +106,16 @@
 #	string \fBtransport_maps\fR is not listed in the
 #	\fBparent_domain_matches_subdomains\fR configuration setting.
 #	Otherwise, a domain name matches itself and its subdomains.
+# .IP "\fB*\fI transport\fR:\fInexthop\fR"
+#	The special pattern \fB*\fR represents any address (i.e. it
+#	functions as the wild-card pattern, and is unique to Postfix
+#	transport tables).
 # .PP
-#	Note 1: the special pattern \fB*\fR represents any address (i.e. it
-#	functions as the wild-card pattern).
-#
-#	Note 2: the null recipient address is looked up as
+#	Note 1: the null recipient address is looked up as
 #	\fB$empty_address_recipient\fR@\fB$myhostname\fR (default:
 #	mailer-daemon@hostname).
 #
-#	Note 3: \fIuser@domain\fR or \fIuser+extension@domain\fR
+#	Note 2: \fIuser@domain\fR or \fIuser+extension@domain\fR
 #	lookup is available in Postfix 2.0 and later.
 # RESULT FORMAT
 # .ad

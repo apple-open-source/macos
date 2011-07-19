@@ -3,10 +3,11 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctoc language introduction}]
+[category  {Documentation tools}]
 [description]
 [para]
 
-This document is an informal introduction to version 1 of the doctoc
+This document is an informal introduction to version 1.1 of the doctoc
 markup language based on a multitude of examples. After reading this a
 writer should be ready to understand the two parts of the formal
 specification, i.e. the [term {doctoc language syntax}] specification
@@ -51,13 +52,14 @@ part where we will list [term items] and [term divisions].
 
 [para]
 
-The user does face a choice here however. The table of contents can
-consist of either a series of items, or of a series of divisions. It
-is not possible to mix these.
+The user is free to mix these as she sees fit. This is a change from
+version 1 of the language, which did not allow this mixing, but only
+the use of either a series of items or a series of divisions.
 
 [para]
 
-We will discuss these two possibilities in the next sections.
+We will discuss the commands for each of these two possibilities in
+the next sections.
 
 
 [subsection Items]
@@ -165,6 +167,29 @@ Or, to demonstrate deeper nesting
 [lb][cmd {division_start Divisions}][rb]
 [lb]item 1 Sub[rb]
 [lb]item 1 Zero[rb]
+[lb][cmd {division_end}][rb]
+[lb][cmd {division_end}][rb]
+[lb][cmd {division_start {FURTHER READING}}][rb]
+[lb][cmd {division_end}][rb]
+[lb]toc_end[rb]
+[example_end]
+
+And do not forget, it is possible to freely mix items and divisions,
+and to have empty divisions.
+
+[example_begin]
+[lb]toc_begin Doctoc {Language Introduction}[rb]
+[lb]item 1 Do[rb]
+[lb][cmd {division_start DESCRIPTION}][rb]
+[lb][cmd {division_start {Basic structure}}][rb]
+[lb]item 2 Re[rb]
+[lb][cmd {division_end}][rb]
+[lb]item a Fi[rb]
+[lb][cmd {division_start Items}][rb]
+[lb]item b Fo[rb]
+[lb]item c Fa[rb]
+[lb][cmd {division_end}][rb]
+[lb][cmd {division_start Divisions}][rb]
 [lb][cmd {division_end}][rb]
 [lb][cmd {division_end}][rb]
 [lb][cmd {division_start {FURTHER READING}}][rb]

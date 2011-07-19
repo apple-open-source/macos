@@ -1,8 +1,8 @@
 dnl Process this file with autoconf to produce a configure script.
-dnl The macros which aren't shipped with the autotools are stored in the 
+dnl The macros which aren't shipped with the autotools are stored in the
 dnl Tools/config directory in .m4 files.
 
-AC_INIT([swig],[1.3.31],[http://www.swig.org])
+AC_INIT([swig],[1.3.40],[http://www.swig.org])
 AC_PREREQ(2.58)
 AC_CONFIG_SRCDIR([Source/Swig/swig.h])
 AC_CONFIG_AUX_DIR([Tools/config])
@@ -21,25 +21,82 @@ AH_BOTTOM([
 #endif
 ])
 
-dnl Checks for programs.
+dnl Check for programs that a user requires to build SWIG
 AC_PROG_CC
 AC_PROG_CXX
-AC_PROG_YACC
 AC_EXEEXT
 AC_OBJEXT
-AC_PROG_RANLIB
 AM_PROG_CC_C_O  # Needed for subdir-objects in AUTOMAKE_OPTIONS
-AC_CHECK_PROGS(AR, ar aal, ar)
-AC_SUBST(AR)
 
 AC_COMPILE_WARNINGS # Increase warning levels
 
 AC_DEFINE_UNQUOTED(SWIG_CXX, ["$CXX"], [Compiler that built SWIG])
 AC_DEFINE_UNQUOTED(SWIG_PLATFORM, ["$build"], [Platform that SWIG is built for])
 
-
 dnl Checks for header files.
 AC_HEADER_STDC
+
+dnl Checks for types.
+AC_LANG_PUSH([C++])
+AC_CHECK_TYPES([bool])
+AC_LANG_POP([C++])
+
+dnl Look for popen
+AC_ARG_WITH(popen, AS_HELP_STRING([--without-popen], [Disable popen]), with_popen="$withval")
+if test x"${with_popen}" = xno ; then 
+AC_MSG_NOTICE([Disabling popen])
+else
+AC_CHECK_FUNC(popen, AC_DEFINE(HAVE_POPEN, 1, [Define if popen is available]), AC_MSG_NOTICE([Disabling popen]))
+fi
+
+dnl Look for RxSpencer 
+AC_ARG_WITH(rxspencer, AS_HELP_STRING([--with-rxspencer], [Enable RxSpencer]), with_rxspencer="yes")
+if test x"${with_rxspencer}" = xyes ; then 
+#check first for the header
+ AC_CHECK_HEADER(rxspencer/regex.h,with_rxspencer="yes",with_rxspencer="no")
+ if test x"${with_rxspencer}" = xyes ; then 
+# now check for the library
+  AC_CHECK_LIB(rxspencer, regcomp,with_rxspencer="yes",with_rxspencer="no")
+ fi
+ if test x"${with_rxspencer}" = xyes ; then 
+# library and header are available
+  AC_DEFINE(HAVE_RXSPENCER, 1,[Define if rxspencer is available])
+  LIBS="$LIBS -lrxspencer"
+ else
+  AC_MSG_NOTICE([RxSpencer not found. Obtain it at http://arglist.com/regex or http://gnuwin32.sourceforge.net/packages.html])
+ fi
+fi
+
+dnl CCache
+AC_ARG_ENABLE([ccache], AS_HELP_STRING([--disable-ccache], [disable building and installation of ccache-swig executable (default enabled)]), [enable_ccache=$enableval], [enable_ccache=yes])
+AC_MSG_CHECKING([whether to enable ccache-swig])
+AC_MSG_RESULT([$enable_ccache])
+
+if test "$enable_ccache" = yes; then
+  AC_CONFIG_SUBDIRS(CCache)
+  ENABLE_CCACHE=1
+fi
+AC_SUBST(ENABLE_CCACHE)
+
+
+echo ""
+echo "Checking packages required for SWIG developers."
+echo "Note : None of the following packages are required for users to compile and install SWIG"
+echo ""
+
+AC_PROG_YACC
+AC_PROG_RANLIB
+AC_CHECK_PROGS(AR, ar aal, ar)
+AC_SUBST(AR)
+AC_CHECK_PROGS(YODL2MAN, yodl2man)
+AC_CHECK_PROGS(YODL2HTML, yodl2html)
+
+
+echo ""
+echo "Checking for installed target languages and other information in order to compile and run the examples."
+echo "Note : None of the following packages are required for users to compile and install SWIG"
+echo ""
+
 
 dnl How to specify include directories that may be system directories.
 # -I should not be used on system directories (GCC)
@@ -50,21 +107,9 @@ else
 fi
 
 
-dnl Checks for types.
-AC_LANG_PUSH([C++])
-AC_CHECK_TYPES([bool])
-AC_LANG_POP([C++])
+dnl Info for building shared libraries ... in order to run the examples
 
-
-# Set info about shared libraries.
-AC_SUBST(SO)
-AC_SUBST(LDSHARED)
-AC_SUBST(CCSHARED)
-AC_SUBST(CXXSHARED)
-AC_SUBST(TRYLINKINGWITHCXX)
-AC_SUBST(LINKFORSHARED)
-
-# SO is the extension of shared libraries `(including the dot!)
+# SO is the extension of shared libraries (including the dot!)
 AC_MSG_CHECKING(SO)
 if test -z "$SO"
 then
@@ -201,7 +246,6 @@ then
 	esac
 fi
 AC_MSG_RESULT($RPATH)
-AC_SUBST(RPATH)
 
 # LINKFORSHARED are the flags passed to the $(CC) command that links
 # the a few executables -- this is only needed for a few systems
@@ -221,7 +265,16 @@ then
 fi
 AC_MSG_RESULT($LINKFORSHARED)
 
-# This variation is needed on OS-X because there is no (apparent) consistency in shared libary naming.
+# Set info about shared libraries.
+AC_SUBST(SO)
+AC_SUBST(LDSHARED)
+AC_SUBST(CCSHARED)
+AC_SUBST(CXXSHARED)
+AC_SUBST(TRYLINKINGWITHCXX)
+AC_SUBST(LINKFORSHARED)
+AC_SUBST(RPATH)
+
+# This variation is needed on OS-X because there is no (apparent) consistency in shared library naming.
 # Sometimes .bundle works, but sometimes .so is needed.  It depends on the target language
 
 AC_SUBST(PYTHON_SO)
@@ -243,27 +296,15 @@ case $host in
    *) GUILE_SO=$SO;;
 esac
 
-AC_SUBST(PHP4_SO)
+AC_SUBST(PHP_SO)
 case $host in
-   *-*-darwin*) PHP4_SO=.so;;
-   *) PHP4_SO=$SO;;
+   *-*-darwin*) PHP_SO=.so;;
+   *) PHP_SO=$SO;;
 esac
 
 AC_SUBST(MZSCHEME_SO)
 case $host in
    *) MZSCHEME_SO=.so;;
-esac
-
-AC_SUBST(TCL_LDSHARED)
-case $host in
-   *-*-darwin*) TCL_LDSHARED="gcc -dynamiclib -flat_namespace -undefined suppress";;
-   *) TCL_LDSHARED=$LDSHARED;;
-esac
-
-AC_SUBST(TCL_CXXSHARED)
-case $host in
-   *-*-darwin*) TCL_CXXSHARED="g++ -dynamiclib -flat_namespace -undefined suppress";;
-   *) TCL_CXXSHARED=$TRYLINKINGWITHCXX;;
 esac
 
 AC_SUBST(LUA_SO)
@@ -280,46 +321,6 @@ case $host in
    *) PLATFLAGS="";;
 esac
 
-
-
-echo ""
-echo "Checking for installed packages."
-echo "Note : None of the following packages are required to compile SWIG"
-echo ""
-
-#----------------------------------------------------------------
-# Look for popen
-#----------------------------------------------------------------
-
-AC_ARG_WITH(popen, AS_HELP_STRING([--without-popen], [Disable popen]), with_popen="$withval")
-if test x"${with_popen}" = xno ; then 
-AC_MSG_NOTICE([Disabling popen])
-else
-AC_CHECK_FUNC(popen, AC_DEFINE(HAVE_POPEN, 1, [Define if popen is available]), AC_MSG_NOTICE([Disabling popen]))
-fi
-
-#----------------------------------------------------------------
-# Look for RxSpencer 
-#----------------------------------------------------------------
-
-AC_ARG_WITH(rxspencer, AS_HELP_STRING([--with-rxspencer], [Enable RxSpencer]), with_rxspencer="yes")
-if test x"${with_rxspencer}" = xyes ; then 
-#check first for the header
- AC_CHECK_HEADER(rxspencer/regex.h,with_rxspencer="yes",with_rxspencer="no")
- if test x"${with_rxspencer}" = xyes ; then 
-# now check for the library
-  AC_CHECK_LIB(rxspencer, regcomp,with_rxspencer="yes",with_rxspencer="no")
- fi
- if test x"${with_rxspencer}" = xyes ; then 
-# library and header are available
-  AC_DEFINE(HAVE_RXSPENCER, 1,[Define if rxspencer is available])
-  LIBS="$LIBS -lrxspencer"
- else
-  AC_MSG_NOTICE([RxSpencer not found. Obtain it at http://arglist.com/regex or http://gnuwin32.sourceforge.net/packages.html])
- fi
-fi
-
-#----------------------------------------------------------------
 
 # Check for specific libraries.   Used for SWIG examples
 AC_CHECK_LIB(dl, dlopen)	# Dynamic linking for SunOS/Solaris and SYSV
@@ -388,12 +389,12 @@ if test "$no_x" = "yes" -o "$not_really_there" = "yes"; then
         dirs="/usr/unsupported/include /usr/local/include /usr/X386/include /usr/include/X11R4 /usr/X11R5/include /usr/include/X11R5 /usr/openwin/include /usr/X11/include /usr/sww/include /usr/X11R6/include /usr/include/X11R6"
         for i in $dirs ; do
 	    if test -r $i/X11/Intrinsic.h; then
-		AC_MSG_RESULT($i)
 	        XINCLUDES=" -I$i"
 		break
 	    fi
         done
     fi
+    AC_MSG_RESULT($XINCLUDES)
 else
     if test "$x_includes" != ""; then
 	XINCLUDES=-I$x_includes
@@ -470,9 +471,11 @@ if test x"${with_tclconfig}" != x ; then
 fi
 # check in a few common install locations
 if test x"${TCLCONFIG}" = x ; then
-    for i in `ls -d /usr/lib 2>/dev/null` \
-	    `ls -d /usr/local/lib 2>/dev/null` ; do
-	if test -f "$i/tclConfig.sh" ; then
+    for i in `ls -d /usr/lib/ 2>/dev/null` \
+	     `ls -d -r /usr/lib/tcl*/ 2>/dev/null` \
+	     `ls -d /usr/local/lib/ 2>/dev/null` \
+	     `ls -d -r /usr/local/lib/tcl*/ 2>/dev/null` ; do
+	if test -f $i"tclConfig.sh" ; then
 	    TCLCONFIG=`(cd $i; pwd)`
 	    break
 	fi
@@ -484,7 +487,7 @@ else
     AC_MSG_RESULT(found $TCLCONFIG/tclConfig.sh)
     . $TCLCONFIG/tclConfig.sh
     if test -z "$TCLINCLUDE"; then
-        TCLINCLUDE=$ISYSTEM$TCL_PREFIX/include
+        TCLINCLUDE=`echo $TCL_INCLUDE_SPEC | sed "s/-I/$ISYSTEM/"`
     fi
     if test -z "$TCLLIB"; then
         TCLLIB=$TCL_LIB_SPEC
@@ -545,11 +548,25 @@ case $host in
 *-*-cygwin* | *-*-mingw*) TCLDYNAMICLINKING="$TCLLIB";;
 *)TCLDYNAMICLINKING="";;
 esac
+
+case $host in
+*-*-darwin*) 
+    TCLLDSHARED='$(CC) -dynamiclib -undefined suppress -flat_namespace'
+    TCLCXXSHARED='$(CXX) -dynamiclib -undefined suppress -flat_namespace'
+    ;;
+*)
+    TCLLDSHARED='$(LDSHARED)'
+    TCLCXXSHARED='$(CXXSHARED)'
+    ;;
+esac
+
 fi
 
 AC_SUBST(TCLINCLUDE)
 AC_SUBST(TCLLIB)
 AC_SUBST(TCLDYNAMICLINKING)
+AC_SUBST(TCLLDSHARED)
+AC_SUBST(TCLCXXSHARED)
 
 #----------------------------------------------------------------
 # Look for Python
@@ -569,7 +586,7 @@ else
 # First figure out the name of the Python executable
 
 if test "x$PYBIN" = xyes; then
-AC_CHECK_PROGS(PYTHON, python python2.8 python2.7 python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0 python1.6 python1.5 python1.4 python)
+AC_CHECK_PROGS(PYTHON, [python python2.8 python2.7 python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0 python1.6 python1.5 python1.4 python])
 else
 PYTHON="$PYBIN"
 fi
@@ -653,6 +670,107 @@ AC_SUBST(PYLIB)
 AC_SUBST(PYLINK)
 AC_SUBST(PYTHONDYNAMICLINKING)
 
+
+#----------------------------------------------------------------
+# Look for Python 3.x
+#----------------------------------------------------------------
+
+# mostly copy & pasted from "Look for Python" section,
+# did some trim, fix and rename
+
+PY3INCLUDE=
+PY3LIB=
+PY3PACKAGE=
+
+AC_ARG_WITH(python3, AS_HELP_STRING([--without-python3], [Disable Python 3.x support])
+AS_HELP_STRING([--with-python3=path], [Set location of Python 3.x executable]),[ PY3BIN="$withval"], [PY3BIN=yes])
+
+# First, check for "--without-python3" or "--with-python3=no".
+if test x"${PY3BIN}" = xno -o x"${with_alllang}" = xno ; then 
+AC_MSG_NOTICE([Disabling Python 3.x support])
+else
+# First figure out the name of the Python3 executable 
+
+if test "x$PY3BIN" = xyes; then
+  AC_CHECK_PROGS(PYTHON3, [python3 python3.0 python3.1])
+else
+  PYTHON3="$PY3BIN"
+fi
+
+# Check for Python 3.x development tools (header files, static library and python3-config)
+if test "x$PYTHON3" = x; then
+  AC_CHECK_PROGS(PY3CONFIG, [python3-config python3.0-config python3.1-config])
+else
+  AC_CHECK_PROGS(PY3CONFIG, [$PYTHON3-config python3-config python3.0-config python3.1-config])
+fi
+
+if test -n "$PYTHON3" -a -n "$PY3CONFIG"; then
+    AC_MSG_CHECKING([for Python 3.x prefix])
+    PY3PREFIX=`($PY3CONFIG --prefix) 2>/dev/null`
+    AC_MSG_RESULT($PY3PREFIX)
+    AC_MSG_CHECKING(for Python 3.x exec-prefix)
+    PY3EPREFIX=`($PY3CONFIG --exec-prefix) 2>/dev/null`
+    AC_MSG_RESULT($PY3EPREFIX)
+
+    # Note: I could not think of a standard way to get the version string from different versions.
+    # This trick pulls it out of the file location for a standard library file.
+    
+    AC_MSG_CHECKING([for Python 3.x version])
+
+    # Need to do this hack since autoconf replaces __file__ with the name of the configure file
+    filehack="file__"
+    PY3VERSION=`($PYTHON3 -c "import string,operator,os.path; print(operator.getitem(os.path.split(operator.getitem(os.path.split(string.__$filehack),0)),1))")`
+    AC_MSG_RESULT($PY3VERSION)
+
+    # Find the directory for libraries this is necessary to deal with
+    # platforms that can have apps built for multiple archs: e.g. x86_64
+    AC_MSG_CHECKING([for Python 3.x lib dir])
+    PY3LIBDIR=`($PYTHON3 -c "import sys; print(sys.lib)") 2>/dev/null`
+    if test -z "$PY3LIBDIR"; then
+      # some dists don't have sys.lib  so the best we can do is assume lib
+      PY3LIBDIR="lib" 
+    fi
+    AC_MSG_RESULT($PY3LIBDIR)
+    
+    # Set the include directory
+
+    AC_MSG_CHECKING([for Python 3.x header files])
+    PY3INCLUDE=`($PY3CONFIG --includes) 2>/dev/null`
+    AC_MSG_RESULT($PY3INCLUDE)
+
+    # Set the library directory blindly.   This probably won't work with older versions
+    AC_MSG_CHECKING([for Python 3.x library])
+    dirs="$PY3VERSION/config $PY3VERSION/$PY3LIBDIR python/$PY3LIBDIR"
+    for i in $dirs; do
+        if test -d $PY3EPREFIX/$PY3LIBDIR/$i; then
+           PY3LIB="$PY3EPREFIX/$PY3LIBDIR/$i"
+           break
+        fi
+    done
+    if test -z "$PY3LIB"; then
+        AC_MSG_RESULT([Not found])
+    else
+        AC_MSG_RESULT($PY3LIB)
+    fi
+
+    PY3LINK="-l$PY3VERSION"
+fi
+
+# Cygwin (Windows) needs the library for dynamic linking
+case $host in
+*-*-cygwin* | *-*-mingw*) PYTHON3DYNAMICLINKING="-L$PYLIB $PY3LINK"
+         DEFS="-DUSE_DL_IMPORT $DEFS" PY3INCLUDE="$PY3INCLUDE"
+         ;;
+*)PYTHON3DYNAMICLINKING="";;
+esac
+fi
+
+AC_SUBST(PY3INCLUDE)
+AC_SUBST(PY3LIB)
+AC_SUBST(PY3LINK)
+AC_SUBST(PYTHON3DYNAMICLINKING)
+
+
 #----------------------------------------------------------------
 # Look for Perl5
 #----------------------------------------------------------------
@@ -733,6 +851,71 @@ AC_SUBST(PERL5LIB)
 AC_SUBST(PERL5CCFLAGS)
 
 #----------------------------------------------------------------
+# Look for Octave
+#----------------------------------------------------------------
+
+OCTAVEBIN=
+OCTAVEDYNAMICLINKING=
+OCTAVE_SO=.oct
+
+AC_ARG_WITH(octave, AS_HELP_STRING([--without-octave], [Disable Octave])
+AS_HELP_STRING([--with-octave=path], [Set location of Octave executable]),[OCTAVEBIN="$withval"], [OCTAVEBIN=yes])
+
+# First, check for "--without-octave" or "--with-octave=no".
+if test x"${OCTAVEBIN}" = xno -o x"${with_alllang}" = xno ; then 
+AC_MSG_NOTICE([Disabling Octave])
+OCTAVE=
+else
+
+# First figure out what the name of Octave is
+
+if test "x$OCTAVEBIN" = xyes; then
+AC_CHECK_PROGS(OCTAVE, octave)
+else
+OCTAVE="$OCTAVEBIN"
+fi
+
+
+AC_MSG_CHECKING(for Octave header files)
+if test -n "$OCTAVE"; then
+	OCTAVEDIR="/usr/include"
+	if test "$OCTAVEDIR" != ""; then
+		dirs="$OCTAVEDIR"
+		OCTAVEEXT=""
+		for i in $dirs; do
+			if test -r $i/octave/oct.h; then
+				OCTAVEEXT="$i"
+				break;
+			fi
+			if test -r $i/octave/octave/oct.h; then
+				OCTAVEEXT="$i/octave"
+				break;
+			fi
+		done
+		if test "$OCTAVEEXT" = "" ; then
+			AC_MSG_RESULT(not found)
+		else
+			AC_MSG_RESULT($OCTAVEEXT)
+		fi
+
+		AC_MSG_CHECKING(for Octave compiler options)
+ 		OCTAVECCFLAGS=""
+		AC_MSG_RESULT($OCTAVECCFLAGS)
+	fi
+else
+       	AC_MSG_RESULT(could not figure out how to run octave)
+fi
+
+fi
+
+AC_SUBST(OCTAVE)
+AC_SUBST(OCTAVEEXT)
+AC_SUBST(OCTAVE_SO)
+AC_SUBST(OCTAVEDYNAMICLINKING)
+AC_SUBST(OCTAVELIB)
+AC_SUBST(OCTAVECCFLAGS)
+
+#----------------------------------------------------------------
 # Look for java
 #----------------------------------------------------------------
 
@@ -791,7 +974,7 @@ else
   if test "$JAVAMDDIR" = "" ; then
     AC_MSG_RESULT(not found)
   else
-    JAVAMDDIR=`dirname "$JAVAMDDIR" | tail -n 1`
+    JAVAMDDIR=`dirname "$JAVAMDDIR" | tail -1`
     JAVAINC="${JAVAINC} -I\"$JAVAMDDIR\""
     AC_MSG_RESULT($JAVAMDDIR)
   fi
@@ -969,9 +1152,11 @@ if test -z "$GUILELINK"; then
 fi
 
 guilesafe_CFLAGS=$CFLAGS
-guilesafe_LDFLAGS=$LDFLAGS
-CFLAGS="$CFLAGS $GUILEINCLUDE"
-LDFLAGS="$LDFLAGS $GUILELINK"
+guilesafe_LIBS=$LIBS
+# Filter out "-ansi -pedantic" because Guile header files will not compile with these flags.
+# (The flags -ansi -pedantic are automatically added by ac_compile_warnings.m4)
+CFLAGS="`echo $CFLAGS | sed 's/-ansi//g;s/-pedantic//g;'` $GUILEINCLUDE"
+LIBS="$LIBS $GUILELINK"
 
 AC_MSG_CHECKING(whether Guile's gh_ API works)
 AC_LINK_IFELSE([#include <guile/gh.h>
@@ -990,7 +1175,7 @@ else
 	AC_MSG_RESULT(no)
 fi
 CFLAGS=$guilesafe_CFLAGS
-LDFLAGS=$guilesafe_LDFLAGS
+LIBS=$guilesafe_LIBS
 fi
 
 AC_SUBST(GUILE)
@@ -1010,25 +1195,35 @@ AC_ARG_WITH(mzc, AS_HELP_STRING([--with-mzc=path], [Set location of MzScheme's m
 
 # First, check for "--without-mzscheme" or "--with-mzscheme=no".
 if test x"${MZSCHEMEBIN}" = xno -o x"${with_alllang}" = xno ; then 
-AC_MSG_NOTICE([Disabling MzScheme])
-MZC=
+  AC_MSG_NOTICE([Disabling MzScheme])
+  MZC=
 else
+  if test "x$MZSCHEMEBIN" = xyes; then
+     AC_PATH_PROG(MZSCHEME, mzscheme)
+  else
+     MZSCHEME="$MZSCHEMEBIN"
+  fi
+  
+  if test -z "$MZCBIN"; then
+     AC_PATH_PROG(MZC, mzc)
+  fi
 
-if test "x$MZSCHEMEBIN" = xyes; then
-   AC_PATH_PROG(MZSCHEME, mzscheme)
-else
-   MZSCHEME="$MZSCHEMEBIN"
-fi
-
-if test -z "$MZCBIN"; then
-   AC_PATH_PROG(MZC, mzc)
-fi
-
-if test -n "$MZSCHEME"; then
-AC_MSG_CHECKING(for MzScheme dynext object) 
-MZDYNOBJ=`$MZSCHEME --mute-banner --version --eval '(begin (require (lib "link.ss" "dynext")) (with-handlers (((lambda args #t) (lambda args #f))) (for-each (lambda (x) (display x) (display " ")) ((current-make-standard-link-libraries)))) (with-handlers (((lambda args #t) (lambda args #f))) (for-each (lambda (x) (display x) (display " ")) (expand-for-link-variant (current-standard-link-libraries)))))'`
-AC_MSG_RESULT($MZDYNOBJ)
-fi
+  if test -n "$MZSCHEME"; then
+    AC_MSG_CHECKING(for MzScheme dynext object) 
+    MZDYNOBJ=`$MZSCHEME --eval '(begin (require dynext/link) (with-handlers (((lambda args #t) (lambda args #f))) (for-each (lambda (x) (printf "~a" x)) (expand-for-link-variant (current-standard-link-libraries)))))' 2>/dev/null`
+    if test -f "$MZDYNOBJ"; then
+      MZDYNOBJ="$MZDYNOBJ"
+    else
+      # older versions (3.72 approx and earlier)
+      MZDYNOBJ=`$MZSCHEME --mute-banner --version --eval '(begin (require (lib "link.ss" "dynext")) (with-handlers (((lambda args #t) (lambda args #f))) (for-each (lambda (x) (display x) (display " ")) ((current-make-standard-link-libraries)))) (with-handlers (((lambda args #t) (lambda args #f))) (for-each (lambda (x) (display x)) (expand-for-link-variant (current-standard-link-libraries)))))' 2>/dev/null`
+    fi
+    if test -f "$MZDYNOBJ"; then
+      AC_MSG_RESULT($MZDYNOBJ)
+    else
+      AC_MSG_RESULT(not found)
+      MZDYNOBJ=""
+    fi
+  fi
 fi
 AC_SUBST(MZDYNOBJ)
 
@@ -1058,7 +1253,7 @@ fi
 AC_MSG_CHECKING(for Ruby header files)
 if test -n "$RUBY"; then
 	RUBYDIR=`($RUBY -rmkmf -e 'print Config::CONFIG[["archdir"]] || $archdir') 2>/dev/null`
-	if test "$RUBYDIR" != ""; then
+	if test x"$RUBYDIR" != x""; then
 		dirs="$RUBYDIR"
 		RUBYINCLUDE=none
 		for i in $dirs; do
@@ -1154,50 +1349,50 @@ AC_SUBST(RUBYCCDLFLAGS)
 AC_SUBST(RUBYDYNAMICLINKING)
 
 #-------------------------------------------------------------------------
-# Look for Php4
+# Look for PHP
 #-------------------------------------------------------------------------
 
-PHP4BIN=
+PHPBIN=
 
-AC_ARG_WITH(php4, AS_HELP_STRING([--without-php4], [Disable PHP4])
-AS_HELP_STRING([--with-php4=path], [Set location of PHP4 executable]),[ PHP4BIN="$withval"], [PHP4BIN=yes])
+AC_ARG_WITH(php, AS_HELP_STRING([--without-php], [Disable PHP])
+AS_HELP_STRING([--with-php=path], [Set location of PHP executable]),[ PHPBIN="$withval"], [PHPBIN=yes])
 
-# First, check for "--without-php4" or "--with-php4=no".
-if test x"${PHP4BIN}" = xno -o x"${with_alllang}" = xno ; then 
-      AC_MSG_NOTICE([Disabling PHP4])
-      PHP4=
+# First, check for "--without-php" or "--with-php=no".
+if test x"${PHPBIN}" = xno -o x"${with_alllang}" = xno ; then 
+    AC_MSG_NOTICE([Disabling PHP])
+    PHP=
 else
 
-if test "x$PHP4BIN" = xyes; then
-      AC_CHECK_PROGS(PHP4, php php4)
-else
-      PHP4="$PHP4BIN"
-fi
+    if test "x$PHPBIN" = xyes; then
+      AC_CHECK_PROGS(PHP, [php5 php])
+    else
+      PHP=$PHPBIN
+    fi
 
-AC_MSG_CHECKING(for PHP4 header files)
-PHP4CONFIG="${PHP4}-config"
-PHP4INC="`$PHP4CONFIG --includes 2>/dev/null`"
-if test "$PHP4INC"; then
-	AC_MSG_RESULT($PHP4INC)
-else
-	dirs="/usr/include/php /usr/local/include/php /usr/include/php4 /usr/local/include/php4 /usr/local/apache/php"
-	for i in $dirs; do
-		echo $i
-		if test -r $i/php_config.h -o -r $i/php_version.h; then
-			AC_MSG_RESULT($i)
-			PHP4EXT="$i"
-			PHP4INC="-I$PHP4EXT -I$PHP4EXT/Zend -I$PHP4EXT/main -I$PHP4EXT/TSRM"
-			break;
-		fi
-	done
+    AC_MSG_CHECKING(for PHP header files)
+    dnl /usr/bin/php5 -> /usr/bin/php-config5
+    case $PHP in
+      *5)
+	PHPCONFIG=`echo "$PHP"|sed 's/5$/-config5/'` ;;
+      *)
+	PHPCONFIG=$PHP-config ;;
+    esac
+    php_version=`$PHPCONFIG --version 2>/dev/null`
+    case $php_version in
+    5*) 
+	PHPINC=`$PHPCONFIG --includes 2>/dev/null`
+	if test -n "$PHPINC"; then
+	  AC_MSG_RESULT($PHPINC)
+	else
+	  AC_MSG_RESULT(not found)
+	fi
+	;;
+    *)
+	AC_MSG_RESULT([found PHP $version, but only PHP 5 is supported]) ;;
+    esac
 fi
-if test -z "$PHP4INC"; then
-	AC_MSG_RESULT(not found)
-fi
-
-fi
-AC_SUBST(PHP4)
-AC_SUBST(PHP4INC)
+AC_SUBST(PHP)
+AC_SUBST(PHPINC)
 
 #----------------------------------------------------------------
 # Look for ocaml
@@ -1478,19 +1673,20 @@ else
 if test -z "$CSHARPCOMPILERBIN" ; then
   case $host in
   *-*-cygwin* | *-*-mingw*)
-    AC_CHECK_PROGS(CSHARPCOMPILER, csc mcs cscc)
+    # prefer Mono gmcs (.NET 2.0) over mcs (.NET 1.1) - note mcs-1.2.3 has major pinvoke bug
+    AC_CHECK_PROGS(CSHARPCOMPILER, csc gmcs mcs cscc)
     if test -n "$CSHARPCOMPILER" && test "$CSHARPCOMPILER" = "csc" ; then
       AC_MSG_CHECKING(whether csc is the Microsoft CSharp compiler)
       csc 2>/dev/null | grep "C#" > /dev/null || CSHARPCOMPILER=""
       if test -z "$CSHARPCOMPILER" ; then
         AC_MSG_RESULT(no)
-        AC_CHECK_PROGS(CSHARPCOMPILER, mcs cscc)
+        AC_CHECK_PROGS(CSHARPCOMPILER, gmcs mcs cscc)
       else
         AC_MSG_RESULT(yes)
       fi
     fi
     ;;
-  *)AC_CHECK_PROGS(CSHARPCOMPILER, mcs cscc);;
+  *)AC_CHECK_PROGS(CSHARPCOMPILER, gmcs mcs cscc);;
   esac
 else
   CSHARPCOMPILER="$CSHARPCOMPILERBIN"
@@ -1514,11 +1710,12 @@ if test -z "$CSHARPBIN" ; then
           CSHARPCOMPILER="mcs"
         fi
       fi
-      if test "mcs" = "$CSHARPCOMPILER" ; then
-        AC_CHECK_PROGS(CSHARPCILINTERPRETER, mono) # Mono JIT
-      else
+      if test "mcs" != "$CSHARPCOMPILER" ; then
         echo "mcs is not a working Mono C# compiler"
       fi
+    fi
+    if test "mcs" = "$CSHARPCOMPILER" || test "gmcs" = "$CSHARPCOMPILER"; then
+        AC_CHECK_PROGS(CSHARPCILINTERPRETER, mono) # Mono JIT
     else 
       if test "csc" = "$CSHARPCOMPILER"; then
           CSHARPPATHSEPARATOR="\\\\"
@@ -1580,13 +1777,17 @@ LUABIN=
 LUAINCLUDE=
 LUALIB=
 LUADYNAMICLOADLIB=
+LUAFLAGS=
+LUALINK=
+# note: if LUABIN is empty then lua tests will not be done
+# LUABIN will be cleared if certain dependencies cannot be found
 
 AC_ARG_WITH(lua, AS_HELP_STRING([--without-lua], [Disable Lua])
 AS_HELP_STRING([--with-lua=path], [Set location of Lua executable]),[ LUABIN="$withval"], [LUABIN=yes])
 AC_ARG_WITH(luaincl,[  --with-luaincl=path     Set location of Lua include directory],[
-	LUAINCLUDE="$ISYSTEM$withval"], [LUAINCLUDE=])
+	LUAINCLUDE="$withval"], [LUAINCLUDE=])
 AC_ARG_WITH(lualib,[  --with-lualib=path      Set location of Lua library directory],[
-	LUALIB="-L$withval"], [LUALIB=])
+	LUALIB="$withval"], [LUALIB=])
 
 # First, check for "--without-lua" or "--with-lua=no".
 if test x"${LUABIN}" = xno -o x"${with_alllang}" = xno ; then 
@@ -1611,12 +1812,8 @@ if test "$LUABIN"; then
      LUABIN=""
    elif test -z "$LUAV51"; then
      AC_MSG_RESULT(Lua 5.0.x)
-     # note: different versions of lua use different libs
-     LUALIBRARY="-llua -llualib"
    else
      AC_MSG_RESULT(Lua 5.1 or later)
-     # note: different versions of lua use different libs
-     LUALIBRARY="-llua"
    fi
 fi
 
@@ -1637,61 +1834,55 @@ if test "$LUABIN"; then
    fi
 fi
 
-# look for the header files
-AC_MSG_CHECKING(for Lua header files)
-if test -z "$LUAINCLUDE"; then
-#AC_TRY_CPP([#include <lua.h>], , LUAINCLUDE="")
-AC_PREPROC_IFELSE([AC_LANG_SOURCE([[#include <lua.h>]])], , LUAINCLUDE="")
-if test -z "$LUAINCLUDE"; then
-	dirs="/usr/local/include /usr/include /opt/local/include"
-	for i in $dirs ; do
-		if test -r $i/lua.h; then
-			AC_MSG_RESULT($i)
-			LUAINCLUDE="$ISYSTEM$i"
-			break
-		fi
-	done
-fi
-fi
-if test -z "$LUAINCLUDE"; then
-    	AC_MSG_RESULT(not found)
+# look for the header files & set LUAFLAGS accordingly
+# will clear LUABIN if not present
+if test -n "$LUAINCLUDE"; then
+  AC_CHECK_FILE($LUAINCLUDE/lua.h,[LUAFLAGS="$ISYSTEM$LUAINCLUDE"],[LUABIN=])
 else
-        AC_MSG_RESULT($LUAINCLUDE)
+  LUA_OK="1"
+  AC_CHECK_HEADER(lua.h,[LUAFLAGS=""],[LUA_OK=""])
+  # if we didn't get it, going to have to look elsewhere (the hard way)
+  if test -z "$LUA_OK"; then
+    AC_MSG_CHECKING(for lua.h in other locations)
+    # note: ubuntu seems to like /usr/include/lua5.1/lua.h
+    dirs="/usr/include/lua* /usr/local/include"
+    for i in $dirs; do
+      #echo "$i"
+      if test -r $i/lua.h; then
+        AC_MSG_RESULT($i/lua.h)
+	LUAFLAGS="$ISYSTEM$i"
+	break;
+      fi
+    done
+    if test -z "$LUAFLAGS"; then
+      AC_MSG_RESULT(not found)
+      LUABIN="" # clear the bin
+    fi
+  fi
 fi
 
-# look for the library files
-AC_MSG_CHECKING(for Lua library)
-if test -z "$LUALIB"; then
-dirs="/usr/local/lib /usr/lib /opt/local/lib"
-for i in $dirs ; do
-	if test -r $i/liblua.a; then
-	    AC_MSG_RESULT($i)
-	    LUALIB="-L$i"
-	    break
-	fi
-done
-fi
-if test -z "$LUALIB"; then
-   AC_MSG_RESULT(not found)
+# look for the library files & set LUALINK accordingly
+# will clear LUABIN if not present
+lua_save_LIBS=$LIBS # the code seems to disrupt LIBS, so saving
+	
+if test -n "$LUALIB"; then
+  AC_CHECK_FILE($LUALIB/liblua.a,[LUALINK="-L$LUALIB -llua"],[LUABIN=])
 else
-   AC_MSG_RESULT($LUALIB)
+  AC_SEARCH_LIBS(lua_close, [lua lua51 lua5.1 lua50 lua5.0], [LUALINK="-l$ac_lib"],[LUABIN=])
 fi
 
-# copied from PYTHON code, but I think this is not needed for lua...
-# Cygwin (Windows) needs the library for dynamic linking
-#case $host in
-#*-*-cygwin* | *-*-mingw*) LUADYNAMICLINKING="-L$LUALIB $PYLINK"
-#         PYINCLUDE="-DUSE_DL_IMPORT $PYINCLUDE"
-#         ;;
-#*)LUADYNAMICLINKING="";;
-#esac
+# adding lualib for lua 5.0
+if test -z "$LUAV51"; then # extra for lua 5.0
+  LUALINK="$LUALINK -llualib"
+fi
+
+LIBS=$lua_save_LIBS	# restore LIBS
 
 fi # if not disabled
 
 AC_SUBST(LUADYNAMICLINKING)
-AC_SUBST(LUAINCLUDE)
-AC_SUBST(LUALIB)
-AC_SUBST(LUALIBRARY)
+AC_SUBST(LUAFLAGS)
+AC_SUBST(LUALINK)
 AC_SUBST(LUABIN)
 
 #----------------------------------------------------------------
@@ -1781,12 +1972,25 @@ fi
 AC_SUBST(SKIP_PERL5)
 
 
+SKIP_OCTAVE=
+if test -z "$OCTAVE" || test -z "$OCTAVEEXT" ; then
+    SKIP_OCTAVE="1"
+fi
+AC_SUBST(SKIP_OCTAVE)
+
+
 SKIP_PYTHON=
-if test -z "$PYINCLUDE" || test -z "$PYLIB" ; then
+if (test -z "$PYINCLUDE" || test -z "$PYLIB") &&
+   (test -z "$PY3INCLUDE" || test -z "PY3LIB") ; then
     SKIP_PYTHON="1"
 fi
 AC_SUBST(SKIP_PYTHON)
 
+SKIP_PYTHON3=
+if test -z "$PY3INCLUDE" || test -z "$PY3LIB" ; then
+    SKIP_PYTHON3="1"
+fi
+AC_SUBST(SKIP_PYTHON3)
 
 SKIP_JAVA=
 if test -z "$JAVA" || test -z "$JAVAC" || test -z "$JAVAINC" ; then
@@ -1809,7 +2013,7 @@ AC_SUBST(SKIP_GUILESCM)
 
 
 SKIP_MZSCHEME=
-if test -z "$MZC" ; then
+if test -z "$MZC" || test -z "$MZDYNOBJ" ; then
     SKIP_MZSCHEME="1"
 fi
 AC_SUBST(SKIP_MZSCHEME)
@@ -1822,11 +2026,11 @@ fi
 AC_SUBST(SKIP_RUBY)
 
 
-SKIP_PHP4=
-if test -z "$PHP4" || test -z "$PHP4INC" ; then
-    SKIP_PHP4="1"
+SKIP_PHP=
+if test -z "$PHP" || test -z "$PHPINC" ; then
+    SKIP_PHP="1"
 fi
-AC_SUBST(SKIP_PHP4)
+AC_SUBST(SKIP_PHP)
 
 
 SKIP_OCAML=
@@ -1864,8 +2068,8 @@ SKIP_MODULA3="1" # Always skipped!
 AC_SUBST(SKIP_MODULA3)
 
 SKIP_LUA=
-# do we really need the LUABIN?
-if test -z "$LUABIN" || test -z "$LUAINCLUDE" || test -z "$LUALIB" || test -z "$LUADYNAMICLOADLIB"; then
+# we need LUABIN & dynamic loading
+if test -z "$LUABIN" || test -z "$LUADYNAMICLOADLIB"; then
     SKIP_LUA="1"
 fi
 AC_SUBST(SKIP_LUA)
@@ -1918,6 +2122,7 @@ AC_SUBST(SKIP_GCJ)
 # Miscellaneous
 #----------------------------------------------------------------
 
+
 # Root directory
 # Translate path for native Windows compilers for use with 'make check'
 ROOT_DIR=`pwd`
@@ -1950,7 +2155,6 @@ case $host in
 esac
 AC_DEFINE_UNQUOTED(SWIG_LIB_WIN_UNIX, ["$SWIG_LIB_WIN_UNIX"], [Directory for SWIG system-independent libraries (Unix install on native Windows)])
 
-
 AC_CONFIG_FILES([			        \
     Makefile				        \
     swig.spec				        \
@@ -1967,8 +2171,9 @@ AC_CONFIG_FILES([			        \
     Examples/test-suite/java/Makefile	        \
     Examples/test-suite/mzscheme/Makefile	\
     Examples/test-suite/ocaml/Makefile	        \
+    Examples/test-suite/octave/Makefile	        \
     Examples/test-suite/perl5/Makefile	        \
-    Examples/test-suite/php4/Makefile	        \
+    Examples/test-suite/php/Makefile	        \
     Examples/test-suite/pike/Makefile	        \
     Examples/test-suite/python/Makefile	        \
     Examples/test-suite/ruby/Makefile	        \
@@ -1982,7 +2187,7 @@ AC_CONFIG_FILES([			        \
     Lib/ocaml/swigp4.ml
 ])
 AC_CONFIG_FILES([preinst-swig], [chmod +x preinst-swig])
+AC_CONFIG_FILES([CCache/ccache_swig_config.h])
+
 AC_OUTPUT
-
-
 dnl configure.in ends here

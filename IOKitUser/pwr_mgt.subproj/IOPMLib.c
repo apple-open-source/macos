@@ -109,7 +109,7 @@ IOReturn IOPMSleepSystem ( io_connect_t fb )
 IOReturn IOPMSleepSystemWithOptions ( io_connect_t fb, CFDictionaryRef options )
 {
     uint64_t rtn = 0;
-    uint32_t len = sizeof(uint32_t);
+    size_t len = sizeof(uint32_t);
     kern_return_t err;
     CFDataRef serializedOptions = NULL;
     
@@ -432,7 +432,7 @@ CFDictionaryRef IOCopySystemLoadAdvisoryDetailed(void)
     CFStringRef         gtDetailedKey = SCDynamicStoreKeyCreate(
                             kCFAllocatorDefault, 
                             CFSTR("%@%@"),
-                            kSCDynamicStoreDomainState, 
+                            _io_kSCDynamicStoreDomainState, 
                             kSLADetailedPath);
 
     storage = SCDynamicStoreCreate(

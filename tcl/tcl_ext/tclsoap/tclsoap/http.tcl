@@ -19,7 +19,7 @@ package require http 2;                 # tcl
 
 namespace eval ::SOAP::Transport::http {
     variable version 1.0
-    variable rcsid {$Id: http.tcl,v 1.7 2008/02/28 22:05:55 andreas_kupries Exp $}
+    variable rcsid {$Id: http.tcl,v 1.8 2008/07/04 18:11:19 apnadkarni Exp $}
     variable options
 
     SOAP::register http [namespace current]
@@ -38,6 +38,7 @@ namespace eval ::SOAP::Transport::http {
     variable method:options [list \
         httpheaders \
         timeout     \
+        contenttype \
     ]
     
     # Provide missing code for http < 2.3
@@ -69,6 +70,9 @@ proc ::SOAP::Transport::http::method:configure {procVarName opt value} {
         }
         -timeout {
             set procvar(timeout) $value
+        }
+        -contenttype {
+            set procvar(contenttype) $value
         }
         default {
             # not reached.
@@ -192,9 +196,13 @@ proc ::SOAP::Transport::http::xfer { procVarName url request } {
         set command "-command {[namespace current]::asynchronous $procVarName}"
     }
     
+    set contenttype text/xml
+    if {[info exists procvar(contenttype)] && $procvar(contenttype) ne ""} {
+        set contenttype $procvar(contenttype)
+    }
     set token [eval ::http::geturl_followRedirects [list $url] \
                    -headers [list $local_headers] \
-                   -type text/xml \
+                   -type $contenttype \
                    -timeout $timeout \
                    -query [list $request] \
                    $local_progress $command]

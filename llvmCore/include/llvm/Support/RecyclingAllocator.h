@@ -41,7 +41,7 @@ public:
   /// SubClass. The storage may be either newly allocated or recycled.
   ///
   template<class SubClass>
-  SubClass *Allocate() { return Base.Allocate<SubClass>(Allocator); }
+  SubClass *Allocate() { return Base.template Allocate<SubClass>(Allocator); }
 
   T *Allocate() { return Base.Allocate(Allocator); }
 
@@ -54,6 +54,20 @@ public:
   void PrintStats() { Base.PrintStats(); }
 };
 
+}
+
+template<class AllocatorType, class T, size_t Size, size_t Align>
+inline void *operator new(size_t,
+                          llvm::RecyclingAllocator<AllocatorType,
+                                                   T, Size, Align> &Allocator) {
+  return Allocator.Allocate();
+}
+
+template<class AllocatorType, class T, size_t Size, size_t Align>
+inline void operator delete(void *E,
+                            llvm::RecyclingAllocator<AllocatorType,
+                                                     T, Size, Align> &A) {
+  A.Deallocate(E);
 }
 
 #endif

@@ -28,7 +28,7 @@
 
 #include "BitmapImage.h"
 #include "BitmapInfo.h"
-#include "GraphicsContext.h"
+#include "GraphicsContextCG.h"
 #include "PlatformString.h"
 #include <ApplicationServices/ApplicationServices.h>
 #include <windows.h>
@@ -50,9 +50,8 @@ PassRefPtr<BitmapImage> BitmapImage::create(HBITMAP hBitmap)
     if (!dibSection.dsBm.bmBits)
         return 0;
 
-    RetainPtr<CGColorSpaceRef> deviceRGB(AdoptCF, CGColorSpaceCreateDeviceRGB());
     RetainPtr<CGContextRef> bitmapContext(AdoptCF, CGBitmapContextCreate(dibSection.dsBm.bmBits, dibSection.dsBm.bmWidth, dibSection.dsBm.bmHeight, 8,
-        dibSection.dsBm.bmWidthBytes, deviceRGB.get(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
+        dibSection.dsBm.bmWidthBytes, deviceRGBColorSpaceRef(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
 
     // The BitmapImage takes ownership of this.
     CGImageRef cgImage = CGBitmapContextCreateImage(bitmapContext.get());
@@ -70,21 +69,19 @@ bool BitmapImage::getHBITMAPOfSize(HBITMAP bmp, LPSIZE size)
     ASSERT(bmpInfo.bmBitsPixel == 32);
     int bufferSize = bmpInfo.bmWidthBytes * bmpInfo.bmHeight;
     
-    CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
     CGContextRef cgContext = CGBitmapContextCreate(bmpInfo.bmBits, bmpInfo.bmWidth, bmpInfo.bmHeight,
-        8, bmpInfo.bmWidthBytes, deviceRGB, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+        8, bmpInfo.bmWidthBytes, deviceRGBColorSpaceRef(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
   
     GraphicsContext gc(cgContext);
 
     IntSize imageSize = BitmapImage::size();
     if (size)
-        drawFrameMatchingSourceSize(&gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), IntSize(*size), DeviceColorSpace, CompositeCopy);
+        drawFrameMatchingSourceSize(&gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), IntSize(*size), ColorSpaceDeviceRGB, CompositeCopy);
     else
-        draw(&gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), DeviceColorSpace, CompositeCopy);
+        draw(&gc, FloatRect(0.0f, 0.0f, bmpInfo.bmWidth, bmpInfo.bmHeight), FloatRect(0.0f, 0.0f, imageSize.width(), imageSize.height()), ColorSpaceDeviceRGB, CompositeCopy);
 
     // Do cleanup
     CGContextRelease(cgContext);
-    CGColorSpaceRelease(deviceRGB);
 
     return true;
 }

@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHMISC" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -196,6 +196,12 @@ returns a nonzero exit status\&.
 \fIword\fP is expanded and treated as an arithmetic expression,
 which must evaluate to a number \fIn\fP\&.
 \fIlist\fP is then executed \fIn\fP times\&.
+.RS
+.PP
+The \fBrepeat\fP syntax is disabled by default when the
+shell starts in a mode emulating another shell\&.  It can be enabled
+with the command `\fBenable \-r repeat\fP\&'
+.RE
 .TP
 \fBcase\fP \fIword\fP \fBin\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] \&.\&.\&. \fB)\fP \fIlist\fP (\fB;;\fP|\fB;&\fP|\fB;|\fP) ] \&.\&.\&. \fBesac\fP
 Execute the \fIlist\fP associated with the first \fIpattern\fP
@@ -334,10 +340,10 @@ and return a zero exit status if it is true\&.
 See the section `Conditional Expressions\&'
 for a description of \fIexp\fP\&.
 .SH "ALTERNATE FORMS FOR COMPLEX COMMANDS"
-Many of zsh\&'s complex commands have alternate forms\&.  These particular
-versions of complex commands should be considered deprecated and may be
-removed in the future\&.  The versions in the previous section should be
-preferred instead\&.
+Many of zsh\&'s complex commands have alternate forms\&.  These are
+non\-standard and are likely not to be obvious even to seasoned shell
+programmers; they should not be used anywhere that portability of shell
+code is a concern\&.
 .PP
 The short versions below only work if \fIsublist\fP is of the form `\fB{\fP
 \fIlist\fP \fB}\fP\&' or if the \fBSHORT_LOOPS\fP option is set\&.  For the \fBif\fP,
@@ -439,12 +445,16 @@ expansion\&.
 An alias is defined using the \fBalias\fP builtin; global aliases
 may be defined using the \fB\-g\fP option to that builtin\&.
 .PP
-Alias expansion is done on the shell input before any
-other expansion except history expansion\&.  Therefore,
-if an alias is defined for the word \fBfoo\fP, alias expansion
-may be avoided by quoting part of the word, e\&.g\&. \fB\efoo\fP\&.
-But there is nothing to prevent an alias being defined
-for \fB\efoo\fP as well\&.
+Alias expansion is done on the shell input before any other expansion
+except history expansion\&.  Therefore, if an alias is defined for the
+word \fBfoo\fP, alias expansion may be avoided by quoting part of the
+word, e\&.g\&. \fB\efoo\fP\&.  Any form of quoting works, although there is
+nothing to prevent an alias being defined for the quoted form such as
+\fB\efoo\fP as well\&.  For use with completion, which would remove an
+initial backslash followed by a character that isn\&'t special, it may be
+more convenient to quote the word by starting with a single quote,
+i\&.e\&. \fB\&'foo\fP; completion will automatically add the trailing single
+quote\&.
 .PP
 There is a commonly encountered problem with aliases
 illustrated by the following code:
@@ -462,6 +472,35 @@ is too late to expand the newly defined alias\&.  This is often
 a problem in shell scripts, functions, and code executed with `\fBsource\fP\&'
 or `\fB\&.\fP\&'\&.  Consequently, use of functions rather than aliases is
 recommended in non\-interactive code\&.
+.PP
+Note also the unhelpful interaction of aliases and function definitions:
+.PP
+.RS
+.nf
+\fBalias func=\&'noglob func'
+func() {
+    echo Do something with $*
+}\fP
+.fi
+.RE
+.PP
+Because aliases are expanded in function defintions, this causes the
+following command to be executed:
+.PP
+.RS
+.nf
+\fBnoglob func() {
+    echo Do something with $*
+}\fP
+.fi
+.RE
+.PP
+which defines \fBnoglob\fP as well as \fBfunc\fP as functions with the
+body given\&.  To avoid this, either quote the name \fBfunc\fP or use the
+alternative function definition form `\fBfunction func\fP\&'\&.  Ensuring the
+alias is defined after the function works but is problematic if the
+code fragment might be re\-executed\&.
+.PP
 .SH "QUOTING"
 A character may be \fIquoted\fP (that is, made
 to stand for itself) by preceding it with a `\fB\e\fP\&'\&.
@@ -1129,19 +1168,21 @@ function definitions where the definition is silently discarded\&.
 .SH "SPECIAL FUNCTIONS"
 Certain functions, if defined, have special meaning to the shell\&.
 .PP
-In the case of \fBchpwd\fP, \fBperiodic\fP, \fBprecmd\fP and \fBpreexec\fP it is
-possible to define an array that has the same name with `\fB_functions\fP\&'
-appended\&.  Any element in such an array is taken as the name of a function
-to execute; it is executed in the same context and with the same arguments
-as the basic function\&.  For example, if \fB$chpwd_functions\fP is an array
-containing the values `\fBmychpwd\fP\&', `\fBchpwd_save_dirstack\fP', then the
-shell attempts to execute the functions `\fBchpwd\fP\&', `\fBmychpwd\fP' and
+.SS "Hook Functions"
+.PP
+For the functions below, it is possible to define an array that has the
+same name as the function with `\fB_functions\fP\&' appended\&.  Any element in
+such an array is taken as the name of a function to execute; it is executed
+in the same context and with the same arguments as the basic function\&.  For
+example, if \fB$chpwd_functions\fP is an array containing the values
+`\fBmychpwd\fP\&', `\fBchpwd_save_dirstack\fP', then the shell attempts to
+execute the functions `\fBchpwd\fP\&', `\fBmychpwd\fP' and
 `\fBchpwd_save_dirstack\fP\&', in that order\&.  Any function that does not exist
 is silently ignored\&.  A function found by this mechanism is referred to
-elsewhere as a `hook function\&'\&.  An error in any function causes
-subsequent functions not to be run\&.  Note further that an error
-in a \fBprecmd\fP hook causes an immediately following \fBperiodic\fP
-function not to run (thought it may run at the next opportunity)\&.
+elsewhere as a `hook function\&'\&.  An error in any function causes subsequent
+functions not to be run\&.  Note further that an error in a \fBprecmd\fP hook
+causes an immediately following \fBperiodic\fP function not to run (though
+it may run at the next opportunity)\&.
 .PP
 .PD 0
 .TP
@@ -1210,7 +1251,15 @@ Executed at the point where the main shell is about to exit normally\&.
 This is not called by exiting subshells, nor when the \fBexec\fP
 precommand modifier is used before an external command\&.  Also, unlike
 \fBTRAPEXIT\fP, it is not called when functions exit\&.
+.PP
+.SS "Trap Functions"
+.PP
+The functions below are treated specially but do not have corresponding
+hook arrays\&.
+.PP
+.PD 0
 .TP
+.PD
 \fBTRAP\fP\fINAL\fP
 If defined and non\-null,
 this function will be executed whenever the shell
@@ -1793,13 +1842,33 @@ true if \fIstring\fP matches the regular expression
 \fIregexp\fP is tested as a PCRE regular expression using
 the \fBzsh/pcre\fP module, else it is tested as a POSIX
 extended regular expression using the \fBzsh/regex\fP module\&.
+Upon successful match, some variables will be updated; no variables
+are changed if the matching fails\&.
+.RS
+.PP
+If the option \fBBASH_REMATCH\fP is not set the scalar parameter
+\fBMATCH\fP is set to the substring that matched the pattern and
+the integer parameters \fBMBEGIN\fP and \fBMEND\fP to the index of the start
+and end, respectively, of the match in \fIstring\fP, such that if
+\fIstring\fP is contained in variable \fBvar\fP the expression
+`${var[$MBEGIN,$MEND]}\&' is identical to `$MATCH'\&.  The setting
+of the option \fBKSH_ARRAYS\fP is respected\&.  Likewise, the array
+\fBmatch\fP is set to the substrings that matched parenthesised
+subexpressions and the arrays \fBmbegin\fP and \fBmend\fP to the indices of
+the start and end positions, respectively, of the substrings within
+\fIstring\fP\&.  The arrays are not set if there were no parenthesised
+subexpresssions\&.  For example, if the string `\fBa short string\fP\&' is matched
+against the regular expression `\fBs(\&.\&.\&.)t\fP\&', then (assuming the
+option \fBKSH_ARRAYS\fP is not set) \fBMATCH\fP, \fBMBEGIN\fP
+and \fBMEND\fP are `\fBshort\fP\&', 3 and 7, respectively, while \fBmatch\fP,
+\fBmbegin\fP and \fBmend\fP are single entry arrays containing
+the strings `\fBhor\fP\&', `\fB4\fP' and `\fB6\fP, respectively\&.
+.PP
 If the option \fBBASH_REMATCH\fP is set the array
 \fBBASH_REMATCH\fP is set to the substring that matched the pattern
 followed by the substrings that matched parenthesised
-subexpressions within the pattern; otherwise, the scalar parameter
-\fBMATCH\fP is set to the substring that matched the pattern and
-and the array \fBmatch\fP to the substrings that matched parenthesised
-subexpressions\&.
+subexpressions within the pattern\&.
+.RE
 .TP
 \fIstring1\fP \fB<\fP \fIstring2\fP
 true if \fIstring1\fP comes before \fIstring2\fP
@@ -1841,9 +1910,10 @@ true if either \fIexp1\fP or \fIexp2\fP is true\&.
 .PP
 Normal shell expansion is performed on the \fIfile\fP, \fIstring\fP and
 \fIpattern\fP arguments, but the result of each expansion is constrained to
-be a single word, similar to the effect of double quotes\&.  However, pattern
-metacharacters are active for the \fIpattern\fP arguments; the patterns
-are the same as those used for filename generation, see
+be a single word, similar to the effect of double quotes\&.
+File generation is not performed on any form of argument to conditions\&.
+However, pattern metacharacters are active for the \fIpattern\fP arguments;
+the patterns are the same as those used for filename generation, see
 \fIzshexpn\fP(1), but there is no special behaviour
 of `\fB/\fP\&' nor initial dots, and no glob qualifiers are allowed\&.
 .PP
@@ -1958,16 +2028,17 @@ the latter case it will also work non\-interactively\&.
 \fB%d\fP
 .TP
 .PD
-\fB%/\fP
-Present working directory (\fB$PWD\fP)\&.  If an integer follows the `\fB%\fP\&',
-it specifies a number of trailing components of \fB$PWD\fP to show; zero
-means the whole path\&.  A negative integer specifies leading components,
-i\&.e\&. \fB%\-1d\fP specifies the first component\&.
+\fB/\fP
+Current working directory\&.  If an integer follows the `\fB%\fP\&',
+it specifies a number of trailing components of the current working
+directory to show; zero means the whole path\&.  A negative integer
+specifies leading components, i\&.e\&. \fB%\-1d\fP specifies the first component\&.
 .TP
 \fB%~\fP
-As \fB%d\fP and \fB%/\fP, but if \fB$PWD\fP has a named directory as its prefix,
-that part is replaced by a `\fB~\fP\&' followed by the name of the directory\&.
-If it starts with \fB$HOME\fP, that part is replaced by a `\fB~\fP\&'\&.
+As \fB%d\fP and \fB%/\fP, but if the current working directory has a named
+directory as its prefix, that part is replaced by a `\fB~\fP\&' followed by
+the name of the directory\&.  If it starts with \fB$HOME\fP, that part is
+replaced by a `\fB~\fP\&'\&.
 .TP
 .PD 0
 \fB%h\fP
@@ -2012,7 +2083,7 @@ names are not shown, instead the file where they were defined\&.
 .TP
 .PD
 \fB%C\fP
-Trailing component of \fB$PWD\fP\&.
+Trailing component of the current working directory\&.
 An integer may follow the `\fB%\fP\&' to get more than one component\&.
 Unless `\fB%C\fP\&' is used, tilde contraction is performed first\&.  These are
 deprecated as \fB%c\fP and \fB%C\fP are equivalent to \fB%1~\fP and \fB%1/\fP,
@@ -2047,11 +2118,32 @@ The date in \fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP format\&.
 .TP
 \fB%D{\fP\fIstring\fP\fB}\fP
 \fIstring\fP is formatted using the \fBstrftime\fP function\&.
-See \fIstrftime\fP(3) for more details\&.  Three additional codes are
-available:  \fB%f\fP prints the day of the month, like \fB%e\fP but
-without any preceding space if the day is a single digit, and
-\fB%K\fP/\fB%L\fP correspond to \fB%k\fP/\fB%l\fP for the hour of the day
-(24/12 hour clock) in the same way\&.
+See \fIstrftime\fP(3) for more details\&.  Various zsh
+extensions provide numbers with no leading zero or space
+if the number is a single digit:
+.RS
+.PP
+.PD 0
+.TP
+\fB%f\fP
+a day of the month
+.TP
+\fB%K\fP
+the hour of the day on the 24\-hour clock
+.TP
+\fB%L\fP
+the hour of the day on the 12\-hour clock
+.PD
+.PP
+The GNU extension that a `\fB\-\fP\&' between the \fB%\fP and the
+format character causes a leading zero or space to be stripped
+is handled directly by the shell for the format characters \fBd\fP, \fBf\fP,
+\fBH\fP, \fBk\fP, \fBl\fP, \fBm\fP, \fBM\fP, \fBS\fP and \fBy\fP; any other format
+characters are provided to \fBstrftime()\fP with any leading `\fB\-\fP\&',
+present, so the handling is system dependent\&.  Further GNU
+extensions are not supported at present\&.
+.RE
+.RE
 .PP
 .SS "Visual effects"
 .PD 0

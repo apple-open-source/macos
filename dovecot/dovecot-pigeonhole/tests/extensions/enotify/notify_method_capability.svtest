@@ -1,0 +1,12 @@
+require "vnd.dovecot.testsuite";
+require "enotify";
+
+test "Mailto" {
+	if not notify_method_capability :is "mailto:stephan@example.org" "online" "maybe" {
+		test_fail "test should have matched";
+	}
+
+	if notify_method_capability :is "mailto:stephan@example.org" "online" "yes" {
+		test_fail "test should not have matched";
+	}
+}

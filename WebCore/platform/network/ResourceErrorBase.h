@@ -32,6 +32,8 @@ namespace WebCore {
 
 class ResourceError;
 
+extern const char* const errorDomainWebKitInternal; // Used for errors that won't be exposed to clients.
+
 class ResourceErrorBase {
 public:
     // Makes a deep copy. Useful for when you need to use a ResourceError on another thread.
@@ -71,6 +73,9 @@ protected:
 
     // The ResourceError subclass may "shadow" this method to lazily initialize platform specific fields
     void platformLazyInit() {}
+
+    // The ResourceError subclass may "shadow" this method to copy platform specific fields
+    void platformCopy(ResourceError&) const {}
 
     // The ResourceError subclass may "shadow" this method to compare platform specific fields
     static bool platformCompare(const ResourceError&, const ResourceError&) { return true; }

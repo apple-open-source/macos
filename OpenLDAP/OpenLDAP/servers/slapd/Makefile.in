@@ -1,8 +1,8 @@
 ## Makefile.in for slapd
-# $OpenLDAP: pkg/ldap/servers/slapd/Makefile.in,v 1.186.2.6 2008/02/11 23:26:43 kurt Exp $
+# $OpenLDAP: pkg/ldap/servers/slapd/Makefile.in,v 1.186.2.9 2010/04/13 20:23:09 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2008 The OpenLDAP Foundation.
+## Copyright 1998-2010 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -15,7 +15,7 @@
 
 override CFLAGS := -mdynamic-no-pic $(CFLAGS)
 
-SLAPTOOLS=slapadd slapcat slapdn slapindex slappasswd slaptest slapauth slapacl
+SLAPTOOLS=slapadd slapcat slapdn slapindex slappasswd slaptest slapauth slapacl slapschema
 PROGRAMS=slapd $(SLAPTOOLS)
 XPROGRAMS=sslapd libbackends.a .backend liboverlays.a
 XSRCS=version.c
@@ -40,7 +40,7 @@ SRCS	= main.c globals.c bconfig.c config.c daemon.c \
 		backglue.c backover.c ctxcsn.c ldapsync.c frontend.c \
 		slapadd.c slapcat.c slapcommon.c slapdn.c slapindex.c \
 		slappasswd.c slaptest.c slapauth.c slapacl.c component.c \
-		aci.c alock.c psauth.c idattracl.c txn.c \
+		aci.c alock.c psauth.c idattracl.c txn.c slapschema.c \
 		$(@PLAT@_SRCS)
 
 OBJS	= main.o globals.o bconfig.o config.o daemon.o \
@@ -58,7 +58,7 @@ OBJS	= main.o globals.o bconfig.o config.o daemon.o \
 		backglue.o backover.o ctxcsn.o ldapsync.o frontend.o \
 		slapadd.o slapcat.o slapcommon.o slapdn.o slapindex.o \
 		slappasswd.o slaptest.o slapauth.o slapacl.o component.o \
-		aci.o alock.o psauth.o idattracl.o txn.o \
+		aci.o alock.o psauth.o idattracl.o txn.o slapschema.o \
 		$(@PLAT@_OBJS)
 
 LDAP_INCDIR= ../../include -I$(srcdir) -I$(srcdir)/slapi -I.

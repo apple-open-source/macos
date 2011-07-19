@@ -37,4 +37,23 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
     return 10000;
 }
 
+PassOwnPtr<CrossThreadResourceRequestData> ResourceRequest::doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const
+{
+    data->m_requestorID = m_requestorID;
+    data->m_requestorProcessID = m_requestorProcessID;
+    data->m_appCacheHostID = m_appCacheHostID;
+    data->m_hasUserGesture = m_hasUserGesture;
+    data->m_downloadToFile = m_downloadToFile;
+    return data;
+}
+
+void ResourceRequest::doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData> data)
+{
+    m_requestorID = data->m_requestorID;
+    m_requestorProcessID = data->m_requestorProcessID;
+    m_appCacheHostID = data->m_appCacheHostID;
+    m_hasUserGesture = data->m_hasUserGesture;
+    m_downloadToFile = data->m_downloadToFile;
+}
+
 } // namespace WebCore

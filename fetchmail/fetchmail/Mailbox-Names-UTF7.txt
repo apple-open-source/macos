@@ -1,0 +1,235 @@
+IMAP4r1 Mailbox Names vs. Unicode
+=================================
+:author: Matthias_Andree_(ed.)_and_Mark_Crispin
+:email: matthias.andree@gmx.de
+:author initials: MA and MC
+:revision: 1.001
+:revdate: 2010-05-28
+:toc:
+:data-uri:
+:icons:
+:numbered:
+
+''''
+
+.Acknowledgment
+****
+This article would not have been possible without the
+substantial contributions from Mark Crispin.
+&mdash; Matthias Andree, editor
+****
+
+.Abstract
+****
+IMAP4rev1 is a widely used Internet Standards Track Protocol for remote
+email access. Its adoption to international environments posed
+interpretation problems as the construction and interpretation of
+mailbox names, it particularly raised the question if there was
+contractictory information within IMAP4rev1.
+
+This article describes the problem, and shows that IMAP4rev1 is
+consistent with respect to mailbox names. We document how the evolution
+of Unicode character sets and transformation formats made the
+interpretation of the IMAP4rev1 standard difficult, and how it is to
+interpret properly.
+
+Finally, we show that UTF-7, which is used in IMAP4rev1 to encode
+mailbox names, does not impose artificial restrictions on the Unicode
+character set.
+****
+
+== IMAP Mailbox Names in RFC-3501
+
+In May 2010, some confusion arose on the getmail mailing list around a bug
+report to Debian that complained getmail4 wouldn't allow non-ASCII characters
+in an IMAP folder name http://bugs.debian.org/513116[Debian Bug#513116], and
+the interpretation of support of international mailbox names
+vs. http://tools.ietf.org/html/rfc3501[RFC-3501]. It seemed at first
+glance that IMAP4rev1 were limited to the Basic Multilingual Plane of
+Unicode.
+
+=== Problem statement
+
+Notably, RFC-3501 mandates that mailbox names are 7-bit, however clients are
+supposed to accept 8-bit data and interpret it as UTF-8.  This is apparently
+contradictory or extraneous, because 7-bit ASCII data need not be encoded.
+
+Let us look at the IMAP4rev1 standard:
+
+[quote, Mark Crispin, RFC3501]
+____
+5.1.    Mailbox Naming
+
+Mailbox names are 7-bit.  Client implementations MUST NOT attempt to
+create 8-bit mailbox names, and SHOULD interpret any 8-bit mailbox names
+returned by LIST or LSUB as UTF-8.  Server implementations SHOULD
+prohibit the creation of 8-bit mailbox names, and SHOULD NOT return
+8-bit mailbox names in LIST or LSUB.  See section 5.1.3 for more
+information on how to represent non-ASCII mailbox names. [...]
+____
+
+[quote, Mark Crispin, RFC3501]
+____
+5.1.3.  Mailbox International Naming Convention
+
+By convention, international mailbox names in IMAP4rev1 are specified
+using a modified version of the UTF-7 encoding described in [UTF-7].
+Modified UTF-7 may also be usable in servers that implement an earlier
+version of this protocol. [...]
+____
+
+This appears to be contradictory, because UTF-7 is not UTF-8. However, a UTF-7
+mailbox name is not an 8-bit mailbox name, hence the clause "interpret any
+8-bit mailbox names ... as UTF-8" does not apply. Mark writes:
+
+=== Clarification
+_by Mark Crispin_
+
+8-bit octets are prohibited in mailbox names.  Clients MUST use 7-bit
+names, and servers MUST reject CREATE commands that contain 8-bit
+octets.
+
+However, clients MUST also interpret any 8-bit names in a list of
+mailbox names (from LIST or LSUB) as UTF-8.
+
+To understand the history here, we must go back to the 1990s where
+people (in spite of being told not to do so) were writing IMAP2 clients
+and servers which used ISO-8859-1 and Shift-JIS mailbox names.  At that
+time, it was by no means certain that UTF-8 would become the standard
+Internet character set; I played an important role in making that
+happen, but that was still a few years in the future.
+
+The adoption of UTF-8 offered a chance to exterminate non-UTF-8 8-bit
+mailbox names, and in 1996 the current rules were adopted.  The
+transition to IMAP4 (which required substantial changes to any IMAP2
+servers) provided an opportunity to exterminate these non-interoperable
+names once and for all.
+
+The modified UTF-7 was a temporary expedient to allow non-ASCII mailbox
+names while remaining with the 7-bit framework.  Had punycode existed at
+the time, it would have been a much better choice than UTF-7.  But
+punycode did not exist for several years later with IDN.  In fact,
+punycode was created because people learned the problems of UTF-7 from
+IMAP.
+
+The intent was always to move to a UTF-8 only environment and leave
+behind UTF-7.  When that happens, clients will start encountering UTF-8
+names.  It is therefore necessary to tell clients that, even though they
+are not permitted to send them, they need to be written to handle them
+so they work properly when the restriction is relaxed in the future.
+
+=== Recommendations
+_by Mark Crispin_
+
+*Options for server implementors*
+
+From the perspective of a server implementor, you have one of two choices
+of how to implement MUTF-7:
+footnote:[editor's note: Modified UTF-7 as specified by the ensemble of RFC-2152 and RFC-3501]
+
+[horizontal]
+[S1]:: Ignore it; just forbid 8-bit octets in the CREATE command.
+[S2]:: Convert mailbox names in commands from MUTF-7 to UTF-8.  When doing a
+LIST or LSUB, convert mailbox names from UTF-8 to MUTF-7 before sending
+them to the client.
+
+Servers of type [S1] were far more common in the 1990s.  [S2] is more
+common today.  However, a client neither knows, nor cares, which type of
+server it is because the rules make both servers interoperate the same.
+
+*Options for client implementors*
+
+[horizontal]
+[C1]:: Ignore it; you're an ASCII client.
+[C2]:: Convert mailbox names from UTF-8 to MUTF-7 when sending a command.
+When receiving a listing of mailboxes, convert MUTF-7 to UTF-8.
+
+This all works, and works well.  The routines to do the conversions are
+quite straightforward.  The only thing that you can't do well are mixed
+wildcards with strings with non-ASCII names; and that is primarily a
+curiousity since no clients do that with ASCII names.
+
+== Unicode, UCS-2, UTF-16, and UTF-7
+
+.Incomplete specification:
+WARNING: This section and its subsections are not normative references,
+         and are insufficient to implement UCS-2, UTF-16 or UTF-7 based
+         software.
+
+=== UCS-2 and UTF-16
+_by Mark Crispin_
+
+RFC-3501 uses http://tools.ietf.org/html/rfc2152[RFC-2152] by reference.
+Some of the confusion on the getmail list arose from the fact that
+RFC-2152 talks about UCS-2 representation, which is limited to the Basic
+Multilingual Plane (BMP) range U+0000 to U+FFFF.
+
+However, RFC-2152 also (page 5) refers to the handling of surrogate
+pairs, which are defined in UTF-16 but not UCS-2.
+
+The correct interpretation is that the wording in RFC-2152 was written
+at a time when "UCS-2" was interpreted as a synonym for "16-bit value"
+as opposed to "BMP-only codepoints".  This happens frequently in older
+standards.  Since UTF-7 is deprecated, nobody has done the work to
+update RFC-2152 to clarify this point.
+
+Using surrogate pairs extends the capability of 16-bit words beyond the
+BMP range.
+
+The 0x0000 to 0xFFFF range comprises so-called surrogates, two character
+ranges (0xD800 to 0xDBFF and 0xDC00 to 0xDFFF) of 1024 characters (2^10^)
+each. These ranges are technically removed from the BMP (thus there is
+no such thing as U+D800); and hence the BMP only contains 64,512
+possible codepoints.
+
+Both UTF-7 and UTF-16 transformation leverages these ranges to map
+Unicode code points in the range from U+010000 to U+10FFFF (which is the
+highest Unicode code point) to a pair of UCS-2 characters in the
+surrogates ranges.
+
+This happens by first subtracting 0x10000, which maps the input into the
+range 0x0 to 0xFFFFF, representable in 20 bits. The most significant
+10-bit portion is mapped into the range 0xD800…0xDBFF, the least
+significant 10-bit portion into the range 0xDC00…0xDFFF, and these two
+16-bit values are used in this order.  UTF-7 does a further step of
+encoding in modified BASE64.
+
+Thus, UTF-7 and UTF-16 both deal with ``16-bit values'' and use the same
+surrogate pair mechanism to access non-BMP codepoints.  Although not
+strictly accurate (the two are technically independent encodings of
+Unicode), it may be helpful to think of UTF-7 as a further encoding of
+UTF-16.
+
+=== UTF-7
+
+UTF-7 is a 7-bit representation of Unicode that makes use of character set
+shifting. A character that is directly representable represents itself. Other
+characters are subjected to a modified BASE64-encoding (that omits the padding
+"=" characters at the end of a group) which is preceded by a "+" character
+and trailed by a "-" character, which is discarded, or any other character
+not in the modified BASE64 set, which remains in the stream.
+
+As a special case, the sequence "\+-" is a shorthand to represent
+the "+" character itself.
+
+The modified BASE64 character set uses the characters A-Z, a-z, digits 0-9,
+and the characters "+" and "/", omitting "=" to avoid collisions with
+RFC-2047 encoding.
+
+=== Modified UTF-7
+
+This works similar to UTF-7, but mandates that printable ASCII characters
+0x20...0x7E except 0x26 (the ampersand "&") represent themselves, and uses yet
+another BASE64 alphabet consisting of the upper- and lowercase letters, the
+digits, and the characters "+" and ",", with some further rules specified in
+RFC-3501. The leading shift character is replaced by the ampersand "&",
+the trailing remains "-", and the "&" can be encoded as "&-".
+
+== Conclusions
+
+IMAP Clients that want to support international mailbox names should send UTF-7,
+and be prepared to handle UTF-7 (if no 8-bit data is found) and UTF-8 (if
+8-bit data is found).
+
+Modified UTF-7 as per the IMAP RFC #3501 is not limited to the Unicode Basic
+Multilingual Plane, but maps the entire Unicode range.

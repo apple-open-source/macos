@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -118,7 +118,7 @@ do_ASLExpireTime_search(asl_store_t *s, asl_search_result_t **out)
 	uint32_t status;
 	uint64_t mid;
 
-	qm[0] = asl_new(ASL_TYPE_QUERY);
+	qm[0] = asl_msg_new(ASL_TYPE_QUERY);
 	if (qm[0] == NULL) return ASL_STATUS_NO_MEMORY;
 
 	q.count = 1;
@@ -126,9 +126,9 @@ do_ASLExpireTime_search(asl_store_t *s, asl_search_result_t **out)
 	q.msg = qm;
 	query = &q;
 
-	if (asl_set_query(qm[0], ASL_KEY_EXPIRE_TIME, NULL, ASL_QUERY_OP_TRUE) != 0)
+	if (asl_msg_set_key_val_op(qm[0], ASL_KEY_EXPIRE_TIME, NULL, ASL_QUERY_OP_TRUE) != 0)
 	{
-		asl_free(qm[0]);
+		asl_msg_release(qm[0]);
 		return ASL_STATUS_NO_MEMORY;
 	}
 
@@ -136,7 +136,7 @@ do_ASLExpireTime_search(asl_store_t *s, asl_search_result_t **out)
 	mid = 0;
 	status = asl_store_match(s, query, out, &mid, 0, 0, 1);
 
-	asl_free(qm[0]);
+	asl_msg_release(qm[0]);
 	return status;
 }
 
@@ -144,7 +144,7 @@ do_ASLExpireTime_search(asl_store_t *s, asl_search_result_t **out)
 static uint32_t
 do_ASLExpireTime_filter(const char *name)
 {
-	asl_msg_t *msg;
+	aslmsg msg;
 	asl_file_t *in, *out;
 	uint32_t status;
 	uint64_t mid;
@@ -227,8 +227,8 @@ sort_compare(const void *a, const void *b)
 	const char *va, *vb;
 	uint64_t na, nb;
 
-	va = asl_get(*(asl_msg_t **)a, ASL_KEY_MSG_ID);
-	vb = asl_get(*(asl_msg_t **)b, ASL_KEY_MSG_ID);
+	va = asl_get(*(aslmsg *)a, ASL_KEY_MSG_ID);
+	vb = asl_get(*(aslmsg *)b, ASL_KEY_MSG_ID);
 
 	if (va == NULL) return -1;
 	if (vb == NULL) return 1;
@@ -243,7 +243,7 @@ sort_compare(const void *a, const void *b)
 
 /* save a message to an appropriately named BB file */
 static uint32_t 
-save_bb_msg(asl_msg_t *msg)
+save_bb_msg(aslmsg msg)
 {
 	const char *val;
 	uid_t u, ruid;
@@ -442,7 +442,7 @@ bb_convert(const char *name)
 	if (i != 0) return ASL_STATUS_INVALID_STORE;
 
 	/* must be a regular file */
-	if ((sb.st_mode & S_IFREG) == 0) return ASL_STATUS_INVALID_STORE;
+	if (!S_ISREG(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
 
 	/* check is the store has already been converted */
 	if (sb.st_size > sizeof(uint64_t)) return ASL_STATUS_OK;
@@ -483,12 +483,12 @@ bb_convert(const char *name)
 	if ((expire_time_records == NULL) || (expire_time_records->count == 0)) return finish_conversion();
 
 	/* sort by ASLMessageID */
-	qsort(expire_time_records->msg, expire_time_records->count, sizeof(asl_msg_t *), sort_compare);
+	qsort(expire_time_records->msg, expire_time_records->count, sizeof(aslmsg), sort_compare);
 
 	/* save the ASLExpireTime messages into a new set of BB files */
 	for (i = 0; i < expire_time_records->count; i++)
 	{
-		status = save_bb_msg(expire_time_records->msg[i]);
+		status = save_bb_msg((aslmsg)expire_time_records->msg[i]);
 		if (status != ASL_STATUS_OK)
 		{
 			if (cache_file != NULL) asl_file_close(cache_file);

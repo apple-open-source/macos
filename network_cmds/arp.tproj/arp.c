@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1984, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -84,11 +112,16 @@ __FBSDID("$FreeBSD: src/usr.sbin/arp/arp.c,v 1.65.2.1 2008/04/25 16:38:14 sam Ex
 
 typedef void (action_fn)(struct sockaddr_dl *sdl,
 	struct sockaddr_inarp *s_in, struct rt_msghdr *rtm);
+typedef void (action_ext_fn)(struct sockaddr_dl *sdl,
+	struct sockaddr_inarp *s_in, struct rt_msghdr_ext *rtm);
 
 static int search(in_addr_t addr, action_fn *action);
+static int search_ext(in_addr_t addr, action_ext_fn *action);
 static action_fn print_entry;
 static action_fn nuke_entry;
+static action_ext_fn print_entry_ext;
 
+static char *print_lladdr(struct sockaddr_dl *);
 static int delete(char *host, int do_proxy);
 static void usage(void);
 static int set(int argc, char **argv);
@@ -99,6 +132,7 @@ static struct rt_msghdr *rtmsg(int cmd,
 static int get_ether_addr(in_addr_t ipaddr, struct ether_addr *hwaddr);
 static struct sockaddr_inarp *getaddr(char *host);
 static int valid_type(int type);
+static char *sec2str(time_t);
 
 static int nflag;	/* no reverse dns lookups */
 static char *rifname;
@@ -131,8 +165,10 @@ main(int argc, char *argv[])
 	int ch, func = 0;
 	int rtn = 0;
 	int aflag = 0;	/* do it for all entries */
+	int lflag = 0;
+	uint32_t ifindex = 0;
 
-	while ((ch = getopt(argc, argv, "andfsSi:")) != -1)
+	while ((ch = getopt(argc, argv, "andflsSi:")) != -1)
 		switch((char)ch) {
 		case 'a':
 			aflag = 1;
@@ -142,6 +178,9 @@ main(int argc, char *argv[])
 			break;
 		case 'n':
 			nflag = 1;
+			break;
+		case 'l':
+			lflag = 1;
 			break;
 		case 'S':
 			SETFUNC(F_REPLACE);
@@ -167,7 +206,7 @@ main(int argc, char *argv[])
 	if (rifname) {
 		if (func != F_GET && !(func == F_DELETE && aflag))
 			errx(1, "-i not applicable to this operation");
-		if (if_nametoindex(rifname) == 0) {
+		if ((ifindex = if_nametoindex(rifname)) == 0) {
 			if (errno == ENXIO)
 				errx(1, "interface %s does not exist", rifname);
 			else
@@ -179,7 +218,15 @@ main(int argc, char *argv[])
 		if (aflag) {
 			if (argc != 0)
 				usage();
-			search(0, print_entry);
+			if (lflag) {
+				printf("%-23s %-17s %-9.9s %-9.9s %8.8s %4s "
+				    "%4s\n", "Neighbor", "Linklayer Address",
+			           "Expire(O)", "Expire(I)", "Netif", "Refs",
+				   "Prbs");
+				search_ext(0, print_entry_ext);
+			} else {
+				search(0, print_entry);
+			}
 		} else {
 			if (argc != 1)
 				usage();
@@ -218,6 +265,8 @@ main(int argc, char *argv[])
 					usage();
 				}
 			}
+			if (i > argc)
+				usage();
 			rtn = delete(argv[0], do_proxy);
 		}
 		break;
@@ -570,19 +619,22 @@ search(in_addr_t addr, action_fn *action)
 /*
  * Stolen and adapted from ifconfig
  */
-static void
+static char *
 print_lladdr(struct sockaddr_dl *sdl)
 {
+	static char buf[256];
         char *cp;
-        int n;
+        int n, bufsize = sizeof (buf), p = 0;
 
+	bzero(buf, sizeof (buf));
         cp = (char *)LLADDR(sdl);
         if ((n = sdl->sdl_alen) > 0) {
                 while (--n >= 0)
-                        printf("%x%s",*cp++ & 0xff, n>0? ":" : "");
+                        p += snprintf(buf + p, bufsize - p, "%x%s",
+			    *cp++ & 0xff, n > 0 ? ":" : "");
         }
+	return (buf);
 }
-
 
 /*
  * Display an arp entry
@@ -614,7 +666,7 @@ print_entry(struct sockaddr_dl *sdl,
 	printf("%s (%s) at ", host, inet_ntoa(addr->sin_addr));
 	if (sdl->sdl_alen) {
 #if 1
-		print_lladdr(sdl);
+		printf("%s", print_lladdr(sdl));
 #else
 		if ((sdl->sdl_type == IFT_ETHER ||
 		    sdl->sdl_type == IFT_L2VLAN ||
@@ -692,12 +744,18 @@ print_entry(struct sockaddr_dl *sdl,
  */
 static void
 nuke_entry(struct sockaddr_dl *sdl __unused,
-	struct sockaddr_inarp *addr, struct rt_msghdr *rtm __unused)
+	struct sockaddr_inarp *addr, struct rt_msghdr *rtm)
 {
 	char ip[20];
 
 	snprintf(ip, sizeof(ip), "%s", inet_ntoa(addr->sin_addr));
+	/*
+	 * When deleting all entries, specify the interface scope of each entry 
+	 */
+	if ((rtm->rtm_flags & RTF_IFSCOPE))
+		ifscope = rtm->rtm_index;
 	(void)delete(ip, 0);
+	ifscope = 0;
 }
 
 static void
@@ -705,7 +763,7 @@ usage(void)
 {
 	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 		"usage: arp [-n] [-i interface] hostname",
-		"       arp [-n] [-i interface] -a",
+		"       arp [-n] [-i interface] [-l] -a",
 		"       arp -d hostname [pub] [ifscope interface]",
 		"       arp -d [-i interface] -a",
 		"       arp -s hostname ether_addr [temp] [reject] [blackhole] [pub [only]] [ifscope interface]",
@@ -906,4 +964,149 @@ get_ether_addr(in_addr_t ipaddr, struct ether_addr *hwaddr)
 done:
 	close(sock);
 	return (retval);
+}
+
+static char *
+sec2str(total)
+	time_t total;
+{
+	static char result[256];
+	int days, hours, mins, secs;
+	int first = 1;
+	char *p = result;
+
+	days = total / 3600 / 24;
+	hours = (total / 3600) % 24;
+	mins = (total / 60) % 60;
+	secs = total % 60;
+
+	if (days) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dd", days);
+	}
+	if (!first || hours) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dh", hours);
+	}
+	if (!first || mins) {
+		first = 0;
+		p += snprintf(p, sizeof(result) - (p - result), "%dm", mins);
+	}
+	snprintf(p, sizeof(result) - (p - result), "%ds", secs);
+
+	return(result);
+}
+
+static int
+search_ext(in_addr_t addr, action_ext_fn *action)
+{
+	int mib[6];
+	size_t needed;
+	char *lim, *buf, *newbuf, *next;
+	struct rt_msghdr_ext *ertm;
+	struct sockaddr_inarp *sin2;
+	struct sockaddr_dl *sdl;
+	char ifname[IF_NAMESIZE];
+	int st, found_entry = 0;
+
+	mib[0] = CTL_NET;
+	mib[1] = PF_ROUTE;
+	mib[2] = 0;
+	mib[3] = AF_INET;
+	mib[4] = NET_RT_DUMPX_FLAGS;
+	mib[5] = RTF_LLINFO;
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0)
+		err(1, "route-sysctl-estimate");
+	if (needed == 0)	/* empty table */
+		return 0;
+	buf = NULL;
+	for (;;) {
+		newbuf = realloc(buf, needed);
+		if (newbuf == NULL) {
+			if (buf != NULL)
+				free(buf);
+			errx(1, "could not reallocate memory");
+		}
+		buf = newbuf;
+		st = sysctl(mib, 6, buf, &needed, NULL, 0);
+		if (st == 0 || errno != ENOMEM)
+			break;
+		needed += needed / 8;
+	}
+	if (st == -1)
+		err(1, "actual retrieval of routing table");
+	lim = buf + needed;
+	for (next = buf; next < lim; next += ertm->rtm_msglen) {
+		ertm = (struct rt_msghdr_ext *)next;
+		sin2 = (struct sockaddr_inarp *)(ertm + 1);
+		sdl = (struct sockaddr_dl *)((char *)sin2 + SA_SIZE(sin2));
+		if (rifname && if_indextoname(sdl->sdl_index, ifname) &&
+		    strcmp(ifname, rifname))
+			continue;
+		if (addr) {
+			if (addr != sin2->sin_addr.s_addr)
+				continue;
+			found_entry = 1;
+		}
+		(*action)(sdl, sin2, ertm);
+	}
+	free(buf);
+	return (found_entry);
+}
+
+static void
+print_entry_ext(struct sockaddr_dl *sdl, struct sockaddr_inarp *addr,
+    struct rt_msghdr_ext *ertm)
+{
+	const char *host;
+	struct hostent *hp;
+	char ifname[IF_NAMESIZE];
+	struct timeval time;
+
+	if (nflag == 0)
+		hp = gethostbyaddr((caddr_t)&(addr->sin_addr),
+		    sizeof (addr->sin_addr), AF_INET);
+	else
+		hp = 0;
+
+	if (hp)
+		host = hp->h_name;
+	else
+		host = inet_ntoa(addr->sin_addr);
+
+	printf("%-23s ", host);
+
+	if (sdl->sdl_alen)
+		printf("%-17s ", print_lladdr(sdl));
+	else
+		printf("%-17s ", "(incomplete)");
+
+	gettimeofday(&time, 0);
+
+	if (ertm->rtm_ri.ri_refcnt == 0 || ertm->rtm_ri.ri_snd_expire == 0)
+		printf("%-9.9s ", "(none)");
+	else if (ertm->rtm_ri.ri_snd_expire > time.tv_sec)
+		printf("%-9.9s ",
+		    sec2str(ertm->rtm_ri.ri_snd_expire - time.tv_sec));
+	else
+		printf("%-9.9s ", "expired");
+
+	if (ertm->rtm_ri.ri_refcnt == 0 || ertm->rtm_ri.ri_rcv_expire == 0)
+		printf("%-9.9s", "(none)");
+	else if (ertm->rtm_ri.ri_rcv_expire > time.tv_sec)
+		printf("%-9.9s",
+		    sec2str(ertm->rtm_ri.ri_rcv_expire - time.tv_sec));
+	else
+		printf("%-9.9s", "expired");
+
+	if (if_indextoname(sdl->sdl_index, ifname) == NULL)
+		snprintf(ifname, sizeof (ifname), "%s", "?");
+	printf(" %8.8s", ifname);
+
+	if (ertm->rtm_ri.ri_refcnt) {
+		printf(" %4d", ertm->rtm_ri.ri_refcnt);
+		if (ertm->rtm_ri.ri_probes)
+			printf(" %4d", ertm->rtm_ri.ri_probes);
+	}
+	printf("\n");
 }

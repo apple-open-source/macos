@@ -13,8 +13,11 @@
 
 #include "MipsInstrInfo.h"
 #include "MipsTargetMachine.h"
+#include "MipsMachineFunction.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "MipsGenInstrInfo.inc"
 
 using namespace llvm;
@@ -55,7 +58,8 @@ isMoveInstr(const MachineInstr &MI, unsigned &SrcReg, unsigned &DstReg,
   if (MI.getOpcode() == Mips::FMOV_S32 || 
       MI.getOpcode() == Mips::FMOV_D32 || 
       MI.getOpcode() == Mips::MFC1 || 
-      MI.getOpcode() == Mips::MTC1 ) {
+      MI.getOpcode() == Mips::MTC1 ||
+      MI.getOpcode() == Mips::MOVCCRToCCR) {
     DstReg = MI.getOperand(0).getReg();
     SrcReg = MI.getOperand(1).getReg();
     return true;
@@ -69,6 +73,7 @@ isMoveInstr(const MachineInstr &MI, unsigned &SrcReg, unsigned &DstReg,
       return true;
     }
   }
+
   return false;
 }
 
@@ -118,8 +123,7 @@ isStoreToStackSlot(const MachineInstr *MI, int &FrameIndex) const
 void MipsInstrInfo::
 insertNoop(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI) const 
 {
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (MI != MBB.end()) DL = MI->getDebugLoc();
+  DebugLoc DL;
   BuildMI(MBB, MI, DL, get(Mips::NOP));
 }
 
@@ -127,26 +131,26 @@ bool MipsInstrInfo::
 copyRegToReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
              unsigned DestReg, unsigned SrcReg,
              const TargetRegisterClass *DestRC,
-             const TargetRegisterClass *SrcRC) const {
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (I != MBB.end()) DL = I->getDebugLoc();
+             const TargetRegisterClass *SrcRC,
+             DebugLoc DL) const {
 
   if (DestRC != SrcRC) {
-    // Moves between coprocessors and cpu
+
+    // Copy to/from FCR31 condition register
     if ((DestRC == Mips::CPURegsRegisterClass) && 
+        (SrcRC == Mips::CCRRegisterClass))
+      BuildMI(MBB, I, DL, get(Mips::CFC1), DestReg).addReg(SrcReg);
+    else if ((DestRC == Mips::CCRRegisterClass) && 
+        (SrcRC == Mips::CPURegsRegisterClass))
+      BuildMI(MBB, I, DL, get(Mips::CTC1), DestReg).addReg(SrcReg);
+
+    // Moves between coprocessors and cpu
+    else if ((DestRC == Mips::CPURegsRegisterClass) && 
         (SrcRC == Mips::FGR32RegisterClass))
       BuildMI(MBB, I, DL, get(Mips::MFC1), DestReg).addReg(SrcReg);
     else if ((DestRC == Mips::FGR32RegisterClass) &&
              (SrcRC == Mips::CPURegsRegisterClass))
       BuildMI(MBB, I, DL, get(Mips::MTC1), DestReg).addReg(SrcReg);
-
-    // Condition registers
-    else if ((SrcRC == Mips::CCRRegisterClass) && 
-             (SrcReg == Mips::FCR31))
-      return true; // This register is used implicitly, no copy needed.
-    else if ((DestRC == Mips::CCRRegisterClass) && 
-             (DestReg == Mips::FCR31))
-      return true; // This register is used implicitly, no copy needed.
 
     // Move from/to Hi/Lo registers
     else if ((DestRC == Mips::HILORegisterClass) &&
@@ -157,9 +161,8 @@ copyRegToReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                (DestRC == Mips::CPURegsRegisterClass)) {
       unsigned Opc = (SrcReg == Mips::HI) ? Mips::MFHI : Mips::MFLO;
       BuildMI(MBB, I, DL, get(Opc), DestReg);
-
-    // Can't copy this register
-    } else
+    } else 
+      // Can't copy this register
       return false; 
 
     return true;
@@ -172,6 +175,8 @@ copyRegToReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
     BuildMI(MBB, I, DL, get(Mips::FMOV_S32), DestReg).addReg(SrcReg);
   else if (DestRC == Mips::AFGR64RegisterClass)
     BuildMI(MBB, I, DL, get(Mips::FMOV_D32), DestReg).addReg(SrcReg);
+  else if (DestRC == Mips::CCRRegisterClass)
+    BuildMI(MBB, I, DL, get(Mips::MOVCCRToCCR), DestReg).addReg(SrcReg);
   else
     // Can't copy this register
     return false;
@@ -182,88 +187,64 @@ copyRegToReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
 void MipsInstrInfo::
 storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                     unsigned SrcReg, bool isKill, int FI, 
-                    const TargetRegisterClass *RC) const {
-  unsigned Opc;
-
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+                    const TargetRegisterClass *RC,
+                    const TargetRegisterInfo *TRI) const {
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
 
   if (RC == Mips::CPURegsRegisterClass) 
-    Opc = Mips::SW;
-  else if (RC == Mips::FGR32RegisterClass)
-    Opc = Mips::SWC1;
-  else {
-    assert(RC == Mips::AFGR64RegisterClass);
-    Opc = Mips::SDC1;
-  }
-  
-  BuildMI(MBB, I, DL, get(Opc)).addReg(SrcReg, false, false, isKill)
+    BuildMI(MBB, I, DL, get(Mips::SW)).addReg(SrcReg, getKillRegState(isKill))
           .addImm(0).addFrameIndex(FI);
-}
-
-void MipsInstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
-  bool isKill, SmallVectorImpl<MachineOperand> &Addr, 
-  const TargetRegisterClass *RC, SmallVectorImpl<MachineInstr*> &NewMIs) const 
-{
-  unsigned Opc;
-  if (RC == Mips::CPURegsRegisterClass) 
-    Opc = Mips::SW;
   else if (RC == Mips::FGR32RegisterClass)
-    Opc = Mips::SWC1;
-  else {
-    assert(RC == Mips::AFGR64RegisterClass);
-    Opc = Mips::SDC1;
-  }
-  
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc))
-    .addReg(SrcReg, false, false, isKill);
-  for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-    MIB.addOperand(Addr[i]);
-  NewMIs.push_back(MIB);
-  return;
+    BuildMI(MBB, I, DL, get(Mips::SWC1)).addReg(SrcReg, getKillRegState(isKill))
+          .addImm(0).addFrameIndex(FI);
+  else if (RC == Mips::AFGR64RegisterClass) {
+    if (!TM.getSubtarget<MipsSubtarget>().isMips1()) {
+      BuildMI(MBB, I, DL, get(Mips::SDC1))
+        .addReg(SrcReg, getKillRegState(isKill))
+        .addImm(0).addFrameIndex(FI);
+    } else {
+      const TargetRegisterInfo *TRI = 
+        MBB.getParent()->getTarget().getRegisterInfo();
+      const unsigned *SubSet = TRI->getSubRegisters(SrcReg);
+      BuildMI(MBB, I, DL, get(Mips::SWC1))
+        .addReg(SubSet[0], getKillRegState(isKill))
+        .addImm(0).addFrameIndex(FI);
+      BuildMI(MBB, I, DL, get(Mips::SWC1))
+        .addReg(SubSet[1], getKillRegState(isKill))
+        .addImm(4).addFrameIndex(FI);
+    }
+  } else
+    llvm_unreachable("Register class not handled!");
 }
 
 void MipsInstrInfo::
 loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                      unsigned DestReg, int FI,
-                     const TargetRegisterClass *RC) const 
+                     const TargetRegisterClass *RC,
+                     const TargetRegisterInfo *TRI) const 
 {
-  unsigned Opc;
-  if (RC == Mips::CPURegsRegisterClass) 
-    Opc = Mips::LW;
-  else if (RC == Mips::FGR32RegisterClass)
-    Opc = Mips::LWC1;
-  else {
-    assert(RC == Mips::AFGR64RegisterClass);
-    Opc = Mips::LDC1;
-  }
-  
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
-  BuildMI(MBB, I, DL, get(Opc), DestReg).addImm(0).addFrameIndex(FI);
-}
 
-void MipsInstrInfo::loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
-                                    SmallVectorImpl<MachineOperand> &Addr,
-                                    const TargetRegisterClass *RC,
-                                 SmallVectorImpl<MachineInstr*> &NewMIs) const {
-  unsigned Opc;
   if (RC == Mips::CPURegsRegisterClass) 
-    Opc = Mips::LW;
+    BuildMI(MBB, I, DL, get(Mips::LW), DestReg).addImm(0).addFrameIndex(FI);
   else if (RC == Mips::FGR32RegisterClass)
-    Opc = Mips::LWC1;
-  else {
-    assert(RC == Mips::AFGR64RegisterClass);
-    Opc = Mips::LDC1;
-  }
-
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc), DestReg);
-  for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-    MIB.addOperand(Addr[i]);
-  NewMIs.push_back(MIB);
-  return;
+    BuildMI(MBB, I, DL, get(Mips::LWC1), DestReg).addImm(0).addFrameIndex(FI);
+  else if (RC == Mips::AFGR64RegisterClass) {
+    if (!TM.getSubtarget<MipsSubtarget>().isMips1()) {
+      BuildMI(MBB, I, DL, get(Mips::LDC1), DestReg).addImm(0).addFrameIndex(FI);
+    } else {
+      const TargetRegisterInfo *TRI = 
+        MBB.getParent()->getTarget().getRegisterInfo();
+      const unsigned *SubSet = TRI->getSubRegisters(DestReg);
+      BuildMI(MBB, I, DL, get(Mips::LWC1), SubSet[0])
+        .addImm(0).addFrameIndex(FI);
+      BuildMI(MBB, I, DL, get(Mips::LWC1), SubSet[1])
+        .addImm(4).addFrameIndex(FI);
+    }
+  } else
+    llvm_unreachable("Register class not handled!");
 }
 
 MachineInstr *MipsInstrInfo::
@@ -284,14 +265,17 @@ foldMemoryOperandImpl(MachineFunction &MF,
       if (Ops[0] == 0) {    // COPY -> STORE
         unsigned SrcReg = MI->getOperand(2).getReg();
         bool isKill = MI->getOperand(2).isKill();
+        bool isUndef = MI->getOperand(2).isUndef();
         NewMI = BuildMI(MF, MI->getDebugLoc(), get(Mips::SW))
-          .addReg(SrcReg, false, false, isKill)
+          .addReg(SrcReg, getKillRegState(isKill) | getUndefRegState(isUndef))
           .addImm(0).addFrameIndex(FI);
       } else {              // COPY -> LOAD
         unsigned DstReg = MI->getOperand(0).getReg();
         bool isDead = MI->getOperand(0).isDead();
+        bool isUndef = MI->getOperand(0).isUndef();
         NewMI = BuildMI(MF, MI->getDebugLoc(), get(Mips::LW))
-          .addReg(DstReg, true, false, false, isDead)
+          .addReg(DstReg, RegState::Define | getDeadRegState(isDead) |
+                  getUndefRegState(isUndef))
           .addImm(0).addFrameIndex(FI);
       }
     }
@@ -303,25 +287,31 @@ foldMemoryOperandImpl(MachineFunction &MF,
       const TargetRegisterClass 
         *RC = RI.getRegClass(MI->getOperand(0).getReg());
       unsigned StoreOpc, LoadOpc;
+      bool IsMips1 = TM.getSubtarget<MipsSubtarget>().isMips1();
 
       if (RC == Mips::FGR32RegisterClass) {
         LoadOpc = Mips::LWC1; StoreOpc = Mips::SWC1;
       } else {
         assert(RC == Mips::AFGR64RegisterClass);
+        // Mips1 doesn't have ldc/sdc instructions.
+        if (IsMips1) break;
         LoadOpc = Mips::LDC1; StoreOpc = Mips::SDC1;
       }
 
       if (Ops[0] == 0) {    // COPY -> STORE
         unsigned SrcReg = MI->getOperand(1).getReg();
         bool isKill = MI->getOperand(1).isKill();
+        bool isUndef = MI->getOperand(2).isUndef();
         NewMI = BuildMI(MF, MI->getDebugLoc(), get(StoreOpc))
-          .addReg(SrcReg, false, false, isKill)
+          .addReg(SrcReg, getKillRegState(isKill) | getUndefRegState(isUndef))
           .addImm(0).addFrameIndex(FI) ;
       } else {              // COPY -> LOAD
         unsigned DstReg = MI->getOperand(0).getReg();
         bool isDead = MI->getOperand(0).isDead();
+        bool isUndef = MI->getOperand(0).isUndef();
         NewMI = BuildMI(MF, MI->getDebugLoc(), get(LoadOpc))
-          .addReg(DstReg, true, false, false, isDead)
+          .addReg(DstReg, RegState::Define | getDeadRegState(isDead) |
+                  getUndefRegState(isUndef))
           .addImm(0).addFrameIndex(FI);
       }
     }
@@ -359,7 +349,7 @@ static Mips::CondCode GetCondFromBranchOpc(unsigned BrOpc)
 unsigned Mips::GetCondBranchFromCond(Mips::CondCode CC) 
 {
   switch (CC) {
-  default: assert(0 && "Illegal condition code!");
+  default: llvm_unreachable("Illegal condition code!");
   case Mips::COND_E   : return Mips::BEQ;
   case Mips::COND_NE  : return Mips::BNE;
   case Mips::COND_GZ  : return Mips::BGTZ;
@@ -408,7 +398,7 @@ unsigned Mips::GetCondBranchFromCond(Mips::CondCode CC)
 Mips::CondCode Mips::GetOppositeBranchCondition(Mips::CondCode CC) 
 {
   switch (CC) {
-  default: assert(0 && "Illegal condition code!");
+  default: llvm_unreachable("Illegal condition code!");
   case Mips::COND_E   : return Mips::COND_NE;
   case Mips::COND_NE  : return Mips::COND_E;
   case Mips::COND_GZ  : return Mips::COND_LEZ;
@@ -442,7 +432,15 @@ bool MipsInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
 {
   // If the block has no terminators, it just falls into the block after it.
   MachineBasicBlock::iterator I = MBB.end();
-  if (I == MBB.begin() || !isUnpredicatedTerminator(--I))
+  if (I == MBB.begin())
+    return false;
+  --I;
+  while (I->isDebugValue()) {
+    if (I == MBB.begin())
+      return false;
+    --I;
+  }
+  if (!isUnpredicatedTerminator(I))
     return false;
   
   // Get the last instruction in the block.
@@ -524,7 +522,7 @@ InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
              MachineBasicBlock *FBB,
              const SmallVectorImpl<MachineOperand> &Cond) const {
   // FIXME this should probably have a DebugLoc argument
-  DebugLoc dl = DebugLoc::getUnknownLoc();
+  DebugLoc dl;
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
   assert((Cond.size() == 3 || Cond.size() == 2 || Cond.size() == 0) &&
@@ -571,6 +569,11 @@ RemoveBranch(MachineBasicBlock &MBB) const
   MachineBasicBlock::iterator I = MBB.end();
   if (I == MBB.begin()) return 0;
   --I;
+  while (I->isDebugValue()) {
+    if (I == MBB.begin())
+      return 0;
+    --I;
+  }
   if (I->getOpcode() != Mips::J && 
       GetCondFromBranchOpc(I->getOpcode()) == Mips::COND_INVALID)
     return 0;
@@ -590,22 +593,6 @@ RemoveBranch(MachineBasicBlock &MBB) const
   return 2;
 }
 
-/// BlockHasNoFallThrough - Analyze if MachineBasicBlock does not
-/// fall-through into its successor block.
-bool MipsInstrInfo::
-BlockHasNoFallThrough(const MachineBasicBlock &MBB) const 
-{
-  if (MBB.empty()) return false;
-  
-  switch (MBB.back().getOpcode()) {
-  case Mips::RET:     // Return.
-  case Mips::JR:      // Indirect branch.
-  case Mips::J:       // Uncond branch.
-    return true;
-  default: return false;
-  }
-}
-
 /// ReverseBranchCondition - Return the inverse opcode of the 
 /// specified Branch instruction.
 bool MipsInstrInfo::
@@ -615,4 +602,33 @@ ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const
           "Invalid Mips branch condition!");
   Cond[0].setImm(GetOppositeBranchCondition((Mips::CondCode)Cond[0].getImm()));
   return false;
+}
+
+/// getGlobalBaseReg - Return a virtual register initialized with the
+/// the global base register value. Output instructions required to
+/// initialize the register in the function entry block, if necessary.
+///
+unsigned MipsInstrInfo::getGlobalBaseReg(MachineFunction *MF) const {
+  MipsFunctionInfo *MipsFI = MF->getInfo<MipsFunctionInfo>();
+  unsigned GlobalBaseReg = MipsFI->getGlobalBaseReg();
+  if (GlobalBaseReg != 0)
+    return GlobalBaseReg;
+
+  // Insert the set of GlobalBaseReg into the first MBB of the function
+  MachineBasicBlock &FirstMBB = MF->front();
+  MachineBasicBlock::iterator MBBI = FirstMBB.begin();
+  MachineRegisterInfo &RegInfo = MF->getRegInfo();
+  const TargetInstrInfo *TII = MF->getTarget().getInstrInfo();
+
+  GlobalBaseReg = RegInfo.createVirtualRegister(Mips::CPURegsRegisterClass);
+  bool Ok = TII->copyRegToReg(FirstMBB, MBBI, GlobalBaseReg, Mips::GP,
+                              Mips::CPURegsRegisterClass,
+                              Mips::CPURegsRegisterClass,
+                              DebugLoc());
+  assert(Ok && "Couldn't assign to global base register!");
+  Ok = Ok; // Silence warning when assertions are turned off.
+  RegInfo.addLiveIn(Mips::GP);
+
+  MipsFI->setGlobalBaseReg(GlobalBaseReg);
+  return GlobalBaseReg;
 }

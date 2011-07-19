@@ -1,4 +1,4 @@
-/*$Header: /p/tcsh/cvsroot/tcsh/win32/globals.c,v 1.8 2006/03/05 08:59:36 amold Exp $*/
+/*$Header: /p/tcsh/cvsroot/tcsh/win32/globals.c,v 1.11 2008/09/10 20:34:21 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -42,6 +42,16 @@
 extern unsigned long bookend1,bookend2;
 extern char **environ;
 
+#define IMAGE_SIZEOF_NT_OPTIONAL32_HEADER    224
+#define IMAGE_SIZEOF_NT_OPTIONAL64_HEADER    240
+
+#ifdef _WIN64
+#define IMAGE_SIZEOF_NT_OPTIONAL_HEADER     IMAGE_SIZEOF_NT_OPTIONAL64_HEADER
+#else
+#define IMAGE_SIZEOF_NT_OPTIONAL_HEADER     IMAGE_SIZEOF_NT_OPTIONAL32_HEADER
+#endif
+
+
 #undef dprintf
 void
 dprintf(char *format, ...)
@@ -71,11 +81,17 @@ int fork_copy_user_mem(HANDLE hproc) {
 	
 	SIZE_T bytes,rc;
 	SIZE_T size;
+	void *low = &bookend1, *high= &bookend2;
 
-	size =(char*)&bookend2 - (char*)&bookend1;
-	rc =WriteProcessMemory(hproc,&bookend1,&bookend1,
-					(DWORD)size,
-					&bytes);
+	if(&bookend1 > &bookend2) {
+		low = &bookend2;
+		high = &bookend1;
+	}
+
+	size =(char*)high - (char*)low;
+
+
+	rc =WriteProcessMemory(hproc,low,low, (DWORD)size, &bytes);
 
 	if (!rc) {
 		rc = GetLastError();
@@ -94,75 +110,74 @@ int fork_copy_user_mem(HANDLE hproc) {
 #include <winnt.h>
 #include <ntport.h>
 
-#define XFER_BUFFER_SIZE 2048/*FIXME: not used AFAICS*/
+__inline BOOL wait_for_io(HANDLE hi, OVERLAPPED *pO) {
+
+        DWORD bytes = 0;
+        if(GetLastError() != ERROR_IO_PENDING)
+        {
+                return FALSE;
+        }
+
+        return GetOverlappedResult(hi,pO,&bytes,TRUE);
+}
+#define CHECK_IO(h,o)  if(!wait_for_io(h,o)) {goto done;}
 
 int is_gui(char *exename) {
 
-	HANDLE hImage;
+        HANDLE hImage;
 
-	DWORD  bytes;
-    OVERLAPPED overlap;
+        DWORD  bytes;
+        OVERLAPPED overlap;
 
-	ULONG  ntSignature;
+        ULONG  ntSignature;
 
-    struct DosHeader{
-        IMAGE_DOS_HEADER     doshdr;
-        DWORD                extra[16];
-    };
+        struct DosHeader{
+                IMAGE_DOS_HEADER     doshdr;
+                DWORD                extra[16];
+        };
 
-    struct DosHeader dh;
-	IMAGE_OPTIONAL_HEADER optionalhdr;
+        struct DosHeader dh;
+        IMAGE_OPTIONAL_HEADER optionalhdr;
 
-    int retCode = 0;
+        int retCode = 0;
 
-    memset(&overlap,0,sizeof(overlap));
+        memset(&overlap,0,sizeof(overlap));
 
 
-	hImage = CreateFile(exename, GENERIC_READ, FILE_SHARE_READ, NULL,
-			OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL| FILE_FLAG_OVERLAPPED, NULL);
-	if (INVALID_HANDLE_VALUE == hImage) {
-		return 0;
-	}
+        hImage = CreateFile(exename, GENERIC_READ, FILE_SHARE_READ, NULL,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL| FILE_FLAG_OVERLAPPED, NULL);
+        if (INVALID_HANDLE_VALUE == hImage) {
+                return 0;
+        }
 
-	if (!ReadFile(hImage, &dh, sizeof(struct DosHeader), &bytes,&overlap)){
+        ReadFile(hImage, &dh, sizeof(struct DosHeader), &bytes,&overlap);
+        CHECK_IO(hImage,&overlap);
 
-        if(GetLastError() != ERROR_IO_PENDING)
-            goto done;
 
-	}
-    if(!GetOverlappedResult(hImage,&overlap,&bytes,TRUE) ) {
-        goto done;
-    }
+        if (IMAGE_DOS_SIGNATURE != dh.doshdr.e_magic) {
+                goto done;
+        }
 
-	if (IMAGE_DOS_SIGNATURE != dh.doshdr.e_magic) {
-		goto done;
-	}
+        // read from the coffheaderoffset;
+        overlap.Offset = dh.doshdr.e_lfanew;
 
-    // read from the coffheaderoffset;
-    overlap.Offset = dh.doshdr.e_lfanew;
+        ReadFile(hImage, &ntSignature, sizeof(ULONG), &bytes,&overlap);
+        CHECK_IO(hImage,&overlap);
 
-	if (!ReadFile (hImage, &ntSignature, sizeof(ULONG), &bytes,&overlap)){
-        goto done;
-	}
-    if(!GetOverlappedResult(hImage,&overlap,&bytes,TRUE) ) {
-        goto done;
-    }
-	if (IMAGE_NT_SIGNATURE != ntSignature) {
-		goto done;
-	}
-    overlap.Offset = dh.doshdr.e_lfanew + sizeof(ULONG) +
-                            sizeof(IMAGE_FILE_HEADER);
+        if (IMAGE_NT_SIGNATURE != ntSignature) {
+                goto done;
+        }
+        overlap.Offset = dh.doshdr.e_lfanew + sizeof(ULONG) +
+                sizeof(IMAGE_FILE_HEADER);
 
-	if (!ReadFile(hImage, &optionalhdr,IMAGE_SIZEOF_NT_OPTIONAL_HEADER,
-                &bytes,&overlap)) {
-		goto done;
-	}
+        ReadFile(hImage, &optionalhdr,IMAGE_SIZEOF_NT_OPTIONAL_HEADER, &bytes,&overlap);
+        CHECK_IO(hImage,&overlap);
 
-	if (optionalhdr.Subsystem ==IMAGE_SUBSYSTEM_WINDOWS_GUI)
-		retCode =  1;
+        if (optionalhdr.Subsystem ==IMAGE_SUBSYSTEM_WINDOWS_GUI)
+                retCode =  1;
 done:
-    CloseHandle(hImage);
-	return retCode;
+        CloseHandle(hImage);
+        return retCode;
 }
 int is_9x_gui(char *prog) {
 	

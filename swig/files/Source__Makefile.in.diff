@@ -1,6 +1,6 @@
 --- Source/Makefile.in.orig	2006-04-14 15:41:24.000000000 -0700
 +++ Source/Makefile.in	2006-04-14 15:41:45.000000000 -0700
-@@ -422,35 +422,6 @@
+@@ -448,35 +448,6 @@
  
  .SUFFIXES:
  .SUFFIXES: .c .cxx .o .obj .y
@@ -35,4 +35,4 @@
 -	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
  install-binPROGRAMS: $(bin_PROGRAMS)
  	@$(NORMAL_INSTALL)
- 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
+ 	test -z "$(bindir)" || $(MKDIR_P) "$(DESTDIR)$(bindir)"

@@ -114,8 +114,11 @@ typedef struct webdav_parse_opendir_element_tag
 {
 	struct large_dirent dir_data;
 	struct timespec stattime;
+	struct timespec createtime;
 	u_quad_t statsize;
 	int appledoubleheadervalid;	/* TRUE if appledoubleheader field is valid */
+	int seen_href;	/* TRUE if we've seen the <D:href> entity for this element (otherwise this is a place holder) */
+	int seen_response_end; /* TRUE if we've seen <d:/response> for this element */
 	char appledoubleheader[APPLEDOUBLEHEADER_LENGTH];
 	struct webdav_parse_opendir_element_tag *next;
 } webdav_parse_opendir_element_t;
@@ -139,8 +142,43 @@ typedef struct
 	void *data_ptr;
 } webdav_parse_opendir_return_t;
 
+/* Parsing Multistatus replies for LOCK & DELETE */
+
+#define WEBDAV_MULTISTATUS_INVALID_STATUS 999
+typedef struct
+{
+	CFIndex size;
+	UInt8 name[WEBDAV_MAX_URI_LEN];
+} webdav_parse_multistatus_text_t;
+
+typedef struct
+{
+	int id;
+	void *data_ptr;
+} webdav_parse_multistatus_return_t;
+
+typedef struct webdav_parse_multistatus_element_tag
+{
+	UInt32 statusCode;
+	UInt8  name_len;		/* length of string in name */
+	UInt8 name[WEBDAV_MAX_URI_LEN];
+	
+	/* some bookkeeping fields, only used during parsing */
+	int seen_href;	/* TRUE if we've seen the <D:href> entity for this element (otherwise this is a place holder) */
+	int seen_response_end; /* TRUE if we've seen <d:/response> for this element */
+	
+	struct webdav_parse_multistatus_element_tag *next;
+} webdav_parse_multistatus_element_t;
+
+typedef struct
+{
+	int error;
+	webdav_parse_multistatus_element_t *head;
+	webdav_parse_multistatus_element_t *tail;
+} webdav_parse_multistatus_list_t;
+
 /* Functions */
-extern int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct stat *statbuf);
+extern int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct webdav_stat_attr *statbuf);
 extern int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf);
 extern int parse_lock(const UInt8 *xmlp, CFIndex xmlp_len, char **locktoken);
 extern int parse_opendir(
@@ -151,19 +189,28 @@ extern int parse_opendir(
 	struct node_entry *parent_node);/* -> pointer to the parent directory's node_entry */
 extern int parse_file_count(const UInt8 *xmlp, CFIndex xmlp_len, int *file_count);
 extern int parse_cachevalidators(const UInt8 *xmlp, CFIndex xmlp_len, time_t *last_modified, char **entity_tag);
-
+extern webdav_parse_multistatus_list_t *parse_multi_status(	UInt8 *xmlp, CFIndex xmlp_len);
 /* Definitions */
 
 #define WEBDAV_OPENDIR_ELEMENT 1	/* Make it not 0 (for null) but small enough to not be a ptr */
 #define WEBDAV_OPENDIR_ELEMENT_LENGTH 2
 #define WEBDAV_OPENDIR_ELEMENT_MODDATE 3
-#define WEBDAV_OPENDIR_TEXT 4
-#define WEBDAV_OPENDIR_APPLEDOUBLEHEADER 5
-#define WEBDAV_OPENDIR_IGNORE 6		/* Same Rules Apply */
+#define WEBDAV_OPENDIR_ELEMENT_CREATEDATE 4
+#define WEBDAV_OPENDIR_TEXT 5
+#define WEBDAV_OPENDIR_APPLEDOUBLEHEADER 6
+#define WEBDAV_OPENDIR_ELEMENT_RESPONSE 7
+#define WEBDAV_OPENDIR_IGNORE 8		/* Same Rules Apply */
+
+#define WEBDAV_MULTISTATUS_ELEMENT 1
+#define WEBDAV_MULTISTATUS_STATUS 2
+#define WEBDAV_MULTISTATUS_TEXT 3
+#define WEBDAV_MULTISTATUS_RESPONSE 4
+#define WEBDAV_MULTISTATUS_IGNORE 8	
 
 #define WEBDAV_STAT_IGNORE 1
 #define WEBDAV_STAT_LENGTH 2
 #define WEBDAV_STAT_MODDATE 3
+#define WEBDAV_STAT_CREATEDATE 4
 
 #define WEBDAV_STATFS_IGNORE 1
 #define WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES 2

@@ -1,0 +1,328 @@
+commit 2eeb7a70f8e8a3f860e177958c4e444e79f5bd68
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Wed Apr 6 15:55:14 2011 -0700
+
+    configure.ac: Version bump to 1.4.2
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit e6dcda815740711b66641545e911a96ac58f805f
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Thu Mar 31 00:19:13 2011 -0700
+
+    Don't provide AppleWMFrame* values in the applewm protocol.  Those are
+    determined by libXplugin and are passed straight through.  The AppleWM
+    protocol just serves to transport those values between the WM and libXplugin.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit 6137d004f732353d386d03b86ea38b0a55b5999b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:25:52 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 98593c3b23c60284a45409d1bbfca19e4241d38f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:00:30 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5ffe2fc24f01f2f8b5ad32013a1ff81e3fc363d8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:47 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 0ddf96a062a701414d6080abbd4484970097742d
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Nov 17 10:49:59 2009 -0800
+
+    Updated COPYING
+
+commit 8fecb08b6db9efc6563b5c430ae849547dfa361d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:10:10 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit e5867061370acfe6ff7fdfdbc5ae05d850c8b7da
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 16:39:09 2009 -0500
+
+    Makefile.am: ChangeLog is not required in EXTRA_DIST or MAINTAINERCLEANFILES
+    
+    ChangeLog is a file known to automake and requires no further coding
+
+commit 6d5e7fd9862160a8ecf2c78aac70ec83bc137703
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 16:37:41 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit b79aac3e8dfb81774f2bdca1a22759a678a93742
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 16:36:38 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit 4e47c876c11b1d9b6d43acf0c42f74d022c852c8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 16:29:26 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit e52179b9fa9bb61e1bf6393d786095cde81d67b9
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 16:26:20 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit a6696560ef67bf4d2b47a9dbab635de5a272279a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 15:24:52 2009 +1000
+
+    Version bump: 1.4.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 83818f3bed90ea8673974f19bf942d802a30c7d2
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Aug 26 20:34:24 2009 -0700
+
+    git add files that got dropped
+
+commit af4adc746cb0038d5de50901c796cb3464433c08
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Aug 25 19:30:28 2009 -0700
+
+    Version bump 1.4.0
+
+commit e0c168d5ad4b50278cf3f826616b478c23888477
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Aug 25 19:28:35 2009 -0700
+
+    Remove XLib headers, move to lib and rename to applewmconst/proto.h
+
+commit 4330cdb29185b7237979940b3d981c79f38e8821
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Aug 25 19:27:39 2009 -0700
+
+    Move requests opcodes to applewmstr.h.
+    
+    opcodes are only needed by protocol parsing code.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit 8d07ef7c9665cd742428660d8d0646140c3e8eb2
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Aug 25 19:26:56 2009 -0700
+
+    Remove RCS tags
+
+commit b9f26400c2f4bd1dcfe078f9daf4d1f866e54b89
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Fri Jul 3 19:02:08 2009 -0700
+
+    1.3.0
+
+commit f3df31998514ed153d05c553866619ba97a2de3c
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Fri Jul 3 19:00:45 2009 -0700
+
+    Added XAppleWMAttachTransient to push that codepath from quartz-wm into Xplugin... needed for SL.
+
+commit 5b85f7468f800c264964a3629e7deff980f596e9
+Author: Jeremy Huddleston <jeremy@yuffie.local>
+Date:   Wed Apr 1 12:29:48 2009 -0700
+
+    Pad xAppleWMNotifyEvent up to 32 bytes to properly match sizeof(xEvent)
+
+commit 1baebd0b2b61115f1ea326f4a1241f8a3d757d5a
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Mar 3 19:20:53 2009 -0800
+
+    Version bump to 1.2.0
+
+commit 349b1928e91d174ff8902da7f41053d5af9e5552
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Mar 3 19:20:13 2009 -0800
+
+    Added XAppleWMSendPSN to let server know the psn of the WM
+
+commit e0eb5406819da106bd36073584651ebf6e2aa8a9
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:27 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 8f22f7b03787dd948959b53f103307148ce5bee4
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Jan 7 18:34:54 2009 -0800
+
+    Revert previous struct changes to the userland applewm.h
+
+commit 9d38df5837a9a2570f974e2d6209cc775a14743b
+Author: Jeremy Huddleston <jeremy@Jeremy-Huddlestons-MacBook-Pro.local>
+Date:   Wed Jan 7 13:34:11 2009 -0800
+
+    Use sized types to avoid issues on x86_64
+
+commit b9b1c4d7faf2b1f1839c63bd333d47dd4110be01
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Thu Oct 16 22:16:59 2008 -0700
+
+    Updated configure.ac for 1.1.1
+
+commit 923afec701c67b6a266b7c3435476d56007d3dc9
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Thu Oct 16 22:16:27 2008 -0700
+
+    Bump version numbers in the header.
+
+commit 04586bd0c4c82ac77867dc0e33ff20dc46d666ec
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Fri Sep 26 13:54:57 2008 -0700
+
+    1.1.0
+
+commit 5161cc4678112bb747a50b6c2da424186a9f8e6f
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Fri Sep 26 13:53:57 2008 -0700
+
+    Added AppleWMReloadPreferences notification
+
+commit 5d7270bada785e3649a65ef2fb96b97433f7a7f8
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Fri Sep 26 13:50:07 2008 -0700
+
+    Fixed comments X_WM -> X_AppleWM
+
+commit 5a698bdffc50c7c8e1f15a81268e4007df9ad309
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:55 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 659330cba992065b00c62772db4cdad97abe430a
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:59 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit b432c3cefd6f7c9ef2f0d57ad8eb9a1bd82e2160
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:55:37 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 3a2330ac1d1dac60290131c6b8c7682aa79af23d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:07 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit bffea9897ea269918fb0596a6cb6d99d390a8d87
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:32:25 2005 +0000
+
+    Stub COPYING files
+
+commit 94dfb1c01151a7788dc53e75a7629d3806baeeb6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:36 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d41c59b12b477ecc085537364bedf5002a0655fa
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:50:58 2005 +0000
+
+    Add missing .cvsignores for protos.
+
+commit 86ac0dce3bded86609841c36023a890b1ca0bdde
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:13 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 50460c94c80c78b83c044123e555637eace71991
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Fri Sep 30 22:32:18 2005 +0000
+
+    AppleWM protocol
+
+commit 5ea56dacedbe14bda0155d229afd798cae0fc78c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:56 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 26a5934d1d1245ff283e27d5f262edc078b736f8
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:27 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit a0262f0659f873cf0be2d9ee6b3924ad854d146c
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:33 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 8d10307ba6312bc909a4e3653586f0742edfa222
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:34 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit a95c01bccf8395e5d54a3e63439c07822ea6a711
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:48 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 79032b23c8b7d85a1fa211ea749172dff1d77ba8
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:16 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit c94d31363f44ecb76914f98101d58c012f027c9b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:16 2003 +0000
+
+    Initial revision

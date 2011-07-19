@@ -62,12 +62,14 @@ int main(int argc, char * const *argv)
     struct querySetup * reportCallback   = reportCallbackList;
     uint32_t            reportStartIndex;
 
-    QueryContext        queryContext     = { 0, };
+    QueryContext        queryContext;
     Boolean             queryStarted     = false;
     uint32_t            numArgsUsed      = 0;
 
     OSKextRef           theKext          = NULL;  // don't release
     CFArrayRef          allKexts         = NULL;  // must release
+
+    bzero(&queryContext, sizeof(queryContext));
 
    /*****
     * Find out what the program was invoked as.
@@ -172,7 +174,7 @@ int main(int argc, char * const *argv)
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                     "Unknown option/query predicate '%s' (arg #%d).",
                     argv[numArgsUsed], numArgsUsed);
-                usage(1);
+                usage(kUsageLevelBrief);
             }
             break;
           case kQEQueryErrorInvalidOrMissingArgument:
@@ -255,7 +257,7 @@ int main(int argc, char * const *argv)
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                 "No report predicates specified.");
-            usage(1);
+            usage(kUsageLevelBrief);
             goto finish;
         }
 
@@ -313,7 +315,7 @@ int main(int argc, char * const *argv)
         }
     }
 
-    if (numArgsUsed < argc) {
+    if ((int)numArgsUsed < argc) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Leftover elements '%s'... (arg #%d).",
@@ -329,6 +331,7 @@ int main(int argc, char * const *argv)
     allKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
         queryContext.searchURLs);
     if (!allKexts || !CFArrayGetCount(allKexts)) {
+        // see comment below about clang not understanding exit() :P
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "No kernel extensions found.");
@@ -398,6 +401,8 @@ int main(int argc, char * const *argv)
     result = EX_OK;
 
 finish:
+    // clang's analyzer now knows exit() never returns but doesn't realize
+    // it frees resources. :P
     exit(result);  // we don't need to do the cleanup when exiting.
 
     if (query)                 QEQueryFree(query);
@@ -564,7 +569,7 @@ ExitStatus readArgs(
    /*****
     * Record the kext & directory names from the command line.
     */
-    for (i = optind; i < argc; i++) {
+    for (i = optind; (int)i < argc; i++) {
         SAFE_RELEASE_NULL(scratchURL);
 
        /* If the arg isn't a directory, break from the loop, and we'll
@@ -636,7 +641,7 @@ Boolean checkSearchItem(const char * pathname, Boolean logFlag)
         goto finish;
     }
 
-    if ( !(stat_buf.st_mode & S_IFDIR) ) {
+    if ((stat_buf.st_mode & S_IFMT) != S_IFDIR) {
         if (logFlag) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
@@ -696,10 +701,6 @@ void usage(UsageLevel usageLevel)
       "    [-report [-no-header] report_predicate...]"
       "\n",
       progname);
-
-    if (usageLevel < kUsageLevelBrief) {
-        return;
-    }
 
     if (usageLevel == kUsageLevelBrief) {
         fprintf(stream, "use %s -%s for a list of options\n",

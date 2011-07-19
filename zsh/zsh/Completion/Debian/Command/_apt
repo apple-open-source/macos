@@ -403,6 +403,7 @@ _apt-get () {
     -V,--verbose-versions:bool \
     -m,--ignore-missing,--fix-missing:bool \
     --no-download:bool \
+    --no-install-recommends:bool \
     --ignore-hold:bool \
     --no-upgrade:bool \
     --force-yes:bool \
@@ -427,6 +428,7 @@ _apt-get () {
     /$'install\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \
     /$'[^\0/]#/'/ /$'[^\0/]#\0'/ ':release name::_apt_releases' \) \| \
     /$'remove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
+    /$'purge\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'dist-upgrade\0'/ \| \
     /$'dselect-upgrade\0'/ \| \
     /$'clean\0'/ \| \
@@ -436,7 +438,7 @@ _apt-get () {
     /$'build-dep\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" avail' \# \| \
     /$'autoremove\0'/ /$'[^\0]#\0'/ ':packages::_deb_packages "$expl_packages[@]" installed' \# \| \
     /$'help\0/' \| \
-    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove dist-upgrade dselect-upgrade clean autoclean check source build-dep autoremove help'
+    /"[]"/	':argument-1::compadd "$expl_action[@]" update upgrade install remove purge dist-upgrade dselect-upgrade clean autoclean check source build-dep autoremove help'
 
   _apt-get () {
     local expl_action expl_packages

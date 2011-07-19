@@ -1,0 +1,2279 @@
+v2.0.13 2011-05-11  Timo Sirainen <tss@iki.fi>
+
+	+ Added "doveadm index" command to add unindexed messages into
+	  index/cache. If full text search is enabled, it also adds unindexed
+	  messages to the fts database.
+	+ added "doveadm director dump" command.
+	+ pop3: Added support for showing messages in "POP3 order", which can 
+	  be different from IMAP message order. This can be useful for
+	  migrations from other servers. Implemented it for Maildir as 'O'
+	  field in dovecot-uidlist.
+	- doveconf: Fixed a wrong "subsection has ssl=yes" warning.
+	- mdbox purge: Fixed wrong warning about corrupted extrefs.
+	- sdbox: INBOX GUID changed when INBOX was autocreated, leading to
+	  trouble with dsync.
+	- script-login binary wasn't actually dropping privileges to the
+	  user/group/chroot specified by its service settings.
+	- Fixed potential crashes and other problems when parsing header names
+	  that contained NUL characters.
+
+v2.0.12 2011-04-12  Timo Sirainen <tss@iki.fi>
+
+	+ doveadm: Added "move" command for moving mails between mailboxes.
+	+ virtual: Added support for "+mailbox" entries that clear \Recent
+	  flag from messages (default is to preserve them).
+	- dbox: Fixes to handling external attachments
+	- dsync: More fixes to avoid hanging with remote syncs
+	- dsync: Many other syncing/correctness fixes
+	- doveconf: v2.0.10 and v2.0.11 didn't output plugin {} section right
+
+v2.0.11 2011-03-07  Timo Sirainen <tss@iki.fi>
+
+	* dotlock_use_excl setting's default was accidentally "no" in all
+	  v2.0.x releases, instead of "yes" as in v1.1 and v1.2. Changed it
+	  back to "yes."
+
+	- v2.0.10: LDAP support was broken
+	- v2.0.10: dsyncing to remote often hanged (timed out in 15 mins)
+
+v2.0.10 2011-03-04  Timo Sirainen <tss@iki.fi>
+
+	* LMTP: For user+detail@domain deliveries, the +detail is again written
+	  to Delivered-To: header.
+	* Skip auth penalty checks from IPs in login_trusted_networks.
+
+	+ Added import_environment setting.
+	+ Added submission_host setting to send mails via SMTP instead of
+	  via sendmail binary.
+	+ Added doveadm acl get/set/delete commands for ACL manipulation,
+	  similar to how IMAP ACL extension works.
+	+ Added doveadm acl debug command to help debug and fix problems
+	  with why shared mailboxes aren't working as expected.
+	- IMAP: Fixed hangs with COMPRESS extension
+	- IMAP: Fixed a hang when trying to COPY to a nonexistent mailbox. 
+	- IMAP: Fixed hang/crash with SEARCHRES + pipelining $.
+	- IMAP: Fixed assert-crash if IDLE+DONE is sent in same TCP packet. 
+	- LMTP: Fixed sending multiple messages in a session.
+	- doveadm: Fixed giving parameters to mail commands. 
+	- doveadm import: Settings weren't correctly used for the
+	  import storage.
+	- dsync: Fixed somewhat random failures with saving messages to
+	  remote dsync.
+	- v2.0.9: Config reload didn't notify running processes with
+	  shutdown_clients=no, so they could have kept serving new clients
+	  with old settings.
+
+v2.0.9 2011-01-13  Timo Sirainen <tss@iki.fi>
+
+	- Linux: Fixed a high system CPU usage / high context switch count
+	  performance problem
+	- Maildir: Avoid unnecessarily reading dovecot-uidlist while opening
+	  mailbox.
+	- Maildir: Fixed renaming child mailboxes when namespace had a prefix.
+	- mdbox: Don't leave partially written messages to mdbox files when
+	  aborting saving.
+	- Fixed master user logins when using userdb prefetch
+	- lda: Fixed a crash when trying to send "out of quota" reply
+	- lmtp: If delivering duplicate messages to same user's INBOX,
+	  create different GUIDs for them. This helps to avoid duplicate
+	  POP3 UIDLs when pop3_uidl_format=%g.
+	- virtual storage: Fixed saving multiple mails in a transaction
+	  (e.g. copy multiple messages).
+	- dsync: Saved messages' save-date was set to 1970-01-01.
+
+v2.0.8 2010-12-03  Timo Sirainen <tss@iki.fi>
+
+	* Services' default vsz_limits weren't being enforced correctly in
+	  earlier v2.0 releases. Now that they are enforced, you might notice
+	  that the default limits are too low and you need to increase them.
+	  This problem will show up in logs as "out of memory" errors.
+	  See default_vsz_limit and service { vsz_limit } settings.
+	* LMTP: In earlier versions if mail was delivered to user+detail@domain
+	  address, LMTP server always attempted to deliver the mail to mailbox
+	  named "detail". This was rather unintentional and shouldn't have been
+	  the default. lmtp_save_to_detail_mailbox=yes setting now preserves
+	  this behavior (default is no).
+
+	+ Added systemd support (configure --with-systemdsystemunitdir).
+	  Based on patch by Christophe Fergeau.
+	+ Replaced broken mbox-snarf plugin with a new more generic snarf
+	  plugin.
+	- dbox: Fixes to handling external mail attachments
+	- verbose_proctitle=yes didn't work for all processes in v2.0.7
+	- imap, pop3: When service { client_count } was larger than 1, the
+	  log messages didn't use the correct prefix. Last logged in user's
+	  prefix was always used, regardless of what user's session actually
+	  logged it. Now the proper log prefix is always used.
+	- MySQL: Only the first specified host was ever used
+
+v2.0.7 2010-11-08  Timo Sirainen <tss@iki.fi>
+
+	* master: default_process_limit wasn't actually used anywhere,
+	  rather the default was unlimited. Now that it is enforced, you might
+	  notice that the default limit is too low and you need to increase it.
+	  Dovecot logs a warning when this happens.
+	* mail-log plugin: Log mailbox name as virtual name rather than
+	  physical name (e.g. namespace prefix is included in the name)
+
+	+ doveadm dump: Added imapzlib type to uncompress IMAP's
+	  COMPRESS DEFLATE I/O traffic (e.g. from rawlog).
+	- IMAP: Fixed LIST-STATUS when listing subscriptions with
+	  subscriptions=no namespaces. 
+	- IMAP: Fixed SELECT QRESYNC not to crash on mailbox close if a lot of
+	  changes were being sent. 
+	- quota: Don't count virtual mailboxes in quota
+	- doveadm expunge didn't always actually do the physical expunging
+	- Fixed some index reading optimizations introduced by v2.0.5.
+	- LMTP proxying fixes
+
+v2.0.6 2010-10-21  Timo Sirainen <tss@iki.fi>
+
+	* Pre-login CAPABILITY includes IDLE again. Mainly to make Blackberry
+	  servers happy.
+	* auth: auth_cache_negative_ttl default was 0 in earlier v2.0.x, but it
+	  was supposed to be 1 hour as in v1.x. Changed it back to 1h.
+	  If you want it disabled, make sure doveconf shows it as 0.
+
+	+ dbox: Added support for saving mail attachments to external files,
+	  with also support for single instance storage. This feature hasn't
+	  had much testing yet, so be careful with it.
+	+ doveadm: Added import command for importing mails from other storages.
+	+ Reduced NFS I/O operations for index file accesses
+	+ dbox, Maildir: When copying messages, copy also already cached fields
+	  from dovecot.index.cache
+	+ mdbox: Added mdbox_preallocate_space setting (Linux+ext4/XFS only)
+	- Maildir: LDA/LMTP assert-crashed sometimes when saving a mail.
+	- Fixed leaking fds when writing to dovecot.mailbox.log.
+	- Fixed rare dovecot.index.cache corruption
+	- IMAP: SEARCH YOUNGER/OLDER wasn't working correctly
+
+v2.0.5 2010-10-01  Timo Sirainen <tss@iki.fi>
+
+	* acl: Fixed the logic of merging multiple ACL entries. Now it works as
+	  documented, while previously it could have done slightly different
+	  things depending on the order of the entries.
+	* virtual: Allow opening virtual mailboxes that refer to non-existing
+	  mailboxes. It seems that the benefits of this outweigh the lack of
+	  error message when typoing a mailbox name.
+
+	+ Added some disk I/O optimizations to Maildir and index code. They're
+	  especially helpful with short-lived connections like POP3.
+	+ pop3: Added pop3_fast_size_lookups setting.
+	- doveconf sometimes failed with complaining about missing ssl_key
+	  setting, causing e.g. dovecot-lda to fail.
+	- lda: If there's an error in configuration, doveconf didn't exit with
+	  EX_TEMPFAIL as it should have.
+	- sdbox: Fixed memory leak when copying messages with hard links. 
+	- zlib + sdbox combination didn't work
+	- zlib: Fixed several crashes, which mainly showed up with mbox.
+	- quota: Don't crash if user has quota disabled, but plugin loaded.
+	- doveadm fetch uid was actually returning sequence, not uid.
+	- v2.0.4's subscription listing ignored (and logged a warning about)
+	  subscriptions=no namespaces' entries in some configurations.
+	  (So listing shared mailboxes' subscriptions could have been broken.)
+	- acl: Fixed crashing when sometimes listing shared mailboxes via
+	  dict proxy.
+
+v2.0.4 2010-09-26  Timo Sirainen <tss@iki.fi>
+
+	* multi-dbox: If :INDEX=path is specified, keep
+	  storage/dovecot.map.index* files also in the index path rather than
+	  in the main storage directory.
+
+	  WARNING: if you specified :INDEX= with earlier mdbox installation,
+	  you must now manually move the storage indexes to the expected
+	  directory! Otherwise Dovecot won't see them and will rebuild the
+	  indexes, possibly unexpunging some mails.
+
+	- Maildir: Copying messages with hard links sometimes caused the
+	  source maildir's entire tmp/ directory to be renamed to destination
+	  maildir as if it were a message.
+	- Maildir: v2.0.3 broke expunging copied messages sometimes
+	- Maildir: INBOX whose tmp/ directory was lost couldn't be opened
+	- single-dbox: Messages weren't copied with hard links
+	- vpopmail support is hopefully working again.
+	- dsync: POP3 UIDLs weren't copied with Maildir
+	- dict file: Fixed fd leak (showed up easily with LMTP + quota)
+
+v2.0.3 2010-09-17  Timo Sirainen <tss@iki.fi>
+
+	* dovecot-lda: Removed use of non-standard Envelope-To: header as a
+	  default for -a. Set lda_original_recipient_header=Envelope-To to
+	  returns the old behavior.
+
+	+ Added support for reverse quota warnings (i.e. when quota goes back
+	  under the limit). This is enabled by adding '-' to beginning of
+	  quota_warning value. Based on patch by Jeroen Koekkoek.
+	+ dovecot-lda: Added lda_original_recipient_header setting, which is
+	  used for getting original recipient if -a isn't used.
+	+ dovecot-lda: Added -r parameter to specify final recipient address.
+	  (It may differ from original address for e.g. aliases.)
+	+ Maildir: uidlist file can now override message's GUID, making it
+	  possible for multiple messages in a mailbox to have the same GUID.
+	  This also fixes dsync's message conflict resolution.
+	- dovecot-lda: If destination user isn't found, exit with EX_NOUSER,
+	  not EX_TEMPFAIL.
+	- dsync: Fixed handling \Noselect mailboxes
+	- Fixed an infinite loop introduced by v2.0.2's message parser changes.
+	- Fixed a crash introduced by v2.0.2's istream-crlf changes.
+
+v2.0.2 2010-09-08  Timo Sirainen <tss@iki.fi>
+
+	* vpopmail support is disabled for now, since it's broken. You can use
+	  it via checkpassword support or its sql/ldap database directly.
+
+	- maildir: Fixed "duplicate uidlist entry" errors that happened at
+	  least with LMTP when mail was delivered to multiple recipients
+	- Deleting ACLs didn't cause entries to be removed from acl_shared_dict
+	- mail_max_lock_timeout setting wasn't working with all locks
+	- auth_cache_size setting's old-style value wasn't autoconverted
+	  and it usually also caused a crash
+
+v2.0.1 2010-08-24  Timo Sirainen <tss@iki.fi>
+
+	* When dsync is started as root, remote dsync command is now also
+	  executed as root instead of with dropped privileges.
+
+	- IMAP: QRESYNC parameters for SELECT weren't handled correctly.
+	- UTF-8 string validity checking wasn't done correctly (e.g.
+	  mailbox names in Sieve fileinto)
+	- dsync: Fixed a random assert-crash with remote dsyncing
+
+v2.0.0 2010-08-16  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot uses two system users for internal purposes now by default:
+	  dovenull and dovecot. You need to create the dovenull user or change
+	  default_login_user setting.
+	* Global ACLs are now looked up using namespace prefixes. For example
+	  if you previously had INBOX. namespace prefix and a global ACL for
+	  "INBOX.Sent", it's now looked up from "INBOX.Sent" file instead of
+	  "Sent" as before.
+	* Maildir: File permissions are no longer based on dovecot-shared file,
+	  but the mailbox directory.
+
+	+ Redesigned master process. It's now more modular and there is less
+	  code running as root.
+	+ Configuration supports now per-local/remote ip/network settings.
+	+ dsync utility does a two-way mailbox synchronization.
+	+ LMTP server and proxying.
+	+ Added mdbox (multi-dbox) mail storage backend.
+	+ doveadm utility can be used to do all kinds of administration
+	  functions. Old dovecotpw and *view utilities now exist in its
+	  subcommands.
+	+ imap and pop3 processes can now handle multiple connections.
+	+ IMAP: COMPRESS=DEFLATE is supported by imap_zlib plugin
+	+ director service helps NFS installations to redirect users always
+	  to same server to avoid corruption
+
+v2.0.rc6 2010-08-13  Timo Sirainen <tss@iki.fi>
+
+	- dict quota didn't always decrease quota when messages were expunged
+	- Shared INBOX wasn't always listed with FS layout
+
+v2.0.rc5 2010-08-09  Timo Sirainen <tss@iki.fi>
+
+	- Using more than 2 plugins could have caused broken behavior
+	  (more fixes for this)
+	- Listescape plugin fixes
+	- mbox: Fixed a couple of assert-crashes
+	- mdbox: Fixed potential assert-crash when saving multiple messages
+	  in one transaction.
+
+v2.0.rc4 2010-08-04  Timo Sirainen <tss@iki.fi>
+
+	+ director: Added director_doveadm_port for accepting doveadm
+	  TCP connections. 
+	+ doveadm: Added client/server architecture support for running mail
+	  commands. Enable this by setting doveadm_worker_count to non-zero.
+	+ mail-log: Added support for mailbox_create event.
+	+ imap_capability = +XFOO BAR can be used to add capabilities instead
+	  of replacing the whole capability string.
+	+ virtual storage: Added support for IDLE notifications. 
+	- doveadm mailbox status: Fixed listing non-ASCII mailbox names. 
+	- doveadm fetch: Fixed output when fetching message header or body
+	- doveadm director map/add/remove: Fixed handling IP address as
+	  parameter. 
+	- dsync: A few more fixes
+
+v2.0.rc3 2010-07-20  Timo Sirainen <tss@iki.fi>
+
+	* Single-dbox is now called "sdbox" instead of "dbox".
+	  "dbox" will stay as an alias for it for now.
+
+	+ Added mail_temp_dir setting, used by deliver and lmtp for creating
+	  temporary mail files. Default is /tmp.
+	+ doveadm: Added "director map" command to list user -> host mappings.
+	- imap: Fixed checking if list=children namespace has children.
+	- director: If all login processes died, director stopped reading
+	  proxy-notify input and caused future login processes to hang
+	- mail_log plugin configuration was broken
+	- Using more than 2 plugins could have caused broken behavior
+	- mdbox: Race condition fixes related to copying and purging
+	- dsync: Lots of fixes
+
+v2.0.rc2 2010-07-09  Timo Sirainen <tss@iki.fi>
+
+	- Fixed a crash with empty mail_plugins
+	- Fixed sharing INBOX to other users
+	- mdbox: Rebuilding storage was broken in rc1
+	- dsync was broken for remote syncs in rc1
+	- director+LMTP proxy wasn't working correctly
+	- v1.x config parser failed with some settings if pigeonhole wasn't
+	  installed.
+	- virtual: If non-matching messages weren't expunged within same
+	  session, they never got expunged.
+
+v2.0.rc1 2010-07-02  Timo Sirainen <tss@iki.fi>
+
+	* See v2.0.0 notes
+
+v1.2.6 2009-10-05  Timo Sirainen <tss@iki.fi>
+
+	* Upgraded to Unicode 5.2.0
+
+	+ Added authtest utility for doing passdb and userdb lookups.
+	+ login: ssl_security string now also shows the used compression.
+	- quota: Don't crash with non-Maildir++ quota backend.
+	- imap proxy: Fixed crashing with some specific password characters.
+	- dovecot --exec-mail was broken.
+	- Avoid assert-crashing when two processes try to create index at the
+	  same time.
+
+v1.2.5 2009-09-13  Timo Sirainen <tss@iki.fi>
+
+	* Authentication: DIGEST-MD5 and RPA mechanisms no longer require
+	  user's login realm to be listed in auth_realms. It only made
+	  configuration more difficult without really providing extra security.
+	* zlib plugin: Don't allow clients to save compressed data directly.
+	  This prevents users from exploiting (most of the) potential security
+	  holes in zlib/bzlib.
+
+	+ Added pop3_save_uidl setting.
+	+ dict quota: When updating quota and user isn't already in dict,
+	  recalculate and save the quota.
+	- file_set_size() was broken with OSes that didn't support
+	  posix_fallocate() (almost everyone except Linux), causing all kinds
+	  of index file errors.
+	- v1.2.4 index file handling could have caused an assert-crash
+	- IMAP: Fixes to QRESYNC extension.
+	- virtual plugin: Crashfix
+	- deliver: Don't send rejects to any messages that have Auto-Submitted
+	  header. This avoids emails loops.
+	- Maildir: Performance fixes, especially with maildir_very_dirty_syncs.
+	- Maildir++ quota: Limits weren't read early enough from maildirsize
+	  file (when quota limits not enforced by Dovecot)
+	- Message decoding fixes (mainly for IMAP SEARCH, Sieve).
+
+v1.2.4 2009-08-17  Timo Sirainen <tss@iki.fi>
+
+	* acl: When looking up ACL defaults, use global/local default files
+	  if they exist. So it's now possible to set default ACLs by creating
+	  dovecot-acl file to the mail root directory.
+
+	+ imap/pop3 proxy: If proxy destination is known to be down,
+	  fail connections to it immediately.
+	+ imap/pop3 proxy: Added proxy_timeout passdb extra field to specify
+	  proxy's connect timeout.
+	- Fixed a crash in index file handling.
+	- Fixed a crash in saving messages where message contained a CR
+	  character that wasn't followed by LF (and the CR happened to be the
+	  last character in an internal buffer).
+	- v1.2.3 crashed when listing shared namespace prefix.
+	- listescape plugin: Several fixes.
+	- autocreate plugin: Fixed autosubscribing to mailboxes in
+	  subscriptions=no namespaces.
+
+v1.2.3 2009-08-07  Timo Sirainen <tss@iki.fi>
+
+	* Mailbox names with control characters can't be created anymore.
+	  Existing mailboxes can still be accessed though.
+
+	+ Allow namespace prefix to be opened as mailbox, if a mailbox
+	  already exists in the root dir.
+	- Maildir: dovecot-uidlist was being recreated every time a mailbox
+	  was accessed, even if nothing changed.
+	- listescape plugin was somewhat broken
+	- Compiling fixes for non-Linux/BSDs
+	- imap: tb-extra-mailbox-sep workaround was broken.
+	- ldap: Fixed hang when >128 requests were sent at once.
+	- fts_squat: Fixed crashing when searching virtual mailbox.
+	- imap: Fixed THREAD .. INTHREAD crashing.
+
+v1.2.2 2009-07-27  Timo Sirainen <tss@iki.fi>
+
+	* GSSAPI: More changes to authentication. Hopefully good now.
+	* lazy_expunge plugin: Drop \Deleted flag when moving message.
+
+	+ dovecot -n/-a now outputs also lda settings.
+	+ dovecot.conf !include now supports globs (e.g.
+	  !include /etc/dovecot/*.conf). Based on patch by Thomas Guthmann.
+	+ acl: Support spaces in user/group identifiers.
+	+ shared mailboxes: If only %%n is specified in prefix, default to
+	  current user's domain.
+	- Dovecot master process could hang if it received signals too rapidly.
+	- Fixed "corrupted index cache file" errors (and perhaps others) caused
+	  by e.g. IMAP's FETCH BODY[] command.
+	- IMAP: When QRESYNC is enabled, don't crash when a new mail is
+	  received while IDLEing.
+	- IMAP: FETCH X-* parameters weren't working.
+	- Maildir++ quota: Quota was sometimes updated wrong when it was
+	  being recalculated.
+	- Searching quoted-printable message body internally converted "_"
+	  characters to spaces and didn't match search keys with "_".
+	- Messages in year's first/last day may have had broken timezones
+	  with OSes not having struct tm->tm_gmtoff (e.g. Solaris).
+	- virtual plugin: If another session adds a new mailbox to index,
+	  don't crash.
+
+v1.2.1 2009-07-09 Timo Sirainen <tss@iki.fi>
+
+	* GSSAPI: Changed logging levels and improved the messages.
+	  Changed the way cross-realm authentication handling is done,
+	  hopefully it's working now for everyone.
+	* imap/pop3 logins now fail if home directory path is relative.
+	  v1.2.0 deliver was already failing with these and they could have
+	  caused problems even with v1.1.
+	* IMAP: Custom authentication failure messages are now prefixed with
+	  [ALERT] to get more clients to actually show them.
+
+	+ Improved some error messages.
+	- pop3: AUTH PLAIN was broken when SASL initial response wasn't given.
+	- mbox: New mailboxes were created with UIDVALIDITY 1.
+	- quota-fs was defaulting to group quota instead of user quota.
+	- Fixed ACLs to work with mbox.
+	- Fixed fchmod(-1, -1) errors with BSDs
+	- convert plugin / convert-tool: Fixed changing hierarchy separators
+	  in mailbox names when alt_hierarchy_char isn't set.
+
+v1.2.0 2009-07-01 Timo Sirainen <tss@iki.fi>
+
+	* When creating files or directories to mailboxes, Dovecot now uses
+	  the mailbox directory's permissions and GID for them. Previous
+	  versions simply used 0600 mode always. For backwards compatibility
+	  dovecot-shared file's permissions still override these with Maildir.
+	* SQL dictionary (quota) configuration file is different than in v1.1.
+	  See doc/dovecot-dict-sql-example.conf for the new format.
+	* deliver -m: Mailbox name is now assumed to be in UTF-8 format,
+	  not modified-UTF7. Stephan Bosch's new Sieve implementation also
+	  assumes UTF-8 format in fileinto parameters.
+
+	+ Full support for shared mailboxes and IMAP ACL extension.
+	  The code is mainly from Sascha Wilde and Bernhard Herzog.
+	+ IMAP: Added support for extensions: CONDSTORE, QRESYNC, ESEARCH,
+	  ESORT, SEARCHRES, WITHIN, ID and CONTEXT=SEARCH.
+	+ SEARCH supports INTHREAD search key, but the rest of the INTHREAD
+	  draft isn't implemented yet so it's not advertised in capability.
+	+ THREAD REFS algorithm where threads are sorted by their latest
+	  message instead of the thread root message. There is also no base
+	  subject merging.
+	+ IMAP: Implemented imap-response-codes draft.
+	+ Thread indexes for optimizing IMAP THREAD command and INTHREAD
+	  search key.
+	+ Added userdb checkpassword (by Sascha Wilde)
+	+ Virtual mailboxes: http://wiki.dovecot.org/Plugins/Virtual
+	+ Autocreate plugin: http://wiki.dovecot.org/Plugins/Autocreate
+	+ Listescape plugin: http://wiki.dovecot.org/Plugins/Listescape
+
+v1.2.rc8 2009-06-30 Timo Sirainen <tss@iki.fi>
+
+	- Fixed building LDAP as plugin
+	- Fixed starting up in OS X
+
+v1.2.rc7 2009-06-27 Timo Sirainen <tss@iki.fi>
+
+	* Removed configure --with-deliver, --with-pop3d and --disable-ipv6
+	  parameters.
+
+	+ Improved permission related error messages.
+	- mbox: Don't write garbage to mbox if message doesn't have a body.
+	- virtual: Fixed saving messages with keywords.
+	- virtual: Fixed infinite looping bug.
+	- zlib: Fixed error handling.
+
+v1.2.rc6 2009-06-22 Timo Sirainen <tss@iki.fi>
+
+	* imap proxy: Pass through to client unexpected untagged replies
+	  from remote server (e.g. alerts).
+	* Solr: Don't use "any" copyfield, it doubles the index size.
+	* mail_location: Allow using ":" characters in dir names by escaping
+	  it as "::".
+
+	- mbox: Don't crash with invalid From_-lines.
+	- IMAP: Don't crash if IDLE command is pipelined after a long-running
+	  UID FETCH or UID SEARCH.
+	- ACL / shared mailbox fixes
+	- Some metadata files were incorrectly getting 0666 permissions.
+
+v1.2.rc5 2009-06-04 Timo Sirainen <tss@iki.fi>
+
+	* auth_cache_negative_ttl is now used also for password mismatches
+	  (currently only with plaintext authentication mechanisms).
+
+	+ Added support for EXTERNAL SASL mechanism.
+	+ FETCH X-SAVEDATE can now be used to get messages' save timestamps
+	+ deliver_log_format: %s is now in UTF8
+	- If message body started with a space, some operations could have
+	  assert-crashed.
+	- Fixed using LDAP support as a plugin
+	- Fixes to virtual mailboxes.
+
+v1.2.rc4 2009-05-17 Timo Sirainen <tss@iki.fi>
+
+	* If /dev/arandom exists, use it instead of /dev/urandom (OpenBSD).
+	* When logging to a file, the lines now start with a timestamp instead
+	  of "dovecot: " prefix.
+
+	+ IMAP: When multiple commands are pipelined, try harder to combine
+	  their mailbox syncing together. For example with Maildir pipelining
+	  STORE 1:* +FLAGS \Deleted and EXPUNGE commands the files won't
+	  be unnecessarily rename()d before being unlink()ed.
+	+ imap-proxy: Send backend's CAPABILITY if it's different from what
+	  was sent to client before.
+	+ IMAP: struct mail now keeps track of all kinds of statistics, such
+	  as number of open()s, stat()s, bytes read, etc. These fields could
+	  be exported by some kind of a statistics plugin (not included yet).
+	+ IMAP: SEARCH command now dynamically figures out how to run about
+	  0.20 .. 0.25 seconds before seeing if there's other work to do.
+	  This makes the SEARCH performance much better.
+	- Fixes to shared mailbox handling.
+	- Fixes to virtual mailboxes.
+	- THREAD command could have crashed.
+	- Fixes to expire-tool.
+	- mbox: Don't break if From_-line is preceded by CRLF (instead of LF).
+	- dict process wasn't restarted after SIGHUP was sent to master.
+
+v1.2.rc3 2009-04-16 Timo Sirainen <tss@iki.fi>
+
+	* IMAP proxy no longer simply forwards tagged reply from
+	  remote authentication command. It's now done only if the remote
+	  server sent a [resp-code], otherwise all failure strings are
+	  converted to Dovecot's "Authentication failed." to make sure that
+	  if remote isn't using Dovecot it won't reveal user's existence.
+
+	+ Quota roots can now specify which namespace's quota they're
+	  tracking. This is probably the most useful for giving public
+	  namespaces a quota.
+	+ Added imap_idle_notify_interval setting.
+	- Fixes to shared mailbox handling
+	- Fixes to virtual mailboxes
+	- Fixed compiling with some FreeBSD and NetBSD versions
+	- THREAD REFS still might have returned one (0) at the beginning.
+	- deliver wasn't using mail_access_groups setting.
+	- Fixed some error handling in maildir and index code.
+
+v1.2.rc2 2009-04-03  Timo Sirainen <tss@iki.fi>
+
+	- rquota.x file was missing from rc1 distribution, causing compiling
+	  to fail.
+
+v1.2.rc1 2009-04-03  Timo Sirainen <tss@iki.fi>
+
+	* See v1.2.0 notes
+
+v1.1.5 2008-10-22  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot prints an informational message about authentication problems
+	  at startup. The message goes away after the first successful
+	  authentication. This hopefully reduces the number of "Why doesn't
+	  my authentication work?" questions.
+
+	+ Maildir/dbox: Try harder to assign unique UIDVALIDITY values to
+	  mailboxes to avoid potential problems when recreating or renaming
+	  mailboxes. The UIDVALIDITY is tracked using dovecot-uidvalidity*
+	  files in the mail root directory.
+	+ Many logging improvements
+	- In some conditions Dovecot could have stopped using existing cache
+	  file and never used it again until it was deleted.
+	- pop3 + Maildir: Make sure virtual sizes are always written to
+	  dovecot-uidlist. This way if the indexes are lost Dovecot will never
+	  do a huge amount of work to recalculate them.
+	- mbox: Fixed listing mailboxes in namespaces with prefix beginning
+	  with '~' or '/' (i.e. UW-IMAP compatibility namespaces didn't work).
+	- dict quota: Don't crash when recalculating quota (when quota warnings
+	  enabled).
+	- Fixes to handling "out of disk space/quota" failures.
+	- Blocking passdbs/userdbs (e.g. PAM, MySQL) could have failed lookups
+	  sometimes when auth_worker_max_request_count was non-zero.
+	- Fixed compiling with OpenBSD
+
+v1.1.4 2008-10-05  Timo Sirainen <tss@iki.fi>
+
+	- SORT: Yet another assert-crashfix when renumbering index sort IDs.
+	- ACL plugin fixes: Negative rights were actually treated as positive
+	  rights. 'k' right didn't prevent creating parent/child/child mailbox.
+	  ACL groups weren't working.
+	- Maildir++ quota: Fixes to rebuilding when quota limit wasn't
+	  specified in Dovecot (0 limit or limit read from maildirsize).
+	- mbox: Several bugfixes causing errors and crashes.
+	- Several fixes to expire plugin / expire-tool.
+	- lock_method=dotlock could have deadlocked with itself.
+	- Many error handling fixes and log message improvements.
+
+v1.1.3 2008-09-02  Timo Sirainen <tss@iki.fi>
+
+	* mail_max_userip_connections limit no longer applies to master user
+	  logins.
+
+	+ login_log_format_elements: Added %k to show SSL protocol/cipher
+	  information. Not included by default.
+	+ imap/pop3-proxy: If auth_verbose=yes, log proxy login failures.
+	+ deliver: Added -s parameter to autosubscribe to autocreated mailboxes.
+	- message parser fixes - hopefully fixes an infinite looping problem
+	- SORT: One more assert-crashfix when renumbering index sort IDs.
+	- mbox: Saving may have truncated the mail being saved
+	- mbox: Several other bugfixes
+	- mail_full_filesystem_access=yes was broken when listing mailboxes
+	  (it still is with maildir++ layout).
+	- maildirlock utility was somewhat broken
+	- zlib plugin: bzip2 support was somewhat broken
+	- NFS: Make sure writing to files via output streams don't
+	  assert-crash when write() returns only partial success.
+
+v1.1.2 2008-07-24  Timo Sirainen <tss@iki.fi>
+
+	+ Added full text search indexing support for Apache Lucene Solr
+	  server: http://wiki.dovecot.org/Plugins/FTS/Solr
+	+ IMAP SORT: Added X-SCORE sort key for use with Solr searches.
+	+ zlib plugin supports now bzip2 also.
+	+ quota: All backends now take noenforcing parameter.
+	+ Maildir: Add ,S=<size> to maildir filename whenever quota plugin
+	  is loaded, even when not using Maildir++ quota.
+	+ deliver: Allow lda section to override plugin settings.
+	+ deliver: Giving a -m <namespace prefix> parameter now silently saves
+	  the mail to INBOX. This is useful for e.g. -m INBOX/${extension}
+	+ Added a new maildirlock utility for write-locking Dovecot Maildir.
+	+ dict-sql: Support non-MySQL databases by assuming they implement the
+	  "INSERT .. ON DUPLICATE KEY" using an INSERT trigger.
+	- SORT: Fixed several crashes/errors with sort indexing.
+	- IMAP: BODYSTRUCTURE is finally RFC 3501 compliant. Earlier versions
+	  didn't include Content-Location support.
+	- IMAP: Fixed bugs with listing INBOX.
+	- Maildir: maildirfolder file wasn't created when dovecot-shared
+	  file existed on the root directory
+	- deliver didn't expand %variables in namespace location settings.
+	- zlib: Copying non-compressed messages resulted in empty mails
+	  (except when hardlink-copying between maildirs).
+	- mbox-snarf plugin was somewhat broken
+	- deliver + Maildir: If uidlist couldn't be locked while saving,
+	  we might have assert-crashed
+	- mbox: Fixed an assert-crash with \Recent flag handling
+
+v1.1.1 2008-06-22  Timo Sirainen <tss@iki.fi>
+
+	- Maildir: When migrating from v1.0 with old format dovecot-uidlist
+	  files, Dovecot may have appended lines to it using the new format and
+	  later broken with "UID larger than next_uid" error.
+
+v1.1.0 2008-06-21  Timo Sirainen <tss@iki.fi>
+
+No changes since v1.1.rc13. Below are the largest changes since v1.0:
+
+	* After Dovecot v1.1 has modified index or dovecot-uidlist files,
+	  they can't be opened anymore with Dovecot versions earlier than
+	  v1.0.2.
+	* See doc/wiki/Upgrading.1.1.txt (or for latest changes,
+	  http://wiki.dovecot.org/Upgrading/1.1) for list of changes since
+	  v1.0 that you should be aware of when upgrading.
+
+	+ IMAP: Added support for UIDPLUS and LIST-EXTENDED extensions.
+	+ IMAP SORT: Sort keys are indexed, which makes SORT commands faster.
+	+ When saving messages, update cache file immediately with the data
+	  that we expect client to fetch later.
+	+ NFS caches are are flushed whenever needed. See mail_nfs_storage and
+	  mail_nfs_index settings.
+	+ Out of order command execution (SEARCH, FETCH, LIST), nonstandard
+	  command cancellation (X-CANCEL <tag>)
+	+ IMAP: STATUS-IN-LIST draft implementation
+	+ Expire plugin can be used to keep track of oldest messages in
+	  specific mailboxes. A nightly run can then quickly expunge old
+	  messages from the mailboxes that have them. The tracking is done
+	  using lib-dict, so you can use either Berkeley DB or SQL database.
+	+ Namespaces are supported everywhere now.
+	+ Namespaces have new list and subscriptions settings.
+	+ Full text search indexing support with Lucene and Squat backends.
+	+ OTP and S/KEY authentication mechanisms (by Andrey Panin).
+	+ mbox and Maildir works with both Maildir++ and FS layouts. You can
+	  change these by appending :LAYOUT=maildir++ or :LAYOUT=fs to
+	  mail_location.
+	+ LDAP: Support templates in pass_attrs and user_attrs
+	+ Support for listening in multiple IPs/ports.
+	+ Quota plugin rewrite: Support for multiple quota roots, warnings,
+	  allow giving storage size in bytes or kilo/mega/giga/terabytes,
+	  per-mailbox quota rules.
+	+ Filesystem quota backend supports inode limits, group quota and
+	  RPC quota for NFS.
+	+ SEARCH and SORT finally compare non-ASCII characters
+	  case-insensitively. We use i;unicode-casemap algorithm.
+	+ Config files support splitting values to multiple lines with \
+
+v1.1.rc13 2008-06-20  Timo Sirainen <tss@iki.fi>
+
+	- mbox: Fixed a crash when adding a new X-IMAPbase: header with
+	  keywords.
+	- Message parser: Fixed assert-crash if cached MIME structure was
+	  broken.
+	- Squat: Potential crashfix with mmap_disable=yes.
+
+v1.1.rc12 2008-06-19  Timo Sirainen <tss@iki.fi>
+
+	- mbox: Don't give "Can't find next message offset" warnings when
+	  plugin (e.g. quota) accesses the message being saved.
+	- deliver: Settings inside protocol imap {} weren't ignored.
+
+v1.1.rc11 2008-06-19  Timo Sirainen <tss@iki.fi>
+
+	- dovecot-uidlist is now recreated if it results in file shrinking
+	  over 25%.
+	- Some other minor fixes
+
+v1.1.rc10 2008-06-13  Timo Sirainen <tss@iki.fi>
+
+	* LIST X-STATUS renamed to LIST STATUS and fixed its behavior with
+	  LIST-EXTENDED options. It's now compatible with STATUS-IN-LIST
+	  draft 00.
+
+	- Message parsing could have sometimes produced incorrect results,
+	  corrupting BODY/BODYSTRUCTURE replies and perhaps others.
+	- SORT: Fixed several bugs
+	- FreeBSD 7.0: Environment clearing wasn't working correctly.
+	  This caused "environment corrupted" problems at least with deliver
+	  trying to call sendmail and running Dovecot from inetd.
+	- HP-UX: Several fixes to get it to work (by Christian Corti)
+	- Fixes to using expire plugin with SQL dictionary.
+	- dbox fixes
+
+v1.1.rc9 2008-06-09  Timo Sirainen <tss@iki.fi>
+
+	+ Maildir: When hardlink-copying a file, copy the W=<vsize> in the
+	  filename if it exists in the original filename.
+	- mbox: With rc8 empty lines were inserted in the middle of saved
+	  mails' headers.
+	- maildir: Fixed problems with opening newly saved messages which we
+	  saw in index file but couldn't see in dovecot-uidlist. Happened only
+	  when messages weren't saved via Dovecot (deliver or IMAP).
+	- Several bugfixes to handling sort indexes
+	- deliver: Boolean settings that were supposed to default to "yes" were
+	  set to "no" unless explicitly defined in dovecot.conf:
+	  dotlock_use_excl, maildir_copy_with_hardlinks, mbox_dirty_syncs,
+	  mbox_lazy_writes.
+
+v1.1.rc8 2008-06-03  Timo Sirainen <tss@iki.fi>
+
+	+ deliver: Added -p parameter to provide path to delivered mail.
+	  This allows maildir to save identical mails to multiple recipients
+	  using hard links.
+	- rc6/rc7 broke POP3 with non-Maildir formats
+	- mbox: Saving a message without a body or the end-of-headers line
+	  could have caused an assert-crash later.
+	- Several dbox fixes
+
+v1.1.rc7 2008-05-30  Timo Sirainen <tss@iki.fi>
+
+	- Fixed compiling problems with non-Linux OSes
+
+v1.1.rc6 2008-05-30  Timo Sirainen <tss@iki.fi>
+
+	* Index file format changed a bit. If an older Dovecot v1.1 reads
+	  index files updated by rc6+, they may give "Invalid header record
+	  size" or "ext reset: invalid record size" warnings. v1.0 won't give
+	  these errors.
+	* IMAP: LIST .. RETURN (X-STATUS) command return now LIST entries
+	  before STATUS entries.
+	* zlib plugin: Uncompress if the message begins with zlib header
+	  instead of looking at the 'Z' flag. This fixes copying with hard
+	  links. Based on a patch by Richard Platel.
+
+	+ IMAP: SORT index handling code was half-rewritten to fix several bugs
+	  when multiple sessions were sorting at the same time. The new code is
+	  hopefully also faster.
+	+ Maildir: If POP3 UIDL extra field is found from dovecot-uidlist,
+	  it's used instead of the default UIDL format (or X-UIDL: header).
+	  This allows easily preserving UIDLs when migrating from other POP3
+	  servers. Patch by Nicholas Von Hollen @ Mailtrust.
+	+ Maildir: ,W=<vsize> is now always added to maildir filenames
+	+ deliver: Avoid reading dovecot-uidlist's contents if possible.
+	+ Added %T modifier = Trim whitespace from end of string
+	- IMAP: Fixed some bugs in LIST-EXTENDED implementation.
+	- IMAP: If client tries to change the selected mailbox state while
+	  another command is still running, wait until the command is finished.
+	  This fixes some crashes and other unwanted behavior.
+	- allow_nets userdb setting was broken with big endian CPUs
+
+v1.1.rc5 2008-05-05  Timo Sirainen <tss@iki.fi>
+
+	+ Support cross-realm Kerberos 5 authentication. Based on patch by
+	  Zachary Kotlarek.
+	+ Added dict_db_config setting to point to a Berkeley DB config file.
+	+ If mail_chroot ends with "/.", remove chroot prefix from home
+	  directory.
+	- Fixed several bugs and memory leaks in ACL plugin. LIST and LSUB
+	  may have listed mailboxes where user had no 'l' access. STORE could
+	  have been used to update any flags without appropriate access.
+	- mbox: Valid-looking From_-lines in message bodies caused the message
+	  to be split to two messages (broken since v1.0).
+	- Plugin initialization hooks were called in wrong order, possibly
+	  causing problems when multiple plugins were used at the same time.
+	- Expire plugin was broken
+	- LIST-EXTENDED options were ignored.
+	- LDAP: Static attribute names weren't working correctly
+	- deliver: mail_uid and mail_gid settings weren't used.
+	- pop3 + maildir++ quota: maildirsize file wasn't created if it 
+	  didn't exist already.
+	- dnotify: Waiting for dotlock to be deleted used 100% CPU
+
+v1.1.rc4 2008-04-01  Timo Sirainen <tss@iki.fi>
+
+	* Fixed two buffer overflows in str_find_init(). It was used by
+	  SEARCH code when searching for headers or message body. Added code
+	  to catch these kind of overflows when compiling with --enable-debug.
+	  Found by Diego Liziero.
+
+	+ LDAP: Added debug_level and ldaprc_path settings (OpenLDAP-only)
+	+ Squat: Added fts_squat = partial=n full=m settings. See the wiki.
+	- dbox metadata updating fixes.
+	- quota: backend=n didn't work
+	- SEARCH RECENT may have returned non-recent messages if index files
+	  were created by v1.0.
+	- If mailbox was opened as read-only with EXAMINE, STOREs were
+	  permanently saved.
+	- LDAP: Templates were somewhat broken (by richs at whidbey.net)
+
+v1.1.rc3 2008-03-09  Timo Sirainen <tss@iki.fi>
+
+	* Fixed a security hole in blocking passdbs (MySQL always. PAM, passwd
+	  and shadow if blocking=yes) where user could specify extra fields
+	  in the password. The main problem here is when specifying
+	  "skip_password_check" introduced in v1.0.11 for fixing master user
+	  logins, allowing the user to log in as anyone without a valid
+	  password.
+
+	- mail_privileged_group was broken in some systems (OS X, Solaris?)
+
+v1.1.rc2 2008-03-08  Timo Sirainen <tss@iki.fi>
+
+	* mail_extra_groups setting was commonly used insecurely. This setting
+	  is now deprecated. Most users should switch to using
+	  mail_privileged_group setting, but if you really need the old
+	  functionality use mail_access_groups instead.
+
+	+ Expire plugin now supports wildcards in mailbox names.
+	+ dbox: Expire plugin supports moving old mails to alternative
+	  dbox directory
+	+ Maildir++ quota: quota_rule=?:<rule> specifies a default rule
+	  which is used only if the maildirsize file doesn't exist.
+	+ If SSL/TLS connection isn't closed cleanly, log the last error
+	  in the disconnection line.
+	+ EXPUNGE: If new \Deleted messages were found while expunging,
+	  do it again and expunge them as well (Outlook workaround)
+	- IMAP: SEARCH, LIST and THREAD command correctness fixes
+	- Maildir++ quota: Quota rules and warnings with % rules didn't work
+	  if the default limits were taken from maildirsize file.
+	- Maildir++ quota: If both byte and message limits weren't specified,
+	  maildirsize file was recalculated all the time
+	- mbox: Flag and keyword updates may have gotten lost in some
+	  situations (happens with v1.0 too)
+	- ldap: Don't crash if userdb lookup fails
+	- Squat fixes and performance improvements
+
+v1.1.rc1 2008-02-21  Timo Sirainen <tss@iki.fi>
+
+	* See v1.1.0 notes
+
+v1.0.10 2007-12-29  Timo Sirainen <tss@iki.fi>
+
+	* Security hole with LDAP+auth cache: If base setting contained
+	  %variables they weren't included in auth cache key, which broke
+	  caching. This could have caused different users with same passwords
+	  to log in as each other.
+
+	- LDAP: Fixed potential infinite looping when connection to LDAP
+	  server was lost and there were queued requests.
+	- mbox: More changes to fix problems caused by v1.0.8 and v1.0.9.
+	- Maildir: Fixed a UIDLIST_IS_LOCKED() assert-crash in some conditions
+	  (caused by changes in v1.0.9)
+	- If protocols=none, don't require imap executables to exist
+
+v1.0.9 2007-12-11  Timo Sirainen <tss@iki.fi>
+
+	+ Maildir: Don't wait on dovecot-uidlist.lock when we just want to
+	  find out a new filename for the message.
+	- mbox: v1.0.8 changes sometimes caused FETCH to fail with
+	  "got too little data", disconnecting the client.
+	- Fixed a memory leak when FETCHing message header/body multiple
+	  times within a command (e.g. BODY[1] BODY[2])
+	- IMAP: Partial body fetching was still slow with mboxes
+
+v1.0.8 2007-11-28  Timo Sirainen <tss@iki.fi>
+
+	+ Authentication: Added "password_noscheme" field that can be used
+	  instead of "password". "password" treats "{prefix}" as a password
+	  scheme while "password_noscheme" treats it as part of the password
+	  itself. So "password_noscheme" should be used if you're storing
+	  passwords as plaintext. Non-plaintext passwords never begin
+	  with "{", so this isn't a problem with them.
+	- IMAP: Partial body fetching was sometimes non-optimal, causing
+	  the entire message to be read for every FETCH command.
+	- deliver failed to save the message when envelope sender address
+	  contained spaces.
+	- Maildir++ quota: We could have randomly recalculated quota when
+	  it wasn't necessary.
+	- Login process could have crashed after logging in if client sent
+	  data before "OK Logged in" reply was sent (i.e. before master had
+	  replied that login succeeded).
+	- Don't assert-crash when reading dovecot.index.logs generated by
+	  Dovecot v1.1.
+	- Authentication: Don't assert-crash if password beings with "{" but
+	  doesn't contain "}".
+	- Authentication cache didn't work when using settings that changed
+	  the username (e.g. auth_username_format).
+
+v1.0.7 2007-10-29  Timo Sirainen <tss@iki.fi>
+
+	- deliver: v1.0.6's "From " line ignoring could have written to a
+	  bad location in stack, possibly causing problems.
+
+v1.0.6 2007-10-28  Timo Sirainen <tss@iki.fi>
+
+	* IDLE: Interval between mailbox change notifies is now 1 second,
+	  because some clients keep a long-running IDLE connection and use
+	  other connections to actually read the mails.
+	* SORT: If Date: header is missing or broken, fallback to using
+	  INTERNALDATE (as the SORT draft nowadays specifies).
+
+	+ deliver: If message begins with a "From " line, ignore it.
+	+ zlib plugin: If maildir file has a "Z" flag, open it with zlib.
+	- CREATE: Don't assert-crash if trying to create namespace prefix.
+	- SEARCH: Fixes to handling NOT operator with sequence ranges.
+	- LDAP reconnection fixes
+	- Maildir: Don't break when renaming mailboxes with '*' or '%'
+	  characters and children.
+	- mbox: Fixed "file size unexpectedly shrinked" error in some
+	  conditions.
+	- quota+mbox: Don't fail if trying to delete a directory.
+	- Fixes to running from inetd
+
+v1.0.5 2007-09-09  Timo Sirainen <tss@iki.fi>
+
+	- deliver: v1.0.4 broke home directory handling
+	- maildir: Creating mailboxes didn't use dovecot-shared's group for
+	  cur/new/tmp directories.
+
+v1.0.4 2007-09-08  Timo Sirainen <tss@iki.fi>
+
+	* Assume a MIME message if Content-Type: header exists, even if
+	  Mime-Version: header doesn't.
+
+	- IMAP: CREATE ns_prefix/box/ didn't work right when namespace prefix
+	  existed.
+	- deliver: plugin {} settings were overriding settings from userdb.
+	- mbox: Expunging the first message might not have worked always
+	- PostgreSQL: If we can't connect to server, timeout queries after
+	  a while instead of trying forever.
+	- Solaris: sendfile() support was broken and could have caused
+	  100% CPU usage and the connection hanging.
+
+v1.0.3 2007-08-01  Timo Sirainen <tss@iki.fi>
+
+	- deliver: v1.0.2's bounce fix caused message to be always saved to
+	  INBOX even if Sieve script had discard, reject or redirect commands.
+	- LDAP: auth_bind=yes and empty auth_bind_userdn leaked memory
+	- ACL plugin: If user was given i (insert) right for a mailbox, but
+	  not all s/t/w (seen, deleted, other flags) rights, COPY and APPEND
+	  commands weren't supposed to allow saving those flags. This is
+	  technically a security fix, but it's unlikely this caused problems
+	  for anyone.
+	- ACL plugin: i (insert) right didn't work unless user was also given
+	  l (lookup) right.
+	- Solaris: Fixed filesystem quota for autofs mounts.
+
+v1.0.2 2007-07-15  Timo Sirainen <tss@iki.fi>
+
+	* dbox isn't built anymore by default. It will be redesigned so it
+	  shouldn't be used.
+
+	+ Maildir: Support reading dovecot-uidlist (v3) files created by
+	  Dovecot v1.1.
+	- Maildir: "UIDVALIDITY changed" errors could happen with newly
+	  created mailboxes
+	- If "INBOX." namespace was used, LIST returned it with \HasNoChildren
+	  which caused some clients not to show any other mailboxes.
+	- Maildir++ quota: If multiple processes were updating maildirsize
+	  at the same time, we failed with "Unknown error".
+	- IMAP: IDLE didn't actually disconnect client after 30 minutes of
+	  inactivity.
+	- LDAP passdb/userdb was leaking memory
+	- deliver: %variables in plugin {} weren't expanded
+	- deliver: Don't bounce the mail if Sieve plugin returns failure
+
+v1.0.1 2007-06-15  Timo Sirainen <tss@iki.fi>
+
+	* deliver: If Return-Path doesn't contain user and domain, don't try
+	  to bounce the mail (this is how it was supposed to work earlier too)
+	* deliver: %variables in mail setting coming from userdb aren't
+	  expanded anymore (again how it should have worked). The expansion
+	  could have caused problems if paths contained any '%' characters.
+
+	+ Print Dovecot version number with dovecot -n and -a
+	+ deliver: Added -e parameter to write rejection error to stderr and
+	  exit with EX_NOPERM instead of sending the rejection by executing
+	  sendmail. 
+	+ dovecot --log-error logs now a warning, an error and a fatal
+	- Trying to start Dovecot while it's already running doesn't anymore
+	  wipe out login_dir and break the running Dovecot.
+	- maildir: Fixed "UID larger than next_uid" errors which happened
+	  sometimes when dovecot-uidlist file didn't exist but index files did
+	  (usually because mailbox didn't have any messages when it was
+	  selected for the first time)
+	- maildir: We violated maildir spec a bit by not having keyword
+	  characters sorted in the filename.
+	- maildir: If we don't have write access to cur/ directory, treat the
+	  mailbox as read-only. This fixes some internal error problems with
+	  trying to use read-only maildirs.
+	- maildir: Deleting a symlinked maildir failed with internal error.
+	- mbox: pop3_uidl_format=%m wasn't working right
+	- mbox: If non-filesystem quota was enabled, we could have failed
+	  with "Unexpectedly lost From-line" errors while saving new messages
+	- mysql auth: %c didn't work. Patch by Andrey Panin
+	- APPEND / SEARCH: If internaldate was outside valid value for time_t,
+	  we returned BAD error for APPEND and SEARCH never matched. With 64bit
+	  systems this shouldn't have happened. With 32bit systems the valid
+	  range is usually for years 1902..2037.
+	- COPY: We sent "Hang in there.." too early sometimes and checked it
+	  too often (didn't break anything, but was slower than needed).
+	- deliver: Postfix's sendmail binary wasn't working with mail_debug=yes
+	- Don't corrupt ssl-parameters.dat files when running multiple Dovecot
+	  instances.
+	- Cache compression caused dovecot.index.cache to be completely deleted
+	  with big endian CPUs if 64bit file offsets were used (default)
+	- Fixed "(index_mail_parse_header): assertion failed" crash
+
+v1.0.0 2007-04-13  Timo Sirainen <tss@iki.fi>
+
+	+ Documentation updated.
+
+v1.0.rc32 2007-04-12  Timo Sirainen <tss@iki.fi>
+
+	- LDAP, auth_bind=no: Don't crash if doing non-plaintext ldap passdb
+	  lookup for unknown user. This also broke deliver when userdb static
+	  was used.
+	- LDAP, auth_bind=yes and userdb ldap: We didn't wait until bind was
+	  finished before sending the userdb request, which could have caused
+	  problems.
+	- LDAP: Don't break when compiling with OpenLDAP v2.3 library
+	- Convert plugin: Don't create "maildirfolder" file to Maildir root.
+
+v1.0.rc31 2007-04-08  Timo Sirainen <tss@iki.fi>
+
+	- mbox: Give "mbox file was modified while we were syncing" error only
+	  if we detect some problems in the mbox file. The check can't be
+	  trusted with NFS.
+	- Convert plugin: If directory for destination storage doesn't exist,
+	  create it.
+	- Convert plugin: Mailbox names weren't converted in subscription list.
+
+v1.0.rc30 2007-04-06  Timo Sirainen <tss@iki.fi>
+
+	* PAM: Lowercase the PAM service name when calling with "args = *".
+	  Linux PAM did this internally already, but at least BSD didn't.
+	  If your PAM file used to be in /etc/pam.d/IMAP or POP3 file you'll
+	  need to lowercase it now.
+
+	+ Send list of CA names to client when using
+	  ssl_verify_client_cert=yes.
+	- IMAP: If message body started with line feed, it wasn't counted
+	  in BODY and BODYSTRUCTURE replies' line count field.
+	- deliver didn't load plugins before chrooting
+
+v1.0.rc29 2007-03-28  Timo Sirainen <tss@iki.fi>
+
+	* Security fix: If zlib plugin was loaded, it was possible to open
+	  gzipped mbox files outside the user's mail directory.
+
+	+ Added auth_gssapi_hostname setting.
+	- IMAP: LIST "" "" didn't return anything if there didn't exist a
+	  namespace with empty prefix. This broke some clients.
+	- If Dovecot is tried to be started when it's already running, don't
+	  delete existing auth sockets and break the running Dovecot
+	- If deliver failed too early it still returned exit code 89 instead
+	  of EX_TEMPFAIL.
+	- deliver: INBOX fallbacking with -n parameter wasn't working.
+	- passdb passwd and shadow couldn't be used as master or deny databases
+	- IDLE: inotify didn't notice changes in mbox file
+	- If index file directory couldn't be created, disable indexes instead
+	  of failing to open the mailbox.
+	- rawlog wasn't working with chrooting
+	- Several other minor fixes
+
+v1.0.rc28 2007-03-23  Timo Sirainen <tss@iki.fi>
+
+	* deliver + userdb static: Verify the user's existence from passdb,
+	  unless allow_all_users=yes
+	* dovecot --exec-mail: Log to configured log files instead of stderr
+	* Added "-example" part to doc/dovecot-sql-example.conf and
+	  doc/dovecot-ldap-example.conf. They are now also installed to
+	  $sysconfdir with "make install".
+
+	+ When copying/syncing a lot of mails, send "* OK Hang in there"
+	  replies to client every 15 seconds so it doesn't just timeout the
+	  connection.
+	+ Added idxview and logview utilities to examine Dovecot's index files
+	+ passdb passwd and shadow support blocking=yes setting now also
+	+ mbox: If mbox file changes unexpectedly while we're writing to it,
+	  log an error.
+	+ deliver: Ignore -m "" parameter to make calling it easier.
+	+ deliver: Added new -n parameter to disable autocreating mailboxes.
+	  It affects both -m parameter and Sieve plugin's fileinto action
+	- mbox: Using ~/ in the mail root directory caused a ~ directory to be
+	  created (instead of expanding it to home directory)
+	- auth cache: If unknown user was found from cache, we didn't properly
+	  return "unknown user" status, which could have caused problems in
+	  deliver.
+	- mbox: Fixed "UID inserted in the middle of mailbox" in some
+	  conditions with broken X-UID headers
+	- Index view syncing fixes
+	- rc27 didn't compile with some non-GCC compilers
+	- vpopmail support didn't compile in rc27
+	- NFS check with chrooting broke home direcotry for the first login
+	- deliver: If user lookup returned "unknown user", it logged
+	  "BUG: Unexpected input"
+	- convert plugin didn't convert INBOX
+
+v1.0.rc27 2007-03-13  Timo Sirainen <tss@iki.fi>
+
+	+ mbox and index file code handles silently out of quota/disk
+	  space errors (maildir still has problems). They will give the user
+	  a "Not enough disk space" error instead of flooding the log file.
+	+ Added fsync_disable setting.
+	+ mail-log plugin: Log the mailbox name, except if it's INBOX
+	+ dovecot-auth: Added a lot more debug logging to passdbs and userdbs
+	+ dovecot-auth: Added %c variable which expands to "secured" with
+	  SSL/TLS/localhost.
+	+ dovecot-auth: Added %m variable which expands to auth mechanism name
+	- maildir++ quota: With ignore=box setting the quota was still updated
+	  for the mailbox even though it was allowed to go over quota (but
+	  quota recalculation ignored the box).
+	- Index file handling fixes
+	- mbox syncing fixes
+	- Wrong endianess index files still weren't silently rebuilt
+	- IMAP quota plugin: GETQUOTAROOT returned the mailbox name wrong the
+	  namespace had a prefix or if its separator was non-default
+	- IMAP: If client was appending multiple messages with MULTIAPPEND
+	  and LITERAL+ extensions and one of the appends failed, Dovecot
+	  treated the rest of the mail data as IMAP commands.
+	- If mail was sent to client with sendfile() call, we could have
+	  hanged the connection. This could happen only if mails were saved
+	  with CR+LF linefeeds.
+
+v1.0.rc26 2007-03-07  Timo Sirainen <tss@iki.fi>
+
+	* Changed --with-headers to --enable-header-install
+	* If time moves backwards only max. 5 seconds, sleep until we're back
+	  in the original present instead of killing ourself. An error is
+	  still logged.
+
+	- IMAP: With namespace prefixes LSUB prefix.* listed INBOX.INBOX.
+	- deliver: Ignore mbox metadata headers from the message input.
+	  X-IMAP header crashed deliver.
+	- deliver: If mail_debug=yes, drop out DEBUG environment before
+	  calling sendmail binary. Postfix's sendmail didn't really like it.
+	- mbox: X-UID brokeness fixes broke rc25 even with valid X-UID headers.
+	  Now the code should finally work right.
+	- Maildir: When syncing a huge maildir, touch dovecot-uidlist.lock file
+	  once in a while to make sure it doesn't get overwritten by another
+	  process.
+	- Maildir++ quota: We didn't handle NUL bytes in maildirsize files very
+	  well. Now the file is rebuilt when they're seen (NFS problem).
+	- Index/view handling fix should fix some crashes/errors
+	- If index files were moved to a different endianess machine, Dovecot
+	  logged all sorts of errors instead of silently rebuilding them.
+	- Convert plugin didn't change hierarchy separators in mailbox names.
+	- PostgreSQL authentication could have lost requests once in a while
+	  with a heavily loaded server.
+	- Login processes could have crashed in some situations
+	- auth cache crashed with non-plaintext mechanisms
+
+v1.0.rc25 2007-03-01  Timo Sirainen <tss@iki.fi>
+
+	* If time moves backwards, Dovecot kills itself instead of giving
+	  random problems.
+
+	+ Added --with-headers configure option to install .h files.
+	  Binary package builders could use this to create some dovecot-dev
+	  package to make compiling plugins easier.
+	- PLAIN authentication: Don't crash dovecot-auth with invalid input.
+	- IMAP APPEND: Don't crash if saving fails
+	- IMAP LIST: If prefix.INBOX has children and we're listing under
+	  prefix.%, don't drop the prefix.
+	- mbox: Broken X-UID headers still weren't handled correctly.
+	- mail-log plugin: Fixed deleted/undeleted logging.
+
+v1.0.rc24 2007-02-22  Timo Sirainen <tss@iki.fi>
+
+	* Dovecot now fails to load plugins that were compiled for different
+	  Dovecot version, unless version_ignore=yes is set. This needs to be
+	  explicitly set in plugins, so out-of-tree plugins won't have this
+	  check by default.
+
+	- pop3_lock_session=yes could cause deadlocks, and with maildir the
+	  uidlist lock could have been overridden after 2 minutes causing
+	  problems
+	- PAM wasted CPU by calling a timeout function 1000x too often
+	- Trash plugin was more or less broken with multiple namespaces and
+	  with multiple trash mailboxes
+
+v1.0.rc23 2007-02-20  Timo Sirainen <tss@iki.fi>
+
+	* deliver doesn't ever exit with Dovecot's internal exit codes anymore.
+	  All its internal exit codes are changed to EX_TEMPFAIL.
+	* mbox: X-Delivery-ID header is now dropped when saving mails.
+	* mbox: If pop3_uidl_format=%m, we generate a unique X-Delivery-ID
+	  header when saving mails to make sure the UIDL is unique.
+
+	+ PAM: blocking=yes in args uses an alternative way to do PAM checks.
+	  Try it if you're having problems with PAM.
+	+ userdb passwd: blocking=yes in args makes the userdb lookups be done
+	  in auth worker processes. Set it if you're doing remote NSS lookups
+	  (eg. nss_ldap problems are fixed by this).
+	+ If PAM child process hasn't responded in two minutes, send KILL
+	  signal to it (only with blocking=no)
+	- IMAP: APPEND ate all CPU while waiting for more data from the client
+	  (broken in rc22)
+	- mbox: Broken X-UID headers assert-crashed sometimes
+	- mbox: When saving a message to an empty mbox file it got an UID
+	  which immediately got incremented.
+	- mbox: Fixed some wrong "uid-last unexpectedly lost" errors.
+	- auth cache: In some situations we crashed if passdb had extra_fields.
+	- auth cache: Special extra_fields weren't saved to auth cache.
+	  For example allow_nets restrictions were ignored for cached entries.
+	- A lot of initial login processes could cause auth socket errors
+	  in log file at startup, if dovecot-auth started slowly. Now the
+	  login processes are started only after dovecot-auth has finished
+	  initializing itself.
+	- imap/pop3 proxy: Don't crash if the remote server disconnects before
+	  we're logged in.
+	- deliver: Don't bother trying to save the mail twice into the default
+	  mailbox (eg. if it's over quota).
+	- mmap_disable=yes + non-Linux was really slow with large
+	  dovecot.index.cache files
+	- MySQL couldn't be used as a masterdb
+	- Trash plugin was more or less broken
+	- imap/pop3 couldn't load plugins if they chrooted
+	- imap/pop3-login process could crash in some conditions
+	- checkpassword-reply crashed if USER/HOME wasn't set
+
+v1.0.rc22 2007-02-06  Timo Sirainen <tss@iki.fi>
+
+	+ pop3: Commit the transaction even if client didn't QUIT so cached
+	  data gets saved.
+	- Fixed another indexing bug in rc19 and later which caused
+	  transactions to be skipped in some situations, causing all kinds of
+	  problems.
+	- mail_log_max_lines_per_sec was a bit broken and caused crashes with
+	  dovecot -a
+	- BSD filesystem quota was counted wrong. Patch by Manuel Bouyer
+	- LIST: If namespace has a prefix and inbox=no, don't list
+	  prefix.inbox if it happens to exist when listing for %.
+
+v1.0.rc21 2007-02-02  Timo Sirainen <tss@iki.fi>
+
+	- Cache file handling could have crashed rc20
+
+v1.0.rc20 2007-02-02  Timo Sirainen <tss@iki.fi>
+
+	+ dovecot: Added --log-error command line option to log an error, so
+	  the error log is easily found.
+	+ Added mail_log_max_lines_per_sec setting. Change it to avoid log
+	  throttling with mail_log plugin.
+	- Changing message flags was more or less broken in rc19
+	- ACL plugin still didn't work without separate control directory
+	- Some mbox handling fixes, including fixing an infinite loop
+	- Some index file handling fixes
+	- maildir quota: Fixed a file descriptor leak
+	- If auth_cache was enabled and userdb returned "user unknown"
+	  (typically only deliver can do that), dovecot-auth crashed.
+	- mail_log plugin didn't work with pop3
+
+v1.0.rc19 2007-01-23  Timo Sirainen <tss@iki.fi>
+
+	- ACL plugin didn't work unless control dir was separate from maildir
+	- More index file handling fixes
+
+v1.0.rc18 2007-01-22  Timo Sirainen <tss@iki.fi>
+
+	* ACL plugin + Maildir: Moved dovecot-acl file from control directory
+	  to maildir. To prevent accidents caused by this change, Dovecot
+	  kills itself if it finds dovecot-acl file from the control directory.
+	* When opening a maildir, check if tmp/'s atime is over 8h old. If it
+	  is, delete files in it with ctime older than 36h. However if
+	  atime - ctime > 36h, it means that there's nothing to be deleted and
+	  the scanning isn't done. We update atime ourself if filesystem is
+	  mounted with noatime.
+	* base_dir doesn't need to be group-readable, don't force it.
+	* mail_read_mmaped setting is deprecated and possibly broken. It's now
+	  removed from dovecot-example.conf, but it still works for now.
+	* Removed also umask setting from dovecot-example.conf since currently
+	  it doesn't do what it's supposed to.
+
+	+ Authentication cache caches now also userdb data.
+	+ Added mail_log plugin to log various mail operations. Currently it
+	  logs mail copies, deletions, expunges and mailbox deletions.
+	- dict quota: messages=n parameter actually changed storage limit.
+	- A lot of fixes to handling index files. This should fix almost all
+	  of the problems ever reported.
+	- LDAP: auth_bind=yes was more or less broken.
+	- Saved mails and dovecot-keywords file didn't set the group from
+	  dovecot-shared file.
+	- Fixed potential assert-crash while searching messages
+	- Fixed some crashes with invalid X-UID headers in mboxes
+	- If you didn't have a namespace with empty prefix, giving STATUS
+	  command for a non-existing namespace caused the connection to give
+	  "NO Unknown namespace" errors for all the future commands.
+
+v1.0.rc17 2007-01-07  Timo Sirainen <tss@iki.fi>
+
+	- MySQL authentication caused username to show up as "OK" in rc16.
+
+v1.0.rc16 2007-01-05  Timo Sirainen <tss@iki.fi>
+
+	* IMAP: When trying to fetch an already expunged message, Dovecot used
+	  to just disconnect client. Now it instead replies with dummy NIL
+	  data.
+	* Priority numbers in plugin names have changed. If you're installing
+	  from source, you should delete the existing plugin files before
+	  installing the new ones, otherwise you'll get errors.
+	* Maildir: We're using rename() to move files from tmp/ to new/ now.
+	  See http://wiki.dovecot.org/MailboxFormat/Maildir -> "Issues with
+	  the specification" for reasoning why this is safe. This makes saving
+	  mails faster, and also makes Dovecot usable with Mac OS X's HFS+
+	  (after you also set dotlock_use_excl=yes, see below).
+
+	+ Added dotlock_use_excl setting. If enabled, dotlocks are created
+	  directly using O_EXCL flag, instead of by creating a temporary file
+	  which is hardlinked. O_EXCL is faster, but may not work with NFS.
+	+ If Dovecot crashes with Linux or Solaris, it'll log a
+	  "Raw backtrace". It's worse than gdb's backtrace, but better than
+	  nothing.
+	+ Added maildir_copy_preserve_filename=yes setting.
+	+ Added a lazy-expunge plugin to allow users to unexpunge their mails.
+	+ maildir quota: Added ignore setting to maildir quota, which allows
+	  ignoring quota in Trash mailbox.
+	+ dict quota: If dictionary doesn't yet contain the quota, calculate
+	  it by going through all the mails in all the mailboxes.
+	+ login_log_format_elements: Added %a=local port and %b=remote port
+	+ Added -i and -o options to rawlog to restrict logging only to
+	  input or output.
+	- Doing a STATUS command for a selected mailbox (not a recommended
+	  IMAP client behavior) caused Dovecot to sync the mailbox silently.
+	  This could have lost eg. EXPUNGE events from clients, causing them
+	  to use wrong sequence numbers.
+	- deliver was treating boolean settings set to "no" as if they were
+	  "yes" (they were supposed to be commented out for "no")
+	- Running "dovecot" with -a or -n option while Dovecot was running
+	  deleted all authentication sockets, which caused all the future
+	  logins to fail.
+	- maildir: RENAME and DELETE didn't touch control directory if it was
+	  different from maildir or index dir.
+	- We treated internal userdb lookup errors as "user unknown" errors.
+	  In such situations this caused deliver to think the user didn't
+	  exist and the mail get bounced.
+	- pam: Setting cache_key crashed
+	- shared maildir: dovecot-keywords file's mode wasn't taken from
+	  dovecot-shared file.
+	- dovecotpw wasn't working with PowerPC
+
+v1.0.rc15 2006-11-19  Timo Sirainen <tss@iki.fi>
+
+	* Fixed an off-by-one buffer overflow in cache file handling. The
+	  code is executed only with mmap_disable=yes and only if index files
+	  are used (ie. INDEX=MEMORY is safe).
+	* passdb checkpassword: Handle vpopmail's non-standard exit codes.
+
+	- rc14 sometimes assert-crashed if .log.2 file existed in a mailbox
+	  (earlier versions leaked memory and file descriptors)
+	- io_add() assert-crashfixes
+	- Potential SSL hang fix at the beginning of the connection
+
+v1.0.rc14 2006-11-12  Timo Sirainen <tss@iki.fi>
+
+	* LDAP: Don't try to use ldap_bind() with empty passwords, since
+	  Windows 2003 AD skips password checking with them and just returns
+	  success.
+	* verbose_ssl=yes: Don't bother logging "syscall failed: EOF"
+	  messages. No-one cares about them.
+
+	+ Dovecot sources should now compile without any warnings with gcc 3.2+
+	- rc13 crashed if client disconnected while IDLEing
+	- LDAP: auth_bind=yes fixes
+        - %variables: Fixed zero padding handling and documented it. %0.1n
+	  shouldn't enable it, and it really shouldn't stay for the next
+	  %variable. -sign also shouldn't stay for the next variable.
+	- Don't leak opened .log.2 transaction logs.
+	- Fixed a potential hang in IDLE command (probably really rare).
+	- Fixed potential problems with client disconnecting while master was
+	  handling the login.
+	- quota plugin didn't work in Mac OS X
+
+v1.0.rc13 2006-11-08  Timo Sirainen <tss@iki.fi>
+
+	+ deliver: If we're executing as a normal system user, get the HOME
+	  environment from passwd if it's not set. This makes it possible to
+	  run deliver from .forward.
+	- Older compilers caused LDAP authentication to crash
+	- Dying LDAP connections weren't handled exactly correctly in rc11,
+	  although it seemed to work usually
+	- Fixed crashes and memory leaks with AUTHENTICATE command
+	- Fixed crashes and leaks with IMAP/POP3 proxying
+	- maildir: Changing a mailbox while another process was saving a
+	  message there at the same may have caused the changes to not be made
+	  into the maildir, which could have caused other problems later..
+
+v1.0.rc12 2006-11-05  Timo Sirainen <tss@iki.fi>
+
+	- rc11 didn't compile with some compilers
+	- default_mail_env fallbacking was broken with --exec-mail
+
+v1.0.rc11 2006-11-05  Timo Sirainen <tss@iki.fi>
+
+	* Renamed default_mail_env to mail_location. default_mail_env still
+	  works for backwards compatibility.
+	* deliver: When sending rejects, don't include Content-Type in the
+	  rejected mail's headers.
+	* LDAP changes:
+            * If auth binds are used, bind back to the default dn before doing
+	      a search. Otherwise it could fail if a user gave an invalid
+	      password.
+	    * Initial binding at connect is now done asynchronously.
+	    * Use pass_attrs even with auth_bind=yes since it may contain
+	      useful non-password fields.
+
+	+ passdb checkpassword: Give TCPLOCALIP and TCPREMOTEIP and PROTO=TCP
+	  environments to the checkpassword binary so we're UCSPI (and vchkpw)
+	  compatible.
+	- mbox handling was a bit broken in rc10
+	- Using Dovecot via inetd kept crashing dovecot master
+	- deliver: Don't crash with -f "". Changed the default from envelope
+	  to be "MAILER-DAEMON".
+	- INBOX wasn't shown with LSUB command if only prefixed namespaces
+	  were used.
+	- passdb ldap: Reconnecting to LDAP server wasn't working with
+	  auth binds.
+	- passdb sql: Non-plaintext authentication didn't work
+	- MySQL passdb ignored all non-password checks, such as allow_nets
+	- trash plugin was broken
+
+v1.0.rc10 2006-10-16  Timo Sirainen <tss@iki.fi>
+
+	* When matching allowed_nets IPs, convert IPv6-mapped-IPv4 addresses
+	  to actual IPv4 addresses first.
+
+	+ IMAP: Try to avoid sending duplicate/useless message flag updates
+	+ Added support for non-plaintext authentication for vpopmail if it
+	  returns plaintext passwords. Based on patch by Remi Gacogne.
+	+ Added %D modified to return "sub.domain.org" as
+	  "sub,dc=domain,dc=org" (for LDAP queries). Patch by Andrey Panin.
+	- rc9 broke cache files in 64bit systems
+	- deliver works now with mail_chroot
+	- auth cache didn't work properly with multiple passdbs
+	- Fixes to handling CRLF linefeeds in mboxes.
+
+v1.0.rc9 2006-10-14  Timo Sirainen <tss@iki.fi>
+
+	* 64bit systems: dovecot.index.cache file will be rebuilt because
+	  some time fields have been changed from 64bit fields to 32bit
+	  fields. Now the same cache file can be used in both 32bit and
+	  64bit systems without it being rebuilt.
+	* Added libmysqlclient workaround to conflicting sha1_result symbol,
+	  which caused Dovecot to fail logging into MySQL.
+
+	+ dovecot.index.cache file opening is delayed until it's actually
+	  needed. This reduces disk accesses a bit with eg. STATUS commands.
+	+ auth_cache: Try to handle changing passwords automatically: If
+	  password verification fails, but the last one had succeeded, don't
+	  use the cache. This works only with plaintext auth.
+	- dovecot.index.cache: We didn't properly detect if some fields were
+	  different length than we expected, which caused assert crashes
+	- Lots of fixes to login/master process handling
+	- mbox: Fixed a bug causing "X-IMAPbase uid-last unexpectedly lost
+	  in mbox file" errors, and possibly others.
+
+v1.0.rc8 2006-10-09  Timo Sirainen <tss@iki.fi>
+
+	* GSSAPI: Changed POP3 service name to "pop", which is what the
+	  standard says
+	* "mbox:/var/mail/%u" no longer works as the mail location. You'll
+	  have to specify the mail root explicitly, just like the examples
+	  always have: "mbox:~/mail:INBOX=/var/mail/%u"
+
+	+ SHA1, LDAP-MD5, PLAIN-MD5, PLAIN-MD4: The password can be now either
+	  hex or base64 encoded. The encoding is detected automatically based
+	  on the password string length.	  
+	+ Allow running only Dovecot master and dovecot-auth processes with
+	  protocols=none setting
+	+ deliver: -f <envelope sender> parameter can be used to set mbox
+	  From_-line's sender address
+	+ deliver: Log all mail saves and failures
+	+ Tru64 SIA passdb support. Patch by Simon L Jackson.
+	- INBOX was listed twice in mailbox list if namespace prefix was used
+	- INBOX-prefixed namespaces were a bit broken
+	- kqueue: Fix 100% CPU usage
+	- deliver: Duplicate storage was a bit broken
+	- dictionary code was broken (ie. dict quota)
+	- SIGHUP caused crashes sometimes
+
+v1.0.rc7 2006-08-18  Timo Sirainen <tss@iki.fi>
+
+	* Require that Dovecot master process's version number matches the
+	  child process's, unless version_ignore=yes. Usually it's an
+	  accidental installation problem if the version numbers don't match.
+	* Maildir: Create maildirfolder file when creating new maildirs.
+
+	+ ldap+prefetch: Use global uid/gid settings if LDAP query doesn't
+	  return them
+	+ %variables: Negative offsets count from the end of the string.
+	  Patch by Johannes Berg.
+	- kqueue ioloop code rewrite
+	- notify=kqueue might have caused connection hangs sometimes
+	- deliver: If message body contained a valid mbox From_ line, it
+	  and the rest of the message was skipped.
+	- mbox: We got into infinite loops if trying to open a 2 byte sized
+	  file as mbox.
+	- Don't crash with ssl_disable=yes
+	- quota plugin caused compiling problems with some OSes
+	- mbox: After saving a mail to a synced mbox, we lost the sync which
+	  caused worse performance
+
+v1.0.rc6 2006-08-07  Timo Sirainen <tss@iki.fi>
+
+	* Removed login_max_logging_users setting since it was somewhat weird
+	  in how it worked. Added login_max_connections to replace it with
+	  login_process_per_connection=no, and with =yes its functionality
+	  is now within login_max_processes_count.
+
+	+ Added --with-linux-quota configure option to specify which Linux
+	  quota version to use, in case it's not correct in sys/quota.h.
+	  Usually used as --with-linux-quota=2
+	+ acl plugins: If .DEFAULT file exists in global ACL root directory,
+	  use it as the default ACLs for all mailboxes.
+	- Fixes to login process handling, especially with
+	  login_process_per_connection=no. 
+	- Back to the original SSL proxy code but with one small fix, which
+	  hopefully fixes the occational hangs with it
+	- Several fixes to handling LIST command more correctly.
+
+v1.0.rc5 2006-08-02  Timo Sirainen <tss@iki.fi>
+
+	- Saving to mboxes still caused assert-crashes
+
+v1.0.rc4 2006-08-02  Timo Sirainen <tss@iki.fi>
+
+	- Saving to mboxes caused assert-crashes
+
+v1.0.rc3 2006-08-02  Timo Sirainen <tss@iki.fi>
+
+	- SSL connections hanged sometimes, especially when saving messages.
+	- mbox: Mail bodies were saved with CR+LF linefeeds
+	- Mail forwarding was broken with deliver/Sieve
+	- dbox fixes. Might actually be usable now.
+	- Index file handling fixes with keywords
+	- Cache file was incorrectly used in some situations, which probably
+	  caused problems sometimes.
+	- Maildir++ quota: Don't count "." and ".." directory sizes to quota.
+	  After rewriting maildirsize file keep its fd open so that we can
+	  later update it. Patch by Alexander Zagrebin
+
+v1.0.rc2 2006-07-04  Timo Sirainen <tss@iki.fi>
+
+	* disable_plaintext_auth=yes: Removed hardcoded 127.* and ::1 IP
+	  checks. Now we just assume that the connection is secure if the
+	  local IP matches the remote IP address.
+	* SSL code rewrite which hopefully makes it work better than before.
+	  Seems to work correctly, but if you suddently have trouble with SSL
+	  connections this is likely the reason.
+
+	+ verbose_ssl=yes: Log also SSL alerts and BIO errors
+	- If namespace's location field wasn't set, the default location
+	  was supposed to be used but it wasn't.
+	- When copying ssl-parameters.dat file from /var/lib to /var/run its
+	  permissions went wrong if it couldn't be copied with hard linking.
+	- Fixed filesystem quota plugin to work with BSDs.
+	- Maildir: Saving mails didn't work if quota plugin was enabled (again)
+	- Maildir: Messages' received time wasn't saved properly when
+	  saving/copying multiple messages at a time. Also if using quota
+	  plugin the S= size was only set for the first saved file, and even
+	  that was wrong.
+	- passdb passwd-file: Don't require valid uid/gid fields if file
+	  isn't also being used as a userdb.
+	- PostgreSQL: Handle failures better so that there won't be
+	  "invalid fd" errors in logs.
+	- Don't try to expunge messages if the mailbox is read-only. It'll
+	  just cause our index files to go out of sync with the real
+	  mailbox and cause errors.
+	- ANONYMOUS authentication mechanism couldn't work because
+	  anonymous_username setting wasn't passed from master process.
+
+v1.0.rc1 2006-06-28  Timo Sirainen <tss@iki.fi>
+
+	* PAM: If user's password is expired, give "Password expired" error
+	  message to the user. Now actually working thanks to Vaidas Pilkauskas
+	* Relicensed dovecot-auth, lib-sql and lib-ntlm to MIT license. See
+	  COPYING file for more information.
+	* Abuse prevention: When creating a mailbox, limit the number of
+	  hierarchies (up to 20) and the length of the mailbox name within
+	  a hierarchy (up to 200 characters).
+	* mbox: If saved mail doesn't end with LF, add it ourself so that the
+	  mails always have one empty line before the next From-line.
+
+	+ Added --with-statedir configure option which defaults to
+	  $localstatedir/lib/dovecot. ssl-parameters.dat is permanently
+	  stored in that directory and is copied to login_dirs from there.
+	+ IMAP: Support SASL-IR extension (SASL initial response)
+	+ Support initial SASL response with LOGIN mechanism. Patch by Anders
+	  Karlsson
+	+ Added PLAIN-MD4 password scheme. Patch by Andrey Panin.
+	+ Added support for XFS disk quotas. Patch by Pawel Jarosz
+	+ If another process deletes the opened mailbox, try to handle it
+	  without writing errors to log file. Handles the most common cases.
+	+ Added TLS support for LDAP if the library supports it.
+	- SEARCH command was more or less broken with OR and NOT conditions
+	- Dovecot corrupted mbox files which had CR+LF linefeeds in headers
+	- MySQL code could have crashed while escaping strings
+	- MD4 code with NTLM authentication was broken with 64bit systems.
+	  Patch by Andrey Panin
+	- Plugin loading was broken in some OSes (eg. FreeBSD)
+	- Several fixes to handling empty values in configuration file
+	- Several fixes to dictionary quota backend and dict server.
+	  Also changed how they're configured.
+	- deliver: Fixed plugin handling settings
+	- mbox_min_index_size handling was somewhat broken
+	- passdb passwd-file: extra_args field wasn't read unless the file
+	  was also used as userdb.
+
+v1.0.beta9 2006-06-13  Timo Sirainen <tss@iki.fi>
+
+	* PAM: Don't call pam_setcred() unless setcred=yes PAM passdb
+	  argument was given.
+	* Moved around settings in dovecot-example.conf to be in more logical
+	  groups.
+
+	+ Local delivery agent (deliver binary) works again.
+	+ LDAP: Added support for SASL binding. Patch by Geert Jansen
+	+ ssl_verify_client_cert: Check CRLs. If auth_verbose=yes, log
+	  invalid sent certificates. If verbose_ssl=yes, log even the valid
+	  certificates. When using the username from the certificate, use
+	  CommonName. Based on patch by HenkJan Wolthuis
+	+ PAM: Set PAM_TTY which is needed by some PAM plugins
+	+ dovecot --exec-mail ext <binary path> can now be used to start
+	  binaries which want dovecot.conf to be read, for example the
+	  convert-tool.
+	- Expunging needed to be done twice if client used STORE +FLAGS.SILENT
+	  command to set the \Deleted flags
+	- Added sql_escape_string() to lib-sql API and use it instead of
+	  normal \-escaping.
+	- ACL plugin fixes
+	- DIGEST-MD5: Trying to use subsequent authentication crashed
+	  dovecot-auth.
+	- Fetching BODY when BODYSTRUCTURE was already cached caused the
+	  reply to be broken in some cases
+	- Lots of fixes for index file handling
+	- dbox fixes and changes
+	- mbox syncing broke if some extraneous/broken headers were removed
+	  (eg. extra X-IMAPbase headers in mails)
+	- Running Dovecot from inetd work now properly with POP3
+	- Quota plugin fixes for calculating the quota correctly
+
+v1.0.beta8 2006-05-12  Timo Sirainen <tss@iki.fi>
+
+	* Fixed a security hole with mbox: "1 LIST .. *" command could
+	  list all directories and files under the mbox root directory, so
+	  if your mails were stored in eg. /var/mail/%u/ directory, the
+	  command would list everything under /var/mail.
+
+	+ Unless nfs_check=no or mmap_disable=yes, check for the first login
+	  if the user's index directory exists in NFS mount. If so, refuse to
+	  run. This is done only on first login to avoid constant extra
+	  overhead.
+	+ If we have plugins set and imap_capability unset, figure out the
+	  IMAP capabilities automatically by running imap binary at startup.
+	  The generated capability list isn't updated until Dovecot is
+	  restarted completely, so if you add or remove IMAP plugins you
+	  should restart. If you have problems related to this, set
+	  imap_capabilities setting manually to work around it.
+	+ Added auth_username_format setting
+	- pop3_lock_session setting wasn't really working
+	- Lots of fixes related to quota handling. It's still not working
+	  perfectly though.
+	- Lots of index handling fixes, especially with mmap_disable=yes
+	- Maildir: saving mails could have sometimes caused "Append with UID
+	  n, but next_uid = m" errors
+	- flock() locking never timeouted because ignoring SIGALRM caused the
+	  system call just to be restarted when SIGALRM occurred (probably not
+	  with all OSes though?)
+	- kqueue: Fixed "Unrecognized event". Patch by Vaclav Haisman
+
+v1.0.beta7 2006-04-12  Timo Sirainen <tss@iki.fi>
+
+	+ Added shutdown_clients setting to control if existing imap/pop3 
+	  processes should be killed when master is.
+	- Master login fixes, PLAIN authentication was still broken..
+
+v1.0.beta6 2006-04-12  Timo Sirainen <tss@iki.fi>
+
+	* The login and master usernames were reversed when using
+	  master_user_separator (now the order is UW-IMAP compatible).
+	* Killing dovecot master process now kills all IMAP and POP3
+	  processes also.
+
+	+ -a parameter to dovecot prints now all settings that Dovecot uses.
+	  -n prints all settings that are different from defaults.
+	+ Added pop3_lock_session setting
+	+ %M modifier returns string's MD5 sum. Patch by Ben Winslow
+	- PLAIN SASL authentication wasn't working properly, causing failed
+	  logins with some clients (broken in beta4)
+	- Fixes to Maildir++ quota, should actually work now
+	- Don't crash if passwd-file has entries without passwords
+	  (eg. deny=yes databases)
+	- Fixed prefetch userdb to work nicely with other userdbs
+	- If master process runs out of file descriptors, don't go to
+	  infinite loop (unlikely to have happened unless the OS's default
+	  fd limit was too low)
+	- Fixed non-plaintext password lookups from LDAP. Patch by Lior Okman
+	- %U modifier was actually lowercasing the string. Patch by Ben Winslow
+
+v1.0.beta5 2006-04-04  Timo Sirainen <tss@iki.fi>
+
+	- Beta4's SSL proxying rewrite worked worse than I thought.
+	  Reverted it back to original code.
+
+v1.0.beta4 2006-04-02  Timo Sirainen <tss@iki.fi>
+
+	* Changed the default lock_method back to fcntl. Apparently flock
+	  gives problems with some systems.
+	* mbox: mailboxes beginning with '.' are now also listed
+	* Replaced mail_use_modules and mail_modules settings with mail_plugins
+	  and mail_plugin_dir. Now instead of loading all plugins from the
+	  directory, you'll have to give a list of plugins to load. If the
+	  plugin couldn't be loaded, the process exits instead of just
+	  ignoring the problem (this is important with ACL plugin).
+
+	+ Added support for "master users" who can log in as other people.
+	  The master username can be given either in authorization ID
+	  string with SASL PLAIN mechanism or by setting
+	  auth_master_user_separator and giving it within the normal username
+	  string.
+	+ Added ACL plugin with ACL file backend. This however doesn't mean
+	  that there yet exists a proper shared folder support. If master user
+	  logged in as someone else, the ACLs are checked as the master user.
+	+ Added some Dovecot extensions to checkpassword passdb, see ChangeLog
+	+ Updated passwd-file format to allow specifying any key=value fields
+	+ Maildir++ quota support and several quota fixes
+	+ passdb supporting extra fields: Added "allow_nets" option which takes
+	  a comma separated list of IPs/networks where to allow user to log in.
+	+ NFS: Handle ESTALE errors the best way we can
+	+ IMAP now writes to log when client disconnects
+	+ In shared mailboxes (if dovecot-shared file exists) \Seen flags are
+	  now kept only in index files, so as long as each user has a separate
+	  index file they have separate \Seen flags.
+	- Fixes to DIGEST-MD5 realm handling so it works with more clients
+	- BODYSTRUCTURE -> BODY conversion from cache file was broken with
+	  mails containing message/rfc822 parts.
+	- Fixed several memory leaks
+	- We could have sent client FETCH notifications about messages before
+	  telling about them with EXISTS
+	- Compiling fixes for Solaris and some other OSes
+	- Fixed problem with internal timeout handling code, which caused eg.
+	  outlook-idle workaround to break.
+	- If /dev/urandom didn't exist, we didn't seed OpenSSL's random number
+	  generator properly. Patch by Vilmos Nebehaj.
+	- Maildir: Recent flags weren't always immediately removed from mails
+	  when mailbox was opened.
+	- Several changes to SSL proxying code, hopefully making it work
+	  better.
+
+v1.0.beta3 2006-02-08  Timo Sirainen <tss@iki.fi>
+
+	* Dotlock code changed to timeout faster in some situations when
+	  the lock file is old.
+	+ Added support for loading SQL drivers dynamically (see INSTALL file
+	  for how to build them)
+	+ Keywords are stored to dboxes, and other dbox improvements.
+	+ dict-sql could actually work now, making quota-in-sql-database
+	  possibly working now (not fully tested)
+	+ Added mail storage conversion plugin to convert automatically from
+	  one mailbox format to another while user logs in. Doesn't preserve
+	  UIDVALIDITY/UIDs though.
+	+ Added plugin { .. } section to dovecot.conf for passing parameters
+	  to plugins (see dovecot-example.conf).
+	+ Added ssl-build-param binary which is used to generate
+	  ssl-parameters.dat. Main dovecot binary doesn't anymore link to
+	  SSL libraries, and this also makes the process title be clearer
+	  about why the process is eating all the CPU.
+	- Fix building without OpenSSL
+	- Fixed memory leak in MySQL driver
+	- Fixes to checkpassword
+	- Broken Content-Length header could have broken mbox opening
+	- Fixed potential hangs after APPEND command
+	- Fixed potential crashes in dovecot-auth and imap/pop3-login
+	- zlib plugin now links with -lz so it could actually work
+	- kqueue fixes by Vaclav Haisman
+
+v1.0.beta2 2006-01-22  Timo Sirainen <tss@iki.fi>
+
+	+ Added SQLite support. Patch by Jakob Hirsch.
+	+ Added auth_debug_passwords setting. If it's not enabled, hide all
+	  password strings from logs.
+	+ Added mail_cache_min_mail_count and mbox_min_index_size settings
+	  which can be used to make Dovecot do less disk writes in small
+	  mailboxes where they don't benefit that much.
+	+ Added --build-ssl-parameters parameter to dovecot binary
+	- SSL parameters were being regenerated every 10 minutes, although
+	  not with all systems.
+	- Fixed dovecot-auth crashing at startup. Happened only with some
+	  specific compilers.
+	- base_dir was supposed to be set world-readable, not world-writable
+
+v1.0.beta1 2006-01-16  Timo Sirainen <tss@iki.fi>
+
+	* Almost a complete rewrite since 0.99.x, but some of the major
+	  changes are:
+
+	+ Index file code rewritten to do less disk I/O, wait locks less and
+	  in generate be smarter. They also support being in clustered
+	  filesystems and NFS support is mostly working also.
+	+ Mail caching is smarter. Only the data that client requests is
+	  cached. Before Dovecot opened and cached all mails when mailbox was
+	  opened the first time, which was slow.
+	+ Mbox handling code rewritten to be much faster, safer and correct
+	+ New authentication mechanisms: APOP, GSSAPI, LOGIN, NTLM and RPA.
+	+ LDAP supports authentication binds
+	+ Authentication server can cache password database lookups
+	+ Support for multiple authentication databases
+	+ Namespace configuration
+	+ Dovecot works with shared 
+
+v0.99.10 2003-06-26  Timo Sirainen <tss@iki.fi>
+
+	* Default PAM service name changed to "dovecot". This means that
+	  if you're using PAM, you most likely have to do
+	    mv /etc/pam.d/imap /etc/pam.d/dovecot
+	  If you wish to keep using imap, see doc/auth.txt.
+
+	* ~/rawlog directory changed to ~/dovecot.rawlog
+
+	+ Faster and better maildir synchronization. We support read-only
+	  maildirs and out-of-quota conditions are handled a lot better.
+	  dovecot-uidlist file still isn't out-of-quota-safe though, but you
+	  can keep it in another location where quota isn't checked. For
+	  example:
+	    default_mail_env = Maildir:~/Maildir:
+	      INDEX=/noquota/%u:CONTROL=/noquota/%u
+	+ Read-only mboxes are supported now.
+	+ Only NOOP and CHECK now always do a mailbox sync checking. Other
+	  commands sync max. once in 5 seconds, plus always from indexes.
+	  This should reduce I/O a bit.
+	+ All NUL characters are translated to ascii #128 before sending to
+	  client. RFC prohibits sending NULs and this is how UW-IMAP handles
+	  it as well.
+	+ Make ENVELOPE, BODY and BODYSTRUCTURE replies more compact by
+	  removing multiple LWSPs and translating TABs to spaces. RFC doesn't
+	  specifically require this, but this seems to be the wanted
+	  behaviour..
+	+ Added ANONYMOUS SASL mechanism.
+	+ More flexible user chrooting configuration in home directories:
+	  "<chroot>/./<homedir>"
+	+ Added support for dynamically loadable IMAP/POP3 modules. See
+	  INSTALL file for more information.
+	- Partial fetches were broken if mails had CR+LF linefeeds
+	- SEARCH DELETED didn't return anything if all messages were deleted
+	- OpenSSL support was broken in many installations because we were
+	  chrooted and it couldn't open /dev/urandom.
+	- PAM: Giving wrong password blocked the whole process for two
+	  seconds. Now we create a new process for each check.
+	- Lots of other smaller bugfixes and better error handling
+
+v0.99.9.1 2003-05-03  Timo Sirainen <tss@iki.fi>
+
+	- Messages having lines longer than 8192 bytes caused problems.
+	- There was some problems when opening a mbox first time that had been
+	  empty for a while.
+	- Didn't compile with OpenBSD.
+	- POP3 server crashed sometimes instead of printing error message.
+	- If cached IMAP envelope contained literals, SEARCHing in it wrote
+	  errors to log file. For example if subject contained highascii, '"'
+	  or '\' characters this happened.
+
+v0.99.9 2003-04-28  Timo Sirainen <tss@iki.fi>
+
+	* WARNING: mbox rewriting works now faster, but it's less likely to
+	  notice external message flag changes (it wasn't perfect before
+	  either). This also means that if you're not using index files,
+	  Dovecot may not notice changes made by another Dovecot process.
+	  This will be fixed later.
+
+	+ Message UIDs are now permanently stored outside index files.
+	  Deleting indexes is now possible without any kind of data loss and
+	  in-memory indexes are now usable.
+	+ mbox rewriting leaves extra space into X-Keywords header. It's
+	  shrinked or grown when updating message flag headers to avoid
+	  rewriting the rest of the file.
+	+ imap-login and pop3-login can now be started from inetd. Privilege
+	  separation is still used, so it executes dovecot and dovecot-auth
+	  processes which are left on the background.
+	+ PostgreSQL authentication support, patch by Alex Howansky
+	- Large multiline headers (over 8kB) broke Dovecot before. Now they're
+	  parsed one line at a time and we try to avoid reading them fully into
+	  memory.
+	- SEARCH OR was broken
+	- Partial BODY[] fetches were broken
+	- Timezones were still set wrong when parsing dates
+	- Using non-synchronized literals (LITERAL+) broke APPEND
+	- Renaming maildir subfolders inserted extra "." in the middle.
+	- Subfolders were a bit broken with maildir
+	- Invalid PLAIN auth request crashed auth process.
+
+v0.99.8 2003-02-25  Timo Sirainen <tss@iki.fi>
+
+	* NOTE: Configuration file has changed a bit: auth_userinfo was
+	  replaced by userdb and passdb. *_port were merged into *_listen.
+	  Disabling listening in imaps port is now done by changing protocols
+	  setting.
+
+	* Maildir: .customflags location has changed for INBOX. If you have
+	  set any custom flags, move Maildir/.INBOX/.customflags into
+	  Maildir/.customflags or they will be lost.
+
+	* mbox: Autodetect /var/mail/%u and /var/spool/mail/%u as INBOXes
+	  if they're found and mail_default_env isn't set.
+
+	* passwd-file: File format changed a bit. If you used realm or mail
+	  fields, you'll have to fix the file. See doc/auth.txt for description
+	  of the format.
+
+	+ Fully featured POP3 server included. Disabled by default.
+	+ Support for LITERAL+, MULTIAPPEND, UNSELECT, IDLE, CHILDREN and
+	  LISTEXT extensions.
+	+ LDAP authentication support.
+	+ Internal API cleanups made Dovecot faster and take less memory
+	+ auth_verbose logs now all authentication failures
+	+ Support for Solaris 9 sendfilev()
+	+ New setting: mail_full_filesystem_access allows clients to access the
+	  whole filesystem by simply giving the path before the mailbox name
+	  (eg. SELECT ~user/mail/box, LIST "" /tmp/%). While this allows users
+	  to share mailboxes, it's not recommended since Dovecot's index files
+	  can't be safely shared.
+	+ New setting: client_workarounds.
+	+ Dynamically loadable authentication modules. Binary package builders
+	  should consider using it for at least LDAP.
+	+ mbox: Content-Length is saved now to each saved message, so it's
+	  now safe to have lines beginning with "From ".
+	+ mbox: mail_read_mmaped = no works with it now
+	+ Indexes can be kept in memory by adding :INDEX=MEMORY to MAIL
+	  environment. There's not much point to do this now though, since the
+	  UIDs won't be saved.
+	- COPY now behaves as RFC2060 says: "If the COPY command is
+	  unsuccessful for any reason, server implementations MUST restore the
+	  destination mailbox to its state before the COPY attempt."
+	- LIST and LSUB rewrite, should fix several bugs in them
+	- maildir_copy_with_hardlinks = yes was broken.
+	- mboxes in subfolders weren't selectable.
+	- STORE didn't accept multiple flags without () around them
+	- PLAIN SASL-authentication was a bit broken.
+	- IMAP dates were parsed a few hours wrong
+	- STATUS command removed \Recent flags from messages
+	- Several bugfixes to SEARCH command, especially related to multiple
+	  search conditions
+	- If auth/login process died unexpectedly at startup, the exit status
+	  or killing signal wasn't logged.
+	- mbox parsing might have crashed sometimes
+	- mbox: when saving mails, internal headers were allowed in input,
+	  sometimes causing problems (eg. duplicate headers) when appending
+	  and copying messages
+	- mbox: X-Keywords headers were duplicated
+	- Some small fixes to how messages are saved to Maildir
+	- Next command after STARTTLS was ignored which left the connection
+	  stuck sometimes
+	- Dovecot was pretty much broken with FreeBSD
+
+v0.99.7 2003-01-14  Timo Sirainen <tss@iki.fi>
+
+	+ Rewrote doc/index.txt, small updates to doc/design.txt and
+	  doc/multiaccess.txt
+	- New hash table code was broken with removing, which broke several
+	  things. Fixed, but it's still a bit ugly code though..
+
+v0.99.6 2003-01-13  Timo Sirainen <tss@iki.fi>
+
+	+ THREAD=REFERENCES extension support. ORDEREDSUBJECT would be easy to
+	  add, but I think it's pretty useless.
+	+ SORT is much faster now.
+	+ mbox: If ~/mail directory isn't found, create it.
+	+ Log login usernames
+	* Some coding style changes (less typedefs)
+	- Mails with nested MIME parts might have caused incorrect BODY and
+	  BODYSTRUCTURE fetches and sometimes might have crashed dovecot
+	  (assert at imap-bodystructure.c). If client had already successfully
+	  done the BODY fetching a couple of times, the bug couldn't happen
+	  anymore since Dovecot then began caching the BODY data. So, this
+	  mostly happened with new users.
+	- non-UID SEARCH might gave wrong replies in certain conditions.
+	- SORT replied always with UIDs instead of sequences.
+	- If authentication was aborted by client ("*" reply to AUTHENTICATE),
+	  the login process crashed later.
+	- STATUS command gave invalid reply for mailboxes with spaces in name
+	- Timezones were parsed wrong with message dates
+	- Digest-MD5: We used "qop-options" instead of "qop", which was
+	  incompatible with at least Cyrus SASL.
+	- Realms in passwd-file were buggy
+	- Literals didn't work when logging in
+	- Crashed if it had to wait for mbox lock
+	- With invalid configuration auth and login processes were just dying
+	  and master filling log files infinitely.
+	- We didn't work with some 64bit systems
+
+v0.99.5 2003-01-02  Timo Sirainen <tss@iki.fi>
+
+	* This release includes a lot of code cleanups, especially related to
+	  security. Direct buffer modifying was replaced in several places
+	  with a new buffer API, which provides a safe way to do it. Code that
+	  looks unsafe contains @UNSAFE tag to make auditing easier.
+
+	+ Support for SORT extension. Originally I thought about not
+	  implementing any extensions before 1.0, but too many people want
+	  webmails which want SORT. THREAD is another extension which they
+	  want, but we don't support it yet.
+	+ imap_listen and imaps_listen settings now accept "*" and "::" to
+	  specify if we want to listen in IPv4 or IPv6 addresses. "::" may
+	  also listen in all IPv4 addresses depending on the OS (Linux does,
+	  BSD doesn't)
+	+ New setting: default_mail_env can be used to specify where to find
+	  users mailbox. Default is still to use autodetection.
+	+ New setting: imap_log_path to log logins etc. informational messages
+	  to different file.
+	+ We support now separate mbox file for INBOX folder, no need for
+	  symlink kludging anymore.
+	+ Support for keeping index files in different location than actual
+	  mailboxes.
+	? Disabled mailbox_check_interval setting by default, it breaks
+	  Evolution.
+	- SEARCH was still somewhat buggy, especially with laggy networks.
+	  Also body/header searches might have crashed or at least used
+	  memory too much
+	- Deleting messages in the middle of mbox caused dovecot to reindex
+	  the following messages as new messages (ie. change UIDs and set
+	  \Recent flag).
+	- Digest-MD5 auth: Initial server challenge packet was missing a comma,
+	  which might have made it incompatible with some implementations.
+	- Some more fixes to unnecessarily high memory usage
+	- SELECT and EXAMINE often printed UNSEEN reply or maybe complained
+	  about corrupted indexes. Happened usually only with mbox.
+	- FETCH BODYSTRUCTURE gave incorrect reply, breaking pine
+	- LIST was pretty buggy with mbox subfolders
+	- CHECK command returned just "missing parameters" error
+	- DELETE didn't work with mbox folders
+	- CREATE mailbox<hierarchy separator> failed always.
+	- CREATE and RENAME didn't create required hierarchies with mbox
+	- RFC822 date parser didn't handle single digit days correctly.
+	- login_process_per_connection = yes didn't work with imaps port
+	  connections which is exactly where it was mostly wanted.
+	- ssl_disabled = yes didn't disable listening in imaps port
+	- process limiting code didn't compile everywhere (eg. FreeBSD).
+	- Linux sendfile() was never detected
+	- We didn't work at all with gcc/PowerPC
+
+v0.99.4 2002-12-01  Timo Sirainen <tss@iki.fi>
+
+	- Command parser had several bugs when it didn't have enough data to
+	  parse the full command in one call, ie. network lags etc. triggered
+	  those bugs sometimes. This was the last "weird bug" I know of.
+	- Mbox indexes got broken when updating cached fields
+	- Fixed a few memory leaks and unneededly high memory usage while
+	  caching envelopes
+	- Fixes to searching from message body and header
+	- --with-ssldir didn't do anything and the default was empty
+
+v0.99.3 2002-11-26  Timo Sirainen <tss@iki.fi>
+
+	- mail_read_mmaped = no (default) caused mbox corruption with EXPUNGE.
+	  mmap()ing is forced for now.
+
+v0.99.2 2002-11-26  Timo Sirainen <tss@iki.fi>
+
+	+ If we have to wait for a lock longer, the client is now notified
+	  about it every 30 seconds.
+	- Default settings still pointed to lib directory instead of the
+	  libexec directory where the binaries were actually installed
+	- vpopmail support had to be kludged to fix a bug in vpopmail library
+	  which sometimes left extra character after the user name.
+	- Login process crashed if master process didn't let some user login.
+	  Normally this couldn't happen without error in configuration.
+	- select() based I/O loop wasn't working so Dovecot didn't work in
+	  eg. OSX. Also PAM authentication wasn't detected with OSX.
+	- Didn't compile with NetBSD-current
+
+v0.99.1 2002-11-25  Timo Sirainen <tss@iki.fi>
+
+	+ Added doc/mkcert.sh script to easily generate yourself a self-signed
+	  certificate. Modify doc/dovecot-openssl.cnf before running it.
+	+ --with-ssldir configure option to specify default path for /etc/ssl
+	+ Added ssl_disable setting to config file
+	- OpenSSL wasn't checked properly by configure
+	- vpopmail authentication module didn't compile
+	- We should install the binaries into libexec dir, not lib
+	- doc/configuration.txt and doc/mail-storages.txt were missing
+
+v0.99.0 2002-11-24  Timo Sirainen <tss@iki.fi>
+
+	+ Replaced hash file with binary tree file which makes Dovecot stay
+	  fast with large mailboxes after expunging multiple mails.
+	+ Several speed improvements with SEARCH
+	+ SEARCH CHARSET support using iconv(), although case-insensitive
+	  searching is currently supported only for ASCII characters.
+	+ OpenSSL support.
+	+ Support for regenerating Diffie Hellman and RSA parameters with
+	  specified intervals. NOTE: currently doesn't work with OpenSSL.
+	+ Support for each login connection being handled in it's own process.
+	  This is the default as it's more safe especially with SSL.
+	+ mbox locking is now safe, other processes can't modify the mbox file
+	  while we're reading it.
+	+ Notify clients with "EXISTS" almost immediately after new mail is
+	  received.
+	+ Rawlog: Support for saving user connections into files - useful for
+	  debugging.
+	+ Content-Language is finally parsed correctly
+	+ Lots of smaller speed optimizations
+	- Partial BODY[] fetches weren't working properly
+	- BODY[section] was buggy with message/rfc822 MIME parts
+	- STARTTLS wasn't working
+	- \* flag was missing from PERMANENTFLAGS.
+	- Comments inside <> mail addresses crashed.
+	- imap-login printed UTC timestamps to logfiles
+	- passwd-file wasn't reread the the file changed
+	- PAM authentication was implemented wrong, which caused it to break
+	  with some PAM plugins.
+	- Lots of smaller fixes, mostly to do with reliability
+
+v0.98.4 2002-10-06  Timo Sirainen <tss@iki.fi>
+
+	* Just a final release before replacing hash file with a binary tree.
+
+	- When fetching messages larger than 256k, sometimes Dovecot missed
+	  to send CR causing corrupted data at end of message and possibly
+	  complete failure depending on IMAP client.
+	- Fetching BODY or BODYSTRUCTURE for message having content-type of
+	  message/rfc822 didn't correctly add () around the envelope data.
+	- Several fixes to make it compile with HP/UX ANSI C compiler.
+	  Also fixed several warnings it showed up.
+
+v0.98.3 2002-10-01  Timo Sirainen <tss@iki.fi>
+
+	* Sorry, just noticed a very stupid bug which caused evolution 1.2
+	  beta to crash. I always thought it was just evolution's fault :)
+	- Several fields in BODY / BODYSTRUCTURE replies weren't quoted
+
+v0.98.2 2002-09-30  Timo Sirainen <tss@iki.fi>
+
+	+ --with-file-offset-size=32 can now be used to select 32bit file
+	  offsets. Using them should be a bit faster and take a bit less
+	  disk and memory (also needed to compile Dovecot successfully with
+	  TinyCC).
+	+ maildir_copy_with_hardlinks option works now
+	+ Check new mail and notify about it to client also after
+	  commands which don't allow full syncing (FETCH, STORE, SEARCH).
+	  Also always send RECENT after EXISTS notify.
+	+ If we're out of disk space while opening mailbox, notify about it
+	  with ALERT.
+	- STORE and SEARCH didn't handle properly message sequence numbers
+	  when some in the middle were externally deleted
+	- SEARCH: Only first search condition was checked.
+	- mbox: Message flags given to APPEND were ignored.
+	- mbox: index was corrupted when changing flags for multipart MIME
+	  messages
+	- Out of disk space-handling wasn't working properly with .customflags
+	  file
+	- if auth processes were killed, login processes weren't reconnecting
+	  to them
+
+v0.98.1 2002-09-24  Timo Sirainen <tss@iki.fi>
+
+	+ Faster and safer mbox rewriting when flags are updated
+	- Didn't save messages larger then 8192 bytes
+	- Several mbox breakages
+
+v0.98 2002-09-23  Timo Sirainen <tss@iki.fi>
+
+	+ mbox support is finally working. There's still some reliability
+	  fixes left but overall it should be quite usable.
+	+ vpopmail authentication support
+	+ We should be able to deal with "out of diskspace/quota" conditions
+	  properly, by keeping the indexes in memory and allowing user to
+	  delete mails to get more space.
+	+ Several speed enhancements
+	+ New configuration file option: overwrite_incompatible_index to force
+	  using ".imap.index" file, overwriting it if it isn't compatible
+	- Handle invalid message headers reliably
+	- Tons of bugfixes and code cleanups everywhere
+
+v0.97 2002-08-29  Timo Sirainen <tss@iki.fi>
+
+	+ Large mails are handled in 256kB blocks, so mail size no longer
+	  has hardly any effect on memory usage
+	+ 64bit file offsets are used if supported by system. This means
+	  Dovecot is fully capable of handling >2G mails in those systems.
+	  With 32bit offsets >2G mails may not behave too well, but should
+	  not crash either.
+	+ I fixed lots of potential integer overflows. This should make us
+	  fully crash-free no matter what happens (index file corruption
+	  mostly). I didn't verify everything too carefully yet, so more
+	  auditing is still needed before we fully reach that goal.
+	+ Implemented several missing tasks / optimizations to index handling.
+	  It should now stay fast after longer usage periods.
+	+ New configuration file options: log_path, log_timestamp, imaps_listen
+	+ "Critical errors" are now hidden from users, ie. any error message
+	  that is not a direct reply to user error is written into log file
+	  and user gets only "Internal error [timestamp]".
+	+ Nonblocking SSL handshaking
+	+ Lots of code cleanups
+	- Lots of mbox fixes, it seems to be somewhat reliable now
+	- Year in Date-field was parsed wrong
+	- Appending mail to mbox didn't work right
+	- Always verify that mailbox names are valid (especially they shouldn't
+	  contain "../")
+
+v0.96 2002-08-08  Timo Sirainen <tss@iki.fi>
+
+	* Changed to LGPL v2.1 license
+
+	+ STARTTLS support and optional disabling of plaintext authentication
+	  (LOGINDISABLED capability)
+	+ Support for custom message flags, each folder can have 26 different.
+	+ New configuration file options: imap_listen, max_logging_users,
+	  max_imap_processes
+	+ You can specify config file location to imap-master with -c <path>
+	+ All IMAP processes can now write to specified log file instead of
+	  syslog. Either do this by setting IMAP_LOGFILE environment, or
+	  give -l <path> parameter to imap-master.
+	+ Some cleanups to remove warnings with BSDs
+	+ Changed all %s .. strerror(errno) -> %m
+	+ Rewritten memory pool code
+	- imap-master didn't close all the fds for executed processes
+	- iobuffer code was buggy and caused the connection to terminate
+	  sometimes
+	- make install overwrote the existing dovecot.conf file, so it's now
+	  named as dovecot-example.conf
+
+v0.95 2002-07-31  Timo Sirainen <tss@iki.fi>
+
+	+ Initial SSL support using GNU TLS, tested with v0.5.1.
+	  TLS support is still missing.
+	+ Digest-MD5 authentication method
+	+ passwd-file authentication backend
+	+ Code cleanups
+	- Found several bugs from mempool and ioloop code, now we should
+	  be stable? :)
+	- A few corrections for long header field handling
+
+v0.94 2002-07-29  Timo Sirainen <tss@iki.fi>
+
+	* Supports running completely non-root now. imap-auth however is a
+	  bit problematic as we don't support passwd-file yet.
+	- Memory alignment fixes mostly
+	- Other misc. bugfixes

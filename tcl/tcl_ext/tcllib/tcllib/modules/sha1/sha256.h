@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: sha256.h,v 1.2 2006/11/04 15:25:34 patthoyts Exp $
+ *	$Id: sha256.h,v 1.3 2009/10/27 20:15:39 andreas_kupries Exp $
  */
 
 #ifndef _SHA256_H
@@ -44,12 +44,14 @@
 
 #ifdef _MSC_VER
 typedef unsigned __int64    uint64_t;
-#else
+#elif !(defined(__hpux) && defined(__ia64))
 typedef unsigned long long  uint64_t;
 #endif
 
+#if !(defined(__hpux) && defined(__ia64))
 typedef unsigned int        uint32_t;
 typedef unsigned char       uint8_t;
+#endif
 
 struct _SHA256Context {
   uint64_t totalLength;

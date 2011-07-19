@@ -7,7 +7,7 @@
 # Copyright (c) 2002 by David N. Welton <davidw@dedasys.com>.
 # Copyright (c) 2004,2005 by Michael Schlenker <mic42@users.sourceforge.net>.
 #
-# $Id: logger.test,v 1.29 2007/02/08 22:09:54 mic42 Exp $
+# $Id: logger.test,v 1.30 2008/12/17 21:51:17 mic42 Exp $
 
 # -------------------------------------------------------------------------
 
@@ -139,6 +139,13 @@ test logger-3.2 {log} {
     set ::INFO
 } {Danger Will Robinson!}
 
+test logger-3.3 {log} {
+    set log [logger::init global]
+    ${log}::logproc warn txt {set ::INFO $txt}
+    ${log}::warn Danger Will Robinson!
+    ${log}::delete
+    set ::INFO
+} {Danger Will Robinson!}
 
 test logger-3.4 {log} {
     set log1 [logger::init global]

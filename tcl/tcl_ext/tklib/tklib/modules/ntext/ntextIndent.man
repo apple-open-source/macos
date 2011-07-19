@@ -23,12 +23,12 @@ The behavior of [emph Ntext] may be configured application-wide by setting the v
 
 [para]
 [var ::ntext::classicWrap]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    0 - selects [emph Ntext] behaviour, i.e. display lines are indented to match the initial whitespace of the first display line of a logical line.
-[nl]
+[para]
    No other action is required if this option, and the text widget's [arg -wrap] option, are set before any text is entered in the widget, and if text is entered and edited only by the mouse and keyboard.  If, instead, text is manipulated by the script, or if the text widget's [arg -wrap] option or the value of [var ::ntext::classicWrap] are changed while the widget holds text, then calls to [emph ntext] functions are needed to alter the indentation.  See the section [sectref {INDENTING DISPLAY LINES}] for detailed instructions.
-[bullet]
+[item]
    1 - (default value) selects classic [emph Text] behaviour, i.e. no indentation.
 [list_end]
 
@@ -36,8 +36,8 @@ The behavior of [emph Ntext] may be configured application-wide by setting the v
 
 [para]
 [var ::ntext::newWrapRegexp]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
   the value is a regexp pattern that determines the character of a logical line to which display lines other than the first will be aligned.  The default value, [const [lb]^[lb]:space:[rb][rb]], ensures alignment with the first non-whitespace character.
 [list_end]
 
@@ -47,7 +47,8 @@ To use [emph Ntext] 's display line indentation:
 [list_begin enum]
 [enum] Set the variable [var ::ntext::classicWrap] to [const 0] (default value is [const 1]).  This enables bindings that will preserve indentation whenever the user modifies the widget contents using the keyboard and mouse.  If the widget already holds text, call [fun ::ntext::wrapIndent] to initialise indentation.
 
-[nl] Further instructions apply if the program changes the widget's contents, wrap configuration, or indent configuration.
+[para]
+Further instructions apply if the program changes the widget's contents, wrap configuration, or indent configuration.
 
 [enum] The program can change the text contents, e.g. by the .text insert command.  Such a change does not trigger a window binding, so the program should explicitly call function [fun ::ntext::wrapIndent] after inserting text.
 
@@ -60,38 +61,38 @@ To use [emph Ntext] 's display line indentation:
 [comment {do not use list_begin definitions and call - these give functions prominence at the top of the page, which is not appropriate in this case}]
 
 [fun ::ntext::wrapIndent] [arg textWidget] [opt index1] [opt index2]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Adjust the indentation of a text widget.  Different cases are discussed below.
 [list_end]
 
 [fun ::ntext::wrapIndent] [arg textWidget]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Adjust the indentation of all the text in text widget [arg textWidget].
 [list_end]
 
 [fun ::ntext::wrapIndent] [arg textWidget] [arg index1]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Adjust the indentation of a single logical line of a text widget - the line of [arg textWidget] that contains the index [arg index1].
 [list_end]
 
 [fun ::ntext::wrapIndent] [arg textWidget] [arg index1] [arg index2]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 Adjust the indentation of a range of logical lines of a text widget - the lines of [arg textWidget] that contain indices [arg index1] to [arg index2].
 [list_end]
 
 [emph Usage]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
 [fun ::ntext::wrapIndent] should be called only if the script changes the widget's contents or display properties.  If the contents of the widget have been modified by the keyboard or mouse, it is not necessary for the script to call [fun ::ntext::wrapIndent] because the appropriate calls are made automatically by the [emph Ntext] bindings.
-[bullet] The script should normally call [fun ::ntext::wrapIndent] if, for example, the script changes one of the following when the widget is not empty: the value of [var ::ntext::classicWrap], or the widget's [arg -wrap] status, or the widget's tab spacing, or the font size, or the widget's contents.
-[bullet] A call of the form [fun ::ntext::wrapIndent] [arg textWidget] will always suffice, but if changes are needed only to certain lines, it is more efficient to specify those lines with the optional arguments [opt index1], [opt index2].
-[bullet]
+[item] The script should normally call [fun ::ntext::wrapIndent] if, for example, the script changes one of the following when the widget is not empty: the value of [var ::ntext::classicWrap], or the widget's [arg -wrap] status, or the widget's tab spacing, or the font size, or the widget's contents.
+[item] A call of the form [fun ::ntext::wrapIndent] [arg textWidget] will always suffice, but if changes are needed only to certain lines, it is more efficient to specify those lines with the optional arguments [opt index1], [opt index2].
+[item]
 If the widget is in [arg -word] [arg wrap] mode, and if [var ::ntext::classicWrap] is set to [const 0], [fun ::ntext::wrapIndent] will apply indentation to the logical lines within the range specified by the function's arguments.
-[bullet]
+[item]
 In other cases, i.e. if the widget is in [arg -word] [arg char] or [arg -word] [arg none] mode, or if [var ::ntext::classicWrap] is set to [const 1],  [fun ::ntext::wrapIndent] will remove the indentation of the logical lines within the range specified by the function's arguments.
 [list_end]
 

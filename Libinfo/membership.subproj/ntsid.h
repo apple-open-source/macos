@@ -32,6 +32,6 @@ typedef struct {
 	u_int8_t		sid_authcount;
 	u_int8_t		sid_authority[6];
 	u_int32_t		sid_authorities[NTSID_MAX_AUTHORITIES];
-} nt_sid_t __attribute__ ((packed));
+} nt_sid_t;
 
 #endif /* !_NTSID_H_ */

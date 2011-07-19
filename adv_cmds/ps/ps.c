@@ -184,8 +184,8 @@ static char vfmt[] = "pid,state,time,sl,re,pagein,vsz,rss,lim,tsiz,"
 static char Zfmt[] = "label";
 #endif /* !__APPLE__ */
 char  p_dfmt[] = "pid tty time command=CMD";
-char  p_ffmt[] = "uid pid ppid cpu=C stime tty time command=CMD";
-char p_uffmt[] = "user pid ppid cpu=C stime tty time command=CMD";
+char  p_ffmt[] = "uid pid ppid cpu=C start=STIME tty time command=CMD";
+char p_uffmt[] = "user pid ppid cpu=C start=STIME tty time command=CMD";
 char  p_lfmt[] = "uid pid ppid flags cpu pri nice vsz=SZ rss wchan state=S paddr=ADDR tty time command=CMD";
 char    mfmt[] = "user pid tt %cpu state  pri stime utime command";
 
@@ -762,7 +762,7 @@ main(int argc, char *argv[])
 		}
 	}
 	for (i = 0; i < nkept; i++) {
-		if(kinfo[i].thread_count)
+		if (kinfo[i].invalid_tinfo == 0 && kinfo[i].thread_count)
 			free(kinfo[i].thval);	
 	}
 	free(kprocbuf);

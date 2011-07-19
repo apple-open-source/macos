@@ -48,6 +48,11 @@
 
 #include "HIDLib.h"
 
+OSStatus HIDGetCollectionExtendedNodes(HIDCollectionExtendedNodePtr ptLinkCollectionNodes,
+                                       UInt32 *piLinkCollectionNodesLength,
+                                       HIDPreparsedDataRef preparsedDataRef);
+
+
 /*
  *------------------------------------------------------------------------------
  *

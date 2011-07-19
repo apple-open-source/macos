@@ -1,0 +1,245 @@
+ManageSieve Configuration
+=========================
+
+*NOTE*: If you have used the Sieve plugin before and you have '.dovecot.sieve'
+files in user directories, you are advised to *make a backup first*. Although
+theManageSieve daemon takes care to move these files to the Sieve storage
+before it is substituted with a symbolic link, this is not a very well tested
+operation, meaning that there is a possibility that existing Sieve scripts get
+lost.
+
+The ManageSieve configuration consists of ManageSieve protocol settings and
+<Sieve interpreter> [Pigeonhole.Sieve.txt]-related settings. The Sieve
+interpreter settings are shared with settings of the <Sieve plugin>
+[Pigeonhole.Sieve.txt] for Dovecot's <Local Delivery Agent (LDA)> [LDA.txt] and
+<LMTP.txt>. First, the ManageSieve protocol settings are outlined and then the
+relevant Sieve settings are described.
+
+Protocol Configuration
+----------------------
+
+Along with all other binaries that Dovecot uses, the managesieve and
+managesieve-login binaries are installed during 'make install' of the
+<Pigeonhole.txt> package. The only thing you need to do to activate the
+ManageSieve protocol support in Dovecot is to add 'sieve' to the 'protocols='
+configuration line in your dovecot.conf. The managesieve daemon will listen on
+port 4190 by default. As the implementation of the managesieve daemon is
+largely based on the original IMAP implementation, it is very similar in terms
+of configuration. In addition to most mail daemon config settings, the
+managesieve daemon accepts a few more. The following settings can be configured
+in the 'protocol managesieve' section:
+
+managesieve_max_line_length = 65536:
+  The maximum ManageSieve command line length in bytes. This setting is
+  directly borrowed from IMAP. But, since long command lines are very unlikely
+  withManageSieve, changing this will not be very useful.
+
+managesieve_logout_format = bytes=%i/%o:
+  Specifies the string pattern used to compose the logout message of an
+  authenticated session. The following substitutions are available:
+
+:
+  ---%<-----------------------------------------------------------------------
+  %i - total number of bytes read from client
+  %o - total number of bytes sent to client
+  ---%<-----------------------------------------------------------------------
+
+managesieve_implementation_string = Dovecot Pigeonhole:
+  To fool ManageSieve clients that are focused on CMU's timesieved you can
+  specify the IMPLEMENTATION capability that the Dovecot reports to clients
+  (e.g. 'Cyrus timsieved v2.2.13').
+
+managesieve_max_compile_errors = 5:
+  The maximum number of compile errors that are returned to the client upon 
+  script upload or script verification.
+
+managesieve_sieve_capability =, managesieve_notify_capability = :
+  Respectively the SIEVE and NOTIFY capabilities reported by the ManageSieve
+  service before authentication. If left unassigned, these will be assigned
+  dynamically according to what the Sieve interpreter supports by default
+  (after login this may differ depending on the authenticated user).
+
+Sieve Interpreter Configuration
+-------------------------------
+
+The part of the <Sieve interpreter> [Pigeonhole.Sieve.txt] configuration that
+is relevant forManageSieve mainly consists of the settings that specify where
+the user's scripts are stored and where the active script is located.
+TheManageSieve service primarily uses the following Sieve interpreter settings
+in the 'plugin' section of the Dovecot configuration:
+
+sieve_dir = ~/sieve:
+  This specifies the path to the directory where the uploaded scripts are
+  stored. Scripts are stored as separate files with extension '.sieve'. All
+  other files are ignored when scripts are listed by aManageSieve client. The
+  Sieve interpreter also uses this setting to locate the user's personal
+  scripts for use with the Sieve include extension
+  [http://tools.ietf.org/html/draft-ietf-sieve-include]. A storage location
+  specified by 'sieve_dir' is always generated automatically if it does not
+  exist (as far as the system permits the user to do so; no root privileges are
+  used). This is similar to the behavior of the mail daemons regarding the
+  'mail_location' configuration.
+
+sieve = ~/.dovecot.sieve:
+  This specifies the location of the symbolic link pointing to the active
+  script in the Sieve storage directory. The Sieve interpreter uses this
+  setting to locate the main script file that needs to be executed upon
+  delivery. When usingManageSieve, this is a symbolic link managed by the
+  ManageSieve service. ManageSieve thereby determines which script (if any) in
+  the 'sieve_dir' directory is executed for incoming messages. If a regular
+  file already exists at the location specified by the 'sieve' setting, it is
+  moved to the 'sieve_dir' location before the symbolic link is installed. It
+  is renamed to 'dovecot.orig.sieve' and therefore listed as `dovecot.orig' by
+  aManageSieve client.
+
+Quota Support
+-------------
+
+By default, users can manage an unlimited number of Sieve scripts on the server
+throughManageSieve. However, ManageSieve can be configured to enforce limits on
+the number of personal Sieve scripts per user and/or the amount of disk storage
+used by these scripts. The maximum size of individual uploaded scripts is
+dictated by the configuration of the <Sieve interpreter>
+[Pigeonhole.Sieve.txt]. The limits are configured in the plugin section of the
+Dovecot configuration as follows:
+
+sieve_max_script_size = 1M:
+  The maximum size of a Sieve script.
+
+sieve_quota_max_scripts = 0:
+  The maximum number of personal Sieve scripts a single user can have.
+
+sieve_quota_max_storage = 0:
+  The maximum amount of disk storage a single user's scripts may occupy.
+
+A value of 0 for these settings means that no limit is enforced.
+
+Examples
+--------
+
+The following provides example configurations for ManageSieve in dovecot.conf
+for the various versions. Only sections relevant toManageSieve and the Sieve
+plugin are shown. Refer to 20-managesieve.conf in
+doc/dovecot/example-config/conf.d, but don't forget to add 'sieve' to the
+'protocols' setting if you use it.
+
+---%<-------------------------------------------------------------------------
+...
+service managesieve-login {
+  #inet_listener sieve {
+  #  port = 4190
+  #}
+
+  #inet_listener sieve_deprecated {
+  #  port = 2000
+  #}
+
+  # Number of connections to handle before starting a new process. Typically
+  # the only useful values are 0 (unlimited) or 1. 1 is more secure, but 0
+  # is faster. <doc/wiki/LoginProcess.txt>
+  #service_count = 1
+
+  # Number of processes to always keep waiting for more connections.
+  #process_min_avail = 0
+
+  # If you set service_count=0, you probably need to grow this.
+  #vsz_limit = 64M
+}
+
+service managesieve {
+  # Max. number of ManageSieve processes (connections)
+  #process_count = 1024
+}
+
+# Service configuration
+
+protocol sieve {
+  # Maximum ManageSieve command line length in bytes. ManageSieve usually does
+  # not involve overly long command lines, so this setting will not normally
+need
+  # adjustment
+  #managesieve_max_line_length = 65536
+
+  # Maximum number of ManageSieve connections allowed for a user from each IP
+address.
+  # NOTE: The username is compared case-sensitively.
+  #mail_max_userip_connections = 10
+
+  # Space separated list of plugins to load (none known to be useful so far).
+Do NOT
+  # try to load IMAP plugins here.
+  #mail_plugins =
+
+  # MANAGESIEVE logout format string:
+  #  %i - total number of bytes read from client
+  #  %o - total number of bytes sent to client
+  #managesieve_logout_format = bytes=%i/%o
+
+  # To fool ManageSieve clients that are focused on CMU's timesieved you can
+specify
+  # the IMPLEMENTATION capability that the dovecot reports to clients.
+  # For example: 'Cyrus timsieved v2.2.13'
+  #managesieve_implementation_string = Dovecot Pigeonhole
+
+  # Explicitly specify the SIEVE and NOTIFY capability reported by the server
+before
+  # login. If left unassigned these will be reported dynamically according to
+what
+  # the Sieve interpreter supports by default (after login this may differ
+depending
+  # on the user).
+  #managesieve_sieve_capability =
+  #managesieve_notify_capability =
+
+  # The maximum number of compile errors that are returned to the client upon
+script
+  # upload or script verification.
+  #managesieve_max_compile_errors = 5
+
+  # Refer to 90-sieve.conf for script quota configuration and configuration of
+  # Sieve execution limits.
+}
+
+plugin {
+  # Used by both the Sieve plugin and the ManageSieve protocol
+  sieve = ~/.dovecot.sieve
+  sieve_dir = ~/sieve
+}
+---%<-------------------------------------------------------------------------
+
+Proxy
+-----
+
+Like Dovecot's imapd, the ManageSieve login daemon supports proxying to
+multiple backend servers. Although the underlying code is copied from the imapd
+sources for the most part, it has someManageSieve-specifics that have not seen
+much testing. The <proxy configuration wiki page>
+[PasswordDatabase.ExtraFields.Proxy.txt] for POP3 and IMAP should apply to
+ManageSieve as well.
+
+Migration from Dovecot v1.x ManageSieve
+---------------------------------------
+
+The following has changed since the ManageSieve releases for Dovecot v1.x:
+
+ * For Dovecot v1.0 and v1.1, the 'sieve_dir' setting used by ManageSieve was
+   called 'sieve_storage'. Also, the 'sieve' and 'sieve_storage' settings were
+   located inside the 'protocol managesieve' section of the configuration. As
+   per Dovecot v1.2 these settings are shared with the Sieve plugin and located
+   in the 'plugin' section of the configuration. Make sure you have updated the
+   name of the 'sieve_dir' setting and the location of both these settings if
+   you are upgrading fromManageSieve for Dovecot v1.0/v1.1.
+ * Pigeonhole ManageSieve does not use the 'mail_location' configuration as a
+   fall-back anymore to determine a default location for storing Sieve scripts.
+   It always uses the 'sieve_dir' setting, with default value '~/sieve'.
+ * The Pigeonhole ManageSieve service now binds to TCP port 4190 by default due
+   to the IANA port assignment for theManageSieve service. When upgrading from
+   v1.x, this should be taken into account. For a smooth transition, the
+   service can be configured manually to listen on both port 2000 and port
+   4190, as demonstrated in the example section.
+ * The Dovecot configuration now calls the ManageSieve protocol 'sieve' instead
+   of 'managesieve' because it is registered as such with IANA. The binaries
+   and the services are still called 'managesieve' and 'managesieve-login'. The
+   example section demonstrates how this affects the configuration.
+
+(This file was created from the wiki on 2011-05-11 04:42)

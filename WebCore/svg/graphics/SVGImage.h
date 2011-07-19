@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
+ * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -11,10 +11,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -33,49 +33,47 @@
 
 namespace WebCore {
 
-    class ImageBuffer;
-    class Page;
-    class SVGImageChromeClient;
-    
-    class SVGImage : public Image {
-    public:
-        static PassRefPtr<SVGImage> create(ImageObserver* observer)
-        {
-            return adoptRef(new SVGImage(observer));
-        }
+class Page;
+class SVGImageChromeClient;
 
-    private:
-        virtual ~SVGImage();
+class SVGImage : public Image {
+public:
+    static PassRefPtr<SVGImage> create(ImageObserver* observer)
+    {
+        return adoptRef(new SVGImage(observer));
+    }
 
-        virtual String filenameExtension() const;
+private:
+    virtual ~SVGImage();
 
-        virtual void setContainerSize(const IntSize&);
-        virtual bool usesContainerSize() const;
-        virtual bool hasRelativeWidth() const;
-        virtual bool hasRelativeHeight() const;
+    virtual String filenameExtension() const;
 
-        virtual IntSize size() const;
-        
-        virtual bool dataChanged(bool allDataReceived);
+    virtual void setContainerSize(const IntSize&);
+    virtual bool usesContainerSize() const;
+    virtual bool hasRelativeWidth() const;
+    virtual bool hasRelativeHeight() const;
 
-        // FIXME: SVGImages are underreporting decoded sizes and will be unable
-        // to prune because these functions are not implemented yet.
-        virtual void destroyDecodedData(bool) { }
-        virtual unsigned decodedSize() const { return 0; }
+    virtual IntSize size() const;
 
-        virtual NativeImagePtr frameAtIndex(size_t) { return 0; }
-        
-        SVGImage(ImageObserver*);
-        virtual void draw(GraphicsContext*, const FloatRect& fromRect, const FloatRect& toRect, ColorSpace styleColorSpace, CompositeOperator);
-        
-        virtual NativeImagePtr nativeImageForCurrentFrame();
-        
-        OwnPtr<SVGImageChromeClient> m_chromeClient;
-        OwnPtr<Page> m_page;
-        OwnPtr<ImageBuffer> m_frameCache;
-    };
+    virtual bool dataChanged(bool allDataReceived);
+
+    // FIXME: SVGImages are underreporting decoded sizes and will be unable
+    // to prune because these functions are not implemented yet.
+    virtual void destroyDecodedData(bool) { }
+    virtual unsigned decodedSize() const { return 0; }
+
+    virtual NativeImagePtr frameAtIndex(size_t) { return 0; }
+
+    SVGImage(ImageObserver*);
+    virtual void draw(GraphicsContext*, const FloatRect& fromRect, const FloatRect& toRect, ColorSpace styleColorSpace, CompositeOperator);
+
+    virtual NativeImagePtr nativeImageForCurrentFrame();
+
+    OwnPtr<SVGImageChromeClient> m_chromeClient;
+    OwnPtr<Page> m_page;
+    RefPtr<Image> m_frameCache;
+};
 }
 
 #endif // ENABLE(SVG)
-
-#endif
+#endif // SVGImage_h

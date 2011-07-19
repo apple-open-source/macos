@@ -2,6 +2,7 @@
 [manpage_begin math::combinatorics n 1.2.3]
 [moddesc   {Tcl Math Library}]
 [titledesc {Combinatorial functions in the Tcl Math Library}]
+[category  Mathematics]
 [require Tcl 8.2]
 [require math [opt 1.2.3]]
 [description]

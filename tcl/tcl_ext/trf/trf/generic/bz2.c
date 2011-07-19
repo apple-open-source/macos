@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: bz2.c,v 1.7 2003/01/09 21:27:10 andreas_kupries Exp $
+ * CVS: $Id: bz2.c,v 1.8 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -205,7 +205,7 @@ ClientData     clientData;
   TrfBz2OptionBlock* o = (TrfBz2OptionBlock*) optInfo;
   int res;
 
-  c = (EncoderControl*) Tcl_Alloc (sizeof (EncoderControl));
+  c = (EncoderControl*) ckalloc (sizeof (EncoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -215,10 +215,10 @@ ClientData     clientData;
   c->state.bzfree  = NULL;
   c->state.opaque = NULL;
 
-  c->output_buffer = (char*) Tcl_Alloc (OUT_SIZE);
+  c->output_buffer = (char*) ckalloc (OUT_SIZE);
 
   if (c->output_buffer == (char*) NULL) {
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -229,8 +229,8 @@ ClientData     clientData;
       Bz2libError (interp, &c->state, res, "compressor/init");
     }
 
-    Tcl_Free ((VOID*) c->output_buffer);
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c->output_buffer);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -265,8 +265,8 @@ ClientData clientData;
   /* release conversion specific items here (BZ2) */
 
   bz.bcompressEnd (&c->state);
-  Tcl_Free ((char*) c->output_buffer);
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c->output_buffer);
+  ckfree ((char*) c);
 }
 
 /*
@@ -531,7 +531,7 @@ ClientData     clientData;
   DecoderControl*    c;
   int res;
 
-  c = (DecoderControl*) Tcl_Alloc (sizeof (DecoderControl));
+  c = (DecoderControl*) ckalloc (sizeof (DecoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -541,10 +541,10 @@ ClientData     clientData;
   c->state.bzfree  = NULL;
   c->state.opaque = NULL;
 
-  c->output_buffer = (char*) Tcl_Alloc (OUT_SIZE);
+  c->output_buffer = (char*) ckalloc (OUT_SIZE);
 
   if (c->output_buffer == (char*) NULL) {
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -555,8 +555,8 @@ ClientData     clientData;
       Bz2libError (interp, &c->state, res, "decompressor/init");
     }
 
-    Tcl_Free ((VOID*) c->output_buffer);
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c->output_buffer);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -594,8 +594,8 @@ ClientData clientData;
 
   bz.bdecompressEnd (&c->state);
 
-  Tcl_Free ((char*) c->output_buffer);
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c->output_buffer);
+  ckfree ((char*) c);
 }
 
 /*

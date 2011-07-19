@@ -33,6 +33,30 @@ confirm(void)
 }
 
 #ifdef WIN3264
+
+    static int
+reg_delete_key(HKEY hRootKey, const char *key)
+{
+    static int did_load = FALSE;
+    static HANDLE advapi_lib = NULL;
+    static LONG (WINAPI *delete_key_ex)(HKEY, LPCTSTR, REGSAM, DWORD) = NULL;
+
+    if (!did_load)
+    {
+	/* The RegDeleteKeyEx() function is only available on new systems.  It
+	 * is required for 64-bit registry access.  For other systems fall
+	 * back to RegDeleteKey(). */
+	did_load = TRUE;
+	advapi_lib = LoadLibrary("ADVAPI32.DLL");
+	if (advapi_lib != NULL)
+	    delete_key_ex = (LONG (WINAPI *)(HKEY, LPCTSTR, REGSAM, DWORD))GetProcAddress(advapi_lib, "RegDeleteKeyExA");
+    }
+    if (delete_key_ex != NULL) {
+	return (*delete_key_ex)(hRootKey, key, KEY_WOW64_64KEY, 0);
+    }
+    return RegDeleteKey(hRootKey, key);
+}
+
 /*
  * Check if the popup menu entry exists and what gvim it refers to.
  * Returns non-zero when it's found.
@@ -46,8 +70,8 @@ popup_gvim_path(char *buf)
     int		r;
 
     /* Open the key where the path to gvim.exe is stored. */
-    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Software\\Vim\\Gvim", 0, KEY_READ,
-						&key_handle) != ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Software\\Vim\\Gvim", 0,
+		    KEY_WOW64_64KEY | KEY_READ, &key_handle) != ERROR_SUCCESS)
 	return 0;
 
     /* get the DisplayName out of it to show the user */
@@ -72,8 +96,8 @@ openwith_gvim_path(char *buf)
 
     /* Open the key where the path to gvim.exe is stored. */
     if (RegOpenKeyEx(HKEY_CLASSES_ROOT,
-		"Applications\\gvim.exe\\shell\\edit\\command", 0, KEY_READ,
-						&key_handle) != ERROR_SUCCESS)
+		"Applications\\gvim.exe\\shell\\edit\\command", 0,
+		    KEY_WOW64_64KEY | KEY_READ, &key_handle) != ERROR_SUCCESS)
 	return 0;
 
     /* get the DisplayName out of it to show the user */
@@ -89,13 +113,14 @@ remove_popup(void)
     int		fail = 0;
     HKEY	kh;
 
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "CLSID\\{51EEE242-AD87-11d3-9C1E-0090278BBD99}\\InProcServer32") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "CLSID\\{51EEE242-AD87-11d3-9C1E-0090278BBD99}\\InProcServer32") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "CLSID\\{51EEE242-AD87-11d3-9C1E-0090278BBD99}") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "CLSID\\{51EEE242-AD87-11d3-9C1E-0090278BBD99}") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "*\\shellex\\ContextMenuHandlers\\gvim") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "*\\shellex\\ContextMenuHandlers\\gvim") != ERROR_SUCCESS)
 	++fail;
-    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved", 0, KEY_ALL_ACCESS, &kh) != ERROR_SUCCESS)
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved", 0,
+		      KEY_WOW64_64KEY | KEY_ALL_ACCESS, &kh) != ERROR_SUCCESS)
 	++fail;
     else
     {
@@ -103,9 +128,9 @@ remove_popup(void)
 	    ++fail;
 	RegCloseKey(kh);
     }
-    if (RegDeleteKey(HKEY_LOCAL_MACHINE, "Software\\Vim\\Gvim") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_LOCAL_MACHINE, "Software\\Vim\\Gvim") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_LOCAL_MACHINE, "Software\\Vim") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_LOCAL_MACHINE, "Software\\Vim") != ERROR_SUCCESS)
 	++fail;
 
     if (fail == 6)
@@ -121,19 +146,19 @@ remove_openwith(void)
 {
     int		fail = 0;
 
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell\\edit\\command") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell\\edit\\command") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell\\edit") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell\\edit") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "Applications\\gvim.exe\\shell") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "Applications\\gvim.exe") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "Applications\\gvim.exe") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, ".htm\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, ".htm\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, ".vim\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, ".vim\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
 	++fail;
-    if (RegDeleteKey(HKEY_CLASSES_ROOT, "*\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
+    if (reg_delete_key(HKEY_CLASSES_ROOT, "*\\OpenWithList\\gvim.exe") != ERROR_SUCCESS)
 	++fail;
 
     if (fail == 7)
@@ -261,35 +286,11 @@ remove_start_menu(void)
 }
 #endif
 
-#if 0  /* currently not used */
-/*
- * Return TRUE when we're on Windows 95/98/ME.
- */
-    static int
-win95(void)
-{
-    static int done = FALSE;
-    static DWORD PlatformId;
-
-    if (!done)
-    {
-	OSVERSIONINFO ovi;
-
-	ovi.dwOSVersionInfoSize = sizeof(ovi);
-	GetVersionEx(&ovi);
-	PlatformId = ovi.dwPlatformId;
-	done = TRUE;
-    }
-    /* Win NT/2000/XP is VER_PLATFORM_WIN32_NT */
-    return PlatformId == VER_PLATFORM_WIN32_WINDOWS;
-}
-#endif
-
     static void
 delete_uninstall_key(void)
 {
 #ifdef WIN3264
-    RegDeleteKey(HKEY_LOCAL_MACHINE, "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim " VIM_VERSION_SHORT);
+    reg_delete_key(HKEY_LOCAL_MACHINE, "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim " VIM_VERSION_SHORT);
 #else
     FILE	*fd;
     char	buf[BUFSIZE];
@@ -354,8 +355,9 @@ main(int argc, char *argv[])
     {
 	printf(" - the \"Edit with Vim\" entry in the popup menu\n");
 	printf("   which uses \"%s\"\n", popup_path);
-	printf("\nRemove it (y/n)? ");
-	if (confirm())
+	if (interactive)
+	    printf("\nRemove it (y/n)? ");
+	if (!interactive || confirm())
 	{
 	    remove_popup();
 	    /* Assume the "Open With" entry can be removed as well, don't
@@ -430,9 +432,14 @@ main(int argc, char *argv[])
 	printf("(They are still where you unpacked them.)\n");
     }
 
-    rewind(stdin);
-    printf("\nPress Enter to exit...");
-    (void)getchar();
+    if (interactive)
+    {
+	rewind(stdin);
+	printf("\nPress Enter to exit...");
+	(void)getchar();
+    }
+    else
+	sleep(3);
 
     return 0;
 }

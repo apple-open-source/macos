@@ -3,7 +3,7 @@
 [copyright {2005 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   {Math}]
 [titledesc {Polynomial functions}]
-
+[category  Mathematics]
 [require Tcl [opt 8.4]]
 [require math::rationalfunctions [opt 1.0.1]]
 

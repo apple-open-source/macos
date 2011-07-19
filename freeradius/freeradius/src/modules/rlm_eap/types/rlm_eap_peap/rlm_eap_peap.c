@@ -46,11 +46,13 @@ typedef struct rlm_eap_peap_t {
 	 */
 	int	copy_request_to_tunnel;
 
+#ifdef WITH_PROXY
 	/*
 	 *	Proxy tunneled session as EAP, or as de-capsulated
 	 *	protocol.
 	 */
 	int	proxy_tunneled_request_as_eap;
+#endif
 
 	/*
 	 *	Virtual server for inner tunnel session.
@@ -69,8 +71,10 @@ static CONF_PARSER module_config[] = {
 	{ "use_tunneled_reply", PW_TYPE_BOOLEAN,
 	  offsetof(rlm_eap_peap_t, use_tunneled_reply), NULL, "no" },
 
+#ifdef WITH_PROXY
 	{ "proxy_tunneled_request_as_eap", PW_TYPE_BOOLEAN,
 	  offsetof(rlm_eap_peap_t, proxy_tunneled_request_as_eap), NULL, "yes" },
+#endif
 
 	{ "virtual_server", PW_TYPE_STRING_PTR,
 	  offsetof(rlm_eap_peap_t, virtual_server), NULL, NULL },
@@ -160,7 +164,9 @@ static peap_tunnel_t *peap_alloc(rlm_eap_peap_t *inst)
 	t->default_eap_type = inst->default_eap_type;
 	t->copy_request_to_tunnel = inst->copy_request_to_tunnel;
 	t->use_tunneled_reply = inst->use_tunneled_reply;
+#ifdef WITH_PROXY
 	t->proxy_tunneled_request_as_eap = inst->proxy_tunneled_request_as_eap;
+#endif
 	t->virtual_server = inst->virtual_server;
 	t->session_resumption_state = PEAP_RESUMPTION_MAYBE;
 
@@ -199,49 +205,9 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	an EAP-TLS-Success packet here.
 		 */
 	case EAPTLS_SUCCESS:
-		if (SSL_session_reused(tls_session->ssl)) {
-			uint8_t tlv_packet[11];
-			
-			RDEBUG2("Skipping Phase2 because of session resumption.");
-			peap->session_resumption_state = PEAP_RESUMPTION_YES;
-			
-			tlv_packet[0] = PW_EAP_REQUEST;
-			tlv_packet[1] = handler->eap_ds->response->id +1;
-			tlv_packet[2] = 0;
-			tlv_packet[3] = 11;     /* length of this packet */
-			tlv_packet[4] = PW_EAP_TLV;
-			tlv_packet[5] = 0x80;
-			tlv_packet[6] = EAP_TLV_ACK_RESULT;
-			tlv_packet[7] = 0;
-			tlv_packet[8] = 2;      /* length of the data portion */
-			tlv_packet[9] = 0;
-			tlv_packet[10] = EAP_TLV_SUCCESS;
-			
-			peap->status = PEAP_STATUS_SENT_TLV_SUCCESS;
-
-			(tls_session->record_plus)(&tls_session->clean_in, tlv_packet, 11);
-			tls_handshake_send(tls_session);
-			(tls_session->record_init)(&tls_session->clean_in);
-
-		} else {
-			eap_packet_t eap_packet;
-
-			eap_packet.code = PW_EAP_REQUEST;
-			eap_packet.id = handler->eap_ds->response->id + 1;
-			eap_packet.length[0] = 0;
-			eap_packet.length[1] = EAP_HEADER_LEN + 1;
-			eap_packet.data[0] = PW_EAP_IDENTITY;
-
-			(tls_session->record_plus)(&tls_session->clean_in,
-						  &eap_packet, sizeof(eap_packet));
-
-			tls_handshake_send(tls_session);
-			(tls_session->record_init)(&tls_session->clean_in);
-		}
-
-		eaptls_request(handler->eap_ds, tls_session);
 		RDEBUG2("EAPTLS_SUCCESS");
-		return 1;
+		peap->status = PEAP_STATUS_TUNNEL_ESTABLISHED;
+		break;
 
 		/*
 		 *	The TLS code is still working on the TLS
@@ -309,8 +275,9 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		peap = tls_session->opaque;
 		if (peap->accept_vps) {
 			RDEBUG2("Using saved attributes from the original Access-Accept");
-			pairmove(&handler->request->reply->vps, &peap->accept_vps);
-			pairfree(&peap->accept_vps);
+			debug_pair_list(peap->accept_vps);
+			pairadd(&handler->request->reply->vps, peap->accept_vps);
+			peap->accept_vps = NULL;
 		}
 
 		/*
@@ -325,7 +292,9 @@ static int eappeap_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	will proxy it, rather than returning an EAP packet.
 		 */
 	case RLM_MODULE_UPDATED:
+#ifdef WITH_PROXY
 		rad_assert(handler->request->proxy != NULL);
+#endif
 		return 1;
 		break;
 

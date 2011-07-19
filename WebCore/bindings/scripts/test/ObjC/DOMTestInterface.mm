@@ -25,6 +25,9 @@
  */
 
 #import "config.h"
+
+#if ENABLE(Condition1) || ENABLE(Condition2)
+
 #import "DOMInternal.h"
 
 #import "DOMTestInterface.h"
@@ -37,6 +40,7 @@
 #import "DOMStyleSheetInternal.h"
 #import "DOMTestInterfaceInternal.h"
 #import "ExceptionHandlers.h"
+#import "JSMainThreadExecState.h"
 #import "TestInterface.h"
 #import "ThreadCheck.h"
 #import "WebCoreObjCExtras.h"
@@ -84,3 +88,5 @@ DOMTestInterface *kit(WebCore::TestInterface* value)
     addDOMWrapper(wrapper, value);
     return [wrapper autorelease];
 }
+
+#endif // ENABLE(Condition1) || ENABLE(Condition2)

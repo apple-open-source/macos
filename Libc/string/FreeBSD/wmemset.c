@@ -32,15 +32,12 @@
 __RCSID("$NetBSD: wmemset.c,v 1.1 2000/12/23 23:14:37 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wmemset.c,v 1.6 2002/09/21 00:29:23 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wmemset.c,v 1.8 2009/02/03 20:25:36 imp Exp $");
 
 #include <wchar.h>
 
 wchar_t	*
-wmemset(s, c, n)
-	wchar_t *s;
-	wchar_t c;
-	size_t n;
+wmemset(wchar_t *s, wchar_t c, size_t n)
 {
 	size_t i;
 	wchar_t *p;

@@ -114,6 +114,7 @@ enum
 	kUSBDeviceResetAfterDisconnect		= 0x12,
 	kUSBDeviceResetReturned				= 0x13,
 	kAbortCurrentSCSITask				= 0x14,
+	kCompletingCommandWithError			= 0x15,
 
 	// CBI Tracepoints					0x05278900 - 0x0527897C
 	kCBIProtocolDeviceDetected			= 0x40,

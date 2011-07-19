@@ -1,0 +1,53 @@
+Negative UIDs
+=============
+
+---%<-------------------------------------------------------------------------
+Invalid messageset: 1181461470:-1181461446.
+---%<-------------------------------------------------------------------------
+
+IMAP uses unsigned 32bit integers for unique message identifiers. Unfortunately
+a lot of IMAP clients use 32bit signed integers, which means that if the UIDs
+go higher than 2147483647, they'll wrap to negative integers. This causes
+errors such as above.
+
+However normally the UIDs should never go that high, so it's possible to avoid
+this problem.
+
+mbox
+----
+
+Earlier Dovecot versions had bugs which could cause X-UID: headers in incoming
+messages to grow the UIDs too high. Some spam messages especially contained
+these intentionally broken X-UID: headers.
+
+With newer Dovecot versions these broken X-UID: headers aren't practically ever
+used. It happens only if the mail has a valid X-IMAPbase: header, X-UID: header
+and the mail is written to an empty mbox file. Note that this can happen only
+new mboxes, because expunging all messages in a mailbox causes Dovecot to
+create a metadata message at the beginning of the mbox file.
+
+In any case it's still a good idea to filter out X-UID: and other metadata
+headers in your MDA. <Dovecot's deliver> [LDA.txt] does this internally. See
+<MboxProblems.txt> for a list of headers to filter out.
+
+Fixing
+------
+
+Fixing is done by letting Dovecot update UIDVALIDITY value and recreate the
+UIDs beginning from one. This means that client's local cache will be
+invalidated and the client will be required to download all the messages again.
+
+mbox
+----
+
+Delete Dovecot's index files (eg. '.imap/INBOX/') and X-IMAP: and X-IMAPbase:
+headers from the mbox file.
+
+Maildir
+-------
+
+This should really never be a problem with Maildir. If however you have managed
+to cause it somehow (by receiving 2 billion mails?), you can recreate the UIDs
+by deleting 'dovecot-uidlist' file.
+
+(This file was created from the wiki on 2011-05-11 04:42)

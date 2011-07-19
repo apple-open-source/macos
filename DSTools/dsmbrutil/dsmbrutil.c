@@ -632,14 +632,19 @@ int flushcache( void )
 int dumpstate( void )
 {
 	mach_port_t	serverPort;
+	kern_return_t kr;
 	
-	if ( bootstrap_look_up( bootstrap_port, kDSStdMachDSLookupPortName, &serverPort ) != KERN_SUCCESS)
-	{
-		printf( "Got an error looking up DirectoryService running?\n");
+	kr = bootstrap_look_up(bootstrap_port, kDSStdMachDSMembershipPortName, &serverPort);
+	if (kr != KERN_SUCCESS) {
+		fprintf(stderr, "Failed to contact opendirectoryd (%d).\n", kr);
 		exit(EIO);
 	}
 	
-	memberdDSmig_DumpState( serverPort );
+	kr = memberdDSmig_DumpState( serverPort );
+	if (kr != KERN_SUCCESS) {
+		fprintf(stderr, "Operation failed (%d).\n", kr);
+		exit(EIO);
+	}
 	
 	return 0;
 }
@@ -651,6 +656,7 @@ int statistics( int argc, char *argv[] )
 	mach_port_t	serverPort;
 	int flushStats = 0;
 	char ch;
+	kern_return_t kr;
 	
 	optind = 0;
 	
@@ -664,9 +670,9 @@ int statistics( int argc, char *argv[] )
 		}
 	}
 
-	if ( bootstrap_look_up( bootstrap_port, kDSStdMachDSLookupPortName, &serverPort ) != KERN_SUCCESS)
-	{
-		printf( "Got an error looking up DirectoryService running?\n");
+	kr = bootstrap_look_up(bootstrap_port, kDSStdMachDSMembershipPortName, &serverPort);
+	if (kr != KERN_SUCCESS) {
+		fprintf(stderr, "Failed to contact opendirectoryd (%d).\n", kr);
 		exit(EIO);
 	}
 	
@@ -676,14 +682,19 @@ int statistics( int argc, char *argv[] )
 	}
 	else
 	{
-		memberdDSmig_GetStats( serverPort, &stats );
+		memset(&stats, 0, sizeof(stats));
+		kr = memberdDSmig_GetStats( serverPort, &stats );
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "Operation failed (%d).\n", kr);
+			exit(EIO);
+		}
 		
 		temp = stats.fTotalUpTime / 60;
 		minutes = temp % 60;
 		temp /= 60;
 		hours = temp % 24;
 		temp /= 24;
-		printf("DirectoryService running for %d days, %d hours and %d minutes\n", temp, hours, minutes);
+		printf("opendirectoryd running for %d days, %d hours and %d minutes\n", temp, hours, minutes);
 		printf("%llu requests,", stats.fTotalCallsHandled);
 		PrintAverageTime(stats.fAverageuSecPerCall);
 		printf("%llu cache hits, %llu cache misses\n", stats.fCacheHits, stats.fCacheMisses);

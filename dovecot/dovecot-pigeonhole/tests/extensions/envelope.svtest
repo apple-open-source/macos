@@ -1,0 +1,246 @@
+require "vnd.dovecot.testsuite";
+
+require "envelope";
+
+/*
+ * Empty envelope addresses
+ */
+
+/* RFC 5228, Section 5.4: The null reverse-path is matched against as the empty
+ * string, regardless of the ADDRESS-PART argument specified.
+ */
+
+test "Envelope - from empty" {
+	/* Return_path: "" */
+
+	test_set "envelope.from" "";
+
+	if not envelope :all :is "from" "" {
+		test_fail "failed to (:all :is)-match a \"\" return path";
+	}
+
+	if not envelope :all :contains "from" "" {
+		test_fail "failed to (:all :contains)-match a \"\" return path";
+	}
+
+	if not envelope :domain :is "from" "" {
+		test_fail "failed to (:domain :is)-match a \"\" return path";
+	}
+
+	if not envelope :domain :contains "from" "" {
+		test_fail "failed to (:domain :contains)-match a \"\" return path";
+	}
+
+	/* Return path: <> */
+
+	test_set "envelope.from" "<>";
+
+	if not envelope :all :is "from" "" {
+		test_fail "failed to (:all :is)-match a <> return path";
+	}
+
+	if not envelope :all :contains "from" "" {
+		test_fail "failed to (:all :contains)-match a <> return path";
+	}
+
+	if not envelope :domain :is "from" "" {
+		test_fail "failed to (:domain :is)-match a <> return path";
+	}
+
+	if not envelope :domain :contains "from" "" {
+		test_fail "failed to (:domain :contains)-match a <> return path";
+	}
+
+	if envelope :all :is "from" "nico@frop.example.org" {
+		test_fail "envelope test matches nonsense";
+	}
+
+	/* Forward path: <> */
+
+	test_set "envelope.to" "<>";
+
+	if envelope :all :is "to" "" {
+		test_fail "successfully matched a <> forward path, which is wrong";
+	}
+}
+
+/*
+ * Invalid envelope addresses
+ */
+
+test "Envelope - invalid paths" {
+	/* Return_path: "hutsefluts" */
+
+	test_set "envelope.from" "hutsefluts@";
+	test_set "envelope.to" "knurft@";
+
+	if not envelope :all :is "from" "hutsefluts@" {
+		test_fail ":all address part mangled syntactically incorrect reverse path";
+	}
+
+	if envelope :localpart :is "from" "hutsefluts" {
+		test_fail ":localpart address part matched syntactically incorrect reverse path";
+	}
+
+	if envelope :domain :contains "from" "" {
+		test_fail ":domain address part matched syntactically incorrect reverse path";
+	}
+
+	if not envelope :all :is "to" "knurft@" {
+		test_fail ":all address part mangled syntactically incorrect forward path";
+	}
+
+	if envelope :localpart :is "to" "knurft" {
+		test_fail ":localpart address part matched syntactically incorrect forward path";
+	}
+
+	if envelope :domain :contains "to" "" {
+		test_fail ":domain address part matched syntactically incorrect forward path";
+	}
+}
+
+/*
+ * Syntax errors 
+ */
+
+test "Envelope - syntax errors" {
+	/* Control */
+	test_set "envelope.from" "<stephan@example.org>";
+	if not envelope :all :is "from" "stephan@example.org" {
+		test_fail "correct control test failed";
+	}
+
+	# Duplicate <
+	test_set "envelope.from" "<<stephan@example.org>";
+	if envelope :all :is "from" "stephan@example.org" {
+		test_fail "failed to recognize syntax error (1)";
+	}
+
+	# Spurious >
+	test_set "envelope.from" "stephan@example.org>";
+	if envelope :all :is "from" "stephan@example.org" {
+		test_fail "failed to recognize syntax error (2)";
+	}
+
+	# Missing >
+	test_set "envelope.from" "<stephan@example.org";
+	if envelope :all :is "from" "stephan@example.org" {
+		test_fail "failed to recognize syntax error (3)";
+	}
+
+	# No @
+	test_set "envelope.from" "<stephan example.org>";
+	if envelope :domain :contains "from" "" {
+		test_fail "failed to recognize syntax error (4)";
+	}
+
+	# Duplicate @
+	test_set "envelope.from" "<stephan@@example.org>";
+	if envelope :domain :contains "from" "" {
+		test_fail "failed to recognize syntax error (5)";
+	}
+}
+
+/*
+ * Ignoring source routes
+ */
+
+test "Envelope - source route" {
+	/* Single */
+	test_set "envelope.from" "<@cola.example.org:stephan@example.org>";
+	if not envelope :localpart :is "from" "stephan" {
+		test_fail "parsing path with source route (single) failed";
+	}
+
+	/* Dual */
+	test_set "envelope.from" "<@cola.example.org,@mx.utwente.nl:stephan@example.org>";
+	if not envelope :localpart :is "from" "stephan" {
+		test_fail "parsing path with source route (dual) failed";
+	}
+	
+	/* Multiple */
+	test_set "envelope.from" "<@cola.example.org,@mx.utwente.nl,@smtp.example.net:stephan@example.org>";
+	if not envelope :localpart :is "from" "stephan" {
+		test_fail "parsing path with source route (multiple) failed";
+	}
+
+	/* Bare */
+	test_set "envelope.from" "@cola.example.org,@mx.utwente.nl,@smtp.example.net:stephan@example.org";
+	if not envelope :domain :is "from" "example.org" {
+		test_fail "parsing path with source route (bare) failed";
+	}	
+
+	/* Whitespace */
+	test_set "envelope.from" "   < @ cola . example . org , @ mx . utwente .   nl , 	@ smtp  .  iki  . fi	:   stephan		@     example   .		org >  ";
+	if not envelope :domain :is "from" "example.org" {
+		test_fail "parsing path with source route (whitespace) failed";
+	}
+}
+
+test "Envelope - source route errors" {
+	test_set "envelope.to" "<cola.example.org:stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (1)";
+	}
+
+	test_set "envelope.to" "<@.example.org:stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (2)";
+	}
+
+	test_set "envelope.to" "<@cola..nl:stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (3)";
+	}
+
+	test_set "envelope.to" "<@cola.example.orgstephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (4)";
+	}
+
+	test_set "envelope.to" "<@cola.example.org@mx.utwente.nl:stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (5)";
+	}
+
+	test_set "envelope.to" "<@cola.example.org,mx.utwente.nl:stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (6)";
+	}
+
+	test_set "envelope.to" "<@cola.example.org,@mx.utwente.nl,stephan@example.org>";
+	if envelope :domain :contains "to" "" {
+		test_fail "parsing syntactically incorrect path should have failed (7)";
+	}
+
+	if not envelope :all :is "to" "<@cola.example.org,@mx.utwente.nl,stephan@example.org>" {
+		test_fail ":all address part mangled syntactically incorrect path";
+	}
+}
+
+test "Envelope - local part only" {
+	test_set "envelope.to" "<MAILER-DAEMON>";
+	if not envelope :is "to" "MAILER-DAEMON" {
+		test_fail "failed to parse local_part only path";
+	}
+
+	test_set "envelope.to" "MAILER-DAEMON@";
+	if envelope :is "to" "MAILER-DAEMON" {
+		test_fail "parsing syntactically incorrect path with missing domain";
+	}
+
+	test_set "envelope.to" "<MAILER-DAEMON>";
+	if not envelope :is "to" "MAILER-DAEMON" {
+		test_fail "failed to parse local_part only path with angle brackets";
+	}
+
+	test_set "envelope.to" "<MAILER-DAEMON  >";
+	if not envelope :is "to" "MAILER-DAEMON" {
+		test_fail "failed to parse local_part only path with angle brackets and whitespace";
+	}
+
+	test_set "envelope.to" "   MAILER-DAEMON   ";
+	if not envelope :is "to" "MAILER-DAEMON" {
+		test_fail "failed to parse local_part only path with whitespace";
+	}
+}

@@ -1,6 +1,57 @@
---- /tmp/jabberd-2.1.24.1/router/main.c	2008-04-27 02:57:33.000000000 -0700
-+++ ./jabberd2/router/main.c	2009-09-30 16:38:49.000000000 -0700
-@@ -66,7 +66,7 @@ static void _router_config_expand(router
+--- /tmp/jabberd-2.2.13/router/main.c	2011-02-23 08:24:35.000000000 -0800
++++ ./jabberd2/router/main.c	2011-04-05 20:29:43.000000000 -0700
+@@ -38,6 +38,10 @@ static void _router_pidfile(router_t r) 
+     char *pidfile;
+     FILE *f;
+     pid_t pid;
++    char piddir[PATH_MAX] = "";
++    struct stat statbuf;
++    int i, last;
++    int i_slash = 0;
+ 
+     pidfile = config_get_one(r->config, "pidfile", 0);
+     if(pidfile == NULL)
+@@ -45,6 +49,39 @@ static void _router_pidfile(router_t r) 
+ 
+     pid = getpid();
+ 
++    // Get the pid directory from the full file path
++    for (i = 0; pidfile[i] != '\0'; i++) {
++        if (pidfile[i] == '/')
++            i_slash = i;
++    }
++    do { // not a loop
++        if (i_slash == 0) {
++            // no directory provided in pidfile preference, or only one slash found in path... skip creation attempt
++            break;
++        } else {
++            last = i_slash+1;
++        }
++        if (i_slash > sizeof(piddir)) {
++            log_write(r->log, LOG_ERR, "specified PID path exceeds the maximum allowed length");
++            return;
++        }
++        strlcpy(piddir, pidfile, last);
++
++        // Create the pid directory if it does not exist (don't attempt to create intermediate directories)
++        if (stat(piddir, &statbuf)) {
++            log_debug(ZONE, "pid directory appears to not exist, trying to create it...");
++            if (mkdir(piddir, 0755)) {
++                if ((errno == EEXIST) && (! stat(piddir, &statbuf))) {
++                    log_debug(ZONE, "working around probable race condition, pid directory now exists");
++                    break;
++                }
++                log_write(r->log, LOG_ERR, "couldn't create pid directory %s: %s", piddir, strerror(errno));
++                return;
++            }
++            log_debug(ZONE, "created pid directory: %s", piddir);
++        }
++    } while(0); // not a loop
++
+     if((f = fopen(pidfile, "w+")) == NULL) {
+         log_write(r->log, LOG_ERR, "couldn't open %s for writing: %s", pidfile, strerror(errno));
+         return;
+@@ -66,7 +103,7 @@ static void _router_config_expand(router
  {
      char *str, *ip, *mask, *name, *target;
      config_elem_t elem;
@@ -9,7 +60,7 @@
      alias_t alias;
  
      r->id = config_get_one(r->config, "id", 0);
-@@ -101,6 +101,8 @@ static void _router_config_expand(router
+@@ -101,6 +138,8 @@ static void _router_config_expand(router
  
      r->local_pemfile = config_get_one(r->config, "local.pemfile", 0);
  
@@ -18,7 +69,7 @@
      r->io_max_fds = j_atoi(config_get_one(r->config, "io.max_fds", 0), 1024);
  
      elem = config_get(r->config, "io.limits.bytes");
-@@ -186,6 +188,23 @@ static void _router_config_expand(router
+@@ -186,6 +225,23 @@ static void _router_config_expand(router
              r->aliases = alias;
          }
      
@@ -38,11 +89,11 @@
 +	r->message_logging_roll_days = j_atoi(config_get_one(r->config, "message_logging_roll_days", 0), 30);
 +	r->message_logging_roll_megs = j_atoi(config_get_one(r->config, "message_logging_roll_megs", 0), 500);
 +	r->filter_muc_messages_from = config_get_one(r->config, "filter_muc_messages_from", 0);
-+
++    
      r->check_interval = j_atoi(config_get_one(r->config, "check.interval", 0), 60);
      r->check_keepalive = j_atoi(config_get_one(r->config, "check.keepalive", 0), 0);
  }
-@@ -282,6 +301,7 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+@@ -282,6 +338,7 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
      rate_t rt;
      component_t comp;
      union xhashv xhv;
@@ -50,51 +101,51 @@
  
  #ifdef POOL_DEBUG
      time_t pool_time = 0;
-@@ -394,11 +414,11 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+@@ -394,7 +451,7 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
  
  #ifdef HAVE_SSL
      if(r->local_pemfile != NULL) {
--        r->sx_ssl = sx_env_plugin(r->sx_env, sx_ssl_init, r->local_pemfile, NULL, NULL);
-+        r->sx_ssl = sx_env_plugin(r->sx_env, sx_ssl_init, r->local_pemfile, NULL, NULL, r->local_private_key_password);
+-        r->sx_ssl = sx_env_plugin(r->sx_env, sx_ssl_init, NULL, r->local_pemfile, NULL, NULL);
++        r->sx_ssl = sx_env_plugin(r->sx_env, sx_ssl_init, NULL, r->local_pemfile, NULL, NULL, r->local_private_key_password);
          if(r->sx_ssl == NULL)
              log_write(r->log, LOG_ERR, "failed to load SSL pemfile, SSL disabled");
      }
--#endif
-+#endif // HAVE_SSL
+@@ -457,6 +514,12 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
  
-     /* get sasl online */
-     r->sx_sasl = sx_env_plugin(r->sx_env, sx_sasl_init, "jabberd-router", _router_sx_sasl_callback, (void *) r);
-@@ -447,6 +467,12 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+             _router_time_checks(r);
              
-             r->next_check = time(NULL) + r->check_interval;
-             log_debug(ZONE, "next time check at %d", r->next_check);
-+
 +			if (r->message_logging_enabled)
 +			{
 +				// Roll message logs if necessary
 +				roll_message_log(r);
 +			}
++
+             r->next_check = time(NULL) + r->check_interval;
+             log_debug(ZONE, "next time check at %d", r->next_check);
          }
- 
- #ifdef POOL_DEBUG
-@@ -466,12 +492,16 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+@@ -485,6 +548,8 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
       *     their destinations
       */
  
 +    close_wait_max = 30; /* time limit for component shutdown */
-+    
++
      /* close connections to components */
      xhv.comp_val = &comp;
      if(xhash_iter_first(r->components))
-         do {
-             xhash_iter_get(r->components, NULL, xhv.val);
-             sx_close(comp->s);
+@@ -493,9 +558,11 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+             log_debug(ZONE, "close component %p", comp);
+             if (comp) sx_close(comp->s);
+             mio_run(r->mio, 5000);
 +            if (1 > close_wait_max--) break;
 +            sleep(1);
-         } while(xhash_count(r->components) > 0);
+             while(jqueue_size(r->closefd) > 0)
+                 mio_close(r->mio, (mio_fd_t) jqueue_pull(r->closefd));
+-        } while(xhash_count(r->components) > 0);
++        } while (xhash_iter_next(r->components));
  
      xhash_free(r->components);
-@@ -502,6 +532,10 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
+ 
+@@ -540,6 +607,10 @@ JABBER_MAIN("jabberd2router", "Jabber 2 
      /* unload acls */
      aci_unload(r->aci);
  

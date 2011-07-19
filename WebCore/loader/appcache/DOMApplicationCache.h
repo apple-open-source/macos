@@ -29,21 +29,19 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCacheHost.h"
-#include "AtomicStringHash.h"
-#include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
-class AtomicStringImpl;
 class Frame;
 class KURL;
-class String;
 
 class DOMApplicationCache : public RefCounted<DOMApplicationCache>, public EventTarget {
 public:

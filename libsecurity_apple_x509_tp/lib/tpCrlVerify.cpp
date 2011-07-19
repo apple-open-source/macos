@@ -226,7 +226,7 @@ static CSSM_RETURN tpFindCrlForCert(
 	return CSSM_OK;
 }
 
-/*
+/* 
  * Dispose of a CRL obtained from tpFindCrlForCert().
  */
 static void tpDisposeCrl(
@@ -331,7 +331,7 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 		
 		unsigned certDex;
 		TPCrlInfo *crl = NULL;
-
+		
 		/* get issuers as PEM-encoded data blob; we need to release */
 		certGroup.encodeIssuers(issuers);
 

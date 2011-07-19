@@ -1,0 +1,9 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+block { down ; line ljust text {ljust text} }
+move right [4 cm]
+block { down ; line rjust text {rjust text} }
+move right
+arrow anchor sw {ljust above = anchor sw}
+move right [4 cm]
+arrow anchor ne {rjust below = anchor ne}

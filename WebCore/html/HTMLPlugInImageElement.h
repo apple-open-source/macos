@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,23 +27,61 @@
 namespace WebCore {
 
 class HTMLImageLoader;
+class FrameLoader;
 
+enum PluginCreationOption {
+    CreateAnyWidgetType,
+    CreateOnlyNonNetscapePlugins,
+};
+    
+enum PreferPlugInsForImagesOption {
+    ShouldPreferPlugInsForImages,
+    ShouldNotPreferPlugInsForImages
+};
+
+// Base class for HTMLObjectElement and HTMLEmbedElement
 class HTMLPlugInImageElement : public HTMLPlugInElement {
 public:
+    RenderEmbeddedObject* renderEmbeddedObject() const;
+
+    virtual void updateWidget(PluginCreationOption) = 0;
+
     const String& serviceType() const { return m_serviceType; }
     const String& url() const { return m_url; }
+    bool shouldPreferPlugInsForImages() const { return m_shouldPreferPlugInsForImages; }
 
 protected:
-    HTMLPlugInImageElement(const QualifiedName& tagName, Document*);
+    HTMLPlugInImageElement(const QualifiedName& tagName, Document*, bool createdByParser, PreferPlugInsForImagesOption);
 
     bool isImageType();
 
     OwnPtr<HTMLImageLoader> m_imageLoader;
     String m_serviceType;
     String m_url;
+    
+    static void updateWidgetCallback(Node*);
+    virtual void attach();
+    virtual void detach();
+
+    bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
+    void setNeedsWidgetUpdate(bool needsWidgetUpdate) { m_needsWidgetUpdate = needsWidgetUpdate; }
+
+    bool allowedToLoadFrameURL(const String& url);
+    bool wouldLoadAsNetscapePlugin(const String& url, const String& serviceType);
+
+    virtual void willMoveToNewOwnerDocument();
 
 private:
-    virtual void willMoveToNewOwnerDocument();
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual void recalcStyle(StyleChange);
+    
+    virtual void finishParsingChildren();
+
+    void updateWidgetIfNecessary();
+    virtual bool useFallbackContent() const { return false; }
+    
+    bool m_needsWidgetUpdate;
+    bool m_shouldPreferPlugInsForImages;
 };
 
 } // namespace WebCore

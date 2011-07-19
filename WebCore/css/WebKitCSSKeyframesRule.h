@@ -27,14 +27,14 @@
 #define WebKitCSSKeyframesRule_h
 
 #include "CSSRule.h"
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
-#include "AtomicString.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 class CSSRuleList;
 class WebKitCSSKeyframeRule;
-class String;
 
 typedef int ExceptionCode;
 

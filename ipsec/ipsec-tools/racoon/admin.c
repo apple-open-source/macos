@@ -40,11 +40,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <netinet/in.h>
 #ifndef HAVE_NETINET6_IPSEC
@@ -92,6 +88,8 @@
 #endif
 #include "session.h"
 #include "gcmalloc.h"
+#include "vpn.h"
+#include "vpn_control_var.h"
 
 
 #ifdef ENABLE_ADMINPORT
@@ -157,8 +155,13 @@ admin_handler()
 	}
 
 	if (com.ac_cmd == ADMIN_RELOAD_CONF) {
+		siginfo_t sigi;
+		bzero(&sigi, sizeof(sigi));
+		sigi.si_signo = SIGUSR1;
+		sigi.si_pid = getpid();
+		sigi.si_uid = getuid();
 		/* reload does not work at all! */
-		signal_handler(SIGUSR1);
+		signal_handler(SIGUSR1, &sigi, (void *)NULL);
 		goto end;
 	}
 
@@ -424,7 +427,7 @@ out2:
 			target->user_pw = key;
 		}
 #endif
-		vpn_connect(target);
+		vpn_connect(target, VPN_STARTED_BY_ADMIN);
 		com->ac_errno = 0;
 outofhere:
 		if (target->user_id != NULL)

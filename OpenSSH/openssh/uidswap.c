@@ -93,7 +93,11 @@ temporarily_use_uid(struct passwd *pw)
 		if (saved_egroups != NULL)
 			xfree(saved_egroups);
 	}
-
+#if __APPLE__
+	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
+		fatal("initgroups: %s: %.100s", pw->pw_name,
+		    strerror(errno));
+#else
 	/* set and save the user's groups */
 	if (user_groupslen == -1) {
 		if (initgroups(pw->pw_name, pw->pw_gid) < 0)
@@ -116,6 +120,7 @@ temporarily_use_uid(struct passwd *pw)
 	/* Set the effective uid to the given (unprivileged) uid. */
 	if (setgroups(user_groupslen, user_groups) < 0)
 		fatal("setgroups: %.100s", strerror(errno));
+#endif
 #ifndef SAVED_IDS_WORK_WITH_SETEUID
 	/* Propagate the privileged gid to all of our gids. */
 	if (setgid(getegid()) < 0)
@@ -237,10 +242,19 @@ permanently_set_uid(struct passwd *pw)
 	/*
 	 * OS X requires initgroups after setgid to opt back into
 	 * memberd support for >16 supplemental groups.
+	 *
+	 * initgroups is not needed for the network child because it has
+	 * reached a steady-state and will not need to allocate any new
+	 * resources. Allows for a cleaner sandbox profile.
+	 *
+	 * initgroups is needed for all other children so that anything spawned
+	 * or used by this child (i.e. the user shell) will opt into membership
+	 * services.
 	 */
-	if (initgroups(pw->pw_name, pw->pw_gid) < 0)
-		fatal("initgroups %.100s %u: %.100s",
-		    pw->pw_name, (u_int)pw->pw_gid, strerror(errno));
+	if ( 0 != strcmp(pw->pw_name, SSH_PRIVSEP_USER) &&
+		initgroups(pw->pw_name, pw->pw_gid) < 0)
+			fatal("initgroups %.100s %u: %.100s",
+				pw->pw_name, (u_int)pw->pw_gid, strerror(errno));
 #endif
 
 #if defined(HAVE_SETRESUID) && !defined(BROKEN_SETRESUID)

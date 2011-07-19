@@ -1,6 +1,6 @@
---- inet.3	2004-11-25 11:38:29.000000000 -0800
-+++ inet.3.edit	2006-07-12 11:23:50.000000000 -0700
-@@ -36,50 +36,67 @@
+--- inet.3.bsdnew	2009-11-10 16:23:10.000000000 -0800
++++ inet.3	2009-11-10 16:35:18.000000000 -0800
+@@ -32,32 +32,51 @@
  .Dt INET 3
  .Os
  .Sh NAME
@@ -12,6 +12,7 @@
 +.Nm inet_netof ,
  .Nm inet_network ,
  .Nm inet_ntoa ,
+ .Nm inet_ntoa_r ,
  .Nm inet_ntop ,
 -.Nm inet_pton ,
 -.Nm inet_makeaddr ,
@@ -36,8 +37,7 @@
 +.Fa "const char *cp"
 +.Fa "struct in_addr *pin"
 +.Fc
- .Ft in_addr_t
--.Fn inet_addr "const char *cp"
++.Ft in_addr_t
 +.Fo inet_lnaof
 +.Fa "struct in_addr in"
 +.Fc
@@ -47,11 +47,12 @@
 +.Fa "in_addr_t lna"
 +.Fc
  .Ft in_addr_t
--.Fn inet_network "const char *cp"
+-.Fn inet_addr "const char *cp"
 +.Fo inet_netof
 +.Fa "struct in_addr in"
 +.Fc
-+.Ft in_addr_t
+ .Ft in_addr_t
+-.Fn inet_network "const char *cp"
 +.Fo inet_network
 +.Fa "const char *cp"
 +.Fc
@@ -60,13 +61,10 @@
 +.Fo inet_ntoa
 +.Fa "struct in_addr in"
 +.Fc
- .Ft const char *
- .Fo inet_ntop
- .Fa "int af"
--.Fa "const void * restrict src"
--.Fa "char * restrict dst"
-+.Fa "const void *restrict src"
-+.Fa "char *restrict dst"
+ .Ft char *
+ .Fo inet_ntoa_r
+ .Fa "struct in_addr in"
+@@ -72,13 +91,11 @@
  .Fa "socklen_t size"
  .Fc
  .Ft int
@@ -79,18 +77,13 @@
 -.Fn inet_netof "struct in_addr in"
 +.Fo inet_pton
 +.Fa "int af"
-+.Fa "const char *restrict src"
-+.Fa "void *restrict dst"
++.Fa "const char * restrict src"
++.Fa "void * restrict dst"
 +.Fc
  .Sh DESCRIPTION
  The routines
  .Fn inet_aton ,
--.Fn inet_addr
-+.Fn inet_addr ,
- and
- .Fn inet_network
- interpret character strings representing
-@@ -242,9 +259,6 @@
+@@ -241,9 +258,6 @@ The
  .Fn inet_ntop
  call fails if:
  .Bl -tag -width Er
@@ -100,7 +93,7 @@
  .It Bq Er EAFNOSUPPORT
  .Fa *src
  was not an
-@@ -252,13 +266,24 @@
+@@ -251,7 +265,17 @@ was not an
  or
  .Dv AF_INET6
  family address.
@@ -116,12 +109,5 @@
 +.Pp
 +These include files are necessary for all functions.
  .Sh SEE ALSO
- .Xr addr2ascii 3 ,
  .Xr byteorder 3 ,
- .Xr gethostbyname 3 ,
- .Xr getnetent 3 ,
- .Xr inet_net 3 ,
-+.Xr compat 5 ,
- .Xr hosts 5 ,
- .Xr networks 5
- .Rs
+ .Xr getaddrinfo 3 ,

@@ -81,6 +81,7 @@
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
 #endif
+#include "power_mgmt.h"
 
 static LIST_HEAD(_ph1tree_, ph1handle) ph1tree;
 static LIST_HEAD(_ph2tree_, ph2handle) ph2tree;
@@ -213,7 +214,7 @@ islast_ph1(ph1)
 	struct ph1handle *p;
 
 	LIST_FOREACH(p, &ph1tree, chain) {
-		if (p->status == PHASE1ST_EXPIRED)
+		if (p->is_dying || p->status == PHASE1ST_EXPIRED)
 			continue;
 		if (CMPSADDR(ph1->remote, p->remote) == 0) {
 			if (p == ph1)
@@ -309,10 +310,6 @@ delph1(iph1)
 	EVT_PUSH(iph1->local, iph1->remote, EVTT_PHASE1_DOWN, NULL);
 
 #ifdef ENABLE_NATT
-#ifndef __APPLE__
-	if (iph1->natt_flags & NAT_KA_QUEUED)
-		natt_keepalive_remove (iph1->local, iph1->remote);
-#endif /* __APPLE__ */
 	if (iph1->natt_options) {
 		racoon_free(iph1->natt_options);
 		iph1->natt_options = NULL;
@@ -400,7 +397,6 @@ delph1(iph1)
 	gssapi_free_state(iph1);
 #endif
 
-#ifdef __APPLE__
 	if (iph1->parent_session) {
 		ike_session_unlink_ph1_from_session(iph1);
 	}
@@ -408,7 +404,6 @@ delph1(iph1)
 		unlink_rmconf_from_ph1(iph1->rmconf);
 		iph1->rmconf = NULL;
 	}
-#endif
 	
 	racoon_free(iph1);
 }
@@ -442,25 +437,36 @@ remph1(iph1)
  * flush isakmp-sa
  */
 void
-flushph1(int ignore_established_handles)
+flushph1(int ignore_estab_or_assert_handles)
 {
 	struct ph1handle *p, *next;
 	
+	plog(LLV_DEBUG2, LOCATION, NULL,
+		 "flushing ph1 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
+
 	for (p = LIST_FIRST(&ph1tree); p; p = next) {
 		next = LIST_NEXT(p, chain);
-		
+
+		if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
+			plog(LLV_DEBUG2, LOCATION, NULL,
+				 "skipping phase1 %s that's asserted...\n",
+				 isakmp_pindex(&p->index, 0));
+			continue;
+		}
+
 		/* send delete information */
 		if (p->status == PHASE1ST_ESTABLISHED) {
-			if (ignore_established_handles &&
-			    (ike_session_has_negoing_ph2(p->parent_session) ||
-			     p->mode_cfg->flags)) {
+			if (ignore_estab_or_assert_handles &&
+			    ike_session_has_negoing_ph2(p->parent_session)) {
 				plog(LLV_DEBUG2, LOCATION, NULL,
-					 "skipping ph1 handler that's established... because it's needed by children phase2s\n");
+					 "skipping phase1 %s that's established... because it's needed by children phase2s\n",
+					 isakmp_pindex(&p->index, 0));
 			    continue;
 		    }
 			/* send delete information */
 			plog(LLV_DEBUG2, LOCATION, NULL,
-				 "got a ph1 handler to flush...\n");
+				 "got a phase1 %s to flush...\n",
+				 isakmp_pindex(&p->index, 0));
 			isakmp_info_send_d1(p);
 		}
 
@@ -724,7 +730,6 @@ delph2(iph2)
 		iph2->proposal = NULL;
 	}
 
-#ifdef __APPLE__
 	if (iph2->parent_session) {
 		ike_session_unlink_ph2_from_session(iph2);
 	}
@@ -740,7 +745,6 @@ delph2(iph2)
 		vfree(iph2->ext_nat_id_p);
 		iph2->ext_nat_id_p = NULL;
 	}
-#endif
 
 	racoon_free(iph2);
 }
@@ -771,20 +775,25 @@ initph2tree()
 }
 
 void
-flushph2(int ignore_established_handles)
+flushph2(int ignore_estab_or_assert_handles)
 {
 	struct ph2handle *p, *next;
 
 	plog(LLV_DEBUG2, LOCATION, NULL,
-		 "flushing all ph2 handlers...\n");
+		 "flushing ph2 handles: ignore_estab_or_assert %d...\n", ignore_estab_or_assert_handles);
 
 	for (p = LIST_FIRST(&ph2tree); p; p = next) {
 		next = LIST_NEXT(p, chain);
 		if (p->is_dying || p->status == PHASE2ST_EXPIRED) {
 			continue;
 		}
+		if (ignore_estab_or_assert_handles && p->parent_session && !p->parent_session->stopped_by_vpn_controller && p->parent_session->is_asserted) {
+			plog(LLV_DEBUG2, LOCATION, NULL,
+				 "skipping phase2 handle that's asserted...\n");
+			continue;
+		}
 		if (p->status == PHASE2ST_ESTABLISHED){
-			if (ignore_established_handles) {
+			if (ignore_estab_or_assert_handles) {
 				plog(LLV_DEBUG2, LOCATION, NULL,
 					 "skipping ph2 handler that's established...\n");
 			    continue;
@@ -999,6 +1008,17 @@ initctdtree()
 	LIST_INIT(&ctdtree);
 }
 
+time_t
+get_exp_retx_interval (int num_retries, int fixed_retry_interval)
+{
+	// first 3 retries aren't exponential
+	if (num_retries <= 3) {
+		return (time_t)fixed_retry_interval;
+	} else {
+		return (time_t)(num_retries * fixed_retry_interval);
+	}
+}
+
 /*
  * check the response has been sent to the peer.  when not, simply reply
  * the buffered packet to the peer.
@@ -1015,7 +1035,7 @@ check_recvdpkt(remote, local, rbuf)
 {
 	vchar_t *hash;
 	struct recvdpkt *r;
-	time_t t;
+	time_t t, d;
 	int len, s;
 
 	/* set current time */
@@ -1064,9 +1084,33 @@ check_recvdpkt(remote, local, rbuf)
 	if (s == -1)
 		return -1;
 
+	// don't send if we recently sent a response.
+	if (r->time_send && t > r->time_send) {
+		d = t - r->time_send;
+		if (d  < r->retry_interval) {
+			plog(LLV_ERROR, LOCATION, NULL, "already responded within the past %ld secs\n", d);
+			return 1;
+		}
+	}
+
+#ifdef ENABLE_FRAG
+	if (r->frag_flags && r->sendbuf->l > ISAKMP_FRAG_MAXLEN) {
+		/* resend the packet if needed */
+		plog(LLV_ERROR, LOCATION, NULL, "!!! retransmitting frags\n");
+		len = sendfragsfromto(s, r->sendbuf,
+							  r->local, r->remote, lcconf->count_persend,
+							  r->frag_flags);
+	} else {
+		plog(LLV_ERROR, LOCATION, NULL, "!!! skipped retransmitting frags: frag_flags %x, r->sendbuf->l %d, max %d\n", r->frag_flags, r->sendbuf->l, ISAKMP_FRAG_MAXLEN);
+		/* resend the packet if needed */
+		len = sendfromto(s, r->sendbuf->v, r->sendbuf->l,
+						 r->local, r->remote, lcconf->count_persend);
+	}
+#else
 	/* resend the packet if needed */
 	len = sendfromto(s, r->sendbuf->v, r->sendbuf->l,
 			r->local, r->remote, lcconf->count_persend);
+#endif
 	if (len == -1) {
 		plog(LLV_ERROR, LOCATION, NULL, "sendfromto failed\n");
 		return -1;
@@ -1080,8 +1124,11 @@ check_recvdpkt(remote, local, rbuf)
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"deleted the retransmission packet to %s.\n",
 			saddr2str(remote));
-	} else
+	} else {
 		r->time_send = t;
+		r->retry_interval = get_exp_retx_interval((lcconf->retry_counter - r->retry_counter),
+												  lcconf->retry_interval);
+	}
 
 	return 1;
 }
@@ -1090,10 +1137,11 @@ check_recvdpkt(remote, local, rbuf)
  * adding a hash of received packet into the received list.
  */
 int
-add_recvdpkt(remote, local, sbuf, rbuf, non_esp)
+add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
 	struct sockaddr *remote, *local;
 	vchar_t *sbuf, *rbuf;
     size_t non_esp;
+    u_int32_t frag_flags;
 {
 	struct recvdpkt *new = NULL;
 
@@ -1158,6 +1206,13 @@ add_recvdpkt(remote, local, sbuf, rbuf, non_esp)
 	new->retry_counter = lcconf->retry_counter;
 	new->time_send = 0;
 	new->created = time(NULL);
+#ifdef ENABLE_FRAG
+	if (frag_flags) {
+		new->frag_flags = frag_flags;
+	}
+#endif
+	new->retry_interval = get_exp_retx_interval((lcconf->retry_counter - new->retry_counter),
+												lcconf->retry_interval);
 
 	LIST_INSERT_HEAD(&rcptree, new, chain);
 
@@ -1304,7 +1359,23 @@ struct sockaddr *remote;
 {
 	int    found = 0;
 	struct ph1handle *p;
-	
+	struct ph2handle *p2;
+
+	LIST_FOREACH(p2, &ph2tree, chain) {
+		if (cmpsaddrwop(remote, p2->dst) == 0) {
+            plog(LLV_WARNING, LOCATION, NULL,
+                 "in %s... purging phase2s\n", __FUNCTION__);
+			if (p2->status == PHASE2ST_ESTABLISHED)
+				isakmp_info_send_d2(p2);
+			if (p2->status < PHASE2ST_EXPIRED) {
+				isakmp_ph2expire(p2);
+			} else {
+				isakmp_ph2delete(p2);
+			}
+			found++;
+		}
+	}
+
 	LIST_FOREACH(p, &ph1tree, chain) {
 		if (cmpsaddrwop(remote, p->remote) == 0) {
             plog(LLV_WARNING, LOCATION, NULL,
@@ -1381,6 +1452,9 @@ ph1_force_dpd (struct sockaddr *remote)
                 } else {
                     plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (dpd already in progress).\n");
                 }
+                if (p->parent_session) {
+                    p->parent_session->controller_awaiting_peer_resp = 1;
+                }
             } else {
                 plog(LLV_DEBUG2, LOCATION, NULL, "skipping forced-DPD for phase1 (status %d, dying %d, dpd-support %d, dpd-interval %d).\n",
                      p->status, p->is_dying, p->dpd_support, p->rmconf->dpd_interval);
@@ -1391,3 +1465,83 @@ ph1_force_dpd (struct sockaddr *remote)
 	return status;
 }
 #endif
+
+void
+sweep_sleepwake(void)
+{
+	struct ph2handle *iph2;
+	struct ph1handle *iph1;
+
+	// do the ph1s.
+	LIST_FOREACH(iph1, &ph1tree, chain) {
+		if (iph1->parent_session && iph1->parent_session->is_asserted) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase1 %s because it's been asserted.\n",
+				 isakmp_pindex(&iph1->index, 0));
+			continue;
+		}
+		if (iph1->is_dying || iph1->status >= PHASE1ST_EXPIRED) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase1 %s because it's already expired.\n",
+				 isakmp_pindex(&iph1->index, 0));
+			continue;
+		}
+		if (iph1->sce) {
+			if (iph1->sce->xtime <= swept_at) {
+				SCHED_KILL(iph1->sce);
+				SCHED_KILL(iph1->sce_rekey);
+				iph1->is_dying = 1;
+				iph1->status = PHASE1ST_EXPIRED;
+				ike_session_update_ph1_ph2tree(iph1); // move unbind/rebind ph2s to from current ph1
+				iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
+				plog(LLV_DEBUG2, LOCATION, NULL, "phase1 %s expired while sleeping: quick deletion.\n",
+				     isakmp_pindex(&iph1->index, 0));
+			}
+		}
+		if (iph1->sce_rekey) {
+			if (iph1->status == PHASE1ST_EXPIRED || iph1->sce_rekey->xtime <= swept_at) {
+				SCHED_KILL(iph1->sce_rekey);
+			}
+		}
+		if (iph1->scr) {
+			if (iph1->status == PHASE1ST_EXPIRED || iph1->scr->xtime <= swept_at) {
+				SCHED_KILL(iph1->scr);
+			}
+		}
+#ifdef ENABLE_DPD
+		if (iph1->dpd_r_u) {
+			if (iph1->status == PHASE1ST_EXPIRED || iph1->dpd_r_u->xtime <= swept_at) {
+				SCHED_KILL(iph1->dpd_r_u);
+			}
+		}
+#endif 
+	}
+
+	// do ph2's next
+	LIST_FOREACH(iph2, &ph2tree, chain) {
+		if (iph2->parent_session && iph2->parent_session->is_asserted) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase2 because it's been asserted.\n");
+			continue;
+		}
+		if (iph2->is_dying || iph2->status >= PHASE2ST_EXPIRED) {
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipping sweep of phase2 because it's already expired.\n");
+			continue;
+		}
+		if (iph2->sce) {
+			if (iph2->sce->xtime <= swept_at) {
+				iph2->status = PHASE2ST_EXPIRED;
+				iph2->is_dying = 1;
+				isakmp_ph2expire(iph2); // iph2 will go down 1 second later.
+				ike_session_stopped_by_controller(iph2->parent_session,
+								  ike_session_stopped_by_sleepwake);
+				plog(LLV_DEBUG2, LOCATION, NULL, "phase2 expired while sleeping: quick deletion.\n");
+			}
+		}
+		if (iph2->scr) {
+			if (iph2->status == PHASE2ST_EXPIRED || iph2->scr->xtime <= swept_at) {
+				SCHED_KILL(iph2->scr);
+			}
+		}
+	}
+
+	// do the ike_session last
+	ike_session_sweep_sleepwake();
+}

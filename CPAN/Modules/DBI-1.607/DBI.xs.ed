@@ -1,6 +1,0 @@
-/	DBIc_TRACE_LEVEL/s/DBIc_TRACE_/(long)&/g
-/dbih_setup_fbav realloc from %ld/s/av_len(av)+1/(long)(&)/
-s/ i)/ (long)i)/
-/PerlIO_printf/s/ i)/ (long)i)/
-/PerlIO_printf/s/av_len(av)+1/(long)(&)/
-w

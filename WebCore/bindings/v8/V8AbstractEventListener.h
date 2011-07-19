@@ -88,6 +88,14 @@ namespace WebCore {
             return v8::Local<v8::Object>::New(m_listener);
         }
 
+        // Provides access to the underlying handle for GC. Returned
+        // value might be a weak handle and so not guaranteed to stay
+        // alive.
+        v8::Persistent<v8::Object> existingListenerObjectPersistentHandle()
+        {
+            return m_listener;
+        }
+
         bool hasExistingListenerObject()
         {
             return !m_listener.IsEmpty();
@@ -95,6 +103,8 @@ namespace WebCore {
 
         // Dispose listener object and clear the handle.
         void disposeListenerObject();
+
+        const WorldContextHandle& worldContext() const { return m_worldContext; }
 
     protected:
         V8AbstractEventListener(bool isAttribute, const WorldContextHandle& worldContext);
@@ -107,8 +117,6 @@ namespace WebCore {
 
         // Get the receiver object to use for event listener call.
         v8::Local<v8::Object> getReceiverObject(Event*);
-
-        const WorldContextHandle& worldContext() const { return m_worldContext; }
 
     private:
         // Implementation of EventListener function.

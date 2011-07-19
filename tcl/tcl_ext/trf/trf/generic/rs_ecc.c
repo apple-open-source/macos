@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: rs_ecc.c,v 1.9 1999/10/22 23:15:23 aku Exp $
+ * CVS: $Id: rs_ecc.c,v 1.10 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -206,7 +206,7 @@ ClientData    clientData;
 {
   EncoderControl* c;
 
-  c = (EncoderControl*) Tcl_Alloc (sizeof (EncoderControl));
+  c = (EncoderControl*) ckalloc (sizeof (EncoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -245,7 +245,7 @@ ClientData       clientData;
 
   /* release conversion specific items here (RS_ECC) */
 
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c);
 }
 
 /*
@@ -511,7 +511,7 @@ ClientData    clientData;
 {
   DecoderControl* c;
 
-  c = (DecoderControl*) Tcl_Alloc (sizeof (DecoderControl));
+  c = (DecoderControl*) ckalloc (sizeof (DecoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -550,7 +550,7 @@ ClientData       clientData;
 
   /* release conversion specific items here (RS_ECC) */
 
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c);
 }
 
 /*

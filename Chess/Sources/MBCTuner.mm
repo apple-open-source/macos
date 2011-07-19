@@ -2,7 +2,7 @@
 	File:		MBCTuner.h
 	Contains:	Manage a window to set graphics options
 	Version:	1.0
-	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCTuner.mm,v $
+		Revision 1.4  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.3  2004/07/10 04:53:29  neerache
 		Tweak visuals
 		
@@ -161,7 +164,7 @@ static const char * sLightParams =
 	[fView setNeedsDisplay:YES];
 	[fLightParams setStringValue:
 					  [NSString stringWithFormat:
-									[NSString stringWithCString:sLightParams],
+									[NSString stringWithUTF8String:sLightParams],
 								fView->fAmbient,
 								fView->fLightPos[0],
 								fView->fLightPos[1],

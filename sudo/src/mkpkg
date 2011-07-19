@@ -1,0 +1,213 @@
+#!/bin/sh
+#
+# Build a binary package using polypkg
+# Usage: mkpkg [--debug] [--flavor flavor] [--platform platform]
+#
+
+# Make sure IFS is set to space, tab, newline in that order.
+space=' '
+tab='	'
+nl='
+'
+IFS=" 	$nl"
+
+# Parse arguments
+usage="usage: mkpkg [--debug] [--flavor flavor] [--platform platform]"
+debug=0
+flavor=vanilla
+while test $# -gt 0; do
+    case "$1" in
+	--debug)
+	    set -x
+	    debug=1
+	    PPFLAGS="--debug${PPFLAGS+$space}${PPFLAGS}"
+	    ;;
+	--flavor=?*)
+	    flavor=`echo "$1" | sed -n 's/^--flavor=\(.*\)/\1/p'`
+	    PPVARS="${PPVARS}${PPVARS+$space}flavor=$flavor"
+	    ;;
+	--flavor)
+	    if [ $# -lt 2 ]; then
+		echo "$usage" 1>&2
+		exit 1
+	    fi
+	    flavor="$2"
+	    PPVARS="${PPVARS}${PPVARS+$space}flavor=$flavor"
+	    shift
+	    ;;
+	--platform=?*)
+	    arg=`echo "$1" | sed -n 's/^--platform=\(.*\)/\1/p'`
+	    PPFLAGS="${PPFLAGS}${PPFLAGS+$space}--platform $arg"
+	    ;;
+	--platform)
+	    if [ $# -lt 2 ]; then
+		echo "$usage" 1>&2
+		exit 1
+	    fi
+	    PPFLAGS="${PPFLAGS}${PPFLAGS+$space}--platform $2"
+	    shift
+	    ;;
+	*)
+	    # Pass unknown options to configure
+	    configure_opts="${configure_opts}${configure_opts+$tab}$1"
+	    ;;
+    esac
+    shift
+done
+
+top_srcdir=`dirname $0`
+
+platform=`$top_srcdir/pp --probe` || exit 1
+osrelease=`echo "$platform" | sed -e 's/^[^0-9]*//' -e 's/-.*$//'`
+
+# Default paths
+prefix=/usr/local
+
+# Linux distros may build binaries as pie files.
+# This is really something libtool should figure out, but it does not.
+case "$platform" in
+    *-s390*|*-sparc*|*-alpha*)
+	F_PIE=-fPIE
+	;;
+    *)
+	F_PIE=-fpie
+	;;
+esac
+
+# Choose compiler options by platform.
+case "$platform" in
+    hpux*)
+	# Use the HP ANSI C compiler on HP-UX if possible
+	if [ -z "$CC" -a -x /opt/ansic/bin/cc ]; then
+	    CC=/opt/ansic/bin/cc; export CC
+	    if [ -z "$CFLAGS" ]; then
+		CFLAGS=-O; export CFLAGS
+	    fi
+	else
+	    configure_opts="${configure_opts}${configure_opts+$tab}--disable-zlib"
+	fi
+	;;
+esac
+
+# Choose configure options by platform.
+# We use the same configure options as vendor packages when possible.
+case "$platform" in
+    centos*|rhel*)
+	prefix=/usr
+	if [ $osrelease -ge 50 ]; then
+	    # RHEL 5 and up build pies and have audit support
+	    export CFLAGS="$F_PIE" LDFLAGS="-pie"
+	    configure_opts="${configure_opts}${configure_opts+$tab}--with-linux-audit"
+	fi
+	# Note, must indent with tabs, not spaces due to IFS trickery
+	configure_opts="$configure_opts
+		--prefix=$prefix
+		--with-logging=syslog
+		--with-logfac=authpriv
+		--with-pam
+		--with-pam-login
+		--enable-zlib
+		--with-editor=/bin/vi
+		--with-env-editor
+		--with-ignore-dot
+		--with-tty-tickets
+		--with-ldap
+		--with-selinux
+		--with-passprompt=[sudo] password for %p: "
+	;;
+    sles*)
+	prefix=/usr
+	if [ $osrelease -ge 10 ]; then
+	    # SLES 10 and higher build pies
+	    export CFLAGS="$F_PIE" LDFLAGS="-pie"
+	    if [ $osrelease -ge 11 ]; then
+		# SLES 11 and higher has SELinux
+		configure_opts="${configure_opts}${configure_opts+$tab}--with-selinux"
+	    fi
+	fi
+	# SuSE doesn't have /usr/libexec
+	case "$platform" in
+	    *64*)	libexec=lib64;;
+	    *)		libexec=lib;;
+	esac
+	# Note, must indent with tabs, not spaces due to IFS trickery
+	# XXX - SuSE uses secure path but only for env_reset
+	configure_opts="$configure_opts
+		--prefix=$prefix
+		--libexecdir=$prefix/$libexec/sudo
+		--with-logging=syslog
+		--with-logfac=auth
+		--with-all-insults
+		--with-ignore-dot
+		--with-tty-tickets
+		--enable-shell-sets-home
+		--with-sudoers-mode=0440
+		--with-pam
+		--enable-zlib
+		--with-ldap
+		--with-env-editor
+		--with-passprompt=%p\'s password: "
+
+	make_opts='docdir=$(datarootdir)/doc/packages/$(PACKAGE_TARNAME)'
+	;;
+    deb*|ubu*)
+	prefix=/usr
+	# If Ubuntu, add --enable-admin-flag
+	case "$platform" in
+	    ubu*)
+		configure_opts="${configure_opts}${configure_opts+$tab}--enable-admin-flag${tab}--without-lecture"
+		;;
+	esac
+	# Note, must indent with tabs, not spaces due to IFS trickery
+	if test "$flavor" = "ldap"; then
+	    configure_opts="${configure_opts}${configure_opts+$tab}--with-ldap
+		--with-ldap-conf-file=/etc/sudo-ldap.conf"
+	fi
+	configure_opts="$configure_opts
+		--prefix=/usr
+		--with-all-insults
+		--with-exempt=sudo
+		--with-pam
+		--enable-zlib
+		--with-fqdn
+		--with-logging=syslog
+		--with-logfac=authpriv
+		--with-env-editor
+		--with-editor=/usr/bin/editor
+		--with-timeout=15
+		--with-password-timeout=0
+		--with-passprompt=[sudo] password for %p: 
+		--with-timedir=/var/lib/sudo
+		--disable-root-mailer
+		--disable-setresuid
+		--with-sendmail=/usr/sbin/sendmail
+		--mandir=/usr/share/man
+		--libexecdir=/usr/lib/sudo
+		--with-secure-path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/X11R6/bin"
+	;;
+    *)
+	if test "$flavor" = "ldap"; then
+	    configure_opts="${configure_opts}${configure_opts+$tab}--with-ldap"
+	fi
+	# Note, must indent with tabs, not spaces due to IFS trickery
+	configure_opts="$configure_opts
+		--prefix=$prefix
+		--with-insults=disabled
+		--with-logging=syslog
+		--with-logfac=auth
+		--with-editor=/usr/bin/vim:/usr/bin/vi:/bin/vi
+		--with-env-editor"
+	;;
+esac
+
+# Remove spaces from IFS when setting $@ so that passprompt may include them
+OIFS="$IFS"
+IFS="	$nl"
+set -- $configure_opts $extra_opts
+IFS="$OIFS"
+if [ -r Makefile ]; then
+    make $make_opts distclean
+fi
+$top_srcdir/configure "$@" || exit 1
+make $make_opts && make $make_opts PPFLAGS="$PPFLAGS" PPVARS="$PPVARS" package
+test $debug -eq 0 && rm -rf destdir

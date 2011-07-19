@@ -46,8 +46,9 @@ public:
     virtual void didSendData(SubresourceLoader*, unsigned long long /*bytesSent*/, unsigned long long /*totalBytesToBeSent*/) { }
 
     virtual void didReceiveResponse(SubresourceLoader*, const ResourceResponse&) { }
-    virtual void didReceiveData(SubresourceLoader*, const char*, int /*lengthReceived*/) { }
-    virtual void didFinishLoading(SubresourceLoader*) { }
+    virtual void didReceiveData(SubresourceLoader*, const char*, int /*dataLength*/) { }
+    virtual void didReceiveCachedMetadata(SubresourceLoader*, const char*, int /*dataLength*/) { }
+    virtual void didFinishLoading(SubresourceLoader*, double /*finishTime*/) { }
     virtual void didFail(SubresourceLoader*, const ResourceError&) { }
     
     virtual bool getShouldUseCredentialStorage(SubresourceLoader*, bool& /*shouldUseCredentialStorage*/) { return false; }

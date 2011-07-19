@@ -65,8 +65,8 @@ class DgTestCase (unittest.TestCase):
 
     #archOption = "-arch ppc"
     #archOption = "-arch ppc64"
-    #archOption = "-arch i386"
-    archOption = "-arch x86_64"
+    archOption = "-arch i386"
+    #archOption = "-arch x86_64"
     #archOption = ""
     compileOptionsBase = "-g -DMACOSX -Iinclude -o /tmp/test.bin -lffi"
     compileOptionsList = ( # HACK ALERT: Yes, there are better ways to do this, but this is easy and extremely flexible
@@ -75,7 +75,7 @@ class DgTestCase (unittest.TestCase):
         "%s %s %s" % (compileOptionsBase, archOption, "-O2"), 
         "%s %s %s" % (compileOptionsBase, archOption, "-O3"), 
         "%s %s %s" % (compileOptionsBase, archOption, "-Os"),
-        "%s %s %s" % (compileOptionsBase, archOption, "-Oz"),  # Note: Apple-Only, see gcc man page for details
+#        "%s %s %s" % (compileOptionsBase, archOption, "-Oz"),  # Note: Apple-Only, see gcc man page for details
         )
     def runTest(self):
         script = parseDG(open(self.filename).read())
@@ -121,7 +121,12 @@ class DgTestCase (unittest.TestCase):
         # libdir = os.path.join('build', 'temp.%s-%d.%d'%(get_platform(), sys.version_info[0], sys.version_info[1]), 'libffi-src')
         # libffiobjects = self.object_files(libdir)
 
-        commandline='cc %s %s 2>&1' % (compileOptions, self.filename)
+        #compiler='clang'
+        compiler='gcc'
+        commandline='%s %s %s 2>&1' % (compiler, compileOptions, self.filename)
+#        print 
+#        print "%s (%s)" % (self.filename, compiler)
+#        print
         fp = os.popen(commandline)
         data = fp.read()
         xit = fp.close()
@@ -163,5 +168,5 @@ def testSuiteForDirectory(dirname):
 alltests = []
 if __name__ == "__main__":
     alltests = sys.argv[1:]
-    runner = unittest.TextTestRunner(verbosity=2)
+    runner = unittest.TextTestRunner(verbosity=5)
     runner.run(testSuiteForDirectory('tests/testsuite/libffi.call'))

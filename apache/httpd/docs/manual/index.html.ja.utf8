@@ -29,7 +29,8 @@
 <a href="./ja/" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="./ko/" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./pt-br/" hreflang="pt-br" rel="alternate" title="Português (Brasil)">&nbsp;pt-br&nbsp;</a> |
-<a href="./tr/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
+<a href="./tr/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
+<a href="./zh-cn/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div>
 <div class="outofdate">This translation may be out of date. Check the
             English version for recent changes.</div>
@@ -68,7 +69,7 @@
 <li><a href="server-wide.html">サーバ全体の設定</a></li>
 <li><a href="ssl/">SSL/TLS による暗号化</a></li>
 <li><a href="suexec.html">CGI の Suexec 実行</a></li>
-<li><a href="misc/rewriteguide.html">URL Rewriting の手引き</a></li>
+<li><a href="rewrite/">URL Rewriting の手引き</a></li>
 <li><a href="vhosts/">バーチャルホスト</a></li>
 </ul>
 </div></td><td class="col3"><div class="category"><h2><a name="howto" id="howto">How-To / チュートリアル</a></h2>
@@ -100,8 +101,9 @@
 <a href="./ja/" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="./ko/" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./pt-br/" hreflang="pt-br" rel="alternate" title="Português (Brasil)">&nbsp;pt-br&nbsp;</a> |
-<a href="./tr/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
+<a href="./tr/" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
+<a href="./zh-cn/" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">モジュール</a> | <a href="./mod/directives.html">ディレクティブ</a> | <a href="./faq/">FAQ</a> | <a href="./glossary.html">用語</a> | <a href="./sitemap.html">サイトマップ</a></p></div>
 </body></html>

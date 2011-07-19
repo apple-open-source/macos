@@ -29,6 +29,8 @@ RCSID("$Id$");
 
 #ifdef WITH_VMPS
 
+#define MAX_VMPS_LEN (MAX_STRING_LEN - 1)
+
 /*
  *  http://www.openbsd.org/cgi-bin/cvsweb/src/usr.sbin/tcpdump/print-vqp.c
  *
@@ -100,7 +102,7 @@ static int vqp_sendto(int sockfd, void *data, size_t data_len, int flags,
 	 *	And if they don't specify a source IP address, don't
 	 *	use udpfromto.
 	 */
-	if ((dst_ipaddr->af == AF_INET) ||
+	if ((dst_ipaddr->af == AF_INET) &&
 	    (src_ipaddr->af != AF_UNSPEC)) {
 		return sendfromto(sockfd, data, data_len, flags,
 				  (struct sockaddr *)&src, sizeof_src, 
@@ -198,7 +200,7 @@ static ssize_t vqp_recvfrom(int sockfd, uint8_t **pbuf, int flags,
 			/*
 			 *	Maximum length we support.
 			 */
-			len = (12 * (4 + 4 + 253));
+			len = (12 * (4 + 4 + MAX_VMPS_LEN));
 
 		} else {
 			if (len != 2) {
@@ -209,7 +211,7 @@ static ssize_t vqp_recvfrom(int sockfd, uint8_t **pbuf, int flags,
 			/*
 			 *	Maximum length we support.
 			 */
-			len = (12 * (4 + 4 + 253));
+			len = (12 * (4 + 4 + MAX_VMPS_LEN));
 		}
 #endif
 	}
@@ -217,7 +219,7 @@ static ssize_t vqp_recvfrom(int sockfd, uint8_t **pbuf, int flags,
 	/*
 	 *	For now, be generous.
 	 */
-	len = (12 * (4 + 4 + 253));
+	len = (12 * (4 + 4 + MAX_VMPS_LEN));
 
 	buf = malloc(len);
 	if (!buf) return -1;
@@ -354,7 +356,7 @@ RADIUS_PACKET *vqp_recv(int sockfd)
 				rad_free(&packet);
 				return NULL;
 			}
-			
+
 			/*
 			 *	Length is 2 bytes
 			 *
@@ -362,13 +364,17 @@ RADIUS_PACKET *vqp_recv(int sockfd)
 			 *	server reasons.  Also, there's no reason
 			 *	for bigger lengths to exist... admins
 			 *	won't be typing in a 32K vlan name.
+			 *
+			 *	Except for received ethernet frames...
+			 *	they get chopped to 253 internally.
 			 */
-			if ((ptr[4] != 0) || (ptr[5] > 253)) {
+			if ((ptr[3] != 5) &&
+			    ((ptr[4] != 0) || (ptr[5] > MAX_VMPS_LEN))) {
 				fr_strerror_printf("Packet contains attribute with invalid length %02x %02x", ptr[4], ptr[5]);
 				rad_free(&packet);
 				return NULL;
 			}
-			attrlen = ptr[5];
+			attrlen = (ptr[4] << 8) | ptr[5];
 			ptr += 6 + attrlen;
 			length -= (6 + attrlen);
 		}
@@ -472,7 +478,7 @@ int vqp_decode(RADIUS_PACKET *packet)
 	 */
 	while (ptr < end) {
 		attribute = (ptr[2] << 8) | ptr[3];
-		length = ptr[5];
+		length = (ptr[4] << 8) | ptr[5];
 		ptr += 6;
 
 		/*
@@ -498,10 +504,11 @@ int vqp_decode(RADIUS_PACKET *packet)
 			/* FALL-THROUGH */
 
 		default:
-		case PW_TYPE_STRING:
 		case PW_TYPE_OCTETS:
-			memcpy(vp->vp_octets, ptr, length);
-			vp->length = length;
+		case PW_TYPE_STRING:
+			vp->length = (length > MAX_VMPS_LEN) ? MAX_VMPS_LEN : length;
+			memcpy(vp->vp_octets, ptr, vp->length);
+			vp->vp_octets[vp->length] = '\0';
 			break;
 		}
 		ptr += length;

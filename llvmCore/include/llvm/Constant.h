@@ -17,21 +17,10 @@
 #include "llvm/User.h"
 
 namespace llvm {
-  template<typename T> class SmallVectorImpl;
+  class APInt;
 
-  /// If object contains references to other objects, then relocations are
-  /// usually required for emission of such object (especially in PIC mode). One
-  /// usually distinguishes local and global relocations. Local relocations are
-  /// made wrt objects in the same module and these objects have local (internal
-  /// or private) linkage. Global relocations are made wrt externally visible
-  /// objects. In most cases local relocations can be resolved via so-called
-  /// 'pre-link' technique.
-  namespace Reloc {
-    const unsigned None   = 0;
-    const unsigned Local  = 1 << 0; ///< Local relocations are required
-    const unsigned Global = 1 << 1; ///< Global relocations are required
-    const unsigned LocalOrGlobal = Local | Global;
-  }
+  template<typename T> class SmallVectorImpl;
+  class LLVMContext;
 
 /// This is an important base class in LLVM. It provides the common facilities
 /// of all constant values in an LLVM program. A constant is a value that is
@@ -53,45 +42,62 @@ namespace llvm {
 class Constant : public User {
   void operator=(const Constant &);     // Do not implement
   Constant(const Constant &);           // Do not implement
+  
 protected:
   Constant(const Type *ty, ValueTy vty, Use *Ops, unsigned NumOps)
     : User(ty, vty, Ops, NumOps) {}
 
   void destroyConstantImpl();
-public:
-  /// Static constructor to get a '0' constant of arbitrary type...
-  ///
-  static Constant *getNullValue(const Type *Ty);
-
-  /// Static constructor to get a '-1' constant.  This supports integers and
-  /// vectors.
-  ///
-  static Constant *getAllOnesValue(const Type *Ty);
   
+  void setOperand(unsigned i, Value *V) {
+    User::setOperand(i, V);
+  }
+public:
   /// isNullValue - Return true if this is the value that would be returned by
   /// getNullValue.
   virtual bool isNullValue() const = 0;
+
+  /// isNegativeZeroValue - Return true if the value is what would be returned 
+  /// by getZeroValueForNegation.
+  virtual bool isNegativeZeroValue() const { return isNullValue(); }
 
   /// canTrap - Return true if evaluation of this constant could trap.  This is
   /// true for things like constant expressions that could divide by zero.
   bool canTrap() const;
 
-  /// ContainsRelocations - Return true if the constant value contains
-  /// relocations which cannot be resolved at compile time. Note that answer is
-  /// not exclusive: there can be possibility that relocations of other kind are
-  /// required as well.
-  bool ContainsRelocations(unsigned Kind = Reloc::LocalOrGlobal) const;
-
-  // Specialize get/setOperand for Constants as their operands are always
-  // constants as well.
-  Constant *getOperand(unsigned i) {
-    return static_cast<Constant*>(User::getOperand(i));
+  /// isConstantUsed - Return true if the constant has users other than constant
+  /// exprs and other dangling things.
+  bool isConstantUsed() const;
+  
+  enum PossibleRelocationsTy {
+    NoRelocation = 0,
+    LocalRelocation = 1,
+    GlobalRelocations = 2
+  };
+  
+  /// getRelocationInfo - This method classifies the entry according to
+  /// whether or not it may generate a relocation entry.  This must be
+  /// conservative, so if it might codegen to a relocatable entry, it should say
+  /// so.  The return values are:
+  /// 
+  ///  NoRelocation: This constant pool entry is guaranteed to never have a
+  ///     relocation applied to it (because it holds a simple constant like
+  ///     '4').
+  ///  LocalRelocation: This entry has relocations, but the entries are
+  ///     guaranteed to be resolvable by the static linker, so the dynamic
+  ///     linker will never see them.
+  ///  GlobalRelocations: This entry may have arbitrary relocations.
+  ///
+  /// FIXME: This really should not be in VMCore.
+  PossibleRelocationsTy getRelocationInfo() const;
+  
+  // Specialize get/setOperand for Users as their operands are always
+  // constants or BasicBlocks as well.
+  User *getOperand(unsigned i) {
+    return static_cast<User*>(User::getOperand(i));
   }
-  const Constant *getOperand(unsigned i) const {
-    return static_cast<const Constant*>(User::getOperand(i));
-  }
-  void setOperand(unsigned i, Constant *C) {
-    User::setOperand(i, C);
+  const User *getOperand(unsigned i) const {
+    return static_cast<const User*>(User::getOperand(i));
   }
   
   /// getVectorElements - This method, which is only valid on constant of vector
@@ -135,6 +141,17 @@ public:
            "implemented for all constants that have operands!");
     assert(0 && "Constants that do not have operands cannot be using 'From'!");
   }
+  
+  static Constant* getNullValue(const Type* Ty);
+  
+  /// @returns the value for an integer constant of the given type that has all
+  /// its bits set to true.
+  /// @brief Get the all ones value
+  static Constant* getAllOnesValue(const Type* Ty);
+
+  /// getIntegerValue - Return the value for an integer or pointer constant,
+  /// or a vector thereof, with the given scalar value.
+  static Constant* getIntegerValue(const Type* Ty, const APInt &V);
 };
 
 } // End llvm namespace

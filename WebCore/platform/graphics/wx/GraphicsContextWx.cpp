@@ -31,11 +31,16 @@
 #include "Font.h"
 #include "IntRect.h"
 #include "NotImplemented.h"
-#include "Pen.h"
+#include "Path.h"
 #include <wtf/MathExtras.h>
 
 #include <math.h>
 #include <stdio.h>
+
+// see http://trac.wxwidgets.org/ticket/11482
+#ifdef __WXMSW__
+#   include "wx/msw/winundef.h"
+#endif
 
 #include <wx/defs.h>
 #include <wx/window.h>
@@ -46,7 +51,19 @@
 #if __WXMAC__
 #include <Carbon/Carbon.h>
 #elif __WXMSW__
+
+#include "wx/msw/private.h"
+// TODO remove this dependency (gdiplus needs the macros)
+
+#undef max
+#define max(a, b)            (((a) > (b)) ? (a) : (b))
+
+#undef min
+#define min(a, b)            (((a) < (b)) ? (a) : (b))
+
 #include <windows.h>
+
+#include <gdiplus.h>
 #endif
 
 namespace WebCore {
@@ -91,7 +108,6 @@ public:
 
 #if USE(WXGC)
     wxGCDC* context;
-    wxGraphicsPath currentPath;
 #else
     wxWindowDC* context;
 #endif
@@ -113,29 +129,25 @@ GraphicsContextPlatformPrivate::~GraphicsContextPlatformPrivate()
 }
 
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate)
-{    
+void GraphicsContext::platformInit(PlatformGraphicsContext* context)
+{
+    m_data = new GraphicsContextPlatformPrivate;
     setPaintingDisabled(!context);
+
     if (context) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor(), DeviceColorSpace);
-        setPlatformStrokeColor(strokeColor(), DeviceColorSpace);
+        setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
+        setPlatformStrokeColor(strokeColor(), ColorSpaceDeviceRGB);
     }
 #if USE(WXGC)
     m_data->context = (wxGCDC*)context;
-    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
-    if (gc)
-        m_data->currentPath = gc->CreatePath();
 #else
     m_data->context = (wxWindowDC*)context;
 #endif
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -237,7 +249,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
         return;
     
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
-    m_data->context->DrawEllipticArc(rect.x(), rect.y(), rect.width(), rect.height(), startAngle, angleSpan);
+    m_data->context->DrawEllipticArc(rect.x(), rect.y(), rect.width(), rect.height(), startAngle, startAngle + angleSpan);
 }
 
 void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool shouldAntialias)
@@ -256,14 +268,29 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     delete [] polygon;
 }
 
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialiased)
+{
+    if (paintingDisabled())
+        return;
+
+    if (numPoints <= 1)
+        return;
+
+    notImplemented();
+}
+
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
 {
     if (paintingDisabled())
         return;
 
+    savePlatformState();
+
     m_data->context->SetPen(*wxTRANSPARENT_PEN);
     m_data->context->SetBrush(wxBrush(color));
     m_data->context->DrawRectangle(rect.x(), rect.y(), rect.width(), rect.height());
+
+    restorePlatformState();
 }
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
@@ -271,12 +298,19 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     if (paintingDisabled())
         return;
     
-    notImplemented();
+#if USE(WXGC)
+    Path path;
+    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+    m_data->context->SetBrush(wxBrush(color));
+    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
+    gc->FillPath(*path.platformPath());
+#endif
 }
 
-void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+void GraphicsContext::drawFocusRing(const Path& path, int width, int offset, const Color& color)
 {
     // FIXME: implement
+    notImplemented();
 }
 
 void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
@@ -289,83 +323,119 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
 
 void GraphicsContext::clip(const FloatRect& r)
 {
-    wxWindowDC* windc = dynamic_cast<wxWindowDC*>(m_data->context);
-    wxPoint pos(0, 0);
-
-    if (windc) {
-#if !defined(__WXGTK__) || wxCHECK_VERSION(2,9,0)
-        wxWindow* window = windc->GetWindow();
-#else
-        wxWindow* window = windc->m_owner;
-#endif
-        if (window) {
-            wxWindow* parent = window->GetParent();
-            // we need to convert from WebView "global" to WebFrame "local" coords.
-            // FIXME: We only want to go to the top WebView.  
-            while (parent) {
-                pos += window->GetPosition();
-                parent = parent->GetParent();
-            }
-        }
-    }
-
-    m_data->context->SetClippingRegion(r.x() - pos.x, r.y() - pos.y, r.width() + pos.x, r.height() + pos.y);
+    m_data->context->SetClippingRegion(r.x(), r.y(), r.width(), r.height());
 }
 
 void GraphicsContext::clipOut(const Path&)
 {
+    if (paintingDisabled())
+        return;
+
     notImplemented();
 }
 
-void GraphicsContext::clipOut(const IntRect&)
-{
-    notImplemented();
-}
-
-void GraphicsContext::clipOutEllipseInRect(const IntRect&)
-{
-    notImplemented();
-}
-
-void GraphicsContext::clipPath(WindRule)
-{
-    notImplemented();
-}
-
-void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool printing)
+void GraphicsContext::clipOut(const IntRect& rect)
 {
     if (paintingDisabled())
         return;
 
-    IntPoint endPoint = origin + IntSize(width, 0);
+#if USE(WXGC)
+    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
+
+#ifdef __WXMAC__
+    CGContextRef context = (CGContextRef)gc->GetNativeContext();
+
+    CGRect rects[2] = { CGContextGetClipBoundingBox(context), CGRectMake(rect.x(), rect.y(), rect.width(), rect.height()) };
+    CGContextBeginPath(context);
+    CGContextAddRects(context, rects, 2);
+    CGContextEOClip(context);
+    return;
+#endif
+
+#ifdef __WXMSW__
+    Gdiplus::Graphics* g = (Gdiplus::Graphics*)gc->GetNativeContext();
+    Gdiplus::Region excludeRegion(Gdiplus::Rect(rect.x(), rect.y(), rect.width(), rect.height()));
+    g->ExcludeClip(&excludeRegion);
+    return; 
+#endif
+
+#endif // USE(WXGC)
+
+    notImplemented();
+}
+
+void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
+{
+    if (paintingDisabled())
+        return;
+        
+    if (path.isEmpty())
+        return; 
+    
+    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
+
+#if __WXMAC__
+    CGContextRef context = (CGContextRef)gc->GetNativeContext();   
+    CGPathRef nativePath = (CGPathRef)path.platformPath()->GetNativePath(); 
+    
+    CGContextBeginPath(context);
+    CGContextAddPath(context, nativePath);
+    if (clipRule == RULE_EVENODD)
+        CGContextEOClip(context);
+    else
+        CGContextClip(context);
+#elif __WXMSW__
+    Gdiplus::Graphics* g = (Gdiplus::Graphics*)gc->GetNativeContext();
+    Gdiplus::GraphicsPath* nativePath = (Gdiplus::GraphicsPath*)path.platformPath()->GetNativePath();
+    if (clipRule == RULE_EVENODD)
+        nativePath->SetFillMode(Gdiplus::FillModeAlternate);
+    else
+        nativePath->SetFillMode(Gdiplus::FillModeWinding);
+    g->SetClip(nativePath);
+#endif
+}
+
+void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, bool printing)
+{
+    if (paintingDisabled())
+        return;
+
+    FloatPoint endPoint = origin + FloatSize(width, 0);
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), wxSOLID));
     m_data->context->DrawLine(origin.x(), origin.y(), endPoint.x(), endPoint.y());
 }
 
-
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin, int width, bool grammar)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& origin, float width, TextCheckingLineStyle style)
 {
-    if (grammar)
-        m_data->context->SetPen(wxPen(*wxGREEN, 2, wxLONG_DASH));
-    else
+    switch (style) {
+    case TextCheckingSpellingLineStyle:
         m_data->context->SetPen(wxPen(*wxRED, 2, wxLONG_DASH));
-    
+        break;
+    case TextCheckingGrammarLineStyle:
+        m_data->context->SetPen(wxPen(*wxGREEN, 2, wxLONG_DASH));
+        break;
+    default:
+        return;
+    }
     m_data->context->DrawLine(origin.x(), origin.y(), origin.x() + width, origin.y());
 }
 
-void GraphicsContext::clip(const Path&) 
+void GraphicsContext::clip(const Path& path) 
 { 
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    // if the path is empty, we clip against a zero rect to reduce the clipping region to
+    // nothing - which is the intended behavior of clip() if the path is empty.
+    if (path.isEmpty())
+        m_data->context->SetClippingRegion(0, 0, 0, 0);
+    else
+        clipPath(path, RULE_NONZERO);
 }
 
 void GraphicsContext::canvasClip(const Path& path)
 {
     clip(path);
-}
-
-void GraphicsContext::clipToImageBuffer(const FloatRect&, const ImageBuffer*)
-{
-    notImplemented();
 }
 
 AffineTransform GraphicsContext::getCTM() const
@@ -413,7 +483,7 @@ void GraphicsContext::scale(const FloatSize& scale)
 }
 
 
-FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
+FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect, RoundingMode)
 {
     FloatRect result;
 
@@ -438,7 +508,7 @@ void GraphicsContext::setURLForRect(const KURL&, const IntRect&)
     notImplemented();
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (m_data->context)
     {
@@ -448,23 +518,6 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         m_data->context->SetLogicalFunction(getWxCompositingOperation(op, false));
 #endif
     }
-}
-
-void GraphicsContext::beginPath()
-{
-#if USE(WXGC)
-    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
-    if (gc)
-        m_data->currentPath = gc->CreatePath();
-#endif
-}
-
-void GraphicsContext::addPath(const Path& path)
-{
-#if USE(WXGC)
-    if (path.platformPath())
-        m_data->currentPath.AddPath(*path.platformPath());
-#endif
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& color, ColorSpace colorSpace)
@@ -508,6 +561,19 @@ void GraphicsContext::concatCTM(const AffineTransform& transform)
     return;
 }
 
+void GraphicsContext::setCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+
+#if USE(WXGC)
+    wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
+    if (gc)
+        gc->SetTransform(transform);
+#endif
+    return;
+}
+
 void GraphicsContext::setPlatformShouldAntialias(bool enable)
 {
     if (paintingDisabled())
@@ -524,28 +590,22 @@ InterpolationQuality GraphicsContext::imageInterpolationQuality() const
     return InterpolationDefault;
 }
 
-void GraphicsContext::fillPath()
+void GraphicsContext::fillPath(const Path& path)
 {
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
     if (gc)
-        gc->FillPath(m_data->currentPath);
+        gc->FillPath(*path.platformPath());
 #endif
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path& path)
 {
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
     if (gc)
-        gc->StrokePath(m_data->currentPath);
+        gc->StrokePath(*path.platformPath());
 #endif
-}
-
-void GraphicsContext::drawPath()
-{
-    fillPath();
-    strokePath();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
@@ -554,7 +614,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         return;
 }
 
-void GraphicsContext::setPlatformShadow(IntSize const&,int,Color const&, ColorSpace) 
+void GraphicsContext::setPlatformShadow(FloatSize const&, float, Color const&, ColorSpace)
 { 
     notImplemented(); 
 }
@@ -609,9 +669,18 @@ void GraphicsContext::setAlpha(float)
     notImplemented();
 }
 
-void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
+void GraphicsContext::addInnerRoundedRectClip(const IntRect& r, int thickness)
 {
-    notImplemented();
+    if (paintingDisabled())
+        return;
+
+    FloatRect rect(r);
+    clip(rect);
+    Path path;
+    path.addEllipse(rect);
+    rect.inflate(-thickness);
+    path.addEllipse(rect);
+    clipPath(path, RULE_EVENODD);
 }
 
 #if OS(WINDOWS)

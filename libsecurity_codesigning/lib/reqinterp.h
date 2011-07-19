@@ -41,7 +41,7 @@ namespace CodeSigning {
 //	
 class Requirement::Interpreter : public Requirement::Reader {	
 public:
-	Interpreter(const Requirement *req, const Context *ctx);
+	Interpreter(const Requirement *req, const Context *ctx)	: Reader(req), mContext(ctx) { }
 	
 	bool evaluate();
 	
@@ -67,6 +67,8 @@ protected:
 	bool certFieldValue(const string &key, const Match &match, SecCertificateRef cert);
 	bool certFieldGeneric(const string &key, const Match &match, SecCertificateRef cert);
 	bool certFieldGeneric(const CssmOid &oid, const Match &match, SecCertificateRef cert);
+	bool certFieldPolicy(const string &key, const Match &match, SecCertificateRef cert);
+	bool certFieldPolicy(const CssmOid &oid, const Match &match, SecCertificateRef cert);
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();
 	bool appleAnchored();

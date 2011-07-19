@@ -1,0 +1,3 @@
+require "fileinto";
+
+fileinto "aaaa";

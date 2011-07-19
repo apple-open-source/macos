@@ -14,7 +14,7 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 KEYCHAIN=/Library/Keychains/System.keychain
 KEY=/var/db/SystemKey
 
-/usr/bin/security show-keychain-info "$KEYCHAIN" 2>/dev/null
+/usr/bin/security -R show-keychain-info "$KEYCHAIN" 2>/dev/null
 if [ $? -ne 0 ] ; then
 	# can't unlock System.keychain
 	NOW=$(date "+%F.%T")
@@ -24,19 +24,19 @@ if [ $? -ne 0 ] ; then
 	/usr/sbin/systemkeychain -C -f
 fi
 
-SYSTEM_KC_LIST=`/usr/bin/security list-keychains -d system 2>/dev/null`
+SYSTEM_KC_LIST=`/usr/bin/security -R list-keychains -d system 2>/dev/null`
 KCTEST=`printf "%s" "$SYSTEM_KC_LIST" | /usr/bin/grep \""$KEYCHAIN"\"`
 if [ -z "$KCTEST" ] ; then
 	# System.keychain not in the search list for the system domain
 	/usr/bin/logger -p daemon.alert "Adding System.keychain to system keychain list; see $0"
-	/usr/bin/security list-keychains -d system -s "$KEYCHAIN"
+	/usr/bin/security -R list-keychains -d system -s "$KEYCHAIN"
 fi
-COMMON_KC_LIST=`/usr/bin/security list-keychains -d common 2>/dev/null`
+COMMON_KC_LIST=`/usr/bin/security -R list-keychains -d common 2>/dev/null`
 KCTEST=`printf "%s" "$COMMON_KC_LIST" | /usr/bin/grep \""$KEYCHAIN"\"`
 if [ -z "$KCTEST" ] ; then
 	# System.keychain not in the search list for the common domain
 	/usr/bin/logger -p daemon.alert "Adding System.keychain to common keychain list; see $0"
-	/usr/bin/security list-keychains -d common -s "$KEYCHAIN"
+	/usr/bin/security -R list-keychains -d common -s "$KEYCHAIN"
 fi
 
 exit 0

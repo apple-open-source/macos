@@ -85,7 +85,9 @@
 	[self addHelpLinesForOpCode: OPCODE_REMBUDDY];
 	[self addHelpLinesForOpCode: OPCODE_ALLBUDDIES];
 	[self addHelpLinesForOpCode: OPCODE_GRPBUDDIES];
+	[self addHelpLinesForOpCode: OPCODE_GROUP_BY_GUID];
 	[self addHelpLinesForOpCode: OPCODE_UNGROUP];
+	[self addHelpLinesForOpCode: OPCODE_UNGROUP_BY_GUID];
 	[self addHelpLinesForOpCode: OPCODE_MOVEDOMAIN];
 #ifdef DEBUG
 	[self addHelpLinesForOpCode: OPCODE_INITTEST];

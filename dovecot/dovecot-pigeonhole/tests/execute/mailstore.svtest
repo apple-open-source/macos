@@ -1,0 +1,84 @@
+require "vnd.dovecot.testsuite";
+require "fileinto";
+require "variables";
+require "mailbox";
+
+set "message1" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: First message
+
+Frop
+.
+;
+
+set "message2" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Second message
+
+Frop
+.
+;
+
+set "message3" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Third message
+
+Frop
+.
+;
+
+test "Duplicates" {
+	test_set "message" "${message1}";
+
+	fileinto :create "Folder";
+	fileinto :create "Folder";
+
+	if not test_result_execute {
+		test_fail "failed to execute first result";
+	}
+
+	test_result_reset;
+
+	test_set "message" "${message2}";
+
+	fileinto :create "Folder";
+	fileinto :create "Folder";
+
+	if not test_result_execute {
+		test_fail "failed to execute second result";
+	}
+
+	test_result_reset;
+
+	test_set "message" "${message3}";
+
+	fileinto :create "Folder";
+	fileinto :create "Folder";
+
+	if not test_result_execute {
+		test_fail "failed to execute third result";
+	}
+
+	test_message :folder "Folder" 0;
+	
+	if not header :is "subject" "First message" {
+		test_fail "first message incorrect";
+	}
+
+	test_message :folder "Folder" 1;
+
+	if not header :is "subject" "Second message" {
+		test_fail "first message incorrect";
+	}
+
+	test_message :folder "Folder" 2;
+
+	if not header :is "subject" "Third message" {
+		test_fail "first message incorrect";
+	}
+}
+
+

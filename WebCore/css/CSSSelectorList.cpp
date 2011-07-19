@@ -27,6 +27,8 @@
 #include "config.h"
 #include "CSSSelectorList.h"
 
+#include "CSSParserValues.h"
+
 namespace WebCore {
 
 CSSSelectorList::~CSSSelectorList() 
@@ -41,26 +43,40 @@ void CSSSelectorList::adopt(CSSSelectorList& list)
     list.m_selectorArray = 0;
 }
 
-void CSSSelectorList::adoptSelectorVector(Vector<CSSSelector*>& selectorVector)
+void CSSSelectorList::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector)
 {
     deleteSelectors();
-    const size_t size = selectorVector.size();
-    ASSERT(size);
-    if (size == 1) {
-        m_selectorArray = selectorVector[0];
+    const size_t vectorSize = selectorVector.size();
+    size_t flattenedSize = 0;
+    for (size_t i = 0; i < vectorSize; ++i) {        
+        for (CSSParserSelector* selector = selectorVector[i].get(); selector; selector = selector->tagHistory())
+            ++flattenedSize;
+    }
+    ASSERT(flattenedSize);
+    if (flattenedSize == 1) {
+        m_selectorArray = selectorVector[0]->releaseSelector().leakPtr();
         m_selectorArray->setLastInSelectorList();
+        ASSERT(m_selectorArray->isLastInTagHistory());
         selectorVector.shrink(0);
         return;
     }
-    m_selectorArray = reinterpret_cast<CSSSelector*>(fastMalloc(sizeof(CSSSelector) * selectorVector.size()));
-    for (size_t i = 0; i < size; ++i) {
-        memcpy(&m_selectorArray[i], selectorVector[i], sizeof(CSSSelector));
-        // We want to free the memory (which was allocated with fastNew), but we
-        // don't want the destructor to run since it will affect the copy we've just made.
-        fastDeleteSkippingDestructor(selectorVector[i]);
-        ASSERT(!m_selectorArray[i].isLastInSelectorList());
+    m_selectorArray = reinterpret_cast<CSSSelector*>(fastMalloc(sizeof(CSSSelector) * flattenedSize));
+    size_t arrayIndex = 0;
+    for (size_t i = 0; i < vectorSize; ++i) {
+        CSSParserSelector* current = selectorVector[i].get();
+        while (current) {
+            OwnPtr<CSSSelector> selector = current->releaseSelector();
+            current = current->tagHistory();
+            move(selector.release(), &m_selectorArray[arrayIndex]);
+            ASSERT(!m_selectorArray[arrayIndex].isLastInSelectorList());
+            if (current)
+                m_selectorArray[arrayIndex].setNotLastInTagHistory();
+            ++arrayIndex;
+        }
+        ASSERT(m_selectorArray[arrayIndex - 1].isLastInTagHistory());
     }
-    m_selectorArray[size - 1].setLastInSelectorList();
+    ASSERT(flattenedSize == arrayIndex);
+    m_selectorArray[arrayIndex - 1].setLastInSelectorList();
     selectorVector.shrink(0);
 }
 
@@ -98,9 +114,11 @@ static bool forEachTagSelector(Functor& functor, CSSSelector* selector)
     do {
         if (functor(selector))
             return true;
-        if (CSSSelector* simpleSelector = selector->simpleSelector()) {
-            if (forEachTagSelector(functor, simpleSelector))
-                return true;
+        if (CSSSelectorList* selectorList = selector->selectorList()) {
+            for (CSSSelector* subSelector = selectorList->first(); subSelector; subSelector = CSSSelectorList::next(subSelector)) {
+                if (forEachTagSelector(functor, subSelector))
+                    return true;
+            }
         }
     } while ((selector = selector->tagHistory()));
 
@@ -122,7 +140,7 @@ class SelectorNeedsNamespaceResolutionFunctor {
 public:
     bool operator()(CSSSelector* selector)
     {
-        if (selector->hasTag() && selector->m_tag.prefix() != nullAtom && selector->m_tag.prefix() != starAtom)
+        if (selector->hasTag() && selector->tag().prefix() != nullAtom && selector->tag().prefix() != starAtom)
             return true;
         if (selector->hasAttribute() && selector->attribute().prefix() != nullAtom && selector->attribute().prefix() != starAtom)
             return true;
@@ -135,5 +153,21 @@ bool CSSSelectorList::selectorsNeedNamespaceResolution()
     SelectorNeedsNamespaceResolutionFunctor functor;
     return forEachSelector(functor, this);
 }
+
+class SelectorHasUnknownPseudoElementFunctor {
+public:
+    bool operator()(CSSSelector* selector)
+    {
+        return selector->isUnknownPseudoElement();
+    }
+};
+
+bool CSSSelectorList::hasUnknownPseudoElements() const
+{
+    SelectorHasUnknownPseudoElementFunctor functor;
+    return forEachSelector(functor, this);
+}
+
+
 
 } // namespace WebCore

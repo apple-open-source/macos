@@ -119,7 +119,7 @@ a directory</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_dir</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in version 2.0.51 and later</td></tr>
 </table>
-    <p>The <code class="directive">DirectorySlash</code> directive determines, whether
+    <p>The <code class="directive">DirectorySlash</code> directive determines whether
     <code class="module"><a href="../mod/mod_dir.html">mod_dir</a></code> should fixup URLs pointing to a directory or
     not.</p>
 
@@ -136,8 +136,10 @@ a directory</td></tr>
     <li>Relative URL references inside html pages will work correctly.</li>
     </ul>
 
-    <p>Well, if you don't want this effect <em>and</em> the reasons above don't
-    apply to you, you can turn off the redirect with:</p>
+    <p>If you don't want this effect <em>and</em> the reasons above don't
+    apply to you, you can turn off the redirect as shown below. However,
+    be aware that there are possible security implications to doing
+    this.</p>
 
     <div class="example"><p><code>
         # see security warning below!<br />
@@ -170,16 +172,41 @@ a directory</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>Indexes</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_dir</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Apache HTTP Server 2.2.16 and later</td></tr>
 </table>
     <p>Use this to set a handler for any URL that doesn't map to anything
     in your filesystem, and would otherwise return HTTP 404 (Not Found).
     For example</p>
     <div class="example"><p><code>
-        <code>FallbackResource default.php</code>
+        <code>FallbackResource /not-404.php</code>
     </code></p></div>
     <p>will cause requests for non-existent files to be handled by
-    <code>default.php</code>, while requests for files that exist
+    <code>not-404.php</code>, while requests for files that exist
     are unaffected.</p>
+    <p>It is frequently desirable to have a single file or resource
+    handle all requests to a particular directory, except those requests
+    that correspond to an existing file or script. This is often
+    referred to as a 'front controller.'</p>
+    <p>In earlier versions of httpd, this effect typically required
+    <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code>, and the use of the <code>-f</code> and
+    <code>-d</code> tests for file and directory existence. This now
+    requires only one line of configuration.</p>
+    <div class="example"><p><code>
+        <code>FallbackResource /index.php</code>
+    </code></p></div>
+    <p>Existing files, such as images, css files, and so on, will be
+    served normally.</p>
+    <p>In a sub-URI, such as <em>http://example.com/blog/</em> this
+    <em>sub-URI</em> has to be supplied as <var>local-url</var>:</p>
+    <div class="example"><p><code>
+         <code>
+             &lt;Directory /web/example.com/htdocs/blog&gt;<br />
+	     <span class="indent">
+                  FallbackResource /blog/index.php<br />
+             </span>
+             &lt;/Directory&gt;
+         </code>
+    </code></p></div>
 
 </div>
 </div>
@@ -189,6 +216,6 @@ a directory</td></tr>
 <a href="../ko/mod/mod_dir.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_dir.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

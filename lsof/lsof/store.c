@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.38 2008/10/21 16:21:41 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.39 2010/07/29 15:59:28 abe Exp $";
 #endif
 
 
@@ -126,6 +126,7 @@ int ErrStat = 0;		/* path stat() error count */
 uid_t Euid;			/* effective UID of this lsof process */
 int Fand = 0;			/* -a option status */
 int Fblock = 0;			/* -b option status */
+int FcColW;			/* FCT column width */
 int Fcntx = 0;			/* -Z option status */
 int FdColW;			/* FD column width */
 int Ffilesys = 0;		/* -f option status:
@@ -139,6 +140,7 @@ int NcacheReload = 1;		/* 1 == call ncache_load() */
 #endif	/* defined(HASNCACHE) */
 
 int Ffield = 0;			/* -f and -F status */
+int FgColW;			/* FILE-FLAG column width */
 int Fhelp = 0;			/* -h option status */
 int Fhost = 1;			/* -H option status */
 int Fnet = 0;			/* -i option status: 0==none
@@ -163,12 +165,11 @@ int FportMap = 0;		/* +|-M option status */
 int Fpgid = 0;			/* -g option status */
 int Fppid = 0;			/* -R option status */
 int Fsize = 0;			/* -s option status */
-int FcColW;			/* FCT column width */
-int FgColW;			/* FILE-FLAG column width */
 int FsColW;			/* FSTR-ADDR column width */
 int Fsv = FSV_DEFAULT;		/* file struct value selections */
 int FsvByf = 0;			/* Fsv was set by +f */
 int FsvFlagX = 0;		/* hex format status for FSV_FG */
+int Ftask = 0;			/* -K option value */
 int NiColW;			/* NODE-ID column width */
 char *NiTtl = NITTL;		/* NODE-ID column title */
 int Ftcptpi = TCPTPI_STATE;	/* -T option status */
@@ -207,62 +208,26 @@ struct fieldsel FieldSel[] = {
     { LSOF_FID_FG,     0,  LSOF_FNM_FG,     &Fsv,     FSV_FG	 }, /*  7 */
     { LSOF_FID_INODE,  0,  LSOF_FNM_INODE,  NULL,     0		 }, /*  8 */
     { LSOF_FID_NLINK,  0,  LSOF_FNM_NLINK,  &Fnlink,  1		 }, /*  9 */
-    { LSOF_FID_LOCK,   0,  LSOF_FNM_LOCK,   NULL,     0		 }, /* 10 */
-    { LSOF_FID_LOGIN,  0,  LSOF_FNM_LOGIN,  NULL,     0		 }, /* 11 */
-    { LSOF_FID_MARK,   1,  LSOF_FNM_MARK,   NULL,     0		 }, /* 12 */
-    { LSOF_FID_NAME,   0,  LSOF_FNM_NAME,   NULL,     0		 }, /* 13 */
-    { LSOF_FID_NI,     0,  LSOF_FNM_NI,     &Fsv,     FSV_NI	 }, /* 14 */
-    { LSOF_FID_OFFSET, 0,  LSOF_FNM_OFFSET, NULL,     0		 }, /* 15 */
-    { LSOF_FID_PID,    1,  LSOF_FNM_PID,    NULL,     0		 }, /* 16 */
-    { LSOF_FID_PGID,   0,  LSOF_FNM_PGID,   &Fpgid,   1		 }, /* 17 */
-    { LSOF_FID_PROTO,  0,  LSOF_FNM_PROTO,  NULL,     0		 }, /* 18 */
-    { LSOF_FID_RDEV,   0,  LSOF_FNM_RDEV,   NULL,     0		 }, /* 19 */
-    { LSOF_FID_PPID,   0,  LSOF_FNM_PPID,   &Fppid,   1		 }, /* 20 */
-    { LSOF_FID_SIZE,   0,  LSOF_FNM_SIZE,   NULL,     0		 }, /* 21 */
-    { LSOF_FID_STREAM, 0,  LSOF_FNM_STREAM, NULL,     0		 }, /* 22 */
-    { LSOF_FID_TYPE,   0,  LSOF_FNM_TYPE,   NULL,     0		 }, /* 23 */
-    { LSOF_FID_TCPTPI, 0,  LSOF_FNM_TCPTPI, &Ftcptpi, TCPTPI_ALL }, /* 24 */
-    { LSOF_FID_UID,    0,  LSOF_FNM_UID,    NULL,     0		 }, /* 25 */
-    { LSOF_FID_ZONE,   0,  LSOF_FNM_ZONE,   &Fzone,   1		 }, /* 26 */
-    { LSOF_FID_CNTX,   0,  LSOF_FNM_CNTX,   &Fcntx,   1		 }, /* 27 */
-    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 28 */
-
-#if	defined(HASFIELDAP1)
-    { '1',	       0,  HASFIELDAP1,     NULL,     0		 }, /* TERM+1 */
-#endif	/* defined(HASFIELDAP1) */
-
-#if	defined(HASFIELDAP2)
-    { '2',	       0,  HASFIELDAP2,     NULL,     0		 }, /* TERM+2 */
-#endif	/* defined(HASFIELDAP2) */
-
-#if	defined(HASFIELDAP3)
-    { '3',	       0,  HASFIELDAP3,     NULL,     0		 }, /* TERM+3 */
-#endif	/* defined(HASFIELDAP3) */
-
-#if	defined(HASFIELDAP4)
-    { '4',	       0,  HASFIELDAP4,     NULL,     0		 }, /* TERM+4 */
-#endif	/* defined(HASFIELDAP4) */
-
-#if	defined(HASFIELDAP5)
-    { '5',	       0,  HASFIELDAP5,     NULL,     0		 }, /* TERM+5 */
-#endif	/* defined(HASFIELDAP5) */
-
-#if	defined(HASFIELDAP6)
-    { '6',	       0,  HASFIELDAP6,     NULL,     0		 }, /* TERM+6 */
-#endif	/* defined(HASFIELDAP6) */
-
-#if	defined(HASFIELDAP7)
-    { '7',	       0,  HASFIELDAP7,     NULL,     0		 }, /* TERM+7 */
-#endif	/* defined(HASFIELDAP7) */
-
-#if	defined(HASFIELDAP8)
-    { '8',	       0,  HASFIELDAP8,     NULL,     0		 }, /* TERM+8 */
-#endif	/* defined(HASFIELDAP8) */
-
-#if	defined(HASFIELDAP9)
-    { '9',	       0,  HASFIELDAP9,     NULL,     0		 }, /* TERM+9 */
-#endif	/* defined(HASFIELDAP9) */
-
+    { LSOF_FID_TID,    0,  LSOF_FNM_TID,    NULL,     0		 }, /* 11 */
+    { LSOF_FID_LOCK,   0,  LSOF_FNM_LOCK,   NULL,     0		 }, /* 11 */
+    { LSOF_FID_LOGIN,  0,  LSOF_FNM_LOGIN,  NULL,     0		 }, /* 12 */
+    { LSOF_FID_MARK,   1,  LSOF_FNM_MARK,   NULL,     0		 }, /* 13 */
+    { LSOF_FID_NAME,   0,  LSOF_FNM_NAME,   NULL,     0		 }, /* 14 */
+    { LSOF_FID_NI,     0,  LSOF_FNM_NI,     &Fsv,     FSV_NI	 }, /* 15 */
+    { LSOF_FID_OFFSET, 0,  LSOF_FNM_OFFSET, NULL,     0		 }, /* 16 */
+    { LSOF_FID_PID,    1,  LSOF_FNM_PID,    NULL,     0		 }, /* 17 */
+    { LSOF_FID_PGID,   0,  LSOF_FNM_PGID,   &Fpgid,   1		 }, /* 18 */
+    { LSOF_FID_PROTO,  0,  LSOF_FNM_PROTO,  NULL,     0		 }, /* 19 */
+    { LSOF_FID_RDEV,   0,  LSOF_FNM_RDEV,   NULL,     0		 }, /* 20 */
+    { LSOF_FID_PPID,   0,  LSOF_FNM_PPID,   &Fppid,   1		 }, /* 21 */
+    { LSOF_FID_SIZE,   0,  LSOF_FNM_SIZE,   NULL,     0		 }, /* 22 */
+    { LSOF_FID_STREAM, 0,  LSOF_FNM_STREAM, NULL,     0		 }, /* 23 */
+    { LSOF_FID_TYPE,   0,  LSOF_FNM_TYPE,   NULL,     0		 }, /* 24 */
+    { LSOF_FID_TCPTPI, 0,  LSOF_FNM_TCPTPI, &Ftcptpi, TCPTPI_ALL }, /* 25 */
+    { LSOF_FID_UID,    0,  LSOF_FNM_UID,    NULL,     0		 }, /* 26 */
+    { LSOF_FID_ZONE,   0,  LSOF_FNM_ZONE,   &Fzone,   1		 }, /* 27 */
+    { LSOF_FID_CNTX,   0,  LSOF_FNM_CNTX,   &Fcntx,   1		 }, /* 28 */
+    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 29 */
     { ' ',	       0,  NULL,	    NULL,     0		 }
 };
 
@@ -372,6 +337,7 @@ char *SzOffFmt_dv = (char *)NULL;
 				/* SZOFFTYPE %*d printf  specification */
 char *SzOffFmt_x = (char *)NULL;
 				/* SZOFFTYPE %#x printf  specification */
+int TaskPrtFl = 0;		/* task print flag */
 int TcpStAlloc = 0;		/* allocated (possibly unused) entries in TCP 
 				 * state tables */
 unsigned char *TcpStI = (unsigned char *)NULL;
@@ -388,6 +354,7 @@ int TcpNstates = 0;		/* number of TCP states -- either in
 char **TcpSt = (char **)NULL;	/* local TCP state names, indexed by system
 				 * state value */
 char Terminator = '\n';		/* output field terminator */
+int TidColW = 0;		/* TID column width */
 int TmLimit = TMLIMIT;		/* Readlink() and stat() timeout (seconds) */
 int TypeColW;			/* TYPE column width */
 int UdpStAlloc = 0;		/* allocated (possibly unused) entries in UDP 

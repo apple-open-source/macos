@@ -31,11 +31,30 @@
 /* Define when __DATE__ " " __TIME__ can be used */
 #define HAVE_DATE_TIME 1
 
+/* Define when __attribute__((unused)) can be used */
+#define HAVE_ATTRIBUTE_UNUSED 1
+
 /* defined always when using configure */
 #define UNIX 1
 
 /* Defined to the size of an int */
 #define SIZEOF_INT 4
+
+/* Defined to the size of a long */
+#if __LP64__
+#define SIZEOF_LONG 8
+#else
+#define SIZEOF_LONG 4
+#endif
+
+/* Defined to the size of off_t */
+#define SIZEOF_OFF_T 8
+
+/* Defined to the size of time_t */
+#define SIZEOF_TIME_T SIZEOF_LONG
+
+/* Define when wchar_t is only 2 bytes. */
+/* #undef SMALL_WCHAR_T */
 
 /*
  * If we cannot trust one of the following from the libraries, we use our
@@ -50,6 +69,9 @@
 
 /* Define to empty if the keyword does not work.  */
 /* #undef const */
+
+/* Define to empty if the keyword does not work.  */
+/* #undef volatile */
 
 /* Define to `int' if <sys/types.h> doesn't define.  */
 /* #undef mode_t */
@@ -66,6 +88,9 @@
 /* Define to `int' if <sys/types.h> doesn't define.  */
 /* #undef uid_t */
 
+/* Define to `unsigned int' or other type that is 32 bit.  */
+/* #undef uint32_t */
+
 /* Define to `int' if <sys/types.h> doesn't define.  */
 /* #undef gid_t */
 
@@ -74,6 +99,12 @@
 
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
 /* #undef dev_t */
+
+/* Define on big-endian machines */
+/* #undef WORDS_BIGENDIAN */
+#if __BIG_ENDIAN__
+#define WORDS_BIGENDIAN 1
+#endif
 
 /* Define to `unsigned long' if <sys/types.h> doesn't define.  */
 /* #undef rlim_t */
@@ -136,7 +167,6 @@
 #define HAVE_FCHOWN 1
 #define HAVE_FSEEKO 1
 #define HAVE_FSYNC 1
-#define HAVE_FTELLO 1
 #define HAVE_GETCWD 1
 /* #undef HAVE_GETPSEUDOTTY */
 #define HAVE_GETPWNAM 1
@@ -149,6 +179,7 @@
 #define HAVE_LSTAT 1
 #define HAVE_MEMCMP 1
 #define HAVE_MEMSET 1
+#define HAVE_MKDTEMP 1
 #define HAVE_NANOSLEEP 1
 #define HAVE_OPENDIR 1
 #define HAVE_FLOAT_FUNCS 1
@@ -188,6 +219,11 @@
 #define HAVE_UTIME 1
 /* #undef HAVE_BIND_TEXTDOMAIN_CODESET */
 
+/* Define, if needed, for accessing large files. */
+/* #undef _LARGE_FILES */
+/* #undef _FILE_OFFSET_BITS */
+/* #undef _LARGEFILE_SOURCE */
+
 /* Define if you do not have utime(), but do have the utimes() function. */
 #define HAVE_UTIMES 1
 
@@ -197,6 +233,7 @@
 #define HAVE_FCNTL_H 1
 /* #undef HAVE_FRAME_H */
 #define HAVE_ICONV_H 1
+#define HAVE_INTTYPES_H 1
 #define HAVE_LANGINFO_H 1
 #define HAVE_LIBC_H 1
 #define HAVE_LIBGEN_H 1
@@ -209,6 +246,7 @@
 #define HAVE_PWD_H 1
 #define HAVE_SETJMP_H 1
 #define HAVE_SGTTY_H 1
+#define HAVE_STDINT_H 1
 #define HAVE_STRINGS_H 1
 /* #undef HAVE_STROPTS_H */
 /* #undef HAVE_SYS_ACCESS_H */
@@ -227,12 +265,13 @@
 /* #undef HAVE_SYS_SYSINFO_H */
 /* #undef HAVE_SYS_SYSTEMINFO_H */
 #define HAVE_SYS_TIME_H 1
+#define HAVE_SYS_TYPES_H 1
 #define HAVE_SYS_UTSNAME_H 1
-#define HAVE_WCHAR_H 1
-#define HAVE_WCTYPE_H 1
 #define HAVE_TERMCAP_H 1
 #define HAVE_TERMIOS_H 1
 /* #undef HAVE_TERMIO_H */
+#define HAVE_WCHAR_H 1
+#define HAVE_WCTYPE_H 1
 #define HAVE_UNISTD_H 1
 /* #undef HAVE_UTIL_DEBUG_H */
 /* #undef HAVE_UTIL_MSGI18N_H */
@@ -285,14 +324,35 @@
 /* Define if you want huge features. */
 /* #undef FEAT_HUGE */
 
+/* Define if you want to include the Lua interpreter. */
+/* #undef FEAT_LUA */
+
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_LUA */
+
 /* Define if you want to include the MzScheme interpreter. */
 /* #undef FEAT_MZSCHEME */
 
 /* Define if you want to include the Perl interpreter. */
 /* #undef FEAT_PERL */
 
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_PERL */
+
 /* Define if you want to include the Python interpreter. */
 /* #undef FEAT_PYTHON */
+
+/* Define if you want to include the Python3 interpreter. */
+/* #undef FEAT_PYTHON3 */
+
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_PYTHON */
+
+/* Define for linking via dlopen() or LoadLibrary() */
+/* #undef DYNAMIC_PYTHON3 */
+
+/* Define if dynamic python does not require RTLD_GLOBAL */
+/* #undef PY_NO_RTLD_GLOBAL */
 
 /* Define if you want to include the Ruby interpreter. */
 /* #undef FEAT_RUBY */
@@ -335,9 +395,6 @@
 /* Define if you use KDE and want KDE Toolbar support. */
 /* #undef FEAT_KDETOOLBAR */
 
-/* Define if GTK+ 2 is available. */
-/* #undef HAVE_GTK2 */
-
 /* Define if GTK+ multihead support is available (requires GTK+ >= 2.1.1). */
 /* #undef HAVE_GTK_MULTIHEAD */
 
@@ -379,6 +436,9 @@
 
 /* Define if you want XSMP interaction as well as vanilla swapfile safety */
 #define USE_XSMP_INTERACT 1
+
+/* Define if fcntl()'s F_SETFD command knows about FD_CLOEXEC */
+#define HAVE_FD_CLOEXEC 1
 
 /* Define if there is a copyfile() */
 #define HAVE_COPYFILE 1

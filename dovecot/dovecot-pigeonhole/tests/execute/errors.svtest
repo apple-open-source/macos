@@ -1,0 +1,135 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+require "fileinto";
+
+test "Action conflicts: reject <-> fileinto" {
+	if not test_script_compile "errors/conflict-reject-fileinto.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+}
+
+test "Action conflicts: reject <-> keep" {
+	if not test_script_compile "errors/conflict-reject-keep.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+}
+
+test "Action conflicts: reject <-> redirect" {
+	if not test_script_compile "errors/conflict-reject-redirect.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+}
+
+test "Action limit" {
+	if not test_script_compile "errors/actions-limit.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+	
+	if not test_error :index 1 :contains "total number of actions exceeds policy limit"{
+		test_fail "unexpected error reported";
+	}
+}
+
+test "Redirect limit" {
+	if not test_script_compile "errors/redirect-limit.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+	
+	if not test_error :index 1 :contains "number of redirect actions exceeds policy limit"{
+		test_fail "unexpected error reported";
+	}
+}
+
+test "Fileinto missing folder" {
+	if not test_script_compile "errors/fileinto.sieve" {
+		test_fail "compile failed";
+	}
+
+	test_mailbox_create "INBOX";
+
+	if not test_script_run {
+		test_fail "execution failed";
+	}
+
+	if test_result_execute {
+		test_fail "execution of result should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+
+	if not allof (
+		test_error :index 1 :contains "failed to store into mailbox",
+		test_error :index 1 :contains "exist",
+		test_error :index 1 :contains "FROP") {
+		test_fail "unexpected error reported";
+	}
+}
+
+test "Fileinto invalid folder name" {
+	if not test_script_compile "errors/fileinto-invalid-name.sieve" {
+		test_fail "compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "execution failed";
+	}
+
+	if test_result_execute {
+		test_fail "execution of result should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "1" {
+		test_fail "wrong number of runtime errors reported";
+	}
+
+	if not allof (
+		test_error :index 1 :contains "failed to store into mailbox",
+		test_error :index 1 :contains "name") {
+		test_fail "unexpected error reported";
+	}
+}
+

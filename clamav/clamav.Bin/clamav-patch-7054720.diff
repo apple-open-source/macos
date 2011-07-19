@@ -1,0 +1,29 @@
+diff -ur a/configure b/configure
+--- a/configure        2010-07-01 14:26:50.000000000 -0600
++++ b/configure        2010-05-19 06:23:34.000000000 -0600
+@@ -16806,7 +16806,7 @@
+ 
+ $as_echo "#define BIND_8_COMPAT 1" >>confdefs.h
+ 
+-    use_netinfo="yes"
++    use_netinfo="no"
+     ;;
+ os2*)
+     FRESHCLAM_LIBS="$FRESHCLAM_LIBS -lsyslog"
+diff -ur a/configure b/configure
+--- a/shared/output.c        2010-07-01 14:26:50.000000000 -0600
++++ b/shared/output.c        2010-05-19 06:23:34.000000000 -0600
+@@ -328,6 +328,12 @@
+ 	    }
+ 	}
+ 
++	/* Apple: Prevent log injection */
++	size_t i;
++	size_t str_len=strlen(buff);
++	for(i=0;i<str_len-1;i++)
++		if(buff[i]=='\n') buff[i]='-';
++
+ 	if(logg_fp) {
+             /* Need to avoid logging time for verbose messages when logverbose
+                is not set or we get a bunch of timestamps in the log without
+

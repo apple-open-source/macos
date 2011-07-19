@@ -14,7 +14,7 @@ targetdir = $(datadir)/$(target_alias)
 SHELL = /bin/sh
 
 CC = @CC@
-TCLHDIR = @TCLHDIR@
+TCL_SRC_DIR	= @TCL_SRC_DIR@
 
 CC_FOR_TARGET = ` \
   if [ -f $${rootme}../gcc/Makefile ] ; then \
@@ -54,7 +54,7 @@ check:	exp_test site.exp
 	rootme=`cd .. && pwd`; export rootme; \
 	EXPECT=${EXPECT}; export EXPECT; \
 	if [ -f ../expect ] ; then  \
-	   TCL_LIBRARY=`echo ${TCLHDIR} | sed -e 's/-I//' -e 's/generic//'`/library ; \
+	   TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` ; \
 	   export TCL_LIBRARY ; \
 	else true ; fi ; \
 	$(RUNTEST) $(RUNTESTFLAGS) --tool expect EXPECT=$$EXPECT --srcdir $(srcdir)

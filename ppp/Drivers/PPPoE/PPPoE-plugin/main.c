@@ -287,7 +287,7 @@ int pppoe_connect(int *errorcode)
                         CFRelease(url);
                         strlcat(name, "/", sizeof(name));
                         strlcat(name, PPPOE_NKE, sizeof(name));
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
                         if (!load_kext(name, 0))
 #else
                         if (!load_kext(PPPOE_NKE_ID, 1))

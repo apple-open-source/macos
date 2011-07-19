@@ -1,0 +1,190 @@
+Simple Virtual User Installation
+================================
+
+ * Virtual users configured in '/etc/dovecot/passwd' file
+ * Assuming an unmodified Dovecot v1.x installation
+ * Assuming you're not using NFS. See <NFS.txt> for problems related to it.
+
+Contents
+
+
+ 1. Simple Virtual User Installation
+
+ 2. System configuration
+
+ 3. dovecot.conf
+
+ 4. /etc/dovecot/passwd
+
+     1. Passwords
+
+ 5. SMTP server configuration
+
+     1. Delivering mails
+
+     2. SMTP AUTH
+
+ 6. Quota
+
+System configuration
+====================
+
+ * Create *dovecot* user and *dovecot* group if they don't exist yet. This is
+   an unprivileged user for Dovecot's internal use. It doesn't need a home
+   directory or a shell.
+ * Create *vmail* user and *vmail* group. This is the user/group that's used to
+   access the mails.
+ * Create '/home/vmail' directory owned by vmail:vmail. The mails for all users
+   are stored under this directory.
+ * Create '/var/log/dovecot.log' and '/var/log/dovecot-info.log' files owned by
+   vmail:vmail, so that <deliver> [LDA.txt] can write to them.
+
+dovecot.conf
+============
+
+Below is a fully working 'dovecot.conf' file. You can use it directly, but it
+might be better to instead use 'dovecot-example.conf' as the base and make the
+same modifications to it.
+
+If you want to configure SSL, see <SSL.txt>.
+
+---%<-------------------------------------------------------------------------
+# Remove pop3 things if you don't want them
+protocols = imap imaps pop3 pop3s
+
+# It's nice to have separate log files for Dovecot. You could do this
+# by changing syslog configuration also, but this is easier.
+log_path = /var/log/dovecot.log
+info_log_path = /var/log/dovecot-info.log
+
+# Disable SSL for now.
+ssl = no # v1.2+, for older versions use: ssl_disable = yes
+disable_plaintext_auth = no
+
+# We're using Maildir format
+mail_location = maildir:~/Maildir
+
+# If you're using POP3, you'll need this:
+pop3_uidl_format = %08Xu%08Xv
+
+# Authentication configuration:
+auth_verbose = yes
+
+auth default {
+  mechanisms = plain
+  passdb passwd-file {
+    args = /etc/dovecot/passwd
+  }
+  userdb static {
+    args = uid=vmail gid=vmail home=/home/vmail/%u
+  }
+}
+---%<-------------------------------------------------------------------------
+
+/etc/dovecot/passwd
+===================
+
+See <AuthDatabase.PasswdFile.txt> for the full file format. Here we're
+interested only having usernames and passwords in it. Below's an example file:
+
+---%<-------------------------------------------------------------------------
+test:{PLAIN}pass
+bill:{PLAIN}secret
+timo@example.com:{PLAIN}hello123
+dave@example.com:{PLAIN}world234
+joe@elsewhere.org:{PLAIN}whee
+jane@elsewhere.org:{PLAIN}mypass
+---%<-------------------------------------------------------------------------
+
+As you can see, you can use multiple domains in the file, or no domains at all.
+Dovecot doesn't care about domains.
+
+Users can be added by editing this file. Dovecot automatically notices the new
+users immediately after they're added. It also creates their home directories
+when the user logs in.
+
+Passwords
+---------
+
+The passwords in the example passwd file are listed using plaintext scheme.
+It's possible to use other <password schemes>
+[Authentication.PasswordSchemes.txt] as well. For example SSHA would be a
+pretty strong scheme. You can create them using 'dovecotpw' utility, for
+example:
+
+---%<-------------------------------------------------------------------------
+dovecotpw -s ssha
+Enter new password: foo
+Retype new password: foo
+{SSHA}DNODS3ZrOq1bu2MasNk79LxHhlU9iI03
+---%<-------------------------------------------------------------------------
+
+Note that you won't get the same output after {SSHA} as above, because Dovecot
+uses random salts when creating the SSHA hash. This means that even if multiple
+users have the same password, you won't know that because their hashes are
+different.
+
+The passwd file entry would be:
+
+---%<-------------------------------------------------------------------------
+joe:{SSHA}DNODS3ZrOq1bu2MasNk79LxHhlU9iI03
+---%<-------------------------------------------------------------------------
+
+Joe would now have "foo" as his password.
+
+SMTP server configuration
+=========================
+
+Delivering mails
+----------------
+
+You can configure the SMTP server to deliver mails internally, or you can use
+Dovecot's <deliver> [LDA.txt]. Using deliver gives you better performance
+because it updates Dovecot's index files while saving the mails. See <LDA.txt>
+for how to configure this. In config you should have:
+
+---%<-------------------------------------------------------------------------
+protocol lda {
+  postmaster_address = postmaster@example.com
+}
+---%<-------------------------------------------------------------------------
+
+SMTP AUTH
+---------
+
+If you're using Postfix v2.3+ or Exim v4.64+ you can use Dovecot SASL instead
+of Cyrus SASL.
+
+ * <Postfix configuration> [HowTo.PostfixAndDovecotSASL.txt]
+ * <Exim configuration> [HowTo.EximAndDovecotSASL.txt]
+
+Quota
+=====
+
+If you need to have quota, add this to 'dovecot.conf':
+
+---%<-------------------------------------------------------------------------
+protocol imap {
+  mail_plugins = quota imap_quota
+}
+protocol pop3 {
+  mail_plugins = quota
+}
+protocol lda {
+  # .. other required lda settings ..
+  mail_plugins = quota
+}
+---%<-------------------------------------------------------------------------
+
+Then configure quota by adding 'userdb_quota' <extra field>
+[UserDatabase.ExtraFields.txt] to '/etc/dovecot/passwd', for example:
+
+---%<-------------------------------------------------------------------------
+joe:{PLAIN}pass::::::userdb_quota=maildir:storage=102400
+jane:{PLAIN}pass::::::userdb_quota=maildir:storage=204800
+---%<-------------------------------------------------------------------------
+
+Joe has now 100MB quota and Jane has 200MB quota. See <Quota.txt> for more
+information about quota settings.
+
+(This file was created from the wiki on 2011-05-11 04:42)

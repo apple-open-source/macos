@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1993-1996,1998-2005, 2007-2008
+ * Copyright (c) 1993-1996,1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -23,8 +23,15 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#ifdef __linux__
+# include <sys/vfs.h>
+#endif
+#if defined(__sun) && defined(__SVR4)
+# include <sys/statvfs.h>
+#endif
 #ifndef __TANDEM
 # include <sys/file.h>
 #endif
@@ -39,33 +46,23 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#if TIME_WITH_SYS_TIME
+# include <time.h>
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <time.h>
 #include <pwd.h>
 #include <grp.h>
-#ifndef HAVE_TIMESPEC
-# include <emul/timespec.h>
-#endif
 
 #include "sudo.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: check.c,v 1.245 2008/11/25 17:01:34 millert Exp $";
-#endif /* lint */
-
-#ifdef __APPLE_MEMBERD__
-#include <membership.h>
-#endif
 
 /* Status codes for timestamp_status() */
 #define TS_CURRENT		0
@@ -78,35 +75,68 @@ __unused static const char rcsid[] = "$Sudo: check.c,v 1.245 2008/11/25 17:01:34
 #define TS_MAKE_DIRS		1
 #define TS_REMOVE		2
 
+/*
+ * Info stored in tty ticket from stat(2) to help with tty matching.
+ */
+static struct tty_info {
+    dev_t dev;			/* ID of device tty resides on */
+    dev_t rdev;			/* tty device ID */
+    ino_t ino;			/* tty inode number */
+    struct timeval ctime;	/* tty inode change time */
+} tty_info;
+
 static void  build_timestamp	__P((char **, char **));
 static int   timestamp_status	__P((char *, char *, char *, int));
 static char *expand_prompt	__P((char *, char *, char *));
 static void  lecture		__P((int));
 static void  update_timestamp	__P((char *, char *));
+static int   tty_is_devpts	__P((const char *));
 
 /*
  * This function only returns if the user can successfully
  * verify who he/she is.
  */
 void
-check_user(validated, interactive)
+check_user(validated, mode)
     int validated;
-    int interactive;
+    int mode;
 {
     char *timestampdir = NULL;
     char *timestampfile = NULL;
     char *prompt;
+    struct stat sb;
     int status;
 
-    if (user_uid == 0 || user_uid == runas_pw->pw_uid || user_is_exempt())
-	return;
+    /* Stash the tty's ctime for tty ticket comparison. */
+    if (def_tty_tickets && user_ttypath && stat(user_ttypath, &sb) == 0) {
+	tty_info.dev = sb.st_dev;
+	tty_info.ino = sb.st_ino;
+	tty_info.rdev = sb.st_rdev;
+	if (tty_is_devpts(user_ttypath))
+	    ctim_get(&sb, &tty_info.ctime);
+    }
+
+    /* Always prompt for a password when -k was specified with the command. */
+    if (ISSET(mode, MODE_INVALIDATE)) {
+	SET(validated, FLAG_CHECK_USER);
+    } else {
+	/*
+	 * Don't prompt for the root passwd or if the user is exempt.
+	 * If the user is not changing uid/gid, no need for a password.
+	 */
+	if (user_uid == 0 || (user_uid == runas_pw->pw_uid &&
+	    (!runas_gr || user_in_group(sudo_user.pw, runas_gr->gr_name))) ||
+	    user_is_exempt())
+	    return;
+    }
 
     build_timestamp(&timestampdir, &timestampfile);
     status = timestamp_status(timestampdir, timestampfile, user_name,
 	TS_MAKE_DIRS);
+
     if (status != TS_CURRENT || ISSET(validated, FLAG_CHECK_USER)) {
 	/* Bail out if we are non-interactive and a password is required */
-	if (!interactive)
+	if (ISSET(mode, MODE_NONINTERACTIVE))
 	    errorx(1, "sorry, a password is required to run %s", getprogname());
 
 	/* If user specified -A, make sure we have an askpass helper. */
@@ -136,7 +166,7 @@ check_user(validated, interactive)
 	verify_user(auth_pw, prompt);
     }
     /* Only update timestamp if user was validated. */
-    if (status != TS_ERROR && ISSET(validated, VALIDATE_OK))
+    if (ISSET(validated, VALIDATE_OK) && !ISSET(mode, MODE_INVALIDATE) && status != TS_ERROR)
 	update_timestamp(timestampdir, timestampfile);
     efree(timestampdir);
     efree(timestampfile);
@@ -144,7 +174,6 @@ check_user(validated, interactive)
 
 /*
  * Standard sudo lecture.
- * TODO: allow the user to specify a file name instead.
  */
 static void
 lecture(status)
@@ -181,17 +210,26 @@ update_timestamp(timestampdir, timestampfile)
     char *timestampdir;
     char *timestampfile;
 {
+    /* If using tty timestamps but we have no tty there is nothing to do. */
+    if (def_tty_tickets && !user_ttypath)
+	return;
+
     if (timestamp_uid != 0)
 	set_perms(PERM_TIMESTAMP);
-    if (touch(-1, timestampfile ? timestampfile : timestampdir, NULL) == -1) {
-	if (timestampfile) {
-	    int fd = open(timestampfile, O_WRONLY|O_CREAT|O_TRUNC, 0600);
-
-	    if (fd == -1)
-		log_error(NO_EXIT|USE_ERRNO, "Can't open %s", timestampfile);
-	    else
-		close(fd);
-	} else {
+    if (timestampfile) {
+	/*
+	 * Store tty info in timestamp file
+	 */
+	int fd = open(timestampfile, O_WRONLY|O_CREAT, 0600);
+	if (fd == -1)
+	    log_error(NO_EXIT|USE_ERRNO, "Can't open %s", timestampfile);
+	else {
+	    lock_file(fd, SUDO_LOCK);
+	    write(fd, &tty_info, sizeof(tty_info));
+	    close(fd);
+	}
+    } else {
+	if (touch(-1, timestampdir, NULL) == -1) {
 	    if (mkdir(timestampdir, 0700) == -1)
 		log_error(NO_EXIT|USE_ERRNO, "Can't mkdir %s", timestampdir);
 	}
@@ -336,38 +374,9 @@ oflow:
 int
 user_is_exempt()
 {
-    struct group *grp;
-    char **gr_mem;
-#ifdef __APPLE_MEMBERD__
-    struct passwd *pw = getpwuid(getuid());
-    uuid_t uu, gu;
-    int ismember = 0;
-#endif
-
     if (!def_exempt_group)
 	return(FALSE);
-
-    if (!(grp = sudo_getgrnam(def_exempt_group)))
-	return(FALSE);
-
-    if (user_gid == grp->gr_gid)
-	return(TRUE);
-
-#ifdef __APPLE_MEMBERD__
-    if (NULL != pw &&
-	0 == mbr_uid_to_uuid(pw->pw_uid, uu) &&
-	0 == mbr_gid_to_uuid(grp->gr_gid, gu) &&
-	0 == mbr_check_membership(uu, gu, &ismember) &&
-	ismember)
-	return(TRUE);
-#else
-    for (gr_mem = grp->gr_mem; *gr_mem; gr_mem++) {
-	if (strcmp(user_name, *gr_mem) == 0)
-	    return(TRUE);
-    }
-#endif
-
-    return(FALSE);
+    return(user_in_group(sudo_user.pw, def_exempt_group));
 }
 
 /*
@@ -424,6 +433,7 @@ timestamp_status(timestampdir, timestampfile, user, flags)
     int flags;
 {
     struct stat sb;
+    struct timeval boottime, mtime;
     time_t now;
     char *dirparent = def_timestampdir;
     int status = TS_ERROR;		/* assume the worst */
@@ -524,6 +534,8 @@ timestamp_status(timestampdir, timestampfile, user, flags)
     if (timestampfile && status != TS_ERROR) {
 	if (status != TS_MISSING)
 	    status = TS_NOFILE;			/* dir there, file missing */
+	if (def_tty_tickets && !user_ttypath)
+	    goto done;				/* no tty, always prompt */
 	if (lstat(timestampfile, &sb) == 0) {
 	    if (!S_ISREG(sb.st_mode)) {
 		status = TS_ERROR;
@@ -547,7 +559,25 @@ timestamp_status(timestampdir, timestampfile, user, flags)
 		    if ((sb.st_mode & 0000777) != 0600)
 			(void) chmod(timestampfile, 0600);
 
-		    status = TS_OLD;	/* actually check mtime below */
+		    /*
+		     * Check for stored tty info.  If the file is zero-sized
+		     * it is an old-style timestamp with no tty info in it.
+		     * If removing, we don't care about the contents.
+		     * The actual mtime check is done later.
+		     */
+		    if (ISSET(flags, TS_REMOVE)) {
+			status = TS_OLD;
+		    } else if (sb.st_size != 0) {
+			struct tty_info info;
+			int fd = open(timestampfile, O_RDONLY, 0644);
+			if (fd != -1) {
+			    if (read(fd, &info, sizeof(info)) == sizeof(info) &&
+				memcmp(&info, &tty_info, sizeof(info)) == 0) {
+				status = TS_OLD;
+			    }
+			    close(fd);
+			}
+		    }
 		}
 	    }
 	} else if (errno != ENOENT) {
@@ -560,35 +590,38 @@ timestamp_status(timestampdir, timestampfile, user, flags)
      * If the file/dir exists and we are not removing it, check its mtime.
      */
     if (status == TS_OLD && !ISSET(flags, TS_REMOVE)) {
+	mtim_get(&sb, &mtime);
 	/* Negative timeouts only expire manually (sudo -k). */
-	if (def_timestamp_timeout < 0 && sb.st_mtime != 0)
+	if (def_timestamp_timeout < 0 && mtime.tv_sec != 0)
 	    status = TS_CURRENT;
 	else {
-	    /* XXX - should use timespec here */
 	    now = time(NULL);
 	    if (def_timestamp_timeout &&
-		now - sb.st_mtime < 60 * def_timestamp_timeout) {
+		now - mtime.tv_sec < 60 * def_timestamp_timeout) {
 		/*
 		 * Check for bogus time on the stampfile.  The clock may
 		 * have been set back or someone could be trying to spoof us.
 		 */
-		if (sb.st_mtime > now + 60 * def_timestamp_timeout * 2) {
+		if (mtime.tv_sec > now + 60 * def_timestamp_timeout * 2) {
+		    time_t tv_sec = (time_t)mtime.tv_sec;
 		    log_error(NO_EXIT,
 			"timestamp too far in the future: %20.20s",
-			4 + ctime(&sb.st_mtime));
+			4 + ctime(&tv_sec));
 		    if (timestampfile)
 			(void) unlink(timestampfile);
 		    else
 			(void) rmdir(timestampdir);
 		    status = TS_MISSING;
-		} else if (sb.st_mtime < timeofboot()) {
+		} else if (get_boottime(&boottime) && timevalcmp(&mtime, &boottime, <)) {
 		    status = TS_OLD;
-		} else
+		} else {
 		    status = TS_CURRENT;
+		}
 	    }
 	}
     }
 
+done:
     if (timestamp_uid != 0)
 	set_perms(PERM_ROOT);
     return(status);
@@ -601,7 +634,7 @@ void
 remove_timestamp(remove)
     int remove;
 {
-    struct timespec ts;
+    struct timeval tv;
     char *timestampdir, *timestampfile, *path;
     int status;
 
@@ -621,8 +654,8 @@ remove_timestamp(remove)
 		remove = FALSE;
 	    }
 	} else {
-	    timespecclear(&ts);
-	    if (touch(-1, path, &ts) == -1)
+	    timevalclear(&tv);
+	    if (touch(-1, path, &tv) == -1 && errno != ENOENT)
 		error(1, "can't reset %s to Epoch", path);
 	}
     }
@@ -632,23 +665,36 @@ remove_timestamp(remove)
 }
 
 /*
- * Check the boottime.
+ * Returns TRUE if tty lives on a devpts or /devices filesystem, else FALSE.
+ * Unlike most filesystems, the ctime of devpts nodes is not updated when
+ * the device node is written to, only when the inode's status changes,
+ * typically via the chmod, chown, link, rename, or utimes system calls.
+ * Since the ctime is "stable" in this case, we can stash it the tty ticket
+ * file and use it to determine whether the tty ticket file is stale.
  */
-int
-timeofboot()
+static int
+tty_is_devpts(tty)
+    const char *tty;
 {
-	struct timeval	boottime;
-	time_t timeofboot = 0;
-	int mib[2];
-	size_t size;
-	
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_BOOTTIME;
-	size = sizeof(boottime);
-	
-	if (sysctl(mib, 2, &boottime, &size, NULL, 0) != -1 && boottime.tv_sec != 0) {
-		timeofboot = boottime.tv_sec;
-	}
-	
-	return timeofboot;
+    int retval = FALSE;
+#ifdef __linux__
+    struct statfs sfs;
+
+#ifndef DEVPTS_SUPER_MAGIC
+# define DEVPTS_SUPER_MAGIC 0x1cd1
+#endif
+
+    if (statfs(tty, &sfs) == 0) {
+	if (sfs.f_type == DEVPTS_SUPER_MAGIC)
+	    retval = TRUE;
+    }
+#elif defined(__sun) && defined(__SVR4)
+    struct statvfs sfs;
+
+    if (statvfs(tty, &sfs) == 0) {
+	if (strcmp(sfs.f_fstr, "devices") == 0)
+	    retval = TRUE;
+    }
+#endif /* __linux__ */
+    return retval;
 }

@@ -15,7 +15,7 @@
 #
 
 VERSION="@CUPS_VERSION@"
-APIVERSION="1.4"
+APIVERSION="1.5"
 BUILD="@CUPS_BUILD@"
 
 prefix=@prefix@

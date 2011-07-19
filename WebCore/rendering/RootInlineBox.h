@@ -34,14 +34,7 @@ struct GapRects;
 
 class RootInlineBox : public InlineFlowBox {
 public:
-    RootInlineBox(RenderObject* obj)
-        : InlineFlowBox(obj)
-        , m_lineBreakObj(0)
-        , m_lineBreakPos(0)
-        , m_lineTop(0)
-        , m_lineBottom(0)
-    {
-    }
+    RootInlineBox(RenderBlock* block);
 
     virtual void destroy(RenderArena*);
 
@@ -52,23 +45,22 @@ public:
     RootInlineBox* nextRootBox() const { return static_cast<RootInlineBox*>(m_nextLineBox); }
     RootInlineBox* prevRootBox() const { return static_cast<RootInlineBox*>(m_prevLineBox); }
 
-    virtual void adjustPosition(int dx, int dy);
+    virtual void adjustPosition(float dx, float dy);
 
     int lineTop() const { return m_lineTop; }
     int lineBottom() const { return m_lineBottom; }
 
+    int paginationStrut() const { return m_paginationStrut; }
+    void setPaginationStrut(int s) { m_paginationStrut = s; }
+
     int selectionTop() const;
-    int selectionBottom() const { return lineBottom(); }
+    int selectionBottom() const;
     int selectionHeight() const { return max(0, selectionBottom() - selectionTop()); }
 
-    virtual int verticallyAlignBoxes(int heightOfBlock);
+    int alignBoxesInBlockDirection(int heightOfBlock, GlyphOverflowAndFallbackFontsMap&, VerticalPositionCache&);
     void setLineTopBottomPositions(int top, int bottom);
 
     virtual RenderLineBoxList* rendererLineBoxes() const;
-
-#if ENABLE(SVG)
-    virtual void computePerCharacterLayoutInformation() { }
-#endif
 
     RenderObject* lineBreakObj() const { return m_lineBreakObj; }
     BidiStatus lineBreakBidiStatus() const;
@@ -77,53 +69,55 @@ public:
     unsigned lineBreakPos() const { return m_lineBreakPos; }
     void setLineBreakPos(unsigned p) { m_lineBreakPos = p; }
 
-    int blockHeight() const { return m_blockHeight; }
-    void setBlockHeight(int h) { m_blockHeight = h; }
+    int blockLogicalHeight() const { return m_blockLogicalHeight; }
+    void setBlockLogicalHeight(int h) { m_blockLogicalHeight = h; }
 
     bool endsWithBreak() const { return m_endsWithBreak; }
     void setEndsWithBreak(bool b) { m_endsWithBreak = b; }
 
     void childRemoved(InlineBox* box);
 
-    bool canAccommodateEllipsis(bool ltr, int blockEdge, int lineBoxEdge, int ellipsisWidth);
-    void placeEllipsis(const AtomicString& ellipsisStr, bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth, InlineBox* markupBox = 0);
-    virtual int placeEllipsisBox(bool ltr, int blockLeftEdge, int blockRightEdge, int ellipsisWidth, bool& foundBox);
+    bool lineCanAccommodateEllipsis(bool ltr, int blockEdge, int lineBoxEdge, int ellipsisWidth);
+    void placeEllipsis(const AtomicString& ellipsisStr, bool ltr, float blockLeftEdge, float blockRightEdge, float ellipsisWidth, InlineBox* markupBox = 0);
+    virtual float placeEllipsisBox(bool ltr, float blockLeftEdge, float blockRightEdge, float ellipsisWidth, bool& foundBox);
 
     EllipsisBox* ellipsisBox() const;
 
-    void paintEllipsisBox(RenderObject::PaintInfo&, int tx, int ty) const;
-    bool hitTestEllipsisBox(HitTestResult&, int x, int y, int tx, int ty, HitTestAction, bool);
+    void paintEllipsisBox(PaintInfo&, int tx, int ty, int lineTop, int lineBottom) const;
 
     virtual void clearTruncation();
 
+    virtual int baselinePosition(FontBaseline baselineType) const { return boxModelObject()->baselinePosition(baselineType, m_firstLine, isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes); }
+    virtual int lineHeight() const { return boxModelObject()->lineHeight(m_firstLine, isHorizontal() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes); }
+
 #if PLATFORM(MAC)
     void addHighlightOverflow();
-    void paintCustomHighlight(RenderObject::PaintInfo&, int tx, int ty, const AtomicString& highlightType);
+    void paintCustomHighlight(PaintInfo&, int tx, int ty, const AtomicString& highlightType);
 #endif
 
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int);
+    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
 
-    bool hasSelectedChildren() const { return m_hasSelectedChildren; }
-    void setHasSelectedChildren(bool);
+    bool hasSelectedChildren() const { return m_hasSelectedChildrenOrCanHaveLeadingExpansion; }
+    void setHasSelectedChildren(bool hasSelectedChildren) { m_hasSelectedChildrenOrCanHaveLeadingExpansion = hasSelectedChildren; }
 
     virtual RenderObject::SelectionState selectionState();
     InlineBox* firstSelectedBox();
     InlineBox* lastSelectedBox();
 
-    GapRects fillLineSelectionGap(int selTop, int selHeight, RenderBlock* rootBlock, int blockX, int blockY,
-                                  int tx, int ty, const RenderObject::PaintInfo*);
+    GapRects lineSelectionGap(RenderBlock* rootBlock, const IntPoint& rootBlockPhysicalPosition, const IntSize& offsetFromRootBlock, int selTop, int selHeight, const PaintInfo*);
 
     RenderBlock* block() const;
 
-    InlineBox* closestLeafChildForXPos(int x, bool onlyEditableLeaves = false);
+    InlineBox* closestLeafChildForLogicalLeftPosition(int, bool onlyEditableLeaves = false);
 
-    Vector<RenderBox*>& floats()
+    void appendFloat(RenderBox* floatingBox)
     {
         ASSERT(!isDirty());
-        if (!m_floats)
-            m_floats.set(new Vector<RenderBox*>());
-        return *m_floats;
+        if (m_floats)
+            m_floats->append(floatingBox);
+        else
+            m_floats= adoptPtr(new Vector<RenderBox*>(1, floatingBox));
     }
 
     Vector<RenderBox*>* floatsPtr() { ASSERT(!isDirty()); return m_floats.get(); }
@@ -131,8 +125,51 @@ public:
     virtual void extractLineBoxFromRenderObject();
     virtual void attachLineBoxToRenderObject();
     virtual void removeLineBoxFromRenderObject();
+    
+    FontBaseline baselineType() const { return static_cast<FontBaseline>(m_baselineType); }
 
-protected:
+    bool hasAnnotationsBefore() const { return m_hasAnnotationsBefore; }
+    bool hasAnnotationsAfter() const { return m_hasAnnotationsAfter; }
+
+    IntRect paddedLayoutOverflowRect(int endPadding) const;
+
+    void ascentAndDescentForBox(InlineBox*, GlyphOverflowAndFallbackFontsMap&, int& ascent, int& descent, bool& affectsAscent, bool& affectsDescent) const;
+    int verticalPositionForBox(InlineBox*, VerticalPositionCache&);
+    bool includeLeadingForBox(InlineBox*) const;
+    bool includeFontForBox(InlineBox*) const;
+    bool includeGlyphsForBox(InlineBox*) const;
+    bool includeMarginForBox(InlineBox*) const;
+    bool fitsToGlyphs() const;
+    bool includesRootLineBoxFontOrLeading() const;
+    
+    int logicalTopVisualOverflow() const
+    {
+        return InlineFlowBox::logicalTopVisualOverflow(lineTop());
+    }
+    int logicalBottomVisualOverflow() const
+    {
+        return InlineFlowBox::logicalBottomVisualOverflow(lineBottom());
+    }
+    int logicalTopLayoutOverflow() const
+    {
+        return InlineFlowBox::logicalTopLayoutOverflow(lineTop());
+    }
+    int logicalBottomLayoutOverflow() const
+    {
+        return InlineFlowBox::logicalBottomLayoutOverflow(lineBottom());
+    }
+
+    Node* getLogicalStartBoxWithNode(InlineBox*&) const;
+    Node* getLogicalEndBoxWithNode(InlineBox*&) const;
+#ifndef NDEBUG
+    virtual const char* boxName() const;
+#endif
+private:
+    bool hasEllipsisBox() const { return m_hasEllipsisBoxOrHyphen; }
+    void setHasEllipsisBox(bool hasEllipsisBox) { m_hasEllipsisBoxOrHyphen = hasEllipsisBox; }
+
+    int beforeAnnotationsAdjustment() const;
+
     // Where this line ended.  The exact object and the position within that object are stored so that
     // we can create an InlineIterator beginning just after the end of this line.
     RenderObject* m_lineBreakObj;
@@ -142,12 +179,21 @@ protected:
     int m_lineTop;
     int m_lineBottom;
 
+    int m_paginationStrut;
+
     // Floats hanging off the line are pushed into this vector during layout. It is only
     // good for as long as the line has not been marked dirty.
     OwnPtr<Vector<RenderBox*> > m_floats;
 
-    // The height of the block at the end of this line.  This is where the next line starts.
-    int m_blockHeight;
+    // The logical height of the block at the end of this line.  This is where the next line starts.
+    int m_blockLogicalHeight;
+
+    // Whether or not this line uses alphabetic or ideographic baselines by default.
+    unsigned m_baselineType : 1; // FontBaseline
+    
+    // If the line contains any ruby runs, then this will be true.
+    bool m_hasAnnotationsBefore : 1;
+    bool m_hasAnnotationsAfter : 1;
 
     WTF::Unicode::Direction m_lineBreakBidiStatusEor : 5;
     WTF::Unicode::Direction m_lineBreakBidiStatusLastStrong : 5;

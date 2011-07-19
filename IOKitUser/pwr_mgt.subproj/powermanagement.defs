@@ -33,11 +33,13 @@ serverprefix _;
 // PM Settings
 routine io_pm_force_active_settings(
             server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in  profiles    : pointer_t;
         out return_val  : int);
 
 routine io_pm_set_active_profile(
             server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in  profiles    : pointer_t;
         out return_val  : int);
 
@@ -51,25 +53,38 @@ routine io_pm_last_wake_time(
 // IOPMAssertion
 routine io_pm_assertion_create(
             server      : mach_port_t;
-        in task_t       : mach_port_t;
-        in  name        : string_t;
-        in  profile     : string_t;
-        in  level       : int;
+ServerAuditToken token  : audit_token_t;
+        in  props       : pointer_t;
         out assertion_id: int;
         out return_code : int);
         
-routine io_pm_assertion_settimeout(
+routine io_pm_assertion_set_properties(
             server      : mach_port_t;
-        in  task_t      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in  assertion_id: int;
-        in  interval    : int;
+        in  props       : pointer_t;
         out return_code : int);
 
-routine io_pm_assertion_release(
+routine io_pm_assertion_retain_release(
             server      : mach_port_t;
-        in  task_t      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
         in  assertion_id: int;
+        in  action      : int;
         out return_code : int);
+
+routine io_pm_assertion_copy_details(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in assertion_id : int;
+        in whichData    : int;
+        out assertions  : pointer_t;
+        out return_val  : int);
+
+// IOPMPowerHistory
+
+routine io_pm_set_power_history_bookmark(
+            server      : mach_port_t;
+            out uuid    : string_t);
 
 // IOPMConnection
 routine io_pm_connection_create(
@@ -104,11 +119,29 @@ routine io_pm_connection_copy_status(
         in status_index : int;
         out status_data : pointer_t;
         out return_val  : int);
-        
+
+// "Soft" OS controlled power sources        
 routine io_pm_new_pspowersource(
             server      : mach_port_t;
         in  clientport  : mach_port_t;
         in  clienttype  : string_t;
         out dskey       : string_t;
         out return_code : int);
-        
+    
+routine io_pm_update_pspowersource(
+            server      : mach_port_t;
+        in  dskey       : string_t;
+        in  psdetails   : pointer_t;
+        out return_code : int);
+                
+// IOPMHIDPostEventActivity
+simpleroutine io_pm_hid_event_report_activity(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  _action     : int);
+
+routine io_pm_hid_event_copy_history(
+            server      : mach_port_t;
+            out eventArray : pointer_t;
+            out return_val : int);
+

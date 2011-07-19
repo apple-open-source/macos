@@ -28,8 +28,8 @@
 #include "AppleCSPContext.h"
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
-#include <CommonCrypto/opensslDES.h>
 #include <CommonCrypto/CommonCryptor.h>
+#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
 
 #define DES_KEY_SIZE_BITS_EXTERNAL		(kCCKeySizeDES * 8)
 #define DES_BLOCK_SIZE_BYTES			kCCBlockSizeDES
@@ -37,9 +37,8 @@
 /* DES Symmetric encryption context */
 class DESContext : public BlockCryptor {
 public:
-	DESContext(AppleCSPSession &session) :
-		BlockCryptor(session)	{ }
-	~DESContext();
+	DESContext(AppleCSPSession &session);
+	virtual ~DESContext();
 	
 	// called by CSPFullPluginSession
 	void init(const Context &context, bool encoding = true);
@@ -59,19 +58,17 @@ public:
 		bool			final);
 	
 private:
-	DES_key_schedule	DesInst;
-	
+        CCCryptorRef	DesInst;	
 };	/* DESContext */
 
 /* Triple-DES (EDE, 24 byte key) Symmetric encryption context */
 
 #define DES3_KEY_SIZE_BYTES		(3 * (DES_KEY_SIZE_BITS_EXTERNAL / 8))
-#define DES3_BLOCK_SIZE_BYTES	DES_BLOCK_SIZE_BYTES
+#define DES3_BLOCK_SIZE_BYTES	kCCBlockSize3DES
 
 class DES3Context : public BlockCryptor {
 public:
-	DES3Context(AppleCSPSession &session) :
-		BlockCryptor(session)	{ }
+	DES3Context(AppleCSPSession &session);
 	~DES3Context();
 	
 	// called by CSPFullPluginSession
@@ -92,8 +89,7 @@ public:
 		bool			final);
 	
 private:
-	DES3_Schedule		DesInst;
-	
+    CCCryptorRef	DesInst;		
 };	/* DES3Context */
 
 #endif //_DES_CONTEXT_H_

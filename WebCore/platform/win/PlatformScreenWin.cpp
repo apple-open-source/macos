@@ -68,14 +68,18 @@ static DEVMODE deviceInfoForWidget(Widget* widget)
 int screenDepth(Widget* widget)
 {
     DEVMODE deviceInfo = deviceInfoForWidget(widget);
+    if (deviceInfo.dmBitsPerPel == 32) {
+        // Some video drivers return 32, but this function is supposed to ignore the alpha
+        // component. See <http://webkit.org/b/42972>.
+        return 24;
+    }
     return deviceInfo.dmBitsPerPel;
 }
 
 int screenDepthPerComponent(Widget* widget)
 {
     // FIXME: Assumes RGB -- not sure if this is right.
-    DEVMODE deviceInfo = deviceInfoForWidget(widget);
-    return deviceInfo.dmBitsPerPel / 3;
+    return screenDepth(widget) / 3;
 }
 
 bool screenIsMonochrome(Widget* widget)

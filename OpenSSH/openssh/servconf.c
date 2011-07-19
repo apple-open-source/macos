@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.c,v 1.194 2009/01/22 10:02:34 djm Exp $ */
+/* $OpenBSD: servconf.c,v 1.209 2010/06/22 04:22:59 djm Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -65,6 +65,7 @@ initialize_server_options(ServerOptions *options)
 	options->listen_addrs = NULL;
 	options->address_family = -1;
 	options->num_host_key_files = 0;
+	options->num_host_cert_files = 0;
 	options->pid_file = NULL;
 	options->server_key_bits = -1;
 	options->login_grace_time = -1;
@@ -95,13 +96,13 @@ initialize_server_options(ServerOptions *options)
 	options->gss_keyex = -1;
 	options->gss_cleanup_creds = -1;
 	options->gss_strict_acceptor = -1;
+	options->gss_store_rekey = -1;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->challenge_response_authentication = -1;
 	options->permit_empty_passwd = -1;
 	options->permit_user_env = -1;
 	options->use_login = -1;
-	options->sacl_support = -1;
 	options->compression = -1;
 	options->allow_tcp_forwarding = -1;
 	options->allow_agent_forwarding = -1;
@@ -131,6 +132,9 @@ initialize_server_options(ServerOptions *options)
 	options->adm_forced_command = NULL;
 	options->chroot_directory = NULL;
 	options->zero_knowledge_password_authentication = -1;
+	options->revoked_keys_file = NULL;
+	options->trusted_user_ca_keys = NULL;
+	options->authorized_principals_file = NULL;
 }
 
 void
@@ -142,7 +146,7 @@ fill_default_server_options(ServerOptions *options)
 
 	/* Standard Options */
 	if (options->protocol == SSH_PROTO_UNKNOWN)
-		options->protocol = SSH_PROTO_1|SSH_PROTO_2;
+		options->protocol = SSH_PROTO_2;
 	if (options->num_host_key_files == 0) {
 		/* fill default hostkeys for protocols */
 		if (options->protocol & SSH_PROTO_1)
@@ -155,6 +159,7 @@ fill_default_server_options(ServerOptions *options)
 			    _PATH_HOST_DSA_KEY_FILE;
 		}
 	}
+	/* No certificates by default */
 	if (options->num_ports == 0)
 		options->ports[options->num_ports++] = SSH_DEFAULT_PORT;
 	if (options->listen_addrs == NULL)
@@ -219,6 +224,8 @@ fill_default_server_options(ServerOptions *options)
 		options->gss_cleanup_creds = 1;
 	if (options->gss_strict_acceptor == -1)
 		options->gss_strict_acceptor = 1;
+	if (options->gss_store_rekey == -1)
+		options->gss_store_rekey = 0;
 	if (options->password_authentication == -1)
 		options->password_authentication = 0;
 	if (options->kbd_interactive_authentication == -1)
@@ -231,8 +238,6 @@ fill_default_server_options(ServerOptions *options)
 		options->permit_user_env = 0;
 	if (options->use_login == -1)
 		options->use_login = 0;
-	if (options->sacl_support == -1)
-		options->sacl_support = 0;
 	if (options->compression == -1)
 		options->compression = COMP_DELAYED;
 	if (options->allow_tcp_forwarding == -1)
@@ -312,12 +317,15 @@ typedef enum {
 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
 	sGssAuthentication, sGssCleanupCreds, sGssStrictAcceptor,
-	sGssKeyEx,
+	sGssKeyEx, sGssStoreRekey,
 	sAcceptEnv, sPermitTunnel,
 	sMatch, sPermitOpen, sForceCommand, sChrootDirectory,
 	sUsePrivilegeSeparation, sAllowAgentForwarding,
-	sZeroKnowledgePasswordAuthentication,
+	sZeroKnowledgePasswordAuthentication, sHostCertificate,
+#ifdef __APPLE_SACL_DEPRECATED__
 	sSACLSupport,
+#endif
+	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
 	sDeprecated, sUnsupported
 } ServerOpCodes;
 
@@ -352,10 +360,10 @@ static struct {
 	{ "rhostsauthentication", sDeprecated, SSHCFG_GLOBAL },
 	{ "rhostsrsaauthentication", sRhostsRSAAuthentication, SSHCFG_ALL },
 	{ "hostbasedauthentication", sHostbasedAuthentication, SSHCFG_ALL },
-	{ "hostbasedusesnamefrompacketonly", sHostbasedUsesNameFromPacketOnly, SSHCFG_GLOBAL },
+	{ "hostbasedusesnamefrompacketonly", sHostbasedUsesNameFromPacketOnly, SSHCFG_ALL },
 	{ "rsaauthentication", sRSAAuthentication, SSHCFG_ALL },
 	{ "pubkeyauthentication", sPubkeyAuthentication, SSHCFG_ALL },
-	{ "dsaauthentication", sPubkeyAuthentication, SSHCFG_GLOBAL },	/* alias */
+	{ "dsaauthentication", sPubkeyAuthentication, SSHCFG_GLOBAL }, /* alias */
 #ifdef KRB5
 	{ "kerberosauthentication", sKerberosAuthentication, SSHCFG_ALL },
 	{ "kerberosorlocalpasswd", sKerberosOrLocalPasswd, SSHCFG_GLOBAL },
@@ -378,11 +386,13 @@ static struct {
 	{ "gssapicleanupcredentials", sGssCleanupCreds, SSHCFG_GLOBAL },
 	{ "gssapistrictacceptorcheck", sGssStrictAcceptor, SSHCFG_GLOBAL },
 	{ "gssapikeyexchange", sGssKeyEx, SSHCFG_GLOBAL },
+	{ "gssapistorecredentialsonrekey", sGssStoreRekey, SSHCFG_GLOBAL },
 #else
 	{ "gssapiauthentication", sUnsupported, SSHCFG_ALL },
 	{ "gssapicleanupcredentials", sUnsupported, SSHCFG_GLOBAL },
 	{ "gssapistrictacceptorcheck", sUnsupported, SSHCFG_GLOBAL },
 	{ "gssapikeyexchange", sUnsupported, SSHCFG_GLOBAL },
+	{ "gssapistorecredentialsonrekey", sUnsupported, SSHCFG_GLOBAL },
 #endif
 	{ "passwordauthentication", sPasswordAuthentication, SSHCFG_ALL },
 	{ "kbdinteractiveauthentication", sKbdInteractiveAuthentication, SSHCFG_ALL },
@@ -431,16 +441,22 @@ static struct {
 	{ "reversemappingcheck", sDeprecated, SSHCFG_GLOBAL },
 	{ "clientaliveinterval", sClientAliveInterval, SSHCFG_GLOBAL },
 	{ "clientalivecountmax", sClientAliveCountMax, SSHCFG_GLOBAL },
-	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_GLOBAL },
-	{ "authorizedkeysfile2", sAuthorizedKeysFile2, SSHCFG_GLOBAL },
-	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL },
+#ifdef __APPLE_SACL_DEPRECATED__
 	{ "saclsupport", sSACLSupport },
+#endif
+	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_ALL },
+	{ "authorizedkeysfile2", sAuthorizedKeysFile2, SSHCFG_ALL },
+	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL},
 	{ "acceptenv", sAcceptEnv, SSHCFG_GLOBAL },
-	{ "permittunnel", sPermitTunnel, SSHCFG_GLOBAL },
- 	{ "match", sMatch, SSHCFG_ALL },
+	{ "permittunnel", sPermitTunnel, SSHCFG_ALL },
+	{ "match", sMatch, SSHCFG_ALL },
 	{ "permitopen", sPermitOpen, SSHCFG_ALL },
 	{ "forcecommand", sForceCommand, SSHCFG_ALL },
 	{ "chrootdirectory", sChrootDirectory, SSHCFG_ALL },
+	{ "hostcertificate", sHostCertificate, SSHCFG_GLOBAL },
+	{ "revokedkeys", sRevokedKeys, SSHCFG_ALL },
+	{ "trustedusercakeys", sTrustedUserCAKeys, SSHCFG_ALL },
+	{ "authorizedprincipalsfile", sAuthorizedPrincipalsFile, SSHCFG_ALL },
 	{ NULL, sBadOption, 0 }
 };
 
@@ -474,6 +490,21 @@ parse_token(const char *cp, const char *filename,
 	error("%s: line %d: Bad configuration option: %s",
 	    filename, linenum, cp);
 	return sBadOption;
+}
+
+char *
+derelativise_path(const char *path)
+{
+	char *expanded, *ret, cwd[MAXPATHLEN];
+
+	expanded = tilde_expand_filename(path, getuid());
+	if (*expanded == '/')
+		return expanded;
+	if (getcwd(cwd, sizeof(cwd)) == NULL)
+		fatal("%s: getcwd: %s", __func__, strerror(errno));
+	xasprintf(&ret, "%s/%s", cwd, expanded);
+	xfree(expanded);
+	return ret;
 }
 
 static void
@@ -810,11 +841,21 @@ process_server_config_line(ServerOptions *options, char *line,
 			fatal("%s line %d: missing file name.",
 			    filename, linenum);
 		if (*activep && *charptr == NULL) {
-			*charptr = tilde_expand_filename(arg, getuid());
+			*charptr = derelativise_path(arg);
 			/* increase optional counter */
 			if (intptr != NULL)
 				*intptr = *intptr + 1;
 		}
+		break;
+
+	case sHostCertificate:
+		intptr = &options->num_host_cert_files;
+		if (*intptr >= MAX_HOSTKEYS)
+			fatal("%s line %d: too many host certificates "
+			    "specified (max %d).", filename, linenum,
+			    MAX_HOSTCERTS);
+		charptr = &options->host_cert_files[*intptr];
+		goto parse_filename;
 		break;
 
 	case sPidFile:
@@ -920,6 +961,10 @@ process_server_config_line(ServerOptions *options, char *line,
 		intptr = &options->gss_strict_acceptor;
 		goto parse_flag;
 
+	case sGssStoreRekey:
+		intptr = &options->gss_store_rekey;
+		goto parse_flag;
+
 	case sPasswordAuthentication:
 		intptr = &options->password_authentication;
 		goto parse_flag;
@@ -960,11 +1005,11 @@ process_server_config_line(ServerOptions *options, char *line,
 		charptr = &options->xauth_location;
 		goto parse_filename;
 
+#ifdef __APPLE_SACL_DEPRECATED__
 	case sSACLSupport:
-		error("The SupportSACL option (used in /etc/sshd_config) has been depreciated in favor of service ACL enforcement in sshd's PAM configuration (/etc/pam.d/sshd).");
-		intptr = &options->sacl_support;
+		error("Deprecated in favor of SACL enforcement in the PAM stack (/etc/pam.d/sshd). Option has no effect.");
 		goto parse_flag;
-
+#endif
 	case sStrictModes:
 		intptr = &options->strict_modes;
 		goto parse_flag;
@@ -1215,11 +1260,25 @@ process_server_config_line(ServerOptions *options, char *line,
 	 * AuthorizedKeysFile	/etc/ssh_keys/%u
 	 */
 	case sAuthorizedKeysFile:
+		charptr = &options->authorized_keys_file;
+		goto parse_tilde_filename;
 	case sAuthorizedKeysFile2:
-		charptr = (opcode == sAuthorizedKeysFile) ?
-		    &options->authorized_keys_file :
-		    &options->authorized_keys_file2;
-		goto parse_filename;
+		charptr = &options->authorized_keys_file2;
+		goto parse_tilde_filename;
+	case sAuthorizedPrincipalsFile:
+		charptr = &options->authorized_principals_file;
+ parse_tilde_filename:
+		arg = strdelim(&cp);
+		if (!arg || *arg == '\0')
+			fatal("%s line %d: missing file name.",
+			    filename, linenum);
+		if (*activep && *charptr == NULL) {
+			*charptr = tilde_expand_filename(arg, getuid());
+			/* increase optional counter */
+			if (intptr != NULL)
+				*intptr = *intptr + 1;
+		}
+		break;
 
 	case sClientAliveInterval:
 		intptr = &options->client_alive_interval;
@@ -1324,6 +1383,14 @@ process_server_config_line(ServerOptions *options, char *line,
 			*charptr = xstrdup(arg);
 		break;
 
+	case sTrustedUserCAKeys:
+		charptr = &options->trusted_user_ca_keys;
+		goto parse_filename;
+
+	case sRevokedKeys:
+		charptr = &options->revoked_keys_file;
+		goto parse_filename;
+
 	case sDeprecated:
 		logit("%s line %d: Deprecated option %s",
 		    filename, linenum, arg);
@@ -1406,7 +1473,7 @@ parse_server_match_config(ServerOptions *options, const char *user,
 /*
  * Copy any supported values that are set.
  *
- * If the preauth flag is set, we do not bother copying the the string or
+ * If the preauth flag is set, we do not bother copying the string or
  * array values that are not used pre-authentication, because any that we
  * do use must be explictly sent in mm_getpwnamallow().
  */
@@ -1419,6 +1486,7 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	M_CP_INTOPT(pubkey_authentication);
 	M_CP_INTOPT(kerberos_authentication);
 	M_CP_INTOPT(hostbased_authentication);
+	M_CP_INTOPT(hostbased_uses_name_from_packet_only);
 	M_CP_INTOPT(kbd_interactive_authentication);
 	M_CP_INTOPT(zero_knowledge_password_authentication);
 	M_CP_INTOPT(permit_root_login);
@@ -1426,6 +1494,7 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 
 	M_CP_INTOPT(allow_tcp_forwarding);
 	M_CP_INTOPT(allow_agent_forwarding);
+	M_CP_INTOPT(permit_tun);
 	M_CP_INTOPT(gateway_ports);
 	M_CP_INTOPT(x11_display_offset);
 	M_CP_INTOPT(x11_forwarding);
@@ -1438,6 +1507,11 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 		return;
 	M_CP_STROPT(adm_forced_command);
 	M_CP_STROPT(chroot_directory);
+	M_CP_STROPT(trusted_user_ca_keys);
+	M_CP_STROPT(revoked_keys_file);
+	M_CP_STROPT(authorized_keys_file);
+	M_CP_STROPT(authorized_keys_file2);
+	M_CP_STROPT(authorized_principals_file);
 }
 
 #undef M_CP_INTOPT
@@ -1656,6 +1730,11 @@ dump_config(ServerOptions *o)
 	dump_cfg_string(sAuthorizedKeysFile, o->authorized_keys_file);
 	dump_cfg_string(sAuthorizedKeysFile2, o->authorized_keys_file2);
 	dump_cfg_string(sForceCommand, o->adm_forced_command);
+	dump_cfg_string(sChrootDirectory, o->chroot_directory);
+	dump_cfg_string(sTrustedUserCAKeys, o->trusted_user_ca_keys);
+	dump_cfg_string(sRevokedKeys, o->revoked_keys_file);
+	dump_cfg_string(sAuthorizedPrincipalsFile,
+	    o->authorized_principals_file);
 
 	/* string arguments requiring a lookup */
 	dump_cfg_string(sLogLevel, log_level_name(o->log_level));
@@ -1664,6 +1743,8 @@ dump_config(ServerOptions *o)
 	/* string array arguments */
 	dump_cfg_strarray(sHostKeyFile, o->num_host_key_files,
 	     o->host_key_files);
+	dump_cfg_strarray(sHostKeyFile, o->num_host_cert_files,
+	     o->host_cert_files);
 	dump_cfg_strarray(sAllowUsers, o->num_allow_users, o->allow_users);
 	dump_cfg_strarray(sDenyUsers, o->num_deny_users, o->deny_users);
 	dump_cfg_strarray(sAllowGroups, o->num_allow_groups, o->allow_groups);

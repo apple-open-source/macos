@@ -2,10 +2,6 @@
  * Several methods of NSBezierPath cannot be handled automaticly because the 
  * size of a C-style array depends on the value of another argument.
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <AppKit/AppKit.h>
 
 static PyObject* 
 call_NSBezierPath_elementAtIndex_associatedPoints_(
@@ -15,18 +11,18 @@ call_NSBezierPath_elementAtIndex_associatedPoints_(
 	PyObject* result;
 	PyObject* v;
 	struct objc_super super;
-	int    idx;
+	NSInteger    idx;
 	int    pointCount;
 	NSPoint points[3];
 	NSBezierPathElement res;
 	
-	if  (!PyArg_ParseTuple(arguments, "i", &idx)) {
+	if  (!PyArg_ParseTuple(arguments, Py_ARG_NSInteger, &idx)) {
 		return NULL;
 	}
 
 	PyObjC_DURING
 		if (PyObjCIMP_Check(method)) {
-			res = ((NSBezierPathElement(*)(id,SEL,int,NSPoint*))
+			res = ((NSBezierPathElement(*)(id,SEL,NSInteger,NSPoint*))
 			   PyObjCIMP_GetIMP(method))(
 			   	PyObjCObject_GetObject(self),
 				PyObjCIMP_GetSelector(method),
@@ -39,7 +35,7 @@ call_NSBezierPath_elementAtIndex_associatedPoints_(
 				PyObjCObject_GetObject(self));
 
 
-			res = (NSBezierPathElement)objc_msgSendSuper(&super,
+			res = ((NSBezierPathElement(*)(struct objc_super*, SEL, NSInteger, NSPoint*))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method), 
 				idx,
 				points);
@@ -91,13 +87,14 @@ call_NSBezierPath_setAssociatedPoints_atIndex_(
 {
 	PyObject* result;
 	struct objc_super super;
-	int    idx;
+	NSInteger    idx;
 	NSPoint points[3];
 	PyObject* pointList;
 	PyObject* seq;
 	int i, len;
 	
-	if  (!PyArg_ParseTuple(arguments, "Oi", &pointList, &idx)) {
+	if  (!PyArg_ParseTuple(arguments, "O" Py_ARG_NSInteger, 
+				&pointList, &idx)) {
 		return NULL;
 	}
 
@@ -125,7 +122,7 @@ call_NSBezierPath_setAssociatedPoints_atIndex_(
 
 	PyObjC_DURING
 		if (PyObjCIMP_Check(method)) {
-			((void(*)(id,SEL,NSPoint*,int))
+			((void(*)(id,SEL,NSPoint*,NSInteger))
 			   PyObjCIMP_GetIMP(method))(
 			   	PyObjCObject_GetObject(self),
 				PyObjCIMP_GetSelector(method),
@@ -137,7 +134,7 @@ call_NSBezierPath_setAssociatedPoints_atIndex_(
 				PyObjCObject_GetObject(self));
 
 
-			(void)objc_msgSendSuper(&super,
+			((void(*)(struct objc_super*, SEL, NSPoint*, NSInteger))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method),
 				points,
 				idx);
@@ -164,7 +161,7 @@ imp_NSBezierPath_elementAtIndex_associatedPoints_(
 {
 	id self = *(id*)args[0];
 	//SEL _meth = *(SEL*)args[1];
-	int idx = *(int*)args[2];
+	NSInteger idx = *(NSInteger*)args[2];
 	NSPoint* points = *(NSPoint**)args[3];
 
 	PyObject* result;
@@ -260,27 +257,19 @@ error:
 }
 
 
-static PyMethodDef mod_methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_nsbezierpath(void);
-void init_nsbezierpath(void)
+static int setup_nsbezierpath(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_nsbezierpath", mod_methods, "", NULL,
-			PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-
 	Class cls = objc_lookUpClass("NSBezierPath");
-	if (!cls) return;
+	if (!cls) {
+		return 0;
+	}
 
 	if (PyObjC_RegisterMethodMapping(cls,
 		@selector(elementAtIndex:associatedPoints:),
 		call_NSBezierPath_elementAtIndex_associatedPoints_,
 		imp_NSBezierPath_elementAtIndex_associatedPoints_) < 0 ) {
 
-		return;
+		return -1;
 	}
 
 	if (PyObjC_RegisterMethodMapping(cls,
@@ -288,8 +277,7 @@ void init_nsbezierpath(void)
 		call_NSBezierPath_setAssociatedPoints_atIndex_,
 		PyObjCUnsupportedMethod_IMP) < 0 ) {
 
-		return;
+		return -1;
 	}
-
-	return;
+	return 0;
 }

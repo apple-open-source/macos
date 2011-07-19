@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)chflags.1	8.4 (Berkeley) 5/2/95
-.\" $FreeBSD: src/bin/chflags/chflags.1,v 1.25 2005/06/14 08:25:54 ru Exp $
+.\" $FreeBSD: src/bin/chflags/chflags.1,v 1.30.2.1.2.1 2009/10/25 01:10:29 kensmith Exp $
 .\"
-.Dd May 14, 2005
+.Dd March 3, 2006
 .Dt CHFLAGS 1
 .Os
 .Sh NAME
@@ -40,6 +40,7 @@
 .Nd change file flags
 .Sh SYNOPSIS
 .Nm
+.Op Fl fhv
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
@@ -56,11 +57,22 @@ operand.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
+.It Fl f
+Do not display a diagnostic message if
+.Nm
+could not modify the flags for
+.Va file ,
+nor modify the exit status to reflect such failures.
 .It Fl H
 If the
 .Fl R
 option is specified, symbolic links on the command line are followed.
 (Symbolic links encountered in the tree traversal are not followed.)
+.It Fl h
+If the
+.Ar file
+is a symbolic link,
+change the file flags of the link itself rather than the file to which it points.
 .It Fl L
 If the
 .Fl R
@@ -73,29 +85,37 @@ This is the default.
 .It Fl R
 Change the file flags for the file hierarchies rooted
 in the files instead of just the files themselves.
+.It Fl v
+Cause
+.Nm
+to be verbose, showing filenames as the flags are modified.
+If the
+.Fl v
+option is specified more than once, the old and new flags of the file
+will also be printed, in octal notation.
 .El
 .Pp
 The flags are specified as an octal number or a comma separated list
 of keywords.
 The following keywords are currently defined:
 .Pp
-.Bl -tag -offset indent -width ".Ar opaque"
-.It Ar arch , archived
+.Bl -tag -offset indent -width ".Cm opaque"
+.It Cm arch , archived
 set the archived flag (super-user only)
-.It Ar opaque
+.It Cm opaque
 set the opaque flag (owner or super-user only).
 [Directory is opaque when viewed through a union mount]
-.It Ar nodump
+.It Cm nodump
 set the nodump flag (owner or super-user only)
-.It Ar sappnd , sappend
+.It Cm sappnd , sappend
 set the system append-only flag (super-user only)
-.It Ar schg , schange , simmutable
+.It Cm schg , schange , simmutable
 set the system immutable flag (super-user only)
-.It Ar uappnd , uappend
+.It Cm uappnd , uappend
 set the user append-only flag (owner or super-user only)
-.It Ar uchg , uchange , uimmutable
+.It Cm uchg , uchange , uimmutable
 set the user immutable flag (owner or super-user only)
-.It Ar hidden
+.It Cm hidden
 set the hidden flag
 [Hide item from GUI]
 .El

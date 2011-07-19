@@ -1194,6 +1194,25 @@ wq(KINFO *k, VARENT *ve)
 	v = ve->var;
 
 	if (len == ret && len == PROC_PIDWORKQUEUEINFO_SIZE) {
+		if (strcmp(v->name, "wql") == 0) {
+			char *s;
+			switch (wqinfo.pwq_state & (WQ_EXCEEDED_CONSTRAINED_THREAD_LIMIT | WQ_EXCEEDED_TOTAL_THREAD_LIMIT)) {
+			case 0:
+				s = "-";
+				break;
+			case WQ_EXCEEDED_CONSTRAINED_THREAD_LIMIT:
+				s = "C";
+				break;
+			case WQ_EXCEEDED_TOTAL_THREAD_LIMIT:
+				s = "T";
+				break;
+			default:
+				s = "CT";
+				break;
+			}
+			printf("%*s", v->width, s);
+			return;
+		}
 		if (strcmp(v->name, "wqr") == 0)
 			nthreads = wqinfo.pwq_runthreads;
 		else if (strcmp(v->name, "wqb") == 0)

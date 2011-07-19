@@ -1,0 +1,52 @@
+---
+title:      Documentation
+order:      3
+created_at: 2010-10-10 21:29:52.503144 -07:00
+filter:
+  - erb
+  - markdown
+---
+
+## Open Group documentation
+
+[C706][c706] is the primary specification for DCE/RPC 1.1. This
+document describes the concepts, protocol and internal mechanisms
+of the RPC architecture.
+
+The Open Group also has the [DCE 1.2.2 documentation set][dce12]
+available for purchase. This contains some useful RPC information,
+particularly in the Application Development Guide.
+
+## Microsoft documentation
+
+Since DCE/RPC is the basis for Windows RPC implementation,
+Microsoft provide a lot of useful documentation.
+
+Windows extensions to the DCE/RPC protocols are documented in
+[MS-RPCE][rpce].
+
+The [Remote Procedure Call][msrpc] section of MSDN provides a wealth
+of information about the Windows RPC implementation.
+
+The O'Reilly [Microsoft RPC programming guide][oreilly] is a nice
+introduction to RPC programming on Windows. Most of it can be
+directly applied to DCE/RPC just by changing the function names.
+
+## Other documentation
+
+The [RPC Internals][internals] document is
+dated and incomplete, but provides a useful insight into some of
+the source code architecture and conventions.
+
+The [porting guide][porting] contains some historical information
+about porting DCE/RPC to new platforms. It's not particularly
+relevant any more, but it occasionally explains some of the rationale
+for the strange things that you find in the source.
+
+[c706]: http://www.opengroup.org/onlinepubs/9629399/
+[rpce]: http://msdn.microsoft.com/en-us/library/cc243560.aspx
+[msrpc]: http://msdn.microsoft.com/en-us/library/aa378651.aspx
+[dce12]: http://www.opengroup.org/bookstore/catalog/t151x.htm
+[oreilly]: http://openlibrary.org/books/OL555525M/Microsoft_RPC_programming_guide
+[internals]: /documentation/rpc-internals.pdf
+[porting]: /documentation/rpc-porting.pdf

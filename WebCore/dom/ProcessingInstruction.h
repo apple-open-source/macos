@@ -48,6 +48,7 @@ public:
     StyleSheet* sheet() const { return m_sheet.get(); }
     void setCSSStyleSheet(PassRefPtr<CSSStyleSheet>);
 
+    bool isCSS() const { return m_isCSS; }
 #if ENABLE(XSLT)
     bool isXSL() const { return m_isXSL; }
 #endif
@@ -60,7 +61,7 @@ private:
     virtual String nodeValue() const;
     virtual void setNodeValue(const String&, ExceptionCode&);
     virtual PassRefPtr<Node> cloneNode(bool deep);
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
     virtual bool offsetInCharacters() const;
     virtual int maxCharacterOffset() const;
 
@@ -90,6 +91,7 @@ private:
     bool m_loading;
     bool m_alternate;
     bool m_createdByParser;
+    bool m_isCSS;
 #if ENABLE(XSLT)
     bool m_isXSL;
 #endif

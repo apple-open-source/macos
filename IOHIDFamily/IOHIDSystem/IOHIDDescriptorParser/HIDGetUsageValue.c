@@ -195,7 +195,7 @@ OSStatus HIDGetScaledUsageValue(HIDReportType reportType,
 	HIDReportItem *ptReportItem;
 	OSStatus iStatus;
 	int iR;
-	long iValue;
+	SInt32 iValue;
 	int iStart;
 	int iReportItem;
 	UInt32 iUsageIndex;

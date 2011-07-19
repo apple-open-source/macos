@@ -72,14 +72,15 @@ public:
 	gid_t creatorGid() const	{ return mCreatorGid; }
     SecStaticCodeRef creatorCode() const { return mCreatorCode; }
 	pid_t creatorPid() const	{ return mCreatorPid; }
+	bool creatorSandboxed() const { return mCreatorSandboxed; }
 	
 	const AuditToken &creatorAuditToken() const { return mCreatorAuditToken; }
 	
 	AuthItemSet infoSet(AuthorizationString tag = NULL);
-    void setInfoSet(AuthItemSet &newInfoSet);
-    void setCredentialInfo(const Credential &inCred);
+    void setInfoSet(AuthItemSet &newInfoSet, bool savePassword);
+    void setCredentialInfo(const Credential &inCred, bool savePassword);
     void clearInfoSet();
-	void scrubInfoSet();
+	void scrubInfoSet(bool savePassword);
 	bool operatesAsLeastPrivileged() const { return mOperatesAsLeastPrivileged; }
 
 public:
@@ -111,12 +112,15 @@ private:
 	gid_t mCreatorGid;				// Gid of process that created this authorization
 	CFCopyRef<SecStaticCodeRef> mCreatorCode; // code reference to creator
 	pid_t mCreatorPid;				// Pid of processs that created this authorization
+	bool mCreatorSandboxed;         // A record of whether or not the creator was Sandboxed
 	
 	AuditToken mCreatorAuditToken;	// Audit token of the process that created this authorization
 
     AuthItemSet mInfoSet;			// Side band info gathered from evaluations in this session
 
 	bool mOperatesAsLeastPrivileged;
+
+	AuthItemSet mSavedPassword;
 
 private:
 	typedef map<AuthorizationBlob, RefPointer<AuthorizationToken> > AuthMap;

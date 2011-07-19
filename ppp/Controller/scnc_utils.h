@@ -22,9 +22,10 @@
  */
 
 
-#ifndef __PPP_UTILS__
-#define __PPP_UTILS__
+#ifndef __SCNC_UTILS__
+#define __SCNC_UTILS__
 
+#include <SystemConfiguration/SCDPlugin.h>
 
 int getStringFromEntity(SCDynamicStoreRef store, CFStringRef domain, CFStringRef serviceID, 
         CFStringRef entity, CFStringRef property, u_char *str, u_int16_t maxlen);
@@ -41,13 +42,15 @@ CFDictionaryRef copyEntity(SCDynamicStoreRef store, CFStringRef domain, CFString
 int existEntity(SCDynamicStoreRef store, CFStringRef domain, CFStringRef serviceID, CFStringRef entity);
 
 u_int32_t CFStringAddrToLong(CFStringRef string);
-void AddNumber(CFMutableDictionaryRef dict, CFStringRef property, u_int32_t nunmber);
+void AddNumber(CFMutableDictionaryRef dict, CFStringRef property, u_int32_t number);
+void AddNumber64(CFMutableDictionaryRef dict, CFStringRef property, u_int64_t number);
 void AddString(CFMutableDictionaryRef dict, CFStringRef property, char *string); 
 void AddNumberFromState(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef entity, CFStringRef property, CFMutableDictionaryRef dict); 
 void AddStringFromState(SCDynamicStoreRef store, CFStringRef serviceID, CFStringRef entity, CFStringRef property, CFMutableDictionaryRef dict); 
 
 Boolean isString (CFTypeRef obj);
 Boolean isData (CFTypeRef obj);
+Boolean isArray (CFTypeRef obj);
 
 Boolean my_CFEqual(CFTypeRef obj1, CFTypeRef obj2);
 void my_CFRelease(void *t);
@@ -75,6 +78,32 @@ Boolean UpdatePasswordPrefs(CFStringRef serviceID, CFStringRef interfaceType, SC
 int cfstring_is_ip(CFStringRef str);
 
 CFStringRef copyPrimaryService (SCDynamicStoreRef store);
+Boolean copyGateway(SCDynamicStoreRef store, u_int8_t family, char *ifname, int ifnamesize, struct sockaddr *gateway, int gatewaysize);
+Boolean hasGateway(SCDynamicStoreRef store, u_int8_t family);
+const char *inet_sockaddr_to_p(struct sockaddr *addr, char *buf, int buflen);
+int inet_p_to_sockaddr(char *buf, struct sockaddr *addr, int addrlen);
+Boolean equal_address(struct sockaddr *addr1, struct sockaddr *addr2);
+
+int set_ifmtu(char *ifname, int mtu);
+int set_ifaddr(char *ifname, u_int32_t o, u_int32_t h, u_int32_t m);
+int clear_ifaddr(char *ifname, u_int32_t o, u_int32_t h);
+int set_ifaddr6 (char *ifname, struct in6_addr *addr, int prefix);
+void in6_addr2net(struct in6_addr *addr, int prefix, struct in6_addr *net);
+int clear_ifaddr6 (char *ifname, struct in6_addr *addr);
+int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o, 
+					  u_int32_t h, u_int32_t m, int isprimary);
+int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, CFStringRef exceptionlist);
+boolean_t set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char *ifname, int isnet);
+int route_gateway(int cmd, struct sockaddr *dest, struct sockaddr *mask, struct sockaddr *gateway, int use_gway_flag, int use_blackhole_flag);
+
+int publish_dns(SCDynamicStoreRef store, CFStringRef serviceID, CFArrayRef dns, CFStringRef domain, CFArrayRef supp_domains);
+void in6_len2mask(struct in6_addr *mask, int len);
+void in6_maskaddr(struct in6_addr *addr, struct in6_addr *mask);
+
+#define IP_FORMAT	"%d.%d.%d.%d"
+#define IP_CH(ip)	((u_char *)(ip))
+#define IP_LIST(ip)	IP_CH(ip)[0],IP_CH(ip)[1],IP_CH(ip)[2],IP_CH(ip)[3]
+
 
 #define CREATESERVICESETUP(a)	SCDynamicStoreKeyCreateNetworkServiceEntity(0, \
                     kSCDynamicStoreDomainSetup, kSCCompAnyRegex, a)
@@ -89,5 +118,22 @@ CFStringRef copyPrimaryService (SCDynamicStoreRef store);
 #define CREATEGLOBALSTATE(a)	SCDynamicStoreKeyCreateNetworkGlobalEntity(0, \
                     kSCDynamicStoreDomainState, a)
 
+
+int create_tun_interface(char *name, int name_max_len, int *index, int flags, int ext_stats);
+int setup_bootstrap_port();
+int event_create_socket(void *ctxt, int *eventfd, CFSocketRef *eventref, CFSocketCallBack callout, Boolean anysubclass);
+
+pid_t
+SCNCPluginExecCommand (CFRunLoopRef runloop, SCDPluginExecCallBack callback, void *context, uid_t uid, gid_t gid,
+					   const char *path, char * const argv[]);
+pid_t
+SCNCPluginExecCommand2 (CFRunLoopRef runloop, SCDPluginExecCallBack callback, void *context, uid_t uid, gid_t gid,
+						const char *path,char * const argv[], SCDPluginExecSetup setup, void *setupContext);
+
+CFDictionaryRef
+collectEnvironmentVariables (SCDynamicStoreRef storeRef, CFStringRef serviceID);
+
+void
+applyEnvironmentVariables (CFDictionaryRef envVarDict);
 
 #endif

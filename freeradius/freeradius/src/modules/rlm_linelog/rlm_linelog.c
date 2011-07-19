@@ -34,14 +34,6 @@ RCSID("$Id$")
 #ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 
-#ifndef LOG_AUTHPRIV
-#define LOG_AUTHPRIV LOG_USER
-#endif
-
-#ifndef LOG_PID
-#define LOG_PID (0)
-#endif
-
 #ifndef LOG_INFO
 #define LOG_INFO (0)
 #endif
@@ -203,21 +195,6 @@ static int do_linelog(void *instance, REQUEST *request)
 	rlm_linelog_t *inst = (rlm_linelog_t*) instance;
 	const char *value = inst->line;
 
-	/*
-	 *	FIXME: Check length.
-	 */
-	if (strcmp(inst->filename, "syslog") != 0) {
-		radius_xlat(buffer, sizeof(buffer), inst->filename, request,
-			    NULL);
-		
-		fd = open(buffer, O_WRONLY | O_APPEND | O_CREAT, 0600);
-		if (fd == -1) {
-			radlog(L_ERR, "rlm_linelog: Failed to open %s: %s",
-			       buffer, strerror(errno));
-			return RLM_MODULE_FAIL;
-		}
-	}
-
 	if (inst->reference) {
 		CONF_ITEM *ci;
 		CONF_PAIR *cp;
@@ -259,6 +236,21 @@ static int do_linelog(void *instance, REQUEST *request)
 	/*
 	 *	FIXME: Check length.
 	 */
+	if (strcmp(inst->filename, "syslog") != 0) {
+		radius_xlat(buffer, sizeof(buffer), inst->filename, request,
+			    NULL);
+		
+		fd = open(buffer, O_WRONLY | O_APPEND | O_CREAT, 0600);
+		if (fd == -1) {
+			radlog(L_ERR, "rlm_linelog: Failed to open %s: %s",
+			       buffer, strerror(errno));
+			return RLM_MODULE_FAIL;
+		}
+	}
+
+	/*
+	 *	FIXME: Check length.
+	 */
 	radius_xlat(line, sizeof(line) - 1, value, request,
 		    linelog_escape_func);
 
@@ -270,7 +262,7 @@ static int do_linelog(void *instance, REQUEST *request)
 
 #ifdef HAVE_SYSLOG_H
 	} else {
-		syslog(LOG_AUTHPRIV | LOG_PID | LOG_INFO, "%s", line);
+		syslog(LOG_INFO, "%s", line);
 #endif
 	}
 
@@ -296,5 +288,9 @@ module_t rlm_linelog = {
 		do_linelog, 	/* pre-proxy */
 		do_linelog,	/* post-proxy */
 		do_linelog	/* post-auth */
+#ifdef WITH_COA
+		, do_linelog,	/* recv-coa */
+		do_linelog	/* send-coa */
+#endif
 	},
 };

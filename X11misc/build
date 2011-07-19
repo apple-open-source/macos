@@ -1,10 +1,13 @@
 #!/usr/bin/perl
 
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{CC}="gcc" if ($ENV{CC} eq '');
+$ENV{CC_BASE}=$ENV{CC};
+
 $target=shift @ARGV;
 
 if($target eq 'installsrc') {
-    sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
-    sys_print("ditto . $ENV{SRCROOT}");
+    sys_print("tar -cp --exclude .git --exclude .svn --exclude CVS . | tar -pox -C $ENV{SRCROOT}");
     chdir($ENV{SRCROOT});
     foreach $module (glob('*')) {
 	next if $module =~ /build/;
@@ -22,7 +25,6 @@ if($target eq 'installsrc') {
 if($target eq 'clean') {
     print "Cleaning out directory $ENV{SRCROOT}\n";
     chdir($ENV{SRCROOT});
-    sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
     sys_print("find . -name \"*.tar.gz\" | xargs rm");
     sys_print("find . -name \"*.tar.bz2\" | xargs rm");
@@ -35,22 +37,24 @@ if($target eq 'install') {
     sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
     $ENV{DESTDIR}=$ENV{DSTROOT};
     print "Install phase: \n";
-    $prefix="/usr/X11";
-    
+    $prefix=$ENV{X11_PREFIX};
+
     ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
     print "Building on $osx_version\n";
     
 # Must create local aclocal dir or aclocal fails
     $ACLOCAL_LOCALDIR="$ENV{DSTROOT}$prefix/share/aclocal";
     system "mkdir -p $ACLOCAL_LOCALDIR";
+    system "mkdir -p $ENV{DSTROOT}/usr/local/share/aclocal";
     
 # The following is required to make aclocal find our .m4 macros
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+# Don't include $prefix/share/aclocal since X11proto is the first X11 package to build
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $ENV{DSTROOT}/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
     
 # The following is required to make pkg-config find our .pc metadata files
-    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
-    
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/share/pkgconfig:$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/share/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+
 # Set the library path so that locally built libs will be found by apps
     $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$prefix/lib:$ENV{LD_LIBRARY_PATH}";
     
@@ -58,7 +62,7 @@ if($target eq 'install') {
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
         $arch_flags_lib .= "-arch $arch ";
-        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_LEO} eq "YES") {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
         } else {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
@@ -68,18 +72,20 @@ if($target eq 'install') {
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
     set_arch_exec();
+    build('pkg-config');
+    build('util-macros');
+    build('font-util');
     build("gccmakedep");
     build("lndir");
     build("makedepend");
-    build("xorg-sgml");
-    build("xorg-docs");
+    build("xorg-sgml-doctools");
 
     make_dsyms();
+
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}/$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
 }
 
 sub get_workdir {
-    system "pwd";
-    system "ls -l";
     foreach (glob('*')) {
 	if(-e "$_/configure") {
 	    return $_;
@@ -103,10 +109,11 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("rm -f m4/libtool.m4 m4/lt*.m4") if(-f "m4/libtool.m4");
     sys_print("autoreconf -fvi");
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --cache-file=$ENV{OBJROOT}/configure.cache ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -125,30 +132,35 @@ sub build {
     chdir('../..');
 }
 
-
-
 sub make_dsyms {
     open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
     while(<FIND>) {
 	if(/(.*): .*Mach-O/) {
 	    $basename=$1;
-	    $fullpath=$1;
+	    $fullname=$1;
 	    $basename =~ s/\/.*\///;
-	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
-	    sys_print_nodie("strip -S $fullpath");
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullname");
+	    sys_print_nodie("cp $fullname $ENV{SYMROOT}");
+	    sys_print_nodie("strip -S $fullname");
 	}
     }
     close FIND;
 }
 
 sub set_arch_exec {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_exec -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub set_arch_lib {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_lib -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub sys_print {

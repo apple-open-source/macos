@@ -33,6 +33,7 @@ proc nr_title   {text}      {return "\n.TH $text"}
 proc nr_include {file}      {return "\n.so $file"}
 proc nr_bolds   {}          {return \n.BS}
 proc nr_bolde   {}          {return \n.BE}
+proc nr_read    {fn}        {return [nroffMarkup [dt_read $fn]]}
 
 proc nr_section {name} {
     if {![regexp {[ 	]} $name]} {
@@ -60,11 +61,14 @@ proc nr_subsection {name}   {
 #
 
 global   markupMap
-set      markupMap [list "\\" "\1\\"]
+set      markupMap [list \
+	"\\"   "\1\\" \
+	"'"    "\1'" \
+	"\\\\" "\\"]
 global   finalMap
 set      finalMap [list \
 	"\1\\" "\\" \
-        "\1'" "'" \
+	"\1'"  "'" \
 	"\\"   "\\\\"]
 global   textMap
 set      textMap [list "\\" "\\\\"]

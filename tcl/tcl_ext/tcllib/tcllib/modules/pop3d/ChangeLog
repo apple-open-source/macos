@@ -1,3 +1,20 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-09-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* pop3d.test: Fixed typos in expected results, the socket command
+	  comes back fully qualified.
+
+2009-04-14  Andreas Kupries  <andreask@activestate.com>
+
+	* pop3d.man: Updated documentation with example on how to use the
+	  option -socket to secure the server channel with TLS.
+	* pop3d.tcl: Fixed typos in comments.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

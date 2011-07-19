@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: platform.h,v 1.16 2008/04/02 23:46:58 tbox Exp $ */
+/* $Id: platform.h,v 1.19 2009-09-29 23:48:04 tbox Exp $ */
 
 #ifndef ISC_PLATFORM_H
 #define ISC_PLATFORM_H 1
@@ -39,7 +39,6 @@
 #undef MSG_TRUNC
 #define ISC_PLATFORM_NEEDNTOP
 #define ISC_PLATFORM_NEEDPTON
-#define ISC_PLATFORM_NEEDATON
 
 #define ISC_PLATFORM_QUADFORMAT "I64"
 
@@ -63,6 +62,12 @@
  * Define if the platform has <sys/un.h>.
  */
 #undef ISC_PLATFORM_HAVESYSUNH
+
+/*
+ * Defines for the noreturn attribute.
+ */
+#define ISC_PLATFORM_NORETURN_PRE __declspec(noreturn)
+#define ISC_PLATFORM_NORETURN_POST
 
  /*
  * Set up a macro for importing and exporting from the DLL

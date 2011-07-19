@@ -1,0 +1,114 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin widget_calendar n 0.93]
+[moddesc   {widget::calendar Megawidget}]
+[titledesc {widget::calendar Megawidget}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require widget [opt 3.0]]
+[description]
+
+This package provides a calendar megawidget (snidget).
+
+[para]
+
+[list_begin definitions]
+
+[call [cmd widget::calendar] [arg pathname] [opt options]]
+
+[list_end]
+
+[section "WIDGET OPTIONS"]
+
+[para]
+[list_begin options]
+
+[opt_def -command]
+
+A script to evaluate when a date was selected.
+
+[opt_def -dateformat]
+
+The format of the date that is returned. Default: %m/%d/%Y.
+
+[opt_def -firstday]
+
+Set first day the week, Either sunday or monday. It defaults to monday.
+
+[opt_def -font]
+
+Select the font used in the widget. It defaults to Helvetica 9.
+
+[opt_def -highlightcolor]
+
+Selects the background color for the day that has been selected. Default: #FFCC00
+
+[opt_def -language]
+
+Specify language of the calendar contents. The language is specified
+by abbreviations of the languge, for example: en - english, de -
+german ... 
+It defaults to en.
+[para]
+Supported languages: en, de, fr, it, es, pt, ru, sv, zh, fi
+
+[opt_def -shadecolor]
+
+Selects the color of the parts that have a shaded background. Default: #888888
+
+[opt_def -showpast]
+
+Specify if the past shall be shown. It is a boolean value and defaults
+to 1.
+
+[opt_def -textvariable]
+
+Specifies the name of a variable whose value is linked to the entry widget's contents.
+Whenever the variable changes value, the widget's contents are updated, and
+vice versa.
+
+
+[list_end]
+
+[section "WIDGET COMMAND"]
+
+[arg pathname] [cmd get] [opt [arg what]]
+[para]
+
+Returns a part of the selected date or 'all'. The argument [arg what] selects
+the part. Valid values for [arg what] are: day, month, year and all.
+'all' is the default and returns the complete date in the format given
+with -dateformat.
+
+[section "DEFAULT BINDINGS"]
+
+On creation of the calendar widget the following bindings are installed.
+[list_begin itemized]
+[item]
+Up - Move to week before current date
+[item]
+Down - Move to week after current date
+[item]
+Left - Move to day before current date
+[item]
+Right - Move to day after current date
+[item]
+Control-Left - Move to month before current date
+[item]
+Control-Right - Move to month after current date
+[item]
+Control-Up - Move to year before current date
+[item]
+Control-Down - Move to year after current date
+[list_end]
+
+[section EXAMPLE]
+
+[example {
+    package require widget::calendar ; # or widget::all
+    set t [widget::calendar .t]
+    pack $t -fill x -expand 1
+}]
+
+
+[keywords megawidget snit widget]
+[manpage_end]

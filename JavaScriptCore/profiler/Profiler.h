@@ -38,13 +38,15 @@ namespace JSC {
 
     class ExecState;
     class JSGlobalData;
+    class JSGlobalObject;
     class JSObject;
     class JSValue;
     class ProfileGenerator;
     class UString;
     struct CallIdentifier;    
 
-    class Profiler : public FastAllocBase {
+    class Profiler {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         static Profiler** enabledProfilerReference()
         {
@@ -56,11 +58,14 @@ namespace JSC {
 
         void startProfiling(ExecState*, const UString& title);
         PassRefPtr<Profile> stopProfiling(ExecState*, const UString& title);
+        void stopProfiling(JSGlobalObject*);
 
-        void willExecute(ExecState*, JSValue function);
-        void willExecute(ExecState*, const UString& sourceURL, int startingLineNumber);
-        void didExecute(ExecState*, JSValue function);
-        void didExecute(ExecState*, const UString& sourceURL, int startingLineNumber);
+        void willExecute(ExecState* callerCallFrame, JSValue function);
+        void willExecute(ExecState* callerCallFrame, const UString& sourceURL, int startingLineNumber);
+        void didExecute(ExecState* callerCallFrame, JSValue function);
+        void didExecute(ExecState* callerCallFrame, const UString& sourceURL, int startingLineNumber);
+
+        void exceptionUnwind(ExecState* handlerCallFrame);
 
         const Vector<RefPtr<ProfileGenerator> >& currentProfiles() { return m_currentProfiles; };
 

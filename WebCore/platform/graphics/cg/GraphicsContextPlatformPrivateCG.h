@@ -23,32 +23,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#ifndef GraphicsContextPlatformPrivateCG_h
+#define GraphicsContextPlatformPrivateCG_h
+
 #include <wtf/RetainPtr.h>
 #include <CoreGraphics/CGContext.h>
 
 namespace WebCore {
 
-// FIXME: This would be in GraphicsContextCG.h if that existed.
-CGColorSpaceRef deviceRGBColorSpaceRef();
+enum GraphicsContextCGFlag {
+    IsLayerCGContext = 1 << 0,
+    IsAcceleratedCGContext = 1 << 1
+};
 
-// FIXME: This would be in GraphicsContextCG.h if that existed.
-CGColorSpaceRef sRGBColorSpaceRef();
+typedef unsigned GraphicsContextCGFlags;
 
 class GraphicsContextPlatformPrivate {
 public:
-    GraphicsContextPlatformPrivate(CGContextRef cgContext)
+    GraphicsContextPlatformPrivate(CGContextRef cgContext, GraphicsContextCGFlags flags = 0)
         : m_cgContext(cgContext)
 #if PLATFORM(WIN)
         , m_hdc(0)
-        , m_transparencyCount(0)
         , m_shouldIncludeChildWindows(false)
 #endif
+#if PLATFORM(WIN) || !ASSERT_DISABLED
+        , m_transparencyCount(0)
+#endif
         , m_userToDeviceTransformKnownToBeIdentity(false)
+        , m_contextFlags(flags)
     {
     }
     
     ~GraphicsContextPlatformPrivate()
     {
+        ASSERT(!m_transparencyCount);
     }
 
 #if PLATFORM(MAC) || PLATFORM(CHROMIUM)
@@ -62,8 +70,7 @@ public:
     void rotate(float) {}
     void translate(float, float) {}
     void concatCTM(const AffineTransform&) {}
-    void beginTransparencyLayer() {}
-    void endTransparencyLayer() {}
+    void setCTM(const AffineTransform&) {}
 #endif
 
 #if PLATFORM(WIN)
@@ -77,16 +84,34 @@ public:
     void rotate(float);
     void translate(float, float);
     void concatCTM(const AffineTransform&);
-    void beginTransparencyLayer() { m_transparencyCount++; }
-    void endTransparencyLayer() { m_transparencyCount--; }
+    void setCTM(const AffineTransform&);
 
     HDC m_hdc;
-    unsigned m_transparencyCount;
     bool m_shouldIncludeChildWindows;
 #endif
 
+    void beginTransparencyLayer()
+    {
+#if PLATFORM(WIN) || !ASSERT_DISABLED
+        m_transparencyCount++;
+#endif
+    }
+    void endTransparencyLayer()
+    {
+#if PLATFORM(WIN) || !ASSERT_DISABLED
+        ASSERT(m_transparencyCount > 0);
+        m_transparencyCount--;
+#endif
+    }
+
     RetainPtr<CGContextRef> m_cgContext;
+#if PLATFORM(WIN) || !ASSERT_DISABLED
+    int m_transparencyCount;
+#endif
     bool m_userToDeviceTransformKnownToBeIdentity;
+    GraphicsContextCGFlags m_contextFlags;
 };
 
 }
+
+#endif // GraphicsContextPlatformPrivateCG_h

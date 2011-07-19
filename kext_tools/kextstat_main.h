@@ -93,7 +93,7 @@ typedef struct {
     Boolean            flagListOnly;
     CFMutableArrayRef  bundleIDs;          // must release
     
-    CFArrayRef         loadedKextInfo;     // must release
+    CFDictionaryRef    loadedKextInfo;     // must release
     const NXArchInfo * runningKernelArch;  // do not free
 } KextstatArgs;
 
@@ -105,6 +105,7 @@ ExitStatus readArgs(int argc, char * const * argv, KextstatArgs * toolArgs);
 void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs);
 
 Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut);
+int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2);
 CFComparisonResult compareNumbers(
     const void * val1,
     const void * val2,
@@ -112,4 +113,4 @@ CFComparisonResult compareNumbers(
 
 static void usage(UsageLevel usageLevel);
 
-#endif /* _KEXTSTAT_MAIN_H */
+#endif

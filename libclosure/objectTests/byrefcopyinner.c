@@ -1,26 +1,34 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG
+
 #include <Block.h>
 #include <stdio.h>
+#include "test.h"
 
-// CONFIG rdar://6225809
+// rdar://6225809
 // fixed in 5623
 
-int main(int argc, char *argv[]) {
+int main() {
     __block int a = 42;
     int* ap = &a; // just to keep the address on the stack.
 
     void (^b)(void) = ^{
         //a;              // workaround, a should be implicitly imported
-        Block_copy(^{
+        (void)Block_copy(^{
             a = 2;
         });
     };
 
-    Block_copy(b);
+    (void)Block_copy(b);
 
     if(&a == ap) {
-        printf("**** __block heap storage should have been created at this point\n");
-        return 1;
+        fail("__block heap storage should have been created at this point");
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+    
+    succeed(__FILE__);
 }

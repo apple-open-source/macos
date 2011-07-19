@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,10 +28,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.AuditLauncherView = function(categoriesById, runnerCallback)
+WebInspector.AuditLauncherView = function(runnerCallback)
 {
     WebInspector.View.call(this);
-    this._categoriesById = categoriesById;
     this._runnerCallback = runnerCallback;
     this._categoryIdPrefix = "audit-category-item-";
     this._auditRunning = false;
@@ -41,96 +40,70 @@ WebInspector.AuditLauncherView = function(categoriesById, runnerCallback)
     this._contentElement = document.createElement("div");
     this._contentElement.className = "audit-launcher-view-content";
     this.element.appendChild(this._contentElement);
+    this._boundCategoryClickListener = this._categoryClicked.bind(this);
 
     this._resetResourceCount();
 
-    function categorySortFunction(a, b)
-    {
-        var aTitle = a.displayName || "";
-        var bTitle = b.displayName || "";
-        return aTitle.localeCompare(bTitle);
-    }
-    var sortedCategories = [];
-    for (var id in this._categoriesById)
-        sortedCategories.push(this._categoriesById[id]);
-    sortedCategories.sort(categorySortFunction);
+    this._sortedCategories = [];
 
-    if (!sortedCategories.length) {
-        this._headerElement = document.createElement("h1");
-        this._headerElement.className = "no-audits";
-        this._headerElement.textContent = WebInspector.UIString("No audits to run");
-        this._contentElement.appendChild(this._headerElement);
-    } else
-        this._createLauncherUI(sortedCategories);
+    this._headerElement = document.createElement("h1");
+    this._headerElement.className = "no-audits";
+    this._headerElement.textContent = WebInspector.UIString("No audits to run");
+    this._contentElement.appendChild(this._headerElement);
+
+    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceStarted, this._onResourceStarted, this);
+    WebInspector.networkManager.addEventListener(WebInspector.NetworkManager.EventTypes.ResourceFinished, this._onResourceFinished, this);
 }
 
 WebInspector.AuditLauncherView.prototype = {
-    updateResourceTrackingState: function(isTracking)
-    {
-        if (!this._auditPresentStateLabelElement)
-            return;
-
-        if (isTracking) {
-            this._auditPresentStateLabelElement.nodeValue = WebInspector.UIString("Audit Present State");
-            this._auditPresentStateElement.disabled = false;
-            this._auditPresentStateElement.parentElement.removeStyleClass("disabled");
-        } else {
-            this._resetResourceCount();
-            this._auditPresentStateLabelElement.nodeValue = WebInspector.UIString("Audit Present State (Resource Tracking must be enabled)");
-            this._auditPresentStateElement.disabled = true;
-            this._auditPresentStateElement.parentElement.addStyleClass("disabled");
-            this.auditReloadedStateElement.checked = true;
-        }
-    },
-
-    get totalResources()
-    {
-        return this._totalResources;
-    },
-
-    set totalResources(x)
-    {
-        if (this._totalResources === x)
-            return;
-        this._totalResources = x;
-        this._updateResourceProgress();
-    },
-
-    get loadedResources()
-    {
-        return this._loadedResources;
-    },
-
-    set loadedResources(x)
-    {
-        if (this._loadedResources === x)
-            return;
-        this._loadedResources = x;
-        this._updateResourceProgress();
-    },
-
     _resetResourceCount: function()
     {
-        this.loadedResources = 0;
-
-        // We never receive a resourceStarted notification for the main resource
-        // (see InspectorController.willSendRequest())
-        this.totalResources = 1;
+        this._loadedResources = 0;
+        this._totalResources = 0;
     },
 
-    resourceStarted: function(resource)
+    _onResourceStarted: function(event)
     {
-        ++this.totalResources;
+        var resource = event.data;
+        // Ignore long-living WebSockets for the sake of progress indicator, as we won't be waiting them anyway.
+        if (resource.type === WebInspector.Resource.Type.WebSocket)
+            return;
+        ++this._totalResources;
+        this._updateResourceProgress();
     },
 
-    resourceFinished: function(resource)
+    _onResourceFinished: function(event)
     {
-        ++this.loadedResources;
+        var resource = event.data;
+        // See resorceStarted for details.
+        if (resource.type === WebInspector.Resource.Type.WebSocket)
+            return;
+        ++this._loadedResources;
+        this._updateResourceProgress();
     },
 
-    reset: function()
+    addCategory: function(category)
     {
-        this._resetResourceCount();
+        if (!this._sortedCategories.length)
+            this._createLauncherUI();
+
+        var categoryElement = this._createCategoryElement(category.displayName, category.id);
+        category._checkboxElement = categoryElement.firstChild;
+        if (this._selectAllCheckboxElement.checked) {
+            category._checkboxElement.checked = true;
+            ++this._currentCategoriesCount;
+        }
+
+        function compareCategories(a, b)
+        {
+            var aTitle = a.displayName || "";
+            var bTitle = b.displayName || "";
+            return aTitle.localeCompare(bTitle);
+        }
+        var insertBefore = insertionIndexForObjectInListSortedByFunction(category, this._sortedCategories, compareCategories);
+        this._categoriesElement.insertBefore(categoryElement, this._categoriesElement.children[insertBefore]);
+        this._sortedCategories.splice(insertBefore, 0, category);
+        this._updateButton();
     },
 
     _setAuditRunning: function(auditRunning)
@@ -146,10 +119,11 @@ WebInspector.AuditLauncherView.prototype = {
     {
         var catIds = [];
         var childNodes = this._categoriesElement.childNodes;
-        for (var id in this._categoriesById) {
-            if (this._categoriesById[id]._checkboxElement.checked)
-                catIds.push(id);
+        for (var category = 0; category < this._sortedCategories.length; ++category) {
+            if (this._sortedCategories[category]._checkboxElement.checked)
+                catIds.push(this._sortedCategories[category].id);
         }
+
         this._setAuditRunning(true);
         this._runnerCallback(catIds, this._auditPresentStateElement.checked, this._setAuditRunning.bind(this, false));
     },
@@ -159,14 +133,14 @@ WebInspector.AuditLauncherView.prototype = {
         var childNodes = this._categoriesElement.childNodes;
         for (var i = 0, length = childNodes.length; i < length; ++i)
             childNodes[i].firstChild.checked = checkCategories;
-        this._currentCategoriesCount = checkCategories ? this._totalCategoriesCount : 0;
+        this._currentCategoriesCount = checkCategories ? this._sortedCategories.length : 0;
         this._updateButton();
     },
 
     _categoryClicked: function(event)
     {
         this._currentCategoriesCount += event.target.checked ? 1 : -1;
-        this._selectAllCheckboxElement.checked = this._currentCategoriesCount === this._totalCategoriesCount;
+        this._selectAllCheckboxElement.checked = this._currentCategoriesCount === this._sortedCategories.length;
         this._updateButton();
     },
 
@@ -177,16 +151,22 @@ WebInspector.AuditLauncherView.prototype = {
 
         var element = document.createElement("input");
         element.type = "checkbox";
+        if (id !== "")
+            element.addEventListener("click", this._boundCategoryClickListener, false);
         labelElement.appendChild(element);
         labelElement.appendChild(document.createTextNode(title));
 
         return labelElement;
     },
 
-    _createLauncherUI: function(sortedCategories)
+    _createLauncherUI: function()
     {
         this._headerElement = document.createElement("h1");
         this._headerElement.textContent = WebInspector.UIString("Select audits to run");
+
+        for (var child = 0; child < this._contentElement.children.length; ++child)
+            this._contentElement.removeChild(this._contentElement.children[child]);
+
         this._contentElement.appendChild(this._headerElement);
 
         function handleSelectAllClick(event)
@@ -204,16 +184,6 @@ WebInspector.AuditLauncherView.prototype = {
         this._categoriesElement.className = "audit-categories-container";
         this._contentElement.appendChild(this._categoriesElement);
 
-        var boundCategoryClickListener = this._categoryClicked.bind(this);
-
-        for (var i = 0; i < sortedCategories.length; ++i) {
-            categoryElement = this._createCategoryElement(sortedCategories[i].displayName, sortedCategories[i].id);
-            categoryElement.firstChild.addEventListener("click", boundCategoryClickListener, false);
-            sortedCategories[i]._checkboxElement = categoryElement.firstChild;
-            this._categoriesElement.appendChild(categoryElement);
-        }
-
-        this._totalCategoriesCount = this._categoriesElement.childNodes.length;
         this._currentCategoriesCount = 0;
 
         var flexibleSpaceElement = document.createElement("div");
@@ -228,7 +198,7 @@ WebInspector.AuditLauncherView.prototype = {
         this._auditPresentStateElement.name = "audit-mode";
         this._auditPresentStateElement.type = "radio";
         this._auditPresentStateElement.checked = true;
-        this._auditPresentStateLabelElement = document.createTextNode("");
+        this._auditPresentStateLabelElement = document.createTextNode(WebInspector.UIString("Audit Present State"));
         labelElement.appendChild(this._auditPresentStateElement);
         labelElement.appendChild(this._auditPresentStateLabelElement);
         this._buttonContainerElement.appendChild(labelElement);
@@ -258,8 +228,8 @@ WebInspector.AuditLauncherView.prototype = {
         this._contentElement.appendChild(this._buttonContainerElement);
 
         this._selectAllClicked(this._selectAllCheckboxElement.checked);
-        this.updateResourceTrackingState();
         this._updateButton();
+        this._updateResourceProgress();
     },
 
     _updateResourceProgress: function()
@@ -272,7 +242,7 @@ WebInspector.AuditLauncherView.prototype = {
             this._resourceProgressContainer.addStyleClass("hidden");
         } else
             this._resourceProgressContainer.removeStyleClass("hidden");
-        this._resourceProgressTextElement.textContent = WebInspector.UIString("Loading (%d of %d)", this.loadedResources, this.totalResources);
+        this._resourceProgressTextElement.textContent = WebInspector.UIString("Loading (%d of %d)", this._loadedResources, this._totalResources);
     },
 
     _updateButton: function()

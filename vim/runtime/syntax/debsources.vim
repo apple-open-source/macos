@@ -2,8 +2,8 @@
 " Language:     Debian sources.list
 " Maintainer:   Debian Vim Maintainers <pkg-vim-maintainers@lists.alioth.debian.org>
 " Former Maintainer: Matthijs Mohlmann <matthijs@cacholong.nl>
-" Last Change: 2008-04-25
-" URL: http://git.debian.org/?p=pkg-vim/vim.git;a=blob_plain;f=runtime/syntax/debsources.vim;hb=debian
+" Last Change: 2010 May 06
+" URL: http://hg.debian.org/hg/pkg-vim/vim/raw-file/tip/runtime/syntax/debsources.vim
 
 " Standard syntax initialization
 if version < 600
@@ -19,11 +19,11 @@ syn case match
 syn match debsourcesKeyword        /\(deb-src\|deb\|main\|contrib\|non-free\|restricted\|universe\|multiverse\)/
 
 " Match comments
-syn match debsourcesComment        /#.*/
+syn match debsourcesComment        /#.*/  contains=@Spell
 
 " Match uri's
 syn match debsourcesUri            +\(http://\|ftp://\|[rs]sh://\|debtorrent://\|\(cdrom\|copy\|file\):\)[^' 	<>"]\++
-syn match debsourcesDistrKeyword   +\([[:alnum:]_./]*\)\(sarge\|etch\|lenny\|\(old\)\=stable\|testing\|unstable\|sid\|experimental\|dapper\|feisty\|gutsy\|hardy\|intrepid\)\([-[:alnum:]_./]*\)+
+syn match debsourcesDistrKeyword   +\([[:alnum:]_./]*\)\(etch\|lenny\|squeeze\|\(old\)\=stable\|testing\|unstable\|sid\|rc-buggy\|experimental\|dapper\|hardy\|jaunty\|karmic\|lucid\|maverick\)\([-[:alnum:]_./]*\)+
 
 " Associate our matches and regions with pretty colours
 hi def link debsourcesLine            Error
@@ -33,5 +33,3 @@ hi def link debsourcesComment         Comment
 hi def link debsourcesUri             Constant
 
 let b:current_syntax = "debsources"
-
-" vim: ts=8

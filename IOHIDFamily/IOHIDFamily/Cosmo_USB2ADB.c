@@ -31,7 +31,8 @@
 
 #include "ev_keymap.h"
 
-#define DEADKEY NX_NUMKEYCODES
+// #define DEADKEY NX_NUMKEYCODES
+#define DEADKEY 0xff
 
 unsigned int hid_usb_2_adb_keymap[] = 
 {
@@ -300,7 +301,7 @@ unsigned int hid_usb_apple_2_adb_keymap[] =
 	0x81,       // 1 Spotlight
 	0x82,       // 2 Dashboard
 	DEADKEY,	// 3
-	DEADKEY,	// 4
+	0x83,       // 4 Launchpad
 	DEADKEY,	// 5
 	DEADKEY,	// 6
 	DEADKEY,	// 7

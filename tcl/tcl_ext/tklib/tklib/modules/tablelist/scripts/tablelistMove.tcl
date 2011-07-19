@@ -1,7 +1,7 @@
 #==============================================================================
 # Contains the implementation of the tablelist move and movecolumn subcommands.
 #
-# Copyright (c) 2003-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2003-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 #------------------------------------------------------------------------------
@@ -9,7 +9,7 @@
 #
 # Processes the tablelist move subcommand.
 #------------------------------------------------------------------------------
-proc tablelist::moveRow {win source target} {
+proc tablelist::moveRow {win source target {withDescendants 1}} {
     upvar ::tablelist::ns${win}::data data
     if {$data(isDisabled) || $data(itemCount) == 0} {
 	return ""
@@ -31,8 +31,29 @@ proc tablelist::moveRow {win source target} {
     if {$target == $source} {
 	return -code error \
 	       "cannot move item with index \"$source\" before itself"
-    } elseif {$target == $source + 1} {
+    }
+
+    set sourceItem [lindex $data(itemList) $source]
+    set sourceKey [lindex $sourceItem end]
+    if {$target == [nodeRow $win $sourceKey end 1]} {
 	return ""
+    }
+
+    set parentKey $data($sourceKey-parent)
+    set parentEndRow [nodeRow $win $parentKey end 1]
+    if {($target <= [keyToRow $win $parentKey] || $target > $parentEndRow) &&
+	$withDescendants} {
+	return -code error \
+	       "cannot move item with index \"$source\" outside its parent"
+    }
+
+    if {$target != $parentEndRow} {
+	set targetKey [lindex $data(keyList) $target]
+	if {[string compare $data($targetKey-parent) $parentKey] != 0 &&
+	    $withDescendants} {
+	    return -code error \
+		   "cannot move item with index \"$source\" outside its parent"
+	}
     }
 
     #
@@ -76,11 +97,9 @@ proc tablelist::moveRow {win source target} {
     set targetLine [expr {$target1 + 1}]
     $w insert $targetLine.0 "\n"
     set snipStr $data(-snipstring)
-    set sourceItem [lindex $data(itemList) $source]
-    set key [lindex $sourceItem end]
     set dispItem [lrange $sourceItem 0 $data(lastCol)]
     if {$data(hasFmtCmds)} {
-	set dispItem [formatItem $win $key $source $dispItem]
+	set dispItem [formatItem $win $sourceKey $source $dispItem]
     }
     set col 0
     foreach text [strToDispStr $dispItem] \
@@ -94,37 +113,79 @@ proc tablelist::moveRow {win source target} {
 	#
 	# Build the list of tags to be applied to the cell
 	#
-	set cellFont [getCellFont $win $key $col]
+	set cellFont [getCellFont $win $sourceKey $col]
 	set cellTags $colTags
 	foreach opt {-background -foreground -font} {
-	    if {[info exists data($key,$col$opt)]} {
-		lappend cellTags cell$opt-$data($key,$col$opt)
+	    if {[info exists data($sourceKey,$col$opt)]} {
+		lappend cellTags cell$opt-$data($sourceKey,$col$opt)
 	    }
 	}
 
 	#
-	# Append the text and the label or window
-	# (if any) to the target line of body text widget
+	# Append the text and the labels or window (if
+	# any) to the target line of the body text widget
 	#
-	appendComplexElem $win $key $source $col $text $pixels \
+	appendComplexElem $win $sourceKey $source $col $text $pixels \
 			  $alignment $snipStr $cellFont $cellTags $targetLine
 
 	incr col
     }
     foreach opt {-background -foreground -font} {
-	if {[info exists data($key$opt)]} {
-	    $w tag add row$opt-$data($key$opt) $targetLine.0 $targetLine.end
+	if {[info exists data($sourceKey$opt)]} {
+	    $w tag add row$opt-$data($sourceKey$opt) \
+		       $targetLine.0 $targetLine.end
+	}
+    }
+    if {[info exists data($sourceKey-hide)]} {
+	$w tag add hiddenRow $targetLine.0 $targetLine.end+1c
+    }
+
+    #
+    # Update the item list and the key -> row mapping
+    #
+    set data(itemList) [lreplace $data(itemList) $source $source]
+    set data(keyList) [lreplace $data(keyList) $source $source]
+    if {$target == $data(itemCount)} {
+	lappend data(itemList) $sourceItem	;# this works much faster
+	lappend data(keyList) $sourceKey	;# this works much faster
+    } else {
+	set data(itemList) [linsert $data(itemList) $target1 $sourceItem]
+	set data(keyList) [linsert $data(keyList) $target1 $sourceKey]
+    }
+    if {$source < $target} {
+	for {set row $source} {$row < $targetLine} {incr row} {
+	    set key [lindex $data(keyList) $row]
+	    set data($key-row) $row
+	}
+    } else {
+	for {set row $target} {$row <= $source} {incr row} {
+	    set key [lindex $data(keyList) $row]
+	    set data($key-row) $row
 	}
     }
 
     #
-    # Update the item list
+    # Update the tree information
     #
-    set data(itemList) [lreplace $data(itemList) $source $source]
-    if {$target == $data(itemCount)} {
-	lappend data(itemList) $sourceItem	;# this works much faster
+    set parentKey $data($sourceKey-parent)
+    set sourceChildIdx \
+	[lsearch -exact $data($parentKey-children) $sourceKey]
+    set data($parentKey-children) \
+	[lreplace $data($parentKey-children) $sourceChildIdx $sourceChildIdx]
+    if {$target == $parentEndRow} {
+	set lastChildRow [nodeRow $win $parentKey end 0]
+	set targetKey [lindex $data(keyList) $lastChildRow]
     } else {
-	set data(itemList) [linsert $data(itemList) $target1 $sourceItem]
+	set targetKey [lindex $data(keyList) $target1]
+    }
+    ### set parentKey $data($targetKey-parent)
+    set targetChildIdx \
+	[lsearch -exact $data($parentKey-children) $targetKey]
+    if {$targetChildIdx == [llength $data($parentKey-children)]} {
+	lappend data($parentKey-children) $sourceKey
+    } else {
+	set data($parentKey-children) \
+	    [linsert $data($parentKey-children) $targetChildIdx $sourceKey]
     }
 
     #
@@ -154,7 +215,7 @@ proc tablelist::moveRow {win source target} {
     }
 
     #
-    # Invalidate the list of the row indices indicating the non-hidden rows
+    # Invalidate the list of row indices indicating the non-hidden rows
     #
     set data(nonHiddenRowList) {-1}
 
@@ -166,22 +227,41 @@ proc tablelist::moveRow {win source target} {
     }
 
     #
-    # Adjust the elided text, restore the stripes in the body
-    # text widget, and redisplay the line numbers (if any)
-    #
-    adjustElidedText $win
-    makeStripes $win
-    showLineNumbersWhenIdle $win
-
-    #
     # Restore the edit window if it was present before
     #
     if {$editCol >= 0} {
 	if {$editRow == $source} {
 	    doEditCell $win $target1 $editCol 1
 	} else {
-	    set data(editRow) [lsearch $data(itemList) "* $editKey"]
+	    set data(editRow) [keyToRow $win $editKey]
 	}
+    }
+
+    if {$withDescendants} {
+	#
+	# Move the source item's descendants
+	#
+	set sourceDescCount [descCount $win $sourceKey]
+	if {$source < $target} {
+	    for {set n 0} {$n < $sourceDescCount} {incr n} {
+		moveRow $win $source $target 0
+	    }
+	} else {
+	    for {set n 0} {$n < $sourceDescCount} {incr n} {
+		moveRow $win [incr source] [incr target] 0
+	    }
+	}
+
+	#
+	# Adjust the elided text, restore the stripes in the body
+	# text widget, and redisplay the line numbers (if any)
+	#
+	adjustElidedText $win
+	makeStripes $win
+	showLineNumbersWhenIdle $win
+	updateColorsWhenIdle $win
+	adjustSepsWhenIdle $win
+	updateVScrlbarWhenIdle $win
     }
 
     return ""
@@ -209,17 +289,24 @@ proc tablelist::moveCol {win source target} {
 	return ""
     }
 
+    if {[winfo viewable $win]} {
+	purgeWidgets $win
+	update idletasks
+	if {![winfo exists $win]} {		;# because of update idletasks
+	    return ""
+	}
+    }
+
     #
     # Update the column list
     #
     set source3 [expr {3*$source}]
     set source3Plus2 [expr {$source3 + 2}]
     set target1 $target
-    set target3 [expr {3*$target}]
     if {$source < $target} {
 	incr target1 -1
-	incr target3 -3
     }
+    set target3 [expr {3*$target1}]
     set sourceRange [lrange $data(-columns) $source3 $source3Plus2]
     set data(-columns) [lreplace $data(-columns) $source3 $source3Plus2]
     set data(-columns) [eval linsert {$data(-columns)} $target3 $sourceRange]
@@ -229,7 +316,7 @@ proc tablelist::moveCol {win source target} {
     #
     array set tmpData [array get data $source-*]
     array set tmpData [array get data k*,$source-*]
-    foreach specialCol {activeCol anchorCol editCol} {
+    foreach specialCol {activeCol anchorCol editCol -treecolumn treeCol} {
 	set tmpData($specialCol) $data($specialCol)
     }
     array set tmpAttribs [array get attribs $source-*]
@@ -241,7 +328,7 @@ proc tablelist::moveCol {win source target} {
     # Remove source from the list of stretchable columns
     # if it was explicitly specified as stretchable
     #
-    if {[string first $data(-stretch) "all"] != 0} {
+    if {[string compare $data(-stretch) "all"] != 0} {
 	set sourceIsStretchable 0
 	set stretchableCols {}
 	foreach elem $data(-stretch) {
@@ -255,7 +342,7 @@ proc tablelist::moveCol {win source target} {
     }
 
     #
-    # Build two lists of column numbers, neeeded
+    # Build two lists of column numbers, needed
     # for shifting some elements of the data array
     #
     if {$source < $target} {
@@ -302,7 +389,7 @@ proc tablelist::moveCol {win source target} {
     # If the column given by source was explicitly specified as
     # stretchable then add target1 to the list of stretchable columns
     #
-    if {[string first $data(-stretch) "all"] != 0 && $sourceIsStretchable} {
+    if {[string compare $data(-stretch) "all"] != 0 && $sourceIsStretchable} {
 	lappend data(-stretch) $target1
 	sortStretchableColList $win
     }
@@ -334,16 +421,17 @@ proc tablelist::moveCol {win source target} {
     adjustColumns $win {} 0
 
     #
+    # Redisplay the items
+    #
+    redisplay $win 0 $selCells
+    updateColorsWhenIdle $win
+
+    #
     # Reconfigure the relevant column labels
     #
     foreach col [lappend newCols $target1] {
 	reconfigColLabels $win imgs $col
     }
-
-    #
-    # Redisplay the items
-    #
-    redisplay $win 0 $selCells
 
     #
     # Restore the trace set on the array element data(activeCol)

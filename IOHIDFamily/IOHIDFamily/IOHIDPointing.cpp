@@ -64,14 +64,14 @@ IOHIDPointing * IOHIDPointing::Pointing(
 // IOHIDPointing::initWithMouseProperties
 //====================================================================================================
 bool IOHIDPointing::initWithMouseProperties(
-                                UInt32          buttonCount,
+                                UInt32          buttonCnt,
                                 IOFixed         pointerResolution,
                                 IOFixed         scrollResolution,
                                 bool            isDispatcher)
 {
     if (!super::init(0))  return false;
     
-    _numButtons         = (buttonCount > 0) ? buttonCount : 1;
+    _numButtons         = (buttonCnt > 0) ? buttonCnt : 1;
     _resolution         = pointerResolution;
     _scrollResolution   = scrollResolution;
     _isDispatcher       = isDispatcher;
@@ -171,7 +171,7 @@ void IOHIDPointing::dispatchScrollWheelEvent(
     // no good initial check
     {
         UInt32  oldEventType    = getScrollType();
-        UInt32  newEventType    = oldEventType & ~kScrollTypeMomentumAny;
+        UInt32  newEventType    = oldEventType & ~( kScrollTypeMomentumAny | kScrollTypeOptionPhaseAny );
         bool    setScroll       = false;
         
         UInt32 dispatchKey = kHIDDispatchOptionScrollMomentumContinue;
@@ -204,6 +204,14 @@ void IOHIDPointing::dispatchScrollWheelEvent(
             if (dispatchVal) {
                 newEventType |= eventKey;
             }
+            setScroll = true;
+        }
+        
+        // Slight idiom change here because kHIDDispatchOptionPhaseAny << 4 == kScrollTypeOptionPhaseAny 
+        dispatchKey = (options & kHIDDispatchOptionPhaseAny) << 4;
+        eventKey    = (oldEventType & kScrollTypeOptionPhaseAny);
+        if (dispatchKey != eventKey) {
+            newEventType |= dispatchKey;
             setScroll = true;
         }
         

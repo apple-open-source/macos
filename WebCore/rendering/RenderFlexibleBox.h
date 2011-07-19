@@ -27,6 +27,8 @@
 
 namespace WebCore {
 
+class FlexBoxIterator;
+
 class RenderFlexibleBox : public RenderBlock {
 public:
     RenderFlexibleBox(Node*);
@@ -34,11 +36,11 @@ public:
 
     virtual const char* renderName() const;
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
     void calcHorizontalPrefWidths();
     void calcVerticalPrefWidths();
 
-    virtual void layoutBlock(bool relayoutChildren);
+    virtual void layoutBlock(bool relayoutChildren, int pageHeight);
     void layoutHorizontalBox(bool relayoutChildren);
     void layoutVerticalBox(bool relayoutChildren);
 
@@ -48,7 +50,7 @@ public:
     virtual bool isFlexingChildren() const { return m_flexingChildren; }
     virtual bool isStretchingChildren() const { return m_stretchingChildren; }
 
-    void placeChild(RenderBox* child, int x, int y);
+    void placeChild(RenderBox* child, const IntPoint& location);
 
 protected:
     int allowedChildFlex(RenderBox* child, bool expanding, unsigned group);
@@ -59,6 +61,9 @@ protected:
 
     bool m_flexingChildren : 1;
     bool m_stretchingChildren : 1;
+
+private:
+    void applyLineClamp(FlexBoxIterator&, bool relayoutChildren);
 };
 
 } // namespace WebCore

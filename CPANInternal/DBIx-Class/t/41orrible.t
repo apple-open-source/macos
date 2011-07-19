@@ -2,12 +2,15 @@ use strict;
 use warnings;
 
 use Test::More;
-#use DBIx::Class::Storage::DBI;
-use DBIx::Class::Storage::DBI::Oracle::WhereJoins;
+use DBIx::Class::SQLAHacks::OracleJoins;
+
+use lib qw(t/lib);
+use DBICTest; # do not remove even though it is not used
+use DBIC::SqlMakerTest;
 
 plan tests => 4;
 
-my $sa = new DBIC::SQL::Abstract::Oracle;
+my $sa = new DBIx::Class::SQLAHacks::OracleJoins;
 
 $sa->limit_dialect('RowNum');
 
@@ -29,7 +32,8 @@ WHERE r >= 4
 # search with undefined or empty $cond
 
 #  my ($self, $table, $fields, $where, $order, @rest) = @_;
-is($sa->select([
+my ($sql, @bind) = $sa->select(
+    [
         { me => "cd" },
         [
             { "-join_type" => "LEFT", artist => "artist" },
@@ -38,10 +42,16 @@ is($sa->select([
     ],
     [ 'cd.cdid', 'cd.artist', 'cd.title', 'cd.year', 'artist.artistid', 'artist.name' ],
     undef,
-    undef),
-   'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( artist.artistid(+) = me.artist )', 'WhereJoins search with empty where clause');
+    undef
+);
+is_same_sql_bind(
+  $sql, \@bind,
+  'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( artist.artistid(+) = me.artist )', [],
+  'WhereJoins search with empty where clause'
+);
 
-is($sa->select([
+($sql, @bind) = $sa->select(
+    [
         { me => "cd" },
         [
             { "-join_type" => "", artist => "artist" },
@@ -50,10 +60,16 @@ is($sa->select([
     ],
     [ 'cd.cdid', 'cd.artist', 'cd.title', 'cd.year', 'artist.artistid', 'artist.name' ],
     { 'artist.artistid' => 3 },
-    undef),
-   'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( ( ( artist.artistid = me.artist ) AND ( artist.artistid = ? ) ) )', 'WhereJoins search with where clause');
+    undef
+);
+is_same_sql_bind(
+  $sql, \@bind,
+  'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( ( ( artist.artistid = me.artist ) AND ( artist.artistid = ? ) ) )', [3],
+  'WhereJoins search with where clause'
+);
 
-is($sa->select([
+($sql, @bind) = $sa->select(
+    [
         { me => "cd" },
         [
             { "-join_type" => "LEFT", artist => "artist" },
@@ -62,7 +78,12 @@ is($sa->select([
     ],
     [ 'cd.cdid', 'cd.artist', 'cd.title', 'cd.year', 'artist.artistid', 'artist.name' ],
     [{ 'artist.artistid' => 3 }, { 'me.cdid' => 5 }],
-    undef),
-   'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( ( ( artist.artistid(+) = me.artist ) AND ( ( ( artist.artistid = ? ) OR ( me.cdid = ? ) ) ) ) )', 'WhereJoins search with or in where clause');
+    undef
+);
+is_same_sql_bind(
+  $sql, \@bind,
+  'SELECT cd.cdid, cd.artist, cd.title, cd.year, artist.artistid, artist.name FROM cd me, artist artist WHERE ( ( ( artist.artistid(+) = me.artist ) AND ( ( ( artist.artistid = ? ) OR ( me.cdid = ? ) ) ) ) )', [3, 5],
+  'WhereJoins search with or in where clause'
+);
 
 

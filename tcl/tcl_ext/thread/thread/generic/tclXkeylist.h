@@ -13,7 +13,7 @@
  * implied warranty.
  *-----------------------------------------------------------------------------
  *
- * Rcsid: @(#)$Id: tclXkeylist.h,v 1.1 2003/09/03 11:22:24 vasiljevic Exp $
+ * Rcsid: @(#)$Id: tclXkeylist.h,v 1.2 2009/07/22 11:25:34 nijtmans Exp $
  *-----------------------------------------------------------------------------
  */
 
@@ -27,10 +27,10 @@
 Tcl_Obj* TclX_NewKeyedListObj();
 
 void TclX_KeyedListInit(Tcl_Interp*);
-int  TclX_KeyedListGet(Tcl_Interp*, Tcl_Obj*, char*, Tcl_Obj**);
-int  TclX_KeyedListSet(Tcl_Interp*, Tcl_Obj*, char*, Tcl_Obj*);
-int  TclX_KeyedListDelete(Tcl_Interp*, Tcl_Obj*, char*);
-int  TclX_KeyedListGetKeys(Tcl_Interp*, Tcl_Obj*, char*, Tcl_Obj**);
+int  TclX_KeyedListGet(Tcl_Interp*, Tcl_Obj*, const char*, Tcl_Obj**);
+int  TclX_KeyedListSet(Tcl_Interp*, Tcl_Obj*, const char*, Tcl_Obj*);
+int  TclX_KeyedListDelete(Tcl_Interp*, Tcl_Obj*, const char*);
+int  TclX_KeyedListGetKeys(Tcl_Interp*, Tcl_Obj*, const char*, Tcl_Obj**);
 
 /*
  * Exported for usage in Sv_DuplicateObj. This is slightly

@@ -1,7 +1,7 @@
 ##
 # Makefile for Apple Release Control (Archive Extraction & Patch)
 #
-# Copyright (c) 2005-2009 Apple Inc.
+# Copyright (c) 2005-2010 Apple Inc.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -25,6 +25,8 @@
 # This header must be included after GNUsource.make or Common.make
 #
 # Set these variables as needed before including this file:
+#  GnuAfterInstall - project-specific post-install targets. This MUST be defined
+#                    for the AEP post-install helper targets to be invoked.
 #  AEP_Version - open source project version, used in archive name and
 #                extracted directory
 #  AEP_Patches - list of file names (from patches subdirectory) to
@@ -38,21 +40,19 @@
 #                                the invocation of configure; this would be
 #                                necessary if the project requires extra build flags
 #                                but doesn't want to override everything defined by
-#                                configure. (Proper processing of this should be
-#                                moved to GNUSource.make.)
+#                                configure.
 #
 # The following variables will be defined if empty:
 #  AEP_Project           [ $(Project)                                ]
-#  AEP_Version           [ <no default>                              ]
 #  AEP_ProjVers          [ $(AEP_Project)-$(AEP_Version)             ]
 #  AEP_Filename          [ $(AEP_ProjVers).tar.[bg]z*                ]
 #  AEP_ExtractDir        [ $(AEP_ProjVers)                           ]
-#  AEP_Patches           [ <list of patch file to apply>             ]
 #  AEP_LicenseFile       [ $(SRCROOT)/$(ProjectName).txt             ]
 #  AEP_ConfigDir         [ $(ETCDIR)                                 ]
 #
 # Additionally, the following variables may also be defined before
 # including this file:
+#  AEP_Binaries - list of binaries to archive to SYMROOT and strip in DSTROOT
 #  AEP_LaunchdConfigs - launchd config files in SRCROOT to be installed
 #                       into LAUNCHDDIR
 #  AEP_StartupItem - startup items name to be installed into
@@ -61,8 +61,14 @@
 #  AEP_ManPages - man pages provided outside the extracted project
 #  AEP_ConfigFiles - standard set of configuration files; ".default" versions
 #                    will be created as well
+#  Dependencies - list of subprojects which should be built before main project.
+#
+# Finally, a new target, archive-strip-binaries, is made available to copy
+# AEP_Binaries to SYMROOT and strip the versions in DSTROOT. To leverage this
+# target, it should be defined as the first item in GnuAfterInstall.
 ##
 
+#GnuAfterInstall += archive-strip-binaries
 GnuAfterInstall += install-startup-files install-open-source-files
 GnuAfterInstall += install-top-level-man-pages install-configuration-files
 
@@ -94,9 +100,6 @@ endif
 ifndef AEP_ExtractDir
     AEP_ExtractDir	= $(AEP_ProjVers)
 endif
-ifndef AEP_Patches
-    AEP_Patches		=
-endif
 
 ifndef AEP_LicenseFile
     AEP_LicenseFile	= $(SRCROOT)/$(ProjectName).txt
@@ -118,12 +121,6 @@ AEP_ExtractRoot		= $(OBJROOT)
 # GNUSource.make uses.
 GNUConfigStamp		:= $(ConfigStamp)
 Sources			= $(AEP_ExtractRoot)/$(AEP_Project)
-
-# If the Makefile requires building in its source path, force that to happen.
-ifeq ($(AEP_BuildInSources),YES)
-    override BuildDirectory	= $(Sources)
-    override GNUConfigStamp	= $(ConfigStamp)
-endif
 
 # Redefine Configure to allow extra "helper" environment variables.
 # This logic was moved to GNUSource.make in 10A251, so only override the setting
@@ -147,11 +144,18 @@ SYSTEM_STARTUP_DIR	= $(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/StartupItems
 #
 # AEP targets
 #
-.PHONY: extract-source install-open-source-files install-startup-files
+.PHONY: extract-source build-dependencies archive-strip-binaries
+.PHONY: install-open-source-files install-startup-files
 .PHONY: install-top-level-man-pages install-configuration-files
 
-$(GNUConfigStamp): extract-source
+ifdef ConfigStamp
+$(GNUConfigStamp): extract-source build-dependencies
+else
+build:: extract-source build-dependencies
+endif
 
+# Because GNUSource's ConfigStamp's rules are processed before this file is included,
+# it's easier to copy the sources to the build directory and work from there.
 extract-source::
 ifeq ($(AEP),YES)
 	@echo "Extracting source for $(Project)..."
@@ -160,9 +164,46 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(Sources)
 	$(_v) $(RM) $(GNUConfigStamp)
 	$(MV) $(AEP_ExtractRoot)/$(AEP_ExtractDir) $(Sources)
+ifdef AEP_Patches
 	for patchfile in $(AEP_Patches); do \
 	   echo "Applying $$patchfile..."; \
 	   cd $(Sources) && $(PATCH) -lp1 < $(SRCROOT)/patches/$$patchfile; \
+	done
+endif
+ifeq ($(AEP_BuildInSources),YES)
+ifneq ($(Sources),$(BuildDirectory))
+	@echo "Copying sources to build directory..."
+	$(_v) $(CP) $(Sources) $(BuildDirectory)
+endif
+endif
+else
+	@echo "Source extraction for $(Project) skipped!"
+endif
+
+# Common.make's recurse doesn't reset SRCROOT and misdefines Sources
+build-dependencies:
+ifdef Dependencies
+	$(_v) for Dependency in $(Dependencies); do			\
+		$(MAKE) -C $${Dependency} $(TARGET)			\
+			SRCROOT=$(SRCROOT)/$${Dependency}		\
+			OBJROOT=$(OBJROOT)				\
+			SYMROOT=$(SYMROOT)				\
+			DSTROOT=$(DSTROOT)				\
+			BuildDirectory=$(OBJROOT)/Build/$${Dependency}	\
+			Sources=$(OBJROOT)/$${Dependency}		\
+			CoreOSMakefiles=$(CoreOSMakefiles)		\
+			$(Extra_Dependency_Flags);			\
+		done
+endif
+
+archive-strip-binaries:: $(SYMROOT)
+ifdef AEP_Binaries
+	@echo "Archiving and stripping binaries..."
+	$(_v) for file in $(addprefix $(DSTROOT),$(AEP_Binaries));	\
+	do \
+		$(CP) $${file} $(SYMROOT);				\
+		$(DSYMUTIL) --out=$(SYMROOT)/$${file##*/}.dSYM $${file};\
+		$(STRIP) -S $${file};					\
 	done
 endif
 
@@ -234,3 +275,6 @@ clean::
 	$(_v) if [ -d $(Sources) ]; then \
 	    cd $(Sources) && make clean; \
 	fi
+
+$(DSTROOT) $(DSTROOT)$(AEP_ConfigDir) $(SYMROOT) $(TMPDIR):
+	$(MKDIR) $@

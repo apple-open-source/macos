@@ -36,7 +36,7 @@ namespace WebCore {
 
 void GeneratedImage::draw(GraphicsContext* context, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace, CompositeOperator compositeOp)
 {
-    context->save();
+    GraphicsContextStateSaver stateSaver(*context);
     context->setCompositeOperation(compositeOp);
     context->clip(dstRect);
     context->translate(dstRect.x(), dstRect.y());
@@ -44,7 +44,6 @@ void GeneratedImage::draw(GraphicsContext* context, const FloatRect& dstRect, co
         context->scale(FloatSize(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height()));
     context->translate(-srcRect.x(), -srcRect.y());
     context->fillRect(FloatRect(FloatPoint(), m_size), *m_generator.get());
-    context->restore();
 }
 
 void GeneratedImage::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform,
@@ -57,17 +56,15 @@ void GeneratedImage::drawPattern(GraphicsContext* context, const FloatRect& srcR
 
     // Create a BitmapImage and call drawPattern on it.
     OwnPtr<ImageBuffer> imageBuffer = ImageBuffer::create(adjustedSize);
-    ASSERT(imageBuffer.get());
+    if (!imageBuffer)
+        return;
 
     // Fill with the gradient.
     GraphicsContext* graphicsContext = imageBuffer->context();
     graphicsContext->fillRect(FloatRect(FloatPoint(), adjustedSize), *m_generator.get());
 
-    // Grab the final image from the image buffer.
-    Image* bitmap = imageBuffer->image();
-
-    // Now just call drawTiled on that image.
-    bitmap->drawPattern(context, adjustedSrcRect, patternTransform, phase, styleColorSpace, compositeOp, destRect);
+    // Tile the image buffer into the context.
+    imageBuffer->drawPattern(context, adjustedSrcRect, patternTransform, phase, styleColorSpace, compositeOp, destRect);
 }
 
 }

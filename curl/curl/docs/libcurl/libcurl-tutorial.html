@@ -125,7 +125,11 @@ p.roffit {
 <p class="level0">&nbsp;<a href="http://www.gnu.org/software/gnutls/manual/html_node/">http://www.gnu.org/software/gnutls/manual/html_node/</a>Multi_002dthreaded-applications.html 
 <p class="level0">NSS 
 <p class="level0">&nbsp;is claimed to be thread-safe already without anything required. 
+<p class="level0">PolarSSL 
+<p class="level0">&nbsp;Required actions unknown. 
 <p class="level0">yassl 
+<p class="level0">&nbsp;Required actions unknown. 
+<p class="level0">axTLS 
 <p class="level0">&nbsp;Required actions unknown. 
 <p class="level0">When using multiple threads you should set the CURLOPT_NOSIGNAL option to 1 for all handles. Everything will or might work fine except that timeouts are not honored during the DNS lookup - which you can work around by building libcurl with c-ares support. c-ares is a library that provides asynchronous name resolves. On some platforms, libcurl simply will not function properly multi-threaded unless this option is set. 
 <p class="level0">Also, note that CURLOPT_DNS_USE_GLOBAL_CACHE is not thread-safe. 
@@ -491,16 +495,19 @@ p.roffit {
 <p class="level1">If cookies are enabled and cached, then a user could craft a URL which performs some malicious action to a site whose authentication is already stored in a cookie. e.g. <a href="http://mail.example.com/delete-stuff.cgi">http://mail.example.com/delete-stuff.cgi</a>?delete=all Apps can mitigate against this by disabling cookies or clearing them between requests. 
 <p class="level1">
 <p class="level0"><a name="Dangerous"></a><span class="nroffip">Dangerous URLs</span> 
-<p class="level1">SCP URLs can contain raw commands within the scp: URL, which is a side effect of how the SCP protocol is designed. e.g.  scp://user:pass@host/a;date &gt;/tmp/test; Apps must not allow unsanitized SCP: URLs to be passed in for downloads. 
+<p class="level1">SCP URLs can contain raw commands within the scp: URL, which is a side effect of how the SCP protocol is designed. e.g. scp://user:pass@host/a;date &gt;/tmp/test; Apps must not allow unsanitized SCP: URLs to be passed in for downloads. 
 <p class="level1">
 <p class="level0"><a name="Denial"></a><span class="nroffip">Denial of Service</span> 
 <p class="level1">A malicious server could cause libcurl to effectively hang by sending a trickle of data through, or even no data at all but just keeping the TCP connection open.  This could result in a denial-of-service attack. The CURLOPT_TIMEOUT and/or CURLOPT_LOW_SPEED_LIMIT options can be used to mitigate against this. 
 <p class="level1">A malicious server could cause libcurl to effectively hang by starting to send data, then severing the connection without cleanly closing the TCP connection.  The app could install a CURLOPT_SOCKOPTFUNCTION callback function and set the TCP SO_KEEPALIVE option to mitigate against this. Setting one of the timeout options would also work against this attack. 
 <p class="level1">A malicious server could cause libcurl to download an infinite amount of data, potentially causing all of memory or disk to be filled. Setting the CURLOPT_MAXFILESIZE_LARGE option is not sufficient to guard against this. Instead, the app should monitor the amount of data received within the write or progress callback and abort once the limit is reached. 
-<p class="level1">A malicious HTTP server could cause an infinite redirection loop, causing a  denial-of-service. This can be mitigated by using the CURLOPT_MAXREDIRS option. 
+<p class="level1">A malicious HTTP server could cause an infinite redirection loop, causing a denial-of-service. This can be mitigated by using the CURLOPT_MAXREDIRS option. 
 <p class="level1">
 <p class="level0"><a name="Arbitrary"></a><span class="nroffip">Arbitrary Headers</span> 
 <p class="level1">User-supplied data must be sanitized when used in options like CURLOPT_USERAGENT, CURLOPT_HTTPHEADER, CURLOPT_POSTFIELDS and others that are used to generate structured data. Characters like embedded carriage returns or ampersands could allow the user to create additional headers or fields that could cause malicious transactions. 
+<p class="level1">
+<p class="level0"><a name="Server-supplied"></a><span class="nroffip">Server-supplied Names</span> 
+<p class="level1">A server can supply data which the application may, in some cases, use as a file name. The curl command-line tool does this with --remote-header-name, using the Content-disposition: header to generate a file name.  An application could also use CURLINFO_EFFECTIVE_URL to generate a file name from a server-supplied redirect URL. Special care must be taken to sanitize such names to avoid the possibility of a malicious server supplying one like "/etc/passwd", "autoexec.bat" or even ".bashrc". 
 <p class="level1">
 <p class="level0"><a name="Server"></a><span class="nroffip">Server Certificates</span> 
 <p class="level1">A secure application should never use the CURLOPT_SSL_VERIFYPEER option to disable certificate validation. There are numerous attacks that are enabled by apps that fail to properly validate server TLS/SSL certificates, thus enabling a malicious server to spoof a legitimate one. HTTPS without validated certificates is potentially as insecure as a plain HTTP connection. 

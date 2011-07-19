@@ -39,7 +39,6 @@ class HTMLMetaElement;
 class HTMLOptionElement;
 class Node;
 class QualifiedName;
-class String;
 }
 
 // This file is an aggregate of useful WebCore operations.
@@ -51,9 +50,6 @@ WebCore::HTMLInputElement* toHTMLInputElement(WebCore::Node*);
 WebCore::HTMLLinkElement* toHTMLLinkElement(WebCore::Node*);
 WebCore::HTMLMetaElement* toHTMLMetaElement(WebCore::Node*);
 WebCore::HTMLOptionElement* toHTMLOptionElement(WebCore::Node*);
-
-// FIXME: Deprecate. Use WebInputElement::nameForAutofill instead.
-WebCore::String nameOfInputElement(WebCore::HTMLInputElement*);
 
 // For img, script, iframe, frame element, when attribute name is src,
 // for link, a, area element, when attribute name is href,

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -93,15 +93,18 @@ void addResourceBundleTest(TestNode** root);
 
 void addResourceBundleTest(TestNode** root)
 {
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
     addTest(root, &TestConstruction1, "tsutil/crestst/TestConstruction1");
     addTest(root, &TestOpenDirect, "tsutil/crestst/TestOpenDirect");
     addTest(root, &TestResourceBundles, "tsutil/crestst/TestResourceBundles");
     addTest(root, &TestTable32, "tsutil/crestst/TestTable32");
-    addTest(root, &TestFallback, "tsutil/crestst/TestFallback");
-    addTest(root, &TestAliasConflict, "tsutil/crestst/TestAliasConflict");
     addTest(root, &TestFileStream, "tsutil/crestst/TestFileStream");
     addTest(root, &TestGetSize, "tsutil/crestst/TestGetSize");
     addTest(root, &TestGetLocaleByType, "tsutil/crestst/TestGetLocaleByType");
+#endif
+    addTest(root, &TestFallback, "tsutil/crestst/TestFallback");
+    addTest(root, &TestAliasConflict, "tsutil/crestst/TestAliasConflict");
+
 }
 
 
@@ -116,12 +119,12 @@ void TestAliasConflict(void) {
     he = ures_open(NULL, "he", &status);
     iw = ures_open(NULL, "iw", &status);
     if(U_FAILURE(status)) {
-        log_err("Failed to get resource with %s\n", myErrorName(status));
+        log_err_status(status, "Failed to get resource with %s\n", myErrorName(status));
     }
     ures_close(iw);
     result = ures_getStringByKey(he, "ExemplarCharacters", &resultLen, &status);
     if(U_FAILURE(status) || result == NULL) {
-        log_err("Failed to get resource with %s\n", myErrorName(status));
+        log_err_status(status, "Failed to get resource with %s\n", myErrorName(status));
     }
     ures_close(he);
 }
@@ -199,7 +202,7 @@ void TestConstruction1()
         int n;
 
         log_err("Construction test failed for ures_open();\n");
-        if(!VERBOSITY)
+        if(!getTestOption(VERBOSITY_OPTION))
             log_info("(run verbose for more information)\n");
 
         log_verbose("\nGot->");
@@ -426,7 +429,7 @@ static void TestFallback()
     fr_FR = ures_open(NULL, "fr_FR", &status);
     if(U_FAILURE(status))
     {
-        log_err("Couldn't open fr_FR - %d\n", status);
+        log_err_status(status, "Couldn't open fr_FR - %s\n", u_errorName(status));
         return;
     }
 
@@ -452,10 +455,10 @@ static void TestFallback()
     status = U_ZERO_ERROR;
 
     /* and this is a Fallback, to fr */
-    junk = ures_getStringByKey(fr_FR, "Countries", &resultLen, &status);
+    junk = ures_getStringByKey(fr_FR, "ExemplarCharacters", &resultLen, &status);
     if(status != U_USING_FALLBACK_WARNING)
     {
-        log_data_err("Expected U_USING_FALLBACK_ERROR when trying to get Countries from fr_FR, got %s\n", 
+        log_data_err("Expected U_USING_FALLBACK_ERROR when trying to get ExemplarCharacters from fr_FR, got %s\n", 
             u_errorName(status));
     }
 

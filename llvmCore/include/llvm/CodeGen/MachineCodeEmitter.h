@@ -17,7 +17,8 @@
 #ifndef LLVM_CODEGEN_MACHINECODEEMITTER_H
 #define LLVM_CODEGEN_MACHINECODEEMITTER_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
+#include "llvm/Support/DebugLoc.h"
 
 namespace llvm {
 
@@ -30,6 +31,7 @@ class MachineRelocation;
 class Value;
 class GlobalValue;
 class Function;
+class MCSymbol;
 
 /// MachineCodeEmitter - This class defines two sorts of methods: those for
 /// emitting the actual bytes of machine code, and those for emitting auxillary
@@ -50,14 +52,13 @@ class MachineCodeEmitter {
 protected:
   /// BufferBegin/BufferEnd - Pointers to the start and end of the memory
   /// allocated for this code buffer.
-  unsigned char *BufferBegin, *BufferEnd;
-  
-  /// CurBufferPtr - Pointer to the next byte of memory to fill when emitting 
+  uint8_t *BufferBegin, *BufferEnd;
+  /// CurBufferPtr - Pointer to the next byte of memory to fill when emitting
   /// code.  This is guranteed to be in the range [BufferBegin,BufferEnd].  If
   /// this pointer is at BufferEnd, it will never move due to code emission, and
   /// all code emission requests will be ignored (this is the buffer overflow
   /// condition).
-  unsigned char *CurBufferPtr;
+  uint8_t *CurBufferPtr;
 
 public:
   virtual ~MachineCodeEmitter() {}
@@ -74,29 +75,11 @@ public:
   /// false.
   ///
   virtual bool finishFunction(MachineFunction &F) = 0;
-  
-  /// startGVStub - This callback is invoked when the JIT needs the
-  /// address of a GV (e.g. function) that has not been code generated yet.
-  /// The StubSize specifies the total size required by the stub.
-  ///
-  virtual void startGVStub(const GlobalValue* GV, unsigned StubSize,
-                           unsigned Alignment = 1) = 0;
-
-  /// startGVStub - This callback is invoked when the JIT needs the address of a 
-  /// GV (e.g. function) that has not been code generated yet.  Buffer points to
-  /// memory already allocated for this stub.
-  ///
-  virtual void startGVStub(const GlobalValue* GV, void *Buffer,
-                           unsigned StubSize) = 0;
-  
-  /// finishGVStub - This callback is invoked to terminate a GV stub.
-  ///
-  virtual void *finishGVStub(const GlobalValue* F) = 0;
 
   /// emitByte - This callback is invoked when a byte needs to be written to the
   /// output stream.
   ///
-  void emitByte(unsigned char B) {
+  void emitByte(uint8_t B) {
     if (CurBufferPtr != BufferEnd)
       *CurBufferPtr++ = B;
   }
@@ -104,26 +87,34 @@ public:
   /// emitWordLE - This callback is invoked when a 32-bit word needs to be
   /// written to the output stream in little-endian format.
   ///
-  void emitWordLE(unsigned W) {
+  void emitWordLE(uint32_t W) {
     if (4 <= BufferEnd-CurBufferPtr) {
-      *CurBufferPtr++ = (unsigned char)(W >>  0);
-      *CurBufferPtr++ = (unsigned char)(W >>  8);
-      *CurBufferPtr++ = (unsigned char)(W >> 16);
-      *CurBufferPtr++ = (unsigned char)(W >> 24);
+      emitWordLEInto(CurBufferPtr, W);
     } else {
       CurBufferPtr = BufferEnd;
     }
   }
-  
+
+  /// emitWordLEInto - This callback is invoked when a 32-bit word needs to be
+  /// written to an arbitrary buffer in little-endian format.  Buf must have at
+  /// least 4 bytes of available space.
+  ///
+  static void emitWordLEInto(uint8_t *&Buf, uint32_t W) {
+    *Buf++ = (uint8_t)(W >>  0);
+    *Buf++ = (uint8_t)(W >>  8);
+    *Buf++ = (uint8_t)(W >> 16);
+    *Buf++ = (uint8_t)(W >> 24);
+  }
+
   /// emitWordBE - This callback is invoked when a 32-bit word needs to be
   /// written to the output stream in big-endian format.
   ///
-  void emitWordBE(unsigned W) {
+  void emitWordBE(uint32_t W) {
     if (4 <= BufferEnd-CurBufferPtr) {
-      *CurBufferPtr++ = (unsigned char)(W >> 24);
-      *CurBufferPtr++ = (unsigned char)(W >> 16);
-      *CurBufferPtr++ = (unsigned char)(W >>  8);
-      *CurBufferPtr++ = (unsigned char)(W >>  0);
+      *CurBufferPtr++ = (uint8_t)(W >> 24);
+      *CurBufferPtr++ = (uint8_t)(W >> 16);
+      *CurBufferPtr++ = (uint8_t)(W >>  8);
+      *CurBufferPtr++ = (uint8_t)(W >>  0);
     } else {
       CurBufferPtr = BufferEnd;
     }
@@ -134,14 +125,14 @@ public:
   ///
   void emitDWordLE(uint64_t W) {
     if (8 <= BufferEnd-CurBufferPtr) {
-      *CurBufferPtr++ = (unsigned char)(W >>  0);
-      *CurBufferPtr++ = (unsigned char)(W >>  8);
-      *CurBufferPtr++ = (unsigned char)(W >> 16);
-      *CurBufferPtr++ = (unsigned char)(W >> 24);
-      *CurBufferPtr++ = (unsigned char)(W >> 32);
-      *CurBufferPtr++ = (unsigned char)(W >> 40);
-      *CurBufferPtr++ = (unsigned char)(W >> 48);
-      *CurBufferPtr++ = (unsigned char)(W >> 56);
+      *CurBufferPtr++ = (uint8_t)(W >>  0);
+      *CurBufferPtr++ = (uint8_t)(W >>  8);
+      *CurBufferPtr++ = (uint8_t)(W >> 16);
+      *CurBufferPtr++ = (uint8_t)(W >> 24);
+      *CurBufferPtr++ = (uint8_t)(W >> 32);
+      *CurBufferPtr++ = (uint8_t)(W >> 40);
+      *CurBufferPtr++ = (uint8_t)(W >> 48);
+      *CurBufferPtr++ = (uint8_t)(W >> 56);
     } else {
       CurBufferPtr = BufferEnd;
     }
@@ -152,20 +143,20 @@ public:
   ///
   void emitDWordBE(uint64_t W) {
     if (8 <= BufferEnd-CurBufferPtr) {
-      *CurBufferPtr++ = (unsigned char)(W >> 56);
-      *CurBufferPtr++ = (unsigned char)(W >> 48);
-      *CurBufferPtr++ = (unsigned char)(W >> 40);
-      *CurBufferPtr++ = (unsigned char)(W >> 32);
-      *CurBufferPtr++ = (unsigned char)(W >> 24);
-      *CurBufferPtr++ = (unsigned char)(W >> 16);
-      *CurBufferPtr++ = (unsigned char)(W >>  8);
-      *CurBufferPtr++ = (unsigned char)(W >>  0);
+      *CurBufferPtr++ = (uint8_t)(W >> 56);
+      *CurBufferPtr++ = (uint8_t)(W >> 48);
+      *CurBufferPtr++ = (uint8_t)(W >> 40);
+      *CurBufferPtr++ = (uint8_t)(W >> 32);
+      *CurBufferPtr++ = (uint8_t)(W >> 24);
+      *CurBufferPtr++ = (uint8_t)(W >> 16);
+      *CurBufferPtr++ = (uint8_t)(W >>  8);
+      *CurBufferPtr++ = (uint8_t)(W >>  0);
     } else {
       CurBufferPtr = BufferEnd;
     }
   }
 
-  /// emitAlignment - Move the CurBufferPtr pointer up the the specified
+  /// emitAlignment - Move the CurBufferPtr pointer up to the specified
   /// alignment (saturated to BufferEnd of course).
   void emitAlignment(unsigned Alignment) {
     if (Alignment == 0) Alignment = 1;
@@ -173,8 +164,8 @@ public:
     if(Alignment <= (uintptr_t)(BufferEnd-CurBufferPtr)) {
       // Move the current buffer ptr up to the specified alignment.
       CurBufferPtr =
-        (unsigned char*)(((uintptr_t)CurBufferPtr+Alignment-1) &
-                         ~(uintptr_t)(Alignment-1));
+        (uint8_t*)(((uintptr_t)CurBufferPtr+Alignment-1) &
+                   ~(uintptr_t)(Alignment-1));
     } else {
       CurBufferPtr = BufferEnd;
     }
@@ -183,9 +174,9 @@ public:
 
   /// emitULEB128Bytes - This callback is invoked when a ULEB128 needs to be
   /// written to the output stream.
-  void emitULEB128Bytes(unsigned Value) {
+  void emitULEB128Bytes(uint64_t Value) {
     do {
-      unsigned char Byte = Value & 0x7f;
+      uint8_t Byte = Value & 0x7f;
       Value >>= 7;
       if (Value) Byte |= 0x80;
       emitByte(Byte);
@@ -194,12 +185,12 @@ public:
   
   /// emitSLEB128Bytes - This callback is invoked when a SLEB128 needs to be
   /// written to the output stream.
-  void emitSLEB128Bytes(int Value) {
-    int Sign = Value >> (8 * sizeof(Value) - 1);
+  void emitSLEB128Bytes(uint64_t Value) {
+    uint64_t Sign = Value >> (8 * sizeof(Value) - 1);
     bool IsMore;
   
     do {
-      unsigned char Byte = Value & 0x7f;
+      uint8_t Byte = Value & 0x7f;
       Value >>= 7;
       IsMore = Value != Sign || ((Byte ^ Sign) & 0x40) != 0;
       if (IsMore) Byte |= 0x80;
@@ -212,14 +203,14 @@ public:
   void emitString(const std::string &String) {
     for (unsigned i = 0, N = static_cast<unsigned>(String.size());
          i < N; ++i) {
-      unsigned char C = String[i];
+      uint8_t C = String[i];
       emitByte(C);
     }
     emitByte(0);
   }
   
   /// emitInt32 - Emit a int32 directive.
-  void emitInt32(int Value) {
+  void emitInt32(int32_t Value) {
     if (4 <= BufferEnd-CurBufferPtr) {
       *((uint32_t*)CurBufferPtr) = Value;
       CurBufferPtr += 4;
@@ -250,9 +241,14 @@ public:
       (*(uint64_t*)Addr) = (uint64_t)Value;
   }
   
-  
+  /// processDebugLoc - Records debug location information about a
+  /// MachineInstruction.  This is called before emitting any bytes associated
+  /// with the instruction.  Even if successive instructions have the same debug
+  /// location, this method will be called for each one.
+  virtual void processDebugLoc(DebugLoc DL, bool BeforePrintintInsn) {}
+
   /// emitLabel - Emits a label
-  virtual void emitLabel(uint64_t LabelID) = 0;
+  virtual void emitLabel(MCSymbol *Label) = 0;
 
   /// allocateSpace - Allocate a block of space in the current output buffer,
   /// returning null (and setting conditions to indicate buffer overflow) on
@@ -288,14 +284,20 @@ public:
 
   /// getCurrentPCOffset - Return the offset from the start of the emitted
   /// buffer that we are currently writing to.
-  uintptr_t getCurrentPCOffset() const {
+  virtual uintptr_t getCurrentPCOffset() const {
     return CurBufferPtr-BufferBegin;
   }
+
+  /// earlyResolveAddresses - True if the code emitter can use symbol addresses 
+  /// during code emission time. The JIT is capable of doing this because it
+  /// creates jump tables or constant pools in memory on the fly while the
+  /// object code emitters rely on a linker to have real addresses and should
+  /// use relocations instead.
+  virtual bool earlyResolveAddresses() const = 0;
 
   /// addRelocation - Whenever a relocatable address is needed, it should be
   /// noted with this interface.
   virtual void addRelocation(const MachineRelocation &MR) = 0;
-
   
   /// FIXME: These should all be handled with relocations!
   
@@ -315,10 +317,10 @@ public:
   ///
   virtual uintptr_t getMachineBasicBlockAddress(MachineBasicBlock *MBB) const= 0;
 
-  /// getLabelAddress - Return the address of the specified LabelID, only usable
+  /// getLabelAddress - Return the address of the specified Label, only usable
   /// after the LabelID has been emitted.
   ///
-  virtual uintptr_t getLabelAddress(uint64_t LabelID) const = 0;
+  virtual uintptr_t getLabelAddress(MCSymbol *Label) const = 0;
   
   /// Specifies the MachineModuleInfo object. This is used for exception handling
   /// purposes.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2009, 2011 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,67 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #import "WebApplicationCache.h"
+
+#import "WebSecurityOriginInternal.h"
+#import <WebCore/ApplicationCache.h>
 #import <WebCore/ApplicationCacheStorage.h>
+#import <WebCore/SecurityOrigin.h>
+#import <wtf/RetainPtr.h>
 
 using namespace WebCore;
 
 @implementation WebApplicationCache
 
-+ (void)setMaximumSize:(unsigned long long)size
++ (long long)maximumSize
 {
-    cacheStorage().empty();
-    cacheStorage().vacuumDatabaseFile();
+    return cacheStorage().maximumSize();
+}
+
++ (void)setMaximumSize:(long long)size
+{
+    [WebApplicationCache deleteAllApplicationCaches];
     cacheStorage().setMaximumSize(size);
+}
+
++ (long long)defaultOriginQuota
+{
+    return cacheStorage().defaultOriginQuota();
+}
+
++ (void)setDefaultOriginQuota:(long long)size
+{
+    cacheStorage().setDefaultOriginQuota(size);
+}
+
++ (long long)diskUsageForOrigin:(WebSecurityOrigin *)origin
+{
+    return ApplicationCache::diskUsageForOrigin([origin _core]);
+}
+
++ (void)deleteAllApplicationCaches
+{
+    cacheStorage().deleteAllEntries();
+}
+
++ (void)deleteCacheForOrigin:(WebSecurityOrigin *)origin
+{
+    ApplicationCache::deleteCacheForOrigin([origin _core]);
+}
+
++ (NSArray *)originsWithCache
+{
+    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash> coreOrigins;
+    cacheStorage().getOriginsWithCache(coreOrigins);
+    
+    NSMutableArray *webOrigins = [[[NSMutableArray alloc] initWithCapacity:coreOrigins.size()] autorelease];
+    
+    HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::const_iterator end = coreOrigins.end();
+    for (HashSet<RefPtr<SecurityOrigin>, SecurityOriginHash>::const_iterator it = coreOrigins.begin(); it != end; ++it) {
+        RetainPtr<WebSecurityOrigin> webOrigin(AdoptNS, [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:(*it).get()]);
+        [webOrigins addObject:webOrigin.get()];
+    }
+    
+    return webOrigins;
 }
 
 @end

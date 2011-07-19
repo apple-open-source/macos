@@ -258,3 +258,72 @@ struct statistic *top_pageins_create(WINDOW *parent, const char *name) {
     return create_statistic(STATISTIC_PAGEINS, parent, NULL, &pageins_callbacks,
 			    name);
 }
+
+
+/*kprvt*/
+static bool kprvt_insert_cell(struct statistic *s, const void *sample) {
+    const libtop_psamp_t *psamp = sample;
+    char buf[7];
+
+    if(top_prefs_get_mmr()) {
+	if(top_uinteger_format_mem_result(buf, sizeof(buf),
+		  psamp->palloc - psamp->pfree,
+		  psamp->p_palloc - psamp->p_pfree,
+		  0ULL)) {
+	    return true;
+	}
+    } else {
+	NA(buf);
+    }
+        
+    return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks kprvt_callbacks = {
+    .draw = generic_draw,
+    .resize_cells = generic_resize_cells,
+    .move_cells = generic_move_cells,
+    .get_request_size = generic_get_request_size,
+    .get_minimum_size = generic_get_minimum_size,
+    .insert_cell = kprvt_insert_cell,
+    .reset_insertion = generic_reset_insertion
+};
+
+struct statistic *top_kprvt_create(WINDOW *parent, const char *name) {
+    return create_statistic(STATISTIC_KPRVT, parent, NULL, &kprvt_callbacks,
+                            name);
+}
+
+/*kshrd*/
+static bool kshrd_insert_cell(struct statistic *s, const void *sample) {
+    const libtop_psamp_t *psamp = sample;
+    char buf[7];
+
+    if(top_prefs_get_mmr()) {
+	if(top_uinteger_format_mem_result(buf, sizeof(buf),
+		  psamp->salloc - psamp->sfree,
+		  psamp->p_salloc - psamp->p_sfree,
+		  0ULL)) {
+	    return true;
+	}
+    } else {
+	NA(buf);
+    }
+        
+    return generic_insert_cell(s, buf);
+}
+
+static struct statistic_callbacks kshrd_callbacks = {
+    .draw = generic_draw,
+    .resize_cells = generic_resize_cells,
+    .move_cells = generic_move_cells,
+    .get_request_size = generic_get_request_size,
+    .get_minimum_size = generic_get_minimum_size,
+    .insert_cell = kshrd_insert_cell,
+    .reset_insertion = generic_reset_insertion
+};
+
+struct statistic *top_kshrd_create(WINDOW *parent, const char *name) {
+    return create_statistic(STATISTIC_KSHRD, parent, NULL, &kshrd_callbacks,
+                            name);
+}

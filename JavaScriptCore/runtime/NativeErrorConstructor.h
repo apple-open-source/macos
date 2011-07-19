@@ -31,19 +31,24 @@ namespace JSC {
 
     class NativeErrorConstructor : public InternalFunction {
     public:
-        NativeErrorConstructor(ExecState*, NonNullPassRefPtr<Structure> structure, NonNullPassRefPtr<Structure> prototypeStructure, const UString&);
+        NativeErrorConstructor(ExecState*, JSGlobalObject*, Structure*, Structure* prototypeStructure, const UString&);
 
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
-        ErrorInstance* construct(ExecState*, const ArgList&);
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+        Structure* errorStructure() { return m_errorStructure.get(); }
 
     private:
+        static const unsigned StructureFlags = OverridesVisitChildren | InternalFunction::StructureFlags;
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
+        virtual void visitChildren(SlotVisitor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-
-        RefPtr<Structure> m_errorStructure;
+        WriteBarrier<Structure> m_errorStructure;
     };
 
 } // namespace JSC

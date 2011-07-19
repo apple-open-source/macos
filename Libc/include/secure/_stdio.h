@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,8 +34,11 @@
 
 #undef sprintf
 #undef vsprintf
+
+#if __DARWIN_C_LEVEL >= 200112L
 #undef snprintf
 #undef vsnprintf
+#endif
 
 /* sprintf, vsprintf, snprintf, vsnprintf */
 
@@ -50,6 +53,7 @@ extern int __snprintf_chk (char * __restrict, size_t, int, size_t,
 			   const char * __restrict, ...)
   __DARWIN_LDBL_COMPAT (__snprintf_chk);
 
+#if __DARWIN_C_LEVEL >= 200112L
 #define snprintf(str, len, ...) \
   __builtin___snprintf_chk (str, len, 0, __darwin_obsz(str), __VA_ARGS__)
 
@@ -66,7 +70,7 @@ extern int __vsnprintf_chk (char * __restrict, size_t, int, size_t,
 
 #define vsnprintf(str, len, format, ap) \
   __builtin___vsnprintf_chk (str, len, 0, __darwin_obsz(str), format, ap)
-
+#endif
 
 #endif
 

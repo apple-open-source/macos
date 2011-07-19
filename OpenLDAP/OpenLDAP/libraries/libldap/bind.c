@@ -1,8 +1,8 @@
 /* bind.c */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/bind.c,v 1.24.2.3 2008/02/11 23:26:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/bind.c,v 1.24.2.6 2010/04/13 20:22:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,6 +71,11 @@ ldap_bind( LDAP *ld, LDAP_CONST char *dn, LDAP_CONST char *passwd, int authmetho
 	case LDAP_AUTH_SIMPLE:
 		return( ldap_simple_bind( ld, dn, passwd ) );
 
+#ifdef HAVE_GSSAPI
+	case LDAP_AUTH_NEGOTIATE:
+		return( ldap_gssapi_bind_s( ld, dn, passwd) );
+#endif
+
 	case LDAP_AUTH_SASL:
 		/* user must use ldap_sasl_bind */
 		/* FALL-THRU */
@@ -106,6 +111,11 @@ ldap_bind_s(
 	switch ( authmethod ) {
 	case LDAP_AUTH_SIMPLE:
 		return( ldap_simple_bind_s( ld, dn, passwd ) );
+
+#ifdef HAVE_GSSAPI
+	case LDAP_AUTH_NEGOTIATE:
+		return( ldap_gssapi_bind_s( ld, dn, passwd) );
+#endif
 
 	case LDAP_AUTH_SASL:
 		/* user must use ldap_sasl_bind */

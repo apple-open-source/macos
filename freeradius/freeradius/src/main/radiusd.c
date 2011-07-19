@@ -169,8 +169,17 @@ int main(int argc, char *argv[])
 				break;
 
 			case 'l':
+				if (strcmp(optarg, "stdout") == 0) {
+					goto do_stdout;
+				}
 				mainconfig.log_file = strdup(optarg);
 				mainconfig.radlog_dest = RADLOG_FILES;
+				mainconfig.radlog_fd = open(mainconfig.log_file,
+							    O_WRONLY | O_APPEND | O_CREAT, 0640);
+				if (mainconfig.radlog_fd < 0) {
+					fprintf(stderr, "radiusd: Failed to open log file %s: %s\n", mainconfig.log_file, strerror(errno));
+					exit(1);
+				}
 				break;		  
 
 			case 'i':
@@ -219,6 +228,7 @@ int main(int argc, char *argv[])
 				mainconfig.log_auth = TRUE;
 				mainconfig.log_auth_badpass = TRUE;
 				mainconfig.log_auth_goodpass = TRUE;
+		do_stdout:
 				mainconfig.radlog_dest = RADLOG_STDOUT;
 				mainconfig.radlog_fd = STDOUT_FILENO;
 				fr_log_fp = stdout;
@@ -241,7 +251,7 @@ int main(int argc, char *argv[])
 
 	if (debug_flag) {
 		radlog(L_INFO, "%s", radiusd_version);
-		radlog(L_INFO, "Copyright (C) 1999-2008 The FreeRADIUS server project and contributors.\n");
+		radlog(L_INFO, "Copyright (C) 1999-2009 The FreeRADIUS server project and contributors.\n");
 		radlog(L_INFO, "There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A\n");
 		radlog(L_INFO, "PARTICULAR PURPOSE.\n");
 		radlog(L_INFO, "You may redistribute copies of FreeRADIUS under the terms of the\n");
@@ -285,30 +295,6 @@ int main(int argc, char *argv[])
 	radius_pid = getpid();
 
 	/*
-	 *  Only write the PID file if we're running as a daemon.
-	 *
-	 *  And write it AFTER we've forked, so that we write the
-	 *  correct PID.
-	 */
-	if (dont_fork == FALSE) {
-		FILE *fp;
-
-		fp = fopen(mainconfig.pid_file, "w");
-		if (fp != NULL) {
-			/*
-			 *	FIXME: What about following symlinks,
-			 *	and having it over-write a normal file?
-			 */
-			fprintf(fp, "%d\n", (int) radius_pid);
-			fclose(fp);
-		} else {
-			radlog(L_ERR|L_CONS, "Failed creating PID file %s: %s\n",
-			       mainconfig.pid_file, strerror(errno));
-			exit(1);
-		}
-	}
-
-	/*
 	 *	If we're running as a daemon, close the default file
 	 *	descriptors, AFTER forking.
 	 */
@@ -324,10 +310,12 @@ int main(int argc, char *argv[])
 		dup2(devnull, STDIN_FILENO);
 		if (mainconfig.radlog_dest == RADLOG_STDOUT) {
 			mainconfig.radlog_fd = dup(STDOUT_FILENO);
+			setlinebuf(stdout);
 		}
 		dup2(devnull, STDOUT_FILENO);
 		if (mainconfig.radlog_dest == RADLOG_STDERR) {
 			mainconfig.radlog_fd = dup(STDERR_FILENO);
+			setlinebuf(stdout);
 		}
 		dup2(devnull, STDERR_FILENO);
 		close(devnull);
@@ -389,12 +377,35 @@ int main(int argc, char *argv[])
 	radius_stats_init(0);
 
 	/*
+	 *  Only write the PID file if we're running as a daemon.
+	 *
+	 *  And write it AFTER we've forked, so that we write the
+	 *  correct PID.
+	 */
+	if (dont_fork == FALSE) {
+		FILE *fp;
+
+		fp = fopen(mainconfig.pid_file, "w");
+		if (fp != NULL) {
+			/*
+			 *	FIXME: What about following symlinks,
+			 *	and having it over-write a normal file?
+			 */
+			fprintf(fp, "%d\n", (int) radius_pid);
+			fclose(fp);
+		} else {
+			radlog(L_ERR|L_CONS, "Failed creating PID file %s: %s\n",
+			       mainconfig.pid_file, strerror(errno));
+			exit(1);
+		}
+	}
+
+	/*
 	 *	Process requests until HUP or exit.
 	 */
 	while ((rcode = radius_event_process()) == 0x80) {
 		radius_stats_init(1);
-		radlog(L_INFO, "Received HUP.");
-		module_hup(cf_section_sub_find(mainconfig.config, "modules"));
+		hup_mainconfig();
 	}
 	
 	radlog(L_INFO, "Exiting normally.");
@@ -479,13 +490,6 @@ static void NEVER_RETURNS usage(int status)
 static void sig_fatal(int sig)
 {
 	switch(sig) {
-		case SIGSEGV:
-			/*
-			 *	We can't really do anything
-			 *	intelligent here so just die
-			 */
-			_exit(1);
-
 		case SIGTERM:
 			radius_signal_self(RADIUS_SIGNAL_SELF_TERM);
 			break;
@@ -501,8 +505,7 @@ static void sig_fatal(int sig)
 			/* FALL-THROUGH */
 
 		default:
-			radius_signal_self(RADIUS_SIGNAL_SELF_EXIT);
-			break;
+			_exit(sig);
 	}
 }
 

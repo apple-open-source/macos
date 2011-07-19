@@ -4,6 +4,9 @@
 /* ------------------------------------------------------------
  *  Fragment section
  * ------------------------------------------------------------ */
+/* bool is dangerous in Ruby, change precedence */
+#undef SWIG_TYPECHECK_BOOL
+%define SWIG_TYPECHECK_BOOL             10000 %enddef
 
 /* Include fundamental fragemt definitions */
 %include <typemaps/fragments.swg>
@@ -46,6 +49,12 @@
 
 /* raise */
 #define SWIG_Raise(obj, type, desc)      rb_exc_raise(SWIG_Ruby_ExceptionType(desc, obj)) 
+
+/* Get the address of the 'Ruby self' object */
+
+%typemap(in,numinputs=0,noblock=1) VALUE* RUBY_SELF {
+  $1 = &self;
+}
 
 /* Include the unified typemap library */
 %include <typemaps/swigtypemaps.swg>

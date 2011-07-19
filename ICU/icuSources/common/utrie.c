@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001-2006, International Business Machines
+*   Copyright (C) 2001-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -372,13 +372,13 @@ utrie_setRange32(UNewTrie *trie, UChar32 start, UChar32 limit, uint32_t value, U
 }
 
 static int32_t
-_findSameIndexBlock(const int32_t *index, int32_t indexLength,
+_findSameIndexBlock(const int32_t *idx, int32_t indexLength,
                     int32_t otherBlock) {
     int32_t block, i;
 
     for(block=UTRIE_BMP_INDEX_LENGTH; block<indexLength; block+=UTRIE_SURROGATE_BLOCK_COUNT) {
         for(i=0; i<UTRIE_SURROGATE_BLOCK_COUNT; ++i) {
-            if(index[block+i]!=index[otherBlock+i]) {
+            if(idx[block+i]!=idx[otherBlock+i]) {
                 break;
             }
         }
@@ -402,15 +402,18 @@ _findSameIndexBlock(const int32_t *index, int32_t indexLength,
 static void
 utrie_fold(UNewTrie *trie, UNewTrieGetFoldedValue *getFoldedValue, UErrorCode *pErrorCode) {
     int32_t leadIndexes[UTRIE_SURROGATE_BLOCK_COUNT];
-    int32_t *index;
+    int32_t *idx;
     uint32_t value;
     UChar32 c;
     int32_t indexLength, block;
+#ifdef UTRIE_DEBUG
+    int countLeadCUWithData=0;
+#endif
 
-    index=trie->index;
+    idx=trie->index;
 
     /* copy the lead surrogate indexes into a temporary array */
-    uprv_memcpy(leadIndexes, index+(0xd800>>UTRIE_SHIFT), 4*UTRIE_SURROGATE_BLOCK_COUNT);
+    uprv_memcpy(leadIndexes, idx+(0xd800>>UTRIE_SHIFT), 4*UTRIE_SURROGATE_BLOCK_COUNT);
 
     /*
      * set all values for lead surrogate code *units* to leadUnitValue
@@ -450,16 +453,17 @@ utrie_fold(UNewTrie *trie, UNewTrieGetFoldedValue *getFoldedValue, UErrorCode *p
 
     /* search for any index (stage 1) entries for supplementary code points */
     for(c=0x10000; c<0x110000;) {
-        if(index[c>>UTRIE_SHIFT]!=0) {
+        if(idx[c>>UTRIE_SHIFT]!=0) {
             /* there is data, treat the full block for a lead surrogate */
             c&=~0x3ff;
 
 #ifdef UTRIE_DEBUG
-            printf("supplementary data for lead surrogate U+%04lx\n", (long)(0xd7c0+(c>>10)));
+            ++countLeadCUWithData;
+            /* printf("supplementary data for lead surrogate U+%04lx\n", (long)(0xd7c0+(c>>10))); */
 #endif
 
             /* is there an identical index block? */
-            block=_findSameIndexBlock(index, indexLength, c>>UTRIE_SHIFT);
+            block=_findSameIndexBlock(idx, indexLength, c>>UTRIE_SHIFT);
 
             /*
              * get a folded value for [c..c+0x400[ and,
@@ -477,8 +481,8 @@ utrie_fold(UNewTrie *trie, UNewTrieGetFoldedValue *getFoldedValue, UErrorCode *p
                 /* if we did not find an identical index block... */
                 if(block==indexLength) {
                     /* move the actual index (stage 1) entries from the supplementary position to the new one */
-                    uprv_memmove(index+indexLength,
-                                 index+(c>>UTRIE_SHIFT),
+                    uprv_memmove(idx+indexLength,
+                                 idx+(c>>UTRIE_SHIFT),
                                  4*UTRIE_SURROGATE_BLOCK_COUNT);
                     indexLength+=UTRIE_SURROGATE_BLOCK_COUNT;
                 }
@@ -488,6 +492,11 @@ utrie_fold(UNewTrie *trie, UNewTrieGetFoldedValue *getFoldedValue, UErrorCode *p
             c+=UTRIE_DATA_BLOCK_LENGTH;
         }
     }
+#ifdef UTRIE_DEBUG
+    if(countLeadCUWithData>0) {
+        printf("supplementary data for %d lead surrogates\n", countLeadCUWithData);
+    }
+#endif
 
     /*
      * index array overflow?
@@ -507,10 +516,10 @@ utrie_fold(UNewTrie *trie, UNewTrieGetFoldedValue *getFoldedValue, UErrorCode *p
      * make space for the lead surrogate index block and
      * insert it between the BMP indexes and the folded ones
      */
-    uprv_memmove(index+UTRIE_BMP_INDEX_LENGTH+UTRIE_SURROGATE_BLOCK_COUNT,
-                 index+UTRIE_BMP_INDEX_LENGTH,
+    uprv_memmove(idx+UTRIE_BMP_INDEX_LENGTH+UTRIE_SURROGATE_BLOCK_COUNT,
+                 idx+UTRIE_BMP_INDEX_LENGTH,
                  4*(indexLength-UTRIE_BMP_INDEX_LENGTH));
-    uprv_memcpy(index+UTRIE_BMP_INDEX_LENGTH,
+    uprv_memcpy(idx+UTRIE_BMP_INDEX_LENGTH,
                 leadIndexes,
                 4*UTRIE_SURROGATE_BLOCK_COUNT);
     indexLength+=UTRIE_SURROGATE_BLOCK_COUNT;
@@ -785,6 +794,11 @@ utrie_serialize(UNewTrie *trie, void *dt, int32_t capacity,
         return length; /* preflighting */
     }
 
+#ifdef UTRIE_DEBUG
+    printf("**UTrieLengths(serialize)** index:%6ld  data:%6ld  serialized:%6ld\n",
+           (long)trie->indexLength, (long)trie->dataLength, (long)length);
+#endif
+
     /* set the header fields */
     header=(UTrieHeader *)data;
     data+=sizeof(UTrieHeader);
@@ -1043,11 +1057,11 @@ U_CAPI void U_EXPORT2
 utrie_enum(const UTrie *trie,
            UTrieEnumValue *enumValue, UTrieEnumRange *enumRange, const void *context) {
     const uint32_t *data32;
-    const uint16_t *index;
+    const uint16_t *idx;
 
     uint32_t value, prevValue, initialValue;
     UChar32 c, prev;
-    int32_t l, i, j, block, prevBlock, offset;
+    int32_t l, i, j, block, prevBlock, nullBlock, offset;
 
     /* check arguments */
     if(trie==NULL || trie->index==NULL || enumRange==NULL) {
@@ -1057,14 +1071,20 @@ utrie_enum(const UTrie *trie,
         enumValue=enumSameValue;
     }
 
-    index=trie->index;
+    idx=trie->index;
     data32=trie->data32;
 
     /* get the enumeration value that corresponds to an initial-value trie data entry */
     initialValue=enumValue(context, trie->initialValue);
 
+    if(data32==NULL) {
+        nullBlock=trie->indexLength;
+    } else {
+        nullBlock=0;
+    }
+
     /* set variables for previous range */
-    prevBlock=0;
+    prevBlock=nullBlock;
     prev=0;
     prevValue=initialValue;
 
@@ -1078,11 +1098,11 @@ utrie_enum(const UTrie *trie,
             i=c>>UTRIE_SHIFT;
         }
 
-        block=index[i]<<UTRIE_INDEX_SHIFT;
+        block=idx[i]<<UTRIE_INDEX_SHIFT;
         if(block==prevBlock) {
             /* the block is the same as the previous one, and filled with value */
             c+=UTRIE_DATA_BLOCK_LENGTH;
-        } else if(block==0) {
+        } else if(block==nullBlock) {
             /* this is the all-initial-value block */
             if(prevValue!=initialValue) {
                 if(prev<c) {
@@ -1090,7 +1110,7 @@ utrie_enum(const UTrie *trie,
                         return;
                     }
                 }
-                prevBlock=0;
+                prevBlock=nullBlock;
                 prev=c;
                 prevValue=initialValue;
             }
@@ -1098,7 +1118,7 @@ utrie_enum(const UTrie *trie,
         } else {
             prevBlock=block;
             for(j=0; j<UTRIE_DATA_BLOCK_LENGTH; ++j) {
-                value=enumValue(context, data32!=NULL ? data32[block+j] : index[block+j]);
+                value=enumValue(context, data32!=NULL ? data32[block+j] : idx[block+j]);
                 if(value!=prevValue) {
                     if(prev<c) {
                         if(!enumRange(context, prev, c, prevValue)) {
@@ -1106,6 +1126,7 @@ utrie_enum(const UTrie *trie,
                         }
                     }
                     if(j>0) {
+                        /* the block is not filled with all the same value */
                         prevBlock=-1;
                     }
                     prev=c;
@@ -1119,8 +1140,8 @@ utrie_enum(const UTrie *trie,
     /* enumerate supplementary code points */
     for(l=0xd800; l<0xdc00;) {
         /* lead surrogate access */
-        offset=index[l>>UTRIE_SHIFT]<<UTRIE_INDEX_SHIFT;
-        if(offset==(data32!=NULL ? 0 : trie->indexLength)) {
+        offset=idx[l>>UTRIE_SHIFT]<<UTRIE_INDEX_SHIFT;
+        if(offset==nullBlock) {
             /* no entries for a whole block of lead surrogates */
             if(prevValue!=initialValue) {
                 if(prev<c) {
@@ -1128,7 +1149,7 @@ utrie_enum(const UTrie *trie,
                         return;
                     }
                 }
-                prevBlock=0;
+                prevBlock=nullBlock;
                 prev=c;
                 prevValue=initialValue;
             }
@@ -1138,7 +1159,7 @@ utrie_enum(const UTrie *trie,
             continue;
         }
 
-        value= data32!=NULL ? data32[offset+(l&UTRIE_MASK)] : index[offset+(l&UTRIE_MASK)];
+        value= data32!=NULL ? data32[offset+(l&UTRIE_MASK)] : idx[offset+(l&UTRIE_MASK)];
 
         /* enumerate trail surrogates for this lead surrogate */
         offset=trie->getFoldingOffset(value);
@@ -1150,7 +1171,7 @@ utrie_enum(const UTrie *trie,
                         return;
                     }
                 }
-                prevBlock=0;
+                prevBlock=nullBlock;
                 prev=c;
                 prevValue=initialValue;
             }
@@ -1163,11 +1184,11 @@ utrie_enum(const UTrie *trie,
             offset+=UTRIE_SURROGATE_BLOCK_COUNT;
             do {
                 /* copy of most of the body of the BMP loop */
-                block=index[i]<<UTRIE_INDEX_SHIFT;
+                block=idx[i]<<UTRIE_INDEX_SHIFT;
                 if(block==prevBlock) {
                     /* the block is the same as the previous one, and filled with value */
                     c+=UTRIE_DATA_BLOCK_LENGTH;
-                } else if(block==0) {
+                } else if(block==nullBlock) {
                     /* this is the all-initial-value block */
                     if(prevValue!=initialValue) {
                         if(prev<c) {
@@ -1175,7 +1196,7 @@ utrie_enum(const UTrie *trie,
                                 return;
                             }
                         }
-                        prevBlock=0;
+                        prevBlock=nullBlock;
                         prev=c;
                         prevValue=initialValue;
                     }
@@ -1183,7 +1204,7 @@ utrie_enum(const UTrie *trie,
                 } else {
                     prevBlock=block;
                     for(j=0; j<UTRIE_DATA_BLOCK_LENGTH; ++j) {
-                        value=enumValue(context, data32!=NULL ? data32[block+j] : index[block+j]);
+                        value=enumValue(context, data32!=NULL ? data32[block+j] : idx[block+j]);
                         if(value!=prevValue) {
                             if(prev<c) {
                                 if(!enumRange(context, prev, c, prevValue)) {
@@ -1191,6 +1212,7 @@ utrie_enum(const UTrie *trie,
                                 }
                             }
                             if(j>0) {
+                                /* the block is not filled with all the same value */
                                 prevBlock=-1;
                             }
                             prev=c;

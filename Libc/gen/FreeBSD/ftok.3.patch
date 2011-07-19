@@ -1,5 +1,5 @@
---- ftok.3	2004-11-25 11:38:00.000000000 -0800
-+++ ftok.3.edit	2006-07-12 11:19:51.000000000 -0700
+--- ftok.3.bsdnew	2009-11-08 14:20:21.000000000 -0800
++++ ftok.3	2009-11-08 14:23:16.000000000 -0800
 @@ -33,7 +33,6 @@
  .Sh LIBRARY
  .Lb libc
@@ -8,10 +8,11 @@
  .In sys/ipc.h
  .Ft key_t
  .Fn ftok "const char *path" "int id"
-@@ -42,10 +41,10 @@
+@@ -41,11 +40,10 @@
+ The
  .Fn ftok
  function attempts to create a unique key suitable for use with the
- .Xr msgget 3 ,
+-.Xr msgget 2 ,
 -.Xr semget 2
 +.Xr semget 2 ,
  and
@@ -21,7 +22,7 @@
  .Fa path
  of an existing file and a user-selectable
  .Fa id .
-@@ -63,10 +62,18 @@
+@@ -63,10 +61,17 @@ The
  function will return -1 if
  .Fa path
  does not exist or if it cannot be accessed by the calling process.
@@ -35,13 +36,12 @@
  .Sh SEE ALSO
  .Xr semget 2 ,
  .Xr shmget 2 ,
--.Xr msgget 3
-+.Xr msgget 3 ,
+-.Xr msgget 2
 +.Xr compat 5
  .Sh HISTORY
  The
  .Fn ftok
-@@ -75,9 +82,9 @@
+@@ -75,9 +80,9 @@ that use the System V IPC routines.
  .Sh AUTHORS
  .An Thorsten Lockert Aq tholo@sigmasoft.com
  .Sh BUGS

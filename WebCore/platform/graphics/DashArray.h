@@ -28,9 +28,9 @@
 
 #include <wtf/Vector.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef Vector<CGFloat> DashArray;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 typedef Vector<double> DashArray;
 #else
 typedef Vector<float> DashArray;

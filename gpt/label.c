@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/sbin/gpt/label.c,v 1.1.2.3 2006/10/07 18:35:48 marcel Exp $");
+__FBSDID("$FreeBSD: src/sbin/gpt/label.c,v 1.3.10.1 2010/02/10 00:26:20 kensmith Exp $");
 
 #include <sys/types.h>
 

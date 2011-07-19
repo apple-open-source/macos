@@ -1,9 +1,12 @@
 #memory trace on
 # $Id: speedtest.xotcl,v 1.10 2007/08/14 16:38:27 neumann Exp $
-package require XOTcl
+package require XOTcl 1
 namespace import -force xotcl::*
-lappend auto_path [file dirname [info script]]/..
-package require xotcl::test
+#set auto_path [concat [file dirname [info script]]/../library/lib $auto_path]
+set auto_path [concat [file dirname [info script]]/../library/lib/ $auto_path]
+puts stderr "I AM [pwd] -- [file dirname [info script]]/.. -- auto=$auto_path"
+
+package require xotcl::test 1
 
 @ @File {description {
   Regression and speed test for various ways to achieve a similar

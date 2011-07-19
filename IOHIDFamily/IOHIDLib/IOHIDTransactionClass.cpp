@@ -84,8 +84,6 @@ IOHIDTransactionClass::IOHIDTransactionClass() : IOHIDIUnknown(NULL)
     fHIDTransaction.pseudoVTable    = (IUnknownVTbl *)  &sHIDTransactionInterface;
     fHIDTransaction.obj             = this;
 
-    fAsyncPort                      = MACH_PORT_NULL;
-    fCFSource                       = NULL;
     fDirection                      = 0;
     fIsCreated                      = false;
     fOwningDevice                   = NULL;
@@ -102,13 +100,6 @@ IOHIDTransactionClass::~IOHIDTransactionClass()
     if( fOwningDevice ) 
         fOwningDevice->detachTransaction(this);
 
-    // We should not be deallocating the port, as we do not
-    // own a reference to fOwningDevice->fAsyncPort
-	//if (fAsyncPort)
-    //    mach_port_deallocate(mach_task_self(), fAsyncPort);
-        
-    if (fCFSource)
-        CFRelease(fCFSource);
 }
 
 HRESULT IOHIDTransactionClass::queryInterface(REFIID iid, void ** ppv)
@@ -134,38 +125,9 @@ HRESULT IOHIDTransactionClass::queryInterface(REFIID iid, void ** ppv)
 
 IOReturn IOHIDTransactionClass::getAsyncEventSource(CFTypeRef *source)
 {
-    IOReturn ret;
-    CFMachPortRef cfPort;
-    CFMachPortContext context;
-    Boolean shouldFreeInfo;
-
-    if (!fAsyncPort) {     
-        ret = getAsyncPort(0);
-        if (kIOReturnSuccess != ret)
-            return ret;
-    }
-
-    context.version = 1;
-    context.info = this;
-    context.retain = NULL;
-    context.release = NULL;
-    context.copyDescription = NULL;
-
-    cfPort = CFMachPortCreateWithPort(NULL, fAsyncPort,
-                (CFMachPortCallBack) IOHIDTransactionClass::_eventSourceCallback,
-                &context, &shouldFreeInfo);
-    if (!cfPort)
-        return kIOReturnNoMemory;
+    connectCheck();
     
-    fCFSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-    CFRelease(cfPort);
-    if (!fCFSource)
-        return kIOReturnNoMemory;
-
-    if (source)
-        *source = fCFSource;
-
-    return kIOReturnSuccess;
+    return fOwningDevice->getAsyncEventSource(source);
 }
 
 void IOHIDTransactionClass::_eventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
@@ -180,18 +142,9 @@ void IOHIDTransactionClass::_eventSourceCallback(CFMachPortRef *cfPort, mach_msg
 
 IOReturn IOHIDTransactionClass::getAsyncPort(mach_port_t *port)
 {
-    IOReturn	ret = kIOReturnSuccess;
-
     connectCheck();
     
-    if (!fAsyncPort)
-        ret = fOwningDevice->getAsyncPort(&fAsyncPort);
-    
-    if (port && (ret == kIOReturnSuccess))
-        *port = fAsyncPort;
-        
-    return ret;
-    
+    return fOwningDevice->getAsyncPort(port);
 }
 
 IOReturn IOHIDTransactionClass::getDirection(IOHIDTransactionDirectionType * pDirection)
@@ -589,10 +542,10 @@ IOReturn IOHIDOutputTransactionClass::_createAsyncEventSource(void * self, CFRun
     { return getThis(self)->createAsyncEventSource(pSource); }
 
 CFRunLoopSourceRef IOHIDOutputTransactionClass::_getAsyncEventSource(void *self)
-    { return getThis(self)->fCFSource; }
+    { CFTypeRef source = NULL; getThis(self)->getAsyncEventSource(&source); return (CFRunLoopSourceRef)source;}
 
 mach_port_t IOHIDOutputTransactionClass::_getAsyncPort(void *self)
-    { return getThis(self)->fAsyncPort; }
+    { mach_port_t port = MACH_PORT_NULL; getThis(self)->getAsyncPort(&port); return port; }
 
 IOReturn IOHIDOutputTransactionClass::_create(void * self)
     { return getThis(self)->create(); }

@@ -213,5 +213,5 @@ sec_xdr_sizeof_out(copy, size, func, data)
     stat = func(&x, data);
     if (size_alloc.data)
         free(size_alloc.data);
-    return (stat == TRUE ? (unsigned)size_alloc.offset : 0);
+    return (stat == TRUE ? (unsigned long)size_alloc.offset : 0);
 }

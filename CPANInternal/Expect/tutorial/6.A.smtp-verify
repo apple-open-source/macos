@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+#	Here's something that is of actual use, and should be relatively
+#portable.
+#	Given an email address and a mail server name check to see if
+#the address is deliverable on that box. This can be used for address
+#verification or spam relay checking.
+#
+#	The point of this is to show how you can take a generic handle
+#and interact with it. In this example a socket is used.
+
+
+use Expect;
+use IO::Socket;
+
+# $Expect::Debug=1
+# $Expect::Exp_Internal=1;
+# $Expect::Log_Stdout=0; # On by default. This does not affect Expect
+# objects created with Expect->exp_init() however. By default the output of
+# those handles will not be output to the screen. use $handle->log_stdout(1)
+# to turn that on after you initialize the handle.
+
+# Arg. 0 hostname of mail server
+$mail_server=shift(@ARGV);
+# Remaining args will be email addresses.
+@addresses=@ARGV;
+die "Usage: $0 mail_server address1 [address2 address3.. addressN]\n" unless
+  @addresses;
+
+# Connect to mail server. This is right out of perldoc IO::Socket.
+$smtp_sock = IO::Socket::INET->new(PeerAddr => "$mail_server:smtp(25)");
+die "Couldn't connect to $mail_server, $!" unless defined $smtp_sock;
+
+# Turn the socket in to an expect object.
+$smtp_session=Expect->exp_init($smtp_sock);
+# By default Expect doesn't print out the output of an exp_inited item.
+# Generally you don't want handles jabbering at you. In this case
+# we might turn it on so we can watch what happens.
+#$smtp_session->log_stdout(1);
+
+# Watch debugging?
+#$smtp_session->exp_internal(1);
+
+# Ok, now let's see if the mail server wants to talk to us:
+$smtp_session->expect(30,'-re','^220.*\n')||die "Bad response from server\n";
+
+# Cool. Now let's introduce ourselves to the server.
+# There are many other ways to gain the FQDN of this box. This is mine,
+# and it's easy. This of course assumes you have uname and that -n returns
+# your hostname.
+$my_hostname = `uname -n`; chomp $my_hostname;
+
+print $smtp_session "HELO $my_hostname\n";
+
+# My server responds with a 250 + stuff. Presumably that's RFC compliant.
+# Feel free to go look :-)
+$smtp_session->expect(30,'-re','^250.*\n')||die "Bad response after HELO\n";
+
+# Try sending mail.. I should probably use my username rather than user@
+# but I'm too lazy.
+print $smtp_session "MAIL FROM:<user\@$my_hostname>\n";
+$smtp_session->expect(30,'-re','^250.*\n')||die "Bad response after FROM\n";
+
+# Now to check each address...
+foreach $address (@addresses) {
+  print $smtp_session "RCPT TO:<$address>\n";
+  # Now check the status...
+  ($match_num,$error,$match)=$smtp_session->expect(30,'-re','^\d\d\d');
+  die "Never got response back after trying RCPT to $address\n" if $error;
+  $status = $match;
+  # Read to the newline so the server will be ready for the next address.
+  # If the server spit back something other than 250 we'll display the 
+  # Whole error.
+  ($match_num,$error,$match)=$smtp_session->expect(30,'-re','.*\n');
+  die "Server seems to have hung after trying address $address\n" if $error;
+  if ($status == 250) {
+    $status = "ok\n";
+  } else {
+    $status.=$match;
+  }
+  print "Status of address $address: $status";
+}
+
+# Be good citizens, send a quit.
+print $smtp_session "QUIT\n";
+
+# At which point it should die nicely.
+$smtp_session->soft_close();

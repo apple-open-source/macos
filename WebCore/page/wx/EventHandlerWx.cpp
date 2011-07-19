@@ -63,10 +63,10 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
 {
     // Figure out which view to send the event to.
-    if (!event.targetNode() || !event.targetNode()->renderer() || !event.targetNode()->renderer()->isWidget())
+    if (!targetNode(event) || !targetNode(event)->renderer() || !targetNode(event)->renderer()->isWidget())
         return false;
     
-    return passMouseDownEventToWidget(toRenderWidget(event.targetNode()->renderer())->widget());
+    return passMouseDownEventToWidget(toRenderWidget(targetNode(event)->renderer())->widget());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
@@ -82,7 +82,7 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& event, Widget* wid
     return static_cast<FrameView*>(widget)->frame()->eventHandler()->handleWheelEvent(event);
 }
 
-bool EventHandler::tabsToAllControls(KeyboardEvent* event) const 
+bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const 
 { 
     notImplemented(); 
     return false; 
@@ -116,7 +116,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const 
 {
-    return ClipboardWx::create(ClipboardWritable, true);
+    return ClipboardWx::create(ClipboardWritable, Clipboard::DragAndDrop);
 }
 
 unsigned EventHandler::accessKeyModifiers()

@@ -22,7 +22,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
-
+ 
 cpp_quote("/*")
 cpp_quote(" * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.")
 cpp_quote(" *")
@@ -100,7 +100,6 @@ import "ocidl.idl";
 #include "IWebHistoryItemPrivate.idl"
 #include "IWebHistoryPrivate.idl"
 #include "IWebIconDatabase.idl"
-#include "IWebIconFetcher.idl"
 #include "IWebInspector.idl"
 #include "IWebInspectorPrivate.idl"
 #include "IWebJavaScriptCollector.idl"
@@ -118,11 +117,13 @@ import "ocidl.idl";
 #include "IWebResource.idl"
 #include "IWebResourceLoadDelegate.idl"
 #include "IWebResourceLoadDelegatePrivate.idl"
+#include "IWebResourceLoadDelegatePrivate2.idl"
 #include "IWebScriptWorld.idl"
 #include "IWebScrollBarDelegatePrivate.idl"
 #include "IWebScrollBarPrivate.idl"
 #include "IWebSecurityOrigin.idl"
 #include "IWebSerializedJSValue.idl"
+#include "IWebSerializedJSValuePrivate.idl"
 #include "IWebTextRenderer.idl"
 #include "IWebUIDelegate.idl"
 #include "IWebUIDelegate2.idl"

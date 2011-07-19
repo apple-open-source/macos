@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use Sub::Uplevel;
 use Carp;
 use Test::Builder::Tester tests => 2;
 use Test::More;

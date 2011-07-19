@@ -1,0 +1,273 @@
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook V4.2//EN" 'http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd'>
+
+<!-- Process this file with DocBook tools to generate the output format
+(such as manual pages or HTML documents).
+
+Note that strings like __appmansuffix__, __filemansuffix__, __libmansuffix__,
+__miscmansuffix__ etc. have to be replaced first (in theory that's the
+job of ENTITIES but some XML tools are highly allergic to such stuff... ;-().
+A quick way to do that is to filter this document via
+/usr/bin/sed "s/__appmansuffix__/${MANSUFFIX}/g;s/__filemansuffix__/${FILEMANSUFFIX}/g;s/__libmansuffix__/${LIBMANSUFFIX}/g;s/__miscmansuffix__/${MISCMANSUFFIX}/g"
+assuming that env vars like MANSUFFIX etc. have been set to the matching
+manual volume numbers.
+  -->
+
+<refentry>
+  <refmeta>
+    <refentrytitle>xlsfonts</refentrytitle>
+    <manvolnum>__appmansuffix__</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>xlsfonts</refname>
+    <refpurpose>server font list displayer for X</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>xlsfonts</command>
+
+      <arg><option>-display <replaceable>host:dpy</replaceable></option></arg>
+
+      <arg><option>-l</option></arg>
+
+      <arg><option>-ll</option></arg>
+
+      <arg><option>-lll</option></arg>
+
+      <arg><option>-m</option></arg>
+
+      <arg><option>-C</option></arg>
+
+      <arg><option>-1</option></arg>
+
+      <arg><option>-w <replaceable>width</replaceable></option></arg>
+
+      <arg><option>-n <replaceable>columns</replaceable></option></arg>
+
+      <arg><option>-u</option></arg>
+
+      <arg><option>-o</option></arg>
+
+      <arg><option>-fn <replaceable>pattern</replaceable></option></arg>     
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>DESCRIPTION</title>
+
+    <para>
+      <command>xlsfonts</command> lists the fonts that match the given pattern.
+      The wildcard character "*" may be used to match any sequence of characters
+      (including none), and "?" to match any single character.
+      If no pattern is given, "*" is assumed.
+    </para>
+    <para>
+      The "*" and "?" characters must be quoted to prevent them from being expanded by the shell.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>OPTIONS</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-display <replaceable>host:dpy</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            This option specifies the X server to contact.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-d <replaceable>host:dpy</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            Same as <option>-display <replaceable>host:dpy</replaceable></option>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option>
+        </term>
+        <listitem>
+          <para>
+            Lists some attributes of the font on one line in addition
+            to its name.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-ll</option>
+        </term>
+        <listitem>
+          <para>
+            Lists font properties in addition to <option>-l</option> output.
+          </para>
+        </listitem>
+      </varlistentry>
+      
+      <varlistentry>
+        <term><option>-lll</option>
+        </term>
+        <listitem>
+          <para>
+            Lists character metrics in addition to <option>-ll</option> output.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option>
+        </term>
+        <listitem>
+          <para>
+            This option indicates that long listings should also print
+            the minimum and maximum bounds of each font.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-C</option>
+        </term>
+        <listitem>
+          <para>
+            This option indicates that listings should use multiple columns.
+            This is the same as <option>-n 0</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-1</option>
+        </term>
+        <listitem>
+          <para>
+            This option indicates that listings should use a single column.
+            This is the same as <option>-n 1</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-w <replaceable>width</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            This option specifies the width in characters that should be
+            used in figuring out how many columns to print.
+            The default is 79.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-n <replaceable>columns</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            This option specifies the number of columns to use in
+            displaying the output. By default, it will attempt to
+            fit as many columns of font names into the number of
+            character specified by <option>-w</option> width.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option>
+        </term>
+        <listitem>
+          <para>
+            This option indicates that the output should be left unsorted.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-o</option>
+        </term>
+        <listitem>
+          <para>
+            This option indicates that xlsfonts should do an OpenFont
+            (and QueryFont, if appropriate) rather than a ListFonts.
+            This is useful if ListFonts or ListFontsWithInfo fail to
+            list a known font (as is the case with some scaled font
+            systems).
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-fn <replaceable>pattern</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            This option specifies the font name pattern to match.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      <simplelist type="inline">
+        <member><citerefentry><refentrytitle>X</refentrytitle><manvolnum>__miscmansuffix__</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>Xserver</refentrytitle><manvolnum>__appmansuffix__</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>xset</refentrytitle><manvolnum>__appmansuffix__</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>xfd</refentrytitle><manvolnum>__appmansuffix__</manvolnum></citerefentry></member>
+        <member>X Logical Font Description Conventions</member>
+      </simplelist>
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>ENVIRONMENT</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><envar>DISPLAY</envar>
+        </term>
+        <listitem>
+	    <para><envar>DISPLAY</envar> must be set to get the default host and display to use.
+	  </para>
+	</listitem>
+      </varlistentry>
+      
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>BUGS</title>
+
+    <para>
+      Doing ``xlsfonts -l'' can tie up your server for a very long time. 
+      This is really a bug  with  single-threaded
+      non-preemptable servers, not with this program.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>AUTHOR</title>
+
+    <para>
+      <simplelist>
+        <member><othercredit><firstname>Mark</firstname> <surname>Lillibridge</surname> <affiliation><orgname>MIT Project Athena</orgname></affiliation></othercredit></member>
+        <member><othercredit><firstname>Jim</firstname> <surname>Fulton</surname> <affiliation><orgname>MIT X Consortium</orgname></affiliation></othercredit></member>
+        <member><othercredit><firstname>Phil</firstname> <surname>Karlton</surname> <affiliation><orgname>SGI</orgname></affiliation></othercredit></member>
+        <member><othercredit><firstname>Roland</firstname> <surname>Mainz</surname> <affiliation><orgname>University Giessen</orgname></affiliation></othercredit></member>
+      </simplelist>
+    </para>
+  </refsect1>
+
+</refentry>
+
+

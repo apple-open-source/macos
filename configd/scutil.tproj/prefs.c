@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -133,15 +133,43 @@ __private_extern__
 Boolean
 _prefs_open(CFStringRef name, CFStringRef prefsID)
 {
-	if (geteuid() == 0) {
-		prefs = SCPreferencesCreate(NULL, name, prefsID);
-	} else {
+	CFMutableDictionaryRef	options		= NULL;
+	Boolean			useHelper	= FALSE;
+	Boolean			useOptions	= FALSE;
+
+	authorization = NULL;
+
+	if (geteuid() != 0) {
+		// if we need to use a helper
+		useHelper = TRUE;
+
 #if	!TARGET_OS_IPHONE
 		authorization = _createAuthorization();
-#else	/* !TARGET_OS_IPHONE */
-		authorization = NULL;
 #endif	/* !TARGET_OS_IPHONE */
+	}
+
+	if (getenv("SCPREFERENCES_REMOVE_WHEN_EMPTY") != NULL) {
+		// if we have options
+		useOptions = TRUE;
+
+		if (options == NULL) {
+			options = CFDictionaryCreateMutable(NULL,
+							    0,
+							    &kCFTypeDictionaryKeyCallBacks,
+							    &kCFTypeDictionaryValueCallBacks);
+		}
+		CFDictionarySetValue(options, kSCPreferencesOptionRemoveWhenEmpty, kCFBooleanTrue);
+	}
+
+	if (!useHelper && !useOptions) {
+		// if no helper/options needed
+		prefs = SCPreferencesCreate(NULL, name, prefsID);
+	} else if (!useOptions) {
+		// if no options needed
 		prefs = SCPreferencesCreateWithAuthorization(NULL, name, prefsID, authorization);
+	} else {
+		prefs = SCPreferencesCreateWithOptions(NULL, name, prefsID, authorization, options);
+		CFRelease(options);
 	}
 
 	if (prefs == NULL) {
@@ -239,27 +267,6 @@ _prefs_commitRequired(int argc, char **argv, const char *command)
 
 
 /* -------------------- */
-
-
-static CFStringRef
-_copyStringFromSTDIN()
-{
-	char		buf[1024];
-	size_t		len;
-	CFStringRef	utf8;
-
-	if (fgets(buf, sizeof(buf), stdin) == NULL) {
-		return NULL;
-	}
-
-	len = strlen(buf);
-	if (buf[len-1] == '\n') {
-		buf[--len] = '\0';
-	}
-
-	utf8 = CFStringCreateWithBytes(NULL, (UInt8 *)buf, len, kCFStringEncodingUTF8, TRUE);
-	return utf8;
-}
 
 
 static void

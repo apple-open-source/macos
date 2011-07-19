@@ -1,0 +1,31 @@
+xev creates a window and then asks the X server to send it X11 events
+whenever anything happens to the window (such as it being moved,
+resized, typed in, clicked in, etc.).  You can also attach it to an
+existing window.  It is useful for seeing what causes events to occur
+and to display the information that they contain; it is essentially a
+debugging and development tool, and should not be needed in normal
+usage.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xev
+
+        http://cgit.freedesktop.org/xorg/app/xev
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

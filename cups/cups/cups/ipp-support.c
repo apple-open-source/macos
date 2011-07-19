@@ -1,10 +1,9 @@
 /*
- * "$Id: ipp-support.c 7847 2008-08-19 04:22:14Z mike $"
+ * "$Id: ipp-support.c 9371 2010-11-17 06:21:32Z mike $"
  *
- *   Internet Printing Protocol support functions for the Common UNIX
- *   Printing System (CUPS).
+ *   Internet Printing Protocol support functions for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -17,6 +16,7 @@
  *
  * Contents:
  *
+ *   _ippAttrString() - Convert the attribute's value to a string.
  *   ippErrorString() - Return a name for the given status code.
  *   ippErrorValue()  - Return a status code for the given name.
  *   ippOpString()    - Return a name for the given operation id.
@@ -25,15 +25,14 @@
  *   ippSetPort()     - Set the default port number.
  *   ippTagString()   - Return the tag name corresponding to a tag value.
  *   ippTagValue()    - Return the tag value corresponding to a tag name.
+ *   ipp_col_string() - Convert a collection to a string.
  */
 
 /*
  * Include necessary headers...
  */
 
-#include "globals.h"
-#include "debug.h"
-#include <stdlib.h>
+#include "cups-private.h"
 
 
 /*
@@ -91,30 +90,53 @@ static const char * const ipp_status_oks[] =	/* "OK" status codes */
 		  "server-error-job-canceled",
 		  "server-error-multiple-document-jobs-not-supported",
 		  "server-error-printer-is-deactivated"
+		},
+		* const ipp_status_1000s[] =		/* CUPS internal */
+		{
+		  "cups-authorization-canceled",
+		  "cups-pki-error",
+		  "cups-upgrade-required"
 		};
 static char	* const ipp_std_ops[] =
 		{
 		  /* 0x0000 - 0x000f */
-		  "", "", "Print-Job", "Print-URI",
-		  "Validate-Job", "Create-Job", "Send-Document",
-		  "Send-URI", "Cancel-Job", "Get-Job-Attributes",
-		  "Get-Jobs", "Get-Printer-Attributes",
-		  "Hold-Job", "Release-Job", "Restart-Job", "",
+		  "unknown-00",
+		  "unknown-01",
+		  "Print-Job",
+		  "Print-URI",
+		  "Validate-Job",
+		  "Create-Job",
+		  "Send-Document",
+		  "Send-URI",
+		  "Cancel-Job",
+		  "Get-Job-Attributes",
+		  "Get-Jobs",
+		  "Get-Printer-Attributes",
+		  "Hold-Job",
+		  "Release-Job",
+		  "Restart-Job",
+		  "unknown-0f",
 
 		  /* 0x0010 - 0x001f */
-		  "Pause-Printer", "Resume-Printer",
-		  "Purge-Jobs", "Set-Printer-Attributes",
+		  "Pause-Printer",
+		  "Resume-Printer",
+		  "Purge-Jobs",
+		  "Set-Printer-Attributes",
 		  "Set-Job-Attributes",
 		  "Get-Printer-Supported-Values",
 		  "Create-Printer-Subscription",
 		  "Create-Job-Subscription",
 		  "Get-Subscription-Attributes",
-		  "Get-Subscriptions", "Renew-Subscription",
-		  "Cancel-Subscription", "Get-Notifications",
-		  "Send-Notifications", "", "",
+		  "Get-Subscriptions",
+		  "Renew-Subscription",
+		  "Cancel-Subscription",
+		  "Get-Notifications",
+		  "Send-Notifications",
+		  "unknown-1e",
+		  "unknown-1f",
 
 		  /* 0x0020 - 0x002f */
-		  "",
+		  "unknown-20",
 		  "Get-Printer-Support-Files",
 		  "Enable-Printer",
 		  "Disable-Printer",
@@ -131,9 +153,19 @@ static char	* const ipp_std_ops[] =
 		  "Suspend-Current-Job",
 		  "Resume-Job",
 
-		  /* 0x0030 - 0x0031 */
+		  /* 0x0030 - 0x003b */
 		  "Promote-Job",
-		  "Schedule-Job-After"
+		  "Schedule-Job-After",
+		  "unknown-32",
+		  "Cancel-Document",
+		  "Get-Document-Attributes",
+		  "Get-Documents",
+		  "Delete-Document",
+		  "Set-Document-Attributes",
+		  "Cancel-Jobs",
+		  "Cancel-My-Jobs",
+		  "Resubmit-Job",
+		  "Close-Job"
 		},
 		* const ipp_cups_ops[] =
 		{
@@ -217,7 +249,7 @@ static char	* const ipp_std_ops[] =
 		  "dateTime",		/* 0x31 */
 		  "resolution",		/* 0x32 */
 		  "rangeOfInteger",	/* 0x33 */
-		  "begCollection",	/* 0x34 */
+		  "collection",		/* 0x34 */
 		  "textWithLanguage",	/* 0x35 */
 		  "nameWithLanguage",	/* 0x36 */
 		  "endCollection",	/* 0x37 */
@@ -241,6 +273,247 @@ static char	* const ipp_std_ops[] =
 		  "mimeMediaType",	/* 0x49 */
 		  "memberAttrName"	/* 0x4a */
 		};
+static const char * const job_states[] =
+{					/* job-state enums */
+  "pending",
+  "pending-held",
+  "processing",
+  "processing-stopped",
+  "canceled",
+  "aborted",
+  "completed"
+};
+static const char * const printer_states[] =
+{					/* printer-state enums */
+  "idle",
+  "processing",
+  "stopped",
+};
+
+
+/*
+ * Local functions...
+ */
+
+static size_t	ipp_col_string(ipp_t *col, char *buffer, size_t bufsize);
+
+
+/*
+ * '_ippAttrString()' - Convert the attribute's value to a string.
+ *
+ * Returns the number of bytes that would be written, not including the
+ * trailing nul. The buffer pointer can be NULL to get the required length,
+ * just like (v)snprintf.
+ */
+
+size_t					/* O - Number of bytes less nul */
+_ippAttrString(ipp_attribute_t *attr,	/* I - Attribute */
+               char            *buffer,	/* I - String buffer or NULL */
+               size_t          bufsize)	/* I - Size of string buffer */
+{
+  int		i;			/* Looping var */
+  char		*bufptr,		/* Pointer into buffer */
+		*bufend,		/* End of buffer */
+		temp[256];		/* Temporary string */
+  const char	*ptr;			/* Pointer into string */
+  ipp_value_t	*val;			/* Current value */
+
+
+  if (!attr || !attr->name)
+  {
+    if (buffer)
+      *buffer = '\0';
+
+    return (0);
+  }
+
+  bufptr = buffer;
+  if (buffer)
+    bufend = buffer + bufsize - 1;
+  else
+    bufend = NULL;
+
+  for (i = attr->num_values, val = attr->values; i > 0; i --, val ++)
+  {
+    if (val > attr->values)
+    {
+      if (buffer && bufptr < bufend)
+        *bufptr++ = ',';
+      else
+        bufptr ++;
+    }
+
+    switch (attr->value_tag & ~IPP_TAG_COPY)
+    {
+      case IPP_TAG_ENUM :
+          if (!strcmp(attr->name, "printer-state") &&
+              val->integer >= IPP_PRINTER_IDLE &&
+              val->integer <= IPP_PRINTER_STOPPED)
+          {
+            ptr = printer_states[val->integer - IPP_PRINTER_IDLE];
+
+            if (buffer && bufptr < bufend)
+              strlcpy(bufptr, ptr, bufend - bufptr + 1);
+
+            bufptr += strlen(ptr);
+            break;
+          }
+          else if (!strcmp(attr->name, "job-state") &&
+		   val->integer >= IPP_JOB_PENDING &&
+		   val->integer <= IPP_JOB_COMPLETED)
+          {
+            ptr = job_states[val->integer - IPP_JOB_PENDING];
+
+            if (buffer && bufptr < bufend)
+              strlcpy(bufptr, ptr, bufend - bufptr + 1);
+
+            bufptr += strlen(ptr);
+            break;
+          }
+
+      case IPP_TAG_INTEGER :
+          if (buffer && bufptr < bufend)
+            bufptr += snprintf(bufptr, bufend - bufptr + 1, "%d", val->integer);
+          else
+            bufptr += snprintf(temp, sizeof(temp), "%d", val->integer);
+          break;
+
+      case IPP_TAG_BOOLEAN :
+          if (buffer && bufptr < bufend)
+            strlcpy(bufptr, val->boolean ? "true" : "false",
+                    bufend - bufptr + 1);
+
+          bufptr += val->boolean ? 4 : 5;
+          break;
+
+      case IPP_TAG_RANGE :
+          if (buffer && bufptr < bufend)
+            bufptr += snprintf(bufptr, bufend - bufptr + 1, "%d-%d",
+                               val->range.lower, val->range.upper);
+          else
+            bufptr += snprintf(temp, sizeof(temp), "%d-%d", val->range.lower,
+                               val->range.upper);
+          break;
+
+      case IPP_TAG_RESOLUTION :
+          if (buffer && bufptr < bufend)
+            bufptr += snprintf(bufptr, bufend - bufptr + 1, "%dx%d%s",
+                               val->resolution.xres, val->resolution.yres,
+                               val->resolution.units == IPP_RES_PER_INCH ?
+                                   "dpi" : "dpc");
+          else
+            bufptr += snprintf(temp, sizeof(temp), "%dx%d%s",
+                               val->resolution.xres, val->resolution.yres,
+                               val->resolution.units == IPP_RES_PER_INCH ?
+                                   "dpi" : "dpc");
+          break;
+
+      case IPP_TAG_DATE :
+          {
+            unsigned year;		/* Year */
+
+            year = (val->date[0] << 8) + val->date[1];
+
+	    if (val->date[9] == 0 && val->date[10] == 0)
+	      snprintf(temp, sizeof(temp), "%04u-%02u-%02uT%02u:%02u:%02uZ",
+		       year, val->date[2], val->date[3], val->date[4],
+		       val->date[5], val->date[6]);
+	    else
+	      snprintf(temp, sizeof(temp),
+	               "%04u-%02u-%02uT%02u:%02u:%02u%c%02u%02u",
+		       year, val->date[2], val->date[3], val->date[4],
+		       val->date[5], val->date[6], val->date[8], val->date[9],
+		       val->date[10]);
+
+            if (buffer && bufptr < bufend)
+              strlcpy(bufptr, temp, bufend - bufptr + 1);
+
+            bufptr += strlen(temp);
+          }
+          break;
+
+      case IPP_TAG_TEXT :
+      case IPP_TAG_NAME :
+      case IPP_TAG_KEYWORD :
+      case IPP_TAG_CHARSET :
+      case IPP_TAG_URI :
+      case IPP_TAG_MIMETYPE :
+      case IPP_TAG_LANGUAGE :
+      case IPP_TAG_TEXTLANG :
+      case IPP_TAG_NAMELANG :
+	  if (!val->string.text)
+	    break;
+
+          for (ptr = val->string.text; *ptr; ptr ++)
+          {
+            if (*ptr == '\\' || *ptr == '\"')
+            {
+              if (buffer && bufptr < bufend)
+                *bufptr = '\\';
+              bufptr ++;
+            }
+
+            if (buffer && bufptr < bufend)
+              *bufptr = *ptr;
+            bufptr ++;
+          }
+          break;
+
+      case IPP_TAG_BEGIN_COLLECTION :
+          if (buffer && bufptr < bufend)
+            bufptr += ipp_col_string(val->collection, bufptr,
+                                     bufend - bufptr + 1);
+          else
+            bufptr += ipp_col_string(val->collection, NULL, 0);
+          break;
+
+      case IPP_TAG_STRING :
+          for (ptr = val->string.text; *ptr; ptr ++)
+          {
+            if (*ptr == '\\' || _cups_isspace(*ptr))
+            {
+              if (buffer && bufptr < bufend)
+                *bufptr = '\\';
+              bufptr ++;
+
+              if (buffer && bufptr < bufend)
+                *bufptr = *ptr;
+              bufptr ++;
+            }
+            else if (!isprint(*ptr & 255))
+            {
+              if (buffer && bufptr < bufend)
+                bufptr += snprintf(bufptr, bufend - bufptr + 1, "\\%03o",
+                                   *ptr & 255);
+              else
+                bufptr += snprintf(temp, sizeof(temp), "\\%03o",
+                                   *ptr & 255);
+            }
+            else
+            {
+              if (buffer && bufptr < bufend)
+                *bufptr = *ptr;
+              bufptr ++;
+            }
+          }
+          break;
+
+      default :
+          ptr = ippTagString(attr->value_tag);
+          if (buffer && bufptr < bufend)
+            strlcpy(bufptr, ptr, bufend - bufptr + 1);
+          bufptr += strlen(ptr);
+          break;
+    }
+  }
+
+  if (buffer && bufptr < bufend)
+    *bufptr = '\0';
+  else if (bufend)
+    *bufend = '\0';
+
+  return (bufptr - buffer);
+}
 
 
 /*
@@ -267,6 +540,8 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
     return (ipp_status_400s[error - IPP_BAD_REQUEST]);
   else if (error >= IPP_INTERNAL_ERROR && error <= IPP_PRINTER_IS_DEACTIVATED)
     return (ipp_status_500s[error - IPP_INTERNAL_ERROR]);
+  else if (error >= IPP_AUTHENTICATION_CANCELED && error <= IPP_UPGRADE_REQUIRED)
+    return (ipp_status_1000s[error - IPP_AUTHENTICATION_CANCELED]);
 
  /*
   * No, build an "unknown-xxxx" error string...
@@ -291,22 +566,26 @@ ippErrorValue(const char *name)		/* I - Name */
 
 
   for (i = 0; i < (sizeof(ipp_status_oks) / sizeof(ipp_status_oks[0])); i ++)
-    if (!strcasecmp(name, ipp_status_oks[i]))
+    if (!_cups_strcasecmp(name, ipp_status_oks[i]))
       return ((ipp_status_t)i);
 
-  if (!strcasecmp(name, "redirection-other-site"))
+  if (!_cups_strcasecmp(name, "redirection-other-site"))
     return (IPP_REDIRECTION_OTHER_SITE);
 
-  if (!strcasecmp(name, "cups-see-other"))
+  if (!_cups_strcasecmp(name, "cups-see-other"))
     return (CUPS_SEE_OTHER);
 
   for (i = 0; i < (sizeof(ipp_status_400s) / sizeof(ipp_status_400s[0])); i ++)
-    if (!strcasecmp(name, ipp_status_400s[i]))
+    if (!_cups_strcasecmp(name, ipp_status_400s[i]))
       return ((ipp_status_t)(i + 0x400));
 
   for (i = 0; i < (sizeof(ipp_status_500s) / sizeof(ipp_status_500s[0])); i ++)
-    if (!strcasecmp(name, ipp_status_500s[i]))
+    if (!_cups_strcasecmp(name, ipp_status_500s[i]))
       return ((ipp_status_t)(i + 0x500));
+
+  for (i = 0; i < (sizeof(ipp_status_1000s) / sizeof(ipp_status_1000s[0])); i ++)
+    if (!_cups_strcasecmp(name, ipp_status_1000s[i]))
+      return ((ipp_status_t)(i + 0x1000));
 
   return ((ipp_status_t)-1);
 }
@@ -328,7 +607,7 @@ ippOpString(ipp_op_t op)		/* I - Operation ID */
   * See if the operation ID is a known value...
   */
 
-  if (op >= IPP_PRINT_JOB && op <= IPP_SCHEDULE_JOB_AFTER)
+  if (op >= IPP_PRINT_JOB && op <= IPP_CLOSE_JOB)
     return (ipp_std_ops[op]);
   else if (op == IPP_PRIVATE)
     return ("windows-ext");
@@ -360,24 +639,24 @@ ippOpValue(const char *name)		/* I - Textual name */
 
 
   for (i = 0; i < (sizeof(ipp_std_ops) / sizeof(ipp_std_ops[0])); i ++)
-    if (!strcasecmp(name, ipp_std_ops[i]))
+    if (!_cups_strcasecmp(name, ipp_std_ops[i]))
       return ((ipp_op_t)i);
 
-  if (!strcasecmp(name, "windows-ext"))
+  if (!_cups_strcasecmp(name, "windows-ext"))
     return (IPP_PRIVATE);
 
   for (i = 0; i < (sizeof(ipp_cups_ops) / sizeof(ipp_cups_ops[0])); i ++)
-    if (!strcasecmp(name, ipp_cups_ops[i]))
+    if (!_cups_strcasecmp(name, ipp_cups_ops[i]))
       return ((ipp_op_t)(i + 0x4001));
 
   for (i = 0; i < (sizeof(ipp_cups_ops2) / sizeof(ipp_cups_ops2[0])); i ++)
-    if (!strcasecmp(name, ipp_cups_ops2[i]))
+    if (!_cups_strcasecmp(name, ipp_cups_ops2[i]))
       return ((ipp_op_t)(i + 0x4027));
 
-  if (!strcasecmp(name, "CUPS-Add-Class"))
+  if (!_cups_strcasecmp(name, "CUPS-Add-Class"))
     return (CUPS_ADD_MODIFY_CLASS);
 
-  if (!strcasecmp(name, "CUPS-Add-Printer"))
+  if (!_cups_strcasecmp(name, "CUPS-Add-Printer"))
     return (CUPS_ADD_MODIFY_PRINTER);
 
   return ((ipp_op_t)-1);
@@ -453,30 +732,82 @@ ippTagValue(const char *name)		/* I - Tag name */
 
 
   for (i = 0; i < (sizeof(ipp_tag_names) / sizeof(ipp_tag_names[0])); i ++)
-    if (!strcasecmp(name, ipp_tag_names[i]))
+    if (!_cups_strcasecmp(name, ipp_tag_names[i]))
       return ((ipp_tag_t)i);
 
-  if (!strcasecmp(name, "operation"))
+  if (!_cups_strcasecmp(name, "operation"))
     return (IPP_TAG_OPERATION);
-  else if (!strcasecmp(name, "job"))
+  else if (!_cups_strcasecmp(name, "job"))
     return (IPP_TAG_JOB);
-  else if (!strcasecmp(name, "printer"))
+  else if (!_cups_strcasecmp(name, "printer"))
     return (IPP_TAG_PRINTER);
-  else if (!strcasecmp(name, "subscription"))
+  else if (!_cups_strcasecmp(name, "unsupported"))
+    return (IPP_TAG_UNSUPPORTED_GROUP);
+  else if (!_cups_strcasecmp(name, "subscription"))
     return (IPP_TAG_SUBSCRIPTION);
-  else if (!strcasecmp(name, "language"))
+  else if (!_cups_strcasecmp(name, "event"))
+    return (IPP_TAG_EVENT_NOTIFICATION);
+  else if (!_cups_strcasecmp(name, "language"))
     return (IPP_TAG_LANGUAGE);
-  else if (!strcasecmp(name, "mimetype"))
+  else if (!_cups_strcasecmp(name, "mimetype"))
     return (IPP_TAG_MIMETYPE);
-  else if (!strcasecmp(name, "name"))
+  else if (!_cups_strcasecmp(name, "name"))
     return (IPP_TAG_NAME);
-  else if (!strcasecmp(name, "text"))
+  else if (!_cups_strcasecmp(name, "text"))
     return (IPP_TAG_TEXT);
+  else if (!_cups_strcasecmp(name, "begCollection"))
+    return (IPP_TAG_BEGIN_COLLECTION);
   else
     return (IPP_TAG_ZERO);
 }
 
 
 /*
- * End of "$Id: ipp-support.c 7847 2008-08-19 04:22:14Z mike $".
+ * 'ipp_col_string()' - Convert a collection to a string.
+ */
+
+static size_t				/* O - Number of bytes */
+ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
+               char   *buffer,		/* I - Buffer or NULL */
+               size_t bufsize)		/* I - Size of buffer */
+{
+  char			*bufptr,	/* Position in buffer */
+			*bufend,	/* End of buffer */
+			temp[256];	/* Temporary string */
+  ipp_attribute_t	*attr;		/* Current member attribute */
+
+
+  bufptr = buffer;
+  bufend = buffer + bufsize - 1;
+
+  if (buffer && bufptr < bufend)
+    *bufptr = '{';
+  bufptr ++;
+
+  for (attr = col->attrs; attr; attr = attr->next)
+  {
+    if (!attr->name)
+      continue;
+
+    if (buffer && bufptr < bufend)
+      bufptr += snprintf(bufptr, bufend - bufptr + 1, "%s=", attr->name);
+    else
+      bufptr += strlen(attr->name) + 1;
+
+    if (buffer && bufptr < bufend)
+      bufptr += _ippAttrString(attr, bufptr, bufend - bufptr + 1);
+    else
+      bufptr += _ippAttrString(attr, temp, sizeof(temp));
+  }
+
+  if (buffer && bufptr < bufend)
+    *bufptr = '}';
+  bufptr ++;
+
+  return (bufptr - buffer);
+}
+
+
+/*
+ * End of "$Id: ipp-support.c 9371 2010-11-17 06:21:32Z mike $".
  */

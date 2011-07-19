@@ -19,6 +19,9 @@ dt_source _common.tcl   ; # Shared code
 global _in_example
 set    _in_example 0
 
+global _has_images
+set    _has_images 0
+
 # Called to handle plain text from the input
 proc fmt_plain_text {text} {
     global _in_example
@@ -43,6 +46,8 @@ proc fmt_postprocess {text} {
 
 c_pass 1 fmt_manpage_begin {title section version} NOP
 c_pass 2 fmt_manpage_begin {title section version} {
+    global _has_images
+
     set module      [dt_module]
     set shortdesc   [c_get_module]
     set description [c_get_title]
@@ -56,6 +61,12 @@ c_pass 2 fmt_manpage_begin {title section version} {
     append  hdr [Comment "CVS: \$Id\$ $title.$section"] \n
     append  hdr \n
     append  hdr "\1\\documentclass\{article\}" \n
+
+    if {$_has_images} {
+	append hdr "\1\\usepackage{epsfig}" \n
+	append hdr "\1\\usepackage{epstopdf}" \n
+    }
+
     append  hdr "\1\\begin\{document\}" \n
     append  hdr "\1\\author\{[dt_user]\}" \n
 
@@ -333,9 +344,27 @@ proc fmt_uri     {text {label {}}} {
 	return "[Underline $label] \1\\footnote\{[texEscape $text]\}"
     }
 }
+proc fmt_image {text {label {}}} {
+    global _has_images
+    # text = symbolic name of the image.
+
+    set img [dt_imgsrc $text {eps ps}]
+    if {$img eq {}} {
+	if {$label eq {}} {
+	    return [Underline "IMAGE: $text"]
+	} else {
+	    return [Underline "IMAGE: $text $label"]
+	}
+    }
+
+    set _has_images 1
+
+    return "\1\\begin{figure}\[htp\]\1\\includegraphics\[width=0.9\1\\textwidth\]{$img}\1\\end{figure}"
+}
 proc fmt_term    {text} {Italic $text}
 proc fmt_const   {text} {Bold $text}
-
+proc fmt_mdash {} { return " --- " }
+proc fmt_ndash {} { return " -- " }
 
 ################################################################
 # latex specific commands

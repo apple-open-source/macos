@@ -1,11 +1,6 @@
-Index: fputs.c
-===================================================================
-RCS file: /cvs/root/Libc/stdio/FreeBSD/fputs.c,v
-retrieving revision 1.2
-diff -u -d -b -w -p -u -r1.2 fputs.c
---- fputs.c	2003/05/20 22:22:42	1.2
-+++ fputs.c	2004/12/31 22:46:58
-@@ -48,6 +48,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
+--- fputs.c.bsdnew	2009-11-11 13:33:08.000000000 -0800
++++ fputs.c	2009-11-11 13:33:08.000000000 -0800
+@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
  #include "libc_private.h"
  #include "local.h"
  
@@ -15,7 +10,7 @@ diff -u -d -b -w -p -u -r1.2 fputs.c
  /*
   * Write the given string to the given file.
   */
-@@ -60,6 +63,9 @@ fputs(s, fp)
+@@ -56,6 +59,9 @@ fputs(s, fp)
  	struct __suio uio;
  	struct __siov iov;
  
@@ -25,7 +20,7 @@ diff -u -d -b -w -p -u -r1.2 fputs.c
  	iov.iov_base = (void *)s;
  	iov.iov_len = uio.uio_resid = strlen(s);
  	uio.uio_iov = &iov;
-@@ -68,5 +74,9 @@ fputs(s, fp)
+@@ -64,5 +70,9 @@ fputs(s, fp)
  	ORIENT(fp, -1);
  	retval = __sfvwrite(fp, &uio);
  	FUNLOCKFILE(fp);

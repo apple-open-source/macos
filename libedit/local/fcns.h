@@ -104,6 +104,7 @@
 #define	VI_YANK_END                   	100
 #define	VI_ZERO                       	101
 #define	EL_NUM_FCNS                   	102
-typedef el_action_t (*el_func_t)(EditLine *, int);
+#define	EL_EOF                   	255
+typedef el_action_t (*el_func_t)(EditLine *, Int);
 protected const el_func_t* func__get(void);
 #endif /* _h_fcns_c */

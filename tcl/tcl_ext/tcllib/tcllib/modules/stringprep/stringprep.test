@@ -8,7 +8,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: stringprep.test,v 1.2 2008/03/07 05:45:10 andreas_kupries Exp $
+# RCS: @(#) $Id: stringprep.test,v 1.3 2009/11/02 00:26:44 patthoyts Exp $
 
 # -------------------------------------------------------------------------
 
@@ -86,10 +86,10 @@ test stringprep-2.2 {stringprep: prohibited character} {
     set result
 } {prohibited_character}
 
-test stringprep-2.3 {stringprep: prohibited bidi} knownBug {
+test stringprep-2.3 {stringprep: prohibited bidi} {
     catch {::stringprep::stringprep nameprep "\u0627\u0031"} result
     set result
-} {invalid_bidi}
+} {prohibited_bidi}
 
 
 # -------------------------------------------------------------------------
@@ -106,11 +106,14 @@ set vectors {
     { "Case folding 8bit U+00DF (german sharp s)" "\xC3\x9F" "ss" }
     { "Case folding U+0130 (turkish capital I with dot)" "\xC4\xB0" "i\xcc\x87" }
     { "Case folding multibyte U+0143 U+037A" "\xC5\x83\xCD\xBA" "\xC5\x84 \xCE\xB9" }
-    { "Case folding U+2121 U+33C6 U+1D7BB" "\xE2\x84\xA1\xE3\x8F\x86\xF0\x9D\x9E\xBB"
+    { "Case folding U+2121 U+33C6 U+1D7BB (Tcl cannot represent U+1D7BB)"
+	"\xE2\x84\xA1\xE3\x8F\x86\xF0\x9D\x9E\xBB"
         "telc\xE2\x88\x95kg\xCF\x83" }
     { "Normalization of U+006a U+030c U+00A0 U+00AA" "\x6A\xCC\x8C\xC2\xA0\xC2\xAA"
         "\xC7\xB0 a" }
     { "Case folding U+1FB7 and normalization" "\xE1\xBE\xB7" "\xE1\xBE\xB6\xCE\xB9" }
+    { "Case folding U+2121 U+33C6" "\xE2\x84\xA1\xE3\x8F\x86"
+        "telc\xE2\x88\x95kg" }
 }
 
 set id 0
@@ -147,17 +150,11 @@ foreach {n input result title} {
     4  "\u00AA"       {0 a}          "output is NFKC, input in ISO 8859-1"
     5  "\u2168"       {0 IX}         "output is NFKC, will match #1"
     6  "\u0007"       {1 prohibited_character} "Error - prohibited character"
-    7  "\u0627\u0031" {1 invalid_bidi} "Error - bidirectional check"
+    7  "\u0627\u0031" {1 prohibited_bidi} "Error - bidirectional check"
 } {
-    if {$n == 7} {
-	test saslprep-1.$n $title knownBug {
-	    list [catch {::stringprep::stringprep saslprep $input} res] $res
-	} $result
-    } else {
-	test saslprep-1.$n $title {
-	    list [catch {::stringprep::stringprep saslprep $input} res] $res
-	} $result
-    }
+    test saslprep-1.$n $title {
+	list [catch {::stringprep::stringprep saslprep $input} res] $res
+    } $result
 }
 
 # -------------------------------------------------------------------------

@@ -32,15 +32,12 @@
 #include <paths.h>
 #include <dirent.h>
 
-#include <IOKit/ps/IOPowerSourcesPrivate.h>
-#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <default_pager/default_pager_types.h>
 #include <default_pager_alerts_server.h>
 #include <backing_store_alerts.h>
 #include <backing_store_triggers_server.h>
-
 
 /*
  * HI_WATER_DEFAULT set to this funny value to 
@@ -54,6 +51,22 @@
 
 #define MAX_LIMITS 8
 
+#if TARGET_OS_EMBEDDED
+
+#include <System/sys/content_protection.h>
+
+#define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1
+#include <SystemConfiguration/SystemConfiguration.h>
+
+enum {
+	VM_PAGING_MODE_DISABLED = 0,
+	VM_PAGING_MODE_FREEZE,
+	VM_PAGING_MODE_DYNAMIC
+};
+
+#define VM_FREEZE_SYSCTL "vm.freeze_enabled"
+#define FREEZE_FIXED_SWAP_SIZE (128 * 1024 * 1024)
+#endif
 
 struct limit {
         unsigned int size;
@@ -238,7 +251,14 @@ default_pager_space_alert(alert_port, flags)
 		if (fd == -1) {
 			/* force error recovery below */
 			error = -1;
-		} else {
+		}	
+#if TARGET_OS_EMBEDDED
+		else {
+			error = fcntl(fd, F_SETPROTECTIONCLASS, PROTECTION_CLASS_F);
+		}
+#endif
+		
+		if(!error) {	
 			error = fcntl(fd, F_SETSIZE, &filesize);
 			if(error) {
 				error = ftruncate(fd, filesize);
@@ -409,6 +429,16 @@ paging_setup(flags, size, priority, low, high, encrypted)
 		exit(EXIT_FAILURE);
 	}
 
+#if TARGET_OS_EMBEDDED
+	error = fcntl(fd, F_SETPROTECTIONCLASS, PROTECTION_CLASS_F);
+	if (error == -1) {
+		fprintf(stderr, "dynamic_pager: cannot set file protection class!\n");
+		unlink(subfile);
+		close(fd);
+		exit(EXIT_FAILURE);
+	}
+#endif
+
 	error = fcntl(fd, F_SETSIZE, &filesize);
 	if(error) {
 		error = ftruncate(fd, filesize);
@@ -483,8 +513,8 @@ clean_swap_directory(const char *path)
 	closedir(dir);
 }
 
-#define VM_PREFS_PLIST 				"/Library/Preferences/com.apple.virtualMemory.plist"
-#define VM_PREFS_ENCRYPT_SWAP_KEY 	"UseEncryptedSwap"
+#define VM_PREFS_PLIST				"/Library/Preferences/com.apple.virtualMemory.plist"
+#define VM_PREFS_DISABLE_ENCRYPT_SWAP_KEY	"DisableEncryptedSwap"
 
 static boolean_t
 should_encrypt_swap(void)
@@ -495,12 +525,9 @@ should_encrypt_swap(void)
 	CFDataRef         	resourceData;
 	SInt32            	errorCode;
 	CFURLRef       		fileURL;
-	CFTypeRef		value;
-	boolean_t		should_encrypt;
-	boolean_t		explicit_value;
-
-	explicit_value = false;
-	should_encrypt = true;
+	CFTypeRef		disable_encrypted_swap;
+	boolean_t		should_encrypt = TRUE;
+	boolean_t		explicit_value = FALSE;
 
 	fileURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (const UInt8 *)VM_PREFS_PLIST, strlen(VM_PREFS_PLIST), false);
 	if (fileURL == NULL) {
@@ -525,18 +552,18 @@ should_encrypt_swap(void)
 	propertyListType = CFGetTypeID(propertyList);
 
 	if (propertyListType == CFDictionaryGetTypeID()) {	
-		value = (CFTypeRef) CFDictionaryGetValue((CFDictionaryRef) propertyList, CFSTR(VM_PREFS_ENCRYPT_SWAP_KEY));
-		if (value == NULL) {
-			/* no value: use the default value */
-		} else if (CFGetTypeID(value) != CFBooleanGetTypeID()) {
+		disable_encrypted_swap = (CFTypeRef) CFDictionaryGetValue((CFDictionaryRef) propertyList, CFSTR(VM_PREFS_DISABLE_ENCRYPT_SWAP_KEY));
+		if (disable_encrypted_swap == NULL) {
+			/* no value: use the default value i.e. encrypted swap ON */
+		} else if (CFGetTypeID(disable_encrypted_swap) != CFBooleanGetTypeID()) {
 			fprintf(stderr, "%s: wrong type for key \"%s\"\n",
-				getprogname(), VM_PREFS_ENCRYPT_SWAP_KEY);
+				getprogname(), VM_PREFS_DISABLE_ENCRYPT_SWAP_KEY);
 			/* bogus value, assume it's "true" for safety's sake */
-			should_encrypt = true;
-			explicit_value = true;
+			should_encrypt = TRUE;
+			explicit_value = TRUE;
 		} else {
-			should_encrypt = CFBooleanGetValue((CFBooleanRef)value);
-			explicit_value = true;
+			should_encrypt = CFBooleanGetValue((CFBooleanRef)disable_encrypted_swap) ? FALSE : TRUE;
+			explicit_value = TRUE;
 		}
 	}
 	else {
@@ -549,18 +576,42 @@ done:
 	if (! explicit_value) {
 #if TARGET_OS_EMBEDDED
 		should_encrypt = FALSE;
-#else
-		/* by default, encrypt swap on laptops only */
-		/*
-		 * Look for battery power source.
-		 */
-		should_encrypt = (kCFBooleanTrue == IOPSPowerSourceSupported(NULL, CFSTR(kIOPMBatteryPowerKey)));
-		/*fprintf(stderr, "dynamic_pager: battery power source: %d\n", should_encrypt);*/
 #endif
 	}
 
 	return should_encrypt;
 }
+
+#if TARGET_OS_EMBEDDED
+
+#define VM_PREFS_PAGING_MODE_PLIST	"com.apple.virtualMemoryMode.plist"
+#define VM_PREFS_PAGING_MODE_KEY	"Mode"
+
+static uint32_t
+get_paging_mode(void)
+{
+	SCPreferencesRef paging_prefs;
+	uint32_t paging_mode;
+	
+	paging_mode = VM_PAGING_MODE_FREEZE; /* default */
+	
+	paging_prefs = SCPreferencesCreate(NULL, CFSTR("dynamic_pager"), CFSTR(VM_PREFS_PAGING_MODE_PLIST));
+	if (paging_prefs) {
+		CFNumberRef value;
+
+		value = SCPreferencesGetValue(paging_prefs, CFSTR(VM_PREFS_PAGING_MODE_KEY));
+		
+		if (value && (CFGetTypeID( value ) == CFNumberGetTypeID() ) ) {
+			CFNumberGetValue((CFNumberRef)value, kCFNumberIntType, &paging_mode);
+		} 
+
+		CFRelease(paging_prefs);
+	}
+	
+	return paging_mode;
+}
+
+#endif
 
 int
 main(int argc, char **argv)
@@ -571,6 +622,14 @@ main(int argc, char **argv)
 	int ch;
 	int variable_sized = 1,flags=0;
 	boolean_t	encrypted_swap;
+	static char tmp[1024];
+	struct statfs sfs;
+	char *q;
+#if TARGET_OS_EMBEDDED
+	int err;
+	uint32_t paging_mode;
+	size_t paging_mode_length;
+#endif
 
 /*
 	setlinebuf(stdout);
@@ -630,10 +689,62 @@ retry:
 		}
 	}
 
+	/*
+	 * get rid of the filename at the end of the swap file specification
+	 * we only want the portion of the pathname that should already exist
+	 */
+	strcpy(tmp, fileroot);
+	if ((q = strrchr(tmp, '/')))
+	        *q = 0;
+
+	/*
+	 * Remove all files in the swap directory.
+	 */
+	clean_swap_directory(tmp);
+
+#if TARGET_OS_EMBEDDED
+	paging_mode = get_paging_mode();
+	paging_mode_length = sizeof(paging_mode);
+	
+	switch (paging_mode) {
+		case VM_PAGING_MODE_DISABLED:
+			/* Paging disabled; nothing to do here so exit */
+			exit(EXIT_SUCCESS);
+
+		case VM_PAGING_MODE_FREEZE:
+			/* Freeze mode; one swap file of fixed size, so enable and override defaults if set */
+			err = sysctlbyname(VM_FREEZE_SYSCTL, NULL, 0, &paging_mode, paging_mode_length);
+			if (err < 0) {
+				(void)fprintf(stderr, "dynamic_pager: cannot set %s\n", VM_FREEZE_SYSCTL);
+				exit(EXIT_FAILURE);
+			}
+			variable_sized = 0;
+			limits[0].size = FREEZE_FIXED_SWAP_SIZE;
+			break;
+
+		case VM_PAGING_MODE_DYNAMIC:
+			/* Dynamic paging selected; proceed normally */
+			break;
+
+		default:
+			/* Invalid option */
+			(void)fprintf(stderr, "dynamic_pager: invalid paging_mode %d\n", paging_mode); 
+			exit(EXIT_FAILURE);
+	}
+#endif
+
+	if (statfs(tmp, &sfs) == -1) {
+	/*
+	 * Setup the swap directory.
+	 */
+       	if (mkdir(tmp, 0755) == -1) {
+		(void)fprintf(stderr, "dynamic_pager: cannot create swap directory %s\n", tmp); 
+		exit(EXIT_FAILURE);
+		}
+	}
+	chown(tmp, 0, 0);
+
 	if (variable_sized) {
-	        static char tmp[1024];
-		struct statfs sfs;
-		char *q;
 		int  i;
 		int  mib[4];
 		size_t len;
@@ -663,37 +774,13 @@ retry:
 		 * an additional swap file when it really isn't necessary
 		 */
 
-		/*
-		 * get rid of the filename at the end of the swap file specification
-		 * we only want the portion of the pathname that should already exist
-		 */
-	        strcpy(tmp, fileroot);
-		if ((q = strrchr(tmp, '/')))
-		        *q = 0;
-
-		/*
-		 * Remove all files in the swap directory.
-		 */
-		clean_swap_directory(tmp);
-		        
-	        if (statfs(tmp, &sfs) == -1) {
+		if (statfs(tmp, &sfs) == -1) {
 			/*
-			 * Setup the swap directory.
+			 * We really can't get filesystem status,
+			 * so let's not limit the swap files...
 			 */
-		       	if (mkdir(tmp, 0755) == -1) {
-				(void)fprintf(stderr, "dynamic_pager: cannot create swap directory %s\n", tmp); 
-				exit(EXIT_FAILURE);
-			}
-			chown(tmp, 0, 0);
-
-			if (statfs(tmp, &sfs) == -1) {
-				/*
-				 * We really can't get filesystem status,
-				 * so let's not limit the swap files...
-				 */
-				fs_limit = (u_int64_t) -1;
-			}
-		} 
+			fs_limit = (u_int64_t) -1;
+		}
 		
 		if (fs_limit != (u_int64_t) -1) {
 			/*

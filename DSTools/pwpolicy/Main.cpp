@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <syslog.h>
-#include <DirectoryServiceCore/SharedConsts.h>
+#include <OpenDirectory/OpenDirectory.h>
 
 #include "PwdPolicyTool.h"
 #include "dstools_version.h"
@@ -53,7 +53,6 @@
 #define kNodeNotFoundMsg					"Cannot access directory node.\n"
 #define kNotPasswordServerUserMsg			"%s is not a password server account.\n"
 #define kUserNotOnNodeMsg					"%s is not a user on this directory node.\n"
-#define kPasswordServerNodePrefix			"/PasswordServer/"
 
 static const char *sDatePolicyStr[] = {
 	"expirationDateGMT=",
@@ -62,6 +61,7 @@ static const char *sDatePolicyStr[] = {
 	"warnOfDisableMinutes=",
 	"projectedPasswordExpireDate=",
 	"projectedAccountDisableDate=",
+	"validAfter=",
 	NULL
 };
 
@@ -105,6 +105,7 @@ void PrintErrorMessage( long error, const char *username );
 
 char *ConvertPolicyLongs(const char *inPolicyStr);
 char *ConvertPolicyDates(const char *inPolicyStr);
+char *ConvertDictionary(CFDictionaryRef dict);
 Boolean PreflightDate(const char *theDateStr);
 
 long GetAuthAuthority(
@@ -166,6 +167,8 @@ bool	sTerminateServer	= false;
 
 void	DoHelp		( FILE *inFile, const char *inArgv0 );
 void	usage(void);
+void    invalid_auth(void);
+
 char *read_passphrase(const char *prompt, int from_stdin);
 
 const UInt32 kMaxTestUsers		= 150;
@@ -371,21 +374,7 @@ int main ( int argc, char * const *argv )
 			}
 		}
 	}
-	
-	// prompt for password if required and not provided on the command line
-	if ( bReadPassword && password[0] == '\0' && !useRootPrivileges )
-	{
-		char *passPtr;
 		
-        passPtr = read_passphrase("Password:", 1);
-		if ( passPtr != NULL )
-		{
-			strcpy( password, passPtr );
-			memset( passPtr, 0, strlen(passPtr) );
-			free( passPtr );
-		}
-	}
-	
 	if ( argc > 1 )
 	{
 		serverAddress[0] = '\0';
@@ -409,13 +398,26 @@ int main ( int argc, char * const *argv )
 					username = NULL;
 					siStatus = eDSNoErr;
 				}
-				else {
-					PrintErrorMessage( siStatus, username );
-					exit(0);
-				}
 			}
 		}
 		
+		if (useRootPrivileges && (0!=strcmp(nodename ?: (metaNode ?: "n/a"), "/Local/Default"))) { // root is only valid for /Local/Default
+			useRootPrivileges = false;
+		}
+			
+		// prompt for password if required and not provided on the command line
+		if ( bReadPassword && password[0] == '\0' && !useRootPrivileges )
+		{
+			char *passPtr;
+			
+			passPtr = read_passphrase("Password:", 1);
+			if ( passPtr != NULL )
+			{
+				strcpy( password, passPtr );
+				memset( passPtr, 0, strlen(passPtr) );
+				free( passPtr );
+			}
+		}
 		// get authenticator info (if applicable)
 		if ( authenticator != NULL )
 		{
@@ -492,9 +494,12 @@ int main ( int argc, char * const *argv )
 				username = strdup("");
 				authType = kAuthTypeShadowHash;
 				break;
-			
+
 			case kCmdGetHashTypes:
 			case kCmdSetHashTypes:
+				authType = kAuthTypeShadowHash;
+				break;
+			
 			case kCmdEnableWindowsSharing:
 			case kCmdDisableWindowsSharing:
 				if ( userAuthType != kAuthTypeShadowHash )
@@ -511,8 +516,20 @@ int main ( int argc, char * const *argv )
 		switch( authType )
 		{
 			case kAuthTypeUnknown:
-				PrintErrorMessage( siStatus, username );
-				exit(0);
+				switch ( commandNum) {
+					case kCmdSetPolicy:
+					case kCmdGetGlobalPolicy:
+					case kCmdGetEffectivePolicy:
+					case kCmdGetPolicy:
+					case kCmdGetHashTypes:
+						// auth not needed
+						break;
+						
+					default:
+						PrintErrorMessage( siStatus, username );
+						exit(0);
+						break;
+				}
 				break;
 			
 			case kAuthTypePasswordServer:
@@ -532,34 +549,36 @@ int main ( int argc, char * const *argv )
 					fprintf(stderr, "password server is not configured.\n");
 					exit(0);
 				}
+				if ( nodename != NULL ) {
+					strlcpy(nodeName, nodename, sizeof(nodeName));
+				} else if (metaNode != NULL) {
+					strlcpy(nodeName, metaNode, sizeof(nodeName));
+				} else {
+					PrintErrorMessage( eDSNullNodeName, username );
+					exit(0);
+				}
 				
-				strcpy(nodeName, kPasswordServerNodePrefix);
-				strcat(nodeName, serverAddress);
 				break;
 				
 			case kAuthTypeShadowHash:
 			case kAuthTypeDisabled:
 				if ( myClass.FindDirectoryNodes( NULL, eDSLocalNodeNames, &localNodeNameList, false ) == eDSNoErr &&
-					 localNodeNameList != NULL || localNodeNameList[0] != NULL )
-				{
+					localNodeNameList != NULL || localNodeNameList[0] != NULL ) {
 					strcpy( nodeName, localNodeNameList[0] );
 					free( localNodeNameList[0] );
 					free( localNodeNameList );
-				}
-				else
-				{
+				} else {
 					fprintf(stderr, "Error: could not resolve the name of the local node.\n");
 					exit(0);
 				}
 				break;
 			
 			case kAuthTypeKerberos:
-				if ( nodename != NULL )
-				{
-					strcpy(nodeName, nodename);
-				}
-				else
-				{
+				if ( nodename != NULL ) {
+					strlcpy(nodeName, nodename, sizeof(nodeName));
+				} else if (metaNode != NULL) {
+					strlcpy(nodeName, metaNode, sizeof(nodeName));
+				} else {
 					PrintErrorMessage( eDSNullNodeName, username );
 					exit(0);
 				}
@@ -574,7 +593,7 @@ int main ( int argc, char * const *argv )
 				{
 					myClass.DoNodePWAuth(
 								nodeRef,
-								(username && !userIsDefault) ? username : "", "",
+								NULL, "",
 								kDSStdAuthGetGlobalPolicy, "", NULL, recordType, authResult );
 					tptr = ConvertPolicyLongs( authResult );
 					printf("%s\n", tptr ? tptr : authResult);
@@ -606,22 +625,76 @@ int main ( int argc, char * const *argv )
 				}
 				break;
 			
+			case kCmdGetEffectivePolicy: {
+				CFErrorRef error = NULL;
+				CFStringRef cfnode = CFStringCreateWithCString(kCFAllocatorDefault, nodeName, kCFStringEncodingUTF8);
+				ODNodeRef node = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault, cfnode, &error);
+				if (error) {
+					CFShow(error);
+				} else {
+					CFStringRef recordName = CFStringCreateWithCString(kCFAllocatorDefault, username, kCFStringEncodingUTF8);
+					ODQueryRef query = ODQueryCreateWithNode(kCFAllocatorDefault, node, kODRecordTypeUsers,
+															 kODAttributeTypeRecordName, kODMatchEqualTo, 
+															 recordName, kODAttributeTypeAllAttributes, 1, &error);
+					if (error) {
+						CFShow(error);
+					} else {
+						CFArrayRef records = ODQueryCopyResults(query, false, &error);
+						if (error) {
+							CFShow(error);
+						} else {
+							if (records != NULL) {
+								if ( (CFGetTypeID(records) != CFArrayGetTypeID()) ||
+									 (CFArrayGetCount(records) != 1)) {
+									PrintErrorMessage(eDSRecordNotFound, username);
+									CFRelease(records);
+									records = NULL;
+								}
+							}
+							ODRecordRef record = records ? (ODRecordRef) CFArrayGetValueAtIndex(records, 0) : NULL;
+							if (record) {
+								CFDictionaryRef dict = ODRecordCopyPasswordPolicy(kCFAllocatorDefault, record, &error);
+								if (error) {
+									CFShow(error);
+								} else {
+									tptr = ConvertDictionary(dict);
+									printf("%s\n", tptr);
+									free(tptr);
+								}
+								if (dict != NULL) {
+									CFRelease(dict);
+								}
+							}
+						}
+						if (records != NULL) {
+							CFRelease(records);
+						}
+					}
+					if (query != NULL) {
+						CFRelease(query);
+					}
+					CFRelease(recordName);
+				}
+				if (error != NULL) {
+					CFRelease(error);
+				}
+				if (node != NULL) {
+					CFRelease(node);
+				}
+				CFRelease(cfnode);
+			}
+			break;
+
 			case kCmdGetPolicy:
-			case kCmdGetEffectivePolicy:
 				if ( username != NULL )
 				{
 					char *nodeToUse = metaNode ? metaNode : nodeName;
-					if ( strstr(nodeToUse, "/PasswordServer") == NULL )
-						strlcpy( userID, username, sizeof(userID) );
+					strlcpy( userID, username, sizeof(userID) );
 					
-					printf( "Getting policy for %s\n\n", username );
+					printf( "Getting policy for %s %s\n\n", username, nodeToUse );
 					if ( myClass.OpenDirNode( nodeToUse, &nodeRef ) == eDSNoErr )
 					{
-						myClass.DoNodePWAuth( nodeRef,
-											 useRootPrivileges ? "" : authenticatorID,
-											 useRootPrivileges ? "" : password,
-											(commandNum == kCmdGetPolicy) ? kDSStdAuthGetPolicy : kDSStdAuthGetEffectivePolicy,
-											userID, NULL, recordType, authResult );
+						myClass.DoNodePWAuth(nodeRef, userID, NULL, kDSStdAuthGetPolicy, userID, NULL, recordType, authResult );
 						tptr = ConvertPolicyLongs( authResult );
 						printf("%s\n", tptr);
 						free(tptr);
@@ -637,16 +710,19 @@ int main ( int argc, char * const *argv )
 			
 			case kCmdSetPolicy:
 				tptr = ConvertPolicyDates( argv[argc-1] );
-				if ( (useRootPrivileges == true || (authenticatorID != NULL && password != NULL)) && username != NULL && tptr != NULL )
+				if ( (useRootPrivileges == true || (authenticator != NULL && password != NULL)) && username != NULL && tptr != NULL )
 				{
 					printf( "Setting policy for %s\n", username );
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 					{
+					  if (useRootPrivileges == false && authenticator != NULL && password != NULL) {
+					      myClass.DoNodeNativeAuth( nodeRef, authenticator, password);
+					  }
 						myClass.DoNodePWAuth( nodeRef,
-												useRootPrivileges ? "" : authenticatorID,
-												useRootPrivileges ? "" : password,
-												kDSStdAuthSetPolicy,
-												userID,
+												NULL,
+												NULL,
+												kDSStdAuthSetPolicyAsRoot,
+												username,
 												tptr, NULL, NULL );
 						
 						free( tptr );
@@ -724,12 +800,14 @@ int main ( int argc, char * const *argv )
 						}
 						else
 						{
-							myClass.DoNodePWAuth( nodeRef,
+							if (myClass.DoNodeNativeAuth( nodeRef, authenticator, password) == eDSNoErr) {
+								myClass.DoNodePWAuth( nodeRef,
 													userID,
 													userPassPtr,
-													kDSStdAuthSetPasswd,
-													authenticatorID,
-													password, NULL, NULL );
+													kDSStdAuthSetPasswdAsRoot,
+													"",
+													"", recordType, NULL );
+							}
 						}
 						myClass.CloseDirectoryNode( nodeRef );
 					}
@@ -807,7 +885,7 @@ int main ( int argc, char * const *argv )
 				if ( (geteuid() == 0) || (authenticator != NULL && password != NULL) )
 					myClass.SetHashTypes( authenticator, useRootPrivileges ? NULL : password, commandArgIndex + 1, argc, argv );
 				else
-					usage();
+					invalid_auth();
 				break;
 				
 			case kCmdGetHashTypes:
@@ -845,7 +923,7 @@ int main ( int argc, char * const *argv )
 					// return the global set
 					char *hashTypesStr;
 					
-					if ( myClass.GetHashTypes( &hashTypesStr, (strcasecmp(aaData, kDSTagAuthAuthorityBetterHashOnly) == 0) ) == eDSNoErr )
+					if ( myClass.GetHashTypes( &hashTypesStr, aaData ? (strcasecmp(aaData, kDSTagAuthAuthorityBetterHashOnly) == 0) : false ) == eDSNoErr )
 					{
 						printf( "%s\n", hashTypesStr );
 						free( hashTypesStr );
@@ -854,6 +932,10 @@ int main ( int argc, char * const *argv )
 				break;
 			
 			case kCmdSetHashTypes:
+                if ( aaData == NULL ) {
+                    PrintErrorMessage(0, username);
+                    exit(EX_CONFIG);
+                }
 				if ( (geteuid() == 0) || (authenticator != NULL && password != NULL) )
 				{
 					printf( "Setting hash types for user %s\n", username );
@@ -865,6 +947,8 @@ int main ( int argc, char * const *argv )
 						
 						if ( authenticator != NULL )
 							siStatus = myClass.DoNodeNativeAuth( nodeRef, authenticator, password );
+						else 
+							siStatus = eDSNoErr;
 						
 						if ( siStatus == eDSNoErr )
 						{
@@ -890,7 +974,7 @@ int main ( int argc, char * const *argv )
 					}
 				}
 				else
-					usage();
+					invalid_auth();
 				break;
 			
 			case kCmdEnableWindowsSharing:
@@ -910,7 +994,7 @@ int main ( int argc, char * const *argv )
 							siStatus = myClass.DoNodeNativeAuth( nodeRef, authenticator, password );
 						
 						siStatus = myClass.DoNodePWAuth( nodeRef, username, argv[argc-1],
-										(commandNum == kCmdEnableWindowsSharing) ? kDSStdAuthSetShadowHashWindows : kDSStdAuthSetShadowHashSecure,
+										(commandNum == kCmdEnableWindowsSharing) ? "dsAuthMethodStandard:dsAuthSetShadowHashWindows" : "dsAuthMethodStandard:dsAuthSetShadowHashSecure",
 										NULL, NULL, recordType, NULL );
 						
 						myClass.CloseDirectoryNode( nodeRef );
@@ -920,7 +1004,7 @@ int main ( int argc, char * const *argv )
 						printf( "Could not access account <%s>.\n", username );
 				}
 				else
-					usage();
+					invalid_auth();
 				break;
 				
 		}
@@ -1056,6 +1140,11 @@ void usage(void)
     exit(EX_USAGE);
 }
 
+void invalid_auth(void)
+{
+    fprintf(stdout, "Need either root privileges or valid authenticator\n");
+    exit(EX_NOPERM);
+}
 
  
 //-----------------------------------------------------------------------------
@@ -1210,6 +1299,43 @@ char *ConvertPolicyLongs(const char *inPolicyStr)
 	return returnString;
 }
 
+char *
+ConvertDictionary(CFDictionaryRef dict)
+{
+	CFMutableStringRef cfstr = CFStringCreateMutable(kCFAllocatorDefault, 1000);
+	CFIndex dictCount = CFDictionaryGetCount(dict), i;
+	
+	CFTypeRef keys[dictCount];
+	CFTypeRef values[dictCount];
+	
+	CFDictionaryGetKeysAndValues(dict, keys, values);
+	
+	for (i = 0; i < dictCount; i++) {
+		if (i != 0) {
+			CFStringAppend(cfstr, CFSTR(" "));
+		}
+		CFStringAppend(cfstr, (CFStringRef)keys[i]);
+		CFStringAppend(cfstr, CFSTR("="));
+		// avoid overflow
+		CFNumberRef number = (CFNumberRef) values[i];
+		int maxInteger = 0x7ffffff;
+		CFNumberRef maxInt = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &maxInteger);
+		if (CFNumberCompare(number, maxInt, NULL) == kCFCompareGreaterThan) {
+			values[i] = maxInt;
+		}
+		CFStringRef cfval = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@"), values[i]);
+		CFStringAppend(cfstr, cfval);
+	}
+	size_t stringSize = (size_t) CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfstr), kCFStringEncodingUTF8) + 1;
+	char *string = (char *)malloc(stringSize);
+	if (false == CFStringGetCString(cfstr, string, stringSize, kCFStringEncodingUTF8)) {
+		free(string);
+		return NULL;
+	}
+	char *string2 = ConvertPolicyLongs(string);
+	free(string);
+	return string2;
+}
 
 //-----------------------------------------------------------------------------
 //	ConvertPolicyDates
@@ -1364,9 +1490,6 @@ long GetAuthAuthority(
 	else
 		result = GetAuthAuthorityWithNode( inNodeName, inUsername, inRecordType, outAuthAuthType, inOutUserID, inOutServerAddress, outAAData );
 	
-	if ( result == eDSNoErr && *outAuthAuthType == kAuthTypePasswordServer && (*inOutUserID == '\0' || *inOutServerAddress == '\0') )
-		result = -1;
-	
 	return result;
 }
 
@@ -1418,24 +1541,7 @@ long GetAuthAuthorityWithSearchNode(
 			throw( status );
 		
 		*outAuthAuthType = ConvertTagToConstant( aaTag );
-		switch( *outAuthAuthType )
-		{
-			case kAuthTypePasswordServer:
-				{
-					char *endPtr = strchr( aaData, ':' );
-					if ( endPtr != NULL )
-					{
-						*endPtr++ = '\0';
-						strcpy( inOutUserID, aaData );
-						strcpy( inOutServerAddress, endPtr );
-					}
-				}
-				break;
-			
-			default:
-				strcpy( inOutUserID, inUsername );
-				break;
-		}
+		strcpy( inOutUserID, inUsername );
 		
 		if ( outAAData != NULL )
 			*outAAData = aaData;
@@ -1511,7 +1617,14 @@ long GetAuthAuthorityWithNode(
 			throw((long)-1);
 		
         // find
-		status = dsFindDirNodes( dsRef, tDataBuff, nodeName, eDSiExact, &nodeCount, &context );
+		do {
+			status = dsFindDirNodes( dsRef, tDataBuff, nodeName, eDSiExact, &nodeCount, &context );
+			if (status == eDSBufferTooSmall) {
+				UInt32 newSize = tDataBuff->fBufferSize * 2;
+				dsDataBufferDeAllocate(dsRef, tDataBuff);
+				tDataBuff = dsDataBufferAllocate(dsRef, newSize);
+			}
+		} while (status == eDSBufferTooSmall);
         debug("dsFindDirNodes = %ld, nodeCount = %ld\n", status, nodeCount);
 		if ( nodeCount < 1 ) {
             status = eDSNodeNotFound;
@@ -1657,7 +1770,15 @@ void GetPWServerAddresses(char *outAddressStr)
 		if (tDataBuff == 0) break;
         
         // find and don't open
-		status = dsFindDirNodes( dsRef, tDataBuff, nil, eDSLocalHostedNodes, &nodeCount, &context );
+		do {
+			status = dsFindDirNodes( dsRef, tDataBuff, nil, eDSLocalHostedNodes, &nodeCount, &context );
+			if (status == eDSBufferTooSmall) {
+				UInt32 newSize = tDataBuff->fBufferSize * 2;
+				dsDataBufferDeAllocate(dsRef, tDataBuff);
+				tDataBuff = dsDataBufferAllocate(dsRef, newSize);
+			}
+		} while (status == eDSBufferTooSmall);
+		
         if (status != eDSNoErr) break;
         if ( nodeCount < 1 ) {
             status = eDSNodeNotFound;
@@ -1709,7 +1830,15 @@ void GetPWServerAddresses(char *outAddressStr)
 			if ( nodeName == nil )
 				break;
 			
-			status = dsFindDirNodes( dsRef, tDataBuff, nodeName, eDSiExact, &nodeCount, &context );
+			do {
+				status = dsFindDirNodes( dsRef, tDataBuff, nodeName, eDSiExact, &nodeCount, &context );
+				if (status == eDSBufferTooSmall) {
+					UInt32 newSize = tDataBuff->fBufferSize * 2;
+					dsDataBufferDeAllocate(dsRef, tDataBuff);
+					tDataBuff = dsDataBufferAllocate(dsRef, newSize);
+				}
+			} while (status == eDSBufferTooSmall);
+			
 			if (status != eDSNoErr) break;
 			if ( nodeCount < 1 ) {
 				status = eDSNodeNotFound;

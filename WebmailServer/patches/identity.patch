@@ -1,0 +1,12 @@
+diff -Naur roundcubemail-0.5/plugins/managesieve/managesieve.php roundcubemail/plugins/managesieve/managesieve.php
+--- roundcubemail-0.5/plugins/managesieve/managesieve.php	2010-11-20 09:59:50.000000000 -0800
++++ roundcubemail/plugins/managesieve/managesieve.php	2010-12-07 12:12:36.000000000 -0800
+@@ -103,7 +103,7 @@
+                 else {
+                     // if script not exists build default script contents
+                     $script_file = $this->rc->config->get('managesieve_default');
+-                    $script_name = 'roundcube';
++                    $script_name = 'default';
+                     if ($script_file && is_readable($script_file))
+                         $content = file_get_contents($script_file);
+ 

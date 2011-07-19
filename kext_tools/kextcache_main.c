@@ -37,12 +37,10 @@
 #include <mach-o/swap.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
-#include <mach/mach_port.h>     // mach_port_allocate()
 #include <mach/mach_types.h>
 #include <mach/machine/vm_param.h>
 #include <mach/kmod.h>
 #include <notify.h>
-#include <servers/bootstrap.h>  // bootstrap mach ports
 #include <stdlib.h>
 #include <unistd.h>             // sleep(3)
 #include <sys/types.h>
@@ -58,15 +56,15 @@
 
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
-#include <IOKit/kext/kextmanager_types.h>
-#include <IOKit/kext/kextmanager_mig.h>
 #include <bootfiles.h>
 
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "kextcache_main.h"
+#if !NO_BOOT_ROOT
 #include "bootcaches.h"
-#include "update_boot.h"
+#include "bootroot_internal.h"
+#endif
 #include "mkext1_file.h"
 #include "compression.h"
 
@@ -74,10 +72,12 @@
 #define MKEXT_PERMS             (0644)
 
 /* The timeout we use when waiting for the system to get to a low load state.
- * We don't pick a round number in hopes of avoiding a collision of work with
- * other people waiting on this notification.
+ * We're shooting for about 10 minutes, but we don't want to collide with
+ * everyone else who wants to do work 10 minutes after boot, so we just pick
+ * a number in that ballpark.
  */
-#define SYSTEM_LOAD_TIMEOUT     ((8 * 60) + 27)
+#define kOSKextSystemLoadTimeout        (8 * 60)
+#define kOSKextSystemLoadPauseTime      (30)
 
 /*******************************************************************************
 * Program Globals
@@ -86,19 +86,11 @@ const char * progname = "(unknown)";
 
 
 /*******************************************************************************
-* File-Globals
-*******************************************************************************/
-static mach_port_t sLockPort = MACH_PORT_NULL;
-static uuid_t      s_vol_uuid;
-static mach_port_t sKextdPort = MACH_PORT_NULL;
-
-/*******************************************************************************
 * Utility and callback functions.
 *******************************************************************************/
 // put/take helpers
 static void waitForIOKitQuiescence(void);
-static ExitStatus waitForLowSystemLoad(void);
-static int takeVolumeForPath(const char *path);
+static void waitForGreatSystemLoad(void);
 
 #define kMaxArchs 64
 #define kRootPathLen 256
@@ -112,12 +104,9 @@ static void timeval_difference(struct timeval *dst,
 *******************************************************************************/
 int main(int argc, char * const * argv)
 {
-    ExitStatus        result              = EX_SOFTWARE;
-    Boolean           fatal               = false;
-    KextcacheArgs     toolArgs;
-    CFDataRef         prelinkedKernel     = NULL;  // must release
-    CFDataRef         prelinkedKernelIn   = NULL;  // must release
-    CFDictionaryRef   prelinkedSymbols    = NULL;  // must release
+    KextcacheArgs       toolArgs;
+    ExitStatus          result          = EX_SOFTWARE;
+    Boolean             fatal           = false;
 
    /*****
     * Find out what the program was invoked as.
@@ -144,7 +133,7 @@ int main(int argc, char * const * argv)
             /* kernel? */ true);
         tool_openlog("com.apple.kextcache");
     }
-    
+
    /*****
     * Process args & check for permission to load.
     */
@@ -186,9 +175,8 @@ int main(int argc, char * const * argv)
          * to do work.  We can't do this for an mkext yet because we don't
          * have a way to know if we're blocking reboot.
          */
-        if (toolArgs.prelinkedKernelURL) {
-            result = waitForLowSystemLoad();
-            if (result != EX_OK) goto finish;
+        if (toolArgs.prelinkedKernelPath) {
+            waitForGreatSystemLoad();
         }
     }
 
@@ -197,46 +185,28 @@ int main(int argc, char * const * argv)
     */
     OSKextSetUsesCaches(false);
 
-   /* If we're doing a boot!=root update, call updateBoots() and jump right
-    * to the exit, we can't combine this with any other cache-building.
+#if !NO_BOOT_ROOT
+   /* If it's a Boot!=root update, call checkUpdateCachesAndBoots() and
+    * jump right to exit; B!=R doesn't combine with any other cache building.
     */
     if (toolArgs.updateVolumeURL) {
         // xxx - updateBoots should return only sysexit-type values, not errno
-        result = updateBoots(toolArgs.updateVolumeURL,
-            toolArgs.forceUpdateFlag, toolArgs.expectUpToDate);
+        result = checkUpdateCachesAndBoots(toolArgs.updateVolumeURL,
+                                           toolArgs.forceUpdateFlag, 
+                                           toolArgs.expectUpToDate, 
+                            toolArgs.installerCalled || toolArgs.cachesOnly);
         goto finish;
     }
+#endif
 
    /* If we're uncompressing the prelinked kernel, take care of that here
-    * and exit.  We don't allow prelinked kernels to be compressed after they
-    * are generated because the header for the compressed prelinked kernel
-    * requires platform information that is not stored in the uncompressed
-    * kernel.
+    * and exit.
     */
-    if (toolArgs.prelinkedKernelURL && !CFArrayGetCount(toolArgs.argURLs) &&
+    if (toolArgs.prelinkedKernelPath && !CFArrayGetCount(toolArgs.argURLs) &&
         (toolArgs.compress || toolArgs.uncompress)) 
     {
-        prelinkedKernelIn = readMachOFileWithURL(toolArgs.prelinkedKernelURL, NULL);
-        if (!prelinkedKernelIn) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Can't read prelinked kernel.");
-            goto finish;
-        }
-
-        if (toolArgs.uncompress) {
-            prelinkedKernel = uncompressPrelinkedKernel(prelinkedKernelIn);
-            if (!prelinkedKernel) {
-                goto finish;
-            }
-        } else if (toolArgs.compress) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Prelinked kernels can't be compressed after they are created.");
-            goto finish;
-        }
-
-        result = savePrelinkedKernel(&toolArgs, prelinkedKernel, NULL);
+        result = compressPrelinkedKernel(toolArgs.prelinkedKernelPath,
+            /* compress */ toolArgs.compress);
         goto finish;
     }
 
@@ -261,9 +231,9 @@ int main(int argc, char * const * argv)
     toolArgs.namedKexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
         toolArgs.namedKextURLs);
     if (!toolArgs.repositoryKexts || !toolArgs.namedKexts) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Error reading extensions.");
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Error reading extensions.");
         result = EX_SOFTWARE;
         goto finish;
     }
@@ -272,29 +242,34 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
+    if (toolArgs.needLoadedKextInfo) {
+        result = getLoadedKextInfo(&toolArgs);
+        if (result != EX_OK) {
+            goto finish;
+        }
+    }
+
     // xxx - we are potentially overwriting error results here
     if (toolArgs.updateSystemCaches) {
-        result = updateSystemDirectoryCaches(&toolArgs);
+        result = updateSystemPlistCaches(&toolArgs);
         // don't goto finish on error here, we might be able to create
         // the other caches
     }
 
-    if (toolArgs.mkextURL) {
+    if (toolArgs.mkextPath) {
         result = createMkext(&toolArgs, &fatal);
         if (fatal) {
             goto finish;
         }
     }
 
-    if (toolArgs.prelinkedKernelURL) {
-        CFDictionaryRef * prelinkedSymbolsPtr = NULL;  // do not release
-        PlatformInfo      platformInfo;
-
+    if (toolArgs.prelinkedKernelPath) {
        /* If we're updating the system prelinked kernel, make sure we aren't
         * Safe Boot, or dire consequences shall result.
         */
         if (toolArgs.needDefaultPrelinkedKernelInfo &&
             OSKextGetActualSafeBoot()) {
+
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag, 
                 "Can't update the system prelinked kernel during safe boot.");
@@ -302,27 +277,14 @@ int main(int argc, char * const * argv)
             goto finish;
         }
 
-       /* This call updates prelinkedKernelURL if necessary from the
-        * containing directory to the full path of the final file.
+       /* Create/update the prelinked kernel as explicitly requested, or
+        * for the running kernel.
         */
-        getPlatformInfo(&toolArgs, &platformInfo);
-
-        if (toolArgs.generatePrelinkedSymbols) {
-            prelinkedSymbolsPtr = &prelinkedSymbols;
-        }
-
-        result = createPrelinkedKernel(&toolArgs, &prelinkedKernel,
-            prelinkedSymbolsPtr, toolArgs.archInfo[0],
-            toolArgs.needLoadedKextInfo ? &platformInfo : NULL);
+        result = createPrelinkedKernel(&toolArgs);
         if (result != EX_OK) {
             goto finish;
         }
 
-        result = savePrelinkedKernel(&toolArgs, prelinkedKernel, 
-            prelinkedSymbols);
-        if (result != EX_OK) {
-            goto finish;
-        }
     }
 
 finish:
@@ -338,15 +300,12 @@ finish:
     SAFE_RELEASE(toolArgs.allKexts);
     SAFE_RELEASE(toolArgs.repositoryKexts);
     SAFE_RELEASE(toolArgs.namedKexts);
-    SAFE_RELEASE(toolArgs.mkextURL);
-    SAFE_RELEASE(toolArgs.prelinkedKernelURL);
-    SAFE_RELEASE(toolArgs.kernelURL);
+    SAFE_RELEASE(toolArgs.loadedKexts);
     SAFE_RELEASE(toolArgs.kernelFile);
     SAFE_RELEASE(toolArgs.symbolDirURL);
-
-    SAFE_RELEASE(prelinkedKernel);
-    SAFE_RELEASE(prelinkedKernelIn);
-    SAFE_RELEASE(prelinkedSymbols);
+    SAFE_FREE(toolArgs.mkextPath);
+    SAFE_FREE(toolArgs.prelinkedKernelPath);
+    SAFE_FREE(toolArgs.kernelPath);
 
     return result;
 }
@@ -358,13 +317,16 @@ ExitStatus readArgs(
     char * const  ** argv,
     KextcacheArgs  * toolArgs)
 {
-    ExitStatus result = EX_USAGE;
-    int          optchar;
-    int          longindex       = -1;
-    CFStringRef  scratchString   = NULL;  // must release
-    CFNumberRef  scratchNumber   = NULL;  // must release
-    CFURLRef     scratchURL      = NULL;  // must release
-    uint32_t     i;
+    ExitStatus   result         = EX_USAGE;
+    ExitStatus   scratchResult  = EX_USAGE;
+    CFStringRef  scratchString  = NULL;  // must release
+    CFNumberRef  scratchNumber  = NULL;  // must release
+    CFURLRef     scratchURL     = NULL;  // must release
+    size_t       len            = 0;
+    uint32_t     i              = 0;
+    int          optchar        = 0;
+    int          longindex      = -1;
+    struct stat  sb;
 
     bzero(toolArgs, sizeof(*toolArgs));
     
@@ -374,10 +336,11 @@ ExitStatus readArgs(
     if (!createCFMutableSet(&toolArgs->kextIDs, &kCFTypeSetCallBacks)             ||
         !createCFMutableArray(&toolArgs->argURLs, &kCFTypeArrayCallBacks)         ||
         !createCFMutableArray(&toolArgs->repositoryURLs, &kCFTypeArrayCallBacks)  ||
-        !createCFMutableArray(&toolArgs->namedKextURLs, &kCFTypeArrayCallBacks)) {
+        !createCFMutableArray(&toolArgs->namedKextURLs, &kCFTypeArrayCallBacks)   ||
+        !createCFMutableArray(&toolArgs->targetArchs, NULL)) {
 
-        result = EX_OSERR;
         OSKextLogMemError();
+        result = EX_OSERR;
         exit(result);
     }
 
@@ -419,15 +382,16 @@ ExitStatus readArgs(
             longopt = kLongOptMkext;
         }
 
+       /* Catch a -e/-system-mkext and redirect to -system-prelinked-kernel.
+        */
+        if (optchar == kOptSystemMkext) {
+            optchar = 0;
+            longopt = kLongOptSystemPrelinkedKernel;
+        }
+
         switch (optchar) {
   
             case kOptArch:
-                if (toolArgs->numArches >= kMaxNumArches) {
-                    OSKextLog(/* kext */ NULL,
-                        kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                        "Maximum of %d architectures supported", kMaxNumArches);
-                    goto finish;
-                }
                 if (!addArchForName(toolArgs, optarg)) {
                     OSKextLog(/* kext */ NULL,
                         kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -449,51 +413,20 @@ ExitStatus readArgs(
                 break;
   
             case kOptPrelinkedKernel:
-                result = readPrelinkedKernelArgs(toolArgs, *argc, *argv,
+                scratchResult = readPrelinkedKernelArgs(toolArgs, *argc, *argv,
                     /* isLongopt */ longindex != -1);
-                if (result != EX_OK) {
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
                     goto finish;
                 }
                 break;
   
-            case kOptSystemMkext:
-               /* Safe to ignore double spec of this flag. */
-                if (toolArgs->updateSystemMkext) {
-                    continue;
-                }
-                if (toolArgs->mkextURL && !toolArgs->updateSystemMkext) {
-                    OSKextLog(/* kext */ NULL,
-                        kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                        "-%s (-%c) can't be used when saving files by name",
-                        kOptNameSystemMkext, kOptSystemMkext);
-                    goto finish;
-                }
-                toolArgs->updateSystemMkext = true;
-                scratchURL = CFURLCreateFromFileSystemRepresentation(
-                    kCFAllocatorDefault, (const UInt8 *)_kOSKextStartupMkextPath,
-                    strlen(_kOSKextStartupMkextPath), /* isDir */ true);
-                if (!scratchURL) {
-                    OSKextLogStringError(/* kext */ NULL);
-                    result = EX_OSERR;
-                    goto finish;
-                }
-                toolArgs->mkextURL = CFRetain(scratchURL);
-                toolArgs->mkextVersion = 2;
-                {
-                    CFArrayRef sysExtensionsFolders =
-                        OSKextGetSystemExtensionsFolderURLs();
-
-                    CFArrayAppendArray(toolArgs->argURLs,
-                        sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
-                    CFArrayAppendArray(toolArgs->repositoryURLs,
-                        sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
-                }
-                
-                break;
-    
+   
+#if !NO_BOOT_ROOT
             case kOptForce:
                 toolArgs->forceUpdateFlag = true;
                 break;
+#endif
   
             case kOptLowPriorityFork:
                 toolArgs->lowPriorityFlag = true;
@@ -512,21 +445,26 @@ ExitStatus readArgs(
                 break;
     
             case kOptKernel:
-                if (toolArgs->kernelURL) {
+                if (toolArgs->kernelPath) {
                     OSKextLog(/* kext */ NULL,
                         kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
                         "Warning: kernel file already specified; using last.");
-                    SAFE_RELEASE_NULL(toolArgs->kernelURL);
+                } else {
+                    toolArgs->kernelPath = malloc(PATH_MAX);
+                    if (!toolArgs->kernelPath) {
+                        OSKextLogMemError();
+                        result = EX_OSERR;
+                        goto finish;
+                    }
                 }
-                scratchURL = CFURLCreateFromFileSystemRepresentation(
-                    kCFAllocatorDefault,
-                    (const UInt8 *)optarg, strlen(optarg), true);
-                if (!scratchURL) {
-                    OSKextLogStringError(/* kext */ NULL);
-                    result = EX_OSERR;
+
+                len = strlcpy(toolArgs->kernelPath, optarg, PATH_MAX);
+                if (len >= PATH_MAX) {
+                    OSKextLog(/* kext */ NULL,
+                        kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                        "Error: kernel filename length exceeds PATH_MAX");
                     goto finish;
                 }
-                toolArgs->kernelURL = CFRetain(scratchURL);
                 break;
     
             case kOptLocalRoot:
@@ -550,7 +488,7 @@ ExitStatus readArgs(
                 break;
   
             case kOptAllLoaded:
-                setNeededLoadedKextInfo(toolArgs);
+                toolArgs->needLoadedKextInfo = true;
                 break;
   
             case kOptSafeBoot:
@@ -567,6 +505,7 @@ ExitStatus readArgs(
                 toolArgs->printTestResults = true;
                 break;
   
+#if !NO_BOOT_ROOT
             case kOptUpdate:
             case kOptCheckUpdate:
                 if (toolArgs->updateVolumeURL) {
@@ -575,6 +514,14 @@ ExitStatus readArgs(
                         "Warning: update volume already specified; using last.");
                     SAFE_RELEASE_NULL(toolArgs->updateVolumeURL);
                 }
+                // sanity check that the volume exists
+                if (stat(optarg, &sb)) {
+                    OSKextLog(NULL,kOSKextLogWarningLevel|kOSKextLogFileAccessFlag,
+                              "%s - %s.", optarg, strerror(errno));
+                    result = EX_NOINPUT;
+                    goto finish;
+                }
+
                 scratchURL = CFURLCreateFromFileSystemRepresentation(
                     kCFAllocatorDefault,
                     (const UInt8 *)optarg, strlen(optarg), true);
@@ -588,14 +535,19 @@ ExitStatus readArgs(
                     toolArgs->expectUpToDate = true;
                 }
                 break;
+#endif
           
             case kOptQuiet:
                 beQuiet();
                 break;
 
             case kOptVerbose:
-                result = setLogFilterForOpt(*argc, *argv,
+                scratchResult = setLogFilterForOpt(*argc, *argv,
                     /* forceOnFlags */ kOSKextLogKextOrGlobalMask);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
+                    goto finish;
+                }
                 break;
 
             case kOptNoAuthentication:
@@ -607,28 +559,27 @@ ExitStatus readArgs(
                     case kLongOptMkext1:
                     case kLongOptMkext2:
                     // note kLongOptMkext == latest supported version 
-                        if (toolArgs->updateSystemMkext) {
-                            OSKextLog(/* kext */ NULL,
-                                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                                "-%s (-%c) can't be used when saving files by name.",
-                                kOptNameSystemMkext, kOptSystemMkext);
-                            goto finish;
-                        }
-                        if (toolArgs->mkextURL) {
+                        if (toolArgs->mkextPath) {
                             OSKextLog(/* kext */ NULL,
                                 kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
                                 "Warning: output mkext file already specified; using last.");
-                            SAFE_RELEASE_NULL(toolArgs->mkextURL);
+                        } else {
+                            toolArgs->mkextPath = malloc(PATH_MAX);
+                            if (!toolArgs->mkextPath) {
+                                OSKextLogMemError();
+                                result = EX_OSERR;
+                                goto finish;
+                            }
                         }
-                        scratchURL = CFURLCreateFromFileSystemRepresentation(
-                            kCFAllocatorDefault,
-                            (const UInt8 *)optarg, strlen(optarg), true);
-                        if (!scratchURL) {
-                            OSKextLogStringError(/* kext */ NULL);
-                            result = EX_OSERR;
+
+                        len = strlcpy(toolArgs->mkextPath, optarg, PATH_MAX);
+                        if (len >= PATH_MAX) {
+                            OSKextLog(/* kext */ NULL,
+                                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                                "Error: mkext filename length exceeds PATH_MAX");
                             goto finish;
                         }
-                        toolArgs->mkextURL = CFRetain(scratchURL);
+                        
                         if (longopt == kLongOptMkext1) {
                             toolArgs->mkextVersion = 1;
                         } else if (longopt == kLongOptMkext2) {
@@ -663,15 +614,7 @@ ExitStatus readArgs(
 
                     case kLongOptSystemCaches:
                         toolArgs->updateSystemCaches = true;
-                        {
-                            CFArrayRef sysExtensionsFolders =
-                                 OSKextGetSystemExtensionsFolderURLs();
-
-                            CFArrayAppendArray(toolArgs->argURLs,
-                                sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
-                            CFArrayAppendArray(toolArgs->repositoryURLs,
-                                sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
-                        }
+                        setSystemExtensionsFolders(toolArgs);
                         break;
 
                     case kLongOptCompressed:
@@ -704,31 +647,55 @@ ExitStatus readArgs(
                         break;
 
                     case kLongOptSystemPrelinkedKernel:
-                        result = setPrelinkedKernelArgs(toolArgs,
+                        scratchResult = setPrelinkedKernelArgs(toolArgs,
                             /* filename */ NULL);
-                        if (result != EX_OK) {
+                        if (scratchResult != EX_OK) {
+                            result = scratchResult;
                             goto finish;
                         }
-                        setNeededLoadedKextInfo(toolArgs);
+                        toolArgs->needLoadedKextInfo = true;
+                        toolArgs->requiredFlagsRepositoriesOnly |=
+                            kOSKextOSBundleRequiredLocalRootFlag;
                         break;
 
                     case kLongOptAllPersonalities:
                         toolArgs->includeAllPersonalities = true;
                         break;
 
-                    case kLongOptOmitLinkState:
-                        toolArgs->omitLinkState = true;
+                    case kLongOptNoLinkFailures:
+                        toolArgs->noLinkFailures = true;
                         break;
 
+                    case kLongOptStripSymbols:
+                        toolArgs->stripSymbols = true;
+                        break;
+
+#if !NO_BOOT_ROOT
+                    case kLongOptInstaller:
+                        toolArgs->installerCalled = true;
+                        break;
+                    case kLongOptCachesOnly:
+                        toolArgs->cachesOnly = true;
+                        break;
+#endif
+
                     default:
-                       /* getopt_long_only() prints an error message for us. */
+                       /* Because we use ':', getopt_long doesn't print an error message.
+                        */
+                        OSKextLog(/* kext */ NULL,
+                            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                            "unrecognized option %s", (*argv)[optind-1]);
                         goto finish;
                         break;
                 }
                 break;
 
             default:
-               /* getopt_long_only() prints an error message for us. */
+               /* Because we use ':', getopt_long doesn't print an error message.
+                */
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "unrecognized option %s", (*argv)[optind-1]);
                 goto finish;
                 break;
 
@@ -759,8 +726,8 @@ ExitStatus readArgs(
                 kCFAllocatorDefault,
                 (const UInt8 *)(*argv)[i], strlen((*argv)[i]), true);
             if (!scratchURL) {
-                result = EX_OSERR;
                 OSKextLogMemError();
+                result = EX_OSERR;
                 goto finish;
             }
             CFArrayAppendValue(toolArgs->argURLs, scratchURL);
@@ -817,53 +784,124 @@ ExitStatus setPrelinkedKernelArgs(
     KextcacheArgs * toolArgs,
     char          * filename)
 {
-    ExitStatus   result      = EX_USAGE;
-    CFURLRef     scratchURL  = NULL;  // must release
+    ExitStatus          result          = EX_USAGE;
 
-    if (toolArgs->prelinkedKernelURL) {
+    if (toolArgs->prelinkedKernelPath) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
             "Warning: prelinked kernel already specified; using last.");
-            SAFE_RELEASE_NULL(toolArgs->prelinkedKernelURL);
-        toolArgs->prelinkedKernelErrorRequired = false;
-    }
-
-    if (!filename) {
-        toolArgs->needDefaultPrelinkedKernelInfo = true;
-        
-        const char * prelinkedKernelDir =
-            _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder;
-
-        scratchURL = CFURLCreateWithBytes(kCFAllocatorDefault,
-            (UInt8 *)prelinkedKernelDir, strlen(prelinkedKernelDir),
-            kCFStringEncodingMacRoman, NULL);
-            
     } else {
-        scratchURL = CFURLCreateFromFileSystemRepresentation(
-            kCFAllocatorDefault,  (const UInt8 *)filename,
-            strlen(filename), true);
-        toolArgs->prelinkedKernelErrorRequired = true;
+        toolArgs->prelinkedKernelPath = malloc(PATH_MAX);
+        if (!toolArgs->prelinkedKernelPath) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
     }
 
-    if (!scratchURL) {
-        OSKextLogStringError(/* kext */ NULL);
-        result = EX_OSERR;
+   /* If we don't have a filename we construct a default one, automatically
+    * add the system extensions folders, and note that we're using default
+    * info.
+    */
+    if (!filename) {
+#if NO_BOOT_ROOT
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Error: prelinked kernel filename required");
+        goto finish;
+#else
+        if (!setDefaultPrelinkedKernel(toolArgs)) {
+            goto finish;
+        }
+        toolArgs->needDefaultPrelinkedKernelInfo = true;
+        setSystemExtensionsFolders(toolArgs);
+#endif
+    } else {
+        size_t len = strlcpy(toolArgs->prelinkedKernelPath, filename, PATH_MAX);
+        if (len >= PATH_MAX) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Error: prelinked kernel filename length exceeds PATH_MAX");
+            goto finish;
+        }
+    }
+
+    result = EX_OK;
+finish:
+    return result;
+}
+
+#if !NO_BOOT_ROOT
+/*******************************************************************************
+*******************************************************************************/
+Boolean setDefaultKernel(KextcacheArgs * toolArgs)
+{
+    Boolean      result = FALSE;
+    size_t       length = 0;
+
+    toolArgs->haveKernelMtime = FALSE;
+
+    if (!toolArgs->kernelPath) {
+        toolArgs->kernelPath = malloc(PATH_MAX);
+        if (!toolArgs->kernelPath) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
+    }
+    length = strlcpy(toolArgs->kernelPath,
+        kDefaultKernel,
+        PATH_MAX);
+    if (length >= PATH_MAX) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Error: kernel filename length exceeds PATH_MAX");
         goto finish;
     }
 
-    toolArgs->prelinkedKernelURL = CFRetain(scratchURL);
-    
-    result = EX_OK;
+    if (EX_OK != statPath(toolArgs->kernelPath, &toolArgs->kernelStatBuffer)) {
+        goto finish;
+    }
+    toolArgs->haveKernelMtime = TRUE;
+
+    result = TRUE;
 
 finish:
 
-    SAFE_RELEASE(scratchURL);
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
-void setNeededLoadedKextInfo(KextcacheArgs * toolArgs)
+Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
+{
+    Boolean      result              = FALSE;
+    const char * prelinkedKernelFile = NULL;
+    size_t       length              = 0;
+
+        prelinkedKernelFile =
+            _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
+            _kOSKextPrelinkedKernelBasename;
+
+    length = strlcpy(toolArgs->prelinkedKernelPath, 
+        prelinkedKernelFile, PATH_MAX);
+    if (length >= PATH_MAX) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Error: prelinked kernel filename length exceeds PATH_MAX");
+        goto finish;
+    }
+    
+    result = TRUE;
+
+finish:
+    return result;
+}
+#endif
+
+/*******************************************************************************
+*******************************************************************************/
+void setSystemExtensionsFolders(KextcacheArgs * toolArgs)
 {
     CFArrayRef sysExtensionsFolders = OSKextGetSystemExtensionsFolderURLs();
 
@@ -871,8 +909,6 @@ void setNeededLoadedKextInfo(KextcacheArgs * toolArgs)
         sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
     CFArrayAppendArray(toolArgs->repositoryURLs,
         sysExtensionsFolders, RANGE_ALL(sysExtensionsFolders));
-
-    toolArgs->needLoadedKextInfo = true;
 
     return;
 }
@@ -903,23 +939,26 @@ waitForIOKitQuiescence(void)
 }
 
 /*******************************************************************************
-* Wait for the system to report that it's a good time to do work.  We define
-* a good time to be when the IOSystemLoadAdvisory API returns a combined level
-* of kIOSystemLoadAdvisoryLevelGreat, and we'll wait up to SYSTEM_LOAD_TIMEOUT
-* seconds for the system to enter that state before we begin our work.
+* Wait for the system to report that it's a good time to do work.  We define a
+* good time to be when the IOSystemLoadAdvisory API returns a combined level of 
+* kIOSystemLoadAdvisoryLevelGreat, and we'll wait up to kOSKextSystemLoadTimeout
+* seconds for the system to enter that state before we begin our work.  If there
+* is an error in this function, we just return and get started with the work.
 *******************************************************************************/
-static ExitStatus 
-waitForLowSystemLoad(void)
+static void
+waitForGreatSystemLoad(void)
 {
-    ExitStatus result = EX_SOFTWARE;
-    int notifyFileDescriptor = 0, notifyToken = 0, currentToken = 0;
-    uint32_t notifyStatus = 0, usecs = 0;
-    uint64_t notifyState = 0;
     struct timeval currenttime;
     struct timeval endtime;
     struct timeval timeout;
     fd_set readfds;
     fd_set tmpfds;
+    uint64_t systemLoadAdvisoryState            = 0;
+    uint32_t notifyStatus                       = 0;
+    uint32_t usecs                              = 0;
+    int systemLoadAdvisoryFileDescriptor        = 0;    // closed by notify_cancel()
+    int systemLoadAdvisoryToken                 = 0;    // must notify_cancel()
+    int currentToken                            = 0;    // do not notify_cancel()
 
     bzero(&currenttime, sizeof(currenttime));
     bzero(&endtime, sizeof(endtime));
@@ -931,38 +970,43 @@ waitForLowSystemLoad(void)
 
     /* Register for SystemLoadAdvisory notifications */
 
-    notifyStatus = notify_register_file_descriptor(
-        kIOSystemLoadAdvisoryNotifyName, &notifyFileDescriptor, 
-        /* flags */ 0, &notifyToken);
+    notifyStatus = notify_register_file_descriptor(kIOSystemLoadAdvisoryNotifyName, 
+        &systemLoadAdvisoryFileDescriptor, 
+        /* flags */ 0, &systemLoadAdvisoryToken);
     if (notifyStatus != NOTIFY_STATUS_OK) {
-        result = EX_OSERR;
         goto finish;
     }
 
-    /* If it's not a good time, set up the select(2) timers */
+    OSKextLog(/* kext */ NULL,
+        kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+        "Received initial system load status %llu", systemLoadAdvisoryState);
 
-    notifyStatus = notify_get_state(notifyToken, &notifyState);
+    /* If it's a good time, we'll just return */
+
+    notifyStatus = notify_get_state(systemLoadAdvisoryToken, &systemLoadAdvisoryState);
     if (notifyStatus != NOTIFY_STATUS_OK) {
-        result = EX_OSERR;
         goto finish;
     }
 
-    if (notifyState != kIOSystemLoadAdvisoryLevelGreat) {
-        notifyStatus = gettimeofday(&currenttime, NULL);
-        if (notifyStatus < 0) {
-            result = EX_OSERR;
-            goto finish;
-        }
-
-        endtime = currenttime;
-        endtime.tv_sec += SYSTEM_LOAD_TIMEOUT;
+    if (systemLoadAdvisoryState == kIOSystemLoadAdvisoryLevelGreat) {
+        goto finish;
     }
+
+    /* Set up the select timers */
+
+    notifyStatus = gettimeofday(&currenttime, NULL);
+    if (notifyStatus < 0) {
+        goto finish;
+    }
+
+    endtime = currenttime;
+    endtime.tv_sec += kOSKextSystemLoadTimeout;
 
     timeval_difference(&timeout, &endtime, &currenttime);
     usecs = usecs_from_timeval(&timeout);
 
     FD_ZERO(&readfds);
-    FD_SET(notifyFileDescriptor, &readfds);
+    FD_SET(systemLoadAdvisoryFileDescriptor, &readfds);
 
     /* Check SystemLoadAdvisory notifications until it's a great time to
      * do work or we hit the timeout.
@@ -972,10 +1016,9 @@ waitForLowSystemLoad(void)
         /* Wait for notifications or the timeout */
 
         FD_COPY(&readfds, &tmpfds);
-        notifyStatus = select(notifyFileDescriptor + 1, 
+        notifyStatus = select(systemLoadAdvisoryFileDescriptor + 1, 
             &tmpfds, NULL, NULL, &timeout);
         if (notifyStatus < 0) {
-            result = EX_OSERR;
             goto finish;
         }
 
@@ -983,7 +1026,6 @@ waitForLowSystemLoad(void)
 
         notifyStatus = gettimeofday(&currenttime, NULL);
         if (notifyStatus < 0) {
-            result = EX_OSERR;
             goto finish;
         }
 
@@ -992,30 +1034,56 @@ waitForLowSystemLoad(void)
 
         /* Check the system load state */
 
-        if (!FD_ISSET(notifyFileDescriptor, &tmpfds)) continue;
+        if (!FD_ISSET(systemLoadAdvisoryFileDescriptor, &tmpfds)) {
+            continue;
+        }
 
-        notifyStatus = read(notifyFileDescriptor, 
+        notifyStatus = read(systemLoadAdvisoryFileDescriptor, 
             &currentToken, sizeof(currentToken));
         if (notifyStatus < 0) {
-            result = EX_OSERR;
             goto finish;
         }
 
-        if (currentToken == notifyToken) {
-            notifyStatus = notify_get_state(notifyToken, &notifyState);
-            if (notifyStatus != NOTIFY_STATUS_OK) {
-                result = EX_OSERR;
-                goto finish;
-            }
+        /* The token is written in network byte order. */
+        currentToken = ntohl(currentToken);
 
-            /* If it's a great time, get started with work */
-            if (notifyState == kIOSystemLoadAdvisoryLevelGreat) break;
+        if (currentToken != systemLoadAdvisoryToken) {
+            continue;
+        }
+
+        notifyStatus = notify_get_state(systemLoadAdvisoryToken, 
+            &systemLoadAdvisoryState);
+        if (notifyStatus != NOTIFY_STATUS_OK) {
+            goto finish;
+        }
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+            "Received updated system load status %llu", systemLoadAdvisoryState);
+
+        if (systemLoadAdvisoryState == kIOSystemLoadAdvisoryLevelGreat) {
+            break;
         }
     }
 
-    result = EX_OK;
+    OSKextLog(/* kext */ NULL,
+        kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+        "Pausing for another %d seconds to avoid work contention",
+        kOSKextSystemLoadPauseTime);
+
+    /* We'll wait a random amount longer to avoid colliding with 
+     * other work that is waiting for a great time.
+     */
+    sleep(kOSKextSystemLoadPauseTime);
+
+    OSKextLog(/* kext */ NULL,
+        kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+        "System load is low.  Proceeding.\n");
 finish:
-    return result;
+    if (systemLoadAdvisoryToken) {
+        notify_cancel(systemLoadAdvisoryToken);
+    }
+    return;
 }
 
 /*******************************************************************************
@@ -1067,53 +1135,66 @@ timeval_difference(struct timeval *dst, struct timeval *a, struct timeval *b)
     }
 }
 
+#if !NO_BOOT_ROOT
+/*******************************************************************************
+*******************************************************************************/
+void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs)
+{
+   /* If no arches were explicitly specified, toss in the currently-supported
+    * ones.
+    * xxx - should find a reliable way to do this dynamically for any volume
+    * with or without boot-root.
+    */
+    if (toolArgs->explicitArch) {
+        return;
+    }
+
+    CFArrayRemoveAllValues(toolArgs->targetArchs);
+    addArchForName(toolArgs, "x86_64");
+
+
+        addArchForName(toolArgs, "i386");
+
+    return;
+}
+#endif
+
+/*******************************************************************************
+********************************************************************************/
+void addArch(
+    KextcacheArgs * toolArgs,
+    const NXArchInfo  * arch)
+{
+    if (CFArrayContainsValue(toolArgs->targetArchs, 
+        RANGE_ALL(toolArgs->targetArchs), arch)) 
+    {
+        return;
+    }
+
+    CFArrayAppendValue(toolArgs->targetArchs, arch);
+}
+
 /*******************************************************************************
 *******************************************************************************/
 const NXArchInfo * addArchForName(
-    KextcacheArgs * toolArgs,
+    KextcacheArgs     * toolArgs,
     const char    * archname)
 {
     const NXArchInfo * result = NULL;
-    int i;
     
     result = NXGetArchInfoFromName(archname);
     if (!result) {
         goto finish;
     }
-    for (i = 0; i < toolArgs->numArches; i++) {
-        if (toolArgs->archInfo[i] == result) {
-            goto finish;
-        }
-    }
-    toolArgs->archInfo[toolArgs->numArches] = result;
-    ++(toolArgs->numArches);
 
+    addArch(toolArgs, result);
+    
 finish:
     return result;
 }
 
 /*******************************************************************************
- *******************************************************************************/
-void addArch(
-    KextcacheArgs     * toolArgs,
-    const NXArchInfo  * arch)
-{
-    int i;
-    
-    for (i = 0; i < toolArgs->numArches; i++) {
-        if (toolArgs->archInfo[i] == arch) {
-            goto finish;
-        }
-    }
-    toolArgs->archInfo[toolArgs->numArches] = arch;
-    ++(toolArgs->numArches);
-    
-finish:
-    return;
-}
-
-/*******************************************************************************
- *******************************************************************************/
+*******************************************************************************/
 void checkKextdSpawnedFilter(Boolean kernelFlag)
 {
     const char * environmentVariable  = NULL;  // do not free
@@ -1164,20 +1245,20 @@ void checkKextdSpawnedFilter(Boolean kernelFlag)
 *******************************************************************************/
 ExitStatus checkArgs(KextcacheArgs * toolArgs)
 {
-    ExitStatus result = EX_USAGE;
+    ExitStatus  result  = EX_USAGE;
 
-    if (!toolArgs->mkextURL && !toolArgs->prelinkedKernelURL &&
-        !toolArgs->updateVolumeURL && !toolArgs->updateSystemCaches) {
-
+    if (!toolArgs->mkextPath && !toolArgs->prelinkedKernelPath &&
+        !toolArgs->updateVolumeURL && !toolArgs->updateSystemCaches) 
+    {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "No work to do; check options and try again.");
         goto finish;
     }
     
-    if (toolArgs->volumeRootURL && !toolArgs->mkextURL &&
-        !toolArgs->prelinkedKernelURL) {
-
+    if (toolArgs->volumeRootURL && !toolArgs->mkextPath &&
+        !toolArgs->prelinkedKernelPath) 
+    {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Use -%s only when creating an mkext archive or prelinked kernel.",
@@ -1186,7 +1267,8 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
     }
 
     if (!toolArgs->updateVolumeURL && !CFArrayGetCount(toolArgs->argURLs) &&
-        !toolArgs->compress && !toolArgs->uncompress) {
+        !toolArgs->compress && !toolArgs->uncompress) 
+    {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "No kexts or directories specified.");
@@ -1204,6 +1286,7 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
         toolArgs->uncompress = false;
     }
     
+#if !NO_BOOT_ROOT
     if (toolArgs->forceUpdateFlag) {
         if (toolArgs->expectUpToDate || !toolArgs->updateVolumeURL) {
             OSKextLog(/* kext */ NULL,
@@ -1213,63 +1296,39 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
             goto finish;
         }
     }
+    if (toolArgs->installerCalled) {
+        if (toolArgs->expectUpToDate || !toolArgs->updateVolumeURL) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "-%s is allowed only with -%s (-%c).",
+                      kOptNameInstaller, kOptNameUpdate, kOptUpdate);
+            goto finish;
+        }
+    }
+    if (toolArgs->cachesOnly) {
+        if (toolArgs->expectUpToDate || !toolArgs->updateVolumeURL) {
+            OSKextLog(/* kext */ NULL,
+                      kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                      "-%s is allowed only with -%s (-%c).",
+                      kOptNameCachesOnly, kOptNameUpdate, kOptUpdate);
+            goto finish;
+        }
+    }
+#endif
 
     if (toolArgs->updateVolumeURL) {
-        if (toolArgs->mkextURL || toolArgs->prelinkedKernelURL) {
+        if (toolArgs->mkextPath || toolArgs->prelinkedKernelPath) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
                 "Can't create mkext or prelinked kernel when updating volumes.");
         }
     }
 
-   /* If no arches were explicitly specified, toss in the currently-supported
-    * ones.
-    * xxx - should find a reliable way to do this dynamically for any volume
-    * with or without boot-root.
+#if !NO_BOOT_ROOT
+   /* This is so lame.
     */
-    if (!toolArgs->explicitArch) {
-        if (toolArgs->prelinkedKernelURL) {
-            // default to host arch since we don't build universal prelinked kernels
-            const NXArchInfo *hostArch;
-            
-            hostArch = OSKextGetRunningKernelArchitecture();
-            if (!hostArch) {
-                goto finish;
-            }
-            
-            addArch(toolArgs, hostArch);
-        } else {
-            addArchForName(toolArgs, "i386");
-            addArchForName(toolArgs, "x86_64");
-        }
-    } else {
-        /* If they were specified, validate them */
-        if (toolArgs->prelinkedKernelURL) {
-
-            if (toolArgs->numArches != 1) {
-                OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                    "Prelinked kernel requires a single architecture.");
-                goto finish;
-            }
-
-            if (toolArgs->needLoadedKextInfo) {
-                const NXArchInfo *hostArch;
-
-                hostArch = OSKextGetRunningKernelArchitecture();
-                if (!hostArch) {
-                    goto finish;
-                }
-             
-                if (toolArgs->archInfo[0]->cputype != hostArch->cputype) {
-                    OSKextLog(/* kext */ NULL,
-                        kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                        "Can't request loaded kexts for non-host architecture.");
-                    goto finish;                        
-                }
-            }
-        }
-    }
+    setDefaultArchesIfNeeded(toolArgs);
+#endif
 
    /* xxx - Old kextcache behavior was to just check the time of the
     * first directory argument given. Ideally we'd check every single
@@ -1288,41 +1347,51 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
         }
     }
 
-    if (toolArgs->needDefaultPrelinkedKernelInfo && !toolArgs->kernelURL) {
-        toolArgs->kernelURL = CFURLCreateFromFileSystemRepresentation(
-            kCFAllocatorDefault, (UInt8 *) kDefaultKernelFile, 
-            sizeof(kDefaultKernelFile) - 1, /* isDirectory */ false);
-        if (!toolArgs->kernelURL) {
-            OSKextLogMemError();
-            result = EX_OSERR;
+#if !NO_BOOT_ROOT
+    if (toolArgs->needDefaultPrelinkedKernelInfo && !toolArgs->kernelPath) {       
+        if (!setDefaultKernel(toolArgs)) {
             goto finish;
         }
     }
+#endif
 
-    if (toolArgs->prelinkedKernelURL && !toolArgs->uncompress &&
-        !toolArgs->kernelURL) {
-
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "No kernel specified for prelinked kernel generation.");
-        goto finish;
-    }
-    
-    if (toolArgs->kernelURL) {
-        result = statURL(toolArgs->kernelURL, &toolArgs->kernelStatBuffer);
-        if (result != EX_OK) {
+    if (toolArgs->prelinkedKernelPath && CFArrayGetCount(toolArgs->argURLs)) {
+         if (!toolArgs->kernelPath) {
+            OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "No kernel specified for prelinked kernel generation.");
             goto finish;
+        } else {
+            result = statPath(toolArgs->kernelPath, &toolArgs->kernelStatBuffer);
+            if (result != EX_OK) {
+                goto finish;
+            }
+            toolArgs->haveKernelMtime = true;
         }
     }
 
+   /* Updating system caches requires no additional kexts or repositories,
+    * and must run as root.
+    */
     if (toolArgs->needDefaultPrelinkedKernelInfo ||
-        toolArgs->updateSystemMkext ||
-        toolArgs->updateSystemCaches) {
-        
+            toolArgs->updateSystemCaches) {
+
+        if (CFArrayGetCount(toolArgs->namedKextURLs) || CFSetGetCount(toolArgs->kextIDs) ||
+            !CFEqual(toolArgs->repositoryURLs, OSKextGetSystemExtensionsFolderURLs())) {
+            
+            OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "Custom kexts and repository directories are not allowed "
+                    "when updating system kext caches.");
+            result = EX_USAGE;
+            goto finish;
+
+        }
+
         if (geteuid() != 0) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "You must be running as root to update system kext caches.");
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "You must be running as root to update system kext caches.");
             result = EX_NOPERM;
             goto finish;
         }
@@ -1339,21 +1408,40 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-ExitStatus statURL(CFURLRef anURL, struct stat * statBuffer)
+ExitStatus 
+statURL(CFURLRef anURL, struct stat * statBuffer)
 {
     ExitStatus result = EX_OSERR;
-    char dirPath[PATH_MAX];
+    char path[PATH_MAX];
 
     if (!CFURLGetFileSystemRepresentation(anURL, /* resolveToBase */ true,
-        (UInt8 *)dirPath, sizeof(dirPath))) {
-
+            (UInt8 *)path, sizeof(path))) 
+    {
         OSKextLogStringError(/* kext */ NULL);
         goto finish;
     }
-    if (stat(dirPath, statBuffer)) {
+
+    result = statPath(path, statBuffer);
+    if (!result) {
+        goto finish;
+    }
+
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+statPath(const char *path, struct stat *statBuffer)
+{
+    ExitStatus result = EX_OSERR;
+
+    if (stat(path, statBuffer)) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't stat %s - %s.", dirPath, strerror(errno));
+                kOSKextLogDebugLevel | kOSKextLogGeneralFlag,
+                "Can't stat %s - %s.", path, strerror(errno));
         goto finish;
     }
 
@@ -1365,29 +1453,116 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-ExitStatus updateSystemDirectoryCaches(
-    KextcacheArgs * toolArgs)
+ExitStatus
+getLoadedKextInfo(
+    KextcacheArgs *toolArgs)
 {
-    ExitStatus result               = EX_OSERR;
-    ExitStatus directoryResult      = EX_OK;  // flipped to error as needed
-    CFArrayRef sysExtensionsFolders = NULL;  // do not release
-    CFURLRef   folderURL            = NULL;  // do not release
-    char       folderPath[PATH_MAX] = "";
-    CFIndex    count, i;
+    ExitStatus  result                  = EX_SOFTWARE;
+    CFArrayRef  requestedIdentifiers    = NULL; // must release
 
-    sysExtensionsFolders = OSKextGetSystemExtensionsFolderURLs();
-    if (!sysExtensionsFolders) {
-        OSKextLogMemError();
+    /* Let I/O Kit settle down before we poke at it.
+     */
+    
+    (void) waitForIOKitQuiescence();
+
+    /* Get the list of requested bundle IDs from the kernel and find all of
+     * the associated kexts.
+     */
+
+    requestedIdentifiers = OSKextCopyAllRequestedIdentifiers();
+    if (!requestedIdentifiers) {
         goto finish;
     }
 
-    count = CFArrayGetCount(sysExtensionsFolders);
+    toolArgs->loadedKexts = OSKextCopyKextsWithIdentifiers(requestedIdentifiers);
+    if (!toolArgs->loadedKexts) {
+        goto finish;
+    }
+
+    result = EX_OK;
+
+finish:
+    SAFE_RELEASE(requestedIdentifiers);
+
+    return result;
+}
+
+#pragma mark System Plist Caches
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs)
+{
+    ExitStatus         result               = EX_OSERR;
+    ExitStatus         directoryResult      = EX_OK;  // flipped to error as needed
+    CFArrayRef         systemExtensionsURLs = NULL;   // do not release
+    CFArrayRef         kexts                = NULL;   // must release
+    CFURLRef           folderURL            = NULL;   // do not release
+    char               folderPath[PATH_MAX] = "";
+    const NXArchInfo * startArch            = OSKextGetArchitecture();
+    CFArrayRef         directoryValues      = NULL;   // must release
+    CFArrayRef         personalities        = NULL;   // must release
+    CFIndex            count, i;
+
+   /* We only care about updating info for the system extensions folders.
+    */
+    systemExtensionsURLs = OSKextGetSystemExtensionsFolderURLs();
+    if (!systemExtensionsURLs) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    kexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault, systemExtensionsURLs);
+    if (!kexts) {
+        goto finish;
+    }
+
+   /* Update the global personalities & property-value caches, each per arch.
+    */
+    for (i = 0; i < CFArrayGetCount(toolArgs->targetArchs); i++) {
+        const NXArchInfo * targetArch = 
+            CFArrayGetValueAtIndex(toolArgs->targetArchs, i);
+
+        SAFE_RELEASE_NULL(personalities);
+
+       /* Set the active architecture for scooping out personalities and such.
+        */        
+        if (!OSKextSetArchitecture(targetArch)) {
+            goto finish;
+        }
+
+        personalities = OSKextCopyPersonalitiesOfKexts(kexts);
+        if (!personalities) {
+            goto finish;
+        }
+
+        if (!_OSKextWriteCache(systemExtensionsURLs, CFSTR(kIOKitPersonalitiesKey),
+            targetArch, _kOSKextCacheFormatIOXML, personalities)) {
+
+            goto finish;
+        }
+
+       /* Loginwindow asks us for this property so let's spare lots of I/O
+        * by caching it. This read function call updates the caches for us;
+        * we don't use the output.
+        */
+        if (!readSystemKextPropertyValues(CFSTR(kOSBundleHelperKey), targetArch,
+                /* forceUpdate? */ true, /* values */ NULL)) {
+
+            goto finish;
+        }
+    }
+
+   /* Update per-directory caches. This is just KextIdentifiers any more.
+    */
+    count = CFArrayGetCount(systemExtensionsURLs);
     for (i = 0; i < count; i++) {
 
-        folderURL = CFArrayGetValueAtIndex(sysExtensionsFolders, i);
+        folderURL = CFArrayGetValueAtIndex(systemExtensionsURLs, i);
 
         if (!CFURLGetFileSystemRepresentation(folderURL, /* resolveToBase */ true,
-            (UInt8 *)folderPath, sizeof(folderPath))) {
+                    (UInt8 *)folderPath, sizeof(folderPath))) {
 
             OSKextLogStringError(/* kext */ NULL);
             goto finish;
@@ -1406,19 +1581,23 @@ ExitStatus updateSystemDirectoryCaches(
     }
 
 finish:
+    SAFE_RELEASE(kexts);
+    SAFE_RELEASE(directoryValues);
+    SAFE_RELEASE(personalities);
+
+    OSKextSetArchitecture(startArch);
+
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus updateDirectoryCaches(
-    KextcacheArgs * toolArgs,
-    CFURLRef        folderURL)
+        KextcacheArgs * toolArgs,
+        CFURLRef        folderURL)
 {
-    ExitStatus  result                   = EX_OK;  // optimistic!
-    CFArrayRef  kexts                    = NULL;   // must release
-    CFArrayRef  directoryValues          = NULL;   // must release
-    CFIndex     i;
+    ExitStatus         result           = EX_OK;  // optimistic!
+    CFArrayRef         kexts            = NULL;   // must release
 
     kexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, folderURL);
     if (!kexts) {
@@ -1427,33 +1606,22 @@ ExitStatus updateDirectoryCaches(
     }
 
     if (!_OSKextWriteIdentifierCacheForKextsInDirectory(
-        kexts, folderURL, /* force? */ true)) {
-    
+                kexts, folderURL, /* force? */ true)) {
         result = EX_OSERR;
-    }
-
-    for (i = 0; i < toolArgs->numArches; i++) {
-        if (kOSReturnSuccess != writePersonalitiesCache(kexts,
-            toolArgs->archInfo[i], folderURL)) {
-
-            result = EX_OSERR;
-        }
-
-        if (!readKextPropertyValuesForDirectory(folderURL,
-            CFSTR(kOSBundleHelperKey), toolArgs->archInfo[i],
-            /* forceUpdate? */ true, /* values */ NULL)) {
-            
-            result = EX_OSERR;
-        }
+        goto finish;
     }
 
     result = EX_OK;
+
 finish:
     SAFE_RELEASE(kexts);
-    SAFE_RELEASE(directoryValues);
     return result;
 }
 
+#pragma mark Misc Stuff
+
+/*******************************************************************************
+*******************************************************************************/
 /*******************************************************************************
 *******************************************************************************/
 /* Open Firmware (PPC only) has an upper limit of 16MB on file transfers,
@@ -1465,31 +1633,26 @@ ExitStatus createMkext(
     KextcacheArgs * toolArgs,
     Boolean       * fatalOut)
 {
+    struct timeval    cacheFileTimes[2];
     ExitStatus        result         = EX_SOFTWARE;
     CFMutableArrayRef archiveKexts   = NULL;  // must release
     CFMutableArrayRef mkexts         = NULL;  // must release
     CFDataRef         mkext          = NULL;  // must release
-    struct fat_header fatHeader;
-    uint32_t          fatOffset      = 0;
-    CFURLRef          systemMkextFolderURL = NULL;  // must release
-    char              mkextPath[PATH_MAX];
-    char              tmpPath[PATH_MAX];
-    int               fileDescriptor = -1;    // must close
-    mode_t            real_umask;
-    struct timeval    cacheFileTimes[2];
-    Boolean           updateModTime  = true;
+    const NXArchInfo *targetArch     = NULL;  // do not free
     int               i;
 
-   /* Try a lock on the volume for the mkext being updated.
-    * xxx - why is this done even for non-system use?
-    */
+#if !NO_BOOT_ROOT
+    /* Try a lock on the volume for the mkext being updated.
+     * The lock prevents kextd from starting up a competing kextcache.
+     */
     if (!getenv("_com_apple_kextd_skiplocks")) {
-        // xxx - updateBoots * related should return only sysexit-type values, not errno
-        result = takeVolumeForPath(mkextPath);
+        // xxx - updateBoots + related should return only sysexit-type values, not errno
+        result = takeVolumeForPath(toolArgs->mkextPath);
         if (result != EX_OK) {
             goto finish;
         }
     }
+#endif
 
     if (!createCFMutableArray(&mkexts, &kCFTypeArrayCallBacks)) {
         OSKextLogMemError();
@@ -1504,41 +1667,25 @@ ExitStatus createMkext(
         goto finish;
     }
 
-    if (toolArgs->updateSystemMkext) {
-        systemMkextFolderURL = CFURLCreateFromFileSystemRepresentation(
-            kCFAllocatorDefault, (UInt8 *)_kOSKextStartupMkextFolderPath,
-            strlen(_kOSKextStartupMkextFolderPath), /* isDir */ true);
-        if (!systemMkextFolderURL) {
-            OSKextLogMemError();
-            result = EX_OSERR;
-            goto finish;
-        }
-
-        if (!_OSKextCreateFolderForCacheURL(toolArgs->mkextURL)) {
-            result = EX_OSERR;
-            goto finish;
-        }
-    }
-
-    for (i = 0; i < toolArgs->numArches; i++) {
+    for (i = 0; i < CFArrayGetCount(toolArgs->targetArchs); i++) {
+        targetArch = CFArrayGetValueAtIndex(toolArgs->targetArchs, i);
 
         SAFE_RELEASE_NULL(mkext);
 
-        if (!OSKextSetArchitecture(toolArgs->archInfo[i])) {
+        if (!OSKextSetArchitecture(targetArch)) {
             OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Can't set architecture %s to create mkext.",
-                toolArgs->archInfo[i]->name);
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "Can't set architecture %s to create mkext.",
+                    targetArch->name);
             result = EX_OSERR;
             goto finish;
         }
 
        /*****
         * Figure out which kexts we're actually archiving.
-        * This uses toolArgs->allKexts, which must already be created.
         */
-        result = filterKextsForMkext(toolArgs, archiveKexts,
-            toolArgs->archInfo[i], fatalOut);
+        result = filterKextsForCache(toolArgs, archiveKexts,
+                targetArch, fatalOut);
         if (result != EX_OK || *fatalOut) {
             goto finish;
         }
@@ -1547,28 +1694,28 @@ ExitStatus createMkext(
             OSKextLog(/* kext */ NULL,
                 kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
                 "No kexts found for architecture %s; skipping architecture.",
-                toolArgs->archInfo[i]->name);
+                targetArch->name);
             continue;
         }
 
         if (toolArgs->mkextVersion == 2) {
             mkext = OSKextCreateMkext(kCFAllocatorDefault, archiveKexts,
-                toolArgs->volumeRootURL,
-                kOSKextOSBundleRequiredNone, toolArgs->compress);
+                    toolArgs->volumeRootURL,
+                    kOSKextOSBundleRequiredNone, toolArgs->compress);
         } else if (toolArgs->mkextVersion == 1) {
-            mkext = createMkext1ForArch(toolArgs->archInfo[i], archiveKexts,
-                toolArgs->compress);
+            mkext = createMkext1ForArch(targetArch, archiveKexts,
+                    toolArgs->compress);
         }
         if (!mkext) {
             // OSKextCreateMkext() logs an error
             result = EX_OSERR;
             goto finish;
         }
-        if (toolArgs->archInfo[i] == NXGetArchInfoFromName("ppc")) {
+        if (targetArch == NXGetArchInfoFromName("ppc")) {
             if (CFDataGetLength(mkext) > kOpenFirmwareMaxFileSize) {
                 OSKextLog(/* kext */ NULL,
-                    kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                    "PPC archive is too large for Open Firmware; aborting.");
+                        kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                        "PPC archive is too large for Open Firmware; aborting.");
                 result = EX_SOFTWARE;
                 *fatalOut = true;
                 goto finish;
@@ -1579,190 +1726,152 @@ ExitStatus createMkext(
 
     if (!CFArrayGetCount(mkexts)) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "No mkext archives created.");
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+                "No mkext archives created.");
         goto finish;
     }
 
-    if (!CFURLGetFileSystemRepresentation(toolArgs->mkextURL,
-        /* resolveToBase */ true, (UInt8 *)mkextPath, sizeof(mkextPath))) {
+    if (toolArgs->haveFolderMtime) {
+        CFURLRef firstURL = CFArrayGetValueAtIndex(toolArgs->repositoryURLs, 0);
 
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-    
-   /* If it looks like we're updating the system mkext, try to create
-    * the folder to contain it. Don't log or bail here, we'll do that
-    * when mkstemp() fails below.
-    */
-    if (!strncmp(mkextPath, _kOSKextStartupMkextFolderPath,
-        sizeof(_kOSKextStartupMkextFolderPath) - 1)) {
-        
-        _OSKextCreateFolderForCacheURL(toolArgs->mkextURL);
+        result = getFileURLModTimePlusOne(firstURL, 
+            &toolArgs->firstFolderStatBuffer, cacheFileTimes);
+        if (result != EX_OK) {
+            goto finish;
+        }
     }
 
-    strlcpy(tmpPath, mkextPath, sizeof(tmpPath));
-    if (strlcat(tmpPath, ".XXXX", sizeof(tmpPath)) >= sizeof(tmpPath)) {
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-
-    fileDescriptor = mkstemp(tmpPath);
-    if (-1 == fileDescriptor) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't create %s - %s.",
-            tmpPath, strerror(errno));
-        goto finish;
-    }
-
-   /* Set the umask to get it, then set it back to iself. Wish there were a
-    * better way to query it.
-    */
-    real_umask = umask(0);
-    umask(real_umask);
-
-    if (-1 == fchmod(fileDescriptor, MKEXT_PERMS & ~real_umask)) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't set permissions on %s - %s.",
-            tmpPath, strerror(errno));
-    }
-
-    OSKextLog(/* kext */ NULL,
-        kOSKextLogDebugLevel | kOSKextLogFileAccessFlag,
-        "Saving temp mkext file %s.",
-        tmpPath);
-
-    fatHeader.magic = OSSwapHostToBigInt32(FAT_MAGIC);
-    fatHeader.nfat_arch = OSSwapHostToBigInt32(toolArgs->numArches);
-
-    result = writeToFile(fileDescriptor, (const UInt8 *)&fatHeader,
-        sizeof(fatHeader));
+    result = writeFatFile(toolArgs->mkextPath, mkexts, toolArgs->targetArchs,
+        MKEXT_PERMS, (toolArgs->haveFolderMtime) ? cacheFileTimes : NULL);
     if (result != EX_OK) {
         goto finish;
     }
 
-   /* Set the fatOffset off to the byte just past the fat header and all
-    * the fat_arch structs. It gets incremented by the size of each mkext
-    * added to the fat mkext.
-    */
-    fatOffset = sizeof(struct fat_header) +
-        (sizeof(struct fat_arch) * toolArgs->numArches);
-
-    for (i = 0; i < toolArgs->numArches; i++) {
-        CFDataRef       mkext       = (CFDataRef)CFArrayGetValueAtIndex(mkexts, i);
-        CFIndex         mkextLength = CFDataGetLength(mkext);
-        struct fat_arch fatArch;
-
-        fatArch.cputype = OSSwapHostToBigInt32(toolArgs->archInfo[i]->cputype);
-        fatArch.cpusubtype =
-            OSSwapHostToBigInt32(toolArgs->archInfo[i]->cpusubtype);
-        fatArch.offset = OSSwapHostToBigInt32(fatOffset);
-        fatArch.size = OSSwapHostToBigInt32(mkextLength);
-        fatArch.align = OSSwapHostToBigInt32(0);
-
-        result = writeToFile(fileDescriptor, (UInt8 *)&fatArch, sizeof(fatArch));
-        if (result != EX_OK) {
-            goto finish;
-        }
-        
-        fatOffset += mkextLength;
-    }
-
-    for (i = 0; i < toolArgs->numArches; i++) {
-        CFDataRef     mkext       = (CFDataRef)CFArrayGetValueAtIndex(mkexts, i);
-        const UInt8 * mkextPtr    = CFDataGetBytePtr(mkext);
-        CFIndex       mkextLength = CFDataGetLength(mkext);
-        
-        result = writeToFile(fileDescriptor, mkextPtr, mkextLength);
-        if (result != EX_OK) {
-            goto finish;
-        }
-    }
-
-    if (toolArgs->haveFolderMtime && CFArrayGetCount(toolArgs->repositoryURLs)) {
-        CFURLRef firstURL = (CFURLRef)CFArrayGetValueAtIndex(
-            toolArgs->repositoryURLs, 0);
-        struct stat     newStatBuffer;
-        struct timespec newModTime;
-        struct timespec origModTime =
-            toolArgs->firstFolderStatBuffer.st_mtimespec;
-        
-        result = statURL(firstURL, &newStatBuffer);
-        if (result != EX_OK) {
-            goto finish;
-        }
-        newModTime = newStatBuffer.st_mtimespec;
-        if ((newModTime.tv_sec != origModTime.tv_sec) ||
-            (newModTime.tv_nsec != origModTime.tv_nsec)) {
-
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
-                "Source directory has changed since starting; "
-                "not saving cache file %s.",
-                mkextPath);
-            result = kKextcacheExitStale;
-            goto finish;
-        }
-
-        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &newStatBuffer.st_atimespec);
-        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &newStatBuffer.st_mtimespec);
-        cacheFileTimes[1].tv_sec++;
-        updateModTime = true;
-    }
-
-    OSKextLog(/* kext */ NULL,
-        kOSKextLogDebugLevel | kOSKextLogFileAccessFlag,
-        "Renaming temp mkext file to %s.",
-        mkextPath);
-
-    if (rename(tmpPath, mkextPath) != 0) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't rename temp mkext file - %s.",
-            strerror(errno));
-        result = EX_OSERR;
-        goto finish;
-    }
-
-   /* Update the mod time of the resulting mkext file. On error, print
-    * a message, but don't unlink the file. The mod time being out of
-    * whack should be sufficient to prevent the file from being used.
-    */
-    /* XX we might want to add an F_FULLFSYNC before updating the mod time
-     * see also 6157625 ... which we'd like to reproduce and then see
-     * if a F_FULLFSYNC here would help.
-     */
-    if (updateModTime) {
-        if (utimes(mkextPath, cacheFileTimes)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Can't update mod time of %s - %s.", mkextPath, strerror(errno));
-        }
-    }
-
     result = EX_OK;
-
     OSKextLog(/* kext */ NULL,
         kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogArchiveFlag,
-        "Created mkext archive %s.", mkextPath);
+        "Created mkext archive %s.", toolArgs->mkextPath);
 
 finish:
     SAFE_RELEASE(archiveKexts);
     SAFE_RELEASE(mkexts);
     SAFE_RELEASE(mkext);
-    SAFE_RELEASE(systemMkextFolderURL);
 
-    if (fileDescriptor != -1) {
-        close(fileDescriptor);
-        if (result != EX_OK) {
-            unlink(tmpPath);
-        }
+#if !NO_BOOT_ROOT
+    putVolumeForPath(toolArgs->mkextPath, result);
+#endif
+
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+getFilePathTimes(
+    const char        * filePath,
+    struct timeval      cacheFileTimes[2])
+{
+    struct stat         statBuffer;
+    ExitStatus          result          = EX_SOFTWARE;
+
+    result = statPath(filePath, &statBuffer);
+    if (result != EX_OK) {
+        goto finish;
     }
-    
-    putVolumeForPath(mkextPath, result);
 
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &statBuffer.st_atimespec);
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &statBuffer.st_mtimespec);
+
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+getFileURLModTimePlusOne(
+    CFURLRef            fileURL,
+    struct stat       * origStatBuffer,
+    struct timeval      cacheFileTimes[2])
+{
+    ExitStatus   result          = EX_SOFTWARE;
+    char         path[PATH_MAX];
+
+    if (!CFURLGetFileSystemRepresentation(fileURL, /* resolveToBase */ true,
+            (UInt8 *)path, sizeof(path))) 
+    {
+        OSKextLogStringError(/* kext */ NULL);
+        goto finish;
+    }
+
+    result = getFilePathModTimePlusOne(path, origStatBuffer, cacheFileTimes);
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+getFilePathModTimePlusOne(
+    const char        * filePath,
+    struct stat       * origStatBuffer,
+    struct timeval      cacheFileTimes[2])
+{
+    struct stat         newStatBuffer;
+    ExitStatus          result          = EX_SOFTWARE;
+
+    result = statPath(filePath, &newStatBuffer);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    result = getModTimePlusOne(filePath, origStatBuffer, &newStatBuffer,
+        cacheFileTimes);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    result = EX_OK;
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+getModTimePlusOne(
+    const char     * path,
+    struct stat    * origStatBuffer,
+    struct stat    * newStatBuffer,
+    struct timeval   cacheFileTimes[2])
+{
+    ExitStatus       result = EX_SOFTWARE;
+    struct timespec  newModTime;
+    struct timespec  origModTime;
+
+    origModTime = origStatBuffer->st_mtimespec;
+    newModTime = newStatBuffer->st_mtimespec;
+
+    if ((newModTime.tv_sec != origModTime.tv_sec) ||
+        (newModTime.tv_nsec != origModTime.tv_nsec)) {
+
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
+            "Source item %s has changed since starting; "
+            "not saving cache file", path);
+        result = kKextcacheExitStale;
+        goto finish;
+    }
+
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &newStatBuffer->st_atimespec);
+    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &newStatBuffer->st_mtimespec);
+
+    cacheFileTimes[1].tv_sec++;
+    result = EX_OK;
+
+finish:
     return result;
 }
 
@@ -1771,6 +1880,7 @@ finish:
 typedef struct {
     KextcacheArgs     * toolArgs;
     CFMutableArrayRef   kextArray;
+    Boolean             error;
 } FilterIDContext;
 
 void filterKextID(const void * vValue, void * vContext)
@@ -1778,859 +1888,617 @@ void filterKextID(const void * vValue, void * vContext)
     CFStringRef       kextID  = (CFStringRef)vValue;
     FilterIDContext * context = (FilterIDContext *)vContext;
     OSKextRef       theKext = OSKextGetKextWithIdentifier(kextID);
-    
+
+   /* This should really be a fatal error but embedded counts on
+    * having optional kexts specified by identifier.
+    */
     if (!theKext) {
+        char kextIDCString[KMOD_MAX_NAME];
+        
+        CFStringGetCString(kextID, kextIDCString, sizeof(kextIDCString),
+            kCFStringEncodingUTF8);
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Internal error filtering kexts by identifier.");
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Can't find kext with optional identifier %s; skipping.", kextIDCString);
+#if 0
+        OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Error - can't find kext with identifier %s.", kextIDCString);
+        context->error = TRUE;
+#endif
         goto finish;
     }
-    
-    if (OSKextMatchesRequiredFlags(theKext, context->toolArgs->requiredFlagsAll) &&
-        !CFArrayContainsValue(context->kextArray,
-            RANGE_ALL(context->kextArray), theKext)) {
 
+    if (kextMatchesFilter(context->toolArgs, theKext, 
+            context->toolArgs->requiredFlagsAll) &&
+        !CFArrayContainsValue(context->kextArray,
+            RANGE_ALL(context->kextArray), theKext)) 
+    {
         CFArrayAppendValue(context->kextArray, theKext);
     }
-    
+
 finish:
     return;    
 }
 
-/******************************************************************************/
 
-ExitStatus filterKextsForMkext(
-    KextcacheArgs     * toolArgs,
-    CFMutableArrayRef   kextArray,
-    const NXArchInfo  * arch,
-    Boolean           * fatalOut)
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus filterKextsForCache(
+        KextcacheArgs     * toolArgs,
+        CFMutableArrayRef   kextArray,
+        const NXArchInfo  * arch,
+        Boolean           * fatalOut)
 {
     ExitStatus          result        = EX_SOFTWARE;
+    CFMutableArrayRef   firstPassArray = NULL;
     OSKextRequiredFlags requiredFlags;
     CFIndex             count, i;
 
-    CFArrayRemoveAllValues(kextArray);
+    if (!createCFMutableArray(&firstPassArray, &kCFTypeArrayCallBacks)) {
+        OSKextLogMemError();
+        goto finish;
+    }
     
+   /*****
+    * Apply filters to select the kexts.
+    *
+    * If kexts have been specified by identifier, those are the only kexts we are going to use.
+    * Otherwise run through the repository and named kexts and see which ones match the filter.
+    */
     if (CFSetGetCount(toolArgs->kextIDs)) {
         FilterIDContext context;
 
         context.toolArgs = toolArgs;
-        context.kextArray = kextArray;
+        context.kextArray = firstPassArray;
+        context.error = FALSE;
         CFSetApplyFunction(toolArgs->kextIDs, filterKextID, &context);
 
+        if (context.error) {
+            goto finish;
+        }
+
+    } else {
+
+       /* Set up the required flags for repository kexts. If any are set from
+        * the command line, toss in "Root" and "Console" too.
+        */
+        requiredFlags = toolArgs->requiredFlagsRepositoriesOnly |
+            toolArgs->requiredFlagsAll;
+        if (requiredFlags) {
+            requiredFlags |= kOSKextOSBundleRequiredRootFlag |
+                kOSKextOSBundleRequiredConsoleFlag;
+        }
+
+        count = CFArrayGetCount(toolArgs->repositoryKexts);
+        for (i = 0; i < count; i++) {
+
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
+                    toolArgs->repositoryKexts, i);
+
+            if (!kextMatchesFilter(toolArgs, theKext, requiredFlags)) {
+
+                char kextPath[PATH_MAX];
+
+                if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
+                    /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) 
+                {
+                    strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+                }
+
+                if (toolArgs->mkextPath) {
+                    OSKextLog(/* kext */ NULL,
+                        kOSKextLogStepLevel | kOSKextLogArchiveFlag,
+                        "%s does not match OSBundleRequired conditions; omitting.",
+                        kextPath);
+                } else if (toolArgs->prelinkedKernelPath) {
+                    OSKextLog(/* kext */ NULL,
+                        kOSKextLogStepLevel | kOSKextLogArchiveFlag,
+                        "%s is not demanded by OSBundleRequired conditions.",
+                        kextPath);
+                }
+                continue;
+            }
+
+            if (!CFArrayContainsValue(firstPassArray, RANGE_ALL(firstPassArray), theKext)) {
+                CFArrayAppendValue(firstPassArray, theKext);
+            }
+        }
+
+       /* Set up the required flags for named kexts. If any are set from
+        * the command line, toss in "Root" and "Console" too.
+        */
+        requiredFlags = toolArgs->requiredFlagsAll;
+        if (requiredFlags) {
+            requiredFlags |= kOSKextOSBundleRequiredRootFlag |
+                kOSKextOSBundleRequiredConsoleFlag;
+        }
+
+        count = CFArrayGetCount(toolArgs->namedKexts);
+        for (i = 0; i < count; i++) {
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
+                    toolArgs->namedKexts, i);
+
+            if (!kextMatchesFilter(toolArgs, theKext, requiredFlags)) {
+
+                char kextPath[PATH_MAX];
+
+                if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
+                    /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) 
+                {
+                    strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+                }
+
+                if (toolArgs->mkextPath) {
+                    OSKextLog(/* kext */ NULL,
+                        kOSKextLogStepLevel | kOSKextLogArchiveFlag,
+                        "%s does not match OSBundleRequired conditions; omitting.",
+                        kextPath);
+                } else if (toolArgs->prelinkedKernelPath) {
+                    OSKextLog(/* kext */ NULL,
+                        kOSKextLogStepLevel | kOSKextLogArchiveFlag,
+                        "%s is not demanded by OSBundleRequired conditions.",
+                        kextPath);
+                }
+                continue;
+            }
+
+            if (!CFArrayContainsValue(firstPassArray, RANGE_ALL(firstPassArray), theKext)) {
+                CFArrayAppendValue(firstPassArray, theKext);
+            }
+        }
+    }
+
+   /*****
+    * Take all the kexts that matched the filters above and check them for problems.
+    */
+    CFArrayRemoveAllValues(kextArray);
+
+    count = CFArrayGetCount(firstPassArray);
+    if (count) {
+        for (i = count - 1; i >= 0; i--) {
+            char kextPath[PATH_MAX];
+            OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
+                    firstPassArray, i);
+
+            if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
+                /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) 
+            {
+                strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+            }
+
+            /* Skip kexts we have no interest in for the current arch.
+             */
+            if (!OSKextSupportsArchitecture(theKext, arch)) {
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogStepLevel | kOSKextLogArchiveFlag,
+                    "%s doesn't support architecture '%s'; skipping.", kextPath,
+                    arch->name);
+                continue;
+            }
+
+            if (!OSKextIsValid(theKext)) {
+                // xxx - should also use kOSKextLogArchiveFlag?
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                    kOSKextLogValidationFlag | kOSKextLogGeneralFlag, 
+                    "%s is not valid; omitting.", kextPath);
+                if (toolArgs->printTestResults) {
+                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                }
+                continue;
+            }
+
+            if (!toolArgs->skipAuthentication && !OSKextIsAuthentic(theKext)) {
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                    kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag, 
+                    "%s is not authentic; omitting.", kextPath);
+                if (toolArgs->printTestResults) {
+                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                }
+                continue;
+            }
+            if (!OSKextResolveDependencies(theKext)) {
+                OSKextLog(/* kext */ NULL,
+                        kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
+                        kOSKextLogDependenciesFlag | kOSKextLogGeneralFlag, 
+                        "%s is missing dependencies (including anyway; "
+                        "dependencies may be available from elsewhere)", kextPath);
+                if (toolArgs->printTestResults) {
+                    OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
+                }
+            }
+            if (!CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
+                CFArrayAppendValue(kextArray, theKext);
+            }
+        }
+    }
+
+    result = EX_OK;
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+Boolean
+kextMatchesFilter(
+    KextcacheArgs             * toolArgs,
+    OSKextRef                   theKext,
+    OSKextRequiredFlags         requiredFlags)
+{
+    Boolean result = false;
+    Boolean needLoadedKextInfo = toolArgs->needLoadedKextInfo &&
+        (OSKextGetArchitecture() == OSKextGetRunningKernelArchitecture());
+
+    if (needLoadedKextInfo) {
+        result = (requiredFlags && OSKextMatchesRequiredFlags(theKext, requiredFlags)) ||
+            CFArrayContainsValue(toolArgs->loadedKexts, RANGE_ALL(toolArgs->loadedKexts), theKext);
+    } else {
+        result = OSKextMatchesRequiredFlags(theKext, requiredFlags);
+    }
+
+    return result;
+}
+
+/*******************************************************************************
+ * Creates a list of architectures to generate prelinked kernel slices for by
+ * selecting the requested architectures for which the kernel has a slice.
+ * Warns when a requested architecture does not have a corresponding kernel
+ * slice.
+ *******************************************************************************/
+ExitStatus
+createPrelinkedKernelArchs(
+    KextcacheArgs     * toolArgs,
+    CFMutableArrayRef * prelinkArchsOut)
+{
+    ExitStatus          result          = EX_OSERR;
+    CFMutableArrayRef   kernelArchs     = NULL;  // must release
+    CFMutableArrayRef   prelinkArchs    = NULL;  // must release
+    const NXArchInfo  * targetArch      = NULL;  // do not free
+    u_int               i               = 0;
+
+    result = readFatFileArchsWithPath(toolArgs->kernelPath, &kernelArchs);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    prelinkArchs = CFArrayCreateMutableCopy(kCFAllocatorDefault,
+        /* capacity */ 0, toolArgs->targetArchs);
+    if (!prelinkArchs) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    for (i = 0; i < CFArrayGetCount(prelinkArchs); ++i) {
+        targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
+        if (!CFArrayContainsValue(kernelArchs, 
+            RANGE_ALL(kernelArchs), targetArch)) 
+        {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogWarningLevel | kOSKextLogArchiveFlag,
+                "Kernel file %s does not contain requested arch: %s",
+                toolArgs->kernelPath, targetArch->name);
+            CFArrayRemoveValueAtIndex(prelinkArchs, i);
+            i--;
+            continue;
+        }
+    }
+
+    *prelinkArchsOut = (CFMutableArrayRef) CFRetain(prelinkArchs);
+    result = EX_OK;
+
+finish:
+    SAFE_RELEASE(kernelArchs);
+    SAFE_RELEASE(prelinkArchs);
+
+    return result;
+}
+
+/*******************************************************************************
+ * If the existing prelinked kernel has a valid timestamp, this reads the slices
+ * out of that prelinked kernel so we don't have to regenerate them.
+ *******************************************************************************/
+ExitStatus
+createExistingPrelinkedSlices(
+    KextcacheArgs     * toolArgs,
+    CFMutableArrayRef * existingSlicesOut,
+    CFMutableArrayRef * existingArchsOut)
+{
+    struct timeval      existingFileTimes[2];
+    struct timeval      prelinkFileTimes[2];
+    ExitStatus          result  = EX_SOFTWARE;
+
+   /* If we aren't updating the system prelinked kernel, then we don't want
+    * to reuse any existing slices.
+    */
+    if (!toolArgs->needDefaultPrelinkedKernelInfo) {
         result = EX_OK;
         goto finish;
     }
 
-   /* Set up the required flags for repository kexts. If any are set from
-    * the command line, toss in "Root" and "Console" too.
-    */
-    requiredFlags = toolArgs->requiredFlagsRepositoriesOnly |
-        toolArgs->requiredFlagsAll;
-    if (requiredFlags) {
-        requiredFlags |= kOSKextOSBundleRequiredRootFlag |
-            kOSKextOSBundleRequiredConsoleFlag;
+    bzero(existingFileTimes, sizeof(existingFileTimes));
+    bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
+
+    result = getFilePathTimes(toolArgs->prelinkedKernelPath,
+        existingFileTimes);
+    if (result != EX_OK) {
+        goto finish;
     }
 
-    count = CFArrayGetCount(toolArgs->repositoryKexts);
-    for (i = 0; i < count; i++) {
-        char kextPath[PATH_MAX];
-        OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
-            toolArgs->repositoryKexts, i);
+    result = getExpectedPrelinkedKernelModTime(toolArgs, 
+        prelinkFileTimes, NULL);
+    if (result != EX_OK) {
+        goto finish;
+    }
 
-        if (!CFURLGetFileSystemRepresentation(OSKextGetURL(theKext),
-            /* resolveToBase */ false, (UInt8 *)kextPath, sizeof(kextPath))) {
-            
-            strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+    /* We are testing that the existing prelinked kernel still has a valid
+     * timestamp by comparing it to the timestamp we are going to use for
+     * the new prelinked kernel. If they are equal, we can reuse slices
+     * from the existing prelinked kernel.
+     */
+    if (!timevalcmp(&existingFileTimes[1], &prelinkFileTimes[1], ==)) {
+        result = EX_SOFTWARE;
+        goto finish;
+    }
+
+    result = readMachOSlices(toolArgs->prelinkedKernelPath, 
+        existingSlicesOut, existingArchsOut, NULL, NULL);
+    if (result != EX_OK) {
+        existingSlicesOut = NULL;
+        existingArchsOut = NULL;
+        goto finish;
+    }
+
+    result = EX_OK;
+
+finish:
+    return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus
+createPrelinkedKernel(
+    KextcacheArgs     * toolArgs)
+{
+    ExitStatus          result              = EX_OSERR;
+    struct timeval      prelinkFileTimes[2];
+    CFMutableArrayRef   generatedArchs      = NULL;  // must release
+    CFMutableArrayRef   generatedSymbols    = NULL;  // must release
+    CFMutableArrayRef   existingArchs       = NULL;  // must release
+    CFMutableArrayRef   existingSlices      = NULL;  // must release
+    CFMutableArrayRef   prelinkArchs        = NULL;  // must release
+    CFMutableArrayRef   prelinkSlices       = NULL;  // must release
+    CFDataRef           prelinkSlice        = NULL;  // must release
+    CFDictionaryRef     sliceSymbols        = NULL;  // must release
+    const NXArchInfo  * targetArch          = NULL;  // do not free
+    Boolean             updateModTime       = false;
+    u_int               numArchs            = 0;
+    u_int               i                   = 0;
+    int                 j                   = 0;
+
+    bzero(prelinkFileTimes, sizeof(prelinkFileTimes));
+
+#if !NO_BOOT_ROOT
+    /* Try a lock on the volume for the prelinked kernel being updated.
+     * The lock prevents kextd from starting up a competing kextcache.
+     */
+    if (!getenv("_com_apple_kextd_skiplocks")) {
+        // xxx - updateBoots * related should return only sysexit-type values, not errno
+        result = takeVolumeForPath(toolArgs->prelinkedKernelPath);
+        if (result != EX_OK) {
+            goto finish;
         }
+    }
+#endif
 
-       /* Skip kexts we have no interest in for the current arch.
+    result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
+    if (result != EX_OK) {
+        goto finish;
+    }
+    numArchs = CFArrayGetCount(prelinkArchs);
+
+    /* If we're generating symbols, we'll regenerate all slices.
+     */
+    if (!toolArgs->symbolDirURL) {
+        result = createExistingPrelinkedSlices(toolArgs,
+            &existingSlices, &existingArchs);
+        if (result != EX_OK) {
+            SAFE_RELEASE_NULL(existingSlices);
+            SAFE_RELEASE_NULL(existingArchs);
+        }
+    }
+
+    prelinkSlices = CFArrayCreateMutable(kCFAllocatorDefault,
+        numArchs, &kCFTypeArrayCallBacks);
+    generatedSymbols = CFArrayCreateMutable(kCFAllocatorDefault, 
+        numArchs, &kCFTypeArrayCallBacks);
+    generatedArchs = CFArrayCreateMutable(kCFAllocatorDefault, 
+        numArchs, NULL);
+    if (!prelinkSlices || !generatedSymbols || !generatedArchs) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    for (i = 0; i < numArchs; i++) {
+        targetArch = CFArrayGetValueAtIndex(prelinkArchs, i);
+
+        SAFE_RELEASE_NULL(prelinkSlice);
+        SAFE_RELEASE_NULL(sliceSymbols);
+
+       /* We always create a new prelinked kernel for the current
+        * running architecture if asked, but we'll reuse existing slices
+        * for other architectures if possible.
         */
-        if (!OSKextIsValid(theKext)) {
-            // xxx - should also use kOSKextLogArchiveFlag?
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                kOSKextLogValidationFlag | kOSKextLogGeneralFlag, 
-                "%s is not valid; omitting from mkext.", kextPath);
-            if (toolArgs->printTestResults) {
-                OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
-            }
-            continue;
-        }
-        if (!OSKextSupportsArchitecture(theKext, arch)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogStepLevel | kOSKextLogArchiveFlag,
-                "%s doesn't support architecture '%s'; omitting from mkext.", kextPath,
-                arch->name);
-            continue;
-        }
-        if (!OSKextMatchesRequiredFlags(theKext, requiredFlags)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogStepLevel | kOSKextLogArchiveFlag,
-                "%s does not match OSBundleRequired conditions; omitting from mkext.",
-                kextPath);
-            continue;
-        }
-        if (!toolArgs->skipAuthentication && !OSKextIsAuthentic(theKext)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
-                kOSKextLogAuthenticationFlag | kOSKextLogGeneralFlag, 
-                "%s is not authentic; omitting from mkext.", kextPath);
-            if (toolArgs->printTestResults) {
-                OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
-            }
-            continue;
-        }
-        if (!OSKextResolveDependencies(theKext)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogArchiveFlag |
-                kOSKextLogDependenciesFlag | kOSKextLogGeneralFlag, 
-                "%s is missing dependencies (including anyway; "
-                "dependencies may be available from elsewhere)", kextPath);
-            if (toolArgs->printTestResults) {
-                OSKextLogDiagnostics(theKext, kOSKextDiagnosticsFlagAll);
-            }
-        }
-        if (!CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
-            CFArrayAppendValue(kextArray, theKext);
-        }
-    }
-
-   /* Set up the required flags for named kexts. If any are set from
-    * the command line, toss in "Root" and "Console" too.
-    */
-    requiredFlags = toolArgs->requiredFlagsAll;
-    if (requiredFlags) {
-        requiredFlags |= kOSKextOSBundleRequiredRootFlag |
-            kOSKextOSBundleRequiredConsoleFlag;
-    }
-
-    count = CFArrayGetCount(toolArgs->namedKexts);
-    for (i = 0; i < count; i++) {
-        OSKextRef theKext = (OSKextRef)CFArrayGetValueAtIndex(
-            toolArgs->namedKexts, i);
-        if (OSKextMatchesRequiredFlags(theKext, requiredFlags) &&
-            !CFArrayContainsValue(kextArray, RANGE_ALL(kextArray), theKext)) {
-            
-            CFArrayAppendValue(kextArray, theKext);
-        }
-    }
-
-    result = EX_OK;
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus writeToFile(
-    int           fileDescriptor,
-    const UInt8 * data,
-    CFIndex       length)
-{
-    ExitStatus result = EX_OSERR;
-    int bytesWritten = 0;
-    int totalBytesWritten = 0;
-    
-    while (totalBytesWritten < length) {
-        bytesWritten = write(fileDescriptor, data + totalBytesWritten,
-            length - totalBytesWritten);
-        if (bytesWritten < 0) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Write failed - %s", strerror(errno));
-            goto finish;
-        }
-        totalBytesWritten += bytesWritten;
-    }
-
-    result = EX_OK;
-finish:
-    return result;
-}
-
-/*******************************************************************************
- *******************************************************************************/
-int getFileOffsetAndSizeForArch(
-    int                 fileDescriptor,
-    const NXArchInfo  * archInfo,
-    off_t             * sliceOffsetOut,
-    size_t            * sliceSizeOut)
-{
-    int result = -1;
-    void *headerPage = NULL;
-    struct fat_header *fatHeader = NULL;
-    struct fat_arch *fatArch = NULL;
-    off_t sliceOffset = 0;
-    size_t sliceSize = 0;
-    
-   /* Map the first page to read the fat headers.
-    */
-    headerPage = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FILE | MAP_PRIVATE, 
-        fileDescriptor, 0);
-    if (!headerPage) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Failed to map file header page.");
-        goto finish;
-    }
-    
-    /* If the file is fat, find the appropriate fat slice.  Otherwise, ensure it is
-     * compatible with the host architecture.
-     */
-    
-    /* Make sure that the fat header, if any, is swapped to the host's byte order */
-    
-    fatHeader = (struct fat_header *) headerPage;
-    fatArch = (struct fat_arch *) (&fatHeader[1]);
-    
-    if (fatHeader->magic == FAT_CIGAM) {
-        swap_fat_header(fatHeader, NXHostByteOrder());
-        swap_fat_arch(fatArch, fatHeader->nfat_arch, NXHostByteOrder());
-    }
-    
-    /* If we have a fat file, find the host architecture's slice.  If not, record
-     * the whole file's size.
-     */
-    
-    if (fatHeader->magic == FAT_MAGIC) {
-        fatArch = NXFindBestFatArch(archInfo->cputype, archInfo->cpusubtype, 
-                                    fatArch, fatHeader->nfat_arch);
-        if (!fatArch) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag, 
-                "Fat file does not contain requested architecture %s.",
-                archInfo->name);
-            goto finish;
-        }
-        
-        sliceOffset = fatArch->offset;
-        sliceSize = fatArch->size;
-    } else {
-        struct stat fileInfo;
-        
-        if (fstat(fileDescriptor, &fileInfo)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Could not stat file.");  // xxx - which file is that?
-            goto finish;
-        }
-        
-        sliceSize = fileInfo.st_size;
-    }
-    
-    /* Return the offset and size info */
-    
-    *sliceOffsetOut = sliceOffset;
-    *sliceSizeOut = sliceSize;
-    result = 0;
-    
-finish:
-    return result;
-}
-
-/*******************************************************************************
- *******************************************************************************/
-int readFileAtOffset(
-    int         fileDescriptor,
-    off_t       fileOffset,
-    size_t      fileSize,
-    u_char    * buf)
-{
-    int result = -1;
-    off_t seekedBytes = 0;
-    ssize_t readBytes = 0;
-    size_t totalReadBytes = 0;
-    
-    /* Seek to the specified file offset */
-    
-    seekedBytes = lseek(fileDescriptor, fileOffset, SEEK_SET);
-    if (seekedBytes != fileOffset) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Failed to seek in file.");  // xxx - which file is that?
-        goto finish;
-    }
-    
-    /* Read the file's bytes into the provided buffer */
-    
-    while (totalReadBytes < fileSize) {
-        readBytes = read(fileDescriptor, buf + totalReadBytes,
-                         fileSize - totalReadBytes);
-        if (readBytes < 0) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Failed to read file.");
-            goto finish;
-        }
-        
-        totalReadBytes += (size_t) readBytes;
-    }
-    
-    result = 0;
-finish:
-    return result;
-}
-
-/*******************************************************************************
- *******************************************************************************/
-int verifyMachOIsArch(
-    u_char           * fileBuf, 
-    size_t             size,
-    const NXArchInfo * archInfo)
-{
-    int result = -1;
-    cpu_type_t cputype = 0;
-    struct mach_header *checkHeader = (struct mach_header *)fileBuf;
-
-    if (!archInfo) {
-        result = 0;
-        goto finish;
-    }
-    
-    /* Get the cputype from the mach header */
-    if (size < sizeof(uint32_t)) {
-        goto finish;
-    }
-    
-    if (checkHeader->magic == MH_MAGIC_64 || checkHeader->magic == MH_CIGAM_64) {
-        struct mach_header_64 *machHeader = 
-        (struct mach_header_64 *) fileBuf;
-        
-        if (size < sizeof(*machHeader)) {
-            goto finish;
-        }
-        
-        cputype = machHeader->cputype;
-        if (checkHeader->magic == MH_CIGAM_64) cputype = OSSwapInt32(cputype);
-    } else if (checkHeader->magic == MH_MAGIC || checkHeader->magic == MH_CIGAM) {
-        struct mach_header *machHeader = 
-        (struct mach_header *) fileBuf;
-        
-        if (size < sizeof(*machHeader)) {
-            goto finish;
-        }
-        
-        cputype = machHeader->cputype;
-        if (checkHeader->magic == MH_CIGAM) cputype = OSSwapInt32(cputype);
-    }
-    
-   /* Make sure the file's cputype matches the host's.
-    */
-    if (cputype != archInfo->cputype) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "File is not of expected architecture %s.", archInfo->name);
-        goto finish;
-    }
-    
-    result = 0;
-finish:
-    return result;
-}
-
-/*******************************************************************************
- *******************************************************************************/
-CFDataRef readMachOFileWithURL(CFURLRef fileURL, const NXArchInfo * archInfo)
-{   
-    char        filePath[MAXPATHLEN];
-    int         fileDescriptor = 0;
-    off_t       fileSliceOffset    = 0;
-    size_t      fileSliceSize      = 0;
-    u_char    * fileBuf        = NULL;  // must free
-    CFDataRef   fileImage          = NULL;
-    struct stat statBuf;
-    
-    /* Get the file system representation of the file URL */
-    
-    if (!CFURLGetFileSystemRepresentation(fileURL, /* resolveToBase */ true, 
-            (UInt8 *)filePath, sizeof(filePath))) 
-    {
-        goto finish;
-    }
-    
-    /* Open the file */
-    
-    fileDescriptor = open(filePath, O_RDONLY);
-    if (fileDescriptor < 0) {
-        goto finish;
-    }
-
-    if (fstat(fileDescriptor, &statBuf)) {
-        goto finish;
-    }
-    
-    /* Find the slice for the running architecture */
-    
-    if (archInfo) {
-        if (getFileOffsetAndSizeForArch(fileDescriptor, archInfo, 
-            &fileSliceOffset, &fileSliceSize))  
+        if (existingArchs && 
+            targetArch != OSKextGetRunningKernelArchitecture())
         {
-            goto finish;
+            j = CFArrayGetFirstIndexOfValue(existingArchs, 
+                RANGE_ALL(existingArchs), targetArch);
+            if (j != -1) {
+                prelinkSlice = CFArrayGetValueAtIndex(existingSlices, j);
+                CFArrayAppendValue(prelinkSlices, prelinkSlice);
+                prelinkSlice = NULL;
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogDebugLevel | kOSKextLogArchiveFlag,
+                    "Using existing prelinked slice for arch %s",
+                    targetArch->name);
+                continue;
+            }
         }
-    } else {
-        fileSliceOffset = 0;
-        fileSliceSize = statBuf.st_size;
-    }
-            
-    /* Allocate a buffer for the file */
-    
-    fileBuf = malloc(fileSliceSize);
-    if (!fileBuf) {
-        OSKextLogMemError();
-        goto finish;
-    }
-    
-    /* Read the file */    
 
-    if (readFileAtOffset(fileDescriptor, fileSliceOffset, 
-        fileSliceSize, fileBuf)) 
-    {
-        goto finish;
-    }
-    
-    /* Verify that the file is of the right architecture */
-    
-    if (verifyMachOIsArch(fileBuf, fileSliceSize, archInfo)) {
-        goto finish;
-    }
-    
-    /* Wrap the file in a CFData object */
-    
-    fileImage = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, 
-        (UInt8 *) fileBuf, fileSliceSize, kCFAllocatorMalloc);
-    if (!fileImage) {
-        goto finish;
-    }
-    fileBuf = NULL;
-    
-finish:
-    if (fileBuf) free(fileBuf);
-    
-    return fileImage;
-}
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogDebugLevel | kOSKextLogArchiveFlag,
+            "Generating a new prelinked slice for arch %s",
+            targetArch->name);
 
-/*********************************************************************
-* After this function is called, toolArgs->prelinkedKernelURL names
-* the actual file rather than its containing directory.
-*********************************************************************/
-void getPlatformInfo(
-    KextcacheArgs * toolArgs,
-    PlatformInfo  * platformInfo)
-{
-    io_registry_entry_t entry                   = 0;     // must IOObjectRelease()
-    CFURLRef            parentURL               = NULL;  // must release
-    CFStringRef         prelinkedKernelFilename = NULL;  // must release
-
-    bzero(platformInfo, sizeof(*platformInfo));
-
-    entry = IORegistryEntryFromPath(kIOMasterPortDefault, kIOServicePlane ":/");
-    if (entry) {
-        if (KERN_SUCCESS !=
-            IORegistryEntryGetName(entry, platformInfo->platformName)) {
-
-            platformInfo->platformName[0] = 0;
-        }
-        IOObjectRelease(entry);
-    }
-
-    entry = IORegistryEntryFromPath(kIOMasterPortDefault,
-        kIODeviceTreePlane ":/chosen");
-    if (entry) {
-        CFTypeRef obj = 0;
-        obj = IORegistryEntryCreateCFProperty(entry, CFSTR("rootpath"), 
-                kCFAllocatorDefault, kNilOptions);
-        if (obj && (CFGetTypeID(obj) == CFDataGetTypeID())) {
-            CFIndex len = CFDataGetLength((CFDataRef) obj);
-            strlcpy(platformInfo->rootPath, (char *) CFDataGetBytePtr((CFDataRef) obj), 
-                sizeof(platformInfo->rootPath));
-            platformInfo->rootPath[len] = 0;
-        } else {
-            const char *data;
-            char *ptr = platformInfo->rootPath;
-            u_long len = 0;
-            // Construct entry from UUID of boot volume and kernel name.
-            obj = 0;
-            do {
-                obj = IORegistryEntryCreateCFProperty(entry, CFSTR("boot-device-path"), 
-                    kCFAllocatorDefault, kNilOptions);
-                if (!obj) {
-                    break;
-                }
-
-                if (CFGetTypeID(obj) == CFDataGetTypeID()) {
-                    data = (char *)CFDataGetBytePtr((CFDataRef) obj);
-                    len = CFDataGetLength((CFDataRef) obj);
-                } else if (CFGetTypeID(obj) == CFStringGetTypeID()) {
-                    data = CFStringGetCStringPtr((CFStringRef) obj, kCFStringEncodingUTF8);
-                    if (!data) {
-                        break;
-                    }
-                    len = strlen(data) + 1; // include trailing null
-                } else {
-                    break;
-                }
-                if (len > sizeof(platformInfo->rootPath)) {
-                    len = sizeof(platformInfo->rootPath);
-                }
-                memcpy(ptr, data, len);
-                ptr += len;
-
-                SAFE_RELEASE_NULL(obj);
-
-                obj = IORegistryEntryCreateCFProperty(entry, CFSTR("boot-file"), 
-                    kCFAllocatorDefault, kNilOptions);
-                if (!obj) {
-                    break;
-                }
-
-                if (CFGetTypeID(obj) == CFDataGetTypeID()) {
-                    data = (char *)CFDataGetBytePtr((CFDataRef) obj);
-                    len = CFDataGetLength((CFDataRef) obj);
-                } else if (CFGetTypeID(obj) == CFStringGetTypeID()) {
-                    data = CFStringGetCStringPtr((CFStringRef) obj, kCFStringEncodingUTF8);
-                    if (!data) {
-                        break;
-                    }
-                    len = strlen(data);
-                } else {
-                    break;
-                }
-                if ((ptr - platformInfo->rootPath + len) >=
-                    sizeof(platformInfo->rootPath)) {
-
-                    len = sizeof(platformInfo->rootPath) -
-                        (ptr - platformInfo->rootPath);
-                }
-                memcpy(ptr, data, len);
-            } while (0);
-        }
-        SAFE_RELEASE(obj);
-        IOObjectRelease(entry);
-    }
-    if (!platformInfo->platformName[0] || !platformInfo->rootPath[0]) {
-        platformInfo->platformName[0] = platformInfo->rootPath[0] = 0;
-    }
-
-   /* Update the prelinkedKernelURL to name the file that will be saved,
-    * by appending the checksum of the hardware info.
-    */
-    if (toolArgs->needDefaultPrelinkedKernelInfo) {
-        uint32_t adler32 = 0;
-
-        parentURL = toolArgs->prelinkedKernelURL;
-        adler32 = OSSwapHostToBigInt32(local_adler32(
-            (u_int8_t *)platformInfo, sizeof(*platformInfo)));
-
-        prelinkedKernelFilename = CFStringCreateWithFormat(
-            kCFAllocatorDefault, /* options */ 0, CFSTR("%s_%s.%08X"), 
-            _kOSKextPrelinkedKernelBasename, toolArgs->archInfo[0]->name,
-            adler32);
-        if (!prelinkedKernelFilename) {
-            OSKextLogMemError();
+        result = createPrelinkedKernelForArch(toolArgs, &prelinkSlice,
+            &sliceSymbols, targetArch);
+        if (result != EX_OK) {
             goto finish;
         }
 
-        toolArgs->prelinkedKernelURL = CFURLCreateCopyAppendingPathComponent(
-            kCFAllocatorDefault, parentURL, prelinkedKernelFilename,
-            /* isDir */ false);
-        if (!toolArgs->prelinkedKernelURL) {
-            OSKextLogMemError();
+        CFArrayAppendValue(prelinkSlices, prelinkSlice);
+        CFArrayAppendValue(generatedSymbols, sliceSymbols);
+        CFArrayAppendValue(generatedArchs, targetArch);
+    }
+
+    result = getExpectedPrelinkedKernelModTime(toolArgs, 
+        prelinkFileTimes, &updateModTime);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    result = writeFatFile(toolArgs->prelinkedKernelPath, prelinkSlices,
+        prelinkArchs, MKEXT_PERMS, 
+        (updateModTime) ? prelinkFileTimes : NULL);
+    if (result != EX_OK) {
+        goto finish;
+    }
+     
+    if (toolArgs->symbolDirURL) {
+        result = writePrelinkedSymbols(toolArgs->symbolDirURL, 
+            generatedSymbols, generatedArchs);
+        if (result != EX_OK) {
             goto finish;
         }
     }
 
+    OSKextLog(/* kext */ NULL,
+        kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogArchiveFlag,
+        "Created prelinked kernel %s.", 
+        toolArgs->prelinkedKernelPath);
+
+    result = EX_OK;
+
 finish:
-    SAFE_RELEASE(parentURL);
-    SAFE_RELEASE(prelinkedKernelFilename);
-    return;
-}
+    SAFE_RELEASE(generatedArchs);
+    SAFE_RELEASE(generatedSymbols);
+    SAFE_RELEASE(existingArchs);
+    SAFE_RELEASE(existingSlices);
+    SAFE_RELEASE(prelinkArchs);
+    SAFE_RELEASE(prelinkSlices);
+    SAFE_RELEASE(prelinkSlice);
+    SAFE_RELEASE(sliceSymbols);
 
-/*********************************************************************
-*********************************************************************/
-CFDataRef uncompressPrelinkedKernel(
-    CFDataRef      prelinkImage)
-{
-    CFDataRef                     result              = NULL;
-    CFMutableDataRef              uncompressedImage   = NULL;  // must release
-    const PrelinkedKernelHeader * prelinkHeader       = NULL;  // do not free
-    unsigned char               * buf                 = NULL;  // do not free
-    vm_size_t                     bufsize             = 0;
-    vm_size_t                     uncompsize          = 0;
-    uint32_t                      adler32             = 0;
-   
-    prelinkHeader = (PrelinkedKernelHeader *) CFDataGetBytePtr(prelinkImage);
+#if !NO_BOOT_ROOT
+    putVolumeForPath(toolArgs->prelinkedKernelPath, result);
+#endif
 
-   /* Verify the header information.
-    */
-    if (prelinkHeader->signature != OSSwapHostToBigInt32('comp')) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Compressed prelinked kernel has invalid signature: 0x%x.", 
-            prelinkHeader->signature);
-        goto finish;
-    }
-
-    if (prelinkHeader->compressType != OSSwapHostToBigInt32('lzss')) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Compressed prelinked kernel has invalid compressType: 0x%x.", 
-            prelinkHeader->compressType);
-        goto finish;
-    }
-
-
-   /* Create a buffer to hold the uncompressed kernel.
-    */
-    bufsize = OSSwapBigToHostInt32(prelinkHeader->uncompressedSize);
-    uncompressedImage = CFDataCreateMutable(kCFAllocatorDefault, bufsize);
-    if (!uncompressedImage) {
-        goto finish;
-    }
-
-   /* We have to call CFDataSetLength explicitly to get CFData to allocate
-    * its internal buffer.
-    */
-    CFDataSetLength(uncompressedImage, bufsize);
-    buf = CFDataGetMutableBytePtr(uncompressedImage);
-    if (!buf) {
-        OSKextLogMemError();
-        goto finish;
-    }
-
-   /* Uncompress the kernel.
-    */
-    uncompsize = decompress_lzss(buf, bufsize,
-        ((u_int8_t *)(CFDataGetBytePtr(prelinkImage))) + sizeof(*prelinkHeader),
-        CFDataGetLength(prelinkImage) - sizeof(*prelinkHeader));
-    if (uncompsize != bufsize) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Compressed prelinked kernel uncompressed to an unexpected size: %u.",
-            (unsigned)uncompsize);
-        goto finish;
-    }
-
-   /* Verify the adler32.
-    */
-    adler32 = local_adler32((u_int8_t *) buf, bufsize);
-    if (prelinkHeader->adler32 != OSSwapHostToBigInt32(adler32)) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Checksum error for compressed prelinked kernel.");
-        goto finish;
-    }
-
-    result = CFRetain(uncompressedImage);
-    
-finish:
-    SAFE_RELEASE(uncompressedImage);
-    return result;
-}
-/*********************************************************************
-*********************************************************************/
-CFDataRef compressPrelinkedKernel(
-    CFDataRef      prelinkImage,
-    PlatformInfo * platformInfo)
-{
-    CFDataRef               result          = NULL;
-    CFMutableDataRef        compressedImage = NULL;  // must release
-    PrelinkedKernelHeader * kernelHeader    = NULL;  // do not free
-    const PrelinkedKernelHeader * kernelHeaderIn = NULL; // do not free
-    unsigned char         * buf             = NULL;  // do not free
-    unsigned char         * bufend          = NULL;  // do not free
-    u_long                  offset          = 0;
-    vm_size_t               bufsize         = 0;
-    vm_size_t               compsize        = 0;
-    uint32_t                adler32         = 0;
-   
-    /* Check that the kernel is not already compressed */
-
-    kernelHeaderIn = (const PrelinkedKernelHeader *) 
-        CFDataGetBytePtr(prelinkImage);
-    if (kernelHeaderIn->signature == OSSwapHostToBigInt('comp')) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Prelinked kernel is already compressed.");
-        goto finish;
-    }
-
-    /* Create a buffer to hold the compressed kernel */
-
-    offset = sizeof(*kernelHeader);
-    bufsize = CFDataGetLength(prelinkImage) + offset;
-    compressedImage = CFDataCreateMutable(kCFAllocatorDefault, bufsize);
-    if (!compressedImage) {
-        goto finish;
-    }
-
-    /* We have to call CFDataSetLength explicitly to get CFData to allocate
-     * its internal buffer.
-     */
-    CFDataSetLength(compressedImage, bufsize);
-    buf = CFDataGetMutableBytePtr(compressedImage);
-    if (!buf) {
-        OSKextLogMemError();
-        goto finish;
-    }
-
-    kernelHeader = (PrelinkedKernelHeader *) buf;
-    bzero(kernelHeader, sizeof(*kernelHeader));
-
-    /* Fill in the compression information */
-
-    kernelHeader->signature = OSSwapHostToBigInt32('comp');
-    kernelHeader->compressType = OSSwapHostToBigInt32('lzss');
-    adler32 = local_adler32((u_int8_t *)CFDataGetBytePtr(prelinkImage),
-        CFDataGetLength(prelinkImage));
-    kernelHeader->adler32 = OSSwapHostToBigInt32(adler32);
-    kernelHeader->uncompressedSize = 
-        OSSwapHostToBigInt32(CFDataGetLength(prelinkImage));
-    
-    /* Copy over the machine-identifying info */
-    if (platformInfo) {
-        strlcpy(kernelHeader->platformName, platformInfo->platformName, 
-            sizeof(kernelHeader->platformName));
-        memcpy(kernelHeader->rootPath, platformInfo->rootPath,
-            sizeof(kernelHeader->rootPath));
-    }
-    
-    /* Compress the kernel */
-
-    bufend = compress_lzss(buf + offset, bufsize, 
-        (u_int8_t *)CFDataGetBytePtr(prelinkImage),
-        CFDataGetLength(prelinkImage));
-    if (!bufend) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Failed to compress prelinked kernel.");
-        goto finish;
-    }
-
-    compsize = bufend - (buf + offset);
-    kernelHeader->compressedSize = OSSwapHostToBigInt32(compsize);
-    CFDataSetLength(compressedImage, bufend - buf);
-
-    result = CFRetain(compressedImage);
-    
-finish:
-    SAFE_RELEASE(compressedImage);
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
-ExitStatus createPrelinkedKernel(
+ExitStatus createPrelinkedKernelForArch(
     KextcacheArgs       * toolArgs,
     CFDataRef           * prelinkedKernelOut,
     CFDictionaryRef     * prelinkedSymbolsOut,
-    const NXArchInfo    * archInfo,
-    PlatformInfo        * platformInfo)
+    const NXArchInfo    * archInfo)
 {
     ExitStatus result = EX_OSERR;
-    CFArrayRef requestedIdentifiers = NULL;
-    CFArrayRef kextArray = NULL;
+    CFMutableArrayRef prelinkKexts = NULL;
     CFDataRef kernelImage = NULL;
     CFDataRef prelinkedKernel = NULL;
+    uint32_t flags = 0;
+    Boolean fatalOut = false;
 
-   /* Retrieve the kernel image for the requested architecture.
-    */
-    kernelImage = readMachOFileWithURL(toolArgs->kernelURL, archInfo);
+    /* Retrieve the kernel image for the requested architecture.
+     */
+    kernelImage = readMachOSliceForArch(toolArgs->kernelPath, archInfo, /* checkArch */ TRUE);
     if (!kernelImage) {
         OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogArchiveFlag |  kOSKextLogFileAccessFlag,
-            "Failed to read kernel file.");
+                kOSKextLogErrorLevel | kOSKextLogArchiveFlag |  kOSKextLogFileAccessFlag,
+                "Failed to read kernel file.");
         goto finish;
     }
 
     /* Set the architecture in the OSKext library */
 
     if (!OSKextSetArchitecture(archInfo)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+            "Can't set architecture %s to create prelinked kernel.",
+            archInfo->name);
+        result = EX_OSERR;
         goto finish;
     }
 
-    if (toolArgs->needLoadedKextInfo) {
-
-        /* If we need to get the requested set of kexts out of the kernel,
-         * wait for I/O Kit to quiesce.
-         */
-        
-        (void) waitForIOKitQuiescence();
-
-        /* Get the list of requested bundle IDs from the kernel and find all of
-         * the associated kexts.
-         */
-
-        requestedIdentifiers = OSKextCopyAllRequestedIdentifiers();
-        if (!requestedIdentifiers) {
-            goto finish;
-        }
-
-        kextArray = OSKextCopyKextsWithIdentifiers(requestedIdentifiers);
-        if (!kextArray) {
-            goto finish;
-        }
-    } else {
-        Boolean                 fatalOut = false;
-        CFMutableArrayRef       kexts = NULL;
-        
-        if (!createCFMutableArray(&kexts, &kCFTypeArrayCallBacks)) {
-            OSKextLogMemError();
-            goto finish;
-        }
-        
-        /*****
-         * Figure out which kexts we're actually archiving.
-         * This uses toolArgs->allKexts, which must already be created.
-         */
-        result = filterKextsForMkext(toolArgs, kexts, archInfo, &fatalOut);
-        if (result != EX_OK || fatalOut) {
-            SAFE_RELEASE(kexts);
-            goto finish;
-        }
-        
+   /*****
+    * Figure out which kexts we're actually archiving.
+    * This uses toolArgs->allKexts, which must already be created.
+    */
+    prelinkKexts = CFArrayCreateMutable(kCFAllocatorDefault, 0, 
+        &kCFTypeArrayCallBacks);
+    if (!prelinkKexts) {
+        OSKextLogMemError();
         result = EX_OSERR;
-        
-        if (!CFArrayGetCount(kexts)) {
-            SAFE_RELEASE(kexts);
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-                 "No kexts found for architecture %s.",
-                 archInfo->name);
-            goto finish;
-        }
-
-        kextArray = CFArrayCreateCopy(kCFAllocatorDefault, kexts);
-        if (!kextArray) {
-            SAFE_RELEASE(kexts);                
-            OSKextLogMemError();
-            goto finish;
-        }
-        SAFE_RELEASE(kexts);
+        goto finish;
     }
+
+    result = filterKextsForCache(toolArgs, prelinkKexts,
+            archInfo, &fatalOut);
+    if (result != EX_OK || fatalOut) {
+        goto finish;
+    }
+
+    result = EX_OSERR;
+
+    if (!CFArrayGetCount(prelinkKexts)) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
+            "No kexts found for architecture %s.",
+            archInfo->name);
+        goto finish;
+    }
+
+   /* Create the prelinked kernel from the given kernel and kexts */
+
+    flags |= (toolArgs->noLinkFailures) ? kOSKextKernelcacheNeedAllFlag : 0;
+    flags |= (toolArgs->skipAuthentication) ? kOSKextKernelcacheSkipAuthenticationFlag : 0;
+    flags |= (toolArgs->printTestResults) ? kOSKextKernelcachePrintDiagnosticsFlag : 0;
+    flags |= (toolArgs->includeAllPersonalities) ? kOSKextKernelcacheIncludeAllPersonalitiesFlag : 0;
+    flags |= (toolArgs->stripSymbols) ? kOSKextKernelcacheStripSymbolsFlag : 0;
     
-    /* Create the prelinked kernel from the given kernel and kexts */
-    
-    prelinkedKernel = OSKextCreatePrelinkedKernel(kernelImage, kextArray,
-        toolArgs->volumeRootURL, toolArgs->prelinkedKernelErrorRequired,
-        toolArgs->skipAuthentication, toolArgs->printTestResults,
-        toolArgs->includeAllPersonalities, !toolArgs->omitLinkState,
-        prelinkedSymbolsOut);
+    prelinkedKernel = OSKextCreatePrelinkedKernel(kernelImage, prelinkKexts,
+        toolArgs->volumeRootURL, flags, prelinkedSymbolsOut);
     if (!prelinkedKernel) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
             "Failed to generate prelinked kernel.");
-        if (toolArgs->prelinkedKernelErrorRequired) {
-            result = EX_OSERR;
-        }
+        result = EX_OSERR;
         goto finish;
     }
 
-    /* Compress the prelinked kernel if needed */
+   /* Compress the prelinked kernel if needed */
 
     if (toolArgs->compress) {
-        *prelinkedKernelOut = compressPrelinkedKernel(prelinkedKernel, platformInfo);
+        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel);
     } else {
         *prelinkedKernelOut = CFRetain(prelinkedKernel);
     }
@@ -2640,439 +2508,180 @@ ExitStatus createPrelinkedKernel(
     }
 
     result = EX_OK;
-    
+
 finish:
     SAFE_RELEASE(kernelImage);
-    SAFE_RELEASE(requestedIdentifiers);
-    SAFE_RELEASE(kextArray);
+    SAFE_RELEASE(prelinkKexts);
     SAFE_RELEASE(prelinkedKernel);
-    
+
     return result;
 }
 
-/*******************************************************************************
-*******************************************************************************/
-ExitStatus savePrelinkedKernel(
-    KextcacheArgs       * toolArgs,
-    CFDataRef             prelinkedKernel,
-    CFDictionaryRef       prelinkedSymbols)
+/*****************************************************************************
+ * FIXME: This assumes that we only care about the first repository URL. We
+ *        need to make this more general if we add support for multiple system
+ *        extensions folders.
+ *****************************************************************************/
+ExitStatus
+getExpectedPrelinkedKernelModTime(
+    KextcacheArgs  * toolArgs,
+    struct timeval   cacheFileTimes[2],
+    Boolean        * updateModTimeOut)
 {
-    ExitStatus result = EX_OSERR;
-    int fileDescriptor = 0;
-    mode_t real_umask = 0;
-    char tmpPath[MAXPATHLEN];
-    char finalPath[MAXPATHLEN];
-    struct timeval cacheFileTimes[2];
-    boolean_t updateModTime = false;
-    SaveFileContext saveFileContext;
+    struct timeval  kextTimes[2];
+    struct timeval  kernelTimes[2];
+    ExitStatus      result          = EX_SOFTWARE;
+    CFURLRef        firstURL        = NULL;
+    Boolean         updateModTime   = false; 
 
-    if (toolArgs->needDefaultPrelinkedKernelInfo) {
-        if (!_OSKextCreateFolderForCacheURL(toolArgs->prelinkedKernelURL)) {
+    if (!toolArgs->haveFolderMtime || !toolArgs->haveKernelMtime) {
+        result = EX_OK;
+        goto finish;
+    }
+
+    firstURL = (CFURLRef)CFArrayGetValueAtIndex(toolArgs->repositoryURLs, 0);
+
+    /* Check kext repository mod time */
+
+    result = getFileURLModTimePlusOne(firstURL, 
+        &toolArgs->firstFolderStatBuffer, kextTimes);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    /* Check kernel mod time */
+
+    result = getFilePathModTimePlusOne(toolArgs->kernelPath,
+        &toolArgs->kernelStatBuffer, kernelTimes);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    /* Get the access and mod times of the later modified of the kernel
+     * and kext repository.
+     */
+
+    if (timercmp(&kextTimes[1], &kernelTimes[1], >)) {
+        cacheFileTimes[0] = kextTimes[0];
+        cacheFileTimes[1] = kextTimes[1];
+    } else {
+        cacheFileTimes[0] = kernelTimes[0];
+        cacheFileTimes[1] = kernelTimes[1];
+    }
+
+    /* Set the mod time of the kernelcache relative to the kernel */
+
+    updateModTime = true;
+    result = EX_OK;
+
+finish:
+    if (updateModTimeOut) *updateModTimeOut = updateModTime;
+
+    return result;
+}
+
+/*********************************************************************
+ *********************************************************************/
+ExitStatus
+compressPrelinkedKernel(
+    const char        * prelinkPath,
+    Boolean             compress)
+{
+    ExitStatus          result          = EX_SOFTWARE;
+    struct timeval      prelinkedKernelTimes[2];
+    CFMutableArrayRef   prelinkedSlices = NULL; // must release
+    CFMutableArrayRef   prelinkedArchs  = NULL; // must release
+    CFDataRef           prelinkedSlice  = NULL; // must release
+    const NXArchInfo  * archInfo        = NULL; // do not free
+    const u_char      * sliceBytes      = NULL; // do not free
+    mode_t              fileMode        = 0;
+    int                 i               = 0;
+    
+    result = readMachOSlices(prelinkPath, &prelinkedSlices, 
+        &prelinkedArchs, &fileMode, prelinkedKernelTimes);
+    if (result != EX_OK) {
+        goto finish;
+    }
+
+    /* Compress/uncompress each slice of the prelinked kernel.
+     */
+
+    for (i = 0; i < CFArrayGetCount(prelinkedSlices); ++i) {
+
+        SAFE_RELEASE_NULL(prelinkedSlice);
+        prelinkedSlice = CFArrayGetValueAtIndex(prelinkedSlices, i);
+
+        if (compress) {
+            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice);
+            if (!prelinkedSlice) {
+                result = EX_DATAERR;
+                goto finish;
+            }
+        } else {
+            prelinkedSlice = uncompressPrelinkedSlice(prelinkedSlice);
+            if (!prelinkedSlice) {
+                result = EX_DATAERR;
+                goto finish;
+            }
+        }
+
+        CFArraySetValueAtIndex(prelinkedSlices, i, prelinkedSlice);
+    }
+    SAFE_RELEASE_NULL(prelinkedSlice);
+
+    /* Snow Leopard prelinked kernels are not wrapped in a fat header, so we
+     * have to decompress the prelinked kernel and look at the mach header
+     * to get the architecture information.
+     */
+
+    if (!prelinkedArchs && CFArrayGetCount(prelinkedSlices) == 1) {
+        if (!createCFMutableArray(&prelinkedArchs, NULL)) {
+            OSKextLogMemError();
+            result = EX_OSERR;
             goto finish;
+        }
+
+        sliceBytes = CFDataGetBytePtr(
+            CFArrayGetValueAtIndex(prelinkedSlices, 0));
+
+        archInfo = getThinHeaderPageArch(sliceBytes);
+        if (archInfo) {
+            CFArrayAppendValue(prelinkedArchs, archInfo);
+        } else {
+            SAFE_RELEASE_NULL(prelinkedArchs);
         }
     }
 
-    if (!CFURLGetFileSystemRepresentation(toolArgs->prelinkedKernelURL,
-        /* resolveToBase */ true, (UInt8 *)tmpPath, sizeof(finalPath))) {
+    /* If we still don't have architecture information, then something
+     * definitely went wrong.
+     */
 
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-
-    strlcpy(finalPath, tmpPath, sizeof(finalPath));
-    
-    if (strlcat(tmpPath, ".XXXX", sizeof(tmpPath)) >= sizeof(tmpPath)) {
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-    
-    fileDescriptor = mkstemp(tmpPath);
-    if (-1 == fileDescriptor) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't create %s - %s.",
-            tmpPath, strerror(errno));
-        goto finish;
-    }
-
-   /* Set the umask to get it, then set it back to iself. Wish there were a
-    * better way to query it.
-    */
-    real_umask = umask(0);
-    umask(real_umask);
-
-    if (-1 == fchmod(fileDescriptor, MKEXT_PERMS & ~real_umask)) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-             "Can't set permissions on %s - %s.",
-            tmpPath, strerror(errno));
-    }
-
-    result = writeToFile(fileDescriptor,
-        CFDataGetBytePtr(prelinkedKernel),
-        CFDataGetLength(prelinkedKernel));
-    if (result != EX_OK) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't save prelinked kernel - %s.",
-            strerror(errno));
-        goto finish;
-    }
-
-    if (close(fileDescriptor)) {
+    if (!prelinkedArchs) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
-            "Failed to close prelinked kernel file - %s.",
-            strerror(errno));
+            "Couldn't determine prelinked kernel's architecture");
+        result = EX_SOFTWARE;
         goto finish;
     }
 
-    if (toolArgs->haveFolderMtime && CFArrayGetCount(toolArgs->repositoryURLs)) {
-        CFURLRef firstURL = (CFURLRef)CFArrayGetValueAtIndex(
-            toolArgs->repositoryURLs, 0);
-        struct stat     newStatBuffer;
-        struct timespec newModTime;
-        struct timespec origModTime =
-            toolArgs->firstFolderStatBuffer.st_mtimespec;
-        struct timeval kernelTimeval;
-        struct timeval kextTimeval;
-        
-        /* Check kext repository mod time */
-
-        result = statURL(firstURL, &newStatBuffer);
-        if (result != EX_OK) {
-            goto finish;
-        }
-        newModTime = newStatBuffer.st_mtimespec;
-        if ((newModTime.tv_sec != origModTime.tv_sec) ||
-            (newModTime.tv_nsec != origModTime.tv_nsec)) {
-
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Source directory has changed since starting; "
-                "not saving cache file %s.",
-                finalPath);
-            result = kKextcacheExitStale;
-            goto finish;
-        }
-
-        /* Check kernel mod time */
-
-        result = statURL(toolArgs->kernelURL, &newStatBuffer);
-        if (result != EX_OK) {
-            goto finish;
-        }
-        
-        origModTime = toolArgs->kernelStatBuffer.st_mtimespec;
-        newModTime = newStatBuffer.st_mtimespec;
-        if ((newModTime.tv_sec != origModTime.tv_sec) ||
-            (newModTime.tv_nsec != origModTime.tv_nsec)) {
-
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Source kernel has changed since starting; "
-                "not saving cache file %s.",
-                finalPath);
-            result = kKextcacheExitStale;
-            goto finish;
-        }
-
-        /* Get the access and mod times of the later modified of the kernel
-         * and kext repository.
-         */
-
-        TIMESPEC_TO_TIMEVAL(&kextTimeval, &toolArgs->firstFolderStatBuffer.st_mtimespec);
-        TIMESPEC_TO_TIMEVAL(&kernelTimeval, &toolArgs->kernelStatBuffer.st_mtimespec);
-
-        if (timercmp(&kextTimeval, &kernelTimeval, >)) {
-            newStatBuffer = toolArgs->firstFolderStatBuffer;
-        }
-
-        /* Set the mod time of the kernelcache relative to the kernel */
-
-        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &newStatBuffer.st_atimespec);
-        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &newStatBuffer.st_mtimespec);
-        cacheFileTimes[1].tv_sec++;
-        updateModTime = true;
-    }
-
-    if (rename(tmpPath, finalPath) != 0) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Can't rename tmp prelinked kernel file - %s.",
-            strerror(errno));
-        result = EX_OSERR;
+    result = writeFatFile(prelinkPath, prelinkedSlices, 
+        prelinkedArchs, fileMode, prelinkedKernelTimes);
+    if (result != EX_OK) {
         goto finish;
-    }
-
-   /* Update the mod time of the resulting kernelcache. On error, print
-    * a message, but don't unlink the file. The mod time being out of
-    * whack should be sufficient to prevent the file from being used.
-    */
-    if (updateModTime) {
-        if (utimes(finalPath, cacheFileTimes)) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "Can't update mod time of %s - %s.",
-                finalPath, strerror(errno));
-        }
-    }
-    
-    if (prelinkedSymbols) {
-        saveFileContext.saveDirURL = toolArgs->symbolDirURL;
-        saveFileContext.overwrite = true;
-        saveFileContext.fatal = false;
-        CFDictionaryApplyFunction(prelinkedSymbols, &saveFile, &saveFileContext);
-        if (saveFileContext.fatal) {
-            goto finish;
-        }
     }
 
     result = EX_OK;
 
-    OSKextLog(/* kext */ NULL,
-        kOSKextLogBasicLevel | kOSKextLogGeneralFlag | kOSKextLogArchiveFlag,
-        "Created prelinked kernel %s.", finalPath);
-
 finish:
+    SAFE_RELEASE(prelinkedSlices);
+    SAFE_RELEASE(prelinkedArchs);
+    SAFE_RELEASE(prelinkedSlice);
+
     return result;
 }
 
-/*******************************************************************************
-* takeVolumeForPath turns the path into a volume UUID and locks with kextd
-*******************************************************************************/
-// upstat() stat()s "up" the path if a file doesn't exist
-static int upstat(const char *path, struct stat *sb, struct statfs *sfs)
-{
-    int rval = ELAST+1;
-    char buf[PATH_MAX], *tpath = buf;
-    struct stat defaultsb;
+#pragma mark Boot!=Root
 
-    if (strlcpy(buf, path, PATH_MAX) > PATH_MAX)        goto finish;
-
-    if (!sb)    sb = &defaultsb;
-    while ((rval = stat(tpath, sb)) == -1 && errno == ENOENT) {
-        // "." and "/" should always exist, but you never know
-        if (tpath[0] == '.' && tpath[1] == '\0')  goto finish;
-        if (tpath[0] == '/' && tpath[1] == '\0')  goto finish;
-        tpath = dirname(tpath);     // Tiger's dirname() took const char*
-    }
-
-    // call statfs if the caller needed it
-    if (sfs)
-        rval = statfs(tpath, sfs);
-
-finish:
-    if (rval) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                "Couldn't find volume for %s.", path);
-    }
-
-    return rval;
-}
-
-#define COMPILE_TIME_ASSERT(pred)   switch(0){case 0:case pred:;}
-static int getVolumeUUID(const char *volPath, uuid_t vol_uuid)
-{
-    int rval = ENODEV;
-    DADiskRef dadisk = NULL;
-    CFDictionaryRef dadesc = NULL;
-    CFUUIDRef volUUID;      // just a reference into the dict
-    CFUUIDBytes uuidBytes;
-COMPILE_TIME_ASSERT(sizeof(CFUUIDBytes) == sizeof(uuid_t));
-
-    dadisk = createDiskForMount(NULL, volPath);
-    if (!dadisk)        goto finish;
-    dadesc = DADiskCopyDescription(dadisk);
-    if (!dadesc)        goto finish;
-    volUUID = CFDictionaryGetValue(dadesc, kDADiskDescriptionVolumeUUIDKey);
-    if (!volUUID)       goto finish;
-    uuidBytes = CFUUIDGetUUIDBytes(volUUID);
-    memcpy(vol_uuid, &uuidBytes.byte0, sizeof(uuid_t));   // sizeof(vol_uuid)?
-
-    rval = 0;
-
-finish:
-    if (dadesc)     CFRelease(dadesc);
-    if (dadisk)     CFRelease(dadisk);
-
-    return rval;
-}
-
-
-// takeVolumeForPaths ensures all paths are on the given volume, then locks
-int takeVolumeForPaths(char *volPath)
-{
-    int bsderr, rval = ELAST + 1;
-    struct stat volsb;
-
-    bsderr = stat(volPath, &volsb);
-    if (bsderr)  goto finish;
-
-    rval = takeVolumeForPath(volPath);
-
-finish:
-    if (bsderr) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                "Couldn't lock paths on volume %s.", volPath);
-        rval = bsderr;
-    } 
-
-    return rval;
-}
-
-// can return success if a lock isn't needed
-// can return failure if sLockPort is already in use
-#define WAITFORLOCK 1
-static int takeVolumeForPath(const char *path)
-{
-    int rval = ELAST + 1;
-    kern_return_t macherr = KERN_SUCCESS;
-    int lckres = 0;
-    struct statfs sfs;
-    const char *volPath;
-    mach_port_t taskport = MACH_PORT_NULL;
-
-    if (sLockPort) {
-        return EALREADY;        // only support one lock at a time
-    }
-
-    if (geteuid() != 0) {
-        // kextd shouldn't be watching anything you can touch
-        // and ignores locking requests from non-root anyway
-        rval = 0;
-        goto finish;
-    }
-
-    // look up kextd port if not cached
-    // XX if there's a way to know kextd isn't running, we could skip
-    // unnecessarily bringing it up in the boot-time case (5108882?).
-    if (!sKextdPort) {
-        macherr=bootstrap_look_up(bootstrap_port,KEXTD_SERVER_NAME,&sKextdPort);
-        if (macherr)  goto finish;
-    }
-
-    if ((rval = upstat(path, NULL, &sfs)))      goto finish;
-    volPath = sfs.f_mntonname;
-
-    // get the volume's UUID
-    if ((rval = getVolumeUUID(volPath, s_vol_uuid))) {
-        goto finish;
-    }
-    
-    // allocate a port to pass (in case we die -- kernel cleans up on exit())
-    taskport = mach_task_self();
-    if (taskport == MACH_PORT_NULL)  goto finish;
-    macherr = mach_port_allocate(taskport, MACH_PORT_RIGHT_RECEIVE, &sLockPort);
-    if (macherr)  goto finish;
-
-    // try to take the lock; warn if it's busy and then wait for it
-    // X kextcache -U, if it is going to lock at all, needs only WAITFORLOCK
-    macherr = kextmanager_lock_volume(sKextdPort, sLockPort, s_vol_uuid,
-                                      !WAITFORLOCK, &lckres);
-    if (macherr)        goto finish;
-
-    // 5519500: sleep if kextd hasn't gotten w/diskarb yet
-    while (lckres == EAGAIN) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-            "kextd wasn't ready; waiting 10 seconds and trying again");
-        sleep(10);
-        macherr = kextmanager_lock_volume(sKextdPort, sLockPort, s_vol_uuid,
-                                          !WAITFORLOCK, &lckres);
-        if (macherr)    goto finish;
-    }
-
-    // now, if it was busy, let's sleep until it's free
-    if (lckres == EBUSY || lckres == EAGAIN) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-            "%s locked; waiting for lock.", volPath);
-        macherr = kextmanager_lock_volume(sKextdPort, sLockPort, s_vol_uuid,
-            WAITFORLOCK, &lckres);
-        if (macherr)    goto finish;
-        if (lckres == 0) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "Lock acquired; proceeding.");
-        }
-    }
-    
-    // kextd might not be watching this volume 
-    // or might be telling us that it went away (not watching any more)
-    // so we set our success to the existance of the volume's root
-    if (lckres == ENOENT) {
-        struct stat sb;
-        rval = stat(volPath, &sb);
-    } else {
-        rval = lckres;
-    }
-
-finish: 
-    if (sLockPort != MACH_PORT_NULL && (lckres != 0 || macherr)) {
-        mach_port_mod_refs(taskport, sLockPort, MACH_PORT_RIGHT_RECEIVE, -1);
-        sLockPort = MACH_PORT_NULL;
-    }
-
-    /* XX needs unraveling XX */
-    // if kextd isn't competing with us, then we didn't need the lock
-    if (macherr == BOOTSTRAP_UNKNOWN_SERVICE) {
-        rval = 0;
-    } else if (macherr) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-            "Couldn't lock %s: %s (%d).", path,
-            safe_mach_error_string(macherr), macherr);
-        rval = macherr;
-    } else {
-        // dump rval
-        if (rval == -1) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                "Couldn't lock %s.", path);
-            rval = errno;
-        } else if (rval) {
-            // lckres == EAGAIN should get here
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "Couldn't lock %s: %s", path, strerror(rval));
-        }
-    }
-
-    return rval;
-}
-
-
-/*******************************************************************************
-* putVolumeForPath will unlock the relevant volume, passing 'status' to
-* inform kextd whether we succeded, failed, or just need more time
-*******************************************************************************/
-int putVolumeForPath(const char *path, int status)
-{
-    int rval = KERN_SUCCESS;
-
-    // if not locked, don't sweat it
-    if (sLockPort == MACH_PORT_NULL)
-        goto finish;
-
-    rval = kextmanager_unlock_volume(sKextdPort, sLockPort, s_vol_uuid, status);
-
-    // tidy up; the server will clean up its stuff if we die prematurely
-    mach_port_mod_refs(mach_task_self(),sLockPort,MACH_PORT_RIGHT_RECEIVE,-1);
-    sLockPort = MACH_PORT_NULL;
-
-finish:
-    if (rval) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-            "Couldn't unlock volume for %s: %s (%d).",
-            path, safe_mach_error_string(rval), rval);
-    }
-
-    return rval;
-}
 
 /*******************************************************************************
 * usage()
@@ -3081,11 +2690,12 @@ void usage(UsageLevel usageLevel)
 {
     fprintf(stderr,
       "usage: %1$s <mkext_flag> [options] [--] [kext or directory] ...\n"
-      "       %1$s -system-mkext [options] [--] [kext or directory] ...\n"
       "       %1$s -prelinked-kernel <filename> [options] [--] [kext or directory]\n"
       "       %1$s -system-prelinked-kernel\n"
       "       %1$s [options] -prelinked-kernel\n"
+#if !NO_BOOT_ROOT
       "       %1$s -update-volume <volume> [options]\n"
+#endif
       "       %1$s -system-caches [options]\n"
       "\n",
       progname);
@@ -3105,16 +2715,20 @@ void usage(UsageLevel usageLevel)
         kOptNameMkext2);
     fprintf(stderr, "-%s <filename> (-%c): create an mkext (version 1)\n",
         kOptNameMkext1, kOptMkext);
-    fprintf(stderr, "-%s (-%c): update the startup mkext for the system\n",
-        kOptNameSystemMkext, kOptSystemMkext);
     fprintf(stderr, "-%s [<filename>] (-%c):\n"
         "        create/update prelinked kernel (must be last if no filename given)\n",
         kOptNamePrelinkedKernel, kOptPrelinkedKernel);
     fprintf(stderr, "-%s:\n"
         "        create/update system prelinked kernel\n",
         kOptNameSystemPrelinkedKernel);
+#if !NO_BOOT_ROOT
     fprintf(stderr, "-%s <volume> (-%c): update system kext caches for <volume>\n",
         kOptNameUpdate, kOptUpdate);
+    fprintf(stderr, "-%s called us, modify behavior appropriately\n",
+            kOptNameInstaller);
+    fprintf(stderr, "-%s skips updating any helper partitions even if they appear out of date\n",
+            kOptNameCachesOnly);
+#endif
 #if 0
 // don't print this system-use option
     fprintf(stderr, "-%c <volume>:\n"
@@ -3126,9 +2740,9 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "\n");
 
     fprintf(stderr,
-        "kext or directory: Add the kext or all kexts in directory to cache\n");
+        "kext or directory: Consider kext or all kexts in directory for inclusion\n");
     fprintf(stderr, "-%s <bundle_id> (-%c):\n"
-        "        add the kext whose CFBundleIdentifier is <bundle_id>\n",
+        "        include the kext whose CFBundleIdentifier is <bundle_id>\n",
         kOptNameBundleIdentifier, kOptBundleIdentifier);
     fprintf(stderr, "-%s <volume>:\n"
         "        Save kext paths in an mkext archive or prelinked kernel "
@@ -3138,9 +2752,11 @@ void usage(UsageLevel usageLevel)
         kOptNameKernel, kOptKernel);
     fprintf(stderr, "-%s (-%c): Include all kexts ever loaded in prelinked kernel\n",
         kOptNameAllLoaded, kOptAllLoaded);
+#if !NO_BOOT_ROOT
     fprintf(stderr, "-%s (-%c): Update volumes even if they look up to date\n",
         kOptNameForce, kOptForce);
     fprintf(stderr, "\n");
+#endif
 
     fprintf(stderr, "-%s (-%c): Add 'Local-Root' kexts from directories to an mkext file\n",
         kOptNameLocalRoot, kOptLocalRoot);

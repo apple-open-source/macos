@@ -97,18 +97,18 @@ foreach elem $fmtList {
 	    # Write the image to a file and read it back again.
 	    writePhotoFile $ph $fname "$fmt $opt" 1
 	    set ph [readPhotoFile1 $fname "$fmt $opt"]
-	    if { $ph == {} } {
+	    if { $ph eq "" } {
 		set ph [createErrImg]
 		set zoom 1
 	    }
 	    # Write the image to a uuencoded string and read it back again.
 	    set str [writePhotoString $ph "$fmt $opt" 1]
-	    if { $str == "" } {
+	    if { $str eq "" } {
 		set ph [createErrImg]
 		set zoom 1
 	    } else {
 		set ph [readPhotoString $str "$fmt $opt" -1 -1]
-		if { $ph == {} } {
+		if { $ph eq "" } {
 		    set ph [createErrImg]
 		    set zoom 1
 		}

@@ -39,7 +39,7 @@
 #include "WebResource.h"
 #include "WebURLResponse.h"
 #include <WebCore/BString.h>
-#include <WebCore/DocLoader.h>
+#include <WebCore/CachedResourceLoader.h>
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
@@ -116,6 +116,16 @@ HRESULT STDMETHODCALLTYPE WebDataSource::mainDocumentError(
         return S_OK;
 
     *error = WebError::createInstance(m_loader->mainDocumentError());
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebDataSource::setDeferMainResourceDataLoad(
+    /* [in] */ BOOL flag)
+{
+    if (!m_loader)
+        return E_FAIL;
+
+    m_loader->setDeferMainResourceDataLoad(flag);
     return S_OK;
 }
 
@@ -236,7 +246,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::isLoading(
 HRESULT STDMETHODCALLTYPE WebDataSource::pageTitle( 
     /* [retval][out] */ BSTR* title)
 {
-    *title = BString(m_loader->title()).release();
+    *title = BString(m_loader->title().string()).release();
     return S_OK;
 }
 
@@ -287,7 +297,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::subresourceForURL(
     if (!doc)
         return E_FAIL;
 
-    CachedResource *cachedResource = doc->docLoader()->cachedResource(String(url));
+    CachedResource *cachedResource = doc->cachedResourceLoader()->cachedResource(String(url));
 
     if (!cachedResource)
         return E_FAIL;

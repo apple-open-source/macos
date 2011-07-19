@@ -10,13 +10,11 @@ ProjectName           = Trf
 License               = doc/license.terms
 
 # Fetch info
-Release               = 2.1.3
-#TEApotVersion         = $(Release).2008.12.05.14.50.18
-ImportDate            = 2008-12-12
-CvsRoot               = :pserver:anonymous@tcltrf.cvs.sourceforge.net:/cvsroot/tcltrf
+Release               = 2.1.4
+TEApotVersion         = $(Release).2009.05.20.12.34.07
 
 Extra_Configure_Flags = $(TEA_Configure_Flags) \
-                        --with-zlibtcl=$(OBJROOT)/../tkimg/libz/tcl
+                        --with-zlibtcl=$(OBJROOT)/../tkimg/zlib
                         $(TEA_Environment)
 
 GnuAfterInstall       = strip install-doc fix-perms
@@ -30,11 +28,13 @@ TclExtDir             = $(ProjectName)
 
 install-doc:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) umask $(Install_Mask); for f in "$(Sources)"/doc/*.man; do \
+	$(_v) umask $(Install_Mask); cd "$(Sources)"/doc; for f in *.man; do \
 	    n=$$(basename "$$f" .man) && echo "Generating $$n docs" && \
 	    $(MPEXPAND) html $$f "$(DSTROOT)/$(TclExtHtmlDir)/$$n.html" && \
 	    $(MPEXPAND) nroff $$f "$(DSTROOT)/$(TclExtManDir)/$$n.n"; \
 	done
 
 extract::
-	$(_v) $(RM) $(SRCROOT)/$(Project)/compat/tclLoadDyld.c
+	$(_v) $(RM) $(SRCROOT)/$(Project)/compat/{tclLoadDyld.c,stpncpy.c}
+	$(_v) $(RM) $(SRCROOT)/$(Project)/generic/rs-ecc/{Makefile.in,configure*,ecc.{c,1},version.c}
+	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/md5-crypt

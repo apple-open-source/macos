@@ -30,32 +30,27 @@
 
 #if ENABLE(DATABASE)
 
-#include <wtf/Threading.h>
-
-#include "SQLiteTransaction.h"
+#include "ExceptionCode.h"
 #include "SQLStatement.h"
-#include "SQLTransactionCallback.h"
-#include "SQLTransactionErrorCallback.h"
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/RefPtr.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-typedef int ExceptionCode;
-
 class Database;
 class SQLError;
+class SQLiteTransaction;
 class SQLStatementCallback;
 class SQLStatementErrorCallback;
 class SQLTransaction;
+class SQLTransactionCallback;
+class SQLTransactionErrorCallback;
 class SQLValue;
-class String;
 class VoidCallback;
 
-class SQLTransactionWrapper : public ThreadSafeShared<SQLTransactionWrapper> {
+class SQLTransactionWrapper : public ThreadSafeRefCounted<SQLTransactionWrapper> {
 public:
     virtual ~SQLTransactionWrapper() { }
     virtual bool performPreflight(SQLTransaction*) = 0;
@@ -64,7 +59,7 @@ public:
     virtual SQLError* sqlError() const = 0;
 };
 
-class SQLTransaction : public ThreadSafeShared<SQLTransaction> {
+class SQLTransaction : public ThreadSafeRefCounted<SQLTransaction> {
 public:
     static PassRefPtr<SQLTransaction> create(Database*, PassRefPtr<SQLTransactionCallback>, PassRefPtr<SQLTransactionErrorCallback>,
                                              PassRefPtr<VoidCallback>, PassRefPtr<SQLTransactionWrapper>, bool readOnly = false);
@@ -72,7 +67,7 @@ public:
     ~SQLTransaction();
 
     void executeSQL(const String& sqlStatement, const Vector<SQLValue>& arguments,
-                    PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> callbackError, ExceptionCode& e);
+                    PassRefPtr<SQLStatementCallback>, PassRefPtr<SQLStatementErrorCallback>, ExceptionCode&);
 
     void lockAcquired();
     bool performNextStep();
@@ -91,7 +86,7 @@ private:
 
     void enqueueStatement(PassRefPtr<SQLStatement>);
 
-    void checkAndHandleClosedDatabase();
+    void checkAndHandleClosedOrInterruptedDatabase();
 
     void acquireLock();
     void openTransactionAndPreflight();
@@ -120,9 +115,9 @@ private:
 
     RefPtr<Database> m_database;
     RefPtr<SQLTransactionWrapper> m_wrapper;
-    RefPtr<SQLTransactionCallback> m_callback;
-    RefPtr<VoidCallback> m_successCallback;
-    RefPtr<SQLTransactionErrorCallback> m_errorCallback;
+    SQLCallbackWrapper<SQLTransactionCallback> m_callbackWrapper;
+    SQLCallbackWrapper<VoidCallback> m_successCallbackWrapper;
+    SQLCallbackWrapper<SQLTransactionErrorCallback> m_errorCallbackWrapper;
     RefPtr<SQLError> m_transactionError;
     bool m_shouldRetryCurrentStatement;
     bool m_modifiedDatabase;

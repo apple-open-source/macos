@@ -69,7 +69,7 @@
  * (keys are always strings), "s" denotes a string value,
  * "i" denotes a 32 bit signed int, and "u" denotes an unsigned.
  */
-__private_extern__ kvbuf_t *
+kvbuf_t *
 kvbuf_query(char *fmt, ...)
 {
 	va_list ap;
@@ -188,7 +188,7 @@ kvbuf_query_key_val(const char *key, const char *val)
 	return kv;
 }
 
-__private_extern__ kvbuf_t *
+kvbuf_t *
 kvbuf_query_key_int(const char *key, int32_t i)
 {
 	char str[32];
@@ -197,7 +197,7 @@ kvbuf_query_key_int(const char *key, int32_t i)
 	return kvbuf_query_key_val(key, str);
 }
 
-__private_extern__ kvbuf_t *
+kvbuf_t *
 kvbuf_query_key_uint(const char *key, uint32_t u)
 {
 	char str[32];
@@ -248,15 +248,18 @@ kvbuf_init_zone(malloc_zone_t *zone, char *buffer, uint32_t length)
 
 	kv->_size = length;
 	kv->datalen = length;
-	kv->databuf = malloc_zone_calloc(zone, 1, length);
-	if (kv->databuf == NULL)
+	if (length > 0)
 	{
-		free(kv);
-		kv = NULL;
-	}
-	else
-	{
-		memcpy(kv->databuf, buffer, length);
+		kv->databuf = malloc_zone_calloc(zone, 1, length);
+		if (kv->databuf == NULL)
+		{
+			free(kv);
+			kv = NULL;
+		}
+		else
+		{
+			memcpy(kv->databuf, buffer, length);
+		}
 	}
 
 	return kv;
@@ -271,24 +274,24 @@ kvbuf_init(char *buffer, uint32_t length)
 static void
 kvbuf_grow(kvbuf_t *kv, uint32_t delta)
 {
-	uint32_t newlen, n;
-	char *p;
+	uint32_t newlen;
+	char *p, *newbuf;
+	malloc_zone_t *zone;
 
 	if (kv == NULL) return;
 	if (delta == 0) return;
 
 	if (kv->databuf == NULL) delta += sizeof(uint32_t);
 
-	n = (delta + KVBUF_CHUNK - 1) / KVBUF_CHUNK;
-	newlen = kv->datalen + (n * KVBUF_CHUNK);
-
+	newlen = kv->datalen + delta;
 	if (newlen <= kv->_size) return;
 
-	kv->_size = newlen;
+	kv->_size = ((newlen + KVBUF_CHUNK - 1) / KVBUF_CHUNK) * KVBUF_CHUNK;
 
+	zone = malloc_zone_from_ptr(kv);
 	if (kv->databuf == NULL)
 	{
-		kv->databuf = calloc(1, kv->_size);
+		kv->databuf = malloc_zone_calloc(zone, 1, kv->_size);
 		if (kv->databuf == NULL)
 		{
 			memset(kv, 0, sizeof(kvbuf_t));
@@ -300,7 +303,9 @@ kvbuf_grow(kvbuf_t *kv, uint32_t delta)
 	}
 	else
 	{
-		kv->databuf = reallocf(kv->databuf, kv->_size);
+		newbuf = malloc_zone_realloc(zone, kv->databuf, kv->_size);
+		if (newbuf == NULL) free(kv->databuf);
+		kv->databuf = newbuf;
 		if (kv->databuf == NULL)
 		{
 			memset(kv, 0, sizeof(kvbuf_t));

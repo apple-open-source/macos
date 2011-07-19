@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -201,9 +201,12 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 
 	bVal = CFPreferencesCopyAppValue(CFSTR("LOG_SC_CHANGES"), USER_PREFERENCES_APPLICATION_ID);
 	if (bVal != NULL) {
-		if (!isA_CFBoolean(bVal) || !CFBooleanGetValue(bVal)) {
+		Boolean	enabled;
+
+		enabled = isA_CFBoolean(bVal) && CFBooleanGetValue(bVal);
+		CFRelease(bVal);
+		if (!enabled) {
 			// if debugging not enabled
-			CFRelease(bVal);
 			return;
 		}
 	} else {
@@ -268,9 +271,9 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 			CFRelease(oldPreferences);
 			return;
 		}
-		data = CFPropertyListCreateXMLData(NULL, oldPreferences);
+		data = CFPropertyListCreateData(NULL, oldPreferences, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 		if (data == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateXMLData() failed"));
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateData() failed"));
 			close(fd);
 			CFRelease(oldPreferences);
 			return;
@@ -293,9 +296,9 @@ logCFPreferencesChange(CFStringRef serviceID, CFArrayRef newPreferences)
 			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange fopen() failed, error = %s"), SCErrorString(errno));
 			return;
 		}
-		data = CFPropertyListCreateXMLData(NULL, newPreferences);
+		data = CFPropertyListCreateData(NULL, newPreferences, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 		if (data == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateXMLData() failed"));
+			SCLog(TRUE, LOG_ERR, CFSTR("logCFPreferencesChange CFPropertyListCreateData() failed"));
 			close(fd);
 			return;
 		}
@@ -1536,6 +1539,17 @@ checkUserPreferencesPassword(SCUserPreferencesRef		userPreferences,
 			break;
 		}
 
+		case kSCNetworkInterfacePasswordTypeVPN : {
+			CFStringRef	interfaceType;
+
+			interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+			if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN)) {
+				_SCErrorSet(kSCStatusInvalidArgument);
+				return FALSE;
+			}
+			break;
+		}
+
 		default :
 			break;
 	}
@@ -1626,6 +1640,29 @@ SCUserPreferencesCheckInterfacePassword(SCUserPreferencesRef		userPreferences,
 
 			if (config != NULL)	CFRelease(config);
 			CFRelease(xauth_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeVPN : {
+			CFDictionaryRef	config;
+			CFStringRef	unique_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get userPreferences ID
+			unique_id = getUserPasswordID(config, userPreferences);
+
+			// check
+			exists = __extract_password(NULL,
+						    config,
+						    kSCPropNetVPNAuthPassword,
+						    kSCPropNetVPNAuthPasswordEncryption,
+						    kSCValNetVPNAuthPasswordEncryptionKeychain,
+						    unique_id,
+						    NULL);
+
+			if (config != NULL)	CFRelease(config);
 			break;
 		}
 
@@ -1720,6 +1757,29 @@ SCUserPreferencesCopyInterfacePassword(SCUserPreferencesRef		userPreferences,
 
 			if (config != NULL)	CFRelease(config);
 			CFRelease(xauth_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeVPN : {
+			CFDictionaryRef	config;
+			CFStringRef	unique_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get userPreferences ID
+			unique_id = getUserPasswordID(config, userPreferences);
+
+			// extract
+			(void) __extract_password(NULL,
+						  config,
+						  kSCPropNetVPNAuthPassword,
+						  kSCPropNetVPNAuthPasswordEncryption,
+						  kSCValNetVPNAuthPasswordEncryptionKeychain,
+						  unique_id,
+						  &password);
+
+			if (config != NULL)	CFRelease(config);
 			break;
 		}
 
@@ -1832,6 +1892,34 @@ SCUserPreferencesRemoveInterfacePassword(SCUserPreferencesRef		userPreferences,
 
 			if (config != NULL) CFRelease(config);
 			CFRelease(xauth_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeVPN : {
+			CFDictionaryRef	config;
+			CFDictionaryRef	newConfig	= NULL;
+			CFStringRef	unique_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get userPreferences ID
+			unique_id = getUserPasswordID(config, userPreferences);
+
+			// remove password
+			ok = __remove_password(NULL,
+					       config,
+					       kSCPropNetVPNAuthPassword,
+					       kSCPropNetVPNAuthPasswordEncryption,
+					       kSCValNetVPNAuthPasswordEncryptionKeychain,
+					       unique_id,
+					       &newConfig);
+			if (ok) {
+				ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
+				if (newConfig != NULL) CFRelease(newConfig);
+			}
+
+			if (config != NULL) CFRelease(config);
 			break;
 		}
 
@@ -1950,7 +2038,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// set password
 			ok = _SCSecKeychainPasswordItemSet(NULL,
 							   shared_id,
-							   (label != NULL)       ? label       : CFSTR("VPN Connection"),
+							   (label != NULL)       ? label       : CFSTR("Network Connection"),
 							   (description != NULL) ? description : CFSTR("IPSec Shared Secret"),
 							   NULL,
 							   password,
@@ -2014,7 +2102,7 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			// store password
 			ok = _SCSecKeychainPasswordItemSet(NULL,
 							   xauth_id,
-							   (label != NULL)       ? label       : CFSTR("VPN Connection"),
+							   (label != NULL)       ? label       : CFSTR("Network Connection"),
 							   (description != NULL) ? description : CFSTR("IPSec XAuth Password"),
 							   account,
 							   password,
@@ -2044,6 +2132,66 @@ SCUserPreferencesSetInterfacePassword(SCUserPreferencesRef		userPreferences,
 			if (description != NULL) CFRelease(description);
 			if (label       != NULL) CFRelease(label);
 			CFRelease(xauth_id);
+			break;
+		}
+
+		case kSCNetworkInterfacePasswordTypeVPN : {
+			CFStringRef	unique_id;
+
+			// get configuration
+			config = SCUserPreferencesCopyInterfaceConfiguration(userPreferences, interface);
+
+			// get userPreferences ID
+			unique_id = getUserPasswordID(config, userPreferences);
+
+			// User prefs auth name --> keychain "Account"
+			if (config != NULL) {
+				account = CFDictionaryGetValue(config, kSCPropNetVPNAuthName);
+			}
+
+			// User prefs "name" --> keychain "Name"
+			label = SCUserPreferencesCopyName(userPreferences);
+
+			// "VPN Password" --> keychain "Kind"
+			if (bundle != NULL) {
+				description = CFBundleCopyLocalizedString(bundle,
+									  CFSTR("KEYCHAIN_KIND_VPN_PASSWORD"),
+									  CFSTR("VPN Password"),
+									  NULL);
+			}
+
+			// store password
+			ok = _SCSecKeychainPasswordItemSet(NULL,
+							   unique_id,
+							   (label != NULL)       ? label       : CFSTR("Network Connection"),
+							   (description != NULL) ? description : CFSTR("VPN Password"),
+							   account,
+							   password,
+							   options);
+			if (ok) {
+				CFMutableDictionaryRef	newConfig;
+
+				if (config != NULL) {
+					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+				} else {
+					newConfig = CFDictionaryCreateMutable(NULL,
+									      0,
+									      &kCFTypeDictionaryKeyCallBacks,
+									      &kCFTypeDictionaryValueCallBacks);
+				}
+				CFDictionarySetValue(newConfig,
+						     kSCPropNetVPNAuthPassword,
+						     unique_id);
+				CFDictionarySetValue(newConfig,
+						     kSCPropNetVPNAuthPasswordEncryption,
+						     kSCValNetVPNAuthPasswordEncryptionKeychain);
+				ok = SCUserPreferencesSetInterfaceConfiguration(userPreferences, interface, newConfig);
+				CFRelease(newConfig);
+			}
+
+			if (config      != NULL) CFRelease(config);
+			if (description != NULL) CFRelease(description);
+			if (label       != NULL) CFRelease(label);
 			break;
 		}
 

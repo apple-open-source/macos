@@ -1,7 +1,7 @@
 #! /bin/sh
 
 ## (From INN-1.4, written by Rich Salz)
-##  $Revision: 1.10 $
+##  $Revision$
 ##  A script to install files and directories.
 
 PROGNAME=`basename $0`
@@ -49,7 +49,7 @@ CHMODIT=false
 STRIPIT=false
 BACKIT=false
 TOUCHIT=true
-SAVESRC=false
+DIRMODE=false
 
 case `${WHOAMI}` in
 root)
@@ -71,10 +71,13 @@ while ${MORETODO} ; do
 	;;
     X-b*)
 	BACKIT=true
-	BACKUP=`expr "$1" : '-b\(.*\)'`
+	BACKUP="`echo \"$1\" | sed 's/^..//'`"
 	;;
     X-c)
-	SAVESRC=true
+	# backwards compatibility
+	;;
+    X-d)
+	DIRMODE=true
 	;;
     X-g)
 	GROUP="$2"
@@ -82,7 +85,7 @@ while ${MORETODO} ; do
 	shift
 	;;
     X-g*)
-	GROUP=`expr "$1" : '-g\(.*\)'`
+	GROUP="`echo \"$1\" | sed 's/^..//'`"
 	CHGROUPIT=true
 	;;
     X-G)
@@ -92,7 +95,7 @@ while ${MORETODO} ; do
 	;;
     X-G*)
 	if ${ROOT} ; then
-	    GROUP=`expr "$1" : '-g\(.*\)'`
+	    GROUP="`echo \"$1\" | sed 's/^..//'`"
 	    CHGROUPIT=true
 	fi
 	;;
@@ -102,7 +105,7 @@ while ${MORETODO} ; do
 	shift
 	;;
     X-m*)
-	MODE=`expr "$1" : '-m\(.*\)'`
+	MODE="`echo \"$1\" | sed 's/^..//'`"
 	CHMODIT=true
 	;;
     X-M)
@@ -111,7 +114,7 @@ while ${MORETODO} ; do
 	shift
 	;;
     X-M*)
-	MODE=`expr "$1" : '-m\(.*\)'`
+	MODE="`echo \"$1\" | sed 's/^..//'`"
 	${ROOT} && CHMODIT=true
 	;;
     X-n)
@@ -123,7 +126,7 @@ while ${MORETODO} ; do
 	shift
 	;;
     X-o*)
-	OWNER=`expr "$1" : '-o\(.*\)'`
+	OWNER="`echo \"$1\" | sed 's/^..//'`"
 	CHOWNIT=true
 	;;
     X-O)
@@ -133,7 +136,7 @@ while ${MORETODO} ; do
 	;;
     X-O*)
 	if ${ROOT} ; then
-	    OWNER=`expr "$1" : '-o\(.*\)'`
+	    OWNER="`echo \"$1\" | sed 's/^..//'`"
 	    CHOWNIT=true
 	fi
 	;;
@@ -155,29 +158,31 @@ while ${MORETODO} ; do
     ${MORETODO} && shift
 done
 
+##  Making a directory?
+if ${DIRMODE} ; then
+    while test $# != 0; do
+	DEST="$1"
+	if [ ! -d "${DEST}" ] ; then
+	    ${MKDIR} "${DEST}" || exit 1
+	fi
+	if ${CHOWNIT} ; then
+	    ${CHOWN} "${OWNER}" "${DEST}" || exit 1
+	fi
+	if ${CHGROUPIT} ; then
+	    ${CHGRP} "${GROUP}" "${DEST}" || exit 1
+	fi
+	if ${CHMODIT} ; then
+	    ${CHMOD} "${MODE}"  "${DEST}" || exit 1
+	fi
+	shift;
+    done
+    exit 0
+fi
+
 ##  Process arguments.
 if [ $# -ne 2 ] ; then
     echo "Usage:  ${PROGNAME} [flags] source destination"
     exit 1
-fi
-
-##  Making a directory?
-if [ X"$1" = X. ] ; then
-    DEST="$2"
-    if [ ! -d "${DEST}" ] ; then
-	${MKDIR} "${DEST}" || exit 1
-    fi
-    if ${CHOWNIT} ; then
-	${CHOWN} "${OWNER}" "${DEST}" || exit 1
-    fi
-    if ${CHGROUPIT} ; then
-	${CHGRP} "${GROUP}" "${DEST}" || exit 1
-    fi
-    if ${CHMODIT} ; then
-	umask 0
-	${CHMOD} "${MODE}"  "${DEST}" || exit 1
-    fi
-    exit 0
 fi
 
 ##  Get the destination and a temp file in the destination diretory.
@@ -190,7 +195,7 @@ else
 fi
 
 ##  If not given the same name, we must try to copy.
-if [ X"$1" != X"$2" -o $SAVESRC ] ; then
+if [ X"$1" != X"$2" ] ; then
     if cmp -s "$1" "${DEST}" ; then
 	##  Files are same; touch or not.
 	${TOUCHIT} && touch "${DEST}"
@@ -204,8 +209,10 @@ if [ X"$1" != X"$2" -o $SAVESRC ] ; then
 	fi
 	##  Copy source to the right dir, then move to right spot.
 	##  Done in two parts so we can hope for atomicity.
+	##  We need to rm DEST due to bugs in "mv -f" on some systems.
 	${RM} -f "${TEMP}" || exit 1
 	${CP} "$1" "${TEMP}" || exit 1
+	${RM} -f "${DEST}" || exit 1
 	${MV} -f "${TEMP}" "${DEST}" || exit 1
     fi
 fi
@@ -221,7 +228,6 @@ if ${CHGROUPIT} ; then
     ${CHGRP} "${GROUP}" "${DEST}" || exit 1
 fi
 if ${CHMODIT} ; then
-    umask 0
     ${CHMOD} "${MODE}"  "${DEST}" || exit 1
 fi
 exit 0

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,14 +22,16 @@
 #include "config.h"
 #include "StyleRareInheritedData.h"
 
+#include "CursorList.h"
+#include "QuotesData.h"
 #include "RenderStyle.h"
 #include "RenderStyleConstants.h"
+#include "ShadowData.h"
 
 namespace WebCore {
 
 StyleRareInheritedData::StyleRareInheritedData()
     : textStrokeWidth(RenderStyle::initialTextStrokeWidth())
-    , textShadow(0)
     , indent(RenderStyle::initialTextIndent())
     , m_effectiveZoom(RenderStyle::initialZoom())
     , widows(RenderStyle::initialWidows())
@@ -43,7 +45,15 @@ StyleRareInheritedData::StyleRareInheritedData()
     , textSizeAdjust(RenderStyle::initialTextSizeAdjust())
     , resize(RenderStyle::initialResize())
     , userSelect(RenderStyle::initialUserSelect())
-    , colorSpace(DeviceColorSpace)
+    , colorSpace(ColorSpaceDeviceRGB)
+    , speak(SpeakNormal)
+    , hyphens(HyphensManual)
+    , textEmphasisFill(TextEmphasisFillFilled)
+    , textEmphasisMark(TextEmphasisMarkNone)
+    , textEmphasisPosition(TextEmphasisPositionOver)
+    , m_lineBoxContain(RenderStyle::initialLineBoxContain())
+    , hyphenationLimitBefore(-1)
+    , hyphenationLimitAfter(-1)
 {
 }
 
@@ -52,7 +62,8 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , textStrokeColor(o.textStrokeColor)
     , textStrokeWidth(o.textStrokeWidth)
     , textFillColor(o.textFillColor)
-    , textShadow(o.textShadow ? new ShadowData(*o.textShadow) : 0)
+    , textEmphasisColor(o.textEmphasisColor)
+    , textShadow(o.textShadow ? adoptPtr(new ShadowData(*o.textShadow)) : nullptr)
     , highlight(o.highlight)
     , cursorData(o.cursorData)
     , indent(o.indent)
@@ -69,12 +80,22 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , resize(o.resize)
     , userSelect(o.userSelect)
     , colorSpace(o.colorSpace)
+    , speak(o.speak)
+    , hyphens(o.hyphens)
+    , textEmphasisFill(o.textEmphasisFill)
+    , textEmphasisMark(o.textEmphasisMark)
+    , textEmphasisPosition(o.textEmphasisPosition)
+    , m_lineBoxContain(o.m_lineBoxContain)
+    , hyphenationString(o.hyphenationString)
+    , hyphenationLimitBefore(o.hyphenationLimitBefore)
+    , hyphenationLimitAfter(o.hyphenationLimitAfter)
+    , locale(o.locale)
+    , textEmphasisCustomMark(o.textEmphasisCustomMark)
 {
 }
 
 StyleRareInheritedData::~StyleRareInheritedData()
 {
-    delete textShadow;
 }
 
 static bool cursorDataEquivalent(const CursorList* c1, const CursorList* c2)
@@ -91,6 +112,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
     return textStrokeColor == o.textStrokeColor
         && textStrokeWidth == o.textStrokeWidth
         && textFillColor == o.textFillColor
+        && textEmphasisColor == o.textEmphasisColor
         && shadowDataEquivalent(o)
         && highlight == o.highlight
         && cursorDataEquivalent(cursorData.get(), o.cursorData.get())
@@ -107,7 +129,19 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && textSizeAdjust == o.textSizeAdjust
         && resize == o.resize
         && userSelect == o.userSelect
-        && colorSpace == o.colorSpace;
+        && colorSpace == o.colorSpace
+        && speak == o.speak
+        && hyphens == o.hyphens
+        && hyphenationLimitBefore == o.hyphenationLimitBefore
+        && hyphenationLimitAfter == o.hyphenationLimitAfter
+        && textEmphasisFill == o.textEmphasisFill
+        && textEmphasisMark == o.textEmphasisMark
+        && textEmphasisPosition == o.textEmphasisPosition
+        && m_lineBoxContain == o.m_lineBoxContain
+        && hyphenationString == o.hyphenationString
+        && locale == o.locale
+        && textEmphasisCustomMark == o.textEmphasisCustomMark
+        && *quotes == *o.quotes;
 }
 
 bool StyleRareInheritedData::shadowDataEquivalent(const StyleRareInheritedData& o) const

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,9 +78,6 @@
  * @discussion
  * The message is passed to all clients of the IOBlockStorageDevice via the message() method.
  * The argument that is passed along with this message is an IOMediaState value.
- *
- * Devices that aren't capable of detecting media state changes indicate this in
- * the reportPollRequirements() method.
  */
 #define kIOMessageMediaStateHasChanged iokit_family_msg(sub_iokit_block_storage, 1)
 
@@ -212,17 +209,8 @@ public:
      */
     virtual UInt32	doGetFormatCapacities(UInt64 * capacities,
                                             UInt32   capacitiesMaxCount) const	= 0;
-    
-    /*!
-     * @function doLockUnlockMedia
-     * @abstract
-     * Lock or unlock the (removable) media in the drive.
-     * @discussion
-     * This method should only be called if the media is known to be removable.
-     * @param doLock
-     * True to lock the media, False to unlock.
-     */
-    virtual IOReturn	doLockUnlockMedia(bool doLock)	= 0;
+
+    virtual IOReturn	doLockUnlockMedia(bool doLock) __attribute__ ((deprecated));
 
     /*!
      * @function doSynchronizeCache
@@ -290,17 +278,7 @@ public:
      */
     virtual IOReturn	reportEjectability(bool *isEjectable)	= 0;
 
-    /*!
-     * @function reportLockability
-     * @abstract
-     * Report if the media is lockable under software control.
-     * @discussion
-     * This method should only be called if the media is known to be removable.
-     * @param isLockable
-     * Pointer to returned result. True indicates the media can be locked in place; False
-     * indicates the media cannot be locked by software.
-     */
-    virtual IOReturn	reportLockability(bool *isLockable)	= 0;
+    virtual IOReturn	reportLockability(bool *isLockable) __attribute__ ((deprecated));
 
 #ifndef __LP64__
     virtual IOReturn	reportMaxReadTransfer(UInt64 blockSize,UInt64 *max) __attribute__ ((deprecated));
@@ -332,30 +310,11 @@ public:
      * outputs mediaState and changedState will *not* be stored.
      * @param mediaPresent Pointer to returned media state. True indicates media is present
      * in the device; False indicates no media is present.
-     * @param changedState Pointer to returned result. True indicates a change of state since
-     * prior calls, False indicates that the state has not changed.
      */
-    virtual IOReturn	reportMediaState(bool *mediaPresent,bool *changedState)	= 0;
+    virtual IOReturn	reportMediaState(bool *mediaPresent,bool *changedState = 0)	= 0;
     
-    /*!
-     * @function reportPollRequirements
-     * @abstract
-     * Report if it's necessary to poll for media insertion, and if polling is expensive.
-     * @discussion
-     * This method reports whether the device must be polled to detect media
-     * insertion, and whether a poll is expensive to perform.
-     * 
-     * The term "expensive" typically implies a device that must be spun-up to detect media,
-     * as on a PC floppy. Most devices can detect media inexpensively.
-     * @param pollRequired
-     * Pointer to returned result. True indicates that polling is required; False indicates
-     * that polling is not required to detect media.
-     * @param pollIsExpensive
-     * Pointer to returned result. True indicates that the polling operation is expensive;
-     * False indicates that the polling operation is cheap.
-     */
     virtual IOReturn	reportPollRequirements(bool *pollRequired,
-                                            bool *pollIsExpensive)	= 0;
+                                            bool *pollIsExpensive) __attribute__ ((deprecated));
     
     /*!
      * @function reportRemovability

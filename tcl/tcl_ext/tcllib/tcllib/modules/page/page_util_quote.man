@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Parser generator tools}]
 [titledesc {page character quoting utilities}]
+[category  {Page Parser Generator}]
 [require page::util::quote [opt 0.1]]
 [require snit]
 [keywords page quoting {parser generator} {text processing}]

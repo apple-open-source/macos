@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)telldir.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/telldir.c,v 1.8 2002/02/01 00:57:29 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/telldir.c,v 1.11 2008/05/05 14:05:23 kib Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -68,13 +64,13 @@ telldir(dirp)
 	if ((lp = (struct ddloc *)malloc(sizeof(struct ddloc))) == NULL)
 		return (-1);
 	if (__isthreaded)
-		_pthread_mutex_lock((pthread_mutex_t *)&dirp->dd_lock);
+		_pthread_mutex_lock(&dirp->dd_lock);
 	lp->loc_index = dirp->dd_td->td_loccnt++;
 	lp->loc_seek = dirp->dd_seek;
 	lp->loc_loc = dirp->dd_loc;
 	LIST_INSERT_HEAD(&dirp->dd_td->td_locq, lp, loc_lqe);
 	if (__isthreaded)
-		_pthread_mutex_unlock((pthread_mutex_t *)&dirp->dd_lock);
+		_pthread_mutex_unlock(&dirp->dd_lock);
 	return (lp->loc_index);
 }
 
@@ -102,7 +98,7 @@ _seekdir(dirp, loc)
 	dirp->dd_seek = lp->loc_seek;
 	dirp->dd_loc = 0;
 	while (dirp->dd_loc < lp->loc_loc) {
-		dp = _readdir_unlocked(dirp);
+		dp = _readdir_unlocked(dirp, 0);
 		if (dp == NULL)
 			break;
 	}

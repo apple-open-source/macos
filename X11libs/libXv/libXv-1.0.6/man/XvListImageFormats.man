@@ -1,0 +1,107 @@
+.TH XvListImageFormats __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH Name
+XvListImageFormats \- return list of image formats supported by a video port
+.\"
+.SH Syntax
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "XvImageFormatValues * XvListImageFormats (Display *" dpy ","
+.BI "                 XvPortID " port ",  int *" p_num_formats ");"
+.fi
+.SH Arguments
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+Specifies the port whose adaptor is to be queried for its list of attributes.
+.IP \fIp_num_formats\fR 8
+A pointer to where the number of formats returned in the array is written.
+.\"
+.SH Description
+.BR XvListImageFormats (__libmansuffix__)
+returns the XvImageFormatValues supported by the specified port. This list
+should be freed with
+.BR XFree (__libmansuffix__).
+.SH Returned Values
+XvImageFormatValues has the following structure:
+.EX
+
+    typedef struct {
+      int id;                      /* Unique descriptor for the format */
+      int type;                    /* XvRGB, XvYUV */
+      int byte_order;              /* LSBFirst, MSBFirst */
+      char guid[16];               /* Globally Unique IDentifier */
+      int bits_per_pixel;
+      int format;                  /* XvPacked, XvPlanar */
+      int num_planes;
+
+      /* for RGB formats */
+      int depth;
+      unsigned int red_mask;
+      unsigned int green_mask;
+      unsigned int blue_mask;
+
+      /* for YUV formats */
+      unsigned int y_sample_bits;
+      unsigned int u_sample_bits;
+      unsigned int v_sample_bits;
+      unsigned int horz_y_period;
+      unsigned int horz_u_period;
+      unsigned int horz_v_period;
+      unsigned int vert_y_period;
+      unsigned int vert_u_period;
+      unsigned int vert_v_period;
+      char component_order[32];    /* eg. UYVY */
+      int scanline_order;          /* XvTopToBottom, XvBottomToTop */
+    } XvImageFormatValues;
+
+.EE
+.IP \fIid\fR 8
+A unique descriptor for the format.  This is often the FOURCC
+for the format, when applicable.  This id is used to describe
+the format during XvImage creation.
+.IP \fItype\fR 8
+XvRGB or XvYUV.
+.IP \fIbyte_order\fR 8
+The byte order of the image.  It is either LSBFirst or MSBFirst.
+.IP \fIguid\fR 8
+The Globally Unique IDentifier (also known as Universally Unique
+IDentifier).  When not applicable, all characters are NULL.
+.IP \fIbits_per_pixel\fR 8
+The bits taken up (but not necessarily used) by each
+pixel.  Note that for some planar formats which have
+fractional bits per pixel (such as IF09) this number
+may be rounded _down_.
+.IP \fIformat\fR 8
+XvPacked or XvPlanar.
+.IP \fInum_planes\fR 8
+The number of planes in planar formats.
+.IP \fIdepth\fR 8
+Significant bits per pixel.
+.IP "\fIred_mask, green_mask, blue_mask\fR" 8
+The red, green and blue bitmasks (RGB formats only).
+.IP \fI?_sample_bits\fR 8
+The size of each sample in bits (YUV formats only).
+.IP "\fIhorz_?_period, vert_?_period\fR" 8
+The period (in pixels) on which samples occur in the horizontal and vertical
+directions (YUV formats only).
+.IP \fIcomponent_order\fR 8
+Upper case ascii characters representing the order that samples are stored
+within packed formats.
+For planar formats this represents the ordering of the planes.
+.IP \fIscanline_order\fR 8
+XvTopToBottom or XvBottomToTop.
+.\"
+.SH Notes
+Since some formats (particularly some planar YUV formats) may not be
+completely defined by the parameters above, the guid, when available,
+should provide the most accurate description of the format.
+.\"
+.SH Diagnostics
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.\"
+.SH See Also
+.BR XvCreateImage (__libmansuffix__),
+.BR XvCreateShmImage (__libmansuffix__)

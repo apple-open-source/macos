@@ -1,0 +1,1 @@
+SUBDIRS=CTEXT ICCCM Xext XLFD Xserver

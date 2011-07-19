@@ -1309,6 +1309,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\cups\sspi.c"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\string.c"
 				>
 				<FileConfiguration
@@ -1379,6 +1383,10 @@
 						PreprocessorDefinitions="WIN32"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\cups\thread.c"
+				>
 			</File>
 			<File
 				RelativePath="..\cups\transcode.c"
@@ -1507,11 +1515,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cups\cups-private.h"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\cups.h"
 				>
 			</File>
 			<File
-				RelativePath="..\cups\debug.h"
+				RelativePath="..\cups\debug-private.h"
 				>
 			</File>
 			<File
@@ -1519,11 +1531,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\cups\file.h"
+				RelativePath="..\cups\file-private.h"
 				>
 			</File>
 			<File
-				RelativePath="..\cups\globals.h"
+				RelativePath="..\cups\file.h"
 				>
 			</File>
 			<File
@@ -1535,10 +1547,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\cups\i18n.h"
-				>
-			</File>
-			<File
 				RelativePath="..\cups\ipp-private.h"
 				>
 			</File>
@@ -1547,19 +1555,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cups\language-private.h"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\language.h"
 				>
 			</File>
 			<File
-				RelativePath="..\cups\md5-apple.h"
+				RelativePath="..\cups\md5-private.h"
 				>
 			</File>
 			<File
-				RelativePath="..\cups\md5.h"
-				>
-			</File>
-			<File
-				RelativePath="..\cups\normalize.h"
+				RelativePath="..\cups\ppd-private.h"
 				>
 			</File>
 			<File
@@ -1567,11 +1575,27 @@
 				>
 			</File>
 			<File
-				RelativePath="..\cups\string.h"
+				RelativePath="..\cups\pwg-private.h"
+				>
+			</File>
+			<File
+				RelativePath="..\cups\sspi-private.h"
+				>
+			</File>
+			<File
+				RelativePath="..\cups\string-private.h"
+				>
+			</File>
+			<File
+				RelativePath="..\cups\thread-private.h"
 				>
 			</File>
 			<File
 				RelativePath="..\cups\transcode.h"
+				>
+			</File>
+			<File
+				RelativePath="..\cups\versioning.h"
 				>
 			</File>
 		</Filter>

@@ -5,10 +5,10 @@ exec wish "$0" ${1+"$@"}
 #==============================================================================
 # Demonstrates some ways of improving the look & feel of a tablelist widget.
 #
-# Copyright (c) 2002-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2002-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
-package require Tablelist_tile
+package require tablelist_tile 5.1
 
 wm title . "Tablelist Styles"
 
@@ -16,9 +16,6 @@ wm title . "Tablelist Styles"
 # Get the current windowing system ("x11", "win32", or
 # "aqua") and add some entries to the Tk option database
 #
-if {[tk windowingsystem] eq "x11"} {
-    tablelist::setTheme alt
-}
 tablelist::setThemeDefaults
 if {[tablelist::getCurrentTheme] ne "aqua"} {
     option add *selectBackground  $tablelist::themeDefaults(-selectbackground)
@@ -39,7 +36,7 @@ ttk::frame $f.f
 for {set n 0} { $n < 8} {incr n} {
     set tbl $f.f.tbl$n
     tablelist::tablelist $tbl \
-    	-columns {0 "Label 0"  0 "Label 1"  0 "Label 2"  0 "Label 3"} \
+	-columntitles {"Label 0" "Label 1" "Label 2" "Label 3"} \
 	-background gray98 -height 4 -width 40 -stretch all
     if {[$tbl cget -selectborderwidth] == 0} {
 	$tbl configure -spacing 1

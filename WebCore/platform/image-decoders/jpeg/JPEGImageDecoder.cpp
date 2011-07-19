@@ -40,6 +40,7 @@
 #include "config.h"
 #include "JPEGImageDecoder.h"
 #include <stdio.h>  // Needed by jpeglib.h for FILE.
+#include <wtf/PassOwnPtr.h>
 
 #if OS(WINCE) || PLATFORM(BREWMP_SIMULATOR)
 // Remove warning: 'FAR' macro redefinition
@@ -51,7 +52,13 @@
 #endif
 
 extern "C" {
+
 #include "jpeglib.h"
+
+#if USE(ICCJPEG)
+#include "iccjpeg.h"
+#endif
+
 }
 
 #include <setjmp.h>
@@ -85,6 +92,24 @@ struct decoder_source_mgr {
 
     JPEGImageReader* decoder;
 };
+
+static ColorProfile readColorProfile(jpeg_decompress_struct* info)
+{
+#if USE(ICCJPEG)
+    JOCTET* profile;
+    unsigned int profileLength;
+
+    if (!read_icc_profile(info, &profile, &profileLength))
+        return ColorProfile();
+
+    ColorProfile colorProfile;
+    colorProfile.append(reinterpret_cast<char*>(profile), profileLength);
+    free(profile);
+    return colorProfile;
+#else
+    return ColorProfile();
+#endif
+}
 
 class JPEGImageReader
 {
@@ -123,6 +148,11 @@ public:
         src->pub.resync_to_restart = jpeg_resync_to_restart;
         src->pub.term_source = term_source;
         src->decoder = this;
+
+        // Enable these markers for the ICC color profile.
+        // Apparently there are 16 of these markers.  I don't see anywhere in the header with this constant.
+        for (unsigned i = 0; i < 0xF; ++i)
+            jpeg_save_markers(&m_info, JPEG_APP0 + i, 0xFFFF);
     }
 
     ~JPEGImageReader()
@@ -150,7 +180,7 @@ public:
         m_bytesToSkip = std::max(numBytes - bytesToSkip, static_cast<long>(0));
     }
 
-    bool decode(const Vector<char>& data, bool onlySize)
+    bool decode(const SharedBuffer& data, bool onlySize)
     {
         m_decodingSizeOnly = onlySize;
 
@@ -167,10 +197,8 @@ public:
         m_bufferLength = data.size();
         
         // We need to do the setjmp here. Otherwise bad things will happen
-        if (setjmp(m_err.setjmp_buffer)) {
-            close();
+        if (setjmp(m_err.setjmp_buffer))
             return m_decoder->setFailed();
-        }
 
         switch (m_state) {
         case JPEG_HEADER:
@@ -181,8 +209,13 @@ public:
             // Let libjpeg take care of gray->RGB and YCbCr->RGB conversions.
             switch (m_info.jpeg_color_space) {
             case JCS_GRAYSCALE:
-            case JCS_RGB:
             case JCS_YCbCr:
+                // Grayscale images get "upsampled" by libjpeg.  If we use
+                // their color profile, CoreGraphics will "upsample" them
+                // again, resulting in horizontal distortions.
+                m_decoder->setIgnoreGammaAndColorProfile(true);
+                // Note fall-through!
+            case JCS_RGB:
                 m_info.out_color_space = JCS_RGB;
                 break;
             case JCS_CMYK:
@@ -190,6 +223,12 @@ public:
                 // jpeglib cannot convert these to rgb, but it can convert ycck
                 // to cmyk.
                 m_info.out_color_space = JCS_CMYK;
+
+                // Same as with grayscale images, we convert CMYK images to RGBA
+                // ones. When we keep the color profiles of these CMYK images,
+                // CoreGraphics will convert their colors again. So, we discard
+                // their color profiles to prevent color corruption.
+                m_decoder->setIgnoreGammaAndColorProfile(true);
                 break;
             default:
                 return m_decoder->setFailed();
@@ -212,7 +251,10 @@ public:
 
             // We can fill in the size now that the header is available.
             if (!m_decoder->setSize(m_info.image_width, m_info.image_height))
-                return m_decoder->setFailed();
+                return false;
+
+            if (!m_decoder->ignoresGammaAndColorProfile())
+                m_decoder->setColorProfile(readColorProfile(info()));
 
             if (m_decodingSizeOnly) {
                 // We can stop here.  Reduce our buffer length and available
@@ -304,7 +346,7 @@ public:
         case JPEG_DONE:
             // Finish decompression.
             return jpeg_finish_decompress(&m_info);
-        
+
         case JPEG_ERROR:
             // We can get here if the constructor failed.
             return m_decoder->setFailed();
@@ -363,7 +405,9 @@ void term_source(j_decompress_ptr jd)
     src->decoder->decoder()->jpegComplete();
 }
 
-JPEGImageDecoder::JPEGImageDecoder()
+JPEGImageDecoder::JPEGImageDecoder(ImageSource::AlphaOption alphaOption,
+                                   ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
 {
 }
 
@@ -388,18 +432,26 @@ bool JPEGImageDecoder::setSize(unsigned width, unsigned height)
     return true;
 }
 
-RGBA32Buffer* JPEGImageDecoder::frameBufferAtIndex(size_t index)
+ImageFrame* JPEGImageDecoder::frameBufferAtIndex(size_t index)
 {
     if (index)
         return 0;
 
-    if (m_frameBufferCache.isEmpty())
+    if (m_frameBufferCache.isEmpty()) {
         m_frameBufferCache.resize(1);
+        m_frameBufferCache[0].setPremultiplyAlpha(m_premultiplyAlpha);
+    }
 
-    RGBA32Buffer& frame = m_frameBufferCache[0];
-    if (frame.status() != RGBA32Buffer::FrameComplete)
+    ImageFrame& frame = m_frameBufferCache[0];
+    if (frame.status() != ImageFrame::FrameComplete)
         decode(false);
     return &frame;
+}
+
+bool JPEGImageDecoder::setFailed()
+{
+    m_reader.clear();
+    return ImageDecoder::setFailed();
 }
 
 bool JPEGImageDecoder::outputScanlines()
@@ -408,15 +460,16 @@ bool JPEGImageDecoder::outputScanlines()
         return false;
 
     // Initialize the framebuffer if needed.
-    RGBA32Buffer& buffer = m_frameBufferCache[0];
-    if (buffer.status() == RGBA32Buffer::FrameEmpty) {
+    ImageFrame& buffer = m_frameBufferCache[0];
+    if (buffer.status() == ImageFrame::FrameEmpty) {
         if (!buffer.setSize(scaledSize().width(), scaledSize().height()))
             return setFailed();
-        buffer.setStatus(RGBA32Buffer::FramePartial);
+        buffer.setStatus(ImageFrame::FramePartial);
         buffer.setHasAlpha(false);
+        buffer.setColorProfile(m_colorProfile);
 
         // For JPEGs, the frame always fills the entire image.
-        buffer.setRect(IntRect(IntPoint(), size()));
+        buffer.setOriginalFrameRect(IntRect(IntPoint(), size()));
     }
 
     jpeg_decompress_struct* info = m_reader->info();
@@ -467,7 +520,7 @@ void JPEGImageDecoder::jpegComplete()
 
     // Hand back an appropriately sized buffer, even if the image ended up being
     // empty.
-    m_frameBufferCache[0].setStatus(RGBA32Buffer::FrameComplete);
+    m_frameBufferCache[0].setStatus(ImageFrame::FrameComplete);
 }
 
 void JPEGImageDecoder::decode(bool onlySize)
@@ -476,14 +529,15 @@ void JPEGImageDecoder::decode(bool onlySize)
         return;
 
     if (!m_reader)
-        m_reader.set(new JPEGImageReader(this));
+        m_reader = adoptPtr(new JPEGImageReader(this));
 
     // If we couldn't decode the image but we've received all the data, decoding
     // has failed.
-    if (!m_reader->decode(m_data->buffer(), onlySize) && isAllDataReceived())
+    if (!m_reader->decode(*m_data, onlySize) && isAllDataReceived())
         setFailed();
-
-    if (failed() || (!m_frameBufferCache.isEmpty() && m_frameBufferCache[0].status() == RGBA32Buffer::FrameComplete))
+    // If we're done decoding the image, we don't need the JPEGImageReader
+    // anymore.  (If we failed, |m_reader| has already been cleared.)
+    else if (!m_frameBufferCache.isEmpty() && (m_frameBufferCache[0].status() == ImageFrame::FrameComplete))
         m_reader.clear();
 }
 

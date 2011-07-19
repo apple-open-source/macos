@@ -33,8 +33,8 @@
 // FIXME: Move all methods to the files that have their callsites and remove this file.
 // *Utils files are not very WebKit-ty.
 
-#ifndef FontUtilsWin_h
-#define FontUtilsWin_h
+#ifndef FontUtilsChromiumWin_h
+#define FontUtilsChromiumWin_h
 
 #include <usp10.h>
 #include <wchar.h>
@@ -78,7 +78,7 @@ const UChar* getFallbackFamily(const UChar* characters, int length,
 // intl2 page-cycler test is noticeably slower with one out param than
 // the current version although the subsequent 9 passes take about the
 // same time.
-bool getDerivedFontData(const UChar* family, int style, LOGFONT*, int* ascent, HFONT*, SCRIPT_CACHE**);
+bool getDerivedFontData(const UChar* family, int style, LOGFONT*, int* ascent, HFONT*, SCRIPT_CACHE**, WORD* spaceGlyph);
 
 enum {
     FontStyleNormal = 0,
@@ -93,4 +93,4 @@ int getStyleFromLogfont(const LOGFONT*);
 
 }  // namespace WebCore
 
-#endif  // FontUtilsWin_h
+#endif  // FontUtilsChromiumWin_h

@@ -3,8 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
-# use Test::More tests => 4;
+use Test::More tests => 4;
 
 BEGIN {
     use_ok('Class::C3');
@@ -64,5 +63,5 @@ like($@, qr/called plus operator in IFOT/);
 
 my $z = Baz->new();
 eval { $z += 1 };
-# like($@, qr/no method found,/);
+like($@, qr/no method found,/);
 

@@ -31,7 +31,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/vars.c,v 1.8 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: vars.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* -----------------------------------------------------------------------------
  * wad_build_vars()

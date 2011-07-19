@@ -1,9 +1,6 @@
 
-#ifndef _S_BOOTP_SESSION_H
-#define _S_BOOTP_SESSION_H
-
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +36,11 @@
  * - created
  */
 
+#ifndef _S_BOOTP_SESSION_H
+#define _S_BOOTP_SESSION_H
+
+#include <stdint.h>
+#include "dhcp_options.h"
 #include "FDSet.h"
 #include "interfaces.h"
 
@@ -77,12 +79,12 @@ int
 bootp_client_transmit(bootp_client_t * client,
 		      struct in_addr dest_ip,
 		      struct in_addr src_ip,
-		      u_short dest_port,
-		      u_short src_port,
+		      uint16_t dest_port,
+		      uint16_t src_port,
 		      void * data, int len);
 
 bootp_session_t * 
-bootp_session_init(FDSet_t * readers, u_short client_port);
+bootp_session_init(uint16_t client_port);
 
 void
 bootp_session_set_debug(bootp_session_t * slist, FILE * log_file);
@@ -90,4 +92,4 @@ bootp_session_set_debug(bootp_session_t * slist, FILE * log_file);
 void
 bootp_session_free(bootp_session_t * * slist);
 
-#endif _S_BOOTP_SESSION_H
+#endif /* _S_BOOTP_SESSION_H */

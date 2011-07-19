@@ -287,10 +287,12 @@ typedef struct {
 #define GOT_FOCUS		(1 << 2)
 #define BUTTON_DELETED		(1 << 3)
 /*
- * Declaration of variables shared between the files in the button module.
+ * Declaration of button class functions structure
+ * and button/label defaults, for use in optionSpecs.
  */
 
 extern Tk_ClassProcs tkpButtonProcs;
+extern char tkDefButtonBorderWidth[TCL_INTEGER_SPACE];
 
 /*
  * Declaration of procedures used in the implementation of the button

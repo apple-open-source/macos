@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,3 +25,4 @@
 #define NFS_PROG	100003
 #define NFS_VER2	2
 #define NFS_VER3	3
+#define NFS_VER4	4

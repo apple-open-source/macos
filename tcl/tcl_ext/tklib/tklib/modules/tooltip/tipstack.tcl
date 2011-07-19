@@ -10,7 +10,7 @@
 # See the file "license.terms" for information on usage and
 # redistribution of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: tipstack.tcl,v 1.3 2006/04/04 23:56:36 andreas_kupries Exp $
+# RCS: @(#) $Id: tipstack.tcl,v 1.4 2009/01/09 05:46:12 andreas_kupries Exp $
 #
 
 # ### ######### ###########################
@@ -166,4 +166,4 @@ namespace eval ::tipstack {
 # ### ######### ###########################
 # Ready
 
-package provide tipstack 1.0
+package provide tipstack 1.0.1

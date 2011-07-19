@@ -77,14 +77,14 @@ __unused static char sccsid[] = "@(#)rexecd.c	8.1 (Berkeley) 6/4/93";
 #include <paths.h>
 #include <pwd.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 void doit() __dead2;
-/*VARARGS1*/
-void error();
+void error(const char *, ...);
 void getstr();
 
 /*
@@ -259,16 +259,16 @@ doit(f, fromp)
 	exit(1);
 }
 
-/*VARARGS1*/
 void
-error(fmt, a1, a2, a3)
-	char *fmt;
-	int a1, a2, a3;
+error(const char *fmt, ...)
 {
 	char buf[BUFSIZ];
+	va_list ap;
 
 	buf[0] = 1;
-	(void) sprintf(buf+1, fmt, a1, a2, a3);
+	va_start(ap, fmt);
+	(void) vsnprintf(buf+1, sizeof(buf) - 1, fmt, ap);
+	va_end(ap);
 	(void) write(2, buf, strlen(buf));
 }
 

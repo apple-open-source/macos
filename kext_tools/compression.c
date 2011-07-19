@@ -97,6 +97,7 @@ int decompress_lzss(
     /* ring buffer of size N, with extra F-1 bytes to aid string comparison */
     u_int8_t text_buf[N + F - 1];
     u_int8_t * dststart = dst;
+    const u_int8_t * dstend = dst + dstlen;
     const u_int8_t * srcend = src + srclen;
     int  i, j, k, r, c;
     unsigned int flags;
@@ -113,7 +114,7 @@ int decompress_lzss(
         }   /* to count eight */
         if (flags & 1) {
             if (src < srcend) c = *src++; else break;
-            *dst++ = c;
+            if (dst < dstend) *dst++ = c; else break;
             text_buf[r++] = c;
             r &= (N - 1);
         } else {
@@ -123,7 +124,7 @@ int decompress_lzss(
             j  =  (j & 0x0F) + THRESHOLD;
             for (k = 0; k <= j; k++) {
                 c = text_buf[(i + k) & (N - 1)];
-                *dst++ = c;
+                if (dst < dstend) *dst++ = c; else break;
                 text_buf[r++] = c;
                 r &= (N - 1);
             }
@@ -371,5 +372,5 @@ u_int8_t * compress_lzss(
 finish:
     if (sp) free(sp);
 
-    return dst;
+    return result;
 }

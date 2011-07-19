@@ -26,7 +26,13 @@
 #include "config.h"
 #include "CanvasRenderingContext.h"
 
+#include "CachedImage.h"
+#include "CanvasPattern.h"
 #include "HTMLCanvasElement.h"
+#include "HTMLImageElement.h"
+#include "HTMLVideoElement.h"
+#include "KURL.h"
+#include "SecurityOrigin.h"
 
 namespace WebCore {
 
@@ -35,14 +41,48 @@ CanvasRenderingContext::CanvasRenderingContext(HTMLCanvasElement* canvas)
 {
 }
 
-void CanvasRenderingContext::ref()
+void CanvasRenderingContext::checkOrigin(const CanvasPattern* pattern)
 {
-    m_canvas->ref();
+    if (canvas()->originClean() && pattern && !pattern->originClean())
+        canvas()->setOriginTainted();
 }
 
-void CanvasRenderingContext::deref()
+void CanvasRenderingContext::checkOrigin(const HTMLCanvasElement* sourceCanvas)
 {
-    m_canvas->deref(); 
+    if (canvas()->originClean() && sourceCanvas && !sourceCanvas->originClean())
+        canvas()->setOriginTainted();
+}
+
+void CanvasRenderingContext::checkOrigin(const HTMLImageElement* image)
+{
+    if (!image || !canvas()->originClean())
+        return;
+
+    CachedImage* cachedImage = image->cachedImage();
+    checkOrigin(cachedImage->response().url());
+
+    if (canvas()->originClean() && !cachedImage->image()->hasSingleSecurityOrigin())
+        canvas()->setOriginTainted();
+}
+
+void CanvasRenderingContext::checkOrigin(const HTMLVideoElement* video)
+{
+#if ENABLE(VIDEO)
+    checkOrigin(KURL(KURL(), video->currentSrc()));
+    if (canvas()->originClean() && video && !video->hasSingleSecurityOrigin())
+        canvas()->setOriginTainted();
+#endif
+}
+
+void CanvasRenderingContext::checkOrigin(const KURL& url)
+{
+    if (!canvas()->originClean() || m_cleanOrigins.contains(url.string()))
+        return;
+
+    if (canvas()->securityOrigin().taintsCanvas(url))
+        canvas()->setOriginTainted();
+    else
+        m_cleanOrigins.add(url.string());
 }
 
 } // namespace WebCore

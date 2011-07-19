@@ -4,6 +4,10 @@
 
 Project               = python
 Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --enable-dtrace --with-system-ffi --with-gcc=$(WITH_GCC) CC=$(WITH_GCC) CXX=$(WITH_GXX)
+# Define the environment variable DEBUG to YES, to build without optimization
+ifeq ($(DEBUG),YES)
+Extra_Configure_Flags += --with-pydebug
+endif
 
 ##---------------------------------------------------------------------
 # Extra_CC_Flags and Extra_LD_Flags are needed because CFLAGS gets overridden
@@ -13,7 +17,7 @@ Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/
 # Workaround for 3281234 (test_coercion failure due to non IEEE-754 in
 # optimizer): add -mno-fused-madd flag
 ##---------------------------------------------------------------------
-Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -mno-fused-madd -I/usr/include/ffi -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32
+Extra_CC_Flags += -fno-common -fno-strict-aliasing -fwrapv -mno-fused-madd -DENABLE_DTRACE -DMACOSX -DNDEBUG -Wall -Wstrict-prototypes -Wshorten-64-to-32
 Extra_LD_Flags += -Wl,-F.
 Extra_Install_Flags   = DESTDIR='$(DSTROOT)'
 GnuAfterInstall       = fixup-after-install install-plist
@@ -42,9 +46,7 @@ $(ConfigStamp2): $(ConfigStamp)
 # Fixup a lot of problems after the install
 ##---------------------------------------------------------------------
 APPS = /Applications
-DEVAPPS = /Developer/Applications/Utilities
 USRBIN = /usr/bin
-BUILDAPPLETNAME = Build Applet.app
 PYTHONAPPNAME = Python.app
 PYTHONLAUNCHERNAME = Python Launcher.app
 FRAMEWORKS = /System/Library/Frameworks
@@ -56,20 +58,15 @@ PYTHONAPP = $(RESOURCESVERS)/$(PYTHONAPPNAME)
 PACONTENTS = $(PYTHONAPP)/Contents
 PAMACOS = $(PACONTENTS)/MacOS
 PYTHONVERS = $(APPS)/Python $(VERS)
-DEVPYTHONVERS = $(DEVAPPS)/Python $(VERS)
 PYTHONLAUNCHER = $(RESOURCESVERS)/$(PYTHONLAUNCHERNAME)
 PLCONTENTS = $(PYTHONLAUNCHER)/Contents
-BUILDAPPLET = $(DEVPYTHONVERS)/$(BUILDAPPLETNAME)
-BACONTENTS = $(BUILDAPPLET)/Contents
 RUNPYTHON = DYLD_FRAMEWORK_PATH='$(OBJROOT)' '$(OBJROOT)/python.exe'
 BYTE2UTF16 = $(RUNPYTHON) $(FIX)/byte2utf16.py
 UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
 
 fixup-after-install: delete-stuff \
 		     move-things-around \
-		     restore-64-bit \
 		     strip-installed-files \
-		     fix-BAInfo \
 		     fix-PInfo \
 		     fix-paths \
 		     fix-usr-local-bin \
@@ -81,31 +78,26 @@ fixup-after-install: delete-stuff \
 delete-stuff:
 	rm -rf '$(DSTROOT)/usr/local'
 
+# We leave "Build Applet.app" in $(APPS) to be deleted, because it uses
+# Carbon, and doesn't work in 64-bit.
 move-things-around:
-	install -d '$(DSTROOT)$(DEVPYTHONVERS)'
-	mv -f '$(DSTROOT)$(PYTHONVERS)/$(BUILDAPPLETNAME)' '$(DSTROOT)$(BUILDAPPLET)'
 	mv -f '$(DSTROOT)$(PYTHONVERS)/$(PYTHONLAUNCHERNAME)' '$(DSTROOT)$(RESOURCESVERS)'
 	rm -rf '$(DSTROOT)$(APPS)'
 
 Python_Launcher = $(PLCONTENTS)/MacOS/Python Launcher
 
-##---------------------------------------------------------------------
-# python.exe was made 32-bit to build the carbon and tk stuff, and was
-# then copied to Python.app.  We restore all its architectures.
-##---------------------------------------------------------------------
-restore-64-bit:
-	install $(SYMROOT)/python.exe $(DSTROOT)$(PAMACOS)/Python
-
 strip-installed-files:
+	$(CP) $(OBJROOT)/python.exe '$(SYMROOT)'
 	strip -x $(DSTROOT)$(PAMACOS)/Python
 	$(CP) '$(DSTROOT)$(VERSIONSVERS)/Python' '$(SYMROOT)'
 	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
 	strip -x '$(DSTROOT)$(Python_Launcher)'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
+	cd '$(SYMROOT)/lib-dynload' && \
+	for so in *.so; do \
+	    $(DSYMUTIL) $$so || exit 1; \
+	done
 	strip -x '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so
-
-fix-BAInfo:
-	ed - '$(DSTROOT)$(BACONTENTS)/Info.plist' < $(FIX)/bainfo.ed
 
 fix-PInfo:
 	ed - '$(DSTROOT)$(RESOURCESVERS)/Info.plist' < $(FIX)/pinfo.ed
@@ -182,9 +174,3 @@ install-plist:
 	$(INSTALL_FILE) '$(SRCROOT)/$(Project).plist' '$(DSTROOT)$(OSV)/$(Project).plist'
 	$(MKDIR) '$(DSTROOT)$(OSL)'
 	$(INSTALL_FILE) '$(OBJROOT)/LICENSE' '$(DSTROOT)$(OSL)/$(Project).txt'
-
-##---------------------------------------------------------------------
-# Fixup platform.py for 64-bit (no Gestalt)
-##---------------------------------------------------------------------
-build::
-	$(RUNPYTHON) $(FIX)/Lib_platform.py $(FIX)/Lib_platform.py.ed $(OBJROOT)/Lib/platform.py

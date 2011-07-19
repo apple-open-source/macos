@@ -60,39 +60,27 @@ namespace llvm {
                               MachineBasicBlock::iterator MI,
                               unsigned DestReg, unsigned SrcReg,
                               const TargetRegisterClass *DestRC,
-                              const TargetRegisterClass *SrcRC) const;
+                              const TargetRegisterClass *SrcRC,
+                              DebugLoc DL) const;
 
     //! Store a register to a stack slot, based on its register class.
     virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator MBBI,
                                      unsigned SrcReg, bool isKill, int FrameIndex,
-                                     const TargetRegisterClass *RC) const;
-
-    //! Store a register to an address, based on its register class
-    virtual void storeRegToAddr(MachineFunction &MF, unsigned SrcReg, bool isKill,
-                                                  SmallVectorImpl<MachineOperand> &Addr,
-                                                  const TargetRegisterClass *RC,
-                                                  SmallVectorImpl<MachineInstr*> &NewMIs) const;
+                                     const TargetRegisterClass *RC,
+                                     const TargetRegisterInfo *TRI) const;
 
     //! Load a register from a stack slot, based on its register class.
     virtual void loadRegFromStackSlot(MachineBasicBlock &MBB,
                                       MachineBasicBlock::iterator MBBI,
                                       unsigned DestReg, int FrameIndex,
-                                      const TargetRegisterClass *RC) const;
-
-    //! Loqad a register from an address, based on its register class
-    virtual void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
-                                                         SmallVectorImpl<MachineOperand> &Addr,
-                                                         const TargetRegisterClass *RC,
-                                 SmallVectorImpl<MachineInstr*> &NewMIs) const;
+                                      const TargetRegisterClass *RC,
+                                      const TargetRegisterInfo *TRI) const;
 
     //! Return true if the specified load or store can be folded
     virtual
     bool canFoldMemoryOperand(const MachineInstr *MI,
                               const SmallVectorImpl<unsigned> &Ops) const;
-
-    //! Return true if the specified block does not fall through
-    virtual bool BlockHasNoFallThrough(const MachineBasicBlock &MBB) const;
 
     //! Reverses a branch's condition, returning false on success.
     virtual

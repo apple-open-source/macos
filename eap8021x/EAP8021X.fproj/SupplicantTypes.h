@@ -64,4 +64,4 @@ SupplicantStateString(SupplicantState state)
     return ("<unknown>");
 }
 
-#endif _EAP8021X_SUPPLICANTTYPES_H
+#endif /* _EAP8021X_SUPPLICANTTYPES_H */

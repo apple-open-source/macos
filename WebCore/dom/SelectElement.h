@@ -22,19 +22,21 @@
 #ifndef SelectElement_h
 #define SelectElement_h
 
-#include "Event.h"
+#include "DOMTimeStamp.h"
+#include "PlatformString.h"
+#include <wtf/Forward.h>
 #include <wtf/Vector.h>
+#include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
+class Attribute;
 class Element;
 class Event;
 class FormDataList;
 class HTMLFormElement;
 class KeyboardEvent;
-class MappedAttribute;
 class SelectElementData;
-class String;
 
 class SelectElement {
 public:
@@ -59,9 +61,11 @@ public:
 
     virtual int selectedIndex() const = 0;
     virtual void setSelectedIndex(int index, bool deselect = true) = 0;
-    virtual void setSelectedIndexByUser(int index, bool deselect = true, bool fireOnChangeNow = false) = 0;
+    virtual void setSelectedIndexByUser(int index, bool deselect = true, bool fireOnChangeNow = false, bool allowMultipleSelection = false) = 0;
 
     virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true) = 0;
+
+    virtual void updateValidity() = 0;
 
 protected:
     virtual ~SelectElement() { }
@@ -70,8 +74,6 @@ protected:
 
     static void selectAll(SelectElementData&, Element*);
     static void saveLastSelection(SelectElementData&, Element*);
-    static int nextSelectableListIndex(SelectElementData&, Element*, int startIndex);
-    static int previousSelectableListIndex(SelectElementData&, Element*, int startIndex);
     static void setActiveSelectionAnchorIndex(SelectElementData&, Element*, int index);
     static void setActiveSelectionEndIndex(SelectElementData&, int index);
     static void updateListBoxSelection(SelectElementData&, Element*, bool deselectOtherOptions);
@@ -89,7 +91,7 @@ protected:
     static void deselectItems(SelectElementData&, Element*, Element* excludeElement = 0);
     static bool saveFormControlState(const SelectElementData&, const Element*, String& state);
     static void restoreFormControlState(SelectElementData&, Element*, const String& state);
-    static void parseMultipleAttribute(SelectElementData&, Element*, MappedAttribute*);
+    static void parseMultipleAttribute(SelectElementData&, Element*, Attribute*);
     static bool appendFormData(SelectElementData&, Element*, FormDataList&);
     static void reset(SelectElementData&, Element*);
     static void defaultEventHandler(SelectElementData&, Element*, Event*, HTMLFormElement*);
@@ -108,11 +110,12 @@ private:
     static void setOptionsChangedOnRenderer(SelectElementData&, Element*);
 };
 
-// HTML/WMLSelectElement hold this struct as member variable
+// HTMLSelectElement hold this struct as member variable
 // and pass it to the static helper functions in SelectElement
 class SelectElementData {
 public:
     SelectElementData();
+    ~SelectElementData();
 
     bool multiple() const { return m_multiple; }
     void setMultiple(bool value) { m_multiple = value; }

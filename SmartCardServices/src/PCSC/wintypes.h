@@ -26,7 +26,7 @@
  * Copyright (C) 1999
  *  David Corcoran <corcoran@linuxnet.com>
  *
- * $Id: wintypes.h 2071 2006-06-06 09:20:19Z rousseau $
+ * $Id: wintypes.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**
@@ -74,18 +74,8 @@ extern "C"
 
 	/* these types are deprecated but still used by old drivers and applications
 	 * You should use LPSTR instead */
-	typedef char *LPTSTR
-#ifdef __GNUC__
-		/* __attribute__ is a GCC only extension */
-		__attribute__ ((deprecated))
-#endif
-		;
-	typedef const char *LPCTSTR
-#ifdef __GNUC__
-		/* __attribute__ is a GCC only extension */
-		__attribute__ ((deprecated))
-#endif
-		;
+	typedef char *LPTSTR ;
+	typedef const char *LPCTSTR ;
 	typedef char *LPCWSTR
 #ifdef __GNUC__
 		/* __attribute__ is a GCC only extension */

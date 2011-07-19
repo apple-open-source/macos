@@ -1,24 +1,31 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
+
 /*
  * Copyright (c) 2002-2003 Luigi Rizzo
  * Copyright (c) 1996 Alex Nash, Paul Traina, Poul-Henning Kamp
@@ -624,7 +631,7 @@ fill_newports(ipfw_insn_u16 *cmd, char *av, int proto)
 		} else if (*s == ',' || *s == '\0' )
 			p[0] = p[1] = a;
 		else 	/* invalid separator */
-			errx(EX_DATAERR, "invalid separator <%c> in <%s>\n",
+			errx(EX_DATAERR, "invalid separator <%c> in <%s>",
 				*s, av);
 		i++;
 		p += 2;
@@ -632,7 +639,7 @@ fill_newports(ipfw_insn_u16 *cmd, char *av, int proto)
 	}
 	if (i > 0) {
 		if (i+1 > F_LEN_MASK)
-			errx(EX_DATAERR, "too many ports/ranges\n");
+			errx(EX_DATAERR, "too many ports/ranges");
 		cmd->o.len |= i+1; /* leave F_NOT and F_OR untouched */
 	}
 	return i;
@@ -960,7 +967,7 @@ show_ipfw(struct ip_fw *rule, int pcwidth, int bcwidth)
 		time_t t = (time_t)0;
 
 		if (twidth == 0) {
-			strcpy(timestr, ctime(&t));
+			strlcpy(timestr, ctime(&t), sizeof(timestr));
 			*strchr(timestr, '\n') = '\0';
 			twidth = strlen(timestr);
 		}
@@ -970,7 +977,7 @@ show_ipfw(struct ip_fw *rule, int pcwidth, int bcwidth)
 #endif
 			t = _long_to_time(rule->timestamp);
 
-			strcpy(timestr, ctime(&t));
+			strlcpy(timestr, ctime(&t), sizeof(timestr));
 			*strchr(timestr, '\n') = '\0';
 			printf("%s ", timestr);
 		} else {
@@ -1485,17 +1492,17 @@ print_flowset_parms(struct dn_flow_set *fs, char *prefix)
 	l = fs->qsize;
 	if (fs->flags_fs & DN_QSIZE_IS_BYTES) {
 		if (l >= 8192)
-			sprintf(qs, "%d KB", l / 1024);
+			snprintf(qs, sizeof(qs), "%d KB", l / 1024);
 		else
-			sprintf(qs, "%d B", l);
+			snprintf(qs, sizeof(qs), "%d B", l);
 	} else
-		sprintf(qs, "%3d sl.", l);
+		snprintf(qs, sizeof(qs), "%3d sl.", l);
 	if (fs->plr)
-		sprintf(plr, "plr %f", 1.0 * fs->plr / (double)(0x7fffffff));
+		snprintf(plr, sizeof(plr), "plr %f", 1.0 * fs->plr / (double)(0x7fffffff));
 	else
 		plr[0] = '\0';
 	if (fs->flags_fs & DN_IS_RED)	/* RED parameters */
-		sprintf(red,
+		snprintf(red, sizeof(red),
 		    "\n\t  %cRED w_q %f min_th %d max_th %d max_p %f",
 		    (fs->flags_fs & DN_IS_GENTLE_RED) ? 'G' : ' ',
 		    1.0 * fs->w_q / (double)(1 << SCALE_RED),
@@ -1503,7 +1510,7 @@ print_flowset_parms(struct dn_flow_set *fs, char *prefix)
 		    SCALE_VAL(fs->max_th),
 		    1.0 * fs->max_p / (double)(1 << SCALE_RED));
 	else
-		sprintf(red, "droptail");
+		snprintf(red, sizeof(red), "droptail");
 
 	printf("%s %s%s %d queues (%d buckets) %s\n",
 	    prefix, qs, plr, fs->rq_elements, fs->rq_size, red);
@@ -1545,17 +1552,17 @@ list_pipes(void *data, uint nbytes, int ac, char *av[])
 		 * Print rate (or clocking interface)
 		 */
 		if (p->if_name[0] != '\0')
-			sprintf(buf, "%s", p->if_name);
+			snprintf(buf, sizeof(buf), "%s", p->if_name);
 		else if (b == 0)
-			sprintf(buf, "unlimited");
+			snprintf(buf, sizeof(buf), "unlimited");
 		else if (b >= 1000000)
-			sprintf(buf, "%7.3f Mbit/s", b/1000000);
+			snprintf(buf, sizeof(buf), "%7.3f Mbit/s", b/1000000);
 		else if (b >= 1000)
-			sprintf(buf, "%7.3f Kbit/s", b/1000);
+			snprintf(buf, sizeof(buf), "%7.3f Kbit/s", b/1000);
 		else
-			sprintf(buf, "%7.3f bit/s ", b);
+			snprintf(buf, sizeof(buf), "%7.3f bit/s ", b);
 
-		sprintf(prefix, "%05d: %s %4d ms ",
+		snprintf(prefix, sizeof(prefix), "%05d: %s %4d ms ",
 		    p->pipe_nr, buf, p->delay);
 		print_flowset_parms(&(p->fs), prefix);
 		if (verbose)
@@ -1573,7 +1580,7 @@ list_pipes(void *data, uint nbytes, int ac, char *av[])
 		next = (char *)fs + l;
 		nbytes -= l;
 		q = (struct dn_flow_queue *)(fs+1);
-		sprintf(prefix, "q%05d: weight %d pipe %d ",
+		snprintf(prefix, sizeof(prefix), "q%05d: weight %d pipe %d ",
 		    fs->fs_nr, fs->weight, fs->parent_nr);
 		print_flowset_parms(fs, prefix);
 		list_queues(fs, q);
@@ -1629,13 +1636,13 @@ sets_handler(int ac, char *av[])
 		struct ip_fw	rule;
 		ac--; av++;
 		if (ac != 2)
-			errx(EX_USAGE, "set swap needs 2 set numbers\n");
+			errx(EX_USAGE, "set swap needs 2 set numbers");
 		rulenum = atoi(av[0]);
 		new_set = atoi(av[1]);
 		if (!isdigit(*(av[0])) || rulenum > RESVD_SET)
-			errx(EX_DATAERR, "invalid set number %s\n", av[0]);
+			errx(EX_DATAERR, "invalid set number %s", av[0]);
 		if (!isdigit(*(av[1])) || new_set > RESVD_SET)
-			errx(EX_DATAERR, "invalid set number %s\n", av[1]);
+			errx(EX_DATAERR, "invalid set number %s", av[1]);
 		masks[0] = (4 << 24) | (new_set << 16) | (rulenum);
 		
 		bzero(&rule, sizeof(rule));
@@ -1651,14 +1658,14 @@ sets_handler(int ac, char *av[])
 		} else
 			cmd = 3;
 		if (ac != 3 || strncmp(av[1], "to", strlen(*av)))
-			errx(EX_USAGE, "syntax: set move [rule] X to Y\n");
+			errx(EX_USAGE, "syntax: set move [rule] X to Y");
 		rulenum = atoi(av[0]);
 		new_set = atoi(av[2]);
 		if (!isdigit(*(av[0])) || (cmd == 3 && rulenum > RESVD_SET) ||
 			(cmd == 2 && rulenum == 65535) )
-			errx(EX_DATAERR, "invalid source number %s\n", av[0]);
+			errx(EX_DATAERR, "invalid source number %s", av[0]);
 		if (!isdigit(*(av[2])) || new_set > RESVD_SET)
-			errx(EX_DATAERR, "invalid dest. set %s\n", av[1]);
+			errx(EX_DATAERR, "invalid dest. set %s", av[1]);
 		masks[0] = (cmd << 24) | (new_set << 16) | (rulenum);
 		
 		bzero(&rule, sizeof(rule));
@@ -1678,7 +1685,7 @@ sets_handler(int ac, char *av[])
 				i = atoi(*av);
 				if (i < 0 || i > RESVD_SET)
 					errx(EX_DATAERR,
-					    "invalid set number %d\n", i);
+					    "invalid set number %d", i);
 				masks[which] |= (1<<i);
 			} else if (!strncmp(*av, "disable", strlen(*av)))
 				which = 0;
@@ -1686,12 +1693,12 @@ sets_handler(int ac, char *av[])
 				which = 1;
 			else
 				errx(EX_DATAERR,
-					"invalid set command %s\n", *av);
+					"invalid set command %s", *av);
 			av++; ac--;
 		}
 		if ( (masks[0] & masks[1]) != 0 )
 			errx(EX_DATAERR,
-			    "cannot enable and disable the same set\n");
+			    "cannot enable and disable the same set");
 		
 		bzero(&rule, sizeof(rule));
 		rule.set_masks[0] = masks[0];
@@ -1701,7 +1708,7 @@ sets_handler(int ac, char *av[])
 		if (i)
 			warn("set enable/disable: setsockopt(IP_FW_DEL)");
 	} else
-		errx(EX_USAGE, "invalid set command %s\n", *av);
+		errx(EX_USAGE, "invalid set command %s", *av);
 }
 
 static void
@@ -1711,7 +1718,7 @@ sysctl_handler(int ac, char *av[], int which)
 	av++;
 
 	if (ac == 0) {
-		warnx("missing keyword to enable/disable\n");
+		warnx("missing keyword to enable/disable");
 	} else if (strncmp(*av, "firewall", strlen(*av)) == 0) {
 		sysctlbyname("net.inet.ip.fw.enable", NULL, 0,
 		    &which, sizeof(which));
@@ -1728,7 +1735,7 @@ sysctl_handler(int ac, char *av[], int which)
 		sysctlbyname("net.inet.ip.fw.dyn_keepalive", NULL, 0,
 		    &which, sizeof(which));
 	} else {
-		warnx("unrecognize enable/disable keyword: %s\n", *av);
+		warnx("unrecognize enable/disable keyword: %s", *av);
 	}
 }
 
@@ -2045,7 +2052,7 @@ fill_ip(ipfw_insn_ip *cmd, char *av)
 		if (len > 0)
 			errx(EX_DATAERR, "address set cannot be in a list");
 		if (i < 24 || i > 31)
-			errx(EX_DATAERR, "invalid set with mask %d\n", i);
+			errx(EX_DATAERR, "invalid set with mask %d", i);
 		cmd->o.arg1 = 1<<(32-i);	/* map length		*/
 		d[0] = ntohl(d[0]);		/* base addr in host format */
 		cmd->o.opcode = O_IP_DST_SET;	/* default */
@@ -2068,13 +2075,13 @@ fill_ip(ipfw_insn_ip *cmd, char *av)
 
 			if (s == av) { /* no parameter */
 			    if (*av != '}')
-				errx(EX_DATAERR, "set not closed\n");
+				errx(EX_DATAERR, "set not closed");
 			    if (i != -1)
 				errx(EX_DATAERR, "incomplete range %d-", i);
 			    break;
 			}
 			if (a < low || a > high)
-			    errx(EX_DATAERR, "addr %d out of range [%d-%d]\n",
+			    errx(EX_DATAERR, "addr %d out of range [%d-%d]",
 				a, low, high);
 			a -= low;
 			if (i == -1)	/* no previous in range */
@@ -2650,7 +2657,8 @@ fill_comment(ipfw_insn *cmd, int ac, char **av)
 	l = 1 + (l+3)/4;
 	cmd->len =  (cmd->len & (F_NOT | F_OR)) | l;
 	for (i = 0; i < ac; i++) {
-		strcpy(p, av[i]);
+		/* length being checked above (max 80 chars) */
+		strlcpy(p, av[i], 80);
 		p += strlen(av[i]);
 		*p++ = ' ';
 	}
@@ -2953,7 +2961,7 @@ add(int ac, char *av[])
 		break;
 
 	default:
-		errx(EX_DATAERR, "invalid action %s\n", av[-1]);
+		errx(EX_DATAERR, "invalid action %s", av[-1]);
 	}
 	action = next_cmd(action);
 
@@ -2988,7 +2996,7 @@ add(int ac, char *av[])
 #define OR_START(target)					\
 	if (ac && (*av[0] == '(' || *av[0] == '{')) {		\
 		if (open_par)					\
-			errx(EX_USAGE, "nested \"(\" not allowed\n"); \
+			errx(EX_USAGE, "nested \"(\" not allowed"); \
 		prev = NULL;					\
 		open_par = 1;					\
 		if ( (av[0])[1] == '\0') {			\
@@ -3008,13 +3016,13 @@ add(int ac, char *av[])
 			open_par = 0;				\
 			ac--; av++;				\
 		} else						\
-			errx(EX_USAGE, "missing \")\"\n");	\
+			errx(EX_USAGE, "missing \")\"");	\
 	}
 
 #define NOT_BLOCK						\
 	if (ac && !strncmp(*av, "not", strlen(*av))) {		\
 		if (cmd->len & F_NOT)				\
-			errx(EX_USAGE, "double \"not\" not allowed\n"); \
+			errx(EX_USAGE, "double \"not\" not allowed"); \
 		cmd->len |= F_NOT;				\
 		ac--; av++;					\
 	}
@@ -3163,7 +3171,7 @@ read_options:
 
 		if (*s == '!') {	/* alternate syntax for NOT */
 			if (cmd->len & F_NOT)
-				errx(EX_USAGE, "double \"not\" not allowed\n");
+				errx(EX_USAGE, "double \"not\" not allowed");
 			cmd->len = F_NOT;
 			s++;
 		}
@@ -3172,25 +3180,25 @@ read_options:
 		switch(i) {
 		case TOK_NOT:
 			if (cmd->len & F_NOT)
-				errx(EX_USAGE, "double \"not\" not allowed\n");
+				errx(EX_USAGE, "double \"not\" not allowed");
 			cmd->len = F_NOT;
 			break;
 
 		case TOK_OR:
 			if (open_par == 0 || prev == NULL)
-				errx(EX_USAGE, "invalid \"or\" block\n");
+				errx(EX_USAGE, "invalid \"or\" block");
 			prev->len |= F_OR;
 			break;
 
 		case TOK_STARTBRACE:
 			if (open_par)
-				errx(EX_USAGE, "+nested \"(\" not allowed\n");
+				errx(EX_USAGE, "+nested \"(\" not allowed");
 			open_par = 1;
 			break;
 
 		case TOK_ENDBRACE:
 			if (!open_par)
-				errx(EX_USAGE, "+missing \")\"\n");
+				errx(EX_USAGE, "+missing \")\"");
 			open_par = 0;
 			prev = NULL;
         		break;
@@ -3482,7 +3490,7 @@ read_options:
 			break;
 
 		default:
-			errx(EX_USAGE, "unrecognised option [%d] %s\n", i, s);
+			errx(EX_USAGE, "unrecognised option [%d] %s", i, s);
 		}
 		if (F_LEN(cmd) > 0) {	/* prepare to advance */
 			prev = cmd;
@@ -3739,6 +3747,8 @@ ipfw_main(int oldac, char **oldav)
 	} else {
 		/*
 		 * If an argument ends with ',' join with the next one.
+		 * Just add its length to 'l' and continue. When we have a string
+		 * without a ',' ending, we'll have the combined length in 'l' 
 		 */
 		int first, i, l;
 
@@ -3746,13 +3756,14 @@ ipfw_main(int oldac, char **oldav)
 		for (first = i = ac = 0, l = 0; i < oldac; i++) {
 			char *arg = oldav[i];
 			int k = strlen(arg);
-
+			
 			l += k;
 			if (arg[k-1] != ',' || i == oldac-1) {
+				int buflen = l+1;
 				/* Time to copy. */
 				av[ac] = calloc(l+1, 1);
 				for (l=0; first <= i; first++) {
-					strcat(av[ac]+l, oldav[first]);
+					strlcat(av[ac]+l, oldav[first], buflen-l);
 					l += strlen(oldav[first]);
 				}
 				ac++;
@@ -4009,11 +4020,11 @@ ipfw_readfile(int ac, char *av[])
 	}
 
 	while (fgets(buf, BUFSIZ, f)) {		/* read commands */
-		char linename[10];
+		char linename[16];
 		char *args[1];
 
 		lineno++;
-		sprintf(linename, "Line %d", lineno);
+		snprintf(linename, sizeof(linename), "Line %d", lineno);
 		setprogname(linename); /* XXX */
 		args[0] = buf;
 		ipfw_main(1, args);

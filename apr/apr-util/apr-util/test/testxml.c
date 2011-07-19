@@ -166,12 +166,40 @@ static void test_billion_laughs(abts_case *tc, void *data)
     apr_file_close(fd);
 }
 
+static void test_CVE_2009_3720_alpha(abts_case *tc, void *data)
+{
+    apr_xml_parser *xp;
+    apr_xml_doc *doc;
+    apr_status_t rv;
+
+    xp = apr_xml_parser_create(p);
+    
+    rv = apr_xml_parser_feed(xp, "\0\r\n", 3);
+    if (rv == APR_SUCCESS)
+        apr_xml_parser_done(xp, &doc);
+}
+
+static void test_CVE_2009_3720_beta(abts_case *tc, void *data)
+{
+    apr_xml_parser *xp;
+    apr_xml_doc *doc;
+    apr_status_t rv;
+
+    xp = apr_xml_parser_create(p);
+    
+    rv = apr_xml_parser_feed(xp, "<?xml version\xc2\x85='1.0'?>\r\n", 25);
+    if (rv == APR_SUCCESS)
+        apr_xml_parser_done(xp, &doc);
+}
+
 abts_suite *testxml(abts_suite *suite)
 {
     suite = ADD_SUITE(suite);
 
     abts_run_test(suite, test_xml_parser, NULL);
     abts_run_test(suite, test_billion_laughs, NULL);
+    abts_run_test(suite, test_CVE_2009_3720_alpha, NULL);
+    abts_run_test(suite, test_CVE_2009_3720_beta, NULL);
 
     return suite;
 }

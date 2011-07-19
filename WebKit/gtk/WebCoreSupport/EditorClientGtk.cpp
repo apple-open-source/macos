@@ -3,7 +3,7 @@
  *  Copyright (C) 2008 Nuanti Ltd.
  *  Copyright (C) 2009 Diego Escalante Urrelo <diegoe@gnome.org>
  *  Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
- *  Copyright (C) 2009, Igalia S.L.
+ *  Copyright (C) 2009, 2010 Igalia S.L.
  *  Copyright (C) 2010, Martin Robinson <mrobinson@webkit.org>
  *
  *  This library is free software; you can redistribute it and/or
@@ -25,9 +25,9 @@
 #include "EditorClientGtk.h"
 
 #include "DataObjectGtk.h"
+#include "DumpRenderTreeSupportGtk.h"
 #include "EditCommand.h"
 #include "Editor.h"
-#include <enchant.h>
 #include "EventNames.h"
 #include "FocusController.h"
 #include "Frame.h"
@@ -38,9 +38,16 @@
 #include "Page.h"
 #include "PasteboardHelperGtk.h"
 #include "PlatformKeyboardEvent.h"
+#include "WebKitDOMBinding.h"
+#include "WebKitDOMCSSStyleDeclarationPrivate.h"
+#include "WebKitDOMHTMLElementPrivate.h"
+#include "WebKitDOMNodePrivate.h"
+#include "WebKitDOMRangePrivate.h"
 #include "WindowsKeyboardCodes.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
-#include "webkitprivate.h"
+#include "webkitwebsettingsprivate.h"
+#include "webkitwebviewprivate.h"
 #include <wtf/text/CString.h>
 
 // Arbitrary depth limit for the undo stack, to keep it from using
@@ -55,7 +62,7 @@ namespace WebKit {
 
 static void imContextCommitted(GtkIMContext* context, const gchar* compositionString, EditorClient* client)
 {
-    Frame* frame = core(client->webView())->focusController()->focusedOrMainFrame();
+    Frame* frame = core(static_cast<WebKitWebView*>(client->webView()))->focusController()->focusedOrMainFrame();
     if (!frame || !frame->editor()->canEdit())
         return;
 
@@ -67,13 +74,18 @@ static void imContextCommitted(GtkIMContext* context, const gchar* compositionSt
         return;
     }
 
+    // If this signal fires during a mousepress event when we are in the middle
+    // of a composition, skip this 'commit' because the composition is already confirmed. 
+    if (client->preventNextCompositionCommit()) 
+        return;
+ 
     frame->editor()->confirmComposition(String::fromUTF8(compositionString));
     client->clearPendingComposition();
 }
 
 static void imContextPreeditChanged(GtkIMContext* context, EditorClient* client)
 {
-    Frame* frame = core(client->webView())->focusController()->focusedOrMainFrame();
+    Frame* frame = core(static_cast<WebKitWebView*>(client->webView()))->focusController()->focusedOrMainFrame();
     if (!frame || !frame->editor()->canEdit())
         return;
 
@@ -87,6 +99,7 @@ static void imContextPreeditChanged(GtkIMContext* context, EditorClient* client)
     frame->editor()->setComposition(preeditString, underlines, 0, 0);
 }
 
+
 void EditorClient::updatePendingComposition(const gchar* newComposition)
 {
     // The IMContext may signal more than one completed composition in a row,
@@ -97,32 +110,41 @@ void EditorClient::updatePendingComposition(const gchar* newComposition)
         m_pendingComposition.set(g_strconcat(m_pendingComposition.get(), newComposition, NULL));
 }
 
+void EditorClient::willSetInputMethodState()
+{
+}
+
 void EditorClient::setInputMethodState(bool active)
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
 
     if (active)
-        gtk_im_context_focus_in(priv->imContext);
+        gtk_im_context_focus_in(priv->imContext.get());
     else
-        gtk_im_context_focus_out(priv->imContext);
+        gtk_im_context_focus_out(priv->imContext.get());
 
 #ifdef MAEMO_CHANGES
     if (active)
-        hildon_gtk_im_context_show(priv->imContext);
+        hildon_gtk_im_context_show(priv->imContext.get());
     else
-        hildon_gtk_im_context_hide(priv->imContext);
+        hildon_gtk_im_context_hide(priv->imContext.get());
 #endif
 }
 
-bool EditorClient::shouldDeleteRange(Range*)
+bool EditorClient::shouldDeleteRange(Range* range)
 {
-    notImplemented();
-    return true;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    g_signal_emit_by_name(m_webView, "should-delete-range", kitRange.get(), &accept);
+    return accept;
 }
 
-bool EditorClient::shouldShowDeleteInterface(HTMLElement*)
+bool EditorClient::shouldShowDeleteInterface(HTMLElement* element)
 {
-    return false;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMHTMLElement> kitElement(adoptGRef(kit(element)));
+    g_signal_emit_by_name(m_webView, "should-show-delete-interface-for-element", kitElement.get(), &accept);
+    return accept;
 }
 
 bool EditorClient::isContinuousSpellCheckingEnabled()
@@ -147,38 +169,77 @@ int EditorClient::spellCheckerDocumentTag()
     return 0;
 }
 
-bool EditorClient::shouldBeginEditing(WebCore::Range*)
+bool EditorClient::shouldBeginEditing(WebCore::Range* range)
 {
     clearPendingComposition();
 
-    notImplemented();
-    return true;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    g_signal_emit_by_name(m_webView, "should-begin-editing", kitRange.get(), &accept);
+    return accept;
 }
 
-bool EditorClient::shouldEndEditing(WebCore::Range*)
+bool EditorClient::shouldEndEditing(WebCore::Range* range)
 {
     clearPendingComposition();
 
-    notImplemented();
-    return true;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    g_signal_emit_by_name(m_webView, "should-end-editing", kitRange.get(), &accept);
+    return accept;
 }
 
-bool EditorClient::shouldInsertText(const String&, Range*, EditorInsertAction)
+static WebKitInsertAction kit(EditorInsertAction action)
 {
-    notImplemented();
-    return true;
+    switch (action) {
+    case EditorInsertActionTyped:
+        return WEBKIT_INSERT_ACTION_TYPED;
+    case EditorInsertActionPasted:
+        return WEBKIT_INSERT_ACTION_PASTED;
+    case EditorInsertActionDropped:
+        return WEBKIT_INSERT_ACTION_DROPPED;
+    }
+    ASSERT_NOT_REACHED();
+    return WEBKIT_INSERT_ACTION_TYPED;
 }
 
-bool EditorClient::shouldChangeSelectedRange(Range*, Range*, EAffinity, bool)
+bool EditorClient::shouldInsertText(const String& string, Range* range, EditorInsertAction action)
 {
-    notImplemented();
-    return true;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    g_signal_emit_by_name(m_webView, "should-insert-text", string.utf8().data(), kitRange.get(), kit(action), &accept);
+    return accept;
 }
 
-bool EditorClient::shouldApplyStyle(WebCore::CSSStyleDeclaration*, WebCore::Range*)
+static WebKitSelectionAffinity kit(EAffinity affinity)
 {
-    notImplemented();
-    return true;
+    switch (affinity) {
+    case UPSTREAM:
+        return WEBKIT_SELECTION_AFFINITY_UPSTREAM;
+    case DOWNSTREAM:
+        return WEBKIT_SELECTION_AFFINITY_DOWNSTREAM;
+    }
+    ASSERT_NOT_REACHED();
+    return WEBKIT_SELECTION_AFFINITY_UPSTREAM;
+}
+
+bool EditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity affinity, bool stillSelecting)
+{
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitFromRange(fromRange ? adoptGRef(kit(fromRange)) : 0);
+    GRefPtr<WebKitDOMRange> kitToRange(toRange ? adoptGRef(kit(toRange)) : 0);
+    g_signal_emit_by_name(m_webView, "should-change-selected-range", kitFromRange.get(), kitToRange.get(),
+                          kit(affinity), stillSelecting, &accept);
+    return accept;
+}
+
+bool EditorClient::shouldApplyStyle(WebCore::CSSStyleDeclaration* declaration, WebCore::Range* range)
+{
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(declaration));
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    g_signal_emit_by_name(m_webView, "should-apply-style", kitDeclaration.get(), kitRange.get(), &accept);
+    return accept;
 }
 
 bool EditorClient::shouldMoveRangeAfterDelete(WebCore::Range*, WebCore::Range*)
@@ -189,12 +250,12 @@ bool EditorClient::shouldMoveRangeAfterDelete(WebCore::Range*, WebCore::Range*)
 
 void EditorClient::didBeginEditing()
 {
-    notImplemented();
+    g_signal_emit_by_name(m_webView, "editing-began");
 }
 
 void EditorClient::respondToChangedContents()
 {
-    notImplemented();
+    g_signal_emit_by_name(m_webView, "user-changed-contents");
 }
 
 static WebKitWebView* viewSettingClipboard = 0;
@@ -214,8 +275,35 @@ static void collapseSelection(GtkClipboard* clipboard, WebKitWebView* webView)
     frame->selection()->setBase(frame->selection()->extent(), frame->selection()->affinity());
 }
 
+#if PLATFORM(X11)
+static void setSelectionPrimaryClipboardIfNeeded(WebKitWebView* webView)
+{
+    if (!gtk_widget_has_screen(GTK_WIDGET(webView)))
+        return;
+
+    GtkClipboard* clipboard = gtk_widget_get_clipboard(GTK_WIDGET(webView), GDK_SELECTION_PRIMARY);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    WebCore::Page* corePage = core(webView);
+    Frame* targetFrame = corePage->focusController()->focusedOrMainFrame();
+
+    if (!targetFrame->selection()->isRange())
+        return;
+
+    dataObject->clear();
+    dataObject->setRange(targetFrame->selection()->toNormalizedRange());
+
+    viewSettingClipboard = webView;
+    GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(webView));
+    g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
+    pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
+    viewSettingClipboard = 0;
+}
+#endif
+
 void EditorClient::respondToChangedSelection()
 {
+    g_signal_emit_by_name(m_webView, "selection-changed");
+
     WebKitWebViewPrivate* priv = m_webView->priv;
     WebCore::Page* corePage = core(m_webView);
     Frame* targetFrame = corePage->focusController()->focusedOrMainFrame();
@@ -227,19 +315,7 @@ void EditorClient::respondToChangedSelection()
         return;
 
 #if PLATFORM(X11)
-    GtkClipboard* clipboard = gtk_widget_get_clipboard(GTK_WIDGET(m_webView), GDK_SELECTION_PRIMARY);
-    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
-
-    if (targetFrame->selection()->isRange()) {
-        dataObject->clear();
-        dataObject->setRange(targetFrame->selection()->toNormalizedRange());
-
-        viewSettingClipboard = m_webView;
-        GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(m_webView));
-        g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
-        pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
-        viewSettingClipboard = 0;
-    }
+    setSelectionPrimaryClipboardIfNeeded(m_webView);
 #endif
 
     if (!targetFrame->editor()->hasComposition())
@@ -249,14 +325,14 @@ void EditorClient::respondToChangedSelection()
     unsigned end;
     if (!targetFrame->editor()->getCompositionSelection(start, end)) {
         // gtk_im_context_reset() clears the composition for us.
-        gtk_im_context_reset(priv->imContext);
+        gtk_im_context_reset(priv->imContext.get());
         targetFrame->editor()->confirmCompositionWithoutDisturbingSelection();
     }
 }
 
 void EditorClient::didEndEditing()
 {
-    notImplemented();
+    g_signal_emit_by_name(m_webView, "editing-ended");
 }
 
 void EditorClient::didWriteSelectionToPasteboard()
@@ -267,11 +343,6 @@ void EditorClient::didWriteSelectionToPasteboard()
 void EditorClient::didSetSelectionTypesForPasteboard()
 {
     notImplemented();
-}
-
-bool EditorClient::isEditable()
-{
-    return webkit_web_view_get_editable(m_webView);
 }
 
 void EditorClient::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> command)
@@ -292,6 +363,16 @@ void EditorClient::clearUndoRedoOperations()
 {
     undoStack.clear();
     redoStack.clear();
+}
+
+bool EditorClient::canCopyCut(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClient::canPaste(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClient::canUndo() const
@@ -328,10 +409,13 @@ void EditorClient::redo()
     }
 }
 
-bool EditorClient::shouldInsertNode(Node*, Range*, EditorInsertAction)
+bool EditorClient::shouldInsertNode(Node* node, Range* range, EditorInsertAction action)
 {
-    notImplemented();
-    return true;
+    gboolean accept = TRUE;
+    GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
+    GRefPtr<WebKitDOMNode> kitNode(adoptGRef(kit(node)));
+    g_signal_emit_by_name(m_webView, "should-insert-node", kitNode.get(), kitRange.get(), kit(action), &accept);
+    return accept;
 }
 
 void EditorClient::pageDestroyed()
@@ -347,8 +431,9 @@ bool EditorClient::smartInsertDeleteEnabled()
 
 bool EditorClient::isSelectTrailingWhitespaceEnabled()
 {
-    notImplemented();
-    return false;
+    if (!DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
+        return false;
+    return DumpRenderTreeSupportGtk::selectTrailingWhitespaceEnabled();
 }
 
 void EditorClient::toggleContinuousSpellChecking()
@@ -365,110 +450,33 @@ void EditorClient::toggleGrammarChecking()
 {
 }
 
-static const unsigned CtrlKey = 1 << 0;
-static const unsigned AltKey = 1 << 1;
-static const unsigned ShiftKey = 1 << 2;
-
-struct KeyDownEntry {
-    unsigned virtualKey;
-    unsigned modifiers;
-    const char* name;
-};
-
-struct KeyPressEntry {
-    unsigned charCode;
-    unsigned modifiers;
-    const char* name;
-};
-
-static const KeyDownEntry keyDownEntries[] = {
-    { VK_LEFT,   0,                  "MoveLeft"                                    },
-    { VK_LEFT,   ShiftKey,           "MoveLeftAndModifySelection"                  },
-    { VK_LEFT,   CtrlKey,            "MoveWordLeft"                                },
-    { VK_LEFT,   CtrlKey | ShiftKey, "MoveWordLeftAndModifySelection"              },
-    { VK_RIGHT,  0,                  "MoveRight"                                   },
-    { VK_RIGHT,  ShiftKey,           "MoveRightAndModifySelection"                 },
-    { VK_RIGHT,  CtrlKey,            "MoveWordRight"                               },
-    { VK_RIGHT,  CtrlKey | ShiftKey, "MoveWordRightAndModifySelection"             },
-    { VK_UP,     0,                  "MoveUp"                                      },
-    { VK_UP,     ShiftKey,           "MoveUpAndModifySelection"                    },
-    { VK_PRIOR,  ShiftKey,           "MovePageUpAndModifySelection"                },
-    { VK_DOWN,   0,                  "MoveDown"                                    },
-    { VK_DOWN,   ShiftKey,           "MoveDownAndModifySelection"                  },
-    { VK_NEXT,   ShiftKey,           "MovePageDownAndModifySelection"              },
-    { VK_PRIOR,  0,                  "MovePageUp"                                  },
-    { VK_NEXT,   0,                  "MovePageDown"                                },
-    { VK_HOME,   0,                  "MoveToBeginningOfLine"                       },
-    { VK_HOME,   ShiftKey,           "MoveToBeginningOfLineAndModifySelection"     },
-    { VK_HOME,   CtrlKey,            "MoveToBeginningOfDocument"                   },
-    { VK_HOME,   CtrlKey | ShiftKey, "MoveToBeginningOfDocumentAndModifySelection" },
-
-    { VK_END,    0,                  "MoveToEndOfLine"                             },
-    { VK_END,    ShiftKey,           "MoveToEndOfLineAndModifySelection"           },
-    { VK_END,    CtrlKey,            "MoveToEndOfDocument"                         },
-    { VK_END,    CtrlKey | ShiftKey, "MoveToEndOfDocumentAndModifySelection"       },
-
-    { VK_BACK,   0,                  "DeleteBackward"                              },
-    { VK_BACK,   ShiftKey,           "DeleteBackward"                              },
-    { VK_DELETE, 0,                  "DeleteForward"                               },
-    { VK_BACK,   CtrlKey,            "DeleteWordBackward"                          },
-    { VK_DELETE, CtrlKey,            "DeleteWordForward"                           },
-
-    { 'B',       CtrlKey,            "ToggleBold"                                  },
-    { 'I',       CtrlKey,            "ToggleItalic"                                },
-
-    { VK_ESCAPE, 0,                  "Cancel"                                      },
-    { VK_OEM_PERIOD, CtrlKey,        "Cancel"                                      },
-    { VK_TAB,    0,                  "InsertTab"                                   },
-    { VK_TAB,    ShiftKey,           "InsertBacktab"                               },
-    { VK_RETURN, 0,                  "InsertNewline"                               },
-    { VK_RETURN, CtrlKey,            "InsertNewline"                               },
-    { VK_RETURN, AltKey,             "InsertNewline"                               },
-    { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
-};
-
-static const KeyPressEntry keyPressEntries[] = {
-    { '\t',   0,                  "InsertTab"                                   },
-    { '\t',   ShiftKey,           "InsertBacktab"                               },
-    { '\r',   0,                  "InsertNewline"                               },
-    { '\r',   CtrlKey,            "InsertNewline"                               },
-    { '\r',   AltKey,             "InsertNewline"                               },
-    { '\r',   AltKey | ShiftKey,  "InsertNewline"                               },
-};
-
-static const char* interpretEditorCommandKeyEvent(const KeyboardEvent* evt)
+bool EditorClient::executePendingEditorCommands(Frame* frame, bool allowTextInsertion)
 {
-    ASSERT(evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
+    Vector<Editor::Command> commands;
+    for (size_t i = 0; i < m_pendingEditorCommands.size(); i++) {
+        Editor::Command command = frame->editor()->command(m_pendingEditorCommands.at(i).utf8().data());
+        if (command.isTextInsertion() && !allowTextInsertion)
+            return false;
 
-    static HashMap<int, const char*>* keyDownCommandsMap = 0;
-    static HashMap<int, const char*>* keyPressCommandsMap = 0;
-
-    if (!keyDownCommandsMap) {
-        keyDownCommandsMap = new HashMap<int, const char*>;
-        keyPressCommandsMap = new HashMap<int, const char*>;
-
-        for (unsigned i = 0; i < G_N_ELEMENTS(keyDownEntries); i++)
-            keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
-
-        for (unsigned i = 0; i < G_N_ELEMENTS(keyPressEntries); i++)
-            keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
+        commands.append(command);
     }
 
-    unsigned modifiers = 0;
-    if (evt->shiftKey())
-        modifiers |= ShiftKey;
-    if (evt->altKey())
-        modifiers |= AltKey;
-    if (evt->ctrlKey())
-        modifiers |= CtrlKey;
-
-    if (evt->type() == eventNames().keydownEvent) {
-        int mapKey = modifiers << 16 | evt->keyCode();
-        return mapKey ? keyDownCommandsMap->get(mapKey) : 0;
+    bool success = true;
+    for (size_t i = 0; i < commands.size(); i++) {
+        if (!commands.at(i).execute()) {
+            success = false;
+            break;
+        }
     }
 
-    int mapKey = modifiers << 16 | evt->charCode();
-    return mapKey ? keyPressCommandsMap->get(mapKey) : 0;
+    m_pendingEditorCommands.clear();
+
+    // If we successfully completed all editor commands, then
+    // this signals a canceling of the composition.
+    if (success)
+        clearPendingComposition();
+
+    return success;
 }
 
 void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
@@ -482,32 +490,31 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
     if (!platformEvent)
         return;
 
-    // Don't allow editor commands or text insertion for nodes that
-    // cannot edit, unless we are in caret mode.
-    if (!frame->editor()->canEdit() && !(frame->settings() && frame->settings()->caretBrowsingEnabled()))
-        return;
+    KeyBindingTranslator::EventType type = event->type() == eventNames().keydownEvent ?
+        KeyBindingTranslator::KeyDown : KeyBindingTranslator::KeyPress;
+    m_keyBindingTranslator.getEditorCommandsForKeyEvent(platformEvent->gdkEventKey(), type, m_pendingEditorCommands);
+    if (m_pendingEditorCommands.size() > 0) {
 
-    const gchar* editorCommandString = interpretEditorCommandKeyEvent(event);
-    if (editorCommandString) {
-        Editor::Command command = frame->editor()->command(editorCommandString);
-
-        // On editor commands from key down events, we only want to let the event bubble up to
-        // the DOM if it inserts text. If it doesn't insert text (e.g. Tab that changes focus)
-        // we just want WebKit to handle it immediately without a DOM event.
+        // During RawKeyDown events if an editor command will insert text, defer
+        // the insertion until the keypress event. We want keydown to bubble up
+        // through the DOM first.
         if (platformEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
-            if (!command.isTextInsertion() && command.execute(event))
+            if (executePendingEditorCommands(frame, false))
                 event->setDefaultHandled();
 
-            clearPendingComposition();
             return;
         }
 
-        if (command.execute(event)) {
-            clearPendingComposition();
+        // Only allow text insertion commands if the current node is editable.
+        if (executePendingEditorCommands(frame, frame->editor()->canEdit())) {
             event->setDefaultHandled();
             return;
         }
     }
+
+    // Don't allow text insertion for nodes that cannot edit.
+    if (!frame->editor()->canEdit())
+        return;
 
     // This is just a normal text insertion, so wait to execute the insertion
     // until a keypress event happens. This will ensure that the insertion will not
@@ -547,6 +554,7 @@ void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 
     WebKitWebViewPrivate* priv = m_webView->priv;
 
+    m_preventNextCompositionCommit = false;
 
     // Some IM contexts (e.g. 'simple') will act as if they filter every
     // keystroke and just issue a 'commit' signal during handling. In situations
@@ -581,28 +589,54 @@ void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
     m_treatContextCommitAsKeyEvent = (!targetFrame->editor()->hasComposition())
          && event->keyEvent()->gdkEventKey()->keyval;
     clearPendingComposition();
-    if ((gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
+    if ((gtk_im_context_filter_keypress(priv->imContext.get(), event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
         || (!m_treatContextCommitAsKeyEvent && !targetFrame->editor()->hasComposition()))
         event->preventDefault();
 
     m_treatContextCommitAsKeyEvent = false;
 }
 
+void EditorClient::handleInputMethodMousePress()
+{
+    Frame* targetFrame = core(m_webView)->focusController()->focusedOrMainFrame();
+
+    if (!targetFrame || !targetFrame->editor()->canEdit())
+        return;
+
+    WebKitWebViewPrivate* priv = m_webView->priv;
+
+    // When a mouse press fires, the commit signal happens during a composition.
+    // In this case, if the focused node is changed, the commit signal happens in a diffrent node.
+    // Therefore, we need to confirm the current compositon and ignore the next commit signal. 
+    GOwnPtr<gchar> newPreedit(0);
+    gtk_im_context_get_preedit_string(priv->imContext.get(), &newPreedit.outPtr(), 0, 0);
+    
+    if (g_utf8_strlen(newPreedit.get(), -1)) {
+        targetFrame->editor()->confirmComposition();
+        m_preventNextCompositionCommit = true;
+        gtk_im_context_reset(priv->imContext.get());
+    } 
+}
+
 EditorClient::EditorClient(WebKitWebView* webView)
     : m_isInRedo(false)
+#if ENABLE(SPELLCHECK)
+    , m_textCheckerClient(webView)
+#endif
     , m_webView(webView)
+    , m_preventNextCompositionCommit(false)
     , m_treatContextCommitAsKeyEvent(false)
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_connect(priv->imContext, "commit", G_CALLBACK(imContextCommitted), this);
-    g_signal_connect(priv->imContext, "preedit-changed", G_CALLBACK(imContextPreeditChanged), this);
+    g_signal_connect(priv->imContext.get(), "commit", G_CALLBACK(imContextCommitted), this);
+    g_signal_connect(priv->imContext.get(), "preedit-changed", G_CALLBACK(imContextPreeditChanged), this);
 }
 
 EditorClient::~EditorClient()
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_handlers_disconnect_by_func(priv->imContext, (gpointer)imContextCommitted, this);
-    g_signal_handlers_disconnect_by_func(priv->imContext, (gpointer)imContextPreeditChanged, this);
+    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextCommitted, this);
+    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextPreeditChanged, this);
 }
 
 void EditorClient::textFieldDidBeginEditing(Element*)
@@ -632,100 +666,6 @@ void EditorClient::textDidChangeInTextArea(Element*)
     notImplemented();
 }
 
-void EditorClient::ignoreWordInSpellDocument(const String& text)
-{
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
-
-    for (; dicts; dicts = dicts->next) {
-        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
-
-        enchant_dict_add_to_session(dict, text.utf8().data(), -1);
-    }
-}
-
-void EditorClient::learnWord(const String& text)
-{
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
-
-    for (; dicts; dicts = dicts->next) {
-        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
-
-        enchant_dict_add_to_personal(dict, text.utf8().data(), -1);
-    }
-}
-
-void EditorClient::checkSpellingOfString(const UChar* text, int length, int* misspellingLocation, int* misspellingLength)
-{
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
-    if (!dicts)
-        return;
-
-    gchar* ctext = g_utf16_to_utf8(const_cast<gunichar2*>(text), length, 0, 0, 0);
-    int utflen = g_utf8_strlen(ctext, -1);
-
-    PangoLanguage* language = pango_language_get_default();
-    PangoLogAttr* attrs = g_new(PangoLogAttr, utflen+1);
-
-    // pango_get_log_attrs uses an aditional position at the end of the text.
-    pango_get_log_attrs(ctext, -1, -1, language, attrs, utflen+1);
-
-    for (int i = 0; i < length+1; i++) {
-        // We go through each character until we find an is_word_start,
-        // then we get into an inner loop to find the is_word_end corresponding
-        // to it.
-        if (attrs[i].is_word_start) {
-            int start = i;
-            int end = i;
-            int wordLength;
-
-            while (attrs[end].is_word_end < 1)
-                end++;
-
-            wordLength = end - start;
-            // Set the iterator to be at the current word end, so we don't
-            // check characters twice.
-            i = end;
-
-            for (; dicts; dicts = dicts->next) {
-                EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
-                gchar* cstart = g_utf8_offset_to_pointer(ctext, start);
-                gint bytes = static_cast<gint>(g_utf8_offset_to_pointer(ctext, end) - cstart);
-                gchar* word = g_new0(gchar, bytes+1);
-                int result;
-
-                g_utf8_strncpy(word, cstart, end - start);
-
-                result = enchant_dict_check(dict, word, -1);
-                g_free(word);
-                if (result) {
-                    *misspellingLocation = start;
-                    *misspellingLength = wordLength;
-                } else {
-                    // Stop checking, this word is ok in at least one dict.
-                    *misspellingLocation = -1;
-                    *misspellingLength = 0;
-                    break;
-                }
-            }
-        }
-    }
-
-    g_free(attrs);
-    g_free(ctext);
-}
-
-String EditorClient::getAutoCorrectSuggestionForMisspelledWord(const String& inputWord)
-{
-    // This method can be implemented using customized algorithms for the particular browser.
-    // Currently, it computes an empty string.
-    return String();
-}
-
-void EditorClient::checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*)
-{
-    notImplemented();
-}
-
 void EditorClient::updateSpellingUIWithGrammarString(const String&, const GrammarDetail&)
 {
     notImplemented();
@@ -745,26 +685,6 @@ bool EditorClient::spellingUIIsShowing()
 {
     notImplemented();
     return false;
-}
-
-void EditorClient::getGuessesForWord(const String& word, WTF::Vector<String>& guesses)
-{
-    GSList* dicts = webkit_web_settings_get_enchant_dicts(m_webView);
-    guesses.clear();
-
-    for (; dicts; dicts = dicts->next) {
-        size_t numberOfSuggestions;
-        size_t i;
-
-        EnchantDict* dict = static_cast<EnchantDict*>(dicts->data);
-        gchar** suggestions = enchant_dict_suggest(dict, word.utf8().data(), -1, &numberOfSuggestions);
-
-        for (i = 0; i < numberOfSuggestions && i < 10; i++)
-            guesses.append(String::fromUTF8(suggestions[i]));
-
-        if (numberOfSuggestions > 0)
-            enchant_dict_free_suggestions(dict, suggestions);
-    }
 }
 
 }

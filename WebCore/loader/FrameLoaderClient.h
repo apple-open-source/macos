@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,9 +30,19 @@
 #define FrameLoaderClient_h
 
 #include "FrameLoaderTypes.h"
+#include "IconURL.h"
 #include "ScrollTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
+
+#if PLATFORM(MAC)
+#ifdef __OBJC__ 
+#import <Foundation/Foundation.h>
+typedef id RemoteAXObjectRef;
+#else
+typedef void* RemoteAXObjectRef;
+#endif
+#endif
 
 typedef class _jobject* jobject;
 
@@ -52,6 +62,7 @@ namespace WebCore {
     class FormState;
     class Frame;
     class FrameLoader;
+    class FrameNetworkingContext;
     class HistoryItem;
     class HTMLAppletElement;
     class HTMLFormElement;
@@ -63,6 +74,7 @@ namespace WebCore {
     class IntSize;
     class KURL;
     class NavigationAction;
+    class Page;
     class ProtectionSpace;
     class PluginView;
     class PolicyChecker;
@@ -71,11 +83,10 @@ namespace WebCore {
     class ResourceLoader;
     class ResourceRequest;
     class ResourceResponse;
-    class ScriptString;
     class SecurityOrigin;
     class SharedBuffer;
+    class StringWithDirection;
     class SubstituteData;
-    class String;
     class Widget;
 
     typedef void (PolicyChecker::*FramePolicyFunction)(PolicyAction);
@@ -113,7 +124,7 @@ namespace WebCore {
         virtual bool canAuthenticateAgainstProtectionSpace(DocumentLoader*, unsigned long identifier, const ProtectionSpace&) = 0;
 #endif
         virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&) = 0;
-        virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived) = 0;
+        virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int dataLength) = 0;
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier) = 0;
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&) = 0;
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length) = 0;
@@ -130,8 +141,8 @@ namespace WebCore {
         virtual void dispatchWillClose() = 0;
         virtual void dispatchDidReceiveIcon() = 0;
         virtual void dispatchDidStartProvisionalLoad() = 0;
-        virtual void dispatchDidReceiveTitle(const String& title) = 0;
-        virtual void dispatchDidChangeIcons() = 0;
+        virtual void dispatchDidReceiveTitle(const StringWithDirection&) = 0;
+        virtual void dispatchDidChangeIcons(IconType) = 0;
         virtual void dispatchDidCommitLoad() = 0;
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&) = 0;
         virtual void dispatchDidFailLoad(const ResourceError&) = 0;
@@ -140,10 +151,10 @@ namespace WebCore {
         virtual void dispatchDidFirstLayout() = 0;
         virtual void dispatchDidFirstVisuallyNonEmptyLayout() = 0;
 
-        virtual Frame* dispatchCreatePage() = 0;
+        virtual Frame* dispatchCreatePage(const NavigationAction&) = 0;
         virtual void dispatchShow() = 0;
 
-        virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String& MIMEType, const ResourceRequest&) = 0;
+        virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&) = 0;
         virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String& frameName) = 0;
         virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>) = 0;
         virtual void cancelPolicyCheck() = 0;
@@ -178,9 +189,11 @@ namespace WebCore {
         virtual void updateGlobalHistoryRedirectLinks() = 0;
 
         virtual bool shouldGoToHistoryItem(HistoryItem*) const = 0;
+        virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const = 0;
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const = 0;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const = 0;
         virtual void dispatchDidChangeBackForwardIndex() const = 0;
+        virtual void updateGlobalHistoryItemForPage() { }
 
         // This frame has displayed inactive content (such as an image) from an
         // insecure source.  Inactive content cannot spread to other frames.
@@ -189,7 +202,7 @@ namespace WebCore {
         // The indicated security origin has run active content (such as a
         // script) from an insecure source.  Note that the insecure content can
         // spread to other frames in the same origin.
-        virtual void didRunInsecureContent(SecurityOrigin*) = 0;
+        virtual void didRunInsecureContent(SecurityOrigin*, const KURL&) = 0;
 
         virtual ResourceError cancelledError(const ResourceRequest&) = 0;
         virtual ResourceError blockedError(const ResourceRequest&) = 0;
@@ -204,6 +217,7 @@ namespace WebCore {
 
         virtual bool canHandleRequest(const ResourceRequest&) const = 0;
         virtual bool canShowMIMEType(const String& MIMEType) const = 0;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const = 0;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const = 0;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const = 0;
 
@@ -215,7 +229,7 @@ namespace WebCore {
         virtual void prepareForDataSourceReplacement() = 0;
 
         virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&) = 0;
-        virtual void setTitle(const String& title, const KURL&) = 0;
+        virtual void setTitle(const StringWithDirection&, const KURL&) = 0;
 
         virtual String userAgent(const KURL&) = 0;
         
@@ -223,12 +237,18 @@ namespace WebCore {
         virtual void transitionToCommittedFromCachedFrame(CachedFrame*) = 0;
         virtual void transitionToCommittedForNewPage() = 0;
 
+        virtual void didSaveToPageCache() = 0;
+        virtual void didRestoreFromPageCache() = 0;
+
+        virtual void dispatchDidBecomeFrameset(bool) = 0; // Can change due to navigation or DOM modification.
+
         virtual bool canCachePage() const = 0;
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&) = 0;
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight) = 0;
-        virtual void didTransferChildFrameToNewDocument() = 0;
+        virtual void didTransferChildFrameToNewDocument(Page* oldPage) = 0;
+        virtual void transferLoadingResourceFromPage(unsigned long identifier, DocumentLoader*, const ResourceRequest&, Page* oldPage) = 0;
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) = 0;
         virtual void redirectDataToPlugin(Widget* pluginWidget) = 0;
 
@@ -237,9 +257,11 @@ namespace WebCore {
         virtual void dispatchDidFailToStartPlugin(const PluginView*) const { }
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
         virtual PassRefPtr<Widget> createMediaPlayerProxyPlugin(const IntSize&, HTMLMediaElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&) = 0;
+        virtual void hideMediaPlayerProxyPlugin(Widget*) = 0;
+        virtual void showMediaPlayerProxyPlugin(Widget*) = 0;
 #endif
 
-        virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType) = 0;
+        virtual ObjectContentType objectContentType(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages) = 0;
         virtual String overrideMediaType() const = 0;
 
         virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*) = 0;
@@ -250,17 +272,21 @@ namespace WebCore {
         virtual void didCreateScriptContextForFrame() = 0;
         virtual void didDestroyScriptContextForFrame() = 0;
         virtual void didCreateIsolatedScriptContext() = 0;
+        virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) = 0;
 #endif
 
         virtual void registerForIconNotification(bool listen = true) = 0;
         
 #if PLATFORM(MAC)
+        // Allow an accessibility object to retrieve a Frame parent if there's no PlatformWidget.
+        virtual RemoteAXObjectRef accessibilityRemoteObject() = 0;
 #if ENABLE(JAVA_BRIDGE)
         virtual jobject javaApplet(NSView*) { return 0; }
 #endif
         virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;
 #endif
-#if USE(CFNETWORK)
+#if PLATFORM(WIN) && USE(CFNETWORK)
+        // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
         virtual bool shouldCacheResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&, const unsigned char* data, unsigned long long length) = 0;
 #endif
 
@@ -281,6 +307,10 @@ namespace WebCore {
         virtual void didNotAllowScript() { }
         // This callback is similar, but for plugins.
         virtual void didNotAllowPlugins() { }
+
+        virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() = 0;
+
+        virtual bool shouldPaintBrokenImage(const KURL&) const { return true; }
     };
 
 } // namespace WebCore

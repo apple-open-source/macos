@@ -31,13 +31,12 @@ namespace JSC {
 
     class DateInstance : public JSWrapperObject {
     public:
-        DateInstance(ExecState*, double);
-        DateInstance(ExecState*, NonNullPassRefPtr<Structure>, double);
-        explicit DateInstance(ExecState*, NonNullPassRefPtr<Structure>);
+        DateInstance(ExecState*, Structure*, double);
+        explicit DateInstance(ExecState*, Structure*);
 
         double internalNumber() const { return internalValue().uncheckedGetNumber(); }
 
-        static JS_EXPORTDATA const ClassInfo info;
+        static JS_EXPORTDATA const ClassInfo s_info;
 
         const GregorianDateTime* gregorianDateTime(ExecState* exec) const
         {
@@ -53,18 +52,14 @@ namespace JSC {
             return calculateGregorianDateTimeUTC(exec);
         }
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
-
-    protected:
-        static const unsigned StructureFlags = OverridesMarkChildren | JSWrapperObject::StructureFlags;
 
     private:
         const GregorianDateTime* calculateGregorianDateTime(ExecState*) const;
         const GregorianDateTime* calculateGregorianDateTimeUTC(ExecState*) const;
-        virtual const ClassInfo* classInfo() const { return &info; }
 
         mutable RefPtr<DateInstanceData> m_data;
     };
@@ -73,7 +68,7 @@ namespace JSC {
 
     inline DateInstance* asDateInstance(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&DateInstance::info));
+        ASSERT(asObject(value)->inherits(&DateInstance::s_info));
         return static_cast<DateInstance*>(asObject(value));
     }
 

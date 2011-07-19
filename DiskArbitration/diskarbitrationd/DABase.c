@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,7 +70,7 @@ __private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t n
 
     if ( status == 0 )
     {
-        buffer.attr = ( buffer.attr & ~noattr ) | attr;
+        buffer.attr = OSSwapHostToBigInt16( ( OSSwapBigToHostInt16( buffer.attr ) & ~noattr ) | attr );
 
         status = setattrlist( path, &attributes, ( ( uint8_t * ) &buffer ) + sizeof( buffer.size ), sizeof( buffer ) - sizeof( buffer.size ), 0 );
     }
@@ -180,6 +180,19 @@ __private_extern__ void ___vproc_transaction_end( void )
 
         __vproc_transaction = NULL;
     }
+}
+
+__private_extern__ const void * ___CFArrayGetValue( CFArrayRef array, const void * value )
+{
+    /*
+     * Retrieves a value in the array which hashes the same as the specified value.
+     */
+
+    CFIndex index;
+
+    index = CFArrayGetFirstIndexOfValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
+
+    return ( index == kCFNotFound ) ? NULL : CFArrayGetValueAtIndex( array, index );
 }
 
 __private_extern__ void ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRef array2 )
@@ -377,14 +390,14 @@ __private_extern__ CFDictionaryRef ___CFDictionaryCreateFromXMLString( CFAllocat
     return dictionary;
 }
 
-__private_extern__ CFTypeRef ___CFDictionaryGetAnyValue( CFDictionaryRef dictionary )
+__private_extern__ const void * ___CFDictionaryGetAnyValue( CFDictionaryRef dictionary )
 {
     /*
      * Retrieves the value associated with the first key from CFDictionaryGetKeysAndValues().
      */
 
-    CFIndex   count;
-    CFTypeRef value = NULL;
+    CFIndex      count;
+    const void * value = NULL;
 
     count = CFDictionaryGetCount( dictionary );
 
@@ -649,10 +662,10 @@ __private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t 
                     {
                         if ( strlen( path ) + strlen( "/" ) + strlen( name ) + strlen( "@" ) + strlen( location ) < sizeof( ___io_path_t ) )
                         {
-                            strcat( path, "/" );
-                            strcat( path, name );
-                            strcat( path, "@" );
-                            strcat( path, location );
+                            strlcat( path, "/",      sizeof( ___io_path_t ) );
+                            strlcat( path, name,     sizeof( ___io_path_t ) );
+                            strlcat( path, "@",      sizeof( ___io_path_t ) );
+                            strlcat( path, location, sizeof( ___io_path_t ) );
                         }
                         else
                         {
@@ -663,8 +676,8 @@ __private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t 
                     {
                         if ( strlen( path ) + strlen( "/" ) + strlen( name ) < sizeof( ___io_path_t ) )
                         {
-                            strcat( path, "/" );
-                            strcat( path, name );
+                            strlcat( path, "/",  sizeof( ___io_path_t ) );
+                            strlcat( path, name, sizeof( ___io_path_t ) );
 
                             status = kIOReturnSuccess;
                         }

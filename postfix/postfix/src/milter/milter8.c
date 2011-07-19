@@ -209,7 +209,7 @@ static const NAME_CODE smfir_table[] = {
 #define SMFIP_NOUNKNOWN 	(1L<<8)	/* filter does not want unknown cmd */
 #define SMFIP_NODATA		(1L<<9)	/* filter does not want DATA */
  /* Introduced with Sendmail 8.14. */
-#define SMFIP_SKIP		(1L<<10)/* MTA supports SMFIS_SKIP */
+#define SMFIP_SKIP		(1L<<10)/* MTA supports SMFIR_SKIP */
 #define SMFIP_RCPT_REJ		(1L<<11)/* filter wants rejected RCPTs */
 #define SMFIP_NR_CONN		(1L<<12)/* filter won't reply for connect */
 #define SMFIP_NR_HELO		(1L<<13)/* filter won't reply for HELO */
@@ -430,7 +430,7 @@ typedef struct {
 #define MILTER8_V3_PROTO_MASK	(MILTER8_V2_PROTO_MASK | SMFIP_NOUNKNOWN)
 #define MILTER8_V4_PROTO_MASK	(MILTER8_V3_PROTO_MASK | SMFIP_NODATA)
 #define MILTER8_V6_PROTO_MASK \
-	(MILTER8_V4_PROTO_MASK | SMFIP_SKIP /* | SMFIP_RCPT_REJ */ \
+	(MILTER8_V4_PROTO_MASK | SMFIP_SKIP | SMFIP_RCPT_REJ \
 	| SMFIP_NOREPLY_MASK | SMFIP_HDR_LEADSPC)
 
  /*
@@ -444,12 +444,15 @@ typedef struct {
   * 
   * XXX Is this still needed? Sendmail 8.14 provides a proper way to negotiate
   * what replies the mail filter will send.
+  * 
+  * XXX Keep this table in reverse numerical order. This is needed by the code
+  * that implements compatibility with older Milter protocol versions.
   */
 static const NAME_CODE milter8_event_masks[] = {
-    "2", MILTER8_V2_PROTO_MASK,
-    "3", MILTER8_V3_PROTO_MASK,
-    "4", MILTER8_V4_PROTO_MASK,
     "6", MILTER8_V6_PROTO_MASK,
+    "4", MILTER8_V4_PROTO_MASK,
+    "3", MILTER8_V3_PROTO_MASK,
+    "2", MILTER8_V2_PROTO_MASK,
     "no_header_reply", SMFIP_NOHREPL,
     0, -1,
 };
@@ -505,6 +508,8 @@ static int milter8_conf_error(MILTER8 *milter)
     }
     if (strcasecmp(milter->def_action, "accept") == 0) {
 	reply = 0;
+    } else if (strcasecmp(milter->def_action, "quarantine") == 0) {
+	reply = "H";
     } else {
 	reply = "451 4.3.5 Server configuration problem - try again later";
     }
@@ -537,6 +542,8 @@ static int milter8_comm_error(MILTER8 *milter)
 	reply = "550 5.5.0 Service unavailable";
     } else if (strcasecmp(milter->def_action, "tempfail") == 0) {
 	reply = "451 4.7.1 Service unavailable - try again later";
+    } else if (strcasecmp(milter->def_action, "quarantine") == 0) {
+	reply = "H";
     } else {
 	msg_warn("milter %s: unrecognized default action: %s",
 		 milter->m.name, milter->def_action);
@@ -1292,7 +1299,8 @@ static const char *milter8_event(MILTER8 *milter, int event,
 	    /*
 	     * Decision: quarantine. In Sendmail 8.13 this does not imply a
 	     * transition in the receiver state (reply, reject, tempfail,
-	     * accept, discard).
+	     * accept, discard). We should not transition, either, otherwise
+	     * we get out of sync.
 	     */
 	case SMFIR_QUARANTINE:
 	    /* XXX What to do with the "reason" text? */
@@ -1300,7 +1308,8 @@ static const char *milter8_event(MILTER8 *milter, int event,
 				  MILTER8_DATA_BUFFER, milter->buf,
 				  MILTER8_DATA_END) != 0)
 		MILTER8_EVENT_BREAK(milter->def_reply);
-	    MILTER8_EVENT_BREAK("H");
+	    milter8_def_reply(milter, "H");
+	    continue;
 
 	    /*
 	     * Decision: skip further events of this type.
@@ -1409,6 +1418,32 @@ static const char *milter8_event(MILTER8 *milter, int event,
 		    continue;
 
 		    /*
+		     * Modification request: replace sender, with optional
+		     * ESMTP args.
+		     */
+		case SMFIR_CHGFROM:
+		    if (milter8_read_data(milter, &data_size,
+					  MILTER8_DATA_STRING, milter->buf,
+					  MILTER8_DATA_MORE) != 0)
+			MILTER8_EVENT_BREAK(milter->def_reply);
+		    if (data_size > 0) {
+			if (milter8_read_data(milter, &data_size,
+					  MILTER8_DATA_STRING, milter->body,
+					      MILTER8_DATA_END) != 0)
+			    MILTER8_EVENT_BREAK(milter->def_reply);
+		    } else {
+			VSTRING_RESET(milter->body);
+			VSTRING_TERMINATE(milter->body);
+		    }
+		    /* Skip to the next request after previous edit error. */
+		    if (edit_resp)
+			continue;
+		    edit_resp = parent->chg_from(parent->chg_context,
+						 STR(milter->buf),
+						 STR(milter->body));
+		    continue;
+
+		    /*
 		     * Modification request: append recipient.
 		     */
 		case SMFIR_ADDRCPT:
@@ -1421,6 +1456,32 @@ static const char *milter8_event(MILTER8 *milter, int event,
 			continue;
 		    edit_resp = parent->add_rcpt(parent->chg_context,
 						 STR(milter->buf));
+		    continue;
+
+		    /*
+		     * Modification request: append recipient, with optional
+		     * ESMTP args.
+		     */
+		case SMFIR_ADDRCPT_PAR:
+		    if (milter8_read_data(milter, &data_size,
+					  MILTER8_DATA_STRING, milter->buf,
+					  MILTER8_DATA_MORE) != 0)
+			MILTER8_EVENT_BREAK(milter->def_reply);
+		    if (data_size > 0) {
+			if (milter8_read_data(milter, &data_size,
+					  MILTER8_DATA_STRING, milter->body,
+					      MILTER8_DATA_END) != 0)
+			    MILTER8_EVENT_BREAK(milter->def_reply);
+		    } else {
+			VSTRING_RESET(milter->body);
+			VSTRING_TERMINATE(milter->body);
+		    }
+		    /* Skip to the next request after previous edit error. */
+		    if (edit_resp)
+			continue;
+		    edit_resp = parent->add_rcpt_par(parent->chg_context,
+						     STR(milter->buf),
+						     STR(milter->body));
 		    continue;
 
 		    /*
@@ -1538,10 +1599,8 @@ static void milter8_connect(MILTER8 *milter)
 				    | SMFIF_DELRCPT | SMFIF_CHGHDRS
 				    | SMFIF_CHGBODY
 				    | SMFIF_QUARANTINE
-#if 0
 				    | SMFIF_CHGFROM
 				    | SMFIF_ADDRCPT_PAR
-#endif
 				    | SMFIF_SETSYMLIST
     );
     UINT32_TYPE my_version = 0;
@@ -1715,6 +1774,43 @@ static void milter8_connect(MILTER8 *milter)
 		 milter->m.name, milter->rq_mask, (long) my_actions);
 	(void) milter8_comm_error(milter);
 	return;
+    }
+    if (milter->ev_mask & SMFIP_RCPT_REJ)
+	milter->m.flags |= MILTER_FLAG_WANT_RCPT_REJ;
+
+    /*
+     * Allow the remote application to run an older protocol version, but
+     * don't them send events that their protocol version doesn't support.
+     * Based on a suggestion by Kouhei Sutou.
+     * 
+     * XXX When the Milter sends a protocol version that we don't have
+     * information for, use the information for the next-lower protocol
+     * version instead. This code assumes that the milter8_event_masks table
+     * is organized in reverse numerical order.
+     */
+    if (milter->version < my_version) {
+	const NAME_CODE *np;
+	int     version;
+
+	for (np = milter8_event_masks; /* see below */ ; np++) {
+	    if (np->name == 0) {
+		msg_warn("milter %s: unexpected protocol version %d",
+			 milter->m.name, milter->version);
+		break;
+	    }
+	    if ((version = atoi(np->name)) > 0 && version <= milter->version) {
+		milter->np_mask |= (SMFIP_NOSEND_MASK & ~np->code);
+		if (msg_verbose)
+		    msg_info("%s: non-protocol events for milter %s"
+			     " protocol version %d: %s",
+			     myname, milter->m.name, milter->version,
+			     str_name_mask_opt(milter->buf,
+					       "non-protocol event mask",
+					       smfip_table, milter->np_mask,
+					       NAME_MASK_NUMBER));
+		break;
+	    }
+	}
     }
 
     /*
@@ -2526,6 +2622,13 @@ static int milter8_send(MILTER *m, VSTREAM *stream)
     if (msg_verbose)
 	msg_info("%s: milter %s", myname, milter->m.name);
 
+    /*
+     * The next read on this Milter socket happens in a different process. It
+     * will not automatically flush the output buffer in this process.
+     */
+    if (milter->fp)
+	vstream_fflush(milter->fp);
+
     if (attr_print(stream, ATTR_FLAG_MORE,
 		   ATTR_TYPE_STR, MAIL_ATTR_MILT_NAME, milter->m.name,
 		   ATTR_TYPE_INT, MAIL_ATTR_MILT_VERS, milter->version,
@@ -2699,6 +2802,7 @@ static MILTER8 *milter8_alloc(const char *name, int conn_timeout,
      */
     milter = (MILTER8 *) mymalloc(sizeof(*milter));
     milter->m.name = mystrdup(name);
+    milter->m.flags = 0;
     milter->m.next = 0;
     milter->m.parent = parent;
     milter->m.macros = 0;

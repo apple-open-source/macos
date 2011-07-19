@@ -1,8 +1,8 @@
 /*
  * ntfs_attr.c - NTFS kernel attribute operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -95,9 +95,6 @@ errno_t ntfs_attr_map_runlist(ntfs_inode *ni)
 	ntfs_debug("Entering for mft_no 0x%llx, type 0x%x.",
 			(unsigned long long)ni->mft_no,
 			(unsigned)le32_to_cpu(ni->type));
-	/* This cannot be called for $MFT/$DATA itself as it would deadlock. */
-	if (!ni->mft_no && !NInoAttr(ni))
-		panic("%s(): Called for $MFT/$DATA!\n", __FUNCTION__);
 	/* If the attribute is resident there is nothing to do. */
 	if (!NInoNonResident(ni)) {
 		ntfs_debug("Done (resident, nothing to do).");
@@ -240,9 +237,6 @@ errno_t ntfs_map_runlist_nolock(ntfs_inode *ni, VCN vcn,
 	ntfs_debug("Entering for mft_no 0x%llx, vcn 0x%llx.",
 			(unsigned long long)ni->mft_no,
 			(unsigned long long)vcn);
-	/* This cannot be called for $MFT/$DATA itself as it would deadlock. */
-	if (!ni->mft_no && !NInoAttr(ni))
-		panic("%s(): Called for $MFT/$DATA!\n", __FUNCTION__);
 	base_ni = ni;
 	if (NInoAttr(ni))
 		base_ni = ni->base_ni;
@@ -5980,9 +5974,6 @@ errno_t ntfs_attr_extend_allocation(ntfs_inode *ni, s64 new_alloc_size,
 			(unsigned long long)new_data_size,
 			(unsigned long long)start);
 #endif
-	/* This cannot be called for $MFT/$DATA itself as it would deadlock. */
-	if (!ni->mft_no && !NInoAttr(ni))
-		panic("%s(): !ni->mft_no && !NInoAttr(ni)\n", __FUNCTION__);
 	/* This cannot be called for the attribute list attribute. */
 	if (ni->type == AT_ATTRIBUTE_LIST)
 		panic("%s(): ni->type == AT_ATTRIBUTE_LIST\n", __FUNCTION__);
@@ -6117,7 +6108,6 @@ retry_extend:
 			le32_to_cpu(m->bytes_in_use) &&
 			!ntfs_attr_record_resize(m, a, arec_size)) {
 		/* The resize succeeded! */
-		lck_spin_lock(&ni->size_lock);
 		if (new_data_size > attr_len) {
 			if (!ubc_setsize(ni->vn, new_data_size)) {
 				ntfs_error(vol->mp, "Failed to set size in "
@@ -6126,9 +6116,11 @@ retry_extend:
 				 * This cannot fail as it is a shrinking
 				 * resize.
 				 */
+				lck_spin_lock(&ni->size_lock);
 				err = ntfs_attr_record_resize(m, a,
 						le16_to_cpu(a->value_offset) +
 						ni->allocated_size);
+				lck_spin_unlock(&ni->size_lock);
 				if (err)
 					panic("%s(): Failed to shrink "
 							"resident attribute "
@@ -6140,9 +6132,11 @@ retry_extend:
 			/* Zero the extended attribute value. */
 			bzero((u8*)a + le16_to_cpu(a->value_offset) + attr_len,
 					(u32)new_data_size - attr_len);
+			lck_spin_lock(&ni->size_lock);
 			ni->initialized_size = ni->data_size = new_data_size;
 			a->value_length = cpu_to_le32((u32)new_data_size);
-		}
+		} else
+			lck_spin_lock(&ni->size_lock);
 		ni->allocated_size = le32_to_cpu(a->length) -
 				le16_to_cpu(a->value_offset);
 		lck_spin_unlock(&ni->size_lock);
@@ -7688,9 +7682,6 @@ errno_t ntfs_attr_resize(ntfs_inode *ni, s64 new_size, int ioflags,
 
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
-	/* This cannot be called for $MFT/$DATA itself as it would deadlock. */
-	if (!ni->mft_no && !NInoAttr(ni))
-		panic("%s(): !ni->mft_no && !NInoAttr(ni)\n", __FUNCTION__);
 	/*
 	 * Cannot be called for directory inodes as metadata access happens via
 	 * the corresponding index inodes.

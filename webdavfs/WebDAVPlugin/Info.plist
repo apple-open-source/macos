@@ -19,7 +19,7 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.3.2</string>
+	<string>$WEBDAVFS_URLMOUNT_PLUGIN_VERSION</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -41,7 +41,7 @@
 	<key>NetFSFsType</key>
 	<string>webdav</string>
 	<key>CFBundleVersion</key>
-	<string>3.3.2</string>
+	<string>$WEBDAVFS_URLMOUNT_PLUGIN_VERSION</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>

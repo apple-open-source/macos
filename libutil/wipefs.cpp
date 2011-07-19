@@ -225,16 +225,21 @@ wipefs_wipe(wipefs_ctx handle)
 	uint8_t *bufZero = NULL;
 	ListExtIt curExt;
 	size_t bufSize;
-	dk_discard_t discard;
+	dk_extent_t extent;
+	dk_unmap_t unmap;
 
-	memset(&discard, 0, sizeof(dk_discard_t));
-	discard.length = handle->extMan.totalBytes;
+	memset(&extent, 0, sizeof(dk_extent_t));
+	extent.length = handle->extMan.totalBytes;
+
+	memset(&unmap, 0, sizeof(dk_unmap_t));
+	unmap.extents = &extent;
+	unmap.extentsCount = 1;
 
 	//
 	// Don't bother to check the return value since this is mostly
 	// informational for the lower-level drivers.
 	//
-	ioctl(handle->fd, DKIOCDISCARD, (caddr_t)&discard);
+	ioctl(handle->fd, DKIOCUNMAP, (caddr_t)&unmap);
 	
 
 	bufSize = 256 * 1024; // issue large I/O to get better performance

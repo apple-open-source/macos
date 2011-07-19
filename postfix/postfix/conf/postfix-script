@@ -68,6 +68,28 @@ cd $queue_directory || {
 	$FATAL no Postfix queue directory $queue_directory!
 	exit 1
 }
+def_config_directory=`$command_directory/postconf -dh config_directory` || {
+	$FATAL cannot execute $command_directory/postconf!
+	exit 1
+}
+
+# If this is a secondary instance, don't touch shared files.
+
+instances=`test ! -f $def_config_directory/main.cf ||
+    $command_directory/postconf -c $def_config_directory \
+    -h multi_instance_directories | sed 's/,/ /'` || {
+	$FATAL cannot execute $command_directory/postconf!
+	exit 1
+}
+
+check_shared_files=1
+for name in $instances
+do
+    case "$name" in
+    "$def_config_directory") ;;
+    "$config_directory") check_shared_files=; break;;
+    esac
+done
 
 #
 # Parse JCL
@@ -94,12 +116,12 @@ start)
 	then
 		rm -f $queue_directory/quick-start
 	else
-		$config_directory/postfix-script check-fatal || {
+		$daemon_directory/postfix-script check-fatal || {
 			$FATAL Postfix integrity check failed!
 			exit 1
 		}
 		# Foreground this so it can be stopped. All inodes are cached.
-		$config_directory/postfix-script check-warn
+		$daemon_directory/postfix-script check-warn
 	fi
 	$INFO starting the Postfix mail system
 	$daemon_directory/master &
@@ -117,7 +139,7 @@ drain)
 
 quick-stop)
 
-	$config_directory/postfix-script stop
+	$daemon_directory/postfix-script stop
 	touch $queue_directory/quick-start
 	;;
 
@@ -173,8 +195,8 @@ flush)
 
 check)
 
-	$config_directory/postfix-script check-fatal || exit 1
-	$config_directory/postfix-script check-warn
+	$daemon_directory/postfix-script check-fatal || exit 1
+	$daemon_directory/postfix-script check-warn
 	exit 0
 	;;
 
@@ -192,7 +214,7 @@ status)
 check-fatal)
 	# This command is NOT part of the public interface.
 
-	$SHELL $config_directory/post-install create-missing || {
+	$SHELL $daemon_directory/post-install create-missing || {
 		$FATAL unable to create missing queue directories
 		exit 1
 	}
@@ -215,32 +237,52 @@ check-fatal)
 check-warn)
 	# This command is NOT part of the public interface.
 
-	for dir in $daemon_directory $config_directory $queue_directory
+	todo="$config_directory $queue_directory $queue_directory/pid"
+	test -n "$check_shared_files" && todo="$daemon_directory $todo"
+
+	for dir in $todo
 	do
 		ls -lLd $dir | (grep " root " >/dev/null ||
 		    $WARN not owned by root: $dir)
 	done
 
-	find $daemon_directory/* $config_directory/* ! -user root \
+	# Some people break Postfix's security model.
+	ls -lLd $queue_directory | egrep '^.....(w|...w)' >/dev/null && \
+		$WARN group or other writable: $queue_directory
+
+	todo="$config_directory/*"
+	test -n "$check_shared_files" && todo="$daemon_directory/* $todo"
+
+	find $todo ! -user root \
 		-exec $WARN not owned by root: {} \;
 
-	find $daemon_directory/. $config_directory/. \
+	todo="$config_directory/."
+	test -n "$check_shared_files" && todo="$daemon_directory/. $todo"
+
+	find $todo \
 		\( -perm -020 -o -perm -002 \) -type f \
 		-exec $WARN group or other writable: {} \;
 
 	find $data_directory/. ! -user $mail_owner \
-		-exec $WARN not owned by $mail_owner: {} \;
+	    -exec $WARN not owned by $mail_owner: {} \;
+
+	ls -lLd $data_directory | egrep '^.....(w|...w)' >/dev/null && \
+		$WARN group or other writable: $data_directory
 
 	find `ls -d $queue_directory/* | \
-	    egrep '/(incoming|active|defer|deferred|bounce|hold|trace|corrupt|public|private|flush)$'` \
+	    egrep '/(saved|incoming|active|defer|deferred|bounce|hold|trace|corrupt|public|private|flush)$'` \
 	    ! \( -type p -o -type s \) ! -user $mail_owner \
 		-exec $WARN not owned by $mail_owner: {} \;
 
-	find $queue_directory/public $queue_directory/maildrop \
-	    $command_directory/postqueue $command_directory/postdrop \
+	todo="$queue_directory/public $queue_directory/maildrop"
+	test -n "$check_shared_files" && 
+	   todo="$command_directory/postqueue $command_directory/postdrop $todo"
+
+	find $todo \
 	    -prune ! -group $setgid_group \
 	    -exec $WARN not owned by group $setgid_group: {} \;
 
+	test -n "$check_shared_files" &&
 	find $command_directory/postqueue $command_directory/postdrop \
 	    -prune ! -perm -02111 \
 	    -exec $WARN not set-gid or not owner+group+world executable: {} \;
@@ -273,7 +315,8 @@ check-warn)
 
 	# XXX also: look for weird stuff, weird permissions, etc.
 
-	test -f /usr/sbin/sendmail -a -f /usr/lib/sendmail && {
+	test -n "$check_shared_files" -a -f /usr/sbin/sendmail -a \
+		-f /usr/lib/sendmail && {
 	    cmp -s /usr/sbin/sendmail /usr/lib/sendmail || {
 		$WARN /usr/lib/sendmail and /usr/sbin/sendmail differ
 		$WARN Replace one by a symbolic link to the other
@@ -283,13 +326,13 @@ check-warn)
 	;;
 
 set-permissions|upgrade-configuration)
-	$config_directory/post-install create-missing "$@"
+	$daemon_directory/post-install create-missing "$@"
 	;;
 
 post-install)
 	# Currently not part of the public interface.
 	shift
-	$config_directory/post-install "$@"
+	$daemon_directory/post-install "$@"
 	;;
 
 /*)
@@ -298,7 +341,7 @@ post-install)
 	;;
 
 *)
-
+	$ERROR "unknown command: '$1'"
 	$FATAL "usage: postfix start (or stop, reload, abort, flush, check, status, set-permissions, upgrade-configuration)"
 	exit 1
 	;;

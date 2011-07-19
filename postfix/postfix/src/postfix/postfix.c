@@ -14,8 +14,15 @@
 /*	mail system: start or stop the \fBmaster\fR(8) daemon, do a health
 /*	check, and other maintenance.
 /*
-/*	The \fBpostfix\fR(1) command sets up a standardized environment and
-/*	runs the \fBpostfix-script\fR shell script to do the actual work.
+/*	By default, the \fBpostfix\fR(1) command sets up a standardized
+/*	environment and runs the \fBpostfix-script\fR shell script
+/*	to do the actual work.
+/*
+/*	However, when support for multiple Postfix instances is
+/*	configured, \fBpostfix\fR(1) executes the command specified
+/*	with the \fBmulti_instance_wrapper\fR configuration parameter.
+/*	This command will execute the \fIcommand\fR for each
+/*	applicable Postfix instance.
 /*
 /*	The following commands are implemented:
 /* .IP \fBcheck\fR
@@ -57,7 +64,7 @@
 /*	already installed Postfix system.
 /* .sp
 /*	This feature is available in Postfix 2.1 and later.  With
-/*	Postfix 2.0 and earlier, use "\fB/etc/postfix/post-install
+/*	Postfix 2.0 and earlier, use "\fB$config_directory/post-install
 /*	set-permissions\fR".
 /* .IP "\fBupgrade-configuration\fR \fB[\fIname\fR=\fIvalue ...\fB]\fR
 /*	Update the \fBmain.cf\fR and \fBmaster.cf\fR files with information
@@ -68,7 +75,7 @@
 /*	main.cf configuration parameters.
 /* .sp
 /*	This feature is available in Postfix 2.1 and later.  With
-/*	Postfix 2.0 and earlier, use "\fB/etc/postfix/post-install
+/*	Postfix 2.0 and earlier, use "\fB$config_directory/post-install
 /*	upgrade-configuration\fR".
 /* .PP
 /*	The following options are implemented:
@@ -77,6 +84,11 @@
 /*	the named directory instead of the default configuration directory.
 /*	Use this to distinguish between multiple Postfix instances on the
 /*	same host.
+/*
+/*	With Postfix 2.6 and later, this option forces the postfix(1)
+/*	command to operate on the specified Postfix instance only.
+/*	This behavior is inherited by postfix(1) commands that run
+/*	as a descendant of the current process.
 /* .IP "\fB-D\fR (with \fBpostfix start\fR only)"
 /*	Run each Postfix daemon under control of a debugger as specified
 /*	via the \fBdebugger_command\fR configuration parameter.
@@ -90,6 +102,11 @@
 /*	variables before executing the \fBpostfix-script\fR file:
 /* .IP \fBMAIL_CONFIG\fR
 /*	This is set when the -c command-line option is present.
+/*
+/*	With Postfix 2.6 and later, this environment variable forces
+/*	the postfix(1) command to operate on the specified Postfix
+/*	instance only.  This behavior is inherited by postfix(1)
+/*	commands that run as a descendant of the current process.
 /* .IP \fBMAIL_VERBOSE\fR
 /*	This is set when the -v command-line option is present.
 /* .IP \fBMAIL_DEBUG\fR
@@ -146,15 +163,47 @@
 /*	import from a non-Postfix parent process.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
+/* .PP
+/*	Available in Postfix version 2.6 and later:
+/* .IP "\fBmulti_instance_directories (empty)\fR"
+/*	An optional list of non-default Postfix configuration directories;
+/*	these directories belong to additional Postfix instances that share
+/*	the Postfix executable files and documentation with the default
+/*	Postfix instance, and that are started, stopped, etc., together
+/*	with the default Postfix instance.
+/* .IP "\fBmulti_instance_wrapper (empty)\fR"
+/*	The pathname of a multi-instance manager command that the
+/*	\fBpostfix\fR(1) command invokes when the multi_instance_directories
+/*	parameter value is non-empty.
+/* .IP "\fBmulti_instance_group (empty)\fR"
+/*	The optional instance group name of this Postfix instance.
+/* .IP "\fBmulti_instance_name (empty)\fR"
+/*	The optional instance name of this Postfix instance.
+/* .IP "\fBmulti_instance_enable (no)\fR"
+/*	Allow this Postfix instance to be started, stopped, etc., by a
+/*	multi-instance manager.
 /* FILES
-/*	/etc/postfix/main.cf, Postfix configuration parameters
-/*	/etc/postfix/master.cf, Postfix daemon processes
-/*	/etc/postfix/postfix-files, file/directory permissions
-/*	/etc/postfix/postfix-script, administrative commands
-/*	/etc/postfix/post-install, post-installation configuration
+/* .ad
+/* .fi
+/*	Prior to Postfix version 2.6, all of the following files
+/*	were in \fB$config_directory\fR. Some files are now in
+/*	\fB$daemon_directory\fR so that they can be shared among
+/*	multiple instances that run the same Postfix version.
+/*
+/*	Use the command "\fBpostconf config_directory\fR" or
+/*	"\fBpostconf daemon_directory\fR" to expand the names
+/*	into their actual values.
+/* .na
+/* .nf
+/*
+/*	$config_directory/main.cf, Postfix configuration parameters
+/*	$config_directory/master.cf, Postfix daemon processes
+/*	$daemon_directory/postfix-files, file/directory permissions
+/*	$daemon_directory/postfix-script, administrative commands
+/*	$daemon_directory/post-install, post-installation configuration
 /* SEE ALSO
 /*	Commands:
 /*	postalias(1), create/update/query alias database
@@ -165,6 +214,7 @@
 /*	postlock(1), Postfix-compatible locking
 /*	postlog(1), Postfix-compatible logging
 /*	postmap(1), Postfix lookup table manager
+/*	postmulti(1), Postfix multi-instance manager
 /*	postqueue(1), Postfix mail queue control
 /*	postsuper(1), Postfix housekeeping
 /*	mailq(1), Sendmail compatibility interface
@@ -175,6 +225,7 @@
 /*	bounce(5), Postfix bounce message templates
 /*	master(5), Postfix master.cf file syntax
 /*	postconf(5), Postfix main.cf file syntax
+/*	postfix-wrapper(5), Postfix multi-instance API
 /*
 /*	Table-driven mechanisms:
 /*	access(5), Postfix SMTP access control table
@@ -194,6 +245,7 @@
 /*	pcre_table(5), Associate PCRE pattern with value
 /*	pgsql_table(5), Postfix PostgreSQL client
 /*	regexp_table(5), Associate POSIX regexp pattern with value
+/*	sqlite_table(5), Postfix SQLite database driver
 /*	tcp_table(5), Postfix client-server table lookup
 /*
 /*	Daemon processes:
@@ -201,6 +253,7 @@
 /*	bounce(8), defer(8), trace(8), Delivery status reports
 /*	cleanup(8), canonicalize and enqueue message
 /*	discard(8), Postfix discard delivery agent
+/*	dnsblog(8), DNS black/whitelist logger
 /*	error(8), Postfix error delivery agent
 /*	flush(8), Postfix fast ETRN service
 /*	local(8), Postfix local delivery agent
@@ -208,6 +261,7 @@
 /*	oqmgr(8), old Postfix queue manager
 /*	pickup(8), Postfix local mail pickup
 /*	pipe(8), deliver mail to non-Postfix command
+/*	postscreen(8), Postfix zombie blocker
 /*	proxymap(8), Postfix lookup table proxy server
 /*	qmgr(8), Postfix queue manager
 /*	qmqpd(8), Postfix QMQP server
@@ -217,6 +271,7 @@
 /*	smtpd(8), Postfix SMTP server
 /*	spawn(8), run non-Postfix server
 /*	tlsmgr(8), Postfix TLS cache and randomness manager
+/*	tlsproxy(8), Postfix TLS proxy server
 /*	trivial-rewrite(8), Postfix address rewriting
 /*	verify(8), Postfix address verification
 /*	virtual(8), Postfix virtual delivery agent
@@ -347,6 +402,8 @@ int     main(int argc, char **argv)
 	VAR_HTML_DIR, DEF_HTML_DIR, &var_html_dir, 1, 0,
 	0,
     };
+    int     force_single_instance;
+    ARGV   *my_argv;
 
     /*
      * Fingerprint executables and core dumps.
@@ -412,6 +469,7 @@ int     main(int argc, char **argv)
 	    break;
 	}
     }
+    force_single_instance = (getenv(CONF_ENV_PATH) != 0);
 
     /*
      * Copy a bunch of configuration parameters into the environment for easy
@@ -464,9 +522,30 @@ int     main(int argc, char **argv)
 	msg_fatal("chdir(%s): %m", var_queue_dir);
 
     /*
-     * Run the management script with as process name ourself.
+     * Run the management script.
      */
-    script = concatenate(var_config_dir, "/postfix-script", (char *) 0);
-    execvp(script, argv + optind - 1);
-    msg_fatal("%s: %m", script);
+    if (force_single_instance 
+	|| argv_split(var_multi_conf_dirs, "\t\r\n, ")->argc == 0) {
+	script = concatenate(var_daemon_dir, "/postfix-script", (char *) 0);
+	if (optind < 1)
+	    msg_panic("bad optind value");
+	argv[optind - 1] = script;
+	execvp(script, argv + optind - 1);
+	msg_fatal("%s: %m", script);
+    }
+
+    /*
+     * Hand off control to a multi-instance manager.
+     */
+    else {
+	if (*var_multi_wrapper == 0)
+	    msg_fatal("multi-instance support is requested, but %s is empty",
+		      VAR_MULTI_WRAPPER);
+	my_argv = argv_split(var_multi_wrapper, " \t\r\n");
+	do {
+	    argv_add(my_argv, argv[optind], (char *) 0);
+	} while (argv[optind++] != 0);
+	execvp(my_argv->argv[0], my_argv->argv);
+	msg_fatal("%s: %m", my_argv->argv[0]);
+    }
 }

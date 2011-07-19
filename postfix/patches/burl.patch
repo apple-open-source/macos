@@ -1,0 +1,1894 @@
+From: Mike Abbott <michael.abbott@apple.com>
+Date: April 9, 2010 6:24:40 AM CDT
+To: postfix-users@postfix.org
+Subject: Patch: support BURL
+
+Hello Postfix community,
+
+Below please find a patch that adds support to postfix-2.7.0 for RFC
+4468 - Submission BURL.
+
+BURL requires a pre-configured trust relationship between the submission
+server and the IMAP server.  This patch adds a new configuration file
+normally named "submit.cred" that contains text entries each specifying
+an IMAP server hostname, a submit username, and a password.  The patched
+submission server logs into the IMAP server using:
+   - the user in the URL given to the BURL command as the SASL PLAIN
+     authorization ID
+   - the username from the corresponding submit.cred entry as the SASL
+     PLAIN authentication ID
+   - the password from the corresponding submit.cred entry as the
+     password
+
+The patched submission server logs into the IMAP server using either the
+PLAIN or a non-standard X-PLAIN-SUBMIT authentication method.
+X-PLAIN-SUBMIT specifically allows plain-text submit user logins while
+plain-text regular user logins are not allowed.  This lets the system
+administrator configure the same submit user and password credentials on
+both the submission server and the IMAP server.  A secure connection is
+required.
+
+Today Apple also contributes BURL, CATENATE and URLAUTH support to the
+Dovecot open source project.  Postfix BURL interoperates with Dovecot
+BURL/URLAUTH.
+
+Please note that all of our changes are commented with "APPLE" not to
+pollute the code but to help us merge in your new releases.  Feel free
+to remove those comments or restructure or rewrite the code as desired,
+as long as you preserve our copyright.  We understand that our
+implementation choices may differ from yours; if you see a better way to
+achieve the same goal please do adopt the better way.  Some areas we are
+aware could use improvement but satisfy our own needs:
+   - the hard-coded TLS parameters
+   - submit.cred does not match the format of other postfix config files
+
+Please let me know if you have any questions, concerns, or bug reports
+regarding this patch.  Thanks.
+
+
+diff -Nur postfix-2.7.0/src/global/ehlo_mask.c postfix-2.7.0+burl/src/global/ehlo_mask.c
+--- postfix-2.7.0/src/global/ehlo_mask.c	2008-01-08 14:36:13.000000000 -0600
++++ postfix-2.7.0+burl/src/global/ehlo_mask.c	2010-03-08 11:05:06.000000000 -0600
+@@ -18,6 +18,7 @@
+/*	#define EHLO_MASK_XFORWARD	(1<<9)
+/*	#define EHLO_MASK_ENHANCEDSTATUSCODES	(1<<10)
+/*	#define EHLO_MASK_DSN		(1<<11)
++/*	#define EHLO_MASK_BURL		(1<<14)			APPLE - burl
+/*	#define EHLO_MASK_SILENT	(1<<15)
+/*
+/*	int	ehlo_mask(keyword_list)
+@@ -75,6 +76,12 @@
+    "STARTTLS", EHLO_MASK_STARTTLS,
+    "ENHANCEDSTATUSCODES", EHLO_MASK_ENHANCEDSTATUSCODES,
+    "DSN", EHLO_MASK_DSN,
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    "BURL", EHLO_MASK_BURL,
++#endif
++
+    "SILENT-DISCARD", EHLO_MASK_SILENT,	/* XXX In-band signaling */
+    0,
+};
+diff -Nur postfix-2.7.0/src/global/ehlo_mask.h postfix-2.7.0+burl/src/global/ehlo_mask.h
+--- postfix-2.7.0/src/global/ehlo_mask.h	2005-05-17 12:41:50.000000000 -0500
++++ postfix-2.7.0+burl/src/global/ehlo_mask.h	2010-03-08 11:05:06.000000000 -0600
+@@ -27,6 +27,12 @@
+#define EHLO_MASK_XFORWARD	(1<<9)
+#define EHLO_MASK_ENHANCEDSTATUSCODES	(1<<10)
+#define EHLO_MASK_DSN		(1<<11)
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++#define EHLO_MASK_BURL		(1<<14)
++#endif
++
+#define EHLO_MASK_SILENT	(1<<15)
+
+extern int ehlo_mask(const char *);
+diff -Nur postfix-2.7.0/src/global/mail_params.h postfix-2.7.0+burl/src/global/mail_params.h
+--- postfix-2.7.0/src/global/mail_params.h	2010-01-17 14:54:35.000000000 -0600
++++ postfix-2.7.0+burl/src/global/mail_params.h	2010-03-08 11:05:06.000000000 -0600
+@@ -2823,6 +2823,13 @@
+
+#endif
+
++/* APPLE - burl */
++#define VAR_IMAP_SUBMIT_CRED_FILE		"imap_submit_cred_file"
++#define DEF_IMAP_SUBMIT_CRED_FILE		""
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++extern char *var_imap_submit_cred_file;
++#endif
++
+ /*
+  * What domain names to assume when no valid domain context exists.
+  */
+diff -Nur postfix-2.7.0/src/smtpd/Makefile.in postfix-2.7.0+burl/src/smtpd/Makefile.in
+--- postfix-2.7.0/src/smtpd/Makefile.in	2009-11-03 18:32:46.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/Makefile.in	2010-03-08 13:18:56.000000000 -0600
+@@ -1,13 +1,15 @@
+SHELL	= /bin/sh
+SRCS	= smtpd.c smtpd_token.c smtpd_check.c smtpd_chat.c smtpd_state.c \
+	smtpd_peer.c smtpd_sasl_proto.c smtpd_sasl_glue.c smtpd_proxy.c \
+-	smtpd_xforward.c smtpd_dsn_fix.c smtpd_milter.c smtpd_resolve.c
++	smtpd_xforward.c smtpd_dsn_fix.c smtpd_milter.c smtpd_resolve.c \
++	smtpd_imap.c imap-url.c
+OBJS	= smtpd.o smtpd_token.o smtpd_check.o smtpd_chat.o smtpd_state.o \
+	smtpd_peer.o smtpd_sasl_proto.o smtpd_sasl_glue.o smtpd_proxy.o \
+-	smtpd_xforward.o smtpd_dsn_fix.o smtpd_milter.o smtpd_resolve.o
++	smtpd_xforward.o smtpd_dsn_fix.o smtpd_milter.o smtpd_resolve.o \
++	smtpd_imap.o imap-url.o
+HDRS	= smtpd_token.h smtpd_check.h smtpd_chat.h smtpd_sasl_proto.h \
+	smtpd_sasl_glue.h smtpd_proxy.h smtpd_dsn_fix.h smtpd_milter.h \
+-	smtpd_resolve.h
++	smtpd_resolve.h imap-url.h
+TESTSRC	= smtpd_token_test.c
+DEFS	= -I. -I$(INC_DIR) -D$(SYSTYPE)
+CFLAGS	= $(DEBUG) $(OPT) $(DEFS)
+diff -Nur postfix-2.7.0/src/smtpd/imap-url.c postfix-2.7.0+burl/src/smtpd/imap-url.c
+--- postfix-2.7.0/src/smtpd/imap-url.c	1969-12-31 18:00:00.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/imap-url.c	2010-03-08 11:05:06.000000000 -0600
+@@ -0,0 +1,615 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include <sys_defs.h>
++#include <string.h>
++#include <mymalloc.h>
++#include <vstring.h>
++#include <mail_params.h>
++#include <imap-url.h>
++
++#define	MECH_INTERNAL_ONLY	1
++
++#define	LOWALPHA	"abcdefghijklmnopqrstuvwxyz"	/* RFC 1738 */
++#define	HIALPHA		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"	/* RFC 1738 */
++#define	ALPHA		LOWALPHA""HIALPHA		/* RFC 1738 */
++#define	DIGIT		"0123456789"			/* RFC 1738 */
++#define	SAFE		"$-_.+"				/* RFC 1738 */
++#define	EXTRA		"!*'(),"			/* RFC 1738 */
++#define	UNRESERVED	ALPHA""DIGIT""SAFE""EXTRA	/* RFC 1738 */
++#define	ESCAPE		"%"				/* RFC 1738 */
++#define	UCHAR		UNRESERVED""ESCAPE		/* RFC 1738 */
++#define	ACHAR		UCHAR"&=~"			/* RFC 2192 */
++#define	BCHAR		ACHAR":@/"			/* RFC 2192 */
++#define	HEXDIG		DIGIT"ABCDEFabcdef"		/* RFC 2234 */
++#define	HOST_CHARS	ALPHA".:-"DIGIT			/* RFC 1738 */
++#define	DATETIME_CHARS	DIGIT".+-:TZ"			/* RFC 3339 */
++
++// any CHAR except "(" / ")" / "{" / SP / CTL / "%" / "*" / '"' / "\" / "]"
++#define	ATOM_CHARS	"\
++!#$&'+,-./0123456789:;<=>?@\
++ABCDEFGHIJKLMNOPQRSTUVWXYZ[^_`\
++abcdefghijklmnopqrstuvwxyz|}~"
++
++// any CHAR except "(" / ")" / "{" / SP / CTL / "%" / "*" / '"' / "\"
++#define	ASTRING_CHARS	ATOM_CHARS"]"
++
++static char atom_chars_allowed[256];
++static char astring_chars_allowed[256];
++static char quoted_allowed[256];	// any CHAR except '"' / "\" / CR / LF
++static char quoted_specials_allowed[256];	// any CHAR except CR / LF
++static char host_chars_allowed[256];
++static char url_resp_allowed[256];
++static bool initialized = FALSE;
++
++// initialize the *_allowed tables once
++static void init_allowed(void)
++{
++	if (!initialized) {
++		const unsigned char *cp;
++		int i;
++
++		for (cp = (const unsigned char *) ATOM_CHARS; *cp; cp++)
++			atom_chars_allowed[*cp & 0xff] = 1;
++
++		for (cp = (const unsigned char *) ASTRING_CHARS; *cp; cp++)
++			astring_chars_allowed[*cp & 0xff] = 1;
++
++		for (cp = (const unsigned char *) HOST_CHARS; *cp; cp++)
++			host_chars_allowed[*cp & 0xff] = 1;
++
++		for (i = 0x01; i <= 0x7f; i++)
++			quoted_specials_allowed[i] = 1;
++		quoted_specials_allowed['\r'] = 0;
++		quoted_specials_allowed['\n'] = 0;
++		memcpy(quoted_allowed, quoted_specials_allowed,
++		      sizeof quoted_allowed);
++		quoted_allowed['"'] = 0;
++		quoted_allowed['\\'] = 0;
++
++		for (i = 0x01; i <= 0x09; i++)
++			url_resp_allowed[i] = 1;
++		for (i = 0x0b; i <= 0x0c; i++)
++			url_resp_allowed[i] = 1;
++		// RFC 4469 erroneously skips 0x5c but that's "\" not "]"
++		for (i = 0x0e; i <= 0x5c; i++)
++			url_resp_allowed[i] = 1;
++		for (i = 0x5e; i <= 0xfe; i++)
++			url_resp_allowed[i] = 1;
++
++		initialized = TRUE;
++	}
++}
++
++// URL-decode enc into dec (%XX decoding)
++bool url_decode(const char *enc, VSTRING *dec)
++{
++	const char *cp;
++
++	for (cp = enc; *cp; cp++) {
++		if (*cp == '%') {
++			unsigned int val;
++			if (cp[1] >= '0' && cp[1] <= '9')
++				val = cp[1] - '0';
++			else if (cp[1] >= 'A' && cp[1] <= 'F')
++				val = 10 + cp[1] - 'A';
++			else if (cp[1] >= 'a' && cp[1] <= 'f')
++				val = 10 + cp[1] - 'a';
++			else
++				return FALSE;
++			val *= 16;
++			if (cp[2] >= '0' && cp[2] <= '9')
++				val += cp[2] - '0';
++			else if (cp[2] >= 'A' && cp[2] <= 'F')
++				val += 10 + cp[2] - 'A';
++			else if (cp[2] >= 'a' && cp[2] <= 'f')
++				val += 10 + cp[2] - 'a';
++			else
++				return FALSE;
++			if (val == 0 || val > 0xff)
++				return FALSE;
++			VSTRING_ADDCH(dec, val);
++			cp += 2;
++		} else
++			VSTRING_ADDCH(dec, *cp);
++	}
++	VSTRING_TERMINATE(dec);
++
++	return TRUE;
++}
++
++// parse an RFC 2192+4467 URL into its parts
++void imap_url_parse(const char *url, struct imap_url_parts *parts)
++{
++	const char *rump, *p;
++	size_t s;
++
++	rump = url;
++
++	// "imap://" ...
++	if (strncasecmp(url, "imap://", 7) == 0) {
++		url += 7;
++				     
++		// ... enc-user ...
++		s = strcspn(url, ";@");
++		if (s <= 0)
++			return;
++		parts->user = mystrndup(url, s);
++		url += s;
++
++		// ... [";AUTH=" ( "*" / enc_auth_type )] ...
++		if (strncasecmp(url, ";AUTH=", 6) == 0) {
++			url += 6;
++			p = strchr(url, '@');
++			if (p == NULL)
++				return;
++			parts->auth_type = mystrndup(url, p - url);
++			url = p;
++		}
++
++		// ... "@" hostport ...
++		if (*url != '@')
++			return;
++		++url;
++		p = strchr(url, '/');
++		if (p == NULL)
++			return;
++		parts->hostport = mystrndup(url, p - url);
++		url = p;
++	}
++
++	// ... ["/" enc_mailbox] ...
++	if (*url == '/' && strncasecmp(url, "/;UID=", 6) != 0) {
++		++url;
++		p = strcasestr(url, ";UIDVALIDITY=");
++		if (p == NULL)
++			p = strcasestr(url, "/;UID=");
++		if (p == NULL)
++			return;
++		parts->mailbox = mystrndup(url, p - url);
++		url = p;
++	}
++
++	// ... [";UIDVALIDITY=" nz_number] ...
++	if (strncasecmp(url, ";UIDVALIDITY=", 13) == 0) {
++		url += 13;
++		p = strchr(url, '/');
++		if (p == NULL)
++			return;
++		parts->uidvalidity = mystrndup(url, p - url);
++		url = p;
++	}
++
++	// ... ["/;UID=" nz_number] ...
++	if (strncasecmp(url, "/;UID=", 6) == 0) {
++		url += 6;
++		s = strcspn(url, ";/");
++		if (s <= 0)
++			return;
++		parts->uid = mystrndup(url, s);
++		url += s;
++	}
++
++	// ... ["/;SECTION=" enc_section] ...
++	if (strncasecmp(url, "/;SECTION=", 10) == 0) {
++		url += 10;
++		p = strchr(url, ';');
++		if (p == NULL) {
++			parts->section = mystrdup(url);
++			return;
++		}
++		parts->section = mystrndup(url, p - url);
++		url = p;
++	}
++
++	// ... [";EXPIRE=" date-time] ...
++	if (strncasecmp(url, ";EXPIRE=", 8) == 0) {
++		url += 8;
++		p = strchr(url, ';');
++		if (p == NULL)
++			return;
++		parts->expiration = mystrndup(url, p - url);
++		url = p;
++	}
++
++	// ... [";URLAUTH=" access] ...
++	if (strncasecmp(url, ";URLAUTH=", 9) != 0)
++		return;
++	url += 9;
++	p = strchr(url, ':');
++	if (p == NULL) {
++		parts->access = mystrdup(url);
++		return;
++	}
++	parts->access = mystrndup(url, p - url);
++	url = p;
++
++	// save rump
++	parts->rump = mystrndup(rump, url - rump);
++
++	// ... [ ":INTERNAL:" 32*HEXDIG ]
++	if (strncasecmp(url, ":INTERNAL:", 10) != 0)
++		return;
++	parts->mechanism = mystrdup("INTERNAL");
++	url += 10;
++	parts->urlauth = mystrdup(url);
++}
++
++// free
++void imap_url_parts_free(struct imap_url_parts *parts)
++{
++#define FREE_AND_NULL(field)			\
++	if (parts->field != NULL) {		\
++		myfree((char *) parts->field);	\
++		parts->field = NULL;		\
++	}
++	FREE_AND_NULL(user);
++	FREE_AND_NULL(auth_type);
++	FREE_AND_NULL(hostport);
++	FREE_AND_NULL(mailbox);
++	FREE_AND_NULL(uidvalidity);
++	FREE_AND_NULL(uid);
++	FREE_AND_NULL(section);
++	FREE_AND_NULL(expiration);
++	FREE_AND_NULL(access);
++	FREE_AND_NULL(mechanism);
++	FREE_AND_NULL(urlauth);
++	FREE_AND_NULL(rump);
++#undef FREE_AND_NULL
++}
++
++// decode the parts of a URL
++bool imap_url_decode(const struct imap_url_parts *enc_parts,
++		    struct imap_url_parts *dec_parts,
++		    const char **error)
++{
++	VSTRING *str = vstring_alloc(256);
++
++#define	URL_DECODE(field, name)						\
++	if (enc_parts->field != NULL) {					\
++		if (url_decode(enc_parts->field, str))			\
++			dec_parts->field = mystrdup(vstring_str(str));	\
++		else {							\
++			*error = "invalid " name;			\
++			vstring_free(str);				\
++			return FALSE;					\
++		}							\
++	}								\
++	vstring_truncate(str, 0);
++
++	URL_DECODE(user, "user ID");
++	URL_DECODE(auth_type, "auth type");
++	URL_DECODE(hostport, "server");
++	URL_DECODE(mailbox, "mailbox");
++	URL_DECODE(uidvalidity, "uidvalidity");
++	URL_DECODE(uid, "uid");
++	URL_DECODE(section, "section");
++	URL_DECODE(expiration, "expiration");
++	URL_DECODE(access, "access ID");
++	URL_DECODE(mechanism, "mechanism");
++	URL_DECODE(urlauth, "urlauth token");
++	// do not set dec_parts->rump
++
++	vstring_free(str);
++
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "atom"
++bool imap_url_atom_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s == '\0')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!atom_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "ASTRING-CHAR"
++bool imap_url_astring_chars_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!astring_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "quoted"
++bool imap_url_quoted_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s != '"')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (unsigned char *) s + 1; *cp; cp++) {
++		if (*cp == '\\') {
++			if (!quoted_specials_allowed[cp[1] & 0xff])
++				return FALSE;
++			++cp;
++		} else if (*cp == '"')
++			return cp[1] == '\0';
++		else {
++			if (!quoted_allowed[*cp & 0xff])
++				return FALSE;
++		}
++	}
++
++	return FALSE;
++}
++
++// validate conformance to RFC 3501 "literal"
++bool imap_url_literal_validate(const char *s)
++{
++	const unsigned char *cp;
++	unsigned int length = 0;
++
++	if (*s != '{')
++		return FALSE;
++	for (cp = (const unsigned char *) s + 1; *cp && *cp != '}'; cp++) {
++		if (*cp < '0' || *cp > '9')
++			return FALSE;
++		length = length * 10 + *cp - '0';
++	}
++	if (cp == (const unsigned char *) s + 1 || *cp != '}')
++		return FALSE;
++	++cp;
++	if (*cp == '\r')
++		++cp;
++	if (*cp != '\n')
++		return FALSE;
++	if (strlen((const char *) cp + 1) != length)
++		return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "astring"
++bool imap_url_astring_validate(const char *s)
++{
++	return *s != '\0' &&
++		(imap_url_astring_chars_validate(s) ||
++		imap_url_quoted_validate(s) ||
++		imap_url_literal_validate(s));
++}
++
++// validate conformance to RFC 1738 "hostport"
++bool imap_url_hostport_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s == '\0')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!host_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "mailbox"
++bool imap_url_mailbox_validate(const char *s)
++{
++	VSTRING *qs;
++	bool ok;
++
++	if (strcasecmp(s, "INBOX") == 0 || imap_url_astring_validate(s))
++		return TRUE;
++
++	// RFC 2192 implies quotes around mailboxes containing, e.g., SP
++	qs = vstring_alloc(strlen(s) + 3);
++	VSTRING_ADDCH(qs, '"');
++	vstring_strcat(qs, s);
++	VSTRING_ADDCH(qs, '"');
++	VSTRING_TERMINATE(qs);
++	ok = imap_url_quoted_validate(vstring_str(qs));
++	vstring_free(qs);
++	return ok;
++}
++
++// validate conformance to RFC 3501 "nz_number"
++bool imap_url_nz_number_validate(const char *s)
++{
++	if (*s < '1' || *s > '9')
++		return FALSE;
++	while (*++s)
++		if (*s < '0' || *s > '9')
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "section-text"
++bool imap_url_section_text_validate(const char *s)
++{
++	size_t spn;
++	const char *field;
++
++	if (strcasecmp(s, "HEADER") == 0 ||
++	   strcasecmp(s, "TEXT") == 0 ||
++	   strcasecmp(s, "MIME") == 0)
++		return TRUE;
++
++	if (strncasecmp(s, "HEADER.FIELDS", 13) != 0)
++		return FALSE;
++	s += 13;
++
++	if (strncasecmp(s, ".NOT", 4) == 0)
++		s += 4;
++
++	if (*s != ' ')
++		return FALSE;
++	++s;
++
++	if (*s != '(')
++		return FALSE;
++	++s;
++
++	spn = strcspn(s, " )");
++	if (spn <= 0)
++		return FALSE;
++	field = mystrndup(s, spn);
++	if (!imap_url_astring_validate(field)) {
++		myfree((char *) field);
++		return FALSE;
++	}
++	myfree((char *) field);
++	s += spn;
++
++	while (*s == ' ') {
++		++s;
++		spn = strcspn(s, " )");
++		if (spn <= 0)
++			return FALSE;
++		field = mystrndup(s, spn);
++		if (!imap_url_astring_validate(field)) {
++			myfree((char *) field);
++			return FALSE;
++		}
++		myfree((char *) field);
++		s += spn;
++	}
++
++	if (*s != ')')
++		return FALSE;
++	++s;
++
++	return *s == '\0';
++}
++
++// validate conformance to RFC 2192 "section"
++bool imap_url_section_validate(const char *s)
++{
++	size_t spn;
++	const char *part;
++
++	if (imap_url_section_text_validate(s))
++		return TRUE;
++
++	spn = strspn(s, DIGIT);
++	if (spn <= 0)
++		return FALSE;
++	part = mystrndup(s, spn);
++	if (!imap_url_nz_number_validate(part)) {
++		myfree((char *) part);
++		return FALSE;
++	}
++	myfree((char *) part);
++	s += spn;
++
++	while (*s == '.') {
++		++s;
++		spn = strspn(s, DIGIT);
++		if (spn <= 0) {
++			--s;
++			break;
++		}
++		part = mystrndup(s, spn);
++		if (!imap_url_nz_number_validate(part)) {
++			myfree((char *) part);
++			return FALSE;
++		}
++		myfree((char *) part);
++		s += spn;
++	}
++
++	if (*s == '.') {
++		++s;
++		return imap_url_section_text_validate(s);
++	}
++
++	return *s == '\0';
++}
++
++// validate conformance to RFC 3339 "date-time"
++bool imap_url_datetime_validate(const char *s)
++{
++	return *s != '\0' && strspn(s, DATETIME_CHARS) == strlen(s);
++}
++
++// validate conformance to RFC 4467 "access"
++bool imap_url_access_validate(const char *s)
++{
++	if (strncasecmp(s, "submit+", 7) == 0)
++		return imap_url_astring_validate(s + 7);
++	if (strncasecmp(s, "user+", 5) == 0)
++		return imap_url_astring_validate(s + 5);
++	return strcasecmp(s, "authuser") == 0 ||
++	      strcasecmp(s, "anonymous") == 0;
++}
++
++// validate conformance to RFC 4467 "mechanism"
++bool imap_url_mechanism_validate(const char *s)
++{
++#if MECH_INTERNAL_ONLY
++	return strcasecmp(s, "INTERNAL") == 0;
++#else
++	if (strcasecmp(s, "INTERNAL") == 0)
++		return TRUE;
++	if (*s == '\0')
++		return FALSE;
++	do {
++		if ((*s < 'A' || *s > 'Z') &&
++		   (*s < 'a' || *s > 'z') &&
++		   (*s < '0' || *s > '9') &&
++		   *s != '-' && *s != '.')
++			return FALSE;
++	} while (*++s);
++	return TRUE;
++#endif
++}
++
++// validate conformance to RFC 4467 "urlauth" (really enc-urlauth)
++bool imap_url_urlauth_validate(const char *s)
++{
++	const char *cp;
++
++	for (cp = s; *cp; cp++) {
++		if ((*cp < '0' || *cp > '9') &&
++		   (*cp < 'A' || *cp > 'F') &&
++		   (*cp < 'a' || *cp > 'f'))
++			return FALSE;
++	}
++
++	return cp - s >= 32;
++}
+diff -Nur postfix-2.7.0/src/smtpd/imap-url.h postfix-2.7.0+burl/src/smtpd/imap-url.h
+--- postfix-2.7.0/src/smtpd/imap-url.h	1969-12-31 18:00:00.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/imap-url.h	2010-03-08 11:05:06.000000000 -0600
+@@ -0,0 +1,101 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++/* APPLE - burl */
++
++#ifndef IMAP_URL_H
++#define IMAP_URL_H
++
++#ifndef TRUE
++#define TRUE 1
++#define FALSE 0
++#endif
++
++struct imap_url_parts {
++	const char *user;
++	const char *auth_type;
++	const char *hostport;
++	const char *mailbox;
++	const char *uidvalidity;
++	const char *uid;
++	const char *section;
++	const char *expiration;
++	const char *access;
++	const char *mechanism;
++	const char *urlauth;
++
++	const char *rump;
++};
++
++// URL-decode enc into dec (%XX decoding)
++bool url_decode(const char *enc, VSTRING *dec);
++
++// parse an RFC 2192+4467 URL into its parts
++void imap_url_parse(const char *url, struct imap_url_parts *parts);
++
++// free
++void imap_url_parts_free(struct imap_url_parts *parts);
++
++// decode the parts of an IMAP URL
++bool imap_url_decode(const struct imap_url_parts *enc_parts,
++		    struct imap_url_parts *dec_parts,
++		    const char **error);
++
++// validate conformance to RFC 3501 "atom"
++bool imap_url_atom_validate(const char *s);
++// validate conformance to RFC 3501 "ASTRING-CHAR"
++bool imap_url_astring_chars_validate(const char *s);
++// validate conformance to RFC 3501 "quoted"
++bool imap_url_quoted_validate(const char *s);
++// validate conformance to RFC 3501 "literal"
++bool imap_url_literal_validate(const char *s);
++// validate conformance to RFC 3501 "astring"
++bool imap_url_astring_validate(const char *s);
++// validate conformance to RFC 1738 "hostport"
++bool imap_url_hostport_validate(const char *s);
++// validate conformance to RFC 3501 "mailbox"
++bool imap_url_mailbox_validate(const char *s);
++// validate conformance to RFC 3501 "nz_number"
++bool imap_url_nz_number_validate(const char *s);
++// validate conformance to RFC 3501 "section-text"
++bool imap_url_section_text_validate(const char *s);
++// validate conformance to RFC 2192 "section"
++bool imap_url_section_validate(const char *s);
++// validate conformance to RFC 3339 "date-time"
++bool imap_url_datetime_validate(const char *s);
++// validate conformance to RFC 4467 "access"
++bool imap_url_access_validate(const char *s);
++// validate conformance to RFC 4467 "mechanism"
++bool imap_url_mechanism_validate(const char *s);
++// validate conformance to RFC 4467 "urlauth" (really enc-urlauth)
++bool imap_url_urlauth_validate(const char *s);
++
++#endif
+diff -Nur postfix-2.7.0/src/smtpd/smtpd.c postfix-2.7.0+burl/src/smtpd/smtpd.c
+--- postfix-2.7.0/src/smtpd/smtpd.c	2010-02-13 19:50:21.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/smtpd.c	2010-03-08 13:18:56.000000000 -0600
+@@ -1060,6 +1060,11 @@
+#include <smtpd_proxy.h>
+#include <smtpd_milter.h>
+
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++#include <smtpd_imap.h>
++#endif
++
+ /*
+  * Tunable parameters. Make sure that there is some bound on the length of
+  * an SMTP command, so that the mail system stays in control even when a
+@@ -1668,6 +1673,14 @@
+	ENQUEUE_FIX_REPLY(state, reply_buf, "8BITMIME");
+    if ((discard_mask & EHLO_MASK_DSN) == 0)
+	ENQUEUE_FIX_REPLY(state, reply_buf, "DSN");
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    if ((discard_mask & EHLO_MASK_BURL) == 0 && imap_allowed(state))
++	ENQUEUE_FIX_REPLY(state, reply_buf, state->sasl_username != NULL &&
++			 *state->sasl_username != '\0' ? "BURL imap" : "BURL");
++#endif
++
+    smtpd_chat_reply(state, "250 %s", STR(reply_buf));
+
+    /*
+@@ -2687,7 +2700,9 @@
+
+/* data_cmd - process DATA command */
+
+-static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
++/* APPLE - burl */
++static int data_common(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv,
++		      bool burl)
+{
+    SMTPD_PROXY *proxy;
+    const char *err;
+@@ -2707,6 +2722,13 @@
+    const char *rfc3848_sess;
+    const char *rfc3848_auth;
+
++    /* APPLE - burl */
++    VSTREAM *in_stream;
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    int status;
++    const char *url;
++#endif
++
+#ifdef USE_TLS
+    VSTRING *peer_CN;
+    VSTRING *issuer_CN;
+@@ -2731,6 +2753,7 @@
+	}
+	return (-1);
+    }
++    if (!burl)	/* APPLE - burl - reduce code deltas */
+    if (argc != 1) {
+	state->error_mask |= MAIL_ERROR_PROTOCOL;
+	smtpd_chat_reply(state, "501 5.5.4 Syntax: DATA");
+@@ -2891,6 +2914,53 @@
+		   "\t(envelope-from %s)", STR(state->buffer));
+#endif
+    }
++
++    /* APPLE - burl */
++    in_stream = state->client;
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    if (burl) {
++	url = argv[1].strval;
++	len = strlen(url);
++	if (len >= 2 && url[0] == '"' && url[len - 1] == '"')
++	   url = mystrndup(url + 1, len - 2);
++	in_stream = imap_open(state, url);
++	if (url != argv[1].strval) {
++	   myfree((char *) url);
++	   url = NULL;
++	}
++	if (in_stream == NULL) {
++	   /* must fail the entire transaction */
++	   chat_reset(state, var_smtpd_hist_thrsh);
++	   mail_reset(state);
++	   rcpt_reset(state);
++	   return -1;
++	}
++	status = vstream_setjmp(in_stream);
++	if (status != 0) {
++	   imap_close(in_stream);
++	   in_stream = NULL;
++	}
++	switch (status) {
++	case 0:
++	case SMTP_ERR_NONE:
++	   break;
++	case SMTP_ERR_EOF:
++	   smtpd_chat_reply(state, "554 4.6.6 EOF from IMAP server");
++	   vstream_longjmp(state->client, SMTP_ERR_QUIET);
++	   break;
++	case SMTP_ERR_TIME:
++	   smtpd_chat_reply(state, "554 4.6.6 Timeout from IMAP server");
++	   vstream_longjmp(state->client, SMTP_ERR_QUIET);
++	   break;
++	case SMTP_ERR_QUIET:
++	   vstream_longjmp(state->client, SMTP_ERR_QUIET);
++	   break;
++	default:
++	   msg_panic("data_common: unknown error %d", status);
++	   break;
++	}
++    } else
++#endif
+    smtpd_chat_reply(state, "354 End data with <CR><LF>.<CR><LF>");
+    state->where = SMTPD_AFTER_DATA;
+
+@@ -2907,7 +2977,7 @@
+     * because sendmail permits it.
+     */
+    for (prev_rec_type = 0; /* void */ ; prev_rec_type = curr_rec_type) {
+-	if (smtp_get(state->buffer, state->client, var_line_limit) == '\n')
++	if (smtp_get(state->buffer, in_stream, var_line_limit) == '\n')
+	   curr_rec_type = REC_TYPE_NORM;
+	else
+	   curr_rec_type = REC_TYPE_CONT;
+@@ -2923,6 +2993,7 @@
+	   if (len > 0 && IS_SPACE_TAB(start[0]))
+		out_record(out_stream, REC_TYPE_NORM, "", 0);
+	}
++	if (!burl)	/* APPLE - burl - reduce code deltas */
+	if (prev_rec_type != REC_TYPE_CONT && *start == '.'
+	   && (proxy == 0 ? (++start, --len) == 0 : len == 1))
+	   break;
+@@ -2937,6 +3008,15 @@
+		   state->err = out_error;
+	   }
+	}
++
++	/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++	if (burl && imap_isdone(in_stream)) {
++	   imap_close(in_stream);
++	   in_stream = NULL;
++	   break;
++	}
++#endif
+    }
+    state->where = SMTPD_AFTER_DOT;
+    if (state->err == CLEANUP_STAT_OK
+@@ -3125,6 +3205,38 @@
+    return (saved_err);
+}
+
++/* APPLE - burl */
++static int data_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
++{
++    return data_common(state, argc, argv, 0);
++}
++
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++static int burl_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *argv)
++{
++    if (!imap_allowed(state)) {
++	state->error_mask |= MAIL_ERROR_PROTOCOL;
++	smtpd_chat_reply(state, "502 5.5.2 Error: command not recognized");
++	return -1;
++    }
++
++    if (state->sasl_username == NULL || *state->sasl_username == '\0') {
++	state->error_mask |= MAIL_ERROR_PROTOCOL;
++	smtpd_chat_reply(state, "503 5.5.4 Error: send AUTH command first");
++	return -1;
++    }
++
++    /* we do not support CHUNKING/BDAT, so last arg must be LAST */
++    if (argc != 3 || strcasecmp(argv[argc - 1].strval, "LAST") != 0) {
++	state->error_mask |= MAIL_ERROR_PROTOCOL;
++	smtpd_chat_reply(state, "501 5.5.4 Syntax: BURL <url> LAST");
++	return -1;
++    }
++
++    return data_common(state, argc, argv, 1);
++}
++#endif
++
+/* rset_cmd - process RSET */
+
+static int rset_cmd(SMTPD_STATE *state, int argc, SMTPD_TOKEN *unused_argv)
+@@ -4163,6 +4275,12 @@
+    SMTPD_CMD_MAIL, mail_cmd, 0,
+    SMTPD_CMD_RCPT, rcpt_cmd, 0,
+    SMTPD_CMD_DATA, data_cmd, SMTPD_CMD_FLAG_LAST,
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    SMTPD_CMD_BURL, burl_cmd, 0,
++#endif
++
+    SMTPD_CMD_RSET, rset_cmd, SMTPD_CMD_FLAG_LIMIT,
+    SMTPD_CMD_NOOP, noop_cmd, SMTPD_CMD_FLAG_LIMIT | SMTPD_CMD_FLAG_PRE_TLS,
+    SMTPD_CMD_VRFY, vrfy_cmd, SMTPD_CMD_FLAG_LIMIT,
+@@ -4862,6 +4980,11 @@
+	ehlo_discard_maps = maps_create(VAR_SMTPD_EHLO_DIS_MAPS,
+					var_smtpd_ehlo_dis_maps,
+					DICT_FLAG_LOCK);
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++    imap_read_config();
++#endif
+}
+
+/* post_jail_init - post-jail initialization */
+@@ -5119,6 +5242,12 @@
+	VAR_UNV_RCPT_TF_ACT, DEF_UNV_RCPT_TF_ACT, &var_unv_rcpt_tf_act, 1, 0,
+	VAR_UNV_FROM_TF_ACT, DEF_UNV_FROM_TF_ACT, &var_unv_from_tf_act, 1, 0,
+	VAR_SMTPD_CMD_FILTER, DEF_SMTPD_CMD_FILTER, &var_smtpd_cmd_filter, 0, 0,
++
++/* APPLE - burl */
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++	VAR_IMAP_SUBMIT_CRED_FILE, DEF_IMAP_SUBMIT_CRED_FILE, &var_imap_submit_cred_file, 0, 0,
++#endif
++
+	0,
+    };
+    static const CONFIG_RAW_TABLE raw_table[] = {
+diff -Nur postfix-2.7.0/src/smtpd/smtpd.h postfix-2.7.0+burl/src/smtpd/smtpd.h
+--- postfix-2.7.0/src/smtpd/smtpd.h	2009-11-05 13:09:43.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/smtpd.h	2010-03-08 11:05:06.000000000 -0600
+@@ -220,6 +220,7 @@
+#define SMTPD_CMD_MAIL		"MAIL"
+#define SMTPD_CMD_RCPT		"RCPT"
+#define SMTPD_CMD_DATA		"DATA"
++#define SMTPD_CMD_BURL		"BURL"			/* APPLE - burl */
+#define SMTPD_CMD_EOD		SMTPD_AFTER_DOT	/* XXX Was: END-OF-DATA */
+#define SMTPD_CMD_RSET		"RSET"
+#define SMTPD_CMD_NOOP		"NOOP"
+diff -Nur postfix-2.7.0/src/smtpd/smtpd_imap.c postfix-2.7.0+burl/src/smtpd/smtpd_imap.c
+--- postfix-2.7.0/src/smtpd/smtpd_imap.c	1969-12-31 18:00:00.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/smtpd_imap.c	2010-03-08 13:18:56.000000000 -0600
+@@ -0,0 +1,656 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++/* Implements RFC 4468 - Submission BURL */
++
++#if defined(USE_SASL_AUTH) && defined(USE_TLS)
++
++#include <sys_defs.h>
++#include <msg.h>
++#include <mymalloc.h>
++#include <vstring.h>
++#include <vstream.h>
++#include <vstring_vstream.h>
++#include <mail_params.h>
++#include <iostuff.h>
++#include <imap-url.h>
++#include <smtpd.h>
++#include <smtpd_chat.h>
++#include <smtp_stream.h>
++#include <connect.h>
++#include <tls.h>
++#include <stdlib.h>
++#include <string.h>
++#include <strings.h>
++#include <sys/stat.h>
++
++char *var_imap_submit_cred_file;
++
++struct imap_server {
++    struct imap_server *next;
++    char *hostport;
++    char *username;
++    char *password;
++};
++static struct imap_server *imap_servers = NULL;
++
++static bool imap_validate(const struct imap_url_parts *parts,
++			 const char **error)
++{
++	// user: mandatory; RFC 3501 "userid"
++	if (parts->user == NULL ||
++	   !imap_url_astring_validate(parts->user)) {
++		*error = "missing or invalid user ID";
++		return FALSE;
++	}
++
++	// auth_type: optional; RFC 3501 "auth-type"
++	if (parts->auth_type != NULL &&
++	   !imap_url_atom_validate(parts->auth_type)) {
++		*error = "invalid auth type";
++		return FALSE;
++	}
++		   
++	// hostport: mandatory; RFC 1738 "hostport"
++	if (parts->hostport == NULL ||
++	   !imap_url_hostport_validate(parts->hostport)) {
++		*error = "missing or invalid server";
++		return FALSE;
++	}
++
++	// mailbox: mandatory; RFC 3501 "mailbox"
++	if (parts->mailbox == NULL ||
++	   !imap_url_mailbox_validate(parts->mailbox)) {
++		*error = "missing or invalid mailbox";
++		return FALSE;
++	}
++
++	// uidvalidity: optional; RFC 3501 "nz-number"
++	if (parts->uidvalidity != NULL &&
++	   !imap_url_nz_number_validate(parts->uidvalidity)) {
++		*error = "invalid uidvalidity";
++		return FALSE;
++	}
++
++	// uid: mandatory; RFC 3501 "nz-number"
++	if (parts->uid == NULL ||
++	   !imap_url_nz_number_validate(parts->uid)) {
++		*error = "missing or invalid uid";
++		return FALSE;
++	}
++
++	// section: optional; RFC 2192 "section"
++	if (parts->section != NULL &&
++	   !imap_url_section_validate(parts->section)) {
++		*error = "invalid section";
++		return FALSE;
++	}
++
++	// expiration: optional; RFC 3339 "date-time"
++	if (parts->expiration != NULL &&
++	   !imap_url_datetime_validate(parts->expiration)) {
++		*error = "invalid expiration";
++		return FALSE;
++	}
++
++	// access: mandatory; RFC 4467 "access"
++	if (parts->access == NULL ||
++	   !imap_url_access_validate(parts->access)) {
++		*error = "missing or invalid access ID";
++		return FALSE;
++	}
++
++	// mechanism: mandatory; RFC 4467 "mechanism"
++	if (parts->mechanism == NULL ||
++	   !imap_url_mechanism_validate(parts->mechanism)) {
++		*error = "missing or invalid mechanism";
++		return FALSE;
++	}
++
++	// urlauth: mandatory; RFC 4467 "urlauth"
++	if (parts->urlauth == NULL ||
++	   !imap_url_urlauth_validate(parts->urlauth)) {
++		*error = "missing or invalid access token";
++		return FALSE;
++	}
++
++	return TRUE;
++}
++
++static const struct imap_server *imap_check_policy(SMTPD_STATE *state,
++	const struct imap_url_parts *parts)
++{
++    const struct imap_server *is;
++
++    if (strncasecmp(parts->access, "user+", 5) == 0) {
++	smtpd_chat_reply(state, "554 5.7.0 Invalid URL: unsupported access method");
++	return NULL;
++    }
++
++    if (strcmp(parts->user, state->sasl_username) != 0 ||
++	(strncasecmp(parts->access, "submit+", 7) == 0 &&
++	strcmp(&parts->access[7], state->sasl_username) != 0)) {
++	smtpd_chat_reply(state, "554 5.7.0 Invalid URL: user mismatch");
++	return NULL;
++    }
++
++    for (is = imap_servers; is != NULL; is = is->next)
++	if (strcasecmp(parts->hostport, is->hostport) == 0)
++	   return is;
++
++    smtpd_chat_reply(state, "554 5.7.8 No trust relationship with IMAP server");
++    return NULL;
++}
++
++void imap_read_config(void)
++{
++    VSTREAM *fp;
++    struct stat stbuf;
++    VSTRING *line;
++    struct imap_server *list;
++    int lineno;
++
++    if (*var_imap_submit_cred_file == 0)
++	return;
++
++    fp = vstream_fopen(var_imap_submit_cred_file, O_RDONLY, 0600);
++    if (fp == NULL)
++	msg_fatal("open %s: %m", var_imap_submit_cred_file);
++
++    if (fstat(vstream_fileno(fp), &stbuf) < 0)
++	msg_fatal("fstat %s: %m", var_imap_submit_cred_file);
++
++    if (stbuf.st_uid != 0 || stbuf.st_gid != 0 ||
++	(stbuf.st_mode & (S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH)) != 0)
++	msg_fatal("unsafe ownership or permissions on %s: "
++		 "uid/gid/mode are %d/%d/%0o should be 0/0/0600",
++		 var_imap_submit_cred_file, stbuf.st_uid, stbuf.st_gid,
++		 stbuf.st_mode & ~S_IFMT);
++
++    line = vstring_alloc(100);
++    list = NULL;
++    lineno = 0;
++    while (vstring_get_nonl(line, fp) != VSTREAM_EOF) {
++	const char *str = vstring_str(line);
++	const char *username, *password;
++	struct imap_server *is;
++	const char *invalid;
++
++	++lineno;
++
++	if (*str == '#')
++	   continue;
++
++	/* future-proofing */
++	if (strcmp(str, "submitcred version 1") == 0)
++	   continue;
++
++	/* hostport|username|password, all nonempty */
++	username = strchr(str, '|');
++	if (username == NULL || username == str || *++username == 0) {
++	   msg_warn("syntax error on line %d of %s", lineno,
++		    var_imap_submit_cred_file);
++	   continue;
++	}
++	password = strchr(username, '|');
++	if (password == NULL || password == username || *++password == 0) {
++	   msg_warn("syntax error on line %d of %s", lineno,
++		    var_imap_submit_cred_file);
++	   continue;
++	}
++
++	is = (struct imap_server *) mymalloc(sizeof *is);
++	is->hostport = mystrndup(str, username - str - 1);
++	is->username = mystrndup(username, password - username - 1);
++	is->password = mystrdup(password);
++
++	invalid = NULL;
++	if (!imap_url_hostport_validate(is->hostport))
++	   invalid = "hostport";
++	else if (!imap_url_astring_validate(is->username))
++	   invalid = "username";
++	else if (!imap_url_astring_validate(is->password))
++	   invalid = "password";
++	if (invalid != NULL) {
++	   msg_warn("invalid %s on line %d of %s", invalid, lineno,
++		    var_imap_submit_cred_file);
++	   myfree((char *) is);
++	   continue;
++	}
++
++	is->next = list;
++	list = is;
++    }
++
++    vstring_free(line);
++    vstream_fclose(fp);
++
++    if (list == NULL) {
++	msg_warn("no valid hostport|username|password entries in %s%s",
++		var_imap_submit_cred_file, imap_servers != NULL ?
++		"; keeping old list" : "");
++	return;
++    }
++
++    /* free old list */
++    while (imap_servers != NULL) {
++	struct imap_server *next = imap_servers->next;
++	myfree(imap_servers->hostport);
++	myfree(imap_servers->username);
++	myfree(imap_servers->password);
++	myfree((char *) imap_servers);
++	imap_servers = next;
++    }
++
++    /* reverse list to preserve order of entries in cred file */
++    while (list != NULL) {
++	struct imap_server *next = list->next;
++	list->next = imap_servers;
++	imap_servers = list;
++	list = next;
++    }
++}
++
++bool imap_allowed(SMTPD_STATE *state)
++{
++    return smtpd_sasl_is_active(state) && imap_servers != NULL &&
++	(strcasecmp(state->service, "submission") == 0 ||
++	atoi(state->service) == 587);
++}
++
++static TLS_APPL_STATE *tls_ctx = NULL;
++static TLS_SESS_STATE *imap_starttls(VSTREAM *stream,
++				    const struct imap_server *is)
++{
++    TLS_CLIENT_START_PROPS start_props;
++    TLS_SESS_STATE *sess_ctx;
++
++    /* XXX all these hard-coded values should be configurable */
++
++    if (tls_ctx == NULL) {
++	TLS_CLIENT_INIT_PROPS init_props;
++
++	tls_ctx = TLS_CLIENT_INIT(&init_props,
++				 log_level = 0,
++				 verifydepth = DEF_SMTP_TLS_SCERT_VD,
++						/* XXX TLS_MGR_SCACHE_IMAP? */
++				 cache_type = TLS_MGR_SCACHE_SMTPD,
++				 cert_file = "",
++				 key_file = "",
++				 dcert_file = "",
++				 dkey_file = "",
++				 eccert_file = "",
++				 eckey_file = "",
++				 CAfile = "",
++				 CApath = "",
++				 fpt_dgst = DEF_SMTP_TLS_FPT_DGST);
++	if (tls_ctx == NULL) {
++	   msg_fatal("unable to initialize client TLS");
++	   return NULL;
++	}
++    }
++
++    sess_ctx = TLS_CLIENT_START(&start_props,
++				ctx = tls_ctx,
++				stream = stream,
++				log_level = 0,
++				timeout = 30,
++				tls_level = TLS_LEV_ENCRYPT,
++				nexthop = "",
++				host = is->hostport,
++				namaddr = is->hostport,
++				serverid = is->hostport,
++				protocols = DEF_SMTP_TLS_MAND_PROTO,
++				cipher_grade = DEF_SMTP_TLS_MAND_CIPH,
++				cipher_exclusions = "SSLv2, aNULL, ADH, eNULL",
++				matchargv = NULL,
++				fpt_dgst = DEF_SMTP_TLS_FPT_DGST);
++    if (sess_ctx == NULL)
++	   msg_warn("unable to start client TLS for IMAP server %s",
++		    is->hostport);
++    return sess_ctx;
++}
++
++static bool imap_capable_of(VSTREAM *stream, const struct imap_server *is,
++			   VSTRING *request, VSTRING *response,
++			   const char *action, bool verbose)
++{
++    const char *cp, *capabilities;
++
++    /* get capabilities if not already present in response */
++    cp = strcasestr(vstring_str(response), "[CAPABILITY ");
++    if (cp != NULL) {
++	const char *eb;
++
++	cp += 12;
++	eb = strchr(cp, ']');
++	if (eb)
++	   capabilities = mystrndup(cp, eb - cp);
++	else
++	   capabilities = mystrdup(cp);
++    } else {
++	VSTRING_RESET(request);
++	vstring_sprintf(request, "C CAPABILITY");
++	smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
++
++	while (smtp_get(response, stream, 0) == '\n') {
++	   if (VSTRING_LEN(response) >= 13 &&
++		strncasecmp(vstring_str(response), "* CAPABILITY ", 13) == 0)
++		capabilities = mystrdup(vstring_str(response) + 13);
++	   if (VSTRING_LEN(response) >= 2 &&
++		strncasecmp(vstring_str(response), "C ", 2) == 0)
++		break;
++	}
++	if (VSTRING_LEN(response) < 4 ||
++	   strncasecmp(vstring_str(response), "C OK", 4) != 0) {
++	   msg_warn("querying capabilities of IMAP server %s failed.  "
++		    "request=\"%s\" response=\"%s\"",
++		    is->hostport, vstring_str(request), vstring_str(response));
++	   return FALSE;
++	}
++    }
++    if (capabilities == NULL) {
++	msg_warn("cannot determine capabilities of IMAP server %s",
++		is->hostport);
++	return FALSE;
++    }
++    if (strcasestr(capabilities, action) == 0) {
++	if (verbose)
++	   msg_warn("IMAP server %s does not support %s.  "
++		    "detected capabilities \"%s\"",
++		    is->hostport, action, capabilities);
++	myfree((char *) capabilities);
++	return FALSE;
++    }
++    myfree((char *) capabilities);
++
++    return TRUE;
++}
++
++VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
++{
++    int port;
++    VSTREAM *stream;
++    struct imap_url_parts enc_parts, dec_parts;
++    const char *error, *cp;
++    const struct imap_server *is;
++    int jv;
++    TLS_SESS_STATE *sess_ctx;
++    VSTRING *request, *response;
++    unsigned int length;
++    bool plain;
++
++    port = 143;
++    stream = NULL;
++    memset(&enc_parts, 0, sizeof enc_parts);
++    memset(&dec_parts, 0, sizeof dec_parts);
++    error = NULL;
++
++    /* first parse the url */
++    imap_url_parse(url, &enc_parts);
++    if (imap_url_decode(&enc_parts, &dec_parts, &error) &&
++	imap_validate(&dec_parts, &error)) {
++	is = imap_check_policy(state, &dec_parts);
++	if (is != NULL) {
++	   int fd;
++	   char *hostport;
++
++	   if ((cp = strchr(is->hostport, ':')) != NULL) {
++		hostport = is->hostport;
++		if (strcasecmp(cp + 1, "imaps") == 0)
++		   port = 993;
++		else
++		   port = atoi(cp + 1);
++	   } else {
++		VSTRING *str = vstring_alloc(strlen(is->hostport) + 6);
++		vstring_sprintf(str, "%s:imap", is->hostport);
++		hostport = mystrdup(vstring_str(str));
++		vstring_free(str);
++		port = 143;
++	   }
++
++	   fd = inet_connect(hostport, BLOCKING, 30);
++	   if (fd >= 0) {
++		stream = vstream_fdopen(fd, O_RDWR);
++		vstream_control(stream, VSTREAM_CTL_PATH, hostport,
++				VSTREAM_CTL_END);
++		smtp_timeout_setup(stream, 30);
++	   } else {
++		msg_warn("imap_open: connect to %s: %m", hostport);
++		smtpd_chat_reply(state, "451 4.4.1 IMAP server unavailable");
++	   }
++
++	   if (hostport != is->hostport)
++		myfree(hostport);
++	}
++    } else {
++	if (error)
++	   smtpd_chat_reply(state, "554 5.7.0 Invalid URL: %s", error);
++	else
++	   smtpd_chat_reply(state, "554 5.7.0 Invalid URL");
++    }
++
++    imap_url_parts_free(&dec_parts);
++    imap_url_parts_free(&enc_parts);
++
++    if (stream == NULL)
++	return NULL;
++
++    sess_ctx = NULL;
++    request = vstring_alloc(128);
++    response = vstring_alloc(128);
++
++    jv = vstream_setjmp(stream);
++    if (jv != 0) {
++	if (jv == -2)
++	   smtpd_chat_reply(state, "554 5.6.6 IMAP URL resolution failed");
++	else
++	   smtpd_chat_reply(state, "451 4.4.1 IMAP server unavailable");
++	if (sess_ctx != NULL)
++	   tls_client_stop(tls_ctx, stream, 5, TRUE, sess_ctx);
++	vstream_fclose(stream);
++	vstring_free(request);
++	vstring_free(response);
++	return NULL;
++    }
++
++    /* negotiate SSL now if applicable (IMAPS) */
++    if (port == 993) {
++	sess_ctx = imap_starttls(stream, is);
++	if (sess_ctx == NULL) {
++	   vstream_fpurge(stream, VSTREAM_PURGE_BOTH);
++	   vstream_longjmp(stream, -1);
++	}
++    }
++
++    /* read server greeting */
++    if (smtp_get(response, stream, 0) != '\n' || VSTRING_LEN(response) < 4 ||
++	strncasecmp(vstring_str(response), "* OK", 4) != 0) {
++	msg_warn("bad greeting from IMAP server %s: %s", is->hostport,
++		vstring_str(response));
++	vstream_longjmp(stream, -1);
++    }
++
++    /* send STARTTLS if applicable (IMAP) */
++    if (sess_ctx == NULL) {
++	/* make sure the server supports STARTTLS */
++	if (!imap_capable_of(stream, is, request, response, "STARTTLS", TRUE))
++	   vstream_longjmp(stream, -1);
++
++	VSTRING_RESET(request);
++	vstring_sprintf(request, "S STARTTLS");
++	smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
++
++	while (smtp_get(response, stream, 0) == '\n') {
++	   if (VSTRING_LEN(response) >= 2 &&
++		strncasecmp(vstring_str(response), "S ", 2) == 0)
++		break;
++	}
++	if (VSTRING_LEN(response) < 4 ||
++	   strncasecmp(vstring_str(response), "S OK", 4) != 0) {
++	   msg_warn("starttls to IMAP server %s failed.  "
++		    "request=\"%s\" response=\"%s\"",
++		    is->hostport, vstring_str(request), vstring_str(response));
++	   vstream_fpurge(stream, VSTREAM_PURGE_BOTH);
++	   vstream_longjmp(stream, -1);
++	}
++
++	sess_ctx = imap_starttls(stream, is);
++	if (sess_ctx == NULL) {
++	   vstream_fpurge(stream, VSTREAM_PURGE_BOTH);
++	   vstream_longjmp(stream, -1);
++	}
++
++	/* can't use old capabilities, must request */
++	VSTRING_RESET(response);
++	VSTRING_TERMINATE(response);
++    }
++
++    /* determine which authentication mechanism to use; prefer PLAIN */
++    plain = FALSE;
++    if (imap_capable_of(stream, is, request, response, "AUTH=PLAIN", FALSE))
++	plain = TRUE;
++    else if (!imap_capable_of(stream, is, request, response,
++			     "AUTH=X-PLAIN-SUBMIT", FALSE)) {
++	msg_warn("IMAP server %s supports neither "
++		"AUTH=PLAIN nor AUTH=X-PLAIN-SUBMIT.  can't log in.",
++		is->hostport);
++	vstream_longjmp(stream, -1);
++    }
++
++    /* log in as the submit user */
++    VSTRING_RESET(request);
++    vstring_sprintf(request, "A AUTHENTICATE %s",
++		   plain ? "PLAIN" : "X-PLAIN-SUBMIT");
++    smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
++
++    while (smtp_get(response, stream, 0) == '\n') {
++	if (VSTRING_LEN(response) >= 1 &&
++	   strncmp(vstring_str(response), "+", 1) == 0)
++	   break;
++	if (VSTRING_LEN(response) >= 2 &&
++	   strncasecmp(vstring_str(response), "A ", 2) == 0)
++	   break;
++    }
++    if (VSTRING_LEN(response) < 1 ||
++	strncmp(vstring_str(response), "+", 1) != 0) {
++	msg_warn("logging in to IMAP server %s failed.  "
++		"request=\"%s\" response=\"%s\"",
++		is->hostport, vstring_str(request), vstring_str(response));
++	vstream_longjmp(stream, -1);
++    }
++
++    /* authorization ID \0 authentication ID \0 password */
++    VSTRING_RESET(response);
++    vstring_strcat(response, state->sasl_username);
++    VSTRING_ADDCH(response, 0);
++    vstring_strcat(response, is->username);
++    VSTRING_ADDCH(response, 0);
++    vstring_strcat(response, is->password);
++
++    VSTRING_RESET(request);
++    base64_encode(request, vstring_str(response), VSTRING_LEN(response));
++    smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
++
++    while (smtp_get(response, stream, 0) == '\n') {
++	if (VSTRING_LEN(response) >= 2 &&
++	   strncasecmp(vstring_str(response), "A ", 2) == 0)
++	   break;
++    }
++    if (VSTRING_LEN(response) < 4 ||
++	strncasecmp(vstring_str(response), "A OK", 4) != 0) {
++	msg_warn("logging in to IMAP server %s failed.  "
++		"mechanism=%s response=\"%s\"",
++		is->hostport, plain ? "PLAIN" : "X-PLAIN-SUBMIT",
++		vstring_str(response));
++	vstream_longjmp(stream, -1);
++    }
++
++    /* make sure the server supports URLAUTH */
++    if (!imap_capable_of(stream, is, request, response, "URLAUTH", TRUE))
++	vstream_longjmp(stream, -1);
++
++    /* finally, begin the fetch */
++    VSTRING_RESET(request);
++    vstring_sprintf(request, "U URLFETCH \"%s\"", url);
++    smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
++
++    while (smtp_get(response, stream, 0) == '\n') {
++	if (VSTRING_LEN(response) >= 11 &&
++	   strncasecmp(vstring_str(response), "* URLFETCH ", 11) == 0)
++	   break;
++	if (VSTRING_LEN(response) >= 2 &&
++	   strncasecmp(vstring_str(response), "U ", 2) == 0)
++	   break;
++    }
++    if (VSTRING_LEN(response) < 11 ||
++	strncasecmp(vstring_str(response), "* URLFETCH ", 11) != 0) {
++	msg_warn("URLFETCH from IMAP server %s returned no data.  "
++		"request=\"%s\" response=\"%s\"",
++		is->hostport, vstring_str(request), vstring_str(response));
++	vstream_longjmp(stream, -1);
++    }
++
++    cp = strchr(vstring_str(response) + 11, ' ');
++    if (cp == NULL || cp[1] != '{' ||
++	(length = strtoul(cp + 2, NULL, 10)) == 0) {
++	msg_warn("URLFETCH from IMAP server %s returned no data.  "
++		"request=\"%s\" response=\"%s\"",
++		is->hostport, vstring_str(request), vstring_str(response));
++	vstream_longjmp(stream, -2);
++    }
++
++    vstream_control(stream, VSTREAM_CTL_CONTEXT, sess_ctx, VSTREAM_CTL_END);
++
++    /* read only the literal, no more */
++    vstream_limit_init(stream, length);
++
++    vstring_free(request);
++    vstring_free(response);
++
++    return stream;
++}
++
++bool imap_isdone(VSTREAM *stream)
++{
++    return vstream_limit_reached(stream);
++}
++
++void imap_close(VSTREAM *stream)
++{
++    vstream_fputs("Z LOGOUT", stream);
++    vstream_fflush(stream);
++    vstream_limit_deinit(stream);
++    tls_client_stop(tls_ctx, stream, 5, FALSE, vstream_context(stream));
++    vstream_fclose(stream);
++}
++
++#endif
+diff -Nur postfix-2.7.0/src/smtpd/smtpd_imap.h postfix-2.7.0+burl/src/smtpd/smtpd_imap.h
+--- postfix-2.7.0/src/smtpd/smtpd_imap.h	1969-12-31 18:00:00.000000000 -0600
++++ postfix-2.7.0+burl/src/smtpd/smtpd_imap.h	2010-03-08 11:05:06.000000000 -0600
+@@ -0,0 +1,39 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#ifndef _SMTPD_IMAP_H_
++#define _SMTPD_IMAP_H_
++
++VSTREAM *imap_open(SMTPD_STATE *state, const char *url);
++bool imap_isdone(VSTREAM *stream);
++void imap_close(VSTREAM *stream);
++
++#endif
+diff -Nur postfix-2.7.0/src/util/vstream.c postfix-2.7.0+burl/src/util/vstream.c
+--- postfix-2.7.0/src/util/vstream.c	2008-12-05 19:38:36.000000000 -0600
++++ postfix-2.7.0+burl/src/util/vstream.c	2010-03-08 11:05:06.000000000 -0600
+@@ -1378,3 +1378,82 @@
+	return (0);
+    }
+}
++
++/* APPLE - burl - rest of file */
++struct vstream_limit {
++    VSTREAM_FN parent_read_fn;
++    VSTREAM_FN parent_write_fn;
++    void *parent_context;
++    unsigned int limit;
++};
++
++static ssize_t vstream_limit_read(int fd, void *buf, size_t len,
++				 int timeout, void *context)
++{
++    struct vstream_limit *lp = (struct vstream_limit *) context;
++    ssize_t r;
++
++    /* read no more than the limit */
++    if (lp->limit == 0)
++	return 0;
++    else if (len > lp->limit)
++	len = lp->limit;
++    r = lp->parent_read_fn(fd, buf, len, timeout, lp->parent_context);
++    if (r > 0)
++	lp->limit -= r;
++    return r;
++}
++
++static ssize_t vstream_limit_write(int fd, void *buf, size_t len,
++				  int timeout, void *context)
++{
++    struct vstream_limit *lp = (struct vstream_limit *) context;
++
++    /* impose no limit on writing, just pass through to parent */
++    return lp->parent_write_fn(fd, buf, len, timeout, lp->parent_context);
++}
++
++void vstream_limit_init(VSTREAM *stream, unsigned int limit)
++{
++    VBUF *bp = &stream->buf;
++    struct vstream_limit *lp;
++
++    lp = (struct vstream_limit *) mymalloc(sizeof *lp);
++    lp->parent_read_fn = stream->read_fn;
++    stream->read_fn = vstream_limit_read;
++    lp->parent_write_fn = stream->write_fn;
++    stream->write_fn = vstream_limit_write;
++    lp->parent_context = stream->context;
++    stream->context = lp;
++
++    if (bp->cnt > 0 || (bp->flags & VSTREAM_FLAG_READ) == 0)
++	msg_panic("vstream_limit_init with write buffer");
++
++    if (-bp->cnt > limit) {
++	/* the stream already has more than the wanted data buffered.
++	  truncate the stream.  could save the rest, but, nah. */
++	lp->limit = 0;
++	bp->cnt = -(ssize_t) limit;
++    } else {
++	/* at most limit bytes buffered.  read no more than the remainder */
++	lp->limit = limit + bp->cnt;
++    }
++}
++
++int vstream_limit_reached(const VSTREAM *stream)
++{
++    const VBUF *bp = &stream->buf;
++    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
++
++    return bp->cnt == 0 && lp->limit == 0;
++}
++
++void vstream_limit_deinit(VSTREAM *stream)
++{
++    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
++
++    stream->read_fn = lp->parent_read_fn;
++    stream->write_fn = lp->parent_write_fn;
++    stream->context = lp->parent_context;
++    myfree((char *) lp);
++}
+diff -Nur postfix-2.7.0/src/util/vstream.h postfix-2.7.0+burl/src/util/vstream.h
+--- postfix-2.7.0/src/util/vstream.h	2008-12-03 17:07:07.000000000 -0600
++++ postfix-2.7.0+burl/src/util/vstream.h	2010-03-08 11:05:06.000000000 -0600
+@@ -188,6 +188,11 @@
+extern int vstream_tweak_sock(VSTREAM *);
+extern int vstream_tweak_tcp(VSTREAM *);
+
++/* APPLE - burl */
++void vstream_limit_init(VSTREAM *stream, unsigned int limit);
++int vstream_limit_reached(const VSTREAM *stream);
++void vstream_limit_deinit(VSTREAM *stream);
++
+/* LICENSE
+/* .ad
+/* .fi
+

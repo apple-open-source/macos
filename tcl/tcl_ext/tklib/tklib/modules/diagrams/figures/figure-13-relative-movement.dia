@@ -1,0 +1,22 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc gridarrow {dx text} {
+    variable boxwidth
+    set dx [expr {$dx * 2 * $boxwidth}]
+    move right [5 mm]
+    block {
+	group { arrow up left $dx }
+	box  dotted with nw at [last arrow end]
+	for {set i 2} {$i <= ($dx/50)} {incr i} {
+	    box dotted with sw at [last box se]
+	}
+	move down [1 cm] from [last arrow center]
+	text text $text
+    }
+    move right [5 mm] from [last block e]
+}
+
+gridarrow 0.5 "line up left"
+gridarrow 1.0 "arrow up left 1"
+gridarrow 1.5 "arrow up left 1.5"
+gridarrow 2.0 "arrow up left 2"

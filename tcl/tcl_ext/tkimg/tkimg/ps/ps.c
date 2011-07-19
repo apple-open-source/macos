@@ -8,7 +8,7 @@
  *
  * Copyright (c) 2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>
  *
- * $Id: ps.c 174 2008-12-01 15:39:10Z nijtmans $
+ * $Id: ps.c 251 2010-04-28 13:28:28Z nijtmans $
  *
  */
 
@@ -36,22 +36,22 @@
  * Prototypes for local procedures defined in this file:
  */
 
-static int CommonMatchPS _ANSI_ARGS_((tkimg_MFile *handle, Tcl_Obj *format,
-	int *widthPtr, int *heightPtr));
+static int CommonMatchPS(tkimg_MFile *handle, Tcl_Obj *format,
+	int *widthPtr, int *heightPtr);
 
-static int CommonMatchPDF _ANSI_ARGS_((tkimg_MFile *handle, Tcl_Obj *format,
-	int *widthPtr, int *heightPtr));
+static int CommonMatchPDF(tkimg_MFile *handle, Tcl_Obj *format,
+	int *widthPtr, int *heightPtr);
 
-static int parseFormat _ANSI_ARGS_((Tcl_Obj *format, int *zoomx,
-	int *zoomy));
+static int parseFormat(Tcl_Obj *format, int *zoomx,
+	int *zoomy);
 
-static int CommonRead _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
+static int CommonRead(Tcl_Interp *interp, tkimg_MFile *handle,
 	Tcl_Obj *format, Tk_PhotoHandle imageHandle, int destX, int destY,
-	int width, int height, int srcX, int srcY));
+	int width, int height, int srcX, int srcY);
 
-static int CommonWrite _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
-	Tcl_Obj *format, Tk_PhotoImageBlock *blockPtr));
-
+static int CommonWrite(Tcl_Interp *interp, tkimg_MFile *handle,
+	Tcl_Obj *format, Tk_PhotoImageBlock *blockPtr);
+
 static int
 parseFormat(format, zoomx, zoomy)
      Tcl_Obj *format;
@@ -113,17 +113,15 @@ parseFormat(format, zoomx, zoomy)
     return index;
 }
 
-static int
-ChnMatch(interp, chan, fileName, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *fileName;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ChnMatch(
+    Tcl_Channel chan,
+    const char *fileName,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixChanMatchProc(&interp, &chan, &fileName, &format, &widthPtr, &heightPtr);
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
@@ -131,16 +129,14 @@ ChnMatch(interp, chan, fileName, format, widthPtr, heightPtr)
     return CommonMatchPS(&handle, format, widthPtr, heightPtr);
 }
 
-static int
-ObjMatch(interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ObjMatch(
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixObjMatchProc(&interp, &data, &format, &widthPtr, &heightPtr);
 
     handle.data = (char *)tkimg_GetStringFromObj(data, &handle.length);
     handle.state = IMG_STRING;
@@ -227,14 +223,6 @@ ObjRead(interp, data, format, imageHandle,
 	    destX, destY, width, height, srcX, srcY);
 }
 
-typedef struct myblock {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], in case it is not
-		  included already in Tk_PhotoImageBlock */
-} myblock;
-
-#define block bl.ck
-
 static int
 CommonRead(interp, handle, format, imageHandle,
 	destX, destY, width, height, srcX, srcY)
@@ -247,7 +235,7 @@ CommonRead(interp, handle, format, imageHandle,
     int srcX, srcY;
 {
 #ifndef MAC_TCL
-    CONST84 char *argv[10];
+    const char *argv[10];
     int len, i, j, fileWidth, fileHeight, maxintensity, index;
     char *p, type;
     char buffer[1025];
@@ -255,8 +243,9 @@ CommonRead(interp, handle, format, imageHandle,
 	char zoom[64], papersize[64];
     Tcl_Channel chan;
     Tcl_DString dstring;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     int zoomx, zoomy;
+    int result = TCL_OK;
 
     index = parseFormat(format, &zoomx, &zoomy);
     if (index < 0) {
@@ -275,7 +264,7 @@ CommonRead(interp, handle, format, imageHandle,
 	p += 14;
 	srcX += (strtoul(p, &p, 0) * zoomx + 36) / 72;
 	fileHeight += (strtoul(p, &p, 0) * zoomy + 36) / 72;
-	strtoul(p, &p, 0);
+	i = strtoul(p, &p, 0);
 	srcY -= (strtoul(p, &p, 0) * zoomy + 36) / 72;
     } else {
 	/* pdf */
@@ -300,7 +289,7 @@ CommonRead(interp, handle, format, imageHandle,
     argv[6] = "-sOutputFile=-";
     argv[7] = "-";
 
-    chan = Tcl_OpenCommandChannel(interp, 8, argv,
+    chan = Tcl_OpenCommandChannel(interp, 8, (CONST84 char **) argv,
 	    TCL_STDIN|TCL_STDOUT|TCL_STDERR|TCL_ENFORCE_MODE);
     if (!chan) {
 	return TCL_ERROR;
@@ -344,7 +333,11 @@ CommonRead(interp, handle, format, imageHandle,
 	Tcl_DStringFree(&dstring);
 	return TCL_OK;
     }
-    Tk_PhotoExpand(imageHandle, destX + width, destY + height);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + width, destY + height) == TCL_ERROR) {
+	Tcl_Close(interp, chan);
+	Tcl_DStringFree(&dstring);
+	return TCL_OK;
+    }
 
     maxintensity = strtoul(p, &p, 0);
     if ((type != '4') && !maxintensity) {
@@ -375,7 +368,10 @@ CommonRead(interp, handle, format, imageHandle,
 	        for (j = 0; j < width; j++) {
 		    line3[j] = ((line[(j+srcX)/8]>>(7-(j+srcX)%8) & 1)) ? 0 : 255;
 	        }
-		tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET);
+		if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		    result = TCL_ERROR;
+		    break;
+		}
 	    }
 	    break;
 	case '5':
@@ -393,7 +389,10 @@ CommonRead(interp, handle, format, imageHandle,
 			c++;
 		    }
 		}
-		tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET);
+		if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		    result = TCL_ERROR;
+		    break;
+		}
 	    }
 	    break;
 	case '6':
@@ -415,7 +414,10 @@ CommonRead(interp, handle, format, imageHandle,
 			c++;
 		    }
 		}
-		tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET);
+		if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY++, width, 1, TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		    result = TCL_ERROR;
+		    break;
+		}
 	    }
 	    break;
     }
@@ -425,7 +427,7 @@ CommonRead(interp, handle, format, imageHandle,
     ckfree((char *) line3);
     Tcl_Close(interp, chan);
     Tcl_ResetResult(interp);
-    return TCL_OK;
+    return result;
 #else
     Tcl_AppendResult(interp, "Cannot read postscript file: not implemented",
 	    (char *) NULL);
@@ -436,7 +438,7 @@ CommonRead(interp, handle, format, imageHandle,
 static int
 ChnWrite(interp, filename, format, blockPtr)
     Tcl_Interp *interp;
-    CONST84 char *filename;
+    const char *filename;
     Tcl_Obj *format;
     Tk_PhotoImageBlock *blockPtr;
 {
@@ -459,22 +461,23 @@ ChnWrite(interp, filename, format, blockPtr)
     return result;
 }
 
-static int
-StringWrite(interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     tkimg_MFile handle;
     int result;
     Tcl_DString data;
-    tkimg_FixStringWriteProc(&data, &interp, &dataPtr, &format, &blockPtr);
-    tkimg_WriteInit(dataPtr, &handle);
+
+    Tcl_DStringInit(&data);
+    tkimg_WriteInit(&data, &handle);
     result = CommonWrite(interp, &handle, format, blockPtr);
     tkimg_Putc(IMG_DONE, &handle);
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult(interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }
@@ -491,16 +494,15 @@ CommonWrite(interp, handle, format, blockPtr)
 
 
 static int
-ChnMatchBeta (interp, chan, fileName, format, widthPtr, heightPtr) /* PDF */
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *fileName;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+ChnMatchBeta( /* PDF */
+    Tcl_Channel chan,
+    const char *fileName,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixChanMatchProc(&interp, &chan, &fileName, &format, &widthPtr, &heightPtr);
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
@@ -509,15 +511,14 @@ ChnMatchBeta (interp, chan, fileName, format, widthPtr, heightPtr) /* PDF */
 }
 
 static int
-ObjMatchBeta(interp, data, format, widthPtr, heightPtr) /* PDF */
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+ObjMatchBeta( /* PDF */
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixObjMatchProc(&interp, &data, &format, &widthPtr, &heightPtr);
 
     if (!tkimg_ReadInit(data, '%', &handle)) {
 	return 0;

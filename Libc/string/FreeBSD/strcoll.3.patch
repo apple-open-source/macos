@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strcoll.3	2003-05-20 15:23:54.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strcoll.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -40,14 +40,26 @@
+--- strcoll.3.bsdnew	2009-11-30 13:52:22.000000000 -0800
++++ strcoll.3	2009-11-30 14:29:06.000000000 -0800
+@@ -36,14 +36,26 @@
  .Dt STRCOLL 3
  .Os
  .Sh NAME
@@ -30,22 +30,10 @@
  .Sh DESCRIPTION
  The
  .Fn strcoll
-@@ -55,19 +67,29 @@
- lexicographically compares the null-terminated strings
- .Fa s1
- and
--.Fa s2
--according to the current locale collation if any, otherwise call
--.Fa strcmp ,
-+.Fa s2 ,
-+according to the current locale collation, if any.
-+Otherwise, it calls
-+.Fa strcmp
- and returns an integer greater than, equal to, or less than 0,
- according as
- .Fa s1
- is greater than, equal to, or less than
- .Fa s2 .
+@@ -62,11 +74,20 @@ If information about the current locale 
+ the value of
+ .Fn strcmp s1 s2
+ is returned.
 +.Pp
 +Although the
 +.Fn strcoll

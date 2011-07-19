@@ -26,38 +26,74 @@
 #ifndef WebGLFramebuffer_h
 #define WebGLFramebuffer_h
 
-#include "CanvasObject.h"
+#include "WebGLObject.h"
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
-    
-    class WebGLFramebuffer : public CanvasObject {
-    public:
-        virtual ~WebGLFramebuffer() { deleteObject(); }
-        
-        static PassRefPtr<WebGLFramebuffer> create(WebGLRenderingContext*);
-        
-        void setIsAttached(unsigned long attachment, bool isAttached);
 
-        bool isDepthAttached() const { return m_isDepthAttached; }
-        bool isStencilAttached() const { return m_isStencilAttached; }
-        bool isDepthStencilAttached() const { return m_isDepthStencilAttached; }
+class WebGLRenderbuffer;
+class WebGLTexture;
 
-    protected:
-        WebGLFramebuffer(WebGLRenderingContext*);
-        
-        virtual void _deleteObject(Platform3DObject);
+class WebGLFramebuffer : public WebGLObject {
+public:
+    virtual ~WebGLFramebuffer() { deleteObject(); }
 
-    private:
-        virtual bool isFramebuffer() const { return true; }
+    static PassRefPtr<WebGLFramebuffer> create(WebGLRenderingContext*);
 
-        bool m_isDepthAttached;
-        bool m_isStencilAttached;
-        bool m_isDepthStencilAttached;
-    };
-    
+    void setAttachment(GC3Denum attachment, GC3Denum texTarget, WebGLTexture*, GC3Dint level);
+    void setAttachment(GC3Denum attachment, WebGLRenderbuffer*);
+    // If an object is attached to the framebuffer, remove it.
+    void removeAttachment(WebGLObject*);
+    WebGLObject* getAttachment(GC3Denum) const;
+
+    GC3Denum getColorBufferFormat() const;
+    GC3Dsizei getWidth() const;
+    GC3Dsizei getHeight() const;
+
+    // This should always be called before drawArray, drawElements, clear,
+    // readPixels, copyTexImage2D, copyTexSubImage2D if this framebuffer is
+    // currently bound.
+    // Return false if the framebuffer is incomplete; otherwise initialize
+    // the buffers if they haven't been initialized and
+    // needToInitializeRenderbuffers is true.
+    bool onAccess(bool needToInitializeRenderbuffers);
+
+    // Return false does not mean COMPLETE, might still be INCOMPLETE.
+    bool isIncomplete(bool checkInternalFormat) const;
+
+    bool hasEverBeenBound() const { return object() && m_hasEverBeenBound; }
+
+    void setHasEverBeenBound() { m_hasEverBeenBound = true; }
+
+protected:
+    WebGLFramebuffer(WebGLRenderingContext*);
+
+    virtual void deleteObjectImpl(Platform3DObject);
+
+private:
+    virtual bool isFramebuffer() const { return true; }
+
+    // Return false if framebuffer is incomplete.
+    bool initializeRenderbuffers();
+
+    bool isColorAttached() const { return (m_colorAttachment && m_colorAttachment->object()); }
+    bool isDepthAttached() const { return (m_depthAttachment && m_depthAttachment->object()); }
+    bool isStencilAttached() const { return (m_stencilAttachment && m_stencilAttachment->object()); }
+    bool isDepthStencilAttached() const { return (m_depthStencilAttachment && m_depthStencilAttachment->object()); }
+
+    RefPtr<WebGLObject> m_colorAttachment;
+    RefPtr<WebGLObject> m_depthAttachment;
+    RefPtr<WebGLObject> m_stencilAttachment;
+    RefPtr<WebGLObject> m_depthStencilAttachment;
+
+    bool m_hasEverBeenBound;
+
+    GC3Denum m_texTarget;
+    GC3Dint m_texLevel;
+};
+
 } // namespace WebCore
 
 #endif // WebGLFramebuffer_h

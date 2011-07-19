@@ -1,0 +1,47 @@
+SSL
+===
+
+SSL and TLS terms are often used in confusing ways:
+
+ * SSL (Secure Sockets Layer) is the original protocol implementation. SSLv3 is
+   still allowed by Dovecot, but it's rarely used. Some clients use SSL to mean
+   that they're going to connect to the imaps (993), pop3s (995) or smtps (465)
+   port, although they're still going to use TLSv1 protocol.
+ * TLS (Transport Layer Security) replaced the SSL protocol. TLSv1 protocol is
+   used practically always nowadays. Some clients use TLS to mean that they're
+   going to use STARTTLS command after connecting to the standard imap (143),
+   pop3 (110) or smtp port (25/587). Nothing would prevent using SSLv3 protocol
+   after STARTTLS command.
+
+Using two separate ports for plaintext and SSL connections was thought to be
+wasteful, so STARTTLS intended to deprecate the SSL ports (imaps, pop3s, smtps,
+etc). This never really happened, probably because of two reasons:
+
+ * Some admins don't even know about STARTTLS.
+ * Some admins want to require SSL/TLS, but don't realize that this is also
+   possible with STARTTLS (Dovecot has 'disable_plaintext_auth=yes' and
+   'ssl=required' settings).
+ * Some admins understand everything, but still prefer to allow only SSL ports.
+   This could be because it makes it easier to ensure that no information is
+   leaked, because SSL/TLS handshake happens immediately. Some clients
+   unfortunately try to do plaintext authentication without STARTTLS, even when
+   IMAP server has told the client that it won't work.
+
+Unfortunately there doesn't seem to be any clear and simple way to refer to
+these different meanings.
+
+SSL term is much more widely understood than TLS, so Dovecot configuration and
+this documentation only talks about SSL when in fact it means both SSL/TLS.
+
+ * <Creating SSL certificates> [SSL.CertificateCreation.txt]
+ * <Configuring Dovecot to use SSL certificates> [SSL.DovecotConfiguration.txt]
+
+ * <Importing CAs and self-signed SSL certificates to clients>
+   [SSL.CertificateClientImporting.txt]
+ * SSL works pretty much the same universally, so for more information about
+   SSL you can see for example Apache's documentation
+   [http://httpd.apache.org/docs/2.2/ssl/].
+ * Dovecot uses OpenSSL, so whatever information you find about it applies also
+   to Dovecot.
+
+(This file was created from the wiki on 2011-05-11 04:42)

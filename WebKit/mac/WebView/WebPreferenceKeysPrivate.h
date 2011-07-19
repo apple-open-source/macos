@@ -60,6 +60,7 @@
 #define WebKitAllowAnimatedImagesPreferenceKey @"WebKitAllowAnimatedImagesPreferenceKey"
 #define WebKitAllowAnimatedImageLoopingPreferenceKey @"WebKitAllowAnimatedImageLoopingPreferenceKey"
 #define WebKitDisplayImagesKey @"WebKitDisplayImagesKey"
+#define WebKitLoadSiteIconsKey @"WebKitLoadSiteIconsKey"
 #define WebKitBackForwardCacheExpirationIntervalKey @"WebKitBackForwardCacheExpirationIntervalKey"
 #define WebKitTabToLinksPreferenceKey @"WebKitTabToLinksPreferenceKey"
 #define WebKitPrivateBrowsingEnabledPreferenceKey @"WebKitPrivateBrowsingEnabled"
@@ -83,17 +84,29 @@
 #define WebKitLocalStorageDatabasePathPreferenceKey @"WebKitLocalStorageDatabasePathPreferenceKey"
 #define WebKitEnableFullDocumentTeardownPreferenceKey @"WebKitEnableFullDocumentTeardown"
 #define WebKitOfflineWebApplicationCacheEnabledPreferenceKey @"WebKitOfflineWebApplicationCacheEnabled"
+#define WebKitApplicationCacheTotalQuota @"WebKitApplicationCacheTotalQuota"
+#define WebKitApplicationCacheDefaultOriginQuota @"WebKitApplicationCacheDefaultOriginQuota"
 #define WebKitZoomsTextOnlyPreferenceKey @"WebKitZoomsTextOnly"
 #define WebKitJavaScriptCanAccessClipboardPreferenceKey @"WebKitJavaScriptCanAccessClipboard"
 #define WebKitXSSAuditorEnabledPreferenceKey @"WebKitXSSAuditorEnabled"
+#define WebKitAcceleratedDrawingEnabledPreferenceKey @"WebKitAcceleratedDrawingEnabled"
+#define WebKitCanvasUsesAcceleratedDrawingPreferenceKey @"WebKitCanvasUsesAcceleratedDrawing"
 #define WebKitAcceleratedCompositingEnabledPreferenceKey @"WebKitAcceleratedCompositingEnabled"
 #define WebKitShowDebugBordersPreferenceKey @"WebKitShowDebugBorders"
 #define WebKitShowRepaintCounterPreferenceKey @"WebKitShowRepaintCounter"
+#define WebKitWebAudioEnabledPreferenceKey @"WebKitWebAudioEnabled"
 #define WebKitWebGLEnabledPreferenceKey @"WebKitWebGLEnabled"
-#define WebKitUsesProxiedOpenPanelPreferenceKey @"WebKitUsesProxiedOpenPanel"
+#define WebKitAccelerated2dCanvasEnabledPreferenceKey @"WebKitAccelerated2dCanvasEnabled"
 #define WebKitPluginAllowedRunTimePreferenceKey @"WebKitPluginAllowedRunTime"
 #define WebKitFrameFlatteningEnabledPreferenceKey @"WebKitFrameFlatteningEnabled"
+#define WebKitSpatialNavigationEnabledPreferenceKey @"WebKitSpatialNavigationEnabled"
+#define WebKitPaginateDuringLayoutEnabledPreferenceKey @"WebKitPaginateDuringLayoutEnabled"
 #define WebKitDNSPrefetchingEnabledPreferenceKey @"WebKitDNSPrefetchingEnabled"
+#define WebKitFullScreenEnabledPreferenceKey @"WebKitFullScreenEnabled"
+#define WebKitAsynchronousSpellCheckingEnabledPreferenceKey @"WebKitAsynchronousSpellCheckingEnabled"
+#define WebKitMemoryInfoEnabledPreferenceKey @"WebKitMemoryInfoEnabled"
+#define WebKitHyperlinkAuditingEnabledPreferenceKey @"WebKitHyperlinkAuditingEnabled"
+#define WebKitAVFoundationEnabledKey @"WebKitAVFoundationEnabled"
 
 // These are private both because callers should be using the cover methods and because the
 // cover methods themselves are private.
@@ -105,6 +118,8 @@
 #define WebKitEditableLinkBehaviorPreferenceKey @"WebKitEditableLinkBehavior"
 #define WebKitCacheModelPreferenceKey @"WebKitCacheModelPreferenceKey"
 #define WebKitTextDirectionSubmenuInclusionBehaviorPreferenceKey @"WebKitTextDirectionSubmenuInclusionBehaviorPreferenceKey"
+#define WebKitEditingBehaviorPreferenceKey @"WebKitEditingBehavior"
+#define WebKitUsePreHTML5ParserQuirksKey @"WebKitUsePreHTML5ParserQuirks"
 
 // CoreGraphics deferred updates are disabled if WebKitEnableCoalescedUpdatesPreferenceKey is set
 // to NO, or has no value.  For compatibility with Mac OS X 10.4.6, deferred updates are OFF by

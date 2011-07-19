@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,12 @@ SCNetworkConnectionCopyCurrentUserPreferences	(SCNetworkConnectionRef		connectio
 
 SCUserPreferencesRef
 SCNetworkConnectionCreateUserPreferences	(SCNetworkConnectionRef		connection)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
+
+Boolean
+SCNetworkConnectionSuspend			(SCNetworkConnectionRef		connection)		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
+
+Boolean
+SCNetworkConnectionResume			(SCNetworkConnectionRef		connection)		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
 
 #pragma mark -

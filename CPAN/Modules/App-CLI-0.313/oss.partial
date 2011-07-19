@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>App-CLI</string>
+        <key>OpenSourceVersion</key>
+        <string>0.313</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/C/CO/CORNELIUS/App-CLI-0.313.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-12-06</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

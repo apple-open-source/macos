@@ -21,6 +21,7 @@
 module core {
 
     interface [
+        CustomIsReachable,
         HasIndexGetter,
         HasNameGetter,
         CustomCall

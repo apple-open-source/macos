@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$67|#define bar_define_001(c, d) { \
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$67|#define bar_define_001(c, d) { \
         printf(c, d) \
         }
 
@@ -7,7 +7,7 @@ $78|/*! @function bar_define_001
         @param d arg4
  */
 
-$0|$13499|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$13771|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -46,6 +46,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{cppMacroHasArgs} => 1
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 0
 $parserState->{frozensodname} => 
@@ -58,6 +59,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -88,7 +90,9 @@ $parserState->{returntype} =>  #define bar_define_001( c, d) { \
 printf( c, d) \
         }
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -97,7 +101,7 @@ $parserState->{sodname} => bar_define_001
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -197,8 +201,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -240,8 +244,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -283,8 +287,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -325,8 +329,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -334,7 +338,7 @@ LONG ATTRIBUTES: <p></p>
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: c
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/bar_define_001/c
         ABSTRACT: ""
         DISCUSSION: "<p>arg3"
         UPDATED: ""
@@ -368,15 +372,15 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: d
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/bar_define_001/d
         ABSTRACT: ""
         DISCUSSION: "<p>arg4"
         UPDATED: ""
@@ -410,8 +414,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: bar_define_001 (HeaderDoc::PDefine)
 +---#define
@@ -448,14 +452,14 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: bar_define_001 (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/econst/printf //test_ref/c/struct/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/intf/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001 //test_ref/doc/anysymbol/bar_define_001" machineGenerated="true" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/struct/c //test_ref/c/intf/c //test_ref/c/econst/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c //test_ref/doc/anysymbol/c" machineGenerated="true" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/struct/d //test_ref/c/intf/d //test_ref/c/econst/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d //test_ref/doc/anysymbol/d" machineGenerated="true" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/struct/printf //test_ref/c/intf/printf //test_ref/c/econst/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf //test_ref/doc/anysymbol/printf" machineGenerated="true" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/struct/c //test_ref/c/intf/c //test_ref/c/econst/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c //test_ref/doc/anysymbol/c" machineGenerated="true" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/struct/d //test_ref/c/intf/d //test_ref/c/econst/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d //test_ref/doc/anysymbol/d" machineGenerated="true" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">\</span> 
 	    <span class="preprocessor">}</span> 
 END OF OBJECT
 
 
 
-$13499|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$13771|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -494,6 +498,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{cppMacroHasArgs} => 1
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 0
 $parserState->{frozensodname} => 
@@ -506,6 +511,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -536,7 +542,9 @@ $parserState->{returntype} =>  #define bar_define_001( c, d) { \
 printf( c, d) \
         }
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -545,7 +553,7 @@ $parserState->{sodname} => bar_define_001
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -645,8 +653,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -688,8 +696,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -731,8 +739,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -773,8 +781,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -782,7 +790,7 @@ LONG ATTRIBUTES: <p></p>
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: c
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/bar_define_001/c
         ABSTRACT: ""
         DISCUSSION: "<p>arg3"
         UPDATED: ""
@@ -816,15 +824,15 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: d
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/bar_define_001/d
         ABSTRACT: ""
         DISCUSSION: "<p>arg4"
         UPDATED: ""
@@ -858,8 +866,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: bar_define_001 (HeaderDoc::PDefine)
 +---#define
@@ -896,907 +904,11 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: bar_define_001 (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/econst/printf //test_ref/c/struct/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/intf/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001 //test_ref/doc/anysymbol/bar_define_001" machineGenerated="true" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/struct/c //test_ref/c/intf/c //test_ref/c/econst/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c //test_ref/doc/anysymbol/c" machineGenerated="true" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/struct/d //test_ref/c/intf/d //test_ref/c/econst/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d //test_ref/doc/anysymbol/d" machineGenerated="true" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/struct/printf //test_ref/c/intf/printf //test_ref/c/econst/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf //test_ref/doc/anysymbol/printf" machineGenerated="true" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/struct/c //test_ref/c/intf/c //test_ref/c/econst/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c //test_ref/doc/anysymbol/c" machineGenerated="true" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/struct/d //test_ref/c/intf/d //test_ref/c/econst/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d //test_ref/doc/anysymbol/d" machineGenerated="true" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">\</span> 
 	    <span class="preprocessor">}</span> 
 END OF OBJECT
 
 
 
-_$36|testsuite/parser_tests/define_4.test$1|C$8|define 4$13499|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 1
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 3
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => }
-$parserState->{macroNoTrunc} => 0
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  #define bar_define_001( c, d) { \
-printf( c, d) \
-        }
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => bar_define_001
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 3
-typelist: #define
-namelist: bar_define_001
-posstypes: function method
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => c
-Parsed Param 1 => d
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---bar_define_001
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---printf
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{bar_define_001} => { 
-        printf(c, d) 
-        }
-$CPP_ARG_HASH{bar_define_001} => c, d
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define 4
-APIUID: //test_ref/doc/header/define_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: bar_define_001
-    APIUID: //test_ref/c/macro/bar_define_001
-    ABSTRACT: ""
-    DISCUSSION: ""
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: c
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: d
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: c
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>arg3"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: d
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>arg4"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: bar_define_001 (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---bar_define_001
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---printf
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: bar_define_001 (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/econst/printf //test_ref/c/struct/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/intf/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span> 
-END OF OBJECT
-
-
-
-$13499|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 1
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 3
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => }
-$parserState->{macroNoTrunc} => 0
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  #define bar_define_001( c, d) { \
-printf( c, d) \
-        }
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => bar_define_001
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 3
-typelist: #define
-namelist: bar_define_001
-posstypes: function method
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => c
-Parsed Param 1 => d
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---bar_define_001
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---printf
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{bar_define_001} => { 
-        printf(c, d) 
-        }
-$CPP_ARG_HASH{bar_define_001} => c, d
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define 4
-APIUID: //test_ref/doc/header/define_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: bar_define_001
-    APIUID: //test_ref/c/macro/bar_define_001
-    ABSTRACT: ""
-    DISCUSSION: ""
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: c
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: d
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: c
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>arg3"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: d
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>arg4"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: bar_define_001 (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---bar_define_001
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---printf
-|   +---(
-|   +---c
-|   +---,
-|   +--- 
-|   +---d
-|   +---)
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: bar_define_001 (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar_define_001 //test_ref/c/tdef/bar_define_001 //test_ref/c/tag/bar_define_001 //test_ref/c/econst/bar_define_001 //test_ref/c/struct/bar_define_001 //test_ref/c/data/bar_define_001 //test_ref/c/clconst/bar_define_001 //test_ref/c/intf/bar_define_001 //test_ref/c/instm/bar_define_001 //test_ref/c/clm/bar_define_001 //test_ref/c/intfcm/bar_define_001 //test_ref/c/intfm/bar_define_001 //test_ref/c/func/bar_define_001 //test_ref/c/ftmplt/bar_define_001 //test_ref/c/defn/bar_define_001 //test_ref/c/macro/bar_define_001 //test_ref/doc/com/intfm/bar_define_001" --><span class="preprocessor">bar_define_001</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/printf //test_ref/c/tdef/printf //test_ref/c/tag/printf //test_ref/c/econst/printf //test_ref/c/struct/printf //test_ref/c/data/printf //test_ref/c/clconst/printf //test_ref/c/intf/printf //test_ref/c/instm/printf //test_ref/c/clm/printf //test_ref/c/intfcm/printf //test_ref/c/intfm/printf //test_ref/c/func/printf //test_ref/c/ftmplt/printf //test_ref/c/defn/printf //test_ref/c/macro/printf //test_ref/doc/com/intfm/printf" --><span class="preprocessor">printf</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/c //test_ref/c/tdef/c //test_ref/c/tag/c //test_ref/c/econst/c //test_ref/c/struct/c //test_ref/c/data/c //test_ref/c/clconst/c //test_ref/c/intf/c //test_ref/c/instm/c //test_ref/c/clm/c //test_ref/c/intfcm/c //test_ref/c/intfm/c //test_ref/c/func/c //test_ref/c/ftmplt/c //test_ref/c/defn/c //test_ref/c/macro/c //test_ref/doc/com/intfm/c" --><span class="preprocessor">c</span><!-- /a --><span class="preprocessor">,</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/d //test_ref/c/tdef/d //test_ref/c/tag/d //test_ref/c/econst/d //test_ref/c/struct/d //test_ref/c/data/d //test_ref/c/clconst/d //test_ref/c/intf/d //test_ref/c/instm/d //test_ref/c/clm/d //test_ref/c/intfcm/d //test_ref/c/intfm/d //test_ref/c/func/d //test_ref/c/ftmplt/d //test_ref/c/defn/d //test_ref/c/macro/d //test_ref/doc/com/intfm/d" --><span class="preprocessor">d</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span> 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$90|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/define_4.test$1|C$8|define 4$1|C$6|parser

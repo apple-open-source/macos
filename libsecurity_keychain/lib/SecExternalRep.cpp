@@ -379,13 +379,14 @@ OSStatus SecExport::Cert::exportRep(
 			return errSecUnsupportedFormat;
 	}
 	
-	CSSM_DATA cdata;
-	OSStatus ortn = SecCertificateGetData((SecCertificateRef)mKcItem, &cdata);
-	if(ortn) {
+	CFDataRef cdata = SecCertificateCopyData((SecCertificateRef)mKcItem);
+	if(!cdata) {
 		SecImpExpDbg("SecExportRep::exportRep SecCertificateGetData error");
-		return ortn;
+		return errSecUnsupportedFormat;
 	}
-	CFDataAppendBytes(outData, cdata.Data, cdata.Length);
+
+	CFDataAppendBytes(outData, CFDataGetBytePtr(cdata), CFDataGetLength(cdata));
+	CFRelease(cdata);
 	*pemHeader = PEM_STRING_X509;
 	return noErr;
 }
@@ -459,11 +460,11 @@ OSStatus SecImportRep::importRep(
 					outArray);
 			if (rx == errSecUnknownFormat)
 			{
-			CSSM_DATA cdata;
-			cdata.Data = (uint8 *)CFDataGetBytePtr(mExternal);
-			cdata.Length = CFDataGetLength(mExternal);
-			return impExpImportCertCommon(&cdata, importKeychain, outArray);
-		}
+				CSSM_DATA cdata;
+				cdata.Data = (uint8 *)CFDataGetBytePtr(mExternal);
+				cdata.Length = (CSSM_SIZE)CFDataGetLength(mExternal);
+				return impExpImportCertCommon(&cdata, importKeychain, outArray);
+			}
 			return rx;
 		}
 		case kSecFormatNetscapeCertSequence:

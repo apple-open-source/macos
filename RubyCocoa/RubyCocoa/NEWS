@@ -1,0 +1,49 @@
+
+= NEWS
+
+$Id: NEWS 2285 2009-10-18 11:17:12Z kimuraw $
+
+== Changes 1.0.1 from 1.0.0: 2009-10-18
+
+=== Improvements
+
+  * RubyCocoa.framework built for 10.5 works on 10.6
+
+      $ ruby install.rb config \
+             --macosx-deployment-target=10.5 \
+             --sdkroot=/Developer/SDKs/MacOSX10.5.sdk \
+             --target-archs="ppc i386"
+      $ ruby install.rb setup
+
+  * NSString for same string returns same hash in Ruby world.
+    it enables NSString to become a key of Hash.
+
+      str1 = OSX::NSString.alloc.initWithString("a")
+      str2 = OSX::NSString.alloc.initWithString("a")
+      hash = {}
+      hash[str1] = 1
+      hash[str2] = 2
+      p hash[str1] # => 2
+
+  * refactoring build system for universal binary
+     * deprecate config option "--build-universal"
+     * introduce config option "--target-archs"
+
+        old) ruby install.rb config --build-universal=yes
+        new) ruby install.rb config --target-archs="i386 x86_64 ppc"
+
+  * upgrade project templates for Xcode 3.x
+
+=== Fixes
+
+  * Snow Leopard
+     * Fixed application stops with errors for thread such as
+       "Assertion failed: (ctx->autoreleasePool ..."
+     * Fixed some errors of invocation-based undo with NSUndoManager
+  * x86_64
+     * correct value of OSX::NSNotFound (Foudation.bridgesupport is wrong)
+     * Fixed debug log sometimes prints incorrect integer values
+     * Fixed getting values for 64-bit from bridgesupport files
+  * others
+     * Fixed SEGV irb at `require "osx/cocoa"'
+

@@ -7,7 +7,8 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 127
+Submission	= 132
+
 
 #
 # Settings for the net-snmp project.
@@ -26,6 +27,19 @@ Submission	= 127
 ###
 # Disabled while trying to get build stuff working
 ###
+
+########################
+# Allow selecting the compiler to be used
+########################
+SDKROOT ?=/
+CC = xcrun -sdk $(SDKROOT) cc
+CXX = xcrun -sdk $(SDKROOT) c++
+CLFAGS += -isysroot $(SDKROOT)
+CXXFLAGS += -isysroot $(SDKROOT)
+########################
+# for bug 8862468
+CFLAGS += -DNETSNMP_NO_INLINE
+
 DEFINES			= -DBUILD=$(Submission) \
 			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
 INCLUDES		= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
@@ -35,11 +49,11 @@ INCLUDES		= -F/System/Library/PrivateFrameworks/ -F/System/Library/Frameworks/
 Extra_CC_Flags		= $(DEFINES) $(INCLUDES)
 Extra_Cxx_Flags		= $(Extra_CC_Flags)
 # also need ARCHFLAGS
-Default_AARCHFLAGS = -arch ppc -arch i386  -arch x86_64
+Default_ARCHFLAGS = -arch i386  -arch x86_64
 ifneq "$(RC_CFLAGS)" ""
-	ARCHFLAGS=$(RC_CLFLAGS)
+	ARCHFLAGS=$(RC_CFLAGS)
 else
-	ARCHFLAGS=$(Default_AARCHFLAGS)
+	ARCHFLAGS=$(Default_ARCHFLAGS)
 endif
 
 Extra_Configure_Flags	= --sysconfdir=/etc \
@@ -49,12 +63,14 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 			--with-defaults \
 			--without-rpm \
 			--with-sys-contact="postmaster@example.com" \
-			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave ucd-snmp/lmSensorsTables" \
+			--with-mib-modules="host ucd-snmp/diskio ucd-snmp/loadave " \
 			--disable-static \
 			--enable-ipv6 \
 			--with-perl-modules \
 			--disable-embedded-perl  \
 			--without-kmem-usage
+
+# ucd-snmp/lmSensorsTables
 
 # Old / unused configure flags
 #			--enable-mini-agent \
@@ -93,9 +109,9 @@ GnuNoInstallHeaders	= YES
 STRIPPED_BINS	= encode_keychange snmpbulkget snmpbulkwalk snmpdelta snmpdf \
 			snmpget snmpget snmpgetnext snmpinform snmpnetstat \
 			snmpset snmpstatus snmptable snmptest snmptranslate \
-			snmptrap snmpusm snmpvacm snmpwalk
-STRIPPED_SBINS	= snmpd 
-STRIPPED_SNMPTRAPD	= snmptrapd
+			snmptrap snmpusm snmpvacm snmpwalk agentxtrap
+STRIPPED_SBINS	= snmpd snmptrapd
+#STRIPPED_SNMPTRAPD	= snmptrapd
 STRIPPED_LIBS	= libnetsnmp libnetsnmpagent libnetsnmphelpers libnetsnmpmibs libnetsnmptrapd
 # Binary to patch
 CONFIGTOOL	= $(USRBINDIR)/net-snmp-config
@@ -103,15 +119,21 @@ CONFIGTOOL	= $(USRBINDIR)/net-snmp-config
 MIBFILES	:= $(wildcard mibs/*.txt)
 MIBDIR		= $(SHAREDIR)/snmp/mibs
 
+# full patch list 
+#AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
+#                        cache.patch container.patch darwin-header.patch \
+#                        dir_utils.patch disk.patch host.patch 6581429.patch \
+#                        lmsensors.patch darwin-sensors.patch swinst.patch swrun.patch \
+#                        system.patch table.patch darwin64.patch perl-cc.patch
 
 # Automatic Extract & Patch
 AEP		= YES
-AEP_Version	= 5.4.2.1
+AEP_Version	= 5.6
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
-			cache.patch container.patch darwin-header.patch \
-			dir_utils.patch disk.patch host.patch 6581429.patch \
-			lmsensors.patch darwin-sensors.patch swinst.patch swrun.patch \
-			system.patch table.patch darwin64.patch perl-cc.patch
+			container.patch darwin-header.patch \
+			host.patch \
+			lmsensors.patch darwin-sensors.patch \
+			darwin64.patch perl-cc.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp
 AEP_ConfigFiles	= snmpd.conf
@@ -125,7 +147,7 @@ install::
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-include AEP.make
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
 
 # Override settings from above include
 ifndef MACOSX_DEPLOYMENT_TARGET
@@ -202,14 +224,14 @@ install-macosx:
 		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
 		$(STRIP) $(DSTROOT)$(USRSBINDIR)/$${file}; \
 	done
-	$(_v) for file in $(STRIPPED_SNMPTRAPD); \
-	do \
-		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
-		echo "_SyslogTrap" > $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-		echo "_dropauth" >> $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-		$(STRIP) -s $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp $(DSTROOT)$(USRSBINDIR)/$${file}; \
-		$(RM) $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
-	done
+#	$(_v) for file in $(STRIPPED_SNMPTRAPD); \
+#	do \
+#		$(CP) $(DSTROOT)$(USRSBINDIR)/$${file} $(SYMROOT); \
+#		echo "_SyslogTrap" > $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
+#		echo "_dropauth" >> $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
+#		$(STRIP) -s $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp $(DSTROOT)$(USRSBINDIR)/$${file}; \
+#		$(RM) $(DSTROOT)$(USRSBINDIR)/snmptrapd.exp; \
+#	done
 	$(_v) for file in $(STRIPPED_LIBS); \
 	do \
 		$(CP) $(DSTROOT)$(USRLIBDIR)/$${file}*.dylib $(SYMROOT); \
@@ -243,3 +265,5 @@ install-compat:
 	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.2.1.tar.gz
 	@echo "Fixing privs on libnetsnmp.5.dylib ref bug# 6877106"
 	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.5.dylib
+	$(_v) $(TAR) -C $(DSTROOT)$(USRLIBDIR) -xzf $(SRCROOT)/libs-5.4.2.1.tar.gz
+	$(_v) $(CHMOD) -h 755 $(DSTROOT)$(USRLIBDIR)/libnetsnmp.15.dylib

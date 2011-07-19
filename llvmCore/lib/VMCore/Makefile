@@ -1,4 +1,4 @@
-##===- lib/VMCore/Makefile ------------------------------*- Makefile -*-===##
+##===- lib/VMCore/Makefile ---------------------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -9,6 +9,7 @@
 LEVEL = ../..
 LIBRARYNAME = LLVMCore
 BUILD_ARCHIVE = 1
+REQUIRES_RTTI = 1
 
 BUILT_SOURCES = $(PROJ_OBJ_ROOT)/include/llvm/Intrinsics.gen
 
@@ -29,5 +30,5 @@ $(GENFILE): $(ObjDir)/Intrinsics.gen.tmp
 	    changed significantly. )
 
 install-local:: $(GENFILE)
-	$(Echo) Installing $(PROJ_includedir)/llvm/Intrinsics.gen
-	$(Verb) $(DataInstall) $(GENFILE) $(PROJ_includedir)/llvm/Intrinsics.gen
+	$(Echo) Installing $(DESTDIR)$(PROJ_includedir)/llvm/Intrinsics.gen
+	$(Verb) $(DataInstall) $(GENFILE) $(DESTDIR)$(PROJ_includedir)/llvm/Intrinsics.gen

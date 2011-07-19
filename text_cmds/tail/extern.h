@@ -32,7 +32,7 @@
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
  *
- * $FreeBSD: src/usr.bin/tail/extern.h,v 1.9 2004/11/04 19:18:19 paul Exp $
+ * $FreeBSD$
  */
 
 #define	WR(p, size) do { \
@@ -72,5 +72,5 @@ void oerr(void);
 int mapprint(struct mapinfo *, off_t, off_t);
 int maparound(struct mapinfo *, off_t);
 
-extern int Fflag, fflag, rflag, rval, no_files;
+extern int Fflag, fflag, qflag, rflag, rval, no_files;
 extern const char *fname;

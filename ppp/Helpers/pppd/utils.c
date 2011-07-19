@@ -82,6 +82,7 @@
 #endif
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <net/if_media.h>
 #include <netinet/in_var.h>
 #include <sys/kern_event.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -1187,10 +1188,10 @@ if_family2ascii (u_int32_t if_family)
 }
 
 void
-log_vpn_interface_address_event (char                  *location,
+log_vpn_interface_address_event (const char                  *location,
 								 struct kern_event_msg *ev_msg,
 								 int                    wait_interface_timeout,
-								 char                  *interface,
+								 u_char                  *interface,
 								 struct in_addr        *our_address)
 {
 	struct in_addr mask;
@@ -1210,7 +1211,7 @@ log_vpn_interface_address_event (char                  *location,
 		char                     new_mask_str[INET_ADDRSTRLEN];
 		char                     dst_addr_str[INET_ADDRSTRLEN];		
 
-		mask.s_addr = ntohl(inetdata->ia_netmask);
+		mask.s_addr = ntohl(inetdata->ia_subnetmask);
 
 		switch (ev_msg->event_code) {
 			case KEV_INET_NEW_ADDR:
@@ -1274,12 +1275,12 @@ log_vpn_interface_address_event (char                  *location,
 }
 
 int
-check_vpn_interface_or_service_unrecoverable (void                  *dynamicStore,
-					      char                  *location,
+check_vpn_interface_or_service_unrecoverable (SCDynamicStoreRef dynamicStoreRef,
+					      const char                  *location,
 					      struct kern_event_msg *ev_msg,
-					      char                  *interface_buf)
+						  char                  *interface_buf)
 {
-	SCDynamicStoreRef dynamicStoreRef = (SCDynamicStoreRef)dynamicStore;
+	//SCDynamicStoreRef dynamicStoreRef = (SCDynamicStoreRef)dynamicStore;
 
 	// return 1, if this is a delete event, and;
 	// TODO: add support for IPv6 <rdar://problem/5920237>
@@ -1351,12 +1352,14 @@ check_vpn_interface_or_service_unrecoverable (void                  *dynamicStor
 		if (!dict) {
 			// if we could not access the SCDynamicStore
 			notice("%s: failed to initialize SCDynamicStore dictionary", location);
+			CFRelease(vpn_if);
 			goto done;
 		}
 		// look for the service which matches the provided prefixes
 		n = CFDictionaryGetCount(dict);
 		if (n <= 0) {
 			notice("%s: empty SCDynamicStore dictionary", location);
+			CFRelease(vpn_if);
 			goto done;
 		}
 		if (n > (CFIndex)(sizeof(keys_q) / sizeof(CFTypeRef))) {
@@ -1373,8 +1376,6 @@ check_vpn_interface_or_service_unrecoverable (void                  *dynamicStor
 				continue;
 			}
 
-			//notice("processing key: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
-
 			if (CFStringHasSuffix(s_key, kSCEntNetInterface)) {
 				// is a Service Interface entity
 				s_if = CFDictionaryGetValue(s_dict, kSCPropNetInterfaceDeviceName);
@@ -1383,7 +1384,6 @@ check_vpn_interface_or_service_unrecoverable (void                  *dynamicStor
 					CFStringRef       serviceIDRef = NULL, serviceKey = NULL;
 					CFPropertyListRef serviceRef = NULL;
 
-					notice("linked service found: %s \n", CFStringGetCStringPtr(s_key, kCFStringEncodingMacRoman));
 					other_serv_found = 1;
 					// extract service ID
 					components = CFStringCreateArrayBySeparatingStrings(NULL, s_key, CFSTR("/"));
@@ -1442,6 +1442,7 @@ int
 check_vpn_interface_address_change (int                    transport_down,
                                     struct kern_event_msg *ev_msg,
                                     char                  *interface_buf,
+									int                    interface_media,
                                     struct in_addr        *our_address)
 {
     struct kev_in_data *inetdata;
@@ -1521,3 +1522,40 @@ dump_buffer(char *caller, unsigned char* binbuf, int size)
 	}
 }
 #endif
+
+// check to see if interface is captive and if it is not ready.
+int
+check_vpn_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
+										   char              *interface_buf)
+{
+	int rc = 0;
+
+	if (dynamicStoreRef) {
+		CFStringRef     captiveState = CFStringCreateWithFormat(NULL, NULL,
+																CFSTR("State:/Network/Interface/%s/CaptiveNetwork"),
+																interface_buf);
+		if (captiveState) {
+			CFStringRef key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, captiveState);
+			if (key) {
+				CFDictionaryRef dict = SCDynamicStoreCopyValue(dynamicStoreRef, key);
+				CFRelease(key);
+				if (dict) {
+					CFStringRef string = CFDictionaryGetValue(dict, CFSTR("Stage"));
+					if (string) {
+						// if string != Unknown && string != Online
+						if (CFStringCompare(string, CFSTR("Uknown"), 0) != kCFCompareEqualTo &&
+							CFStringCompare(string, CFSTR("Online"), 0) != kCFCompareEqualTo) {
+							notice("underlying interface %s is captive and not yet ready.", interface_buf);
+							rc = 1;
+						} else {
+							notice("underlying interface %s is either unknown or captive and ready.", interface_buf);
+						}
+					}
+					CFRelease(dict);
+				}
+			}
+			CFRelease(captiveState);
+		}
+	}
+	return rc;
+}

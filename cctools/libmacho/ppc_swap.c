@@ -79,46 +79,46 @@ swap_ppc_thread_state_t(
 ppc_thread_state_t *cpu,
 enum NXByteOrder target_byte_sex)
 {
-	cpu->srr0 = NXSwapLong(cpu->srr0);
-	cpu->srr1 = NXSwapLong(cpu->srr1);
-	cpu->r0 = NXSwapLong(cpu->r0);
-	cpu->r1 = NXSwapLong(cpu->r1);
-	cpu->r2 = NXSwapLong(cpu->r2);
-	cpu->r3 = NXSwapLong(cpu->r3);
-	cpu->r4 = NXSwapLong(cpu->r4);
-	cpu->r5 = NXSwapLong(cpu->r5);
-	cpu->r6 = NXSwapLong(cpu->r6);
-	cpu->r7 = NXSwapLong(cpu->r7);
-	cpu->r8 = NXSwapLong(cpu->r8);
-	cpu->r9 = NXSwapLong(cpu->r9);
-	cpu->r10 = NXSwapLong(cpu->r10);
-	cpu->r11 = NXSwapLong(cpu->r11);
-	cpu->r12 = NXSwapLong(cpu->r12);
-	cpu->r13 = NXSwapLong(cpu->r13);
-	cpu->r14 = NXSwapLong(cpu->r14);
-	cpu->r15 = NXSwapLong(cpu->r15);
-	cpu->r16 = NXSwapLong(cpu->r16);
-	cpu->r17 = NXSwapLong(cpu->r17);
-	cpu->r18 = NXSwapLong(cpu->r18);
-	cpu->r19 = NXSwapLong(cpu->r19);
-	cpu->r20 = NXSwapLong(cpu->r20);
-	cpu->r21 = NXSwapLong(cpu->r21);
-	cpu->r22 = NXSwapLong(cpu->r22);
-	cpu->r23 = NXSwapLong(cpu->r23);
-	cpu->r24 = NXSwapLong(cpu->r24);
-	cpu->r25 = NXSwapLong(cpu->r25);
-	cpu->r26 = NXSwapLong(cpu->r26);
-	cpu->r27 = NXSwapLong(cpu->r27);
-	cpu->r28 = NXSwapLong(cpu->r28);
-	cpu->r29 = NXSwapLong(cpu->r29);
-	cpu->r30 = NXSwapLong(cpu->r30);
-	cpu->r31 = NXSwapLong(cpu->r31);
-	cpu->lr  = NXSwapLong(cpu->lr);
-	cpu->cr  = NXSwapLong(cpu->cr);
-	cpu->xer = NXSwapLong(cpu->xer);
-	cpu->ctr = NXSwapLong(cpu->ctr);
-	cpu->mq  = NXSwapLong(cpu->mq);
-	cpu->vrsave = NXSwapLong(cpu->vrsave);
+	cpu->srr0 = OSSwapInt32(cpu->srr0);
+	cpu->srr1 = OSSwapInt32(cpu->srr1);
+	cpu->r0 = OSSwapInt32(cpu->r0);
+	cpu->r1 = OSSwapInt32(cpu->r1);
+	cpu->r2 = OSSwapInt32(cpu->r2);
+	cpu->r3 = OSSwapInt32(cpu->r3);
+	cpu->r4 = OSSwapInt32(cpu->r4);
+	cpu->r5 = OSSwapInt32(cpu->r5);
+	cpu->r6 = OSSwapInt32(cpu->r6);
+	cpu->r7 = OSSwapInt32(cpu->r7);
+	cpu->r8 = OSSwapInt32(cpu->r8);
+	cpu->r9 = OSSwapInt32(cpu->r9);
+	cpu->r10 = OSSwapInt32(cpu->r10);
+	cpu->r11 = OSSwapInt32(cpu->r11);
+	cpu->r12 = OSSwapInt32(cpu->r12);
+	cpu->r13 = OSSwapInt32(cpu->r13);
+	cpu->r14 = OSSwapInt32(cpu->r14);
+	cpu->r15 = OSSwapInt32(cpu->r15);
+	cpu->r16 = OSSwapInt32(cpu->r16);
+	cpu->r17 = OSSwapInt32(cpu->r17);
+	cpu->r18 = OSSwapInt32(cpu->r18);
+	cpu->r19 = OSSwapInt32(cpu->r19);
+	cpu->r20 = OSSwapInt32(cpu->r20);
+	cpu->r21 = OSSwapInt32(cpu->r21);
+	cpu->r22 = OSSwapInt32(cpu->r22);
+	cpu->r23 = OSSwapInt32(cpu->r23);
+	cpu->r24 = OSSwapInt32(cpu->r24);
+	cpu->r25 = OSSwapInt32(cpu->r25);
+	cpu->r26 = OSSwapInt32(cpu->r26);
+	cpu->r27 = OSSwapInt32(cpu->r27);
+	cpu->r28 = OSSwapInt32(cpu->r28);
+	cpu->r29 = OSSwapInt32(cpu->r29);
+	cpu->r30 = OSSwapInt32(cpu->r30);
+	cpu->r31 = OSSwapInt32(cpu->r31);
+	cpu->lr  = OSSwapInt32(cpu->lr);
+	cpu->cr  = OSSwapInt32(cpu->cr);
+	cpu->xer = OSSwapInt32(cpu->xer);
+	cpu->ctr = OSSwapInt32(cpu->ctr);
+	cpu->mq  = OSSwapInt32(cpu->mq);
+	cpu->vrsave = OSSwapInt32(cpu->vrsave);
 
 }
 
@@ -130,10 +130,10 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 	
 	for(i = 0; i < 32; i++)
-	    fpu->fpregs[i] = NXSwapDouble(fpu->fpregs[i]);
+	    fpu->fpregs[i] = OSSwapInt64(fpu->fpregs[i]);
 
-	fpu->fpscr_pad = NXSwapLong(fpu->fpscr_pad);
-	fpu->fpscr = NXSwapLong(fpu->fpscr);
+	fpu->fpscr_pad = OSSwapInt32(fpu->fpscr_pad);
+	fpu->fpscr = OSSwapInt32(fpu->fpscr);
 }
 
 void
@@ -143,12 +143,12 @@ enum NXByteOrder target_byte_sex)
 {
     uint32_t i;
 	
-	state->dar = NXSwapLong(state->dar);
-	state->dsisr = NXSwapLong(state->dsisr);
-	state->exception = NXSwapLong(state->exception);
-	state->pad0 = NXSwapLong(state->pad0);
+	state->dar = OSSwapInt32(state->dar);
+	state->dsisr = OSSwapInt32(state->dsisr);
+	state->exception = OSSwapInt32(state->exception);
+	state->pad0 = OSSwapInt32(state->pad0);
 
 	for(i = 0; i < 4; i++)
-	    state->pad1[i] = NXSwapLong(state->pad1[i]);
+	    state->pad1[i] = OSSwapInt32(state->pad1[i]);
 }
 #endif /* !defined(RLD) */

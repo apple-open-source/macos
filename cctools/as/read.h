@@ -29,7 +29,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifdef PERMIT_WHITESPACE
 #define SKIP_WHITESPACE()			\
-  ((*input_line_pointer == ' ') ? ++input_line_pointer : 0)
+  (void)((*input_line_pointer == ' ') ? ++input_line_pointer : 0)
 #else
 #define SKIP_WHITESPACE() know(*input_line_pointer != ' ' )
 #endif

@@ -21,10 +21,8 @@ $|=1;
 
 my $trace_file = "dbitrace.log";
 
-if (-e $trace_file) {
-    1 while unlink $trace_file;
-    die "Can't unlink existing $trace_file: $!" if -e $trace_file;
-}
+1 while unlink $trace_file;
+warn "Can't unlink existing $trace_file: $!" if -e $trace_file;
 
 my $orig_trace_level = DBI->trace;
 DBI->trace(3, $trace_file);             # enable trace before first driver load

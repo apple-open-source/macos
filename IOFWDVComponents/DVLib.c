@@ -2,21 +2,22 @@
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -1035,10 +1036,14 @@ static void *DVRLThreadStart(DVThread *thread)
     CFRetain(loop);
     thread->fWorkLoop = loop;
     
+	thread->fRunLoopIsRunning = true;
+	
     // signal that we're about to start the runloop
     DVSignalSync(&thread->fRequestSyncer, &thread->fSyncRequest, 1);
 
     CFRunLoopRun();
+
+	thread->fRunLoopIsRunning = false;
 
     //printf("Exiting thread: %p, loop %p\n", thread, loop);
 
@@ -1292,8 +1297,32 @@ void DVFreeThread(DVThread * dvThread)
 
 
 	}
+	
+	if(dvThread->fPowerNotifyPort) {
+        CFMachPortRef hack;
+        CFMachPortContext 	context;
+        Boolean		shouldFreeInfo;
+		
+        context.version = 1;
+        context.info = (void *) dvThread->fPowerNotifyPort;
+        context.retain = NULL;
+        context.release = NULL;
+        context.copyDescription = NULL;
+		
+		
+        hack = CFMachPortCreateWithPort(NULL, IONotificationPortGetMachPort(dvThread->fPowerNotifyPort),
+										NULL, &context, &shouldFreeInfo);
+		printf( "DVFreeThread - CFMachPortCreateWithPort hack = %p, fPowerNotifyPort= %p\n", hack, dvThread->fPowerNotifyPort );
+		
+		CFMachPortInvalidate(hack);
+        IONotificationPortDestroy(dvThread->fPowerNotifyPort);
+        //printf("hack port retain %d\n", CFGetRetainCount(hack));
+        CFRelease(hack);
+		
+		
+	}
 
-	IONotificationPortDestroy(dvThread->fPowerNotifyPort);
+	//IONotificationPortDestroy(dvThread->fPowerNotifyPort);
 	
     mach_port_destroy(mach_task_self(), dvThread->fRequestMachPort);
     
@@ -1562,7 +1591,7 @@ void DVDeviceTerminate(DVDevice *dev)
 		if (dev->fThread->fWorkLoop != CFRunLoopGetCurrent())
 		{
 			// Endless loop here until the run-loop thread is idle
-			while (CFRunLoopIsWaiting(dev->fThread->fWorkLoop) == false )
+			while ((CFRunLoopIsWaiting(dev->fThread->fWorkLoop) == false ) && (dev->fThread->fRunLoopIsRunning == true))
 				usleep(1000); // sleep for a millisecond	
 		}
 		

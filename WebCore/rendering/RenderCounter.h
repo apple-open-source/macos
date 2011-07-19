@@ -32,16 +32,12 @@ class CounterNode;
 class RenderCounter : public RenderText {
 public:
     RenderCounter(Document*, const CounterContent&);
-
-    // Removes the reference to the CounterNode associated with this renderer
-    // if its identifier matches the argument.
-    // This is used to cause a counter display update when the CounterNode
-    // tree for identifier changes.
-    void invalidate(const AtomicString& identifier);
+    virtual ~RenderCounter();
 
     static void destroyCounterNodes(RenderObject*);
     static void destroyCounterNode(RenderObject*, const AtomicString& identifier);
     static void rendererSubtreeAttached(RenderObject*);
+    static void rendererRemovedFromTree(RenderObject*);
     static void rendererStyleChanged(RenderObject*, const RenderStyle* oldStyle, const RenderStyle* newStyle);
 
 private:
@@ -49,10 +45,16 @@ private:
     virtual bool isCounter() const;
     virtual PassRefPtr<StringImpl> originalText() const;
     
-    virtual void calcPrefWidths(int leadWidth);
+    virtual void computePreferredLogicalWidths(float leadWidth);
+
+    // Removes the reference to the CounterNode associated with this renderer.
+    // This is used to cause a counter display update when the CounterNode tree changes.
+    void invalidate();
 
     CounterContent m_counter;
-    mutable CounterNode* m_counterNode;
+    CounterNode* m_counterNode;
+    RenderCounter* m_nextForSameCounter;
+    friend class CounterNode;
 };
 
 inline RenderCounter* toRenderCounter(RenderObject* object)
@@ -65,5 +67,10 @@ inline RenderCounter* toRenderCounter(RenderObject* object)
 void toRenderCounter(const RenderCounter*);
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+// Outside the WebCore namespace for ease of invocation from gdb.
+void showCounterRendererTree(const WebCore::RenderObject*, const char* counterName = 0);
+#endif
 
 #endif // RenderCounter_h

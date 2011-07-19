@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.\n"
+" * Copyright (c) 1999-2003 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"

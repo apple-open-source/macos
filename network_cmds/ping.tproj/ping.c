@@ -120,6 +120,7 @@ __FBSDID("$FreeBSD: src/sbin/ping/ping.c,v 1.112 2007/07/01 12:08:06 gnn Exp $")
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
+#include <ifaddrs.h>
 
 #define	INADDR_LEN	((int)sizeof(in_addr_t))
 #define	TIMEVAL_LEN	((int)sizeof(struct tv32))
@@ -205,8 +206,10 @@ unsigned int ifscope;
 #if defined(IP_FORCE_OUT_IFP) && TARGET_OS_EMBEDDED
 char boundifname[IFNAMSIZ];
 #endif /* IP_FORCE_OUT_IFP */
+int nocell;
 int how_traffic_class = 0;
 int traffic_class = -1;
+int no_dup = 0;
 
 /* counters */
 long nmissedmax;		/* max value of ntransmitted - nreceived - 1 */
@@ -243,7 +246,7 @@ static char *pr_addr(struct in_addr);
 static char *pr_ntime(n_time);
 static void pr_icmph(struct icmp *);
 static void pr_iph(struct ip *);
-static void pr_pack(char *, int, struct sockaddr_in *, struct timeval *);
+static void pr_pack(char *, int, struct sockaddr_in *, struct timeval *, int);
 static void pr_retip(struct ip *);
 static void status(int);
 static void stopit(int);
@@ -274,7 +277,7 @@ main(argc, argv)
 	u_long alarmtimeout, ultmp;
 	int almost_done, ch, df, hold, i, icmp_len, mib[4], preload, sockerrno,
 	    tos, ttl;
-	char ctrl[CMSG_SPACE(sizeof(struct timeval))];
+	char ctrl[CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(sizeof(int))];
 	char hnamebuf[MAXHOSTNAMELEN], snamebuf[MAXHOSTNAMELEN];
 #ifdef IP_OPTIONS
 	char rspace[MAX_IPOPTLEN];	/* record route space */
@@ -304,7 +307,7 @@ main(argc, argv)
 
 	outpack = outpackhdr + sizeof(struct ip);
 	while ((ch = getopt(argc, argv,
-		"Aab:c:DdfG:g:h:I:i:k:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
+		"Aab:Cc:DdfG:g:h:I:i:k:Ll:M:m:nop:QqRrS:s:T:t:vW:z:"
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
 		"P:"
@@ -330,6 +333,9 @@ main(argc, argv)
 #endif /* IP_FORCE_OUT_IFP */
 		case 'b':
 			boundif = optarg;
+			break;
+		case 'C':
+			nocell++;
 			break;
 		case 'c':
 			ultmp = strtoul(optarg, &ep, 0);
@@ -641,6 +647,30 @@ main(argc, argv)
 		hostname = hnamebuf;
 	}
 
+	do {
+		struct ifaddrs *ifa_list, *ifa;
+		
+		if (IN_MULTICAST(ntohl(whereto.sin_addr.s_addr)) || whereto.sin_addr.s_addr == INADDR_BROADCAST) {
+			no_dup = 1;
+			break;
+		}
+		
+		if (getifaddrs(&ifa_list) == -1)
+			break;
+		for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+			if (ifa->ifa_addr->sa_family != AF_INET)
+				continue;
+			if ((ifa->ifa_flags & IFF_BROADCAST) == 0 || ifa->ifa_broadaddr == NULL)
+				continue;
+			if (whereto.sin_addr.s_addr != ((struct sockaddr_in*)ifa->ifa_broadaddr)->sin_addr.s_addr)
+				continue;
+			no_dup = 1;
+			break;
+		}
+		
+		freeifaddrs(ifa_list);
+	} while (0);
+	
 	if (options & F_FLOOD && options & F_INTERVAL)
 		errx(EX_USAGE, "-f and -i: incompatible options");
 
@@ -678,15 +708,25 @@ main(argc, argv)
 			err(EX_OSERR, "setsockopt(IP_FORCE_OUT_IFP)");
 	}
 #endif /* IP_FORCE_OUT_IFP */
+	if (nocell) {
+		if (setsockopt(s, IPPROTO_IP, IP_NO_IFT_CELLULAR,
+		    (char *)&nocell, sizeof (nocell)) != 0)
+			err(EX_OSERR, "setsockopt(IP_NO_IFT_CELLULAR)");
+	}
 	if (options & F_SO_DEBUG)
 		(void)setsockopt(s, SOL_SOCKET, SO_DEBUG, (char *)&hold,
 		    sizeof(hold));
 	if (options & F_SO_DONTROUTE)
 		(void)setsockopt(s, SOL_SOCKET, SO_DONTROUTE, (char *)&hold,
 		    sizeof(hold));
-	if (how_traffic_class == 1) {
+	if (how_traffic_class == 1 && traffic_class > 0) {
 		(void)setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS, (void *)&traffic_class,
 						 sizeof(traffic_class));
+	} 
+	if (how_traffic_class > 0) {
+		int on = 1;
+		(void)setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS, (void *)&on,
+						 sizeof(on));
 	}
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
@@ -899,6 +939,7 @@ main(argc, argv)
 		struct timeval now, timeout;
 		fd_set rfds;
 		int cc, n;
+		int tc = -1;
 
 		check_status();
 		if ((unsigned)s >= FD_SETSIZE)
@@ -935,20 +976,28 @@ main(argc, argv)
 				warn("recvmsg");
 				continue;
 			}
-#ifdef SO_TIMESTAMP
-			if (cmsg->cmsg_level == SOL_SOCKET &&
-			    cmsg->cmsg_type == SCM_TIMESTAMP &&
-			    cmsg->cmsg_len == CMSG_LEN(sizeof *tv)) {
-				/* Copy to avoid alignment problems: */
-				memcpy(&now, CMSG_DATA(cmsg), sizeof(now));
-				tv = &now;
+			for (cmsg = CMSG_FIRSTHDR(&msg); cmsg != NULL; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+	#ifdef SO_TIMESTAMP
+				if (cmsg->cmsg_level == SOL_SOCKET &&
+					cmsg->cmsg_type == SCM_TIMESTAMP &&
+					cmsg->cmsg_len == CMSG_LEN(sizeof *tv)) {
+					/* Copy to avoid alignment problems: */
+					memcpy(&now, CMSG_DATA(cmsg), sizeof(now));
+					tv = &now;
+				}
+	#endif
+				if (cmsg->cmsg_level == SOL_SOCKET &&
+					cmsg->cmsg_type == SO_TRAFFIC_CLASS &&
+					cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+					/* Copy to avoid alignment problems: */
+					memcpy(&tc, CMSG_DATA(cmsg), sizeof(tc));
+				}
 			}
-#endif
 			if (tv == NULL) {
 				(void)gettimeofday(&now, NULL);
 				tv = &now;
 			}
-			pr_pack((char *)packet, cc, &from, tv);
+			pr_pack((char *)packet, cc, &from, tv, tc);
 			if ((options & F_ONCE && nreceived) ||
 			    (npackets && nreceived >= npackets))
 				break;
@@ -1122,11 +1171,12 @@ pinger(void)
  * program to be run without having intermingled output (or statistics!).
  */
 static void
-pr_pack(buf, cc, from, tv)
+pr_pack(buf, cc, from, tv, tc)
 	char *buf;
 	int cc;
 	struct sockaddr_in *from;
 	struct timeval *tv;
+	int tc;
 {
 	struct in_addr ina;
 	u_char *cp, *dp;
@@ -1213,9 +1263,11 @@ pr_pack(buf, cc, from, tv)
 			(void)printf(" ttl=%d", ip->ip_ttl);
 			if (timing)
 				(void)printf(" time=%.3f ms", triptime);
-			if (dupflag) {
-				if (!IN_MULTICAST(ntohl(whereto.sin_addr.s_addr)))
-					(void)printf(" (DUP!)");
+			if (tc != -1) {
+				(void)printf(" tc=%d", tc);
+			}
+			if (dupflag && no_dup == 0) {
+				(void)printf(" (DUP!)");
 			}
 			if (options & F_AUDIBLE)
 				(void)write(STDOUT_FILENO, &BBELL, 1);

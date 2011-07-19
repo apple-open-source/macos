@@ -8,7 +8,7 @@
  *	$Log: IOFireWireLibNuDCL.h,v $
  *	Revision 1.9  2007/03/14 01:01:14  collin
  *	*** empty log message ***
- *	
+ *
  *	Revision 1.8  2007/01/26 20:52:32  ayanowit
  *	changes to user-space isoch stuff to support 64-bit apps.
  *	

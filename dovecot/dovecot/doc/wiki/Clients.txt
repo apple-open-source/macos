@@ -1,0 +1,165 @@
+Client issues and configuration
+===============================
+
+It seems to be quite difficult to implement a working IMAP client. Best
+Practices for Implementing an IMAP Client
+[http://www.imapwiki.org/ClientImplementation] tries to help you with it.
+
+Contents
+
+
+ 1. Client issues and configuration
+
+     1. Apple Mail.app
+
+     2. Outlook
+
+     3. Outlook Express 6
+
+     4. Netscape Mail
+
+     5. Evolution
+
+     6. Mulberry
+
+     7. Thunderbird
+
+     8. Mutt
+
+     9. Pine
+
+     10. SquirrelMail
+
+     11. Horde IMP
+
+     12. RoundCube Webmail
+
+     13. @Mail Webmail
+
+Apple Mail.app
+--------------
+
+On Mac OS X Leopard 10.5 Mail.app appears to support subscribe/unsubscribe by
+right clicking on a mailbox, selecting 'Get Account Info' and selecting
+'Subscription List' from tabs. This however doesn't really work with any IMAP
+server.
+
+Apple Mail 3.6 (that comes with OS X 10.5 Leopard) supports
+subscribing/unsubscribing to folders in the public namespace.
+
+Outlook
+-------
+
+ * You should enable 'outlook-no-nuls' workaround with POP3.
+ * Outlook 2003 has problems with older Dovecot's default POP3 UIDL format,
+   which causes it to download the same mails over and over again if "leave
+   mails to server" option is enabled. See 'pop3_uidl_format' setting.
+ * Outlook might not hide or purge deleted items by default. Microsoft has a
+   how-to that shows how to fix this
+   [http://office.microsoft.com/en-us/outlook/HP100804201033.aspx] (Outlook
+   2007, not Outlook 2003).
+ * If some Outlook users don't see new or sent mails in the appropriate folders
+   after a migration from UW IMAPd even if they are visible in other clients
+   (e.g. Roundcube, Thunderbird, or on the disk itself), and you get the error
+   message "BAD Error in IMAP command UID: Invalid UID messageset" in the log
+   or rawlog: It helps to remove the problematic IMAP account completely from
+   Outlook and recreating it again there. It speaks a different IMAP
+   afterwards, so there are reasons to believe it caches the details of some
+   server on the first connect and doesn't refresh them even if you change the
+   server's hostname in the account settings.
+
+Outlook Express 6
+-----------------
+
+ * Using "Headers only" synchronization is buggy and can cause "Message is no
+   longer available on this server" error when opening a mail. This isn't
+   Dovecot specific problem, and I'm not aware of any possible workarounds at
+   the moment for this in server side.
+ * You should enable 'delay-newmail' workarounds for IMAP.
+ * You should enable 'outlook-no-nuls' and 'oe-ns-eoh' workarounds for POP3.
+
+Netscape Mail
+-------------
+
+I'm not actually sure what version exactly this refers to.
+
+ * You should enable 'oe-ns-eoh' workaround for POP3.
+
+Evolution
+---------
+
+ * Some versions don't support creating subfolders with mbox format. Evolution
+   in Ubuntu Gutsy, 2.12.0-0ubuntu5, does support creating subfolders, at least
+   when the parent folder is empty.
+
+Mulberry
+--------
+
+Seems to be OK.
+
+Thunderbird
+-----------
+
+ * If you're using <mbox> [MailboxFormat.mbox.txt], <dbox>
+   [MailboxFormat.dbox.txt] or <Maildir> [MailLocation.Maildir.txt] with
+   ':LAYOUT=fs' ,
+    * You should enable 'tb-extra-mailbox-sep' workaround for IMAP. Bug report
+      [https://bugzilla.mozilla.org/show_bug.cgi?id=29926].
+ * If you're using <mbox> [MailboxFormat.mbox.txt]:
+    * You'll have to disable "Server supports folders that contain sub-folders
+      and messages" setting from Thunderbird.Enhancement request
+      [https://bugzilla.mozilla.org/show_bug.cgi?id=284933].
+
+Mutt
+----
+
+ * New mutt versions supporting IDLE command will hang with Dovecot versions
+   earlier than v1.0beta3. Upgrade Dovecot or disable IDLE by setting
+   imap_idle=no in .muttrc.
+ * <Using mutt with IMAP> [mutt.txt]
+
+Pine
+----
+
+Seems to be OK.
+
+SquirrelMail
+------------
+
+ * Configuration asks IMAP server name for some workarounds. There has been a
+   Dovecot option since 1.4.6 and 1.5.1. For olderSquirrelMail versions, select
+   the "other" option and remove the default INBOX-prefix.
+
+Horde IMP
+---------
+
+Dovecot namespace detection works automatically with any recent version of IMP
+(4.1+).
+
+Quota support is now integrated into the 'imap' driver (as of horde-groupware
+V1.2), an example config of /imp/config/servers.php is:
+
+---%<-------------------------------------------------------------------------
+$servers['imap'] = array(
+    'name' => 'IMAP Server',
+    'server' => 'localhost',
+    'hordeauth' => false,
+    'protocol' => 'imap/notls',
+    'port' => 143,
+    'quota' => array('driver'=>'imap'),
+);
+---%<-------------------------------------------------------------------------
+
+RoundCube Webmail
+-----------------
+
+Works fine.
+
+@Mail Webmail
+-------------
+
+Uses the namespace returned via Dovecot, full support via IMAP/POP3 using @Mail
+[http://atmail.com/]. Can also read mailbox quota via the getquotaroot IMAP
+command.
+
+(This file was created from the wiki on 2011-05-11 04:42)

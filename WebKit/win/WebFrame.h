@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,13 +33,11 @@
 
 #include "AccessibleDocument.h"
 
-#pragma warning(push, 0)
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/KURL.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/ResourceHandleClient.h>
-#pragma warning(pop)
 
 #include <WTF/RefPtr.h>
 #include <WTF/HashMap.h>
@@ -61,10 +59,13 @@ namespace WebCore {
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef struct OpaqueJSValue* JSObjectRef;
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGContext PlatformGraphicsContext;
-#elif PLATFORM(CAIRO)
-typedef struct _cairo PlatformGraphicsContext;
+#elif USE(CAIRO)
+namespace WebCore {
+class PlatformContextCairo;
+}
+typedef class WebCore::PlatformContextCairo PlatformGraphicsContext;
 #endif
 
 class WebFrame;
@@ -155,8 +156,8 @@ public:
     virtual /* [local] */ JSGlobalContextRef STDMETHODCALLTYPE globalContext();
 
     // IWebFramePrivate
-    virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(
-        /* [retval][out] */ BSTR *result);
+    virtual HRESULT STDMETHODCALLTYPE unused1(BSTR*) { return E_NOTIMPL; }
+    virtual HRESULT STDMETHODCALLTYPE renderTreeAsExternalRepresentation(BOOL forPrinting, BSTR *result);
 
     virtual HRESULT STDMETHODCALLTYPE counterValueForElementById(
         /* [in] */ BSTR id,
@@ -187,9 +188,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE pendingFrameUnloadEventCount( 
         /* [retval][out] */ UINT* result);
 
-    virtual HRESULT STDMETHODCALLTYPE fetchApplicationIcon( 
-        /* [in] */ IWebIconFetcherDelegate *delegate,
-        /* [retval][out] */ IWebIconFetcher **result);
+    virtual HRESULT STDMETHODCALLTYPE unused2();
     
     virtual HRESULT STDMETHODCALLTYPE setInPrintingMode( 
         /* [in] */ BOOL value,
@@ -245,7 +244,7 @@ public:
         /* [in] */ RECT rect,
         /* [in] */ OLE_HANDLE deviceContext);
 
-    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContextAtPoint(
+    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(
         /* [in] */ RECT rect,
         /* [in] */ POINT pt,
         /* [in] */ OLE_HANDLE deviceContext);
@@ -258,6 +257,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE pauseTransition(BSTR propertyName, IDOMNode*, double secondsFromNow, BOOL* transitionWasRunning);
     virtual HRESULT STDMETHODCALLTYPE pauseSVGAnimation(BSTR elementId, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
+    virtual HRESULT STDMETHODCALLTYPE suspendAnimations();
+    virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
+    virtual HRESULT STDMETHODCALLTYPE loadPlainTextString(BSTR string, BSTR url);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
 
@@ -271,6 +273,13 @@ public:
     virtual HRESULT STDMETHODCALLTYPE visibleContentRect(RECT*);
 
     virtual HRESULT STDMETHODCALLTYPE layerTreeAsText(BSTR*);
+
+    virtual HRESULT STDMETHODCALLTYPE hasSpellingMarker(
+        /* [in] */ UINT from,
+        /* [in] */ UINT length,
+        /* [retval][out] */ BOOL *result);
+
+    virtual HRESULT STDMETHODCALLTYPE clearOpener();
 
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
@@ -299,9 +308,10 @@ public:
     virtual void didChangeTitle(WebCore::DocumentLoader*);
     virtual void didChangeIcons(WebCore::DocumentLoader*);
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
-    virtual bool canShowMIMEType(const WebCore::String& MIMEType) const;
-    virtual bool representationExistsForURLScheme(const WebCore::String& URLScheme) const;
-    virtual WebCore::String generatedMIMETypeForURLScheme(const WebCore::String& URLScheme) const;
+    virtual bool canShowMIMEType(const WTF::String& MIMEType) const;
+    virtual bool canShowMIMETypeAsHTML(const WTF::String& MIMEType) const;
+    virtual bool representationExistsForURLScheme(const WTF::String& URLScheme) const;
+    virtual WTF::String generatedMIMETypeForURLScheme(const WTF::String& URLScheme) const;
     virtual void frameLoadCompleted();
     virtual void restoreViewState();
     virtual void provisionalLoadStarted();
@@ -309,7 +319,7 @@ public:
     virtual void addHistoryItemForFragmentScroll();
     virtual void didFinishLoad();
     virtual void prepareForDataSourceReplacement();
-    virtual WebCore::String userAgent(const WebCore::KURL&);
+    virtual WTF::String userAgent(const WebCore::KURL&);
     virtual void saveViewStateToItem(WebCore::HistoryItem *);
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -319,8 +329,8 @@ public:
     virtual WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&);
     virtual bool shouldFallBack(const WebCore::ResourceError&);
-    virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction, const WebCore::String& MIMEType, const WebCore::ResourceRequest&);
-    virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WebCore::String& frameName);
+    virtual void dispatchDecidePolicyForResponse(WebCore::FramePolicyFunction, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&);
+    virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
     virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
@@ -330,16 +340,18 @@ public:
     virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
     virtual void startDownload(const WebCore::ResourceRequest&);
         
-    virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const Vector<WebCore::String>& paramNames, const Vector<WebCore::String>& paramValues);
+    virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const Vector<WTF::String>& paramNames, const Vector<WTF::String>& paramValues);
 
-    virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
-    virtual WebCore::String overrideMediaType() const;
+    virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL&, const WTF::String& mimeType, bool shouldPreferPlugInsForImages);
+    virtual WTF::String overrideMediaType() const;
 
     virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
     virtual void didPerformFirstNavigation() const;
 
     virtual void registerForIconNotification(bool listen);
+
+    virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
 
     // WebFrame
     PassRefPtr<WebCore::Frame> init(IWebView*, WebCore::Page*, WebCore::HTMLFrameOwnerElement*);
@@ -351,7 +363,6 @@ public:
     void updateBackground();
 
     // WebFrame (matching WebCoreFrameBridge)
-    void setTextSizeMultiplier(float multiplier);
     HRESULT inViewSourceMode(BOOL *flag);
     HRESULT setInViewSourceMode(BOOL flag);
     HRESULT elementWithName(BSTR name, IDOMElement* form, IDOMElement** element);
@@ -368,6 +379,7 @@ public:
     WebCore::KURL url() const;
 
     WebView* webView() const;
+    void setWebView(WebView*);
 
     COMPtr<IAccessible> accessible() const;
 
@@ -375,7 +387,7 @@ protected:
     void loadHTMLString(BSTR string, BSTR baseURL, BSTR unreachableURL);
     void loadData(PassRefPtr<WebCore::SharedBuffer>, BSTR mimeType, BSTR textEncodingName, BSTR baseURL, BSTR failingURL);
     const Vector<WebCore::IntRect>& computePageRects(HDC printDC);
-    void setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize);
+    void setPrinting(bool printing, float minPageWidth, float maxPageWidth, float minPageHeight, bool adjustViewSize);
     void headerAndFooterHeights(float*, float*);
     WebCore::IntRect printerMarginRect(HDC);
     void spoolPage (PlatformGraphicsContext* pctx, WebCore::GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate*, float headerHeight, float footerHeight, UINT page, UINT pageCount);

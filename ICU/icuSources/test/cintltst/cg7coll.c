@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -108,7 +108,7 @@ const static int32_t results[TESTLOCALES][TOTALTESTSET] = {
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_US */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_GB */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_CA */
-    { 12, 13, 9, 0, 14, 1, 11, 3, 2, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_FR */
+    { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_FR */
     { 12, 13, 9, 0, 14, 1, 11, 3, 2, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_CA */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* de_DE */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* it_IT */
@@ -150,7 +150,7 @@ static void TestG7Locales()
 
         if (U_FAILURE(status))
         {
-            log_err("Error in creating collator in %s:  %s\n", locales[i], myErrorName(status));
+            log_err_status(status, "Error in creating collator in %s:  %s\n", locales[i], myErrorName(status));
             continue;
         }
 
@@ -161,7 +161,7 @@ static void TestG7Locales()
         if (U_FAILURE(status))
         {
             ucol_close(myCollation);
-            log_err("Error in creating collator in %s:  %s\n", locales[i], myErrorName(status));
+            log_err_status(status, "Error in creating collator in %s:  %s\n", locales[i], myErrorName(status));
             continue;
         }
 
@@ -200,7 +200,7 @@ static void TestDemo1()
 
     if (U_FAILURE(status))
     {
-        log_err( "Demo Test 1 Rule collation object creation failed. : %s\n", myErrorName(status));
+        log_err_status(status, "Demo Test 1 Rule collation object creation failed. : %s\n", myErrorName(status));
         return;
     }
 
@@ -231,7 +231,7 @@ static void TestDemo2()
 
     if (U_FAILURE(status))
     {
-        log_err( "Demo Test 2 Rule collation object creation failed.: %s\n", myErrorName(status));
+        log_err_status(status, "Demo Test 2 Rule collation object creation failed.: %s\n", myErrorName(status));
         return;
     }
     for (j = 0; j < TOTALTESTSET; j++)
@@ -260,7 +260,7 @@ static void TestDemo3()
     
     if (U_FAILURE(status))
     {
-        log_err( "Demo Test 3 Rule collation object creation failed.: %s\n", myErrorName(status));
+        log_err_status(status, "Demo Test 3 Rule collation object creation failed.: %s\n", myErrorName(status));
         return;
     }
 
@@ -290,7 +290,7 @@ static void TestDemo4()
     
     if (U_FAILURE(status))
     {
-        log_err( "Demo Test 4 Rule collation object creation failed.: %s\n", myErrorName(status));
+        log_err_status(status, "Demo Test 4 Rule collation object creation failed.: %s\n", myErrorName(status));
         return;
     }
     for (j = 0; j < TOTALTESTSET; j++)

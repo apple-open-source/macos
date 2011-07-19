@@ -1,0 +1,51 @@
+require "vnd.dovecot.testsuite";
+
+require "regex";
+require "variables";
+
+test_set "message" text:
+From: stephan+sieve@friep.example.com
+To: tss@example.net, nico@nl.example.com, sirius@fi.example.com
+Subject: Test
+
+Test message.
+.
+;
+
+test "Basic example" {
+	if not address :regex :comparator "i;ascii-casemap" "from" [
+		"stephan(\\+.*)?@it\\.example\\.com", 
+		"stephan(\\+.*)?@friep\\.example\\.com" 
+		] {
+		test_fail "failed to match";
+	}
+}
+
+test "No values" {
+	if header :regex "cc" [".*\\.com", ".*\\.nl"] {
+		test_fail "matched inappropriately";
+	}
+}	
+
+
+test "More values" {
+	if address :regex "to" [".*\\.uk", ".*\\.nl", ".*\\.tk"] {
+		test_fail "matched inappropriately";
+	}
+
+	if not address :regex "to" [".*\\.uk", ".*\\.nl", ".*\\.tk", ".*fi\\..*"] {
+		test_fail "failed to match last";
+	}
+}
+
+test "Variable regex" {
+	set "regex" "stephan[+](sieve)@friep.example.com";
+
+	if not header :regex "from" "${regex}" {
+		test_fail "failed to match variable regex";
+	}
+
+	if not string "${1}" "sieve" {
+		test_fail "failed to extract proper match value from variable regex";
+	}
+}	

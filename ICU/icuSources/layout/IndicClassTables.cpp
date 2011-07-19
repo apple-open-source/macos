@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2010 - All Rights Reserved
  *
  */
 
@@ -66,6 +66,7 @@ U_NAMESPACE_BEGIN
 // special forms... (Bengali RA?)
 #define _bb  (_ct | CF_BELOW_BASE)
 #define _pb  (_ct | CF_POST_BASE)
+#define _fb  (_ct | CF_PRE_BASE)
 #define _vt  (_bb | CF_VATTU)
 #define _rv  (_vt | CF_REPH)
 #define _rp  (_pb | CF_REPH)
@@ -152,7 +153,7 @@ static const IndicClassTable::CharClass tamlCharClasses[] =
     _xx, _xx, _ma, _xx, _xx, _iv, _iv, _iv, _iv, _iv, _iv, _xx, _xx, _xx, _iv, _iv, // 0B80 - 0B8F
     _iv, _xx, _iv, _iv, _iv, _ct, _xx, _xx, _xx, _ct, _ct, _xx, _ct, _xx, _ct, _ct, // 0B90 - 0B9F
     _xx, _xx, _xx, _ct, _ct, _xx, _xx, _xx, _ct, _ct, _ct, _xx, _xx, _xx, _ct, _ct, // 0BA0 - 0BAF
-    _ct, _ct, _ct, _ct, _ct, _ct, _xx, _ct, _ct, _ct, _xx, _xx, _xx, _xx, _r2, _dr, // 0BB0 - 0BBF
+    _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _xx, _xx, _xx, _xx, _r2, _dr, // 0BB0 - 0BBF
     _da, _dr, _dr, _xx, _xx, _xx, _l1, _l1, _dl, _xx, _s1, _s2, _s3, _vr, _xx, _xx, // 0BC0 - 0BCF
     _xx, _xx, _xx, _xx, _xx, _xx, _xx, _m2, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, // 0BD0 - 0BDF
     _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, // 0BE0 - 0BEF
@@ -179,7 +180,7 @@ static const IndicClassTable::CharClass teluCharClasses[] =
 //  http://brahmi.sourceforge.net/docs/KannadaComputing.html
 static const IndicClassTable::CharClass kndaCharClasses[] =
 {
-    _xx, _xx, _mp, _mp, _xx, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _xx, _iv, // 0C80 - 0C8F
+    _xx, _xx, _mp, _mp, _xx, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _xx, _iv, _iv, // 0C80 - 0C8F
     _iv, _xx, _iv, _iv, _iv, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, // 0C90 - 0C9F
     _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _bb, _xx, _bb, _bb, _bb, _bb, _bb, _bb, // 0CA0 - 0CAF
     _rb, _ct, _bb, _bb, _xx, _bb, _bb, _bb, _bb, _bb, _xx, _xx, _xx, _xx, _dr, _da, // 0CB0 - 0CBF
@@ -195,7 +196,7 @@ static const IndicClassTable::CharClass mlymCharClasses[] =
     _xx, _xx, _mp, _mp, _xx, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _iv, _xx, _iv, _iv, // 0D00 - 0D0F
     _iv, _xx, _iv, _iv, _iv, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, // 0D10 - 0D1F
     _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _ct, _xx, _ct, _ct, _ct, _ct, _ct, _pb, // 0D20 - 0D2F
-    _pb, _cn, _bb, _ct, _ct, _pb, _ct, _ct, _ct, _ct, _xx, _xx, _xx, _xx, _r2, _dr, // 0D30 - 0D3F
+    _fb, _fb, _bb, _ct, _ct, _pb, _ct, _ct, _ct, _ct, _xx, _xx, _xx, _xx, _r2, _dr, // 0D30 - 0D3F
     _dr, _dr, _dr, _dr, _xx, _xx, _l1, _l1, _dl, _xx, _s1, _s2, _s3, _vr, _xx, _xx, // 0D40 - 0D4F
     _xx, _xx, _xx, _xx, _xx, _xx, _xx, _m2, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, // 0D50 - 0D5F
     _iv, _iv, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx, _xx  // 0D60 - 0D6F
@@ -407,7 +408,11 @@ static const IndicClassTable * const indicClassTables[scriptCodeCount] = {
     NULL,            /* 'samr' (SAMR) */
     NULL,            /* 'tavt' (TAVT) */
     NULL,            /* 'zmth' (ZMTH) */
-    NULL             /* 'zsym' (ZSYM) */
+    NULL,            /* 'zsym' (ZSYM) */
+    NULL,            /* 'bamu' (BAMUM) */
+    NULL,            /* 'lisu' (LISU) */
+    NULL,            /* 'nkgb' (NKGB) */
+    NULL             /* 'sarb' (OLD_SOUTH_ARABIAN) */
 };
 
 IndicClassTable::CharClass IndicClassTable::getCharClass(LEUnicode ch) const

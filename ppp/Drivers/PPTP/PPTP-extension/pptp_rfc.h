@@ -62,7 +62,6 @@ void pptp_rfc_free_client(void *data);
 
 u_int16_t pptp_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
 
-void pptp_rfc_fasttimer();
 void pptp_rfc_slowtimer();
 
 u_int16_t pptp_rfc_output(void *data, mbuf_t m);

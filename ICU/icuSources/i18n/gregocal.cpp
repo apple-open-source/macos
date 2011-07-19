@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2008, International Business Machines Corporation and    *
+* Copyright (C) 1997-2010, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -150,7 +150,7 @@ static const UDate kPapalCutover = (2299161.0 - kEpochStartAsJulianDay) * U_MILL
 // -------------------------------------
 
 GregorianCalendar::GregorianCalendar(UErrorCode& status)
-:   Calendar(TimeZone::createDefault(), Locale::getDefault(), status),
+:   Calendar(status),
 fGregorianCutover(kPapalCutover),
 fCutoverJulianDay(kCutoverJulianDay), fNormalizedGregorianCutover(fGregorianCutover), fGregorianCutoverYear(1582),
 fIsGregorian(TRUE), fInvertGregorian(FALSE)
@@ -330,7 +330,7 @@ GregorianCalendar::setGregorianChange(UDate date, UErrorCode& status)
     // normalized cutover is in pure date milliseconds; it contains no time
     // of day or timezone component, and it used to compare against other
     // pure date values.
-    int32_t cutoverDay = (int32_t)Math::floorDivide(fGregorianCutover, (double)kOneDay);
+    int32_t cutoverDay = (int32_t)ClockMath::floorDivide(fGregorianCutover, (double)kOneDay);
     fNormalizedGregorianCutover = cutoverDay * kOneDay;
 
     // Handle the rare case of numeric overflow.  If the user specifies a
@@ -386,10 +386,10 @@ void GregorianCalendar::handleComputeFields(int32_t julianDay, UErrorCode& statu
         // The Julian epoch day (not the same as Julian Day)
         // is zero on Saturday December 30, 0 (Gregorian).
         int32_t julianEpochDay = julianDay - (kJan1_1JulianDay - 2);
-        eyear = (int32_t) Math::floorDivide(4*julianEpochDay + 1464, 1461);
+        eyear = (int32_t) ClockMath::floorDivide(4*julianEpochDay + 1464, 1461);
 
         // Compute the Julian calendar day number for January 1, eyear
-        int32_t january1 = 365*(eyear-1) + Math::floorDivide(eyear-1, (int32_t)4);
+        int32_t january1 = 365*(eyear-1) + ClockMath::floorDivide(eyear-1, (int32_t)4);
         dayOfYear = (julianEpochDay - january1); // 0-based
 
         // Julian leap years occurred historically every 4 years starting
@@ -535,12 +535,12 @@ int32_t GregorianCalendar::handleComputeMonthStart(int32_t eyear, int32_t month,
     // If the month is out of range, adjust it into range, and
     // modify the extended year value accordingly.
     if (month < 0 || month > 11) {
-        eyear += Math::floorDivide(month, 12, month);
+        eyear += ClockMath::floorDivide(month, 12, month);
     }
 
     UBool isLeap = eyear%4 == 0;
     int32_t y = eyear-1;
-    int32_t julianDay = 365*y + Math::floorDivide(y, 4) + (kJan1_1JulianDay - 3);
+    int32_t julianDay = 365*y + ClockMath::floorDivide(y, 4) + (kJan1_1JulianDay - 3);
 
     nonConstThis->fIsGregorian = (eyear >= fGregorianCutoverYear);
 #if defined (U_DEBUG_CAL)
@@ -578,7 +578,7 @@ int32_t GregorianCalendar::handleGetMonthLength(int32_t extendedYear, int32_t mo
     // If the month is out of range, adjust it into range, and
     // modify the extended year value accordingly.
     if (month < 0 || month > 11) {
-        extendedYear += Math::floorDivide(month, 12, month);
+        extendedYear += ClockMath::floorDivide(month, 12, month);
     }
 
     return isLeapYear(extendedYear) ? kLeapMonthLength[month] : kMonthLength[month];
@@ -697,7 +697,7 @@ GregorianCalendar::getEpochDay(UErrorCode& status)
     // dealing with UDate(Long.MIN_VALUE) and UDate(Long.MAX_VALUE).
     double wallSec = internalGetTime()/1000 + (internalGet(UCAL_ZONE_OFFSET) + internalGet(UCAL_DST_OFFSET))/1000;
 
-    return Math::floorDivide(wallSec, kOneDay/1000.0);
+    return ClockMath::floorDivide(wallSec, kOneDay/1000.0);
 }
 
 // -------------------------------------
@@ -716,7 +716,7 @@ double GregorianCalendar::computeJulianDayOfYear(UBool isGregorian,
 {
     isLeap = year%4 == 0;
     int32_t y = year - 1;
-    double julianDay = 365.0*y + Math::floorDivide(y, 4) + (kJan1_1JulianDay - 3);
+    double julianDay = 365.0*y + ClockMath::floorDivide(y, 4) + (kJan1_1JulianDay - 3);
 
     if (isGregorian) {
         isLeap = isLeap && ((year%100 != 0) || (year%400 == 0));
@@ -785,7 +785,7 @@ double GregorianCalendar::computeJulianDayOfYear(UBool isGregorian,
 double 
 GregorianCalendar::millisToJulianDay(UDate millis)
 {
-    return (double)kEpochStartAsJulianDay + Math::floorDivide(millis, (double)kOneDay);
+    return (double)kEpochStartAsJulianDay + ClockMath::floorDivide(millis, (double)kOneDay);
 }
 
 // -------------------------------------
@@ -1174,8 +1174,21 @@ int32_t GregorianCalendar::getActualMaximum(UCalendarDateFields field, UErrorCod
 
 
 int32_t GregorianCalendar::handleGetExtendedYear() {
+    // the year to return
     int32_t year = kEpochYear;
-    switch(resolveFields(kYearPrecedence)) {
+
+    // year field to use
+    int32_t yearField = UCAL_EXTENDED_YEAR;
+
+    // There are three separate fields which could be used to
+    // derive the proper year.  Use the one most recently set.
+    if (fStamp[yearField] < fStamp[UCAL_YEAR])
+        yearField = UCAL_YEAR;
+    if (fStamp[yearField] < fStamp[UCAL_YEAR_WOY])
+        yearField = UCAL_YEAR_WOY;
+
+    // based on the "best" year field, get the year
+    switch(yearField) {
     case UCAL_EXTENDED_YEAR:
         year = internalGet(UCAL_EXTENDED_YEAR, kEpochYear);
         break;
@@ -1313,29 +1326,26 @@ GregorianCalendar::initializeSystemDefaultCentury()
     // initialize systemDefaultCentury and systemDefaultCenturyYear based
     // on the current time.  They'll be set to 80 years before
     // the current time.
-    // No point in locking as it should be idempotent.
-    if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
+    UErrorCode status = U_ZERO_ERROR;
+    Calendar *calendar = new GregorianCalendar(status);
+    if (calendar != NULL && U_SUCCESS(status))
     {
-        UErrorCode status = U_ZERO_ERROR;
-        Calendar *calendar = new GregorianCalendar(status);
-        if (calendar != NULL && U_SUCCESS(status))
-        {
-            calendar->setTime(Calendar::getNow(), status);
-            calendar->add(UCAL_YEAR, -80, status);
+        calendar->setTime(Calendar::getNow(), status);
+        calendar->add(UCAL_YEAR, -80, status);
 
-            UDate    newStart =  calendar->getTime(status);
-            int32_t  newYear  =  calendar->get(UCAL_YEAR, status);
-            {
-                umtx_lock(NULL);
-                fgSystemDefaultCenturyStart = newStart;
-                fgSystemDefaultCenturyStartYear = newYear;
-                umtx_unlock(NULL);
-            }
-            delete calendar;
+        UDate    newStart =  calendar->getTime(status);
+        int32_t  newYear  =  calendar->get(UCAL_YEAR, status);
+        umtx_lock(NULL);
+        if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
+        {
+            fgSystemDefaultCenturyStartYear = newYear;
+            fgSystemDefaultCenturyStart = newStart;
         }
-        // We have no recourse upon failure unless we want to propagate the failure
-        // out.
+        umtx_unlock(NULL);
+        delete calendar;
     }
+    // We have no recourse upon failure unless we want to propagate the failure
+    // out.
 }
 
 

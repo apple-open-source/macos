@@ -91,14 +91,14 @@ DSMutexSemaphore::DSMutexSemaphore ( const char *inName, bool bShouldDTrace )
     error = pthread_mutexattr_settype( &mutexType, PTHREAD_MUTEX_RECURSIVE );
     if( error )
     {
-        syslog( LOG_CRIT, "Error %d - Setting mutex thread type to PTHREAD_MUTEX_RECURSIVE - Thread %x", error, pthread_self() );
+        syslog( LOG_CRIT, "Error %d - Setting mutex thread type to PTHREAD_MUTEX_RECURSIVE - Thread %p", error, pthread_self() );
 		abort(); // we can't recover from this
     }
 	
     error = pthread_mutex_init( &mMutex, &mutexType );
     if( error )
     {
-        syslog( LOG_CRIT, "Error %d - Initializing mutex - Thread = %x", error, pthread_self() );
+        syslog( LOG_CRIT, "Error %d - Initializing mutex - Thread = %p", error, pthread_self() );
 		abort(); // we can't recover from this
     }
     pthread_mutexattr_destroy( &mutexType );

@@ -115,7 +115,7 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
 		MacOSError::throwMe(errSecInvalidKeychain);
 
-	/* Get the destination keychains db. */
+	/* Get the destination keychain's db. */
 	SSDbImpl* dbImpl = dynamic_cast<SSDbImpl*>(&(*keychain->database()));
 	if (dbImpl == NULL)
 	{
@@ -216,7 +216,147 @@ KeyItem::copyTo(const Keychain &keychain, Access *newAccess)
 	/* Set the acl and owner on the unwrapped key. */
 	access->setAccess(*unwrappedKey, maker);
 
-	/* Return a keychain items which represents the new key.  */
+	/* Return a keychain item which represents the new key.  */
+	Item item(keychain->item(recordType(), uniqueId));
+
+    KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, item);
+
+	return item;
+}
+
+Item
+KeyItem::importTo(const Keychain &keychain, Access *newAccess, SecKeychainAttributeList *attrList)
+{
+	if (!(keychain->database()->dl()->subserviceMask() & CSSM_SERVICE_CSP))
+		MacOSError::throwMe(errSecInvalidKeychain);
+
+	/* Get the destination keychain's db. */
+	SSDbImpl* dbImpl = dynamic_cast<SSDbImpl*>(&(*keychain->database()));
+	if (dbImpl == NULL)
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+	
+	SSDb ssDb(dbImpl);
+
+	/* Make sure mKey is valid. */
+	/* We can't call key() here, since we won't have a unique record id yet */
+	if (!mKey)
+		CssmError::throwMe(CSSMERR_CSSM_INVALID_POINTER);
+
+	// Generate a random label to use initially
+	CssmClient::CSP appleCsp(gGuidAppleCSP);
+	CssmClient::Random random(appleCsp, CSSM_ALGID_APPLE_YARROW);
+	uint8 labelBytes[20];
+	CssmData label(labelBytes, sizeof(labelBytes));
+	random.generate(label, label.Length);
+
+	/* Set up the ACL for the new key. */
+	SecPointer<Access> access;
+	if (newAccess)
+		access = newAccess;
+	else
+		access = new Access(*mKey);
+
+	/* Generate a random 3DES wrapping Key. */
+	CssmClient::GenerateKey genKey(csp(), CSSM_ALGID_3DES_3KEY, 192);
+	CssmClient::Key wrappingKey(genKey(KeySpec(CSSM_KEYUSE_WRAP | CSSM_KEYUSE_UNWRAP,
+		CSSM_KEYATTR_EXTRACTABLE /* | CSSM_KEYATTR_RETURN_DATA */)));
+	
+	/* make a random IV */
+	uint8 ivBytes[8];
+	CssmData iv(ivBytes, sizeof(ivBytes));
+	random.generate(iv, iv.length());
+
+	/* Extract the key by wrapping it with the wrapping key. */
+	CssmClient::WrapKey wrap(csp(), CSSM_ALGID_3DES_3KEY_EDE);
+	wrap.key(wrappingKey);
+	wrap.cred(getCredentials(CSSM_ACL_AUTHORIZATION_EXPORT_WRAPPED, kSecCredentialTypeDefault));
+	wrap.mode(CSSM_ALGMODE_ECBPad);
+	wrap.padding(CSSM_PADDING_PKCS7);
+	wrap.initVector(iv);
+	CssmClient::Key wrappedKey(wrap(mKey));
+
+	/* Unwrap the new key into the new Keychain. */
+	CssmClient::UnwrapKey unwrap(keychain->csp(), CSSM_ALGID_3DES_3KEY_EDE);
+	unwrap.key(wrappingKey);
+	unwrap.mode(CSSM_ALGMODE_ECBPad);
+	unwrap.padding(CSSM_PADDING_PKCS7);
+	unwrap.initVector(iv);
+
+	/* Setup the dldbHandle in the context. */
+	unwrap.add(CSSM_ATTRIBUTE_DL_DB_HANDLE, ssDb->handle());
+
+	/* Set up an initial aclEntry so we can change it after the unwrap. */
+	Access::Maker maker(Allocator::standard(), Access::Maker::kAnyMakerType);
+	ResourceControlContext rcc;
+	maker.initialOwner(rcc, NULL);
+	unwrap.owner(rcc.input());
+
+	/* Unwrap the key. */
+	uint32 usage = mKey->usage();
+	/* Work around csp brokeness where it sets all usage bits in the Keyheader when CSSM_KEYUSE_ANY is set. */
+	if (usage & CSSM_KEYUSE_ANY)
+		usage = CSSM_KEYUSE_ANY;
+
+	CssmClient::Key unwrappedKey(unwrap(wrappedKey, KeySpec(usage,
+		(mKey->attributes() | CSSM_KEYATTR_PERMANENT) & ~(CSSM_KEYATTR_ALWAYS_SENSITIVE | CSSM_KEYATTR_NEVER_EXTRACTABLE),
+		label)));
+
+	/* Look up unwrapped key in the DLDB. */
+	DbUniqueRecord uniqueId;
+	SSDbCursor dbCursor(ssDb, 1);
+	dbCursor->recordType(recordType());
+	dbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, label);
+	CssmClient::Key copiedKey;
+	if (!dbCursor->nextKey(NULL, copiedKey, uniqueId))
+		MacOSError::throwMe(errSecItemNotFound);
+
+	// Set the initial label, application label, and application tag (if provided)
+	if (attrList) {
+		DbAttributes newDbAttributes;
+		SSDbCursor otherDbCursor(ssDb, 1);
+		otherDbCursor->recordType(recordType());
+		bool checkForDuplicates = false;
+		
+		for (UInt32 index=0; index < attrList->count; index++) {
+			SecKeychainAttribute attr = attrList->attr[index];
+			CssmData attrData(attr.data, attr.length);
+			if (attr.tag == kSecKeyPrintName) {
+				newDbAttributes.add(kInfoKeyPrintName, attrData);
+			}
+			if (attr.tag == kSecKeyLabel) {
+				newDbAttributes.add(kInfoKeyLabel, attrData);
+				otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, attrData);
+				checkForDuplicates = true;
+			}
+			if (attr.tag == kSecKeyApplicationTag) {
+				newDbAttributes.add(kInfoKeyApplicationTag, attrData);
+				otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyApplicationTag, attrData);
+				checkForDuplicates = true;
+			}
+		}
+
+		DbAttributes otherDbAttributes;
+		DbUniqueRecord otherUniqueId;
+		CssmClient::Key otherKey;
+		try
+		{
+			if (checkForDuplicates && otherDbCursor->nextKey(&otherDbAttributes, otherKey, otherUniqueId))
+				MacOSError::throwMe(errSecDuplicateItem);
+		
+			uniqueId->modify(recordType(), &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+		}		
+		catch (CssmError e)
+		{
+			// clean up after trying to insert a duplicate key
+			uniqueId->deleteRecord ();
+			throw;
+		}
+	}
+
+	/* Set the acl and owner on the unwrapped key. */
+	access->setAccess(*unwrappedKey, maker);
+
+	/* Return a keychain item which represents the new key.  */
 	Item item(keychain->item(recordType(), uniqueId));
 
     KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, item);
@@ -562,7 +702,7 @@ KeyItem::createPair(
 	{
 		if (freeKeys)
 		{
-			// Delete the keys if something goes wrong so we don't end up with inaccesable keys in the database.
+			// Delete the keys if something goes wrong so we don't end up with inaccessible keys in the database.
 			CSSM_FreeKey(csp->handle(), cred, &publicCssmKey, TRUE);
 			CSSM_FreeKey(csp->handle(), cred, &privateCssmKey, TRUE);
 		}
@@ -619,7 +759,9 @@ KeyItem::importPair(
 	ResourceControlContext rcc;
 	memset(&rcc, 0, sizeof(rcc));
 	Access::Maker maker(Allocator::standard(), Access::Maker::kAnyMakerType);
-	// @@@ Potentially provide a credential argument which allows us to unwrap keys in the csp.  Currently the CSP let's anyone do this, but we might restrict this in the future, f.e. a smartcard could require out of band pin entry before a key can be generated.
+	// @@@ Potentially provide a credential argument which allows us to unwrap keys in the csp.
+	// Currently the CSP lets anyone do this, but we might restrict this in the future, e.g.
+	// a smartcard could require out of band pin entry before a key can be generated.
 	maker.initialOwner(rcc);
 	// Create the cred we need to manipulate the keys until we actually set a new access control for them.
 	const AccessCredentials *cred = maker.cred();
@@ -702,7 +844,7 @@ KeyItem::importPair(
 			
 		freePrivateKey = true;
 
-		// Find the keys we just generated in the DL to get SecKeyRef's to them
+		// Find the keys we just generated in the DL to get SecKeyRefs to them
 		// so we can change the label to be the hash of the public key, and
 		// fix up other attributes.
 
@@ -807,7 +949,8 @@ KeyItem::importPair(
 }
 
 SecPointer<KeyItem>
-KeyItem::generate(Keychain keychain,
+KeyItem::generateWithAttributes(const SecKeychainAttributeList *attrList,
+	Keychain keychain,
 	CSSM_ALGORITHMS algorithm,
 	uint32 keySizeInBits,
 	CSSM_CC_HANDLE contextHandle,
@@ -845,7 +988,7 @@ KeyItem::generate(Keychain keychain,
 	}
 	else
 	{
-		// Not a persistant key so create it in the regular csp
+		// Not a persistent key so create it in the regular csp
 		csp = appleCsp;
 	}
 
@@ -856,7 +999,9 @@ KeyItem::generate(Keychain keychain,
 	if (keychain && initialAccess)
 	{
 		memset(&rcc, 0, sizeof(rcc));
-		// @@@ Potentially provide a credential argument which allows us to generate keys in the csp.  Currently the CSP let's anyone do this, but we might restrict this in the future, f.e. a smartcard could require out of band pin entry before a key can be generated.
+		// @@@ Potentially provide a credential argument which allows us to generate keys in the csp.
+		// Currently the CSP lets anyone do this, but we might restrict this in the future, e.g. a smartcard
+		// could require out-of-band pin entry before a key can be generated.
 		maker.initialOwner(rcc);
 		// Create the cred we need to manipulate the keys until we actually set a new access control for them.
 		cred = maker.cred();
@@ -901,9 +1046,8 @@ KeyItem::generate(Keychain keychain,
 		if (ssDb)
 		{
 			freeKey = true;
-			// Find the keys we just generated in the DL to get SecKeyRef's to them
-			// so we can change the label to be the hash of the public key, and
-			// fix up other attributes.
+			// Find the key we just generated in the DL and get a SecKeyRef
+			// so we can specify the label attribute(s) and initial ACL.
 	
 			// Look up key in the DLDB.
 			DbAttributes dbAttributes;
@@ -914,12 +1058,46 @@ KeyItem::generate(Keychain keychain,
 			CssmClient::Key key;
 			if (!dbCursor->nextKey(&dbAttributes, key, uniqueId))
 				MacOSError::throwMe(errSecItemNotFound);
+			
+			// Set the initial label, application label, and application tag (if provided)
+			if (attrList) {
+				DbAttributes newDbAttributes;
+				SSDbCursor otherDbCursor(ssDb, 1);
+				otherDbCursor->recordType(CSSM_DL_DB_RECORD_SYMMETRIC_KEY);
+				bool checkForDuplicates = false;
+				
+				for (UInt32 index=0; index < attrList->count; index++) {
+					SecKeychainAttribute attr = attrList->attr[index];
+					CssmData attrData(attr.data, attr.length);
+					if (attr.tag == kSecKeyPrintName) {
+						newDbAttributes.add(kInfoKeyPrintName, attrData);
+					}
+					if (attr.tag == kSecKeyLabel) {
+						newDbAttributes.add(kInfoKeyLabel, attrData);
+						otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyLabel, attrData);
+						checkForDuplicates = true;
+					}
+					if (attr.tag == kSecKeyApplicationTag) {
+						newDbAttributes.add(kInfoKeyApplicationTag, attrData);
+						otherDbCursor->add(CSSM_DB_EQUAL, kInfoKeyApplicationTag, attrData);
+						checkForDuplicates = true;
+					}
+				}
+
+				DbAttributes otherDbAttributes;
+				DbUniqueRecord otherUniqueId;
+				CssmClient::Key otherKey;
+				if (checkForDuplicates && otherDbCursor->nextKey(&otherDbAttributes, otherKey, otherUniqueId))
+					MacOSError::throwMe(errSecDuplicateItem);
+				
+				uniqueId->modify(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, &newDbAttributes, NULL, CSSM_DB_MODIFY_ATTRIBUTE_REPLACE);
+			}
 		
-			// Finally fix the acl and owner of the key to the specified access control settings.
+			// Finally, fix the acl and owner of the key to the specified access control settings.
 			if (initialAccess)
 				initialAccess->setAccess(*key, maker);
 
-			// Create keychain items which will represent the keys.
+			// Create keychain item which will represent the key.
 			keyItem = keychain->item(CSSM_DL_DB_RECORD_SYMMETRIC_KEY, uniqueId);
 		}
 		else
@@ -932,7 +1110,7 @@ KeyItem::generate(Keychain keychain,
 	{
 		if (freeKey)
 		{
-			// Delete the keys if something goes wrong so we don't end up with inaccesable keys in the database.
+			// Delete the key if something goes wrong so we don't end up with inaccessible keys in the database.
 			CSSM_FreeKey(csp->handle(), cred, &cssmKey, TRUE);
 		}
 
@@ -962,9 +1140,22 @@ KeyItem::generate(Keychain keychain,
 	return item;
 }
 
+SecPointer<KeyItem>
+KeyItem::generate(Keychain keychain,
+	CSSM_ALGORITHMS algorithm,
+	uint32 keySizeInBits,
+	CSSM_CC_HANDLE contextHandle,
+	CSSM_KEYUSE keyUsage,
+	uint32 keyAttr,
+	SecPointer<Access> initialAccess)
+{
+	return KeyItem::generateWithAttributes(NULL, keychain,
+		algorithm, keySizeInBits, contextHandle,
+		keyUsage, keyAttr, initialAccess);
+}
 
 
-void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signature)
+void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCredentials *credentials, CSSM_DATA& signature)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
@@ -990,13 +1181,13 @@ void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signa
 		
 		case kSecPaddingPKCS1MD5:
 		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
+			baseAlg = CSSM_ALGID_MD5WithRSA;
 			break;
 		}
 		
 		case kSecPaddingPKCS1SHA1:
 		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
+			baseAlg = CSSM_ALGID_SHA1WithRSA;
 			break;
 		}
 		
@@ -1010,6 +1201,7 @@ void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signa
 	Sign signContext(csp(), baseAlg);
 	signContext.key(key());
 	signContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
+	signContext.cred(credentials);
 
 	CssmData data(dataToSign.Data, dataToSign.Length);
 	signContext.sign(data);
@@ -1023,7 +1215,7 @@ void KeyItem::RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signa
 
 
 
-void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA sig)
+void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA sig)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
@@ -1049,13 +1241,13 @@ void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA si
 		
 		case kSecPaddingPKCS1MD5:
 		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
+			baseAlg = CSSM_ALGID_MD5WithRSA;
 			break;
 		}
 		
 		case kSecPaddingPKCS1SHA1:
 		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
+			baseAlg = CSSM_ALGID_SHA1WithRSA;
 			break;
 		}
 		
@@ -1065,11 +1257,12 @@ void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA si
 			break;
 		}
 	}
-	
+
 	Verify verifyContext(csp(), baseAlg);
 	verifyContext.key(key());
 	verifyContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
-
+	verifyContext.cred(credentials);
+	
 	CssmData data(dataToVerify.Data, dataToVerify.Length);
 	CssmData signature(sig.Data, sig.Length);
 	verifyContext.verify(data, signature);
@@ -1077,7 +1270,7 @@ void KeyItem::RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA si
 
 
 
-void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData)
+void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
@@ -1092,24 +1285,6 @@ void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& en
 		case kSecPaddingPKCS1:
 		{
 			paddingAlg = CSSM_PADDING_PKCS1;
-			break;
-		}
-		
-		case kSecPaddingPKCS1MD2:
-		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
-			break;
-		}
-		
-		case kSecPaddingPKCS1MD5:
-		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
-			break;
-		}
-		
-		case kSecPaddingPKCS1SHA1:
-		{
-			baseAlg = CSSM_ALGID_MD2WithRSA;
 			break;
 		}
 		
@@ -1122,16 +1297,19 @@ void KeyItem::Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& en
 	
 	CssmClient::Encrypt encryptContext(csp(), baseAlg);
 	encryptContext.key(key());
-	encryptContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
-
+	encryptContext.padding(paddingAlg);
+	encryptContext.cred(credentials);
+	
 	CssmData inData(dataToEncrypt.Data, dataToEncrypt.Length);
 	CssmData outData(encryptedData.Data, encryptedData.Length);
-	encryptContext.encrypt(inData, outData);
+	CssmData remData((void*) NULL, 0);
+	
+	encryptedData.Length = encryptContext.encrypt(inData, outData, remData);
 }
 
 
 
-void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, CSSM_DATA& decryptedData)
+void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, const AccessCredentials *credentials, CSSM_DATA& decryptedData)
 {
 	CSSM_ALGORITHMS baseAlg = key()->header().algorithm();
 	if (baseAlg != CSSM_ALGID_RSA)
@@ -1149,23 +1327,6 @@ void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, CSSM_DATA& de
 			break;
 		}
 		
-		case kSecPaddingPKCS1MD2:
-		{
-			MacOSError::throwMe(paramErr);
-			break;
-		}
-		
-		case kSecPaddingPKCS1MD5:
-		{
-			MacOSError::throwMe(paramErr);
-			break;
-		}
-		
-		case kSecPaddingPKCS1SHA1:
-		{
-			MacOSError::throwMe(paramErr);
-			break;
-		}
 		
 		default:
 		{
@@ -1176,10 +1337,12 @@ void KeyItem::Decrypt(SecPadding padding, CSSM_DATA dataToDecrypt, CSSM_DATA& de
 
 	CssmClient::Decrypt decryptContext(csp(), baseAlg);
 	decryptContext.key(key());
-	decryptContext.set(CSSM_ATTRIBUTE_PADDING, paddingAlg);
-
+	decryptContext.padding(paddingAlg);
+	decryptContext.cred(credentials);
+	
 	CssmData inData(dataToDecrypt.Data, dataToDecrypt.Length);
 	CssmData outData(decryptedData.Data, decryptedData.Length);
-	decryptContext.decrypt(inData, outData);
+	CssmData remData((void*) NULL, 0);
+	decryptContext.decrypt(inData, outData, remData);
 }
 

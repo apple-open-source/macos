@@ -20,6 +20,9 @@
 		<dict>
 			<key>FSName</key>
 			<string>Mac OS Extended (Journaled)</string>
+			<key>FSCoreStorageEncryptionName</key>
+				<string>Mac OS Extended (Journaled, Encrypted)</string>
+
 		</dict>
 		<key>Case-sensitive HFS+</key>
 		<dict>
@@ -30,6 +33,9 @@
 		<dict>
 			<key>FSName</key>
 			<string>Mac OS Extended (Case-sensitive, Journaled)</string>
+			<key>FSCoreStorageEncryptionName</key>
+				<string>Mac OS Extended (Case-sensitive, Journaled, Encrypted)</string>
+
 		</dict>
 	</dict>
 </dict>

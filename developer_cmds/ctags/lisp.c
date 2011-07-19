@@ -105,7 +105,7 @@ l_entries()
 		*cp = EOS;
 		(void)strcpy(tok, lbp);
 		*cp = savedc;
-		getline();
+		ct_getline();
 		pfnote(tok, lineno);
 	}
 	/*NOTREACHED*/

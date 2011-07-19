@@ -1,3 +1,30 @@
+Changes for the 5.28 release (the cctools-787 release):
+- Added testing the environment variable ZERO_AR_DATE to set the ar date to
+  zero to allow testing and comparing things for exact binary equality.
+  The change was in put_arobj() archive.c . Radar bug #7919021.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.26 release (the cctools-757 release):
+- Changed open_archive() in archive.c to skip the call to flock() if the archive
+  is opened in read-only mode.  Radar bug #6900552.
+
+Changes for the 5.26 release (the cctools-756 release):
+- Changed main() in ar.c to use a prefix on ranlib that it runs so it runs one
+  from the same place as ar(1) if used in an SDK.  Radar bug #6821441.
+
+Changes for the 5.26 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bug 6761248.
+
 Changes for the 5.26 release (the cctools-722 release):
 - Changed open_archive() in archive.c after the call to flock() to check for an
   return value of -1 and errno value of EAGAIN.  And added a loop that sleeps

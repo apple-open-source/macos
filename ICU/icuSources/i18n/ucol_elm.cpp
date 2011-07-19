@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2008, International Business Machines
+*   Copyright (C) 2001-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -31,12 +31,14 @@
 #include "unicode/unistr.h"
 #include "unicode/ucoleitr.h"
 #include "unicode/normlzr.h"
+#include "normalizer2impl.h"
 #include "ucol_elm.h"
 #include "ucol_tok.h"
 #include "ucol_cnt.h"
-#include "unormimp.h"
 #include "unicode/caniter.h"
 #include "cmemory.h"
+
+U_NAMESPACE_USE
 
 static uint32_t uprv_uca_processContraction(CntTable *contractions, UCAElements *element, uint32_t existingCE, UErrorCode *status);
 
@@ -165,8 +167,7 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
     /* copy UCA's maxexpansion and merge as we go along */
     if (UCA != NULL) {
         /* adding an extra initial value for easier manipulation */
-        maxet->size            = (UCA->lastEndExpansionCE - UCA->endExpansionCE) 
-            + 2;
+        maxet->size            = (int32_t)(UCA->lastEndExpansionCE - UCA->endExpansionCE) + 2;
         maxet->position        = maxet->size - 1;
         maxet->endExpansionCE  = 
             (uint32_t *)uprv_malloc(sizeof(uint32_t) * maxet->size);
@@ -497,10 +498,10 @@ static int uprv_uca_setMaxExpansion(uint32_t           endexpansion,
     }
 
     if (*start == endexpansion) {
-        result = start - pendexpansionce;
+        result = (int)(start - pendexpansionce);
     }
     else if (*limit == endexpansion) {
-        result = limit - pendexpansionce;
+        result = (int)(limit - pendexpansionce);
     }
 
     if (result > -1) {
@@ -515,7 +516,7 @@ static int uprv_uca_setMaxExpansion(uint32_t           endexpansion,
         /* we'll need to squeeze the value into the array.
         initial implementation. */
         /* shifting the subarray down by 1 */
-        int      shiftsize     = (pendexpansionce + pos) - start;
+        int      shiftsize     = (int)((pendexpansionce + pos) - start);
         uint32_t *shiftpos     = start + 1;
         uint8_t  *sizeshiftpos = pexpansionsize + (shiftpos - pendexpansionce);
 
@@ -742,12 +743,13 @@ static void uprv_uca_unsafeCPAddCCNZ(tempUCATable *t, UErrorCode *status) {
     UChar              c;
     uint16_t           fcd;     // Hi byte is lead combining class.
     // lo byte is trailing combing class.
-    const uint16_t    *fcdTrieData;
+    const uint16_t    *fcdTrieIndex;
+    UChar32            fcdHighStart;
     UBool buildCMTable = (t->cmLookup==NULL); // flag for building combining class table
     UChar *cm=NULL;
     uint16_t index[256];
     int32_t count=0;
-    fcdTrieData = unorm_getFCDTrie(status);
+    fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
     if (U_FAILURE(*status)) {
         return;
     }
@@ -763,7 +765,7 @@ static void uprv_uca_unsafeCPAddCCNZ(tempUCATable *t, UErrorCode *status) {
         uprv_memset(index, 0, sizeof(index));
     }
     for (c=0; c<0xffff; c++) {
-        fcd = unorm_getFCD16(fcdTrieData, c);
+        fcd = unorm_getFCD16(fcdTrieIndex, c);
         if (fcd >= 0x100 ||               // if the leading combining class(c) > 0 ||
             (UTF_IS_LEAD(c) && fcd != 0)) {//    c is a leading surrogate with some FCD data
             if (buildCMTable) {
@@ -1092,7 +1094,7 @@ static uint32_t uprv_uca_finalizeAddition(tempUCATable *t, UCAElements *element,
             } else {
                 /*ucmpe32_set(t->mapping, element->cPoints[0], element->mapCE);*/
                 utrie_set32(t->mapping, element->cPoints[0], element->mapCE);
-                if ((element->prefixSize!=0) && (getCETag(CE)!=IMPLICIT_TAG)) {
+                if ((element->prefixSize!=0) && (!isSpecial(CE) || (getCETag(CE)!=IMPLICIT_TAG))) {
                     UCAElements *origElem = (UCAElements *)uprv_malloc(sizeof(UCAElements));
                     /* test for NULL */
                     if (origElem== NULL) {
@@ -1173,8 +1175,8 @@ uprv_uca_addAnElement(tempUCATable *t, UCAElements *element, UErrorCode *status)
         }
         else {
             expansion = (uint32_t)(UCOL_SPECIAL_FLAG | (EXPANSION_TAG<<UCOL_TAG_SHIFT) 
-                | ((uprv_uca_addExpansion(expansions, element->CEs[0], status)+(headersize>>2))<<4)
-                & 0xFFFFF0);
+                | (((uprv_uca_addExpansion(expansions, element->CEs[0], status)+(headersize>>2))<<4)
+                   & 0xFFFFF0));
 
             for(i = 1; i<element->noOfCEs; i++) {
                 uprv_uca_addExpansion(expansions, element->CEs[i], status);
@@ -1400,12 +1402,13 @@ U_CDECL_END
 #ifdef UCOL_DEBUG
 // This is a debug function to print the contents of a trie.
 // It is used in conjuction with the code around utrie_unserialize call
-void enumRange(const void *context, UChar32 start, UChar32 limit, uint32_t value) {
+UBool enumRange(const void *context, UChar32 start, UChar32 limit, uint32_t value) {
     if(start<0x10000) {
         fprintf(stdout, "%08X, %08X, %08X\n", start, limit, value);
     } else {
         fprintf(stdout, "%08X=%04X %04X, %08X=%04X %04X, %08X\n", start, UTF16_LEAD(start), UTF16_TRAIL(start), limit, UTF16_LEAD(limit), UTF16_TRAIL(limit), value);
     }
+    return TRUE;
 }
 
 int32_t 
@@ -1539,7 +1542,7 @@ uprv_uca_assembleTable(tempUCATable *t, UErrorCode *status) {
         if(U_SUCCESS(*status)) {
             utrie_enum(&UCAt, NULL, enumRange, NULL);
         }
-        trieWord = UTRIE_GET32_FROM_LEAD(UCAt, 0xDC01) 
+        trieWord = UTRIE_GET32_FROM_LEAD(&UCAt, 0xDC01);
     }
 #endif
     tableOffset += paddedsize(mappingSize);
@@ -1602,6 +1605,8 @@ struct enumStruct {
     tempUCATable *t;
     UCollator *tempColl;
     UCollationElements* colEl;
+    const Normalizer2Impl *nfcImpl;
+    UnicodeSet *closed;
     int32_t noOfClosures;
     UErrorCode *status;
 };
@@ -1615,7 +1620,8 @@ _enumCategoryRangeClosureCategory(const void *context, UChar32 start, UChar32 li
         UCollator *tempColl = ((enumStruct *)context)->tempColl;
         UCollationElements* colEl = ((enumStruct *)context)->colEl;
         UCAElements el;
-        UChar decomp[256] = { 0 };
+        UChar decompBuffer[4];
+        const UChar *decomp;
         int32_t noOfDec = 0;
 
         UChar32 u32 = 0;
@@ -1623,24 +1629,44 @@ _enumCategoryRangeClosureCategory(const void *context, UChar32 start, UChar32 li
         uint32_t len = 0;
 
         for(u32 = start; u32 < limit; u32++) {
-            noOfDec = unorm_getDecomposition(u32, FALSE, decomp, 256);
+            decomp = ((enumStruct *)context)->nfcImpl->
+                getDecomposition(u32, decompBuffer, noOfDec);
             //if((noOfDec = unorm_normalize(comp, len, UNORM_NFD, 0, decomp, 256, status)) > 1
             //|| (noOfDec == 1 && *decomp != (UChar)u32))
-            if(noOfDec > 0) // if we're positive, that means there is no decomposition
+            if(decomp != NULL)
             {
                 len = 0;
-                UTF_APPEND_CHAR_UNSAFE(comp, len, u32);
+                U16_APPEND_UNSAFE(comp, len, u32);
                 if(ucol_strcoll(tempColl, comp, len, decomp, noOfDec) != UCOL_EQUAL) {
 #ifdef UCOL_DEBUG
-                    fprintf(stderr, "Closure: %08X -> ", u32);
-                    uint32_t i = 0;
-                    for(i = 0; i<noOfDec; i++) {
-                        fprintf(stderr, "%04X ", decomp[i]);
+                    fprintf(stderr, "Closure: U+%04X -> ", u32);
+                    UChar32 c;
+                    int32_t i = 0;
+                    while(i < noOfDec) {
+                        U16_NEXT(decomp, i, noOfDec, c);
+                        fprintf(stderr, "%04X ", c);
                     }
                     fprintf(stderr, "\n");
+                    // print CEs for code point vs. decomposition
+                    fprintf(stderr, "U+%04X CEs: ", u32);
+                    UCollationElements *iter = ucol_openElements(tempColl, comp, len, status);
+                    int32_t ce;
+                    while((ce = ucol_next(iter, status)) != UCOL_NULLORDER) {
+                        fprintf(stderr, "%08X ", ce);
+                    }
+                    fprintf(stderr, "\nDecomp CEs: ");
+                    ucol_setText(iter, decomp, noOfDec, status);
+                    while((ce = ucol_next(iter, status)) != UCOL_NULLORDER) {
+                        fprintf(stderr, "%08X ", ce);
+                    }
+                    fprintf(stderr, "\n");
+                    ucol_closeElements(iter);
 #endif
+                    if(((enumStruct *)context)->closed != NULL) {
+                        ((enumStruct *)context)->closed->add(u32);
+                    }
                     ((enumStruct *)context)->noOfClosures++;
-                    el.cPoints = decomp;
+                    el.cPoints = (UChar *)decomp;
                     el.cSize = noOfDec;
                     el.noOfCEs = 0;
                     el.prefix = el.prefixChars;
@@ -1692,8 +1718,8 @@ uprv_uca_setMapCE(tempUCATable *t, UCAElements *element, UErrorCode *status) {
                 | ((element->CEs[1]>>24) & 0xFF);   // third byte of primary
         } else {
             expansion = (uint32_t)(UCOL_SPECIAL_FLAG | (EXPANSION_TAG<<UCOL_TAG_SHIFT)
-                | ((uprv_uca_addExpansion(expansions, element->CEs[0], status)+(headersize>>2))<<4)
-                & 0xFFFFF0);
+                | (((uprv_uca_addExpansion(expansions, element->CEs[0], status)+(headersize>>2))<<4)
+                   & 0xFFFFF0));
 
             for(j = 1; j<(int32_t)element->noOfCEs; j++) {
                 uprv_uca_addExpansion(expansions, element->CEs[j], status);
@@ -1756,8 +1782,12 @@ uprv_uca_addMultiCMContractions(tempUCATable *t,
     CombinClassTable *cmLookup = t->cmLookup;
     UChar  newDecomp[256];
     int32_t maxComp, newDecLen;
-    const uint16_t  *fcdTrieData = unorm_getFCDTrie(status);
-    int16_t curClass = (unorm_getFCD16(fcdTrieData, c->tailoringCM) & 0xff);
+    UChar32 fcdHighStart;
+    const uint16_t *fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    int16_t curClass = (unorm_getFCD16(fcdTrieIndex, c->tailoringCM) & 0xff);
     CompData *precomp = c->precomp;
     int32_t  compLen = c->compLen;
     UChar *comp = c->comp;
@@ -1822,8 +1852,12 @@ uprv_uca_addTailCanonicalClosures(tempUCATable *t,
                                   UCAElements *el,
                                   UErrorCode *status) {
     CombinClassTable *cmLookup = t->cmLookup;
-    const uint16_t  *fcdTrieData = unorm_getFCDTrie(status);
-    int16_t maxIndex = (unorm_getFCD16(fcdTrieData, cMark) & 0xff );
+    UChar32 fcdHighStart;
+    const uint16_t *fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    int16_t maxIndex = (unorm_getFCD16(fcdTrieIndex, cMark) & 0xff );
     UCAElements element;
     uint16_t *index;
     UChar  decomp[256];
@@ -1837,8 +1871,8 @@ uprv_uca_addTailCanonicalClosures(tempUCATable *t,
         return;
     }
     index = cmLookup->index;
-    int32_t cClass=(unorm_getFCD16(fcdTrieData, cMark) & 0xff);
-    maxIndex = (int32_t)index[(unorm_getFCD16(fcdTrieData, cMark) & 0xff)-1];
+    int32_t cClass=(unorm_getFCD16(fcdTrieIndex, cMark) & 0xff);
+    maxIndex = (int32_t)index[(unorm_getFCD16(fcdTrieIndex, cMark) & 0xff)-1];
     c.comp = comp;
     c.decomp = decomp;
     c.precomp = precomp;
@@ -1861,7 +1895,7 @@ uprv_uca_addTailCanonicalClosures(tempUCATable *t,
             // other combining mark combinations.
             precomp[precompLen].cp=comp[0];
             curClass = precomp[precompLen].cClass =
-                       index[unorm_getFCD16(fcdTrieData, decomp[1]) & 0xff];
+                       index[unorm_getFCD16(fcdTrieIndex, decomp[1]) & 0xff];
             precompLen++;
             replacedPos=0;
             for (decompLen=0; decompLen< (int32_t)el->cSize; decompLen++) {
@@ -1901,7 +1935,7 @@ uprv_uca_addTailCanonicalClosures(tempUCATable *t,
             // This is a fix for tailoring contractions with accented
             // character at the end of contraction string.
             if ((len>2) && 
-                (unorm_getFCD16(fcdTrieData, comp[len-2]) & 0xff00)==0) {
+                (unorm_getFCD16(fcdTrieIndex, comp[len-2]) & 0xff00)==0) {
                 uprv_uca_addFCD4AccentedContractions(t, colEl, comp, len, &element, status);
             }
 
@@ -1920,17 +1954,20 @@ uprv_uca_addTailCanonicalClosures(tempUCATable *t,
 U_CFUNC int32_t U_EXPORT2
 uprv_uca_canonicalClosure(tempUCATable *t,
                           UColTokenParser *src,
+                          UnicodeSet *closed,
                           UErrorCode *status)
 {
     enumStruct context;
+    context.closed = closed;
     context.noOfClosures = 0;
     UCAElements el;
     UColToken *tok;
     uint32_t i = 0, j = 0;
     UChar  baseChar, firstCM;
-    const uint16_t  *fcdTrieData = unorm_getFCDTrie(status);
-
-    if(!U_SUCCESS(*status)) {
+    UChar32 fcdHighStart;
+    const uint16_t *fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
+    context.nfcImpl=Normalizer2Factory::getNFCImpl(*status);
+    if(U_FAILURE(*status)) {
         return 0;
     }
 
@@ -1999,7 +2036,7 @@ uprv_uca_canonicalClosure(tempUCATable *t,
             }
             if(src->UCA != NULL) {
                 for(j = 0; j<el.cSize; j++) {
-                    int16_t fcd = unorm_getFCD16(fcdTrieData, el.cPoints[j]);
+                    int16_t fcd = unorm_getFCD16(fcdTrieIndex, el.cPoints[j]);
                     if ( (fcd & 0xff) == 0 ) {
                         baseChar = el.cPoints[j];  // last base character
                         firstCM=0;  // reset combining mark value
@@ -2020,7 +2057,7 @@ uprv_uca_canonicalClosure(tempUCATable *t,
     }
     ucol_closeElements(colEl);
     ucol_close(tempColl);
-    
+
     return context.noOfClosures;
 }
 

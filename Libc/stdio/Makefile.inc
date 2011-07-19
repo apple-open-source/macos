@@ -6,32 +6,28 @@
 CWD := ${.CURDIR}/stdio
 
 .include "Makefile.fbsd_begin"
-FBSDMISRCS= _flock_stub.c asprintf.c clrerr.c fclose.c fdopen.c feof.c ferror.c \
-	fflush.c fgetc.c fgetln.c fgetpos.c fgets.c fgetwc.c fgetws.c \
+FBSDMISRCS= _flock_stub.c asprintf.c clrerr.c dprintf.c fclose.c fdopen.c feof.c ferror.c \
+	fflush.c fgetc.c fgetln.c fgetpos.c fgets.c fgetwc.c fgetwln.c fgetws.c \
 	fileno.c findfp.c flags.c fopen.c fprintf.c fpurge.c fputc.c fputs.c \
 	fputwc.c fputws.c fread.c freopen.c fscanf.c fseek.c fsetpos.c \
 	ftell.c funopen.c fvwrite.c fwalk.c fwide.c fwprintf.c fwscanf.c \
-	fwrite.c getc.c getchar.c gets.c getw.c getwc.c getwchar.c makebuf.c \
-	mktemp.c perror.c printf.c putc.c putchar.c puts.c putw.c putwc.c \
+	fwrite.c getc.c getchar.c getdelim.c getline.c gets.c getw.c getwc.c getwchar.c makebuf.c \
+	mktemp.c perror.c printf.c printf-pos.c putc.c putchar.c puts.c putw.c putwc.c \
 	putwchar.c refill.c remove.c rewind.c rget.c scanf.c setbuf.c \
 	setbuffer.c setvbuf.c snprintf.c sprintf.c sscanf.c stdio.c \
 	swprintf.c swscanf.c tempnam.c tmpfile.c tmpnam.c ungetc.c ungetwc.c \
-	unlocked.c vasprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
+	vasprintf.c vdprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
 	vprintf.c vscanf.c vsnprintf.c vsprintf.c vsscanf.c vswprintf.c \
 	vswscanf.c vwprintf.c vwscanf.c wbuf.c wprintf.c wscanf.c wsetup.c
-FBSDHDRS= floatio.h fvwrite.h glue.h local.h
+FBSDHDRS= floatio.h fvwrite.h glue.h local.h printfcommon.h printflocal.h
 .include "Makefile.fbsd_end"
 
 # also build 64-bit long double versions (ppc only)
-LDBLSRCS += asprintf.c fprintf.c fscanf.c fwprintf.c fwscanf.c printf.c \
+LDBLSRCS += asprintf.c dprintf.c fprintf.c fscanf.c fwprintf.c fwscanf.c printf.c \
 	    scanf.c snprintf.c sprintf.c sscanf.c swprintf.c swscanf.c \
-	    vasprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
+	    vasprintf.c vdprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c \
 	    vprintf.c vscanf.c vsnprintf.c vsprintf.c vsscanf.c vswprintf.c \
 	    vswscanf.c vwprintf.c vwscanf.c wprintf.c wscanf.c
-
-.for _src in vfprintf-fbsd.c vfwprintf-fbsd.c
-CFLAGS-${_src} += -fshort-enums -DVECTORS
-.endfor
 
 LEGACYSRCS+= fdopen.c fopen.c fputs.c freopen.c fwrite.c tempnam.c
 DARWINEXTSNSRCS+= fdopen.c fopen.c
@@ -50,9 +46,9 @@ CFLAGS-tmpfile-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
 MAN3+=	getwc_l.3 putwc_l.3 printf_l.3 scanf_l.3 wprintf_l.3 wscanf_l.3
 
 .include "Makefile.fbsd_begin"
-FBSDMAN3= fclose.3 ferror.3 fflush.3 fgetln.3 fgets.3 fgetws.3 flockfile.3 \
+FBSDMAN3= fclose.3 ferror.3 fflush.3 fgetln.3 fgets.3 fgetwln.3 fgetws.3 flockfile.3 \
 	fopen.3 fputs.3 fputws.3 fread.3 fseek.3 funopen.3 fwide.3 getc.3 \
-	getwc.3 mktemp.3 printf.3 putc.3 putwc.3 remove.3 scanf.3 setbuf.3 \
+	getline.3 getwc.3 mktemp.3 printf.3 putc.3 putwc.3 remove.3 scanf.3 setbuf.3 \
 	stdio.3 tmpnam.3 ungetc.3 ungetwc.3 wprintf.3 wscanf.3
 .include "Makefile.fbsd_end"
 
@@ -67,6 +63,8 @@ MLINKS+= ferror.3 clearerr.3			\
 MLINKS+= fflush.3 fpurge.3
 
 MLINKS+= fgets.3 gets.3
+
+MLINKS+= fgetwln.3 fgetwln_l.3
 
 MLINKS+= fgetws.3 fgetws_l.3
 
@@ -92,6 +90,8 @@ MLINKS+= fseek.3 fgetpos.3			\
 MLINKS+= funopen.3 fropen.3			\
          funopen.3 fwopen.3
 
+MLINKS+= getline.3 getdelim.3
+
 MLINKS+= getc.3 fgetc.3				\
          getc.3 getc_unlocked.3			\
          getc.3 getchar.3			\
@@ -109,10 +109,12 @@ MLINKS+= mktemp.3 mkdtemp.3			\
          mktemp.3 mkstemps.3
 
 MLINKS+= printf.3 asprintf.3			\
+         printf.3 dprintf.3			\
          printf.3 fprintf.3			\
          printf.3 snprintf.3			\
          printf.3 sprintf.3			\
          printf.3 vasprintf.3			\
+         printf.3 vdprintf.3			\
          printf.3 vfprintf.3			\
          printf.3 vprintf.3			\
          printf.3 vsnprintf.3			\

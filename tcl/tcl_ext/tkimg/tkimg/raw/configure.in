@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in 67 2006-01-24 18:05:01Z andreas_kupries $)
+AC_REVISION($Id: configure.in 267 2010-06-04 09:58:55Z nijtmans $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkimgraw', as distributed at November 20, 2001.
@@ -10,7 +10,7 @@ AC_REVISION($Id: configure.in 67 2006-01-24 18:05:01Z andreas_kupries $)
 
 AC_INIT([tkimgraw],[1.4])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../tclconfig)
 
@@ -76,7 +76,7 @@ TEA_ADD_CFLAGS([-DTKIMG_VERSION=\\\"\${tkimg_VERSION}\\\"])
 TEA_ADD_STUB_SOURCES([])
 TEA_ADD_TCL_SOURCES([])
 
-PUP="`echo ${PACKAGE}| tr 'a-z' 'A-Z'`"
+PUP="`echo ${PACKAGE_NAME}| tr 'a-z' 'A-Z'`"
 
 sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
 	-e	"s/@CPACKAGE@/${CPACKAGE}/"		\
@@ -98,13 +98,10 @@ sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
 
 TEA_PUBLIC_TCL_HEADERS
 TEA_PUBLIC_TK_HEADERS
-#TEA_PRIVATE_TCL_HEADERS
+
 
 #--------------------------------------------------------------------
 # A few miscellaneous platform-specific items:
-#
-# We have to define a special symbol for Windows (BUILD_tkimgraw in this
-# case) so that we create the export library with the dll.
 #
 # Windows creates a few extra files that need to be cleaned up.
 # We can add more files to clean if our extension creates any extra
@@ -116,7 +113,6 @@ TEA_PUBLIC_TK_HEADERS
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_tkimgraw)
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch init.c"
 else
     CLEANFILES="init.c"
@@ -167,7 +163,6 @@ TEA_PATH_X
 
 AC_DEFINE(USE_TCL_STUBS)
 AC_DEFINE(USE_TK_STUBS)
-AC_DEFINE(USE_TKIMG_STUBS)
 
 #--------------------------------------------------------------------
 # This macro generates a line to use when building a library.  It
@@ -206,6 +201,6 @@ TEA_PROG_WISH
 # which require substituting th AC variables in.  Include these here.
 #--------------------------------------------------------------------
 
-AC_OUTPUT([Makefile pkgIndex.tcl])
+AC_OUTPUT([Makefile])
 
 #--------------------------------------------------------------------

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,7 +73,7 @@
 #include <signal.h>
 #include <netdb.h>
 
-#include "rpcsvc/nlm_prot.h"
+#include "nlm_prot.h"
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <nfs/nfs_lock.h>
@@ -487,7 +487,7 @@ test_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -508,7 +508,7 @@ test_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = msg->lm_fl.l_start;
 		arg.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -532,7 +532,8 @@ lock_request(LOCKD_MSG *msg)
 	char dummy;
 
 	if (d_calls)
-		syslog(LOG_DEBUG, "lock request: %s: %s to %s",
+		syslog(LOG_DEBUG, "lock request: %s %s: %s to %s",
+		    (msg->lm_flags & LOCKD_MSG_RECLAIM) ? "RECLAIM" : "",
 		    (msg->lm_flags & LOCKD_MSG_NFSV3) ? "V4" : "V1/3",
 		    msg->lm_fl.l_type == F_WRLCK ? "write" : "read",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
@@ -552,10 +553,10 @@ lock_request(LOCKD_MSG *msg)
 		arg4.alock.svid = msg->lm_fl.l_pid;
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
-		arg4.reclaim = 0;
+		arg4.reclaim = (msg->lm_flags & LOCKD_MSG_RECLAIM) ? 1 : 0;
 		arg4.state = nsm_state;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1+arg4.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -574,10 +575,10 @@ lock_request(LOCKD_MSG *msg)
 		arg.alock.svid = msg->lm_fl.l_pid;
 		arg.alock.l_offset = msg->lm_fl.l_start;
 		arg.alock.l_len = msg->lm_fl.l_len;
-		arg.reclaim = 0;
+		arg.reclaim = (msg->lm_flags & LOCKD_MSG_RECLAIM) ? 1 : 0;
 		arg.state = nsm_state;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1+arg.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -620,7 +621,7 @@ cancel_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -640,7 +641,7 @@ cancel_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = msg->lm_fl.l_start;
 		arg.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -680,7 +681,7 @@ unlock_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);
@@ -698,7 +699,7 @@ unlock_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = msg->lm_fl.l_start;
 		arg.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1)) == NULL)
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
 			return (1);
 
 		set_auth(cli, &msg->lm_cred);

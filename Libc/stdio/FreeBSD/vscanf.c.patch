@@ -1,15 +1,15 @@
---- vscanf.c.orig	2003-05-20 15:22:44.000000000 -0700
-+++ vscanf.c	2005-02-23 19:11:44.000000000 -0800
-@@ -40,6 +40,8 @@
+--- vscanf.c.bsdnew	2009-11-11 13:33:19.000000000 -0800
++++ vscanf.c	2009-11-11 13:33:19.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)vscanf.c	8.1
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vscanf.c,v 1.12 2003/01/03 23:27:27 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vscanf.c,v 1.13 2007/01/09 00:28:08 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include "namespace.h"
  #include <stdio.h>
  #include "un-namespace.h"
-@@ -54,7 +56,22 @@
+@@ -50,7 +52,22 @@ vscanf(fmt, ap)
  	int retval;
  
  	FLOCKFILE(stdin);

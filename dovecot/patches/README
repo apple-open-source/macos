@@ -1,0 +1,69 @@
+These patches were contributed to the Dovecot open-source project in
+December 2008 and January 2009.  They're checked in here for historical
+preservation.  See the dovecot list archives at www.dovecot.org for more
+details (http://www.dovecot.org/list/dovecot/).  These patches reflect
+(almost) all of Apple's changes as of the SVN tag dovecot-postback-1.
+
+Patch #1.  Some versions of Mac OS X have buggy CMSG_* macros.
+Base: dovecot-1.1.7
+Status: accepted with slight modifications for dovecot-1.1.
+
+Patch #2.  Don't set "<username>=1" in the environment.
+Base: dovecot-1.1.7
+Status: pending
+
+Patch #3.  Some versions of Mac OS X return near-duplicate kevents.
+Base: dovecot-1.1.7
+Status: accepted with modifications (just change the assert instead) for
+dovecot-1.1.
+
+Patch #4.  Null renames are actually pretty slow on HFS (Apple's file
+system), so avoid them.
+Base: dovecot-1.1.7
+Status: accepted with modifications (stat() to make sure file still
+exists) for dovecot-1.1.
+
+Patch #5.  Required by Apple's lawyers.
+Base: dovecot-1.1.7
+Status: accepted for dovecot-1.1.
+
+Patch #6.  Solve a cross-compilation endianness issue.
+Base: dovecot-1.1.7
+Status: accepted with modifications (generalized) for dovecot-1.1.
+
+Patch #7.  Replace all occurrences of "hash_create" and "hash_destroy"
+with "hash_table_create" and "hash_table_destroy" respectively.
+Base: dovecot-1.1.7
+Status: accepted with modifications (all hash_*() to hash_table_*()) for
+dovecot-1.2 not dovecot-1.1.
+
+Patch #8.  Back off after auth failures to deter abusers.
+Base: dovecot-1.1.7
+Status: accepted with modifications (generalized) for dovecot-1.2 not
+dovecot-1.1.
+
+Patch #9 adds support for Open Directory and an encrypted SSL keystore.
+Base: dovecot-1.1.7
+Status: deferred until we clean up some of the issues they have with it.
+
+Patch #10 allows the pop3 and imap mail processes to handle multiple clients.
+Base: dovecot-1.1.7 + patch 9
+Status: pending
+
+Patch #11 adds a few dtrace providers to key points in the code.
+Base: dovecot-1.1.7 + patches 9 and 10
+Status: deferred until we provide a version of this patch with no
+in-line ifdefs.
+
+Patch #12 increases many listen queue sizes to handle high loads better.
+Base: dovecot-1.1.7 + patches 9 and 10
+Status: accepted for dovecot-1.1.
+
+Patch #13 makes dovecot adapt to dynamic host identity changes upon
+config reload.
+Base: dovecot-1.1.7 + patches 9 and 10
+Status: accepted with style modifications for dovecot-1.2 not dovecot-1.1.
+
+Patch #14 covers three miscellaneous changes.
+Base: dovecot-1.1.7 + patches 9 and 10
+Status: declined.

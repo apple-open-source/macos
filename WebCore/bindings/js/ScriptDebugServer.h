@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010-2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,9 +32,9 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
+#include "ScriptDebugListener.h"
 #include "PlatformString.h"
 #include "ScriptBreakpoint.h"
-#include "ScriptState.h"
 #include "Timer.h"
 
 #include <debugger/Debugger.h>
@@ -42,6 +42,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/TextPosition.h>
 
 namespace JSC {
 class DebuggerCallFrame;
@@ -49,24 +50,19 @@ class JSGlobalObject;
 }
 namespace WebCore {
 
-class Frame;
-class FrameView;
-class Page;
-class PageGroup;
-class ScriptDebugListener;
 class JavaScriptCallFrame;
+class ScriptDebugListener;
+class ScriptValue;
 
-class ScriptDebugServer : JSC::Debugger, public Noncopyable {
+class ScriptDebugServer : protected JSC::Debugger {
+    WTF_MAKE_NONCOPYABLE(ScriptDebugServer); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static ScriptDebugServer& shared();
-
-    void addListener(ScriptDebugListener*, Page*);
-    void removeListener(ScriptDebugListener*, Page*);
-
-    void setBreakpoint(const String& sourceID, unsigned lineNumber, ScriptBreakpoint breakpoint);
-    void removeBreakpoint(const String& sourceID, unsigned lineNumber);
+    String setBreakpoint(const String& sourceID, const ScriptBreakpoint&, int* actualLineNumber, int* actualColumnNumber);
+    void removeBreakpoint(const String& breakpointId);
     void clearBreakpoints();
     void setBreakpointsActivated(bool activated);
+    void activateBreakpoints() { setBreakpointsActivated(true); }
+    void deactivateBreakpoints() { setBreakpointsActivated(false); }
 
     enum PauseOnExceptionsState {
         DontPauseOnExceptions,
@@ -76,47 +72,45 @@ public:
     PauseOnExceptionsState pauseOnExceptionsState() const { return m_pauseOnExceptionsState; }
     void setPauseOnExceptionsState(PauseOnExceptionsState);
 
-    void pauseProgram();
+    void setPauseOnNextStatement(bool pause);
+    void breakProgram();
     void continueProgram();
     void stepIntoStatement();
     void stepOverStatement();
     void stepOutOfFunction();
 
+    bool editScriptSource(const String& sourceID, const String& newContent, String* error, ScriptValue* newCallFrames);
+
     void recompileAllJSFunctionsSoon();
-    void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0);
+    virtual void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0) = 0;
 
-    JavaScriptCallFrame* currentCallFrame();
-    ScriptState* currentCallFrameState();
-
-    void pageCreated(Page*);
-
-private:
+protected:
     typedef HashSet<ScriptDebugListener*> ListenerSet;
-    typedef void (ScriptDebugListener::*JavaScriptExecutionCallback)();
+    typedef void (ScriptDebugServer::*JavaScriptExecutionCallback)(ScriptDebugListener*);
 
     ScriptDebugServer();
     ~ScriptDebugServer();
 
-    bool hasBreakpoint(intptr_t sourceID, unsigned lineNumber) const;
-    bool hasListeners() const { return !m_listeners.isEmpty() || !m_pageListenersMap.isEmpty(); }
-    bool hasGlobalListeners() const { return !m_listeners.isEmpty(); }
-    bool hasListenersInterestedInPage(Page*);
+    virtual ListenerSet* getListenersForGlobalObject(JSC::JSGlobalObject*) = 0;
+    virtual void didPause(JSC::JSGlobalObject*) = 0;
+    virtual void didContinue(JSC::JSGlobalObject*) = 0;
 
-    void setJavaScriptPaused(const PageGroup&, bool paused);
-    void setJavaScriptPaused(Page*, bool paused);
-    void setJavaScriptPaused(Frame*, bool paused);
-    void setJavaScriptPaused(FrameView*, bool paused);
+    bool hasBreakpoint(intptr_t sourceID, const TextPosition0&) const;
 
-    void dispatchFunctionToListeners(JavaScriptExecutionCallback, Page*);
+    void dispatchFunctionToListeners(JavaScriptExecutionCallback, JSC::JSGlobalObject*);
     void dispatchFunctionToListeners(const ListenerSet& listeners, JavaScriptExecutionCallback callback);
-    void dispatchDidParseSource(const ListenerSet& listeners, const JSC::SourceCode& source);
-    void dispatchFailedToParseSource(const ListenerSet& listeners, const JSC::SourceCode& source, int errorLine, const String& errorMessage);
+    void dispatchDidPause(ScriptDebugListener*);
+    void dispatchDidContinue(ScriptDebugListener*);
+    void dispatchDidParseSource(const ListenerSet& listeners, JSC::SourceProvider*, bool isContentScript);
+    void dispatchFailedToParseSource(const ListenerSet& listeners, JSC::SourceProvider*, int errorLine, const String& errorMessage);
 
-    void pauseIfNeeded(Page*);
+    void createCallFrameAndPauseIfNeeded(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
+    void updateCallFrameAndPauseIfNeeded(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
+    void pauseIfNeeded(JSC::JSGlobalObject* dynamicGlobalObject);
 
     virtual void detach(JSC::JSGlobalObject*);
 
-    virtual void sourceParsed(JSC::ExecState*, const JSC::SourceCode&, int errorLine, const JSC::UString& errorMsg);
+    virtual void sourceParsed(JSC::ExecState*, JSC::SourceProvider*, int errorLine, const JSC::UString& errorMsg);
     virtual void callEvent(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
     virtual void atStatement(const JSC::DebuggerCallFrame&, intptr_t sourceID, int firstLine);
     virtual void returnEvent(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineNumber);
@@ -125,15 +119,11 @@ private:
     virtual void didExecuteProgram(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineno);
     virtual void didReachBreakpoint(const JSC::DebuggerCallFrame&, intptr_t sourceID, int lineno);
 
-    void didAddListener(Page*);
-    void didRemoveListener(Page*);
-    void didRemoveLastListener();
-
     typedef HashMap<Page*, ListenerSet*> PageListenersMap;
-    typedef HashMap<intptr_t, SourceBreakpoints> BreakpointsMap;
+    typedef HashMap<long, ScriptBreakpoint> LineToBreakpointMap;
+    typedef HashMap<intptr_t, LineToBreakpointMap> SourceIdToBreakpointsMap;
 
     PageListenersMap m_pageListenersMap;
-    ListenerSet m_listeners;
     bool m_callingListeners;
     PauseOnExceptionsState m_pauseOnExceptionsState;
     bool m_pauseOnNextStatement;
@@ -142,7 +132,7 @@ private:
     bool m_breakpointsActivated;
     JavaScriptCallFrame* m_pauseOnCallFrame;
     RefPtr<JavaScriptCallFrame> m_currentCallFrame;
-    BreakpointsMap m_breakpoints;
+    SourceIdToBreakpointsMap m_sourceIdToBreakpoints;
     Timer<ScriptDebugServer> m_recompileTimer;
 };
 

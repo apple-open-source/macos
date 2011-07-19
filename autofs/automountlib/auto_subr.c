@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)auto_subr.c	1.49	05/06/08 SMI"
@@ -222,7 +222,7 @@ getword(char *w, char *wq, char **p, char **pq, char delim, int wordsz)
  * get_line attempts to get a line from the map, upto LINESZ. A line in
  * the map is a concatenation of lines if the continuation symbol '\'
  * is used at the end of the line. Returns line on success, a NULL on
- * EOF, and an empty string on lines > linesz.
+ * EOF or error, and an empty string on lines > linesz.
  */
 char *
 get_line(FILE *fp, char *map, char *line, int linesz)
@@ -235,7 +235,7 @@ get_line(FILE *fp, char *map, char *line, int linesz)
 
 	for (;;) {
 		if (fgets(p, linesz - (int)(p-line), fp) == NULL) {
-			return (*line ? line : NULL);	/* EOF */
+			return (*line ? line : NULL);	/* EOF or error */
 		}
 
 		len = strlen(line);
@@ -319,7 +319,7 @@ trim:
  * retry=n is invalid, or when option string is NULL.
  */
 int
-get_retry(char *opts)
+get_retry(const char *opts)
 {
 	int retry = 0;
 	char buf[MAXOPTSLEN];
@@ -397,12 +397,13 @@ str_opt(struct mnttab *mnt, char *opt, char **sval)
 #define MAXVARNAMELEN	64		/* maximum variable name length */
 macro_expand_status
 macro_expand(key, pline, plineq, size)
-	char *key, *pline, *plineq;
+	const char *key;
+	char *pline, *plineq;
 	int size;
 {
 	register char *p,  *q;
 	register char *bp, *bq;
-	register char *s;
+	register const char *s;
 	char buffp[LINESZ], buffq[LINESZ];
 	char namebuf[MAXVARNAMELEN+1], *pn;
 	int expand = 0;
@@ -470,8 +471,18 @@ macro_expand(key, pline, plineq, size)
 					(void) uname(&name);
 					s = name.sysname;
 				} else if (strcmp(namebuf, "OSVERS") == 0) {
-					(void) uname(&name);
-					s = name.version;
+					/*
+					 * OS X is BSD-flavored, so the OS
+					 * "version" from uname is a string
+					 * with all sorts of crud in it.
+					 *
+					 * In Solaris, this seems to be
+					 * something that indicates the
+					 * patch level of the OS.  Nothing
+					 * like that exists in OS X, so
+					 * just say "unknown".
+					 */
+					s = "unknown";
 				} else if (strcmp(namebuf, "NATISA") == 0) {
 					if (natisa(isaname, sizeof (isaname)))
 						s = isaname;
@@ -658,7 +669,7 @@ auto_rddir_strdup(const char *s1)
  * otherwise it returns NULL.
  */
 struct dir_entry *
-btree_lookup(struct dir_entry *head, char *name)
+btree_lookup(struct dir_entry *head, const char *name)
 {
 	register struct dir_entry *p;
 	register int direction;
@@ -716,11 +727,27 @@ btree_enter(struct dir_entry **head, struct dir_entry *ent)
  * *last is always set to the new element after successful completion.
  * if entry already exists '*last' is only updated if not previously
  * provided.
+ *
+ * Returns 0 on success, -1 if the name isn't valid (".", "..", or
+ * contains "/"), an errno value on error.
  */
 int
-add_dir_entry(char *name, struct dir_entry **list, struct dir_entry **last)
+add_dir_entry(const char *name, const char *linebuf, const char *lineqbuf,
+    struct dir_entry **list, struct dir_entry **last)
 {
 	struct dir_entry *e, *l;
+	const char *p;
+
+	if (name[0] == '.') {
+		if (name[1] == '\0')
+			return (-1);	/* "." */
+		if (name[1] == '.' && name[2] == '\0')
+			return (-1);	/* ".." */
+	}
+	for (p = name; *p != '\0'; p++) {
+		if (*p == '/')
+			return (-1);
+	}
 
 	if ((*list != NULL) && (*last == NULL)) {
 		/*
@@ -744,6 +771,28 @@ add_dir_entry(char *name, struct dir_entry **list, struct dir_entry **last)
 		if (e->name == NULL) {
 			free(e);
 			return (ENOMEM);
+		}
+		if (linebuf != NULL) {
+			/*
+			 * If linebuf != NULL, lineqbuf must != NULL
+			 * as well.
+			 */
+			e->line = auto_rddir_strdup(linebuf);
+			if (e->line == NULL) {
+				free(e->name);
+				free(e);
+				return (ENOMEM);
+			}
+			e->lineq = auto_rddir_strdup(lineqbuf);
+			if (e->lineq == NULL) {
+				free(e->line);
+				free(e->name);
+				free(e);
+				return (ENOMEM);
+			}
+		} else {
+			e->line = NULL;
+			e->lineq = NULL;
 		}
 		e->next = NULL;
 		if (*list == NULL) {

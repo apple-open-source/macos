@@ -1,19 +1,23 @@
-// testfilerunner CONFIG
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG
 
 #include <stdio.h>
+#include "test.h"
 
+int main() {
+    static int numberOfSquesals = 5;
+    
+    ^{ numberOfSquesals = 6; }();
+    
+    if (numberOfSquesals != 6) {
+        fail("did not update static local, rdar://6177162");
+    }
 
-int main(int argc, char **argv) {
-  static int numberOfSquesals = 5;
-
-  ^{ numberOfSquesals = 6; }();
-
-  if (numberOfSquesals == 6) {
-    printf("%s: success\n", argv[0]);
-    return 0;
-   }
-   printf("**** did not update static local, rdar://6177162\n");
-   return 1;
-
+    succeed(__FILE__);
 }
 

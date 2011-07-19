@@ -1,0 +1,32 @@
+@@ RELEASE 0.5
+
+$bundle           $bundlev
+$pkg              $ver
+Diagrams          0.2
+Plotchart         1.6.1
+Tablelist         4.10.1
+Tablelist_tile    4.10.1
+autoscroll        1.1
+canvas::sqmap     0.2
+canvas::zoom      0.1
+chatwidget        1.1.0
+crosshair         1.0.2
+ctext             3.2
+cursor            0.2
+datefield         0.2
+getstring         0.1
+history           0.1
+ico               1.0.3
+ipentry           0.3
+khim              1.0.1
+ntext             0.81
+style             0.3
+style::as         1.4
+style::lobster    0.2
+swaplist          0.2
+tablelist         4.10.1
+tablelist::common 4.10.1
+tablelist_tile    4.10.1
+tipstack          1.0.1
+tkpiechart        6.6
+tooltip           1.4.4

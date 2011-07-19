@@ -36,9 +36,14 @@ enum {
     kScrollTypeMomentumContinue = 0x0004,
     kScrollTypeTouch            = 0x0008,
     kScrollTypeMomentumStart    = 0x0010,
-    kScrollTypeMomentumEnd      = 0x0020,
+    kScrollTypeMomentumEnd      = 0x0020,    
+    kScrollTypeMomentumAny      = kScrollTypeMomentumContinue | kScrollTypeMomentumStart | kScrollTypeMomentumEnd,
     
-    kScrollTypeMomentumAny      = kScrollTypeMomentumContinue | kScrollTypeMomentumStart | kScrollTypeMomentumEnd
+    kScrollTypeOptionPhaseAny       = 0xf00,
+    kScrollTypeOptionPhaseBegan     = 0x100,
+    kScrollTypeOptionPhaseChanged   = 0x200,
+    kScrollTypeOptionPhaseEnded     = 0x400,
+    kScrollTypeOptionPhaseCanceled  = 0x800,    
 };
 
 #define kIOHIDEventServicePropertiesKey "HIDEventServiceProperties"

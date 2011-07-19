@@ -1,0 +1,63 @@
+#! /bin/bash
+# Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+
+set -e # exit on error
+SCRATCH=${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR)}/$$
+[[ -d "$SCRATCH" ]] || mkdir -p "$SCRATCH"
+
+# make-idl_client: From foo.idl, generate client stubs into
+# foo_client.c and a client header into foo_client.h.
+
+usage()
+{
+    echo Usage: make-idl-client INCLUDES IDL
+    exit 2
+}
+
+client_stubs()
+{
+    local idl=$(basename "$1")
+    echo ${idl%.idl}_client.c
+}
+
+client_header()
+{
+    local idl=$(basename "$1")
+    echo ${idl%.idl}_client.h
+}
+
+if [ "$#" != 2 ] ; then
+    usage
+fi
+
+includes="$1"
+idl="$2"
+
+stubs=$(client_stubs "$idl")
+header=$(client_header "$idl")
+
+# -I $inludes: locates the .acf files
+
+echo generating client stubs for $(basename $idl)
+xcrun dceidl "$idl" \
+    -server none \
+    -keep c_source \
+    -I "$includes" \
+    -I ${SMBFS_RPC_HEADERS} \
+    -cstub "$SCRATCH/$stubs" \
+    -header "$SCRATCH/$header"
+
+# Since Xcode runs these script once per ARCH, we need to move them
+# into place carefully. We want to replace the files with versions
+# from newer IDL, but we want to do it once, atomically.
+
+if [ "$idl" -nt "${DERIVED_FILES_DIR}/$header" ] ; then
+    rm -f "${DERIVED_FILES_DIR}/$header"
+fi
+
+if [ "$idl" -nt "${DERIVED_FILES_DIR}/$stubs" ] ; then
+    rm -f "${DERIVED_FILES_DIR}/$stubs"
+fi
+
+mv -n "$SCRATCH/$header" "${DERIVED_FILES_DIR}/$header" || true
+mv -n "$SCRATCH/$stubs" "${DERIVED_FILES_DIR}/$stubs" || true

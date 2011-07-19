@@ -34,7 +34,9 @@ prints out a simple help message
 .Pp
 The
 .Nm
-command is deprecated.
+command is deprecated; using a volume UUID in
+.Xr fstab 5
+is preferred.
 .Sh FILES
 .Bl -tag -width "/Users/joeuser/Library/really_long_file_name" -compact
 .It Pa /var/db/volinfo.database
@@ -43,4 +45,5 @@ Database of volumes managed via
 .El
 .Sh SEE ALSO
 .Xr diskutil 8 ,
-.Xr mount 8
+.Xr mount 8 ,
+.Xr fstab 5

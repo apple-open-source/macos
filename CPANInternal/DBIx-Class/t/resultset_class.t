@@ -11,7 +11,7 @@ plan tests => 5;
 
 use DBICTest;
 
-is(DBICTest::Schema->source('Artist')->resultset_class, 'DBIx::Class::ResultSet', 'default resultset class');
+is(DBICTest::Schema->source('Artist')->resultset_class, 'DBICTest::BaseResultSet', 'default resultset class');
 ok(!Class::Inspector->loaded('DBICNSTest::ResultSet::A'), 'custom resultset class not loaded');
 DBICTest::Schema->source('Artist')->resultset_class('DBICNSTest::ResultSet::A');
 ok(Class::Inspector->loaded('DBICNSTest::ResultSet::A'), 'custom resultset class loaded automatically');

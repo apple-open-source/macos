@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,7 +66,7 @@ public:
 //
 class ArchEditor : public DiskRep::Writer {
 public:
-	ArchEditor(Universal &fat, uint32_t attrs = 0);
+	ArchEditor(Universal &fat, CodeDirectory::HashAlgorithm hashType, uint32_t attrs);
 	virtual ~ArchEditor();
 
 public:
@@ -82,7 +82,8 @@ public:
 		InternalRequirements ireqs;		// consolidated internal requirements
 		size_t blobSize;				// calculated SuperBlob size
 		
-		Arch(const Architecture &arch) : architecture(arch) { }
+		Arch(const Architecture &arch, CodeDirectory::HashAlgorithm hashType)
+			: architecture(arch), cdbuilder(hashType) { }
 	};
 
 	//
@@ -112,7 +113,7 @@ protected:
 //
 class BlobEditor : public ArchEditor {
 public:
-	BlobEditor(Universal &fat, SecCodeSigner::Signer &s) : ArchEditor(fat), signer(s) { }
+	BlobEditor(Universal &fat, SecCodeSigner::Signer &s);
 	
 	SecCodeSigner::Signer &signer;
 	
@@ -130,10 +131,12 @@ private:
 
 //
 // An ArchEditor that writes its signatures into a (fat) binary file.
+// We do this by forking a helper tool (codesign_allocate) and asking
+// it to make a copy with suitable space "opened up" in the right spots.
 //
 class MachOEditor : public ArchEditor, private UnixPlusPlus::Child {
 public:
-	MachOEditor(DiskRep::Writer *w, Universal &code, std::string srcPath);
+	MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithm hashType, std::string srcPath);
 	~MachOEditor();
 
 	const RefPointer<DiskRep::Writer> writer;
@@ -147,13 +150,16 @@ public:
 	void commit();
 	
 private:
+	// fork operation
 	void childAction();
 	void parentAction();
 	
+	// controlling the temporary file copy
 	Universal *mNewCode;
 	UnixPlusPlus::AutoFileDesc mFd;
 	bool mTempMayExist;
 	
+	// finding and managing the helper tool
 	const char *mHelperPath;
 	bool mHelperOverridden;
 };

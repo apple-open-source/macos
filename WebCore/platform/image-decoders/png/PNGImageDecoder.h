@@ -36,14 +36,18 @@ namespace WebCore {
     // This class decodes the PNG image format.
     class PNGImageDecoder : public ImageDecoder {
     public:
-        PNGImageDecoder();
+        PNGImageDecoder(ImageSource::AlphaOption, ImageSource::GammaAndColorProfileOption);
         virtual ~PNGImageDecoder();
 
         // ImageDecoder
         virtual String filenameExtension() const { return "png"; }
         virtual bool isSizeAvailable();
         virtual bool setSize(unsigned width, unsigned height);
-        virtual RGBA32Buffer* frameBufferAtIndex(size_t index);
+        virtual ImageFrame* frameBufferAtIndex(size_t index);
+        // CAUTION: setFailed() deletes |m_reader|.  Be careful to avoid
+        // accessing deleted memory, especially when calling this from inside
+        // PNGImageReader!
+        virtual bool setFailed();
 
         // Callbacks from libpng
         void headerAvailable();
@@ -52,7 +56,7 @@ namespace WebCore {
 
         bool isComplete() const
         {
-            return !m_frameBufferCache.isEmpty() && (m_frameBufferCache.first().status() == RGBA32Buffer::FrameComplete);
+            return !m_frameBufferCache.isEmpty() && (m_frameBufferCache.first().status() == ImageFrame::FrameComplete);
         }
 
     private:
@@ -62,6 +66,7 @@ namespace WebCore {
         void decode(bool onlySize);
 
         OwnPtr<PNGImageReader> m_reader;
+        bool m_doNothingOnFailure;
     };
 
 } // namespace WebCore

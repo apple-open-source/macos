@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <security_utilities/cfutilities.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+
 //
 // CF boilerplate
 //
@@ -58,7 +59,6 @@ OSStatus SecTrustCreateWithCertificates(
     END_SECAPI
 }
 
-
 OSStatus
 SecTrustSetPolicies(SecTrustRef trustRef, CFTypeRef policies)
 {
@@ -67,6 +67,23 @@ SecTrustSetPolicies(SecTrustRef trustRef, CFTypeRef policies)
 	END_SECAPI
 }
 
+OSStatus
+SecTrustSetOptions(SecTrustRef trustRef, SecTrustOptionFlags options)
+{
+	BEGIN_SECAPI
+	CSSM_APPLE_TP_ACTION_DATA actionData = {
+		CSSM_APPLE_TP_ACTION_VERSION,
+		(CSSM_APPLE_TP_ACTION_FLAGS)options
+	};
+	Trust *trust = Trust::required(trustRef);
+	CFDataRef actionDataRef = CFDataCreate(NULL,
+		(const UInt8 *)&actionData,
+		(CFIndex)sizeof(CSSM_APPLE_TP_ACTION_DATA));
+	trust->action(CSSM_TP_ACTION_DEFAULT);
+	trust->actionData(actionDataRef);
+	if (actionDataRef) CFRelease(actionDataRef);
+	END_SECAPI
+}
 
 OSStatus SecTrustSetParameters(
     SecTrustRef trustRef,
@@ -91,8 +108,8 @@ OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCerti
 OSStatus SecTrustSetAnchorCertificatesOnly(SecTrustRef trust, Boolean anchorCertificatesOnly)
 {
     BEGIN_SECAPI
-	//FIXME: requires implementation
-    return errSecUnimplemented;
+    Trust::AnchorPolicy policy = (anchorCertificatesOnly) ? Trust::useAnchorsOnly : Trust::useAnchorsAndBuiltIns;
+    Trust::required(trust)->anchorPolicy(policy);
     END_SECAPI
 }
 
@@ -143,6 +160,22 @@ OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
     END_SECAPI
 }
 
+OSStatus SecTrustEvaluateAsync(SecTrustRef trust,
+	dispatch_queue_t queue, SecTrustCallback result)
+{
+	BEGIN_SECAPI
+	dispatch_async(queue, ^{
+		try {
+			Trust *trustObj = Trust::required(trust);
+			trustObj->evaluate();
+			result(trust, trustObj->result());
+		}
+		catch (...) {
+			result(trust, kSecTrustResultInvalid);
+		};
+	});
+	END_SECAPI
+}
 
 //
 // Construct the "official" result evidence and return it
@@ -161,6 +194,17 @@ OSStatus SecTrustGetResult(
     END_SECAPI
 }
 
+//
+// Retrieve result of trust evaluation only
+//
+OSStatus SecTrustGetTrustResult(SecTrustRef trustRef,
+	SecTrustResultType *result)
+{
+    BEGIN_SECAPI
+    Trust *trust = Trust::required(trustRef);
+    if (result) *result = trust->result();
+    END_SECAPI
+}
 
 //
 // Retrieve extended validation trust results
@@ -247,25 +291,32 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 {
 	SecKeyRef pubKey = NULL;
 	CFArrayRef certChain = NULL;
+	CFArrayRef evidenceChain = NULL;
+	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
     OSStatus __secapiresult;
 	try {
 		Trust *trustObj = Trust::required(trust);
-		CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
-		// buildEvidence will throw an error if trust is not yet evaluated
-		trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
-		__secapiresult = noErr;
+		if (trustObj->result() == kSecTrustResultInvalid)
+			MacOSError::throwMe(errSecTrustNotAvailable);
+		if (trustObj->evidence() == nil)
+			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		evidenceChain = trustObj->evidence();
+		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
 	catch (...) { __secapiresult=internalComponentErr; }
+
+	if (certChain)
+		CFRelease(certChain);
 	
-	if (certChain) {
-		if (CFArrayGetCount(certChain) > 0) {
-			SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(certChain, 0);
+	if (evidenceChain) {
+		if (CFArrayGetCount(evidenceChain) > 0) {
+			SecCertificateRef cert = (SecCertificateRef) CFArrayGetValueAtIndex(evidenceChain, 0);
 			__secapiresult = SecCertificateCopyPublicKey(cert, &pubKey);
 		}
-		CFRelease(certChain);
+		// do not release evidenceChain, as it is owned by the trust object.
 	}
     return pubKey;
 }
@@ -274,19 +325,30 @@ SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
 CFIndex SecTrustGetCertificateCount(SecTrustRef trust)
 {
 	CFIndex chainLen = 0;
+	CFArrayRef certChain = NULL;
+	CFArrayRef evidenceChain = NULL;
+	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
     OSStatus __secapiresult;
 	try {
-		//FIXME: implementation required
-		// - trust reference is required
-		// - check that trust reference has been evaluated first
-		// - return number of certificates in chain
-		
+		Trust *trustObj = Trust::required(trust);
+		if (trustObj->result() == kSecTrustResultInvalid)
+			MacOSError::throwMe(errSecTrustNotAvailable);
+		if (trustObj->evidence() == nil)
+			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		evidenceChain = trustObj->evidence();
 		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
 	catch (...) { __secapiresult=internalComponentErr; }
+
+	if (certChain)
+		CFRelease(certChain);
+
+	if (evidenceChain)
+		chainLen = CFArrayGetCount(evidenceChain); // don't release, trust object owns it.
+
     return chainLen;
 }
 
@@ -294,23 +356,57 @@ CFIndex SecTrustGetCertificateCount(SecTrustRef trust)
 SecCertificateRef SecTrustGetCertificateAtIndex(SecTrustRef trust, CFIndex ix)
 {
 	SecCertificateRef certificate = NULL;
+	CFArrayRef certChain = NULL;
+	CFArrayRef evidenceChain = NULL;
+	CSSM_TP_APPLE_EVIDENCE_INFO *statusChain = NULL;
     OSStatus __secapiresult;
 	try {
-		//FIXME: implementation required
-		// - trust reference is required
-		// - check that trust reference has been evaluated first
-		// - return certificate at index
-		
+		Trust *trustObj = Trust::required(trust);
+		if (trustObj->result() == kSecTrustResultInvalid)
+			MacOSError::throwMe(errSecTrustNotAvailable);
+		if (trustObj->evidence() == nil)
+			trustObj->buildEvidence(certChain, TPEvidenceInfo::overlayVar(statusChain));
+		evidenceChain = trustObj->evidence();
 		__secapiresult=noErr;
 	}
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); }
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); }
 	catch (const std::bad_alloc &) { __secapiresult=memFullErr; }
 	catch (...) { __secapiresult=internalComponentErr; }
-    return certificate;
+
+	if (certChain)
+		CFRelease(certChain);
+
+	if (evidenceChain) {
+		if (ix < CFArrayGetCount(evidenceChain)) {
+			certificate = (SecCertificateRef) CFArrayGetValueAtIndex(evidenceChain, ix);
+			// note: we do not retain this certificate. The assumption here is
+			// that the certificate is retained by the trust object, so it is
+			// valid unil the trust is released (or until re-evaluated.)
+			// also note: we do not release the evidenceChain, as it is owned
+			// by the trust object.
+		}
+	}
+	return certificate;
 }
 
-
+/* new in 10.7 */
+CFArrayRef
+SecTrustCopyProperties(SecTrustRef trust)
+{
+	/* can't use SECAPI macros, since this function does not return OSStatus */
+	CFArrayRef result = NULL;
+	try {
+		result = Trust::required(trust)->properties();
+	}
+	catch (...) {
+		if (result) {
+			CFRelease(result);
+			result = NULL;
+		}
+	};
+	return result;
+}
 
 
 /* deprecated in 10.5 */

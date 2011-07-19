@@ -30,8 +30,10 @@ SRCS	= alldig.c allprint.c argv.c argv_split.c attr_clnt.c attr_print0.c \
 	username.c valid_hostname.c vbuf.c vbuf_print.c vstream.c \
 	vstream_popen.c vstring.c vstring_vstream.c watchdog.c writable.c \
 	write_buf.c write_wait.c sane_basename.c format_tv.c allspace.c \
-	allascii.c load_file.c killme_after.c vstream_tweak.c upass_connect.c \
-	upass_listen.c upass_trigger.c \
+	allascii.c load_file.c killme_after.c vstream_tweak.c \
+	unix_pass_listen.c unix_pass_trigger.c edit_file.c inet_windowsize.c \
+	unix_pass_fd_fix.c dict_cache.c valid_utf_8.c dict_thash.c \
+	ip_match.c nbbio.c stream_pass_connect.c \
 	dtrace-postfix.d
 OBJS	= alldig.o allprint.o argv.o argv_split.o attr_clnt.o attr_print0.o \
 	attr_print64.o attr_print_plain.o attr_scan0.o attr_scan64.o \
@@ -64,8 +66,10 @@ OBJS	= alldig.o allprint.o argv.o argv_split.o attr_clnt.o attr_print0.o \
 	username.o valid_hostname.o vbuf.o vbuf_print.o vstream.o \
 	vstream_popen.o vstring.o vstring_vstream.o watchdog.o writable.o \
 	write_buf.o write_wait.o sane_basename.o format_tv.o allspace.o \
-	allascii.o load_file.o killme_after.o vstream_tweak.o upass_connect.o \
-	upass_listen.o upass_trigger.o
+	allascii.o load_file.o killme_after.o vstream_tweak.o \
+	unix_pass_listen.o unix_pass_trigger.o edit_file.o inet_windowsize.o \
+	unix_pass_fd_fix.o dict_cache.o valid_utf_8.o dict_thash.o \
+	ip_match.o nbbio.o stream_pass_connect.o
 HDRS	= argv.h attr.h attr_clnt.h auto_clnt.h base64_code.h binhash.h \
 	chroot_uid.h cidr_match.h clean_env.h connect.h ctable.h dict.h \
 	dict_cdb.h dict_cidr.h dict_db.h dict_dbm.h dict_env.h dict_ht.h \
@@ -85,6 +89,8 @@ HDRS	= argv.h attr.h attr_clnt.h auto_clnt.h base64_code.h binhash.h \
 	stringops.h sys_defs.h timed_connect.h timed_wait.h trigger.h \
 	username.h valid_hostname.h vbuf.h vbuf_print.h vstream.h vstring.h \
 	vstring_vstream.h watchdog.h format_tv.h load_file.h killme_after.h \
+	edit_file.h dict_cache.h dict_thash.h \
+	ip_match.h nbbio.h \
 	dtrace-postfix.h
 TESTSRC	= fifo_open.c fifo_rdwr_bug.c fifo_rdonly_bug.c select_bug.c \
 	stream_test.c dup2_pass_on_exec.c
@@ -102,7 +108,8 @@ TESTPROG= dict_open dup2_pass_on_exec events exec_command fifo_open \
 	inet_addr_list attr_print64 attr_scan64 base64_code attr_print0 \
 	attr_scan0 host_port attr_scan_plain attr_print_plain htable \
 	unix_recv_fd unix_send_fd stream_recv_fd stream_send_fd hex_code \
-	myaddrinfo myaddrinfo4 inet_proto sane_basename format_tv
+	myaddrinfo myaddrinfo4 inet_proto sane_basename format_tv \
+	valid_utf_8 ip_match
 
 LIB_DIR	= ../../lib
 INC_DIR	= ../../include
@@ -148,7 +155,7 @@ shar:
 	@shar $(FILES)
 
 lint:
-	lint $(SRCS)
+	lint $(DEFS) $(SRCS) $(LINTFIX)
 
 clean:
 	rm -f *.o $(LIB) *core $(TESTPROG) junk $(MAKES) *.tmp
@@ -415,11 +422,21 @@ format_tv: $(LIB)
 	$(CC) $(CFLAGS) -DTEST -o $@ $@.c $(LIB) $(SYSLIBS)
 	mv junk $@.o
 
+valid_utf_8: $(LIB)
+	mv $@.o junk
+	$(CC) $(CFLAGS) -DTEST -o $@ $@.c $(LIB) $(SYSLIBS)
+	mv junk $@.o
+
+ip_match: $(LIB)
+	mv $@.o junk
+	$(CC) $(CFLAGS) -DTEST -o $@ $@.c $(LIB) $(SYSLIBS)
+	mv junk $@.o
+
 tests: valid_hostname_test mac_expand_test dict_test unescape_test \
 	hex_quote_test ctable_test inet_addr_list_test base64_code_test \
 	attr_scan64_test attr_scan0_test dict_pcre_test host_port_test \
 	dict_cidr_test attr_scan_plain_test htable_test hex_code_test \
-	myaddrinfo_test format_tv_test
+	myaddrinfo_test format_tv_test ip_match_test name_mask_tests
 
 root_tests:
 
@@ -448,6 +465,8 @@ ctable_test: ctable
 	./ctable <ctable.in >ctable.tmp 2>&1
 	diff ctable.ref ctable.tmp
 	rm -f ctable.tmp
+
+# On Linux, following test may require "modprobe ipv6" to enable IPv6.
 
 inet_addr_list_test: inet_addr_list
 	./inet_addr_list `cat inet_addr_list.in` >inet_addr_list.tmp 2>&1
@@ -497,6 +516,12 @@ dict_cidr_test: dict_open dict_cidr.in dict_cidr.map dict_cidr.ref
 	diff dict_cidr.ref dict_cidr.tmp
 	rm -f dict_cidr.tmp
 
+dict_seq_test: dict_open testdb dict_seq.in dict_seq.ref
+	rm -f testdb.db testdb.dir testdb.pag
+	./dict_open hash:testdb create sync < dict_seq.in > dict_seq.tmp 2>&1
+	diff dict_seq.ref dict_seq.tmp
+	rm -f testdb.db testdb.dir testdb.pag dict_seq.tmp
+
 host_port_test: host_port host_port.in host_port.ref
 	./host_port <host_port.in >host_port.tmp 2>&1
 	diff host_port.ref host_port.tmp
@@ -532,6 +557,65 @@ format_tv_test: format_tv format_tv.in format_tv.ref
 	./format_tv <format_tv.in >format_tv.tmp
 	diff format_tv.ref format_tv.tmp
 	rm -f format_tv.tmp
+
+ip_match_test: ip_match ip_match.in ip_match.ref
+	./ip_match <ip_match.in >ip_match.tmp
+	diff ip_match.ref ip_match.tmp
+	rm -f ip_match.tmp
+
+name_mask_tests: name_mask_test0 name_mask_test1 name_mask_test2 \
+	name_mask_test3 name_mask_test4 name_mask_test5 name_mask_test6 \
+	name_mask_test7 name_mask_test8 name_mask_test9
+
+name_mask_test0: name_mask name_mask.in name_mask.ref0
+	./name_mask IGNORE IGNORE < name_mask.in > name_mask.tmp 2>&0
+	diff name_mask.ref0 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test1: name_mask name_mask.in name_mask.ref1
+	./name_mask NUMBER,WARN NUMBER < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref1 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test2: name_mask name_mask.in name_mask.ref2
+	./name_mask NUMBER,RETURN NUMBER < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref2 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test3: name_mask name_mask.in name_mask.ref3
+	./name_mask WARN NUMBER < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref3 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test4: name_mask name_mask.in name_mask.ref4
+	./name_mask RETURN NUMBER < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref4 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test5: name_mask name_mask.in name_mask.ref5
+	./name_mask NUMBER,WARN RETURN < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref5 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test6: name_mask name_mask.in name_mask.ref6
+	./name_mask NUMBER,WARN WARN < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref6 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test7: name_mask name_mask.in name_mask.ref7
+	./name_mask NUMBER,WARN IGNORE < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref7 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test8: name_mask name_mask.in name_mask.ref8
+	./name_mask NUMBER,WARN NUMBER,COMMA < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref8 name_mask.tmp
+	rm -f name_mask.tmp
+
+name_mask_test9: name_mask name_mask.in name_mask.ref9
+	./name_mask NUMBER,WARN NUMBER,PIPE < name_mask.in > name_mask.tmp 2>&1
+	diff name_mask.ref9 name_mask.tmp
+	rm -f name_mask.tmp
 
 depend: $(MAKES)
 	(sed '1,/^# do not edit/!d' Makefile.in; \
@@ -570,6 +654,7 @@ argv.o: mymalloc.h
 argv.o: sys_defs.h
 argv_split.o: argv.h
 argv_split.o: argv_split.c
+argv_split.o: msg.h
 argv_split.o: mymalloc.h
 argv_split.o: stringops.h
 argv_split.o: sys_defs.h
@@ -738,6 +823,17 @@ dict_alloc.o: sys_defs.h
 dict_alloc.o: vbuf.h
 dict_alloc.o: vstream.h
 dict_alloc.o: vstring.h
+dict_cache.o: argv.h
+dict_cache.o: dict.h
+dict_cache.o: dict_cache.c
+dict_cache.o: dict_cache.h
+dict_cache.o: events.h
+dict_cache.o: msg.h
+dict_cache.o: mymalloc.h
+dict_cache.o: sys_defs.h
+dict_cache.o: vbuf.h
+dict_cache.o: vstream.h
+dict_cache.o: vstring.h
 dict_cdb.o: argv.h
 dict_cdb.o: dict.h
 dict_cdb.o: dict_cdb.c
@@ -807,6 +903,7 @@ dict_ht.o: dict_ht.c
 dict_ht.o: dict_ht.h
 dict_ht.o: htable.h
 dict_ht.o: mymalloc.h
+dict_ht.o: stringops.h
 dict_ht.o: sys_defs.h
 dict_ht.o: vbuf.h
 dict_ht.o: vstream.h
@@ -842,6 +939,7 @@ dict_open.o: dict_cidr.h
 dict_open.o: dict_db.h
 dict_open.o: dict_dbm.h
 dict_open.o: dict_env.h
+dict_open.o: dict_ht.h
 dict_open.o: dict_ni.h
 dict_open.o: dict_nis.h
 dict_open.o: dict_nisplus.h
@@ -851,6 +949,7 @@ dict_open.o: dict_regexp.h
 dict_open.o: dict_sdbm.h
 dict_open.o: dict_static.h
 dict_open.o: dict_tcp.h
+dict_open.o: dict_thash.h
 dict_open.o: dict_unix.h
 dict_open.o: htable.h
 dict_open.o: msg.h
@@ -928,6 +1027,20 @@ dict_tcp.o: vbuf.h
 dict_tcp.o: vstream.h
 dict_tcp.o: vstring.h
 dict_tcp.o: vstring_vstream.h
+dict_thash.o: argv.h
+dict_thash.o: dict.h
+dict_thash.o: dict_thash.c
+dict_thash.o: dict_thash.h
+dict_thash.o: htable.h
+dict_thash.o: iostuff.h
+dict_thash.o: msg.h
+dict_thash.o: mymalloc.h
+dict_thash.o: readlline.h
+dict_thash.o: stringops.h
+dict_thash.o: sys_defs.h
+dict_thash.o: vbuf.h
+dict_thash.o: vstream.h
+dict_thash.o: vstring.h
 dict_unix.o: argv.h
 dict_unix.o: dict.h
 dict_unix.o: dict_unix.c
@@ -962,6 +1075,16 @@ duplex_pipe.o: duplex_pipe.c
 duplex_pipe.o: iostuff.h
 duplex_pipe.o: sane_socketpair.h
 duplex_pipe.o: sys_defs.h
+edit_file.o: edit_file.c
+edit_file.o: edit_file.h
+edit_file.o: msg.h
+edit_file.o: myflock.h
+edit_file.o: mymalloc.h
+edit_file.o: stringops.h
+edit_file.o: sys_defs.h
+edit_file.o: vbuf.h
+edit_file.o: vstream.h
+edit_file.o: vstring.h
 environ.o: environ.c
 environ.o: sys_defs.h
 events.o: events.c
@@ -1129,6 +1252,17 @@ inet_trigger.o: msg.h
 inet_trigger.o: mymalloc.h
 inet_trigger.o: sys_defs.h
 inet_trigger.o: trigger.h
+inet_windowsize.o: inet_windowsize.c
+inet_windowsize.o: iostuff.h
+inet_windowsize.o: msg.h
+inet_windowsize.o: sys_defs.h
+ip_match.o: ip_match.c
+ip_match.o: ip_match.h
+ip_match.o: msg.h
+ip_match.o: mymalloc.h
+ip_match.o: sys_defs.h
+ip_match.o: vbuf.h
+ip_match.o: vstring.h
 killme_after.o: killme_after.c
 killme_after.o: killme_after.h
 killme_after.o: sys_defs.h
@@ -1180,6 +1314,7 @@ mask_addr.o: msg.h
 mask_addr.o: sys_defs.h
 match_list.o: argv.h
 match_list.o: dict.h
+match_list.o: htable.h
 match_list.o: match_list.c
 match_list.o: match_list.h
 match_list.o: match_ops.h
@@ -1194,6 +1329,8 @@ match_list.o: vstring_vstream.h
 match_ops.o: argv.h
 match_ops.o: cidr_match.h
 match_ops.o: dict.h
+match_ops.o: htable.h
+match_ops.o: match_list.h
 match_ops.o: match_ops.c
 match_ops.o: match_ops.h
 match_ops.o: msg.h
@@ -1277,6 +1414,12 @@ name_mask.o: stringops.h
 name_mask.o: sys_defs.h
 name_mask.o: vbuf.h
 name_mask.o: vstring.h
+nbbio.o: events.h
+nbbio.o: msg.h
+nbbio.o: mymalloc.h
+nbbio.o: nbbio.c
+nbbio.o: nbbio.h
+nbbio.o: sys_defs.h
 netstring.o: msg.h
 netstring.o: netstring.c
 netstring.o: netstring.h
@@ -1359,6 +1502,7 @@ safe_getenv.o: sys_defs.h
 safe_open.o: msg.h
 safe_open.o: safe_open.c
 safe_open.o: safe_open.h
+safe_open.o: stringops.h
 safe_open.o: sys_defs.h
 safe_open.o: vbuf.h
 safe_open.o: vstream.h
@@ -1463,6 +1607,11 @@ stream_listen.o: listen.h
 stream_listen.o: msg.h
 stream_listen.o: stream_listen.c
 stream_listen.o: sys_defs.h
+stream_pass_connect.o: connect.h
+stream_pass_connect.o: iostuff.h
+stream_pass_connect.o: msg.h
+stream_pass_connect.o: stream_pass_connect.c
+stream_pass_connect.o: sys_defs.h
 stream_recv_fd.o: iostuff.h
 stream_recv_fd.o: msg.h
 stream_recv_fd.o: stream_recv_fd.c
@@ -1488,7 +1637,6 @@ stream_trigger.o: mymalloc.h
 stream_trigger.o: stream_trigger.c
 stream_trigger.o: sys_defs.h
 stream_trigger.o: trigger.h
-sys_compat.o: iostuff.h
 sys_compat.o: sys_compat.c
 sys_compat.o: sys_defs.h
 timed_connect.o: iostuff.h
@@ -1538,6 +1686,26 @@ unix_listen.o: msg.h
 unix_listen.o: sane_accept.h
 unix_listen.o: sys_defs.h
 unix_listen.o: unix_listen.c
+unix_pass_fd_fix.o: iostuff.h
+unix_pass_fd_fix.o: name_mask.h
+unix_pass_fd_fix.o: sys_defs.h
+unix_pass_fd_fix.o: unix_pass_fd_fix.c
+unix_pass_fd_fix.o: vbuf.h
+unix_pass_fd_fix.o: vstring.h
+unix_pass_listen.o: iostuff.h
+unix_pass_listen.o: listen.h
+unix_pass_listen.o: msg.h
+unix_pass_listen.o: sane_accept.h
+unix_pass_listen.o: sys_defs.h
+unix_pass_listen.o: unix_pass_listen.c
+unix_pass_trigger.o: connect.h
+unix_pass_trigger.o: events.h
+unix_pass_trigger.o: iostuff.h
+unix_pass_trigger.o: msg.h
+unix_pass_trigger.o: mymalloc.h
+unix_pass_trigger.o: sys_defs.h
+unix_pass_trigger.o: trigger.h
+unix_pass_trigger.o: unix_pass_trigger.c
 unix_recv_fd.o: iostuff.h
 unix_recv_fd.o: msg.h
 unix_recv_fd.o: sys_defs.h
@@ -1557,30 +1725,6 @@ unix_trigger.o: unix_trigger.c
 unsafe.o: safe.h
 unsafe.o: sys_defs.h
 unsafe.o: unsafe.c
-upass_connect.o: connect.h
-upass_connect.o: events.h
-upass_connect.o: iostuff.h
-upass_connect.o: msg.h
-upass_connect.o: mymalloc.h
-upass_connect.o: sane_connect.h
-upass_connect.o: sane_socketpair.h
-upass_connect.o: sys_defs.h
-upass_connect.o: timed_connect.h
-upass_connect.o: upass_connect.c
-upass_listen.o: iostuff.h
-upass_listen.o: listen.h
-upass_listen.o: msg.h
-upass_listen.o: sane_accept.h
-upass_listen.o: sys_defs.h
-upass_listen.o: upass_listen.c
-upass_trigger.o: connect.h
-upass_trigger.o: events.h
-upass_trigger.o: iostuff.h
-upass_trigger.o: msg.h
-upass_trigger.o: mymalloc.h
-upass_trigger.o: sys_defs.h
-upass_trigger.o: trigger.h
-upass_trigger.o: upass_trigger.c
 uppercase.o: stringops.h
 uppercase.o: sys_defs.h
 uppercase.o: uppercase.c
@@ -1597,6 +1741,11 @@ valid_hostname.o: valid_hostname.c
 valid_hostname.o: valid_hostname.h
 valid_hostname.o: vbuf.h
 valid_hostname.o: vstring.h
+valid_utf_8.o: stringops.h
+valid_utf_8.o: sys_defs.h
+valid_utf_8.o: valid_utf_8.c
+valid_utf_8.o: vbuf.h
+valid_utf_8.o: vstring.h
 vbuf.o: sys_defs.h
 vbuf.o: vbuf.c
 vbuf.o: vbuf.h

@@ -16,13 +16,14 @@
 #ifndef LLVM_ADT_FOLDINGSET_H
 #define LLVM_ADT_FOLDINGSET_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 #include "llvm/ADT/SmallVector.h"
-#include <string>
+#include "llvm/ADT/StringRef.h"
 
 namespace llvm {
   class APFloat;
   class APInt;
+  class BumpPtrAllocator;
 
 /// This folding set used for two purposes:
 ///   1. Given information about a node we want to create, look up the unique
@@ -50,7 +51,7 @@ namespace llvm {
 ///    public:
 ///      MyNode(const char *N, unsigned V) : Name(N), Value(V) {}
 ///       ...
-///      void Profile(FoldingSetNodeID &ID) {
+///      void Profile(FoldingSetNodeID &ID) const {
 ///        ID.AddString(Name);
 ///        ID.AddInteger(Value);
 ///       }
@@ -198,6 +199,23 @@ template<typename T> struct FoldingSetTrait {
 };
 
 //===--------------------------------------------------------------------===//
+/// FoldingSetNodeIDRef - This class describes a reference to an interned
+/// FoldingSetNodeID, which can be a useful to store node id data rather
+/// than using plain FoldingSetNodeIDs, since the 32-element SmallVector
+/// is often much larger than necessary, and the possibility of heap
+/// allocation means it requires a non-trivial destructor call.
+class FoldingSetNodeIDRef {
+  unsigned* Data;
+  size_t Size;
+public:
+  FoldingSetNodeIDRef() : Data(0), Size(0) {}
+  FoldingSetNodeIDRef(unsigned *D, size_t S) : Data(D), Size(S) {}
+
+  unsigned *getData() const { return Data; }
+  size_t getSize() const { return Size; }
+};
+
+//===--------------------------------------------------------------------===//
 /// FoldingSetNodeID - This class is used to gather all the unique data bits of
 /// a node.  When all the bits are gathered this class is used to produce a
 /// hash value for the node.
@@ -210,11 +228,8 @@ class FoldingSetNodeID {
 public:
   FoldingSetNodeID() {}
 
-  /// getRawData - Return the ith entry in the Bits data.
-  ///
-  unsigned getRawData(unsigned i) const {
-    return Bits[i];
-  }
+  FoldingSetNodeID(FoldingSetNodeIDRef Ref)
+    : Bits(Ref.getData(), Ref.getData() + Ref.getSize()) {}
 
   /// Add* - Add various data types to Bit data.
   ///
@@ -226,9 +241,7 @@ public:
   void AddInteger(long long I);
   void AddInteger(unsigned long long I);
   void AddBoolean(bool B) { AddInteger(B ? 1U : 0U); }
-  void AddString(const char* String, const char* End);
-  void AddString(const std::string &String);
-  void AddString(const char* String);
+  void AddString(StringRef String);
 
   template <typename T>
   inline void Add(const T& x) { FoldingSetTrait<T>::Profile(x, *this); }
@@ -244,6 +257,11 @@ public:
   /// operator== - Used to compare two nodes to each other.
   ///
   bool operator==(const FoldingSetNodeID &RHS) const;
+
+  /// Intern - Copy this node's data to a memory region allocated from the
+  /// given allocator and return a FoldingSetNodeIDRef describing the
+  /// interned data.
+  FoldingSetNodeIDRef Intern(BumpPtrAllocator &Allocator) const;
 };
 
 // Convenience type to hide the implementation of the folding set.
@@ -435,6 +453,20 @@ public:
 
   operator T&() { return data; }
   operator const T&() const { return data; }
+};
+
+//===----------------------------------------------------------------------===//
+/// FastFoldingSetNode - This is a subclass of FoldingSetNode which stores
+/// a FoldingSetNodeID value rather than requiring the node to recompute it
+/// each time it is needed. This trades space for speed (which can be
+/// significant if the ID is long), and it also permits nodes to drop
+/// information that would otherwise only be required for recomputing an ID.
+class FastFoldingSetNode : public FoldingSetNode {
+  FoldingSetNodeID FastID;
+protected:
+  explicit FastFoldingSetNode(const FoldingSetNodeID &ID) : FastID(ID) {}
+public:
+  void Profile(FoldingSetNodeID& ID) { ID = FastID; }
 };
 
 //===----------------------------------------------------------------------===//

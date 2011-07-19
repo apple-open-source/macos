@@ -133,7 +133,7 @@ ok(			$is_num[6], '... looks_like_number : 1 -> true');
 
 ## testing neat
 
-cmp_ok($DBI::neat_maxlen, '==',  400, "... $DBI::neat_maxlen initial state is 400");
+cmp_ok($DBI::neat_maxlen, '==',  1000, "... $DBI::neat_maxlen initial state is 400");
 
 is(neat(1 + 1), "2",	 '... neat : 1 + 1 -> "2"');
 is(neat("2"),   "'2'",   '... neat : 2 -> "\'2\'"');

@@ -124,6 +124,7 @@ private:
         IONotifier *            publishNotify;
         OSArray *               inputInterruptElementArray;
 		bool                    performTickle;
+        bool                    performWakeTickle;
 		IOHIDInterface *        interfaceNub;
         IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
@@ -173,7 +174,7 @@ private:
 
     
     static bool _publishNotificationHandler( void * target, 
-				void * ref, IOService * newService );
+				void * ref, IOService * newService, IONotifier * notifier );
     
 protected:
 
@@ -327,6 +328,18 @@ public:
 */
 
     virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);    
+
+/*! @function message
+    @abstract Receives messages delivered from an attached provider.
+    @discussion Handles the <code>kIOMessageDeviceSignaledWakeup</code> message
+    from a provider identifying the IOHIDDevice as the wakeup source.
+    @param type A type defined in <code>IOMessage.h</code>.
+    @param provider The provider from which the message originates.
+    @param argument An argument defined by the message type.
+    @result An IOReturn code defined by the message type.
+*/
+
+    virtual IOReturn message( UInt32 type, IOService * provider,  void * argument = 0 );
 
 /*! @function newTransportString
     @abstract Returns a string object that describes the transport

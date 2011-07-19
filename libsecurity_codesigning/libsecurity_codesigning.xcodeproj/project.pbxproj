@@ -162,6 +162,10 @@
 		C2EF10130A49BD89005A44BB /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
 		C2F656930BCBFFF40078779E /* cserror.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F6566D0BCBFB250078779E /* cserror.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB30C9210DAC89D00557BA2 /* SecTask.c */; };
+		FEB30C9E10DAC8FD00557BA2 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FEB30CA310DAC91800557BA2 /* SecTask.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; };
+		FEB30CA410DAC97400557BA2 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -236,6 +240,7 @@
 			dstPath = SecurityPieces/Headers/Security;
 			dstSubfolderSpec = 16;
 			files = (
+				FEB30CA310DAC91800557BA2 /* SecTask.h in CopyFiles */,
 				C2D3839B0A238150005C63A2 /* CodeSigning.h in CopyFiles */,
 				C2D383910A23803A005C63A2 /* CSCommon.h in CopyFiles */,
 				C2D383920A23803A005C63A2 /* SecCode.h in CopyFiles */,
@@ -370,8 +375,11 @@
 		C2E911E10ADEBE3200275CB2 /* resources.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = resources.h; sourceTree = "<group>"; };
 		C2EF100E0A49BD89005A44BB /* renum.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = renum.cpp; sourceTree = "<group>"; };
 		C2EF100F0A49BD89005A44BB /* renum.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = renum.h; sourceTree = "<group>"; };
+		C2F6071B107D575700A83618 /* codesign-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "codesign-watch.d"; path = "dtrace/codesign-watch.d"; sourceTree = SOURCE_ROOT; };
 		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
 		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
+		FEB30C9210DAC89D00557BA2 /* SecTask.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecTask.c; sourceTree = "<group>"; };
+		FEB30C9410DAC8A500557BA2 /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTask.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -414,6 +422,7 @@
 				C26AC6FF0DAEB2D0005BFB40 /* DTrace */,
 				C2CCF0360A3F524B0085795A /* Local Utilities */,
 				C2CC31160B852554005FA59D /* Security Plugins */,
+				FEB30C9110DAC6C400557BA2 /* Entitlements */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -455,6 +464,7 @@
 			isa = PBXGroup;
 			children = (
 				C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */,
+				C2F6071B107D575700A83618 /* codesign-watch.d */,
 			);
 			name = DTrace;
 			sourceTree = "<group>";
@@ -643,6 +653,15 @@
 			path = cstemp;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
+		FEB30C9110DAC6C400557BA2 /* Entitlements */ = {
+			isa = PBXGroup;
+			children = (
+				FEB30C9410DAC8A500557BA2 /* SecTask.h */,
+				FEB30C9210DAC89D00557BA2 /* SecTask.c */,
+			);
+			name = Entitlements;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -650,6 +669,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FEB30C9E10DAC8FD00557BA2 /* SecTask.h in Headers */,
 				C2E8AF2A0DE25D11000F6D3B /* SecCodePriv.h in Headers */,
 				C2E8AF2B0DE25D11000F6D3B /* SecStaticCodePriv.h in Headers */,
 				C2E8AF2C0DE25D11000F6D3B /* SecRequirementPriv.h in Headers */,
@@ -697,6 +717,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FEB30CA410DAC97400557BA2 /* SecTask.h in Headers */,
 				C26FF62F0E5B376B00F640A0 /* CodeSigning.h in Headers */,
 				C26FF6300E5B376B00F640A0 /* CSCommon.h in Headers */,
 				C26FF6310E5B376B00F640A0 /* CSCommonPriv.h in Headers */,
@@ -818,7 +839,14 @@
 			isa = PBXProject;
 			buildConfigurationList = C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_codesigning" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
@@ -959,6 +987,7 @@
 				C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */,
 				C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */,
 				C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */,
+				FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1062,7 +1091,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55005;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1080,7 +1109,6 @@
 				LIBRARY_STYLE = "\U0001STATIC";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1114,7 +1142,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55005;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1130,7 +1158,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1164,7 +1191,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55005;
+				CURRENT_PROJECT_VERSION = 55004;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1180,7 +1207,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1211,6 +1237,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
@@ -1222,6 +1249,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
@@ -1233,6 +1261,7 @@
 			buildSettings = {
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				OTHER_CFLAGS = "$(SEC_DEFINES)";
 				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";

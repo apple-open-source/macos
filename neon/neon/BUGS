@@ -30,8 +30,18 @@ Pragma: no-cache
 Connection: close
 W8޳����s0��
 
+* for a server with multiple A addresses, a successful connect() will
+  "pin" that address for future attempts to connect.  If subsequently
+  a connect() fails, neon should at least iterate through the entire
+  address list and at best should do the DNS lookup again.
+
+* should 207 code strclean the error string from the response body?
+
 * load_client_cert fails with:
 
   load_client_cert: (did not fail to load clicert without pkey)
 
   on RHEL4 openssl.
+
+* --with-ca-bundle only allows trusting a PEM bundle; support
+  by directory as well

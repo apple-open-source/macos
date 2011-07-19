@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2008, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2008, 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sslgen.h,v 1.18 2009-05-04 21:57:14 bagder Exp $
  ***************************************************************************/
 
 bool Curl_ssl_config_matches(struct ssl_config_data* data,
@@ -45,14 +44,7 @@ CURLcode Curl_ssl_set_engine(struct SessionHandle *data, const char *engine);
 /* Sets engine as default for all SSL operations */
 CURLcode Curl_ssl_set_engine_default(struct SessionHandle *data);
 struct curl_slist *Curl_ssl_engines_list(struct SessionHandle *data);
-ssize_t Curl_ssl_send(struct connectdata *conn,
-                      int sockindex,
-                      const void *mem,
-                      size_t len);
-ssize_t Curl_ssl_recv(struct connectdata *conn, /* connection data */
-                      int sockindex,            /* socketindex */
-                      char *mem,                /* store read data here */
-                      size_t len);              /* max amount to read */
+
 /* init the SSL session ID cache */
 CURLcode Curl_ssl_initsessions(struct SessionHandle *, long);
 size_t Curl_ssl_version(char *buffer, size_t size);
@@ -87,8 +79,8 @@ void Curl_ssl_delsessionid(struct connectdata *conn, void *ssl_sessionid);
 #define Curl_ssl_set_engine(x,y) CURLE_FAILED_INIT
 #define Curl_ssl_set_engine_default(x) CURLE_FAILED_INIT
 #define Curl_ssl_engines_list(x) NULL
-#define Curl_ssl_send(a,b,c,d) -1
-#define Curl_ssl_recv(a,b,c,d) -1
+#define Curl_ssl_send(a,b,c,d,e) -1
+#define Curl_ssl_recv(a,b,c,d,e) -1
 #define Curl_ssl_initsessions(x,y) CURLE_OK
 #define Curl_ssl_version(x,y) 0
 #define Curl_ssl_data_pending(x,y) 0

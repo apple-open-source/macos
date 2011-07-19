@@ -1,0 +1,77 @@
+.TH XvPutImage __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvPutImage, XvShmPutImage \- display an XvImage
+.\"
+.SH SYNOPSIS
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "int XvPutImage (Display *" dpy ", XvPortID " port ","
+.BI "                Drawable " d ", GC " gc ", XvImage *" image ","
+.BI "                int " src_x ", int " src_y ","
+.BI "                unsigned int " src_w ", unsigned int " src_h ","
+.BI "                int " dest_x ", int " dest_y ","
+.BI "                unsigned int " dest_w ", unsigned int " dest_h ");"
+.sp
+.BI "int XvShmPutImage (Display *" dpy ", XvPortID " port ","
+.BI "                   Drawable " d ", GC " gc ", XvImage *" image ","
+.BI "                   int " src_x ", int " src_y ","
+.BI "                   unsigned int " src_w ", unsigned int " src_h ","
+.BI "                   int " dest_x ", int " dest_y ","
+.BI "                   unsigned int " dest_w ", unsigned int " dest_h ","
+.BI "                   Bool " send_event ");"
+.fi
+.SH ARGUMENTS
+.\"
+.IP \fIdpy\fR 8
+Specifies the connection to the X server.
+.IP \fIport\fR 8
+The port id of a port on an XvImage capable adaptor.
+.IP \fId - The target drawable.
+.IP \fIgc\fR 8
+the graphics context specifying the clip mask to use, if any.
+.IP \fIimage\fR 8
+A pointer to the XvImage to be displayed.
+.IP \fIsrc_?\fR 8
+The portion of the XvImage to be displayed.
+.IP \fIdest_?\fR 8
+The portion of the destination drawable to be filled by the image.
+.IP \fIsend_event\fR 8
+Indicates whether or not an XShmCompletionEvent should be sent.  If
+sent, the event's major_code and minor_code fields will indicate the
+Xv extension's major code and XvShmPutImage's minor code.
+.\"
+.SH DESCRIPTION
+.BR XvPutImage (__libmansuffix__)
+is similar to
+.BR XPutImage (__libmansuffix__).
+.BR XvShmPutImage (__libmansuffix__)
+is similar to
+.BR XShmPutImage (__libmansuffix__).
+The library will allocate the XvImage structure and fill out all
+fields except for \fIdata\fR.  \fIWidth\fR and \fIheight\fR may be
+enlarged in some YUV formats.  The size of the data buffer that needs
+to be allocated will be given in the \fIdata_size\fR field in the XvImage.
+Image data is not allocated by this function.  The client may pass a pointer
+to the preallocated memory as \fIdata\fR or may allocate the memory and fill in
+the XvImage structure's data field after the \fIdata_size\fR field has
+been filled out by the server.  The XvImage structure may be freed by
+.BR XFree (__libmansuffix__).
+.SH DIAGNOSTICS
+.IP [XvBadPort] 8
+Generated if the requested port does not exist.
+.IP [XvBadAlloc] 8
+Generated if the X server was unable to allocate resources required
+to complete the operation.
+.IP [BadMatch] 8
+Generated if incompatible arguments were supplied, such as a port that
+isn't capable of displaying XvImages.
+.IP [BadShmSegCode] 8
+Generated if an invalid shared memory segment is specified.
+.\"
+.SH SEE ALSO
+.BR XvListImageFormats (__libmansuffix__),
+.BR XvCreateImage (__libmansuffix__),
+.BR XvShmCreateImage (__libmansuffix__)
+.BR XPutImage (__libmansuffix__),
+.BR XShmPutImage (__libmansuffix__)

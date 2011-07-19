@@ -4,7 +4,7 @@
 # Copyright (c) 2001 by Ideogramic ApS and other parties.
 # All rights reserved.
 #
-# RCS: @(#) $Id: geometry.test,v 1.10 2006/10/09 21:41:41 andreas_kupries Exp $
+# RCS: @(#) $Id: geometry.test,v 1.13 2010/04/06 17:02:25 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -178,11 +178,11 @@ test geometry-8.1 {geometry::polylinesIntersect, } {
 # findLineIntersection
 ###
 test geometry-9.1 {geometry::findLineIntersection, first line vertical} {
-    ::math::geometry::findLineIntersection {7 8 7 28} {3 14 17 21}
-} {7 16.0}
+    eval withFourDecimals [::math::geometry::findLineIntersection {7 8 7 28} {3 14 17 21}]
+} {7.0 16.0}
 test geometry-9.2 {geometry::findLineIntersection, second line vertical} {
-    ::math::geometry::findLineIntersection {3 14 17 21} {7 8 7 28}
-} {7 16.0}
+    eval withFourDecimals [::math::geometry::findLineIntersection {3 14 17 21} {7 8 7 28}]
+} {7.0 16.0}
 test geometry-9.3 {geometry::findLineIntersection, both lines vertical - coincident} {
     ::math::geometry::findLineIntersection {7 8 7 28} {7 14 7 21}
 } "coincident"
@@ -190,10 +190,10 @@ test geometry-9.4 {geometry::findLineIntersection, both lines vertical - no inte
     ::math::geometry::findLineIntersection {7 8 7 28} {8 14 8 21}
 } "none"
 test geometry-9.5 {geometry::findLineIntersection, first line horizontal} {
-    ::math::geometry::findLineIntersection {2 3 10 3} {4 5 7 2}
+    eval withFourDecimals [::math::geometry::findLineIntersection {2 3 10 3} {4 5 7 2}]
 } {6.0 3.0}
 test geometry-9.6 {geometry::findLineIntersection, second line horizontal} {
-    ::math::geometry::findLineIntersection {4 5 7 2} {2 3 10 3}
+    eval withFourDecimals [::math::geometry::findLineIntersection {4 5 7 2} {2 3 10 3}]
 } {6.0 3.0}
 test geometry-9.7 {geometry::findLineIntersection, both lines horizontal - coincident} {
     ::math::geometry::findLineIntersection {8 7 28 7} {14 7 21 7}
@@ -202,7 +202,7 @@ test geometry-9.8 {geometry::findLineIntersection, both lines horizontal - no in
     ::math::geometry::findLineIntersection {8 7 28 7} {14 8 21 8}
 } "none"
 test geometry-9.9 {geometry::findLineIntersection, both lines skaeve - with intersection} {
-    ::math::geometry::findLineIntersection {3 2 9 4} {4 5 7 2}
+    eval withFourDecimals [::math::geometry::findLineIntersection {3 2 9 4} {4 5 7 2}]
 } {6.0 3.0}
 test geometry-9.10 {geometry::findLineIntersection, both lines skaeve - coincident} {
     ::math::geometry::findLineIntersection {3 2 9 4} {6 3 12 5}
@@ -210,6 +210,25 @@ test geometry-9.10 {geometry::findLineIntersection, both lines skaeve - coincide
 test geometry-9.11 {geometry::findLineIntersection, both lines skaeve - no intersection} {
     ::math::geometry::findLineIntersection {3 2 9 4} {3 12 9 14}
 } "none"
+
+test geometry-9.12 {geometry::findLineIntersection, vertical} {
+    eval withFourDecimals [::math::geometry::findLineIntersection {110.0 130.0 110.0 30.0} {180.0 200.0 280.0 200.0}]
+} {110.0 200.0}
+
+test geometry-9.13 {geometry::findLineIntersection, vertical, ints} {
+    eval withFourDecimals [::math::geometry::findLineIntersection {110 130 110 30} {180 200 280 200}]
+} {110.0 200.0}
+
+test geometry-9.14 {geometry::findLineIntersection, very near vertical, flipped direction} {
+    # This test checks the numerical stability of the algorithm
+    eval withFourDecimals [::math::geometry::findLineIntersection {110.0 130.0 109.99999999999999 230.0} {180.0 200.0 280.0 200.0}]
+} {110.0 200.0}
+
+test geometry-9.15 {geometry::findLineIntersection, vertical, flipped direction} {
+    eval withFourDecimals [::math::geometry::findLineIntersection {110 130 110 230} {180 200 280 200}]
+} {110.0 200.0}
+
+
 
 
 ###
@@ -222,7 +241,7 @@ test geometry-10.2 {geometry::findLineSegmentIntersection, both lines vertical -
     ::math::geometry::findLineSegmentIntersection {1 1 1 2} {1 1.5 1 19}
 } "coincident"
 test geometry-10.3 {geometry::findLineSegmentIntersection, both lines skaeve - with intersection} {
-    ::math::geometry::findLineSegmentIntersection {3 2 9 4} {4 5 7 2}
+    eval withFourDecimals [::math::geometry::findLineSegmentIntersection {3 2 9 4} {4 5 7 2}]
 } {6.0 3.0}
 test geometry-10.4 {geometry::findLineSegmentIntersection, both lines skaeve - coincident} {
     ::math::geometry::findLineSegmentIntersection {3 2 9 4} {6 3 12 5}
@@ -387,6 +406,12 @@ test geometry-15.9 {geometry::pointInsidePolygon, hour-glass with point on right
 test geometry-15.10 {geometry::pointInsidePolygon, infinityLine crosses point instead of line segment} {
     math::geometry::pointInsidePolygon {5 5} {4 4 4 7 7 7 7 4}
 } 1
+test geometry-15.11 {geometry::pointInsidePolygon, polygon already closed} {
+    math::geometry::pointInsidePolygon {5 5} {4 4 4 6 6 6 6 4 4 4}
+} 1
+test geometry-15.12 {geometry::pointInsidePolygon, polygon with zero-length side} {
+    math::geometry::pointInsidePolygon {5 5} {4 4 4 6 6 6 6 6 6 4}
+} 1
 
 
 
@@ -421,7 +446,65 @@ test geometry-16.9 {geometry::rectangleInsidePolygon, infinityLine crosses point
     math::geometry::rectangleInsidePolygon {5 5} {6 6} {4 4 4 7 7 7 7 4}
 } 1
 
+###
+###
+
+test geometry-17.0 {point constructor} {
+    math::geometry::p 1 4
+} {1 4}
+
+test geometry-17.1 {vector addition} {
+    math::geometry::+ {1 4} {5 3}
+} {6 7}
+
+test geometry-17.2 {vector difference} {
+    math::geometry::- {6 7} {5 3}
+} {1 4}
+
+test geometry-17.3 {vector distance} {
+    withFourDecimals [math::geometry::distance {6 7} {5 3}]
+} 4.1231
+
+test geometry-17.4 {vector length} {
+    withFourDecimals [math::geometry::length {1 1}]
+} 1.4142
+
+test geometry-17.5 {vector scale} {
+    math::geometry::s* 5 {1 1}
+} {5 5}
+
+test geometry-17.6 {vector direction} {
+    eval withFourDecimals [math::geometry::direction 0]
+} {1.0 0.0}
+
+test geometry-17.7 {vector direction} {
+    eval withFourDecimals [math::geometry::direction 90]
+} {0.0 -1.0}
+
+test geometry-17.8 {vector vertical} {
+    math::geometry::v 90
+} {0 90}
+
+test geometry-17.9 {vector horizontal} {
+    math::geometry::h 90
+} {90 0}
+
+test geometry-17.10 {point between} {
+    math::geometry::between {0 0} {4 4} 0
+} {0 0}
+
+test geometry-17.11 {point between} {
+    math::geometry::between {0 0} {4 4} 1
+} {4 4}
+
+test geometry-17.12 {point between} {
+    math::geometry::between {0 0} {4 4} 0.5
+} {2.0 2.0}
+
+test geometry-17.13 {octant} {
+    math::geometry::octant {-10 -12}
+} northwest
 
 
-
+###
 testsuiteCleanup

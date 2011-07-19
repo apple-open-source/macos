@@ -98,7 +98,9 @@
 #include "gssapi.h"
 #endif
 #include "vendorid.h"
+#ifdef HAVE_OPENSSL
 #include "rsalist.h"
+#endif
 #include "ipsecConfigTracer.h"
 #include "ipsecMessageTracer.h"
 
@@ -697,6 +699,13 @@ modecfg_stmt
 		{
 #ifdef ENABLE_HYBRID
 			isakmp_cfg_config.pfs_group = $2;
+#ifndef HAVE_OPENSSL
+			if (isakmp_cfg_config.pfs_group != OAKLEY_ATTR_GRP_DESC_MODP1024 
+				&& isakmp_cfg_config.pfs_group != OAKLEY_ATTR_GRP_DESC_MODP1536) {
+				yyerror("PFS group must be 2 or 5");
+				return -1;
+			}
+#endif			
 #else /* ENABLE_HYBRID */
 			yyerror("racoon not configured with --enable-hybrid");
 #endif /* ENABLE_HYBRID */
@@ -1223,6 +1232,13 @@ sainfo_spec
 	:	PFS_GROUP dh_group_num
 		{
 			cur_sainfo->pfs_group = $2;
+#ifndef HAVE_OPENSSL
+			if (cur_sainfo->pfs_group != OAKLEY_ATTR_GRP_DESC_MODP1024 
+					&& cur_sainfo->pfs_group != OAKLEY_ATTR_GRP_DESC_MODP1536) {
+				yyerror("PFS group must be 2 or 5");
+				return -1;
+			}
+#endif
 		}
 		EOS
 	|	LIFETIME LIFETYPE_TIME NUMBER unittype_time
@@ -1410,9 +1426,7 @@ remote_specs_block
 
 			if (cur_rmconf->idvtype == IDTYPE_ASN1DN) {
 				if (cur_rmconf->mycertfile 
-#ifdef __APPLE__
 					|| cur_rmconf->identity_in_keychain) 
-#endif
 				{
 					if (cur_rmconf->idv)
 						yywarn("Both CERT and ASN1 ID "
@@ -1426,8 +1440,7 @@ remote_specs_block
 					return -1;
 				}
 			}
-
-#ifdef __APPLE__			
+			
 			if (cur_rmconf->cert_verification_option == VERIFICATION_OPTION_PEERS_IDENTIFIER) {
 				struct genlist_entry *gpb;
 				if (genlist_next(cur_rmconf->idvl_p, &gpb) == NULL) {
@@ -1436,7 +1449,6 @@ remote_specs_block
 						return -1;
 				}
 			}
-#endif
 
 			if (cur_rmconf->prhead->spspec == NULL
 				&& cur_rmconf->inherited_from
@@ -1512,6 +1524,7 @@ remote_spec
 	|	CERTIFICATE_TYPE cert_spec
 	|	PEERS_CERTFILE QUOTEDSTRING
 		{
+#ifdef HAVE_OPENSSL
 			yywarn("This directive without certtype will be removed!\n");
 			yywarn("Please use 'peers_certfile x509 \"%s\";' instead\n", $2->v);
 			cur_rmconf->getcert_method = ISAKMP_GETCERT_LOCALFILE;
@@ -1521,10 +1534,15 @@ remote_spec
 			cur_rmconf->peerscertfile = racoon_strdup($2->v);
 			STRDUP_FATAL(cur_rmconf->peerscertfile);
 			vfree($2);
+#else
+			yyerror("cert files not supported.\n");
+			return -1;
+#endif
 		}
 		EOS
 	|	CA_TYPE CERT_X509 QUOTEDSTRING
 		{
+#ifdef HAVE_OPENSSL
 			cur_rmconf->cacerttype = $2;
 			cur_rmconf->getcacert_method = ISAKMP_GETCERT_LOCALFILE;
 			if (cur_rmconf->cacertfile != NULL)
@@ -1532,20 +1550,32 @@ remote_spec
 			cur_rmconf->cacertfile = racoon_strdup($3->v);
 			STRDUP_FATAL(cur_rmconf->cacertfile);
 			vfree($3);
+#else
+			yyerror("cert files not supported.\n");
+			return -1;
+#endif
+			
 		}
 		EOS
 	|	PEERS_CERTFILE CERT_X509 QUOTEDSTRING
 		{
+#ifdef HAVE_OPENSSL
 			cur_rmconf->getcert_method = ISAKMP_GETCERT_LOCALFILE;
 			if (cur_rmconf->peerscertfile != NULL)
 				racoon_free(cur_rmconf->peerscertfile);
 			cur_rmconf->peerscertfile = racoon_strdup($3->v);
 			STRDUP_FATAL(cur_rmconf->peerscertfile);
 			vfree($3);
+#else
+				yyerror("cert files not supported.\n");
+				return -1;
+#endif
+			
 		}
 		EOS
 	|	PEERS_CERTFILE CERT_PLAINRSA QUOTEDSTRING
 		{
+#ifdef HAVE_OPENSSL
 			char path[MAXPATHLEN];
 			int ret = 0;
 
@@ -1565,6 +1595,10 @@ remote_spec
 				return -1;
 			}
 			plog(LLV_DEBUG, LOCATION, NULL, "Public PlainRSA keyfile parsed: %s\n", path);
+#else
+			yyerror("plainrsa not supported.\n");
+			return -1;
+#endif
 		}
 		EOS
 	|	PEERS_CERTFILE DNSSEC
@@ -1582,27 +1616,17 @@ remote_spec
 	|	SEND_CR SWITCH { cur_rmconf->send_cr = $2; } EOS
 	|	CERTIFICATE_VERIFICATION VERIFICATION_MODULE 
 		{ 
-#ifdef __APPLE__
 			cur_rmconf->cert_verification = $2; 
-#else
-			yyerror("Apple specific features not compiled in.");
-			return -1;
-#endif
 		} EOS
 	|	CERTIFICATE_VERIFICATION VERIFICATION_MODULE VERIFICATION_OPTION
-		{
-#ifdef __APPLE__			
+		{			
 			cur_rmconf->cert_verification = $2;
 			cur_rmconf->cert_verification_option = $3;
-#else
-			yyerror("Apple specific features not compiled in.");
-			return -1;
-#endif
 		}
 		EOS
 	|	OPEN_DIR_AUTH_GROUP QUOTEDSTRING 
 		{ 
-#if defined(__APPLE__) && HAVE_OPENDIR
+#if HAVE_OPENDIR
 			cur_rmconf->open_dir_auth_group = $2; 
 #else
 			yyerror("Apple specific features not compiled in.");
@@ -1686,27 +1710,16 @@ remote_spec
 	|	VERIFY_IDENTIFIER SWITCH { cur_rmconf->verify_identifier = $2; } EOS
 	|	SHARED_SECRET SECRETTYPE QUOTEDSTRING 
 		{
-#ifdef __APPLE__
 			cur_rmconf->secrettype = $2; 
 			cur_rmconf->shared_secret = $3; 
-#else
-			yyerror("Apple specific features not compiled in.");
-			return -1;
-#endif
 		} EOS
 	|	SHARED_SECRET SECRETTYPE
 		{
-#ifdef __APPLE__
 			if ($2 != SECRETTYPE_KEYCHAIN_BY_ID) {
 				yyerror("shared secret value missing.\n");
 				return -1;
 			}
 			cur_rmconf->secrettype = $2;
-#else
-			yyerror("Apple specific features not compiled in.");
-			return -1;
-#endif
-
 		} EOS
 	|	NONCE_SIZE NUMBER { cur_rmconf->nonce_size = $2; } EOS
 	|	DH_GROUP
@@ -1769,11 +1782,7 @@ remote_spec
 	|	NAT_TRAVERSAL_MULTI_USER SWITCH
 		{
 #ifdef ENABLE_NATT
-#ifdef __APPLE__
 			cur_rmconf->natt_multiple_user = $2;
-#else
-			yyerror("Apple specific features not compiled in.");
-#endif
 #else
 			yyerror("NAT-T support not compiled in.");
 #endif
@@ -1781,11 +1790,7 @@ remote_spec
 	|	NAT_TRAVERSAL_KEEPALIVE SWITCH
 	{
 #ifdef ENABLE_NATT
-#ifdef __APPLE__
 			cur_rmconf->natt_keepalive = $2;
-#else
-			yyerror("Apple specific features not compiled in.");
-#endif
 #else
 			yyerror("NAT-T support not compiled in.");
 #endif
@@ -1913,27 +1918,23 @@ cert_spec
 		EOS
 	|	CERT_X509 IN_KEYCHAIN
 		{
-#ifdef __APPLE__
 			cur_rmconf->certtype = $1;
 			cur_rmconf->identity_in_keychain = 1;
 			cur_rmconf->keychainCertRef = NULL;
-#endif
 		}
 		EOS
 	;
 	|	CERT_X509 IN_KEYCHAIN QUOTEDSTRING
 		{
-#ifdef __APPLE__
-			
 			cur_rmconf->certtype = $1;
 			cur_rmconf->identity_in_keychain = 1;
 			cur_rmconf->keychainCertRef = $3;
-#endif
 		}
 		EOS
 	;
 	|	CERT_PLAINRSA QUOTEDSTRING
 		{
+#ifdef HAVE_OPENSSL
 			char path[MAXPATHLEN];
 			int ret = 0;
 
@@ -1950,6 +1951,10 @@ cert_spec
 				return -1;
 			}
 			plog(LLV_DEBUG, LOCATION, NULL, "Private PlainRSA keyfile parsed: %s\n", path);
+#else
+			yyerror("plainrsa not supported.\n");
+			return -1;
+#endif			
 		}
 		EOS
 	;
@@ -1961,6 +1966,12 @@ dh_group_num
 				yyerror("must be DH group");
 				return -1;
 			}
+#ifndef HAVE_OPENSSL
+			if ($$ != OAKLEY_ATTR_GRP_DESC_MODP1024 && $$ != OAKLEY_ATTR_GRP_DESC_MODP1536) {
+				yyerror("DH group must be 2 or 5");
+				return -1;
+			}
+#endif
 		}
 	|	NUMBER
 		{
@@ -1971,6 +1982,12 @@ dh_group_num
 				$$ = 0;
 				return -1;
 			}
+#ifndef HAVE_OPENSSL
+			if ($$ != OAKLEY_ATTR_GRP_DESC_MODP1024 && $$ != OAKLEY_ATTR_GRP_DESC_MODP1536) {
+				yyerror("DH group must be 2 or 5");
+				return -1;
+			}
+#endif			
 		}
 	;
 identifierstring
@@ -2093,6 +2110,7 @@ isakmpproposal_spec
 					cur_rmconf->prhead->spspec->vendorid =
 					    VENDORID_GSSAPI;
 					break;
+#ifdef HAVE_OPENSSL
 				case algtype_rsasig:
 					if (cur_rmconf->certtype == ISAKMP_CERT_PLAINRSA) {
 						if (rsa_list_count(cur_rmconf->rsa_private) == 0) {
@@ -2107,6 +2125,7 @@ isakmpproposal_spec
 						}
 					}
 					break;
+#endif
 				default:
 					break;
 				}
@@ -2415,13 +2434,11 @@ listen_addr (struct sockaddr *addr, int udp_encap)
 		return -1;
 	}
 	p->udp_encap = udp_encap;
-#ifdef __APPLE__
 	/* These need to be initialized for Apple modifications
 	 * to open code for isakmp sockets 
      */
 	p->sock = -1;
 	p->in_use = 1;
-#endif
 
 	insmyaddr(p, &lcconf->myaddrs);
 
@@ -2508,7 +2525,7 @@ cfparse()
 int
 cfreparse(int sig)
 {
-	int ignore_established_handles = (sig == SIGUSR1);
+	int ignore_estab_or_assert_handles = (sig == SIGUSR1);
 
 	if (sig >= 0 && sig < NSIG) {
 		plog(LLV_DEBUG, LOCATION, NULL, "==== Got %s signal - re-parsing.\n", sys_signame[sig]);
@@ -2520,8 +2537,8 @@ cfreparse(int sig)
                                CONSTSTR("cfreparse: triggered by unknown signal"));
 	}
 
-	flushph2(ignore_established_handles);
-	flushph1(ignore_established_handles);
+	flushph2(ignore_estab_or_assert_handles);
+	flushph1(ignore_estab_or_assert_handles);
 	flushrmconf();
 	flushsainfo();
 	flushlcconf();

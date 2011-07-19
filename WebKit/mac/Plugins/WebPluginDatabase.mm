@@ -45,6 +45,8 @@
 #import <WebKitSystemInterface.h>
 #import <wtf/Assertions.h>
 
+using namespace WebCore;
+
 static void checkCandidate(WebBasePluginPackage **currentPlugin, WebBasePluginPackage **candidatePlugin);
 
 @interface WebPluginDatabase (Internal)
@@ -82,78 +84,107 @@ static void checkCandidate(WebBasePluginPackage **currentPlugin, WebBasePluginPa
         return;
     }
 
-    if ([[[*currentPlugin bundle] bundleIdentifier] isEqualToString:[[*candidatePlugin bundle] bundleIdentifier]] && [*candidatePlugin versionNumber] > [*currentPlugin versionNumber]) 
+    if ([*currentPlugin bundleIdentifier] == [*candidatePlugin bundleIdentifier] && [*candidatePlugin versionNumber] > [*currentPlugin versionNumber]) 
         *currentPlugin = *candidatePlugin;
 }
 
-- (WebBasePluginPackage *)pluginForKey:(NSString *)key withEnumeratorSelector:(SEL)enumeratorSelector
-{
-    WebBasePluginPackage *plugin = nil;
-    WebBasePluginPackage *webPlugin = nil;
+struct PluginPackageCandidates {
+    PluginPackageCandidates()
+        : webPlugin(nil)
+        , machoPlugin(nil)
 #ifdef SUPPORT_CFM
-    WebBasePluginPackage *CFMPlugin = nil;
+        , CFMPlugin(nil)
 #endif
-    WebBasePluginPackage *machoPlugin = nil;    
-
-    NSEnumerator *pluginEnumerator = [plugins objectEnumerator];
-    key = [key lowercaseString];
-
-    while ((plugin = [pluginEnumerator nextObject]) != nil) {
-        if ([[[plugin performSelector:enumeratorSelector] allObjects] containsObject:key]) {
-            if ([plugin isKindOfClass:[WebPluginPackage class]]) 
-                checkCandidate(&webPlugin, &plugin);
-#if ENABLE(NETSCAPE_PLUGIN_API)
-            else if([plugin isKindOfClass:[WebNetscapePluginPackage class]]) {
-                WebExecutableType executableType = [(WebNetscapePluginPackage *)plugin executableType];
-#ifdef SUPPORT_CFM
-                if (executableType == WebCFMExecutableType) {
-                    checkCandidate(&CFMPlugin, &plugin);
-                } else 
-#endif // SUPPORT_CFM
-                if (executableType == WebMachOExecutableType) {
-                    checkCandidate(&machoPlugin, &plugin);
-                } else {
-                    ASSERT_NOT_REACHED();
-                }
-            } else {
-                ASSERT_NOT_REACHED();
-            }
-#endif
-        }
+    {
     }
-
-    // Allow other plug-ins to win over QT because if the user has installed a plug-in that can handle a type
-    // that the QT plug-in can handle, they probably intended to override QT.
-    if (webPlugin && ![webPlugin isQuickTimePlugIn])
-        return webPlugin;
     
-    else if (machoPlugin && ![machoPlugin isQuickTimePlugIn])
-        return machoPlugin;
+    void update(WebBasePluginPackage *plugin)
+    {
+        if ([plugin isKindOfClass:[WebPluginPackage class]]) {
+            checkCandidate(&webPlugin, &plugin);
+            return;
+        }
+            
+#if ENABLE(NETSCAPE_PLUGIN_API)
+        if([plugin isKindOfClass:[WebNetscapePluginPackage class]]) {
+            WebExecutableType executableType = [(WebNetscapePluginPackage *)plugin executableType];
 #ifdef SUPPORT_CFM
-    else if (CFMPlugin && ![CFMPlugin isQuickTimePlugIn])
-        return CFMPlugin;
+            if (executableType == WebCFMExecutableType) {
+                checkCandidate(&CFMPlugin, &plugin);
+                return;
+            }
 #endif // SUPPORT_CFM
-    else if (webPlugin)
-        return webPlugin;
-    else if (machoPlugin)
-        return machoPlugin;
-#ifdef SUPPORT_CFM
-    else if (CFMPlugin)
-        return CFMPlugin;
+            if (executableType == WebMachOExecutableType) {
+                checkCandidate(&machoPlugin, &plugin);
+                return;
+            }
+        }
 #endif
-    return nil;
-}
+        ASSERT_NOT_REACHED();
+    }
+    
+    WebBasePluginPackage *bestCandidate()
+    {
+        // Allow other plug-ins to win over QT because if the user has installed a plug-in that can handle a type
+        // that the QT plug-in can handle, they probably intended to override QT.
+        if (webPlugin && ![webPlugin isQuickTimePlugIn])
+            return webPlugin;
+    
+        if (machoPlugin && ![machoPlugin isQuickTimePlugIn])
+            return machoPlugin;
+        
+#ifdef SUPPORT_CFM
+        if (CFMPlugin && ![CFMPlugin isQuickTimePlugIn])
+            return CFMPlugin;
+#endif // SUPPORT_CFM
+        
+        if (webPlugin)
+            return webPlugin;
+        if (machoPlugin)
+            return machoPlugin;
+#ifdef SUPPORT_CFM
+        if (CFMPlugin)
+            return CFMPlugin;
+#endif
+        return nil;
+    }
+    
+    WebBasePluginPackage *webPlugin;
+    WebBasePluginPackage *machoPlugin;
+#ifdef SUPPORT_CFM
+    WebBasePluginPackage *CFMPlugin;
+#endif
+};
 
 - (WebBasePluginPackage *)pluginForMIMEType:(NSString *)MIMEType
 {
-    return [self pluginForKey:[MIMEType lowercaseString]
-       withEnumeratorSelector:@selector(MIMETypeEnumerator)];
+    PluginPackageCandidates candidates;
+    
+    MIMEType = [MIMEType lowercaseString];
+    NSEnumerator *pluginEnumerator = [plugins objectEnumerator];
+    
+    while (WebBasePluginPackage *plugin = [pluginEnumerator nextObject]) {
+        if ([plugin supportsMIMEType:MIMEType])
+            candidates.update(plugin);
+    }
+    
+    return candidates.bestCandidate();
 }
 
 - (WebBasePluginPackage *)pluginForExtension:(NSString *)extension
 {
-    WebBasePluginPackage *plugin = [self pluginForKey:[extension lowercaseString]
-                               withEnumeratorSelector:@selector(extensionEnumerator)];
+    PluginPackageCandidates candidates;
+    
+    extension = [extension lowercaseString];
+    NSEnumerator *pluginEnumerator = [plugins objectEnumerator];
+    
+    while (WebBasePluginPackage *plugin = [pluginEnumerator nextObject]) {
+        if ([plugin supportsExtension:extension])
+            candidates.update(plugin);
+    }
+    
+    WebBasePluginPackage *plugin = candidates.bestCandidate();
+    
     if (!plugin) {
         // If no plug-in was found from the extension, attempt to map from the extension to a MIME type
         // and find the a plug-in from the MIME type. This is done in case the plug-in has not fully specified
@@ -275,8 +306,11 @@ static NSArray *additionalWebPlugInPaths;
     // Build a list of MIME types.
     NSMutableSet *MIMETypes = [[NSMutableSet alloc] init];
     pluginEnumerator = [plugins objectEnumerator];
-    while ((plugin = [pluginEnumerator nextObject]) != nil)
-        [MIMETypes addObjectsFromArray:[[plugin MIMETypeEnumerator] allObjects]];
+    while ((plugin = [pluginEnumerator nextObject])) {
+        const PluginInfo& pluginInfo = [plugin pluginInfo];
+        for (size_t i = 0; i < pluginInfo.mimes.size(); ++i)
+            [MIMETypes addObject:pluginInfo.mimes[i].type];
+    }
     
     // Register plug-in views and representations.
     NSEnumerator *MIMEEnumerator = [MIMETypes objectEnumerator];
@@ -410,9 +444,10 @@ static NSArray *additionalWebPlugInPaths;
     ASSERT(plugin);
 
     // Unregister plug-in's MIME type registrations
-    NSEnumerator *MIMETypeEnumerator = [plugin MIMETypeEnumerator];
-    NSString *MIMEType;
-    while ((MIMEType = [MIMETypeEnumerator nextObject])) {
+    const PluginInfo& pluginInfo = [plugin pluginInfo];
+    for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
+        NSString *MIMEType = pluginInfo.mimes[i].type;
+
         if ([registeredMIMETypes containsObject:MIMEType]) {
             if (self == sharedDatabase)
                 [WebView _unregisterPluginMIMEType:MIMEType];

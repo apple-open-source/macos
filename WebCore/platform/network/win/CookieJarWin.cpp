@@ -48,13 +48,17 @@ String cookies(const Document* /*document*/, const KURL& url)
 {
     String str = url.string();
 
-    DWORD count = str.length() + 1;
-    InternetGetCookie(str.charactersWithNullTermination(), 0, 0, &count);
+    DWORD count = 0;
+    if (!InternetGetCookie(str.charactersWithNullTermination(), 0, 0, &count))
+        return String();
+
     if (count <= 1) // Null terminator counts as 1.
         return String();
 
     Vector<UChar> buffer(count);
-    InternetGetCookie(str.charactersWithNullTermination(), 0, buffer.data(), &count);
+    if (!InternetGetCookie(str.charactersWithNullTermination(), 0, buffer.data(), &count))
+        return String();
+
     buffer.shrink(count - 1); // Ignore the null terminator.
     return String::adopt(buffer);
 }
@@ -78,6 +82,21 @@ bool getRawCookies(const Document*, const KURL&, Vector<Cookie>& rawCookies)
 }
 
 void deleteCookie(const Document*, const KURL&, const String&)
+{
+    // FIXME: Not yet implemented
+}
+
+void getHostnamesWithCookies(HashSet<String>& hostnames)
+{
+    // FIXME: Not yet implemented
+}
+
+void deleteCookiesForHostname(const String& hostname)
+{
+    // FIXME: Not yet implemented
+}
+
+void deleteAllCookies()
 {
     // FIXME: Not yet implemented
 }

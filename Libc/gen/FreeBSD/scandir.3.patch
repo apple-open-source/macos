@@ -1,8 +1,8 @@
---- scandir.3.orig	2009-05-12 11:21:55.000000000 -0700
-+++ scandir.3	2009-05-20 15:41:07.000000000 -0700
-@@ -32,15 +32,16 @@
+--- scandir.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ scandir.3	2009-11-07 14:51:40.000000000 -0800
+@@ -28,15 +28,16 @@
  .\"     @(#)scandir.3	8.1 (Berkeley) 6/4/93
- .\" $FreeBSD: src/lib/libc/gen/scandir.3,v 1.8 2002/12/19 09:40:21 ru Exp $
+ .\" $FreeBSD: src/lib/libc/gen/scandir.3,v 1.9 2007/01/09 00:27:55 imp Exp $
  .\"
 -.Dd June 4, 1993
 +.Dd May 20, 2008
@@ -20,7 +20,7 @@
  .Sh SYNOPSIS
  .In sys/types.h
  .In dirent.h
-@@ -48,6 +49,10 @@
+@@ -44,6 +45,10 @@
  .Fn scandir "const char *dirname" "struct dirent ***namelist" "int \\*(lp*select\\*(rp\\*(lpstruct dirent *\\*(rp" "int \\*(lp*compar\\*(rp\\*(lpconst void *, const void *\\*(rp"
  .Ft int
  .Fn alphasort "const void *d1" "const void *d2"
@@ -31,7 +31,7 @@
  .Sh DESCRIPTION
  The
  .Fn scandir
-@@ -80,6 +85,13 @@
+@@ -76,6 +81,13 @@ argument is a pointer to a user supplied
  .Xr qsort 3
  to sort the completed array.
  If this pointer is null, the array is not sorted.
@@ -45,7 +45,7 @@
  .Pp
  The
  .Fn alphasort
-@@ -91,6 +103,18 @@
+@@ -87,6 +99,18 @@ argument to sort the array alphabeticall
  The memory allocated for the array can be deallocated with
  .Xr free 3 ,
  by freeing each pointer in the array and then the array itself.
@@ -64,7 +64,7 @@
  .Sh DIAGNOSTICS
  Returns \-1 if the directory cannot be opened for reading or if
  .Xr malloc 3
-@@ -107,3 +131,8 @@
+@@ -103,3 +127,8 @@ and
  .Fn alphasort
  functions appeared in
  .Bx 4.2 .

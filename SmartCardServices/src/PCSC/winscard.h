@@ -27,7 +27,7 @@
  *  David Corcoran <corcoran@linuxnet.com>
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: winscard.h 2072 2006-06-06 09:31:07Z rousseau $
+ * $Id: winscard.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

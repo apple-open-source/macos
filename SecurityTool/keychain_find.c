@@ -335,7 +335,7 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 		} else {
 			// copy certificate name
 			CFStringRef nameRef = NULL;
-			if (SecCertificateCopyCommonName(cert, &nameRef) != noErr) {
+			if ((SecCertificateCopyCommonName(cert, &nameRef) != noErr) || nameRef == NULL) {
 				safe_CFRelease(&candidate);
 				continue; // no name, so no match is possible
 			}

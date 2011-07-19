@@ -27,6 +27,7 @@ module storage {
 
     interface [
         HasNameGetter,
+        GenerateIsReachable=ImplFrame,
         CustomDeleteProperty,
         CustomGetPropertyNames,
         DelegatingPutFunction,

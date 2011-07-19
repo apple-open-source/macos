@@ -1,8 +1,9 @@
-[manpage_begin struct::stack n 1.3.3]
+[manpage_begin struct::stack n 1.5.1]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate stack objects}]
-[require Tcl 8.2]
-[require struct::stack [opt 1.3.3]]
+[category  {Data structures}]
+[require Tcl 8.4]
+[require struct::stack [opt 1.5.1]]
 [description]
 
 The [namespace ::struct] namespace contains a commands for processing
@@ -44,6 +45,15 @@ Remove all items from the stack.
 Destroy the stack, including its storage space and associated command.
 
 
+[call [arg stackName] [method get]]
+
+Returns the whole contents of the stack as a list, without removing
+them from the stack.
+
+[call [arg stackName] [method getr]]
+
+A variant of [method get], which returns the contents in reversed order.
+
 [call [arg stackName] [method peek] [opt [arg count]]]
 
 Return the top [arg count] items of the stack, without removing them from
@@ -54,6 +64,21 @@ list.  If specified, [arg count] must be greater than or equal to 1.
 If there are not enoughs items on the stack to fulfull the request,
 this command will throw an error.
 
+[call [arg stackName] [method peekr] [opt [arg count]]]
+
+A variant of [method peek], which returns the items in reversed order.
+
+[call [arg stackName] [method trim] [opt [arg newsize]]]
+
+Shrinks the stack to contain at most [arg newsize] elements and
+returns a list containing the elements which were removed. Nothing is
+done if the stack is already at the specified size, or smaller. In
+that case the result is the empty list.
+
+[call [arg stackName] [method trim*] [opt [arg newsize]]]
+
+A variant of [method trim] which performs the shrinking, but does not
+return the removed elements.
 
 [call [arg stackName] [method pop] [opt [arg count]]]
 

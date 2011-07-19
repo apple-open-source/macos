@@ -23,44 +23,42 @@
 include "XCoreInstrFormats.td"
 
 //===----------------------------------------------------------------------===//
-// Feature predicates.
-//===----------------------------------------------------------------------===//
-
-// HasXS1A - This predicate is true when the target processor supports XS1A
-// instructions.
-def HasXS1A   : Predicate<"Subtarget.isXS1A()">;
-
-// HasXS1B - This predicate is true when the target processor supports XS1B
-// instructions.
-def HasXS1B : Predicate<"Subtarget.isXS1B()">;
-
-//===----------------------------------------------------------------------===//
 // XCore specific DAG Nodes.
 //
 
 // Call
 def SDT_XCoreBranchLink : SDTypeProfile<0, 1, [SDTCisPtrTy<0>]>;
 def XCoreBranchLink     : SDNode<"XCoreISD::BL",SDT_XCoreBranchLink,
-                            [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag]>;
+                            [SDNPHasChain, SDNPOptInFlag, SDNPOutFlag,
+                             SDNPVariadic]>;
 
-def XCoreRetsp       : SDNode<"XCoreISD::RETSP", SDTNone,
+def XCoreRetsp       : SDNode<"XCoreISD::RETSP", SDTBrind,
                          [SDNPHasChain, SDNPOptInFlag]>;
+
+def SDT_XCoreBR_JT    : SDTypeProfile<0, 2,
+                                      [SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+
+def XCoreBR_JT : SDNode<"XCoreISD::BR_JT", SDT_XCoreBR_JT,
+                        [SDNPHasChain]>;
+
+def XCoreBR_JT32 : SDNode<"XCoreISD::BR_JT32", SDT_XCoreBR_JT,
+                        [SDNPHasChain]>;
 
 def SDT_XCoreAddress    : SDTypeProfile<1, 1,
                             [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
 
 def pcrelwrapper : SDNode<"XCoreISD::PCRelativeWrapper", SDT_XCoreAddress,
-	                   []>;
+                           []>;
 
 def dprelwrapper : SDNode<"XCoreISD::DPRelativeWrapper", SDT_XCoreAddress,
-	                   []>;
+                           []>;
 
 def cprelwrapper : SDNode<"XCoreISD::CPRelativeWrapper", SDT_XCoreAddress,
-	                   []>;
+                           []>;
 
 def SDT_XCoreStwsp    : SDTypeProfile<0, 2, [SDTCisInt<1>]>;
-def XCoreStwsp         : SDNode<"XCoreISD::STWSP", SDT_XCoreStwsp,
-	                   [SDNPHasChain]>;
+def XCoreStwsp        : SDNode<"XCoreISD::STWSP", SDT_XCoreStwsp,
+                               [SDNPHasChain]>;
 
 // These are target-independent nodes, but have target-specific formats.
 def SDT_XCoreCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
@@ -93,6 +91,12 @@ def neg_xform : SDNodeXForm<imm, [{
   // Transformation function: -imm
   uint32_t value = N->getZExtValue();
   return getI32Imm(-value);
+}]>;
+
+def bpwsub_xform : SDNodeXForm<imm, [{
+  // Transformation function: 32-imm
+  uint32_t value = N->getZExtValue();
+  return getI32Imm(32-value);
 }]>;
 
 def div4neg_xform : SDNodeXForm<imm, [{
@@ -136,9 +140,6 @@ def immU20 : PatLeaf<(imm), [{
   return (uint32_t)N->getZExtValue() < (1 << 20);
 }]>;
 
-// FIXME check subtarget. Currently we check if the immediate
-// is in the common subset of legal immediate values for both
-// XS1A and XS1B.
 def immMskBitp : PatLeaf<(imm), [{
   uint32_t value = (uint32_t)N->getZExtValue();
   if (!isMask_32(value)) {
@@ -151,15 +152,20 @@ def immMskBitp : PatLeaf<(imm), [{
           || msksize == 32;
 }]>;
 
-// FIXME check subtarget. Currently we check if the immediate
-// is in the common subset of legal immediate values for both
-// XS1A and XS1B.
 def immBitp : PatLeaf<(imm), [{
   uint32_t value = (uint32_t)N->getZExtValue();
   return (value >= 1 && value <= 8)
           || value == 16
           || value == 24
           || value == 32;
+}]>;
+
+def immBpwSubBitp : PatLeaf<(imm), [{
+  uint32_t value = (uint32_t)N->getZExtValue();
+  return (value >= 24 && value <= 31)
+          || value == 16
+          || value == 8
+          || value == 0;
 }]>;
 
 def lda16f : PatFrag<(ops node:$addr, node:$offset),
@@ -187,6 +193,15 @@ def ADDRcpii : ComplexPattern<i32, 2, "SelectADDRcpii", [add, cprelwrapper],
 def MEMii : Operand<i32> {
   let PrintMethod = "printMemOperand";
   let MIOperandInfo = (ops i32imm, i32imm);
+}
+
+// Jump tables.
+def InlineJT : Operand<i32> {
+  let PrintMethod = "printInlineJT";
+}
+
+def InlineJT32 : Operand<i32> {
+  let PrintMethod = "printInlineJT32";
 }
 
 //===----------------------------------------------------------------------===//
@@ -361,9 +376,9 @@ def STWFI : PseudoInstXCore<(outs), (ins GRRegs:$src, MEMii:$addr),
                             "${:comment} STWFI $src, $addr",
                             [(store GRRegs:$src, ADDRspii:$addr)]>;
 
-// SELECT_CC_* - Used to implement the SELECT_CC DAG operation.  Expanded by the
-// scheduler into a branch sequence.
-let usesCustomDAGSchedInserter = 1 in {
+// SELECT_CC_* - Used to implement the SELECT_CC DAG operation.  Expanded after
+// instruction selection into a branch sequence.
+let usesCustomInserter = 1 in {
   def SELECT_CC : PseudoInstXCore<(outs GRRegs:$dst),
                               (ins GRRegs:$cond, GRRegs:$T, GRRegs:$F),
                               "${:comment} SELECT_CC PSEUDO!",
@@ -469,7 +484,7 @@ def ST8_l3r : _FL3R<(outs), (ins GRRegs:$val, GRRegs:$addr, GRRegs:$offset),
 }
 
 // Four operand long
-let Predicates = [HasXS1B], Constraints = "$src1 = $dst1,$src2 = $dst2" in {
+let Constraints = "$src1 = $dst1,$src2 = $dst2" in {
 def MACCU_l4r : _L4R<(outs GRRegs:$dst1, GRRegs:$dst2),
                     (ins GRRegs:$src1, GRRegs:$src2, GRRegs:$src3,
                       GRRegs:$src4),
@@ -485,7 +500,6 @@ def MACCS_l4r : _L4R<(outs GRRegs:$dst1, GRRegs:$dst2),
 
 // Five operand long
 
-let Predicates = [HasXS1B] in {
 def LADD_l5r : _L5R<(outs GRRegs:$dst1, GRRegs:$dst2),
                     (ins GRRegs:$src1, GRRegs:$src2, GRRegs:$src3),
                     "ladd $dst1, $dst2, $src1, $src2, $src3",
@@ -500,7 +514,6 @@ def LDIV_l5r : _L5R<(outs GRRegs:$dst1, GRRegs:$dst2),
                     (ins GRRegs:$src1, GRRegs:$src2, GRRegs:$src3),
                     "ldiv $dst1, $dst2, $src1, $src2, $src3",
                     []>;
-}
 
 // Six operand long
 
@@ -508,13 +521,6 @@ def LMUL_l6r : _L6R<(outs GRRegs:$dst1, GRRegs:$dst2),
                     (ins GRRegs:$src1, GRRegs:$src2, GRRegs:$src3,
                       GRRegs:$src4),
                     "lmul $dst1, $dst2, $src1, $src2, $src3, $src4",
-                    []>;
-
-let Predicates = [HasXS1A] in
-def MACC_l6r : _L6R<(outs GRRegs:$dst1, GRRegs:$dst2),
-                    (ins GRRegs:$src1, GRRegs:$src2, GRRegs:$src3,
-                      GRRegs:$src4),
-                    "macc $dst1, $dst2, $src1, $src2, $src3, $src4",
                     []>;
 
 // Register - U6
@@ -630,14 +636,14 @@ defm EXTSP : FU6_LU6_np<"extsp">;
 let mayStore = 1 in
 defm ENTSP : FU6_LU6_np<"entsp">;
 
-let isReturn = 1, isTerminator = 1, mayLoad = 1 in {
+let isReturn = 1, isTerminator = 1, mayLoad = 1, isBarrier = 1 in {
 defm RETSP : FU6_LU6<"retsp", XCoreRetsp>;
 }
 }
 
 // TODO extdp, kentsp, krestsp, blat, setsr
 // clrsr, getsr, kalli
-let isBranch = 1, isTerminator = 1 in {
+let isBranch = 1, isTerminator = 1, isBarrier = 1 in {
 def BRBU_u6 : _FU6<
                  (outs),
                  (ins brtarget:$target),
@@ -664,13 +670,12 @@ def BRFU_lu6 : _FLU6<
 }
 
 //let Uses = [CP] in ...
-let Predicates = [HasXS1B], Defs = [R11], neverHasSideEffects = 1,
-  isReMaterializable = 1 in
+let Defs = [R11], neverHasSideEffects = 1, isReMaterializable = 1 in
 def LDAWCP_u6: _FRU6<(outs), (ins MEMii:$a),
                     "ldaw r11, cp[$a]",
                     []>;
 
-let Predicates = [HasXS1B], Defs = [R11], isReMaterializable = 1 in
+let Defs = [R11], isReMaterializable = 1 in
 def LDAWCP_lu6: _FLRU6<
                     (outs), (ins MEMii:$a),
                     "ldaw r11, cp[$a]",
@@ -693,8 +698,14 @@ def LDAP_lu10 : _FLU10<
                   "ldap r11, $addr",
                   [(set R11, (pcrelwrapper tglobaladdr:$addr))]>;
 
+let Defs = [R11], isReMaterializable = 1 in
+def LDAP_lu10_ba : _FLU10<(outs),
+                          (ins i32imm:$addr),
+                          "ldap r11, $addr",
+                          [(set R11, (pcrelwrapper tblockaddress:$addr))]>;
+
 let isCall=1,
-// All calls clobber the the link register and the non-callee-saved registers:
+// All calls clobber the link register and the non-callee-saved registers:
 Defs = [R0, R1, R2, R3, R11, LR] in {
 def BL_u10 : _FU10<
                   (outs),
@@ -764,30 +775,40 @@ def CLZ_l2r : _FL2R<(outs GRRegs:$dst), (ins GRRegs:$src),
 
 // One operand short
 // TODO edu, eeu, waitet, waitef, freer, tstart, msync, mjoin, syncr, clrtp
-// bru, setdp, setcp, setv, setev, kcall
+// setdp, setcp, setv, setev, kcall
 // dgetreg
-let isBranch=1, isIndirectBranch=1, isTerminator=1 in
+let isBranch=1, isIndirectBranch=1, isTerminator=1, isBarrier = 1 in
 def BAU_1r : _F1R<(outs), (ins GRRegs:$addr),
                  "bau $addr",
                  [(brind GRRegs:$addr)]>;
+
+let isBranch=1, isIndirectBranch=1, isTerminator=1, isBarrier = 1 in
+def BR_JT : PseudoInstXCore<(outs), (ins InlineJT:$t, GRRegs:$i),
+                            "bru $i\n$t",
+                            [(XCoreBR_JT tjumptable:$t, GRRegs:$i)]>;
+
+let isBranch=1, isIndirectBranch=1, isTerminator=1, isBarrier = 1 in
+def BR_JT32 : PseudoInstXCore<(outs), (ins InlineJT32:$t, GRRegs:$i),
+                              "bru $i\n$t",
+                              [(XCoreBR_JT32 tjumptable:$t, GRRegs:$i)]>;
 
 let Defs=[SP], neverHasSideEffects=1 in
 def SETSP_1r : _F1R<(outs), (ins GRRegs:$src),
                  "set sp, $src",
                  []>;
 
-let isBarrier = 1, hasCtrlDep = 1 in 
+let hasCtrlDep = 1 in 
 def ECALLT_1r : _F1R<(outs), (ins GRRegs:$src),
                  "ecallt $src",
                  []>;
 
-let isBarrier = 1, hasCtrlDep = 1 in 
+let hasCtrlDep = 1 in 
 def ECALLF_1r : _F1R<(outs), (ins GRRegs:$src),
                  "ecallf $src",
                  []>;
 
 let isCall=1, 
-// All calls clobber the the link register and the non-callee-saved registers:
+// All calls clobber the link register and the non-callee-saved registers:
 Defs = [R0, R1, R2, R3, R11, LR] in {
 def BLA_1r : _F1R<(outs), (ins GRRegs:$addr, variable_ops),
                  "bla $addr",
@@ -821,7 +842,7 @@ def : Pat<(zextloadi8 (add GRRegs:$addr, GRRegs:$offset)),
           (LD8U_3r GRRegs:$addr, GRRegs:$offset)>;
 def : Pat<(zextloadi8 GRRegs:$addr), (LD8U_3r GRRegs:$addr, (LDC_ru6 0))>;
 
-def : Pat<(zextloadi16 (lda16f GRRegs:$addr, GRRegs:$offset)),
+def : Pat<(sextloadi16 (lda16f GRRegs:$addr, GRRegs:$offset)),
           (LD16S_3r GRRegs:$addr, GRRegs:$offset)>;
 def : Pat<(sextloadi16 GRRegs:$addr), (LD16S_3r GRRegs:$addr, (LDC_ru6 0))>;
 
@@ -989,3 +1010,21 @@ def : Pat<(mul GRRegs:$src, -3),
 def : Pat<(sra GRRegs:$src, 31),
           (ASHR_l2rus GRRegs:$src, 32)>;
 
+def : Pat<(brcond (setlt GRRegs:$lhs, 0), bb:$dst),
+          (BRFT_lru6 (ASHR_l2rus GRRegs:$lhs, 32), bb:$dst)>;
+
+// setge X, 0 is canonicalized to setgt X, -1
+def : Pat<(brcond (setgt GRRegs:$lhs, -1), bb:$dst),
+          (BRFF_lru6 (ASHR_l2rus GRRegs:$lhs, 32), bb:$dst)>;
+
+def : Pat<(select (setlt GRRegs:$lhs, 0), GRRegs:$T, GRRegs:$F),
+          (SELECT_CC (ASHR_l2rus GRRegs:$lhs, 32), GRRegs:$T, GRRegs:$F)>;
+
+def : Pat<(select (setgt GRRegs:$lhs, -1), GRRegs:$T, GRRegs:$F),
+          (SELECT_CC (ASHR_l2rus GRRegs:$lhs, 32), GRRegs:$F, GRRegs:$T)>;
+
+def : Pat<(setgt GRRegs:$lhs, -1),
+          (EQ_2rus (ASHR_l2rus GRRegs:$lhs, 32), 0)>;
+
+def : Pat<(sra (shl GRRegs:$src, immBpwSubBitp:$imm), immBpwSubBitp:$imm),
+          (SEXT_rus GRRegs:$src, (bpwsub_xform immBpwSubBitp:$imm))>;

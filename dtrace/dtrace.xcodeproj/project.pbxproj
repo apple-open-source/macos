@@ -43,12 +43,17 @@
 /* Begin PBXBuildFile section */
 		180BCA2D0F4FF4FA00889012 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */; };
 		180BCA320F4FF51E00889012 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D24923CA09CF793F0037D9DB /* Foundation.framework */; };
+		181A8E4610978E6800C15D65 /* ip.d in Sources */ = {isa = PBXBuildFile; fileRef = 181A8E4410978E6800C15D65 /* ip.d */; };
+		181A8E4710978E6800C15D65 /* tcp.d in Sources */ = {isa = PBXBuildFile; fileRef = 181A8E4510978E6800C15D65 /* tcp.d */; };
+		181A8E5210978F8000C15D65 /* ip.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 181A8E4410978E6800C15D65 /* ip.d */; };
+		181A8E5310978F8000C15D65 /* tcp.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 181A8E4510978E6800C15D65 /* tcp.d */; };
 		1824E6510A9AD01500F794DD /* dis_tables.c in Sources */ = {isa = PBXBuildFile; fileRef = 1824E64B0A9ACFF400F794DD /* dis_tables.c */; };
 		1824E6620A9AD0CB00F794DD /* dis_tables.h in Headers */ = {isa = PBXBuildFile; fileRef = 1824E6560A9AD08100F794DD /* dis_tables.h */; };
 		183C01D10F80BA0B0061FD4F /* dtrace_dyld.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 183C01CF0F80BA0B0061FD4F /* dtrace_dyld.cpp */; };
 		183C023E0F80BFC90061FD4F /* libCoreSymbolicationSharedWithDyld.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 183C023D0F80BFC90061FD4F /* libCoreSymbolicationSharedWithDyld.a */; };
 		1844A9CB0A111BB400F5B6A3 /* dtrace.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C6A0FF2C0290799A04C91782 /* dtrace.1 */; };
 		185F56260A4230C90025BAD6 /* dt_pid.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EBC9816099BFBBF0001019C /* dt_pid.c */; };
+		1864EB1D11473DCC00EE2C49 /* dt_module_apple.c in Sources */ = {isa = PBXBuildFile; fileRef = 1864EB1C11473DCC00EE2C49 /* dt_module_apple.c */; };
 		1880D2970B49348A00A50B29 /* dt_ld.h in Headers */ = {isa = PBXBuildFile; fileRef = 1880D2950B49348A00A50B29 /* dt_ld.h */; };
 		1880D2980B49348A00A50B29 /* dt_ld.m in Sources */ = {isa = PBXBuildFile; fileRef = 1880D2960B49348A00A50B29 /* dt_ld.m */; };
 		1892F8910A111CF9004957F8 /* errno.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6EBC9887099D415F0001019C /* errno.d */; };
@@ -497,8 +502,8 @@
 		D2DF09120A68419D00384A72 /* dwarf_addr_finder.h in Headers */ = {isa = PBXBuildFile; fileRef = D2DF09110A68419D00384A72 /* dwarf_addr_finder.h */; };
 		D2E1A17A0A9419B900196E8C /* darwin.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2E1A1790A9419B900196E8C /* darwin.d */; };
 		D2E5F05E09D0DC430035AE2D /* ctfconvert.c in Sources */ = {isa = PBXBuildFile; fileRef = D2E5F04209D0DC430035AE2D /* ctfconvert.c */; };
-		D2FAD5970BCC596200EDD5A2 /* DTrace.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5950BCC593A00EDD5A2 /* DTrace.plist */; };
-		D2FAD59F0BCC599D00EDD5A2 /* DTrace.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5960BCC593A00EDD5A2 /* DTrace.txt */; };
+		D2FAD5970BCC596200EDD5A2 /* dtrace.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */; };
+		D2FAD59F0BCC599D00EDD5A2 /* dtrace.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = D2FAD5960BCC593A00EDD5A2 /* dtrace.txt */; };
 		E1A86B1B0EB7978B00E30655 /* coreprofile.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = E1A86B1A0EB7978B00E30655 /* coreprofile.d */; };
 /* End PBXBuildFile section */
 
@@ -641,6 +646,8 @@
 			dstPath = /usr/lib/dtrace/;
 			dstSubfolderSpec = 0;
 			files = (
+				181A8E5210978F8000C15D65 /* ip.d in CopyFiles */,
+				181A8E5310978F8000C15D65 /* tcp.d in CopyFiles */,
 				E1A86B1B0EB7978B00E30655 /* coreprofile.d in CopyFiles */,
 				D2E1A17A0A9419B900196E8C /* darwin.d in CopyFiles */,
 				1892F8910A111CF9004957F8 /* errno.d in CopyFiles */,
@@ -828,7 +835,7 @@
 			dstPath = /usr/local/OpenSourceVersions/;
 			dstSubfolderSpec = 0;
 			files = (
-				D2FAD5970BCC596200EDD5A2 /* DTrace.plist in CopyFiles */,
+				D2FAD5970BCC596200EDD5A2 /* dtrace.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -838,7 +845,7 @@
 			dstPath = /usr/local/OpenSourceLicenses/;
 			dstSubfolderSpec = 0;
 			files = (
-				D2FAD59F0BCC599D00EDD5A2 /* DTrace.txt in CopyFiles */,
+				D2FAD59F0BCC599D00EDD5A2 /* dtrace.txt in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -846,6 +853,8 @@
 
 /* Begin PBXFileReference section */
 		180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = /System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = "<absolute>"; };
+		181A8E4410978E6800C15D65 /* ip.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = ip.d; path = scripts/ip.d; sourceTree = "<group>"; };
+		181A8E4510978E6800C15D65 /* tcp.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tcp.d; path = scripts/tcp.d; sourceTree = "<group>"; };
 		182033630ADB335300E67753 /* libproc.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = libproc.m; path = libproc/libproc.m; sourceTree = "<group>"; };
 		1824E64B0A9ACFF400F794DD /* dis_tables.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dis_tables.c; path = disassembler/dis_tables.c; sourceTree = "<group>"; };
 		1824E6560A9AD08100F794DD /* dis_tables.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dis_tables.h; path = sys/dis_tables.h; sourceTree = "<group>"; };
@@ -853,6 +862,7 @@
 		183C01CF0F80BA0B0061FD4F /* dtrace_dyld.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = dtrace_dyld.cpp; sourceTree = "<group>"; };
 		183C023D0F80BFC90061FD4F /* libCoreSymbolicationSharedWithDyld.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCoreSymbolicationSharedWithDyld.a; path = /usr/local/lib/libCoreSymbolicationSharedWithDyld.a; sourceTree = "<absolute>"; };
 		185F562A0A4230FC0025BAD6 /* dt_pid_apple.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = dt_pid_apple.m; path = libdtrace/dt_pid_apple.m; sourceTree = "<group>"; };
+		1864EB1C11473DCC00EE2C49 /* dt_module_apple.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = dt_module_apple.c; path = libdtrace/dt_module_apple.c; sourceTree = "<group>"; };
 		1880D2950B49348A00A50B29 /* dt_ld.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dt_ld.h; path = libdtrace/dt_ld.h; sourceTree = "<group>"; };
 		1880D2960B49348A00A50B29 /* dt_ld.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = dt_ld.m; path = libdtrace/dt_ld.m; sourceTree = "<group>"; };
 		188A29690ADC36980039E7F8 /* procfs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = procfs.h; path = libproc/procfs.h; sourceTree = "<group>"; };
@@ -1295,8 +1305,8 @@
 		D2E741E50B5F1F3000CC89CE /* runocc.d.1m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = runocc.d.1m; path = DTTk/Man/man1m/runocc.d.1m; sourceTree = "<group>"; };
 		D2E741E80B5F242900CC89CE /* setuids.d */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = setuids.d; path = DTTk/User/setuids.d; sourceTree = "<group>"; };
 		D2E741E90B5F244600CC89CE /* setuids.d.1m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = setuids.d.1m; path = DTTk/Man/man1m/setuids.d.1m; sourceTree = "<group>"; };
-		D2FAD5950BCC593A00EDD5A2 /* DTrace.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = DTrace.plist; sourceTree = "<group>"; };
-		D2FAD5960BCC593A00EDD5A2 /* DTrace.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = DTrace.txt; sourceTree = "<group>"; };
+		D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = dtrace.plist; sourceTree = "<group>"; };
+		D2FAD5960BCC593A00EDD5A2 /* dtrace.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = dtrace.txt; sourceTree = "<group>"; };
 		E1A86B1A0EB7978B00E30655 /* coreprofile.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = coreprofile.d; path = scripts/coreprofile.d; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1382,8 +1392,8 @@
 			isa = PBXGroup;
 			children = (
 				18FDD3830FA186E90024C54F /* APPLE_LICENSE */,
-				D2FAD5960BCC593A00EDD5A2 /* DTrace.txt */,
-				D2FAD5950BCC593A00EDD5A2 /* DTrace.plist */,
+				D2FAD5960BCC593A00EDD5A2 /* dtrace.txt */,
+				D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */,
 				18B54B660AF6772C00509A71 /* dtrace_dof.xcodeproj */,
 				D24923CA09CF793F0037D9DB /* Foundation.framework */,
 				180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */,
@@ -1541,6 +1551,7 @@
 				6EBC980B099BFBBF0001019C /* dt_list.h */,
 				6EBC980C099BFBBF0001019C /* dt_map.c */,
 				6EBC980D099BFBBF0001019C /* dt_module.c */,
+				1864EB1C11473DCC00EE2C49 /* dt_module_apple.c */,
 				6EBC980E099BFBBF0001019C /* dt_module.h */,
 				6EBC980F099BFBBF0001019C /* dt_names.c */,
 				6EBC9810099BFBBF0001019C /* dt_open.c */,
@@ -1661,6 +1672,8 @@
 		6EBC9886099D41360001019C /* scripts */ = {
 			isa = PBXGroup;
 			children = (
+				181A8E4410978E6800C15D65 /* ip.d */,
+				181A8E4510978E6800C15D65 /* tcp.d */,
 				7EF9CBD90B94F7AB007FDEDC /* dt_cpp.h */,
 				E1A86B1A0EB7978B00E30655 /* coreprofile.d */,
 				D2E1A1790A9419B900196E8C /* darwin.d */,
@@ -2375,7 +2388,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "dtrace" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* dtrace */;
 			projectDirPath = "";
 			projectReferences = (
@@ -2558,6 +2578,9 @@
 				18D79D9F0B2E60FC005BEE83 /* dt_isadep_x86.c in Sources */,
 				1880D2980B49348A00A50B29 /* dt_ld.m in Sources */,
 				D26C8C390BA6558D00179352 /* dt_proc_apple.m in Sources */,
+				181A8E4610978E6800C15D65 /* ip.d in Sources */,
+				181A8E4710978E6800C15D65 /* tcp.d in Sources */,
+				1864EB1D11473DCC00EE2C49 /* dt_module_apple.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2843,7 +2866,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 78;
+				CURRENT_PROJECT_VERSION = 90;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -2851,6 +2874,7 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/sbin/;
@@ -2872,13 +2896,12 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 78;
+				CURRENT_PROJECT_VERSION = 90;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/sbin/;
 				OTHER_CFLAGS = (
@@ -2901,6 +2924,8 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -2914,6 +2939,8 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_VERSION = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -2941,6 +2968,7 @@
 					"-D_ILP32",
 					"-DCTF_OLD_VERSIONS",
 				);
+				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ctf;
 				SKIP_INSTALL = YES;
@@ -2962,6 +2990,7 @@
 					"-D_ILP32",
 					"-DCTF_OLD_VERSIONS",
 				);
+				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ctf;
 				SKIP_INSTALL = YES;
@@ -3013,9 +3042,9 @@
 		6EBC986A099BFBC00001019C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 78;
+				DYLIB_CURRENT_VERSION = 90;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3023,7 +3052,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/lib;
@@ -3043,14 +3071,6 @@
 					"-lctf",
 					"-lproc",
 					"-lelf",
-					"-liberty",
-				);
-				"OTHER_LDFLAGS[arch=ppc]" = (
-					"-lctf",
-					"-lproc",
-					"-lelf",
-					"-liberty",
-					"-lscanalyzer",
 				);
 				PREBINDING = NO;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include;
@@ -3065,7 +3085,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 78;
+				DYLIB_CURRENT_VERSION = 90;
 				EXPORTED_SYMBOLS_FILE = libdtrace/exports;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -3073,7 +3093,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/lib;
 				LEXFLAGS = "-l";
@@ -3090,17 +3109,9 @@
 					"-DNDEBUG",
 				);
 				OTHER_LDFLAGS = (
-					"-lproc",
 					"-lctf",
-					"-lelf",
-					"-liberty",
-				);
-				"OTHER_LDFLAGS[arch=ppc]" = (
 					"-lproc",
-					"-lctf",
 					"-lelf",
-					"-liberty",
-					"-lscanalyzer",
 				);
 				PREBINDING = NO;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/include;
@@ -3116,7 +3127,7 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 78;
+				CURRENT_PROJECT_VERSION = 90;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
@@ -3135,7 +3146,6 @@
 				OTHER_LDFLAGS = (
 					"-ldtrace",
 					"-lSystem",
-					"-liberty",
 				);
 				PRODUCT_NAME = plockstat;
 				VALID_ARCHS = "x86_64 i386";
@@ -3148,13 +3158,12 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
-				CURRENT_PROJECT_VERSION = 78;
+				CURRENT_PROJECT_VERSION = 90;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
@@ -3165,7 +3174,6 @@
 				OTHER_LDFLAGS = (
 					"-ldtrace",
 					"-lSystem",
-					"-liberty",
 				);
 				PRODUCT_NAME = plockstat;
 				VALID_ARCHS = "x86_64 i386";
@@ -3220,6 +3228,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -3240,7 +3252,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = ctfmerge;
@@ -3253,6 +3264,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3271,7 +3286,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = ctfmerge;
@@ -3284,6 +3298,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -3303,7 +3321,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = ctfdump;
@@ -3316,6 +3333,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3333,7 +3354,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = ctfdump;
@@ -3380,6 +3400,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -3399,7 +3423,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 					"$(OTHER_LDFLAGS)",
 				);
 				PREBINDING = NO;
@@ -3413,6 +3436,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -3430,7 +3457,6 @@
 					"-lz",
 					"-lelf",
 					"-lSystem",
-					"-liberty",
 					"$(OTHER_LDFLAGS)",
 				);
 				PREBINDING = NO;

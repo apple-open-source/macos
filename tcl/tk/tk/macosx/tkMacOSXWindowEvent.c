@@ -135,16 +135,22 @@ extern NSString *NSWindowDidOrderOffScreenNotification;
 	Tk_UnmapWindow((Tk_Window) winPtr);
     }
 }
-- (void)windowClosed:(NSNotification *)notification {
+- (BOOL)windowShouldClose:(NSWindow *)w {
 #ifdef TK_MAC_DEBUG_NOTIFICATIONS
-    TKLog(@"-[%@(%p) %s] %@", [self class], self, _cmd, notification);
+    TKLog(@"-[%@(%p) %s] %@", [self class], self, _cmd, w);
 #endif
-    NSWindow *w = [notification object];
     TkWindow *winPtr = TkMacOSXGetTkWindow(w);
 
     if (winPtr) {
 	TkGenWMDestroyEvent((Tk_Window) winPtr);
     }
+
+    /*
+     * If necessary, TkGenWMDestroyEvent() handles [close]ing the window,
+     * so can always return NO from -windowShouldClose: for a Tk window.
+     */
+
+    return (winPtr ? NO : YES);
 }
 #ifdef TK_MAC_DEBUG_NOTIFICATIONS
 - (void)windowDragStart:(NSNotification *)notification {
@@ -188,7 +194,6 @@ extern NSString *NSWindowDidOrderOffScreenNotification;
     observe(NSWindowDidResizeNotification, windowBoundsChanged:);
     observe(NSWindowDidDeminiaturizeNotification, windowExpanded:);
     observe(NSWindowDidMiniaturizeNotification, windowCollapsed:);
-    observe(NSWindowWillCloseNotification, windowClosed:);
 #ifdef TK_MAC_DEBUG_NOTIFICATIONS
     observe(NSWindowWillMoveNotification, windowDragStart:);
     observe(NSWindowWillStartLiveResizeNotification, windowLiveResize:);
@@ -197,7 +202,7 @@ extern NSString *NSWindowDidOrderOffScreenNotification;
     observe(NSWindowDidOrderOnScreenNotification, windowBecameVisible:);
     observe(NSWindowDidOrderOffScreenNotification, windowUnmapped:);
 #endif
-#undef observe(n, s)
+#undef observe
 }
 @end
 

@@ -1,0 +1,152 @@
+# testing var resolution for namespace-shadowed objects 
+
+package require XOTcl 1
+package require xotcl::test 1
+namespace import -force xotcl::*
+
+proc ? {cmd expected {iterations 1000}} {
+  set t [Test new \
+	     -cmd $cmd \
+	     -expected $expected \
+	     -count $iterations]
+  $t run
+}
+
+###########################################
+# Basic tests for var resolution under 
+# per-object namespaces ...
+###########################################
+set ::globalVar 1
+Object o -requireNamespace
+? {o info vars} ""
+? {info exists ::globalVar} 1
+? {set ::globalVar} 1
+? {o exists globalVar} 0
+? {o array exists globalVar} 0
+o array set globalVar {1 2}
+? {o exists globalVar} 1
+? {o info vars} globalVar
+? {o array exists globalVar} 1
+? {set ::globalVar} 1
+? {o set globalVar(1)} 2
+
+o destroy
+unset ::globalVar
+
+###########################################
+# scopes
+###########################################
+
+Object o -eval {
+  my requireNamespace
+  global z
+  my instvar y
+  set x 1
+  set y 2
+  set z 3
+  set [self]::X 4
+}
+set ::o::Y 5
+
+? {info exists ::z} 1
+? {set ::z} 3
+? {lsort [o info vars]} {X Y y}
+? {o exists x} 0
+? {o exists y} 1
+? {o exists z} 0
+? {o exists X} 1
+? {o exists Y} 1
+? {o set y} 2 
+
+o destroy
+unset ::z
+
+###########################################
+# mix & match namespace and object interfaces
+###########################################
+
+Object o -requireNamespace
+
+o set x 1
+? {namespace eval ::o set x} 1
+? {::o set x} 1
+? {namespace eval ::o set x 3} 3
+? {::o set x} 3
+? {namespace eval ::o info exists x} 1
+? {::o unset x} "" 1
+? {namespace eval ::o info exists x} 0
+o lappend y 3
+? {namespace eval ::o llength y} 1
+? {namespace eval ::o unset y} "" 1
+? {::o exists y} 0
+o destroy
+
+###########################################
+# array-specific tests
+###########################################
+
+Object o -requireNamespace
+
+? {o array exists a} 0
+? {namespace eval ::o array exists a} 0
+o array set a {1 2 3 4 5 6}
+? {o array exists a} 1
+? {namespace eval ::o array exists a} 1
+? {namespace eval ::o array names a} [::o array names a]
+? {namespace eval ::o array size a} [::o array size a]
+? {o set a(1) 7} 7
+? {namespace eval ::o array get a 1} {1 7}
+? {namespace eval ::o set a(1) 2} 2
+? {o array get a 1} {1 2}
+? {::o unset a} "" 1
+? {::o array unset a} ""
+? {o array exists a} 0
+? {namespace eval ::o array exists a} 0
+
+o destroy
+
+###########################################
+# tests on namespace-qualified var names
+###########################################
+
+Object o -requireNamespace
+Object o::oo -requireNamespace
+
+? {::o set ::x 1} 1
+? {info exists ::x} [set ::x]
+? {catch {unset ::x}} 0 1
+
+? {::o set ::o::x 1} 1
+? {o exists x} [::o set ::o::x]
+? {namespace eval ::o unset x} "" 1
+? {o exists x} 0
+
+# Note, relatively qualified var names (not prefixed with ::*) 
+# are always resolved relative to the per-object namespace
+? {catch {::o set o::x 1} msg} 1
+? {::o set oo::x 1} 1
+? {o::oo exists x} [::o set oo::x]
+? {o unset oo::x} "" 1
+? {o::oo exists x} 0
+
+o destroy
+
+###########################################
+# tests on namespace-qualified on objects
+# without namespaces
+###########################################
+
+# the tests below fail. We could consider
+# to require namespaces on the fly in the future
+Object o
+#? {::o set ::o::x 1} 1
+#? {o exists x} [::o set ::o::x]
+#? {namespace eval ::o unset x} "" 1
+#? {o exists x} 0
+
+#? {::o set o::x 1} 1
+#? {o exists x} [::o set o::x]
+#? {namespace eval ::o unset x} "" 1
+#? {o exists x} 0
+
+o destroy

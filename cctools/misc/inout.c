@@ -25,7 +25,7 @@
 #include <string.h>
 #include "stuff/errors.h"
 #include "stuff/breakout.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 
 /* used by error routines as the name of the program */
 char *progname = NULL;
@@ -134,7 +134,7 @@ uint32_t narchs)
 		    archs[i].members[j].offset = offset;
 		    size = 0;
 		    if(archs[i].members[j].member_long_name == TRUE){
-			size = round(archs[i].members[j].member_name_size,
+			size = rnd(archs[i].members[j].member_name_size,
 				     sizeof(int32_t));
 			archs[i].toc_long_name = TRUE;
 		    }
@@ -225,6 +225,12 @@ struct object *object)
 		object->output_split_info_data_size = 
 		    object->split_info_cmd->datasize;
 	    }
+	    if(object->func_starts_info_cmd != NULL){
+		object->output_func_start_info_data = 
+		(object->object_addr + object->func_starts_info_cmd->dataoff);
+		object->output_func_start_info_data_size = 
+		    object->func_starts_info_cmd->datasize;
+	    }
 	    object->output_ext_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->extreloff);
 	    object->output_tocs =
@@ -267,6 +273,9 @@ struct object *object)
 		    sizeof(struct dylib_reference);
 	    if(object->split_info_cmd != NULL)
 		object->input_sym_info_size += object->split_info_cmd->datasize;
+	    if(object->func_starts_info_cmd != NULL)
+		object->input_sym_info_size +=
+		    object->func_starts_info_cmd->datasize;
 	    if(object->mh != NULL){
 		object->input_sym_info_size +=
 		    object->dyst->nmodtab *
@@ -291,7 +300,7 @@ struct object *object)
 		    sizeof(struct twolevel_hint);
 	    }
 	    if(object->code_sig_cmd != NULL){
-		object->input_sym_info_size = round(object->input_sym_info_size,
+		object->input_sym_info_size = rnd(object->input_sym_info_size,
 						    16);
 		object->input_sym_info_size += object->code_sig_cmd->datasize;
 	    }

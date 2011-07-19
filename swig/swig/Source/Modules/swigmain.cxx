@@ -12,7 +12,7 @@
  * to SWIG, you would modify this file.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_swigmain_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/swigmain.cxx,v 1.26 2006/11/01 23:54:52 wsfulton Exp $";
+char cvsroot_swigmain_cxx[] = "$Id: swigmain.cxx 10969 2008-12-06 23:15:20Z wsfulton $";
 
 #include "swigmod.h"
 #include <ctype.h>
@@ -32,9 +32,10 @@ extern "C" {
   Language *swig_modula3(void);
   Language *swig_mzscheme(void);
   Language *swig_java(void);
+  Language *swig_php(void);
   Language *swig_php4(void);
-  Language *swig_php5(void);
   Language *swig_ocaml(void);
+  Language *swig_octave(void);
   Language *swig_pike(void);
   Language *swig_sexp(void);
   Language *swig_xml(void);
@@ -70,20 +71,21 @@ static swig_module modules[] = {
   {"-modula3", swig_modula3, "Modula 3"},
   {"-mzscheme", swig_mzscheme, "Mzscheme"},
   {"-ocaml", swig_ocaml, "Ocaml"},
+  {"-octave", swig_octave, "Octave"},
   {"-perl", swig_perl5, "Perl"},
   {"-perl5", swig_perl5, 0},
-  {"-php", swig_php4, 0},
-  {"-php4", swig_php4, "PHP4"},
-  {"-php5", swig_php5, "PHP5"},
+  {"-php", swig_php, "PHP"},
+  {"-php4", swig_php4, 0},
+  {"-php5", swig_php, 0},
   {"-pike", swig_pike, "Pike"},
   {"-python", swig_python, "Python"},
+  {"-r", swig_r, "R (aka GNU S)"},
   {"-ruby", swig_ruby, "Ruby"},
   {"-sexp", swig_sexp, "Lisp S-Expressions"},
   {"-tcl", swig_tcl, "Tcl"},
   {"-tcl8", swig_tcl, 0},
   {"-uffi", swig_uffi, "Common Lisp / UFFI"},
   {"-xml", swig_xml, "XML"},
-  {"-r", swig_r, "R (aka GNU S)"},
   {NULL, NULL, NULL}
 };
 

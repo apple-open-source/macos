@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+                      "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+<!ENTITY % defs SYSTEM "/xorg-sgml-doctools/X11/defs.ent"> %defs;
+]>
+
+<article>
+
+  <articleinfo>
+
+    <title>X.Org X11R&relvers; on Darwin and Mac OS X</title>
+    <pubdate>October 2009</pubdate>
+
+  </articleinfo>
+
+  <sect1>
+    <title>Introduction</title>
+
+    <para>
+      <productname>X11R&relvers;</productname>, a freely
+      redistributable open-source implementation of the
+      <ulink url="http://www.x.org/">X Window System</ulink> from
+      the <ulink url="http://www.x.org/wiki/XorgFoundation">X.Org
+	Foundation</ulink>, has been ported to
+      <ulink url="http://developer.apple.com/Darwin/">Darwin</ulink>
+      and <ulink url="http://www.apple.com/macosx/">Mac OS&nbsp;X</ulink>.
+    </para>
+
+    <para>
+      Most of the current work on X for Darwin and Mac OS&nbsp;X is
+      centered around the
+      <ulink url="http://xquartz.macosforge.org/">XQuartz Project</ulink>
+      at <ulink url="http://macosforge.org/">MacOSforge</ulink>.
+      If you are interested in up-to-date status, want to report a bug,
+      or are interested in working on X11 for Darwin, stop by the project
+      website at <ulink url="http://xquartz.macosforge.org/"></ulink>
+    </para>
+
+  </sect1>
+
+</article>

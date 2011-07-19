@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -441,29 +441,28 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 	CFMachPortInvalidate(dnsPort);
 	CFRelease(dnsPort);
 	dnsPort = NULL;
-	__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after unscheduling)", mp);
+	__MACH_PORT_DEBUG(mp != MACH_PORT_NULL, "*** set-hostname (after unscheduling)", mp);
 
 	status = getnameinfo_async_handle_reply(msg);
-	__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after getnameinfo_async_handle_reply)", mp);
+	__MACH_PORT_DEBUG(mp != MACH_PORT_NULL, "*** set-hostname (after getnameinfo_async_handle_reply)", mp);
 	if ((status == 0) && dnsActive && (mp != MACH_PORT_NULL)) {
-		CFMachPortContext	context	= { 0
-						  , (void *)store
-						  , CFRetain
-						  , CFRelease
-						  , replyMPCopyDescription
-		};
+		CFMachPortContext	context		= { 0
+							  , (void *)store
+							  , CFRetain
+							  , CFRelease
+							  , replyMPCopyDescription
+							  };
 		CFRunLoopSourceRef	rls;
 
 		// if request has been re-queued
-		dnsPort = CFMachPortCreateWithPort(NULL,
-						   mp,
-						   getnameinfo_async_handleCFReply,
-						   &context,
-						   NULL);
+		dnsPort = _SC_CFMachPortCreateWithPort("IPMonitor/set-hostname/re-queue",
+						       mp,
+						       getnameinfo_async_handleCFReply,
+						       &context);
 		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 		CFRelease(rls);
-		__MACH_PORT_DEBUG(mp != NULL, "*** set-hostname (after rescheduling)", mp);
+		__MACH_PORT_DEBUG(mp != MACH_PORT_NULL, "*** set-hostname (after rescheduling)", mp);
 	}
 
 	return;
@@ -550,11 +549,10 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		__MACH_PORT_DEBUG(TRUE, "*** set-hostname (after getnameinfo_async_start)", mp);
 
 		dnsActive = TRUE;
-		dnsPort = CFMachPortCreateWithPort(NULL,
-						   mp,
-						   getnameinfo_async_handleCFReply,
-						   &context,
-						   NULL);
+		dnsPort = _SC_CFMachPortCreateWithPort("IPMonitor/set-hostname",
+						       mp,
+						       getnameinfo_async_handleCFReply,
+						       &context);
 		rls = CFMachPortCreateRunLoopSource(NULL, dnsPort, 0);
 		CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 		CFRelease(rls);

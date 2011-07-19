@@ -1,0 +1,80 @@
+require "vnd.dovecot.testsuite";
+require "mailbox";
+require "fileinto";
+
+test "MailboxExists - None exist" {
+	if mailboxexists "frop" {
+		test_fail "mailboxexists confirms existance of unknown folder";
+	}
+}
+
+test_mailbox_create "frop";
+test_mailbox_create "friep";
+
+test "MailboxExists - Not all exist" {
+	if mailboxexists ["frop", "friep", "frml"] {
+		test_fail "mailboxexists confirms existance of unknown folder";
+	}
+}
+
+test_mailbox_create "frml";
+
+test "MailboxExists - One exists" {
+	if not mailboxexists ["frop"] {
+		test_fail "mailboxexists fails to recognize folder";
+	}
+}
+
+test "MailboxExists - All exist" {
+	if not mailboxexists ["frop", "friep", "frml"] {
+		test_fail "mailboxexists fails to recognize folders";
+	}
+}
+
+test ":Create" {
+	if mailboxexists "created" {
+		test_fail "mailbox exists already";
+	}
+
+	test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop 1
+
+Frop!
+.
+	;
+
+	fileinto :create "created";
+
+	if not test_result_execute {
+		test_fail "execution of result failed";
+	}
+
+	if not mailboxexists "created" {
+		test_fail "mailbox somehow not created";
+	}
+
+	test_result_reset;
+
+	test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop 2
+
+Frop!
+.
+	;
+
+	fileinto "created";
+
+	if not test_result_execute {
+		test_fail "execution of result failed second time";
+	}
+
+	test_message :folder "created" 0;
+
+	if not header :is "subject" "Frop 1" {
+		test_fail "incorrect message read back from mail store";
+	}
+}

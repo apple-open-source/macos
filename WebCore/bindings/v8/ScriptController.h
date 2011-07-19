@@ -31,6 +31,7 @@
 #ifndef ScriptController_h
 #define ScriptController_h
 
+#include "ScriptControllerBase.h"
 #include "ScriptInstance.h"
 #include "ScriptValue.h"
 
@@ -38,9 +39,17 @@
 
 #include <v8.h>
 
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
+
+#if PLATFORM(QT)
+#include <qglobal.h>
+QT_BEGIN_NAMESPACE
+class QScriptEngine;
+QT_END_NAMESPACE
+#endif
 
 struct NPObject;
 
@@ -51,20 +60,7 @@ class Event;
 class Frame;
 class HTMLPlugInElement;
 class ScriptSourceCode;
-class String;
 class Widget;
-class XSSAuditor;
-
-enum ReasonForCallingCanExecuteScripts {
-    AboutToExecuteScript,
-    NotAboutToExecuteScript
-};
-
-// Whether to call the XSSAuditor to audit a script before passing it to the JavaScript engine.
-enum ShouldAllowXSS {
-    AllowXSS,
-    DoNotAllowXSS
-};
 
 class ScriptController {
 public:
@@ -75,11 +71,11 @@ public:
     // or this accessor should be made JSProxy*
     V8Proxy* proxy() { return m_proxy.get(); }
 
-    ScriptValue executeScript(const ScriptSourceCode&, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
-    ScriptValue executeScript(const String& script, bool forceUserGesture = false, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
+    ScriptValue executeScript(const ScriptSourceCode&);
+    ScriptValue executeScript(const String& script, bool forceUserGesture = false);
 
     // Returns true if argument is a JavaScript URL.
-    bool executeIfJavaScriptURL(const KURL&, bool userGesture = false, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
+    bool executeIfJavaScriptURL(const KURL&, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
 
     // This function must be called from the main thread. It is safe to call it repeatedly.
     static void initializeThreading();
@@ -87,7 +83,7 @@ public:
     // Evaluate a script file in the environment of this proxy.
     // If succeeded, 'succ' is set to true and result is returned
     // as a string.
-    ScriptValue evaluate(const ScriptSourceCode&, ShouldAllowXSS shouldAllowXSS = DoNotAllowXSS);
+    ScriptValue evaluate(const ScriptSourceCode&);
 
     void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>&);
 
@@ -109,8 +105,6 @@ public:
     ScriptController* windowShell(DOMWrapperWorld*) { return this; }
     ScriptController* existingWindowShell(DOMWrapperWorld*) { return this; }
 
-    XSSAuditor* xssAuditor() { return m_XSSAuditor.get(); }
-
     void collectGarbage();
 
     // Notify V8 that the system is running low on memory.
@@ -123,6 +117,14 @@ public:
 
     // Check if the javascript engine has been initialized.
     bool haveInterpreter() const;
+
+    void disableEval();
+
+    static bool canAccessFromCurrentOrigin(Frame*);
+
+#if ENABLE(INSPECTOR)
+    static void setCaptureCallStackForUncaughtExceptions(bool);
+#endif
 
     bool canExecuteScripts(ReasonForCallingCanExecuteScripts);
 
@@ -146,17 +148,14 @@ public:
     // Pass command-line flags to the JS engine.
     static void setFlags(const char* string, int length);
 
-    // Protect and unprotect the JS wrapper from garbage collected.
-    static void gcProtectJSWrapper(void*);
-    static void gcUnprotectJSWrapper(void*);
-
     void finishedWithEvent(Event*);
-    void setEventHandlerLineNumber(int lineNumber);
+
+    TextPosition0 eventHandlerPosition() const;
 
     void setProcessingTimerCallback(bool processingTimerCallback) { m_processingTimerCallback = processingTimerCallback; }
     // FIXME: Currently we don't use the parameter world at all.
     // See http://trac.webkit.org/changeset/54182
-    bool processingUserGesture(DOMWrapperWorld* world = 0) const;
+    static bool processingUserGesture();
     bool anyPageIsProcessingUserGesture() const;
 
     void setPaused(bool paused) { m_paused = paused; }
@@ -164,8 +163,11 @@ public:
 
     const String* sourceURL() const { return m_sourceURL; } // 0 if we are not evaluating any script.
 
-    void clearWindowShell();
+    void clearWindowShell(bool = false);
     void updateDocument();
+
+    void namedItemAdded(HTMLDocument*, const AtomicString&);
+    void namedItemRemoved(HTMLDocument*, const AtomicString&);
 
     void updateSecurityOrigin();
     void clearScriptObjects();
@@ -177,9 +179,16 @@ public:
     NPObject* windowScriptNPObject();
 #endif
 
+#if PLATFORM(QT)
+    QScriptEngine* qtScriptEngine();
+#endif
+
     // Dummy method to avoid a bunch of ifdef's in WebCore.
     void evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld*);
     static void getAllWorlds(Vector<DOMWrapperWorld*>& worlds);
+
+    void setAllowPopupsFromPlugin(bool allowPopupsFromPlugin) { m_allowPopupsFromPlugin = allowPopupsFromPlugin; }
+    bool allowPopupsFromPlugin() const { return m_allowPopupsFromPlugin; }
 
 private:
     Frame* m_frame;
@@ -189,9 +198,13 @@ private:
 
     bool m_processingTimerCallback;
     bool m_paused;
+    bool m_allowPopupsFromPlugin;
 
     OwnPtr<V8Proxy> m_proxy;
     typedef HashMap<Widget*, NPObject*> PluginObjectMap;
+#if PLATFORM(QT)
+    OwnPtr<QScriptEngine> m_qtScriptEngine;
+#endif
 
     // A mapping between Widgets and their corresponding script object.
     // This list is used so that when the plugin dies, we can immediately
@@ -201,8 +214,6 @@ private:
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* m_windowScriptNPObject;
 #endif
-    // The XSSAuditor associated with this ScriptController.
-    OwnPtr<XSSAuditor> m_XSSAuditor;
 };
 
 } // namespace WebCore

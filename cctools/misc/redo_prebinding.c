@@ -102,7 +102,7 @@
 #import <stuff/best_arch.h>
 #import <stuff/allocate.h>
 #import <stuff/errors.h>
-#import <stuff/round.h>
+#import <stuff/rnd.h>
 #import <stuff/hppa.h>
 #import <stuff/execute.h>
 #import <stuff/guess_short_name.h>
@@ -674,7 +674,7 @@ char *argv[],
 char *envp[])
 {
     int i;
-    char *input_file, *output_file;
+    char *input_file, *output_file, *objcunique;
     struct arch *archs;
     uint32_t narchs;
     struct stat stat_buf;
@@ -936,11 +936,12 @@ char *envp[])
 		output_file = NULL;
 	    }
 	    /*
-	     * Run /usr/bin/objcunique on the output.
+	     * Run objcunique on the output.
 	     */
-	    if(stat("/usr/bin/objcunique", &stat_buf) != -1){
+	    objcunique = cmd_with_prefix("objcunique");
+	    if(stat(objcunique, &stat_buf) != -1){
 		reset_execute_list();
-		add_execute_list("/usr/bin/objcunique");
+		add_execute_list(objcunique);
 		if(output_file != NULL)
 		    add_execute_list(output_file);
 		else
@@ -953,7 +954,7 @@ char *envp[])
 		    add_execute_list(root_dir);
 		}
 		if(execute_list(verbose) == 0)
-		    fatal("internal /usr/bin/objcunique command failed");
+		    fatal("internal objcunique command failed");
 	    }
 	    /*
 	     * Call chmod(2) to insure set-uid, set-gid and sticky bits get set.
@@ -5414,7 +5415,7 @@ enum bool missing_arch)
 	    sym_info_size +=
 		arch_nmodtab * sizeof(struct dylib_module_64) +
 		arch_nsyms * sizeof(struct nlist_64) +
-		round(arch_nindirectsyms * sizeof(uint32_t), 8);
+		rnd(arch_nindirectsyms * sizeof(uint32_t), 8);
 	}
 
 	if(arch->object->hints_cmd != NULL){
@@ -5428,9 +5429,14 @@ enum bool missing_arch)
 		arch->object->split_info_cmd->datasize;
 	}
 
+	if(arch->object->func_starts_info_cmd != NULL){
+	    sym_info_size +=
+		arch->object->func_starts_info_cmd->datasize;
+	}
+
 	if(arch->object->code_sig_cmd != NULL){
 	    sym_info_size =
-		round(sym_info_size, 16);
+		rnd(sym_info_size, 16);
 	    sym_info_size +=
 		arch->object->code_sig_cmd->datasize;
 	}
@@ -5471,6 +5477,13 @@ enum bool missing_arch)
 		arch->object->split_info_cmd->dataoff;
 	    arch->object->output_split_info_data_size = 
 		arch->object->split_info_cmd->datasize;
+	}
+	if(arch->object->func_starts_info_cmd != NULL){
+	    arch->object->output_func_start_info_data =
+		arch->object->object_addr +
+		arch->object->func_starts_info_cmd->dataoff;
+	    arch->object->output_func_start_info_data_size = 
+		arch->object->func_starts_info_cmd->datasize;
 	}
 	if(arch->object->code_sig_cmd != NULL){
 	    arch->object->output_code_sig_data = arch->object->object_addr +
@@ -8135,25 +8148,50 @@ contents_pointer_for_vmaddr(
 uint32_t vmaddr,
 uint32_t size)
 {
-    uint32_t i, offset;
+    uint32_t i, j, header_size, offset;
     struct load_command *lc;
     struct segment_command *sg;
+    struct section *s;
     uint32_t ncmds;
     
 	lc = arch->object->load_commands;
-        if(arch->object->mh != NULL)
+        if(arch->object->mh != NULL){
             ncmds = arch->object->mh->ncmds;
-        else
+	    header_size = sizeof(struct mach_header) +
+			  arch->object->mh->sizeofcmds;
+	}
+        else{
             ncmds = arch->object->mh64->ncmds;
+	    header_size = sizeof(struct mach_header_64) +
+			  arch->object->mh64->sizeofcmds;
+	}
 	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		if(vmaddr >= sg->vmaddr &&
 		   vmaddr + size <= sg->vmaddr + sg->vmsize){
 		    offset = vmaddr - sg->vmaddr;
-		    if(offset + size <= sg->filesize)
-			return(arch->object->object_addr +
-			       sg->fileoff + offset);
+		    if(offset + size > sg->filesize)
+			return(NULL);
+		    s = (struct section *)((char *)sg +
+					   sizeof(struct segment_command));
+		    for(j = 0 ; j < sg->nsects; j++){
+			if(vmaddr >= s->addr &&
+			   vmaddr + size <= s->addr + s->size){
+			    /*
+			     * Don't return pointers into the headers or
+			     * link edit information for bad relocation info.
+			     */
+			    if(sg->fileoff + offset < header_size ||
+			       sg->fileoff + offset >=
+				arch->object->object_size -
+				arch->object->input_sym_info_size)
+				return(NULL);
+			    return(arch->object->object_addr +
+				   sg->fileoff + offset);
+			}
+			s++;
+		    }
 		    return(NULL);
 		}
 	    }
@@ -8941,7 +8979,7 @@ uint32_t vmslide)
                                 */
                                 size = pbdylib1->cmdsize -
                                         (sizeof(struct prebound_dylib_command) +
-                                        round(strlen(dylib_name) + 1,
+                                        rnd(strlen(dylib_name) + 1,
 					      sizeof(uint32_t)));
                                 /*
                                  * Now see if the size left has enought space to
@@ -8965,9 +9003,9 @@ uint32_t vmslide)
                                         nmodules = 64;
                                     size = sizeof(struct
 						  prebound_dylib_command) +
-                                     round(strlen(dylib_name)+1,
+                                     rnd(strlen(dylib_name)+1,
 					   sizeof(uint32_t)) +
-                                     round(nmodules / 8, sizeof(uint32_t));
+                                     rnd(nmodules / 8, sizeof(uint32_t));
                                     libs[i].LC_PREBOUND_DYLIB_size = size;
                                 }
                             }
@@ -9015,8 +9053,8 @@ uint32_t vmslide)
                     if(nmodules < 64)
                         nmodules = 64;
                     size = sizeof(struct prebound_dylib_command) +
-                    round(strlen(libs[i].dylib_name) + 1, sizeof(uint32_t))+
-                    round(nmodules / 8, sizeof(uint32_t));
+                    rnd(strlen(libs[i].dylib_name) + 1, sizeof(uint32_t))+
+                    rnd(nmodules / 8, sizeof(uint32_t));
                     libs[i].LC_PREBOUND_DYLIB_size = size;
                     sizeofcmds += libs[i].LC_PREBOUND_DYLIB_size;
                     ncmds++;
@@ -9041,8 +9079,10 @@ uint32_t vmslide)
                         if(sg->nsects != 0){
                             for(j = 0; j < sg->nsects; j++){
                                 if(s->size != 0 &&
-                                (s->flags & S_ZEROFILL) != S_ZEROFILL &&
-                                s->offset < low_fileoff)
+                                   (s->flags & S_ZEROFILL) != S_ZEROFILL &&
+                                   (s->flags & S_THREAD_LOCAL_ZEROFILL) !=
+					       S_THREAD_LOCAL_ZEROFILL &&
+                                   s->offset < low_fileoff)
                                     low_fileoff = s->offset;
                                 s++;
                             }
@@ -9103,11 +9143,11 @@ uint32_t vmslide)
                             pbdylib2->nmodules = libs[j].nmodtab;
                             pbdylib2->linked_modules.offset =
                                     sizeof(struct prebound_dylib_command) +
-                                    round(strlen(dylib_name) + 1,
+                                    rnd(strlen(dylib_name) + 1,
 				    sizeof(uint32_t));
                             linked_modules = ((char *)pbdylib2) +
                                     sizeof(struct prebound_dylib_command) +
-                                    round(strlen(dylib_name) + 1,
+                                    rnd(strlen(dylib_name) + 1,
 				    sizeof(uint32_t));
                             if(libs[j].ofile->mh != NULL)
                                 mh_flags = libs[j].ofile->mh->flags;
@@ -9150,11 +9190,11 @@ uint32_t vmslide)
                     pbdylib2->nmodules = libs[i].nmodtab;
                     pbdylib2->linked_modules.offset =
                             sizeof(struct prebound_dylib_command) +
-                            round(strlen(libs[i].dylib_name) + 1,
+                            rnd(strlen(libs[i].dylib_name) + 1,
 			    sizeof(uint32_t));
                     linked_modules = ((char *)pbdylib2) +
                             sizeof(struct prebound_dylib_command) +
-                            round(strlen(libs[i].dylib_name) + 1,
+                            rnd(strlen(libs[i].dylib_name) + 1,
 			    sizeof(uint32_t));
                     if(libs[i].ofile->mh != NULL)
                         mh_flags = libs[i].ofile->mh->flags;
@@ -9217,6 +9257,10 @@ uint32_t vmslide)
 		break;
 	    case LC_SEGMENT_SPLIT_INFO:
 		arch->object->split_info_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_FUNCTION_STARTS:
+		arch->object->func_starts_info_cmd =
 		    (struct linkedit_data_command *)lc1;
 		break;
 	    }

@@ -2,7 +2,7 @@
 #
 # Wrapper for the Secure Hashing Algorithm (SHA1)
 #
-# $Id: sha1c.tcl,v 1.5 2008/03/25 07:15:34 andreas_kupries Exp $
+# $Id: sha1c.tcl,v 1.6 2009/05/07 00:35:10 patthoyts Exp $
 
 package require critcl;                 # needs critcl
 # @sak notprovided sha1c
@@ -32,14 +32,14 @@ namespace eval ::sha1 {
         sha1_free_rep(Tcl_Obj* obj)
         {
             SHA1_CTX* mp = (SHA1_CTX*) obj->internalRep.otherValuePtr;
-            free(mp);
+            Tcl_Free(mp);
         }
         
         static void
         sha1_dup_rep(Tcl_Obj* obj, Tcl_Obj* dup)
         {
             SHA1_CTX* mp = (SHA1_CTX*) obj->internalRep.otherValuePtr;
-            dup->internalRep.otherValuePtr = malloc(sizeof *mp);
+            dup->internalRep.otherValuePtr = Tcl_Alloc(sizeof *mp);
             memcpy(dup->internalRep.otherValuePtr, mp, sizeof *mp);
             dup->typePtr = &sha1_type;
         }
@@ -92,32 +92,33 @@ namespace eval ::sha1 {
         
         if (objc == 3) {
             if (objv[2]->typePtr != &sha1_type 
-                && sha1_from_any(ip, objv[2]) != TCL_OK)
-            return TCL_ERROR;
+                && sha1_from_any(ip, objv[2]) != TCL_OK) {
+                return TCL_ERROR;
+            }
             obj = objv[2];
-            if (Tcl_IsShared(obj))
-            obj = Tcl_DuplicateObj(obj);
+            if (Tcl_IsShared(obj)) {
+                obj = Tcl_DuplicateObj(obj);
+            }
         } else {
             obj = Tcl_NewObj();
-            mp = (SHA1_CTX*) malloc(sizeof *mp);
+            mp = (SHA1_CTX*) Tcl_Alloc(sizeof *mp);
             SHA1Init(mp);
             
-            if (obj->typePtr != NULL && obj->typePtr->freeIntRepProc != NULL)
-            obj->typePtr->freeIntRepProc(obj);
+            if (obj->typePtr != NULL && obj->typePtr->freeIntRepProc != NULL) {
+                obj->typePtr->freeIntRepProc(obj);
+            }
             
             obj->internalRep.otherValuePtr = mp;
             obj->typePtr = &sha1_type;
         }
         
-        Tcl_SetObjResult(ip, obj);
-        Tcl_IncrRefCount(obj); //!! huh?
-        
         Tcl_InvalidateStringRep(obj);
+
         mp = (SHA1_CTX*) obj->internalRep.otherValuePtr;
-        
         data = Tcl_GetByteArrayFromObj(objv[1], &size);
         SHA1Update(mp, data, size);
-        
+
+        Tcl_SetObjResult(ip, obj);
         return TCL_OK;
     }
 }

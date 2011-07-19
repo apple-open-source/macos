@@ -28,40 +28,43 @@ namespace JSC {
 
     // This class is used as a base for classes such as String,
     // Number, Boolean and Date which are wrappers for primitive types.
-    class JSWrapperObject : public JSObject {
+    class JSWrapperObject : public JSNonFinalObject {
     protected:
-        explicit JSWrapperObject(NonNullPassRefPtr<Structure>);
+        explicit JSWrapperObject(JSGlobalData&, Structure*);
 
     public:
-        JSValue internalValue() const { return m_internalValue; }
-        void setInternalValue(JSValue);
+        JSValue internalValue() const;
+        void setInternalValue(JSGlobalData&, JSValue);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype) 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype) 
         { 
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned AnonymousSlotCount = 1 + JSObject::AnonymousSlotCount;
+        static const unsigned StructureFlags = OverridesVisitChildren | JSNonFinalObject::StructureFlags;
 
     private:
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
         
-        JSValue m_internalValue;
+        WriteBarrier<Unknown> m_internalValue;
     };
 
-    inline JSWrapperObject::JSWrapperObject(NonNullPassRefPtr<Structure> structure)
-        : JSObject(structure)
+    inline JSWrapperObject::JSWrapperObject(JSGlobalData& globalData, Structure* structure)
+        : JSNonFinalObject(globalData, structure)
     {
-        putAnonymousValue(0, jsNull());
     }
 
-    inline void JSWrapperObject::setInternalValue(JSValue value)
+    inline JSValue JSWrapperObject::internalValue() const
+    {
+        return m_internalValue.get();
+    }
+
+    inline void JSWrapperObject::setInternalValue(JSGlobalData& globalData, JSValue value)
     {
         ASSERT(value);
         ASSERT(!value.isObject());
-        m_internalValue = value;
-        putAnonymousValue(0, value);
+        m_internalValue.set(globalData, this, value);
     }
 
 } // namespace JSC

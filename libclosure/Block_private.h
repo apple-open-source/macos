@@ -1,29 +1,25 @@
 /*
  * Block_private.h
- * Blaine Garst
- * 2/13/2008
  *
  * SPI for Blocks
  *
- * Copyright 2008 Appple.  All rights reserved
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
  *
  */
 
 #ifndef _BLOCK_PRIVATE_H_
 #define _BLOCK_PRIVATE_H_
 
-#if !defined(BLOCK_EXPORT)
-#   if defined(__cplusplus)
-#       define BLOCK_EXPORT extern "C" 
-#   else
-#       define BLOCK_EXPORT extern
-#   endif
-#endif
-
+#include <Availability.h>
 #include <AvailabilityMacros.h>
 #include <TargetConditionals.h>
 
 #include <stdbool.h>
+#include <stdio.h>
+
+#include <Block.h>
 
 #if __cplusplus
 extern "C" {
@@ -32,21 +28,37 @@ extern "C" {
 
 
 enum {
-    BLOCK_REFCOUNT_MASK =     (0xffff),
+    BLOCK_DEALLOCATING =      (0x0001),
+    BLOCK_REFCOUNT_MASK =     (0xfffe),
     BLOCK_NEEDS_FREE =        (1 << 24),
     BLOCK_HAS_COPY_DISPOSE =  (1 << 25),
     BLOCK_HAS_CTOR =          (1 << 26), // helpers have C++ code
     BLOCK_IS_GC =             (1 << 27),
     BLOCK_IS_GLOBAL =         (1 << 28),
-    BLOCK_HAS_DESCRIPTOR =    (1 << 29),
+    BLOCK_USE_STRET =         (1 << 29), // undefined if !BLOCK_HAS_SIGNATURE
+    BLOCK_HAS_SIGNATURE  =    (1 << 30)
 };
 
 // revised new layout
-struct Block_descriptor {
+
+#define BLOCK_DESCRIPTOR_1 1
+struct Block_descriptor_1 {
     unsigned long int reserved;
     unsigned long int size;
-    void (*copy)(void *dst, void *src);
-    void (*dispose)(void *);
+};
+
+#define BLOCK_DESCRIPTOR_2 1
+struct Block_descriptor_2 {
+    // requires BLOCK_HAS_COPY_DISPOSE
+    void (*copy)(void *dst, const void *src);
+    void (*dispose)(const void *);
+};
+
+#define BLOCK_DESCRIPTOR_3 1
+struct Block_descriptor_3 {
+    // requires BLOCK_HAS_SIGNATURE
+    const char *signature;
+    const char *layout;
 };
 
 struct Block_layout {
@@ -54,10 +66,9 @@ struct Block_layout {
     int flags;
     int reserved; 
     void (*invoke)(void *, ...);
-    struct Block_descriptor *descriptor;
+    struct Block_descriptor_1 *descriptor;
     // imported variables
 };
-
 
 
 struct Block_byref {
@@ -102,18 +113,45 @@ BLOCK_EXPORT void _Block_object_dispose(const void *object, const int flags);
 // Other support functions
 
 // runtime entry to get total size of a closure
-BLOCK_EXPORT unsigned long int Block_size(void *block_basic);
+BLOCK_EXPORT unsigned long int Block_size(void *aBlock);
 
+// indicates whether block was compiled with compiler that sets the ABI related metadata bits
+BLOCK_EXPORT bool _Block_has_signature(void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+// returns TRUE if return value of block is on the stack, FALSE otherwise
+BLOCK_EXPORT bool _Block_use_stret(void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+// Returns a string describing the block's parameter and return types.
+// The encoding scheme is the same as Objective-C @encode.
+// Returns NULL for blocks compiled with some compilers.
+BLOCK_EXPORT const char * _Block_signature(void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+// Returns a string describing the block's GC layout.
+// Returns NULL for blocks compiled with some compilers.
+BLOCK_EXPORT const char * _Block_layout(void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+// Callable only from the ARR weak subsystem while in exclusion zone
+BLOCK_EXPORT bool _Block_tryRetain(const void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+// Callable only from the ARR weak subsystem while in exclusion zone
+BLOCK_EXPORT bool _Block_isDeallocating(const void *aBlock)
+    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 
 // the raw data space for runtime classes for blocks
 // class+meta used for stack, malloc, and collectable based blocks
-BLOCK_EXPORT void * _NSConcreteStackBlock[32];
 BLOCK_EXPORT void * _NSConcreteMallocBlock[32];
 BLOCK_EXPORT void * _NSConcreteAutoBlock[32];
 BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32];
-BLOCK_EXPORT void * _NSConcreteGlobalBlock[32];
 BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32];
+// declared in Block.h
+// BLOCK_EXPORT void * _NSConcreteGlobalBlock[32];
+// BLOCK_EXPORT void * _NSConcreteStackBlock[32];
 
 
 // the intercept routines that must be used under GC
@@ -131,6 +169,16 @@ BLOCK_EXPORT void _Block_use_GC5( void *(*alloc)(const unsigned long, const bool
 
 BLOCK_EXPORT void _Block_use_RR( void (*retain)(const void *),
                                  void (*release)(const void *));
+
+struct Block_callbacks_RR {
+    size_t  size;                   // size == sizeof(struct Block_callbacks_RR)
+    void  (*retain)(const void *);
+    void  (*release)(const void *);
+    void  (*destructInstance)(const void *);
+};
+typedef struct Block_callbacks_RR Block_callbacks_RR;
+
+BLOCK_EXPORT void _Block_use_RR2(const Block_callbacks_RR *callbacks);
 
 // make a collectable GC heap based Block.  Not useful under non-GC.
 BLOCK_EXPORT void *_Block_copy_collectable(const void *aBlock);

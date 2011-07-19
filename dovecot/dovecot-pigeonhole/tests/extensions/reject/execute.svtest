@@ -1,0 +1,34 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test_set "message" text:
+To: nico@frop.example.org
+From: stephan@example.org
+Subject: Test
+
+Test.
+.
+;
+
+test "Execute" {
+	if not test_script_compile "execute/basic.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_action :count "eq" :comparator "i;ascii-numeric" "1" {
+		test_fail "invalid number of actions in result";
+	}
+
+	if not test_result_action :index 1 "reject" {
+		test_fail "reject action missing from result";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}

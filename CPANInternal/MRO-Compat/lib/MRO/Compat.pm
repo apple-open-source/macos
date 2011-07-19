@@ -5,7 +5,7 @@ require 5.006_000;
 
 # Keep this < 1.00, so people can tell the fake
 #  mro.pm from the real one
-our $VERSION = '0.05';
+our $VERSION = '0.11';
 
 BEGIN {
     # Alias our private functions over to
@@ -97,11 +97,11 @@ interface docs, and contain a lot of other useful information.
 
 =head2 mro::get_linear_isa($classname[, $type])
 
-Returns an arrayref which is the linearized MRO of the given class.
+Returns an arrayref which is the linearized "ISA" of the given class.
 Uses whichever MRO is currently in effect for that class by default,
 or the given MRO (either C<c3> or C<dfs> if specified as C<$type>).
 
-The linearized MRO of a class is a single ordered list of all of the
+The linearized ISA of a class is a single ordered list of all of the
 classes that would be visited in the process of resolving a method
 on the given class, starting with itself.  It does not include any
 duplicate entries.
@@ -170,22 +170,25 @@ section for additional details.
 
 sub __set_mro {
     my ($classname, $type) = @_;
+
     if(!defined $classname || !$type) {
         die q{Usage: mro::set_mro($classname, $type)};
     }
+
     if($type eq 'c3') {
         eval "package $classname; use Class::C3";
         die $@ if $@;
     }
-    if($type ne 'dfs') {
-        die q{Invalid mro type "$type"};
+    elsif($type eq 'dfs') {
+        # In the dfs case, check whether we need to undo C3
+        if(defined $Class::C3::MRO{$classname}) {
+            Class::C3::_remove_method_dispatch_table($classname);
+        }
+        delete $Class::C3::MRO{$classname};
     }
-
-    # In the dfs case, check whether we need to undo C3
-    if(defined $Class::C3::MRO{$classname}) {
-        Class::C3::_remove_method_dispatch_table($classname);
+    else {
+        die qq{Invalid mro type "$type"};
     }
-    delete $Class::C3::MRO{$classname};
 
     return;
 }
@@ -209,8 +212,8 @@ sub __get_mro {
 =head2 mro::get_isarev($classname)
 
 Returns an arrayref of classes who are subclasses of the
-given classname.  In other words, classes who we exist,
-however indirectly, in the @ISA inheritancy hierarchy of.
+given classname.  In other words, classes in whose @ISA
+hierarchy we appear, no matter how indirectly.
 
 This is much slower on pre-5.9.5 Perls with MRO::Compat
 than it is on 5.9.5+, as it has to search the entire
@@ -227,7 +230,7 @@ sub __get_all_pkgs_with_isas {
     my $search = shift;
     my $pfx;
     my $isa;
-    if($search) {
+    if(defined $search) {
         $isa = \@{"$search\::ISA"};
         $pfx = "$search\::";
     }
@@ -396,7 +399,7 @@ Brandon L. Black, E<lt>blblack@gmail.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2007 Brandon L. Black E<lt>blblack@gmail.comE<gt>
+Copyright 2007-2008 Brandon L. Black E<lt>blblack@gmail.comE<gt>
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

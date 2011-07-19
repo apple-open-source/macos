@@ -1,7 +1,7 @@
 " Vim support file to detect file types in scripts
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last change:	2008 Aug 09
+" Last change:	2010 Jul 29
 
 " This file is called by an autocommand for every file that has just been
 " loaded into a buffer.  It checks if the type of file can be recognized by
@@ -99,6 +99,10 @@ if s:line1 =~ "^#!"
     " Lua
   elseif s:name =~ 'lua'
     set ft=lua
+
+    " Perl 6
+  elseif s:name =~ 'perl6'
+    set ft=perl6
 
     " Perl
   elseif s:name =~ 'perl'
@@ -318,30 +322,31 @@ else
     set ft=scheme
 
   " Git output
-  elseif s:line1 =~ '^\(commit\|tree\|object\) \x\{40\}$\|^tag \S\+$'
+  elseif s:line1 =~ '^\(commit\|tree\|object\) \x\{40\}\>\|^tag \S\+$'
     set ft=git
 
   " CVS diff
   else
-    let lnum = 1
-    while getline(lnum) =~ "^? " && lnum < line("$")
-      let lnum = lnum + 1
+    let s:lnum = 1
+    while getline(s:lnum) =~ "^? " && s:lnum < line("$")
+      let s:lnum += 1
     endwhile
-    if getline(lnum) =~ '^Index:\s\+\f\+$'
+    if getline(s:lnum) =~ '^Index:\s\+\f\+$'
       set ft=diff
 
       " locale input files: Formal Definitions of Cultural Conventions
       " filename must be like en_US, fr_FR@euro or en_US.UTF-8
     elseif expand("%") =~ '\a\a_\a\a\($\|[.@]\)\|i18n$\|POSIX$\|translit_'
-      let lnum = 1
-      while lnum < 100 && lnum < line("$")
-	if getline(lnum) =~ '^LC_\(IDENTIFICATION\|CTYPE\|COLLATE\|MONETARY\|NUMERIC\|TIME\|MESSAGES\|PAPER\|TELEPHONE\|MEASUREMENT\|NAME\|ADDRESS\)$'
+      let s:lnum = 1
+      while s:lnum < 100 && s:lnum < line("$")
+	if getline(s:lnum) =~ '^LC_\(IDENTIFICATION\|CTYPE\|COLLATE\|MONETARY\|NUMERIC\|TIME\|MESSAGES\|PAPER\|TELEPHONE\|MEASUREMENT\|NAME\|ADDRESS\)$'
 	  setf fdcc
 	  break
 	endif
-	let lnum = lnum + 1
+	let s:lnum += 1
       endwhile
     endif
+    unlet s:lnum
 
   endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,8 @@ extern "C" {
 SecIdentityRef SecIdentityCreate(
 	CFAllocatorRef allocator,
 	SecCertificateRef certificate,
-	SecKeyRef privateKey);
+	SecKeyRef privateKey)
+	__OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
 
 /*!
 	@function SecIdentityCompare
@@ -55,7 +56,8 @@ SecIdentityRef SecIdentityCreate(
 CFComparisonResult SecIdentityCompare(
     SecIdentityRef identity1,
     SecIdentityRef identity2,
-    CFOptionFlags compareOptions);
+    CFOptionFlags compareOptions)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function SecIdentityFindPreferenceItem
@@ -65,11 +67,20 @@ CFComparisonResult SecIdentityCompare(
 	@param itemRef On return, a reference to the keychain item which was found. The caller is responsible for releasing this reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion An identity preference item maps a particular identity to a string, such as a URI or email address. It specifies that this identity should be preferred in transactions which match the provided string.
+	@deprecated in Mac OS X 10.7 and later; use SecIdentityCopyPreferred() instead (SecIdentity.h)
+	
+	WARNING: This function is based on an implementation detail and will go away
+	in a future release; its use should be avoided at all costs. It does not
+	provide a way to find a preference item based on key usage, and it can only
+	find preferences which are stored as keychain items, so it may fail to find
+	the item you expect. Please use the public API functions to manipulate
+	identity preferences.
 */
 OSStatus SecIdentityFindPreferenceItem(
-			CFTypeRef keychainOrArray,
-			CFStringRef idString,
-			SecKeychainItemRef *itemRef);
+	CFTypeRef keychainOrArray,
+	CFStringRef idString,
+	SecKeychainItemRef *itemRef)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecIdentityAddPreferenceItem
@@ -83,10 +94,11 @@ OSStatus SecIdentityFindPreferenceItem(
     @deprecated in Mac OS X 10.5; use SecIdentitySetPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityAddPreferenceItem(
-			SecKeychainRef keychainRef,
-			SecIdentityRef identityRef,
-			CFStringRef idString,
-			SecKeychainItemRef *itemRef);
+	SecKeychainRef keychainRef,
+	SecIdentityRef identityRef,
+	CFStringRef idString,
+	SecKeychainItemRef *itemRef)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function SecIdentityUpdatePreferenceItem
@@ -98,8 +110,9 @@ OSStatus SecIdentityAddPreferenceItem(
     @deprecated in Mac OS X 10.5; use SecIdentitySetPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityUpdatePreferenceItem(
-			SecKeychainItemRef itemRef,
-			SecIdentityRef identityRef);
+	SecKeychainItemRef itemRef,
+	SecIdentityRef identityRef)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 /*!
 	@function SecIdentityCopyFromPreferenceItem
@@ -111,8 +124,26 @@ OSStatus SecIdentityUpdatePreferenceItem(
     @deprecated in Mac OS X 10.5; use SecIdentityCopyPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityCopyFromPreferenceItem(
-			SecKeychainItemRef itemRef,
-			SecIdentityRef *identityRef);
+	SecKeychainItemRef itemRef,
+	SecIdentityRef *identityRef)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function ConvertArrayToKeyUsage
+    @abstract Given an array of key usages defined in SecItem.h return the equivalent CSSM_KEYUSE
+	@param usage An CFArrayRef containing CFTypeRefs defined in SecItem.h
+		kSecAttrCanEncrypt,
+		kSecAttrCanDecrypt,
+		kSecAttrCanDerive,
+		kSecAttrCanSign,
+		kSecAttrCanVerify,
+		kSecAttrCanWrap,
+		kSecAttrCanUnwrap
+		If the CFArrayRef is NULL then the CSSM_KEYUSAGE will be CSSM_KEYUSE_ANY
+    @result A CSSM_KEYUSE.  Derived from the passed in Array
+*/		
+CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
+
 
 #if defined(__cplusplus)
 }

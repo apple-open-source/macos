@@ -1,4 +1,4 @@
-# $Id: parse_datetime.t,v 1.3 2003/07/16 13:42:35 cfaerber Exp $
+# $Id: parse_datetime.t 1046 2003-07-16 13:42:35Z cfaerber $
 use Test::More tests => 8;
 use DateTime::Format::Pg 0.02;
 

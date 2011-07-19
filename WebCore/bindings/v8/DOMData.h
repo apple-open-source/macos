@@ -43,7 +43,8 @@ namespace WebCore {
     // thread.  The DOMData for the main thread and the DOMData for child threads
     // use different subclasses.
     //
-    class DOMData : public Noncopyable {
+    class DOMData {
+        WTF_MAKE_NONCOPYABLE(DOMData);
     public:
         DOMData();
         virtual ~DOMData();
@@ -55,7 +56,7 @@ namespace WebCore {
         static void handleWeakObject(DOMDataStore::DOMWrapperMapType, v8::Persistent<v8::Object>, T* domObject);
 
         template<typename T>
-        static void removeObjectsFromWrapperMap(AbstractWeakReferenceMap<T, v8::Object>& domMap);
+        static void removeObjectsFromWrapperMap(DOMDataStore* store, AbstractWeakReferenceMap<T, v8::Object>& domMap);
 
         ThreadIdentifier owningThread() const { return m_owningThread; }
 
@@ -65,7 +66,7 @@ namespace WebCore {
         template<typename T>
         class WrapperMapObjectRemover : public WeakReferenceMap<T, v8::Object>::Visitor {
         public:
-            virtual void visitDOMWrapper(T* domObject, v8::Persistent<v8::Object> v8Object)
+            virtual void visitDOMWrapper(DOMDataStore* store, T* domObject, v8::Persistent<v8::Object> v8Object)
             {
                 WrapperTypeInfo* type = V8DOMWrapper::domWrapperType(v8Object);
                 derefObject(type, domObject);
@@ -79,22 +80,33 @@ namespace WebCore {
     template<typename T>
     void DOMData::handleWeakObject(DOMDataStore::DOMWrapperMapType mapType, v8::Persistent<v8::Object> v8Object, T* domObject)
     {
+        WrapperTypeInfo* type = V8DOMWrapper::domWrapperType(v8Object);
         DOMDataList& list = DOMDataStore::allStores();
+        bool found = false;
         for (size_t i = 0; i < list.size(); ++i) {
             DOMDataStore* store = list[i];
             ASSERT(store->domData()->owningThread() == WTF::currentThread());
 
             DOMWrapperMap<T>* domMap = static_cast<DOMWrapperMap<T>*>(store->getDOMWrapperMap(mapType));
-            if (domMap->removeIfPresent(domObject, v8Object))
-                store->domData()->derefObject(V8DOMWrapper::domWrapperType(v8Object), domObject);
+            if (domMap->removeIfPresent(domObject, v8Object)) {
+                derefObject(type, domObject);
+                found = true;
+            }
+        }
+
+        // If not found, it means map for the wrapper has been already destroyed, just dispose the
+        // handle and deref the object to fight memory leak.
+        if (!found) {
+            v8Object.Dispose();
+            derefObject(type, domObject);
         }
     }
 
     template<typename T>
-    void DOMData::removeObjectsFromWrapperMap(AbstractWeakReferenceMap<T, v8::Object>& domMap)
+    void DOMData::removeObjectsFromWrapperMap(DOMDataStore* store, AbstractWeakReferenceMap<T, v8::Object>& domMap)
     {
         WrapperMapObjectRemover<T> remover;
-        domMap.visit(&remover);
+        domMap.visit(store, &remover);
         domMap.clear();
     }
 

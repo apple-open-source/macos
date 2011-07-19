@@ -52,6 +52,10 @@ __FBSDID("$FreeBSD: src/usr.bin/killall/killall.c,v 1.31 2004/07/29 18:36:35 max
 #include <getopt.h>
 #define OPTIONS ("c:dej:lmst:u:vz")
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
+
 static void __dead2
 usage(void)
 {
@@ -122,11 +126,12 @@ kludge_signal_args(int *argc, char **argv, int *sig)
 
 	/* i = 1, skip program name */
 	for (i = 1; i < *argc; i++) {
-		/* Stop if we encounter either a non-option or -- */
-		if (*argv[i] != '-' || strcmp(argv[i], "--") == 0)
+		/* Stop kludging if we encounter -- */
+		if (strcmp(argv[i], "--") == 0)
 			kludge = 0;
 		ptr = argv[i] + 1;
-		if (kludge && strchr(OPTIONS, *ptr) == NULL) {
+		/* Only process arguments that start with - and do not look like an existing option. */
+		if (kludge && *argv[i] == '-' && *ptr && strchr(OPTIONS, *ptr) == NULL) {
 			if (isalpha(*ptr)) {
 				if (strcmp(ptr, "help") == 0)
 					usage();
@@ -375,7 +380,11 @@ main(int ac, char **av)
 			continue;
 
 		mib[0] = CTL_KERN;
+#if defined(__APPLE__) && TARGET_OS_EMBEDDED
+		mib[1] = KERN_PROCARGS2;
+#else
 		mib[1] = KERN_PROCARGS;
+#endif
 		mib[2] = thispid;
 
 		syssize = (size_t)argmax;

@@ -3,6 +3,31 @@ NAME
     DBIx::Class::Schema
 
 SYNOPSIS
+      ### use this module to generate a set of class files
+
+      # in a script
+      use DBIx::Class::Schema::Loader qw/ make_schema_at /;
+      make_schema_at(
+          'My::Schema',
+          { debug => 1,
+            dump_directory => './lib',
+          },
+          [ 'dbi:Pg:dbname="foo"', 'myuser', 'mypassword' ],
+      );
+
+      # from the command line or a shell script with dbicdump (distributed
+      # with this module).  Do `perldoc dbicdump` for usage.
+      dbicdump -o dump_directory=./lib \
+               -o debug=1 \
+               My::Schema \
+               'dbi:Pg:dbname=foo' \
+               myuser \
+               mypassword
+
+      ### or generate and load classes at runtime
+      # note: this technique is not recommended
+      # for use in production code
+
       package My::Schema;
       use base qw/DBIx::Class::Schema::Loader/;
 
@@ -11,7 +36,7 @@ SYNOPSIS
           # debug                 => 1,
       );
 
-      # in seperate application code ...
+      #### in application code elsewhere:
 
       use My::Schema;
 
@@ -26,9 +51,10 @@ DESCRIPTION
 
     DBIx::Class::Schema::Loader currently supports only the DBI storage
     type. It has explicit support for DBD::Pg, DBD::mysql, DBD::DB2,
-    DBD::SQLite, and DBD::Oracle. Other DBI drivers may function to a
-    greater or lesser degree with this loader, depending on how much of the
-    DBI spec they implement, and how standard their implementation is.
+    DBD::SQLite, DBD::Sybase (for Sybase ASE and MSSSQL), DBD::ODBC (for
+    MSSQL) and DBD::Oracle. Other DBI drivers may function to a greater or
+    lesser degree with this loader, depending on how much of the DBI spec
+    they implement, and how standard their implementation is.
 
     Patches to make other DBDs work correctly welcome.
 
@@ -48,7 +74,20 @@ DESCRIPTION
     down the road.
 
 METHODS
+  loader_class
+    Argument: $loader_class
+
+    Set the loader class to be instantiated when "connection" is called. If
+    the classname starts with "::", "DBIx::Class::Schema::Loader" is
+    prepended. Defaults to "storage_type" in DBIx::Class::Schema (which must
+    start with "::" when using DBIx::Class::Schema::Loader).
+
+    This is mostly useful for subclassing existing loaders or in conjunction
+    with "dump_to_dir".
+
   loader_options
+    Argument: \%loader_options
+
     Example in Synopsis above demonstrates a few common arguments. For
     detailed information on all of the arguments, most of which are only
     useful in fairly complex scenarios, see the
@@ -60,29 +99,32 @@ METHODS
     after the connection has already been made is useless.
 
   connection
-    See DBIx::Class::Schema for basic usage.
+    Arguments: @args
+    Return Value: $new_schema
 
-    If the final argument is a hashref, and it contains a key
-    "loader_options", that key will be deleted, and its value will be used
-    for the loader options, just as if set via the "loader_options" method
-    above.
+    See "connection" in DBIx::Class::Schema for basic usage.
+
+    If the final argument is a hashref, and it contains the keys
+    "loader_options" or "loader_class", those keys will be deleted, and
+    their values value will be used for the loader options or class,
+    respectively, just as if set via the "loader_options" or "loader_class"
+    methods above.
 
     The actual auto-loading operation (the heart of this module) will be
     invoked as soon as the connection information is defined.
 
   clone
-    See DBIx::Class::Schema.
+    See "clone" in DBIx::Class::Schema.
 
   dump_to_dir
-    Argument: directory name.
+    Argument: $directory
 
     Calling this as a class method on either DBIx::Class::Schema::Loader or
-    any derived schema class will cause all affected schemas to dump manual
-    versions of themselves to the named directory when they are loaded. In
-    order to be effective, this must be set before defining a connection on
-    this schema class or any derived object (as the loading happens as soon
-    as both a connection and loader_options are set, and only once per
-    class).
+    any derived schema class will cause all schemas to dump manual versions
+    of themselves to the named directory when they are loaded. In order to
+    be effective, this must be set before defining a connection on this
+    schema class or any derived object (as the loading happens as soon as
+    both a connection and loader_options are set, and only once per class).
 
     See "dump_directory" in DBIx::Class::Schema::Loader::Base for more
     details on the dumping mechanism.
@@ -122,16 +164,20 @@ METHODS
         My::OtherSchema->connection(.......);
 
   make_schema_at
-    This simple function allows one to create a Loader-based schema
-    in-memory on the fly without any on-disk class files of any kind. When
-    used with the "dump_directory" option, you can use this to generate a
-    rough draft manual schema from a dsn without the intermediate step of
-    creating a physical Loader-based schema class.
+    Arguments: $schema_class_name, \%loader_options, \@connect_info
+    Return Value: $schema_class_name
 
-    The return value is the input class name.
+    This function creates a DBIx::Class schema from an existing RDBMS
+    schema. With the "dump_directory" option, generates a set of DBIx::Class
+    classes from an existing database schema read from the given dsn.
+    Without a "dump_directory", creates schema classes in memory at runtime
+    without generating on-disk class files.
 
-    This function can be exported/imported by the normal means, as
-    illustrated in these Examples:
+    For a complete list of supported loader_options, see
+    DBIx::Class::Schema::Loader::Base
+
+    This function can be imported in the usual way, as illustrated in these
+    Examples:
 
         # Simple example, creates as a new class 'New::Schema::Name' in
         #  memory in the running perl interpreter.
@@ -142,11 +188,8 @@ METHODS
             [ 'dbi:Pg:dbname="foo"','postgres' ],
         );
 
-        # Complex: dump loaded schema to disk, all from the commandline:
-        perl -MDBIx::Class::Schema::Loader=make_schema_at,dump_to_dir:./lib -e 'make_schema_at("New::Schema::Name", { debug => 1 }, [ "dbi:Pg:dbname=foo","postgres" ])'
-
-        # Same, but inside a script, and using a different way to specify the
-        # dump directory:
+        # Inside a script, specifying a dump directory in which to write
+        # class files
         use DBIx::Class::Schema::Loader qw/ make_schema_at /;
         make_schema_at(
             'New::Schema::Name',
@@ -155,38 +198,50 @@ METHODS
         );
 
   rescan
+    Return Value: @new_monikers
+
     Re-scans the database for newly added tables since the initial load, and
     adds them to the schema at runtime, including relationships, etc. Does
     not process drops or changes.
 
     Returns a list of the new monikers added.
 
-EXAMPLE
-    Using the example in DBIx::Class::Manual::ExampleSchema as a basis
-    replace the DB::Main with the following code:
+  naming
+    Arguments: \%opts | $ver
 
-      package DB::Main;
+    Controls the naming options for backward compatibility, see "naming" in
+    DBIx::Class::Schema::Loader::Base for details.
 
-      use base qw/DBIx::Class::Schema::Loader/;
+    To upgrade a dynamic schema, use:
 
-      __PACKAGE__->loader_options(
-          debug         => 1,
-      );
-      __PACKAGE__->connection('dbi:SQLite:example.db');
+        __PACKAGE__->naming('current');
 
-      1;
+    Can be imported into your dump script and called as a function as well:
 
-    and remove the Main directory tree (optional). Every thing else should
-    work the same
+        naming('v4');
+
+  use_namespaces
+    Arguments: 1|0
+
+    Controls the use_namespaces options for backward compatibility, see
+    "use_namespaces" in DBIx::Class::Schema::Loader::Base for details.
+
+    To upgrade a dynamic schema, use:
+
+        __PACKAGE__->use_namespaces(1);
+
+    Can be imported into your dump script and called as a function as well:
+
+        use_namespaces(1);
 
 KNOWN ISSUES
   Multiple Database Schemas
     Currently the loader is limited to working within a single schema (using
-    the database vendors' definition of "schema"). If you have a
+    the underlying RDBMS's definition of "schema"). If you have a
     multi-schema database with inter-schema relationships (which is easy to
-    do in PostgreSQL or DB2 for instance), you only get to automatically
-    load the tables of one schema, and any relationships to tables in other
-    schemas will be silently ignored.
+    do in PostgreSQL or DB2 for instance), you currently can only
+    automatically load the tables of one schema, and relationships to tables
+    in other schemas will be silently ignored.
 
     At some point in the future, an intelligent way around this might be
     devised, probably by allowing the "db_schema" option to be an arrayref
@@ -195,18 +250,62 @@ KNOWN ISSUES
     In "normal" DBIx::Class::Schema usage, manually-defined source classes
     and relationships have no problems crossing vendor schemas.
 
-AUTHOR
-    Brandon Black, "blblack@gmail.com"
+ACKNOWLEDGEMENTS
+    Matt S Trout, all of the #dbix-class folks, and everyone who's ever sent
+    in a bug report or suggestion.
 
     Based on DBIx::Class::Loader by Sebastian Riedel
 
     Based upon the work of IKEBE Tomohiro
 
-THANK YOU
-    Matt S Trout, all of the #dbix-class folks, and everyone who's ever sent
-    in a bug report or suggestion.
+AUTHOR
+    blblack: Brandon Black <blblack@gmail.com>
 
-LICENSE
+CONTRIBUTORS
+    ilmari: Dagfinn Ilmari Mannsåker <ilmari@ilmari.org>
+
+    arcanez: Justin Hunter <justin.d.hunter@gmail.com>
+
+    ash: Ash Berlin <ash@cpan.org>
+
+    Caelum: Rafael Kitover <rkitover@cpan.org>
+
+    TSUNODA Kazuya <drk@drk7.jp>
+
+    rbo: Robert Bohne <rbo@cpan.org>
+
+    ribasushi: Peter Rabbitson <ribasushi@cpan.org>
+
+    gugu: Andrey Kostenko <a.kostenko@rambler-co.ru>
+
+    jhannah: Jay Hannah <jay@jays.net>
+
+    rbuels: Robert Buels <rmb32@cornell.edu>
+
+    timbunce: Tim Bunce <timb@cpan.org>
+
+    mst: Matt S. Trout <mst@shadowcatsystems.co.uk>
+
+    kane: Jos Boumans <kane@cpan.org>
+
+    waawaamilk: Nigel McNie <nigel@mcnie.name>
+
+    acmoore: Andrew Moore <amoore@cpan.org>
+
+    bphillips: Brian Phillips <bphillips@cpan.org>
+
+    schwern: Michael G. Schwern <mschwern@cpan.org>
+
+    hobbs: Andrew Rodland <arodland@cpan.org>
+
+    ... and lots of other folks. If we forgot you, please write the current
+    maintainer or RT.
+
+COPYRIGHT & LICENSE
+    Copyright (c) 2006 - 2009 by the aforementioned "AUTHOR" in
+    DBIx::Class::Schema::Loader and "CONTRIBUTORS" in
+    DBIx::Class::Schema::Loader.
+
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
 

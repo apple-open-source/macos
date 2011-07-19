@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: tftp.h,v 1.5 2008-10-23 14:34:08 yangtse Exp $
  ***************************************************************************/
 
 /* This file is a rewrite/clone of the arpa/tftp.h file for systems without

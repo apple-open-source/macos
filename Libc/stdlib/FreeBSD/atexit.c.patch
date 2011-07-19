@@ -1,10 +1,10 @@
---- atexit.c.orig	2009-05-12 11:21:33.000000000 -0700
-+++ atexit.c	2009-05-23 13:46:33.000000000 -0700
-@@ -45,14 +45,23 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
+--- atexit.c.bsdnew	2009-11-13 14:11:47.000000000 -0800
++++ atexit.c	2009-11-13 14:11:47.000000000 -0800
+@@ -41,14 +41,23 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  #include <stdlib.h>
  #include <unistd.h>
  #include <pthread.h>
-+#if defined(__DYNAMIC__)
++#if defined(__DYNAMIC__) || defined (__BLOCKS__)
 +#include <dlfcn.h>
 +#endif /* defined(__DYNAMIC__) */
  #include "atexit.h"
@@ -24,7 +24,7 @@
  
  static pthread_mutex_t atexit_mutex = PTHREAD_MUTEX_INITIALIZER;
  
-@@ -67,6 +76,9 @@ struct atexit {
+@@ -63,6 +72,9 @@ struct atexit {
  		union {
  			void (*std_func)(void);
  			void (*cxa_func)(void *);
@@ -34,7 +34,7 @@
  		} fn_ptr;			/* function pointer */
  		void *fn_arg;			/* argument for CXA callback */
  		void *fn_dso;			/* shared module handle */
-@@ -74,6 +86,7 @@ struct atexit {
+@@ -70,6 +82,7 @@ struct atexit {
  };
  
  static struct atexit *__atexit;		/* points to head of LIFO stack */
@@ -42,7 +42,7 @@
  
  /*
   * Register the function described by 'fptr' to be called at application
-@@ -109,6 +122,7 @@ atexit_register(struct atexit_fn *fptr)
+@@ -105,6 +118,7 @@ atexit_register(struct atexit_fn *fptr)
  		__atexit = p;
  	}
  	p->fns[p->ind++] = *fptr;
@@ -50,7 +50,7 @@
  	_MUTEX_UNLOCK(&atexit_mutex);
  	return 0;
  }
-@@ -120,17 +134,50 @@ int
+@@ -116,17 +130,50 @@ int
  atexit(void (*func)(void))
  {
  	struct atexit_fn fn;
@@ -102,7 +102,7 @@
  /*
   * Register a function to be performed at exit or when an shared object
   * with given dso handle is unloaded dynamically.
-@@ -156,13 +203,14 @@ __cxa_atexit(void (*func)(void *), void 
+@@ -152,13 +199,14 @@ __cxa_atexit(void (*func)(void *), void 
   * handlers are called.
   */
  void
@@ -118,7 +118,7 @@
  	for (p = __atexit; p; p = p->next) {
  		for (n = p->ind; --n >= 0;) {
  			if (p->fns[n].fn_type == ATEXIT_FN_EMPTY)
-@@ -175,6 +223,7 @@ __cxa_finalize(void *dso)
+@@ -171,6 +219,7 @@ __cxa_finalize(void *dso)
  			  has already been called.
  			*/
  			p->fns[n].fn_type = ATEXIT_FN_EMPTY;
@@ -126,7 +126,7 @@
  		        _MUTEX_UNLOCK(&atexit_mutex);
  		
  			/* Call the function of correct type. */
-@@ -182,7 +231,13 @@ __cxa_finalize(void *dso)
+@@ -178,7 +227,13 @@ __cxa_finalize(void *dso)
  				fn.fn_ptr.cxa_func(fn.fn_arg);
  			else if (fn.fn_type == ATEXIT_FN_STD)
  				fn.fn_ptr.std_func();

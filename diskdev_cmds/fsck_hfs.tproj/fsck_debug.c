@@ -25,18 +25,18 @@
 #include "fsck_debug.h"
 #include "fsck_hfs.h"
 
-/* Current debug level of fsck_hfs for printing messages via dprintf */
+/* Current debug level of fsck_hfs for printing messages via DPRINTF */
 unsigned long cur_debug_level;
 
-/* Function: dprintf
+/* Function: DPRINTF
  *
  * Description: Debug function similar to printf except the first parameter
- * which indicates the type of message to be printed by dprintf. Based on 
+ * which indicates the type of message to be printed by DPRINTF. Based on 
  * current debug level and the type of message, the function decides 
  * whether to print the message or not.
  *
  * Each unique message type has a bit assigned to it.  The message type 
- * passed to dprintf can be one or combination (OR-ed value) of pre-defined 
+ * passed to DPRINTF can be one or combination (OR-ed value) of pre-defined 
  * debug message types.  Only the messages whose type have one or more similar
  * bits set in comparison with current global debug level are printed. 
  *
@@ -56,7 +56,7 @@ unsigned long cur_debug_level;
  * Output:
  *	Nothing
  */
-void dprintf (unsigned long type, char *fmt, ...) 
+void DPRINTF (unsigned long type, char *fmt, ...) 
 {
 	if (cur_debug_level & type) {
 		va_list ap;

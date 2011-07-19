@@ -25,6 +25,420 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.29 release (the cctools-800 release):
+- Fixed the arm VCVT (between half-precision and single-precision) instructions
+  encodings.  Had the op bit inverted in the table.  It should have been:
+    VCVT<c><q>.F32.F16 <Qd>, <Dm> Encoded as op = 1 (aka fcvtshp)
+    VCVT<c><q>.F16.F32 <Dd>, <Qm> Encoded as op = 0 (aka fcvthps)
+  Radar bug #8951023.
+- Added the .incbin directive.  Radar bug #8945167.
+- Changed the Makefile to install the ppc and ppc64 assembler in LOCLIBDIR.
+  Radar bug #8828970.
+
+Changes for the 5.28 release (the cctools-799 release):
+- Found another path that -g was not checking to produce dwarf line table
+  entries only for the text section.  That was in dwarf2_emit_insn() in
+  dwarf2dbg.c.  Radar bug #8792738.
+- Fixed the mishanding of the thumb2 tst instruction.  Changed do_t_mvn_tst()
+  in arm.c.  Normally, the versions of the instructions that set condition flags
+  aren't allowed inside IT blocks, so it's checking that.  TST<c>, however, is
+  allowed and isn't accounted for.  Radar bug #8783763.
+- Changed the arm assembler for ADD/SUB (immediate, Thumb) to correctly follow
+  the manual's note about these instructions:
+    encoding T1 is to be preferred if Rd is specified, and T2 is preferred if
+    it is not.
+  To do this do_t_add_sub() sets the unused 0x0100 in inst.instruction when
+  using BFD_RELOC_ARM_THUMB_ADD to communicate to md_apply_fix() that two
+  operands were present in assembly code.  Then md_apply_fix() uses this bit
+  and checks the size of the immediate to see if the 3-bit immediate form can
+  be uses as it should be preferred in that case.  Radar bug #8756030.
+
+Changes for the 5.28 release (the cctools-798 release):
+- Changed to error messages in arm.c which were:
+    "invalid constant (%x) after fixup"
+  to have 0x in front of the hex value.  Radar bug #8772178.
+- Changed do_t_mul() in arm.c .  The problem is that the assembler didn't take
+  into account that the "mul" mnemonic (w/o the 's' suffix) is valid for the
+  16-bit wide encoding when in an IT block.  Radar bug #8755919.
+- Added support for make aarm_test .
+  - Added a arm-check.c that currently only does arm ALU instructions can set
+    the condition codes.
+  - Added #ifndef INSNS_TABLE_ONLY to arm.c so that can be #defined and included
+    in arm-check.c .
+  - Made the needed changes in the Makefile to add support for aarm_test .
+
+Changes for the 5.28 release (the cctools-797 release):
+- Changed the code that was adding the NULL DIE terminating the Compile Unit
+  DIE's when producing dwarf debuging info for assembly files to not be
+  conditional on if dwarf2_subprograms_info != NULL.  The change is at the end
+  of out_debug_info() in dwarf2dbg.c . Radar bug #8441990 and #8443177.
+
+Changes for the 5.28 release (the cctools-796 release):
+- Changed the x86-64 assembler to allow immediate expressions of the form:
+    movq $(xxx-L$y),%rax
+  by changing output_imm() to look for 4 byte signed 32-bit expression and use
+  the same trick in output_disp() to call fix_new() so it will use two
+  relocation entries pointing at the same 32-bits.  Radar bug #7081262.
+- Added the OpenSourceURL key to the cctools.plist file as:
+    <key>OpenSourceURL</key>
+    <string>http://ftp.gnu.org/gnu/binutils/binutils-1.38.1.tar.gz</string>
+  Radar bug #8569655.
+
+Changes for the 5.28 release (the cctools-795 release):
+- Added checks or overlowing the 24-bits of the r_address relocation entry in
+  fix_to_relocation_entries() in write_object.c  .  Radar bug #8348673.
+
+Changes for the 5.28 release (the cctools-794 release):
+- Added the NULL DIE terminating the Compile Unit DIE's when producing dwarf
+  debuging info for assembly files.  The change is at the end of
+  out_debug_info() in dwarf2dbg.c . Radar bug #8453745.
+
+Changes for the 5.28 release (the cctools-793 release):
+- Fixed more problems with support for generating dwarf debugging information
+  for assembly source, with symbols in other sections besides .text .
+  - The routine make_subprogram_for_symbol() in symbols.c was not ignoring
+    symbols not in the .text section.  Also the calls to 
+  - Generation of the .loc directive done in md_assemble() in i386.c and in
+    arm.c by calling dwarf2_loc() also needed to check that the section was
+    the .text section.
+  Radar bug #8425965.
+- Fixed problems with support for generating dwarf debugging information for
+  assembly source.  The routine make_subprogram_for_symbol() in symbols.c was
+  not updating last_dwarf2_subprogram_info when dwarf2_subprograms_info != NULL
+  and it was not ignoring symbols that stared with 'L'.  Radar bug #8387908.
+
+Changes for the 5.28 release (the cctools-790 release):
+- Added the arm Media and VFP Feature Registers 1 and 0 to arm.c as mvfr0,
+  MVFR0, mvfr1 and MVFR1.  Radar bug #8246341.
+
+Changes for the 5.28 release (the cctools-788 release):
+- Remove the use of -mdynamic-no-pic from the Makefile.  Radar bug #8207834.
+
+Changes for the 5.28 release (the cctools-787 release):
+- Added support for the .symbol_resolver directive.  Added s_symbol_resolver()
+  in read.c and an entry for it in pseudo_table[].  Also added N_SYMBOL_RESOLVER
+  in the conditional test in colon() in symbols.c to allow it to be set first
+  then the symbol defined.  Radar bug #7901954.
+
+Changes for the 5.28 release (the cctools-786 release):
+- Fixed the incorrect trigger for outputing dwarf info in dwarf2_finish() in
+  dwarf2dbg.c .  The change was to make sure that all_segs was not NULL and the
+  either all_segs->next was not NULL or debug_type == DEBUG_DWARF2.
+  Radar bug #8154276.
+
+Changes for the 5.28 release (the cctools-785 release):
+- Fixed a bug with support for thread local variables in fixup_section() in
+  layout.c that did not include the address of the fragment when calculating
+  the "pc" value.  Radar bug #8113809.
+- Added support for generating dwarf debugging information for assembly source
+  files when the --gdwarf2 or -g flag is specified.  Radar bug #7580966.
+  - main() in as.c was changed to make -g the same as --gdwarf2.
+  - The declaration of apple_version[] was moved to as.h out of as.c.
+  - The variable version_string[] in as.c was made global and the declaration 
+    was added to as.h.
+  - The macro APPLE_INC_VERSION was added to as.h for print the version string
+    in main() in as.c
+  - The global varaible apple_flags was added to as.[ch] and set in main() when
+    the environment variable RC_DEBUG_OPTIONS is set.
+  - The global variable dwarf_file_number was added to dwarf2dbg.[ch] .
+  - Generation of the .file directive is done in read_a_source_file() in read.c
+    by calling dwarf2_file() which was added in dwarf2dbg.c .  The call uses
+    global variable dwarf_file_number and increments it.
+  - Generation of the .loc directive is done in md_assemble() in i386.c and in
+    arm.c by calling dwarf2_loc() which was added in dwarf2dbg.c .
+  - The struct dwarf2_subprogram_info and global variable
+    dwarf2_subprograms_info was added to dwarf2dbg.h to collect info and use it
+    for the subprogram entires.
+  - Collecting information for the symbols to make dwarf2 subprogram entires
+    is done by calling the new routine, make_subprogram_for_symbol(), added
+    to symbols.c called from colon() in symbols.c .
+  - out_debug_abbrev() in dwarf2dbg.c was change to add the DW_TAG_subprogram
+    DIE as #2 and changed to DW_CHILDREN_yes for the DW_TAG_compile_unit DIE.
+    Also the AT_APPLE_flags is added when apple_flags is set.
+  - In out_debug_info() in dwarf2dbg.c it was change to output the subprograms
+    and the DW_AT_producer was changed to use the version information so it
+    matches what as(1) -v would print.  Also the AT_APPLE_flags added to the
+    output when apple_flags is set.
+  - The trigger for calling the out_debug_*() routines at the end of
+    dwarf2_finish() in dwarf2dbg.c was change to include a test of
+    debug_type == DEBUG_DWARF2 (when --gdwarf2 is specified).
+
+Changes for the 5.28 release (the cctools-784 release):
+- Changed the arm assembler to not used the thumb2 opcode when targetting armv6
+  and unified syntax.  The fix was in do_t_nop() in arm.c to add a check in
+  additiona to unified syntax to make sure the cpu_variant core specified also
+  supports thumb2.  Radar bug #7876935.
+- Add a check for too many sections being created in sections.c .  Radar bug
+  #7920267.
+
+Changes for the 5.28 release (the cctools-783 release):
+- Added control register names as %ecr0 and %rcr0 in i386-opcode.h that is the
+  names llvm-mc uses.  And added $(LLVM_MC) to the otool command lines in the
+  Makefile.
+- Added the -llvm-mc option to the driver to run llvm-mc.  Radar bug #7837868.
+- Added the support for thread local variables.
+  - Changed the _i386_insn in i386.c to include a reloc[] array like for ARCH64
+    so it can hold a GENERIC_RELOC_TLV.
+  - Changed md_assemble() in i386.c to zero out reloc[] without the #ifdef
+    ARCH64.
+  - Changed the call for fix_new() in output_disp() in i386.c to pass i.reloc[n]
+    as the last argument in the #if !ARCH64 case.
+  - Changed the #if expression around lex_got() and removed the !defined(ARCH64)
+    part of the condition.
+  - Inside lex_got() in i386 changed gotrel[] initialization on the #ifdef
+    NeXT_MOD side. Wrapped that in #ifdef ARCH64 and added the TLVP to the table
+    and added an #else side for 32-bit with the entry for the TLVP.
+  - In layout_addresses() in layout.c made changes to test for
+    S_THREAD_LOCAL_ZEROFILL when testing for S_ZEROFILL.
+  - In fixup_section() in layout.c added code that is
+    #if defined(I386) && !defined(ARCH64)
+    - To test GENERIC_RELOC_TLV relocation type when sub_symbolP is not NULL
+      and adjust the value to have to be the difference of the end of the
+      relocated item and the symbol. Then clear the fx_subsy field and set the
+      fx_pcrel to get the proper TVL relocation entry.  This is done in two
+      places, one where both symbols are in a section and one when the
+      add symbol is undefined.
+    - Added a check of fixP->fx_r_type != GENERIC_RELOC_TLV where it would
+      add in the symbol value so it does not do that (it will be an external
+      reloc in this case even if the symbol is defined).
+  - In read.c added the new section type names thread_local_regular,
+    thread_local_variables and thread_local_init_function_pointers to
+    type_names[].
+  - In read.c added the new built in section directives tdata, tlv and
+    thread_init_func to builtin_sections[].
+  - In read.c changed s_zerofill() and passed the section type as the value
+    parameter and added the tbss directive to use s_zerofill. And changed the
+    zerofill directive to pass S_ZEROFILL as the value.  In s_zerofill() it
+    checks for the value passes as S_THREAD_LOCAL_ZEROFILL and creates the
+    (__DATA, __thread_bss) section with that type.
+  - In fix_to_relocation_entries() in write_object.c added a test of
+      ((symbolP->sy_type & N_TYPE) == N_SECT &&
+       fixP->fx_r_type == GENERIC_RELOC_TLV)
+    that is 
+      #if defined(I386) && !defined(ARCH64)
+    to where it sets the r_extern bit and the r_symbolnum to the symbol index
+    as @TLVP that are defined get external relocation entries.
+  - In sections.c changed section_new() and in write_object.c in write_object()
+    to also test for S_THREAD_LOCAL_ZEROFILL when it is testing for S_ZEROFILL.
+  Radar bug #7796734.
+
+Changes for the 5.28 release (the cctools-782 release):
+- Added the .weak_def_can_be_hidden to read.c and changed colon() in symbols.c
+  to also preserve N_WEAK_DEF bit.  Radar bug #5021217.
+- Fixed the arm assembler to correctly detect errors with floating point to
+  integer conversion instruction that use the rounding mode (vcvtr.*) when they
+  are not valid and generate an error.  The fix was in do_vfp_nsyn_cvtr() in
+  arm.c to cause an error if one has not already be caught by checking that
+  the flavour index into the static arrary enc[] does not have a null value.
+  Radar bug #7719236.
+- Added the Intel aes instructions.  Radar bug #7709572.
+
+Changes for the 5.28 release (the cctools-780 release):
+- Changed the Makefile to use -Os for OFLAG in building the driver.
+- Fixed a bug in parse_neon_mov() in arm.c that caused assembling:
+    vmov.f32 s2, s1
+  to end up with an undefined symbol named "s1" in the output file.  This was
+  caused by the call to parse_big_immediate().  Which was incorrectly called
+  before trying arm_typed_reg_parse().  The call to parse_big_immediate()
+  failed but as a side effect created the undefined symbol and then the later
+  call to arm_typed_reg_parse() did not fail.  Reversing the two removes the
+  problem and then in the case when parse_big_immediate() fails it causes an
+  error.  Radar bug #7567713.
+- Fixed arm.c that incorrectly had an ARM_VARIANT set for the Thumb only
+  instructions cbnz and cbz.  Also fixed do_neon_mov() in arm.c when it was
+  called for something like "vshr q0,d0,#0" to not abort() in the switch(rs)
+  case for default if a inst.error and just return and let the error get
+  reported.  Radar bug #7559323.
+
+Changes for the 5.28 release (the cctools-779 release):
+- Changed the test in encode_thumb2_ldmstm() for the warning of the value
+  stored is UNPREDICTABLE to check that writeback is set before the rest of the
+  checks such as the base is in the list and is also not the lowest register
+  in the mask.  Radar bug #7528057.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() and stuff/round.h to stuff/rnd.h in all files and
+  removed -fno-builtin-round from the Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.28 release (the cctools-775 release):
+- Added support for the new arm ARM_RELOC_HALF and ARM_RELOC_HALF_SECTDIFF
+  relocation entries used with the movw and movt instruction immediates.
+  - Added a new file arm_reloc.h to have internal #defines for
+    ARM_{,THUMB_}RELOC_{LO16,HI16} with notes about the encodings for the
+    reloc entries in <mach-o/arm/reloc.h> .
+  - In arm.c assigned the enum BFD_RELOC_{ARM,THUMB}_MOV{W,T} values
+    ARM_{,THUMB_}RELOC_{LO16,HI16} from arm_reloc.h .
+  - Fixed the code in md_apply_fix() for the BFD_RELOC_{ARM,THUMB}_MOV{W,T}
+    case values so the *_MOVT values would have high 16 bits of the value used.
+  - Fixed the code in write_object.c to correctly deal with the ARM relocs.
+    - In nrelocs_for_fix() added the #ifdef ARM code for the paired relocs.
+    - In fix_to_relocation_entries() added the #ifdef ARM code for the handling
+      of the LO16,HI16 and SECTDIFF ARM relocs.
+  Radar bug #7421496.
+
+Changes for the 5.28 release (the cctools-774 release):
+- Added the invvpid and invept instructions to i386-opcode.h .
+  Radar bug #7383743.
+- Fixed x86_64 instructions that have a 0xf2, 0xf3, etc. "mandatory" prefixes to
+  follow optional prefixes.   This is done by adding a entry in the i.prefix[]
+  array, increasing MAX_PREFIXES in i386.h by one and adding MAN_PREFIX just
+  before REX_PREFIX.  Then add_prefix() in i386.c had the parameter mandatory
+  added to it which was passed MAN_PREFIX when called with a mandatory prefix or
+  0 otherwise.  Then add_prefix() had code added to it to place the passed
+  prefix into i.prefix[mandatory] when mandatory was not zero and return 1
+  to indicate a prefix was added but was not a REP prefix.  Radar bug #7403143.
+- Fixed the i386 bound instruction to take WordMem, WordReg not WordReg,
+  WordMem . Radar bug #7394709.
+- Update the i386-check.c program to work for both i386 and x86_64 and added in
+  the Makefile an ax86_64_test target.
+
+Changes for the 5.27 release (the cctools-772 release):
+- Fixed the arm's assembler's vmls.f32 and vmls.f64 encodings, the changes were
+  in do_vfp_nsyn_mla_mls() in arm.c to use "fnmacs" instead of "fmscs" and
+  "fnmacd" instead of "fmscd".  Fixed the arm's assembler's vnmla.f32, vnmls.f32
+  and vnmla.f64, vnmls.f64 encoding in their respective table entries.
+  Radar bug #7331301.
+- Changed the arm assembler to make the vcvt.* forms match the manual the same
+  as what was the vcvtz.* forms.  And removed the vcvtz.* forms.  Then added
+  the vcvtr.* forms as in the manual as what was the old vcvt.* forms.  Changes
+  were in do_vfp_nsyn_cvt() in arm.c in the last enc[] array entries and a
+  change to the "if (rs == NS_FF" to add "&& (flavour == 18 || flavour == 19))".
+  Then changed do_vfp_nsyn_cvtz() to do_vfp_nsyn_cvtr() and changed the entries
+  in the enc[] array in there.  And also changed the vcvt entry to use
+  vfp_nsyn_cvtr . Radar bug #7329319 & #7329326.
+- Changed the arm assembler to allow "vmrs APSR_nzcv, FPSCR" by adding the
+  routine do_vmrs() in arm.c and changing the table entry for "vmrs" to allow
+  ASPR_RR for the first argument and use the new routine.  Radar bug #7327031.
+- Changed i386_displacement() in i386.c and turned on the GCC_ASM_O_HACK to
+  allow displacements like "4+(%esp)".  Radar bug #5828463.
+
+Changes for the 5.27 release (the cctools-771 release):
+- Changed fixup_section() in layout.c for the first #if ARM case and removed the
+  check for the add symbol not being weak to set the low bit of the value.
+  Radar bug #7262421.
+- Changed the test in encode_thumb2_ldmstm() for the warning of the value
+  stored is UNPREDICTABLE to check that the base is also not the lowest register
+  in the mask.  Radar bug #7268941.
+
+Changes for the 5.27 release (the cctools-769 release):
+- Fixed a bug in s_zerofill() in read.c that did not allow zerofill sizes
+  greater than 32-bits.  In s_zerofill() in read.c changed the local variable 
+  "size" to a uint64_t type.  Changed the type of the field "fr_address"
+  in the frag struct in frags.h to a uint64_t type.  And fixed types for
+  relax_addressT in relax.h which were reversed in the #ifdef ARCH64.
+  Radar bug #7245879.
+
+Changes for the 5.27 release (the cctools-767 release):
+- Added an error check for the call to realpath(3) in driver.c in main().
+  Radar bug #7201696.
+
+Changes for the 5.27 release (the cctools-766 release):
+- Picked up the change that never made it in the sources from cctools-685 but
+  made in in the notes below.  Changed relax_section() in layout.c in two plaves
+  #ifdef'ed ARM.  In the first look it now sets frag's relax_marker field to 
+  zero.  In the "Do relax" loop it flips the relax_marker field with an "^= 1".
+  This is to fix a problem in relaxed_symbol_addr() so it knows to add the
+  stretch amount to the addr it is returning.  Radar bug #7141908.
+
+Changes for the 5.27 release (the cctools-765 release):
+- Fixed a problem with the mask used for checking overflow of 2 byte values
+  in fixup_section() in layout.c that was 0xffff8000 which should have been
+  0xffff0000.  Also fixed the resulting error message so it would print the
+  source line number.  Radar bug #7114412.
+- Added the assembly for the orn (immediate) instructions to arm.c in
+  t_do_orn().  Radar bug #7096522.
+
+Changes for the 5.27 release (the cctools-763 release):
+- Added the assembly for the orn instructions to arm.c .  Radar bug #7096522.
+- Added the assembly for the rrx instructions to arm.c .  Radar bug #7098328.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+- Changed output_relax_insn() in arm.c to allow symbols that are just an
+  absolute symbol.  As this occurs when using a symbol from .set for an
+  immediate value.  Radar bug #7069304.
+
+Changes for the 5.27 release (the cctools-760 release):
+- Changed the sources so the armv7 stuff is a no longer #ifndef __OPEN_SOURCE__
+  Radar bug #7016121.
+  - Changed the Makefile and removed the #ifndef __OPEN_SOURCE__ for the arm
+    build.
+  - Removed the #ifndef __OPEN_SOURCE__ from as.c that was bracketing armv7
+    the reference.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Added the assembly for the pldw, vcvt.f32.f16, vcvt.f16.f32, vcvtt and
+  vcvtb instructions to arm.c .  Radar bug #6959129.
+- Added the memory barrior options ish, ishst, osh, oshst, nsh and nshst
+  to arm.c . Radar bug #6982242.
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.27 release (the cctools-758 release):
+- Backed out the change in Radar bug #6511482 in the arm assembler to put out a
+  relocation entry for 32-bit thumb branches using the ARM_THUMB_32BIT_BRANCH
+  relocation type.
+  - Changed arm.c to no longer assign the enum type
+    BFD_RELOC_THUMB_PCREL_BRANCH20 to the ARM_THUMB_32BIT_BRANCH relocation
+    type's value.
+  - Changed nrelocs_for_fix() and fix_to_relocation_entries() in write_object.c
+    and removed the #ifdef ARM and tests for the ARM_THUMB_32BIT_BRANCH
+    relocation type when archflag_cpusubtype == CPU_SUBTYPE_ARM_V7.  That code
+    use to count 1 for the fixes in nrelocs_for_fix() and to put out a
+    relocation entry in fix_to_relocation_entries() for the type
+    ARM_THUMB_32BIT_BRANCH.  The relocation entry put out was a local relocation
+    entry that was pcrel, length of long and an symbolnum of R_ABS (0).
+    Also in fix_to_relocation_entries() it was setting fr_type to
+    ARM_THUMB_32BIT_BRANCH so that BFD_RELOC_THUMB_PCREL_BRANCH20 versions with
+    no symbol were geting set correctly.
+  Radar bug #6945428.
+
+Changes for the 5.27 release (the cctools-757 release):
+- Fixed the arm assembler to correctly place Rm in the rbit instruction in
+  both halfs of the 16 bit opcode.  The fix was is do_t_rbit() in arm.c .
+  Radar bug #6915130.
+
+Changes for the 5.27 release (the cctools-754 release):
+- Changed the arm assembler to allow -arch armv7 to accept ARMv7M special
+  registers.  The change was in md_begin() in arm.c for the case statement
+  CPU_SUBTYPE_ARM_V7. Radar bug #6782055.
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248, 6756531 and 6756295.
+  - Added a (void) cast in the SKIP_WHITESPACE macro in read.h .
+  - Added (void) casts in the obstack_finish macro in obstack.h .
+  - Added (void) cast before obstack_finish() in:
+      frag_new() in frags.c
+      two places add_last_frags_to_sections() and two places in
+	layout_addresses() in layout.c 
+      section_new() in sections.c
+  - Added (void) case before obstack_1grow() in:
+      demand_copy_string(), s_macro(), s_endmacro(), add_to_macro_definition(),
+      expand_macro() and s_load() in read.c .
+  - Changed decode_local_label_name() in symbols.c so to use a literal string
+    instead of a pointer to a string to get rid of a "potentially insecure"
+    warning.
+  - Changed ppc.c and the use and setting of error_param_message so it is just
+    a string and not a format string to get rid of a "potentially insecure"
+    warning.  Workaround for 6765807.
+  - Fixed warnings about extra tokens at end of #endif directive in ofile.c
+    by putting them in a comment.
+
+- Changed input_file_give_next_buffer() in input-file.[ch] to also return the
+  size of the buffer it will give.  Then changed input_scrub_next_buffer() in
+  input-scrub.c to use this to know when it didn't need to reallocate the
+  buffer to fix it from needlessly running out of memory.  Radar bug #6720994.
+- Changed md_number_to_imm() in arm.c to have a case for 8 so .quad with a non-
+  relocatable expression would work.  Radar bug #6731807.
+
+Changes for the 5.27 release (the cctools-751 release):
+- Fixed a problem with the arm assembler not accepting the sdiv instruction with
+  armv7. Radar bug #6697528.
+- Fixed an initialization problem in fix_new_internal() in fixes.c that was not
+  initializing the fx_sectdiff_divide_by_two field.  Radar bug #5930362.
+
 Changes for the 5.26 release (the cctools-747 release):
 - Changed the assembler to put out a line table if no .loc directives are
   used but a .file directive to be used.  This was causing a bad dwarf for data

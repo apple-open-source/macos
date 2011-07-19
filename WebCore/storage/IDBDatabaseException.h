@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -25,35 +22,55 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef IDBDatabaseException_h
 #define IDBDatabaseException_h
 
-#include "PlatformString.h"
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
-
 #if ENABLE(INDEXED_DATABASE)
+
+#include "ExceptionBase.h"
 
 namespace WebCore {
 
-class IDBDatabaseException : public RefCounted<IDBDatabaseException> {
+class IDBDatabaseException : public ExceptionBase {
 public:
-    static PassRefPtr<IDBDatabaseException> create()
+    static PassRefPtr<IDBDatabaseException> create(const ExceptionCodeDescription& description)
     {
-        return adoptRef(new IDBDatabaseException());
+        return adoptRef(new IDBDatabaseException(description));
     }
-    ~IDBDatabaseException() { }
-    
-    unsigned short code() const { return m_code; }
-    void setCode(unsigned short value) { m_code = value; }
-    String message() const { return m_message; }
-    void setMessage(const String& value) { m_message = value; }
+
+    static const int IDBDatabaseExceptionOffset = 1200;
+    static const int IDBDatabaseExceptionMax = 1299;
+
+    enum IDBDatabaseExceptionCode {
+        NO_ERR = IDBDatabaseExceptionOffset + 0,
+        UNKNOWN_ERR = IDBDatabaseExceptionOffset + 1,
+        NON_TRANSIENT_ERR = IDBDatabaseExceptionOffset + 2,
+        NOT_FOUND_ERR = IDBDatabaseExceptionOffset + 3,
+        CONSTRAINT_ERR = IDBDatabaseExceptionOffset + 4,
+        DATA_ERR = IDBDatabaseExceptionOffset + 5,
+        NOT_ALLOWED_ERR = IDBDatabaseExceptionOffset + 6,
+        SERIAL_ERR = IDBDatabaseExceptionOffset + 7,
+        RECOVERABLE_ERR = IDBDatabaseExceptionOffset + 8,
+        TRANSIENT_ERR = IDBDatabaseExceptionOffset + 9,
+        TIMEOUT_ERR = IDBDatabaseExceptionOffset + 10,
+        DEADLOCK_ERR = IDBDatabaseExceptionOffset + 11,
+        READ_ONLY_ERR = IDBDatabaseExceptionOffset + 12,
+        ABORT_ERR = IDBDatabaseExceptionOffset + 13
+    };
+
+    static int ErrorCodeToExceptionCode(int errorCode)
+    {
+        if (!errorCode)
+            return 0;
+        return errorCode + IDBDatabaseExceptionOffset;
+    }
 
 private:
-    IDBDatabaseException() { }
-
-    unsigned short m_code;
-    String m_message;
+    IDBDatabaseException(const ExceptionCodeDescription& description)
+        : ExceptionBase(description)
+    {
+    }
 };
 
 } // namespace WebCore
@@ -61,4 +78,3 @@ private:
 #endif
 
 #endif // IDBDatabaseException_h
-

@@ -44,7 +44,6 @@ __BEGIN_DECLS
 /*!
  * @header
  * @ignore CF_EXPORT
- * @ignore AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
  *
  * The OSKext library provides a comprehensive interface for creating,
  * examining, and loading kernel extensions (kexts).
@@ -71,8 +70,7 @@ __BEGIN_DECLS
  *
  * The kernel counterpart of OSKext is the OSKext libkern C++ class.
  */
-typedef struct __OSKext * OSKextRef
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+typedef struct __OSKext * OSKextRef;
 
 #define kOSKextBundleExtension  "kext"
 #define kOSKextMkextExtension   "mkext"
@@ -84,6 +82,7 @@ typedef struct __OSKext * OSKextRef
  * @constant kOSKextDiagnosticsFlagAuthentication
  * @constant kOSKextDiagnosticsFlagDependencies
  * @constant kOSKextDiagnosticsFlagWarnings
+ * @constant kOSKextDiagnosticsFlagBootLevel
  */
 enum {
     kOSKextDiagnosticsFlagNone           = (UInt32)       0x0U,
@@ -92,18 +91,25 @@ enum {
     kOSKextDiagnosticsFlagAuthentication = (UInt32)       0x2U,
     kOSKextDiagnosticsFlagDependencies   = (UInt32)       0x4U,
     kOSKextDiagnosticsFlagWarnings       = (UInt32)       0x8U,
+    kOSKextDiagnosticsFlagBootLevel      = (UInt32)      0x10U,
 
     kOSKextDiagnosticsFlagAll            = (UInt32)0xFFFFFFFFU,
 };
 typedef UInt32 OSKextDiagnosticsFlags;
 
+/* notify(3) identifiers.
+ */
+CF_EXPORT const char * kOSKextLoadNotification;
+CF_EXPORT const char * kOSKextUnloadNotification;
+
 /* Top-level keys for diagnostics dicts. See @link OSKextCopyDiagnostics@/link.
  */
 // xxx - not sure we need to include these, but it's convenient
-const CFStringRef kOSKextDiagnosticsValidationKey;
-const CFStringRef kOSKextDiagnosticsAuthenticationKey;
-const CFStringRef kOSKextDiagnosticsDependenciesKey;
-const CFStringRef kOSKextDiagnosticsWarningsKey;
+CF_EXPORT const CFStringRef kOSKextDiagnosticsValidationKey;
+CF_EXPORT const CFStringRef kOSKextDiagnosticsAuthenticationKey;
+CF_EXPORT const CFStringRef kOSKextDiagnosticsDependenciesKey;
+CF_EXPORT const CFStringRef kOSKextDiagnosticsWarningsKey;
+CF_EXPORT const CFStringRef kOSKextDiagnosticsBootLevelKey;
 
 #pragma mark Basic CF Functions
 /*********************************************************************
@@ -118,7 +124,7 @@ const CFStringRef kOSKextDiagnosticsWarningsKey;
  */
 CF_EXPORT CFTypeID
 OSKextGetTypeID(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Module Configuration
 /*********************************************************************
@@ -162,7 +168,7 @@ OSKextGetTypeID(void)
 // xxx - should this also have a flushDependenciesFlag?
 CF_EXPORT Boolean
 OSKextSetArchitecture(const NXArchInfo * archInfo)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetArchitecture
@@ -182,7 +188,7 @@ OSKextSetArchitecture(const NXArchInfo * archInfo)
  */
 CF_EXPORT const NXArchInfo *
 OSKextGetArchitecture(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetRunningKernelArchitecture
@@ -201,7 +207,7 @@ OSKextGetArchitecture(void)
  */
 CF_EXPORT const NXArchInfo *
 OSKextGetRunningKernelArchitecture(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSetLogFilter
@@ -229,7 +235,7 @@ CF_EXPORT void
 OSKextSetLogFilter(
     OSKextLogSpec logFilter,
     Boolean       kernelFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetLogFilter
@@ -249,7 +255,7 @@ OSKextSetLogFilter(
  * @link OSKextSetLogOutputFunction@/link.
  */
 OSKextLogSpec OSKextGetLogFilter(Boolean kernelFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @typedef OSKextLogOutputFunction
@@ -272,8 +278,7 @@ typedef void (*OSKextLogOutputFunction)(
     OSKextRef        aKext,
     OSKextLogSpec    msgLogSpec,
     const char     * format,
-    ...)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+    ...);
 
 /*!
  * @function OSKextSetLogOutputFunction
@@ -289,7 +294,7 @@ typedef void (*OSKextLogOutputFunction)(
  */
 CF_EXPORT void
 OSKextSetLogOutputFunction(OSKextLogOutputFunction func)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextLog
@@ -314,7 +319,7 @@ OSKextLog(
     OSKextLogSpec messageLogSpec,
     const char  * format,
     ...) __attribute__((format(printf, 3, 4)))
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextVLog
@@ -338,7 +343,56 @@ void OSKextVLog(
     OSKextLogSpec    msgLogSpec,
     const char     * format,
     va_list          srcArgList)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+/*!
+ * @function OSKextLogCFString
+ * @abstract Log a message at a given level and with flags.
+ *
+ * @param aKext           If not <code>NULL</code>, the OSKext object to which
+ *                        the log message applies.
+ * @param messageLogSpec  The level and flags with which to log the message.
+ * @param format          A printf-style format CFString to log,
+ *                        followed by optional arguments.
+ *
+ * @discussion
+ * Log messages are filtered based on <code>aKext</code>,
+ * <code>messageLogSpec</code>, and the current log filter as set by
+ * @link <code>OSKextSetLogFilter</code>@/link.
+ *
+ * Log messages have no trailing newline, to accommodate system log facilities.
+ */
+CF_EXPORT void
+OSKextLogCFString(
+    OSKextRef     aKext,
+    OSKextLogSpec messageLogSpec,
+    CFStringRef   format,
+    ...) CF_FORMAT_FUNCTION(3,4)
+                __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+/*!
+ * @function OSKextVLog
+ * @abstract Log a message at a given level and with flags.
+ *
+ * @param aKext           If not <code>NULL</code>, the OSKext object to which
+ *                        the log message applies.
+ * @param messageLogSpec  The level and flags with which to log the message.
+ * @param format          A printf-style format string to log.
+ * @param srcArgList      The corresponding argument list for the format string.
+ *
+ * @discussion
+ * Log messages are filtered based on <code>aKext</code>,
+ * <code>messageLogSpec</code>, and the current log filter as set by
+ * @link <code>OSKextSetLogFilter</code>@/link.
+ *
+ * Log messages have no trailing newline, to accommodate system log facilities.
+ */
+void OSKextVLogCFString(
+    OSKextRef        aKext,
+    OSKextLogSpec    msgLogSpec,
+    CFStringRef      format,
+    va_list          srcArgList)
+                __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 /*!
  * @function OSKextSetSimulatedSafeBoot
@@ -355,7 +409,7 @@ void OSKextVLog(
  */
 CF_EXPORT void
 OSKextSetSimulatedSafeBoot(Boolean flag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetSimulatedSafeBoot
@@ -373,7 +427,7 @@ OSKextSetSimulatedSafeBoot(Boolean flag)
  */
 CF_EXPORT Boolean
 OSKextGetSimulatedSafeBoot(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetActualSafeBoot
@@ -394,7 +448,7 @@ OSKextGetSimulatedSafeBoot(void)
 // xxx - we used to disallow kexts w/debug-log flags in safe boot, too
 CF_EXPORT Boolean
 OSKextGetActualSafeBoot(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetSystemExtensionsFolderURLs
@@ -412,7 +466,7 @@ OSKextGetActualSafeBoot(void)
  */
 CF_EXPORT CFArrayRef
 OSKextGetSystemExtensionsFolderURLs(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSetRecordsDiagnostics
@@ -445,7 +499,7 @@ OSKextGetSystemExtensionsFolderURLs(void)
 // Could list a pile of see also's here....
 CF_EXPORT void
 OSKextSetRecordsDiagnostics(OSKextDiagnosticsFlags flags)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetRecordsDiagnostics
@@ -460,7 +514,7 @@ OSKextSetRecordsDiagnostics(OSKextDiagnosticsFlags flags)
  */
 CF_EXPORT OSKextDiagnosticsFlags
 OSKextGetRecordsDiagnostics(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 
 /*!
@@ -481,7 +535,7 @@ OSKextGetRecordsDiagnostics(void)
  */
 CF_EXPORT void
 OSKextSetUsesCaches(Boolean flag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetUsesCaches
@@ -501,7 +555,7 @@ OSKextSetUsesCaches(Boolean flag)
  */
 CF_EXPORT Boolean
 OSKextGetUsesCaches(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Instance Management
 /*********************************************************************
@@ -544,7 +598,7 @@ CF_EXPORT OSKextRef
 OSKextCreate(
     CFAllocatorRef allocator,
     CFURLRef       anURL)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateKextsFromURL
@@ -580,7 +634,7 @@ OSKextCreate(
 CFArrayRef OSKextCreateKextsFromURL(
     CFAllocatorRef allocator,
     CFURLRef anURL)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateKextsFromURLs
@@ -615,7 +669,7 @@ CF_EXPORT CFArrayRef
 OSKextCreateKextsFromURLs(
     CFAllocatorRef allocator,
     CFArrayRef arrayOfURLs)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateWithIdentifier
@@ -665,7 +719,7 @@ CF_EXPORT OSKextRef
 OSKextCreateWithIdentifier(
     CFAllocatorRef allocator,
     CFStringRef    kextIdentifier)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetAllKexts
@@ -682,7 +736,7 @@ OSKextCreateWithIdentifier(
  */
 CF_EXPORT CFArrayRef
 OSKextGetAllKexts(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetKextWithURL
@@ -706,7 +760,7 @@ OSKextGetAllKexts(void)
 CF_EXPORT OSKextRef
 OSKextGetKextWithURL(
     CFURLRef anURL)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetKextWithIdentifier
@@ -743,7 +797,7 @@ OSKextGetKextWithURL(
 CF_EXPORT OSKextRef
 OSKextGetKextWithIdentifier(
     CFStringRef aBundleID)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyKextsWithIdentifiers
@@ -766,7 +820,7 @@ OSKextGetKextWithIdentifier(
 CF_EXPORT CFMutableArrayRef 
 OSKextCopyKextsWithIdentifiers(
     CFArrayRef bundleIDs)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetKextWithIdentifierAndVersion
@@ -792,7 +846,7 @@ OSKextCopyKextsWithIdentifiers(
 CF_EXPORT OSKextRef
 OSKextGetKextWithIdentifierAndVersion(
     CFStringRef aBundleID, OSKextVersion aVersion)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetKextsWithIdentifier
@@ -816,7 +870,7 @@ OSKextGetKextWithIdentifierAndVersion(
 CF_EXPORT CFArrayRef
 OSKextCopyKextsWithIdentifier(
     CFStringRef aBundleID)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetLoadedKextWithIdentifier
@@ -841,7 +895,7 @@ OSKextCopyKextsWithIdentifier(
 CF_EXPORT OSKextRef
 OSKextGetLoadedKextWithIdentifier(
     CFStringRef aBundleID)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetCompatibleKextWithIdentifier
@@ -870,7 +924,7 @@ CF_EXPORT OSKextRef
 OSKextGetCompatibleKextWithIdentifier(
     CFStringRef  aBundleID,
     OSKextVersion requestedVersion)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Basic Accessors
 /*********************************************************************
@@ -893,7 +947,7 @@ OSKextGetCompatibleKextWithIdentifier(
  */
 CF_EXPORT CFURLRef
 OSKextGetURL(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER; // always absolute
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2); // always absolute
 
 /*!
  * @function OSKextGetIdentifier
@@ -908,7 +962,7 @@ OSKextGetURL(OSKextRef aKext)
  */
 CF_EXPORT CFStringRef
 OSKextGetIdentifier(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetValueForInfoDictionaryKey
@@ -959,7 +1013,7 @@ CF_EXPORT CFTypeRef
 OSKextGetValueForInfoDictionaryKey(
     OSKextRef   aKext,
     CFStringRef key)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyInfoDictionary
@@ -979,7 +1033,7 @@ OSKextGetValueForInfoDictionaryKey(
  */
 CF_EXPORT CFMutableDictionaryRef
 OSKextCopyInfoDictionary(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFlushInfoDictionary
@@ -1011,7 +1065,7 @@ OSKextCopyInfoDictionary(OSKextRef aKext)
  */
 CF_EXPORT void
 OSKextFlushInfoDictionary(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetVersion
@@ -1026,7 +1080,7 @@ OSKextFlushInfoDictionary(OSKextRef aKext)
  */
 CF_EXPORT OSKextVersion
 OSKextGetVersion(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetCompatibleVersion
@@ -1044,7 +1098,7 @@ OSKextGetVersion(OSKextRef aKext)
  */
 CF_EXPORT OSKextVersion
 OSKextGetCompatibleVersion(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyUUIDForArchitecture
@@ -1067,7 +1121,7 @@ OSKextGetCompatibleVersion(OSKextRef aKext)
 CF_EXPORT CFDataRef
 OSKextCopyUUIDForArchitecture(OSKextRef aKext,
     const NXArchInfo * anArch)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsKernelComponent
@@ -1089,7 +1143,7 @@ OSKextCopyUUIDForArchitecture(OSKextRef aKext,
  */
 CF_EXPORT Boolean
 OSKextIsKernelComponent(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsInterface
@@ -1112,7 +1166,7 @@ OSKextIsKernelComponent(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsInterface(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLibrary
@@ -1131,7 +1185,7 @@ OSKextIsInterface(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsLibrary(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextDeclaresExecutable
@@ -1150,7 +1204,7 @@ OSKextIsLibrary(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextDeclaresExecutable(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextHasLogOrDebugFlags
@@ -1169,7 +1223,7 @@ OSKextDeclaresExecutable(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextHasLogOrDebugFlags(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLoggingEnabled
@@ -1189,7 +1243,7 @@ OSKextHasLogOrDebugFlags(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsLoggingEnabled(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLoggingEnabled
@@ -1212,8 +1266,7 @@ CF_EXPORT void
 OSKextSetLoggingEnabled(
     OSKextRef aKext,
     Boolean flag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
-
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLoadableInSafeBoot
@@ -1236,7 +1289,32 @@ OSKextSetLoggingEnabled(
  */
 CF_EXPORT Boolean
 OSKextIsLoadableInSafeBoot(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+/*!
+ * @function OSKextDependenciesAreLoadableInSafeBoot
+ * @abstract
+ * Returns whether the kernel will load all of a kext's dependencies
+ * during safe boot.
+ *
+ * @param    aKext  The kext whose dependencies to examine.
+ * @result
+ * <code>true</code> if the kernel will allow <code>aKext</code>'s dependencies
+ * during safe boot, <code>false</code> otherwise.
+ *
+ * @discussion
+ * A kext is loadable during safe boot if it has an OSBundleRequired
+ * property for the kernel's architecture with a value of
+ * "Root", "Local-Root", "Network-Root", "Console", or "Safe Boot".
+ *
+ * This function does not generally cover the issue of loadability due
+ * to problems with validation, authentication, or dependency resolution.
+ * To determine whether a kext can actually be loaded, use
+ * @link OSKextIsLoadable@/link.
+ */
+CF_EXPORT Boolean
+OSKextDependenciesAreLoadableInSafeBoot(OSKextRef aKext)
+                __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 /*!
  * @function OSKextCopyArchitectures
@@ -1255,7 +1333,7 @@ OSKextIsLoadableInSafeBoot(OSKextRef aKext)
  */
 CF_EXPORT const NXArchInfo **
 OSKextCopyArchitectures(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSupportsArchitecture
@@ -1273,7 +1351,7 @@ OSKextCopyArchitectures(OSKextRef aKext)
 // null for current (NOT host) arch
 Boolean    OSKextSupportsArchitecture(OSKextRef aKext,
     const NXArchInfo * anArch)
-AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;  // if NULL, uses current default
+__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);  // if NULL, uses current default
 
 /*!
  * @function OSKextCopyPlugins
@@ -1294,7 +1372,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;  // if NULL, uses current default
  */
 CF_EXPORT CFArrayRef
 OSKextCopyPlugins(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
                 
 /*!
  * @function OSKextIsPlugin
@@ -1311,7 +1389,7 @@ OSKextCopyPlugins(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsPlugin(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyContainerForPluginKext
@@ -1333,7 +1411,7 @@ OSKextIsPlugin(OSKextRef aKext)
  */
 CF_EXPORT OSKextRef
 OSKextCopyContainerForPluginKext(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyPersonalitiesArray
@@ -1352,7 +1430,7 @@ OSKextCopyContainerForPluginKext(OSKextRef aKext)
  */
 CF_EXPORT CFArrayRef
 OSKextCopyPersonalitiesArray(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 // xxx - would it be awful to have a function that takes a CFTypeRef that's
 // xxx - a single kext, an array of kexts, or NULL for all open kexts?
@@ -1373,7 +1451,7 @@ OSKextCopyPersonalitiesArray(OSKextRef aKext)
  */
 CF_EXPORT CFArrayRef
 OSKextCopyPersonalitiesOfKexts(CFArrayRef kextArray)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyExecutableForArchitecture
@@ -1395,7 +1473,7 @@ OSKextCopyPersonalitiesOfKexts(CFArrayRef kextArray)
 CF_EXPORT CFDataRef
 OSKextCopyExecutableForArchitecture(OSKextRef aKext,
     const NXArchInfo * anArch)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyResource
@@ -1406,7 +1484,7 @@ OSKextCopyExecutableForArchitecture(OSKextRef aKext,
  * @param    resourceType  The abstract type of the requested resource.
  *                         The type is expressed as a filename extension,
  *                         such as <code>jpg</code>.
- *                         Pass <code>NULL</code> if you don’t need
+ *                         Pass <code>NULL</code> if you don't need
  *                         to search by type.
  * 
  * @result
@@ -1427,7 +1505,7 @@ OSKextCopyResource(
     OSKextRef   aKext,
     CFStringRef resourceName,
     CFStringRef resourceType)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Dependency Resolution
 /*********************************************************************
@@ -1462,7 +1540,7 @@ OSKextCopyResource(
 // xxx - check on same-version ordering with folks
 CF_EXPORT Boolean
 OSKextResolveDependencies(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFlushDependencies
@@ -1496,7 +1574,7 @@ OSKextResolveDependencies(OSKextRef aKext)
  */
 CF_EXPORT void
 OSKextFlushDependencies(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyDeclaredDependencies
@@ -1519,7 +1597,7 @@ CF_EXPORT CFArrayRef
 OSKextCopyDeclaredDependencies(
     OSKextRef aKext,
     Boolean   needAllFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
     
 
 /*!
@@ -1551,7 +1629,7 @@ CF_EXPORT CFArrayRef
 OSKextCopyLinkDependencies(
     OSKextRef aKext,
     Boolean   needAllFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyLoadList
@@ -1580,7 +1658,7 @@ CF_EXPORT CFMutableArrayRef
 OSKextCopyLoadList(
     OSKextRef aKext,
     Boolean   needAllFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyLoadListForKexts
@@ -1610,7 +1688,7 @@ CF_EXPORT CFMutableArrayRef
 OSKextCopyLoadListForKexts(
     CFArrayRef  kexts, 
     Boolean     needAllFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 
 /*!
@@ -1635,7 +1713,7 @@ CF_EXPORT CFMutableArrayRef
 OSKextCopyAllDependencies(
     OSKextRef aKext,
     Boolean   needAllFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyIndirectDependencies
@@ -1664,7 +1742,7 @@ OSKextCopyAllDependencies(
 CFMutableArrayRef OSKextCopyIndirectDependencies(
     OSKextRef aKext,
     Boolean   needAllFlag)
-AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextDependsOnKext
@@ -1696,7 +1774,7 @@ OSKextDependsOnKext(
     OSKextRef aKext,
     OSKextRef libraryKext,
     Boolean   directFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyDependents
@@ -1724,7 +1802,7 @@ OSKextDependsOnKext(
 CF_EXPORT CFMutableArrayRef
 OSKextCopyDependents(OSKextRef aKext,
     Boolean directFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsCompatibleWithVersion
@@ -1744,7 +1822,7 @@ CF_EXPORT Boolean
 OSKextIsCompatibleWithVersion(
     OSKextRef    aKext,
     OSKextVersion aVersion)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextLogDependencyGraph
@@ -1770,7 +1848,7 @@ CF_EXPORT void
 OSKextLogDependencyGraph(OSKextRef aKext,
     Boolean bundleIDFlag,
     Boolean linkFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFindLinkDependencies
@@ -1838,7 +1916,7 @@ CFArrayRef OSKextFindLinkDependencies(
     CFDictionaryRef * onedefSymbolsOut,
     CFDictionaryRef * multiplyDefinedSymbolsOut,
     CFArrayRef      * multipleDefinitionLibrariesOut)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Linking and Loading; Other Kernel Operations
 /*********************************************************************
@@ -1873,7 +1951,7 @@ CFArrayRef OSKextFindLinkDependencies(
 // xxx - need to list errors that may be returned
 CF_EXPORT OSReturn
 OSKextLoad(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextLoadWithOptions
@@ -1936,7 +2014,7 @@ OSKextLoadWithOptions(
     OSKextExcludeLevel  addPersonalitiesExclusion,
     CFArrayRef          personalityNames,
     Boolean             delayAutounloadFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
   
 /*!
  * @function OSKextGenerateDebugSymbols
@@ -1970,7 +2048,7 @@ CF_EXPORT CFDictionaryRef
 OSKextGenerateDebugSymbols(
     OSKextRef aKext,
     CFDataRef kernelImage)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 /*!
  * @function OSKextNeedsLoadAddressForDebugSymbols
@@ -1985,7 +2063,7 @@ OSKextGenerateDebugSymbols(
  */
 CF_EXPORT Boolean
 OSKextNeedsLoadAddressForDebugSymbols(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 /*!
  * OSKextUnload
@@ -2013,7 +2091,7 @@ OSKextNeedsLoadAddressForDebugSymbols(OSKextRef aKext)
 CF_EXPORT OSReturn
 OSKextUnload(OSKextRef aKext,
     Boolean terminateServiceAndRemovePersonalities)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * OSKextUnload
@@ -2042,7 +2120,7 @@ OSKextUnload(OSKextRef aKext,
 CF_EXPORT OSReturn
 OSKextUnloadKextWithIdentifier(CFStringRef kextIdentifier,
     Boolean terminateServiceAndRemovePersonalities)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsStarted
@@ -2059,7 +2137,7 @@ OSKextUnloadKextWithIdentifier(CFStringRef kextIdentifier,
  */
 CF_EXPORT Boolean
 OSKextIsStarted(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextStart
@@ -2084,7 +2162,7 @@ OSKextIsStarted(OSKextRef aKext)
  */
 CF_EXPORT OSReturn
 OSKextStart(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextStop
@@ -2114,30 +2192,37 @@ OSKextStart(OSKextRef aKext)
 // xxx - need to list errors that may be returned
 CF_EXPORT OSReturn
 OSKextStop(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSendPersonalitiesToKernel
  * @abstract Sends an array of IOKit personalities to the kernel.
  *
  * @param    personalities   The personalities to send.
+ * @param    resetFlag       <code>TRUE</code> if the IOCatalogue should be reset,
+ *                           <code>FALSE</code> not.
  * @result
  * <code>kOSReturnSuccess</code> on success, an error code on failure.
  *
  * @discussion
- * This function simply sends an anonymous array of personalities to the
- * I/O Kit's IOCatalogue object in the kernel.
+ * This function sends an anonymous array of personalities to the
+ * I/O Kit's IOCatalogue object in the kernel,
+ * resetting the IOCatalogue if <code>resetFlag</code> is <code>TRUE</code>.
+ * Resetting causes the IOCatalogue to contain only the kernel's built-in
+ * personalities and those sent using this function.
+ * (See also <code>@link IOCatalogueReset@/link</code>.)
+ *
  * You can get personalities from kexts using
- * @link OSKextCopyPersonalitiesArray@/link or
- * @link OSKextCopyPersonalitiesOfKexts@/link.
+ * <code>@link OSKextCopyPersonalitiesArray@/link</code> or
+ * <code>@link OSKextCopyPersonalitiesOfKexts@/link</code>.
  * 
  * The calling process must have an effective user ID of 0 (root)
  * to send personalities to the kernel.
  */
 // xxx - need to list errors that may be returned
 CF_EXPORT OSReturn
-OSKextSendPersonalitiesToKernel(CFArrayRef personalities)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+OSKextSendPersonalitiesToKernel(CFArrayRef personalities, Boolean resetFlag)
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSendKextPersonalitiesToKernel
@@ -2168,28 +2253,34 @@ CF_EXPORT OSReturn
 OSKextSendKextPersonalitiesToKernel(
     OSKextRef  aKext,
     CFArrayRef personalityNames)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSendPersonalitiesOfKextsToKernel
- * Sends the personalities of multiple kext to the kernel in a single
+ * Sends the personalities of multiple kexts to the kernel in a single
  * operation.
  *
  * @param    kextArray     The kexts whose personalities to send.
+ * @param    resetFlag       <code>TRUE</code> if the IOCatalogue should be reset,
+ *                           <code>FALSE</code> not.
  * @result
  * <code>kOSReturnSuccess</code> on success, an error code on failure.
  *
  * @discussion
  * This function performs one data transfer to the kernel, collecting
- * all the personalities of the kexts in <code>kextArray</code>.
+ * all the personalities of the kexts in <code>kextArray</code>,
+ * and resetting the IOCatalogue if <code>resetFlag</code> is <code>TRUE</code>.
+ * Resetting causes the IOCatalogue to contain only the kernel's built-in
+ * personalities and those sent using this function.
+ * (See also <code>@link IOCatalogueReset@/link</code>.)
  * 
  * The calling process must have an effective user ID of 0 (root)
  * to send personalities to the kernel.
  */
 // xxx - need to list errors that may be returned
 CF_EXPORT OSReturn
-OSKextSendPersonalitiesOfKextsToKernel(CFArrayRef kextArray)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+OSKextSendPersonalitiesOfKextsToKernel(CFArrayRef kextArray, Boolean resetFlag)
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextRemoveKextPersonalitiesFromKernel
@@ -2227,7 +2318,7 @@ OSKextSendPersonalitiesOfKextsToKernel(CFArrayRef kextArray)
 // xxx - does IOCatalogueSendData really require root access?
 CF_EXPORT OSReturn
 OSKextRemoveKextPersonalitiesFromKernel(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextRemovePersonalitiesForIdentifierFromKernel
@@ -2257,7 +2348,7 @@ OSKextRemoveKextPersonalitiesFromKernel(OSKextRef aKext)
 // xxx - does IOCatalogueSendData really require root access?
 CF_EXPORT OSReturn
 OSKextRemovePersonalitiesForIdentifierFromKernel(CFStringRef aBundleID)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateLoadedKextInfo
@@ -2269,15 +2360,84 @@ OSKextRemovePersonalitiesForIdentifierFromKernel(CFStringRef aBundleID)
  * An array of dictionaries containing information about loaded kexts.
  *
  * @discussion
+ * This function is deprecated in Mac OS X 10.7.
+ * Use @link OSKextCopyLoadedKextInfo/@link instead.
+ *
  * This function gets information from the kernel without affecting any
  * kext objects. If you want to update open kext objects to reflect
  * whether they are loaded in the kernel, use @link OSKextReadLoadedKextInfo@/link.
+ *
+ * See <code>@link OSKextCopyLoadedKextInfo@/link</code> for the list of properties
+ * returned.
  */
 // xxx - need to document the keys from OSKextLib.h.
 CF_EXPORT CFArrayRef
 OSKextCreateLoadedKextInfo(
     CFArrayRef kextIdentifiers)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_6, __MAC_10_7, __IPHONE_3_2, __IPHONE_4_3);
+
+/*!
+ * @function OSKextCopyLoadedKextInfo
+ * @abstract Returns information about loaded kexts in a dictionary.
+ *
+ * @param    kextIdentifiers   An array of kext identifiers to read from the kernel.
+ *                             Pass <code>NULL</code> to read info for all loaded kexts.
+ * @param    infoKeys          An array of info keys to read from the kernel.
+ *                             Pass <code>NULL</code> to read all information.
+ * @result
+ * A dictionary, keyed by bundle identifier, of dictionaries containing information about loaded kexts.
+ *
+ * @discussion
+ * This function gets information from the kernel without affecting any
+ * kext objects in process memory.
+ * If you want to update open kext objects to reflect
+ * whether they are loaded in the kernel,
+ * use @link OSKextReadLoadedKextInfo@/link.
+ *
+ * The properties returned by this function are listed below.
+ * Some are taken directly from the kext's information property list,
+ * and some are generated at run time.
+ * Never assume a given key will be present for a kext.
+ *
+ * <ul>
+ *   <li><code>CFBundleIdentifier</code> - CFString</li>
+ *   <li><code>CFBundleVersion</code> - CFString (note: version strings may be canonicalized
+ *       but their numeric values will be the same; "1.2.0" may become "1.2", for example)</li>
+ *   <li><code>OSBundleCompatibleVersion</code> - CFString</li>
+ *   <li><code>OSBundleIsInterface</code> - CFBoolean</li>
+ *   <li><code>OSKernelResource</code> - CFBoolean</li>
+ *   <li><code>OSBundleCPUType</code> - CFNumber</li>
+ *   <li><code>OSBundleCPUSubtype</code> - CFNumber</li>
+ *   <li><code>OSBundleMachOHeaders</code> - CFData (this property is not available via the
+ *       public @link KextManagerCopyLoadedKextInfo/@link function)</li>
+ *   <li><code>OSBundlePath</code> - CFString (this is merely a hint stored in the kernel;
+ *       the kext is not guaranteed to be at this path)</li>
+ *   <li><code>OSBundleExecutablePath</code> - CFString
+ *       (the absolute path to the executable within the kext bundle; a hint as above)</li>
+ *   <li><code>OSBundleUUID</code> - CFData (the UUID of the kext executable, if it has one)</li>
+ *   <li><code>OSBundleStarted</code> - CFBoolean (true if the kext is running)</li>
+ *   <li><code>OSBundlePrelinked</code> - CFBoolean (true if the kext is loaded from a prelinked kernel)</li>
+ *   <li><code>OSBundleLoadTag</code> - CFNumber (the "Index" given by kextstat)</li>
+ *   <li><code>OSBundleLoadAddress</code> - CFNumber</li>
+ *   <li><code>OSBundleLoadSize</code> - CFNumber</li>
+ *   <li><code>OSBundleWiredSize</code> - CFNumber</li>
+ *   <li><code>OSBundleDependencies</code> - CFArray of load tags identifying immediate link dependencies</li>
+ *   <li><code>OSBundleRetainCount</code> - CFNumber (the OSObject retain count of the kext itself)</li>
+ *   <li><code>OSBundleClasses</code> - CFArray of CFDictionary containing info on C++ classes
+ *       defined by the kext:</li>
+ *       <ul>
+ *         <li><code>OSMetaClassName</code> - CFString</li>
+ *         <li><code>OSMetaClassSuperclassName</code> - CFString, absent for root classes</li>
+ *         <li><code>OSMetaClassTrackingCount</code> - CFNumber giving the instance count
+ *             of the class itself, <i>plus</i> 1 for each direct subclass with any instances</li>
+ *       </ul>
+ * </ul>
+ */
+CF_EXPORT CFDictionaryRef
+OSKextCopyLoadedKextInfo(
+    CFArrayRef kextIdentifiers,
+    CFArrayRef infoKeys)
+                __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 /*!
  * @function OSKextReadLoadedKextInfo
@@ -2324,7 +2484,7 @@ CF_EXPORT OSReturn
 OSKextReadLoadedKextInfo(
     CFArrayRef kexts,
     Boolean    flushDependenciesFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLoaded
@@ -2344,7 +2504,7 @@ OSKextReadLoadedKextInfo(
  */
 CF_EXPORT Boolean
 OSKextIsLoaded(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetLoadAddress
@@ -2365,7 +2525,7 @@ OSKextIsLoaded(OSKextRef aKext)
  */
 CF_EXPORT uint64_t
 OSKextGetLoadAddress(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextSetLoadAddress
@@ -2388,7 +2548,7 @@ OSKextGetLoadAddress(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextSetLoadAddress(OSKextRef aKext, uint64_t anAddress)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextOtherVersionIsLoaded
@@ -2412,7 +2572,7 @@ OSKextSetLoadAddress(OSKextRef aKext, uint64_t anAddress)
  */
 CF_EXPORT Boolean
 OSKextOtherVersionIsLoaded(OSKextRef aKext, Boolean * uuidFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextGetLoadTag
@@ -2435,7 +2595,7 @@ OSKextOtherVersionIsLoaded(OSKextRef aKext, Boolean * uuidFlag)
  */
 CF_EXPORT uint32_t
 OSKextGetLoadTag(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFlushLoadInfo
@@ -2475,7 +2635,7 @@ CF_EXPORT void
 OSKextFlushLoadInfo(
     OSKextRef aKext,
     Boolean flushDependenciesFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyAllRequestedIdentifiers
@@ -2491,7 +2651,7 @@ OSKextFlushLoadInfo(
  */
 CF_EXPORT CFArrayRef 
 OSKextCopyAllRequestedIdentifiers(void)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Sanity Checking and Diagnostics
 /*********************************************************************
@@ -2511,7 +2671,7 @@ OSKextCopyAllRequestedIdentifiers(void)
  */
 CF_EXPORT OSKextVersion
 OSKextParseVersionCFString(CFStringRef versionString)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextValidate
@@ -2537,7 +2697,7 @@ OSKextParseVersionCFString(CFStringRef versionString)
 // compare with CFBundlePreflightExecutable()
 CF_EXPORT Boolean
 OSKextValidate(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsValid
@@ -2556,7 +2716,7 @@ OSKextValidate(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsValid(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextValidateDependencies
@@ -2583,7 +2743,7 @@ OSKextIsValid(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextValidateDependencies(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextAuthenticate
@@ -2610,7 +2770,7 @@ OSKextValidateDependencies(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextAuthenticate(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsAuthentic
@@ -2629,7 +2789,7 @@ OSKextAuthenticate(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsAuthentic(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextAuthenticateDependencies
@@ -2652,7 +2812,7 @@ OSKextIsAuthentic(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextAuthenticateDependencies(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextIsLoadable
@@ -2682,7 +2842,7 @@ OSKextAuthenticateDependencies(OSKextRef aKext)
  */
 CF_EXPORT Boolean
 OSKextIsLoadable(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCopyDiagnostics
@@ -2708,7 +2868,7 @@ OSKextIsLoadable(OSKextRef aKext)
 // xxx - need to tie in with the kernel & linker to get link failures
 CFDictionaryRef OSKextCopyDiagnostics(OSKextRef aKext,
         OSKextDiagnosticsFlags typeFlags)
-AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextLogDiagnostics
@@ -2726,7 +2886,7 @@ CF_EXPORT void
 OSKextLogDiagnostics(
     OSKextRef              aKext,
     OSKextDiagnosticsFlags typeFlags)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFlushDiagnostics
@@ -2751,15 +2911,14 @@ OSKextLogDiagnostics(
  */
 CF_EXPORT void
 OSKextFlushDiagnostics(OSKextRef aKext, OSKextDiagnosticsFlags typeFlags)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #pragma mark Mkext and Prelinked Kernel Files
 /*********************************************************************
 * Mkext and Prelinked Kernel Files
 *********************************************************************/
 // xxx - Use "Flag" or "Mask"?
-typedef uint32_t OSKextRequiredFlags
-AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+typedef uint32_t OSKextRequiredFlags;
 #define kOSKextOSBundleRequiredNone              0x0
 #define kOSKextOSBundleRequiredRootFlag          0x1ULL
 #define kOSKextOSBundleRequiredLocalRootFlag     0x1ULL << 1
@@ -2782,7 +2941,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
  */
 CF_EXPORT Boolean
 OSKextIsFromMkext(OSKextRef aKext)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextMatchesRequiredFlags
@@ -2806,7 +2965,7 @@ OSKextIsFromMkext(OSKextRef aKext)
 CF_EXPORT Boolean
 OSKextMatchesRequiredFlags(OSKextRef aKext,
     OSKextRequiredFlags requiredFlags)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextFilterRequiredKexts
@@ -2831,7 +2990,7 @@ OSKextMatchesRequiredFlags(OSKextRef aKext,
 CF_EXPORT CFArrayRef
 OSKextFilterRequiredKexts(CFArrayRef kextArray,
     OSKextRequiredFlags requiredFlags)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateMkext
@@ -2881,7 +3040,7 @@ OSKextCreateMkext(
     CFURLRef            volumeRootURL,
     OSKextRequiredFlags requiredFlags,
     Boolean             compressFlag)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
     
 /*!
  * @function OSKextCreateKextsFromMkextFile
@@ -2916,7 +3075,7 @@ OSKextCreateMkext(
 CF_EXPORT CFArrayRef
 OSKextCreateKextsFromMkextFile(CFAllocatorRef allocator,
     CFURLRef mkextURL)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 /*!
  * @function OSKextCreateKextsFromMkextData
@@ -2951,7 +3110,39 @@ OSKextCreateKextsFromMkextFile(CFAllocatorRef allocator,
 CF_EXPORT CFArrayRef
 OSKextCreateKextsFromMkextData(CFAllocatorRef allocator,
     CFDataRef mkextData)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+/*!
+ * @enum OSKextKernelcacheFlags
+ * @abstract The flags that affect the behavior of
+ *           @link OSKextCreatePrelinkedKernel@/link.
+ *
+ * @constant kOSKextKernelcacheNeedAllFlag
+ *           If set and any kext fails to link,
+ *           @link OSKextCreatePrelinkedKernel@/link returns <code>NULL</code>.
+ * @constant kOSKextKernelcacheSkipAuthenticationFlag
+ *           If set, kexts are not authenticated for inclusion in the prelinked
+ *           kernel.
+ * @constant kOSKextKernelcachePrintDiagnosticsFlag
+ *           If set, problems with the kexts that prevent inclusion of a kext in
+ *           the prelinked kernel are logged via
+ *           @link OSKextLogDiagnostics OSKextLogDiagnostics@/link.
+ * @constant kOSKextKernelcacheIncludeAllPersonalitiesFlag
+ *           If set, all kext personalities will be included in the prelinked
+ *           kernel, regardless of whether they're required.
+ * @constant kOSKextKernelcacheStripSymbols
+ *           If set, symbol tables are stripped from kexts before they are
+ *           placed in the prelinked kernel.  If symbolsOut is
+ *           non-<code>NULL</code>, symbolicated binaries will still be returned
+ *           to the caller.
+ */
+enum {
+    kOSKextKernelcacheNeedAllFlag = (1 << 0),
+    kOSKextKernelcacheSkipAuthenticationFlag = (1 << 1),
+    kOSKextKernelcachePrintDiagnosticsFlag = (1 << 2),
+    kOSKextKernelcacheIncludeAllPersonalitiesFlag = (1 << 3),
+    kOSKextKernelcacheStripSymbolsFlag = (1 << 4),
+};
 
 /*!
  * @function OSKextCreatePrelinkedKernel
@@ -2968,22 +3159,8 @@ OSKextCreateKextsFromMkextData(CFAllocatorRef allocator,
  *           strip it when saving their paths in the prelinked kernel.
  *           This allows creation of prelinked kernels from folders
  *           other than /System/Library/Extensions.
- * @param    needAllFlag
- *           If <code>true</code> and any kext fails to link,
- *           the skipAuthenticationFlag returns <code>NULL</code>.
- * @param    skipAuthenticationFlag
- *           If <code>true</code>, kexts are not authenticated for inclusion
- *           in the prelinked kernel.
- * @param    printDiagnosticsFlag
- *           If <code>true</code>, problems with the kexts that prevent
- *           inclusion of a kext in the prelinked kernel are logged via
- *           @link OSKextLogDiagnostics OSKextLogDiagnostics@/link.
- * @param    includeAllPersonalities
- *           If <code>true</code>, all kext personalities will be included in
- *           the prelinked kernel, regardless of whether they're required.
- * @param    includeLinkState
- *           If <code>true</code>, the link state necessary for runtime loading
- *           and linking of kexts is included in the prelinked kernel.
+ * @param    flags
+ *           See @link OSKextKernelcacheFlags@/link.
  * @param    symbolsOut
  *           If non-<code>NULL</code> debug symbols for <code>kernelImage</code>
  *           and all kexts included in the result are returned by reference.
@@ -2996,16 +3173,12 @@ OSKextCreateKextsFromMkextData(CFAllocatorRef allocator,
  */
 CF_EXPORT CFDataRef
 OSKextCreatePrelinkedKernel(
-    CFDataRef         kernelImage,
-    CFArrayRef        kextArray,
-    CFURLRef          volumeRootURL,
-    Boolean           needAllFlag,
-    Boolean           skipAuthenticationFlag,
-    Boolean           printDiagnosticsFlag,
-    Boolean           includeAllPersonalities,
-    Boolean           includeLinkState,
-    CFDictionaryRef * symbolsOut)
-                AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+    CFDataRef           kernelImage,
+    CFArrayRef          kextArray,
+    CFURLRef            volumeRootURL,
+    uint32_t            flags,
+    CFDictionaryRef   * symbolsOut)
+                __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
 
 __END_DECLS
 

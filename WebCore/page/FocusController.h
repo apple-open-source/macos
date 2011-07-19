@@ -27,26 +27,27 @@
 #define FocusController_h
 
 #include "FocusDirection.h"
-#include "SpatialNavigation.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class Document;
+struct FocusCandidate;
 class Frame;
+class IntRect;
 class KeyboardEvent;
 class Node;
 class Page;
 
-class FocusController : public Noncopyable {
+class FocusController {
+    WTF_MAKE_NONCOPYABLE(FocusController); WTF_MAKE_FAST_ALLOCATED;
 public:
     FocusController(Page*);
 
     void setFocusedFrame(PassRefPtr<Frame>);
     Frame* focusedFrame() const { return m_focusedFrame.get(); }
-    Frame* focusedOrMainFrame();
+    Frame* focusedOrMainFrame() const;
 
     bool setInitialFocus(FocusDirection, KeyboardEvent*);
     bool advanceFocus(FocusDirection, KeyboardEvent*, bool initialFocus = false);
@@ -63,10 +64,8 @@ private:
     bool advanceFocusDirectionally(FocusDirection, KeyboardEvent*);
     bool advanceFocusInDocumentOrder(FocusDirection, KeyboardEvent*, bool initialFocus);
 
-    void findFocusableNodeInDirection(Node* outter, Node*, FocusDirection, KeyboardEvent*,
-                                      FocusCandidate& closestFocusCandidate,
-                                      const FocusCandidate& parentCandidate = FocusCandidate());
-    void deepFindFocusableNodeInDirection(Node* container, Node* focused, FocusDirection, KeyboardEvent*, FocusCandidate&);
+    bool advanceFocusDirectionallyInContainer(Node* container, const IntRect& startingRect, FocusDirection, KeyboardEvent*);
+    void findFocusCandidateInContainer(Node* container, const IntRect& startingRect, FocusDirection, KeyboardEvent*, FocusCandidate& closest);
 
     Page* m_page;
     RefPtr<Frame> m_focusedFrame;

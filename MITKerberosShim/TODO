@@ -1,0 +1,5 @@
+
+
+- NetAuthAgent function KLGetTripletFromPrincipal not implemented
+- NetAuthAgent function krb5_pkinit_cert_hash_str not implemented
+- make dummy.c functions return error value condition

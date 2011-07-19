@@ -347,11 +347,11 @@ use DateTime;
     is( $deltas{days}, 29, '29 days - smaller day > bigger day' );
     is( $deltas{minutes}, 0, '0 minutes - smaller day > bigger day' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, '$dt1 + $dur == $dt2' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        '$dt1 + $dur == $dt2' );
     # XXX - this does not work, nor will it ever work
 #    is( $dt2->clone->subtract_duration($dur), $dt1, '$dt2 - $dur == $dt1' );
 }
-
 
 {
     my $dt1 = DateTime->new( year => 2005, month => 6, day => 11,
@@ -368,6 +368,8 @@ use DateTime;
     is( $deltas{days}, 152, '152 days - smaller day > bigger day' );
     is( $deltas{minutes}, 0, '0 minutes - smaller day > bigger day' );
 
-    is( $dt1->clone->add_duration($dur), $dt2, '$dt1 + $dur == $dt2' );
-    is( $dt2->clone->subtract_duration($dur), $dt1, '$dt2 - $dur == $dt1' );
+    is( DateTime->compare( $dt1->clone->add_duration($dur), $dt2 ), 0,
+        '$dt1 + $dur == $dt2' );
+    is( DateTime->compare( $dt2->clone->subtract_duration($dur), $dt1 ), 0,
+        '$dt2 - $dur == $dt1' );
 }

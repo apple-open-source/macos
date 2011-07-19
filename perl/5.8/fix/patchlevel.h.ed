@@ -1,6 +1,0 @@
-/^	,NULL/i
-	,"/Library/Perl/Updates/<version> comes before system perl directories"
-	,"installprivlib and installarchlib points to the Updates directory"
-	,"6576362: fixed 5.8.9 binary compatibility issue: perlio mutex not initialized"
-.
-w

@@ -12,21 +12,41 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Config/config.h"
+#include "llvm/System/Atomic.h"
 #include <cassert>
 using namespace llvm;
 
 static const ManagedStaticBase *StaticList = 0;
 
-void ManagedStaticBase::RegisterManagedStatic(void *ObjPtr,
+void ManagedStaticBase::RegisterManagedStatic(void *(*Creator)(),
                                               void (*Deleter)(void*)) const {
-  assert(Ptr == 0 && DeleterFn == 0 && Next == 0 &&
-         "Partially init static?");
-  Ptr = ObjPtr;
-  DeleterFn = Deleter;
+  if (llvm_is_multithreaded()) {
+    llvm_acquire_global_lock();
+
+    if (Ptr == 0) {
+      void* tmp = Creator ? Creator() : 0;
+
+      sys::MemoryFence();
+      Ptr = tmp;
+      DeleterFn = Deleter;
+      
+      // Add to list of managed statics.
+      Next = StaticList;
+      StaticList = this;
+    }
+
+    llvm_release_global_lock();
+  } else {
+    assert(Ptr == 0 && DeleterFn == 0 && Next == 0 &&
+           "Partially initialized ManagedStatic!?");
+    Ptr = Creator ? Creator() : 0;
+    DeleterFn = Deleter;
   
-  // Add to list of managed statics.
-  Next = StaticList;
-  StaticList = this;
+    // Add to list of managed statics.
+    Next = StaticList;
+    StaticList = this;
+  }
 }
 
 void ManagedStaticBase::destroy() const {
@@ -49,5 +69,7 @@ void ManagedStaticBase::destroy() const {
 void llvm::llvm_shutdown() {
   while (StaticList)
     StaticList->destroy();
+
+  if (llvm_is_multithreaded()) llvm_stop_multithreaded();
 }
 

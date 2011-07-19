@@ -578,7 +578,6 @@ _keymgr_get_lock_count_processwide_ptr (unsigned int key)
 /*********************************************/
 
 #include <mach-o/getsect.h>
-#include <atexit.h>
 
 /* Beware, this is an API.  */
 
@@ -622,17 +621,7 @@ static const char __DWARF2_UNWIND_SECTION_TYPE[] = "__TEXT";
 static const char __DWARF2_UNWIND_SECTION_NAME[] = "__dwarf2_unwind";
 #endif
 
-#if __x86_64__
-static void
-remove_image_hook (const struct mach_header *mh, intptr_t vm_slide)
-{
-    // for historical reasons, __cxa_finalize is called from keymgr
-    // <rdar://problem/6648167> 
-    __cxa_finalize (mh);
-}
-
-#else
-
+#if !__x86_64__
 /* Called by dyld when an image is added to the executable.
    If it has a dwarf2_unwind section, register it so the C++ runtime
    can get at it.  All of this is protected by dyld thread locks.  */
@@ -720,9 +709,6 @@ dwarf2_unwind_dyld_remove_image_hook (const struct mach_header *mh,
     }
 #endif
 
-    /* Execute anything on the atexit list that calls into this image. */
-    __cxa_finalize (mh);
-
   {
     struct __live_images *top, **lip, *destroy = NULL;
 
@@ -804,7 +790,7 @@ void __keymgr_dwarf2_register_sections (void)
 static void* km_object_list_head[4];
 
 /* call by libSystem's initializer */
-void __attribute__((visibility("hidden"))) __keymgr_initializer (void)
+void __keymgr_initializer (void)
 {
   /* On Mac OS X 10.6, unwinding is down by libunwind in libSystem.B.dylib */
   /* Normally, the object list is need used.  But some applications that */
@@ -821,7 +807,6 @@ void __attribute__((visibility("hidden"))) __keymgr_initializer (void)
   /* libunwind does not use keymgr, so there is no need to maintain KEYMGR_GCC3_LIVE_IMAGE_LIST */
   /* in sync with dyld's list of images.  But there might be some i386 or ppc applications that */
   /* carry around there own copy of the unwinder (from libgcc.a) and need KEYMGR_GCC3_LIVE_IMAGE_LIST. */
-  _dyld_register_func_for_remove_image(remove_image_hook);
 #else
   /* register with dyld so that we are notified about all loaded mach-o images */
   _dyld_register_func_for_add_image (dwarf2_unwind_dyld_add_image_hook);

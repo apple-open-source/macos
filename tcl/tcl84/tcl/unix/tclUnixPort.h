@@ -597,6 +597,12 @@ extern double strtod();
 #   if defined(__x86_64__) && !defined(FIXED_RDAR_4685553)
 #       undef USE_VFORK
 #   endif /* __x86_64__ */
+/* Workaround problems with vfork() when building with llvm-gcc-4.2 */
+#   if defined (__llvm__) && \
+	    (__GNUC__ > 4 || (__GNUC__ == 4 && (__GNUC_MINOR__ > 2 || \
+	    (__GNUC_MINOR__ == 2 && __GNUC_PATCHLEVEL__ > 0))))
+#       undef USE_VFORK
+#   endif /* __llvm__ */
 #endif /* __APPLE__ */
 
 /*

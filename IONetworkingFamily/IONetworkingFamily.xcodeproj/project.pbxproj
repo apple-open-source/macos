@@ -403,7 +403,14 @@
 			isa = PBXProject;
 			buildConfigurationList = DAD9E1EF09D4A8C0006678D2 /* Build configuration list for PBXProject "IONetworkingFamily" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IONetworkingFamily */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -561,7 +568,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -592,7 +599,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -623,7 +630,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -726,7 +733,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -760,7 +767,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -793,7 +800,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 1.10;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

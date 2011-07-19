@@ -26,7 +26,7 @@
  */
 
 #include <sys/param.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/gb2312.c,v 1.8 2004/05/12 14:09:04 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/gb2312.c,v 1.10 2007/10/13 16:28:21 ache Exp $");
 
 #include <errno.h>
 #include <runetype.h>
@@ -35,11 +35,13 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/gb2312.c,v 1.8 2004/05/12 14:09:04 tjr E
 #include <wchar.h>
 #include "mblocal.h"
 
-int	_GB2312_init(_RuneLocale *);
-size_t	_GB2312_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict);
-int	_GB2312_mbsinit(const mbstate_t *);
-size_t	_GB2312_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+extern int __mb_sb_limit;
+
+static size_t	_GB2312_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict);
+static int	_GB2312_mbsinit(const mbstate_t *);
+static size_t	_GB2312_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict);
 
 typedef struct {
 	int	count;
@@ -55,10 +57,11 @@ _GB2312_init(_RuneLocale *rl)
 	__wcrtomb = _GB2312_wcrtomb;
 	__mbsinit = _GB2312_mbsinit;
 	__mb_cur_max = 2;
+	__mb_sb_limit = 128;
 	return (0);
 }
 
-int
+static int
 _GB2312_mbsinit(const mbstate_t *ps)
 {
 
@@ -88,7 +91,7 @@ _GB2312_check(const char *str, size_t n)
 	return (1);
 }
 
-size_t
+static size_t
 _GB2312_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
     mbstate_t * __restrict ps)
 {
@@ -129,7 +132,7 @@ _GB2312_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 	return (wc == L'\0' ? 0 : len - ocount);
 }
 
-size_t
+static size_t
 _GB2312_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
 	_GB2312State *gs;

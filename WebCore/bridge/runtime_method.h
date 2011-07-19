@@ -26,7 +26,7 @@
 #ifndef RUNTIME_FUNCTION_H_
 #define RUNTIME_FUNCTION_H_
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include <runtime/InternalFunction.h>
 #include <runtime/JSGlobalObject.h>
 #include <wtf/OwnPtr.h>
@@ -35,7 +35,7 @@ namespace JSC {
 
 class RuntimeMethod : public InternalFunction {
 public:
-    RuntimeMethod(ExecState*, const Identifier& name, Bindings::MethodList&);
+    RuntimeMethod(ExecState*, JSGlobalObject*, Structure*, const Identifier& name, Bindings::MethodList&);
     Bindings::MethodList* methods() const { return _methodList.get(); }
 
     static const ClassInfo s_info;
@@ -45,15 +45,15 @@ public:
         return globalObject->functionPrototype();
     }
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+protected:
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | InternalFunction::StructureFlags;
 
 private:
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesMarkChildren | InternalFunction::StructureFlags;
     static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
     virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
     virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);

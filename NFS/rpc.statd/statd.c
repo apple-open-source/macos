@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,8 +65,8 @@ static const char rcsid[] = "$FreeBSD$";
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/rpcb.h>
 #include <string.h>
 #include <ctype.h>
 #include <syslog.h>
@@ -90,13 +90,20 @@ int notify_only = 0;		/* just send SM_NOTIFY messages */
 int list_only = 0;		/* just list status database entries */
 
 int udpport, tcpport;
+int udp6port, tcp6port;
+
+int statudpsock, stattcpsock;
+int statudp6sock, stattcp6sock;
 
 struct pidfh *pfh = NULL;
 
 const struct nfs_conf_statd config_defaults =
 {
 	0,			/* port */
+	0,			/* send_using_tcp */
 	0,			/* simu_crash_allowed */
+	1,			/* tcp */
+	1,			/* udp */
 	0,			/* verbose */
 };
 struct nfs_conf_statd config;
@@ -114,9 +121,11 @@ main(int argc, char **argv)
 {
 	SVCXPRT *transp;
 	struct sigaction sa;
-	int c, sockfd;
+	int c, on = 1;
 	pid_t pid;
-	struct sockaddr_in inetaddr;
+	struct sockaddr_storage saddr;
+	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
 	socklen_t socklen;
 	char *unnotify_host = NULL;	/* host to "unnotify" */
 	int rv, need_notify;
@@ -209,53 +218,189 @@ main(int argc, char **argv)
 		else
 			statd_notify_load();
 	}
-	pmap_unset(SM_PROG, SM_VERS);
 
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		log(LOG_ERR, "can't create UDP socket: %s (%d)", strerror(errno), errno);
-		exit(1);
-	}
-	inetaddr.sin_family = AF_INET;
-	inetaddr.sin_addr.s_addr = INADDR_ANY;
-	inetaddr.sin_port = htons(config.port);
-	inetaddr.sin_len = sizeof(inetaddr);
-	if (bindresvport_sa(sockfd, (struct sockaddr *) & inetaddr) < 0) {
-		log(LOG_ERR, "can't bind UDP addr: %s (%d)", strerror(errno), errno);
-		exit(1);
-	}
-	socklen = sizeof(inetaddr);
-	if (getsockname(sockfd, (struct sockaddr *) & inetaddr, &socklen))
-		log(LOG_ERR, "can't getsockname on UDP socket: %s (%d)", strerror(errno), errno);
-	else
-		udpport = ntohs(inetaddr.sin_port);
-	transp = svcudp_create(sockfd);
-	if (transp == NULL)
-		errx(1, "cannot create UDP service");
-	if (!svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_UDP))
-		errx(1, "unable to register (SM_PROG, SM_VERS, UDP)");
+	statudpsock = stattcpsock = -1;
+	statudp6sock = stattcp6sock = -1;
 
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		log(LOG_ERR, "can't create TCP socket: %s (%d)", strerror(errno), errno);
+	rpcb_unset(NULL, SM_PROG, SM_VERS);
+
+	if (config.udp) {
+
+		/* IPv4 */
+		if ((statudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+			log(LOG_ERR, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (statudpsock >= 0) {
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(statudpsock, (struct sockaddr *)sin) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bindresvport_sa(statudpsock, (struct sockaddr *)sin) < 0) {
+					log(LOG_ERR, "can't bind UDP IPv4 addr: %s (%d)", strerror(errno), errno);
+					close(statudpsock);
+					statudpsock = -1;
+				}
+			}
+		}
+		if (statudpsock >= 0) {
+			socklen = sizeof(*sin);
+			if (getsockname(statudpsock, (struct sockaddr *)sin, &socklen)) {
+				log(LOG_ERR, "can't getsockname on UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+				close(statudpsock);
+				statudpsock = -1;
+			} else {
+				udpport = ntohs(sin->sin_port);
+			}
+		}
+		if ((statudpsock >= 0) && ((transp = svcudp_create(statudpsock)) == NULL)) {
+			log(LOG_WARNING, "cannot create UDP IPv4 service");
+			close(statudpsock);
+			statudpsock = -1;
+		}
+		if ((statudpsock >= 0) && !svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_UDP)) {
+			log(LOG_WARNING, "unable to register IPv4 (SM_PROG, SM_VERS, UDP)");
+			svc_destroy(transp);
+			close(statudpsock);
+			statudpsock = -1;
+		}
+
+		/* IPv6 */
+		if ((statudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+			log(LOG_ERR, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (statudp6sock >= 0) {
+			setsockopt(statudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(statudp6sock, (struct sockaddr *)sin6) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bindresvport_sa(statudp6sock, (struct sockaddr *)sin6) < 0) {
+					log(LOG_ERR, "can't bind UDP IPv6 addr: %s (%d)", strerror(errno), errno);
+					close(statudp6sock);
+					statudp6sock = -1;
+				}
+			}
+		}
+		if (statudp6sock >= 0) {
+			socklen = sizeof(*sin6);
+			if (getsockname(statudp6sock, (struct sockaddr *)sin6, &socklen)) {
+				log(LOG_ERR, "can't getsockname on UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+				close(statudp6sock);
+				statudp6sock = -1;
+			} else {
+				udp6port = ntohs(sin6->sin6_port);
+			}
+		}
+		if ((statudp6sock >= 0) && ((transp = svcudp_create(statudp6sock)) == NULL)) {
+			log(LOG_WARNING, "cannot create UDP IPv6 service");
+			close(statudp6sock);
+			statudp6sock = -1;
+		}
+		if ((statudp6sock >= 0) && !svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_UDP)) {
+			log(LOG_WARNING, "unable to register IPv6 (SM_PROG, SM_VERS, UDP)");
+			svc_destroy(transp);
+			close(statudp6sock);
+			statudp6sock = -1;
+		}
+
+	}
+
+	if (config.tcp) {
+
+		/* IPv4 */
+		if ((stattcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+			log(LOG_ERR, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (stattcpsock >= 0) {
+			if (setsockopt(stattcpsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(stattcpsock, (struct sockaddr *)sin) < 0) {
+				log(LOG_ERR, "can't bind TCP IPv4 addr: %s (%d)", strerror(errno), errno);
+				close(stattcpsock);
+				stattcpsock = -1;
+			}
+		}
+		if (stattcpsock >= 0) {
+			socklen = sizeof(*sin);
+			if (getsockname(stattcpsock, (struct sockaddr *)sin, &socklen)) {
+				log(LOG_ERR, "can't getsockname on TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+				close(stattcpsock);
+				stattcpsock = -1;
+			} else {
+				tcpport = ntohs(sin->sin_port);
+			}
+		}
+		if ((stattcpsock >= 0) && ((transp = svctcp_create(stattcpsock, 0, 0)) == NULL)) {
+			log(LOG_WARNING, "cannot create TCP IPv4 service");
+			close(stattcpsock);
+			stattcpsock = -1;
+		}
+		if ((stattcpsock >= 0) && !svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_TCP)) {
+			log(LOG_WARNING, "unable to register IPv4 (SM_PROG, SM_VERS, TCP)");
+			svc_destroy(transp);
+			close(stattcpsock);
+			stattcpsock = -1;
+		}
+
+		/* IPv6 */
+		if ((stattcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+			log(LOG_ERR, "can't create TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (stattcp6sock >= 0) {
+			if (setsockopt(stattcp6sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			setsockopt(stattcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(stattcp6sock, (struct sockaddr *)sin6) < 0) {
+				log(LOG_ERR, "can't bind TCP IPv6 addr: %s (%d)", strerror(errno), errno);
+				close(stattcp6sock);
+				stattcp6sock = -1;
+			}
+		}
+		if (stattcp6sock >= 0) {
+			socklen = sizeof(*sin6);
+			if (getsockname(stattcp6sock, (struct sockaddr *)sin6, &socklen)) {
+				log(LOG_ERR, "can't getsockname on TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+				close(stattcp6sock);
+				stattcp6sock = -1;
+			} else {
+				tcp6port = ntohs(sin6->sin6_port);
+			}
+		}
+		if ((stattcp6sock >= 0) && ((transp = svctcp_create(stattcp6sock, 0, 0)) == NULL)) {
+			log(LOG_WARNING, "cannot create TCP IPv6 service");
+			close(stattcp6sock);
+			stattcp6sock = -1;
+		}
+		if ((stattcp6sock >= 0) && !svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_TCP)) {
+			log(LOG_WARNING, "unable to register IPv6 (SM_PROG, SM_VERS, TCP)");
+			svc_destroy(transp);
+			close(stattcp6sock);
+			stattcp6sock = -1;
+		}
+
+	}
+
+	if ((statudp6sock < 0) && (stattcp6sock < 0))
+		log(LOG_WARNING, "Can't create NSM IPv6 sockets");
+	if ((statudpsock < 0) && (stattcpsock < 0))
+		log(LOG_WARNING, "Can't create NSM IPv4 sockets");
+	if ((statudp6sock < 0) && (stattcp6sock < 0) &&
+	    (statudpsock < 0) && (stattcpsock < 0)) {
+		log(LOG_ERR, "Can't create any NSM sockets!");
 		exit(1);
 	}
-	inetaddr.sin_family = AF_INET;
-	inetaddr.sin_addr.s_addr = INADDR_ANY;
-	inetaddr.sin_port = htons(config.port);
-	inetaddr.sin_len = sizeof(inetaddr);
-	if (bindresvport_sa(sockfd, (struct sockaddr *) & inetaddr) < 0) {
-		log(LOG_ERR, "can't bind TCP addr: %s (%d)", strerror(errno), errno);
-		exit(1);
-	}
-	socklen = sizeof(inetaddr);
-	if (getsockname(sockfd, (struct sockaddr *) & inetaddr, &socklen))
-		log(LOG_ERR, "can't getsockname on TCP socket: %s (%d)", strerror(errno), errno);
-	else
-		tcpport = ntohs(inetaddr.sin_port);
-	transp = svctcp_create(sockfd, 0, 0);
-	if (transp == NULL)
-		errx(1, "cannot create TCP service");
-	if (!svc_register(transp, SM_PROG, SM_VERS, sm_prog_1, IPPROTO_TCP))
-		errx(1, "unable to register (SM_PROG, SM_VERS, TCP)");
 
 	/* Install signal handler to collect exit status of child processes	 */
 	sa.sa_handler = handle_sigchld;
@@ -402,8 +547,8 @@ cleanup(int sig)
 		status_info->fh_state = htonl(ntohl(status_info->fh_state) + 1);
 		sync_file();
 		/* unregister statd service */
-		alarm(1); /* XXX 5028243 in case pmap_unset() gets hung up during shutdown */
-		pmap_unset(SM_PROG, SM_VERS);
+		alarm(1); /* XXX 5028243 in case rpcb_unset() gets hung up during shutdown */
+		rpcb_unset(NULL, SM_PROG, SM_VERS);
 	}
 	pidfile_remove(pfh);
 	exit((sig == SIGTERM) ? 0 : 1);
@@ -454,9 +599,16 @@ config_read(struct nfs_conf_statd * conf)
 		DEBUG(1, "%4ld %s=%s (%d)\n", linenum, key, value ? value : "", val);
 
 		if (!strcmp(key, "nfs.statd.port")) {
-			conf->port = val;
+			if (value && val)
+				conf->port = val;
+		} else if (!strcmp(key, "nfs.statd.send_using_tcp")) {
+			conf->send_using_tcp = val;
 		} else if (!strcmp(key, "nfs.statd.simu_crash_allowed")) {
 			conf->simu_crash_allowed = val;
+		} else if (!strcmp(key, "nfs.statd.tcp")) {
+			conf->tcp = val;
+		} else if (!strcmp(key, "nfs.statd.udp")) {
+			conf->udp = val;
 		} else if (!strcmp(key, "nfs.statd.verbose")) {
 			conf->verbose = val;
 		} else {
@@ -482,8 +634,8 @@ safe_exec(char *const argv[], int silent)
 
 	if (silent) {
 		psfileactp = &psfileact;
-		if (posix_spawn_file_actions_init(psfileactp)) {
-			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(errno), errno);
+		if ((status = posix_spawn_file_actions_init(psfileactp))) {
+			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(status), status);
 			return (1);
 		}
 		posix_spawn_file_actions_addopen(psfileactp, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
@@ -494,7 +646,7 @@ safe_exec(char *const argv[], int silent)
 	if (psfileactp)
 		posix_spawn_file_actions_destroy(psfileactp);
 	if (status) {
-		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(errno), errno);
+		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(status), status);
 		return (1);
 	}
 	while ((waitpid(pid, &status, 0) == -1) && (errno == EINTR))
@@ -592,3 +744,76 @@ SYSLOG(int pri, const char *fmt,...)
 	}
 	va_end(ap);
 }
+
+/*
+ * Compare the addresses in two addrinfo structures.
+ */
+static int
+addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
+{
+	if (a1->ai_family != a2->ai_family)
+		return (a1->ai_family - a2->ai_family);
+	if (a1->ai_addrlen != a2->ai_addrlen)
+		return (a1->ai_addrlen - a2->ai_addrlen);
+	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
+}
+
+/*
+ * Resolve the given host name to a list of usable addresses
+ */
+int
+getaddresslist(const char *name, struct addrinfo **ailistp)
+{
+	struct addrinfo aihints, *ailist = NULL, *ai, *aiprev, *ainext, *aidiscard;
+	char namebuf[NI_MAXHOST];
+	const char *hostname;
+
+	hostname = name;
+	if ((hostname[0] == '[') && (hostname[strlen(hostname)-1] == ']')) {
+		/* Looks like an IPv6 literal in brackets */
+		strlcpy(namebuf, hostname+1, sizeof(namebuf));
+		namebuf[strlen(namebuf)-1] = '\0';
+		hostname = namebuf;
+	}
+
+	bzero(&aihints, sizeof(aihints));
+	aihints.ai_flags = AI_ADDRCONFIG;
+	if (getaddrinfo(hostname, NULL, &aihints, &ailist))
+		return (ENOENT);
+
+	/* strip out addresses that don't match the options given */
+	aidiscard = NULL;
+	aiprev = NULL;
+
+	for (ai = ailist; ai; ai = ainext) {
+		ainext = ai->ai_next;
+
+		/* eliminate unknown protocol families */
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+			goto discard;
+
+		/* Eliminate duplicate addresses with different socktypes. */
+		if (aiprev && (ai->ai_socktype != aiprev->ai_socktype) &&
+		    !addrinfo_cmp(aiprev, ai))
+			goto discard;
+
+		aiprev = ai;
+		continue;
+discard:
+		/* Add ai to the discard list */
+		if (aiprev)
+			aiprev->ai_next = ai->ai_next;
+		else
+			ailist = ai->ai_next;
+		ai->ai_next = aidiscard;
+		aidiscard = ai;
+	}
+
+	/* free up any discarded addresses */
+	if (aidiscard)
+		freeaddrinfo(aidiscard);
+
+	*ailistp = ailist;
+	return (0);
+}
+

@@ -573,7 +573,7 @@ tDirStatus CDSRefMap::GetNewRef (	UInt32		   *outRef,
 
 					// Get the ref num and increment its place holder
 					uiRefNum = pCurTable->fCurRefNum++;
-					uiRefNum += 0x00C00000;
+					uiRefNum |= 0x00C00000;
 
 					// Find a slot in the table for this ref number
 					uiSlot = uiRefNum % kMaxFWTableItems;

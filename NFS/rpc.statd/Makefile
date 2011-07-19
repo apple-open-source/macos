@@ -4,6 +4,13 @@
 
 Project = rpc.statd
 
+pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
+TCONF := $(call pathsearch,tconf)
+
+ifneq "$(TCONF)" ""
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+endif
+
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
@@ -14,9 +21,13 @@ SDKROOT ?= /
 WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
 		-Wwrite-strings -Wno-unknown-pragmas \
 		-Wno-missing-field-initializers -Wno-shadow
-Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 -isysroot $(SDKROOT) \
-		 -fPIE
-Extra_LD_Flags = -Wl,-pie -lutil -dead_strip
+Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 \
+		-I$(SRCROOT)/../rpc.lockd -F$(SDKROOT)/System/Library/PrivateFrameworks -fPIE
+Extra_LD_Flags = -Wl,-pie -lutil -framework oncrpc -dead_strip
+
+ifeq "$(Embedded)" "YES"
+Extra_CC_Flags += -isysroot $(SDKROOT)
+endif
 
 DST_DIR = $(DSTROOT)/usr/sbin
 MAN_DIR = $(DSTROOT)/usr/share/man/man8

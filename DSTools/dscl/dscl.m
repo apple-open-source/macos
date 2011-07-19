@@ -390,19 +390,16 @@ dscl_read(u_int32_t dsid, int argc, char *argv[], BOOL all)
 		argv++;
 	}
 	
-    NS_DURING
+    @try {
 		if (all)
-			NS_VALUERETURN(([engine readAll:path keys:keys]), tDirStatus);
+			return [engine readAll:path keys:keys];
 		else
-			NS_VALUERETURN(([engine read:path keys:keys]), tDirStatus);
-	NS_HANDLER
+			return [engine read:path keys:keys];
+	}
+	@finally {
 		[keys release];
 		[path release];
-		[localException raise];
-	NS_ENDHANDLER
-
-    [keys release];
-    [path release];
+	}
 	
 	return eDSNoErr;
 }
@@ -1150,8 +1147,8 @@ dscl_input_line(FILE *in, EditLine *el, History *h)
 	if (count <= 0) return NULL;
 
     
-    // Strip trailing '/' if it's not by itself. -- Rajpaul
-    if (eline[count-2] == '/' && eline[count-3] != ' ')
+    // Strip trailing '/' if it's not by itself.
+    if (count >= 3 && eline[count-2] == '/' && eline[count-3] != ' ')
         len = count - 2;
     else
         len = count - 1;

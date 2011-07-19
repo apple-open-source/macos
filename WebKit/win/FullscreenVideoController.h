@@ -39,7 +39,7 @@
 namespace WebCore {
 class GraphicsContext;
 #if USE(ACCELERATED_COMPOSITING)
-class WKCACFLayer;
+class PlatformCALayer;
 #endif
 }
 
@@ -102,7 +102,8 @@ private:
     int m_dragStartOffset;
 };
 
-class FullscreenVideoController : WebCore::MediaPlayerPrivateFullscreenClient, public Noncopyable {
+class FullscreenVideoController : WebCore::MediaPlayerPrivateFullscreenClient {
+    WTF_MAKE_NONCOPYABLE(FullscreenVideoController);
 public:
     FullscreenVideoController();
     virtual ~FullscreenVideoController();
@@ -157,10 +158,10 @@ private:
     WebCore::IntPoint m_hudPosition;
     OwnPtr<WebCore::MediaPlayerPrivateFullscreenWindow> m_fullscreenWindow;
 #if USE(ACCELERATED_COMPOSITING)
-    RefPtr<WebCore::WKCACFLayer> m_rootChild;
-    class LayoutClient;
-    friend class LayoutClient;
-    OwnPtr<LayoutClient> m_layoutClient;
+    class LayerClient;
+    friend class LayerClient;
+    OwnPtr<LayerClient> m_layerClient;
+    RefPtr<WebCore::PlatformCALayer> m_rootChild;
 #endif
 
     HUDButton m_playPauseButton;

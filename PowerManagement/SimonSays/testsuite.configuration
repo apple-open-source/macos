@@ -1,7 +1,0 @@
-# default configuration
-default=api
-
-api:server=n460-xserve-sss.apple.com
-api:port=5555
-api:description=Power Management Automated Tests
-api:owner=com.apple.iokit.powermanagement

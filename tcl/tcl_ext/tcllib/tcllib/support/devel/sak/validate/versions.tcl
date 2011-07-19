@@ -27,13 +27,13 @@ namespace eval ::sak::validate::versions {
 
 # ###
 
-proc ::sak::validate::versions {modules mode stem} {
-    versions::run $modules $mode $stem
+proc ::sak::validate::versions {modules mode stem tclv} {
+    versions::run $modules $mode $stem $tclv
     versions::summary
     return
 }
 
-proc ::sak::validate::versions::run {modules mode stem} {
+proc ::sak::validate::versions::run {modules mode stem tclv} {
     sak::feedback::init $mode $stem
     sak::feedback::first log  "\[ Versions \] ===================================================="
     sak::feedback::first warn "\[ Versions \] ===================================================="
@@ -121,6 +121,7 @@ proc ::sak::validate::versions::MapPackages {} {
 
 proc ::sak::validate::versions::Provided {m} {
     variable pkg
+    if {![info exists pkg(mp,$m)]} { return {} }
     return [lsort -dict $pkg(mp,$m)]
 }
 

@@ -4,7 +4,7 @@
 # SOAP::Lite is free software; you can redistribute it
 # and/or modify it under the same terms as Perl itself.
 #
-# $Id: HTTP2.pm,v 1.1.1.1 2007/10/26 20:44:35 mleasure Exp $
+# $Id: HTTP2.pm,v 1.3 2006/08/02 15:55:38 rkobes Exp $
 #
 # ======================================================================
 
@@ -13,7 +13,7 @@ package SOAP::Transport::HTTP2;
 use strict;
 use vars qw($VERSION @ISA);
 #$VERSION = sprintf("%d.%s", map {s/_//g; $_} q$Name:  $ =~ /-(\d+)_([\d_]+)/);
-$VERSION = 0.72;
+$VERSION = 0.73;
 
 use SOAP::Lite;
 use SOAP::Transport::HTTP;

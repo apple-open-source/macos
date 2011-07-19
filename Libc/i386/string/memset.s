@@ -31,7 +31,7 @@
  *	void memset_pattern16(void *b, const void *c16, size_t len);
  *
  * Calls of memset() with c==0 are routed to the bzero() routine.  Most of the
- * others go to _COMM_PAGE_MEMSET_PATTERN, which is entered as follows:
+ * others go to _memset_pattern, which is entered as follows:
  *	%edi = ptr to memory to set (aligned)
  *	%edx = length (which can be short, though we bias in favor of long operands)
  *	%xmm0 = the pattern to store
@@ -54,9 +54,8 @@ _memset:				// void *memset(void *b, int c, size_t len);
 	andl	$0xFF,%eax		// (c==0) ?
 	jnz	LNonzero		// not a bzero
 	
-	movl	$(_COMM_PAGE_BZERO),%eax// map memset(p,0,n) into bzero(p,n)
 	movl	%edx,8(%esp)		// put count where bzero() expects it
-	jmp	*%eax			// enter commpage
+	jmp		_bzero				// enter _bzero
 
 
 	// Handle memset of a nonzero value.
@@ -135,8 +134,7 @@ LCallCommpage:
 	dec	%ecx
 	jnz	1b
 2:					// ptr aligned, length long enough to justify
-	movl	$(_COMM_PAGE_MEMSET_PATTERN),%eax
-	call	*%eax			// call commpage to do the heavy lifting
+	call	_memset_pattern // call commpage to do the heavy lifting
 	movl	12(%esp),%eax		// get return value (ie, original ptr)
 	popl	%esi
 	popl	%edi
@@ -234,8 +232,7 @@ LAlignPtr:				// NB: can drop down to here!
 // Ptr is aligned if practical, we're ready to call commpage to do the heavy lifting.
 
 LReady:
-	movl	$(_COMM_PAGE_MEMSET_PATTERN),%eax
-	call	*%eax			// call commpage to do the heavy lifting
+	call	_memset_pattern // call commpage to do the heavy lifting
 	popl	%esi
 	popl	%edi
 	ret

@@ -44,7 +44,7 @@ protected:
 	void AddSymLinkToManifest (CFMutableDataRef manifest, ManifestSymLinkItem* file);
 	void AddOtherToManifest (CFMutableDataRef manifest, ManifestOtherItem* other);
 	void AddManifestItemListToManifest (CFMutableDataRef manifest, ManifestItemList &itemList);
-	void CreateManifest (CFMutableDataRef manifest, ManifestInternal& manifest);
+	void CreateManifest (CFMutableDataRef manifest, ManifestInternal& internalManifest);
 	
 	void AddSignersToCmsMessage (SecCmsMessageRef cmsMessage, SecCmsSignedDataRef signedData);
 	

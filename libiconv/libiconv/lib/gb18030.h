@@ -246,7 +246,7 @@ gb18030_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
                 unsigned char c4 = s[3];
                 if (c4 >= 0x30 && c4 <= 0x39) {
                   unsigned int i = (((c1 - 0x90) * 10 + (c2 - 0x30)) * 126 + (c3 - 0x81)) * 10 + (c4 - 0x30);
-                  if (i >= 0 && i < 0x100000) {
+                  if (/* i >= 0 && */ i < 0x100000) {
                     *pwc = (ucs4_t) (0x10000 + i);
                     return 4;
                   }

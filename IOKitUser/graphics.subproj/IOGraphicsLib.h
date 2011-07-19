@@ -97,6 +97,40 @@ extern kern_return_t
 IOFBSetBounds( io_connect_t connect,
             IOGBounds   * rect );
 
+/*!
+ * @function IOFBSetVirtualBounds
+ *
+ * @abstract
+ * Set the location of the framebuffer within display space and
+ * within desktop space.
+ *
+ * @param connect       The connect handle from <code>IOServiceOpen</code>
+ *                      to an IOFramebuffer service with a
+ *                      <code>kIOFBServerConnectType</code> connection.
+ * @param screenBounds  An <code>IOGBounds</code> structure specifying
+ *                      a rectangular region of the framebuffer
+ *                      in display space.
+ * @param desktopBounds An <code>IOGBounds</code> structure specifying
+ *                      a rectangular region of the framebuffer
+ *                      in desktop space.
+ * @result              A <code>kern_return_t</code> error code.
+ *
+ * @discussion
+ * If there is more than one screen in use, the locations of the screens relative
+ * to each other must be specified. Each physical screen will have a rectangular 
+ * region of "display space" that it is responsible for showing. When the "display 
+ * space" does not have a 1:1 mapping to the "desktop space" (e.g when using zooming, 
+ * or HiDPI), this function is used to define how "desktop space" maps into "display 
+ * space". Note that "desktop space" and "display space" should be contiguous, and 
+ * the mapping between them should be functional (i.e. 1-to-1, though not necessarily 
+ * contiguous).
+ */
+    
+extern kern_return_t
+IOFBSetVirtualBounds(io_connect_t connect,
+                     IOGBounds   * screenBounds,
+                     IOGBounds   * desktopBounds );
+    
 /*! @function IOFBGetCurrentDisplayModeAndDepth
     @abstract Get the current display mode and depth.
     @discussion The display mode index returned by this function can be used to determine information about the current display mode and its supported pixel formats through calls to IOFBGetDisplayModeInformation(), IOFBGetPixelFormats(), and IOFBGetPixelInformation().
@@ -271,7 +305,7 @@ IOFBGetPixelFormats( io_connect_t connect,
     @param displayMode A display mode index.
     @param depth A display depth index.
     @param aperture A pixel aperture. The pixel aperture is an index into supported pixel formats for a display mode and depth. To get information on the current aperture, use kIOFBSystemAperture.
-    @param IOPixelInformation A pointer to an IOPixelInformation structure where the pixel information will be returned.
+    @param pixelInfo A pointer to an IOPixelInformation structure where the pixel information will be returned.
     @result A kern_return_t error code. */
 
 kern_return_t

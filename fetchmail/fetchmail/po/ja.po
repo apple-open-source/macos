@@ -1,22 +1,23 @@
 # Japanese messages for fetchmail.
-# Copyright (C) 2005-2006 Eric S. Raymond
+# Copyright (C) 2005-2010 Eric S. Raymond
 # Copyright (C) 2002 Free Software Foundation, Inc.
 # This file is distributed under the same license as the fetchmail package.
-# Takeshi Hamasaki <hmatrjp@users.sourceforge.jp>, 2005-2009
+# Takeshi Hamasaki <hmatrjp@users.sourceforge.jp>, 2005-2010
 #   based on the work by Jumpei Baba <jbaba@wb3.so-net.ne.jp>, 2002
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: fetchmail 6.3.10-pre1\n"
+"Project-Id-Version: fetchmail 6.3.18-pre2\n"
 "Report-Msgid-Bugs-To: fetchmail-devel@lists.berlios.de\n"
-"POT-Creation-Date: 2009-08-06 01:21+0200\n"
-"PO-Revision-Date: 2009-05-26 20:20+0700\n"
+"POT-Creation-Date: 2010-10-09 13:33+0200\n"
+"PO-Revision-Date: 2010-09-26 22:56+0700\n"
 "Last-Translator: Takeshi Hamasaki <hmatrjp@users.sourceforge.jp>\n"
 "Language-Team: Japanese <translation-team-ja@lists.sourceforge.net>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"X-Poedit-Basepath: /factory/ja-po/fetchmail/fetchmail-6.3.18-pre1\n"
 
 #: checkalias.c:179
 #, c-format
@@ -50,42 +51,42 @@ msgstr "BASE64 変換された challenge をデコードできませんでした
 msgid "decoded as %s\n"
 msgstr "%s とデコードされました。\n"
 
-#: driver.c:191
+#: driver.c:193
 #, c-format
 msgid "kerberos error %s\n"
 msgstr "kerberos エラー : %s\n"
 
-#: driver.c:249 driver.c:254
+#: driver.c:253 driver.c:259
 #, c-format
-msgid "krb5_sendauth: %s [server says '%*s'] \n"
-msgstr "krb5_sendauth: %s [サーバの応答  '%*s']\n"
+msgid "krb5_sendauth: %s [server says '%s']\n"
+msgstr "krb5_sendauth: %s [サーバの応答  '%s']\n"
 
-#: driver.c:335
+#: driver.c:339
 msgid "Subject: Fetchmail oversized-messages warning"
 msgstr "Subject: Fetchmail サイズ超過メッセージ 警告"
 
-#: driver.c:339
+#: driver.c:343
 #, c-format
 msgid "The following oversized messages were deleted on server %s account %s:"
 msgstr ""
 "以下に示す容量を超過したメッセージはメールサーバ %s アカウント %s で削除され"
 "ました :"
 
-#: driver.c:343
+#: driver.c:347
 #, c-format
 msgid "The following oversized messages remain on server %s account %s:"
 msgstr ""
 "以下に示す容量を超過したメッセージがメールサーバ %s アカウント %s に残ってい"
 "ます :"
 
-#: driver.c:362
+#: driver.c:366
 #, c-format
 msgid "  %d message  %d octets long deleted by fetchmail."
 msgid_plural "  %d messages %d octets long deleted by fetchmail."
 msgstr[0] ""
 "fetchmail が %d 通のメッセージ(%d bytes の長さがあります)を削除しました。"
 
-#: driver.c:367
+#: driver.c:371
 #, c-format
 msgid "  %d message  %d octets long skipped by fetchmail."
 msgid_plural "  %d messages %d octets long skipped by fetchmail."
@@ -93,53 +94,53 @@ msgstr[0] ""
 "fetchmail が %d 通のメッセージ(%d バイト の長さがあります)を読み飛ばしまし"
 "た。"
 
-#: driver.c:511
+#: driver.c:518
 #, c-format
 msgid "skipping message %s@%s:%d"
 msgstr "%s@%s 宛に届いた %d 番目のメッセージを読み飛ばしています。"
 
-#: driver.c:565
+#: driver.c:572
 #, c-format
 msgid "skipping message %s@%s:%d (%d octets)"
 msgstr ""
 "%s@%s 宛に届いた %d 番目のメッセージ (%d バイト) を読み飛ばしています。"
 
-#: driver.c:581
+#: driver.c:588
 msgid " (length -1)"
 msgstr " (長さ -1)"
 
-#: driver.c:584
+#: driver.c:591
 msgid " (oversized)"
 msgstr " (容量超過)"
 
-#: driver.c:602
+#: driver.c:609
 #, c-format
 msgid "couldn't fetch headers, message %s@%s:%d (%d octets)\n"
 msgstr ""
 "%s@%s 宛に届いた %d 番目のメッセージ(%d バイト) のヘッダを読み出せませんでし"
 "た。\n"
 
-#: driver.c:619
+#: driver.c:626
 #, c-format
 msgid "reading message %s@%s:%d of %d"
 msgstr "%s@%s 宛に届いた %d 番目のメッセージ(全部で %d 通)を読み込んでいます"
 
-#: driver.c:624
+#: driver.c:631
 #, c-format
 msgid " (%d octets)"
 msgstr " (%d バイト)"
 
-#: driver.c:625
+#: driver.c:632
 #, c-format
 msgid " (%d header octets)"
 msgstr " (%d バイト (ヘッダ) )"
 
-#: driver.c:692
+#: driver.c:699
 #, c-format
 msgid " (%d body octets)"
 msgstr " (本文 %d オクテット)"
 
-#: driver.c:751
+#: driver.c:758
 #, c-format
 msgid ""
 "message %s@%s:%d was not the expected length (%d actual != %d expected)\n"
@@ -147,19 +148,19 @@ msgstr ""
 "%s@%s 宛に届いた %d 番目のメッセージの大きさが合いません (%d (実際) != %d (予"
 "想)) \n"
 
-#: driver.c:783
+#: driver.c:790
 msgid " retained\n"
 msgstr " メッセージはサーバにそのままにしてあります。\n"
 
-#: driver.c:793
+#: driver.c:800
 msgid " flushed\n"
 msgstr " サーバからメッセージを削除しました。\n"
 
-#: driver.c:810
+#: driver.c:817
 msgid " not flushed\n"
 msgstr " サーバからメッセージを削除しませんでした。\n"
 
-#: driver.c:828
+#: driver.c:835
 #, c-format
 msgid "fetchlimit %d reached; %d message left on server %s account %s\n"
 msgid_plural ""
@@ -168,37 +169,37 @@ msgstr[0] ""
 "最大取り込み数である %d 通に達しました; メッセージが %d 通、サーバ %s にアカ"
 "ウント %s 宛で残されています。\n"
 
-#: driver.c:885
+#: driver.c:892
 #, c-format
 msgid "timeout after %d seconds waiting to connect to server %s.\n"
 msgstr "%d 秒間サーバ %s の接続応答を待ちましたが制限時間を超過しました。\n"
 
-#: driver.c:889
+#: driver.c:896
 #, c-format
 msgid "timeout after %d seconds waiting for server %s.\n"
 msgstr "%d 秒間サーバ %s の応答を待ちましたが制限時間を超過しました。\n"
 
-#: driver.c:893
+#: driver.c:900
 #, c-format
 msgid "timeout after %d seconds waiting for %s.\n"
 msgstr "%d 秒間 %s の応答を待ちましたが制限時間を超過しました。\n"
 
-#: driver.c:898
+#: driver.c:905
 #, c-format
 msgid "timeout after %d seconds waiting for listener to respond.\n"
 msgstr ""
 "転送先のプログラムの応答を %d 秒間待ちましたが制限時間を超過しました。\n"
 
-#: driver.c:901
+#: driver.c:908
 #, c-format
 msgid "timeout after %d seconds.\n"
 msgstr "%d 秒間待機しましたが制限時間を超過しました。\n"
 
-#: driver.c:913
+#: driver.c:920
 msgid "Subject: fetchmail sees repeated timeouts"
 msgstr "Subject: fetchmail 実行中に制限時間の超過が繰り返し発生しました"
 
-#: driver.c:916
+#: driver.c:923
 #, c-format
 msgid ""
 "Fetchmail saw more than %d timeouts while attempting to get mail from %s@%"
@@ -207,7 +208,7 @@ msgstr ""
 "Fetchmail 実行中に %d 回以上、%s@%s 宛に届いたメール受信を試みましたが、その"
 "度に制限時間を超過しました。\n"
 
-#: driver.c:920
+#: driver.c:927
 msgid ""
 "This could mean that your mailserver is stuck, or that your SMTP\n"
 "server is wedged, or that your mailbox file on the server has been\n"
@@ -223,80 +224,86 @@ msgstr ""
 "再起動しない限り fetchmail はこのメールボックスより\n"
 "メールを取り出しませんので注意して下さい。\n"
 
-#: driver.c:946
+#: driver.c:953
 #, c-format
 msgid "pre-connection command terminated with signal %d\n"
 msgstr "サーバへの接続開始前に実行したコマンドがシグナル %d で終了しました\n"
 
-#: driver.c:949
+#: driver.c:956
 #, c-format
 msgid "pre-connection command failed with status %d\n"
 msgstr ""
 "サーバへの接続開始前に実行したコマンドがステータス %d を返して終了しまし"
 "た。\n"
 
-#: driver.c:973
+#: driver.c:980
 #, c-format
 msgid "couldn't find HESIOD pobox for %s\n"
 msgstr "%s にあるべき HESIOD pobox がありません。\n"
 
-#: driver.c:994
+#: driver.c:1001
 msgid "Lead server has no name.\n"
 msgstr "Lead server の名前がありません。\n"
 
-#: driver.c:1021
+#: driver.c:1028
 #, c-format
 msgid "couldn't find canonical DNS name of %s (%s): %s\n"
 msgstr "%s の 公式 DNS 名(%s)を検索できませんでした: %s\n"
 
-#: driver.c:1068
+#: driver.c:1075
 #, c-format
 msgid "%s connection to %s failed"
 msgstr "%s プロトコルを利用した %s への接続に失敗しました。"
 
-#: driver.c:1084
+#: driver.c:1091
 msgid "Subject: Fetchmail unreachable-server warning."
 msgstr "Subject: Fetchmail 警告 : サーバと交信不能"
 
-#: driver.c:1086
+#: driver.c:1093
 #, c-format
 msgid "Fetchmail could not reach the mail server %s:"
 msgstr "Fetchmail 実行中にメールサーバ %s と交信できませんでした:"
 
-#: driver.c:1114
+#: driver.c:1122
 msgid "SSL connection failed.\n"
 msgstr "SSL による接続に失敗しました。\n"
 
-#: driver.c:1167
+#: driver.c:1177
 #, c-format
 msgid "Lock-busy error on %s@%s\n"
 msgstr "アカウント %s@%s が Lock-busy 状態です。\n"
 
-#: driver.c:1171
+#: driver.c:1181
 #, c-format
 msgid "Server busy error on %s@%s\n"
 msgstr "%s@%s のサーバが busy 状態です。\n"
 
-#: driver.c:1176
+#: driver.c:1186
 #, c-format
 msgid "Authorization failure on %s@%s%s\n"
 msgstr "%s@%s%s の認証に失敗しました\n"
 
-#: driver.c:1179
+#: driver.c:1189
 msgid " (previously authorized)"
 msgstr "(以前は認証されました)"
 
-#: driver.c:1200
+#: driver.c:1192
+msgid "For help, see http://www.fetchmail.info/fetchmail-FAQ.html#R15\n"
+msgstr ""
+"これについてのヘルプは http://www.fetchmail.info/fetchmail-FAQ.html#R15 を見"
+"てください\n"
+
+#: driver.c:1213
 #, c-format
 msgid "Subject: fetchmail authentication failed on %s@%s"
 msgstr "Subject: Fetchmail 実行中 %s@%s の認証に失敗"
 
-#: driver.c:1204
+#: driver.c:1217
 #, c-format
 msgid "Fetchmail could not get mail from %s@%s.\n"
 msgstr "Fetchmail 実行中に %s@%s 宛に届いたメールを取り出せませんでした。\n"
 
-#: driver.c:1208
+#: driver.c:1221
 msgid ""
 "The attempt to get authorization failed.\n"
 "Since we have already succeeded in getting authorization for this\n"
@@ -309,7 +316,7 @@ msgstr ""
 "他の要因によるものであると思われますが、何故 login に失敗したのか\n"
 "サーバから有益な情報が送信されていないため、fetchmail では判断しかねます。"
 
-#: driver.c:1214
+#: driver.c:1227
 msgid ""
 "\n"
 "However, if you HAVE changed your account details since starting the\n"
@@ -328,7 +335,7 @@ msgstr ""
 "fetchmail デーモンは引続き接続を試みます。\n"
 "サービスが復旧しない限り何も通知が出されないことを了承願います。"
 
-#: driver.c:1224
+#: driver.c:1237
 msgid ""
 "The attempt to get authorization failed.\n"
 "This probably means your password is invalid, but some servers have\n"
@@ -348,180 +355,180 @@ msgstr ""
 "fetchmail デーモンは引続き接続を試みます。\n"
 "サービスが復旧しない限り何も通知が出されないことを了承願います。"
 
-#: driver.c:1240
+#: driver.c:1253
 #, c-format
 msgid "Repoll immediately on %s@%s\n"
 msgstr "すぐに %s@%s 宛メッセージの再取得を試みます\n"
 
-#: driver.c:1245
+#: driver.c:1258
 #, c-format
 msgid "Unknown login or authentication error on %s@%s\n"
 msgstr "%s@%s に対する不明なログイン又は認証のエラーです。\n"
 
-#: driver.c:1269
+#: driver.c:1282
 #, c-format
 msgid "Authorization OK on %s@%s\n"
 msgstr "%s@%s に対する認証が行われました。\n"
 
-#: driver.c:1275
+#: driver.c:1288
 #, c-format
 msgid "Subject: fetchmail authentication OK on %s@%s"
 msgstr "Subject: fetchmail %s@%s 認証完了"
 
-#: driver.c:1279
+#: driver.c:1292
 #, c-format
 msgid "Fetchmail was able to log into %s@%s.\n"
 msgstr ""
 "%s@%s のログインが完了し fetchmail によるアクセスが可能となりました。\n"
 
-#: driver.c:1283
+#: driver.c:1296
 msgid "Service has been restored.\n"
 msgstr "サービスが復帰しました。\n"
 
-#: driver.c:1315
+#: driver.c:1328
 #, c-format
 msgid "selecting or re-polling folder %s\n"
 msgstr ""
 "選択をして下さい。選択されない場合はフォルダ %s に再度アクセスします。\n"
 
-#: driver.c:1317
+#: driver.c:1330
 msgid "selecting or re-polling default folder\n"
 msgstr ""
 "選択をして下さい。選択されない場合はデフォルトのフォルダに再度アクセスしま"
 "す。\n"
 
-#: driver.c:1329
+#: driver.c:1342
 #, c-format
 msgid "%s at %s (folder %s)"
 msgstr "アカウント %s , サーバ %s (フォルダ %s)"
 
-#: driver.c:1332 rcfile_y.y:384
+#: driver.c:1345 rcfile_y.y:390
 #, c-format
 msgid "%s at %s"
 msgstr "アカウント %s , サーバ %s"
 
-#: driver.c:1337
+#: driver.c:1350
 #, c-format
 msgid "Polling %s\n"
 msgstr "%s にアクセスしています。\n"
 
-#: driver.c:1341
+#: driver.c:1354
 #, c-format
 msgid "%d message (%d %s) for %s"
 msgid_plural "%d messages (%d %s) for %s"
 msgstr[0] "%d 通のメッセージ (そのうち %d 通は %s) が%s宛に届いています"
 
-#: driver.c:1344
+#: driver.c:1357
 msgid "seen"
 msgid_plural "seen"
 msgstr[0] "既に読み込んでいます"
 
-#: driver.c:1347
+#: driver.c:1360
 #, c-format
 msgid "%d message for %s"
 msgid_plural "%d messages for %s"
 msgstr[0] "%d 通のメッセージが %s 宛に届いています"
 
-#: driver.c:1354
+#: driver.c:1367
 #, c-format
 msgid " (%d octets).\n"
 msgstr " (%d バイト)\n"
 
-#: driver.c:1360
+#: driver.c:1373
 #, c-format
 msgid "No mail for %s\n"
 msgstr "%s 宛にメッセージは届いていません。\n"
 
-#: driver.c:1393 imap.c:90
+#: driver.c:1406
 msgid "bogus message count!"
-msgstr "偽造されたメッセージ数!"
+msgstr "メッセージ数が偽造されています!"
 
-#: driver.c:1537
+#: driver.c:1549
 msgid "socket"
 msgstr "socket"
 
-#: driver.c:1540
+#: driver.c:1552
 msgid "missing or bad RFC822 header"
 msgstr "RFC822 ヘッダの欠落か誤謬"
 
-#: driver.c:1543
+#: driver.c:1555
 msgid "MDA"
 msgstr "MDA"
 
-#: driver.c:1546
+#: driver.c:1558
 msgid "client/server synchronization"
 msgstr "クライアント/サーバ同期"
 
-#: driver.c:1549
+#: driver.c:1561
 msgid "client/server protocol"
 msgstr "クライアント/サーバプロトコル"
 
-#: driver.c:1552
+#: driver.c:1564
 msgid "lock busy on server"
 msgstr "サーバの lock busy"
 
-#: driver.c:1555
+#: driver.c:1567
 msgid "SMTP transaction"
 msgstr "SMTP 通信"
 
-#: driver.c:1558
+#: driver.c:1570
 msgid "DNS lookup"
 msgstr "DNS 参照"
 
-#: driver.c:1561
+#: driver.c:1573
 msgid "undefined"
 msgstr "不明なエラー"
 
-#: driver.c:1567
+#: driver.c:1579
 #, c-format
 msgid "%s error while fetching from %s@%s and delivering to SMTP host %s\n"
 msgstr ""
 "%sエラーが発生しました。%s@%sからメールを受信し SMTP サーバ %s へ送信している"
 "ところでした。\n"
 
-#: driver.c:1569
+#: driver.c:1581
 msgid "unknown"
 msgstr "(不明なホスト)"
 
-#: driver.c:1571
+#: driver.c:1583
 #, c-format
 msgid "%s error while fetching from %s@%s\n"
 msgstr "%sエラーが %s@%s よりメールを受信している最中に発生しました。\n"
 
-#: driver.c:1583
+#: driver.c:1595
 #, c-format
 msgid "post-connection command terminated with signal %d\n"
 msgstr "接続終了後に実行したコマンドがシグナル %d で終了しました\n"
 
-#: driver.c:1585
+#: driver.c:1597
 #, c-format
 msgid "post-connection command failed with status %d\n"
 msgstr "接続終了後に実行するコマンドがステータス %d を返しました。\n"
 
-#: driver.c:1604
+#: driver.c:1616
 msgid "Kerberos V4 support not linked.\n"
 msgstr "Kerberos V4 には対応しておりません。\n"
 
-#: driver.c:1612
+#: driver.c:1624
 msgid "Kerberos V5 support not linked.\n"
 msgstr "Kerberos V5 には対応しておりません。\n"
 
-#: driver.c:1623
+#: driver.c:1635
 #, c-format
 msgid "Option --flush is not supported with %s\n"
 msgstr "オプション --flush と %s は同時に設定できません。\n"
 
-#: driver.c:1629
+#: driver.c:1641
 #, c-format
 msgid "Option --all is not supported with %s\n"
 msgstr "オプション --all と %s は同時に設定できません。\n"
 
-#: driver.c:1638
+#: driver.c:1650
 #, c-format
 msgid "Option --limit is not supported with %s\n"
 msgstr "オプション --limit と %s は同時に設定できません。\n"
 
-#: env.c:59
+#: env.c:61
 #, c-format
 msgid ""
 "%s: The QMAILINJECT environment variable is set.\n"
@@ -536,7 +543,7 @@ msgstr ""
 "\"env QMAILINJECT = %s (引数)\" を実行してみて下さい。\n"
 "%s: 終了します。\n"
 
-#: env.c:71
+#: env.c:73
 #, c-format
 msgid ""
 "%s: The NULLMAILER_FLAGS environment variable is set.\n"
@@ -554,27 +561,27 @@ msgstr ""
 "い。\n"
 "%s: 終了します。\n"
 
-#: env.c:83
+#: env.c:85
 #, c-format
 msgid "%s: You don't exist.  Go away.\n"
 msgstr ""
 "%s: 貴様のアカウントは存在しない。さっさと立ち去り二度と戻ってくるな。\n"
 
-#: env.c:145
+#: env.c:149
 #, c-format
 msgid "%s: can't determine your host!"
 msgstr "%s: ホストが決定できません。"
 
-#: env.c:168
+#: env.c:172
 #, c-format
 msgid "gethostbyname failed for %s\n"
 msgstr "ホスト %s を gethostbyname で検索できませんでした。\n"
 
-#: env.c:170
+#: env.c:174
 msgid "Cannot find my own host in hosts database to qualify it!\n"
 msgstr "hosts データベースでこのホスト自身を確認できません!\n"
 
-#: env.c:174
+#: env.c:178
 msgid ""
 "Trying to continue with unqualified hostname.\n"
 "DO NOT report broken Received: headers, HELO/EHLO lines or similar "
@@ -586,7 +593,7 @@ msgstr ""
 "バグ報告をしないでください。\n"
 "/etc/hosts, DNS, NIS または LDAP の問題を修正してください。\n"
 
-#: etrn.c:49 odmr.c:60
+#: etrn.c:49 odmr.c:61
 #, c-format
 msgid "%s's SMTP listener does not support ESMTP\n"
 msgstr "サーバ %s 上の SMTP 受信プログラムは ESMTP に対応していません。\n"
@@ -653,18 +660,18 @@ msgstr "オプション --check は ETRN とは同時に利用できません。
 #: fetchmail.c:137
 msgid ""
 "Copyright (C) 2002, 2003 Eric S. Raymond\n"
-"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
-"Wilson\n"
-"Copyright (C) 2005 - 2006 Sunil Shetye\n"
-"Copyright (C) 2005 - 2009 Matthias Andree\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond,\n"
+"                   Robert M. Funk, Graham Wilson\n"
+"Copyright (C) 2005 - 2006, 2010 Sunil Shetye\n"
+"Copyright (C) 2005 - 2010 Matthias Andree\n"
 msgstr ""
 "Copyright (C) 2002, 2003 Eric S. Raymond\n"
-"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham "
-"Wilson\n"
-"Copyright (C) 2005 - 2006 Sunil Shetye\n"
-"Copyright (C) 2005 - 2009 Matthias Andree\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond,\n"
+"                   Robert M. Funk, Graham Wilson\n"
+"Copyright (C) 2005 - 2006, 2010 Sunil Shetye\n"
+"Copyright (C) 2005 - 2010 Matthias Andree\n"
 
-#: fetchmail.c:142
+#: fetchmail.c:143
 msgid ""
 "Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
 "are welcome to redistribute it under certain conditions. For details,\n"
@@ -674,64 +681,64 @@ msgstr ""
 "いくつかの条件を満たせば再配布は大歓迎です。\n"
 "詳しくは、COPYING ファイルを見てください。\n"
 
-#: fetchmail.c:176
+#: fetchmail.c:181
 msgid "WARNING: Running as root is discouraged.\n"
 msgstr "警告: root アカウントでの実行はお勧めできません。\n"
 
-#: fetchmail.c:188
+#: fetchmail.c:193
 msgid "fetchmail: invoked with"
 msgstr "fetchmail: 次の物を援用しています。"
 
-#: fetchmail.c:212
+#: fetchmail.c:217
 msgid "could not get current working directory\n"
 msgstr "カレントディレクトリを取得できません\n"
 
-#: fetchmail.c:283
+#: fetchmail.c:288
 #, c-format
 msgid "This is fetchmail release %s"
 msgstr "fetchmail リリース %s "
 
-#: fetchmail.c:403
+#: fetchmail.c:408
 #, c-format
 msgid "Taking options from command line%s%s\n"
 msgstr "コマンドライン%s%sよりオプションを設定します。\n"
 
-#: fetchmail.c:404
+#: fetchmail.c:409
 msgid " and "
 msgstr "及び"
 
-#: fetchmail.c:409
+#: fetchmail.c:414
 #, c-format
 msgid "No mailservers set up -- perhaps %s is missing?\n"
 msgstr "メールサーバの準備が整いません -- おそらく %s が存在しないためです\n"
 
-#: fetchmail.c:430
+#: fetchmail.c:435
 msgid "fetchmail: no mailservers have been specified.\n"
 msgstr "fetchmail: メールサーバが指定されておりません。\n"
 
-#: fetchmail.c:442
+#: fetchmail.c:447
 msgid "fetchmail: no other fetchmail is running\n"
 msgstr "fetchmail: 他の fetchmail は実行されていません。\n"
 
-#: fetchmail.c:448
+#: fetchmail.c:453
 #, c-format
-msgid "fetchmail: error killing %s fetchmail at %d; bailing out.\n"
-msgstr "fetchmail: エラーの発生により%s fetchmail (PID=%d)を終了します。\n"
+msgid "fetchmail: error killing %s fetchmail at %ld; bailing out.\n"
+msgstr "fetchmail: エラーの発生により%s fetchmail (PID=%ld) を終了します。\n"
 
-#: fetchmail.c:449 fetchmail.c:458
+#: fetchmail.c:454 fetchmail.c:463
 msgid "background"
 msgstr "バックグラウンドの"
 
-#: fetchmail.c:449 fetchmail.c:458
+#: fetchmail.c:454 fetchmail.c:463
 msgid "foreground"
 msgstr "フォアグラウンドの"
 
-#: fetchmail.c:457
+#: fetchmail.c:462
 #, c-format
-msgid "fetchmail: %s fetchmail at %d killed.\n"
-msgstr "fetchmail: %s fetchmail (PID=%d) が終了しました。\n"
+msgid "fetchmail: %s fetchmail at %ld killed.\n"
+msgstr "fetchmail: %s fetchmail (PID=%ld) を終了しました。\n"
 
-#: fetchmail.c:480
+#: fetchmail.c:485
 msgid ""
 "fetchmail: can't check mail while another fetchmail to same host is "
 "running.\n"
@@ -739,226 +746,227 @@ msgstr ""
 "fetchmail: 同じホストに対して別の fetchmail が交信しているためメールの確認が"
 "出来ません。\n"
 
-#: fetchmail.c:486
+#: fetchmail.c:491
 #, c-format
 msgid ""
-"fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"
+"fetchmail: can't poll specified hosts with another fetchmail running at %"
+"ld.\n"
 msgstr ""
-"fetchmail: 他の fetchmail (PID=%d) が実行中のため指定されたホストと接続できま"
-"せん。\n"
+"fetchmail: 他の fetchmail (PID=%ld) が実行中のため指定されたホストと接続でき"
+"ません。\n"
 
-#: fetchmail.c:493
+#: fetchmail.c:498
 #, c-format
-msgid "fetchmail: another foreground fetchmail is running at %d.\n"
-msgstr "fetchmail: 他の fetchmail (PID=%d) がフォアグラウンド動作中です。\n"
+msgid "fetchmail: another foreground fetchmail is running at %ld.\n"
+msgstr "fetchmail: 他の fetchmail (PID=%ld) がフォアグラウンド動作中です。\n"
 
-#: fetchmail.c:503
+#: fetchmail.c:508
 msgid ""
 "fetchmail: can't accept options while a background fetchmail is running.\n"
 msgstr ""
 "fetchmail: バックグラウンドで fetchmail が動作中のためオプションが受け付けら"
 "れません。\n"
 
-#: fetchmail.c:509
+#: fetchmail.c:514
 #, c-format
-msgid "fetchmail: background fetchmail at %d awakened.\n"
+msgid "fetchmail: background fetchmail at %ld awakened.\n"
 msgstr ""
-"fetchmail: バックグラウンドの fetchmail (PID=%d) が動作を再開しました。\n"
+"fetchmail: バックグラウンドの fetchmail (PID=%ld) が動作を再開しました。\n"
 
-#: fetchmail.c:521
+#: fetchmail.c:526
 #, c-format
-msgid "fetchmail: elder sibling at %d died mysteriously.\n"
+msgid "fetchmail: elder sibling at %ld died mysteriously.\n"
 msgstr ""
-"fetchmail: 同時に動作していた fetchmail (PID=%d) が突然消滅しました。\n"
+"fetchmail: 同時に動作していた fetchmail (PID=%ld) が突然消滅しました。\n"
 
-#: fetchmail.c:536
+#: fetchmail.c:541
 #, c-format
 msgid "fetchmail: can't find a password for %s@%s.\n"
 msgstr "fetchmail: %s@%s にログインするためのパスワードがありません。\n"
 
-#: fetchmail.c:540
+#: fetchmail.c:545
 #, c-format
 msgid "Enter password for %s@%s: "
 msgstr "%s@%s にログインするためのパスワードを入力して下さい : "
 
-#: fetchmail.c:582
+#: fetchmail.c:587
 msgid "fetchmail: Cannot detach into background. Aborting.\n"
 msgstr "fetchmail: バックグラウンドに移れません。終了します。\n"
 
-#: fetchmail.c:586
+#: fetchmail.c:591
 #, c-format
-msgid "starting fetchmail %s daemon \n"
-msgstr "fetchmail %s デーモンを動作開始します。\n"
+msgid "starting fetchmail %s daemon\n"
+msgstr "fetchmail %s デーモンを動作開始します\n"
 
-#: fetchmail.c:602 fetchmail.c:604
+#: fetchmail.c:607 fetchmail.c:609
 #, c-format
-msgid "could not open %s to append logs to \n"
+msgid "could not open %s to append logs to\n"
 msgstr "ログを追加するために %s を開くことが出来ませんでした\n"
 
-#: fetchmail.c:606
+#: fetchmail.c:611
 msgid "fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"
 msgstr ""
 "fetchmail: 警告 : syslog とログファイルが設定されました。ログはそちらを見てく"
 "ださい。\n"
 
-#: fetchmail.c:625
+#: fetchmail.c:630
 msgid "--check mode enabled, not fetching mail\n"
 msgstr "--check モードが有効なので、メールを取り込みません\n"
 
-#: fetchmail.c:647
+#: fetchmail.c:652
 #, c-format
 msgid "couldn't time-check %s (error %d)\n"
 msgstr "%s の編集された時間を調べることができません。(エラー %d)\n"
 
-#: fetchmail.c:652
+#: fetchmail.c:657
 #, c-format
 msgid "restarting fetchmail (%s changed)\n"
 msgstr "%s が編集されたため fetchmail を再起動します。\n"
 
-#: fetchmail.c:657
+#: fetchmail.c:662
 msgid "attempt to re-exec may fail as directory has not been restored\n"
 msgstr "ディレクトリが回復できないので、再実行は失敗するでしょう。\n"
 
-#: fetchmail.c:684
+#: fetchmail.c:689
 msgid "attempt to re-exec fetchmail failed\n"
 msgstr "fetchmail の再起動に失敗しました。\n"
 
-#: fetchmail.c:714
+#: fetchmail.c:719
 #, c-format
 msgid "poll of %s skipped (failed authentication or too many timeouts)\n"
 msgstr "認証失敗か制限時間超過が頻発したため %s との交信を飛ばします。\n"
 
-#: fetchmail.c:726
+#: fetchmail.c:731
 #, c-format
 msgid "interval not reached, not querying %s\n"
 msgstr "時間間隔に達していないので %s の一時保管を行いません。\n"
 
-#: fetchmail.c:764
+#: fetchmail.c:769
 msgid "Query status=0 (SUCCESS)\n"
 msgstr "Query status=0 (SUCCESS)\n"
 
-#: fetchmail.c:766
+#: fetchmail.c:771
 msgid "Query status=1 (NOMAIL)\n"
 msgstr "Query status=1 (NOMAIL)\n"
 
-#: fetchmail.c:768
+#: fetchmail.c:773
 msgid "Query status=2 (SOCKET)\n"
 msgstr "Query status=2 (SOCKET)\n"
 
-#: fetchmail.c:770
+#: fetchmail.c:775
 msgid "Query status=3 (AUTHFAIL)\n"
 msgstr "Query status=3 (AUTHFAIL)\n"
 
-#: fetchmail.c:772
+#: fetchmail.c:777
 msgid "Query status=4 (PROTOCOL)\n"
 msgstr "Query status=4 (PROTOCOL)\n"
 
-#: fetchmail.c:774
+#: fetchmail.c:779
 msgid "Query status=5 (SYNTAX)\n"
 msgstr "Query status=5 (SYNTAX)\n"
 
-#: fetchmail.c:776
+#: fetchmail.c:781
 msgid "Query status=6 (IOERR)\n"
 msgstr "Query status=6 (IOERR)\n"
 
-#: fetchmail.c:778
+#: fetchmail.c:783
 msgid "Query status=7 (ERROR)\n"
 msgstr "Query status=7 (ERROR)\n"
 
-#: fetchmail.c:780
+#: fetchmail.c:785
 msgid "Query status=8 (EXCLUDE)\n"
 msgstr "Query status=8 (EXCLUDE)\n"
 
-#: fetchmail.c:782
+#: fetchmail.c:787
 msgid "Query status=9 (LOCKBUSY)\n"
 msgstr "Query status=9 (LOCKBUSY)\n"
 
-#: fetchmail.c:784
+#: fetchmail.c:789
 msgid "Query status=10 (SMTP)\n"
 msgstr "Query status=10 (SMTP)\n"
 
-#: fetchmail.c:786
+#: fetchmail.c:791
 msgid "Query status=11 (DNS)\n"
 msgstr "Query status=11 (DNS)\n"
 
-#: fetchmail.c:788
+#: fetchmail.c:793
 msgid "Query status=12 (BSMTP)\n"
 msgstr "Query status=12 (BSMTP)\n"
 
-#: fetchmail.c:790
+#: fetchmail.c:795
 msgid "Query status=13 (MAXFETCH)\n"
 msgstr "Query status=13 (MAXFETCH)\n"
 
-#: fetchmail.c:792
+#: fetchmail.c:797
 #, c-format
 msgid "Query status=%d\n"
 msgstr "Query status=%d\n"
 
-#: fetchmail.c:834
+#: fetchmail.c:839
 msgid "All connections are wedged.  Exiting.\n"
 msgstr "全ての接続が動作不全に陥ってしまいました。終了します。\n"
 
-#: fetchmail.c:842
+#: fetchmail.c:847
 #, c-format
 msgid "sleeping at %s for %d seconds\n"
 msgstr "%s から %d秒休眠状態になります。\n"
 
-#: fetchmail.c:866
+#: fetchmail.c:871
 #, c-format
 msgid "awakened by %s\n"
 msgstr "%s 信号を受信したため動作を再開しました。\n"
 
-#: fetchmail.c:869
+#: fetchmail.c:874
 #, c-format
 msgid "awakened by signal %d\n"
 msgstr "%d 番の信号を受信したため動作を再開しました。\n"
 
-#: fetchmail.c:877
+#: fetchmail.c:882
 #, c-format
 msgid "awakened at %s\n"
 msgstr "%s に動作を再開しました。\n"
 
-#: fetchmail.c:882
+#: fetchmail.c:887
 #, c-format
 msgid "normal termination, status %d\n"
 msgstr "通常の終了です。status %d\n"
 
-#: fetchmail.c:1036
+#: fetchmail.c:1046
 msgid "couldn't time-check the run-control file\n"
 msgstr "動作制御ファイルの編集時間を確認することができませんでした。\n"
 
-#: fetchmail.c:1069
+#: fetchmail.c:1080
 #, c-format
 msgid "Warning: multiple mentions of host %s in config file\n"
 msgstr "警告 : 設定ファイル中にホスト %s を複数回記述しています\n"
 
-#: fetchmail.c:1102
+#: fetchmail.c:1119
 msgid "fetchmail: Error: multiple \"defaults\" records in config file.\n"
 msgstr ""
 "fetchmail: エラー : 設定ファイル中に \"defaults\" を複数回記述しています\n"
 
-#: fetchmail.c:1224
+#: fetchmail.c:1241
 msgid "SSL support is not compiled in.\n"
 msgstr "SSL 対応がコンパイルの時点で有効にされておりません。\n"
 
-#: fetchmail.c:1231
+#: fetchmail.c:1248
 msgid "KERBEROS v4 support is configured, but not compiled in.\n"
 msgstr ""
 "KERBEROS v4 対応が設定されていますがコンパイルの時点で有効にされておりませ"
 "ん。\n"
 
-#: fetchmail.c:1237
+#: fetchmail.c:1254
 msgid "KERBEROS v5 support is configured, but not compiled in.\n"
 msgstr ""
 "KERBEROS v5 対応が設定されていますがコンパイルの時点で有効にされておりませ"
 "ん。\n"
 
-#: fetchmail.c:1243
+#: fetchmail.c:1260
 msgid "GSSAPI support is configured, but not compiled in.\n"
 msgstr ""
 "GSSAPI 対応が設定されていますがコンパイルの時点で有効にされておりません。\n"
 
-#: fetchmail.c:1273
+#: fetchmail.c:1290
 #, c-format
 msgid ""
 "fetchmail: warning: no DNS available to check multidrop fetches from %s\n"
@@ -966,19 +974,19 @@ msgstr ""
 "fetchmail: 警告 : %s より multidrop fetch を確認するための DNS が有効でありま"
 "せん。\n"
 
-#: fetchmail.c:1284
+#: fetchmail.c:1301
 #, c-format
 msgid "warning: multidrop for %s requires envelope option!\n"
 msgstr ""
 "警告: %s へのマルチドロップを行うにはエンベロープオプションが必要です!\n"
 
-#: fetchmail.c:1285
+#: fetchmail.c:1302
 msgid "warning: Do not ask for support if all mail goes to postmaster!\n"
 msgstr ""
 "警告: すべてのメールが postmaster 宛にフォワードされてしまう可能性がありま"
 "す!\n"
 
-#: fetchmail.c:1302
+#: fetchmail.c:1319
 #, c-format
 msgid ""
 "fetchmail: %s configuration invalid, specify positive port number for "
@@ -987,313 +995,319 @@ msgstr ""
 "fetchmail: サーバ %s の設定が無効です。サービス番号、ポート番号は負の数ではい"
 "けません。\n"
 
-#: fetchmail.c:1309
+#: fetchmail.c:1326
 #, c-format
 msgid "fetchmail: %s configuration invalid, RPOP requires a privileged port\n"
 msgstr ""
 "fetchmail: サーバ %s の設定が無効です。 RPOP では privileged port を利用する"
 "必要があります。\n"
 
-#: fetchmail.c:1327
+#: fetchmail.c:1344
 #, c-format
 msgid "%s configuration invalid, LMTP can't use default SMTP port\n"
 msgstr ""
 "サーバ %s の設定が無効です。LMTP はデフォルトの SMTP ポートを利用できませ"
 "ん。\n"
 
-#: fetchmail.c:1341
+#: fetchmail.c:1358
 msgid "Both fetchall and keep on in daemon or idle mode is a mistake!\n"
 msgstr ""
 "fetchall と keep オプションはデーモンモード、休止モードでは同時に指定できませ"
 "ん。\n"
 
-#: fetchmail.c:1366
+#: fetchmail.c:1383
 #, c-format
 msgid "terminated with signal %d\n"
 msgstr "シグナル %d で終了しました。\n"
 
-#: fetchmail.c:1439
+#: fetchmail.c:1456
 #, c-format
 msgid "%s querying %s (protocol %s) at %s: poll started\n"
 msgstr ""
 "%s は %s とプロトコル %s を用いて %s に交信しています。交信が開始されまし"
 "た。\n"
 
-#: fetchmail.c:1464
+#: fetchmail.c:1481
 msgid "POP2 support is not configured.\n"
 msgstr "POP2 に対応した設定が行われておりません。\n"
 
-#: fetchmail.c:1476
+#: fetchmail.c:1493
 msgid "POP3 support is not configured.\n"
 msgstr "POP3 に対応した設定が行われておりません。\n"
 
-#: fetchmail.c:1486
+#: fetchmail.c:1503
 msgid "IMAP support is not configured.\n"
 msgstr "IMAP に対応した設定が行われておりません。\n"
 
-#: fetchmail.c:1492
+#: fetchmail.c:1509
 msgid "ETRN support is not configured.\n"
 msgstr "ETRN に対応した設定が行われておりません。\n"
 
-#: fetchmail.c:1500
+#: fetchmail.c:1517
 msgid "ODMR support is not configured.\n"
 msgstr "ODMR に対応した設定が行われておりません。\n"
 
-#: fetchmail.c:1507
+#: fetchmail.c:1524
 msgid "unsupported protocol selected.\n"
 msgstr "対応していないプロトコルが選択されました。\n"
 
-#: fetchmail.c:1517
+#: fetchmail.c:1534
 #, c-format
 msgid "%s querying %s (protocol %s) at %s: poll completed\n"
 msgstr ""
 "%s は %s とプロトコル %s を用いて %s に交信しています。交信が終了しました。\n"
 
-#: fetchmail.c:1534
+#: fetchmail.c:1551
 #, c-format
 msgid "Poll interval is %d seconds\n"
 msgstr "交信間隔は %d 秒です。\n"
 
-#: fetchmail.c:1536
+#: fetchmail.c:1553
 #, c-format
 msgid "Logfile is %s\n"
 msgstr "ログファイルは %s です。\n"
 
-#: fetchmail.c:1538
+#: fetchmail.c:1555
 #, c-format
 msgid "Idfile is %s\n"
 msgstr "ID ファイルは %s です。\n"
 
-#: fetchmail.c:1541
+#: fetchmail.c:1558
 msgid "Progress messages will be logged via syslog\n"
 msgstr "進行状況のメッセージは syslog を通して記録されます。\n"
 
-#: fetchmail.c:1544
+#: fetchmail.c:1561
 msgid "Fetchmail will masquerade and will not generate Received\n"
 msgstr "Fetchmail はアドレスを書き換え、Received を生成しません。\n"
 
-#: fetchmail.c:1546
+#: fetchmail.c:1563
 msgid "Fetchmail will show progress dots even in logfiles.\n"
 msgstr "Fetchmail はログファイル中にも進行状況を示す . を書き込みます。\n"
 
-#: fetchmail.c:1548
+#: fetchmail.c:1565
 #, c-format
 msgid "Fetchmail will forward misaddressed multidrop messages to %s.\n"
 msgstr "Fetchmail は誤った宛先の書かれたメッセージを %s に転送します。\n"
 
-#: fetchmail.c:1552
+#: fetchmail.c:1569
 msgid "Fetchmail will direct error mail to the postmaster.\n"
 msgstr "Fetchmail は postmaster 宛にエラーメールを送信します。\n"
 
-#: fetchmail.c:1554
+#: fetchmail.c:1571
 msgid "Fetchmail will direct error mail to the sender.\n"
 msgstr "Fetchmail は送り主にエラーメッセージを送信します。\n"
 
-#: fetchmail.c:1557
-msgid "Fetchmail will treat permanent errors as permanent (drop messsages).\n"
+#: fetchmail.c:1574
+msgid "Fetchmail will treat permanent errors as permanent (drop messages).\n"
 msgstr ""
-"Fetchmail は恒久的なエラーを一時的なエラーとして扱います（メッセージを破"
+"Fetchmail は恒久的なエラーを恒久的なものとして扱います（メッセージを破"
 "棄）。\n"
 
-#: fetchmail.c:1559
+#: fetchmail.c:1576
 msgid "Fetchmail will treat permanent errors as temporary (keep messages).\n"
 msgstr ""
-"Fetchmail は恒久的なエラーを一時的なエラーとして扱います（メッセージを保"
+"Fetchmail は恒久的なエラーを一時的なものとして扱います（メッセージを保"
 "存）。\n"
 
-#: fetchmail.c:1566
+#: fetchmail.c:1583
 #, c-format
 msgid "Options for retrieving from %s@%s:\n"
 msgstr "アカウント %s@%s でのオプションです。\n"
 
-#: fetchmail.c:1570
+#: fetchmail.c:1587
 #, c-format
 msgid "  Mail will be retrieved via %s\n"
 msgstr "  メールはホスト %s を介してやりとりされます。\n"
 
-#: fetchmail.c:1573
+#: fetchmail.c:1590
 #, c-format
 msgid "  Poll of this server will occur every %d interval.\n"
 msgid_plural "  Poll of this server will occur every %d intervals.\n"
 msgstr[0] "  このサーバに対してのアクセスは %d の間隔で行われます。\n"
 
-#: fetchmail.c:1577
+#: fetchmail.c:1594
 #, c-format
 msgid "  True name of server is %s.\n"
 msgstr "  サーバの本名は %s です。\n"
 
-#: fetchmail.c:1580
+#: fetchmail.c:1597
 msgid "  This host will not be queried when no host is specified.\n"
 msgstr "  このホストはホストが指示されない場合にはアクセスされません。\n"
 
-#: fetchmail.c:1581
+#: fetchmail.c:1598
 msgid "  This host will be queried when no host is specified.\n"
 msgstr "  このホストはホストが指示されない場合にアクセスされます。\n"
 
-#: fetchmail.c:1585
+#: fetchmail.c:1602
 msgid "  Password will be prompted for.\n"
 msgstr "  パスワード入力が必要です。\n"
 
-#: fetchmail.c:1589
+#: fetchmail.c:1606
 #, c-format
 msgid "  APOP secret = \"%s\".\n"
 msgstr "  APOP secret = \"%s\".\n"
 
-#: fetchmail.c:1592
+#: fetchmail.c:1609
 #, c-format
 msgid "  RPOP id = \"%s\".\n"
 msgstr "  RPOP id = \"%s\".\n"
 
-#: fetchmail.c:1595
+#: fetchmail.c:1612
 #, c-format
 msgid "  Password = \"%s\".\n"
 msgstr "  パスワード = \"%s\"\n"
 
-#: fetchmail.c:1604
+#: fetchmail.c:1621
 #, c-format
 msgid "  Protocol is KPOP with Kerberos %s authentication"
 msgstr "  Kerberos %s 認証による KPOP プロトコルを利用します。"
 
-#: fetchmail.c:1607
+#: fetchmail.c:1624
 #, c-format
 msgid "  Protocol is %s"
 msgstr "  %s プロトコルを利用します。"
 
-#: fetchmail.c:1609
+#: fetchmail.c:1626
 #, c-format
 msgid " (using service %s)"
 msgstr " (%s サービスを利用します)"
 
-#: fetchmail.c:1611
+#: fetchmail.c:1628
 msgid " (using default port)"
 msgstr " (デフォルトのポートを利用します)"
 
-#: fetchmail.c:1613
+#: fetchmail.c:1630
 msgid " (forcing UIDL use)"
 msgstr " (UIDL の利用を強制します)"
 
-#: fetchmail.c:1619
+#: fetchmail.c:1636
 msgid "  All available authentication methods will be tried.\n"
 msgstr "  利用可能な全ての認証方式を試みます。\n"
 
-#: fetchmail.c:1622
+#: fetchmail.c:1639
 msgid "  Password authentication will be forced.\n"
 msgstr "  パスワードによる認証を強制的に行います。\n"
 
-#: fetchmail.c:1625
+#: fetchmail.c:1642
 msgid "  MSN authentication will be forced.\n"
 msgstr "  MSN 認証を強制的に行います。\n"
 
-#: fetchmail.c:1628
+#: fetchmail.c:1645
 msgid "  NTLM authentication will be forced.\n"
 msgstr "  NTLM 認証を強制的に行います。\n"
 
-#: fetchmail.c:1631
+#: fetchmail.c:1648
 msgid "  OTP authentication will be forced.\n"
 msgstr "  OTP による認証を強制的に行います。\n"
 
-#: fetchmail.c:1634
-msgid "  CRAM-Md5 authentication will be forced.\n"
+#: fetchmail.c:1651
+#, fuzzy
+msgid "  CRAM-MD5 authentication will be forced.\n"
 msgstr "   CRAM-MD5 方式による認証を強制的に行います。\n"
 
-#: fetchmail.c:1637
+#: fetchmail.c:1654
 msgid "  GSSAPI authentication will be forced.\n"
 msgstr "  GSSAPI 方式による認証を強制的に行います。\n"
 
-#: fetchmail.c:1640
+#: fetchmail.c:1657
 msgid "  Kerberos V4 authentication will be forced.\n"
 msgstr "  Kerberos V4 方式による認証を強制的に行います。\n"
 
-#: fetchmail.c:1643
+#: fetchmail.c:1660
 msgid "  Kerberos V5 authentication will be forced.\n"
 msgstr "  Kerberos V5 方式による認証を強制的に行います。\n"
 
-#: fetchmail.c:1646
+#: fetchmail.c:1663
 msgid "  End-to-end encryption assumed.\n"
 msgstr "  End-to-end 暗号化であるとします。\n"
 
-#: fetchmail.c:1650
+#: fetchmail.c:1667
 #, c-format
 msgid "  Mail service principal is: %s\n"
 msgstr "  メールサービスは %s によって行われます。\n"
 
-#: fetchmail.c:1653
+#: fetchmail.c:1670
 msgid "  SSL encrypted sessions enabled.\n"
 msgstr "  SSL による暗号化通信が行われます。\n"
 
-#: fetchmail.c:1655
+#: fetchmail.c:1672
 #, c-format
 msgid "  SSL protocol: %s.\n"
 msgstr "  SSL プロトコル %s。\n"
 
-#: fetchmail.c:1657
+#: fetchmail.c:1674
 msgid "  SSL server certificate checking enabled.\n"
 msgstr "  SSL サーバ証明書の確認が設定されました。\n"
 
-#: fetchmail.c:1659
+#: fetchmail.c:1677
+#, c-format
+msgid "  SSL trusted certificate file: %s\n"
+msgstr "  SSL 信頼する証明書はファイル %s に格納されています。\n"
+
+#: fetchmail.c:1679
 #, c-format
 msgid "  SSL trusted certificate directory: %s\n"
 msgstr "  SSL 信用可能証明書は %s に格納されています。\n"
 
-#: fetchmail.c:1662
+#: fetchmail.c:1681
 #, c-format
 msgid "  SSL server CommonName: %s\n"
 msgstr " SSLサーバの CommonName: %s\n"
 
-#: fetchmail.c:1664
+#: fetchmail.c:1683
 #, c-format
 msgid "  SSL key fingerprint (checked against the server key): %s\n"
 msgstr "  SSL key fingerprint (server key と照合されました): %s\n"
 
-#: fetchmail.c:1667
+#: fetchmail.c:1686
 #, c-format
 msgid "  Server nonresponse timeout is %d seconds"
 msgstr "  サーバの応答制限時間は %d 秒です。"
 
-#: fetchmail.c:1669
+#: fetchmail.c:1688
 msgid " (default).\n"
 msgstr " (デフォルト)。\n"
 
-#: fetchmail.c:1676
+#: fetchmail.c:1695
 msgid "  Default mailbox selected.\n"
 msgstr "  デフォルトのメールボックスが選択されました。\n"
 
-#: fetchmail.c:1681
+#: fetchmail.c:1700
 msgid "  Selected mailboxes are:"
 msgstr "  選択されたメールボックス:"
 
-#: fetchmail.c:1687
+#: fetchmail.c:1706
 msgid "  All messages will be retrieved (--all on).\n"
 msgstr "  すべてのメッセージを取得します。 (--all on)\n"
 
-#: fetchmail.c:1688
+#: fetchmail.c:1707
 msgid "  Only new messages will be retrieved (--all off).\n"
 msgstr "  新しいメッセージだけを取得します。 (--all off)\n"
 
-#: fetchmail.c:1690
+#: fetchmail.c:1709
 msgid "  Fetched messages will be kept on the server (--keep on).\n"
 msgstr "  取得したメッセージをサーバにも保持します。 (--keep on)\n"
 
-#: fetchmail.c:1691
+#: fetchmail.c:1710
 msgid "  Fetched messages will not be kept on the server (--keep off).\n"
 msgstr "  取得したメッセージはサーバに保持しません (--keep off)\n"
 
-#: fetchmail.c:1693
+#: fetchmail.c:1712
 msgid "  Old messages will be flushed before message retrieval (--flush on).\n"
 msgstr "  古いメッセージは取得の前に消去されます。 (--flush on)\n"
 
-#: fetchmail.c:1694
+#: fetchmail.c:1713
 msgid ""
 "  Old messages will not be flushed before message retrieval (--flush off).\n"
 msgstr "  メッセージ取得の前に古いメッセージを消去しません。 (--flush off)\n"
 
-#: fetchmail.c:1696
+#: fetchmail.c:1715
 msgid ""
 "  Oversized messages will be flushed before message retrieval (--limitflush "
 "on).\n"
 msgstr "  容量超過したメッセージは取得の前に消去されます。 (--limitflush on)\n"
 
-#: fetchmail.c:1697
+#: fetchmail.c:1716
 msgid ""
 "  Oversized messages will not be flushed before message retrieval (--"
 "limitflush off).\n"
@@ -1301,330 +1315,334 @@ msgstr ""
 "  メッセージ取得の前に容量超過したメッセージを消去しません。 (--limitflush "
 "off)\n"
 
-#: fetchmail.c:1699
+#: fetchmail.c:1718
 msgid "  Rewrite of server-local addresses is enabled (--norewrite off).\n"
 msgstr "  server-local アドレスへの書き換えを行います。 (--norewrite off)\n"
 
-#: fetchmail.c:1700
+#: fetchmail.c:1719
 msgid "  Rewrite of server-local addresses is disabled (--norewrite on).\n"
 msgstr "  server-local アドレスへの書き換えを行いません。 (--norewrite on)\n"
 
-#: fetchmail.c:1702
+#: fetchmail.c:1721
 msgid "  Carriage-return stripping is enabled (stripcr on).\n"
 msgstr "  改行記号の除去を行います。 (stripcr on)\n"
 
-#: fetchmail.c:1703
+#: fetchmail.c:1722
 msgid "  Carriage-return stripping is disabled (stripcr off).\n"
 msgstr "  改行記号の除去を行いません。 (stripcr off)\n"
 
-#: fetchmail.c:1705
+#: fetchmail.c:1724
 msgid "  Carriage-return forcing is enabled (forcecr on).\n"
 msgstr "  改行記号の追加を行います。 (forcecr on)\n"
 
-#: fetchmail.c:1706
+#: fetchmail.c:1725
 msgid "  Carriage-return forcing is disabled (forcecr off).\n"
 msgstr "  改行記号の追加を行いません。 (forcecr off)\n"
 
-#: fetchmail.c:1708
+#: fetchmail.c:1727
 msgid ""
 "  Interpretation of Content-Transfer-Encoding is disabled (pass8bits on).\n"
 msgstr "  Content-Transfer-Encoding の変換を行いません。 (pass8bits on)\n"
 
-#: fetchmail.c:1709
+#: fetchmail.c:1728
 msgid ""
 "  Interpretation of Content-Transfer-Encoding is enabled (pass8bits off).\n"
 msgstr "  Content-Transfer-Encoding の変換を行います。 (pass8bits off)\n"
 
-#: fetchmail.c:1711
+#: fetchmail.c:1730
 msgid "  MIME decoding is enabled (mimedecode on).\n"
 msgstr "  MIME のデコードを行います。 (mimedecode on)\n"
 
-#: fetchmail.c:1712
+#: fetchmail.c:1731
 msgid "  MIME decoding is disabled (mimedecode off).\n"
 msgstr "  MIME のデコードを行いません。 (mimedecode off)\n"
 
-#: fetchmail.c:1714
+#: fetchmail.c:1733
 msgid "  Idle after poll is enabled (idle on).\n"
 msgstr "  サーバアクセス後、休止します。 (idle on)\n"
 
-#: fetchmail.c:1715
+#: fetchmail.c:1734
 msgid "  Idle after poll is disabled (idle off).\n"
 msgstr "  サーバアクセス後、休止しません。 (idle off)\n"
 
-#: fetchmail.c:1717
+#: fetchmail.c:1736
 msgid "  Nonempty Status lines will be discarded (dropstatus on)\n"
 msgstr "  記述のある Status 行を破棄します。 (dropstatus on)\n"
 
-#: fetchmail.c:1718
+#: fetchmail.c:1737
 msgid "  Nonempty Status lines will be kept (dropstatus off)\n"
 msgstr "  記述のある Status 行を保持します。 (dropstatus off)\n"
 
-#: fetchmail.c:1720
+#: fetchmail.c:1739
 msgid "  Delivered-To lines will be discarded (dropdelivered on)\n"
 msgstr "  Delivered-To 行を保持します。 (dropdelivered on)\n"
 
-#: fetchmail.c:1721
+#: fetchmail.c:1740
 msgid "  Delivered-To lines will be kept (dropdelivered off)\n"
 msgstr "  Delivered-To 行を破棄します。 (dropdelivered off)\n"
 
-#: fetchmail.c:1725
+#: fetchmail.c:1744
 #, c-format
 msgid "  Message size limit is %d octets (--limit %d).\n"
 msgstr "  メッセージの大きさの最大 %d バイトに制限されます。 (--limit %d)\n"
 
-#: fetchmail.c:1728
+#: fetchmail.c:1747
 msgid "  No message size limit (--limit 0).\n"
 msgstr "  メッセージの大きさに制限はありません。 (--limit 0)\n"
 
-#: fetchmail.c:1730
+#: fetchmail.c:1749
 #, c-format
 msgid "  Message size warning interval is %d seconds (--warnings %d).\n"
 msgstr ""
 "  メッセージの大きさに対する警告は %d 秒毎に行われます。 (--warnings %d)\n"
 
-#: fetchmail.c:1733
+#: fetchmail.c:1752
 msgid "  Size warnings on every poll (--warnings 0).\n"
 msgstr ""
 "  サーバアクセスの度にメッセージの大きさの警告を行います。 (--warnings 0)\n"
 
-#: fetchmail.c:1736
+#: fetchmail.c:1755
 #, c-format
 msgid "  Received-message limit is %d (--fetchlimit %d).\n"
 msgstr ""
 "  一回の接続で取得できるメッセージは %d 通に制限されます。(--fetchlimit %d)\n"
 
-#: fetchmail.c:1739
+#: fetchmail.c:1758
 msgid "  No received-message limit (--fetchlimit 0).\n"
 msgstr ""
 "  一回の接続で取得できるメッセージの数に制限はありません。 (--fetchlimit 0)\n"
 
-#: fetchmail.c:1741
+#: fetchmail.c:1760
 #, c-format
 msgid "  Fetch message size limit is %d (--fetchsizelimit %d).\n"
 msgstr ""
 "  取得できるメッセージのサイズは %d に制限されます。(--fetchsizelimit %d)\n"
 
-#: fetchmail.c:1744
+#: fetchmail.c:1763
 msgid "  No fetch message size limit (--fetchsizelimit 0).\n"
 msgstr "  メッセージの大きさに制限はありません。 (--fetchsizelimit 0)\n"
 
-#: fetchmail.c:1748
+#: fetchmail.c:1767
 msgid "  Do binary search of UIDs during each poll (--fastuidl 1).\n"
 msgstr "接続ごとに UID の二分木検索を行います。(--fastuidl 1)\n"
 
-#: fetchmail.c:1750
+#: fetchmail.c:1769
 #, c-format
 msgid "  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"
 msgstr "%d 回 (%d 接続のうち) UID の二分木検索を行います。(--fastuidl %d)\n"
 
-#: fetchmail.c:1753
+#: fetchmail.c:1772
 msgid "   Do linear search of UIDs during each poll (--fastuidl 0).\n"
 msgstr "接続ごとに UID の線形検索を行います。(--fastuidl 0)\n"
 
-#: fetchmail.c:1755
+#: fetchmail.c:1774
 #, c-format
 msgid "  SMTP message batch limit is %d.\n"
 msgstr "  一回の接続で転送できるメッセージは %d 通に制限されます。\n"
 
-#: fetchmail.c:1757
+#: fetchmail.c:1776
 msgid "  No SMTP message batch limit (--batchlimit 0).\n"
 msgstr ""
 "  一回の接続で転送できるメッセージの数に制限はありません。 (--batchlimit 0)\n"
 
-#: fetchmail.c:1761
+#: fetchmail.c:1780
 #, c-format
 msgid "  Deletion interval between expunges forced to %d (--expunge %d).\n"
 msgstr "  メッセージは %d 通毎に削除されます。 (--expunge %d)\n"
 
-#: fetchmail.c:1763
+#: fetchmail.c:1782
 msgid "  No forced expunges (--expunge 0).\n"
-msgstr "  メッセージを削除する間隔は設定されておりません。 (--expunge 0)\n"
+msgstr "  メッセージを削除する間隔は設定されていません。 (--expunge 0)\n"
 
-#: fetchmail.c:1770
+#: fetchmail.c:1789
 msgid "  Domains for which mail will be fetched are:"
 msgstr "  メールを取得するドメインは : "
 
-#: fetchmail.c:1775 fetchmail.c:1795
+#: fetchmail.c:1794 fetchmail.c:1814
 msgid " (default)"
 msgstr " (デフォルト)"
 
-#: fetchmail.c:1780
+#: fetchmail.c:1799
 #, c-format
 msgid "  Messages will be appended to %s as BSMTP\n"
 msgstr "  ファイル %s に BSMTP 形式でメッセージが追記されます。\n"
 
-#: fetchmail.c:1782
+#: fetchmail.c:1801
 #, c-format
 msgid "  Messages will be delivered with \"%s\".\n"
 msgstr "  アプリケーション\"%s\"によってメッセージが送信されます。\n"
 
-#: fetchmail.c:1789
+#: fetchmail.c:1808
 #, c-format
 msgid "  Messages will be %cMTP-forwarded to:"
 msgstr "  受信したメッセージは %cMTP によって次に示すサーバへ転送されます :"
 
-#: fetchmail.c:1800
+#: fetchmail.c:1819
 #, c-format
 msgid "  Host part of MAIL FROM line will be %s\n"
 msgstr "  ホストの MAIL FROM 行のアドレスは %s です。\n"
 
-#: fetchmail.c:1803
+#: fetchmail.c:1822
 #, c-format
 msgid "  Address to be put in RCPT TO lines shipped to SMTP will be %s\n"
 msgstr "  SMTP によって配信される RCPT TO 行に記されたアドレスは %s です。\n"
 
-#: fetchmail.c:1812
+#: fetchmail.c:1831
 msgid "  Recognized listener spam block responses are:"
 msgstr "  送信先のスパムブロックに対する応答は : "
 
-#: fetchmail.c:1818
+#: fetchmail.c:1837
 msgid "  Spam-blocking disabled\n"
 msgstr "  スパムブロックは行われません。\n"
 
-#: fetchmail.c:1821
+#: fetchmail.c:1840
 #, c-format
 msgid "  Server connection will be brought up with \"%s\".\n"
 msgstr "  サーバとの接続は\"%s\"によって行われます。\n"
 
-#: fetchmail.c:1824
+#: fetchmail.c:1843
 msgid "  No pre-connection command.\n"
 msgstr "  接続前に実行する命令はありません。\n"
 
-#: fetchmail.c:1826
+#: fetchmail.c:1845
 #, c-format
 msgid "  Server connection will be taken down with \"%s\".\n"
 msgstr "  サーバとの接続は\"%s\"によって切断されます。\n"
 
-#: fetchmail.c:1829
+#: fetchmail.c:1848
 msgid "  No post-connection command.\n"
 msgstr "  接続終了時に行う命令はありません。\n"
 
-#: fetchmail.c:1832
+#: fetchmail.c:1851
 msgid "  No localnames declared for this host.\n"
 msgstr "  このホストに対する localname は宣言されていません。\n"
 
-#: fetchmail.c:1842
+#: fetchmail.c:1861
 msgid "  Multi-drop mode: "
 msgstr "  `multi-drop' モード: "
 
-#: fetchmail.c:1844
+#: fetchmail.c:1863
 msgid "  Single-drop mode: "
 msgstr "  `single-drop' モード: "
 
-#: fetchmail.c:1846
+#: fetchmail.c:1865
 #, c-format
 msgid "%d local name recognized.\n"
 msgid_plural "%d local names recognized.\n"
 msgstr[0] "%d 個の localname が存在します。\n"
 
-#: fetchmail.c:1861
+#: fetchmail.c:1880
 msgid "  DNS lookup for multidrop addresses is enabled.\n"
 msgstr "  multidrop アドレスを検索する DNS が有効です。\n"
 
-#: fetchmail.c:1862
+#: fetchmail.c:1881
 msgid "  DNS lookup for multidrop addresses is disabled.\n"
 msgstr "  multidrop アドレスを検索する DNS が無効です。\n"
 
-#: fetchmail.c:1866
+#: fetchmail.c:1885
 msgid ""
 "  Server aliases will be compared with multidrop addresses by IP address.\n"
 msgstr "  サーバの別名は multidrop アドレスと IP アドレスで比較されます。\n"
 
-#: fetchmail.c:1868
+#: fetchmail.c:1887
 msgid "  Server aliases will be compared with multidrop addresses by name.\n"
 msgstr "  サーバの別名は multidrop アドレスとホスト名で比較されます。\n"
 
-#: fetchmail.c:1871
+#: fetchmail.c:1890
 msgid "  Envelope-address routing is disabled\n"
 msgstr "  Envelope-address によるルーティングは行われません。\n"
 
-#: fetchmail.c:1874
+#: fetchmail.c:1893
 #, c-format
 msgid "  Envelope header is assumed to be: %s\n"
 msgstr "  Envelope header は %s とされます。\n"
 
-#: fetchmail.c:1877
+#: fetchmail.c:1896
 #, c-format
 msgid "  Number of envelope headers to be skipped over: %d\n"
 msgstr "  %d 個を超える Envelope header はスキップされます。\n"
 
-#: fetchmail.c:1880
+#: fetchmail.c:1899
 #, c-format
 msgid "  Prefix %s will be removed from user id\n"
 msgstr "  Prefix %s はユーザ ID から除去されます。\n"
 
-#: fetchmail.c:1883
+#: fetchmail.c:1902
 msgid "  No prefix stripping\n"
 msgstr "  Prefix は除去されません。\n"
 
-#: fetchmail.c:1890
+#: fetchmail.c:1907
 msgid "  Predeclared mailserver aliases:"
 msgstr "  予め宣言されたメールサーバの別名:"
 
-#: fetchmail.c:1899
+#: fetchmail.c:1915
 msgid "  Local domains:"
 msgstr "  ローカルドメイン:"
 
-#: fetchmail.c:1909
+#: fetchmail.c:1925
 #, c-format
 msgid "  Connection must be through interface %s.\n"
 msgstr "  接続はインターフェイス %s を通して行われます。\n"
 
-#: fetchmail.c:1911
+#: fetchmail.c:1927
 msgid "  No interface requirement specified.\n"
 msgstr "  接続に利用すべきインターフェイスの指定はありません。\n"
 
-#: fetchmail.c:1913
+#: fetchmail.c:1929
 #, c-format
 msgid "  Polling loop will monitor %s.\n"
 msgstr "  接続は %s の状態を監視して行われます。\n"
 
-#: fetchmail.c:1915
+#: fetchmail.c:1931
 msgid "  No monitor interface specified.\n"
 msgstr "  状態を監視して接続はおこないません。\n"
 
-#: fetchmail.c:1919
+#: fetchmail.c:1935
 #, c-format
 msgid "  Server connections will be made via plugin %s (--plugin %s).\n"
 msgstr "  サーバとの接続にはプラグイン \"%s\" を利用します。(--plugin %s)\n"
 
-#: fetchmail.c:1921
+#: fetchmail.c:1937
 msgid "  No plugin command specified.\n"
 msgstr "  サーバとの接続に利用するプラグインの指定はありません。\n"
 
-#: fetchmail.c:1923
+#: fetchmail.c:1939
 #, c-format
 msgid "  Listener connections will be made via plugout %s (--plugout %s).\n"
 msgstr ""
 "  アプリケーションとの接続にはプラグアウト\"%s\"を利用します。(--plugout %"
 "s)\n"
 
-#: fetchmail.c:1925
+#: fetchmail.c:1941
 msgid "  No plugout command specified.\n"
 msgstr "  アプリケーションとの接続に利用するプラグアウトの指定はありません。\n"
 
-#: fetchmail.c:1930
+#: fetchmail.c:1946
 msgid "  No UIDs saved from this host.\n"
 msgstr "  このホストからの UID は記録されていません。\n"
 
-#: fetchmail.c:1939
+#: fetchmail.c:1955
 #, c-format
 msgid "  %d UIDs saved.\n"
 msgstr "  %d 個の UID が記録されています。\n"
 
-#: fetchmail.c:1947
+#: fetchmail.c:1963
 msgid "  Poll trace information will be added to the Received header.\n"
 msgstr "  接続情報は Received ヘッダに追加されます。\n"
 
-#: fetchmail.c:1949
-msgid ""
-"  No poll trace information will be added to the Received header.\n"
-".\n"
-msgstr ""
-"  接続情報は Received ヘッダに追加されません。\n"
-"\n"
+#: fetchmail.c:1965
+msgid "  No poll trace information will be added to the Received header.\n"
+msgstr "  Poll 追跡情報は Received ヘッダに追加されません。\n"
 
-#: fetchmail.c:1952
+#: fetchmail.c:1970
+msgid "  Messages with bad headers will be rejected.\n"
+msgstr " 不良ヘッダを持つメッセージを拒否します。\n"
+
+#: fetchmail.c:1973
+msgid "  Messages with bad headers will be passed on.\n"
+msgstr " 不良ヘッダを持つメッセージを受け入れます。\n"
+
+#: fetchmail.c:1978
 #, c-format
 msgid "  Pass-through properties \"%s\".\n"
 msgstr "  プロパティ \"%s\" は無視されます。\n"
@@ -1641,55 +1659,81 @@ msgstr ""
 "\n"
 "SIGINT を受信しました。 終了します。\n"
 
-#: gssapi.c:66
+#: gssapi.c:52
+#, c-format
+msgid "GSSAPI error in gss_display_status called from <%s>\n"
+msgstr ""
+"gss_display_status で GSSAPI エラーが発生しました。呼び出し元は <%s> です\n"
+
+#: gssapi.c:55
+#, c-format
+msgid "GSSAPI error %s: %.*s\n"
+msgstr "GSSAPI エラー %s: %.*s\n"
+
+#: gssapi.c:89
 #, c-format
 msgid "Couldn't get service name for [%s]\n"
 msgstr " [%s] に対するサービス名を得ることができませんでした。\n"
 
-#: gssapi.c:72
+#: gssapi.c:94
 #, c-format
 msgid "Using service name [%s]\n"
 msgstr " サービス名 [%s] を利用します。\n"
 
-#: gssapi.c:89
+#: gssapi.c:121
+msgid "No suitable GSSAPI credentials found. Skipping GSSAPI authentication.\n"
+msgstr "適切な GSSAPI 証明書が見つかりません。GSSAPI 認証をスキップします。\n"
+
+#: gssapi.c:122
+msgid ""
+"If you want to use GSSAPI, you need credentials first, possibly from kinit.\n"
+msgstr ""
+"GSSAPI を使うには、まず証明書が必要です。kinit が助けになるかもしれません。\n"
+
+#: gssapi.c:158
+#, c-format
+msgid "Received malformed challenge to \"%s GSSAPI\"!\n"
+msgstr ""
+
+#: gssapi.c:168
 msgid "Sending credentials\n"
 msgstr "証明書を送信します。\n"
 
-#: gssapi.c:107
+#: gssapi.c:199
 msgid "Error exchanging credentials\n"
 msgstr "証明書交換エラーです。\n"
 
-#: gssapi.c:152
+#: gssapi.c:241
 msgid "Couldn't unwrap security level data\n"
 msgstr "セキュリティーレベルデータを変更しました。\n"
 
-#: gssapi.c:157
+#: gssapi.c:246
 msgid "Credential exchange complete\n"
 msgstr "証明書の交換が終了しました。\n"
 
-#: gssapi.c:161
+#: gssapi.c:250
 msgid "Server requires integrity and/or privacy\n"
 msgstr "サーバは integrity と privacy を要求しています\n"
 
-#: gssapi.c:170
+#: gssapi.c:259
 #, c-format
 msgid "Unwrapped security level flags: %s%s%s\n"
 msgstr "変更されないセキュリティーレベルのフラグ: %s%s%s\n"
 
-#: gssapi.c:174
+#: gssapi.c:263
 #, c-format
 msgid "Maximum GSS token size is %ld\n"
 msgstr "最大 GSS トークン長は %ld です\n"
 
-#: gssapi.c:187
+#: gssapi.c:276
 msgid "Error creating security level request\n"
 msgstr "セキュリティーレベルの要求の生成エラーです。\n"
 
-#: gssapi.c:198
+#: gssapi.c:287
 msgid "Releasing GSS credentials\n"
 msgstr "GSS 証明書を発行します。\n"
 
-#: gssapi.c:201
+#: gssapi.c:291
 msgid "Error releasing credentials\n"
 msgstr "証明書の発行エラーです。\n"
 
@@ -1698,105 +1742,130 @@ msgstr "証明書の発行エラーです。\n"
 msgid "fetchmail: thread sleeping for %d sec.\n"
 msgstr "fetchmail: スレッドは %d 秒間スリープします。\n"
 
-#: imap.c:326
+#: imap.c:74
+#, c-format
+msgid "Received BYE response from IMAP server: %s"
+msgstr "IMAP サーバから BYE 応答を受け取りました: %s"
+
+#: imap.c:92
+#, c-format
+msgid "bogus message count in \"%s\"!"
+msgstr "\"%s\" 内でメッセージ数が偽造されています!"
+
+#: imap.c:139
+#, c-format
+msgid "bogus EXPUNGE count in \"%s\"!"
+msgstr "\"%s\" 内でEXPUNGEの数が偽造されています!"
+
+#: imap.c:344
 msgid "Protocol identified as IMAP4 rev 1\n"
 msgstr "プロトコルは IMAP4 rev 1 と認識されました。\n"
 
-#: imap.c:332
+#: imap.c:350
 msgid "Protocol identified as IMAP4 rev 0\n"
 msgstr "プロトコルは IMAP4 rev 0 と認識されました。\n"
 
-#: imap.c:339
+#: imap.c:357
 msgid "Protocol identified as IMAP2 or IMAP2BIS\n"
 msgstr "プロトコルは IMAP2 又は IMAP2BIS と認識されました。\n"
 
-#: imap.c:354
+#: imap.c:372
 msgid "will idle after poll\n"
 msgstr "接続の後、休止します。\n"
 
-#: imap.c:446 pop3.c:518
+#: imap.c:464 pop3.c:476
 #, c-format
 msgid "%s: upgrade to TLS succeeded.\n"
 msgstr "%s: TLS へのアップグレードに成功。\n"
 
-#: imap.c:455 pop3.c:527
+#: imap.c:473 pop3.c:485
 #, c-format
 msgid "%s: upgrade to TLS failed.\n"
 msgstr "%s: TLS へのアップグレードに失敗。\n"
 
-#: imap.c:459
+#: imap.c:477
 #, c-format
 msgid "%s: opportunistic upgrade to TLS failed, trying to continue\n"
 msgstr "%s: TLS への適合的アップグレードに失敗、継続可能か試しています\n"
 
-#: imap.c:579
+#: imap.c:593
 msgid "Required OTP capability not compiled into fetchmail\n"
 msgstr ""
 "OTP が要求されましたが、fetchmail が OTP 対応でコンパイルされていません。\n"
 
-#: imap.c:601 pop3.c:385
+#: imap.c:613 pop3.c:560
 msgid "Required NTLM capability not compiled into fetchmail\n"
 msgstr "要求された NTLM 処理能力は fetchmail に組み込まれていません。\n"
 
-#: imap.c:610
+#: imap.c:622
 msgid "Required LOGIN capability not supported by server\n"
 msgstr "要求された LOGIN 処理能力はサーバでサポートされていません。\n"
 
-#: imap.c:676
+#: imap.c:686
 #, c-format
 msgid "mail expunge mismatch (%d actual != %d expected)\n"
-msgstr "メッセージの大きさが合いません (%d (実際) != %d (予想)) \n"
+msgstr "メッセージの削除数が合いません (%d (実際) != %d (予想)) \n"
 
-#: imap.c:782 imap.c:841
+#: imap.c:825
+#, c-format
+msgid "%lu is unseen\n"
+msgstr "%lu は未読です。\n"
+
+#: imap.c:889 pop3.c:845 pop3.c:857 pop3.c:1095 pop3.c:1102
+#, c-format
+msgid "%u is unseen\n"
+msgstr "%u は未読です。\n"
+
+#: imap.c:924 imap.c:983
 msgid "re-poll failed\n"
 msgstr "再アクセスに失敗しました。\n"
 
-#: imap.c:790 imap.c:846
+#: imap.c:932 imap.c:988
 #, c-format
 msgid "%d message waiting after re-poll\n"
 msgid_plural "%d messages waiting after re-poll\n"
 msgstr[0] "%d 通のメッセージが再アクセスの後に存在します。\n"
 
-#: imap.c:807
+#: imap.c:949
 msgid "mailbox selection failed\n"
 msgstr "メールボックスの選択に失敗しました\n"
 
-#: imap.c:811
+#: imap.c:953
 #, c-format
 msgid "%d message waiting after first poll\n"
 msgid_plural "%d messages waiting after first poll\n"
 msgstr[0] "最初のアクセスから %d 通のメッセージがあります。\n"
 
-#: imap.c:825
+#: imap.c:967
 msgid "expunge failed\n"
 msgstr "削除に失敗しました。\n"
 
-#: imap.c:829
+#: imap.c:971
 #, c-format
 msgid "%d message waiting after expunge\n"
 msgid_plural "%d messages waiting after expunge\n"
 msgstr[0] "削除の後、%d 通のメッセージが残っています。\n"
 
-#: imap.c:871
+#: imap.c:1010
 msgid "search for unseen messages failed\n"
 msgstr "未読メッセージの検索に失敗しました。\n"
 
-#: imap.c:899
-#, c-format
-msgid "%lu is unseen\n"
-msgstr "%lu は未読です。\n"
-
-#: imap.c:911 pop3.c:889
+#: imap.c:1015 pop3.c:866
 #, c-format
 msgid "%u is first unseen\n"
 msgstr "%u は最初の未読メッセージです。\n"
 
-#: imap.c:1002
+#: imap.c:1099
 msgid ""
 "Warning: ignoring bogus data for message sizes returned by the server.\n"
 msgstr ""
 "警告: サーバからメッセージサイズとして報告された数値が不適切だったので無視し"
 "ます。\n"
+
+#: imap.c:1197 imap.c:1204
+#, c-format
+msgid "Incorrect FETCH response: %s.\n"
+msgstr "正しくないFETCH応答が返ってきました: %s\n"
 
 #: interface.c:256
 msgid "Unable to open kvm interface. Make sure fetchmail is SGID kmem."
@@ -1836,44 +1905,44 @@ msgstr "%s という名のインターフェイスは存在しません。"
 msgid "No IP address found for %s"
 msgstr "%s の IP アドレスがありません。"
 
-#: interface.c:589
+#: interface.c:590
 msgid "missing IP interface address\n"
 msgstr "IP インターフェイスアドレスがありません。\n"
 
-#: interface.c:605
+#: interface.c:606
 msgid "invalid IP interface address\n"
 msgstr "無効な IP インターフェイスアドレスです\n"
 
-#: interface.c:611
+#: interface.c:612
 msgid "invalid IP interface mask\n"
 msgstr "無効な IP インターフェイスマスクです。\n"
 
-#: interface.c:650
+#: interface.c:651
 #, c-format
 msgid "activity on %s -noted- as %d\n"
 msgstr "%s の動作状態は %d とされています。\n"
 
-#: interface.c:665
+#: interface.c:666
 #, c-format
 msgid "skipping poll of %s, %s down\n"
 msgstr "サーバ %s へのアクセスを飛ばします。サーバ %s は機能しておりません。\n"
 
-#: interface.c:684
+#: interface.c:685
 #, c-format
 msgid "skipping poll of %s, %s IP address excluded\n"
 msgstr "サーバ %s へのアクセスを飛ばします。%s \n"
 
-#: interface.c:696
+#: interface.c:697
 #, c-format
 msgid "activity on %s checked as %d\n"
 msgstr "%s の動作状態は %d と判定されました。\n"
 
-#: interface.c:722
+#: interface.c:723
 #, c-format
 msgid "skipping poll of %s, %s inactive\n"
 msgstr "サーバ %s へのアクセスを飛ばします。%s は動作可能ではありません。\n"
 
-#: interface.c:729
+#: interface.c:730
 #, c-format
 msgid "activity on %s was %d, is %d\n"
 msgstr "%s の動作は %d でしたが、今は %d です。\n"
@@ -1901,85 +1970,85 @@ msgstr "BASE64 レディ応答をデコードできませんでした。\n"
 msgid "challenge mismatch\n"
 msgstr "challenge の不一致です。\n"
 
-#: lock.c:86
+#: lock.c:87
 #, c-format
 msgid "fetchmail: error reading lockfile \"%s\": %s\n"
 msgstr "fetchmail: ロックファイル \"%s\" の読み込みに失敗しました。: %s\n"
 
-#: lock.c:97
+#: lock.c:98
 msgid "fetchmail: removing stale lockfile\n"
 msgstr "fetchmail: 古いロックファイルを削除します。\n"
 
-#: lock.c:121
+#: lock.c:122
 #, c-format
 msgid "fetchmail: error opening lockfile \"%s\": %s\n"
 msgstr "fetchmail: ロックファイル \"%s\" を開けません。: %s\n"
 
-#: lock.c:168
+#: lock.c:169
 msgid "fetchmail: lock creation failed.\n"
 msgstr "fetchmail: ロックファイルの生成に失敗しました。\n"
 
-#: netrc.c:219
+#: netrc.c:220
 #, c-format
 msgid "%s:%d: warning: found \"%s\" before any host names\n"
 msgstr "%s:%d: 警告: ホスト名の前に \"%s\" を検知しました。\n"
 
-#: netrc.c:257
+#: netrc.c:258
 #, c-format
 msgid "%s:%d: warning: unknown token \"%s\"\n"
 msgstr "%s:%d: 警告: 不明なトークン \"%s\"\n"
 
-#: odmr.c:66
+#: odmr.c:67
 #, c-format
 msgid "%s's SMTP listener does not support ATRN\n"
 msgstr "%s の SMTP 受信アプリケーションが ATRN に対応しておりません。\n"
 
-#: odmr.c:104
+#: odmr.c:105
 msgid "Turnaround now...\n"
 msgstr "Turnaround now...\n"
 
-#: odmr.c:109
+#: odmr.c:110
 msgid "ATRN request refused.\n"
 msgstr "ATRN 要求が拒絶されました。\n"
 
-#: odmr.c:113
+#: odmr.c:114
 msgid "Unable to process ATRN request now\n"
 msgstr "現在、ATRN 要求を行うことができません。\n"
 
-#: odmr.c:118
+#: odmr.c:119
 msgid "You have no mail.\n"
 msgstr "新着メールはありません。\n"
 
-#: odmr.c:122
+#: odmr.c:123
 msgid "Command not implemented\n"
 msgstr "コマンドが実装されていません。\n"
 
-#: odmr.c:126
+#: odmr.c:127
 msgid "Authentication required.\n"
 msgstr "ユーザ認証が必要です。\n"
 
-#: odmr.c:130
+#: odmr.c:132
 #, c-format
-msgid "Unknown ODMR error %d\n"
-msgstr "不明な ODMR のエラー %d です。\n"
+msgid "Unknown ODMR error \"%s\"\n"
+msgstr "不明な ODMR のエラー \"%s\" です。\n"
 
-#: odmr.c:189
+#: odmr.c:192
 msgid "receiving message data\n"
 msgstr "メッセージを受信しています\n"
 
-#: odmr.c:242
+#: odmr.c:245
 msgid "Option --keep is not supported with ODMR\n"
 msgstr "オプション --keep は ODMR では対応しておりません。\n"
 
-#: odmr.c:246
+#: odmr.c:249
 msgid "Option --flush is not supported with ODMR\n"
 msgstr "オプション --flush は ODMR では対応しておりません。\n"
 
-#: odmr.c:250
+#: odmr.c:253
 msgid "Option --folder is not supported with ODMR\n"
 msgstr "オプション --folder は ODMR では対応しておりません。\n"
 
-#: odmr.c:254
+#: odmr.c:257
 msgid "Option --check is not supported with ODMR\n"
 msgstr "オプション --check は ODMR では対応しておりません。\n"
 
@@ -1991,84 +2060,89 @@ msgstr "server recv fatal\n"
 msgid "Could not decode OTP challenge\n"
 msgstr "OTP challenge のデコードが出来ませんでした。\n"
 
-#: opie.c:64 pop3.c:610
+#: opie.c:64 pop3.c:587
 msgid "Secret pass phrase: "
 msgstr "Secret pass phrase: "
 
-#: options.c:172 options.c:216
+#: options.c:176 options.c:220
 #, c-format
 msgid "String '%s' is not a valid number string.\n"
 msgstr "文字列 '%s' は有効な長さではありません。\n"
 
-#: options.c:181
+#: options.c:185
 #, c-format
 msgid "Value of string '%s' is %s than %d.\n"
 msgstr "'%s' の値は次に示す数字より%s必要があります。: %d\n"
 
-#: options.c:182
+#: options.c:186
 msgid "smaller"
 msgstr "小さい"
 
-#: options.c:182
+#: options.c:186
 msgid "larger"
 msgstr "大きい"
 
-#: options.c:349
+#: options.c:323
+#, c-format
+msgid "Invalid bad-header policy `%s' specified.\n"
+msgstr "無効な不良ヘッダポリシー `%s' が指定されました。\n"
+
+#: options.c:364
 #, c-format
 msgid "Invalid protocol `%s' specified.\n"
 msgstr "無効なプロトコル `%s' が指定されました。\n"
 
-#: options.c:396
+#: options.c:411
 #, c-format
 msgid "Invalid authentication `%s' specified.\n"
 msgstr "無効な認証方式 `%s' が指定されました。\n"
 
-#: options.c:601
+#: options.c:620
 msgid "usage:  fetchmail [options] [server ...]\n"
 msgstr "利用方法:  fetchmail [オプション] [サーバ ...]\n"
 
-#: options.c:602
+#: options.c:621
 msgid "  Options are as follows:\n"
 msgstr "  以下に示すオプションが利用可能です。\n"
 
-#: options.c:603
+#: options.c:622
 msgid "  -?, --help        display this option help\n"
 msgstr "  -?, --help        オプションの説明を表示します\n"
 
-#: options.c:604
+#: options.c:623
 msgid "  -V, --version     display version info\n"
 msgstr "  -V, --version     バージョン情報を表示します\n"
 
-#: options.c:606
+#: options.c:625
 msgid "  -c, --check       check for messages without fetching\n"
 msgstr ""
 "  -c, --check       メッセージの有無を調べます(データは取り出しません)\n"
 
-#: options.c:607
+#: options.c:626
 msgid "  -s, --silent      work silently\n"
 msgstr "  -s, --silent      状態表示などを抑制します\n"
 
-#: options.c:608
+#: options.c:627
 msgid "  -v, --verbose     work noisily (diagnostic output)\n"
 msgstr "  -v, --verbose     細かく状態表示を行います\n"
 
-#: options.c:609
+#: options.c:628
 msgid "  -d, --daemon      run as a daemon once per n seconds\n"
 msgstr "  -d, --daemon      n 秒に一回動作するデーモンとして動作します\n"
 
-#: options.c:610
+#: options.c:629
 msgid "  -N, --nodetach    don't detach daemon process\n"
 msgstr "  -N, --nodetach    デーモンプロセスをフォークしません\n"
 
-#: options.c:611
+#: options.c:630
 msgid "  -q, --quit        kill daemon process\n"
 msgstr "  -q, --quit        デーモンプロセスを終了させます\n"
 
-#: options.c:612
+#: options.c:631
 msgid "  -L, --logfile     specify logfile name\n"
 msgstr "  -L, --logfile     ログを書き出すファイルを指定します\n"
 
-#: options.c:613
+#: options.c:632
 msgid ""
 "      --syslog      use syslog(3) for most messages when running as a "
 "daemon\n"
@@ -2076,38 +2150,38 @@ msgstr ""
 "      --syslog      デーモンとして動作させる場合に syslog(3) を通して\n"
 "                    大半のメッセージを書き出します\n"
 
-#: options.c:614
+#: options.c:633
 msgid "      --invisible   don't write Received & enable host spoofing\n"
 msgstr "      --invisible   Received を書かず、ホスト名の偽造を許可します\n"
 
-#: options.c:615
+#: options.c:634
 msgid "  -f, --fetchmailrc specify alternate run control file\n"
 msgstr "  -f, --fetchmailrc 設定ファイルを指定します\n"
 
-#: options.c:616
+#: options.c:635
 msgid "  -i, --idfile      specify alternate UIDs file\n"
 msgstr "  -i, --idfile      UID ファイルを指定します\n"
 
-#: options.c:617
+#: options.c:636
 msgid "      --pidfile     specify alternate PID (lock) file\n"
 msgstr "      --pidfile     代わりの PID (ロック) ファイルを指定する\n"
 
-#: options.c:618
+#: options.c:637
 msgid "      --postmaster  specify recipient of last resort\n"
 msgstr "      --postmaster  最終的な受け取り手を指定します\n"
 
-#: options.c:619
+#: options.c:638
 msgid "      --nobounce    redirect bounces from user to postmaster.\n"
 msgstr "      --nobounce    ユーザではなく postmaster へエラー通知を行います\n"
 
-#: options.c:620
+#: options.c:639
 msgid ""
 "      --nosoftbounce fetchmail deletes permanently undeliverable messages.\n"
 msgstr ""
 "      --nosoftbounce fetchmail は恒久的に配送できないメッセージを削除しま"
 "す。\n"
 
-#: options.c:621
+#: options.c:640
 msgid ""
 "      --softbounce  keep permanently undeliverable messages on server "
 "(default).\n"
@@ -2115,214 +2189,226 @@ msgstr ""
 "      --softbounce   恒久的に配送できないメッセージをサーバに保存します。(デ"
 "フォルト).\n"
 
-#: options.c:623
+#: options.c:642
 msgid "  -I, --interface   interface required specification\n"
 msgstr "  -I, --interface   インターフェイスを指定します\n"
 
-#: options.c:624
+#: options.c:643
 msgid "  -M, --monitor     monitor interface for activity\n"
 msgstr "  -M, --monitor     インターフェイスが有効か監視します\n"
 
-#: options.c:627
+#: options.c:646
 msgid "      --ssl         enable ssl encrypted session\n"
 msgstr "      --ssl         SSL による暗号化を利用します\n"
 
-#: options.c:628
+#: options.c:647
 msgid "      --sslkey      ssl private key file\n"
 msgstr "      --sslkey      SSL の private key file を指定します\n"
 
-#: options.c:629
+#: options.c:648
 msgid "      --sslcert     ssl client certificate\n"
 msgstr "      --sslcert     SSL の client certificate ファイルを指定します\n"
 
-#: options.c:630
+#: options.c:649
 msgid "      --sslcertck   do strict server certificate check (recommended)\n"
 msgstr "      --sslcertck   厳密なサーバ証明書チェックを行います(推奨)\n"
 
-#: options.c:631
-msgid "      --sslcertpath path to ssl certificates\n"
-msgstr "      --sslcertpath SSL の client certificate ファイルを指定します\n"
+#: options.c:650
+msgid "      --sslcertfile path to trusted-CA ssl certificate file\n"
+msgstr "      --sslcertfile 信頼するCA SSL証明書ファイルのパス\n"
 
-#: options.c:632
+#: options.c:651
+msgid "      --sslcertpath path to trusted-CA ssl certificate directory\n"
+msgstr "      --sslcertpath 信頼するCA SSL証明書ディレクトリのパス\n"
+
+#: options.c:652
 msgid ""
 "      --sslcommonname  expect this CommonName from server (discouraged)\n"
 msgstr ""
 "      --sslcommonname  サーバの CommonName がこれであると仮定します(お勧めで"
 "きません)\n"
 
-#: options.c:633
+#: options.c:653
 msgid ""
 "      --sslfingerprint fingerprint that must match that of the server's "
 "cert.\n"
 msgstr "      --sslfingerprint サーバの証明書と一致するべき fingerprint\n"
 
-#: options.c:634
+#: options.c:654
 msgid "      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"
 msgstr ""
 "      --sslproto    SSL のプロトコルを強制的に指定します (SSL2/SSL3/TLS1)\n"
 
-#: options.c:636
+#: options.c:656
 msgid "      --plugin      specify external command to open connection\n"
 msgstr "      --plugin      接続用の外部コマンドを指定します\n"
 
-#: options.c:637
+#: options.c:657
 msgid "      --plugout     specify external command to open smtp connection\n"
 msgstr ""
 "      --plugout     SMTP による交信を行うための外部コマンドを指定します\n"
 
-#: options.c:639
+#: options.c:658
+msgid ""
+"      --bad-header {reject|accept}\n"
+"                    specify policy for handling messages with bad headers\n"
+msgstr ""
+"      --bad-header {reject|accept}\n"
+"                    不良ヘッダを持つメッセージを取り扱う方針を指定します\n"
+
+#: options.c:661
 msgid "  -p, --protocol    specify retrieval protocol (see man page)\n"
 msgstr ""
 "  -p, --protocol    利用するプロトコルを指定します。\n"
 "                    (詳細は man page を参照して下さい)\n"
 
-#: options.c:640
+#: options.c:662
 msgid "  -U, --uidl        force the use of UIDLs (pop3 only)\n"
 msgstr "  -U, --uidl        UIDL を強制的に利用します (POP3 のみ有効です)\n"
 
-#: options.c:641
+#: options.c:663
 msgid "      --port        TCP port to connect to (obsolete, use --service)\n"
 msgstr ""
 "      --port        接続に利用する TCP ポートを指定します (古いオプションで"
 "す。--service を使ってください)\n"
 
-#: options.c:642
+#: options.c:664
 msgid ""
 "  -P, --service     TCP service to connect to (can be numeric TCP port)\n"
 msgstr ""
 "  -P, --service     接続する TCP サービス名 (数字で TCP ポートを指定すること"
 "もできます)\n"
 
-#: options.c:643
+#: options.c:665
 msgid "      --auth        authentication type (password/kerberos/ssh/otp)\n"
 msgstr "      --auth        認証方式を指定します (password/kerberos/ssh/otp)\n"
 
-#: options.c:644
+#: options.c:666
 msgid "  -t, --timeout     server nonresponse timeout\n"
 msgstr "  -t, --timeout     サーバの応答待ち制限時間を指定します\n"
 
-#: options.c:645
+#: options.c:667
 msgid "  -E, --envelope    envelope address header\n"
 msgstr "  -E, --envelope    アドレスヘッダを隠します\n"
 
-#: options.c:646
+#: options.c:668
 msgid "  -Q, --qvirtual    prefix to remove from local user id\n"
 msgstr "  -Q, --qvirtual    local user id から prefix を削除します\n"
 
-#: options.c:647
+#: options.c:669
 msgid "      --principal   mail service principal\n"
 msgstr "      --principal   メールサービスで利用する方式を指定します\n"
 
-#: options.c:648
+#: options.c:670
 msgid "      --tracepolls  add poll-tracing information to Received header\n"
 msgstr "      --tracepolls  Received ヘッダに接続情報を書き加えます\n"
 
-#: options.c:650
+#: options.c:672
 msgid "  -u, --username    specify users's login on server\n"
 msgstr "  -u, --username    サーバへのログイン名をしていします\n"
 
-#: options.c:651
+#: options.c:673
 msgid "  -a, --[fetch]all  retrieve old and new messages\n"
 msgstr "  -a, --[fetch]all         新着及び既着のメールを全て取り出します\n"
 
-#: options.c:652
+#: options.c:674
 msgid "  -K, --nokeep      delete new messages after retrieval\n"
 msgstr "  -K, --nokeep      取り出したメッセージをサーバから消去します\n"
 
-#: options.c:653
+#: options.c:675
 msgid "  -k, --keep        save new messages after retrieval\n"
 msgstr "  -k, --keep        取り出したメッセージをサーバに残しておきます\n"
 
-#: options.c:654
+#: options.c:676
 msgid "  -F, --flush       delete old messages from server\n"
 msgstr "  -F, --flush       既に取り出したメッセージをサーバから消去します\n"
 
-#: options.c:655
+#: options.c:677
 msgid "      --limitflush  delete oversized messages\n"
 msgstr "      --limitflush  容量超過したメッセージをサーバから消去します\n"
 
-#: options.c:656
+#: options.c:678
 msgid "  -n, --norewrite   don't rewrite header addresses\n"
 msgstr "  -n, --norewrite   ヘッダのアドレスを書き換えません\n"
 
-#: options.c:657
+#: options.c:679
 msgid "  -l, --limit       don't fetch messages over given size\n"
 msgstr "  -l, --limit       指定された大きさ以上のメッセージを取り出しません\n"
 
-#: options.c:658
+#: options.c:680
 msgid "  -w, --warnings    interval between warning mail notification\n"
 msgstr ""
 "  -w, --warnings    容量超過のメールについて警告を発する間隔を指定します\n"
 
-#: options.c:660
+#: options.c:682
 msgid "  -S, --smtphost    set SMTP forwarding host\n"
 msgstr "  -S, --smtphost    転送先の SMTP ホストを指定します\n"
 
-#: options.c:661
+#: options.c:683
 msgid "      --fetchdomains fetch mail for specified domains\n"
 msgstr ""
 "      --fetchdomains 一回の接続でメールを取得すべきドメイン名を指定します\n"
 
-#: options.c:662
+#: options.c:684
 msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
 msgstr "  -D, --smtpaddress SMTP による転送で利用するドメイン名を指定します\n"
 
-#: options.c:663
+#: options.c:685
 msgid "      --smtpname    set SMTP full name username@domain\n"
 msgstr ""
 "      --smtpname    SMTP 転送で利用するフルネーム username@domain を指定しま"
 "す\n"
 
-#: options.c:664
+#: options.c:686
 msgid "  -Z, --antispam,   set antispam response values\n"
 msgstr "  -Z, --antispam    スパムメール対策の応答を指定します。\n"
 
-#: options.c:665
+#: options.c:687
 msgid "  -b, --batchlimit  set batch limit for SMTP connections\n"
 msgstr ""
 "  -b, --batchlimit  一回の SMTP 転送で送信されるメールの最大数を設定します\n"
 
-#: options.c:666
+#: options.c:688
 msgid "  -B, --fetchlimit  set fetch limit for server connections\n"
 msgstr ""
 "  -B, --fetchlimit  一回のサーバとの交信で取得できるメールの最大数を設定しま"
 "す。\n"
 
-#: options.c:667
+#: options.c:689
 msgid "      --fetchsizelimit set fetch message size limit\n"
 msgstr ""
 "      --fetchsizelimit 取得できるメッセージのサイズの上限を指定します\n"
 
-#: options.c:668
+#: options.c:690
 msgid "      --fastuidl    do a binary search for UIDLs\n"
 msgstr "      --fastuidl    UIDL の二分木検索を行います\n"
 
-#: options.c:669
+#: options.c:691
 msgid "  -e, --expunge     set max deletions between expunges\n"
 msgstr "  -e, --expunge     メッセージを一度に消去する最大数を指定します\n"
 
-#: options.c:670
+#: options.c:692
 msgid "  -m, --mda         set MDA to use for forwarding\n"
 msgstr "  -m, --mda         メール送信プログラムを指定します\n"
 
-#: options.c:671
+#: options.c:693
 msgid "      --bsmtp       set output BSMTP file\n"
 msgstr ""
 "      --bsmtp       取り込んだメールを書き出す BSMTP ファイルを指定します。\n"
 
-#: options.c:672
+#: options.c:694
 msgid "      --lmtp        use LMTP (RFC2033) for delivery\n"
 msgstr "      --lmtp        LMTP (RFC2033) を配信に利用します\n"
 
-#: options.c:673
+#: options.c:695
 msgid "  -r, --folder      specify remote folder name\n"
 msgstr "  -r, --folder      サーバのメールフォルダを指定します\n"
 
-#: options.c:674
+#: options.c:696
 msgid "      --showdots    show progress dots even in logfiles\n"
 msgstr "      --showdots    ログファイルにも進行状況を示す . を書き込みます\n"
 
-#: pop3.c:355
+#: pop3.c:328
 msgid ""
 "Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead "
 "of TOP.\n"
@@ -2330,90 +2416,90 @@ msgstr ""
 "警告: Maillennium POP3/プロクシサーバです。TOP の代わりに RETR コマンドを使用"
 "します。\n"
 
-#: pop3.c:454
+#: pop3.c:412
 msgid "TLS is mandatory for this session, but server refused CAPA command.\n"
 msgstr ""
 "このセッションには TLS が必要ですが、サーバが CAPA コマンドを拒否しました。\n"
 
-#: pop3.c:455
+#: pop3.c:413
 msgid "The CAPA command is however necessary for TLS.\n"
 msgstr "CAPA コマンドは TLS では必須です。\n"
 
-#: pop3.c:538
+#: pop3.c:496
 #, c-format
 msgid "%s: opportunistic upgrade to TLS failed, trying to continue.\n"
 msgstr "%s: TLS への適合的アップグレードに失敗、継続可能か試しています。\n"
 
-#: pop3.c:646
+#: pop3.c:623
 msgid "We've run out of allowed authenticators and cannot continue.\n"
 msgstr ""
 "使用を許可されたすべての認証手段を試みましたが、すべて失敗しました。実行を継"
 "続できません。\n"
 
-#: pop3.c:660
+#: pop3.c:637
 msgid "Required APOP timestamp not found in greeting\n"
 msgstr "greeting 中に APOP タイムスタンプが存在しません。\n"
 
-#: pop3.c:669
+#: pop3.c:646
 msgid "Timestamp syntax error in greeting\n"
 msgstr "greeting 中の タイムスタンプが不正です。\n"
 
-#: pop3.c:685
+#: pop3.c:662
 msgid "Invalid APOP timestamp.\n"
 msgstr "無効な APOP タイムスタンプです。\n"
 
-#: pop3.c:709
+#: pop3.c:686
 msgid "Undefined protocol request in POP3_auth\n"
 msgstr "POP3_auth 中で定義されていないプロトコルが要求されました。\n"
 
-#: pop3.c:730
+#: pop3.c:707
 msgid "lock busy!  Is another session active?\n"
 msgstr "lock busy 状態です。別の交信が行われていないか確認して下さい。\n"
 
-#: pop3.c:809
+#: pop3.c:786
 msgid "Cannot handle UIDL response from upstream server.\n"
 msgstr "上流サーバからの UIDL 応答に対応できません。\n"
 
-#: pop3.c:832
+#: pop3.c:809
 msgid "Server responded with UID for wrong message.\n"
 msgstr "サーバが誤ったメッセージの UID に応答しました。\n"
 
-#: pop3.c:859 pop3.c:1105
+#: pop3.c:836
 #, c-format
-msgid "id=%s (num=%d) was deleted, but is still present!\n"
-msgstr "id=%s (num=%d) は削除されましたが、まだ存在しています!\n"
+msgid "id=%s (num=%u) was deleted, but is still present!\n"
+msgstr "id=%s (num=%u) は削除されましたが、まだ存在しています!\n"
 
-#: pop3.c:868 pop3.c:880 pop3.c:1114 pop3.c:1121
-#, c-format
-msgid "%u is unseen\n"
-msgstr "%u は未読です。\n"
-
-#: pop3.c:965
+#: pop3.c:942
 msgid "Messages inserted into list on server. Cannot handle this.\n"
 msgstr ""
 "サーバリストにメッセージが挿入されています。取り扱うことができません。\n"
 
-#: pop3.c:1057
+#: pop3.c:1038
 msgid "protocol error\n"
 msgstr "プロトコルエラーです。\n"
 
-#: pop3.c:1073
+#: pop3.c:1054
 msgid "protocol error while fetching UIDLs\n"
 msgstr "UIDL を取り込み中にプロトコルエラーが発生しました。\n"
 
-#: pop3.c:1443
+#: pop3.c:1086
+#, c-format
+msgid "id=%s (num=%d) was deleted, but is still present!\n"
+msgstr "id=%s (num=%d) は削除されましたが、まだ存在しています!\n"
+
+#: pop3.c:1424
 msgid "Option --folder is not supported with POP3\n"
 msgstr "POP3 では --folder オプションは利用できません。\n"
 
-#: rcfile_y.y:126
+#: rcfile_y.y:131
 msgid "server option after user options"
 msgstr "サーバオプションはユーザオプションの後で設定します。"
 
-#: rcfile_y.y:169
+#: rcfile_y.y:174
 msgid "SDPS not enabled."
 msgstr "SDPS は利用できません。"
 
-#: rcfile_y.y:215
+#: rcfile_y.y:218
 msgid ""
 "fetchmail: interface option is only supported under Linux (without IPv6) and "
 "FreeBSD\n"
@@ -2421,7 +2507,7 @@ msgstr ""
 "fetchmail: interface オプションは Linux (IPv6 は利用できません) とFreeBSD の"
 "みで利用可能です。\n"
 
-#: rcfile_y.y:222
+#: rcfile_y.y:226
 msgid ""
 "fetchmail: monitor option is only supported under Linux (without IPv6) and "
 "FreeBSD\n"
@@ -2429,28 +2515,28 @@ msgstr ""
 "fetchmail: monitor オプションは Linux (IPv6 は利用できません) とFreeBSD のみ"
 "で利用可能です。\n"
 
-#: rcfile_y.y:335
+#: rcfile_y.y:340
 msgid "SSL is not enabled"
 msgstr "SSL が有効となっておりません。"
 
-#: rcfile_y.y:385
+#: rcfile_y.y:391
 msgid "end of input"
 msgstr "入力の終端"
 
-#: rcfile_y.y:423
+#: rcfile_y.y:429
 #, c-format
 msgid "File %s must be a regular file.\n"
 msgstr ""
 "%s は通常ファイルである必要があります（シンボリックリンクであってはいけませ"
 "ん）。\n"
 
-#: rcfile_y.y:433
+#: rcfile_y.y:439
 #, c-format
 msgid "File %s must have no more than -rwx------ (0700) permissions.\n"
 msgstr ""
 "ファイル %s のパーミッションは -rwx------ (0700) でないといけません。\n"
 
-#: rcfile_y.y:445
+#: rcfile_y.y:451
 #, c-format
 msgid "File %s must be owned by you.\n"
 msgstr "%s の所有者は貴方自身である必要があります。\n"
@@ -2464,191 +2550,191 @@ msgstr "不明なシステムエラーです。"
 msgid "%s (log message incomplete)\n"
 msgstr "%s (ログメッセージが不完全です)\n"
 
-#: rfc822.c:76
+#: rfc822.c:83
 #, c-format
-msgid "About to rewrite %s"
-msgstr "%s の再書き込みについて"
+msgid "About to rewrite %s...\n"
+msgstr "%s の書き換えを行います...\n"
 
-#: rfc822.c:212
+#: rfc822.c:221
 #, c-format
-msgid "Rewritten version is %s\n"
-msgstr "Rewritten バージョンは %s です。\n"
+msgid "...rewritten version is %s.\n"
+msgstr "... 書き換えられたバージョンは %s です。\n"
 
-#: rpa.c:117
+#: rpa.c:118
 msgid "Success"
 msgstr "成功しました。"
 
-#: rpa.c:118
+#: rpa.c:119
 msgid "Restricted user (something wrong with account)"
 msgstr "制約を受けているユーザです。(何かこのアカウントに問題があります。)"
 
-#: rpa.c:119
+#: rpa.c:120
 msgid "Invalid userid or passphrase"
 msgstr "不正なユーザ ID かパスフレーズです。"
 
-#: rpa.c:120
+#: rpa.c:121
 msgid "Deity error"
 msgstr "Deity エラー"
 
-#: rpa.c:173
+#: rpa.c:174
 msgid "RPA token 2: Base64 decode error\n"
 msgstr "RPA token 2: Base64 デコードエラー\n"
 
-#: rpa.c:184
+#: rpa.c:185
 #, c-format
 msgid "Service chose RPA version %d.%d\n"
 msgstr "RPA バージョン %d.%d を選択しました。\n"
 
-#: rpa.c:190
+#: rpa.c:191
 #, c-format
 msgid "Service challenge (l=%d):\n"
 msgstr "Service challenge (l=%d):\n"
 
-#: rpa.c:199
+#: rpa.c:200
 #, c-format
 msgid "Service timestamp %s\n"
 msgstr "Service タイムスタンプ %s\n"
 
-#: rpa.c:204
+#: rpa.c:205
 msgid "RPA token 2 length error\n"
 msgstr "RPA token 2 長エラー\n"
 
-#: rpa.c:208
+#: rpa.c:209
 #, c-format
 msgid "Realm list: %s\n"
 msgstr "Realm リスト: %s\n"
 
-#: rpa.c:212
+#: rpa.c:213
 msgid "RPA error in service@realm string\n"
 msgstr "service@realm における RPA エラーが発生しました。\n"
 
-#: rpa.c:249
+#: rpa.c:250
 msgid "RPA token 4: Base64 decode error\n"
 msgstr "RPA token 4: Base64 デコードエラー\n"
 
-#: rpa.c:260
+#: rpa.c:261
 #, c-format
 msgid "User authentication (l=%d):\n"
 msgstr "ユーザ認証 (l=%d):\n"
 
-#: rpa.c:274
+#: rpa.c:275
 #, c-format
 msgid "RPA status: %02X\n"
 msgstr "RPA status: %02X\n"
 
-#: rpa.c:280
+#: rpa.c:281
 msgid "RPA token 4 length error\n"
 msgstr "RPA token 4 長エラー\n"
 
-#: rpa.c:287
+#: rpa.c:288
 #, c-format
 msgid "RPA rejects you: %s\n"
 msgstr "RPA より拒絶されました。:%s\n"
 
-#: rpa.c:289
+#: rpa.c:290
 msgid "RPA rejects you, reason unknown\n"
 msgstr "理由は分かりませんが RPA より拒絶されました。\n"
 
-#: rpa.c:297
+#: rpa.c:298
 #, c-format
 msgid "RPA User Authentication length error: %d\n"
 msgstr "RPA User Anthentication 長エラー: %d\n"
 
-#: rpa.c:302
+#: rpa.c:303
 #, c-format
 msgid "RPA Session key length error: %d\n"
 msgstr "RPA Session key 長エラー: %d\n"
 
-#: rpa.c:308
+#: rpa.c:309
 msgid "RPA _service_ auth fail. Spoof server?\n"
 msgstr "RPA _service_ auth に失敗しました。偽装サーバでしょうか？\n"
 
-#: rpa.c:313
+#: rpa.c:314
 msgid "Session key established:\n"
 msgstr "Session key が確立しました:\n"
 
-#: rpa.c:344
+#: rpa.c:345
 msgid "RPA authorisation complete\n"
 msgstr "RPA 認証が終了しました。\n"
 
-#: rpa.c:371
+#: rpa.c:372
 msgid "Get response\n"
 msgstr "応答を得ました。\n"
 
-#: rpa.c:401
+#: rpa.c:402
 #, c-format
 msgid "Get response return %d [%s]\n"
 msgstr "応答 %d を得ました。 [%s]\n"
 
-#: rpa.c:462
+#: rpa.c:463
 msgid "Hdr not 60\n"
 msgstr "Hdr が 60 ではありません。\n"
 
-#: rpa.c:483
+#: rpa.c:484
 msgid "Token length error\n"
 msgstr "トークン長エラー\n"
 
-#: rpa.c:488
+#: rpa.c:489
 #, c-format
 msgid "Token Length %d disagrees with rxlen %d\n"
 msgstr "トークンの長さ %d は rxlen の長さ %d と一致しません。\n"
 
-#: rpa.c:494
+#: rpa.c:495
 msgid "Mechanism field incorrect\n"
 msgstr "Mechanism field が不正です。\n"
 
-#: rpa.c:530
+#: rpa.c:531
 #, c-format
 msgid "dec64 error at char %d: %x\n"
 msgstr "文字 %d において dec64 エラーが発生しました。%x\n"
 
-#: rpa.c:545
+#: rpa.c:546
 msgid "Inbound binary data:\n"
 msgstr "受信データ:\n"
 
-#: rpa.c:581
+#: rpa.c:582
 msgid "Outbound data:\n"
 msgstr "転送日時:\n"
 
-#: rpa.c:644
+#: rpa.c:645
 msgid "RPA String too long\n"
 msgstr "RPA String が長すぎます。\n"
 
-#: rpa.c:649
+#: rpa.c:650
 msgid "Unicode:\n"
 msgstr "Unicode:\n"
 
-#: rpa.c:708
+#: rpa.c:709
 msgid "RPA Failed open of /dev/urandom. This shouldn't\n"
 msgstr "RPA は /dev/urandom のオープンに失敗しました。\n"
 
-#: rpa.c:709
+#: rpa.c:710
 msgid "    prevent you logging in, but means you\n"
 msgstr "このことによってログインが拒否されることはありませんが、\n"
 
-#: rpa.c:710
+#: rpa.c:711
 msgid "    cannot be sure you are talking to the\n"
 msgstr "本当に通信したいと考えている相手と交信しているか\n"
 
-#: rpa.c:711
+#: rpa.c:712
 msgid "    service that you think you are (replay\n"
 msgstr "確証は得られません。\n"
 
-#: rpa.c:712
+#: rpa.c:713
 msgid "    attacks by a dishonest service are possible.)\n"
 msgstr "(サービスを捏造した繰り返し攻撃の可能性があります。)\n"
 
-#: rpa.c:723
+#: rpa.c:724
 msgid "User challenge:\n"
 msgstr "User challenge:\n"
 
-#: rpa.c:873
+#: rpa.c:874
 msgid "MD5 being applied to data block:\n"
 msgstr "MD5 をデータブロックに適用しています。\n"
 
-#: rpa.c:886
-msgid "MD5 result is: \n"
-msgstr "MD5 の結果 :\n"
+#: rpa.c:887
+msgid "MD5 result is:\n"
+msgstr "MD5 の結果:\n"
 
 #: servport.c:53
 #, c-format
@@ -2664,106 +2750,122 @@ msgstr "サービス %s のためのポートがわかりません。\n"
 msgid "Please specify the service as decimal port number.\n"
 msgstr "10 進数のポート番号で指定してください。\n"
 
-#: sink.c:220
+#: sink.c:231
 #, c-format
 msgid "forwarding to %s\n"
 msgstr "%s へ転送します。\n"
 
-#: sink.c:306
+#: sink.c:318
 msgid "SMTP: (bounce-message body)\n"
 msgstr "SMTP: (転送されたメッセージの本体)\n"
 
-#: sink.c:309
+#: sink.c:321
 #, c-format
 msgid "mail from %s bounced to %s\n"
 msgstr "%s からのメールを %s に転送します。\n"
 
-#: sink.c:446
+#: sink.c:458
 #, c-format
 msgid "Saved error is still %d\n"
 msgstr "エラーはまだ %d です。\n"
 
-#: sink.c:506 sink.c:605
+#: sink.c:518 sink.c:617
 #, c-format
 msgid "%cMTP error: %s\n"
 msgstr "%cMTP エラー: %s\n"
 
-#: sink.c:550
+#: sink.c:562
 msgid "SMTP server requires STARTTLS, keeping message.\n"
 msgstr "SMTP サーバは STARTTLS を要求しています、メッセージを保存しました。\n"
 
-#: sink.c:730
+#: sink.c:745
 #, c-format
 msgid "BSMTP file open failed: %s\n"
 msgstr "BSMTP ファイル %s のオープンが失敗しました。\n"
 
-#: sink.c:776
-msgid "BSMTP preamble write failed.\n"
-msgstr "BSMTP プリアンブルの書き込みに失敗しました。\n"
+#: sink.c:791
+#, c-format
+msgid "BSMTP preamble write failed: %s.\n"
+msgstr "BSMTP プリアンブルの書き込みに失敗しました: %s\n"
 
-#: sink.c:990
+#: sink.c:1005
 #, c-format
 msgid "%cMTP listener doesn't like recipient address `%s'\n"
 msgstr ""
 "%cMTP 送信先のアプリケーションが `%s' という受け手のアドレスを受け付けませ"
 "ん。\n"
 
-#: sink.c:997
+#: sink.c:1012
 #, c-format
 msgid "%cMTP listener doesn't really like recipient address `%s'\n"
 msgstr ""
 "%cMTP 送信先のアプリケーションが `%s' という受け手のアドレスを受け付けませ"
 "ん。\n"
 
-#: sink.c:1043
+#: sink.c:1058
 msgid "no address matches; no postmaster set.\n"
 msgstr "アドレスが一致しません。postmaster が設定されていません。\n"
 
-#: sink.c:1055
+#: sink.c:1070
 #, c-format
 msgid "can't even send to %s!\n"
 msgstr "%s に対してさえ送信できません。\n"
 
-#: sink.c:1061
+#: sink.c:1076
 #, c-format
 msgid "no address matches; forwarding to %s.\n"
 msgstr "アドレスが一致しません。%s へ転送します。\n"
 
-#: sink.c:1217
+#: sink.c:1232
 #, c-format
 msgid "about to deliver with: %s\n"
 msgstr "%s を利用した配信について\n"
 
-#: sink.c:1241
+#: sink.c:1243
+#, c-format
+msgid "Cannot switch effective user id to %ld: %s\n"
+msgstr "実効ユーザID を %ld に変更できません: %s\n"
+
+#: sink.c:1255
+#, c-format
+msgid "Cannot switch effective user id back to original %ld: %s\n"
+msgstr "実効ユーザID を 元の %ld に変更できません: %s\n"
+
+#: sink.c:1262
 msgid "MDA open failed\n"
 msgstr "MDA の起動に失敗しました。\n"
 
-#: sink.c:1278
+#: sink.c:1301
 #, c-format
 msgid "%cMTP connect to %s failed\n"
 msgstr "%cMTP による %s への接続に失敗しました。\n"
 
-#: sink.c:1302
+#: sink.c:1325
 #, c-format
 msgid "can't raise the listener; falling back to %s"
 msgstr "通信先のアプリケーションと交信できません。%s と交信します。"
 
-#: sink.c:1364
+#: sink.c:1383
+#, c-format
+msgid "Message termination or close of BSMTP file failed: %s\n"
+msgstr "メッセージの終了 または BSMTP ファイルを閉じる際に失敗しました。: %s\n"
+
+#: sink.c:1408
 #, c-format
 msgid "Error writing to MDA: %s\n"
 msgstr "MDAへの書き込みでエラーが発生しました: %s\n"
 
-#: sink.c:1367
+#: sink.c:1411
 #, c-format
 msgid "MDA died of signal %d\n"
 msgstr "MDA が %d 番の信号を受信したため終了しました。\n"
 
-#: sink.c:1370
+#: sink.c:1414
 #, c-format
 msgid "MDA returned nonzero status %d\n"
 msgstr "MDA が 0 以外のステータス %d を返して終了しました。\n"
 
-#: sink.c:1373
+#: sink.c:1417
 #, c-format
 msgid ""
 "Strange: MDA pclose returned %d and errno %d/%s, cannot handle at %s:%d\n"
@@ -2771,24 +2873,20 @@ msgstr ""
 "異常: MDA の pclose が %d を返しました。エラー番号%d/%s 、どうしていいかわか"
 "りません。ファイル %s:%d 行\n"
 
-#: sink.c:1395
-msgid "Message termination or close of BSMTP file failed\n"
-msgstr "メッセージの終了、または、BSMTP ファイルの終了に失敗しました。\n"
-
-#: sink.c:1417
+#: sink.c:1442
 msgid "SMTP listener refused delivery\n"
 msgstr "SMTP 通信先のアプリケーションが配信を拒みました。\n"
 
-#: sink.c:1447
+#: sink.c:1472
 msgid "LMTP delivery error on EOM\n"
 msgstr "LMTP の EOM における配信エラーです。\n"
 
-#: sink.c:1450
+#: sink.c:1475
 #, c-format
 msgid "Unexpected non-503 response to LMTP EOM: %s\n"
 msgstr "LMTP EOM に対して 503 以外の予期せぬ応答 %s がありました。\n"
 
-#: sink.c:1605
+#: sink.c:1630
 msgid ""
 "-- \n"
 "The Fetchmail Daemon"
@@ -2796,15 +2894,15 @@ msgstr ""
 "-- \n"
 "Fetchmail デーモン"
 
-#: smtp.c:80
+#: smtp.c:81
 msgid "ESMTP CRAM-MD5 Authentication...\n"
 msgstr "ESMTP CRAM-MD5 方式による認証を強制的に行います...\n"
 
-#: smtp.c:87 smtp.c:138
+#: smtp.c:87 smtp.c:137
 msgid "Server rejected the AUTH command.\n"
 msgstr "サーバが AUTH コマンドを拒絶しました。\n"
 
-#: smtp.c:95 smtp.c:145 smtp.c:155 smtp.c:161
+#: smtp.c:95 smtp.c:144 smtp.c:153 smtp.c:159
 msgid "Bad base64 reply from server.\n"
 msgstr "サーバから誤った base64 の返答を得ました。\n"
 
@@ -2821,42 +2919,42 @@ msgstr "ESMTP で PLAIN 認証をします...\n"
 msgid "ESMTP LOGIN Authentication...\n"
 msgstr "ESMTP で LOGIN 認証をします...\n"
 
-#: smtp.c:339 smtp.c:362
+#: smtp.c:349 smtp.c:377
 msgid "smtp listener protocol error\n"
 msgstr "SMTP リスナでプロトコルエラーが発生しました。\n"
 
-#: socket.c:115 socket.c:141
+#: socket.c:110 socket.c:136
 msgid "fetchmail: malloc failed\n"
 msgstr "fetchmail: malloc ができませんでした。\n"
 
-#: socket.c:173
+#: socket.c:168
 msgid "fetchmail: socketpair failed\n"
 msgstr "fetchmail: socketpair に失敗しました。\n"
 
-#: socket.c:179
+#: socket.c:174
 msgid "fetchmail: fork failed\n"
 msgstr "fetchmail: fork できませんでした。\n"
 
-#: socket.c:186
+#: socket.c:181
 msgid "dup2 failed\n"
 msgstr "dup2 ができませんでした。\n"
 
-#: socket.c:192
+#: socket.c:187
 #, c-format
 msgid "running %s (host %s service %s)\n"
 msgstr "%s を実行中です。(ホスト %s サービス %s)\n"
 
-#: socket.c:195
+#: socket.c:190
 #, c-format
 msgid "execvp(%s) failed\n"
 msgstr "execvp(%s) ができませんでした。\n"
 
-#: socket.c:286
+#: socket.c:283
 #, c-format
 msgid "getaddrinfo(\"%s\",\"%s\") error: %s\n"
 msgstr "getaddrinfo(\"%s\",\"%s\") エラー: %s\n"
 
-#: socket.c:289
+#: socket.c:286
 msgid "Try adding the --service option (see also FAQ item R12).\n"
 msgstr ""
 "オプション --service を足して試してください(FAQ の R12 も参照のこと)。\n"
@@ -2871,149 +2969,211 @@ msgstr "不明 (%s)"
 msgid "Trying to connect to %s/%s..."
 msgstr "%s/%s へ接続しようとしています..."
 
-#: socket.c:314
+#: socket.c:315
 #, c-format
 msgid "cannot create socket: %s\n"
 msgstr "ソケット %s を作成できません\n"
 
-#: socket.c:330
+#: socket.c:317
+#, c-format
+msgid "name %d: cannot create socket family %d type %d: %s\n"
+msgstr "名前 %d: ソケットファミリー %d タイプ %d を作成できません: %s\n"
+
+#: socket.c:333
 msgid "connection failed.\n"
 msgstr "接続に失敗しました。\n"
 
-#: socket.c:332
+#: socket.c:335
 #, c-format
 msgid "connection to %s:%s [%s/%s] failed: %s.\n"
 msgstr "%s:%s への接続に失敗しました。バッファ [%s/%s] : %s\n"
 
-#: socket.c:338
+#: socket.c:336
+#, c-format
+msgid "name %d: connection to %s:%s [%s/%s] failed: %s.\n"
+msgstr "名前 %d: %s:%s [%s/%s] への接続を開けません: %s\n"
+
+#: socket.c:342
 msgid "connected.\n"
 msgstr "接続しました。\n"
 
-#: socket.c:616
+#: socket.c:355
+#, c-format
+msgid ""
+"Connection errors for this poll:\n"
+"%s"
+msgstr ""
+"今回の問い合わせで接続エラーが発生しました:\n"
+"%s"
+
+#: socket.c:621
+msgid "Server certificate:\n"
+msgstr "サーバ証明書:\n"
+
+#: socket.c:626
+#, c-format
+msgid "Certificate chain, from root to peer, starting at depth %d:\n"
+msgstr "root から peerへの証明書チェーンが深さ %d で始まります:\n"
+
+#: socket.c:629
+#, c-format
+msgid "Certificate at depth %d:\n"
+msgstr "深さ%d での証明書:\n"
+
+#: socket.c:635
 #, c-format
 msgid "Issuer Organization: %s\n"
 msgstr "発行元の組織: %s\n"
 
-#: socket.c:619
+#: socket.c:638
 msgid "Warning: Issuer Organization Name too long (possibly truncated).\n"
 msgstr "警告 : 発行元の組織名が長過ぎます。(捏造された可能性があります)\n"
 
-#: socket.c:621
+#: socket.c:640
 msgid "Unknown Organization\n"
 msgstr "不明な組織です。\n"
 
-#: socket.c:623
+#: socket.c:642
 #, c-format
 msgid "Issuer CommonName: %s\n"
 msgstr "発行元の CommonName: %s\n"
 
-#: socket.c:626
+#: socket.c:645
 msgid "Warning: Issuer CommonName too long (possibly truncated).\n"
 msgstr ""
 "警告 : 発行元の CommonName が長過ぎます。 (捏造された可能性があります)\n"
 
-#: socket.c:628
+#: socket.c:647
 msgid "Unknown Issuer CommonName\n"
 msgstr "不明な発行元の CommonName です。\n"
 
-#: socket.c:632
+#: socket.c:653
 #, c-format
-msgid "Server CommonName: %s\n"
-msgstr "サーバの CommonName: %s\n"
+msgid "Subject CommonName: %s\n"
+msgstr "Subject CommonName: %s\n"
 
-#: socket.c:637
+#: socket.c:659
 msgid "Bad certificate: Subject CommonName too long!\n"
 msgstr "不正証明書 : Subject CommonName が長過ぎます。\n"
 
-#: socket.c:643
-#, fuzzy
+#: socket.c:665
 msgid "Bad certificate: Subject CommonName contains NUL, aborting!\n"
-msgstr "不正証明書 : Subject CommonName が長過ぎます。\n"
+msgstr "不正証明書 : Subject CommonName が NUL を含んでいます。中止します。\n"
 
-#: socket.c:664
+#: socket.c:693
 #, c-format
 msgid "Subject Alternative Name: %s\n"
-msgstr ""
+msgstr "サブジェクトの別名: %s\n"
 
-#: socket.c:670
-#, fuzzy
+#: socket.c:699
 msgid "Bad certificate: Subject Alternative Name contains NUL, aborting!\n"
-msgstr "不正証明書 : Subject CommonName が長過ぎます。\n"
+msgstr "不正証明書 : サブジェクトの別名 が NUL を含んでいます。中止します。\n"
 
-#: socket.c:698
+#: socket.c:716
 #, c-format
 msgid "Server CommonName mismatch: %s != %s\n"
 msgstr "サーバの CommonName が一致しません : %s != %s\n"
 
-#: socket.c:705
+#: socket.c:723
 msgid "Server name not set, could not verify certificate!\n"
 msgstr "サーバ名が設定されておらず、証明書を検証できません。\n"
 
-#: socket.c:710
+#: socket.c:728
 msgid "Unknown Server CommonName\n"
 msgstr "不明なサーバの CommonName です。\n"
 
-#: socket.c:712
+#: socket.c:730
 msgid "Server name not specified in certificate!\n"
 msgstr "証明書中にサーバ名が指定されていません。\n"
 
-#: socket.c:724
+#: socket.c:742
 msgid "EVP_md5() failed!\n"
 msgstr "EVP_md5() ができませんでした。\n"
 
-#: socket.c:728
+#: socket.c:746
 msgid "Out of memory!\n"
 msgstr "メモリ不足です。\n"
 
-#: socket.c:736
+#: socket.c:754
 msgid "Digest text buffer too small!\n"
 msgstr "ダイジェストテキストバッファが少な過ぎます。\n"
 
-#: socket.c:742
+#: socket.c:760
 #, c-format
 msgid "%s key fingerprint: %s\n"
 msgstr "%s の key fingerprint は次の通りです。: %s \n"
 
-#: socket.c:746
+#: socket.c:764
 #, c-format
 msgid "%s fingerprints match.\n"
 msgstr "%s の fingerprints が一致しました。\n"
 
-#: socket.c:748
+#: socket.c:766
 #, c-format
 msgid "%s fingerprints do not match!\n"
 msgstr "%s の fingerprints が一致しませんでした。\n"
 
-#: socket.c:757
+#: socket.c:776
 #, c-format
 msgid "Server certificate verification error: %s\n"
 msgstr "サーバ証明書検証エラー: %s\n"
 
-#: socket.c:763
+#: socket.c:783
 #, c-format
 msgid "unknown issuer (first %d characters): %s\n"
 msgstr "不明な発行者 (はじめの %d 文字): %s\n"
 
-#: socket.c:850
+#: socket.c:784
+msgid ""
+"This error usually happens when the server provides an incomplete "
+"certificate chain, which is nothing fetchmail could do anything about.  For "
+"details, please see the README.SSL-SERVER document that comes with "
+"fetchmail.\n"
+msgstr ""
+"このエラーは通常、サーバが不完全な証明書チェーンを渡してきた時に起こります。"
+"fetchmail はどうすることもできません。詳しくは fetchmail に同梱されているド"
+"キュメント README.SSL-SERVER を参照してください。\n"
+
+#: socket.c:793
+#, c-format
+msgid ""
+"This means that the root signing certificate (issued for %s) is not in the "
+"trusted CA certificate locations, or that c_rehash needs to be run on the "
+"certificate directory. For details, please see the documentation of --"
+"sslcertpath and --sslcertfile in the manual page.\n"
+msgstr ""
+"これは、root が署名した証明書(%s のために発行されたもの)が信頼された CA 証明"
+"書の場所にないか、証明書ディレクトリで c_rehash を走らせる必要があることを示"
+"しています。詳しくは、マニュアルページの --sslcertpath と -sslcertfile につい"
+"ての記述を参照してください。\n"
+
+#: socket.c:885
 msgid "File descriptor out of range for SSL"
 msgstr "ファイル識別子が SSL としては長過ぎます。"
 
-#: socket.c:866
-#, fuzzy, c-format
+#: socket.c:901
+#, c-format
 msgid "Invalid SSL protocol '%s' specified, using default (SSLv23).\n"
 msgstr ""
 "無効な SSL プロトコル `%s' が指定されたため、デフォルト (SSLv23)を利用しま"
 "す。\n"
 
-#: socket.c:942
+#: socket.c:994
 msgid "Certificate/fingerprint verification was somehow skipped!\n"
 msgstr "証明書/fingerprint 検証が幾つか飛ばされました。\n"
 
-#: socket.c:1020
+#: socket.c:1011
+msgid ""
+"Warning: the connection is insecure, continuing anyways. (Better use --"
+"sslcertck!)\n"
+msgstr ""
+"警告:接続は保護されていません、続けます。(--sslcertckの使用をお勧めします!)\n"
+
+#: socket.c:1077
 msgid "Cygwin socket read retry\n"
 msgstr "Cygwin ソケット読み込み リトライ\n"
 
-#: socket.c:1023
+#: socket.c:1080
 msgid "Cygwin socket read retry failed!\n"
 msgstr "Cygwin ソケット読み込み リトライ が失敗しました!\n"
 
@@ -3060,55 +3220,57 @@ msgstr "Received のアドレスがありません。\n"
 msgid "found Received address `%s'\n"
 msgstr "Received のアドレスは `%s' です。\n"
 
-#: transact.c:592
-msgid "incorrect header line found while scanning headers\n"
-msgstr "ヘッダを解析中にエラーのある行を見つけました\n"
+#: transact.c:595
+msgid "incorrect header line found - see manpage for bad-header option\n"
+msgstr ""
+"ヘッダを解析中にエラーのある行を見つけました - man ページの bad-header オプ"
+"ションを読んでください\n"
 
-#: transact.c:594
+#: transact.c:597
 #, c-format
 msgid "line: %s"
 msgstr "該当行: %s "
 
-#: transact.c:1133
+#: transact.c:1137
 #, c-format
 msgid "no local matches, forwarding to %s\n"
 msgstr "%s という転送先に該当するものがありません。\n"
 
-#: transact.c:1148
+#: transact.c:1152
 msgid "forwarding and deletion suppressed due to DNS errors\n"
 msgstr "DNS の不調で転送と削除が出来ませんでした。\n"
 
-#: transact.c:1258
+#: transact.c:1263
 msgid "writing RFC822 msgblk.headers\n"
 msgstr "RFC822 msgblk.headers を書き込んでいます。\n"
 
-#: transact.c:1277
+#: transact.c:1282
 msgid "no recipient addresses matched declared local names"
 msgstr "こちらで宣言されたアドレスと受取手のアドレスが一致しませんでした。"
 
-#: transact.c:1284
+#: transact.c:1289
 #, c-format
 msgid "recipient address %s didn't match any local name"
 msgstr "受取手のアドレス %s に該当する物がありません。"
 
-#: transact.c:1293
+#: transact.c:1298
 msgid "message has embedded NULs"
 msgstr "メッセージに NUL が含まれています"
 
-#: transact.c:1301
+#: transact.c:1306
 msgid "SMTP listener rejected local recipient addresses: "
 msgstr "SMTP 受信プログラムが次のアドレスの受信を拒否しました : "
 
-#: transact.c:1440
+#: transact.c:1445
 msgid "error writing message text\n"
 msgstr "メッセージを書き込む際にエラーが発生しました\n"
 
-#: uid.c:250
+#: uid.c:249
 #, c-format
 msgid "Old UID list from %s:"
 msgstr "サーバ %s からの古い UID リスト :"
 
-#: uid.c:255 uid.c:266 uid.c:523 uid.c:573
+#: uid.c:253 uid.c:264 uid.c:309
 msgid " <empty>"
 msgstr " <ありません>"
 
@@ -3116,54 +3278,59 @@ msgstr " <ありません>"
 msgid "Scratch list of UIDs:"
 msgstr "UID のスクラッチリスト :"
 
-#: uid.c:517 uid.c:569
+#: uid.c:325 uid.c:374
 #, c-format
 msgid "Merged UID list from %s:"
 msgstr "サーバ %s からの UID リスト をマージしました :"
 
-#: uid.c:519
+#: uid.c:328
 #, c-format
 msgid "New UID list from %s:"
 msgstr "サーバ %s からの新たな UID リスト :"
 
-#: uid.c:548
+#: uid.c:355
 msgid "swapping UID lists\n"
 msgstr "UID リストを交換しています。\n"
 
-#: uid.c:556
+#: uid.c:363
 msgid "not swapping UID lists, no UIDs seen this query\n"
 msgstr "UID リストを交換しません。この交信に対する UID はありません。\n"
 
-#: uid.c:581
+#: uid.c:383
 msgid "discarding new UID list\n"
 msgstr "新しい UID リストを破棄しています。\n"
 
-#: uid.c:617
+#: uid.c:419
 msgid "Deleting fetchids file.\n"
 msgstr "fetchids ファイルを削除しています。\n"
 
-#: uid.c:620
+#: uid.c:422
 #, c-format
 msgid "Error deleting %s: %s\n"
 msgstr "エラーです。削除しています %s: %s\n"
 
-#: uid.c:626
+#: uid.c:428
 msgid "Writing fetchids file.\n"
 msgstr "fetchids ファイルを書き込み中です。\n"
 
-#: uid.c:645
+#: uid.c:439 uid.c:447
+#, c-format
+msgid "Write error on fetchids file %s: %s\n"
+msgstr "fetchids ファイル %s を書き込み中にエラーが発生しました:%s\n"
+
+#: uid.c:459
 #, c-format
 msgid "Error writing to fetchids file %s, old file left in place.\n"
 msgstr ""
 "fetchids ファイル %s の書込みでエラーが発生しました。古いファイルが残っていま"
 "す。\n"
 
-#: uid.c:649
+#: uid.c:463
 #, c-format
 msgid "Cannot rename fetchids file %s to %s: %s\n"
 msgstr "fetchids ファイルの名前を変更できません。%s から %sへ: %s\n"
 
-#: uid.c:653
+#: uid.c:467
 #, c-format
 msgid "Cannot open fetchids file %s for writing: %s\n"
 msgstr ""
@@ -3176,6 +3343,15 @@ msgstr "malloc できませんでした。\n"
 #: xmalloc.c:47
 msgid "realloc failed\n"
 msgstr "realloc できませんでした。\n"
+
+#~ msgid "(null)"
+#~ msgstr "(null)"
+
+#~ msgid "krb5_sendauth: %s [server says '%*s']\n"
+#~ msgstr "krb5_sendauth: %s [サーバの応答  '%*s']\n"
+
+#~ msgid "Server CommonName: %s\n"
+#~ msgstr "サーバの CommonName: %s\n"
 
 #~ msgid "message delimiter found while scanning headers\n"
 #~ msgstr "ヘッダを解析中にメッセージが終了してしまいました\n"

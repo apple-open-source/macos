@@ -77,7 +77,7 @@ bool DYLDCacheRep::candidate(FileDesc &fd)
 //
 // Default to system page size for segmented (paged) signatures
 //
-size_t DYLDCacheRep::pageSize()
+size_t DYLDCacheRep::pageSize(const SigningContext &)
 {
 	return segmentedPageSize;
 }

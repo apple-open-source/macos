@@ -36,10 +36,10 @@
 
 #if LDEBUG
     #if USE_ELG
-		#define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x AppleUSBCDC: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf());}
+		#define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x AppleUSBCDC: " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B));}
     #else /* not USE_ELG */
         #if USE_IOL
-            #define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x AppleUSBCDC: " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
+            #define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x AppleUSBCDC: " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B)); IOSleep(Sleep_Time);}
         #else
             #define XTRACE(id, x, y, msg)
         #endif /* USE_IOL */

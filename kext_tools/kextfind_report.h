@@ -131,4 +131,4 @@ Boolean reportEvalCommand(
     void * user_data,
     QEQueryError * error);
 
-#endif /* _KEXTFIND_REPORT_H_ */
+#endif

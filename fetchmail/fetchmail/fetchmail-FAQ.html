@@ -24,7 +24,7 @@ content="Frequently asked questions about fetchmail."/>
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home
 Page</a></td>
-<td width="30%" align="right">$Date: 2009-06-20 11:57:41 +0200 (Sa, 20. Jun 2009) $</td>
+<td width="30%" align="right">$Date$</td>
 </tr>
 </table>
 
@@ -35,7 +35,7 @@ Page</a></td>
 href="#G3">G3</a> for what information is required to get your problem
 solved as quickly as possible.</p>
 
-<p>Note that this FAQ is occasionally updated from the SVN repository
+<p>Note that this FAQ is occasionally updated from the Git repository
 and speaks in the past tense ("since") about a fetchmail release that is
 not yet available. Please try a release candidate for that version in
 case you need the new option.</p>
@@ -186,7 +186,9 @@ messages but before deleting them</a><br/>
 <a href="#R11">R11. My server is hanging or emitting errors on CAPA.</a><br/>
 <a href="#R12">R12. Fetchmail isn't working and reports getaddrinfo
     errors.</a><br />
-<a href="#R13">R13. What does "Interrupted system call" mean?</a>
+<a href="#R13">R13. What does "Interrupted system call" mean?</a><br />
+<a href="#R14">R14. Since upgrading fetchmail/OpenSSL, I can no longer connect!</a><br />
+<a href="#R15">R15. Help, I'm getting Authorization failure!</a><br />
 
 <h2 id="C_H">Hangs and lockups</h2>
 
@@ -246,6 +248,9 @@ fetchmail.</a><br/>
 messages.</a><br/>
 <a href="#X9">X9. Missing "Content-Transfer-Encoding" header
 with Domino IMAP</a><br/>
+<a href="#X10">X10. Fetchmail delivers partial messages</a><br/>
+
+
 <h2 id="C_O">Other problems</h2>
 
 <a href="#O1">O1. The --logfile option doesn't work if the logfile
@@ -317,8 +322,10 @@ fetchmail's code for years, which is a hint that open source code does
 not audit itself.</p>
 
 <p>Fetchmail is licensed under the <a
-href="http://www.gnu.org/copyleft/gpl.html">GNU General Public
-License</a>.</p>
+href="http://www.gnu.org/licenses/old-licenses/gpl-2.0.html">GNU General Public
+License v2</a>. Details, including an exception that allows linking
+against OpenSSL, are in the COPYING file in the fetchmail
+distribution.</p>
 
 <p>If you found this FAQ in the distribution, see the README for
 fetchmail's full feature list.</p>
@@ -347,7 +354,9 @@ save us both time if you upgrade and test with <a href="#G2">the latest
 <p>Bugs will be fixed, provided you include enough diagnostic information
 for me to go on. Send bugs to <a
 href="mailto:fetchmail-users@lists.berlios.de">fetchmail-users</a>.
-When reporting bugs, please include the following:</p>
+When sending bugs or asking for help, please <strong>do not make up
+    information except your password</strong> and please
+<strong>report</strong> the following:</p>
 
 <ol>
 <li>Your operating system.</li>
@@ -535,16 +544,7 @@ minority also feature IMAP (you can detect IMAP support by using the
 utility - unfortunately it does not detect SSL-wrapped variants).</p>
 
 <p>If you have the option, we recommend using or installing an
-IMAP4rev1 or UIDL- and TOP-capable POP3 server. IMAP enables some
-significant performance optimizations.</p>
-
-<p>Don't be fooled by NT/Exchange propaganda. M$ Exchange is just
-plain broken (see item <a href="#S2">S2</a>) and NT cannot handle
-the sustained load of a high-volume remote mail server. Even
-Microsoft itself knows better than to try this; their own Hotmail
-service runs over Solaris! For extended discussion, see John
-Kirch's excellent <a href="http://unix-vs-nt.org/kirch/">white
-paper</a> on Unix vs. NT performance.</p>
+IMAP4rev1 or UIDL-capable POP3 server.</p>
 
 <p>A decent POP3/IMAP server that has recently become popular is <a
     href="http://dovecot.org/">Dovecot</a>.</p>
@@ -1601,28 +1601,32 @@ other RFC-compliant server. IMAP is alleged to work OK, though.</p>
 attachments on the floor, though.  Microsoft acknowledges this
 as a known bug and apparently has no plans to fix it.</p>
 
-<p>Fetchmail using IMAP supports the proprietary NTLM mode used
-with M$ Exchange servers. To enable this, configure fetchmail with
+<p>Fetchmail using IMAP usually supports the proprietary NTLM mode used
+with Microsoft Exchange servers. "Usually" here means that it fails on some
+servers for reasons that we haven't been able to debug yet, perhaps it's
+related to the NTLM domain.</p>
+
+<p>To enable this NTLM mode, configure fetchmail with
 the --enable-NTLM option and recompile it. Specify a user option
 value that looks like 'user@domain': the part to the left of the @
 will be passed as the username and the part to the right as the
 NTLM domain.</p>
 
-<p>M$ Exchange violates the POP3 and IMAP RFCs. Its LIST command
+<p>Microsoft Exchange violates the POP3 and IMAP RFCs. Its LIST command
 does not reveal the real sizes of mail in the pop mailbox, but the
 sizes of the compressed versions in the exchange mail database
 (thanks to Arjan De Vet and Guido Van Rooij for alerting us to this
 problem).</p>
 
-<p>Fetchmail works with M$ Exchange, despite this brain damage. Two
-features are compromised. One is that the --limit option will not
+<p>Fetchmail works with Microsoft Exchange, despite this brain damage.
+Two features are compromised. One is that the --limit option will not
 work right (it will check against compressed and not actual sizes).
 The other is that a too-small SIZE argument may be passed to your
 ESMTP listener, assuming you're using one (this should not be a
 problem unless the actual size of the message is above the
 listener's configured length limit).</p>
 
-<p>Somewhat belatedly, I've learned that there's supposed to be a
+<p>ESR learned that there's supposed to be a
 registry bit that can fix this breakage:</p>
 
 <pre>
@@ -1686,7 +1690,7 @@ reported in KB Q168109)</dt>
 deleted.</dd>
 </dl>
 
-<p>The Microsoft pod-person who revealed this information to me
+<p>The Microsoft employee who revealed this information to ESR
 admitted that he couldn't find it anywhere in their public
 knowledge base.</p>
 
@@ -1694,7 +1698,7 @@ knowledge base.</p>
 as its symptom a response to LOGIN that says "NO Ambiguous Alias".
 Grant Edwards writes:</p>
 
-<p>This means that Exchange Server is too f*&amp;#ing stupid to
+<blockquote><p>This means that Exchange Server is too [...] stupid to
 figure out which mailbox belongs to you. Instead of actually
 keeping track of which inbox belongs to which user, it uses some
 half-witted, guess-o-matic heuristic to try to guess your mailbox
@@ -1702,9 +1706,7 @@ name from your username.</p>
 
 <p>In your case it doesn't work because your username maps to more
 than one mailbox. For some people it doesn't work because their
-username maps to zero mailboxes. This is yet another inept, lame,
-almost criminally negligent design decision from our friends in
-Redmond.</p>
+username maps to zero mailboxes.</p>
 
 <p>You've got several options:</p>
 
@@ -1715,6 +1717,7 @@ usernames and mailbox names are the same.</li>
 <li>Get your administrator to add an alias that maps your username
 explicitly to your mailbox name.</li>
 </ul>
+</blockquote>
 
 <p>But, the best option involves finding a server that runs better
 software.</p>
@@ -1728,10 +1731,7 @@ href="#S2">Microsoft Exchange</a>. The message sizes it gives in
 the LIST are rounded to the nearest 1024 bytes. It also has a nasty
 habit of discarding headers it doesn't recognize, such as X- and
 Resent- headers.</p>
-
-<p>As with M$ Exchange, the only real fix for these problems is to
-get a POP (or preferably IMAP) server that isn't brain-dead.
-OpenMail's project manager claims these bugs have been fixed in
+<p>OpenMail's project manager claims these bugs have been fixed in
 6.0.</p>
 
 <p>We've had a more recent report (December 2001) that the TOP
@@ -1740,13 +1740,11 @@ on something identifying itself as "OpenMail POP3 interface".</p>
 
 <h2><a id="S4" name="S4">S4. How can I use fetchmail with Novell GroupWise?</a></h2>
 
-<p>The Novell GroupWise IMAP server would be better named
-GroupFoolish; it is (according to the designer of IMAP) unusably
-broken. Among other things, it doesn't include a required content
-length in its BODY[TEXT] response.</p>
+<p>The Novell GroupWise IMAP server is (according to the designer of
+IMAP) unusably broken. Among other things, it doesn't include a required
+content length in its BODY[TEXT] response.</p>
 
-<p>Fetchmail works around this problem, but we strongly recommend
-voting with your dollars for a server that isn't brain-dead.</p>
+<p>Fetchmail works around this problem to some extent, but no guarantees.</p>
 
 <h2><a id="S5" name="S5">S5. How can I use fetchmail with
 InterChange?</a></h2>
@@ -1757,9 +1755,9 @@ attachments. InterChange has a bug similar to the MailMax server (<a
 it reports the message length with attachments but doesn't download
 them on TOP or RETR.</p>
 
-<p>On Jan 9 2001, the people at InfiniteMail sent me mail informing
-me that their new 3.61.08 release of InterChange fixes this
-problem. I don't have any reports one way or the other yet.</p>
+<p>On Jan 9 2001, the people at InfiniteMail sent ESR mail informing
+him that their new 3.61.08 release of InterChange fixed this
+problem.</p>
 
 <h2><a id="S6" name="S6">S6. How can I use fetchmail with MailMax?</a></h2>
 
@@ -2077,13 +2075,15 @@ IMAP-GSS protocol?</a></h2>
 <p>Fetchmail can use RFC1731 GSSAPI authorization to safely
 identify you to your IMAP server, as long as you can share
 Kerberos&nbsp;V credentials with your mail host and you have a GSSAPI-capable
-IMAP server - those are few.</p>
+IMAP server.</p>
 
 <p>fetchmail does not compile in support for GSS by
-default, since it requires libraries from the Kerberos V
-distribution (available via FTP at <a
-href="ftp://athena-dist.mit.edu/pub/ATHENA/kerberos">athena-dist.mit.edu</a>).
-If you have these, compiling in GSS support is simple: add a
+default, since it requires libraries from a Kerberos V
+distribution, such as <a href="http://web.mit.edu/Kerberos/">MIT
+    Kerberos</a> or <a href="http://www.h5l.org/">Heimdal
+    Kerberos</a>.</p>
+
+<p>If you have these, compiling in GSS support is simple: add a
 <code>--with-gssapi=[/path/to/krb5/root]</code> option to
 configure. For instance, I have all of my Kerberos V libraries
 installed under /usr/krb5 so I run <code>configure
@@ -2111,7 +2111,7 @@ SSL?</a></h2>
 
 <p>You'll need to have the <a
 href="http://www.openssl.org/">OpenSSL</a> libraries installed, and they
-should at least be version 0.9.6.
+should at least be version 0.9.7.
 Configure with --with-ssl. If you have the OpenSSL libraries
 installed in commonly-used default locations, this will
 suffice. If you have them installed in a non-default location,
@@ -2480,6 +2480,54 @@ declaration <tt>auth password</tt> in your .fetchmailrc.</p>
 interrupt long-running functions and will then be reported as
 "Interrupted system call". These can sometimes be timeouts.</p>
 
+<h2><a id="R14" name="R14">R14. Since upgrading fetchmail/OpenSSL, I can no longer connect!</a></h2>
+
+<p>If the upgrade you did encompassed an upgrade to OpenSSL 1.0.0 or newer, you
+may need to run <code>c_rehash</code> on your certificate directories,
+particularly if you are using local certs directories (f. i. through fetchmail's <code>--sslcertpath</code> option).</p>
+
+<p>Reason: OpenSSL 1.0.0, relative to earlier versions, uses a different hash
+for the symbolic links (symlinks) in its <code>certs/</code> directory, so you
+need to recreate the symlinks by running <kbd>c_rehash
+	/etc/ssl/certs</kbd> (adjust this to where your installation keeps its
+certificates), and you cannot easily share this certs directory with
+applications linked against older OpenSSL versions.</p>
+
+<p>Note: OpenSSL's <code>c_rehash</code> script is broken in several versions,
+which can cause malfunction if several OpenSSL tools versions are installed in
+parallel in separate directories. In such cases, you may need a workaround to
+get things going. Assuming your OpenSSL 1.0.0 is installed in
+<code>/opt/openssl1.0.0</code> and your certificates are in
+<code>/home/hans/certs</code>, you'd do this (the corresponding fetchmail
+option is <kbd>--sslcertpath /home/hans/certs</kbd> on the commandline and
+<kbd>sslcertpath /home/hans/cert</kbd> in the rcfile):</p>
+
+<pre>
+env PATH=/opt/openssl1.0.0/bin /opt/openssl1.0.0/bin/c_rehash /home/hans/certs
+</pre>
+
+<h2><a id="R15" name="R15">R15. Help, I'm getting Authorization failure!</a></h2>
+
+<p>Fetchmail by default attempts to authenticate using various schemes.
+Fetchmail tries these schemes in order of descending security, meaning
+the most secure schemes are tried first.</p>
+
+<p>However, sometimes the server offers a secure authentication scheme
+that is not properly configured, or an authentication scheme such as
+GSSAPI does requires credentials to be acquired externally. In some
+situations, fetchmail cannot know the scheme will fail without trying
+it. In most cases, fetchmail should proceed to the next authentication
+scheme automatically, but this sometimes does not work.</p>
+
+<p><strong>Solution:</strong> Configure the right authentication scheme
+explicitly, for instance, with <kbd>--auth cram-md5</kbd> or <kbd>--auth
+    password</kbd> on the command line or <code>auth "cram-md5"</code> or
+	<code>auth "password"</code> in the rcfile. Details can be found
+	in the manual page.<br />
+	<strong>Note</strong> that auth password should only be used
+	across secure links (see the sslcertck and ssl/sslproto options).
+	</p>
+
 <hr/>
 <h1>Hangs and lockups</h1>
 <h2><a id="H1" name="H1">H1. Fetchmail hangs when used with
@@ -2535,7 +2583,7 @@ configuration of sendmail. You must enable the 'nodns' and
 <h2><a id="H3" name="H3">H3. Fetchmail hangs while fetching
 mail.</a></h2>
 
-<p>The symption: 'fetchmail -v' retrieves the first few messages,
+<p>Symptom: 'fetchmail -v' retrieves the first few messages,
 but hangs returning:</p>
 
 <pre>
@@ -3148,9 +3196,8 @@ mailtool's format.</p>
 <h2><a id="X7" name="X7">X7. Some mail attachments are hanging
 fetchmail.</a></h2>
 
-<p>This isn't fetchmail's problem either; fetchmail doesn't know
-anything about mail attachments and doesn't treat them any
-differently from plain message data.</p>
+<p>Fetchmail doesn't know anything about mail attachments and doesn't
+treat them any differently from plain message data.</p>
 
 <p>The most usual cause of this problem seems to be bugs in your
 network transport layer's capability to handle the very large
@@ -3171,51 +3218,49 @@ Hayes mode escape "+++".</p>
 <h2><a id="X8" name="X8">X8. A spurious ) is being appended to my
 messages.</a></h2>
 
-<p>Blame it on that rancid pile of dung and offal called Microsoft
-Exchange. Due to the problem described in <a href="#S2">S2</a>, the
-IMAP support in fetchmail cannot follow the IMAP protocol 100%.
+<p>Due to the problem described in <a href="#S2">S2</a>, the
+IMAP support in fetchmail cannot follow the IMAP protocol 100&nbsp;%.
 Most of the time it doesn't matter, but if you combine it with an
 SMTP server that behaves unusually, you'll get a spurious ) at
-message end.</p>
+the message end.</p>
 
 <p>One piece of software that can trigger this is the Interchange
 mail server, as used by, e.g., mailandnews.com. Here's what
 happens:</p>
 
-<p>1. Someone sends mail to your account. The last line of the
+<ol><li>Someone sends mail to your account. The last line of the
 message contains text. So at the SMTP level, the message ends with,
-e.g. "blahblah\r\n.\r\n"</p>
+e.g. "blahblah\r\n.\r\n"</li>
 
-<p>2. The SMTP handler sees the final "\r\n.\r\n" and recognizes
+<li>The SMTP handler sees the final "\r\n.\r\n" and recognizes
 the end of the message. However, instead of doing the normal thing,
 which is tossing out the ".\r\n" and leaving the first '\r\n' as
 part of the email body, Interchange throws out the whole
 "\r\n.\r\n", and leaves the email body without any line terminator
 at the end of it. RFC821 does not forbid this, though it probably
-should.</p>
+should.</li>
 
-<p>3. Fetchmail, or some other IMAP client, asks for the message.
+<li>Fetchmail, or some other IMAP client, asks for the message.
 IMAP returns it, but it's enclosed inside parentheses, according to
 the protocol. The message size in bytes is also present. Because
 the message doesn't end with a line terminator, the IMAP client
-sees:</p>
+sees:
 
 <pre>
-
  ....blahblah)...
 </pre>
 
-<p>where the ')' is from IMAP.</p>
+<p>where the ')' is from IMAP.</p></li>
 
-<p>4. Fetchmail only deals with complete lines, and can't trust the
-stated message size because Microsoft Exchange fscks it up.</p>
+<li>Fetchmail only deals with complete lines, and can't trust the
+stated message size because Microsoft Exchange goofs it up.</li>
 
-<p>5. As a result, fetchmail takes the final 'blahblah)' and puts
+<li>As a result, fetchmail takes the final 'blahblah)' and puts
 it at the end of the message it forwards on. If you have verbosity
-on, you'll get a message about actual != expected.</p>
+on, you'll get a message about actual != expected.</li>
+</ol>
 
-<p>There is no fix for this. The nuke mentioned in <a
-href="#S2">S2</a> looks more tempting all the time.</p>
+<p>There is no fix for this.</p>
 
 <h2><a id="X9" name="X9">X9. Missing "Content-Transfer-Encoding" header
 	with Domino IMAP</a></h2>
@@ -3230,6 +3275,24 @@ MIME". Solution: switch Domino to "Keep in Sender's format".</p>
     href="http://lists.ccil.org/pipermail/fetchmail-friends/2006-March/010015.html">Anthony
     Kim's list post</a>
 </p>
+
+<h2><a id="X10" name="X10">X10. Fetchmail delivers partial
+	messages</a></h2>
+
+<p>Fetchmail is sometimes reported to deliver partial messages. This
+is usually related to network outages that occur while fetchmail is
+downloading a message body. In such cases, fetchmail has downloaded a
+complete header, so your header will be intact. The message body will be
+truncated, and fetchmail will later attempt to redownload the
+message (providing the server is standards conformant).</p>
+
+<p>The reason for the truncation is that fetchmail streams the body
+directly from the POP3/IMAP server into the SMTP/LMTP server or MDA (in
+order to save memory), so fetchmail has already written a part of the
+message before it notices it will be incomplete, and fetchmail cannot
+abort a transaction it has started, and it's unclear if it ever will be
+able to, because this is not standardized and the outcome will depend on
+the receiving software (be it SMTP/LMTP or MDA).</p>
 
 <hr/>
 <h1>Other problems</h1>
@@ -3534,7 +3597,7 @@ as of version 6.3.9. The message can safely be ignored.</p>
 <tr>
 <td width="30%">Back to <a href="index.html">Fetchmail Home
 Page</a></td>
-<td width="30%" align="right">$Date: 2009-06-20 11:57:41 +0200 (Sa, 20. Jun 2009) $</td>
+<td width="30%" align="right">$Date$</td>
 </tr>
 </table>
 

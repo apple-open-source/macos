@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)ungetc.c	8.2 (Berkeley) 11/3/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetc.c,v 1.16 2004/03/10 12:41:11 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetc.c,v 1.18 2008/04/17 22:17:54 jhb Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -162,7 +158,7 @@ __ungetc(int c, FILE *fp)
 	 * Initially, we will use the `reserve' buffer.
 	 */
 	fp->_ur = fp->_r;
-	fp->_extra->_up = fp->_p;
+	fp->_up = fp->_p;
 	fp->_ub._base = fp->_ubuf;
 	fp->_ub._size = sizeof(fp->_ubuf);
 	fp->_ubuf[sizeof(fp->_ubuf) - 1] = c;

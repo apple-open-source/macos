@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 2008, International Business Machines Corporation and
+ * Copyright (C) 2008-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  *
@@ -35,16 +35,6 @@ union UHashTok;
 
 
 U_NAMESPACE_BEGIN
-
-U_CDECL_BEGIN 
-
-/**
- * @internal ICU 4.0
- */
-static UBool U_CALLCONV hashTableValueComparator(UHashTok val1, UHashTok val2) ;
-
-U_CDECL_END 
-
 
 /**
  * DateIntervalInfo is a public class for encapsulating localizable
@@ -96,22 +86,22 @@ U_CDECL_END
  * The largest different calendar fields between 2 calendars is the
  * first different calendar field in above order.
  *
- * For example: the largest different calendar fields between "Jan 10, 2007" 
- * and "Feb 20, 2008" is year.
+ * For example: the largest different calendar fields between &quot;Jan 10, 2007&quot; 
+ * and &quot;Feb 20, 2008&quot; is year.
  *   
  * <P>
  * There is a set of pre-defined static skeleton strings.
  * There are pre-defined interval patterns for those pre-defined skeletons
  * in locales' resource files.
- * For example, for a skeleton UDAT_YEAR_ABBR_MONTH_DAY, which is  "yMMMd",
+ * For example, for a skeleton UDAT_YEAR_ABBR_MONTH_DAY, which is  &quot;yMMMd&quot;,
  * in  en_US, if the largest different calendar field between date1 and date2 
- * is "year", the date interval pattern  is "MMM d, yyyy - MMM d, yyyy", 
- * such as "Jan 10, 2007 - Jan 10, 2008".
- * If the largest different calendar field between date1 and date2 is "month",
- * the date interval pattern is "MMM d - MMM d, yyyy",
- * such as "Jan 10 - Feb 10, 2007".
- * If the largest different calendar field between date1 and date2 is "day",
- * the date interval pattern is ""MMM d-d, yyyy", such as "Jan 10-20, 2007".
+ * is &quot;year&quot;, the date interval pattern  is &quot;MMM d, yyyy - MMM d, yyyy&quot;, 
+ * such as &quot;Jan 10, 2007 - Jan 10, 2008&quot;.
+ * If the largest different calendar field between date1 and date2 is &quot;month&quot;,
+ * the date interval pattern is &quot;MMM d - MMM d, yyyy&quot;,
+ * such as &quot;Jan 10 - Feb 10, 2007&quot;.
+ * If the largest different calendar field between date1 and date2 is &quot;day&quot;,
+ * the date interval pattern is &quot;MMM d-d, yyyy&quot;, such as &quot;Jan 10-20, 2007&quot;.
  *
  * For date skeleton, the interval patterns when year, or month, or date is 
  * different are defined in resource files.
@@ -124,17 +114,17 @@ U_CDECL_END
  * in an interval pattern is the earlier date. There might be a locale in which
  * the first date in an interval pattern is the later date.
  * We use fallback format for the default order for the locale.
- * For example, if the fallback format is "{0} - {1}", it means
+ * For example, if the fallback format is &quot;{0} - {1}&quot;, it means
  * the first date in the interval pattern for this locale is earlier date.
- * If the fallback format is "{1} - {0}", it means the first date is the 
+ * If the fallback format is &quot;{1} - {0}&quot;, it means the first date is the 
  * later date.
  * For a particular interval pattern, the default order can be overriden
- * by prefixing "latestFirst:" or "earliestFirst:" to the interval pattern.
- * For example, if the fallback format is "{0}-{1}",
- * but for skeleton "yMMMd", the interval pattern when day is different is 
- * "latestFirst:d-d MMM yy", it means by default, the first date in interval
- * pattern is the earlier date. But for skeleton "yMMMd", when day is different,
- * the first date in "d-d MMM yy" is the later date.
+ * by prefixing &quot;latestFirst:&quot; or &quot;earliestFirst:&quot; to the interval pattern.
+ * For example, if the fallback format is &quot;{0}-{1}&quot;,
+ * but for skeleton &quot;yMMMd&quot;, the interval pattern when day is different is 
+ * &quot;latestFirst:d-d MMM yy&quot;, it means by default, the first date in interval
+ * pattern is the earlier date. But for skeleton &quot;yMMMd&quot;, when day is different,
+ * the first date in &quot;d-d MMM yy&quot; is the later date.
  * 
  * <P>
  * The recommended way to create a DateIntervalFormat object is to pass in 
@@ -161,8 +151,9 @@ U_CDECL_END
  * <P>
  * DateIntervalInfo are not expected to be subclassed. 
  * Data for a calendar is loaded out of resource bundles. 
- * To ICU 4.0, date interval patterns are only supported in Gregorian calendar. 
- * @draft ICU 4.0
+ * Through ICU 4.4, date interval patterns are only supported in the Gregorian
+ * calendar; non-Gregorian calendars are supported from ICU 4.4.1. 
+ * @stable ICU 4.0
 **/
 
 class U_I18N_API DateIntervalInfo : public UObject {
@@ -185,23 +176,23 @@ public:
 
     /** 
      * Construct DateIntervalInfo for the given locale,
-     * @param locale  the interval patterns are loaded from the Gregorian 
-     *                calendar data in this locale.
+     * @param locale  the interval patterns are loaded from the appropriate calendar
+     *                data (specified calendar or default calendar) in this locale.
      * @param status  output param set to success/failure code on exit
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     DateIntervalInfo(const Locale& locale, UErrorCode& status);
 
 
     /**
      * Copy constructor.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     DateIntervalInfo(const DateIntervalInfo&);
 
     /**
      * Assignment operator
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     DateIntervalInfo& operator=(const DateIntervalInfo&);
 
@@ -209,14 +200,14 @@ public:
      * Clone this object polymorphically.
      * The caller owns the result and should delete it when done.
      * @return   a copy of the object
-     * @draft    ICU4.0
+     * @stable ICU 4.0
      */
     virtual DateIntervalInfo* clone(void) const;
 
     /**
      * Destructor.
      * It is virtual to be safe, but it is not designed to be subclassed.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     virtual ~DateIntervalInfo();
 
@@ -271,7 +262,7 @@ public:
      *                         "year", the interval pattern for en_US when year
      *                         is different could be "'from' yyyy 'to' yyyy".
      * @param status           output param set to success/failure code on exit
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     void setIntervalPattern(const UnicodeString& skeleton, 
                             UCalendarDateFields lrgDiffCalUnit, 
@@ -286,7 +277,7 @@ public:
      * @param result     output param to receive the pattern
      * @param status     output param set to success/failure code on exit
      * @return a reference to 'result'
-     * @draft ICU 4.0 
+     * @stable ICU 4.0 
      */
     UnicodeString& getIntervalPattern(const UnicodeString& skeleton,
                                       UCalendarDateFields field,
@@ -297,7 +288,7 @@ public:
      * Get the fallback interval pattern.
      * @param  result   output param to receive the pattern
      * @return a reference to 'result'
-     * @draft ICU 4.0 
+     * @stable ICU 4.0 
      */
     UnicodeString& getFallbackIntervalPattern(UnicodeString& result) const;
 
@@ -313,7 +304,7 @@ public:
      *
      * @param fallbackPattern  fall-back interval pattern.
      * @param status           output param set to success/failure code on exit
-     * @draft ICU 4.0 
+     * @stable ICU 4.0 
      */
     void setFallbackIntervalPattern(const UnicodeString& fallbackPattern,
                                     UErrorCode& status);
@@ -323,7 +314,7 @@ public:
                              or not.
      * return default date ordering in interval pattern. TRUE if the first date
      *        in pattern is later date, FALSE otherwise.
-     * @draft ICU 4.0 
+     * @stable ICU 4.0 
      */
     UBool getDefaultOrder() const;
 
@@ -354,8 +345,6 @@ private:
      */
     friend class DateIntervalFormat;
 
-    friend UBool U_CALLCONV hashTableValueComparator(UHashTok val1, UHashTok val2) ;
-
     /**
      * Following is for saving the interval patterns.
      * We only support interval patterns on
@@ -372,6 +361,16 @@ private:
         kIPI_MINUTE,
         kIPI_MAX_INDEX
     };
+public:
+    /**
+     * Max index for stored interval patterns
+     * @internal ICU 4.4 
+     */
+     enum {
+     	kMaxIntervalPatternIndex = kIPI_MAX_INDEX
+     };
+private:
+
 
     /** 
      * Initialize the DateIntervalInfo from locale

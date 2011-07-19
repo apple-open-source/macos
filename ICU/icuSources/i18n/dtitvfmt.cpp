@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright (C) 2008, International Business Machines Corporation and
+* Copyright (C) 2008-2010, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -8,11 +8,13 @@
 *******************************************************************************
 */
 
+#include <typeinfo>  // for 'typeid' to work
+
 #include "unicode/dtitvfmt.h"
 
 #if !UCONFIG_NO_FORMATTING
 
-//FIXME: put in compilation
+//TODO: put in compilation
 //#define DTITVFMT_DEBUG 1
 
 #include "cstring.h"
@@ -53,10 +55,10 @@ static const char gDateTimePatternsTag[]="DateTimePatterns";
 
 
 // latestFirst:
-static const UChar gLaterFirstPrefix[] = {LOW_L, LOW_A, LOW_T, LOW_E, LOW_S,LOW_T, CAP_F, LOW_I, LOW_R, LOW_S, LOW_T, COLON, 0};
+static const UChar gLaterFirstPrefix[] = {LOW_L, LOW_A, LOW_T, LOW_E, LOW_S,LOW_T, CAP_F, LOW_I, LOW_R, LOW_S, LOW_T, COLON};
 
 // earliestFirst:
-static const UChar gEarlierFirstPrefix[] = {LOW_E, LOW_A, LOW_R, LOW_L, LOW_I, LOW_E, LOW_S, LOW_T, CAP_F, LOW_I, LOW_R, LOW_S, LOW_T, COLON, 0};
+static const UChar gEarlierFirstPrefix[] = {LOW_E, LOW_A, LOW_R, LOW_L, LOW_I, LOW_E, LOW_S, LOW_T, CAP_F, LOW_I, LOW_R, LOW_S, LOW_T, COLON};
 
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(DateIntervalFormat)
@@ -74,8 +76,6 @@ DateIntervalFormat* U_EXPORT2
 DateIntervalFormat::createInstance(const UnicodeString& skeleton, 
                                    const Locale& locale, 
                                    UErrorCode& status) {
-    DateFormat* dtfmt = DateFormat::createPatternInstance(skeleton, locale, status);
-
 #ifdef DTITVFMT_DEBUG
     char result[1000];
     char result_1[1000];
@@ -89,7 +89,7 @@ DateIntervalFormat::createInstance(const UnicodeString& skeleton,
 #endif
 
     DateIntervalInfo* dtitvinf = new DateIntervalInfo(locale, status);
-    return create(dtfmt, dtitvinf, &skeleton, status);
+    return create(locale, dtitvinf, &skeleton, status);
 }
 
 
@@ -107,9 +107,8 @@ DateIntervalFormat::createInstance(const UnicodeString& skeleton,
                                    const Locale& locale,
                                    const DateIntervalInfo& dtitvinf,
                                    UErrorCode& status) {
-    DateFormat* dtfmt = DateFormat::createPatternInstance(skeleton, locale, status);
     DateIntervalInfo* ptn = dtitvinf.clone();
-    return create(dtfmt, ptn, &skeleton, status);
+    return create(locale, ptn, &skeleton, status);
 }
 
 
@@ -117,7 +116,8 @@ DateIntervalFormat::DateIntervalFormat()
 :   fInfo(NULL),
     fDateFormat(NULL),
     fFromCalendar(NULL),
-    fToCalendar(NULL)
+    fToCalendar(NULL),
+    fDtpng(NULL)
 {}
 
 
@@ -126,7 +126,8 @@ DateIntervalFormat::DateIntervalFormat(const DateIntervalFormat& itvfmt)
     fInfo(NULL),
     fDateFormat(NULL),
     fFromCalendar(NULL),
-    fToCalendar(NULL) {
+    fToCalendar(NULL),
+    fDtpng(NULL) {
     *this = itvfmt;
 }
 
@@ -138,6 +139,7 @@ DateIntervalFormat::operator=(const DateIntervalFormat& itvfmt) {
         delete fInfo;
         delete fFromCalendar;
         delete fToCalendar;
+        delete fDtpng;
         if ( itvfmt.fDateFormat ) {
             fDateFormat = (SimpleDateFormat*)itvfmt.fDateFormat->clone();
         } else {
@@ -163,6 +165,9 @@ DateIntervalFormat::operator=(const DateIntervalFormat& itvfmt) {
         for ( i = 0; i< DateIntervalInfo::kIPI_MAX_INDEX; ++i ) {
             fIntervalPatterns[i] = itvfmt.fIntervalPatterns[i];
         }
+        if (itvfmt.fDtpng) {
+            fDtpng = itvfmt.fDtpng->clone();
+        }
     }
     return *this;
 }
@@ -173,6 +178,7 @@ DateIntervalFormat::~DateIntervalFormat() {
     delete fDateFormat;
     delete fFromCalendar;
     delete fToCalendar;
+    delete fDtpng;
 }
 
 
@@ -184,8 +190,8 @@ DateIntervalFormat::clone(void) const {
 
 UBool
 DateIntervalFormat::operator==(const Format& other) const {
-    if ( other.getDynamicClassID() == DateIntervalFormat::getStaticClassID() ) {
-        DateIntervalFormat* fmt = (DateIntervalFormat*)&other;
+    if (typeid(*this) == typeid(other)) {
+        const DateIntervalFormat* fmt = (DateIntervalFormat*)&other;
 #ifdef DTITVFMT_DEBUG
     UBool equal;
     equal = (this == fmt);
@@ -207,7 +213,9 @@ DateIntervalFormat::operator==(const Format& other) const {
                  fFromCalendar->isEquivalentTo(*fmt->fFromCalendar) &&
                  fToCalendar &&
                  fToCalendar->isEquivalentTo(*fmt->fToCalendar) &&
-                 fSkeleton == fmt->fSkeleton );
+                 fSkeleton == fmt->fSkeleton &&
+                 fDtpng &&
+                 (*fDtpng == *fmt->fDtpng) );
         int8_t i;
         for (i = 0; i< DateIntervalInfo::kIPI_MAX_INDEX && res == TRUE; ++i ) {
             res =   ( fIntervalPatterns[i].firstPart ==
@@ -235,8 +243,9 @@ DateIntervalFormat::format(const Formattable& obj,
 
     if ( obj.getType() == Formattable::kObject ) {
         const UObject* formatObj = obj.getObject();
-        if (formatObj->getDynamicClassID() == DateInterval::getStaticClassID()){
-            return format((DateInterval*)formatObj, appendTo, fieldPosition, status);
+        const DateInterval* interval = dynamic_cast<const DateInterval*>(formatObj);
+        if (interval != NULL){
+            return format(interval, appendTo, fieldPosition, status);
         }
     }
     status = U_ILLEGAL_ARGUMENT_ERROR;
@@ -277,8 +286,7 @@ DateIntervalFormat::format(Calendar& fromCalendar,
 
     // not support different calendar types and time zones
     //if ( fromCalendar.getType() != toCalendar.getType() ) {
-    if ( !fromCalendar.isEquivalentTo(toCalendar) ||
-         uprv_strcmp(fromCalendar.getType(), "gregorian") ) {
+    if ( !fromCalendar.isEquivalentTo(toCalendar) ) {
         status = U_ILLEGAL_ARGUMENT_ERROR;
         return appendTo;
     }
@@ -408,32 +416,42 @@ DateIntervalFormat::getDateFormat() const {
 }
 
 
-DateIntervalFormat::DateIntervalFormat(DateFormat* dtfmt,
+DateIntervalFormat::DateIntervalFormat(const Locale& locale,
                                        DateIntervalInfo* dtItvInfo,
                                        const UnicodeString* skeleton,
                                        UErrorCode& status) 
-:   fInfo(0),
-    fDateFormat(0),
-    fFromCalendar(0),
-    fToCalendar(0)
+:   fInfo(NULL),
+    fDateFormat(NULL),
+    fFromCalendar(NULL),
+    fToCalendar(NULL),
+    fDtpng(NULL)
 {
     if ( U_FAILURE(status) ) {
-        delete dtfmt;
         delete dtItvInfo;
         return;
     }
-    if ( dtfmt == NULL || dtItvInfo == NULL ) {
+    fDtpng = DateTimePatternGenerator::createInstance(locale, status);
+    SimpleDateFormat* dtfmt = createSDFPatternInstance(*skeleton, locale, 
+                                                    fDtpng, status);
+    if ( U_FAILURE(status) ) {
+        delete dtItvInfo;
+        delete fDtpng;
+        delete dtfmt;
+        return;
+    }
+    if ( dtfmt == NULL || dtItvInfo == NULL || fDtpng == NULL ) {
         status = U_MEMORY_ALLOCATION_ERROR;
         // safe to delete NULL
         delete dtfmt;
         delete dtItvInfo;
+        delete fDtpng;
         return;
     }
     if ( skeleton ) {
         fSkeleton = *skeleton;
     }
     fInfo = dtItvInfo;
-    fDateFormat = (SimpleDateFormat*)dtfmt;
+    fDateFormat = dtfmt;
     if ( dtfmt->getCalendar() ) {
         fFromCalendar = dtfmt->getCalendar()->clone();
         fToCalendar = dtfmt->getCalendar()->clone();
@@ -445,17 +463,38 @@ DateIntervalFormat::DateIntervalFormat(DateFormat* dtfmt,
 }
 
 
+SimpleDateFormat* U_EXPORT2
+DateIntervalFormat::createSDFPatternInstance(const UnicodeString& skeleton,
+                                             const Locale& locale,
+                                             DateTimePatternGenerator* dtpng,
+                                             UErrorCode& status)
+{
+    if ( U_FAILURE(status) ) {
+        return NULL;
+    }
+
+    const UnicodeString pattern = dtpng->getBestPattern(skeleton, status);
+    if ( U_FAILURE(status) ) {
+        return NULL;
+    }
+    SimpleDateFormat* dtfmt = new SimpleDateFormat(pattern, locale, status);
+    if ( U_FAILURE(status) ) {
+        delete dtfmt;
+        return NULL;
+    }
+    return dtfmt;
+}
+
 
 DateIntervalFormat* U_EXPORT2
-DateIntervalFormat::create(DateFormat* dtfmt,
+DateIntervalFormat::create(const Locale& locale,
                            DateIntervalInfo* dtitvinf,
                            const UnicodeString* skeleton,
                            UErrorCode& status) {
-    DateIntervalFormat* f = new DateIntervalFormat(dtfmt, dtitvinf, 
+    DateIntervalFormat* f = new DateIntervalFormat(locale, dtitvinf, 
                                                    skeleton, status);
     if ( f == NULL ) {
         status = U_MEMORY_ALLOCATION_ERROR;
-        delete dtfmt;
         delete dtitvinf;
     } else if ( U_FAILURE(status) ) {
         // safe to delete f, although nothing acutally is saved
@@ -499,7 +538,7 @@ DateIntervalFormat::create(DateFormat* dtfmt,
  *    includes year, month, and date when year, month, and date differs.
  * 
  * @param status          output param set to success/failure code on exit
- * @draft ICU 4.0 
+ * @stable ICU 4.0 
  */
 void 
 DateIntervalFormat::initializePattern(UErrorCode& status) {
@@ -507,11 +546,6 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
         return;
     }
     const Locale& locale = fDateFormat->getSmpFmtLocale();
-    DateTimePatternGenerator* dtpng = DateTimePatternGenerator::createInstance(locale, status);
-    if ( U_FAILURE(status) ) {
-        delete dtpng;
-        return;    
-    }
     if ( fSkeleton.isEmpty() ) {
         UnicodeString fullPattern;
         fDateFormat->toPattern(fullPattern);
@@ -525,9 +559,8 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
 #endif
         // fSkeleton is already set by createDateIntervalInstance()
         // or by createInstance(UnicodeString skeleton, .... )
-        fSkeleton = dtpng->getSkeleton(fullPattern, status);
+        fSkeleton = fDtpng->getSkeleton(fullPattern, status);
         if ( U_FAILURE(status) ) {
-            delete dtpng;
             return;    
         }
     }
@@ -548,9 +581,9 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
 
 
     /* the difference between time skeleton and normalizedTimeSkeleton are:
-     * 1. both 'H' and 'h' are normalized as 'h' in normalized time skeleton,
+     * 1. (Formerly, normalized time skeleton folded 'H' to 'h'; no longer true)
      * 2. 'a' is omitted in normalized time skeleton.
-     * 3. there is only one appearance for 'h', 'm','v', 'z' in normalized 
+     * 3. there is only one appearance for 'h' or 'H', 'm','v', 'z' in normalized 
      *    time skeleton
      *
      * The difference between date skeleton and normalizedDateSkeleton are:
@@ -581,9 +614,8 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
             if ( dateSkeleton.length() == 0 ) {
                 // prefix with yMd
                 timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort]);
-                UnicodeString pattern =dtpng->getBestPattern(timeSkeleton, status);
+                UnicodeString pattern = fDtpng->getBestPattern(timeSkeleton, status);
                 if ( U_FAILURE(status) ) {
-                    delete dtpng;
                     return;    
                 }
                 // for fall back interval patterns,
@@ -599,7 +631,6 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
         } else {
             // TODO: fall back
         }
-        delete dtpng;
         return;
     } // end of skeleton not found
     // interval patterns for skeleton are found in resource 
@@ -608,9 +639,8 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
     } else if ( dateSkeleton.length() == 0 ) {
         // prefix with yMd
         timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort]);
-        UnicodeString pattern =dtpng->getBestPattern(timeSkeleton, status);
+        UnicodeString pattern = fDtpng->getBestPattern(timeSkeleton, status);
         if ( U_FAILURE(status) ) {
-            delete dtpng;
             return;    
         }
         // for fall back interval patterns,
@@ -636,17 +666,17 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
         if ( !fieldExistsInSkeleton(UCAL_DATE, dateSkeleton) ) {
             // prefix skeleton with 'd'
             skeleton.insert(0, LOW_D);
-            setFallbackPattern(UCAL_DATE, skeleton, dtpng, status);
+            setFallbackPattern(UCAL_DATE, skeleton, status);
         }
         if ( !fieldExistsInSkeleton(UCAL_MONTH, dateSkeleton) ) {
             // then prefix skeleton with 'M'
             skeleton.insert(0, CAP_M);
-            setFallbackPattern(UCAL_MONTH, skeleton, dtpng, status);
+            setFallbackPattern(UCAL_MONTH, skeleton, status);
         }
         if ( !fieldExistsInSkeleton(UCAL_YEAR, dateSkeleton) ) {
             // then prefix skeleton with 'y'
             skeleton.insert(0, LOW_Y);
-            setFallbackPattern(UCAL_YEAR, skeleton, dtpng, status);
+            setFallbackPattern(UCAL_YEAR, skeleton, status);
         }
         
         /*
@@ -661,13 +691,11 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
 
         if ( U_FAILURE(status) ) {
             delete calData;
-            delete dtpng;
             return;
         }
 
         if ( calData == NULL ) {
             status = U_MEMORY_ALLOCATION_ERROR;
-            delete dtpng;
             return;
         }
        
@@ -679,11 +707,10 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
                                             (int32_t)DateFormat::kDateTime,
                                             &dateTimeFormatLength, &status);
         if ( U_FAILURE(status) ) {
-            delete dtpng;
             return;
         }
 
-        UnicodeString datePattern = dtpng->getBestPattern(dateSkeleton, status);
+        UnicodeString datePattern = fDtpng->getBestPattern(dateSkeleton, status);
 
         concatSingleDate2TimeInterval(dateTimeFormat, dateTimeFormatLength,
                                       datePattern, UCAL_AM_PM, status);
@@ -693,7 +720,6 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
                                       datePattern, UCAL_MINUTE, status);
         delete calData;
     }
-    delete dtpng;
 }
 
 
@@ -711,6 +737,7 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
     int32_t MCount = 0;
     int32_t yCount = 0;
     int32_t hCount = 0;
+    int32_t HCount = 0;
     int32_t mCount = 0;
     int32_t vCount = 0;
     int32_t zCount = 0;
@@ -757,9 +784,12 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
             timeSkeleton.append(ch);
             break;
           case LOW_H:
-          case CAP_H:
             timeSkeleton.append(ch);
             ++hCount;
+            break;
+          case CAP_H:
+            timeSkeleton.append(ch);
+            ++HCount;
             break;
           case LOW_M:
             timeSkeleton.append(ch);
@@ -773,7 +803,6 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
             ++vCount;
             timeSkeleton.append(ch);
             break;
-          // FIXME: what is the difference between CAP_V/Z and LOW_V/Z
           case CAP_V:
           case CAP_Z:
           case LOW_K:
@@ -817,7 +846,10 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
     }
 
     /* generate normalized form for time */
-    if ( hCount != 0 ) {
+    if ( HCount != 0 ) {
+        normalizedTimeSkeleton.append(CAP_H);
+    }
+    else if ( hCount != 0 ) {
         normalizedTimeSkeleton.append(LOW_H);
     }
     if ( mCount != 0 ) {
@@ -854,7 +886,7 @@ DateIntervalFormat::getDateTimeSkeleton(const UnicodeString& skeleton,
  * @return               whether the resource is found for the skeleton.
  *                       TRUE if interval pattern found for the skeleton,
  *                       FALSE otherwise.
- * @draft ICU 4.0
+ * @stable ICU 4.0
  */
 UBool 
 DateIntervalFormat::setSeparateDateTimePtn(
@@ -937,12 +969,11 @@ DateIntervalFormat::setSeparateDateTimePtn(
 void
 DateIntervalFormat::setFallbackPattern(UCalendarDateFields field,
                                        const UnicodeString& skeleton,
-                                       DateTimePatternGenerator* dtpng,
                                        UErrorCode& status) {
     if ( U_FAILURE(status) ) {
         return;
     }
-    UnicodeString pattern =dtpng->getBestPattern(skeleton, status);
+    UnicodeString pattern = fDtpng->getBestPattern(skeleton, status);
     if ( U_FAILURE(status) ) {
         return;
     }
@@ -1047,7 +1078,7 @@ DateIntervalFormat::setIntervalPattern(UCalendarDateFields field,
  *                              through extending skeleton or not.
  *                              TRUE if interval pattern is found by
  *                              extending skeleton, FALSE otherwise.
- * @draft ICU 4.0
+ * @stable ICU 4.0
  */
 UBool
 DateIntervalFormat::setIntervalPattern(UCalendarDateFields field,

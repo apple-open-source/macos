@@ -1,0 +1,41 @@
+Passwd
+======
+
+User is looked up using 'getpwnam()' call, which usually looks into
+'/etc/passwd' file, but depending on NSS
+[http://en.wikipedia.org/wiki/Name_Service_Switch] configuration it may also
+look up the user from eg. LDAP database.
+
+Most commonly used as a user database. Many systems use shadow passwords
+nowadays so it doesn't usually work as a password database. BSDs are an
+exception to this, they still set the password field even with shadow
+passwords.
+
+The lookup is by default done in the auth worker processes. If you have only a
+small local passwd file, you can avoid having extra auth worker processes by
+disabling it:
+
+---%<-------------------------------------------------------------------------
+userdb {
+  driver = passwd
+  args = blocking=no
+}
+---%<-------------------------------------------------------------------------
+
+Field overriding and extra fields
+---------------------------------
+
+It's possible to override fields from passwd and add <extra fields>
+[UserDatabase.ExtraFields.txt] with templates. For example:
+
+---%<-------------------------------------------------------------------------
+userdb {
+  driver = passwd
+  args = home=/var/mail/%u mail=maildir:/var/mail/%u/Maildir
+}
+---%<-------------------------------------------------------------------------
+
+This uses the UID and GID fields from passwd, but home directory is overridden.
+Also the default <mail_location> [MailLocation.txt] setting is overridden.
+
+(This file was created from the wiki on 2011-05-11 04:42)

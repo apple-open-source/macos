@@ -110,7 +110,9 @@
 		4.79, April 15, 2008
 		4.80, May 12, 2008
 		4.81, October 21, 2008
-		4.82, ??? ???, 2008
+		4.82, March 25, 2009
+		4.83, January 18, 2010
+		4.84, July 29, 2010
 
 
 Dialects Supported
@@ -122,10 +124,11 @@ version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
 	AIX 5.3
+	Apple Darwin 9 (Mac OS X 10.5)
 	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.[01] and 8.0 for AMD64-based systems
+	FreeBSD 7.[0123], 8.0 and 9.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
-	Solaris 9 and 10
+	Solaris 9, 10 and 11
 
 (The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
 contains information on other ports.)
@@ -4356,7 +4359,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		file system, "/".  Allan Nathanson <ajn@apple.com> reported
 		the bug.
 
-4.82		??? ??? 2008
+4.82		March 25, 2009
 		Corrected an over-zealous exclusion test that caused
 		lsof to report nothing when it was given no arguments
 		and built with HASSECURITY and HASNOSOCKSECURITY enabled.
@@ -4378,5 +4381,135 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		mini, provided by Apple Inc.  Allan also provided man
 		page corrections.
 
+		Updated the FreeBSD Makefile to use the ${MAKE} variable
+		for ZFS dnode2.c module compilation, based on a suggestion
+		from Alexis Ballier <aballier@gentoo.org>.
+
+		Improved the Solaris VxFS library location test, based on a
+		suggestion from Jason Fortezzo <fortezza@mechanicalism.net>.
+		Jason tested the change.
+
+		Updated Solaris 10 ZFS support for ZFS version 4 and ZFS
+		pool version 10, using a test system kindly provided by
+		Vladislav Nespor <vladislav.nespor@id.ethz.ch>.  Renata
+		Maria Dart <renata@slac.stanford.edu> tested on ZFS
+		version 4, verifying that the update works there, too.
+		(ZFS pool version 10 is apparently the ZFS version shipped
+		with the 10/08 update to Solaris.  The original ZFS
+		support targeted ZFS version 3.)
+
+		I still consider ZFS support in Solaris lsof a hack,
+		because it depends on a znode structure definition that
+		I developed using dbx.  Sun is remiss in not distributing
+		the ZFS header files used to build the distributed kernel.
+
+		Because of the znode structure definition hack, I can't
+		guarantee that lsof ZFS support will work for any other
+		versions of ZFS.
+
+		Solaris 10: adjusted to a change in the way devices are
+		stored in the kernel; fixed a problem in zone handling;
+		and added rudimentary sharedfs support.  Carson Gaspar
+		<carson@taltos.org> reported the device number problem,
+		provided a test system, and tested the changes.  Peter
+		Vines <psv2b@eservices.virginia.edu> reported the zone
+		handling problem and tested the fix.
+
+		Adapted to FreeBSD 8.0-CURRENT changes in device number
+		computation.  Problem was reported by Erwin Lansing
+		<erwin@FreeBSD.org>.  Larry Rosenman <ler@lerctr.org>
+		provided a test system.
+
+		Corrected Solaris Configure test for appropriate VxFS
+		library when using gcc to compile lsof.
+
+		Updated for loss of KAME IPv6 FreeBSD accommodations.
+
+		Adapted to FreeBSD 7.2.  Made Configure script recognized
+		FreeBSD 6.3.
+
+4.83		January 18, 2010
+		Converted Solaris 10 and above ZFS support to use the CTF
+		debugger library, libctf.  Code was supplied by Robert
+		Byrnes <Robert.Byrnes@deshaw.com>.
+
+		Corrected a typo in the testing of the LINUX_HASSELINUX
+		environment variable in the Configure script.  The error
+		was reported by Mike Frysinger <vapier@gentoo.org>.
+		At Mike's request made Configure script accept LSOF_RANLIB
+		(ranlib command), LSOF_CFGF (additional configuration flags)
+		and LSOF_CFGL (additional library specifications) from the
+		environment.
+
+		Enabled complilation of Solaris 10 lsof after a recent Sun
+		patch which changed the PC file system's structure. Peter
+		Vernam <pvernam@draper.com> reported the problem and helped
+		with the fix.
+
+		Made the sort of configuration CFLAGS in the CkTestDB
+		script impervious to locale settings.
+
+		Ported to Solaris 11, using a test system kindly provided
+		by David Day <dday76@gmail.com>.
+
+		Adjusted to the disappearance of <nfs/rpcv2.h> in FreeBSD
+		8.0-BETA1.
+
+		Changed Solaris node type lookup to a hashed method and
+		added some ability for it to handle duplicate vnodeop names
+		in /dev/ksyms.
+
+		Updated for FreeBSD 9.0-CURRENT.  Andrzej Tobola
+		<ato@iem.pw.edu.pl> provided a test system.  Extends the
+		fix to FreeBSD 6.0 and above via a Configure test and a
+		compile-time definition.  The need for the extension was
+		reported by Erik Trulsson <ertr1013@student.uu.se>>
+
+		Made corrections to FAQ typographical errors, suggested
+		by Josh Soref <timeless@gmail.com>.
+		
+		Added __UCLIBC__ test to Linux dlsof.h so lsof would compile
+		on an Intel ARM XScale processor.  The addition was provided
+		by Doug Kehn <rdkehn@yahoo.com>.
+
+		Added test for <utmpx.h> to FreeBSD configuration.  Improved
+		its use in lsof.h.  The changes were supplied by Martin Wilke
+		<miwi@FreeBSD.org>.
+
+4.84		July 29, 2010
+		Fixed a man page nroff command error with a correction
+		supplied by Josh Soref <timeless@gmail.com>.
+
+		Made Configure script recognize FreeBSD 7.3.  Larry Rosenman
+		<ler@lerctr.org> provided a test system.
+
+		Improved task support, initially for Linux only, with help
+		provided by Jerome Marchand <jmarchan@redhat.com> and
+		Miklos Szeredi <mszeredi@suse.cz>.  The support includes a
+		new compile-time definition, HASTASKS, and a new run time
+		option, "-K" to select task reporting.
+
+		While adding help output support for "-K", reorganized the
+		printing of help columns to make it much easier to add a new
+		option description.
+
+		Updated the Solaris PC file system structure patch in
+		revision 4.83 so it will compile with gcc.
+
+		Disabled the Solaris lgrp_root work-around in the Solaris
+		machine.h so it won't cause compilation problems on Solaris
+		11.  It no longer causes compilation problems on my Solaris
+		9 and 10 test systems, but some older Solaris 9 and 10
+		versions may still need it, so the work-around was left in
+		the Sun machine.h and a FAQ entry was created about it.
+
+		Updated for Solaris 11 b134, using a test system kindly
+		provided by Carson Gaspar <carson@taltos.org>.  Made
+		provisions for the next ZFS version.  Added info about
+		the failure of the LTnlink test on ZFS file systems.
+
+		Corrected typo in Configure scripted, reported by Dmitry
+		Berezin [dmitryb@oit.rutgers.edu.
+
 Vic Abell <abe@purdue.edu>
-??? ??? 2008
+July 29, 2010

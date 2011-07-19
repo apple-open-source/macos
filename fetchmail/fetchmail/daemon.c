@@ -57,13 +57,13 @@ static RETSIGTYPE
 sigchld_handler (int sig)
 /* process SIGCHLD to obtain the exit code of the terminating process */
 {
-    pid_t pid;
 #if 	defined(HAVE_WAITPID)				/* the POSIX way */
     int status;
 
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    while (waitpid(-1, &status, WNOHANG) > 0)
 	continue; /* swallow 'em up. */
 #elif 	defined(HAVE_WAIT3)				/* the BSD way */
+    pid_t pid;
 #if defined(HAVE_UNION_WAIT) && !defined(__FreeBSD__)
     union wait status;
 #else
@@ -208,7 +208,7 @@ nottyDetach:
   (void)close(0);
 
   /* Reopen stdin descriptor on /dev/null */
-  if ((fd = open("/dev/null", O_RDWR)) < 0) {   /* stdin */
+  if (open("/dev/null", O_RDWR) < 0) {   /* stdin */
     report(stderr, "cannot open /dev/null: %s\n", strerror(errno));
     return(PS_IOERR);
   }

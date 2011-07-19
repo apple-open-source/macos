@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,6 +52,7 @@
 
 #include <net/if.h>
 #include <sys/smb_apple.h>
+#include <sys/smb_byte_order.h>
 #include <sys/mchain.h>
 
 #include <netsmb/smb.h>
@@ -70,12 +71,6 @@
 struct smb_dev * smb_dtab[SMBMINORS];
 int smb_minor_hiwat = -1;
 #define SMB_GETDEV(dev)         (smb_dtab[minor(dev)])
-#define	SMB_CHECKMINOR(sdp, dev)	do { \
-				    sdp = SMB_GETDEV(dev); \
-				    if (sdp == NULL) \
-					return (ENXIO); \
-				} while(0)
-
 
 static d_open_t	 nsmb_dev_open;
 static d_close_t nsmb_dev_close;
@@ -100,7 +95,12 @@ static struct cdevsw nsmb_cdevsw = {
 
 int	smb_major = -1;
 
-extern lck_mtx_t  * dev_lck;
+extern lck_rw_t  * dev_rw_lck;
+extern lck_grp_t  * dev_lck_grp;
+extern lck_attr_t * dev_lck_attr;
+
+extern int dev_open_cnt;
+extern int unloadInProgress;
 
 static int
 nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
@@ -118,8 +118,10 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 		for (avail_minor = 1; avail_minor < SMBMINORS; avail_minor++)
 			if (!SMB_GETDEV(avail_minor))
 				break;
-		if (avail_minor >= SMBMINORS)
-			panic("smb: %d minor devices!", avail_minor);
+		if (avail_minor >= SMBMINORS) {
+			SMBERROR("Too many minor devices, %d >= %d !", avail_minor, SMBMINORS);
+			return (ENOMEM);
+		}
 		sdp = malloc(sizeof(*sdp), M_NSMBDEV, M_WAITOK);
 		bzero(sdp, sizeof(*sdp));
 		dev = makedev(smb_major, avail_minor);
@@ -127,14 +129,19 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 						kauth_cred_getuid(cred),
 						kauth_cred_getgid(cred),
 						0700, "nsmb%x", avail_minor);
-		if (!sdp->sd_devfs)
-			panic("smb: devfs_make_node 0700");
+		if (!sdp->sd_devfs) {
+			SMBERROR("devfs_make_node failed %d\n", avail_minor);
+			SMB_FREE(sdp, M_NSMBDEV);
+			return (ENOMEM);
+		}
 		if (avail_minor > smb_minor_hiwat)
 			smb_minor_hiwat = avail_minor;
 		SMB_GETDEV(dev) = sdp;
 		return (EBUSY);
 	}
+	lck_rw_init(&sdp->sd_rwlock, dev_lck_grp, dev_lck_attr);
 	sdp->sd_flags |= NSMBFL_OPEN;
+	dev_open_cnt++;
 	return (0);
 }
 
@@ -150,54 +157,57 @@ nsmb_dev_open(dev_t dev, int oflags, int devtype, struct proc *p)
 	DBG_ASSERT(sizeof(struct smbioc_rq) < SMB_MAX_IOC_SIZE);
 	DBG_ASSERT(sizeof(struct smbioc_t2rq) < SMB_MAX_IOC_SIZE);
 	DBG_ASSERT(sizeof(struct smbioc_rw) < SMB_MAX_IOC_SIZE);
-	lck_mtx_lock(dev_lck);
-	error = nsmb_dev_open_nolock(dev, oflags, devtype, p);
-	lck_mtx_unlock(dev_lck);
+	lck_rw_lock_exclusive(dev_rw_lck);
+	if (! unloadInProgress) {
+		error = nsmb_dev_open_nolock(dev, oflags, devtype, p);
+	} else {
+		SMBERROR("We are being unloaded\n");
+		error = EBUSY;
+	}
+
+	lck_rw_unlock_exclusive(dev_rw_lck);
 	return (error);
 }
 
 static int
-nsmb_dev_close_nolock(dev_t dev, int flag, int fmt, struct proc *p)
+nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 {
 #pragma unused(flag, fmt, p)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
-	struct smb_share *ssp;
+	struct smb_share *share;
 	vfs_context_t context;
 
-	SMB_CHECKMINOR(sdp, dev);
-	if ((sdp->sd_flags & NSMBFL_OPEN) == 0)
+ 	lck_rw_lock_exclusive(dev_rw_lck);
+ 	sdp = SMB_GETDEV(dev);
+	if ((sdp == NULL) || ((sdp->sd_flags & NSMBFL_OPEN) == 0)) {
+		lck_rw_unlock_exclusive(dev_rw_lck);
 		return (EBADF);
-
+    }
 	context = vfs_context_create((vfs_context_t)0);
-	ssp = sdp->sd_share;
+	/* over kill since we have the global device lock, but it looks cleaner */
+	lck_rw_lock_exclusive(&sdp->sd_rwlock);
+	share = sdp->sd_share;
 	sdp->sd_share = NULL; /* Just to be extra carefull */
-	if (ssp != NULL)
-		smb_share_rele(ssp, context);
+	if (share != NULL) {
+		smb_share_rele(share, context);
+	}
 	vcp = sdp->sd_vc;
 	sdp->sd_vc = NULL; /* Just to be extra carefull */
 	if (vcp != NULL) 
 		smb_vc_rele(vcp, context);
+	lck_rw_unlock_exclusive(&sdp->sd_rwlock);
 
 	devfs_remove(sdp->sd_devfs); /* first disallow opens */
 
 	vfs_context_rele(context);
 
 	SMB_GETDEV(dev) = NULL;
+	lck_rw_destroy(&sdp->sd_rwlock, dev_lck_grp);
 	free(sdp, M_NSMBDEV);
+	dev_open_cnt--;
+	lck_rw_unlock_exclusive(dev_rw_lck);
 	return (0);
-}
-
-
-static int
-nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
-{
-	int error;
-
-	lck_mtx_lock(dev_lck);
-	error = nsmb_dev_close_nolock(dev, flag, fmt, p);
-	lck_mtx_unlock(dev_lck);
-	return (error);
 }
 
 static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag, 
@@ -206,40 +216,68 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 #pragma unused(flag, p)
 	struct smb_dev *sdp;
 	struct smb_vc *vcp;
-	u_int32_t error = 0;
+	uint32_t error = 0;
 	vfs_context_t context;
 
-	SMB_CHECKMINOR(sdp, dev);
-	if ((sdp->sd_flags & NSMBFL_OPEN) == 0)
-		return (EBADF);
-
+	/* 
+	 * We allow mutiple ioctl calls, but never when opening, closing or 
+	 * getting the mount device 
+	 */
+	lck_rw_lock_shared(dev_rw_lck);
+	sdp = SMB_GETDEV(dev);
+	if ((sdp == NULL) || ((sdp->sd_flags & NSMBFL_OPEN) == 0)) {
+		error = EBADF;
+		goto exit;
+	}
 	context = vfs_context_create((vfs_context_t)0);
 	/* 
 	  *%%% K64 
 	 * Need to keep checking to see if this gets corrected. The problem here
-	 * is ioctl_cmd_t is u_int32_t on K64 builds. The _IO defines use sizeof
+	 * is ioctl_cmd_t is uint32_t on K64 builds. The _IO defines use sizeof
 	 * which returns a size_t. Hopefully either cmd will be changed to u_long
-	 * or the _IO defines will have sizeof typed cast to u_int32_t.
+	 * or the _IO defines will have sizeof typed cast to uint32_t.
 	 */
 	switch (cmd) {
+		case SMBIOC_FIND_VC:
 		case SMBIOC_NEGOTIATE:
 		{
+			int searchOnly = (cmd == SMBIOC_FIND_VC) ? TRUE : FALSE;
 			struct smbioc_negotiate * vspec = (struct smbioc_negotiate *)data;
 			
+			/* protect against anyone else playing with the smb dev structure */
+			lck_rw_lock_exclusive(&sdp->sd_rwlock);
 			/* Make sure the version matches */
 			if (vspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
 			} else if (sdp->sd_vc || sdp->sd_share) {
 				error = EISCONN;
 			} else {
-				error = smb_usr_negotiate(vspec, context, sdp);				
+				error = smb_usr_negotiate(vspec, context, sdp, searchOnly);				
 			}			
+			lck_rw_unlock_exclusive(&sdp->sd_rwlock);
+			break;
+		}
+		case SMBIOC_NTWRK_IDENTITY:
+		{
+			struct smbioc_ntwrk_identity * ntwrkID = (struct smbioc_ntwrk_identity *)data;
+
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+			/* Make sure the version matches */
+			if (ntwrkID->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				error = smb_usr_set_network_identity(sdp->sd_vc, ntwrkID);
+			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
 		case SMBIOC_SSNSETUP: 
 		{
 			struct smbioc_setup * sspec = (struct smbioc_setup *)data;
 			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			/* Make sure the version matches */
 			if (sspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -250,12 +288,46 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else {
 				error = smb_sm_ssnsetup(sdp->sd_vc, sspec, context);				
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
+			break;
+		}
+		case SMBIOC_CONVERT_PATH:
+		{
+			struct smbioc_path_convert * dp = (struct smbioc_path_convert *)data;
+			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+			/* Make sure the version matches */
+			if (dp->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				/* Take the 32 bit world pointers and convert them to user_addr_t. */
+				if (! vfs_context_is64bit (context)) {
+					dp->ioc_kern_src = CAST_USER_ADDR_T(dp->ioc_src);
+					dp->ioc_kern_dest = CAST_USER_ADDR_T(dp->ioc_dest);
+				}
+				if (!dp->ioc_kern_src || !dp->ioc_kern_dest) {
+					error = EINVAL;
+				} else if (((dp->ioc_direction & (LOCAL_TO_NETWORK | NETWORK_TO_LOCAL)) == 0) ||
+					((dp->ioc_direction & LOCAL_TO_NETWORK) && (dp->ioc_direction & NETWORK_TO_LOCAL))) {
+					/* Need to have one set and you can't have both set */
+					error = EINVAL;
+				} else if (dp->ioc_direction & LOCAL_TO_NETWORK) {
+					error = smb_usr_convert_path_to_network(sdp->sd_vc, dp);
+				} else {
+					error = smb_usr_convert_network_to_path(sdp->sd_vc, dp);
+				}
+			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
 		case SMBIOC_TCON:
 		{
 			struct smbioc_share * shspec = (struct smbioc_share *)data;
 			
+			/* protect against anyone else playing with the smb dev structure */
+			lck_rw_lock_exclusive(&sdp->sd_rwlock);
 			/* Make sure the version matches */
 			if (shspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -266,12 +338,15 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else  {
 				error = smb_sm_tcon(sdp->sd_vc, shspec, &sdp->sd_share, context);
 			}
+			lck_rw_unlock_exclusive(&sdp->sd_rwlock);
 			break;
 		}
 		case SMBIOC_TDIS: 
 		{
 			struct smbioc_share * shspec = (struct smbioc_share *)data;
 			
+			/* protect against anyone else playing with the smb dev structure */
+			lck_rw_lock_exclusive(&sdp->sd_rwlock);
 			/* Make sure the version match */
 			if (shspec->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -282,21 +357,76 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 				sdp->sd_share = NULL;
 				error = 0;
 			}
+			lck_rw_unlock_exclusive(&sdp->sd_rwlock);
 			break;			
 		}
-		case SMBIOC_GET_VC_FLAGS:
+		case SMBIOC_AUTH_INFO:
 		{
-			/* Get them the current settings of the vc flags */
-			if (!sdp->sd_vc) {
+			struct smbioc_auth_info * auth_info = (struct smbioc_auth_info *)data;
+			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+			if (auth_info->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (!sdp->sd_vc) {
 				error = ENOTCONN;
 			} else {
 				vcp = sdp->sd_vc;
-				*(u_int32_t *)data = vcp->vc_flags;				
+				auth_info->ioc_client_nt = vcp->vc_gss.gss_client_nt;				
+				auth_info->ioc_target_nt = vcp->vc_gss.gss_target_nt;
+				/* 
+				 * On input the client_size and target_size must be the max size
+				 * of the buffer. On output we set them to the correct size or
+				 * zero if the buffer is not big enough.
+				 */
+				if (vcp->vc_gss.gss_cpn_len >= auth_info->ioc_client_size) {
+					auth_info->ioc_client_size = vcp->vc_gss.gss_cpn_len;
+				} else {
+					auth_info->ioc_client_size = 0;
+				}
+				if (vcp->vc_gss.gss_spn_len >= auth_info->ioc_target_size) {
+					auth_info->ioc_target_size = vcp->vc_gss.gss_spn_len;
+				} else {
+					auth_info->ioc_target_size = 0;
+				}
+				if (vcp->vc_gss.gss_cpn && auth_info->ioc_client_size) {
+					error = copyout(vcp->vc_gss.gss_cpn, auth_info->ioc_client_name, 
+									(size_t)auth_info->ioc_client_size);
+					if (error) {
+						lck_rw_unlock_shared(&sdp->sd_rwlock);
+						break;
+					}
+				}
+				if (vcp->vc_gss.gss_spn && auth_info->ioc_target_size) {
+					error = copyout(vcp->vc_gss.gss_spn, auth_info->ioc_target_name, 
+									(size_t)auth_info->ioc_target_size);
+				}
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
+			break;
+		}
+		case SMBIOC_VC_PROPERTIES:
+		{
+			struct smbioc_vc_properties * properties = (struct smbioc_vc_properties *)data;
+			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+			if (properties->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (!sdp->sd_vc) {
+				error = ENOTCONN;
+			} else {
+				vcp = sdp->sd_vc;
+				properties->flags = vcp->vc_flags;				
+				properties->hflags2 = vcp->vc_hflags2;				
+				properties->txmax = vcp->vc_txmax;				
+				properties->rxmax = vcp->vc_rxmax;				
+				properties->wxmax = vcp->vc_wxmax;				
+			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
 		case SMBIOC_GET_OS_LANMAN:
 		{
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			if (!sdp->sd_vc) {
 				error = ENOTCONN;
 			} else {
@@ -307,29 +437,24 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 				if (vcp->NativeLANManager)
 					strlcpy(OSLanman->NativeLANManager, vcp->NativeLANManager, sizeof(OSLanman->NativeLANManager));
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
-		}
-		case SMBIOC_GET_VC_FLAGS2:
-		{
-			if (!sdp->sd_vc) {
-				error = ENOTCONN;
-			} else {
-				vcp = sdp->sd_vc;
-				*(u_int16_t *)data = vcp->vc_hflags2;
-			}
-			break;			
 		}
 		case SMBIOC_SESSSTATE:
 		{
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			/* Check to see if the VC is still up and running */
-			if (sdp->sd_vc && (SMB_TRAN_FATAL(sdp->sd_vc, 0) == 0))
-				*(u_int16_t *)data = EISCONN;
-			else 
-				*(u_int16_t *)data = ENOTCONN;
+			if (sdp->sd_vc && (SMB_TRAN_FATAL(sdp->sd_vc, 0) == 0)) {
+				*(uint16_t *)data = EISCONN;
+			} else {
+				*(uint16_t *)data = ENOTCONN;
+			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;			
 		}
 		case SMBIOC_CANCEL_SESSION:
 		{
+			/* The global device lock protect us here */
 			sdp->sd_flags |= NSMBFL_CANCEL;
 			break;			
 		}
@@ -337,6 +462,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		{
 			struct smbioc_rq * dp = (struct smbioc_rq *)data;
 			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			/* Make sure the version match */
 			if (dp->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -346,12 +472,14 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else {
 				error = smb_usr_simplerequest(sdp->sd_share, dp, context);
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
 		case SMBIOC_T2RQ: 
 		{
 			struct smbioc_t2rq * dp2 = (struct smbioc_t2rq *)data;
 			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			/* Make sure the version match */
 			if (dp2->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -360,6 +488,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			} else {
 				error = smb_usr_t2request(sdp->sd_share, dp2, context);				
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;		
 		}
 		case SMBIOC_READ: 
@@ -367,6 +496,7 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 		{
 			struct smbioc_rw *rwrq = (struct smbioc_rw *)data;
 			
+			lck_rw_lock_shared(&sdp->sd_rwlock);
 			/* Make sure the version match */
 			if (rwrq->ioc_version != SMB_IOC_STRUCT_VERSION) {
 				error = EINVAL;
@@ -389,16 +519,37 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 
 					uio_addiov(auio, rwrq->ioc_kern_base, rwrq->ioc_cnt);
 					fh = htoles(rwrq->ioc_fh);
+					/* All calls from user maintain a reference on the share */
 					if (cmd == SMBIOC_READ)
 						error = smb_read(sdp->sd_share, fh, auio, context);
-					else
-						error = smb_write(sdp->sd_share, fh, auio, context, SMBWRTTIMO);
+					else {
+						int ioFlags = (rwrq->ioc_writeMode & WritethroughMode) ? IO_SYNC : 0;
+						
+						error = smb_write(sdp->sd_share, fh, auio, ioFlags, context);
+					}
 					rwrq->ioc_cnt -= (int32_t)uio_resid(auio);
 					uio_free(auio);
 					
 				} else
 					error = ENOMEM;
 			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
+			break;
+		}
+		case SMBIOC_FSCTL:
+		{
+			struct smbioc_fsctl * fsctl = (struct smbioc_fsctl *)data;
+
+			lck_rw_lock_shared(&sdp->sd_rwlock);
+			/* Make sure the version match */
+			if (fsctl->ioc_version != SMB_IOC_STRUCT_VERSION) {
+				error = EINVAL;
+			} else if (sdp->sd_share == NULL) {
+				error = ENOTCONN;
+			} else {
+				error = smb_usr_fsctl(sdp->sd_share, fsctl, context);
+			}
+			lck_rw_unlock_shared(&sdp->sd_rwlock);
 			break;
 		}
 		default:
@@ -407,8 +558,10 @@ static int nsmb_dev_ioctl(dev_t dev, u_long cmd, caddr_t data, int flag,
 			break;
 		}
 	}
-
 	vfs_context_rele(context);
+    
+exit:		
+    lck_rw_unlock_shared(dev_rw_lck);
 	return (error);
 }
 
@@ -418,7 +571,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 #pragma unused(mod, arg)
 	int error = 0;
 
-	lck_mtx_lock(dev_lck);
+	lck_rw_lock_exclusive(dev_rw_lck);
 	switch (cmd) {
 	    case MOD_LOAD:
 			error = smb_sm_init();
@@ -485,35 +638,43 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 			error = EINVAL;
 			break;
 	}
-	lck_mtx_unlock(dev_lck);
+	lck_rw_unlock_exclusive(dev_rw_lck);
 	return (error);
 }
 
 DEV_MODULE(dev_netsmb, nsmb_dev_load, 0);
 
 int
-smb_dev2share(int fd, struct smb_share **sspp)
+smb_dev2share(int fd, struct smb_share **outShare)
 {
 	vnode_t vp;
-	struct smb_dev *sdp;
-	struct smb_share *ssp;
+	struct smb_dev *sdp = NULL;
+	struct smb_share *share;
 	dev_t dev = NODEV;
 	int error;
 
 	error = file_vnode_withvid(fd, &vp, NULL);
-	if (error)
+	if (error) {
 		return (error);
-	if (vp)
-		dev = vn_todev(vp);
-	if (dev == NODEV) {
-		file_drop(fd);
-		return (EBADF);
 	}
-	SMB_CHECKMINOR(sdp, dev);
-	ssp = sdp->sd_share;
-	if (ssp == NULL) {
-		file_drop(fd);
-		return (ENOTCONN);		
+	lck_rw_lock_exclusive(dev_rw_lck);
+	if (vp) {
+		dev = vn_todev(vp);
+	}
+	if (dev != NODEV) {
+		sdp = SMB_GETDEV(dev);
+	}
+	if (sdp == NULL) {
+		error = EBADF;
+		goto done;
+	}
+	/* over kill since we have the global device lock, but it looks cleaner */
+	lck_rw_lock_exclusive(&sdp->sd_rwlock);
+	share = sdp->sd_share;
+	if (share == NULL) {
+		lck_rw_unlock_exclusive(&sdp->sd_rwlock);
+ 		error = ENOTCONN;
+		goto done;
 	}
 	/*
 	 * The share is already referenced by the TCON ioctl
@@ -522,8 +683,11 @@ smb_dev2share(int fd, struct smb_share **sspp)
 	 * another tree connect and mount, in the automounter case
 	 */
 	sdp->sd_share = NULL;
-	*sspp = ssp;
+	lck_rw_unlock_exclusive(&sdp->sd_rwlock);
+	*outShare = share;
+done:
 	file_drop(fd);
-	return (0);
+	lck_rw_unlock_exclusive(dev_rw_lck);
+	return (error);
 }
 

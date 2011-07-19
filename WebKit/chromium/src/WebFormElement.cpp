@@ -31,6 +31,7 @@
 #include "config.h"
 #include "WebFormElement.h"
 
+#include "FormState.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
@@ -55,16 +56,21 @@ WebString WebFormElement::action() const
     return constUnwrap<HTMLFormElement>()->action();
 }
 
-WebString WebFormElement::name() const 
+WebString WebFormElement::name() const
 {
     return constUnwrap<HTMLFormElement>()->name();
 }
 
-WebString WebFormElement::method() const 
+WebString WebFormElement::method() const
 {
     return constUnwrap<HTMLFormElement>()->method();
 }
-    
+
+bool WebFormElement::wasUserSubmitted() const
+{
+    return constUnwrap<HTMLFormElement>()->wasUserSubmitted();
+}
+
 void WebFormElement::submit()
 {
     unwrap<HTMLFormElement>()->submit();
@@ -77,15 +83,21 @@ void WebFormElement::getNamedElements(const WebString& name,
     unwrap<HTMLFormElement>()->getNamedElements(name, tempVector);
     result.assign(tempVector);
 }
-    
+
 void WebFormElement::getFormControlElements(WebVector<WebFormControlElement>& result) const
 {
     const HTMLFormElement* form = constUnwrap<HTMLFormElement>();
     Vector<RefPtr<HTMLFormControlElement> > tempVector;
-    for (size_t i = 0; i < form->formElements.size(); i++) {
-        if (form->formElements[i]->hasLocalName(HTMLNames::inputTag)
-            || form->formElements[i]->hasLocalName(HTMLNames::selectTag))
-            tempVector.append(form->formElements[i]);
+    // FIXME: We should move the for-loop condition into a variable instead of
+    // re-evaluating size each time. Also, consider refactoring this code so that
+    // we don't call form->associatedElements() multiple times.
+    for (size_t i = 0; i < form->associatedElements().size(); i++) {
+        if (!form->associatedElements()[i]->isFormControlElement())
+            continue;
+        HTMLFormControlElement* element = static_cast<HTMLFormControlElement*>(form->associatedElements()[i]);
+        if (element->hasLocalName(HTMLNames::inputTag)
+            || element->hasLocalName(HTMLNames::selectTag))
+            tempVector.append(element);
     }
     result.assign(tempVector);
 }

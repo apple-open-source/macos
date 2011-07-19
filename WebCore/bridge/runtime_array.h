@@ -26,13 +26,14 @@
 #ifndef RUNTIME_ARRAY_H_
 #define RUNTIME_ARRAY_H_
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include <runtime/ArrayPrototype.h>
 
 namespace JSC {
     
 class RuntimeArray : public JSArray {
 public:
+    typedef Bindings::Array BindingsArray;
     RuntimeArray(ExecState*, Bindings::Array*);
     virtual ~RuntimeArray();
 
@@ -46,11 +47,9 @@ public:
     virtual bool deleteProperty(ExecState* exec, const Identifier &propertyName);
     virtual bool deleteProperty(ExecState* exec, unsigned propertyName);
     
-    virtual const ClassInfo* classInfo() const { return &s_info; }
-    
     unsigned getLength() const { return getConcreteArray()->getLength(); }
     
-    Bindings::Array* getConcreteArray() const { return static_cast<Bindings::Array*>(subclassData()); }
+    Bindings::Array* getConcreteArray() const { return static_cast<BindingsArray*>(subclassData()); }
 
     static const ClassInfo s_info;
 
@@ -59,8 +58,15 @@ public:
         return globalObject->arrayPrototype();
     }
 
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    {
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
+
+protected:
+    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSArray::StructureFlags;
+
 private:
-    static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSObject::StructureFlags;
     static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
     static JSValue indexGetter(ExecState*, JSValue, unsigned);
 };

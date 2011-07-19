@@ -24,7 +24,11 @@ pbextras_dir =
 xcodeextras_dir = 
   @config['xcode-extras'] ? @config['xcode-extras'].split(',').map {|path|
     File.expand_path("#{install_root}#{path}")} : nil
-pbtmpldir = "template/ProjectBuilder"
+if @config['macosx-deployment-target'].to_f >= 10.5
+  pbtmpldir = "template/ProjectBuilder" # for Xcode 3.x
+else
+  pbtmpldir = "template/Xcode2.x/ProjectBuilder" # for Xcode 2.x
+end
 
 [pbextras_dir, xcodeextras_dir].flatten.compact.each do |extras_dir|
   [
@@ -55,7 +59,7 @@ pbtmpldir = "template/ProjectBuilder"
     end
     command "mkdir -p '#{File.dirname(dstdir)}'"
     command "cp -R '#{srcdir}' '#{dstdir}'"
-    command "find '#{dstdir}' -name '*.in' -print0 | xargs -0 rm"
+    command "find '#{dstdir}' -name '*.in' -print0 | /usr/bin/xargs -0 rm"
   
     fix_xcode_projects_in_dir(dstdir) 
   end

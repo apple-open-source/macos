@@ -29,7 +29,7 @@
 
 #define super IOUserClient
 
-OSDefineMetaClassAndStructors( IOHIDEventServiceUserClient, super )
+OSDefineMetaClassAndStructors( IOHIDEventServiceUserClient, IOUserClient )
 
 //==============================================================================
 // IOHIDEventServiceUserClient::sMethods
@@ -78,9 +78,10 @@ IOReturn IOHIDEventServiceUserClient::clientClose( void )
    
    if (_owner) {	
         _owner->close(this, _options);
-        detach(_owner);
     }
 
+    terminate();
+    
     return kIOReturnSuccess;
 }
 

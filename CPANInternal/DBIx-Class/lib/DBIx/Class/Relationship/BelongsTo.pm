@@ -7,22 +7,29 @@ package # hide from PAUSE
 use strict;
 use warnings;
 
+our %_pod_inherit_config = 
+  (
+   class_map => { 'DBIx::Class::Relationship::BelongsTo' => 'DBIx::Class::Relationship' }
+  );
+
 sub belongs_to {
   my ($class, $rel, $f_class, $cond, $attrs) = @_;
+
+  # assume a foreign key contraint unless defined otherwise
+  $attrs->{is_foreign_key_constraint} = 1 
+    if not exists $attrs->{is_foreign_key_constraint};
+  $attrs->{undef_on_null_fk} = 1
+    if not exists $attrs->{undef_on_null_fk};
+
   # no join condition or just a column name
   if (!ref $cond) {
     $class->ensure_class_loaded($f_class);
-    my %f_primaries = map { $_ => 1 } eval { $f_class->primary_columns };
+    my %f_primaries = map { $_ => 1 } eval { $f_class->_pri_cols };
     $class->throw_exception(
-      "Can't infer join condition for ${rel} on ${class}; ".
-      "unable to load ${f_class}: $@"
+      "Can't infer join condition for ${rel} on ${class}: $@"
     ) if $@;
 
     my ($pri, $too_many) = keys %f_primaries;
-    $class->throw_exception(
-      "Can't infer join condition for ${rel} on ${class}; ".
-      "${f_class} has no primary keys"
-    ) unless defined $pri;
     $class->throw_exception(
       "Can't infer join condition for ${rel} on ${class}; ".
       "${f_class} has multiple primary keys"
@@ -72,12 +79,14 @@ sub belongs_to {
   return 1;
 }
 
-=head1 AUTHORS
+# Attempt to remove the POD so it (maybe) falls off the indexer
 
-Alexander Hartmaier <Alexander.Hartmaier@t-systems.at>
-
-Matt S. Trout <mst@shadowcatsystems.co.uk>
-
-=cut
+#=head1 AUTHORS
+#
+#Alexander Hartmaier <Alexander.Hartmaier@t-systems.at>
+#
+#Matt S. Trout <mst@shadowcatsystems.co.uk>
+#
+#=cut
 
 1;

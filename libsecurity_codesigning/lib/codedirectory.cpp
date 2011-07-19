@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -156,9 +156,10 @@ void CodeDirectory::checkIntegrity() const
 bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot) const
 {
 	secdebug("codedir", "%p validating slot %d", this, int(slot));
-	Hash::Byte digest[Hash::digestLength];
-	hash(data, length, digest);
-	return memcmp(digest, (*this)[slot], Hash::digestLength) == 0;
+	MakeHash<CodeDirectory> hasher(this);
+	Hashing::Byte digest[hasher->digestLength()];
+	generateHash(hasher, data, length, digest);
+	return memcmp(digest, (*this)[slot], hasher->digestLength()) == 0;
 }
 
 
@@ -168,9 +169,10 @@ bool CodeDirectory::validateSlot(const void *data, size_t length, Slot slot) con
 //
 bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot) const
 {
-	Hash::Digest digest;
-	hash(fd, digest, length);
-	return memcmp(digest, (*this)[slot], Hash::digestLength) == 0;
+	MakeHash<CodeDirectory> hasher(this);
+	Hashing::Byte digest[hasher->digestLength()];
+	generateHash(hasher, fd, digest, length);
+	return memcmp(digest, (*this)[slot], hasher->digestLength()) == 0;
 }
 
 
@@ -182,12 +184,33 @@ bool CodeDirectory::validateSlot(FileDesc fd, size_t length, Slot slot) const
 bool CodeDirectory::slotIsPresent(Slot slot) const
 {
 	if (slot >= -Slot(nSpecialSlots) && slot < Slot(nCodeSlots)) {
-		const Hash::Byte *digest = (*this)[slot];
-		for (unsigned n = 0; n < Hash::digestLength; n++)
+		const Hashing::Byte *digest = (*this)[slot];
+		for (unsigned n = 0; n < hashSize; n++)
 			if (digest[n])
 				return true;	// non-zero digest => present
 	}
 	return false;	// absent
+}
+
+
+//
+// Given a hash type code, create an appropriate subclass of DynamicHash
+// and return it. The caller owns the object and  must delete it when done.
+// This function never returns NULL. It throws if the hashType is unsuupported,
+// or if there's an error creating the hasher.
+//
+DynamicHash *CodeDirectory::hashFor(HashAlgorithm hashType)
+{
+	CCDigestAlg alg;
+	switch (hashType) {
+	case kSecCodeSignatureHashSHA1:						alg = kCCDigestSHA1; break;
+	case kSecCodeSignatureHashSHA256:					alg = kCCDigestSHA256; break;
+	case kSecCodeSignatureHashPrestandardSkein160x256:	alg = kCCDigestSkein160; break;
+	case kSecCodeSignatureHashPrestandardSkein256x512:	alg = kCCDigestSkein256; break;
+	default:
+		MacOSError::throwMe(errSecCSSignatureUnsupported);
+	}
+	return new CCHashInstance(alg);
 }
 
 
@@ -198,11 +221,10 @@ bool CodeDirectory::slotIsPresent(Slot slot) const
 // Return how many bytes were actually hashed.
 // Throw on any errors.
 //
-size_t CodeDirectory::hash(FileDesc fd, Hash::Byte *digest, size_t limit)
+size_t CodeDirectory::generateHash(DynamicHash *hasher, FileDesc fd, Hashing::Byte *digest, size_t limit)
 {
-	SHA1 hasher;
 	size_t size = hashFileData(fd, hasher, limit);
-	hasher.finish(digest);
+	hasher->finish(digest);
 	return size;
 }
 
@@ -210,11 +232,10 @@ size_t CodeDirectory::hash(FileDesc fd, Hash::Byte *digest, size_t limit)
 //
 // Ditto, but hash a memory buffer instead.
 //
-size_t CodeDirectory::hash(const void *data, size_t length, Hash::Byte *digest)
+size_t CodeDirectory::generateHash(DynamicHash *hasher, const void *data, size_t length, Hashing::Byte *digest)
 {
-	Hash hash;
-	hash(data, length);
-	hash.finish(digest);
+	hasher->update(data, length);
+	hasher->finish(digest);
 	return length;
 }
 

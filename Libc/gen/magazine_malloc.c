@@ -53,9 +53,25 @@
 #include <mach/mach_init.h>
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/param.h>
+
+#if defined(__i386__) || defined(__x86_64__)
+#define __APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#define _COMM_PAGE_VERSION_REQD 9
+#undef __APPLE_API_PRIVATE
+#else
 #include <sys/sysctl.h>
+#endif
+
 #include <libkern/OSAtomic.h>
-#include <mach-o/dyld.h> /* for NSVersionOfLinkTimeLibrary() */
+#include <mach-o/dyld.h>	/* for NSVersionOfLinkTimeLibrary() */
+#include <mach-o/dyld_priv.h>	/* for _dyld_get_image_slide() */
+#include <crt_externs.h>	/* for _NSGetMachExecuteHeader() */
+#include <mach/vm_param.h>
+#include <sys/vmparam.h>
+
+#include <CrashReporterClient.h>
 
 /*********************	DEFINITIONS	************************/
 
@@ -92,6 +108,10 @@ do {										\
 #define CACHE_ALIGN
 #endif
 
+#if !__LP64__
+#define ASLR_INTERNAL			1
+#endif
+
 /*
  * Access to global variables is slow, so optimise our handling of vm_page_size
  * and vm_page_shift.
@@ -123,6 +143,7 @@ typedef unsigned int grain_t; // N.B. wide enough to index all free slots
 typedef int mag_index_t;
 
 #define CHECK_REGIONS			(1 << 31)
+#define DISABLE_ASLR			(1 << 30)
 
 #define MAX_RECORDER_BUFFER		256
 
@@ -191,6 +212,17 @@ typedef int mag_index_t;
 #define NUM_TINY_CEIL_BLOCKS		(1 << SHIFT_TINY_CEIL_BLOCKS)
 #define TINY_BLOCKS_ALIGN		(SHIFT_TINY_CEIL_BLOCKS + SHIFT_TINY_QUANTUM) // 20
 
+#define TINY_ENTROPY_BITS		15
+#define TINY_ENTROPY_MASK		((1 << TINY_ENTROPY_BITS) - 1)
+
+/*
+ * Avoid having so much entropy that the end of a valid tiny allocation
+ * might overrun the end of the tiny region.
+ */
+#if TINY_ENTROPY_MASK + NUM_TINY_SLOTS > NUM_TINY_BLOCKS
+#error Too many entropy bits for tiny region requested
+#endif
+
 /*
  * Enough room for the data, followed by the bit arrays (2-bits per block)
  * plus rounding to the nearest page.
@@ -243,6 +275,7 @@ typedef struct region_trailer
     struct region_trailer	*next;
     boolean_t			recirc_suitable;
     boolean_t			failedREUSE;
+    volatile int		pinned_to_depot;
     unsigned			bytes_used;
     mag_index_t			mag_index;
 } region_trailer_t;
@@ -345,6 +378,17 @@ typedef struct tiny_region
 #define NUM_SMALL_CEIL_BLOCKS		(1 << SHIFT_SMALL_CEIL_BLOCKS)
 #define SMALL_BLOCKS_ALIGN		(SHIFT_SMALL_CEIL_BLOCKS + SHIFT_SMALL_QUANTUM) // 23
 
+#define SMALL_ENTROPY_BITS		13
+#define SMALL_ENTROPY_MASK		((1 << SMALL_ENTROPY_BITS) - 1)
+
+/*
+ * Avoid having so much entropy that the end of a valid small allocation
+ * might overrun the end of the small region.
+ */
+#if SMALL_ENTROPY_MASK + NUM_SMALL_SLOTS > NUM_SMALL_BLOCKS
+#error Too many entropy bits for small region requested
+#endif
+
 #define SMALL_METADATA_SIZE		(sizeof(region_trailer_t) + NUM_SMALL_BLOCKS * sizeof(msize_t))
 #define SMALL_REGION_SIZE						\
     ((NUM_SMALL_BLOCKS * SMALL_QUANTUM + SMALL_METADATA_SIZE + vm_page_size - 1) & ~ (vm_page_size - 1))
@@ -418,8 +462,6 @@ typedef struct small_region
  */
 #define SMALL_PTR_SIZE(_p)		(*SMALL_METADATA_FOR_PTR(_p) & ~SMALL_IS_FREE)
 
-#define PROTECT_SMALL			0	// Should be 0: 1 is too slow for normal use
-
 #define SMALL_CACHE			1
 #if !SMALL_CACHE
 #warning SMALL_CACHE turned off
@@ -473,6 +515,9 @@ typedef struct {
 #endif
 #define LARGE_CACHE_SIZE_ENTRY_LIMIT (LARGE_CACHE_SIZE_LIMIT/LARGE_ENTRY_CACHE_SIZE)
 
+#define SZONE_FLOTSAM_THRESHOLD_LOW  (1024 * 512)
+#define SZONE_FLOTSAM_THRESHOLD_HIGH (1024 * 1024)
+
 /*******************************************************************************
  * Definitions for region hash
  ******************************************************************************/
@@ -500,6 +545,8 @@ typedef struct region_hash_generation {
 typedef struct {			// vm_allocate()'d, so the array of magazines is page-aligned to begin with.
     // Take magazine_lock first,  Depot lock when needed for recirc, then szone->{tiny,small}_regions_lock when needed for alloc
     pthread_lock_t	magazine_lock CACHE_ALIGN;
+    // Protection for the crtical section that does allocate_pages outside the magazine_lock
+    volatile boolean_t	alloc_underway;
     
     // One element deep "death row", optimizes malloc/free/malloc for identical size.
     void		*mag_last_free; // low SHIFT_{TINY,SMALL}_QUANTUM bits indicate the msize
@@ -508,9 +555,10 @@ typedef struct {			// vm_allocate()'d, so the array of magazines is page-aligned
     free_list_t		*mag_free_list[256]; // assert( 256 >= MAX( NUM_TINY_SLOTS, NUM_SMALL_SLOTS_LARGEMEM ))
     unsigned		mag_bitmap[8]; // assert( sizeof(mag_bitmap) << 3 >= sizeof(mag_free_list)/sizeof(free_list_t) )
     
-    // the last free region in the last block is treated as a big block in use that is not accounted for
+    // the first and last free region in the last block are treated as big blocks in use that are not accounted for
     size_t		mag_bytes_free_at_end;
-    region_t		mag_last_region; // Valid iff mag_bytes_free_at_end > 0
+    size_t		mag_bytes_free_at_start;
+    region_t		mag_last_region; // Valid iff mag_bytes_free_at_end || mag_bytes_free_at_start > 0
     
     // bean counting ...
     unsigned		mag_num_objects;
@@ -525,9 +573,9 @@ typedef struct {			// vm_allocate()'d, so the array of magazines is page-aligned
     region_trailer_t	*lastNode;
     
 #if __LP64__
-    uint64_t		pad[49]; // So sizeof(magazine_t) is 2560 bytes. FIXME: assert this at compile time
+    uint64_t		pad[48]; // So sizeof(magazine_t) is 2560 bytes. FIXME: assert this at compile time
 #else
-    uint32_t		pad[45]; // So sizeof(magazine_t) is 1280 bytes. FIXME: assert this at compile time
+    uint32_t		pad[12]; // So sizeof(magazine_t) is 1280 bytes. FIXME: assert this at compile time
 #endif
 } magazine_t;
 
@@ -552,8 +600,10 @@ typedef struct {			// vm_allocate()'d, so the array of magazines is page-aligned
  */
 
 typedef struct szone_s {				// vm_allocate()'d, so page-aligned to begin with.
-    malloc_zone_t		basic_zone;
-    pthread_key_t		cpu_id_key;
+    malloc_zone_t		basic_zone;		// first page will be given read-only protection
+    uint8_t			pad[vm_page_size - sizeof(malloc_zone_t)];
+    
+    pthread_key_t		cpu_id_key;		// remainder of structure is R/W (contains no function pointers)
     unsigned			debug_flags;
     void			*log_address;
 
@@ -603,8 +653,9 @@ typedef struct szone_s {				// vm_allocate()'d, so page-aligned to begin with.
     int				large_entry_cache_newest;
     large_entry_t		large_entry_cache[LARGE_ENTRY_CACHE_SIZE]; // "death row" for large malloc/free
     boolean_t			large_legacy_reset_mprotect;
-    size_t			large_entry_cache_hoard_bytes;
-    size_t			large_entry_cache_hoard_lmit;
+    size_t			large_entry_cache_reserve_bytes;
+    size_t			large_entry_cache_reserve_limit;
+    size_t			large_entry_cache_bytes; // total size of death row, bytes
 #endif
 
     /* flag and limits pertaining to altered malloc behavior for systems with
@@ -623,6 +674,8 @@ typedef struct szone_s {				// vm_allocate()'d, so page-aligned to begin with.
 	/* The purgeable zone constructed by create_purgeable_zone() would like to hand off tiny and small
 	 * allocations to the default scalable zone. Record the latter as the "helper" zone here. */
     struct szone_s		*helper_zone; 
+
+    boolean_t			flotsam_enabled;
 } szone_t;
 
 #define SZONE_PAGED_SIZE		((sizeof(szone_t) + vm_page_size - 1) & ~ (vm_page_size - 1))
@@ -638,6 +691,8 @@ static NOINLINE void	szone_error(szone_t *szone, int is_corruption, const char *
 
 static void		protect(void *address, size_t size, unsigned protection, unsigned debug_flags);
 static void		*allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_flags,
+					int vm_page_label);
+static void		*allocate_pages_securely(szone_t *szone, size_t size, unsigned char align,
 					int vm_page_label);
 static void		deallocate_pages(szone_t *szone, void *addr, size_t size, unsigned debug_flags);
 #if TARGET_OS_EMBEDDED
@@ -689,15 +744,15 @@ static void		tiny_finalize_region(szone_t *szone, magazine_t *tiny_mag_ptr);
 static int		tiny_free_detach_region(szone_t *szone, magazine_t *tiny_mag_ptr, region_t r);
 static size_t		tiny_free_reattach_region(szone_t *szone, magazine_t *tiny_mag_ptr, region_t r);
 static void		tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
-static void		tiny_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
-static void		tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index);
-static region_t 	tiny_find_msize_region(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
+static region_t		tiny_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
+static boolean_t	tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index);
+static region_t		tiny_find_msize_region(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
 static boolean_t	tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize);
 
-static INLINE void	tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, 
+static INLINE boolean_t	tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, 
 					  void *ptr, msize_t msize) ALWAYSINLINE;
 static void		*tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, 
-							 msize_t msize);
+			msize_t msize, void *fresh_region);
 static boolean_t	tiny_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_size);
 static boolean_t	tiny_check_region(szone_t *szone, region_t region);
 static kern_return_t	tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *szone, 
@@ -707,7 +762,7 @@ static void		*tiny_malloc_from_free_list(szone_t *szone, magazine_t *tiny_mag_pt
 static INLINE void	*tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_requested) ALWAYSINLINE;
 static INLINE void	free_tiny(szone_t *szone, void *ptr, region_t tiny_region, size_t known_size) ALWAYSINLINE;
 static void		print_tiny_free_list(szone_t *szone);
-static void		print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_end);
+static void		print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_start, size_t bytes_at_end);
 static boolean_t	tiny_free_list_check(szone_t *szone, grain_t slot);
 
 static INLINE void	small_meta_header_set_is_free(msize_t *meta_headers, unsigned index, msize_t msize) ALWAYSINLINE;
@@ -720,15 +775,15 @@ static INLINE region_t	small_region_for_ptr_no_lock(szone_t *szone, const void *
 static void		small_finalize_region(szone_t *szone, magazine_t *small_mag_ptr);
 static int		small_free_detach_region(szone_t *szone, magazine_t *small_mag_ptr, region_t r);
 static size_t		small_free_reattach_region(szone_t *szone, magazine_t *small_mag_ptr, region_t r);
-static void		small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
-static void		small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
-static void		small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index);
-static region_t 	small_find_msize_region(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize);
+static void		small_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r);
+static region_t		small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node);
+static boolean_t	small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index);
+static region_t		small_find_msize_region(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize);
 static boolean_t	small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize);
-static INLINE void	small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, region_t region, 
+static INLINE boolean_t	small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, region_t region, 
 					   void *ptr, msize_t msize) ALWAYSINLINE;
 static void		*small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, 
-							  msize_t msize);
+			msize_t msize, void *fresh_region);
 static boolean_t	small_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_size);
 static boolean_t	small_check_region(szone_t *szone, region_t region);
 static kern_return_t	small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *szone,
@@ -738,7 +793,7 @@ static void		*small_malloc_from_free_list(szone_t *szone, magazine_t *small_mag_
 static INLINE void	*small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_requested) ALWAYSINLINE;
 static INLINE void	free_small(szone_t *szone, void *ptr, region_t small_region, size_t known_size) ALWAYSINLINE;
 static void		print_small_free_list(szone_t *szone);
-static void		print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t bytes_at_end);
+static void		print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t bytes_at_start, size_t bytes_at_end);
 static boolean_t	small_free_list_check(szone_t *szone, grain_t grain);
 
 #if DEBUG_MALLOC
@@ -754,7 +809,8 @@ static large_entry_t	*large_entries_grow_no_lock(szone_t *szone, vm_range_t *ran
 static vm_range_t	large_entry_free_no_lock(szone_t *szone, large_entry_t *entry);
 static NOINLINE		kern_return_t	large_in_use_enumerator(task_t task, void *context,
 								unsigned type_mask, vm_address_t large_entries_address,
-								unsigned num_entries, memory_reader_t reader, vm_range_recorder_t recorder);
+								unsigned num_entries, memory_reader_t reader, 
+								vm_range_recorder_t recorder);
 static void		*large_malloc(szone_t *szone, size_t num_pages, unsigned char alignment, boolean_t cleared_requested);
 static NOINLINE void	free_large(szone_t *szone, void *ptr);
 static INLINE int	large_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_size) ALWAYSINLINE;
@@ -822,6 +878,12 @@ static void		*frozen_realloc(szone_t *zone, void *ptr, size_t new_size);
 static void		frozen_free(szone_t *zone, void *ptr);
 static void		frozen_destroy(szone_t *zone);
 
+static volatile uintptr_t entropic_address = 0;
+static volatile uintptr_t entropic_limit = 0;
+#define ENTROPIC_KABILLION 0x10000000 /* 256Mb */
+
+__private_extern__ uint64_t malloc_entropy[2];
+
 #define SZONE_LOCK(szone)						\
     do {								\
 	LOCK(szone->large_szone_lock);					\
@@ -879,8 +941,6 @@ szone_sleep(void)
 }
 #endif
 
-extern const char *__crashreporter_info__;
-
 // msg prints after fmt, ...
 static NOINLINE void
 szone_error(szone_t *szone, int is_corruption, const char *msg, const void *ptr, const char *fmt, ...)
@@ -931,7 +991,7 @@ szone_error(szone_t *szone, int is_corruption, const char *msg, const void *ptr,
     // corruption flag is set, or if any error should abort.
     if ((is_corruption && (szone->debug_flags & SCALABLE_MALLOC_ABORT_ON_CORRUPTION)) ||
         (szone->debug_flags & SCALABLE_MALLOC_ABORT_ON_ERROR)) {
-        __crashreporter_info__ = b ? _simple_string(b) : msg;
+        CRSetCrashLogMessage(b ? _simple_string(b) : msg);
         abort();
     } else if (b) {
         _simple_sfree(b);
@@ -944,14 +1004,14 @@ protect(void *address, size_t size, unsigned protection, unsigned debug_flags)
     kern_return_t	err;
 
     if (!(debug_flags & SCALABLE_MALLOC_DONT_PROTECT_PRELUDE)) {
-	err = vm_protect(mach_task_self(), (vm_address_t)(uintptr_t)address - vm_page_size, vm_page_size, 0, protection);
+	err = mprotect((void *)((uintptr_t)address - vm_page_size), vm_page_size, protection);
 	if (err) {
 	    malloc_printf("*** can't protect(%p) region for prelude guard page at %p\n",
 	      protection,(uintptr_t)address - (1 << vm_page_shift));
 	}
     }
     if (!(debug_flags & SCALABLE_MALLOC_DONT_PROTECT_POSTLUDE)) {
-	err = vm_protect(mach_task_self(), (vm_address_t)(uintptr_t)address + size, vm_page_size, 0, protection);
+	err = mprotect((void *)((uintptr_t)address + size), vm_page_size, protection);
 	if (err) {
 	    malloc_printf("*** can't protect(%p) region for postlude guard page at %p\n",
 	      protection, (uintptr_t)address + size);
@@ -969,18 +1029,23 @@ allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_
     boolean_t	purgeable = debug_flags & SCALABLE_MALLOC_PURGEABLE;
     size_t	allocation_size = round_page(size);
     size_t	delta;
-    int		flags = VM_MAKE_TAG(vm_page_label);
+    int		alloc_flags = VM_MAKE_TAG(vm_page_label);
 
     if (align) add_guard_pages = 0; // too cumbersome to deal with that
     if (!allocation_size) allocation_size = 1 << vm_page_shift;
     if (add_guard_pages) allocation_size += 2 * (1 << vm_page_shift);
     if (align) allocation_size += (size_t)1 << align;
-    if (purgeable) flags |= VM_FLAGS_PURGABLE;
+    if (purgeable) alloc_flags |= VM_FLAGS_PURGABLE;
     
     if (allocation_size < size) // size_t arithmetic wrapped!
 	return NULL;
 
-    vm_addr = mmap(0, allocation_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, flags, 0);
+    vm_addr = mmap(0 /* addr */,
+		   allocation_size /* size */,
+		   PROT_READ | PROT_WRITE /* prot */,
+		   MAP_ANON | MAP_PRIVATE /* flags */,
+		   alloc_flags /* fd being used to pass "purgeable" and "vm_page_label" */,
+		   0 /* offset */);
     if ((uintptr_t)vm_addr == -1) {
     	szone_error(szone, 0, "can't allocate region", NULL, "*** mmap(size=%lu) failed (error code=%d)\n",
     	allocation_size, errno);
@@ -1004,7 +1069,78 @@ allocate_pages(szone_t *szone, size_t size, unsigned char align, unsigned debug_
     }
     if (add_guard_pages) {
 	addr += (uintptr_t)1 << vm_page_shift;
-	protect((void *)addr, size, 0, debug_flags);
+	protect((void *)addr, size, PROT_NONE, debug_flags);
+    }
+    return (void *)addr;
+}
+
+static void *
+allocate_pages_securely(szone_t *szone, size_t size, unsigned char align, int vm_page_label)
+{
+    // align specifies a desired alignment (as a log) or 0 if no alignment requested
+    void	*vm_addr;
+    uintptr_t	addr, aligned_address;
+    size_t	delta, allocation_size = MAX(round_page(size), vm_page_size);
+    int		alloc_flags = VM_MAKE_TAG(vm_page_label);
+
+    if (szone->debug_flags & DISABLE_ASLR)
+	return allocate_pages(szone, size, align, 0, vm_page_label);
+
+    if (align) 
+	allocation_size += (size_t)1 << align;
+    
+    if (allocation_size < size) // size_t arithmetic wrapped!
+	return NULL;
+
+retry:
+    vm_addr = mmap((void *)entropic_address /* kernel finds next available range at or above this address */,
+		   allocation_size /* size */,
+		   PROT_READ | PROT_WRITE /* prot */,
+		   MAP_ANON | MAP_PRIVATE /* flags */,
+		   alloc_flags /* fd being used to pass "vm_page_label" */,
+		   0 /* offset */);
+    if (MAP_FAILED == vm_addr) {
+	szone_error(szone, 0, "can't allocate region securely", NULL, "*** mmap(size=%lu) failed (error code=%d)\n",
+		    size, errno);
+	return NULL;
+    }
+    addr = (uintptr_t)vm_addr;
+    
+    // Don't allow allocation to rise above entropic_limit (for tidiness).
+    if (addr + allocation_size > entropic_limit) { // Exhausted current range?
+	uintptr_t t = entropic_address;
+	uintptr_t u = t - ENTROPIC_KABILLION;
+	
+	if (u < t) { // provided we don't wrap, unmap and retry, in the expanded entropic range
+	    munmap((void *)addr, allocation_size);
+	    (void)__sync_bool_compare_and_swap(&entropic_address, t, u); // Just one reduction please
+	    goto retry;
+	}
+	// fall through to use what we got
+    }
+
+    if (addr < entropic_address) { // mmap wrapped to find this allocation, expand the entropic range
+	uintptr_t t = entropic_address;
+	uintptr_t u = t - ENTROPIC_KABILLION;
+	if (u < t)
+	    (void)__sync_bool_compare_and_swap(&entropic_address, t, u); // Just one reduction please
+	// fall through to use what we got
+    }
+    
+    // unmap any excess address range used for alignment padding
+    if (align) {
+	aligned_address = (addr + ((uintptr_t)1 << align) - 1) & ~ (((uintptr_t)1 << align) - 1);
+	if (aligned_address != addr) {
+	    delta = aligned_address - addr;
+	    if (munmap((void *)addr, delta) == -1)
+		malloc_printf("*** munmap unaligned header failed with %d\n", errno);
+	    addr = aligned_address;
+	    allocation_size -= delta;
+	}
+	if (allocation_size > size) {
+	    if (munmap((void *)(addr + size), allocation_size - size) == -1)
+		malloc_printf("*** munmap unaligned footer failed with %d\n", errno);
+	}
     }
     return (void *)addr;
 }
@@ -1056,7 +1192,8 @@ madvise_free_range(szone_t *szone, region_t r, uintptr_t pgLo, uintptr_t pgHi)
 #endif
 	    /* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MADVISE
-	    szone_error(szone, 0, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", (void *)pgLo, "length=%d\n", len);
+	    szone_error(szone, 0, "madvise_free_range madvise(..., MADV_FREE_REUSABLE) failed", 
+	        (void *)pgLo, "length=%d\n", len);
 #endif
 	}
     }
@@ -1081,17 +1218,11 @@ _szone_default_reader(task_t task, vm_address_t address, vm_size_t size, void **
 	((((uintptr_t)pthread_self()) >> vm_page_shift) * 2654435761UL) >> (32 - szone->num_tiny_magazines_mask_shift)
 #endif
 
-#if defined(__i386__) || defined(__x86_64__)
-#define __APPLE_API_PRIVATE
-#include <machine/cpu_capabilities.h>
-#define _COMM_PAGE_VERSION_REQD 9
-#undef __APPLE_API_PRIVATE
-
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 /*
  * These commpage routines provide fast access to the logical cpu number
  * of the calling processor assuming no pre-emption occurs. 
  */
-#define CPU_NUMBER() (((int (*)()) _COMM_PAGE_CPU_NUMBER)()) /* Zero-based */
 
 static INLINE mag_index_t
 mag_get_thread_index(szone_t *szone)
@@ -1099,15 +1230,7 @@ mag_get_thread_index(szone_t *szone)
     if (!__is_threaded)
 	return 0;
     else
-	return CPU_NUMBER() & (TINY_MAX_MAGAZINES - 1);
-}
-
-#elif defined(__arm__)
-
-static INLINE mag_index_t
-mag_get_thread_index(szone_t *szone)
-{
-    return 0;
+	return cpu_number() & (TINY_MAX_MAGAZINES - 1);
 }
 
 #else
@@ -1288,7 +1411,7 @@ hash_regions_grow_no_lock(szone_t *szone, region_t *regions, size_t old_size, si
 // at least 4 trailing zero bits.
 //
 // When an entry is added to the free list, a checksum of the previous and next
-// pointers is calculated and written to the low four bits of the respective
+// pointers is calculated and written to the high four bits of the respective
 // pointers.  Upon detection of an invalid checksum, an error is logged and NULL
 // is returned.  Since all code which un-checksums pointers checks for a NULL
 // return, a potentially crashing or malicious dereference is avoided at the
@@ -1320,26 +1443,39 @@ static INLINE uintptr_t free_list_gen_checksum(uintptr_t ptr)
     return chk & (uintptr_t)0xF;
 }
 
+#define NYBBLE 4
+#if  __LP64__
+#define ANTI_NYBBLE (64 - NYBBLE)
+#else
+#define ANTI_NYBBLE (32 - NYBBLE)
+#endif
+
 static INLINE uintptr_t
 free_list_checksum_ptr(szone_t *szone, void *ptr) 
 {
     uintptr_t p = (uintptr_t)ptr;
-    return p | free_list_gen_checksum(p ^ szone->cookie);
+    return (p >> NYBBLE) | (free_list_gen_checksum(p ^ szone->cookie) << ANTI_NYBBLE); // compiles to rotate instruction
 }
 
 static INLINE void *
 free_list_unchecksum_ptr(szone_t *szone, ptr_union *ptr)
 {
     ptr_union p;
-    p.u = (ptr->u >> 4) << 4;
-    
-    if ((ptr->u & (uintptr_t)0xF) != free_list_gen_checksum(p.u ^ szone->cookie))
+    uintptr_t t = ptr->u;
+
+    t = (t << NYBBLE) | (t >> ANTI_NYBBLE); // compiles to rotate instruction
+    p.u = t &  ~(uintptr_t)0xF;
+
+    if ((t & (uintptr_t)0xF) != free_list_gen_checksum(p.u ^ szone->cookie))
     {
       free_list_checksum_botch(szone, (free_list_t *)ptr);
       return NULL;
     }
     return p.p;
 }
+
+#undef ANTI_NYBBLE
+#undef NYBBLE
 
 static unsigned
 free_list_count(szone_t *szone, free_list_t *ptr)
@@ -1880,6 +2016,18 @@ tiny_finalize_region(szone_t *szone, magazine_t *tiny_mag_ptr) {
     uint32_t  *last_header;
     msize_t   last_msize, previous_msize, last_index;
        
+    // It is possible that the block prior to the last block in the region has
+    // been free'd, but was not coalesced with the free bytes at the end of the
+    // block, since we treat the bytes at the end of the region as "in use" in
+    // the meta headers. Attempt to coalesce the last block with the previous 
+    // block, so we don't violate the "no consecutive free blocks" invariant.
+    //
+    // FIXME: Need to investigate how much work would be required to increase
+    //        'mag_bytes_free_at_end' when freeing the preceding block, rather
+    //        than performing this workaround.
+    //
+
+    if (tiny_mag_ptr->mag_bytes_free_at_end) {
     last_block = (void *)
         ((uintptr_t)TINY_REGION_END(tiny_mag_ptr->mag_last_region) - tiny_mag_ptr->mag_bytes_free_at_end);
     last_msize = TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_end);
@@ -1899,16 +2047,6 @@ tiny_finalize_region(szone_t *szone, magazine_t *tiny_mag_ptr) {
     if (last_index != (NUM_TINY_BLOCKS - 1))
         BITARRAY_CLR(last_header, (last_index + 1));
 
-    // It is possible that the block prior to the last block in the region has
-    // been free'd, but was not coalesced with the free bytes at the end of the
-    // block, since we treat the bytes at the end of the region as "in use" in
-    // the meta headers. Attempt to coalesce the last block with the previous 
-    // block, so we don't violate the "no consecutive free blocks" invariant.
-    //
-    // FIXME: Need to investigate how much work would be required to increase
-    //        'mag_bytes_free_at_end' when freeing the preceding block, rather
-    //        than performing this workaround.
-    //
     previous_block = tiny_previous_preceding_free(last_block, &previous_msize);
     if (previous_block) {
         set_tiny_meta_header_middle(last_block);
@@ -1920,6 +2058,33 @@ tiny_finalize_region(szone_t *szone, magazine_t *tiny_mag_ptr) {
     // splice last_block into the free list
     tiny_free_list_add_ptr(szone, tiny_mag_ptr, last_block, last_msize); 
     tiny_mag_ptr->mag_bytes_free_at_end = 0;
+    }
+
+#if ASLR_INTERNAL
+    // Coalesce the big free block at start with any following free blocks
+    if (tiny_mag_ptr->mag_bytes_free_at_start) {
+        last_block = TINY_REGION_ADDRESS(tiny_mag_ptr->mag_last_region);
+        last_msize = TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_start);
+
+        void *next_block = (void *) ((uintptr_t)last_block + tiny_mag_ptr->mag_bytes_free_at_start);
+
+        // clear the in use bit we were using to mark the end of the big start block
+        set_tiny_meta_header_middle((uintptr_t)next_block - TINY_QUANTUM);
+
+        // Coalesce the big start block with any following free blocks
+        if (tiny_meta_header_is_free(next_block)) {
+            msize_t next_msize = get_tiny_free_size(next_block);
+            set_tiny_meta_header_middle(next_block);
+            tiny_free_list_remove_ptr(szone, tiny_mag_ptr, next_block, next_msize);
+            last_msize += next_msize;
+        }
+
+        // splice last_block into the free list
+        tiny_free_list_add_ptr(szone, tiny_mag_ptr, last_block, last_msize); 
+        tiny_mag_ptr->mag_bytes_free_at_start = 0;
+    }
+#endif
+
     tiny_mag_ptr->mag_last_region = NULL;
 }
 
@@ -1987,14 +2152,19 @@ tiny_free_reattach_region(szone_t *szone, magazine_t *tiny_mag_ptr, region_t r) 
     return total_alloc;
 }
 
-static void 
+typedef struct {
+    uint8_t pnum, size;
+} tiny_pg_pair_t;
+
+static void NOINLINE /* want private stack frame for automatic array */
 tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
     uintptr_t	start = (uintptr_t)TINY_REGION_ADDRESS(r);
     uintptr_t	current = start;
     uintptr_t	limit =  (uintptr_t)TINY_REGION_END(r);
     boolean_t	is_free;
     msize_t	msize;
-    boolean_t	did_advise = FALSE;
+    tiny_pg_pair_t advisory[((TINY_REGION_PAYLOAD_BYTES + vm_page_size - 1) >> vm_page_shift) >> 1]; // 256bytes stack allocated
+    int		advisories = 0;
 
     // Scan the metadata identifying blocks which span one or more pages. Mark the pages MADV_FREE taking care to preserve free list
     // management data. 
@@ -2010,12 +2180,9 @@ tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
 	    uintptr_t pgHi = trunc_page(start + TINY_REGION_SIZE - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, r, pgLo, pgHi, NULL);
-#else
-		madvise_free_range(szone, r, pgLo, pgHi);
-#endif
-		did_advise = TRUE;
+		advisory[advisories].pnum = (pgLo - start) >> vm_page_shift;
+		advisory[advisories].size = (pgHi - pgLo) >> vm_page_shift;
+		advisories++;
 	    }
 	    break;
 	}
@@ -2031,32 +2198,48 @@ tiny_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
 	    uintptr_t pgHi = trunc_page(current + TINY_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, r, pgLo, pgHi, NULL);
-#else
-		madvise_free_range(szone, r, pgLo, pgHi);
-#endif
-		did_advise = TRUE;
+		advisory[advisories].pnum = (pgLo - start) >> vm_page_shift;
+		advisory[advisories].size = (pgHi - pgLo) >> vm_page_shift;
+		advisories++;
 	    }
 	}
 	current += TINY_BYTES_FOR_MSIZE(msize);
     }
     
-    if (did_advise) {
-	/* Move the node to the tail of the Deopt's recirculation list to delay its re-use. */
-	region_trailer_t *node = REGION_TRAILER_FOR_TINY_REGION(r);
-	recirc_list_extract(szone, depot_ptr, node); // excise node from list
-	recirc_list_splice_last(szone, depot_ptr, node); // connect to magazine as last node
+    if (advisories > 0) {
+	int i;
+	
+	// So long as the following hold for this region:
+	// (1) No malloc()'s are ever performed from the depot (hence free pages remain free,)
+	// (2) The region is not handed over to a per-CPU magazine (where malloc()'s could be performed),
+	// (3) The entire region is not mumap()'d (so the madvise's are applied to the intended addresses),
+	// then the madvise opportunities collected just above can be applied outside all locks.
+	// (1) is ensured by design, (2) and (3) are ensured by bumping the globally visible counter node->pinned_to_depot.
+	
+	OSAtomicIncrement32Barrier(&(REGION_TRAILER_FOR_TINY_REGION(r)->pinned_to_depot));
+	SZONE_MAGAZINE_PTR_UNLOCK(szone, depot_ptr);
+	for (i = 0; i < advisories; ++i) {
+	    uintptr_t addr = (advisory[i].pnum << vm_page_shift) + start;
+	    size_t size = advisory[i].size << vm_page_shift;
+	    
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, addr, addr + size, NULL);
+#else
+		madvise_free_range(szone, r, addr, addr + size);
+#endif
+	}
+	SZONE_MAGAZINE_PTR_LOCK(szone, depot_ptr);
+	OSAtomicDecrement32Barrier(&(REGION_TRAILER_FOR_TINY_REGION(r)->pinned_to_depot));
     }
 }
 
-static void
+static region_t
 tiny_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node)
 {
-#warning Tune Depot headroom	
     if (0 < node->bytes_used || 
+        0 < node->pinned_to_depot ||
 	depot_ptr->recirculation_entries < (szone->num_tiny_magazines * 2)) {
-	return;
+	return NULL;
     }
     
     // disconnect node from Depot
@@ -2072,31 +2255,24 @@ tiny_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_
 	rgnhdl_t pSlot = hash_lookup_region_no_lock(szone->tiny_region_generation->hashed_regions, 
 				     szone->tiny_region_generation->num_regions_allocated, 
 				     szone->tiny_region_generation->num_regions_allocated_shift, sparse_region); 
+	if (NULL == pSlot) {
+	    szone_error(szone, 1, "tiny_free_try_depot_unmap_no_lock hash lookup failed:", NULL, "%p\n", sparse_region);
+	    return NULL;
+	}
 	*pSlot = HASHRING_REGION_DEALLOCATED;
 	depot_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
-#if ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 1))) /* GCC 4.1 and forward supports atomic builtins */
 	__sync_fetch_and_add( &(szone->num_tiny_regions_dealloc), 1); // Atomically increment num_tiny_regions_dealloc
-#else
-#ifdef __LP64__
-	OSAtomicIncrement64( (volatile int64_t *)&(szone->num_tiny_regions_dealloc) );
-#else
-	OSAtomicIncrement32( (volatile int32_t *)&(szone->num_tiny_regions_dealloc) );
-#endif
-#endif
 	
-	// Transfer ownership of the region back to the OS
-	SZONE_MAGAZINE_PTR_UNLOCK(szone, depot_ptr); // Avoid denial of service to Depot while in kernel
-	deallocate_pages(szone, sparse_region, TINY_REGION_SIZE, 0);
-	SZONE_MAGAZINE_PTR_LOCK(szone, depot_ptr);
-
-	MAGMALLOC_DEALLOCREGION((void *)szone, (void *)sparse_region); // DTrace USDT Probe
-	
+	// Caller will transfer ownership of the region back to the OS with no locks held
+	MAGMALLOC_DEALLOCREGION((void *)szone, (void *)sparse_region, TINY_REGION_SIZE); // DTrace USDT Probe
+	return sparse_region;
     } else {
 	szone_error(szone, 1, "tiny_free_try_depot_unmap_no_lock objects_in_use not zero:", NULL, "%d\n", objects_in_use);
+	return NULL;
     }
 }
 
-static void
+static boolean_t
 tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index)
 {	
 	// The entire magazine crossed the "emptiness threshold". Transfer a region
@@ -2112,13 +2288,13 @@ tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index
 #if DEBUG_MALLOC
 	    malloc_printf("*** tiny_free_do_recirc_to_depot end of list\n");
 #endif	
-	    return;
+	    return TRUE; // Caller must SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
 	}
 
 	region_t sparse_region = TINY_REGION_FOR_PTR(node);
 
-	// Deal with unclaimed memory -- mag_bytes_free_at_end
-	if (sparse_region == tiny_mag_ptr->mag_last_region && tiny_mag_ptr->mag_bytes_free_at_end) {
+	// Deal with unclaimed memory -- mag_bytes_free_at_end or mag_bytes_free_at_start
+	if (sparse_region == tiny_mag_ptr->mag_last_region && (tiny_mag_ptr->mag_bytes_free_at_end || tiny_mag_ptr->mag_bytes_free_at_start)) {
 	    tiny_finalize_region(szone, tiny_mag_ptr);
 	}
 	
@@ -2134,6 +2310,7 @@ tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index
 	// this will cause tiny_free_list_add_ptr called by tiny_free_reattach_region to use 
 	// the depot as its target magazine, rather than magazine formerly associated with sparse_region
 	MAGAZINE_INDEX_FOR_TINY_REGION(sparse_region) = DEPOT_MAGAZINE_INDEX;
+	node->pinned_to_depot = 0;
 
 	// Iterate the region putting its free entries on Depot's free list
 	size_t bytes_inplay = tiny_free_reattach_region(szone, depot_ptr, sparse_region);
@@ -2142,22 +2319,27 @@ tiny_free_do_recirc_to_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index
 	tiny_mag_ptr->num_bytes_in_magazine -= TINY_REGION_PAYLOAD_BYTES;
 	tiny_mag_ptr->mag_num_objects -= objects_in_use;
 	
+	SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr); // Unlock the originating magazine
+	
 	depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
 	depot_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
 	depot_ptr->mag_num_objects += objects_in_use;
 	
-	// connect to Depot as first (MRU) node
-	recirc_list_splice_first(szone, depot_ptr, node);
+	// connect to Depot as last node
+	recirc_list_splice_last(szone, depot_ptr, node);
 
-	MAGMALLOC_RECIRCREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_TINY_REGION(sparse_region));  // DTrace USDT Probe
+	MAGMALLOC_RECIRCREGION((void *)szone, (int)mag_index, (void *)sparse_region, TINY_REGION_SIZE, 
+	    (int)BYTES_USED_FOR_TINY_REGION(sparse_region));  // DTrace USDT Probe
 
 	// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
 	tiny_free_scan_madvise_free(szone, depot_ptr, sparse_region);
 	
-	// If the region is entirely empty vm_deallocate() it
-	tiny_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
-	
+	// If the region is entirely empty vm_deallocate() it outside the depot lock
+	region_t r_dealloc = tiny_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
 	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+	if (r_dealloc)
+	    deallocate_pages(szone, r_dealloc, TINY_REGION_SIZE, 0);
+	return FALSE; // Caller need not unlock the originating magazine
 }    
 
 static region_t
@@ -2235,16 +2417,27 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
 	
     SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
 
-    // Appropriate one of the Depot's regions that can satisfy requested msize.	
-    region_t sparse_region = tiny_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
-    if (NULL == sparse_region) { // Depot empty?
-	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+    // Appropriate a Depot'd region that can satisfy requested msize.
+    region_trailer_t *node;
+    region_t sparse_region;
+	
+    while (1) {
+	sparse_region = tiny_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+	if (NULL == sparse_region) { // Depot empty?
+        SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 	return 0;
-    }
+	}
     
-    region_trailer_t *node = REGION_TRAILER_FOR_TINY_REGION(sparse_region);
+	node = REGION_TRAILER_FOR_TINY_REGION(sparse_region);
+	if (0 >= node->pinned_to_depot)
+	    break;
+	
+	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+	pthread_yield_np();
+	SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
+    }
 
-   // disconnect node from Depot
+    // disconnect node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
     // Iterate the region pulling its free entries off the (locked) Depot's free list
@@ -2252,6 +2445,7 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
 
     // Transfer ownership of the region
     MAGAZINE_INDEX_FOR_TINY_REGION(sparse_region) = mag_index;
+    node->pinned_to_depot = 0;
     
     // Iterate the region putting its free entries on its new (locked) magazine's free list
     size_t bytes_inplay = tiny_free_reattach_region(szone, tiny_mag_ptr, sparse_region);
@@ -2264,33 +2458,37 @@ tiny_get_region_from_depot(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t
     tiny_mag_ptr->num_bytes_in_magazine += TINY_REGION_PAYLOAD_BYTES;
     tiny_mag_ptr->mag_num_objects += objects_in_use;
     
-    // connect to magazine as first node (it's maximally sparse at this moment)
+    // connect to magazine as first node
     recirc_list_splice_first(szone, tiny_mag_ptr, node);
     	
     SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 
-#if !TARGET_OS_EMBEDDED
+    // madvise() outside the Depot lock
+#if TARGET_OS_EMBEDDED
+    if (node->failedREUSE) {
+#else
     if (node->failedREUSE ||
 	-1 == madvise((void *)sparse_region, TINY_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
+#endif
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MADVISE
-	szone_error(szone, 0, "tiny_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, "length=%d\n", TINY_REGION_PAYLOAD_BYTES);
+	szone_error(szone, 0, "tiny_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", 
+	    sparse_region, "length=%d\n", TINY_REGION_PAYLOAD_BYTES);
 #endif
 	node->failedREUSE = TRUE;
     }
-#endif
 
-    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_TINY_REGION(sparse_region)); // DTrace USDT Probe
+    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (void *)sparse_region, TINY_REGION_SIZE, 
+        (int)BYTES_USED_FOR_TINY_REGION(sparse_region)); // DTrace USDT Probe
     
     return 1;
 }
 
-#warning Tune K and f!
 #define K 1.5 // headroom measured in number of 1Mb regions
 #define DENSITY_THRESHOLD(a) \
     ((a) - ((a) >> 2)) // "Emptiness" f = 0.25, so "Density" is (1 - f)*a. Generally: ((a) - ((a) >> -log2(f))) 
 
-static INLINE void
+static INLINE boolean_t
 tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, 
 		  msize_t msize)
 {
@@ -2302,14 +2500,12 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
     free_list_t	*big_free_block;
     free_list_t	*after_next_block;
     free_list_t	*before_next_block;
-    boolean_t	did_prepend = FALSE;
-    boolean_t	did_append = FALSE;
 
 #if DEBUG_MALLOC
     if (LOG(szone,ptr)) {
 	malloc_printf("in tiny_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
     }
-    if (! msize) {
+    if (!msize) {
 	szone_error(szone, 1, "trying to free tiny block that is too small", ptr,
 	    "in tiny_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
     }
@@ -2323,7 +2519,6 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
             malloc_printf("in tiny_free_no_lock(), coalesced backwards for %p previous=%p\n", ptr, previous);
         }
 #endif
-        did_prepend = TRUE;
 
         // clear the meta_header since this is no longer the start of a block
         set_tiny_meta_header_middle(ptr);
@@ -2333,7 +2528,6 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
     }
     // We try to coalesce with the next block
     if ((next_block < TINY_REGION_END(region)) && tiny_meta_header_is_free(next_block)) {
-	did_append = TRUE;
         next_msize = get_tiny_free_size(next_block);
 #if DEBUG_MALLOC
         if (LOG(szone, ptr) || LOG(szone, next_block)) {
@@ -2376,16 +2570,15 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
         set_tiny_meta_header_middle(next_block); // clear the meta_header to enable coalescing backwards
         msize += next_msize;
     }
-#if !TINY_CACHE
+
     // The tiny cache already scribbles free blocks as they go through the
-    // cache, so we do not need to do it here.
-    if ((szone->debug_flags & SCALABLE_MALLOC_DO_SCRIBBLE) && msize)
+    // cache whenever msize < TINY_QUANTUM , so we do not need to do it here.
+    if ((szone->debug_flags & SCALABLE_MALLOC_DO_SCRIBBLE) && msize && (msize >= TINY_QUANTUM))
         memset(ptr, 0x55, TINY_BYTES_FOR_MSIZE(msize));
 
-#endif
     tiny_free_list_add_ptr(szone, tiny_mag_ptr, ptr, msize);
+    
   tiny_free_ending:
-    // When in proper debug mode we write on the memory to help debug memory smashers
     
     tiny_mag_ptr->mag_num_objects--;
     // we use original_size and not msize to avoid double counting the coalesced blocks
@@ -2417,83 +2610,66 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
 	size_t a = tiny_mag_ptr->num_bytes_in_magazine; // Total bytes allocated to this magazine
 	size_t u = tiny_mag_ptr->mag_num_bytes_in_objects; // In use (malloc'd) from this magaqzine
 
-	if (a - u > ((3 * TINY_REGION_PAYLOAD_BYTES) / 2) && u < DENSITY_THRESHOLD(a))
-	    tiny_free_do_recirc_to_depot(szone, tiny_mag_ptr, mag_index);
+	if (a - u > ((3 * TINY_REGION_PAYLOAD_BYTES) / 2) && u < DENSITY_THRESHOLD(a)) {
+	    return tiny_free_do_recirc_to_depot(szone, tiny_mag_ptr, mag_index);
+	}
 	    
     } else {
 #endif
 	// Freed to Depot. N.B. Lock on tiny_magazines[DEPOT_MAGAZINE_INDEX] is already held
+	// Calcuate the first page in the coalesced block that would be safe to mark MADV_FREE
 	uintptr_t safe_ptr = (uintptr_t)ptr + sizeof(free_list_t) + sizeof(msize_t);
 	uintptr_t round_safe = round_page(safe_ptr);
 	
+	// Calcuate the last page in the coalesced block that would be safe to mark MADV_FREE
 	uintptr_t safe_extent = (uintptr_t)ptr + TINY_BYTES_FOR_MSIZE(msize) - sizeof(msize_t);
 	uintptr_t trunc_extent = trunc_page(safe_extent);
 
 	// The newly freed block may complete a span of bytes that cover a page. Mark it with MADV_FREE.
-	if (round_safe < trunc_extent) { // Safe area covers a page
-	    if (did_prepend & did_append) { // Coalesced preceding with original_ptr *and* with following
-		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
-		uintptr_t rnd_safe_follow = 
-		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
-		
+	if (round_safe < trunc_extent) { // Safe area covers a page (perhaps many)
+            uintptr_t lo = trunc_page((uintptr_t)original_ptr);
+            uintptr_t hi = round_page((uintptr_t)original_ptr + original_size);
+	
+	    OSAtomicIncrement32Barrier(&(node->pinned_to_depot));
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
 #if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent), &szone->last_tiny_advise);
+	    madvise_free_range(szone, region, MAX(round_safe, lo), MIN(trunc_extent, hi), &szone->last_tiny_advise);
 #else
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent));
+	    madvise_free_range(szone, region, MAX(round_safe, lo), MIN(trunc_extent, hi));
 #endif
-	    } else if (did_prepend) { // Coalesced preceding with original_ptr
-		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
-		
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent, &szone->last_tiny_advise);
-#else
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent);
-#endif
-	    } else if (did_append) { // Coalesced original_ptr with following
-		uintptr_t rnd_safe_follow = 
-		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
-		
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent), &szone->last_tiny_advise);
-#else
-		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent));
-#endif
-	    } else { // Isolated free cannot exceed 496 bytes, thus round_safe == trunc_extent, and so never get here.
-		/* madvise_free_range(szone, region, round_safe, trunc_extent); */
-	    }
-	}
+	    SZONE_MAGAZINE_PTR_LOCK(szone, tiny_mag_ptr);
+	    OSAtomicDecrement32Barrier(&(node->pinned_to_depot));
+        }
 	
 #if !TARGET_OS_EMBEDDED
-	if (0 < bytes_used) {
+	if (0 < bytes_used || 0 < node->pinned_to_depot) {
 	    /* Depot'd region is still live. Leave it in place on the Depot's recirculation list
 	       so as to avoid thrashing between the Depot's free list and a magazines's free list
 	       with detach_region/reattach_region */
 	} else {
 	    /* Depot'd region is just now empty. Consider return to OS. */
-	    region_trailer_t *node = REGION_TRAILER_FOR_TINY_REGION(region);
-	    magazine_t *depot_ptr = &(szone->tiny_magazines[DEPOT_MAGAZINE_INDEX]);
-	    tiny_free_try_depot_unmap_no_lock(szone, depot_ptr, node); // FIXME: depot_ptr is simply tiny_mag_ptr?
+	    region_t r_dealloc = tiny_free_try_depot_unmap_no_lock(szone, tiny_mag_ptr, node);
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	    if (r_dealloc)
+		deallocate_pages(szone, r_dealloc, TINY_REGION_SIZE, 0);
+	    return FALSE; // Caller need not unlock
 	}
     }
 #endif
+    
+    return TRUE; // Caller must do SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr)
 }
 
 // Allocates from the last region or a freshly allocated region
 static void *
-tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, msize_t msize)
+tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_index, 
+    msize_t msize, void * aligned_address)
 {
-    void	*ptr, *aligned_address;
+    void	*ptr;
 
-    // Deal with unclaimed memory -- mag_bytes_free_at_end
-    if (tiny_mag_ptr->mag_bytes_free_at_end)
+    // Deal with unclaimed memory -- mag_bytes_free_at_end or mag_bytes_free_at_start
+    if (tiny_mag_ptr->mag_bytes_free_at_end || tiny_mag_ptr->mag_bytes_free_at_start)
 	tiny_finalize_region(szone, tiny_mag_ptr);
-
-    // time to create a new region
-    aligned_address = allocate_pages(szone, TINY_REGION_SIZE, TINY_BLOCKS_ALIGN, 0, VM_MEMORY_MALLOC_TINY);
-    if (!aligned_address) // out of memory!
-        return NULL;
-
-    MAGMALLOC_ALLOCREGION((void *)szone, (int)mag_index); // DTrace USDT Probe
 
     // We set the unused bits of the header in the last pair to be all ones, and those of the inuse to zeroes.
     ((tiny_region_t)aligned_address)->pairs[CEIL_NUM_TINY_BLOCKS_WORDS-1].header = 
@@ -2531,11 +2707,7 @@ tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_in
 	// Throw the switch to atomically advance to the next generation.
 	szone->tiny_region_generation = szone->tiny_region_generation->nextgen;
 	// Ensure everyone sees the advance.
-#if ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 1))) /* GCC 4.1 and forward supports atomic builtins */
-	__sync_synchronize();
-#else
 	OSMemoryBarrier();
-#endif
     }
     // Tag the region at "aligned_address" as belonging to us, 
     // and so put it under the protection of the magazine lock we are holding.
@@ -2553,7 +2725,16 @@ tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_in
     
     tiny_mag_ptr->mag_last_region = aligned_address;
     BYTES_USED_FOR_TINY_REGION(aligned_address) = TINY_BYTES_FOR_MSIZE(msize);
-    ptr = aligned_address; 
+#if ASLR_INTERNAL
+    int offset_msize = malloc_entropy[0] & TINY_ENTROPY_MASK;
+#if DEBUG_MALLOC
+    if (getenv("MallocASLRForce")) offset_msize = strtol(getenv("MallocASLRForce"), NULL, 0) & TINY_ENTROPY_MASK;
+    if (getenv("MallocASLRPrint")) malloc_printf("Region: %p offset: %d\n", aligned_address, offset_msize);
+#endif
+#else
+    int offset_msize = 0;
+#endif
+    ptr = (void *)((uintptr_t) aligned_address + TINY_BYTES_FOR_MSIZE(offset_msize)); 
     set_tiny_meta_header_in_use(ptr, msize);
     tiny_mag_ptr->mag_num_objects++;
     tiny_mag_ptr->mag_num_bytes_in_objects += TINY_BYTES_FOR_MSIZE(msize);
@@ -2561,16 +2742,48 @@ tiny_malloc_from_region_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_in
  
     // We put a header on the last block so that it appears in use (for coalescing, etc...)
     set_tiny_meta_header_in_use_1((void *)((uintptr_t)ptr + TINY_BYTES_FOR_MSIZE(msize)));
-    tiny_mag_ptr->mag_bytes_free_at_end = TINY_BYTES_FOR_MSIZE(NUM_TINY_BLOCKS - msize);
+    tiny_mag_ptr->mag_bytes_free_at_end = TINY_BYTES_FOR_MSIZE(NUM_TINY_BLOCKS - msize - offset_msize);
 
-    // connect to magazine as first node (it's maximally sparse at this moment)
-    recirc_list_splice_first(szone, tiny_mag_ptr, REGION_TRAILER_FOR_TINY_REGION(aligned_address));
+#if ASLR_INTERNAL
+    // Put a header on the previous block for same reason
+    tiny_mag_ptr->mag_bytes_free_at_start = TINY_BYTES_FOR_MSIZE(offset_msize);
+    if (offset_msize) {
+	set_tiny_meta_header_in_use_1((void *)((uintptr_t)ptr - TINY_QUANTUM));
+    }
+#else
+    tiny_mag_ptr->mag_bytes_free_at_start = 0;
+#endif
+
+    // connect to magazine as last node
+    recirc_list_splice_last(szone, tiny_mag_ptr, REGION_TRAILER_FOR_TINY_REGION(aligned_address));
 
 #if DEBUG_MALLOC
     if (LOG(szone,ptr)) {
 	malloc_printf("in tiny_malloc_from_region_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
     }
 #endif
+    return ptr;
+}
+
+static INLINE void *
+tiny_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_good_size)
+{
+    msize_t new_msize = TINY_MSIZE_FOR_BYTES(new_good_size);
+    msize_t mshrinkage = TINY_MSIZE_FOR_BYTES(old_size) - new_msize;
+
+    if (mshrinkage) {
+	void *q = (void *)((uintptr_t)ptr + TINY_BYTES_FOR_MSIZE(new_msize));
+	magazine_t *tiny_mag_ptr = mag_lock_zine_for_region_trailer(szone, szone->tiny_magazines,
+		    REGION_TRAILER_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr)), 
+		    MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr)));
+
+	// Mark q as block header and in-use, thus creating two blocks.
+	set_tiny_meta_header_in_use(q, mshrinkage);
+	tiny_mag_ptr->mag_num_objects++;
+
+	SZONE_MAGAZINE_PTR_UNLOCK(szone,tiny_mag_ptr);
+	szone_free(szone, q); // avoid inlining free_tiny(szone, q, ...);
+    }
     return ptr;
 }
 
@@ -2673,6 +2886,19 @@ tiny_check_region(szone_t *szone, region_t region)
     /* establish region limits */
     start = (uintptr_t)TINY_REGION_ADDRESS(region);
     ptr = start;
+    if (region == tiny_mag_ptr->mag_last_region) {
+        ptr += tiny_mag_ptr->mag_bytes_free_at_start;
+
+        /*
+         * Check the leading block's integrity here also.
+         */
+	if (tiny_mag_ptr->mag_bytes_free_at_start) {
+	    msize = get_tiny_meta_header((void *)(ptr - TINY_QUANTUM), &is_free);
+	    if (is_free || (msize != 1)) {
+		malloc_printf("*** invariant broken for leader block %p - %d %d\n", ptr - TINY_QUANTUM, msize, is_free);
+	    }
+	}
+    }
     region_end = (uintptr_t)TINY_REGION_END(region);
 
     /*
@@ -2802,9 +3028,8 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
     msize_t		msize;
     void		*mapped_ptr;
     unsigned 		bit;
-    vm_address_t	mag_last_free_ptr = 0;
-    msize_t		mag_last_free_msize = 0;
-
+    magazine_t          *tiny_mag_base = NULL;
+    
     region_hash_generation_t *trg_ptr;
     err = reader(task, (vm_address_t)szone->tiny_region_generation, sizeof(region_hash_generation_t), (void **)&trg_ptr);
     if (err) return err;
@@ -2812,6 +3037,13 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
     num_regions = trg_ptr->num_regions_allocated;
     err = reader(task, (vm_address_t)trg_ptr->hashed_regions, sizeof(region_t) * num_regions, (void **)&regions);
     if (err) return err;
+
+    if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
+        // Map in all active magazines. Do this outside the iteration over regions.
+        err = reader(task, (vm_address_t)(szone->tiny_magazines),
+                szone->num_tiny_magazines*sizeof(magazine_t),(void **)&tiny_mag_base);
+        if (err) return err;
+    }
 
     for (index = 0; index < num_regions; ++index) {
 	region = regions[index];
@@ -2829,28 +3061,43 @@ tiny_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t *
 		recorder(task, context, MALLOC_PTR_REGION_RANGE_TYPE, &ptr_range, 1);
 	    }
 	    if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
+		void 		*mag_last_free;
+                vm_address_t	mag_last_free_ptr = 0;
+                msize_t		mag_last_free_msize = 0;
+                
 		err = reader(task, range.address, range.size, (void **)&mapped_region);
 		if (err)
 		    return err;
 
 		mag_index_t mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(mapped_region);
-		magazine_t *tiny_mag_ptr;
-		err = reader(task, (vm_address_t)&(szone->tiny_magazines[mag_index]), sizeof(magazine_t), 
-			(void **)&tiny_mag_ptr);
-		if (err) return err;
+		magazine_t *tiny_mag_ptr = tiny_mag_base + mag_index;
 
-		void *mag_last_free = tiny_mag_ptr->mag_last_free;
-		if (mag_last_free) {
-		    mag_last_free_ptr = (uintptr_t) mag_last_free & ~(TINY_QUANTUM - 1);
-		    mag_last_free_msize = (uintptr_t) mag_last_free & (TINY_QUANTUM - 1);
+		if (DEPOT_MAGAZINE_INDEX != mag_index) {
+		    mag_last_free = tiny_mag_ptr->mag_last_free;
+		    if (mag_last_free) {
+			mag_last_free_ptr = (uintptr_t) mag_last_free & ~(TINY_QUANTUM - 1);
+			mag_last_free_msize = (uintptr_t) mag_last_free & (TINY_QUANTUM - 1);
+		    }
+		} else {
+		    for (mag_index = 0; mag_index < szone->num_tiny_magazines; mag_index++) {
+			if ((void *)range.address == (tiny_mag_base + mag_index)->mag_last_free_rgn) {
+			    mag_last_free = (tiny_mag_base + mag_index)->mag_last_free;
+			    if (mag_last_free) {
+				mag_last_free_ptr = (uintptr_t) mag_last_free & ~(TINY_QUANTUM - 1);
+				mag_last_free_msize = (uintptr_t) mag_last_free & (TINY_QUANTUM - 1);
+			    }
+			}
+		    }
 		}
 
 		block_header = (uint32_t *)(mapped_region + TINY_METADATA_START + sizeof(region_trailer_t));
 		in_use = TINY_INUSE_FOR_HEADER(block_header);
 		block_index = 0;
 		block_limit = NUM_TINY_BLOCKS;
-		if (region == tiny_mag_ptr->mag_last_region)
+		if (region == tiny_mag_ptr->mag_last_region) {
+		    block_index += TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_start);
 		    block_limit -= TINY_MSIZE_FOR_BYTES(tiny_mag_ptr->mag_bytes_free_at_end);
+		}
 
 		while (block_index < block_limit) {
 		    vm_size_t block_offset = TINY_BYTES_FOR_MSIZE(block_index);
@@ -3037,6 +3284,25 @@ try_tiny_malloc_from_end:
 #endif
         goto return_tiny_alloc;
     }
+#if ASLR_INTERNAL
+    // Try from start if nothing left at end
+    if (tiny_mag_ptr->mag_bytes_free_at_start >= TINY_BYTES_FOR_MSIZE(msize)) {
+        ptr = (free_list_t *)(TINY_REGION_ADDRESS(tiny_mag_ptr->mag_last_region) +
+			      tiny_mag_ptr->mag_bytes_free_at_start - TINY_BYTES_FOR_MSIZE(msize));
+        tiny_mag_ptr->mag_bytes_free_at_start -= TINY_BYTES_FOR_MSIZE(msize);
+        if (tiny_mag_ptr->mag_bytes_free_at_start) {
+            // let's add an in use block before ptr to serve as boundary
+            set_tiny_meta_header_in_use_1((unsigned char *)ptr - TINY_QUANTUM);
+        }
+        this_msize = msize;
+#if DEBUG_MALLOC
+        if (LOG(szone, ptr)) {
+            malloc_printf("in tiny_malloc_from_free_list(), from start ptr=%p, msize=%d\n", ptr, msize);
+        }
+#endif
+        goto return_tiny_alloc;
+    }
+#endif
     return NULL;
 
 add_leftover_and_proceed:
@@ -3111,6 +3377,7 @@ tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reques
     if ((((uintptr_t)ptr) & (TINY_QUANTUM - 1)) == msize) {
 	// we have a winner
 	tiny_mag_ptr->mag_last_free = NULL;
+	tiny_mag_ptr->mag_last_free_rgn = NULL;
 	SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
 	CHECK(szone, __PRETTY_FUNCTION__);
 	ptr = (void *)((uintptr_t)ptr & ~ (TINY_QUANTUM - 1));
@@ -3126,17 +3393,7 @@ tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reques
     }
 #endif /* TINY_CACHE */
 
-    ptr = tiny_malloc_from_free_list(szone, tiny_mag_ptr, mag_index, msize);
-    if (ptr) {
-	SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
-	CHECK(szone, __PRETTY_FUNCTION__);
-	if (cleared_requested) {
-	    memset(ptr, 0, TINY_BYTES_FOR_MSIZE(msize));
-	}
-	return ptr;
-    }
-
-    if (tiny_get_region_from_depot(szone, tiny_mag_ptr, mag_index, msize)) {
+    while (1) {
 	ptr = tiny_malloc_from_free_list(szone, tiny_mag_ptr, mag_index, msize);
 	if (ptr) {
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
@@ -3146,13 +3403,59 @@ tiny_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reques
 	    }
 	    return ptr;
 	}
-    }
 
-    ptr = tiny_malloc_from_region_no_lock(szone, tiny_mag_ptr, mag_index, msize);
-    // we don't clear because this freshly allocated space is pristine
-    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
-    CHECK(szone, __PRETTY_FUNCTION__);
-    return ptr;
+    if (tiny_get_region_from_depot(szone, tiny_mag_ptr, mag_index, msize)) {
+	    ptr = tiny_malloc_from_free_list(szone, tiny_mag_ptr, mag_index, msize);
+	    if (ptr) {
+		SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+		CHECK(szone, __PRETTY_FUNCTION__);
+		if (cleared_requested) {
+		    memset(ptr, 0, TINY_BYTES_FOR_MSIZE(msize));
+		}
+		return ptr;
+	    }
+	}
+
+	// The magazine is exhausted. A new region (heap) must be allocated to satisfy this call to malloc().
+	// The allocation, an mmap() system call, will be performed outside the magazine spin locks by the first
+	// thread that suffers the exhaustion. That thread sets "alloc_underway" and enters a critical section.
+	// Threads arriving here later are excluded from the critical section, yield the CPU, and then retry the
+	// allocation. After some time the magazine is resupplied, the original thread leaves with its allocation,
+	// and retry-ing threads succeed in the code just above. 
+	if (!tiny_mag_ptr->alloc_underway) {
+	    void *fresh_region;
+
+	    // time to create a new region (do this outside the magazine lock)
+	    tiny_mag_ptr->alloc_underway = TRUE;
+	    OSMemoryBarrier();
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	    fresh_region = allocate_pages_securely(szone, TINY_REGION_SIZE, TINY_BLOCKS_ALIGN, VM_MEMORY_MALLOC_TINY);    
+	    SZONE_MAGAZINE_PTR_LOCK(szone, tiny_mag_ptr);
+
+	    MAGMALLOC_ALLOCREGION((void *)szone, (int)mag_index, fresh_region, TINY_REGION_SIZE); // DTrace USDT Probe
+
+	    if (!fresh_region) { // out of memory!
+		tiny_mag_ptr->alloc_underway = FALSE;
+		OSMemoryBarrier();
+		SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+		return NULL;
+	    }
+
+	    ptr = tiny_malloc_from_region_no_lock(szone, tiny_mag_ptr, mag_index, msize, fresh_region);
+    
+	    // we don't clear because this freshly allocated space is pristine
+	    tiny_mag_ptr->alloc_underway = FALSE;
+	    OSMemoryBarrier();
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	    CHECK(szone, __PRETTY_FUNCTION__);
+	   return ptr;
+	} else {
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	    pthread_yield_np();
+	    SZONE_MAGAZINE_PTR_LOCK(szone, tiny_mag_ptr);
+	}
+    }
+    /* NOTREACHED */
 }
 
 static NOINLINE void
@@ -3239,8 +3542,9 @@ free_tiny(szone_t *szone, void *ptr, region_t tiny_region, size_t known_size)
 	SZONE_MAGAZINE_PTR_LOCK(szone, tiny_mag_ptr);
     }
     			    
-    tiny_free_no_lock(szone, tiny_mag_ptr, mag_index, tiny_region, ptr, msize);
+    if (tiny_free_no_lock(szone, tiny_mag_ptr, mag_index, tiny_region, ptr, msize))
     SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
+	
     CHECK(szone, __PRETTY_FUNCTION__);
 }
 
@@ -3272,12 +3576,12 @@ print_tiny_free_list(szone_t *szone)
 }
 
 static void
-print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_end)
+print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_start, size_t bytes_at_end)
 {
     unsigned		counts[1024];
     unsigned		in_use = 0;
     uintptr_t		start = (uintptr_t)TINY_REGION_ADDRESS(region);
-    uintptr_t		current = start;
+    uintptr_t		current = start + bytes_at_end;
     uintptr_t		limit =  (uintptr_t)TINY_REGION_END(region) - bytes_at_end;
     boolean_t		is_free;
     msize_t		msize;
@@ -3332,8 +3636,8 @@ print_tiny_region(boolean_t verbose, region_t region, size_t bytes_at_end)
 	_simple_sprintf(b, "Tiny region [%p-%p, %y] \t", (void *)start, TINY_REGION_END(region), (int)TINY_REGION_SIZE);
 	_simple_sprintf(b, "Magazine=%d \t", MAGAZINE_INDEX_FOR_TINY_REGION(region));
 	_simple_sprintf(b, "Allocations in use=%d \t Bytes in use=%ly \t", in_use, BYTES_USED_FOR_TINY_REGION(region));
-	if (bytes_at_end)
-	    _simple_sprintf(b, "Untouched=%ly ", bytes_at_end);
+	if (bytes_at_end || bytes_at_start)
+	    _simple_sprintf(b, "Untouched=%ly ", bytes_at_end + bytes_at_start);
 	if (DEPOT_MAGAZINE_INDEX == MAGAZINE_INDEX_FOR_TINY_REGION(region)) {
 	    _simple_sprintf(b, "Advised MADV_FREE=%ly", pgTot);
 	} else {
@@ -3537,9 +3841,6 @@ small_finalize_region(szone_t *szone, magazine_t *small_mag_ptr) {
     void      *last_block, *previous_block;
     msize_t   last_msize, previous_msize, last_index;
 
-    last_block = SMALL_REGION_END(small_mag_ptr->mag_last_region) - small_mag_ptr->mag_bytes_free_at_end;
-    last_msize = SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_end);
-    
     // It is possible that the block prior to the last block in the region has
     // been free'd, but was not coalesced with the free bytes at the end of the
     // block, since we treat the bytes at the end of the region as "in use" in
@@ -3555,6 +3856,10 @@ small_finalize_region(szone_t *szone, magazine_t *small_mag_ptr) {
     //        'mag_bytes_free_at_end' when freeing the preceding block, rather
     //        than performing this workaround.
     //
+    if (small_mag_ptr->mag_bytes_free_at_end) {
+        last_block = SMALL_REGION_END(small_mag_ptr->mag_last_region) - small_mag_ptr->mag_bytes_free_at_end;
+        last_msize = SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_end);
+
     last_index = SMALL_META_INDEX_FOR_PTR(last_block);
     previous_msize = SMALL_PREVIOUS_MSIZE(last_block);
 
@@ -3573,6 +3878,30 @@ small_finalize_region(szone_t *szone, magazine_t *small_mag_ptr) {
     // splice last_block into the free list
     small_free_list_add_ptr(szone, small_mag_ptr, last_block, last_msize);
     small_mag_ptr->mag_bytes_free_at_end = 0;
+    }
+
+#if ASLR_INTERNAL
+    if (small_mag_ptr->mag_bytes_free_at_start) {
+        last_block = SMALL_REGION_ADDRESS(small_mag_ptr->mag_last_region);
+        last_msize = SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_start);
+
+        void *next_block = (void *) ((uintptr_t)last_block + small_mag_ptr->mag_bytes_free_at_start);
+        if (SMALL_PTR_IS_FREE(next_block)) {
+            msize_t next_msize = SMALL_PTR_SIZE(next_block);
+
+            small_meta_header_set_middle(SMALL_META_HEADER_FOR_PTR(next_block), SMALL_META_INDEX_FOR_PTR(next_block));
+            small_free_list_remove_ptr(szone, small_mag_ptr, next_block, next_msize);
+            last_msize += next_msize;
+        }
+
+        // splice last_block into the free list
+        small_free_list_add_ptr(szone, small_mag_ptr, last_block, last_msize);
+        small_mag_ptr->mag_bytes_free_at_start = 0;
+    }
+#endif
+
+    // TODO: Will we ever need to coalesce the blocks at the beginning and end when we finalize?
+
     small_mag_ptr->mag_last_region = NULL;
 }
 
@@ -3640,13 +3969,18 @@ small_free_reattach_region(szone_t *szone, magazine_t *small_mag_ptr, region_t r
     return total_alloc;
 }
 
-static void 
-small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
+typedef struct {
+    uint16_t pnum, size;
+} small_pg_pair_t;
+
+static void NOINLINE /* want private stack frame for automatic array */
+small_free_scan_madvise_free(szone_t *szone, magazine_t *depot_ptr, region_t r) {
     uintptr_t	start = (uintptr_t)SMALL_REGION_ADDRESS(r);
     uintptr_t	current = start;
     uintptr_t	limit =  (uintptr_t)SMALL_REGION_END(r);
     msize_t	*meta_headers = SMALL_META_HEADER_FOR_PTR(start);
-    boolean_t	did_advise = FALSE;
+    small_pg_pair_t advisory[((SMALL_REGION_PAYLOAD_BYTES + vm_page_size - 1) >> vm_page_shift) >> 1]; // 4096bytes stack allocated
+    int		advisories = 0;
 
     // Scan the metadata identifying blocks which span one or more pages. Mark the pages MADV_FREE taking care to preserve free list
     // management data. 
@@ -3659,25 +3993,22 @@ small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region
 	if (is_free && !msize && (current == start)) {
 #if DEBUG_MALLOC
 	    // first block is all free
-	    malloc_printf("*** small_free_scan_depot_madvise_free first block is all free! %p: msize=%d is_free =%d\n", 
+	    malloc_printf("*** small_free_scan_madvise_free first block is all free! %p: msize=%d is_free =%d\n", 
 	    (void *)current, msize, is_free);
 #endif	    
 	    uintptr_t pgLo = round_page(start + sizeof(free_list_t) + sizeof(msize_t));
 	    uintptr_t pgHi = trunc_page(start + SMALL_REGION_SIZE - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, r, pgLo, pgHi, NULL);
-#else
-		madvise_free_range(szone, r, pgLo, pgHi);
-#endif
-		did_advise = TRUE;
+		advisory[advisories].pnum = (pgLo - start) >> vm_page_shift;
+		advisory[advisories].size = (pgHi - pgLo) >> vm_page_shift;
+		advisories++;
 	    }
 	    break;
 	}
 	if (!msize) {
 #if DEBUG_MALLOC
-	    malloc_printf("*** small_free_scan_depot_madvise_free error with %p: msize=%d is_free =%d\n", 
+	    malloc_printf("*** small_free_scan_madvise_free error with %p: msize=%d is_free =%d\n", 
 	    (void *)current, msize, is_free);
 #endif
 	    break;
@@ -3687,35 +4018,44 @@ small_free_scan_depot_madvise_free(szone_t *szone, magazine_t *depot_ptr, region
 	    uintptr_t pgHi = trunc_page(current + SMALL_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, r, pgLo, pgHi, NULL);
-#else
-		madvise_free_range(szone, r, pgLo, pgHi);
-#endif
-		did_advise = TRUE;
+		advisory[advisories].pnum = (pgLo - start) >> vm_page_shift;
+		advisory[advisories].size = (pgHi - pgLo) >> vm_page_shift;
+		advisories++;
 	    }
 	}
 	current += SMALL_BYTES_FOR_MSIZE(msize);
     }
     
-    if (did_advise) {
-	/* Move the node to the tail of the Deopt's recirculation list to delay its re-use. */
-	region_trailer_t *node = REGION_TRAILER_FOR_SMALL_REGION(r);
-	recirc_list_extract(szone, depot_ptr, node); // excise node from list
-	recirc_list_splice_last(szone, depot_ptr, node); // connect to magazine as last node
+    if (advisories > 0) {
+	int i;
+	
+	OSAtomicIncrement32Barrier(&(REGION_TRAILER_FOR_SMALL_REGION(r)->pinned_to_depot));
+	SZONE_MAGAZINE_PTR_UNLOCK(szone, depot_ptr);
+	for (i = 0; i < advisories; ++i) {
+	    uintptr_t addr = (advisory[i].pnum << vm_page_shift) + start;
+	    size_t size = advisory[i].size << vm_page_shift;
+	    
+#if TARGET_OS_EMBEDDED
+		madvise_free_range(szone, r, addr, addr + size, NULL);
+#else
+		madvise_free_range(szone, r, addr, addr + size);
+#endif
+	}
+	SZONE_MAGAZINE_PTR_LOCK(szone, depot_ptr);
+	OSAtomicDecrement32Barrier(&(REGION_TRAILER_FOR_SMALL_REGION(r)->pinned_to_depot));
     }
 }
 
-static void
+static region_t
 small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region_trailer_t *node)
 {
-#warning Tune Depot headroom	
     if (0 < node->bytes_used || 
+        0 < node->pinned_to_depot ||
 	depot_ptr->recirculation_entries < (szone->num_small_magazines * 2)) {
-	return;
+	return NULL;
     }
     
-    // disconnect node from Depot
+    // disconnect first node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
     // Iterate the region pulling its free entries off the (locked) Depot's free list
@@ -3728,31 +4068,25 @@ small_free_try_depot_unmap_no_lock(szone_t *szone, magazine_t *depot_ptr, region
 	rgnhdl_t pSlot = hash_lookup_region_no_lock(szone->small_region_generation->hashed_regions, 
 				     szone->small_region_generation->num_regions_allocated, 
 				     szone->small_region_generation->num_regions_allocated_shift, sparse_region); 
+	if (NULL == pSlot) {
+	    szone_error(szone, 1, "small_free_try_depot_unmap_no_lock hash lookup failed:", NULL, "%p\n", sparse_region);
+	    return NULL;
+	}
 	*pSlot = HASHRING_REGION_DEALLOCATED;
 	depot_ptr->num_bytes_in_magazine -= SMALL_REGION_PAYLOAD_BYTES;
-#if ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 1))) /* GCC 4.1 and forward supports atomic builtins */
 	__sync_fetch_and_add( &(szone->num_small_regions_dealloc), 1); // Atomically increment num_small_regions_dealloc
-#else
-#ifdef __LP64__
-	OSAtomicIncrement64( (volatile int64_t *)&(szone->num_small_regions_dealloc) );
-#else
-	OSAtomicIncrement32( (volatile int32_t *)&(szone->num_small_regions_dealloc) );
-#endif
-#endif
 	
-	// Transfer ownership of the region back to the OS
-	SZONE_MAGAZINE_PTR_UNLOCK(szone, depot_ptr); // Avoid denial of service to Depot while in kernel
-	deallocate_pages(szone, sparse_region, SMALL_REGION_SIZE, 0);
-	SZONE_MAGAZINE_PTR_LOCK(szone, depot_ptr);
-
-	MAGMALLOC_DEALLOCREGION((void *)szone, (void *)sparse_region); // DTrace USDT Probe
+	// Caller will transfer ownership of the region back to the OS with no locks held
+	MAGMALLOC_DEALLOCREGION((void *)szone, (void *)sparse_region, SMALL_REGION_SIZE); // DTrace USDT Probe
+	return sparse_region;
 	
     } else {
 	szone_error(szone, 1, "small_free_try_depot_unmap_no_lock objects_in_use not zero:", NULL, "%d\n", objects_in_use);
+	return NULL;
     }
 }
 
-static void
+static boolean_t
 small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index)
 {
 	// The entire magazine crossed the "emptiness threshold". Transfer a region
@@ -3768,17 +4102,17 @@ small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_ind
 #if DEBUG_MALLOC
 	    malloc_printf("*** small_free_do_recirc_to_depot end of list\n");
 #endif
-	    return;
+	    return TRUE; // Caller must SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 	}
 	
 	region_t sparse_region = SMALL_REGION_FOR_PTR(node);
 
-	// Deal with unclaimed memory -- mag_bytes_free_at_end
-	if (sparse_region == small_mag_ptr->mag_last_region && small_mag_ptr->mag_bytes_free_at_end) {
+	// Deal with unclaimed memory -- mag_bytes_free_at_end or mag_bytes_free_at start
+	if (sparse_region == small_mag_ptr->mag_last_region && (small_mag_ptr->mag_bytes_free_at_end || small_mag_ptr->mag_bytes_free_at_start)) {
 	    small_finalize_region(szone, small_mag_ptr);
 	}
 	
-	// disconnect first node from magazine
+	// disconnect "suitable" node from magazine
 	recirc_list_extract(szone, small_mag_ptr, node);
 
 	// Iterate the region pulling its free entries off its (locked) magazine's free list
@@ -3790,6 +4124,7 @@ small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_ind
 	// this will cause small_free_list_add_ptr called by small_free_reattach_region to use 
 	// the depot as its target magazine, rather than magazine formerly associated with sparse_region
 	MAGAZINE_INDEX_FOR_SMALL_REGION(sparse_region) = DEPOT_MAGAZINE_INDEX;
+	node->pinned_to_depot = 0;
 
 	// Iterate the region putting its free entries on Depot's free list
 	size_t bytes_inplay = small_free_reattach_region(szone, depot_ptr, sparse_region);
@@ -3798,22 +4133,27 @@ small_free_do_recirc_to_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_ind
 	small_mag_ptr->num_bytes_in_magazine -= SMALL_REGION_PAYLOAD_BYTES;
 	small_mag_ptr->mag_num_objects -= objects_in_use;
 	
+	SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr); // Unlock the originating magazine
+	
 	depot_ptr->mag_num_bytes_in_objects += bytes_inplay;
 	depot_ptr->num_bytes_in_magazine += SMALL_REGION_PAYLOAD_BYTES;
 	depot_ptr->mag_num_objects += objects_in_use;
 	
-	// connect to Depot as first node
-	recirc_list_splice_first(szone, depot_ptr, node);
+	// connect to Depot as last node
+	recirc_list_splice_last(szone, depot_ptr, node);
 
-	MAGMALLOC_RECIRCREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
+	MAGMALLOC_RECIRCREGION((void *)szone, (int)mag_index, (void *)sparse_region, SMALL_REGION_SIZE, 
+	    (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
 
 	// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
-	small_free_scan_depot_madvise_free(szone, depot_ptr, sparse_region);
+	small_free_scan_madvise_free(szone, depot_ptr, sparse_region);
 
-	// If the region is entirely empty vm_deallocate() it
-	small_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
-	
+	// If the region is entirely empty vm_deallocate() it outside the depot lock
+	region_t r_dealloc = small_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
 	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+	if (r_dealloc)
+	    deallocate_pages(szone, r_dealloc, SMALL_REGION_SIZE, 0);
+	return FALSE; // Caller need not unlock the originating magazine
 }    
 
 static region_t
@@ -3903,14 +4243,26 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
 	
     SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
 
-    // Appropriate one of the Depot's regions that can satisfy requested msize.	
-    region_t sparse_region = small_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
-    if (NULL == sparse_region) { // Depot empty?
+    // Appropriate a Depot'd region that can satisfy requested msize.
+    region_trailer_t *node;
+    region_t sparse_region;
+	
+    while (1) {
+	sparse_region = small_find_msize_region(szone, depot_ptr, DEPOT_MAGAZINE_INDEX, msize);
+	if (NULL == sparse_region) { // Depot empty?
+            SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
+	    return 0;
+        }
+    
+	node = REGION_TRAILER_FOR_SMALL_REGION(sparse_region);
+	if (0 >= node->pinned_to_depot)
+	    break;
+	
 	SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
-	return 0;
+	pthread_yield_np();
+	SZONE_MAGAZINE_PTR_LOCK(szone,depot_ptr);
     }
 
-    region_trailer_t *node = REGION_TRAILER_FOR_SMALL_REGION(sparse_region);
     // disconnect node from Depot
     recirc_list_extract(szone, depot_ptr, node);
     
@@ -3919,6 +4271,7 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
 
     // Transfer ownership of the region
     MAGAZINE_INDEX_FOR_SMALL_REGION(sparse_region) = mag_index;
+    node->pinned_to_depot = 0;
     
     // Iterate the region putting its free entries on its new (locked) magazine's free list
     size_t bytes_inplay = small_free_reattach_region(szone, small_mag_ptr, sparse_region);
@@ -3931,33 +4284,37 @@ small_get_region_from_depot(szone_t *szone, magazine_t *small_mag_ptr, mag_index
     small_mag_ptr->num_bytes_in_magazine += SMALL_REGION_PAYLOAD_BYTES;
     small_mag_ptr->mag_num_objects += objects_in_use;
     
-    // connect to magazine as first node (it's maximally sparse at this moment)
+    // connect to magazine as first node
     recirc_list_splice_first(szone, small_mag_ptr, node);
     	
     SZONE_MAGAZINE_PTR_UNLOCK(szone,depot_ptr);
 
-#if !TARGET_OS_EMBEDDED
+    // madvise() outside the Depot lock
+#if TARGET_OS_EMBEDDED
+    if (node->failedREUSE) {
+#else
     if (node->failedREUSE ||
 	-1 == madvise((void *)sparse_region, SMALL_REGION_PAYLOAD_BYTES, MADV_FREE_REUSE)) {
+#endif
 	/* -1 return: VM map entry change makes this unfit for reuse. Something evil lurks. */
 #if DEBUG_MADVISE
-	szone_error(szone, 0, "small_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", sparse_region, "length=%d\n", SMALL_REGION_PAYLOAD_BYTES);
+	szone_error(szone, 0, "small_get_region_from_depot madvise(..., MADV_FREE_REUSE) failed", 
+	    sparse_region, "length=%d\n", SMALL_REGION_PAYLOAD_BYTES);
 #endif
 	node->failedREUSE = TRUE;
     }
-#endif
 
-    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
+    MAGMALLOC_DEPOTREGION((void *)szone, (int)mag_index, (void *)sparse_region, SMALL_REGION_SIZE, 
+        (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
 	
     return 1;
 }
 
-#warning Tune K and f!
 #define K 1.5 // headroom measured in number of 8Mb regions
 #define DENSITY_THRESHOLD(a) \
     ((a) - ((a) >> 2)) // "Emptiness" f = 0.25, so "Density" is (1 - f)*a. Generally: ((a) - ((a) >> -log2(f))) 
 
-static INLINE void
+static INLINE boolean_t
 small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, region_t region, void *ptr, msize_t msize)
 {
     msize_t		*meta_headers = SMALL_META_HEADER_FOR_PTR(ptr);
@@ -3968,14 +4325,12 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
     msize_t		next_index = index + msize;
     msize_t		previous_msize, next_msize;
     void		*previous;
-    boolean_t		did_prepend = FALSE;
-    boolean_t		did_append = FALSE;
 
 #if DEBUG_MALLOC
     if (LOG(szone,ptr)) {
 	malloc_printf("in small_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
     }
-    if (! msize) {
+    if (!msize) {
 	szone_error(szone, 1, "trying to free small block that is too small", ptr,
 	    "in small_free_no_lock(), ptr=%p, msize=%d\n", ptr, msize);
     }
@@ -3987,7 +4342,6 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 	if (meta_headers[index - previous_msize] == (previous_msize | SMALL_IS_FREE)) {
 	    previous = (void *)((uintptr_t)ptr - SMALL_BYTES_FOR_MSIZE(previous_msize));
 	    // previous is really to be coalesced
-	    did_prepend = TRUE;
 #if DEBUG_MALLOC
 	    if (LOG(szone, ptr) || LOG(szone,previous)) { 
 		malloc_printf("in small_free_no_lock(), coalesced backwards for %p previous=%p\n", ptr, previous);
@@ -4003,7 +4357,6 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
     // We try to coalesce with the next block
     if ((next_block < SMALL_REGION_END(region)) && (meta_headers[next_index] & SMALL_IS_FREE)) {
 	// next block is free, we coalesce
-	did_append = TRUE;
 	next_msize = meta_headers[next_index] & ~ SMALL_IS_FREE;
 #if DEBUG_MALLOC
 	if (LOG(szone,ptr)) 
@@ -4053,88 +4406,68 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 	size_t a = small_mag_ptr->num_bytes_in_magazine; // Total bytes allocated to this magazine
 	size_t u = small_mag_ptr->mag_num_bytes_in_objects; // In use (malloc'd) from this magaqzine
 
-	if (a - u > ((3 * SMALL_REGION_PAYLOAD_BYTES) / 2) && u < DENSITY_THRESHOLD(a))
-	    small_free_do_recirc_to_depot(szone, small_mag_ptr, mag_index);
+	if (a - u > ((3 * SMALL_REGION_PAYLOAD_BYTES) / 2) && u < DENSITY_THRESHOLD(a)) {
+	    return small_free_do_recirc_to_depot(szone, small_mag_ptr, mag_index);
+	}
 
     } else {
 #endif
 	// Freed to Depot. N.B. Lock on small_magazines[DEPOT_MAGAZINE_INDEX] is already held
+	// Calcuate the first page in the coalesced block that would be safe to mark MADV_FREE
 	uintptr_t safe_ptr = (uintptr_t)ptr + sizeof(free_list_t) + sizeof(msize_t);
 	uintptr_t round_safe = round_page(safe_ptr);
 	
+	// Calcuate the last page in the coalesced block that would be safe to mark MADV_FREE
 	uintptr_t safe_extent = (uintptr_t)ptr + SMALL_BYTES_FOR_MSIZE(msize) - sizeof(msize_t);
 	uintptr_t trunc_extent = trunc_page(safe_extent);
 		
-	// The newly freed block may complete a span of bytes that cover a page. Mark it with MADV_FREE.
+	// The newly freed block may complete a span of bytes that cover one or more pages. Mark the span with MADV_FREE.
 	if (round_safe < trunc_extent) { // Safe area covers a page (perhaps many)
-	    if (did_prepend & did_append) { // Coalesced preceding with original_ptr *and* with following
-		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
-		uintptr_t rnd_safe_follow = 
-		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
-		
+            uintptr_t lo = trunc_page((uintptr_t)original_ptr);
+            uintptr_t hi = round_page((uintptr_t)original_ptr + original_size);
+
+	    OSAtomicIncrement32Barrier(&(node->pinned_to_depot));
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 #if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent), &szone->last_small_advise);
+	    madvise_free_range(szone, region, MAX(round_safe, lo), MIN(trunc_extent, hi), &szone->last_small_advise);
 #else
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), MIN(rnd_safe_follow, trunc_extent));
+	    madvise_free_range(szone, region, MAX(round_safe, lo), MIN(trunc_extent, hi));
 #endif
-	    } else if (did_prepend) { // Coalesced preceding with original_ptr
-		uintptr_t trunc_safe_prev = trunc_page((uintptr_t)original_ptr - sizeof(msize_t));
-		
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent, &szone->last_small_advise);
-#else
-		madvise_free_range(szone, region, MAX(round_safe, trunc_safe_prev), trunc_extent);
-#endif
-	    } else if (did_append) { // Coalesced original_ptr with following
-		uintptr_t rnd_safe_follow = 
-		    round_page((uintptr_t)original_ptr + original_size + sizeof(free_list_t) + sizeof(msize_t));
-		
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent), &szone->last_small_advise);
-#else
-		madvise_free_range(szone, region, round_safe, MIN(rnd_safe_follow, trunc_extent));
-#endif
-	    } else // Isolated free
-#if TARGET_OS_EMBEDDED
-		madvise_free_range(szone, region, round_safe, trunc_extent, &szone->last_small_advise);
-#else
-		madvise_free_range(szone, region, round_safe, trunc_extent);
-#endif
-	}
+	    SZONE_MAGAZINE_PTR_LOCK(szone, small_mag_ptr);
+	    OSAtomicDecrement32Barrier(&(node->pinned_to_depot));
+        }
 
 #if !TARGET_OS_EMBEDDED
-	if (0 < bytes_used) {
+	if (0 < bytes_used || 0 < node->pinned_to_depot) {
 	    /* Depot'd region is still live. Leave it in place on the Depot's recirculation list
 	       so as to avoid thrashing between the Depot's free list and a magazines's free list
 	       with detach_region/reattach_region */
 	} else {
 	    /* Depot'd region is just now empty. Consider return to OS. */
-	    region_trailer_t *node = REGION_TRAILER_FOR_SMALL_REGION(region);
-	    magazine_t *depot_ptr = &(szone->small_magazines[DEPOT_MAGAZINE_INDEX]);
-	    small_free_try_depot_unmap_no_lock(szone, depot_ptr, node);
+	    region_t r_dealloc = small_free_try_depot_unmap_no_lock(szone, small_mag_ptr, node);
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	    if (r_dealloc)
+		deallocate_pages(szone, r_dealloc, SMALL_REGION_SIZE, 0);
+	    return FALSE; // Caller need not unlock
 	}
     }
 #endif
+
+    return TRUE; // Caller must do SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr)
 }
 
 // Allocates from the last region or a freshly allocated region
 static void *
-small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, msize_t msize)
+small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_index, 
+    msize_t msize, void *aligned_address)
 {
-    void	*ptr, *aligned_address;
+    void	*ptr;
 
-    // Before anything we transform the mag_bytes_free_at_end - if any - to a regular free block
+    // Before anything we transform the mag_bytes_free_at_end or mag_bytes_free_at_start - if any - to a regular free block
     /* FIXME: last_block needs to be coalesced with previous entry if free, <rdar://5462322> */
-    if (small_mag_ptr->mag_bytes_free_at_end)
+    if (small_mag_ptr->mag_bytes_free_at_end || small_mag_ptr->mag_bytes_free_at_start)
 	small_finalize_region(szone, small_mag_ptr);
 
-    // time to create a new region
-    aligned_address = allocate_pages(szone, SMALL_REGION_SIZE, SMALL_BLOCKS_ALIGN, 0, VM_MEMORY_MALLOC_SMALL);
-    if (!aligned_address)
-	return NULL;
-
-    MAGMALLOC_ALLOCREGION((void *)szone, (int)mag_index); // DTrace USDT Probe
-	
     // Here find the only place in smallville that (infrequently) takes the small_regions_lock.
     // Only one thread at a time should be permitted to assess the density of the hash
     // ring and adjust if needed. 
@@ -4165,11 +4498,7 @@ small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_
 	// Throw the switch to atomically advance to the next generation.
 	szone->small_region_generation = szone->small_region_generation->nextgen;
 	// Ensure everyone sees the advance.
-#if ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 1))) /* GCC 4.1 and forward supports atomic builtins */
-	__sync_synchronize();
-#else
 	OSMemoryBarrier();
-#endif
     }
     // Tag the region at "aligned_address" as belonging to us, 
     // and so put it under the protection of the magazine lock we are holding.
@@ -4188,18 +4517,61 @@ small_malloc_from_region_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_
 
     small_mag_ptr->mag_last_region = aligned_address;
     BYTES_USED_FOR_SMALL_REGION(aligned_address) = SMALL_BYTES_FOR_MSIZE(msize);
-    ptr = aligned_address;
-    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), 0, msize);
+#if ASLR_INTERNAL
+    int offset_msize = malloc_entropy[1] & SMALL_ENTROPY_MASK;
+#if DEBUG_MALLOC
+    if (getenv("MallocASLRForce")) offset_msize = strtol(getenv("MallocASLRForce"), NULL, 0) & SMALL_ENTROPY_MASK;
+    if (getenv("MallocASLRPrint")) malloc_printf("Region: %p offset: %d\n", aligned_address, offset_msize);
+#endif
+#else
+    int offset_msize = 0;
+#endif
+    ptr = (void *)((uintptr_t) aligned_address + SMALL_BYTES_FOR_MSIZE(offset_msize));
+    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), offset_msize, msize);
     small_mag_ptr->mag_num_objects++;
     small_mag_ptr->mag_num_bytes_in_objects += SMALL_BYTES_FOR_MSIZE(msize);
     small_mag_ptr->num_bytes_in_magazine += SMALL_REGION_PAYLOAD_BYTES;
     
-    // add a big free block
-    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr)	, msize, NUM_SMALL_BLOCKS - msize);    
-    small_mag_ptr->mag_bytes_free_at_end = SMALL_BYTES_FOR_MSIZE(NUM_SMALL_BLOCKS - msize);
+    // add a big free block at the end
+    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), offset_msize + msize, NUM_SMALL_BLOCKS - msize - offset_msize);    
+    small_mag_ptr->mag_bytes_free_at_end = SMALL_BYTES_FOR_MSIZE(NUM_SMALL_BLOCKS - msize - offset_msize);
 
-    // connect to magazine as first node (it's maximally sparse at this moment)
-    recirc_list_splice_first(szone, small_mag_ptr, REGION_TRAILER_FOR_SMALL_REGION(aligned_address));
+#if ASLR_INTERNAL
+    // add a big free block at the start
+    small_mag_ptr->mag_bytes_free_at_start = SMALL_BYTES_FOR_MSIZE(offset_msize);
+    if (offset_msize) {
+	small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), 0, offset_msize);
+    }
+#else
+    small_mag_ptr->mag_bytes_free_at_start = 0;
+#endif
+
+    // connect to magazine as last node
+    recirc_list_splice_last(szone, small_mag_ptr, REGION_TRAILER_FOR_SMALL_REGION(aligned_address));
+
+    return ptr;
+}
+
+static INLINE void *
+small_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_good_size)
+{
+    msize_t new_msize = SMALL_MSIZE_FOR_BYTES(new_good_size);
+    msize_t mshrinkage = SMALL_MSIZE_FOR_BYTES(old_size) - new_msize;
+
+    if (mshrinkage) {
+	void *q = (void *)((uintptr_t)ptr + SMALL_BYTES_FOR_MSIZE(new_msize));
+	magazine_t *small_mag_ptr = mag_lock_zine_for_region_trailer(szone, szone->small_magazines,
+		    REGION_TRAILER_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr)), 
+		    MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr)));
+		    
+	// Mark q as block header and in-use, thus creating two blocks.
+	small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), SMALL_META_INDEX_FOR_PTR(ptr), new_msize);
+	small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(q), SMALL_META_INDEX_FOR_PTR(q), mshrinkage);
+	small_mag_ptr->mag_num_objects++;
+
+	SZONE_MAGAZINE_PTR_UNLOCK(szone,small_mag_ptr);
+	szone_free(szone, q); // avoid inlining free_small(szone, q, ...);
+    }
 
     return ptr;
 }
@@ -4277,7 +4649,7 @@ small_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
     small_meta_header_set_in_use(meta_headers, index, new_msize);
 #if DEBUG_MALLOC
     if (LOG(szone,ptr)) {
-	malloc_printf("in szone_realloc(), ptr=%p, msize=%d\n", ptr, *SMALL_METADATA_FOR_PTR(ptr));
+	malloc_printf("in small_try_realloc_in_place(), ptr=%p, msize=%d\n", ptr, *SMALL_METADATA_FOR_PTR(ptr));
     }
 #endif
     small_mag_ptr->mag_num_bytes_in_objects += SMALL_BYTES_FOR_MSIZE(new_msize - old_msize);
@@ -4321,8 +4693,10 @@ small_check_region(szone_t *szone, region_t region)
     // Assumes locked
     CHECK_MAGAZINE_PTR_LOCKED(szone, small_mag_ptr, __PRETTY_FUNCTION__);
 
-    if (region == small_mag_ptr->mag_last_region) 
+    if (region == small_mag_ptr->mag_last_region) {
+	ptr += small_mag_ptr->mag_bytes_free_at_start;
 	region_end -= small_mag_ptr->mag_bytes_free_at_end;
+    }
 	
     while (ptr < region_end) {
 	index = SMALL_META_INDEX_FOR_PTR(ptr);
@@ -4399,9 +4773,8 @@ small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t 
     unsigned		block_limit;
     msize_t		msize_and_free;
     msize_t		msize;
-    vm_address_t	mag_last_free_ptr = 0;
-    msize_t		mag_last_free_msize = 0;
-
+    magazine_t          *small_mag_base = NULL;
+    
     region_hash_generation_t *srg_ptr;
     err = reader(task, (vm_address_t)szone->small_region_generation, sizeof(region_hash_generation_t), (void **)&srg_ptr);
     if (err) return err;
@@ -4410,6 +4783,13 @@ small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t 
     err = reader(task, (vm_address_t)srg_ptr->hashed_regions, sizeof(region_t) * num_regions, (void **)&regions);
     if (err) return err;
 
+    if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
+        // Map in all active magazines. Do this outside the iteration over regions.
+        err = reader(task, (vm_address_t)(szone->small_magazines),
+                szone->num_small_magazines*sizeof(magazine_t),(void **)&small_mag_base);
+        if (err) return err;
+    }
+    
     for (index = 0; index < num_regions; ++index) {
 	region = regions[index];
 	if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
@@ -4426,27 +4806,42 @@ small_in_use_enumerator(task_t task, void *context, unsigned type_mask, szone_t 
 		recorder(task, context, MALLOC_PTR_REGION_RANGE_TYPE, &ptr_range, 1);
 	    }
 	    if (type_mask & MALLOC_PTR_IN_USE_RANGE_TYPE) {
+		void 		*mag_last_free;
+		vm_address_t	mag_last_free_ptr = 0;
+		msize_t		mag_last_free_msize = 0;
+
 		err = reader(task, range.address, range.size, (void **)&mapped_region);
 		if (err) 
 		    return err;
 		    
 		mag_index_t mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(mapped_region);
-		magazine_t *small_mag_ptr;
-		err = reader(task, (vm_address_t)&(szone->small_magazines[mag_index]), sizeof(magazine_t), 
-			(void **)&small_mag_ptr);
-		if (err) return err;
+		magazine_t *small_mag_ptr = small_mag_base + mag_index;
 
-		void *mag_last_free = small_mag_ptr->mag_last_free;
-		if (mag_last_free) {
-		    mag_last_free_ptr = (uintptr_t) mag_last_free & ~(SMALL_QUANTUM - 1);
-		    mag_last_free_msize = (uintptr_t) mag_last_free & (SMALL_QUANTUM - 1);
+		if (DEPOT_MAGAZINE_INDEX != mag_index) {
+		    mag_last_free = small_mag_ptr->mag_last_free;
+		    if (mag_last_free) {
+			mag_last_free_ptr = (uintptr_t) mag_last_free & ~(SMALL_QUANTUM - 1);
+			mag_last_free_msize = (uintptr_t) mag_last_free & (SMALL_QUANTUM - 1);
+		    }
+		} else {
+		    for (mag_index = 0; mag_index < szone->num_small_magazines; mag_index++) {
+			if ((void *)range.address == (small_mag_base + mag_index)->mag_last_free_rgn) {
+			    mag_last_free = (small_mag_base + mag_index)->mag_last_free;
+			    if (mag_last_free) {
+				mag_last_free_ptr = (uintptr_t) mag_last_free & ~(SMALL_QUANTUM - 1);
+				mag_last_free_msize = (uintptr_t) mag_last_free & (SMALL_QUANTUM - 1);
+			    }
+			}
+		    }
 		}
 
 		block_header = (msize_t *)(mapped_region + SMALL_METADATA_START + sizeof(region_trailer_t));
 		block_index = 0;
 		block_limit = NUM_SMALL_BLOCKS;
-		if (region == small_mag_ptr->mag_last_region)
+		if (region == small_mag_ptr->mag_last_region) {
+		    block_index += SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_start);
 		    block_limit -= SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_end);
+		}
 		while (block_index < block_limit) {
 		    msize_and_free = block_header[block_index];
 		    msize = msize_and_free & ~ SMALL_IS_FREE;
@@ -4614,6 +5009,20 @@ try_small_from_end:
         this_msize = msize;
         goto return_small_alloc;
     }
+#if ASLR_INTERNAL
+    // Try from start if nothing left at end
+    if (small_mag_ptr->mag_bytes_free_at_start >= SMALL_BYTES_FOR_MSIZE(msize)) {
+        ptr = (free_list_t *)(SMALL_REGION_ADDRESS(small_mag_ptr->mag_last_region) +
+			      small_mag_ptr->mag_bytes_free_at_start - SMALL_BYTES_FOR_MSIZE(msize));
+        small_mag_ptr->mag_bytes_free_at_start -= SMALL_BYTES_FOR_MSIZE(msize);
+        if (small_mag_ptr->mag_bytes_free_at_start) {
+            // let's mark this block as in use to serve as boundary
+	    small_meta_header_set_in_use(SMALL_META_HEADER_FOR_PTR(ptr), 0, SMALL_MSIZE_FOR_BYTES(small_mag_ptr->mag_bytes_free_at_start));
+        }
+        this_msize = msize;
+        goto return_small_alloc;
+    }
+#endif
     return NULL;
     
 add_leftover_and_proceed:
@@ -4673,6 +5082,7 @@ small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reque
     if ((((uintptr_t)ptr) & (SMALL_QUANTUM - 1)) == msize) {
 	// we have a winner
 	small_mag_ptr->mag_last_free = NULL;
+	small_mag_ptr->mag_last_free_rgn = NULL;
 	SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 	CHECK(szone, __PRETTY_FUNCTION__);
 	ptr = (void *)((uintptr_t)ptr & ~ (SMALL_QUANTUM - 1));
@@ -4683,17 +5093,7 @@ small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reque
     }
 #endif /* SMALL_CACHE */
 
-    ptr = small_malloc_from_free_list(szone, small_mag_ptr, mag_index, msize);
-    if (ptr) {
-	SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
-	CHECK(szone, __PRETTY_FUNCTION__);
-	if (cleared_requested) {
-	    memset(ptr, 0, SMALL_BYTES_FOR_MSIZE(msize));
-	}
-	return ptr;
-    }
-    
-    if (small_get_region_from_depot(szone, small_mag_ptr, mag_index, msize)) {
+    while(1) {
 	ptr = small_malloc_from_free_list(szone, small_mag_ptr, mag_index, msize);
 	if (ptr) {
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
@@ -4703,13 +5103,59 @@ small_malloc_should_clear(szone_t *szone, msize_t msize, boolean_t cleared_reque
 	    }
 	    return ptr;
 	}
-    }
 
-    ptr = small_malloc_from_region_no_lock(szone, small_mag_ptr, mag_index, msize);
-    // we don't clear because this freshly allocated space is pristine
-    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
-    CHECK(szone, __PRETTY_FUNCTION__);
-    return ptr;
+    if (small_get_region_from_depot(szone, small_mag_ptr, mag_index, msize)) {
+	    ptr = small_malloc_from_free_list(szone, small_mag_ptr, mag_index, msize);
+	    if (ptr) {
+		SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+		CHECK(szone, __PRETTY_FUNCTION__);
+		if (cleared_requested) {
+		    memset(ptr, 0, SMALL_BYTES_FOR_MSIZE(msize));
+		}
+		return ptr;
+	    }
+	}
+
+	// The magazine is exhausted. A new region (heap) must be allocated to satisfy this call to malloc().
+	// The allocation, an mmap() system call, will be performed outside the magazine spin locks by the first
+	// thread that suffers the exhaustion. That thread sets "alloc_underway" and enters a critical section.
+	// Threads arriving here later are excluded from the critical section, yield the CPU, and then retry the
+	// allocation. After some time the magazine is resupplied, the original thread leaves with its allocation,
+	// and retry-ing threads succeed in the code just above. 
+	if (!small_mag_ptr->alloc_underway) {
+	    void *fresh_region;
+
+	    // time to create a new region (do this outside the magazine lock)
+	    small_mag_ptr->alloc_underway = TRUE;
+	    OSMemoryBarrier();
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	    fresh_region = allocate_pages_securely(szone, SMALL_REGION_SIZE, SMALL_BLOCKS_ALIGN, VM_MEMORY_MALLOC_SMALL);    
+	    SZONE_MAGAZINE_PTR_LOCK(szone, small_mag_ptr);
+	    
+	    MAGMALLOC_ALLOCREGION((void *)szone, (int)mag_index, fresh_region, SMALL_REGION_SIZE); // DTrace USDT Probe
+
+	    if (!fresh_region) { // out of memory!
+		small_mag_ptr->alloc_underway = FALSE;
+		OSMemoryBarrier();
+		SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+		return NULL;
+	    }
+		
+	    ptr = small_malloc_from_region_no_lock(szone, small_mag_ptr, mag_index, msize, fresh_region);
+	    
+	    // we don't clear because this freshly allocated space is pristine
+	    small_mag_ptr->alloc_underway = FALSE;
+	    OSMemoryBarrier();
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	    CHECK(szone, __PRETTY_FUNCTION__);
+	    return ptr;
+	} else {
+	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	    pthread_yield_np();
+	    SZONE_MAGAZINE_PTR_LOCK(szone, small_mag_ptr);
+	}
+    }
+    /* NOTREACHED */
 }
 
 static NOINLINE void
@@ -4788,8 +5234,9 @@ free_small(szone_t *szone, void *ptr, region_t small_region, size_t known_size)
 	SZONE_MAGAZINE_PTR_LOCK(szone, small_mag_ptr);
     }
     			    
-    small_free_no_lock(szone, small_mag_ptr, mag_index, small_region, ptr, msize);
+    if (small_free_no_lock(szone, small_mag_ptr, mag_index, small_region, ptr, msize))
     SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
+	
     CHECK(szone, __PRETTY_FUNCTION__);
 }
 
@@ -4821,12 +5268,12 @@ print_small_free_list(szone_t *szone)
 }
 
 static void
-print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t bytes_at_end)
+print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t bytes_at_start, size_t bytes_at_end)
 {
     unsigned		counts[1024];
     unsigned		in_use = 0;
     uintptr_t		start = (uintptr_t)SMALL_REGION_ADDRESS(region);
-    uintptr_t		current = start;
+    uintptr_t		current = start + bytes_at_start;
     uintptr_t		limit = (uintptr_t)SMALL_REGION_END(region) - bytes_at_end;
     msize_t		msize_and_free;
     msize_t		msize;
@@ -4858,7 +5305,7 @@ print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t by
 	    in_use++;
 	} else {
 	    uintptr_t pgLo = round_page(current + sizeof(free_list_t) + sizeof(msize_t));
-	    uintptr_t pgHi = trunc_page(current + TINY_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
+	    uintptr_t pgHi = trunc_page(current + SMALL_BYTES_FOR_MSIZE(msize) - sizeof(msize_t));
 	    
 	    if (pgLo < pgHi) {
 		pgTot += (pgHi - pgLo);
@@ -4870,8 +5317,8 @@ print_small_region(szone_t *szone, boolean_t verbose, region_t region, size_t by
 	_simple_sprintf(b, "Small region [%p-%p, %y] \t", (void *)start, SMALL_REGION_END(region), (int)SMALL_REGION_SIZE);
 	_simple_sprintf(b, "Magazine=%d \t", MAGAZINE_INDEX_FOR_SMALL_REGION(region));
 	_simple_sprintf(b, "Allocations in use=%d \t Bytes in use=%ly \t", in_use, BYTES_USED_FOR_SMALL_REGION(region));
-	if (bytes_at_end)
-	    _simple_sprintf(b, "Untouched=%ly ", bytes_at_end);
+	if (bytes_at_end || bytes_at_start)
+	    _simple_sprintf(b, "Untouched=%ly ", bytes_at_end + bytes_at_start);
 	if (DEPOT_MAGAZINE_INDEX == MAGAZINE_INDEX_FOR_SMALL_REGION(region)) {
 	    _simple_sprintf(b, "Advised MADV_FREE=%ly", pgTot);
 	} else {
@@ -5114,7 +5561,7 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
     range.size = entry->size;
     
     if (szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) {
-	protect((void *)range.address, range.size, VM_PROT_READ | VM_PROT_WRITE, szone->debug_flags);
+	protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
 	range.address -= vm_page_size;
 	range.size += 2 * vm_page_size;
     }
@@ -5203,16 +5650,19 @@ large_malloc(szone_t *szone, size_t num_pages, unsigned char alignment,
     
     while (1) { // Scan large_entry_cache for best fit, starting with most recent entry
 	size_t this_size = szone->large_entry_cache[idx].size;
+	addr = (void *)szone->large_entry_cache[idx].address;
+
+	if (0 == alignment || 0 == (((uintptr_t) addr) & (((uintptr_t) 1 << alignment) - 1))) {
+	    if (size == this_size) { // size match!
+		best = idx;
+		best_size = this_size;
+		break;
+	    }
 	
-	if (size == this_size) { // size match!
-	    best = idx;
-	    best_size = this_size;
-	    break;
-	}
-	
-	if (size <= this_size && this_size < best_size) { // improved fit?
-	    best = idx;
-	    best_size = this_size;
+	    if (size <= this_size && this_size < best_size) { // improved fit?
+		best = idx;
+		best_size = this_size;
+	    }
 	}
 	
 	if (idx == stop_idx) // exhausted live ring?
@@ -5288,7 +5738,14 @@ large_malloc(szone_t *szone, size_t num_pages, unsigned char alignment,
 	szone->num_large_objects_in_use ++;
 	szone->num_bytes_in_large_objects += best_size;
 	if (!was_madvised_reusable)
-	    szone->large_entry_cache_hoard_bytes -= best_size;
+	    szone->large_entry_cache_reserve_bytes -= best_size;
+
+ 	szone->large_entry_cache_bytes -= best_size;
+
+ 	if (szone->flotsam_enabled && szone->large_entry_cache_bytes < SZONE_FLOTSAM_THRESHOLD_LOW) {
+ 	    szone->flotsam_enabled = FALSE;
+ 	}
+
 	SZONE_UNLOCK(szone);
 	
 	if (range_to_deallocate.size) {
@@ -5299,10 +5756,15 @@ large_malloc(szone_t *szone, size_t num_pages, unsigned char alignment,
 	// Perform the madvise() outside the lock.
 	// Typically the madvise() is successful and we'll quickly return from this routine.
 	// In the unusual case of failure, reacquire the lock to unwind.
+#if TARGET_OS_EMBEDDED
+	// Ok to do this madvise on embedded because we won't call MADV_FREE_REUSABLE on a large
+	// cache block twice without MADV_FREE_REUSE in between.
+#endif
 	if (was_madvised_reusable && -1 == madvise(addr, size, MADV_FREE_REUSE)) {
 	    /* -1 return: VM map entry change makes this unfit for reuse. */
 #if DEBUG_MADVISE
-	    szone_error(szone, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", addr, "length=%d\n", size);
+	    szone_error(szone, 0, "large_malloc madvise(..., MADV_FREE_REUSE) failed", 
+	        addr, "length=%d\n", size);
 #endif
 	    
 	    SZONE_LOCK(szone);
@@ -5392,7 +5854,7 @@ free_large(szone_t *szone, void *ptr)
 	    int idx = szone->large_entry_cache_newest, stop_idx = szone->large_entry_cache_oldest;
 	    large_entry_t this_entry = *entry; // Make a local copy, "entry" is volatile when lock is let go.
 	    boolean_t reusable = TRUE;
-	    boolean_t should_madvise = szone->large_entry_cache_hoard_bytes + this_entry.size > szone->large_entry_cache_hoard_lmit;
+	    boolean_t should_madvise = szone->large_entry_cache_reserve_bytes + this_entry.size > szone->large_entry_cache_reserve_limit;
     
 	    // Already freed?
 	    // [Note that repeated entries in death-row risk vending the same entry subsequently
@@ -5420,30 +5882,35 @@ free_large(szone_t *szone, void *ptr)
 		int state = VM_PURGABLE_NONVOLATILE; // restore to default condition
 
 		if (KERN_SUCCESS != vm_purgable_control(mach_task_self(), this_entry.address, VM_PURGABLE_SET_STATE, &state)) {
-		    malloc_printf("*** can't vm_purgable_control(..., VM_PURGABLE_SET_STATE) for large freed block at %p\n", this_entry.address);
+		    malloc_printf("*** can't vm_purgable_control(..., VM_PURGABLE_SET_STATE) for large freed block at %p\n", 
+		        this_entry.address);
 		    reusable = FALSE;
 		}
 	    }
 
 	    if (szone->large_legacy_reset_mprotect) { // Linked for Leopard?
 		// Accomodate Leopard apps that (illegally) mprotect() their own guard pages on large malloc'd allocations
-                kern_return_t err = vm_protect(mach_task_self(), (vm_address_t)(this_entry.address), this_entry.size,
-                                0, PROT_READ | PROT_WRITE);
+		int err = mprotect((void *)(this_entry.address), this_entry.size, PROT_READ | PROT_WRITE);
                 if (err) {
                     malloc_printf("*** can't reset protection for large freed block at %p\n", this_entry.address);
 		    reusable = FALSE;
                 }
             }
 	    
-	    // madvise(..., MADV_REUSABLE) death-row arrivals if hoarding would exceed large_entry_cache_hoard_lmit 
+	    // madvise(..., MADV_REUSABLE) death-row arrivals if hoarding would exceed large_entry_cache_reserve_limit 
 	    if (should_madvise) {
 		// Issue madvise to avoid paging out the dirtied free()'d pages in "entry"
 		MAGMALLOC_MADVFREEREGION((void *)szone, (void *)0, (void *)(this_entry.address), this_entry.size); // DTrace USDT Probe
 
+#if TARGET_OS_EMBEDDED
+		// Ok to do this madvise on embedded because we won't call MADV_FREE_REUSABLE on a large
+		// cache block twice without MADV_FREE_REUSE in between.
+#endif
 		if (-1 == madvise((void *)(this_entry.address), this_entry.size, MADV_FREE_REUSABLE)) {
 		    /* -1 return: VM map entry change makes this unfit for reuse. */
 #if DEBUG_MADVISE
-		    szone_error(szone, 0, "free_large madvise(..., MADV_FREE_REUSABLE) failed", (void *)this_entry.address, "length=%d\n", this_entry.size);
+		    szone_error(szone, 0, "free_large madvise(..., MADV_FREE_REUSABLE) failed", 
+		        (void *)this_entry.address, "length=%d\n", this_entry.size);
 #endif
 		    reusable = FALSE;
 		}
@@ -5481,8 +5948,9 @@ free_large(szone_t *szone, void *ptr)
 			// Drop this entry from the cache and deallocate the VM
 			addr = szone->large_entry_cache[idx].address;
 			adjsize = szone->large_entry_cache[idx].size;
+			szone->large_entry_cache_bytes -= adjsize;
 			if (!szone->large_entry_cache[idx].did_madvise_reusable)
-			    szone->large_entry_cache_hoard_bytes -= adjsize;
+			    szone->large_entry_cache_reserve_bytes -= adjsize;
 		    } else {
 			// Using an unoccupied cache slot
 			addr = 0;
@@ -5495,8 +5963,14 @@ free_large(szone_t *szone, void *ptr)
 			
 		entry->did_madvise_reusable = should_madvise; // Was madvise()'d above?
 		if (!should_madvise) // Entered on death-row without madvise() => up the hoard total
-		    szone->large_entry_cache_hoard_bytes += entry->size;
+		    szone->large_entry_cache_reserve_bytes += entry->size;
 		
+ 		szone->large_entry_cache_bytes += entry->size;
+
+ 		if (!szone->flotsam_enabled && szone->large_entry_cache_bytes > SZONE_FLOTSAM_THRESHOLD_HIGH) {
+ 		    szone->flotsam_enabled = TRUE;
+ 		}
+
 		szone->large_entry_cache[idx] = *entry;
 		szone->large_entry_cache_newest = idx;
 		
@@ -5557,6 +6031,31 @@ free_large(szone_t *szone, void *ptr)
 #endif
 	deallocate_pages(szone, (void *)vm_range_to_deallocate.address, (size_t)vm_range_to_deallocate.size, 0);
     }
+}
+
+static INLINE void *
+large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new_good_size)
+{
+    size_t shrinkage = old_size - new_good_size;
+    
+    if (shrinkage) {
+	SZONE_LOCK(szone);
+	/* contract existing large entry */
+	large_entry_t *large_entry = large_entry_for_pointer_no_lock(szone, ptr);
+	if (!large_entry) {
+	    szone_error(szone, 1, "large entry reallocated is not properly in table", ptr, NULL);
+	    SZONE_UNLOCK(szone);
+	    return ptr;
+	}
+	
+	large_entry->address = (vm_address_t)ptr;
+	large_entry->size = new_good_size;
+	szone->num_bytes_in_large_objects -= shrinkage;
+	SZONE_UNLOCK(szone); // we release the lock asap
+	
+	deallocate_pages(szone, (void *)((uintptr_t)ptr + new_good_size), shrinkage, 0);
+    }
+    return ptr;
 }
 
 static INLINE int
@@ -5696,8 +6195,7 @@ szone_free_definite_size(szone_t *szone, void *ptr, size_t size)
 	szone_error(szone, 1, "Non-aligned pointer being freed (2)", ptr, NULL);
 	return;
     }
-    if (!((szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL) && 
-		(size <= szone->large_threshold)) {
+    if (size <= szone->large_threshold) {
 	if (SMALL_META_INDEX_FOR_PTR(ptr) >= NUM_SMALL_BLOCKS) {
 	    szone_error(szone, 1, "Pointer to metadata being freed (2)", ptr, NULL);
 	    return;
@@ -5726,11 +6224,10 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 	if (!msize)
 	    msize = 1;
 	ptr = tiny_malloc_should_clear(szone, msize, cleared_requested);
-    } else if (!((szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL) && 
-		(size <= szone->large_threshold)) {
+    } else if (size <= szone->large_threshold) {
 	// think small
 	msize = SMALL_MSIZE_FOR_BYTES(size + SMALL_QUANTUM - 1);
-	if (! msize) 
+	if (!msize) 
 	    msize = 1;
 	ptr = small_malloc_should_clear(szone, msize, cleared_requested);
     } else {
@@ -5856,10 +6353,19 @@ szone_size(szone_t *szone, const void *ptr)
 #if TINY_CACHE
 	{
 	    mag_index_t mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(TINY_REGION_FOR_PTR(ptr));
-	    magazine_t	*tiny_mag_ptr = &(szone->tiny_magazines[mag_index]);
+	    if (DEPOT_MAGAZINE_INDEX != mag_index) {
+		magazine_t	*tiny_mag_ptr = &(szone->tiny_magazines[mag_index]);
 
-	    if (msize < TINY_QUANTUM && ptr == (void *)((uintptr_t)(tiny_mag_ptr->mag_last_free) & ~ (TINY_QUANTUM - 1)))
-		return 0;
+		if (msize < TINY_QUANTUM && ptr == (void *)((uintptr_t)(tiny_mag_ptr->mag_last_free) & ~ (TINY_QUANTUM - 1)))
+		    return 0;
+	    } else {
+		for (mag_index = 0; mag_index < szone->num_tiny_magazines; mag_index++) {
+		    magazine_t	*tiny_mag_ptr = &(szone->tiny_magazines[mag_index]);
+
+		    if (msize < TINY_QUANTUM && ptr == (void *)((uintptr_t)(tiny_mag_ptr->mag_last_free) & ~ (TINY_QUANTUM - 1)))
+			return 0;
+		}
+	    }
 	}
 #endif
 	return TINY_BYTES_FOR_MSIZE(msize);
@@ -5879,10 +6385,19 @@ szone_size(szone_t *szone, const void *ptr)
 #if SMALL_CACHE
 	{
 	    mag_index_t	mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr));
-	    magazine_t	*small_mag_ptr = &(szone->small_magazines[mag_index]);
+	    if (DEPOT_MAGAZINE_INDEX != mag_index) {
+		magazine_t	*small_mag_ptr = &(szone->small_magazines[mag_index]);
 
-	    if (ptr == (void *)((uintptr_t)(small_mag_ptr->mag_last_free) & ~ (SMALL_QUANTUM - 1)))
-		return 0;
+		if (ptr == (void *)((uintptr_t)(small_mag_ptr->mag_last_free) & ~ (SMALL_QUANTUM - 1)))
+		    return 0;
+	    } else {
+		for (mag_index = 0; mag_index < szone->num_small_magazines; mag_index++) {
+		    magazine_t	*small_mag_ptr = &(szone->small_magazines[mag_index]);
+
+		    if (ptr == (void *)((uintptr_t)(small_mag_ptr->mag_last_free) & ~ (SMALL_QUANTUM - 1)))
+			return 0;
+		}
+	    }
 	}
 #endif
 	return SMALL_BYTES_FOR_MSIZE(msize_and_free);
@@ -5903,7 +6418,7 @@ szone_size(szone_t *szone, const void *ptr)
 static NOINLINE void *
 szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 {
-    size_t	old_size;
+    size_t	old_size, new_good_size, valid_size;
     void	*new_ptr;
     
 #if DEBUG_MALLOC
@@ -5911,49 +6426,76 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
 	malloc_printf("in szone_realloc for %p, %d\n", ptr, (unsigned)new_size);
     }
 #endif
-    if (!ptr) {
-	ptr = szone_malloc(szone, new_size);
-	return ptr;
+    if (NULL == ptr) {
+	// If ptr is a null pointer, realloc() shall be equivalent to malloc() for the specified size.
+	return szone_malloc(szone, new_size);
+    } else if (0 == new_size) {
+	// If size is 0 and ptr is not a null pointer, the object pointed to is freed.
+	szone_free(szone, ptr);
+	// If size is 0, either a null pointer or a unique pointer that can be successfully passed 
+	// to free() shall be returned.
+	return szone_malloc(szone, 1);
     }
+
     old_size = szone_size(szone, ptr);
     if (!old_size) {
 	szone_error(szone, 1, "pointer being reallocated was not allocated", ptr, NULL);
 	return NULL;
     }
-    /* we never shrink an allocation */
-    if (old_size >= new_size)
+
+    new_good_size = szone_good_size(szone, new_size);
+    if (new_good_size == old_size) { // Existing allocation is best fit evar?
 	return ptr;
+    }
 
     /*
      * If the new size suits the tiny allocator and the pointer being resized
      * belongs to a tiny region, try to reallocate in-place.
      */
-    if ((new_size + TINY_QUANTUM - 1) <= (NUM_TINY_SLOTS - 1) * TINY_QUANTUM) {
-	if (tiny_region_for_ptr_no_lock(szone, ptr) != NULL) {
-	    if (tiny_try_realloc_in_place(szone, ptr, old_size, new_size)) {
+    if (new_good_size <= (NUM_TINY_SLOTS - 1) * TINY_QUANTUM) {
+	if (old_size <= (NUM_TINY_SLOTS - 1) * TINY_QUANTUM) {
+	    if (new_good_size <= (old_size >> 1)) {
+	        /*
+	         * Serious shrinkage (more than half). free() the excess.
+		 */
+		return tiny_try_shrink_in_place(szone, ptr, old_size, new_good_size);
+	    } else if (new_good_size <= old_size) {
+		/* 
+		 * new_good_size smaller than old_size but not by much (less than half).
+		 * Avoid thrashing at the expense of some wasted storage.
+		 */
+		return ptr;
+	    } else if (tiny_try_realloc_in_place(szone, ptr, old_size, new_good_size)) { // try to grow the allocation
 		return ptr;
 	    }
 	}
 
     /*
-     * If the new size suits the small allocator and the pointer being resized
+     * Else if the new size suits the small allocator and the pointer being resized
      * belongs to a small region, and we're not protecting the small allocations
      * try to reallocate in-place.
      */
-    } else if (!((szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL) &&
-	((new_size + SMALL_QUANTUM - 1) <= szone->large_threshold) &&
-	(small_region_for_ptr_no_lock(szone, ptr) != NULL)) {
-	    if (small_try_realloc_in_place(szone, ptr, old_size, new_size)) {
+    } else if (new_good_size <= szone->large_threshold) {
+	if ((NUM_TINY_SLOTS - 1) * TINY_QUANTUM < old_size && old_size <= szone->large_threshold) {
+	    if (new_good_size <= (old_size >> 1)) {
+		return small_try_shrink_in_place(szone, ptr, old_size, new_good_size);
+	    } else if (new_good_size <= old_size) {
+		return ptr;
+	    } else if (small_try_realloc_in_place(szone, ptr, old_size, new_good_size)) {
 		return ptr;
 	    }
-
+	}
     /*
-     * If the allocation's a large allocation, try to reallocate in-place there.
+     * Else if the allocation's a large allocation, try to reallocate in-place there.
      */
-    } else if (!((szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL) && 
-		!(szone->debug_flags & SCALABLE_MALLOC_PURGEABLE) &&
-		(old_size > szone->large_threshold)) {
-	if (large_try_realloc_in_place(szone, ptr, old_size, new_size)) {
+    } else if (!(szone->debug_flags & SCALABLE_MALLOC_PURGEABLE) && // purgeable needs fresh allocation
+		(old_size > szone->large_threshold) &&
+		(new_good_size > szone->large_threshold)) {
+	if (new_good_size <= (old_size >> 1)) {
+	    return large_try_shrink_in_place(szone, ptr, old_size, new_good_size);
+	} else if (new_good_size <= old_size) {
+	    return ptr;
+	} else if (large_try_realloc_in_place(szone, ptr, old_size, new_good_size)) {
 	    return ptr;
 	}
     }
@@ -5961,6 +6503,12 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
     /*
      * Can't reallocate in place for whatever reason; allocate a new buffer and copy.
      */
+    if (new_good_size <= (old_size >> 1)) {
+	/* Serious shrinkage (more than half). FALL THROUGH to alloc/copy/free. */
+    } else if (new_good_size <= old_size) { 
+	return ptr;
+    }
+
     new_ptr = szone_malloc(szone, new_size);
     if (new_ptr == NULL)
 	return NULL;
@@ -5969,9 +6517,10 @@ szone_realloc(szone_t *szone, void *ptr, size_t new_size)
      * If the allocation's large enough, try to copy using VM.  If that fails, or
      * if it's too small, just copy by hand.
      */
-    if ((old_size < szone->vm_copy_threshold) ||
-      vm_copy(mach_task_self(), (vm_address_t)ptr, old_size, (vm_address_t)new_ptr))
-	memcpy(new_ptr, ptr, old_size);
+    valid_size = MIN(old_size, new_size);
+    if ((valid_size < szone->vm_copy_threshold) ||
+	vm_copy(mach_task_self(), (vm_address_t)ptr, valid_size, (vm_address_t)new_ptr))
+	memcpy(new_ptr, ptr, valid_size);
     szone_free(szone, ptr);
     
 #if DEBUG_MALLOC
@@ -6052,7 +6601,7 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
     } else if ((NUM_TINY_SLOTS - 1)*TINY_QUANTUM < size && alignment <= SMALL_QUANTUM) {
 	return szone_malloc(szone, size); // Trivially satisfied by small or large
 	
-    } else if (!((szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL) && (span <= szone->large_threshold)) {
+    } else if (span <= szone->large_threshold) {
 
 	if (size <= (NUM_TINY_SLOTS - 1)*TINY_QUANTUM) {
 	    size = (NUM_TINY_SLOTS - 1)*TINY_QUANTUM + TINY_QUANTUM; // ensure block allocated by small does not have a tiny-possible size
@@ -6212,7 +6761,11 @@ szone_batch_free(szone_t *szone, void **to_be_freed, unsigned count)
 		if (is_free)
 		    break; // a double free; let the standard free deal with it
 		    
-		tiny_free_no_lock(szone, tiny_mag_ptr, mag_index, tiny_region, ptr, msize);
+		if (!tiny_free_no_lock(szone, tiny_mag_ptr, mag_index, tiny_region, ptr, msize)) {
+		    // Arrange to re-acquire magazine lock
+		    tiny_mag_ptr = NULL;
+		    tiny_region = NULL;
+		}
 		to_be_freed[cc] = NULL;
 	    } else {
 		// No region in this zone claims ptr; let the standard free deal with it
@@ -6243,14 +6796,35 @@ szone_destroy(szone_t *szone)
     large_entry_t	*large;
     vm_range_t		range_to_deallocate;
 
-    /* destroy large entries cache */
+#if LARGE_CACHE
+    SZONE_LOCK(szone);
+
+     /* disable any memory pressure responder */
+     szone->flotsam_enabled = FALSE;
+
+    // stack allocated copy of the death-row cache
     int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
+    large_entry_t local_entry_cache[LARGE_ENTRY_CACHE_SIZE];
+
+    memcpy((void *)local_entry_cache, (void *)szone->large_entry_cache, sizeof(local_entry_cache));
+ 	
+    szone->large_entry_cache_oldest = szone->large_entry_cache_newest = 0;
+    szone->large_entry_cache[0].address = 0x0;
+    szone->large_entry_cache[0].size = 0;
+    szone->large_entry_cache_bytes = 0;
+    szone->large_entry_cache_reserve_bytes = 0;
+
+    SZONE_UNLOCK(szone);
+ 
+    // deallocate the death-row cache outside the zone lock
     while (idx != idx_max) {
-	deallocate_pages(szone, (void *) szone->large_entry_cache[idx].address, szone->large_entry_cache[idx].size, 0);
+	deallocate_pages(szone, (void *) local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
 	if (++idx == LARGE_ENTRY_CACHE_SIZE) idx = 0;
     }
-    if (0 != szone->large_entry_cache[idx].address && 0 != szone->large_entry_cache[idx].size)
-	deallocate_pages(szone, (void *) szone->large_entry_cache[idx].address, szone->large_entry_cache[idx].size, 0);
+    if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
+	deallocate_pages(szone, (void *) local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+    }
+#endif
 
     /* destroy large entries */
     index = szone->num_large_entries;
@@ -6292,14 +6866,13 @@ szone_destroy(szone_t *szone)
 	(void)pthread_key_delete(szone->cpu_id_key);
     deallocate_pages(szone, (void *)&(szone->tiny_magazines[-1]), TINY_MAGAZINE_PAGED_SIZE, SCALABLE_MALLOC_ADD_GUARD_PAGES);
     deallocate_pages(szone, (void *)&(szone->small_magazines[-1]), SMALL_MAGAZINE_PAGED_SIZE, SCALABLE_MALLOC_ADD_GUARD_PAGES);
-    deallocate_pages(szone, (void *)szone, SZONE_PAGED_SIZE, SCALABLE_MALLOC_ADD_GUARD_PAGES);
+    deallocate_pages(szone, (void *)szone, SZONE_PAGED_SIZE, 0);
 }
 
 static NOINLINE size_t
 szone_good_size(szone_t *szone, size_t size)
 {
     msize_t msize;
-    int guard_small = (szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) && PROTECT_SMALL;
 
     // Find a good size for this tiny allocation.
     if (size <= (NUM_TINY_SLOTS - 1) * TINY_QUANTUM) {
@@ -6310,7 +6883,7 @@ szone_good_size(szone_t *szone, size_t size)
     }
     
     // Find a good size for this small allocation.
-    if (!guard_small && (size <= szone->large_threshold)) {
+    if (size <= szone->large_threshold) {
         msize = SMALL_MSIZE_FOR_BYTES(size + SMALL_QUANTUM - 1);
         if (!msize)
             msize = 1;
@@ -6463,6 +7036,7 @@ scalable_zone_info(malloc_zone_t *zone, unsigned *info_to_fill, unsigned count)
     mag_index_t mag_index;
     
     for (mag_index = -1; mag_index < szone->num_tiny_magazines; mag_index++) {
+	s += szone->tiny_magazines[mag_index].mag_bytes_free_at_start;
 	s += szone->tiny_magazines[mag_index].mag_bytes_free_at_end;
 	t += szone->tiny_magazines[mag_index].mag_num_objects;
 	u += szone->tiny_magazines[mag_index].mag_num_bytes_in_objects;
@@ -6472,6 +7046,7 @@ scalable_zone_info(malloc_zone_t *zone, unsigned *info_to_fill, unsigned count)
     info[5] = u;
     
     for (t = 0, u = 0, mag_index = -1; mag_index < szone->num_small_magazines; mag_index++) {
+	s += szone->small_magazines[mag_index].mag_bytes_free_at_start;
 	s += szone->small_magazines[mag_index].mag_bytes_free_at_end;
 	t += szone->small_magazines[mag_index].mag_num_objects;
 	u += szone->small_magazines[mag_index].mag_num_bytes_in_objects;
@@ -6523,7 +7098,10 @@ szone_print(szone_t *szone, boolean_t verbose)
 	region = szone->tiny_region_generation->hashed_regions[index];
 	if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
 	    mag_index_t mag_index = MAGAZINE_INDEX_FOR_TINY_REGION(region);
-	    print_tiny_region(verbose, region, (region == szone->tiny_magazines[mag_index].mag_last_region) ? 
+	    print_tiny_region(verbose, region,
+				(region == szone->tiny_magazines[mag_index].mag_last_region) ? 
+				szone->tiny_magazines[mag_index].mag_bytes_free_at_start : 0,
+				(region == szone->tiny_magazines[mag_index].mag_last_region) ? 
 						szone->tiny_magazines[mag_index].mag_bytes_free_at_end : 0);
 	}
     }
@@ -6540,6 +7118,8 @@ szone_print(szone_t *szone, boolean_t verbose)
 	if (HASHRING_OPEN_ENTRY != region && HASHRING_REGION_DEALLOCATED != region) {
 	    mag_index_t mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(region);
 	    print_small_region(szone, verbose, region,
+				(region == szone->small_magazines[mag_index].mag_last_region) ? 
+				szone->small_magazines[mag_index].mag_bytes_free_at_start : 0,
 				(region == szone->small_magazines[mag_index].mag_last_region) ? 
 				szone->small_magazines[mag_index].mag_bytes_free_at_end : 0);
 	}
@@ -6617,6 +7197,49 @@ szone_locked(szone_t *szone)
   return 0;
 }  
 
+static size_t
+szone_pressure_relief(szone_t *szone, size_t goal)
+{
+#if LARGE_CACHE
+    if (!szone->flotsam_enabled)
+	    return 0;
+
+     SZONE_LOCK(szone);
+
+    // stack allocated copy of the death-row cache
+    int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
+    large_entry_t local_entry_cache[LARGE_ENTRY_CACHE_SIZE];
+
+    memcpy((void *)local_entry_cache, (void *)szone->large_entry_cache, sizeof(local_entry_cache));
+ 	
+    szone->large_entry_cache_oldest = szone->large_entry_cache_newest = 0;
+    szone->large_entry_cache[0].address = 0x0;
+    szone->large_entry_cache[0].size = 0;
+    szone->large_entry_cache_bytes = 0;
+    szone->large_entry_cache_reserve_bytes = 0;
+
+    szone->flotsam_enabled = FALSE;
+
+    SZONE_UNLOCK(szone);
+ 
+    // deallocate the death-row cache outside the zone lock
+    size_t total = 0;
+    while (idx != idx_max) {
+	deallocate_pages(szone, (void *) local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+	total += local_entry_cache[idx].size;
+	if (++idx == LARGE_ENTRY_CACHE_SIZE) idx = 0;
+    }
+    if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
+	deallocate_pages(szone, (void *) local_entry_cache[idx].address, local_entry_cache[idx].size, 0);
+	total += local_entry_cache[idx].size;
+    }
+    MAGMALLOC_PRESSURERELIEF((void *)szone, goal, total); // DTrace USDT Probe
+    return total;
+#else
+    return 0;
+#endif
+}
+
 boolean_t
 scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsigned subzone)
 {
@@ -6631,6 +7254,7 @@ scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsign
 	    mag_index_t mag_index;
 	    
 	    for (mag_index = -1; mag_index < szone->num_tiny_magazines; mag_index++) {
+		s += szone->tiny_magazines[mag_index].mag_bytes_free_at_start;
 		s += szone->tiny_magazines[mag_index].mag_bytes_free_at_end;
 		t += szone->tiny_magazines[mag_index].mag_num_objects;
 		u += szone->tiny_magazines[mag_index].mag_num_bytes_in_objects;
@@ -6650,6 +7274,7 @@ scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsign
 	    mag_index_t mag_index;
 	    
 	    for (mag_index = -1; mag_index < szone->num_small_magazines; mag_index++) {
+		s += szone->small_magazines[mag_index].mag_bytes_free_at_start;
 		s += szone->small_magazines[mag_index].mag_bytes_free_at_end;
 		t += szone->small_magazines[mag_index].mag_num_objects;
 		u += szone->small_magazines[mag_index].mag_num_bytes_in_objects;
@@ -6686,12 +7311,14 @@ szone_statistics(szone_t *szone, malloc_statistics_t *stats)
     mag_index_t mag_index;
     
     for (mag_index = -1; mag_index < szone->num_tiny_magazines; mag_index++) {
+	s += szone->tiny_magazines[mag_index].mag_bytes_free_at_start;
 	s += szone->tiny_magazines[mag_index].mag_bytes_free_at_end;
 	t += szone->tiny_magazines[mag_index].mag_num_objects;
 	u += szone->tiny_magazines[mag_index].mag_num_bytes_in_objects;
     }
     
     for (mag_index = -1; mag_index < szone->num_small_magazines; mag_index++) {
+	s += szone->small_magazines[mag_index].mag_bytes_free_at_start;
 	s += szone->small_magazines[mag_index].mag_bytes_free_at_end;
 	t += szone->small_magazines[mag_index].mag_num_objects;
 	u += szone->small_magazines[mag_index].mag_num_bytes_in_objects;
@@ -6730,8 +7357,10 @@ void zeroify_scalable_zone(malloc_zone_t *zone)
     szone_t	*szone = (szone_t *)zone;
     
     if (szone) {
+	mprotect(szone, sizeof(szone->basic_zone), PROT_READ | PROT_WRITE);
 	szone->basic_zone.malloc = (void *)legacy_zeroing_large_malloc;
 	szone->basic_zone.valloc = (void *)legacy_zeroing_large_valloc;
+	mprotect(szone, sizeof(szone->basic_zone), PROT_READ);
     }
 }
 
@@ -6745,6 +7374,7 @@ static const struct malloc_introspection_t szone_introspect = {
     (void *)szone_force_unlock,
     (void *)szone_statistics,
     (void *)szone_locked,
+    NULL, NULL, NULL, NULL, /* Zone enumeration version 7 and forward. */
 }; // marked as const to spare the DATA section
 
 malloc_zone_t *
@@ -6752,8 +7382,6 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
 {
     szone_t	*szone;
     uint64_t	hw_memsize = 0;
-    size_t	uint64_t_size = sizeof(hw_memsize);
-    int		err;
 
     /*
      * Sanity-check our build-time assumptions about the size of a page.
@@ -6772,10 +7400,8 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
     }
 #endif
     
-    /* get memory for the zone, which is now separate from any region.
-       add guard pages to prevent walking from any other vm allocations
-       to here and overwriting the function pointers in basic_zone. */
-    szone = allocate_pages(NULL, SZONE_PAGED_SIZE, 0, SCALABLE_MALLOC_ADD_GUARD_PAGES, VM_MEMORY_MALLOC);
+    /* get memory for the zone. */
+    szone = allocate_pages(NULL, SZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
     if (!szone)
         return NULL;
 
@@ -6810,8 +7436,15 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
      * upon the amount of memory in the system.  Switch to a larger number of
      * free list entries at 1GB.
      */
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+    if ((hw_memsize = *(uint64_t *)(uintptr_t)_COMM_PAGE_MEMORY_SIZE) >= (1ULL << 30))
+#else
+    size_t	uint64_t_size = sizeof(hw_memsize);
+
     if (0 == sysctlbyname("hw.memsize", &hw_memsize, &uint64_t_size, 0, 0) &&
-	hw_memsize >= (1ULL << 30)) {
+	hw_memsize >= (1ULL << 30))
+#endif
+    {
 	szone->is_largemem = 1;
 	szone->num_small_slots = NUM_SMALL_SLOTS_LARGEMEM;
 	szone->large_threshold = LARGE_THRESHOLD_LARGEMEM;
@@ -6823,7 +7456,8 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
 	szone->vm_copy_threshold = VM_COPY_THRESHOLD;
     }
 #if LARGE_CACHE
-    szone->large_entry_cache_hoard_lmit = hw_memsize >> 10; // madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+    szone->large_entry_cache_reserve_limit = 
+        hw_memsize >> 10; // madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
 
     /* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
     int32_t libSystemVersion  = NSVersionOfLinkTimeLibrary("System");
@@ -6834,13 +7468,36 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
 #endif
     
     // Initialize the security token.
-#if __LP64__
-    szone->cookie = ((uintptr_t)arc4random() << 32) | (uintptr_t)arc4random();
+    szone->cookie = (uintptr_t)malloc_entropy[0];
+    
+    // Prepare ASLR
+#if __i386__ || __LP64__ || TARGET_OS_EMBEDDED
+#if __i386__
+    uintptr_t stackbase = 0x8fe00000;
+    int entropic_bits = 3;
+#elif __LP64__
+    uintptr_t stackbase = USRSTACK64;
+    int entropic_bits = 16;
 #else
-    szone->cookie = arc4random();
+    uintptr_t stackbase = USRSTACK;
+    int entropic_bits = 3;
+#endif
+    if (0 != _dyld_get_image_slide((const struct mach_header*)_NSGetMachExecuteHeader())) {
+	if (0 == entropic_address) {
+	    uintptr_t t = stackbase - MAXSSIZ - ((uintptr_t) (malloc_entropy[1] & ((1 << entropic_bits) - 1)) << SMALL_BLOCKS_ALIGN);
+	    (void)__sync_bool_compare_and_swap(&entropic_limit, 0, t); // Just one initialization please
+	    (void)__sync_bool_compare_and_swap(&entropic_address, 0, t - ENTROPIC_KABILLION); // Just one initialization please
+	}
+	debug_flags &= ~DISABLE_ASLR;
+    } else {
+	debug_flags |= DISABLE_ASLR;
+    }
+
+#else
+    debug_flags |= DISABLE_ASLR;
 #endif
     
-    szone->basic_zone.version = 6;
+    szone->basic_zone.version = 8;
     szone->basic_zone.size = (void *)szone_size;
     szone->basic_zone.malloc = (void *)szone_malloc;
     szone->basic_zone.calloc = (void *)szone_calloc;
@@ -6853,6 +7510,12 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
     szone->basic_zone.introspect = (struct malloc_introspection_t *)&szone_introspect;
     szone->basic_zone.memalign = (void *)szone_memalign;
     szone->basic_zone.free_definite_size = (void *)szone_free_definite_size;
+    szone->basic_zone.pressure_relief = (void *)szone_pressure_relief;
+
+    szone->basic_zone.reserved1 = 0; /* Set to zero once and for all as required by CFAllocator. */
+    szone->basic_zone.reserved2 = 0; /* Set to zero once and for all as required by CFAllocator. */
+    mprotect(szone, sizeof(szone->basic_zone), PROT_READ); /* Prevent overwriting the function pointers in basic_zone. */
+
     szone->debug_flags = debug_flags;
     LOCK_INIT(szone->large_szone_lock);
     
@@ -6864,16 +7527,25 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
     zeroify_scalable_zone((malloc_zone_t *)szone);
 #endif
 
+#if defined(__i386__) || defined(__x86_64__)
+    szone->cpu_id_key = (pthread_key_t) -1; // Unused. _COMM_PAGE_CPU_NUMBER preferred.
+#else
+    int		err;
     if ((err = pthread_key_create(&(szone->cpu_id_key), NULL))) {
  	malloc_printf("*** ERROR -pthread_key_create failure err=%d.\n", err);
 	szone->cpu_id_key = (pthread_key_t) -1;
     }
+#endif
 
     // Query the number of configured processors.
     // Uniprocessor case gets just one tiny and one small magazine (whose index is zero). This gives
     // the same behavior as the original scalable malloc. MP gets per-CPU magazines
     // that scale (way) better.
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+    int nproc = *(uint8_t *)(uintptr_t)_COMM_PAGE_NCPUS;
+#else
     int nproc = sysconf(_SC_NPROCESSORS_CONF);
+#endif
     szone->num_tiny_magazines = (nproc > 1) ? MIN(nproc, TINY_MAX_MAGAZINES) : 1;
 
     // FIXME vm_allocate() based on number of configured CPUs
@@ -6960,12 +7632,8 @@ create_scalable_zone(size_t initial_size, unsigned debug_flags)
 static size_t
 purgeable_size(szone_t *szone, const void *ptr)
 {
-    size_t t = szone_size_try_large(szone, ptr);
-    
-    if (t)
-	return t;
-    else
-	return szone_size(szone->helper_zone, ptr);
+    // Only claim our large allocations, leave the shared tiny/small for the helper zone to claim.
+    return szone_size_try_large(szone, ptr);
 }
 
 static void *
@@ -7042,10 +7710,61 @@ purgeable_free_definite_size(szone_t *szone, void *ptr, size_t size)
 static void *
 purgeable_realloc(szone_t *szone, void *ptr, size_t new_size)
 {
-    if (new_size <= szone->large_threshold)
-	return szone_realloc(szone->helper_zone, ptr, new_size);
-    else 
-	return szone_realloc(szone, ptr, new_size);
+    size_t old_size;
+
+    if (NULL == ptr) {
+	// If ptr is a null pointer, realloc() shall be equivalent to malloc() for the specified size.
+	return purgeable_malloc(szone, new_size);
+    } else if (0 == new_size) {
+	// If size is 0 and ptr is not a null pointer, the object pointed to is freed.
+	purgeable_free(szone, ptr);
+	// If size is 0, either a null pointer or a unique pointer that can be successfully passed 
+	// to free() shall be returned.
+	return purgeable_malloc(szone, 1);
+    }
+
+    old_size = purgeable_size(szone, ptr); // Now ptr can be safely size()'d
+    if (!old_size) 
+	old_size = szone_size(szone->helper_zone, ptr);
+
+    if (!old_size) {
+	szone_error(szone, 1, "pointer being reallocated was not allocated", ptr, NULL);
+	return NULL;
+    }
+
+    // Distinguish 4 cases: {oldsize, newsize} x { <= , > large_threshold }
+    // and deal with the allocation crossing from the purgeable zone to the helper zone and vice versa. 
+    if (old_size <= szone->large_threshold) {
+	if (new_size <= szone->large_threshold)
+	    return szone_realloc(szone->helper_zone, ptr, new_size);
+	else {
+	    // allocation crosses from helper to purgeable zone
+	    void * new_ptr = purgeable_malloc(szone, new_size);
+	    if (new_ptr) {
+		memcpy(new_ptr, ptr, old_size);
+		szone_free_definite_size(szone->helper_zone, ptr, old_size);
+	    }
+	    return new_ptr; // in state VM_PURGABLE_NONVOLATILE
+	}
+    } else {
+	if (new_size <= szone->large_threshold) {
+	    // allocation crosses from purgeable to helper zone
+	    void * new_ptr = szone_malloc(szone->helper_zone, new_size);
+	    if (new_ptr) {
+		memcpy(new_ptr, ptr, new_size);
+		purgeable_free_definite_size(szone, ptr, old_size);
+	    }
+	    return new_ptr;
+	} else {
+	    void * new_ptr = purgeable_malloc(szone, new_size);
+	    if (new_ptr) {
+		memcpy(new_ptr, ptr, MIN(old_size, new_size));
+		purgeable_free_definite_size(szone, ptr, old_size);
+	    }
+	    return new_ptr; // in state VM_PURGABLE_NONVOLATILE
+	}
+    }
+    /* NOTREACHED */
 }
 
 static void
@@ -7068,7 +7787,7 @@ purgeable_destroy(szone_t *szone)
 	deallocate_pages(szone, (void *)range_to_deallocate.address, (size_t)range_to_deallocate.size, 0);
     
     /* Now destroy the separate szone region */
-    deallocate_pages(szone, (void *)szone, SZONE_PAGED_SIZE, SCALABLE_MALLOC_ADD_GUARD_PAGES);
+    deallocate_pages(szone, (void *)szone, SZONE_PAGED_SIZE, 0);
 }
 
 static unsigned
@@ -7171,6 +7890,12 @@ purgeable_locked(szone_t *szone)
   return 0;
 }
 
+static size_t
+purgeable_pressure_relief(szone_t *szone, size_t goal)
+{
+    return szone_pressure_relief(szone, goal) + szone_pressure_relief(szone->helper_zone, goal);
+}
+
 static const struct malloc_introspection_t purgeable_introspect = {
     (void *)purgeable_ptr_in_use_enumerator,
     (void *)purgeable_good_size,
@@ -7181,17 +7906,17 @@ static const struct malloc_introspection_t purgeable_introspect = {
     (void *)purgeable_force_unlock,
     (void *)purgeable_statistics,
     (void *)purgeable_locked,
+    NULL, NULL, NULL, NULL, /* Zone enumeration version 7 and forward. */
 }; // marked as const to spare the DATA section
 
-malloc_zone_t *
+__private_extern__ malloc_zone_t *
 create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, unsigned debug_flags)
 {
     szone_t	*szone;
+    uint64_t	hw_memsize = 0;
         
-    /* get memory for the zone, which is now separate from any region.
-       add guard pages to prevent walking from any other vm allocations
-       to here and overwriting the function pointers in basic_zone. */
-    szone = allocate_pages(NULL, SZONE_PAGED_SIZE, 0, SCALABLE_MALLOC_ADD_GUARD_PAGES, VM_MEMORY_MALLOC);
+    /* get memory for the zone. */
+    szone = allocate_pages(NULL, SZONE_PAGED_SIZE, 0, 0, VM_MEMORY_MALLOC);
     if (!szone)
         return NULL;
 
@@ -7201,12 +7926,22 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
     szone->log_address = ~0;
 #endif
     
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+    hw_memsize = *(uint64_t *)(uintptr_t)_COMM_PAGE_MEMORY_SIZE;
+#else
+    size_t	uint64_t_size = sizeof(hw_memsize);
+
+    sysctlbyname("hw.memsize", &hw_memsize, &uint64_t_size, 0, 0);
+#endif
 	/* Purgeable zone does not participate in the adaptive "largemem" sizing. */
     szone->is_largemem = 0;
     szone->large_threshold = LARGE_THRESHOLD;
     szone->vm_copy_threshold = VM_COPY_THRESHOLD;
 
 #if LARGE_CACHE
+    szone->large_entry_cache_reserve_limit = 
+        hw_memsize >> 10; // madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+
     /* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
     int32_t libSystemVersion  = NSVersionOfLinkTimeLibrary("System");
     if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 112) /* CFSystemVersionSnowLeopard */)
@@ -7215,7 +7950,7 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	szone->large_legacy_reset_mprotect = FALSE;
 #endif
 
-    szone->basic_zone.version = 6;
+    szone->basic_zone.version = 8;
     szone->basic_zone.size = (void *)purgeable_size;
     szone->basic_zone.malloc = (void *)purgeable_malloc;
     szone->basic_zone.calloc = (void *)purgeable_calloc;
@@ -7228,9 +7963,14 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
     szone->basic_zone.introspect = (struct malloc_introspection_t *)&purgeable_introspect;
     szone->basic_zone.memalign = (void *)purgeable_memalign;
     szone->basic_zone.free_definite_size = (void *)purgeable_free_definite_size;
+    szone->basic_zone.pressure_relief = (void *)purgeable_pressure_relief;
 
+    szone->basic_zone.reserved1 = 0; /* Set to zero once and for all as required by CFAllocator. */
+    szone->basic_zone.reserved2 = 0; /* Set to zero once and for all as required by CFAllocator. */
+    mprotect(szone, sizeof(szone->basic_zone), PROT_READ); /* Prevent overwriting the function pointers in basic_zone. */
+    
     szone->debug_flags = debug_flags | SCALABLE_MALLOC_PURGEABLE;
-
+    
     /* Purgeable zone does not support SCALABLE_MALLOC_ADD_GUARD_PAGES. */
     if (szone->debug_flags & SCALABLE_MALLOC_ADD_GUARD_PAGES) {
 	_malloc_printf(ASL_LEVEL_INFO, "purgeable zone does not support guard pages\n");
@@ -7264,7 +8004,7 @@ legacy_valloc(szone_t *szone, size_t size)
     return ptr;
 }
 
-malloc_zone_t *
+__private_extern__ malloc_zone_t *
 create_legacy_scalable_zone(size_t initial_size, unsigned debug_flags)
 {
     malloc_zone_t *mzone = create_scalable_zone(initial_size, debug_flags);
@@ -7278,8 +8018,10 @@ create_legacy_scalable_zone(size_t initial_size, unsigned debug_flags)
     szone->large_threshold = LARGE_THRESHOLD;
     szone->vm_copy_threshold = VM_COPY_THRESHOLD;
     
+    mprotect(szone, sizeof(szone->basic_zone), PROT_READ | PROT_WRITE);
     szone->basic_zone.valloc = (void *)legacy_valloc;
     szone->basic_zone.free_definite_size = NULL;
+    mprotect(szone, sizeof(szone->basic_zone), PROT_READ);
     
     return mzone;
 }

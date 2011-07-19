@@ -30,82 +30,93 @@
 #ifndef InjectedScriptHost_h
 #define InjectedScriptHost_h
 
-#include "Console.h"
-#include "InspectorController.h"
-#include "PlatformString.h"
+#include "ConsoleTypes.h"
+#include "InspectorAgent.h"
 #include "ScriptState.h"
-
-#include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 class Database;
 class InjectedScript;
-class InspectorDOMAgent;
+class InspectorAgent;
+class InspectorConsoleAgent;
+class InspectorDOMStorageAgent;
+class InspectorDatabaseAgent;
 class InspectorFrontend;
+class InspectorObject;
+class InspectorValue;
 class Node;
-class SerializedScriptValue;
+class ScriptObject;
+class ScriptValue;
 class Storage;
 
-class InjectedScriptHost : public RefCounted<InjectedScriptHost>
-{
+class InjectedScriptHost : public RefCounted<InjectedScriptHost> {
 public:
-    static PassRefPtr<InjectedScriptHost> create(InspectorController* inspectorController)
-    {
-        return adoptRef(new InjectedScriptHost(inspectorController));
-    }
-
+    static PassRefPtr<InjectedScriptHost> create();
     ~InjectedScriptHost();
 
-    void setInjectedScriptSource(const String& source) { m_injectedScriptSource = source; }
-
-    InspectorController* inspectorController() { return m_inspectorController; }
-    void disconnectController() { m_inspectorController = 0; }
-
-    void clearConsoleMessages();
-
-    void copyText(const String& text);
-    Node* nodeForId(long nodeId);
-    long pushNodePathToFrontend(Node* node, bool withChildren, bool selectInUI);
-
-    void addNodesToSearchResult(const String& nodeIds);
-    long pushNodeByPathToFrontend(const String& path);
-
+    void init(InspectorAgent* inspectorAgent
+            , InspectorConsoleAgent* consoleAgent
 #if ENABLE(DATABASE)
-    Database* databaseForId(long databaseId);
-    void selectDatabase(Database* database);
+            , InspectorDatabaseAgent* databaseAgent
 #endif
 #if ENABLE(DOM_STORAGE)
-    void selectDOMStorage(Storage* storage);
+            , InspectorDOMStorageAgent* domStorageAgent
+#endif
+        )
+    {
+        m_inspectorAgent = inspectorAgent;
+        m_consoleAgent = consoleAgent;
+#if ENABLE(DATABASE)
+        m_databaseAgent = databaseAgent;
+#endif
+#if ENABLE(DOM_STORAGE)
+        m_domStorageAgent = domStorageAgent;
+#endif
+    }
+    void setFrontend(InspectorFrontend* frontend) { m_frontend = frontend; }
+    void clearFrontend() { m_frontend = 0; }
+
+    static Node* scriptValueAsNode(ScriptValue);
+    static ScriptValue nodeAsScriptValue(ScriptState*, Node*);
+
+    void disconnect();
+
+    void addInspectedNode(Node*);
+    void clearInspectedNodes();
+
+    void inspectImpl(PassRefPtr<InspectorValue> objectToInspect, PassRefPtr<InspectorValue> hints);
+    void clearConsoleMessages();
+    void copyText(const String& text);
+    Node* inspectedNode(unsigned int num);
+#if ENABLE(DATABASE)
+    int databaseIdImpl(Database*);
+#endif
+#if ENABLE(DOM_STORAGE)
+    int storageIdImpl(Storage*);
 #endif
 #if ENABLE(WORKERS)
     long nextWorkerId();
     void didCreateWorker(long id, const String& url, bool isSharedWorker);
     void didDestroyWorker(long id);
 #endif
-    void reportDidDispatchOnInjectedScript(long callId, SerializedScriptValue* result, bool isException);
-
-    pair<long, ScriptObject> injectScript(const String& source, ScriptState*);
-    InjectedScript injectedScriptFor(ScriptState*);
-    InjectedScript injectedScriptForId(long);
-    void discardInjectedScripts();
-    void releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup);
-
-    static bool canAccessInspectedWindow(ScriptState*);
 
 private:
-    InjectedScriptHost(InspectorController* inspectorController);
-    InspectorDOMAgent* inspectorDOMAgent();
-    InspectorFrontend* inspectorFrontend();
-    ScriptObject createInjectedScript(const String& source, ScriptState* scriptState, long id);
+    InjectedScriptHost();
 
-    InspectorController* m_inspectorController;
-    String m_injectedScriptSource;
-    long m_nextInjectedScriptId;
+    InspectorAgent* m_inspectorAgent;
+    InspectorConsoleAgent* m_consoleAgent;
+#if ENABLE(DATABASE)
+    InspectorDatabaseAgent* m_databaseAgent;
+#endif
+#if ENABLE(DOM_STORAGE)
+    InspectorDOMStorageAgent* m_domStorageAgent;
+#endif
+    InspectorFrontend* m_frontend;
     long m_lastWorkerId;
-    typedef HashMap<long, InjectedScript> IdToInjectedScriptMap;
-    IdToInjectedScriptMap m_idToInjectedScript;
+    Vector<RefPtr<Node> > m_inspectedNodes;
 };
 
 } // namespace WebCore

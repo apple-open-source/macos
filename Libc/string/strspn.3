@@ -13,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -34,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)strspn.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/string/strspn.3,v 1.8 2001/10/01 16:09:00 ru Exp $
+.\" $FreeBSD: src/lib/libc/string/strspn.3,v 1.11 2009/04/07 13:42:53 trasz Exp $
 .\"
 .Dd June 4, 1993
 .Dt STRSPN 3
@@ -59,8 +55,15 @@ spans the initial part of the null-terminated string
 .Fa s1 ,
 as long as the characters from
 .Fa s1
-occur in string
+occur in the null-terminated string
 .Fa s2 .
+In other words, it computes the string array index in
+.Fa s1
+of the first character of
+.Fa s1
+which is not in
+.Fa s2 ,
+else the index of the first null character.
 .Sh RETURN VALUES
 The
 .Fn strspn
@@ -74,7 +77,8 @@ returns the number of characters spanned.
 .Xr strrchr 3 ,
 .Xr strsep 3 ,
 .Xr strstr 3 ,
-.Xr strtok 3
+.Xr strtok 3 ,
+.Xr wcsspn 3
 .Sh STANDARDS
 The
 .Fn strspn

@@ -19,13 +19,12 @@
 #include "llvm/TypeSymbolTable.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/Compiler.h"
 using namespace llvm;
 
 STATISTIC(NumKilled, "Number of unused typenames removed from symtab");
 
 namespace {
-  struct VISIBILITY_HIDDEN DTE : public ModulePass {
+  struct DTE : public ModulePass {
     static char ID; // Pass identification, replacement for typeid
     DTE() : ModulePass(&ID) {}
 
@@ -58,13 +57,13 @@ ModulePass *llvm::createDeadTypeEliminationPass() {
 //
 static inline bool ShouldNukeSymtabEntry(const Type *Ty){
   // Nuke all names for primitive types!
-  if (Ty->isPrimitiveType() || Ty->isInteger()) 
+  if (Ty->isPrimitiveType() || Ty->isIntegerTy()) 
     return true;
 
   // Nuke all pointers to primitive types as well...
   if (const PointerType *PT = dyn_cast<PointerType>(Ty))
     if (PT->getElementType()->isPrimitiveType() ||
-        PT->getElementType()->isInteger()) 
+        PT->getElementType()->isIntegerTy()) 
       return true;
 
   return false;

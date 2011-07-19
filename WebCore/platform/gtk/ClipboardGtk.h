@@ -27,27 +27,28 @@
 #ifndef ClipboardGtk_h
 #define ClipboardGtk_h
 
+#include "CachedResourceClient.h"
 #include "Clipboard.h"
 #include "DataObjectGtk.h"
 
-typedef struct _GtkClipboard GtkClipboard;
-
 namespace WebCore {
     class CachedImage;
+    class Frame;
     class PasteboardHelper;
 
     // State available during IE's events for drag and drop and copy/paste
     // Created from the EventHandlerGtk to be used by the dom
-    class ClipboardGtk : public Clipboard {
+    class ClipboardGtk : public Clipboard, public CachedResourceClient {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, GtkClipboard* clipboard, bool isForDragging)
+        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, GtkClipboard* clipboard, Frame* frame)
         {
-            return adoptRef(new ClipboardGtk(policy, clipboard));
+            return adoptRef(new ClipboardGtk(policy, clipboard, frame));
         }
 
-        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, PassRefPtr<DataObjectGtk> dataObject, bool isForDragging)
+        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, PassRefPtr<DataObjectGtk> dataObject, ClipboardType clipboardType, Frame* frame)
         {
-            return adoptRef(new ClipboardGtk(policy, dataObject, isForDragging));
+            return adoptRef(new ClipboardGtk(policy, dataObject, clipboardType, frame));
         }
         virtual ~ClipboardGtk();
 
@@ -59,14 +60,14 @@ namespace WebCore {
         virtual HashSet<String> types() const;
         virtual PassRefPtr<FileList> files() const;
 
-        IntPoint dragLocation() const;
-        CachedImage* dragImage() const;
         void setDragImage(CachedImage*, const IntPoint&);
-        Node* dragImageElement();
         void setDragImageElement(Node*, const IntPoint&);
+        void setDragImage(CachedImage*, Node*, const IntPoint&);
 
         virtual DragImageRef createDragImage(IntPoint&) const;
+#if ENABLE(DRAG_SUPPORT)
         virtual void declareAndWriteDragImage(Element*, const KURL&, const String&, Frame*);
+#endif
         virtual void writeURL(const KURL&, const String&, Frame*);
         virtual void writeRange(Range*, Frame*);
         virtual void writePlainText(const String&);
@@ -77,12 +78,13 @@ namespace WebCore {
         PassRefPtr<DataObjectGtk> dataObject() { return m_dataObject; }
 
     private:
-        ClipboardGtk(ClipboardAccessPolicy, GtkClipboard*);
-        ClipboardGtk(ClipboardAccessPolicy, PassRefPtr<DataObjectGtk>, bool);
+        ClipboardGtk(ClipboardAccessPolicy, GtkClipboard*, Frame*);
+        ClipboardGtk(ClipboardAccessPolicy, PassRefPtr<DataObjectGtk>, ClipboardType, Frame*);
 
         RefPtr<DataObjectGtk> m_dataObject;
         GtkClipboard* m_clipboard;
         PasteboardHelper* m_helper;
+        Frame* m_frame;
     };
 }
 

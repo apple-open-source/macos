@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,30 +20,15 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*      @(#)charsets.h      *
- *      (c) 2004   Apple Computer, Inc.  All Rights Reserved
- *
- *
- *      charsets.h -- Routines converting between UTF-8, 16-bit
- *			little-endian Unicode, 16-bit host-byte-order
- *			Unicode, and various Windows code pages.
- *
- *      MODIFICATION HISTORY:
- *       28-Nov-2004     Guy Harris	New today
- */
 #if !defined(__CHARSETS_H__)
 #define __CHARSETS_H__ 1
 
 #include <CoreFoundation/CoreFoundation.h>
 
-void setcharset(const char *cp);
-char* str_upper(char *, const char *);
-
-extern char *convert_wincs_to_utf8(const char *windows_string);
-extern char *convert_utf8_to_wincs(const char *utf8_string);
-extern char *convert_leunicode_to_utf8(unsigned short *windows_string);
-extern char *convert_unicode_to_utf8(unsigned short *windows_string);
+void str_upper(char *dst, size_t maxDstLen, CFStringRef srcRef);
+extern char *convert_wincs_to_utf8(const char *windows_string, CFStringEncoding codePage);
+extern char *convert_utf8_to_wincs(const char *utf8_string, CFStringEncoding codePage, int uppercase);
+extern char *convert_leunicode_to_utf8(unsigned short *windows_string, size_t maxLen);
+extern char *convert_unicode_to_utf8(const uint16_t *unicode_string, size_t maxLen);
 extern unsigned short *convert_utf8_to_leunicode(const char *utf8_string);
-extern char *unpercent(char * component);
-extern CFStringEncoding windows_encoding(void);
 #endif /* !__CHARSETS_H__ */

@@ -83,4 +83,31 @@ struct infinite {
  * ->header and then loops sending ->repeat forever. */
 int serve_infinite(ne_socket *sock, void *ud);
 
+/* SOCKS server stuff. */
+struct socks_server {
+    enum ne_sock_sversion version;
+    enum socks_failure {
+        fail_none = 0,
+        fail_init_vers,
+        fail_init_close,
+        fail_init_trunc,
+        fail_no_auth,
+        fail_bogus_auth, 
+        fail_auth_close, 
+        fail_auth_denied 
+    } failure;
+    unsigned int expect_port;
+    ne_inet_addr *expect_addr;
+    const char *expect_fqdn;
+    const char *username;
+    const char *password;
+    int say_hello;
+    server_fn server;
+    void *userdata;
+};
+
+int socks_server(ne_socket *sock, void *userdata);
+
+int full_write(ne_socket *sock, const char *data, size_t len);
+    
 #endif /* UTILS_H */

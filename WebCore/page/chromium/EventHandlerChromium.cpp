@@ -32,8 +32,9 @@
 #include "Cursor.h"
 #include "FloatPoint.h"
 #include "FocusController.h"
-#include "FrameView.h"
 #include "Frame.h"
+#include "FrameSelection.h"
+#include "FrameView.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "MouseEventWithHitTestResults.h"
@@ -42,7 +43,6 @@
 #include "PlatformKeyboardEvent.h"
 #include "PlatformWheelEvent.h"
 #include "RenderWidget.h"
-#include "SelectionController.h"
 
 namespace WebCore {
 
@@ -61,9 +61,9 @@ bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& m
     IntPoint p = m_frame->view()->windowToContents(mev.event().pos());
     if (m_frame->selection()->contains(p)) {
         VisiblePosition visiblePos(
-            mev.targetNode()->renderer()->positionForPoint(mev.localPoint()));
+            targetNode(mev)->renderer()->positionForPoint(mev.localPoint()));
         VisibleSelection newSelection(visiblePos);
-        if (m_frame->shouldChangeSelection(newSelection))
+        if (m_frame->selection()->shouldChangeSelection(newSelection))
             m_frame->selection()->setSelection(newSelection);
     }
 
@@ -103,9 +103,9 @@ bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& wheelEvent, Widget
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
 {
     // Figure out which view to send the event to.
-    if (!event.targetNode() || !event.targetNode()->renderer() || !event.targetNode()->renderer()->isWidget())
+    if (!targetNode(event) || !targetNode(event)->renderer() || !targetNode(event)->renderer()->isWidget())
         return false;
-    return passMouseDownEventToWidget(toRenderWidget(event.targetNode()->renderer())->widget());
+    return passMouseDownEventToWidget(toRenderWidget(targetNode(event)->renderer())->widget());
 }
 
 bool EventHandler::passMouseDownEventToWidget(Widget* widget)
@@ -114,7 +114,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* widget)
     return false;
 }
 
-bool EventHandler::tabsToAllControls(KeyboardEvent*) const
+bool EventHandler::tabsToAllFormControls(KeyboardEvent*) const
 {
     return true;
 }
@@ -128,8 +128,8 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    RefPtr<ChromiumDataObject> dataObject = ChromiumDataObject::create();
-    return ClipboardChromium::create(true, dataObject.get(), ClipboardWritable);
+    RefPtr<ChromiumDataObject> dataObject = ChromiumDataObject::create(Clipboard::DragAndDrop);
+    return ClipboardChromium::create(Clipboard::DragAndDrop, dataObject.get(), ClipboardWritable, m_frame);
 }
 
 void EventHandler::focusDocumentView()
@@ -154,7 +154,7 @@ unsigned EventHandler::accessKeyModifiers()
 #endif
 }
 
-#if OS(LINUX)
+#if OS(UNIX) && !OS(DARWIN)
 // GTK+ must scroll horizontally if the mouse pointer is on top of the
 // horizontal scrollbar while scrolling with the wheel.
 // This code comes from gtk/EventHandlerGtk.cpp.

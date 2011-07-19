@@ -5,14 +5,13 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: persistant.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
 #include <unistd.h>
 #include <curl/curl.h>
 
-int main(int argc, char **argv)
+int main(void)
 {
   CURL *curl;
   CURLcode res;
@@ -25,12 +24,12 @@ int main(int argc, char **argv)
     curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
 
     /* get the first document */
-    curl_easy_setopt(curl, CURLOPT_URL, "http://curl.haxx.se/");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://example.com/");
     res = curl_easy_perform(curl);
 
     /* get another document from the same server using the same
        connection */
-    curl_easy_setopt(curl, CURLOPT_URL, "http://curl.haxx.se/docs/");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://example.com/docs/");
     res = curl_easy_perform(curl);
 
     /* always cleanup */

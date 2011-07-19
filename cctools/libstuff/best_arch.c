@@ -432,10 +432,11 @@ uint32_t nfat_archs)
 	     *   v4t: v4t, ALL
 	     *   v5: v5, v4t, ALL
 	     *   xscale: xscale, v4t, ALL
-	     *   v6: v6, v5, v4t, ALL
+	     *   v6: v7, v6, v5, v4t, ALL
 	     *   ALL: v6, v5, xscale, v4t, ALL
 	     */
 	    if(cpusubtype == CPU_SUBTYPE_ARM_ALL ||
+	       cpusubtype == CPU_SUBTYPE_ARM_V7 ||
 	       cpusubtype == CPU_SUBTYPE_ARM_V6){
 		for(i = 0; i < nfat_archs; i++){
 		    if(fat_archs[i].cputype == cputype &&
@@ -654,19 +655,27 @@ cpu_subtype_t cpusubtype2)
 	case CPU_TYPE_ARM:
 	    /*
 	     * Combinability matrix for ARM:
-	     *            V4T      V5  XSCALE      V6     ALL
-	     *            ~~~      ~~  ~~~~~~      ~~     ~~~
-	     * V4T        V4T      V5  XSCALE      V6     ALL
-	     * V5          V5      V5      --      V6     ALL
-	     * XSCALE  XSCALE      --  XSCALE      --     ALL
-	     * V6         ALL      V6      --      V6     ALL
-	     * ALL        ALL     ALL     ALL     ALL     ALL
+	     *            V4T      V5  XSCALE      V6     V7   ALL
+	     *            ~~~      ~~  ~~~~~~      ~~     ~~   ~~~
+	     * V4T        V4T      V5  XSCALE      V6     V7   ALL
+	     * V5          V5      V5      --      V6     V7   ALL
+	     * XSCALE  XSCALE      --  XSCALE      --     --   ALL
+	     * V6          V6      V6      --      V6     V7   ALL
+	     * V7          V7      V7      --      V7     V7   ALL
+	     * ALL        ALL     ALL     ALL     ALL     ALL  ALL
 	     */
 	    if((cpusubtype1 & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM_ALL)
 		return(cpusubtype2);
 	    if((cpusubtype2 & ~CPU_SUBTYPE_MASK) == CPU_SUBTYPE_ARM_ALL)
 		return(cpusubtype1);
 	    switch((cpusubtype1 & ~CPU_SUBTYPE_MASK)){
+		case CPU_SUBTYPE_ARM_V7:
+		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
+			case CPU_SUBTYPE_ARM_XSCALE:
+			    return((cpu_subtype_t)-1);
+			default:
+			    return(CPU_SUBTYPE_ARM_V7);
+		    }
 		case CPU_SUBTYPE_ARM_V6:
 		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
 			case CPU_SUBTYPE_ARM_XSCALE:
@@ -676,6 +685,7 @@ cpu_subtype_t cpusubtype2)
 		    }
 		case CPU_SUBTYPE_ARM_XSCALE:
 		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
+			case CPU_SUBTYPE_ARM_V7:
 			case CPU_SUBTYPE_ARM_V6:
 			case CPU_SUBTYPE_ARM_V5TEJ:
 			    return((cpu_subtype_t)-1);
@@ -686,6 +696,8 @@ cpu_subtype_t cpusubtype2)
 		    switch((cpusubtype2 & ~CPU_SUBTYPE_MASK)){
 			case CPU_SUBTYPE_ARM_XSCALE:
 			    return((cpu_subtype_t)-1);
+			case CPU_SUBTYPE_ARM_V7:
+			    return(CPU_SUBTYPE_ARM_V7);
 			case CPU_SUBTYPE_ARM_V6:
 			    return(CPU_SUBTYPE_ARM_V6);
 			default:

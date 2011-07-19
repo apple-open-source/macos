@@ -31,6 +31,8 @@
 #ifndef WebURLResponsePrivate_h
 #define WebURLResponsePrivate_h
 
+#include "WebString.h"
+
 namespace WebCore { class ResourceResponse; }
 
 namespace WebKit {

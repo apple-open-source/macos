@@ -31,6 +31,7 @@
 #include "NotImplemented.h"
 #include "PlatformPathOpenVG.h"
 #include "SurfaceOpenVG.h"
+#include "TiledImageOpenVG.h"
 #include "VGUtils.h"
 
 #if PLATFORM(EGL)
@@ -122,7 +123,7 @@ struct PlatformPainterState {
     DashArray strokeDashArray;
     float strokeDashOffset;
 
-    int textDrawingMode;
+    TextDrawingModeFlags textDrawingMode;
     bool antialiasingEnabled;
 
     PlatformPainterState()
@@ -140,7 +141,7 @@ struct PlatformPainterState {
         , strokeLineJoin(MiterJoin)
         , strokeMiterLimit(4.0)
         , strokeDashOffset(0.0)
-        , textDrawingMode(cTextFill)
+        , textDrawingMode(TextModeFill)
         , antialiasingEnabled(true)
     {
     }
@@ -398,14 +399,12 @@ struct PlatformPainterState {
 PainterOpenVG::PainterOpenVG()
     : m_state(0)
     , m_surface(0)
-    , m_currentPath(0)
 {
 }
 
 PainterOpenVG::PainterOpenVG(SurfaceOpenVG* surface)
     : m_state(0)
     , m_surface(0)
-    , m_currentPath(0)
 {
     ASSERT(surface);
     begin(surface);
@@ -414,7 +413,6 @@ PainterOpenVG::PainterOpenVG(SurfaceOpenVG* surface)
 PainterOpenVG::~PainterOpenVG()
 {
     end();
-    delete m_currentPath;
 }
 
 void PainterOpenVG::begin(SurfaceOpenVG* surface)
@@ -576,7 +574,7 @@ StrokeStyle PainterOpenVG::strokeStyle() const
     return m_state->strokeStyle;
 }
 
-void PainterOpenVG::setStrokeStyle(const StrokeStyle& style)
+void PainterOpenVG::setStrokeStyle(StrokeStyle style)
 {
     ASSERT(m_state);
     m_surface->makeCurrent();
@@ -655,13 +653,13 @@ void PainterOpenVG::setFillColor(const Color& color)
     setVGSolidColor(VG_FILL_PATH, color);
 }
 
-int PainterOpenVG::textDrawingMode() const
+TextDrawingModeFlags PainterOpenVG::textDrawingMode() const
 {
     ASSERT(m_state);
     return m_state->textDrawingMode;
 }
 
-void PainterOpenVG::setTextDrawingMode(int mode)
+void PainterOpenVG::setTextDrawingMode(TextDrawingModeFlags mode)
 {
     ASSERT(m_state);
     m_state->textDrawingMode = mode;
@@ -716,26 +714,7 @@ void PainterOpenVG::translate(float dx, float dy)
     setTransformation(transformation);
 }
 
-void PainterOpenVG::beginPath()
-{
-    delete m_currentPath;
-    m_currentPath = new Path();
-}
-
-void PainterOpenVG::addPath(const Path& path)
-{
-    m_currentPath->platformPath()->makeCompatibleContextCurrent();
-
-    vgAppendPath(m_currentPath->platformPath()->vgPath(), path.platformPath()->vgPath());
-    ASSERT_VG_NO_ERROR();
-}
-
-Path* PainterOpenVG::currentPath() const
-{
-    return m_currentPath;
-}
-
-void PainterOpenVG::drawPath(VGbitfield specifiedPaintModes, WindRule fillRule)
+void PainterOpenVG::drawPath(const Path& path, VGbitfield specifiedPaintModes, WindRule fillRule)
 {
     ASSERT(m_state);
 
@@ -753,7 +732,7 @@ void PainterOpenVG::drawPath(VGbitfield specifiedPaintModes, WindRule fillRule)
     m_surface->makeCurrent();
 
     vgSeti(VG_FILL_RULE, toVGFillRule(fillRule));
-    vgDrawPath(m_currentPath->platformPath()->vgPath(), paintModes);
+    vgDrawPath(path.platformPath()->vgPath(), paintModes);
     ASSERT_VG_NO_ERROR();
 }
 
@@ -833,7 +812,7 @@ void PainterOpenVG::clipPath(const Path& path, PainterOpenVG::ClipOperation mask
     vgSeti(VG_FILL_RULE, toVGFillRule(clipRule));
     vgRenderToMask(path.platformPath()->vgPath(), VG_FILL_PATH, (VGMaskOperation) maskOp);
     ASSERT_VG_NO_ERROR();
-#elseif
+#else
     notImplemented();
 #endif
 }
@@ -1085,6 +1064,49 @@ void PainterOpenVG::drawPolygon(size_t numPoints, const FloatPoint* points, VGbi
     ASSERT_VG_NO_ERROR();
 }
 
+void PainterOpenVG::drawImage(TiledImageOpenVG* tiledImage, const FloatRect& dst, const FloatRect& src)
+{
+    ASSERT(m_state);
+    m_surface->makeCurrent();
+
+    // If buffers can be larger than the maximum OpenVG image sizes,
+    // we split them into tiles.
+    IntRect drawnTiles = tiledImage->tilesInRect(src);
+    AffineTransform srcToDstTransformation = makeMapBetweenRects(
+        FloatRect(FloatPoint(0.0, 0.0), src.size()), dst);
+    srcToDstTransformation.translate(-src.x(), -src.y());
+
+    for (int yIndex = drawnTiles.y(); yIndex < drawnTiles.bottom(); ++yIndex) {
+        for (int xIndex = drawnTiles.x(); xIndex < drawnTiles.right(); ++xIndex) {
+            // The srcTile rectangle is an aligned tile cropped by the src rectangle.
+            FloatRect tile(tiledImage->tileRect(xIndex, yIndex));
+            FloatRect srcTile = intersection(src, tile);
+
+            save();
+
+            // If the image is drawn in full, all we need is the proper transformation
+            // in order to get it drawn at the right spot on the surface.
+            concatTransformation(AffineTransform(srcToDstTransformation).translate(tile.x(), tile.y()));
+
+            // If only a part of the tile is drawn, we also need to clip the surface.
+            if (srcTile != tile) {
+                // Put boundaries relative to tile origin, as we already
+                // translated to (x, y) with the transformation matrix.
+                srcTile.move(-tile.x(), -tile.y());
+                intersectClipRect(srcTile);
+            }
+
+            VGImage image = tiledImage->tile(xIndex, yIndex);
+            if (image != VG_INVALID_HANDLE) {
+                vgDrawImage(image);
+                ASSERT_VG_NO_ERROR();
+            }
+
+            restore();
+        }
+    }
+}
+
 #ifdef OPENVG_VERSION_1_1
 void PainterOpenVG::drawText(VGFont vgFont, Vector<VGuint>& characters, VGfloat* adjustmentsX, VGfloat* adjustmentsY, const FloatPoint& point)
 {
@@ -1092,11 +1114,11 @@ void PainterOpenVG::drawText(VGFont vgFont, Vector<VGuint>& characters, VGfloat*
 
     VGbitfield paintModes = 0;
 
-    if (m_state->textDrawingMode & cTextClip)
+    if (m_state->textDrawingMode & TextModeClip)
         return; // unsupported for every port except CG at the time of writing
-    if (m_state->textDrawingMode & cTextFill && !m_state->fillDisabled())
+    if (m_state->textDrawingMode & TextModeFill && !m_state->fillDisabled())
         paintModes |= VG_FILL_PATH;
-    if (m_state->textDrawingMode & cTextStroke && !m_state->strokeDisabled())
+    if (m_state->textDrawingMode & TextModeStroke && !m_state->strokeDisabled())
         paintModes |= VG_STROKE_PATH;
 
     m_surface->makeCurrent();
@@ -1136,6 +1158,48 @@ void PainterOpenVG::drawText(VGFont vgFont, Vector<VGuint>& characters, VGfloat*
     }
 }
 #endif
+
+TiledImageOpenVG* PainterOpenVG::asNewNativeImage(const IntRect& src, VGImageFormat format)
+{
+    ASSERT(m_state);
+    m_surface->sharedSurface()->makeCurrent();
+
+    const IntSize vgMaxImageSize(vgGeti(VG_MAX_IMAGE_WIDTH), vgGeti(VG_MAX_IMAGE_HEIGHT));
+    ASSERT_VG_NO_ERROR();
+
+    const IntRect rect = intersection(src, IntRect(0, 0, m_surface->width(), m_surface->height()));
+    TiledImageOpenVG* tiledImage = new TiledImageOpenVG(rect.size(), vgMaxImageSize);
+
+    const int numColumns = tiledImage->numColumns();
+    const int numRows = tiledImage->numRows();
+
+    // Create the images as resources of the shared surface/context.
+    for (int yIndex = 0; yIndex < numRows; ++yIndex) {
+        for (int xIndex = 0; xIndex < numColumns; ++xIndex) {
+            IntRect tileRect = tiledImage->tileRect(xIndex, yIndex);
+            VGImage image = vgCreateImage(format, tileRect.width(), tileRect.height(), VG_IMAGE_QUALITY_FASTER);
+            ASSERT_VG_NO_ERROR();
+
+            tiledImage->setTile(xIndex, yIndex, image);
+        }
+    }
+
+    // Fill the image contents with our own surface/context being current.
+    m_surface->makeCurrent();
+
+    for (int yIndex = 0; yIndex < numRows; ++yIndex) {
+        for (int xIndex = 0; xIndex < numColumns; ++xIndex) {
+            IntRect tileRect = tiledImage->tileRect(xIndex, yIndex);
+
+            vgGetPixels(tiledImage->tile(xIndex, yIndex), 0, 0,
+                rect.x() + tileRect.x(), rect.y() + tileRect.y(),
+                tileRect.width(), tileRect.height());
+            ASSERT_VG_NO_ERROR();
+        }
+    }
+
+    return tiledImage;
+}
 
 void PainterOpenVG::save(PainterOpenVG::SaveMode saveMode)
 {

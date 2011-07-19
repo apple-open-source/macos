@@ -8,9 +8,9 @@
     require DBI::Gofer::Response;
     require Carp;
 
-    our $VERSION = sprintf("0.%06d", q$Revision: 10103 $ =~ /(\d+)/o);
+    our $VERSION = sprintf("0.%06d", q$Revision: 11565 $ =~ /(\d+)/o);
 
-#   $Id: Gofer.pm 10103 2007-10-21 22:05:38Z timbo $
+#   $Id: Gofer.pm 11565 2008-07-22 20:17:33Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -91,11 +91,12 @@
 
 
     sub set_err_from_response { # set error/warn/info and propagate warnings
-        my ($h, $response) = @_;
+        my $h = shift;
+        my $response = shift;
         if (my $warnings = $response->warnings) {
             warn $_ for @$warnings;
         }
-        return $h->set_err($response->err, $response->errstr, $response->state);
+        return $h->set_err($response->err_errstr_state);
     }
 
 
@@ -325,6 +326,10 @@
             $sth->more_results;
             # and return that new sth as if it came from original request
             $rv = [ $sth ];
+        }
+        elsif (!$rv) { # should only occur for major transport-level error
+            #carp("no rv in response { @{[ %$response ]} }");
+            $rv = [ ];
         }
 
         DBD::Gofer::set_err_from_response($dbh, $response);
@@ -578,7 +583,7 @@
             # but only works properly for params 1..9
             # (reverse because of the unshift)
             my @params = reverse sort keys %$ParamValues;
-            if (@params > 9 && $sth->{Database}{go_dsn} =~ /dbi:Sybase/) {
+            if (@params > 9 && ($sth->{Database}{go_dsn}||'') =~ /dbi:Sybase/) {
                 # if more than 9 then we need to do a proper numeric sort
                 # also warn to alert user of this issue
                 warn "Sybase param binding order hack in use";
@@ -630,19 +635,19 @@
             $dbh->{go_dbh_attributes_fetched} = $dbh_attributes;
         }
 
-        my $rv = $response->rv;
+        my $rv = $response->rv; # may be undef on error
         if ($response->sth_resultsets) {
             # setup first resultset - including sth attributes
             $sth->more_results;
         }
         else {
             $sth->STORE(Active => 0);
-            $sth->{go_rows} = $response->rv;
+            $sth->{go_rows} = $rv;
         }
         # set error/warn/info (after more_results as that'll clear err)
         DBD::Gofer::set_err_from_response($sth, $response);
 
-        return $response->rv;
+        return $rv;
     }
 
 

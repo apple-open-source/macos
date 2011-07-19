@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)bt_page.c	8.3 (Berkeley) 7/14/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_page.c,v 1.3 2002/03/22 21:52:01 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_page.c,v 1.5 2009/03/02 23:47:18 delphij Exp $");
 
 #include <sys/types.h>
 
@@ -59,9 +55,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/btree/bt_page.c,v 1.3 2002/03/22 21:52:01 ob
  *	mpool_put's the page.
  */
 int
-__bt_free(t, h)
-	BTREE *t;
-	PAGE *h;
+__bt_free(BTREE *t, PAGE *h)
 {
 	/* Insert the page at the head of the free list. */
 	h->prevpg = P_INVALID;
@@ -85,9 +79,7 @@ __bt_free(t, h)
  *	Pointer to a page, NULL on error.
  */
 PAGE *
-__bt_new(t, npg)
-	BTREE *t;
-	pgno_t *npg;
+__bt_new(BTREE *t, pgno_t *npg)
 {
 	PAGE *h;
 

@@ -1,0 +1,81 @@
+HOWTOs / Examples / Tutorials
+=============================
+
+<Virtual users> [VirtualUsers.txt] with <passwd-files>
+[AuthDatabase.PasswdFile.txt]:
+
+ * <A simple virtual passwd file installation> [HowTo.SimpleVirtualInstall.txt]
+
+ * <Virtual passwd file and Exim> [HowTo.VirtualhostingWithExim.txt]
+ * <Virtual passwd file and Postfix> [HowTo.VirtualUserFlatFilesPostfix.txt]
+
+<Virtual users> [VirtualUsers.txt] with <LDAP> [AuthDatabase.LDAP.txt]:
+
+ * <OpenLDAP> [HowTo.DovecotOpenLdap.txt] ( <Cheat sheet>
+   [HowTo.DoveLdapCheatSheet.txt])
+ * Postfix and Active Directory or OpenLDAP [http://www.linuxmail.info]
+ * Samba LDAP PDC / Mail / DNS / DHCP server
+   [http://wiki.nutum.es/linux/samba/samba_ldap_mds/inicio], using Debian,
+   Samba, OpenLDAP, Postfix, Dovecot, Bind, Horde (fully integrated with Ingo
+   for Sieve scripts management) and MDS as administration interface (in
+   Spanish)
+
+<System users> [SystemUsers.txt] and/or <Virtual users> [VirtualUsers.txt] with
+<LDAP> [AuthDatabase.LDAP.txt]:
+
+ * Dovecot, ManageSieve, Exim, OpenLDAP and getmail
+   [http://www.effinger.org/blog/2009/03/22/dovecot-exim-openldap-und-getmail-unter-ubuntu-1-openldap/]
+   (Instructions in German) - LDAP users (can be both <System users>
+   [SystemUsers.txt] and <Virtual users> [VirtualUsers.txt] depending on how
+   you use <LDAP> [AuthDatabase.LDAP.txt]) with the possibility to add
+   subaccounts for each user. For example if you have a LDAP user named peter,
+   you can add a separate subordinate mailbox to retrieve mail from an external
+   mail account like peter[at]gmail.com
+
+<Virtual users> [VirtualUsers.txt] with <SQL> [AuthDatabase.SQL.txt]:
+
+ * MySQL
+    * <Using Dovecot with XAMS> [HowTo.DovecotXAMS.txt]
+    * <Dovecot, Postfix with Dovecot LDA transport and Dovecot SASL Auth,
+      Postfix Admin, MySQL and SquirrelMail>
+      [HowTo.DovecotLDAPostfixAdminMySQL.txt]
+    * MySQL, Postfix and CCC [http://postfix.pentachron.net/]
+    * MySQL, Exim, SpamAssassin and ClamAV
+      [http://struction.de/projects/HOWTO_VirtualMail_Exim-MySQL-Spamassassin-ClamAV-Dovecot/]
+    * Postfix and Dovecot with MySQL and TLS/SSL, Postgrey and DSPAM
+      [http://johnny.chadda.se/2007/04/15/mail-server-howto-postfix-and-dovecot-with-mysql-and-tlsssl-postgrey-and-dspam/]
+    * ISP-style Email Server with Debian-Etch and Postfix (MySQL, Dovecot,
+      Postfix etc.) [http://workaround.org/ispmail]
+ * PostgreSQL
+    * <PostgreSQL and Postfix> [HowTo.DovecotPostgresql.txt]
+    * Mailserver virtual configuration (Postfix, Dovecot, SMTP Auth, PostgreSQL
+      backend) German
+      [http://www.tuxj0b.de/HOWTO_Mailserver_mit_Postfix_Dovecot_Antispam_und_PostgreSQL_Backend]
+    * PostgreSQL, Postfix (Dovecot LDA and Dovecot SASL), Dovecot and vmm
+      (command line tool) [http://vmm.localdomain.org/] (also available in
+      German [http://de.vmm.localdomain.org/])
+
+Others:
+
+ * SMTP AUTH
+    * <With Postfix> [HowTo.PostfixAndDovecotSASL.txt]
+    * <With Exim> [HowTo.EximAndDovecotSASL.txt]
+ * <Default Debian stable setup with Exim, modified to use Maildir>
+   [HowTo.DebianStable.txt]
+ * <IMAP and POP3 session proxying> [HowTo.ImapProxy.txt]
+ * <CRAM-MD5 authentication HOWTO> [HowTo.CRAM-MD5.txt]
+ * <Rootless installation> [HowTo.Rootless.txt]
+ * <POP-before-SMTP> [HowTo.PopBSMTPAndDovecot.txt]
+    * <Pop Relay Compatibility> [HowTo.PopRelay.txt]
+ * <Refiltering mail> [HowTo.RefilterMail.txt]
+ * <Outlook calendar sharing using Bynari Connector (commercial software) with
+   dovecot> [HowTo.BynariConnector.txt]
+ * <Using fail2ban with Dovecot> [HowTo.Fail2Ban.txt]
+ * <VMailMgr with Dovecot> [HowTo.VMailMgr.txt]
+ * <NTLM authentication against Active Directory>
+   [HowTo.ActiveDirectoryNtlm.txt]
+ * <Postfix and Dovecot LMTP> [HowTo.PostfixDovecotLMTP.txt]
+ * Apple Discussion Forum: Mail Services in Mac OS X Server v10.6 Snow Leopard
+   [http://discussions.apple.com/forum.jspa?forumID=1350]
+
+(This file was created from the wiki on 2011-05-11 04:42)

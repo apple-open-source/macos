@@ -132,13 +132,21 @@ _dns_configuration_add_resolver(dns_create_config_t     *_config,
 		padding += ntohl(resolver->resolver.n_sortaddr) * sizeof(DNS_PTR(dns_sortaddr_t *, x));
 	}
 
-	config->config.n_resolver = htonl(ntohl(config->config.n_resolver) + 1);
-
-	config_add_attribute(_config,
-			     CONFIG_ATTRIBUTE_RESOLVER,
-			     sizeof(_dns_resolver_buf_t) + ntohl(resolver->n_attribute),
-			     (void *)resolver,
-			     padding);
+	if ((ntohl(resolver->resolver.flags) & DNS_RESOLVER_FLAGS_SCOPED) == 0) {
+		config->config.n_resolver = htonl(ntohl(config->config.n_resolver) + 1);
+		config_add_attribute(_config,
+				     CONFIG_ATTRIBUTE_RESOLVER,
+				     sizeof(_dns_resolver_buf_t) + ntohl(resolver->n_attribute),
+				     (void *)resolver,
+				     padding);
+	} else {
+		config->config.n_scoped_resolver = htonl(ntohl(config->config.n_scoped_resolver) + 1);
+		config_add_attribute(_config,
+				     CONFIG_ATTRIBUTE_SCOPED_RESOLVER,
+				     sizeof(_dns_resolver_buf_t) + ntohl(resolver->n_attribute),
+				     (void *)resolver,
+				     padding);
+	}
 
 	return;
 }
@@ -247,30 +255,12 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 
 
 void
-_dns_resolver_set_domain(dns_create_resolver_t *_resolver, const char *domain)
-{
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_DOMAIN, strlen(domain) + 1, (void *)domain);
-	return;
-}
-
-
-void
 _dns_resolver_add_nameserver(dns_create_resolver_t *_resolver, struct sockaddr *nameserver)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
 	resolver->resolver.n_nameserver = htonl(ntohl(resolver->resolver.n_nameserver) + 1);
 	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_ADDRESS, nameserver->sa_len, (void *)nameserver);
-	return;
-}
-
-
-void
-_dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
-{
-	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
-
-	resolver->resolver.port = htons(port);
 	return;
 }
 
@@ -287,12 +277,29 @@ _dns_resolver_add_search(dns_create_resolver_t *_resolver, const char *search)
 
 
 void
-_dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr)
+_dns_resolver_set_domain(dns_create_resolver_t *_resolver, const char *domain)
+{
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_DOMAIN, strlen(domain) + 1, (void *)domain);
+	return;
+}
+
+
+void
+_dns_resolver_set_flags(dns_create_resolver_t *_resolver, uint32_t flags)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
-	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, sizeof(dns_sortaddr_t), (void *)sortaddr);
+	resolver->resolver.flags = htonl(flags);
+	return;
+}
+
+
+void
+_dns_resolver_set_if_index(dns_create_resolver_t *_resolver, uint32_t if_index)
+{
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	resolver->resolver.if_index = htonl(if_index);
 	return;
 }
 
@@ -306,21 +313,42 @@ _dns_resolver_set_options(dns_create_resolver_t *_resolver, const char *options)
 
 
 void
-_dns_resolver_set_timeout(dns_create_resolver_t *_resolver, uint32_t timeout)
-{
-	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
-
-	resolver->resolver.timeout = htonl(timeout);
-	return;
-}
-
-
-void
 _dns_resolver_set_order(dns_create_resolver_t *_resolver, uint32_t order)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
 	resolver->resolver.search_order = htonl(order);
+	return;
+}
+
+
+void
+_dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
+{
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	resolver->resolver.port = htons(port);
+	return;
+}
+
+
+void
+_dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr)
+{
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, sizeof(dns_sortaddr_t), (void *)sortaddr);
+	return;
+}
+
+
+void
+_dns_resolver_set_timeout(dns_create_resolver_t *_resolver, uint32_t timeout)
+{
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	resolver->resolver.timeout = htonl(timeout);
 	return;
 }
 

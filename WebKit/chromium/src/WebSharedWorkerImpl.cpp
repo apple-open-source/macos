@@ -31,7 +31,7 @@
 #include "config.h"
 #include "WebSharedWorkerImpl.h"
 
-#include "GenericWorkerTask.h"
+#include "CrossThreadTask.h"
 #include "KURL.h"
 #include "MessageEvent.h"
 #include "MessagePortChannel.h"
@@ -76,23 +76,23 @@ void WebSharedWorkerImpl::connect(WebMessagePortChannel* webChannel, ConnectList
         MessagePortChannel::create(platform_channel);
 
     workerThread()->runLoop().postTask(
-        createCallbackTask(&connectTask, this, channel.release()));
+        createCallbackTask(&connectTask, channel.release()));
     if (listener)
         listener->connected();
 }
 
-void WebSharedWorkerImpl::connectTask(ScriptExecutionContext* context, WebSharedWorkerImpl* worker, PassOwnPtr<MessagePortChannel> channel)
+void WebSharedWorkerImpl::connectTask(ScriptExecutionContext* context, PassOwnPtr<MessagePortChannel> channel)
 {
     // Wrap the passed-in channel in a MessagePort, and send it off via a connect event.
     RefPtr<MessagePort> port = MessagePort::create(*context);
-    port->entangle(channel.release());
+    port->entangle(channel);
     ASSERT(context->isWorkerContext());
     WorkerContext* workerContext = static_cast<WorkerContext*>(context);
     ASSERT(workerContext->isSharedWorkerContext());
     workerContext->toSharedWorkerContext()->dispatchEvent(createConnectEvent(port));
 }
 
-void WebSharedWorkerImpl::startWorkerContext(const WebURL& url, const WebString& name, const WebString& userAgent, const WebString& sourceCode)
+void WebSharedWorkerImpl::startWorkerContext(const WebURL& url, const WebString& name, const WebString& userAgent, const WebString& sourceCode, long long)
 {
     initializeLoader(url);
     setWorkerThread(SharedWorkerThread::create(name, url, userAgent, sourceCode, *this, *this));

@@ -49,6 +49,7 @@ public:
 	explicit Architecture(cpu_type_t type, cpu_subtype_t sub = CPU_SUBTYPE_MULTIPLE)
 		: std::pair<cpu_type_t, cpu_subtype_t>(type, sub) { }
 	Architecture(const fat_arch &archInFile);
+	Architecture(const char *name);
 
 	cpu_type_t cpuType() const { return this->first; }
 	cpu_subtype_t cpuSubtype() const { return this->second; }
@@ -75,16 +76,14 @@ public:
 
 
 //
-// A Mach-O formatted file segment.
+// Common features of Mach-O object images.
+// MachOBase does not define where we get this from.
 //
-class MachO : public UnixPlusPlus::FileDesc {
+class MachOBase {
+protected:
+	virtual ~MachOBase();
+
 public:
-	MachO(FileDesc fd, size_t offset = 0, size_t length = 0);
-	~MachO();
-	
-	size_t offset() const { return mOffset; }
-	size_t length() const { return mLength; }
-	
 	template <class T>
 	T flip(T value) const
 	{ return mFlip ? Security::flip(value) : value; }
@@ -92,14 +91,14 @@ public:
 	bool isFlipped() const { return mFlip; }
 	bool is64() const { return m64; }
 	
-	const mach_header &header() const { return mHeader; }
+	const mach_header &header() const { return *mHeader; }
 	Architecture architecture() const;
 	uint32_t type() const;
 	uint32_t flags() const;
 	
 	const load_command *loadCommands() const { return mCommands; }
 	const load_command *nextCommand(const load_command *command) const;
-	size_t commandLength() const { return flip(mHeader.sizeofcmds); }
+	size_t commandLength() const { return flip(mHeader->sizeofcmds); }
 	
 	const load_command *findCommand(uint32_t cmd) const;
 	const segment_command *findSegment(const char *segname) const;
@@ -111,6 +110,35 @@ public:
 	
 	size_t signingOffset() const;	// starting offset of CS section, or 0 if none
 	size_t signingLength() const;	// length of CS section, or 0 if none
+
+protected:
+	void initHeader(const mach_header *address);
+	void initCommands(const load_command *commands);
+	
+	size_t headerSize() const;		// size of header
+	size_t commandSize() const;		// size of commands area
+
+private:
+	const mach_header *mHeader;	// Mach-O header
+	const load_command *mCommands; // load commands
+	const load_command *mEndCommands; // end of load commands
+	
+	bool m64;					// is 64-bit
+	bool mFlip;					// wrong byte order (flip all integers)
+};
+
+
+//
+// A Mach-O object image that resides on disk.
+// We only read small parts of the contents into (discontinuous) memory.
+//
+class MachO : public MachOBase, public UnixPlusPlus::FileDesc {
+public:
+	MachO(FileDesc fd, size_t offset = 0, size_t length = 0);
+	~MachO();
+	
+	size_t offset() const { return mOffset; }
+	size_t length() const { return mLength; }
 	size_t signingExtent() const;	// signingOffset, or file length if none
 
 	void seek(size_t offset);	// relative to start of image
@@ -119,11 +147,30 @@ public:
 private:
 	size_t mOffset;			// starting file offset
 	size_t mLength;			// Mach-O file length
-	bool m64;				// is 64-bit
-	bool mFlip;				// wrong byte order (flip all integers)
-	mach_header mHeader;	// Mach-O header
-	load_command *mCommands; // load commands
-	load_command *mEndCommands; // end of load commands
+	
+	mach_header mHeaderBuffer; // read-in Mach-O header
+	load_command *mCommandBuffer; // read-in (malloc'ed) Mach-O load commands
+};
+
+
+//
+// A Mach-O object image that was mapped into memory.
+// We expect the entire image to be contiguously mapped starting at the
+// address given. No particular alignment is required (beyond native
+// alignment constraints on member variables).
+//
+class MachOImage : public MachOBase {
+public:
+	MachOImage(const void *address);
+	
+	const void *address() { return &this->header(); }
+};
+
+class MainMachOImage : public MachOImage {
+public:
+	MainMachOImage();
+	
+	static const void *mainImageAddress();
 };
 
 

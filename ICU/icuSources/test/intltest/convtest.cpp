@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2003-2008, International Business Machines
+*   Copyright (C) 2003-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -67,9 +67,15 @@ void
 ConversionTest::runIndexedTest(int32_t index, UBool exec, const char *&name, char * /*par*/) {
     if (exec) logln("TestSuite ConversionTest: ");
     switch (index) {
+#if !UCONFIG_NO_FILE_IO
         case 0: name="TestToUnicode"; if (exec) TestToUnicode(); break;
         case 1: name="TestFromUnicode"; if (exec) TestFromUnicode(); break;
         case 2: name="TestGetUnicodeSet"; if (exec) TestGetUnicodeSet(); break;
+#else
+        case 0:
+        case 1:
+        case 2: name="skip"; break;
+#endif
         case 3: name="TestGetUnicodeSet2"; if (exec) TestGetUnicodeSet2(); break;
         default: name=""; break; //needed to end loop
     }
@@ -185,7 +191,7 @@ ConversionTest::TestToUnicode() {
         delete dataModule;
     }
     else {
-        dataerrln("[DATA] Could not load test conversion data");
+        dataerrln("Could not load test conversion data");
     }
 }
 
@@ -338,7 +344,7 @@ ConversionTest::TestFromUnicode() {
         delete dataModule;
     }
     else {
-        dataerrln("[DATA] Could not load test conversion data");
+        dataerrln("Could not load test conversion data");
     }
 }
 
@@ -353,7 +359,7 @@ ConversionTest::TestGetUnicodeSet() {
     ParsePosition pos;
     UnicodeSet cnvSet, mapSet, mapnotSet, diffSet;
     UnicodeSet *cnvSetPtr = &cnvSet;
-    UConverter *cnv;
+    LocalUConverterPointer cnv;
 
     TestDataModule *dataModule;
     TestData *testData;
@@ -415,16 +421,15 @@ ConversionTest::TestGetUnicodeSet() {
 
                 logln("TestGetUnicodeSet[%d] %s", i, charset);
 
-                cnv=cnv_open(charset, errorCode);
+                cnv.adoptInstead(cnv_open(charset, errorCode));
                 if(U_FAILURE(errorCode)) {
-                    errln("error opening \"%s\" for conversion/getUnicodeSet test case %d - %s",
+                    errcheckln(errorCode, "error opening \"%s\" for conversion/getUnicodeSet test case %d - %s",
                             charset, i, u_errorName(errorCode));
                     errorCode=U_ZERO_ERROR;
                     continue;
                 }
 
-                ucnv_getUnicodeSet(cnv, (USet *)cnvSetPtr, (UConverterUnicodeSet)which, &errorCode);
-                ucnv_close(cnv);
+                ucnv_getUnicodeSet(cnv.getAlias(), cnvSetPtr->toUSet(), (UConverterUnicodeSet)which, &errorCode);
 
                 if(U_FAILURE(errorCode)) {
                     errln("error in ucnv_getUnicodeSet(\"%s\") for conversion/getUnicodeSet test case %d - %s",
@@ -462,7 +467,7 @@ ConversionTest::TestGetUnicodeSet() {
         delete dataModule;
     }
     else {
-        dataerrln("[DATA] Could not load test conversion data");
+        dataerrln("Could not load test conversion data");
     }
 }
 
@@ -545,26 +550,26 @@ ConversionTest::TestGetUnicodeSet2() {
         "ISO-2022-CN-EXT",
         "LMBCS"
     };
+    LocalUConverterPointer cnv;
     char buffer[1024];
     int32_t i;
     for(i=0; i<LENGTHOF(cnvNames); ++i) {
         UErrorCode errorCode=U_ZERO_ERROR;
-        UConverter *cnv=cnv_open(cnvNames[i], errorCode);
+        cnv.adoptInstead(cnv_open(cnvNames[i], errorCode));
         if(U_FAILURE(errorCode)) {
-            errln("failed to open converter %s - %s", cnvNames[i], u_errorName(errorCode));
+            errcheckln(errorCode, "failed to open converter %s - %s", cnvNames[i], u_errorName(errorCode));
             continue;
         }
         UnicodeSet expected;
-        ucnv_setFromUCallBack(cnv, getUnicodeSetCallback, &expected, NULL, NULL, &errorCode);
+        ucnv_setFromUCallBack(cnv.getAlias(), getUnicodeSetCallback, &expected, NULL, NULL, &errorCode);
         if(U_FAILURE(errorCode)) {
             errln("failed to set the callback on converter %s - %s", cnvNames[i], u_errorName(errorCode));
-            ucnv_close(cnv);
             continue;
         }
         UConverterUnicodeSet which;
         for(which=UCNV_ROUNDTRIP_SET; which<UCNV_SET_COUNT; which=(UConverterUnicodeSet)((int)which+1)) {
             if(which==UCNV_ROUNDTRIP_AND_FALLBACK_SET) {
-                ucnv_setFallback(cnv, TRUE);
+                ucnv_setFallback(cnv.getAlias(), TRUE);
             }
             expected.add(0, cpLimit-1);
             s=s0;
@@ -572,7 +577,7 @@ ConversionTest::TestGetUnicodeSet2() {
             do {
                 char *t=buffer;
                 flush=(UBool)(s==s0+s0Length);
-                ucnv_fromUnicode(cnv, &t, buffer+sizeof(buffer), (const UChar **)&s, s0+s0Length, NULL, flush, &errorCode);
+                ucnv_fromUnicode(cnv.getAlias(), &t, buffer+sizeof(buffer), (const UChar **)&s, s0+s0Length, NULL, flush, &errorCode);
                 if(U_FAILURE(errorCode)) {
                     if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
                         errorCode=U_ZERO_ERROR;
@@ -583,7 +588,7 @@ ConversionTest::TestGetUnicodeSet2() {
                 }
             } while(!flush);
             UnicodeSet set;
-            ucnv_getUnicodeSet(cnv, (USet *)&set, which, &errorCode);
+            ucnv_getUnicodeSet(cnv.getAlias(), set.toUSet(), which, &errorCode);
             if(cpLimit<0x110000) {
                 set.remove(cpLimit, 0x10ffff);
             }
@@ -638,7 +643,6 @@ ConversionTest::TestGetUnicodeSet2() {
                 }
             }
         }
-        ucnv_close(cnv);
     }
 
     delete [] s0;
@@ -651,6 +655,8 @@ ConversionTest::cnv_open(const char *name, UErrorCode &errorCode) {
     if(name!=NULL && *name=='*') {
         /* loadTestData(): set the data directory */
         return ucnv_openPackage(loadTestData(errorCode), name+1, &errorCode);
+    } else if(name!=NULL && *name=='+') {
+        return ucnv_open((name+1), &errorCode);
     } else {
         return ucnv_open(name, &errorCode);
     }
@@ -938,25 +944,22 @@ stepToUnicode(ConversionCase &cc, UConverter *cnv,
 
 UBool
 ConversionTest::ToUnicodeCase(ConversionCase &cc, UConverterToUCallback callback, const char *option) {
-    UConverter *cnv;
-    UErrorCode errorCode;
-
     // open the converter
-    errorCode=U_ZERO_ERROR;
-    cnv=cnv_open(cc.charset, errorCode);
-    if(U_FAILURE(errorCode)) {
-        errln("toUnicode[%d](%s cb=\"%s\" fb=%d flush=%d) ucnv_open() failed - %s",
-                cc.caseNr, cc.charset, cc.cbopt, cc.fallbacks, cc.finalFlush, u_errorName(errorCode));
+    IcuTestErrorCode errorCode(*this, "ToUnicodeCase");
+    LocalUConverterPointer cnv(cnv_open(cc.charset, errorCode));
+    if(errorCode.isFailure()) {
+        errcheckln(errorCode, "toUnicode[%d](%s cb=\"%s\" fb=%d flush=%d) ucnv_open() failed - %s",
+                cc.caseNr, cc.charset, cc.cbopt, cc.fallbacks, cc.finalFlush, errorCode.errorName());
+        errorCode.reset();
         return FALSE;
     }
 
     // set the callback
     if(callback!=NULL) {
-        ucnv_setToUCallBack(cnv, callback, option, NULL, NULL, &errorCode);
+        ucnv_setToUCallBack(cnv.getAlias(), callback, option, NULL, NULL, errorCode);
         if(U_FAILURE(errorCode)) {
             errln("toUnicode[%d](%s cb=\"%s\" fb=%d flush=%d) ucnv_setToUCallBack() failed - %s",
                     cc.caseNr, cc.charset, cc.cbopt, cc.fallbacks, cc.finalFlush, u_errorName(errorCode));
-            ucnv_close(cnv);
             return FALSE;
         }
     }
@@ -1000,22 +1003,22 @@ ConversionTest::ToUnicodeCase(ConversionCase &cc, UConverterToUCallback callback
             memset(resultOffsets, -1, LENGTHOF(resultOffsets));
         }
         memset(result, -1, LENGTHOF(result));
-        errorCode=U_ZERO_ERROR;
-        resultLength=stepToUnicode(cc, cnv,
+        errorCode.reset();
+        resultLength=stepToUnicode(cc, cnv.getAlias(),
                                 result, LENGTHOF(result),
                                 step==0 ? resultOffsets : NULL,
-                                step, &errorCode);
+                                step, errorCode);
         ok=checkToUnicode(
-                cc, cnv, steps[i].name,
+                cc, cnv.getAlias(), steps[i].name,
                 result, resultLength,
                 cc.offsets!=NULL ? resultOffsets : NULL,
                 errorCode);
-        if(U_FAILURE(errorCode) || !cc.finalFlush) {
+        if(errorCode.isFailure() || !cc.finalFlush) {
             // reset if an error occurred or we did not flush
             // otherwise do nothing to make sure that flushing resets
-            ucnv_resetToUnicode(cnv);
+            ucnv_resetToUnicode(cnv.getAlias());
         }
-        if (resultOffsets[resultLength] != -1) {
+        if (cc.offsets != NULL && resultOffsets[resultLength] != -1) {
             errln("toUnicode[%d](%s) Conversion wrote too much to offsets at index %d",
                 cc.caseNr, cc.charset, resultLength);
         }
@@ -1030,13 +1033,13 @@ ConversionTest::ToUnicodeCase(ConversionCase &cc, UConverterToUCallback callback
         // test ucnv_toUChars()
         memset(result, 0, sizeof(result));
 
-        errorCode=U_ZERO_ERROR;
-        resultLength=ucnv_toUChars(cnv,
+        errorCode.reset();
+        resultLength=ucnv_toUChars(cnv.getAlias(),
                         result, LENGTHOF(result),
                         (const char *)cc.bytes, cc.bytesLength,
-                        &errorCode);
+                        errorCode);
         ok=checkToUnicode(
-                cc, cnv, "toUChars",
+                cc, cnv.getAlias(), "toUChars",
                 result, resultLength,
                 NULL,
                 errorCode);
@@ -1046,23 +1049,23 @@ ConversionTest::ToUnicodeCase(ConversionCase &cc, UConverterToUCallback callback
 
         // test preflighting
         // keep the correct result for simple checking
-        errorCode=U_ZERO_ERROR;
-        resultLength=ucnv_toUChars(cnv,
+        errorCode.reset();
+        resultLength=ucnv_toUChars(cnv.getAlias(),
                         NULL, 0,
                         (const char *)cc.bytes, cc.bytesLength,
-                        &errorCode);
-        if(errorCode==U_STRING_NOT_TERMINATED_WARNING || errorCode==U_BUFFER_OVERFLOW_ERROR) {
-            errorCode=U_ZERO_ERROR;
+                        errorCode);
+        if(errorCode.get()==U_STRING_NOT_TERMINATED_WARNING || errorCode.get()==U_BUFFER_OVERFLOW_ERROR) {
+            errorCode.reset();
         }
         ok=checkToUnicode(
-                cc, cnv, "preflight toUChars",
+                cc, cnv.getAlias(), "preflight toUChars",
                 result, resultLength,
                 NULL,
                 errorCode);
         break;
     }
 
-    ucnv_close(cnv);
+    errorCode.reset();  // all errors have already been reported
     return ok;
 }
 
@@ -1352,7 +1355,7 @@ ConversionTest::FromUnicodeCase(ConversionCase &cc, UConverterFromUCallback call
     errorCode=U_ZERO_ERROR;
     cnv=cnv_open(cc.charset, errorCode);
     if(U_FAILURE(errorCode)) {
-        errln("fromUnicode[%d](%s cb=\"%s\" fb=%d flush=%d) ucnv_open() failed - %s",
+        errcheckln(errorCode, "fromUnicode[%d](%s cb=\"%s\" fb=%d flush=%d) ucnv_open() failed - %s",
                 cc.caseNr, cc.charset, cc.cbopt, cc.fallbacks, cc.finalFlush, u_errorName(errorCode));
         return FALSE;
     }

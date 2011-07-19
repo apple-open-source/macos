@@ -36,7 +36,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dfile.c,v 1.5 2008/10/21 16:15:16 abe Exp abe $";
+static char *rcsid = "$Id: dfile.c,v 1.6 2009/03/25 19:21:37 abe Exp $";
 #endif
 
 
@@ -238,6 +238,23 @@ err2nm(pfx)
 
 
 /*
+ * print_nm() -- print Name column
+ */
+void
+print_nm(lf)
+	struct lfile *lf;
+{
+	printname(0);
+#ifdef        PROC_PIDLISTFILEPORTS
+	if (lf->fileport) {
+		(void) printf(" (fileport=0x%04x)", lf->fileport);
+	}
+#endif        /* PROC_PIDLISTFILEPORTS */
+	putchar('\n');
+}
+
+
+/*
  * print_v_path() -- print vnode's path
  */
 
@@ -327,19 +344,59 @@ process_kqueue(pid, fd)
  * process_pipe() -- process pipe file
  */
 
+static void
+process_pipe_common(pi)
+	struct pipe_fdinfo *pi;
+{
+	char dev_ch[32], *ep;
+        size_t sz;
+
+	(void) snpf(Lf->type, sizeof(Lf->type), "PIPE");
+/*
+ * Enter the pipe handle as the device.
+ */
+	(void) snpf(dev_ch, sizeof(dev_ch), "%s",
+	    print_kptr((KA_T)pi->pipeinfo.pipe_handle, (char *)NULL, 0));
+	enter_dev_ch(dev_ch);
+/*
+ * Enable offset or size reporting.
+ */
+	if (Foffset)
+	    Lf->off_def = 1;
+	else {
+	    Lf->sz = (SZOFFTYPE)pi->pipeinfo.pipe_stat.vst_blksize;
+	    Lf->sz_def = 1;
+	}
+/*
+ * If there is a peer handle, enter it in as NAME column information.
+ */
+	if (pi->pipeinfo.pipe_peerhandle) {
+	    (void) snpf(Namech, Namechl, "->%s",
+		print_kptr((KA_T)pi->pipeinfo.pipe_peerhandle, (char *)NULL, 0));
+	    enter_nm(Namech);
+	} else
+	    Namech[0] = '\0';
+/*
+ * If the pipe has a count, add it to the NAME column.
+ */
+	if (pi->pipeinfo.pipe_stat.vst_size) {
+	    ep = endnm(&sz);
+	    (void) snpf(ep, sz, ", cnt=%" SZOFFPSPEC "u",
+		(SZOFFTYPE)pi->pipeinfo.pipe_stat.vst_size);
+	}
+}
+	
+	
 void
 process_pipe(pid, fd)
 	int pid;			/* PID */
 	int32_t fd;			/* FD */
 {
-	char dev_ch[32], *ep;
 	int nb;
 	struct pipe_fdinfo pi;
-        size_t sz;
 /*
  * Get pipe file information.
  */
-	(void) snpf(Lf->type, sizeof(Lf->type), "PIPE");
 	nb = proc_pidfdinfo(pid, fd, PROC_PIDFDPIPEINFO, &pi, sizeof(pi));
 	if (nb <= 0) {
 	    (void) err2nm("pipe");
@@ -353,39 +410,39 @@ process_pipe(pid, fd)
 	       sizeof(pi), nb);
 	    Exit(1);
 	}
-/*
- * Enter the pipe handle as the device.
- */
-	(void) snpf(dev_ch, sizeof(dev_ch), "%s",
-	    print_kptr((KA_T)pi.pipeinfo.pipe_handle, (char *)NULL, 0));
-	enter_dev_ch(dev_ch);
-/*
- * Enable offset or size reporting.
- */
-	if (Foffset)
-	    Lf->off_def = 1;
-	else {
-	    Lf->sz = (SZOFFTYPE)pi.pipeinfo.pipe_stat.vst_blksize;
-	    Lf->sz_def = 1;
-	}
-/*
- * If there is a peer handle, enter it in as NAME column information.
- */
-	if (pi.pipeinfo.pipe_peerhandle) {
-	    (void) snpf(Namech, Namechl, "->%s",
-		print_kptr((KA_T)pi.pipeinfo.pipe_peerhandle, (char *)NULL, 0));
-	    enter_nm(Namech);
-	} else
-	    Namech[0] = '\0';
-/*
- * If the pipe has a count, add it to the NAME column.
- */
-	if (pi.pipeinfo.pipe_stat.vst_size) {
-	    ep = endnm(&sz);
-	    (void) snpf(ep, sz, ", cnt=%" SZOFFPSPEC "u",
-		(SZOFFTYPE)pi.pipeinfo.pipe_stat.vst_size);
-	}
+
+	process_pipe_common(&pi);
 }
+
+
+#ifdef	PROC_PIDLISTFILEPORTS
+void
+process_fileport_pipe(pid, fp)
+	int pid;			/* PID */
+	uint32_t fp;			/* FILEPORT */
+{
+	int nb;
+	struct pipe_fdinfo pi;
+/*
+ * Get pipe file information.
+ */
+	nb = proc_pidfileportinfo(pid, fp, PROC_PIDFILEPORTPIPEINFO, &pi, sizeof(pi));
+	if (nb <= 0) {
+	    (void) err2nm("pipe");
+	    return;
+	} else if (nb < sizeof(pi)) {
+	    (void) fprintf(stderr,
+		"%s: PID %d, FILEPORT %u; proc_pidfileportinfo(PROC_PIDFILEPORTPIPEINFO);\n",
+		Pn, pid, fp);
+	    (void) fprintf(stderr,
+		"      too few bytes; expected %ld, got %d\n",
+	       sizeof(pi), nb);
+	    Exit(1);
+	}
+
+	process_pipe_common(&pi);
+}
+#endif	/* PROC_PIDLISTFILEPORTS */
 
 
 /*
@@ -441,6 +498,40 @@ process_psem(pid, fd)
  * process_pshm() -- process POSIX shared memory file
  */
 
+static void
+process_pshm_common(ps)
+	struct pshm_fdinfo *ps;
+{
+	(void) snpf(Lf->type, sizeof(Lf->type), "PSXSHM");
+/*
+ * Enter the POSIX shared memory file information.
+ */
+	enter_file_info(&ps->pfi);
+/*
+ * If the POSIX shared memory file has a path name, enter it; otherwise, if it
+ * has a mapping address, enter that.
+ */
+	if (ps->pshminfo.pshm_name[0]) {
+	    ps->pshminfo.pshm_name[sizeof(ps->pshminfo.pshm_name) - 1] = '\0';
+	    (void) snpf(Namech, Namechl, "%s", ps->pshminfo.pshm_name);
+	    enter_nm(Namech);
+	} else if (ps->pshminfo.pshm_mappaddr) {
+	    (void) snpf(Namech, Namechl, "obj=%s",
+		print_kptr((KA_T)ps->pshminfo.pshm_mappaddr, (char *)NULL, 0));
+	    enter_nm(Namech);
+	}
+/*
+ * Enable offset or size reporting.
+ */
+	if (Foffset)
+	    Lf->off_def = 1;
+	else {
+	    Lf->sz = (SZOFFTYPE)ps->pshminfo.pshm_stat.vst_size;
+	    Lf->sz_def = 1;
+	}
+}
+
+
 void
 process_pshm(pid, fd)
 	int pid;			/* PID */
@@ -451,7 +542,6 @@ process_pshm(pid, fd)
 /*
  * Get the POSIX shared memory file information.
  */
-	(void) snpf(Lf->type, sizeof(Lf->type), "PSXSHM");
 	nb = proc_pidfdinfo(pid, fd, PROC_PIDFDPSHMINFO, &ps, sizeof(ps));
 	if (nb <= 0) {
 	    (void) err2nm("POSIX shared memory");
@@ -465,38 +555,56 @@ process_pshm(pid, fd)
 		sizeof(ps), nb);
 	    Exit(1);
 	}
-/*
- * Enter the POSIX shared memory file information.
- */
-	enter_file_info(&ps.pfi);
-/*
- * If the POSIX shared memory file has a path name, enter it; otherwise, if it
- * has a mapping address, enter that.
- */
-	if (ps.pshminfo.pshm_name[0]) {
-	    ps.pshminfo.pshm_name[sizeof(ps.pshminfo.pshm_name) - 1] = '\0';
-	    (void) snpf(Namech, Namechl, "%s", ps.pshminfo.pshm_name);
-	    enter_nm(Namech);
-	} else if (ps.pshminfo.pshm_mappaddr) {
-	    (void) snpf(Namech, Namechl, "obj=%s",
-		print_kptr((KA_T)ps.pshminfo.pshm_mappaddr, (char *)NULL, 0));
-	    enter_nm(Namech);
-	}
-/*
- * Enable offset or size reporting.
- */
-	if (Foffset)
-	    Lf->off_def = 1;
-	else {
-	    Lf->sz = (SZOFFTYPE)ps.pshminfo.pshm_stat.vst_size;
-	    Lf->sz_def = 1;
-	}
+
+	process_pshm_common(&ps);
 }
+
+
+#ifdef	PROC_PIDLISTFILEPORTS
+void
+process_fileport_pshm(pid, fp)
+	int pid;			/* PID */
+	uint32_t fp;			/* FILEPORT */
+{
+	int nb;
+	struct pshm_fdinfo ps;
+/*
+ * Get the POSIX shared memory file information.
+ */
+	nb = proc_pidfileportinfo(pid, fp, PROC_PIDFILEPORTPSHMINFO, &ps, sizeof(ps));
+	if (nb <= 0) {
+	    (void) err2nm("POSIX shared memory");
+	    return;
+	} else if (nb < sizeof(ps)) {
+	    (void) fprintf(stderr,
+		"%s: PID %d, FILEPORT %u; proc_pidfileportinfo(PROC_PIDFILEPORTPSHMINFO);\n",
+		Pn, pid, fp);
+	    (void) fprintf(stderr,
+		"      too few bytes; expected %ld, got %d\n",
+		sizeof(ps), nb);
+	    Exit(1);
+	}
+
+	process_pshm_common(&ps);
+}
+#endif	/* PROC_PIDLISTFILEPORTS */
 
 
 /*
  * process_vnode() -- process a vnode file
  */
+
+static void
+process_vnode_common(vi)
+	struct vnode_fdinfowithpath *vi;
+{
+/*
+ * Enter the file and vnode information.
+ */
+	enter_file_info(&vi->pfi);
+	enter_vnode_info(&vi->pvip);
+}
+
 
 void
 process_vnode(pid, fd)
@@ -522,16 +630,51 @@ process_vnode(pid, fd)
 	    return;
 	} else if (nb < sizeof(vi)) {
 	    (void) fprintf(stderr,
-		"%s: PID %d, Fd %d: proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO);\n",
+		"%s: PID %d, FD %d: proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO);\n",
 		Pn, pid, fd);
 	    (void) fprintf(stderr,
 		"      too few bytes; expected %ld, got %d\n",
 		sizeof(vi), nb);
 	    Exit(1);
 	}
-/*
- * Enter the file and vnode information.
- */
-	enter_file_info(&vi.pfi);
-	enter_vnode_info(&vi.pvip);
+
+	process_vnode_common(&vi);
 }
+
+
+#ifdef	PROC_PIDLISTFILEPORTS
+void
+process_fileport_vnode(pid, fp)
+	int pid;			/* PID */
+	uint32_t fp;			/* FILEPORT */
+{
+	int nb;
+	struct vnode_fdinfowithpath vi;
+
+	nb = proc_pidfileportinfo(pid, fp, PROC_PIDFILEPORTVNODEPATHINFO, &vi, sizeof(vi));
+	if (nb <= 0) {
+	    if (errno == ENOENT) {
+
+	    /*
+	     * The file descriptor's vnode may have been revoked.  This is a
+	     * bit of a hack, since an ENOENT error might not always mean the
+	     * descriptor's vnode has been revoked.  As the libproc API
+	     * matures, this code may need to be revisited.
+	     */
+		enter_nm("(revoked)");
+	    } else
+		(void) err2nm("vnode");
+	    return;
+	} else if (nb < sizeof(vi)) {
+	    (void) fprintf(stderr,
+		"%s: PID %d, FILEPORT %u: proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO);\n",
+		Pn, pid, fp);
+	    (void) fprintf(stderr,
+		"      too few bytes; expected %ld, got %d\n",
+		sizeof(vi), nb);
+	    Exit(1);
+	}
+
+	process_vnode_common(&vi);
+}
+#endif	/* PROC_PIDLISTFILEPORTS */

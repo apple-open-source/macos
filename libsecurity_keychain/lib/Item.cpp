@@ -178,11 +178,26 @@ ItemImpl::~ItemImpl()
 
 
 
+Mutex*
+ItemImpl::getMutexForObject()
+{
+	if (mKeychain.get())
+	{
+		return mKeychain->getKeychainMutex();
+	}
+	
+	return NULL;
+}
+
+
+
 void
 ItemImpl::aboutToDestruct()
 {
 	if (mKeychain && *mPrimaryKey)
+	{
 		mKeychain->removeItem(mPrimaryKey, this);
+	}
 }
 
 
@@ -709,7 +724,16 @@ ItemImpl::modifyContent(const SecKeychainAttributeList *attrList, UInt32 dataLen
 	{
 		for(UInt32 ix=0; ix < attrList->count; ix++)
 		{
-			mDbAttributes->add(Schema::attributeInfo(attrList->attr[ix].tag), CssmData(attrList->attr[ix].data,  attrList->attr[ix].length));
+            SecKeychainAttrType attrTag = attrList->attr[ix].tag;
+
+            if (attrTag == APPLEDB_CSSM_PRINTNAME_ATTRIBUTE)
+            {
+                // must remap a caller-supplied kSecKeyPrintName attribute tag for key items, since it isn't in the schema
+                // (note that this will ultimately match kGenericPrintName in Schema.cpp)
+                attrTag = kSecLabelItemAttr;
+            }
+
+			mDbAttributes->add(Schema::attributeInfo(attrTag), CssmData(attrList->attr[ix].data,  attrList->attr[ix].length));
 		}
 	}
 	
@@ -843,6 +867,7 @@ ItemImpl::modifyAttributesAndData(const SecKeychainAttributeList *attrList, UInt
             if (attrTag == kSecLabelItemAttr)
             {
                 // must remap a caller-supplied label attribute tag for password items, since it isn't in the schema
+                // (note that this will ultimately match kGenericPrintName in Schema.cpp)
                 if (IS_PASSWORD_ITEM_CLASS( Schema::itemClassFor(recordType) ))
                     attrTag = APPLEDB_GENERIC_PRINTNAME_ATTRIBUTE;
             }
@@ -1364,3 +1389,9 @@ Item::Item(ItemImpl &item)
 		  : new ItemImpl(item)) 
 {
 }
+
+CFIndex GetItemRetainCount(Item& item)
+{
+	return CFGetRetainCount(item->handle(false));
+}
+

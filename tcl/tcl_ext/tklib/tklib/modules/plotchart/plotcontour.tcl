@@ -556,9 +556,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
         switch -- $class {
 
-            ############### Case A ###############
-
             "---" {
+                ############### Case A ###############
+
 #debug#                puts "class A = $class , $ic , $ff"
                 if {$contour_options(filled_contour)} {
                     set pxylist [list $x1 $y1 $x2 $y2 $x3 $y3]
@@ -579,9 +579,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case N ###############
-
             "===" {
+                ############### Case N ###############
+
 #debug#                puts "class N = $class , $ic , $ff"
                 if {$contour_options(filled_contour)} {
                     set pxylist [list $x1 $y1 $x2 $y2 $x3 $y3]
@@ -590,9 +590,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 return
             }
 
-            ############### Case B ###############
-
             "--=" {
+                ############### Case B ###############
+
 #debug#                puts "class B = $class , $ic , $ff"
                 if {$contour_options(filled_contour)} {
                     set pxylist [list $x1 $y1 $x2 $y2 $x3 $y3]
@@ -613,9 +613,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case D ###############
-
             "-=-" {
+                ############### Case D ###############
+
 #debug#                puts "class D = $class , $ic , $ff"
                 if {$contour_options(filled_contour)} {
                     set pxylist [list $x1 $y1 $x2 $y2 $x3 $y3]
@@ -636,9 +636,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case J ###############
-
             "=--" {
+                ############### Case J ###############
+
 #debug#                puts "class J = $class , $ic , $ff"
                 if {$contour_options(filled_contour)} {
                     set pxylist [list $x1 $y1 $x2 $y2 $x3 $y3]
@@ -659,9 +659,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case K ###############
-
             "=-=" {
+                ############### Case K ###############
+
 #debug#                puts "class K = $class , $ic , $ff"
                 set xylist [list $x1 $y1 $x3 $y3]
                 if {$contour_options(filled_contour)} {
@@ -690,9 +690,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case E ###############
-
             "-==" {
+                ############### Case E ###############
+
 #debug#                puts "class E = $class , $ic , $ff"
                 set xylist [list $x2 $y2 $x3 $y3]
                 if {$contour_options(filled_contour)} {
@@ -720,9 +720,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
                 }
             }
 
-            ############### Case M ###############
-
             "==-" {
+                ############### Case M ###############
+
 #debug#                puts "class M = $class , $ic , $ff"
                 set xylist [list $x1 $y1 $x2 $y2]
                 if {$contour_options(filled_contour)} {
@@ -751,9 +751,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case F ###############
-
             "-=+" {
+                ############### Case F ###############
+
 #debug#                puts "class F = $class , $ic , $ff"
                 set xylist [list $x2 $y2]
                 set xyf2  [fintpl $x3 $y3 $f3 $x1 $y1 $f1 $ff]
@@ -807,9 +807,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case H ###############
-
             "-+=" {
+                ############### Case H ###############
+
 #debug#                puts "class H = $class , $ic , $ff"
                 set xylist [fintpl $x1 $y1 $f1 $x2 $y2 $f2 $ff]
                 foreach {xx yy} $xylist {}
@@ -862,9 +862,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case L ###############
-
             "=-+" {
+                ############### Case L ###############
+
 #debug#                puts "class L = $class , $ic , $ff"
                 set xylist [fintpl $x2 $y2 $f2 $x3 $y3 $f3 $ff]
                 foreach {xx yy} $xylist {}
@@ -918,9 +918,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case C ###############
-
             "--+" {
+                ############### Case C ###############
+
 #debug#                puts "class C = $class , $ic , $ff"
                 set xyf1  [fintpl $x2 $y2 $f2 $x3 $y3 $f3 $ff]
                 set xyf2  [fintpl $x3 $y3 $f3 $x1 $y1 $f1 $ff]
@@ -990,9 +990,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case G ###############
-
             "-+-" {
+                ############### Case G ###############
+
 #debug#                puts "class G = $class , $ic , $ff"
                 set xyf1  [fintpl $x1 $y1 $f1 $x2 $y2 $f2 $ff]
                 set xyf2  [fintpl $x2 $y2 $f2 $x3 $y3 $f3 $ff]
@@ -1063,9 +1063,9 @@ proc ::Plotchart::Tri_contour { canv x1 y1 f1 x2 y2 f2 x3 y3 f3 cont {doTrans 1}
 
             }
 
-            ############### Case I ###############
-
             "+--" {
+                ############### Case I ###############
+
 #debug#                puts "class I = $class , $ic , $ff"
                 set xyf1  [fintpl $x1 $y1 $f1 $x2 $y2 $f2 $ff]
                 set xyf2  [fintpl $x3 $y3 $f3 $x1 $y1 $f1 $ff]
@@ -1335,7 +1335,7 @@ proc ::Plotchart::MakeContourClasses {values classes} {
         # Now that we know how many entries (ncont), create
         # the colormap colors
         #
-        ::Plotchart::setColormapColors  [expr [llength $classes] + 1]
+        ::Plotchart::setColormapColors  [expr {[llength $classes] + 1}]
 
     } elseif { [llength [lindex $classes 0]] == 1 } {
         #mbs#  Changed the above line from " == 2 " to " == 1 "
@@ -1361,7 +1361,7 @@ proc ::Plotchart::MakeContourClasses {values classes} {
 #####
 #####    return $cont
 
-    puts "classes (cont) : $classes"
+#debug#    puts "classes (cont) : $classes"
 
     return $classes
 }
@@ -1383,7 +1383,7 @@ proc ::Plotchart::setColormapColors  {ncont} {
 
     # Note : The default colormap is "jet"
 
-    switch $colorMapType {
+    switch -- $colorMapType {
 
         custom {
             return
@@ -1516,7 +1516,7 @@ proc ::Plotchart::colorMap {cmap} {
     variable colorMapType
     variable colorMap
 
-    switch $cmap {
+    switch -- $cmap {
 
         "grey" -
         "gray" { set colorMapType $cmap }
@@ -1574,7 +1574,7 @@ proc ::Plotchart::colorMap {cmap} {
 #       Baker, Hearn, 1986, ISBN 0-13-165598-1, page 304.
 #
 proc ::Plotchart::Rgb2hsv {r g b} {
-    set h [set s [set v 0.0]]]
+    set h [set s [set v 0.0]]
     set sorted [lsort -real [list $r $g $b]]
     set v [expr {double([lindex $sorted end])}]
     set m [lindex $sorted 0]
@@ -1658,6 +1658,74 @@ proc ::Plotchart::Hsv2rgb {h s v} {
         5 { set r $v  ; set g $p1 ; set b $p2 }
     }
     return [list $r $g $b]
+}
+# DrawIsolinesFunctionValues --
+#     Draw isolines in the given grid with given function values.
+# Arguments:
+#     canv : Canvas to draw in
+#     xvec : List of points in the x axis
+#     yvec : List of points in the y axis
+#     fmat : Matrix of function values at the points defined by x and y.
+#       The matrix is given as a list of rows, where each row
+#       stores the function values with a fixed y and a varying x.
+#     cont        List of contour classes (or empty to indicate
+#                 automatic scaling
+# Result:
+#     None
+# Side effect:
+#     Isolines drawn
+# Note:
+#     A cell is only drawn if there are four well-defined
+#     corners. If the x or y coordinate is missing or the value is
+#     missing, the cell is skipped.
+# Author : Michael Baudin
+#
+proc ::Plotchart::DrawIsolinesFunctionValues {canv xvec yvec fmat {cont {}}} {
+  variable scaling
+  set nx [llength $xvec]
+  set ny [llength $xvec]
+  if {$nx!=$ny} then {
+    error "The number of values in xvec (nx=$nx) is different from the number of values in yvec (ny=$ny)"
+  }
+  #
+  # Check the given values of xvec and yvec against the scaling of the plot,
+  # which was given at the creation of the plot.
+  #
+  set index 0
+  foreach xval $xvec {
+    if {$xval > $scaling($canv,xmax) || $xval < $scaling($canv,xmin)} then {
+      error "The given x value $xval at index $index of xvec is not in the x-axis range \[$scaling($canv,xmin),$scaling($canv,xmax)\]"
+    }
+    incr index
+  }
+  set index 0
+  foreach yval $yvec {
+    if {$yval > $scaling($canv,ymax) || $yval < $scaling($canv,ymin)} then {
+      error "The given y value $yval at index $index of yvec is not in the y-axis range \[$scaling($canv,ymin),$scaling($canv,ymax)\]"
+    }
+    incr index
+  }
+  #
+  # Form the xmat and ymat matrices based on the given x and y.
+  #
+  set xmat {}
+  for {set iy 0} {$iy < $ny} {incr iy} {
+    set xi {}
+    for {set ix 0} {$ix < $nx} {incr ix} {
+      lappend xi [lindex $xvec $ix]
+    }
+    lappend xmat $xi
+  }
+  set ymat {}
+  for {set iy 0} {$iy < $ny} {incr iy} {
+    set yi {}
+    set yiy [lindex $yvec $iy]
+    for {set ix 0} {$ix < $nx} {incr ix} {
+      lappend yi $yiy
+    }
+    lappend ymat $yi
+  }
+  DrawIsolines $canv $xmat $ymat $fmat $cont
 }
 
 #

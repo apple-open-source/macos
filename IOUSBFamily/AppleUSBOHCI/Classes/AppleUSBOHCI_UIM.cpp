@@ -2375,6 +2375,9 @@ AppleUSBOHCI::UIMCreateIsochTransfer(IOUSBIsocCommand *command)
 			
             //print_itd(pTailITD);
             pTailITD = pTailITD->pLogicalNext;		// this is the "old" pNewTD
+			if (pTailITD == NULL )
+				break;
+			
             OSWriteLittleInt32(&pTailITD->pShared->nextTD, 0, pNewITD->pPhysical);	// link to the "new" pNewTD
             pTailITD->pLogicalNext = pNewITD;
             continue;		// start over

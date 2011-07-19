@@ -21,7 +21,7 @@ class SimpleImage:
         self.bitmap = bitmap
         self.data = bitmap.bitmapData()
         self.rowbytes = bitmap.bytesPerRow()
-        self.pixbytes = bitmap.bitsPerPixel() / 8
+        self.pixbytes = bitmap.bitsPerPixel() // 8
         self.rowCount = bitmap.pixelsHigh()
 
         if bitmap.isPlanar():
@@ -63,8 +63,12 @@ class RectTest (TestCase):
         self.image = NSImage.alloc().initWithSize_((100, 100))
 
     def makeArray(self, points):
+        if sys.maxint > 2 ** 32:
+            code = 'd'
+        else:
+            code = 'f'
 
-        a = array.array('f', len(points) * [0, 0, 0, 0])
+        a = array.array(code, len(points) * [0, 0, 0, 0])
         for i in range(len(points)):
             p = points[i]
             a[(i*4) + 0] = p[0][0]
@@ -92,14 +96,14 @@ class RectTest (TestCase):
             for ox in range(w):
                 for oy in range(h):
                     allpoints.remove((x+ox, y+oy))
-                    self.assertEquals(
+                    self.assertEqual(
                         img.getPixel(x+ox, y+oy),
                         '\x00\x00\x00\xff',
                         'Black pixel at %d,%d'%(x+ox, y+oy))
 
         # And white points
         for x, y in allpoints:
-            self.assertEquals(
+            self.assertEqual(
                 img.getPixel(x, y),
                 '\x00\x00\x00\x00',
                 'White pixel at %d,%d'%(x, y))

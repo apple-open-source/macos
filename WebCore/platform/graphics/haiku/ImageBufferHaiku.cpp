@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Stephan Aßmus <superstippi@gmx.de>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,7 @@
 #include "MIMETypeRegistry.h"
 #include "StillImageHaiku.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 #include <BitmapStream.h>
 #include <String.h>
 #include <TranslatorRoster.h>
@@ -64,7 +66,7 @@ ImageBufferData::~ImageBufferData()
     m_bitmap.Unlock();
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, RenderingMode, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -74,6 +76,11 @@ ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, b
 
 ImageBuffer::~ImageBuffer()
 {
+}
+
+size_t ImageBuffer::dataSize() const
+{
+    return m_size.width() * m_size.height() * 4;
 }
 
 GraphicsContext* ImageBuffer::context() const
@@ -207,7 +214,7 @@ static inline void convertToInternalData(const uint8* sourceRows, unsigned sourc
 
 static PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& imageData, const IntSize& size, bool premultiplied)
 {
-    PassRefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
+    RefPtr<ImageData> result = ImageData::create(IntSize(rect.width(), rect.height()));
     unsigned char* data = result->data()->data()->data();
 
     // If the destination image is larger than the source image, the outside
@@ -219,7 +226,7 @@ static PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBuffer
     // If the requested image is outside the source image, we can return at
     // this point.
     if (rect.x() > size.width() || rect.y() > size.height() || rect.right() < 0 || rect.bottom() < 0)
-        return result;
+        return result.release();
 
     // Now we know there must be an intersection rect which we need to extract.
     BRect sourceRect(0, 0, size.width() - 1, size.height() - 1);
@@ -244,7 +251,7 @@ static PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBuffer
     convertFromInternalData(sourceRows, sourceBytesPerRow, destRows, destBytesPerRow,
         rows, columns, premultiplied);
 
-    return result;
+    return result.release();
 }
 
 
@@ -309,7 +316,7 @@ void ImageBuffer::putPremultipliedImageData(ImageData* source, const IntRect& so
     putImageData(source, sourceRect, destPoint, m_data, m_size, true);
 }
 
-String ImageBuffer::toDataURL(const String& mimeType) const
+String ImageBuffer::toDataURL(const String& mimeType, const double*) const
 {
     if (!MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType))
         return "data:,";
@@ -366,8 +373,7 @@ String ImageBuffer::toDataURL(const String& mimeType) const
     base64Encode(reinterpret_cast<const char*>(translatedStream.Buffer()),
                  translatedStream.BufferLength(), encodedBuffer);
 
-    return String::format("data:%s;base64,%s", mimeType.utf8().data(),
-                          encodedBuffer.data());
+    return "data:" + mimeType + ";base64," + encodedBuffer;
 }
 
 } // namespace WebCore

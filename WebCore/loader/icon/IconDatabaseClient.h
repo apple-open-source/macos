@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,21 +29,20 @@
 #ifndef IconDatabaseClient_h
 #define IconDatabaseClient_h
 
-#include <wtf/Noncopyable.h>
-
-// All of these client methods will be called from a non-main thread
-// Take appropriate measures
+#include <wtf/Forward.h>
  
 namespace WebCore {
 
-class String;
-
-class IconDatabaseClient : public Noncopyable {
+class IconDatabaseClient {
 public:
     virtual ~IconDatabaseClient() { }
-    virtual bool performImport() { return true; }
-    virtual void dispatchDidRemoveAllIcons() { }
-    virtual void dispatchDidAddIconForPageURL(const String& /*pageURL*/) { }
+
+    virtual bool performImport() = 0;
+    virtual void didImportIconURLForPageURL(const String&) = 0;
+    virtual void didImportIconDataForPageURL(const String&) = 0;
+    virtual void didChangeIconForPageURL(const String&) = 0;
+    virtual void didRemoveAllIcons() = 0;
+    virtual void didFinishURLImport() = 0;
 };
  
 } // namespace WebCore 

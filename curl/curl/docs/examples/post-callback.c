@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: post-callback.c,v 1.10 2008-05-22 21:20:09 danf Exp $
  *
  * An example source code that issues a HTTP POST and we provide the actual
  * data through a read callback.
@@ -52,8 +51,8 @@ int main(void)
   curl = curl_easy_init();
   if(curl) {
     /* First set the URL that is about to receive our POST. */
-    curl_easy_setopt(curl, CURLOPT_URL,
-                     "http://receivingsite.com.pooh/index.cgi");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://example.com/index.cgi");
+
     /* Now specify we want to POST data */
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
 

@@ -41,6 +41,7 @@ WTFThreadData::WTFThreadData()
 #if USE(JSC)
     , m_defaultIdentifierTable(new JSC::IdentifierTable())
     , m_currentIdentifierTable(m_defaultIdentifierTable)
+    , m_stackBounds(StackBounds::currentThreadStackBounds())
 #endif
 {
 }
@@ -54,4 +55,4 @@ WTFThreadData::~WTFThreadData()
 #endif
 }
 
-} // namespace WebCore
+}

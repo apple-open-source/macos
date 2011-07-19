@@ -1,13 +1,18 @@
-#include <stdio.h>
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
-// CONFIG
+#include <stdio.h>
+#include "test.h"
+
+// TEST_CONFIG
 
 int AGlobal;
 
-int main(int argc, char *argv[]) {
-    void (^f)(void) = ^ { AGlobal++; };
+int main() {
+    void (^f)(void) __unused = ^ { AGlobal++; };
     
-    printf("%s: success\n", argv[0]);
-    return 0;
-
+    succeed(__FILE__);
 }

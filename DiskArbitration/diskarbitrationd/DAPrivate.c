@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,11 +50,12 @@ static int __DAFileSystemSetAdoption( DAFileSystemRef filesystem, CFURLRef mount
 
     if ( status == 0 )
     {
-        execl( "/usr/sbin/vsdbutil",
-               "/usr/sbin/vsdbutil",
-               adoption ? "-a" : "-d",
-               path,
-               NULL );
+        execle( "/usr/sbin/vsdbutil",
+                "/usr/sbin/vsdbutil",
+                adoption ? "-a" : "-d",
+                path,
+                NULL,
+                NULL );
 
         exit( EX_OSERR );
     }
@@ -90,22 +91,23 @@ static int __DAFileSystemSetEncoding( DAFileSystemRef filesystem, CFURLRef mount
     {
         char option[16];
 
-        sprintf( option, "-o-e=%d", ( int ) encoding );
+        snprintf( option, sizeof( option ), "-o-e=%d", ( int ) encoding );
 
-        execl( "/sbin/mount",
-               "/sbin/mount",
-               "-t",
-               fs.f_fstypename,
-               "-u",
-               option,
-               ( fs.f_flags & MNT_NODEV            ) ? "-onodev"    : "-odev",
-               ( fs.f_flags & MNT_NOEXEC           ) ? "-onoexec"   : "-oexec",
-               ( fs.f_flags & MNT_NOSUID           ) ? "-onosuid"   : "-osuid",
-               ( fs.f_flags & MNT_RDONLY           ) ? "-ordonly"   : "-orw",
-               ( fs.f_flags & MNT_IGNORE_OWNERSHIP ) ? "-onoowners" : "-oowners",
-               fs.f_mntfromname,
-               fs.f_mntonname,
-               NULL );
+        execle( "/sbin/mount",
+                "/sbin/mount",
+                "-t",
+                fs.f_fstypename,
+                "-u",
+                option,
+                ( fs.f_flags & MNT_NODEV            ) ? "-onodev"    : "-odev",
+                ( fs.f_flags & MNT_NOEXEC           ) ? "-onoexec"   : "-oexec",
+                ( fs.f_flags & MNT_NOSUID           ) ? "-onosuid"   : "-osuid",
+                ( fs.f_flags & MNT_RDONLY           ) ? "-ordonly"   : "-orw",
+                ( fs.f_flags & MNT_IGNORE_OWNERSHIP ) ? "-onoowners" : "-oowners",
+                fs.f_mntfromname,
+                fs.f_mntonname,
+                NULL,
+                NULL );
 
         exit( EX_OSERR );
     }

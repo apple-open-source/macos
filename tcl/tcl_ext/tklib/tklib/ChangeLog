@@ -1,3 +1,95 @@
+2010-08-23  Andreas Kupries  <andreask@activestate.com>
+
+	* apps/bitmap-editor: Additional functionality by Keith (mouse
+	  stroking, cursor, rename, and undo), plus teapot meta data.
+
+2010-08-20  Andreas Kupries  <andreask@activestate.com>
+
+	* apps/bitmap-editor: New application, by Keith Vetter, added
+	* apps/bitmap-editor.man: with permission.
+	* support/installation/modules.tcl:
+
+2010-08-10  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+	* support/installation/modules.tcl: Added the new controlwidget module
+
+2010-07-07  Andreas Kupries  <andreask@activestate.com>
+
+	* README.developer: New files to help the referenced people with
+	* README.releasemgr: their work on Tklib. Copied from Tcllib, and
+	  modified to suit.
+
+2009-11-25  Andreas Kupries  <andreask@activestate.com>
+
+	* Makefile.in (test): [Bug 2903927]: Modified test target to
+	  behave like tcllib's test target.
+
+2009-02-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* modules/swaplist/swaplist.man: General cleanup of all the documentation
+	* modules/ntext/ntextBindings.man: warnings reported for the packages.
+	* modules/ntext/ntext.man:
+	* modules/ntext/ntextIndent.man:
+	* modules/ntext/ntextWordBreak.man:
+	* modules/widget/widget_toolbar.man:
+	* modules/widget/widget_calendar.man:
+	* modules/ico/ico.man:
+	* modules/khim/khim.man:
+	* modules/tkpiechart/canvaslabel.man:
+	* modules/tkpiechart/pieperipherallabeler.man:
+	* modules/tkpiechart/pieboxlabeler.man:
+	* modules/tkpiechart/pie.man:
+	* modules/ipentry/ipentry.man:
+	* modules/plotchart/plotchart.man:
+	* modules/ctext/ctext.man:
+	* modules/diagrams/draw_diagram.man:
+	* modules/tooltip/tooltip.man:
+	* modules/canvas/canvas_sqmap.man:
+	* modules/canvas/canvas_zoom.man:
+
+	* installer.tcl: Updated to use the installer and sak of tcllib
+	* sak.tcl: head.
+
+	* PACKAGES: Moved to new directory support/releases/
+	* tklib_version.tcl: Ditto.
+	* README-0.4.txt: Moved to new directory support/releases/history/
+	* README-0.5.txt: Ditto.
+	* all.tcl: Moved to new directory support/devel
+	* install_action.tcl: Moved to new directory support/installation
+	* installed_modules.tcl: Ditto.
+	* main.tcl: Ditto.
+	* man.macros: Ditto.
+
+	* support/: New directory, mostly sak from Tcllib, and the renamed
+	  forms of the moved files, see above.
+
+2009-02-05  Andreas Kupries  <andreask@activestate.com>
+
+	* examples/ntext/ntextExample.tcl: Modified examples to assume
+	* examples/tkpiechart/demo.tcl: that they are run by a tclsh
+	* installed_modules.tcl: found on the PATH, and that this shell
+	* modules/plotchart/plotpriv.tcl: has access to the packages of
+	  Tklib required by the example. The patches were provided by
+	  Stuart Cassoff <stwo@users.sourceforge.net> as part of his work
+	  on making a Tklib OpenBSD port. Added the examples for a number
+	  of modules to the installer. Patch by Stuart, see above.
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	*
+
+2008-11-22  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* installed_modules.tcl: New module 'canvas' added, providing
+	* modules/canvas:        extended canvas widgets.
+
+2008-11-04  Andreas Kupries  <andreask@activestate.com>
+
+	* installed_modules.tcl: New module 'crosshair' added, providing
+	* modules/crosshair: cross-hairs in canvas widgets.
+
 2008-05-01  Andreas Kupries  <andreask@activestate.com>
 
 	* sak.tcl (gd-gen-tap): Added hacks to get proper tap definitions
@@ -11,7 +103,7 @@
 2007-10-19  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* modules/chatwidget:    Added a new widget: 'chatwidget'
-	* installed_modules.tcl: 
+	* installed_modules.tcl:
 
 2007-09-26  Andreas Kupries  <andreask@activestate.com>
 
@@ -63,13 +155,13 @@
 
 	*
 	* Released and tagged Tklib 0.4.1 ========================
-	* 
+	*
 
 2005-11-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*
 	* Released and tagged Tklib 0.4 ========================
-	* 
+	*
 
 2005-11-02  Andreas Kupries <andreask@activestate.com>
 

@@ -1,0 +1,299 @@
+Expire plugin
+=============
+
+Typically this plugin is used to optimize expunging old mails from users'
+mailboxes. For example:
+
+---%<-------------------------------------------------------------------------
+doveadm expunge -A mailbox Trash savedbefore 30d
+---%<-------------------------------------------------------------------------
+
+Note that:
+
+ * This command runs fine even without expire plugin loaded. Then it just goes
+   through all users rather than those users who have something to actually
+   expunge.
+ * The plugin actually works for all doveadm mail commands, not just expunge.
+   So for testing you could use e.g.'doveadm search -A ...' to see which
+   messages it matches.
+ * The optimization is done only when -A parameter is used to go through all
+   users. If you use -u parameter to separately go through users, the plugin
+   does nothing.
+ * The optimization is done only when "savedbefore" is used in the search
+   query. It's possible to have further restrictions also, but the user
+   filtering is based only on the "savedbefore" timestamp.
+ * The optimization is done only when the given mailbox or mailboxes match the
+   list of expire mailboxes specified in 'plugin { expire* } ' settings.
+
+So the expire plugin's job is to reduce disk I/O when figuring out which users
+have work to do. Unless you have thousands of users, you probably shouldn't
+bother with this plugin.
+
+Details
+-------
+
+When expire plugin is enabled, it keeps track of the "oldest mail's saved
+timestamp" for the specified mailboxes. When doveadm command uses "savedbefore"
+search key, the timestamps in the database can be used to figure out which
+users have matching mails.
+
+Expire plugin tracks/optimizes only "savedbefore" search query, i.e. the date
+when message was *saved or copied to the mailbox* (*NOT the time message was
+originally received*) while expire plugin was loaded. If mailbox contained
+existing messages before the plugin was loaded for the first time, they'll get
+expunged eventually when the first message saved/copied after expire plugin was
+enabled gets expunged.
+
+The save/copy date may not be exact if it's not cached in
+'dovecot.index.cache':
+
+ * mbox: The current lookup time is used and added to cache.
+ * maildir: File's ctime is used.
+ * dbox: Save/copy time is taken from the dbox file if it exists (it normally
+   should), fallbacking to file's ctime if not.
+
+You need to configure a list of mailboxes that are tracked. Mailbox patterns
+can contain IMAP LIST command-compatible wildcards:
+
+ * "*" works in a standard way: It matches any number of characters.
+ * "%" works by matching any number of characters, but it stops at the
+   hierarchy separator. Currently the separator is hardcoded to "/", so it
+   doesn't work correctly if you've configured separator to something else
+   (e.g. "." is the default for Maildir).
+
+Example configuration
+---------------------
+
+Make sure you enable the plugin globally, not just for specific protocols.
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins expire
+
+plugin {
+  expire = Trash
+  expire2 = Trash/*
+  expire3 = Spam
+}
+---%<-------------------------------------------------------------------------
+
+ * See <Dict.txt> for more information about how to use dict service,
+   especially about permission issues.
+ * You need to get 'doveadm -A' working using your userdb. See iterate settings
+   for <SQL> [AuthDatabase.SQL.txt] and <LDAP> [AuthDatabase.LDAP.txt].
+
+MySQL Backend
+-------------
+
+dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  expire_dict = proxy::expire
+}
+dict {
+  expire = mysql:/etc/dovecot/dovecot-dict-expire.conf.ext
+}
+---%<-------------------------------------------------------------------------
+
+Create the table like this:
+
+---%<-------------------------------------------------------------------------
+CREATE TABLE expires (
+  username varchar(75) not null,
+  mailbox varchar(255) not null,
+  expire_stamp integer not null,
+  primary key (username, mailbox)
+);
+---%<-------------------------------------------------------------------------
+
+dovecot-dict-expire.conf.ext:
+
+---%<-------------------------------------------------------------------------
+connect = host=localhost dbname=mails user=sqluser password=sqlpass
+
+map {
+  pattern = shared/expire/$user/$mailbox
+  table = expires
+  value_field = expire_stamp
+
+  fields {
+    username = $user
+    mailbox = $mailbox
+  }
+}
+---%<-------------------------------------------------------------------------
+
+PostgreSQL Backend
+------------------
+
+Like MySQL configuration above, but you'll also need to create a trigger:
+
+---%<-------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION merge_expires() RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE expires SET expire_stamp = NEW.expire_stamp
+    WHERE username = NEW.username AND mailbox = NEW.mailbox;
+  IF FOUND THEN
+    RETURN NULL;
+  ELSE
+    RETURN NEW;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER mergeexpires BEFORE INSERT ON expires
+   FOR EACH ROW EXECUTE PROCEDURE merge_expires();
+---%<-------------------------------------------------------------------------
+
+SQLite Backend
+--------------
+
+Like MySQL configuration above, but you'll also need to create a trigger:
+
+---%<-------------------------------------------------------------------------
+CREATE TRIGGER mergeexpires BEFORE INSERT ON expires FOR EACH ROW
+BEGIN
+        UPDATE expires SET expire_stamp=NEW.expire_stamp
+                WHERE username = NEW.username AND mailbox = NEW.mailbox;
+        SELECT raise(ignore)
+                WHERE (SELECT 1 FROM expires WHERE username = NEW.username AND
+mailbox = NEW.mailbox) IS NOT NULL;
+END;
+---%<-------------------------------------------------------------------------
+
+Example #1 timeline
+-------------------
+
+FIXME: expire-tool no longer exists, update these examples. Let's say Trash is
+configured to expire in 7 days and today is 2009-07-10. Initially the database
+and the Trash mailbox is empty.
+
+User moves the first message to Trash. The expires table is updated:
+
+---%<-------------------------------------------------------------------------
+mysql> select mailbox, from_unixtime(expire_stamp), username from expires;
++---------+-----------------------------+----------+
+| mailbox | from_unixtime(expire_stamp) | username |
++---------+-----------------------------+----------+
+| Trash   | 2009-07-17 15:57:36         | tss      |
++---------+-----------------------------+----------+
+---%<-------------------------------------------------------------------------
+
+The expire_stamp contains the date when expire-tool will look into that mailbox
+and try to find messages to expunge. Until then it skips the mailbox.
+
+A day later user moves another message to Trash. The expire_stamp isn't
+updated, because the second message's save date is newer than the first one's.
+Checking Trash's contents via IMAP you can see something like:
+
+---%<-------------------------------------------------------------------------
+1 fetch 1:* (internaldate x-savedate)
+* 1 FETCH (INTERNALDATE "16-Dec-2008 09:52:38 -0500" X-SAVEDATE "10-Jul-2009
+15:57:36 -0400")
+* 2 FETCH (INTERNALDATE "29-Jun-2003 23:20:09 -0400" X-SAVEDATE "11-Jul-2009
+16:03:11 -0400")
+1 OK Fetch completed.
+---%<-------------------------------------------------------------------------
+
+Note how the message's INTERNALDATE (received date) can be very old compared to
+the save date. Now, running expire-tool --test:
+
+---%<-------------------------------------------------------------------------
+Info: tss/Trash: stop, expire time in future: Fri Jul 17 15:57:36 2009
+---%<-------------------------------------------------------------------------
+
+So it does nothing, because the expire time is in future. Fast forward 6 more
+days into future. Running expire-tool --test:
+
+---%<-------------------------------------------------------------------------
+Info: tss/Trash: seq=1 uid=1: Expunge
+Info: tss/Trash: timestamp 1247860656 (Fri Jul 17 15:57:36 2009) -> 1247947391
+(Sat Jul 18 16:03:11 2009)
+---%<-------------------------------------------------------------------------
+
+The first message would be expunged and the second message's timestamp would
+become the new expire_stamp in database. After running expire-tool without
+--test, the database is updated:
+
+---%<-------------------------------------------------------------------------
+mysql> select mailbox, from_unixtime(expire_stamp), username from expires;
++---------+-----------------------------+----------+
+| mailbox | from_unixtime(expire_stamp) | username |
++---------+-----------------------------+----------+
+| Trash   | 2009-07-18 16:03:11         | tss      |
++---------+-----------------------------+----------+
+---%<-------------------------------------------------------------------------
+
+Also you can see the first message has been expunged from Trash:
+
+---%<-------------------------------------------------------------------------
+2 fetch 1:* (internaldate x-savedate)
+* 1 FETCH (INTERNALDATE "29-Jun-2003 23:20:09 -0400" X-SAVEDATE "11-Jul-2009
+16:03:11 -0400")
+2 OK Fetch completed.
+---%<-------------------------------------------------------------------------
+
+Example #2 timeline
+-------------------
+
+Again you have Trash configured for 7 days, but this time you have an existing
+message there before expire plugin has been enabled. Initially the expire
+database is empty. Today is 2009-07-20.
+
+---%<-------------------------------------------------------------------------
+1 fetch 1:* (internaldate x-savedate)
+* 1 FETCH (INTERNALDATE "29-Jun-2003 23:20:09 -0400" X-SAVEDATE "11-Jul-2009
+16:03:11 -0400")
+1 OK Fetch completed.
+---%<-------------------------------------------------------------------------
+
+If you run expire-tool, you'll notice that it does nothing for the mailbox.
+There's nothing in expire database, so expire-tool doesn't even mention it when
+running with --test.
+
+After user moves the first message to Trash, the database gets updated:
+
+---%<-------------------------------------------------------------------------
+mysql> select mailbox, from_unixtime(expire_stamp), username from expires;
++---------+-----------------------------+----------+
+| mailbox | from_unixtime(expire_stamp) | username |
++---------+-----------------------------+----------+
+| Trash   | 2009-07-27 16:32:11         | tss      |
++---------+-----------------------------+----------+
+---%<-------------------------------------------------------------------------
+
+The messages in Trash are:
+
+---%<-------------------------------------------------------------------------
+2 fetch 1:* (internaldate x-savedate)
+* 1 FETCH (INTERNALDATE "29-Jun-2003 23:20:09 -0400" X-SAVEDATE "11-Jul-2009
+16:03:11 -0400")
+* 2 FETCH (INTERNALDATE "16-Dec-2002 11:02:39 -0500" X-SAVEDATE "20-Jul-2009
+16:32:11 -0400")
+2 OK Fetch completed.
+---%<-------------------------------------------------------------------------
+
+So the first message should be expiring already, right? No. It doesn't because
+the timestamp in database is still in future. expire-tool --test says:
+
+---%<-------------------------------------------------------------------------
+Info: tss/Trash: stop, expire time in future: Mon Jul 27 16:32:11 2009
+---%<-------------------------------------------------------------------------
+
+OK, let's see what happens when we finally reach July 27th:
+
+---%<-------------------------------------------------------------------------
+Info: tss/Trash: seq=1 uid=3: Expunge
+Info: tss/Trash: seq=2 uid=4: Expunge
+Info: tss/Trash: no messages left
+---%<-------------------------------------------------------------------------
+
+They both got expunged! The expire database's timestamp simply tells
+expire-tool when to start looking into messages in that mailbox. After that
+expire-tool looks at the actual save dates and figures out which messages
+exactly need to be expunged.
+
+After running expire-tool without --test you'll see that the Trash mailbox is
+empty and the database row is deleted.
+
+(This file was created from the wiki on 2011-05-11 04:42)

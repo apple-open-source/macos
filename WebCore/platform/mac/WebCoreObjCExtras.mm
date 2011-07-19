@@ -26,6 +26,11 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// This file intentionally calls objc_finalizeOnMainThread, which is deprecated.
+// According to http://gcc.gnu.org/onlinedocs/gcc-4.2.1/gcc/Diagnostic-Pragmas.html#Diagnostic-Pragmas
+// we need to place this directive before any data or functions are defined.
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 #include "config.h"
 #include "WebCoreObjCExtras.h"
 
@@ -40,19 +45,13 @@ void WebCoreObjCFinalizeOnMainThread(Class cls)
 {
     // This method relies on threading being initialized by the caller, otherwise
     // WebCoreObjCScheduleDeallocateOnMainThread will crash.
-#if !defined(BUILDING_ON_TIGER) && !defined(DONT_FINALIZE_ON_MAIN_THREAD)
+#ifndef DONT_FINALIZE_ON_MAIN_THREAD
     objc_finalizeOnMainThread(cls);
 #else
     UNUSED_PARAM(cls);
 #endif
 }
 
-#ifdef BUILDING_ON_TIGER
-static inline IMP method_getImplementation(Method method) 
-{
-    return method->method_imp;
-}
-#endif
 
 typedef std::pair<Class, id> ClassAndIdPair;
 

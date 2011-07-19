@@ -1,7 +1,14 @@
-// CONFIG rdar://6396238
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG rdar://6396238
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "test.h"
 
 static int count = 0;
 
@@ -13,14 +20,11 @@ void (^mkblock(void))(void)
     };
 }
 
-int main (int argc, const char * argv[]) {
+int main() {
     mkblock()();
     if (count != 2) {
-        printf("%s: failure, 2 != %d\n", argv[0], count);
-        exit(1);
-    } else {
-        printf("%s: success\n", argv[0]);
-        exit(0);
+        fail("failure, 2 != %d\n", count);
     }
-    return 0;
+
+    succeed(__FILE__);
 }

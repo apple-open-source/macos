@@ -1,0 +1,16 @@
+Authentication Databases
+========================
+
+These databases can be used as both <password databases> [PasswordDatabase.txt]
+and <user databases> [UserDatabase.txt]:
+
+ * <Passwd> [AuthDatabase.Passwd.txt]: System users (NSS, '/etc/passwd', or
+   similiar)
+ * <Passwd-file> [AuthDatabase.PasswdFile.txt]: '/etc/passwd'-like file in
+   specified location
+ * <LDAP> [AuthDatabase.LDAP.txt]: Lightweight Directory Access Protocol
+ * <SQL> [AuthDatabase.SQL.txt]: SQL database (PostgreSQL, MySQL, SQLite)
+ * <VPopMail> [AuthDatabase.VPopMail.txt]: External software used to handle
+   virtual domains
+
+(This file was created from the wiki on 2011-05-11 04:42)

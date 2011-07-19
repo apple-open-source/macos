@@ -76,6 +76,14 @@ void *ne_realloc(void *ptr, size_t len)
     return ret;
 }
 
+#ifdef WIN32
+/* Implemented only to ensure free is bound to the correct DLL. */
+void ne_free(void *ptr)
+{
+    free(ptr);
+}
+#endif
+
 char *ne_strdup(const char *s) 
 {
     char *ret;

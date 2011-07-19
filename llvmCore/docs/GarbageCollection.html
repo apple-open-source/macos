@@ -118,7 +118,7 @@ conservative garbage collectors (though these seem rare in practice).</p>
 they can suffer from degraded scalar optimization of the program. In particular,
 because the runtime must be able to identify and update all pointers active in
 the program, some optimizations are less effective. In practice, however, the
-locality and performance benefits of using aggressive garbage allocation
+locality and performance benefits of using aggressive garbage collection
 techniques dominates any low-level losses.</p>
 
 <p>This document describes the mechanisms and interfaces provided by LLVM to
@@ -334,11 +334,11 @@ void visitGCRoots(void (*Visitor)(void **Root, const void *Meta)) {
     
     // For roots [0, NumMeta), the metadata pointer is in the FrameMap.
     for (unsigned e = R->Map->NumMeta; i != e; ++i)
-      Visitor(&R->Roots[i], R->Map->Meta[i]);
+      Visitor(&amp;R->Roots[i], R->Map->Meta[i]);
     
     // For roots [NumMeta, NumRoots), the metadata pointer is null.
     for (unsigned e = R->Map->NumRoots; i != e; ++i)
-      Visitor(&R->Roots[i], NULL);
+      Visitor(&amp;R->Roots[i], NULL);
   }
 }</pre></div>
 
@@ -398,7 +398,7 @@ program.</p>
 </div>
 
 <div class="doc_code"><tt>
-  define <i>ty</i> @<i>name</i>(...) <u>gc "<i>name</i>"</u> { ...
+  define <i>ty</i> @<i>name</i>(...) <span style="text-decoration: underline">gc "<i>name</i>"</span> { ...
 </tt></div>
 
 <div class="doc_text">
@@ -617,7 +617,7 @@ conforms to the binary interface defined by library, most essentially the
 using namespace llvm;
 
 namespace {
-  class VISIBILITY_HIDDEN MyGC : public GCStrategy {
+  class LLVM_LIBRARY_VISIBILITY MyGC : public GCStrategy {
   public:
     MyGC() {}
   };
@@ -1229,7 +1229,7 @@ generation in the JIT, nor using the object writers.</p>
 using namespace llvm;
 
 namespace {
-  class VISIBILITY_HIDDEN MyGCPrinter : public GCMetadataPrinter {
+  class LLVM_LIBRARY_VISIBILITY MyGCPrinter : public GCMetadataPrinter {
   public:
     virtual void beginAssembly(std::ostream &amp;OS, AsmPrinter &amp;AP,
                                const TargetAsmInfo &amp;TAI);
@@ -1380,7 +1380,7 @@ Fergus Henderson. International Symposium on Memory Management 2002.</p>
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.org">LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2009-03-05 18:42:47 -0800 (Thu, 05 Mar 2009) $
+  Last modified: $Date: 2010-05-11 13:16:09 -0700 (Tue, 11 May 2010) $
 </address>
 
 </body>

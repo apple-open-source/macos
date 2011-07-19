@@ -42,18 +42,23 @@ char **envp)
 		    "../local/libexec/gcc/darwin/";
 #endif
     const char *AS = "/as";
+    const char *LLVM_MC = "llvm-mc";
 
-    int i;
-    uint32_t count, verbose;
+    int i, j;
+    uint32_t count, verbose, run_llvm_mc;
     char *p, c, *arch_name, *as, *as_local;
+    char **llvm_mc_argv;
     char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
     unsigned long bufsize;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;
+    enum bool oflag_specified;
 
 	progname = argv[0];
 	arch_name = NULL;
 	verbose = 0;
+	run_llvm_mc = 0;
+	oflag_specified = FALSE;
 	/*
 	 * Construct the prefix to the assembler driver.
 	 */
@@ -65,6 +70,8 @@ char **envp)
 	    _NSGetExecutablePath(p, &bufsize);
 	}
 	prefix = realpath(p, resolved_name);
+	if(realpath == NULL)
+	    system_fatal("realpath(3) for %s failed", p);
 	p = rindex(prefix, '/');
 	if(p != NULL)
 	    p[1] = '\0';
@@ -106,6 +113,7 @@ char **envp)
 		     * are not handled here but left to the assembler.
 		     */
 		    case 'o':	/* -o name */
+			oflag_specified = TRUE;
 		    case 'I':	/* -I directory */
 		    case 'm':	/* -mc68000, -mc68010 and mc68020 */
 		    case 'N':	/* -NEXTSTEP-deployment-target */
@@ -130,9 +138,13 @@ char **envp)
 		    case 'v':
 		    case 'W':
 		    case 'L':
-		    case 'l':
 		    default:
 			/* just recognize it, do nothing */
+			break;
+		    case 'l':
+			if(strcmp(p, "llvm-mc") == 0)
+			    run_llvm_mc = i;
+			/* also just recognize 'l' and do nothing */
 			break;
 		    case 'V':
 			verbose = 1;
@@ -140,6 +152,57 @@ char **envp)
 		    }
 		}
 	    }
+	}
+
+	/*
+	 * If the -llvm-mc flag was specified then run llvm-mc from the same
+	 * directory as the driver.
+	 */
+	if(run_llvm_mc != 0){
+	    as = makestr(prefix, LLVM_MC, NULL);
+	    if(access(as, F_OK) != 0){
+		printf("%s: assembler (%s) not installed\n", progname, as);
+		exit(1);
+	    }
+	    llvm_mc_argv = allocate(argc + 3);
+	    llvm_mc_argv[0] = as;
+	    j = 1;
+	    for(i = 1; i < argc; i++){
+		/*
+		 * Do not pass -llvm-mc
+		 */
+		if(i != run_llvm_mc){
+		    /*
+		     * Do not pass command line argument that are Unknown to
+		     * to llvm-mc.
+		     */
+		    if(strcmp(argv[i], "-v") != 0 &&
+		       strcmp(argv[i], "-V") != 0 &&
+		       strcmp(argv[i], "-force_cpusubtype_ALL") != 0){
+			llvm_mc_argv[j] = argv[i];
+			j++;
+		    }
+		}
+	    }
+	    /*
+	     * Add -filetype=obj or llvm-mc will write to stdout.
+	     */
+	    llvm_mc_argv[j] = "-filetype=obj";
+	    j++;
+	    /*
+	     * llvm-mc requires a "-o a.out" if not -o is specified.
+	     */
+	    if(oflag_specified == FALSE){
+		llvm_mc_argv[j] = "-o";
+		j++;
+		llvm_mc_argv[j] = "a.out";
+		j++;
+	    }
+	    llvm_mc_argv[j] = NULL;
+	    if(execute(llvm_mc_argv, verbose))
+		exit(0);
+	    else
+		exit(1);
 	}
 
 	/*
@@ -176,6 +239,7 @@ char **envp)
 	    }
 
 	}
+
 	as = makestr(prefix, LIB, arch_name, AS, NULL);
 
 	/*

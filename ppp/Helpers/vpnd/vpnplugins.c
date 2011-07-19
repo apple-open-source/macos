@@ -433,7 +433,7 @@ int call_ipconfig(char *command, char *interface, struct in_addr *address, int t
 		dup(0);
 		dup(0);
 		inet_ntop(AF_INET, address, str, sizeof(str));
-		sprintf(str1, "%d", timeout);
+		snprintf(str1, sizeof(str1), "%d", timeout);
         execle("/usr/sbin/ipconfig", "ipconfig",  command, interface, "FAILOVER", str, "255.255.255.255", str1, (char *)0, (char *)0);
         exit(1);
     }
@@ -671,7 +671,7 @@ static void determine_next_slave(struct vpn_params *params)
 	}
 	
 	// and inform racoon about the redirection
-	if (lb_next_slave != oldslave) {
+	if (lb_next_slave && lb_next_slave != oldslave) {
 
 		a = ntohl(lb_next_slave->redirect_address.s_addr);
 		vpnlog(LOG_NOTICE, "Load Balancing: Next call will be redirected to slave with IP address %d.%d.%d.%d. Current slave load %d/%d.\n", 
@@ -740,9 +740,11 @@ void accept_connections(struct vpn_params* params)
         goto fail;
     }
 
-	FD_SET(listen_sockfd, &fds_save);
-	if (fdmax <= listen_sockfd)
-		fdmax = listen_sockfd + 1;
+    if (listen_sockfd) {
+		FD_SET(listen_sockfd, &fds_save);
+		if (fdmax <= listen_sockfd)
+			fdmax = listen_sockfd + 1;
+	}
 
 	/*
 		health monitoring
@@ -901,13 +903,13 @@ void accept_connections(struct vpn_params* params)
                     } else if (got_terminate())
                         goto fail;
                 }
-                if (pid_child) {			// parent
+                if (pid_child && address_slot) {			// parent
                     vpnlog(LOG_NOTICE, "Incoming call... Address given to client = %s\n", address_slot->ip_address);
                     TAILQ_REMOVE(&free_address_list, address_slot, next);
                     address_slot->pid = pid_child;
                     TAILQ_INSERT_TAIL(&child_list, address_slot, next);
 					lb_cur_connections++;
-                } else {	
+                } else if (address_slot) {	
                     // child
                     snprintf(addr_str, sizeof(addr_str), ":%s", address_slot->ip_address);
                     params->exec_args[params->next_arg_index] = addr_str;	// setup ip address in arg list

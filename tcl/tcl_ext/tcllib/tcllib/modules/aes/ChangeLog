@@ -1,3 +1,20 @@
+2010-07-06  Andreas Kupries  <andreask@activestate.com>
+
+	* aes.tcl (DecryptBlock, EncryptBlock): [Bug 2993029]: More code
+	* aes.man: limiting the values to int32 range. Extended the
+	* aes.test: testsuite. Bumped version to 1.0.2. See also the
+	* pkgIndex.tcl: changelog entry of 2008-05-12.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-01-19  Elchonon Edelson  <eee@users.sourceforge.net>
+
+	* aes.man: Minor enhancement.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

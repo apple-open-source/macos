@@ -506,6 +506,7 @@ public:
 
 	void clear();
     void deleteValues() { CssmDbRecordAttributeData::deleteValues(mValueAllocator); }
+	void invalidate();
 
 	CssmDbAttributeData &add() { return ArrayBuilder<CssmDbAttributeData>::add(); } // XXX using doesn't work here.
 	CssmDbAttributeData &add(const CSSM_DB_ATTRIBUTE_INFO &info);
@@ -638,13 +639,8 @@ protected:
         const CssmNetAddress *dbLocation() const { return mDbName.dbLocation(); }
 
         // comparison (simple lexicographic)
-        bool operator < (const Impl &other) const
-		{ return mCssmSubserviceUid < other.mCssmSubserviceUid ||
-			(mCssmSubserviceUid == other.mCssmSubserviceUid && mDbName < other.mDbName); }
-
-        bool operator == (const Impl &other) const
-		{ return mCssmSubserviceUid == other.mCssmSubserviceUid && mDbName == other.mDbName; }
-
+        bool operator < (const Impl &other) const;
+        bool operator == (const Impl &other) const;
     private:
         // Private member variables
         CssmSubserviceUid mCssmSubserviceUid;

@@ -1,0 +1,12 @@
+Index: src/normal.c
+===================================================================
+--- src/normal.c	(revision 57808)
++++ src/normal.c	(working copy)
+@@ -8358,6 +8358,7 @@
+ 		update_single_line(curwin, oldline);
+ #endif
+ 	    /* When '#' is in 'cpoptions' ignore the count. */
++	  if (!Unix2003_compat)		/* vi_02.ex test 139 */
+ 	    if (vim_strchr(p_cpo, CPO_HASH) != NULL)
+ 		cap->count1 = 1;
+ 	    invoke_edit(cap, FALSE, cap->cmdchar, TRUE);

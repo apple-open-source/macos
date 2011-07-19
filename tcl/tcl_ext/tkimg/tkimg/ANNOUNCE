@@ -1,25 +1,34 @@
-I'm happy to announce version 1.3 of the "tkImg" package
+I'm happy to announce version 1.4 of the "tkImg" package
 (formerly known as 'Img").
 
 This package enhances Tk, adding support for many other Image formats.
+
+Changes compared to version 1.3.x:
+
+-  New formats: DTED, RAW.
+-  No longer works with Tk 8.2 and earlier.
+-  Support for Tk 8.5's PhotoPutblock functions,
+   which no longer panic when out-of-memory
+-  TEA upgraded to 3.7
+-  autoconf upgraded to version 2.65
 
 Changes compared to version 1.2.4:
 
 -	New formats: ICO, PCX, PPM, SGI, SUN, TGA.
 -	New build system, based upon TEA 2.
--	Refactored into several smaler and more independent
+-	Refactored into several smaller and more independent
 	packages. See file README in the (source) distributions for
 	more information.
 -	Bug fixes and enhancements in some formats.
 
-This version only works with Tcl/Tk 8.0 or higher (tested up to
-8.4a1). If you are using Tk4.2 or lower, please stick with Img1.1.4
+This version only works with Tcl/Tk 8.3 or higher (tested up to
+8.6b1). If you are using Tk8.2 or lower, please stick with tkImg1.3
 (which is still available).
 
 Currently there are two identical source distributions:
-	tkimg13.zip             (for Windows)	(about 2.9 Mb)
-	tkimg1.3.tar.gz         (for Unix)	(about 2.6 Mb)
-	tkimg1.3.tar.bz2        (for Unix)	(about 1.7 Mb)
+	tkimg14.zip             (for Windows)	(about 2.9 Mb)
+	tkimg1.4.tar.gz         (for Unix)	(about 2.6 Mb)
+	tkimg1.4.tar.bz2        (for Unix)	(about 1.7 Mb)
 
 All these files can be downloaded from:
 	http://source.net/project/tkimg/
@@ -28,13 +37,6 @@ The most recent info is always available at:
 	http://source.net/project/tkimg/
 
 See the README on how to build and use the packages.
-
-If you want to write images to disk which contain transparency
-information (e.g. GIF89 or PNG with alpha channel), you need
-at least Tk 8.3. Without lower Tk versions only GIF87 will be
-written, and the alpha channel will be missing from PNG files. In
-other words: The background color will not be as intended but
-everything else should be O.K.
 
 For PNG, JPEG and TIFF support the supporting packages have to be
 build and installed. See the file README for more in-depth
@@ -74,7 +76,7 @@ Enjoy,
 	url:   http://purl.oclc.org/net/nijtmans/
 
 	Andreas Kupries, ActiveState Corp
-	email:	andreas_kupries@users.sourceforg.net	(private)
+	email:	andreas_kupries@users.sourceforge.net	(private)
 		akupries@shaw.ca			(private)
 		andreask@activestate.com		(work)
 	url:	http://www.purl.org/NET/akupries/

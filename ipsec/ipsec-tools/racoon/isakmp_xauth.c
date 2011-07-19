@@ -277,7 +277,11 @@ xauth_attr_reply(iph1, attr, id)
 
 		switch (isakmp_cfg_config.authsource) {
 		case ISAKMP_CFG_AUTH_SYSTEM:
+#ifdef HAVE_OPENSSL
 			res = privsep_xauth_login_system(usr, pwd);
+#else
+			res = xauth_login_system(usr, pwd);
+#endif
 			break;
 #ifdef HAVE_LIBRADIUS
 		case ISAKMP_CFG_AUTH_RADIUS:
@@ -381,6 +385,12 @@ xauth_reply(iph1, port, id, res)
 {
 	struct xauth_state *xst = &iph1->mode_cfg->xauth;
 	char *usr = xst->authdata.generic.usr;
+
+	if (iph1->is_dying) {
+		plog(LLV_INFO, LOCATION, NULL, 
+			 "dropped login for user \"%s\"\n", usr);
+		return -1;
+	}
 
 	if (res != 0) {
 		if (port != -1)
@@ -1651,6 +1661,8 @@ isakmp_xauth_set(iph1, attr)
 				((struct sockaddr_in*)iph1->remote)->sin_addr.s_addr, 0, NULL);
 
 			iph1->mode_cfg->flags |= ISAKMP_CFG_DELETE_PH1;
+
+			IPSECLOGASLMSG("IPSec Extended Authentication Failed.\n");
 		} else {
 			IPSECSESSIONTRACEREVENT(iph1->parent_session,
 									IPSECSESSIONEVENTCODE_IKEV1_XAUTH_SUCC,
@@ -1661,6 +1673,8 @@ isakmp_xauth_set(iph1, attr)
             if (iph1->is_rekey) {
                 xst->status = XAUTHST_OK;
             }
+
+			IPSECLOGASLMSG("IPSec Extended Authentication Passed.\n");
 		}
 
 

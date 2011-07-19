@@ -162,7 +162,7 @@ LI_get_thread_info(uint32_t key)
 	return tdata;
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 LI_get_thread_item(uint32_t key)
 {
 	li_thread_data_t *tdata;
@@ -173,7 +173,7 @@ LI_get_thread_item(uint32_t key)
 	return tdata->thread_item;
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 LI_get_thread_list(uint32_t key)
 {
 	li_thread_data_t *tdata;
@@ -184,7 +184,7 @@ LI_get_thread_list(uint32_t key)
 	return tdata->thread_list;
 }
 
-__private_extern__ void
+void
 LI_set_thread_item(uint32_t key, si_item_t *item)
 {
 	li_thread_data_t *tdata;
@@ -196,7 +196,7 @@ LI_set_thread_item(uint32_t key, si_item_t *item)
 	tdata->thread_item = item;
 }
 
-__private_extern__ void
+void
 LI_set_thread_list(uint32_t key, si_list_t *list)
 {
 	li_thread_data_t *tdata;

@@ -178,7 +178,6 @@
 		C28437A4053488AC000AE0FC /* CryptKitSpace.h in Headers */ = {isa = PBXBuildFile; fileRef = C2843725053488AB000AE0FC /* CryptKitSpace.h */; };
 		C28437A5053488AC000AE0FC /* cspdebugging.c in Sources */ = {isa = PBXBuildFile; fileRef = C2843726053488AB000AE0FC /* cspdebugging.c */; };
 		C28437A6053488AC000AE0FC /* cspdebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = C2843727053488AB000AE0FC /* cspdebugging.h */; };
-		C28437A7053488AC000AE0FC /* cssmplugin.exp in Sources */ = {isa = PBXBuildFile; fileRef = C2843728053488AB000AE0FC /* cssmplugin.exp */; };
 		C28437A8053488AC000AE0FC /* deriveKey.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2843729053488AB000AE0FC /* deriveKey.cpp */; };
 		C28437AB053488AC000AE0FC /* desContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C284372C053488AB000AE0FC /* desContext.cpp */; };
 		C28437AC053488AC000AE0FC /* desContext.h in Headers */ = {isa = PBXBuildFile; fileRef = C284372D053488AB000AE0FC /* desContext.h */; };
@@ -1266,7 +1265,6 @@
 				C284379D053488AC000AE0FC /* castContext.cpp in Sources */,
 				C28437A1053488AC000AE0FC /* cryptkitcsp.cpp in Sources */,
 				C28437A5053488AC000AE0FC /* cspdebugging.c in Sources */,
-				C28437A7053488AC000AE0FC /* cssmplugin.exp in Sources */,
 				C28437A8053488AC000AE0FC /* deriveKey.cpp in Sources */,
 				C28437AB053488AC000AE0FC /* desContext.cpp in Sources */,
 				C28437AD053488AC000AE0FC /* DH_csp.cpp in Sources */,
@@ -1490,7 +1488,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36859;
+				CURRENT_PROJECT_VERSION = 55003;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -1500,6 +1498,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/security_bsafe.framework/Headers",
 					/usr/local/SecurityPieces/Frameworks/security_bsafe.framework/Headers,
@@ -1511,7 +1510,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1532,6 +1530,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1549,13 +1548,14 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36859;
+				CURRENT_PROJECT_VERSION = 55003;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/security_bsafe.framework/Headers",
 					/usr/local/SecurityPieces/Frameworks/security_bsafe.framework/Headers,
@@ -1567,7 +1567,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1588,6 +1587,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1605,13 +1605,14 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36859;
+				CURRENT_PROJECT_VERSION = 55003;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/security_bsafe.framework/Headers",
 					/usr/local/SecurityPieces/Frameworks/security_bsafe.framework/Headers,
@@ -1623,7 +1624,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1639,6 +1639,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -1655,13 +1656,14 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36859;
+				CURRENT_PROJECT_VERSION = 55003;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Components/Security,
 					/usr/local/SecurityPieces/Frameworks,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/security_bsafe.framework/Headers",
 					/usr/local/SecurityPieces/Frameworks/security_bsafe.framework/Headers,
@@ -1673,7 +1675,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1694,6 +1695,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_apple_csp;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",

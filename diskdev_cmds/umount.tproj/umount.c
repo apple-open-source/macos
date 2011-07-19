@@ -2,7 +2,7 @@
 # define _DARWIN_USE_64_BIT_INODE 1
 #endif
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,12 +65,14 @@
 #include <System/sys/fsctl.h>
 
 #include <netdb.h>
+#include <arpa/inet.h>
 
 #include <err.h>
 #include <fstab.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -192,7 +194,7 @@ main(int argc, char *argv[])
 		pid = getpid();
 		errs = sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &pid, sizeof(pid));
 		if ((errs != 0) && vflag)
-		        warn("sysctl vfs.generic.noremotehang");
+			warn("sysctl vfs.generic.noremotehang");
 	}
 
 	errs = EXIT_SUCCESS;
@@ -230,7 +232,6 @@ umountall(char **typelist)
 	struct fstab *fs;
 	int rval;
 	char *cp;
-	struct vfsconf vfc;
 
 	while ((fs = getfsent()) != NULL) {
 		/* Ignore the root. */
@@ -273,10 +274,10 @@ umountall(char **typelist)
 int
 umountfs(char *name, char **typelist)
 {
-	struct hostent *hp;
+	struct hostent *hp, *hp6;
 	struct stat sb;
-	int isftpfs;
-	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN], *tname;
+	int isftpfs, errnum;
+	char *type, *delimp, *hostname, *mntpt, rname[MAXPATHLEN], *tname;
 	char *pname = name; /* save the name parameter */
 
 	if (fflag & MNT_FORCE) {
@@ -312,12 +313,12 @@ umountfs(char *name, char **typelist)
 			struct timespec timeout;
 
 			/* we found a match */
-			name = mntpt;
-			
-			args.mntname = name;
+			name = tname;
+
+			args.mntname = mntpt;
 			args.wakeup_flag = 0;
 			args.wakeup_cond = &cond;
-                        args.wakeup_lock = &lock;
+			args.wakeup_lock = &lock;
 
 			timeout.tv_sec = time(NULL) + 10;	/* Wait 10 seconds */
 			timeout.tv_nsec = 0;
@@ -367,24 +368,19 @@ umountfs(char *name, char **typelist)
 		if (vflag)
 			warn("stat(%s)", name);
 		/* maybe name is a non-device "mount from" name? */
-		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+		if ((mntpt = getmntname(name, MNTON, &type)))
 			goto got_mount_point;
-		} else {
-			mntpt = name;
-			/* or name is a directory we simply can't reach? */
-			if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
-				goto got_mount_point;
-			}
-		}
+		mntpt = name;
+		/* or name is a directory we simply can't reach? */
+		if ((name = getmntname(mntpt, MNTFROM, &type)))
+			goto got_mount_point;
 	} else if (S_ISBLK(sb.st_mode)) {
-		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+		if ((mntpt = getmntname(name, MNTON, &type)))
 			goto got_mount_point;
-		}
 	} else if (S_ISDIR(sb.st_mode)) {
 		mntpt = name;
-		if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
+		if ((name = getmntname(mntpt, MNTFROM, &type)))
 			goto got_mount_point;
-		}
 	} else {
 		warnx("%s: not a directory or special device", name);
 	}
@@ -396,14 +392,11 @@ umountfs(char *name, char **typelist)
 	if ((NULL == name) || (strcmp(name, pname) != 0)) {
 		name = pname;
 
-		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+		if ((mntpt = getmntname(name, MNTON, &type)))
 			goto got_mount_point;
-		} else {
-			mntpt = name;
-			if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
-				goto got_mount_point;
-			}
-		}
+		mntpt = name;
+		if ((name = getmntname(mntpt, MNTFROM, &type)))
+			goto got_mount_point;
 	}
 
 	warnx("%s: not currently mounted", pname);
@@ -419,24 +412,81 @@ got_mount_point:
 	else
 		isftpfs = 0;
 
-	hp = NULL;
+	hp = hp6 = NULL;
 	delimp = NULL;
 	if (!strcmp(type, "nfs") && !isftpfs) {
-		if ((delimp = strchr(name, '@')) != NULL) {
-			hostp = delimp + 1;
-			*delimp = '\0';
-			hp = gethostbyname(hostp);
-			*delimp = '@';
-		} else if ((delimp = strchr(name, ':')) != NULL) {
-			*delimp = '\0';
-			hostp = name;
-			hp = gethostbyname(hostp);
-			*delimp = ':';
+		/*
+		 * Parse the NFS host out of the name.
+		 *
+		 * If it starts with '[' then skip IPv6 literal characters
+		 * until we find ']'.  If we find other characters (or the
+		 * closing ']' isn't followed by a ':', then don't consider
+		 * it to be an IPv6 literal address.
+		 *
+		 * Scan the name string to find ":/" (or just ":").  The name
+		 * is the portion of the string preceding the first ":/" (or ":").
+		 */
+		char *p, *colon, *colonslash, c;
+		hostname = colon = colonslash = NULL;
+		p = name;
+		if (*p == '[') {  /* Looks like an IPv6 literal address */
+			p++;
+			while (isxdigit(*p) || (*p == ':')) {
+				if (*p == ':') {
+					if (!colon)
+						colon = p;
+					if (!colonslash && (*(p+1) == '/'))
+						colonslash = p;
+				}
+				p++;
+			}
+			if ((*p == ']') && (*(p+1) == ':')) {
+				/* Found "[IPv6]:", double check that it's acceptable and use it. */
+				struct sockaddr_in6 sin6;
+				c = *p;
+				*p = '\0';
+				if (inet_pton(AF_INET6, name+1, &sin6))
+					hostname = name + 1;
+				*p = c;
+			}
+		}
+		/* if hostname not found yet, search for ":/" and ":" */
+		while (!hostname && *p && (!colon || !colonslash)) {
+			if (*p == ':') {
+				if (!colon)
+					colon = p;
+				if (!colonslash && (*(p+1) == '/'))
+					colonslash = p;
+			}
+			p++;
+		}
+		if (!hostname && (colonslash || colon)) {
+			/* host name is the string preceding the colon(slash) */
+			hostname = name;
+			if (colonslash)
+				p = colonslash;
+			else if (colon)
+				p = colon;
+		}
+		if (hostname) {
+			c = *p;
+			*p = '\0';
+			/* we just want all the names/aliases */
+			hp = getipnodebyname(hostname, AF_INET, 0, &errnum);
+			hp6 = getipnodebyname(hostname, AF_INET6, 0, &errnum);
+			*p = c;
 		}
 	}
 
-	if (!namematch(hp))
-		return (1);
+	if (hp || hp6) {
+		int match = (namematch(hp) || namematch(hp6));
+		if (hp)
+			freehostent(hp);
+		if (hp6)
+			freehostent(hp6);
+		if (!match)
+			return (1);
+	}
 
 	if (vflag)
 		(void)printf("%s unmount from %s\n", name, mntpt);
@@ -459,7 +509,7 @@ got_mount_point:
 				return (1);
 			}
 		} else if (errno == EBUSY) {
-			fprintf(stderr, "unount(%s): %s -- try 'diskutil unmount'\n", mntpt, strerror(errno));
+			fprintf(stderr, "umount(%s): %s -- try 'diskutil unmount'\n", mntpt, strerror(errno));
 			return (1);
 		} else {
 			warn("unmount(%s)", mntpt);
@@ -483,7 +533,7 @@ getmntname(const char *name, mntwhat what, char **type)
 		warn("getmntinfo");
 		return (NULL);
 	}
-	for (i = 0; i < mntsize; i++) {
+	for (i = mntsize-1; i >= 0; i--) {
 		if ((what == MNTON) && !strcmp(mntbuf[i].f_mntfromname, name)) {
 			if (type)
 				*type = mntbuf[i].f_fstypename;
@@ -508,7 +558,7 @@ getmntfsid(const char *name, fsid_t *fsid)
 		warn("getmntinfo");
 		return (-1);
 	}
-	for (i = 0; i < mntsize; i++) {
+	for (i = mntsize-1; i >= 0; i--) {
 		if (!strcmp(mntbuf[i].f_mntonname, name)) {
 			*fsid = mntbuf[i].f_fsid;
 			return (0);

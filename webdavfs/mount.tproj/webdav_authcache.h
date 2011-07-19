@@ -34,7 +34,6 @@
  * Paths for the localization bundle and the generic server icon 
  */
 #define WEBDAV_LOCALIZATION_BUNDLE "/System/Library/Filesystems/webdav.fs"
-#define WEBDAV_SERVER_ICON_PATH "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFileServerIcon.icns"
 
 /*
  * The amount of time to leave an authorization dialog up before auto-dismissing it

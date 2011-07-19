@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2007-2008, International Business Machines Corporation and
+ * Copyright (c) 2007-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -15,7 +15,6 @@
 #include "unicode/plurfmt.h"
 
 
-const UnicodeString oddAndEvenRule = UNICODE_STRING_SIMPLE("odd: n mod 2 is 1");
 #define PLURAL_PATTERN_DATA 4
 #define PLURAL_TEST_ARRAY_SIZE 256
 
@@ -61,7 +60,7 @@ void PluralFormatTest::pluralFormatBasicTest(/*char *par*/)
     NumberFormat *numFmt = NumberFormat::createInstance(status[0]);
     if (U_FAILURE(status[0])) {
         dataerrln("ERROR: Could not create NumberFormat instance with default locale ");
-    }   
+    }
     
     for (int32_t i=0; i< 8; ++i) {
         status[i] = U_ZERO_ERROR;
@@ -87,6 +86,9 @@ void PluralFormatTest::pluralFormatBasicTest(/*char *par*/)
     }
     // ======= Test clone, assignment operator && == operator.
     plFmt[0]= new PluralFormat(status[0]);
+    plFmt[0]->setNumberFormat(numFmt,status[0]);
+    UnicodeString us = UnicodeString("");
+    plFmt[0]->toPattern(us);
     plFmt[1]= new PluralFormat(locale, status[1]);
     if ( U_SUCCESS(status[0]) && U_SUCCESS(status[1]) ) {
         *plFmt[1] = *plFmt[0];
@@ -97,25 +99,55 @@ void PluralFormatTest::pluralFormatBasicTest(/*char *par*/)
         }
     }
     else {
-         errln("ERROR: PluralFormat constructor failed!");
+         dataerrln("ERROR: PluralFormat constructor failed! - [0]%s [1]%s", u_errorName(status[0]), u_errorName(status[1]));
     }
-    plFmt[2]= new PluralFormat(locale, status[1]);
-    if ( U_SUCCESS(status[1]) ) {
-        *plFmt[1] = *plFmt[2];
+    delete plFmt[0];
+
+    status[0] = U_ZERO_ERROR;
+    plFmt[0]= new PluralFormat(locale, status[0]);
+    if ( U_SUCCESS(status[0]) ) {
+        *plFmt[1] = *plFmt[0];
         if (plFmt[1]!=NULL) {
-            if ( *plFmt[1] != *plFmt[2] ) {
+            if ( *plFmt[1] != *plFmt[0] ) {
                 errln("ERROR:  assignment operator test failed!");
             }
         }
-        delete plFmt[1];
     }
     else {
-         errln("ERROR: PluralFormat constructor failed!");
+         dataerrln("ERROR: PluralFormat constructor failed! - %s", u_errorName(status[1]));
     }
+
+    if ( U_SUCCESS(status[1]) ) {
+        plFmt[2] = (PluralFormat*) plFmt[1]->clone();
+
+        if (plFmt[1]!=NULL) {
+            if ( *plFmt[1] != *plFmt[2] ) {
+                errln("ERROR:  clone function test failed!");
+            }
+        }
+        delete plFmt[1];
+        delete plFmt[2];
+    }
+    else {
+         dataerrln("ERROR: PluralFormat clone failed! - %s", u_errorName(status[1]));
+    }
+
     delete plFmt[0];
-    delete plFmt[2];
     delete numFmt;
     delete plRules;
+
+    // Tests parseObject
+    UErrorCode stat = U_ZERO_ERROR;
+    PluralFormat *pf = new PluralFormat(stat);
+    Formattable *f = new Formattable();
+    ParsePosition *pp = new ParsePosition();
+    pf->parseObject((UnicodeString)"",*f,*pp);
+    if(U_FAILURE(stat)) {
+        dataerrln("ERROR: PluralFormat::parseObject: %s", u_errorName(stat));
+    }
+    delete pf;
+    delete f;
+    delete pp;
 }
 
 /**
@@ -153,6 +185,7 @@ void PluralFormatTest::pluralFormatUnitTest(/*char *par*/)
     };
 
     UErrorCode status = U_ZERO_ERROR;
+    UnicodeString oddAndEvenRule = UNICODE_STRING_SIMPLE("odd: n mod 2 is 1");
     PluralRules*  plRules = PluralRules::createRules(oddAndEvenRule, status);
     if (U_FAILURE(status)) {
         dataerrln("ERROR:  create PluralRules instance failed in unit tests.- exitting");
@@ -286,23 +319,25 @@ PluralFormatTest::pluralFormatLocaleTest(/*char *par*/)
     
     // ====== Test Singular1 locales.
     logln("Testing singular1 locales.");
-    const char* singular1Locales[19] = {"da","de","el","en","eo","es","et","fi",
-                    "fo","he","it","nb","nl","nn","no","pt_PT","sv"};
+    const char* singular1Locales[52] = {"bem","da","de","el","en","eo","es","et","fi",
+                    "fo","gl","he","it","nb","nl","nn","no","pt","pt_PT","sv","af","bg","bn","ca","eu","fur","fy",
+                    "gu","ha","is","ku","lb","ml","mr","nah","ne","om","or","pa","pap","ps","so","sq","sw","ta",
+                    "te","tk","ur","zu","mn","gsw","rm"};
     testPattern = UNICODE_STRING_SIMPLE("one{one} other{other}");
     uprv_memset(pluralResults, -1, sizeof(pluralResults));
     pluralResults[0]= PFT_OTHER;
     pluralResults[1]= PFT_ONE;
     pluralResults[2]= PFT_OTHER;
-    helperTestRusults(singular1Locales, 19, testPattern, pluralResults);
+    helperTestRusults(singular1Locales, 52, testPattern, pluralResults);
     
     // ======== Test Singular01 locales.
     logln("Testing singular1 locales.");
-    const char* singular01Locales[2] = {"fr","pt"};
+    const char* singular01Locales[3] = {"ff","fr","kab"};
     testPattern = UNICODE_STRING_SIMPLE("one{one} other{other}");
     uprv_memset(pluralResults, -1, sizeof(pluralResults));
     pluralResults[0]= PFT_ONE;
     pluralResults[2]= PFT_OTHER;
-    helperTestRusults(singular01Locales, 2, testPattern, pluralResults);
+    helperTestRusults(singular01Locales, 3, testPattern, pluralResults);
     
     // ======== Test ZeroSingular locales.
     logln("Testing singular1 locales.");
@@ -406,7 +441,7 @@ PluralFormatTest::pluralFormatLocaleTest(/*char *par*/)
     pluralResults[1]= PFT_ONE;
     pluralResults[5]= PFT_OTHER;
     for (int32_t i=0; i<20; ++i) {
-        if ((i==1)||(i==2)||(i==11)||(i==12)) {
+        if ((i==1)||(i==11)) {
             pluralResults[i*10+2] = PFT_OTHER;
             pluralResults[i*10+3] = PFT_OTHER;
             pluralResults[i*10+4] = PFT_OTHER;
@@ -444,7 +479,7 @@ PluralFormatTest::pluralFormatLocaleTest(/*char *par*/)
     UErrorCode status = U_ZERO_ERROR;
     PluralFormat plFmt(ulocale, testPattern, status);
     if (U_FAILURE(status)) {
-        errln("Failed to apply pattern to fr locale");
+        dataerrln("Failed to apply pattern to fr locale - %s", u_errorName(status));
     }
     else {
         status = U_ZERO_ERROR;
@@ -531,7 +566,7 @@ PluralFormatTest::helperTestRusults(const char** localeArray,
         status = U_ZERO_ERROR;
         PluralFormat plFmt(ulocale, testPattern, status);
         if (U_FAILURE(status)) {
-            errln("Failed to apply pattern to locale:"+UnicodeString(localeArray[i]));
+            dataerrln("Failed to apply pattern to locale:"+UnicodeString(localeArray[i]) + " - " + u_errorName(status));
             continue;
         }
         for (int32_t n=0; n<PLURAL_TEST_ARRAY_SIZE; ++n) {

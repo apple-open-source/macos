@@ -51,7 +51,7 @@ typedef struct cssm_spi_ac_funcs {
          uint32 PassThroughId,
          const void *InputParams,
          void **OutputParams);
-} CSSM_SPI_AC_FUNCS, *CSSM_SPI_AC_FUNCS_PTR;
+} CSSM_SPI_AC_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_SPI_AC_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #ifdef __cplusplus
 }

@@ -149,67 +149,78 @@ dtrace='
 
  vminfo:::execpgin
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { epi += arg0; }
 
  vminfo:::execpgout
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { epo += arg0; }
 
  vminfo:::anonpgin
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { api += arg0; }
 
  vminfo:::anonpgout
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { apo += arg0; }
 
  vminfo:::fspgin
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { fpi += arg0; }
 
  vminfo:::fspgout
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { fpo += arg0; }
 
  vminfo:::pgrec
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { re += arg0; }
 
  vminfo:::as_fault
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { mf += arg0; }
 
  vminfo:::maj_fault
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { maj += arg0; }
 
  vminfo:::dfree
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { fr += arg0; }
 
  syscall:::entry
  /(OPT_pid && pid == PID) ||
-  (OPT_name && execname == NAME) ||
+  (OPT_name && NAME == strstr(NAME, execname)) ||
+  (OPT_name && execname == strstr(execname, NAME)) ||
   (OPT_command && pid == $target)/
  { sy++; }
 

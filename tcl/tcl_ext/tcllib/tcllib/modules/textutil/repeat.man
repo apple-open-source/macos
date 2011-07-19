@@ -1,6 +1,7 @@
 [manpage_begin textutil::repeat n 0.7.1]
 [moddesc   {Text and string utilities, macro processing}]
 [titledesc {Procedures to repeat strings.}]
+[category  {Text processing}]
 [require Tcl 8.2]
 [require textutil::repeat [opt 0.7]]
 [description]

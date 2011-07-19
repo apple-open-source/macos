@@ -40,7 +40,7 @@
 #include "stuff/breakout.h"
 #include "stuff/allocate.h"
 #include "stuff/errors.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/reloc.h"
 #include "stuff/reloc.h"
 #include "stuff/symbol_list.h"
@@ -133,10 +133,12 @@ static uint32_t new_strsize = 0;
 static uint32_t new_nlocalsym = 0;
 static uint32_t new_nextdefsym = 0;
 static uint32_t new_nundefsym = 0;
+#if defined(TRIE_SUPPORT) && !defined(NMEDIT)
 /*
  * The index into the new symbols where the defined external start.
  */
 static uint32_t inew_nextdefsym = 0;
+#endif
 
 /*
  * These hold the new table of contents, reference table and module table for
@@ -877,14 +879,14 @@ enum bool all_archs)
 		    archs[i].members[j].offset = offset;
 		    size = 0;
 		    if(archs[i].members[j].member_long_name == TRUE){
-			size = round(archs[i].members[j].member_name_size, 8) +
-			       (round(sizeof(struct ar_hdr), 8) -
+			size = rnd(archs[i].members[j].member_name_size, 8) +
+			       (rnd(sizeof(struct ar_hdr), 8) -
 				sizeof(struct ar_hdr));
 			archs[i].toc_long_name = TRUE;
 		    }
 		    if(archs[i].members[j].object != NULL){
 			size += 
-			   round(archs[i].members[j].object->object_size -
+			   rnd(archs[i].members[j].object->object_size -
 			     archs[i].members[j].object->input_sym_info_size +
 			     archs[i].members[j].object->output_sym_info_size, 
 			     8);
@@ -1286,13 +1288,18 @@ struct object *object)
 		else if (object->dyld_info->rebase_size != 0)
 		    dyld_info_end = object->dyld_info->rebase_off
 			+ object->dyld_info->rebase_size;
-		object->output_dyld_info = object->object_addr + dyld_info_start; 
+		object->output_dyld_info = object->object_addr +dyld_info_start; 
 		object->output_dyld_info_size = dyld_info_end - dyld_info_start;
 		object->output_sym_info_size += object->output_dyld_info_size;
-		/* warn about strip -s or -R on a final linked image with dyld_info */
+		/*
+		 * Warn about strip -s or -R on a final linked image with
+		 * dyld_info.
+		 */
 		if(nsave_symbols != 0){
-		    warning_arch(arch, NULL, "removing global symbols from a final linked"
-			    " no longer supported.  Use -exported_symbols_list at link time when building: ");
+		    warning_arch(arch, NULL, "removing global symbols from a "
+			         "final linked no longer supported.  Use "
+				 "-exported_symbols_list at link time when "
+				 "building: ");
 		}
 	    }
 	    if(object->split_info_cmd != NULL){
@@ -1300,6 +1307,12 @@ struct object *object)
 		    object->split_info_cmd->dataoff;
 		object->output_split_info_data_size = 
 		    object->split_info_cmd->datasize;
+	    }
+	    if(object->func_starts_info_cmd != NULL){
+		object->output_func_start_info_data = object->object_addr +
+		    object->func_starts_info_cmd->dataoff;
+		object->output_func_start_info_data_size = 
+		    object->func_starts_info_cmd->datasize;
 	    }
 	    if(object->code_sig_cmd != NULL){
 #ifndef NMEDIT
@@ -1432,9 +1445,15 @@ struct object *object)
 		    object->output_sym_info_size +=
 			object->split_info_cmd->datasize;
 		}
+		if(object->func_starts_info_cmd != NULL){
+		    object->input_sym_info_size +=
+			object->func_starts_info_cmd->datasize;
+		    object->output_sym_info_size +=
+			object->func_starts_info_cmd->datasize;
+		}
 		if(object->code_sig_cmd != NULL){
 		    object->input_sym_info_size =
-			round(object->input_sym_info_size, 16);
+			rnd(object->input_sym_info_size, 16);
 		    object->input_sym_info_size +=
 			object->code_sig_cmd->datasize;
 #ifndef NMEDIT
@@ -1445,7 +1464,7 @@ struct object *object)
 #endif /* !(NMEDIT) */
 		    {
 			object->output_sym_info_size =
-			    round(object->output_sym_info_size, 16);
+			    rnd(object->output_sym_info_size, 16);
 			object->output_sym_info_size +=
 			    object->code_sig_cmd->datasize;
 		    }
@@ -1506,6 +1525,11 @@ struct object *object)
 		if(object->split_info_cmd != NULL){
 		    object->split_info_cmd->dataoff = offset;
 		    offset += object->split_info_cmd->datasize;
+		}
+
+		if(object->func_starts_info_cmd != NULL){
+		    object->func_starts_info_cmd->dataoff = offset;
+		    offset += object->func_starts_info_cmd->datasize;
 		}
 
 		if(object->st->nsyms != 0){
@@ -1628,7 +1652,7 @@ struct object *object)
 		    object->st->stroff = 0;
 
 		if(object->code_sig_cmd != NULL){
-		    offset = round(offset, 16);
+		    offset = rnd(offset, 16);
 		    object->code_sig_cmd->dataoff = offset;
 		    offset += object->code_sig_cmd->datasize;
 		}
@@ -3185,9 +3209,9 @@ uint32_t nextrefsyms)
 			  allocate(new_nsyms * sizeof(struct nlist_64));
 	}
 	if(object->mh != NULL)
-	    new_strsize = round(new_strsize, sizeof(int32_t));
+	    new_strsize = rnd(new_strsize, sizeof(int32_t));
 	else
-	    new_strsize = round(new_strsize, sizeof(int64_t));
+	    new_strsize = rnd(new_strsize, sizeof(int64_t));
 	new_strings = (char *)allocate(new_strsize);
 	if(object->mh != NULL){
 	    new_strings[new_strsize - 3] = '\0';
@@ -3298,7 +3322,9 @@ uint32_t nextrefsyms)
 		}
 	    }
 	}
+#ifdef TRIE_SUPPORT
 	inew_nextdefsym = inew_syms;
+#endif /* TRIE_SUPPORT */
 	for(i = 0; i < nsyms; i++){
 	    if(saves[i]){
 		if(object->mh != NULL){
@@ -3792,7 +3818,7 @@ struct object *object)
 	 * Create the ld -r command line and execute it.
 	 */
 	reset_execute_list();
-	add_execute_list("ld");
+	add_execute_list_with_prefix("ld");
 	add_execute_list("-keep_private_externs");
 	add_execute_list("-r");
 	if(Sflag)
@@ -4014,6 +4040,10 @@ struct object *object)
 	    case LC_SEGMENT_SPLIT_INFO:
 		object->split_info_cmd = (struct linkedit_data_command *)lc1;
 		break;
+	    case LC_FUNCTION_STARTS:
+		object->func_starts_info_cmd =
+				         (struct linkedit_data_command *)lc1;
+		break;
 	    case LC_CODE_SIGNATURE:
 		object->code_sig_cmd = (struct linkedit_data_command *)lc1;
 		break;
@@ -4122,6 +4152,10 @@ struct object *object)
 		break;
 	    case LC_SEGMENT_SPLIT_INFO:
 		object->split_info_cmd = (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_FUNCTION_STARTS:
+		object->func_starts_info_cmd =
+					 (struct linkedit_data_command *)lc1;
 		break;
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
@@ -4907,7 +4941,7 @@ change_symbol:
 	    new_symbols64 = (struct nlist_64 *)
 			    allocate(new_nsyms * sizeof(struct nlist_64));
 	}
-	new_strsize = round(new_strsize, sizeof(int32_t));
+	new_strsize = rnd(new_strsize, sizeof(int32_t));
 	new_strings = (char *)allocate(new_strsize);
 	new_strings[new_strsize - 3] = '\0';
 	new_strings[new_strsize - 2] = '\0';
@@ -5356,9 +5390,9 @@ change_symbol:
 	    }
 	}
 
-	if(sections != NULL);
+	if(sections != NULL)
 	    free(sections);
-	if(sections64 != NULL);
+	if(sections64 != NULL)
 	    free(sections64);
 
 	if(errors == 0)

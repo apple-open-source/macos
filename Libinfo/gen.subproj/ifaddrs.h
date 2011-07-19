@@ -1,4 +1,4 @@
-/*	$KAME: ifaddrs.h,v 1.3 2001/01/26 08:14:55 itojun Exp $	*/
+/*	$FreeBSD: src/include/ifaddrs.h,v 1.3.32.1.4.1 2010/06/14 02:09:06 kensmith Exp $	*/
 
 /*
  * Copyright (c) 1995, 1999
@@ -28,10 +28,12 @@
 #ifndef	_IFADDRS_H_
 #define	_IFADDRS_H_
 
+#include <Availability.h>
+
 struct ifaddrs {
 	struct ifaddrs  *ifa_next;
 	char		*ifa_name;
-	unsigned int		 ifa_flags;
+	unsigned int	 ifa_flags;
 	struct sockaddr	*ifa_addr;
 	struct sockaddr	*ifa_netmask;
 	struct sockaddr	*ifa_dstaddr;
@@ -46,11 +48,20 @@ struct ifaddrs {
 #define	ifa_broadaddr	ifa_dstaddr	/* broadcast address interface */
 #endif
 
+struct ifmaddrs {
+	struct ifmaddrs	*ifma_next;
+	struct sockaddr	*ifma_name;
+	struct sockaddr	*ifma_addr;
+	struct sockaddr	*ifma_lladdr;
+};
+
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-extern int getifaddrs __P((struct ifaddrs **));
-extern void freeifaddrs __P((struct ifaddrs *));
+extern int getifaddrs(struct ifaddrs **);
+extern void freeifaddrs(struct ifaddrs *);
+extern int getifmaddrs(struct ifmaddrs **) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+extern void freeifmaddrs(struct ifmaddrs *) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 __END_DECLS
 
 #endif

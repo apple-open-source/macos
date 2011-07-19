@@ -2,6 +2,7 @@
 [comment {-*- tcl -*- doctools manpage}]
 [moddesc   {CGI Support}]
 [titledesc {Procedures to manipulate CGI values.}]
+[category  {CGI programming}]
 [require Tcl 8.2]
 [require ncgi [opt 1.3]]
 [description]
@@ -313,7 +314,7 @@ TCL: upload.cgi
 #!/usr/local/bin/tclsh
 
 ::ncgi::parse
-set filedata [::ncgi::value fileupl]
+set filedata [::ncgi::value filedata]
 set filedesc [::ncgi::value filedesc]
 
 puts "<html> File uploaded at <a href=\"/images/$filedesc\">$filedesc</a> </html>"

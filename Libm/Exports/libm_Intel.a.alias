@@ -179,6 +179,7 @@ _fmodf	_fmodf$fenv_access_off
 _remainder	_remainder$fenv_access_off
 _remainderf	_remainderf$fenv_access_off
 _remquof	_remquof$fenv_access_off
+_remainder _drem
 
 #libm.a(rndint.o):
 _llrint	_llrint$fenv_access_off

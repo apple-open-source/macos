@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2005, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,9 +31,7 @@
 #include <sys/socket.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCNetwork.h>
-#if	!TARGET_OS_IPHONE
 #include <dispatch/dispatch.h>
-#endif	// !TARGET_OS_IPHONE
 
 /*!
 	@header SCNetworkReachability
@@ -152,9 +150,7 @@ enum {
 	kSCNetworkReachabilityFlagsConnectionRequired	= 1<<2,
 	kSCNetworkReachabilityFlagsConnectionOnTraffic	= 1<<3,
 	kSCNetworkReachabilityFlagsInterventionRequired	= 1<<4,
-#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1060) || (__IPHONE_OS_VERSION_MIN_REQUIRED >= 30000) || TARGET_IPHONE_SIMULATOR
-	kSCNetworkReachabilityFlagsConnectionOnDemand	= 1<<5,
-#endif
+	kSCNetworkReachabilityFlagsConnectionOnDemand	= 1<<5,	// __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_3_0)
 	kSCNetworkReachabilityFlagsIsLocalAddress	= 1<<16,
 	kSCNetworkReachabilityFlagsIsDirect		= 1<<17,
 #if	TARGET_OS_IPHONE
@@ -323,7 +319,6 @@ SCNetworkReachabilityUnscheduleFromRunLoop	(
 						CFStringRef			runLoopMode
 						)				__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
-#if	!TARGET_OS_IPHONE
 /*!
 	@function SCNetworkReachabilitySetDispatchQueue
 	@discussion Schedules callbacks for the given target on the given
@@ -338,8 +333,7 @@ Boolean
 SCNetworkReachabilitySetDispatchQueue		(
 						SCNetworkReachabilityRef	target,
 						dispatch_queue_t		queue
-						)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-#endif	// !TARGET_OS_IPHONE
+						)				__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
 
 __END_DECLS
 

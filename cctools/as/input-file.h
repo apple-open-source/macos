@@ -34,14 +34,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
  *
  * input_file_open(name)		Call once for each input file.
  *
- * input_file_give_next_buffer(where)	Call once to get each new buffer.
- *					Return 0: no more chars left in file,
+ * input_file_give_next_buffer(where,	Call once to get each new buffer.
+ *		give_next_size)		Return 0: no more chars left in file,
  *					   the file has already been closed.
  *					Otherwise: return a pointer to just
  *					   after the last character we read
  *					   into the buffer.
  *					If we can only read 0 characters, then
  *					end-of-file is faked.
+ *				        give_next_size is the BUFFER_SIZE it
+ *					   will use next.
  *
  * All errors are reported (using as_perror) so caller doesn't have to think
  * about I/O errors. No I/O errors are fatal: an end-of-file may be faked.
@@ -65,4 +67,5 @@ extern void input_file_open(
     char *filename,
     int pre);
 extern char *input_file_give_next_buffer(
-    char *where);
+    char *where,
+    int *give_next_size);

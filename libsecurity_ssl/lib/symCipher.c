@@ -36,7 +36,6 @@
 
 #include <Security/cssm.h>
 #include <CommonCrypto/CommonCryptor.h>
-#include <CommonCrypto/aesopt.h>		/* SPI to raw AES cipher */
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #include <string.h>
@@ -377,13 +376,22 @@ OSStatus CCSymmInit(
 	CCAlgorithm ccAlg;
 	CCCryptorStatus ccrtn;
 	CCOperation op = cipherCtx->encrypting ? kCCEncrypt : kCCDecrypt;
-	
+    CCCryptorRef localRef;
+    size_t localKeysize;
+	const SSLSymmetricCipher *symCipher = cipherCtx->symCipher;
+    
+    if(!symCipher) {
+		sslErrorLog("No SSLSymmetricCipher defined\n");
+		return internalComponentErr;
+    }
+    
 	if(cipherCtx->cc.cryptorRef) {
 		CCCryptorRelease(cipherCtx->cc.cryptorRef);
 		cipherCtx->cc.cryptorRef = NULL;
 	}
+    localKeysize = symCipher->keySize;
 	
-	switch(cipherCtx->symCipher->keyAlg) {
+	switch(symCipher->keyAlg) {
 		case CSSM_ALGID_DES:
 			ccAlg = kCCAlgorithmDES;
 			break;
@@ -393,20 +401,28 @@ OSStatus CCSymmInit(
 		case CSSM_ALGID_RC4:
 			ccAlg = kCCAlgorithmRC4;
 			break;
+		case CSSM_ALGID_AES:
+			ccAlg = kCCAlgorithmAES128;
+			break;
 		default:
 			ASSERT(0);
 			return internalComponentErr;
 	}
-	
-	ccrtn = CCCryptorCreate(op, ccAlg, 
-		0,		/* options - no padding, default CBC */
-		key, cipherCtx->symCipher->keySize,
-		iv,
-		&cipherCtx->cc.cryptorRef);
+
+	/* options - no padding, default CBC */
+
+	ccrtn = CCCryptorCreate(op, ccAlg, 0, key, localKeysize, iv, &localRef);
+    
 	if(ccrtn) {
 		sslErrorLog("CCCryptorCreate returned %d\n", (int)ccrtn);
 		return internalComponentErr;
 	}
+    if(cipherCtx->cc.cryptorRef) {
+        sslErrorLog("CryptorRef has been altered during init\n");
+		return internalComponentErr;
+    }
+    cipherCtx->cc.cryptorRef = localRef;
+
 	return noErr;
 }
 
@@ -449,75 +465,3 @@ OSStatus CCSymmFinish(
 	return noErr;
 }
 
-/*
- * Super-optimized AES-128 cipher, bypassing even the thin CommonCryptor
- * layer. 
- */
-OSStatus AESSymmInit(
-	uint8 *key, 
-	uint8* iv, 
-	CipherContext *cipherCtx, 
-	SSLContext *ctx)
-{
-	aes_cc_ctx *aesCtx;
-	int encrypting = cipherCtx->encrypting;
-	
-	/*
-	 * Cook up an AES context.
-	 */
-	if(cipherCtx->cc.aes == NULL) {
-		/* just zero it, we'll reuse */
-		cipherCtx->cc.aes = sslMalloc(sizeof(aes_cc_ctx));
-	}
-	/* else reuse existing context */
-	aesCtx = (aes_cc_ctx *)cipherCtx->cc.aes;
-	
-	aes_cc_set_key(aesCtx, key, cipherCtx->symCipher->keySize, encrypting);
-	aes_cc_set_iv(aesCtx, encrypting, iv);
-	return noErr;
-}
-
-OSStatus AESSymmEncrypt(
-	SSLBuffer src, 
-	SSLBuffer dest, 
-	CipherContext *cipherCtx, 
-	SSLContext *ctx)
-{
-	aes_cc_ctx *aesCtx = (aes_cc_ctx *)cipherCtx->cc.aes;
-	
-	ASSERT(aesCtx != NULL);
-
-	aes_encrypt_cbc((const unsigned char *)src.data, NULL, 
-		src.length / kCCBlockSizeAES128,
-		(unsigned char *)dest.data, &aesCtx->encrypt);
-	dest.length = kCCBlockSizeAES128;
-	return noErr;
-}
-
-OSStatus AESSymmDecrypt(
-	SSLBuffer src, 
-	SSLBuffer dest, 
-	CipherContext *cipherCtx, 
-	SSLContext *ctx)
-{
-	aes_cc_ctx *aesCtx = (aes_cc_ctx *)cipherCtx->cc.aes;
-	
-	ASSERT(aesCtx != NULL);
-
-	aes_decrypt_cbc((const unsigned char *)src.data, NULL,
-		src.length / kCCBlockSizeAES128,
-		(unsigned char *)dest.data, &aesCtx->decrypt);
-	dest.length = kCCBlockSizeAES128;
-	return noErr;
-}
-
-OSStatus AESSymmFinish(
-	CipherContext *cipherCtx, 
-	SSLContext *ctx)
-{
-	if(cipherCtx->cc.aes) {
-		sslFree(cipherCtx->cc.aes);
-		cipherCtx->cc.aes = NULL;
-	}
-	return noErr;
-}

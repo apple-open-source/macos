@@ -463,3 +463,6 @@ IOFBLogRange(IOFBConnectRef connectRef, const IODisplayTimingRange * range);
 
 __private_extern__ float
 RefreshRateFromDetailedTiming( IODetailedTimingInformationV2 * detailed );
+
+__private_extern__ Boolean
+IODisplayEDIDName( EDID * edid, char * name );

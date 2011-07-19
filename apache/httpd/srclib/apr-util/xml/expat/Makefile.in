@@ -85,9 +85,9 @@ check: tests/runtests
 install: installlib
 
 installlib: $(LIBRARY) $(APIHEADER)
-	$(mkinstalldirs) $(libdir) $(includedir)
-	$(LIBTOOL) --mode=install $(INSTALL) $(LIBRARY) $(libdir)/$(LIBRARY)
-	$(INSTALL_DATA) $(APIHEADER) $(includedir)
+	$(mkinstalldirs) $(DESTDIR)$(libdir) $(DESTDIR)$(includedir)
+	$(LIBTOOL)  --mode=install $(INSTALL) $(LIBRARY) $(DESTDIR)$(libdir)/$(LIBRARY)
+	$(INSTALL_DATA) $(APIHEADER) $(DESTDIR)$(includedir)
 
 $(LIBRARY): $(LIB_OBJS)
 	$(LINK_LIB) $(LIB_OBJS)

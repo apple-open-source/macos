@@ -183,7 +183,6 @@ static void SpecialCasesStartupItemHandler(CFMutableDictionaryRef aConfig)
 					break;
 			}
 			if (*c == NULL) {
-				CFRetain(ci);
 				CFArrayAppendValue(aNewList, ci);
 				CF_syslog(LOG_DEBUG, CFSTR("%@: Keeping %@"), type, ci);
 			}
@@ -441,7 +440,7 @@ CFMutableDictionaryRef StartupItemListGetProvider(CFArrayRef anItemList, CFStrin
 	return aResult;
 }
 
-CFArrayRef StartupItemListGetRunning(CFArrayRef anItemList)
+CFArrayRef StartupItemListCreateFromRunning(CFArrayRef anItemList)
 {
 	CFMutableArrayRef aResult = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	if (aResult) {
@@ -837,7 +836,7 @@ CFMutableDictionaryRef StartupItemListGetNext(CFArrayRef aWaitingList, CFDiction
 	return aNextItem;
 }
 
-CFStringRef StartupItemGetDescription(CFMutableDictionaryRef anItem)
+CFStringRef StartupItemCreateDescription(CFMutableDictionaryRef anItem)
 {
 	CFStringRef aString = NULL;
 

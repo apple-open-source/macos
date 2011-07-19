@@ -123,6 +123,8 @@
 		C2B9F3640D5A28D500CAB713 /* macho++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2B9F3610D5A288900CAB713 /* macho++.cpp */; };
 		C2B9F3650D5A28F000CAB713 /* macho++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B9F3620D5A288900CAB713 /* macho++.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2B9F3660D5A28F000CAB713 /* cfmunge.h in Headers */ = {isa = PBXBuildFile; fileRef = C2B9F3600D5A288900CAB713 /* cfmunge.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2C1648A0F66F2CA00FD6D34 /* kq++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C164890F66F2CA00FD6D34 /* kq++.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2C1648E0F66F2D300FD6D34 /* kq++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1648D0F66F2D300FD6D34 /* kq++.cpp */; };
 		C2C9C6B10CECBF8E00B3FE07 /* utilities_dtrace.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C9C6B00CECBF8E00B3FE07 /* utilities_dtrace.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C2CBCF520A3E27CF0025C2F9 /* superblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CBCF500A3E27CF0025C2F9 /* superblob.cpp */; };
 		C2CBCF540A3E27CF0025C2F9 /* superblob.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CBCF510A3E27CF0025C2F9 /* superblob.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -268,6 +270,8 @@
 		C2B9F3600D5A288900CAB713 /* cfmunge.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cfmunge.h; sourceTree = "<group>"; };
 		C2B9F3610D5A288900CAB713 /* macho++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "macho++.cpp"; sourceTree = "<group>"; };
 		C2B9F3620D5A288900CAB713 /* macho++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "macho++.h"; sourceTree = "<group>"; };
+		C2C164890F66F2CA00FD6D34 /* kq++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "kq++.h"; sourceTree = "<group>"; };
+		C2C1648D0F66F2D300FD6D34 /* kq++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "kq++.cpp"; sourceTree = "<group>"; };
 		C2C9C6990CECBE5E00B3FE07 /* security_utilities.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = security_utilities.d; path = lib/security_utilities.d; sourceTree = "<group>"; };
 		C2C9C6B00CECBF8E00B3FE07 /* utilities_dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = utilities_dtrace.h; sourceTree = "<group>"; };
 		C2CBCF500A3E27CF0025C2F9 /* superblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = superblob.cpp; sourceTree = "<group>"; };
@@ -495,6 +499,8 @@
 				4CA6848F0525011D00233BF2 /* fdmover.cpp */,
 				4CA684920525011D00233BF2 /* fdsel.h */,
 				4CA684910525011D00233BF2 /* fdsel.cpp */,
+				C2C164890F66F2CA00FD6D34 /* kq++.h */,
+				C2C1648D0F66F2D300FD6D34 /* kq++.cpp */,
 				C2B1EE2906D5929700F68F34 /* muscle++.h */,
 				C2B1EE2806D5929700F68F34 /* muscle++.cpp */,
 				C2EF2B59066E516600F205D4 /* pcsc++.h */,
@@ -584,6 +590,7 @@
 				C2E7B1FC0E2415D700956987 /* vproc++.h in Headers */,
 				C28342CC0E366A8E00E54360 /* sqlite++.h in Headers */,
 				C2AEE7EE0F30CF9800C7649E /* dyldcache.h in Headers */,
+				C2C1648A0F66F2CA00FD6D34 /* kq++.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -764,6 +771,7 @@
 				AAAA499A0CC587B50099E9D4 /* crc.c in Sources */,
 				C2E7B1FA0E2415D700956987 /* vproc++.cpp in Sources */,
 				C28342CA0E366A8E00E54360 /* sqlite++.cpp in Sources */,
+				C2C1648E0F66F2D300FD6D34 /* kq++.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -849,16 +857,17 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55010;
+				CURRENT_PROJECT_VERSION = 55015;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -877,6 +886,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_utilities;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -895,15 +905,16 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55010;
+				CURRENT_PROJECT_VERSION = 55015;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -922,6 +933,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_utilities;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -936,14 +948,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55010;
+				CURRENT_PROJECT_VERSION = 55015;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
@@ -962,6 +975,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_utilities;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -979,14 +993,15 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 55010;
+				CURRENT_PROJECT_VERSION = 55015;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1005,6 +1020,7 @@
 				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
 				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
 				PRODUCT_NAME = security_utilities;
+				SKIP_INSTALL = YES;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wmost",

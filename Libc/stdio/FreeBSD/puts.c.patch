@@ -1,6 +1,6 @@
---- /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/puts.c.orig	2004-03-10 01:15:38.000000000 -0800
-+++ /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/puts.c	2004-10-24 17:08:31.000000000 -0700
-@@ -48,6 +48,9 @@
+--- puts.c.bsdnew	2009-11-11 13:33:14.000000000 -0800
++++ puts.c	2009-11-11 13:33:14.000000000 -0800
+@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/p
  #include "libc_private.h"
  #include "local.h"
  
@@ -10,7 +10,7 @@
  /*
   * Write the given string to stdout, appending a newline.
   */
-@@ -56,12 +59,15 @@
+@@ -52,12 +55,15 @@ puts(s)
  	char const *s;
  {
  	int retval;

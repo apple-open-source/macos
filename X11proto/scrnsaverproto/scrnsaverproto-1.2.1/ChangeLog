@@ -1,0 +1,298 @@
+commit b4899c5d6090efdf292f5686cc23ed90e3729e4b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 23:27:16 2010 -0700
+
+    ScrnSaverProto 1.2.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2db9df02a69046bc2ee3d87432c91d996a733ecc
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Aug 3 15:32:12 2010 -0400
+
+    config: Require xorg-macros minimum of 1.10 for XORG_CHECK_SGML_DOCTOOLS
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a8462405a2d2536867cc63587a49e5d130ea44ea
+Author: Matt Dew <matt@osource.org>
+Date:   Sat Jul 31 12:23:10 2010 -0400
+
+    specs: replace troff source with docbook-xml source
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 689268bf3fcd25015d07be8652fde6924a59b7d9
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:25:52 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5056835765a4a2103fbc6977740874762f5d5737
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:00:31 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit d7616943beb59d29349c16670340f677e340852c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:48 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit b758d8d966ccfdda4bdcbe24f679945dbfc2fff9
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:30 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit 72b6b958cb793feca0fad07276a9cc29c9d818f5
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:27 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 5d3c1539a272ce6bd5a11f16f8bc7ab9bce8f1e5
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:29 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit fd7a1f1a3ed7d7907f94b38e6a9a8c4a3b3d9bbb
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 180c9ee3be0bac7952351c89b0d219e672c1010c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:25 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit 48110b9fd22f9cefc0cbe4902eabde995f398dd3
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:47 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit bcc25e87ba8e93c306b3cd00317a6f550c73f5cf
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 18:34:56 2009 +1000
+
+    scrnsaverproto 1.2.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a2f5eaf51b26616746fddcd3a60c3b939d1a018a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 18:34:36 2009 +1000
+
+    Remove RCS tags
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 83974b2814eb18d9c86f41e39dfdafaf39759ced
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 88a1fe1ac27353b92836b9a21c5a1757bad64fad
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 19 20:08:12 2008 +0930
+
+    Remove scrnsaver.h. This is an xlib header, moved to libXScrnSaver.
+    
+    For future amendments to this file, look at
+    git://anongit.freedesktop.org/git/xorg/lib/libXScrnSaver
+
+commit c993e0c422a52bc5f56f7fba29af82f78f7680a5
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 19 19:11:29 2008 +0930
+
+    Nuke RCS tags.
+
+commit 7e19b4a5ad470f1715046f56ea8149df851221e4
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:07 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 00aa1552d0c151402173ce9e4f612d84e4bbddcf
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:16 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 294d7788b9e4ee86d93992ea074b169bf2ede25e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:32 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit ac0b03f75facc368da302fa2f500dcfeafc04e15
+Author: Fredrik Höglund <fredrik@kde.org>
+Date:   Fri Mar 31 18:39:42 2006 +0000
+
+    Update the package version number to 1.1.
+    Increase the minor version to 1.
+    Add the ScreenSaverSuspend request.
+    Add the prototype for XScreenSaverSuspend.
+
+commit 2f091ac1252c833bf70639b718bb1ac738066016
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:38 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 7bc2f8f300a7fac1f86d281459e74f2c3aafde07
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:15 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit ab3d7b78cfd25882ff74159931c9b1e5a7f1e762
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:39 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 4a27d790b9e39c2bae6515ddc71cd7c710b9fd69
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:56 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 6f818dc15a71a0af7e9cf5806677722f99227ebd
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:19:33 2005 +0000
+
+    Set version to 1.0.
+
+commit 450acca3dbce47f8fef56864235698715ba5122d
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:40 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 15eaf97151b718e01eecac1aba75872e4c9d2ddc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:19 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit 771299cf2f6de82ac1bc58aaf4830cc514033569
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Tue May 17 20:41:15 2005 +0000
+
+    Add COPYING file for ScrnSaver.
+
+commit e455c03bb7e498e7eaaf8ad815fb60355fb1f72e
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:06 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 22a2a1cdb0f6e05fa609fbd996c696aa509f1f83
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:31 2005 +0000
+
+    Initial build system files for proto module.
+
+commit df80fd315a3dedab112429d68c45adaf57e12c3d
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Jan 27 05:36:16 2005 +0000
+
+    Include X11/Xlib.h in scrnsaver.h
+
+commit fd13bc250b337d0510975b49a2432b0fd9e3753c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 30ce491906c32ed9137738cd97c13e2c346f4d48
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:36 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 7e886322e57130ed3a2b4633cd93a9f6fe17c4c4
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit bdcc80fa6a01bfdbaba23ed0ea265afbb3deff3c
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:14 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 6229c02f2d40f995b5f0067fab1ae1c281b3c5f9
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:28 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 21e708cda17e86d513bbc8cd779fa5f35376b868
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 78c91d731d4b9e708e5187f7051022a9ee50563a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 0c0b82a2143adfb443157badfe84093d8b74cc13
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    Initial revision

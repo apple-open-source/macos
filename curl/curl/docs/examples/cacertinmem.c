@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: cacertinmem.c,v 1.3 2008-05-22 21:20:08 danf Exp $
  *
  * Example using a "in core" PEM certificate to retrieve a https page.
  * Written by Theo Borm
@@ -112,7 +111,7 @@ int main(void)
   rv=curl_easy_setopt(ch,CURLOPT_WRITEHEADER, stderr);
   rv=curl_easy_setopt(ch,CURLOPT_SSLCERTTYPE,"PEM");
   rv=curl_easy_setopt(ch,CURLOPT_SSL_VERIFYPEER,1L);
-  rv=curl_easy_setopt(ch, CURLOPT_URL, "https://www.cacert.org/");
+  rv=curl_easy_setopt(ch, CURLOPT_URL, "https://www.example.com/");
 
   /* first try: retrieve page without cacerts' certificate -> will fail
    */

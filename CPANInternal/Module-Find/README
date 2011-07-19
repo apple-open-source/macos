@@ -1,5 +1,5 @@
-Module::Find version 0.05
-=========================
+Module::Find
+============
 
 Module::Find lets you find and use modules in categories. This can be very 
 useful for auto-detecting driver or plugin modules. You can differentiate
@@ -24,7 +24,7 @@ This module requires these other modules and libraries:
 
 COPYRIGHT AND LICENCE
 
-Copyright (C) 2004-2005 Christian Renz <crenz@web42.com>. All rights reserved.
+Copyright (C) 2004-2009 Christian Renz <crenz@web42.com>. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

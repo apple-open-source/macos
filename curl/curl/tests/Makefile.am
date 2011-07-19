@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,18 +18,19 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.49 2009-08-11 21:48:59 bagder Exp $
 ###########################################################################
 
 HTMLPAGES = testcurl.html runtests.html
 PDFPAGES = testcurl.pdf runtests.pdf
 
-EXTRA_DIST = ftpserver.pl httpserver.pl httpsserver.pl runtests.pl getpart.pm \
+EXTRA_DIST = ftpserver.pl httpserver.pl secureserver.pl runtests.pl getpart.pm \
  FILEFORMAT README stunnel.pem memanalyze.pl testcurl.pl valgrind.pm ftp.pm   \
  sshserver.pl sshhelp.pm testcurl.1 runtests.1 $(HTMLPAGES) $(PDFPAGES) \
- CMakeLists.txt certs/scripts/*.sh certs/Server* certs/EdelCurlRoot*
+ CMakeLists.txt certs/scripts/*.sh certs/Server* certs/EdelCurlRoot* \
+ serverhelp.pm tftpserver.pl rtspserver.pl directories.pm symbol-scan.pl \
+ certs/srp-verifier-conf certs/srp-verifier-db
 
-SUBDIRS = data server libtest
+SUBDIRS = data server libtest unit
 
 PERLFLAGS = -I$(srcdir)
 
@@ -48,7 +49,7 @@ TEST_T =
 else # if not cross-compiling:
 TEST = srcdir=$(srcdir) $(PERL) $(PERLFLAGS) $(srcdir)/runtests.pl
 TEST_Q = -a -s
-TEST_F = -a -p
+TEST_F = -a -p -r
 TEST_T = -a -t
 endif
 

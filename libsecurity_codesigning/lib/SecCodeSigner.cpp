@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@ using namespace CodeSigning;
 //
 const CFStringRef kSecCodeSignerApplicationData = CFSTR("application-specific");
 const CFStringRef kSecCodeSignerDetached =		CFSTR("detached");
+const CFStringRef kSecCodeSignerDigestAlgorithm = CFSTR("digest-algorithm");
 const CFStringRef kSecCodeSignerDryRun =		CFSTR("dryrun");
 const CFStringRef kSecCodeSignerEntitlements =	CFSTR("entitlements");
 const CFStringRef kSecCodeSignerFlags =			CFSTR("flags");
@@ -49,6 +50,7 @@ const CFStringRef kSecCodeSignerIdentity =		CFSTR("signer");
 const CFStringRef kSecCodeSignerPageSize =		CFSTR("pagesize");
 const CFStringRef kSecCodeSignerRequirements =	CFSTR("requirements");
 const CFStringRef kSecCodeSignerResourceRules =	CFSTR("resource-rules");
+const CFStringRef kSecCodeSignerSDKRoot =		CFSTR("sdkroot");
 const CFStringRef kSecCodeSignerSigningTime =	CFSTR("signing-time");
 
 
@@ -74,7 +76,7 @@ OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	checkFlags(flags, kSecCSRemoveSignature);
 	SecPointer<SecCodeSigner> signer = new SecCodeSigner(flags);
 	signer->parameters(parameters);
-	Required(signerRef) = signer->handle();
+	CodeSigning::Required(signerRef) = signer->handle();
 
     END_CSAPI
 }

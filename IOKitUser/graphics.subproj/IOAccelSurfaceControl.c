@@ -192,14 +192,12 @@ IOReturn IOAccelDestroySurface( IOAccelConnect connect )
         return kr;
 }
 
-
 IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
                                     IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
 {
         uint64_t inData = options;
         IOReturn result;
 
-        
         result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, 
                                 kIOAccelSurfaceSetScale,
                                 &inData, 1, 
@@ -216,7 +214,7 @@ IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDevic
         uint64_t inData[] = { options, framebufferIndex };
         IOReturn result;
         size_t   rgnSize = regionSize(rgn);
-                
+
         result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceSetShape,
                                 inData, arrayCnt(inData), rgn, rgnSize,
                                 NULL, NULL, NULL, NULL); // no output
@@ -243,7 +241,6 @@ IOReturn IOAccelSetSurfaceFramebufferShapeWithBackingAndLength( IOAccelConnect c
     uint64_t inData[] =
                 { options, framebufferIndex, backing, rowbytes, backingLength };
     size_t   rgnSize = regionSize(rgn);
-
 
     err =  IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceSetShapeBackingAndLength,
             inData, arrayCnt(inData), rgn, rgnSize,
@@ -272,7 +269,6 @@ IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformati
         IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t)connect, kIOAccelSurfaceReadLock,
                                               NULL, 0, info, &size);
 
-
         return ret;
 }
 
@@ -287,7 +283,6 @@ IOReturn IOAccelReadLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits
                                         NULL,    NULL,          // out scalar
                                         info,    &size);        // out struct
 
-
         return ret;
 }
 
@@ -296,7 +291,6 @@ IOReturn IOAccelWriteLockSurface( IOAccelConnect connect, IOAccelSurfaceInformat
         size_t size = (size_t) infoSize;
         IOReturn ret =  IOConnectCallStructMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceWriteLock,
                                               NULL, 0, info, &size);
-
         return ret;
 }
 
@@ -310,7 +304,6 @@ IOReturn IOAccelWriteLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBit
                                         NULL,    0,             // in struct
                                         NULL,    NULL,          // out scalar
                                         info,    &size);        // out struct
-
         return ret;
 }
 
@@ -369,7 +362,6 @@ IOReturn IOAccelReadSurface( IOAccelConnect connect, IOAccelSurfaceReadData * pa
 {
         IOReturn result;
         
-
         result = IOConnectCallMethod((io_connect_t) (uintptr_t) connect, kIOAccelSurfaceRead,
                NULL, 0, parameters, sizeof( IOAccelSurfaceReadData), // input
                NULL, NULL, NULL, NULL); // no output

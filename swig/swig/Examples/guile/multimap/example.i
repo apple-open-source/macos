@@ -20,7 +20,7 @@ extern int    gcd(int x, int y);
   SCM *v;
   if (!(SCM_NIMP($input) && SCM_VECTORP($input))) {
     SWIG_exception(SWIG_ValueError, "Expecting a vector");
-    return;
+    return 0;
   }
   $1 = SCM_LENGTH($input);
   if ($1 == 0) {
@@ -32,7 +32,7 @@ extern int    gcd(int x, int y);
     if (!(SCM_NIMP(v[i]) && SCM_STRINGP(v[i]))) {
       free($2);	
       SWIG_exception(SWIG_ValueError, "Vector items must be strings");
-      return;
+      return 0;
     }
     $2[i] = SCM_CHARS(v[i]);
   }
@@ -58,7 +58,9 @@ extern int count(char *bytes, int len, char c);
 /* This example shows how to wrap a function that mutates a string */
 
 %typemap(in) (char *str, int len) {
-  $1 = gh_scm2newstr($input,&$2);
+  size_t temp;
+  $1 = gh_scm2newstr($input,&temp);
+  $2 = temp;
 }
 
 /* Return the mutated string as a new object.  */

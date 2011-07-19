@@ -1,0 +1,121 @@
+2003-03-16   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 1.011.
+
+	* This is a small maintenance release that is mainly for improving
+	documentation.  Similar maintenance releases are being done with all of my
+	distributions simultaneously.  A lot of it was formatting issues that were
+	easy to miss before; the other bullet points below list the non-formatting
+	issues.  These files had formatting fixes: VirtualPath.pm, ChangeLog.
+
+	* The distribution file layouts have also been standardized, with modules
+	going in a "lib" folder and tests going in a "t" folder.  "test.pl" was
+	changed to "t/File-VirtualPath.t" and "VirtualPath.pm" was changed
+	to "lib/File/VirtualPath.pm".
+
+	* Updated NAME in VirtualPath.pm to match the official registered module
+	list.
+
+	* Updated all Copyright statements to a better (and longer) version, which
+	is dated 1999-2003.  Your rights to use these modules haven't changed, but
+	they may now be easier to understand.  These statements appear once in the
+	ReadMe file at the bottom (under "AUTHOR"), and twice in each module (.pm
+	file), a full version at the bottom (under "AUTHOR") and a shorter version
+	at the top (in code comments).
+
+	* Added the "use warnings" pragma at the top of all files beside "use
+	strict"; every occurance of "use strict" gained a "use warnings" whether it
+	was in the module proper or in its test script or in its SYNOPSIS.  This
+	should save users from having to put -w on the command line for them.
+
+	* Incremented the module $VERSION number by 0.001, and all test scripts to
+	require the new version.  Also, where any of my modules use others of my
+	modules, they now require the latest version as of this writing, for
+	simplicity of maintenance.
+
+	* Updated all test scripts to read $verbose from @ARGV (command line
+	arguments), and other test script improvements.
+
+	* Updated these sections of the ReadMe file: INSTALLATION.
+
+2002-11-26   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 1.01.
+
+	* Minor bug fix release to remove any 'uninitialized value' warnings that 
+	appear when running the test suite with the -w option (but the module had 
+	correct output before).  Thanks to Baldvin Kovacs <baldvin@fazekas.hu> for 
+	alerting me to the problem (and offering a patch to fix it).
+
+	* Minor documentation update in the README file so that someone can get an 
+	idea what this module does after looking only at the README.  This patch was 
+	provided by Baldvin Kovacs.
+
+2001-05-28   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 1.0001.
+
+	* This release fixes minor documentation bugs - mostly in the Synopsis 
+	section and the ReadMe file.  Nothing was wrong with the code.
+
+2001-04-15   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Release 1.0.
+
+	* This release is the first one following official registrations with 
+	"The Perl 5 Module List".  The updated entry would look like this:
+
+File::
+::VirtualPath     RdpO Portable abstraction of a file/dir/url path  DUNCAND
+
+	* This release contains my "File::VirtualPath" module, which was previously a 
+	part of the following distributions under the temporary names of 
+	"CGI::WPM::Globals" (split off of) and "CGI::WPM::FileVirtualPath": 
+		- "libdwg": v1.0 r2000-07-23, v1.11 r2000-08-23
+		- "CGI-WebsiteGenerator": v0.3 r2000-09-04, v0.34 r2001-03-18
+		- "CGI-WebsiteGenerator": v0.35 r2001-04-06, v0.36 r2001-04-10
+		- "duncand-prerelease": v0.37 r2001-04-12
+
+	* This module requires Perl version 5.004.
+
+	* This release comes with the CPAN standard files "Makefile.PL", "test.pl", 
+	and "MANIFEST", which were all created since the previous release.
+
+	* A minor code change was made to the chdir() method telling it to 
+	explicitely return the value of its last operation, even though Perl would 
+	have done it implicitely; this makes it more readable.
+
+2001-04-12   Darren Duncan <perl@DarrenDuncan.net>
+
+	* duncand-prerelease 0.37, the last version of any distribution to include
+	CGI::WPM::FileVirtualPath, was released.
+
+2001-04-06   Darren Duncan <perl@DarrenDuncan.net>
+
+	* CGI::WebsiteGenerator 0.35, the first version of any distribution to 
+	include CGI::WPM::FileVirtualPath, was released.  It was split off of 
+	CGI::WPM::Globals.
+
+2000-07-23   Darren Duncan <perl@DarrenDuncan.net>
+
+	* libdwg 1.0, the first version of any distribution to include
+	CGI::WPM::Globals, was released on CPAN.
+
+2000-05-15   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Completed primary development on this module.
+
+2000-03-07   Darren Duncan <perl@DarrenDuncan.net>
+
+	* Began development on the final version of this module.
+
+	* Module based on a template created by h2xs 1.18.
+
+1999-07 thru 1999-12
+
+	* Worked on second prototype of code that ended up in this module.
+
+1999-02 thru 1999-05
+
+	* Worked on first prototype of code that ended up in this module.
+	

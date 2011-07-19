@@ -296,7 +296,7 @@
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 typedef union YYSTYPE
-#line 1336 "parser.y"
+#line 1440 "parser.y"
 {
   char  *id;
   List  *bases;
@@ -311,7 +311,7 @@ typedef union YYSTYPE
   } dtype;
   struct {
     char *type;
-    char *filename;
+    String *filename;
     int   line;
   } loc;
   struct {
@@ -325,7 +325,7 @@ typedef union YYSTYPE
   } decl;
   Parm         *tparms;
   struct {
-    String     *op;
+    String     *method;
     Hash       *kwargs;
   } tmap;
   struct {
@@ -339,7 +339,7 @@ typedef union YYSTYPE
   int           ivalue;
   Node         *node;
 }
-/* Line 1529 of yacc.c.  */
+/* Line 1489 of yacc.c.  */
 #line 344 "y.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */

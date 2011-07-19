@@ -1866,9 +1866,12 @@ ca_parse_line(Cadef d, int multi, int first)
     Caopt ptr, wasopt = NULL, dopt;
     struct castate state;
     char *line, *oline, *pe, **argxor = NULL;
-    int cur, doff, argend, arglast, ne;
+    int cur, doff, argend, arglast;
     Patprog endpat = NULL, napat = NULL;
     LinkList sopts = NULL;
+#if 0
+    int ne;
+#endif
 
     /* Free old state. */
 
@@ -1927,13 +1930,24 @@ ca_parse_line(Cadef d, int multi, int first)
 	dopt = NULL;
 	doff = state.singles = arglast = 0;
 
-        /* remove quotes */
         oline = line;
+#if 0
+        /*
+	 * remove quotes.
+	 * This is commented out:  it doesn't allow you to discriminate
+	 * between command line values that can be expanded and those
+	 * that can't, and in some cases this generates inconsistency;
+	 * for example, ~/foo\[bar unqotes to ~/foo[bar which doesn't
+	 * work either way---it's wrong if the ~ is quoted, and
+	 * wrong if the [ isn't quoted..  So it's now up to the caller to
+	 * unquote.
+	 */
         line = dupstring(line);
         ne = noerrs;
         noerrs = 2;
         parse_subst_string(line);
         noerrs = ne;
+#endif
         remnulargs(line);
         untokenize(line);
 
@@ -2119,6 +2133,23 @@ ca_parse_line(Cadef d, int multi, int first)
 	    if ((adef = state.def = ca_get_arg(d, state.nth)) &&
 		(state.def->type == CAA_RREST ||
 		 state.def->type == CAA_RARGS)) {
+
+		/* Bart 2009/11/17:
+		 * We've reached the "rest" definition.  If at this point
+		 * we already found another definition that describes the
+		 * current word, use that instead.  If not, prep for the
+		 * "narrowing" of scope to only the remaining words.
+		 *
+		 * We can't test ca_laststate.def in the loop conditions
+		 * at the top because this same loop also handles the
+		 * ':*PATTERN:MESSAGE:ACTION' form for multiple arguments
+		 * after an option, which may need to continue scanning.
+		 * There might be an earlier point at which this test can
+		 * be made but tracking it down is not worth the effort.
+		 */
+		if (ca_laststate.def)
+		    break;
+
 		state.inrest = 0;
 		state.opt = (cur == state.nargbeg + 1 &&
 			     (!multi || !*line || 
@@ -3931,6 +3962,22 @@ bin_comptry(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 
 #define PATH_MAX2 (PATH_MAX * 2)
 
+/*
+ * Return a list of files we should accept exactly, without
+ * trying pattern matching.
+ *
+ * This is based on the accept-exact style, which may be
+ * an array so is passed in via "accept".  The trial files
+ * are input in "names".  "skipped" is passed down straight
+ * from the file completion function:  it's got something to
+ * do with other components in the path but it's hard to work out
+ * quite what.
+ *
+ * There is one extra trick here for Cygwin.  Regardless of the style,
+ * if the file ends in a colon it has to be a drive or a special device
+ * file and we always accept it exactly because treating it as a pattern
+ * won't work.
+ */
 static LinkList
 cfp_test_exact(LinkList names, char **accept, char *skipped)
 {
@@ -3939,16 +3986,41 @@ cfp_test_exact(LinkList names, char **accept, char *skipped)
     struct stat st;
     LinkNode node;
     LinkList ret = newlinklist(), alist = NULL;
+#ifdef __CYGWIN__
+    int accept_off = 0;
+#endif
 
-    if ((!(compprefix && *compprefix) && !(compsuffix && *compsuffix)) ||
-	(!accept || !*accept ||
-	 ((!strcmp(*accept, "false") || !strcmp(*accept, "no") ||
-	   !strcmp(*accept, "off") || !strcmp(*accept, "0")) && !accept[1])))
+    /*
+     * Don't do this unless completion has provided either a
+     * prefix or suffix from the command line.
+     */
+    if (!(compprefix && *compprefix) && !(compsuffix && *compsuffix))
 	return NULL;
 
-    if (accept[1] ||
-	(strcmp(*accept, "true") && strcmp(*accept, "yes") &&
-	 strcmp(*accept, "on") && strcmp(*accept, "1"))) {
+    /*
+     * See if accept-exact is off, implicitly or explicitly.
+     */
+    if (!accept || !*accept ||
+	((!strcmp(*accept, "false") || !strcmp(*accept, "no") ||
+	  !strcmp(*accept, "off") || !strcmp(*accept, "0")) && !accept[1])) {
+#ifdef __CYGWIN__
+	accept_off = 1;
+#else
+	/* If not Cygwin, nothing to do here. */
+	return NULL;
+#endif
+    }
+
+    /*
+     * See if the style is something other than just a boolean.
+     */
+    if (
+#ifdef __CYGWIN__
+	!accept_off &&
+#endif
+	(accept[1] ||
+	 (strcmp(*accept, "true") && strcmp(*accept, "yes") &&
+	  strcmp(*accept, "on") && strcmp(*accept, "1")))) {
 	Patprog prog;
 
 	alist = newlinklist();
@@ -3963,6 +4035,10 @@ cfp_test_exact(LinkList names, char **accept, char *skipped)
 		addlinknode(alist, prog);
 	}
     }
+    /*
+     * Assemble the bits other than the set of file names:
+     * the other components, and the prefix and suffix.
+     */
     sl = strlen(skipped) + (compprefix ? strlen(compprefix) : 0) +
 	(compsuffix ? strlen(compsuffix) : 0);
 
@@ -3974,10 +4050,48 @@ cfp_test_exact(LinkList names, char **accept, char *skipped)
     for (node = firstnode(names); node; incnode(node)) {
 	l = strlen(p = (char *) getdata(node));
 	if (l + sl < PATH_MAX2) {
+#ifdef __CYGWIN__
+	    char *testbuf;
+#define TESTBUF testbuf
+#else
+#define TESTBUF buf
+#endif
 	    strcpy(buf, p);
 	    strcpy(buf + l, suf);
-
-	    if (!ztat(buf, &st, 0)) {
+#ifdef __CYGWIN__
+	    if (accept_off) {
+		int sl = strlen(buf);
+		/*
+		 * If accept-exact is not set, accept this only if
+		 * it looks like a special file such as a drive.
+		 * We still test if it exists.
+		 */
+		if (!sl || strchr(buf, '/') || buf[sl-1] != ':')
+		    continue;
+		if (sl == 2) {
+		    /*
+		     * Recent versions of Cygwin only recognise "c:/",
+		     * but not "c:", as special directories.  So
+		     * we have to append the slash for the purpose of
+		     * the test.
+		     */
+		    testbuf = zhalloc(sl + 2);
+		    strcpy(testbuf, buf);
+		    testbuf[sl] = '/';
+		    testbuf[sl+1] = '\0';
+		} else {
+		    /* Don't do this with stuff like PRN: */
+		    testbuf = buf;
+		}
+	    } else {
+		testbuf = buf;
+	    }
+#endif
+	    if (!ztat(TESTBUF, &st, 0)) {
+		/*
+		 * File exists; if accept-exact contained non-boolean
+		 * values it must match those, too.
+		 */
 		if (alist) {
 		    LinkNode anode;
 
@@ -4062,7 +4176,7 @@ cfp_matcher_range(Cmatcher *ms, char *add)
 		    len += addlen + 1;
 	    } else {
 		/* The usual set of matcher possibilities. */
-		int ind;
+		convchar_t ind;
 		if (m->line->tp == CPAT_EQUIV &&
 		    m->word->tp == CPAT_EQUIV) {
 		    /*
@@ -4086,7 +4200,7 @@ cfp_matcher_range(Cmatcher *ms, char *add)
 			 * word pattern.
 			 */
 			if ((ind = pattern_match_equivalence
-			     (m->word, ind, mt, addc)) != -1) {
+			     (m->word, ind, mt, addc)) != CHR_INVALID) {
 			    if (ret) {
 				if (imeta(ind)) {
 				    *p++ = Meta;
@@ -4539,6 +4653,15 @@ cf_pats(int dirs, int noopt, LinkList names, char **accept, char *skipped,
 			 names, skipped, sdirs, fake);
 }
 
+/*
+ * This function looks at device/inode pairs to determine if
+ * a file is one we should ignore because of its relationship
+ * to the current or parent directory.
+ *
+ * We don't follow symbolic links here, because typically
+ * a user will not want an explicit link to the current or parent
+ * directory ignored.
+ */
 static void
 cf_ignore(char **names, LinkList ign, char *style, char *path)
 {
@@ -4547,14 +4670,14 @@ cf_ignore(char **names, LinkList ign, char *style, char *path)
     char *n, *c, *e;
 
     tpar = !!strstr(style, "parent");
-    if ((tpwd = !!strstr(style, "pwd")) && stat(pwd, &est))
+    if ((tpwd = !!strstr(style, "pwd")) && lstat(pwd, &est))
 	tpwd = 0;
 
     if (!tpar && !tpwd)
 	return;
 
     for (; (n = *names); names++) {
-	if (!ztat(n, &nst, 0) && S_ISDIR(nst.st_mode)) {
+	if (!ztat(n, &nst, 1) && S_ISDIR(nst.st_mode)) {
 	    if (tpwd && nst.st_dev == est.st_dev && nst.st_ino == est.st_ino) {
 		addlinknode(ign, quotestring(n, NULL, QT_BACKSLASH));
 		continue;
@@ -4570,7 +4693,7 @@ cf_ignore(char **names, LinkList ign, char *style, char *path)
 		    }
 		}
 		if (found || ((e = strrchr(c, '/')) && e > c + pl &&
-			      !ztat(c, &st, 0) && st.st_dev == nst.st_dev &&
+			      !ztat(c, &st, 1) && st.st_dev == nst.st_dev &&
 			      st.st_ino == nst.st_ino))
 		    addlinknode(ign, quotestring(n, NULL, QT_BACKSLASH));
 	    }

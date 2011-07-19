@@ -31,6 +31,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <copyfile.h>
 #include <asl.h>
 #include <asl_private.h>
 #include <asl_core.h>
@@ -41,7 +42,6 @@
 #define DEFAULT_MAX_SIZE 150000000
 #define DEFAULT_TTL 7
 
-#define IndexNull (uint32_t)-1
 #define _PATH_ASL_CONF "/etc/asl.conf"
 
 /* global */
@@ -148,13 +148,49 @@ do_copy(const char *infile, const char *outfile, mode_t mode)
 	for (i = 0; i < res->count; i++)
 	{
 		mid = 0;
-		status = asl_file_save(f, res->msg[i], &mid);
+		status = asl_file_save(f, (aslmsg)(res->msg[i]), &mid);
 		if (status != ASL_STATUS_OK) break;
 	}
 
 	asl_file_close(f);
 	return status;
 }
+
+int
+do_dir_archive(const char *indir, const char *outdir)
+{
+	return copyfile(indir, outdir, NULL, COPYFILE_ALL | COPYFILE_RECURSIVE);
+}
+
+int
+remove_directory(const char *path)
+{
+	DIR *dp;
+	struct dirent *dent;
+	char *str;
+	int status;
+
+	dp = opendir(path);
+	if (dp == NULL) return 0;
+
+	while ((dent = readdir(dp)) != NULL)
+	{
+		if ((!strcmp(dent->d_name, ".")) || (!strcmp(dent->d_name, ".."))) continue;
+		asprintf(&str, "%s/%s", path, dent->d_name);
+		if (str != NULL)
+		{
+			status = unlink(str);
+			free(str);
+			str = NULL;
+		}
+	}
+
+	closedir(dp);
+	status = rmdir(path);
+
+	return status;
+}
+
 
 static char **
 _insertString(char *s, char **l, uint32_t x)
@@ -390,6 +426,38 @@ _parse_config_file(const char *name)
 	return 0;
 }
 
+size_t
+directory_size(const char *path)
+{
+	DIR *dp;
+	struct dirent *dent;
+	struct stat sb;
+	size_t size;
+	char *str;
+
+	dp = opendir(path);
+	if (dp == NULL) return 0;
+
+	size = 0;
+	while ((dent = readdir(dp)) != NULL)
+	{
+		if ((!strcmp(dent->d_name, ".")) || (!strcmp(dent->d_name, ".."))) continue;
+
+		memset(&sb, 0, sizeof(struct stat));
+		str = NULL;
+		asprintf(&str, "%s/%s", path, dent->d_name);
+
+		if ((str != NULL) && (stat(str, &sb) == 0) && S_ISREG(sb.st_mode))
+		{
+			size += sb.st_size;
+			free(str);
+		}
+	}
+
+	closedir(dp);
+	return size;
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -399,13 +467,15 @@ main(int argc, const char *argv[])
 	char today_ymd_string[32], expire_ymd_string[32], *str;
 	DIR *dp;
 	struct dirent *dent;
-	name_list_t *ymd_list, *bb_list, *e;
+	name_list_t *ymd_list, *bb_list, *aux_list, *bb_aux_list, *e;
 	uint32_t status;
 	size_t file_size, store_size;
 	struct stat sb;
 
 	ymd_list = NULL;
 	bb_list = NULL;
+	aux_list = NULL;
+	bb_aux_list = NULL;
 
 	ttl = DEFAULT_TTL * SECONDS_PER_DAY;
 	max_size = DEFAULT_MAX_SIZE;
@@ -448,7 +518,7 @@ main(int argc, const char *argv[])
 		if (stat(archive, &sb) == 0)
 		{
 			/* must be a directory */
-			if ((sb.st_mode & S_IFDIR) == 0)
+			if (!S_ISDIR(sb.st_mode))
 			{
 				fprintf(stderr, "aslmanager error: archive %s is not a directory", archive);
 				return -1;
@@ -502,7 +572,7 @@ main(int argc, const char *argv[])
 	dp = opendir(store_dir);
 	if (dp == NULL) return -1;
 
-	/* gather a list of YMD files and BB files */
+	/* gather a list of YMD files, AUX dirs, BB.AUX dirs, and BB files */
 	while ((dent = readdir(dp)) != NULL)
 	{
 		memset(&sb, 0, sizeof(struct stat));
@@ -512,6 +582,18 @@ main(int argc, const char *argv[])
 		if ((dent->d_name[0] >= '0') && (dent->d_name[0] <= '9'))
 		{
 			ymd_list = add_to_list(ymd_list, dent->d_name, file_size);
+			store_size += file_size;
+		}
+		else if (!strncmp(dent->d_name, "AUX.", 4) && (dent->d_name[4] >= '0') && (dent->d_name[4] <= '9') && S_ISDIR(sb.st_mode))
+		{
+			file_size = directory_size(dent->d_name);
+			aux_list = add_to_list(aux_list, dent->d_name, file_size);
+			store_size += file_size;
+		}
+		else if (!strncmp(dent->d_name, "BB.AUX.", 7) && (dent->d_name[7] >= '0') && (dent->d_name[7] <= '9') && S_ISDIR(sb.st_mode))
+		{
+			file_size = directory_size(dent->d_name);
+			bb_aux_list = add_to_list(bb_aux_list, dent->d_name, file_size);
 			store_size += file_size;
 		}
 		else if (!strncmp(dent->d_name, "BB.", 3) && (dent->d_name[3] >= '0') && (dent->d_name[3] <= '9'))
@@ -536,12 +618,16 @@ main(int argc, const char *argv[])
 		printf("Data Store Size = %lu\n", store_size);
 		printf("Data Store YMD Files\n");
 		for (e = ymd_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
+		printf("Data Store AUX Directories\n");
+		for (e = aux_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
+		printf("Data Store BB.AUX Directories\n");
+		for (e = bb_aux_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
 		printf("Data Store BB Files\n");
 		for (e = bb_list; e != NULL; e = e->next) printf("	%s   %lu\n", e->name, e->size);
 	}
 
 	/* Delete/achive expired YMD files */
-	if (debug == 1) printf("Start YMD Scan\n");
+	if (debug == 1) printf("Start YMD File Scan\n");
 
 	e = ymd_list;
 	while (e != NULL)
@@ -569,7 +655,69 @@ main(int argc, const char *argv[])
 		e = e->next;
 	}
 
-	if (debug == 1) printf("Finished YMD Scan\n");
+	if (debug == 1) printf("Finished YMD FILE Scan\n");
+
+	/* Delete/achive expired YMD AUX directories */
+	if (debug == 1) printf("Start AUX Directory Scan\n");
+
+	e = aux_list;
+	while (e != NULL)
+	{
+		/* stop when a file name/date is after the expire date */
+		if (strncmp(e->name + 4, expire_ymd_string, expire_ymd_stringlen) > 0) break;
+
+		if (archive != NULL)
+		{
+			str = NULL;
+			asprintf(&str, "%s/%s", archive, e->name);
+			if (str == NULL) return -1;
+
+			if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+			do_dir_archive(e->name, str);
+			free(str);
+		}
+
+		if (debug == 1) printf("    Remove %s\n", e->name);
+		remove_directory(e->name);
+
+		store_size -= e->size;
+		e->size = 0;
+
+		e = e->next;
+	}
+
+	if (debug == 1) printf("Finished AUX Directory Scan\n");
+
+	/* Delete/achive expired BB.AUX directories */
+	if (debug == 1) printf("Start BB.AUX Directory Scan\n");
+
+	e = bb_aux_list;
+	while (e != NULL)
+	{
+		/* stop when a file name/date is after the expire date */
+		if (strncmp(e->name + 7, today_ymd_string, today_ymd_stringlen) > 0) break;
+
+		if (archive != NULL)
+		{
+			str = NULL;
+			asprintf(&str, "%s/%s", archive, e->name);
+			if (str == NULL) return -1;
+
+			if (debug == 1) printf("  copy %s ---> %s\n", e->name, str);
+			do_dir_archive(e->name, str);
+			free(str);
+		}
+
+		if (debug == 1) printf("  remove %s\n", e->name);
+		remove_directory(e->name);
+
+		store_size -= e->size;
+		e->size = 0;
+
+		e = e->next;
+	}
+
+	if (debug == 1) printf("Finished BB.AUX Directory Scan\n");
 
 	/* Delete/achive expired BB files */
 	if (debug == 1) printf("Start BB Scan\n");
@@ -605,7 +753,7 @@ main(int argc, const char *argv[])
 
 	/* if data store is over max_size, delete/archive more YMD files */
 	if ((debug == 1) && (store_size > max_size)) printf("Additional YMD Scan\n");
-	
+
 	e = ymd_list;
 	while ((e != NULL) && (store_size > max_size))
 	{
